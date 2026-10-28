@@ -37,15 +37,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub  = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -55,16 +55,16 @@ bool Exists( const char *pszRel )
 {
 	const char *pszRoot = SrcRoot();
 	if ( !pszRoot )
-		return true;   // cannot tell; do not report a deletion that did not happen
+		return true; // cannot tell; do not report a deletion that did not happen
 	struct stat st;
 	return stat( ( std::string( pszRoot ) + "/" + pszRel ).c_str(), &st ) == 0;
 }
 
-const char *kEnts    = "sourcesharp/game/server/shell_gameents.cpp";
-const char *kShared  = "sourcesharp/game/server/shell_sharedappsystems.cpp";
+const char *kEnts = "sourcesharp/game/server/shell_gameents.cpp";
+const char *kShared = "sourcesharp/game/server/shell_sharedappsystems.cpp";
 const char *kClients = "sourcesharp/game/server/shell_gameclients.cpp";
-const char *kTags    = "sourcesharp/game/server/shell_gametags.cpp";
-const char *kHeader  = "game/server/gameinterface.h";
+const char *kTags = "sourcesharp/game/server/shell_gametags.cpp";
+const char *kHeader = "game/server/gameinterface.h";
 const char *kGlobals = "sourcesharp/game/server/shell_engineboundary.cpp";
 // WHERE THE RATIONALE LIVES NOW. It used to be a comment beside the $File line
 // in the .vpc; the scripts were reformatted with every comment stripped out to
@@ -138,10 +138,9 @@ TEST( GameInterfaceSplit, TheHeaderRegistersNothingAtAll )
 	EXPECT_TRUE( Exists( "game/shared/shareddefs.h" ) )
 		<< "game/shared/shareddefs.h is not readable, so the absence below "
 		<< "proves nothing about game/server.";
-	EXPECT_FALSE( Exists( kHeader ) )
-		<< kHeader << " is readable from the farm again. It once registered "
-		<< "interfaces from a HEADER -- one singleton and one InterfaceReg per "
-		<< "including translation unit -- and nothing compiles it now.";
+	EXPECT_FALSE( Exists( kHeader ) ) << kHeader << " is readable from the farm again. It once registered "
+									  << "interfaces from a HEADER -- one singleton and one InterfaceReg per "
+									  << "including translation unit -- and nothing compiles it now.";
 }
 
 //-----------------------------------------------------------------------------
@@ -199,4 +198,3 @@ TEST( GameInterfaceSplit, BothNewFilesAreInTheServerProject )
 	// kRestore left the list with shell_restoreentities.cpp (P1).
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kGlobals ) ) << kGlobals;
 }
-

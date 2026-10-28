@@ -49,15 +49,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub  = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -295,7 +295,7 @@ std::string BodyOf( const std::string &src, const char *pszSignature )
 // every one of these has a live subject, and deleting one to move the number is
 // what COMMON.md's "a compile gate selects for deletion" is about.
 //-----------------------------------------------------------------------------
-void CollectShimSources( const std::string &dir, std::vector< std::string > &into )
+void CollectShimSources( const std::string &dir, std::vector<std::string> &into )
 {
 	DIR *pDir = opendir( dir.c_str() );
 
@@ -365,8 +365,7 @@ void CollectShimSources( const std::string &dir, std::vector< std::string > &int
 
 TEST( EntityListSweep, TheReverseScanHeaderAndItsTestAreDeleted )
 {
-	EXPECT_FALSE( Exists( "sourcesharp/game/shared/gameentity_handle.h" ) )
-		<< "the scan template outlived the scan";
+	EXPECT_FALSE( Exists( "sourcesharp/game/shared/gameentity_handle.h" ) ) << "the scan template outlived the scan";
 	EXPECT_FALSE( Exists( "sourcesharp/test/gameentity_handle_test.cpp" ) )
 		<< "seven tests for a walk that no longer exists are seven tests that "
 		   "cannot fail";
@@ -398,9 +397,8 @@ TEST( EntityListSweep, TheReverseScanHeaderAndItsTestAreDeleted )
 // nothing). What is left to pin natively is the absence.
 TEST( EntityListSweep, TheNativeSoundPatchIsGone )
 {
-	EXPECT_FALSE( Exists( kSoundEnvelope ) )
-		<< "the server's CSoundPatch is managed: a native copy would decide the "
-		   "same thing in two places";
+	EXPECT_FALSE( Exists( kSoundEnvelope ) ) << "the server's CSoundPatch is managed: a native copy would decide the "
+												"same thing in two places";
 }
 
 //=============================================================================

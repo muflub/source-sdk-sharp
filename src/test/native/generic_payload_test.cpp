@@ -50,10 +50,10 @@ TEST( PayloadWordCount, RoundsUpToWholeWords )
 //-----------------------------------------------------------------------------
 TEST( PayloadWordCount, MatchesTheTierSizes )
 {
-	EXPECT_EQ( 8,   SourceSharpPayload_WordCount( 32 ) );
-	EXPECT_EQ( 16,  SourceSharpPayload_WordCount( 64 ) );
-	EXPECT_EQ( 32,  SourceSharpPayload_WordCount( 128 ) );
-	EXPECT_EQ( 64,  SourceSharpPayload_WordCount( 256 ) );
+	EXPECT_EQ( 8, SourceSharpPayload_WordCount( 32 ) );
+	EXPECT_EQ( 16, SourceSharpPayload_WordCount( 64 ) );
+	EXPECT_EQ( 32, SourceSharpPayload_WordCount( 128 ) );
+	EXPECT_EQ( 64, SourceSharpPayload_WordCount( 256 ) );
 	EXPECT_EQ( 128, SourceSharpPayload_WordCount( 512 ) );
 	EXPECT_EQ( 256, SourceSharpPayload_WordCount( 1024 ) );
 	EXPECT_EQ( 512, SourceSharpPayload_WordCount( 2048 ) );
@@ -76,8 +76,8 @@ TEST( PayloadWordCount, RefusesWhatNoTierCanCarry )
 //-----------------------------------------------------------------------------
 TEST( PayloadWordOffset, StridesByOneDword )
 {
-	EXPECT_EQ( 0,  SourceSharpPayload_WordOffset( 0, 0 ) );
-	EXPECT_EQ( 4,  SourceSharpPayload_WordOffset( 0, 1 ) );
+	EXPECT_EQ( 0, SourceSharpPayload_WordOffset( 0, 0 ) );
+	EXPECT_EQ( 4, SourceSharpPayload_WordOffset( 0, 1 ) );
 	EXPECT_EQ( 28, SourceSharpPayload_WordOffset( 0, 7 ) );
 }
 
@@ -92,8 +92,8 @@ TEST( PayloadWordOffset, CarriesANonZeroBlobBase )
 {
 	const int nBase = 1424;
 
-	EXPECT_EQ( nBase,      SourceSharpPayload_WordOffset( nBase, 0 ) );
-	EXPECT_EQ( nBase + 4,  SourceSharpPayload_WordOffset( nBase, 1 ) );
+	EXPECT_EQ( nBase, SourceSharpPayload_WordOffset( nBase, 0 ) );
+	EXPECT_EQ( nBase + 4, SourceSharpPayload_WordOffset( nBase, 1 ) );
 	EXPECT_EQ( nBase + 28, SourceSharpPayload_WordOffset( nBase, 7 ) );
 	EXPECT_EQ( nBase + 2044, SourceSharpPayload_WordOffset( nBase, 511 ) );
 }
@@ -122,8 +122,7 @@ TEST( PayloadWordOffset, WordsNeitherOverlapNorRepeat )
 
 	// And the set covers exactly the blob it claims to, end to end.
 	EXPECT_EQ( nBase, SourceSharpPayload_WordOffset( nBase, 0 ) );
-	EXPECT_EQ( nBase + 2048,
-	           SourceSharpPayload_WordOffset( nBase, nWords - 1 ) + SOURCESHARP_PAYLOAD_WORD_BYTES );
+	EXPECT_EQ( nBase + 2048, SourceSharpPayload_WordOffset( nBase, nWords - 1 ) + SOURCESHARP_PAYLOAD_WORD_BYTES );
 }
 
 //-----------------------------------------------------------------------------
@@ -181,7 +180,7 @@ TEST( PayloadOffsetsFit, RefusesWhatItCannot )
 //-----------------------------------------------------------------------------
 TEST( PayloadPropName, IsThreeFixedDigits )
 {
-	char szName[ SOURCESHARP_PAYLOAD_NAME_BYTES ];
+	char szName[SOURCESHARP_PAYLOAD_NAME_BYTES];
 
 	ASSERT_TRUE( SourceSharpPayload_FormatPropName( 0, szName, sizeof( szName ) ) );
 	EXPECT_STREQ( "p000", szName );
@@ -206,7 +205,7 @@ TEST( PayloadPropName, IsThreeFixedDigits )
 //-----------------------------------------------------------------------------
 TEST( PayloadPropName, IsUniqueAcrossTheLargestTier )
 {
-	char szNames[ SOURCESHARP_PAYLOAD_MAX_WORDS ][ SOURCESHARP_PAYLOAD_NAME_BYTES ];
+	char szNames[SOURCESHARP_PAYLOAD_MAX_WORDS][SOURCESHARP_PAYLOAD_NAME_BYTES];
 
 	for ( int i = 0; i < SOURCESHARP_PAYLOAD_MAX_WORDS; i++ )
 	{
@@ -225,7 +224,7 @@ TEST( PayloadPropName, IsUniqueAcrossTheLargestTier )
 
 TEST( PayloadPropName, RefusesOutOfRangeAndShortBuffers )
 {
-	char szName[ SOURCESHARP_PAYLOAD_NAME_BYTES ];
+	char szName[SOURCESHARP_PAYLOAD_NAME_BYTES];
 
 	EXPECT_FALSE( SourceSharpPayload_FormatPropName( -1, szName, sizeof( szName ) ) );
 	EXPECT_FALSE( SourceSharpPayload_FormatPropName( SOURCESHARP_PAYLOAD_MAX_WORDS, szName, sizeof( szName ) ) );
@@ -317,22 +316,22 @@ TEST( PayloadTiers, SizesAreTheOnesThePlanPriced )
 
 	ASSERT_EQ( 7, nCount );
 	EXPECT_EQ( SOURCESHARP_TIER_MAX, nCount );
-	EXPECT_EQ(   32, pTiers[0].nBytes );
-	EXPECT_EQ(   64, pTiers[1].nBytes );
-	EXPECT_EQ(  128, pTiers[2].nBytes );
-	EXPECT_EQ(  256, pTiers[3].nBytes );
-	EXPECT_EQ(  512, pTiers[4].nBytes );
+	EXPECT_EQ( 32, pTiers[0].nBytes );
+	EXPECT_EQ( 64, pTiers[1].nBytes );
+	EXPECT_EQ( 128, pTiers[2].nBytes );
+	EXPECT_EQ( 256, pTiers[3].nBytes );
+	EXPECT_EQ( 512, pTiers[4].nBytes );
 	EXPECT_EQ( 1024, pTiers[5].nBytes );
 	EXPECT_EQ( 2048, pTiers[6].nBytes );
 
 	// The names the connect handshake pairs on. Spelled out here because a
 	// rename on one side and not the other is a named disconnect at best, and
 	// this is the only place either name is written down twice.
-	EXPECT_STREQ( "DT_SourceSharpStdEnt32",   pTiers[0].pTable );
-	EXPECT_STREQ( "DT_SourceSharpStdEnt64",   pTiers[1].pTable );
-	EXPECT_STREQ( "DT_SourceSharpStdEnt128",  pTiers[2].pTable );
-	EXPECT_STREQ( "DT_SourceSharpStdEnt256",  pTiers[3].pTable );
-	EXPECT_STREQ( "DT_SourceSharpStdEnt512",  pTiers[4].pTable );
+	EXPECT_STREQ( "DT_SourceSharpStdEnt32", pTiers[0].pTable );
+	EXPECT_STREQ( "DT_SourceSharpStdEnt64", pTiers[1].pTable );
+	EXPECT_STREQ( "DT_SourceSharpStdEnt128", pTiers[2].pTable );
+	EXPECT_STREQ( "DT_SourceSharpStdEnt256", pTiers[3].pTable );
+	EXPECT_STREQ( "DT_SourceSharpStdEnt512", pTiers[4].pTable );
 	EXPECT_STREQ( "DT_SourceSharpStdEnt1024", pTiers[5].pTable );
 	EXPECT_STREQ( "DT_SourceSharpStdEnt2048", pTiers[6].pTable );
 
@@ -401,8 +400,7 @@ TEST( PayloadTiers, EveryTierIsAWholeNumberOfWordsAndFits )
 	for ( int i = 0; i < nCount; i++ )
 	{
 		EXPECT_EQ( 0, pTiers[i].nBytes % SOURCESHARP_PAYLOAD_WORD_BYTES );
-		EXPECT_EQ( pTiers[i].nBytes / SOURCESHARP_PAYLOAD_WORD_BYTES,
-		           SourceSharp_TierWords( i ) );
+		EXPECT_EQ( pTiers[i].nBytes / SOURCESHARP_PAYLOAD_WORD_BYTES, SourceSharp_TierWords( i ) );
 		EXPECT_LE( SourceSharp_TierWords( i ), SOURCESHARP_PAYLOAD_MAX_WORDS );
 	}
 
@@ -439,7 +437,7 @@ TEST( PayloadTiers, EveryTierHasADistinctName )
 	int nCount = 0;
 	SourceSharp_Tiers( &nCount );
 
-	const char *pNames[ SOURCESHARP_TIER_MAX ];
+	const char *pNames[SOURCESHARP_TIER_MAX];
 	int nNames = 0;
 
 	for ( int i = 0; i < nCount; i++ )
@@ -452,14 +450,16 @@ TEST( PayloadTiers, EveryTierHasADistinctName )
 
 		// The retired shell answers the same names rather than NULL.
 		EXPECT_STREQ( pClass, SourceSharp_TierClassName( SS_SHELL_NETENTITY, i ) )
-			<< "tier " << i << ": the retired shell value answers a DIFFERENT "
+			<< "tier " << i
+			<< ": the retired shell value answers a DIFFERENT "
 			   "class name. There is one shell; a second answer is a table "
 			   "registered under a name only one side believes in.";
 		EXPECT_STREQ( pTable, SourceSharp_TierTableName( SS_SHELL_NETENTITY, i ) )
-			<< "tier " << i << ": the retired shell value answers a different "
+			<< "tier " << i
+			<< ": the retired shell value answers a different "
 			   "table name.";
 
-		pNames[ nNames++ ] = pTable;
+		pNames[nNames++] = pTable;
 	}
 
 	ASSERT_EQ( SOURCESHARP_TIER_MAX, nNames );
@@ -469,8 +469,7 @@ TEST( PayloadTiers, EveryTierHasADistinctName )
 		for ( int b = a + 1; b < nNames; b++ )
 		{
 			EXPECT_NE( 0, strcasecmp( pNames[a], pNames[b] ) )
-				<< "'" << pNames[a] << "' and '" << pNames[b]
-				<< "' are one name to the engine";
+				<< "'" << pNames[a] << "' and '" << pNames[b] << "' are one name to the engine";
 		}
 	}
 
@@ -496,7 +495,9 @@ TEST( PayloadTiers, EveryTierHasADistinctName )
 //-----------------------------------------------------------------------------
 TEST( PayloadTiers, RealPropCountIsTheHierarchysForEveryShell )
 {
-	EXPECT_EQ( 12, SourceSharp_TierRealProps( SS_SHELL_STANDALONE ) );   // 11 since m_nSkin (2026-10-19), 12 since m_nBody (2026-10-25)
+	EXPECT_EQ( 12,
+			   SourceSharp_TierRealProps(
+				   SS_SHELL_STANDALONE ) ); // 11 since m_nSkin (2026-10-19), 12 since m_nBody (2026-10-25)
 
 	// The retired value answers the LIVE count, not a stale three. An old
 	// managed build asking about shell 0 must be told what the tables actually
@@ -541,8 +542,7 @@ TEST( ClassNameHash, MatchesTheManagedCorpus )
 	// Case matters. Two spellings differing only in case are two ids, which is
 	// why the type table compares names case-SENSITIVELY — matching them there
 	// would hand back a row whose id no entity will ever carry.
-	EXPECT_NE( SourceSharp_HashClassName( "ss_barrel" ),
-	           SourceSharp_HashClassName( "SS_Barrel" ) );
+	EXPECT_NE( SourceSharp_HashClassName( "ss_barrel" ), SourceSharp_HashClassName( "SS_Barrel" ) );
 }
 
 //=============================================================================//
@@ -564,8 +564,7 @@ TEST( TypeTable, PublishesAndLooksUpBothWays )
 
 	// The lookup the client actually makes: four bytes off the wire back into a
 	// name. This is the whole of what replaced the 64-byte m_szClassname.
-	const SourceSharpNetType_t *pById =
-		types.ById( SourceSharp_HashClassName( "ss_beam" ) );
+	const SourceSharpNetType_t *pById = types.ById( SourceSharp_HashClassName( "ss_beam" ) );
 	ASSERT_TRUE( pById != NULL );
 	EXPECT_STREQ( "ss_beam", pById->szClass );
 
@@ -637,12 +636,12 @@ TEST( TypeTable, RefusesANameThatWouldNotFit )
 {
 	CSourceSharpTypeTable types;
 
-	char szLong[ SOURCESHARP_TYPE_NAME_BYTES + 8 ];
+	char szLong[SOURCESHARP_TYPE_NAME_BYTES + 8];
 
 	for ( int i = 0; i < (int)sizeof( szLong ) - 1; i++ )
 		szLong[i] = 'x';
 
-	szLong[ sizeof( szLong ) - 1 ] = 0;
+	szLong[sizeof( szLong ) - 1] = 0;
 
 	// Refused rather than truncated. A truncated name hashes to something no
 	// entity carries, so the row would be unreachable and the class would
@@ -764,15 +763,13 @@ TEST( ProbePattern, DiffersPerWordAndPerSeed )
 	// Adjacent words differ, or a payload written one word off would still
 	// match everywhere and the check would pass on a real bug.
 	for ( int i = 0; i < 64; i++ )
-		EXPECT_NE( SourceSharpPayload_ProbeWord( 1u, i ),
-		           SourceSharpPayload_ProbeWord( 1u, i + 1 ) );
+		EXPECT_NE( SourceSharpPayload_ProbeWord( 1u, i ), SourceSharpPayload_ProbeWord( 1u, i + 1 ) );
 
 	// And the seed changes every word, which is what makes probing with one
 	// seed and checking with another a NEGATIVE CONTROL rather than a
 	// coincidence: a check that cannot go red is not a measurement.
 	for ( int i = 0; i < 64; i++ )
-		EXPECT_NE( SourceSharpPayload_ProbeWord( 1u, i ),
-		           SourceSharpPayload_ProbeWord( 2u, i ) );
+		EXPECT_NE( SourceSharpPayload_ProbeWord( 1u, i ), SourceSharpPayload_ProbeWord( 2u, i ) );
 }
 
 TEST( ProbePattern, IsNeverZero )
@@ -815,7 +812,6 @@ TEST( ProbePattern, IsDeterministic )
 // check, which reads each entity's blob through its OWN tier's props.
 //=============================================================================//
 
-
 //=============================================================================//
 // PACKED FIELDS (Part 10, Step 8).
 //
@@ -838,8 +834,8 @@ TEST( ProbePattern, IsDeterministic )
 //-----------------------------------------------------------------------------
 struct SurfaceWord_t
 {
-	unsigned char pad[ 6 ];
-	unsigned char word[ 4 ];
+	unsigned char pad[6];
+	unsigned char word[4];
 };
 
 static void PutWord( SurfaceWord_t &o, unsigned int v )
@@ -858,15 +854,15 @@ TEST( PackedField, ReadsEachFieldOutOfTheWordItShares )
 	// Wide 13, High 5, Broken 1, SurfaceType 2 -- the real placement.
 	PutWord( o, 13u | ( 5u << 8 ) | ( 1u << 16 ) | ( 2u << 17 ) );
 
-	const SourceSharpPackedField_t wide = SourceSharpPayload_Place( kWordAt, 0  | (  8 << 8 ) );
-	const SourceSharpPackedField_t high = SourceSharpPayload_Place( kWordAt, 8  | (  8 << 8 ) );
-	const SourceSharpPackedField_t brok = SourceSharpPayload_Place( kWordAt, 16 | (  1 << 8 ) );
-	const SourceSharpPackedField_t surf = SourceSharpPayload_Place( kWordAt, 17 | (  2 << 8 ) );
+	const SourceSharpPackedField_t wide = SourceSharpPayload_Place( kWordAt, 0 | ( 8 << 8 ) );
+	const SourceSharpPackedField_t high = SourceSharpPayload_Place( kWordAt, 8 | ( 8 << 8 ) );
+	const SourceSharpPackedField_t brok = SourceSharpPayload_Place( kWordAt, 16 | ( 1 << 8 ) );
+	const SourceSharpPackedField_t surf = SourceSharpPayload_Place( kWordAt, 17 | ( 2 << 8 ) );
 
 	EXPECT_EQ( 13u, SourceSharpPayload_ReadPacked( &o, wide ) );
-	EXPECT_EQ( 5u,  SourceSharpPayload_ReadPacked( &o, high ) );
-	EXPECT_EQ( 1u,  SourceSharpPayload_ReadPacked( &o, brok ) );
-	EXPECT_EQ( 2u,  SourceSharpPayload_ReadPacked( &o, surf ) );
+	EXPECT_EQ( 5u, SourceSharpPayload_ReadPacked( &o, high ) );
+	EXPECT_EQ( 1u, SourceSharpPayload_ReadPacked( &o, brok ) );
+	EXPECT_EQ( 2u, SourceSharpPayload_ReadPacked( &o, surf ) );
 
 	// The bug this replaces, stated as an assertion: reading a byte AT THE
 	// FIELD'S OFFSET answers Wide whichever field was asked for, because all
@@ -909,16 +905,14 @@ TEST( PackedField, SignExtendsAtEveryWidth )
 	{
 		for ( int nShift = 0; nShift + nWidth <= 32; nShift++ )
 		{
-			const SourceSharpPackedField_t f =
-				SourceSharpPayload_Place( kWordAt, nShift | ( nWidth << 8 ) );
+			const SourceSharpPackedField_t f = SourceSharpPayload_Place( kWordAt, nShift | ( nWidth << 8 ) );
 
 			ASSERT_TRUE( f.IsResolved() ) << nWidth << "/" << nShift;
 
 			const int nMin = -( 1 << ( nWidth - 1 ) );
 			const int nMax = ( 1 << ( nWidth - 1 ) ) - 1;
 
-			const unsigned int nMask = ( nWidth >= 32 )
-				? 0xFFFFFFFFu : ( ( 1u << nWidth ) - 1u );
+			const unsigned int nMask = ( nWidth >= 32 ) ? 0xFFFFFFFFu : ( ( 1u << nWidth ) - 1u );
 
 			// The surrounding bits are set, so a reader that forgot to mask
 			// reports the neighbours rather than the field.
@@ -985,10 +979,9 @@ TEST( PackedField, AnUnresolvedFieldReadsZeroRatherThanOffsetZero )
 
 	EXPECT_FALSE( none.IsResolved() );
 	EXPECT_EQ( 0u, SourceSharpPayload_ReadPacked( &o, none ) );
-	EXPECT_EQ( 0,  SourceSharpPayload_ReadPackedSigned( &o, none ) );
+	EXPECT_EQ( 0, SourceSharpPayload_ReadPackedSigned( &o, none ) );
 
-	EXPECT_EQ( 0u, SourceSharpPayload_ReadPacked(
-	                   NULL, SourceSharpPayload_Place( kWordAt, 0 | ( 8 << 8 ) ) ) );
+	EXPECT_EQ( 0u, SourceSharpPayload_ReadPacked( NULL, SourceSharpPayload_Place( kWordAt, 0 | ( 8 << 8 ) ) ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -1003,8 +996,8 @@ TEST( PackedField, AWriteReplacesItsOwnBitsAndOnlyThem )
 	SurfaceWord_t o;
 	memset( &o, 0, sizeof( o ) );
 
-	const SourceSharpPackedField_t wide = SourceSharpPayload_Place( kWordAt, 0  | ( 8 << 8 ) );
-	const SourceSharpPackedField_t high = SourceSharpPayload_Place( kWordAt, 8  | ( 8 << 8 ) );
+	const SourceSharpPackedField_t wide = SourceSharpPayload_Place( kWordAt, 0 | ( 8 << 8 ) );
+	const SourceSharpPackedField_t high = SourceSharpPayload_Place( kWordAt, 8 | ( 8 << 8 ) );
 	const SourceSharpPackedField_t brok = SourceSharpPayload_Place( kWordAt, 16 | ( 1 << 8 ) );
 	const SourceSharpPackedField_t surf = SourceSharpPayload_Place( kWordAt, 17 | ( 2 << 8 ) );
 
@@ -1014,17 +1007,17 @@ TEST( PackedField, AWriteReplacesItsOwnBitsAndOnlyThem )
 	SourceSharpPayload_WritePacked( &o, surf, 2 );
 
 	EXPECT_EQ( 13u, SourceSharpPayload_ReadPacked( &o, wide ) );
-	EXPECT_EQ( 5u,  SourceSharpPayload_ReadPacked( &o, high ) );
-	EXPECT_EQ( 1u,  SourceSharpPayload_ReadPacked( &o, brok ) );
-	EXPECT_EQ( 2u,  SourceSharpPayload_ReadPacked( &o, surf ) );
+	EXPECT_EQ( 5u, SourceSharpPayload_ReadPacked( &o, high ) );
+	EXPECT_EQ( 1u, SourceSharpPayload_ReadPacked( &o, brok ) );
+	EXPECT_EQ( 2u, SourceSharpPayload_ReadPacked( &o, surf ) );
 
 	// Overwrite ONE of the four; the other three must not move.
 	SourceSharpPayload_WritePacked( &o, high, 0xAB );
 
-	EXPECT_EQ( 13u,  SourceSharpPayload_ReadPacked( &o, wide ) );
+	EXPECT_EQ( 13u, SourceSharpPayload_ReadPacked( &o, wide ) );
 	EXPECT_EQ( 0xABu, SourceSharpPayload_ReadPacked( &o, high ) );
-	EXPECT_EQ( 1u,   SourceSharpPayload_ReadPacked( &o, brok ) );
-	EXPECT_EQ( 2u,   SourceSharpPayload_ReadPacked( &o, surf ) );
+	EXPECT_EQ( 1u, SourceSharpPayload_ReadPacked( &o, brok ) );
+	EXPECT_EQ( 2u, SourceSharpPayload_ReadPacked( &o, surf ) );
 }
 
 TEST( PackedField, AWriteMasksToItsDeclaredWidth )
@@ -1060,4 +1053,3 @@ TEST( PackedField, AWriteThroughAnUnresolvedPlacementTouchesNothing )
 }
 
 } // namespace
-

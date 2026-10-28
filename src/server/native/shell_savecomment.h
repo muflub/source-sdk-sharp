@@ -14,10 +14,8 @@
 #include <stdio.h>
 
 // Writes nothing for a NULL buffer or a non-positive length.
-inline void ShellGameDll_FormatSaveComment( char *pOut, int nMaxLength,
-                                            const char *pMapName,
-                                            float flMinutes, float flSeconds,
-                                            bool bNoTime )
+inline void ShellGameDll_FormatSaveComment( char *pOut, int nMaxLength, const char *pMapName, float flMinutes,
+											float flSeconds, bool bNoTime )
 {
 	if ( pOut == NULL || nMaxLength <= 0 )
 		return;
@@ -27,7 +25,7 @@ inline void ShellGameDll_FormatSaveComment( char *pOut, int nMaxLength,
 	if ( bNoTime )
 	{
 		snprintf( pOut, (size_t)nMaxLength, "%-64.64s", pName );
-		pOut[ nMaxLength - 1 ] = '\0';
+		pOut[nMaxLength - 1] = '\0';
 		return;
 	}
 
@@ -45,7 +43,6 @@ inline void ShellGameDll_FormatSaveComment( char *pOut, int nMaxLength,
 	const int nMinutesAdd = ( nSeconds / 60 );
 	nSeconds %= 60;
 
-	snprintf( pOut, (size_t)nMaxLength, "%-64.64s %03d:%02d",
-	          pName, ( nMinutes + nMinutesAdd ), nSeconds );
-	pOut[ nMaxLength - 1 ] = '\0';
+	snprintf( pOut, (size_t)nMaxLength, "%-64.64s %03d:%02d", pName, ( nMinutes + nMinutesAdd ), nSeconds );
+	pOut[nMaxLength - 1] = '\0';
 }

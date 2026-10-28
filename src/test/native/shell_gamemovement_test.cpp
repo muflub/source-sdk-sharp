@@ -67,7 +67,8 @@ TEST( ShellGameMovementText, EveryReasonNamesItselfAndARemedy )
 		EXPECT_STRNE( "unknown", SourceSharpMovement_ReasonText( r ) )
 			<< "reason " << r << " has no text. A fatal nobody can read is a crash.";
 		EXPECT_STRNE( "none", SourceSharpMovement_Remedy( r ) )
-			<< "reason " << r << " has no remedy. The remedy line is the most "
+			<< "reason " << r
+			<< " has no remedy. The remedy line is the most "
 			   "valuable one: two of these are states a fresh worktree reaches by "
 			   "accident.";
 
@@ -127,7 +128,7 @@ TEST( ShellGameMovementText, ItSurvivesTheDegenerateArguments )
 	memset( szTiny, 'x', sizeof( szTiny ) );
 	volatile size_t nTiny = sizeof( szTiny );
 	SourceSharpMovement_Format( szTiny, nTiny, "server", kMovementFatal_NoStock, 0 );
-	EXPECT_EQ( '\0', szTiny[ sizeof( szTiny ) - 1 ] );
+	EXPECT_EQ( '\0', szTiny[sizeof( szTiny ) - 1] );
 }
 
 //=============================================================================
@@ -153,4 +154,3 @@ TEST( ShellGameMovementText, ItSurvivesTheDegenerateArguments )
 // bit-for-bit, which is the misprediction class E1 existed to remove. Nothing
 // that plays the game correctly can see it.
 //=============================================================================
-

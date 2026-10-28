@@ -14,24 +14,14 @@
 // R_CullSphere, ...) answer from it. Convars fork TUs link against by object
 // stay native here.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
-#include "iviewrender.h"
+
 #include "viewrender.h"
-#include "view.h"
+
 #include "iviewrender_beams.h"
 #include "c_te_legacytempents.h"
 #include "iinput.h"
@@ -39,42 +29,17 @@
 #include "clienteffectprecachesystem.h"
 #include "vgui/ISurface.h"
 #include "vgui_controls/Controls.h"
-#include "tier1/convar.h"
+
 #include "iclientmode.h"
 #include "cl_mat_stub.h"
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/imaterial.h"
+
 #include "ienginevgui.h"
 #include "filesystem.h"
-#include "bitmap/imageformat.h"
-#include "engine/iserverplugin.h"
-#include "engine/ivmodelinfo.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "mathlib/vmatrix.h"
-#include "mathlib/vplane.h"
-#include "replay/ireplayscreenshotsystem.h"
-#include "tier0/basetypes.h"
-#include "tier0/commonmacros.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
-#include "tier1/iconvar.h"
-#include "tier1/refcount.h"
-#include "tier1/strtools.h"
-#include "tier2/tier2.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
+
 #include "fx.h"
-#include "globalvars_base.h"
-#include "icliententitylist.h"
-#include "ispatialpartition.h"
-#include "ivrenderview.h"
-#include "particledraw.h"
-#include "texture_group_names.h"
-#include "view_shared.h"
+
 #include "shell_view_executor_client.h"
-#include "sourcesharp.h"
-#include "imanaged_areas_client.h"
+
 #include "view_facts.h"
 #include "shell_diagnostics.h"
 #include "ss_image_encode.h"
@@ -84,7 +49,6 @@ namespace
 class CShellViewRender final : public IViewRender, public IReplayScreenshotSystem
 {
 public:
-
 	void Init() override
 	{
 		beams->InitBeams();
@@ -123,8 +87,10 @@ public:
 	// CViewRender::OnRenderStart: the frame's main view, before the frame's
 	// entities simulate (they read the viewmodel's attachments from it).
 	void OnRenderStart() override { SetUpViews(); }
+
 	void SetUpViews();
 	void Render( vrect_t *rect ) override;
+
 	// RenderView is the render plan's. A view the planner declines, or one with
 	// no managed client to plan it, draws nothing and says so once.
 	void RenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw ) override
@@ -132,25 +98,33 @@ public:
 		if ( SourceSharp_RenderView( setup, nClearFlags, whatToDraw ) || m_bSaidUnplanned )
 			return;
 		m_bSaidUnplanned = true;
-		Warning( "[SourceSharp] view: a view with no plan to draw it (declined, or no managed client) draws nothing\n" );
+		Warning(
+			"[SourceSharp] view: a view with no plan to draw it (declined, or no managed client) draws nothing\n" );
 	}
 
 	// The draw flags of the view the executor is drawing.
 	int GetDrawFlags() override { return SourceSharp_ActiveViewDrawFlags(); }
+
 	// Pitch drift is not shipped: the view angle is the engine's alone.
 	void StartPitchDrift() override {}
+
 	void StopPitchDrift() override {}
+
 	VPlane *GetFrustum() override { return m_Frustum; }
+
 	// r_drawbrushmodels, read by name (the engine's convar); drawn when it is missing, as stock.
 	bool ShouldDrawBrushModels() override
 	{
 		ConVarRef drawBrushModels( "r_drawbrushmodels", true );
 		return !drawBrushModels.IsValid() || drawBrushModels.GetInt() != 0;
 	}
+
 	const CViewSetup *GetPlayerViewSetup() const override { return &m_View; }
+
 	const CViewSetup *GetViewSetup() const override { return &m_CurrentView; }
 
 	void SetCurrentView( const CViewSetup &setup ) { m_CurrentView = setup; }
+
 	// No vis for the next frame's views; Render clears it.
 	void DisableVis() override { m_bForceNoVis = true; }
 
@@ -180,31 +154,33 @@ public:
 	// The world and renderable list build numbers the executor's views count
 	// up (the leaf system's and the detail objects' frame stamps).
 	int BuildWorldListsNumber() const override { return m_nBuildWorldListsNumber; }
+
 	void IncWorldListsNumber() { ++m_nBuildWorldListsNumber; }
+
 	void IncRenderablesListsNumber() { ++m_nBuildRenderablesListsNumber; }
+
 	int RenderablesListsNumber() const { return m_nBuildRenderablesListsNumber; }
+
 	// The cheap-water distances the map's water LOD control sets
 	// (shell_worldrender.cpp) and the plan and the water proxy read.
-	void SetCheapWaterStartDistance( float flDistance ) override
-	{
-		m_flCheapWaterStartDistance = flDistance;
-	}
-	void SetCheapWaterEndDistance( float flDistance ) override
-	{
-		m_flCheapWaterEndDistance = flDistance;
-	}
+	void SetCheapWaterStartDistance( float flDistance ) override { m_flCheapWaterStartDistance = flDistance; }
+
+	void SetCheapWaterEndDistance( float flDistance ) override { m_flCheapWaterEndDistance = flDistance; }
+
 	void GetWaterLODParams( float &flStart, float &flEnd ) override
 	{
 		flStart = m_flCheapWaterStartDistance;
 		flEnd = m_flCheapWaterEndDistance;
 	}
+
 	void DriftPitch() override
 	{
 		SourceSharp_NotShipped( "pitch drift (v_centermove)",
-			"the drift is written into the local player entity's own local angles, "
-			"and on this client the view angle is the engine's -- there is no second "
-			"author for it" );
+								"the drift is written into the local player entity's own local angles, "
+								"and on this client the view angle is the engine's -- there is no second "
+								"author for it" );
 	}
+
 	// The full-screen overlay material (r_screenoverlay), held by reference as
 	// stock's CMaterialReference held it.
 	void SetScreenOverlayMaterial( IMaterial *pMaterial ) override
@@ -214,6 +190,7 @@ public:
 		ReleaseScreenOverlay();
 		m_pScreenOverlay = pMaterial;
 	}
+
 	IMaterial *GetScreenOverlayMaterial() override { return m_pScreenOverlay; }
 
 	void ReleaseScreenOverlay()
@@ -222,22 +199,32 @@ public:
 			m_pScreenOverlay->DecrementReferenceCount();
 		m_pScreenOverlay = NULL;
 	}
-	void WriteSaveGameScreenshot( const char *pFilename ) override { WriteSaveGameScreenshotOfSize( pFilename, 180, 100, false, false ); }
-	void WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded, bool bWriteVTF ) override;
+
+	void WriteSaveGameScreenshot( const char *pFilename ) override
+	{
+		WriteSaveGameScreenshotOfSize( pFilename, 180, 100, false, false );
+	}
+
+	void WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded,
+										bool bWriteVTF ) override;
+
 	// Replay is not shipped. This object is also the IReplayScreenshotSystem.
 	void WriteReplayScreenshot( WriteReplayScreenshotParams_t &params ) override
 	{
 		SourceSharp_NotShipped( "replay screenshot",
-			"replay is not shipped: replay/replay_screenshot.cpp is not in this "
-			"build and there is no screenshot taker to hand the frame to" );
+								"replay is not shipped: replay/replay_screenshot.cpp is not in this "
+								"build and there is no screenshot taker to hand the frame to" );
 	}
+
 	void UpdateReplayScreenshotCache() override {}
+
 	// Not shipped: the render plan has no overlay-view arm and nothing calls this.
 	void QueueOverlayRenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw ) override
 	{
 		SourceSharp_NotShipped( "overlay render view (QueueOverlayRenderView)",
-			"the render plan has no overlay-view arm, and nothing in this build queues one" );
+								"the render plan has no overlay-view arm, and nothing in this build queues one" );
 	}
+
 	// SetUpViews' planes, as managed decides them (ViewFrame: VIEW_NEARZ, and
 	// r_farz or the map's diagonal pulled in by fog). 0 with no managed client.
 	float GetZNear() override
@@ -246,6 +233,7 @@ public:
 		SourceSharp_AskViewPlanes( flNear, flFar );
 		return flNear;
 	}
+
 	float GetZFar() override
 	{
 		float flNear = 0.0f, flFar = 0.0f;
@@ -266,16 +254,22 @@ public:
 			*pMax = maxSize.IsValid() ? maxSize.GetFloat() : 0.0f;
 		}
 	}
+
 	// Only the tool framework asked who is being drawn.
 	IGameEntity *GetCurrentlyDrawingEntity() override { return NULL; }
+
 	void SetCurrentlyDrawingEntity( IGameEntity *pEntity ) override {}
-	bool UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView ) override
+
+	bool UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture,
+								   const CViewSetup &shadowView ) override
 	{
 		// The shadow-depth view is the plan's.
 		return SourceSharp_ShadowDepthView( pRenderTarget, pDepthTexture, shadowView );
 	}
+
 	// The freeze frame's state is managed's.
 	void FreezeFrame( float flFreezeTime ) override { SourceSharp_FreezeFrame( flFreezeTime ); }
+
 	IReplayScreenshotSystem *GetReplayScreenshotSystem() override { return this; }
 };
 
@@ -310,7 +304,8 @@ void CShellViewRender::Render( vrect_t *rect )
 	if ( randomClear[0] )
 	{
 		CMatRenderContextPtr pRenderContext( materials );
-		pRenderContext->ClearColor3ub( (unsigned char)randomClear[1], (unsigned char)randomClear[2], (unsigned char)randomClear[3] );
+		pRenderContext->ClearColor3ub( (unsigned char)randomClear[1], (unsigned char)randomClear[2],
+									   (unsigned char)randomClear[3] );
 		pRenderContext->ClearBuffers( true, false, false );
 	}
 	if ( bOverview )
@@ -340,13 +335,14 @@ void CShellViewRender::Render( vrect_t *rect )
 // CViewRender::WriteSaveGameScreenshotOfSize: the player's eye drawn through the
 // plan into the top left of the back buffer, read back, and written as a TGA or
 // VTF to //MOD/. Managed decides the view; this carries out the draw and the file.
-void CShellViewRender::WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded,
-                                                     bool bWriteVTF )
+void CShellViewRender::WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height,
+													  bool bCreatePowerOf2Padded, bool bWriteVTF )
 {
 	CViewSetup viewSetup;
 	if ( width <= 0 || height <= 0 || !SourceSharp_ScreenshotView( *GetPlayerViewSetup(), width, height, viewSetup ) )
 	{
-		Warning( "[SourceSharp] view: no save-game screenshot of %s (%dx%d): no view from managed\n", pFilename, width, height );
+		Warning( "[SourceSharp] view: no save-game screenshot of %s (%dx%d): no view from managed\n", pFilename, width,
+				 height );
 		return;
 	}
 
@@ -369,14 +365,14 @@ void CShellViewRender::WriteSaveGameScreenshotOfSize( const char *pFilename, int
 
 	int nFileBytes = 0;
 	unsigned char *pFile = ss::ImageEncode( bWriteVTF ? ss::kImageVtfRgb : ss::kImageTgaRgb, width, height,
-	                                        bCreatePowerOf2Padded, pBlock, nPixelBytes, &nFileBytes, true );
+											bCreatePowerOf2Padded, pBlock, nPixelBytes, &nFileBytes, true );
 	free( pBlock );
 	if ( !pFile )
 		Error( "Couldn't write bitmap data snapshot.\n" );
 
 	// The async write takes the file's memory; it is on the engine heap because
 	// the filesystem frees it with tier0's allocator.
-	char szPathedFileName[ MAX_PATH ];
+	char szPathedFileName[MAX_PATH];
 	Q_snprintf( szPathedFileName, sizeof( szPathedFileName ), "//MOD/%s", pFilename );
 	filesystem->AsyncWrite( szPathedFileName, pFile, nFileBytes, true );
 
@@ -394,18 +390,18 @@ void DemoCamera( Vector &origin, QAngle &angles )
 	IManagedRenderClient *pManaged = ManagedRenderClient();
 	if ( !pManaged )
 		return;
-	float in[ 6 ] = { origin.x, origin.y, origin.z, angles.x, angles.y, angles.z };
-	float out[ 6 ] = { 0, 0, 0, 0, 0, 0 };
+	float in[6] = { origin.x, origin.y, origin.z, angles.x, angles.y, angles.z };
+	float out[6] = { 0, 0, 0, 0, 0, 0 };
 	if ( !pManaged->ViewDemoCamera( 0, in, out ) )
 		return;
-	QAngle demoAngles( out[ 0 ], out[ 1 ], out[ 2 ] );
+	QAngle demoAngles( out[0], out[1], out[2] );
 	engine->SetViewAngles( demoAngles );
 	input->ExtraMouseSample( gpGlobals->absoluteframetime, true );
 	engine->GetViewAngles( demoAngles );
-	float move[ 6 ] = { demoAngles.x, demoAngles.y, demoAngles.z, gpGlobals->absoluteframetime, 0, 0 };
+	float move[6] = { demoAngles.x, demoAngles.y, demoAngles.z, gpGlobals->absoluteframetime, 0, 0 };
 	pManaged->ViewDemoCamera( 1, move, out );
-	origin.Init( out[ 0 ], out[ 1 ], out[ 2 ] );
-	angles.Init( out[ 3 ], out[ 4 ], out[ 5 ] );
+	origin.Init( out[0], out[1], out[2] );
+	angles.Init( out[3], out[4], out[5] );
 }
 
 // CViewRender::SetUpViews, mono: managed decides the planes and the FOV; the
@@ -416,7 +412,8 @@ void CShellViewRender::SetUpViews()
 {
 	float flViewModelFovOffset = 0.0f;
 	CViewSetup &eye = m_View;
-	if ( !SourceSharp_SetUpView( eye.zFar, eye.zFarViewmodel, eye.zNear, eye.zNearViewmodel, eye.fov, flViewModelFovOffset ) )
+	if ( !SourceSharp_SetUpView( eye.zFar, eye.zFarViewmodel, eye.zNear, eye.zNearViewmodel, eye.fov,
+								 flViewModelFovOffset ) )
 		return;
 	eye.m_bOrtho = false;
 	eye.m_bViewToProjectionOverride = false;
@@ -472,15 +469,15 @@ void ShellView_ComputeCamera( const Vector &vecOrigin, const QAngle &angles, She
 	AngleVectors( angles, &out.forward, &out.right, &out.up );
 	for ( int i = 0; i < 3; ++i )
 	{
-		out.worldToView[ 0 ][ i ] = out.right[ i ];
-		out.worldToView[ 1 ][ i ] = out.up[ i ];
-		out.worldToView[ 2 ][ i ] = -out.forward[ i ];
-		out.worldToView[ 3 ][ i ] = 0.0F;
+		out.worldToView[0][i] = out.right[i];
+		out.worldToView[1][i] = out.up[i];
+		out.worldToView[2][i] = -out.forward[i];
+		out.worldToView[3][i] = 0.0F;
 	}
-	out.worldToView[ 0 ][ 3 ] = -DotProduct( out.right, vecOrigin );
-	out.worldToView[ 1 ][ 3 ] = -DotProduct( out.up, vecOrigin );
-	out.worldToView[ 2 ][ 3 ] = DotProduct( out.forward, vecOrigin );
-	out.worldToView[ 3 ][ 3 ] = 1.0F;
+	out.worldToView[0][3] = -DotProduct( out.right, vecOrigin );
+	out.worldToView[1][3] = -DotProduct( out.up, vecOrigin );
+	out.worldToView[2][3] = DotProduct( out.forward, vecOrigin );
+	out.worldToView[3][3] = 1.0F;
 }
 
 void ShellView_SetMainView( const Vector &vecOrigin, const QAngle &angles )
@@ -521,7 +518,8 @@ void ShellView_SetupCurrentView( const Vector &vecOrigin, const QAngle &angles, 
 	// client.so does not otherwise include).
 	const int kWriteDepthToDestAlpha = 10;
 	CMatRenderContextPtr pRenderContext( materials );
-	pRenderContext->SetIntRenderingParameter( kWriteDepthToDestAlpha, ( nViewID == VIEW_MAIN || nViewID == VIEW_3DSKY ) ? 1 : 0 );
+	pRenderContext->SetIntRenderingParameter( kWriteDepthToDestAlpha,
+											  ( nViewID == VIEW_MAIN || nViewID == VIEW_3DSKY ) ? 1 : 0 );
 }
 
 void ShellView_FinishCurrentView()
@@ -582,37 +580,117 @@ IViewRender *ShellViewRender()
 // The names fork TUs still call, answered from CShellViewRender.
 IViewRender *view = NULL;
 
-const Vector &MainViewOrigin() { return ShellView_Main().origin; }
-const QAngle &MainViewAngles() { return ShellView_Main().angles; }
-const Vector &MainViewForward() { return ShellView_Main().forward; }
-const Vector &MainViewRight() { return ShellView_Main().right; }
-const Vector &MainViewUp() { return ShellView_Main().up; }
-const VMatrix &MainWorldToViewMatrix() { return ShellView_Main().worldToView; }
-const Vector &PrevMainViewOrigin() { return ShellView_PrevMainOrigin(); }
-const QAngle &PrevMainViewAngles() { return ShellView_PrevMainAngles(); }
+const Vector &MainViewOrigin()
+{
+	return ShellView_Main().origin;
+}
 
-const Vector &CurrentViewOrigin() { Assert( ShellView_CurrentViewAccessAllowed() ); return ShellView_Current().origin; }
-const QAngle &CurrentViewAngles() { Assert( ShellView_CurrentViewAccessAllowed() ); return ShellView_Current().angles; }
-const Vector &CurrentViewForward() { Assert( ShellView_CurrentViewAccessAllowed() ); return ShellView_Current().forward; }
-const Vector &CurrentViewRight() { Assert( ShellView_CurrentViewAccessAllowed() ); return ShellView_Current().right; }
-const Vector &CurrentViewUp() { Assert( ShellView_CurrentViewAccessAllowed() ); return ShellView_Current().up; }
-const VMatrix &CurrentWorldToViewMatrix() { Assert( ShellView_CurrentViewAccessAllowed() ); return ShellView_Current().worldToView; }
-view_id_t CurrentViewID() { return (view_id_t)ShellView_CurrentViewID(); }
-bool DrawingShadowDepthView() { return ShellView_CurrentViewID() == VIEW_SHADOW_DEPTH_TEXTURE; }
+const QAngle &MainViewAngles()
+{
+	return ShellView_Main().angles;
+}
+
+const Vector &MainViewForward()
+{
+	return ShellView_Main().forward;
+}
+
+const Vector &MainViewRight()
+{
+	return ShellView_Main().right;
+}
+
+const Vector &MainViewUp()
+{
+	return ShellView_Main().up;
+}
+
+const VMatrix &MainWorldToViewMatrix()
+{
+	return ShellView_Main().worldToView;
+}
+
+const Vector &PrevMainViewOrigin()
+{
+	return ShellView_PrevMainOrigin();
+}
+
+const QAngle &PrevMainViewAngles()
+{
+	return ShellView_PrevMainAngles();
+}
+
+const Vector &CurrentViewOrigin()
+{
+	Assert( ShellView_CurrentViewAccessAllowed() );
+	return ShellView_Current().origin;
+}
+
+const QAngle &CurrentViewAngles()
+{
+	Assert( ShellView_CurrentViewAccessAllowed() );
+	return ShellView_Current().angles;
+}
+
+const Vector &CurrentViewForward()
+{
+	Assert( ShellView_CurrentViewAccessAllowed() );
+	return ShellView_Current().forward;
+}
+
+const Vector &CurrentViewRight()
+{
+	Assert( ShellView_CurrentViewAccessAllowed() );
+	return ShellView_Current().right;
+}
+
+const Vector &CurrentViewUp()
+{
+	Assert( ShellView_CurrentViewAccessAllowed() );
+	return ShellView_Current().up;
+}
+
+const VMatrix &CurrentWorldToViewMatrix()
+{
+	Assert( ShellView_CurrentViewAccessAllowed() );
+	return ShellView_Current().worldToView;
+}
+
+view_id_t CurrentViewID()
+{
+	return (view_id_t)ShellView_CurrentViewID();
+}
+
+bool DrawingShadowDepthView()
+{
+	return ShellView_CurrentViewID() == VIEW_SHADOW_DEPTH_TEXTURE;
+}
 
 void SetupCurrentView( const Vector &vecOrigin, const QAngle &angles, view_id_t viewID )
 {
 	ShellView_SetupCurrentView( vecOrigin, angles, viewID, true );
 }
-void FinishCurrentView() { ShellView_FinishCurrentView(); }
-void AllowCurrentViewAccess( bool allow ) { ShellView_AllowCurrentViewAccess( allow ); }
-bool IsCurrentViewAccessAllowed() { return ShellView_CurrentViewAccessAllowed(); }
+
+void FinishCurrentView()
+{
+	ShellView_FinishCurrentView();
+}
+
+void AllowCurrentViewAccess( bool allow )
+{
+	ShellView_AllowCurrentViewAccess( allow );
+}
+
+bool IsCurrentViewAccessAllowed()
+{
+	return ShellView_CurrentViewAccessAllowed();
+}
 
 bool R_CullSphere( VPlane const *pPlanes, int nPlanes, Vector const *pCenter, float radius )
 {
 	for ( int i = 0; i < nPlanes; i++ )
 	{
-		if ( pPlanes[ i ].DistTo( *pCenter ) < -radius )
+		if ( pPlanes[i].DistTo( *pCenter ) < -radius )
 			return true;
 	}
 	return false;
@@ -630,15 +708,17 @@ static void SoftwareCursorChanged( IConVar *pVar, const char *pOldValue, float f
 {
 	vgui::surface()->SetSoftwareCursor( ( (ConVar *)pVar )->GetBool() );
 }
+
 static ConVar cl_software_cursor( "cl_software_cursor", "0", FCVAR_ARCHIVE,
-	"Switches the game to use a larger software cursor instead of the normal OS cursor", SoftwareCursorChanged );
+								  "Switches the game to use a larger software cursor instead of the normal OS cursor",
+								  SoftwareCursorChanged );
 
 // getpos and spec_pos: the main view, or ("2") the player's own position.
 static void ViewPosition( const CCommand &args, Vector &vecOrigin, QAngle &angles, bool &bPlayer )
 {
 	vecOrigin = MainViewOrigin();
 	angles = MainViewAngles();
-	bPlayer = args.ArgC() == 2 && atoi( args[ 1 ] ) == 2;
+	bPlayer = args.ArgC() == 2 && atoi( args[1] ) == 2;
 	if ( bPlayer )
 		SourceSharp_ViewerAbsPosition( &vecOrigin, &angles );
 }
@@ -667,6 +747,7 @@ static void CenterView()
 {
 	view->StartPitchDrift();
 }
+
 static ConCommand centerview( "centerview", CenterView );
 
 // r_cheapwaterstart / r_cheapwaterend: set one cheap-water distance, or print it.
@@ -674,7 +755,7 @@ static void CheapWaterCommand( const CCommand &args, bool bStart )
 {
 	if ( args.ArgC() == 2 )
 	{
-		const float flDistance = atof( args[ 1 ] );
+		const float flDistance = atof( args[1] );
 		if ( bStart )
 			view->SetCheapWaterStartDistance( flDistance );
 		else
@@ -685,8 +766,16 @@ static void CheapWaterCommand( const CCommand &args, bool bStart )
 	view->GetWaterLODParams( flStart, flEnd );
 	Warning( "%s: %f\n", bStart ? "r_cheapwaterstart" : "r_cheapwaterend", bStart ? flStart : flEnd );
 }
-CON_COMMAND( r_cheapwaterstart, "" ) { CheapWaterCommand( args, true ); }
-CON_COMMAND( r_cheapwaterend, "" ) { CheapWaterCommand( args, false ); }
+
+CON_COMMAND( r_cheapwaterstart, "" )
+{
+	CheapWaterCommand( args, true );
+}
+
+CON_COMMAND( r_cheapwaterend, "" )
+{
+	CheapWaterCommand( args, false );
+}
 
 // r_screenoverlay: a material drawn over the frame; "off" or "0" (or a
 // material that does not load) takes it away; no argument prints it.
@@ -699,9 +788,9 @@ CON_COMMAND_F( r_screenoverlay, "Draw specified material as an overlay", FCVAR_C
 		return;
 	}
 	IMaterial *pMaterial = NULL;
-	if ( Q_stricmp( "off", args[ 1 ] ) != 0 && Q_stricmp( "0", args[ 1 ] ) != 0 )
+	if ( Q_stricmp( "off", args[1] ) != 0 && Q_stricmp( "0", args[1] ) != 0 )
 	{
-		pMaterial = materials->FindMaterial( args[ 1 ], TEXTURE_GROUP_OTHER, false );
+		pMaterial = materials->FindMaterial( args[1], TEXTURE_GROUP_OTHER, false );
 		if ( IsErrorMaterial( pMaterial ) )
 			pMaterial = NULL;
 	}
@@ -712,12 +801,23 @@ CON_COMMAND_F( r_screenoverlay, "Draw specified material as an overlay", FCVAR_C
 // precached is managed's.
 namespace
 {
-const char *const kPostProcessingMaterials[] =
-{
-	"dev/blurfiltery_and_add_nohdr", "dev/blurfilterx", "dev/blurfilterx_nohdr", "dev/blurfiltery", "dev/blurfiltery_nohdr",
-	"dev/bloomadd", "dev/downsample", "dev/downsample_non_hdr", "dev/no_pixel_write", "dev/lumcompare",
-	"dev/floattoscreen_combine", "dev/copyfullframefb_vanilla", "dev/copyfullframefb", "dev/engine_post",
-	"dev/motion_blur", "dev/upscale",
+const char *const kPostProcessingMaterials[] = {
+	"dev/blurfiltery_and_add_nohdr",
+	"dev/blurfilterx",
+	"dev/blurfilterx_nohdr",
+	"dev/blurfiltery",
+	"dev/blurfiltery_nohdr",
+	"dev/bloomadd",
+	"dev/downsample",
+	"dev/downsample_non_hdr",
+	"dev/no_pixel_write",
+	"dev/lumcompare",
+	"dev/floattoscreen_combine",
+	"dev/copyfullframefb_vanilla",
+	"dev/copyfullframefb",
+	"dev/engine_post",
+	"dev/motion_blur",
+	"dev/upscale",
 };
 
 class CPostProcessingPrecache : public CClientEffect
@@ -728,8 +828,9 @@ public:
 		if ( engine->GetDXSupportLevel() < 90 )
 			return;
 		for ( int i = 0; i < (int)ARRAYSIZE( kPostProcessingMaterials ); i++ )
-			ReferenceMaterial( kPostProcessingMaterials[ i ], bPrecache );
+			ReferenceMaterial( kPostProcessingMaterials[i], bPrecache );
 	}
 };
+
 CPostProcessingPrecache g_PostProcessingPrecache;
 } // namespace

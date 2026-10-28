@@ -12,33 +12,15 @@
 // per-sprite state kept is the pixel-visibility query handle, which must be the same
 // handle every frame for the occlusion test to settle.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "client_entity.h"
 #include "Sprite.h"
-#include "view.h"
-#include "engine/ivmodelinfo.h"
-#include "engine/IClientLeafSystem.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
-#include "tier0/wchartypes.h"
-#include "tier1/utlvector.h"
-#include "cdll_client_int.h"
-#include "const.h"
-#include "globalvars_base.h"
+
 #include "model_types.h"
-#include "networkvar.h"
+
 #include "shell_standalone_client.h"
 #include "shell_renderable.h"
 #include "shell_beam_render.h"
@@ -59,8 +41,9 @@ static bool SpriteRenderModeRefused( int32_t nRenderMode, const char *pszCaller,
 	{
 		bWarned = true;
 		Warning( "[SourceSharp] %s: render mode %d is outside RenderMode_t "
-		         "(0..%d). Nothing drawn. Check the managed RenderMode enum against "
-		         "public/const.h.\n", pszCaller, nRenderMode, kRenderModeCount - 1 );
+				 "(0..%d). Nothing drawn. Check the managed RenderMode enum against "
+				 "public/const.h.\n",
+				 pszCaller, nRenderMode, kRenderModeCount - 1 );
 	}
 
 	return true;
@@ -71,22 +54,22 @@ class CSourceSharpSpriteRenderer : public C_SpriteRenderer
 {
 public:
 	int Draw( IClientEntity *pEntity, const model_t *pModel, const Vector &vecOrigin, const QAngle &angAngles,
-	          float flFrame, int nRenderMode, int nRenderFx, int a, int r, int g, int b,
-	          float flScale, bool bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize )
+			  float flFrame, int nRenderMode, int nRenderFx, int a, int r, int g, int b, float flScale,
+			  bool bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize )
 	{
 		return SourceSharp_PlanSprite( &m_queryHandle, pEntity, pModel, vecOrigin, angAngles, flFrame,
-		                               /*attachedto=*/NULL, /*attachmentindex=*/0, nRenderMode, nRenderFx, a, r, g, b,
-		                               flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize );
+									   /*attachedto=*/NULL, /*attachmentindex=*/0, nRenderMode, nRenderFx, a, r, g, b,
+									   flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize );
 	}
 
 	// The direct path's first half: the request for a plan made in managed.
 	int Begin( IClientEntity *pEntity, const model_t *pModel, const Vector &vecOrigin, const QAngle &angAngles,
-	           float flFrame, int nRenderMode, int nRenderFx, int a, int r, int g, int b,
-	           float flScale, bool bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize, float *pIn )
+			   float flFrame, int nRenderMode, int nRenderFx, int a, int r, int g, int b, float flScale,
+			   bool bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize, float *pIn )
 	{
-		return SourceSharp_SpriteDrawBegin( &m_queryHandle, pEntity, pModel, vecOrigin, angAngles, flFrame,
-		                                    nRenderMode, nRenderFx, a, r, g, b, flScale, bWorldSpaceScale,
-		                                    flHDRColorScale, flGlowProxySize, pIn );
+		return SourceSharp_SpriteDrawBegin( &m_queryHandle, pEntity, pModel, vecOrigin, angAngles, flFrame, nRenderMode,
+											nRenderFx, a, r, g, b, flScale, bWorldSpaceScale, flHDRColorScale,
+											flGlowProxySize, pIn );
 	}
 };
 
@@ -94,11 +77,11 @@ public:
 // entity is shared by every managed class.
 struct SourceSharpSprite_t
 {
-	uint32_t                   hOwner;
+	uint32_t hOwner;
 	CSourceSharpSpriteRenderer renderer;
 };
 
-static CUtlVector< SourceSharpSprite_t * > g_ManagedSprites;
+static CUtlVector<SourceSharpSprite_t *> g_ManagedSprites;
 
 static CSourceSharpSpriteRenderer *RendererFor( uint32_t hOwner )
 {
@@ -119,13 +102,10 @@ static CSourceSharpSpriteRenderer *RendererFor( uint32_t hOwner )
 // One sprite this frame: stock CSprite::DrawModel with its members as arguments. A model
 // that is not a sprite is declined quietly. The attachment is always NULL and 0: only C++
 // callers outside this build set one.
-static int32_t SourceSharpDrawSpriteCore( uint32_t hOwner, const Vector &vecOffset,
-                                          int32_t nModelIndex,
-                                          float flFrame, int32_t nRenderMode, int32_t nRenderFx,
-                                          int32_t r, int32_t g, int32_t b, int32_t a,
-                                          float flScale, int32_t bWorldSpaceScale,
-                                          float flHDRColorScale, float flGlowProxySize,
-                                          float *pBeginIn = NULL )
+static int32_t SourceSharpDrawSpriteCore( uint32_t hOwner, const Vector &vecOffset, int32_t nModelIndex, float flFrame,
+										  int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b,
+										  int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
+										  float flGlowProxySize, float *pBeginIn = NULL )
 {
 	if ( nModelIndex <= 0 )
 		return 0;
@@ -154,62 +134,47 @@ static int32_t SourceSharpDrawSpriteCore( uint32_t hOwner, const Vector &vecOffs
 
 	if ( pBeginIn )
 		return pRenderer->Begin( pOwner, pModel, vecOrigin, angAngles, flFrame, nRenderMode, nRenderFx, a, r, g, b,
-		                         flScale, bWorldSpaceScale != 0, flHDRColorScale, flGlowProxySize, pBeginIn );
+								 flScale, bWorldSpaceScale != 0, flHDRColorScale, flGlowProxySize, pBeginIn );
 
-	return pRenderer->Draw( pOwner, pModel, vecOrigin, angAngles, flFrame, nRenderMode, nRenderFx, a, r, g, b,
-	                        flScale, bWorldSpaceScale != 0, flHDRColorScale, flGlowProxySize );
+	return pRenderer->Draw( pOwner, pModel, vecOrigin, angAngles, flFrame, nRenderMode, nRenderFx, a, r, g, b, flScale,
+							bWorldSpaceScale != 0, flHDRColorScale, flGlowProxySize );
 }
 
 // One sprite at its owner's origin.
-int32_t SourceSharp_DrawSprite( uint32_t hOwner, int32_t nModelIndex,
-                                float flFrame, int32_t nRenderMode, int32_t nRenderFx,
-                                int32_t r, int32_t g, int32_t b, int32_t a,
-                                float flScale, int32_t bWorldSpaceScale,
-                                float flHDRColorScale, float flGlowProxySize )
+int32_t SourceSharp_DrawSprite( uint32_t hOwner, int32_t nModelIndex, float flFrame, int32_t nRenderMode,
+								int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a, float flScale,
+								int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize )
 {
-	return SourceSharpDrawSpriteCore( hOwner, vec3_origin, nModelIndex,
-	                                  flFrame, nRenderMode, nRenderFx,
-	                                  r, g, b, a, flScale, bWorldSpaceScale,
-	                                  flHDRColorScale, flGlowProxySize );
+	return SourceSharpDrawSpriteCore( hOwner, vec3_origin, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a,
+									  flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize );
 }
 
 // One sprite offset from its owner: how one plasma entity draws its seven flame sprites.
-int32_t SourceSharp_DrawSpriteOffset( uint32_t hOwner, const float *pOffsetXYZ,
-                                      int32_t nModelIndex,
-                                      float flFrame, int32_t nRenderMode, int32_t nRenderFx,
-                                      int32_t r, int32_t g, int32_t b, int32_t a,
-                                      float flScale, int32_t bWorldSpaceScale,
-                                      float flHDRColorScale, float flGlowProxySize )
+int32_t SourceSharp_DrawSpriteOffset( uint32_t hOwner, const float *pOffsetXYZ, int32_t nModelIndex, float flFrame,
+									  int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b,
+									  int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
+									  float flGlowProxySize )
 {
-	const Vector vecOffset = pOffsetXYZ
-	                       ? Vector( pOffsetXYZ[0], pOffsetXYZ[1], pOffsetXYZ[2] )
-	                       : vec3_origin;
+	const Vector vecOffset = pOffsetXYZ ? Vector( pOffsetXYZ[0], pOffsetXYZ[1], pOffsetXYZ[2] ) : vec3_origin;
 
-	return SourceSharpDrawSpriteCore( hOwner, vecOffset, nModelIndex,
-	                                  flFrame, nRenderMode, nRenderFx,
-	                                  r, g, b, a, flScale, bWorldSpaceScale,
-	                                  flHDRColorScale, flGlowProxySize );
+	return SourceSharpDrawSpriteCore( hOwner, vecOffset, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a,
+									  flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize );
 }
 
 // Fills the request for the sprite at its owner's place plus the offset; FxSpriteDrawEnd
 // (shell_sprite_leaf.cpp) draws the plan. Called from inside the owner's draw.
-int32_t SourceSharp_FxSpriteDrawBegin( uint32_t hOwner, const float *pOffsetXYZ, int32_t nModelIndex,
-                                       float flFrame, int32_t nRenderMode, int32_t nRenderFx,
-                                       int32_t r, int32_t g, int32_t b, int32_t a,
-                                       float flScale, int32_t bWorldSpaceScale,
-                                       float flHDRColorScale, float flGlowProxySize, float *pIn )
+int32_t SourceSharp_FxSpriteDrawBegin( uint32_t hOwner, const float *pOffsetXYZ, int32_t nModelIndex, float flFrame,
+									   int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b,
+									   int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
+									   float flGlowProxySize, float *pIn )
 {
 	if ( !pIn )
 		return 0;
 
-	const Vector vecOffset = pOffsetXYZ
-	                       ? Vector( pOffsetXYZ[0], pOffsetXYZ[1], pOffsetXYZ[2] )
-	                       : vec3_origin;
+	const Vector vecOffset = pOffsetXYZ ? Vector( pOffsetXYZ[0], pOffsetXYZ[1], pOffsetXYZ[2] ) : vec3_origin;
 
-	return SourceSharpDrawSpriteCore( hOwner, vecOffset, nModelIndex,
-	                                  flFrame, nRenderMode, nRenderFx,
-	                                  r, g, b, a, flScale, bWorldSpaceScale,
-	                                  flHDRColorScale, flGlowProxySize, pIn );
+	return SourceSharpDrawSpriteCore( hOwner, vecOffset, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a,
+									  flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, pIn );
 }
 
 // A managed env_spritetrail's ribbon as a renderable. The ring, ribbon and bounds are
@@ -220,17 +185,15 @@ public:
 	DECLARE_CLASS_GAMEROOT( CSourceSharpSpriteTrail, CShellRenderable );
 
 	// The block arrives zeroed, so only what a zero is wrong for is set.
-	CSourceSharpSpriteTrail()
-	{
-		m_bVisible = true;
-	}
+	CSourceSharpSpriteTrail() { m_bVisible = true; }
 
 	// CDefaultClientRenderable leaves ShouldDraw and IsTransparent pure.
 	virtual bool ShouldDraw() OVERRIDE { return m_bVisible; }
+
 	virtual bool IsTransparent() OVERRIDE { return true; }
+
 	virtual int DrawModel( int flags ) OVERRIDE
 	{
-
 		IManagedFxClient *pFx = ManagedFxClient();
 		if ( !pFx )
 			return 0;
@@ -239,6 +202,7 @@ public:
 		PutOrigin( origin );
 		return pFx->SpriteTrailDraw( m_hOwner, gpGlobals->curtime, origin ) > 0 ? 1 : 0;
 	}
+
 	virtual void GetRenderBounds( Vector &mins, Vector &maxs ) OVERRIDE
 	{
 		mins = m_vecRenderMins;
@@ -271,24 +235,26 @@ private:
 	void PutOrigin( float *p )
 	{
 		const Vector &o = GetAbsOrigin();
-		p[0] = o.x; p[1] = o.y; p[2] = o.z;
+		p[0] = o.x;
+		p[1] = o.y;
+		p[2] = o.z;
 	}
 
-	uint32_t	m_hOwner;
-	Vector		m_vecRenderMins;
-	Vector		m_vecRenderMaxs;
-	bool		m_bVisible;
+	uint32_t m_hOwner;
+	Vector m_vecRenderMins;
+	Vector m_vecRenderMaxs;
+	bool m_bVisible;
 };
 
 struct SourceSharpSpriteTrail_t
 {
-	uint32_t                 hOwner;
+	uint32_t hOwner;
 	CSourceSharpSpriteTrail *pTrail;
 };
 
 // Not ShellEffects_Find's rows: RendererFor's list holds pointers because renderers are
 // handed out by address. This list is rows.
-static CUtlVector< SourceSharpSpriteTrail_t > g_ManagedTrails;
+static CUtlVector<SourceSharpSpriteTrail_t> g_ManagedTrails;
 
 // Called from the renderable's destructor: a raw pointer cannot tell it is stale.
 static void ManagedSpriteTrail_Forget( CShellRenderable *pGone )
@@ -338,7 +304,7 @@ void SourceSharp_SpriteTrailUpdate( uint32_t hOwner, int32_t nRenderMode, int32_
 		iEntry = g_ManagedTrails.AddToTail( entry );
 	}
 
-	g_ManagedTrails[ iEntry ].pTrail->SourceSharpUpdate( hOwner, bVisible != 0 );
+	g_ManagedTrails[iEntry].pTrail->SourceSharpUpdate( hOwner, bVisible != 0 );
 }
 
 void SourceSharp_SpriteTrailDestroy( uint32_t hOwner )
@@ -348,7 +314,7 @@ void SourceSharp_SpriteTrailDestroy( uint32_t hOwner )
 	if ( iEntry < 0 )
 		return;
 
-	g_ManagedTrails[ iEntry ].pTrail->Release();
+	g_ManagedTrails[iEntry].pTrail->Release();
 }
 
 // Every trail ticked and moved to its entity's place. A trail is a separate renderable,
@@ -382,7 +348,9 @@ class CSourceSharpSpriteSystem : public CClientSystemPerFrame
 {
 public:
 	CSourceSharpSpriteSystem()
-		: CClientSystemPerFrame( "CSourceSharpSpriteSystem" ) {}
+		: CClientSystemPerFrame( "CSourceSharpSpriteSystem" )
+	{
+	}
 
 	virtual void PreRender() OVERRIDE
 	{
@@ -399,7 +367,7 @@ public:
 		{
 			const int nBefore = g_ManagedTrails.Count();
 
-			g_ManagedTrails[ 0 ].pTrail->Release();
+			g_ManagedTrails[0].pTrail->Release();
 
 			// Guards against an infinite loop if the gone callback is ever dropped.
 			if ( g_ManagedTrails.Count() >= nBefore )
@@ -416,4 +384,7 @@ public:
 
 static CSourceSharpSpriteSystem g_SpriteSystem;
 
-CClientSystem *ClientSystem_Sprite() { return &g_SpriteSystem; }
+CClientSystem *ClientSystem_Sprite()
+{
+	return &g_SpriteSystem;
+}

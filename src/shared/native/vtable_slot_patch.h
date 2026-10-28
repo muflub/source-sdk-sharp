@@ -7,9 +7,6 @@
 #include "vtable_hook.h"
 #include "ss_platform.h"
 
-#include <stdint.h>
-#include <stdio.h>
-
 namespace VTableSlotPatch
 {
 
@@ -36,8 +33,8 @@ inline bool WriteSlot( void **pSlot, void *pValue, int nProtection )
 struct Patch
 {
 	void **pSlot;
-	void  *pOriginal;
-	int    nProtection;
+	void *pOriginal;
+	int nProtection;
 };
 
 // Overwrites pObject's slot for pmf with pHook; *pPatch's pOriginal is what the hook
@@ -50,7 +47,7 @@ bool Install( void *pObject, PMF pmf, void *pHook, Patch *pPatch )
 	const VTableHook::Member member = VTableHook::MemberOf( pmf );
 	if ( !member.isVirtual || member.adjust != 0 || member.slot < 0 )
 		return false;
-	void **pSlot = &( *(void ***)pObject )[ member.slot ];
+	void **pSlot = &( *(void ***)pObject )[member.slot];
 	const int nProtection = PageProtection( pSlot );
 	if ( nProtection < 0 )
 		return false;

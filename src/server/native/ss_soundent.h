@@ -10,8 +10,6 @@
 
 #pragma once
 
-
-
 class IHandleEntity;
 struct edict_t;
 

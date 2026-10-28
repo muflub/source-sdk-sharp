@@ -37,7 +37,7 @@ std::string Run( const std::string &cmd )
 	if ( !pPipe )
 		return std::string();
 	std::string out;
-	char buf[ 4096 ];
+	char buf[4096];
 	while ( fgets( buf, sizeof( buf ), pPipe ) )
 		out += buf;
 	pclose( pPipe );
@@ -46,9 +46,9 @@ std::string Run( const std::string &cmd )
 
 // nm --defined-only's names with one of pszTypes, per member when the input
 // is an archive ("member.o:" lines head each member's block).
-std::map< std::string, std::set< std::string > > Defined( const std::string &strNmArgs, const char *pszTypes )
+std::map<std::string, std::set<std::string>> Defined( const std::string &strNmArgs, const char *pszTypes )
 {
-	std::map< std::string, std::set< std::string > > out;
+	std::map<std::string, std::set<std::string>> out;
 	std::string member;
 	const std::string text = Run( "nm --defined-only " + strNmArgs );
 	size_t start = 0;
@@ -67,10 +67,10 @@ std::map< std::string, std::set< std::string > > Defined( const std::string &str
 		const size_t a = line.find( ' ' );
 		if ( a == std::string::npos || a + 3 > line.size() )
 			continue;
-		const char t = line[ a + 1 ];
-		if ( strchr( pszTypes, t ) == NULL || line[ a + 2 ] != ' ' )
+		const char t = line[a + 1];
+		if ( strchr( pszTypes, t ) == NULL || line[a + 2] != ' ' )
 			continue;
-		out[ member ].insert( line.substr( a + 3 ) );
+		out[member].insert( line.substr( a + 3 ) );
 	}
 	return out;
 }
@@ -80,7 +80,8 @@ TEST( ClientTier1Members, TheLeftMembersNamesAreOurs )
 {
 	const std::string strBuild = cmake_graph::BuildDir();
 	const auto archive = Defined( "'" + strBuild + "/lib/libtier1.a'", "TDBR" );
-	ASSERT_GT( archive.size(), 12u ) << "libtier1.a read as nearly empty";   // 17 members since tier1.cmake builds only the linked ones
+	ASSERT_GT( archive.size(), 12u )
+		<< "libtier1.a read as nearly empty"; // 17 members since tier1.cmake builds only the linked ones
 
 	std::string objs;
 	size_t nObjects = 0;
@@ -88,32 +89,38 @@ TEST( ClientTier1Members, TheLeftMembersNamesAreOurs )
 	{
 		if ( rel.size() > 2 && rel.compare( rel.size() - 2, 2, ".o" ) == 0 )
 		{
-			objs += " '" + ( rel[ 0 ] == '/' ? rel : strBuild + "/" + rel ) + "'";
+			objs += " '" + ( rel[0] == '/' ? rel : strBuild + "/" + rel ) + "'";
 			nObjects++;
 		}
 	}
 	ASSERT_GT( nObjects, 100u ) << "the client's link edge named too few objects";
-	std::set< std::string > ours;
+	std::set<std::string> ours;
 	for ( const auto &kv : Defined( objs, "TtDdBbRrVvWw" ) )
 		ours.insert( kv.second.begin(), kv.second.end() );
 
 	const auto so = Defined( "'" + strBuild + "/out/client.so'", "TtDdBbRrVvWw" );
 	ASSERT_EQ( 1u, so.size() );
-	const std::set< std::string > &inSo = so.begin()->second;
+	const std::set<std::string> &inSo = so.begin()->second;
 	ASSERT_GT( inSo.size(), 1000u ) << "client.so read as nearly empty";
 
-	const struct { const char *pszMember; int nMinShared; const char *pszProof; } kMembers[] = {
+	const struct
+	{
+		const char *pszMember;
+		int nMinShared;
+		const char *pszProof;
+	} kMembers[] = {
 		{ "KeyValues.cpp.o", 15, "_ZN9KeyValues6SetIntEPKci" },
 		{ "ilocalize.cpp.o", 1, "_ZN9ILocalize20ConvertUnicodeToANSIEPKwPci" },
 		{ "strtools_unicode.cpp.o", 0, NULL },
 		{ "checksum_crc.cpp.o", 3, "_Z19CRC32_ProcessBufferPjPKvi" },
-		{ "rangecheckedvar.cpp.o", 0, NULL },	// its reader is cut by --gc-sections; GC_SECTIONS=0 needs ours
+		{ "rangecheckedvar.cpp.o", 0, NULL }, // its reader is cut by --gc-sections; GC_SECTIONS=0 needs ours
 		{ "interface.cpp.o", 3, "CreateInterface" },
 		{ "mempool.cpp.o", 5, "_ZN14CUtlMemoryPool4FreeEPv" },
 		{ "stringpool.cpp.o", 0, NULL },
 		{ "generichash.cpp.o", 0, NULL },
 		{ "utlstring.cpp.o", 0, NULL },
 	};
+
 	size_t nPresent = 0;
 	for ( const auto &m : kMembers )
 	{
@@ -124,7 +131,7 @@ TEST( ClientTier1Members, TheLeftMembersNamesAreOurs )
 		}
 		auto it = archive.find( m.pszMember );
 		if ( it == archive.end() )
-			continue;   // not built (tier1.cmake), so not linked
+			continue; // not built (tier1.cmake), so not linked
 		nPresent++;
 		ASSERT_GT( it->second.size(), 3u ) << m.pszMember << " read as nearly empty";
 		int nShared = 0;

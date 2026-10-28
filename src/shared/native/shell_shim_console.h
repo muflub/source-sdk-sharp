@@ -17,9 +17,8 @@ public:
 	void Msg( const char *pUtf8 ) override;
 	void Warning( const char *pUtf8 ) override;
 	int32_t RegisterConCommand( const char *pName, const char *pHelp, int32_t nFlags ) override;
-	int32_t RegisterConVar( const char *pName, const char *pDefaultValue, const char *pHelp,
-	                        int32_t nFlags, int32_t bHasMin, float flMin,
-	                        int32_t bHasMax, float flMax ) override;
+	int32_t RegisterConVar( const char *pName, const char *pDefaultValue, const char *pHelp, int32_t nFlags,
+							int32_t bHasMin, float flMin, int32_t bHasMax, float flMax ) override;
 	void SetConVarValue( int32_t nId, const char *pValue ) override;
 	void GetConVarValue( int32_t nId, char *pOut, int32_t nOutSize ) override;
 	int32_t FindConVarValue( const char *pName, char *pOut, int32_t nOutSize ) override;

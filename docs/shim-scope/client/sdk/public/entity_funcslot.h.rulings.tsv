@@ -1,3 +1,3 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-EntityFuncSlot	LAYOUT	the pointer-to-member slot the patched datamap.h DEFINE_FUNCTION stores; client-only since plan_server_native_v2 T1.4
+inline SLOT EntityFuncSlot( FUNC pfn )	LAYOUT	the pointer-to-member slot the patched datamap.h DEFINE_FUNCTION stores; client-only since plan_server_native_v2 T1.4

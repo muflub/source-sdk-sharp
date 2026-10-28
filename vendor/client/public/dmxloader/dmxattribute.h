@@ -9,16 +9,16 @@
 #include "tier1/mempool.h"
 #include "dmxloader/dmxloader.h"
 
-// Forward declarations: 
+// Forward declarations:
 class CDmxElement;
 
 // Attribute info, modified for use in mod code
-DECLARE_ATTRIBUTE_TYPE( CDmxElement*,		AT_ELEMENT,				"element",		value = 0; )
-DECLARE_ATTRIBUTE_ARRAY_TYPE( CDmxElement*,	AT_ELEMENT_ARRAY,		"element_array" )
+DECLARE_ATTRIBUTE_TYPE( CDmxElement *, AT_ELEMENT, "element", value = 0; )
+DECLARE_ATTRIBUTE_ARRAY_TYPE( CDmxElement *, AT_ELEMENT_ARRAY, "element_array" )
 
 class CDmxAttribute
 {
-	DECLARE_DMX_ALLOCATOR( );
+	DECLARE_DMX_ALLOCATOR();
 
 public:
 	// Returns attribute name and type
@@ -30,7 +30,8 @@ public:
 	CUtlSymbol GetNameSymbol() const;
 
 	// Gets values
-	template< class T >	const T& GetValue( ) const;
+	template <class T>
+	const T &GetValue() const;
 
 	void SetValue( const char *pString );
 	void SetValue( const void *pBuffer, size_t nLen );
@@ -47,7 +48,7 @@ private:
 	friend class CDmxElement;
 };
 
-// Inline methods 
+// Inline methods
 inline DmAttributeType_t CDmxAttribute::GetType() const
 {
 	return m_Type;
@@ -58,11 +59,11 @@ inline CUtlSymbol CDmxAttribute::GetNameSymbol() const
 	return m_Name;
 }
 
-template< class T >
-inline const T& CDmxAttribute::GetValue( ) const
+template <class T>
+inline const T &CDmxAttribute::GetValue() const
 {
 	if ( CDmAttributeInfo<T>::AttributeType() == m_Type )
-		return *(T*)m_pData;
+		return *(T *)m_pData;
 
 	static T defaultValue;
 	CDmAttributeInfo<T>::SetDefaultValue( defaultValue );

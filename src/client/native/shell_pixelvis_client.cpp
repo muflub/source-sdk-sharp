@@ -10,15 +10,6 @@
 // code by id (0 for none), sphere diameters, the current view, and the commands
 // managed code answers at a view's end, carried out.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -28,18 +19,9 @@
 #include "viewrender.h"
 #include "materialsystem/imesh.h"
 #include "clienteffectprecachesystem.h"
-#include "materialsystem/imaterialsystem.h"
-#include "mathlib/vector.h"
-#include "mathlib/vmatrix.h"
-#include "particles/particles.h"
-#include "tier0/dbg.h"
-#include "tier1/refcount.h"
-#include "tier1/utlvector.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
-#include "particledraw.h"
+
 #include "imanaged_areas_client.h"
-#include "sourcesharp_entrypoints.h"
+
 #include "shell_pixelvis_client.h"
 
 // The precache system is native, so the occlusion proxy's two materials are
@@ -55,17 +37,17 @@ namespace
 {
 
 // Query objects by id: slot id - 1, INVALID when free.
-CUtlVector< OcclusionQueryObjectHandle_t > s_Queries;
+CUtlVector<OcclusionQueryObjectHandle_t> s_Queries;
 
 OcclusionQueryObjectHandle_t QueryOf( int32_t nQuery )
 {
 	if ( nQuery < 1 || nQuery > s_Queries.Count() )
 		return INVALID_OCCLUSION_QUERY_OBJECT_HANDLE;
-	return s_Queries[ nQuery - 1 ];
+	return s_Queries[nQuery - 1];
 }
 
 // The commands a view's end answers with (PixelVisDraw's, in C#).
-CUtlVector< int32_t > s_Commands;
+CUtlVector<int32_t> s_Commands;
 
 float FloatOf( int32_t nBits )
 {
@@ -81,21 +63,21 @@ void Execute( const int32_t *pCmds, int nWords )
 	int i = 0;
 	while ( i < nWords )
 	{
-		const int32_t nKind = pCmds[ i ];
+		const int32_t nKind = pCmds[i];
 		if ( nKind == SS_PIXELVIS_CMD_BIND && i + 2 <= nWords )
 		{
-			pRenderContext->Bind( SourceSharp_FxMaterialOf( pCmds[ i + 1 ] ) );
+			pRenderContext->Bind( SourceSharp_FxMaterialOf( pCmds[i + 1] ) );
 			i += 2;
 		}
 		else if ( nKind == SS_PIXELVIS_CMD_DEPTHRANGE && i + 3 <= nWords )
 		{
-			pRenderContext->DepthRange( FloatOf( pCmds[ i + 1 ] ), FloatOf( pCmds[ i + 2 ] ) );
+			pRenderContext->DepthRange( FloatOf( pCmds[i + 1] ), FloatOf( pCmds[i + 2] ) );
 			i += 3;
 		}
 		else if ( nKind == SS_PIXELVIS_CMD_PROXY && i + SS_PIXELVIS_PROXY_WORDS <= nWords )
 		{
-			const OcclusionQueryObjectHandle_t hQuery = QueryOf( pCmds[ i + 1 ] );
-			IMaterial *pMaterial = SourceSharp_FxMaterialOf( pCmds[ i + 2 ] );
+			const OcclusionQueryObjectHandle_t hQuery = QueryOf( pCmds[i + 1] );
+			IMaterial *pMaterial = SourceSharp_FxMaterialOf( pCmds[i + 2] );
 			const int32_t *pVerts = pCmds + i + 3;
 			pRenderContext->BeginOcclusionQueryDrawing( hQuery );
 			CMeshBuilder meshBuilder;
@@ -103,7 +85,8 @@ void Execute( const int32_t *pCmds, int nWords )
 			meshBuilder.Begin( pMesh, MATERIAL_TRIANGLES, 4 );
 			for ( int v = 0; v < 12; v++ )
 			{
-				const float pos[3] = { FloatOf( pVerts[ v * 3 ] ), FloatOf( pVerts[ v * 3 + 1 ] ), FloatOf( pVerts[ v * 3 + 2 ] ) };
+				const float pos[3] = { FloatOf( pVerts[v * 3] ), FloatOf( pVerts[v * 3 + 1] ),
+									   FloatOf( pVerts[v * 3 + 2] ) };
 				meshBuilder.Position3fv( pos );
 				meshBuilder.AdvanceVertex();
 			}
@@ -115,7 +98,7 @@ void Execute( const int32_t *pCmds, int nWords )
 		else
 		{
 			Warning( "[SourceSharp] pixel visibility: command %d at word %d of %d is not one; the rest is dropped\n",
-			         nKind, i, nWords );
+					 nKind, i, nWords );
 			return;
 		}
 	}
@@ -133,9 +116,9 @@ int32_t SourceSharp_PixelVisQueryCreate()
 		return 0;
 	for ( int i = 0; i < s_Queries.Count(); i++ )
 	{
-		if ( s_Queries[ i ] == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE )
+		if ( s_Queries[i] == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE )
 		{
-			s_Queries[ i ] = h;
+			s_Queries[i] = h;
 			return i + 1;
 		}
 	}
@@ -150,7 +133,7 @@ void SourceSharp_PixelVisQueryDestroy( int32_t nQuery )
 		return;
 	CMatRenderContextPtr pRenderContext( materials );
 	pRenderContext->DestroyOcclusionQueryObject( h );
-	s_Queries[ nQuery - 1 ] = INVALID_OCCLUSION_QUERY_OBJECT_HANDLE;
+	s_Queries[nQuery - 1] = INVALID_OCCLUSION_QUERY_OBJECT_HANDLE;
 }
 
 void SourceSharp_PixelVisQueryReset( int32_t nQuery )
@@ -188,7 +171,7 @@ void SourceSharp_PixelVisDiameters( const float *pSpheres, int32_t nSpheres, flo
 	for ( int i = 0; i < nSpheres; i++ )
 	{
 		const float *s = pSpheres + i * 4;
-		pOut[ i ] = pRenderContext->ComputePixelDiameterOfSphere( Vector( s[0], s[1], s[2] ), s[3] );
+		pOut[i] = pRenderContext->ComputePixelDiameterOfSphere( Vector( s[0], s[1], s[2] ), s[3] );
 	}
 }
 
@@ -199,9 +182,9 @@ int32_t SourceSharp_PixelVisView( float *pOut, int32_t nFloats )
 		const Vector *axes[] = { &CurrentViewOrigin(), &CurrentViewForward(), &CurrentViewRight(), &CurrentViewUp() };
 		for ( int a = 0; a < 4; a++ )
 		{
-			pOut[ a * 3 ] = axes[ a ]->x;
-			pOut[ a * 3 + 1 ] = axes[ a ]->y;
-			pOut[ a * 3 + 2 ] = axes[ a ]->z;
+			pOut[a * 3] = axes[a]->x;
+			pOut[a * 3 + 1] = axes[a]->y;
+			pOut[a * 3 + 2] = axes[a]->z;
 		}
 	}
 	return CurrentViewID();
@@ -213,13 +196,13 @@ void ShellPixelVisEndView()
 	if ( !pManaged )
 		return;
 
-	float view[ SS_PIXELVIS_VIEW_FLOATS ];
+	float view[SS_PIXELVIS_VIEW_FLOATS];
 	view[0] = (float)CurrentViewID();
 	SourceSharp_PixelVisView( view + 1, 12 );
 	const VMatrix &m = engine->WorldToScreenMatrix();
 	for ( int r = 0; r < 4; r++ )
 		for ( int c = 0; c < 4; c++ )
-			view[ 13 + r * 4 + c ] = m[ r ][ c ];
+			view[13 + r * 4 + c] = m[r][c];
 
 	if ( s_Commands.Count() < 4096 )
 		s_Commands.SetCount( 4096 );

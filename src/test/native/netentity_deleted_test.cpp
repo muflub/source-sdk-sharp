@@ -40,15 +40,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub  = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -64,7 +64,11 @@ bool Exists( const std::string &strRelative )
 	return stat( ( std::string( pszRoot ) + "/" + strRelative ).c_str(), &st ) == 0;
 }
 
-struct File_t { const char *pszRel; const char *pszAnchor; };
+struct File_t
+{
+	const char *pszRel;
+	const char *pszAnchor;
+};
 
 } // namespace
 

@@ -8,56 +8,33 @@
 // SS_REASON g  leaf math over mdl/bsp data
 // The leaf sprite renderer's executor and the engine's sprite model.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "client_entity.h"
 #include "model_types.h"
-#include "view.h"
+
 #include "enginesprite.h"
-#include "engine/ivmodelinfo.h"
-#include "materialsystem/imaterial.h"
+
 #include "materialsystem/imaterialvar.h"
-#include "materialsystem/imaterialsystem.h"
-#include "tier1/KeyValues.h"
+
 #include "viewrender.h"
-#include "tier1/utlmap.h"
-#include "materialsystem/imesh.h"
-#include "mathlib/vector.h"
+
 #include "particles/particles.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
-#include "tier1/convar.h"
-#include "tier1/iconvar.h"
-#include "tier1/refcount.h"
-#include "tier1/strtools.h"
-#include "tier1/utlrbtree.h"
-#include "toolframework/itoolentity.h"
+
 #include "Sprite.h"
-#include "c_pixel_visibility.h"
-#include "cdll_client_int.h"
-#include "const.h"
-#include "iclientrenderable.h"
-#include "ivrenderview.h"
-#include "texture_group_names.h"
+
 #include "shell_effect_ledger.h"
 #include "shell_beam_render.h"
-#include "sourcesharp.h"
-#include "managed_runtime_client.h"
+
 #include "imanaged_areas_client.h"
 #include "shell_standalone_client.h"
 #include "ss_bitblock.h"
 
 #include <vector>
 
-ConVar	r_drawsprites( "r_drawsprites", "1", FCVAR_CHEAT );
+ConVar r_drawsprites( "r_drawsprites", "1", FCVAR_CHEAT );
 
 // Managed decides whether a sprite draws, its blend, colour, axes and quad; this reads the
 // sprite model and renderer into a float request and builds the mesh from the float plan.
@@ -67,29 +44,54 @@ ConVar	r_drawsprites( "r_drawsprites", "1", FCVAR_CHEAT );
 
 enum
 {
-	SS_SPRITE_IN_DRAW_SPRITES = 0, SS_SPRITE_IN_WIREFRAME_MODE, SS_SPRITE_IN_ORIENTATION,
-	SS_SPRITE_IN_LEFT, SS_SPRITE_IN_RIGHT, SS_SPRITE_IN_UP, SS_SPRITE_IN_DOWN,
-	SS_SPRITE_IN_WIDTH, SS_SPRITE_IN_HEIGHT,
-	SS_SPRITE_IN_ORIGIN, SS_SPRITE_IN_EFFECT_ORIGIN = SS_SPRITE_IN_ORIGIN + 3, SS_SPRITE_IN_ANGLES = SS_SPRITE_IN_EFFECT_ORIGIN + 3,
-	SS_SPRITE_IN_RENDER_MODE = SS_SPRITE_IN_ANGLES + 3, SS_SPRITE_IN_RENDER_FX, SS_SPRITE_IN_ALPHA,
-	SS_SPRITE_IN_R, SS_SPRITE_IN_G, SS_SPRITE_IN_B, SS_SPRITE_IN_SCALE, SS_SPRITE_IN_WORLD_SPACE_SCALE,
-	SS_SPRITE_IN_HDR_COLOR_SCALE, SS_SPRITE_IN_BLEND,
-	SS_SPRITE_IN_VIEW_FORWARD, SS_SPRITE_IN_VIEW_RIGHT = SS_SPRITE_IN_VIEW_FORWARD + 3, SS_SPRITE_IN_VIEW_UP = SS_SPRITE_IN_VIEW_RIGHT + 3,
+	SS_SPRITE_IN_DRAW_SPRITES = 0,
+	SS_SPRITE_IN_WIREFRAME_MODE,
+	SS_SPRITE_IN_ORIENTATION,
+	SS_SPRITE_IN_LEFT,
+	SS_SPRITE_IN_RIGHT,
+	SS_SPRITE_IN_UP,
+	SS_SPRITE_IN_DOWN,
+	SS_SPRITE_IN_WIDTH,
+	SS_SPRITE_IN_HEIGHT,
+	SS_SPRITE_IN_ORIGIN,
+	SS_SPRITE_IN_EFFECT_ORIGIN = SS_SPRITE_IN_ORIGIN + 3,
+	SS_SPRITE_IN_ANGLES = SS_SPRITE_IN_EFFECT_ORIGIN + 3,
+	SS_SPRITE_IN_RENDER_MODE = SS_SPRITE_IN_ANGLES + 3,
+	SS_SPRITE_IN_RENDER_FX,
+	SS_SPRITE_IN_ALPHA,
+	SS_SPRITE_IN_R,
+	SS_SPRITE_IN_G,
+	SS_SPRITE_IN_B,
+	SS_SPRITE_IN_SCALE,
+	SS_SPRITE_IN_WORLD_SPACE_SCALE,
+	SS_SPRITE_IN_HDR_COLOR_SCALE,
+	SS_SPRITE_IN_BLEND,
+	SS_SPRITE_IN_VIEW_FORWARD,
+	SS_SPRITE_IN_VIEW_RIGHT = SS_SPRITE_IN_VIEW_FORWARD + 3,
+	SS_SPRITE_IN_VIEW_UP = SS_SPRITE_IN_VIEW_RIGHT + 3,
 	SS_SPRITE_IN_GLOW_PROXY_SIZE = SS_SPRITE_IN_VIEW_UP + 3,
 	// The renderer's pixel visibility handle, its int bits in the float.
 	SS_SPRITE_IN_QUERY_HANDLE,
 	SS_SPRITE_IN_FLOATS,
 };
+
 COMPILE_TIME_ASSERT( SS_SPRITE_IN_FLOATS == 39 );
 
 enum
 {
-	SS_SPRITE_OUT_DRAWN = 0, SS_SPRITE_OUT_SET_BLEND, SS_SPRITE_OUT_BLEND, SS_SPRITE_OUT_QUAD, SS_SPRITE_OUT_WIREFRAME,
-	SS_SPRITE_OUT_RGBA, SS_SPRITE_OUT_CORNERS = SS_SPRITE_OUT_RGBA + 4, SS_SPRITE_OUT_HDR_COLOR_SCALE = SS_SPRITE_OUT_CORNERS + 12,
+	SS_SPRITE_OUT_DRAWN = 0,
+	SS_SPRITE_OUT_SET_BLEND,
+	SS_SPRITE_OUT_BLEND,
+	SS_SPRITE_OUT_QUAD,
+	SS_SPRITE_OUT_WIREFRAME,
+	SS_SPRITE_OUT_RGBA,
+	SS_SPRITE_OUT_CORNERS = SS_SPRITE_OUT_RGBA + 4,
+	SS_SPRITE_OUT_HDR_COLOR_SCALE = SS_SPRITE_OUT_CORNERS + 12,
 	// The handle as the query left it, stored back on the renderer.
 	SS_SPRITE_OUT_QUERY_HANDLE,
 	SS_SPRITE_OUT_FLOATS,
 };
+
 COMPILE_TIME_ASSERT( SS_SPRITE_OUT_FLOATS == 23 );
 
 static float HandleBits( pixelvis_handle_t h )
@@ -115,25 +117,30 @@ static pixelvis_handle_t *s_pPlanQuery = NULL;
 // The blend the last request was gathered under.
 static float s_flDirectBlend = 0.0f;
 
-static void PutVector( float *p, const Vector &v ) { p[0] = v.x; p[1] = v.y; p[2] = v.z; }
+static void PutVector( float *p, const Vector &v )
+{
+	p[0] = v.x;
+	p[1] = v.y;
+	p[2] = v.z;
+}
 
 static unsigned int s_nHDRColorScaleCache = 0;
 
 // What the draw needs that the plan does not carry.
 struct SpritePending_t
 {
-	CEngineSprite   *pSprite;
-	const model_t   *pModel;
-	IClientEntity   *pEntity;
-	float            flFrame;
-	int              nRenderMode;
+	CEngineSprite *pSprite;
+	const model_t *pModel;
+	IClientEntity *pEntity;
+	float flFrame;
+	int nRenderMode;
 };
 
 // False when there is nothing to plan (no sprite model, no managed half).
-static bool GatherSprite( IClientEntity *entity, const model_t *model,
-	const Vector &origin, const QAngle &angles, float frame, IClientEntity *attachedto, int attachmentindex,
-	int rendermode, int renderfx, int alpha, int r, int g, int b, float scale, bool bWorldSpaceScale,
-	float flHDRColorScale, float flGlowProxySize, float *in, SpritePending_t &pending )
+static bool GatherSprite( IClientEntity *entity, const model_t *model, const Vector &origin, const QAngle &angles,
+						  float frame, IClientEntity *attachedto, int attachmentindex, int rendermode, int renderfx,
+						  int alpha, int r, int g, int b, float scale, bool bWorldSpaceScale, float flHDRColorScale,
+						  float flGlowProxySize, float *in, SpritePending_t &pending )
 {
 	if ( !model || modelinfo->GetModelType( model ) != mod_sprite )
 		return false;
@@ -151,42 +158,42 @@ static bool GatherSprite( IClientEntity *entity, const model_t *model,
 		attachedto->GetAttachment( attachmentindex, effect_origin, temp );
 	}
 
-	in[ SS_SPRITE_IN_DRAW_SPRITES ]      = (float)r_drawsprites.GetInt();
-	in[ SS_SPRITE_IN_WIREFRAME_MODE ]    = ShouldDrawInWireFrameMode() ? 1.0f : 0.0f;
-	in[ SS_SPRITE_IN_ORIENTATION ]       = (float)psprite->GetOrientation();
-	in[ SS_SPRITE_IN_LEFT ]              = psprite->GetLeft();
-	in[ SS_SPRITE_IN_RIGHT ]             = psprite->GetRight();
-	in[ SS_SPRITE_IN_UP ]                = psprite->GetUp();
-	in[ SS_SPRITE_IN_DOWN ]              = psprite->GetDown();
-	in[ SS_SPRITE_IN_WIDTH ]             = (float)modelinfo->GetModelSpriteWidth( model );
-	in[ SS_SPRITE_IN_HEIGHT ]            = (float)modelinfo->GetModelSpriteHeight( model );
+	in[SS_SPRITE_IN_DRAW_SPRITES] = (float)r_drawsprites.GetInt();
+	in[SS_SPRITE_IN_WIREFRAME_MODE] = ShouldDrawInWireFrameMode() ? 1.0f : 0.0f;
+	in[SS_SPRITE_IN_ORIENTATION] = (float)psprite->GetOrientation();
+	in[SS_SPRITE_IN_LEFT] = psprite->GetLeft();
+	in[SS_SPRITE_IN_RIGHT] = psprite->GetRight();
+	in[SS_SPRITE_IN_UP] = psprite->GetUp();
+	in[SS_SPRITE_IN_DOWN] = psprite->GetDown();
+	in[SS_SPRITE_IN_WIDTH] = (float)modelinfo->GetModelSpriteWidth( model );
+	in[SS_SPRITE_IN_HEIGHT] = (float)modelinfo->GetModelSpriteHeight( model );
 	PutVector( in + SS_SPRITE_IN_ORIGIN, origin );
 	PutVector( in + SS_SPRITE_IN_EFFECT_ORIGIN, effect_origin );
-	in[ SS_SPRITE_IN_ANGLES + 0 ]        = angles.x;
-	in[ SS_SPRITE_IN_ANGLES + 1 ]        = angles.y;
-	in[ SS_SPRITE_IN_ANGLES + 2 ]        = angles.z;
-	in[ SS_SPRITE_IN_RENDER_MODE ]       = (float)rendermode;
-	in[ SS_SPRITE_IN_RENDER_FX ]         = (float)renderfx;
-	in[ SS_SPRITE_IN_ALPHA ]             = (float)alpha;
-	in[ SS_SPRITE_IN_R ]                 = (float)r;
-	in[ SS_SPRITE_IN_G ]                 = (float)g;
-	in[ SS_SPRITE_IN_B ]                 = (float)b;
-	in[ SS_SPRITE_IN_SCALE ]             = scale;
-	in[ SS_SPRITE_IN_WORLD_SPACE_SCALE ] = bWorldSpaceScale ? 1.0f : 0.0f;
-	in[ SS_SPRITE_IN_HDR_COLOR_SCALE ]   = flHDRColorScale;
+	in[SS_SPRITE_IN_ANGLES + 0] = angles.x;
+	in[SS_SPRITE_IN_ANGLES + 1] = angles.y;
+	in[SS_SPRITE_IN_ANGLES + 2] = angles.z;
+	in[SS_SPRITE_IN_RENDER_MODE] = (float)rendermode;
+	in[SS_SPRITE_IN_RENDER_FX] = (float)renderfx;
+	in[SS_SPRITE_IN_ALPHA] = (float)alpha;
+	in[SS_SPRITE_IN_R] = (float)r;
+	in[SS_SPRITE_IN_G] = (float)g;
+	in[SS_SPRITE_IN_B] = (float)b;
+	in[SS_SPRITE_IN_SCALE] = scale;
+	in[SS_SPRITE_IN_WORLD_SPACE_SCALE] = bWorldSpaceScale ? 1.0f : 0.0f;
+	in[SS_SPRITE_IN_HDR_COLOR_SCALE] = flHDRColorScale;
 	// The render's blend, or while managed prepares a view's draw batch, the one that
 	// entity's DrawModel will find.
-	in[ SS_SPRITE_IN_BLEND ]             = SourceSharp_StandaloneDrawBatchBlend( entity, render->GetBlend() );
-	s_flDirectBlend                      = in[ SS_SPRITE_IN_BLEND ];
+	in[SS_SPRITE_IN_BLEND] = SourceSharp_StandaloneDrawBatchBlend( entity, render->GetBlend() );
+	s_flDirectBlend = in[SS_SPRITE_IN_BLEND];
 	PutVector( in + SS_SPRITE_IN_VIEW_FORWARD, CurrentViewForward() );
 	PutVector( in + SS_SPRITE_IN_VIEW_RIGHT, CurrentViewRight() );
 	PutVector( in + SS_SPRITE_IN_VIEW_UP, CurrentViewUp() );
-	in[ SS_SPRITE_IN_GLOW_PROXY_SIZE ]   = flGlowProxySize;
+	in[SS_SPRITE_IN_GLOW_PROXY_SIZE] = flGlowProxySize;
 
-	pending.pSprite     = psprite;
-	pending.pModel      = model;
-	pending.pEntity     = entity;
-	pending.flFrame     = frame;
+	pending.pSprite = psprite;
+	pending.pModel = model;
+	pending.pEntity = entity;
+	pending.flFrame = frame;
 	pending.nRenderMode = rendermode;
 	return true;
 }
@@ -194,41 +201,41 @@ static bool GatherSprite( IClientEntity *entity, const model_t *model,
 // Carry out a plan: the blend, then the quad.
 static int ExecuteSprite( const SpritePending_t &pending, const float *out )
 {
-	if ( out[ SS_SPRITE_OUT_SET_BLEND ] != 0.0f )
-		render->SetBlend( out[ SS_SPRITE_OUT_BLEND ] );
+	if ( out[SS_SPRITE_OUT_SET_BLEND] != 0.0f )
+		render->SetBlend( out[SS_SPRITE_OUT_BLEND] );
 
-	if ( out[ SS_SPRITE_OUT_QUAD ] != 0.0f )
+	if ( out[SS_SPRITE_OUT_QUAD] != 0.0f )
 	{
 		IMaterial *material = pending.pSprite->GetMaterial( (RenderMode_t)pending.nRenderMode, pending.flFrame );
 		if ( material )
 		{
 			CMatRenderContextPtr pRenderContext( materials );
-			if ( out[ SS_SPRITE_OUT_WIREFRAME ] != 0.0f )
+			if ( out[SS_SPRITE_OUT_WIREFRAME] != 0.0f )
 			{
 				IMaterial *pMaterial = materials->FindMaterial( "debug/debugspritewireframe", TEXTURE_GROUP_OTHER );
 				pRenderContext->Bind( pMaterial, NULL );
 			}
 			else
 			{
-				pRenderContext->Bind( material, (IClientRenderable*)pending.pEntity );
+				pRenderContext->Bind( material, (IClientRenderable *)pending.pEntity );
 			}
 
 			IMaterialVar *pHDRColorScaleVar = material->FindVarFast( "$HDRCOLORSCALE", &s_nHDRColorScaleCache );
-			if( pHDRColorScaleVar )
+			if ( pHDRColorScaleVar )
 			{
-				const float flHDR = out[ SS_SPRITE_OUT_HDR_COLOR_SCALE ];
+				const float flHDR = out[SS_SPRITE_OUT_HDR_COLOR_SCALE];
 				pHDRColorScaleVar->SetVecValue( flHDR, flHDR, flHDR );
 			}
 
 			unsigned char color[4];
 			for ( int i = 0; i < 4; ++i )
-				color[i] = (unsigned char)out[ SS_SPRITE_OUT_RGBA + i ];
+				color[i] = (unsigned char)out[SS_SPRITE_OUT_RGBA + i];
 
 			float flMinU, flMinV, flMaxU, flMaxV;
 			pending.pSprite->GetTexCoordRange( &flMinU, &flMinV, &flMaxU, &flMaxV );
 			const float uv[4][2] = { { flMinU, flMaxV }, { flMinU, flMinV }, { flMaxU, flMinV }, { flMaxU, flMaxV } };
 
-			IMesh* pMesh = pRenderContext->GetDynamicMesh();
+			IMesh *pMesh = pRenderContext->GetDynamicMesh();
 			CMeshBuilder meshBuilder;
 			meshBuilder.Begin( pMesh, MATERIAL_QUADS, 1 );
 			for ( int i = 0; i < 4; ++i )
@@ -245,34 +252,33 @@ static int ExecuteSprite( const SpritePending_t &pending, const float *out )
 		}
 	}
 
-	return out[ SS_SPRITE_OUT_DRAWN ] != 0.0f ? 1 : 0;
+	return out[SS_SPRITE_OUT_DRAWN] != 0.0f ? 1 : 0;
 }
 
 // A draw native starts: asks the managed planner once.
 int SourceSharp_PlanSprite( pixelvis_handle_t *pQuery, IClientEntity *entity, const model_t *model,
-	const Vector &origin, const QAngle &angles, float frame, IClientEntity *attachedto, int attachmentindex,
-	int rendermode, int renderfx, int alpha, int r, int g, int b, float scale, bool bWorldSpaceScale,
-	float flHDRColorScale, float flGlowProxySize )
+							const Vector &origin, const QAngle &angles, float frame, IClientEntity *attachedto,
+							int attachmentindex, int rendermode, int renderfx, int alpha, int r, int g, int b,
+							float scale, bool bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize )
 {
-
 	IManagedFxClient *pFx = ManagedFxClient();
 	if ( !pFx )
 		return 0;
 
-	float in[ SS_SPRITE_IN_FLOATS ];
+	float in[SS_SPRITE_IN_FLOATS];
 	SpritePending_t pending;
-	if ( !GatherSprite( entity, model, origin, angles, frame, attachedto, attachmentindex, rendermode, renderfx,
-	                    alpha, r, g, b, scale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, in, pending ) )
+	if ( !GatherSprite( entity, model, origin, angles, frame, attachedto, attachmentindex, rendermode, renderfx, alpha,
+						r, g, b, scale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, in, pending ) )
 		return 0;
-	in[ SS_SPRITE_IN_QUERY_HANDLE ] = HandleBits( pQuery ? *pQuery : 0 );
+	in[SS_SPRITE_IN_QUERY_HANDLE] = HandleBits( pQuery ? *pQuery : 0 );
 
-	float out[ SS_SPRITE_OUT_FLOATS ];
+	float out[SS_SPRITE_OUT_FLOATS];
 	const int32_t nPlanned = pFx->SpritePlan( in, SS_SPRITE_IN_FLOATS, out, SS_SPRITE_OUT_FLOATS );
 
 	if ( nPlanned != SS_SPRITE_OUT_FLOATS )
 		return 0;
 	if ( pQuery )
-		*pQuery = HandleOf( out[ SS_SPRITE_OUT_QUERY_HANDLE ] );
+		*pQuery = HandleOf( out[SS_SPRITE_OUT_QUERY_HANDLE] );
 
 	return ExecuteSprite( pending, out );
 }
@@ -283,18 +289,18 @@ static SpritePending_t s_DirectPending;
 static bool s_bDirectPending = false;
 
 int SourceSharp_SpriteDrawBegin( pixelvis_handle_t *pQuery, IClientEntity *entity, const model_t *model,
-	const Vector &origin, const QAngle &angles, float frame, int rendermode, int renderfx, int alpha,
-	int r, int g, int b, float scale, bool bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize,
-	float *pIn )
+								 const Vector &origin, const QAngle &angles, float frame, int rendermode, int renderfx,
+								 int alpha, int r, int g, int b, float scale, bool bWorldSpaceScale,
+								 float flHDRColorScale, float flGlowProxySize, float *pIn )
 {
 	s_bDirectPending = false;
 	s_pPlanQuery = NULL;
 
-	if ( !pIn || !GatherSprite( entity, model, origin, angles, frame, NULL, 0, rendermode, renderfx, alpha,
-	                            r, g, b, scale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, pIn,
-	                            s_DirectPending ) )
+	if ( !pIn ||
+		 !GatherSprite( entity, model, origin, angles, frame, NULL, 0, rendermode, renderfx, alpha, r, g, b, scale,
+						bWorldSpaceScale, flHDRColorScale, flGlowProxySize, pIn, s_DirectPending ) )
 		return 0;
-	pIn[ SS_SPRITE_IN_QUERY_HANDLE ] = HandleBits( pQuery ? *pQuery : 0 );
+	pIn[SS_SPRITE_IN_QUERY_HANDLE] = HandleBits( pQuery ? *pQuery : 0 );
 
 	s_bDirectPending = true;
 	s_pPlanQuery = pQuery;
@@ -305,12 +311,11 @@ int SourceSharp_SpriteDrawBegin( pixelvis_handle_t *pQuery, IClientEntity *entit
 static void StorePlanQuery( const float *pOut )
 {
 	if ( s_pPlanQuery && pOut )
-		*s_pPlanQuery = HandleOf( pOut[ SS_SPRITE_OUT_QUERY_HANDLE ] );
+		*s_pPlanQuery = HandleOf( pOut[SS_SPRITE_OUT_QUERY_HANDLE] );
 }
 
 int32_t SourceSharp_FxSpriteDrawEnd( const float *pOut )
 {
-
 	const bool bPending = s_bDirectPending;
 	StorePlanQuery( pOut );
 	s_bDirectPending = false;
@@ -327,8 +332,8 @@ int32_t SourceSharp_FxSpriteDrawEnd( const float *pOut )
 struct SpriteStored_t
 {
 	SpritePending_t pending;
-	float           out[ SS_SPRITE_OUT_FLOATS ];
-	float           flBlend;
+	float out[SS_SPRITE_OUT_FLOATS];
+	float flBlend;
 };
 
 static CUtlMap<IClientEntity *, SpriteStored_t> s_StoredSprites( DefLessFunc( IClientEntity * ) );
@@ -370,27 +375,14 @@ void SourceSharp_SpriteStoredClear()
 }
 
 // The stock proxy size, and a scale already in multiples of the sprite's size.
-int C_SpriteRenderer::DrawSprite( 
-	IClientEntity *entity,
-	const model_t *model, 
-	const Vector& origin, 
-	const QAngle& angles,
-	float frame,
-	IClientEntity *attachedto,
-	int attachmentindex,
-	int rendermode,
-	int renderfx,
-	int alpha,
-	int r, 
-	int g, 
-	int b,
-	float scale,
-	float flHDRColorScale
-	)
+int C_SpriteRenderer::DrawSprite( IClientEntity *entity, const model_t *model, const Vector &origin,
+								  const QAngle &angles, float frame, IClientEntity *attachedto, int attachmentindex,
+								  int rendermode, int renderfx, int alpha, int r, int g, int b, float scale,
+								  float flHDRColorScale )
 {
 	return SourceSharp_PlanSprite( &m_queryHandle, entity, model, origin, angles, frame, attachedto, attachmentindex,
-		rendermode, renderfx, alpha, r, g, b, scale, /*bWorldSpaceScale=*/false, flHDRColorScale,
-		PIXELVIS_DEFAULT_PROXY_SIZE );
+								   rendermode, renderfx, alpha, r, g, b, scale, /*bWorldSpaceScale=*/false,
+								   flHDRColorScale, PIXELVIS_DEFAULT_PROXY_SIZE );
 }
 
 // Virtual in Sprite.h, so C_LocalTempEntity's vtable names it. The glow blend is decided
@@ -417,7 +409,11 @@ static bool SpriteModeHasMaterial( int nMode )
 // Managed resolves the sprite's material name and loads its .vmt, answering both in one
 // block: the name NUL-terminated, then the .vmt's root in preorder, each key a type byte,
 // its name, its value by type and a uint32 child count. Native rebuilds the KeyValues.
-enum { kSpriteBlockBytes = 64 * 1024, kSpriteMaxDepth = 128 };
+enum
+{
+	kSpriteBlockBytes = 64 * 1024,
+	kSpriteMaxDepth = 128
+};
 
 namespace
 {
@@ -465,12 +461,35 @@ KeyValues *ReadSpriteKey( SpriteBlockReader &r, int nDepth )
 	KeyValues *kv = new KeyValues( pszName );
 	switch ( nType )
 	{
-	case KeyValues::TYPE_STRING: kv->SetStringValue( r.CString() ); break;
-	case KeyValues::TYPE_INT: { int32_t n = 0; if ( r.Bytes( &n, 4 ) ) kv->SetInt( NULL, n ); break; }
-	case KeyValues::TYPE_FLOAT: { float fl = 0; if ( r.Bytes( &fl, 4 ) ) kv->SetFloat( NULL, fl ); break; }
-	case KeyValues::TYPE_UINT64: { uint64_t u = 0; if ( r.Bytes( &u, 8 ) ) kv->SetUint64( NULL, u ); break; }
-	case KeyValues::TYPE_NONE: break;
-	default: r.m_bOk = false; break;
+		case KeyValues::TYPE_STRING:
+			kv->SetStringValue( r.CString() );
+			break;
+		case KeyValues::TYPE_INT:
+		{
+			int32_t n = 0;
+			if ( r.Bytes( &n, 4 ) )
+				kv->SetInt( NULL, n );
+			break;
+		}
+		case KeyValues::TYPE_FLOAT:
+		{
+			float fl = 0;
+			if ( r.Bytes( &fl, 4 ) )
+				kv->SetFloat( NULL, fl );
+			break;
+		}
+		case KeyValues::TYPE_UINT64:
+		{
+			uint64_t u = 0;
+			if ( r.Bytes( &u, 8 ) )
+				kv->SetUint64( NULL, u );
+			break;
+		}
+		case KeyValues::TYPE_NONE:
+			break;
+		default:
+			r.m_bOk = false;
+			break;
 	}
 
 	uint32_t nChildren = 0;
@@ -507,7 +526,8 @@ bool CEngineSprite::Init( const char *pName )
 	std::vector<uint8_t> block( ss::kBitBlockHeaderBytes + kSpriteBlockBytes );
 	const int nBytes = pFiles->SpriteMaterial( pName, block.data(), (int32_t)block.size() );
 	if ( nBytes == -2 )
-		Warning( "[SourceSharp] sprite %s: its material file is over %d bytes as a block; not loaded\n", pName, (int)kSpriteBlockBytes );
+		Warning( "[SourceSharp] sprite %s: its material file is over %d bytes as a block; not loaded\n", pName,
+				 (int)kSpriteBlockBytes );
 	if ( nBytes < 0 )
 		return false;
 
@@ -535,8 +555,8 @@ bool CEngineSprite::Init( const char *pName )
 
 		char szProcedural[MAX_PATH];
 		Q_snprintf( szProcedural, sizeof( szProcedural ), "%s_rendermode_%d", szMaterial, nMode );
-		m_material[nMode] = g_pMaterialSystem->FindProceduralMaterial( szProcedural, TEXTURE_GROUP_CLIENT_EFFECTS,
-		                                                               pModeVmt );
+		m_material[nMode] =
+			g_pMaterialSystem->FindProceduralMaterial( szProcedural, TEXTURE_GROUP_CLIENT_EFFECTS, pModeVmt );
 		if ( !m_material[nMode] )
 			return false;
 		m_material[nMode]->IncrementReferenceCount();

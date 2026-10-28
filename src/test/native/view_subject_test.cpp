@@ -174,15 +174,14 @@ TEST( DeEntitiedInPlace, TheSixAreStillInTheBuild )
 	// is still compiled by client_sourcesharp (src/client/native/CMakeLists.txt,
 	// read through cmake_graph.h), and a step that de-entitied a file by
 	// evicting it would have done something else than what 7c says.
-	const char *kInBuild[] =
-	{
-		"sourcesharp/game/client/shell_viewrender_client.cpp",   // view.cpp's and viewrender.cpp's (C7 step 3)
+	const char *kInBuild[] = {
+		"sourcesharp/game/client/shell_viewrender_client.cpp", // view.cpp's and viewrender.cpp's (C7 step 3)
 		"sourcesharp/game/client/shell_view_facts.cpp",
 	};
-	for ( size_t i = 0; i < sizeof( kInBuild ) / sizeof( kInBuild[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kInBuild ) / sizeof( kInBuild[0] ); i++ )
 	{
-		EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kInBuild[ i ] ) )
-			<< kInBuild[ i ] << " is not compiled by client_sourcesharp";
+		EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kInBuild[i] ) )
+			<< kInBuild[i] << " is not compiled by client_sourcesharp";
 	}
 }
 

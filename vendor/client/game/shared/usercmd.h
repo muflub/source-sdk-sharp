@@ -1,10 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #pragma once
 
-#include "mathlib/vector.h"
-#include "utlvector.h"
 #include "imovehelper.h"
-#include "checksum_crc.h"
 
 class bf_read;
 class bf_write;
@@ -12,12 +9,9 @@ class bf_write;
 class CUserCmd
 {
 public:
-	CUserCmd()
-	{
-		Reset();
-	}
+	CUserCmd() { Reset(); }
 
-	virtual ~CUserCmd() { };
+	virtual ~CUserCmd() {};
 
 	void Reset()
 	{
@@ -38,34 +32,31 @@ public:
 		hasbeenpredicted = false;
 	}
 
-	CUserCmd& operator =( const CUserCmd& src )
+	CUserCmd &operator=( const CUserCmd &src )
 	{
 		if ( this == &src )
 			return *this;
 
-		command_number		= src.command_number;
-		tick_count			= src.tick_count;
-		viewangles			= src.viewangles;
-		forwardmove			= src.forwardmove;
-		sidemove			= src.sidemove;
-		upmove				= src.upmove;
-		buttons				= src.buttons;
-		impulse				= src.impulse;
-		weaponselect		= src.weaponselect;
-		weaponsubtype		= src.weaponsubtype;
-		random_seed			= src.random_seed;
-		mousedx				= src.mousedx;
-		mousedy				= src.mousedy;
+		command_number = src.command_number;
+		tick_count = src.tick_count;
+		viewangles = src.viewangles;
+		forwardmove = src.forwardmove;
+		sidemove = src.sidemove;
+		upmove = src.upmove;
+		buttons = src.buttons;
+		impulse = src.impulse;
+		weaponselect = src.weaponselect;
+		weaponsubtype = src.weaponsubtype;
+		random_seed = src.random_seed;
+		mousedx = src.mousedx;
+		mousedy = src.mousedy;
 
-		hasbeenpredicted	= src.hasbeenpredicted;
+		hasbeenpredicted = src.hasbeenpredicted;
 
 		return *this;
 	}
 
-	CUserCmd( const CUserCmd& src )
-	{
-		*this = src;
-	}
+	CUserCmd( const CUserCmd &src ) { *this = src; }
 
 	CRC32_t GetChecksum() const
 	{
@@ -74,13 +65,13 @@ public:
 		CRC32_Init( &crc );
 		CRC32_ProcessBuffer( &crc, &command_number, sizeof( command_number ) );
 		CRC32_ProcessBuffer( &crc, &tick_count, sizeof( tick_count ) );
-		CRC32_ProcessBuffer( &crc, &viewangles, sizeof( viewangles ) );    
-		CRC32_ProcessBuffer( &crc, &forwardmove, sizeof( forwardmove ) );   
-		CRC32_ProcessBuffer( &crc, &sidemove, sizeof( sidemove ) );      
-		CRC32_ProcessBuffer( &crc, &upmove, sizeof( upmove ) );         
-		CRC32_ProcessBuffer( &crc, &buttons, sizeof( buttons ) );		
-		CRC32_ProcessBuffer( &crc, &impulse, sizeof( impulse ) );        
-		CRC32_ProcessBuffer( &crc, &weaponselect, sizeof( weaponselect ) );	
+		CRC32_ProcessBuffer( &crc, &viewangles, sizeof( viewangles ) );
+		CRC32_ProcessBuffer( &crc, &forwardmove, sizeof( forwardmove ) );
+		CRC32_ProcessBuffer( &crc, &sidemove, sizeof( sidemove ) );
+		CRC32_ProcessBuffer( &crc, &upmove, sizeof( upmove ) );
+		CRC32_ProcessBuffer( &crc, &buttons, sizeof( buttons ) );
+		CRC32_ProcessBuffer( &crc, &impulse, sizeof( impulse ) );
+		CRC32_ProcessBuffer( &crc, &weaponselect, sizeof( weaponselect ) );
 		CRC32_ProcessBuffer( &crc, &weaponsubtype, sizeof( weaponsubtype ) );
 		CRC32_ProcessBuffer( &crc, &random_seed, sizeof( random_seed ) );
 		CRC32_ProcessBuffer( &crc, &mousedx, sizeof( mousedx ) );
@@ -91,36 +82,35 @@ public:
 	}
 
 	// For matching server and client commands for debugging
-	int		command_number;
-	
+	int command_number;
+
 	// the tick the client created this command
-	int		tick_count;
-	
+	int tick_count;
+
 	// Player instantaneous view angles.
-	QAngle	viewangles;     
+	QAngle viewangles;
 	// Intended velocities
 	//	forward velocity.
-	float	forwardmove;   
+	float forwardmove;
 	//  sideways velocity.
-	float	sidemove;      
+	float sidemove;
 	//  upward velocity.
-	float	upmove;         
+	float upmove;
 	// Attack button states
-	int		buttons;		
+	int buttons;
 	// Impulse command issued.
-	byte    impulse;        
+	byte impulse;
 	// Current weapon id
-	int		weaponselect;	
-	int		weaponsubtype;
+	int weaponselect;
+	int weaponsubtype;
 
-	int		random_seed;	// For shared random functions
+	int random_seed; // For shared random functions
 
-	short	mousedx;		// mouse accum in x from create move
-	short	mousedy;		// mouse accum in y from create move
+	short mousedx; // mouse accum in x from create move
+	short mousedy; // mouse accum in y from create move
 
 	// Client only, tracks whether we've predicted this command at least once
-	bool	hasbeenpredicted;
+	bool hasbeenpredicted;
 
 	// Back channel to communicate IK state
-
 };

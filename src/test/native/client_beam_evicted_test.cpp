@@ -115,22 +115,20 @@ const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 // list from answering "excluded" for everything.
 bool Excludes( const char *pszTarget, const std::string &strPath )
 {
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( pszTarget );
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( pszTarget );
 
-	EXPECT_TRUE( compiled.count( kProofOfRead ) )
-		<< pszTarget << " does not compile " << kProofOfRead
-		<< " -- this is not the target's source list, and every exclusion "
-		   "below would pass vacuously";
+	EXPECT_TRUE( compiled.count( kProofOfRead ) ) << pszTarget << " does not compile " << kProofOfRead
+												  << " -- this is not the target's source list, and every exclusion "
+													 "below would pass vacuously";
 
 	const std::string strBase = strPath.substr( strPath.rfind( '/' ) + 1 );
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
 	{
 		if ( it->substr( it->rfind( '/' ) + 1 ) == strBase )
 			return false;
 	}
 	return true;
 }
-
 
 } // namespace
 

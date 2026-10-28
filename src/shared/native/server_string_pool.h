@@ -37,12 +37,19 @@ protected:
 	struct Less
 	{
 		typedef void is_transparent;
-		static const char *C( const char *p )        { return p; }
+
+		static const char *C( const char *p ) { return p; }
+
 		static const char *C( const std::string &s ) { return s.c_str(); }
-		template < class A, class B >
-		bool operator()( const A &a, const B &b ) const { return ss::StrICmp( C( a ), C( b ) ) < 0; }
+
+		template <class A, class B>
+		bool operator()( const A &a, const B &b ) const
+		{
+			return ss::StrICmp( C( a ), C( b ) ) < 0;
+		}
 	};
-	typedef std::set< std::string, Less > Set;
+
+	typedef std::set<std::string, Less> Set;
 
 	Set m_Strings;
 };

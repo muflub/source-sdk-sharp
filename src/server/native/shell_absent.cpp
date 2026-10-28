@@ -10,14 +10,12 @@
 // Definitions the server link still imports from removed stock files.
 
 #include <cstddef>
-#include "string_t.h"
-#include "utlvector.h"
+
 #include "ss_shareddefs.h"
-#include "ss_soundent.h"
+
 #include "igamerules.h"
 #include "ss_effect_dispatch.h"
-#include "sourcesharp.h"
-#include "imanaged_areas.h"
+
 #include "ss_takedamageinfo.h"
 
 uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
@@ -28,10 +26,10 @@ class CFunctor;
 // env_blood and bullet impacts through SourceSharp_BloodEffect.
 void UTIL_BloodSpray( const Vector &pos, const Vector &dir, int color, int amount, int flags )
 {
-	if( color == ss::DONT_BLEED )
+	if ( color == ss::DONT_BLEED )
 		return;
 
-	ss::CEffectData	data;
+	ss::CEffectData data;
 
 	data.m_vOrigin = pos;
 	data.m_vNormal = dir;

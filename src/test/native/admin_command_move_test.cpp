@@ -43,7 +43,7 @@
 namespace
 {
 
-const char *const kShim      = "sourcesharp/game/server/shell_commandclient.cpp";
+const char *const kShim = "sourcesharp/game/server/shell_commandclient.cpp";
 
 } // anonymous namespace
 
@@ -64,7 +64,8 @@ TEST( AdminCommandMove, TheServerCompilesTheShimFile )
 	// cmake_graph throws on a missing, empty or stale compile database, so a
 	// reader that saw nothing cannot answer here.
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kShim ) )
-		<< kShim << " is not compiled into server_sourcesharp "
+		<< kShim
+		<< " is not compiled into server_sourcesharp "
 		   "(src/server/native/CMakeLists.txt): without it the definition is "
 		   "not linked and the server does not build";
 }
@@ -76,4 +77,3 @@ TEST( AdminCommandMove, TheServerCompilesTheShimFile )
 //=============================================================================//
 // 4. THE HELPER IT DEPENDS ON IS IN THE SAME FILE — that is why it came here
 //=============================================================================//
-

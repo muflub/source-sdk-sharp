@@ -56,9 +56,9 @@ namespace
 // a suffix match -- "c_baseentity.cpp" must not answer for "baseentity.cpp".
 bool Compiles( const char *pszTarget, const char *pszBasename )
 {
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( pszTarget );
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( pszTarget );
 	const std::string base( pszBasename );
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
 	{
 		const size_t slash = it->find_last_of( '/' );
 		if ( ( slash == std::string::npos ? *it : it->substr( slash + 1 ) ) == base )
@@ -141,13 +141,13 @@ TEST( ServerWave2, StockUserMessagesCppIsOutOfBothBuilds )
 		"shell_usermessages.cpp",
 	};
 
-	for ( size_t i = 0; i < sizeof( pszGone ) / sizeof( pszGone[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( pszGone ) / sizeof( pszGone[0] ); i++ )
 	{
-		EXPECT_FALSE( Compiles( cmake_graph::kServer, pszGone[ i ] ) )
-			<< pszGone[ i ] << " is back in the server list: a second user-message "
+		EXPECT_FALSE( Compiles( cmake_graph::kServer, pszGone[i] ) )
+			<< pszGone[i] << " is back in the server list: a second user-message "
 			<< "registry beside C#'s.";
-		EXPECT_FALSE( Compiles( cmake_graph::kClient, pszGone[ i ] ) )
-			<< pszGone[ i ] << " is back in the client list: a second user-message "
+		EXPECT_FALSE( Compiles( cmake_graph::kClient, pszGone[i] ) )
+			<< pszGone[i] << " is back in the client list: a second user-message "
 			<< "registry beside C#'s.";
 	}
 }

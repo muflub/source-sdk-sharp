@@ -19,8 +19,7 @@
 namespace
 {
 
-const SourceSharpExposed *const kExposed[] =
-{
+const SourceSharpExposed *const kExposed[] = {
 	&kExposeServerGameDll,
 	&kExposeServerGameEnts,
 	&kExposeServerGameClients,

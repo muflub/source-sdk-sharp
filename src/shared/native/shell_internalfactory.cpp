@@ -10,18 +10,16 @@
 // singleton out, NULL for a name it does not serve. Not exported; managed reaches
 // it through the root. It answers from DLL load, before the engine factories exist.
 
-
-#include "sourcesharp.h"
 #include "shell_vtable_interfaces.h"
 #include "ss_string.h"
 #include "ishim_root.h"
 #include "shell_shim_console.h"
 #include "shell_shim_areas.h"
 #include "ss_fwd.h"
-#include "imanaged_root.h"
+
 #include "managed_accept.h"
 #ifndef CLIENT_DLL
-#include "sourcesharp_gamesystem.h"
+
 #include "shell_managed_areas.h"
 #include "shell_shim_root_server.h"
 #else
@@ -36,7 +34,6 @@ void *ShadowEnv_Acquire();
 #include "ishim_frame.h"
 #include "ishim_level.h"
 #endif
-
 
 #ifndef CLIENT_DLL
 // Defined in shell_frame.cpp.
@@ -87,7 +84,7 @@ void *CShimRootServer::Acquire( const char *pszName )
 		return NULL;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONSOLE_VERSION ) )
-		return static_cast< IShimConsole * >( &m_Console );
+		return static_cast<IShimConsole *>( &m_Console );
 
 	// The forwarder libraries' tables, by the name managed asks for (SSFwd_<table>).
 	if ( void *pTable = SSFwd_Serve( pszName ) )
@@ -107,8 +104,7 @@ void *CShimRootServer::Acquire( const char *pszName )
 	return NULL;
 }
 
-void *CShimRootServer::AcquireInterface( int32_t nType, const char *pszVersion,
-                                         char *pError, int32_t nErrorBytes )
+void *CShimRootServer::AcquireInterface( int32_t nType, const char *pszVersion, char *pError, int32_t nErrorBytes )
 {
 	// This side's own interfaces come from the root; engine factory kinds go to
 	// the acquisition entry point.
@@ -120,8 +116,7 @@ void *CShimRootServer::AcquireInterface( int32_t nType, const char *pszVersion,
 		return pShim;
 	}
 
-	return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion,
-	                                     pError, nErrorBytes );
+	return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes );
 }
 #endif
 
@@ -133,21 +128,14 @@ namespace
 class CShimRoot : public IShimRoot
 {
 public:
-	void *Acquire( const char *pszName ) override
+	void *Acquire( const char *pszName ) override { return SourceSharp_InternalFactory( pszName ); }
+
+	void *AcquireInterface( int32_t nType, const char *pszVersion, char *pError, int32_t nErrorBytes ) override
 	{
-		return SourceSharp_InternalFactory( pszName );
+		return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes );
 	}
 
-	void *AcquireInterface( int32_t nType, const char *pszVersion,
-	                        char *pError, int32_t nErrorBytes ) override
-	{
-		return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion,
-		                                     pError, nErrorBytes );
-	}
-
-	void Release() override
-	{
-	}
+	void Release() override {}
 
 	CShimConsole m_Console;
 	CShimAreasClient m_ClientAreas;
@@ -193,8 +181,8 @@ IManagedRoot *ManagedRoot_Get()
 bool ManagedRoot_Accept( void *pObject, char *pWhy, size_t nWhy )
 {
 	CManagedHolders &managed = ShellGameDll_Managed();
-	managed.m_pRoot = ManagedAccept< IManagedRoot >( pObject, kIManagedRootSlotHashes,
-	                                                 kIManagedRootSlotCount, pWhy, nWhy );
+	managed.m_pRoot =
+		ManagedAccept<IManagedRoot>( pObject, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy );
 	return managed.m_pRoot != NULL;
 }
 
@@ -209,8 +197,8 @@ bool ManagedRoot_AcquireAreas( char *pWhy, size_t nWhy )
 	}
 
 	void *pRuntime = pRoot->Acquire( "IManagedRuntimeServer" );
-	managed.m_pRuntimeServer = ManagedAccept< IManagedRuntimeServer >( pRuntime, kIManagedRuntimeServerSlotHashes,
-	                                                                   kIManagedRuntimeServerSlotCount, pWhy, nWhy );
+	managed.m_pRuntimeServer = ManagedAccept<IManagedRuntimeServer>( pRuntime, kIManagedRuntimeServerSlotHashes,
+																	 kIManagedRuntimeServerSlotCount, pWhy, nWhy );
 	if ( !managed.m_pRuntimeServer )
 		return false;
 
@@ -224,15 +212,15 @@ bool ManagedRoot_Reattached( void *pObject, char *pWhy, size_t nWhy )
 	CManagedHolders &managed = ShellGameDll_Managed();
 	if ( pObject != managed.m_pRoot )
 	{
-		snprintf( pWhy, nWhy, "the reload handed back a different root (%p; native holds %p)",
-		          pObject, (void *)managed.m_pRoot );
+		snprintf( pWhy, nWhy, "the reload handed back a different root (%p; native holds %p)", pObject,
+				  (void *)managed.m_pRoot );
 		return false;
 	}
 
-	return ManagedAcceptObject( managed.m_pRoot, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy )
-		&& ManagedAcceptObject( managed.m_pRuntimeServer, kIManagedRuntimeServerSlotHashes,
-		                        kIManagedRuntimeServerSlotCount, pWhy, nWhy )
-		&& ManagedAreas_Validate( managed.m_Areas, pWhy, nWhy );
+	return ManagedAcceptObject( managed.m_pRoot, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy ) &&
+		ManagedAcceptObject( managed.m_pRuntimeServer, kIManagedRuntimeServerSlotHashes,
+							 kIManagedRuntimeServerSlotCount, pWhy, nWhy ) &&
+		ManagedAreas_Validate( managed.m_Areas, pWhy, nWhy );
 }
 
 IManagedRuntimeServer *ManagedRuntimeServer()
@@ -258,8 +246,8 @@ IManagedRoot *ManagedRoot_Get()
 bool ManagedRoot_Accept( void *pObject, char *pWhy, size_t nWhy )
 {
 	CManagedHoldersClient &managed = ShellClientDll_Managed();
-	managed.m_pRoot = ManagedAccept< IManagedRoot >( pObject, kIManagedRootSlotHashes,
-	                                                 kIManagedRootSlotCount, pWhy, nWhy );
+	managed.m_pRoot =
+		ManagedAccept<IManagedRoot>( pObject, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy );
 	return managed.m_pRoot != NULL;
 }
 
@@ -274,8 +262,8 @@ bool ManagedRoot_AcquireAreas( char *pWhy, size_t nWhy )
 	}
 
 	void *pRuntime = pRoot->Acquire( "IManagedRuntimeClient" );
-	managed.m_pRuntimeClient = ManagedAccept< IManagedRuntimeClient >( pRuntime, kIManagedRuntimeClientSlotHashes,
-	                                                                   kIManagedRuntimeClientSlotCount, pWhy, nWhy );
+	managed.m_pRuntimeClient = ManagedAccept<IManagedRuntimeClient>( pRuntime, kIManagedRuntimeClientSlotHashes,
+																	 kIManagedRuntimeClientSlotCount, pWhy, nWhy );
 	if ( !managed.m_pRuntimeClient )
 		return false;
 
@@ -287,15 +275,15 @@ bool ManagedRoot_Reattached( void *pObject, char *pWhy, size_t nWhy )
 	CManagedHoldersClient &managed = ShellClientDll_Managed();
 	if ( pObject != managed.m_pRoot )
 	{
-		snprintf( pWhy, nWhy, "the reload handed back a different root (%p; native holds %p)",
-		          pObject, (void *)managed.m_pRoot );
+		snprintf( pWhy, nWhy, "the reload handed back a different root (%p; native holds %p)", pObject,
+				  (void *)managed.m_pRoot );
 		return false;
 	}
 
-	return ManagedAcceptObject( managed.m_pRoot, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy )
-		&& ManagedAcceptObject( managed.m_pRuntimeClient, kIManagedRuntimeClientSlotHashes,
-		                        kIManagedRuntimeClientSlotCount, pWhy, nWhy )
-		&& ManagedAreasClient_Validate( managed.m_Areas, pWhy, nWhy );
+	return ManagedAcceptObject( managed.m_pRoot, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy ) &&
+		ManagedAcceptObject( managed.m_pRuntimeClient, kIManagedRuntimeClientSlotHashes,
+							 kIManagedRuntimeClientSlotCount, pWhy, nWhy ) &&
+		ManagedAreasClient_Validate( managed.m_Areas, pWhy, nWhy );
 }
 
 IManagedRuntimeClient *ManagedRuntimeClient()
@@ -315,7 +303,7 @@ void ManagedRoot_Release()
 #ifdef CLIENT_DLL
 void *ShimConsole_Acquire()
 {
-	return static_cast< IShimConsole * >( &g_ShimRoot.m_Console );
+	return static_cast<IShimConsole *>( &g_ShimRoot.m_Console );
 }
 #endif
 

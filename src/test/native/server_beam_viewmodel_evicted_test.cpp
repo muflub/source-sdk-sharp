@@ -75,15 +75,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -113,7 +113,8 @@ struct File_t
 // (src/client/native/CMakeLists.txt). Until Phase 6b it was server_csharp.vpc
 // and client_csharp.vpc. The proof-of-read is the same shim on both sides.
 const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
-   // the trace slots left at plan_server_native_v2 T4f
+
+// the trace slots left at plan_server_native_v2 T4f
 
 // Does this target leave the file out of the build?
 //
@@ -125,15 +126,14 @@ const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 // answering "excluded" for everything.
 bool Excludes( const char *pszTarget, const std::string &strPath )
 {
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( pszTarget );
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( pszTarget );
 
-	EXPECT_TRUE( compiled.count( kProofOfRead ) )
-		<< pszTarget << " does not compile " << kProofOfRead
-		<< " -- this is not the target's source list, and every exclusion "
-		   "below would pass vacuously";
+	EXPECT_TRUE( compiled.count( kProofOfRead ) ) << pszTarget << " does not compile " << kProofOfRead
+												  << " -- this is not the target's source list, and every exclusion "
+													 "below would pass vacuously";
 
 	const std::string strBase = strPath.substr( strPath.rfind( '/' ) + 1 );
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
 	{
 		if ( it->substr( it->rfind( '/' ) + 1 ) == strBase )
 			return false;
@@ -147,12 +147,13 @@ bool EndsWith( const std::string &s, const char *pszSuffix )
 	return s.size() >= suf.size() && s.compare( s.size() - suf.size(), suf.size(), suf ) == 0;
 }
 
-std::string Join( const std::set< std::string > &s )
+std::string Join( const std::set<std::string> &s )
 {
 	std::string out;
-	for ( std::set< std::string >::const_iterator it = s.begin(); it != s.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = s.begin(); it != s.end(); ++it )
 	{
-		if ( !out.empty() ) out += ", ";
+		if ( !out.empty() )
+			out += ", ";
 		out += *it;
 	}
 	return out.empty() ? std::string( "<nothing>" ) : out;
@@ -184,9 +185,9 @@ std::string ReadWholeBinary( const std::string &strPath )
 }
 
 // Every map file, as <relative-to-repo-root, whole contents>.
-const std::vector< std::pair< std::string, std::string > > &MapFiles()
+const std::vector<std::pair<std::string, std::string>> &MapFiles()
 {
-	static std::vector< std::pair< std::string, std::string > > s_maps;
+	static std::vector<std::pair<std::string, std::string>> s_maps;
 	static bool s_bDone = false;
 	if ( !s_bDone )
 	{
@@ -198,10 +199,10 @@ const std::vector< std::pair< std::string, std::string > > &MapFiles()
 			// matched, because all three name the src directory itself.
 			const std::string repo = std::string( pszSrc ) + "/..";
 			static const char *kDirs[] = { "game/mod_sharp/maps", "maps" };
-			for ( size_t d = 0; d < sizeof( kDirs ) / sizeof( kDirs[ 0 ] ); d++ )
+			for ( size_t d = 0; d < sizeof( kDirs ) / sizeof( kDirs[0] ); d++ )
 			{
-				std::vector< std::string > names;
-				DIR *pDir = opendir( ( repo + "/" + kDirs[ d ] ).c_str() );
+				std::vector<std::string> names;
+				DIR *pDir = opendir( ( repo + "/" + kDirs[d] ).c_str() );
 				if ( !pDir )
 					continue;
 				struct dirent *pEnt;
@@ -214,7 +215,7 @@ const std::vector< std::pair< std::string, std::string > > &MapFiles()
 				closedir( pDir );
 				for ( size_t i = 0; i < names.size(); i++ )
 				{
-					const std::string rel = std::string( kDirs[ d ] ) + "/" + names[ i ];
+					const std::string rel = std::string( kDirs[d] ) + "/" + names[i];
 					const std::string body = ReadWholeBinary( repo + "/" + rel );
 					if ( !body.empty() )
 						s_maps.push_back( std::make_pair( rel, body ) );
@@ -226,15 +227,15 @@ const std::vector< std::pair< std::string, std::string > > &MapFiles()
 }
 
 // Which maps declare `"classname" "<name>"`.
-std::set< std::string > MapsDeclaring( const char *pszClassName )
+std::set<std::string> MapsDeclaring( const char *pszClassName )
 {
-	std::set< std::string > out;
+	std::set<std::string> out;
 	const std::string needle = std::string( "\"classname\" \"" ) + pszClassName + "\"";
-	const std::vector< std::pair< std::string, std::string > > &maps = MapFiles();
+	const std::vector<std::pair<std::string, std::string>> &maps = MapFiles();
 	for ( size_t i = 0; i < maps.size(); i++ )
 	{
-		if ( maps[ i ].second.find( needle ) != std::string::npos )
-			out.insert( maps[ i ].first );
+		if ( maps[i].second.find( needle ) != std::string::npos )
+			out.insert( maps[i].first );
 	}
 	return out;
 }
@@ -248,31 +249,31 @@ struct ClassName_t
 };
 
 const ClassName_t kClassNames[] = {
-	{ "beam",      "ss_beam" },
+	{ "beam", "ss_beam" },
 	{ "viewmodel", "ss_viewmodel" },
 };
-const size_t kClassNameCount = sizeof( kClassNames ) / sizeof( kClassNames[ 0 ] );
+const size_t kClassNameCount = sizeof( kClassNames ) / sizeof( kClassNames[0] );
 
 } // namespace
 
 TEST( ServerBeamViewModelEvicted, TheMapWalkReadsTheMaps )
 {
-	const std::vector< std::pair< std::string, std::string > > &maps = MapFiles();
+	const std::vector<std::pair<std::string, std::string>> &maps = MapFiles();
 
-	std::set< std::string > names;
+	std::set<std::string> names;
 	for ( size_t i = 0; i < maps.size(); i++ )
-		names.insert( maps[ i ].first );
+		names.insert( maps[i].first );
 
 	// The two TRACKED maps. ss_sandbox.bsp is generated and .gitignore'd, so it
 	// is deliberately not required -- but dm_lockdown.bsp and the sandbox's .vmf
 	// source are in the repository and their absence means the walk is looking
 	// somewhere else.
 	EXPECT_TRUE( names.count( "game/mod_sharp/maps/dm_lockdown.bsp" ) )
-		<< "the map walk found { " << Join( names ) << " }. Without a map to scan, "
+		<< "the map walk found { " << Join( names )
+		<< " }. Without a map to scan, "
 		   "'no map declares this classname' is satisfied by every classname there "
 		   "has ever been";
-	EXPECT_TRUE( names.count( "maps/ss_sandbox.vmf" ) )
-		<< "the map walk found { " << Join( names ) << " }";
+	EXPECT_TRUE( names.count( "maps/ss_sandbox.vmf" ) ) << "the map walk found { " << Join( names ) << " }";
 
 	// ...and the scanner finds what is really there. worldspawn is in every map
 	// ever compiled; func_wall is the classname bmodels.cpp was REFUSED over, and
@@ -299,10 +300,11 @@ TEST( ServerBeamViewModelEvicted, TheServerBuildExcludesAllThreeFiles )
 		"game/server/baseviewmodel.cpp",
 	};
 
-	for ( size_t i = 0; i < sizeof( kPaths ) / sizeof( kPaths[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kPaths ) / sizeof( kPaths[0] ); i++ )
 	{
-		EXPECT_TRUE( Excludes( cmake_graph::kServer, kPaths[ i ] ) )
-			<< kPaths[ i ] << " is back in the server build. It brings back a "
+		EXPECT_TRUE( Excludes( cmake_graph::kServer, kPaths[i] ) )
+			<< kPaths[i]
+			<< " is back in the server build. It brings back a "
 			   "class nothing constructs, a consumer of baseentity.o, and -- for "
 			   "the two shared files -- a send table the client already decodes "
 			   "from a receive table nothing was sending to";
@@ -322,12 +324,11 @@ TEST( ServerBeamViewModelEvicted, NoMapDeclaresTheClassnamesThatLeaveWithTheseFi
 {
 	for ( size_t i = 0; i < kClassNameCount; i++ )
 	{
-		const std::set< std::string > maps = MapsDeclaring( kClassNames[ i ].pszStock );
-		EXPECT_TRUE( maps.empty() )
-			<< "\"" << kClassNames[ i ].pszStock << "\" is declared by { "
-			<< Join( maps ) << " }. That classname's factory leaves the server "
-			   "with its file: the entity would not spawn, the map would load "
-			   "anyway, and nothing would fail at build time";
+		const std::set<std::string> maps = MapsDeclaring( kClassNames[i].pszStock );
+		EXPECT_TRUE( maps.empty() ) << "\"" << kClassNames[i].pszStock << "\" is declared by { " << Join( maps )
+									<< " }. That classname's factory leaves the server "
+									   "with its file: the entity would not spawn, the map would load "
+									   "anyway, and nothing would fail at build time";
 	}
 }
 
@@ -385,7 +386,7 @@ TEST( ServerBeamViewModelEvicted, TheClientBuildHasDroppedBothSharedTranslationU
 	// which a linker WOULD catch; stated here rather than relied on, in the same
 	// shape as BothHalvesOfTheViewModelLeaveTogether does for the server.
 	EXPECT_EQ( Excludes( cmake_graph::kClient, "game/shared/baseviewmodel_shared.cpp" ),
-	           Excludes( cmake_graph::kClient, "game/client/c_baseviewmodel.cpp" ) )
+			   Excludes( cmake_graph::kClient, "game/client/c_baseviewmodel.cpp" ) )
 		<< "one half of C_BaseViewModel is excluded from the CLIENT build and the "
 		   "other is not. They leave together or not at all.";
 }

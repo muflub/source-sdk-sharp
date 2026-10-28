@@ -10,7 +10,7 @@ public:
 	~CDisableRangeChecks();
 };
 
-template< class T >
+template <class T>
 inline void RangeCheck( const T &value, int minValue, int maxValue )
 {
 #ifdef _DEBUG
@@ -32,25 +32,15 @@ inline void RangeCheck( const Vector &value, int minValue, int maxValue )
 #endif
 }
 
-template< class T, int minValue, int maxValue, int startValue >
+template <class T, int minValue, int maxValue, int startValue>
 class CRangeCheckedVar
 {
 public:
+	inline CRangeCheckedVar() { m_Val = startValue; }
 
-	inline CRangeCheckedVar()
-	{
-		m_Val = startValue;
-	}
+	inline CRangeCheckedVar( const T &value ) { *this = value; }
 
-	inline CRangeCheckedVar( const T &value )
-	{
-		*this = value;
-	}
-
-	T GetRaw() const
-	{
-		return m_Val;
-	}
+	T GetRaw() const { return m_Val; }
 
 	// Clamp the value to its limits. Interpolation code uses this after interpolating.
 	inline void Clamp()
@@ -61,24 +51,20 @@ public:
 			m_Val = maxValue;
 	}
 
-	inline operator const T&() const
-	{
-		return m_Val;
-	}
+	inline operator const T &() const { return m_Val; }
 
-	inline CRangeCheckedVar<T, minValue, maxValue, startValue>& operator=( const T &value )
+	inline CRangeCheckedVar<T, minValue, maxValue, startValue> &operator=( const T &value )
 	{
 		RangeCheck( value, minValue, maxValue );
 		m_Val = value;
 		return *this;
 	}
 
-	inline CRangeCheckedVar<T, minValue, maxValue, startValue>& operator+=( const T &value )
+	inline CRangeCheckedVar<T, minValue, maxValue, startValue> &operator+=( const T &value )
 	{
-		return (*this = m_Val + value);
+		return ( *this = m_Val + value );
 	}
 
 private:
-
 	T m_Val;
 };

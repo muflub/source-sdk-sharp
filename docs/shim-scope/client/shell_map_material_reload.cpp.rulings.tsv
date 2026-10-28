@@ -1,10 +1,10 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-void HookAddSearchPath(	SLOT	IFileSystem::AddSearchPath, hooked: the engine's own call, then the path (as a file on disk where the filesystem resolves one) handed to IManagedRuntimeClient; MapMaterialReloadWindow decides what it means
+void HookAddSearchPath( IFileSystem *pThis, const char *pPath, const char *pPathID, SearchPathAdd_t addType )	SLOT	IFileSystem::AddSearchPath, hooked: the engine's own call, then the path (as a file on disk where the filesystem resolves one) handed to IManagedRuntimeClient; MapMaterialReloadWindow decides what it means
 void HookBeginMapAccess( IFileSystem *pThis )	SLOT	IFileSystem::BeginMapAccess, hooked: the engine's own call, then the edge handed to managed
 void HookEndMapAccess( IFileSystem *pThis )	SLOT	IFileSystem::EndMapAccess, hooked: the engine's own call, then the edge handed to managed
 void HookReloadMaterials( IMaterialSystem *pThis, const char *pSubString )	SLOT	IMaterialSystem::ReloadMaterials, hooked: managed's plan carried out, the call unchanged (-1) or each newline-separated name reloaded alone
 bool Patch( void **pVtbl, int nSlot, void *pNew, void **ppOld )	HOOK	points one engine vtable slot at a hook (page protection lifted and restored), keeping the original
 int SlotOf( T pMember )	HOOK	the slot a plain virtual of the SDK interface occupies (VTableHook::MemberOf)
-bool SourceSharp_InstallMapMaterialReload(	HOOK	called by shell_clientdll.o's Init: the four slots patched, or none
+bool SourceSharp_InstallMapMaterialReload( IFileSystem *pFileSystem, IMaterialSystem *pMaterials )	HOOK	called by shell_clientdll.o's Init: the four slots patched, or none
 void SourceSharp_UninstallMapMaterialReload()	HOOK	called by shell_clientdll.o's Shutdown: the four originals restored

@@ -30,12 +30,12 @@ void CreateNetworkStringTables_GameRules();
 // Stock's capacities. The engine sends the capacity with the table.
 enum
 {
-	kMaxVguiScreenStrings      = 1 << 8,
-	kMaxMaterialStrings        = 1 << 10,
-	kMaxChoreoScenesStrings    = 1 << 13,
-	kMaxParticleSystemStrings  = 1 << 13,
-	kMaxEffectDispatchStrings  = 1 << 10,
-	kMaxInfoPanelStrings       = 128,
+	kMaxVguiScreenStrings = 1 << 8,
+	kMaxMaterialStrings = 1 << 10,
+	kMaxChoreoScenesStrings = 1 << 13,
+	kMaxParticleSystemStrings = 1 << 13,
+	kMaxEffectDispatchStrings = 1 << 10,
+	kMaxInfoPanelStrings = 128,
 };
 
 void PrecacheMaterial( const char *pMaterialName )
@@ -57,10 +57,10 @@ int GetParticleSystemIndex( const char *pParticleSystemName )
 	if ( pParticleSystemName )
 	{
 		int nIndex = g_pStringTableParticleEffectNames->FindStringIndex( pParticleSystemName );
-		if (nIndex != INVALID_STRING_INDEX )
+		if ( nIndex != INVALID_STRING_INDEX )
 			return nIndex;
 
-		DevWarning("Server: Missing precache for particle system \"%s\"!\n", pParticleSystemName );
+		DevWarning( "Server: Missing precache for particle system \"%s\"!\n", pParticleSystemName );
 	}
 
 	// This is the invalid string index
@@ -70,20 +70,17 @@ int GetParticleSystemIndex( const char *pParticleSystemName )
 // Stock's CServerGameDLL::CreateNetworkStringTables, without the econ/TF arms.
 void SourceSharp_CreateNetworkStringTables()
 {
-	g_pStringTableParticleEffectNames     = networkstringtable->CreateStringTable( "ParticleEffectNames", kMaxParticleSystemStrings );
-	g_pStringTableEffectDispatch          = networkstringtable->CreateStringTable( "EffectDispatch", kMaxEffectDispatchStrings );
-	g_pStringTableVguiScreen              = networkstringtable->CreateStringTable( "VguiScreen", kMaxVguiScreenStrings );
-	g_pStringTableMaterials               = networkstringtable->CreateStringTable( "Materials", kMaxMaterialStrings );
-	g_pStringTableInfoPanel               = networkstringtable->CreateStringTable( "InfoPanel", kMaxInfoPanelStrings );
-	g_pStringTableClientSideChoreoScenes  = networkstringtable->CreateStringTable( "Scenes", kMaxChoreoScenesStrings );
-	g_pStringTableServerMapCycle          = networkstringtable->CreateStringTable( "ServerMapCycle", 128 );
+	g_pStringTableParticleEffectNames =
+		networkstringtable->CreateStringTable( "ParticleEffectNames", kMaxParticleSystemStrings );
+	g_pStringTableEffectDispatch = networkstringtable->CreateStringTable( "EffectDispatch", kMaxEffectDispatchStrings );
+	g_pStringTableVguiScreen = networkstringtable->CreateStringTable( "VguiScreen", kMaxVguiScreenStrings );
+	g_pStringTableMaterials = networkstringtable->CreateStringTable( "Materials", kMaxMaterialStrings );
+	g_pStringTableInfoPanel = networkstringtable->CreateStringTable( "InfoPanel", kMaxInfoPanelStrings );
+	g_pStringTableClientSideChoreoScenes = networkstringtable->CreateStringTable( "Scenes", kMaxChoreoScenesStrings );
+	g_pStringTableServerMapCycle = networkstringtable->CreateStringTable( "ServerMapCycle", 128 );
 
-	Assert( g_pStringTableParticleEffectNames &&
-			g_pStringTableEffectDispatch &&
-			g_pStringTableVguiScreen &&
-			g_pStringTableMaterials &&
-			g_pStringTableInfoPanel &&
-			g_pStringTableClientSideChoreoScenes &&
+	Assert( g_pStringTableParticleEffectNames && g_pStringTableEffectDispatch && g_pStringTableVguiScreen &&
+			g_pStringTableMaterials && g_pStringTableInfoPanel && g_pStringTableClientSideChoreoScenes &&
 			g_pStringTableServerMapCycle );
 
 	// These must be the first strings in their tables: every failed lookup

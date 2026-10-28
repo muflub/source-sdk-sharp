@@ -10,22 +10,22 @@
 #pragma once
 #define SHELL_SHOT_PATH_H
 
-
-
-namespace ss { class CTakeDamageInfo; }
+namespace ss
+{
+class CTakeDamageInfo;
+}
 class CGameTrace;
 typedef CGameTrace trace_t;
 
 // Included, not forward-declared: a forward declaration cannot coexist with `using CBaseEntity = IGameEntity`.
 
-
 // Tells every trigger volume along a shot's path that it was shot through.
-void EntityShot_TraceAttackToTriggers( const ss::CTakeDamageInfo &info, const Vector &start,
-                                       const Vector &end, const Vector &dir );
+void EntityShot_TraceAttackToTriggers( const ss::CTakeDamageInfo &info, const Vector &start, const Vector &end,
+									   const Vector &dir );
 
 // The underwater bubble trail a bullet leaves. pEntity is the shooter and may be NULL.
-void EntityShot_CreateBubbleTrail( IGameEntity *pEntity, const Vector &vecShotSrc,
-                                   const Vector &vecShotEnd, const Vector &vecShotDir );
+void EntityShot_CreateBubbleTrail( IGameEntity *pEntity, const Vector &vecShotSrc, const Vector &vecShotEnd,
+								   const Vector &vecShotDir );
 
 // NPC accuracy accounting; counts nothing in this build.
 void EntityShot_UpdateStatistics( IGameEntity *pEntity, const trace_t &tr );

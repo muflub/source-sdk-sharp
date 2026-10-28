@@ -16,12 +16,11 @@
 
 #include "ss_util.h"
 #include "shell_standalone.h"
-#include "shell_resolve.h"
-#include "sourcesharp.h"
+
 #include "standalone_bone_trace.h"
 #include "ss_string.h"
 
-std::vector< CStandaloneEntity * > &StandaloneEntities();
+std::vector<CStandaloneEntity *> &StandaloneEntities();
 
 #include "imanaged_areas.h"
 
@@ -37,66 +36,66 @@ bool CStandaloneEntity::TestHitboxes( const Ray_t &ray, unsigned int fContentsMa
 	if ( !pBones )
 		return false;
 
-	float flRay[ SS_BONE_RAY_FLOATS ];
+	float flRay[SS_BONE_RAY_FLOATS];
 
 	for ( int i = 0; i < 3; i++ )
 	{
-		flRay[ SS_BONE_RAY_START_X + i ]        = ray.m_Start[i];
-		flRay[ SS_BONE_RAY_DELTA_X + i ]        = ray.m_Delta[i];
-		flRay[ SS_BONE_RAY_START_OFFSET_X + i ] = ray.m_StartOffset[i];
-		flRay[ SS_BONE_RAY_EXTENTS_X + i ]      = ray.m_Extents[i];
+		flRay[SS_BONE_RAY_START_X + i] = ray.m_Start[i];
+		flRay[SS_BONE_RAY_DELTA_X + i] = ray.m_Delta[i];
+		flRay[SS_BONE_RAY_START_OFFSET_X + i] = ray.m_StartOffset[i];
+		flRay[SS_BONE_RAY_EXTENTS_X + i] = ray.m_Extents[i];
 	}
 
-	flRay[ SS_BONE_RAY_IS_RAY ]   = ray.m_IsRay ? 1.0f : 0.0f;
-	flRay[ SS_BONE_RAY_IS_SWEPT ] = ray.m_IsSwept ? 1.0f : 0.0f;
+	flRay[SS_BONE_RAY_IS_RAY] = ray.m_IsRay ? 1.0f : 0.0f;
+	flRay[SS_BONE_RAY_IS_SWEPT] = ray.m_IsSwept ? 1.0f : 0.0f;
 
-	float   flTrace[ SS_BONE_TRACE_FLOATS ];
-	int32_t nTrace[ SS_BONE_TRACE_INTS ];
+	float flTrace[SS_BONE_TRACE_FLOATS];
+	int32_t nTrace[SS_BONE_TRACE_INTS];
 
 	for ( int i = 0; i < 3; i++ )
 	{
-		flTrace[ SS_BONE_TRACE_START_X + i ]        = tr.startpos[i];
-		flTrace[ SS_BONE_TRACE_END_X + i ]          = tr.endpos[i];
-		flTrace[ SS_BONE_TRACE_PLANE_NORMAL_X + i ] = tr.plane.normal[i];
+		flTrace[SS_BONE_TRACE_START_X + i] = tr.startpos[i];
+		flTrace[SS_BONE_TRACE_END_X + i] = tr.endpos[i];
+		flTrace[SS_BONE_TRACE_PLANE_NORMAL_X + i] = tr.plane.normal[i];
 	}
 
-	flTrace[ SS_BONE_TRACE_PLANE_DIST ] = tr.plane.dist;
-	flTrace[ SS_BONE_TRACE_FRACTION ]   = tr.fraction;
+	flTrace[SS_BONE_TRACE_PLANE_DIST] = tr.plane.dist;
+	flTrace[SS_BONE_TRACE_FRACTION] = tr.fraction;
 
-	nTrace[ SS_BONE_TRACE_PLANE_TYPE ]        = tr.plane.type;
-	nTrace[ SS_BONE_TRACE_CONTENTS ]          = tr.contents;
-	nTrace[ SS_BONE_TRACE_ALL_SOLID ]         = tr.allsolid ? 1 : 0;
-	nTrace[ SS_BONE_TRACE_START_SOLID ]       = tr.startsolid ? 1 : 0;
-	nTrace[ SS_BONE_TRACE_HIT_GROUP ]         = tr.hitgroup;
-	nTrace[ SS_BONE_TRACE_HIT_BOX ]           = tr.hitbox;
-	nTrace[ SS_BONE_TRACE_PHYSICS_BONE ]      = tr.physicsbone;
-	nTrace[ SS_BONE_TRACE_SURFACE_FLAGS ]     = tr.surface.flags;
-	nTrace[ SS_BONE_TRACE_SURFACE_PROPS ]     = tr.surface.surfaceProps;
-	nTrace[ SS_BONE_TRACE_SURFACE_IS_STUDIO ] = 0;
+	nTrace[SS_BONE_TRACE_PLANE_TYPE] = tr.plane.type;
+	nTrace[SS_BONE_TRACE_CONTENTS] = tr.contents;
+	nTrace[SS_BONE_TRACE_ALL_SOLID] = tr.allsolid ? 1 : 0;
+	nTrace[SS_BONE_TRACE_START_SOLID] = tr.startsolid ? 1 : 0;
+	nTrace[SS_BONE_TRACE_HIT_GROUP] = tr.hitgroup;
+	nTrace[SS_BONE_TRACE_HIT_BOX] = tr.hitbox;
+	nTrace[SS_BONE_TRACE_PHYSICS_BONE] = tr.physicsbone;
+	nTrace[SS_BONE_TRACE_SURFACE_FLAGS] = tr.surface.flags;
+	nTrace[SS_BONE_TRACE_SURFACE_PROPS] = tr.surface.surfaceProps;
+	nTrace[SS_BONE_TRACE_SURFACE_IS_STUDIO] = 0;
 
 	if ( !pBones->TestHitboxes( HandleOf( this ), &Block(), flRay, (int32_t)fContentsMask, flTrace, nTrace ) )
 		return false;
 
 	for ( int i = 0; i < 3; i++ )
 	{
-		tr.startpos[i]     = flTrace[ SS_BONE_TRACE_START_X + i ];
-		tr.endpos[i]       = flTrace[ SS_BONE_TRACE_END_X + i ];
-		tr.plane.normal[i] = flTrace[ SS_BONE_TRACE_PLANE_NORMAL_X + i ];
+		tr.startpos[i] = flTrace[SS_BONE_TRACE_START_X + i];
+		tr.endpos[i] = flTrace[SS_BONE_TRACE_END_X + i];
+		tr.plane.normal[i] = flTrace[SS_BONE_TRACE_PLANE_NORMAL_X + i];
 	}
 
-	tr.plane.dist         = flTrace[ SS_BONE_TRACE_PLANE_DIST ];
-	tr.fraction           = flTrace[ SS_BONE_TRACE_FRACTION ];
-	tr.plane.type         = (byte)nTrace[ SS_BONE_TRACE_PLANE_TYPE ];
-	tr.contents           = nTrace[ SS_BONE_TRACE_CONTENTS ];
-	tr.allsolid           = nTrace[ SS_BONE_TRACE_ALL_SOLID ] != 0;
-	tr.startsolid         = nTrace[ SS_BONE_TRACE_START_SOLID ] != 0;
-	tr.hitgroup           = nTrace[ SS_BONE_TRACE_HIT_GROUP ];
-	tr.hitbox             = nTrace[ SS_BONE_TRACE_HIT_BOX ];
-	tr.physicsbone        = (short)nTrace[ SS_BONE_TRACE_PHYSICS_BONE ];
-	tr.surface.flags      = (unsigned short)nTrace[ SS_BONE_TRACE_SURFACE_FLAGS ];
-	tr.surface.surfaceProps = (unsigned short)nTrace[ SS_BONE_TRACE_SURFACE_PROPS ];
+	tr.plane.dist = flTrace[SS_BONE_TRACE_PLANE_DIST];
+	tr.fraction = flTrace[SS_BONE_TRACE_FRACTION];
+	tr.plane.type = (byte)nTrace[SS_BONE_TRACE_PLANE_TYPE];
+	tr.contents = nTrace[SS_BONE_TRACE_CONTENTS];
+	tr.allsolid = nTrace[SS_BONE_TRACE_ALL_SOLID] != 0;
+	tr.startsolid = nTrace[SS_BONE_TRACE_START_SOLID] != 0;
+	tr.hitgroup = nTrace[SS_BONE_TRACE_HIT_GROUP];
+	tr.hitbox = nTrace[SS_BONE_TRACE_HIT_BOX];
+	tr.physicsbone = (short)nTrace[SS_BONE_TRACE_PHYSICS_BONE];
+	tr.surface.flags = (unsigned short)nTrace[SS_BONE_TRACE_SURFACE_FLAGS];
+	tr.surface.surfaceProps = (unsigned short)nTrace[SS_BONE_TRACE_SURFACE_PROPS];
 
-	if ( nTrace[ SS_BONE_TRACE_SURFACE_IS_STUDIO ] )
+	if ( nTrace[SS_BONE_TRACE_SURFACE_IS_STUDIO] )
 		tr.surface.name = "**studio**";
 
 	return true;
@@ -116,8 +115,7 @@ static bool CarriesAnything( const CStandaloneEntity *pEntity )
 
 static bool IsCarried( const CStandaloneEntity *pEntity )
 {
-	return pEntity != NULL &&
-	       pEntity->Block().Head.ParentHandle != (uint32_t)INVALID_EHANDLE_INDEX;
+	return pEntity != NULL && pEntity->Block().Head.ParentHandle != (uint32_t)INVALID_EHANDLE_INDEX;
 }
 
 static uint32_t HandleOf( const CStandaloneEntity *pEntity )
@@ -171,8 +169,8 @@ bool StandaloneHierarchy_IsParented( const CStandaloneEntity *pChild )
 // false, untouched, for an entity with no parent.
 
 // Vector and QAngle cross as float triples, not structs by value.
-static bool HierarchyConvert( IManagedHierarchy *pApi, const CStandaloneEntity *pChild,
-                              Vector *pOrigin, QAngle *pAngles, bool bToWorld )
+static bool HierarchyConvert( IManagedHierarchy *pApi, const CStandaloneEntity *pChild, Vector *pOrigin,
+							  QAngle *pAngles, bool bToWorld )
 {
 	if ( !pApi || !IsCarried( pChild ) )
 		return false;
@@ -199,7 +197,7 @@ static bool HierarchyConvert( IManagedHierarchy *pApi, const CStandaloneEntity *
 	float *pAnglesOut = pAngles ? flAngles : NULL;
 
 	if ( !( bToWorld ? pApi->HierarchyToWorld( hChild, pOriginOut, pAnglesOut )
-	                 : pApi->HierarchyToLocal( hChild, pOriginOut, pAnglesOut ) ) )
+					 : pApi->HierarchyToLocal( hChild, pOriginOut, pAnglesOut ) ) )
 		return false;
 
 	if ( pOrigin )
@@ -211,8 +209,7 @@ static bool HierarchyConvert( IManagedHierarchy *pApi, const CStandaloneEntity *
 	return true;
 }
 
-bool StandaloneHierarchy_WorldToLocal( const CStandaloneEntity *pChild,
-                                       Vector *pOrigin, QAngle *pAngles )
+bool StandaloneHierarchy_WorldToLocal( const CStandaloneEntity *pChild, Vector *pOrigin, QAngle *pAngles )
 {
 	IManagedHierarchy *pApi = HierarchyApi();
 
@@ -221,8 +218,7 @@ bool StandaloneHierarchy_WorldToLocal( const CStandaloneEntity *pChild,
 
 // A new offset, recorded and applied. Not guarded on ParentHandle: managed places
 // an entity whose parent has gone absolutely, so a movement can outlive the parent.
-void StandaloneHierarchy_SetLocal( CStandaloneEntity *pChild, const Vector &vecOrigin,
-                                   const QAngle &angles )
+void StandaloneHierarchy_SetLocal( CStandaloneEntity *pChild, const Vector &vecOrigin, const QAngle &angles )
 {
 	if ( !pChild )
 		return;
@@ -246,15 +242,13 @@ void StandaloneHierarchy_SetParentName( CStandaloneEntity *pChild, const char *p
 		pApi->HierarchySetParentName( HandleOf( pChild ), pParentName ? pParentName : "" );
 }
 
-void StandaloneHierarchy_SetParentAttachmentName( CStandaloneEntity *pChild,
-                                                  const char *pAttachmentName )
+void StandaloneHierarchy_SetParentAttachmentName( CStandaloneEntity *pChild, const char *pAttachmentName )
 {
 	IManagedHierarchy *pApi = HierarchyApi();
 
 	if ( pChild && pApi )
 	{
-		pApi->HierarchySetParentAttachmentName( HandleOf( pChild ),
-		                                        pAttachmentName ? pAttachmentName : "" );
+		pApi->HierarchySetParentAttachmentName( HandleOf( pChild ), pAttachmentName ? pAttachmentName : "" );
 	}
 }
 
@@ -267,8 +261,7 @@ int32_t SourceSharp_EntityParentProbe( uint32_t hEntity )
 	if ( !ent.IsValid() )
 		return 0;
 
-	int32_t nBits = ent.pStandalone ? SOURCESHARP_PARENT_PROBE_STANDALONE
-	                                : SOURCESHARP_PARENT_PROBE_BASE;
+	int32_t nBits = ent.pStandalone ? SOURCESHARP_PARENT_PROBE_STANDALONE : SOURCESHARP_PARENT_PROBE_BASE;
 
 	// A standalone entity can always be asked for an attachment.
 	if ( ent.pStandalone != NULL )
@@ -279,8 +272,8 @@ int32_t SourceSharp_EntityParentProbe( uint32_t hEntity )
 
 // Where a one-based attachment is. Managed answers standalone entities first;
 // what reaches here has no skeleton, so it gets its own transform and 0.
-int32_t SourceSharp_EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachment,
-                                              float *pOutOriginXYZ, float *pOutAnglesPYR )
+int32_t SourceSharp_EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachment, float *pOutOriginXYZ,
+											  float *pOutAnglesPYR )
 {
 	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
 
@@ -340,8 +333,7 @@ void SourceSharp_EntityDestroyPhysics( uint32_t hEntity )
 		pStandalone->DestroyPhysics();
 }
 
-int32_t SourceSharp_EntitySetParent( uint32_t hChild, uint32_t hParent,
-                                     int32_t nParentAttachment )
+int32_t SourceSharp_EntitySetParent( uint32_t hChild, uint32_t hParent, int32_t nParentAttachment )
 {
 	CStandaloneEntity *pChild = SourceSharp_ResolveStandalone( hChild );
 
@@ -353,9 +345,9 @@ int32_t SourceSharp_EntitySetParent( uint32_t hChild, uint32_t hParent,
 		if ( child.pBase )
 		{
 			Warning( "[SourceSharp] cannot parent '%s': it is a CBaseEntity, and an SDK "
-			         "child of a managed parent is not supported — see the header of "
-			         "shell_standalone_hierarchy.cpp\n",
-			         child.Classname() );
+					 "child of a managed parent is not supported — see the header of "
+					 "shell_standalone_hierarchy.cpp\n",
+					 child.Classname() );
 		}
 
 		return 0;
@@ -382,8 +374,7 @@ uint32_t SourceSharp_EntityGetParent( uint32_t hChild )
 	const uint32_t hParent = pChild->Block().Head.ParentHandle;
 
 	// Resolved, so a parent that has gone answers nothing.
-	return SourceSharp_ResolveEntity( hParent ).IsValid() ? hParent
-	                                                      : (uint32_t)INVALID_EHANDLE_INDEX;
+	return SourceSharp_ResolveEntity( hParent ).IsValid() ? hParent : (uint32_t)INVALID_EHANDLE_INDEX;
 }
 
 // The attachment on the parent, which the block does not carry.
@@ -397,8 +388,7 @@ int32_t SourceSharp_EntityGetParentAttachment( uint32_t hChild )
 	return pApi->HierarchyGetParentAttachment( hChild );
 }
 
-void SourceSharp_EntitySetLocalTransform( uint32_t hChild, const float *pOrigin,
-                                          const float *pAngles )
+void SourceSharp_EntitySetLocalTransform( uint32_t hChild, const float *pOrigin, const float *pAngles )
 {
 	CStandaloneEntity *pChild = SourceSharp_ResolveStandalone( hChild );
 

@@ -31,16 +31,15 @@ static void SourceSharp_EstablishOverlayViewer()
 // Draws an entity's collision box and its text at its origin; nLine stacks text
 // downward. Answers 1 when drawn, 0 for INVALID_EHANDLE_INDEX or an unresolved
 // handle. Entry 0 is the world, a real slot, and is not refused.
-int32_t SourceSharp_DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char *pText,
-                                       float flDuration, int32_t r, int32_t g, int32_t b, int32_t a )
+int32_t SourceSharp_DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char *pText, float flDuration, int32_t r,
+									   int32_t g, int32_t b, int32_t a )
 {
 	SOURCESHARP_TRACE();
 
 	if ( hEntity == (uint32_t)INVALID_EHANDLE_INDEX )
 		return 0;
 
-	CStandaloneEntity *pShell =
-		SourceSharp_ShellFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
+	CStandaloneEntity *pShell = SourceSharp_ShellFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
 
 	if ( pShell == NULL )
 		return 0;
@@ -67,9 +66,8 @@ int32_t SourceSharp_DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const ch
 // One debug overlay line in a colour managed already chose from its LOS trace.
 // flDuration <= 0 puts it in the pool redrawn every frame until
 // clear_debug_overlays; > 0 is the engine's own timed overlay.
-void SourceSharp_AddLineOverlay( const float *pStartXYZ, const float *pEndXYZ,
-                                 int32_t r, int32_t g, int32_t b,
-                                 int32_t bNoDepthTest, float flDuration )
+void SourceSharp_AddLineOverlay( const float *pStartXYZ, const float *pEndXYZ, int32_t r, int32_t g, int32_t b,
+								 int32_t bNoDepthTest, float flDuration )
 {
 	SOURCESHARP_TRACE();
 
@@ -77,7 +75,7 @@ void SourceSharp_AddLineOverlay( const float *pStartXYZ, const float *pEndXYZ,
 		return;
 
 	const Vector vecStart( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] );
-	const Vector vecEnd  ( pEndXYZ[0],   pEndXYZ[1],   pEndXYZ[2]   );
+	const Vector vecEnd( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] );
 
 	if ( flDuration > 0.0f )
 		Overlay_Line( vecStart, vecEnd, r, g, b, bNoDepthTest != 0, flDuration );
@@ -86,17 +84,21 @@ void SourceSharp_AddLineOverlay( const float *pStartXYZ, const float *pEndXYZ,
 }
 
 // The overlay counters, cumulative since the level began, for `debug-api status`.
-void SourceSharp_OverlayCounts( uint32_t *pOutDrawn, uint32_t *pOutClipped,
-                                uint32_t *pOutNoViewer, uint32_t *pOutNoOverlay,
-                                int32_t *pOutViewerSet )
+void SourceSharp_OverlayCounts( uint32_t *pOutDrawn, uint32_t *pOutClipped, uint32_t *pOutNoViewer,
+								uint32_t *pOutNoOverlay, int32_t *pOutViewerSet )
 {
 	const OverlayCounts_t &c = Overlay_Counts();
 
-	if ( pOutDrawn )      *pOutDrawn      = c.nDrawn;
-	if ( pOutClipped )    *pOutClipped    = c.nClipped;
-	if ( pOutNoViewer )   *pOutNoViewer   = c.nNoViewer;
-	if ( pOutNoOverlay )  *pOutNoOverlay  = c.nNoOverlay;
-	if ( pOutViewerSet )  *pOutViewerSet  = Overlay_ViewerIsSet() ? 1 : 0;
+	if ( pOutDrawn )
+		*pOutDrawn = c.nDrawn;
+	if ( pOutClipped )
+		*pOutClipped = c.nClipped;
+	if ( pOutNoViewer )
+		*pOutNoViewer = c.nNoViewer;
+	if ( pOutNoOverlay )
+		*pOutNoOverlay = c.nNoOverlay;
+	if ( pOutViewerSet )
+		*pOutViewerSet = Overlay_ViewerIsSet() ? 1 : 0;
 }
 
 // Stock's DrawAllDebugOverlays without the AI node editor and the gEntList walks.

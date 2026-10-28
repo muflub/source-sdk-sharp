@@ -42,3 +42,4 @@ stock-ab	routine	tools/stock-ab/stock-ab --self-test
 client-probe-link	full	tools/client-probe-link --self-test && tools/client-probe-link
 source-tidy	routine	tools/source-tidy --self-test && tools/source-tidy
 vendor-fields	routine	tools/vendor-fields --self-test
+clang-format	routine	tools/clang-format --self-test && tools/clang-format --check

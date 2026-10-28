@@ -13,11 +13,8 @@
 
 // flXform is the row-major 3x4 CollisionToWorldTransform, read only when
 // bAnglesAreZero is false.
-inline void CollideableCenter_Compute( const float flMins[3], const float flMaxs[3],
-                                       bool bAnglesAreZero,
-                                       const float flOrigin[3],
-                                       const float flXform[12],
-                                       float flOut[3] )
+inline void CollideableCenter_Compute( const float flMins[3], const float flMaxs[3], bool bAnglesAreZero,
+									   const float flOrigin[3], const float flXform[12], float flOut[3] )
 {
 	// OBBCenter, in VectorLerp's own form.
 	float flCenter[3];
@@ -39,9 +36,6 @@ inline void CollideableCenter_Compute( const float flMins[3], const float flMaxs
 	for ( int i = 0; i < 3; ++i )
 	{
 		const float *flRow = &flXform[i * 4];
-		flOut[i] = flCenter[0] * flRow[0]
-		         + flCenter[1] * flRow[1]
-		         + flCenter[2] * flRow[2]
-		         + flRow[3];
+		flOut[i] = flCenter[0] * flRow[0] + flCenter[1] * flRow[1] + flCenter[2] * flRow[2] + flRow[3];
 	}
 }

@@ -17,20 +17,12 @@ namespace
 
 // The eight that reach a ConVar, in the order shell_movement.cpp writes them. The
 // other movement parameters have no engine name.
-const char *const kMovementConVars[] =
-{
-	"sv_gravity",
-	"sv_friction",
-	"sv_accelerate",
-	"sv_airaccelerate",
-	"sv_stopspeed",
-	"sv_maxvelocity",
-	"sv_stepsize",
-	"sv_maxspeed",
+const char *const kMovementConVars[] = {
+	"sv_gravity",   "sv_friction",    "sv_accelerate", "sv_airaccelerate",
+	"sv_stopspeed", "sv_maxvelocity", "sv_stepsize",   "sv_maxspeed",
 };
 
-const int kMovementConVarCount =
-	(int)( sizeof( kMovementConVars ) / sizeof( kMovementConVars[0] ) );
+const int kMovementConVarCount = (int)( sizeof( kMovementConVars ) / sizeof( kMovementConVars[0] ) );
 
 // A tolerance because each value round-trips through a "%f" string in the engine.
 bool SameReading( float a, float b )
@@ -40,8 +32,8 @@ bool SameReading( float a, float b )
 
 } // namespace
 
-SourceSharpMovementConVarVerdict SourceSharp_ClassifyMovementConVar(
-	float flRegistered, float flDeclaredDefault, float flNow )
+SourceSharpMovementConVarVerdict SourceSharp_ClassifyMovementConVar( float flRegistered, float flDeclaredDefault,
+																	 float flNow )
 {
 	// First: when the mod's tuning equals the declared default, nothing has moved.
 	if ( SameReading( flNow, flRegistered ) )
@@ -78,5 +70,5 @@ const char *SourceSharp_MovementConVarName( int nIndex )
 	if ( nIndex < 0 || nIndex >= kMovementConVarCount )
 		return NULL;
 
-	return kMovementConVars[ nIndex ];
+	return kMovementConVars[nIndex];
 }

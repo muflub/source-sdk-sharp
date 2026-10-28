@@ -64,48 +64,49 @@ using namespace vgui;
 
 namespace
 {
-	// Open only while a root panel's Paint calls IManagedUiClient::Paint; holds the
-	// clip that panel's traversal set, restored when managed code turns its clip
-	// off and when the window closes.
-	struct UiPaintWindow
-	{
-		bool bOpen;
-		bool bPanelClipDisabled;
-		int  nPanelClip[ 4 ];
-		CSourceSharpRawPanel *pMenuRoot;   // the menu layer's root panel, once made
-	};
-	UiPaintWindow g_UiPaint;
+// Open only while a root panel's Paint calls IManagedUiClient::Paint; holds the
+// clip that panel's traversal set, restored when managed code turns its clip
+// off and when the window closes.
+struct UiPaintWindow
+{
+	bool bOpen;
+	bool bPanelClipDisabled;
+	int nPanelClip[4];
+	CSourceSharpRawPanel *pMenuRoot; // the menu layer's root panel, once made
+};
 
-	// One draw's text, widened; longer runs are cut.
-	const int kMaxText = 512;
+UiPaintWindow g_UiPaint;
 
-	// One polygon's vertices; the toolkit's corners use well under this.
-	const int kMaxVertices = 256;
+// One draw's text, widened; longer runs are cut.
+const int kMaxText = 512;
 
-	void SetColor( uint32_t nRgba )
-	{
-		surface()->DrawSetColor( ( nRgba >> 24 ) & 0xFF, ( nRgba >> 16 ) & 0xFF, ( nRgba >> 8 ) & 0xFF, nRgba & 0xFF );
-	}
+// One polygon's vertices; the toolkit's corners use well under this.
+const int kMaxVertices = 256;
 
-	int Widen( const uint16_t *pText, int32_t nLength, wchar_t *pOut, int nOut )
-	{
-		if ( !pText || nLength <= 0 )
-			return 0;
+void SetColor( uint32_t nRgba )
+{
+	surface()->DrawSetColor( ( nRgba >> 24 ) & 0xFF, ( nRgba >> 16 ) & 0xFF, ( nRgba >> 8 ) & 0xFF, nRgba & 0xFF );
+}
 
-		const int n = nLength < nOut - 1 ? nLength : nOut - 1;
-		for ( int i = 0; i < n; i++ )
-			pOut[ i ] = (wchar_t)pText[ i ];
-		pOut[ n ] = 0;
-		return n;
-	}
+int Widen( const uint16_t *pText, int32_t nLength, wchar_t *pOut, int nOut )
+{
+	if ( !pText || nLength <= 0 )
+		return 0;
+
+	const int n = nLength < nOut - 1 ? nLength : nOut - 1;
+	for ( int i = 0; i < n; i++ )
+		pOut[i] = (wchar_t)pText[i];
+	pOut[n] = 0;
+	return n;
+}
 }
 
 static void ShellUi_BeginPaint()
 {
 	g_UiPaint.bOpen = true;
 	if ( g_pMatSystemSurface )
-		g_pMatSystemSurface->GetClippingRect( g_UiPaint.nPanelClip[ 0 ], g_UiPaint.nPanelClip[ 1 ], g_UiPaint.nPanelClip[ 2 ],
-		                                      g_UiPaint.nPanelClip[ 3 ], g_UiPaint.bPanelClipDisabled );
+		g_pMatSystemSurface->GetClippingRect( g_UiPaint.nPanelClip[0], g_UiPaint.nPanelClip[1], g_UiPaint.nPanelClip[2],
+											  g_UiPaint.nPanelClip[3], g_UiPaint.bPanelClipDisabled );
 }
 
 static void ShellUi_EndPaint()
@@ -123,8 +124,8 @@ void SourceSharp_UiDrawFilledRect( int32_t x0, int32_t y0, int32_t x1, int32_t y
 	surface()->DrawFilledRect( x0, y0, x1, y1 );
 }
 
-void SourceSharp_UiDrawFilledRectFade( int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba,
-                                       int32_t nAlpha0, int32_t nAlpha1, int32_t bHorizontal )
+void SourceSharp_UiDrawFilledRectFade( int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba, int32_t nAlpha0,
+									   int32_t nAlpha1, int32_t bHorizontal )
 {
 	if ( !g_UiPaint.bOpen || x1 <= x0 || y1 <= y0 )
 		return;
@@ -151,8 +152,8 @@ void SourceSharp_UiDrawLine( int32_t x0, int32_t y0, int32_t x1, int32_t y1, uin
 	surface()->DrawLine( x0, y0, x1, y1 );
 }
 
-void SourceSharp_UiDrawTexturedRect( int32_t nTexture, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
-                                     float s0, float t0, float s1, float t1, uint32_t nRgba )
+void SourceSharp_UiDrawTexturedRect( int32_t nTexture, int32_t x0, int32_t y0, int32_t x1, int32_t y1, float s0,
+									 float t0, float s1, float t1, uint32_t nRgba )
 {
 	if ( !g_UiPaint.bOpen || x1 <= x0 || y1 <= y0 || !surface()->IsTextureIDValid( nTexture ) )
 		return;
@@ -164,14 +165,13 @@ void SourceSharp_UiDrawTexturedRect( int32_t nTexture, int32_t x0, int32_t y0, i
 
 void SourceSharp_UiDrawPolygon( int32_t nTexture, const float *pXyuv, int32_t nVertices, uint32_t nRgba )
 {
-	if ( !g_UiPaint.bOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices
-	     || !surface()->IsTextureIDValid( nTexture ) )
+	if ( !g_UiPaint.bOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices ||
+		 !surface()->IsTextureIDValid( nTexture ) )
 		return;
 
-	Vertex_t verts[ kMaxVertices ];
+	Vertex_t verts[kMaxVertices];
 	for ( int i = 0; i < nVertices; i++ )
-		verts[ i ].Init( Vector2D( pXyuv[ i * 4 + 0 ], pXyuv[ i * 4 + 1 ] ),
-		                 Vector2D( pXyuv[ i * 4 + 2 ], pXyuv[ i * 4 + 3 ] ) );
+		verts[i].Init( Vector2D( pXyuv[i * 4 + 0], pXyuv[i * 4 + 1] ), Vector2D( pXyuv[i * 4 + 2], pXyuv[i * 4 + 3] ) );
 
 	SetColor( nRgba );
 	surface()->DrawSetTexture( nTexture );
@@ -179,12 +179,12 @@ void SourceSharp_UiDrawPolygon( int32_t nTexture, const float *pXyuv, int32_t nV
 }
 
 void SourceSharp_UiDrawText( int32_t nFont, int32_t x, int32_t y, const uint16_t *pText, int32_t nLength,
-                             uint32_t nRgba )
+							 uint32_t nRgba )
 {
 	if ( !g_UiPaint.bOpen || nFont == INVALID_FONT )
 		return;
 
-	wchar_t wszText[ kMaxText ];
+	wchar_t wszText[kMaxText];
 	const int n = Widen( pText, nLength, wszText, kMaxText );
 	if ( n <= 0 )
 		return;
@@ -196,21 +196,25 @@ void SourceSharp_UiDrawText( int32_t nFont, int32_t x, int32_t y, const uint16_t
 }
 
 void SourceSharp_UiMeasureText( int32_t nFont, const uint16_t *pText, int32_t nLength, int32_t *pOutWidth,
-                                int32_t *pOutHeight )
+								int32_t *pOutHeight )
 {
-	if ( pOutWidth )  *pOutWidth = 0;
-	if ( pOutHeight ) *pOutHeight = 0;
+	if ( pOutWidth )
+		*pOutWidth = 0;
+	if ( pOutHeight )
+		*pOutHeight = 0;
 	if ( nFont == INVALID_FONT )
 		return;
 
-	wchar_t wszText[ kMaxText ];
+	wchar_t wszText[kMaxText];
 	if ( Widen( pText, nLength, wszText, kMaxText ) <= 0 )
 		return;
 
 	int nWide = 0, nTall = 0;
 	surface()->GetTextSize( (HFont)nFont, wszText, nWide, nTall );
-	if ( pOutWidth )  *pOutWidth = nWide;
-	if ( pOutHeight ) *pOutHeight = nTall;
+	if ( pOutWidth )
+		*pOutWidth = nWide;
+	if ( pOutHeight )
+		*pOutHeight = nTall;
 }
 
 void SourceSharp_UiSetClip( int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1, int32_t y1 )
@@ -225,7 +229,8 @@ void SourceSharp_UiSetClip( int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1
 		return;
 	}
 
-	g_pMatSystemSurface->SetClippingRect( g_UiPaint.nPanelClip[ 0 ], g_UiPaint.nPanelClip[ 1 ], g_UiPaint.nPanelClip[ 2 ], g_UiPaint.nPanelClip[ 3 ] );
+	g_pMatSystemSurface->SetClippingRect( g_UiPaint.nPanelClip[0], g_UiPaint.nPanelClip[1], g_UiPaint.nPanelClip[2],
+										  g_UiPaint.nPanelClip[3] );
 	g_pMatSystemSurface->DisableClipping( g_UiPaint.bPanelClipDisabled );
 }
 
@@ -244,7 +249,7 @@ void SourceSharp_UiTextureUpload( int32_t nTexture, const uint8_t *pRgba, int32_
 
 int32_t SourceSharp_UiFontAddFile( const char *pPath )
 {
-	if ( !pPath || !pPath[ 0 ] )
+	if ( !pPath || !pPath[0] )
 		return 0;
 
 	return surface()->AddCustomFontFile( pPath, pPath ) ? 1 : 0;
@@ -252,7 +257,7 @@ int32_t SourceSharp_UiFontAddFile( const char *pPath )
 
 int32_t SourceSharp_UiFontCreate( const char *pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags )
 {
-	if ( !pFamily || !pFamily[ 0 ] || nTall <= 0 )
+	if ( !pFamily || !pFamily[0] || nTall <= 0 )
 		return INVALID_FONT;
 
 	HFont hFont = surface()->CreateFont();
@@ -267,13 +272,17 @@ int32_t SourceSharp_UiFontCreate( const char *pFamily, int32_t nTall, int32_t nW
 
 void SourceSharp_UiFontMetrics( int32_t nFont, int32_t *pOutTall, int32_t *pOutAscent )
 {
-	if ( pOutTall )   *pOutTall = 0;
-	if ( pOutAscent ) *pOutAscent = 0;
+	if ( pOutTall )
+		*pOutTall = 0;
+	if ( pOutAscent )
+		*pOutAscent = 0;
 	if ( nFont == INVALID_FONT )
 		return;
 
-	if ( pOutTall )   *pOutTall = surface()->GetFontTall( (HFont)nFont );
-	if ( pOutAscent ) *pOutAscent = surface()->GetFontAscent( (HFont)nFont, L'M' );
+	if ( pOutTall )
+		*pOutTall = surface()->GetFontTall( (HFont)nFont );
+	if ( pOutAscent )
+		*pOutAscent = surface()->GetFontAscent( (HFont)nFont, L'M' );
 }
 
 int32_t SourceSharp_UiFontAdvances( int32_t nFont, int32_t nFirst, int32_t nCount, int32_t *pOutAdvances )
@@ -285,14 +294,14 @@ int32_t SourceSharp_UiFontAdvances( int32_t nFont, int32_t nFirst, int32_t nCoun
 	{
 		int a = 0, b = 0, c = 0;
 		surface()->GetCharABCwide( (HFont)nFont, nFirst + i, a, b, c );
-		pOutAdvances[ i ] = a + b + c;
+		pOutAdvances[i] = a + b + c;
 	}
 	return nCount;
 }
 
 void SourceSharp_UiPlaySound( const char *pPath )
 {
-	if ( pPath && pPath[ 0 ] )
+	if ( pPath && pPath[0] )
 		surface()->PlaySound( pPath );
 }
 
@@ -328,7 +337,16 @@ class CSourceSharpMenuRoot : public CSourceSharpRawPanel
 {
 public:
 	// Managed code's UiInputKind values, in its order.
-	enum { MouseMove, MouseDown, MouseUp, Wheel, Key, Char, FocusLost };
+	enum
+	{
+		MouseMove,
+		MouseDown,
+		MouseUp,
+		Wheel,
+		Key,
+		Char,
+		FocusLost
+	};
 
 	explicit CSourceSharpMenuRoot( vgui::VPANEL parent )
 		: CSourceSharpRawPanel( "SourceSharpMenuRoot" )
@@ -365,12 +383,19 @@ public:
 	}
 
 	virtual void OnCursorMoved( int x, int y ) OVERRIDE { Forward( MouseMove, x, y, 0, 0, 0.0f ); }
+
 	virtual void OnMousePressed( vgui::MouseCode code ) OVERRIDE { ForwardAtCursor( MouseDown, code, 0.0f ); }
+
 	virtual void OnMouseDoublePressed( vgui::MouseCode code ) OVERRIDE { ForwardAtCursor( MouseDown, code, 0.0f ); }
+
 	virtual void OnMouseReleased( vgui::MouseCode code ) OVERRIDE { ForwardAtCursor( MouseUp, code, 0.0f ); }
+
 	virtual void OnMouseWheeled( int delta ) OVERRIDE { ForwardAtCursor( Wheel, 0, (float)delta ); }
+
 	virtual void OnKeyCodePressed( vgui::KeyCode code ) OVERRIDE { ForwardAtCursor( Key, code, 0.0f ); }
+
 	virtual void OnKeyTyped( wchar_t unichar ) OVERRIDE { ForwardAtCursor( Char, 0, 0.0f, (int32_t)unichar ); }
+
 	virtual void OnKillFocus() OVERRIDE { ForwardAtCursor( FocusLost, 0, 0.0f ); }
 
 private:
@@ -405,20 +430,20 @@ void SourceSharp_UiSetMenuInput( int32_t bMouse, int32_t bKeyboard )
 void SourceSharp_UiSetCursor( int32_t nShape )
 {
 	// Managed code's UiCursor values, in its order, as vgui cursors.
-	static const vgui::CursorCode s_Cursors[] =
-	{
+	static const vgui::CursorCode s_Cursors[] = {
 		vgui::dc_arrow, vgui::dc_sizeall, vgui::dc_sizewe, vgui::dc_sizens, vgui::dc_sizenwse, vgui::dc_sizenesw,
 	};
 
 	if ( g_UiPaint.pMenuRoot && nShape >= 0 && nShape < (int32_t)ARRAYSIZE( s_Cursors ) )
-		g_UiPaint.pMenuRoot->SetCursor( (vgui::HCursor)s_Cursors[ nShape ] );
+		g_UiPaint.pMenuRoot->SetCursor( (vgui::HCursor)s_Cursors[nShape] );
 }
 
 class CSourceSharpHud : public CHudElement, public CSourceSharpRawPanel
 {
 public:
 	CSourceSharpHud( const char *pElementName )
-		: CHudElement( pElementName ), CSourceSharpRawPanel( "SourceSharpHud" )
+		: CHudElement( pElementName )
+		, CSourceSharpRawPanel( "SourceSharpHud" )
 	{
 		SOURCESHARP_TRACE();
 
@@ -483,26 +508,25 @@ int32_t SourceSharp_HudTextMessageGet( const char *pName, SourceSharpTextMessage
 	if ( !pMessage || !pMessage->pMessage )
 		return 0;
 
-	pOut->nEffect    = pMessage->effect;
-	pOut->r1         = pMessage->r1;
-	pOut->g1         = pMessage->g1;
-	pOut->b1         = pMessage->b1;
-	pOut->a1         = pMessage->a1;
-	pOut->r2         = pMessage->r2;
-	pOut->g2         = pMessage->g2;
-	pOut->b2         = pMessage->b2;
-	pOut->a2         = pMessage->a2;
-	pOut->flX        = pMessage->x;
-	pOut->flY        = pMessage->y;
-	pOut->flFadeIn   = pMessage->fadein;
-	pOut->flFadeOut  = pMessage->fadeout;
+	pOut->nEffect = pMessage->effect;
+	pOut->r1 = pMessage->r1;
+	pOut->g1 = pMessage->g1;
+	pOut->b1 = pMessage->b1;
+	pOut->a1 = pMessage->a1;
+	pOut->r2 = pMessage->r2;
+	pOut->g2 = pMessage->g2;
+	pOut->b2 = pMessage->b2;
+	pOut->a2 = pMessage->a2;
+	pOut->flX = pMessage->x;
+	pOut->flY = pMessage->y;
+	pOut->flFadeIn = pMessage->fadein;
+	pOut->flFadeOut = pMessage->fadeout;
 	pOut->flHoldTime = pMessage->holdtime;
-	pOut->flFxTime   = pMessage->fxtime;
+	pOut->flFxTime = pMessage->fxtime;
 
 	V_strncpy( pOut->szMessage, pMessage->pMessage, sizeof( pOut->szMessage ) );
-	V_strncpy( pOut->szClearMessage,
-	           pMessage->pClearMessage ? pMessage->pClearMessage : "",
-	           sizeof( pOut->szClearMessage ) );
+	V_strncpy( pOut->szClearMessage, pMessage->pClearMessage ? pMessage->pClearMessage : "",
+			   sizeof( pOut->szClearMessage ) );
 
 	return 1;
 }

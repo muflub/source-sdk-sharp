@@ -7,8 +7,6 @@
 //   - what leaves is a copy, so the reader may queue again while it reads.
 #pragma once
 
-#include <stdint.h>
-
 class CShadowPendingQueue
 {
 public:
@@ -25,7 +23,13 @@ public:
 	// Where a full queue, or one handed over before a call, goes.
 	typedef void ( *Sink_t )( const int32_t *pEntries, int32_t nCount, void *pContext );
 
-	CShadowPendingQueue() : m_nCount( 0 ), m_nHandedOver( 0 ), m_pfnSink( 0 ), m_pSinkContext( 0 ) {}
+	CShadowPendingQueue()
+		: m_nCount( 0 )
+		, m_nHandedOver( 0 )
+		, m_pfnSink( 0 )
+		, m_pSinkContext( 0 )
+	{
+	}
 
 	void SetSink( Sink_t pfnSink, void *pContext )
 	{
@@ -38,9 +42,9 @@ public:
 		for ( int i = 0; i < m_nCount; ++i )
 		{
 			int32_t *p = m_Entries + WORDS * i;
-			if ( p[ 0 ] == DIRTY && (uint32_t)p[ 1 ] == hEntity )
+			if ( p[0] == DIRTY && (uint32_t)p[1] == hEntity )
 			{
-				p[ 2 ] |= bTextureDirty ? 1 : 0;
+				p[2] |= bTextureDirty ? 1 : 0;
 				return;
 			}
 		}
@@ -55,12 +59,12 @@ public:
 		for ( int i = 0; i < m_nCount; ++i )
 		{
 			const int32_t *p = m_Entries + WORDS * i;
-			if ( (uint32_t)p[ 1 ] == hEntity )
+			if ( (uint32_t)p[1] == hEntity )
 				continue;
 			int32_t *q = m_Entries + WORDS * nKept++;
-			q[ 0 ] = p[ 0 ];
-			q[ 1 ] = p[ 1 ];
-			q[ 2 ] = p[ 2 ];
+			q[0] = p[0];
+			q[1] = p[1];
+			q[2] = p[2];
 		}
 		m_nCount = nKept;
 		Append( DESTROY, hEntity, 0 );
@@ -74,7 +78,7 @@ public:
 		const int n = m_nCount;
 		m_nCount = 0;
 		for ( int i = 0; i < WORDS * n; ++i )
-			pOut[ i ] = m_Entries[ i ];
+			pOut[i] = m_Entries[i];
 		return n;
 	}
 
@@ -86,9 +90,9 @@ public:
 		m_nCount = 0;
 		if ( n <= 0 || !m_pfnSink )
 			return;
-		int32_t copy[ WORDS * MAX ];
+		int32_t copy[WORDS * MAX];
 		for ( int i = 0; i < WORDS * n; ++i )
-			copy[ i ] = m_Entries[ i ];
+			copy[i] = m_Entries[i];
 		++m_nHandedOver;
 		m_pfnSink( copy, n, m_pSinkContext );
 	}
@@ -97,7 +101,9 @@ public:
 	void Clear() { m_nCount = 0; }
 
 	int Count() const { return m_nCount; }
+
 	const int32_t *Entries() const { return m_Entries; }
+
 	int HandedOver() const { return m_nHandedOver; }
 
 private:
@@ -106,16 +112,16 @@ private:
 		if ( m_nCount == MAX )
 			HandOver();
 		if ( m_nCount == MAX )
-			m_nCount = 0;  // no sink: the oldest go, as a call with no manager drops them
+			m_nCount = 0; // no sink: the oldest go, as a call with no manager drops them
 		int32_t *p = m_Entries + WORDS * m_nCount++;
-		p[ 0 ] = kind;
-		p[ 1 ] = (int32_t)hEntity;
-		p[ 2 ] = value;
+		p[0] = kind;
+		p[1] = (int32_t)hEntity;
+		p[2] = value;
 	}
 
 	int m_nCount;
 	int m_nHandedOver;
 	Sink_t m_pfnSink;
 	void *m_pSinkContext;
-	int32_t m_Entries[ WORDS * MAX ];
+	int32_t m_Entries[WORDS * MAX];
 };

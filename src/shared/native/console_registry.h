@@ -4,16 +4,18 @@
 
 #pragma once
 
-#include <string>
 #include <unordered_map>
 
 #include "ss_containers.h"
 
-template < class T >
+template <class T>
 class CConsoleRegistry
 {
 public:
-	CConsoleRegistry() : m_nNextId( 0 ) {}
+	CConsoleRegistry()
+		: m_nNextId( 0 )
+	{
+	}
 
 	// The id the next Add will hand out, so a carrier can be built knowing it.
 	int NextId() const { return m_nNextId; }
@@ -60,10 +62,10 @@ public:
 	}
 
 private:
-	typedef std::unordered_map< int, T * > ById_t;
-	typedef std::unordered_map< std::string, int, ss::CaselessHash, ss::CaselessEqual > NameIndex_t;
+	typedef std::unordered_map<int, T *> ById_t;
+	typedef std::unordered_map<std::string, int, ss::CaselessHash, ss::CaselessEqual> NameIndex_t;
 
-	ById_t      m_ById;
+	ById_t m_ById;
 	NameIndex_t m_IdByName;
-	int         m_nNextId;
+	int m_nNextId;
 };

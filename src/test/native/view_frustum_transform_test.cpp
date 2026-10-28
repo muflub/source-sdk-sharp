@@ -9,10 +9,7 @@ namespace
 {
 // x, y pass through; w is z + 1, so a point at z = 1 halves.
 const float kMatrix[16] = {
-	1, 0, 0, 0,
-	0, 1, 0, 0,
-	0, 0, 1, 0,
-	0, 0, 1, 1,
+	1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1,
 };
 } // namespace
 

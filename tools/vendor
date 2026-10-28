@@ -299,6 +299,59 @@ def windows_inputs(roots):
     return reads
 
 
+def probe_reads(build):
+    """{client target: set(real paths)}: the debug client's probe sources
+    (tools/client-probe-link reads the same list from the CMakeLists) are part
+    of client.so's probe build, so what they include is read by the client.
+    Preprocessed with a client object's own flags, so no probe tree has to
+    exist for the measurement."""
+    import importlib.machinery
+    cpl = importlib.machinery.SourceFileLoader(
+        "client_probe_link", os.path.join(REPO, "tools", "client-probe-link")).load_module()
+    with open(os.path.join(REPO, "src", "client", "native", "CMakeLists.txt")) as f:
+        sources = cpl.probe_sources(f.read())
+    if not sources:
+        raise Missing("no probe sources in src/client/native/CMakeLists.txt")
+    try:
+        with open(os.path.join(build, "compile_commands.json")) as f:
+            db = json.load(f)
+    except (OSError, ValueError) as e:
+        raise Missing("compile_commands.json: %s" % e)
+    base = next((c for c in db if target_of(c.get("output", "")) == "client_sourcesharp"), None)
+    if base is None:
+        raise Missing("no client_sourcesharp object in compile_commands.json")
+    args = shlex.split(base["command"])
+    keep, i = [args[0]], 1
+    while i < len(args):
+        a = args[i]
+        if a in ("-o", "-c", "-MF", "-MT", "-MQ"):
+            i += 2
+            continue
+        if not a.startswith("-"):
+            i += 1
+            continue
+        keep.append(a)
+        if a in ("-include", "-isystem", "-Xclang", "-include-pch"):
+            keep.append(args[i + 1])
+            i += 1
+        i += 1
+    keep = [a for a in keep if not a.startswith(("-Winvalid-pch",))]
+    deps = set()
+    for rel in sources:
+        r = subprocess.run(keep + ["-E", "-M", "-MG", "-w", os.path.join(REPO, rel)],
+                           cwd=base.get("directory", REPO), capture_output=True, text=True)
+        text = r.stdout.replace("\\\n", " ")
+        found = 0
+        for tok in text.split(":", 1)[-1].split():
+            q = tok if os.path.isabs(tok) else os.path.join(base.get("directory", REPO), tok)
+            if os.path.exists(q):
+                deps.add(os.path.realpath(q))
+                found += 1
+        if not found:
+            raise Missing("the probe pass could not preprocess %s: %s" % (rel, r.stderr.strip()[:200]))
+    return {"client_sourcesharp": deps}
+
+
 def measure(cfg, windows=True):
     """{relpath: {"sides": set, "kinds": {side: set}}} over every module read:
     the sides that read the file, and per side where it was read from."""
@@ -306,7 +359,7 @@ def measure(cfg, windows=True):
     if not os.path.isdir(build):
         raise Missing("no build tree at farm/%s/build (make %s first)" % (cfg, cfg))
     roots = valve_roots()
-    passes = [linux_reads(build), link_reads(build)]
+    passes = [linux_reads(build), link_reads(build), probe_reads(build)]
     if windows:
         passes.append(windows_reads(build))
         passes.append(windows_inputs(roots))

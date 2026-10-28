@@ -9,8 +9,6 @@
 // leaves the running value unchanged.
 #pragma once
 
-#include <cstdint>
-
 namespace ss
 {
 struct Crc32Table
@@ -35,7 +33,10 @@ inline constexpr Crc32Table kCrc32Table;
 
 static_assert( kCrc32Table[1] == 0x77073096u, "the IEEE polynomial, reflected" );
 
-inline uint32_t Crc32Start() { return 0xFFFFFFFFu; }
+inline uint32_t Crc32Start()
+{
+	return 0xFFFFFFFFu;
+}
 
 inline uint32_t Crc32Add( uint32_t crc, const void *pData, int nBytes )
 {
@@ -45,7 +46,13 @@ inline uint32_t Crc32Add( uint32_t crc, const void *pData, int nBytes )
 	return crc;
 }
 
-inline uint32_t Crc32Finish( uint32_t crc ) { return crc ^ 0xFFFFFFFFu; }
+inline uint32_t Crc32Finish( uint32_t crc )
+{
+	return crc ^ 0xFFFFFFFFu;
+}
 
-inline uint32_t Crc32TableEntry( unsigned int slot ) { return kCrc32Table[slot & 0xFFu]; }
+inline uint32_t Crc32TableEntry( unsigned int slot )
+{
+	return kCrc32Table[slot & 0xFFu];
+}
 } // namespace ss

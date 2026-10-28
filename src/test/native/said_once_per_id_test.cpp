@@ -37,7 +37,7 @@ TEST( SaidOncePerId, AlternatingIdsSayOnceApiece )
 	CSaidOncePerId tracker;
 
 	const unsigned int nPropDynamic = 0x98ab094eu;
-	const unsigned int nSsGrenade   = 0x1545d3a2u;
+	const unsigned int nSsGrenade = 0x1545d3a2u;
 
 	int nSaid = 0;
 

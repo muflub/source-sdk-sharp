@@ -14,12 +14,10 @@
 #include "native_command_body.h"
 #include "ss_string.h"
 
-#include <algorithm>
-#include <vector>
 #include "ss_entityhandle.h"
 
 IServerNetworkable *CreateNetworkableEntityByName( const char *className );
-std::vector< CStandaloneEntity * > &StandaloneEntities();
+std::vector<CStandaloneEntity *> &StandaloneEntities();
 
 // Spawns one at a position (an entity outside the PVS is never transmitted).
 SS_NATIVE_COMMAND( cs_standalone_spawn )
@@ -39,13 +37,12 @@ SS_NATIVE_COMMAND( cs_standalone_spawn )
 		return;
 	}
 
-	CStandaloneEntity *pEnt = SourceSharp_ShellOf(
-		ss::GameEntityFromEntityHandle( pNet->GetEntityHandle() ) );
+	CStandaloneEntity *pEnt = SourceSharp_ShellOf( ss::GameEntityFromEntityHandle( pNet->GetEntityHandle() ) );
 
 	if ( !pEnt )
 		return;
 
-	char szOrigin[ 128 ];
+	char szOrigin[128];
 	ss::Format( szOrigin, sizeof( szOrigin ), "%s %s %s", args[1], args[2], args[3] );
 
 	// Through KeyValue, the path a map takes.

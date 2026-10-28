@@ -10,18 +10,18 @@
 // generic_payload.h so a gtest can reach it.
 
 #include "tier1/convar.h"
-#include "generic_payload.h"
+
 #include "generic_nettable.h"
 #include "ss_string.h"
 
 #ifndef CLIENT_DLL
-	#include "dt_send.h"
-		#include "server_state.h"
+#include "dt_send.h"
+#include "server_state.h"
 #endif
 
 // Interned prop names, filled on first ask rather than by a static constructor, so
 // nothing depends on static-init order relative to tier0.
-static char g_PayloadPropNames[ SOURCESHARP_PAYLOAD_MAX_WORDS ][ SOURCESHARP_PAYLOAD_NAME_BYTES ];
+static char g_PayloadPropNames[SOURCESHARP_PAYLOAD_MAX_WORDS][SOURCESHARP_PAYLOAD_NAME_BYTES];
 static bool g_bPayloadPropNamesBuilt = false;
 
 static void SourceSharpPayload_BuildPropNames()
@@ -60,7 +60,7 @@ const char *SourceSharpPayload_PropName( int iWord )
 		return NULL;
 
 	SourceSharpPayload_BuildPropNames();
-	return g_PayloadPropNames[ iWord ];
+	return g_PayloadPropNames[iWord];
 }
 
 #ifndef CLIENT_DLL
@@ -81,11 +81,8 @@ int SourceSharpPayload_BuildSendProps( SendProp *pProps, int nWords, int nBlobBa
 
 	for ( int i = 0; i < nWords; i++ )
 	{
-		pProps[i] = SendPropInt( SourceSharpPayload_PropName( i ),
-		                         SourceSharpPayload_WordOffset( nBlobBase, i ),
-		                         SOURCESHARP_PAYLOAD_WORD_BYTES,
-		                         32,
-		                         SPROP_UNSIGNED );
+		pProps[i] = SendPropInt( SourceSharpPayload_PropName( i ), SourceSharpPayload_WordOffset( nBlobBase, i ),
+								 SOURCESHARP_PAYLOAD_WORD_BYTES, 32, SPROP_UNSIGNED );
 	}
 
 	return nWords;
@@ -97,8 +94,7 @@ bool SourceSharpPayload_IsFastSendProxy( const SendProp *pProp )
 		return false;
 
 	// The engine's fast path checks the type as well as the proxy.
-	return pProp->GetType() == DPT_Int &&
-	       pProp->GetProxyFn() == g_StandardSendProxies.m_UInt32ToInt32;
+	return pProp->GetType() == DPT_Int && pProp->GetProxyFn() == g_StandardSendProxies.m_UInt32ToInt32;
 }
 
 const char *SourceSharpPayload_SendProxyName( const SendProp *pProp )
@@ -108,14 +104,22 @@ const char *SourceSharpPayload_SendProxyName( const SendProp *pProp )
 
 	const SendVarProxyFn fn = pProp->GetProxyFn();
 
-	if ( fn == g_StandardSendProxies.m_UInt32ToInt32 )	return "m_UInt32ToInt32";
-	if ( fn == g_StandardSendProxies.m_Int32ToInt32 )	return "m_Int32ToInt32";
-	if ( fn == g_StandardSendProxies.m_UInt16ToInt32 )	return "m_UInt16ToInt32";
-	if ( fn == g_StandardSendProxies.m_Int16ToInt32 )	return "m_Int16ToInt32";
-	if ( fn == g_StandardSendProxies.m_UInt8ToInt32 )	return "m_UInt8ToInt32";
-	if ( fn == g_StandardSendProxies.m_Int8ToInt32 )	return "m_Int8ToInt32";
-	if ( fn == g_StandardSendProxies.m_FloatToFloat )	return "m_FloatToFloat";
-	if ( fn == g_StandardSendProxies.m_VectorToVector )	return "m_VectorToVector";
+	if ( fn == g_StandardSendProxies.m_UInt32ToInt32 )
+		return "m_UInt32ToInt32";
+	if ( fn == g_StandardSendProxies.m_Int32ToInt32 )
+		return "m_Int32ToInt32";
+	if ( fn == g_StandardSendProxies.m_UInt16ToInt32 )
+		return "m_UInt16ToInt32";
+	if ( fn == g_StandardSendProxies.m_Int16ToInt32 )
+		return "m_Int16ToInt32";
+	if ( fn == g_StandardSendProxies.m_UInt8ToInt32 )
+		return "m_UInt8ToInt32";
+	if ( fn == g_StandardSendProxies.m_Int8ToInt32 )
+		return "m_Int8ToInt32";
+	if ( fn == g_StandardSendProxies.m_FloatToFloat )
+		return "m_FloatToFloat";
+	if ( fn == g_StandardSendProxies.m_VectorToVector )
+		return "m_VectorToVector";
 
 	// No engine fast path for anything else.
 	return "custom (SLOW)";

@@ -26,9 +26,12 @@ namespace
 struct Delta
 {
 	SourceSharpAllocCheckCounts before = SourceSharp_AllocCheckCounts();
-	uint64_t Foreign() const    { return SourceSharp_AllocCheckCounts().foreignFrees - before.foreignFrees; }
+
+	uint64_t Foreign() const { return SourceSharp_AllocCheckCounts().foreignFrees - before.foreignFrees; }
+
 	uint64_t Mismatches() const { return SourceSharp_AllocCheckCounts().mismatches - before.mismatches; }
-	uint64_t Allocs() const     { return SourceSharp_AllocCheckCounts().allocations - before.allocations; }
+
+	uint64_t Allocs() const { return SourceSharp_AllocCheckCounts().allocations - before.allocations; }
 };
 
 // Longer than any small-string buffer, so each one is a heap block.
@@ -41,7 +44,8 @@ const char *const kNames[] = {
 
 TEST( ServerStringPoolAlloc, UnderMemdbgonEveryReleaseIsOfABlockThePoolAllocated )
 {
-	SS_SKIP_ON_CI( "built against the fork's tier0 allocator routing (memdbgon/MemAlloc_StrDup), which the public patch series does not reproduce" );
+	SS_SKIP_ON_CI(
+		"built against the fork's tier0 allocator routing (memdbgon/MemAlloc_StrDup), which the public patch series does not reproduce" );
 	Delta d;
 	{
 		CServerStringPool pool;
@@ -52,13 +56,14 @@ TEST( ServerStringPoolAlloc, UnderMemdbgonEveryReleaseIsOfABlockThePoolAllocated
 	}
 	EXPECT_GE( d.Allocs(), 3u ) << "the pool's allocations never reached the checker";
 	EXPECT_EQ( 0u, d.Foreign() ) << "the pool released memory it did not allocate "
-	                                "through the wrapped allocator";
+									"through the wrapped allocator";
 	EXPECT_EQ( 0u, d.Mismatches() );
 }
 
 TEST( ServerStringPoolAlloc, TheDestructorReleasesWhatFreeAllWouldHave )
 {
-	SS_SKIP_ON_CI( "built against the fork's tier0 allocator routing (memdbgon/MemAlloc_StrDup), which the public patch series does not reproduce" );
+	SS_SKIP_ON_CI(
+		"built against the fork's tier0 allocator routing (memdbgon/MemAlloc_StrDup), which the public patch series does not reproduce" );
 	Delta d;
 	{
 		CServerStringPool pool;

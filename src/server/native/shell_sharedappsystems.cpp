@@ -28,18 +28,12 @@ public:
 		AddAppSystem( "scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION );
 	}
 
-	virtual int	Count()
-	{
-		return (int)m_Systems.size();
-	}
-	virtual char const *GetDllName( int idx )
-	{
-		return m_Systems[ idx ].m_pModuleName;
-	}
-	virtual char const *GetInterfaceName( int idx )
-	{
-		return m_Systems[ idx ].m_pInterfaceName;
-	}
+	virtual int Count() { return (int)m_Systems.size(); }
+
+	virtual char const *GetDllName( int idx ) { return m_Systems[idx].m_pModuleName; }
+
+	virtual char const *GetInterfaceName( int idx ) { return m_Systems[idx].m_pInterfaceName; }
+
 private:
 	void AddAppSystem( char const *moduleName, char const *interfaceName )
 	{
@@ -49,13 +43,19 @@ private:
 		m_Systems.push_back( sys );
 	}
 
-	std::vector< AppSystemInfo_t >	m_Systems;
+	std::vector<AppSystemInfo_t> m_Systems;
 };
 
 namespace
 {
-	CServerDLLSharedAppSystems s_ServerDLLSharedAppSystems;
+CServerDLLSharedAppSystems s_ServerDLLSharedAppSystems;
 }
+
 // Answered by the factory (shell_factory.cpp), which asks for it by this row.
-static void *SourceSharp_GetServerDllSharedAppSystems() { return (IServerDLLSharedAppSystems *)&s_ServerDLLSharedAppSystems; }
-const SourceSharpExposed kExposeServerDllSharedAppSystems = { SERVER_DLL_SHARED_APPSYSTEMS, SourceSharp_GetServerDllSharedAppSystems };
+static void *SourceSharp_GetServerDllSharedAppSystems()
+{
+	return (IServerDLLSharedAppSystems *)&s_ServerDLLSharedAppSystems;
+}
+
+const SourceSharpExposed kExposeServerDllSharedAppSystems = { SERVER_DLL_SHARED_APPSYSTEMS,
+															  SourceSharp_GetServerDllSharedAppSystems };

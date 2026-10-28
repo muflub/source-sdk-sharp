@@ -71,25 +71,25 @@ struct Op_t
 // below, so an op added to the enum and left off this list is caught by
 // EveryOpIsPinnedHere rather than being silently unchecked.
 const Op_t kOps[] = {
-	{ "ENTITY_OP_SPAWN",            0 },
-	{ "ENTITY_OP_KEY_VALUE",        1 },
-	{ "ENTITY_OP_INPUT",            2 },
-	{ "ENTITY_OP_THINK",            3 },
-	{ "ENTITY_OP_REMOVED",          4 },
-	{ "ENTITY_OP_START_TOUCH",      5 },
-	{ "ENTITY_OP_TOUCH",            6 },
-	{ "ENTITY_OP_END_TOUCH",        7 },
-	{ "ENTITY_OP_IMPACT",           8 },
-	{ "ENTITY_OP_MOVE_DONE",        9 },
-	{ "ENTITY_OP_BLOCKED",         10 },
-	{ "ENTITY_OP_DAMAGE",          11 },
-	{ "ENTITY_OP_KILLED",          12 },
-	{ "ENTITY_OP_FILTER_PASSES",   13 },
+	{ "ENTITY_OP_SPAWN", 0 },
+	{ "ENTITY_OP_KEY_VALUE", 1 },
+	{ "ENTITY_OP_INPUT", 2 },
+	{ "ENTITY_OP_THINK", 3 },
+	{ "ENTITY_OP_REMOVED", 4 },
+	{ "ENTITY_OP_START_TOUCH", 5 },
+	{ "ENTITY_OP_TOUCH", 6 },
+	{ "ENTITY_OP_END_TOUCH", 7 },
+	{ "ENTITY_OP_IMPACT", 8 },
+	{ "ENTITY_OP_MOVE_DONE", 9 },
+	{ "ENTITY_OP_BLOCKED", 10 },
+	{ "ENTITY_OP_DAMAGE", 11 },
+	{ "ENTITY_OP_KILLED", 12 },
+	{ "ENTITY_OP_FILTER_PASSES", 13 },
 	{ "ENTITY_OP_POSITION_CHANGED", 14 },
-	{ "ENTITY_OP_PHYSICS_CREATED",  15 },
+	{ "ENTITY_OP_PHYSICS_CREATED", 15 },
 };
 
-const size_t kOpCount = sizeof( kOps ) / sizeof( kOps[ 0 ] );
+const size_t kOpCount = sizeof( kOps ) / sizeof( kOps[0] );
 
 } // namespace
 
@@ -104,16 +104,16 @@ const size_t kOpCount = sizeof( kOps ) / sizeof( kOps[ 0 ] );
 //-----------------------------------------------------------------------------
 TEST( EntityOpNumbers, EveryOpHasItsFixedValue )
 {
-	EXPECT_EQ( 0,  (int)ENTITY_OP_SPAWN );
-	EXPECT_EQ( 1,  (int)ENTITY_OP_KEY_VALUE );
-	EXPECT_EQ( 2,  (int)ENTITY_OP_INPUT );
-	EXPECT_EQ( 3,  (int)ENTITY_OP_THINK );
-	EXPECT_EQ( 4,  (int)ENTITY_OP_REMOVED );
-	EXPECT_EQ( 5,  (int)ENTITY_OP_START_TOUCH );
-	EXPECT_EQ( 6,  (int)ENTITY_OP_TOUCH );
-	EXPECT_EQ( 7,  (int)ENTITY_OP_END_TOUCH );
-	EXPECT_EQ( 8,  (int)ENTITY_OP_IMPACT );
-	EXPECT_EQ( 9,  (int)ENTITY_OP_MOVE_DONE );
+	EXPECT_EQ( 0, (int)ENTITY_OP_SPAWN );
+	EXPECT_EQ( 1, (int)ENTITY_OP_KEY_VALUE );
+	EXPECT_EQ( 2, (int)ENTITY_OP_INPUT );
+	EXPECT_EQ( 3, (int)ENTITY_OP_THINK );
+	EXPECT_EQ( 4, (int)ENTITY_OP_REMOVED );
+	EXPECT_EQ( 5, (int)ENTITY_OP_START_TOUCH );
+	EXPECT_EQ( 6, (int)ENTITY_OP_TOUCH );
+	EXPECT_EQ( 7, (int)ENTITY_OP_END_TOUCH );
+	EXPECT_EQ( 8, (int)ENTITY_OP_IMPACT );
+	EXPECT_EQ( 9, (int)ENTITY_OP_MOVE_DONE );
 	EXPECT_EQ( 10, (int)ENTITY_OP_BLOCKED );
 	EXPECT_EQ( 11, (int)ENTITY_OP_DAMAGE );
 	EXPECT_EQ( 12, (int)ENTITY_OP_KILLED );
@@ -129,7 +129,7 @@ TEST( EntityOpNumbers, EveryOpHasItsFixedValue )
 TEST( EntityOpNumbers, CountIsOnePastTheLastOp )
 {
 	EXPECT_EQ( (int)kOpCount, (int)ENTITY_OP_COUNT );
-	EXPECT_EQ( kOps[ kOpCount - 1 ].nValue + 1, (int)ENTITY_OP_COUNT );
+	EXPECT_EQ( kOps[kOpCount - 1].nValue + 1, (int)ENTITY_OP_COUNT );
 }
 
 //-----------------------------------------------------------------------------
@@ -157,8 +157,7 @@ TEST( EntityOpMask, TheBitIsTheShift )
 {
 	for ( size_t i = 0; i < kOpCount; i++ )
 	{
-		EXPECT_EQ( (uint32_t)( 1u << kOps[ i ].nValue ),
-		           ENTITY_OP_BIT( kOps[ i ].nValue ) );
+		EXPECT_EQ( (uint32_t)( 1u << kOps[i].nValue ), ENTITY_OP_BIT( kOps[i].nValue ) );
 	}
 }
 
@@ -173,10 +172,8 @@ TEST( EntityOpMask, TheBitIsTheShift )
 //-----------------------------------------------------------------------------
 TEST( EntityOpMask, TheAlwaysMaskIsTheFourBookkeepingOps )
 {
-	const uint32_t expected = ENTITY_OP_BIT( ENTITY_OP_SPAWN )
-		| ENTITY_OP_BIT( ENTITY_OP_KEY_VALUE )
-		| ENTITY_OP_BIT( ENTITY_OP_REMOVED )
-		| ENTITY_OP_BIT( ENTITY_OP_FILTER_PASSES );
+	const uint32_t expected = ENTITY_OP_BIT( ENTITY_OP_SPAWN ) | ENTITY_OP_BIT( ENTITY_OP_KEY_VALUE ) |
+		ENTITY_OP_BIT( ENTITY_OP_REMOVED ) | ENTITY_OP_BIT( ENTITY_OP_FILTER_PASSES );
 
 	EXPECT_EQ( expected, (uint32_t)ENTITY_OP_ALWAYS_MASK );
 
@@ -225,8 +222,8 @@ TEST( EntityOpArgs, IsSixtyFourBytes )
 
 TEST( EntityOpArgs, EveryFieldIsWhereCsharpPinsIt )
 {
-	EXPECT_EQ( (size_t)0,  offsetof( SourceSharpOpArgs, pBlob ) );
-	EXPECT_EQ( (size_t)8,  offsetof( SourceSharpOpArgs, nBlobBytes ) );
+	EXPECT_EQ( (size_t)0, offsetof( SourceSharpOpArgs, pBlob ) );
+	EXPECT_EQ( (size_t)8, offsetof( SourceSharpOpArgs, nBlobBytes ) );
 	EXPECT_EQ( (size_t)12, offsetof( SourceSharpOpArgs, hOther ) );
 	EXPECT_EQ( (size_t)16, offsetof( SourceSharpOpArgs, pText0 ) );
 	EXPECT_EQ( (size_t)24, offsetof( SourceSharpOpArgs, pText1 ) );

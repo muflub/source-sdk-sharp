@@ -7,16 +7,6 @@
 
 // SS_REASON a  a vtable the engine calls through
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -29,9 +19,7 @@ void CHLVoiceStatusHelper::GetPlayerTextColor( int entindex, int color[3] )
 	color[0] = color[1] = color[2] = 128;
 }
 
-void CHLVoiceStatusHelper::UpdateCursorState()
-{
-}
+void CHLVoiceStatusHelper::UpdateCursorState() {}
 
 bool CHLVoiceStatusHelper::CanShowSpeakerLabels()
 {

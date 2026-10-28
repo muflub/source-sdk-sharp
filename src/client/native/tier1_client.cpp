@@ -11,10 +11,6 @@
 #include "tier1/mempool.h"
 #include "ss_crc32.h"
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-
 void CRC32_Init( CRC32_t *pulCRC )
 {
 	*pulCRC = ss::Crc32Start();
@@ -36,7 +32,8 @@ bool g_bDoRangeChecks = true;
 // Fixed-size blocks carved from blobs, handed out through a free list threaded through the
 // blocks (last freed, first reused). A FAST pool's new blob grows with the blob count, a
 // SLOW pool's is numElements, a NONE pool has its first blob only.
-CUtlMemoryPool::CUtlMemoryPool( int blockSize, int numElements, int growMode, const char *pszAllocOwner, int nAlignment )
+CUtlMemoryPool::CUtlMemoryPool( int blockSize, int numElements, int growMode, const char *pszAllocOwner,
+								int nAlignment )
 {
 	m_nAlignment = (unsigned short)( nAlignment ? nAlignment : 1 );
 	const int nAtLeast = blockSize < (int)sizeof( void * ) ? (int)sizeof( void * ) : blockSize;

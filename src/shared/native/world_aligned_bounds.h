@@ -11,17 +11,13 @@
 
 #pragma once
 
-#include "mathlib/vector.h"
-#include "mathlib/mathlib.h"
 #include "const.h"
 #include "mathlib_port.h"
 
 // A local box placed at an origin. Only correct when the box is not rotated: the owner's
 // angles are zero or its bounds are world-aligned.
-inline void SourceSharp_BoundsToWorld( const Vector &vecLocalMins,
-                                       const Vector &vecLocalMaxs,
-                                       const Vector &vecOrigin,
-                                       Vector *pWorldMins, Vector *pWorldMaxs )
+inline void SourceSharp_BoundsToWorld( const Vector &vecLocalMins, const Vector &vecLocalMaxs, const Vector &vecOrigin,
+									   Vector *pWorldMins, Vector *pWorldMaxs )
 {
 	VectorAdd( vecLocalMins, vecOrigin, *pWorldMins );
 	VectorAdd( vecLocalMaxs, vecOrigin, *pWorldMaxs );
@@ -31,17 +27,13 @@ inline void SourceSharp_BoundsToWorld( const Vector &vecLocalMins,
 // is SOLID_BBOX, SOLID_NONE or forced world-aligned.
 inline bool SourceSharp_BoundsInEntitySpace( int nSolidType, int nSolidFlags )
 {
-	return ( nSolidFlags & FSOLID_FORCE_WORLD_ALIGNED ) == 0
-		&& nSolidType != SOLID_BBOX && nSolidType != SOLID_NONE;
+	return ( nSolidFlags & FSOLID_FORCE_WORLD_ALIGNED ) == 0 && nSolidType != SOLID_BBOX && nSolidType != SOLID_NONE;
 }
 
 // The box the world sees, rotated and re-bounded when it is in entity space and turned.
-inline void SourceSharp_CollisionBoundsToWorld( int nSolidType, int nSolidFlags,
-                                                const Vector &vecLocalMins,
-                                                const Vector &vecLocalMaxs,
-                                                const Vector &vecOrigin,
-                                                const QAngle &angAngles,
-                                                Vector *pWorldMins, Vector *pWorldMaxs )
+inline void SourceSharp_CollisionBoundsToWorld( int nSolidType, int nSolidFlags, const Vector &vecLocalMins,
+												const Vector &vecLocalMaxs, const Vector &vecOrigin,
+												const QAngle &angAngles, Vector *pWorldMins, Vector *pWorldMaxs )
 {
 	if ( !SourceSharp_BoundsInEntitySpace( nSolidType, nSolidFlags ) || angAngles == vec3_angle )
 	{
@@ -56,8 +48,8 @@ inline void SourceSharp_CollisionBoundsToWorld( int nSolidType, int nSolidFlags,
 
 // CCollisionProperty::WorldSpaceTriggerBounds, in place: with FSOLID_USE_TRIGGER_BOUNDS the
 // sides grow by the bloat and the top by half, or every side when uniform.
-inline void SourceSharp_TriggerBounds( int nSolidFlags, int nBloat, bool bUniform,
-                                       Vector *pWorldMins, Vector *pWorldMaxs )
+inline void SourceSharp_TriggerBounds( int nSolidFlags, int nBloat, bool bUniform, Vector *pWorldMins,
+									   Vector *pWorldMaxs )
 {
 	if ( ( nSolidFlags & FSOLID_USE_TRIGGER_BOUNDS ) == 0 )
 		return;
@@ -81,8 +73,8 @@ inline void SourceSharp_TriggerBounds( int nSolidFlags, int nBloat, bool bUnifor
 
 // The tail of CCollisionProperty::ComputeSurroundingBox, in place: the surrounding box takes
 // in the trigger box.
-inline void SourceSharp_SurroundingBounds( int nSolidFlags, int nBloat, bool bUniform,
-                                           Vector *pWorldMins, Vector *pWorldMaxs )
+inline void SourceSharp_SurroundingBounds( int nSolidFlags, int nBloat, bool bUniform, Vector *pWorldMins,
+										   Vector *pWorldMaxs )
 {
 	if ( ( nSolidFlags & FSOLID_USE_TRIGGER_BOUNDS ) == 0 )
 		return;

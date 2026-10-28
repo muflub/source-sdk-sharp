@@ -146,6 +146,29 @@ def _is_macro_line(l):
     return re.match(r"^\w+$", callee) is not None
 
 
+RE_QUALIFIERS = re.compile(r"(?:\s*(?:const|override|final|noexcept|volatile|OVERRIDE|FINAL|&&|&|->\s*[\w:<>*& ]+))*")
+
+
+def _signature(text):
+    """A definition's head on one line, however it was wrapped: the text up to
+    the parameter list's closing parenthesis and its qualifiers, never the
+    constructor initialiser list or the body after it."""
+    text = " ".join(text.split())
+    open_at = text.find("(")
+    if open_at < 0:
+        return text
+    depth = 0
+    for i in range(open_at, len(text)):
+        if text[i] == "(":
+            depth += 1
+        elif text[i] == ")":
+            depth -= 1
+            if depth == 0:
+                end = i + 1 + RE_QUALIFIERS.match(text, i + 1).end() - (i + 1)
+                return text[:end].rstrip()
+    return text
+
+
 def _kind(pending):
     """What a `{` opens, from the statement text before it at this scope.
     `pending` is [(line_no, text)]. Returns (kind, name_or_head, head_line)."""
@@ -170,9 +193,9 @@ def _kind(pending):
     rest, dropped = list(lines), None
     while rest and _is_macro_line(rest[0][1]):
         dropped = rest.pop(0)
-    for n, t in rest:
+    for i, (n, t) in enumerate(rest):
         if RE_SIG.match(t):
-            return "func", t, n
+            return "func", _signature(" ".join(s for _, s in rest[i:])), n
     if dropped is not None and not rest:
         return "func", dropped[1], dropped[0]
     n, t = (rest or lines)[0]
@@ -438,6 +461,10 @@ extern "C" void Exported( int a,
        "CFoo::CFoo()" in heads and not any(h.startswith("m_b") for h in heads), str(heads))
     ck("a multi-line extern \"C\" signature is one row",
        dict((h, n) for n, h in rows).get('extern "" void Exported( int a,') == 5, str(rows))
+    wrapped = fnmap("float Play( int a, int b,\n\tint c )\n{\n\treturn 0;\n}\nfloat Play( int a, int b,\n\tfloat d )\n{\n\treturn 1;\n}\n")
+    ck("a wrapped signature is one head, so overloads that wrap alike stay apart",
+       [h for _, h in wrapped] == ["float Play( int a, int b, int c )", "float Play( int a, int b, float d )"],
+       str(wrapped))
     ck("a #define's brace opens nothing", len(rows) == 8, "%d rows: %s" % (len(rows), heads))
     try:
         fnmap("void F()\n{\n    if ( x ) {\n}\n")

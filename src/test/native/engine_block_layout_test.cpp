@@ -497,4 +497,4 @@ TEST( EngineBlockBlockLayout, ClientIsAt280 )
 	EXPECT_EQ( 280u, offsetof( EngineBlock_t, Client ) );
 }
 
-}  // namespace
+} // namespace

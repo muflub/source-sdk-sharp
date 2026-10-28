@@ -15,18 +15,12 @@
 // system frees them with tier0's delete[]. KeyValuesSystem is looked up at each use.
 
 #include "tier1/ilocalize.h"
-#include "tier1/KeyValues.h"
+
 #include "vstdlib/IKeyValuesSystem.h"
-#include "tier0/platform.h"
+
 #include "engine_heap.h"
 #include "loaded_symbol.h"
 #include "ss_string.h"
-
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <wchar.h>
 
 int ILocalize::ConvertUnicodeToANSI( const wchar_t *unicode, char *ansi, int ansiBufferSize )
 {
@@ -86,7 +80,8 @@ KeyValues::KeyValues( const char *setName )
 	SetName( setName );
 }
 
-KeyValues::KeyValues( const char *setName, const char *firstKey, int firstValue, const char *secondKey, int secondValue )
+KeyValues::KeyValues( const char *setName, const char *firstKey, int firstValue, const char *secondKey,
+					  int secondValue )
 {
 	Init();
 	SetName( setName );
@@ -118,7 +113,8 @@ KeyValues::~KeyValues()
 // back here stops at it), then the value strings.
 void KeyValues::RemoveEverything()
 {
-	auto freeList = []( KeyValues *pFirst, const KeyValues *pStop ) {
+	auto freeList = []( KeyValues *pFirst, const KeyValues *pStop )
+	{
 		while ( pFirst && pFirst != pStop )
 		{
 			KeyValues *pNext = pFirst->m_pPeer;
@@ -245,13 +241,18 @@ int KeyValues::GetInt( const char *keyName, int defaultValue )
 		return defaultValue;
 	switch ( dat->m_iDataType )
 	{
-	case TYPE_STRING: return atoi( dat->m_sValue );
-	case TYPE_WSTRING: return (int)wcstol( dat->m_wsValue, NULL, 10 );
-	case TYPE_FLOAT: return (int)dat->m_flValue;
-	case TYPE_UINT64: return 0;	// tier1 asserts: it would lose data
-	case TYPE_INT:
-	case TYPE_PTR:
-	default: return dat->m_iValue;
+		case TYPE_STRING:
+			return atoi( dat->m_sValue );
+		case TYPE_WSTRING:
+			return (int)wcstol( dat->m_wsValue, NULL, 10 );
+		case TYPE_FLOAT:
+			return (int)dat->m_flValue;
+		case TYPE_UINT64:
+			return 0; // tier1 asserts: it would lose data
+		case TYPE_INT:
+		case TYPE_PTR:
+		default:
+			return dat->m_iValue;
 	}
 }
 
@@ -262,13 +263,19 @@ float KeyValues::GetFloat( const char *keyName, float defaultValue )
 		return defaultValue;
 	switch ( dat->m_iDataType )
 	{
-	case TYPE_STRING: return (float)atof( dat->m_sValue );
-	case TYPE_WSTRING: return 0.0f;	// tier1 has no wide atof off Windows
-	case TYPE_FLOAT: return dat->m_flValue;
-	case TYPE_INT: return (float)dat->m_iValue;
-	case TYPE_UINT64: return (float)( *( (uint64 *)dat->m_sValue ) );
-	case TYPE_PTR:
-	default: return 0.0f;
+		case TYPE_STRING:
+			return (float)atof( dat->m_sValue );
+		case TYPE_WSTRING:
+			return 0.0f; // tier1 has no wide atof off Windows
+		case TYPE_FLOAT:
+			return dat->m_flValue;
+		case TYPE_INT:
+			return (float)dat->m_iValue;
+		case TYPE_UINT64:
+			return (float)( *( (uint64 *)dat->m_sValue ) );
+		case TYPE_PTR:
+		default:
+			return 0.0f;
 	}
 }
 
@@ -283,34 +290,34 @@ const char *KeyValues::GetString( const char *keyName, const char *defaultValue 
 	char buf[64];
 	switch ( dat->m_iDataType )
 	{
-	case TYPE_FLOAT:
-		snprintf( buf, sizeof( buf ), "%f", dat->m_flValue );
-		SetString( keyName, buf );
-		break;
-	case TYPE_PTR:
-		snprintf( buf, sizeof( buf ), "%lld", (long long)CastPtrToInt64( dat->m_pValue ) );
-		SetString( keyName, buf );
-		break;
-	case TYPE_INT:
-		snprintf( buf, sizeof( buf ), "%d", dat->m_iValue );
-		SetString( keyName, buf );
-		break;
-	case TYPE_UINT64:
-		snprintf( buf, sizeof( buf ), "%lld", *( (long long *)( dat->m_sValue ) ) );
-		SetString( keyName, buf );
-		break;
-	case TYPE_WSTRING:
-	{
-		char wideBuf[512];
-		if ( !ss::WideToUTF8( dat->m_wsValue, wideBuf, sizeof( wideBuf ) ) )
+		case TYPE_FLOAT:
+			snprintf( buf, sizeof( buf ), "%f", dat->m_flValue );
+			SetString( keyName, buf );
+			break;
+		case TYPE_PTR:
+			snprintf( buf, sizeof( buf ), "%lld", (long long)CastPtrToInt64( dat->m_pValue ) );
+			SetString( keyName, buf );
+			break;
+		case TYPE_INT:
+			snprintf( buf, sizeof( buf ), "%d", dat->m_iValue );
+			SetString( keyName, buf );
+			break;
+		case TYPE_UINT64:
+			snprintf( buf, sizeof( buf ), "%lld", *( (long long *)( dat->m_sValue ) ) );
+			SetString( keyName, buf );
+			break;
+		case TYPE_WSTRING:
+		{
+			char wideBuf[512];
+			if ( !ss::WideToUTF8( dat->m_wsValue, wideBuf, sizeof( wideBuf ) ) )
+				return defaultValue;
+			SetString( keyName, wideBuf );
+			break;
+		}
+		case TYPE_STRING:
+			break;
+		default:
 			return defaultValue;
-		SetString( keyName, wideBuf );
-		break;
-	}
-	case TYPE_STRING:
-		break;
-	default:
-		return defaultValue;
 	}
 	return dat->m_sValue;
 }

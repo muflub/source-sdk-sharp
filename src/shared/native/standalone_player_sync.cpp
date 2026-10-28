@@ -9,16 +9,7 @@
 // Compiled into both DLLs, so the field list and byte arithmetic are the same code.
 
 #ifdef CLIENT_DLL
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
+
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -46,8 +37,8 @@ void SourceSharp_PlayerSyncInvalidate( const char *pReason )
 {
 	g_nPlayerSyncGeneration++;
 
-	Msg( "[SourceSharp] player sync: offsets invalidated (%s), generation %u\n",
-		pReason ? pReason : "unspecified", g_nPlayerSyncGeneration );
+	Msg( "[SourceSharp] player sync: offsets invalidated (%s), generation %u\n", pReason ? pReason : "unspecified",
+		 g_nPlayerSyncGeneration );
 }
 
 // One warning per failed resolve attempt, not per field.
@@ -61,11 +52,10 @@ static int ResolveOffset( const SourceSharpNetStateAsk_t &ask, const char *pFiel
 	return nOffset;
 }
 
-static SourceSharpPackedField_t ResolvePacked( const SourceSharpNetStateAsk_t &ask,
-                                               const char *pField, bool *pbAll )
+static SourceSharpPackedField_t ResolvePacked( const SourceSharpNetStateAsk_t &ask, const char *pField, bool *pbAll )
 {
 	const int nOffset = ask.pfnFieldOffset( "ss_player", pField );
-	const int nBits   = ask.pfnFieldBits( "ss_player", pField );
+	const int nBits = ask.pfnFieldBits( "ss_player", pField );
 
 	SourceSharpPackedField_t field = SourceSharpPayload_Place( nOffset, nBits );
 
@@ -83,43 +73,43 @@ bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields )
 
 	bool bAll = true;
 
-	pFields->nHealth          = ResolveOffset( ask, "Health", &bAll );
-	pFields->nMaxSpeed        = ResolveOffset( ask, "MaxSpeed", &bAll );
-	pFields->nFallVelocity    = ResolveOffset( ask, "FallVelocity", &bAll );
-	pFields->nDuckTime        = ResolveOffset( ask, "DuckTime", &bAll );
-	pFields->nDuckJumpTime    = ResolveOffset( ask, "DuckJumpTime", &bAll );
-	pFields->nJumpTime        = ResolveOffset( ask, "JumpTime", &bAll );
-	pFields->nStepSize        = ResolveOffset( ask, "StepSize", &bAll );
-	pFields->nWaterJumpTime   = ResolveOffset( ask, "WaterJumpTime", &bAll );
+	pFields->nHealth = ResolveOffset( ask, "Health", &bAll );
+	pFields->nMaxSpeed = ResolveOffset( ask, "MaxSpeed", &bAll );
+	pFields->nFallVelocity = ResolveOffset( ask, "FallVelocity", &bAll );
+	pFields->nDuckTime = ResolveOffset( ask, "DuckTime", &bAll );
+	pFields->nDuckJumpTime = ResolveOffset( ask, "DuckJumpTime", &bAll );
+	pFields->nJumpTime = ResolveOffset( ask, "JumpTime", &bAll );
+	pFields->nStepSize = ResolveOffset( ask, "StepSize", &bAll );
+	pFields->nWaterJumpTime = ResolveOffset( ask, "WaterJumpTime", &bAll );
 	pFields->nSurfaceFriction = ResolveOffset( ask, "SurfaceFriction", &bAll );
-	pFields->nOldForwardMove  = ResolveOffset( ask, "OldForwardMove", &bAll );
-	pFields->nFlags           = ResolveOffset( ask, "Flags", &bAll );
-	pFields->nOldButtons      = ResolveOffset( ask, "OldButtons", &bAll );
-	pFields->nTickBase        = ResolveOffset( ask, "TickBase", &bAll );
-	pFields->nGroundEntity    = ResolveOffset( ask, "GroundEntity", &bAll );
+	pFields->nOldForwardMove = ResolveOffset( ask, "OldForwardMove", &bAll );
+	pFields->nFlags = ResolveOffset( ask, "Flags", &bAll );
+	pFields->nOldButtons = ResolveOffset( ask, "OldButtons", &bAll );
+	pFields->nTickBase = ResolveOffset( ask, "TickBase", &bAll );
+	pFields->nGroundEntity = ResolveOffset( ask, "GroundEntity", &bAll );
 
-	pFields->Alive             = ResolvePacked( ask, "Alive", &bAll );
-	pFields->Ducked            = ResolvePacked( ask, "Ducked", &bAll );
-	pFields->Ducking           = ResolvePacked( ask, "Ducking", &bAll );
-	pFields->InDuckJump        = ResolvePacked( ask, "InDuckJump", &bAll );
+	pFields->Alive = ResolvePacked( ask, "Alive", &bAll );
+	pFields->Ducked = ResolvePacked( ask, "Ducked", &bAll );
+	pFields->Ducking = ResolvePacked( ask, "Ducking", &bAll );
+	pFields->InDuckJump = ResolvePacked( ask, "InDuckJump", &bAll );
 	pFields->AllowAutoMovement = ResolvePacked( ask, "AllowAutoMovement", &bAll );
-	pFields->WaterLevel        = ResolvePacked( ask, "WaterLevel", &bAll );
-	pFields->WaterType         = ResolvePacked( ask, "WaterType", &bAll );
-	pFields->MoveType          = ResolvePacked( ask, "MoveType", &bAll );
+	pFields->WaterLevel = ResolvePacked( ask, "WaterLevel", &bAll );
+	pFields->WaterType = ResolvePacked( ask, "WaterType", &bAll );
+	pFields->MoveType = ResolvePacked( ask, "MoveType", &bAll );
 
-	pFields->nOrigin        = ResolveOffset( ask, "Origin", &bAll );
-	pFields->nVelocity      = ResolveOffset( ask, "Velocity", &bAll );
-	pFields->nBaseVelocity  = ResolveOffset( ask, "BaseVelocity", &bAll );
-	pFields->nViewOffset    = ResolveOffset( ask, "ViewOffset", &bAll );
-	pFields->nPunchAngle    = ResolveOffset( ask, "PunchAngle", &bAll );
+	pFields->nOrigin = ResolveOffset( ask, "Origin", &bAll );
+	pFields->nVelocity = ResolveOffset( ask, "Velocity", &bAll );
+	pFields->nBaseVelocity = ResolveOffset( ask, "BaseVelocity", &bAll );
+	pFields->nViewOffset = ResolveOffset( ask, "ViewOffset", &bAll );
+	pFields->nPunchAngle = ResolveOffset( ask, "PunchAngle", &bAll );
 	pFields->nPunchAngleVel = ResolveOffset( ask, "PunchAngleVel", &bAll );
-	pFields->nLadderNormal  = ResolveOffset( ask, "LadderNormal", &bAll );
-	pFields->nWaterJumpVel  = ResolveOffset( ask, "WaterJumpVel", &bAll );
+	pFields->nLadderNormal = ResolveOffset( ask, "LadderNormal", &bAll );
+	pFields->nWaterJumpVel = ResolveOffset( ask, "WaterJumpVel", &bAll );
 
 	if ( !bAll )
 	{
 		Warning( "[SourceSharp] player sync: ss_player's fields did not all resolve — "
-		         "is PlayerNetState published on this side?\n" );
+				 "is PlayerNetState published on this side?\n" );
 		return false;
 	}
 
@@ -144,9 +134,8 @@ static inline void WriteVec( unsigned char *pBlob, int nOffset, const Vector &ve
 }
 
 #ifndef CLIENT_DLL
-void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob,
-                                            const SourceSharpPlayerFields_t &fields,
-                                            const Vector &vecOrigin, int nHealth, bool bAlive )
+void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob, const SourceSharpPlayerFields_t &fields,
+											const Vector &vecOrigin, int nHealth, bool bAlive )
 {
 	if ( !pBlob || !fields.IsCurrent() )
 		return;

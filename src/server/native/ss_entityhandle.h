@@ -43,7 +43,7 @@ inline const IGameEntity *GameEntityFromEntityHandle( const IHandleEntity *pCons
 {
 	// Qualified: unqualified, argument-dependent lookup would also find
 	// util_shared.h's global overload in a TU that sees both.
-	return ss::GameEntityFromEntityHandle( const_cast< IHandleEntity * >( pConstHandleEntity ) );
+	return ss::GameEntityFromEntityHandle( const_cast<IHandleEntity *>( pConstHandleEntity ) );
 }
 
 // The game entity a trace hit (util_shared.h's TraceGameEntity, server arm).

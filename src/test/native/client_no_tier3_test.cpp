@@ -25,7 +25,7 @@ std::string Run( const std::string &cmd )
 	if ( !pPipe )
 		return std::string();
 	std::string out;
-	char buf[ 4096 ];
+	char buf[4096];
 	while ( fgets( buf, sizeof( buf ), pPipe ) )
 		out += buf;
 	pclose( pPipe );
@@ -35,9 +35,9 @@ std::string Run( const std::string &cmd )
 // The names `nm --defined-only` lists with one of pszTypes (T/D/B/R: global
 // strong definitions; lower case: local; V/W: weak COMDAT copies, which any
 // object may emit and so name no member).
-std::set< std::string > Defined( const std::string &strNmArgs, const char *pszTypes = "TtDdBbRrVvWw" )
+std::set<std::string> Defined( const std::string &strNmArgs, const char *pszTypes = "TtDdBbRrVvWw" )
 {
-	std::set< std::string > out;
+	std::set<std::string> out;
 	const std::string text = Run( "nm --defined-only " + strNmArgs );
 	size_t start = 0;
 	while ( start < text.size() )
@@ -51,19 +51,22 @@ std::set< std::string > Defined( const std::string &strNmArgs, const char *pszTy
 		const size_t a = line.find( ' ' );
 		if ( a == std::string::npos || a + 3 > line.size() )
 			continue;
-		const char t = line[ a + 1 ];
-		if ( strchr( pszTypes, t ) == NULL || line[ a + 2 ] != ' ' )
+		const char t = line[a + 1];
+		if ( strchr( pszTypes, t ) == NULL || line[a + 2] != ' ' )
 			continue;
 		out.insert( line.substr( a + 3 ) );
 	}
 	return out;
 }
 
-std::string Tier3Archive() { return cmake_graph::FarmSrc() + "/lib/public/linux64/tier3.a"; }
+std::string Tier3Archive()
+{
+	return cmake_graph::FarmSrc() + "/lib/public/linux64/tier3.a";
+}
 
 bool LinesNameTier3()
 {
-	const std::vector< std::string > libs = cmake_graph::LinkLibraries( cmake_graph::kClient );
+	const std::vector<std::string> libs = cmake_graph::LinkLibraries( cmake_graph::kClient );
 	for ( const std::string &tok : libs )
 	{
 		const std::string base = tok.substr( tok.find_last_of( '/' ) + 1 );
@@ -76,7 +79,7 @@ bool LinesNameTier3()
 
 TEST( ClientNoTier3, TheArchiveIsNotOnTheLinkLine )
 {
-	const std::vector< std::string > libs = cmake_graph::LinkLibraries( cmake_graph::kClient );
+	const std::vector<std::string> libs = cmake_graph::LinkLibraries( cmake_graph::kClient );
 	// Proof of read: a library that stays is there (particles.a moved to
 	// libss_particles.so, plan_particles_so.md; libmathlib.a left too, C9):
 	// libdl, which every Linux link line names.
@@ -90,7 +93,7 @@ TEST( ClientNoTier3, TheArchiveIsNotOnTheLinkLine )
 
 TEST( ClientNoTier3, EveryTier3NameInClientSoIsOneOfOurObjects )
 {
-	const std::set< std::string > archive = Defined( "'" + Tier3Archive() + "'", "TDBR" );
+	const std::set<std::string> archive = Defined( "'" + Tier3Archive() + "'", "TDBR" );
 	ASSERT_GT( archive.size(), 40u ) << Tier3Archive() << " read as nearly empty";
 
 	const std::string strBuild = cmake_graph::BuildDir();
@@ -100,14 +103,14 @@ TEST( ClientNoTier3, EveryTier3NameInClientSoIsOneOfOurObjects )
 	{
 		if ( rel.size() > 2 && rel.compare( rel.size() - 2, 2, ".o" ) == 0 )
 		{
-			objs += " '" + ( rel[ 0 ] == '/' ? rel : strBuild + "/" + rel ) + "'";
+			objs += " '" + ( rel[0] == '/' ? rel : strBuild + "/" + rel ) + "'";
 			nObjects++;
 		}
 	}
 	ASSERT_GT( nObjects, 100u ) << "the client's link edge named too few objects";
-	const std::set< std::string > ours = Defined( objs );
+	const std::set<std::string> ours = Defined( objs );
 
-	const std::set< std::string > so = Defined( "'" + strBuild + "/out/client.so'" );
+	const std::set<std::string> so = Defined( "'" + strBuild + "/out/client.so'" );
 	ASSERT_GT( so.size(), 1000u ) << "client.so read as nearly empty";
 
 	int nShared = 0;

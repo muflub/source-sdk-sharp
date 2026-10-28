@@ -1,7 +1,7 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-CChainStateNotify() : m_pOwner	LAYOUT	the network-var chain holder the patched networkvar.h macros store and call; client-only since plan_server_native_v2 T1.4 (server.so reads stock headers)
-template < class T >	LAYOUT	the network-var chain holder the patched networkvar.h macros store and call; client-only since plan_server_native_v2 T1.4 (server.so reads stock headers)
-bool IsBound() const	LAYOUT	the network-var chain holder the patched networkvar.h macros store and call; client-only since plan_server_native_v2 T1.4 (server.so reads stock headers)
-void NetworkStateChanged() const	LAYOUT	the network-var chain holder the patched networkvar.h macros store and call; client-only since plan_server_native_v2 T1.4 (server.so reads stock headers)
-static void Notify( void *pOwner )	LAYOUT	the network-var chain holder the patched networkvar.h macros store and call; client-only since plan_server_native_v2 T1.4 (server.so reads stock headers)
+[CChainStateNotify] : m_pOwner( 0 )	LAYOUT	the network-var chain holder the patched networkvar.h macros store and call; client-only since plan_server_native_v2 T1.4 (server.so reads stock headers)
+[CChainStateNotify] template <class T>	LAYOUT	the network-var chain holder the patched networkvar.h macros store and call; client-only since plan_server_native_v2 T1.4 (server.so reads stock headers)
+[CChainStateNotify] bool IsBound() const	LAYOUT	the network-var chain holder the patched networkvar.h macros store and call; client-only since plan_server_native_v2 T1.4 (server.so reads stock headers)
+[CChainStateNotify] void NetworkStateChanged() const	LAYOUT	the network-var chain holder the patched networkvar.h macros store and call; client-only since plan_server_native_v2 T1.4 (server.so reads stock headers)
+[CChainStateNotify] static void Notify( void *pOwner )	LAYOUT	the network-var chain holder the patched networkvar.h macros store and call; client-only since plan_server_native_v2 T1.4 (server.so reads stock headers)

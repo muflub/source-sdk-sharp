@@ -361,8 +361,8 @@ TEST( EntitySlots, TheLastEntryInTheBlockIsUsable )
 	CSourceSharpEntitySlots slots;
 
 	uint32_t nSerial = 0;
-	EXPECT_TRUE( slots.Open( SOURCESHARP_MAX_ENTITY_SLOTS - 1,
-	                         HandleFor( SOURCESHARP_MAX_ENTITY_SLOTS - 1 ), &nSerial ) );
+	EXPECT_TRUE(
+		slots.Open( SOURCESHARP_MAX_ENTITY_SLOTS - 1, HandleFor( SOURCESHARP_MAX_ENTITY_SLOTS - 1 ), &nSerial ) );
 	EXPECT_NE( (uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, nSerial );
 }
 
@@ -416,7 +416,7 @@ TEST( EntitySlots, ResetClosesEverything )
 //-----------------------------------------------------------------------------
 TEST( EntitySlots, ConstructionLeavesEveryByteZero )
 {
-	std::vector< unsigned char > storage( sizeof( CSourceSharpEntitySlots ), 0 );
+	std::vector<unsigned char> storage( sizeof( CSourceSharpEntitySlots ), 0 );
 	CSourceSharpEntitySlots *pSlots = new ( storage.data() ) CSourceSharpEntitySlots;
 	size_t nNonZero = 0;
 	for ( unsigned char b : storage )

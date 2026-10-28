@@ -73,7 +73,7 @@ CLIENTEFFECT_REGISTER_END()
 // so a managed reload keeps its ids. Never shrinks; materials are
 // reference-counted by the calls below.
 static const int kMaxMaterials = 1024;
-static IMaterial *s_pMaterials[ kMaxMaterials ];
+static IMaterial *s_pMaterials[kMaxMaterials];
 static int s_nMaterials = 0;
 
 static int32_t MaterialId( IMaterial *pMaterial )
@@ -82,18 +82,18 @@ static int32_t MaterialId( IMaterial *pMaterial )
 		return 0;
 	for ( int i = 0; i < s_nMaterials; ++i )
 	{
-		if ( s_pMaterials[ i ] == pMaterial )
+		if ( s_pMaterials[i] == pMaterial )
 			return i + 1;
 	}
 	if ( s_nMaterials >= kMaxMaterials )
 		return 0;
-	s_pMaterials[ s_nMaterials++ ] = pMaterial;
+	s_pMaterials[s_nMaterials++] = pMaterial;
 	return s_nMaterials;
 }
 
 static IMaterial *MaterialOf( int32_t nMaterial )
 {
-	return ( nMaterial >= 1 && nMaterial <= s_nMaterials ) ? s_pMaterials[ nMaterial - 1 ] : NULL;
+	return ( nMaterial >= 1 && nMaterial <= s_nMaterials ) ? s_pMaterials[nMaterial - 1] : NULL;
 }
 
 // A material id as the material, for the render plan's executor.
@@ -111,13 +111,9 @@ int32_t SourceSharp_FxMaterialIdOf( IMaterial *pMaterial )
 class CEffectsListThunk final : public IEffectsList
 {
 public:
-	void AddEffect( CClientSideEffect *effect ) override
-	{
-	}
+	void AddEffect( CClientSideEffect *effect ) override {}
 
-	void RemoveEffect( CClientSideEffect *effect ) override
-	{
-	}
+	void RemoveEffect( CClientSideEffect *effect ) override {}
 
 	void DrawEffects( double frametime ) override
 	{
@@ -138,7 +134,10 @@ static CEffectsListThunk s_EffectsListThunk;
 class CBulletWhizTimer : public CClientSystem
 {
 public:
-	CBulletWhizTimer( char const *name ) : CClientSystem( name ) {}
+	CBulletWhizTimer( char const *name )
+		: CClientSystem( name )
+	{
+	}
 
 	void LevelInitPreEntity() override
 	{
@@ -153,7 +152,10 @@ static bool g_FXCreationAllowed = false;
 
 IEffectsList *clienteffects = &s_EffectsListThunk;
 
-CClientSystem *ClientSystem_BulletWhizTimer() { return &g_BulletWhiz; }
+CClientSystem *ClientSystem_BulletWhizTimer()
+{
+	return &g_BulletWhiz;
+}
 
 void SetFXCreationAllowed( bool state )
 {
@@ -171,24 +173,25 @@ void FX_AddLine( const FXLineData_t &data )
 	IManagedFxClient *pFx = ManagedFxClient();
 	if ( !pFx )
 		return;
-	const float f[] =
-	{
-		data.m_vecStart.x, data.m_vecStart.y, data.m_vecStart.z,
-		data.m_vecEnd.x, data.m_vecEnd.y, data.m_vecEnd.z,
-		data.m_vecStartVelocity.x, data.m_vecStartVelocity.y, data.m_vecStartVelocity.z,
-		data.m_vecEndVelocity.x, data.m_vecEndVelocity.y, data.m_vecEndVelocity.z,
-		data.m_flStartAlpha, data.m_flEndAlpha, data.m_flStartScale, data.m_flEndScale, data.m_flDieTime,
+	const float f[] = {
+		data.m_vecStart.x,         data.m_vecStart.y,       data.m_vecStart.z,         data.m_vecEnd.x,
+		data.m_vecEnd.y,           data.m_vecEnd.z,         data.m_vecStartVelocity.x, data.m_vecStartVelocity.y,
+		data.m_vecStartVelocity.z, data.m_vecEndVelocity.x, data.m_vecEndVelocity.y,   data.m_vecEndVelocity.z,
+		data.m_flStartAlpha,       data.m_flEndAlpha,       data.m_flStartScale,       data.m_flEndScale,
+		data.m_flDieTime,
 	};
 	pFx->AddLine( f, MaterialId( data.m_pMaterial ) );
 }
 
-void FX_AddStaticLine( const Vector& start, const Vector& end, float scale, float life, const char *materialName, unsigned char flags )
+void FX_AddStaticLine( const Vector &start, const Vector &end, float scale, float life, const char *materialName,
+					   unsigned char flags )
 {
 	if ( IManagedFxClient *pFx = ManagedFxClient() )
 		pFx->AddStaticLine( start.Base(), end.Base(), scale, life, materialName, flags );
 }
 
-void FX_AddDiscreetLine( const Vector& start, const Vector& direction, float velocity, float length, float clipLength, float scale, float life, const char *shader )
+void FX_AddDiscreetLine( const Vector &start, const Vector &direction, float velocity, float length, float clipLength,
+						 float scale, float life, const char *shader )
 {
 	if ( IManagedFxClient *pFx = ManagedFxClient() )
 		pFx->AddDiscreetLine( start.Base(), direction.Base(), velocity, length, clipLength, scale, life, shader );
@@ -199,31 +202,26 @@ void FX_AddQuad( const FXQuadData_t &data )
 	IManagedFxClient *pFx = ManagedFxClient();
 	if ( !pFx )
 		return;
-	const float f[] =
-	{
-		data.m_vecOrigin.x, data.m_vecOrigin.y, data.m_vecOrigin.z,
-		data.m_vecNormal.x, data.m_vecNormal.y, data.m_vecNormal.z,
-		data.m_flStartScale, data.m_flEndScale, data.m_flDieTime, data.m_flLifeTime,
-		data.m_flStartAlpha, data.m_flEndAlpha,
-		data.m_Color.x, data.m_Color.y, data.m_Color.z,
-		data.m_flYaw, data.m_flDeltaYaw, data.m_flScaleBias, data.m_flAlphaBias,
+	const float f[] = {
+		data.m_vecOrigin.x,  data.m_vecOrigin.y,  data.m_vecOrigin.z, data.m_vecNormal.x, data.m_vecNormal.y,
+		data.m_vecNormal.z,  data.m_flStartScale, data.m_flEndScale,  data.m_flDieTime,   data.m_flLifeTime,
+		data.m_flStartAlpha, data.m_flEndAlpha,   data.m_Color.x,     data.m_Color.y,     data.m_Color.z,
+		data.m_flYaw,        data.m_flDeltaYaw,   data.m_flScaleBias, data.m_flAlphaBias,
 	};
 	// The caller's SetMaterial took the reference the quad gives back.
 	pFx->AddQuad( f, data.m_uiFlags, MaterialId( data.m_pMaterial ) );
 }
 
 void FX_AddQuad( const Vector &origin, const Vector &normal, float startSize, float endSize, float sizeBias,
-                 float startAlpha, float endAlpha, float alphaBias, float yaw, float deltaYaw,
-                 const Vector &color, float lifeTime, const char *shader, unsigned int flags )
+				 float startAlpha, float endAlpha, float alphaBias, float yaw, float deltaYaw, const Vector &color,
+				 float lifeTime, const char *shader, unsigned int flags )
 {
 	IManagedFxClient *pFx = ManagedFxClient();
 	if ( !pFx )
 		return;
-	const float f[] =
-	{
-		origin.x, origin.y, origin.z, normal.x, normal.y, normal.z,
-		startSize, endSize, sizeBias, startAlpha, endAlpha, alphaBias, yaw, deltaYaw,
-		color.x, color.y, color.z, lifeTime,
+	const float f[] = {
+		origin.x,   origin.y, origin.z,  normal.x, normal.y, normal.z, startSize, endSize, sizeBias,
+		startAlpha, endAlpha, alphaBias, yaw,      deltaYaw, color.x,  color.y,   color.z, lifeTime,
 	};
 	pFx->AddQuadNamed( f, flags, shader );
 }
@@ -300,15 +298,21 @@ void SourceSharp_FxView( float *pOut )
 {
 	const Vector &origin = CurrentViewOrigin();
 	const Vector &forward = CurrentViewForward();
-	pOut[0] = origin.x; pOut[1] = origin.y; pOut[2] = origin.z;
-	pOut[3] = forward.x; pOut[4] = forward.y; pOut[5] = forward.z;
+	pOut[0] = origin.x;
+	pOut[1] = origin.y;
+	pOut[2] = origin.z;
+	pOut[3] = forward.x;
+	pOut[4] = forward.y;
+	pOut[5] = forward.z;
 	pOut[6] = (float)ScreenWidth();
 }
 
 void SourceSharp_FxMainViewOrigin( float *pOutXYZ )
 {
 	const Vector &origin = MainViewOrigin();
-	pOutXYZ[0] = origin.x; pOutXYZ[1] = origin.y; pOutXYZ[2] = origin.z;
+	pOutXYZ[0] = origin.x;
+	pOutXYZ[1] = origin.y;
+	pOutXYZ[2] = origin.z;
 }
 
 int32_t SourceSharp_FxLocalPlayer()
@@ -321,10 +325,13 @@ void SourceSharp_FxViewAngles( float *pOutPYR )
 	QAngle angles( 0, 0, 0 );
 	if ( engine )
 		engine->GetViewAngles( angles );
-	pOutPYR[0] = angles.x; pOutPYR[1] = angles.y; pOutPYR[2] = angles.z;
+	pOutPYR[0] = angles.x;
+	pOutPYR[1] = angles.y;
+	pOutPYR[2] = angles.z;
 }
 
-int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float *pOutXYZ, char *pModelOut, int32_t nModelSize )
+int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float *pOutXYZ, char *pModelOut,
+										int32_t nModelSize )
 {
 	if ( pModelOut && nModelSize > 0 )
 		pModelOut[0] = '\0';
@@ -339,7 +346,9 @@ int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, 
 	Vector origin( 0, 0, 0 );
 	QAngle angles;
 	const bool bFound = pRenderable->GetAttachment( nAttachment, origin, angles );
-	pOutXYZ[0] = origin.x; pOutXYZ[1] = origin.y; pOutXYZ[2] = origin.z;
+	pOutXYZ[0] = origin.x;
+	pOutXYZ[1] = origin.y;
+	pOutXYZ[2] = origin.z;
 	if ( !bFound )
 	{
 		if ( pModelOut && nModelSize > 0 )
@@ -350,14 +359,14 @@ int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, 
 }
 
 void SourceSharp_FxDispatchParticleEffect( int32_t nSystem, const float *pStartXYZ, const float *pEndXYZ,
-                                           const float *pAnglesPYR, int32_t nEntIndex )
+										   const float *pAnglesPYR, int32_t nEntIndex )
 {
 	// No entity: DispatchParticleEffect clears the effect's entity on this side
 	// whatever it is handed.
 	(void)nEntIndex;
 	DispatchParticleEffect( nSystem, Vector( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] ),
-	                        Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] ),
-	                        QAngle( pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2] ), NULL );
+							Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] ),
+							QAngle( pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2] ), NULL );
 }
 
 // The shell-eject effects' owner render angles, and the brass.
@@ -369,15 +378,18 @@ int32_t SourceSharp_FxEntityRenderAngles( int32_t nEntIndex, float *pOutPYR )
 	if ( !pRenderable )
 		return 0;
 	const QAngle &angles = pRenderable->GetRenderAngles();
-	pOutPYR[0] = angles.x; pOutPYR[1] = angles.y; pOutPYR[2] = angles.z;
+	pOutPYR[0] = angles.x;
+	pOutPYR[1] = angles.y;
+	pOutPYR[2] = angles.z;
 	return 1;
 }
 
-void SourceSharp_FxEjectBrass( const float *pOriginXYZ, const float *pAnglesPYR, const float *pGunAnglesPYR, int32_t nType )
+void SourceSharp_FxEjectBrass( const float *pOriginXYZ, const float *pAnglesPYR, const float *pGunAnglesPYR,
+							   int32_t nType )
 {
 	tempents->EjectBrass( Vector( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] ),
-	                      QAngle( pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2] ),
-	                      QAngle( pGunAnglesPYR[0], pGunAnglesPYR[1], pGunAnglesPYR[2] ), nType );
+						  QAngle( pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2] ),
+						  QAngle( pGunAnglesPYR[0], pGunAnglesPYR[1], pGunAnglesPYR[2] ), nType );
 }
 
 // The client effect precache registry. CLIENTEFFECT_REGISTER objects register
@@ -388,7 +400,12 @@ class CSourceSharpEffectPrecacheSystem : public CClientEffectPrecacheSystem
 {
 public:
 	int Count() const { return m_Effects.Count(); }
-	void CacheAt( int i, bool bPrecache ) { if ( m_Effects.IsValidIndex( i ) ) m_Effects[i]->Cache( bPrecache ); }
+
+	void CacheAt( int i, bool bPrecache )
+	{
+		if ( m_Effects.IsValidIndex( i ) )
+			m_Effects[i]->Cache( bPrecache );
+	}
 };
 
 static CSourceSharpEffectPrecacheSystem *EffectPrecache()
@@ -408,9 +425,7 @@ void CClientEffectPrecacheSystem::LevelInitPreEntity()
 		pFx->EffectsPrecache( 0 );
 }
 
-void CClientEffectPrecacheSystem::LevelShutdownPreEntity()
-{
-}
+void CClientEffectPrecacheSystem::LevelShutdownPreEntity() {}
 
 void CClientEffectPrecacheSystem::LevelShutdownPostEntity()
 {
@@ -454,8 +469,8 @@ void SourceSharp_FxCacheMaterialHandles()
 // (IManagedFxClient::SmokeFogPlan).
 static IMaterial *g_pSmokeFogMaterial = NULL;
 
-float		g_SmokeFogOverlayAlpha;
-Vector		g_SmokeFogOverlayColor;
+float g_SmokeFogOverlayAlpha;
+Vector g_SmokeFogOverlayColor;
 
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheSmokeFogOverlay )
 CLIENTEFFECT_MATERIAL( "particle/screenspace_fog" )

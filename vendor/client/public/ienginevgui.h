@@ -8,7 +8,7 @@
 // Forward declarations.
 namespace vgui
 {
-	class Panel;
+class Panel;
 };
 
 enum VGuiPanel_t
@@ -26,23 +26,23 @@ enum VGuiPanel_t
 // In-game panels are cropped to the current engine viewport size
 enum PaintMode_t
 {
-	PAINT_UIPANELS		= (1<<0),
-	PAINT_INGAMEPANELS  = (1<<1),
-	PAINT_CURSOR		= (1<<2), // software cursor, if appropriate
+	PAINT_UIPANELS = ( 1 << 0 ),
+	PAINT_INGAMEPANELS = ( 1 << 1 ),
+	PAINT_CURSOR = ( 1 << 2 ), // software cursor, if appropriate
 };
 
 abstract_class IEngineVGui
 {
 public:
-	virtual					~IEngineVGui() { }
+	virtual ~IEngineVGui() {}
 
-	virtual vgui::VPANEL	GetPanel( VGuiPanel_t type ) = 0;
+	virtual vgui::VPANEL GetPanel( VGuiPanel_t type ) = 0;
 
-	virtual bool			IsGameUIVisible() = 0;
+	virtual bool IsGameUIVisible() = 0;
 
 	virtual void unused_GetWorkshopMap() = 0;
 };
 
-#define VENGINE_VGUI_VERSION		"VEngineVGui002"
+#define VENGINE_VGUI_VERSION "VEngineVGui002"
 
 extern IEngineVGui *enginevgui;

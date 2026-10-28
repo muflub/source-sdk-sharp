@@ -88,15 +88,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -110,23 +110,28 @@ std::string StripComments( const std::string &strIn )
 	{
 		if ( bInBlock )
 		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
+			if ( i + 1 < strIn.size() && strIn[i] == '*' && strIn[i + 1] == '/' )
 			{
-				bInBlock = false; i++;
+				bInBlock = false;
+				i++;
 			}
 			continue;
 		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
+		if ( i + 1 < strIn.size() && strIn[i] == '/' && strIn[i + 1] == '*' )
 		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
+			bInBlock = true;
+			i++;
 			continue;
 		}
-		out += strIn[ i ];
+		if ( i + 1 < strIn.size() && strIn[i] == '/' && strIn[i + 1] == '/' )
+		{
+			while ( i < strIn.size() && strIn[i] != '\n' )
+				i++;
+			if ( i < strIn.size() )
+				out += '\n';
+			continue;
+		}
+		out += strIn[i];
 	}
 	return out;
 }
@@ -147,7 +152,7 @@ std::string ReadRaw( const std::string &strRelative )
 	std::string all, line;
 	while ( std::getline( file, line ) )
 	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
+		if ( !line.empty() && line[line.size() - 1] == '\r' )
 			line.erase( line.size() - 1 );
 		all += line;
 		all += '\n';
@@ -186,18 +191,18 @@ std::string ReadStripped( const std::string &strRelative )
 // available here.
 const char *kServerListAnchor = "sourcesharp/game/server/shell_mapparse.cpp";
 
-std::vector< std::string > CompiledServerSources()
+std::vector<std::string> CompiledServerSources()
 {
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( cmake_graph::kServer );
-	return std::vector< std::string >( compiled.begin(), compiled.end() );
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( cmake_graph::kServer );
+	return std::vector<std::string>( compiled.begin(), compiled.end() );
 }
 
 bool IsCompiled( const std::string &strPath )
 {
-	const std::vector< std::string > files = CompiledServerSources();
+	const std::vector<std::string> files = CompiledServerSources();
 	for ( size_t i = 0; i < files.size(); i++ )
 	{
-		if ( files[ i ] == strPath )
+		if ( files[i] == strPath )
 			return true;
 	}
 	return false;
@@ -212,9 +217,9 @@ const std::string &CompiledServerCode()
 	if ( !s_bDone )
 	{
 		s_bDone = true;
-		const std::vector< std::string > files = CompiledServerSources();
+		const std::vector<std::string> files = CompiledServerSources();
 		for ( size_t i = 0; i < files.size(); i++ )
-			s_all += ReadStripped( files[ i ] );
+			s_all += ReadStripped( files[i] );
 	}
 	return s_all;
 }
@@ -235,19 +240,17 @@ const std::string &CompiledServerCode()
 bool RegistersFactoryFor( const std::string &all, const std::string &strClassName )
 {
 	static const char *kMacro = "LINK_ENTITY_TO_CLASS";
-	for ( size_t at = all.find( kMacro ); at != std::string::npos;
-		at = all.find( kMacro, at + 1 ) )
+	for ( size_t at = all.find( kMacro ); at != std::string::npos; at = all.find( kMacro, at + 1 ) )
 	{
 		size_t p = all.find( '(', at );
 		if ( p == std::string::npos )
 			continue;
 		p++;
-		while ( p < all.size() && ( all[ p ] == ' ' || all[ p ] == '\t' || all[ p ] == '\n' ) )
+		while ( p < all.size() && ( all[p] == ' ' || all[p] == '\t' || all[p] == '\n' ) )
 			p++;
 		if ( all.compare( p, strClassName.size(), strClassName ) == 0 )
 		{
-			const char c = ( p + strClassName.size() < all.size() )
-				? all[ p + strClassName.size() ] : '\0';
+			const char c = ( p + strClassName.size() < all.size() ) ? all[p + strClassName.size()] : '\0';
 			// A whole token, so `info_node` does not match `info_node_climb`.
 			if ( c == ',' || c == ' ' || c == '\t' || c == '\n' )
 				return true;
@@ -258,14 +261,12 @@ bool RegistersFactoryFor( const std::string &all, const std::string &strClassNam
 	// literal. Searched for as `"name"` inside an InstallFactory call.
 	const std::string quoted = "\"" + strClassName + "\"";
 	static const char *kInstall = "InstallFactory";
-	for ( size_t at = all.find( kInstall ); at != std::string::npos;
-		at = all.find( kInstall, at + 1 ) )
+	for ( size_t at = all.find( kInstall ); at != std::string::npos; at = all.find( kInstall, at + 1 ) )
 	{
 		const size_t close = all.find( ')', at );
 		if ( close == std::string::npos )
 			continue;
-		if ( all.find( quoted, at ) != std::string::npos
-			&& all.find( quoted, at ) < close )
+		if ( all.find( quoted, at ) != std::string::npos && all.find( quoted, at ) < close )
 		{
 			return true;
 		}
@@ -274,14 +275,12 @@ bool RegistersFactoryFor( const std::string &all, const std::string &strClassNam
 }
 
 // The three residue classnames this build does not construct.
-const char *kAbsentResidueClasses[] =
-{
+const char *kAbsentResidueClasses[] = {
 	"info_node",
 	"func_useableladder",
 	"info_ladder_dismount",
 };
-const size_t kAbsentResidueCount =
-	sizeof( kAbsentResidueClasses ) / sizeof( kAbsentResidueClasses[ 0 ] );
+const size_t kAbsentResidueCount = sizeof( kAbsentResidueClasses ) / sizeof( kAbsentResidueClasses[0] );
 
 } // namespace
 
@@ -297,9 +296,9 @@ TEST( MapResidueFactories, TheServerSourceListIsARealFileList )
 	// CompiledSources throws unless compile_commands.json and the CMakeLists
 	// list agree exactly, so an unread or truncated list is a failure, never a
 	// short answer. The anchor remains the proof-of-read.
-	EXPECT_TRUE( IsCompiled( kServerListAnchor ) )
-		<< "the anchor row " << kServerListAnchor << " is not compiled into "
-		   "server_sourcesharp (src/server/native/CMakeLists.txt).";
+	EXPECT_TRUE( IsCompiled( kServerListAnchor ) ) << "the anchor row " << kServerListAnchor
+												   << " is not compiled into "
+													  "server_sourcesharp (src/server/native/CMakeLists.txt).";
 }
 
 TEST( MapResidueFactories, TheNativeMapParseIsStillInTheBuild )
@@ -333,8 +332,9 @@ TEST( MapResidueFactories, TheOtherThreeResidueClassesHaveNoFactoryInThisBuild )
 
 	for ( size_t i = 0; i < kAbsentResidueCount; i++ )
 	{
-		EXPECT_FALSE( RegistersFactoryFor( all, kAbsentResidueClasses[ i ] ) )
-			<< kAbsentResidueClasses[ i ] << " now HAS a factory in the "
+		EXPECT_FALSE( RegistersFactoryFor( all, kAbsentResidueClasses[i] ) )
+			<< kAbsentResidueClasses[i]
+			<< " now HAS a factory in the "
 			   "compiled server. That is progress rather than a fault -- but "
 			   "this file records it as absent, and the record has to move "
 			   "with the tree.";
@@ -366,4 +366,3 @@ TEST( MapResidueFactories, TheOtherThreeResidueClassesHaveNoFactoryInThisBuild )
 // the ARMED SIDE OF IT REACHES THE WORLD, which is a positive claim about a
 // named function rather than the absence of a `#ifndef`.
 //=============================================================================
-

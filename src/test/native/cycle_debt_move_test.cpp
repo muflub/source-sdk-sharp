@@ -99,13 +99,13 @@ namespace
 // went on matching the relocated sourcesharp/game/shared/ row and still does.
 size_t Rows( const char *pszTarget, const std::string &strRel )
 {
-	const std::set< std::string > s = cmake_graph::CompiledSources( pszTarget );
+	const std::set<std::string> s = cmake_graph::CompiledSources( pszTarget );
 	size_t n = 0;
-	for ( std::set< std::string >::const_iterator it = s.begin(); it != s.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = s.begin(); it != s.end(); ++it )
 	{
-		if ( *it == strRel
-		     || ( it->size() > strRel.size()
-		          && it->compare( it->size() - strRel.size() - 1, std::string::npos, "/" + strRel ) == 0 ) )
+		if ( *it == strRel ||
+			 ( it->size() > strRel.size() &&
+			   it->compare( it->size() - strRel.size() - 1, std::string::npos, "/" + strRel ) == 0 ) )
 			n++;
 	}
 	return n;

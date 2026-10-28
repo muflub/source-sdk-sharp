@@ -11,15 +11,6 @@
 // view to IManagedGlowClient::DrawOverlays and runs the commands it answers),
 // and the GlowUpdateSkyOverlays op.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -28,21 +19,13 @@
 #include "iviewrender.h"
 #include "view_shared.h"
 #include "materialsystem/imesh.h"
-#include "materialsystem/imaterial.h"
+
 #include "materialsystem/imaterialvar.h"
 #include "clienteffectprecachesystem.h"
-#include "materialsystem/imaterialsystem.h"
-#include "mathlib/vector.h"
-#include "mathlib/vplane.h"
-#include "particles/particles.h"
-#include "tier0/dbg.h"
-#include "tier1/convar.h"
-#include "tier1/refcount.h"
-#include "tier1/utlvector.h"
-#include "cdll_client_int.h"
+
 #include "client_entity.h"
 #include "imanaged_areas_client.h"
-#include "sourcesharp_entrypoints.h"
+
 #include "shell_glow_client.h"
 
 // The materials stock's glow_overlay.cpp and warp_overlay.cpp precached, in
@@ -64,7 +47,7 @@ namespace
 {
 
 // The commands a draw answers with.
-CUtlVector< int32_t > s_Commands;
+CUtlVector<int32_t> s_Commands;
 
 float FloatOf( int32_t nBits )
 {
@@ -80,10 +63,10 @@ void Execute( const int32_t *pCmds, int nWords )
 	int i = 0;
 	while ( i < nWords )
 	{
-		const int32_t nKind = pCmds[ i ];
+		const int32_t nKind = pCmds[i];
 		if ( nKind == SS_GLOW_CMD_CLIP && i + 2 <= nWords )
 		{
-			const int32_t nMode = pCmds[ i + 1 ];
+			const int32_t nMode = pCmds[i + 1];
 			if ( nMode == 0 )
 				bSaved = pRenderContext->EnableClipping( true );
 			else
@@ -92,17 +75,17 @@ void Execute( const int32_t *pCmds, int nWords )
 		}
 		else if ( nKind == SS_GLOW_CMD_HDRSCALE && i + 3 <= nWords )
 		{
-			if ( IMaterial *pMaterial = SourceSharp_FxMaterialOf( pCmds[ i + 1 ] ) )
+			if ( IMaterial *pMaterial = SourceSharp_FxMaterialOf( pCmds[i + 1] ) )
 			{
 				static unsigned int nHDRColorScaleCache = 0;
 				if ( IMaterialVar *pVar = pMaterial->FindVarFast( "$hdrcolorscale", &nHDRColorScaleCache ) )
-					pVar->SetFloatValue( FloatOf( pCmds[ i + 2 ] ) );
+					pVar->SetFloatValue( FloatOf( pCmds[i + 2] ) );
 			}
 			i += 3;
 		}
 		else if ( nKind == SS_GLOW_CMD_QUAD && i + SS_GLOW_QUAD_WORDS <= nWords )
 		{
-			IMaterial *pMaterial = SourceSharp_FxMaterialOf( pCmds[ i + 1 ] );
+			IMaterial *pMaterial = SourceSharp_FxMaterialOf( pCmds[i + 1] );
 			IMesh *pMesh = pRenderContext->GetDynamicMesh( false, 0, 0, pMaterial );
 			CMeshBuilder builder;
 			builder.Begin( pMesh, MATERIAL_QUADS, 1 );
@@ -120,7 +103,7 @@ void Execute( const int32_t *pCmds, int nWords )
 		}
 		else if ( nKind == SS_GLOW_CMD_WIREQUAD && i + SS_GLOW_WIREQUAD_WORDS <= nWords )
 		{
-			IMaterial *pMaterial = SourceSharp_FxMaterialOf( pCmds[ i + 1 ] );
+			IMaterial *pMaterial = SourceSharp_FxMaterialOf( pCmds[i + 1] );
 			pRenderContext->Bind( pMaterial );
 			IMesh *pMesh = pRenderContext->GetDynamicMesh( false, 0, 0, pMaterial );
 			CMeshBuilder builder;
@@ -139,7 +122,7 @@ void Execute( const int32_t *pCmds, int nWords )
 		else
 		{
 			Warning( "[SourceSharp] glow overlays: command %d at word %d of %d is not one; the rest is dropped\n",
-			         nKind, i, nWords );
+					 nKind, i, nWords );
 			return;
 		}
 	}
@@ -160,19 +143,23 @@ void ShellGlowDrawOverlays( bool bCacheFullSceneState )
 	if ( !pManaged || !view )
 		return;
 
-	float in[ SS_GLOW_VIEW_FLOATS ];
+	float in[SS_GLOW_VIEW_FLOATS];
 	const Vector &origin = CurrentViewOrigin();
 	const Vector &forward = CurrentViewForward();
-	in[0] = origin.x; in[1] = origin.y; in[2] = origin.z;
-	in[3] = forward.x; in[4] = forward.y; in[5] = forward.z;
+	in[0] = origin.x;
+	in[1] = origin.y;
+	in[2] = origin.z;
+	in[3] = forward.x;
+	in[4] = forward.y;
+	in[5] = forward.z;
 	in[6] = view->GetViewSetup()->zFar;
 	const VPlane *pFrustum = view->GetFrustum();
 	for ( int p = 0; p < 5; p++ )
 	{
-		in[ 7 + p * 4 ] = pFrustum[ p ].m_Normal.x;
-		in[ 8 + p * 4 ] = pFrustum[ p ].m_Normal.y;
-		in[ 9 + p * 4 ] = pFrustum[ p ].m_Normal.z;
-		in[ 10 + p * 4 ] = pFrustum[ p ].m_Dist;
+		in[7 + p * 4] = pFrustum[p].m_Normal.x;
+		in[8 + p * 4] = pFrustum[p].m_Normal.y;
+		in[9 + p * 4] = pFrustum[p].m_Normal.z;
+		in[10 + p * 4] = pFrustum[p].m_Dist;
 	}
 	in[27] = ShouldDrawInWireFrameMode() ? 1.0f : 0.0f;
 	in[28] = (float)r_drawsprites.GetInt();
@@ -180,7 +167,7 @@ void ShellGlowDrawOverlays( bool bCacheFullSceneState )
 	if ( s_Commands.Count() < 2048 )
 		s_Commands.SetCount( 2048 );
 	int32_t nWords = pManaged->DrawOverlays( in, SS_GLOW_VIEW_FLOATS, bCacheFullSceneState ? 1 : 0, s_Commands.Base(),
-	                                         s_Commands.Count() );
+											 s_Commands.Count() );
 	if ( nWords > s_Commands.Count() )
 	{
 		s_Commands.SetCount( nWords );

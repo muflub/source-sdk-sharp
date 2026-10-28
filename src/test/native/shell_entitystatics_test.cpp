@@ -48,10 +48,10 @@ struct RecordedWarning
 {
 	std::string strFunction;
 	std::string strReason;
-	int         nTotal;
+	int nTotal;
 };
 
-std::vector< RecordedWarning > g_Warnings;
+std::vector<RecordedWarning> g_Warnings;
 
 //-----------------------------------------------------------------------------
 // A CALL, NOT A MENTION. Every one of these names appears in this tree inside
@@ -191,10 +191,10 @@ namespace
 // spellings of client_csharp.vpc (plain rows and one backslash-continued row);
 // the reader now throws on a missing, empty or stale list itself.
 //-----------------------------------------------------------------------------
-std::vector< std::string > ClientCompiledSources()
+std::vector<std::string> ClientCompiledSources()
 {
-	const std::set< std::string > s = cmake_graph::CompiledSources( cmake_graph::kClient );
-	return std::vector< std::string >( s.begin(), s.end() );
+	const std::set<std::string> s = cmake_graph::CompiledSources( cmake_graph::kClient );
+	return std::vector<std::string>( s.begin(), s.end() );
 }
 
 const char *const kEntityStatics = "sourcesharp/game/client/shell_entitystatics.cpp";
@@ -259,11 +259,9 @@ const char *const kEntityStatics = "sourcesharp/game/client/shell_entitystatics.
 //-----------------------------------------------------------------------------
 TEST( ClientFamily9ConVars, TheTranslationUnitThatNowHoldsThemIsCompiledIntoTheClient )
 {
-	const std::vector< std::string > vecSources = ClientCompiledSources();
+	const std::vector<std::string> vecSources = ClientCompiledSources();
 
-	EXPECT_NE( std::find( vecSources.begin(), vecSources.end(),
-	                      std::string( kEntityStatics ) ),
-	           vecSources.end() )
+	EXPECT_NE( std::find( vecSources.begin(), vecSources.end(), std::string( kEntityStatics ) ), vecSources.end() )
 		<< "shell_entitystatics.cpp is not in client_sourcesharp's source list "
 		   "(src/client/native/CMakeLists.txt), so "
 		   "the visibility sweep the managed toggle calls is not compiled.";

@@ -161,6 +161,19 @@ public struct EngineBlock
 
         void Rule() => Line("//" + new string('-', 77));
 
+        // As tools/clang-format lays one out: on one line when it fits in 120
+        // columns, else the message under the condition's first argument.
+        void Assert(string head, string message)
+        {
+            if (head.Length + 1 + message.Length <= 120)
+                Line(head + " " + message);
+            else
+            {
+                Line(head);
+                Line("\t\t\t   " + message);
+            }
+        }
+
         void Banner(params string[] lines)
         {
             Rule();
@@ -232,11 +245,6 @@ public struct EngineBlock
 
             FieldInfo[] fields = FieldsOf(type);
 
-            // One column for the whole struct, wide enough for its widest type
-            // name. Per struct rather than per file so a nested struct's long
-            // name does not push every primitive in the head out to column 25.
-            int column = fields.Max(f => NativeDeclarationOf(f).CppType.Length) + 1;
-
             for (int i = 0; i < fields.Length; i++)
             {
                 NativeDocAttribute doc = DocOf(fields[i]);
@@ -254,7 +262,7 @@ public struct EngineBlock
                     Line(l.Length == 0 ? "\t//" : "\t// " + l);
 
                 (string cppType, string declarator) = NativeDeclarationOf(fields[i]);
-                Line("\t" + cppType.PadRight(column) + declarator + ";");
+                Line("\t" + cppType + " " + declarator + ";");
             }
 
             Line("};");
@@ -298,14 +306,14 @@ public struct EngineBlock
         foreach ((string cppName, Type type) in NativeStructs)
         {
             Line("");
-            Line($"static_assert( sizeof( {cppName} ) == {Marshal.SizeOf(type)},");
-            Line($"               \"{cppName} is not the size SourceSharp.Abi.{type.Name} is\" );");
+            Assert($"static_assert( sizeof( {cppName} ) == {Marshal.SizeOf(type)},",
+                   $"\"{cppName} is not the size SourceSharp.Abi.{type.Name} is\" );");
 
             foreach (FieldInfo field in FieldsOf(type).Skip(1))
             {
                 int offset = (int)Marshal.OffsetOf(type, field.Name);
-                Line($"static_assert( offsetof( {cppName}, {field.Name} ) == {offset},");
-                Line($"               \"{cppName}::{field.Name} is not where {type.Name}.{field.Name} is\" );");
+                Assert($"static_assert( offsetof( {cppName}, {field.Name} ) == {offset},",
+                       $"\"{cppName}::{field.Name} is not where {type.Name}.{field.Name} is\" );");
             }
         }
 

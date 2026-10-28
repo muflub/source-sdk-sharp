@@ -18,13 +18,6 @@
 // Until the managed runtime is up every thunk answers as an idle CInput would.
 // No vgui_controls headers: their "using namespace vgui" makes ::IInput ambiguous.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -32,34 +25,20 @@
 #include "iinput.h"
 #include "kbutton.h"
 #include "usercmd.h"
-#include "tier1/bitbuf.h"
+
 #include "cam_thirdperson.h"
 #include "iclientmode.h"
 #include "iviewrender.h"
 #include "prediction.h"
-#include "hud.h"
+
 #include "game/client/iviewport.h"
 #include "voice_status.h"
 #include "vgui/ISurface.h"
-#include "vgui/Cursor.h"
-#include "engine/ivmodelinfo.h"
-#include "inputsystem/ButtonCode.h"
-#include "inputsystem/InputEnums.h"
-#include "mathlib/vector.h"
-#include "tier0/commonmacros.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
-#include "tier1/checksum_crc.h"
-#include "tier1/strtools.h"
-#include "vgui_controls/Controls.h"
-#include "cdll_client_int.h"
-#include "client_entity.h"
-#include "globalvars_base.h"
-#include "viewport_panel_names.h"
+
 #include "view_facts.h"
-#include "sourcesharp.h"
+
 #include "imanaged_areas_client.h"
-#include "sourcesharp_entrypoints.h"
+
 #include "ss_bitblock.h"
 #include "ss_command_line.h"
 
@@ -79,18 +58,21 @@ kbutton_t in_moveright;
 kbutton_t in_graph;
 kbutton_t in_joyspeed;
 
-static const struct { const kbutton_t *pToken; int32_t nId; } s_ButtonTokens[] =
+static const struct
 {
-	{ &in_speed, 0 }, { &in_jlook, 2 }, { &in_strafe, 3 }, { &in_forward, 5 }, { &in_back, 6 },
-	{ &in_moveleft, 7 }, { &in_moveright, 8 }, { &in_graph, 9 }, { &in_joyspeed, 10 },
+	const kbutton_t *pToken;
+	int32_t nId;
+} s_ButtonTokens[] = {
+	{ &in_speed, 0 },    { &in_jlook, 2 },     { &in_strafe, 3 }, { &in_forward, 5 },   { &in_back, 6 },
+	{ &in_moveleft, 7 }, { &in_moveright, 8 }, { &in_graph, 9 },  { &in_joyspeed, 10 },
 };
 
 static int32_t ButtonTokenId( const kbutton_t *pKey )
 {
 	for ( int i = 0; i < (int)ARRAYSIZE( s_ButtonTokens ); i++ )
 	{
-		if ( s_ButtonTokens[ i ].pToken == pKey )
-			return s_ButtonTokens[ i ].nId;
+		if ( s_ButtonTokens[i].pToken == pKey )
+			return s_ButtonTokens[i].nId;
 	}
 	return -1;
 }
@@ -122,13 +104,14 @@ struct SourceSharpInputMailbox
 {
 	uint32_t nStructSize;
 	uint32_t nKeyboardSampleSeq;
-	float    flKeyboardSampleTime;
+	float flKeyboardSampleTime;
 	uint32_t nJoystickSampleSeq;
-	float    flJoystickSampleTime;
+	float flJoystickSampleTime;
 	uint32_t nPublished;
 	uint32_t nShakeSkip;
 	uint32_t nShakeBits;
 };
+
 COMPILE_TIME_ASSERT( sizeof( SourceSharpInputMailbox ) == 32 );
 COMPILE_TIME_ASSERT( offsetof( SourceSharpInputMailbox, nKeyboardSampleSeq ) == 4 );
 COMPILE_TIME_ASSERT( offsetof( SourceSharpInputMailbox, flKeyboardSampleTime ) == 8 );
@@ -158,7 +141,10 @@ enum
 class CSourceSharpInput : public ::IInput
 {
 public:
-	CSourceSharpInput() : m_pCommands( NULL ), m_pVerifiedCommands( NULL ), m_pCameraThirdData( NULL )
+	CSourceSharpInput()
+		: m_pCommands( NULL )
+		, m_pVerifiedCommands( NULL )
+		, m_pCameraThirdData( NULL )
 	{
 		V_memset( &m_Mailbox, 0, sizeof( m_Mailbox ) );
 		m_Mailbox.nStructSize = sizeof( m_Mailbox );
@@ -187,8 +173,8 @@ public:
 	virtual void Init_All() OVERRIDE
 	{
 		Assert( !m_pCommands );
-		m_pCommands = new CUserCmd[ MULTIPLAYER_BACKUP ];
-		m_pVerifiedCommands = new CVerifiedUserCmd[ MULTIPLAYER_BACKUP ];
+		m_pCommands = new CUserCmd[MULTIPLAYER_BACKUP];
+		m_pVerifiedCommands = new CVerifiedUserCmd[MULTIPLAYER_BACKUP];
 
 		if ( IManagedInputClient *p = ManagedInputClient() )
 			p->InputInit( ss::CommandLineHas( "-nomouse" ) ? 1 : 0 );
@@ -213,8 +199,8 @@ public:
 
 	virtual void CreateMove( int sequence_number, float input_sample_frametime, bool active ) OVERRIDE
 	{
-		CUserCmd *cmd = &m_pCommands[ sequence_number % MULTIPLAYER_BACKUP ];
-		CVerifiedUserCmd *pVerified = &m_pVerifiedCommands[ sequence_number % MULTIPLAYER_BACKUP ];
+		CUserCmd *cmd = &m_pCommands[sequence_number % MULTIPLAYER_BACKUP];
+		CVerifiedUserCmd *pVerified = &m_pVerifiedCommands[sequence_number % MULTIPLAYER_BACKUP];
 
 		cmd->Reset();
 		cmd->command_number = sequence_number;
@@ -275,7 +261,7 @@ public:
 	virtual void DecodeUserCmdFromBuffer( bf_read &buf, int sequence_number ) OVERRIDE
 	{
 		IManagedInputClient *p = ManagedInputClient();
-		uint8_t block[ ss::kBitBlockHeaderBytes + kMaxEncodedBytes ];
+		uint8_t block[ss::kBitBlockHeaderBytes + kMaxEncodedBytes];
 		if ( !p || ss::BitBlockFromEngine( buf, block, sizeof( block ) ) < 0 )
 		{
 			buf.SetOverflowFlag();
@@ -293,7 +279,7 @@ public:
 		}
 		buf.m_iCurBit += nUsed;
 
-		CUserCmd *cmd = &m_pCommands[ sequence_number % MULTIPLAYER_BACKUP ];
+		CUserCmd *cmd = &m_pCommands[sequence_number % MULTIPLAYER_BACKUP];
 		cmd->Reset();
 		FromFlat( flat, cmd );
 		cmd->command_number = flat.cmd.command_number;
@@ -303,7 +289,7 @@ public:
 	virtual CUserCmd *GetUserCmd( int sequence_number ) OVERRIDE
 	{
 		Assert( m_pCommands );
-		CUserCmd *pSlot = &m_pCommands[ sequence_number % MULTIPLAYER_BACKUP ];
+		CUserCmd *pSlot = &m_pCommands[sequence_number % MULTIPLAYER_BACKUP];
 		// NULL once a newer command has taken the slot.
 		return pSlot->command_number == sequence_number ? pSlot : NULL;
 	}
@@ -403,14 +389,14 @@ public:
 		IManagedInputClient *p = ManagedInputClient();
 		if ( !p )
 			return;
-		int32_t pos[ 4 ] = { *mx, *my, unclampedx ? *unclampedx : 0, unclampedy ? *unclampedy : 0 };
+		int32_t pos[4] = { *mx, *my, unclampedx ? *unclampedx : 0, unclampedy ? *unclampedy : 0 };
 		p->InputGetFullscreenMousePos( pos );
-		*mx = pos[ 0 ];
-		*my = pos[ 1 ];
+		*mx = pos[0];
+		*my = pos[1];
 		if ( unclampedx )
-			*unclampedx = pos[ 2 ];
+			*unclampedx = pos[2];
 		if ( unclampedy )
-			*unclampedy = pos[ 3 ];
+			*unclampedy = pos[3];
 	}
 
 	virtual void SetFullscreenMousePos( int mx, int my ) OVERRIDE
@@ -432,8 +418,11 @@ public:
 	}
 
 	virtual float Joystick_GetForward() OVERRIDE { return JoystickAxis( 0 ); }
+
 	virtual float Joystick_GetSide() OVERRIDE { return JoystickAxis( 1 ); }
+
 	virtual float Joystick_GetPitch() OVERRIDE { return JoystickAxis( 2 ); }
+
 	virtual float Joystick_GetYaw() OVERRIDE { return JoystickAxis( 3 ); }
 
 	virtual void CAM_Think() OVERRIDE
@@ -446,8 +435,8 @@ public:
 		// values go to managed each think.
 		if ( m_pCameraThirdData )
 		{
-			float data[ 4 ] = { m_pCameraThirdData->m_flPitch, m_pCameraThirdData->m_flYaw,
-			                    m_pCameraThirdData->m_flDist, m_pCameraThirdData->m_flLag };
+			float data[4] = { m_pCameraThirdData->m_flPitch, m_pCameraThirdData->m_flYaw, m_pCameraThirdData->m_flDist,
+							  m_pCameraThirdData->m_flLag };
 			p->InputCamSetCameraThirdData( data, NULL );
 		}
 		p->InputCamThink();
@@ -460,24 +449,33 @@ public:
 			return Published( INPUT_PUBLISHED_THIRD_PERSON ) ? 1 : 0;
 		return CamOp( CAMOP_IS_THIRD_PERSON );
 	}
+
 	virtual void CAM_ToThirdPerson() OVERRIDE { CamOp( CAMOP_TO_THIRD_PERSON ); }
+
 	virtual void CAM_ToFirstPerson() OVERRIDE { CamOp( CAMOP_TO_FIRST_PERSON ); }
+
 	virtual void CAM_StartMouseMove() OVERRIDE { CamOp( CAMOP_START_MOUSE_MOVE ); }
+
 	virtual void CAM_EndMouseMove() OVERRIDE { CamOp( CAMOP_END_MOUSE_MOVE ); }
+
 	virtual void CAM_StartDistance() OVERRIDE { CamOp( CAMOP_START_DISTANCE ); }
+
 	virtual void CAM_EndDistance() OVERRIDE { CamOp( CAMOP_END_DISTANCE ); }
+
 	virtual int CAM_InterceptingMouse() OVERRIDE { return CamOp( CAMOP_INTERCEPTING_MOUSE ); }
+
 	virtual void CAM_ToOrthographic() OVERRIDE { CamOp( CAMOP_TO_ORTHOGRAPHIC ); }
+
 	virtual bool CAM_IsOrthographic() const OVERRIDE { return CamOp( CAMOP_IS_ORTHOGRAPHIC ) != 0; }
 
 	virtual void CAM_OrthographicSize( float &w, float &h ) const OVERRIDE
 	{
 		IManagedInputClient *p = ManagedInputClient();
-		float size[ 2 ] = { 0.0f, 0.0f };
+		float size[2] = { 0.0f, 0.0f };
 		if ( p )
 			p->InputCamOrthographicSize( size );
-		w = size[ 0 ];
-		h = size[ 1 ];
+		w = size[0];
+		h = size[1];
 	}
 
 	virtual void SetPreferredGameActionSet( GameActionSet_t action_set ) OVERRIDE
@@ -516,10 +514,11 @@ public:
 		IManagedInputClient *p = ManagedInputClient();
 		if ( !p )
 			return;
-		float offset[ 3 ] = { vecCameraOffset[ 0 ], vecCameraOffset[ 1 ], vecCameraOffset[ 2 ] };
+		float offset[3] = { vecCameraOffset[0], vecCameraOffset[1], vecCameraOffset[2] };
 		if ( pCameraData )
 		{
-			float data[ 4 ] = { pCameraData->m_flPitch, pCameraData->m_flYaw, pCameraData->m_flDist, pCameraData->m_flLag };
+			float data[4] = { pCameraData->m_flPitch, pCameraData->m_flYaw, pCameraData->m_flDist,
+							  pCameraData->m_flLag };
 			p->InputCamSetCameraThirdData( data, offset );
 		}
 		else
@@ -551,15 +550,18 @@ private:
 	};
 
 	// The most one encoded command takes (every field present).
-	enum { kMaxEncodedBytes = 64 };
+	enum
+	{
+		kMaxEncodedBytes = 64
+	};
 
 	// The fields a managed command carries, onto a CUserCmd (its number and
 	// tick are the caller's).
 	static void FromFlat( const SourceSharpDecodedUserCmd &flat, CUserCmd *cmd )
 	{
-		cmd->viewangles[ 0 ] = flat.cmd.viewangles[ 0 ];
-		cmd->viewangles[ 1 ] = flat.cmd.viewangles[ 1 ];
-		cmd->viewangles[ 2 ] = flat.cmd.viewangles[ 2 ];
+		cmd->viewangles[0] = flat.cmd.viewangles[0];
+		cmd->viewangles[1] = flat.cmd.viewangles[1];
+		cmd->viewangles[2] = flat.cmd.viewangles[2];
 		cmd->forwardmove = flat.cmd.forwardmove;
 		cmd->sidemove = flat.cmd.sidemove;
 		cmd->upmove = flat.cmd.upmove;
@@ -579,9 +581,9 @@ private:
 		flat->cmd.struct_size = sizeof( flat->cmd );
 		flat->cmd.command_number = cmd.command_number;
 		flat->cmd.tick_count = cmd.tick_count;
-		flat->cmd.viewangles[ 0 ] = cmd.viewangles[ 0 ];
-		flat->cmd.viewangles[ 1 ] = cmd.viewangles[ 1 ];
-		flat->cmd.viewangles[ 2 ] = cmd.viewangles[ 2 ];
+		flat->cmd.viewangles[0] = cmd.viewangles[0];
+		flat->cmd.viewangles[1] = cmd.viewangles[1];
+		flat->cmd.viewangles[2] = cmd.viewangles[2];
 		flat->cmd.forwardmove = cmd.forwardmove;
 		flat->cmd.sidemove = cmd.sidemove;
 		flat->cmd.upmove = cmd.upmove;
@@ -609,7 +611,7 @@ private:
 		SourceSharpDecodedUserCmd to, from;
 		ToFlat( *pTo, &to );
 		ToFlat( *pFrom, &from );
-		uint8_t block[ ss::kBitBlockHeaderBytes + kMaxEncodedBytes ];
+		uint8_t block[ss::kBitBlockHeaderBytes + kMaxEncodedBytes];
 		const int nBits = p->InputEncodeUserCmd( &to, &from, block, sizeof( block ) );
 		if ( !ss::BitBlockToEngine( buf, block, sizeof( block ) ) )
 			return -1;
@@ -624,7 +626,7 @@ private:
 		CUserCmd *pCmd = GetUserCmd( sequence_number );
 		if ( !pCmd )
 			return &fallback;
-		const CVerifiedUserCmd &verified = m_pVerifiedCommands[ sequence_number % MULTIPLAYER_BACKUP ];
+		const CVerifiedUserCmd &verified = m_pVerifiedCommands[sequence_number % MULTIPLAYER_BACKUP];
 		if ( pCmd->GetChecksum() != verified.m_crc )
 			*pCmd = verified.m_cmd;
 		return pCmd;
@@ -633,10 +635,10 @@ private:
 	float JoystickAxis( int nAxis )
 	{
 		IManagedInputClient *p = ManagedInputClient();
-		float axes[ 4 ] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		float axes[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		if ( p )
 			p->InputJoystickAxes( axes );
-		return axes[ nAxis ];
+		return axes[nAxis];
 	}
 
 	int CamOp( int nOp ) const
@@ -656,9 +658,7 @@ static CSourceSharpInput g_Input;
 
 // g_ThirdPersonManager: clientmode_shared.cpp resets it at level shutdown. The
 // manager is managed's; this object is the name.
-CThirdPersonManager::CThirdPersonManager()
-{
-}
+CThirdPersonManager::CThirdPersonManager() {}
 
 void CThirdPersonManager::Init()
 {
@@ -671,9 +671,7 @@ CThirdPersonManager g_ThirdPersonManager;
 // c_rumble.h's names for the remaining native callers; the mixer is managed's.
 
 // The managed client frame steps the mixer, so this stays empty.
-void UpdateRumbleEffects()
-{
-}
+void UpdateRumbleEffects() {}
 
 // view_effects.cpp's, once a frame with the shake's amplitude.
 void UpdateScreenShakeRumble( float shake, float balance )
@@ -753,7 +751,7 @@ void SourceSharp_InputSetLocalViewAngles( const float *pAngles )
 {
 	if ( !prediction || !pAngles )
 		return;
-	QAngle angles( pAngles[ 0 ], pAngles[ 1 ], pAngles[ 2 ] );
+	QAngle angles( pAngles[0], pAngles[1], pAngles[2] );
 	prediction->SetLocalViewAngles( angles );
 }
 

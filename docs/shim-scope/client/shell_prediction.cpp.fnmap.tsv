@@ -2,27 +2,27 @@
 # code_lines	verdict	head   (UNRULED counts as LOGIC)
 9	BOUNDARY	void EntityPrediction_SetSeedFromCommand( const EntityPredictionCmd_t *cmd )
 13	SLOT-HELP	CPrediction::CPrediction()
-3	SLOT	CPrediction::~CPrediction()
-3	SLOT	void CPrediction::Init()
-3	SLOT	void CPrediction::Shutdown()
-4	SLOT	void CPrediction::Update( int  , bool  ,
+1	SLOT	CPrediction::~CPrediction()
+1	SLOT	void CPrediction::Init()
+1	SLOT	void CPrediction::Shutdown()
+4	SLOT	void CPrediction::Update( int , bool , int , int )
 6	SLOT	void CPrediction::OnReceivedUncompressedPacket()
-5	SLOT	void CPrediction::PreEntityPacketReceived( int  ,
-3	SLOT	void CPrediction::PostEntityPacketReceived()
+4	SLOT	void CPrediction::PreEntityPacketReceived( int , int current_world_update_packet )
+1	SLOT	void CPrediction::PostEntityPacketReceived()
 4	SLOT	void CPrediction::PostNetworkDataReceived( int commands_acknowledged )
 4	SLOT	bool CPrediction::InPrediction() const
 4	SLOT	bool CPrediction::IsFirstTimePredicted() const
 4	SLOT	int CPrediction::GetIncomingPacketNumber() const
-4	SLOT	void CPrediction::GetViewOrigin( Vector& org )
-3	SLOT	void CPrediction::SetViewOrigin( Vector&   )
-4	SLOT	void CPrediction::GetViewAngles( QAngle& ang )
-3	SLOT	void CPrediction::SetViewAngles( QAngle&   )
-4	SLOT	void CPrediction::GetLocalViewAngles( QAngle& ang )
-3	SLOT	void CPrediction::SetLocalViewAngles( QAngle&   )
-12	SLOT	[CSourceSharpPrediction] virtual void Update( int startframe, bool validframe,
+4	SLOT	void CPrediction::GetViewOrigin( Vector &org )
+1	SLOT	void CPrediction::SetViewOrigin( Vector & )
+4	SLOT	void CPrediction::GetViewAngles( QAngle &ang )
+1	SLOT	void CPrediction::SetViewAngles( QAngle & )
+4	SLOT	void CPrediction::GetLocalViewAngles( QAngle &ang )
+1	SLOT	void CPrediction::SetLocalViewAngles( QAngle & )
+10	SLOT	[CSourceSharpPrediction] virtual void Update( int startframe, bool validframe, int incoming_acknowledged, int outgoing_command ) OVERRIDE
 5	SLOT	[CSourceSharpPrediction] virtual void PostNetworkDataReceived( int commands_acknowledged ) OVERRIDE
 23	SLOT	int32_t SourceSharp_ClientGetUserCmd( int32_t nCommandNumber, SourceSharpUserCmd *pOut )
-1	SLOT-HELP	[CStandaloneMoveHelperClient] CStandaloneMoveHelperClient() : m_pPrevious( NULL ), m_bInstalled( false )
+4	SLOT-HELP	[CStandaloneMoveHelperClient] : m_pPrevious( NULL )
 8	SLOT-HELP	[CStandaloneMoveHelperClient] void Install()
 8	SLOT-HELP	[CStandaloneMoveHelperClient] void Uninstall()
 1	SLOT	[CStandaloneMoveHelperClient] virtual char const *GetName( EntityHandle_t handle ) const OVERRIDE
@@ -30,15 +30,15 @@
 1	SLOT	[CStandaloneMoveHelperClient] virtual bool AddToTouched( const CGameTrace &tr, const Vector &impactvelocity ) OVERRIDE
 1	SLOT	[CStandaloneMoveHelperClient] virtual void ProcessImpacts() OVERRIDE
 1	SLOT	[CStandaloneMoveHelperClient] virtual void Con_NPrintf( int idx, char const *fmt, ... ) OVERRIDE
-2	SLOT	[CStandaloneMoveHelperClient] virtual void StartSound( const Vector &origin, int channel, char const *sample,
+4	SLOT	[CStandaloneMoveHelperClient] virtual void StartSound( const Vector &origin, int channel, char const *sample, float volume, soundlevel_t sou
 1	SLOT	[CStandaloneMoveHelperClient] virtual void StartSound( const Vector &origin, const char *soundname ) OVERRIDE
-4	SLOT	[CStandaloneMoveHelperClient] virtual void PlaybackEventFull( int flags, int clientindex, unsigned short eventindex,
+5	SLOT	[CStandaloneMoveHelperClient] virtual void PlaybackEventFull( int flags, int clientindex, unsigned short eventindex, float delay, Vector &or
 1	SLOT	[CStandaloneMoveHelperClient] virtual bool PlayerFallingDamage() OVERRIDE
 1	SLOT	[CStandaloneMoveHelperClient] virtual void PlayerSetAnimation( PLAYER_ANIM playerAnim ) OVERRIDE
 5	SLOT	[CStandaloneMoveHelperClient] virtual IPhysicsSurfaceProps *GetSurfaceProps() OVERRIDE
-4	SLOT	[CStandaloneMoveHelperClient] virtual bool IsWorldEntity( const CBaseHandle &handle ) OVERRIDE
+1	SLOT	[CStandaloneMoveHelperClient] virtual bool IsWorldEntity( const CBaseHandle &handle ) OVERRIDE
 1	SLOT	[CStandaloneMoveHelperClient] virtual void SetHost( CBasePlayer *host ) OVERRIDE
-12	SLOT	int32_t SourceSharp_ClientBeginMoveCommand( uint32_t hPlayer, int32_t nCommandNumber,
+11	SLOT	int32_t SourceSharp_ClientBeginMoveCommand( uint32_t hPlayer, int32_t nCommandNumber, SourceSharpMoveState *pOut )
 6	SLOT	void SourceSharp_ClientEndMoveCommand( int32_t bRan, int32_t *pOutGroundIndex )
-10	SLOT	void SourceSharp_ClientPlayerPredictionDrive( uint32_t hEntity,
-5	INSTRUMENT	CON_COMMAND( cs_cl_move_managed_report,
+9	SLOT	void SourceSharp_ClientPlayerPredictionDrive( uint32_t hEntity, const SourceSharpClientPlayerView *pView )
+5	INSTRUMENT	CON_COMMAND( cs_cl_move_managed_report, "" )

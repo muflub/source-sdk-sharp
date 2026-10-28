@@ -10,24 +10,13 @@
 // GetFloat through the vtable; managed computes the bounded values and pushes them, and
 // until it has, GetFloat answers the client's own value.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
 #include "tier1/convar_serverbounded.h"
-#include "tier0/platform.h"
-#include "tier1/convar.h"
-#include "tier1/iconvar.h"
+
 #include "shell_convars_client.h"
 
 namespace
@@ -36,10 +25,15 @@ class CManagedBoundedConVar : public ConVar_ServerBounded
 {
 public:
 	CManagedBoundedConVar( const char *pName, const char *pDefault, int nFlags, const char *pHelp )
-		: ConVar_ServerBounded( pName, pDefault, nFlags, pHelp ) {}
-	CManagedBoundedConVar( const char *pName, const char *pDefault, int nFlags, const char *pHelp,
-	                       bool bMin, float flMin, bool bMax, float flMax )
-		: ConVar_ServerBounded( pName, pDefault, nFlags, pHelp, bMin, flMin, bMax, flMax ) {}
+		: ConVar_ServerBounded( pName, pDefault, nFlags, pHelp )
+	{
+	}
+
+	CManagedBoundedConVar( const char *pName, const char *pDefault, int nFlags, const char *pHelp, bool bMin,
+						   float flMin, bool bMax, float flMax )
+		: ConVar_ServerBounded( pName, pDefault, nFlags, pHelp, bMin, flMin, bMax, flMax )
+	{
+	}
 
 	virtual float GetFloat() const OVERRIDE
 	{
@@ -49,10 +43,12 @@ public:
 };
 
 CManagedBoundedConVar s_cl_predict( "cl_predict", "1.0", FCVAR_USERINFO | FCVAR_NOT_CONNECTED,
-	"Perform client side prediction." );
-CManagedBoundedConVar s_cl_interp_ratio( "cl_interp_ratio", "2.0", FCVAR_USERINFO | FCVAR_NOT_CONNECTED | FCVAR_ARCHIVE,
+									"Perform client side prediction." );
+CManagedBoundedConVar s_cl_interp_ratio(
+	"cl_interp_ratio", "2.0", FCVAR_USERINFO | FCVAR_NOT_CONNECTED | FCVAR_ARCHIVE,
 	"Sets the interpolation amount (final amount is cl_interp_ratio / cl_updaterate)." );
-CManagedBoundedConVar s_cl_interp( "cl_interp", "0.1", FCVAR_USERINFO | FCVAR_NOT_CONNECTED | FCVAR_ARCHIVE,
+CManagedBoundedConVar s_cl_interp(
+	"cl_interp", "0.1", FCVAR_USERINFO | FCVAR_NOT_CONNECTED | FCVAR_ARCHIVE,
 	"Sets the interpolation amount (bounded on low side by server interp ratio settings).", true, 0.0f, true, 0.5f );
 } // namespace
 

@@ -5,16 +5,28 @@
 #pragma once
 
 // Fixed: both sides derive the prop names and offsets from it.
-enum { SOURCESHARP_PAYLOAD_WORD_BYTES = 4 };
+enum
+{
+	SOURCESHARP_PAYLOAD_WORD_BYTES = 4
+};
 
 // The largest payload, 2048 bytes; names run "p000".."p511".
-enum { SOURCESHARP_PAYLOAD_MAX_WORDS = 512 };
+enum
+{
+	SOURCESHARP_PAYLOAD_MAX_WORDS = 512
+};
 
 // "pNNN" plus the terminator; fixed width so names sort in prop order.
-enum { SOURCESHARP_PAYLOAD_NAME_BYTES = 5 };
+enum
+{
+	SOURCESHARP_PAYLOAD_NAME_BYTES = 5
+};
 
 // The engine stores a prop offset in an unsigned short and asserts below 0xFFFF.
-enum { SOURCESHARP_PAYLOAD_MAX_OFFSET = 0xFFFE };
+enum
+{
+	SOURCESHARP_PAYLOAD_MAX_OFFSET = 0xFFFE
+};
 
 // How many props a payload of nBytes needs, rounding up; -1 for a size no tier carries.
 inline int SourceSharpPayload_WordCount( int nBytes )
@@ -73,14 +85,21 @@ inline bool SourceSharpPayload_FormatPropName( int iWord, char *pOut, int nOutBy
 // A width of zero means unresolved, and every reader answers zero for it.
 struct SourceSharpPackedField_t
 {
-	int nOffset;    // object-relative, blob base already added
-	int nShift;     // 0..31
-	int nWidth;     // 1..32, or 0 for a field that did not resolve
+	int nOffset; // object-relative, blob base already added
+	int nShift; // 0..31
+	int nWidth; // 1..32, or 0 for a field that did not resolve
 
-	SourceSharpPackedField_t() : nOffset( -1 ), nShift( 0 ), nWidth( 0 ) {}
+	SourceSharpPackedField_t()
+		: nOffset( -1 )
+		, nShift( 0 )
+		, nWidth( 0 )
+	{
+	}
 
-	bool IsResolved() const { return nOffset >= 0 && nWidth > 0 && nWidth <= 32
-	                                && nShift >= 0 && nShift + nWidth <= 32; }
+	bool IsResolved() const
+	{
+		return nOffset >= 0 && nWidth > 0 && nWidth <= 32 && nShift >= 0 && nShift + nWidth <= 32;
+	}
 };
 
 inline SourceSharpPackedField_t SourceSharpPayload_Place( int nOffset, int nBits )
@@ -99,15 +118,14 @@ inline SourceSharpPackedField_t SourceSharpPayload_Place( int nOffset, int nBits
 		return field;
 
 	field.nOffset = nOffset;
-	field.nShift  = nShift;
-	field.nWidth  = nWidth;
+	field.nShift = nShift;
+	field.nWidth = nWidth;
 
 	return field;
 }
 
 // The field's bits, unsigned; zero if unresolved. The offset already includes the blob base.
-inline unsigned int SourceSharpPayload_ReadPacked( const void *pObject,
-                                                   const SourceSharpPackedField_t &field )
+inline unsigned int SourceSharpPayload_ReadPacked( const void *pObject, const SourceSharpPackedField_t &field )
 {
 	if ( !pObject || !field.IsResolved() )
 		return 0;
@@ -118,17 +136,14 @@ inline unsigned int SourceSharpPayload_ReadPacked( const void *pObject,
 
 	// Byte by byte: the object's alignment is not promised. The blob is little-endian.
 	for ( int i = 0; i < 4; i++ )
-		nWord |= ( (unsigned int)pBase[ field.nOffset + i ] ) << ( i * 8 );
+		nWord |= ( (unsigned int)pBase[field.nOffset + i] ) << ( i * 8 );
 
-	const unsigned int nMask = ( field.nWidth >= 32 )
-		? 0xFFFFFFFFu
-		: ( ( 1u << field.nWidth ) - 1u );
+	const unsigned int nMask = ( field.nWidth >= 32 ) ? 0xFFFFFFFFu : ( ( 1u << field.nWidth ) - 1u );
 
 	return ( nWord >> field.nShift ) & nMask;
 }
 
-inline int SourceSharpPayload_ReadPackedSigned( const void *pObject,
-                                                const SourceSharpPackedField_t &field )
+inline int SourceSharpPayload_ReadPackedSigned( const void *pObject, const SourceSharpPackedField_t &field )
 {
 	if ( !pObject || !field.IsResolved() )
 		return 0;
@@ -145,9 +160,7 @@ inline int SourceSharpPayload_ReadPackedSigned( const void *pObject,
 }
 
 // Replaces the field's bits, preserving its word-mates. Unresolved placements are refused.
-inline void SourceSharpPayload_WritePacked( void *pObject,
-                                            const SourceSharpPackedField_t &field,
-                                            unsigned int nValue )
+inline void SourceSharpPayload_WritePacked( void *pObject, const SourceSharpPackedField_t &field, unsigned int nValue )
 {
 	if ( !pObject || !field.IsResolved() )
 		return;
@@ -157,17 +170,15 @@ inline void SourceSharpPayload_WritePacked( void *pObject,
 	unsigned int nWord = 0;
 
 	for ( int i = 0; i < 4; i++ )
-		nWord |= ( (unsigned int)pBase[ field.nOffset + i ] ) << ( i * 8 );
+		nWord |= ( (unsigned int)pBase[field.nOffset + i] ) << ( i * 8 );
 
-	const unsigned int nMask = ( field.nWidth >= 32 )
-		? 0xFFFFFFFFu
-		: ( ( 1u << field.nWidth ) - 1u );
+	const unsigned int nMask = ( field.nWidth >= 32 ) ? 0xFFFFFFFFu : ( ( 1u << field.nWidth ) - 1u );
 
 	nWord &= ~( nMask << field.nShift );
 	nWord |= ( nValue & nMask ) << field.nShift;
 
 	for ( int i = 0; i < 4; i++ )
-		pBase[ field.nOffset + i ] = (unsigned char)( ( nWord >> ( i * 8 ) ) & 0xFF );
+		pBase[field.nOffset + i] = (unsigned char)( ( nWord >> ( i * 8 ) ) & 0xFF );
 }
 
 // The payload probe pattern: the server fills a blob from (seed, word index) and the
@@ -179,13 +190,13 @@ inline unsigned int SourceSharpPayload_ProbeWord( unsigned int nSeed, int iWord 
 	const unsigned int nPrime = 16777619u;
 
 	unsigned int nHash = 2166136261u;
-	const unsigned int nMix[ 2 ] = { nSeed, (unsigned int)iWord };
+	const unsigned int nMix[2] = { nSeed, (unsigned int)iWord };
 
 	for ( int m = 0; m < 2; m++ )
 	{
 		for ( int b = 0; b < 4; b++ )
 		{
-			nHash ^= ( nMix[ m ] >> ( b * 8 ) ) & 0xFFu;
+			nHash ^= ( nMix[m] >> ( b * 8 ) ) & 0xFFu;
 			nHash *= nPrime;
 		}
 	}
@@ -220,8 +231,8 @@ const char *SourceSharpPayload_SendProxyName( const SendProp *pProp );
 // Whether this side recognises the type and layout an update was written with; false
 // means the bytes must not be decoded. The decision is managed's. *ppOutClassName gets
 // the classname the type id resolves to.
-bool SourceSharpSchema_Accept( unsigned int nTypeId, unsigned int nSchemaHash,
-                               int nEntIndex, const char **ppOutClassName );
+bool SourceSharpSchema_Accept( unsigned int nTypeId, unsigned int nSchemaHash, int nEntIndex,
+							   const char **ppOutClassName );
 
 int SourceSharpPayload_BuildRecvProps( RecvProp *pProps, int nWords, int nBlobBase );
 

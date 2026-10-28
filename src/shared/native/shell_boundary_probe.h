@@ -6,10 +6,6 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
-
 #include "ss_platform.h"
 
 // Every probed method, in vtable order per interface. The GetPlayerState_*
@@ -70,46 +66,83 @@ inline const char *BoundaryProbeName( int id )
 {
 	switch ( id )
 	{
-	case kBoundaryProbe_Ents_SetDebugEdictBase:      return "IServerGameEnts::SetDebugEdictBase";
-	case kBoundaryProbe_Ents_MarkEntitiesAsTouching: return "IServerGameEnts::MarkEntitiesAsTouching";
-	case kBoundaryProbe_Ents_FreeContainingEntity:   return "IServerGameEnts::FreeContainingEntity";
-	case kBoundaryProbe_Ents_BaseEntityToEdict:      return "IServerGameEnts::BaseEntityToEdict";
-	case kBoundaryProbe_Ents_EdictToBaseEntity:      return "IServerGameEnts::EdictToBaseEntity";
-	case kBoundaryProbe_Ents_CheckTransmit:          return "IServerGameEnts::CheckTransmit";
+		case kBoundaryProbe_Ents_SetDebugEdictBase:
+			return "IServerGameEnts::SetDebugEdictBase";
+		case kBoundaryProbe_Ents_MarkEntitiesAsTouching:
+			return "IServerGameEnts::MarkEntitiesAsTouching";
+		case kBoundaryProbe_Ents_FreeContainingEntity:
+			return "IServerGameEnts::FreeContainingEntity";
+		case kBoundaryProbe_Ents_BaseEntityToEdict:
+			return "IServerGameEnts::BaseEntityToEdict";
+		case kBoundaryProbe_Ents_EdictToBaseEntity:
+			return "IServerGameEnts::EdictToBaseEntity";
+		case kBoundaryProbe_Ents_CheckTransmit:
+			return "IServerGameEnts::CheckTransmit";
 
-	case kBoundaryProbe_Clients_GetPlayerLimits:       return "IServerGameClients::GetPlayerLimits";
-	case kBoundaryProbe_Clients_ClientConnect:         return "IServerGameClients::ClientConnect";
-	case kBoundaryProbe_Clients_ClientActive:          return "IServerGameClients::ClientActive";
-	case kBoundaryProbe_Clients_ClientDisconnect:      return "IServerGameClients::ClientDisconnect";
-	case kBoundaryProbe_Clients_ClientPutInServer:     return "IServerGameClients::ClientPutInServer";
-	case kBoundaryProbe_Clients_ClientCommand:         return "IServerGameClients::ClientCommand";
-	case kBoundaryProbe_Clients_SetCommandClient:      return "IServerGameClients::SetCommandClient";
-	case kBoundaryProbe_Clients_ClientSettingsChanged: return "IServerGameClients::ClientSettingsChanged";
-	case kBoundaryProbe_Clients_ClientSetupVisibility: return "IServerGameClients::ClientSetupVisibility";
-	case kBoundaryProbe_Clients_ProcessUsercmds:       return "IServerGameClients::ProcessUsercmds";
-	case kBoundaryProbe_Clients_PostClientMessagesSent:return "IServerGameClients::PostClientMessagesSent_DEPRECIATED";
-	case kBoundaryProbe_Clients_GetPlayerState:        return "IServerGameClients::GetPlayerState";
-	case kBoundaryProbe_Clients_ClientEarPosition:     return "IServerGameClients::ClientEarPosition";
-	case kBoundaryProbe_Clients_GetReplayDelay:        return "IServerGameClients::GetReplayDelay";
-	case kBoundaryProbe_Clients_GetBugReportInfo:      return "IServerGameClients::GetBugReportInfo";
-	case kBoundaryProbe_Clients_NetworkIDValidated:    return "IServerGameClients::NetworkIDValidated";
-	case kBoundaryProbe_Clients_ClientCommandKeyValues:return "IServerGameClients::ClientCommandKeyValues";
-	case kBoundaryProbe_Clients_ClientSpawned:         return "IServerGameClients::ClientSpawned";
-	case kBoundaryProbe_Clients_ClientVoice:           return "IServerGameClients::ClientVoice";
+		case kBoundaryProbe_Clients_GetPlayerLimits:
+			return "IServerGameClients::GetPlayerLimits";
+		case kBoundaryProbe_Clients_ClientConnect:
+			return "IServerGameClients::ClientConnect";
+		case kBoundaryProbe_Clients_ClientActive:
+			return "IServerGameClients::ClientActive";
+		case kBoundaryProbe_Clients_ClientDisconnect:
+			return "IServerGameClients::ClientDisconnect";
+		case kBoundaryProbe_Clients_ClientPutInServer:
+			return "IServerGameClients::ClientPutInServer";
+		case kBoundaryProbe_Clients_ClientCommand:
+			return "IServerGameClients::ClientCommand";
+		case kBoundaryProbe_Clients_SetCommandClient:
+			return "IServerGameClients::SetCommandClient";
+		case kBoundaryProbe_Clients_ClientSettingsChanged:
+			return "IServerGameClients::ClientSettingsChanged";
+		case kBoundaryProbe_Clients_ClientSetupVisibility:
+			return "IServerGameClients::ClientSetupVisibility";
+		case kBoundaryProbe_Clients_ProcessUsercmds:
+			return "IServerGameClients::ProcessUsercmds";
+		case kBoundaryProbe_Clients_PostClientMessagesSent:
+			return "IServerGameClients::PostClientMessagesSent_DEPRECIATED";
+		case kBoundaryProbe_Clients_GetPlayerState:
+			return "IServerGameClients::GetPlayerState";
+		case kBoundaryProbe_Clients_ClientEarPosition:
+			return "IServerGameClients::ClientEarPosition";
+		case kBoundaryProbe_Clients_GetReplayDelay:
+			return "IServerGameClients::GetReplayDelay";
+		case kBoundaryProbe_Clients_GetBugReportInfo:
+			return "IServerGameClients::GetBugReportInfo";
+		case kBoundaryProbe_Clients_NetworkIDValidated:
+			return "IServerGameClients::NetworkIDValidated";
+		case kBoundaryProbe_Clients_ClientCommandKeyValues:
+			return "IServerGameClients::ClientCommandKeyValues";
+		case kBoundaryProbe_Clients_ClientSpawned:
+			return "IServerGameClients::ClientSpawned";
+		case kBoundaryProbe_Clients_ClientVoice:
+			return "IServerGameClients::ClientVoice";
 
-	case kBoundaryProbe_GetPlayerState_Standalone: return "GetPlayerState -> the player's engine block";
-	case kBoundaryProbe_GetPlayerState_SDK:        return "GetPlayerState -> SDK arm (UNARMED since 3c: the arm is gone)";
-	case kBoundaryProbe_GetPlayerState_Null:       return "GetPlayerState -> orphan state (was NULL before 3c)";
+		case kBoundaryProbe_GetPlayerState_Standalone:
+			return "GetPlayerState -> the player's engine block";
+		case kBoundaryProbe_GetPlayerState_SDK:
+			return "GetPlayerState -> SDK arm (UNARMED since 3c: the arm is gone)";
+		case kBoundaryProbe_GetPlayerState_Null:
+			return "GetPlayerState -> orphan state (was NULL before 3c)";
 
-	case kBoundaryProbe_ClientList_GetClientNetworkable:           return "IClientEntityList::GetClientNetworkable";
-	case kBoundaryProbe_ClientList_GetClientNetworkableFromHandle: return "IClientEntityList::GetClientNetworkableFromHandle";
-	case kBoundaryProbe_ClientList_GetClientUnknownFromHandle:     return "IClientEntityList::GetClientUnknownFromHandle";
-	case kBoundaryProbe_ClientList_GetClientEntity:                return "IClientEntityList::GetClientEntity";
-	case kBoundaryProbe_ClientList_GetClientEntityFromHandle:      return "IClientEntityList::GetClientEntityFromHandle";
-	case kBoundaryProbe_ClientList_NumberOfEntities:               return "IClientEntityList::NumberOfEntities";
-	case kBoundaryProbe_ClientList_GetHighestEntityIndex:          return "IClientEntityList::GetHighestEntityIndex";
-	case kBoundaryProbe_ClientList_SetMaxEntities:                 return "IClientEntityList::SetMaxEntities";
-	case kBoundaryProbe_ClientList_GetMaxEntities:                 return "IClientEntityList::GetMaxEntities";
+		case kBoundaryProbe_ClientList_GetClientNetworkable:
+			return "IClientEntityList::GetClientNetworkable";
+		case kBoundaryProbe_ClientList_GetClientNetworkableFromHandle:
+			return "IClientEntityList::GetClientNetworkableFromHandle";
+		case kBoundaryProbe_ClientList_GetClientUnknownFromHandle:
+			return "IClientEntityList::GetClientUnknownFromHandle";
+		case kBoundaryProbe_ClientList_GetClientEntity:
+			return "IClientEntityList::GetClientEntity";
+		case kBoundaryProbe_ClientList_GetClientEntityFromHandle:
+			return "IClientEntityList::GetClientEntityFromHandle";
+		case kBoundaryProbe_ClientList_NumberOfEntities:
+			return "IClientEntityList::NumberOfEntities";
+		case kBoundaryProbe_ClientList_GetHighestEntityIndex:
+			return "IClientEntityList::GetHighestEntityIndex";
+		case kBoundaryProbe_ClientList_SetMaxEntities:
+			return "IClientEntityList::SetMaxEntities";
+		case kBoundaryProbe_ClientList_GetMaxEntities:
+			return "IClientEntityList::GetMaxEntities";
 	}
 	return "<unknown probe id>";
 }
@@ -118,20 +151,17 @@ class CBoundaryProbe
 {
 public:
 	// The overflow counter says when this was not enough.
-	enum { kMaxCallers = 16 };
+	enum
+	{
+		kMaxCallers = 16
+	};
 
 	CBoundaryProbe() { Reset(); }
 
-	void Reset()
-	{
-		memset( m_Methods, 0, sizeof( m_Methods ) );
-	}
+	void Reset() { memset( m_Methods, 0, sizeof( m_Methods ) ); }
 
 	// A call whose result is not counted.
-	void Hit( int id, const void *pCaller )
-	{
-		Record( id, pCaller, kResultNotCounted );
-	}
+	void Hit( int id, const void *pCaller ) { Record( id, pCaller, kResultNotCounted ); }
 
 	// A call whose result is a pointer: counts null and non-null answers.
 	void HitPointerResult( int id, const void *pCaller, bool bResultWasNull )
@@ -139,24 +169,28 @@ public:
 		Record( id, pCaller, bResultWasNull ? kResultNull : kResultNonNull );
 	}
 
-	uint64_t Calls( int id ) const          { return Valid( id ) ? m_Methods[ id ].nCalls          : 0; }
-	uint64_t NullResults( int id ) const    { return Valid( id ) ? m_Methods[ id ].nNullResults    : 0; }
-	uint64_t NonNullResults( int id ) const { return Valid( id ) ? m_Methods[ id ].nNonNullResults : 0; }
-	int      CallerCount( int id ) const    { return Valid( id ) ? m_Methods[ id ].nCallers        : 0; }
-	uint64_t CallerOverflow( int id ) const { return Valid( id ) ? m_Methods[ id ].nCallerOverflow : 0; }
+	uint64_t Calls( int id ) const { return Valid( id ) ? m_Methods[id].nCalls : 0; }
+
+	uint64_t NullResults( int id ) const { return Valid( id ) ? m_Methods[id].nNullResults : 0; }
+
+	uint64_t NonNullResults( int id ) const { return Valid( id ) ? m_Methods[id].nNonNullResults : 0; }
+
+	int CallerCount( int id ) const { return Valid( id ) ? m_Methods[id].nCallers : 0; }
+
+	uint64_t CallerOverflow( int id ) const { return Valid( id ) ? m_Methods[id].nCallerOverflow : 0; }
 
 	const void *Caller( int id, int slot ) const
 	{
-		if ( !Valid( id ) || slot < 0 || slot >= m_Methods[ id ].nCallers )
+		if ( !Valid( id ) || slot < 0 || slot >= m_Methods[id].nCallers )
 			return NULL;
-		return m_Methods[ id ].pCallers[ slot ];
+		return m_Methods[id].pCallers[slot];
 	}
 
 	uint64_t CallerHits( int id, int slot ) const
 	{
-		if ( !Valid( id ) || slot < 0 || slot >= m_Methods[ id ].nCallers )
+		if ( !Valid( id ) || slot < 0 || slot >= m_Methods[id].nCallers )
 			return 0;
-		return m_Methods[ id ].nCallerHits[ slot ];
+		return m_Methods[id].nCallerHits[slot];
 	}
 
 	// One report line for one probe id. Returns what snprintf would have written.
@@ -166,39 +200,35 @@ public:
 		if ( !Valid( id ) || nBufLen <= 0 )
 		{
 			if ( nBufLen > 0 )
-				pBuf[ 0 ] = '\0';
+				pBuf[0] = '\0';
 			return 0;
 		}
 
-		const Method_t &m = m_Methods[ id ];
+		const Method_t &m = m_Methods[id];
 
-		int nWritten = snprintf( pBuf, (size_t)nBufLen,
-		                         "%-56s calls=%llu null=%llu nonnull=%llu callers=",
-		                         BoundaryProbeName( id ),
-		                         (unsigned long long)m.nCalls,
-		                         (unsigned long long)m.nNullResults,
-		                         (unsigned long long)m.nNonNullResults );
+		int nWritten = snprintf(
+			pBuf, (size_t)nBufLen, "%-56s calls=%llu null=%llu nonnull=%llu callers=", BoundaryProbeName( id ),
+			(unsigned long long)m.nCalls, (unsigned long long)m.nNullResults, (unsigned long long)m.nNonNullResults );
 
 		if ( m.nCallers == 0 )
 			nWritten += AppendTo( pBuf, nBufLen, nWritten, "none" );
 
 		for ( int i = 0; i < m.nCallers; ++i )
 		{
-			char szWhere[ 256 ];
-			DescribeAddress( m.pCallers[ i ], szWhere, sizeof( szWhere ) );
+			char szWhere[256];
+			DescribeAddress( m.pCallers[i], szWhere, sizeof( szWhere ) );
 
-			char szOne[ 320 ];
-			snprintf( szOne, sizeof( szOne ), "%s%s x%llu",
-			          i ? ", " : "", szWhere,
-			          (unsigned long long)m.nCallerHits[ i ] );
+			char szOne[320];
+			snprintf( szOne, sizeof( szOne ), "%s%s x%llu", i ? ", " : "", szWhere,
+					  (unsigned long long)m.nCallerHits[i] );
 			nWritten += AppendTo( pBuf, nBufLen, nWritten, szOne );
 		}
 
 		if ( m.nCallerOverflow )
 		{
-			char szOver[ 64 ];
+			char szOver[64];
 			snprintf( szOver, sizeof( szOver ), " (+%llu calls from further sites)",
-			          (unsigned long long)m.nCallerOverflow );
+					  (unsigned long long)m.nCallerOverflow );
 			nWritten += AppendTo( pBuf, nBufLen, nWritten, szOver );
 		}
 
@@ -212,12 +242,11 @@ public:
 			return;
 
 		SSModuleInfo info;
-		if ( SS_ModuleOfAddress( pAddr, &info ) && info.szPath[ 0 ] )
+		if ( SS_ModuleOfAddress( pAddr, &info ) && info.szPath[0] )
 		{
 			const char *pszName = SS_ModuleBaseName( info.szPath );
 
-			const unsigned long long nOffset =
-				(unsigned long long)( (const char *)pAddr - (const char *)info.pBase );
+			const unsigned long long nOffset = (unsigned long long)( (const char *)pAddr - (const char *)info.pBase );
 
 			snprintf( pBuf, (size_t)nBufLen, "%s+0x%llx", pszName, nOffset );
 			return;
@@ -226,17 +255,22 @@ public:
 	}
 
 private:
-	enum ResultKind_t { kResultNotCounted, kResultNull, kResultNonNull };
+	enum ResultKind_t
+	{
+		kResultNotCounted,
+		kResultNull,
+		kResultNonNull
+	};
 
 	struct Method_t
 	{
-		uint64_t	nCalls;
-		uint64_t	nNullResults;
-		uint64_t	nNonNullResults;
-		uint64_t	nCallerOverflow;
-		const void *pCallers[ kMaxCallers ];
-		uint64_t	nCallerHits[ kMaxCallers ];
-		int			nCallers;
+		uint64_t nCalls;
+		uint64_t nNullResults;
+		uint64_t nNonNullResults;
+		uint64_t nCallerOverflow;
+		const void *pCallers[kMaxCallers];
+		uint64_t nCallerHits[kMaxCallers];
+		int nCallers;
 	};
 
 	static bool Valid( int id ) { return id >= 0 && id < kBoundaryProbeCount; }
@@ -254,7 +288,7 @@ private:
 		if ( !Valid( id ) )
 			return;
 
-		Method_t &m = m_Methods[ id ];
+		Method_t &m = m_Methods[id];
 		++m.nCalls;
 
 		if ( kind == kResultNull )
@@ -264,17 +298,17 @@ private:
 
 		for ( int i = 0; i < m.nCallers; ++i )
 		{
-			if ( m.pCallers[ i ] == pCaller )
+			if ( m.pCallers[i] == pCaller )
 			{
-				++m.nCallerHits[ i ];
+				++m.nCallerHits[i];
 				return;
 			}
 		}
 
 		if ( m.nCallers < kMaxCallers )
 		{
-			m.pCallers[ m.nCallers ] = pCaller;
-			m.nCallerHits[ m.nCallers ] = 1;
+			m.pCallers[m.nCallers] = pCaller;
+			m.nCallerHits[m.nCallers] = 1;
 			++m.nCallers;
 			return;
 		}
@@ -282,7 +316,7 @@ private:
 		++m.nCallerOverflow;
 	}
 
-	Method_t m_Methods[ kBoundaryProbeCount ];
+	Method_t m_Methods[kBoundaryProbeCount];
 };
 
 // Function-local, so it is not a file-scope static. Two translation units arm it.
@@ -294,13 +328,12 @@ inline CBoundaryProbe &BoundaryProbes()
 
 // The caller's return address, which is the engine instruction after the call.
 #if defined( __GNUC__ ) || defined( __clang__ )
-#define SS_BOUNDARY_CALLER()	( SS_RETURN_ADDRESS() )
+#define SS_BOUNDARY_CALLER() ( SS_RETURN_ADDRESS() )
 #else
-#define SS_BOUNDARY_CALLER()	( (const void *)0 )
+#define SS_BOUNDARY_CALLER() ( (const void *)0 )
 #endif
 
-#define SS_BOUNDARY_HIT( id ) \
-	BoundaryProbes().Hit( ( id ), SS_BOUNDARY_CALLER() )
+#define SS_BOUNDARY_HIT( id ) BoundaryProbes().Hit( ( id ), SS_BOUNDARY_CALLER() )
 
 #define SS_BOUNDARY_HIT_PTR( id, ptr ) \
 	BoundaryProbes().HitPointerResult( ( id ), SS_BOUNDARY_CALLER(), ( ptr ) == NULL )

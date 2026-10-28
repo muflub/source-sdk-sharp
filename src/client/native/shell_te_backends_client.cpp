@@ -12,71 +12,37 @@
 // registry. Arguments are unpacked in shell_te_backend_args.h, which is
 // engine-free so its argument order can be tested.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
 #include "IEffects.h"
-#include "iviewrender_beams.h"
+
 #include "iefx.h"
 #include "fx.h"
 #include "decals.h"
-#include "engine/IStaticPropMgr.h"
+
 #include "util_shared.h"
 #include "c_te_effect_dispatch.h"
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/imaterial.h"
+
 #include "materialsystem/itexture.h"
 #include "materialsystem/imaterialvar.h"
 #include "clienteffectprecachesystem.h"
 #include "view.h"
 #include "networkstringtable_clientdll.h"
-#include "engine/ivmodelrender.h"
-#include "engine/iserverplugin.h"
-#include "engine/ivmodelinfo.h"
-#include "mathlib/vector.h"
-#include "tier0/basetypes.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
-#include "tier1/convar.h"
-#include "tier1/iconvar.h"
-#include "tier1/strtools.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
-#include "cmodel.h"
-#include "effect_dispatch_data.h"
-#include "eiface.h"
-#include "gametrace.h"
-#include "icliententity.h"
-#include "iclientrenderable.h"
-#include "istudiorender.h"
-#include "networkstringtabledefs.h"
-#include "ragdoll.h"
-#include "texture_group_names.h"
+
 #include "vphysics_interface.h"
 
 #include "shell_cliententitylist.h"
 
 #include "shell_te_backend_args.h"
-#include "sourcesharp.h"
 
 using namespace TeBackendArgs;
 
 // A round off an energy shield. bExplosive crosses as an int32 because a bool
 // has no fixed width in C.
-void SourceSharp_ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ,
-                                     int32_t bExplosive )
+void SourceSharp_ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ, int32_t bExplosive )
 {
 	if ( !pPosXYZ || !pDirXYZ || !g_pEffects )
 		return;
@@ -92,20 +58,18 @@ void SourceSharp_ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ,
 
 // Electric sparks (FX_ElectricSpark). A NULL direction is a spark with no
 // preferred direction, which differs from one aimed at the origin.
-void SourceSharp_ClientSparks( const float *pPositionXYZ,
-                               int32_t nMagnitude, int32_t nTrailLength,
-                               const float *pDirectionXYZ )
+void SourceSharp_ClientSparks( const float *pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength,
+							   const float *pDirectionXYZ )
 {
 	const EffectRequest req = Sparks( pPositionXYZ, nMagnitude, nTrailLength, pDirectionXYZ );
 
 	if ( !req.bDraw || !g_pEffects )
 		return;
 
-	const Vector vecPosition ( req.vecPosition.x,  req.vecPosition.y,  req.vecPosition.z  );
+	const Vector vecPosition( req.vecPosition.x, req.vecPosition.y, req.vecPosition.z );
 	const Vector vecDirection( req.vecDirection.x, req.vecDirection.y, req.vecDirection.z );
 
-	g_pEffects->Sparks( vecPosition, req.nMagnitude, req.nTrailLength,
-	                    req.bHasDirection ? &vecDirection : NULL );
+	g_pEffects->Sparks( vecPosition, req.nMagnitude, req.nTrailLength, req.bHasDirection ? &vecDirection : NULL );
 }
 
 // A ricochet: metal sparks and the sound.
@@ -116,7 +80,7 @@ void SourceSharp_ClientRicochet( const float *pPositionXYZ, const float *pDirect
 	if ( !req.bDraw || !g_pEffects )
 		return;
 
-	const Vector vecPosition ( req.vecPosition.x,  req.vecPosition.y,  req.vecPosition.z  );
+	const Vector vecPosition( req.vecPosition.x, req.vecPosition.y, req.vecPosition.z );
 	const Vector vecDirection( req.vecDirection.x, req.vecDirection.y, req.vecDirection.z );
 
 	g_pEffects->Ricochet( vecPosition, vecDirection );
@@ -130,7 +94,7 @@ void SourceSharp_ClientMetalSparks( const float *pPositionXYZ, const float *pDir
 	if ( !req.bDraw || !g_pEffects )
 		return;
 
-	const Vector vecPosition ( req.vecPosition.x,  req.vecPosition.y,  req.vecPosition.z  );
+	const Vector vecPosition( req.vecPosition.x, req.vecPosition.y, req.vecPosition.z );
 	const Vector vecDirection( req.vecDirection.x, req.vecDirection.y, req.vecDirection.z );
 
 	g_pEffects->MetalSparks( vecPosition, vecDirection );
@@ -138,21 +102,19 @@ void SourceSharp_ClientMetalSparks( const float *pPositionXYZ, const float *pDir
 
 // Smoke sprites (FX_Smoke). flScale arrives already multiplied by ten, as stock
 // does it in the decode.
-void SourceSharp_ClientSmoke( const float *pOriginXYZ, int32_t nModelIndex,
-                              float flScale, float flFrameRate )
+void SourceSharp_ClientSmoke( const float *pOriginXYZ, int32_t nModelIndex, float flScale, float flFrameRate )
 {
 	const EffectRequest req = Smoke( pOriginXYZ, nModelIndex, flScale, flFrameRate );
 
 	if ( !req.bDraw || !g_pEffects )
 		return;
 
-	g_pEffects->Smoke( Vector( req.vecPosition.x, req.vecPosition.y, req.vecPosition.z ),
-	                   req.nModelIndex, req.flScale, req.flFrameRate );
+	g_pEffects->Smoke( Vector( req.vecPosition.x, req.vecPosition.y, req.vecPosition.z ), req.nModelIndex, req.flScale,
+					   req.flFrameRate );
 }
 
 // A muzzle flash. MuzzleFlash prints a line for an unknown type, as stock does.
-void SourceSharp_ClientMuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR,
-                                    float flScale, int32_t nType )
+void SourceSharp_ClientMuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int32_t nType )
 {
 	const EffectRequest req = MuzzleFlash( pOriginXYZ, pAnglesPYR, flScale, nType );
 
@@ -160,16 +122,14 @@ void SourceSharp_ClientMuzzleFlash( const float *pOriginXYZ, const float *pAngle
 		return;
 
 	g_pEffects->MuzzleFlash( Vector( req.vecPosition.x, req.vecPosition.y, req.vecPosition.z ),
-	                         QAngle( req.vecAngles.x, req.vecAngles.y, req.vecAngles.z ),
-	                         req.flScale, req.nType );
+							 QAngle( req.vecAngles.x, req.vecAngles.y, req.vecAngles.z ), req.flScale, req.nType );
 }
 
 // A decal on the world, a brush model or a static prop. The entity is resolved
 // here because DecalShoot wants a model_t*, which does not cross; it answers for
 // either hierarchy, and entity 0 is the world. Callers test r_decals first.
-void SourceSharp_ClientDecalShoot( int32_t nDecalIndex, int32_t nEntity,
-                                   const float *pPositionXYZ, const float *pSAxisXYZ,
-                                   int32_t nFlags )
+void SourceSharp_ClientDecalShoot( int32_t nDecalIndex, int32_t nEntity, const float *pPositionXYZ,
+								   const float *pSAxisXYZ, int32_t nFlags )
 {
 	const DecalRequest req = DecalShoot( nDecalIndex, nEntity, pPositionXYZ, pSAxisXYZ, nFlags );
 
@@ -186,13 +146,10 @@ void SourceSharp_ClientDecalShoot( int32_t nDecalIndex, int32_t nEntity,
 	}
 
 	const Vector vecPosition( req.vecPosition.x, req.vecPosition.y, req.vecPosition.z );
-	const Vector vecSAxis   ( req.vecSAxis.x,    req.vecSAxis.y,    req.vecSAxis.z    );
+	const Vector vecSAxis( req.vecSAxis.x, req.vecSAxis.y, req.vecSAxis.z );
 
-	effects->DecalShoot( req.nDecalIndex, req.nEntity,
-	                     pEntity->GetModel(), pEntity->GetAbsOrigin(), pEntity->GetAbsAngles(),
-	                     vecPosition,
-	                     req.bHasSAxis ? &vecSAxis : NULL,
-	                     req.nFlags );
+	effects->DecalShoot( req.nDecalIndex, req.nEntity, pEntity->GetModel(), pEntity->GetAbsOrigin(),
+						 pEntity->GetAbsAngles(), vecPosition, req.bHasSAxis ? &vecSAxis : NULL, req.nFlags );
 }
 
 // The sixty-four spray logo materials, precached. Without this the spray still
@@ -273,7 +230,7 @@ COMPILE_TIME_ASSERT( offsetof( player_info_t, customFiles ) == 112 );
 // nothing), points the logo material at the player's texture, and shoots the
 // decal on the entity.
 void SourceSharp_ClientPlayerLogoDecal( const float *pPositionXYZ, int32_t nPlayer, int32_t nEntity,
-                                        const char *pszMaterial, const char *pszTexture )
+										const char *pszMaterial, const char *pszTexture )
 {
 	if ( !pPositionXYZ || !pszMaterial || !pszTexture || !effects || !materials )
 		return;
@@ -305,23 +262,14 @@ void SourceSharp_ClientPlayerLogoDecal( const float *pPositionXYZ, int32_t nPlay
 
 	const color32 rgbaColour = { 255, 255, 255, 255 };
 
-	effects->PlayerDecalShoot( pLogo,
-	                           (void *)(intp)nPlayer,
-	                           nEntity,
-	                           pEntity->GetModel(),
-	                           pEntity->GetAbsOrigin(),
-	                           pEntity->GetAbsAngles(),
-	                           Vector( pPositionXYZ[0], pPositionXYZ[1], pPositionXYZ[2] ),
-	                           0,
-	                           0,
-	                           rgbaColour );
+	effects->PlayerDecalShoot( pLogo, (void *)(intp)nPlayer, nEntity, pEntity->GetModel(), pEntity->GetAbsOrigin(),
+							   pEntity->GetAbsAngles(), Vector( pPositionXYZ[0], pPositionXYZ[1], pPositionXYZ[2] ), 0,
+							   0, rgbaColour );
 }
 
 // Unused: sprays end in SourceSharp_ClientPlayerLogoDecal. Kept because the
 // shim table only appends.
-void SourceSharp_ClientPlayerDecalShoot( const float *, int32_t, int32_t )
-{
-}
+void SourceSharp_ClientPlayerDecalShoot( const float *, int32_t, int32_t ) {}
 
 // A decal's index from its name in the engine's table, or -1 for a name the
 // engine does not know.
@@ -335,23 +283,20 @@ int32_t SourceSharp_ClientDecalIndexFromName( const char *pName )
 
 // A decal on a static prop. The trace is out-only, and bDoTrace is false as at
 // both of stock's call sites.
-void SourceSharp_ClientDecalStaticProp( const float *pStartXYZ, const float *pEndXYZ,
-                                        int32_t nStaticPropIndex, int32_t nDecalIndex )
+void SourceSharp_ClientDecalStaticProp( const float *pStartXYZ, const float *pEndXYZ, int32_t nStaticPropIndex,
+										int32_t nDecalIndex )
 {
-	const StaticPropDecalRequest req = DecalStaticProp( pStartXYZ, pEndXYZ,
-	                                                    nStaticPropIndex, nDecalIndex );
+	const StaticPropDecalRequest req = DecalStaticProp( pStartXYZ, pEndXYZ, nStaticPropIndex, nDecalIndex );
 
 	if ( !req.bDraw || !staticpropmgr )
 		return;
 
 	// r_decals is not checked: neither of stock's callers tests it here.
 	const Vector vecStart( req.vecStart.x, req.vecStart.y, req.vecStart.z );
-	const Vector vecEnd  ( req.vecEnd.x,   req.vecEnd.y,   req.vecEnd.z   );
+	const Vector vecEnd( req.vecEnd.x, req.vecEnd.y, req.vecEnd.z );
 
 	trace_t tr;
-	staticpropmgr->AddDecalToStaticProp( vecStart, vecEnd,
-	                                     req.nStaticPropIndex, req.nDecalIndex,
-	                                     false, tr );
+	staticpropmgr->AddDecalToStaticProp( vecStart, vecEnd, req.nStaticPropIndex, req.nDecalIndex, false, tr );
 }
 
 // Whether this client runs with gore turned down. UTIL_IsLowViolence asks
@@ -400,12 +345,10 @@ int32_t SourceSharp_ClientEntityModelType( int32_t nEntity )
 // already tested r_drawmodeldecals and lengthened the ray. Decals are kept per
 // model instance, hence CreateModelInstance(); GetBody() is on the interface
 // either hierarchy is reached through.
-void SourceSharp_ClientDecalStudioModel( int32_t nEntity,
-                                         const float *pRayStartXYZ, const float *pRayDeltaXYZ,
-                                         int32_t nDecalIndex )
+void SourceSharp_ClientDecalStudioModel( int32_t nEntity, const float *pRayStartXYZ, const float *pRayDeltaXYZ,
+										 int32_t nDecalIndex )
 {
-	const StudioDecalRequest req = DecalStudioModel( nEntity, pRayStartXYZ, pRayDeltaXYZ,
-	                                                 nDecalIndex );
+	const StudioDecalRequest req = DecalStudioModel( nEntity, pRayStartXYZ, pRayDeltaXYZ, nDecalIndex );
 
 	if ( !req.bDraw || !modelrender )
 		return;
@@ -429,15 +372,14 @@ void SourceSharp_ClientDecalStudioModel( int32_t nEntity,
 	// FIXME: Pass in decal up? (stock)
 	const Vector up( 0.0f, 0.0f, 1.0f );
 
-	modelrender->AddDecal( pEntity->GetModelInstance(), ray, up, req.nDecalIndex,
-	                       pEntity->GetBody(), false, ADDDECAL_TO_ALL_LODS );
+	modelrender->AddDecal( pEntity->GetModelInstance(), ray, up, req.nDecalIndex, pEntity->GetBody(), false,
+						   ADDDECAL_TO_ALL_LODS );
 }
 
 // A decal on a brush model, the world included (AddBrushModelDecal, doTrace
 // false). r_decals is not checked, as stock does not. No S axis and no flags,
 // as stock passes.
-void SourceSharp_ClientDecalBrushModel( int32_t nEntity, const float *pDecalCenterXYZ,
-                                        int32_t nDecalIndex )
+void SourceSharp_ClientDecalBrushModel( int32_t nEntity, const float *pDecalCenterXYZ, int32_t nDecalIndex )
 {
 	const BrushDecalRequest req = DecalBrushModel( nEntity, pDecalCenterXYZ, nDecalIndex );
 
@@ -451,9 +393,8 @@ void SourceSharp_ClientDecalBrushModel( int32_t nEntity, const float *pDecalCent
 
 	const Vector vecCenter( req.vecCenter.x, req.vecCenter.y, req.vecCenter.z );
 
-	effects->DecalShoot( req.nDecalIndex, req.nEntity,
-	                     pEntity->GetModel(), pEntity->GetAbsOrigin(), pEntity->GetAbsAngles(),
-	                     vecCenter, 0, 0 );
+	effects->DecalShoot( req.nDecalIndex, req.nEntity, pEntity->GetModel(), pEntity->GetAbsOrigin(),
+						 pEntity->GetAbsAngles(), vecCenter, 0, 0 );
 }
 
 // The materials the shattered pane draws with, precached; the impact code
@@ -486,24 +427,23 @@ void SourceSharp_EffectDispatchName( int32_t nIndex, char *pOut, int32_t nOutByt
 	Q_strncpy( pOut, pName, nOutBytes );
 }
 
-CON_COMMAND_F( cs_cl_te_backend,
-               "TEMPORARY (C-Phase 2): fire one temp entity backend in front of the camera.",
-               FCVAR_CLIENTDLL )
+CON_COMMAND_F( cs_cl_te_backend, "TEMPORARY (C-Phase 2): fire one temp entity backend in front of the camera.",
+			   FCVAR_CLIENTDLL )
 {
 	if ( args.ArgC() < 2 )
 	{
 		Msg( "cs_cl_te_backend <sparks|metalsparks|ricochet|muzzleflash|smoke|splash|"
-		     "decal|dispatch|"
-		     "bloodstream|showline|dust>\n" );
+			 "decal|dispatch|"
+			 "bloodstream|showline|dust>\n" );
 		return;
 	}
 
 	const char *pWhich = args.Arg( 1 );
 
 	const Vector vecForward = MainViewForward();
-	const Vector vecAt      = MainViewOrigin() + vecForward * 96.0f;
+	const Vector vecAt = MainViewOrigin() + vecForward * 96.0f;
 
-	const float pAt[3]  = { vecAt.x, vecAt.y, vecAt.z };
+	const float pAt[3] = { vecAt.x, vecAt.y, vecAt.z };
 	const float pDir[3] = { -vecForward.x, -vecForward.y, -vecForward.z };
 
 	// A second point off to one side, so a beam has two ends rather than none.
@@ -512,8 +452,7 @@ CON_COMMAND_F( cs_cl_te_backend,
 
 	const float pAngles[3] = { 0.0f, 0.0f, 0.0f };
 
-	Msg( "[SourceSharp] cs_cl_te_backend %s at (%.0f %.0f %.0f)\n",
-	     pWhich, pAt[0], pAt[1], pAt[2] );
+	Msg( "[SourceSharp] cs_cl_te_backend %s at (%.0f %.0f %.0f)\n", pWhich, pAt[0], pAt[1], pAt[2] );
 
 	if ( !Q_stricmp( pWhich, "sparks" ) )
 	{

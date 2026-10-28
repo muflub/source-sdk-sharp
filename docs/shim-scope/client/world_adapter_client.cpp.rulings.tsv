@@ -15,7 +15,7 @@ ClientClass *C_World::GetClientClass()	SLOT	IClientNetworkable slot: the ClientC
 int SourceSharp_WorldBlobOffset()	LIVE-API	imported by shell_world_nettable_client.o (nm -u, 2026-10-25): where the blob sits in a C_World, sizeof rounded to 16 (the RecvProps' base)
 static void *AllocClientWorld( size_t nBytes )	LAYOUT	the world's allocation: the object and the declared blob past it, zeroed
 void *C_World::operator new( size_t stAllocateBlock )	LAYOUT	the allocation the blob layout needs
-void *C_World::operator new( size_t stAllocateBlock, int nBlockUse,	LAYOUT	the debug form of the same allocation
+void *C_World::operator new( size_t stAllocateBlock, int nBlockUse, const char *pFileName, int nLine )	LAYOUT	the debug form of the same allocation
 void C_World::operator delete( void *pMem )	LAYOUT	its matching free
 void C_World::operator delete( void *pMem, int nBlockUse, const char *pFileName, int nLine )	LAYOUT	the placement form's matching free
 unsigned char *C_World::DataBlob()	LAYOUT	the blob the engine's RecvProps decode into

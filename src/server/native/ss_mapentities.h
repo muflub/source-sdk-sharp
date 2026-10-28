@@ -20,5 +20,5 @@ bool MapEntity_SpawnWorld( const char *const *ppKeys, const char *const *ppValue
 
 // Creates and keys a standalone entity from its parsed key/value pairs (classname
 // included); the caller places and spawns it. NULL when no class answers pClassName.
-IGameEntity *MapEntity_CreateFromKeys( const char *pClassName, const char *const *ppKeys,
-                                       const char *const *ppValues, int nKeys );
+IGameEntity *MapEntity_CreateFromKeys( const char *pClassName, const char *const *ppKeys, const char *const *ppValues,
+									   int nKeys );

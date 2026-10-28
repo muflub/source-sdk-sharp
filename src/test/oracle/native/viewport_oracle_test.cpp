@@ -104,8 +104,15 @@ std::string RepoFile( const char *pszRel )
 	return std::string( pszRepo ? pszRepo : "." ) + "/" + pszRel;
 }
 
-std::string GoldenPath() { return RepoFile( "src/test/client/Fixtures/viewport-stock.tsv" ); }
-std::string MarkerPath() { return RepoFile( "src/test/oracle/native/viewport_golden.regen" ); }
+std::string GoldenPath()
+{
+	return RepoFile( "src/test/client/Fixtures/viewport-stock.tsv" );
+}
+
+std::string MarkerPath()
+{
+	return RepoFile( "src/test/oracle/native/viewport_golden.regen" );
+}
 
 } // namespace
 
@@ -134,8 +141,10 @@ TEST( ViewportOracle, TheScriptReachesEveryArm )
 	const std::string run = RunScript();
 	EXPECT_NE( run.find( "S\tName\nR\tCViewportClientSystem\n" ), std::string::npos ) << "the system names itself";
 	EXPECT_NE( run.find( "S\tIsPerFrame\nR\t0\n" ), std::string::npos ) << "it has no per-frame half";
-	EXPECT_NE( run.find( "S\tInit\nL\tLayout\nR\t1\n" ), std::string::npos ) << "Init lays the client mode out and succeeds";
-	EXPECT_NE( run.find( "S\tLevelInitPreEntity\nS\tLevelInitPostEntity\n" ), std::string::npos ) << "a level stage does nothing";
+	EXPECT_NE( run.find( "S\tInit\nL\tLayout\nR\t1\n" ), std::string::npos )
+		<< "Init lays the client mode out and succeeds";
+	EXPECT_NE( run.find( "S\tLevelInitPreEntity\nS\tLevelInitPostEntity\n" ), std::string::npos )
+		<< "a level stage does nothing";
 
 	// Layout is asked only by Init: twice in the script, once per Init.
 	size_t n = 0;

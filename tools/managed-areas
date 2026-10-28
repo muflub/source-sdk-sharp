@@ -912,10 +912,19 @@ def edited_differs(edited, real):
     return a != b and 'int32_t nExtra' in a
 
 
+def formatted(text, name):
+    '''What tools/clang-format makes of a native file this writes.'''
+    import importlib.machinery
+    cf = importlib.machinery.SourceFileLoader(
+        'clang_format_tool', os.path.join(os.path.dirname(os.path.realpath(__file__)), 'clang-format')).load_module()
+    return cf.format_text(text, name)
+
+
 def main(argv):
     if '--self-test' in argv:
         return self_test()
-    out = generate()
+    out = {rel: formatted(text, rel) if rel.endswith(('.h', '.cpp', '.inl')) else text
+           for rel, text in generate().items()}
     if '--write' in argv:
         for rel, text in out.items():
             with open(os.path.join(ROOT, rel), 'w') as f:

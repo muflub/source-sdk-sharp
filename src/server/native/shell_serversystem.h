@@ -10,7 +10,11 @@
 class CServerSystem
 {
 public:
-	CServerSystem( char const *pszName = NULL ) : m_pszName( pszName ) {}
+	CServerSystem( char const *pszName = NULL )
+		: m_pszName( pszName )
+	{
+	}
+
 	virtual ~CServerSystem() {}
 
 	virtual char const *Name() { return m_pszName ? m_pszName : "unnamed"; }
@@ -19,8 +23,11 @@ public:
 	virtual bool Init() { return true; }
 
 	virtual void LevelInitPreEntity() {}
+
 	virtual void LevelInitPostEntity() {}
+
 	virtual void LevelShutdownPreEntity() {}
+
 	virtual void LevelShutdownPostEntity() {}
 
 private:

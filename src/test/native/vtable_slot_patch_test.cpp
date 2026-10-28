@@ -11,11 +11,10 @@
 
 #include "../game/shared/vtable_slot_patch.h"
 
-
 #if defined( _MSC_VER )
-	#define SS_TEST_NOINLINE __declspec( noinline )
+#define SS_TEST_NOINLINE __declspec( noinline )
 #else
-	#define SS_TEST_NOINLINE __attribute__(( noinline ))
+#define SS_TEST_NOINLINE __attribute__( ( noinline ) )
 #endif
 
 namespace
@@ -25,6 +24,7 @@ class IGreeter
 {
 public:
 	virtual ~IGreeter() {}
+
 	virtual int First( int n ) = 0;
 	virtual int Second( int n ) = 0;
 };
@@ -33,6 +33,7 @@ class CGreeter : public IGreeter
 {
 public:
 	int First( int n ) override { return n + 1; }
+
 	int Second( int n ) override { return n + 2; }
 };
 
@@ -40,6 +41,7 @@ class IOther
 {
 public:
 	virtual ~IOther() {}
+
 	virtual int Third() = 0;
 };
 
@@ -47,17 +49,19 @@ class CBoth : public IGreeter, public IOther
 {
 public:
 	int First( int n ) override { return n + 10; }
+
 	int Second( int n ) override { return n + 20; }
+
 	int Third() override { return 30; }
 };
 
 void *g_pOriginalFirst = nullptr;
-int   g_nHookCalls = 0;
+int g_nHookCalls = 0;
 
 int HookFirst( IGreeter *self, int n )
 {
 	++g_nHookCalls;
-	return ( (int (*)( IGreeter *, int ))g_pOriginalFirst )( self, n ) * 100;
+	return ( (int ( * )( IGreeter *, int ))g_pOriginalFirst )( self, n ) * 100;
 }
 
 // Called through the base pointer, so the compiler cannot devirtualise it.
@@ -79,7 +83,8 @@ TEST( VTableSlotPatch, TheVtableStartsReadOnly )
 	void **pVtable = *(void ***)&greeter;
 	int nProtection = VTableSlotPatch::PageProtection( pVtable );
 	ASSERT_GE( nProtection, 0 ) << "no mapping holds the vtable";
-	EXPECT_EQ( 0, nProtection & SS_PAGE_WRITE ) << "the test needs a read-only table to prove the store lifts and restores it";
+	EXPECT_EQ( 0, nProtection & SS_PAGE_WRITE )
+		<< "the test needs a read-only table to prove the store lifts and restores it";
 }
 
 TEST( VTableSlotPatch, AnInstalledHookRunsAndForwardsToTheOriginal )

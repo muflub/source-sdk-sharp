@@ -8,17 +8,22 @@
 // change when the managed side reloads.
 #pragma once
 
-#include <stdint.h>
 #include <string.h>
 
 // The slot layout is the ABI contract C# indexes by stride.
 #include "sourcesharp.h"
 
 // NUM_ENT_ENTRIES, restated so this header needs no const.h.
-enum { SOURCESHARP_MAX_ENTITY_SLOTS = 8192 };
+enum
+{
+	SOURCESHARP_MAX_ENTITY_SLOTS = 8192
+};
 
 // A serial no live slot carries: a closed slot and an untouched one are both zero.
-enum { SOURCESHARP_SLOT_SERIAL_NONE = 0 };
+enum
+{
+	SOURCESHARP_SLOT_SERIAL_NONE = 0
+};
 
 // A compact list of open entries lets the drain skip the 8192 slots; removal swaps
 // with the tail, so m_WhereOne records each entry's position.
@@ -34,19 +39,17 @@ public:
 		memset( m_Handles, 0, sizeof( m_Handles ) );
 		memset( m_WhereOne, 0, sizeof( m_WhereOne ) );
 
-		m_nActive     = 0;
+		m_nActive = 0;
 		m_nNextSerial = SOURCESHARP_SLOT_SERIAL_NONE;
-		m_nOpens      = 0;
-		m_nCloses     = 0;
+		m_nOpens = 0;
+		m_nCloses = 0;
 	}
 
 	SourceSharpEntitySlot_t *Slots() { return m_Slots; }
+
 	int Count() const { return SOURCESHARP_MAX_ENTITY_SLOTS; }
 
-	static bool IsEntry( int nEntry )
-	{
-		return nEntry >= 0 && nEntry < SOURCESHARP_MAX_ENTITY_SLOTS;
-	}
+	static bool IsEntry( int nEntry ) { return nEntry >= 0 && nEntry < SOURCESHARP_MAX_ENTITY_SLOTS; }
 
 	// Opens the slot for an entry and gives it a fresh serial. Re-opening for the same
 	// handle keeps the serial and the dirty word: a class with two state fields binds
@@ -78,8 +81,8 @@ public:
 		}
 
 		m_Slots[nEntry].nSerial = NextSerial();
-		m_Slots[nEntry].nDirty  = 0;
-		m_Handles[nEntry]       = hEntity;
+		m_Slots[nEntry].nDirty = 0;
+		m_Handles[nEntry] = hEntity;
 
 		++m_nOpens;
 
@@ -99,13 +102,13 @@ public:
 		const int nAt = m_WhereOne[nEntry] - 1;
 		const int nTail = m_Active[--m_nActive];
 
-		m_Active[nAt]      = nTail;
-		m_WhereOne[nTail]  = nAt + 1;
+		m_Active[nAt] = nTail;
+		m_WhereOne[nTail] = nAt + 1;
 		m_WhereOne[nEntry] = 0;
 
 		m_Slots[nEntry].nSerial = SOURCESHARP_SLOT_SERIAL_NONE;
-		m_Slots[nEntry].nDirty  = 0;
-		m_Handles[nEntry]       = 0;
+		m_Slots[nEntry].nDirty = 0;
+		m_Handles[nEntry] = 0;
 
 		++m_nCloses;
 	}
@@ -116,15 +119,12 @@ public:
 	int Retire()
 	{
 		for ( int i = 0; i < m_nActive; ++i )
-			m_Slots[ m_Active[i] ].nSerial = NextSerial();
+			m_Slots[m_Active[i]].nSerial = NextSerial();
 
 		return m_nActive;
 	}
 
-	bool IsOpen( int nEntry ) const
-	{
-		return IsEntry( nEntry ) && m_WhereOne[nEntry] != 0;
-	}
+	bool IsOpen( int nEntry ) const { return IsEntry( nEntry ) && m_WhereOne[nEntry] != 0; }
 
 	uint32_t SerialAt( int nEntry ) const
 	{
@@ -140,13 +140,11 @@ public:
 			m_Slots[nEntry].nDirty = 1;
 	}
 
-	bool IsDirty( int nEntry ) const
-	{
-		return IsEntry( nEntry ) && m_Slots[nEntry].nDirty != 0;
-	}
+	bool IsDirty( int nEntry ) const { return IsEntry( nEntry ) && m_Slots[nEntry].nDirty != 0; }
 
 	// The open entries, for the drain. Order changes on close.
 	int ActiveCount() const { return m_nActive; }
+
 	int ActiveAt( int i ) const { return ( i >= 0 && i < m_nActive ) ? m_Active[i] : -1; }
 
 	// Reads and clears the dirty word in one step, so a drain cannot forget to clear it.
@@ -160,6 +158,7 @@ public:
 	}
 
 	int Opens() const { return m_nOpens; }
+
 	int Closes() const { return m_nCloses; }
 
 private:
@@ -175,15 +174,15 @@ private:
 	}
 
 	SourceSharpEntitySlot_t m_Slots[SOURCESHARP_MAX_ENTITY_SLOTS];
-	uint32_t                m_Handles[SOURCESHARP_MAX_ENTITY_SLOTS];
+	uint32_t m_Handles[SOURCESHARP_MAX_ENTITY_SLOTS];
 
-	int      m_Active[SOURCESHARP_MAX_ENTITY_SLOTS];
+	int m_Active[SOURCESHARP_MAX_ENTITY_SLOTS];
 	// Position in m_Active plus one, so zero means absent and a fresh block is all
 	// zero bytes (.bss rather than 160 KB of initialised data).
-	int      m_WhereOne[SOURCESHARP_MAX_ENTITY_SLOTS];
-	int      m_nActive;
+	int m_WhereOne[SOURCESHARP_MAX_ENTITY_SLOTS];
+	int m_nActive;
 
 	uint32_t m_nNextSerial;
-	int      m_nOpens;
-	int      m_nCloses;
+	int m_nOpens;
+	int m_nCloses;
 };

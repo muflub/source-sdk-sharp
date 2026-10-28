@@ -134,4 +134,4 @@ TEST( GroundHandleWire, EveryIndexInTheTableRoundTrips )
 	}
 }
 
-}  // namespace
+} // namespace

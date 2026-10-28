@@ -52,38 +52,55 @@ namespace
 // The shapes datamap.h has: a root the slot is typed against, a slot signature
 // nothing resembles, and entities deriving from the root.
 //-----------------------------------------------------------------------------
-struct Data_t { int value; };
+struct Data_t
+{
+	int value;
+};
 
 class CRoot
 {
 public:
 	virtual ~CRoot() {}
+
 	virtual int Tag() const { return 1; }
+
 	int m_iCalled;
 	int m_iArg;
-	CRoot() : m_iCalled( 0 ), m_iArg( 0 ) {}
+
+	CRoot()
+		: m_iCalled( 0 )
+		, m_iArg( 0 )
+	{
+	}
 
 	void RootThink( void ) { m_iCalled += 100; }
 };
 
-typedef void (CRoot::*Slot_t)( Data_t &data );   // stands for inputfunc_t
-typedef void (CRoot::*Base_t)( void );           // stands for BASEPTR
-typedef void (CRoot::*Touch_t)( CRoot *pOther ); // stands for ENTITYFUNCPTR
+typedef void ( CRoot::*Slot_t )( Data_t &data ); // stands for inputfunc_t
+typedef void ( CRoot::*Base_t )( void ); // stands for BASEPTR
+typedef void ( CRoot::*Touch_t )( CRoot *pOther ); // stands for ENTITYFUNCPTR
 
 class CThing : public CRoot
 {
 public:
 	virtual int Tag() const { return 2; }
 
-	void Think( void )              { m_iCalled += 1; }
-	virtual void VThink( void )     { m_iCalled += 2; }
-	void TouchIt( CRoot *pOther )   { m_iCalled += 4; m_iArg = pOther ? pOther->Tag() : -1; }
+	void Think( void ) { m_iCalled += 1; }
+
+	virtual void VThink( void ) { m_iCalled += 2; }
+
+	void TouchIt( CRoot *pOther )
+	{
+		m_iCalled += 4;
+		m_iArg = pOther ? pOther->Tag() : -1;
+	}
 };
 
 class CDerivedThing : public CThing
 {
 public:
 	virtual int Tag() const { return 3; }
+
 	virtual void VThink( void ) { m_iCalled += 8; }
 };
 
@@ -94,7 +111,9 @@ class CUnrelatedFirst
 {
 public:
 	virtual ~CUnrelatedFirst() {}
+
 	virtual void Filler() {}
+
 	int m_iPadding;
 };
 
@@ -114,21 +133,20 @@ void *FirstWord( const void *p )
 
 } // namespace
 
-
 //-----------------------------------------------------------------------------
 // 1. The pun is lossless -- non-virtual member.
 //-----------------------------------------------------------------------------
 TEST( EntityFuncSlot, NonVirtualMemberSurvivesTheRoundTrip )
 {
-	Base_t pfn = static_cast< Base_t >( &CThing::Think );
-	Slot_t slot = EntityFuncSlot< CRoot, Slot_t, CThing >( pfn );
+	Base_t pfn = static_cast<Base_t>( &CThing::Think );
+	Slot_t slot = EntityFuncSlot<CRoot, Slot_t, CThing>( pfn );
 
 	// what saverestore.cpp compares
 	EXPECT_EQ( FirstWord( &pfn ), FirstWord( &slot ) );
 	// and the whole value, which is what makes the read-back safe
 	EXPECT_EQ( 0, memcmp( &pfn, &slot, sizeof( slot ) ) );
 
-	Base_t back = reinterpret_cast< Base_t >( slot );
+	Base_t back = reinterpret_cast<Base_t>( slot );
 	CThing t;
 	CRoot *pRoot = &t;
 	( pRoot->*back )();
@@ -142,18 +160,18 @@ TEST( EntityFuncSlot, NonVirtualMemberSurvivesTheRoundTrip )
 //-----------------------------------------------------------------------------
 TEST( EntityFuncSlot, VirtualMemberStillDispatchesAfterTheRoundTrip )
 {
-	Base_t pfn = static_cast< Base_t >( &CThing::VThink );
-	Slot_t slot = EntityFuncSlot< CRoot, Slot_t, CThing >( pfn );
-	Base_t back = reinterpret_cast< Base_t >( slot );
+	Base_t pfn = static_cast<Base_t>( &CThing::VThink );
+	Slot_t slot = EntityFuncSlot<CRoot, Slot_t, CThing>( pfn );
+	Base_t back = reinterpret_cast<Base_t>( slot );
 
 	CThing base;
 	CDerivedThing derived;
 
-	( static_cast< CRoot * >( &base )->*back )();
+	( static_cast<CRoot *>( &base )->*back )();
 	EXPECT_EQ( 2, base.m_iCalled );
 
 	// dispatched, not bound: the override runs
-	( static_cast< CRoot * >( &derived )->*back )();
+	( static_cast<CRoot *>( &derived )->*back )();
 	EXPECT_EQ( 8, derived.m_iCalled );
 }
 
@@ -163,12 +181,12 @@ TEST( EntityFuncSlot, VirtualMemberStillDispatchesAfterTheRoundTrip )
 //-----------------------------------------------------------------------------
 TEST( EntityFuncSlot, InheritedMemberSurvivesTheRoundTrip )
 {
-	Base_t pfn = static_cast< Base_t >( &CThing::RootThink );
-	Slot_t slot = EntityFuncSlot< CRoot, Slot_t, CThing >( pfn );
-	Base_t back = reinterpret_cast< Base_t >( slot );
+	Base_t pfn = static_cast<Base_t>( &CThing::RootThink );
+	Slot_t slot = EntityFuncSlot<CRoot, Slot_t, CThing>( pfn );
+	Base_t back = reinterpret_cast<Base_t>( slot );
 
 	CThing t;
-	( static_cast< CRoot * >( &t )->*back )();
+	( static_cast<CRoot *>( &t )->*back )();
 	EXPECT_EQ( 100, t.m_iCalled );
 }
 
@@ -178,13 +196,13 @@ TEST( EntityFuncSlot, InheritedMemberSurvivesTheRoundTrip )
 //-----------------------------------------------------------------------------
 TEST( EntityFuncSlot, ForeignSignatureSurvivesTheRoundTrip )
 {
-	Touch_t pfn = static_cast< Touch_t >( &CThing::TouchIt );
-	Slot_t slot = EntityFuncSlot< CRoot, Slot_t, CThing >( pfn );
-	Touch_t back = reinterpret_cast< Touch_t >( slot );
+	Touch_t pfn = static_cast<Touch_t>( &CThing::TouchIt );
+	Slot_t slot = EntityFuncSlot<CRoot, Slot_t, CThing>( pfn );
+	Touch_t back = reinterpret_cast<Touch_t>( slot );
 
 	CThing t;
 	CDerivedThing other;
-	( static_cast< CRoot * >( &t )->*back )( &other );
+	( static_cast<CRoot *>( &t )->*back )( &other );
 	EXPECT_EQ( 4, t.m_iCalled );
 	EXPECT_EQ( 3, t.m_iArg );
 }
@@ -207,12 +225,12 @@ TEST( EntityFuncSlot, ForeignSignatureSurvivesTheRoundTrip )
 // alone. The fact below is the one that holds there instead.
 TEST( EntityFuncSlot, ConversionCarriesAnAdjustmentAPunWouldLose )
 {
-	typedef void (CSecondaryRoot::*Own_t)( void );
+	typedef void ( CSecondaryRoot::*Own_t )( void );
 	Own_t own = &CSecondaryRoot::Think;
 
 	// what EntityFuncSlot does: convert, then pun the signature
-	Base_t converted = static_cast< Base_t >( own );
-	Slot_t good = EntityFuncSlot< CRoot, Slot_t, CSecondaryRoot >( converted );
+	Base_t converted = static_cast<Base_t>( own );
+	Slot_t good = EntityFuncSlot<CRoot, Slot_t, CSecondaryRoot>( converted );
 
 	// what a single C-style cast does once the class relationship is gone:
 	// take the bytes and relabel them
@@ -225,15 +243,14 @@ TEST( EntityFuncSlot, ConversionCarriesAnAdjustmentAPunWouldLose )
 		   "and this test is not exercising the hazard any more";
 
 	// and the converted one is the one that works
-	Base_t back = reinterpret_cast< Base_t >( good );
+	Base_t back = reinterpret_cast<Base_t>( good );
 	CSecondaryRoot s;
 	CRoot *pRoot = &s;
 	( pRoot->*back )();
 	EXPECT_EQ( 16, s.m_iCalled );
 
 	// the offset the pun would have dropped is genuinely non-zero
-	EXPECT_NE( static_cast< void * >( pRoot ),
-	           static_cast< void * >( static_cast< CUnrelatedFirst * >( &s ) ) );
+	EXPECT_NE( static_cast<void *>( pRoot ), static_cast<void *>( static_cast<CUnrelatedFirst *>( &s ) ) );
 }
 #else
 // What the Microsoft ABI makes of the root instead: a member of a singly
@@ -243,7 +260,7 @@ TEST( EntityFuncSlot, ConversionCarriesAnAdjustmentAPunWouldLose )
 TEST( EntityFuncSlot, ARootMemberIsTheAddressAlone )
 {
 	EXPECT_EQ( sizeof( void * ), sizeof( Slot_t ) );
-	EXPECT_EQ( 2 * sizeof( void * ), sizeof( void (CSecondaryRoot::*)( void ) ) );
+	EXPECT_EQ( 2 * sizeof( void * ), sizeof( void ( CSecondaryRoot::* )( void ) ) );
 }
 #endif
 
@@ -262,12 +279,11 @@ TEST( EntityFuncSlot, SlotAndHandlerAreTheSameShape )
 	EXPECT_EQ( sizeof( Slot_t ), sizeof( Base_t ) );
 	EXPECT_EQ( sizeof( Slot_t ), sizeof( Touch_t ) );
 #if defined( _MSC_VER )
-	EXPECT_LT( sizeof( Slot_t ), sizeof( void (CSecondaryRoot::*)( void ) ) );
+	EXPECT_LT( sizeof( Slot_t ), sizeof( void ( CSecondaryRoot::* )( void ) ) );
 #else
-	EXPECT_EQ( sizeof( Slot_t ), sizeof( void (CSecondaryRoot::*)( void ) ) );
+	EXPECT_EQ( sizeof( Slot_t ), sizeof( void ( CSecondaryRoot::* )( void ) ) );
 #endif
 }
-
 
 //-----------------------------------------------------------------------------
 // The four shapes that MUST NOT COMPILE. buildcpptests compiles this file once
@@ -278,24 +294,49 @@ TEST( EntityFuncSlot, SlotAndHandlerAreTheSameShape )
 
 namespace
 {
-	class CStranger                      { public: virtual ~CStranger() {} void Fn( void ) {} };
-	class CPrivately : private CRoot     { public: void Fn( void ) {} };
-	class CMiddleA : public CRoot        {};
-	class CMiddleB : public CRoot        {};
-	class CAmbiguous : public CMiddleA, public CMiddleB { public: void Fn( void ) {} };
-	class CVirtually : public virtual CRoot { public: void Fn( void ) {} };
+class CStranger
+{
+public:
+	virtual ~CStranger() {}
+
+	void Fn( void ) {}
+};
+
+class CPrivately : private CRoot
+{
+public:
+	void Fn( void ) {}
+};
+
+class CMiddleA : public CRoot
+{
+};
+
+class CMiddleB : public CRoot
+{
+};
+
+class CAmbiguous : public CMiddleA, public CMiddleB
+{
+public:
+	void Fn( void ) {}
+};
+
+class CVirtually : public virtual CRoot
+{
+public:
+	void Fn( void ) {}
+};
 }
 
 Slot_t NoCompileProbe()
 {
 #if ENTITY_FUNCSLOT_NOCOMPILE == 1
 	// not a CRoot at all -- Phase 13 step 4's shape
-	return EntityFuncSlot< CRoot, Slot_t, CStranger >(
-		(Base_t)( &CStranger::Fn ) );
+	return EntityFuncSlot<CRoot, Slot_t, CStranger>( (Base_t)( &CStranger::Fn ) );
 #elif ENTITY_FUNCSLOT_NOCOMPILE == 2
 	// a CRoot, but privately: the conversion is not the caller's to make
-	return EntityFuncSlot< CRoot, Slot_t, CPrivately >(
-		(Base_t)( &CPrivately::Fn ) );
+	return EntityFuncSlot<CRoot, Slot_t, CPrivately>( (Base_t)( &CPrivately::Fn ) );
 #elif ENTITY_FUNCSLOT_NOCOMPILE == 3
 	// two CRoot subobjects: "the" adjustment does not exist.
 	//
@@ -306,13 +347,11 @@ Slot_t NoCompileProbe()
 	// must-not-compile check (which requires the header's error) would be
 	// evidence of nothing. gcc reports both. The relabelling reaches the probe
 	// under either compiler.
-	return EntityFuncSlot< CRoot, Slot_t, CAmbiguous >(
-		reinterpret_cast< Base_t >( &CAmbiguous::Fn ) );
+	return EntityFuncSlot<CRoot, Slot_t, CAmbiguous>( reinterpret_cast<Base_t>( &CAmbiguous::Fn ) );
 #elif ENTITY_FUNCSLOT_NOCOMPILE == 4
 	// a virtual CRoot: the adjustment is not a constant and a member pointer
 	// cannot carry it
-	return EntityFuncSlot< CRoot, Slot_t, CVirtually >(
-		reinterpret_cast< Base_t >( &CVirtually::Fn ) );
+	return EntityFuncSlot<CRoot, Slot_t, CVirtually>( reinterpret_cast<Base_t>( &CVirtually::Fn ) );
 #else
 #error "ENTITY_FUNCSLOT_NOCOMPILE must be 1..4"
 #endif

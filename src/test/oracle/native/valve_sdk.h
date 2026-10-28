@@ -26,7 +26,7 @@ inline std::string ValveSdkRoot()
 	if ( !pszRoot || !*pszRoot )
 	{
 		ADD_FAILURE() << "SOURCESHARP_VALVE_SDK is not set: the oracle has no "
-		                 "pristine Valve SDK to read. Run `make setup`.";
+						 "pristine Valve SDK to read. Run `make setup`.";
 		return std::string();
 	}
 	return pszRoot;
@@ -43,9 +43,8 @@ inline std::string ReadValve( const std::string &rel )
 	if ( !f.is_open() )
 	{
 		ADD_FAILURE() << "the pristine Valve SDK at " << root << " has no " << rel
-		              << ": an oracle's reference must exist. Run `make setup`.";
+					  << ": an oracle's reference must exist. Run `make setup`.";
 		return std::string();
 	}
-	return std::string( ( std::istreambuf_iterator<char>( f ) ),
-	                    std::istreambuf_iterator<char>() );
+	return std::string( ( std::istreambuf_iterator<char>( f ) ), std::istreambuf_iterator<char>() );
 }

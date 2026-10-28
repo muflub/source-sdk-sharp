@@ -10,7 +10,7 @@
 
 #include "ss_util.h"
 #include "server_class.h"
-#include "ispatialpartition.h"
+
 #include "datacache/imdlcache.h"
 #include "shell_steporder.h"
 
@@ -28,26 +28,31 @@ extern IMDLCache *mdlcache;
 class CServerGameEnts : public IServerGameEnts
 {
 public:
-	virtual void			SetDebugEdictBase(edict_t *base);
-	virtual void			MarkEntitiesAsTouching( edict_t *e1, edict_t *e2 );
-	virtual void			FreeContainingEntity( edict_t * ); 
-	virtual edict_t*		BaseEntityToEdict( IGameEntity *pEnt );
-	virtual IGameEntity*	EdictToBaseEntity( edict_t *pEdict );
-	virtual void			CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned short *pEdictIndices, int nEdicts );
+	virtual void SetDebugEdictBase( edict_t *base );
+	virtual void MarkEntitiesAsTouching( edict_t *e1, edict_t *e2 );
+	virtual void FreeContainingEntity( edict_t * );
+	virtual edict_t *BaseEntityToEdict( IGameEntity *pEnt );
+	virtual IGameEntity *EdictToBaseEntity( edict_t *pEdict );
+	virtual void CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned short *pEdictIndices, int nEdicts );
 
 private:
-	edict_t					*m_pDebugEdictBase = NULL;
+	edict_t *m_pDebugEdictBase = NULL;
 };
 
 namespace
 {
-	CServerGameEnts s_ServerGameEnts;
+CServerGameEnts s_ServerGameEnts;
 }
+
 // Answered by the factory (shell_factory.cpp), which asks for it by this row.
-static void *SourceSharp_GetServerGameEnts() { return (IServerGameEnts *)&s_ServerGameEnts; }
+static void *SourceSharp_GetServerGameEnts()
+{
+	return (IServerGameEnts *)&s_ServerGameEnts;
+}
+
 const SourceSharpExposed kExposeServerGameEnts = { INTERFACEVERSION_SERVERGAMEENTS, SourceSharp_GetServerGameEnts };
 
-void CServerGameEnts::SetDebugEdictBase(edict_t *base)
+void CServerGameEnts::SetDebugEdictBase( edict_t *base )
 {
 	SS_BOUNDARY_HIT( kBoundaryProbe_Ents_SetDebugEdictBase );
 
@@ -89,7 +94,7 @@ void CServerGameEnts::FreeContainingEntity( edict_t *e )
 	(void)e;
 }
 
-edict_t* CServerGameEnts::BaseEntityToEdict( IGameEntity *pEnt )
+edict_t *CServerGameEnts::BaseEntityToEdict( IGameEntity *pEnt )
 {
 	// One return, so the boundary probe sees every answer.
 	edict_t *pResult = NULL;
@@ -98,7 +103,7 @@ edict_t* CServerGameEnts::BaseEntityToEdict( IGameEntity *pEnt )
 	return pResult;
 }
 
-IGameEntity* CServerGameEnts::EdictToBaseEntity( edict_t *pEdict )
+IGameEntity *CServerGameEnts::EdictToBaseEntity( edict_t *pEdict )
 {
 	// No edict has a CBaseEntity behind it. One return, for the boundary probe.
 	IGameEntity *pResult = NULL;
@@ -122,13 +127,10 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 
 	// Which hierarchy answers for this client is decided in C#. Edict 0 when the
 	// engine names no client, as stock's fallback.
-	const int nRecipientIndex = pInfo->m_pClientEnt
-	                                ? (int)( pInfo->m_pClientEnt - pBaseEdict )
-	                                : 0;
+	const int nRecipientIndex = pInfo->m_pClientEnt ? (int)( pInfo->m_pClientEnt - pBaseEdict ) : 0;
 
 	int skyBoxArea = 0;
-	const bool bHaveRecipient =
-		SourceSharp_SkyboxAreaForClient( nRecipientIndex, &skyBoxArea ) != 0;
+	const bool bHaveRecipient = SourceSharp_SkyboxAreaForClient( nRecipientIndex, &skyBoxArea ) != 0;
 
 	Assert( bHaveRecipient && !pRecipientEntity );
 	if ( !bHaveRecipient )
@@ -155,22 +157,23 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 	}
 
 	// A SourceTV client gets ordinary PVS-culled transmit; launches pass -nohltv.
-	for ( int i=0; i < nEdicts; i++ )
+	for ( int i = 0; i < nEdicts; i++ )
 	{
 		int iEdict = pEdictIndices[i];
 
 		edict_t *pEdict = &pBaseEdict[iEdict];
 		Assert( pEdict == engine->PEntityOfEntIndex( iEdict ) );
-		int nFlags = pEdict->m_fStateFlags & (FL_EDICT_DONTSEND|FL_EDICT_ALWAYS|FL_EDICT_PVSCHECK|FL_EDICT_FULLCHECK);
+		int nFlags =
+			pEdict->m_fStateFlags & ( FL_EDICT_DONTSEND | FL_EDICT_ALWAYS | FL_EDICT_PVSCHECK | FL_EDICT_FULLCHECK );
 
 		// entity needs no transmit
 		if ( nFlags & FL_EDICT_DONTSEND )
 			continue;
-		
+
 		// entity is already marked for sending
 		if ( pInfo->m_pTransmitEdict->Get( iEdict ) )
 			continue;
-		
+
 		if ( nFlags & FL_EDICT_ALWAYS )
 		{
 			// mark entity for sending

@@ -1,6 +1,6 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CClientSystem] CClientSystem(	HOOK	the client-system base kClientSystems[]'s rows derive from
+[CClientSystem] : m_pszName( pszName )	HOOK	the client-system base kClientSystems[]'s rows derive from
 [CClientSystem] virtual ~CClientSystem()	HOOK	the base
 [CClientSystem] virtual char const *Name()	HOOK	a system's name for a warning
 [CClientSystem] virtual bool Init()	HOOK	a stage, empty by default
@@ -11,11 +11,11 @@
 [CClientSystem] virtual void LevelShutdownPreEntity()	HOOK	a stage, empty by default
 [CClientSystem] virtual void LevelShutdownPostEntity()	HOOK	a stage, empty by default
 [CClientSystem] virtual bool IsPerFrame()	HOOK	not per-frame
-[CClientSystemPerFrame] CClientSystemPerFrame(	HOOK	the per-frame base
+[CClientSystemPerFrame] : CClientSystem( pszName )	HOOK	the per-frame base
 [CClientSystemPerFrame] virtual bool IsPerFrame()	HOOK	per-frame
 [CClientSystemPerFrame] virtual void PreRender()	HOOK	a per-frame stage, empty by default
-[CClientSystemPerFrame] virtual void Update(	HOOK	a per-frame stage, empty by default
-[CGameSystemRow] explicit CGameSystemRow( TGameSystem *pSystem ) : m_pSystem( pSystem )	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
+[CClientSystemPerFrame] virtual void Update( float frametime )	HOOK	a per-frame stage, empty by default
+[CGameSystemRow] explicit CGameSystemRow( TGameSystem *pSystem )	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
 [CGameSystemRow] virtual char const *Name()	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
 [CGameSystemRow] virtual bool Init()	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
 [CGameSystemRow] virtual void PostInit()	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object

@@ -9,35 +9,19 @@
 // command queue; a CSoundPatch here is the engine's half: a filter, an entity index, a
 // sound-script lookup and an EmitSound_t. A patch crosses as an int handle.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/dbg.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "soundenvelope.h"
 #include "c_recipientfilter.h"
-#include "engine/IEngineSound.h"
-#include "SoundEmitterSystem/isoundemittersystembase.h"
+
 #include "igamerules.h"
-#include "tier1/utlvector.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "tier0/platform.h"
-#include "tier1/strtools.h"
+
 #include "client_entity.h"
-#include "const.h"
-#include "irecipientfilter.h"
-#include "shared_classnames.h"
-#include "shareddefs.h"
-#include "soundflags.h"
-#include "string_t.h"
+
 #include "client_sound.h"
-#include "imanaged_areas_client.h"
+
 #include "shell_standalone_client.h"
 
 namespace
@@ -47,7 +31,12 @@ namespace
 class CClientCopyFilter : public IRecipientFilter
 {
 public:
-	CClientCopyFilter() : m_bActive( false ), m_bReliable( false ), m_bInitMessage( false ) {}
+	CClientCopyFilter()
+		: m_bActive( false )
+		, m_bReliable( false )
+		, m_bInitMessage( false )
+	{
+	}
 
 	void Init( IRecipientFilter *pSrc )
 	{
@@ -63,16 +52,20 @@ public:
 	}
 
 	bool IsActive() const { return m_bActive; }
+
 	virtual bool IsReliable() const { return m_bReliable; }
+
 	virtual bool IsInitMessage() const { return m_bInitMessage; }
+
 	virtual int GetRecipientCount() const { return m_Recipients.Count(); }
-	virtual int GetRecipientIndex( int slot ) const { return m_Recipients[ slot ]; }
+
+	virtual int GetRecipientIndex( int slot ) const { return m_Recipients[slot]; }
 
 private:
 	bool m_bActive;
 	bool m_bReliable;
 	bool m_bInitMessage;
-	CUtlVector< int > m_Recipients;
+	CUtlVector<int> m_Recipients;
 };
 
 } // namespace
@@ -81,8 +74,14 @@ class CSoundPatch
 {
 public:
 	CSoundPatch()
-		: m_nHandle( 0 ), m_nEntIndex( -1 ), m_nChannel( CHAN_AUTO ), m_SoundLevel( SNDLVL_NORM ),
-		  m_flScriptVolume( 1.0f ), m_nBaseFlags( 0 ), m_bPlaying( false ), m_flCaptionDuration( 2.0f )
+		: m_nHandle( 0 )
+		, m_nEntIndex( -1 )
+		, m_nChannel( CHAN_AUTO )
+		, m_SoundLevel( SNDLVL_NORM )
+		, m_flScriptVolume( 1.0f )
+		, m_nBaseFlags( 0 )
+		, m_bPlaying( false )
+		, m_flCaptionDuration( 2.0f )
 	{
 		m_szSoundName[0] = 0;
 		m_szScriptName[0] = 0;
@@ -91,14 +90,14 @@ public:
 	// A sound script resolves to its wave, level and channel; its volume becomes the
 	// multiplier the envelope scales.
 	void Init( IRecipientFilter *pFilter, int nEntIndex, int nChannel, const char *pszSoundName,
-	           soundlevel_t soundlevel )
+			   soundlevel_t soundlevel )
 	{
 		m_nEntIndex = nEntIndex;
 		m_nChannel = nChannel;
 		CSoundParameters params;
 		Q_strncpy( m_szScriptName, pszSoundName, sizeof( m_szScriptName ) );
 		if ( !Q_stristr( pszSoundName, ".wav" ) && !Q_stristr( pszSoundName, ".mp3" ) &&
-		     ClientSound::GetParameters( pszSoundName, params, NULL ) )
+			 ClientSound::GetParameters( pszSoundName, params, NULL ) )
 		{
 			m_flScriptVolume = params.volume;
 			pszSoundName = params.soundname;
@@ -116,11 +115,17 @@ public:
 	}
 
 	int Handle() const { return m_nHandle; }
+
 	void SetHandle( int nHandle ) { m_nHandle = nHandle; }
+
 	void SetCaptionDuration( float flDuration ) { m_flCaptionDuration = flDuration; }
+
 	void SetBaseFlags( int nFlags ) { m_nBaseFlags = nFlags; }
+
 	const char *Name() const { return m_szSoundName; }
+
 	bool FilterIsActive() const { return m_Filter.IsActive(); }
+
 	int EntIndex() const { return m_nEntIndex; }
 
 	// One emit as managed decided it: a start (bEmitCaption, base flags) or a change
@@ -163,30 +168,33 @@ public:
 	}
 
 private:
-	int               m_nHandle;
-	int               m_nEntIndex;
-	int               m_nChannel;
-	soundlevel_t      m_SoundLevel;
-	float             m_flScriptVolume;
-	int               m_nBaseFlags;
-	bool              m_bPlaying;
-	float             m_flCaptionDuration;
-	char              m_szSoundName[ 256 ];
-	char              m_szScriptName[ 256 ];
+	int m_nHandle;
+	int m_nEntIndex;
+	int m_nChannel;
+	soundlevel_t m_SoundLevel;
+	float m_flScriptVolume;
+	int m_nBaseFlags;
+	bool m_bPlaying;
+	float m_flCaptionDuration;
+	char m_szSoundName[256];
+	char m_szScriptName[256];
 	CClientCopyFilter m_Filter;
 };
 
 class CShellClientSoundController : public CSoundEnvelopeController
 {
 public:
-	CShellClientSoundController() : m_nNextHandle( 1 ) {}
+	CShellClientSoundController()
+		: m_nNextHandle( 1 )
+	{
+	}
 
 	CSoundPatch *Resolve( int nHandle )
 	{
 		for ( int i = 0; i < m_Patches.Count(); i++ )
 		{
-			if ( m_Patches[ i ]->Handle() == nHandle )
-				return m_Patches[ i ];
+			if ( m_Patches[i]->Handle() == nHandle )
+				return m_Patches[i];
 		}
 		return NULL;
 	}
@@ -212,26 +220,31 @@ public:
 	virtual void Play( CSoundPatch *pSound, float volume, float pitch, float flStartTime ) OVERRIDE
 	{
 		if ( IManagedSoundControllerClient *pApi = Ask() )
-			if ( pSound ) pApi->ClientSoundControllerPlay( pSound->Handle(), volume, pitch, flStartTime );
+			if ( pSound )
+				pApi->ClientSoundControllerPlay( pSound->Handle(), volume, pitch, flStartTime );
 	}
 
-	virtual void CommandAdd( CSoundPatch *pSound, float executeDeltaTime, soundcommands_t command,
-	                         float commandTime, float value ) OVERRIDE
+	virtual void CommandAdd( CSoundPatch *pSound, float executeDeltaTime, soundcommands_t command, float commandTime,
+							 float value ) OVERRIDE
 	{
 		if ( IManagedSoundControllerClient *pApi = Ask() )
-			if ( pSound ) pApi->ClientSoundControllerCommandAdd( pSound->Handle(), executeDeltaTime, (int32_t)command, commandTime, value );
+			if ( pSound )
+				pApi->ClientSoundControllerCommandAdd( pSound->Handle(), executeDeltaTime, (int32_t)command,
+													   commandTime, value );
 	}
 
 	virtual void CommandClear( CSoundPatch *pSound ) OVERRIDE
 	{
 		if ( IManagedSoundControllerClient *pApi = Ask() )
-			if ( pSound ) pApi->ClientSoundControllerCommandClear( pSound->Handle() );
+			if ( pSound )
+				pApi->ClientSoundControllerCommandClear( pSound->Handle() );
 	}
 
 	virtual void Shutdown( CSoundPatch *pSound ) OVERRIDE
 	{
 		if ( IManagedSoundControllerClient *pApi = Ask() )
-			if ( pSound ) pApi->ClientSoundControllerShutdown( pSound->Handle() );
+			if ( pSound )
+				pApi->ClientSoundControllerShutdown( pSound->Handle() );
 	}
 
 	virtual CSoundPatch *SoundCreate( IRecipientFilter &filter, int nEntIndex, const char *pSoundName ) OVERRIDE
@@ -239,12 +252,14 @@ public:
 		return Build( filter, nEntIndex, CHAN_AUTO, pSoundName, SNDLVL_NORM );
 	}
 
-	virtual CSoundPatch *SoundCreate( IRecipientFilter &attnFilter, int nEntIndex, int channel, const char *pSoundName, float attenuation ) OVERRIDE
+	virtual CSoundPatch *SoundCreate( IRecipientFilter &attnFilter, int nEntIndex, int channel, const char *pSoundName,
+									  float attenuation ) OVERRIDE
 	{
 		return Build( attnFilter, nEntIndex, channel, pSoundName, ATTN_TO_SNDLVL( attenuation ) );
 	}
 
-	virtual CSoundPatch *SoundCreate( IRecipientFilter &levelFilter, int nEntIndex, int channel, const char *pSoundName, soundlevel_t soundlevel ) OVERRIDE
+	virtual CSoundPatch *SoundCreate( IRecipientFilter &levelFilter, int nEntIndex, int channel, const char *pSoundName,
+									  soundlevel_t soundlevel ) OVERRIDE
 	{
 		return Build( levelFilter, nEntIndex, channel, pSoundName, soundlevel );
 	}
@@ -273,13 +288,15 @@ public:
 	virtual void SoundChangePitch( CSoundPatch *pSound, float pitchTarget, float deltaTime ) OVERRIDE
 	{
 		if ( IManagedSoundControllerClient *pApi = Ask() )
-			if ( pSound ) pApi->ClientSoundControllerChangePitch( pSound->Handle(), pitchTarget, deltaTime );
+			if ( pSound )
+				pApi->ClientSoundControllerChangePitch( pSound->Handle(), pitchTarget, deltaTime );
 	}
 
 	virtual void SoundChangeVolume( CSoundPatch *pSound, float volumeTarget, float deltaTime ) OVERRIDE
 	{
 		if ( IManagedSoundControllerClient *pApi = Ask() )
-			if ( pSound ) pApi->ClientSoundControllerChangeVolume( pSound->Handle(), volumeTarget, deltaTime );
+			if ( pSound )
+				pApi->ClientSoundControllerChangeVolume( pSound->Handle(), volumeTarget, deltaTime );
 	}
 
 	// A zero-time destroying fade frees a native object, so it is handled here; every other
@@ -309,16 +326,18 @@ public:
 		return ( pApi && pSound ) ? pApi->ClientSoundControllerGetVolume( pSound->Handle() ) : 0.0f;
 	}
 
-	virtual float SoundPlayEnvelope( CSoundPatch *pSound, soundcommands_t soundCommand, envelopePoint_t *points, int numPoints ) OVERRIDE
+	virtual float SoundPlayEnvelope( CSoundPatch *pSound, soundcommands_t soundCommand, envelopePoint_t *points,
+									 int numPoints ) OVERRIDE
 	{
 		IManagedSoundControllerClient *pApi = Ask();
 		if ( !pApi || !pSound || !points || numPoints <= 0 )
 			return 0.0f;
 		return pApi->ClientSoundControllerPlayEnvelope( pSound->Handle(), (int32_t)soundCommand,
-		                                                &points[0].amplitudeMin, numPoints );
+														&points[0].amplitudeMin, numPoints );
 	}
 
-	virtual float SoundPlayEnvelope( CSoundPatch *pSound, soundcommands_t soundCommand, envelopeDescription_t *envelope ) OVERRIDE
+	virtual float SoundPlayEnvelope( CSoundPatch *pSound, soundcommands_t soundCommand,
+									 envelopeDescription_t *envelope ) OVERRIDE
 	{
 		return envelope ? SoundPlayEnvelope( pSound, soundCommand, envelope->pPoints, envelope->nNumPoints ) : 0.0f;
 	}
@@ -339,7 +358,7 @@ public:
 
 private:
 	CSoundPatch *Build( IRecipientFilter &filter, int nEntIndex, int nChannel, const char *pszSoundName,
-	                    soundlevel_t soundlevel )
+						soundlevel_t soundlevel )
 	{
 		if ( GameRules() )
 			pszSoundName = GameRules()->TranslateEffectForVisionFilter( "sounds", pszSoundName );
@@ -347,7 +366,7 @@ private:
 	}
 
 	CSoundPatch *Track( IRecipientFilter &filter, int nEntIndex, int nChannel, const char *pszSoundName,
-	                    soundlevel_t soundlevel )
+						soundlevel_t soundlevel )
 	{
 		CSoundPatch *pSound = new CSoundPatch;
 		pSound->Init( &filter, nEntIndex, nChannel, pszSoundName, soundlevel );
@@ -360,7 +379,7 @@ private:
 
 	static IManagedSoundControllerClient *Ask() { return ManagedSoundControllerClient(); }
 
-	CUtlVector< CSoundPatch * > m_Patches;
+	CUtlVector<CSoundPatch *> m_Patches;
 	int m_nNextHandle;
 };
 
@@ -376,7 +395,7 @@ CSoundEnvelopeController &CSoundEnvelopeController::GetController()
 }
 
 void SourceSharp_ClientSoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags,
-                                       float flStartTime, int32_t bEmitCaption )
+									   float flStartTime, int32_t bEmitCaption )
 {
 	if ( CSoundPatch *pSound = ShellClientSoundController()->Resolve( hPatch ) )
 		pSound->Emit( flVolume01, flPitch, nFlags, flStartTime, bEmitCaption != 0 );
@@ -405,8 +424,8 @@ void SourceSharp_ClientSoundPatchFree( int32_t hPatch )
 // A sound patch on the entity, as stock's client PhysFrictionSound builds it, or 0.
 // Handle 0 is the world, which managed passes for a clientside physics prop: it plays at
 // entindex 0 at the world's origin.
-int32_t SourceSharp_ClientSoundPatchCreate( uint32_t hEntity, int32_t nChannel,
-                                            const char *pSoundName, int32_t nSoundLevel )
+int32_t SourceSharp_ClientSoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char *pSoundName,
+											int32_t nSoundLevel )
 {
 	if ( !pSoundName )
 		return 0;

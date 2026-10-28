@@ -18,46 +18,19 @@
 // into one of two frame buffers (OnRenderStart switches them) and the draw is
 // queued.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
-#include "client_entity.h"
+
 #include "c_rope.h"
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/imaterial.h"
+
 #include "materialsystem/imesh.h"
 #include "tier1/callqueue.h"
-#include "tier1/KeyValues.h"
-#include "view.h"
-#include "materialsystem/imaterialsystemhardwareconfig.h"
-#include "engine/IEngineTrace.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "particles/particles.h"
-#include "tier0/platform.h"
-#include "tier1/refcount.h"
-#include "tier1/strtools.h"
-#include "tier1/utlvector.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
+
 #include "cdll_util.h"
-#include "gametrace.h"
-#include "particledraw.h"
-#include "texture_group_names.h"
-#include "trace.h"
+
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "beam_strip_vertex.h"
 #include "shell_effect_ledger.h"
 #include "shell_clientsystem.h"
@@ -65,20 +38,20 @@
 // RopeDraw's flags. Kinds, not decisions: managed code chose them.
 enum
 {
-	ROPE_DRAW_FAKEAA = 0x1,   // the strip was built for the back pass; draw it with the back material
-	ROPE_DRAW_SOLID  = 0x2,   // draw the solid pass (rope_rendersolid)
+	ROPE_DRAW_FAKEAA = 0x1, // the strip was built for the back pass; draw it with the back material
+	ROPE_DRAW_SOLID = 0x2, // draw the solid pass (rope_rendersolid)
 };
 
 // The materials, by handle.
 struct RopeMaterial_t
 {
-	char       szName[128];
+	char szName[128];
 	IMaterial *pSolid;
 	IMaterial *pBack;
-	int        nTextureHeight;
+	int nTextureHeight;
 };
 
-static CUtlVector< RopeMaterial_t > g_RopeMaterials;
+static CUtlVector<RopeMaterial_t> g_RopeMaterials;
 
 int32_t SourceSharp_RopeMaterial( const char *pszName, int32_t *pOutTextureHeight, int32_t *pOutHasBack )
 {
@@ -141,7 +114,7 @@ static void RopeMaterials_Release()
 struct RopeStrip_t
 {
 	int nMaterial;
-	int iFirst;			// vertices, not floats
+	int iFirst; // vertices, not floats
 	int nVerts;
 	int iFirstSolid;
 	int nSolid;
@@ -150,8 +123,8 @@ struct RopeStrip_t
 
 struct RopeCache_t
 {
-	CUtlVector< RopeStrip_t > strips;
-	CUtlVector< float >       verts;	// BEAM_STRIP_VERTEX_FLOATS a vertex
+	CUtlVector<RopeStrip_t> strips;
+	CUtlVector<float> verts; // BEAM_STRIP_VERTEX_FLOATS a vertex
 
 	void Clear()
 	{
@@ -163,20 +136,24 @@ struct RopeCache_t
 class CSourceSharpRopeExecutor : public IRopeManager
 {
 public:
-	CSourceSharpRopeExecutor() : m_iQueued( 0 ), m_pDepthWrite( NULL ) {}
+	CSourceSharpRopeExecutor()
+		: m_iQueued( 0 )
+		, m_pDepthWrite( NULL )
+	{
+	}
 
 	void Add( int nMaterial, const float *pVerts, int nVerts, const float *pSolid, int nSolid, int nFlags )
 	{
 		RopeStrip_t strip;
-		strip.nMaterial   = nMaterial;
-		strip.iFirst      = m_Cache.verts.Count() / BEAM_STRIP_VERTEX_FLOATS;
-		strip.nVerts      = nVerts;
+		strip.nMaterial = nMaterial;
+		strip.iFirst = m_Cache.verts.Count() / BEAM_STRIP_VERTEX_FLOATS;
+		strip.nVerts = nVerts;
 		m_Cache.verts.AddMultipleToTail( nVerts * BEAM_STRIP_VERTEX_FLOATS, pVerts );
 		strip.iFirstSolid = m_Cache.verts.Count() / BEAM_STRIP_VERTEX_FLOATS;
-		strip.nSolid      = pSolid ? nSolid : 0;
+		strip.nSolid = pSolid ? nSolid : 0;
 		if ( strip.nSolid > 0 )
 			m_Cache.verts.AddMultipleToTail( strip.nSolid * BEAM_STRIP_VERTEX_FLOATS, pSolid );
-		strip.nFlags      = nFlags;
+		strip.nFlags = nFlags;
 		m_Cache.strips.AddToTail( strip );
 	}
 
@@ -201,7 +178,7 @@ public:
 
 		// Copied into this frame's buffer, which outlives the queued call: the
 		// other buffer is the one OnRenderStart clears.
-		CUtlVector< RopeCache_t * > &frame = m_Queued[ m_iQueued ];
+		CUtlVector<RopeCache_t *> &frame = m_Queued[m_iQueued];
 		RopeCache_t *pCopy = new RopeCache_t;
 		pCopy->strips.CopyArray( m_Cache.strips.Base(), m_Cache.strips.Count() );
 		pCopy->verts.CopyArray( m_Cache.verts.Base(), m_Cache.verts.Count() );
@@ -213,13 +190,15 @@ public:
 	virtual void OnRenderStart() OVERRIDE
 	{
 		m_iQueued = 1 - m_iQueued;
-		m_Queued[ m_iQueued ].PurgeAndDeleteElements();
+		m_Queued[m_iQueued].PurgeAndDeleteElements();
 	}
 
 	// The holiday lights are TF's (USES_ECON_ITEMS), compiled out of stock here too.
 	virtual void SetHolidayLightMode( bool ) OVERRIDE {}
+
 	virtual bool IsHolidayLightMode() OVERRIDE { return false; }
-	virtual int  GetHolidayLightStyle() OVERRIDE { return 0; }
+
+	virtual int GetHolidayLightStyle() OVERRIDE { return 0; }
 
 	void LevelShutdown()
 	{
@@ -254,9 +233,9 @@ private:
 				const RopeStrip_t &s = pCache->strips[i];
 				if ( s.nMaterial != iMat )
 					continue;
-				nVerts   += s.nVerts;
+				nVerts += s.nVerts;
 				nIndices += ( s.nVerts / 2 - 1 ) * 6;
-				nFlags   |= s.nFlags;
+				nFlags |= s.nFlags;
 				nStrips++;
 			}
 
@@ -281,7 +260,7 @@ private:
 	// One mesh of every strip that uses the material: the built strip, or (on
 	// the solid pass after a back pass) the solid strip managed code remapped.
 	static void DrawPass( IMatRenderContext *pRenderContext, RopeCache_t *pCache, int iMat, IMaterial *pMaterial,
-	                      int nVerts, int nIndices, bool bSolidStrips, bool bCount )
+						  int nVerts, int nIndices, bool bSolidStrips, bool bCount )
 	{
 		CMeshBuilder meshBuilder;
 		IMesh *pMesh = pRenderContext->GetDynamicMesh( true, NULL, NULL, pMaterial );
@@ -300,8 +279,8 @@ private:
 
 			if ( nStripVerts >= 4 )
 			{
-				ss::beamstrip::WriteIndexed( meshBuilder, &pCache->verts[ iFirst * BEAM_STRIP_VERTEX_FLOATS ], nStripVerts,
-				                             nVertsSoFar );
+				ss::beamstrip::WriteIndexed( meshBuilder, &pCache->verts[iFirst * BEAM_STRIP_VERTEX_FLOATS],
+											 nStripVerts, nVertsSoFar );
 
 				if ( bCount )
 					g_SourceSharpEffects.nRopeDraws++;
@@ -314,10 +293,10 @@ private:
 		pMesh->Draw();
 	}
 
-	RopeCache_t                  m_Cache;
-	CUtlVector< RopeCache_t * >  m_Queued[2];
-	int                          m_iQueued;
-	IMaterial                   *m_pDepthWrite;
+	RopeCache_t m_Cache;
+	CUtlVector<RopeCache_t *> m_Queued[2];
+	int m_iQueued;
+	IMaterial *m_pDepthWrite;
 };
 
 static CSourceSharpRopeExecutor g_RopeExecutor;
@@ -330,8 +309,8 @@ IRopeManager *RopeManager()
 // One rope's strip for the view being drawn, and the solid pass's (the same
 // count or none). Called from the managed owner's DrawModel, between
 // viewrender's ResetRenderCache and DrawRenderCache.
-void SourceSharp_RopeDraw( int32_t nMaterial, const float *pVerts, int32_t nVerts,
-                           const float *pSolid, int32_t nSolid, int32_t nFlags )
+void SourceSharp_RopeDraw( int32_t nMaterial, const float *pVerts, int32_t nVerts, const float *pSolid, int32_t nSolid,
+						   int32_t nFlags )
 {
 	if ( !pVerts || nVerts < 4 || ( nVerts & 1 ) || nMaterial < 0 || nMaterial >= g_RopeMaterials.Count() )
 		return;
@@ -345,7 +324,10 @@ void SourceSharp_RopeDraw( int32_t nMaterial, const float *pVerts, int32_t nVert
 class CSourceSharpRopeSystem : public CClientSystem
 {
 public:
-	CSourceSharpRopeSystem() : CClientSystem( "CSourceSharpRopeSystem" ) {}
+	CSourceSharpRopeSystem()
+		: CClientSystem( "CSourceSharpRopeSystem" )
+	{
+	}
 
 	virtual void LevelShutdownPostEntity() OVERRIDE
 	{
@@ -356,7 +338,10 @@ public:
 
 static CSourceSharpRopeSystem g_SourceSharpRopeSystem;
 
-CClientSystem *ClientSystem_Rope() { return &g_SourceSharpRopeSystem; }
+CClientSystem *ClientSystem_Rope()
+{
+	return &g_SourceSharpRopeSystem;
+}
 
 // The reads a managed rope or beam makes, each a pass-through onto the engine.
 //
@@ -365,25 +350,25 @@ CClientSystem *ClientSystem_Rope() { return &g_SourceSharpRopeSystem; }
 // bCurrentView says the caller is), the main view's origin, the screen width,
 // and the two hardware facts FakeAA rope smoothing reads.
 void SourceSharp_ClientViewState( int32_t bCurrentView, float *pOutForwardXYZ, float *pOutOriginXYZ,
-                                  float *pOutMainOriginXYZ, float *pOutCameraXYZ, int32_t *pOutScreenWidth,
-                                  int32_t *pOutDxLevel, int32_t *pOutAAEnabled )
+								  float *pOutMainOriginXYZ, float *pOutCameraXYZ, int32_t *pOutScreenWidth,
+								  int32_t *pOutDxLevel, int32_t *pOutAAEnabled )
 {
 	const Vector &vMain = MainViewOrigin();
 
 	if ( bCurrentView )
 	{
 		if ( pOutForwardXYZ )
-			VectorCopy( CurrentViewForward(), *reinterpret_cast< Vector * >( pOutForwardXYZ ) );
+			VectorCopy( CurrentViewForward(), *reinterpret_cast<Vector *>( pOutForwardXYZ ) );
 		if ( pOutOriginXYZ )
-			VectorCopy( CurrentViewOrigin(), *reinterpret_cast< Vector * >( pOutOriginXYZ ) );
+			VectorCopy( CurrentViewOrigin(), *reinterpret_cast<Vector *>( pOutOriginXYZ ) );
 		if ( pOutCameraXYZ )
 		{
 			CMatRenderContextPtr pRenderContext( materials );
-			pRenderContext->GetWorldSpaceCameraPosition( reinterpret_cast< Vector * >( pOutCameraXYZ ) );
+			pRenderContext->GetWorldSpaceCameraPosition( reinterpret_cast<Vector *>( pOutCameraXYZ ) );
 		}
 	}
 	if ( pOutMainOriginXYZ )
-		VectorCopy( vMain, *reinterpret_cast< Vector * >( pOutMainOriginXYZ ) );
+		VectorCopy( vMain, *reinterpret_cast<Vector *>( pOutMainOriginXYZ ) );
 	if ( pOutScreenWidth )
 		*pOutScreenWidth = ScreenWidth();
 	if ( pOutDxLevel )
@@ -404,11 +389,11 @@ void SourceSharp_ClientComputeLighting( const float *pPosXYZ, float *pOutColorRG
 	engine->ComputeLighting( Vector( pPosXYZ[0], pPosXYZ[1], pPosXYZ[2] ), NULL, true, vColor, boxColors );
 
 	if ( pOutColorRGB )
-		VectorCopy( vColor, *reinterpret_cast< Vector * >( pOutColorRGB ) );
+		VectorCopy( vColor, *reinterpret_cast<Vector *>( pOutColorRGB ) );
 	if ( pOutBoxRGB18 )
 	{
 		for ( int i = 0; i < 6; i++ )
-			VectorCopy( boxColors[i], *reinterpret_cast< Vector * >( pOutBoxRGB18 + i * 3 ) );
+			VectorCopy( boxColors[i], *reinterpret_cast<Vector *>( pOutBoxRGB18 + i * 3 ) );
 	}
 }
 
@@ -416,8 +401,8 @@ void SourceSharp_ClientComputeLighting( const float *pPosXYZ, float *pOutColorRG
 // fraction; out: allsolid (bit 0) and startsolid (bit 1), the plane normal and
 // distance.
 float SourceSharp_ClientTraceHullWorld( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ,
-                                        const float *pMaxsXYZ, int32_t nMask, int32_t *pOutSolidFlags,
-                                        float *pOutPlaneXYZD )
+										const float *pMaxsXYZ, int32_t nMask, int32_t *pOutSolidFlags,
+										float *pOutPlaneXYZD )
 {
 	if ( !pStartXYZ || !pEndXYZ || !pMinsXYZ || !pMaxsXYZ )
 		return 1.0f;
@@ -426,8 +411,8 @@ float SourceSharp_ClientTraceHullWorld( const float *pStartXYZ, const float *pEn
 	trace_t tr;
 
 	UTIL_TraceHull( Vector( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] ), Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] ),
-	                Vector( pMinsXYZ[0], pMinsXYZ[1], pMinsXYZ[2] ), Vector( pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2] ),
-	                (unsigned int)nMask, &filter, &tr );
+					Vector( pMinsXYZ[0], pMinsXYZ[1], pMinsXYZ[2] ), Vector( pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2] ),
+					(unsigned int)nMask, &filter, &tr );
 
 	if ( pOutSolidFlags )
 		*pOutSolidFlags = ( tr.allsolid ? 1 : 0 ) | ( tr.startsolid ? 2 : 0 );

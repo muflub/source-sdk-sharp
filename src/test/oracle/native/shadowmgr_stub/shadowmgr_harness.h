@@ -120,6 +120,7 @@ struct ShadowGlobals_t
 	int framecount;
 	float curtime;
 };
+
 extern ShadowGlobals_t *gpGlobals;
 
 // icliententityinternal.h's handle; cliententitylist.h's invalid one.
@@ -141,40 +142,139 @@ class C_BaseAnimating;
 class C_BaseEntity : public CDefaultClientRenderable
 {
 public:
-	C_BaseEntity() { m_bEnableRenderingClipPlane = false; m_fRenderingClipPlane[ 0 ] = m_fRenderingClipPlane[ 1 ] = m_fRenderingClipPlane[ 2 ] = m_fRenderingClipPlane[ 3 ] = 0.0f; }
+	C_BaseEntity()
+	{
+		m_bEnableRenderingClipPlane = false;
+		m_fRenderingClipPlane[0] = m_fRenderingClipPlane[1] = m_fRenderingClipPlane[2] = m_fRenderingClipPlane[3] =
+			0.0f;
+	}
+
 	virtual ~C_BaseEntity() {}
 
 	// IHandleEntity
 	virtual void SetRefEHandle( const CBaseHandle &handle ) { m_RefEHandle = handle; }
+
 	virtual const CBaseHandle &GetRefEHandle() const { return m_RefEHandle; }
 
 	// IClientUnknown
-	virtual ICollideable *GetCollideable() { ++g_nBaseEntityTouches; return NULL; }
-	virtual IClientNetworkable *GetClientNetworkable() { ++g_nBaseEntityTouches; return NULL; }
-	virtual IClientRenderable *GetClientRenderable() { ++g_nBaseEntityTouches; return this; }
-	virtual IClientEntity *GetIClientEntity() { ++g_nBaseEntityTouches; return NULL; }
-	virtual C_BaseEntity *GetBaseEntity() { ++g_nBaseEntityTouches; return this; }
-	virtual IClientThinkable *GetClientThinkable() { ++g_nBaseEntityTouches; return NULL; }
+	virtual ICollideable *GetCollideable()
+	{
+		++g_nBaseEntityTouches;
+		return NULL;
+	}
+
+	virtual IClientNetworkable *GetClientNetworkable()
+	{
+		++g_nBaseEntityTouches;
+		return NULL;
+	}
+
+	virtual IClientRenderable *GetClientRenderable()
+	{
+		++g_nBaseEntityTouches;
+		return this;
+	}
+
+	virtual IClientEntity *GetIClientEntity()
+	{
+		++g_nBaseEntityTouches;
+		return NULL;
+	}
+
+	virtual C_BaseEntity *GetBaseEntity()
+	{
+		++g_nBaseEntityTouches;
+		return this;
+	}
+
+	virtual IClientThinkable *GetClientThinkable()
+	{
+		++g_nBaseEntityTouches;
+		return NULL;
+	}
 
 	// IClientRenderable
-	virtual const Vector &GetRenderOrigin( void ) { ++g_nBaseEntityTouches; return m_vecOrigin; }
-	virtual const QAngle &GetRenderAngles( void ) { ++g_nBaseEntityTouches; return m_angAngles; }
-	virtual const matrix3x4_t &RenderableToWorldTransform() { ++g_nBaseEntityTouches; return m_Transform; }
-	virtual bool ShouldDraw( void ) { ++g_nBaseEntityTouches; return true; }
-	virtual bool IsTransparent( void ) { ++g_nBaseEntityTouches; return false; }
-	virtual void GetRenderBounds( Vector &mins, Vector &maxs ) { ++g_nBaseEntityTouches; mins = maxs = m_vecOrigin; }
-	virtual const model_t *GetModel() const { ++g_nBaseEntityTouches; return NULL; }
+	virtual const Vector &GetRenderOrigin( void )
+	{
+		++g_nBaseEntityTouches;
+		return m_vecOrigin;
+	}
+
+	virtual const QAngle &GetRenderAngles( void )
+	{
+		++g_nBaseEntityTouches;
+		return m_angAngles;
+	}
+
+	virtual const matrix3x4_t &RenderableToWorldTransform()
+	{
+		++g_nBaseEntityTouches;
+		return m_Transform;
+	}
+
+	virtual bool ShouldDraw( void )
+	{
+		++g_nBaseEntityTouches;
+		return true;
+	}
+
+	virtual bool IsTransparent( void )
+	{
+		++g_nBaseEntityTouches;
+		return false;
+	}
+
+	virtual void GetRenderBounds( Vector &mins, Vector &maxs )
+	{
+		++g_nBaseEntityTouches;
+		mins = maxs = m_vecOrigin;
+	}
+
+	virtual const model_t *GetModel() const
+	{
+		++g_nBaseEntityTouches;
+		return NULL;
+	}
 
 	// C_BaseEntity, as the subject asks it.
-	int GetFlags() { ++g_nBaseEntityTouches; return 0; }
-	bool IsNPC() { ++g_nBaseEntityTouches; return false; }
-	C_BaseAnimating *GetBaseAnimating() { ++g_nBaseEntityTouches; return NULL; }
-	C_BaseEntity *FirstMoveChild() { ++g_nBaseEntityTouches; return NULL; }
-	C_BaseEntity *NextMovePeer() { ++g_nBaseEntityTouches; return NULL; }
-	int entindex() { ++g_nBaseEntityTouches; return 0; }
+	int GetFlags()
+	{
+		++g_nBaseEntityTouches;
+		return 0;
+	}
+
+	bool IsNPC()
+	{
+		++g_nBaseEntityTouches;
+		return false;
+	}
+
+	C_BaseAnimating *GetBaseAnimating()
+	{
+		++g_nBaseEntityTouches;
+		return NULL;
+	}
+
+	C_BaseEntity *FirstMoveChild()
+	{
+		++g_nBaseEntityTouches;
+		return NULL;
+	}
+
+	C_BaseEntity *NextMovePeer()
+	{
+		++g_nBaseEntityTouches;
+		return NULL;
+	}
+
+	int entindex()
+	{
+		++g_nBaseEntityTouches;
+		return 0;
+	}
 
 	bool m_bEnableRenderingClipPlane;
-	float m_fRenderingClipPlane[ 4 ];
+	float m_fRenderingClipPlane[4];
 	Vector m_vecOrigin;
 	QAngle m_angAngles;
 	matrix3x4_t m_Transform;
@@ -190,13 +290,26 @@ class C_BaseAnimating : public C_BaseEntity
 class CShadowEHandle
 {
 public:
-	CShadowEHandle() : m_pEntity( NULL ) {}
+	CShadowEHandle()
+		: m_pEntity( NULL )
+	{
+	}
+
 	C_BaseEntity *Get() const { return m_pEntity; }
+
 	operator C_BaseEntity *() const { return m_pEntity; }
-	C_BaseEntity *operator->() const { ++g_nBaseEntityTouches; return m_pEntity; }
+
+	C_BaseEntity *operator->() const
+	{
+		++g_nBaseEntityTouches;
+		return m_pEntity;
+	}
+
 	bool operator!() const { return m_pEntity == NULL; }
+
 	C_BaseEntity *m_pEntity;
 };
+
 typedef CShadowEHandle EHANDLE;
 
 // The flags' type the subject packs into its own shadow flags.
@@ -212,32 +325,49 @@ class CShadowThing : public CDefaultClientRenderable
 {
 public:
 	explicit CShadowThing( int nId );
+
 	virtual ~CShadowThing() {}
 
 	// IHandleEntity
 	virtual void SetRefEHandle( const CBaseHandle &handle ) { m_RefEHandle = handle; }
+
 	virtual const CBaseHandle &GetRefEHandle() const { return m_RefEHandle; }
 
 	// IClientUnknown: the fork's renderables answer no C_BaseEntity.
 	virtual ICollideable *GetCollideable() { return NULL; }
+
 	virtual IClientNetworkable *GetClientNetworkable() { return NULL; }
+
 	virtual IClientRenderable *GetClientRenderable() { return this; }
+
 	virtual IClientEntity *GetIClientEntity() { return NULL; }
+
 	virtual C_BaseEntity *GetBaseEntity();
+
 	virtual IClientThinkable *GetClientThinkable() { return NULL; }
 
 	// IClientRenderable
 	virtual IClientUnknown *GetIClientUnknown() { return this; }
+
 	virtual const Vector &GetRenderOrigin( void );
 	virtual const QAngle &GetRenderAngles( void );
 	virtual const matrix3x4_t &RenderableToWorldTransform();
+
 	virtual bool ShouldDraw( void ) { return true; }
+
 	virtual bool IsTransparent( void ) { return false; }
+
 	virtual ClientShadowHandle_t GetShadowHandle() const;
 	virtual const model_t *GetModel() const;
 	virtual int GetBody();
 	virtual int GetSkin();
-	virtual void GetRenderBounds( Vector &mins, Vector &maxs ) { mins = m_vecMins; maxs = m_vecMaxs; }
+
+	virtual void GetRenderBounds( Vector &mins, Vector &maxs )
+	{
+		mins = m_vecMins;
+		maxs = m_vecMaxs;
+	}
+
 	virtual void GetRenderBoundsWorldspace( Vector &mins, Vector &maxs );
 	virtual void GetShadowRenderBounds( Vector &mins, Vector &maxs, ShadowType_t shadowType );
 	virtual bool ShouldReceiveProjectedTextures( int flags );
@@ -251,25 +381,25 @@ public:
 	virtual void CreateModelInstance();
 	virtual ModelInstanceHandle_t GetModelInstance();
 
-	int     m_nId;
-	bool    m_bHasModel = true;
-	int     m_nModelType = mod_studio;   // mod_bad, mod_brush, mod_sprite, mod_studio
-	Vector  m_vecOrigin, m_vecMins, m_vecMaxs, m_vecRttMins, m_vecRttMaxs, m_vecAbsMins, m_vecAbsMaxs;
-	QAngle  m_angAngles;
+	int m_nId;
+	bool m_bHasModel = true;
+	int m_nModelType = mod_studio; // mod_bad, mod_brush, mod_sprite, mod_studio
+	Vector m_vecOrigin, m_vecMins, m_vecMaxs, m_vecRttMins, m_vecRttMaxs, m_vecAbsMins, m_vecAbsMaxs;
+	QAngle m_angAngles;
 	matrix3x4_t m_Transform;
-	bool    m_bCastDistance = false;     // overrides GetShadowCastDistance
-	float   m_flCastDistance = 0.0f;
-	bool    m_bCastDirection = false;    // overrides GetShadowCastDirection
-	Vector  m_vecCastDirection;
-	int     m_nParent = -1, m_nFirstChild = -1, m_nNextPeer = -1;   // the shadow hierarchy, by id
-	int     m_nReceiveFlags = 0;         // the projected-texture kinds it takes
-	ClientShadowHandle_t m_hShadow = CLIENTSHADOW_INVALID_HANDLE;   // what GetShadowHandle answers
-	bool    m_bShadowDirty = false;
+	bool m_bCastDistance = false; // overrides GetShadowCastDistance
+	float m_flCastDistance = 0.0f;
+	bool m_bCastDirection = false; // overrides GetShadowCastDirection
+	Vector m_vecCastDirection;
+	int m_nParent = -1, m_nFirstChild = -1, m_nNextPeer = -1; // the shadow hierarchy, by id
+	int m_nReceiveFlags = 0; // the projected-texture kinds it takes
+	ClientShadowHandle_t m_hShadow = CLIENTSHADOW_INVALID_HANDLE; // what GetShadowHandle answers
+	bool m_bShadowDirty = false;
 	ModelInstanceHandle_t m_hInstance = MODEL_INSTANCE_INVALID;
-	int     m_nBody = 0, m_nSkin = 0;
-	bool    m_bBonesOk = true;           // DrawModelShadowSetup answers a bone array
-	bool    m_bDirtyOnOrigin = false;    // GetRenderOrigin re-dirties the shadow, as an aiment's does
-	bool    m_bGone = false;             // the entity list no longer answers it
+	int m_nBody = 0, m_nSkin = 0;
+	bool m_bBonesOk = true; // DrawModelShadowSetup answers a bone array
+	bool m_bDirtyOnOrigin = false; // GetRenderOrigin re-dirties the shadow, as an aiment's does
+	bool m_bGone = false; // the entity list no longer answers it
 	CBaseHandle m_RefEHandle;
 };
 
@@ -285,12 +415,14 @@ public:
 	IClientRenderable *GetClientRenderableFromHandle( ClientEntityHandle_t h );
 	C_BaseEntity *GetBaseEntityFromHandle( ClientEntityHandle_t h );
 };
+
 CShadowEntityList &ClientEntityList();
 
 //-----------------------------------------------------------------------------
 // The client leaf system's shadow half (clientleafsystem.h).
 //-----------------------------------------------------------------------------
 typedef unsigned short ClientLeafShadowHandle_t;
+
 enum
 {
 	CLIENT_LEAF_SHADOW_INVALID_HANDLE = (ClientLeafShadowHandle_t)~0
@@ -311,6 +443,7 @@ public:
 	void ProjectFlashlight( ClientLeafShadowHandle_t handle, int nLeafCount, const int *pLeafList );
 	void EnumerateShadowsInLeaves( int leafCount, LeafIndex_t *pLeaves, IClientLeafShadowEnum *pEnum );
 };
+
 CShadowLeafSystem *ClientLeafSystem();
 
 //-----------------------------------------------------------------------------
@@ -320,15 +453,17 @@ CShadowLeafSystem *ClientLeafSystem();
 //-----------------------------------------------------------------------------
 struct ShadowTexture_t
 {
-	char m_szName[ 64 ];
+	char m_szName[64];
 	int m_nWidth, m_nHeight;
+
 	int GetActualWidth() const { return m_nWidth; }
+
 	int GetActualHeight() const { return m_nHeight; }
 };
 
 struct ShadowMaterial_t
 {
-	char m_szName[ 64 ];
+	char m_szName[64];
 	void ColorModulate( float r, float g, float b );
 };
 
@@ -338,24 +473,39 @@ const char *ShadowMaterialName( const IMaterial *pMaterial );
 class CShadowTextureReference
 {
 public:
-	CShadowTextureReference() : m_pTexture( NULL ) {}
-	void InitRenderTarget( int w, int h, RenderTargetSizeMode_t sizeMode, ImageFormat fmt, MaterialRenderTargetDepth_t depth,
-	                       bool bHDR, const char *pStrOptionalName = NULL );
+	CShadowTextureReference()
+		: m_pTexture( NULL )
+	{
+	}
+
+	void InitRenderTarget( int w, int h, RenderTargetSizeMode_t sizeMode, ImageFormat fmt,
+						   MaterialRenderTargetDepth_t depth, bool bHDR, const char *pStrOptionalName = NULL );
 	void Shutdown( bool bDeleteIfUnReferenced = false );
+
 	operator ITexture *() const { return (ITexture *)m_pTexture; }
+
 	ShadowTexture_t *operator->() const { return m_pTexture; }
+
 	bool IsValid() const { return m_pTexture != NULL; }
+
 	ShadowTexture_t *m_pTexture;
 };
 
 class CShadowMaterialReference
 {
 public:
-	CShadowMaterialReference() : m_pMaterial( NULL ) {}
+	CShadowMaterialReference()
+		: m_pMaterial( NULL )
+	{
+	}
+
 	void Init( const char *pMaterialName, const char *pTextureGroupName, bool bComplain = true );
 	void Shutdown();
+
 	operator IMaterial *() const { return (IMaterial *)m_pMaterial; }
+
 	ShadowMaterial_t *operator->() const { return m_pMaterial; }
+
 	ShadowMaterial_t *m_pMaterial;
 };
 
@@ -389,7 +539,8 @@ public:
 	MaterialFogMode_t GetFogMode();
 	void FogMode( MaterialFogMode_t fogMode );
 	void Bind( IMaterial *pMaterial, void *proxyData = 0 );
-	CShadowMesh *GetDynamicMesh( bool buffered = true, void *pVertexOverride = 0, void *pIndexOverride = 0, IMaterial *pAutoBind = 0 );
+	CShadowMesh *GetDynamicMesh( bool buffered = true, void *pVertexOverride = 0, void *pIndexOverride = 0,
+								 IMaterial *pAutoBind = 0 );
 	void ClearColor4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a );
 	void ClearColor3ub( unsigned char r, unsigned char g, unsigned char b );
 	MaterialHeightClipMode_t GetHeightClipMode();
@@ -405,17 +556,20 @@ public:
 	void PopRenderTargetAndViewport();
 	void ClearBuffers( bool bClearColor, bool bClearDepth, bool bClearStencil = false );
 	void Viewport( int x, int y, int width, int height );
-	void CopyRenderTargetToTextureEx( ITexture *pTexture, int nRenderTargetID, Rect_t *pSrcRect, Rect_t *pDstRect = NULL );
+	void CopyRenderTargetToTextureEx( ITexture *pTexture, int nRenderTargetID, Rect_t *pSrcRect,
+									  Rect_t *pDstRect = NULL );
 	void SetShadowDepthBiasFactors( float fSlopeScaleDepthBias, float fDepthBias );
 };
 
 class CShadowMaterials;
+
 class CShadowRenderContextPtr
 {
 public:
 	explicit CShadowRenderContextPtr( CShadowMaterials *pMaterials );
 	CShadowRenderContext *operator->() const;
 };
+
 #define CMatRenderContextPtr CShadowRenderContextPtr
 #define CMeshBuilder CShadowMeshBuilder
 #define IMesh CShadowMesh
@@ -432,6 +586,7 @@ public:
 	void EndRenderTargetAllocation();
 	void UncacheUnusedMaterials( bool bRecomputeStateSnapshots = false );
 };
+
 // The real headers declare `materials` an IMaterialSystem; the name is the
 // stand-in's from here on.
 #define materials g_pShadowMaterials
@@ -442,6 +597,7 @@ class CShadowHardwareConfig
 public:
 	int GetDXSupportLevel();
 };
+
 extern CShadowHardwareConfig *g_pMaterialSystemHardwareConfig;
 
 //-----------------------------------------------------------------------------
@@ -455,6 +611,7 @@ public:
 	void GetAmbientLightColor( Vector &ambientColor );
 	ISpatialQuery *GetBSPTreeQuery();
 };
+
 extern CShadowEngine *engine;
 
 class CShadowModelInfo
@@ -462,6 +619,7 @@ class CShadowModelInfo
 public:
 	int GetModelType( const model_t *pModel ) const;
 };
+
 // ivmodelinfo.h declares `modelinfo` an IVModelInfoClient; the name is the
 // stand-in's from here on.
 #define modelinfo g_pShadowModelInfo
@@ -473,6 +631,7 @@ public:
 	matrix3x4_t *DrawModelShadowSetup( IClientRenderable *pRenderable, int body, int skin, DrawModelInfo_t *pInfo );
 	void DrawModelShadow( IClientRenderable *pRenderable, const DrawModelInfo_t &info, matrix3x4_t *pBoneToWorld );
 };
+
 extern CShadowModelRender *modelrender;
 
 // ivrenderview.h declares `render` an IVRenderView; the subject asks it one
@@ -482,6 +641,7 @@ class CShadowRenderView
 public:
 	void DrawBrushModelShadow( IClientRenderable *pRenderable );
 };
+
 #define render g_pShadowRenderView
 extern CShadowRenderView *render;
 
@@ -491,6 +651,7 @@ public:
 	void AddShadowToStaticProp( ShadowHandle_t shadowHandle, IClientRenderable *pRenderable );
 	void RemoveAllShadowsFromStaticProp( IClientRenderable *pRenderable );
 };
+
 extern CShadowStaticPropMgr *staticpropmgr;
 
 class CShadowView
@@ -498,14 +659,17 @@ class CShadowView
 public:
 	void UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView );
 };
+
 extern CShadowView *view;
 
 class CShadowDebugOverlay
 {
 public:
-	void AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b, bool noDepthTest, float duration );
+	void AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b, bool noDepthTest,
+						 float duration );
 	void AddTextOverlay( const Vector &origin, int line_offset, const char *format, ... );
 };
+
 extern CShadowDebugOverlay *debugoverlay;
 
 extern IShadowMgr *shadowmgr;
@@ -513,7 +677,10 @@ extern IShadowMgr *shadowmgr;
 //-----------------------------------------------------------------------------
 // The tool framework (toolframework_client.h): never recording.
 //-----------------------------------------------------------------------------
-inline bool ToolsEnabled() { return false; }
+inline bool ToolsEnabled()
+{
+	return false;
+}
 
 //-----------------------------------------------------------------------------
 // The thread pool (vstdlib/jobthread.h): the subject's threaded arm is
@@ -524,8 +691,13 @@ class CShadowThreadPool
 public:
 	int NumIdleThreads() { return 0; }
 };
+
 extern CShadowThreadPool *g_pThreadPool;
-template < typename... Args > inline void ParallelProcess( const char *, Args &&... ) {}
+
+template <typename... Args>
+inline void ParallelProcess( const char *, Args &&... )
+{
+}
 
 // The pristine game-system interface and the shadow manager's own.
 #include "igamesystem.h"

@@ -7,62 +7,21 @@
 
 // SS_REASON a  a vtable the engine calls through
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "client_entity.h"
-#include "clientleafsystem.h"
-#include "engine/ishadowmgr.h"
-#include "ivrenderview.h"
+
 #include "cdll_bounded_cvars.h"
 #include "iviewrender_beams.h"
 #include "dlight.h"
 #include "iefx.h"
-#include "engine/IClientLeafSystem.h"
-#include "engine/ivmodelinfo.h"
-#include "engine/ivmodelrender.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "tier0/basetypes.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
-#include "tier1/strtools.h"
-#include "tier1/utlvector.h"
-#include "basehandle.h"
-#include "bsptreedata.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
-#include "client_class.h"
-#include "client_render_handle.h"
-#include "cmodel.h"
-#include "const.h"
-#include "dt_common.h"
-#include "dt_recv.h"
-#include "eiface.h"
-#include "fx.h"
-#include "gametrace.h"
-#include "globalvars_base.h"
-#include "icliententity.h"
-#include "icliententitylist.h"
-#include "iclientnetworkable.h"
-#include "iclientrenderable.h"
-#include "iclientthinkable.h"
+
 #include "model_types.h"
-#include "ragdoll_shared.h"
-#include "recvproxy.h"
-#include "shareddefs.h"
-#include "trace.h"
+
 #include "shell_standalone_client.h"
 #include "standalone_renderable_handle.h"
-
-#include <type_traits>
 
 #include "slot_table.h"
 #include "shell_cliententitylist.h"
@@ -72,17 +31,11 @@
 #include "shell_effect_ledger.h"
 #include "shell_shadows_client.h"
 
-#include "sourcesharp.h"
-#include "shell_diagnostics.h"
-#include "generic_payload.h"
-#include "generic_nettable.h"
 #include "imanaged_areas_client.h"
-
-#include "entity_shared_statics.h"
 
 #include "shell_beam_render.h"
 
-static CUtlVector< C_StandaloneEntity * > g_StandaloneClients;
+static CUtlVector<C_StandaloneEntity *> g_StandaloneClients;
 
 // Held so the per-frame eye pin does not walk the list.
 static C_StandaloneEntity *s_pLocalViewModel = NULL;
@@ -94,55 +47,59 @@ C_StandaloneEntity *SourceSharp_LocalPlayerShell()
 	return s_pLocalPlayerShell;
 }
 
-C_StandaloneEntity::C_StandaloneEntity( int nEntNum, int nSerialNum, ClientClass *pClass,
-                                        int iTier )
-	: m_nEntIndex( nEntNum ),
-	  m_bHasManaged( false ),
-	  m_bDrawReported( false ),
-	  m_ModelInstance( MODEL_INSTANCE_INVALID ),
-	  m_hRenderHandle( INVALID_CLIENT_RENDER_HANDLE ),
+C_StandaloneEntity::C_StandaloneEntity( int nEntNum, int nSerialNum, ClientClass *pClass, int iTier )
+	: m_nEntIndex( nEntNum )
+	, m_bHasManaged( false )
+	, m_bDrawReported( false )
+	, m_ModelInstance( MODEL_INSTANCE_INVALID )
+	, m_hRenderHandle( INVALID_CLIENT_RENDER_HANDLE )
+	,
 
-	  // The think list's invalid handle (its unsigned short InvalidIndex).
-	  m_hThink( (ClientThinkHandle_t)(uintp)0xFFFF ),
+	// The think list's invalid handle (its unsigned short InvalidIndex).
+	m_hThink( (ClientThinkHandle_t)(uintp)0xFFFF )
+	,
 
-	  // Before the entity joins the list at the end of this constructor.
-	  m_pClientClass( pClass ),
+	// Before the entity joins the list at the end of this constructor.
+	m_pClientClass( pClass )
+	,
 
-	  // Clamped: it indexes the tier table.
-	  m_iTier( ( iTier >= 0 && iTier < SourceSharp_TierCount() ) ? iTier : 0 ),
-	  m_bPlayerShell( false ),
-	  m_nPredictedHealth( -1 ),
-	  m_bLocalPlayer( false ),
-	  m_pSurface( NULL ),
-	  m_flModelScale( 1.0f ),
-	  m_nOverlayModelIndex( -1 ),
-	  m_bIgnoreZ( false ),
-	  m_nPublishedModelIndex( -1 ),
-	  m_nPublishedEffects( -1 ),
-	  m_nAppliedPolicy( 0 ),
-	  m_flSeqDuration( 0.0f ),
-	  m_bSeqLooping( false ),
+	// Clamped: it indexes the tier table.
+	m_iTier( ( iTier >= 0 && iTier < SourceSharp_TierCount() ) ? iTier : 0 )
+	, m_bPlayerShell( false )
+	, m_nPredictedHealth( -1 )
+	, m_bLocalPlayer( false )
+	, m_pSurface( NULL )
+	, m_flModelScale( 1.0f )
+	, m_nOverlayModelIndex( -1 )
+	, m_bIgnoreZ( false )
+	, m_nPublishedModelIndex( -1 )
+	, m_nPublishedEffects( -1 )
+	, m_nAppliedPolicy( 0 )
+	, m_flSeqDuration( 0.0f )
+	, m_bSeqLooping( false )
+	,
 
-	  m_nTypeId( 0 ),
-	  m_nSchemaHash( 0 ),
-	  m_nPayloadWords( 0 ),
-	  m_nResolvedTypeId( 0xFFFFFFFFu ),
+	m_nTypeId( 0 )
+	, m_nSchemaHash( 0 )
+	, m_nPayloadWords( 0 )
+	, m_nResolvedTypeId( 0xFFFFFFFFu )
+	,
 
-	  // Never a real type id, so the first EnsureManagedHalf always asks.
-	  m_nManagedTriedTypeId( 0xFFFFFFFFu )
+	// Never a real type id, so the first EnsureManagedHalf always asks.
+	m_nManagedTriedTypeId( 0xFFFFFFFFu )
 {
 	// operator new hands back zeroed memory, so the block's non-zero defaults are
 	// written here. The handle matters most: a zeroed handle is index 0, the world,
 	// and the engine resolves handles on a trace path with no null test.
 	EngineBlockHead_t &head = Block().Head;
 
-	head.Handle       = INVALID_EHANDLE_INDEX;
+	head.Handle = INVALID_EHANDLE_INDEX;
 	head.ParentHandle = INVALID_EHANDLE_INDEX;
-	head.OwnerHandle  = INVALID_EHANDLE_INDEX;
+	head.OwnerHandle = INVALID_EHANDLE_INDEX;
 
 	// A zero-sized box would be partitioned into nothing and culled as a point.
 	head.Mins.Init( -16, -16, -16 );
-	head.Maxs.Init(  16,  16,  16 );
+	head.Maxs.Init( 16, 16, 16 );
 
 	SetIdentityMatrix( head.WorldTransform );
 
@@ -229,8 +186,9 @@ bool C_StandaloneEntity::EnsureManagedHalf()
 			if ( s_SaidUnknown.FirstTime( m_nTypeId ) )
 			{
 				Msg( "[SourceSharp] standalone %d: type id 0x%08x is not published on this "
-				     "client; it has no managed half here (fine for a server-only class; "
-				     "said once per type)\n", m_nEntIndex, m_nTypeId );
+					 "client; it has no managed half here (fine for a server-only class; "
+					 "said once per type)\n",
+					 m_nEntIndex, m_nTypeId );
 			}
 		}
 	}
@@ -248,8 +206,7 @@ bool C_StandaloneEntity::EnsureManagedHalf()
 
 	m_nManagedTriedTypeId = m_nTypeId;
 
-	m_bHasManaged = pStandalone->OnStandaloneCreate( (uint32_t)BlockHandle().ToInt(),
-	                                                 m_szClassname ) != 0;
+	m_bHasManaged = pStandalone->OnStandaloneCreate( (uint32_t)BlockHandle().ToInt(), m_szClassname ) != 0;
 
 	return m_bHasManaged;
 }
@@ -292,14 +249,13 @@ void C_StandaloneEntity::PostDataUpdate( DataUpdateType_t updateType )
 		pStandalone->OnStandaloneSpawn( (uint32_t)BlockHandle().ToInt() );
 
 	// Asked once: SourceSharpSchema_Accept counts refused updates.
-	const bool bSchemaOk = BlobBytes() > 0
-	                    && SourceSharpSchema_Accept( m_nTypeId, m_nSchemaHash, m_nEntIndex, NULL );
+	const bool bSchemaOk = BlobBytes() > 0 && SourceSharpSchema_Accept( m_nTypeId, m_nSchemaHash, m_nEntIndex, NULL );
 
 	// Only with an accepted layout, so a class never decodes bytes it did not declare.
 	if ( m_bHasManaged && pStandalone && bSchemaOk )
 	{
-		pStandalone->OnStandaloneDataChanged( (uint32_t)BlockHandle().ToInt(), DataBlob(),
-		                                      BlobBytes(), (int32_t)updateType );
+		pStandalone->OnStandaloneDataChanged( (uint32_t)BlockHandle().ToInt(), DataBlob(), BlobBytes(),
+											  (int32_t)updateType );
 	}
 
 	// The model index is networked straight into the block, so this is where a new
@@ -320,16 +276,16 @@ void C_StandaloneEntity::NotifyShouldTransmit( ShouldTransmitState_t state )
 {
 	switch ( state )
 	{
-	case SHOULDTRANSMIT_END:
-		SetDormant( true );
-		break;
+		case SHOULDTRANSMIT_END:
+			SetDormant( true );
+			break;
 
-	case SHOULDTRANSMIT_START:
-		SetDormant( false );
-		break;
+		case SHOULDTRANSMIT_START:
+			SetDormant( false );
+			break;
 
-	default:
-		break;
+		default:
+			break;
 	}
 }
 
@@ -356,8 +312,7 @@ void C_StandaloneEntity::PushDormancy()
 	IManagedStandaloneClient *pStandalone = ManagedStandaloneClient();
 
 	if ( pStandalone )
-		pStandalone->OnStandaloneDormancyChanged( (uint32_t)BlockHandle().ToInt(),
-		                                          Block().Client.Dormant );
+		pStandalone->OnStandaloneDormancyChanged( (uint32_t)BlockHandle().ToInt(), Block().Client.Dormant );
 }
 
 // The packet's server time, not curtime, which drifts against the server's tick.
@@ -395,8 +350,7 @@ void C_StandaloneEntity::OnPositionChanged()
 
 	AngleMatrix( Block().Head.Angles, Block().Head.Origin, Block().Head.WorldTransform );
 
-	const bool bPoseMoved =
-		( memcmp( &matPrevPose, &Block().Head.WorldTransform, sizeof( matrix3x4_t ) ) != 0 );
+	const bool bPoseMoved = ( memcmp( &matPrevPose, &Block().Head.WorldTransform, sizeof( matrix3x4_t ) ) != 0 );
 
 	PublishRenderPose();
 
@@ -410,11 +364,11 @@ void C_StandaloneEntity::OnPositionChanged()
 void C_StandaloneEntity::AddToLeafSystem()
 {
 	// The asserts pin managed ClientRenderGroup to the engine's enum.
-	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_OPAQUE_ENTITY      == 7 );
+	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_OPAQUE_ENTITY == 7 );
 	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_TRANSLUCENT_ENTITY == 8 );
-	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_TWOPASS            == 9 );
-	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_VIEW_MODEL_OPAQUE  == 10 );
-	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_OPAQUE_BRUSH       == 12 );
+	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_TWOPASS == 9 );
+	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_VIEW_MODEL_OPAQUE == 10 );
+	COMPILE_TIME_ASSERT( (int)RENDER_GROUP_OPAQUE_BRUSH == 12 );
 
 	const RenderGroup_t group = (RenderGroup_t)Block().Client.RenderGroup;
 
@@ -465,8 +419,8 @@ const model_t *C_StandaloneEntity::GetModel() const
 	return Block().Head.ModelIndex > 0 ? modelinfo->GetModel( Block().Head.ModelIndex ) : NULL;
 }
 
-static_assert( !std::is_base_of< IGameEntity, C_StandaloneEntity >::value,
-               "C_StandaloneEntity derives from IGameEntity again" );
+static_assert( !std::is_base_of<IGameEntity, C_StandaloneEntity>::value,
+			   "C_StandaloneEntity derives from IGameEntity again" );
 
 bool C_StandaloneEntity::ShouldDraw()
 {
@@ -479,14 +433,14 @@ bool C_StandaloneEntity::ShouldDraw()
 
 	switch ( tail.OwnerSeenRule )
 	{
-	case STANDALONE_OWNER_SEEN_HIDDEN_WHILE:
-		return !SourceSharp_ThirdPersonSeesOwner();
+		case STANDALONE_OWNER_SEEN_HIDDEN_WHILE:
+			return !SourceSharp_ThirdPersonSeesOwner();
 
-	case STANDALONE_OWNER_SEEN_DRAWN_ONLY_WHILE:
-		return SourceSharp_ThirdPersonSeesOwner();
+		case STANDALONE_OWNER_SEEN_DRAWN_ONLY_WHILE:
+			return SourceSharp_ThirdPersonSeesOwner();
 
-	default:
-		return true;
+		default:
+			return true;
 	}
 }
 
@@ -561,9 +515,9 @@ void C_StandaloneEntity::PublishModelFacts()
 // The asserts keep managed ShadowCast equal to ShadowType_t.
 ShadowType_t C_StandaloneEntity::ShadowCastType()
 {
-	COMPILE_TIME_ASSERT( (int)SHADOWS_NONE                      == 0 );
-	COMPILE_TIME_ASSERT( (int)SHADOWS_SIMPLE                    == 1 );
-	COMPILE_TIME_ASSERT( (int)SHADOWS_RENDER_TO_TEXTURE         == 2 );
+	COMPILE_TIME_ASSERT( (int)SHADOWS_NONE == 0 );
+	COMPILE_TIME_ASSERT( (int)SHADOWS_SIMPLE == 1 );
+	COMPILE_TIME_ASSERT( (int)SHADOWS_RENDER_TO_TEXTURE == 2 );
 	COMPILE_TIME_ASSERT( (int)SHADOWS_RENDER_TO_TEXTURE_DYNAMIC == 3 );
 
 	return (ShadowType_t)Block().Client.ShadowType;
@@ -605,67 +559,67 @@ bool C_StandaloneEntity::TestHitboxes( const Ray_t &ray, unsigned int fContentsM
 	if ( !pBones )
 		return false;
 
-	float flRay[ SS_BONE_RAY_FLOATS ];
+	float flRay[SS_BONE_RAY_FLOATS];
 
 	for ( int i = 0; i < 3; i++ )
 	{
-		flRay[ SS_BONE_RAY_START_X + i ]        = ray.m_Start[i];
-		flRay[ SS_BONE_RAY_DELTA_X + i ]        = ray.m_Delta[i];
-		flRay[ SS_BONE_RAY_START_OFFSET_X + i ] = ray.m_StartOffset[i];
-		flRay[ SS_BONE_RAY_EXTENTS_X + i ]      = ray.m_Extents[i];
+		flRay[SS_BONE_RAY_START_X + i] = ray.m_Start[i];
+		flRay[SS_BONE_RAY_DELTA_X + i] = ray.m_Delta[i];
+		flRay[SS_BONE_RAY_START_OFFSET_X + i] = ray.m_StartOffset[i];
+		flRay[SS_BONE_RAY_EXTENTS_X + i] = ray.m_Extents[i];
 	}
 
-	flRay[ SS_BONE_RAY_IS_RAY ]   = ray.m_IsRay ? 1.0f : 0.0f;
-	flRay[ SS_BONE_RAY_IS_SWEPT ] = ray.m_IsSwept ? 1.0f : 0.0f;
+	flRay[SS_BONE_RAY_IS_RAY] = ray.m_IsRay ? 1.0f : 0.0f;
+	flRay[SS_BONE_RAY_IS_SWEPT] = ray.m_IsSwept ? 1.0f : 0.0f;
 
-	float   flTrace[ SS_BONE_TRACE_FLOATS ];
-	int32_t nTrace[ SS_BONE_TRACE_INTS ];
+	float flTrace[SS_BONE_TRACE_FLOATS];
+	int32_t nTrace[SS_BONE_TRACE_INTS];
 
 	for ( int i = 0; i < 3; i++ )
 	{
-		flTrace[ SS_BONE_TRACE_START_X + i ]        = tr.startpos[i];
-		flTrace[ SS_BONE_TRACE_END_X + i ]          = tr.endpos[i];
-		flTrace[ SS_BONE_TRACE_PLANE_NORMAL_X + i ] = tr.plane.normal[i];
+		flTrace[SS_BONE_TRACE_START_X + i] = tr.startpos[i];
+		flTrace[SS_BONE_TRACE_END_X + i] = tr.endpos[i];
+		flTrace[SS_BONE_TRACE_PLANE_NORMAL_X + i] = tr.plane.normal[i];
 	}
 
-	flTrace[ SS_BONE_TRACE_PLANE_DIST ] = tr.plane.dist;
-	flTrace[ SS_BONE_TRACE_FRACTION ]   = tr.fraction;
+	flTrace[SS_BONE_TRACE_PLANE_DIST] = tr.plane.dist;
+	flTrace[SS_BONE_TRACE_FRACTION] = tr.fraction;
 
-	nTrace[ SS_BONE_TRACE_PLANE_TYPE ]        = tr.plane.type;
-	nTrace[ SS_BONE_TRACE_CONTENTS ]          = tr.contents;
-	nTrace[ SS_BONE_TRACE_ALL_SOLID ]         = tr.allsolid ? 1 : 0;
-	nTrace[ SS_BONE_TRACE_START_SOLID ]       = tr.startsolid ? 1 : 0;
-	nTrace[ SS_BONE_TRACE_HIT_GROUP ]         = tr.hitgroup;
-	nTrace[ SS_BONE_TRACE_HIT_BOX ]           = tr.hitbox;
-	nTrace[ SS_BONE_TRACE_PHYSICS_BONE ]      = tr.physicsbone;
-	nTrace[ SS_BONE_TRACE_SURFACE_FLAGS ]     = tr.surface.flags;
-	nTrace[ SS_BONE_TRACE_SURFACE_PROPS ]     = tr.surface.surfaceProps;
-	nTrace[ SS_BONE_TRACE_SURFACE_IS_STUDIO ] = 0;
+	nTrace[SS_BONE_TRACE_PLANE_TYPE] = tr.plane.type;
+	nTrace[SS_BONE_TRACE_CONTENTS] = tr.contents;
+	nTrace[SS_BONE_TRACE_ALL_SOLID] = tr.allsolid ? 1 : 0;
+	nTrace[SS_BONE_TRACE_START_SOLID] = tr.startsolid ? 1 : 0;
+	nTrace[SS_BONE_TRACE_HIT_GROUP] = tr.hitgroup;
+	nTrace[SS_BONE_TRACE_HIT_BOX] = tr.hitbox;
+	nTrace[SS_BONE_TRACE_PHYSICS_BONE] = tr.physicsbone;
+	nTrace[SS_BONE_TRACE_SURFACE_FLAGS] = tr.surface.flags;
+	nTrace[SS_BONE_TRACE_SURFACE_PROPS] = tr.surface.surfaceProps;
+	nTrace[SS_BONE_TRACE_SURFACE_IS_STUDIO] = 0;
 
-	if ( !pBones->TestHitboxes( GetRefEHandle().ToInt(), &Block(), flRay, (int32_t)fContentsMask,
-	                            flTrace, nTrace, gpGlobals->curtime, gpGlobals->framecount ) )
+	if ( !pBones->TestHitboxes( GetRefEHandle().ToInt(), &Block(), flRay, (int32_t)fContentsMask, flTrace, nTrace,
+								gpGlobals->curtime, gpGlobals->framecount ) )
 		return false;
 
 	for ( int i = 0; i < 3; i++ )
 	{
-		tr.startpos[i]     = flTrace[ SS_BONE_TRACE_START_X + i ];
-		tr.endpos[i]       = flTrace[ SS_BONE_TRACE_END_X + i ];
-		tr.plane.normal[i] = flTrace[ SS_BONE_TRACE_PLANE_NORMAL_X + i ];
+		tr.startpos[i] = flTrace[SS_BONE_TRACE_START_X + i];
+		tr.endpos[i] = flTrace[SS_BONE_TRACE_END_X + i];
+		tr.plane.normal[i] = flTrace[SS_BONE_TRACE_PLANE_NORMAL_X + i];
 	}
 
-	tr.plane.dist           = flTrace[ SS_BONE_TRACE_PLANE_DIST ];
-	tr.fraction             = flTrace[ SS_BONE_TRACE_FRACTION ];
-	tr.plane.type           = (byte)nTrace[ SS_BONE_TRACE_PLANE_TYPE ];
-	tr.contents             = nTrace[ SS_BONE_TRACE_CONTENTS ];
-	tr.allsolid             = nTrace[ SS_BONE_TRACE_ALL_SOLID ] != 0;
-	tr.startsolid           = nTrace[ SS_BONE_TRACE_START_SOLID ] != 0;
-	tr.hitgroup             = nTrace[ SS_BONE_TRACE_HIT_GROUP ];
-	tr.hitbox               = nTrace[ SS_BONE_TRACE_HIT_BOX ];
-	tr.physicsbone          = (short)nTrace[ SS_BONE_TRACE_PHYSICS_BONE ];
-	tr.surface.flags        = (unsigned short)nTrace[ SS_BONE_TRACE_SURFACE_FLAGS ];
-	tr.surface.surfaceProps = (unsigned short)nTrace[ SS_BONE_TRACE_SURFACE_PROPS ];
+	tr.plane.dist = flTrace[SS_BONE_TRACE_PLANE_DIST];
+	tr.fraction = flTrace[SS_BONE_TRACE_FRACTION];
+	tr.plane.type = (byte)nTrace[SS_BONE_TRACE_PLANE_TYPE];
+	tr.contents = nTrace[SS_BONE_TRACE_CONTENTS];
+	tr.allsolid = nTrace[SS_BONE_TRACE_ALL_SOLID] != 0;
+	tr.startsolid = nTrace[SS_BONE_TRACE_START_SOLID] != 0;
+	tr.hitgroup = nTrace[SS_BONE_TRACE_HIT_GROUP];
+	tr.hitbox = nTrace[SS_BONE_TRACE_HIT_BOX];
+	tr.physicsbone = (short)nTrace[SS_BONE_TRACE_PHYSICS_BONE];
+	tr.surface.flags = (unsigned short)nTrace[SS_BONE_TRACE_SURFACE_FLAGS];
+	tr.surface.surfaceProps = (unsigned short)nTrace[SS_BONE_TRACE_SURFACE_PROPS];
 
-	if ( nTrace[ SS_BONE_TRACE_SURFACE_IS_STUDIO ] )
+	if ( nTrace[SS_BONE_TRACE_SURFACE_IS_STUDIO] )
 		tr.surface.name = "**studio**";
 
 	return true;
@@ -697,8 +651,7 @@ const SourceSharpBoneBatch_t *FrameBoneBatch( IManagedBonesClient *pBones )
 }
 } // namespace
 
-bool C_StandaloneEntity::SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask,
-                                     float currentTime )
+bool C_StandaloneEntity::SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime )
 {
 	IManagedBonesClient *pBones = ManagedBonesClient();
 
@@ -711,9 +664,9 @@ bool C_StandaloneEntity::SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones
 	}
 
 	const SourceSharpBoneBatchEntry_t *pPosed = SourceSharp_BoneBatchEntry(
-		FrameBoneBatch( pBones ), (uint32_t)GetRefEHandle().ToInt(), boneMask, currentTime,
-		gpGlobals->framecount, Block().Head.ModelIndex, Block().Client.ViewModel, Block().Head.Origin.Base(),
-		Block().Head.Angles.Base(), Block().Client.RenderOrigin.Base(), Block().Client.RenderAngles.Base() );
+		FrameBoneBatch( pBones ), (uint32_t)GetRefEHandle().ToInt(), boneMask, currentTime, gpGlobals->framecount,
+		Block().Head.ModelIndex, Block().Client.ViewModel, Block().Head.Origin.Base(), Block().Head.Angles.Base(),
+		Block().Client.RenderOrigin.Base(), Block().Client.RenderAngles.Base() );
 
 	if ( pPosed )
 	{
@@ -739,7 +692,7 @@ bool C_StandaloneEntity::SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones
 	int32_t nAnswer;
 
 	nAnswer = pBones->SetupBones( GetRefEHandle().ToInt(), &Block(), pOut, nOut, boneMask, currentTime,
-	                              gpGlobals->framecount );
+								  gpGlobals->framecount );
 
 	// A refusal leaves the array untouched, so it gets the entity's own transform.
 	if ( !nAnswer && pBoneToWorldOut )
@@ -770,8 +723,8 @@ bool C_StandaloneEntity::GetAttachment( int number, matrix3x4_t &matrix )
 	if ( !pBones )
 		return false;
 
-	return pBones->GetAttachment( GetRefEHandle().ToInt(), &Block(), number, matrix.Base(),
-	                              gpGlobals->curtime, gpGlobals->framecount ) != 0;
+	return pBones->GetAttachment( GetRefEHandle().ToInt(), &Block(), number, matrix.Base(), gpGlobals->curtime,
+								  gpGlobals->framecount ) != 0;
 }
 
 bool C_StandaloneEntity::GetAttachment( int number, Vector &origin, QAngle &angles )
@@ -800,9 +753,9 @@ namespace
 struct DrawBatchEntry_t
 {
 	C_StandaloneEntity *pEntity;
-	uint32_t            hHandle;
-	float               flBlend;
-	int32_t             nResult;
+	uint32_t hHandle;
+	float flBlend;
+	int32_t nResult;
 };
 
 CUtlVector<DrawBatchEntry_t> g_DrawBatch;
@@ -901,7 +854,8 @@ int C_StandaloneEntity::DrawModel( int flags )
 			const DrawBatchEntry_t &entry = g_DrawBatch[nBatch];
 			if ( entry.nResult >= 0 )
 			{
-				const int nStored = SourceSharp_SpriteExecuteStored( static_cast<IClientEntity *>( this ), render->GetBlend() );
+				const int nStored =
+					SourceSharp_SpriteExecuteStored( static_cast<IClientEntity *>( this ), render->GetBlend() );
 				if ( nStored >= 0 )
 				{
 					g_SourceSharpEffects.nDrawBatchedSprites++;
@@ -916,8 +870,7 @@ int C_StandaloneEntity::DrawModel( int flags )
 
 		IManagedStandaloneClient *pStandalone = ManagedStandaloneClient();
 
-		return pStandalone
-			? pStandalone->OnStandaloneDraw( (uint32_t)BlockHandle().ToInt() ) : 0;
+		return pStandalone ? pStandalone->OnStandaloneDraw( (uint32_t)BlockHandle().ToInt() ) : 0;
 	}
 
 	const model_t *pModel = GetModel();
@@ -933,8 +886,8 @@ int C_StandaloneEntity::DrawModel( int flags )
 		{
 			m_bDrawReported = true;
 			Warning( "[SourceSharp] standalone(client): '%s' is neither a studio "
-			         "nor a brush model; nothing will draw it\n",
-				modelinfo->GetModelName( pModel ) );
+					 "nor a brush model; nothing will draw it\n",
+					 modelinfo->GetModelName( pModel ) );
 		}
 
 		return 0;
@@ -944,10 +897,9 @@ int C_StandaloneEntity::DrawModel( int flags )
 	{
 		m_bDrawReported = true;
 		DevMsg( "[SourceSharp] standalone(client): '%s' drawing '%s' at (%.0f %.0f %.0f) "
-		        "angles (%.1f %.1f %.1f)\n",
-			m_szClassname, modelinfo->GetModelName( pModel ),
-			Block().Head.Origin.x, Block().Head.Origin.y, Block().Head.Origin.z,
-			Block().Head.Angles.x, Block().Head.Angles.y, Block().Head.Angles.z );
+				"angles (%.1f %.1f %.1f)\n",
+				m_szClassname, modelinfo->GetModelName( pModel ), Block().Head.Origin.x, Block().Head.Origin.y,
+				Block().Head.Origin.z, Block().Head.Angles.x, Block().Head.Angles.y, Block().Head.Angles.z );
 	}
 
 	if ( nModelType == mod_brush )
@@ -961,8 +913,8 @@ int C_StandaloneEntity::DrawModel( int flags )
 
 		if ( depthMode != DEPTH_MODE_NORMAL )
 		{
-			render->DrawBrushModelShadowDepth( this, (model_t *)pModel,
-			                                   Block().Head.Origin, Block().Head.Angles, depthMode );
+			render->DrawBrushModelShadowDepth( this, (model_t *)pModel, Block().Head.Origin, Block().Head.Angles,
+											   depthMode );
 		}
 		else
 		{
@@ -971,8 +923,7 @@ int C_StandaloneEntity::DrawModel( int flags )
 
 			if ( flags & STUDIO_TWOPASS )
 			{
-				mode = ( flags & STUDIO_TRANSPARENCY ) ? DBM_DRAW_TRANSLUCENT_ONLY
-				                                       : DBM_DRAW_OPAQUE_ONLY;
+				mode = ( flags & STUDIO_TRANSPARENCY ) ? DBM_DRAW_TRANSLUCENT_ONLY : DBM_DRAW_OPAQUE_ONLY;
 			}
 
 			// While installed, the engine hands each brush surface to the renderer.
@@ -1019,22 +970,22 @@ int C_StandaloneEntity::DrawModel( int flags )
 	CreateModelInstance();
 
 	ModelRenderInfo_t info;
-	info.origin       = GetRenderOrigin();
-	info.angles       = GetRenderAngles();
-	info.pRenderable  = this;
-	info.pModel       = pModel;
+	info.origin = GetRenderOrigin();
+	info.angles = GetRenderAngles();
+	info.pRenderable = this;
+	info.pModel = pModel;
 	// The viewmodel is drawn and lit at its render pose; without the explicit
 	// lighting origin the engine lit it at the owner's feet and it drew black.
 	const bool bViewModel = Block().Client.ViewModel != 0;
-	info.pModelToWorld= bViewModel ? &Block().Client.RenderTransform : &Block().Head.WorldTransform;
-	info.instance     = GetModelInstance();
+	info.pModelToWorld = bViewModel ? &Block().Client.RenderTransform : &Block().Head.WorldTransform;
+	info.instance = GetModelInstance();
 	if ( bViewModel )
 		info.pLightingOrigin = &Block().Client.RenderOrigin;
 	info.entity_index = entindex();
-	info.skin         = GetSkin();
-	info.body         = GetBody();
-	info.hitboxset    = Block().Client.HitboxSet;
-	info.flags        = flags;
+	info.skin = GetSkin();
+	info.body = GetBody();
+	info.hitboxset = Block().Client.HitboxSet;
+	info.flags = flags;
 
 	const int nDrawn = modelrender->DrawModelEx( info );
 	DrawExtras( flags, true );
@@ -1046,17 +997,18 @@ int C_StandaloneEntity::DrawModel( int flags )
 // returns, or -1 to draw the model); after it, the local viewmodel's extras.
 int C_StandaloneEntity::DrawExtras( int flags, bool bAfterModel )
 {
-	const bool bAsk = bAfterModel
-		? ( Block().Client.ViewModel != 0 && ( flags & STUDIO_RENDER ) )
-		: ( ( flags & STUDIO_TRANSPARENCY ) && ( flags & STUDIO_TWOPASS ) );
+	const bool bAsk = bAfterModel ? ( Block().Client.ViewModel != 0 && ( flags & STUDIO_RENDER ) )
+								  : ( ( flags & STUDIO_TRANSPARENCY ) && ( flags & STUDIO_TWOPASS ) );
 	IManagedStandaloneClient *pStandalone = bAsk ? ManagedStandaloneClient() : NULL;
 	return pStandalone ? pStandalone->OnStandaloneDrawExtras( (uint32_t)BlockHandle().ToInt(), flags ) : -1;
 }
 
 void C_StandaloneEntity::WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const
 {
-	if ( pMins ) *pMins = Block().Head.Origin + Block().Head.Mins;
-	if ( pMaxs ) *pMaxs = Block().Head.Origin + Block().Head.Maxs;
+	if ( pMins )
+		*pMins = Block().Head.Origin + Block().Head.Mins;
+	if ( pMaxs )
+		*pMaxs = Block().Head.Origin + Block().Head.Maxs;
 }
 
 void C_StandaloneEntity::WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs )
@@ -1067,16 +1019,17 @@ void C_StandaloneEntity::WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMa
 	// GetRenderOrigin(): a ragdoll's networked origin stays where it was thrown from.
 	const Vector &vecOrigin = GetRenderOrigin();
 
-	if ( pMins ) *pMins = vecOrigin + vecMins;
-	if ( pMaxs ) *pMaxs = vecOrigin + vecMaxs;
+	if ( pMins )
+		*pMins = vecOrigin + vecMins;
+	if ( pMaxs )
+		*pMaxs = vecOrigin + vecMaxs;
 }
 
 // The ClientClass name pairs with the ServerClass name.
 
 // Runs during RecvTable_Decode, before the payload words, so the managed half
 // exists before its first data update. Store first: EnsureManagedHalf reads it.
-static void RecvProxy_StandaloneTypeId( const CRecvProxyData *pData, void *pStruct,
-                                        void *pOut )
+static void RecvProxy_StandaloneTypeId( const CRecvProxyData *pData, void *pStruct, void *pOut )
 {
 	*( (uint32 *)pOut ) = (uint32)pData->m_Value.m_Int;
 
@@ -1087,32 +1040,27 @@ static void BuildStandaloneRecvProps( RecvProp *pOut, int &nOut )
 {
 	C_StandaloneEntity *pNull = NULL;
 
-	int nOffsets[ STANDALONE_NET_FIELD_COUNT ];
-	nOffsets[ STANDALONE_NET_FIELD_ORIGIN ]       = C_StandaloneEntity::BlockBase()
-	                                              + SS_CLIENT_BLOCK_HEAD_OFFSET( Origin );
-	nOffsets[ STANDALONE_NET_FIELD_ANGLES ]       = C_StandaloneEntity::BlockBase()
-	                                              + SS_CLIENT_BLOCK_HEAD_OFFSET( Angles );
-	nOffsets[ STANDALONE_NET_FIELD_MODELINDEX ]   = C_StandaloneEntity::BlockBase()
-	                                              + SS_CLIENT_BLOCK_HEAD_OFFSET( ModelIndex );
-	nOffsets[ STANDALONE_NET_FIELD_EFFECTS ]      = C_StandaloneEntity::BlockBase()
-	                                              + SS_CLIENT_BLOCK_HEAD_OFFSET( Effects );
+	int nOffsets[STANDALONE_NET_FIELD_COUNT];
+	nOffsets[STANDALONE_NET_FIELD_ORIGIN] = C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET( Origin );
+	nOffsets[STANDALONE_NET_FIELD_ANGLES] = C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET( Angles );
+	nOffsets[STANDALONE_NET_FIELD_MODELINDEX] =
+		C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET( ModelIndex );
+	nOffsets[STANDALONE_NET_FIELD_EFFECTS] = C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET( Effects );
 	// The discontinuity counter a teleport bumps; managed interpolation reads it and
 	// drops the entity's history when it changes.
-	nOffsets[ STANDALONE_NET_FIELD_INTERPFRAME ]  = C_StandaloneEntity::BlockBase()
-	                                              + SS_CLIENT_BLOCK_HEAD_OFFSET( InterpolationFrame );
-	nOffsets[ STANDALONE_NET_FIELD_TYPEID ]       = (int)( (intp)&pNull->m_nTypeId );
-	nOffsets[ STANDALONE_NET_FIELD_SCHEMAHASH ]   = (int)( (intp)&pNull->m_nSchemaHash );
-	nOffsets[ STANDALONE_NET_FIELD_PAYLOADWORDS ] = (int)( (intp)&pNull->m_nPayloadWords );
-	nOffsets[ STANDALONE_NET_FIELD_SOLIDTYPE ]    = C_StandaloneEntity::BlockBase()
-	                                              + SS_CLIENT_BLOCK_HEAD_OFFSET( SolidType );
-	nOffsets[ STANDALONE_NET_FIELD_SOLIDFLAGS ]   = C_StandaloneEntity::BlockBase()
-	                                              + SS_CLIENT_BLOCK_HEAD_OFFSET( SolidFlags );
-	nOffsets[ STANDALONE_NET_FIELD_SKIN ]         = C_StandaloneEntity::BlockBase()
-	                                              + (int)offsetof( EngineBlock_t, Client )
-	                                              + (int)offsetof( EngineBlockClientTail_t, Skin );
-	nOffsets[ STANDALONE_NET_FIELD_BODY ]         = C_StandaloneEntity::BlockBase()
-	                                              + (int)offsetof( EngineBlock_t, Client )
-	                                              + (int)offsetof( EngineBlockClientTail_t, Body );
+	nOffsets[STANDALONE_NET_FIELD_INTERPFRAME] =
+		C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET( InterpolationFrame );
+	nOffsets[STANDALONE_NET_FIELD_TYPEID] = (int)( (intp)&pNull->m_nTypeId );
+	nOffsets[STANDALONE_NET_FIELD_SCHEMAHASH] = (int)( (intp)&pNull->m_nSchemaHash );
+	nOffsets[STANDALONE_NET_FIELD_PAYLOADWORDS] = (int)( (intp)&pNull->m_nPayloadWords );
+	nOffsets[STANDALONE_NET_FIELD_SOLIDTYPE] =
+		C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET( SolidType );
+	nOffsets[STANDALONE_NET_FIELD_SOLIDFLAGS] =
+		C_StandaloneEntity::BlockBase() + SS_CLIENT_BLOCK_HEAD_OFFSET( SolidFlags );
+	nOffsets[STANDALONE_NET_FIELD_SKIN] = C_StandaloneEntity::BlockBase() + (int)offsetof( EngineBlock_t, Client ) +
+		(int)offsetof( EngineBlockClientTail_t, Skin );
+	nOffsets[STANDALONE_NET_FIELD_BODY] = C_StandaloneEntity::BlockBase() + (int)offsetof( EngineBlock_t, Client ) +
+		(int)offsetof( EngineBlockClientTail_t, Body );
 
 	int nCount = 0;
 	const StandaloneNetField_t *pFields = StandaloneNetFields( &nCount );
@@ -1121,20 +1069,19 @@ static void BuildStandaloneRecvProps( RecvProp *pOut, int &nOut )
 	{
 		switch ( pFields[i].kind )
 		{
-		case STANDALONE_NET_VECTOR:
-			pOut[ nOut++ ] = RecvPropVector( pFields[i].pName, nOffsets[i], 12 );
-			break;
+			case STANDALONE_NET_VECTOR:
+				pOut[nOut++] = RecvPropVector( pFields[i].pName, nOffsets[i], 12 );
+				break;
 
-		case STANDALONE_NET_INT:
-			pOut[ nOut++ ] = ( i == STANDALONE_NET_FIELD_TYPEID )
-				? RecvPropInt( pFields[i].pName, nOffsets[i], 4, 0,
-				               RecvProxy_StandaloneTypeId )
-				: RecvPropInt( pFields[i].pName, nOffsets[i], 4 );
-			break;
+			case STANDALONE_NET_INT:
+				pOut[nOut++] = ( i == STANDALONE_NET_FIELD_TYPEID )
+					? RecvPropInt( pFields[i].pName, nOffsets[i], 4, 0, RecvProxy_StandaloneTypeId )
+					: RecvPropInt( pFields[i].pName, nOffsets[i], 4 );
+				break;
 
-		case STANDALONE_NET_STRING:
-			pOut[ nOut++ ] = RecvPropString( pFields[i].pName, nOffsets[i], pFields[i].nBits );
-			break;
+			case STANDALONE_NET_STRING:
+				pOut[nOut++] = RecvPropString( pFields[i].pName, nOffsets[i], pFields[i].nBits );
+				break;
 		}
 	}
 }
@@ -1147,7 +1094,7 @@ int SourceSharp_StandaloneBlobOffset()
 // BlockHandle() overlays the block's Handle; a second CBaseHandle member would
 // read ClassnameIndex as its serial and no handle would resolve.
 static_assert( sizeof( CBaseHandle ) == sizeof( uint32_t ),
-	"CBaseHandle is no longer one uint32; EngineBlockHead_t::Handle cannot overlay it" );
+			   "CBaseHandle is no longer one uint32; EngineBlockHead_t::Handle cannot overlay it" );
 
 // Not offsetof(): the class is not standard-layout.
 int C_StandaloneEntity::BlockBase()
@@ -1206,15 +1153,15 @@ CSourceSharpSurfaceRenderer *C_StandaloneEntity::SurfaceRenderer( bool bCreate )
 }
 
 // One ClientClass per tier; only the create function knows an entity's tier.
-static RecvProp    *g_pTierProps[ SOURCESHARP_TIER_MAX ]   = { NULL };
-static RecvTable   *g_pTierTables[ SOURCESHARP_TIER_MAX ]  = { NULL };
-static ClientClass *g_pTierClasses[ SOURCESHARP_TIER_MAX ] = { NULL };
-static bool         g_bTiersRegistered  = false;
+static RecvProp *g_pTierProps[SOURCESHARP_TIER_MAX] = { NULL };
+static RecvTable *g_pTierTables[SOURCESHARP_TIER_MAX] = { NULL };
+static ClientClass *g_pTierClasses[SOURCESHARP_TIER_MAX] = { NULL };
+static bool g_bTiersRegistered = false;
 
 static IClientNetworkable *CreateStandaloneTier( int iTier, int entnum, int serialNum )
 {
-	C_StandaloneEntity *pEntity = new ( SourceSharp_TierBytes( iTier ) )
-		C_StandaloneEntity( entnum, serialNum, g_pTierClasses[ iTier ], iTier );
+	C_StandaloneEntity *pEntity =
+		new ( SourceSharp_TierBytes( iTier ) ) C_StandaloneEntity( entnum, serialNum, g_pTierClasses[iTier], iTier );
 
 	// An entity in 1..maxclients is a player: the only fact the create function has,
 	// since the classname arrives with the first update.
@@ -1223,13 +1170,40 @@ static IClientNetworkable *CreateStandaloneTier( int iTier, int entnum, int seri
 	return pEntity;
 }
 
-static IClientNetworkable *CreateStandaloneTier0( int e, int s ) { return CreateStandaloneTier( 0, e, s ); }
-static IClientNetworkable *CreateStandaloneTier1( int e, int s ) { return CreateStandaloneTier( 1, e, s ); }
-static IClientNetworkable *CreateStandaloneTier2( int e, int s ) { return CreateStandaloneTier( 2, e, s ); }
-static IClientNetworkable *CreateStandaloneTier3( int e, int s ) { return CreateStandaloneTier( 3, e, s ); }
-static IClientNetworkable *CreateStandaloneTier4( int e, int s ) { return CreateStandaloneTier( 4, e, s ); }
-static IClientNetworkable *CreateStandaloneTier5( int e, int s ) { return CreateStandaloneTier( 5, e, s ); }
-static IClientNetworkable *CreateStandaloneTier6( int e, int s ) { return CreateStandaloneTier( 6, e, s ); }
+static IClientNetworkable *CreateStandaloneTier0( int e, int s )
+{
+	return CreateStandaloneTier( 0, e, s );
+}
+
+static IClientNetworkable *CreateStandaloneTier1( int e, int s )
+{
+	return CreateStandaloneTier( 1, e, s );
+}
+
+static IClientNetworkable *CreateStandaloneTier2( int e, int s )
+{
+	return CreateStandaloneTier( 2, e, s );
+}
+
+static IClientNetworkable *CreateStandaloneTier3( int e, int s )
+{
+	return CreateStandaloneTier( 3, e, s );
+}
+
+static IClientNetworkable *CreateStandaloneTier4( int e, int s )
+{
+	return CreateStandaloneTier( 4, e, s );
+}
+
+static IClientNetworkable *CreateStandaloneTier5( int e, int s )
+{
+	return CreateStandaloneTier( 5, e, s );
+}
+
+static IClientNetworkable *CreateStandaloneTier6( int e, int s )
+{
+	return CreateStandaloneTier( 6, e, s );
+}
 
 static void RegisterStandaloneTiers()
 {
@@ -1239,11 +1213,9 @@ static void RegisterStandaloneTiers()
 	g_bTiersRegistered = true;
 
 	// One per tier, sized by the tier bound, so a missing function does not compile.
-	static CreateClientClassFn s_Create[ SOURCESHARP_TIER_MAX ] =
-	{
-		CreateStandaloneTier0, CreateStandaloneTier1, CreateStandaloneTier2,
-		CreateStandaloneTier3, CreateStandaloneTier4, CreateStandaloneTier5,
-		CreateStandaloneTier6,
+	static CreateClientClassFn s_Create[SOURCESHARP_TIER_MAX] = {
+		CreateStandaloneTier0, CreateStandaloneTier1, CreateStandaloneTier2, CreateStandaloneTier3,
+		CreateStandaloneTier4, CreateStandaloneTier5, CreateStandaloneTier6,
 	};
 
 	int nShared = 0;
@@ -1260,30 +1232,30 @@ static void RegisterStandaloneTiers()
 		if ( nWords < 0 || !SourceSharpPayload_OffsetsFit( nBlobBase, nWords ) )
 		{
 			Warning( "[SourceSharp] standalone tier '%s': %d word(s) will not fit at blob "
-			         "base %d; NOT registered\n", pTableName, nWords, nBlobBase );
+					 "base %d; NOT registered\n",
+					 pTableName, nWords, nBlobBase );
 			continue;
 		}
 
-		g_pTierProps[ iTier ] = new RecvProp[ nShared + nWords ];
+		g_pTierProps[iTier] = new RecvProp[nShared + nWords];
 
 		int nBuilt = 0;
-		BuildStandaloneRecvProps( g_pTierProps[ iTier ], nBuilt );
+		BuildStandaloneRecvProps( g_pTierProps[iTier], nBuilt );
 
-		if ( SourceSharpPayload_BuildRecvProps( g_pTierProps[ iTier ] + nBuilt,
-		                                        nWords, nBlobBase ) != nWords )
+		if ( SourceSharpPayload_BuildRecvProps( g_pTierProps[iTier] + nBuilt, nWords, nBlobBase ) != nWords )
 		{
 			Warning( "[SourceSharp] standalone tier '%s': payload build refused %d word(s); "
-			         "not registered\n", pTableName, nWords );
-			delete[] g_pTierProps[ iTier ];
-			g_pTierProps[ iTier ] = NULL;
+					 "not registered\n",
+					 pTableName, nWords );
+			delete[] g_pTierProps[iTier];
+			g_pTierProps[iTier] = NULL;
 			continue;
 		}
 
 		nBuilt += nWords;
 
-		g_pTierTables[ iTier ] = new RecvTable( g_pTierProps[ iTier ], nBuilt, pTableName );
-		g_pTierClasses[ iTier ] = new ClientClass( pClassName, s_Create[ iTier ],
-		                                           NULL, g_pTierTables[ iTier ] );
+		g_pTierTables[iTier] = new RecvTable( g_pTierProps[iTier], nBuilt, pTableName );
+		g_pTierClasses[iTier] = new ClientClass( pClassName, s_Create[iTier], NULL, g_pTierTables[iTier] );
 
 		// The listen server's local transfer checks both ends, so a wrong recv prop is
 		// still the slow list however right the send prop is.
@@ -1291,20 +1263,20 @@ static void RegisterStandaloneTiers()
 
 		for ( int i = 0; i < nWords; i++ )
 		{
-			if ( !SourceSharpPayload_IsFastRecvProxy( g_pTierTables[ iTier ]->GetProp( nShared + i ) ) )
+			if ( !SourceSharpPayload_IsFastRecvProxy( g_pTierTables[iTier]->GetProp( nShared + i ) ) )
 				nSlow++;
 		}
 
 		Msg( "[SourceSharp] standalone(client) tier %d '%s' -> '%s': %d real + %d payload "
-		     "word(s) = %d prop(s), %d payload byte(s) at blob base %d\n",
-			iTier, pClassName, pTableName, nShared, nWords, nBuilt,
-			SourceSharp_Tiers( NULL )[ iTier ].nBytes, nBlobBase );
+			 "word(s) = %d prop(s), %d payload byte(s) at blob base %d\n",
+			 iTier, pClassName, pTableName, nShared, nWords, nBuilt, SourceSharp_Tiers( NULL )[iTier].nBytes,
+			 nBlobBase );
 
 		if ( nSlow > 0 )
 		{
 			Warning( "[SourceSharp] standalone tier '%s': %d of %d payload word(s) did NOT "
-			         "resolve to m_Int32ToInt32 and would be copied slowly\n",
-				pTableName, nSlow, nWords );
+					 "resolve to m_Int32ToInt32 and would be copied slowly\n",
+					 pTableName, nSlow, nWords );
 		}
 	}
 }
@@ -1314,7 +1286,7 @@ bool SourceSharp_StandaloneTierIsInUse( int iTier )
 {
 	RegisterStandaloneTiers();
 
-	if ( iTier < 0 || iTier >= SourceSharp_TierCount() || g_pTierClasses[ iTier ] == NULL )
+	if ( iTier < 0 || iTier >= SourceSharp_TierCount() || g_pTierClasses[iTier] == NULL )
 		return false;
 
 	const CSourceSharpTypeTable &types = SourceSharp_NetTypes();
@@ -1342,17 +1314,18 @@ int32_t SourceSharp_NetHierarchyDeclare( int32_t nBlobBytes )
 	if ( iTier < 0 )
 	{
 		Warning( "[SourceSharp] standalone(client): %d declared blob byte(s) exceeds the "
-		         "largest tier; the hierarchy has NO table it can use\n", nBlobBytes );
+				 "largest tier; the hierarchy has NO table it can use\n",
+				 nBlobBytes );
 		return -1;
 	}
 
 	const int nWords = SourceSharp_TierWords( iTier );
 
 	Msg( "[SourceSharp] standalone(client): the greediest declaration is %d byte(s) -> tier "
-	     "%d '%s' (%d bytes, %d payload word(s)); every OTHER class is sized to its own "
-	     "tier, blob base %d\n",
-		nBlobBytes, iTier, SourceSharp_TierTableName( SS_SHELL_STANDALONE, iTier ),
-		SourceSharp_TierBytes( iTier ), nWords, SourceSharp_StandaloneBlobOffset() );
+		 "%d '%s' (%d bytes, %d payload word(s)); every OTHER class is sized to its own "
+		 "tier, blob base %d\n",
+		 nBlobBytes, iTier, SourceSharp_TierTableName( SS_SHELL_STANDALONE, iTier ), SourceSharp_TierBytes( iTier ),
+		 nWords, SourceSharp_StandaloneBlobOffset() );
 
 	return nWords;
 }
@@ -1369,7 +1342,9 @@ class CSourceSharpStandaloneClientSystem : public CClientSystem
 {
 public:
 	CSourceSharpStandaloneClientSystem()
-		: CClientSystem( "CSourceSharpStandaloneClientSystem" ) {}
+		: CClientSystem( "CSourceSharpStandaloneClientSystem" )
+	{
+	}
 
 	virtual bool Init() OVERRIDE
 	{
@@ -1381,10 +1356,13 @@ public:
 
 static CSourceSharpStandaloneClientSystem g_StandaloneClientSystem;
 
-CClientSystem *ClientSystem_StandaloneClient() { return &g_StandaloneClientSystem; }
+CClientSystem *ClientSystem_StandaloneClient()
+{
+	return &g_StandaloneClientSystem;
+}
 
 // Rebuilt each call; valid until the next.
-static CUtlVector< void * > g_StandaloneInterpBlocks;
+static CUtlVector<void *> g_StandaloneInterpBlocks;
 
 void **SourceSharp_ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmount )
 {
@@ -1423,7 +1401,7 @@ void SourceSharp_ClientInterpAdmitted( const uint32_t *pHandles, int32_t nCount 
 }
 
 // Unfiltered: the viewmodel, which interpolation skips, needs deciding most.
-static CUtlVector< void * > g_StandalonePolicyBlocks;
+static CUtlVector<void *> g_StandalonePolicyBlocks;
 
 void **SourceSharp_ClientPolicyBlocks( int32_t *pOutCount )
 {
@@ -1485,7 +1463,9 @@ class CSourceSharpStandaloneInterpSystem : public CClientSystemPerFrame
 {
 public:
 	CSourceSharpStandaloneInterpSystem()
-		: CClientSystemPerFrame( "CSourceSharpStandaloneInterpSystem" ) {}
+		: CClientSystemPerFrame( "CSourceSharpStandaloneInterpSystem" )
+	{
+	}
 
 	virtual void PreRender() OVERRIDE
 	{
@@ -1507,10 +1487,12 @@ public:
 
 static CSourceSharpStandaloneInterpSystem g_StandaloneInterpSystem;
 
-CClientSystem *ClientSystem_StandaloneInterp() { return &g_StandaloneInterpSystem; }
+CClientSystem *ClientSystem_StandaloneInterp()
+{
+	return &g_StandaloneInterpSystem;
+}
 
-void SourceSharp_StandaloneSetCustomDraw( uint32_t hEntity, const float *pMinsXYZ,
-                                          const float *pMaxsXYZ )
+void SourceSharp_StandaloneSetCustomDraw( uint32_t hEntity, const float *pMinsXYZ, const float *pMaxsXYZ )
 {
 	if ( !pMinsXYZ || !pMaxsXYZ )
 		return;
@@ -1523,7 +1505,7 @@ void SourceSharp_StandaloneSetCustomDraw( uint32_t hEntity, const float *pMinsXY
 		return;
 
 	pEntity->SetCustomDraw( Vector( pMinsXYZ[0], pMinsXYZ[1], pMinsXYZ[2] ),
-	                        Vector( pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2] ) );
+							Vector( pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2] ) );
 }
 
 // CL_AllocDlight reuses the slot for a known key, so the same key moves a light
@@ -1533,29 +1515,26 @@ void SourceSharp_DynamicLightUpdate( const SourceSharpDynamicLight *pLight )
 	if ( !pLight || !effects )
 		return;
 
-	dlight_t *dl = pLight->IsElight
-		? effects->CL_AllocElight( pLight->Key )
-		: effects->CL_AllocDlight( pLight->Key );
+	dlight_t *dl = pLight->IsElight ? effects->CL_AllocElight( pLight->Key ) : effects->CL_AllocDlight( pLight->Key );
 
 	if ( !dl )
 		return;
 
 	dl->origin.Init( pLight->OriginXYZ[0], pLight->OriginXYZ[1], pLight->OriginXYZ[2] );
-	dl->m_Direction.Init( pLight->DirectionXYZ[0], pLight->DirectionXYZ[1],
-	                      pLight->DirectionXYZ[2] );
+	dl->m_Direction.Init( pLight->DirectionXYZ[0], pLight->DirectionXYZ[1], pLight->DirectionXYZ[2] );
 
 	dl->radius = pLight->Radius;
 
-	dl->color.r        = (unsigned char)clamp( pLight->Red,   0, 255 );
-	dl->color.g        = (unsigned char)clamp( pLight->Green, 0, 255 );
-	dl->color.b        = (unsigned char)clamp( pLight->Blue,  0, 255 );
+	dl->color.r = (unsigned char)clamp( pLight->Red, 0, 255 );
+	dl->color.g = (unsigned char)clamp( pLight->Green, 0, 255 );
+	dl->color.b = (unsigned char)clamp( pLight->Blue, 0, 255 );
 	dl->color.exponent = (signed char)clamp( pLight->Exponent, -127, 127 );
 
-	dl->style       = (unsigned char)clamp( pLight->Style, 0, 63 );
-	dl->flags       = (unsigned char)pLight->Flags;
+	dl->style = (unsigned char)clamp( pLight->Style, 0, 63 );
+	dl->flags = (unsigned char)pLight->Flags;
 	dl->m_InnerAngle = pLight->InnerAngle;
 	dl->m_OuterAngle = pLight->OuterAngle;
-	dl->minlight    = 0;
+	dl->minlight = 0;
 
 	dl->die = gpGlobals->curtime + pLight->LiveFor;
 
@@ -1595,8 +1574,8 @@ void C_StandaloneEntity::SetModelScale( float flScale )
 	if ( flScale <= 0.0f )
 	{
 		Warning( "[SourceSharp] model scale %f refused on entity %d: a scale of zero "
-		         "or less is a model drawn as nothing and picked by nothing\n",
-			flScale, entindex() );
+				 "or less is a model drawn as nothing and picked by nothing\n",
+				 flScale, entindex() );
 		return;
 	}
 
@@ -1608,15 +1587,14 @@ void C_StandaloneEntity::SetModelScale( float flScale )
 	AddToLeafSystem();
 }
 
-void C_StandaloneEntity::SetFade( int nStyle, float flStartDist, float flEndDist,
-                                  float flMinAlpha )
+void C_StandaloneEntity::SetFade( int nStyle, float flStartDist, float flEndDist, float flMinAlpha )
 {
 	EngineBlockClientTail_t &tail = Block().Client;
 
-	tail.FadeStyle         = nStyle;
+	tail.FadeStyle = nStyle;
 	tail.FadeStartDistance = flStartDist;
-	tail.FadeEndDistance   = flEndDist;
-	tail.FadeMinAlpha      = flMinAlpha;
+	tail.FadeEndDistance = flEndDist;
+	tail.FadeMinAlpha = flMinAlpha;
 
 	BumpPolicyInputs();
 }
@@ -1641,8 +1619,8 @@ int32_t SourceSharp_ClientEntityGetIndex( uint32_t hEntity )
 	return -1;
 }
 
-void SourceSharp_StandaloneSetFade( uint32_t hEntity, int32_t nStyle, float flStartDist,
-                                    float flEndDist, float flMinAlpha )
+void SourceSharp_StandaloneSetFade( uint32_t hEntity, int32_t nStyle, float flStartDist, float flEndDist,
+									float flMinAlpha )
 {
 	if ( C_StandaloneEntity *pEntity = ResolveStandaloneClient( hEntity ) )
 		pEntity->SetFade( nStyle, flStartDist, flEndDist, flMinAlpha );
@@ -1661,8 +1639,7 @@ void SourceSharp_StandaloneSetRagdoll( uint32_t hEntity, int32_t bRagdoll )
 }
 
 // A handle naming no shell gets a zero box and is not counted.
-int32_t SourceSharp_StandaloneSurroundingBounds( const uint32_t *pHandles, int32_t nCount,
-                                                 float *pOutMinsMaxs )
+int32_t SourceSharp_StandaloneSurroundingBounds( const uint32_t *pHandles, int32_t nCount, float *pOutMinsMaxs )
 {
 	if ( !pHandles || !pOutMinsMaxs || nCount <= 0 )
 		return 0;
@@ -1680,8 +1657,12 @@ int32_t SourceSharp_StandaloneSurroundingBounds( const uint32_t *pHandles, int32
 			nFound++;
 		}
 
-		pOut[0] = vecMins.x; pOut[1] = vecMins.y; pOut[2] = vecMins.z;
-		pOut[3] = vecMaxs.x; pOut[4] = vecMaxs.y; pOut[5] = vecMaxs.z;
+		pOut[0] = vecMins.x;
+		pOut[1] = vecMins.y;
+		pOut[2] = vecMins.z;
+		pOut[3] = vecMaxs.x;
+		pOut[4] = vecMaxs.y;
+		pOut[5] = vecMaxs.z;
 	}
 
 	return nFound;
@@ -1733,7 +1714,7 @@ C_StandaloneEntity *SourceSharp_StandaloneClientAt( int nIndex )
 	if ( nIndex < 0 || nIndex >= g_StandaloneClients.Count() )
 		return NULL;
 
-	return g_StandaloneClients[ nIndex ];
+	return g_StandaloneClients[nIndex];
 }
 
 // Without this the shells survive the level change holding leaf-system and
@@ -1746,7 +1727,7 @@ int SourceSharp_StandaloneClientsLevelShutdown()
 	// slot, which a forward walk would skip.
 	for ( int i = g_StandaloneClients.Count() - 1; i >= 0; i-- )
 	{
-		if ( C_StandaloneEntity *pShell = g_StandaloneClients[ i ] )
+		if ( C_StandaloneEntity *pShell = g_StandaloneClients[i] )
 			pShell->Release();
 	}
 
@@ -1774,9 +1755,9 @@ void SourceSharp_ActivateOccluder( int32_t nOccluderIndex, int32_t bActive )
 
 void C_StandaloneEntity::SetCustomDraw( const Vector &mins, const Vector &maxs )
 {
-	Block().Client.CustomDraw  = 1;
-	Block().Client.RenderMins  = mins;
-	Block().Client.RenderMaxs  = maxs;
+	Block().Client.CustomDraw = 1;
+	Block().Client.RenderMins = mins;
+	Block().Client.RenderMaxs = maxs;
 
 	BumpPolicyInputs();
 }
@@ -1784,14 +1765,13 @@ void C_StandaloneEntity::SetCustomDraw( const Vector &mins, const Vector &maxs )
 void C_StandaloneEntity::SetBlending( bool bTranslucent, bool bIgnoreZ, int nAlpha )
 {
 	Block().Client.Translucent = bTranslucent ? 1 : 0;
-	m_bIgnoreZ     = bIgnoreZ;
+	m_bIgnoreZ = bIgnoreZ;
 	Block().Client.RenderColorA = (uint8_t)clamp( nAlpha, 0, 255 );
 
 	BumpPolicyInputs();
 }
 
-void SourceSharp_StandaloneSetBlending( uint32_t hEntity, int32_t bTranslucent,
-                                        int32_t bIgnoreZ, int32_t nAlpha )
+void SourceSharp_StandaloneSetBlending( uint32_t hEntity, int32_t bTranslucent, int32_t bIgnoreZ, int32_t nAlpha )
 {
 	if ( C_StandaloneEntity *pEntity = SourceSharp_StandaloneFromHandle( hEntity ) )
 		pEntity->SetBlending( bTranslucent != 0, bIgnoreZ != 0, nAlpha );
@@ -1890,8 +1870,7 @@ void C_StandaloneEntity::MoveToEye( const Vector &vecEye, const QAngle &angEye )
 	Block().Client.RenderOrigin = vecEye;
 	Block().Client.RenderAngles = angEye;
 
-	AngleMatrix( Block().Client.RenderAngles, Block().Client.RenderOrigin,
-	             Block().Client.RenderTransform );
+	AngleMatrix( Block().Client.RenderAngles, Block().Client.RenderOrigin, Block().Client.RenderTransform );
 }
 
 void SourceSharp_StandaloneViewModelToEye( const Vector &vecEye, const QAngle &angEye )
@@ -1906,18 +1885,18 @@ void SourceSharp_StandaloneSetViewModel( uint32_t hEntity, int32_t bEnable )
 		pEntity->SetViewModelPass( bEnable != 0 );
 }
 
-void C_StandaloneEntity::StoreSequence( int nSequence, float flPlaybackRate, float flAnimTime,
-                                        float flDuration, bool bLooping )
+void C_StandaloneEntity::StoreSequence( int nSequence, float flPlaybackRate, float flAnimTime, float flDuration,
+										bool bLooping )
 {
-	Block().Client.Sequence     = nSequence;
+	Block().Client.Sequence = nSequence;
 	Block().Client.PlaybackRate = flPlaybackRate;
-	Block().Client.AnimTime     = flAnimTime;
-	m_flSeqDuration             = flDuration;
-	m_bSeqLooping               = bLooping;
+	Block().Client.AnimTime = flAnimTime;
+	m_flSeqDuration = flDuration;
+	m_bSeqLooping = bLooping;
 }
 
-void SourceSharp_StandaloneStoreSequence( uint32_t hEntity, int32_t nSequence, float flPlaybackRate,
-                                          float flAnimTime, float flDuration, int32_t bLooping )
+void SourceSharp_StandaloneStoreSequence( uint32_t hEntity, int32_t nSequence, float flPlaybackRate, float flAnimTime,
+										  float flDuration, int32_t bLooping )
 {
 	if ( C_StandaloneEntity *pEntity = SourceSharp_StandaloneFromHandle( hEntity ) )
 		pEntity->StoreSequence( nSequence, flPlaybackRate, flAnimTime, flDuration, bLooping != 0 );

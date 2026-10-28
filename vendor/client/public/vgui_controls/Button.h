@@ -13,11 +13,15 @@ class Button : public Label
 
 public:
 	// You can optionally pass in the panel to send the click message to and the name of the command to send to that panel.
-	Button(Panel *parent, const char *panelName, const char *text, Panel *pActionSignalTarget=NULL, const char *pCmd=NULL);
-	Button(Panel *parent, const char *panelName, const wchar_t *text, Panel *pActionSignalTarget=NULL, const char *pCmd=NULL);
+	Button( Panel *parent, const char *panelName, const char *text, Panel *pActionSignalTarget = NULL,
+			const char *pCmd = NULL );
+	Button( Panel *parent, const char *panelName, const wchar_t *text, Panel *pActionSignalTarget = NULL,
+			const char *pCmd = NULL );
 	~Button();
+
 private:
 	void Init();
+
 public:
 	// Set armed state.
 	virtual void unused_SetArmed() = 0;
@@ -46,22 +50,22 @@ public:
 
 	// Activate a button click.
 	MESSAGE_FUNC( DoClick, "PressButton" );
-	MESSAGE_FUNC( OnHotkey, "Hotkey" )
-	{
-		DoClick();
-	}
+
+	MESSAGE_FUNC( OnHotkey, "Hotkey" ) { DoClick(); }
 
 	// Set button to be mouse clickable or not.
 	virtual void unused_SetMouseClickEnabled() = 0;
 	// Check if button is mouse clickable
 	virtual void unused_IsMouseClickEnabled() = 0;
+
 	// sets the how this button activates
 	enum ActivationType_t
 	{
-		ACTIVATE_ONPRESSEDANDRELEASED,	// normal button behaviour
-		ACTIVATE_ONPRESSED,				// menu buttons, toggle buttons
-		ACTIVATE_ONRELEASED,			// menu items
+		ACTIVATE_ONPRESSEDANDRELEASED, // normal button behaviour
+		ACTIVATE_ONPRESSED, // menu buttons, toggle buttons
+		ACTIVATE_ONRELEASED, // menu items
 	};
+
 	virtual void unused_SetButtonActivationType() = 0;
 
 	// Message targets that the button has been pressed
@@ -69,9 +73,9 @@ public:
 	// Perform graphical layout of button
 	virtual void PerformLayout();
 
-	virtual bool RequestInfo(KeyValues *data);
+	virtual bool RequestInfo( KeyValues *data );
 
-    virtual void unused_CanBeDefaultButton() = 0;
+	virtual void unused_CanBeDefaultButton() = 0;
 
 	// Set this button to be the button that is accessed by default when the user hits ENTER or SPACE
 	MESSAGE_FUNC_INT( SetAsDefaultButton, "SetAsDefaultButton", state );
@@ -140,14 +144,14 @@ protected:
 	// Get button border attributes.
 	virtual void unused_GetBorder() = 0;
 
-	virtual void ApplySchemeSettings(IScheme *pScheme);
-	MESSAGE_FUNC_INT( OnSetState, "SetState", state );		
-	
-	virtual void OnMousePressed(MouseCode code);
-	virtual void OnMouseDoublePressed(MouseCode code);
-	virtual void OnMouseReleased(MouseCode code);
-	virtual void OnKeyCodePressed(KeyCode code);
-	virtual void OnKeyCodeReleased(KeyCode code);
+	virtual void ApplySchemeSettings( IScheme *pScheme );
+	MESSAGE_FUNC_INT( OnSetState, "SetState", state );
+
+	virtual void OnMousePressed( MouseCode code );
+	virtual void OnMouseDoublePressed( MouseCode code );
+	virtual void OnMouseReleased( MouseCode code );
+	virtual void OnKeyCodePressed( KeyCode code );
+	virtual void OnKeyCodeReleased( KeyCode code );
 
 	// Get control settings for editing
 	virtual void GetSettings( KeyValues *outResourceData );
@@ -156,38 +160,38 @@ protected:
 protected:
 	enum ButtonFlags_t
 	{
-		ARMED					= 0x0001,
-		DEPRESSED				= 0x0002,
-		FORCE_DEPRESSED			= 0x0004,
-		BUTTON_BORDER_ENABLED	= 0x0008,
-		USE_CAPTURE_MOUSE		= 0x0010,
-		BUTTON_KEY_DOWN			= 0x0020,
-		DEFAULT_BUTTON			= 0x0040,
-		SELECTED				= 0x0080,
-		DRAW_FOCUS_BOX			= 0x0100,
-		BLINK					= 0x0200,
-		ALL_FLAGS				= 0xFFFF,
+		ARMED = 0x0001,
+		DEPRESSED = 0x0002,
+		FORCE_DEPRESSED = 0x0004,
+		BUTTON_BORDER_ENABLED = 0x0008,
+		USE_CAPTURE_MOUSE = 0x0010,
+		BUTTON_KEY_DOWN = 0x0020,
+		DEFAULT_BUTTON = 0x0040,
+		SELECTED = 0x0080,
+		DRAW_FOCUS_BOX = 0x0100,
+		BLINK = 0x0200,
+		ALL_FLAGS = 0xFFFF,
 	};
 
-	CUtlFlags< unsigned short > _buttonFlags;	// see ButtonFlags_t
-	int                _mouseClickMask;
-	KeyValues		  *_actionMessage;
-	ActivationType_t   _activationType;
+	CUtlFlags<unsigned short> _buttonFlags; // see ButtonFlags_t
+	int _mouseClickMask;
+	KeyValues *_actionMessage;
+	ActivationType_t _activationType;
 
-	IBorder			  *_defaultBorder;
-	IBorder			  *_depressedBorder;
-	IBorder			  *_keyFocusBorder;
+	IBorder *_defaultBorder;
+	IBorder *_depressedBorder;
+	IBorder *_keyFocusBorder;
 
-	Color			   _defaultFgColor, _defaultBgColor;
-	Color			   _armedFgColor, _armedBgColor;
-	Color			   _selectedFgColor, _selectedBgColor;
-	Color              _depressedFgColor, _depressedBgColor;
-	Color              _keyboardFocusColor;
-	Color			   _blinkFgColor;
+	Color _defaultFgColor, _defaultBgColor;
+	Color _armedFgColor, _armedBgColor;
+	Color _selectedFgColor, _selectedBgColor;
+	Color _depressedFgColor, _depressedBgColor;
+	Color _keyboardFocusColor;
+	Color _blinkFgColor;
 
-	bool				_paint;
+	bool _paint;
 
-	unsigned short	   m_sArmedSoundName, m_sDepressedSoundName, m_sReleasedSoundName;
+	unsigned short m_sArmedSoundName, m_sDepressedSoundName, m_sReleasedSoundName;
 	bool m_bSelectionStateSaved;
 	bool m_bStaySelectedOnClick;
 	bool m_bStayArmedOnClick;

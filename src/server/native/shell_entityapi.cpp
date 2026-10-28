@@ -40,9 +40,9 @@
 using ss::kDamageYes;
 
 IGameEntity *CreateEntityByNameEither( const char *className, IGameEntity **ppOutBaseEntity,
-                                       IServerEntity **ppOutServerEntity );
+									   IServerEntity **ppOutServerEntity );
 
-std::vector< CStandaloneEntity * > &StandaloneEntities();
+std::vector<CStandaloneEntity *> &StandaloneEntities();
 
 IGameEntity *SourceSharp_GameEntityFromHandleEntity( IHandleEntity *pHandleEntity )
 {
@@ -189,11 +189,9 @@ void *SourceSharp_EntityGetDataBlob( uint32_t hEntity, int32_t *pOutSize )
 // Whether the payload props on this entity's SendTable read the same bytes as its
 // typed props. -1 for an entity with no payload. A diagnostic, so it does not
 // mark the edict changed.
-bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity,
-                                          int *pOutWords, int *pOutFirstBadWord );
+bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity, int *pOutWords, int *pOutFirstBadWord );
 
-int32_t SourceSharp_EntityPayloadAgreement( uint32_t hEntity, int32_t *pOutWords,
-                                            int32_t *pOutFirstBadWord )
+int32_t SourceSharp_EntityPayloadAgreement( uint32_t hEntity, int32_t *pOutWords, int32_t *pOutFirstBadWord )
 {
 	if ( pOutWords )
 		*pOutWords = 0;
@@ -240,7 +238,8 @@ uint32_t SourceSharp_CreateEntity( const char *pClassName )
 		return SourceSharp_HandleFromEntity( pEnt );
 
 	Warning( "[SourceSharp] could not create '%s' — no such entity class, or it is "
-		"neither a CBaseEntity nor an IGameEntity\n", pClassName );
+			 "neither a CBaseEntity nor an IGameEntity\n",
+			 pClassName );
 	return INVALID_EHANDLE_INDEX;
 }
 
@@ -289,8 +288,7 @@ uint32_t SourceSharp_FindEntityByClassname( uint32_t hStartAfter, const char *pC
 			return (uint32_t)pWorld->GetRefEHandle().ToInt();
 	}
 
-	CStandaloneEntity *pFound =
-		StandaloneEntities_FindByClassname( start.pStandalone, pClassName );
+	CStandaloneEntity *pFound = StandaloneEntities_FindByClassname( start.pStandalone, pClassName );
 
 	return pFound ? (uint32_t)pFound->GetRefEHandle().ToInt() : INVALID_EHANDLE_INDEX;
 }
@@ -340,7 +338,7 @@ void SourceSharp_ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDama
 }
 
 void SourceSharp_ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,
-                                   const float *pForceXYZ, const float *pPositionXYZ )
+								   const float *pForceXYZ, const float *pPositionXYZ )
 {
 	const SourceSharpEntity_t victim = SourceSharp_ResolveEntity( hVictim );
 	if ( !victim.pStandalone )
@@ -439,8 +437,7 @@ void SourceSharp_EntitySetVelocity( uint32_t hEntity, const float *pXYZ )
 }
 
 // A single call, so the engine unlinks and relinks the entity once.
-void SourceSharp_EntityTeleport( uint32_t hEntity, const float *pOrigin,
-                                 const float *pAngles, int32_t bZeroVelocity )
+void SourceSharp_EntityTeleport( uint32_t hEntity, const float *pOrigin, const float *pAngles, int32_t bZeroVelocity )
 {
 	if ( !pOrigin )
 		return;
@@ -477,7 +474,6 @@ void SourceSharp_EntitySetGravity( uint32_t hEntity, float flGravity )
 		ent.pStandalone->SetGravityScale( flGravity );
 		return;
 	}
-
 }
 
 // Native because the surface normal exists only inside the step trace.
@@ -497,7 +493,6 @@ void SourceSharp_EntitySetOwner( uint32_t hEntity, uint32_t hOwner )
 		ent.pStandalone->SetOwnerHandle( hOwner );
 		return;
 	}
-
 }
 
 // The eye, not the origin: a player's origin is at their feet.
@@ -519,8 +514,7 @@ void SourceSharp_EntityGetEyePosition( uint32_t hEntity, float *pOutXYZ )
 
 	if ( !bHaveEye )
 	{
-		if ( CStandalonePlayer *pStandalonePlayer =
-		         SourceSharp_ResolveStandalonePlayer( hEntity ) )
+		if ( CStandalonePlayer *pStandalonePlayer = SourceSharp_ResolveStandalonePlayer( hEntity ) )
 		{
 			vecEye = pStandalonePlayer->EyePosition();
 		}
@@ -553,8 +547,7 @@ void SourceSharp_EntityGetEyeAngles( uint32_t hEntity, float *pOutPYR )
 
 	if ( !bHaveAngles )
 	{
-		if ( CStandalonePlayer *pStandalonePlayer =
-		         SourceSharp_ResolveStandalonePlayer( hEntity ) )
+		if ( CStandalonePlayer *pStandalonePlayer = SourceSharp_ResolveStandalonePlayer( hEntity ) )
 		{
 			angles = pStandalonePlayer->PlayerStatePtr()->v_angle;
 		}
@@ -613,18 +606,17 @@ void SourceSharp_SendClientCommand( uint32_t hPlayer, const char *pCommand )
 // key\0value\0... pack per entity, pPackBytes[i] long. Each entity is placed and
 // spawned at once, or it would wait until the next level load. Returns how many
 // were created, which can exceed nMax.
-int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPackedKeys,
-                                        const int32_t *pPackBytes, const float *pOriginsXYZ,
-                                        const float *pAnglesPYR, int32_t nCount,
-                                        uint32_t *pOutHandles, int32_t nMax )
+int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPackedKeys, const int32_t *pPackBytes,
+										const float *pOriginsXYZ, const float *pAnglesPYR, int32_t nCount,
+										uint32_t *pOutHandles, int32_t nMax )
 {
 	SOURCESHARP_TRACE();
 
 	if ( !pClassNames || !pPackBytes || !pOriginsXYZ || !pAnglesPYR || nCount <= 0 )
 		return 0;
 
-	std::vector< IGameEntity * > standalone;
-	std::vector< const char * > keys, values;
+	std::vector<IGameEntity *> standalone;
+	std::vector<const char *> keys, values;
 
 	const char *pName = pClassNames;
 	const char *pPack = pPackedKeys;
@@ -638,7 +630,7 @@ int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPa
 		keys.clear();
 		values.clear();
 		const char *pAt = pPack;
-		const char *pEnd = pPack ? pPack + pPackBytes[ i ] : pPack;
+		const char *pEnd = pPack ? pPack + pPackBytes[i] : pPack;
 		while ( pAt && pAt < pEnd )
 		{
 			const char *pKey = pAt;
@@ -652,8 +644,7 @@ int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPa
 		if ( pPack )
 			pPack = pEnd;
 
-		IGameEntity *pEntity = MapEntity_CreateFromKeys( pClassName, keys.data(), values.data(),
-		                                                 (int)keys.size() );
+		IGameEntity *pEntity = MapEntity_CreateFromKeys( pClassName, keys.data(), values.data(), (int)keys.size() );
 		if ( pEntity == NULL )
 		{
 			Msg( "Failed to initialize templated entity of class %s\n", pClassName );
@@ -692,8 +683,7 @@ void SourceSharp_PlayerSnapEyeAngles( uint32_t hPlayer, const float *pPitchYawRo
 	if ( !pPlayer )
 		return;
 
-	pPlayer->PlayerStatePtr()->v_angle =
-		QAngle( pPitchYawRoll[0], pPitchYawRoll[1], pPitchYawRoll[2] );
+	pPlayer->PlayerStatePtr()->v_angle = QAngle( pPitchYawRoll[0], pPitchYawRoll[1], pPitchYawRoll[2] );
 	pPlayer->PlayerStatePtr()->fixangle = FIXANGLE_ABSOLUTE;
 }
 
@@ -730,7 +720,6 @@ void SourceSharp_EntitySetTransmitAlways( uint32_t hEntity, int32_t bAlways )
 		pEdict->m_fStateFlags |= ( bAlways ? FL_EDICT_ALWAYS : FL_EDICT_PVSCHECK );
 		return;
 	}
-
 }
 
 // Hands a map keyvalue to a spawned entity; the shell or its managed class claims it.
@@ -753,24 +742,21 @@ int32_t SourceSharp_EntitySetKeyValue( uint32_t hEntity, const char *pKey, const
 
 // The collision group, in SourceSharp's names (collision_group_names.h) rather
 // than Collision_Group_t's numbers. The first row is the fallback both ways.
-static const CollisionGroupName_t s_CollisionGroupNames[] =
-{
-	{ SS_COLLISION_GROUP_NONE,         COLLISION_GROUP_NONE },
+static const CollisionGroupName_t s_CollisionGroupNames[] = {
+	{ SS_COLLISION_GROUP_NONE, COLLISION_GROUP_NONE },
 	{ SS_COLLISION_GROUP_VEHICLE_CLIP, COLLISION_GROUP_VEHICLE_CLIP },
-	{ SS_COLLISION_GROUP_WEAPON,       COLLISION_GROUP_WEAPON },
-	{ SS_COLLISION_GROUP_DEBRIS,       COLLISION_GROUP_DEBRIS },
-	{ SS_COLLISION_GROUP_INTERACTIVE,  COLLISION_GROUP_INTERACTIVE },
-	{ SS_COLLISION_GROUP_PROJECTILE,   COLLISION_GROUP_PROJECTILE },
+	{ SS_COLLISION_GROUP_WEAPON, COLLISION_GROUP_WEAPON },
+	{ SS_COLLISION_GROUP_DEBRIS, COLLISION_GROUP_DEBRIS },
+	{ SS_COLLISION_GROUP_INTERACTIVE, COLLISION_GROUP_INTERACTIVE },
+	{ SS_COLLISION_GROUP_PROJECTILE, COLLISION_GROUP_PROJECTILE },
 	{ SS_COLLISION_GROUP_BREAKABLE_GLASS, COLLISION_GROUP_BREAKABLE_GLASS },
 };
 
-static const int s_nCollisionGroupNames =
-	sizeof( s_CollisionGroupNames ) / sizeof( s_CollisionGroupNames[0] );
+static const int s_nCollisionGroupNames = sizeof( s_CollisionGroupNames ) / sizeof( s_CollisionGroupNames[0] );
 
 void SourceSharp_EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup )
 {
-	const int nEngineGroup =
-		CollisionGroup_ToEngine( nGroup, s_CollisionGroupNames, s_nCollisionGroupNames );
+	const int nEngineGroup = CollisionGroup_ToEngine( nGroup, s_CollisionGroupNames, s_nCollisionGroupNames );
 
 	const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );
 
@@ -779,7 +765,6 @@ void SourceSharp_EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup )
 		ent.pStandalone->SetCollisionGroup( nEngineGroup );
 		return;
 	}
-
 }
 
 // Many-to-one: a group with no SourceSharp name reads as None.
@@ -829,7 +814,6 @@ void SourceSharp_EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutS
 		ss::StrCopy( pOut, ent.pStandalone->GetModelNameString(), nOutSize );
 		return;
 	}
-
 }
 
 // Bounds as offsets from the origin, in the entity's own space.
@@ -842,7 +826,7 @@ void SourceSharp_EntitySetBounds( uint32_t hEntity, const float *pMinsXYZ, const
 	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
 	{
 		pStandalone->SetCollisionBounds( Vector( pMinsXYZ[0], pMinsXYZ[1], pMinsXYZ[2] ),
-		                                 Vector( pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2] ) );
+										 Vector( pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2] ) );
 	}
 }
 

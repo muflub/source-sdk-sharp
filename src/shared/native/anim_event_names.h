@@ -2,11 +2,11 @@
 // by name rather than by a registry ordinal. Includes nothing so a test can hold it.
 #pragma once
 
-#define AE_NAME_CL_CREATE_PARTICLE_EFFECT	"AE_CL_CREATE_PARTICLE_EFFECT"
-#define AE_NAME_SV_PLAYSOUND				"AE_SV_PLAYSOUND"
-#define AE_NAME_SV_EXCLUDE_PLAYER_SOUND		"AE_SV_EXCLUDE_PLAYER_SOUND"
-#define AE_NAME_CL_PLAYSOUND				"AE_CL_PLAYSOUND"
-#define AE_NAME_CL_EXCLUDE_PLAYER_SOUND		"AE_CL_EXCLUDE_PLAYER_SOUND"
+#define AE_NAME_CL_CREATE_PARTICLE_EFFECT "AE_CL_CREATE_PARTICLE_EFFECT"
+#define AE_NAME_SV_PLAYSOUND "AE_SV_PLAYSOUND"
+#define AE_NAME_SV_EXCLUDE_PLAYER_SOUND "AE_SV_EXCLUDE_PLAYER_SOUND"
+#define AE_NAME_CL_PLAYSOUND "AE_CL_PLAYSOUND"
+#define AE_NAME_CL_EXCLUDE_PLAYER_SOUND "AE_CL_EXCLUDE_PLAYER_SOUND"
 
 // eventlist.h's AE_TYPE_* bits, respelled so this header includes nothing.
 enum
@@ -28,8 +28,10 @@ inline bool AnimEventName_Equal( const char *pA, const char *pB )
 		char a = *pA;
 		char b = *pB;
 
-		if ( a >= 'A' && a <= 'Z' ) a += 'a' - 'A';
-		if ( b >= 'A' && b <= 'Z' ) b += 'a' - 'A';
+		if ( a >= 'A' && a <= 'Z' )
+			a += 'a' - 'A';
+		if ( b >= 'A' && b <= 'Z' )
+			b += 'a' - 'A';
 
 		if ( a != b )
 			return false;
@@ -43,22 +45,19 @@ inline bool AnimEventName_Equal( const char *pA, const char *pB )
 struct AnimEventNameRow_t
 {
 	const char *pszName;
-	int         nType;
+	int nType;
 };
 
 inline const AnimEventNameRow_t *AnimEventNames_Rows( int *pOutCount )
 {
-	static const AnimEventNameRow_t s_Rows[] =
-	{
-		{ AE_NAME_CL_CREATE_PARTICLE_EFFECT, kAnimEventTypeClient },
-		{ AE_NAME_SV_PLAYSOUND,              kAnimEventTypeServer },
-		{ AE_NAME_SV_EXCLUDE_PLAYER_SOUND,   kAnimEventTypeServer },
-		{ AE_NAME_CL_PLAYSOUND,              kAnimEventTypeClient },
-		{ AE_NAME_CL_EXCLUDE_PLAYER_SOUND,   kAnimEventTypeClient },
+	static const AnimEventNameRow_t s_Rows[] = {
+		{ AE_NAME_CL_CREATE_PARTICLE_EFFECT, kAnimEventTypeClient }, { AE_NAME_SV_PLAYSOUND, kAnimEventTypeServer },
+		{ AE_NAME_SV_EXCLUDE_PLAYER_SOUND, kAnimEventTypeServer },   { AE_NAME_CL_PLAYSOUND, kAnimEventTypeClient },
+		{ AE_NAME_CL_EXCLUDE_PLAYER_SOUND, kAnimEventTypeClient },
 	};
 
 	if ( pOutCount )
-		*pOutCount = (int)( sizeof( s_Rows ) / sizeof( s_Rows[ 0 ] ) );
+		*pOutCount = (int)( sizeof( s_Rows ) / sizeof( s_Rows[0] ) );
 
 	return s_Rows;
 }
@@ -71,8 +70,8 @@ inline int AnimEventName_TypeMask( const char *pszName )
 
 	for ( int i = 0; i < nRows; i++ )
 	{
-		if ( AnimEventName_Equal( pRows[ i ].pszName, pszName ) )
-			return pRows[ i ].nType;
+		if ( AnimEventName_Equal( pRows[i].pszName, pszName ) )
+			return pRows[i].nType;
 	}
 
 	return 0;

@@ -21,7 +21,7 @@ int ss::CRecipientFilter::GetRecipientIndex( int slot ) const
 	if ( slot < 0 || slot >= GetRecipientCount() )
 		return -1;
 
-	return m_Recipients[ slot ];
+	return m_Recipients[slot];
 }
 
 void ss::CRecipientFilter::AddRecipientByPlayerIndex( int playerindex )
@@ -36,7 +36,7 @@ void ss::CRecipientFilter::AddRecipientByPlayerIndex( int playerindex )
 	m_Recipients.push_back( playerindex );
 }
 
-void ss::CRecipientFilter::AddPlayersFromBitMask( CBitVec< ABSOLUTE_PLAYER_LIMIT >& playerbits )
+void ss::CRecipientFilter::AddPlayersFromBitMask( CBitVec<ABSOLUTE_PLAYER_LIMIT> &playerbits )
 {
 	int index = playerbits.FindNextSetBit( 0 );
 

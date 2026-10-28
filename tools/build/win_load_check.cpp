@@ -13,13 +13,13 @@ int main( int argc, char **argv )
 	int failures = 0;
 	for ( int i = 1; i < argc; i++ )
 	{
-		char path[ MAX_PATH ];
-		strncpy( path, argv[ i ], sizeof( path ) - 1 );
-		path[ sizeof( path ) - 1 ] = 0;
+		char path[MAX_PATH];
+		strncpy( path, argv[i], sizeof( path ) - 1 );
+		path[sizeof( path ) - 1] = 0;
 		char *symbol = strchr( path, '=' );
 		if ( symbol )
 			*symbol++ = 0;
-		char dir[ MAX_PATH ];
+		char dir[MAX_PATH];
 		strcpy( dir, path );
 		char *slash = strrchr( dir, '\\' );
 		if ( !slash )

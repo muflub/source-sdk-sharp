@@ -11,7 +11,7 @@
 
 #pragma once
 
-void FxProbeLog( const char *pFmt, ... ) __attribute__(( format( printf, 1, 2 ) ));
+void FxProbeLog( const char *pFmt, ... ) __attribute__( ( format( printf, 1, 2 ) ) );
 
 // random->RandomFloat / RandomInt, drawn from the same engine stream and logged
 // ("fxr f <lo> <hi> <value>", "fxr i <lo> <hi> <value>"): a probe copy says

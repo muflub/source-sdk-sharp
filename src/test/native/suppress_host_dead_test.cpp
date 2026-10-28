@@ -65,7 +65,6 @@
 #include <string>
 #include <vector>
 
-
 namespace
 {
 
@@ -97,18 +96,18 @@ namespace
 //-----------------------------------------------------------------------------
 const char *const kBuildProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 
-const std::set< std::string > &BuiltSources()
+const std::set<std::string> &BuiltSources()
 {
-	static std::set< std::string > s;
+	static std::set<std::string> s;
 	static bool bDone = false;
 	if ( bDone )
 		return s;
 
 	const char *kTargets[] = { cmake_graph::kServer, cmake_graph::kClient, cmake_graph::kHost };
-	std::set< std::string > all;
-	for ( size_t i = 0; i < sizeof( kTargets ) / sizeof( kTargets[ 0 ] ); i++ )
+	std::set<std::string> all;
+	for ( size_t i = 0; i < sizeof( kTargets ) / sizeof( kTargets[0] ); i++ )
 	{
-		const std::set< std::string > one = cmake_graph::CompiledSources( kTargets[ i ] );
+		const std::set<std::string> one = cmake_graph::CompiledSources( kTargets[i] );
 		all.insert( one.begin(), one.end() );
 	}
 	s.swap( all );
@@ -124,12 +123,13 @@ bool IsBuilt( const char *pszRelative )
 // Every fact that asks IsBuilt() opens with this. Not a helper call that could
 // be forgotten quietly: without it the fact's absences are satisfied by a
 // reader that read nothing.
-#define REQUIRE_THE_BUILD_READ()                                        \
-	do {                                                                \
-		ASSERT_TRUE( IsBuilt( kBuildProofOfRead ) )                     \
-			<< "the CMake build's compiled sources do not include "     \
-			<< kBuildProofOfRead << " -- the reader is not reading the "  \
-			   "build, and every IsBuilt() absence would pass for free."; \
+#define REQUIRE_THE_BUILD_READ()                                                         \
+	do                                                                                   \
+	{                                                                                    \
+		ASSERT_TRUE( IsBuilt( kBuildProofOfRead ) )                                      \
+			<< "the CMake build's compiled sources do not include " << kBuildProofOfRead \
+			<< " -- the reader is not reading the "                                      \
+			   "build, and every IsBuilt() absence would pass for free.";                \
 	} while ( 0 )
 
 //-----------------------------------------------------------------------------
@@ -141,16 +141,17 @@ bool IsBuilt( const char *pszRelative )
 // writer would still be a writer this test must see, because some
 // configuration of this tree takes it.
 //-----------------------------------------------------------------------------
-std::vector< bool > SourceSharpOffLines( const std::string &strSource )
+std::vector<bool> SourceSharpOffLines( const std::string &strSource )
 {
-	std::vector< bool > out;
+	std::vector<bool> out;
 
 	struct Frame
 	{
 		bool bIsSourceSharpQuestion;
 		bool bOnExcludedArm;
 	};
-	std::vector< Frame > stack;
+
+	std::vector<Frame> stack;
 	int nDepth = 0;
 
 	size_t i = 0;
@@ -162,10 +163,9 @@ std::vector< bool > SourceSharpOffLines( const std::string &strSource )
 		const std::string strLine = strSource.substr( i, nEnd - i );
 
 		const size_t nFirst = strLine.find_first_not_of( " \t" );
-		const std::string strTrim = ( nFirst == std::string::npos )
-		                            ? std::string() : strLine.substr( nFirst );
+		const std::string strTrim = ( nFirst == std::string::npos ) ? std::string() : strLine.substr( nFirst );
 
-		const bool bDirective = ( !strTrim.empty() && strTrim[ 0 ] == '#' );
+		const bool bDirective = ( !strTrim.empty() && strTrim[0] == '#' );
 		const bool bLineIsOff = ( nDepth > 0 );
 
 		if ( bDirective )
@@ -174,8 +174,8 @@ std::vector< bool > SourceSharpOffLines( const std::string &strSource )
 			std::string strD;
 			for ( size_t k = 1; k < strTrim.size(); k++ )
 			{
-				if ( strTrim[ k ] != ' ' && strTrim[ k ] != '\t' )
-					strD += strTrim[ k ];
+				if ( strTrim[k] != ' ' && strTrim[k] != '\t' )
+					strD += strTrim[k];
 				else if ( !strD.empty() )
 					break;
 			}
@@ -189,8 +189,7 @@ std::vector< bool > SourceSharpOffLines( const std::string &strSource )
 				// The arm this build does NOT take is the one that asks for
 				// SOURCESHARP to be undefined: `#ifndef SOURCESHARP` and
 				// `#if !defined( SOURCESHARP )`.
-				const bool bNegated = ( strD == "ifndef" )
-				                    || ( strRest.find( '!' ) != std::string::npos );
+				const bool bNegated = ( strD == "ifndef" ) || ( strRest.find( '!' ) != std::string::npos );
 				f.bOnExcludedArm = bNames && bNegated;
 				if ( f.bOnExcludedArm )
 					nDepth++;
@@ -237,11 +236,10 @@ std::vector< bool > SourceSharpOffLines( const std::string &strSource )
 // compiles. Comments are dropped per line: this test's own subject appears in
 // prose all over the tree, including in the two files it is about.
 //-----------------------------------------------------------------------------
-std::vector< std::string > CompiledLinesNaming( const std::string &strSource,
-                                                const char *pszNeedle )
+std::vector<std::string> CompiledLinesNaming( const std::string &strSource, const char *pszNeedle )
 {
-	const std::vector< bool > off = SourceSharpOffLines( strSource );
-	std::vector< std::string > hits;
+	const std::vector<bool> off = SourceSharpOffLines( strSource );
+	std::vector<std::string> hits;
 
 	size_t i = 0, nLine = 0;
 	while ( i <= strSource.size() && nLine < off.size() )
@@ -255,7 +253,7 @@ std::vector< std::string > CompiledLinesNaming( const std::string &strSource,
 		if ( nComment != std::string::npos )
 			strLine = strLine.substr( 0, nComment );
 
-		if ( !off[ nLine ] && strLine.find( pszNeedle ) != std::string::npos )
+		if ( !off[nLine] && strLine.find( pszNeedle ) != std::string::npos )
 			hits.push_back( strLine );
 
 		if ( nEnd == strSource.size() )
@@ -271,8 +269,8 @@ std::vector< std::string > CompiledLinesNaming( const std::string &strSource,
 // The files this test reads by name, so a rename fails loudly rather than
 // silently reading nothing.
 //-----------------------------------------------------------------------------
-const char *const kTakeDamageInfoTu  = "game/shared/takedamageinfo.cpp";
-const char *const kPlayer         = "game/server/player.cpp";
+const char *const kTakeDamageInfoTu = "game/shared/takedamageinfo.cpp";
+const char *const kPlayer = "game/server/player.cpp";
 
 } // namespace
 
@@ -287,12 +285,12 @@ const char *const kPlayer         = "game/server/player.cpp";
 TEST( SuppressHostDead, PlayerCppIsNotCompiledAtAll )
 {
 	REQUIRE_THE_BUILD_READ();
-	EXPECT_FALSE( IsBuilt( kPlayer ) )
-		<< kPlayer << " is compiled now. It calls "
-		   "IPredictionSystem::SuppressHostEvents( this ) with a live player, "
-		   "so the suppress host stops being NULL and the three blocks step 4b "
-		   "deleted have to come back -- see shell_recipientfilter.cpp and "
-		   "shell_tempents.cpp.";
+	EXPECT_FALSE( IsBuilt( kPlayer ) ) << kPlayer
+									   << " is compiled now. It calls "
+										  "IPredictionSystem::SuppressHostEvents( this ) with a live player, "
+										  "so the suppress host stops being NULL and the three blocks step 4b "
+										  "deleted have to come back -- see shell_recipientfilter.cpp and "
+										  "shell_tempents.cpp.";
 }
 
 //-----------------------------------------------------------------------------
@@ -326,12 +324,12 @@ TEST( SuppressHostDead, TheStockTakeDamageInfoTuIsNotCompiledAtAll )
 	// puts the row back the claim above is re-examined rather than silently
 	// weakened.
 	REQUIRE_THE_BUILD_READ();
-	EXPECT_FALSE( IsBuilt( kTakeDamageInfoTu ) )
-		<< kTakeDamageInfoTu << " is compiled again. It was evicted from both "
-		   "sides in Phase 1d as an empty translation unit; if it is back, it "
-		   "is a second compiled file that may write the suppress host, and "
-		   "TakeDamageInfosOnlyWriteIsARestoreOfWhatItRead stops being about "
-		   "the ONLY compiled writer -- re-measure it rather than trust it.";
+	EXPECT_FALSE( IsBuilt( kTakeDamageInfoTu ) ) << kTakeDamageInfoTu
+												 << " is compiled again. It was evicted from both "
+													"sides in Phase 1d as an empty translation unit; if it is back, it "
+													"is a second compiled file that may write the suppress host, and "
+													"TakeDamageInfosOnlyWriteIsARestoreOfWhatItRead stops being about "
+													"the ONLY compiled writer -- re-measure it rather than trust it.";
 }
 
 //=============================================================================
@@ -363,47 +361,42 @@ TEST( SuppressHostDead, TheStockTakeDamageInfoTuIsNotCompiledAtAll )
 //-----------------------------------------------------------------------------
 TEST( SuppressHostDeadScanner, TheGuardDetectorSeparatesTheTwoArms )
 {
-	const std::string strFixture =
-		"int a = GetSuppressHost();\n"
-		"#ifndef SOURCESHARP\n"
-		"int b = GetSuppressHost();\n"
-		"#else\n"
-		"int c = GetSuppressHost();\n"
-		"#endif\n";
+	const std::string strFixture = "int a = GetSuppressHost();\n"
+								   "#ifndef SOURCESHARP\n"
+								   "int b = GetSuppressHost();\n"
+								   "#else\n"
+								   "int c = GetSuppressHost();\n"
+								   "#endif\n";
 
-	const std::vector< std::string > hits =
-		CompiledLinesNaming( strFixture, "GetSuppressHost" );
+	const std::vector<std::string> hits = CompiledLinesNaming( strFixture, "GetSuppressHost" );
 
-	ASSERT_EQ( (size_t)2, hits.size() )
-		<< "the detector saw " << hits.size() << " compiled sites in a fixture "
-		   "with exactly two";
-	EXPECT_NE( std::string::npos, hits[ 0 ].find( "int a" ) );
-	EXPECT_NE( std::string::npos, hits[ 1 ].find( "int c" ) );
+	ASSERT_EQ( (size_t)2, hits.size() ) << "the detector saw " << hits.size()
+										<< " compiled sites in a fixture "
+										   "with exactly two";
+	EXPECT_NE( std::string::npos, hits[0].find( "int a" ) );
+	EXPECT_NE( std::string::npos, hits[1].find( "int c" ) );
 }
 
 TEST( SuppressHostDeadScanner, TheGuardDetectorHandlesTheDefinedSpelling )
 {
-	const std::string strFixture =
-		"#if !defined( SOURCESHARP )\n"
-		"int b = GetSuppressHost();\n"
-		"#endif\n"
-		"int a = GetSuppressHost();\n";
+	const std::string strFixture = "#if !defined( SOURCESHARP )\n"
+								   "int b = GetSuppressHost();\n"
+								   "#endif\n"
+								   "int a = GetSuppressHost();\n";
 
-	const std::vector< std::string > hits =
-		CompiledLinesNaming( strFixture, "GetSuppressHost" );
+	const std::vector<std::string> hits = CompiledLinesNaming( strFixture, "GetSuppressHost" );
 
 	ASSERT_EQ( (size_t)1, hits.size() );
-	EXPECT_NE( std::string::npos, hits[ 0 ].find( "int a" ) );
+	EXPECT_NE( std::string::npos, hits[0].find( "int a" ) );
 }
 
 TEST( SuppressHostDeadScanner, AnUnrelatedConditionalStaysTransparent )
 {
 	// A writer hidden behind `#ifdef _WIN32` is still a writer some
 	// configuration of this tree takes, and this detector must see it.
-	const std::string strFixture =
-		"#ifdef _WIN32\n"
-		"int a = GetSuppressHost();\n"
-		"#endif\n";
+	const std::string strFixture = "#ifdef _WIN32\n"
+								   "int a = GetSuppressHost();\n"
+								   "#endif\n";
 
 	EXPECT_EQ( (size_t)1, CompiledLinesNaming( strFixture, "GetSuppressHost" ).size() );
 }
@@ -412,9 +405,8 @@ TEST( SuppressHostDeadScanner, CommentsAreNotReadAsCode )
 {
 	// This test's own subject is discussed at length in the comments of both
 	// files it reads. A scanner that counted prose would fail on a correct tree.
-	const std::string strFixture =
-		"// GetSuppressHost was here and it is gone\n"
-		"int a = 0; // GetSuppressHost\n";
+	const std::string strFixture = "// GetSuppressHost was here and it is gone\n"
+								   "int a = 0; // GetSuppressHost\n";
 
 	EXPECT_TRUE( CompiledLinesNaming( strFixture, "GetSuppressHost" ).empty() );
 }

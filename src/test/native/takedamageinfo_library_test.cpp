@@ -50,8 +50,8 @@
 namespace
 {
 
-const char *const kLibrary   = "sourcesharp/game/shared/takedamageinfo_library.cpp";
-const char *const kStockCpp  = "game/shared/takedamageinfo.cpp";
+const char *const kLibrary = "sourcesharp/game/shared/takedamageinfo_library.cpp";
+const char *const kStockCpp = "game/shared/takedamageinfo.cpp";
 //-----------------------------------------------------------------------------
 // THE FOUR DEFINITIONS PHASE 3f DELETED, and the reason they are a list rather
 // than four missing rows.
@@ -88,12 +88,10 @@ const char *const kStockCpp  = "game/shared/takedamageinfo.cpp";
 // empty or stale input.
 static void ExpectCompiledOnce( const char *pTarget )
 {
-	const std::vector< std::string > listed = cmake_graph::ListedSources( pTarget );
+	const std::vector<std::string> listed = cmake_graph::ListedSources( pTarget );
 	EXPECT_EQ( 1, std::count( listed.begin(), listed.end(), std::string( kLibrary ) ) )
-		<< kLibrary << " is not listed exactly once in " << pTarget
-		<< " (" << cmake_graph::ListFile( pTarget ) << ")";
-	EXPECT_TRUE( cmake_graph::Compiles( pTarget, kLibrary ) )
-		<< kLibrary << " is not compiled into " << pTarget;
+		<< kLibrary << " is not listed exactly once in " << pTarget << " (" << cmake_graph::ListFile( pTarget ) << ")";
+	EXPECT_TRUE( cmake_graph::Compiles( pTarget, kLibrary ) ) << kLibrary << " is not compiled into " << pTarget;
 }
 
 TEST( TakeDamageInfoLibrary, TheServerCompilesIt )
@@ -101,7 +99,7 @@ TEST( TakeDamageInfoLibrary, TheServerCompilesIt )
 	ExpectCompiledOnce( cmake_graph::kServer );
 	if ( HasFailure() )
 		ADD_FAILURE() << "server.so needs ApplyMultiDamage, g_MultiDamage and "
-		   "CTakeDamageInfo::Init, and takedamageinfo.cpp no longer defines them.";
+						 "CTakeDamageInfo::Init, and takedamageinfo.cpp no longer defines them.";
 }
 
 TEST( TakeDamageInfoLibrary, TheClientDoesNotCompileIt )
@@ -143,7 +141,8 @@ TEST( TakeDamageInfoLibrary, TheStockTranslationUnitIsCompiledOnNeitherSide )
 		<< "the stock TU is back in server_sourcesharp "
 		   "(src/server/native/CMakeLists.txt). It defines nothing; if "
 		   "something has been typed back into it, that is a SECOND definition "
-		   "of whatever " << kLibrary << " already holds.";
+		   "of whatever "
+		<< kLibrary << " already holds.";
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kStockCpp ) )
 		<< "the stock TU is back in client_sourcesharp -- see above, and note "
 		   "that a row added to one side only is the shared-file failure this "
@@ -169,4 +168,3 @@ TEST( TakeDamageInfoLibrary, TheStockTranslationUnitIsCompiledOnNeitherSide )
 // pair -- no native DECLARATION left in the shim TU, and the three READS still
 // here, through the by-name handle that replaced it.
 //=============================================================================//
-

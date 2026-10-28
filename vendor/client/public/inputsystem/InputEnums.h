@@ -4,9 +4,9 @@
 
 // Standard maximum +/- value of a joystick axis
 
-#define INVALID_USER_ID		-1
+#define INVALID_USER_ID -1
 
-// Forward declarations: 
+// Forward declarations:
 
 enum
 {
@@ -20,7 +20,7 @@ enum
 enum JoystickAxis_t
 {
 	JOY_AXIS_X = 0,
- 	JOY_AXIS_Y,
+	JOY_AXIS_Y,
 	JOY_AXIS_Z,
 	JOY_AXIS_U,
 	JOY_AXIS_R,
@@ -31,7 +31,7 @@ enum JoystickAxis_t
 enum JoystickAxis_t
 {
 	JOY_AXIS_X = 0,
- 	JOY_AXIS_Y,
+	JOY_AXIS_Y,
 	JOY_AXIS_Z,
 	JOY_AXIS_R,
 	JOY_AXIS_U,
@@ -43,20 +43,20 @@ enum JoystickAxis_t
 // Extra mouse codes
 enum
 {
-	MS_WM_XBUTTONDOWN	= 0x020B,
-	MS_WM_XBUTTONUP		= 0x020C,
-	MS_WM_XBUTTONDBLCLK	= 0x020D,
-	MS_MK_BUTTON4		= 0x0020,
-	MS_MK_BUTTON5		= 0x0040,
+	MS_WM_XBUTTONDOWN = 0x020B,
+	MS_WM_XBUTTONUP = 0x020C,
+	MS_WM_XBUTTONDBLCLK = 0x020D,
+	MS_MK_BUTTON4 = 0x0020,
+	MS_MK_BUTTON5 = 0x0040,
 };
 
 struct InputEvent_t
 {
-	int m_nType;				// Type of the event (see InputEventType_t)
-	int m_nTick;				// Tick on which the event occurred
-	int m_nData;				// Generic 32-bit data, what it contains depends on the event
-	int m_nData2;				// Generic 32-bit data, what it contains depends on the event
-	int m_nData3;				// Generic 32-bit data, what it contains depends on the event
+	int m_nType; // Type of the event (see InputEventType_t)
+	int m_nTick; // Tick on which the event occurred
+	int m_nData; // Generic 32-bit data, what it contains depends on the event
+	int m_nData2; // Generic 32-bit data, what it contains depends on the event
+	int m_nData3; // Generic 32-bit data, what it contains depends on the event
 };
 
 // Steam Controller Enums
@@ -96,8 +96,8 @@ typedef enum
 	SK_BUTTON_START,
 	SK_BUTTON_STEAM,
 	SK_BUTTON_INACTIVE_START,
-	SK_VBUTTON_F1,						// These are "virtual" buttons. Useful if you want to have flow that maps an action to button code to be interpreted by some UI that accepts keystrokes, but you
-	SK_VBUTTON_F2,						// don't want to map to real button (perhaps because it would be interpreted by UI in a way you don't like). 																																										
+	SK_VBUTTON_F1, // These are "virtual" buttons. Useful if you want to have flow that maps an action to button code to be interpreted by some UI that accepts keystrokes, but you
+	SK_VBUTTON_F2, // don't want to map to real button (perhaps because it would be interpreted by UI in a way you don't like).
 	SK_VBUTTON_F3,
 	SK_VBUTTON_F4,
 	SK_VBUTTON_F5,
@@ -144,5 +144,5 @@ enum GameActionSet_t
 enum GameActionSetFlags_t
 {
 	GAME_ACTION_SET_FLAGS_NONE = 0,
-	GAME_ACTION_SET_FLAGS_TAUNTING = (1<<0),
+	GAME_ACTION_SET_FLAGS_TAUNTING = ( 1 << 0 ),
 };

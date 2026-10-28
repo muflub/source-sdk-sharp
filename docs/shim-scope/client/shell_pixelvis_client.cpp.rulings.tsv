@@ -1,13 +1,13 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-OcclusionQueryObjectHandle_t QueryOf(	SLOT-HELP	the render context's query object behind managed's id: the table's bounds check
-float FloatOf(	SLOT-HELP	a command word's float bits
-void Execute(	SLOT	carries out a view's commands as managed answered them: Bind, DepthRange, a proxy's four triangles inside its occlusion query (PixelVisibility_DrawProxy's mesh); the switch over the kind and the bounds checks are its only ifs
-int32_t SourceSharp_PixelVisQueryCreate(	SLOT	IShimViewClient::PixelVisQueryCreate: CreateOcclusionQueryObject, held in the table, named to managed by id
-void SourceSharp_PixelVisQueryDestroy(	SLOT	IShimViewClient::PixelVisQueryDestroy: DestroyOcclusionQueryObject and the table's slot freed
-void SourceSharp_PixelVisQueryReset(	SLOT	IShimViewClient::PixelVisQueryReset: ResetOcclusionQueryObject
-void SourceSharp_PixelVisQueryPixels(	SLOT	IShimViewClient::PixelVisQueryPixels: OcclusionQuery_GetNumPixelsRendered, the counting query's first
-void SourceSharp_PixelVisDiameters(	SLOT	IShimViewClient::PixelVisDiameters: ComputePixelDiameterOfSphere for each sphere a view's end needs, one crossing
-int32_t SourceSharp_PixelVisView(	SLOT	IShimViewClient::PixelVisView: CurrentViewID and the current view's origin and axes
-void ShellPixelVisEndView(	HOOK	the plan's PixelVisEndCurrentView op: the view and the world-to-screen matrix to IManagedPixelVisClient::EndView, its commands carried out (a buffer grown and asked again when they did not fit)
-void ShellPixelVisEndScene(	HOOK	the plan's PixelVisEndScene op: IManagedPixelVisClient::EndScene
+OcclusionQueryObjectHandle_t QueryOf( int32_t nQuery )	SLOT-HELP	the render context's query object behind managed's id: the table's bounds check
+float FloatOf( int32_t nBits )	SLOT-HELP	a command word's float bits
+void Execute( const int32_t *pCmds, int nWords )	SLOT	carries out a view's commands as managed answered them: Bind, DepthRange, a proxy's four triangles inside its occlusion query (PixelVisibility_DrawProxy's mesh); the switch over the kind and the bounds checks are its only ifs
+int32_t SourceSharp_PixelVisQueryCreate()	SLOT	IShimViewClient::PixelVisQueryCreate: CreateOcclusionQueryObject, held in the table, named to managed by id
+void SourceSharp_PixelVisQueryDestroy( int32_t nQuery )	SLOT	IShimViewClient::PixelVisQueryDestroy: DestroyOcclusionQueryObject and the table's slot freed
+void SourceSharp_PixelVisQueryReset( int32_t nQuery )	SLOT	IShimViewClient::PixelVisQueryReset: ResetOcclusionQueryObject
+void SourceSharp_PixelVisQueryPixels( int32_t nVisible, int32_t nCount, int32_t *pOut )	SLOT	IShimViewClient::PixelVisQueryPixels: OcclusionQuery_GetNumPixelsRendered, the counting query's first
+void SourceSharp_PixelVisDiameters( const float *pSpheres, int32_t nSpheres, float *pOut )	SLOT	IShimViewClient::PixelVisDiameters: ComputePixelDiameterOfSphere for each sphere a view's end needs, one crossing
+int32_t SourceSharp_PixelVisView( float *pOut, int32_t nFloats )	SLOT	IShimViewClient::PixelVisView: CurrentViewID and the current view's origin and axes
+void ShellPixelVisEndView()	HOOK	the plan's PixelVisEndCurrentView op: the view and the world-to-screen matrix to IManagedPixelVisClient::EndView, its commands carried out (a buffer grown and asked again when they did not fit)
+void ShellPixelVisEndScene()	HOOK	the plan's PixelVisEndScene op: IManagedPixelVisClient::EndScene

@@ -11,81 +11,24 @@
 // question. The manager reorders its particles, so they pair with managed's by id, never
 // by position.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
-#include "client_entity.h"
-#include "particle_util.h"
-#include "materialsystem/imaterialvar.h"
-#include "view.h"
-#include "tier1/utlobjectreference.h"
+
 #include "viewrender.h"
 #include "clienteffectprecachesystem.h"
-#include "fx.h"
+
 #include "view_scene.h"
 #include "iclientmode.h"
-#include "engine/ivdebugoverlay.h"
-#include "appframework/IAppSystem.h"
-#include "engine/IClientLeafSystem.h"
-#include "engine/ICollideable.h"
-#include "engine/iserverplugin.h"
-#include "materialsystem/imaterial.h"
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/imesh.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "mathlib/vmatrix.h"
-#include "particles/particles.h"
-#include "tier0/basetypes.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
-#include "tier0/threadtools.h"
-#include "tier1/KeyValues.h"
-#include "tier1/convar.h"
-#include "tier1/interface.h"
-#include "tier1/refcount.h"
-#include "tier1/smartptr.h"
-#include "tier1/strtools.h"
-#include "tier1/utlintrusivelist.h"
-#include "tier1/utlvector.h"
-#include "tier2/tier2.h"
-#include "Color.h"
-#include "basehandle.h"
-#include "bspflags.h"
-#include "cdll_client_int.h"
-#include "client_render_handle.h"
-#include "clientleafsystem.h"
-#include "collisionproperty.h"
-#include "const.h"
-#include "gametrace.h"
-#include "globalvars_base.h"
-#include "icliententitylist.h"
-#include "iclientrenderable.h"
-#include "iclientunknown.h"
-#include "particle_iterators.h"
-#include "particledraw.h"
-#include "particlemgr.h"
-#include "texture_group_names.h"
-#include "trace.h"
+
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "shell_particle_effect.h"
 #include "shell_standalone_client.h"
 #include "shell_clientsystem.h"
 #include "shell_effect_ledger.h"
 #include "imanaged_areas_client.h"
-#include "sourcesharp.h"
+
 #include "shell_particle_mgr.h"
 #include "managed_convar_ref.h"
 #include "shell_new_particles.h"
@@ -113,8 +56,8 @@ namespace
 {
 
 // The heatwave's quad, with the normal managed computed.
-void RenderParticle_ColorSizeNormal( ParticleDraw *pDraw, const Vector &pos, const Vector &color,
-                                     float alpha, float size, const Vector &vNorm )
+void RenderParticle_ColorSizeNormal( ParticleDraw *pDraw, const Vector &pos, const Vector &color, float alpha,
+									 float size, const Vector &vNorm )
 {
 	if ( alpha < 0.001f )
 		return;
@@ -236,9 +179,15 @@ class CManagedParticleEffect : public CShellParticleEffect
 {
 public:
 	CManagedParticleEffect( uint32_t hOwner, int32_t nChannel )
-		: m_hOwner( hOwner ), m_nChannel( nChannel ), m_hMaterial( INVALID_MATERIAL_HANDLE ),
-		  m_bLit( false ), m_nSpaceAttachment( 0 ), m_nSpaceFlags( 0 ), m_flCullRadius( 0.0f ),
-		  m_nFlags( kFlagsConstructed ), m_nActive( 0 )
+		: m_hOwner( hOwner )
+		, m_nChannel( nChannel )
+		, m_hMaterial( INVALID_MATERIAL_HANDLE )
+		, m_bLit( false )
+		, m_nSpaceAttachment( 0 )
+		, m_nSpaceFlags( 0 )
+		, m_flCullRadius( 0.0f )
+		, m_nFlags( kFlagsConstructed )
+		, m_nActive( 0 )
 	{
 		SetIdentityMatrix( m_LocalSpace );
 		SetIdentityMatrix( m_matRenderable );
@@ -250,7 +199,14 @@ public:
 	// The space managed put this executor in: an entity attachment's, the view model's FOV
 	// squash, drawn before the view model, or a singleton drawn at DrawParticleSingletons'
 	// place (16 for the 3D sky's call, 8 for the world's).
-	enum { kSpaceLocal = 1, kSpaceViewModel = 2, kSpaceBeforeViewModel = 4, kSpaceSingleton = 8, kSpaceSingletonSky = 16 };
+	enum
+	{
+		kSpaceLocal = 1,
+		kSpaceViewModel = 2,
+		kSpaceBeforeViewModel = 4,
+		kSpaceSingleton = 8,
+		kSpaceSingletonSky = 16
+	};
 
 	// The CParticleEffectBinding FLAGS_ this renderable reads from managed's commit.
 	enum
@@ -355,8 +311,11 @@ public:
 	IMaterial *Material() { return ShellParticleMaterial_Material( m_hMaterial ); }
 
 	uint32_t Owner() const { return m_hOwner; }
+
 	int32_t Channel() const { return m_nChannel; }
+
 	int32_t SpaceFlags() const { return m_nSpaceFlags; }
+
 	int32_t ActiveParticles() const { return m_nActive; }
 
 	// This frame's read for managed: its place, its material's frame-buffer needs, and the follow.
@@ -371,7 +330,8 @@ public:
 		in.AnglesPYR[2] = GetAbsAngles().z;
 		IMaterial *pPage = PageMaterial();
 		if ( pPage )
-			in.MaterialFlags = ( pPage->NeedsPowerOfTwoFrameBufferTexture() ? 1 : 0 ) | ( pPage->NeedsFullFrameBufferTexture() ? 2 : 0 );
+			in.MaterialFlags = ( pPage->NeedsPowerOfTwoFrameBufferTexture() ? 1 : 0 ) |
+				( pPage->NeedsFullFrameBufferTexture() ? 2 : 0 );
 		if ( m_nSpaceFlags & kSpaceLocal )
 		{
 			SourceSharpParticleFollow_t follow;
@@ -399,6 +359,7 @@ public:
 
 public:
 	virtual const Vector &GetRenderOrigin() OVERRIDE { return GetAbsOrigin(); }
+
 	virtual const QAngle &GetRenderAngles() OVERRIDE { return vec3_angle; }
 
 	virtual const matrix3x4_t &RenderableToWorldTransform() OVERRIDE
@@ -413,12 +374,17 @@ public:
 	{
 		const Vector &vSortOrigin = GetAbsOrigin();
 		mins = m_Min - vSortOrigin;
-		mins.x -= m_flCullRadius; mins.y -= m_flCullRadius; mins.z -= m_flCullRadius;
+		mins.x -= m_flCullRadius;
+		mins.y -= m_flCullRadius;
+		mins.z -= m_flCullRadius;
 		maxs = m_Max - vSortOrigin;
-		maxs.x += m_flCullRadius; maxs.y += m_flCullRadius; maxs.z += m_flCullRadius;
+		maxs.x += m_flCullRadius;
+		maxs.y += m_flCullRadius;
+		maxs.z += m_flCullRadius;
 	}
 
 	virtual bool ShouldDraw() OVERRIDE { return ( m_nFlags & kFlagDrawThruLeafSystem ) != 0; }
+
 	virtual bool IsTransparent() OVERRIDE { return true; }
 
 	virtual int DrawModel( int flags ) OVERRIDE;
@@ -434,7 +400,8 @@ private:
 
 	void RenderStart( VMatrix &tempModel, VMatrix &tempView );
 	void RenderEnd( VMatrix &tempModel, VMatrix &tempView );
-	void DrawQuads( IMaterial *pMaterial, float flFrameTime, const SourceSharpParticleQuad_t *pQuads, int nQuads, float *pKeys );
+	void DrawQuads( IMaterial *pMaterial, float flFrameTime, const SourceSharpParticleQuad_t *pQuads, int nQuads,
+					float *pKeys );
 
 	uint32_t m_hOwner;
 	int32_t m_nChannel;
@@ -451,9 +418,9 @@ private:
 	Vector m_Max;
 	matrix3x4_t m_LocalSpace;
 	matrix3x4_t m_matRenderable;
-	CUtlVector< uint8_t > m_DrawBuffer;
-	CUtlVector< float > m_Keys;
-	CUtlVector< uint8_t > m_KeyBuffer;
+	CUtlVector<uint8_t> m_DrawBuffer;
+	CUtlVector<float> m_Keys;
+	CUtlVector<uint8_t> m_KeyBuffer;
 };
 
 // The particles draw in camera space, so model and view go to identity for the draw (the
@@ -491,8 +458,8 @@ void CManagedParticleEffect::RenderEnd( VMatrix &tempModel, VMatrix &tempView )
 
 // One material's draw: the particle manager bound as proxy argument, quads in managed's
 // order, flushed every NUM_PARTICLES_PER_BATCH, each quad's sort key written back.
-void CManagedParticleEffect::DrawQuads( IMaterial *pMaterial, float flFrameTime, const SourceSharpParticleQuad_t *pQuads,
-                                        int nQuads, float *pKeys )
+void CManagedParticleEffect::DrawQuads( IMaterial *pMaterial, float flFrameTime,
+										const SourceSharpParticleQuad_t *pQuads, int nQuads, float *pKeys )
 {
 	CMatRenderContextPtr pRenderContext( materials );
 	pRenderContext->Bind( pMaterial, ShellParticleDraw_BindArg() );
@@ -518,9 +485,9 @@ void CManagedParticleEffect::DrawQuads( IMaterial *pMaterial, float flFrameTime,
 		else if ( pQuad->Kind == 6 )
 		{
 			// The dust motes: already in view space, alpha and size from depth decided by managed.
-			RenderParticle_Color255Size( pDraw, Vector( pQuad->PositionXYZ[0], pQuad->PositionXYZ[1], pQuad->PositionXYZ[2] ),
-			                             Vector( pQuad->ColorXYZ[0], pQuad->ColorXYZ[1], pQuad->ColorXYZ[2] ),
-			                             pQuad->Alpha, pQuad->Size );
+			RenderParticle_Color255Size(
+				pDraw, Vector( pQuad->PositionXYZ[0], pQuad->PositionXYZ[1], pQuad->PositionXYZ[2] ),
+				Vector( pQuad->ColorXYZ[0], pQuad->ColorXYZ[1], pQuad->ColorXYZ[2] ), pQuad->Alpha, pQuad->Size );
 			g_SourceSharpEffects.nDustMotes++;
 			flKey = pQuad->SortKey;
 		}
@@ -550,12 +517,14 @@ void CManagedParticleEffect::DrawQuads( IMaterial *pMaterial, float flFrameTime,
 				: pQuad->Alpha;
 
 			if ( pQuad->Kind == 2 )
-				RenderParticle_Color255SizeNormalAngle( pDraw, tPos, vColor, flAlpha, pQuad->Size, vec3_origin, pQuad->Roll );
+				RenderParticle_Color255SizeNormalAngle( pDraw, tPos, vColor, flAlpha, pQuad->Size, vec3_origin,
+														pQuad->Roll );
 			else if ( pQuad->Kind == 3 )
 				RenderParticle_ColorSize( pDraw, tPos, vColor, flAlpha, pQuad->Size );
 			else if ( pQuad->Kind == 1 )
-				RenderParticle_ColorSizeNormal( pDraw, tPos, vColor, flAlpha, pQuad->Size,
-				                                Vector( pQuad->NormalXYZ[0], pQuad->NormalXYZ[1], pQuad->NormalXYZ[2] ) );
+				RenderParticle_ColorSizeNormal(
+					pDraw, tPos, vColor, flAlpha, pQuad->Size,
+					Vector( pQuad->NormalXYZ[0], pQuad->NormalXYZ[1], pQuad->NormalXYZ[2] ) );
 			else
 				RenderParticle_ColorSizeAngle( pDraw, tPos, vColor, flAlpha, pQuad->Size, pQuad->Roll );
 
@@ -618,14 +587,16 @@ int CManagedParticleEffect::DrawModel( int flags )
 	if ( nResult < nHeader || BitBlockBits( m_DrawBuffer.Base() ) / 8 + kBitBlockHeaderBytes > m_DrawBuffer.Count() )
 		return 0;
 
-	const SourceSharpParticleDrawOut_t *pOut = (const SourceSharpParticleDrawOut_t *)( m_DrawBuffer.Base() + kBitBlockHeaderBytes );
+	const SourceSharpParticleDrawOut_t *pOut =
+		(const SourceSharpParticleDrawOut_t *)( m_DrawBuffer.Base() + kBitBlockHeaderBytes );
 	if ( pOut->Result == 0 )
 		return 0;
 	if ( pOut->Result == 1 )
 		return 1;
 
 	const int nPayload = BitBlockBits( m_DrawBuffer.Base() ) / 8;
-	const int nQuads = ( nPayload - (int)sizeof( SourceSharpParticleDrawOut_t ) ) / (int)sizeof( SourceSharpParticleQuad_t );
+	const int nQuads =
+		( nPayload - (int)sizeof( SourceSharpParticleDrawOut_t ) ) / (int)sizeof( SourceSharpParticleQuad_t );
 	const SourceSharpParticleQuad_t *pQuads = (const SourceSharpParticleQuad_t *)( pOut + 1 );
 
 	VMatrix mTempModel, mTempView;
@@ -647,8 +618,8 @@ int CManagedParticleEffect::DrawModel( int flags )
 	const Vector vMax( pOut->MaxXYZ[0], pOut->MaxXYZ[1], pOut->MaxXYZ[2] );
 	for ( int nPass = 0; nPass < nPasses; nPass++ )
 	{
-		IMaterial *pMaterial = nPass == 0 ? pPage
-			: materials->FindMaterial( "debug/debugparticlewireframe", TEXTURE_GROUP_OTHER );
+		IMaterial *pMaterial =
+			nPass == 0 ? pPage : materials->FindMaterial( "debug/debugparticlewireframe", TEXTURE_GROUP_OTHER );
 		// The wireframe pass draws the same quads again.
 		DrawQuads( pMaterial, flFrameTime, pQuads, nQuads, m_Keys.Base() );
 
@@ -670,7 +641,7 @@ int CManagedParticleEffect::DrawModel( int flags )
 }
 
 // The live executors, one per (owner, channel).
-static CUtlVector< CManagedParticleEffect * > g_ManagedParticles;
+static CUtlVector<CManagedParticleEffect *> g_ManagedParticles;
 
 static int ManagedParticles_Find( uint32_t hOwner, int32_t nChannel )
 {
@@ -692,8 +663,8 @@ static void ManagedParticles_Forget( CShellParticleEffect *pEffect )
 	}
 }
 
-int32_t SourceSharp_ParticlesCreate( uint32_t hOwner, int32_t nChannel, const char *pszMaterial,
-                                     float flCullRadius, int32_t bAlwaysSimulate )
+int32_t SourceSharp_ParticlesCreate( uint32_t hOwner, int32_t nChannel, const char *pszMaterial, float flCullRadius,
+									 int32_t bAlwaysSimulate )
 {
 	C_StandaloneEntity *pOwner = SourceSharp_StandaloneFromHandle( hOwner );
 	if ( !pOwner || !pszMaterial || ManagedParticles_Find( hOwner, nChannel ) >= 0 )
@@ -716,7 +687,7 @@ int32_t SourceSharp_ParticlesCreate( uint32_t hOwner, int32_t nChannel, const ch
 // An executor for an ownerless effect, placed once at a world point and keyed by the
 // no-owner handle and the managed id. Managed releases it when the effect finishes.
 int32_t SourceSharp_ParticlesCreateAt( int32_t nId, const char *pszMaterial, const float *pOriginXYZ,
-                                       float flCullRadius, int32_t bAlwaysSimulate )
+									   float flCullRadius, int32_t bAlwaysSimulate )
 {
 	if ( !pszMaterial || !pOriginXYZ || ManagedParticles_Find( SOURCESHARP_PARTICLE_NO_OWNER, nId ) >= 0 )
 		return 0;
@@ -749,8 +720,8 @@ void DrawParticleSingletons( bool bInSkybox )
 }
 
 // 1 when the executor was found.
-int32_t SourceSharp_ParticlesSetSpace( uint32_t hOwner, int32_t nChannel, uint32_t hEntity, int32_t nAttachment, int32_t nFlags,
-                                       SourceSharpParticleFollow_t *pFollow )
+int32_t SourceSharp_ParticlesSetSpace( uint32_t hOwner, int32_t nChannel, uint32_t hEntity, int32_t nAttachment,
+									   int32_t nFlags, SourceSharpParticleFollow_t *pFollow )
 {
 	const int i = ManagedParticles_Find( hOwner, nChannel );
 	if ( i < 0 )
@@ -769,13 +740,15 @@ void ShellParticles_Frame( float flFrameTime )
 		return;
 
 	// On the stack for the usual executor counts; the heap past it.
-	CUtlVectorFixedGrowable< uint8_t, 16384 > in;
-	CUtlVectorFixedGrowable< uint8_t, 4096 > out;
+	CUtlVectorFixedGrowable<uint8_t, 16384> in;
+	CUtlVectorFixedGrowable<uint8_t, 4096> out;
 	const int nExecutors = g_ManagedParticles.Count();
-	const int nIn = (int)sizeof( SourceSharpParticleFrameHeader_t ) + nExecutors * (int)sizeof( SourceSharpParticleFrameIn_t );
+	const int nIn =
+		(int)sizeof( SourceSharpParticleFrameHeader_t ) + nExecutors * (int)sizeof( SourceSharpParticleFrameIn_t );
 	in.SetCount( kBitBlockHeaderBytes + nIn );
 	BitBlockSetBits( in.Base(), nIn * 8 );
-	SourceSharpParticleFrameHeader_t *pHeader = (SourceSharpParticleFrameHeader_t *)( in.Base() + kBitBlockHeaderBytes );
+	SourceSharpParticleFrameHeader_t *pHeader =
+		(SourceSharpParticleFrameHeader_t *)( in.Base() + kBitBlockHeaderBytes );
 	pHeader->Dt = flFrameTime;
 	pHeader->CurTime = gpGlobals->curtime;
 	pHeader->FrameTime = gpGlobals->frametime;
@@ -792,7 +765,8 @@ void ShellParticles_Frame( float flFrameTime )
 		return;
 
 	const int nBytes = MIN( BitBlockBits( out.Base() ) / 8, out.Count() - kBitBlockHeaderBytes );
-	const SourceSharpParticleCommit_t *pCommits = (const SourceSharpParticleCommit_t *)( out.Base() + kBitBlockHeaderBytes );
+	const SourceSharpParticleCommit_t *pCommits =
+		(const SourceSharpParticleCommit_t *)( out.Base() + kBitBlockHeaderBytes );
 	for ( int c = 0; c < nBytes / (int)sizeof( SourceSharpParticleCommit_t ); c++ )
 	{
 		const int i = ManagedParticles_Find( pCommits[c].Owner, pCommits[c].Channel );
@@ -844,13 +818,14 @@ int32_t SourceSharp_ParticlesMaterialVarInt( uint32_t hOwner, int32_t nChannel, 
 
 // A world trace that also answers the hit plane, which the smoke volume's wall fade reads.
 // Out: fraction, normal xyz, dist. Returns the count written, or 0.
-int32_t SourceSharp_ParticlesTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, float *pOut, int32_t nOut )
+int32_t SourceSharp_ParticlesTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, float *pOut,
+										int32_t nOut )
 {
 	if ( !pStartXYZ || !pEndXYZ || !pOut || nOut < 5 )
 		return 0;
 	trace_t tr;
 	UTIL_TraceLine( Vector( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] ), Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] ),
-	                (unsigned int)nMask, NULL, COLLISION_GROUP_NONE, &tr );
+					(unsigned int)nMask, NULL, COLLISION_GROUP_NONE, &tr );
 	pOut[0] = tr.fraction;
 	pOut[1] = tr.plane.normal.x;
 	pOut[2] = tr.plane.normal.y;
@@ -889,16 +864,16 @@ static void ManagedParticles_Follow()
 
 // Every live executor, where it draws this frame and how many particles it simulates.
 CON_COMMAND( cs_cl_effect_kinds,
-             "every live managed particle executor (trails, steam jets, smoke stacks, smoke volumes): "
-             "where it is drawn this frame and how many particles its binding is simulating" )
+			 "every live managed particle executor (trails, steam jets, smoke stacks, smoke volumes): "
+			 "where it is drawn this frame and how many particles its binding is simulating" )
 {
 	for ( int i = 0; i < g_ManagedParticles.Count(); i++ )
 	{
 		CManagedParticleEffect *pEffect = g_ManagedParticles[i];
 		const Vector vOrigin = pEffect->GetAbsOrigin();
 		Msg( "[SourceSharp] effect kind: managed-%d at (%.1f %.1f %.1f) particles %d owner %u space %d\n",
-		     pEffect->Channel(), vOrigin.x, vOrigin.y, vOrigin.z,
-		     pEffect->ActiveParticles(), pEffect->Owner(), pEffect->SpaceFlags() );
+			 pEffect->Channel(), vOrigin.x, vOrigin.y, vOrigin.z, pEffect->ActiveParticles(), pEffect->Owner(),
+			 pEffect->SpaceFlags() );
 	}
 
 	Msg( "[SourceSharp] effect kinds: %d executor(s)\n", g_ManagedParticles.Count() );
@@ -907,7 +882,10 @@ CON_COMMAND( cs_cl_effect_kinds,
 class CSourceSharpManagedParticlesSystem : public CClientSystemPerFrame
 {
 public:
-	CSourceSharpManagedParticlesSystem() : CClientSystemPerFrame( "CSourceSharpManagedParticlesSystem" ) {}
+	CSourceSharpManagedParticlesSystem()
+		: CClientSystemPerFrame( "CSourceSharpManagedParticlesSystem" )
+	{
+	}
 
 	virtual void PreRender() OVERRIDE { ManagedParticles_Follow(); }
 
@@ -925,7 +903,10 @@ public:
 
 static CSourceSharpManagedParticlesSystem g_ManagedParticlesSystem;
 
-CClientSystem *ClientSystem_ManagedParticles() { return &g_ManagedParticlesSystem; }
+CClientSystem *ClientSystem_ManagedParticles()
+{
+	return &g_ManagedParticlesSystem;
+}
 
 // The new-style particle systems the client starts, owned by the library. An owned system
 // (started by a managed entity) is held and kept at its owner by the sweep below; a
@@ -937,26 +918,26 @@ CClientSystem *ClientSystem_ManagedParticles() { return &g_ManagedParticlesSyste
 
 struct SourceSharpParticleSystem_t
 {
-	uint32_t                        hOwner;
-	CSmartPtr< CShellNewParticleEffect > pEffect;
+	uint32_t hOwner;
+	CSmartPtr<CShellNewParticleEffect> pEffect;
 
 	// Which control points the sweep keeps at the owner, as a bitmask. An unfed control point
 	// is the world origin.
-	int32_t                         nFollowMask;
+	int32_t nFollowMask;
 };
 
-static CUtlVector< SourceSharpParticleSystem_t > g_ParticleSystems;
+static CUtlVector<SourceSharpParticleSystem_t> g_ParticleSystems;
 
 // Heap entries: a CUtlReference links itself into its object's list and must not move.
 struct WatchedParticleSystem_t
 {
-	CUtlReference< CShellNewParticleEffect > ref;
-	uint32_t                            hOwner;
-	int32_t                             nKind;
-	float                               flStarted;
+	CUtlReference<CShellNewParticleEffect> ref;
+	uint32_t hOwner;
+	int32_t nKind;
+	float flStarted;
 };
 
-static CUtlVector< WatchedParticleSystem_t * > g_WatchedParticles;
+static CUtlVector<WatchedParticleSystem_t *> g_WatchedParticles;
 
 // The entries whose effect the manager has deleted.
 static void ReapWatchedParticleSystems()
@@ -985,9 +966,9 @@ static void WatchParticleSystem( CShellNewParticleEffect *pEffect, uint32_t hOwn
 }
 
 // A refused name is not watched: Start refuses it to managed.
-static CSmartPtr< CShellNewParticleEffect > CreateWatched( uint32_t hOwner, const char *pszName )
+static CSmartPtr<CShellNewParticleEffect> CreateWatched( uint32_t hOwner, const char *pszName )
 {
-	CSmartPtr< CShellNewParticleEffect > pEffect = CShellNewParticleEffect::Create( pszName, "SourceSharpFlame" );
+	CSmartPtr<CShellNewParticleEffect> pEffect = CShellNewParticleEffect::Create( pszName, "SourceSharpFlame" );
 	if ( pEffect.IsValid() && pEffect->IsValid() )
 		WatchParticleSystem( pEffect.GetObject(), hOwner, SOURCESHARP_PARTICLE_SYSTEM_OWNED );
 	return pEffect;
@@ -996,7 +977,7 @@ static CSmartPtr< CShellNewParticleEffect > CreateWatched( uint32_t hOwner, cons
 // StopEmission rather than a release, so particles already in the air burn out.
 static void ReleaseParticleSystemAt( int nIndex )
 {
-	CShellNewParticleEffect *pEffect = g_ParticleSystems[ nIndex ].pEffect.GetObject();
+	CShellNewParticleEffect *pEffect = g_ParticleSystems[nIndex].pEffect.GetObject();
 
 	if ( pEffect )
 		pEffect->StopEmission( false, false, true );
@@ -1020,7 +1001,7 @@ int32_t SourceSharp_ParticleSystemStart( uint32_t hOwner, const char *pszName )
 	if ( nExisting >= 0 )
 		ReleaseParticleSystemAt( nExisting );
 
-	CSmartPtr< CShellNewParticleEffect > pEffect = CreateWatched( hOwner, pszName );
+	CSmartPtr<CShellNewParticleEffect> pEffect = CreateWatched( hOwner, pszName );
 
 	// A name no .pcf defines yields an effect that draws nothing; refuse it so managed knows.
 	if ( !pEffect.IsValid() || !pEffect->IsValid() )
@@ -1031,8 +1012,8 @@ int32_t SourceSharp_ParticleSystemStart( uint32_t hOwner, const char *pszName )
 	pEffect->SetSortOrigin( pOwner->GetAbsOrigin() );
 
 	SourceSharpParticleSystem_t entry;
-	entry.hOwner      = hOwner;
-	entry.pEffect     = pEffect;
+	entry.hOwner = hOwner;
+	entry.pEffect = pEffect;
 	entry.nFollowMask = kSourceSharpParticleFollowDefault;
 	g_ParticleSystems.AddToTail( entry );
 
@@ -1051,8 +1032,7 @@ int32_t SourceSharp_ParticleSystemFollowPoints( uint32_t hOwner, int32_t nPointM
 		return 0;
 
 	// Point 0 is always fed: it is where the system is placed.
-	g_ParticleSystems[ nIndex ].nFollowMask =
-		SourceSharpParticleFollow_Normalise( nPointMask );
+	g_ParticleSystems[nIndex].nFollowMask = SourceSharpParticleFollow_Normalise( nPointMask );
 
 	return 1;
 }
@@ -1130,7 +1110,8 @@ static int CountParticles( CParticleCollection *pCollection )
 	return nTotal;
 }
 
-int32_t SourceSharp_ParticleSystemsRead( int32_t nIndex, SourceSharpParticleSystemInfo_t *pOut, char *pszName, int32_t nNameMax )
+int32_t SourceSharp_ParticleSystemsRead( int32_t nIndex, SourceSharpParticleSystemInfo_t *pOut, char *pszName,
+										 int32_t nNameMax )
 {
 	ReapWatchedParticleSystems();
 
@@ -1138,7 +1119,7 @@ int32_t SourceSharp_ParticleSystemsRead( int32_t nIndex, SourceSharpParticleSyst
 	if ( nIndex < 0 || nIndex >= nCount || !pOut )
 		return nCount;
 
-	const WatchedParticleSystem_t *pWatch = g_WatchedParticles[ nIndex ];
+	const WatchedParticleSystem_t *pWatch = g_WatchedParticles[nIndex];
 	CShellNewParticleEffect *pEffect = pWatch->ref();
 
 	memset( pOut, 0, sizeof( *pOut ) );
@@ -1147,9 +1128,9 @@ int32_t SourceSharp_ParticleSystemsRead( int32_t nIndex, SourceSharpParticleSyst
 	pOut->Age = gpGlobals->curtime - pWatch->flStarted;
 
 	const int nOwned = ShellEffects_Find( g_ParticleSystems, pWatch->hOwner );
-	const bool bHeld = nOwned >= 0 && g_ParticleSystems[ nOwned ].pEffect.GetObject() == pEffect;
+	const bool bHeld = nOwned >= 0 && g_ParticleSystems[nOwned].pEffect.GetObject() == pEffect;
 	pOut->Stopped = ( pWatch->nKind == SOURCESHARP_PARTICLE_SYSTEM_OWNED && !bHeld ) ? 1 : 0;
-	pOut->FollowMask = bHeld ? g_ParticleSystems[ nOwned ].nFollowMask : 0;
+	pOut->FollowMask = bHeld ? g_ParticleSystems[nOwned].nFollowMask : 0;
 
 	if ( pEffect )
 	{
@@ -1179,10 +1160,18 @@ int32_t SourceSharp_ParticleSystemsRead( int32_t nIndex, SourceSharpParticleSyst
 // side (the collision-group reads during Init, before the runtime exists) answer the
 // interface's default and are counted.
 
-class CShellParticleSystemQuery : public CBaseAppSystem< IParticleSystemQuery >
+class CShellParticleSystemQuery : public CBaseAppSystem<IParticleSystemQuery>
 {
 public:
-	enum { kCollisionGroup, kLighting, kTrace, kHitBoxPoints, kHitBoxInfo, kMethods };
+	enum
+	{
+		kCollisionGroup,
+		kLighting,
+		kTrace,
+		kHitBoxPoints,
+		kHitBoxInfo,
+		kMethods
+	};
 
 	virtual void GetLightingAtPoint( const Vector &vecOrigin, Color &tint ) OVERRIDE
 	{
@@ -1197,11 +1186,12 @@ public:
 	}
 
 	virtual void TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask,
-	                        const IHandleEntity *ignore, int collisionGroup, CBaseTrace *ptr ) OVERRIDE
+							const IHandleEntity *ignore, int collisionGroup, CBaseTrace *ptr ) OVERRIDE
 	{
 		IManagedParticlesClient *pArea = ManagedParticlesClient();
-		const int32_t nAnswer = pArea ? pArea->QueryTrace( vecAbsStart.Base(), vecAbsEnd.Base(), mask,
-		                                                   collisionGroup, ignore ? 1 : 0 ) : -1;
+		const int32_t nAnswer = pArea
+			? pArea->QueryTrace( vecAbsStart.Base(), vecAbsEnd.Base(), mask, collisionGroup, ignore ? 1 : 0 )
+			: -1;
 		if ( nAnswer == 1 )
 		{
 			trace_t tempTrace;
@@ -1218,7 +1208,8 @@ public:
 	virtual int GetCollisionGroupFromName( const char *pszCollisionGroupName ) OVERRIDE
 	{
 		IManagedParticlesClient *pArea = ManagedParticlesClient();
-		const int32_t nGroup = ( pArea && pszCollisionGroupName ) ? pArea->QueryCollisionGroup( pszCollisionGroupName ) : -1;
+		const int32_t nGroup =
+			( pArea && pszCollisionGroupName ) ? pArea->QueryCollisionGroup( pszCollisionGroupName ) : -1;
 		if ( nGroup >= 0 )
 			return nGroup;
 		Unanswered_Add( kCollisionGroup );
@@ -1226,15 +1217,17 @@ public:
 	}
 
 	virtual void GetRandomPointsOnControllingObjectHitBox( CParticleCollection *pParticles, int nControlPointNumber,
-		int nNumPtsOut, float flBBoxScale, int nNumTrysToGetAPointInsideTheModel, Vector *pPntsOut,
-		Vector vecDirectionalBias, Vector *pHitBoxRelativeCoordOut, int *pHitBoxIndexOut ) OVERRIDE
+														   int nNumPtsOut, float flBBoxScale,
+														   int nNumTrysToGetAPointInsideTheModel, Vector *pPntsOut,
+														   Vector vecDirectionalBias, Vector *pHitBoxRelativeCoordOut,
+														   int *pHitBoxIndexOut ) OVERRIDE
 	{
-		const CParticleControlPoint &point = pParticles->m_ControlPoints[ nControlPointNumber ];
+		const CParticleControlPoint &point = pParticles->m_ControlPoints[nControlPointNumber];
 		IManagedParticlesClient *pArea = ManagedParticlesClient();
 		const int32_t nAnswer = pArea
-			? pArea->QueryHitBoxPoints( nControlPointNumber, point.m_Position.Base(), point.m_pObject ? 1 : 0, nNumPtsOut,
-			                            pPntsOut ? pPntsOut->Base() : NULL, pHitBoxIndexOut,
-			                            pHitBoxRelativeCoordOut ? pHitBoxRelativeCoordOut->Base() : NULL )
+			? pArea->QueryHitBoxPoints( nControlPointNumber, point.m_Position.Base(), point.m_pObject ? 1 : 0,
+										nNumPtsOut, pPntsOut ? pPntsOut->Base() : NULL, pHitBoxIndexOut,
+										pHitBoxRelativeCoordOut ? pHitBoxRelativeCoordOut->Base() : NULL )
 			: -1;
 		if ( nAnswer == nNumPtsOut )
 			return;
@@ -1251,13 +1244,13 @@ public:
 		}
 	}
 
-	virtual int GetControllingObjectHitBoxInfo( CParticleCollection *pParticles, int nControlPointNumber,
-		int nBufSize, ModelHitBoxInfo_t *pHitBoxOutputBuffer ) OVERRIDE
+	virtual int GetControllingObjectHitBoxInfo( CParticleCollection *pParticles, int nControlPointNumber, int nBufSize,
+												ModelHitBoxInfo_t *pHitBoxOutputBuffer ) OVERRIDE
 	{
 		IManagedParticlesClient *pArea = ManagedParticlesClient();
 		const int32_t nAnswer = pArea
 			? pArea->QueryHitBoxInfo( nControlPointNumber,
-			                          pParticles->m_ControlPoints[ nControlPointNumber ].m_pObject ? 1 : 0, nBufSize )
+									  pParticles->m_ControlPoints[nControlPointNumber].m_pObject ? 1 : 0, nBufSize )
 			: -1;
 		if ( nAnswer >= 0 && nAnswer <= nBufSize )
 			return nAnswer;
@@ -1305,22 +1298,23 @@ public:
 
 	int32_t Unanswered( int nMethod ) const
 	{
-		return ( nMethod >= 0 && nMethod < kMethods ) ? m_nUnanswered[ nMethod ] : 0;
+		return ( nMethod >= 0 && nMethod < kMethods ) ? m_nUnanswered[nMethod] : 0;
 	}
 
 private:
 	// The library's worker threads call these concurrently.
-	void Unanswered_Add( int nMethod ) { ThreadInterlockedIncrement( &m_nUnanswered[ nMethod ] ); }
+	void Unanswered_Add( int nMethod ) { ThreadInterlockedIncrement( &m_nUnanswered[nMethod] ); }
 
 	CThreadFastMutex m_LightMutex;
-	volatile int32 m_nUnanswered[ kMethods ];
+	volatile int32 m_nUnanswered[kMethods];
 };
 
 static CShellParticleSystemQuery s_ShellParticleQuery;
 
 // The global CParticleMgr::Init hands particles.a, also registered by name.
 IParticleSystemQuery *g_pParticleSystemQuery = &s_ShellParticleQuery;
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellParticleSystemQuery, IParticleSystemQuery, PARTICLE_SYSTEM_QUERY_INTERFACE_VERSION, s_ShellParticleQuery );
+EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellParticleSystemQuery, IParticleSystemQuery,
+								   PARTICLE_SYSTEM_QUERY_INTERFACE_VERSION, s_ShellParticleQuery );
 
 // The unanswered calls per method, in CShellParticleSystemQuery's order. Returns the count.
 int32_t SourceSharp_ParticleQueryUnanswered( int32_t *pOut, int32_t nMax )
@@ -1347,21 +1341,23 @@ int32_t SourceSharp_ParticleSystemNameFromIndex( int32_t nIndex, char *pszOut, i
 // pPoints: nPoints of (point, x, y, z). pOrientation0: control point 0's forward, right
 // and up. 1 when a definition answered the name.
 int32_t SourceSharp_ParticleSystemOneShot( const char *pszName, const float *pSortOriginXYZ, const float *pPoints,
-                                           int32_t nPoints, const float *pOrientation0 )
+										   int32_t nPoints, const float *pOrientation0 )
 {
 	if ( !pszName || !pSortOriginXYZ || ( nPoints > 0 && !pPoints ) || !pOrientation0 )
 		return 0;
-	CSmartPtr< CShellNewParticleEffect > pEffect = CShellNewParticleEffect::Create( pszName );
+	CSmartPtr<CShellNewParticleEffect> pEffect = CShellNewParticleEffect::Create( pszName );
 	if ( !pEffect.IsValid() || !pEffect->IsValid() )
 		return 0;
 	pEffect->SetSortOrigin( Vector( pSortOriginXYZ[0], pSortOriginXYZ[1], pSortOriginXYZ[2] ) );
 	for ( int i = 0; i < nPoints && i < 2; i++ )
-		pEffect->SetControlPoint( (int)pPoints[ i * 4 ], Vector( pPoints[ i * 4 + 1 ], pPoints[ i * 4 + 2 ], pPoints[ i * 4 + 3 ] ) );
+		pEffect->SetControlPoint( (int)pPoints[i * 4],
+								  Vector( pPoints[i * 4 + 1], pPoints[i * 4 + 2], pPoints[i * 4 + 3] ) );
 	pEffect->SetControlPointOrientation( 0, Vector( pOrientation0[0], pOrientation0[1], pOrientation0[2] ),
-	                                     Vector( pOrientation0[3], pOrientation0[4], pOrientation0[5] ),
-	                                     Vector( pOrientation0[6], pOrientation0[7], pOrientation0[8] ) );
+										 Vector( pOrientation0[3], pOrientation0[4], pOrientation0[5] ),
+										 Vector( pOrientation0[6], pOrientation0[7], pOrientation0[8] ) );
 	for ( int i = 2; i < nPoints; i++ )
-		pEffect->SetControlPoint( (int)pPoints[ i * 4 ], Vector( pPoints[ i * 4 + 1 ], pPoints[ i * 4 + 2 ], pPoints[ i * 4 + 3 ] ) );
+		pEffect->SetControlPoint( (int)pPoints[i * 4],
+								  Vector( pPoints[i * 4 + 1], pPoints[i * 4 + 2], pPoints[i * 4 + 3] ) );
 	ShellParticles_WatchOneShot( pEffect.GetObject() );
 	return 1;
 }
@@ -1374,7 +1370,7 @@ int32_t SourceSharp_ParticlesWorldTrace( const float *pStartXYZ, const float *pE
 		return 0;
 	trace_t tr;
 	UTIL_TraceLine( Vector( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] ), Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] ),
-	                MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_NONE, &tr );
+					MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_NONE, &tr );
 	pOut[0] = tr.fraction;
 	pOut[1] = tr.endpos.x;
 	pOut[2] = tr.endpos.y;
@@ -1396,7 +1392,7 @@ void SourceSharp_ParticlesView( float *pModelView12, int32_t *pViewId, float *pO
 		const VMatrix &mv = ShellParticleDraw_ModelView();
 		for ( int r = 0; r < 3; r++ )
 			for ( int c = 0; c < 4; c++ )
-				pModelView12[ r * 4 + c ] = mv[r][c];
+				pModelView12[r * 4 + c] = mv[r][c];
 	}
 	if ( pViewId )
 		*pViewId = (int32_t)CurrentViewID();
@@ -1415,13 +1411,14 @@ void SourceSharp_ParticlesView( float *pModelView12, int32_t *pViewId, float *pO
 
 // A trace with managed's contents mask. Out: fraction, endpos xyz, normal xyz, startsolid,
 // fractionleftsolid. Returns the count written.
-int32_t SourceSharp_ParticlesTraceMask( const float *pStartXYZ, const float *pEndXYZ, uint32_t nMask, float *pOut, int32_t nOut )
+int32_t SourceSharp_ParticlesTraceMask( const float *pStartXYZ, const float *pEndXYZ, uint32_t nMask, float *pOut,
+										int32_t nOut )
 {
 	if ( !pStartXYZ || !pEndXYZ || !pOut || nOut < 9 )
 		return 0;
 	trace_t tr;
 	UTIL_TraceLine( Vector( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] ), Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] ),
-	                nMask, NULL, COLLISION_GROUP_NONE, &tr );
+					nMask, NULL, COLLISION_GROUP_NONE, &tr );
 	pOut[0] = tr.fraction;
 	pOut[1] = tr.endpos.x;
 	pOut[2] = tr.endpos.y;
@@ -1435,12 +1432,12 @@ int32_t SourceSharp_ParticlesTraceMask( const float *pStartXYZ, const float *pEn
 }
 
 // fx_water.cpp's entry points native code still calls; managed decides each splash or tint.
-static void ManagedWaterSplash( int nKind, const Vector &origin, const Vector *pNormal, float flScale, const Vector *pColor,
-                                float flLifetime, float flAlpha )
+static void ManagedWaterSplash( int nKind, const Vector &origin, const Vector *pNormal, float flScale,
+								const Vector *pColor, float flLifetime, float flAlpha )
 {
 	if ( IManagedParticlesClient *pArea = ManagedParticlesClient() )
-		pArea->WaterSplash( nKind, origin.Base(), pNormal ? pNormal->Base() : NULL, flScale, pColor ? pColor->Base() : NULL,
-		                    flLifetime, flAlpha );
+		pArea->WaterSplash( nKind, origin.Base(), pNormal ? pNormal->Base() : NULL, flScale,
+							pColor ? pColor->Base() : NULL, flLifetime, flAlpha );
 }
 
 void FX_GunshotSplash( const Vector &origin, const Vector &normal, float scale )

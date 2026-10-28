@@ -49,10 +49,12 @@ namespace
 //-----------------------------------------------------------------------------
 struct Overflow
 {
-	std::vector< uint32_t > m_Storage;
+	std::vector<uint32_t> m_Storage;
 
 	void SetSize( int n ) { m_Storage.assign( (size_t)n, 0u ); }
-	uint32_t *Base() { return m_Storage.empty() ? NULL : &m_Storage[ 0 ]; }
+
+	uint32_t *Base() { return m_Storage.empty() ? NULL : &m_Storage[0]; }
+
 	int Count() const { return (int)m_Storage.size(); }
 };
 
@@ -77,16 +79,14 @@ int FakeFind( const char *pQuery, uint32_t *pOut, int nOutMax )
 	g_nCalls++;
 	g_nLastMax = nOutMax;
 
-	const int nPopulation = ( g_nCalls >= 2 && g_nSecondAskPopulation >= 0 )
-		? g_nSecondAskPopulation
-		: g_nPopulation;
+	const int nPopulation = ( g_nCalls >= 2 && g_nSecondAskPopulation >= 0 ) ? g_nSecondAskPopulation : g_nPopulation;
 
 	if ( pOut && nOutMax > 0 )
 	{
 		const int nFill = ( nPopulation < nOutMax ) ? nPopulation : nOutMax;
 
 		for ( int i = 0; i < nFill; i++ )
-			pOut[ i ] = (uint32_t)( 2048 + i );
+			pOut[i] = (uint32_t)( 2048 + i );
 	}
 
 	(void)pQuery;
@@ -103,7 +103,6 @@ void Reset( int nPopulation )
 
 } // namespace
 
-
 //=============================================================================//
 // The ordinary case: everything fits, one ask, nothing allocated.
 //=============================================================================//
@@ -112,7 +111,7 @@ TEST( ShellLessFindCollect, AFittingPopulationIsAnsweredInOneAsk )
 {
 	Reset( 3 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	EXPECT_EQ( 3, ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow ) );
@@ -123,7 +122,7 @@ TEST( ShellLessFindCollect, AFittingPopulationLeavesTheOverflowEmpty )
 {
 	Reset( 3 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow );
@@ -138,21 +137,21 @@ TEST( ShellLessFindCollect, AFittingPopulationLandsInTheInlineBuffer )
 {
 	Reset( 3 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow );
 
-	EXPECT_EQ( 2048u, inlineBuf[ 0 ] );
-	EXPECT_EQ( 2049u, inlineBuf[ 1 ] );
-	EXPECT_EQ( 2050u, inlineBuf[ 2 ] );
+	EXPECT_EQ( 2048u, inlineBuf[0] );
+	EXPECT_EQ( 2049u, inlineBuf[1] );
+	EXPECT_EQ( 2050u, inlineBuf[2] );
 }
 
 TEST( ShellLessFindCollect, TheFirstAskOffersTheWholeInlineBuffer )
 {
 	Reset( 3 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow );
@@ -167,15 +166,13 @@ TEST( ShellLessFindCollect, ExactlyTheInlineCapacityStillTakesOneAsk )
 	// way.
 	Reset( (int)kShellLessFindInline );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
-	EXPECT_EQ( (int)kShellLessFindInline,
-	           ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow ) );
+	EXPECT_EQ( (int)kShellLessFindInline, ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow ) );
 	EXPECT_EQ( 1, g_nCalls );
 	EXPECT_EQ( 0, overflow.Count() );
 }
-
 
 //=============================================================================//
 // The grow: more matches than the inline buffer holds. THE PATH A MAP CANNOT
@@ -186,7 +183,7 @@ TEST( ShellLessFindCollect, MoreThanFitsAsksASecondTime )
 {
 	Reset( (int)kShellLessFindInline + 1 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow );
@@ -198,13 +195,12 @@ TEST( ShellLessFindCollect, MoreThanFitsAnswersTheWholePopulation )
 {
 	Reset( (int)kShellLessFindInline + 7 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	// NOT kShellLessFindInline. Answering what fitted is the silent truncation
 	// this whole step exists to end.
-	EXPECT_EQ( (int)kShellLessFindInline + 7,
-	           ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow ) );
+	EXPECT_EQ( (int)kShellLessFindInline + 7, ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow ) );
 }
 
 TEST( ShellLessFindCollect, MoreThanFitsPutsThemAllInTheOverflow )
@@ -212,21 +208,21 @@ TEST( ShellLessFindCollect, MoreThanFitsPutsThemAllInTheOverflow )
 	const int nPopulation = (int)kShellLessFindInline + 7;
 	Reset( nPopulation );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow );
 
 	ASSERT_EQ( nPopulation, overflow.Count() );
-	EXPECT_EQ( 2048u, overflow.Base()[ 0 ] );
-	EXPECT_EQ( (uint32_t)( 2048 + nPopulation - 1 ), overflow.Base()[ nPopulation - 1 ] );
+	EXPECT_EQ( 2048u, overflow.Base()[0] );
+	EXPECT_EQ( (uint32_t)( 2048 + nPopulation - 1 ), overflow.Base()[nPopulation - 1] );
 }
 
 TEST( ShellLessFindCollect, TheSecondAskOffersTheWholePopulation )
 {
 	Reset( (int)kShellLessFindInline + 7 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow );
@@ -242,7 +238,7 @@ TEST( ShellLessFindCollect, APopulationThatShrankBetweenTheAsksIsReportedSmaller
 	Reset( (int)kShellLessFindInline + 7 );
 	g_nSecondAskPopulation = 3;
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	EXPECT_EQ( 3, ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow ) );
@@ -253,12 +249,11 @@ TEST( ShellLessFindCollect, APopulationThatShrankToNothingAnswersZero )
 	Reset( (int)kShellLessFindInline + 7 );
 	g_nSecondAskPopulation = 0;
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	EXPECT_EQ( 0, ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow ) );
 }
-
 
 //=============================================================================//
 // The refusals. Every one of them answers 0 and asks nothing, which is the
@@ -270,7 +265,7 @@ TEST( ShellLessFindCollect, NothingMatchingAnswersZero )
 {
 	Reset( 0 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	EXPECT_EQ( 0, ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow ) );
@@ -281,7 +276,7 @@ TEST( ShellLessFindCollect, ANullFinderAnswersZeroAndAsksNothing )
 {
 	Reset( 5 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	EXPECT_EQ( 0, ShellLessFind_Collect( NULL, "shaker", inlineBuf, overflow ) );
@@ -292,7 +287,7 @@ TEST( ShellLessFindCollect, ANullQueryAnswersZeroAndAsksNothing )
 {
 	Reset( 5 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	EXPECT_EQ( 0, ShellLessFind_Collect( &FakeFind, NULL, inlineBuf, overflow ) );
@@ -303,7 +298,7 @@ TEST( ShellLessFindCollect, AnEmptyQueryAnswersZeroAndAsksNothing )
 {
 	Reset( 5 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	EXPECT_EQ( 0, ShellLessFind_Collect( &FakeFind, "", inlineBuf, overflow ) );
@@ -327,7 +322,7 @@ TEST( ShellLessFindCollect, ARefusalFromTheFinderAnswersZero )
 	// true answer rather than a degraded one.
 	Reset( -1 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	Overflow overflow;
 
 	EXPECT_EQ( 0, ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow ) );
@@ -344,7 +339,7 @@ TEST( ShellLessFindCollect, TheGamesOverflowStaysEmptyWhenThePopulationFits )
 {
 	Reset( 3 );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	ShellLessOverflow overflow;
 
 	EXPECT_EQ( 3, ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow ) );
@@ -357,12 +352,12 @@ TEST( ShellLessFindCollect, TheGamesOverflowHoldsEveryHandleOfALargePopulation )
 	const int nMany = (int)kShellLessFindInline + 36;
 	Reset( nMany );
 
-	uint32_t inlineBuf[ kShellLessFindInline ];
+	uint32_t inlineBuf[kShellLessFindInline];
 	ShellLessOverflow overflow;
 
 	ASSERT_EQ( nMany, ShellLessFind_Collect( &FakeFind, "shaker", inlineBuf, overflow ) );
 	ASSERT_EQ( nMany, overflow.Count() );
 	ASSERT_TRUE( overflow.Base() != NULL );
 	for ( int i = 0; i < nMany; i++ )
-		EXPECT_EQ( (uint32_t)( 2048 + i ), overflow.Base()[ i ] ) << "handle " << i;
+		EXPECT_EQ( (uint32_t)( 2048 + i ), overflow.Base()[i] ) << "handle " << i;
 }

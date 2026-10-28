@@ -9,29 +9,12 @@
 // The client's entity allocator, abs-query flags, the cl_interpolate convar and
 // the visibility sweep.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
-#include "tier0/dbg.h"
-#include "tier0/memalloc.h"
-#include "tier0/threadtools.h"
-#include "tier1/convar.h"
-#include "tier1/iconvar.h"
+
 #include "client_entity.h"
 
-#include "shell_entitystatics.h"
-#include "entity_abs_query_state.h"
-#include "entity_shared_statics.h"
 #include "shell_standalone_client.h"
 
 // The entity allocator. MEM_ALLOC_CREDIT() credits this file.

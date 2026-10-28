@@ -13,10 +13,9 @@
 // outlive it.
 #include "filesystem.h"
 #include "materialsystem/imaterialsystem.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
+
 #include "cdll_client_int.h"
-#include "imanaged_runtime_client.h"
+
 #include "shell_managed_areas_client.h"
 #include "vtable_hook.h"
 #include "ss_platform.h"
@@ -33,7 +32,7 @@ struct MapMaterialReloadHooks
 	void *pAddSearchPath = nullptr, *pBeginMapAccess = nullptr, *pEndMapAccess = nullptr, *pReloadMaterials = nullptr;
 
 	// Managed code's plan, newline-joined names; too large for the stack.
-	char szNames[ 256 * 1024 ];
+	char szNames[256 * 1024];
 };
 
 MapMaterialReloadHooks *s_pHooks = nullptr;
@@ -48,9 +47,10 @@ void HookAddSearchPath( IFileSystem *pThis, const char *pPath, const char *pPath
 
 	// The client has no read slot on the engine filesystem, so managed code reads
 	// the pak as a file on disk.
-	char szFull[ MAX_PATH ];
-	const char *pFull = ( pPath && pPathID &&
-	                      pThis->RelativePathToFullPath( pPath, pPathID, szFull, sizeof( szFull ) ) ) ? szFull : pPath;
+	char szFull[MAX_PATH];
+	const char *pFull =
+		( pPath && pPathID && pThis->RelativePathToFullPath( pPath, pPathID, szFull, sizeof( szFull ) ) ) ? szFull
+																										  : pPath;
 
 	if ( IManagedRuntimeClient *pRuntime = ManagedRuntimeClient() )
 		pRuntime->MapMaterialSearchPath( pFull, pPathID, addType == PATH_ADD_TO_HEAD ? 1 : 0 );
@@ -79,9 +79,8 @@ void HookReloadMaterials( IMaterialSystem *pThis, const char *pSubString )
 	ReloadMaterialsFn pOriginal = (ReloadMaterialsFn)s_pHooks->pReloadMaterials;
 
 	IManagedRuntimeClient *pRuntime = ManagedRuntimeClient();
-	const int nWritten = pRuntime
-		? pRuntime->MapMaterialReloadPlan( pSubString, s_pHooks->szNames, sizeof( s_pHooks->szNames ) )
-		: -1;
+	const int nWritten =
+		pRuntime ? pRuntime->MapMaterialReloadPlan( pSubString, s_pHooks->szNames, sizeof( s_pHooks->szNames ) ) : -1;
 
 	if ( nWritten < 0 || nWritten >= (int)sizeof( s_pHooks->szNames ) )
 	{
@@ -89,7 +88,7 @@ void HookReloadMaterials( IMaterialSystem *pThis, const char *pSubString )
 		return;
 	}
 
-	s_pHooks->szNames[ nWritten ] = '\0';
+	s_pHooks->szNames[nWritten] = '\0';
 	for ( char *p = s_pHooks->szNames; *p; )
 	{
 		char *pEnd = strchr( p, '\n' );
@@ -105,16 +104,16 @@ void HookReloadMaterials( IMaterialSystem *pThis, const char *pSubString )
 
 bool Patch( void **pVtbl, int nSlot, void *pNew, void **ppOld )
 {
-	if ( !SS_PageProtect( &pVtbl[ nSlot ], SS_PAGE_READ | SS_PAGE_WRITE ) )
+	if ( !SS_PageProtect( &pVtbl[nSlot], SS_PAGE_READ | SS_PAGE_WRITE ) )
 		return false;
 	if ( ppOld )
-		*ppOld = pVtbl[ nSlot ];
-	pVtbl[ nSlot ] = pNew;
-	SS_PageProtect( &pVtbl[ nSlot ], SS_PAGE_READ );
+		*ppOld = pVtbl[nSlot];
+	pVtbl[nSlot] = pNew;
+	SS_PageProtect( &pVtbl[nSlot], SS_PAGE_READ );
 	return true;
 }
 
-template < typename T >
+template <typename T>
 int SlotOf( T pMember )
 {
 	const VTableHook::Member m = VTableHook::MemberOf( pMember );
@@ -136,7 +135,8 @@ bool SourceSharp_InstallMapMaterialReload( IFileSystem *pFileSystem, IMaterialSy
 	p->nReloadMaterials = SlotOf( &IMaterialSystem::ReloadMaterials );
 	if ( p->nAddSearchPath < 0 || p->nBeginMapAccess < 0 || p->nEndMapAccess < 0 || p->nReloadMaterials < 0 )
 	{
-		Warning( "[SourceSharp] map materials: a hooked method is not a plain virtual of its interface; not installed\n" );
+		Warning(
+			"[SourceSharp] map materials: a hooked method is not a plain virtual of its interface; not installed\n" );
 		delete p;
 		return false;
 	}
@@ -144,10 +144,10 @@ bool SourceSharp_InstallMapMaterialReload( IFileSystem *pFileSystem, IMaterialSy
 	p->pMaterialsVtbl = *(void ***)pMaterials;
 
 	s_pHooks = p;
-	const bool bOk = Patch( p->pFileSystemVtbl, p->nAddSearchPath, (void *)&HookAddSearchPath, &p->pAddSearchPath )
-	              && Patch( p->pFileSystemVtbl, p->nBeginMapAccess, (void *)&HookBeginMapAccess, &p->pBeginMapAccess )
-	              && Patch( p->pFileSystemVtbl, p->nEndMapAccess, (void *)&HookEndMapAccess, &p->pEndMapAccess )
-	              && Patch( p->pMaterialsVtbl, p->nReloadMaterials, (void *)&HookReloadMaterials, &p->pReloadMaterials );
+	const bool bOk = Patch( p->pFileSystemVtbl, p->nAddSearchPath, (void *)&HookAddSearchPath, &p->pAddSearchPath ) &&
+		Patch( p->pFileSystemVtbl, p->nBeginMapAccess, (void *)&HookBeginMapAccess, &p->pBeginMapAccess ) &&
+		Patch( p->pFileSystemVtbl, p->nEndMapAccess, (void *)&HookEndMapAccess, &p->pEndMapAccess ) &&
+		Patch( p->pMaterialsVtbl, p->nReloadMaterials, (void *)&HookReloadMaterials, &p->pReloadMaterials );
 	if ( !bOk )
 	{
 		Warning( "[SourceSharp] map materials: could not patch a vtable; not installed\n" );

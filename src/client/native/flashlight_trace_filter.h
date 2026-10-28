@@ -8,8 +8,6 @@
 
 #pragma once
 
-#include "const.h"
-
 inline bool SkipPlayerAndViewModelHits( bool bPlayer, bool bViewModel, int nCollisionGroup )
 {
 	if ( bPlayer || bViewModel )

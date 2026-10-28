@@ -79,7 +79,7 @@ int CountOf( const std::string &strHay, const std::string &strNeedle )
 		return 0;
 	int n = 0;
 	for ( size_t p = strHay.find( strNeedle ); p != std::string::npos;
-	      p = strHay.find( strNeedle, p + strNeedle.size() ) )
+		  p = strHay.find( strNeedle, p + strNeedle.size() ) )
 	{
 		n++;
 	}
@@ -93,7 +93,6 @@ int CountOf( const std::string &strHay, const std::string &strNeedle )
 // cannot fail, arriving by the back door.
 //-----------------------------------------------------------------------------
 } // namespace
-
 
 //=============================================================================//
 // 1. The sound statics left the class at these call sites.

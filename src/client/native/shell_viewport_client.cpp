@@ -7,15 +7,6 @@
 // The client viewport, a raw panel.
 // SS_REASON a  a vtable the engine calls through
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -23,21 +14,19 @@
 #include "client_entity.h"
 #include "iclientmode.h"
 #include "ienginevgui.h"
-#include "vgui/IPanel.h"
+
 #include "vgui_controls/Controls.h"
-#include "tier1/KeyValues.h"
-#include "game/client/iviewport.h"
-#include "tier1/strtools.h"
-#include "vstdlib/IKeyValuesSystem.h"
-#include "igameevents.h"
-#include "viewport_panel_names.h"
+
 #include "shell_viewport_client.h"
 #include "imanaged_areas_client.h"
 
 IViewPort *gViewPortInterface = NULL;
 
 CSourceSharpViewport::CSourceSharpViewport()
-	: CSourceSharpRawPanel( "SourceSharpViewport" ), m_pGameEventManager( NULL ), m_nRootWide( -1 ), m_nRootTall( -1 )
+	: CSourceSharpRawPanel( "SourceSharpViewport" )
+	, m_pGameEventManager( NULL )
+	, m_nRootWide( -1 )
+	, m_nRootTall( -1 )
 {
 	gViewPortInterface = this;
 	SetPaintEnabled( false );

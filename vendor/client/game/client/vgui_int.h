@@ -7,7 +7,7 @@
 
 namespace vgui
 {
-	class Panel;
+class Panel;
 }
 
 bool VGui_Startup( CreateInterfaceFn appSystemFactory );

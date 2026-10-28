@@ -64,8 +64,15 @@ class CLeafRegistryMirror : public IClientLeafSystem, public ISpatialLeafEnumera
 {
 public:
 	// The render flags, as the class numbers them.
-	enum { FLAG_TWOPASS = 0x01, FLAG_STATIC_PROP = 0x02, FLAG_BRUSH_MODEL = 0x04, FLAG_STUDIO_MODEL = 0x08,
-	       FLAG_HASCHANGED = 0x10, FLAG_ALTERNATE_SORTING = 0x20 };
+	enum
+	{
+		FLAG_TWOPASS = 0x01,
+		FLAG_STATIC_PROP = 0x02,
+		FLAG_BRUSH_MODEL = 0x04,
+		FLAG_STUDIO_MODEL = 0x08,
+		FLAG_HASCHANGED = 0x10,
+		FLAG_ALTERNATE_SORTING = 0x20
+	};
 
 	// A renderable's slot: the renderable, its frame stamps, its leaf lists,
 	// its flags and group, its first shadow, its area and the view its blend
@@ -88,7 +95,7 @@ public:
 		unsigned int m_FirstElement;
 		unsigned short m_FirstShadow, m_FirstDetailProp, m_DetailPropCount;
 		int m_DetailPropRenderFrame;
-		CClientLeafSubSystemData *m_pSubSystemData[ N_CLSUBSYSTEMS ];
+		CClientLeafSubSystemData *m_pSubSystemData[N_CLSUBSYSTEMS];
 	};
 
 	struct ShadowInfo_t
@@ -99,27 +106,40 @@ public:
 		unsigned short m_Flags;
 	};
 
-	struct EnumResult_t { int leaf; EnumResult_t *pNext; };
-	struct EnumResultList_t { EnumResult_t *pHead; ClientRenderHandle_t handle; };
+	struct EnumResult_t
+	{
+		int leaf;
+		EnumResult_t *pNext;
+	};
 
-	typedef CUtlLinkedList< RenderableInfo_t, ClientRenderHandle_t, false, unsigned int > RenderableTable_t;
-	typedef CUtlLinkedList< ShadowInfo_t, ClientLeafShadowHandle_t, false, unsigned int > ShadowTable_t;
-	typedef CBidirectionalSet< int, ClientRenderHandle_t, unsigned int, unsigned int > LeafRenderables_t;
-	typedef CBidirectionalSet< int, ClientLeafShadowHandle_t, unsigned short, unsigned int > LeafShadows_t;
-	typedef CBidirectionalSet< ClientRenderHandle_t, ClientLeafShadowHandle_t, unsigned short, unsigned int > RenderableShadows_t;
+	struct EnumResultList_t
+	{
+		EnumResult_t *pHead;
+		ClientRenderHandle_t handle;
+	};
 
-	CUtlVector< ClientLeaf_t >          m_Leaf;
-	RenderableTable_t                   m_Renderables;
-	ShadowTable_t                       m_Shadows;
-	LeafRenderables_t                   m_RenderablesInLeaf;
-	LeafShadows_t                       m_ShadowsInLeaf;
-	RenderableShadows_t                 m_ShadowsOnRenderable;
-	CUtlVector< ClientRenderHandle_t >  m_DirtyRenderables, m_ViewModels;
-	bool                                m_DrawStaticProps, m_DrawSmallObjects;
-	int                                 m_ShadowEnum;
-	CTSList< EnumResultList_t >         m_DeferredInserts;
+	typedef CUtlLinkedList<RenderableInfo_t, ClientRenderHandle_t, false, unsigned int> RenderableTable_t;
+	typedef CUtlLinkedList<ShadowInfo_t, ClientLeafShadowHandle_t, false, unsigned int> ShadowTable_t;
+	typedef CBidirectionalSet<int, ClientRenderHandle_t, unsigned int, unsigned int> LeafRenderables_t;
+	typedef CBidirectionalSet<int, ClientLeafShadowHandle_t, unsigned short, unsigned int> LeafShadows_t;
+	typedef CBidirectionalSet<ClientRenderHandle_t, ClientLeafShadowHandle_t, unsigned short, unsigned int>
+		RenderableShadows_t;
 
-	static CLeafRegistryMirror *Of( IClientLeafSystem *pSystem ) { return static_cast< CLeafRegistryMirror * >( pSystem ); }
+	CUtlVector<ClientLeaf_t> m_Leaf;
+	RenderableTable_t m_Renderables;
+	ShadowTable_t m_Shadows;
+	LeafRenderables_t m_RenderablesInLeaf;
+	LeafShadows_t m_ShadowsInLeaf;
+	RenderableShadows_t m_ShadowsOnRenderable;
+	CUtlVector<ClientRenderHandle_t> m_DirtyRenderables, m_ViewModels;
+	bool m_DrawStaticProps, m_DrawSmallObjects;
+	int m_ShadowEnum;
+	CTSList<EnumResultList_t> m_DeferredInserts;
+
+	static CLeafRegistryMirror *Of( IClientLeafSystem *pSystem )
+	{
+		return static_cast<CLeafRegistryMirror *>( pSystem );
+	}
 };
 
 //-----------------------------------------------------------------------------
@@ -130,29 +150,29 @@ public:
 struct LeafViewRequest_t
 {
 	const WorldListInfo_t *m_pWorldListInfo = NULL;
-	int    m_nRenderFrame = 0;
-	int    m_nDetailBuildFrame = 0;
-	int    m_nGlobalFrame = 0;   // gpGlobals->framecount, the once-per-frame ComputeFxBlend stamp
-	int    m_nViewID = 0;
-	bool   m_bTranslucentLeafPass = false;
-	bool   m_bDrawTranslucent = true;
-	bool   m_bDrawDetail = true;
-	bool   m_bPortalTestEnts = true;
-	bool   m_bPortalsOpenAll = false;
-	int    m_nDrawLeaf = -1;
+	int m_nRenderFrame = 0;
+	int m_nDetailBuildFrame = 0;
+	int m_nGlobalFrame = 0; // gpGlobals->framecount, the once-per-frame ComputeFxBlend stamp
+	int m_nViewID = 0;
+	bool m_bTranslucentLeafPass = false;
+	bool m_bDrawTranslucent = true;
+	bool m_bDrawDetail = true;
+	bool m_bPortalTestEnts = true;
+	bool m_bPortalsOpenAll = false;
+	int m_nDrawLeaf = -1;
 	Vector m_vecOrigin;
 	Vector m_vecForward;
 };
 
 enum
 {
-	LEAFVIEW_HEADER_WORDS     = 14,
-	LEAFVIEW_LEAF_WORDS       = 6,
+	LEAFVIEW_HEADER_WORDS = 14,
+	LEAFVIEW_LEAF_WORDS = 6,
 	LEAFVIEW_RENDERABLE_WORDS = 24,
-	LEAFVIEW_DETAIL_WORDS     = 12,
-	LEAFVIEW_ANSWER_CULLED    = 1,
-	LEAFVIEW_ANSWER_AREA      = 2,
-	LEAFVIEW_ANSWER_OCCLUDED  = 4,
+	LEAFVIEW_DETAIL_WORDS = 12,
+	LEAFVIEW_ANSWER_CULLED = 1,
+	LEAFVIEW_ANSWER_AREA = 2,
+	LEAFVIEW_ANSWER_OCCLUDED = 4,
 };
 
 //-----------------------------------------------------------------------------
@@ -162,16 +182,26 @@ class CLeafViewGather
 {
 public:
 	// The buffer, and the native objects its rows stand for.
-	CUtlVector< int32_t >              m_Words;
-	CUtlVector< ClientRenderHandle_t > m_Handles;     // renderable row -> handle
-	CUtlVector< IClientRenderable * >  m_Details;     // detail row -> model
+	CUtlVector<int32_t> m_Words;
+	CUtlVector<ClientRenderHandle_t> m_Handles; // renderable row -> handle
+	CUtlVector<IClientRenderable *> m_Details; // detail row -> model
 
 	// The rows the view's occurrences name, by handle (cleared per view).
-	CUtlVector< int32_t >              m_RowOfHandle;
+	CUtlVector<int32_t> m_RowOfHandle;
 
-	static int32_t Bits( float f ) { int32_t i; memcpy( &i, &f, sizeof( i ) ); return i; }
+	static int32_t Bits( float f )
+	{
+		int32_t i;
+		memcpy( &i, &f, sizeof( i ) );
+		return i;
+	}
 
-	void PutVector( const Vector &v ) { m_Words.AddToTail( Bits( v.x ) ); m_Words.AddToTail( Bits( v.y ) ); m_Words.AddToTail( Bits( v.z ) ); }
+	void PutVector( const Vector &v )
+	{
+		m_Words.AddToTail( Bits( v.x ) );
+		m_Words.AddToTail( Bits( v.y ) );
+		m_Words.AddToTail( Bits( v.z ) );
+	}
 
 	// Stock ComputeTranslucentRenderLeaf's first loop, the upkeep its decisions
 	// stand on: every renderable in the view's leaves computes its blend once
@@ -183,11 +213,12 @@ public:
 		for ( int i = 0; i < world.m_LeafCount; ++i )
 		{
 			const int leaf = world.m_pLeafList[i];
-			for ( unsigned int idx = reg.m_RenderablesInLeaf.FirstElement( leaf ); idx != reg.m_RenderablesInLeaf.InvalidIndex();
-			      idx = reg.m_RenderablesInLeaf.NextElement( idx ) )
+			for ( unsigned int idx = reg.m_RenderablesInLeaf.FirstElement( leaf );
+				  idx != reg.m_RenderablesInLeaf.InvalidIndex(); idx = reg.m_RenderablesInLeaf.NextElement( idx ) )
 			{
-				CLeafRegistryMirror::RenderableInfo_t &info = reg.m_Renderables[ reg.m_RenderablesInLeaf.Element( idx ) ];
-				if ( info.m_TranslucencyCalculated != req.m_nGlobalFrame || info.m_TranslucencyCalculatedView != req.m_nViewID )
+				CLeafRegistryMirror::RenderableInfo_t &info = reg.m_Renderables[reg.m_RenderablesInLeaf.Element( idx )];
+				if ( info.m_TranslucencyCalculated != req.m_nGlobalFrame ||
+					 info.m_TranslucencyCalculatedView != req.m_nViewID )
 				{
 					info.m_pRenderable->ComputeFxBlend();
 					info.m_TranslucencyCalculated = req.m_nGlobalFrame;
@@ -217,15 +248,15 @@ public:
 
 		// The occurrences first, in stock's order, numbering each renderable
 		// the first time it is met; the leaves' detail ranges beside them.
-		CUtlVector< int32_t > leaves, occurrences, detailIndex;
+		CUtlVector<int32_t> leaves, occurrences, detailIndex;
 		for ( int i = 0; i < world.m_LeafCount; ++i )
 		{
 			const int leaf = world.m_pLeafList[i];
 			leaves.AddToTail( leaf );
 			leaves.AddToTail( occurrences.Count() );
 			int nInLeaf = 0;
-			for ( unsigned int idx = reg.m_RenderablesInLeaf.FirstElement( leaf ); idx != reg.m_RenderablesInLeaf.InvalidIndex();
-			      idx = reg.m_RenderablesInLeaf.NextElement( idx ) )
+			for ( unsigned int idx = reg.m_RenderablesInLeaf.FirstElement( leaf );
+				  idx != reg.m_RenderablesInLeaf.InvalidIndex(); idx = reg.m_RenderablesInLeaf.NextElement( idx ) )
 			{
 				const ClientRenderHandle_t h = reg.m_RenderablesInLeaf.Element( idx );
 				if ( m_RowOfHandle[h] < 0 )

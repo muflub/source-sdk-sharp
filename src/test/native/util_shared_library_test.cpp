@@ -46,8 +46,8 @@
 namespace
 {
 
-const char *const kLibrary   = "sourcesharp/game/shared/util_shared_library.cpp";
-const char *const kStockCpp  = "game/shared/util_shared.cpp";
+const char *const kLibrary = "sourcesharp/game/shared/util_shared_library.cpp";
+const char *const kStockCpp = "game/shared/util_shared.cpp";
 } // anonymous namespace
 
 //=============================================================================//
@@ -86,19 +86,18 @@ TEST( UtilSharedLibrary, NeitherTargetCompilesTheStockFileAnyMore )
 // TU) and present in its compile database.
 static void ExpectCompiledOnce( const char *pTarget )
 {
-	const std::vector< std::string > listed = cmake_graph::ListedSources( pTarget );
+	const std::vector<std::string> listed = cmake_graph::ListedSources( pTarget );
 	EXPECT_EQ( 1, std::count( listed.begin(), listed.end(), std::string( kLibrary ) ) )
-		<< kLibrary << " is not listed exactly once in " << pTarget
-		<< " (" << cmake_graph::ListFile( pTarget ) << ")";
-	EXPECT_TRUE( cmake_graph::Compiles( pTarget, kLibrary ) )
-		<< kLibrary << " is not compiled into " << pTarget;
+		<< kLibrary << " is not listed exactly once in " << pTarget << " (" << cmake_graph::ListFile( pTarget ) << ")";
+	EXPECT_TRUE( cmake_graph::Compiles( pTarget, kLibrary ) ) << kLibrary << " is not compiled into " << pTarget;
 }
 
 TEST( UtilSharedLibrary, TheServerCompilesIt )
 {
 	ExpectCompiledOnce( cmake_graph::kServer );
 	if ( HasFailure() )
-		ADD_FAILURE() << "server.so asks for the shared random functions, and nothing else defines them -- so it does not link.";
+		ADD_FAILURE()
+			<< "server.so asks for the shared random functions, and nothing else defines them -- so it does not link.";
 }
 
 TEST( UtilSharedLibrary, TheClientCompilesIt )
@@ -106,7 +105,7 @@ TEST( UtilSharedLibrary, TheClientCompilesIt )
 	ExpectCompiledOnce( cmake_graph::kClient );
 	if ( HasFailure() )
 		ADD_FAILURE() << "client.so asks for UTIL_IsLowViolence, GetUniverse and "
-		   "the filtered player names, and nothing else defines them.";
+						 "the filtered player names, and nothing else defines them.";
 }
 
 //=============================================================================//
@@ -144,4 +143,3 @@ TEST( UtilSharedLibrary, TheClientCompilesIt )
 //=============================================================================//
 // 6. NOT ONE CALLER CHANGED
 //=============================================================================//
-

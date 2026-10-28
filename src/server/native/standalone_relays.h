@@ -10,12 +10,12 @@
 // standalone_relays.cpp.
 #pragma once
 
-
-
-
-
 #include "igameentity.h"
-namespace ss { class CTakeDamageInfo; }
+
+namespace ss
+{
+class CTakeDamageInfo;
+}
 class IHandleEntity;
 class IPhysicsObject;
 
@@ -43,16 +43,13 @@ IHandleEntity *StandaloneEntity_OwnerHandle( const IGameEntity *pEnt );
 
 // One parsed key. Returns whether anything wanted it, which is what lets a
 // caller warn about a key nothing claimed.
-bool StandaloneEntity_ApplyMapKey( IGameEntity *pEnt, const char *szKeyName,
-                                   const char *szValue );
+bool StandaloneEntity_ApplyMapKey( IGameEntity *pEnt, const char *szKeyName, const char *szValue );
 
 // Place positions an entity; PlaceAndSpawn also spawns it, which must come after
 // placement. A NULL origin or angles leaves the mapper's value alone.
-void StandaloneEntity_Place( IGameEntity *pEnt, const Vector *pOrigin,
-                             const QAngle *pAngles );
+void StandaloneEntity_Place( IGameEntity *pEnt, const Vector *pOrigin, const QAngle *pAngles );
 
-void StandaloneEntity_PlaceAndSpawn( IGameEntity *pEnt, const Vector *pOrigin,
-                                     const QAngle *pAngles );
+void StandaloneEntity_PlaceAndSpawn( IGameEntity *pEnt, const Vector *pOrigin, const QAngle *pAngles );
 
 // The entity's world-space velocity, as managed holds it: its physics object's
 // velocity when it has one, else its own member.

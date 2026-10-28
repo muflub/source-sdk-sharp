@@ -40,15 +40,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -67,7 +67,7 @@ std::string Read( const std::string &strRelative )
 	std::string all, line;
 	while ( std::getline( file, line ) )
 	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
+		if ( !line.empty() && line[line.size() - 1] == '\r' )
 			line.erase( line.size() - 1 );
 		all += line;
 		all += '\n';
@@ -96,18 +96,63 @@ std::string ClassBody( const std::string &strFile, const std::string &strDecl )
 	bool bBlock = false, bLine = false, bStr = false, bChr = false;
 	for ( size_t i = open; i < strFile.size(); i++ )
 	{
-		const char c = strFile[ i ];
-		const char n = ( i + 1 < strFile.size() ) ? strFile[ i + 1 ] : '\0';
+		const char c = strFile[i];
+		const char n = ( i + 1 < strFile.size() ) ? strFile[i + 1] : '\0';
 
-		if ( bBlock ) { if ( c == '*' && n == '/' ) { bBlock = false; i++; } continue; }
-		if ( bLine )  { if ( c == '\n' ) bLine = false; continue; }
-		if ( bStr )   { if ( c == '\\' ) i++; else if ( c == '"' ) bStr = false; continue; }
-		if ( bChr )   { if ( c == '\\' ) i++; else if ( c == '\'' ) bChr = false; continue; }
+		if ( bBlock )
+		{
+			if ( c == '*' && n == '/' )
+			{
+				bBlock = false;
+				i++;
+			}
+			continue;
+		}
+		if ( bLine )
+		{
+			if ( c == '\n' )
+				bLine = false;
+			continue;
+		}
+		if ( bStr )
+		{
+			if ( c == '\\' )
+				i++;
+			else if ( c == '"' )
+				bStr = false;
+			continue;
+		}
+		if ( bChr )
+		{
+			if ( c == '\\' )
+				i++;
+			else if ( c == '\'' )
+				bChr = false;
+			continue;
+		}
 
-		if ( c == '/' && n == '*' ) { bBlock = true; i++; continue; }
-		if ( c == '/' && n == '/' ) { bLine = true; i++; continue; }
-		if ( c == '"' )  { bStr = true; continue; }
-		if ( c == '\'' ) { bChr = true; continue; }
+		if ( c == '/' && n == '*' )
+		{
+			bBlock = true;
+			i++;
+			continue;
+		}
+		if ( c == '/' && n == '/' )
+		{
+			bLine = true;
+			i++;
+			continue;
+		}
+		if ( c == '"' )
+		{
+			bStr = true;
+			continue;
+		}
+		if ( c == '\'' )
+		{
+			bChr = true;
+			continue;
+		}
 
 		if ( c == '{' )
 			nDepth++;
@@ -129,22 +174,74 @@ std::string CodeOnly( const std::string &strText )
 	bool bBlock = false, bLine = false, bStr = false, bChr = false;
 	for ( size_t i = 0; i < strText.size(); i++ )
 	{
-		const char c = strText[ i ];
-		const char n = ( i + 1 < strText.size() ) ? strText[ i + 1 ] : '\0';
+		const char c = strText[i];
+		const char n = ( i + 1 < strText.size() ) ? strText[i + 1] : '\0';
 
-		if ( bBlock ) { if ( c == '*' && n == '/' ) { bBlock = false; i++; } continue; }
-		if ( bLine )  { if ( c == '\n' ) { bLine = false; out += c; } continue; }
+		if ( bBlock )
+		{
+			if ( c == '*' && n == '/' )
+			{
+				bBlock = false;
+				i++;
+			}
+			continue;
+		}
+		if ( bLine )
+		{
+			if ( c == '\n' )
+			{
+				bLine = false;
+				out += c;
+			}
+			continue;
+		}
 
 		if ( !bStr && !bChr )
 		{
-			if ( c == '/' && n == '*' ) { bBlock = true; i++; continue; }
-			if ( c == '/' && n == '/' ) { bLine = true; i++; continue; }
+			if ( c == '/' && n == '*' )
+			{
+				bBlock = true;
+				i++;
+				continue;
+			}
+			if ( c == '/' && n == '/' )
+			{
+				bLine = true;
+				i++;
+				continue;
+			}
 		}
 
-		if ( bStr )      { if ( c == '\\' ) { out += c; i++; if ( i < strText.size() ) out += strText[i]; continue; } if ( c == '"' ) bStr = false; }
-		else if ( bChr ) { if ( c == '\\' ) { out += c; i++; if ( i < strText.size() ) out += strText[i]; continue; } if ( c == '\'' ) bChr = false; }
-		else if ( c == '"' )  bStr = true;
-		else if ( c == '\'' ) bChr = true;
+		if ( bStr )
+		{
+			if ( c == '\\' )
+			{
+				out += c;
+				i++;
+				if ( i < strText.size() )
+					out += strText[i];
+				continue;
+			}
+			if ( c == '"' )
+				bStr = false;
+		}
+		else if ( bChr )
+		{
+			if ( c == '\\' )
+			{
+				out += c;
+				i++;
+				if ( i < strText.size() )
+					out += strText[i];
+				continue;
+			}
+			if ( c == '\'' )
+				bChr = false;
+		}
+		else if ( c == '"' )
+			bStr = true;
+		else if ( c == '\'' )
+			bChr = true;
 
 		out += c;
 	}
@@ -154,8 +251,7 @@ std::string CodeOnly( const std::string &strText )
 
 bool IsIdentChar( char c )
 {
-	return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' )
-		|| ( c >= '0' && c <= '9' ) || c == '_';
+	return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) || ( c >= '0' && c <= '9' ) || c == '_';
 }
 
 // A WHOLE-WORD find. m_vecMins is a prefix of nothing here, but m_nSolidType is
@@ -166,9 +262,9 @@ bool ContainsWord( const std::string &strHay, const std::string &strWord )
 	size_t at = strHay.find( strWord );
 	while ( at != std::string::npos )
 	{
-		const bool bLeft  = ( at == 0 ) || !IsIdentChar( strHay[ at - 1 ] );
-		const size_t end  = at + strWord.size();
-		const bool bRight = ( end >= strHay.size() ) || !IsIdentChar( strHay[ end ] );
+		const bool bLeft = ( at == 0 ) || !IsIdentChar( strHay[at - 1] );
+		const size_t end = at + strWord.size();
+		const bool bRight = ( end >= strHay.size() ) || !IsIdentChar( strHay[end] );
 
 		if ( bLeft && bRight )
 			return true;
@@ -180,6 +276,7 @@ bool ContainsWord( const std::string &strHay, const std::string &strWord )
 }
 
 const char *const kClientHeader = "sourcesharp/game/client/shell_standalone_client.h";
+
 // The sixteen values that used to be members of C_StandaloneEntity and are
 // fields of the engine block, paired with the block field each became.
 //
@@ -194,7 +291,7 @@ struct BlockDuplicate_t
 	const char *pszBlockField;
 };
 
-}  // namespace
+} // namespace
 
 //-----------------------------------------------------------------------------
 // FACT 1. The shell declares no member the block also declares.
@@ -207,8 +304,7 @@ class ClientShellLayout : public ::testing::Test
 protected:
 	static const std::string &Body()
 	{
-		static std::string s_body = CodeOnly(
-			ClassBody( Read( kClientHeader ), "class C_StandaloneEntity" ) );
+		static std::string s_body = CodeOnly( ClassBody( Read( kClientHeader ), "class C_StandaloneEntity" ) );
 		return s_body;
 	}
 };
@@ -216,9 +312,8 @@ protected:
 TEST_F( ClientShellLayout, TheClassBodyWasFoundAtAll )
 {
 	// FIRST, because every absence below is vacuously true of an empty string.
-	ASSERT_FALSE( Body().empty() )
-		<< "class C_StandaloneEntity could not be read out of " << kClientHeader
-		<< ". Every other fact in this file would pass on the empty string.";
+	ASSERT_FALSE( Body().empty() ) << "class C_StandaloneEntity could not be read out of " << kClientHeader
+								   << ". Every other fact in this file would pass on the empty string.";
 
 	// And that it is the WHOLE class rather than a prefix: the block accessor
 	// is near the top and the block pointer is the very first declaration, so a
@@ -271,7 +366,7 @@ TEST_F( ClientShellLayout, TheClassBodyWasFoundAtAll )
 namespace
 {
 
-}  // namespace
+} // namespace
 
 //-----------------------------------------------------------------------------
 // FACT 9. What step 6b could NOT do, asserted so that it is done the moment it
@@ -337,15 +432,16 @@ TEST( ClientRenderPolicyShell, ClientThinkListLeftAfterCBaseEntity )
 	// through cmake_graph.h (src/client/native/CMakeLists.txt). The two PRESENT
 	// halves are this fact's proof-of-read: a reader that saw nothing cannot
 	// pass them, so it cannot pass the ABSENT half for free either.
-	const std::set< std::string > client = cmake_graph::CompiledSources( cmake_graph::kClient );
+	const std::set<std::string> client = cmake_graph::CompiledSources( cmake_graph::kClient );
 
 	// By the path's TAIL, as the old vpc needle was: the TU under any directory.
 	const std::string strGone = "/c_baseentity.cpp";
-	for ( std::set< std::string >::const_iterator it = client.begin(); it != client.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = client.begin(); it != client.end(); ++it )
 	{
-		EXPECT_FALSE( it->size() >= strGone.size()
-			&& it->compare( it->size() - strGone.size(), strGone.size(), strGone ) == 0 )
-			<< *it << ": c_baseentity.cpp is back in the client build. The flip removed it; "
+		EXPECT_FALSE( it->size() >= strGone.size() &&
+					  it->compare( it->size() - strGone.size(), strGone.size(), strGone ) == 0 )
+			<< *it
+			<< ": c_baseentity.cpp is back in the client build. The flip removed it; "
 			   "if it has returned it calls SetNextClientThink through C_BaseEntity "
 			   "again and step 6b is undone rather than unfinished.";
 	}
@@ -364,4 +460,3 @@ TEST( ClientRenderPolicyShell, ClientThinkListLeftAfterCBaseEntity )
 	EXPECT_FALSE( client.count( "game/client/c_rope.cpp" ) )
 		<< "c_rope.cpp is back in the client build beside the managed rope.";
 }
-

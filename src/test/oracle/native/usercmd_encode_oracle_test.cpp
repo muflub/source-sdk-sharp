@@ -36,20 +36,38 @@ namespace
 struct Rng
 {
 	uint32_t s = 0x2545F491u;
-	uint32_t Next() { s ^= s << 13; s ^= s >> 17; s ^= s << 5; return s; }
+
+	uint32_t Next()
+	{
+		s ^= s << 13;
+		s ^= s >> 17;
+		s ^= s << 5;
+		return s;
+	}
+
 	int Pick( int lo, int hi ) { return lo + (int)( Next() % (uint32_t)( hi - lo + 1 ) ); }
+
 	float Float()
 	{
 		switch ( Pick( 0, 3 ) )
 		{
-		case 0: return 0.0f;
-		case 1: return (float)Pick( -450, 450 );
-		// Any bits but a NaN or a subnormal. Whether a subnormal compares equal
-		// to zero is the thread's MXCSR (DAZ): the first recording had this
-		// binary treat one as zero where the managed test runner did not
-		// (case 396). In the game both codecs run on one thread under one mode.
-		case 2: { uint32_t u = Next(); float f; memcpy( &f, &u, 4 ); return ( f != f || ( u & 0x7f800000u ) == 0 ) ? 1.5f : f; }
-		default: return (float)( (int)Next() % 100000 ) / 7.0f;
+			case 0:
+				return 0.0f;
+			case 1:
+				return (float)Pick( -450, 450 );
+			// Any bits but a NaN or a subnormal. Whether a subnormal compares equal
+			// to zero is the thread's MXCSR (DAZ): the first recording had this
+			// binary treat one as zero where the managed test runner did not
+			// (case 396). In the game both codecs run on one thread under one mode.
+			case 2:
+			{
+				uint32_t u = Next();
+				float f;
+				memcpy( &f, &u, 4 );
+				return ( f != f || ( u & 0x7f800000u ) == 0 ) ? 1.5f : f;
+			}
+			default:
+				return (float)( (int)Next() % 100000 ) / 7.0f;
 		}
 	}
 };
@@ -75,20 +93,38 @@ void Vary( CUserCmd &to, const CUserCmd &from, Rng &r )
 {
 	to = from;
 	const uint32_t mask = r.Next();
-	if ( mask & 1 ) to.command_number = from.command_number + 1; else if ( mask & 2 ) to.command_number = (int)r.Next();
-	if ( mask & 4 ) to.tick_count = from.tick_count + 1; else if ( mask & 8 ) to.tick_count = (int)r.Next();
-	if ( mask & 16 ) to.viewangles[0] = r.Float();
-	if ( mask & 32 ) to.viewangles[1] = r.Float();
-	if ( mask & 64 ) to.viewangles[2] = r.Float();
-	if ( mask & 128 ) to.forwardmove = r.Float();
-	if ( mask & 256 ) to.sidemove = r.Float();
-	if ( mask & 512 ) to.upmove = r.Float();
-	if ( mask & 1024 ) to.buttons = (int)r.Next();
-	if ( mask & 2048 ) to.impulse = (unsigned char)r.Next();
-	if ( mask & 4096 ) to.weaponselect = r.Pick( 0, ( 1 << MAX_EDICT_BITS ) - 1 );
-	if ( mask & 8192 ) to.weaponsubtype = r.Pick( 0, 63 );
-	if ( mask & 16384 ) to.mousedx = (short)r.Next();
-	if ( mask & 32768 ) to.mousedy = (short)r.Next();
+	if ( mask & 1 )
+		to.command_number = from.command_number + 1;
+	else if ( mask & 2 )
+		to.command_number = (int)r.Next();
+	if ( mask & 4 )
+		to.tick_count = from.tick_count + 1;
+	else if ( mask & 8 )
+		to.tick_count = (int)r.Next();
+	if ( mask & 16 )
+		to.viewangles[0] = r.Float();
+	if ( mask & 32 )
+		to.viewangles[1] = r.Float();
+	if ( mask & 64 )
+		to.viewangles[2] = r.Float();
+	if ( mask & 128 )
+		to.forwardmove = r.Float();
+	if ( mask & 256 )
+		to.sidemove = r.Float();
+	if ( mask & 512 )
+		to.upmove = r.Float();
+	if ( mask & 1024 )
+		to.buttons = (int)r.Next();
+	if ( mask & 2048 )
+		to.impulse = (unsigned char)r.Next();
+	if ( mask & 4096 )
+		to.weaponselect = r.Pick( 0, ( 1 << MAX_EDICT_BITS ) - 1 );
+	if ( mask & 8192 )
+		to.weaponsubtype = r.Pick( 0, 63 );
+	if ( mask & 16384 )
+		to.mousedx = (short)r.Next();
+	if ( mask & 32768 )
+		to.mousedy = (short)r.Next();
 }
 
 std::string Fields( const CUserCmd &c )
@@ -97,28 +133,31 @@ std::string Fields( const CUserCmd &c )
 	uint32_t a[6];
 	const float v[3] = { c.viewangles.x, c.viewangles.y, c.viewangles.z };
 	memcpy( a, v, 12 );
-	memcpy( &a[3], &c.forwardmove, 4 ); memcpy( &a[4], &c.sidemove, 4 ); memcpy( &a[5], &c.upmove, 4 );
+	memcpy( &a[3], &c.forwardmove, 4 );
+	memcpy( &a[4], &c.sidemove, 4 );
+	memcpy( &a[5], &c.upmove, 4 );
 	snprintf( b, sizeof( b ), "%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%d\t%d\t%d\t%d\t%d\t%d", c.command_number,
-	          c.tick_count, a[0], a[1], a[2], a[3], a[4], a[5], c.buttons, (int)c.impulse, c.weaponselect,
-	          c.weaponsubtype, (int)c.mousedx, (int)c.mousedy );
+			  c.tick_count, a[0], a[1], a[2], a[3], a[4], a[5], c.buttons, (int)c.impulse, c.weaponselect,
+			  c.weaponsubtype, (int)c.mousedx, (int)c.mousedy );
 	return b;
 }
 
 std::string RunScenario()
 {
 	Rng r;
-	std::string out = "# WriteUsercmd: case | from (14 fields) | to (14 fields) | start bit | bits written | the bits, LSB-first, as bytes\n"
-	                  "# fields: command_number tick_count pitch yaw roll forward side up (float bits) buttons impulse weaponselect weaponsubtype mousedx mousedy\n";
+	std::string out =
+		"# WriteUsercmd: case | from (14 fields) | to (14 fields) | start bit | bits written | the bits, LSB-first, as bytes\n"
+		"# fields: command_number tick_count pitch yaw roll forward side up (float bits) buttons impulse weaponselect weaponsubtype mousedx mousedy\n";
 	for ( int i = 0; i < 4000; i++ )
 	{
 		CUserCmd from, to;
 		if ( i % 10 )
-			Fill( from, r );	// one in ten against the all-zero command, as the first of a packet is
+			Fill( from, r ); // one in ten against the all-zero command, as the first of a packet is
 		Vary( to, from, r );
 		if ( i % 7 == 0 )
 			Fill( to, r );
 
-		uint32_t words[ 64 ] = {};
+		uint32_t words[64] = {};
 		bf_write w( words, sizeof( words ) );
 		const int start = r.Pick( 0, 31 );
 		w.WriteUBitLong( 0, start );
@@ -133,7 +172,7 @@ std::string RunScenario()
 		// The command's bits alone, re-packed from bit 0.
 		bf_read rd( words, sizeof( words ) );
 		rd.Seek( start );
-		unsigned char packed[ 64 ] = {};
+		unsigned char packed[64] = {};
 		rd.ReadBits( packed, bits );
 		for ( int k = 0; k < ( bits + 7 ) / 8; k++ )
 		{

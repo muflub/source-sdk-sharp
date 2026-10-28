@@ -59,9 +59,9 @@ namespace
 // The -D definitions of one compile command, as NAME or NAME=VALUE, matched
 // whole: a set lookup cannot be satisfied by a prefix, which is the failure the
 // old VPC directive matcher had to guard against by hand.
-std::set< std::string > DefinesOf( const std::string &strCommand )
+std::set<std::string> DefinesOf( const std::string &strCommand )
 {
-	std::set< std::string > out;
+	std::set<std::string> out;
 	std::istringstream toks( strCommand );
 	std::string strTok;
 	while ( toks >> strTok )
@@ -70,9 +70,8 @@ std::set< std::string > DefinesOf( const std::string &strCommand )
 	return out;
 }
 
-const char *kShell   = "sourcesharp/game/server/shell_gamedll.cpp";
+const char *kShell = "sourcesharp/game/server/shell_gamedll.cpp";
 } // namespace
-
 
 //=============================================================================//
 // Property 1 -- one registering implementation per interface
@@ -98,7 +97,7 @@ TEST( ShellGameDllRegistration, TheDefineIsInTheProjectBesideSOURCESHARP )
 	// Which define is armed in which target IS asserted, elsewhere and
 	// deliberately -- alias_mechanics_test's "armed in BOTH targets or
 	// neither".
-	const std::vector< std::string > listed = cmake_graph::ListedDefinitions( cmake_graph::kServer );
+	const std::vector<std::string> listed = cmake_graph::ListedDefinitions( cmake_graph::kServer );
 	ASSERT_EQ( 1, (int)std::count( listed.begin(), listed.end(), std::string( "SOURCESHARP" ) ) )
 		<< "server_sourcesharp (src/server/native/CMakeLists.txt) does not define "
 		   "SOURCESHARP exactly once -- the reader is not reading the server's "
@@ -111,15 +110,15 @@ TEST( ShellGameDllRegistration, TheDefineIsInTheProjectBesideSOURCESHARP )
 	// truth; the compile command of the file the guard is IN is the proof that
 	// it reached the TU (a define on another target, or a per-source override,
 	// would read the same in the list).
-	const std::set< std::string > seen = DefinesOf( cmake_graph::CompileCommand( cmake_graph::kServer, kShell ) );
-	ASSERT_TRUE( seen.count( "SOURCESHARP" ) )
-		<< kShell << "'s compile command carries no -DSOURCESHARP -- the reader "
-		   "is not reading the right command";
+	const std::set<std::string> seen = DefinesOf( cmake_graph::CompileCommand( cmake_graph::kServer, kShell ) );
+	ASSERT_TRUE( seen.count( "SOURCESHARP" ) ) << kShell
+											   << "'s compile command carries no -DSOURCESHARP -- the reader "
+												  "is not reading the right command";
 	EXPECT_TRUE( seen.count( "SOURCESHARP_SHELL_GAMEDLL" ) )
-		<< kShell << " is compiled without -DSOURCESHARP_SHELL_GAMEDLL, so every "
+		<< kShell
+		<< " is compiled without -DSOURCESHARP_SHELL_GAMEDLL, so every "
 		   "#ifndef SOURCESHARP_SHELL_GAMEDLL guard in stock is inert";
 }
-
 
 //=============================================================================//
 // Property 2 -- the guard is on the registration, not on the class
@@ -138,4 +137,3 @@ TEST( ShellGameDllRegistration, TheDefineIsInTheProjectBesideSOURCESHARP )
 // (ListingBuffer, ServerGameDll, ShellSlotWiringTests) and in the adapter's own
 // gtests, which compile the shipped header.
 //=============================================================================//
-

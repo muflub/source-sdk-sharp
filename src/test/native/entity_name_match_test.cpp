@@ -19,14 +19,14 @@
 
 #include "gtest/gtest.h"
 
-#include "../game/shared/entity_name_match.h"   // src/shared/native/, the farm's sourcesharp/game/shared/
+#include "../game/shared/entity_name_match.h" // src/shared/native/, the farm's sourcesharp/game/shared/
 
 //-----------------------------------------------------------------------------
 // The ordinary case, and the thing the rule is for.
 //-----------------------------------------------------------------------------
 TEST( EntityNameMatch, ExactNamesMatchAndDifferentOnesDoNot )
 {
-	EXPECT_TRUE(  EntityNames_Match( "gate_north", "gate_north" ) );
+	EXPECT_TRUE( EntityNames_Match( "gate_north", "gate_north" ) );
 	EXPECT_FALSE( EntityNames_Match( "gate_north", "gate_south" ) );
 	EXPECT_FALSE( EntityNames_Match( "gate", "gate_north" ) );
 	EXPECT_FALSE( EntityNames_Match( "gate_north", "gate" ) );
@@ -103,12 +103,12 @@ TEST( EntityNameMatch, EmptyNameAnswersTheOldNullStringArm )
 {
 	// The three that matched NULL_STRING.
 	EXPECT_TRUE( EntityNames_Match( NULL, "" ) );
-	EXPECT_TRUE( EntityNames_Match( "",   "" ) );
-	EXPECT_TRUE( EntityNames_Match( "*",  "" ) );
+	EXPECT_TRUE( EntityNames_Match( "", "" ) );
+	EXPECT_TRUE( EntityNames_Match( "*", "" ) );
 
 	// ..and anything else did not.
 	EXPECT_FALSE( EntityNames_Match( "gate_north", "" ) );
-	EXPECT_FALSE( EntityNames_Match( "g*",         "" ) );
+	EXPECT_FALSE( EntityNames_Match( "g*", "" ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -118,9 +118,9 @@ TEST( EntityNameMatch, EmptyNameAnswersTheOldNullStringArm )
 //-----------------------------------------------------------------------------
 TEST( EntityNameMatch, NullNameAnswersTheSameAsEmpty )
 {
-	EXPECT_EQ( EntityNames_Match( NULL,         "" ), EntityNames_Match( NULL,         NULL ) );
-	EXPECT_EQ( EntityNames_Match( "",           "" ), EntityNames_Match( "",           NULL ) );
-	EXPECT_EQ( EntityNames_Match( "*",          "" ), EntityNames_Match( "*",          NULL ) );
+	EXPECT_EQ( EntityNames_Match( NULL, "" ), EntityNames_Match( NULL, NULL ) );
+	EXPECT_EQ( EntityNames_Match( "", "" ), EntityNames_Match( "", NULL ) );
+	EXPECT_EQ( EntityNames_Match( "*", "" ), EntityNames_Match( "*", NULL ) );
 	EXPECT_EQ( EntityNames_Match( "gate_north", "" ), EntityNames_Match( "gate_north", NULL ) );
 }
 
@@ -168,6 +168,6 @@ TEST( EntityNameMatch, EmptyQueryDoesNotMatchANamedEntity )
 //-----------------------------------------------------------------------------
 TEST( EntityNameMatch, TheQuerySideIsTheOnlyWildcardSide )
 {
-	EXPECT_TRUE(  EntityNames_Match( "gate*", "gate_north" ) );
+	EXPECT_TRUE( EntityNames_Match( "gate*", "gate_north" ) );
 	EXPECT_FALSE( EntityNames_Match( "gate_north", "gate*" ) );
 }

@@ -22,45 +22,22 @@
 
 extern ISpatialPartition *partition;
 #else
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
+
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
-#include "igamesystem.h"
+
 #include "shell_clientsystem.h"
-#include "worldsize.h"
-#include "physics_shared.h"
-#include "sharedInterface.h"
-#include <vstdlib/random.h>
-#include "collisionproperty.h"
-#include "igamesystem.h"
-#include "utlvector.h"
-#include "tier0/tslist.h"
 
 #include <atomic>
 #include <shared_mutex>
 #include <thread>
 #include <vector>
 
-#include "tier1/convar.h"
-#include "recvproxy.h"
-#include "shell_cliententitylist.h"
-
 #include "predictable_entity.h"
 
-#include "move_root.h"
-#include "data_object_access.h"
 #endif // !CLIENT_DLL
 
 #ifdef CLIENT_DLL
@@ -78,11 +55,13 @@ public:
 	virtual void LevelShutdownPostEntity();
 
 	// Members of IPartitionQueryCallback
-	virtual void OnPreQuery_V1()	{ Assert( 0 ); }
+	virtual void OnPreQuery_V1() { Assert( 0 ); }
+
 	virtual void OnPreQuery( SpatialPartitionListMask_t listMask );
 	virtual void OnPostQuery( SpatialPartitionListMask_t listMask );
 
 	~CDirtySpatialPartitionEntityList();
+
 	void LockPartitionForRead()
 	{
 		if ( t_readLockCount == 0 )
@@ -91,6 +70,7 @@ public:
 		}
 		t_readLockCount++;
 	}
+
 	void UnlockPartitionForRead()
 	{
 		t_readLockCount--;
@@ -102,9 +82,9 @@ public:
 
 private:
 	CTSListWithFreeList<CBaseHandle> m_DirtyEntities;
-	std::shared_mutex	 m_partitionMutex;
+	std::shared_mutex m_partitionMutex;
 	// The thread holding the write lock; a default id (no thread) otherwise.
-	std::atomic< std::thread::id > m_partitionWriteId{};
+	std::atomic<std::thread::id> m_partitionWriteId{};
 	// This thread's read-lock depth; per thread, as there is one list.
 	static thread_local int t_readLockCount;
 };
@@ -114,7 +94,10 @@ thread_local int CDirtySpatialPartitionEntityList::t_readLockCount = 0;
 static CDirtySpatialPartitionEntityList s_DirtyKDTree( "CDirtySpatialPartitionEntityList" );
 
 #ifdef CLIENT_DLL
-CClientSystem *ClientSystem_DirtySpatialPartition() { return &s_DirtyKDTree; }
+CClientSystem *ClientSystem_DirtySpatialPartition()
+{
+	return &s_DirtyKDTree;
+}
 #endif
 
 #ifndef CLIENT_DLL
@@ -142,12 +125,15 @@ void UpdateDirtySpatialPartitionEntities()
 
 #ifdef CLIENT_DLL
 #ifdef CLIENT_DLL
-CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList( char const *name ) : CClientSystem( name )
+CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList( char const *name )
+	: CClientSystem( name )
 #else
-CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList( char const *name ) : CServerSystem( name )
+CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList( char const *name )
+	: CServerSystem( name )
 #endif
 #else
-CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList( char const *name ) : CServerSystem( name )
+CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList( char const *name )
+	: CServerSystem( name )
 #endif
 {
 	m_DirtyEntities.Purge();
@@ -191,11 +177,11 @@ void CDirtySpatialPartitionEntityList::OnPreQuery( SpatialPartitionListMask_t li
 
 	// if you're holding a read lock, then these are entities that were still dirty after your trace started
 	// or became dirty due to some other thread or callback. Updating them may cause corruption further up the
-	// stack (e.g. partition iterator).  Ignoring the state change should be safe since it happened after the 
+	// stack (e.g. partition iterator).  Ignoring the state change should be safe since it happened after the
 	// trace was requested or was unable to be resolved in a previous attempt (still dirty).
 	if ( m_DirtyEntities.Count() && !t_readLockCount )
 	{
-		std::vector< CBaseHandle > vecStillDirty;
+		std::vector<CBaseHandle> vecStillDirty;
 		m_partitionMutex.lock();
 		m_partitionWriteId = std::this_thread::get_id();
 		CTSListWithFreeList<CBaseHandle>::Node_t *pCurrent, *pNext;

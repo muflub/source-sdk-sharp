@@ -20,63 +20,44 @@ public:
 
 	const char *GetEffectName();
 
-// IParticleEffect overrides
+	// IParticleEffect overrides
 public:
+	virtual void SetParticleCullRadius( float radius );
+	virtual void NotifyRemove();
+	virtual const Vector &GetSortOrigin();
+	virtual void NotifyDestroyParticle( Particle *pParticle );
+	virtual void Update( float flTimeDelta );
 
-	virtual void				SetParticleCullRadius( float radius );
-	virtual void				NotifyRemove();
-	virtual const Vector &		GetSortOrigin();
-	virtual void				NotifyDestroyParticle( Particle* pParticle );
-	virtual void				Update( float flTimeDelta );
+	virtual bool ShouldSimulate() const { return m_bSimulate; }
 
-	virtual bool				ShouldSimulate() const { return m_bSimulate; }
-	virtual void				SetShouldSimulate( bool bSim ) { m_bSimulate = bSim; }
+	virtual void SetShouldSimulate( bool bSim ) { m_bSimulate = bSim; }
 
 protected:
-								CParticleEffect( const char *pDebugName );
-	virtual						~CParticleEffect();
+	CParticleEffect( const char *pDebugName );
+	virtual ~CParticleEffect();
 
 	enum
 	{
-		FLAG_ALLOCATED = (1<<1),	// Most of the CParticleEffects are dynamically allocated but
-								// some are member variables of a class. If they're member variables.
-		FLAG_DONT_REMOVE = (1<<2),
+		FLAG_ALLOCATED = ( 1 << 1 ), // Most of the CParticleEffects are dynamically allocated but
+		// some are member variables of a class. If they're member variables.
+		FLAG_DONT_REMOVE = ( 1 << 2 ),
 	};
 
 	// Used to track down bugs.
-	alignas( 8 ) unsigned char unused_m_pDebugName[ 312 ];
+	alignas( 8 ) unsigned char unused_m_pDebugName[312];
 
-	bool						m_bSimulate;
-	int							m_nToolParticleEffectId;
+	bool m_bSimulate;
+	int m_nToolParticleEffectId;
 
 private:
 	// Update the reference count.
-	void						AddRef();
-	void						Release();
-	
-	int							m_RefCount;		// When this goes to zero and the effect has no more active
-												// particles, (and it's dynamically allocated), it will delete itself.
+	void AddRef();
+	void Release();
+
+	int m_RefCount; // When this goes to zero and the effect has no more active
+	// particles, (and it's dynamically allocated), it will delete itself.
 
 	CParticleEffect( const CParticleEffect & ); // not defined, not accessible
-};
-
-class SimpleParticle : public Particle
-{
-public:
-	SimpleParticle() : m_iFlags(0) {}
-
-	// AddSimpleParticle automatically initializes these fields.
-	Vector		m_vecVelocity;
-	float		m_flRoll;
-	float		m_flDieTime;	// How long it lives for.
-	float		m_flLifetime;	// How long it has been alive for so far.
-	unsigned char	m_uchColor[3];
-	unsigned char	m_uchStartAlpha;
-	unsigned char	m_uchEndAlpha;
-	unsigned char	m_uchStartSize;
-	unsigned char	m_uchEndSize;
-	unsigned char 	m_iFlags;	// See SimpleParticleFlag_t above
-	float		m_flRollDelta;
 };
 
 // CSimpleEmitter implements a common way to simulate and render particles.
@@ -86,27 +67,26 @@ public:
 // Particles you add using this effect must use the class CParticleSimple::Particle.
 class CSimpleEmitter : public CParticleEffect
 {
-// IParticleEffect overrides.
+	// IParticleEffect overrides.
 public:
-
 	DECLARE_CLASS( CSimpleEmitter, CParticleEffect );
 
-	virtual void	SimulateParticles( CParticleSimulateIterator *pIterator );
-	virtual void	RenderParticles( CParticleRenderIterator *pIterator );
+	virtual void SimulateParticles( CParticleSimulateIterator *pIterator );
+	virtual void RenderParticles( CParticleRenderIterator *pIterator );
 
-// Overridables for variants like CEmberEffect.
+	// Overridables for variants like CEmberEffect.
 protected:
-					CSimpleEmitter( const char *pDebugName = NULL );
-	virtual			~CSimpleEmitter();
+	CSimpleEmitter( const char *pDebugName = NULL );
+	virtual ~CSimpleEmitter();
 
-	virtual	float	UpdateAlpha( const SimpleParticle *pParticle );
-	virtual float	UpdateScale( const SimpleParticle *pParticle );
-	virtual	float	UpdateRoll( SimpleParticle *pParticle, float timeDelta );
-	virtual	void	UpdateVelocity( SimpleParticle *pParticle, float timeDelta );
-	virtual Vector	UpdateColor( const SimpleParticle *pParticle );
+	virtual void unused_UpdateAlpha() = 0;
+	virtual void unused_UpdateScale() = 0;
+	virtual void unused_UpdateRoll() = 0;
+	virtual void unused_UpdateVelocity() = 0;
+	virtual void unused_UpdateColor() = 0;
 
-	float			m_flNearClipMin;
-	float			m_flNearClipMax;
+	float m_flNearClipMin;
+	float m_flNearClipMax;
 
 private:
 	CSimpleEmitter( const CSimpleEmitter & ); // not defined, not accessible

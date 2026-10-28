@@ -80,12 +80,12 @@ namespace
 const char *WorktreeRoot()
 {
 	static const char *kCandidates[] = { ".", "..", "../..", "../../.." };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
-		std::string szProbe = std::string( kCandidates[ i ] ) + "/tools/entity-gates";
+		std::string szProbe = std::string( kCandidates[i] ) + "/tools/entity-gates";
 		struct stat st;
 		if ( stat( szProbe.c_str(), &st ) == 0 && S_ISREG( st.st_mode ) )
-			return kCandidates[ i ];
+			return kCandidates[i];
 	}
 	return NULL;
 }
@@ -123,7 +123,7 @@ Run_t RunAtRoot( const std::string &szCommand )
 	if ( !pPipe )
 		return run;
 
-	char rgchBuf[ 4096 ];
+	char rgchBuf[4096];
 	while ( fgets( rgchBuf, sizeof( rgchBuf ), pPipe ) )
 		run.m_szOutput += rgchBuf;
 
@@ -132,7 +132,7 @@ Run_t RunAtRoot( const std::string &szCommand )
 	return run;
 }
 
-const char *const kToolRelative      = "tools/entity-gates";
+const char *const kToolRelative = "tools/entity-gates";
 //-----------------------------------------------------------------------------
 // A numbered row out of the COMMITTED census, section 1.
 //
@@ -186,8 +186,8 @@ const Run_t &RealTreeHuman()
 // A --tsv row, looked up by gate and metric label. Returns false when the row
 // is absent, which is itself worth failing on: a metric that stopped being
 // printed is a gate that stopped being checked.
-bool TsvRow( const std::string &szOutput, const char *pszGate, const char *pszMetric,
-             long *pnServer, long *pnClient, std::string *pszVerdict )
+bool TsvRow( const std::string &szOutput, const char *pszGate, const char *pszMetric, long *pnServer, long *pnClient,
+			 std::string *pszVerdict )
 {
 	const std::string szKey = std::string( pszGate ) + "\t" + pszMetric + "\t";
 	size_t iPos = 0;
@@ -210,7 +210,7 @@ bool TsvRow( const std::string &szOutput, const char *pszGate, const char *pszMe
 		if ( szHead.compare( 0, szKey.size(), szKey ) != 0 )
 			continue;
 
-		std::vector< std::string > fields;
+		std::vector<std::string> fields;
 		size_t iField = 0;
 		while ( iField <= szLine.size() )
 		{
@@ -226,9 +226,12 @@ bool TsvRow( const std::string &szOutput, const char *pszGate, const char *pszMe
 		if ( fields.size() < 6 )
 			continue;
 
-		if ( pnServer )   *pnServer = strtol( fields[ 3 ].c_str(), NULL, 10 );
-		if ( pnClient )   *pnClient = strtol( fields[ 4 ].c_str(), NULL, 10 );
-		if ( pszVerdict ) *pszVerdict = fields[ 5 ];
+		if ( pnServer )
+			*pnServer = strtol( fields[3].c_str(), NULL, 10 );
+		if ( pnClient )
+			*pnClient = strtol( fields[4].c_str(), NULL, 10 );
+		if ( pszVerdict )
+			*pszVerdict = fields[5];
 		return true;
 	}
 	return false;
@@ -250,33 +253,33 @@ bool TsvRow( const std::string &szOutput, const char *pszGate, const char *pszMe
 //=============================================================================
 struct Fixture_t
 {
-	std::string m_szRoot;        // holds src/ and the allowlists
+	std::string m_szRoot; // holds src/ and the allowlists
 	// Each object table is a CMake build dir (<case>/build) whose
 	// compile_commands.json names the TUs, beside <case>/src (a link to the
 	// shared <root>/src) and <case>/repo, the stand-in repo whose CMakeLists list
 	// the same sources. See WriteObjectTable.
-	std::string m_szCleanNinja;  // object table over two entity-free TUs
-	std::string m_szDirtyNinja;  // ... over one TU with casts on lines 4 and 5
-	std::string m_szDerivedNinja;// ... over one TU with ONE entity derivation
-	std::string m_szChainNinja;  // ... over one TU with a two-step derivation
-	std::string m_szKeptNinja;   // ... over a TU naming IClientEntityList only
-	std::string m_szEntListNinja;// ... over a TU naming gEntList
-	std::string m_szSelfExe;     // this binary, standing in for both DLLs
+	std::string m_szCleanNinja; // object table over two entity-free TUs
+	std::string m_szDirtyNinja; // ... over one TU with casts on lines 4 and 5
+	std::string m_szDerivedNinja; // ... over one TU with ONE entity derivation
+	std::string m_szChainNinja; // ... over one TU with a two-step derivation
+	std::string m_szKeptNinja; // ... over a TU naming IClientEntityList only
+	std::string m_szEntListNinja; // ... over a TU naming gEntList
+	std::string m_szSelfExe; // this binary, standing in for both DLLs
 	bool m_bOk;
 };
 
 // Registered with atexit the first time the fixture is built. It reads the
 // static below rather than taking an argument, which is what atexit allows.
 std::string g_szFixtureRoot;
+
 //=============================================================================
 // (0) The scanner is itself checked: the subjects exist and are not stubs.
 //=============================================================================
 
 TEST( EntityGates, TheWorktreeRootIsFound )
 {
-	ASSERT_TRUE( WorktreeRoot() != NULL )
-		<< "no tools/entity-gates above the working directory; every fact below "
-		   "would be vacuous.";
+	ASSERT_TRUE( WorktreeRoot() != NULL ) << "no tools/entity-gates above the working directory; every fact below "
+											 "would be vacuous.";
 }
 
 TEST( EntityGates, TheToolIsExecutable )
@@ -336,13 +339,11 @@ TEST( EntityGates, TheToolIsExecutable )
 TEST( EntityGates, NoAllowlistEntryIsStale )
 {
 	long nStale = -1;
-	ASSERT_TRUE( TsvRow( RealTreeTsv().m_szOutput, "3",
-	                     "stale allowlist entries (match no cast site)",
-	                     &nStale, NULL, NULL ) )
+	ASSERT_TRUE(
+		TsvRow( RealTreeTsv().m_szOutput, "3", "stale allowlist entries (match no cast site)", &nStale, NULL, NULL ) )
 		<< RealTreeTsv().m_szOutput;
-	EXPECT_EQ( 0, nStale )
-		<< "an allowlisted line that matches no cast site is no longer excusing the "
-		   "cast it was written for -- it is excusing whatever now sits on that line.";
+	EXPECT_EQ( 0, nStale ) << "an allowlisted line that matches no cast site is no longer excusing the "
+							  "cast it was written for -- it is excusing whatever now sits on that line.";
 }
 
 //=============================================================================
@@ -367,13 +368,14 @@ TEST( EntityGates, TodaysBinariesPassTheDefinitionOfDone )
 {
 	const Run_t &run = RealTreeHuman();
 	ASSERT_NE( -1, run.m_nExit ) << "the tool did not run at all.";
-	EXPECT_EQ( kExitAllPass, run.m_nExit )
-		<< "plan_entity.md's definition of done is met on these binaries and the "
-		   "tool must say so with exit 0. A non-zero exit here is the port coming "
-		   "back apart.\n" << run.m_szOutput;
+	EXPECT_EQ( kExitAllPass, run.m_nExit ) << "plan_entity.md's definition of done is met on these binaries and the "
+											  "tool must say so with exit 0. A non-zero exit here is the port coming "
+											  "back apart.\n"
+										   << run.m_szOutput;
 	EXPECT_NE( std::string::npos,
-	           run.m_szOutput.find( "all gates PASS -- no base entity, no entity list, "
-	                                "no entity casts" ) ) << run.m_szOutput;
+			   run.m_szOutput.find( "all gates PASS -- no base entity, no entity list, "
+									"no entity casts" ) )
+		<< run.m_szOutput;
 }
 
 TEST( EntityGates, EveryGatedRowOnTodaysBinariesReadsZeroOnBothSides )
@@ -397,7 +399,7 @@ TEST( EntityGates, EveryGatedRowOnTodaysBinariesReadsZeroOnBothSides )
 		const std::string szLine = szTsv.substr( iPos, iEnd - iPos );
 		iPos = iEnd + 1;
 
-		std::vector< std::string > fields;
+		std::vector<std::string> fields;
 		size_t iField = 0;
 		while ( iField <= szLine.size() )
 		{
@@ -410,24 +412,22 @@ TEST( EntityGates, EveryGatedRowOnTodaysBinariesReadsZeroOnBothSides )
 			fields.push_back( szLine.substr( iField, iTab - iField ) );
 			iField = iTab + 1;
 		}
-		if ( fields.size() < 6 || fields[ 1 ] != "gate" )
+		if ( fields.size() < 6 || fields[1] != "gate" )
 			continue;
 
 		cGatedRows++;
-		EXPECT_EQ( "0", fields[ 3 ] )
-			<< "gate " << fields[ 0 ] << " row '" << fields[ 2 ] << "' reads "
-			<< fields[ 3 ] << " on the server.";
-		EXPECT_EQ( "0", fields[ 4 ] )
-			<< "gate " << fields[ 0 ] << " row '" << fields[ 2 ] << "' reads "
-			<< fields[ 4 ] << " on the client.";
-		EXPECT_EQ( "PASS", fields[ 5 ] )
-			<< "gate " << fields[ 0 ] << " row '" << fields[ 2 ] << "' is not PASS.";
+		EXPECT_EQ( "0", fields[3] ) << "gate " << fields[0] << " row '" << fields[2] << "' reads " << fields[3]
+									<< " on the server.";
+		EXPECT_EQ( "0", fields[4] ) << "gate " << fields[0] << " row '" << fields[2] << "' reads " << fields[4]
+									<< " on the client.";
+		EXPECT_EQ( "PASS", fields[5] ) << "gate " << fields[0] << " row '" << fields[2] << "' is not PASS.";
 	}
 
-	EXPECT_GE( cGatedRows, 20 )
-		<< "only " << cGatedRows << " gated rows were printed. A run that stopped "
-		   "printing rows would satisfy every assertion in the loop above by "
-		   "never entering it.\n" << szTsv;
+	EXPECT_GE( cGatedRows, 20 ) << "only " << cGatedRows
+								<< " gated rows were printed. A run that stopped "
+								   "printing rows would satisfy every assertion in the loop above by "
+								   "never entering it.\n"
+								<< szTsv;
 }
 
 TEST( EntityGates, NoGateFailsSoNoFirstFailingGateIsNamed )
@@ -439,12 +439,11 @@ TEST( EntityGates, NoGateFailsSoNoFirstFailingGateIsNamed )
 	// a "FIRST FAILURE" line, and the --tsv verdict row must positively read
 	// `none`. Asserting only the absence would also pass over an empty output.
 	const Run_t &run = RealTreeHuman();
-	EXPECT_EQ( std::string::npos, run.m_szOutput.find( "FIRST FAILURE" ) )
-		<< "a gate failed on today's binaries.\n" << run.m_szOutput;
+	EXPECT_EQ( std::string::npos, run.m_szOutput.find( "FIRST FAILURE" ) ) << "a gate failed on today's binaries.\n"
+																		   << run.m_szOutput;
 
 	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( RealTreeTsv().m_szOutput, "all", "first failure",
-	                     NULL, NULL, &szVerdict ) )
+	ASSERT_TRUE( TsvRow( RealTreeTsv().m_szOutput, "all", "first failure", NULL, NULL, &szVerdict ) )
 		<< "the tool stopped printing the first-failure verdict row.\n"
 		<< RealTreeTsv().m_szOutput;
 	EXPECT_EQ( "none", szVerdict );
@@ -459,8 +458,8 @@ TEST( EntityGates, GateOneCountsEntityMembersWithTheSymbolTypeFilter )
 	// is the one that can be inflated by something nobody wrote.
 	long nSrv = -1, nCli = -1;
 	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( RealTreeTsv().m_szOutput, "1",
-	                     "CBaseEntity:: / C_BaseEntity:: members", &nSrv, &nCli, &szVerdict ) )
+	ASSERT_TRUE(
+		TsvRow( RealTreeTsv().m_szOutput, "1", "CBaseEntity:: / C_BaseEntity:: members", &nSrv, &nCli, &szVerdict ) )
 		<< RealTreeTsv().m_szOutput;
 	// 1185 -> 1181 BY plan_entity.md step 4a, and the four are named because a
 	// gate number that moves without an account is the thing this file exists
@@ -679,8 +678,11 @@ TEST( EntityGates, GateOneCarriesTheLooseReadingAsReconciliationOnly )
 	const std::string &szOut = RealTreeTsv().m_szOutput;
 	long nSrv = -1, nCli = -1;
 	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( szOut, "1", "same, no symbol-type filter (\xC2\xA7""1's reading: 1207/602)",
-	                     &nSrv, &nCli, &szVerdict ) ) << szOut;
+	ASSERT_TRUE( TsvRow( szOut, "1",
+						 "same, no symbol-type filter (\xC2\xA7"
+						 "1's reading: 1207/602)",
+						 &nSrv, &nCli, &szVerdict ) )
+		<< szOut;
 	// 1207 -> 1203, the same four, seen through the loose reading. The two
 	// counts moving by the SAME amount is what says the four are real
 	// definitions rather than weak emissions the filter was hiding.
@@ -776,8 +778,9 @@ TEST( EntityGates, GateTwoCarriesTheNarrowReadingAsReconciliationOnly )
 	long nSrv = -1, nCli = -1;
 	std::string szVerdict;
 	ASSERT_TRUE( TsvRow( RealTreeTsv().m_szOutput, "2",
-	                     "same, without CBaseEntityList:: (\xC2\xA7""1's reading: 33/91)",
-	                     &nSrv, &nCli, &szVerdict ) );
+						 "same, without CBaseEntityList:: (\xC2\xA7"
+						 "1's reading: 33/91)",
+						 &nSrv, &nCli, &szVerdict ) );
 	// 91 -> 90 at plan_entity.md step 7g. The narrow reading omits
 	// CBaseEntityList::, so what moved is a CClientEntityList member, and the
 	// only one the twelve deleted objects emitted is
@@ -819,12 +822,9 @@ TEST( EntityGates, EveryGateCarriesASourceRowAndNotOnlyAnNmRow )
 	// the sufficient check and nm is the fast one." A gate whose only row came
 	// out of the binary could be passed by deleting a call, not a class.
 	const std::string &szOut = RealTreeTsv().m_szOutput;
-	EXPECT_TRUE( TsvRow( szOut, "1", "\": public <entity>\" decls (TUs + shim headers)",
-	                     NULL, NULL, NULL ) ) << szOut;
-	EXPECT_TRUE( TsvRow( szOut, "2", "gEntList / ClientEntityList() / IEntityListener",
-	                     NULL, NULL, NULL ) ) << szOut;
-	EXPECT_TRUE( TsvRow( szOut, "3", "TOTAL, families summed (one line can hit two)",
-	                     NULL, NULL, NULL ) ) << szOut;
+	EXPECT_TRUE( TsvRow( szOut, "1", "\": public <entity>\" decls (TUs + shim headers)", NULL, NULL, NULL ) ) << szOut;
+	EXPECT_TRUE( TsvRow( szOut, "2", "gEntList / ClientEntityList() / IEntityListener", NULL, NULL, NULL ) ) << szOut;
+	EXPECT_TRUE( TsvRow( szOut, "3", "TOTAL, families summed (one line can hit two)", NULL, NULL, NULL ) ) << szOut;
 }
 
 TEST( EntityGates, TheDerivedClassClosureFindsSubclassesOnTodaysBinaries )
@@ -850,14 +850,12 @@ TEST( EntityGates, TheDerivedClassClosureFindsSubclassesOnTodaysBinaries )
 	// A broken nm, an unreadable .so or a walk that returns nothing reddens that
 	// one; only a genuinely entity-free binary satisfies both.
 	long nSrv = -1, nCli = -1;
-	ASSERT_TRUE( TsvRow( RealTreeTsv().m_szOutput, "1",
-	                     "classes derived from them (typeinfo closure)", &nSrv, &nCli, NULL ) );
-	EXPECT_EQ( 0, nSrv )
-		<< "the server DLL has classes deriving from CBaseEntity again. The flip "
-		   "removed the base; anything derived from it is a hierarchy that came "
-		   "back.";
-	EXPECT_EQ( 0, nCli )
-		<< "the client DLL has classes deriving from C_BaseEntity again.";
+	ASSERT_TRUE(
+		TsvRow( RealTreeTsv().m_szOutput, "1", "classes derived from them (typeinfo closure)", &nSrv, &nCli, NULL ) );
+	EXPECT_EQ( 0, nSrv ) << "the server DLL has classes deriving from CBaseEntity again. The flip "
+							"removed the base; anything derived from it is a hierarchy that came "
+							"back.";
+	EXPECT_EQ( 0, nCli ) << "the client DLL has classes deriving from C_BaseEntity again.";
 
 	// AND THE UPPER BOUND, which is a regression pin for a real bug. mawk treats
 	// a hex address whose digits happen to be all decimal (0000000000326948) as
@@ -869,8 +867,8 @@ TEST( EntityGates, TheDerivedClassClosureFindsSubclassesOnTodaysBinaries )
 	// ITextureRegenerator and the rest, none of which derives from an entity.
 	// The correct answer is 10.
 	EXPECT_LT( nCli, 20 ) << "the client's derived-class list is inflated: the "
-	                         "relocation containment test is comparing addresses "
-	                         "as numbers again.";
+							 "relocation containment test is comparing addresses "
+							 "as numbers again.";
 }
 
 TEST( EntityGates, TheDerivedClassMembersAreCountedSeparately )
@@ -909,30 +907,29 @@ TEST( EntityGates, TheDerivedClassMembersAreCountedSeparately )
 //-----------------------------------------------------------------------------
 TEST( EntityGates, TheBinariesStillCarryATypeinfoTableToWalk )
 {
-	static const char *const kSo[] = { "game/mod_sharp/bin/linux64/server.so",
-	                                   "game/mod_sharp/bin/linux64/client.so" };
+	static const char *const kSo[] = { "game/mod_sharp/bin/linux64/server.so", "game/mod_sharp/bin/linux64/client.so" };
 
-	for ( size_t i = 0; i < sizeof( kSo ) / sizeof( kSo[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kSo ) / sizeof( kSo[0] ); i++ )
 	{
-		const Run_t run = RunAtRoot( std::string( "nm -S --defined-only '" ) + kSo[ i ] +
-			"' | awk 'NF==4 && $4 ~ /^_ZTI/ && $4 !~ /^_ZTIP/' | wc -l" );
-		ASSERT_EQ( 0, run.m_nExit ) << kSo[ i ] << ":\n" << run.m_szOutput;
+		const Run_t run = RunAtRoot( std::string( "nm -S --defined-only '" ) + kSo[i] +
+									 "' | awk 'NF==4 && $4 ~ /^_ZTI/ && $4 !~ /^_ZTIP/' | wc -l" );
+		ASSERT_EQ( 0, run.m_nExit ) << kSo[i] << ":\n" << run.m_szOutput;
 
 		const long nTypeinfo = strtol( run.m_szOutput.c_str(), NULL, 10 );
-		EXPECT_GT( nTypeinfo, 100 )
-			<< kSo[ i ] << " has " << nTypeinfo << " non-pointer typeinfo "
-			   "objects. The derived-class closure walks exactly these, so a "
-			   "number this low means nm is not reading this binary -- and every "
-			   "zero the gate rows assert is then a silence rather than a "
-			   "measurement.";
+		EXPECT_GT( nTypeinfo, 100 ) << kSo[i] << " has " << nTypeinfo
+									<< " non-pointer typeinfo "
+									   "objects. The derived-class closure walks exactly these, so a "
+									   "number this low means nm is not reading this binary -- and every "
+									   "zero the gate rows assert is then a silence rather than a "
+									   "measurement.";
 
 		// AND THE ENTITY ROOTS ARE NOT AMONG THEM, which is the half that says
 		// the zeros above are about the entity hierarchy specifically and not
 		// about the walk having stopped.
-		const Run_t roots = RunAtRoot( std::string( "nm -S --defined-only '" ) + kSo[ i ] +
-			"' | awk 'NF==4 && $4 ~ /^_ZTI/ {print $4}' | c++filt "
-			"| grep -cE '^typeinfo for C_?BaseEntity$' || true" );
-		ASSERT_EQ( 0, roots.m_nExit ) << kSo[ i ] << ":\n" << roots.m_szOutput;
+		const Run_t roots = RunAtRoot( std::string( "nm -S --defined-only '" ) + kSo[i] +
+									   "' | awk 'NF==4 && $4 ~ /^_ZTI/ {print $4}' | c++filt "
+									   "| grep -cE '^typeinfo for C_?BaseEntity$' || true" );
+		ASSERT_EQ( 0, roots.m_nExit ) << kSo[i] << ":\n" << roots.m_szOutput;
 
 		// THE SERVER'S ONE EXCEPTION IS THE ENTITY FACE (plan_server_native_v2
 		// D1): on stock public headers igameentity.h's six-member interface is
@@ -946,18 +943,21 @@ TEST( EntityGates, TheBinariesStillCarryATypeinfoTableToWalk )
 		{
 			// The face is spelled CBaseEntity, or SS_GAME_ENTITY where
 			// igameentity_fwd.h names it CBaseEntity on the server.
-			const Run_t face = RunAtRoot( "{ grep -qx 'abstract_class CBaseEntity' src/public/igameentity.h || "
+			const Run_t face = RunAtRoot(
+				"{ grep -qx 'abstract_class CBaseEntity' src/public/igameentity.h || "
 				"{ grep -qx 'abstract_class SS_GAME_ENTITY' src/public/igameentity.h && "
 				"grep -qx '#define SS_GAME_ENTITY CBaseEntity' src/public/igameentity_fwd.h; }; } && echo 1 || echo 0" );
-			const Run_t members = RunAtRoot( std::string( "nm -C --defined-only '" ) + kSo[ i ] +
-				"' | awk '$2 ~ /^[TWVDBRt]$/' | grep 'CBaseEntity::' "
-				"| grep -cv 'CBaseEntity::CBaseEntity()\\|CBaseEntity::~CBaseEntity()' || true" );
+			const Run_t members =
+				RunAtRoot( std::string( "nm -C --defined-only '" ) + kSo[i] +
+						   "' | awk '$2 ~ /^[TWVDBRt]$/' | grep 'CBaseEntity::' "
+						   "| grep -cv 'CBaseEntity::CBaseEntity()\\|CBaseEntity::~CBaseEntity()' || true" );
 			if ( strtol( face.m_szOutput.c_str(), NULL, 10 ) == 1 &&
-			     strtol( members.m_szOutput.c_str(), NULL, 10 ) == 0 )
+				 strtol( members.m_szOutput.c_str(), NULL, 10 ) == 0 )
 				nAllowed = 1;
 		}
 		EXPECT_LE( strtol( roots.m_szOutput.c_str(), NULL, 10 ), nAllowed )
-			<< kSo[ i ] << " still carries a typeinfo for CBaseEntity or "
+			<< kSo[i]
+			<< " still carries a typeinfo for CBaseEntity or "
 			   "C_BaseEntity that is not the server's entity face, so the empty "
 			   "closure above is the WALK failing rather than the hierarchy "
 			   "being gone.";
@@ -986,8 +986,8 @@ TEST( EntityGates, TheEntityToInterfaceFamilyIsReportedButNotGated )
 	const std::string &szOut = RealTreeTsv().m_szOutput;
 	long nSrv = -1, nCli = -1;
 	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( szOut, "3", "ToEngineIface (the other direction -- not gated)",
-	                     &nSrv, &nCli, &szVerdict ) ) << szOut;
+	ASSERT_TRUE( TsvRow( szOut, "3", "ToEngineIface (the other direction -- not gated)", &nSrv, &nCli, &szVerdict ) )
+		<< szOut;
 	EXPECT_GT( nSrv, 0 );
 	EXPECT_EQ( "-", szVerdict );
 }
@@ -1038,11 +1038,9 @@ TEST( EntityGates, OnlyOnAPassingTreeStillSkipsTheOthersRatherThanPassingThem )
 	ASSERT_TRUE( TsvRow( run.m_szOutput, "2", "entity list", NULL, NULL, &szVerdict ) ) << run.m_szOutput;
 	EXPECT_EQ( "PASS", szVerdict );
 	ASSERT_TRUE( TsvRow( run.m_szOutput, "1", "base entity", NULL, NULL, &szVerdict ) );
-	EXPECT_EQ( "SKIPPED", szVerdict )
-		<< "gate 1 was not measured by this run but is reported as " << szVerdict << ".";
+	EXPECT_EQ( "SKIPPED", szVerdict ) << "gate 1 was not measured by this run but is reported as " << szVerdict << ".";
 	ASSERT_TRUE( TsvRow( run.m_szOutput, "3", "entity casts", NULL, NULL, &szVerdict ) );
-	EXPECT_EQ( "SKIPPED", szVerdict )
-		<< "gate 3 was not measured by this run but is reported as " << szVerdict << ".";
+	EXPECT_EQ( "SKIPPED", szVerdict ) << "gate 3 was not measured by this run but is reported as " << szVerdict << ".";
 }
 
 TEST( EntityGates, AnOutOfRangeGateNumberIsRefused )

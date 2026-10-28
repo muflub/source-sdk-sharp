@@ -21,8 +21,7 @@ public:
 	void *Acquire( const char *pszName ) override;
 
 	// The engine's interfaces by factory kind; this side's own (INTERNAL) from Acquire.
-	void *AcquireInterface( int32_t nType, const char *pszVersion,
-	                        char *pError, int32_t nErrorBytes ) override;
+	void *AcquireInterface( int32_t nType, const char *pszVersion, char *pError, int32_t nErrorBytes ) override;
 
 	// The root lives as long as the DLL; this does nothing.
 	void Release() override {}

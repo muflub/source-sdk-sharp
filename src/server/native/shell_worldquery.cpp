@@ -13,21 +13,17 @@
 
 #include "ss_util.h"
 #include "ss_shareddefs.h"
-#include "overlay_library.h"
-#include "shell_tempents.h"
+
 #include "ss_recipient_filter.h"
 #include "ss_world.h"
-#include "shell_standalone_class.h"
+
 #include "shell_standalone_player.h"
 #include "standalone_movetype.h"
-#include "standalone_relays.h"
-#include "said_once_per_id.h"
-#include "sourcesharp.h"
+
 #include "shell_diagnostics.h"
-#include "vphysics_interface.h"
-#include "ss_effects.h"
+
 #include "mathlib_port.h"
-#include "engine/ivmodelinfo.h"
+
 #include "model_types.h"
 #include "ss_physics_shared.h"
 #include "materialsystem/imaterial.h"
@@ -44,13 +40,11 @@ void UTIL_BloodDrips( const Vector &origin, const Vector &direction, int color, 
 void PrecacheMaterial( const char *pMaterialName );
 void PrecacheParticleSystem( const char *pParticleSystemName );
 
-#include "imanaged_areas.h"
 #include "trace_hit.h"
 
 // The right and up vectors of a surface facing a direction. Native so the server
 // and client compute them bit-identically from the same normal.
-void SourceSharp_AngleVectorsFromForward( const float *pForwardXYZ,
-                                          float *pOutRightXYZ, float *pOutUpXYZ )
+void SourceSharp_AngleVectorsFromForward( const float *pForwardXYZ, float *pOutRightXYZ, float *pOutUpXYZ )
 {
 	if ( !pForwardXYZ )
 		return;
@@ -77,12 +71,11 @@ void SourceSharp_AngleVectorsFromForward( const float *pForwardXYZ,
 }
 
 // Every live standalone entity; gEntList's traversals skip them.
-std::vector< CStandaloneEntity * > &StandaloneEntities();
+std::vector<CStandaloneEntity *> &StandaloneEntities();
 
 // Everything within a radius, unfiltered: managed decides what to act on. The
 // count is how many were written, so a full array means there may be more.
-int32_t SourceSharp_EntitiesInSphere( const float *pCenterXYZ, float flRadius,
-                                      uint32_t *pOutHandles, int32_t nMax )
+int32_t SourceSharp_EntitiesInSphere( const float *pCenterXYZ, float flRadius, uint32_t *pOutHandles, int32_t nMax )
 {
 	// Hot: driven by managed thinks, many times per tick.
 	SOURCESHARP_TRACE_HOT();
@@ -97,7 +90,7 @@ int32_t SourceSharp_EntitiesInSphere( const float *pCenterXYZ, float flRadius,
 	// A registry walk, not a partition query: a standalone entity that is neither
 	// solid nor a trigger is not in the partition. Tests the world-space AABB, and
 	// includes server-only entities (an env_fire must find the next one).
-	const std::vector< CStandaloneEntity * > &standalones = StandaloneEntities();
+	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
 
 	for ( CStandaloneEntity *pStandalone : standalones )
 	{
@@ -132,8 +125,7 @@ int32_t SourceSharp_EntityGetState( uint32_t hEntity, int32_t *pOutMoveType )
 	{
 		int32_t nStandaloneFlags = 0;
 
-		if ( ent.pStandalone->GetSolid() != SOLID_NONE &&
-		     ( ent.pStandalone->GetSolidFlags() & FSOLID_NOT_SOLID ) == 0 )
+		if ( ent.pStandalone->GetSolid() != SOLID_NONE && ( ent.pStandalone->GetSolidFlags() & FSOLID_NOT_SOLID ) == 0 )
 			nStandaloneFlags |= SOURCESHARP_ENTSTATE_SOLID;
 
 		if ( ent.pStandalone->GetPhysics() != NULL )
@@ -144,15 +136,11 @@ int32_t SourceSharp_EntityGetState( uint32_t hEntity, int32_t *pOutMoveType )
 		if ( pOutMoveType )
 		{
 			CStandalonePlayer *pStandalonePlayer =
-				ent.pStandalone->IsPlayer()
-					? SourceSharp_PlayerOf( ent.pStandalone )
-					: NULL;
+				ent.pStandalone->IsPlayer() ? SourceSharp_PlayerOf( ent.pStandalone ) : NULL;
 
 			*pOutMoveType = StandaloneMoveType_Report(
-				pStandalonePlayer != NULL,
-				pStandalonePlayer ? (int)pStandalonePlayer->MvGetMoveType() : 0,
-				ent.pStandalone->GetPhysics() != NULL,
-				ent.pStandalone->Block().Head.MoveType );
+				pStandalonePlayer != NULL, pStandalonePlayer ? (int)pStandalonePlayer->MvGetMoveType() : 0,
+				ent.pStandalone->GetPhysics() != NULL, ent.pStandalone->Block().Head.MoveType );
 		}
 
 		// Every standalone entity is offered damage; managed decides what lands.
@@ -164,8 +152,7 @@ int32_t SourceSharp_EntityGetState( uint32_t hEntity, int32_t *pOutMoveType )
 		// Only a player has ground on this hierarchy.
 		if ( ent.pStandalone->IsPlayer() )
 		{
-			CStandalonePlayer *pStandalonePlayer =
-				SourceSharp_PlayerOf( ent.pStandalone );
+			CStandalonePlayer *pStandalonePlayer = SourceSharp_PlayerOf( ent.pStandalone );
 
 			if ( pStandalonePlayer->MvGetFlags() & FL_ONGROUND )
 				nStandaloneFlags |= SOURCESHARP_ENTSTATE_ONGROUND;
@@ -184,9 +171,8 @@ int32_t SourceSharp_EntityGetState( uint32_t hEntity, int32_t *pOutMoveType )
 // Damage from an emitter, and its force. CalculateExplosiveDamageForce scales,
 // clamps and jitters the force per victim; the jitter is server randomness and
 // stays here so managed is never a source of values demo playback must reproduce.
-void SourceSharp_EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float flDamage,
-                                   int32_t nDamageType, const float *pDirXYZ,
-                                   const float *pForceOriginXYZ, int32_t bPhysicsOnly )
+void SourceSharp_EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
+								   const float *pDirXYZ, const float *pForceOriginXYZ, int32_t bPhysicsOnly )
 {
 	SOURCESHARP_TRACE();
 
@@ -206,9 +192,8 @@ void SourceSharp_EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float f
 
 	if ( pDirXYZ && pForceOriginXYZ )
 	{
-		ss::CalculateExplosiveDamageForce( &info,
-		                               Vector( pDirXYZ[0], pDirXYZ[1], pDirXYZ[2] ),
-		                               Vector( pForceOriginXYZ[0], pForceOriginXYZ[1], pForceOriginXYZ[2] ) );
+		ss::CalculateExplosiveDamageForce( &info, Vector( pDirXYZ[0], pDirXYZ[1], pDirXYZ[2] ),
+										   Vector( pForceOriginXYZ[0], pForceOriginXYZ[1], pForceOriginXYZ[2] ) );
 	}
 
 	if ( pStandalone )
@@ -269,9 +254,8 @@ int32_t SourceSharp_PrecacheModel( const char *pszModel )
 }
 
 // Blood at a point and in a direction: stream or drips, then spray, in stock's order.
-void SourceSharp_BloodEffect( const float *pOriginXYZ, const float *pDirXYZ,
-                              int32_t nColor, float flAmount,
-                              int32_t bStream, int32_t nSprayFlags )
+void SourceSharp_BloodEffect( const float *pOriginXYZ, const float *pDirXYZ, int32_t nColor, float flAmount,
+							  int32_t bStream, int32_t nSprayFlags )
 {
 	SOURCESHARP_TRACE();
 
@@ -315,7 +299,7 @@ void SourceSharp_SetSkyboxParams( const SourceSharpSkyboxParams *pParams )
 
 // One packed RGBA word into the engine's colour type, which wants its components
 // set through its setters.
-template < typename T >
+template <typename T>
 static void SourceSharp_UnpackColor32( uint32_t packed, T &out )
 {
 	out.SetR( (unsigned char)( packed & 0xFF ) );
@@ -333,21 +317,20 @@ bool SourceSharp_FillSkyboxParams( ss::sky3dparams_t &out )
 	const SourceSharpSkyboxParams &in = g_SkyboxParams;
 
 	out.origin = Vector( in.OriginXYZ[0], in.OriginXYZ[1], in.OriginXYZ[2] );
-	out.scale  = in.Scale;
-	out.area   = in.Area;
+	out.scale = in.Scale;
+	out.area = in.Area;
 
 	out.fog.enable = in.FogEnable != 0;
-	out.fog.blend  = in.FogBlend != 0;
+	out.fog.blend = in.FogBlend != 0;
 	out.fog.radial = in.FogRadial != 0;
-	out.fog.dirPrimary = Vector( in.FogDirPrimaryXYZ[0], in.FogDirPrimaryXYZ[1],
-	                             in.FogDirPrimaryXYZ[2] );
+	out.fog.dirPrimary = Vector( in.FogDirPrimaryXYZ[0], in.FogDirPrimaryXYZ[1], in.FogDirPrimaryXYZ[2] );
 
 	// Bytes, as the send table carries them, to avoid rounding twice.
-	SourceSharp_UnpackColor32( in.FogColorPrimary,   out.fog.colorPrimary );
+	SourceSharp_UnpackColor32( in.FogColorPrimary, out.fog.colorPrimary );
 	SourceSharp_UnpackColor32( in.FogColorSecondary, out.fog.colorSecondary );
 
-	out.fog.start      = in.FogStart;
-	out.fog.end        = in.FogEnd;
+	out.fog.start = in.FogStart;
+	out.fog.end = in.FogEnd;
 	out.fog.maxdensity = in.FogMaxDensity;
 
 	return true;

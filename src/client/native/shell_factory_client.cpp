@@ -8,14 +8,12 @@
 // CreateInterface walks the InterfaceReg chain the EXPOSE_*_INTERFACE macros
 // build during static initialisation; names match exactly.
 
-#include "tier1/interface.h"
 #include "client_factorylist.h"
-
-#include <string.h>
 
 InterfaceReg *InterfaceReg::s_pInterfaceRegs = NULL;
 
-InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName ) : m_pName( pName )
+InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName )
+	: m_pName( pName )
 {
 	m_CreateFn = fn;
 	m_pNext = s_pInterfaceRegs;

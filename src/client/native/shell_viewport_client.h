@@ -11,7 +11,6 @@
 #include "shell_rawpanel_client.h"
 #include "game/client/iviewport.h"
 #include "igameevents.h"
-#include "tier0/platform.h"
 
 class CSourceSharpViewport : public CSourceSharpRawPanel, public IViewPort, public IGameEventListener2
 {
@@ -25,11 +24,16 @@ public:
 	virtual void OnScreenSizeChanged( int nOldWide, int nOldTall ) OVERRIDE;
 
 	virtual void UpdateAllPanels() OVERRIDE {}
+
 	virtual void ShowPanel( const char *pName, bool state ) OVERRIDE;
 	virtual void ShowPanel( IViewPortPanel *pPanel, bool state ) OVERRIDE;
+
 	virtual void ShowBackGround( bool bShow ) OVERRIDE {}
+
 	virtual IViewPortPanel *FindPanelByName( const char *szPanelName ) OVERRIDE { return NULL; }
+
 	virtual IViewPortPanel *GetActivePanel() OVERRIDE { return NULL; }
+
 	virtual void PostMessageToPanel( const char *pName, KeyValues *pKeyValues ) OVERRIDE;
 
 	virtual void FireGameEvent( IGameEvent *event ) OVERRIDE;

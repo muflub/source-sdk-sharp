@@ -18,14 +18,10 @@
 
 #define g_VProfCurrentProfile ss_VProfDeclaredProfile
 #include "tier0/vprof.h"
-#include "tier0/wchartypes.h"
+
 #undef g_VProfCurrentProfile
 
 #include "ss_platform.h"
-
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 namespace
 {
@@ -37,8 +33,10 @@ struct ProfileLayout : CVProfile
 
 [[noreturn]] void NeverEntered( const char *pszMember )
 {
-	fprintf( stderr, "[SourceSharp] CVProfNode::%s called in the client, whose vprof profile is "
-	                 "never enabled (user ruling 2026-10-18); stopping.\n", pszMember );
+	fprintf( stderr,
+			 "[SourceSharp] CVProfNode::%s called in the client, whose vprof profile is "
+			 "never enabled (user ruling 2026-10-18); stopping.\n",
+			 pszMember );
 	fflush( stderr );
 	abort();
 }
@@ -48,13 +46,13 @@ namespace ss
 {
 struct alignas( CVProfile ) ClientVProfBytes
 {
-	unsigned char m_Bytes[ sizeof( CVProfile ) ];
+	unsigned char m_Bytes[sizeof( CVProfile )];
 };
 
 constexpr ClientVProfBytes NeverEnabledProfile()
 {
 	ClientVProfBytes bytes{};
-	bytes.m_Bytes[ ProfileLayout::AtRoot() ] = 1;	// m_fAtRoot = true
+	bytes.m_Bytes[ProfileLayout::AtRoot()] = 1; // m_fAtRoot = true
 	return bytes;
 }
 } // namespace ss
@@ -86,10 +84,12 @@ bool CVProfNode::ExitScope()
 // did not inline one imports it from tier0.dll. Emitted here so the linker binds
 // each import to them (LNK4217). Nothing calls this function.
 #pragma optimize( "", off )
+
 void SS_EmitVProfInlines( CVProfile *pProfile )
 {
 	pProfile->EnterScope( "", 0, "", false, 0 );
 	pProfile->ExitScope();
 }
+
 #pragma optimize( "", on )
 #endif

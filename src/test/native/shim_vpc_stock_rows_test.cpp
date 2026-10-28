@@ -70,8 +70,8 @@ struct Counts
 Counts CountSources( const char *pszTarget )
 {
 	Counts c = { 0, 0, 0 };
-	const std::set< std::string > srcs = cmake_graph::CompiledSources( pszTarget );
-	for ( std::set< std::string >::const_iterator it = srcs.begin(); it != srcs.end(); ++it )
+	const std::set<std::string> srcs = cmake_graph::CompiledSources( pszTarget );
+	for ( std::set<std::string>::const_iterator it = srcs.begin(); it != srcs.end(); ++it )
 	{
 		if ( *it == kMemOverride )
 			continue;
@@ -97,18 +97,19 @@ TEST( ShimVpcStockRows, NeitherSideCompilesMemOverride )
 	// were retired. The exclusion in CountSources is kept, so a return of the
 	// file is reported HERE, by name, rather than as a stock-TU count rise.
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, kMemOverride ) )
-		<< "the server compiles " << kMemOverride << " again: server.so routes "
+		<< "the server compiles " << kMemOverride
+		<< " again: server.so routes "
 		   "its allocations to tier0 once more, and links it (plan 3.6)";
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kMemOverride ) )
-		<< "the client compiles " << kMemOverride << " again: client.so routes "
+		<< "the client compiles " << kMemOverride
+		<< " again: client.so routes "
 		   "its allocations to tier0 once more (plan_client_novalve C3)";
 
 	const Counts c = CountSources( cmake_graph::kServer );
 	EXPECT_GT( c.nShim, 0 ) << "server_sourcesharp compiles no sourcesharp/ TU at all";
-	EXPECT_EQ( c.nSources, c.nShim + c.nStock )
-		<< "every source the server compiles is under sourcesharp/, game/ or "
-		   "public/. A source under some fourth root is not covered by this "
-		   "ratchet and has to be classified before it lands.";
+	EXPECT_EQ( c.nSources, c.nShim + c.nStock ) << "every source the server compiles is under sourcesharp/, game/ or "
+												   "public/. A source under some fourth root is not covered by this "
+												   "ratchet and has to be classified before it lands.";
 }
 
 //-----------------------------------------------------------------------------

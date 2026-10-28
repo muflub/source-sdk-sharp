@@ -7,18 +7,14 @@
 
 // SS_REASON g  leaf math over mdl/bsp data
 
-#include "shell_serversystem.h"
-#include "precache_model.h"
 #include "model_types.h"
 #include "eiface.h"
-#include "engine/ivmodelinfo.h"
 
 #include "entity_shared_statics.h"
 
 extern IVEngineServer *engine;
 extern IVModelInfo *modelinfo;
 
-#include "managed_runtime_server.h"
 #include "imanaged_areas.h"
 #include "ss_string.h"
 

@@ -9,19 +9,25 @@
 // so the object is only the interface vgui_int.cpp and the shell call through.
 
 #include "imessagechars.h"
-#include "tier0/platform.h"
-#include "vgui/VGUI.h"
 
 class CSourceSharpMessageChars : public IMessageChars
 {
 public:
 	virtual void Create( vgui::VPANEL parent ) OVERRIDE {}
+
 	virtual void Destroy() OVERRIDE {}
 
 	virtual int DrawString( vgui::HFont, int, int, int, int, int, int, const char *, int, ... ) OVERRIDE { return 0; }
+
 	virtual int DrawString( vgui::HFont, int, int, const char *, int, ... ) OVERRIDE { return 0; }
-	virtual int DrawStringForTime( float, vgui::HFont, int, int, int, int, int, int, const char *, int, ... ) OVERRIDE { return 0; }
+
+	virtual int DrawStringForTime( float, vgui::HFont, int, int, int, int, int, int, const char *, int, ... ) OVERRIDE
+	{
+		return 0;
+	}
+
 	virtual int DrawStringForTime( float, vgui::HFont, int, int, const char *, int, ... ) OVERRIDE { return 0; }
+
 	virtual void RemoveStringsByID( int ) OVERRIDE {}
 
 	virtual void GetStringLength( vgui::HFont, int *width, int *height, const char *, ... ) OVERRIDE

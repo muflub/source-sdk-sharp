@@ -34,7 +34,7 @@
 namespace
 {
 
-const char *const kLibrary   = "sourcesharp/game/client/client_util_library.cpp";
+const char *const kLibrary = "sourcesharp/game/client/client_util_library.cpp";
 } // anonymous namespace
 
 //=============================================================================//
@@ -68,4 +68,3 @@ TEST( ClientUtilLibrary, TheServerBuildDoesNotCompileIt )
 //=============================================================================//
 // 3. NOT ONE CALLER CHANGED
 //=============================================================================//
-

@@ -9,10 +9,6 @@
 // side beside its shell.
 #pragma once
 
-
-
-
-
 // The entity's own handle, by value.
 CBaseHandle GameEntity_RefHandle( const IGameEntity *pEnt );
 

@@ -13,9 +13,9 @@
 #include "shell_gamerules.h"
 #include "shell_standalone_player.h"
 #include "shell_diagnostics.h"
-#include "eiface.h"
+
 #include "shell_gameclients.h"
-#include "shell_serversystem.h"
+
 #include "shell_server.h"
 
 #include "ss_shareddefs.h"
@@ -37,7 +37,7 @@ void ClientPutInServer( edict_t *pEntity, const char *playername )
 	if ( !StandalonePlayer_Create( pEntity, playername ) )
 	{
 		Error( "[SourceSharp] ClientPutInServer: managed side registered no player class — cannot put '%s' in server\n",
-			playername );
+			   playername );
 		return;
 	}
 
@@ -59,6 +59,6 @@ void CServerGameClients::GetPlayerLimits( int &minplayers, int &maxplayers, int 
 {
 	SOURCESHARP_TRACE();
 	minplayers = 1;
-	maxplayers = ss::kMaxPlayers;	// shareddefs.h's MAX_PLAYERS
+	maxplayers = ss::kMaxPlayers; // shareddefs.h's MAX_PLAYERS
 	defaultMaxPlayers = 16;
 }

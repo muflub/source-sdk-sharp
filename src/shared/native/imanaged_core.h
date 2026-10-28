@@ -34,16 +34,23 @@ class IManagedObject
 public:
 	// Native never builds one: managed does. A native test that fakes one
 	// hands its own table here.
-	explicit IManagedObject( const void *pTable ) : m_pTable( pTable ) {}
+	explicit IManagedObject( const void *pTable )
+		: m_pTable( pTable )
+	{
+	}
 
 	void Release() { Object()->Release( this ); }
-	int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots ) { return Object()->Validate( this, pSlotHashes, nSlots ); }
+
+	int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+	{
+		return Object()->Validate( this, pSlotHashes, nSlots );
+	}
 
 protected:
 	const void *m_pTable;
 
 private:
-	const SSManagedObjectTable *Object() const { return static_cast< const SSManagedObjectTable * >( m_pTable ); }
+	const SSManagedObjectTable *Object() const { return static_cast<const SSManagedObjectTable *>( m_pTable ); }
 };
 
 class IManagedRoot;
@@ -53,23 +60,27 @@ struct SSManagedRootTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void * ( *Acquire )( IManagedRoot *self, const char *pszName );
+	void *( *Acquire )( IManagedRoot *self, const char *pszName );
 };
 
 class IManagedRoot : public IManagedObject
 {
 public:
-	explicit IManagedRoot( const SSManagedRootTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedRoot( const SSManagedRootTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
 	void *Acquire( const char *pszName ) { return Table()->Acquire( this, pszName ); }
 
 private:
-	const SSManagedRootTable *Table() const { return static_cast< const SSManagedRootTable * >( m_pTable ); }
+	const SSManagedRootTable *Table() const { return static_cast<const SSManagedRootTable *>( m_pTable ); }
 };
 
 static const uint32_t kIManagedRootSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xa43ae9b6,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xa43ae9b6,
 };
 static const int32_t kIManagedRootSlotCount = 3;
 static_assert( sizeof( SSManagedRootTable ) == 3 * sizeof( void * ), "SSManagedRootTable is one pointer per slot" );
-

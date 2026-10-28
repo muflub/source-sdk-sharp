@@ -9,13 +9,7 @@
 // arithmetic keeps stock's order and types so results match to the last bit.
 #pragma once
 
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
 #include "mathlib/vmatrix.h"
-
-#include <math.h>
-#include <stdint.h>
-#include <string.h>
 
 namespace ss_mathlib
 {
@@ -469,7 +463,8 @@ inline void AddPointToBounds( const Vector &v, Vector &mins, Vector &maxs )
 
 // A box under a 3x4: its centre transformed, its half-extents projected on
 // the rows' absolute values.
-inline void TransformAABB( const matrix3x4_t &m, const Vector &minsIn, const Vector &maxsIn, Vector &minsOut, Vector &maxsOut )
+inline void TransformAABB( const matrix3x4_t &m, const Vector &minsIn, const Vector &maxsIn, Vector &minsOut,
+						   Vector &maxsOut )
 {
 	Vector centre;
 	VectorAdd( minsIn, maxsIn, centre );
@@ -576,7 +571,8 @@ inline int BoxOnPlaneSide( const float *mins, const float *maxs, const cplane_t 
 // True when the box is wholly behind any of the frustum's six planes.
 inline bool R_CullBox( const Vector &mins, const Vector &maxs, const Frustum_t &frustum )
 {
-	static const int kPlanes[] = { FRUSTUM_RIGHT, FRUSTUM_LEFT, FRUSTUM_TOP, FRUSTUM_BOTTOM, FRUSTUM_NEARZ, FRUSTUM_FARZ };
+	static const int kPlanes[] = { FRUSTUM_RIGHT,  FRUSTUM_LEFT,  FRUSTUM_TOP,
+								   FRUSTUM_BOTTOM, FRUSTUM_NEARZ, FRUSTUM_FARZ };
 	for ( int plane : kPlanes )
 	{
 		if ( ss_mathlib::BoxOnPlaneSide( &mins.x, &maxs.x, frustum.GetPlane( plane ) ) == 2 )
@@ -603,8 +599,9 @@ inline float CalcFovY( float fovX, float aspect )
 // The six planes of a perspective view: far and near along forward, then
 // left/right and bottom/top tilted by the half angles' tangents. SetPlane is
 // mathlib.h's inline; its sign bits are SignbitsForPlane's (this port's global).
-inline void GeneratePerspectiveFrustum( const Vector &origin, const Vector &forward, const Vector &right, const Vector &up,
-                                        float zNear, float zFar, float fovX, float fovY, Frustum_t &frustum )
+inline void GeneratePerspectiveFrustum( const Vector &origin, const Vector &forward, const Vector &right,
+										const Vector &up, float zNear, float zFar, float fovX, float fovY,
+										Frustum_t &frustum )
 {
 	const float intercept = DotProduct( origin, forward );
 
@@ -632,8 +629,8 @@ inline void GeneratePerspectiveFrustum( const Vector &origin, const Vector &forw
 	frustum.SetPlane( FRUSTUM_TOP, PLANE_ANYZ, neg, neg.Dot( origin ) );
 }
 
-inline void GeneratePerspectiveFrustum( const Vector &origin, const QAngle &angles, float zNear, float zFar,
-                                        float fovX, float aspect, Frustum_t &frustum )
+inline void GeneratePerspectiveFrustum( const Vector &origin, const QAngle &angles, float zNear, float zFar, float fovX,
+										float aspect, Frustum_t &frustum )
 {
 	Vector forward, right, up;
 	ss_mathlib::AngleVectors( angles, &forward, &right, &up );
@@ -695,7 +692,8 @@ inline void MatrixMultiply( const VMatrix &src1, const VMatrix &src2, VMatrix &d
 	{
 		for ( int col = 0; col < 4; ++col )
 		{
-			dst[row][col] = a[row][0] * b[0][col] + a[row][1] * b[1][col] + a[row][2] * b[2][col] + a[row][3] * b[3][col];
+			dst[row][col] =
+				a[row][0] * b[0][col] + a[row][1] * b[1][col] + a[row][2] * b[2][col] + a[row][3] * b[3][col];
 		}
 	}
 }
@@ -892,7 +890,8 @@ inline void BasisToQuaternion( const Vector &forward, const Vector &right, const
 
 // The point at t on the Catmull-Rom segment from p2 to p3, the basis rows
 // summed into the output in stock's order.
-inline void Catmull_Rom_Spline( const Vector &p1, const Vector &p2, const Vector &p3, const Vector &p4, float t, Vector &output )
+inline void Catmull_Rom_Spline( const Vector &p1, const Vector &p2, const Vector &p3, const Vector &p4, float t,
+								Vector &output )
 {
 	const float tSqr = t * t * 0.5f;
 	const float tCube = t * tSqr;
@@ -946,7 +945,9 @@ constexpr float Power2NAt( int i )
 struct Power2NTable
 {
 	float v[256];
-	constexpr Power2NTable() : v()
+
+	constexpr Power2NTable()
+		: v()
 	{
 		for ( int i = 0; i < 256; ++i )
 		{

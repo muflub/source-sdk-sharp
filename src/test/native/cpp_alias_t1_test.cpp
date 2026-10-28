@@ -75,7 +75,7 @@ int CountOf( const std::string &strHay, const std::string &strNeedle )
 		return 0;
 	int n = 0;
 	for ( size_t p = strHay.find( strNeedle ); p != std::string::npos;
-	      p = strHay.find( strNeedle, p + strNeedle.size() ) )
+		  p = strHay.find( strNeedle, p + strNeedle.size() ) )
 	{
 		n++;
 	}
@@ -97,18 +97,17 @@ int CountOf( const std::string &strHay, const std::string &strNeedle )
 //-----------------------------------------------------------------------------
 bool IsIdentChar( char c )
 {
-	return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' )
-	    || ( c >= '0' && c <= '9' ) || c == '_';
+	return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) || ( c >= '0' && c <= '9' ) || c == '_';
 }
 
 int CountDirective( const std::string &strHay, const std::string &strNeedle )
 {
 	int n = 0;
 	for ( size_t p = strHay.find( strNeedle ); p != std::string::npos;
-	      p = strHay.find( strNeedle, p + strNeedle.size() ) )
+		  p = strHay.find( strNeedle, p + strNeedle.size() ) )
 	{
 		const size_t after = p + strNeedle.size();
-		if ( after >= strHay.size() || !IsIdentChar( strHay[ after ] ) )
+		if ( after >= strHay.size() || !IsIdentChar( strHay[after] ) )
 			n++;
 	}
 	return n;
@@ -283,9 +282,9 @@ void CheckEveryArmHasADefinition( const std::string &strCode, const std::string 
 {
 	const int nDefs = CountOf( strCode, strSignature );
 	ASSERT_LT( 0, nDefs ) << strSignature << " is not defined at all. If it is "
-		<< "declared in a header and called from another translation unit, this "
-		<< "compiles everywhere and fails at LINK -- which no compile-only "
-		<< "survey and no unarmed build can see.";
+						  << "declared in a header and called from another translation unit, this "
+						  << "compiles everywhere and fails at LINK -- which no compile-only "
+						  << "survey and no unarmed build can see.";
 
 	// Is the definition inside an alias guard? Look at the text immediately
 	// before it: a guarded definition is written as the guard line and then the
@@ -296,14 +295,14 @@ void CheckEveryArmHasADefinition( const std::string &strCode, const std::string 
 	if ( bGuarded )
 	{
 		EXPECT_EQ( 2, nDefs ) << strSignature << " is guarded by "
-			<< "#ifndef SS_CBASEENTITY_ALIAS but has " << nDefs << " definition(s). "
-			<< "A guarded definition needs an #else arm; one is the link error.";
+							  << "#ifndef SS_CBASEENTITY_ALIAS but has " << nDefs << " definition(s). "
+							  << "A guarded definition needs an #else arm; one is the link error.";
 	}
 	else
 	{
-		EXPECT_EQ( 1, nDefs ) << strSignature << " is not guarded but has "
-			<< nDefs << " definition(s). One unguarded definition serves both "
-			<< "configurations; more than one is a redefinition.";
+		EXPECT_EQ( 1, nDefs ) << strSignature << " is not guarded but has " << nDefs
+							  << " definition(s). One unguarded definition serves both "
+							  << "configurations; more than one is a redefinition.";
 	}
 }
 

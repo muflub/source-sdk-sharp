@@ -10,7 +10,7 @@
 // Init fails when the scripts will not load or managed code is absent.
 
 #include "tier0/dbg.h"
-#include "tier0/platform.h"
+
 #include "shell_clientsystem.h"
 #include "imanaged_areas_client.h"
 
@@ -28,7 +28,7 @@ public:
 		if ( !pApi )
 		{
 			Warning( "[SourceSharp] CSoundEmitterSystem: no IManagedSoundEmitterClient, so the sound "
-			         "scripts cannot load\n" );
+					 "scripts cannot load\n" );
 			return false;
 		}
 

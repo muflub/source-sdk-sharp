@@ -11,7 +11,6 @@
 // and the vec3_origin fallback.
 
 #include "eiface.h"
-#include "edict.h"
 
 extern IVEngineServer *engine;
 
@@ -33,8 +32,8 @@ int32_t SourceSharp_ClientsStandalonePlayerEarPosition( int32_t iEdict, float *p
 		return 0;
 
 	const Vector vecEars = pStandalone->EyePosition();
-	pOutXYZ[ 0 ] = vecEars.x;
-	pOutXYZ[ 1 ] = vecEars.y;
-	pOutXYZ[ 2 ] = vecEars.z;
+	pOutXYZ[0] = vecEars.x;
+	pOutXYZ[1] = vecEars.y;
+	pOutXYZ[2] = vecEars.z;
 	return 1;
 }

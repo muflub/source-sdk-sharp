@@ -138,16 +138,16 @@ TEST( PredictionVacuity, PlayerCommandIsStillOutOfTheServerProject )
 	// server_csharp.vpc was flattened) for the name anywhere in the script.
 	// Since Phase 6b it asks server_sourcesharp's compiled list, by BASENAME in
 	// any directory -- the strength the substring search had.
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( cmake_graph::kServer );
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( cmake_graph::kServer );
 	std::string strFound;
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
 	{
 		if ( it->substr( it->rfind( '/' ) + 1 ) == "player_command.cpp" )
 			strFound = *it;
 	}
-	EXPECT_EQ( strFound, "" )
-		<< strFound << " is compiled by server_sourcesharp, so the prediction "
-		   "player has a writer again and animation.cpp's server arm is a lie";
+	EXPECT_EQ( strFound, "" ) << strFound
+							  << " is compiled by server_sourcesharp, so the prediction "
+								 "player has a writer again and animation.cpp's server arm is a lie";
 }
 
 //-----------------------------------------------------------------------------
@@ -267,4 +267,3 @@ TEST( PredictionVacuity, PlayerCommandIsStillOutOfTheServerProject )
 // while the body really is a bare forward to the free function that already
 // exists.
 //=============================================================================//
-

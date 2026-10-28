@@ -14,10 +14,8 @@
 #include "ss_variant.h"
 #include "slot_table.h"
 #include "handle_cross.h"
-#include "server_class.h"
 
 #include "standalone_relays.h"
-#include "shell_resolve.h"
 
 #include "shell_standalone.h"
 #include "ss_string.h"
@@ -42,26 +40,27 @@ void ss::FactoryList_Retrieve( ss::factorylist_t &destData )
 
 namespace
 {
-	CBaseHandle HandleFromGameEntity( const IGameEntity *pEntity )
+CBaseHandle HandleFromGameEntity( const IGameEntity *pEntity )
+{
+	if ( pEntity )
 	{
-		if ( pEntity )
+		static const IGameEntity *s_pLastComplaint = NULL;
+		if ( s_pLastComplaint != pEntity )
 		{
-			static const IGameEntity *s_pLastComplaint = NULL;
-			if ( s_pLastComplaint != pEntity )
-			{
-				s_pLastComplaint = pEntity;
-				Warning( "[SourceSharp] network handle: %p was set from a GAME ENTITY "
-				         "pointer. There is no route from that face back to a handle "
-				         "(plan_entity.md 3.3): the slot table resolves handles to "
-				         "shells and not the other way. Hold an IHandleEntity, whose "
-				         "GetRefEHandle() answers directly. This slot will not "
-				         "replicate.\n", (const void *)pEntity );
-				AssertMsg( false, "SourceSharp_EntityHandle: no reverse route from IGameEntity" );
-			}
+			s_pLastComplaint = pEntity;
+			Warning( "[SourceSharp] network handle: %p was set from a GAME ENTITY "
+					 "pointer. There is no route from that face back to a handle "
+					 "(plan_entity.md 3.3): the slot table resolves handles to "
+					 "shells and not the other way. Hold an IHandleEntity, whose "
+					 "GetRefEHandle() answers directly. This slot will not "
+					 "replicate.\n",
+					 (const void *)pEntity );
+			AssertMsg( false, "SourceSharp_EntityHandle: no reverse route from IGameEntity" );
 		}
-
-		return CBaseHandle();
 	}
+
+	return CBaseHandle();
+}
 }
 
 namespace ss
@@ -78,7 +77,7 @@ IGameEntity *variant_t::Entity() const
 	if ( fieldType != FIELD_EHANDLE )
 		return NULL;
 
-	return SourceSharp_CrossHandleToGameEntity< IGameEntity, IServerEntity >( SourceSharp_EntityFromHandle( eVal ) );
+	return SourceSharp_CrossHandleToGameEntity<IGameEntity, IServerEntity>( SourceSharp_EntityFromHandle( eVal ) );
 }
 
 } // namespace ss
@@ -103,31 +102,50 @@ void variant_t::Set( fieldtype_t ftype, void *data )
 
 	switch ( ftype )
 	{
-	case FIELD_BOOLEAN:		bVal = *((bool *)data);				break;
-	case FIELD_CHARACTER:	iVal = *((char *)data);				break;
-	case FIELD_SHORT:		iVal = *((short *)data);			break;
-	case FIELD_INTEGER:		iVal = *((int *)data);				break;
-	case FIELD_STRING:		iszVal = *((string_t *)data);		break;
-	case FIELD_FLOAT:		flVal = *((float *)data);			break;
-	case FIELD_COLOR32:		rgbaVal = *((color32 *)data);		break;
+		case FIELD_BOOLEAN:
+			bVal = *( (bool *)data );
+			break;
+		case FIELD_CHARACTER:
+			iVal = *( (char *)data );
+			break;
+		case FIELD_SHORT:
+			iVal = *( (short *)data );
+			break;
+		case FIELD_INTEGER:
+			iVal = *( (int *)data );
+			break;
+		case FIELD_STRING:
+			iszVal = *( (string_t *)data );
+			break;
+		case FIELD_FLOAT:
+			flVal = *( (float *)data );
+			break;
+		case FIELD_COLOR32:
+			rgbaVal = *( (color32 *)data );
+			break;
 
-	case FIELD_VECTOR:
-	case FIELD_POSITION_VECTOR:
-	{
-		vecVal[0] = ((float *)data)[0];
-		vecVal[1] = ((float *)data)[1];
-		vecVal[2] = ((float *)data)[2];
-		break;
-	}
+		case FIELD_VECTOR:
+		case FIELD_POSITION_VECTOR:
+		{
+			vecVal[0] = ( (float *)data )[0];
+			vecVal[1] = ( (float *)data )[1];
+			vecVal[2] = ( (float *)data )[2];
+			break;
+		}
 
-	// The slot holds an index and serial; read it as the untyped handle. Never call Get(),
-	// which reads the entity list.
-	case FIELD_EHANDLE:		static_cast< CBaseHandle & >( eVal ) = *((CBaseHandle *)data);	break;
-	case FIELD_CLASSPTR:	eVal = HandleFromGameEntity( *((IGameEntity **)data) );		break;
-	case FIELD_VOID:		
-	default:
-		iVal = 0; fieldType = FIELD_VOID;	
-		break;
+		// The slot holds an index and serial; read it as the untyped handle. Never call Get(),
+		// which reads the entity list.
+		case FIELD_EHANDLE:
+			static_cast<CBaseHandle &>( eVal ) = *( (CBaseHandle *)data );
+			break;
+		case FIELD_CLASSPTR:
+			eVal = HandleFromGameEntity( *( (IGameEntity **)data ) );
+			break;
+		case FIELD_VOID:
+		default:
+			iVal = 0;
+			fieldType = FIELD_VOID;
+			break;
 	}
 }
 
@@ -165,7 +183,7 @@ bool variant_t::Convert( fieldtype_t newType )
 			{
 				case FIELD_FLOAT:
 				{
-					SetFloat( (float) iVal );
+					SetFloat( (float)iVal );
 					return true;
 				}
 
@@ -184,7 +202,7 @@ bool variant_t::Convert( fieldtype_t newType )
 			{
 				case FIELD_INTEGER:
 				{
-					SetInt( (int) flVal );
+					SetInt( (int)flVal );
 					return true;
 				}
 
@@ -207,39 +225,39 @@ bool variant_t::Convert( fieldtype_t newType )
 			{
 				case FIELD_INTEGER:
 				{
-					if (iszVal != NULL_STRING)
+					if ( iszVal != NULL_STRING )
 					{
-						SetInt(atoi(STRING(iszVal)));
+						SetInt( atoi( STRING( iszVal ) ) );
 					}
 					else
 					{
-						SetInt(0);
+						SetInt( 0 );
 					}
 					return true;
 				}
 
 				case FIELD_FLOAT:
 				{
-					if (iszVal != NULL_STRING)
+					if ( iszVal != NULL_STRING )
 					{
-						SetFloat(atof(STRING(iszVal)));
+						SetFloat( atof( STRING( iszVal ) ) );
 					}
 					else
 					{
-						SetFloat(0);
+						SetFloat( 0 );
 					}
 					return true;
 				}
 
 				case FIELD_BOOLEAN:
 				{
-					if (iszVal != NULL_STRING)
+					if ( iszVal != NULL_STRING )
 					{
-						SetBool( atoi(STRING(iszVal)) != 0 );
+						SetBool( atoi( STRING( iszVal ) ) != 0 );
 					}
 					else
 					{
-						SetBool(false);
+						SetBool( false );
 					}
 					return true;
 				}
@@ -247,10 +265,10 @@ bool variant_t::Convert( fieldtype_t newType )
 				case FIELD_VECTOR:
 				{
 					Vector tmpVec = vec3_origin;
-					if (sscanf(STRING(iszVal), "[%f %f %f]", &tmpVec[0], &tmpVec[1], &tmpVec[2]) == 0)
+					if ( sscanf( STRING( iszVal ), "[%f %f %f]", &tmpVec[0], &tmpVec[1], &tmpVec[2] ) == 0 )
 					{
 						// Try sucking out 3 floats with no []s
-						sscanf(STRING(iszVal), "%f %f %f", &tmpVec[0], &tmpVec[1], &tmpVec[2]);
+						sscanf( STRING( iszVal ), "%f %f %f", &tmpVec[0], &tmpVec[1], &tmpVec[2] );
 					}
 					SetVector3D( tmpVec );
 					return true;
@@ -263,7 +281,7 @@ bool variant_t::Convert( fieldtype_t newType )
 					int nBlue = 0;
 					int nAlpha = 255;
 
-					sscanf(STRING(iszVal), "%d %d %d %d", &nRed, &nGreen, &nBlue, &nAlpha);
+					sscanf( STRING( iszVal ), "%d %d %d %d", &nRed, &nGreen, &nBlue, &nAlpha );
 					SetColor32( nRed, nGreen, nBlue, nAlpha );
 					return true;
 				}
@@ -277,7 +295,7 @@ bool variant_t::Convert( fieldtype_t newType )
 					return true;
 				}
 			}
-		
+
 			break;
 		}
 
@@ -310,65 +328,66 @@ const char *variant_t::ToString() const
 {
 	static char szBuf[512];
 
-	switch (fieldType)
+	switch ( fieldType )
 	{
-	case FIELD_STRING:
+		case FIELD_STRING:
 		{
-			return(STRING(iszVal));
+			return ( STRING( iszVal ) );
 		}
 
-	case FIELD_BOOLEAN:
+		case FIELD_BOOLEAN:
 		{
-			if (bVal == 0)
+			if ( bVal == 0 )
 			{
-				ss::StrCopy(szBuf, "false",sizeof(szBuf));
+				ss::StrCopy( szBuf, "false", sizeof( szBuf ) );
 			}
 			else
 			{
-				ss::StrCopy(szBuf, "true",sizeof(szBuf));
+				ss::StrCopy( szBuf, "true", sizeof( szBuf ) );
 			}
-			return(szBuf);
+			return ( szBuf );
 		}
 
-	case FIELD_INTEGER:
+		case FIELD_INTEGER:
 		{
 			ss::Format( szBuf, sizeof( szBuf ), "%i", iVal );
-			return(szBuf);
+			return ( szBuf );
 		}
 
-	case FIELD_FLOAT:
+		case FIELD_FLOAT:
 		{
-			ss::Format(szBuf,sizeof(szBuf), "%g", flVal);
-			return(szBuf);
+			ss::Format( szBuf, sizeof( szBuf ), "%g", flVal );
+			return ( szBuf );
 		}
 
-	case FIELD_COLOR32:
+		case FIELD_COLOR32:
 		{
-			ss::Format(szBuf,sizeof(szBuf), "%d %d %d %d", (int)rgbaVal.r, (int)rgbaVal.g, (int)rgbaVal.b, (int)rgbaVal.a);
-			return(szBuf);
+			ss::Format( szBuf, sizeof( szBuf ), "%d %d %d %d", (int)rgbaVal.r, (int)rgbaVal.g, (int)rgbaVal.b,
+						(int)rgbaVal.a );
+			return ( szBuf );
 		}
 
-	case FIELD_VECTOR:
+		case FIELD_VECTOR:
 		{
-			ss::Format(szBuf,sizeof(szBuf), "[%g %g %g]", (double)vecVal[0], (double)vecVal[1], (double)vecVal[2]);
-			return(szBuf);
+			ss::Format( szBuf, sizeof( szBuf ), "[%g %g %g]", (double)vecVal[0], (double)vecVal[1], (double)vecVal[2] );
+			return ( szBuf );
 		}
 
-	case FIELD_VOID:
+		case FIELD_VOID:
 		{
 			szBuf[0] = '\0';
-			return(szBuf);
+			return ( szBuf );
 		}
 
-	case FIELD_EHANDLE:
+		case FIELD_EHANDLE:
 		{
-			const char *pszName = (Entity()) ? StandaloneEntity_Name( Entity() ) : "<<null entity>>";
+			const char *pszName = ( Entity() ) ? StandaloneEntity_Name( Entity() ) : "<<null entity>>";
 			ss::StrCopy( szBuf, pszName, 512 );
-			return (szBuf);
+			return ( szBuf );
 		}
 	}
 
-	return("No conversion to string");
+	return ( "No conversion to string" );
 }
 
 } // namespace ss

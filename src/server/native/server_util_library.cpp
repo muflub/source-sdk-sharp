@@ -10,19 +10,13 @@
 // Server utility functions from game/server/util.cpp that reach only the engine and the
 // C runtime, never an entity. Declarations stay in util.h. Server only.
 
-#include <stdarg.h>
 #include "ss_util.h"
 #include "ss_shareddefs.h"
-#include "shell_serversystem.h"
-#include "bspfile.h"
-#include "mathlib/mathlib.h"
-#include "vstdlib/random.h"
+
 #include "ss_effects.h"
 #include "ss_recipient_filter.h"
 #include "shell_tempents.h"
 #include "ss_world.h"
-#include "world_subject.h"
-#include "collisionutils.h"
 
 #include "managed_convar_ref.h"
 #include "ss_string.h"
@@ -31,11 +25,11 @@
 extern CGlobalVars *gpGlobals;
 
 // So we always return a valid surface. External linkage: other TUs read it.
-csurface_t	g_NullSurface = { "**empty**", 0 };
+csurface_t g_NullSurface = { "**empty**", 0 };
 
 void UTIL_ClearTrace( trace_t &trace )
 {
-	memset( &trace, 0, sizeof(trace));
+	memset( &trace, 0, sizeof( trace ) );
 	trace.fraction = 1.f;
 	trace.fractionleftsolid = 0;
 	trace.surface = g_NullSurface;
@@ -65,4 +59,4 @@ void UTIL_BloodStream( const Vector &origin, const Vector &direction, int color,
 	ss::CPVSFilter filter( origin );
 
 	TE_BloodStream( filter, 0.0, &origin, &direction, 247, 63, 14, 255, MIN( amount, 255 ) );
-}				
+}

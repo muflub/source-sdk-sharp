@@ -43,7 +43,7 @@ thread_local const tchar *t_pFile = nullptr;
 thread_local int t_nLine = 0;
 
 std::mutex s_EarlyLock;
-std::string s_Early;   // lines spewed before the console existed
+std::string s_Early; // lines spewed before the console existed
 
 AssertFailedNotifyFunc_t s_pAssertNotify = nullptr;
 
@@ -51,16 +51,16 @@ void WriteToConsole( SpewType_t type, const char *pText )
 {
 	switch ( type )
 	{
-	case SPEW_WARNING:
-		g_pCVar->ConsoleColorPrintf( Color( 255, 255, 0, 255 ), "%s", pText );
-		break;
-	case SPEW_ASSERT:
-	case SPEW_ERROR:
-		g_pCVar->ConsoleColorPrintf( Color( 255, 64, 64, 255 ), "%s", pText );
-		break;
-	default:
-		g_pCVar->ConsolePrintf( "%s", pText );
-		break;
+		case SPEW_WARNING:
+			g_pCVar->ConsoleColorPrintf( Color( 255, 255, 0, 255 ), "%s", pText );
+			break;
+		case SPEW_ASSERT:
+		case SPEW_ERROR:
+			g_pCVar->ConsoleColorPrintf( Color( 255, 64, 64, 255 ), "%s", pText );
+			break;
+		default:
+			g_pCVar->ConsolePrintf( "%s", pText );
+			break;
 	}
 }
 
@@ -70,7 +70,7 @@ SpewRetval_t ConsoleSpew( SpewType_t type, const tchar *pText );
 // Kept once found: engine.so needs that libtier0, so it outlives server.so. A
 // miss is not kept, so a libtier0 that arrives later is still found.
 using GetSpewOutputFunc_t = SpewOutputFunc_t ( * )();
-std::atomic< GetSpewOutputFunc_t > s_pEngineGetSpew{ nullptr };
+std::atomic<GetSpewOutputFunc_t> s_pEngineGetSpew{ nullptr };
 
 SpewOutputFunc_t EngineSpew()
 {
@@ -92,12 +92,12 @@ SpewType_t HandedOnAs( SpewType_t type )
 {
 	switch ( type )
 	{
-	case SPEW_ASSERT:
-	case SPEW_ERROR:
-	case SPEW_WARNING:
-		return SPEW_WARNING;
-	default:
-		return SPEW_MESSAGE;
+		case SPEW_ASSERT:
+		case SPEW_ERROR:
+		case SPEW_WARNING:
+			return SPEW_WARNING;
+		default:
+			return SPEW_MESSAGE;
 	}
 }
 
@@ -123,13 +123,13 @@ SpewRetval_t ConsoleSpew( SpewType_t type, const tchar *pText )
 	SpewOutputFunc_t pEngine = t_bInEngine ? nullptr : EngineSpew();
 	if ( !pEngine && !g_pCVar )
 	{
-		std::lock_guard< std::mutex > hold( s_EarlyLock );
+		std::lock_guard<std::mutex> hold( s_EarlyLock );
 		s_Early += pText;
 		return SPEW_CONTINUE;
 	}
 
 	{
-		std::lock_guard< std::mutex > hold( s_EarlyLock );
+		std::lock_guard<std::mutex> hold( s_EarlyLock );
 		if ( !s_Early.empty() )
 		{
 			if ( pEngine )
@@ -151,7 +151,7 @@ SpewOutputFunc_t s_pSpew = ConsoleSpew;
 
 SpewRetval_t SpewV( SpewType_t type, const tchar *pFormat, va_list args )
 {
-	char szText[ 4096 ];
+	char szText[4096];
 	vsnprintf( szText, sizeof( szText ), pFormat, args );
 	return s_pSpew( type, szText );
 }
@@ -186,7 +186,7 @@ void _SpewInfo( SpewType_t type, const tchar *pFile, int line )
 
 SpewRetval_t _SpewMessage( const tchar *pMsg, ... )
 {
-	char szText[ 4096 ];
+	char szText[4096];
 	int n = 0;
 
 	// tier0's assert line: "file (line) : message\n".
@@ -204,10 +204,10 @@ SpewRetval_t _SpewMessage( const tchar *pMsg, ... )
 	if ( t_Type == SPEW_ASSERT )
 	{
 		const size_t len = strlen( szText );
-		if ( len + 1 < sizeof( szText ) && ( len == 0 || szText[ len - 1 ] != '\n' ) )
+		if ( len + 1 < sizeof( szText ) && ( len == 0 || szText[len - 1] != '\n' ) )
 		{
-			szText[ len ] = '\n';
-			szText[ len + 1 ] = 0;
+			szText[len] = '\n';
+			szText[len + 1] = 0;
 		}
 	}
 
@@ -284,7 +284,7 @@ void DevWarning( const tchar *pMsg, ... )
 // Said, then the process ends through the fatal report.
 void Error( const tchar *pMsg, ... )
 {
-	char szText[ 4096 ];
+	char szText[4096];
 	va_list args;
 	va_start( args, pMsg );
 	vsnprintf( szText, sizeof( szText ), pMsg, args );

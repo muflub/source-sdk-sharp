@@ -36,42 +36,51 @@ struct EffectColors_t
 
 struct EffectControlPoint_t
 {
-	int		m_eParticleAttachment;		// a ParticleAttachment_t
-	Vector	m_vecOffset;
+	int m_eParticleAttachment; // a ParticleAttachment_t
+	Vector m_vecOffset;
 };
 
 struct CEffectData
 {
-	Vector	m_vOrigin, m_vStart, m_vNormal;
-	QAngle	m_vAngles;
-	int		m_fFlags;
-	int		m_nEntIndex;
-	float	m_flScale, m_flMagnitude, m_flRadius;
-	int		m_nAttachmentIndex;
-	short	m_nSurfaceProp;
-	int		m_nMaterial, m_nDamageType, m_nHitBox;
-	unsigned char	m_nColor;
+	Vector m_vOrigin, m_vStart, m_vNormal;
+	QAngle m_vAngles;
+	int m_fFlags;
+	int m_nEntIndex;
+	float m_flScale, m_flMagnitude, m_flRadius;
+	int m_nAttachmentIndex;
+	short m_nSurfaceProp;
+	int m_nMaterial, m_nDamageType, m_nHitBox;
+	unsigned char m_nColor;
 
-	bool					m_bCustomColors;
-	EffectColors_t			m_CustomColors;
+	bool m_bCustomColors;
+	EffectColors_t m_CustomColors;
 
-	bool					m_bControlPoint1;
-	EffectControlPoint_t	m_ControlPoint1;
+	bool m_bControlPoint1;
+	EffectControlPoint_t m_ControlPoint1;
 
 	// Unused on the server; kept so the type's size matches stock's.
-	int		m_iEffectName;
+	int m_iEffectName;
 
 	CEffectData()
 	{
-		m_vOrigin.Init(); m_vStart.Init(); m_vNormal.Init(); m_vAngles.Init();
-		m_fFlags = 0; m_nEntIndex = 0;
+		m_vOrigin.Init();
+		m_vStart.Init();
+		m_vNormal.Init();
+		m_vAngles.Init();
+		m_fFlags = 0;
+		m_nEntIndex = 0;
 		m_flScale = 1.f;
-		m_nAttachmentIndex = 0; m_nSurfaceProp = 0;
-		m_flMagnitude = 0.0f; m_flRadius = 0.0f;
-		m_nMaterial = 0; m_nDamageType = 0; m_nHitBox = 0;
+		m_nAttachmentIndex = 0;
+		m_nSurfaceProp = 0;
+		m_flMagnitude = 0.0f;
+		m_flRadius = 0.0f;
+		m_nMaterial = 0;
+		m_nDamageType = 0;
+		m_nHitBox = 0;
 		m_nColor = 0;
 		m_bCustomColors = false;
-		m_CustomColors.m_vecColor1.Init(); m_CustomColors.m_vecColor2.Init();
+		m_CustomColors.m_vecColor1.Init();
+		m_CustomColors.m_vecColor2.Init();
 		m_bControlPoint1 = false;
 		m_ControlPoint1.m_eParticleAttachment = kEffectAttachAbsOrigin;
 		m_ControlPoint1.m_vecOffset.Init();

@@ -15,9 +15,8 @@
 // Values: floats managed decided, stored under names native code reads without
 // crossing.
 
-#include "tier1/strtools.h"
 #include "icvar.h"
-#include "sourcesharp_entrypoints.h"
+
 #include "shell_convars_client.h"
 
 namespace
@@ -26,17 +25,18 @@ const int kMaxWatched = 32;
 const int kNameBytes = 64;
 
 // The watched names; an id is SOURCESHARP_CONVAR_WATCH_ID_BASE + the index.
-char g_szWatched[ kMaxWatched ][ kNameBytes ];
+char g_szWatched[kMaxWatched][kNameBytes];
 int g_nWatched = 0;
 
 // The decided values: a name and its float, set by managed.
 struct DecidedValue_t
 {
-	char szName[ kNameBytes ];
+	char szName[kNameBytes];
 	float flValue;
 };
+
 const int kMaxDecided = 8;
-DecidedValue_t g_Decided[ kMaxDecided ];
+DecidedValue_t g_Decided[kMaxDecided];
 int g_nDecided = 0;
 } // namespace
 
@@ -47,14 +47,14 @@ int32_t SourceSharp_ConVarsClientWatch( const char *pName )
 
 	for ( int i = 0; i < g_nWatched; i++ )
 	{
-		if ( !V_stricmp( g_szWatched[ i ], pName ) )
+		if ( !V_stricmp( g_szWatched[i], pName ) )
 			return SOURCESHARP_CONVAR_WATCH_ID_BASE + i;
 	}
 
 	if ( g_nWatched >= kMaxWatched || V_strlen( pName ) >= kNameBytes )
 		return -1;
 
-	V_strncpy( g_szWatched[ g_nWatched ], pName, kNameBytes );
+	V_strncpy( g_szWatched[g_nWatched], pName, kNameBytes );
 	SourceSharp_EnsureConVarChangeCallback();
 	return SOURCESHARP_CONVAR_WATCH_ID_BASE + g_nWatched++;
 }
@@ -65,7 +65,7 @@ int32_t SourceSharp_ClientWatchedConVarId( const char *pName )
 		return -1;
 	for ( int i = 0; i < g_nWatched; i++ )
 	{
-		if ( !V_stricmp( g_szWatched[ i ], pName ) )
+		if ( !V_stricmp( g_szWatched[i], pName ) )
 			return SOURCESHARP_CONVAR_WATCH_ID_BASE + i;
 	}
 	return -1;
@@ -78,9 +78,9 @@ int32_t SourceSharp_ConVarsClientSetValue( const char *pName, float flValue )
 
 	for ( int i = 0; i < g_nDecided; i++ )
 	{
-		if ( !V_stricmp( g_Decided[ i ].szName, pName ) )
+		if ( !V_stricmp( g_Decided[i].szName, pName ) )
 		{
-			g_Decided[ i ].flValue = flValue;
+			g_Decided[i].flValue = flValue;
 			return 1;
 		}
 	}
@@ -88,8 +88,8 @@ int32_t SourceSharp_ConVarsClientSetValue( const char *pName, float flValue )
 	if ( g_nDecided >= kMaxDecided )
 		return 0;
 
-	V_strncpy( g_Decided[ g_nDecided ].szName, pName, kNameBytes );
-	g_Decided[ g_nDecided ].flValue = flValue;
+	V_strncpy( g_Decided[g_nDecided].szName, pName, kNameBytes );
+	g_Decided[g_nDecided].flValue = flValue;
 	g_nDecided++;
 	return 1;
 }
@@ -98,9 +98,9 @@ bool SourceSharp_ClientDecidedValue( const char *pName, float *pOut )
 {
 	for ( int i = 0; i < g_nDecided; i++ )
 	{
-		if ( !V_stricmp( g_Decided[ i ].szName, pName ) )
+		if ( !V_stricmp( g_Decided[i].szName, pName ) )
 		{
-			*pOut = g_Decided[ i ].flValue;
+			*pOut = g_Decided[i].flValue;
 			return true;
 		}
 	}

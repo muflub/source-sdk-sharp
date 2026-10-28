@@ -57,14 +57,17 @@ namespace cmake_graph
 {
 
 // The targets, by their CMake names.
-static const char *const kServer = "server_sourcesharp";   // server.so
-static const char *const kClient = "client_sourcesharp";   // client.so
-static const char *const kHost   = "sourcesharp";          // libmanaged_host.so
+static const char *const kServer = "server_sourcesharp"; // server.so
+static const char *const kClient = "client_sourcesharp"; // client.so
+static const char *const kHost = "sourcesharp"; // libmanaged_host.so
 
 class Error : public std::runtime_error
 {
 public:
-	explicit Error( const std::string &strWhat ) : std::runtime_error( "cmake_graph: " + strWhat ) {}
+	explicit Error( const std::string &strWhat )
+		: std::runtime_error( "cmake_graph: " + strWhat )
+	{
+	}
 };
 
 inline bool FileExists( const std::string &strPath )
@@ -88,7 +91,7 @@ inline std::string ReadRequired( const std::string &strPath, const char *pszWhy 
 
 inline std::string Cwd()
 {
-	char szBuf[ 4096 ];
+	char szBuf[4096];
 	if ( !getcwd( szBuf, sizeof( szBuf ) ) )
 		throw Error( "getcwd failed" );
 	return std::string( szBuf );
@@ -108,7 +111,7 @@ inline std::string RepoRoot()
 	if ( pszEnv && *pszEnv )
 		return std::string( pszEnv );
 
-	for ( std::string strDir = Cwd(); ; strDir = Parent( strDir ) )
+	for ( std::string strDir = Cwd();; strDir = Parent( strDir ) )
 	{
 		if ( FileExists( strDir + "/SourceSharp.slnx" ) )
 			return strDir;
@@ -176,8 +179,8 @@ inline std::string Trim( const std::string &s )
 // until the closing parenthesis, comments dropped. Throws when the block is
 // absent or empty.
 //-----------------------------------------------------------------------------
-inline std::vector< std::string > CMakeBlock( const std::string &strText, const std::string &strOpen,
-                                              const std::string &strWhere )
+inline std::vector<std::string> CMakeBlock( const std::string &strText, const std::string &strOpen,
+											const std::string &strWhere )
 {
 	const size_t nAt = strText.find( strOpen );
 	if ( nAt == std::string::npos )
@@ -185,7 +188,7 @@ inline std::vector< std::string > CMakeBlock( const std::string &strText, const 
 	if ( strText.find( strOpen, nAt + 1 ) != std::string::npos )
 		throw Error( strWhere + " has more than one `" + strOpen + "` block" );
 
-	std::vector< std::string > out;
+	std::vector<std::string> out;
 	std::istringstream in( strText.substr( nAt + strOpen.size() ) );
 	std::string strLine;
 	bool bClosed = false;
@@ -232,7 +235,7 @@ inline std::string RepoToFarm( const std::string &strRepoRelative )
 	while ( std::getline( in, strLine ) )
 	{
 		const std::string strTrim = Trim( strLine );
-		if ( strTrim.empty() || strTrim[ 0 ] == '#' )
+		if ( strTrim.empty() || strTrim[0] == '#' )
 			continue;
 		const size_t t1 = strLine.find( '\t' );
 		const size_t t2 = t1 == std::string::npos ? t1 : strLine.find( '\t', t1 + 1 );
@@ -293,11 +296,12 @@ inline std::string ListToken( const std::string &strTok, const std::string &strT
 //-----------------------------------------------------------------------------
 // The target's source list, in order, farm-relative.
 //-----------------------------------------------------------------------------
-inline std::vector< std::string > ListedSources( const std::string &strTarget )
+inline std::vector<std::string> ListedSources( const std::string &strTarget )
 {
-	std::vector< std::string > v = CMakeBlock( ListText( strTarget ), "set(" + strTarget + "_sources\n", ListFile( strTarget ) );
+	std::vector<std::string> v =
+		CMakeBlock( ListText( strTarget ), "set(" + strTarget + "_sources\n", ListFile( strTarget ) );
 	for ( size_t i = 0; i < v.size(); i++ )
-		v[ i ] = ListToken( v[ i ], strTarget );
+		v[i] = ListToken( v[i], strTarget );
 	return v;
 }
 
@@ -307,21 +311,21 @@ inline std::vector< std::string > ListedSources( const std::string &strTarget )
 // user ruling 2026-10-01). Empty when the target has no such block; a file in
 // both lists is an error.
 //-----------------------------------------------------------------------------
-inline std::vector< std::string > DebugListedSources( const std::string &strTarget )
+inline std::vector<std::string> DebugListedSources( const std::string &strTarget )
 {
 	const std::string strText = ListText( strTarget );
 	const std::string strOpen = "set(" + strTarget + "_debug_sources\n";
 	if ( strText.find( strOpen ) == std::string::npos )
-		return std::vector< std::string >();
-	std::vector< std::string > v = CMakeBlock( strText, strOpen, ListFile( strTarget ) );
-	const std::vector< std::string > base = ListedSources( strTarget );
+		return std::vector<std::string>();
+	std::vector<std::string> v = CMakeBlock( strText, strOpen, ListFile( strTarget ) );
+	const std::vector<std::string> base = ListedSources( strTarget );
 	for ( size_t i = 0; i < v.size(); i++ )
 	{
-		v[ i ] = ListToken( v[ i ], strTarget );
+		v[i] = ListToken( v[i], strTarget );
 		for ( size_t j = 0; j < base.size(); j++ )
-			if ( base[ j ] == v[ i ] )
-				throw Error( ListFile( strTarget ) + " lists " + v[ i ] + " in both " + strTarget
-					+ "_sources and " + strTarget + "_debug_sources" );
+			if ( base[j] == v[i] )
+				throw Error( ListFile( strTarget ) + " lists " + v[i] + " in both " + strTarget + "_sources and " +
+							 strTarget + "_debug_sources" );
 	}
 	return v;
 }
@@ -337,10 +341,10 @@ inline std::string BuildConfig()
 // The target's compile definitions as its CMakeLists writes them (NAME or
 // NAME=VALUE). The config- and toolchain-wide ones live in
 // cmake/SourceSharp.cmake and are in CompileCommand().
-inline std::vector< std::string > ListedDefinitions( const std::string &strTarget )
+inline std::vector<std::string> ListedDefinitions( const std::string &strTarget )
 {
-	std::vector< std::string > v = CMakeBlock( ListText( strTarget ),
-		"target_compile_definitions(" + strTarget + " PRIVATE\n", ListFile( strTarget ) );
+	std::vector<std::string> v = CMakeBlock(
+		ListText( strTarget ), "target_compile_definitions(" + strTarget + " PRIVATE\n", ListFile( strTarget ) );
 	return v;
 }
 
@@ -350,40 +354,53 @@ inline std::vector< std::string > ListedDefinitions( const std::string &strTarge
 //-----------------------------------------------------------------------------
 struct CompileEntry
 {
-	std::string strFile;      // absolute, as CMake wrote it
-	std::string strOutput;    // relative to the build dir
+	std::string strFile; // absolute, as CMake wrote it
+	std::string strOutput; // relative to the build dir
 	std::string strCommand;
 };
 
 inline void SkipWs( const std::string &s, size_t &i )
 {
-	while ( i < s.size() && ( s[ i ] == ' ' || s[ i ] == '\t' || s[ i ] == '\n' || s[ i ] == '\r' ) )
+	while ( i < s.size() && ( s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' ) )
 		i++;
 }
 
 inline std::string JsonString( const std::string &s, size_t &i )
 {
-	if ( i >= s.size() || s[ i ] != '"' )
+	if ( i >= s.size() || s[i] != '"' )
 		throw Error( "compile_commands.json: expected a string at offset " + std::to_string( i ) );
 	i++;
 	std::string out;
-	while ( i < s.size() && s[ i ] != '"' )
+	while ( i < s.size() && s[i] != '"' )
 	{
-		char c = s[ i++ ];
+		char c = s[i++];
 		if ( c == '\\' )
 		{
 			if ( i >= s.size() )
 				break;
-			const char e = s[ i++ ];
+			const char e = s[i++];
 			switch ( e )
 			{
-			case 'n': c = '\n'; break;
-			case 't': c = '\t'; break;
-			case 'r': c = '\r'; break;
-			case 'b': c = '\b'; break;
-			case 'f': c = '\f'; break;
-			case 'u': throw Error( "compile_commands.json: \\u escape not supported" );
-			default:  c = e; break;   // \" \\ \/
+				case 'n':
+					c = '\n';
+					break;
+				case 't':
+					c = '\t';
+					break;
+				case 'r':
+					c = '\r';
+					break;
+				case 'b':
+					c = '\b';
+					break;
+				case 'f':
+					c = '\f';
+					break;
+				case 'u':
+					throw Error( "compile_commands.json: \\u escape not supported" );
+				default:
+					c = e;
+					break; // \" \\ \/
 			}
 		}
 		out += c;
@@ -394,34 +411,34 @@ inline std::string JsonString( const std::string &s, size_t &i )
 	return out;
 }
 
-inline std::vector< CompileEntry > ParseCompileCommands( const std::string &s )
+inline std::vector<CompileEntry> ParseCompileCommands( const std::string &s )
 {
-	std::vector< CompileEntry > out;
+	std::vector<CompileEntry> out;
 	size_t i = 0;
 	SkipWs( s, i );
-	if ( i >= s.size() || s[ i ] != '[' )
+	if ( i >= s.size() || s[i] != '[' )
 		throw Error( "compile_commands.json does not start with '['" );
 	i++;
 	for ( ;; )
 	{
 		SkipWs( s, i );
-		if ( i < s.size() && s[ i ] == ']' )
+		if ( i < s.size() && s[i] == ']' )
 			break;
-		if ( i >= s.size() || s[ i ] != '{' )
+		if ( i >= s.size() || s[i] != '{' )
 			throw Error( "compile_commands.json: expected '{' at offset " + std::to_string( i ) );
 		i++;
 		CompileEntry e;
 		for ( ;; )
 		{
 			SkipWs( s, i );
-			if ( i < s.size() && s[ i ] == '}' )
+			if ( i < s.size() && s[i] == '}' )
 			{
 				i++;
 				break;
 			}
 			const std::string strKey = JsonString( s, i );
 			SkipWs( s, i );
-			if ( i >= s.size() || s[ i ] != ':' )
+			if ( i >= s.size() || s[i] != ':' )
 				throw Error( "compile_commands.json: expected ':' after \"" + strKey + "\"" );
 			i++;
 			SkipWs( s, i );
@@ -433,14 +450,14 @@ inline std::vector< CompileEntry > ParseCompileCommands( const std::string &s )
 			else if ( strKey == "command" )
 				e.strCommand = strValue;
 			SkipWs( s, i );
-			if ( i < s.size() && s[ i ] == ',' )
+			if ( i < s.size() && s[i] == ',' )
 				i++;
 		}
 		if ( e.strFile.empty() || e.strOutput.empty() || e.strCommand.empty() )
 			throw Error( "compile_commands.json: an entry lacks file, output or command" );
 		out.push_back( e );
 		SkipWs( s, i );
-		if ( i < s.size() && s[ i ] == ',' )
+		if ( i < s.size() && s[i] == ',' )
 			i++;
 	}
 	if ( out.empty() )
@@ -449,27 +466,27 @@ inline std::vector< CompileEntry > ParseCompileCommands( const std::string &s )
 }
 
 // Cached per build dir (a test can point SOURCESHARP_BUILD_DIR at a fixture).
-inline const std::vector< CompileEntry > &CompileCommands()
+inline const std::vector<CompileEntry> &CompileCommands()
 {
-	static std::map< std::string, std::vector< CompileEntry > > s_cache;
+	static std::map<std::string, std::vector<CompileEntry>> s_cache;
 	const std::string strPath = BuildDir() + "/compile_commands.json";
 	if ( !s_cache.count( strPath ) )
-		s_cache[ strPath ] = ParseCompileCommands( ReadRequired( strPath,
-			"CMake's compile database -- run `make debug` (or release) in this worktree" ) );
-	return s_cache[ strPath ];
+		s_cache[strPath] = ParseCompileCommands(
+			ReadRequired( strPath, "CMake's compile database -- run `make debug` (or release) in this worktree" ) );
+	return s_cache[strPath];
 }
 
 // The entries whose object goes into this target: CMake writes every object of
 // target T under CMakeFiles/T.dir/.
-inline std::vector< CompileEntry > TargetEntries( const std::string &strTarget )
+inline std::vector<CompileEntry> TargetEntries( const std::string &strTarget )
 {
 	const std::string strDir = "/CMakeFiles/" + strTarget + ".dir/";
-	std::vector< CompileEntry > out;
-	const std::vector< CompileEntry > &all = CompileCommands();
+	std::vector<CompileEntry> out;
+	const std::vector<CompileEntry> &all = CompileCommands();
 	for ( size_t i = 0; i < all.size(); i++ )
 	{
-		if ( ( "/" + all[ i ].strOutput ).find( strDir ) != std::string::npos )
-			out.push_back( all[ i ] );
+		if ( ( "/" + all[i].strOutput ).find( strDir ) != std::string::npos )
+			out.push_back( all[i] );
 	}
 	if ( out.empty() )
 		throw Error( "compile_commands.json names no object of target '" + strTarget + "'" );
@@ -490,7 +507,7 @@ inline std::string StockSrc()
 	}
 	if ( strRoot.empty() )
 		return std::string();
-	while ( strRoot.size() > 1 && strRoot[ strRoot.size() - 1 ] == '/' )
+	while ( strRoot.size() > 1 && strRoot[strRoot.size() - 1] == '/' )
 		strRoot.erase( strRoot.size() - 1 );
 	return strRoot + "/src";
 }
@@ -501,8 +518,8 @@ inline std::string FarmRelative( const std::string &strAbsolute )
 	if ( strAbsolute.compare( 0, strPrefix.size(), strPrefix ) == 0 )
 		return strAbsolute.substr( strPrefix.size() );
 	const std::string strRepo = RepoRoot() + "/";
-	if ( strAbsolute.compare( 0, strRepo.size(), strRepo ) == 0
-		&& strAbsolute.compare( 0, strRepo.size() + 5, strRepo + "farm/" ) != 0 )
+	if ( strAbsolute.compare( 0, strRepo.size(), strRepo ) == 0 &&
+		 strAbsolute.compare( 0, strRepo.size() + 5, strRepo + "farm/" ) != 0 )
 		return RepoToFarm( strAbsolute.substr( strRepo.size() ) );
 	// The pristine clone's src/: libss_particles, tier1 and mathlib build from it.
 	const std::string strStock = StockSrc();
@@ -516,40 +533,41 @@ inline std::string FarmRelative( const std::string &strAbsolute )
 // gives T, which must equal the CMakeLists list exactly (else the database is
 // stale, or the list parser broke -- both are failures, never an answer).
 //-----------------------------------------------------------------------------
-inline std::set< std::string > CompiledSources( const std::string &strTarget )
+inline std::set<std::string> CompiledSources( const std::string &strTarget )
 {
-	static std::map< std::string, std::set< std::string > > s_cache;
+	static std::map<std::string, std::set<std::string>> s_cache;
 	const std::string strKey = BuildDir() + "|" + RepoRoot() + "|" + strTarget;
 	if ( s_cache.count( strKey ) )
-		return s_cache[ strKey ];
+		return s_cache[strKey];
 
-	std::set< std::string > compiled;
-	const std::vector< CompileEntry > entries = TargetEntries( strTarget );
+	std::set<std::string> compiled;
+	const std::vector<CompileEntry> entries = TargetEntries( strTarget );
 	for ( size_t i = 0; i < entries.size(); i++ )
-		compiled.insert( FarmRelative( entries[ i ].strFile ) );
+		compiled.insert( FarmRelative( entries[i].strFile ) );
 
-	const std::vector< std::string > listed = ListedSources( strTarget );
-	std::set< std::string > listedSet( listed.begin(), listed.end() );
+	const std::vector<std::string> listed = ListedSources( strTarget );
+	std::set<std::string> listedSet( listed.begin(), listed.end() );
 	if ( BuildConfig() == "debug" )
 	{
-		const std::vector< std::string > debugListed = DebugListedSources( strTarget );
+		const std::vector<std::string> debugListed = DebugListedSources( strTarget );
 		listedSet.insert( debugListed.begin(), debugListed.end() );
 	}
 	if ( listedSet != compiled )
 	{
-		std::string strWhy = "compile_commands.json disagrees with " + ListFile( strTarget )
-			+ " about target '" + strTarget + "' -- a stale build (re-run make), or a list the "
-			  "parser misread:";
+		std::string strWhy = "compile_commands.json disagrees with " + ListFile( strTarget ) + " about target '" +
+			strTarget +
+			"' -- a stale build (re-run make), or a list the "
+			"parser misread:";
 		int n = 0;
-		for ( std::set< std::string >::const_iterator it = listedSet.begin(); it != listedSet.end() && n < 10; ++it )
+		for ( std::set<std::string>::const_iterator it = listedSet.begin(); it != listedSet.end() && n < 10; ++it )
 			if ( !compiled.count( *it ) )
 				strWhy += "\n  listed, not compiled: " + *it, n++;
-		for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end() && n < 10; ++it )
+		for ( std::set<std::string>::const_iterator it = compiled.begin(); it != compiled.end() && n < 10; ++it )
 			if ( !listedSet.count( *it ) )
 				strWhy += "\n  compiled, not listed: " + *it, n++;
 		throw Error( strWhy );
 	}
-	s_cache[ strKey ] = compiled;
+	s_cache[strKey] = compiled;
 	return compiled;
 }
 
@@ -561,21 +579,21 @@ inline bool Compiles( const std::string &strTarget, const std::string &strFarmRe
 // The compile command of one source of a target; throws if it is not compiled.
 inline std::string CompileCommand( const std::string &strTarget, const std::string &strFarmRelative )
 {
-	const std::vector< CompileEntry > entries = TargetEntries( strTarget );
+	const std::vector<CompileEntry> entries = TargetEntries( strTarget );
 	for ( size_t i = 0; i < entries.size(); i++ )
-		if ( FarmRelative( entries[ i ].strFile ) == strFarmRelative )
-			return entries[ i ].strCommand;
+		if ( FarmRelative( entries[i].strFile ) == strFarmRelative )
+			return entries[i].strCommand;
 	throw Error( strFarmRelative + " is not compiled into '" + strTarget + "'" );
 }
 
 // Every -D the target's first source is compiled with, as NAME or NAME=VALUE.
 // (CMake gives every source of a target the same definitions unless a
 // per-source property says otherwise; none here does.)
-inline std::set< std::string > CompileDefinitions( const std::string &strTarget )
+inline std::set<std::string> CompileDefinitions( const std::string &strTarget )
 {
-	const std::vector< CompileEntry > entries = TargetEntries( strTarget );
-	std::set< std::string > out;
-	std::istringstream toks( entries[ 0 ].strCommand );
+	const std::vector<CompileEntry> entries = TargetEntries( strTarget );
+	std::set<std::string> out;
+	std::istringstream toks( entries[0].strCommand );
 	std::string strTok;
 	while ( toks >> strTok )
 		if ( strTok.compare( 0, 2, "-D" ) == 0 && strTok.size() > 2 )
@@ -590,33 +608,33 @@ inline std::set< std::string > CompileDefinitions( const std::string &strTarget 
 //-----------------------------------------------------------------------------
 struct LinkEdge
 {
-	std::string strOutput;                     // e.g. out/server.so
-	std::vector< std::string > objects;        // explicit inputs, build-dir-relative
-	std::map< std::string, std::string > vars; // LINK_LIBRARIES, LINK_FLAGS, ...
+	std::string strOutput; // e.g. out/server.so
+	std::vector<std::string> objects; // explicit inputs, build-dir-relative
+	std::map<std::string, std::string> vars; // LINK_LIBRARIES, LINK_FLAGS, ...
 };
 
 inline const std::string &BuildNinja()
 {
-	static std::map< std::string, std::string > s_cache;
+	static std::map<std::string, std::string> s_cache;
 	const std::string strPath = BuildDir() + "/build.ninja";
 	if ( !s_cache.count( strPath ) )
-		s_cache[ strPath ] = ReadRequired( strPath,
-			"CMake's ninja file -- run `make debug` (or release) in this worktree" );
-	return s_cache[ strPath ];
+		s_cache[strPath] =
+			ReadRequired( strPath, "CMake's ninja file -- run `make debug` (or release) in this worktree" );
+	return s_cache[strPath];
 }
 
 // A ninja token list with `$ `, `$:` and `$$` unescaped.
-inline std::vector< std::string > NinjaTokens( const std::string &strLine )
+inline std::vector<std::string> NinjaTokens( const std::string &strLine )
 {
-	std::vector< std::string > out;
+	std::vector<std::string> out;
 	std::string cur;
 	bool bHave = false;
 	for ( size_t i = 0; i < strLine.size(); i++ )
 	{
-		const char c = strLine[ i ];
+		const char c = strLine[i];
 		if ( c == '$' && i + 1 < strLine.size() )
 		{
-			cur += strLine[ ++i ];
+			cur += strLine[++i];
 			bHave = true;
 		}
 		else if ( c == ' ' || c == '\t' )
@@ -650,8 +668,8 @@ inline LinkEdge Link( const std::string &strTarget )
 	while ( std::getline( in, strLine ) )
 	{
 		// Join ninja's `$`-newline continuations.
-		while ( !strLine.empty() && strLine[ strLine.size() - 1 ] == '$'
-			&& ( strLine.size() < 2 || strLine[ strLine.size() - 2 ] != '$' ) )
+		while ( !strLine.empty() && strLine[strLine.size() - 1] == '$' &&
+				( strLine.size() < 2 || strLine[strLine.size() - 2] != '$' ) )
 		{
 			std::string strNext;
 			if ( !std::getline( in, strNext ) )
@@ -663,26 +681,26 @@ inline LinkEdge Link( const std::string &strTarget )
 		{
 			if ( strLine.compare( 0, 6, "build " ) != 0 )
 				continue;
-			const std::vector< std::string > toks = NinjaTokens( strLine.substr( 6 ) );
+			const std::vector<std::string> toks = NinjaTokens( strLine.substr( 6 ) );
 			// toks: out... ':' is attached to the last output as "out:" (the
 			// `:` of an output path is escaped as `$:` and was unescaped).
 			size_t k = 0;
 			std::string strOut;
 			for ( ; k < toks.size(); k++ )
 			{
-				if ( !toks[ k ].empty() && toks[ k ][ toks[ k ].size() - 1 ] == ':' )
+				if ( !toks[k].empty() && toks[k][toks[k].size() - 1] == ':' )
 				{
-					strOut = toks[ k ].substr( 0, toks[ k ].size() - 1 );
+					strOut = toks[k].substr( 0, toks[k].size() - 1 );
 					k++;
 					break;
 				}
 			}
-			if ( k >= toks.size() || toks[ k ].find( strShared ) == std::string::npos
-				|| toks[ k ].find( "_LIBRARY_LINKER__" ) == std::string::npos )
+			if ( k >= toks.size() || toks[k].find( strShared ) == std::string::npos ||
+				 toks[k].find( "_LIBRARY_LINKER__" ) == std::string::npos )
 				continue;
 			// The rule is exactly <..>_LIBRARY_LINKER__<target>_<Config>: make
 			// sure <target> is not merely a prefix of another target's name.
-			const std::string &strRule = toks[ k ];
+			const std::string &strRule = toks[k];
 			const size_t nAt = strRule.find( strShared );
 			const std::string strRest = strRule.substr( nAt + strShared.size() );
 			if ( strRest.find( '_' ) != std::string::npos )
@@ -690,20 +708,20 @@ inline LinkEdge Link( const std::string &strTarget )
 			edge.strOutput = strOut;
 			for ( k++; k < toks.size(); k++ )
 			{
-				if ( toks[ k ] == "|" || toks[ k ] == "||" )
+				if ( toks[k] == "|" || toks[k] == "||" )
 					break;
-				edge.objects.push_back( toks[ k ] );
+				edge.objects.push_back( toks[k] );
 			}
 			bFound = true;
 			continue;
 		}
 
 		// The edge's variables are the indented lines right after it.
-		if ( strLine.empty() || ( strLine[ 0 ] != ' ' && strLine[ 0 ] != '\t' ) )
+		if ( strLine.empty() || ( strLine[0] != ' ' && strLine[0] != '\t' ) )
 			break;
 		const size_t nEq = strLine.find( " = " );
 		if ( nEq != std::string::npos )
-			edge.vars[ Trim( strLine.substr( 0, nEq ) ) ] = strLine.substr( nEq + 3 );
+			edge.vars[Trim( strLine.substr( 0, nEq ) )] = strLine.substr( nEq + 3 );
 	}
 	if ( !bFound )
 		throw Error( "build.ninja has no link edge for target '" + strTarget + "'" );
@@ -714,16 +732,16 @@ inline LinkEdge Link( const std::string &strTarget )
 
 // The objects on the target's link edge, build-dir-relative (CMake names an
 // object CMakeFiles/<target>.dir/<mangled source path>.o).
-inline std::vector< std::string > LinkObjects( const std::string &strTarget )
+inline std::vector<std::string> LinkObjects( const std::string &strTarget )
 {
 	return Link( strTarget ).objects;
 }
 
 // The LINK_LIBRARIES of the edge, tokenised (-lfoo, lib/libtier1.a, -Xlinker, ...).
-inline std::vector< std::string > LinkLibraries( const std::string &strTarget )
+inline std::vector<std::string> LinkLibraries( const std::string &strTarget )
 {
 	const LinkEdge edge = Link( strTarget );
-	std::map< std::string, std::string >::const_iterator it = edge.vars.find( "LINK_LIBRARIES" );
+	std::map<std::string, std::string>::const_iterator it = edge.vars.find( "LINK_LIBRARIES" );
 	if ( it == edge.vars.end() || Trim( it->second ).empty() )
 		throw Error( "build.ninja's link edge for '" + strTarget + "' has no LINK_LIBRARIES" );
 	return NinjaTokens( it->second );

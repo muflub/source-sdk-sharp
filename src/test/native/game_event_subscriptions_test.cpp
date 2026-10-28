@@ -18,15 +18,20 @@ namespace
 
 struct FakeAdd
 {
-	std::vector< std::string > *pAsked;
+	std::vector<std::string> *pAsked;
 	bool bAccept;
-	bool operator()( const char *pName ) const { pAsked->push_back( pName ); return bAccept; }
+
+	bool operator()( const char *pName ) const
+	{
+		pAsked->push_back( pName );
+		return bAccept;
+	}
 };
 
 TEST( GameEventSubscriptions, OneNameInTwoCasesIsOneSubscription )
 {
 	CGameEventSubscriptions subs;
-	std::vector< std::string > asked;
+	std::vector<std::string> asked;
 
 	EXPECT_EQ( CGameEventSubscriptions::kSubscribed, subs.Subscribe( "player_death", FakeAdd{ &asked, true } ) );
 	EXPECT_EQ( CGameEventSubscriptions::kAlreadyListening, subs.Subscribe( "Player_Death", FakeAdd{ &asked, true } ) );
@@ -38,7 +43,7 @@ TEST( GameEventSubscriptions, OneNameInTwoCasesIsOneSubscription )
 TEST( GameEventSubscriptions, DifferentNamesAreEachSubscribed )
 {
 	CGameEventSubscriptions subs;
-	std::vector< std::string > asked;
+	std::vector<std::string> asked;
 
 	subs.Subscribe( "player_death", FakeAdd{ &asked, true } );
 	subs.Subscribe( "round_start", FakeAdd{ &asked, true } );
@@ -50,7 +55,7 @@ TEST( GameEventSubscriptions, DifferentNamesAreEachSubscribed )
 TEST( GameEventSubscriptions, ARefusedNameIsNotRecordedAndCanBeAskedAgain )
 {
 	CGameEventSubscriptions subs;
-	std::vector< std::string > asked;
+	std::vector<std::string> asked;
 
 	EXPECT_EQ( CGameEventSubscriptions::kRefused, subs.Subscribe( "no_such_event", FakeAdd{ &asked, false } ) );
 	EXPECT_EQ( 0, subs.Count() );
@@ -61,7 +66,7 @@ TEST( GameEventSubscriptions, ARefusedNameIsNotRecordedAndCanBeAskedAgain )
 TEST( GameEventSubscriptions, ClearLetsTheSideSubscribeAgain )
 {
 	CGameEventSubscriptions subs;
-	std::vector< std::string > asked;
+	std::vector<std::string> asked;
 
 	subs.Subscribe( "player_death", FakeAdd{ &asked, true } );
 	subs.Clear();

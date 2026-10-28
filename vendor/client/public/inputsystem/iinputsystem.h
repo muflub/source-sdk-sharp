@@ -7,7 +7,7 @@
 #include "steam/isteamcontroller.h"
 
 // Main interface for input. This is a low-level interface
-#define INPUTSYSTEM_INTERFACE_VERSION	"InputSystemVersion001"
+#define INPUTSYSTEM_INTERFACE_VERSION "InputSystemVersion001"
 abstract_class IInputSystem : public IAppSystem
 {
 public:
@@ -17,7 +17,7 @@ public:
 	virtual void unused_AttachToWindow() = 0;
 	virtual void unused_DetachFromWindow() = 0;
 
-	// Enables/disables input. PollInputState will not update current 
+	// Enables/disables input. PollInputState will not update current
 	// button/analog states when it is called if the system is disabled.
 	virtual void unused_EnableInput() = 0;
 
@@ -102,7 +102,7 @@ public:
 	virtual void unused_SetNovintPure() = 0;
 
 	// read and clear accumulated raw input values
-	virtual bool GetRawMouseAccumulators( int& accumX, int& accumY ) = 0;
+	virtual bool GetRawMouseAccumulators( int &accumX, int &accumY ) = 0;
 
 	// tell the input system that we're not a game, we're console text mode.
 	// this is used for dedicated servers to not initialize joystick system.
@@ -111,7 +111,7 @@ public:
 	// being initialized.
 	virtual void unused_SetConsoleTextMode() = 0;
 
-	virtual ISteamController* SteamControllerInterface() = 0;
+	virtual ISteamController *SteamControllerInterface() = 0;
 	virtual void unused_GetNumSteamControllersConnected() = 0;
 	virtual bool IsSteamControllerActive() = 0;
 	virtual void unused_IsSteamControllerConnected() = 0;
@@ -119,11 +119,13 @@ public:
 	virtual void unused_GetRadialMenuStickValues() = 0;
 	virtual void ActivateSteamControllerActionSetForSlot( uint64 nSlot, GameActionSet_t eActionSet ) = 0;
 	virtual ControllerActionSetHandle_t GetActionSetHandle( GameActionSet_t eActionSet ) = 0;
-	virtual ControllerActionSetHandle_t GetActionSetHandle( const char* szActionSet ) = 0;
+	virtual ControllerActionSetHandle_t GetActionSetHandle( const char *szActionSet ) = 0;
 
 	// Gets the action origin (i.e. which physical input) maps to the given action for the given action set
-	virtual EControllerActionOrigin GetSteamControllerActionOrigin( const char* action, GameActionSet_t action_set ) = 0;
-	virtual EControllerActionOrigin GetSteamControllerActionOrigin( const char* action, ControllerActionSetHandle_t action_set_handle ) = 0;
+	virtual EControllerActionOrigin GetSteamControllerActionOrigin( const char *action,
+																	GameActionSet_t action_set ) = 0;
+	virtual EControllerActionOrigin GetSteamControllerActionOrigin( const char *action,
+																	ControllerActionSetHandle_t action_set_handle ) = 0;
 
 	// Maps a Steam Controller action origin to a string (consisting of a single character) in our SC icon font
 	virtual void unused_GetSteamControllerFontCharacterForActionOrigin() = 0;
@@ -135,5 +137,4 @@ public:
 	// This is called with "true" by dedicated server initialization (before calling Init) in order to
 	// force us to skip initialization of Steam (which messes up dedicated servers).
 	virtual void unused_SetSkipControllerInitialization() = 0;
-
 };

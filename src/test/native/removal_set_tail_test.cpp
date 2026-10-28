@@ -153,21 +153,21 @@ std::string StripComments( const std::string &s )
 
 	for ( size_t i = 0; i < s.size(); )
 	{
-		if ( i + 1 < s.size() && s[ i ] == '/' && s[ i + 1 ] == '/' )
+		if ( i + 1 < s.size() && s[i] == '/' && s[i + 1] == '/' )
 		{
-			while ( i < s.size() && s[ i ] != '\n' )
+			while ( i < s.size() && s[i] != '\n' )
 				i++;
 			continue;
 		}
-		if ( i + 1 < s.size() && s[ i ] == '/' && s[ i + 1 ] == '*' )
+		if ( i + 1 < s.size() && s[i] == '/' && s[i + 1] == '*' )
 		{
 			i += 2;
-			while ( i + 1 < s.size() && !( s[ i ] == '*' && s[ i + 1 ] == '/' ) )
+			while ( i + 1 < s.size() && !( s[i] == '*' && s[i + 1] == '/' ) )
 				i++;
 			i = ( i + 1 < s.size() ) ? i + 2 : s.size();
 			continue;
 		}
-		out += s[ i ];
+		out += s[i];
 		i++;
 	}
 	return out;
@@ -175,20 +175,20 @@ std::string StripComments( const std::string &s )
 
 bool IsIdentChar( char c )
 {
-	return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) ||
-	       ( c >= '0' && c <= '9' ) || c == '_';
+	return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) || ( c >= '0' && c <= '9' ) || c == '_';
 }
 
 size_t SkipParens( const std::string &strCode, size_t at )
 {
-	if ( at >= strCode.size() || strCode[ at ] != '(' )
+	if ( at >= strCode.size() || strCode[at] != '(' )
 		return std::string::npos;
 
 	int depth = 0;
 	for ( size_t i = at; i < strCode.size(); i++ )
 	{
-		if ( strCode[ i ] == '(' ) depth++;
-		else if ( strCode[ i ] == ')' )
+		if ( strCode[i] == '(' )
+			depth++;
+		else if ( strCode[i] == ')' )
 		{
 			depth--;
 			if ( depth == 0 )
@@ -200,8 +200,7 @@ size_t SkipParens( const std::string &strCode, size_t at )
 
 size_t SkipSpace( const std::string &s, size_t i )
 {
-	while ( i < s.size() && ( s[ i ] == ' ' || s[ i ] == '\t' ||
-	                          s[ i ] == '\r' || s[ i ] == '\n' ) )
+	while ( i < s.size() && ( s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n' ) )
 		i++;
 	return i;
 }
@@ -219,24 +218,23 @@ const char *const kClientScope = "C_BaseEntity::";
 // argument list: a definition's next non-space character is '{' (allowing for a
 // trailing `const`), a call's is ';' or ',' or ')' or an operator.
 //-----------------------------------------------------------------------------
-std::vector< std::string > MemberDefinitionsIn( const std::string &strSource, const char *pszScope )
+std::vector<std::string> MemberDefinitionsIn( const std::string &strSource, const char *pszScope )
 {
 	const std::string strCode = StripComments( strSource );
 	const std::string kScope( pszScope );
 
-	std::vector< std::string > names;
+	std::vector<std::string> names;
 
-	for ( size_t pos = strCode.find( kScope ); pos != std::string::npos;
-	      pos = strCode.find( kScope, pos + 1 ) )
+	for ( size_t pos = strCode.find( kScope ); pos != std::string::npos; pos = strCode.find( kScope, pos + 1 ) )
 	{
 		// Must not be preceded by an identifier char, or a longer name ending
 		// in the scope text would match.
-		if ( pos > 0 && IsIdentChar( strCode[ pos - 1 ] ) )
+		if ( pos > 0 && IsIdentChar( strCode[pos - 1] ) )
 			continue;
 
 		size_t i = pos + kScope.size();
 		const size_t nameStart = i;
-		while ( i < strCode.size() && IsIdentChar( strCode[ i ] ) )
+		while ( i < strCode.size() && IsIdentChar( strCode[i] ) )
 			i++;
 		if ( i == nameStart )
 			continue;
@@ -244,7 +242,7 @@ std::vector< std::string > MemberDefinitionsIn( const std::string &strSource, co
 		const std::string strName = strCode.substr( nameStart, i - nameStart );
 
 		i = SkipSpace( strCode, i );
-		if ( i >= strCode.size() || strCode[ i ] != '(' )
+		if ( i >= strCode.size() || strCode[i] != '(' )
 			continue;
 
 		i = SkipParens( strCode, i );
@@ -254,13 +252,12 @@ std::vector< std::string > MemberDefinitionsIn( const std::string &strSource, co
 		i = SkipSpace( strCode, i );
 
 		// allow a trailing `const`
-		if ( strCode.compare( i, 5, "const" ) == 0 &&
-		     ( i + 5 >= strCode.size() || !IsIdentChar( strCode[ i + 5 ] ) ) )
+		if ( strCode.compare( i, 5, "const" ) == 0 && ( i + 5 >= strCode.size() || !IsIdentChar( strCode[i + 5] ) ) )
 		{
 			i = SkipSpace( strCode, i + 5 );
 		}
 
-		if ( i < strCode.size() && strCode[ i ] == '{' )
+		if ( i < strCode.size() && strCode[i] == '{' )
 			names.push_back( strName );
 	}
 
@@ -278,22 +275,21 @@ std::vector< std::string > MemberDefinitionsIn( const std::string &strSource, co
 // than the undefined symbols step 3 tracks, and `nm ... $2=="T"` is blind to it
 // because T is TEXT symbols only.
 //-----------------------------------------------------------------------------
-std::vector< std::string > StaticDataMembersIn( const std::string &strSource, const char *pszScope )
+std::vector<std::string> StaticDataMembersIn( const std::string &strSource, const char *pszScope )
 {
 	const std::string strCode = StripComments( strSource );
 	const std::string kScope( pszScope );
 
-	std::vector< std::string > names;
+	std::vector<std::string> names;
 
-	for ( size_t pos = strCode.find( kScope ); pos != std::string::npos;
-	      pos = strCode.find( kScope, pos + 1 ) )
+	for ( size_t pos = strCode.find( kScope ); pos != std::string::npos; pos = strCode.find( kScope, pos + 1 ) )
 	{
-		if ( pos > 0 && IsIdentChar( strCode[ pos - 1 ] ) )
+		if ( pos > 0 && IsIdentChar( strCode[pos - 1] ) )
 			continue;
 
 		size_t i = pos + kScope.size();
 		const size_t nameStart = i;
-		while ( i < strCode.size() && IsIdentChar( strCode[ i ] ) )
+		while ( i < strCode.size() && IsIdentChar( strCode[i] ) )
 			i++;
 		if ( i == nameStart )
 			continue;
@@ -324,7 +320,7 @@ std::vector< std::string > StaticDataMembersIn( const std::string &strSource, co
 		bool bLeadIsClean = true;
 		for ( size_t k = 0; k < strLead.size(); k++ )
 		{
-			const char c = strLead[ k ];
+			const char c = strLead[k];
 			if ( IsIdentChar( c ) )
 				bHasType = true;
 			// Anything that can only appear in an expression or a statement,
@@ -336,8 +332,7 @@ std::vector< std::string > StaticDataMembersIn( const std::string &strSource, co
 			// caught. Erring toward a false POSITIVE is right here: this
 			// detector exists to catch the parse-stopping failure, so a
 			// spurious hit costs a look and a miss costs the whole build.
-			if ( c == '=' || c == '(' || c == ')' ||
-			     c == '{' || c == '}' || c == ';' )
+			if ( c == '=' || c == '(' || c == ')' || c == '{' || c == '}' || c == ';' )
 			{
 				bLeadIsClean = false;
 			}
@@ -345,7 +340,7 @@ std::vector< std::string > StaticDataMembersIn( const std::string &strSource, co
 		if ( !bHasType || !bLeadIsClean )
 			continue;
 
-		if ( strCode[ i ] == '=' || strCode[ i ] == ';' || strCode[ i ] == '[' )
+		if ( strCode[i] == '=' || strCode[i] == ';' || strCode[i] == '[' )
 			names.push_back( strName );
 	}
 
@@ -360,18 +355,17 @@ bool IsDeclaredVirtual( const std::string &strHeader, const std::string &strName
 {
 	const std::string strCode = StripComments( strHeader );
 
-	for ( size_t pos = strCode.find( strName ); pos != std::string::npos;
-	      pos = strCode.find( strName, pos + 1 ) )
+	for ( size_t pos = strCode.find( strName ); pos != std::string::npos; pos = strCode.find( strName, pos + 1 ) )
 	{
-		if ( pos > 0 && IsIdentChar( strCode[ pos - 1 ] ) )
+		if ( pos > 0 && IsIdentChar( strCode[pos - 1] ) )
 			continue;
 		const size_t after = pos + strName.size();
-		if ( after < strCode.size() && IsIdentChar( strCode[ after ] ) )
+		if ( after < strCode.size() && IsIdentChar( strCode[after] ) )
 			continue;
 
 		size_t i = SkipSpace( strCode, after );
-		if ( i >= strCode.size() || strCode[ i ] != '(' )
-			continue;   // not a function declaration
+		if ( i >= strCode.size() || strCode[i] != '(' )
+			continue; // not a function declaration
 
 		size_t lineStart = strCode.rfind( '\n', pos );
 		lineStart = ( lineStart == std::string::npos ) ? 0 : lineStart + 1;
@@ -388,23 +382,22 @@ bool IsDeclaredAtAll( const std::string &strHeader, const std::string &strName )
 {
 	const std::string strCode = StripComments( strHeader );
 
-	for ( size_t pos = strCode.find( strName ); pos != std::string::npos;
-	      pos = strCode.find( strName, pos + 1 ) )
+	for ( size_t pos = strCode.find( strName ); pos != std::string::npos; pos = strCode.find( strName, pos + 1 ) )
 	{
-		if ( pos > 0 && IsIdentChar( strCode[ pos - 1 ] ) )
+		if ( pos > 0 && IsIdentChar( strCode[pos - 1] ) )
 			continue;
 		const size_t after = pos + strName.size();
-		if ( after < strCode.size() && IsIdentChar( strCode[ after ] ) )
+		if ( after < strCode.size() && IsIdentChar( strCode[after] ) )
 			continue;
 
 		size_t i = SkipSpace( strCode, after );
-		if ( i < strCode.size() && strCode[ i ] == '(' )
+		if ( i < strCode.size() && strCode[i] == '(' )
 			return true;
 	}
 	return false;
 }
 
-    // was 4, then 1
+// was 4, then 1
 
 struct Lifted_t
 {
@@ -477,31 +470,27 @@ struct Anchor_t
 
 TEST( RemovalSetTailFixture, ExtractorTellsADefinitionFromACall )
 {
-	const std::string strFixture =
-		"void CBaseEntity::Defined( int a ) { Called(); }\n"
-		"void Other() { CBaseEntity::NotDefined( 1 ); }\n"
-		"bool CBaseEntity::ConstDefined() const { return true; }\n";
+	const std::string strFixture = "void CBaseEntity::Defined( int a ) { Called(); }\n"
+								   "void Other() { CBaseEntity::NotDefined( 1 ); }\n"
+								   "bool CBaseEntity::ConstDefined() const { return true; }\n";
 
-	const std::vector< std::string > defs = MemberDefinitionsIn( strFixture, kServerScope );
-	const std::set< std::string > setDefs( defs.begin(), defs.end() );
+	const std::vector<std::string> defs = MemberDefinitionsIn( strFixture, kServerScope );
+	const std::set<std::string> setDefs( defs.begin(), defs.end() );
 
 	EXPECT_EQ( 2u, defs.size() );
 	EXPECT_EQ( 1u, setDefs.count( "Defined" ) );
-	EXPECT_EQ( 1u, setDefs.count( "ConstDefined" ) )
-		<< "the extractor lost a definition with a trailing `const`";
-	EXPECT_EQ( 0u, setDefs.count( "NotDefined" ) )
-		<< "the extractor counted a CALL as a definition";
+	EXPECT_EQ( 1u, setDefs.count( "ConstDefined" ) ) << "the extractor lost a definition with a trailing `const`";
+	EXPECT_EQ( 0u, setDefs.count( "NotDefined" ) ) << "the extractor counted a CALL as a definition";
 }
 
 TEST( RemovalSetTailFixture, ExtractorHandlesTheClientScopeToo )
 {
-	const std::string strFixture =
-		"void C_BaseEntity::ClientDefined( int a ) { }\n"
-		"void Other() { C_BaseEntity::ClientCalled( 1 ); }\n";
+	const std::string strFixture = "void C_BaseEntity::ClientDefined( int a ) { }\n"
+								   "void Other() { C_BaseEntity::ClientCalled( 1 ); }\n";
 
-	const std::vector< std::string > defs = MemberDefinitionsIn( strFixture, kClientScope );
+	const std::vector<std::string> defs = MemberDefinitionsIn( strFixture, kClientScope );
 	EXPECT_EQ( 1u, defs.size() );
-	EXPECT_EQ( "ClientDefined", defs.empty() ? std::string() : defs[ 0 ] );
+	EXPECT_EQ( "ClientDefined", defs.empty() ? std::string() : defs[0] );
 
 	// And the server scope must NOT match the underscored spelling.
 	EXPECT_EQ( 0u, MemberDefinitionsIn( strFixture, kServerScope ).size() )
@@ -511,16 +500,14 @@ TEST( RemovalSetTailFixture, ExtractorHandlesTheClientScopeToo )
 
 TEST( RemovalSetTailFixture, ExtractorIgnoresProse )
 {
-	const std::string strFixture =
-		"// CBaseEntity::MentionedInAComment( void ) { }\n"
-		"/* void CBaseEntity::AlsoInABlockComment() { } */\n"
-		"void CBaseEntity::Real() { }\n";
+	const std::string strFixture = "// CBaseEntity::MentionedInAComment( void ) { }\n"
+								   "/* void CBaseEntity::AlsoInABlockComment() { } */\n"
+								   "void CBaseEntity::Real() { }\n";
 
-	const std::vector< std::string > defs = MemberDefinitionsIn( strFixture, kServerScope );
-	EXPECT_EQ( 1u, defs.size() )
-		<< "the extractor read a definition out of a comment. Every file under "
-		<< "test is prose about exactly these names.";
-	EXPECT_EQ( "Real", defs.empty() ? std::string() : defs[ 0 ] );
+	const std::vector<std::string> defs = MemberDefinitionsIn( strFixture, kServerScope );
+	EXPECT_EQ( 1u, defs.size() ) << "the extractor read a definition out of a comment. Every file under "
+								 << "test is prose about exactly these names.";
+	EXPECT_EQ( "Real", defs.empty() ? std::string() : defs[0] );
 }
 
 TEST( RemovalSetTailFixture, StaticDataDetectorSeesOneWhenThereIsOne )
@@ -528,20 +515,17 @@ TEST( RemovalSetTailFixture, StaticDataDetectorSeesOneWhenThereIsOne )
 	// Without this, NoFileInTheTailDefinesAStaticDataMember is the purest kind
 	// of check that cannot fail: an empty-list assertion over a detector that
 	// never finds anything.
-	const std::string strPositive =
-		"bool CBaseEntity::m_bAllowPrecache = false;\n"
-		"int CBaseEntity::sm_nCount;\n"
-		"const char *CBaseEntity::sm_szNames[4] = { 0 };\n";
+	const std::string strPositive = "bool CBaseEntity::m_bAllowPrecache = false;\n"
+									"int CBaseEntity::sm_nCount;\n"
+									"const char *CBaseEntity::sm_szNames[4] = { 0 };\n";
 
-	const std::vector< std::string > data = StaticDataMembersIn( strPositive, kServerScope );
-	const std::set< std::string > setData( data.begin(), data.end() );
+	const std::vector<std::string> data = StaticDataMembersIn( strPositive, kServerScope );
+	const std::set<std::string> setData( data.begin(), data.end() );
 
 	EXPECT_EQ( 3u, data.size() );
 	EXPECT_EQ( 1u, setData.count( "m_bAllowPrecache" ) );
-	EXPECT_EQ( 1u, setData.count( "sm_nCount" ) )
-		<< "the detector missed a static data member with no initialiser";
-	EXPECT_EQ( 1u, setData.count( "sm_szNames" ) )
-		<< "the detector missed a static data ARRAY member";
+	EXPECT_EQ( 1u, setData.count( "sm_nCount" ) ) << "the detector missed a static data member with no initialiser";
+	EXPECT_EQ( 1u, setData.count( "sm_szNames" ) ) << "the detector missed a static data ARRAY member";
 }
 
 TEST( RemovalSetTailFixture, StaticDataDetectorIgnoresReadsWritesAndCalls )
@@ -549,30 +533,30 @@ TEST( RemovalSetTailFixture, StaticDataDetectorIgnoresReadsWritesAndCalls )
 	const std::string strNegative =
 		"void CBaseEntity::SetAllowPrecache( bool allow )\n"
 		"{\n"
-		"    CBaseEntity::m_bAllowPrecache = allow;\n"      // a WRITE, no type on the line
-		"    int n = CBaseEntity::m_nSeed;\n"               // a READ, but the line HAS a type
-		"    CBaseEntity::SomeFunction( n );\n"             // a call
+		"    CBaseEntity::m_bAllowPrecache = allow;\n" // a WRITE, no type on the line
+		"    int n = CBaseEntity::m_nSeed;\n" // a READ, but the line HAS a type
+		"    CBaseEntity::SomeFunction( n );\n" // a call
 		"}\n"
 		"void Foo() { CBaseEntity::m_bOnOneLine = true; }\n" // statement sharing the header's line
 		"bool CBaseEntity::IsPrecacheAllowed() { return false; }\n";
 
-	const std::vector< std::string > data = StaticDataMembersIn( strNegative, kServerScope );
+	const std::vector<std::string> data = StaticDataMembersIn( strNegative, kServerScope );
 
 	std::string strFound;
 	for ( size_t i = 0; i < data.size(); i++ )
 	{
-		if ( !strFound.empty() ) strFound += ", ";
-		strFound += data[ i ];
+		if ( !strFound.empty() )
+			strFound += ", ";
+		strFound += data[i];
 	}
 
-	EXPECT_TRUE( data.empty() )
-		<< "the static-data detector counted a read, a write or a function "
-		<< "definition as a static data member: " << strFound << ".\n"
-		<< "The last two lines are the ones baseentity_shared_lift_test's "
-		<< "detector gets wrong -- `int n = CBaseEntity::m_nSeed;` and a "
-		<< "statement sharing a line with a function header both have an "
-		<< "identifier before the scope, so a lead-has-an-ident-char test "
-		<< "accepts them. This one requires the lead to look like a TYPE.";
+	EXPECT_TRUE( data.empty() ) << "the static-data detector counted a read, a write or a function "
+								<< "definition as a static data member: " << strFound << ".\n"
+								<< "The last two lines are the ones baseentity_shared_lift_test's "
+								<< "detector gets wrong -- `int n = CBaseEntity::m_nSeed;` and a "
+								<< "statement sharing a line with a function header both have an "
+								<< "identifier before the scope, so a lead-has-an-ident-char test "
+								<< "accepts them. This one requires the lead to look like a TYPE.";
 }
 
 TEST( RemovalSetTailFixture, StaticDataDetectorStillSeesATemplatedType )
@@ -580,44 +564,39 @@ TEST( RemovalSetTailFixture, StaticDataDetectorStillSeesATemplatedType )
 	// The lead filter must not reject a real static data member whose type
 	// carries commas and angle brackets -- that would be a false NEGATIVE, and
 	// this detector's whole job is to not miss one.
-	const std::string strPositive =
-		"CUtlMap< int, int > CBaseEntity::sm_map;\n"
-		"CUtlVector< CBaseEntity * > CBaseEntity::sm_list;\n";
+	const std::string strPositive = "CUtlMap< int, int > CBaseEntity::sm_map;\n"
+									"CUtlVector< CBaseEntity * > CBaseEntity::sm_list;\n";
 
-	const std::vector< std::string > data = StaticDataMembersIn( strPositive, kServerScope );
-	const std::set< std::string > setData( data.begin(), data.end() );
+	const std::vector<std::string> data = StaticDataMembersIn( strPositive, kServerScope );
+	const std::set<std::string> setData( data.begin(), data.end() );
 
-	EXPECT_EQ( 1u, setData.count( "sm_map" ) )
-		<< "the lead filter rejected a static data member with a templated type";
+	EXPECT_EQ( 1u, setData.count( "sm_map" ) ) << "the lead filter rejected a static data member with a templated type";
 	EXPECT_EQ( 1u, setData.count( "sm_list" ) );
 }
 
 TEST( RemovalSetTailFixture, StaticDataDetectorIgnoresProse )
 {
-	const std::string strFixture =
-		"// bool CBaseEntity::m_bAllowPrecache = false;\n"
-		"/* int CBaseEntity::sm_nCount; */\n";
+	const std::string strFixture = "// bool CBaseEntity::m_bAllowPrecache = false;\n"
+								   "/* int CBaseEntity::sm_nCount; */\n";
 
 	EXPECT_TRUE( StaticDataMembersIn( strFixture, kServerScope ).empty() );
 }
 
 TEST( RemovalSetTailFixture, VirtualDetectorAnswersBothWays )
 {
-	const std::string strFixture =
-		"class X {\n"
-		"	virtual void			IsVirtual( int a );\n"
-		"	void					NotVirtual( int a );\n"
-		"	int						m_virtualLookingMember;\n"
-		"};\n";
+	const std::string strFixture = "class X {\n"
+								   "	virtual void			IsVirtual( int a );\n"
+								   "	void					NotVirtual( int a );\n"
+								   "	int						m_virtualLookingMember;\n"
+								   "};\n";
 
-	EXPECT_TRUE(  IsDeclaredVirtual( strFixture, "IsVirtual" ) );
+	EXPECT_TRUE( IsDeclaredVirtual( strFixture, "IsVirtual" ) );
 	EXPECT_FALSE( IsDeclaredVirtual( strFixture, "NotVirtual" ) )
 		<< "the virtual detector answers TRUE for everything, so every "
 		<< "EXPECT_TRUE above passes for free";
 	EXPECT_FALSE( IsDeclaredVirtual( strFixture, "m_virtualLookingMember" ) )
 		<< "the virtual detector matched a DATA member, not a function";
 
-	EXPECT_TRUE(  IsDeclaredAtAll( strFixture, "NotVirtual" ) );
+	EXPECT_TRUE( IsDeclaredAtAll( strFixture, "NotVirtual" ) );
 	EXPECT_FALSE( IsDeclaredAtAll( strFixture, "Absent" ) );
 }
-

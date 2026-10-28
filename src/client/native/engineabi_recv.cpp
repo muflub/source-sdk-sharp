@@ -9,12 +9,6 @@
 
 #include "engineabi/recv.h"
 
-#include "tier0/dbg.h"
-#include "tier0/basetypes.h"
-#include "tier0/platform.h"
-#include "dt_common.h"
-#include "dt_recv.h"
-
 namespace engineabi
 {
 namespace recv
@@ -36,7 +30,7 @@ RecvProp Scalar( const char *pVarName, int offset, int flags, SendPropType type,
 } // namespace
 
 RecvProp Float( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-                const CStandardRecvProxies &standard )
+				const CStandardRecvProxies &standard )
 {
 	Assert( proxy != standard.m_FloatToFloat || sizeofVar == 0 || sizeofVar == sizeof( float ) );
 	(void)sizeofVar;
@@ -44,7 +38,7 @@ RecvProp Float( const char *pVarName, int offset, int sizeofVar, int flags, Recv
 }
 
 RecvProp Vector( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-                 const CStandardRecvProxies &standard )
+				 const CStandardRecvProxies &standard )
 {
 	Assert( proxy != standard.m_VectorToVector || sizeofVar == 3 * (int)sizeof( float ) );
 	(void)sizeofVar;
@@ -52,20 +46,26 @@ RecvProp Vector( const char *pVarName, int offset, int sizeofVar, int flags, Rec
 }
 
 RecvProp Int( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-              const CStandardRecvProxies &standard )
+			  const CStandardRecvProxies &standard )
 {
 	// No proxy named: the variable's width picks the narrowing write.
 	if ( !proxy )
 	{
 		switch ( sizeofVar )
 		{
-		case 2:  proxy = standard.m_Int32ToInt16; break;
-		case 4:  proxy = standard.m_Int32ToInt32; break;
-		case 1:  proxy = standard.m_Int32ToInt8;  break;
-		default:
-			Assert( !"RecvPropInt var has invalid size" );
-			proxy = standard.m_Int32ToInt8;
-			break;
+			case 2:
+				proxy = standard.m_Int32ToInt16;
+				break;
+			case 4:
+				proxy = standard.m_Int32ToInt32;
+				break;
+			case 1:
+				proxy = standard.m_Int32ToInt8;
+				break;
+			default:
+				Assert( !"RecvPropInt var has invalid size" );
+				proxy = standard.m_Int32ToInt8;
+				break;
 		}
 	}
 	return Scalar( pVarName, offset, flags, DPT_Int, proxy );
@@ -103,14 +103,14 @@ void FloatToFloat( const CRecvProxyData *pData, void *pStruct, void *pOut )
 {
 	const float f = pData->m_Value.m_Float;
 	Assert( IsFinite( f ) );
-	*static_cast< float * >( pOut ) = f;
+	*static_cast<float *>( pOut ) = f;
 }
 
 void VectorToVector( const CRecvProxyData *pData, void *pStruct, void *pOut )
 {
 	const float *pIn = pData->m_Value.m_Vector;
 	Assert( IsFinite( pIn[0] ) && IsFinite( pIn[1] ) && IsFinite( pIn[2] ) );
-	float *pDest = static_cast< float * >( pOut );
+	float *pDest = static_cast<float *>( pOut );
 	for ( int i = 0; i < 3; i++ )
 		pDest[i] = pIn[i];
 }
@@ -118,17 +118,17 @@ void VectorToVector( const CRecvProxyData *pData, void *pStruct, void *pOut )
 // The engine decodes every integer as 32 bits; these keep the low bytes.
 void Int32ToInt8( const CRecvProxyData *pData, void *pStruct, void *pOut )
 {
-	*static_cast< uint8 * >( pOut ) = static_cast< uint8 >( pData->m_Value.m_Int );
+	*static_cast<uint8 *>( pOut ) = static_cast<uint8>( pData->m_Value.m_Int );
 }
 
 void Int32ToInt16( const CRecvProxyData *pData, void *pStruct, void *pOut )
 {
-	*static_cast< uint16 * >( pOut ) = static_cast< uint16 >( pData->m_Value.m_Int );
+	*static_cast<uint16 *>( pOut ) = static_cast<uint16>( pData->m_Value.m_Int );
 }
 
 void Int32ToInt32( const CRecvProxyData *pData, void *pStruct, void *pOut )
 {
-	*static_cast< uint32 * >( pOut ) = static_cast< uint32 >( pData->m_Value.m_Int );
+	*static_cast<uint32 *>( pOut ) = static_cast<uint32>( pData->m_Value.m_Int );
 }
 
 // Copies up to the terminator, never past the prop's buffer, and always
@@ -140,7 +140,7 @@ void StringToString( const CRecvProxyData *pData, void *pStruct, void *pOut )
 	if ( nSize <= 0 )
 		return;
 
-	char *pDest = static_cast< char * >( pOut );
+	char *pDest = static_cast<char *>( pOut );
 	const char *pSrc = pData->m_Value.m_pString;
 	for ( int i = 0; i < nSize; i++ )
 	{

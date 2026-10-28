@@ -10,18 +10,10 @@
 // convar.h's vtables, so every virtual member is here with tier1's behaviour. A value string
 // is allocated and freed only here, never by the engine's allocator.
 
-#include "tier1/convar.h"
-#include "tier1/strtools.h"
 #include "tier1/tier1.h"
-#include "icvar.h"
-#include "tier0/dbg.h"
 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "ss_string.h"
-#include "engine_heap.h"
+
 #include "engine_utlvector.h"
 
 // tier1 built this file without NDEBUG in debug configurations, where a
@@ -99,13 +91,15 @@ void ConVar_Unregister()
 }
 
 ConCommandBase::ConCommandBase()
-	: m_pNext( NULL ), m_bRegistered( false ), m_pszName( NULL ), m_pszHelpString( NULL ), m_nFlags( 0 )
+	: m_pNext( NULL )
+	, m_bRegistered( false )
+	, m_pszName( NULL )
+	, m_pszHelpString( NULL )
+	, m_nFlags( 0 )
 {
 }
 
-ConCommandBase::~ConCommandBase()
-{
-}
+ConCommandBase::~ConCommandBase() {}
 
 bool ConCommandBase::IsCommand() const
 {
@@ -172,7 +166,8 @@ bool ConCommandBase::IsRegistered() const
 	return m_bRegistered;
 }
 
-ConCommand::ConCommand( const char *pName, ICommandCallback *pCallback, const char *pHelpString, int flags, ICommandCompletionCallback *pCompletionCallback )
+ConCommand::ConCommand( const char *pName, ICommandCallback *pCallback, const char *pHelpString, int flags,
+						ICommandCompletionCallback *pCompletionCallback )
 {
 	m_pCommandCallback = pCallback;
 	m_bUsingNewCommandCallback = false;
@@ -182,9 +177,7 @@ ConCommand::ConCommand( const char *pName, ICommandCallback *pCallback, const ch
 	BaseClass::CreateBase( pName, pHelpString, flags );
 }
 
-ConCommand::~ConCommand()
-{
-}
+ConCommand::~ConCommand() {}
 
 bool ConCommand::IsCommand() const
 {
@@ -212,22 +205,23 @@ void ConCommand::Dispatch( const CCommand &command )
 	AssertMsg( 0, "Encountered ConCommand '%s' without a callback!\n", GetName() );
 }
 
-int ConCommand::AutoCompleteSuggest( const char *partial, CUtlVector< CUtlString > &commands )
+int ConCommand::AutoCompleteSuggest( const char *partial, CUtlVector<CUtlString> &commands )
 {
 	if ( m_bUsingCommandCallbackInterface )
-		return m_pCommandCompletionCallback ? m_pCommandCompletionCallback->CommandCompletionCallback( partial, commands ) : 0;
+		return m_pCommandCompletionCallback
+			? m_pCommandCompletionCallback->CommandCompletionCallback( partial, commands )
+			: 0;
 
 	if ( !m_fnCompletionCallback )
 		return 0;
 
-	char suggestions[ COMMAND_COMPLETION_MAXITEMS ][ COMMAND_COMPLETION_ITEM_LENGTH ];
+	char suggestions[COMMAND_COMPLETION_MAXITEMS][COMMAND_COMPLETION_ITEM_LENGTH];
 	int nCount = m_fnCompletionCallback( partial, suggestions );
 
 	// The engine owns `commands` and frees it with its own allocator, so suggestions are
 	// appended with that allocator too.
 	ss::IEngineHeap *pHeap = ss::FindEngineHeap();
-	ss::EngineUtlVectorLayout< ss::EngineUtlString > &vec =
-		ss::EngineUtlVectorLayoutOf< ss::EngineUtlString >( commands );
+	ss::EngineUtlVectorLayout<ss::EngineUtlString> &vec = ss::EngineUtlVectorLayoutOf<ss::EngineUtlString>( commands );
 	for ( int i = 0; i < nCount; i++ )
 	{
 		if ( !ss::EngineUtlStringVectorAppend( pHeap, vec, suggestions[i] ) )
@@ -247,7 +241,8 @@ ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags )
 	Create( pName, pDefaultValue, flags );
 }
 
-ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString, bool bMin, float fMin, bool bMax, float fMax )
+ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString, bool bMin, float fMin,
+				bool bMax, float fMax )
 {
 	Create( pName, pDefaultValue, flags, pHelpString, bMin, fMin, bMax, fMax );
 }
@@ -470,15 +465,15 @@ void ConVar::InternalSetIntValue( int nValue )
 	ChangeStringValue( text, flOldValue );
 }
 
-void ConVar::Create_Vtbl( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString,
-                          bool bMin, float fMin, bool bMax, float fMax, FnChangeCallback_t callback )
+void ConVar::Create_Vtbl( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString, bool bMin,
+						  float fMin, bool bMax, float fMax, FnChangeCallback_t callback )
 {
 	Create( pName, pDefaultValue, flags, pHelpString, bMin, fMin, bMax, fMax, false, 0.0f, false, 0.0f, callback );
 }
 
-void ConVar::Create( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString,
-                     bool bMin, float fMin, bool bMax, float fMax, bool bCompMin, float fCompMin,
-                     bool bCompMax, float fCompMax, FnChangeCallback_t callback )
+void ConVar::Create( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString, bool bMin,
+					 float fMin, bool bMax, float fMax, bool bCompMin, float fCompMin, bool bCompMax, float fCompMax,
+					 FnChangeCallback_t callback )
 {
 	m_pParent = this;
 	SetDefault( pDefaultValue );
@@ -492,10 +487,14 @@ void ConVar::Create( const char *pName, const char *pDefaultValue, int flags, co
 	m_bCompetitiveRestrictions = false;
 
 	// The four bounds, each a flag and its value.
-	m_bHasMin = bMin;         m_fMinVal = fMin;
-	m_bHasMax = bMax;         m_fMaxVal = fMax;
-	m_bHasCompMin = bCompMin; m_fCompMinVal = fCompMin;
-	m_bHasCompMax = bCompMax; m_fCompMaxVal = fCompMax;
+	m_bHasMin = bMin;
+	m_fMinVal = fMin;
+	m_bHasMax = bMax;
+	m_fMaxVal = fMax;
+	m_bHasCompMin = bCompMin;
+	m_fCompMinVal = fCompMin;
+	m_bHasCompMax = bCompMax;
+	m_fCompMaxVal = fCompMax;
 
 	// The int is parsed from the text, not truncated from the float.
 	m_fValue = (float)atof( m_pszString );
@@ -509,17 +508,17 @@ void ConVar::Create( const char *pName, const char *pDefaultValue, int flags, co
 
 void ConVar::SetValue( const char *value )
 {
-	static_cast< ConVar * >( m_pParent )->InternalSetValue( value );
+	static_cast<ConVar *>( m_pParent )->InternalSetValue( value );
 }
 
 void ConVar::SetValue( float value )
 {
-	static_cast< ConVar * >( m_pParent )->InternalSetFloatValue2( value );
+	static_cast<ConVar *>( m_pParent )->InternalSetFloatValue2( value );
 }
 
 void ConVar::SetValue( int value )
 {
-	static_cast< ConVar * >( m_pParent )->InternalSetIntValue( value );
+	static_cast<ConVar *>( m_pParent )->InternalSetIntValue( value );
 }
 
 bool ConVar::GetMin( float &minVal ) const
@@ -552,11 +551,19 @@ namespace
 class CMissingConVar : public ConVar
 {
 public:
-	CMissingConVar() : ConVar( "", "0" ) {}
+	CMissingConVar()
+		: ConVar( "", "0" )
+	{
+	}
+
 	virtual void SetValue( const char * ) {}
+
 	virtual void SetValue( float ) {}
+
 	virtual void SetValue( int ) {}
+
 	virtual const char *GetName() const { return ""; }
+
 	virtual bool IsFlagSet( int ) const { return false; }
 };
 
@@ -573,7 +580,7 @@ void ConVarRef::Init( const char *pName, bool bIgnoreMissing )
 {
 	IConVar *pFound = g_pCVar ? g_pCVar->FindVar( pName ) : NULL;
 	m_pConVar = pFound ? pFound : &s_MissingConVar;
-	m_pConVarState = static_cast< ConVar * >( m_pConVar );
+	m_pConVarState = static_cast<ConVar *>( m_pConVar );
 
 	if ( IsValid() )
 		return;
@@ -591,7 +598,7 @@ void ConVarRef::Init( const char *pName, bool bIgnoreMissing )
 ConVarRef::ConVarRef( IConVar *pConVar )
 {
 	m_pConVar = pConVar ? pConVar : &s_MissingConVar;
-	m_pConVarState = static_cast< ConVar * >( m_pConVar );
+	m_pConVarState = static_cast<ConVar *>( m_pConVar );
 }
 
 bool ConVarRef::IsValid() const

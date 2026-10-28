@@ -9,5 +9,5 @@
 5	HOOK	void VGui_CreateGlobalPanels()
 9	HOOK	void VGui_Shutdown()
 16	SLOT	void VGui_PreRender()
-3	SLOT	void VGui_PostRender()
+1	SLOT	void VGui_PostRender()
 6	BOUNDARY	void GetHudSize( int &w, int &h )

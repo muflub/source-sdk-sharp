@@ -10,50 +10,62 @@
 // void QueueCall( <object>, <function>, [args1, [arg2,]...]
 // void QueueRefCall( <object>, <<function>, [args1, [arg2,]...]
 
-#define DEFINE_CALLQUEUE_NONMEMBER_QUEUE_CALL(N) \
+#define DEFINE_CALLQUEUE_NONMEMBER_QUEUE_CALL( N )                                                  \
 	template <typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N> \
-	void QueueCall(FUNCTION_RETTYPE (*pfnProxied)( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) FUNC_ARG_FORMAL_PARAMS_##N ) \
-		{ \
-		QueueFunctorInternal( CreateFunctor( pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ) ); \
-		}
+	void QueueCall( FUNCTION_RETTYPE ( *pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N )          \
+						FUNC_ARG_FORMAL_PARAMS_##N )                                                \
+	{                                                                                               \
+		QueueFunctorInternal( CreateFunctor( pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ) );             \
+	}
 
-#define DEFINE_CALLQUEUE_MEMBER_QUEUE_CALL(N) \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS, typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N> \
-	void QueueCall(OBJECT_TYPE_PTR pObject, FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) FUNC_ARG_FORMAL_PARAMS_##N ) \
-		{ \
-		QueueFunctorInternal( CreateFunctor( pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ) ); \
-		}
+#define DEFINE_CALLQUEUE_MEMBER_QUEUE_CALL( N )                                                            \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                           \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>        \
+	void QueueCall( OBJECT_TYPE_PTR pObject,                                                               \
+					FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) \
+						FUNC_ARG_FORMAL_PARAMS_##N )                                                       \
+	{                                                                                                      \
+		QueueFunctorInternal( CreateFunctor( pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ) );           \
+	}
 
-#define DEFINE_CALLQUEUE_CONST_MEMBER_QUEUE_CALL(N) \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS, typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N> \
-	void QueueCall(OBJECT_TYPE_PTR pObject, FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) const FUNC_ARG_FORMAL_PARAMS_##N ) \
-		{ \
-		QueueFunctorInternal( CreateFunctor( pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ) ); \
-		}
+#define DEFINE_CALLQUEUE_CONST_MEMBER_QUEUE_CALL( N )                                                      \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                           \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>        \
+	void QueueCall( OBJECT_TYPE_PTR pObject,                                                               \
+					FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) \
+						const FUNC_ARG_FORMAL_PARAMS_##N )                                                 \
+	{                                                                                                      \
+		QueueFunctorInternal( CreateFunctor( pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ) );           \
+	}
 
-#define DEFINE_CALLQUEUE_REF_COUNTING_MEMBER_QUEUE_CALL(N) \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS, typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N> \
-	void QueueRefCall(OBJECT_TYPE_PTR pObject, FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) FUNC_ARG_FORMAL_PARAMS_##N ) \
-		{ \
-		QueueFunctorInternal( CreateRefCountingFunctor( pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ) ); \
-		}
+#define DEFINE_CALLQUEUE_REF_COUNTING_MEMBER_QUEUE_CALL( N )                                                  \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                              \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>           \
+	void QueueRefCall( OBJECT_TYPE_PTR pObject,                                                               \
+					   FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) \
+						   FUNC_ARG_FORMAL_PARAMS_##N )                                                       \
+	{                                                                                                         \
+		QueueFunctorInternal( CreateRefCountingFunctor( pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ) );   \
+	}
 
-#define DEFINE_CALLQUEUE_REF_COUNTING_CONST_MEMBER_QUEUE_CALL(N) \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS, typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N> \
-	void QueueRefCall(OBJECT_TYPE_PTR pObject, FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) const FUNC_ARG_FORMAL_PARAMS_##N ) \
-		{ \
-		QueueFunctorInternal( CreateRefCountingFunctor( pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ) ); \
-		\
-		}
+#define DEFINE_CALLQUEUE_REF_COUNTING_CONST_MEMBER_QUEUE_CALL( N )                                            \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                              \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>           \
+	void QueueRefCall( OBJECT_TYPE_PTR pObject,                                                               \
+					   FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) \
+						   const FUNC_ARG_FORMAL_PARAMS_##N )                                                 \
+	{                                                                                                         \
+		QueueFunctorInternal( CreateRefCountingFunctor( pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ) );   \
+	}
 
-#define FUNC_GENERATE_QUEUE_METHODS() \
-	FUNC_GENERATE_ALL( DEFINE_CALLQUEUE_NONMEMBER_QUEUE_CALL ); \
-	FUNC_GENERATE_ALL( DEFINE_CALLQUEUE_MEMBER_QUEUE_CALL ); \
-	FUNC_GENERATE_ALL( DEFINE_CALLQUEUE_CONST_MEMBER_QUEUE_CALL );\
+#define FUNC_GENERATE_QUEUE_METHODS()                                     \
+	FUNC_GENERATE_ALL( DEFINE_CALLQUEUE_NONMEMBER_QUEUE_CALL );           \
+	FUNC_GENERATE_ALL( DEFINE_CALLQUEUE_MEMBER_QUEUE_CALL );              \
+	FUNC_GENERATE_ALL( DEFINE_CALLQUEUE_CONST_MEMBER_QUEUE_CALL );        \
 	FUNC_GENERATE_ALL( DEFINE_CALLQUEUE_REF_COUNTING_MEMBER_QUEUE_CALL ); \
 	FUNC_GENERATE_ALL( DEFINE_CALLQUEUE_REF_COUNTING_CONST_MEMBER_QUEUE_CALL )
 
-template <typename QUEUE_TYPE = CTSQueue<CFunctor *> >
+template <typename QUEUE_TYPE = CTSQueue<CFunctor *>>
 class CCallQueueT
 {
 public:
@@ -78,15 +90,9 @@ public:
 		m_bNoQueue = bDisable;
 	}
 
-	bool IsDisabled() const
-	{
-		return m_bNoQueue;
-	}
+	bool IsDisabled() const { return m_bNoQueue; }
 
-	int Count()
-	{
-		return m_queue.Count();
-	}
+	int Count() { return m_queue.Count(); }
 
 	void CallQueued()
 	{
@@ -102,15 +108,14 @@ public:
 		while ( m_queue.PopItem( &pFunctor ) && pFunctor != NULL )
 		{
 #ifdef _DEBUG
-			if ( pFunctor->m_nUserID == m_nBreakSerialNumber)
+			if ( pFunctor->m_nUserID == m_nBreakSerialNumber )
 			{
 				m_nBreakSerialNumber = (unsigned)-1;
 			}
 #endif
-			(*pFunctor)();
+			( *pFunctor )();
 			pFunctor->Release();
 		}
-
 	}
 
 	void QueueFunctor( CFunctor *pFunctor )
@@ -145,7 +150,7 @@ private:
 		}
 		else
 		{
-			(*pFunctor)();
+			( *pFunctor )();
 			pFunctor->Release();
 		}
 	}
@@ -161,10 +166,7 @@ private:
 class ICallQueue
 {
 public:
-	void QueueFunctor( CFunctor *pFunctor )
-	{
-		QueueFunctorInternal( RetAddRef( pFunctor ) );
-	}
+	void QueueFunctor( CFunctor *pFunctor ) { QueueFunctorInternal( RetAddRef( pFunctor ) ); }
 
 	FUNC_GENERATE_QUEUE_METHODS();
 

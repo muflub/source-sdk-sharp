@@ -88,29 +88,28 @@ uintptr_t PayloadOf( const void *pGameData )
 //-----------------------------------------------------------------------------
 struct Sample_t
 {
-	int         nEntry;
-	int         nSerial;
+	int nEntry;
+	int nSerial;
 	const char *pszWhy;
 };
 
 const Sample_t kSamples[] = {
-	{ 0,                    0,                             "entry 0 serial 0 -- packs to the integer ZERO, which is the whole reason for the bias" },
-	{ 0,                    1,                             "entry 0, a serial that is not" },
-	{ 1,                    0,                             "a serial of zero on a non-zero entry" },
-	{ MAX_EDICTS - 1,       7,                             "the last edict" },
-	{ MAX_EDICTS,           7,                             "the first entry the engine cannot see (§3.3)" },
-	{ NUM_ENT_ENTRIES - 1,  0,                             "the last entry in the table" },
-	{ NUM_ENT_ENTRIES - 1,  SOURCESHARP_SLOT_SERIAL_MASK,  "the largest word a valid handle can pack to" },
+	{ 0, 0, "entry 0 serial 0 -- packs to the integer ZERO, which is the whole reason for the bias" },
+	{ 0, 1, "entry 0, a serial that is not" },
+	{ 1, 0, "a serial of zero on a non-zero entry" },
+	{ MAX_EDICTS - 1, 7, "the last edict" },
+	{ MAX_EDICTS, 7, "the first entry the engine cannot see (§3.3)" },
+	{ NUM_ENT_ENTRIES - 1, 0, "the last entry in the table" },
+	{ NUM_ENT_ENTRIES - 1, SOURCESHARP_SLOT_SERIAL_MASK, "the largest word a valid handle can pack to" },
 };
 
-const size_t kNumSamples = sizeof( kSamples ) / sizeof( kSamples[ 0 ] );
+const size_t kNumSamples = sizeof( kSamples ) / sizeof( kSamples[0] );
 
 //-----------------------------------------------------------------------------
 // Reading the tree, for the facts that are about what a FILE says rather than
 // about what a function does. Same shape as cpp_alias_lane1_test.cpp's.
 //-----------------------------------------------------------------------------
 } // namespace
-
 
 //=============================================================================
 // THE BOUNDARY: PLUS ONE, AND WHY IT IS NOT DECORATION
@@ -164,11 +163,10 @@ TEST( PhysicsGameDataBias, TheStoredWordIsThePackedHandlePlusExactlyOne )
 {
 	for ( size_t i = 0; i < kNumSamples; i++ )
 	{
-		const CBaseHandle handle( kSamples[ i ].nEntry, kSamples[ i ].nSerial );
-		const uintptr_t   expected = (uintptr_t)(uint32)handle.ToInt() + 1;
+		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
+		const uintptr_t expected = (uintptr_t)(uint32)handle.ToInt() + 1;
 
-		EXPECT_EQ( expected, PayloadOf( PhysicsGameDataFromHandle( handle ) ) )
-			<< kSamples[ i ].pszWhy;
+		EXPECT_EQ( expected, PayloadOf( PhysicsGameDataFromHandle( handle ) ) ) << kSamples[i].pszWhy;
 	}
 }
 
@@ -181,15 +179,14 @@ TEST( PhysicsGameDataBias, TheDecodeSubtractsExactlyOneFromAHandWrittenWord )
 {
 	for ( size_t i = 0; i < kNumSamples; i++ )
 	{
-		const CBaseHandle handle( kSamples[ i ].nEntry, kSamples[ i ].nSerial );
+		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
 
-		const uintptr_t word = ( (uintptr_t)(uint32)handle.ToInt() + 1 )
-		                     | SOURCESHARP_PHYSICS_GAMEDATA_TAG;
+		const uintptr_t word = ( (uintptr_t)(uint32)handle.ToInt() + 1 ) | SOURCESHARP_PHYSICS_GAMEDATA_TAG;
 
 		const CBaseHandle back = PhysicsHandleFromGameData( (void *)word );
 
-		EXPECT_EQ( kSamples[ i ].nEntry,  back.GetEntryIndex() )  << kSamples[ i ].pszWhy;
-		EXPECT_EQ( kSamples[ i ].nSerial, back.GetSerialNumber() ) << kSamples[ i ].pszWhy;
+		EXPECT_EQ( kSamples[i].nEntry, back.GetEntryIndex() ) << kSamples[i].pszWhy;
+		EXPECT_EQ( kSamples[i].nSerial, back.GetSerialNumber() ) << kSamples[i].pszWhy;
 	}
 }
 
@@ -200,10 +197,10 @@ TEST( PhysicsGameDataBias, EveryHandleComesBackAsItself )
 {
 	for ( size_t i = 0; i < kNumSamples; i++ )
 	{
-		const CBaseHandle handle( kSamples[ i ].nEntry, kSamples[ i ].nSerial );
+		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
 		const CBaseHandle back = PhysicsHandleFromGameData( PhysicsGameDataFromHandle( handle ) );
 
-		EXPECT_TRUE( back == handle ) << kSamples[ i ].pszWhy;
+		EXPECT_TRUE( back == handle ) << kSamples[i].pszWhy;
 	}
 }
 
@@ -224,7 +221,6 @@ TEST( PhysicsGameDataBias, AnEntityWithNoHandleStoresNoOwnerAndNotEntry8191 )
 	EXPECT_EQ( PHYSICS_GAMEDATA_NONE, PhysicsGameDataKindOf( PhysicsGameDataFromHandle( invalid ) ) );
 }
 
-
 //=============================================================================
 // THE DISCRIMINATOR: WHICH ARM OF PhysicsOwnerOf A WORD BELONGS TO
 //=============================================================================
@@ -236,12 +232,11 @@ TEST( PhysicsGameDataKind, AStoredHandleReadsAsAHandle )
 {
 	for ( size_t i = 0; i < kNumSamples; i++ )
 	{
-		const CBaseHandle handle( kSamples[ i ].nEntry, kSamples[ i ].nSerial );
+		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
 		void *pGameData = PhysicsGameDataFromHandle( handle );
 
-		EXPECT_EQ( PHYSICS_GAMEDATA_HANDLE, PhysicsGameDataKindOf( pGameData ) )
-			<< kSamples[ i ].pszWhy;
-		EXPECT_TRUE( PhysicsGameDataIsHandle( pGameData ) ) << kSamples[ i ].pszWhy;
+		EXPECT_EQ( PHYSICS_GAMEDATA_HANDLE, PhysicsGameDataKindOf( pGameData ) ) << kSamples[i].pszWhy;
+		EXPECT_TRUE( PhysicsGameDataIsHandle( pGameData ) ) << kSamples[i].pszWhy;
 	}
 }
 
@@ -264,21 +259,20 @@ TEST( PhysicsGameDataKind, ARealEntityPointerNeverReadsAsAHandle )
 	EXPECT_EQ( PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf( &onStack ) )
 		<< "a stack address carried the handle tag";
 
-	std::vector< FakeShell * > allocated;
+	std::vector<FakeShell *> allocated;
 	for ( int i = 0; i < 64; i++ )
 		allocated.push_back( new FakeShell );
 
 	for ( size_t i = 0; i < allocated.size(); i++ )
 	{
-		EXPECT_EQ( PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf( allocated[ i ] ) )
-			<< "heap allocation " << i << " at " << (void *)allocated[ i ]
+		EXPECT_EQ( PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf( allocated[i] ) )
+			<< "heap allocation " << i << " at " << (void *)allocated[i]
 			<< " carried the handle tag -- the discriminator is not exact";
-		EXPECT_FALSE( PhysicsHandleFromGameData( allocated[ i ] ).IsValid() )
-			<< "a heap pointer decoded to a handle";
+		EXPECT_FALSE( PhysicsHandleFromGameData( allocated[i] ).IsValid() ) << "a heap pointer decoded to a handle";
 	}
 
 	for ( size_t i = 0; i < allocated.size(); i++ )
-		delete allocated[ i ];
+		delete allocated[i];
 }
 
 //-----------------------------------------------------------------------------
@@ -288,14 +282,11 @@ TEST( PhysicsGameDataKind, ARealEntityPointerNeverReadsAsAHandle )
 //-----------------------------------------------------------------------------
 TEST( PhysicsGameDataKind, TheTagIsTheTopBitOfAPointerSizedWord )
 {
-	EXPECT_EQ( (uintptr_t)1 << ( sizeof( void * ) * 8 - 1 ),
-	           SOURCESHARP_PHYSICS_GAMEDATA_TAG );
+	EXPECT_EQ( (uintptr_t)1 << ( sizeof( void * ) * 8 - 1 ), SOURCESHARP_PHYSICS_GAMEDATA_TAG );
 
 	const CBaseHandle handle( 3, 4 );
-	EXPECT_TRUE( ( WordOf( PhysicsGameDataFromHandle( handle ) )
-	               & SOURCESHARP_PHYSICS_GAMEDATA_TAG ) != 0 );
+	EXPECT_TRUE( ( WordOf( PhysicsGameDataFromHandle( handle ) ) & SOURCESHARP_PHYSICS_GAMEDATA_TAG ) != 0 );
 }
-
 
 //=============================================================================
 // THE HEART OF THE STEP: A STALE HANDLE IN GAME DATA
@@ -350,11 +341,9 @@ TEST( PhysicsGameDataStale, AStaleHandleInGameDataResolvesToNullAndNotToTheNewOc
 
 	void *pResolved = table.Resolve( PhysicsHandleFromGameData( pGameData ) );
 
-	EXPECT_TRUE( pResolved == NULL )
-		<< "a stale handle in game data resolved to something";
-	EXPECT_NE( &alive, pResolved )
-		<< "a stale handle in game data resolved to the entry's NEW occupant -- "
-		   "a VPhysics callback about a dead entity would be delivered to a live one";
+	EXPECT_TRUE( pResolved == NULL ) << "a stale handle in game data resolved to something";
+	EXPECT_NE( &alive, pResolved ) << "a stale handle in game data resolved to the entry's NEW occupant -- "
+									  "a VPhysics callback about a dead entity would be delivered to a live one";
 }
 
 //-----------------------------------------------------------------------------
@@ -434,16 +423,15 @@ TEST( PhysicsGameDataStale, TwoObjectsGameDataAnswerWithTwoDifferentShells )
 	CSourceSharpSlotTable table;
 	FakeShell first = { 1 }, second = { 2 };
 
-	void *pFirst  = PhysicsGameDataFromHandle( table.Bind( 100, &first ) );
+	void *pFirst = PhysicsGameDataFromHandle( table.Bind( 100, &first ) );
 	void *pSecond = PhysicsGameDataFromHandle( table.Bind( 101, &second ) );
 
 	ASSERT_TRUE( pFirst != NULL && pSecond != NULL );
 	EXPECT_NE( pFirst, pSecond );
 
-	EXPECT_EQ( &first,  table.Resolve( PhysicsHandleFromGameData( pFirst ) ) );
+	EXPECT_EQ( &first, table.Resolve( PhysicsHandleFromGameData( pFirst ) ) );
 	EXPECT_EQ( &second, table.Resolve( PhysicsHandleFromGameData( pSecond ) ) );
 }
-
 
 //=============================================================================
 // THE REGISTRY IS GONE, AND THE SHIM READS NO GAME DATA

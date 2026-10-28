@@ -119,7 +119,11 @@ class IGameEntity
 {
 public:
 	IGameEntity( bool bServerOnly = false )
-		: m_nBaseCaps( 0 ), m_bServerOnly( bServerOnly ) {}
+		: m_nBaseCaps( 0 )
+		, m_bServerOnly( bServerOnly )
+	{
+	}
+
 	virtual ~IGameEntity() {}
 
 	virtual int ObjectCaps( void ) { return m_nBaseCaps; }
@@ -134,11 +138,23 @@ public:
 // the prelude. Stubs, because none of them is this test's subject -- but the
 // vtables reference them, so without these nothing here can be instantiated.
 void CPointEntity::Spawn( void ) {}
-bool CPointEntity::KeyValue( const char *, const char * ) { return true; }
-bool CServerOnlyPointEntity::KeyValue( const char *, const char * ) { return true; }
-bool CLogicalEntity::KeyValue( const char *, const char * ) { return true; }
 
-}  // namespace standin
+bool CPointEntity::KeyValue( const char *, const char * )
+{
+	return true;
+}
+
+bool CServerOnlyPointEntity::KeyValue( const char *, const char * )
+{
+	return true;
+}
+
+bool CLogicalEntity::KeyValue( const char *, const char * )
+{
+	return true;
+}
+
+} // namespace standin
 
 namespace
 {
@@ -147,7 +163,7 @@ namespace
 // Reading the tree, in alias_mechanics_test.cpp's idiom: buildcpptests runs
 // each binary with src/ as the working directory.
 //-----------------------------------------------------------------------------
-}  // namespace
+} // namespace
 
 //-----------------------------------------------------------------------------
 // THE SITE THE FLIP CHANGED, MEASURED AGAINST A BASE THAT ANSWERS.
@@ -168,13 +184,11 @@ TEST( EntityBasesStandIn, PointEntityIgnoresItsBaseAndAnswersZero )
 
 	// The base really does answer non-zero, so the zero below is the override's
 	// answer and not a base that happens to return nothing.
-	EXPECT_EQ( FCAP_ACROSS_TRANSITION | FCAP_IMPULSE_USE,
-		ent.standin::IGameEntity::ObjectCaps() );
+	EXPECT_EQ( FCAP_ACROSS_TRANSITION | FCAP_IMPULSE_USE, ent.standin::IGameEntity::ObjectCaps() );
 
-	EXPECT_EQ( 0, ent.ObjectCaps() )
-		<< "CPointEntity::ObjectCaps consulted its base. The flip's claim is "
-		   "that the base term is GONE -- IGameEntity has no parent to forward "
-		   "+USE bits from -- not that it happens to be zero today.";
+	EXPECT_EQ( 0, ent.ObjectCaps() ) << "CPointEntity::ObjectCaps consulted its base. The flip's claim is "
+										"that the base term is GONE -- IGameEntity has no parent to forward "
+										"+USE bits from -- not that it happens to be zero today.";
 }
 
 TEST( EntityBasesStandIn, ServerOnlyEntityIgnoresItsBaseAndAnswersZero )
@@ -182,8 +196,7 @@ TEST( EntityBasesStandIn, ServerOnlyEntityIgnoresItsBaseAndAnswersZero )
 	standin::CServerOnlyEntity ent;
 	ent.m_nBaseCaps = FCAP_ACROSS_TRANSITION | FCAP_IMPULSE_USE;
 
-	EXPECT_EQ( FCAP_ACROSS_TRANSITION | FCAP_IMPULSE_USE,
-		ent.standin::IGameEntity::ObjectCaps() );
+	EXPECT_EQ( FCAP_ACROSS_TRANSITION | FCAP_IMPULSE_USE, ent.standin::IGameEntity::ObjectCaps() );
 
 	EXPECT_EQ( 0, ent.ObjectCaps() );
 }
@@ -206,13 +219,11 @@ TEST( EntityBasesStandIn, NothingPassesServerOnlyToTheBaseAnyMore )
 {
 	// The flag is capable of being set, so `false` below is a measurement.
 	standin::IGameEntity witness( true );
-	ASSERT_TRUE( witness.m_bServerOnly )
-		<< "the stand-in base no longer records bServerOnly, so every "
-		   "EXPECT_FALSE below is vacuous";
+	ASSERT_TRUE( witness.m_bServerOnly ) << "the stand-in base no longer records bServerOnly, so every "
+											"EXPECT_FALSE below is vacuous";
 
 	standin::CServerOnlyEntity ent;
-	EXPECT_FALSE( ent.m_bServerOnly )
-		<< "CServerOnlyEntity still passes something to its base constructor.";
+	EXPECT_FALSE( ent.m_bServerOnly ) << "CServerOnlyEntity still passes something to its base constructor.";
 
 	// And its two subclasses, which inherit whatever it does.
 	standin::CServerOnlyPointEntity pt;

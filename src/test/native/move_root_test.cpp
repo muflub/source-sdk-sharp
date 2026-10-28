@@ -28,7 +28,12 @@ namespace
 struct StubEntity
 {
 	StubEntity *pParent;
-	explicit StubEntity( StubEntity *p = 0 ) : pParent( p ) {}
+
+	explicit StubEntity( StubEntity *p = 0 )
+		: pParent( p )
+	{
+	}
+
 	StubEntity *GetMoveParent() const { return pParent; }
 };
 
@@ -133,12 +138,12 @@ TEST( MoveRoot, NullAnswersNull )
 //-----------------------------------------------------------------------------
 TEST( MoveRoot, TheWalkStopsAtTheGivenDepth )
 {
-	StubEntity e[ 6 ];
+	StubEntity e[6];
 	for ( int i = 1; i < 6; i++ )
-		e[ i ].pParent = &e[ i - 1 ];
+		e[i].pParent = &e[i - 1];
 
-	EXPECT_EQ( &e[ 0 ], SourceSharpRootMoveParent( &e[ 5 ], 64 ) );
-	EXPECT_EQ( &e[ 3 ], SourceSharpRootMoveParent( &e[ 5 ], 2 ) );
+	EXPECT_EQ( &e[0], SourceSharpRootMoveParent( &e[5], 64 ) );
+	EXPECT_EQ( &e[3], SourceSharpRootMoveParent( &e[5], 2 ) );
 }
 
 } // namespace

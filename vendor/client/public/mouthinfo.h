@@ -3,7 +3,8 @@
 
 class CAudioSource;
 
-#pragma pack(push,4)
+#pragma pack( push, 4 )
+
 class CVoiceData
 {
 public:
@@ -15,9 +16,9 @@ public:
 	}
 
 private:
-	float					m_flElapsed;
-	CAudioSource 			*m_pAudioSource;
-	bool					m_bIgnorePhonemes;
+	float m_flElapsed;
+	CAudioSource *m_pAudioSource;
+	bool m_bIgnorePhonemes;
 };
 
 // Purpose: Describes position of mouth for lip syncing
@@ -25,21 +26,26 @@ class CMouthInfo
 {
 public:
 	// 0 = mouth closed, 255 = mouth agape
-	byte					mouthopen;		
+	byte mouthopen;
 	// counter for running average
-	byte					sndcount;		
+	byte sndcount;
 	// running average
-	int						sndavg;			
+	int sndavg;
 
 public:
-							CMouthInfo() { m_nVoiceSources = 0; m_needsEnvelope = false; }
-	virtual					~CMouthInfo() { ClearVoiceSources(); }
+	CMouthInfo()
+	{
+		m_nVoiceSources = 0;
+		m_needsEnvelope = false;
+	}
 
-	int						GetNumVoiceSources();
+	virtual ~CMouthInfo() { ClearVoiceSources(); }
 
-	void					ClearVoiceSources();
+	int GetNumVoiceSources();
 
-	bool					IsActive();
+	void ClearVoiceSources();
+
+	bool IsActive();
 
 private:
 	enum
@@ -47,11 +53,12 @@ private:
 		MAX_VOICE_DATA = 4
 	};
 
-	short					m_nVoiceSources;
-	short					m_needsEnvelope; 
-	CVoiceData				m_VoiceSources[ MAX_VOICE_DATA ];
+	short m_nVoiceSources;
+	short m_needsEnvelope;
+	CVoiceData m_VoiceSources[MAX_VOICE_DATA];
 };
-#pragma pack(pop)
+
+#pragma pack( pop )
 
 inline bool CMouthInfo::IsActive()
 {

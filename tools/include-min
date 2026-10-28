@@ -20,7 +20,8 @@ every translation unit, each unit still includes every file its remaining
 files need. Candidates are taken one at a time against the graph the earlier
 ones left.
 
-VERIFIED BY THE MACHINE CODE. A removal can compile and still change what
+VERIFIED BY THE MACHINE CODE, and by tools/abi-parity's headers compiled on
+their own outside any module unit. A removal can compile and still change what
 compiles (a macro an #ifdef tested, an overload that is no longer visible),
 so --write rebuilds the debug tree (every module and test), the release
 and windows-cross modules, and compares each module object's fingerprint --
@@ -56,8 +57,17 @@ WINDOWS_TARGETS = ("server_sourcesharp", "ss_fwd_server", "client_sourcesharp", 
                    "ss_particles", "sourcesharp")
 
 
+def generated(path):
+    """A file a tool writes (DO NOT EDIT in its head): its generator owns its includes."""
+    try:
+        with open(path, encoding="latin-1") as f:
+            return any("DO NOT EDIT" in next(f, "") for _ in range(15))
+    except OSError:
+        return False
+
+
 def in_scope(path, scope):
-    if not path.startswith(REPO_REAL + os.sep):
+    if not path.startswith(REPO_REAL + os.sep) or generated(path):
         return False
     rel = path[len(REPO_REAL) + 1:]
     vendor = rel.startswith("vendor/")
@@ -353,9 +363,16 @@ def restore(saved):
             fh.write(text)
 
 
+def standalone_headers_compile():
+    """tools/abi-parity compiles some headers on their own, outside any module
+    unit, so a header's own includes can matter where no build sees them."""
+    r = subprocess.run([os.path.join(REPO, "tools", "abi-parity")], capture_output=True, text=True)
+    return "does not compile" not in r.stdout + r.stderr
+
+
 def verify(cands, base):
     saved = apply(cands)
-    ok = build() and fingerprints() == base
+    ok = build() and fingerprints() == base and standalone_headers_compile()
     if not ok:
         restore(saved)
     return ok
@@ -402,6 +419,9 @@ def self_test():
             "[2](sec 5) .debug$S\nAUX scnlen 0x20 checksum 0x2\n")
     eq(code_lines(dump), ["[1](sec 4) .text", "AUX scnlen 0x10 checksum 0x1"],
        "a .debug$ section's symbol and its AUX record are not code; .text's are")
+    eq((in_scope(os.path.join(REPO_REAL, "src/shared/native/engine_block_generated.h"), "all"),
+        in_scope(os.path.join(REPO_REAL, "src/shared/native/shell_movement.cpp"), "all")), (False, True),
+       "a generated header is its generator's; a hand-written source is in scope")
 
     r = REPO_REAL
     m, a, b, c = r + "/src/server/native/m.cpp", r + "/vendor/shared/a.h", r + "/vendor/shared/b.h", \

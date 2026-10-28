@@ -10,16 +10,7 @@
 // declarations stay in util_shared.h.
 
 #ifdef CLIENT_DLL
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
+
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -27,7 +18,6 @@
 #include "client_entity.h"
 #endif
 
-#include "convar.h"
 #include "managed_convar_ref.h"
 #ifdef CLIENT_DLL
 #include "igamerules.h"
@@ -40,25 +30,18 @@
 
 // The random stream, IEffects, the particle-system index and the per-side
 // temp-entity dispatch the effect emitters below use.
-#include <vstdlib/random.h>
-#ifdef CLIENT_DLL
-#include "sharedInterface.h"
-#endif
-#ifdef CLIENT_DLL
-#include "IEffects.h"
-#endif
 
 #ifdef CLIENT_DLL
-	#include "client_entity.h"
-	#include <vgui/ILocalize.h>
-	extern vgui::ILocalize *g_pVGuiLocalize;
-	#include "c_te_effect_dispatch.h"
-	// The slot table's index -> handle ask.
-	#include "shell_cliententitylist.h"
+#include "client_entity.h"
+#include <vgui/ILocalize.h>
+extern vgui::ILocalize *g_pVGuiLocalize;
+#include "c_te_effect_dispatch.h"
+// The slot table's index -> handle ask.
+#include "shell_cliententitylist.h"
 #else
-	#include "ss_effect_dispatch.h"
-	using ss::CEffectData;
-	#include "ss_effects.h"
+#include "ss_effect_dispatch.h"
+using ss::CEffectData;
+#include "ss_effects.h"
 #endif
 
 #ifndef CLIENT_DLL
@@ -71,30 +54,28 @@ extern IUniformRandomStream *random_valve;
 using ss::BLOOD_COLOR_RED;
 using ss::BLOOD_COLOR_MECH;
 using ss::DONT_BLEED;
-#define LANGUAGE_GERMAN            ss::kLanguageGerman
-#define TRACER_FLAG_WHIZ           ss::kTracerFlagWhiz
-#define TRACER_FLAG_USEATTACHMENT  ss::kTracerFlagUseAttachment
+#define LANGUAGE_GERMAN ss::kLanguageGerman
+#define TRACER_FLAG_WHIZ ss::kTracerFlagWhiz
+#define TRACER_FLAG_USEATTACHMENT ss::kTracerFlagUseAttachment
 #define TRACER_DONT_USE_ATTACHMENT ss::kTracerDontUseAttachment
 // Defined by server.so: UTIL_Tracer and UTIL_BloodImpact below, UTIL_Smoke in
 // server_util_library.cpp, GetParticleSystemIndex in shell_stringtables.cpp.
 // Parameters unnamed: tests find the definitions below by text.
-void UTIL_Tracer( const Vector &, const Vector &, int = 0, int = TRACER_DONT_USE_ATTACHMENT,
-                  float = 0, bool = false, const char * = NULL, int = 0 );
+void UTIL_Tracer( const Vector &, const Vector &, int = 0, int = TRACER_DONT_USE_ATTACHMENT, float = 0, bool = false,
+				  const char * = NULL, int = 0 );
 void UTIL_BloodImpact( const Vector &, const Vector &, int, int );
 void UTIL_Smoke( const Vector &, const float, const float );
 int GetParticleSystemIndex( const char * );
 #endif
-#include "checksum_crc.h"
-#include "entity_prediction_seed.h"
-#include <vstdlib/random.h>
+
 #include "ss_string.h"
 
 // The violence convars are declared in C#; the predicate reads them through the
 // engine's registry (see managed_convar_ref.h on why a plain ConVarRef would not).
-static CManagedConVarRef	violence_hblood( "violence_hblood" );
-static CManagedConVarRef	violence_hgibs( "violence_hgibs" );
-static CManagedConVarRef	violence_ablood( "violence_ablood" );
-static CManagedConVarRef	violence_agibs( "violence_agibs" );
+static CManagedConVarRef violence_hblood( "violence_hblood" );
+static CManagedConVarRef violence_hgibs( "violence_hgibs" );
+static CManagedConVarRef violence_ablood( "violence_ablood" );
+static CManagedConVarRef violence_agibs( "violence_agibs" );
 
 bool UTIL_ShouldShowBlood( int color )
 {
@@ -113,8 +94,8 @@ bool UTIL_ShouldShowBlood( int color )
 }
 
 // Makes a tracer effect using the old, non-particle tracer system.
-void UTIL_Tracer( const Vector &vecStart, const Vector &vecEnd, int iEntIndex, 
-				 int iAttachment, float flVelocity, bool bWhiz, const char *pCustomTracerName, int iParticleID )
+void UTIL_Tracer( const Vector &vecStart, const Vector &vecEnd, int iEntIndex, int iAttachment, float flVelocity,
+				  bool bWhiz, const char *pCustomTracerName, int iParticleID )
 {
 	CEffectData data;
 	data.m_vStart = vecStart;
@@ -175,12 +156,12 @@ void UTIL_BloodDrips( const Vector &origin, const Vector &direction, int color, 
 	if ( amount > 255 )
 		amount = 255;
 
-	if (color == BLOOD_COLOR_MECH)
+	if ( color == BLOOD_COLOR_MECH )
 	{
-		ss::Effects()->Sparks(origin);
-		if (random->RandomFloat(0, 2) >= 1)
+		ss::Effects()->Sparks( origin );
+		if ( random->RandomFloat( 0, 2 ) >= 1 )
 		{
-			UTIL_Smoke(origin, random->RandomInt(10, 15), 10);
+			UTIL_Smoke( origin, random->RandomInt( 10, 15 ), 10 );
 		}
 	}
 	else
@@ -193,7 +174,7 @@ void UTIL_BloodDrips( const Vector &origin, const Vector &direction, int color, 
 
 void UTIL_BloodImpact( const Vector &pos, const Vector &dir, int color, int amount )
 {
-	CEffectData	data;
+	CEffectData data;
 
 	data.m_vOrigin = pos;
 	data.m_vNormal = dir;

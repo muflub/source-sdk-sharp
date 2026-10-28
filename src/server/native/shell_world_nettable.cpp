@@ -9,10 +9,8 @@
 
 // worldspawn's ServerClass, built from the C# declaration.
 
-#include "dt_send.h"
 #include "server_class.h"
-#include "shell_world_nettable.h"
-#include "generic_payload.h"
+
 #include "ss_world.h"
 
 // A function-local singleton rather than a CWorld member: the ServerClass must
@@ -21,28 +19,29 @@ class CWorldNetTable
 {
 public:
 	CWorldNetTable()
-		: m_nBlobBytes( 0 ),
-		  m_nWords( 0 ),
-		  m_pProps( NULL ),
-		  m_pTable( NULL ),
-		  m_pClass( NULL ),
-		  m_bWarnedUndeclared( false )
+		: m_nBlobBytes( 0 )
+		, m_nWords( 0 )
+		, m_pProps( NULL )
+		, m_pTable( NULL )
+		, m_pClass( NULL )
+		, m_bWarnedUndeclared( false )
 	{
 	}
 
-	int          BlobBytes() const { return m_nBlobBytes; }
-	ServerClass *Class()     const { return m_pClass; }
+	int BlobBytes() const { return m_nBlobBytes; }
+
+	ServerClass *Class() const { return m_pClass; }
 
 	int32_t Declare( int32_t nBlobBytes );
-	void    WarnUndeclaredOnce();
+	void WarnUndeclaredOnce();
 
 private:
-	int          m_nBlobBytes;
-	int          m_nWords;
-	SendProp    *m_pProps;
-	SendTable   *m_pTable;
+	int m_nBlobBytes;
+	int m_nWords;
+	SendProp *m_pProps;
+	SendTable *m_pTable;
 	ServerClass *m_pClass;
-	bool         m_bWarnedUndeclared;
+	bool m_bWarnedUndeclared;
 };
 
 static CWorldNetTable &WorldNetTable()
@@ -63,40 +62,40 @@ int32_t CWorldNetTable::Declare( int32_t nBlobBytes )
 			return m_nWords;
 
 		Warning( "[SourceSharp] worldspawn: %d declared blob byte(s) disagrees with the %d "
-		         "a table has already been built against; REFUSED. The world's props are "
-		         "resolved once, at DLL init, and cannot move afterwards\n",
-			nBlobBytes, m_nBlobBytes );
+				 "a table has already been built against; REFUSED. The world's props are "
+				 "resolved once, at DLL init, and cannot move afterwards\n",
+				 nBlobBytes, m_nBlobBytes );
 		return -1;
 	}
 
 	const int nWords = SourceSharpPayload_WordCount( nBlobBytes );
-	const int nBase  = SourceSharp_WorldBlobOffset();
+	const int nBase = SourceSharp_WorldBlobOffset();
 
 	if ( nWords < 0 || !SourceSharpPayload_OffsetsFit( nBase, nWords ) )
 	{
 		Warning( "[SourceSharp] worldspawn: %d declared blob byte(s) will not fit at blob "
-		         "base %d; NO table is built and the world will network as its base\n",
-			nBlobBytes, nBase );
+				 "base %d; NO table is built and the world will network as its base\n",
+				 nBlobBytes, nBase );
 		return -1;
 	}
 
 	// No DT_BaseEntity base table: its props carry CBaseEntity member offsets, which
 	// would read past the end of a CWorld. The client forces the world's model index,
 	// solidity and transform itself (C_BaseEntity::PostDataUpdate, index 0).
-	m_pProps = new SendProp[ nWords > 0 ? nWords : 1 ];
+	m_pProps = new SendProp[nWords > 0 ? nWords : 1];
 
-	if ( nWords > 0
-	  && SourceSharpPayload_BuildSendProps( m_pProps, nWords, nBase ) != nWords )
+	if ( nWords > 0 && SourceSharpPayload_BuildSendProps( m_pProps, nWords, nBase ) != nWords )
 	{
 		Warning( "[SourceSharp] worldspawn: payload build refused %d word(s) at blob base "
-		         "%d; no table built\n", nWords, nBase );
+				 "%d; no table built\n",
+				 nWords, nBase );
 		delete[] m_pProps;
 		m_pProps = NULL;
 		return -1;
 	}
 
 	m_nBlobBytes = nBlobBytes;
-	m_nWords     = nWords;
+	m_nWords = nWords;
 
 	// Stock's names: the engine pairs server and client classes by name.
 	m_pTable = new SendTable( m_pProps, nWords, "DT_WORLD" );
@@ -111,14 +110,14 @@ int32_t CWorldNetTable::Declare( int32_t nBlobBytes )
 	}
 
 	Msg( "[SourceSharp] worldspawn -> 'CWorld' / 'DT_WORLD': no base table + %d payload "
-	     "word(s) = %d prop(s), %d blob byte(s) at blob base %d\n",
-		nWords, nWords, nBlobBytes, nBase );
+		 "word(s) = %d prop(s), %d blob byte(s) at blob base %d\n",
+		 nWords, nWords, nBlobBytes, nBase );
 
 	if ( nSlow > 0 )
 	{
 		Warning( "[SourceSharp] worldspawn: %d of %d payload word(s) did NOT resolve to "
-		         "m_UInt32ToInt32 and would be copied slowly\n",
-			nSlow, nWords );
+				 "m_UInt32ToInt32 and would be copied slowly\n",
+				 nSlow, nWords );
 	}
 
 	return nWords;
@@ -134,9 +133,9 @@ void CWorldNetTable::WarnUndeclaredOnce()
 	m_bWarnedUndeclared = true;
 
 	Warning( "[SourceSharp] worldspawn has NO ServerClass of its own: the managed side never "
-	         "called WorldNetDeclare, so SourceSharp.Shared.WorldNetState was not published. "
-	         "The world is networking as DT_BaseEntity and the client's renderer will read "
-	         "zeroed world bounds, occlusion areas and detail sprite material\n" );
+			 "called WorldNetDeclare, so SourceSharp.Shared.WorldNetState was not published. "
+			 "The world is networking as DT_BaseEntity and the client's renderer will read "
+			 "zeroed world bounds, occlusion areas and detail sprite material\n" );
 }
 
 int SourceSharp_WorldBlobBytes()

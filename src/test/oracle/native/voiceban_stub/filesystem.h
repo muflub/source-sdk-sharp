@@ -15,14 +15,14 @@ typedef void *FileHandle_t;
 class COracleFileSystem
 {
 public:
-	std::string m_Data;      // the file's bytes
+	std::string m_Data; // the file's bytes
 	bool m_bExists = false;
 	size_t m_nPos = 0;
 
 	FileHandle_t Open( const char *pName, const char *pMode, const char *pPath = 0 )
 	{
 		m_strLastName = pName;
-		if ( pMode[ 0 ] == 'w' )
+		if ( pMode[0] == 'w' )
 		{
 			m_Data.clear();
 			m_bExists = true;
@@ -50,6 +50,7 @@ public:
 	}
 
 	unsigned int Size( FileHandle_t ) { return (unsigned int)m_Data.size(); }
+
 	void Close( FileHandle_t ) {}
 
 	std::string m_strLastName;

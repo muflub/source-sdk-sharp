@@ -52,7 +52,7 @@
 namespace
 {
 
-const char *const kStockCpp  = "game/server/util.cpp";
+const char *const kStockCpp = "game/server/util.cpp";
 
 // What each target compiles is read through cmake_graph.h: compile_commands.json
 // cross-checked against the target's CMakeLists source list. Paths are
@@ -86,7 +86,8 @@ TEST( ServerUtilLibrary, TheServerCompilesIt )
 {
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kLibraryRow ) )
 		<< "server_sourcesharp (src/server/native/CMakeLists.txt) does not "
-		   "compile " << kLibraryRow << ": "
+		   "compile "
+		<< kLibraryRow << ": "
 		<< "server.so still compiles util.cpp, which no longer defines "
 		   "UTIL_ClearTrace.";
 }
@@ -98,8 +99,9 @@ TEST( ServerUtilLibrary, TheClientDoesNotCompileIt )
 		<< " -- the reader is not reading the client's source list";
 
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kLibraryRow ) )
-		<< "client_sourcesharp (src/client/native/CMakeLists.txt) compiles "
-		<< kLibraryRow << ": " "util.cpp is server-only and so is this file; a client row would "
+		<< "client_sourcesharp (src/client/native/CMakeLists.txt) compiles " << kLibraryRow
+		<< ": "
+		   "util.cpp is server-only and so is this file; a client row would "
 		   "compile CServerSystem and engine->PrecacheDecal into client.so.";
 }
 
@@ -182,4 +184,3 @@ TEST( ServerUtilLibrary, TheStockTranslationUnitHasLeftAndTheLibraryHasNot )
 // declaration with no reader is a setting that does nothing, and a reader with
 // no declaration reads zero forever.
 //=============================================================================//
-

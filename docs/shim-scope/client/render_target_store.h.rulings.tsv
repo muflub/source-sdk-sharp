@@ -1,9 +1,9 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-CRenderTargetStore() : m_pfnRelease	SLOT-HELP	the store's empty rows, before any declaration (C7 render textures)
-void SetReleaseFunc(	SLOT-HELP	records the owner's thunk the material system will be handed; decides nothing
-void Reset()	SLOT-HELP	drops every reference and row (the oracle's fresh double); decides nothing
-bool Declare(	SLOT-HELP	IShimViewClient::RenderTargetDeclare's store: holds managed's row (bounds checks only) and drops a reference whose row names another texture, so the next use finds managed's new one
-ITexture *Get(	BOUNDARY	FindTexture with the row managed declared, on the slot's first use, into a held CTextureReference; registers the release function with the first find (a pointer held must be released at a mode change)
-void Release()	SLOT	the material system's release function (AddReleaseFunc): drops the references managed declared released, in managed's order
-const Row_t &Row(	SLOT-HELP	reads a held row back (the oracle's check)
+[CRenderTargetStore] : m_pfnRelease( NULL )	SLOT-HELP	the store's empty rows, before any declaration (C7 render textures)
+[CRenderTargetStore] void SetReleaseFunc( MaterialBufferReleaseFunc_t pfn )	SLOT-HELP	records the owner's thunk the material system will be handed; decides nothing
+[CRenderTargetStore] void Reset()	SLOT-HELP	drops every reference and row (the oracle's fresh double); decides nothing
+[CRenderTargetStore] bool Declare( int nSlot, const char *pszName, const char *pszGroup, int bComplain, int nCreationFlags, int nReleaseOrde	SLOT-HELP	IShimViewClient::RenderTargetDeclare's store: holds managed's row (bounds checks only) and drops a reference whose row names another texture, so the next use finds managed's new one
+[CRenderTargetStore] ITexture *Get( int nSlot )	BOUNDARY	FindTexture with the row managed declared, on the slot's first use, into a held CTextureReference; registers the release function with the first find (a pointer held must be released at a mode change)
+[CRenderTargetStore] void Release()	SLOT	the material system's release function (AddReleaseFunc): drops the references managed declared released, in managed's order
+[CRenderTargetStore] const Row_t &Row( int nSlot ) const	SLOT-HELP	reads a held row back (the oracle's check)

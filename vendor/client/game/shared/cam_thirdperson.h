@@ -14,14 +14,13 @@
 
 //-------------------------------------------------- Constants
 
-#define CAM_HULL_OFFSET		14.0    // the size of the bounding hull used for collision checking
+#define CAM_HULL_OFFSET 14.0 // the size of the bounding hull used for collision checking
 
 class CThirdPersonManager
 {
 public:
-
 	CThirdPersonManager();
-	
+
 	// PositionCamera was here. It swept a hull from the player entity's eye to
 	// the wanted camera spot and wrote m_flTargetFraction / m_flUpFraction from
 	// what it found. Step 7c removed it: its subject was the local player
@@ -29,35 +28,34 @@ public:
 	// shim's -- shell_client.cpp's third-person pass, over the rule in
 	// sourcesharp/game/shared/thirdperson_camera.h. See the .cpp.
 
-	void	Init();
+	void Init();
 
 private:
-
 	// What is the current camera offset from the view origin?
-	Vector		m_vecCameraOffset;
+	Vector m_vecCameraOffset;
 	// Distances from the center
-	Vector		m_vecDesiredCameraOffset;
+	Vector m_vecDesiredCameraOffset;
 
 	Vector m_vecCameraOrigin;
 
-	bool	m_bUseCameraOffsets;
+	bool m_bUseCameraOffsets;
 
-	QAngle	m_ViewAngles;
+	QAngle m_ViewAngles;
 
-	float	m_flFraction;
-	float	m_flUpFraction;
+	float m_flFraction;
+	float m_flUpFraction;
 
-	float	m_flTargetFraction;
-	float	m_flTargetUpFraction;
+	float m_flTargetFraction;
+	float m_flTargetUpFraction;
 
-	bool	m_bOverrideThirdPerson;
+	bool m_bOverrideThirdPerson;
 
-	bool	m_bForced;
+	bool m_bForced;
 
-	float	m_flUpOffset;
+	float m_flUpOffset;
 
-	float	m_flLerpTime;
-	float	m_flUpLerpTime;
+	float m_flLerpTime;
+	float m_flUpLerpTime;
 };
 
 extern CThirdPersonManager g_ThirdPersonManager;

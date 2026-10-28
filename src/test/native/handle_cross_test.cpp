@@ -60,14 +60,15 @@ namespace
 
 // --- the engine-side chain, single inheritance, exactly like the real one -----
 
-class SdkHandleEntity                                   // ~ IHandleEntity
+class SdkHandleEntity // ~ IHandleEntity
 {
 public:
 	virtual ~SdkHandleEntity() {}
+
 	virtual int RefEHandle() const { return -1; }
 };
 
-class SdkGameEntity;                                    // ~ IGameEntity, which IS CBaseEntity
+class SdkGameEntity; // ~ IGameEntity, which IS CBaseEntity
 
 // ONE ACCESSOR SINCE plan_server_native_v2 T1.3. Stock iserverunknown.h's
 // GetBaseEntity() is typed by the entity face, and on the server that face is
@@ -77,13 +78,13 @@ class SdkGameEntity;                                    // ~ IGameEntity, which 
 // model beside the standalone one (SdkBaseEntity, SdkWeapon, the "step 5"
 // standalone) went with it. What stays is what the crossing still does: adjust
 // from the handle table's address to the face's, inside the object.
-class SdkServerUnknown : public SdkHandleEntity         // ~ IServerUnknown
+class SdkServerUnknown : public SdkHandleEntity // ~ IServerUnknown
 {
 public:
 	virtual SdkGameEntity *GetBaseEntity() = 0;
 };
 
-class SdkServerEntity : public SdkServerUnknown         // ~ IServerEntity
+class SdkServerEntity : public SdkServerUnknown // ~ IServerEntity
 {
 public:
 	virtual int GetModelIndex() const { return 0; }
@@ -91,7 +92,7 @@ public:
 
 // --- the boundary, which is NOT in that chain --------------------------------
 
-class SdkGameEntity                                     // ~ IGameEntity
+class SdkGameEntity // ~ IGameEntity
 {
 public:
 	virtual ~SdkGameEntity() {}
@@ -104,32 +105,35 @@ public:
 
 // --- the parallel hierarchy: four bases, the boundary last -------------------
 
-class SdkNetworkable                                    // ~ IServerNetworkable
+class SdkNetworkable // ~ IServerNetworkable
 {
 public:
 	virtual ~SdkNetworkable() {}
+
 	virtual SdkHandleEntity *GetEntityHandle() = 0;
 
 	// IServerNetworkable declares this too, with the same signature as
 	// IServerUnknown's, so a standalone entity's ONE override answers both.
 	virtual SdkGameEntity *GetBaseEntity() = 0;
 
-	int m_nNetPadding[ 3 ];
+	int m_nNetPadding[3];
 };
 
-class SdkCollideable                                    // ~ ICollideable
+class SdkCollideable // ~ ICollideable
 {
 public:
 	virtual ~SdkCollideable() {}
+
 	virtual int GetSolid() const { return 0; }
-	int m_nCollidePadding[ 3 ];
+
+	int m_nCollidePadding[3];
 };
 
-class SdkStandalone : public SdkServerEntity, public SdkNetworkable,
-                      public SdkCollideable, public SdkGameEntity
+class SdkStandalone : public SdkServerEntity, public SdkNetworkable, public SdkCollideable, public SdkGameEntity
 {
 public:
-	virtual SdkGameEntity   *GetBaseEntity()   { return this; }
+	virtual SdkGameEntity *GetBaseEntity() { return this; }
+
 	virtual SdkHandleEntity *GetEntityHandle() { return this; }
 
 	virtual int WhoAreYou() const { return 0x5A11D; }
@@ -141,14 +145,22 @@ public:
 class SdkWorld : public SdkServerEntity, public SdkNetworkable
 {
 public:
-	virtual SdkGameEntity   *GetBaseEntity()   { return 0; }
-	virtual SdkHandleEntity *GetEntityHandle() { return static_cast< SdkServerEntity * >( this ); }
+	virtual SdkGameEntity *GetBaseEntity() { return 0; }
+
+	virtual SdkHandleEntity *GetEntityHandle() { return static_cast<SdkServerEntity *>( this ); }
 };
 
 // What the entity list holds and what CBaseHandle::Get() hands back: the
 // IHandleEntity view, and nothing else.
-static SdkHandleEntity *TableEntry( SdkStandalone *pEnt ) { return pEnt; }
-static SdkHandleEntity *TableEntry( SdkWorld *pEnt )      { return static_cast< SdkServerEntity * >( pEnt ); }
+static SdkHandleEntity *TableEntry( SdkStandalone *pEnt )
+{
+	return pEnt;
+}
+
+static SdkHandleEntity *TableEntry( SdkWorld *pEnt )
+{
+	return static_cast<SdkServerEntity *>( pEnt );
+}
 
 // THE KNOWN-GOOD CROSSING, and it is known-good because the COMPILER performs
 // it: from the concrete type, where the layout is a fact rather than an
@@ -156,23 +168,23 @@ static SdkHandleEntity *TableEntry( SdkWorld *pEnt )      { return static_cast< 
 // Nothing in the crossing under test is consulted to produce this.
 static SdkGameEntity *KnownGood( SdkStandalone *pEnt )
 {
-	return static_cast< SdkGameEntity * >( pEnt );
+	return static_cast<SdkGameEntity *>( pEnt );
 }
 
 // What CHandle<IGameEntity>::Get() would do WITHOUT the specialization.
 static SdkGameEntity *OldPatternCastToGameEntity( SdkHandleEntity *pHandleEntity )
 {
-	return ( SdkGameEntity * )pHandleEntity;
+	return (SdkGameEntity *)pHandleEntity;
 }
 
 static SdkGameEntity *CrossToGame( SdkHandleEntity *pHandleEntity )
 {
-	return SourceSharp_CrossHandleToGameEntity< SdkGameEntity, SdkServerEntity >( pHandleEntity );
+	return SourceSharp_CrossHandleToGameEntity<SdkGameEntity, SdkServerEntity>( pHandleEntity );
 }
 
 static long ByteDelta( const void *a, const void *b )
 {
-	return ( long )( ( const char * )a - ( const char * )b );
+	return (long)( (const char *)a - (const char *)b );
 }
 
 // --- the premise, asserted rather than assumed --------------------------------
@@ -185,8 +197,7 @@ TEST( HandleCrossGameEntity, StandaloneSubobjectAddressesActuallyDiffer )
 	// other test in this suite would still pass while proving nothing, because
 	// a cast and a crossing would agree by accident. So it is checked first and
 	// on its own.
-	EXPECT_NE( ( const void * )TableEntry( &standalone ),
-	           ( const void * )KnownGood( &standalone ) )
+	EXPECT_NE( (const void *)TableEntry( &standalone ), (const void *)KnownGood( &standalone ) )
 		<< "the mock's IGameEntity subobject is at offset zero, so this suite "
 		   "cannot distinguish a crossing from a cast";
 }
@@ -197,15 +208,16 @@ TEST( HandleCrossGameEntity, StandaloneCrossesToItsOwnBoundaryView )
 {
 	SdkStandalone standalone;
 
-	SdkGameEntity *pGood    = KnownGood( &standalone );
+	SdkGameEntity *pGood = KnownGood( &standalone );
 	SdkGameEntity *pCrossed = CrossToGame( TableEntry( &standalone ) );
 
-	EXPECT_EQ( pGood, pCrossed )
-		<< "the crossing and the compiler disagree about where this entity's "
-		   "game-entity view is: compiler says " << ( const void * )pGood
-		<< ", crossing says " << ( const void * )pCrossed
-		<< ", off by " << ByteDelta( pCrossed, pGood ) << " bytes; the handle "
-		   "table's address for it is " << ( const void * )TableEntry( &standalone );
+	EXPECT_EQ( pGood, pCrossed ) << "the crossing and the compiler disagree about where this entity's "
+									"game-entity view is: compiler says "
+								 << (const void *)pGood << ", crossing says " << (const void *)pCrossed << ", off by "
+								 << ByteDelta( pCrossed, pGood )
+								 << " bytes; the handle "
+									"table's address for it is "
+								 << (const void *)TableEntry( &standalone );
 }
 
 // And the pointer works, which is the half an address comparison cannot show.
@@ -214,10 +226,9 @@ TEST( HandleCrossGameEntity, TheCrossedPointerDispatchesIntoTheRightClass )
 	SdkStandalone standalone;
 
 	SdkGameEntity *pCrossed = CrossToGame( TableEntry( &standalone ) );
-	ASSERT_NE( ( SdkGameEntity * )0, pCrossed );
+	ASSERT_NE( (SdkGameEntity *)0, pCrossed );
 
-	EXPECT_EQ( 0x5A11D, pCrossed->WhoAreYou() )
-		<< "a call through the crossed pointer landed somewhere else";
+	EXPECT_EQ( 0x5A11D, pCrossed->WhoAreYou() ) << "a call through the crossed pointer landed somewhere else";
 }
 
 // --- and the cast does not -----------------------------------------------------
@@ -226,7 +237,7 @@ TEST( HandleCrossGameEntity, OldPatternMistypesTheStandalone )
 {
 	SdkStandalone standalone;
 
-	SdkGameEntity *pGood  = KnownGood( &standalone );
+	SdkGameEntity *pGood = KnownGood( &standalone );
 	SdkGameEntity *pWrong = OldPatternCastToGameEntity( TableEntry( &standalone ) );
 
 	// Non-NULL, resolves, and points at the FRONT of the object rather than at
@@ -234,10 +245,9 @@ TEST( HandleCrossGameEntity, OldPatternMistypesTheStandalone )
 	// whose every virtual call goes into IServerEntity's slots instead. The
 	// call is deliberately not made: dispatching through it is the bug, not a
 	// thing to demonstrate by doing.
-	EXPECT_NE( ( SdkGameEntity * )0, pWrong );
-	EXPECT_NE( pGood, pWrong )
-		<< "the cast happened to land on the boundary subobject, so this mock "
-		   "no longer reproduces the hazard";
+	EXPECT_NE( (SdkGameEntity *)0, pWrong );
+	EXPECT_NE( pGood, pWrong ) << "the cast happened to land on the boundary subobject, so this mock "
+								  "no longer reproduces the hazard";
 
 	EXPECT_EQ( pGood, CrossToGame( TableEntry( &standalone ) ) );
 }
@@ -246,7 +256,7 @@ TEST( HandleCrossGameEntity, OldPatternMistypesTheStandalone )
 
 TEST( HandleCrossGameEntity, NullIn_NullOut )
 {
-	EXPECT_EQ( ( SdkGameEntity * )0, CrossToGame( 0 ) );
+	EXPECT_EQ( (SdkGameEntity *)0, CrossToGame( 0 ) );
 }
 
 TEST( HandleCrossGameEntity, TheWorldComesBackNull )
@@ -254,7 +264,7 @@ TEST( HandleCrossGameEntity, TheWorldComesBackNull )
 	// The other arm of the partition. The world has no entity face and says so
 	// with the same virtual, so the crossing needs no second rule.
 	SdkWorld world;
-	EXPECT_EQ( ( SdkGameEntity * )0, CrossToGame( TableEntry( &world ) ) );
+	EXPECT_EQ( (SdkGameEntity *)0, CrossToGame( TableEntry( &world ) ) );
 }
 
 } // namespace
@@ -279,12 +289,12 @@ namespace
 
 static SdkGameEntity *ResolveNetworkable( SdkNetworkable *pNetworkable )
 {
-	return SourceSharp_SDKEntityFromNetworkable< SdkServerEntity >( pNetworkable );
+	return SourceSharp_SDKEntityFromNetworkable<SdkServerEntity>( pNetworkable );
 }
 
 TEST( SdkEntityResolver, NetworkableNullIn_NullOut )
 {
-	EXPECT_EQ( ( SdkGameEntity * )0, ResolveNetworkable( 0 ) );
+	EXPECT_EQ( (SdkGameEntity *)0, ResolveNetworkable( 0 ) );
 }
 
 TEST( SdkEntityResolver, AStandaloneIsNotAnSdkEntity )
@@ -294,23 +304,23 @@ TEST( SdkEntityResolver, AStandaloneIsNotAnSdkEntity )
 	// The premise: the raw accessor answers, and the two faces really are at
 	// different addresses, so the route through GetEntityHandle() is doing
 	// work rather than being a no-op that would pass either way.
-	EXPECT_NE( ( SdkGameEntity * )0, standalone.GetBaseEntity() )
+	EXPECT_NE( (SdkGameEntity *)0, standalone.GetBaseEntity() )
 		<< "the standalone's GetBaseEntity() answers NULL, so this case cannot "
 		   "tell a resolver that asks the partition from one that does not";
-	EXPECT_NE( ( const void * )static_cast< SdkNetworkable * >( &standalone ),
-	           ( const void * )static_cast< SdkServerEntity * >( &standalone ) )
+	EXPECT_NE( (const void *)static_cast<SdkNetworkable *>( &standalone ),
+			   (const void *)static_cast<SdkServerEntity *>( &standalone ) )
 		<< "the mock's two faces coincide, so this case cannot distinguish "
 		   "the crossing from a cast";
 
-	EXPECT_EQ( ( SdkGameEntity * )0, ResolveNetworkable( &standalone ) )
-		<< "the resolver handed back " << ( const void * )ResolveNetworkable( &standalone )
+	EXPECT_EQ( (SdkGameEntity *)0, ResolveNetworkable( &standalone ) )
+		<< "the resolver handed back " << (const void *)ResolveNetworkable( &standalone )
 		<< " for an entity that is not in the SDK's tree";
 }
 
 TEST( SdkEntityResolver, TheWorldIsNotAnSdkEntityEither )
 {
 	SdkWorld world;
-	EXPECT_EQ( ( SdkGameEntity * )0, ResolveNetworkable( &world ) );
+	EXPECT_EQ( (SdkGameEntity *)0, ResolveNetworkable( &world ) );
 }
 
 TEST( SdkEntityResolver, TheServerPartitionRecognisesAStandaloneAndNotTheWorld )
@@ -318,12 +328,11 @@ TEST( SdkEntityResolver, TheServerPartitionRecognisesAStandaloneAndNotTheWorld )
 	SdkStandalone standalone;
 	SdkWorld world;
 
-	EXPECT_TRUE( SourceSharp_Partition< SdkServerEntity >::IsOutsideTheSdk(
-		static_cast< SdkServerUnknown * >( &standalone ) ) )
+	EXPECT_TRUE(
+		SourceSharp_Partition<SdkServerEntity>::IsOutsideTheSdk( static_cast<SdkServerUnknown *>( &standalone ) ) )
 		<< "the partition failed to recognise a standalone entity";
 
-	EXPECT_FALSE( SourceSharp_Partition< SdkServerEntity >::IsOutsideTheSdk(
-		static_cast< SdkServerUnknown * >( &world ) ) )
+	EXPECT_FALSE( SourceSharp_Partition<SdkServerEntity>::IsOutsideTheSdk( static_cast<SdkServerUnknown *>( &world ) ) )
 		<< "the partition called the world a standalone; it has no entity face";
 }
 
@@ -335,12 +344,10 @@ TEST( SdkEntityResolver, TheDeltaIsWhatTheLiveCrashSaw )
 	// there IS one, so the shape being reproduced is the shape that crashed.
 	SdkStandalone standalone;
 
-	const long delta = ByteDelta( standalone.GetBaseEntity(),
-	                              static_cast< SdkHandleEntity * >( &standalone ) );
+	const long delta = ByteDelta( standalone.GetBaseEntity(), static_cast<SdkHandleEntity *>( &standalone ) );
 
-	EXPECT_GT( delta, 0 )
-		<< "the face coincides with the handle table's address; the live "
-		   "hazard was a pointer PAST it";
+	EXPECT_GT( delta, 0 ) << "the face coincides with the handle table's address; the live "
+							 "hazard was a pointer PAST it";
 }
 
 } // namespace
@@ -376,7 +383,8 @@ TEST( SdkEntityResolver, TheDeltaIsWhatTheLiveCrashSaw )
 // deleting both.
 //=============================================================================//
 
-namespace {
+namespace
+{
 
 struct LiveCrossing_t
 {
@@ -406,7 +414,7 @@ namespace
 // FakeHandleEntity is NOT at offset zero inside the shell, so the identity
 // check compares two genuinely different numbers and a version of it that
 // compared raw addresses would refuse the real shell.
-class FakeHandleEntity                                 // ~ IHandleEntity
+class FakeHandleEntity // ~ IHandleEntity
 {
 public:
 	virtual ~FakeHandleEntity() {}
@@ -416,7 +424,8 @@ class FakeShellFirstBase
 {
 public:
 	virtual ~FakeShellFirstBase() {}
-	int m_nPadding[ 6 ];
+
+	int m_nPadding[6];
 };
 
 class FakeShell : public FakeShellFirstBase, public FakeHandleEntity
@@ -438,9 +447,14 @@ struct FakeShellTable
 
 static FakeShell *CrossToShell( FakeHandleEntity *pHit, FakeShellTable &table, bool bStaticProp = false )
 {
-	return SourceSharp_CrossHandleToClientShell< FakeShell >( pHit,
-		[ &table ]( FakeHandleEntity * ) { ++table.nAsked; return table.pBound; },
-		[ bStaticProp ]( FakeHandleEntity * ) { return bStaticProp; } );
+	return SourceSharp_CrossHandleToClientShell<FakeShell>(
+		pHit,
+		[&table]( FakeHandleEntity * )
+		{
+			++table.nAsked;
+			return table.pBound;
+		},
+		[bStaticProp]( FakeHandleEntity * ) { return bStaticProp; } );
 }
 
 } // namespace
@@ -450,7 +464,7 @@ TEST( ClientShellCross, TheShellsHandleViewIsNotAtOffsetZero )
 	// The premise: without it the identity check below cannot tell an adjusted
 	// compare from a raw one.
 	FakeShell shell;
-	EXPECT_NE( ( const void * )&shell, ( const void * )static_cast< FakeHandleEntity * >( &shell ) );
+	EXPECT_NE( (const void *)&shell, (const void *)static_cast<FakeHandleEntity *>( &shell ) );
 }
 
 TEST( ClientShellCross, ABoundShellComesBackAsItself )
@@ -459,25 +473,24 @@ TEST( ClientShellCross, ABoundShellComesBackAsItself )
 	FakeShellTable table;
 	table.pBound = &shell;
 
-	FakeShell *pFound = CrossToShell( static_cast< FakeHandleEntity * >( &shell ), table );
-	EXPECT_EQ( &shell, pFound )
-		<< "a trace that hit a bound shell resolved to " << ( const void * )pFound
-		<< "; the ground resolve and the impact control points read this answer";
+	FakeShell *pFound = CrossToShell( static_cast<FakeHandleEntity *>( &shell ), table );
+	EXPECT_EQ( &shell, pFound ) << "a trace that hit a bound shell resolved to " << (const void *)pFound
+								<< "; the ground resolve and the impact control points read this answer";
 	EXPECT_EQ( 1, table.nAsked );
 }
 
 TEST( ClientShellCross, NullIn_NullOut )
 {
 	FakeShellTable table;
-	EXPECT_EQ( ( FakeShell * )0, CrossToShell( 0, table ) );
+	EXPECT_EQ( (FakeShell *)0, CrossToShell( 0, table ) );
 	EXPECT_EQ( 0, table.nAsked ) << "a NULL hit was looked up";
 }
 
 TEST( ClientShellCross, AnUnboundHandleComesBackNull )
 {
 	FakeShell shell;
-	FakeShellTable table;   // nothing bound
-	EXPECT_EQ( ( FakeShell * )0, CrossToShell( static_cast< FakeHandleEntity * >( &shell ), table ) );
+	FakeShellTable table; // nothing bound
+	EXPECT_EQ( (FakeShell *)0, CrossToShell( static_cast<FakeHandleEntity *>( &shell ), table ) );
 	EXPECT_EQ( 1, table.nAsked );
 }
 
@@ -490,7 +503,7 @@ TEST( ClientShellCross, AnotherObjectAtTheBoundHandleComesBackNull )
 	FakeShellTable table;
 	table.pBound = &shell;
 
-	EXPECT_EQ( ( FakeShell * )0, CrossToShell( static_cast< FakeHandleEntity * >( &detail ), table ) );
+	EXPECT_EQ( (FakeShell *)0, CrossToShell( static_cast<FakeHandleEntity *>( &detail ), table ) );
 	EXPECT_EQ( 1, table.nAsked );
 }
 
@@ -500,6 +513,6 @@ TEST( ClientShellCross, AStaticPropIsNeverLookedUp )
 	FakeShellTable table;
 	table.pBound = &shell;
 
-	EXPECT_EQ( ( FakeShell * )0, CrossToShell( static_cast< FakeHandleEntity * >( &shell ), table, true ) );
+	EXPECT_EQ( (FakeShell *)0, CrossToShell( static_cast<FakeHandleEntity *>( &shell ), table, true ) );
 	EXPECT_EQ( 0, table.nAsked ) << "a static prop's handle was handed to the slot table";
 }

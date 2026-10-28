@@ -2,8 +2,8 @@
 
 #pragma once
 
-#define VOICE_MAX_PLAYERS		MAX_PLAYERS
+#define VOICE_MAX_PLAYERS MAX_PLAYERS
 
 typedef CBitVec<VOICE_MAX_PLAYERS> CPlayerBitVec;
 
- //100 feet
+//100 feet

@@ -41,5 +41,5 @@ void SseWarning( const char *pFmt, ... );
 // view_scene.h's and rendertexture.h's, as CExampleEffect::Render's enabled
 // arm would reach them.
 void UpdateScreenEffectTexture( int textureIndex, int x, int y, int w, int h, bool bDestFullScreen = false,
-                                Rect_t *pActualRect = NULL );
+								Rect_t *pActualRect = NULL );
 ITexture *GetFullFrameFrameBufferTexture( int textureIndex );

@@ -23,16 +23,16 @@ std::string Run( const std::string &cmd )
 	if ( !pPipe )
 		return std::string();
 	std::string out;
-	char buf[ 4096 ];
+	char buf[4096];
 	while ( fgets( buf, sizeof( buf ), pPipe ) )
 		out += buf;
 	pclose( pPipe );
 	return out;
 }
 
-std::set< std::string > Defined( const std::string &strNmArgs, const char *pszTypes )
+std::set<std::string> Defined( const std::string &strNmArgs, const char *pszTypes )
 {
-	std::set< std::string > out;
+	std::set<std::string> out;
 	const std::string text = Run( "nm --defined-only " + strNmArgs );
 	size_t start = 0;
 	while ( start < text.size() )
@@ -45,7 +45,7 @@ std::set< std::string > Defined( const std::string &strNmArgs, const char *pszTy
 		const size_t a = line.find( ' ' );
 		if ( a == std::string::npos || a + 3 > line.size() )
 			continue;
-		if ( strchr( pszTypes, line[ a + 1 ] ) == NULL || line[ a + 2 ] != ' ' )
+		if ( strchr( pszTypes, line[a + 1] ) == NULL || line[a + 2] != ' ' )
 			continue;
 		out.insert( line.substr( a + 3 ) );
 	}
@@ -57,7 +57,8 @@ bool LinksArchive( const char *pszBase )
 	for ( const std::string &tok : cmake_graph::LinkLibraries( cmake_graph::kClient ) )
 	{
 		const std::string base = tok.substr( tok.find_last_of( '/' ) + 1 );
-		if ( base == std::string( pszBase ) + ".a" || base == std::string( "lib" ) + pszBase + ".a" || tok == std::string( "-l" ) + pszBase )
+		if ( base == std::string( pszBase ) + ".a" || base == std::string( "lib" ) + pszBase + ".a" ||
+			 tok == std::string( "-l" ) + pszBase )
 			return true;
 	}
 	return false;
@@ -80,11 +81,11 @@ TEST( ClientNoBitmapVtf, NeitherArchiveIsOnTheLinkLine )
 TEST( ClientNoBitmapVtf, NoNameEitherArchiveDefinesIsInClientSo )
 {
 	const std::string strLib = cmake_graph::FarmSrc() + "/lib/public/linux64/";
-	const std::set< std::string > so = Defined( "'" + cmake_graph::BuildDir() + "/out/client.so'", "TtDdBbRrVvWw" );
+	const std::set<std::string> so = Defined( "'" + cmake_graph::BuildDir() + "/out/client.so'", "TtDdBbRrVvWw" );
 	ASSERT_GT( so.size(), 1000u ) << "client.so read as nearly empty";
 	for ( const char *pszArchive : { "bitmap.a", "vtf.a" } )
 	{
-		const std::set< std::string > archive = Defined( "'" + strLib + pszArchive + "'", "TDBR" );
+		const std::set<std::string> archive = Defined( "'" + strLib + pszArchive + "'", "TDBR" );
 		ASSERT_GT( archive.size(), 20u ) << pszArchive << " read as nearly empty";
 		int nIn = 0;
 		for ( const std::string &name : archive )

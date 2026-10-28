@@ -9,13 +9,10 @@
 // every detach gives it back; created materials and textures arrive referenced.
 
 #include "materialsystem/MaterialSystemUtil.h"
-#include "materialsystem/imaterialsystem.h"
+
 #include "materialsystem/imaterial.h"
 #include "materialsystem/itexture.h"
 #include "tier2/tier2.h"
-#include "tier0/dbg.h"
-#include "bitmap/imageformat.h"
-#include "vtf/vtf.h"
 
 CMaterialReference::CMaterialReference( char const *pMaterialName, const char *pTextureGroupName, bool bComplain )
 	: m_pMaterial( NULL )
@@ -120,15 +117,15 @@ void CTextureReference::Init( ITexture *pTexture )
 }
 
 // Created textures arrive with their one reference already taken.
-void CTextureReference::InitProceduralTexture( const char *pTextureName, const char *pTextureGroupName,
-                                               int w, int h, ImageFormat fmt, int nFlags )
+void CTextureReference::InitProceduralTexture( const char *pTextureName, const char *pTextureGroupName, int w, int h,
+											   ImageFormat fmt, int nFlags )
 {
 	Shutdown();
 	m_pTexture = materials->CreateProceduralTexture( pTextureName, pTextureGroupName, w, h, fmt, nFlags );
 }
 
 void CTextureReference::InitRenderTarget( int w, int h, RenderTargetSizeMode_t sizeMode, ImageFormat fmt,
-                                          MaterialRenderTargetDepth_t depth, bool bHDR, char *pStrOptionalName )
+										  MaterialRenderTargetDepth_t depth, bool bHDR, char *pStrOptionalName )
 {
 	Shutdown();
 
@@ -139,7 +136,7 @@ void CTextureReference::InitRenderTarget( int w, int h, RenderTargetSizeMode_t s
 	const unsigned int nTargetFlags = bHDR ? CREATERENDERTARGETFLAGS_HDR : 0;
 
 	m_pTexture = materials->CreateNamedRenderTargetTextureEx( pStrOptionalName, w, h, sizeMode, fmt, depth,
-	                                                         nTextureFlags, nTargetFlags );
+															  nTextureFlags, nTargetFlags );
 	Assert( m_pTexture );
 }
 

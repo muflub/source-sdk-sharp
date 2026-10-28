@@ -1,7 +1,5 @@
 #pragma once
 
-#include <stdint.h>
-
 // True, with the handle word, when pUnknown is an entity. A non-entity's
 // GetRefEHandle() dereferences null, so it is never asked.
 template <class Unknown>

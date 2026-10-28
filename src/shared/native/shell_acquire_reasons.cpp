@@ -10,7 +10,6 @@
 // enumerate it. Native never echoes the caller's version string, so the error buffer
 // only ever holds these ASCII literals.
 
-#include "sourcesharp.h"
 #include "shell_vtable_interfaces.h"
 
 #include "tier1/strtools.h"
@@ -21,22 +20,21 @@ const char *SourceSharp_AcquireReason( SourceSharpAcquireReason eReason )
 {
 	switch ( eReason )
 	{
-	case SOURCESHARP_ACQUIRE_NOT_YET_AVAILABLE:
-		return "factory not yet available";
-	case SOURCESHARP_ACQUIRE_NO_SUCH_FACTORY:
-		return "no factory of that kind on this side";
-	case SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE:
-		return "factory does not know that interface";
-	case SOURCESHARP_ACQUIRE_UNKNOWN_FACTORY_TYPE:
-		return "unknown factory type";
+		case SOURCESHARP_ACQUIRE_NOT_YET_AVAILABLE:
+			return "factory not yet available";
+		case SOURCESHARP_ACQUIRE_NO_SUCH_FACTORY:
+			return "no factory of that kind on this side";
+		case SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE:
+			return "factory does not know that interface";
+		case SOURCESHARP_ACQUIRE_UNKNOWN_FACTORY_TYPE:
+			return "unknown factory type";
 	}
 
 	return "unknown factory type";
 }
 
 // The reason into the caller's buffer, truncated to fit. A NULL or empty buffer writes nothing.
-void SourceSharp_SayAcquireReason( char *pOut, int32_t nBytes,
-                                   SourceSharpAcquireReason eReason )
+void SourceSharp_SayAcquireReason( char *pOut, int32_t nBytes, SourceSharpAcquireReason eReason )
 {
 	if ( !pOut || nBytes <= 0 )
 		return;

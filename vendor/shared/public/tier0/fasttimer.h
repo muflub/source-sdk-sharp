@@ -16,39 +16,40 @@ PLATFORM_INTERFACE double g_ClockSpeedSecondsMultiplier;
 
 class CCycleCount
 {
-friend class CFastTimer;
+	friend class CFastTimer;
 
 public:
-					CCycleCount();
-					CCycleCount( uint64 cycles );
+	CCycleCount();
+	CCycleCount( uint64 cycles );
 
-	void			Sample();	// Sample the clock. This takes about 34 clocks to execute (or 26,000 calls per millisecond on a P900).
+	void
+	Sample(); // Sample the clock. This takes about 34 clocks to execute (or 26,000 calls per millisecond on a P900).
 
-	void			Init();		// Set to zero.
-	void			Init( float initTimeMsec );
-	void			Init( double initTimeMsec )		{ Init( (float)initTimeMsec ); }
-	void			Init( uint64 cycles );
-	bool			IsLessThan( CCycleCount const &other ) const;					// Compare two counts.
+	void Init(); // Set to zero.
+	void Init( float initTimeMsec );
 
-	uint64			GetLongCycles() const;
+	void Init( double initTimeMsec ) { Init( (float)initTimeMsec ); }
 
-	double			GetMillisecondsF() const;
+	void Init( uint64 cycles );
+	bool IsLessThan( CCycleCount const &other ) const; // Compare two counts.
 
-	CCycleCount&	operator+=( CCycleCount const &other );
+	uint64 GetLongCycles() const;
+
+	double GetMillisecondsF() const;
+
+	CCycleCount &operator+=( CCycleCount const &other );
 
 	// dest = rSrc1 + rSrc2
-	static void		Add( CCycleCount const &rSrc1, CCycleCount const &rSrc2, CCycleCount &dest );	// Add two samples together.
-	
-	uint64			m_Int64;
+	static void Add( CCycleCount const &rSrc1, CCycleCount const &rSrc2,
+					 CCycleCount &dest ); // Add two samples together.
+
+	uint64 m_Int64;
 };
 
 class PLATFORM_CLASS CClockSpeedInit
 {
 public:
-	CClockSpeedInit()
-	{
-		Init();
-	}
+	CClockSpeedInit() { Init(); }
 
 	static void Init();
 };
@@ -57,24 +58,24 @@ class CFastTimer
 {
 public:
 	// These functions are fast to call and should be called from your sampling code.
-	void				Start();
-	void				End();
+	void Start();
+	void End();
 
-	const CCycleCount &	GetDuration() const;	// Get the elapsed time between Start and End calls.
+	const CCycleCount &GetDuration() const; // Get the elapsed time between Start and End calls.
 
 private:
-	CCycleCount	m_Duration;
+	CCycleCount m_Duration;
 };
 
 // This is a helper class that times whatever block of code it's in
 class CTimeScope
 {
 public:
-				CTimeScope( CFastTimer *pTimer );
-				~CTimeScope();
+	CTimeScope( CFastTimer *pTimer );
+	~CTimeScope();
 
-private:	
-	CFastTimer	*m_pTimer;
+private:
+	CFastTimer *m_pTimer;
 };
 
 inline CTimeScope::CTimeScope( CFastTimer *pTotal )
@@ -93,14 +94,14 @@ inline CTimeScope::~CTimeScope()
 class CTimeAdder
 {
 public:
-				CTimeAdder( CCycleCount *pTotal );
-				~CTimeAdder();
+	CTimeAdder( CCycleCount *pTotal );
+	~CTimeAdder();
 
-	void		End();
+	void End();
 
-private:	
-	CCycleCount	*m_pTotal;
-	CFastTimer	m_Timer;
+private:
+	CCycleCount *m_pTotal;
+	CFastTimer m_Timer;
 };
 
 inline CTimeAdder::CTimeAdder( CCycleCount *pTotal )
@@ -116,7 +117,7 @@ inline CTimeAdder::~CTimeAdder()
 
 inline void CTimeAdder::End()
 {
-	if( m_pTotal )
+	if ( m_pTotal )
 	{
 		m_Timer.End();
 		*m_pTotal += m_Timer.GetDuration();
@@ -132,14 +133,14 @@ class CAverageCycleCounter
 {
 public:
 	CAverageCycleCounter();
-	
+
 	void Init();
 	void MarkIter( const CCycleCount &duration );
-	
+
 private:
-	unsigned	m_nIters;
+	unsigned m_nIters;
 	CCycleCount m_Total;
-	CCycleCount	m_Peak;
+	CCycleCount m_Peak;
 };
 
 class CAverageTimeMarker
@@ -147,10 +148,10 @@ class CAverageTimeMarker
 public:
 	CAverageTimeMarker( CAverageCycleCounter *pCounter );
 	~CAverageTimeMarker();
-	
+
 private:
 	CAverageCycleCounter *m_pCounter;
-	CFastTimer	m_Timer;
+	CFastTimer m_Timer;
 };
 
 // CCycleCount inlines.
@@ -173,7 +174,7 @@ inline void CCycleCount::Init()
 inline void CCycleCount::Init( float initTimeMsec )
 {
 	if ( g_ClockSpeedMillisecondsMultiplier > 0 )
-		Init( (uint64)(initTimeMsec / g_ClockSpeedMillisecondsMultiplier) );
+		Init( (uint64)( initTimeMsec / g_ClockSpeedMillisecondsMultiplier ) );
 	else
 		Init( (uint64)0 );
 }
@@ -188,7 +189,7 @@ inline void CCycleCount::Sample()
 	m_Int64 = Plat_Rdtsc();
 }
 
-inline CCycleCount& CCycleCount::operator+=( CCycleCount const &other )
+inline CCycleCount &CCycleCount::operator+=( CCycleCount const &other )
 {
 	m_Int64 += other.m_Int64;
 	return *this;
@@ -199,7 +200,7 @@ inline void CCycleCount::Add( CCycleCount const &rSrc1, CCycleCount const &rSrc2
 	dest.m_Int64 = rSrc1.m_Int64 + rSrc2.m_Int64;
 }
 
-inline bool CCycleCount::IsLessThan(CCycleCount const &other) const
+inline bool CCycleCount::IsLessThan( CCycleCount const &other ) const
 {
 	return m_Int64 < other.m_Int64;
 }
@@ -225,10 +226,9 @@ inline void CFastTimer::End()
 	CCycleCount cnt;
 	cnt.Sample();
 	m_Duration.m_Int64 = cnt.m_Int64 - m_Duration.m_Int64;
-
 }
 
-inline CCycleCount const& CFastTimer::GetDuration() const
+inline CCycleCount const &CFastTimer::GetDuration() const
 {
 	return m_Duration;
 }
@@ -236,7 +236,7 @@ inline CCycleCount const& CFastTimer::GetDuration() const
 // CAverageCycleCounter inlines
 
 inline CAverageCycleCounter::CAverageCycleCounter()
- :	m_nIters( 0 )
+	: m_nIters( 0 )
 {
 }
 
@@ -274,7 +274,9 @@ class CLimitTimer
 {
 public:
 	CLimitTimer() = default;
+
 	CLimitTimer( uint64 cMicroSecDuration ) { SetLimit( cMicroSecDuration ); }
+
 	void SetLimit( uint64 m_cMicroSecDuration );
 
 private:
@@ -285,8 +287,8 @@ private:
 // Input  : cMicroSecDuration -		How long a time period to measure
 inline void CLimitTimer::SetLimit( uint64 cMicroSecDuration )
 {
-	uint64 dlCycles = ( ( uint64 ) cMicroSecDuration * g_ClockSpeed ) / ( uint64 ) 1000000L;
+	uint64 dlCycles = ( (uint64)cMicroSecDuration * g_ClockSpeed ) / (uint64)1000000L;
 	CCycleCount cycleCount;
-	cycleCount.Sample( );
-	m_lCycleLimit = cycleCount.GetLongCycles( ) + dlCycles;
+	cycleCount.Sample();
+	m_lCycleLimit = cycleCount.GetLongCycles() + dlCycles;
 }

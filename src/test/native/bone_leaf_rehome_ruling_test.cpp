@@ -72,29 +72,45 @@ std::string StripComments( const std::string &in )
 	{
 		if ( bInBlock )
 		{
-			if ( i + 1 < in.size() && in[ i ] == '*' && in[ i + 1 ] == '/' ) { bInBlock = false; i++; }
+			if ( i + 1 < in.size() && in[i] == '*' && in[i + 1] == '/' )
+			{
+				bInBlock = false;
+				i++;
+			}
 			continue;
 		}
-		if ( i + 1 < in.size() && in[ i ] == '/' && in[ i + 1 ] == '*' ) { bInBlock = true; i++; continue; }
-		if ( i + 1 < in.size() && in[ i ] == '/' && in[ i + 1 ] == '/' )
+		if ( i + 1 < in.size() && in[i] == '/' && in[i + 1] == '*' )
 		{
-			while ( i < in.size() && in[ i ] != '\n' ) i++;
-			if ( i < in.size() ) out += '\n';
+			bInBlock = true;
+			i++;
 			continue;
 		}
-		out += in[ i ];
+		if ( i + 1 < in.size() && in[i] == '/' && in[i + 1] == '/' )
+		{
+			while ( i < in.size() && in[i] != '\n' )
+				i++;
+			if ( i < in.size() )
+				out += '\n';
+			continue;
+		}
+		out += in[i];
 	}
 	return out;
 }
 
-std::vector< std::string > Lines( const std::string &in )
+std::vector<std::string> Lines( const std::string &in )
 {
-	std::vector< std::string > out;
+	std::vector<std::string> out;
 	std::string cur;
 	for ( size_t i = 0; i < in.size(); i++ )
 	{
-		if ( in[ i ] == '\n' ) { out.push_back( cur ); cur.clear(); }
-		else cur += in[ i ];
+		if ( in[i] == '\n' )
+		{
+			out.push_back( cur );
+			cur.clear();
+		}
+		else
+			cur += in[i];
 	}
 	out.push_back( cur );
 	return out;
@@ -103,8 +119,10 @@ std::vector< std::string > Lines( const std::string &in )
 std::string Trim( const std::string &in )
 {
 	size_t a = 0, b = in.size();
-	while ( a < b && isspace( (unsigned char)in[ a ] ) ) a++;
-	while ( b > a && isspace( (unsigned char)in[ b - 1 ] ) ) b--;
+	while ( a < b && isspace( (unsigned char)in[a] ) )
+		a++;
+	while ( b > a && isspace( (unsigned char)in[b - 1] ) )
+		b--;
 	return in.substr( a, b - a );
 }
 
@@ -120,7 +138,12 @@ std::string Trim( const std::string &in )
 //-----------------------------------------------------------------------------
 struct GuardCount
 {
-	GuardCount() : nInside( 0 ), nOutside( 0 ) {}
+	GuardCount()
+		: nInside( 0 )
+		, nOutside( 0 )
+	{
+	}
+
 	int nInside;
 	int nOutside;
 };
@@ -128,20 +151,20 @@ struct GuardCount
 GuardCount CountAgainstAliasGuard( const std::string &source, const char *needle )
 {
 	GuardCount out;
-	const std::vector< std::string > lines = Lines( StripComments( source ) );
+	const std::vector<std::string> lines = Lines( StripComments( source ) );
 
 	// Each element is "this conditional is the alias guard" (true) or not.
-	std::vector< bool > stack;
+	std::vector<bool> stack;
 	int nGuardDepth = 0;
 
 	for ( size_t i = 0; i < lines.size(); i++ )
 	{
-		const std::string t = Trim( lines[ i ] );
+		const std::string t = Trim( lines[i] );
 
 		if ( t.compare( 0, 3, "#if" ) == 0 )
 		{
-			const bool bIsGuard = ( t.find( "#ifndef SS_CBASEENTITY_ALIAS" ) == 0 )
-			                   || ( t.find( "#if !defined( SS_CBASEENTITY_ALIAS )" ) == 0 );
+			const bool bIsGuard = ( t.find( "#ifndef SS_CBASEENTITY_ALIAS" ) == 0 ) ||
+				( t.find( "#if !defined( SS_CBASEENTITY_ALIAS )" ) == 0 );
 			stack.push_back( bIsGuard );
 			if ( bIsGuard )
 				nGuardDepth++;
@@ -170,10 +193,12 @@ GuardCount CountAgainstAliasGuard( const std::string &source, const char *needle
 		}
 
 		size_t at = 0;
-		while ( ( at = lines[ i ].find( needle, at ) ) != std::string::npos )
+		while ( ( at = lines[i].find( needle, at ) ) != std::string::npos )
 		{
-			if ( nGuardDepth > 0 ) out.nInside++;
-			else out.nOutside++;
+			if ( nGuardDepth > 0 )
+				out.nInside++;
+			else
+				out.nOutside++;
 			at += 1;
 		}
 	}
@@ -181,7 +206,7 @@ GuardCount CountAgainstAliasGuard( const std::string &source, const char *needle
 	return out;
 }
 
-const char *kRagdoll   = "game/client/ragdoll.cpp";
+const char *kRagdoll = "game/client/ragdoll.cpp";
 // A §6 STAY that takes the free scope in UNGUARDED code, and so is the live
 // proof that the gate ragdoll.cpp stopped spelling still exists and is still
 // taken. Named here because it is a PRESENCE anchor for an absence fact.
@@ -208,10 +233,12 @@ TEST( BoneLeafRehome, TheRagdollBuilderUsesTheFreeScopeAndNotTheEntitysNestedOne
 	// client's ragdolls are SourceSharp.Client's, and no native file builds a
 	// body.
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kViewRender ) )
-		<< kViewRender << " is not in the client project -- the reader is not "
+		<< kViewRender
+		<< " is not in the client project -- the reader is not "
 		   "reading the client's source list";
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kRagdoll ) )
-		<< kRagdoll << " is back in the client project; this fact's old "
+		<< kRagdoll
+		<< " is back in the client project; this fact's old "
 		   "assertions about which gate it spells apply again";
 }
 
@@ -238,28 +265,27 @@ TEST( BoneLeafRehome, TheGuardScannerDistinguishesInsideFromOutside )
 	// That is not a hypothetical shape. EVERY alias guard this scanner is
 	// pointed at in the three stay files is an elseless `#ifndef`, so the one
 	// path the old fixture skipped was the only path the real data takes.
-	const std::string sample =
-		"NEEDLE(a);\n"
-		"#ifndef SS_CBASEENTITY_ALIAS\n"
-		"NEEDLE(b);\n"
-		"#if 1\n"
-		"NEEDLE(c);\n"
-		"#endif\n"
-		"#else\n"
-		"NEEDLE(d);\n"
-		"#endif\n"
-		"NEEDLE(e);\n"
-		"#ifndef SS_CBASEENTITY_ALIAS\n"
-		"NEEDLE(f);\n"
-		"#endif\n"
-		"NEEDLE(g);\n";
+	const std::string sample = "NEEDLE(a);\n"
+							   "#ifndef SS_CBASEENTITY_ALIAS\n"
+							   "NEEDLE(b);\n"
+							   "#if 1\n"
+							   "NEEDLE(c);\n"
+							   "#endif\n"
+							   "#else\n"
+							   "NEEDLE(d);\n"
+							   "#endif\n"
+							   "NEEDLE(e);\n"
+							   "#ifndef SS_CBASEENTITY_ALIAS\n"
+							   "NEEDLE(f);\n"
+							   "#endif\n"
+							   "NEEDLE(g);\n";
 
 	const GuardCount c = CountAgainstAliasGuard( sample, "NEEDLE(" );
 	EXPECT_EQ( 3, c.nInside ) << "b and c are the guarded ones, and f is the "
-	                             "elseless region's";
+								 "elseless region's";
 	EXPECT_EQ( 4, c.nOutside ) << "a, d (the ARMED arm) and e are not -- and "
-	                              "NOR IS g, which is the whole point: g is "
-	                              "after an elseless `#endif`, so a scanner "
-	                              "that does not decrement there counts it "
-	                              "inside a guard it never left";
+								  "NOR IS g, which is the whole point: g is "
+								  "after an elseless `#endif`, so a scanner "
+								  "that does not decrement there counts it "
+								  "inside a guard it never left";
 }

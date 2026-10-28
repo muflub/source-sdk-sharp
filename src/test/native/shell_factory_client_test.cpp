@@ -17,9 +17,23 @@ public:
 	virtual int Id() = 0;
 };
 
-class CThingA : public IThing { public: int Id() override { return 1; } };
-class CThingB : public IThing { public: int Id() override { return 2; } };
-class CThingShadow : public IThing { public: int Id() override { return 3; } };
+class CThingA : public IThing
+{
+public:
+	int Id() override { return 1; }
+};
+
+class CThingB : public IThing
+{
+public:
+	int Id() override { return 2; }
+};
+
+class CThingShadow : public IThing
+{
+public:
+	int Id() override { return 3; }
+};
 
 CThingA g_ThingA;
 CThingB g_ThingB;
@@ -59,8 +73,15 @@ TEST( ShellFactoryClient, TheNewestRowOfANameWins )
 
 // client_factorylist.cpp's pair, now this file's: what is stored is what
 // comes back, and a second store replaces the first.
-static void *FactoryA( const char *, int * ) { return NULL; }
-static void *FactoryB( const char *, int * ) { return NULL; }
+static void *FactoryA( const char *, int * )
+{
+	return NULL;
+}
+
+static void *FactoryB( const char *, int * )
+{
+	return NULL;
+}
 
 TEST( ShellFactoryClient, TheFactoryListGivesBackWhatWasStored )
 {

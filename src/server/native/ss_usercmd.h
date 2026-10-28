@@ -9,8 +9,6 @@
 
 #pragma once
 
-#include "mathlib/vector.h"
-
 namespace ss
 {
 
@@ -33,21 +31,21 @@ struct CUserCmd
 		hasbeenpredicted = false;
 	}
 
-	int command_number;        // the client's sequence number for it
-	int tick_count;            // the tick it was created for
-	QAngle viewangles;         // where the player looks
-	float forwardmove;         // the three move axes
+	int command_number; // the client's sequence number for it
+	int tick_count; // the tick it was created for
+	QAngle viewangles; // where the player looks
+	float forwardmove; // the three move axes
 	float sidemove;
 	float upmove;
-	int buttons;               // IN_* bits
+	int buttons; // IN_* bits
 	unsigned char impulse;
-	int weaponselect;          // entity index of a weapon to switch to, 0 for none
+	int weaponselect; // entity index of a weapon to switch to, 0 for none
 	int weaponsubtype;
-	int random_seed;           // the client's shared random seed for this command
-	int server_random_seed;    // the server's own, never sent to the client
-	short mousedx;             // raw mouse deltas
+	int random_seed; // the client's shared random seed for this command
+	int server_random_seed; // the server's own, never sent to the client
+	short mousedx; // raw mouse deltas
 	short mousedy;
-	bool hasbeenpredicted;     // client side only; carried for the shared readers
+	bool hasbeenpredicted; // client side only; carried for the shared readers
 };
 
 } // namespace ss

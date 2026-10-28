@@ -20,19 +20,12 @@
 #pragma warning( disable : 4273 )
 #endif
 
-#include <stdlib.h>
-#include <string.h>
-
 #if defined( _WIN32 )
-	#ifndef WIN32_LEAN_AND_MEAN
-		#define WIN32_LEAN_AND_MEAN
-	#endif
-	#include <windows.h>
-	#include <intrin.h>
-#else
-	#include <pthread.h>
-	#include <sched.h>
-	#include <unistd.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <intrin.h>
 #endif
 
 // pthread_self(), as tier0 answers on Linux: never 0 (the fast mutex's
@@ -41,7 +34,7 @@
 ThreadId_t ThreadGetCurrentId()
 {
 #if defined( _WIN32 )
-	return (ThreadId_t)::GetCurrentThreadId();
+	return ( ThreadId_t )::GetCurrentThreadId();
 #else
 	return (ThreadId_t)pthread_self();
 #endif
@@ -53,7 +46,11 @@ ThreadId_t ThreadGetCurrentId()
 // to this definition (LNK4217).
 void CThreadFastMutex::Lock( const ThreadId_t threadId, unsigned nSpinSleepTime ) volatile
 {
-	enum { kSpinsBeforeYield = 1000 };
+	enum
+	{
+		kSpinsBeforeYield = 1000
+	};
+
 	for ( ;; )
 	{
 		for ( int i = 0; i < kSpinsBeforeYield; ++i )

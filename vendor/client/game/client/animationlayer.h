@@ -5,7 +5,6 @@
 class C_AnimationLayer
 {
 public:
-
 	// This allows the datatables to access private members.
 	ALLOW_DATATABLES_PRIVATE_ACCESS();
 
@@ -13,25 +12,24 @@ public:
 	void Reset();
 
 public:
-
 	bool IsActive();
 
-	CRangeCheckedVar<int, -1, 65535, 0>	m_nSequence;
-	CRangeCheckedVar<float, -2, 2, 0>	m_flPrevCycle;
-	CRangeCheckedVar<float, -5, 5, 0>	m_flWeight;
-	int		m_nOrder;
+	CRangeCheckedVar<int, -1, 65535, 0> m_nSequence;
+	CRangeCheckedVar<float, -2, 2, 0> m_flPrevCycle;
+	CRangeCheckedVar<float, -5, 5, 0> m_flWeight;
+	int m_nOrder;
 
 	// used for automatic crossfades between sequence changes
-	CRangeCheckedVar<float, -50, 50, 1>		m_flPlaybackRate;
-	CRangeCheckedVar<float, -2, 2, 0>		m_flCycle;
+	CRangeCheckedVar<float, -50, 50, 1> m_flPlaybackRate;
+	CRangeCheckedVar<float, -2, 2, 0> m_flCycle;
 
-	float	m_flLayerAnimtime;
-	float	m_flLayerFadeOuttime;
+	float m_flLayerAnimtime;
+	float m_flLayerFadeOuttime;
 
-	float   m_flBlendIn;
-	float   m_flBlendOut;
+	float m_flBlendIn;
+	float m_flBlendOut;
 
-	bool    m_bClientBlend;
+	bool m_bClientBlend;
 };
 
 inline C_AnimationLayer::C_AnimationLayer()
@@ -53,7 +51,7 @@ inline void C_AnimationLayer::Reset()
 	m_bClientBlend = false;
 }
 
-inline C_AnimationLayer LoopingLerp( float flPercent, C_AnimationLayer& from, C_AnimationLayer& to )
+inline C_AnimationLayer LoopingLerp( float flPercent, C_AnimationLayer &from, C_AnimationLayer &to )
 {
 	C_AnimationLayer output;
 
@@ -68,7 +66,7 @@ inline C_AnimationLayer LoopingLerp( float flPercent, C_AnimationLayer& from, C_
 	return output;
 }
 
-inline C_AnimationLayer Lerp( float flPercent, const C_AnimationLayer& from, const C_AnimationLayer& to )
+inline C_AnimationLayer Lerp( float flPercent, const C_AnimationLayer &from, const C_AnimationLayer &to )
 {
 	C_AnimationLayer output;
 
@@ -83,12 +81,14 @@ inline C_AnimationLayer Lerp( float flPercent, const C_AnimationLayer& from, con
 	return output;
 }
 
-inline C_AnimationLayer LoopingLerp_Hermite( float flPercent, C_AnimationLayer& prev, C_AnimationLayer& from, C_AnimationLayer& to )
+inline C_AnimationLayer LoopingLerp_Hermite( float flPercent, C_AnimationLayer &prev, C_AnimationLayer &from,
+											 C_AnimationLayer &to )
 {
 	C_AnimationLayer output;
 
 	output.m_nSequence = to.m_nSequence;
-	output.m_flCycle = LoopingLerp_Hermite( flPercent, (float)prev.m_flCycle, (float)from.m_flCycle, (float)to.m_flCycle );
+	output.m_flCycle =
+		LoopingLerp_Hermite( flPercent, (float)prev.m_flCycle, (float)from.m_flCycle, (float)to.m_flCycle );
 	output.m_flPrevCycle = to.m_flPrevCycle;
 	output.m_flWeight = Lerp( flPercent, from.m_flWeight, to.m_flWeight );
 	output.m_nOrder = to.m_nOrder;
@@ -99,7 +99,8 @@ inline C_AnimationLayer LoopingLerp_Hermite( float flPercent, C_AnimationLayer& 
 }
 
 // YWB:  Specialization for interpolating euler angles via quaternions...
-inline C_AnimationLayer Lerp_Hermite( float flPercent, const C_AnimationLayer& prev, const C_AnimationLayer& from, const C_AnimationLayer& to )
+inline C_AnimationLayer Lerp_Hermite( float flPercent, const C_AnimationLayer &prev, const C_AnimationLayer &from,
+									  const C_AnimationLayer &to )
 {
 	C_AnimationLayer output;
 

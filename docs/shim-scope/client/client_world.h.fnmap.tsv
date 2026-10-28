@@ -5,76 +5,76 @@
 1	SLOT	[CWorldClientCollideable] virtual const Vector &OBBMaxsPreScaled() const OVERRIDE
 1	SLOT	[CWorldClientCollideable] virtual const Vector &OBBMins() const OVERRIDE
 1	SLOT	[CWorldClientCollideable] virtual const Vector &OBBMaxs() const OVERRIDE
-5	SLOT	[CWorldClientCollideable] virtual void WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const OVERRIDE
+7	SLOT	[CWorldClientCollideable] virtual void WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const OVERRIDE
 1	SLOT	[CWorldClientCollideable] virtual bool TestCollision( const Ray_t &, unsigned int, trace_t & ) OVERRIDE
 1	SLOT	[CWorldClientCollideable] virtual bool TestHitboxes( const Ray_t &, unsigned int, trace_t & ) OVERRIDE
-1	SLOT	[CWorldClientCollideable] virtual const Vector      &GetCollisionOrigin() const OVERRIDE
-1	SLOT	[CWorldClientCollideable] virtual const QAngle      &GetCollisionAngles() const OVERRIDE
+1	SLOT	[CWorldClientCollideable] virtual const Vector &GetCollisionOrigin() const OVERRIDE
+1	SLOT	[CWorldClientCollideable] virtual const QAngle &GetCollisionAngles() const OVERRIDE
 1	SLOT	[CWorldClientCollideable] virtual const matrix3x4_t &CollisionToWorldTransform() const OVERRIDE
 1	SLOT	[CWorldClientCollideable] virtual SolidType_t GetSolid() const OVERRIDE
-1	SLOT	[CWorldClientCollideable] virtual int         GetSolidFlags() const OVERRIDE
+1	SLOT	[CWorldClientCollideable] virtual int GetSolidFlags() const OVERRIDE
 1	SLOT	[CWorldClientCollideable] virtual int GetCollisionGroup() const OVERRIDE
-5	SLOT	[CWorldClientCollideable] virtual void WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs ) OVERRIDE
+7	SLOT	[CWorldClientCollideable] virtual void WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs ) OVERRIDE
 1	SLOT	[CWorldClientCollideable] virtual bool ShouldTouchTrigger( int ) const OVERRIDE
 1	SLOT	[CWorldClientCollideable] virtual const matrix3x4_t *GetRootParentToWorldTransform() const OVERRIDE
 1	SLOT	[C_World] virtual void SetRefEHandle( const CBaseHandle &handle ) OVERRIDE
 1	SLOT	[C_World] virtual const CBaseHandle &GetRefEHandle() const OVERRIDE
 1	LIVE-API	[C_World] bool IsBoundToTheLevel() const
-1	SLOT	[C_World] virtual IClientUnknown     *GetIClientUnknown() OVERRIDE
-1	SLOT	[C_World] virtual ICollideable       *GetCollideable() OVERRIDE
+1	SLOT	[C_World] virtual IClientUnknown *GetIClientUnknown() OVERRIDE
+1	SLOT	[C_World] virtual ICollideable *GetCollideable() OVERRIDE
 1	SLOT	[C_World] virtual IClientNetworkable *GetClientNetworkable() OVERRIDE
-1	SLOT	[C_World] virtual IClientRenderable  *GetClientRenderable() OVERRIDE
-1	SLOT	[C_World] virtual IClientEntity      *GetIClientEntity() OVERRIDE
-1	SLOT	[C_World] virtual IClientThinkable   *GetClientThinkable() OVERRIDE
+1	SLOT	[C_World] virtual IClientRenderable *GetClientRenderable() OVERRIDE
+1	SLOT	[C_World] virtual IClientEntity *GetIClientEntity() OVERRIDE
+1	SLOT	[C_World] virtual IClientThinkable *GetClientThinkable() OVERRIDE
 1	SLOT	[C_World] virtual IGameEntity *GetBaseEntity() OVERRIDE
-1	SLOT	[C_World] virtual void         NotifyShouldTransmit( ShouldTransmitState_t state ) OVERRIDE
-1	SLOT	[C_World] virtual void         OnPreDataChanged( DataUpdateType_t updateType ) OVERRIDE
-1	SLOT	[C_World] virtual void         PostDataUpdate( DataUpdateType_t updateType ) OVERRIDE
-1	SLOT	[C_World] virtual bool         IsDormant() OVERRIDE
-4	SLOT	[C_World] virtual int          entindex() const OVERRIDE
-1	SLOT	[C_World] virtual void         ReceiveMessage( int classID, bf_read &msg ) OVERRIDE
-1	SLOT	[C_World] virtual void         SetDestroyedOnRecreateEntities() OVERRIDE
-1	SLOT	[C_World] virtual void         OnDataUnchangedInPVS() OVERRIDE
+1	SLOT	[C_World] virtual void NotifyShouldTransmit( ShouldTransmitState_t state ) OVERRIDE
+1	SLOT	[C_World] virtual void OnPreDataChanged( DataUpdateType_t updateType ) OVERRIDE
+1	SLOT	[C_World] virtual void PostDataUpdate( DataUpdateType_t updateType ) OVERRIDE
+1	SLOT	[C_World] virtual bool IsDormant() OVERRIDE
+1	SLOT	[C_World] virtual int entindex() const OVERRIDE
+1	SLOT	[C_World] virtual void ReceiveMessage( int classID, bf_read &msg ) OVERRIDE
+1	SLOT	[C_World] virtual void SetDestroyedOnRecreateEntities() OVERRIDE
+1	SLOT	[C_World] virtual void OnDataUnchangedInPVS() OVERRIDE
 1	SLOT	[C_World] virtual void *GetDataTableBasePtr() OVERRIDE
-1	SLOT	[C_World] virtual void                ClientThink() OVERRIDE
+1	SLOT	[C_World] virtual void ClientThink() OVERRIDE
 1	SLOT	[C_World] virtual ClientThinkHandle_t GetThinkHandle() OVERRIDE
-1	SLOT	[C_World] virtual void                SetThinkHandle( ClientThinkHandle_t hThink ) OVERRIDE
-1	SLOT	[C_World] virtual CMouthInfo   *GetMouth() OVERRIDE
-1	SLOT	[C_World] virtual bool          GetSoundSpatialization( SpatializationInfo_t &info ) OVERRIDE
-1	SLOT	[C_World] virtual bool              ShouldDraw() OVERRIDE
-1	SLOT	[C_World] virtual bool              IsTransparent() OVERRIDE
-1	SLOT	[C_World] virtual bool              IsTwoPass() OVERRIDE
-1	SLOT	[C_World] virtual void              OnThreadedDrawSetup() OVERRIDE
-1	SLOT	[C_World] virtual bool              UsesPowerOfTwoFrameBufferTexture() OVERRIDE
-1	SLOT	[C_World] virtual bool              UsesFullFrameBufferTexture() OVERRIDE
+1	SLOT	[C_World] virtual void SetThinkHandle( ClientThinkHandle_t hThink ) OVERRIDE
+1	SLOT	[C_World] virtual CMouthInfo *GetMouth() OVERRIDE
+1	SLOT	[C_World] virtual bool GetSoundSpatialization( SpatializationInfo_t &info ) OVERRIDE
+1	SLOT	[C_World] virtual bool ShouldDraw() OVERRIDE
+1	SLOT	[C_World] virtual bool IsTransparent() OVERRIDE
+1	SLOT	[C_World] virtual bool IsTwoPass() OVERRIDE
+1	SLOT	[C_World] virtual void OnThreadedDrawSetup() OVERRIDE
+1	SLOT	[C_World] virtual bool UsesPowerOfTwoFrameBufferTexture() OVERRIDE
+1	SLOT	[C_World] virtual bool UsesFullFrameBufferTexture() OVERRIDE
 1	SLOT	[C_World] virtual ClientShadowHandle_t GetShadowHandle() const OVERRIDE
 1	SLOT	[C_World] virtual ClientRenderHandle_t &RenderHandle() OVERRIDE
-1	SLOT	[C_World] virtual int               GetBody() OVERRIDE
-1	SLOT	[C_World] virtual int               GetSkin() OVERRIDE
-1	SLOT	[C_World] virtual bool              UsesFlexDelayedWeights() OVERRIDE
-1	SLOT	[C_World] virtual const model_t    *GetModel() const OVERRIDE
-1	SLOT	[C_World] virtual int               DrawModel( int flags ) OVERRIDE
-1	SLOT	[C_World] virtual void              ComputeFxBlend() OVERRIDE
-1	SLOT	[C_World] virtual int               GetFxBlend() OVERRIDE
-1	SLOT	[C_World] virtual bool              LODTest() OVERRIDE
-2	SLOT	[C_World] virtual bool              SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones,
-2	SLOT	[C_World] virtual void              SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount,
-1	SLOT	[C_World] virtual void              DoAnimationEvents() OVERRIDE
-1	SLOT	[C_World] virtual IPVSNotify       *GetPVSNotifyInterface() OVERRIDE
-1	SLOT	[C_World] virtual bool              ShouldReceiveProjectedTextures( int flags ) OVERRIDE
-1	SLOT	[C_World] virtual bool              GetShadowCastDistance( float *pDist, ShadowType_t shadowType ) const OVERRIDE
-1	SLOT	[C_World] virtual bool              GetShadowCastDirection( Vector *pDirection, ShadowType_t shadowType ) const OVERRIDE
-1	SLOT	[C_World] virtual bool              IsShadowDirty() OVERRIDE
-1	SLOT	[C_World] virtual void              MarkShadowDirty( bool bDirty ) OVERRIDE
+1	SLOT	[C_World] virtual int GetBody() OVERRIDE
+1	SLOT	[C_World] virtual int GetSkin() OVERRIDE
+1	SLOT	[C_World] virtual bool UsesFlexDelayedWeights() OVERRIDE
+1	SLOT	[C_World] virtual const model_t *GetModel() const OVERRIDE
+1	SLOT	[C_World] virtual int DrawModel( int flags ) OVERRIDE
+1	SLOT	[C_World] virtual void ComputeFxBlend() OVERRIDE
+1	SLOT	[C_World] virtual int GetFxBlend() OVERRIDE
+1	SLOT	[C_World] virtual bool LODTest() OVERRIDE
+4	SLOT	[C_World] virtual bool SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime ) OVERRIDE
+4	SLOT	[C_World] virtual void SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount, float *pFlexWeights, float *pFlexDelayedWeights 
+1	SLOT	[C_World] virtual void DoAnimationEvents() OVERRIDE
+1	SLOT	[C_World] virtual IPVSNotify *GetPVSNotifyInterface() OVERRIDE
+1	SLOT	[C_World] virtual bool ShouldReceiveProjectedTextures( int flags ) OVERRIDE
+1	SLOT	[C_World] virtual bool GetShadowCastDistance( float *pDist, ShadowType_t shadowType ) const OVERRIDE
+1	SLOT	[C_World] virtual bool GetShadowCastDirection( Vector *pDirection, ShadowType_t shadowType ) const OVERRIDE
+1	SLOT	[C_World] virtual bool IsShadowDirty() OVERRIDE
+1	SLOT	[C_World] virtual void MarkShadowDirty( bool bDirty ) OVERRIDE
 1	SLOT	[C_World] virtual IClientRenderable *GetShadowParent() OVERRIDE
 1	SLOT	[C_World] virtual IClientRenderable *FirstShadowChild() OVERRIDE
 1	SLOT	[C_World] virtual IClientRenderable *NextShadowPeer() OVERRIDE
-1	SLOT	[C_World] virtual ShadowType_t      ShadowCastType() OVERRIDE
-1	SLOT	[C_World] virtual void              CreateModelInstance() OVERRIDE
+1	SLOT	[C_World] virtual ShadowType_t ShadowCastType() OVERRIDE
+1	SLOT	[C_World] virtual void CreateModelInstance() OVERRIDE
 1	SLOT	[C_World] virtual ModelInstanceHandle_t GetModelInstance() OVERRIDE
-1	SLOT	[C_World] virtual int               LookupAttachment( const char *pAttachmentName ) OVERRIDE
-1	SLOT	[C_World] virtual bool              GetAttachment( int number, Vector &origin, QAngle &angles ) OVERRIDE
-1	SLOT	[C_World] virtual bool              GetAttachment( int number, matrix3x4_t &matrix ) OVERRIDE
-1	SLOT	[C_World] virtual float            *GetRenderClipPlane() OVERRIDE
-1	SLOT	[C_World] virtual void              RecordToolMessage() OVERRIDE
-1	SLOT	[C_World] virtual bool              IgnoresZBuffer() const OVERRIDE
+1	SLOT	[C_World] virtual int LookupAttachment( const char *pAttachmentName ) OVERRIDE
+1	SLOT	[C_World] virtual bool GetAttachment( int number, Vector &origin, QAngle &angles ) OVERRIDE
+1	SLOT	[C_World] virtual bool GetAttachment( int number, matrix3x4_t &matrix ) OVERRIDE
+1	SLOT	[C_World] virtual float *GetRenderClipPlane() OVERRIDE
+1	SLOT	[C_World] virtual void RecordToolMessage() OVERRIDE
+1	SLOT	[C_World] virtual bool IgnoresZBuffer() const OVERRIDE

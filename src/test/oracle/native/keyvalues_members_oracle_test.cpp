@@ -37,5 +37,6 @@ TEST( KeyValuesMembersOracle, StockProducesTheGolden )
 	std::stringstream ss;
 	ss << in.rdbuf();
 	ASSERT_GT( ss.str().size(), 2000u ) << "the golden is empty or truncated";
-	ASSERT_TRUE( ss.str() == run ) << "pristine KeyValues.cpp no longer writes the golden; do NOT regenerate it to pass";
+	ASSERT_TRUE( ss.str() == run )
+		<< "pristine KeyValues.cpp no longer writes the golden; do NOT regenerate it to pass";
 }

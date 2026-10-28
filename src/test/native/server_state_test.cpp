@@ -21,12 +21,13 @@ struct Probe_t
 {
 	static int s_nLive;
 	static int s_nDestroyed;
-	static const CStateTier< Probe_t > *s_pTier;
+	static const CStateTier<Probe_t> *s_pTier;
 	static const Probe_t *s_pSeenDuringDestroy;
 
 	int m_nField = 0;
 
 	Probe_t() { ++s_nLive; }
+
 	~Probe_t()
 	{
 		--s_nLive;
@@ -37,22 +38,22 @@ struct Probe_t
 
 int Probe_t::s_nLive = 0;
 int Probe_t::s_nDestroyed = 0;
-const CStateTier< Probe_t > *Probe_t::s_pTier = nullptr;
+const CStateTier<Probe_t> *Probe_t::s_pTier = nullptr;
 const Probe_t *Probe_t::s_pSeenDuringDestroy = nullptr;
 
-void ResetProbe( const CStateTier< Probe_t > *pTier )
+void ResetProbe( const CStateTier<Probe_t> *pTier )
 {
 	Probe_t::s_nLive = 0;
 	Probe_t::s_nDestroyed = 0;
 	Probe_t::s_pTier = pTier;
-	Probe_t::s_pSeenDuringDestroy = reinterpret_cast< const Probe_t * >( 1 );
+	Probe_t::s_pSeenDuringDestroy = reinterpret_cast<const Probe_t *>( 1 );
 }
 
 } // namespace
 
 TEST( ServerStateTier, IsEmptyBeforeBeginAndAfterEnd )
 {
-	CStateTier< Probe_t > tier;
+	CStateTier<Probe_t> tier;
 	ResetProbe( &tier );
 
 	EXPECT_EQ( nullptr, tier.Get() ) << "a tier exists before its window opens";
@@ -70,7 +71,7 @@ TEST( ServerStateTier, IsEmptyBeforeBeginAndAfterEnd )
 // object: a field the first level wrote is not there.
 TEST( ServerStateTier, ASecondBeginAfterEndStartsFromAFreshObject )
 {
-	CStateTier< Probe_t > tier;
+	CStateTier<Probe_t> tier;
 	ResetProbe( &tier );
 
 	tier.Begin().m_nField = 42;
@@ -79,8 +80,7 @@ TEST( ServerStateTier, ASecondBeginAfterEndStartsFromAFreshObject )
 
 	tier.Begin();
 	ASSERT_NE( nullptr, tier.Get() );
-	EXPECT_EQ( 0, tier.Get()->m_nField )
-		<< "the second level saw the first level's field: the tier was reused";
+	EXPECT_EQ( 0, tier.Get()->m_nField ) << "the second level saw the first level's field: the tier was reused";
 	EXPECT_EQ( 1, Probe_t::s_nDestroyed ) << "the first level's object was not destroyed";
 	tier.End();
 }
@@ -89,7 +89,7 @@ TEST( ServerStateTier, ASecondBeginAfterEndStartsFromAFreshObject )
 // LevelShutdown) still starts fresh, and destroys the stale object.
 TEST( ServerStateTier, ABeginWithoutAnEndReplacesTheStaleObject )
 {
-	CStateTier< Probe_t > tier;
+	CStateTier<Probe_t> tier;
 	ResetProbe( &tier );
 
 	tier.Begin().m_nField = 7;
@@ -106,7 +106,7 @@ TEST( ServerStateTier, ABeginWithoutAnEndReplacesTheStaleObject )
 // reaches sees no tier rather than a half-destroyed one.
 TEST( ServerStateTier, EndClearsThePointerBeforeTheDestructorRuns )
 {
-	CStateTier< Probe_t > tier;
+	CStateTier<Probe_t> tier;
 	ResetProbe( &tier );
 
 	tier.Begin();
@@ -119,7 +119,7 @@ TEST( ServerStateTier, EndClearsThePointerBeforeTheDestructorRuns )
 
 TEST( ServerStateTier, EndOnAnEmptyTierIsANoOp )
 {
-	CStateTier< Probe_t > tier;
+	CStateTier<Probe_t> tier;
 	ResetProbe( &tier );
 
 	tier.End();
@@ -130,8 +130,8 @@ TEST( ServerStateTier, EndOnAnEmptyTierIsANoOp )
 // The two real tiers instantiate and follow the same window.
 TEST( ServerStateTier, TheDllAndLevelTiersOpenAndClose )
 {
-	CStateTier< CServerDllState > dll;
-	CStateTier< CServerLevelState > level;
+	CStateTier<CServerDllState> dll;
+	CStateTier<CServerLevelState> level;
 
 	dll.Begin();
 	level.Begin();
@@ -155,7 +155,7 @@ TEST( ServerStateTier, TheDllAndLevelTiersOpenAndClose )
 //-----------------------------------------------------------------------------
 TEST( ServerStateTier, ANewDllTierStartsWithNoSlotOpenAndNothingBound )
 {
-	CStateTier< CServerDllState > dll;
+	CStateTier<CServerDllState> dll;
 	CServerDllState &first = dll.Begin();
 
 	EXPECT_EQ( 0, first.m_EntitySlots.ActiveCount() );
@@ -172,10 +172,8 @@ TEST( ServerStateTier, ANewDllTierStartsWithNoSlotOpenAndNothingBound )
 	dll.End();
 	CServerDllState &second = dll.Begin();
 
-	EXPECT_EQ( 0, second.m_EntitySlots.ActiveCount() )
-		<< "a second DLL tier inherited the first's open entity slot";
-	EXPECT_EQ( 0, second.m_SlotTable.BoundCount() )
-		<< "a second DLL tier inherited the first's slot-table binding";
+	EXPECT_EQ( 0, second.m_EntitySlots.ActiveCount() ) << "a second DLL tier inherited the first's open entity slot";
+	EXPECT_EQ( 0, second.m_SlotTable.BoundCount() ) << "a second DLL tier inherited the first's slot-table binding";
 	dll.End();
 }
 
@@ -183,16 +181,15 @@ TEST( ServerStateTier, ANewDllTierStartsWithNoSlotOpenAndNothingBound )
 // every subsystem): a slot opened in one is not open in the other.
 TEST( ServerStateTier, TwoDllTiersShareNoEntitySlotState )
 {
-	CStateTier< CServerDllState > a;
-	CStateTier< CServerDllState > b;
+	CStateTier<CServerDllState> a;
+	CStateTier<CServerDllState> b;
 	a.Begin();
 	b.Begin();
 
 	uint32_t nSerial = 0;
 	ASSERT_TRUE( a.Get()->m_EntitySlots.Open( 3, 0x2003u, &nSerial ) );
 	EXPECT_EQ( 1, a.Get()->m_EntitySlots.ActiveCount() );
-	EXPECT_EQ( 0, b.Get()->m_EntitySlots.ActiveCount() )
-		<< "the two DLL tiers share one control block";
+	EXPECT_EQ( 0, b.Get()->m_EntitySlots.ActiveCount() ) << "the two DLL tiers share one control block";
 
 	a.End();
 	b.End();
@@ -205,7 +202,7 @@ TEST( ServerStateTier, TwoDllTiersShareNoEntitySlotState )
 //-----------------------------------------------------------------------------
 TEST( ServerStateTier, ANewDllTierStartsWithNoNetTypePublished )
 {
-	CStateTier< CServerDllState > dll;
+	CStateTier<CServerDllState> dll;
 	CServerDllState &first = dll.Begin();
 	EXPECT_EQ( 0, first.m_NetTypes.Count() );
 
@@ -216,16 +213,15 @@ TEST( ServerStateTier, ANewDllTierStartsWithNoNetTypePublished )
 
 	dll.End();
 	CServerDllState &second = dll.Begin();
-	EXPECT_EQ( 0, second.m_NetTypes.Count() )
-		<< "a second DLL tier inherited the first's published types";
+	EXPECT_EQ( 0, second.m_NetTypes.Count() ) << "a second DLL tier inherited the first's published types";
 	EXPECT_EQ( nullptr, second.m_NetTypes.ByName( "prop_t6_probe" ) );
 	dll.End();
 }
 
 TEST( ServerStateTier, TwoDllTiersShareNoNetTypes )
 {
-	CStateTier< CServerDllState > a;
-	CStateTier< CServerDllState > b;
+	CStateTier<CServerDllState> a;
+	CStateTier<CServerDllState> b;
 	a.Begin();
 	b.Begin();
 
@@ -245,33 +241,33 @@ TEST( ServerStateTier, TwoDllTiersShareNoNetTypes )
 //-----------------------------------------------------------------------------
 TEST( ServerStateTier, ANewDllTierStartsWithNoTempEntBuiltAndRegistrationOpen )
 {
-	CStateTier< CServerDllState > dll;
+	CStateTier<CServerDllState> dll;
 	CServerDllState &first = dll.Begin();
 	EXPECT_EQ( 0, first.m_TempEnts.m_nBuilt );
 	EXPECT_FALSE( first.m_TempEnts.m_bClosed );
 	EXPECT_TRUE( first.m_TempEnts.m_Names.empty() );
-	EXPECT_EQ( nullptr, first.m_TempEnts.m_Built[ 0 ].pClassName );
+	EXPECT_EQ( nullptr, first.m_TempEnts.m_Built[0].pClassName );
 
 	// The positive arm: the first tier really registered and closed.
-	first.m_TempEnts.m_Built[ 0 ].pClassName = first.m_TempEnts.m_Names.emplace( "CTEProbe" ).first->c_str();
+	first.m_TempEnts.m_Built[0].pClassName = first.m_TempEnts.m_Names.emplace( "CTEProbe" ).first->c_str();
 	first.m_TempEnts.m_nBuilt = 1;
 	first.m_TempEnts.m_bClosed = true;
-	first.m_TempEnts.m_Scratch[ 0 ] = 0xA5;
+	first.m_TempEnts.m_Scratch[0] = 0xA5;
 
 	dll.End();
 	CServerDllState &second = dll.Begin();
 	EXPECT_EQ( 0, second.m_TempEnts.m_nBuilt ) << "a second DLL tier inherited the first's tables";
 	EXPECT_FALSE( second.m_TempEnts.m_bClosed ) << "a second DLL tier starts with registration closed";
 	EXPECT_TRUE( second.m_TempEnts.m_Names.empty() ) << "a second DLL tier inherited the first's names";
-	EXPECT_EQ( nullptr, second.m_TempEnts.m_Built[ 0 ].pClassName );
-	EXPECT_EQ( 0, second.m_TempEnts.m_Scratch[ 0 ] );
+	EXPECT_EQ( nullptr, second.m_TempEnts.m_Built[0].pClassName );
+	EXPECT_EQ( 0, second.m_TempEnts.m_Scratch[0] );
 	dll.End();
 }
 
 TEST( ServerStateTier, TwoDllTiersShareNoTempEntState )
 {
-	CStateTier< CServerDllState > a;
-	CStateTier< CServerDllState > b;
+	CStateTier<CServerDllState> a;
+	CStateTier<CServerDllState> b;
 	a.Begin();
 	b.Begin();
 

@@ -15,17 +15,17 @@
 // Debug-only record of the names handed out, case-insensitive. A std::set so this
 // file instantiates no CUtlMemory and imports no g_pMemAlloc.
 #if defined( CLIENT_DLL ) && defined( _DEBUG )
-typedef std::set< std::string, ss::CaselessLess > DataTableNames_t;
+typedef std::set<std::string, ss::CaselessLess> DataTableNames_t;
 static DataTableNames_t *g_STDict = 0;
 static DataTableNames_t *g_RTDict = 0;
 #endif
 
 #ifdef CLIENT_DLL
-char* AllocateStringHelper2( const char *pFormat, va_list marker )
+char *AllocateStringHelper2( const char *pFormat, va_list marker )
 {
 	char str[512];
 	_vsnprintf( str, sizeof( str ), pFormat, marker );
-	str[ ARRAYSIZE(str) - 1 ] = 0;
+	str[ARRAYSIZE( str ) - 1] = 0;
 
 	int len = (int)strlen( str ) + 1;
 	char *pRet = new char[len];
@@ -36,7 +36,7 @@ char* AllocateStringHelper2( const char *pFormat, va_list marker )
 #endif
 
 #ifdef CLIENT_DLL
-char* AllocateStringHelper( const char *pFormat, ... )
+char *AllocateStringHelper( const char *pFormat, ... )
 {
 	va_list marker;
 	va_start( marker, pFormat );
@@ -48,7 +48,7 @@ char* AllocateStringHelper( const char *pFormat, ... )
 #endif
 
 #ifdef CLIENT_DLL
-char* AllocateUniqueDataTableName( bool bSendTable, const char *pFormat, ... )
+char *AllocateUniqueDataTableName( bool bSendTable, const char *pFormat, ... )
 {
 	// Setup the string.
 	va_list marker;

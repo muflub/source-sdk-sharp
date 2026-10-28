@@ -9,35 +9,22 @@
 // Where the world render state managed map entities decide goes: the water LOD
 // distances and the tonemap controls. No state of its own; it lives in the
 // entities' replicated fields.
-#include <stdio.h>
-#include <stdlib.h>
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
+
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "client_entity.h"
 #include "iviewrender.h"
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/IColorCorrection.h"
-#include "mathlib/vector.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
-#include "tier1/refcount.h"
-#include "tier1/strtools.h"
-#include "fx.h"
+
 #include "shell_standalone_client.h"
 #include "sourcesharp.h"
 
 // The tonemap controls viewpostprocess.cpp held as globals; written here, read
 // by the render executor's trace note.
-bool  g_bUseCustomAutoExposureMin = false;
-bool  g_bUseCustomAutoExposureMax = false;
-bool  g_bUseCustomBloomScale = false;
+bool g_bUseCustomAutoExposureMin = false;
+bool g_bUseCustomAutoExposureMax = false;
+bool g_bUseCustomBloomScale = false;
 float g_flCustomAutoExposureMin = 0.0f;
 float g_flCustomAutoExposureMax = 0.0f;
 float g_flCustomBloomScale = 0.0f;
@@ -49,8 +36,7 @@ static bool WorldRenderCountOk( const char *pWhat, int32_t nCount, int32_t nWant
 	if ( nCount >= nWanted )
 		return true;
 
-	Warning( "[SourceSharp] ClientSetWorldRenderState(%s): %d values, wanted %d — ignored\n",
-	         pWhat, nCount, nWanted );
+	Warning( "[SourceSharp] ClientSetWorldRenderState(%s): %d values, wanted %d — ignored\n", pWhat, nCount, nWanted );
 	return false;
 }
 
@@ -64,34 +50,34 @@ void SourceSharp_ClientSetWorldRenderState( int32_t nWhich, const float *pValues
 
 	switch ( nWhich )
 	{
-	case SOURCESHARP_WORLDRENDER_WATERLOD:
-	{
-		if ( !WorldRenderCountOk( "waterlod", nCount, 2 ) )
+		case SOURCESHARP_WORLDRENDER_WATERLOD:
+		{
+			if ( !WorldRenderCountOk( "waterlod", nCount, 2 ) )
+				return;
+
+			view->SetCheapWaterStartDistance( pValues[0] );
+			view->SetCheapWaterEndDistance( pValues[1] );
 			return;
+		}
 
-		view->SetCheapWaterStartDistance( pValues[0] );
-		view->SetCheapWaterEndDistance( pValues[1] );
-		return;
-	}
+		case SOURCESHARP_WORLDRENDER_TONEMAP:
+		{
+			if ( !WorldRenderCountOk( "tonemap", nCount, 7 ) )
+				return;
 
-	case SOURCESHARP_WORLDRENDER_TONEMAP:
-	{
-		if ( !WorldRenderCountOk( "tonemap", nCount, 7 ) )
+			g_bUseCustomAutoExposureMin = ( pValues[0] != 0.0f );
+			g_bUseCustomAutoExposureMax = ( pValues[1] != 0.0f );
+			g_bUseCustomBloomScale = ( pValues[2] != 0.0f );
+			g_flCustomAutoExposureMin = pValues[3];
+			g_flCustomAutoExposureMax = pValues[4];
+			g_flCustomBloomScale = pValues[5];
+			g_flCustomBloomScaleMinimum = pValues[6];
 			return;
+		}
 
-		g_bUseCustomAutoExposureMin = ( pValues[0] != 0.0f );
-		g_bUseCustomAutoExposureMax = ( pValues[1] != 0.0f );
-		g_bUseCustomBloomScale      = ( pValues[2] != 0.0f );
-		g_flCustomAutoExposureMin   = pValues[3];
-		g_flCustomAutoExposureMax   = pValues[4];
-		g_flCustomBloomScale        = pValues[5];
-		g_flCustomBloomScaleMinimum = pValues[6];
-		return;
-	}
-
-	default:
-		Warning( "[SourceSharp] ClientSetWorldRenderState: unknown selector %d\n", nWhich );
-		return;
+		default:
+			Warning( "[SourceSharp] ClientSetWorldRenderState: unknown selector %d\n", nWhich );
+			return;
 	}
 }
 
@@ -106,7 +92,7 @@ void *SourceSharp_ColorLookupAdd( const char *pLookupFile )
 		return NULL;
 
 	// A copy: the argument is managed memory this side must not write through.
-	char szFile[ MAX_PATH ];
+	char szFile[MAX_PATH];
 	Q_strncpy( szFile, pLookupFile, sizeof( szFile ) );
 
 	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );

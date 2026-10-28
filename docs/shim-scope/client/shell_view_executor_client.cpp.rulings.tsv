@@ -1,76 +1,76 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-void SourceSharp_ViewRender(	SLOT	IBaseClientDLL::View_Render's body: asks managed which path draws the frame and whether it is recorded, and carries the answer out
-explicit WorldListKey_t(	SLOT-HELP	the list cache key: the CViewSetup fields stock's CWorldListCache compares
-inline ListInfoBase_t *ListInfo(	SLOT-HELP	the list info's refcounted base, for AddRef/Release and the leaf list
-void Begin(	SLOT-HELP	sets the view's setup and the flags managed chose
-void ShadowTextures()	BOUNDARY	the shadow manager's ComputeShadowTextures over this view's leaves
-void CPlanView::BuildWorld(	SLOT-HELP	stock's BuildWorldRenderLists with this file's world-list cache; the arguments are managed's
+void SourceSharp_ViewRender( vrect_t *rect )	SLOT	IBaseClientDLL::View_Render's body: asks managed which path draws the frame and whether it is recorded, and carries the answer out
+[WorldListKey_t] explicit WorldListKey_t( const CViewSetup &v )	SLOT-HELP	the list cache key: the CViewSetup fields stock's CWorldListCache compares
+inline ListInfoBase_t *ListInfo( PlanWorldListInfo_t *p )	SLOT-HELP	the list info's refcounted base, for AddRef/Release and the leaf list
+[CPlanView] void Begin( const CViewSetup &setup, int nDrawFlags, int nClearFlags )	SLOT-HELP	sets the view's setup and the flags managed chose
+[CPlanView] void ShadowTextures()	BOUNDARY	the shadow manager's ComputeShadowTextures over this view's leaves
+void CPlanView::BuildWorld( CUtlVector<WorldListEntry_t> &cache, bool bDrawEntities, int iForceViewLeaf, bool bUseCache, bool bShadowDepth, 	SLOT-HELP	stock's BuildWorldRenderLists with this file's world-list cache; the arguments are managed's
 ExecutorState_t &State()	SLOT-HELP	the executor's one state object
-void ToViewSetup(	LAYOUT	the plan's view struct to CViewSetup, field for field
-void FromViewSetup(	LAYOUT	CViewSetup to the plan's view struct, field for field
-void FromFog(	LAYOUT	fogparams_t to the plan's fog struct, field for field
-void ParseColor(	BOUNDARY	reads fog_color's three numbers as stock's sscanf does
-void WaterVar(	BOUNDARY	reads one water material switch
-int32_t WaterTextureVar(	BOUNDARY	reads whether a water material var is a texture
-int32_t ViewPlaneIntersectsWater(	BOUNDARY	DoesViewPlaneIntersectWater's engine query, asked up front as an input
-void GatherInputs(	BOUNDARY	RenderView's inputs: engine, material, convar and viewer reads, nothing decided
-void NoteInputs(	INSTRUMENT	writes the inputs into a recorded frame
-ITexture *Target(	BOUNDARY	the render target a managed enum names
+void ToViewSetup( const SourceSharpViewSetup_t &in, CViewSetup &out )	LAYOUT	the plan's view struct to CViewSetup, field for field
+void FromViewSetup( const CViewSetup &in, SourceSharpViewSetup_t &out )	LAYOUT	CViewSetup to the plan's view struct, field for field
+void FromFog( const fogparams_t *pFog, SourceSharpFogParams_t &out )	LAYOUT	fogparams_t to the plan's fog struct, field for field
+void ParseColor( const char *pszValue, float *pOut )	BOUNDARY	reads fog_color's three numbers as stock's sscanf does
+void WaterVar( IMaterial *pMaterial, const char *pszVar, int32_t *pDefined, int32_t *pValue )	BOUNDARY	reads one water material switch
+int32_t WaterTextureVar( IMaterial *pMaterial, const char *pszVar )	BOUNDARY	reads whether a water material var is a texture
+int32_t ViewPlaneIntersectsWater( const CViewSetup &setup, float waterZ, int leafWaterDataID )	BOUNDARY	DoesViewPlaneIntersectWater's engine query, asked up front as an input
+void GatherInputs( const CViewSetup &setup, int nClearFlags, int whatToDraw, SourceSharpRenderInputs_t &in )	BOUNDARY	RenderView's inputs: engine, material, convar and viewer reads, nothing decided
+void NoteInputs( const SourceSharpRenderInputs_t &in )	INSTRUMENT	writes the inputs into a recorded frame
+ITexture *Target( int nTarget )	BOUNDARY	the render target a managed enum names
 CPlanView *CurrentView()	SLOT-HELP	the innermost open view
 void SetClearColorToFogColor()	BOUNDARY	stock's helper: the clear colour becomes the render context's fog colour
-bool UpdateRefractIfNeededByList(	BOUNDARY	stock's refract-texture refresh for a renderable that samples it
-void DrawRenderablesInList(	BOUNDARY	draws each listed viewmodel renderable that says it draws
-void ViewModels(	BOUNDARY	the viewmodel pass, carried out with the view and the two switches managed chose
-void DrawOverlayMaterial(	BOUNDARY	a full-screen material drawn the way managed's branch names
+bool UpdateRefractIfNeededByList( CUtlVector<IClientRenderable *> &list )	BOUNDARY	stock's refract-texture refresh for a renderable that samples it
+void DrawRenderablesInList( CUtlVector<IClientRenderable *> &list, int flags )	BOUNDARY	draws each listed viewmodel renderable that says it draws
+void ViewModels( const CViewSetup &setup, bool bDrawPlayer )	BOUNDARY	the viewmodel pass, carried out with the view and the two switches managed chose
+void DrawOverlayMaterial( IMaterial *pMaterial, int nBranch, int x, int y, int w, int h )	BOUNDARY	a full-screen material drawn the way managed's branch names
 void UnderwaterOverlay()	BOUNDARY	the underwater overlay drawn the way its material declares it needs
-void HudPaint(	BOUNDARY	the HUD paint: viewport, vgui pre/paint/post
-void Upscale(	BOUNDARY	the viewport upscale copy
-void FreezeFrameDraw(	SLOT-HELP	CFreezeFrameView's material and two rectangles (the capture, the flash) at the rectangle and alpha managed chose
+void HudPaint( const CViewSetup &setup )	BOUNDARY	the HUD paint: viewport, vgui pre/paint/post
+void Upscale( const CViewSetup &setup )	BOUNDARY	the viewport upscale copy
+void FreezeFrameDraw( int x, int y, int w, int h, int nFlashAlpha )	SLOT-HELP	CFreezeFrameView's material and two rectangles (the capture, the flash) at the rectangle and alpha managed chose
 void FlushListCache()	SLOT-HELP	releases the frame's cached world lists
-void Execute(	SLOT-HELP	carries out the plan's ops, one engine call or stock primitive each, in managed's order
-bool PlanRenderView(	SLOT-HELP	RenderView through the plan: the oracle's main-view check, the inputs, managed's plan carried out
-bool PlanShadowDepthView(	SLOT	CViewRender::UpdateShadowDepthTexture's slot: in a plan frame, asks managed for the shadow-depth view's ops and runs them with the two textures it was handed; stock's otherwise
-float CvarFloat(	BOUNDARY	one convar's value by name
-void GatherViewSetUp(	BOUNDARY	SetUpViews' inputs: r_farz, r_mapextents, the viewer's fog far Z, default_fov, the client mode's viewmodel FOV
-void GatherFrame(	BOUNDARY	CViewRender::Render's inputs: engine, client mode and convar reads and the viewport adjustments on a copy, nothing decided
+void Execute( const SourceSharpRenderOp_t *pOps, int nOps )	SLOT-HELP	carries out the plan's ops, one engine call or stock primitive each, in managed's order
+bool PlanRenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw )	SLOT-HELP	RenderView through the plan: the oracle's main-view check, the inputs, managed's plan carried out
+bool PlanShadowDepthView( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView )	SLOT	CViewRender::UpdateShadowDepthTexture's slot: in a plan frame, asks managed for the shadow-depth view's ops and runs them with the two textures it was handed; stock's otherwise
+float CvarFloat( const char *pszName )	BOUNDARY	one convar's value by name
+void GatherViewSetUp( SourceSharpViewSetUpIn_t &in )	BOUNDARY	SetUpViews' inputs: r_farz, r_mapextents, the viewer's fog far Z, default_fov, the client mode's viewmodel FOV
+void GatherFrame( const vrect_t &rect, const CViewSetup &eye, SourceSharpRenderFrameIn_t &in )	BOUNDARY	CViewRender::Render's inputs: engine, client mode and convar reads and the viewport adjustments on a copy, nothing decided
 bool InstallHooks()	HOOK	overwrites the three CViewRender slots once
-void H_BuildRenderablesList(	HOOK	IClientLeafSystem::BuildRenderablesList, patched: stock's list is built, then the view's custom-draw standalones are noted for one batch (C7 item 7)
-void AfterRenderablesList(	SLOT-HELP	what follows a view's list, from managed's builder or stock's: the custom-draw standalones noted for one batch (C7 item 7) and the trace's scene
-void ExecuteOps(	SLOT-HELP	carries out the plan's ops and a view program's, one engine call or stock primitive each, in managed's order (Execute is it plus the closing of open views)
-[CPlanView] IWorldRenderList *WorldList()	SLOT-HELP	the view's world list, for the program's ops
-[CPlanView] WorldListInfo_t *WorldInfo()	SLOT-HELP	the view's world list info, for the scene gather
-[CPlanView] CClientRenderablesList *RenderList()	SLOT-HELP	the view's renderables list once built, for the scene gather
-[CPlanView] IClientRenderable *Entry(	SLOT-HELP	a scene entry's renderable, the handle managed's ops name
-[CPlanView] bool NextSection(	SLOT-HELP	the next section of managed's view program, in the order managed made them
-void NoteBytes(	INSTRUMENT	a struct's bytes as a recorded line, for the offline facts
+void H_BuildRenderablesList( IClientLeafSystem *self, const SetupRenderInfo_t &info )	HOOK	IClientLeafSystem::BuildRenderablesList, patched: stock's list is built, then the view's custom-draw standalones are noted for one batch (C7 item 7)
+void AfterRenderablesList( const SetupRenderInfo_t &info )	SLOT-HELP	what follows a view's list, from managed's builder or stock's: the custom-draw standalones noted for one batch (C7 item 7) and the trace's scene
+void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )	SLOT-HELP	carries out the plan's ops and a view program's, one engine call or stock primitive each, in managed's order (Execute is it plus the closing of open views)
+[CPlanView] IWorldRenderList *WorldList() const	SLOT-HELP	the view's world list, for the program's ops
+[CPlanView] WorldListInfo_t *WorldInfo() const	SLOT-HELP	the view's world list info, for the scene gather
+[CPlanView] CClientRenderablesList *RenderList() const	SLOT-HELP	the view's renderables list once built, for the scene gather
+[CPlanView] IClientRenderable *Entry( int e ) const	SLOT-HELP	a scene entry's renderable, the handle managed's ops name
+[CPlanView] bool NextSection( int &nStart, int &nEnd )	SLOT-HELP	the next section of managed's view program, in the order managed made them
+void NoteBytes( const char *pszHead, const char *pszBytesPrefix, const void *pData, int n )	INSTRUMENT	a struct's bytes as a recorded line, for the offline facts
 [ViewSceneBuffer_t] SourceSharpViewScene_t *Header()	LAYOUT	the scene buffer's header
 [ViewSceneBuffer_t] SourceSharpViewSceneLeaf_t *Leaves()	LAYOUT	the scene buffer's leaves
 [ViewSceneBuffer_t] SourceSharpViewSceneEntry_t *Entries()	LAYOUT	the scene buffer's entries
-void BuildViewScene(	BOUNDARY	copies a view's lists and the engine's and renderables' answers about them into SourceSharpViewScene_t for managed; decides nothing
-void ViewScene(	BOUNDARY	the one crossing per world view: hands managed the scene and keeps its draw program
-void DrawProgramEntity(	SLOT-HELP	stock's DrawOpaqueRenderable/DrawTranslucentRenderable tail with the flags managed chose: the draw inside the renderable's clip plane
-void FrameBufferForEntity(	SLOT-HELP	stock's frame-buffer refresh before a translucent sampler, the arm managed named, at the size of the render target in force
-bool RunSection(	SLOT-HELP	a list-dependent draw op runs its section of managed's view program, or stock's primitive when there is none
-void DebugQuad(	SLOT-HELP	viewdebug.cpp's overlay quad, at the rectangle, texture coordinates and material managed chose
-void DebugShowTexture(	SLOT-HELP	viewdebug.cpp's OverlayShowTexture: mat_drawTexture's texture on ___debug, at the scale managed read
-void NoteFrameEnvironment(	INSTRUMENT	writes every convar and the engine's answers into a recorded frame, by name, for the frozen facts
-void PostOp(	SLOT-HELP	viewpostprocess.cpp's render-context calls, one per post op, as managed's PostProcessPlanner asked: render targets, screen-space rectangles, material vars, the histogram's occlusion queries and stencil, the tonemap goal
-ITexture *PostTexture(	SLOT-HELP	the post ops' render targets by number: the full-frame copy and the two quarter-size targets
-void PostDumpTga(	SLOT-HELP	writes a render target's pixels to the file managed named and numbered (mat_dump_rts)
-bool RunPostProgram(	BOUNDARY	gathers what PostProcessPlanner reads at the post op (hardware answers, target sizes, viewport, the histogram read-backs, the convars by name), asks the post crossing and carries out its ops
+void BuildViewScene( ViewSceneBuffer_t &out, WorldListInfo_t *pInfo, CClientRenderablesList *pList, int nDetailFrame, IWorldRenderList *pWor	BOUNDARY	copies a view's lists and the engine's and renderables' answers about them into SourceSharpViewScene_t for managed; decides nothing
+void ViewScene( CPlanView *pView, const SourceSharpRenderOp_t &op, int nOpIndex )	BOUNDARY	the one crossing per world view: hands managed the scene and keeps its draw program
+void DrawProgramEntity( CPlanView *pView, const SourceSharpRenderOp_t &op )	SLOT-HELP	stock's DrawOpaqueRenderable/DrawTranslucentRenderable tail with the flags managed chose: the draw inside the renderable's clip plane
+void FrameBufferForEntity( const SourceSharpRenderOp_t &op )	SLOT-HELP	stock's frame-buffer refresh before a translucent sampler, the arm managed named, at the size of the render target in force
+bool RunSection( CPlanView *pView )	SLOT-HELP	a list-dependent draw op runs its section of managed's view program, or stock's primitive when there is none
+void DebugQuad( const SourceSharpRenderOp_t &op )	SLOT-HELP	viewdebug.cpp's overlay quad, at the rectangle, texture coordinates and material managed chose
+void DebugShowTexture( float flScale )	SLOT-HELP	viewdebug.cpp's OverlayShowTexture: mat_drawTexture's texture on ___debug, at the scale managed read
+void NoteFrameEnvironment()	INSTRUMENT	writes every convar and the engine's answers into a recorded frame, by name, for the frozen facts
+void PostOp( const SourceSharpRenderOp_t &op )	SLOT-HELP	viewpostprocess.cpp's render-context calls, one per post op, as managed's PostProcessPlanner asked: render targets, screen-space rectangles, material vars, the histogram's occlusion queries and stencil, the tonemap goal
+ITexture *PostTexture( int nTexture )	SLOT-HELP	the post ops' render targets by number: the full-frame copy and the two quarter-size targets
+void PostDumpTga( int nWidth, int nHeight, const char *pszName, int nIndex )	SLOT-HELP	writes a render target's pixels to the file managed named and numbered (mat_dump_rts)
+bool RunPostProgram( int nKind, const CViewSetup &setup, int x, int y, int w, int h, bool bFlashlight, bool bPostVGui )	BOUNDARY	gathers what PostProcessPlanner reads at the post op (hardware answers, target sizes, viewport, the histogram read-backs, the convars by name), asks the post crossing and carries out its ops
 [PlanWorldListInfo_t] PlanWorldListInfo_t()	LAYOUT	the engine's WorldListInfo_t, zeroed for BuildWorldLists to fill, with the pruned remap after it
 [CPlanView] ~CPlanView()	SLOT-HELP	releases the view's lists
-[CPlanView] int GetDrawFlags()	SLOT	CBase3dView::GetDrawFlags: the flags the plan gave this view, answered to view->GetDrawFlags() while it is the active renderer
+[CPlanView] int GetDrawFlags() const	SLOT	CBase3dView::GetDrawFlags: the flags the plan gave this view, answered to view->GetDrawFlags() while it is the active renderer
 [CPlanView] void ReleaseLists()	SLOT-HELP	releases the view's world list, its info and its renderables list
 void CPlanView::Prune()	SLOT-HELP	carries out the plan's water side over the engine's leaf list: the leaves the view's draw flags keep, with their remap
-void CPlanView::Renderables(	SLOT-HELP	the engine and leaf-system calls of a renderables list build, with the decisions the plan made (entities, detail, translucent, distance)
-bool SourceSharp_FrameViewDecision(	SLOT-HELP	this frame's view decision, managed's, handed to CShellViewRender::Render unchanged
-bool SourceSharp_AskViewPlanes(	BOUNDARY	GetZNear and GetZFar's answer: one ViewSetUp crossing with SetUpViews' inputs
-bool SourceSharp_RenderView(	SLOT-HELP	CShellViewRender::RenderView's plan
-bool SourceSharp_ShadowDepthView(	SLOT-HELP	CShellViewRender::UpdateShadowDepthTexture's plan
+void CPlanView::Renderables( int nViewID, bool bEntities, bool bDetail, bool bTranslucent, float flRenderDistSq )	SLOT-HELP	the engine and leaf-system calls of a renderables list build, with the decisions the plan made (entities, detail, translucent, distance)
+bool SourceSharp_FrameViewDecision( CViewSetup &eye, int &nClearFlags, int &nDrawFlags, int *pRandomClear, bool &bOverview )	SLOT-HELP	this frame's view decision, managed's, handed to CShellViewRender::Render unchanged
+bool SourceSharp_AskViewPlanes( float &flZNear, float &flZFar )	BOUNDARY	GetZNear and GetZFar's answer: one ViewSetUp crossing with SetUpViews' inputs
+bool SourceSharp_RenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw )	SLOT-HELP	CShellViewRender::RenderView's plan
+bool SourceSharp_ShadowDepthView( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView )	SLOT-HELP	CShellViewRender::UpdateShadowDepthTexture's plan
 int SourceSharp_ActiveViewDrawFlags()	SLOT-HELP	the view being drawn's flags, GetDrawFlags' answer
-bool SourceSharp_ScreenshotView(	BOUNDARY	the save-game screenshot's view, one ViewScreenshot crossing
-void SourceSharp_FreezeFrame(	SLOT-HELP	CShellViewRender::FreezeFrame into managed's freeze state, one ViewFreezeFrame crossing
+bool SourceSharp_ScreenshotView( const CViewSetup &eye, int nWidth, int nHeight, CViewSetup &out )	BOUNDARY	the save-game screenshot's view, one ViewScreenshot crossing
+void SourceSharp_FreezeFrame( float flFreezeTime )	SLOT-HELP	CShellViewRender::FreezeFrame into managed's freeze state, one ViewFreezeFrame crossing
 [CPlanView] CPlanView()	SLOT-HELP	a plan view, constructed (no longer stock's CBase3dView)
-bool SourceSharp_SetUpView(	BOUNDARY	SetUpViews' planes and FOV: one ViewSetUp crossing with SetUpViews' inputs
+bool SourceSharp_SetUpView( float &flZFar, float &flZFarViewmodel, float &flZNear, float &flZNearViewmodel, float &flFov, float &flViewModel	BOUNDARY	SetUpViews' planes and FOV: one ViewSetUp crossing with SetUpViews' inputs

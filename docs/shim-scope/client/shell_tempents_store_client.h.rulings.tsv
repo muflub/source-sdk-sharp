@@ -1,3 +1,3 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-inline bool SourceSharpTe_ReadRecvTableBlock(	LAYOUT	the shared block reader at the client row size; refuses a malformed block (input validity, no decision)
+inline bool SourceSharpTe_ReadRecvTableBlock( const void *pBlock, int32_t nBlockBytes, SourceSharpTeTableBlock_t *pOut )	LAYOUT	the shared block reader at the client row size; refuses a malformed block (input validity, no decision)

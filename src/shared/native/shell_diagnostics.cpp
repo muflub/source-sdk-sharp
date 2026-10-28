@@ -7,16 +7,7 @@
 
 // SS_REASON h  the CoreCLR host and bootstrap dispatch
 #ifdef CLIENT_DLL
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
+
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -24,35 +15,31 @@
 #include "client_entity.h"
 #endif
 #include "ss_command_line.h"
-#include "shell_diagnostics.h"
-#include "shell_diagnostics_commands.h"
+
 #include "fatal_report.h"
 #include "shell_notshipped.h"
-#include "tier1/interface.h"
+
 #ifdef CLIENT_DLL
 #else
-	#include "server_class.h"
-	#include "shell_diagnostics.h"
+#include "server_class.h"
+
 #endif
 #include "assert_stack.h"
-#include "sourcesharp.h"
+
 #include "crossings_fetch.h"
 #include "imanaged_areas.h"
 #include "imanaged_areas_client.h"
 #include "managed_convar_ref.h"
-#include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
-#include "ss_platform.h"
+
 #include "ss_string.h"
 #ifndef CLIENT_DLL
 #include "shell_factory.h"
 #endif
 
 #ifdef CLIENT_DLL
-	#define SOURCESHARP_SIDE_TAG "client"
+#define SOURCESHARP_SIDE_TAG "client"
 #else
-	#define SOURCESHARP_SIDE_TAG "server"
+#define SOURCESHARP_SIDE_TAG "server"
 #endif
 
 #if defined( SS_COVERAGE )
@@ -64,21 +51,21 @@ extern "C" void __gcov_dump();
 // 0 = errors only, 1 = startup tracing, 2 = verbose (per-call). Named per side
 // because Source rejects one ConVar registered from both DLLs.
 #ifdef CLIENT_DLL
-	#define SOURCESHARP_VERBOSE_CVAR "cl_sourcesharp_verbose"
+#define SOURCESHARP_VERBOSE_CVAR "cl_sourcesharp_verbose"
 #else
-	#define SOURCESHARP_VERBOSE_CVAR "sv_sourcesharp_verbose"
+#define SOURCESHARP_VERBOSE_CVAR "sv_sourcesharp_verbose"
 #endif
 
 // Constant-initialised, so it is valid from program start: static constructors that
 // run during dlopen reach this before ConVars are registered.
-static int  g_nVerbosity  = 1;
+static int g_nVerbosity = 1;
 static bool g_bTier0Ready = false;
 
 #ifdef CLIENT_DLL
 static void OnVerbosityChanged( IConVar *pVar, const char *pOld, float flOld );
 
 static ConVar sourcesharp_verbose( SOURCESHARP_VERBOSE_CVAR, "1", FCVAR_NONE,
-	"SourceSharp log verbosity: 0=errors, 1=startup, 2=verbose", OnVerbosityChanged );
+								   "SourceSharp log verbosity: 0=errors, 1=startup, 2=verbose", OnVerbosityChanged );
 
 static void OnVerbosityChanged( IConVar *pVar, const char *pOld, float flOld )
 {
@@ -94,7 +81,7 @@ int SourceSharp_GetVerbosity()
 void SourceSharp_MarkDiagnosticsReady()
 {
 	g_bTier0Ready = true;
-	g_nVerbosity  = sourcesharp_verbose.GetInt();
+	g_nVerbosity = sourcesharp_verbose.GetInt();
 }
 #else
 // Declared in managed code. Until it registers, the answer is g_nVerbosity's default
@@ -139,8 +126,8 @@ void SourceSharp_LogStub( const char *pWhat, bool *pbAlreadyLogged )
 		return;
 
 	*pbAlreadyLogged = true;
-	SourceSharp_DiagPrint( "[SourceSharp] STUB %s (%s) — engine called it; C# does not implement it yet\n",
-		pWhat, SOURCESHARP_SIDE_TAG );
+	SourceSharp_DiagPrint( "[SourceSharp] STUB %s (%s) — engine called it; C# does not implement it yet\n", pWhat,
+						   SOURCESHARP_SIDE_TAG );
 }
 
 void SourceSharp_Trace( const char *pWhat, const char *pDetail )
@@ -159,8 +146,7 @@ void SourceSharp_LogEntityCreate( const char *pClassName )
 	if ( SourceSharp_GetVerbosity() < 1 )
 		return;
 
-	SourceSharp_DiagPrint( "[SourceSharp] entity factory: creating '%s'\n",
-		pClassName ? pClassName : "(null)" );
+	SourceSharp_DiagPrint( "[SourceSharp] entity factory: creating '%s'\n", pClassName ? pClassName : "(null)" );
 }
 
 // One ledger per DLL. This file has no owning object, and its reachers are stock
@@ -170,11 +156,8 @@ static CShellNotShipped g_NotShipped;
 #ifdef CLIENT_DLL
 void ShellNotShipped_Warning( const char *pName, const char *pReason, int nTotal )
 {
-	SourceSharp_DiagPrint( "[SourceSharp] NOT SHIPPED (%s): %s -- %s [total %d]\n",
-		SOURCESHARP_SIDE_TAG,
-		pName   ? pName   : "(null)",
-		pReason ? pReason : "(no reason given)",
-		nTotal );
+	SourceSharp_DiagPrint( "[SourceSharp] NOT SHIPPED (%s): %s -- %s [total %d]\n", SOURCESHARP_SIDE_TAG,
+						   pName ? pName : "(null)", pReason ? pReason : "(no reason given)", nTotal );
 }
 #endif
 
@@ -193,9 +176,8 @@ static const CShellNotShipped &SourceSharp_NotShippedLedger()
 #ifdef CLIENT_DLL
 // The not-shipped ledger for the dev API: one capability per index, with its reason
 // and reach count. Returns the number of names, and the total through pOutTotal.
-int32_t SourceSharp_ClientNotShipped( int32_t iIndex, char *pOutName, int32_t nNameBytes,
-                                      char *pOutReason, int32_t nReasonBytes,
-                                      int32_t *pOutCount, int32_t *pOutTotal )
+int32_t SourceSharp_ClientNotShipped( int32_t iIndex, char *pOutName, int32_t nNameBytes, char *pOutReason,
+									  int32_t nReasonBytes, int32_t *pOutCount, int32_t *pOutTotal )
 {
 	const CShellNotShipped &ledger = SourceSharp_NotShippedLedger();
 	if ( pOutTotal )
@@ -223,8 +205,8 @@ bool SourceSharp_HltvCameraAvailable()
 	if ( engine != NULL && engine->IsHLTV() )
 	{
 		SourceSharp_NotShipped( "HLTV spectator camera",
-			"game/client/hltvcamera.cpp is not shipped (plan_entity.md 7g); "
-			"this client is watching a SourceTV broadcast and has no camera for it" );
+								"game/client/hltvcamera.cpp is not shipped (plan_entity.md 7g); "
+								"this client is watching a SourceTV broadcast and has no camera for it" );
 	}
 
 	return false;
@@ -234,7 +216,7 @@ bool SourceSharp_HltvCameraAvailable()
 void SourceSharp_LogEntityCreateFailed( const char *pClassName )
 {
 	SourceSharp_DiagPrint( "[SourceSharp] entity factory MISS: no factory registered for '%s'\n",
-		pClassName ? pClassName : "(null)" );
+						   pClassName ? pClassName : "(null)" );
 }
 
 #ifndef CLIENT_DLL
@@ -243,8 +225,7 @@ void SourceSharp_LogEntityDestroy( const char *pClassName )
 	if ( SourceSharp_GetVerbosity() < 2 )
 		return;
 
-	SourceSharp_DiagPrint( "[SourceSharp] entity factory: destroying '%s'\n",
-		pClassName ? pClassName : "(null)" );
+	SourceSharp_DiagPrint( "[SourceSharp] entity factory: destroying '%s'\n", pClassName ? pClassName : "(null)" );
 }
 #endif // !CLIENT_DLL
 
@@ -259,14 +240,22 @@ static const char *DTTypeName( int nType )
 {
 	switch ( nType )
 	{
-	case DPT_Int:        return "int";
-	case DPT_Float:      return "float";
-	case DPT_Vector:     return "vector";
-	case DPT_VectorXY:   return "vectorxy";
-	case DPT_String:     return "string";
-	case DPT_Array:      return "array";
-	case DPT_DataTable:  return "datatable";
-	default:             return "?";
+		case DPT_Int:
+			return "int";
+		case DPT_Float:
+			return "float";
+		case DPT_Vector:
+			return "vector";
+		case DPT_VectorXY:
+			return "vectorxy";
+		case DPT_String:
+			return "string";
+		case DPT_Array:
+			return "array";
+		case DPT_DataTable:
+			return "datatable";
+		default:
+			return "?";
 	}
 }
 
@@ -284,10 +273,8 @@ void SourceSharp_DumpNetworkClasses()
 		for ( ClientClass *pCur = g_pClientClassHead; pCur; pCur = pCur->m_pNext )
 		{
 			RecvTable *pTable = pCur->m_pRecvTable;
-			SourceSharp_DiagPrint( "[SourceSharp]     %s -> %s (%d prop(s))\n",
-				pCur->GetName(),
-				pTable ? pTable->GetName() : "(no recv table)",
-				pTable ? pTable->GetNumProps() : 0 );
+			SourceSharp_DiagPrint( "[SourceSharp]     %s -> %s (%d prop(s))\n", pCur->GetName(),
+								   pTable ? pTable->GetName() : "(no recv table)", pTable ? pTable->GetNumProps() : 0 );
 
 			if ( !pTable )
 				continue;
@@ -300,8 +287,8 @@ void SourceSharp_DumpNetworkClasses()
 				if ( !pProp )
 					continue;
 
-				SourceSharp_DiagPrint( "[SourceSharp]         %-28s %s\n",
-					pProp->GetName(), DTTypeName( (int)pProp->GetType() ) );
+				SourceSharp_DiagPrint( "[SourceSharp]         %-28s %s\n", pProp->GetName(),
+									   DTTypeName( (int)pProp->GetType() ) );
 			}
 		}
 	}
@@ -315,10 +302,8 @@ void SourceSharp_DumpNetworkClasses()
 		for ( ServerClass *pCur = g_pServerClassHead; pCur; pCur = pCur->m_pNext )
 		{
 			SendTable *pTable = pCur->m_pTable;
-			SourceSharp_DiagPrint( "[SourceSharp]     %s -> %s (%d prop(s))\n",
-				pCur->GetName(),
-				pTable ? pTable->GetName() : "(no send table)",
-				pTable ? pTable->GetNumProps() : 0 );
+			SourceSharp_DiagPrint( "[SourceSharp]     %s -> %s (%d prop(s))\n", pCur->GetName(),
+								   pTable ? pTable->GetName() : "(no send table)", pTable ? pTable->GetNumProps() : 0 );
 
 			if ( !pTable )
 				continue;
@@ -331,8 +316,8 @@ void SourceSharp_DumpNetworkClasses()
 				if ( !pProp )
 					continue;
 
-				SourceSharp_DiagPrint( "[SourceSharp]         %-28s %s offset=%d\n",
-					pProp->GetName(), DTTypeName( (int)pProp->GetType() ), pProp->GetOffset() );
+				SourceSharp_DiagPrint( "[SourceSharp]         %-28s %s offset=%d\n", pProp->GetName(),
+									   DTTypeName( (int)pProp->GetType() ), pProp->GetOffset() );
 			}
 		}
 	}
@@ -347,16 +332,14 @@ void SourceSharp_DumpExportedInterfaces()
 	for ( InterfaceReg *pReg = InterfaceReg::s_pInterfaceRegs; pReg; pReg = pReg->m_pNext )
 		nCount++;
 
-	SourceSharp_DiagPrint( "[SourceSharp] %s.so exports %d interface(s):\n",
-		SOURCESHARP_SIDE_TAG, nCount );
+	SourceSharp_DiagPrint( "[SourceSharp] %s.so exports %d interface(s):\n", SOURCESHARP_SIDE_TAG, nCount );
 
 	for ( InterfaceReg *pReg = InterfaceReg::s_pInterfaceRegs; pReg; pReg = pReg->m_pNext )
 		SourceSharp_DiagPrint( "[SourceSharp]     %s\n", pReg->m_pName );
 #else
 	// server.so's factory is a table (shell_factory.cpp), not a registry.
 	const int nCount = SourceSharp_ExposedCount();
-	SourceSharp_DiagPrint( "[SourceSharp] %s.so exports %d interface(s):\n",
-		SOURCESHARP_SIDE_TAG, nCount );
+	SourceSharp_DiagPrint( "[SourceSharp] %s.so exports %d interface(s):\n", SOURCESHARP_SIDE_TAG, nCount );
 
 	for ( int i = 0; i < nCount; i++ )
 		SourceSharp_DiagPrint( "[SourceSharp]     %s\n", SourceSharp_ExposedAt( i ).m_pszVersion );
@@ -370,10 +353,13 @@ void SourceSharp_DumpExportedInterfaces()
 static SpewOutputFunc_t g_pPreviousSpewFunc = NULL;
 
 // Deep enough for the frame loop plus a render path plus the leaf.
-enum { kAssertStackDepth = 48 };
+enum
+{
+	kAssertStackDepth = 48
+};
 
 // Set by the assertstack self-test around its own deliberate assert.
-#define SOURCESHARP_ASSERTSTACK_FORCE    "SOURCESHARP_ASSERTSTACK_FORCE"
+#define SOURCESHARP_ASSERTSTACK_FORCE "SOURCESHARP_ASSERTSTACK_FORCE"
 
 static bool g_bDemoteAsserts = false;
 
@@ -420,29 +406,26 @@ static void SourceSharp_EchoOurs( SpewType_t spewType, const tchar *pMsg )
 	if ( !pMsg )
 		return;
 
-	const bool bOurs  = ( strncmp( pMsg, "[SourceSharp", 12 ) == 0 );
+	const bool bOurs = ( strncmp( pMsg, "[SourceSharp", 12 ) == 0 );
 
 	// SPEW_ERROR is fatal, so it is echoed whatever its prefix.
 	const bool bFatal = ( spewType == SPEW_ERROR );
 
-	if ( !SourceSharp_SpewShouldEcho( g_bEchoOurs, SourceSharp_AssertStackWriting(),
-	                                  bOurs, bFatal ) )
+	if ( !SourceSharp_SpewShouldEcho( g_bEchoOurs, SourceSharp_AssertStackWriting(), bOurs, bFatal ) )
 		return;
 
-	FILE *pStream = ( spewType == SPEW_WARNING || spewType == SPEW_ERROR
-	                  || spewType == SPEW_ASSERT ) ? stderr : stdout;
+	FILE *pStream = ( spewType == SPEW_WARNING || spewType == SPEW_ERROR || spewType == SPEW_ASSERT ) ? stderr : stdout;
 
 	if ( !bOurs )
 		fputs( "[SourceSharp] FATAL SPEW from outside this DLL follows; the "
-		       "engine answers SPEW_ERROR with Sys_Error and does not return:\n",
-		       pStream );
+			   "engine answers SPEW_ERROR with Sys_Error and does not return:\n",
+			   pStream );
 
 	fputs( pMsg, pStream );
 	fflush( pStream );
 
 	// And who called it: the line alone names the assert, never the caller.
-	if ( SourceSharp_FatalSpewShouldWriteStack( bFatal, g_bFatalSpewStackWritten,
-	                                            SourceSharp_AssertStackWriting() ) )
+	if ( SourceSharp_FatalSpewShouldWriteStack( bFatal, g_bFatalSpewStackWritten, SourceSharp_AssertStackWriting() ) )
 	{
 		g_bFatalSpewStackWritten = true;
 		SourceSharp_WriteFatalSpewStack( pMsg );
@@ -458,8 +441,7 @@ static SpewRetval_t SourceSharp_LoggingSpewFunc( SpewType_t spewType, const tcha
 
 	// tier0 shows the assert dialog only when this returns SPEW_DEBUGGER, so the dialog
 	// is prevented by never returning it for an assert.
-	if ( SourceSharp_AssertShouldBeFatal( spewType == SPEW_ASSERT, /*bFatal=*/true,
-	                                     g_bDemoteAsserts, bDeliberate ) )
+	if ( SourceSharp_AssertShouldBeFatal( spewType == SPEW_ASSERT, /*bFatal=*/true, g_bDemoteAsserts, bDeliberate ) )
 	{
 		++g_nAssertsLogged;
 
@@ -483,8 +465,8 @@ static SpewRetval_t SourceSharp_LoggingSpewFunc( SpewType_t spewType, const tcha
 		// And straight to stderr, not through the echo: an engine assert lacks our
 		// prefix, and the echo is claimed by one DLL while the assert usually fires
 		// in the other.
-		fprintf( stderr, "[SourceSharp] ASSERT #%d (demoted by -assertlog): %s",
-		         g_nAssertsLogged, pMsg ? pMsg : "(no message)\n" );
+		fprintf( stderr, "[SourceSharp] ASSERT #%d (demoted by -assertlog): %s", g_nAssertsLogged,
+				 pMsg ? pMsg : "(no message)\n" );
 		fflush( stderr );
 
 		return SPEW_CONTINUE;
@@ -502,13 +484,13 @@ static SourceSharpAssertStackSeen_t g_AssertStackSeen;
 
 // Results are published in the environment because the hook is claimed per process
 // while the self-test is registered per DLL.
-#define SOURCESHARP_ASSERTSTACK_REPORTS  "SOURCESHARP_ASSERTSTACK_REPORTS"
-#define SOURCESHARP_ASSERTSTACK_FRAMES   "SOURCESHARP_ASSERTSTACK_FRAMES"
+#define SOURCESHARP_ASSERTSTACK_REPORTS "SOURCESHARP_ASSERTSTACK_REPORTS"
+#define SOURCESHARP_ASSERTSTACK_FRAMES "SOURCESHARP_ASSERTSTACK_FRAMES"
 #define SOURCESHARP_ASSERTSTACK_RESOLVED "SOURCESHARP_ASSERTSTACK_RESOLVED"
 
 static void SourceSharp_AssertStackPublish( const char *pchName, long long llValue )
 {
-	char szValue[ 32 ];
+	char szValue[32];
 	snprintf( szValue, sizeof( szValue ), "%lld", llValue );
 	SS_SetEnv( pchName, szValue, 1 );
 }
@@ -535,41 +517,35 @@ static void SourceSharp_AssertStackEmit( const char *pchLine )
 
 // Writes resolved frames in the one format addr2line takes. nEmitted counts lines
 // written and nResolved those carrying a module and offset.
-static void SourceSharp_EmitFrames( void *const *pFrames, int nFrames,
-                                    int *pnEmitted, int *pnResolved )
+static void SourceSharp_EmitFrames( void *const *pFrames, int nFrames, int *pnEmitted, int *pnResolved )
 {
 	for ( int i = 0; i < nFrames; ++i )
 	{
 		SSModuleInfo info;
 
 		// FormatFrameLine reserves the newline, so a long frame cannot run into the next.
-		char szFrame[ 1024 ];
+		char szFrame[1024];
 
-		if ( SS_ModuleOfAddress( pFrames[ i ], &info ) && info.szPath[ 0 ]
-		     && (unsigned long long)(size_t)pFrames[ i ]
-		        >= (unsigned long long)(size_t)info.pBase )
+		if ( SS_ModuleOfAddress( pFrames[i], &info ) && info.szPath[0] &&
+			 (unsigned long long)(size_t)pFrames[i] >= (unsigned long long)(size_t)info.pBase )
 		{
-			SourceSharpAssertStack_FormatFrameLine( szFrame, sizeof( szFrame ), i,
-				info.szPath,
-				(unsigned long long)(size_t)info.pBase,
-				(unsigned long long)(size_t)pFrames[ i ],
-				info.pszSymbol );
+			SourceSharpAssertStack_FormatFrameLine( szFrame, sizeof( szFrame ), i, info.szPath,
+													(unsigned long long)(size_t)info.pBase,
+													(unsigned long long)(size_t)pFrames[i], info.pszSymbol );
 
 			if ( pnResolved )
-				++(*pnResolved);
+				++( *pnResolved );
 		}
 		else
 		{
-			SourceSharpAssertStack_FormatFrameLine( szFrame, sizeof( szFrame ), i,
-				NULL, 0,
-				(unsigned long long)(size_t)pFrames[ i ],
-				NULL );
+			SourceSharpAssertStack_FormatFrameLine( szFrame, sizeof( szFrame ), i, NULL, 0,
+													(unsigned long long)(size_t)pFrames[i], NULL );
 		}
 
 		SourceSharp_AssertStackEmit( szFrame );
 
 		if ( pnEmitted )
-			++(*pnEmitted);
+			++( *pnEmitted );
 	}
 }
 
@@ -577,17 +553,17 @@ static void SourceSharp_EmitFrames( void *const *pFrames, int nFrames,
 // is nothing to bury and no switch could be set in advance.
 static void SourceSharp_WriteFatalSpewStack( const char *pMsg )
 {
-	void *pFrames[ kAssertStackDepth ];
+	void *pFrames[kAssertStackDepth];
 	const int nFrames = SS_Backtrace( pFrames, kAssertStackDepth );
 
 	// One report: the echo must not repeat it on stderr.
 	SourceSharp_AssertStackSetWriting( true );
 
-	char szLine[ 1024 ];
+	char szLine[1024];
 	snprintf( szLine, sizeof( szLine ),
-	          "\n[SourceSharp] FATAL SPEW STACK -- the engine will not return "
-	          "from this. The message was: %s",
-	          pMsg ? pMsg : "(none)\n" );
+			  "\n[SourceSharp] FATAL SPEW STACK -- the engine will not return "
+			  "from this. The message was: %s",
+			  pMsg ? pMsg : "(none)\n" );
 	SourceSharp_AssertStackEmit( szLine );
 
 	int nEmitted = 0;
@@ -595,20 +571,20 @@ static void SourceSharp_WriteFatalSpewStack( const char *pMsg )
 	SourceSharp_EmitFrames( pFrames, nFrames, &nEmitted, &nResolved );
 
 	snprintf( szLine, sizeof( szLine ),
-	          "[SourceSharp] FATAL SPEW STACK -- %d frames, %d resolved; "
-	          "addr2line -e <module> -f -i -C <offset>\n", nEmitted, nResolved );
+			  "[SourceSharp] FATAL SPEW STACK -- %d frames, %d resolved; "
+			  "addr2line -e <module> -f -i -C <offset>\n",
+			  nEmitted, nResolved );
 	SourceSharp_AssertStackEmit( szLine );
 
 	SourceSharp_AssertStackSetWriting( false );
 }
 
-static void SourceSharp_AssertStackNotify( const char *pchFile, int nLine,
-                                           const char *pchMessage )
+static void SourceSharp_AssertStackNotify( const char *pchFile, int nLine, const char *pchMessage )
 {
 	if ( !g_bAssertStacks )
 		return;
 
-	void *pFrames[ kAssertStackDepth ];
+	void *pFrames[kAssertStackDepth];
 	const int nFrames = SS_Backtrace( pFrames, kAssertStackDepth );
 
 	// A report's identity is the assert plus its immediate callers (assert_stack.h).
@@ -616,19 +592,17 @@ static void SourceSharp_AssertStackNotify( const char *pchFile, int nLine,
 	const bool bForced = ( getenv( SOURCESHARP_ASSERTSTACK_FORCE ) != NULL );
 
 	bool bFirstOverflow = false;
-	const SourceSharpAssertStackKey_t ulKey =
-		SourceSharpAssertStack_Key( pchFile, nLine, pFrames, nFrames );
+	const SourceSharpAssertStackKey_t ulKey = SourceSharpAssertStack_Key( pchFile, nLine, pFrames, nFrames );
 
-	if ( !bForced
-	     && !SourceSharpAssertStack_ShouldReport( &g_AssertStackSeen, ulKey, &bFirstOverflow ) )
+	if ( !bForced && !SourceSharpAssertStack_ShouldReport( &g_AssertStackSeen, ulKey, &bFirstOverflow ) )
 	{
 		if ( bFirstOverflow )
 		{
-			char szFull[ 256 ];
+			char szFull[256];
 			snprintf( szFull, sizeof( szFull ),
-			          "[SourceSharp] -assertstack: %d distinct reports seen; "
-			          "no more stacks will be printed\n",
-			          kSourceSharpAssertStackMaxSeen );
+					  "[SourceSharp] -assertstack: %d distinct reports seen; "
+					  "no more stacks will be printed\n",
+					  kSourceSharpAssertStackMaxSeen );
 
 			SourceSharp_AssertStackSetWriting( true );
 			SourceSharp_AssertStackEmit( szFull );
@@ -640,11 +614,10 @@ static void SourceSharp_AssertStackNotify( const char *pchFile, int nLine,
 	// One report: the echo must not repeat it on stderr.
 	SourceSharp_AssertStackSetWriting( true );
 
-	char szLine[ 1024 ];
+	char szLine[1024];
 
-	snprintf( szLine, sizeof( szLine ), "\n[SourceSharp] -assertstack: %s (%d) : %s\n",
-	          pchFile ? pchFile : "??", nLine,
-	          pchMessage ? pchMessage : "(no message)" );
+	snprintf( szLine, sizeof( szLine ), "\n[SourceSharp] -assertstack: %s (%d) : %s\n", pchFile ? pchFile : "??", nLine,
+			  pchMessage ? pchMessage : "(no message)" );
 	SourceSharp_AssertStackEmit( szLine );
 
 	int nEmitted = 0;
@@ -652,8 +625,7 @@ static void SourceSharp_AssertStackNotify( const char *pchFile, int nLine,
 
 	SourceSharp_EmitFrames( pFrames, nFrames, &nEmitted, &nResolved );
 
-	SourceSharp_AssertStackEmit(
-		"[SourceSharp] -assertstack: addr2line -e <module> -f -i -C <offset>\n" );
+	SourceSharp_AssertStackEmit( "[SourceSharp] -assertstack: addr2line -e <module> -f -i -C <offset>\n" );
 
 	SourceSharp_AssertStackSetWriting( false );
 
@@ -661,7 +633,7 @@ static void SourceSharp_AssertStackNotify( const char *pchFile, int nLine,
 	SourceSharp_AssertStackPublish( SOURCESHARP_ASSERTSTACK_FRAMES, nEmitted );
 	SourceSharp_AssertStackPublish( SOURCESHARP_ASSERTSTACK_RESOLVED, nResolved );
 	SourceSharp_AssertStackPublish( SOURCESHARP_ASSERTSTACK_REPORTS,
-		SourceSharp_AssertStackRead( SOURCESHARP_ASSERTSTACK_REPORTS ) + 1 );
+									SourceSharp_AssertStackRead( SOURCESHARP_ASSERTSTACK_REPORTS ) + 1 );
 	fflush( stderr );
 }
 
@@ -706,7 +678,7 @@ void SourceSharp_InstallAssertLogging()
 		Msg( "[SourceSharp] -assertlog: assertions will be logged and NOT stop the game\n" );
 	else
 		Msg( "[SourceSharp] assertions are FATAL: logged, flushed, then the process stops. "
-		     "Pass -assertlog to survey them instead.\n" );
+			 "Pass -assertlog to survey them instead.\n" );
 }
 
 // The not-shipped ledger readout. Zero is the expected reading. The ledger is per DLL,
@@ -716,20 +688,19 @@ void SourceSharp_PrintNotShipped()
 {
 	const CShellNotShipped &led = SourceSharp_NotShippedLedger();
 
-	Msg( "[SourceSharp] not-shipped ledger (%s): %d reach(es) across %d name(s)\n",
-	     SOURCESHARP_SIDE_TAG, led.Total(), led.NameCount() );
+	Msg( "[SourceSharp] not-shipped ledger (%s): %d reach(es) across %d name(s)\n", SOURCESHARP_SIDE_TAG, led.Total(),
+		 led.NameCount() );
 
 	for ( int i = 0; i < led.NameCount(); i++ )
 	{
-		Msg( "[SourceSharp]   %-40s %6d  %s\n",
-		     led.NameAt( i ), led.CountAt( i ),
-		     led.ReasonAt( i ) ? led.ReasonAt( i ) : "" );
+		Msg( "[SourceSharp]   %-40s %6d  %s\n", led.NameAt( i ), led.CountAt( i ),
+			 led.ReasonAt( i ) ? led.ReasonAt( i ) : "" );
 	}
 
 	if ( led.Total() == 0 )
 	{
 		Msg( "[SourceSharp]   none -- nothing reached a capability or interface "
-		     "this build declares it does not ship\n" );
+			 "this build declares it does not ship\n" );
 	}
 
 	int nRows = 0;
@@ -738,12 +709,11 @@ void SourceSharp_PrintNotShipped()
 	Msg( "[SourceSharp]   %d interface name(s) declared not shipped:\n", nRows );
 
 	for ( int i = 0; i < nRows; i++ )
-		Msg( "[SourceSharp]     %s\n", pRows[ i ].pszName );
+		Msg( "[SourceSharp]     %s\n", pRows[i].pszName );
 }
 
 #ifdef CLIENT_DLL
-CON_COMMAND( cs_cl_notshipped,
-	"SourceSharp: what reached a path this client build does not ship." )
+CON_COMMAND( cs_cl_notshipped, "SourceSharp: what reached a path this client build does not ship." )
 {
 	SourceSharp_PrintNotShipped();
 }
@@ -776,8 +746,7 @@ void SourceSharp_PrintCrossings( bool bReset )
 #endif
 
 	char *pReport = NULL;
-	const SourceSharpCrossingsStatus status =
-		SourceSharp_FetchCrossingsReport( pFn, bReset, &pReport );
+	const SourceSharpCrossingsStatus status = SourceSharp_FetchCrossingsReport( pFn, bReset, &pReport );
 
 	if ( status != SOURCESHARP_CROSSINGS_OK )
 	{
@@ -796,8 +765,8 @@ void SourceSharp_PrintCrossings( bool bReset )
 
 #ifdef CLIENT_DLL
 CON_COMMAND( cs_cl_crossings,
-             "Print the managed<->native ABI crossing counts. "
-             "Pass 'reset' to print the interval and start a new one." )
+			 "Print the managed<->native ABI crossing counts. "
+			 "Pass 'reset' to print the interval and start a new one." )
 {
 	SourceSharp_PrintCrossings( args.ArgC() > 1 && ss::StrICmp( args.Arg( 1 ), "reset" ) == 0 );
 }

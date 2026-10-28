@@ -46,10 +46,14 @@ namespace
 // distinct addresses. Never dereferenced — IHandleEntity is incomplete in this
 // binary, which is exactly why the rule can be checked without one.
 //-----------------------------------------------------------------------------
-const IHandleEntity *const kWorld = reinterpret_cast< const IHandleEntity * >( 0x1000 );
-const IHandleEntity *const kCrate = reinterpret_cast< const IHandleEntity * >( 0x2000 );
+const IHandleEntity *const kWorld = reinterpret_cast<const IHandleEntity *>( 0x1000 );
+const IHandleEntity *const kCrate = reinterpret_cast<const IHandleEntity *>( 0x2000 );
 
-struct File_t { const char *pszRel; const char *pszAnchor; };
+struct File_t
+{
+	const char *pszRel;
+	const char *pszAnchor;
+};
 
 } // namespace
 

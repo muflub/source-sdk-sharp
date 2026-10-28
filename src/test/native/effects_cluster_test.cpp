@@ -142,10 +142,10 @@ TEST( EffectsCluster, TheFourEvictedTusAreOutOfTheServerBuild )
 		"game/shared/effect_dispatch_data.cpp",
 	};
 
-	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[0] ); i++ )
 	{
-		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, kGone[ i ] ) )
-			<< kGone[ i ] << " is back in the server build. Step 4a took it out; "
+		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, kGone[i] ) )
+			<< kGone[i] << " is back in the server build. Step 4a took it out; "
 			<< "if it is needed again, the question to ask is which object "
 			<< "started referencing it (tools/4a-owes).";
 	}
@@ -187,18 +187,14 @@ TEST( EffectsCluster, TheFlipTookEveryHeldTuAndEveryHolder )
 {
 	// The three held TUs, and the three holders that went with them.
 	static const char *const kGone[] = {
-		"game/server/EntityDissolve.cpp",
-		"game/server/RagdollBoogie.cpp",
-		"game/server/damagemodifier.cpp",
-		"game/server/baseanimating.cpp",
-		"game/server/physics_prop_ragdoll.cpp",
-		"game/server/baseentity.cpp",
+		"game/server/EntityDissolve.cpp", "game/server/RagdollBoogie.cpp",        "game/server/damagemodifier.cpp",
+		"game/server/baseanimating.cpp",  "game/server/physics_prop_ragdoll.cpp", "game/server/baseentity.cpp",
 	};
 
-	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[0] ); i++ )
 	{
-		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, kGone[ i ] ) )
-			<< kGone[ i ] << " is back in the server build. The flip took it out "
+		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, kGone[i] ) )
+			<< kGone[i] << " is back in the server build. The flip took it out "
 			<< "with the rest of the entity hierarchy; a TU of that hierarchy "
 			<< "compiling again is not a small change, and the 4a holder "
 			<< "reasoning in the header above becomes live with it.";

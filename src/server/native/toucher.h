@@ -10,7 +10,7 @@
 #pragma once
 
 #include "basehandle.h"
-#include "ihandleentity.h"
+
 #include "igameentity.h"
 #include "shell_resolve.h"
 
@@ -28,10 +28,7 @@ struct Toucher_t
 
 	// Both hierarchies share one handle table, so this one value names either. Not an
 	// EHANDLE, whose Get() would cast an entity of the other kind to the wrong type.
-	CBaseHandle GetRefEHandle() const
-	{
-		return pHandle ? pHandle->GetRefEHandle() : CBaseHandle();
-	}
+	CBaseHandle GetRefEHandle() const { return pHandle ? pHandle->GetRefEHandle() : CBaseHandle(); }
 };
 
 // The toucher behind an edict, partition element or trace result.

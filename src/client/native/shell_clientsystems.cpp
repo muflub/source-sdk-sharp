@@ -11,16 +11,12 @@
 // order is stock's observed runtime order: the systems CHLClient::Init added by
 // hand first, then the auto-registered ones in reverse construction order.
 
-#include "datacache/imdlcache.h"
 #include "detailobjectsystem.h"
 #include "clienteffectprecachesystem.h"
-#include "tier0/commonmacros.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
+
 #include "cdll_client_int.h"
-#include "cdll_int.h"
+
 #include "shell_clientsystem.h"
-#include "igamesystem.h"
 
 // Stock's IGameSystem keys its vtable on this destructor. client.so keeps no
 // system list of its own, so the body is empty.
@@ -59,18 +55,29 @@ CClientEffectPrecacheSystem *ClientEffectPrecacheSystem();
 // The leaf system is libss_fwd_client's object, built without RTTI, so its row
 // is an adapter the per-frame walks can dynamic_cast.
 CClientSystem *ClientLeafSystemGameSystem();
-static CClientSystem *ClientLeafGameSystem()          { return ClientLeafSystemGameSystem(); }
+
+static CClientSystem *ClientLeafGameSystem()
+{
+	return ClientLeafSystemGameSystem();
+}
+
 static CClientSystem *DetailObjectGameSystem()
 {
-	static CGameSystemRow< IDetailObjectSystem > s_Row( DetailObjectSystem() );
+	static CGameSystemRow<IDetailObjectSystem> s_Row( DetailObjectSystem() );
 	return &s_Row;
 }
+
 // The shadow manager's row is shell_shadows_client.cpp's adapter over the managed manager.
 CClientSystem *ClientShadowMgrGameSystem();
-static CClientSystem *ClientShadowGameSystem()        { return ClientShadowMgrGameSystem(); }
+
+static CClientSystem *ClientShadowGameSystem()
+{
+	return ClientShadowMgrGameSystem();
+}
+
 static CClientSystem *ClientEffectPrecacheGameSystem()
 {
-	static CGameSystemRow< CClientEffectPrecacheSystem > s_Row( ClientEffectPrecacheSystem() );
+	static CGameSystemRow<CClientEffectPrecacheSystem> s_Row( ClientEffectPrecacheSystem() );
 	return &s_Row;
 }
 
@@ -80,10 +87,10 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )
 	if ( pszOut == NULL || nOutBytes <= 0 )
 		return "";
 
-	pszOut[ 0 ] = 0;
+	pszOut[0] = 0;
 
 	const char *pszLevel = engine ? engine->GetLevelName() : NULL;
-	if ( pszLevel == NULL || pszLevel[ 0 ] == 0 )
+	if ( pszLevel == NULL || pszLevel[0] == 0 )
 		return pszOut;
 
 	V_FileBase( pszLevel, pszOut, nOutBytes );
@@ -124,40 +131,39 @@ struct ClientSystemRow_t
 	CClientSystem *( *m_pfnSystem )();
 };
 
-static const ClientSystemRow_t kClientSystems[] =
-{
+static const ClientSystemRow_t kClientSystems[] = {
 	// Stock's hand-added systems, in CHLClient::Init's order.
-	{ "CGameStringPool",                    GameStringSystem },
-	{ "CSoundEmitterSystem",                ClientSystem_SoundEmitter },
+	{ "CGameStringPool", GameStringSystem },
+	{ "CSoundEmitterSystem", ClientSystem_SoundEmitter },
 
 	// "Client Leaf System has to be initialized first, since DetailObjectSystem
 	// uses it" (stock): it must precede DetailObjectSystem.
-	{ "CClientLeafSystem",                  ClientLeafGameSystem },
-	{ "CDetailObjectSystem",                DetailObjectGameSystem },
+	{ "CClientLeafSystem", ClientLeafGameSystem },
+	{ "CDetailObjectSystem", DetailObjectGameSystem },
 
-	{ "CViewportClientSystem",              ClientSystem_ManagedViewport },
-	{ "CClientEffectPrecacheSystem",        ClientEffectPrecacheGameSystem },
-	{ "CClientShadowMgr",                   ClientShadowGameSystem },
+	{ "CViewportClientSystem", ClientSystem_ManagedViewport },
+	{ "CClientEffectPrecacheSystem", ClientEffectPrecacheGameSystem },
+	{ "CClientShadowMgr", ClientShadowGameSystem },
 
-	{ "C_SoundscapeSystem",                 ClientSoundscapeSystem },
+	{ "C_SoundscapeSystem", ClientSoundscapeSystem },
 
 	// The auto-registered systems, in stock's runtime order.
 	{ "CSourceSharpStandaloneClientSystem", ClientSystem_StandaloneClient },
-	{ "CGlowOverlaySystem",                 ClientSystem_ManagedGlowOverlay },
-	{ "CDecalEmitterSystem",                ClientSystem_DecalEmitter },
-	{ "CDirtySpatialPartitionEntityList",   ClientSystem_DirtySpatialPartition },
-	{ "CBulletWhizTimer",                   ClientSystem_BulletWhizTimer },
-	{ "CPixelVisibilitySystem",             ClientSystem_ManagedPixelVisibility },
-	{ "CSourceSharpSpriteSystem",           ClientSystem_Sprite },
-	{ "CSourceSharpWorldTextSystem",        ClientSystem_WorldText },
-	{ "CSourceSharpRopeSystem",             ClientSystem_Rope },
+	{ "CGlowOverlaySystem", ClientSystem_ManagedGlowOverlay },
+	{ "CDecalEmitterSystem", ClientSystem_DecalEmitter },
+	{ "CDirtySpatialPartitionEntityList", ClientSystem_DirtySpatialPartition },
+	{ "CBulletWhizTimer", ClientSystem_BulletWhizTimer },
+	{ "CPixelVisibilitySystem", ClientSystem_ManagedPixelVisibility },
+	{ "CSourceSharpSpriteSystem", ClientSystem_Sprite },
+	{ "CSourceSharpWorldTextSystem", ClientSystem_WorldText },
+	{ "CSourceSharpRopeSystem", ClientSystem_Rope },
 	{ "CSourceSharpManagedParticlesSystem", ClientSystem_ManagedParticles },
 	{ "CSourceSharpStandaloneInterpSystem", ClientSystem_StandaloneInterp },
 
 	// The managed frame. The CLR is already up from CHLClient::Init.
-	{ "SourceSharp",                        ClientSystem_SourceSharpManaged },
+	{ "SourceSharp", ClientSystem_SourceSharpManaged },
 
-	{ "CPhysicsSystem",                     ClientSystem_Physics },
+	{ "CPhysicsSystem", ClientSystem_Physics },
 };
 
 static const int kClientSystemCount = ARRAYSIZE( kClientSystems );
@@ -171,7 +177,7 @@ static void WalkForward( ClientSystemStage_t fn )
 	{
 		MDLCACHE_CRITICAL_SECTION();
 
-		CClientSystem *pSys = kClientSystems[ i ].m_pfnSystem();
+		CClientSystem *pSys = kClientSystems[i].m_pfnSystem();
 		( pSys->*fn )();
 	}
 }
@@ -182,7 +188,7 @@ static void WalkBackward( ClientSystemStage_t fn )
 	{
 		MDLCACHE_CRITICAL_SECTION();
 
-		CClientSystem *pSys = kClientSystems[ i ].m_pfnSystem();
+		CClientSystem *pSys = kClientSystems[i].m_pfnSystem();
 		( pSys->*fn )();
 	}
 }
@@ -193,8 +199,7 @@ static void WalkForwardPerFrame( ClientSystemFrameStage_t fn )
 {
 	for ( int i = 0; i < kClientSystemCount; i++ )
 	{
-		CClientSystemPerFrame *pSys =
-			dynamic_cast< CClientSystemPerFrame * >( kClientSystems[ i ].m_pfnSystem() );
+		CClientSystemPerFrame *pSys = dynamic_cast<CClientSystemPerFrame *>( kClientSystems[i].m_pfnSystem() );
 
 		if ( pSys == NULL )
 			continue;
@@ -211,12 +216,13 @@ bool SourceSharp_ClientSystemsInit()
 	{
 		MDLCACHE_CRITICAL_SECTION();
 
-		CClientSystem *pSys = kClientSystems[ i ].m_pfnSystem();
+		CClientSystem *pSys = kClientSystems[i].m_pfnSystem();
 
 		if ( !pSys->Init() )
 		{
 			Warning( "[SourceSharp] client system '%s' refused to init; the client "
-			         "cannot come up without it\n", kClientSystems[ i ].m_pszName );
+					 "cannot come up without it\n",
+					 kClientSystems[i].m_pszName );
 			return false;
 		}
 	}
@@ -264,8 +270,7 @@ void SourceSharp_ClientSystemsUpdate( float frametime )
 {
 	for ( int i = 0; i < kClientSystemCount; i++ )
 	{
-		CClientSystemPerFrame *pSys =
-			dynamic_cast< CClientSystemPerFrame * >( kClientSystems[ i ].m_pfnSystem() );
+		CClientSystemPerFrame *pSys = dynamic_cast<CClientSystemPerFrame *>( kClientSystems[i].m_pfnSystem() );
 
 		if ( pSys == NULL )
 			continue;

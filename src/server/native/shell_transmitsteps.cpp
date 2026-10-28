@@ -11,13 +11,11 @@
 // hierarchies are asked is in C# (ServerSkyboxAreaForClient); the per-edict loop stays
 // native.
 
-#include "edict.h"
 #include "eiface.h"
 
 extern IVEngineServer *engine;
 extern CGlobalVars *gpGlobals;
 #include "eiface.h"
-#include "edict.h"
 
 #include "shell_standalone_player.h"
 

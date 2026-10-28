@@ -25,13 +25,19 @@ class FakeRoot : public IManagedRoot
 {
 public:
 	explicit FakeRoot( const uint32_t *pHashes, int32_t nHashes )
-		: IManagedRoot( &kTable ), m_pHashes( pHashes ), m_nHashes( nHashes ) {}
+		: IManagedRoot( &kTable )
+		, m_pHashes( pHashes )
+		, m_nHashes( nHashes )
+	{
+	}
 
 	int m_nCalls = 0;
 
 private:
-	static FakeRoot *Of( void *self ) { return static_cast< FakeRoot * >( self ); }
+	static FakeRoot *Of( void *self ) { return static_cast<FakeRoot *>( self ); }
+
 	static void Released( IManagedObject * ) {}
+
 	static void *Acquired( IManagedRoot *, const char * ) { return NULL; }
 
 	static int32_t Validated( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots )
@@ -43,7 +49,7 @@ private:
 		const int32_t nShared = nSlots < root->m_nHashes ? nSlots : root->m_nHashes;
 		for ( int32_t i = 0; i < nShared; ++i )
 		{
-			if ( pSlotHashes[ i ] != root->m_pHashes[ i ] )
+			if ( pSlotHashes[i] != root->m_pHashes[i] )
 				return i;
 		}
 		return nSlots == root->m_nHashes ? -1 : nShared;
@@ -73,21 +79,25 @@ TEST( ManagedAccept, TheTablePutsReleaseThenValidateFirst )
 TEST( ManagedAccept, MatchingHashesAreAccepted )
 {
 	FakeRoot root( kIManagedRootSlotHashes, kIManagedRootSlotCount );
-	char why[ 128 ] = "unchanged";
-	EXPECT_EQ( &root, ManagedAccept< IManagedRoot >( &root, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) ) );
+	char why[128] = "unchanged";
+	EXPECT_EQ(
+		&root,
+		ManagedAccept<IManagedRoot>( &root, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) ) );
 	EXPECT_STREQ( "", why );
 	EXPECT_EQ( 1, root.m_nCalls );
 }
 
 TEST( ManagedAccept, ARetypedSlotIsRefusedNamingIt )
 {
-	uint32_t built[ 3 ];
+	uint32_t built[3];
 	memcpy( built, kIManagedRootSlotHashes, sizeof( built ) );
-	built[ 2 ] ^= 1;
+	built[2] ^= 1;
 	FakeRoot root( built, 3 );
 
-	char why[ 160 ] = {};
-	EXPECT_EQ( nullptr, ManagedAccept< IManagedRoot >( &root, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) ) );
+	char why[160] = {};
+	EXPECT_EQ(
+		nullptr,
+		ManagedAccept<IManagedRoot>( &root, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) ) );
 	EXPECT_NE( nullptr, strstr( why, "managed's slot 2 differs" ) ) << why;
 	EXPECT_NE( nullptr, strstr( why, "3 slot(s) compiled" ) ) << why;
 }
@@ -95,32 +105,39 @@ TEST( ManagedAccept, ARetypedSlotIsRefusedNamingIt )
 TEST( ManagedAccept, AManagedTableShortByOneIsRefused )
 {
 	FakeRoot root( kIManagedRootSlotHashes, kIManagedRootSlotCount - 1 );
-	char why[ 160 ] = {};
-	EXPECT_EQ( nullptr, ManagedAccept< IManagedRoot >( &root, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) ) );
+	char why[160] = {};
+	EXPECT_EQ(
+		nullptr,
+		ManagedAccept<IManagedRoot>( &root, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) ) );
 	EXPECT_NE( nullptr, strstr( why, "managed's slot 2 differs" ) ) << why;
 }
 
 TEST( ManagedAccept, AManagedTableLongByOneIsRefused )
 {
-	const uint32_t built[] = { kIManagedRootSlotHashes[ 0 ], kIManagedRootSlotHashes[ 1 ], kIManagedRootSlotHashes[ 2 ], 0x1234 };
+	const uint32_t built[] = { kIManagedRootSlotHashes[0], kIManagedRootSlotHashes[1], kIManagedRootSlotHashes[2],
+							   0x1234 };
 	FakeRoot root( built, 4 );
-	char why[ 160 ] = {};
-	EXPECT_EQ( nullptr, ManagedAccept< IManagedRoot >( &root, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) ) );
+	char why[160] = {};
+	EXPECT_EQ(
+		nullptr,
+		ManagedAccept<IManagedRoot>( &root, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) ) );
 	EXPECT_NE( nullptr, strstr( why, "managed's slot 3 differs" ) ) << why;
 }
 
 TEST( ManagedAccept, ANullObjectIsRefusedWithoutACall )
 {
-	char why[ 128 ] = {};
-	EXPECT_EQ( nullptr, ManagedAccept< IManagedRoot >( nullptr, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) ) );
+	char why[128] = {};
+	EXPECT_EQ(
+		nullptr,
+		ManagedAccept<IManagedRoot>( nullptr, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) ) );
 	EXPECT_NE( nullptr, strstr( why, "no object" ) ) << why;
 }
 
 TEST( ManagedAccept, NoCompiledHashesIsRefusedWithoutAskingTheObject )
 {
 	FakeRoot root( kIManagedRootSlotHashes, kIManagedRootSlotCount );
-	char why[ 128 ] = {};
-	EXPECT_EQ( nullptr, ManagedAccept< IManagedRoot >( &root, nullptr, 0, why, sizeof( why ) ) );
+	char why[128] = {};
+	EXPECT_EQ( nullptr, ManagedAccept<IManagedRoot>( &root, nullptr, 0, why, sizeof( why ) ) );
 	EXPECT_NE( nullptr, strstr( why, "no compiled slot hashes" ) ) << why;
 	EXPECT_EQ( 0, root.m_nCalls );
 }
@@ -136,7 +153,10 @@ namespace
 class ReleaseProbe : public IManagedRoot
 {
 public:
-	ReleaseProbe() : IManagedRoot( &kTable ) {}
+	ReleaseProbe()
+		: IManagedRoot( &kTable )
+	{
+	}
 
 	IManagedRoot **m_ppHolder = NULL;
 	int m_nReleases = 0;
@@ -145,11 +165,13 @@ public:
 private:
 	static void Released( IManagedObject *self )
 	{
-		ReleaseProbe *probe = static_cast< ReleaseProbe * >( self );
+		ReleaseProbe *probe = static_cast<ReleaseProbe *>( self );
 		++probe->m_nReleases;
 		probe->m_bHolderWasNullAtRelease = probe->m_ppHolder && *probe->m_ppHolder == NULL;
 	}
+
 	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return -1; }
+
 	static void *Acquired( IManagedRoot *, const char * ) { return NULL; }
 
 	static const SSManagedRootTable kTable;
@@ -161,21 +183,22 @@ const SSManagedRootTable ReleaseProbe::kTable = { &Released, &Validated, &Acquir
 
 TEST( ManagedAccept, EveryGeneratedInterfaceSharesTheBasesTwoSlots )
 {
-	static_assert( std::is_base_of< IManagedObject, IManagedRoot >::value, "the root derives from the base" );
+	static_assert( std::is_base_of<IManagedObject, IManagedRoot>::value, "the root derives from the base" );
 	EXPECT_EQ( 0 * sizeof( void * ), offsetof( SSManagedObjectTable, Release ) );
 	EXPECT_EQ( 1 * sizeof( void * ), offsetof( SSManagedObjectTable, Validate ) );
 	// No virtual anywhere: the object is the table pointer and nothing else,
 	// the first word of the block managed builds.
-	static_assert( !std::is_polymorphic< IManagedRoot >::value, "a managed-built interface has no vtable" );
+	static_assert( !std::is_polymorphic<IManagedRoot>::value, "a managed-built interface has no vtable" );
 	EXPECT_EQ( sizeof( void * ), sizeof( IManagedRoot ) );
 }
 
 TEST( ManagedAccept, TheBaseAcceptAnswersTheSameObject )
 {
 	FakeRoot root( kIManagedRootSlotHashes, kIManagedRootSlotCount );
-	char why[ 128 ] = "unchanged";
-	IManagedObject *pObject = ManagedAcceptObject( &root, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) );
-	EXPECT_EQ( static_cast< IManagedObject * >( &root ), pObject );
+	char why[128] = "unchanged";
+	IManagedObject *pObject =
+		ManagedAcceptObject( &root, kIManagedRootSlotHashes, kIManagedRootSlotCount, why, sizeof( why ) );
+	EXPECT_EQ( static_cast<IManagedObject *>( &root ), pObject );
 	EXPECT_EQ( (void *)&root, (void *)pObject ) << "the base is not at offset 0";
 	EXPECT_EQ( 1, root.m_nCalls );
 }
@@ -240,9 +263,9 @@ TEST( ManagedHolders, EveryHolderAloneMakesTheSetNonEmpty )
 	for ( size_t i = 0; i < nWords; ++i )
 	{
 		CManagedHolders holders = {};
-		void *pWords[ sizeof( CManagedHolders ) / sizeof( void * ) ];
+		void *pWords[sizeof( CManagedHolders ) / sizeof( void * )];
 		memcpy( pWords, &holders, sizeof( holders ) );
-		pWords[ i ] = &holders;
+		pWords[i] = &holders;
 		memcpy( &holders, pWords, sizeof( holders ) );
 
 		EXPECT_FALSE( ManagedHolders_Empty( holders ) ) << "word " << i << " is not checked";
@@ -328,9 +351,10 @@ TEST( ManagedAccept, EachMethodCallsItsOwnSlotWithTheObjectAndItsArguments )
 
 	// And the base's two, through the base, on the same table.
 	IManagedObject *pObject = &area;
-	EXPECT_EQ( kIManagedSoundEntSlotCount, pObject->Validate( kIManagedSoundEntSlotHashes, kIManagedSoundEntSlotCount ) );
+	EXPECT_EQ( kIManagedSoundEntSlotCount,
+			   pObject->Validate( kIManagedSoundEntSlotHashes, kIManagedSoundEntSlotCount ) );
 	EXPECT_EQ( 1, g_SoundEnt.nSlot );
 	pObject->Release();
 	EXPECT_EQ( 0, g_SoundEnt.nSlot );
-	EXPECT_EQ( static_cast< void * >( &area ), g_SoundEnt.pSelf );
+	EXPECT_EQ( static_cast<void *>( &area ), g_SoundEnt.pSelf );
 }

@@ -5,7 +5,7 @@
 6	SLOT	[CShellViewRender] void LevelShutdown() override
 6	SLOT	[CShellViewRender] void Shutdown() override
 1	SLOT	[CShellViewRender] void OnRenderStart() override
-7	SLOT	[CShellViewRender] void RenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw ) override
+8	SLOT	[CShellViewRender] void RenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw ) override
 1	SLOT	[CShellViewRender] int GetDrawFlags() override
 1	SLOT	[CShellViewRender] void StartPitchDrift() override
 1	SLOT	[CShellViewRender] void StopPitchDrift() override
@@ -20,14 +20,14 @@
 1	SLOT-HELP	[CShellViewRender] void IncWorldListsNumber()
 1	SLOT-HELP	[CShellViewRender] void IncRenderablesListsNumber()
 1	SLOT-HELP	[CShellViewRender] int RenderablesListsNumber() const
-4	SLOT	[CShellViewRender] void SetCheapWaterStartDistance( float flDistance ) override
-4	SLOT	[CShellViewRender] void SetCheapWaterEndDistance( float flDistance ) override
+1	SLOT	[CShellViewRender] void SetCheapWaterStartDistance( float flDistance ) override
+1	SLOT	[CShellViewRender] void SetCheapWaterEndDistance( float flDistance ) override
 5	SLOT	[CShellViewRender] void GetWaterLODParams( float &flStart, float &flEnd ) override
 7	SLOT	[CShellViewRender] void DriftPitch() override
 7	SLOT	[CShellViewRender] void SetScreenOverlayMaterial( IMaterial *pMaterial ) override
 1	SLOT	[CShellViewRender] IMaterial *GetScreenOverlayMaterial() override
 6	SLOT-HELP	[CShellViewRender] void ReleaseScreenOverlay()
-1	SLOT	[CShellViewRender] void WriteSaveGameScreenshot( const char *pFilename ) override
+4	SLOT	[CShellViewRender] void WriteSaveGameScreenshot( const char *pFilename ) override
 6	SLOT	[CShellViewRender] void WriteReplayScreenshot( WriteReplayScreenshotParams_t &params ) override
 1	SLOT	[CShellViewRender] void UpdateReplayScreenshotCache() override
 5	SLOT	[CShellViewRender] void QueueOverlayRenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw ) override
@@ -36,19 +36,19 @@
 13	SLOT	[CShellViewRender] void GetScreenFadeDistances( float *pMin, float *pMax ) override
 1	SLOT	[CShellViewRender] IGameEntity *GetCurrentlyDrawingEntity() override
 1	SLOT	[CShellViewRender] void SetCurrentlyDrawingEntity( IGameEntity *pEntity ) override
-4	SLOT	[CShellViewRender] bool UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView ) override
+5	SLOT	[CShellViewRender] bool UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView ) override
 1	SLOT	[CShellViewRender] void FreezeFrame( float flFreezeTime ) override
 1	SLOT	[CShellViewRender] IReplayScreenshotSystem *GetReplayScreenshotSystem() override
-46	SLOT	void CShellViewRender::Render( vrect_t *rect )
-36	SLOT	void CShellViewRender::WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded,
+47	SLOT	void CShellViewRender::Render( vrect_t *rect )
+37	SLOT	void CShellViewRender::WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded, bool bWriteV
 18	SLOT-HELP	void DemoCamera( Vector &origin, QAngle &angles )
-35	SLOT	void CShellViewRender::SetUpViews()
+36	SLOT	void CShellViewRender::SetUpViews()
 17	SLOT-HELP	void ShellView_ComputeCamera( const Vector &vecOrigin, const QAngle &angles, ShellCamera_t &out )
 6	SLOT-HELP	void ShellView_SetMainView( const Vector &vecOrigin, const QAngle &angles )
 4	SLOT-HELP	const ShellCamera_t &ShellView_Main()
 4	SLOT-HELP	const Vector &ShellView_PrevMainOrigin()
 4	SLOT-HELP	const QAngle &ShellView_PrevMainAngles()
-14	SLOT-HELP	void ShellView_SetupCurrentView( const Vector &vecOrigin, const QAngle &angles, int nViewID, bool bEffects )
+15	SLOT-HELP	void ShellView_SetupCurrentView( const Vector &vecOrigin, const QAngle &angles, int nViewID, bool bEffects )
 4	SLOT-HELP	void ShellView_FinishCurrentView()
 4	SLOT-HELP	void ShellView_AllowCurrentViewAccess( bool bAllow )
 4	SLOT-HELP	bool ShellView_CurrentViewAccessAllowed()
@@ -60,26 +60,26 @@
 4	SLOT-HELP	void ShellViewRender_IncRenderablesListsNumber()
 4	SLOT-HELP	int ShellViewRender_RenderablesListsNumber()
 4	SLOT-HELP	IViewRender *ShellViewRender()
-1	SLOT-HELP	const Vector &MainViewOrigin()
-1	SLOT-HELP	const QAngle &MainViewAngles()
-1	SLOT-HELP	const Vector &MainViewForward()
-1	SLOT-HELP	const Vector &MainViewRight()
-1	SLOT-HELP	const Vector &MainViewUp()
-1	SLOT-HELP	const VMatrix &MainWorldToViewMatrix()
-1	SLOT-HELP	const Vector &PrevMainViewOrigin()
-1	SLOT-HELP	const QAngle &PrevMainViewAngles()
-1	SLOT-HELP	const Vector &CurrentViewOrigin()
-1	SLOT-HELP	const QAngle &CurrentViewAngles()
-1	SLOT-HELP	const Vector &CurrentViewForward()
-1	SLOT-HELP	const Vector &CurrentViewRight()
-1	SLOT-HELP	const Vector &CurrentViewUp()
-1	SLOT-HELP	const VMatrix &CurrentWorldToViewMatrix()
-1	SLOT-HELP	view_id_t CurrentViewID()
-1	SLOT-HELP	bool DrawingShadowDepthView()
+4	SLOT-HELP	const Vector &MainViewOrigin()
+4	SLOT-HELP	const QAngle &MainViewAngles()
+4	SLOT-HELP	const Vector &MainViewForward()
+4	SLOT-HELP	const Vector &MainViewRight()
+4	SLOT-HELP	const Vector &MainViewUp()
+4	SLOT-HELP	const VMatrix &MainWorldToViewMatrix()
+4	SLOT-HELP	const Vector &PrevMainViewOrigin()
+4	SLOT-HELP	const QAngle &PrevMainViewAngles()
+5	SLOT-HELP	const Vector &CurrentViewOrigin()
+5	SLOT-HELP	const QAngle &CurrentViewAngles()
+5	SLOT-HELP	const Vector &CurrentViewForward()
+5	SLOT-HELP	const Vector &CurrentViewRight()
+5	SLOT-HELP	const Vector &CurrentViewUp()
+5	SLOT-HELP	const VMatrix &CurrentWorldToViewMatrix()
+4	SLOT-HELP	view_id_t CurrentViewID()
+4	SLOT-HELP	bool DrawingShadowDepthView()
 4	SLOT-HELP	void SetupCurrentView( const Vector &vecOrigin, const QAngle &angles, view_id_t viewID )
-1	SLOT-HELP	void FinishCurrentView()
-1	SLOT-HELP	void AllowCurrentViewAccess( bool allow )
-1	SLOT-HELP	bool IsCurrentViewAccessAllowed()
+4	SLOT-HELP	void FinishCurrentView()
+4	SLOT-HELP	void AllowCurrentViewAccess( bool allow )
+4	SLOT-HELP	bool IsCurrentViewAccessAllowed()
 9	BOUNDARY	bool R_CullSphere( VPlane const *pPlanes, int nPlanes, Vector const *pCenter, float radius )
 4	BOUNDARY	static void SoftwareCursorChanged( IConVar *pVar, const char *pOldValue, float flOldValue )
 8	BOUNDARY	static void ViewPosition( const CCommand &args, Vector &vecOrigin, QAngle &angles, bool &bPlayer )
@@ -87,7 +87,7 @@
 9	BOUNDARY	CON_COMMAND( getpos, "" )
 4	SLOT-HELP	static void CenterView()
 15	BOUNDARY	static void CheapWaterCommand( const CCommand &args, bool bStart )
-1	BOUNDARY	CON_COMMAND( r_cheapwaterstart, "" )
-1	BOUNDARY	CON_COMMAND( r_cheapwaterend, "" )
+4	BOUNDARY	CON_COMMAND( r_cheapwaterstart, "" )
+4	BOUNDARY	CON_COMMAND( r_cheapwaterend, "" )
 17	BOUNDARY	CON_COMMAND_F( r_screenoverlay, "", FCVAR_CHEAT | FCVAR_SERVER_CAN_EXECUTE )
 7	BOUNDARY	[CPostProcessingPrecache] void Cache( bool bPrecache ) override

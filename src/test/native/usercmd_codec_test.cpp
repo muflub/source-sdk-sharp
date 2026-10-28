@@ -34,4 +34,3 @@ TEST( UserCmdCodec, NoDllCompilesAUsercmdCpp )
 		EXPECT_FALSE( cmake_graph::Compiles( pszTarget, "game/shared/usercmd.cpp" ) ) << pszTarget;
 	}
 }
-

@@ -18,7 +18,9 @@ class CManagedConVarRef
 {
 public:
 	explicit CManagedConVarRef( const char *pName )
-		: m_pName( pName ), m_Ref( (IConVar *)NULL ), m_bResolved( false )
+		: m_pName( pName )
+		, m_Ref( (IConVar *)NULL )
+		, m_bResolved( false )
 	{
 		// Not resolved here: construction at DLL load precedes managed registration.
 	}
@@ -28,24 +30,29 @@ public:
 
 	bool GetBool() const { return GetInt() != 0; }
 
-	int GetInt() const
+	int GetInt() const { return Resolve() ? m_Ref.GetInt() : 0; }
+
+	float GetFloat() const { return Resolve() ? m_Ref.GetFloat() : 0.0f; }
+
+	const char *GetString() const { return Resolve() ? m_Ref.GetString() : ""; }
+
+	void SetValue( int nValue )
 	{
-		return Resolve() ? m_Ref.GetInt() : 0;
+		if ( Resolve() )
+			m_Ref.SetValue( nValue );
 	}
 
-	float GetFloat() const
+	void SetValue( float flValue )
 	{
-		return Resolve() ? m_Ref.GetFloat() : 0.0f;
+		if ( Resolve() )
+			m_Ref.SetValue( flValue );
 	}
 
-	const char *GetString() const
+	void SetValue( const char *pV )
 	{
-		return Resolve() ? m_Ref.GetString() : "";
+		if ( Resolve() )
+			m_Ref.SetValue( pV );
 	}
-
-	void SetValue( int nValue )     { if ( Resolve() ) m_Ref.SetValue( nValue ); }
-	void SetValue( float flValue )  { if ( Resolve() ) m_Ref.SetValue( flValue ); }
-	void SetValue( const char *pV ) { if ( Resolve() ) m_Ref.SetValue( pV ); }
 
 	const char *GetName() const { return m_pName; }
 
@@ -65,7 +72,7 @@ private:
 		return true;
 	}
 
-	const char        *m_pName;
-	mutable ConVarRef  m_Ref;
-	mutable bool       m_bResolved;
+	const char *m_pName;
+	mutable ConVarRef m_Ref;
+	mutable bool m_bResolved;
 };

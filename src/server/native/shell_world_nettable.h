@@ -11,8 +11,6 @@
 
 #pragma once
 
-
-
 class ServerClass;
 
 // Where the world's blob sits inside a CWorld, and its length. The offset is

@@ -61,10 +61,10 @@
 // than reached for, because this binary deliberately links no engine — and each
 // is checked against its own header below, so no copy can drift into asserting
 // agreement with itself.
-#define MAX_EDICT_BITS           11
-#define EF_MAX_BITS              10
+#define MAX_EDICT_BITS 11
+#define EF_MAX_BITS 10
 #define NOINTERP_PARITY_MAX_BITS 2
-#define ARRAYSIZE( p ) ( (int)( sizeof( p ) / sizeof( (p)[0] ) ) )
+#define ARRAYSIZE( p ) ( (int)( sizeof( p ) / sizeof( ( p )[0] ) ) )
 
 #include "../game/shared/standalone_nettable.h"
 
@@ -85,22 +85,20 @@ TEST( TeleportDiscontinuity, TheWireCarriesTheInterpolationFrame )
 		   "there are. Both sides subscript the array by the enum, so the two "
 		   "shells would build props for different fields.";
 
-	EXPECT_STREQ( "m_ubInterpolationFrame",
-	              pFields[ STANDALONE_NET_FIELD_INTERPFRAME ].pName )
+	EXPECT_STREQ( "m_ubInterpolationFrame", pFields[STANDALONE_NET_FIELD_INTERPFRAME].pName )
 		<< "the enum's INTERPFRAME index does not name the discontinuity "
 		   "counter. An offset written at this index would be applied to "
 		   "whatever prop is here, and the block word the wire wrote into "
 		   "would be somebody else's.";
 
-	EXPECT_EQ( STANDALONE_NET_INT, pFields[ STANDALONE_NET_FIELD_INTERPFRAME ].kind );
+	EXPECT_EQ( STANDALONE_NET_INT, pFields[STANDALONE_NET_FIELD_INTERPFRAME].kind );
 
 	// NOINTERP_PARITY_MAX_BITS, exactly as stock sends m_ubInterpolationFrame
 	// (baseentity.cpp:320). Two bits carry the four values the counter wraps
 	// through; a ONE-bit field would make every second teleport invisible,
 	// which is the failure this mechanism exists to avoid and which no test
 	// that only ever teleports once would notice.
-	EXPECT_EQ( NOINTERP_PARITY_MAX_BITS,
-	           pFields[ STANDALONE_NET_FIELD_INTERPFRAME ].nBits );
+	EXPECT_EQ( NOINTERP_PARITY_MAX_BITS, pFields[STANDALONE_NET_FIELD_INTERPFRAME].nBits );
 }
 
 TEST( TeleportDiscontinuity, EveryEnumIndexStillNamesItsOwnField )
@@ -111,14 +109,14 @@ TEST( TeleportDiscontinuity, EveryEnumIndexStillNamesItsOwnField )
 	const StandaloneNetField_t *pFields = StandaloneNetFields( &nCount );
 	ASSERT_EQ( STANDALONE_NET_FIELD_COUNT, nCount );
 
-	EXPECT_STREQ( "m_vecOrigin",            pFields[ STANDALONE_NET_FIELD_ORIGIN ].pName );
-	EXPECT_STREQ( "m_angRotation",          pFields[ STANDALONE_NET_FIELD_ANGLES ].pName );
-	EXPECT_STREQ( "m_nModelIndex",          pFields[ STANDALONE_NET_FIELD_MODELINDEX ].pName );
-	EXPECT_STREQ( "m_fEffects",             pFields[ STANDALONE_NET_FIELD_EFFECTS ].pName );
-	EXPECT_STREQ( "m_ubInterpolationFrame", pFields[ STANDALONE_NET_FIELD_INTERPFRAME ].pName );
-	EXPECT_STREQ( "m_nTypeId",              pFields[ STANDALONE_NET_FIELD_TYPEID ].pName );
-	EXPECT_STREQ( "m_nSchemaHash",          pFields[ STANDALONE_NET_FIELD_SCHEMAHASH ].pName );
-	EXPECT_STREQ( "m_nPayloadWords",        pFields[ STANDALONE_NET_FIELD_PAYLOADWORDS ].pName );
+	EXPECT_STREQ( "m_vecOrigin", pFields[STANDALONE_NET_FIELD_ORIGIN].pName );
+	EXPECT_STREQ( "m_angRotation", pFields[STANDALONE_NET_FIELD_ANGLES].pName );
+	EXPECT_STREQ( "m_nModelIndex", pFields[STANDALONE_NET_FIELD_MODELINDEX].pName );
+	EXPECT_STREQ( "m_fEffects", pFields[STANDALONE_NET_FIELD_EFFECTS].pName );
+	EXPECT_STREQ( "m_ubInterpolationFrame", pFields[STANDALONE_NET_FIELD_INTERPFRAME].pName );
+	EXPECT_STREQ( "m_nTypeId", pFields[STANDALONE_NET_FIELD_TYPEID].pName );
+	EXPECT_STREQ( "m_nSchemaHash", pFields[STANDALONE_NET_FIELD_SCHEMAHASH].pName );
+	EXPECT_STREQ( "m_nPayloadWords", pFields[STANDALONE_NET_FIELD_PAYLOADWORDS].pName );
 }
 
 //=============================================================================//
@@ -133,4 +131,4 @@ TEST( TeleportDiscontinuity, EveryEnumIndexStillNamesItsOwnField )
 // THE LEDGER ROW, INVERTED.
 //=============================================================================//
 
-}  // namespace
+} // namespace

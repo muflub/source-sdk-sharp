@@ -1,5 +1,5 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-SourceSharpRecvPropRow_t SourceSharpTe_RecvBlockRow(	LAYOUT	one row copied out of the unaligned block a managed plan crosses in
-RecvVarProxyFn SourceSharpTe_RecvVarProxy(	SLOT-HELP	a proxy id as the standard recv proxy the engine calls through m_ProxyFn and compares with g_StandardRecvProxies; managed cannot hand native a function of its own
-bool SourceSharpTe_StoreRecvProp(	LAYOUT	a RecvPropPlan row stored into a RecvProp the engine walks by layout; no decision
+SourceSharpRecvPropRow_t SourceSharpTe_RecvBlockRow( const SourceSharpTeTableBlock_t &block, int i )	LAYOUT	one row copied out of the unaligned block a managed plan crosses in
+RecvVarProxyFn SourceSharpTe_RecvVarProxy( int32_t nProxy )	SLOT-HELP	a proxy id as the standard recv proxy the engine calls through m_ProxyFn and compares with g_StandardRecvProxies; managed cannot hand native a function of its own
+bool SourceSharpTe_StoreRecvProp( const SourceSharpRecvPropRow_t &row, const char *pName, RecvTable *pNested, RecvProp *pOut )	LAYOUT	a RecvPropPlan row stored into a RecvProp the engine walks by layout; no decision

@@ -73,9 +73,10 @@ namespace
 // client_csharp.vpc. The readers throw on a missing, empty or stale input, so
 // an empty list can no longer answer "not named" for free; each absence below
 // is still paired with a proof-of-read, the side's own shell entry point.
-typedef std::set< std::string > SourceList_t;
+typedef std::set<std::string> SourceList_t;
 
 const char *const kServerProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
+
 SourceList_t ServerList()
 {
 	return cmake_graph::CompiledSources( cmake_graph::kServer );
@@ -107,8 +108,8 @@ TEST( ServerWave1, TheFourShadowedFilesAreOutOfTheServerList )
 {
 	const SourceList_t list = ServerList();
 	ASSERT_TRUE( list.count( kServerProofOfRead ) )
-		<< "server_sourcesharp (src/server/native/CMakeLists.txt) does not compile "
-		<< kServerProofOfRead << " -- the reader is not reading the server's list";
+		<< "server_sourcesharp (src/server/native/CMakeLists.txt) does not compile " << kServerProofOfRead
+		<< " -- the reader is not reading the server's list";
 
 	EXPECT_FALSE( Names( list, "weapon_parse.cpp" ) )
 		<< "weapon_parse.cpp is back in the server list. It had ZERO consumers "
@@ -144,19 +145,18 @@ TEST( ServerWave1, NothingLeftOnTheServerConstructsACEnvWindShared )
 {
 	const SourceList_t list = ServerList();
 	ASSERT_TRUE( list.count( kServerProofOfRead ) )
-		<< "server_sourcesharp (src/server/native/CMakeLists.txt) does not compile "
-		<< kServerProofOfRead << " -- the reader is not reading the server's list";
+		<< "server_sourcesharp (src/server/native/CMakeLists.txt) does not compile " << kServerProofOfRead
+		<< " -- the reader is not reading the server's list";
 
 	// s_windControllers is fed from CEnvWindShared's constructor. The only
 	// server-side construction was CEnvWind, in effects.cpp. That file being
 	// out of the build is the whole safety argument for deleting the reset,
 	// and it is a fact about a file this lane does not own.
-	EXPECT_FALSE( Names( list, "effects.cpp" ) )
-		<< "effects.cpp is back in the server build. It holds CEnvWind, which "
-		<< "embeds a CEnvWindShared -- so s_windControllers is no longer "
-		<< "guaranteed empty and removing the level start's ResetWindspeed() "
-		<< "call has become a behaviour change. Re-decide rather than leaving "
-		<< "this test green by editing it.";
+	EXPECT_FALSE( Names( list, "effects.cpp" ) ) << "effects.cpp is back in the server build. It holds CEnvWind, which "
+												 << "embeds a CEnvWindShared -- so s_windControllers is no longer "
+												 << "guaranteed empty and removing the level start's ResetWindspeed() "
+												 << "call has become a behaviour change. Re-decide rather than leaving "
+												 << "this test green by editing it.";
 }
 
 //-----------------------------------------------------------------------------

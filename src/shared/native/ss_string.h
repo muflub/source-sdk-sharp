@@ -17,7 +17,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include "ss_platform.h"	// SS_GetCwd, for MakeAbsolutePath
+#include "ss_platform.h" // SS_GetCwd, for MakeAbsolutePath
 
 #if defined( __GNUC__ ) || defined( __clang__ )
 #define SS_STRING_PRINTF( fmt, args ) __attribute__( ( format( printf, fmt, args ) ) )
@@ -64,7 +64,7 @@ inline char *StrAppend( char *dst, const char *src, size_t dstSize, int maxChars
 	if ( maxChars > kCopyAll && (size_t)maxChars < srcLen )
 		take = (size_t)maxChars;
 	if ( have + take >= dstSize )
-		take = dstSize - have - 1;	// wraps when have >= dstSize; the test below refuses it
+		take = dstSize - have - 1; // wraps when have >= dstSize; the test below refuses it
 	if ( (int)take <= 0 )
 		return dst;
 	// strncat( dst, src, take ), said directly for the same gcc reason.
@@ -87,6 +87,7 @@ inline int FormatV( char *dst, int dstSize, const char *fmt, va_list args )
 }
 
 inline int Format( char *dst, int dstSize, const char *fmt, ... ) SS_STRING_PRINTF( 3, 4 );
+
 inline int Format( char *dst, int dstSize, const char *fmt, ... )
 {
 	va_list args;
@@ -144,15 +145,15 @@ inline const char *StrIStr( const char *haystack, const char *needle )
 		if ( AsciiLower( (unsigned char)*start ) != first )
 			continue;
 		size_t i = 1;
-		while ( needle[i] && start[i]
-			&& AsciiLower( (unsigned char)start[i] ) == AsciiLower( (unsigned char)needle[i] ) )
+		while ( needle[i] && start[i] &&
+				AsciiLower( (unsigned char)start[i] ) == AsciiLower( (unsigned char)needle[i] ) )
 		{
 			++i;
 		}
 		if ( !needle[i] )
 			return start;
 		if ( !start[i] )
-			return nullptr;	// the rest of the haystack is shorter than the needle
+			return nullptr; // the rest of the haystack is shorter than the needle
 	}
 	return nullptr;
 }
@@ -173,7 +174,7 @@ inline int64_t AtoI64( const char *s )
 		++s;
 	}
 
-	uint64_t value = 0;	// unsigned so that an over-long run wraps instead of being undefined
+	uint64_t value = 0; // unsigned so that an over-long run wraps instead of being undefined
 	if ( s[0] == '0' && ( s[1] == 'x' || s[1] == 'X' ) )
 	{
 		for ( s += 2;; ++s )
@@ -236,8 +237,8 @@ inline float AtoF( const char *s )
 	if ( s[0] == '\'' )
 		return (float)( sign * s[1] );
 
-	int digits = 0;			// digits read, before and after the point
-	int pointAt = -1;		// how many had been read when the '.' came
+	int digits = 0; // digits read, before and after the point
+	int pointAt = -1; // how many had been read when the '.' came
 	int exponent = 0;
 	for ( ;; )
 	{
@@ -344,7 +345,7 @@ inline void FileBase( const char *in, char *out, int outSize )
 
 	const int len = (int)std::strlen( in );
 
-	int last = len - 1;		// last character of the base
+	int last = len - 1; // last character of the base
 	while ( last > 0 && in[last] != '.' && !IsPathSeparator( in[last] ) )
 		--last;
 	if ( in[last] == '.' )
@@ -352,7 +353,7 @@ inline void FileBase( const char *in, char *out, int outSize )
 	else
 		last = len - 1;
 
-	int first = len - 1;	// first character of the base
+	int first = len - 1; // first character of the base
 	while ( first >= 0 && !IsPathSeparator( in[first] ) )
 		--first;
 	++first;
@@ -479,18 +480,21 @@ inline char *StrUpper( char *s )
 // place and answers the new length.
 inline int StrTrim( char *s )
 {
-	auto space = []( char c ) { return c == ' ' || ( c >= '\t' && c <= '\r' ); };
+	auto space = []( char c )
+	{
+		return c == ' ' || ( c >= '\t' && c <= '\r' );
+	};
 	const char *from = s;
 	while ( *from && space( *from ) )
 		++from;
-	int len = 0, kept = 0;	// kept: the length up to the last non-space
+	int len = 0, kept = 0; // kept: the length up to the last non-space
 	for ( ; *from; ++from )
 	{
 		s[len++] = *from;
 		if ( !space( *from ) )
 			kept = len;
 	}
-	s[len] = '\0';		// the copy is terminated, then cut at the trailing space
+	s[len] = '\0'; // the copy is terminated, then cut at the trailing space
 	s[kept] = '\0';
 	return kept;
 }
@@ -641,7 +645,7 @@ inline bool RemoveDotSlashes( char *s, char sep = '/' )
 			if ( s[0] == '.' && s[1] == sep )
 			{
 				removeAt( 0, 2 );
-				--i;	// look at the new first character again
+				--i; // look at the new first character again
 			}
 		}
 		else if ( s[i - 1] != '.' && s[i] == '.' && s[i + 1] == sep )
@@ -661,8 +665,7 @@ inline bool RemoveDotSlashes( char *s, char sep = '/' )
 
 	for ( char *p = s; *p; )
 	{
-		const bool dotdot = p[0] == '.' && p[1] == '.' && ( p == s || p[-1] == sep ) &&
-		                    ( p[2] == '\0' || p[2] == sep );
+		const bool dotdot = p[0] == '.' && p[1] == '.' && ( p == s || p[-1] == sep ) && ( p[2] == '\0' || p[2] == sep );
 		if ( !dotdot )
 		{
 			++p;
@@ -720,74 +723,79 @@ inline bool MakeAbsolutePath( char *out, int outLen, const char *path, const cha
 // Answers bytes written plus the NUL; with no dst, the bytes needed.
 namespace utf8detail
 {
-	// Q_IsValidUChar32: in range, not a surrogate half, not a U+xxFFFE/xxFFFF,
-	// not U+FDD0..FDEF.
-	inline bool ValidUChar32( uint32_t u )
-	{
-		return u < 0x110000u && ( u - 0xD800u ) > 0x7FFu && ( u & 0xFFFFu ) < 0xFFFEu && ( u - 0xFDD0u ) > 0x1Fu;
-	}
+// Q_IsValidUChar32: in range, not a surrogate half, not a U+xxFFFE/xxFFFF,
+// not U+FDD0..FDEF.
+inline bool ValidUChar32( uint32_t u )
+{
+	return u < 0x110000u && ( u - 0xD800u ) > 0x7FFu && ( u & 0xFFFFu ) < 0xFFFEu && ( u - 0xFDD0u ) > 0x1Fu;
+}
 
-	template < typename Unit, typename Decode >
-	inline int ToUTF8( const Unit *src, char *dst, int dstSize, Decode decode )
+template <typename Unit, typename Decode>
+inline int ToUTF8( const Unit *src, char *dst, int dstSize, Decode decode )
+{
+	if ( !src )
+		return 0;
+	auto length = []( uint32_t u )
 	{
-		if ( !src )
-			return 0;
-		auto length = []( uint32_t u ) { return u <= 0x7F ? 1 : u <= 0x7FF ? 2 : u <= 0xFFFF ? 3 : 4; };
-		int nOut = 0;
-		uint32_t u;
-		if ( !dst )
-		{
-			while ( *src )
-			{
-				src += decode( src, u );
-				nOut += length( u );
-			}
-			return nOut + 1;
-		}
-		if ( dstSize <= 0 )
-			return 0;
-		const int nMaxOut = dstSize - 1;
+		return u <= 0x7F ? 1 : u <= 0x7FF ? 2 : u <= 0xFFFF ? 3 : 4;
+	};
+	int nOut = 0;
+	uint32_t u;
+	if ( !dst )
+	{
 		while ( *src )
 		{
 			src += decode( src, u );
-			const int n = length( u );
-			if ( nOut + n > nMaxOut )
-				break;
-			unsigned char *p = (unsigned char *)dst + nOut;
-			if ( n == 1 )
-				p[0] = (unsigned char)u;
-			else if ( n == 2 )
-			{
-				p[0] = (unsigned char)( u >> 6 ) | 0xC0;
-				p[1] = (unsigned char)( u & 0x3F ) | 0x80;
-			}
-			else if ( n == 3 )
-			{
-				p[0] = (unsigned char)( u >> 12 ) | 0xE0;
-				p[1] = (unsigned char)( ( u >> 6 ) & 0x3F ) | 0x80;
-				p[2] = (unsigned char)( u & 0x3F ) | 0x80;
-			}
-			else
-			{
-				p[0] = (unsigned char)( ( u >> 18 ) & 0x07 ) | 0xF0;
-				p[1] = (unsigned char)( ( u >> 12 ) & 0x3F ) | 0x80;
-				p[2] = (unsigned char)( ( u >> 6 ) & 0x3F ) | 0x80;
-				p[3] = (unsigned char)( u & 0x3F ) | 0x80;
-			}
-			nOut += n;
+			nOut += length( u );
 		}
-		dst[nOut] = '\0';
 		return nOut + 1;
 	}
+	if ( dstSize <= 0 )
+		return 0;
+	const int nMaxOut = dstSize - 1;
+	while ( *src )
+	{
+		src += decode( src, u );
+		const int n = length( u );
+		if ( nOut + n > nMaxOut )
+			break;
+		unsigned char *p = (unsigned char *)dst + nOut;
+		if ( n == 1 )
+			p[0] = (unsigned char)u;
+		else if ( n == 2 )
+		{
+			p[0] = (unsigned char)( u >> 6 ) | 0xC0;
+			p[1] = (unsigned char)( u & 0x3F ) | 0x80;
+		}
+		else if ( n == 3 )
+		{
+			p[0] = (unsigned char)( u >> 12 ) | 0xE0;
+			p[1] = (unsigned char)( ( u >> 6 ) & 0x3F ) | 0x80;
+			p[2] = (unsigned char)( u & 0x3F ) | 0x80;
+		}
+		else
+		{
+			p[0] = (unsigned char)( ( u >> 18 ) & 0x07 ) | 0xF0;
+			p[1] = (unsigned char)( ( u >> 12 ) & 0x3F ) | 0x80;
+			p[2] = (unsigned char)( ( u >> 6 ) & 0x3F ) | 0x80;
+			p[3] = (unsigned char)( u & 0x3F ) | 0x80;
+		}
+		nOut += n;
+	}
+	dst[nOut] = '\0';
+	return nOut + 1;
+}
 }
 
 // Q_UTF32ToUTF8: one unit per code point.
 inline int UTF32ToUTF8( const uint32_t *src, char *dst, int dstSize )
 {
-	return utf8detail::ToUTF8( src, dst, dstSize, []( const uint32_t *s, uint32_t &u ) {
-		u = utf8detail::ValidUChar32( *s ) ? *s : '?';
-		return 1;
-	} );
+	return utf8detail::ToUTF8( src, dst, dstSize,
+							   []( const uint32_t *s, uint32_t &u )
+							   {
+								   u = utf8detail::ValidUChar32( *s ) ? *s : '?';
+								   return 1;
+							   } );
 }
 
 // Q_UTF16ToUTF8 (Q_UTF16ToUChar32's decode): a valid unit is itself; a high
@@ -796,21 +804,23 @@ inline int UTF32ToUTF8( const uint32_t *src, char *dst, int dstSize )
 // '?' for one unit.
 inline int UTF16ToUTF8( const uint16_t *src, char *dst, int dstSize )
 {
-	return utf8detail::ToUTF8( src, dst, dstSize, []( const uint16_t *s, uint32_t &u ) {
-		if ( utf8detail::ValidUChar32( s[0] ) )
-		{
-			u = s[0];
-			return 1;
-		}
-		if ( ( s[0] - 0xD800u ) < 0x400u && ( s[1] - 0xDC00u ) < 0x400u )
-		{
-			const uint32_t v = 0x010000u + ( ( s[0] - 0xD800u ) << 10 ) + ( s[1] - 0xDC00u );
-			u = utf8detail::ValidUChar32( v ) ? v : '?';
-			return 2;
-		}
-		u = '?';
-		return 1;
-	} );
+	return utf8detail::ToUTF8( src, dst, dstSize,
+							   []( const uint16_t *s, uint32_t &u )
+							   {
+								   if ( utf8detail::ValidUChar32( s[0] ) )
+								   {
+									   u = s[0];
+									   return 1;
+								   }
+								   if ( ( s[0] - 0xD800u ) < 0x400u && ( s[1] - 0xDC00u ) < 0x400u )
+								   {
+									   const uint32_t v = 0x010000u + ( ( s[0] - 0xD800u ) << 10 ) + ( s[1] - 0xDC00u );
+									   u = utf8detail::ValidUChar32( v ) ? v : '?';
+									   return 2;
+								   }
+								   u = '?';
+								   return 1;
+							   } );
 }
 
 // A wchar_t string as UTF-8, the way the platform's ILocalize does it: wchar_t

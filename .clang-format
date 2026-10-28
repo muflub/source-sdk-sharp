@@ -1,0 +1,73 @@
+---
+Language: Cpp
+BasedOnStyle: Microsoft
+Standard: c++20
+UseTab: ForContinuationAndIndentation
+TabWidth: 4
+IndentWidth: 4
+ContinuationIndentWidth: 4
+ColumnLimit: 120
+BreakBeforeBraces: Allman
+AccessModifierOffset: -4
+IndentCaseLabels: true
+NamespaceIndentation: None
+IndentExternBlock: NoIndent
+IndentPPDirectives: None
+DerivePointerAlignment: false
+PointerAlignment: Right
+ReferenceAlignment: Pointer
+SpacesInParens: Custom
+SpacesInParensOptions:
+  InConditionalStatements: true
+  Other: true
+  InEmptyParentheses: false
+  InCStyleCasts: false
+SpaceAfterCStyleCast: false
+SpaceBeforeParens: ControlStatements
+SpacesInSquareBrackets: false
+SpacesInAngles: Never
+Cpp11BracedListStyle: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortLambdasOnASingleLine: Inline
+AlignTrailingComments:
+  Kind: Never
+SpacesBeforeTrailingComments: 1
+AlignConsecutiveMacros: None
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveBitFields: None
+AlignEscapedNewlines: Left
+AlignOperands: DontAlign
+AlignAfterOpenBracket: Align
+AlignArrayOfStructures: None
+BinPackArguments: true
+BinPackParameters: BinPack
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: Never
+BreakTemplateDeclarations: Yes
+AlwaysBreakAfterReturnType: None
+BreakAfterReturnType: None
+SortIncludes: Never
+SortUsingDeclarations: Never
+IncludeBlocks: Preserve
+FixNamespaceComments: false
+ReflowComments: false
+InsertBraces: false
+RemoveParentheses: Leave
+RemoveSemicolon: false
+KeepEmptyLines:
+  AtEndOfFile: false
+  AtStartOfBlock: false
+  AtStartOfFile: false
+MaxEmptyLinesToKeep: 1
+EmptyLineBeforeAccessModifier: LogicalBlock
+EmptyLineAfterAccessModifier: Never
+SeparateDefinitionBlocks: Always
+InsertNewlineAtEOF: true
+LineEnding: LF
+BreakStringLiterals: false

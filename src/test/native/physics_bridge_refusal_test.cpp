@@ -28,8 +28,8 @@ namespace
 {
 
 const char *const kWhat = "the event-driven contact touchlink";
-const char *const kWhy  = "physics_main_shared.cpp is the only producer and the "
-                          "only drainer, and it leaves both vpcs.";
+const char *const kWhy = "physics_main_shared.cpp is the only producer and the "
+						 "only drainer, and it leaves both vpcs.";
 
 //-----------------------------------------------------------------------------
 // The print is once. Everything after the first reach answers false, so a site

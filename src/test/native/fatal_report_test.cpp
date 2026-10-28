@@ -27,9 +27,8 @@ namespace
 // literal /tmp is \tmp on Windows' current drive, which does not exist.
 std::string MakeTempDir()
 {
-	std::string strTemplate =
-		( std::filesystem::temp_directory_path() / "fatal_report_test.XXXXXX" ).string();
-	std::vector< char > template_( strTemplate.begin(), strTemplate.end() );
+	std::string strTemplate = ( std::filesystem::temp_directory_path() / "fatal_report_test.XXXXXX" ).string();
+	std::vector<char> template_( strTemplate.begin(), strTemplate.end() );
 	template_.push_back( '\0' );
 	const char *pszDir = mkdtemp( template_.data() );
 	return pszDir ? pszDir : "";
@@ -45,7 +44,7 @@ std::string ReportIn( const std::string &dir )
 		{
 			const std::string name = e->d_name;
 			if ( name.rfind( "assert-", 0 ) == 0 && name.size() > 11 &&
-			     name.compare( name.size() - 4, 4, ".txt" ) == 0 )
+				 name.compare( name.size() - 4, 4, ".txt" ) == 0 )
 			{
 				std::ifstream in( dir + "/" + name );
 				std::stringstream text;
@@ -63,8 +62,7 @@ TEST( FatalReportDeathTest, TheExitCodeIsNegativeThreeAsTheParentSeesIt )
 {
 	EXPECT_EQ( 253, kSourceSharpFatalExitCode );
 	EXPECT_EQ( 253, (unsigned char)-3 );
-	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "boom\n" ),
-	             ::testing::ExitedWithCode( 253 ), "" );
+	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "boom\n" ), ::testing::ExitedWithCode( 253 ), "" );
 }
 
 TEST( FatalReportDeathTest, TheReportAndTheStackGoToStderr )
@@ -74,23 +72,23 @@ TEST( FatalReportDeathTest, TheReportAndTheStackGoToStderr )
 	// have no group or alternation to span lines, so each line is checked
 	// on its own there; the order is checked on Linux.
 	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "the widget broke\n" ),
-	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "FATAL ASSERT: the widget broke" );
+				 ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "FATAL ASSERT: the widget broke" );
 	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "the widget broke\n" ),
-	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "stopping here" );
+				 ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "stopping here" );
 	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "the widget broke\n" ),
-	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "stack \\(\\d+ frame" );
+				 ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "stack \\(\\d+ frame" );
 #else
 	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "the widget broke\n" ),
-	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ),
-	             "FATAL ASSERT: the widget broke(.|\n)*stopping here(.|\n)*stack \\([0-9]+ frame" );
+				 ::testing::ExitedWithCode( kSourceSharpFatalExitCode ),
+				 "FATAL ASSERT: the widget broke(.|\n)*stopping here(.|\n)*stack \\([0-9]+ frame" );
 #endif
 }
 
 TEST( FatalReportDeathTest, AnErrorSaysErrorAndIsNotToldAboutAssertlog )
 {
 	EXPECT_EXIT( SourceSharp_FatalReport( "ERROR", "no engine" ),
-	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ),
-	             "FATAL ERROR: no engine\n\\[SourceSharp\\] the process is stopping here.\n" );
+				 ::testing::ExitedWithCode( kSourceSharpFatalExitCode ),
+				 "FATAL ERROR: no engine\n\\[SourceSharp\\] the process is stopping here.\n" );
 }
 
 TEST( FatalReportDeathTest, TheSameReportGoesToAssertPidTxtInTheNamedDirectory )
@@ -105,7 +103,7 @@ TEST( FatalReportDeathTest, TheSameReportGoesToAssertPidTxtInTheNamedDirectory )
 	setenv( "SOURCESHARP_ASSERT_DIR", dir.c_str(), 1 );
 
 	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "written down\n" ),
-	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "" );
+				 ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "" );
 	unsetenv( "SOURCESHARP_ASSERT_DIR" );
 
 	const std::string report = ReportIn( dir );
@@ -121,7 +119,7 @@ TEST( FatalReportDeathTest, WithNoDirectoryNamedNoFileIsWritten )
 	ASSERT_EQ( 0, chdir( dir.c_str() ) );
 
 	EXPECT_EXIT( SourceSharp_FatalReport( "ASSERT", "nowhere\n" ),
-	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "" );
+				 ::testing::ExitedWithCode( kSourceSharpFatalExitCode ), "" );
 
 	EXPECT_EQ( "", ReportIn( dir ) );
 }

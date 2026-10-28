@@ -1,5 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-// Purpose:	This file sets all of our debugging flags.  It should be 
+// Purpose:	This file sets all of our debugging flags.  It should be
 //			called before all other header files.
 
 #pragma once
@@ -34,7 +34,7 @@
 // Default flags for release builds
 #else // _DEBUG
 
-#define DBGFLAG_ASSERTFATAL		// note: fatal asserts are enabled in release builds
+#define DBGFLAG_ASSERTFATAL // note: fatal asserts are enabled in release builds
 #define DBGFLAG_ASSERTDLG
 
 #endif // _DEBUG

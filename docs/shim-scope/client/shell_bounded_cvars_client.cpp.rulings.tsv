@@ -1,6 +1,6 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-: ConVar_ServerBounded( pName, pDefault, nFlags, pHelp )	LAYOUT	constructs the ConVar the engine reads by vtable
-CManagedBoundedConVar( const char *pName, const char *pDefault, int nFlags, const char *pHelp,	LAYOUT	constructs the ConVar the engine reads by vtable
-virtual float GetFloat() const OVERRIDE	SLOT	the vtable slot the engine calls (CClientState::GetClientInterpAmount); answers the stored value C# decided
+[CManagedBoundedConVar] : ConVar_ServerBounded( pName, pDefault, nFlags, pHelp )	LAYOUT	constructs the ConVar the engine reads by vtable
+[CManagedBoundedConVar] CManagedBoundedConVar( const char *pName, const char *pDefault, int nFlags, const char *pHelp, bool bMin, float flMi	LAYOUT	constructs the ConVar the engine reads by vtable
+[CManagedBoundedConVar] virtual float GetFloat() const OVERRIDE	SLOT	the vtable slot the engine calls (CClientState::GetClientInterpAmount); answers the stored value C# decided
 float GetClientInterpAmount()	LIVE-API	imported by shell_clientdll.o and shell_standalone_client.o (nm); answers the stored value C# decided

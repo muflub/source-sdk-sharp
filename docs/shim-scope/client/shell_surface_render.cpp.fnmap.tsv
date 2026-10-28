@@ -9,8 +9,8 @@
 8	SLOT-HELP	void CSourceSharpSurfaceRenderer::Steps( Vector *pWidthStep, Vector *pHeightStep ) const
 14	BOUNDARY	void CSourceSharpSurfaceRenderer::BeginDraw()
 4	BOUNDARY	void CSourceSharpSurfaceRenderer::EndDraw()
-78	SLOT	bool CSourceSharpSurfaceRenderer::RenderBrushModelSurface( IClientEntity *pEntity,
-31	SLOT-HELP	void CSourceSharpSurfaceRenderer::DrawQuad( IBrushSurface *pBrushSurface, IMesh *pMesh,
-35	BOUNDARY	int32_t SourceSharp_SurfaceMaterialFacts( uint32_t hEntity, char *pOutMaterial, int32_t nMaterialBytes,
+75	SLOT	bool CSourceSharpSurfaceRenderer::RenderBrushModelSurface( IClientEntity *pEntity, IBrushSurface *pBrushSurface )
+33	SLOT-HELP	void CSourceSharpSurfaceRenderer::DrawQuad( IBrushSurface *pBrushSurface, IMesh *pMesh, CMeshBuilder *pBuilder, const Vector &vStart, const 
+35	BOUNDARY	int32_t SourceSharp_SurfaceMaterialFacts( uint32_t hEntity, char *pOutMaterial, int32_t nMaterialBytes, char *pOutCrack, int32_t nCrackBytes
 24	BOUNDARY	void SourceSharp_SurfaceSetMaterials( uint32_t hEntity, const char *pNames, int32_t nBytes, int32_t nFlags )
 9	BOUNDARY	void SourceSharp_SurfaceSetPlan( uint32_t hEntity, const int32_t *pWords, int32_t nWords )

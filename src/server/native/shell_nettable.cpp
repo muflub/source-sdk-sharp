@@ -7,13 +7,8 @@
 
 // SS_REASON f  a bit-level wire codec
 
-#include "tier1/convar.h"
 #include "shell_standalone.h"
-#include "shell_diagnostics.h"
-#include "generic_nettable.h"
-#include "generic_payload.h"
-#include "sourcesharp.h"
-#include "native_command_body.h"
+
 #include "ss_string.h"
 
 bool SourceSharp_IsStandaloneTierServerClass( const ServerClass *pClass );
@@ -24,7 +19,6 @@ bool SourceSharp_IsWorldServerClass( const ServerClass *pClass );
 // three places SourceSharp constructs one. Anything else counts as stock.
 bool SourceSharp_IsManagedServerClass( const ServerClass *pClass )
 {
-	return SourceSharp_IsStandaloneTierServerClass( pClass )
-	    || SourceSharp_IsTempEntServerClass( pClass )
-	    || SourceSharp_IsWorldServerClass( pClass );
+	return SourceSharp_IsStandaloneTierServerClass( pClass ) || SourceSharp_IsTempEntServerClass( pClass ) ||
+		SourceSharp_IsWorldServerClass( pClass );
 }

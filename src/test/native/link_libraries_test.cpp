@@ -53,7 +53,7 @@ std::string LibraryOf( const std::string &strTok )
 	const char *const kExts[] = { ".a", ".so" };
 	for ( size_t i = 0; i < 2; i++ )
 	{
-		const std::string ext( kExts[ i ] );
+		const std::string ext( kExts[i] );
 		if ( base.size() > ext.size() && base.compare( base.size() - ext.size(), ext.size(), ext ) == 0 )
 		{
 			base = base.substr( 0, base.size() - ext.size() );
@@ -67,9 +67,9 @@ std::string LibraryOf( const std::string &strTok )
 
 bool Links( const char *pszTarget, const char *pszLibrary )
 {
-	const std::vector< std::string > toks = cmake_graph::LinkLibraries( pszTarget );
+	const std::vector<std::string> toks = cmake_graph::LinkLibraries( pszTarget );
 	for ( size_t i = 0; i < toks.size(); i++ )
-		if ( LibraryOf( toks[ i ] ) == pszLibrary )
+		if ( LibraryOf( toks[i] ) == pszLibrary )
 			return true;
 	return false;
 }
@@ -94,8 +94,8 @@ TEST( LinkLibraries, TheMatcherFindsALibraryThatIsDefinitelyThere )
 	// novalve C9), and libdl is the one library both lines name on every Linux
 	// build: loaded_symbol.cpp's dlopen/dlsym, through which both DLLs reach
 	// the engine's tier0, needs it.
-	EXPECT_TRUE( Links( kTargets[ 0 ], "dl" ) ) << kTargets[ 0 ];
-	EXPECT_TRUE( Links( kTargets[ 1 ], "dl" ) ) << kTargets[ 1 ];
+	EXPECT_TRUE( Links( kTargets[0], "dl" ) ) << kTargets[0];
+	EXPECT_TRUE( Links( kTargets[1], "dl" ) ) << kTargets[1];
 }
 
 TEST( LinkLibraries, NeitherDllLinksMathlib )
@@ -103,18 +103,18 @@ TEST( LinkLibraries, NeitherDllLinksMathlib )
 	// Both DLLs' mathlib members are mathlib_port.cpp's (held to stock by
 	// mathlib_port_stock_test); the archive is off both lines (the client's
 	// since plan_client_novalve C9).
-	ASSERT_STREQ( "server_sourcesharp", kTargets[ 0 ] );
-	ASSERT_STREQ( "client_sourcesharp", kTargets[ 1 ] );
-	EXPECT_FALSE( Links( kTargets[ 0 ], "mathlib" ) ) << "server.so links libmathlib.a again";
-	EXPECT_FALSE( Links( kTargets[ 1 ], "mathlib" ) ) << "client.so links libmathlib.a again";
+	ASSERT_STREQ( "server_sourcesharp", kTargets[0] );
+	ASSERT_STREQ( "client_sourcesharp", kTargets[1] );
+	EXPECT_FALSE( Links( kTargets[0], "mathlib" ) ) << "server.so links libmathlib.a again";
+	EXPECT_FALSE( Links( kTargets[1], "mathlib" ) ) << "client.so links libmathlib.a again";
 }
 
 TEST( LinkLibraries, TheServerLinksNoTierLibrary )
 {
 	// plan_server_novalve.md P4: R2-R4 at zero.
-	ASSERT_STREQ( "server_sourcesharp", kTargets[ 0 ] );
+	ASSERT_STREQ( "server_sourcesharp", kTargets[0] );
 	for ( const char *pLib : { "tier0", "tier1", "vstdlib" } )
-		EXPECT_FALSE( Links( kTargets[ 0 ], pLib ) ) << "server.so links " << pLib << " again";
+		EXPECT_FALSE( Links( kTargets[0], pLib ) ) << "server.so links " << pLib << " again";
 }
 
 TEST( LinkLibraries, TheClientLinksNoTierLibrary )
@@ -124,16 +124,17 @@ TEST( LinkLibraries, TheClientLinksNoTierLibrary )
 	// the engine loaded (tier_bindings_client.cpp), and no member of
 	// libtier1.a is pulled any more (the last importers, detailobjectsystem.cpp
 	// and particlemgr.cpp, left client.so).
-	ASSERT_STREQ( "client_sourcesharp", kTargets[ 1 ] );
+	ASSERT_STREQ( "client_sourcesharp", kTargets[1] );
 	for ( const char *pLib : { "tier0", "tier1", "vstdlib" } )
-		EXPECT_FALSE( Links( kTargets[ 1 ], pLib ) ) << "client.so links " << pLib << " again";
+		EXPECT_FALSE( Links( kTargets[1], pLib ) ) << "client.so links " << pLib << " again";
 }
 
 TEST( LinkLibraries, ChoreoobjectsIsGoneFromBothLinkLines )
 {
 	for ( size_t t = 0; t < 2; t++ )
-		EXPECT_FALSE( Links( kTargets[ t ], "choreoobjects" ) )
-			<< kTargets[ t ] << " links choreoobjects again. plan_shim.md step 0f "
+		EXPECT_FALSE( Links( kTargets[t], "choreoobjects" ) )
+			<< kTargets[t]
+			<< " links choreoobjects again. plan_shim.md step 0f "
 			   "dropped it: nothing on either side demands it, directly or through "
 			   "another archive, and both configs link clean without it.";
 }
@@ -171,9 +172,9 @@ TEST( LinkLibraries, TheServerLinksNeitherParticlesNorDmxloader )
 TEST( LinkLibraries, NeitherLinkLineNamesLibprotobuf )
 {
 	for ( size_t t = 0; t < 2; t++ )
-		EXPECT_FALSE( Links( kTargets[ t ], "protobuf" ) )
-			<< kTargets[ t ] << " links libprotobuf again. Neither DLL imports a "
-			   "google::protobuf symbol (plan_shim.md step 0a).";
+		EXPECT_FALSE( Links( kTargets[t], "protobuf" ) ) << kTargets[t]
+														 << " links libprotobuf again. Neither DLL imports a "
+															"google::protobuf symbol (plan_shim.md step 0a).";
 }
 
 TEST( LinkLibraries, NeitherSideLinksSteamApi )
@@ -186,18 +187,16 @@ TEST( LinkLibraries, NeitherSideLinksSteamApi )
 	// filter -- through the same flat API, so client.so neither links
 	// libsteam_api nor imports a Steam symbol. (Under VPC the row read
 	// [!$WIN64], TRUE on POSIX; it was kept until the last importer left.)
-	EXPECT_FALSE( Links( cmake_graph::kClient, "steam_api" ) )
-		<< "the client links libsteam_api again";
+	EXPECT_FALSE( Links( cmake_graph::kClient, "steam_api" ) ) << "the client links libsteam_api again";
 
 	// plan_server_novalve.md P2.5: the server's Steam use is C#'s own, through
 	// libsteam_api.so's flat API (SteamGameServerFlat, RTLD_NOLOAD: the
 	// engine's copy), so server.so neither links it nor needs it.
-	EXPECT_FALSE( Links( cmake_graph::kServer, "steam_api" ) )
-		<< "the server links libsteam_api again";
+	EXPECT_FALSE( Links( cmake_graph::kServer, "steam_api" ) ) << "the server links libsteam_api again";
 }
 
 TEST( LinkLibraries, BothGameDllsLinkTheManagedHost )
 {
 	for ( size_t t = 0; t < 2; t++ )
-		EXPECT_TRUE( Links( kTargets[ t ], "managed_host" ) ) << kTargets[ t ];
+		EXPECT_TRUE( Links( kTargets[t], "managed_host" ) ) << kTargets[t];
 }

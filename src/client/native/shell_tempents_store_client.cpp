@@ -8,8 +8,6 @@
 // SS_REASON d  a layout the engine reads at fixed offsets
 // A managed temp entity table plan, stored into RecvProps.
 
-#include <string.h>
-
 #include "shell_tempents_store_client.h"
 
 // A row's type is DPT_*'s and its flags SPROP_*'s; these fail the build if
@@ -31,11 +29,16 @@ RecvVarProxyFn SourceSharpTe_RecvVarProxy( int32_t nProxy )
 {
 	switch ( nProxy )
 	{
-	case SOURCESHARP_RECVPROXY_INT32_TO_INT8:    return RecvProxy_Int32ToInt8;
-	case SOURCESHARP_RECVPROXY_INT32_TO_INT16:   return RecvProxy_Int32ToInt16;
-	case SOURCESHARP_RECVPROXY_INT32_TO_INT32:   return RecvProxy_Int32ToInt32;
-	case SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT:   return RecvProxy_FloatToFloat;
-	case SOURCESHARP_RECVPROXY_VECTOR_TO_VECTOR: return RecvProxy_VectorToVector;
+		case SOURCESHARP_RECVPROXY_INT32_TO_INT8:
+			return RecvProxy_Int32ToInt8;
+		case SOURCESHARP_RECVPROXY_INT32_TO_INT16:
+			return RecvProxy_Int32ToInt16;
+		case SOURCESHARP_RECVPROXY_INT32_TO_INT32:
+			return RecvProxy_Int32ToInt32;
+		case SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT:
+			return RecvProxy_FloatToFloat;
+		case SOURCESHARP_RECVPROXY_VECTOR_TO_VECTOR:
+			return RecvProxy_VectorToVector;
 	}
 
 	return NULL;
@@ -43,8 +46,8 @@ RecvVarProxyFn SourceSharpTe_RecvVarProxy( int32_t nProxy )
 
 // The RecvProp constructor's defaults stand for whatever the row does not set;
 // the array prop gets InternalRecvPropArray's shape (InitArray, no length proxy).
-bool SourceSharpTe_StoreRecvProp( const SourceSharpRecvPropRow_t &row, const char *pName,
-                                  RecvTable *pNested, RecvProp *pOut )
+bool SourceSharpTe_StoreRecvProp( const SourceSharpRecvPropRow_t &row, const char *pName, RecvTable *pNested,
+								  RecvProp *pOut )
 {
 	if ( !pName || !pOut )
 		return false;

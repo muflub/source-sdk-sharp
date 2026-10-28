@@ -26,7 +26,7 @@ std::string Run( const std::string &cmd )
 	if ( !pPipe )
 		return std::string();
 	std::string out;
-	char buf[ 4096 ];
+	char buf[4096];
 	while ( fgets( buf, sizeof( buf ), pPipe ) )
 		out += buf;
 	pclose( pPipe );
@@ -34,9 +34,9 @@ std::string Run( const std::string &cmd )
 }
 
 // The names of `nm <args>` lines whose type letter is one of strTypes.
-std::set< std::string > Names( const std::string &strArgs, const std::string &strTypes )
+std::set<std::string> Names( const std::string &strArgs, const std::string &strTypes )
 {
-	std::set< std::string > out;
+	std::set<std::string> out;
 	const std::string text = Run( "nm " + strArgs );
 	size_t start = 0;
 	while ( start < text.size() )
@@ -48,8 +48,8 @@ std::set< std::string > Names( const std::string &strArgs, const std::string &st
 		start = end + 1;
 		if ( line.size() < 20 )
 			continue;
-		const char t = line[ 17 ];
-		if ( strTypes.find( t ) == std::string::npos || line[ 18 ] != ' ' )
+		const char t = line[17];
+		if ( strTypes.find( t ) == std::string::npos || line[18] != ' ' )
 			continue;
 		std::string name = line.substr( 19 );
 		const size_t at = name.find( '@' );
@@ -60,7 +60,10 @@ std::set< std::string > Names( const std::string &strArgs, const std::string &st
 	return out;
 }
 
-std::string Out( const std::string &strFile ) { return "'" + cmake_graph::BuildDir() + "/out/" + strFile + "'"; }
+std::string Out( const std::string &strFile )
+{
+	return "'" + cmake_graph::BuildDir() + "/out/" + strFile + "'";
+}
 
 // Each library: its file, the one function it exports, and the game DLL
 // that links it.
@@ -84,8 +87,8 @@ TEST( FwdLibrariesIsolation, EachLibraryExportsItsTableFunctionAndNothingElse )
 		// Proof of read: the library defines its functions locally.
 		ASSERT_GE( Names( Out( lib.pszFile ), "t" ).size(), 10u ) << lib.pszFile << " read as nearly empty";
 
-		const std::set< std::string > exports = Names( "-D --defined-only " + Out( lib.pszFile ), "TDBRVWiu" );
-		EXPECT_EQ( std::set< std::string >{ lib.pszExport }, exports ) << lib.pszFile;
+		const std::set<std::string> exports = Names( "-D --defined-only " + Out( lib.pszFile ), "TDBRVWiu" );
+		EXPECT_EQ( std::set<std::string>{ lib.pszExport }, exports ) << lib.pszFile;
 	}
 }
 
@@ -100,19 +103,19 @@ TEST( FwdLibrariesIsolation, EachLibraryNeedsNoOtherLibraryAndImportsNoSymbol )
 		// ::Run: inside a TEST body, Run alone is gtest's Test::Run.
 		const std::string dynamic = ::Run( "readelf -d " + Out( lib.pszFile ) );
 		ASSERT_NE( std::string::npos, dynamic.find( std::string( "Library soname: [" ) + lib.pszFile + "]" ) )
-		    << "readelf read " << lib.pszFile << " as having no dynamic section";
+			<< "readelf read " << lib.pszFile << " as having no dynamic section";
 
-		std::set< std::string > needed;
+		std::set<std::string> needed;
 		const std::string marker = "Shared library: [";
 		for ( size_t at = dynamic.find( marker ); at != std::string::npos; at = dynamic.find( marker, at + 1 ) )
 		{
 			const size_t start = at + marker.size();
 			needed.insert( dynamic.substr( start, dynamic.find( ']', start ) - start ) );
 		}
-		EXPECT_EQ( std::set< std::string >{}, needed ) << lib.pszFile;
+		EXPECT_EQ( std::set<std::string>{}, needed ) << lib.pszFile;
 
-		EXPECT_EQ( std::set< std::string >{}, Names( "-D --undefined-only " + Out( lib.pszFile ), "Uwv" ) )
-		    << lib.pszFile;
+		EXPECT_EQ( std::set<std::string>{}, Names( "-D --undefined-only " + Out( lib.pszFile ), "Uwv" ) )
+			<< lib.pszFile;
 	}
 }
 
@@ -126,12 +129,13 @@ TEST( FwdLibrariesIsolation, EachGameLibraryNeedsItsOwnSidesLibraryAloneAndImpor
 		// A link by path would put the build tree into DT_NEEDED.
 		EXPECT_EQ( std::string::npos, dynamic.find( cmake_graph::BuildDir() ) ) << pszDll;
 
-		const std::set< std::string > imports = Names( "-D -u " + Out( pszDll ), "U" );
-		const std::set< std::string > defines = Names( "-D --defined-only " + Out( pszDll ), "TDBRVWiu" );
+		const std::set<std::string> imports = Names( "-D -u " + Out( pszDll ), "U" );
+		const std::set<std::string> defines = Names( "-D --defined-only " + Out( pszDll ), "TDBRVWiu" );
 
 		for ( const Library &lib : kLibraries )
 		{
-			const bool bNeeded = dynamic.find( std::string( "Shared library: [" ) + lib.pszFile + "]" ) != std::string::npos;
+			const bool bNeeded =
+				dynamic.find( std::string( "Shared library: [" ) + lib.pszFile + "]" ) != std::string::npos;
 
 			if ( std::string( pszDll ) != lib.pszDll )
 			{

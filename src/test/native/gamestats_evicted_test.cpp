@@ -78,14 +78,12 @@ const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 
 bool CompilesTail( const char *pszTarget, const std::string &strTail )
 {
-	const std::set< std::string > src = cmake_graph::CompiledSources( pszTarget );
+	const std::set<std::string> src = cmake_graph::CompiledSources( pszTarget );
 	EXPECT_TRUE( src.count( kProofOfRead ) > 0 )
-		<< pszTarget << " does not compile " << kProofOfRead
-		<< " -- the reader is not reading its source list";
-	for ( std::set< std::string >::const_iterator it = src.begin(); it != src.end(); ++it )
+		<< pszTarget << " does not compile " << kProofOfRead << " -- the reader is not reading its source list";
+	for ( std::set<std::string>::const_iterator it = src.begin(); it != src.end(); ++it )
 	{
-		if ( it->size() >= strTail.size()
-			&& it->compare( it->size() - strTail.size(), strTail.size(), strTail ) == 0 )
+		if ( it->size() >= strTail.size() && it->compare( it->size() - strTail.size(), strTail.size(), strTail ) == 0 )
 			return true;
 	}
 	return false;
@@ -96,9 +94,9 @@ bool CompilesTail( const char *pszTarget, const std::string &strTail )
 TEST( GameStatsEvicted, NeitherProjectCompilesTheUploader )
 {
 	EXPECT_FALSE( CompilesTail( cmake_graph::kServer, "shared/GameStats.cpp" ) )
-	    << "GameStats.cpp is back in the server project";
+		<< "GameStats.cpp is back in the server project";
 	EXPECT_FALSE( CompilesTail( cmake_graph::kClient, "shared/GameStats.cpp" ) )
-	    << "GameStats.cpp is back in the client project";
+		<< "GameStats.cpp is back in the client project";
 }
 
 TEST( GameStatsEvicted, TheAchievementStatHookLeftWithItsWholeTranslationUnit )
@@ -120,11 +118,10 @@ TEST( GameStatsEvicted, TheAchievementStatHookLeftWithItsWholeTranslationUnit )
 	// that comes back brings an undefined `gamestats` back with it, and this is
 	// where somebody finds that out.
 	EXPECT_FALSE( CompilesTail( cmake_graph::kClient, "shared/achievementmgr.cpp" ) )
-	    << "achievementmgr.cpp is in the client build again. It calls "
-	       "`gamestats->Event_AchievementProgress`, and `gamestats` has no "
-	       "definition in this build -- step 7g removed the file, and putting "
-	       "it back needs the guard this test used to police.";
+		<< "achievementmgr.cpp is in the client build again. It calls "
+		   "`gamestats->Event_AchievementProgress`, and `gamestats` has no "
+		   "definition in this build -- step 7g removed the file, and putting "
+		   "it back needs the guard this test used to police.";
 	EXPECT_FALSE( CompilesTail( cmake_graph::kServer, "shared/achievementmgr.cpp" ) )
-	    << "achievementmgr.cpp is in the server build";
+		<< "achievementmgr.cpp is in the server build";
 }
-

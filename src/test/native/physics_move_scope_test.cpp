@@ -44,7 +44,8 @@ std::string ReadRel( const char *pszRelative )
 	return ss.str();
 }
 
-const char *const kDoc      = "../docs/physics-move-scope.md";
+const char *const kDoc = "../docs/physics-move-scope.md";
+
 std::string Doc()
 {
 	static const std::string s = ReadRel( kDoc );
@@ -120,32 +121,30 @@ TEST( PhysicsMoveScope, TheTotalsTableSumsToItsOwnTotal )
 	// dropped from the document is a missing row here rather than a smaller sum
 	// that still adds up.
 	static const char *kVerdicts[] = {
-		"INSTRUMENT", "SLOT-HELP", "SLOT", "DEAD", "STOCK-DEBUG",
-		"HOOK", "LIVE-API", "DEAD-VIA", "STALE-KEEP", "BOUNDARY",
+		"INSTRUMENT", "SLOT-HELP", "SLOT",     "DEAD",       "STOCK-DEBUG",
+		"HOOK",       "LIVE-API",  "DEAD-VIA", "STALE-KEEP", "BOUNDARY",
 	};
 	int sumFns = 0, sumLines = 0;
-	for ( size_t i = 0; i < sizeof( kVerdicts ) / sizeof( kVerdicts[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kVerdicts ) / sizeof( kVerdicts[0] ); i++ )
 	{
 		// The row opens "| `<verdict>` | ". Backticked, so `SLOT` does not
 		// match the `SLOT-HELP` row -- the backtick after the name is what
 		// separates them and is why the needle carries it.
-		const std::string lead = std::string( "| `" ) + kVerdicts[ i ] + "` | ";
+		const std::string lead = std::string( "| `" ) + kVerdicts[i] + "` | ";
 		const size_t at = doc.find( lead );
-		ASSERT_NE( at, std::string::npos )
-			<< "the totals table has no row for " << kVerdicts[ i ]
-			<< ". Section 2's eight verdicts are what every other section "
-			   "refers back to.";
-		EXPECT_EQ( doc.find( lead, at + 1 ), std::string::npos )
-			<< "more than one row for " << kVerdicts[ i ];
+		ASSERT_NE( at, std::string::npos ) << "the totals table has no row for " << kVerdicts[i]
+										   << ". Section 2's eight verdicts are what every other section "
+											  "refers back to.";
+		EXPECT_EQ( doc.find( lead, at + 1 ), std::string::npos ) << "more than one row for " << kVerdicts[i];
 
 		int fns = 0, lines = 0;
-		ASSERT_EQ( 2, sscanf( doc.c_str() + at + lead.size(), "%d | %d",
-		                      &fns, &lines ) )
-			<< "the " << kVerdicts[ i ] << " row does not read "
+		ASSERT_EQ( 2, sscanf( doc.c_str() + at + lead.size(), "%d | %d", &fns, &lines ) )
+			<< "the " << kVerdicts[i]
+			<< " row does not read "
 			   "\"| <functions> | <lines> |\"";
 		// DEAD, DEAD-VIA and STALE-KEEP are EMPTY since the server gc cull
 		// (2026-10-01) deleted every function in them; each other row is not.
-		const std::string v( kVerdicts[ i ] );
+		const std::string v( kVerdicts[i] );
 		// SLOT and SLOT-HELP too since plan_physics_bones_native_zero 2.1
 		// deleted CCollisionEvent.
 		// STOCK-DEBUG too since 2.3 moved physics_budget's sleep and air_density
@@ -153,8 +152,8 @@ TEST( PhysicsMoveScope, TheTotalsTableSumsToItsOwnTotal )
 		// PhysFrame to managed's PhysicsFrame. BOUNDARY too since 2.6 moved
 		// the world build (PhysCreateWorld) to managed's ServerPhysicsWorld,
 		// until PhysicsWorldOwner was re-ruled BOUNDARY (2026-10-18).
-		if ( v == "DEAD" || v == "DEAD-VIA" || v == "STALE-KEEP" || v == "SLOT" || v == "SLOT-HELP"
-		     || v == "STOCK-DEBUG" || v == "INSTRUMENT" )
+		if ( v == "DEAD" || v == "DEAD-VIA" || v == "STALE-KEEP" || v == "SLOT" || v == "SLOT-HELP" ||
+			 v == "STOCK-DEBUG" || v == "INSTRUMENT" )
 		{
 			EXPECT_EQ( 0, fns ) << v << " has functions again";
 			EXPECT_EQ( 0, lines ) << v << " has lines again";
@@ -176,20 +175,22 @@ TEST( PhysicsMoveScope, TheTotalsTableSumsToItsOwnTotal )
 	// "**118** | **2,136**" -- a line total over a thousand carries a comma, so
 	// it is read in two pieces rather than with one %d that would stop at the
 	// comma and silently answer 2; "**27** | **591**" has none.
-	const int nRead = sscanf( doc.c_str() + tot + totalLead.size(),
-	                          "%d** | **%d,%d**", &statedFns, &statedLines, &statedFrac );
-	ASSERT_GE( nRead, 2 )
-		<< "the total row does not read \"| **total** | **<n>** | **<n[,nnn]>** |\"";
+	const int nRead =
+		sscanf( doc.c_str() + tot + totalLead.size(), "%d** | **%d,%d**", &statedFns, &statedLines, &statedFrac );
+	ASSERT_GE( nRead, 2 ) << "the total row does not read \"| **total** | **<n>** | **<n[,nnn]>** |\"";
 	const int statedLineTotal = nRead == 3 ? statedLines * 1000 + statedFrac : statedLines;
 
-	EXPECT_EQ( sumFns, statedFns )
-		<< "the eight verdict rows name " << sumFns << " functions and the "
-		   "total says " << statedFns << ". A row was edited without the total "
-		   "being re-derived; re-run 5a-physics-classify.py rather than "
-		   "patching either number.";
-	EXPECT_EQ( sumLines, statedLineTotal )
-		<< "the eight verdict rows name " << sumLines << " lines and the total "
-		   "says " << statedLineTotal << ". Re-run 5a-physics-classify.py.";
+	EXPECT_EQ( sumFns, statedFns ) << "the eight verdict rows name " << sumFns
+								   << " functions and the "
+									  "total says "
+								   << statedFns
+								   << ". A row was edited without the total "
+									  "being re-derived; re-run 5a-physics-classify.py rather than "
+									  "patching either number.";
+	EXPECT_EQ( sumLines, statedLineTotal ) << "the eight verdict rows name " << sumLines
+										   << " lines and the total "
+											  "says "
+										   << statedLineTotal << ". Re-run 5a-physics-classify.py.";
 
 	// And the total is the one the classifier actually produced at 5034fb3e6,
 	// which is the only part of this fact that is a claim about the tree rather
@@ -283,7 +284,7 @@ namespace
 
 struct ClassifyRun_t
 {
-	int         m_nExit;
+	int m_nExit;
 	std::string m_szOut;
 };
 
@@ -298,19 +299,19 @@ ClassifyRun_t RunClassify()
 
 	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
-		const std::string root = kCandidates[ i ];
+		const std::string root = kCandidates[i];
 		struct stat st;
 		if ( stat( ( root + "/tools/physics-scope/classify" ).c_str(), &st ) != 0 )
 			continue;
 
-		const std::string cmd =
-			"cd " + root + " && tools/physics-scope/classify "
+		const std::string cmd = "cd " + root +
+			" && tools/physics-scope/classify "
 			"tools/physics-scope/fnmap.tsv tools/physics-scope/rulings.tsv 2>&1";
 		FILE *pPipe = popen( cmd.c_str(), "r" );
 		if ( pPipe == NULL )
 			return run;
 
-		char szBuf[ 4096 ];
+		char szBuf[4096];
 		while ( fgets( szBuf, sizeof( szBuf ), pPipe ) != NULL )
 			run.m_szOut += szBuf;
 
@@ -328,11 +329,10 @@ ClassifyRun_t RunClassify()
 TEST( PhysicsMoveScope, TheClassifierAndItsInputsAreCommitted )
 {
 	const ClassifyRun_t run = RunClassify();
-	ASSERT_NE( -1, run.m_nExit )
-		<< "tools/physics-scope/classify did not resolve from the test's "
-		   "working directory, so every assertion below would be vacuous. "
-		   "The document's totals are only falsifiable while this tool and "
-		   "its two inputs are committed beside it.";
+	ASSERT_NE( -1, run.m_nExit ) << "tools/physics-scope/classify did not resolve from the test's "
+									"working directory, so every assertion below would be vacuous. "
+									"The document's totals are only falsifiable while this tool and "
+									"its two inputs are committed beside it.";
 }
 
 TEST( PhysicsMoveScope, EveryFunctionIsRuledAndEveryRulingIsUsed )
@@ -340,20 +340,19 @@ TEST( PhysicsMoveScope, EveryFunctionIsRuledAndEveryRulingIsUsed )
 	const ClassifyRun_t run = RunClassify();
 	ASSERT_NE( -1, run.m_nExit );
 
-	EXPECT_NE( std::string::npos,
-	           run.m_szOut.find( "UNMATCHED fnmap rows (no ruling): 0" ) )
+	EXPECT_NE( std::string::npos, run.m_szOut.find( "UNMATCHED fnmap rows (no ruling): 0" ) )
 		<< "a function in physics.cpp has no ruling, so the scope is silently "
-		   "incomplete:\n" << run.m_szOut;
-	EXPECT_NE( std::string::npos,
-	           run.m_szOut.find( "AMBIGUOUS (ruling key matched >1): 0" ) )
+		   "incomplete:\n"
+		<< run.m_szOut;
+	EXPECT_NE( std::string::npos, run.m_szOut.find( "AMBIGUOUS (ruling key matched >1): 0" ) )
 		<< "a ruling key matched more than one function, so its lines are "
-		   "counted under the wrong verdict:\n" << run.m_szOut;
-	EXPECT_NE( std::string::npos,
-	           run.m_szOut.find( "UNUSED rulings (key matched no function): 0" ) )
+		   "counted under the wrong verdict:\n"
+		<< run.m_szOut;
+	EXPECT_NE( std::string::npos, run.m_szOut.find( "UNUSED rulings (key matched no function): 0" ) )
 		<< "a ruling names a function that no longer exists -- a stale "
-		   "allow-list, which is how these rot:\n" << run.m_szOut;
-	EXPECT_EQ( 0, run.m_nExit )
-		<< "the classifier refuses its own inputs:\n" << run.m_szOut;
+		   "allow-list, which is how these rot:\n"
+		<< run.m_szOut;
+	EXPECT_EQ( 0, run.m_nExit ) << "the classifier refuses its own inputs:\n" << run.m_szOut;
 }
 
 TEST( PhysicsMoveScope, TheDocumentsTotalsStillFollowFromTheRulings )
@@ -363,16 +362,13 @@ TEST( PhysicsMoveScope, TheDocumentsTotalsStillFollowFromTheRulings )
 
 	// The headline the document states in prose (:33, :47, :95, :360) and the
 	// number the rulings actually sum to. Two artefacts, made differently.
-	EXPECT_NE( std::string::npos,
-	           run.m_szOut.find( "TOTAL         9 functions    112 lines" ) )
+	EXPECT_NE( std::string::npos, run.m_szOut.find( "TOTAL         9 functions    112 lines" ) )
 		<< "the rulings no longer sum to the 9 / 112 the document states "
 		   "in four places. One of the two moved and the other did not:\n"
-		   << run.m_szOut;
+		<< run.m_szOut;
 
-	EXPECT_NE( std::string::npos, Doc().find( "all 9 functions" ) )
-		<< "the document stopped saying 9 functions";
-	EXPECT_NE( std::string::npos, Doc().find( "all 112 lines" ) )
-		<< "the document stopped saying 112 lines";
+	EXPECT_NE( std::string::npos, Doc().find( "all 9 functions" ) ) << "the document stopped saying 9 functions";
+	EXPECT_NE( std::string::npos, Doc().find( "all 112 lines" ) ) << "the document stopped saying 112 lines";
 }
 
 // Each verdict row of section 2 is the classifier's count for that verdict,
@@ -389,18 +385,18 @@ TEST( PhysicsMoveScope, EachVerdictRowIsTheClassifiersCount )
 	const std::string doc = Doc();
 
 	static const char *kVerdicts[] = {
-		"INSTRUMENT", "SLOT-HELP", "SLOT", "DEAD", "STOCK-DEBUG",
-		"HOOK", "LIVE-API", "DEAD-VIA", "STALE-KEEP", "BOUNDARY",
+		"INSTRUMENT", "SLOT-HELP", "SLOT",     "DEAD",       "STOCK-DEBUG",
+		"HOOK",       "LIVE-API",  "DEAD-VIA", "STALE-KEEP", "BOUNDARY",
 	};
 	int nonEmpty = 0;
-	for ( size_t i = 0; i < sizeof( kVerdicts ) / sizeof( kVerdicts[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kVerdicts ) / sizeof( kVerdicts[0] ); i++ )
 	{
-		const std::string v( kVerdicts[ i ] );
+		const std::string v( kVerdicts[i] );
 		int wantFns = 0, wantLines = 0;
 		std::istringstream lines( run.m_szOut );
 		for ( std::string line; std::getline( lines, line ); )
 		{
-			char name[ 32 ] = {};
+			char name[32] = {};
 			int fns = 0, n = 0;
 			if ( sscanf( line.c_str(), "%31s %d functions %d lines", name, &fns, &n ) == 3 && v == name )
 			{

@@ -9,15 +9,15 @@
 6	LIVE-API	C_StandaloneEntity *SourceSharp_ClientShellFromTraceHit( IHandleEntity *pHandleEntity )
 9	SLOT-HELP	static IClientUnknown *ClientUnknownFromIndex( int nEntry )
 9	SLOT-HELP	static IClientUnknown *ClientUnknownFromHandle( const CBaseHandle &hEnt )
-8	LIVE-API	int32_t SourceSharp_ClientEntityIsValid( uint32_t hEntity )
-3	SLOT-HELP	[CSourceSharpClientEntityList] : m_Counts( SourceSharp_ClientSlotTable() ), m_bWarnedUnresolved( false )
+7	LIVE-API	int32_t SourceSharp_ClientEntityIsValid( uint32_t hEntity )
+4	SLOT-HELP	[CSourceSharpClientEntityList] : m_Counts( SourceSharp_ClientSlotTable() )
 6	SLOT	[CSourceSharpClientEntityList] virtual IClientNetworkable *GetClientNetworkable( int entnum ) OVERRIDE
 7	SLOT	[CSourceSharpClientEntityList] virtual IClientNetworkable *GetClientNetworkableFromHandle( CBaseHandle hEnt ) OVERRIDE
 16	SLOT	[CSourceSharpClientEntityList] virtual IClientUnknown *GetClientUnknownFromHandle( CBaseHandle hEnt ) OVERRIDE
 7	SLOT	[CSourceSharpClientEntityList] virtual IClientEntity *GetClientEntity( int entnum ) OVERRIDE
 7	SLOT	[CSourceSharpClientEntityList] virtual IClientEntity *GetClientEntityFromHandle( CBaseHandle hEnt ) OVERRIDE
-8	SLOT	[CSourceSharpClientEntityList] virtual int NumberOfEntities( bool bIncludeNonNetworkable ) OVERRIDE
-8	SLOT	[CSourceSharpClientEntityList] virtual int GetHighestEntityIndex() OVERRIDE
+7	SLOT	[CSourceSharpClientEntityList] virtual int NumberOfEntities( bool bIncludeNonNetworkable ) OVERRIDE
+7	SLOT	[CSourceSharpClientEntityList] virtual int GetHighestEntityIndex() OVERRIDE
 5	SLOT	[CSourceSharpClientEntityList] virtual void SetMaxEntities( int maxents ) OVERRIDE
 5	SLOT	[CSourceSharpClientEntityList] virtual int GetMaxEntities() OVERRIDE
 1	SLOT-HELP	[CSourceSharpClientEntityList] void OnBound( int nEntry )
@@ -32,11 +32,11 @@
 5	LIVE-API	IClientEntity *SourceSharp_ClientEntityFromHandle( const CBaseHandle &hEnt )
 5	LIVE-API	IClientRenderable *SourceSharp_ClientRenderableFromHandle( const CBaseHandle &hEnt )
 11	LIVE-API	CBaseHandle SourceSharp_ClientHandleFromIndex( int nEntry )
-16	LIVE-API	void SourceSharp_ClientEntityBind( C_StandaloneEntity *pShell, int nEntNum, int nSerialNum )
+15	LIVE-API	void SourceSharp_ClientEntityBind( C_StandaloneEntity *pShell, int nEntNum, int nSerialNum )
 16	LIVE-API	void SourceSharp_ClientEntityUnbind( C_StandaloneEntity *pShell )
-12	INSTRUMENT	CON_COMMAND( cs_cl_slot_table, "" )
-12	INSTRUMENT	CON_COMMAND( ss_cl_boundary_probe_report,
-6	INSTRUMENT	CON_COMMAND( ss_cl_boundary_probe_reset,
+10	INSTRUMENT	CON_COMMAND( cs_cl_slot_table, "" )
+12	INSTRUMENT	CON_COMMAND( ss_cl_boundary_probe_report, "" )
+5	INSTRUMENT	CON_COMMAND( ss_cl_boundary_probe_reset, "" )
 8	LIVE-API	CBaseHandle SourceSharp_LegacyListBind( IClientUnknown *pUnknown, int nEntNum, int nSerialNum )
 4	LIVE-API	void SourceSharp_LegacyListUnbind( const CBaseHandle &hEnt )
 5	SLOT-HELP	IClientUnknown *SourceSharp_LegacyListUnknownFromIndex( int nEntry )

@@ -9,22 +9,12 @@
 // The particle manifest half of particle_parse.cpp, plus the two world-point
 // DispatchParticleEffect overloads; nothing here names an entity type.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
-#include "particle_parse.h"
+
 #include "ss_string.h"
 #ifdef CLIENT_DLL
 #include "particles/particles.h"
@@ -39,7 +29,7 @@
 #include "networkstringtable_gamedll.h"
 #include "te_effect_dispatch.h"
 #else
-#include "networkstringtable_clientdll.h"
+
 #include "c_te_effect_dispatch.h"
 #endif
 
@@ -49,7 +39,10 @@
 
 // A manifest's file entries come back from C# NUL-separated in one block.
 // ManifestFiles answers the count, or -1 for a map with no manifest.
-enum { kManifestBlockBytes = 16 * 1024 };
+enum
+{
+	kManifestBlockBytes = 16 * 1024
+};
 
 // CParticleMgr::Init asks for the first read before the managed runtime is up;
 // it is held and run from SourceSharp_ParticleManifestRuntimeUp, still in Init.
@@ -65,11 +58,12 @@ static int ManifestFiles( bool bMap, const char *pszMapName, std::vector<std::st
 	if ( !p )
 		return 0;
 
-	static uint8_t s_Block[ ss::kBitBlockHeaderBytes + kManifestBlockBytes ];
+	static uint8_t s_Block[ss::kBitBlockHeaderBytes + kManifestBlockBytes];
 	const int nFiles = p->ManifestFiles( bMap ? 1 : 0, pszMapName ? pszMapName : "", s_Block, sizeof( s_Block ) );
 	if ( nFiles == -2 )
 	{
-		Warning( "[SourceSharp] a particle manifest's file list is over %d bytes; not loaded\n", (int)kManifestBlockBytes );
+		Warning( "[SourceSharp] a particle manifest's file list is over %d bytes; not loaded\n",
+				 (int)kManifestBlockBytes );
 		return 0;
 	}
 	if ( nFiles <= 0 )
@@ -149,7 +143,7 @@ void ReloadParticleEffects()
 	{
 		ParseParticleEffects( true, true );
 	}
-	
+
 	g_pParticleSystemMgr->DecommitTempMemory();
 }
 
@@ -160,7 +154,7 @@ int ParseParticleEffectsMapFiles( const char *pMapName, bool bLoadSheets )
 
 	std::vector<std::string> files;
 	if ( ManifestFiles( true, pMapName, files ) < 0 )
-		return 0;	// no manifest, and no warning: most maps have none
+		return 0; // no manifest, and no warning: most maps have none
 
 	int nCount = (int)files.size();
 	if ( !nCount )
@@ -206,9 +200,10 @@ int PrecacheDefinedParticleSystems()
 
 #endif // CLIENT_DLL
 
-void DispatchParticleEffect( int iEffectIndex, Vector vecOrigin, Vector vecStart, QAngle vecAngles, IGameEntity *pEntity )
+void DispatchParticleEffect( int iEffectIndex, Vector vecOrigin, Vector vecStart, QAngle vecAngles,
+							 IGameEntity *pEntity )
 {
-	CEffectData	data;
+	CEffectData data;
 
 	data.m_nHitBox = iEffectIndex;
 	data.m_vOrigin = vecOrigin;

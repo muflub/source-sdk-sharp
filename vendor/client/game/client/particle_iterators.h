@@ -7,7 +7,7 @@
 #include "particledraw.h"
 
 #define NUM_PARTICLES_PER_BATCH 200
-#define MAX_TOTAL_PARTICLES		2048	// Max particles in the world
+#define MAX_TOTAL_PARTICLES 2048 // Max particles in the world
 
 // Iterate the particles like this:
 // Particle *pCur = pIterator->GetFirst();
@@ -18,32 +18,32 @@
 // }
 class CParticleRenderIterator
 {
-friend class CParticleMgr;
-friend class CParticleEffectBinding;
+	friend class CParticleMgr;
+	friend class CParticleEffectBinding;
+
 public:
 	CParticleRenderIterator();
 
-	const Particle* GetNext( float sortKey );
+	const Particle *GetNext( float sortKey );
 
 private:
-
 	void TestFlushBatch();
 
 private:
 	// Set by CParticleMgr.
-	alignas( 8 ) unsigned char unused_m_pEffectBinding[ 8 ];
+	alignas( 8 ) unsigned char unused_m_pEffectBinding[8];
 	CEffectMaterial *m_pMaterial;
 	ParticleDraw *m_pParticleDraw;
 	CMeshBuilder *m_pMeshBuilder;
 	IMesh *m_pMesh;
 	bool m_bBucketSort;
-	
+
 	// Output after rendering.
 	float m_MinZ;
 	float m_MaxZ;
 	float m_zCoords[MAX_TOTAL_PARTICLES];
 	int m_nZCoords;
-	
+
 	Particle *m_pCur;
 	bool m_bGotFirst;
 	float m_flPrevZ;
@@ -59,14 +59,15 @@ private:
 // }
 class CParticleSimulateIterator
 {
-friend class CParticleMgr;
-friend class CParticleEffectBinding;
+	friend class CParticleMgr;
+	friend class CParticleEffectBinding;
+
 public:
 	CParticleSimulateIterator();
-	
+
 	// Iterate through the particles, simulate them, and remove them if necessary.
-	Particle* GetFirst();
-	Particle* GetNext();
+	Particle *GetFirst();
+	Particle *GetNext();
 
 private:
 	CParticleEffectBinding *m_pEffectBinding;
@@ -93,7 +94,7 @@ inline CParticleRenderIterator::CParticleRenderIterator()
 inline void CParticleRenderIterator::TestFlushBatch()
 {
 	++m_nParticlesInCurrentBatch;
-	if( m_nParticlesInCurrentBatch >= NUM_PARTICLES_PER_BATCH )
+	if ( m_nParticlesInCurrentBatch >= NUM_PARTICLES_PER_BATCH )
 	{
 		m_pMeshBuilder->End( false, true );
 		m_pMeshBuilder->Begin( m_pMesh, MATERIAL_QUADS, NUM_PARTICLES_PER_BATCH * 4 );
@@ -102,7 +103,7 @@ inline void CParticleRenderIterator::TestFlushBatch()
 	}
 }
 
-inline const Particle* CParticleRenderIterator::GetNext( float sortKey )
+inline const Particle *CParticleRenderIterator::GetNext( float sortKey )
 {
 	Assert( m_bGotFirst );
 	Assert( m_pCur );
@@ -112,18 +113,18 @@ inline const Particle* CParticleRenderIterator::GetNext( float sortKey )
 	Particle *pNext = m_pCur->m_pNext;
 
 	// Update the incremental sort.
-	if( m_bBucketSort )
+	if ( m_bBucketSort )
 	{
 		m_MinZ = MIN( sortKey, m_MinZ );
 		m_MaxZ = MAX( sortKey, m_MaxZ );
-		
+
 		m_zCoords[m_nZCoords] = sortKey;
 		++m_nZCoords;
 	}
 	else
 	{
 		// Swap with the previous particle (incremental sort)?
-		if( m_pCur != m_pMaterial->m_Particles.m_pNext && m_flPrevZ > sortKey )
+		if ( m_pCur != m_pMaterial->m_Particles.m_pNext && m_flPrevZ > sortKey )
 		{
 			SwapParticles( m_pCur->m_pPrev, m_pCur );
 		}
@@ -151,7 +152,7 @@ inline CParticleSimulateIterator::CParticleSimulateIterator()
 #endif
 }
 
-inline Particle* CParticleSimulateIterator::GetFirst()
+inline Particle *CParticleSimulateIterator::GetFirst()
 {
 #ifdef _DEBUG
 	// Make sure they're either starting out fresh or that the previous guy iterated through all the particles.
@@ -173,13 +174,13 @@ inline Particle* CParticleSimulateIterator::GetFirst()
 	return pRet;
 }
 
-inline Particle* CParticleSimulateIterator::GetNext()
+inline Particle *CParticleSimulateIterator::GetNext()
 {
 	Particle *pRet = m_pNextParticle;
 
 	if ( pRet == &m_pMaterial->m_Particles )
 		return NULL;
-	
+
 	m_pNextParticle = pRet->m_pNext;
 	return pRet;
 }

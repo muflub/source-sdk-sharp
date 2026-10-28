@@ -60,10 +60,10 @@ bool Exists( const char *pPath )
 // cmake_graph.h (compile_commands.json cross-checked against
 // src/{server,client}/native/CMakeLists.txt). The shim row below doubles as
 // the server side's proof-of-read.
-const char *const kMoveHelperRow  = "game/server/movehelper_server.cpp";
-const char *const kLocalDataRow   = "game/server/playerlocaldata.cpp";
-const char *const kShimLocalRow   = "sourcesharp/game/server/shell_standalone_player.cpp";
-const char *const kProofOfRead    = "sourcesharp/game/shared/shell_shared.cpp";
+const char *const kMoveHelperRow = "game/server/movehelper_server.cpp";
+const char *const kLocalDataRow = "game/server/playerlocaldata.cpp";
+const char *const kShimLocalRow = "sourcesharp/game/server/shell_standalone_player.cpp";
+const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 
 } // anonymous namespace
 
@@ -77,7 +77,8 @@ TEST( ServerTusEvicted, TheServerNoLongerCompilesMoveHelperServer )
 		<< "server_sourcesharp does not compile " << kProofOfRead
 		<< " -- the reader is not reading the server's source list";
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, kMoveHelperRow ) )
-		<< kMoveHelperRow << " is back in server_sourcesharp "
+		<< kMoveHelperRow
+		<< " is back in server_sourcesharp "
 		   "(src/server/native/CMakeLists.txt), which is a duplicate definition "
 		   "of IMoveHelper::sm_pSingleton against the one in "
 		   "shell_standalone_player.cpp";
@@ -101,7 +102,8 @@ TEST( ServerTusEvicted, TheShimPlayerLocalDataIsCompiledAndOnlyOnTheServer )
 		<< "client_sourcesharp does not compile " << kProofOfRead
 		<< " -- the reader is not reading the client's source list";
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kShimLocalRow ) )
-		<< "without " << kShimLocalRow << " in server_sourcesharp nothing defines "
+		<< "without " << kShimLocalRow
+		<< " in server_sourcesharp nothing defines "
 		   "UpdateAllClientData and the server does not link";
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kShimLocalRow ) )
 		<< "this is game/server code: it was never in the client build and must "
@@ -134,4 +136,3 @@ TEST( ServerTusEvicted, TheStockPlayerLocalDataSourceIsGoneFromDisk )
 // The move helper's singleton storage and the standalone helper that installed
 // itself went with the server's native command path (plan_server_native_v2
 // T4g): the helper's work is ServerMoveWorld's, in managed.
-

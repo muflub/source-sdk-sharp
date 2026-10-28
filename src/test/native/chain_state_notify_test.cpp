@@ -37,8 +37,13 @@ namespace
 class OwnerA
 {
 public:
-	OwnerA() : m_nHeard( 0 ) {}
+	OwnerA()
+		: m_nHeard( 0 )
+	{
+	}
+
 	void NetworkStateChanged() { m_nHeard++; }
+
 	int m_nHeard;
 };
 
@@ -53,21 +58,28 @@ class Leading
 {
 public:
 	virtual ~Leading() {}
-	int m_nLead[ 3 ];
+
+	int m_nLead[3];
 };
 
 class Trailing
 {
 public:
 	virtual ~Trailing() {}
-	int m_nTrail[ 3 ];
+
+	int m_nTrail[3];
 };
 
 class OwnerB : public Leading, public Trailing
 {
 public:
-	OwnerB() : m_nHeard( 0 ) {}
+	OwnerB()
+		: m_nHeard( 0 )
+	{
+	}
+
 	void NetworkStateChanged() { m_nHeard += 10; }
+
 	int m_nHeard;
 };
 
@@ -100,9 +112,8 @@ TEST( ChainStateNotify, BoundOwnerHearsIt )
 	ASSERT_TRUE( notify.IsBound() );
 	notify.NetworkStateChanged();
 
-	EXPECT_EQ( 1, owner.m_nHeard )
-		<< "the chain forwarded to nobody — the entity would never re-encode "
-		   "and nothing anywhere would say so";
+	EXPECT_EQ( 1, owner.m_nHeard ) << "the chain forwarded to nobody — the entity would never re-encode "
+									  "and nothing anywhere would say so";
 }
 
 TEST( ChainStateNotify, OnlyTheBoundOwnerHears )
@@ -114,8 +125,7 @@ TEST( ChainStateNotify, OnlyTheBoundOwnerHears )
 	notify = &bound;
 	notify.NetworkStateChanged();
 
-	EXPECT_EQ( 1, bound.m_nHeard ) << "the bound owner heard " << bound.m_nHeard
-		<< " times";
+	EXPECT_EQ( 1, bound.m_nHeard ) << "the bound owner heard " << bound.m_nHeard << " times";
 	EXPECT_EQ( 0, other.m_nHeard ) << "an owner nothing was bound to was told";
 }
 
@@ -153,10 +163,9 @@ TEST( ChainStateNotify, EachOwnerTypeIsCalledAsItself )
 	notify = &b;
 	notify.NetworkStateChanged();
 
-	EXPECT_EQ( 1,  a.m_nHeard );
-	EXPECT_EQ( 10, b.m_nHeard )
-		<< "the second owner was not reached as itself; OwnerB's counter is "
-		   "past a base subobject and only a cast back to OwnerB finds it";
+	EXPECT_EQ( 1, a.m_nHeard );
+	EXPECT_EQ( 10, b.m_nHeard ) << "the second owner was not reached as itself; OwnerB's counter is "
+								   "past a base subobject and only a cast back to OwnerB finds it";
 }
 
 TEST( ChainStateNotify, AnOwnerWhoseBasesAreNotAtItsAddressIsStillFound )
@@ -166,8 +175,7 @@ TEST( ChainStateNotify, AnOwnerWhoseBasesAreNotAtItsAddressIsStillFound )
 	// The premise, asserted rather than assumed: the address the holder is
 	// given is OwnerB's, and at least one of its bases is somewhere else. If
 	// that stopped being true this test would pass whatever the holder did.
-	ASSERT_NE( ( const void * )&owner,
-	           ( const void * )static_cast< Trailing * >( &owner ) )
+	ASSERT_NE( (const void *)&owner, (const void *)static_cast<Trailing *>( &owner ) )
 		<< "OwnerB's bases are all at offset zero now, so this test cannot "
 		   "tell a typed round trip from an untyped one";
 

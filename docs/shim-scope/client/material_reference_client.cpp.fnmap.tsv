@@ -14,6 +14,6 @@
 4	BOUNDARY	CTextureReference::~CTextureReference()
 7	BOUNDARY	void CTextureReference::Init( char const *pTextureName, const char *pTextureGroupName, bool bComplain )
 7	BOUNDARY	void CTextureReference::Init( ITexture *pTexture )
-6	BOUNDARY	void CTextureReference::InitProceduralTexture( const char *pTextureName, const char *pTextureGroupName,
-12	BOUNDARY	void CTextureReference::InitRenderTarget( int w, int h, RenderTargetSizeMode_t sizeMode, ImageFormat fmt,
+6	BOUNDARY	void CTextureReference::InitProceduralTexture( const char *pTextureName, const char *pTextureGroupName, int w, int h, ImageFormat fmt, int n
+12	BOUNDARY	void CTextureReference::InitRenderTarget( int w, int h, RenderTargetSizeMode_t sizeMode, ImageFormat fmt, MaterialRenderTargetDepth_t depth,
 9	BOUNDARY	void CTextureReference::Shutdown( bool bDeleteIfUnReferenced )

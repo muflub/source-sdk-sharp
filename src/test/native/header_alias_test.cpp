@@ -139,24 +139,29 @@ std::string StripComments( const std::string &strIn )
 	{
 		if ( bInBlock )
 		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
+			if ( i + 1 < strIn.size() && strIn[i] == '*' && strIn[i + 1] == '/' )
 			{
-				bInBlock = false; i++;
+				bInBlock = false;
+				i++;
 			}
 			continue;
 		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
+		if ( i + 1 < strIn.size() && strIn[i] == '/' && strIn[i + 1] == '*' )
 		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			// Rest of THIS line only.
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
+			bInBlock = true;
+			i++;
 			continue;
 		}
-		out += strIn[ i ];
+		if ( i + 1 < strIn.size() && strIn[i] == '/' && strIn[i + 1] == '/' )
+		{
+			// Rest of THIS line only.
+			while ( i < strIn.size() && strIn[i] != '\n' )
+				i++;
+			if ( i < strIn.size() )
+				out += '\n';
+			continue;
+		}
+		out += strIn[i];
 	}
 	return out;
 }
@@ -167,9 +172,9 @@ std::string StripComments( const std::string &strIn )
 struct Guard_t
 {
 	std::string strFile;
-	int nLine;                            // 1-based, the #ifndef
-	std::vector< std::string > unarmed;   // between #ifndef and #else
-	std::vector< std::string > armed;     // between #else and #endif
+	int nLine; // 1-based, the #ifndef
+	std::vector<std::string> unarmed; // between #ifndef and #else
+	std::vector<std::string> armed; // between #else and #endif
 	bool bHasElse;
 	bool bClosed;
 	// Which polarity opened it. Needed because an #else-less guard means the
@@ -179,31 +184,44 @@ struct Guard_t
 	// has to be waived, which is how a swallowed #else gets through.
 	bool bArmedFirst;
 
-	Guard_t() : nLine( 0 ), bHasElse( false ), bClosed( false ), bArmedFirst( false ) {}
+	Guard_t()
+		: nLine( 0 )
+		, bHasElse( false )
+		, bClosed( false )
+		, bArmedFirst( false )
+	{
+	}
 
 	// CODE ONLY — see StripComments above for why the prose must not be matched.
 	std::string UnarmedText() const
 	{
 		std::string s;
-		for ( size_t i = 0; i < unarmed.size(); i++ ) s += unarmed[ i ] + "\n";
+		for ( size_t i = 0; i < unarmed.size(); i++ )
+			s += unarmed[i] + "\n";
 		return StripComments( s );
 	}
+
 	std::string ArmedText() const
 	{
 		std::string s;
-		for ( size_t i = 0; i < armed.size(); i++ ) s += armed[ i ] + "\n";
+		for ( size_t i = 0; i < armed.size(); i++ )
+			s += armed[i] + "\n";
 		return StripComments( s );
 	}
+
 	bool ArmedHasCode() const
 	{
 		for ( size_t i = 0; i < armed.size(); i++ )
-			if ( !IsBlankOrComment( armed[ i ] ) ) return true;
+			if ( !IsBlankOrComment( armed[i] ) )
+				return true;
 		return false;
 	}
+
 	bool UnarmedHasCode() const
 	{
 		for ( size_t i = 0; i < unarmed.size(); i++ )
-			if ( !IsBlankOrComment( unarmed[ i ] ) ) return true;
+			if ( !IsBlankOrComment( unarmed[i] ) )
+				return true;
 		return false;
 	}
 };
@@ -220,16 +238,14 @@ struct Guard_t
 bool IsGuardOpen( const std::string &strLine, bool *pbArmedFirst )
 {
 	const std::string t = Trimmed( strLine );
-	if ( t == "#ifndef SS_CBASEENTITY_ALIAS"
-		|| t == "#if !defined( SS_CBASEENTITY_ALIAS )"
-		|| t == "#if !defined(SS_CBASEENTITY_ALIAS)" )
+	if ( t == "#ifndef SS_CBASEENTITY_ALIAS" || t == "#if !defined( SS_CBASEENTITY_ALIAS )" ||
+		 t == "#if !defined(SS_CBASEENTITY_ALIAS)" )
 	{
 		*pbArmedFirst = false;
 		return true;
 	}
-	if ( t == "#ifdef SS_CBASEENTITY_ALIAS"
-		|| t == "#if defined( SS_CBASEENTITY_ALIAS )"
-		|| t == "#if defined(SS_CBASEENTITY_ALIAS)" )
+	if ( t == "#ifdef SS_CBASEENTITY_ALIAS" || t == "#if defined( SS_CBASEENTITY_ALIAS )" ||
+		 t == "#if defined(SS_CBASEENTITY_ALIAS)" )
 	{
 		*pbArmedFirst = true;
 		return true;
@@ -244,22 +260,25 @@ bool IsAnyConditionalOpen( const std::string &strLine )
 	return t.compare( 0, 3, "#if" ) == 0;
 }
 
-bool IsEndif( const std::string &strLine ) { return Trimmed( strLine ).compare( 0, 6, "#endif" ) == 0; }
+bool IsEndif( const std::string &strLine )
+{
+	return Trimmed( strLine ).compare( 0, 6, "#endif" ) == 0;
+}
+
 bool IsElse( const std::string &strLine )
 {
 	const std::string t = Trimmed( strLine );
 	return t == "#else" || t.compare( 0, 5, "#elif" ) == 0;
 }
 
-std::vector< Guard_t > GuardsInLines( const std::vector< std::string > &lines,
-                                     const std::string &strFile )
+std::vector<Guard_t> GuardsInLines( const std::vector<std::string> &lines, const std::string &strFile )
 {
-	std::vector< Guard_t > out;
+	std::vector<Guard_t> out;
 
 	for ( size_t i = 0; i < lines.size(); i++ )
 	{
 		bool bArmedFirst = false;
-		if ( !IsGuardOpen( lines[ i ], &bArmedFirst ) )
+		if ( !IsGuardOpen( lines[i], &bArmedFirst ) )
 			continue;
 
 		Guard_t g;
@@ -272,23 +291,34 @@ std::vector< Guard_t > GuardsInLines( const std::vector< std::string > &lines,
 		size_t j = i + 1;
 		for ( ; j < lines.size(); j++ )
 		{
-			const std::string &L = lines[ j ];
-			if ( IsAnyConditionalOpen( L ) ) { nDepth++; }
+			const std::string &L = lines[j];
+			if ( IsAnyConditionalOpen( L ) )
+			{
+				nDepth++;
+			}
 			else if ( IsEndif( L ) )
 			{
-				if ( nDepth == 0 ) { g.bClosed = true; break; }
+				if ( nDepth == 0 )
+				{
+					g.bClosed = true;
+					break;
+				}
 				nDepth--;
 			}
 			else if ( IsElse( L ) && nDepth == 0 )
 			{
-				g.bHasElse = true; bInElse = true; continue;
+				g.bHasElse = true;
+				bInElse = true;
+				continue;
 			}
 
 			// Which side of the #else is the ARMED arm depends on the polarity
 			// of the opening directive, not on its position.
 			const bool bThisIsArmed = ( bInElse != bArmedFirst );
-			if ( bThisIsArmed ) g.armed.push_back( L );
-			else                g.unarmed.push_back( L );
+			if ( bThisIsArmed )
+				g.armed.push_back( L );
+			else
+				g.unarmed.push_back( L );
 		}
 		out.push_back( g );
 		i = j;
@@ -324,7 +354,7 @@ std::vector< Guard_t > GuardsInLines( const std::vector< std::string > &lines,
 struct Site_t
 {
 	const char *pszFile;
-	const char *pszMustBeInUnarmed;  // the member the flip deletes
+	const char *pszMustBeInUnarmed; // the member the flip deletes
 	const char *pszMustNotBeInArmed; // ...which the armed arm must not name
 };
 
@@ -368,7 +398,7 @@ struct Site_t
 // the compiled half" is a measurement only because the scanner can still find
 // one, which the two HeaderAliasScanner fixtures prove on literals.
 
-}  // namespace
+} // namespace
 
 //-----------------------------------------------------------------------------
 // The NetworkStateChanged pair, and this one is checked in the OPPOSITE
@@ -476,26 +506,25 @@ namespace
 // game/shared/baseentity_shared.h:21-37, spelled here rather than included
 // because that header needs the whole prelude. entity_bases_alias_test.cpp
 // does the same for the two it needs.
-const int kAcrossTransition  = 0x00000002;
-const int kImpulseUse        = 0x00000010;
-const int kDirectionalUse    = 0x00000080;
-const int kUseOnGround       = 0x00000100;
-const int kUseInRadius       = 0x00000200;
-const int kSaveNonNetworkable= 0x00000400;
-const int kWCEditPosition    = 0x40000000;
-const int kDontSave          = (int)0x80000000;
+const int kAcrossTransition = 0x00000002;
+const int kImpulseUse = 0x00000010;
+const int kDirectionalUse = 0x00000080;
+const int kUseOnGround = 0x00000100;
+const int kUseInRadius = 0x00000200;
+const int kSaveNonNetworkable = 0x00000400;
+const int kWCEditPosition = 0x40000000;
+const int kDontSave = (int)0x80000000;
 }
 
 TEST( HeaderAlias, TheObjectCapsFoldsAreArithmeticallyRight )
 {
-	const int base = 0;  // what BaseClass::ObjectCaps() contributes, armed.
+	const int base = 0; // what BaseClass::ObjectCaps() contributes, armed.
 
 	// func_areaportalbase.h, player.h — `base & ~FCAP_ACROSS_TRANSITION` -> 0
 	EXPECT_EQ( base & ~kAcrossTransition, 0 );
 
 	// trains.h — `base | FCAP_DIRECTIONAL_USE | FCAP_USE_ONGROUND`
-	EXPECT_EQ( base | kDirectionalUse | kUseOnGround,
-	           kDirectionalUse | kUseOnGround );
+	EXPECT_EQ( base | kDirectionalUse | kUseOnGround, kDirectionalUse | kUseOnGround );
 
 	// player_resource.h — `base | FCAP_DONT_SAVE`
 	EXPECT_EQ( base | kDontSave, kDontSave );
@@ -510,8 +539,7 @@ TEST( HeaderAlias, TheObjectCapsFoldsAreArithmeticallyRight )
 	EXPECT_EQ( base | kSaveNonNetworkable, kSaveNonNetworkable );
 
 	// gib.h — `(base & ~FCAP_ACROSS_TRANSITION) | FCAP_DONT_SAVE | FCAP_IMPULSE_USE`
-	EXPECT_EQ( ( base & ~kAcrossTransition ) | kDontSave | kImpulseUse,
-	           kDontSave | kImpulseUse );
+	EXPECT_EQ( ( base & ~kAcrossTransition ) | kDontSave | kImpulseUse, kDontSave | kImpulseUse );
 
 	// Sprite.h — `(base & ~FCAP_ACROSS_TRANSITION) | flags`, for both values
 	// `flags` can take. The armed arm returns `flags` unchanged, so BOTH must
@@ -552,21 +580,21 @@ TEST( HeaderAliasScanner, AnAdditionGuardIsDistinguishedFromADeletionGuard )
 	// mean asserting nothing at all. The distinction the scanner has to make is
 	// unchanged, and it is what keeps a guard reappearing in a compiled file
 	// from being classified as harmless.
-	std::vector< std::string > lines;
-	lines.push_back( "#ifdef SS_CBASEENTITY_ALIAS" );                    // addition
+	std::vector<std::string> lines;
+	lines.push_back( "#ifdef SS_CBASEENTITY_ALIAS" ); // addition
 	lines.push_back( "inline void DataMapAccess( C_BaseAnimating *, datamap_t **p ) { *p = NULL; }" );
 	lines.push_back( "#endif" );
-	lines.push_back( "#ifndef SS_CBASEENTITY_ALIAS" );                   // deletion
+	lines.push_back( "#ifndef SS_CBASEENTITY_ALIAS" ); // deletion
 	lines.push_back( "\tif ( pBase ) return pBase->GetDebugName();" );
 	lines.push_back( "#endif" );
 
-	const std::vector< Guard_t > guards = GuardsInLines( lines, "<fixture>" );
+	const std::vector<Guard_t> guards = GuardsInLines( lines, "<fixture>" );
 	ASSERT_EQ( 2u, guards.size() );
 
 	size_t nAddition = 0, nDeletion = 0;
 	for ( size_t i = 0; i < guards.size(); i++ )
 	{
-		const Guard_t &G = guards[ i ];
+		const Guard_t &G = guards[i];
 		ASSERT_TRUE( G.bClosed );
 		ASSERT_FALSE( G.bHasElse );
 		if ( G.bArmedFirst )
@@ -574,16 +602,14 @@ TEST( HeaderAliasScanner, AnAdditionGuardIsDistinguishedFromADeletionGuard )
 			nAddition++;
 			EXPECT_TRUE( Contains( G.ArmedText(), "DataMapAccess( C_BaseAnimating *" ) )
 				<< "the #else-less #ifdef's content landed in the wrong arm";
-			EXPECT_FALSE( G.UnarmedHasCode() )
-				<< "an addition guard has no unarmed arm by definition";
+			EXPECT_FALSE( G.UnarmedHasCode() ) << "an addition guard has no unarmed arm by definition";
 		}
 		else
 		{
 			nDeletion++;
 			EXPECT_TRUE( Contains( G.UnarmedText(), "pBase->GetDebugName()" ) )
 				<< "the #else-less #ifndef's content landed in the wrong arm";
-			EXPECT_FALSE( G.ArmedHasCode() )
-				<< "a deletion guard has no armed arm by definition";
+			EXPECT_FALSE( G.ArmedHasCode() ) << "a deletion guard has no armed arm by definition";
 		}
 	}
 	EXPECT_EQ( 1u, nAddition );

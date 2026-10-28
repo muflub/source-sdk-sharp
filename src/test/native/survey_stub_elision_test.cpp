@@ -154,19 +154,23 @@ bool StartsWith( const std::string &hay, const char *needle )
 // below independent of build configuration -- the boundary must hold in every
 // one of them.
 //-----------------------------------------------------------------------------
-enum { kNeutral = 0, kArmedOnly = 1, kUnarmedOnly = 2 };
-
-std::vector< char > VisibleWhenArmed( const std::vector< std::string > &lines )
+enum
 {
-	std::vector< char > out( lines.size(), 1 );
-	std::vector< int > stack;
+	kNeutral = 0,
+	kArmedOnly = 1,
+	kUnarmedOnly = 2
+};
+
+std::vector<char> VisibleWhenArmed( const std::vector<std::string> &lines )
+{
+	std::vector<char> out( lines.size(), 1 );
+	std::vector<int> stack;
 
 	for ( size_t i = 0; i < lines.size(); i++ )
 	{
-		const std::string t = Trimmed( lines[ i ] );
+		const std::string t = Trimmed( lines[i] );
 
-		if ( StartsWith( t, "#ifdef" ) || StartsWith( t, "#ifndef" )
-			|| StartsWith( t, "#if" ) )
+		if ( StartsWith( t, "#ifdef" ) || StartsWith( t, "#ifndef" ) || StartsWith( t, "#if" ) )
 		{
 			int st = kNeutral;
 			if ( StartsWith( t, "#ifdef" ) && Has( t, "TYPEDEF_SURVEY" ) )
@@ -175,8 +179,7 @@ std::vector< char > VisibleWhenArmed( const std::vector< std::string > &lines )
 				st = kUnarmedOnly;
 			stack.push_back( st );
 		}
-		else if ( ( StartsWith( t, "#else" ) || StartsWith( t, "#elif" ) )
-			&& !stack.empty() )
+		else if ( ( StartsWith( t, "#else" ) || StartsWith( t, "#elif" ) ) && !stack.empty() )
 		{
 			int &top = stack.back();
 			if ( top == kArmedOnly )
@@ -192,13 +195,13 @@ std::vector< char > VisibleWhenArmed( const std::vector< std::string > &lines )
 		bool bVisible = true;
 		for ( size_t k = 0; k < stack.size(); k++ )
 		{
-			if ( stack[ k ] == kUnarmedOnly )
+			if ( stack[k] == kUnarmedOnly )
 			{
 				bVisible = false;
 				break;
 			}
 		}
-		out[ i ] = bVisible ? 1 : 0;
+		out[i] = bVisible ? 1 : 0;
 	}
 	return out;
 }
@@ -218,42 +221,45 @@ struct Side
 {
 	const char *pszName;
 	const char *pszHeader;
-	const char *pszIncludeGuard;    // `#ifndef X` -- the ONE conditional the
-	                                // whole header sits inside, which is what
-	                                // makes "depth 1" mean "unconditional"
+	const char *pszIncludeGuard; // `#ifndef X` -- the ONE conditional the
+	// whole header sits inside, which is what
+	// makes "depth 1" mean "unconditional"
 	const char *pszRetiredClassHead; // the class the stub elided; must be GONE
-	const char *pszStubClassHead;    // the stub that stood in for it; also GONE
-	const char *pszScope1;          // `Ent::` -- member definitions
-	const char *pszScope2;          // second spelling, or NULL
+	const char *pszStubClassHead; // the stub that stood in for it; also GONE
+	const char *pszScope1; // `Ent::` -- member definitions
+	const char *pszScope2; // second spelling, or NULL
 	// Named member definitions that must NOT BE THERE. These were the anchors
 	// for "found and elided"; the class is deleted, so they are the anchors for
 	// "deleted with it". Kept as STRINGS and kept one per former guarded run,
 	// so a class creeping back one run at a time is named rather than merely
 	// changing a total.
-	const char *pszDeletedMember[ 5 ];
-	const char *pszSurvivor[ 4 ];   // free names that must be there, unguarded
+	const char *pszDeletedMember[5];
+	const char *pszSurvivor[4]; // free names that must be there, unguarded
 	// The header is not empty: its NON-BLANK lines once comments are stripped
 	// (directives included), so the floor reads the same whether the SDK tree
 	// is the fork, whose copy carries our comments, or the comment-free
 	// patched upstream (make sdk-upstream). A raw line count read 369 against
 	// 230 for the same code and failed the second.
-	int         nMinLines;
-	int         nMinCodeLines;      // ...and its TAIL is what is left of it
+	int nMinLines;
+	int nMinCodeLines; // ...and its TAIL is what is left of it
 };
 
 const Side kSides[] = {
-	{ "client", "game/client/c_baseentity.h",
+	{ "client",
+	  "game/client/c_baseentity.h",
 	  "#ifndef C_BASEENTITY_H",
 	  "class C_BaseEntity : public IClientEntity",
 	  "class C_BaseEntity : public IGameEntity",
-	  "C_BaseEntity::", "CBaseEntity::",
-	  { "C_BaseEntity::CollisionProp",        // run 1, first
-	    "C_BaseEntity::GetAbsVelocity",       // run 1, last
-	    "C_BaseEntity::Instance",             // run 2, first
-	    "CBaseEntity::BoundingRadius",        // run 2, the SERVER spelling
-	    NULL },
+	  "C_BaseEntity::",
+	  "CBaseEntity::",
+	  { "C_BaseEntity::CollisionProp", // run 1, first
+		"C_BaseEntity::GetAbsVelocity", // run 1, last
+		"C_BaseEntity::Instance", // run 2, first
+		"CBaseEntity::BoundingRadius", // run 2, the SERVER spelling
+		NULL },
 	  { "SDKEntityFromUnknown", "SDKEntityFromRenderable", "FClassnameIs", NULL },
-	  120, 80 },
+	  120,
+	  80 },
 	// The server row ({ "server", "game/server/baseentity.h", ... }) is
 	// RETIRED: game/server/baseentity.h is compiled by nothing since
 	// plan_server_novalve.md P5 and left the farm in P6. See the P6 note at
@@ -283,7 +289,7 @@ struct StubSpan
 	size_t iIfdef;
 	size_t iElse;
 	size_t iEndif;
-	bool   bFound;
+	bool bFound;
 };
 
 } // namespace
@@ -366,45 +372,45 @@ struct StubSpan
 // box that could return "visible" for everything and pass four tests.
 TEST( SurveyStubElisionScanner, VisibleWhenArmedEvaluatesTheConditionals )
 {
-	std::vector< std::string > in;
-	in.push_back( "int always_a;" );          // 0  visible
-	in.push_back( "#ifdef TYPEDEF_SURVEY" );  // 1
-	in.push_back( "int armed_only;" );        // 2  visible
-	in.push_back( "#else" );                  // 3
-	in.push_back( "int unarmed_only;" );      // 4  HIDDEN
-	in.push_back( "#endif" );                 // 5
+	std::vector<std::string> in;
+	in.push_back( "int always_a;" ); // 0  visible
+	in.push_back( "#ifdef TYPEDEF_SURVEY" ); // 1
+	in.push_back( "int armed_only;" ); // 2  visible
+	in.push_back( "#else" ); // 3
+	in.push_back( "int unarmed_only;" ); // 4  HIDDEN
+	in.push_back( "#endif" ); // 5
 	in.push_back( "#ifndef TYPEDEF_SURVEY" ); // 6
-	in.push_back( "int guarded_run;" );       // 7  HIDDEN
-	in.push_back( "#ifdef _DEBUG" );          // 8   nested neutral...
-	in.push_back( "int nested_in_guard;" );   // 9  HIDDEN (outer still hides)
-	in.push_back( "#endif" );                 // 10
-	in.push_back( "#endif" );                 // 11
-	in.push_back( "#ifdef SOURCESHARP" );     // 12  neutral
-	in.push_back( "int neutral_arm;" );       // 13 visible
-	in.push_back( "#else" );                  // 14
-	in.push_back( "int neutral_else;" );      // 15 visible -- NEUTRAL never hides
-	in.push_back( "#endif" );                 // 16
-	in.push_back( "int always_b;" );          // 17 visible
+	in.push_back( "int guarded_run;" ); // 7  HIDDEN
+	in.push_back( "#ifdef _DEBUG" ); // 8   nested neutral...
+	in.push_back( "int nested_in_guard;" ); // 9  HIDDEN (outer still hides)
+	in.push_back( "#endif" ); // 10
+	in.push_back( "#endif" ); // 11
+	in.push_back( "#ifdef SOURCESHARP" ); // 12  neutral
+	in.push_back( "int neutral_arm;" ); // 13 visible
+	in.push_back( "#else" ); // 14
+	in.push_back( "int neutral_else;" ); // 15 visible -- NEUTRAL never hides
+	in.push_back( "#endif" ); // 16
+	in.push_back( "int always_b;" ); // 17 visible
 
-	const std::vector< char > vis = VisibleWhenArmed( in );
+	const std::vector<char> vis = VisibleWhenArmed( in );
 	ASSERT_EQ( in.size(), vis.size() );
 
-	EXPECT_TRUE( vis[ 0 ] )   << "code outside every conditional";
-	EXPECT_TRUE( vis[ 2 ] )   << "the armed arm of #ifdef TYPEDEF_SURVEY";
-	EXPECT_FALSE( vis[ 4 ] )  << "the #else of #ifdef TYPEDEF_SURVEY is elided";
-	EXPECT_FALSE( vis[ 7 ] )  << "#ifndef TYPEDEF_SURVEY is a guarded run";
-	EXPECT_FALSE( vis[ 9 ] )  << "a neutral conditional nested inside a guarded "
-	                             "run does not un-hide it";
-	EXPECT_TRUE( vis[ 13 ] )  << "a neutral conditional's first arm";
-	EXPECT_TRUE( vis[ 15 ] )  << "a neutral conditional's #else";
-	EXPECT_TRUE( vis[ 17 ] )  << "code after everything closes";
+	EXPECT_TRUE( vis[0] ) << "code outside every conditional";
+	EXPECT_TRUE( vis[2] ) << "the armed arm of #ifdef TYPEDEF_SURVEY";
+	EXPECT_FALSE( vis[4] ) << "the #else of #ifdef TYPEDEF_SURVEY is elided";
+	EXPECT_FALSE( vis[7] ) << "#ifndef TYPEDEF_SURVEY is a guarded run";
+	EXPECT_FALSE( vis[9] ) << "a neutral conditional nested inside a guarded "
+							  "run does not un-hide it";
+	EXPECT_TRUE( vis[13] ) << "a neutral conditional's first arm";
+	EXPECT_TRUE( vis[15] ) << "a neutral conditional's #else";
+	EXPECT_TRUE( vis[17] ) << "code after everything closes";
 }
 
 // IsMemberDefinition must separate a member definition from the macros that
 // merely mention the same scope. Both shapes are in both headers.
 TEST( SurveyStubElisionScanner, AMacroMentioningTheScopeIsNotAMemberDefinition )
 {
-	const Side &client = kSides[ 0 ];
+	const Side &client = kSides[0];
 	// The server SPELLING, as a fixture. kSides lost its server row in P6 (its
 	// header left the farm), but this test is about the scanner, not that file,
 	// and IsMemberDefinition reads only the two scope fields.
@@ -412,18 +418,14 @@ TEST( SurveyStubElisionScanner, AMacroMentioningTheScopeIsNotAMemberDefinition )
 	server.pszScope1 = "CBaseEntity::";
 	server.pszScope2 = NULL;
 
-	EXPECT_TRUE( IsMemberDefinition(
-		"inline int C_BaseEntity::GetModelIndex( void ) const", client ) );
-	EXPECT_TRUE( IsMemberDefinition(
-		"inline float CBaseEntity::BoundingRadius() const", client ) )
+	EXPECT_TRUE( IsMemberDefinition( "inline int C_BaseEntity::GetModelIndex( void ) const", client ) );
+	EXPECT_TRUE( IsMemberDefinition( "inline float CBaseEntity::BoundingRadius() const", client ) )
 		<< "the client writes a handful of its own members with the SERVER "
 		   "spelling; a one-spelling scanner misses them";
-	EXPECT_TRUE( IsMemberDefinition(
-		"inline CBaseEntity *CBaseEntity::GetMoveParent( void )", server ) );
+	EXPECT_TRUE( IsMemberDefinition( "inline CBaseEntity *CBaseEntity::GetMoveParent( void )", server ) );
 
 	EXPECT_FALSE( IsMemberDefinition(
-		"#define SetThink( a ) ThinkSet( static_cast <void (CBaseEntity::*)(void)> (a), 0, NULL )",
-		server ) )
+		"#define SetThink( a ) ThinkSet( static_cast <void (CBaseEntity::*)(void)> (a), 0, NULL )", server ) )
 		<< "SetThink is a macro that survives arming. A scanner that filed it "
 		   "as a member definition would demand it be elided, which is the "
 		   "over-count this file exists to prevent.";
@@ -436,18 +438,15 @@ TEST( SurveyStubElisionScanner, AMacroMentioningTheScopeIsNotAMemberDefinition )
 	// qualified, sitting in a macro continuation ABOVE the stub, and therefore
 	// visible when armed. Drop the `inline` requirement and the sweep reports
 	// it as a member definition that leaked.
-	EXPECT_FALSE( IsMemberDefinition(
-		"C_BaseEntity::CreatePredictedEntityByName( className, __FILE__, __LINE__ );",
-		client ) )
+	EXPECT_FALSE(
+		IsMemberDefinition( "C_BaseEntity::CreatePredictedEntityByName( className, __FILE__, __LINE__ );", client ) )
 		<< "a fully qualified CALL is not a definition; if this is filed as "
 		   "one, NoMemberDefinitionSurvivesArming reports a leak that is not "
 		   "there and the boundary looks broken when it is not.";
-	EXPECT_FALSE( IsMemberDefinition(
-		"inline C_BaseEntity *SDKEntityFromUnknown( IClientUnknown *pUnknown )",
-		client ) )
+	EXPECT_FALSE(
+		IsMemberDefinition( "inline C_BaseEntity *SDKEntityFromUnknown( IClientUnknown *pUnknown )", client ) )
 		<< "the funnel names the entity as a RETURN TYPE, not as a scope";
-	EXPECT_FALSE( IsMemberDefinition( "inline bool FClassnameIs( C_BaseEntity *p, const char *s )",
-		client ) );
+	EXPECT_FALSE( IsMemberDefinition( "inline bool FClassnameIs( C_BaseEntity *p, const char *s )", client ) );
 }
 
 // The client writes `C_BaseEntity::` literally. A scanner carrying only the
@@ -463,4 +462,3 @@ TEST( SurveyStubElisionScanner, TheTwoEntitySpellingsAreDistinct )
 		<< "the server spelling must NOT match the client definition; if it "
 		   "does, a shared scanner files client members under the wrong scope.";
 }
-

@@ -156,7 +156,7 @@ std::string Squeezed( const std::string &line )
 	out.reserve( line.size() );
 	for ( size_t i = 0; i < line.size(); i++ )
 	{
-		const char c = line[ i ];
+		const char c = line[i];
 		if ( c != ' ' && c != '\t' && c != '\r' )
 			out += c;
 	}
@@ -166,7 +166,7 @@ std::string Squeezed( const std::string &line )
 bool IsWholeLineComment( const std::string &line )
 {
 	size_t i = 0;
-	while ( i < line.size() && ( line[ i ] == ' ' || line[ i ] == '\t' ) )
+	while ( i < line.size() && ( line[i] == ' ' || line[i] == '\t' ) )
 		i++;
 
 	if ( i >= line.size() )
@@ -180,7 +180,7 @@ bool IsWholeLineComment( const std::string &line )
 		return true;
 	if ( line.compare( i, 2, "/*" ) == 0 )
 		return true;
-	if ( line[ i ] == '*' )
+	if ( line[i] == '*' )
 		return true;
 
 	return false;
@@ -195,8 +195,7 @@ bool IsWholeLineComment( const std::string &line )
 // CBaseEntity * is their job. It is the pair on one line that is the hazard.
 //-----------------------------------------------------------------------------
 
-const char *kPlayerCasts[] =
-{
+const char *kPlayerCasts[] = {
 	"(CBasePlayer*)",
 	"<CBasePlayer*>",
 	"(CBaseCombatCharacter*)",
@@ -206,13 +205,13 @@ const char *kPlayerCasts[] =
 	"(C_BasePlayer*)",
 	"<C_BasePlayer*>",
 };
-const size_t kNumPlayerCasts = sizeof( kPlayerCasts ) / sizeof( kPlayerCasts[ 0 ] );
+const size_t kNumPlayerCasts = sizeof( kPlayerCasts ) / sizeof( kPlayerCasts[0] );
 
 bool HasPlayerCast( const std::string &squeezed )
 {
 	for ( size_t i = 0; i < kNumPlayerCasts; i++ )
 	{
-		if ( squeezed.find( kPlayerCasts[ i ] ) != std::string::npos )
+		if ( squeezed.find( kPlayerCasts[i] ) != std::string::npos )
 			return true;
 	}
 	return false;
@@ -233,10 +232,10 @@ bool LineHasBannedCast( const std::string &line )
 	// ban is what makes typing it back visible. The fourth is the live
 	// successor -- a player cast off GameEntityFromEntityHandle is exactly as
 	// wrong as one off the three that went, and it is the one that can happen.
-	return s.find( "CBaseEntity::Instance(" ) != std::string::npos
-		|| s.find( "C_BaseEntity::Instance(" ) != std::string::npos
-		|| s.find( "GetContainingEntity(" ) != std::string::npos
-		|| s.find( "GameEntityFromEntityHandle(" ) != std::string::npos;
+	return s.find( "CBaseEntity::Instance(" ) != std::string::npos ||
+		s.find( "C_BaseEntity::Instance(" ) != std::string::npos ||
+		s.find( "GetContainingEntity(" ) != std::string::npos ||
+		s.find( "GameEntityFromEntityHandle(" ) != std::string::npos;
 }
 
 //-----------------------------------------------------------------------------
@@ -261,8 +260,8 @@ bool LineHasBannedCast( const std::string &line )
 enum ResolverKind_t
 {
 	RESOLVER_NONE = 0,
-	RESOLVER_PARTITIONED,	// goes through the five; its NULL is trustworthy
-	RESOLVER_RAW,			// X->GetBaseEntity(), the bypass
+	RESOLVER_PARTITIONED, // goes through the five; its NULL is trustworthy
+	RESOLVER_RAW, // X->GetBaseEntity(), the bypass
 };
 
 //-----------------------------------------------------------------------------
@@ -274,7 +273,10 @@ enum ResolverKind_t
 //-----------------------------------------------------------------------------
 struct Binding_t
 {
-	Binding_t() : kind( RESOLVER_NONE ) {}
+	Binding_t()
+		: kind( RESOLVER_NONE )
+	{
+	}
 
 	std::string strVar;
 	ResolverKind_t kind;
@@ -307,7 +309,7 @@ public:
 	{
 		for ( size_t i = 0; i < m_Stack.size(); i++ )
 		{
-			if ( !m_Stack[ i ] )
+			if ( !m_Stack[i] )
 				return false;
 		}
 		return true;
@@ -316,20 +318,20 @@ public:
 	void Directive( const std::string &line )
 	{
 		const std::string s = Squeezed( line );
-		if ( s.empty() || s[ 0 ] != '#' )
+		if ( s.empty() || s[0] != '#' )
 			return;
 
 		// Longest keyword first: "ifndef" would otherwise be read as "if".
 		if ( Starts( s, "#ifndef" ) )
 		{
 			const bool bOurs = Starts( s, "#ifndefSOURCESHARP" );
-			Push( /*bLive=*/ !bOurs, bOurs );
+			Push( /*bLive=*/!bOurs, bOurs );
 			return;
 		}
 		if ( Starts( s, "#ifdef" ) )
 		{
 			const bool bOurs = Starts( s, "#ifdefSOURCESHARP" );
-			Push( /*bLive=*/ true, bOurs );
+			Push( /*bLive=*/true, bOurs );
 			return;
 		}
 		if ( Starts( s, "#if" ) )
@@ -338,7 +340,7 @@ public:
 			// other #if, which is treated as live.
 			const bool bOursDefined = ( s.find( "#ifdefined(SOURCESHARP)" ) == 0 );
 			const bool bOursNotDefined = ( s.find( "#if!defined(SOURCESHARP)" ) == 0 );
-			Push( /*bLive=*/ !bOursNotDefined, bOursDefined || bOursNotDefined );
+			Push( /*bLive=*/!bOursNotDefined, bOursDefined || bOursNotDefined );
 			return;
 		}
 		if ( Starts( s, "#elif" ) )
@@ -377,8 +379,8 @@ private:
 		m_IsSourceSharp.push_back( bIsSourceSharp );
 	}
 
-	std::vector< bool > m_Stack;
-	std::vector< bool > m_IsSourceSharp;
+	std::vector<bool> m_Stack;
+	std::vector<bool> m_IsSourceSharp;
 };
 
 //-----------------------------------------------------------------------------
@@ -409,26 +411,33 @@ struct Hit_t
 
 struct ScanResult_t
 {
-	ScanResult_t() : nFiles( 0 ), nLines( 0 ), nSkipped( 0 ), nHere( 0 ),
-		nEvictions( 0 ), nExemptions( 0 ) {}
+	ScanResult_t()
+		: nFiles( 0 )
+		, nLines( 0 )
+		, nSkipped( 0 )
+		, nHere( 0 )
+		, nEvictions( 0 )
+		, nExemptions( 0 )
+	{
+	}
 
 	int nFiles;
 	int nLines;
-	int nSkipped;		// files present on disk but evicted from this .so
-	int nHere;			// of those, the ones naming a file this scan WALKS --
-						// the honest denominator for the coverage ratio, since
-						// an entry under sourcesharp/ was never going to be read
-	int nEvictions;		// entries in the target's compiled-source list (the
-						// name is from the removal-list era) -- see CompiledPaths
-	int nExemptions;	// SS_NOT_THE_PARTITION markers honoured
+	int nSkipped; // files present on disk but evicted from this .so
+	int nHere; // of those, the ones naming a file this scan WALKS --
+	// the honest denominator for the coverage ratio, since
+	// an entry under sourcesharp/ was never going to be read
+	int nEvictions; // entries in the target's compiled-source list (the
+	// name is from the removal-list era) -- see CompiledPaths
+	int nExemptions; // SS_NOT_THE_PARTITION markers honoured
 
-	std::vector< Hit_t > CastHits;			// ban A
-	std::vector< Hit_t > TwoStatementHits;	// ban B
-	std::vector< Hit_t > RawNullCheckHits;	// ban C
-	std::vector< Hit_t > EveryResolverHits;	// ban C with the exemption lifted
+	std::vector<Hit_t> CastHits; // ban A
+	std::vector<Hit_t> TwoStatementHits; // ban B
+	std::vector<Hit_t> RawNullCheckHits; // ban C
+	std::vector<Hit_t> EveryResolverHits; // ban C with the exemption lifted
 
-	std::vector< std::string > FilesRead;
-	std::vector< std::string > ExemptionFiles;
+	std::vector<std::string> FilesRead;
+	std::vector<std::string> ExemptionFiles;
 };
 
 //-----------------------------------------------------------------------------
@@ -577,24 +586,17 @@ TEST( SdkPlayerCast, TheScannerStillRecognisesTheOneLineShape )
 {
 	// The mutation check, written down rather than performed by hand once. If
 	// the predicate is ever loosened into uselessness, this is what says so.
-	EXPECT_TRUE( LineHasBannedCast(
-		"\tCBasePlayer *p = ( CBasePlayer * )CBaseEntity::Instance( pEdict );" ) );
-	EXPECT_TRUE( LineHasBannedCast(
-		"\tCBasePlayer *p = (CBasePlayer*)GetContainingEntity( pEdict );" ) );
-	EXPECT_TRUE( LineHasBannedCast(
-		"\tCBasePlayer *p = static_cast<CBasePlayer*>( GetContainingEntity( pEdict ) );" ) );
+	EXPECT_TRUE( LineHasBannedCast( "\tCBasePlayer *p = ( CBasePlayer * )CBaseEntity::Instance( pEdict );" ) );
+	EXPECT_TRUE( LineHasBannedCast( "\tCBasePlayer *p = (CBasePlayer*)GetContainingEntity( pEdict );" ) );
+	EXPECT_TRUE(
+		LineHasBannedCast( "\tCBasePlayer *p = static_cast<CBasePlayer*>( GetContainingEntity( pEdict ) );" ) );
 
 	// And the things that must NOT trip it, or the ban is unusable.
-	EXPECT_FALSE( LineHasBannedCast(
-		"\t// CBasePlayer *p = ( CBasePlayer * )CBaseEntity::Instance( pEdict );" ) );
-	EXPECT_FALSE( LineHasBannedCast(
-		"//     ( CBasePlayer * )CBaseEntity::Instance( pEdict )" ) );
-	EXPECT_FALSE( LineHasBannedCast(
-		"\tCBaseEntity *p = CBaseEntity::Instance( pEdict );" ) );
-	EXPECT_FALSE( LineHasBannedCast(
-		"\tCBasePlayer *p = ToBasePlayer( pEntity );" ) );
-	EXPECT_FALSE( LineHasBannedCast(
-		"\tCBasePlayer *p = UTIL_SDKPlayerFromEdict( pEdict );" ) );
+	EXPECT_FALSE( LineHasBannedCast( "\t// CBasePlayer *p = ( CBasePlayer * )CBaseEntity::Instance( pEdict );" ) );
+	EXPECT_FALSE( LineHasBannedCast( "//     ( CBasePlayer * )CBaseEntity::Instance( pEdict )" ) );
+	EXPECT_FALSE( LineHasBannedCast( "\tCBaseEntity *p = CBaseEntity::Instance( pEdict );" ) );
+	EXPECT_FALSE( LineHasBannedCast( "\tCBasePlayer *p = ToBasePlayer( pEntity );" ) );
+	EXPECT_FALSE( LineHasBannedCast( "\tCBasePlayer *p = UTIL_SDKPlayerFromEdict( pEdict );" ) );
 }
 
 TEST( SdkPlayerCast, TheGuardStackDropsWhatThisBuildDoesNotCompile )

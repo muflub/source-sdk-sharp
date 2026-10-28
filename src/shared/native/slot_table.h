@@ -15,11 +15,12 @@
 // compare against zero; an invalid handle's entry index is 8191, a bindable entry.
 #pragma once
 
-#include <string.h>
-
 #include "basehandle.h"
 
-enum { SOURCESHARP_SLOT_SERIAL_MASK = ( 1 << ( NUM_SERIAL_NUM_BITS - 1 ) ) - 1 };
+enum
+{
+	SOURCESHARP_SLOT_SERIAL_MASK = ( 1 << ( NUM_SERIAL_NUM_BITS - 1 ) ) - 1
+};
 
 class CSourceSharpSlotTable
 {
@@ -33,8 +34,8 @@ public:
 		memset( m_pShell, 0, sizeof( m_pShell ) );
 		memset( m_nSerial, 0, sizeof( m_nSerial ) );
 
-		m_nBound   = 0;
-		m_nBinds   = 0;
+		m_nBound = 0;
+		m_nBinds = 0;
 		m_nUnbinds = 0;
 		m_nRefused = 0;
 	}
@@ -50,16 +51,10 @@ public:
 
 	// GetEntryIndex masks with sixteen bits but the table has thirteen, so a malformed
 	// handle can name an entry that does not exist.
-	static bool IsEntry( int nEntry )
-	{
-		return nEntry >= 0 && nEntry < NUM_ENT_ENTRIES;
-	}
+	static bool IsEntry( int nEntry ) { return nEntry >= 0 && nEntry < NUM_ENT_ENTRIES; }
 
 	// Entries at or above MAX_EDICTS are managed-only; the engine never sees them.
-	static bool IsEdictEntry( int nEntry )
-	{
-		return nEntry >= 0 && nEntry < MAX_EDICTS;
-	}
+	static bool IsEdictEntry( int nEntry ) { return nEntry >= 0 && nEntry < MAX_EDICTS; }
 
 	static int EntryCount() { return NUM_ENT_ENTRIES; }
 
@@ -135,10 +130,7 @@ public:
 	}
 
 	// Whoever is bound at the entry now. No serial: the engine's index APIs carry none.
-	void *ResolveByIndex( int nEntry ) const
-	{
-		return IsEntry( nEntry ) ? m_pShell[nEntry] : NULL;
-	}
+	void *ResolveByIndex( int nEntry ) const { return IsEntry( nEntry ) ? m_pShell[nEntry] : NULL; }
 
 	CBaseHandle HandleOf( int nEntry ) const
 	{
@@ -160,23 +152,19 @@ public:
 	}
 
 	// The serial the entry's next binding gets, for the edict's m_NetworkSerialNumber mirror.
-	int SerialAt( int nEntry ) const
-	{
-		return IsEntry( nEntry ) ? (int)m_nSerial[nEntry] : 0;
-	}
+	int SerialAt( int nEntry ) const { return IsEntry( nEntry ) ? (int)m_nSerial[nEntry] : 0; }
 
-	bool IsBound( int nEntry ) const
-	{
-		return IsEntry( nEntry ) && m_pShell[nEntry] != NULL;
-	}
+	bool IsBound( int nEntry ) const { return IsEntry( nEntry ) && m_pShell[nEntry] != NULL; }
 
 	// How many bindings exist. Never which: there is deliberately no highest-index query,
 	// which would turn ResolveByIndex into a walk.
 	int BoundCount() const { return m_nBound; }
 
 	// Cumulative counters for the console dump.
-	int Binds() const   { return m_nBinds; }
+	int Binds() const { return m_nBinds; }
+
 	int Unbinds() const { return m_nUnbinds; }
+
 	int Refused() const { return m_nRefused; }
 
 private:
@@ -184,7 +172,7 @@ private:
 	CSourceSharpSlotTable &operator=( const CSourceSharpSlotTable & );
 
 	// Parallel arrays, not a struct array, so there is no element type to hand out.
-	void          *m_pShell[NUM_ENT_ENTRIES];
+	void *m_pShell[NUM_ENT_ENTRIES];
 	unsigned short m_nSerial[NUM_ENT_ENTRIES];
 
 	int m_nBound;
@@ -208,14 +196,12 @@ CBaseHandle SourceSharp_SlotIssue( int nEntry );
 // Never zero: entry 0 with serial 0 packs to the INVALID_EHANDLE enumerator (0).
 inline unsigned short SourceSharp_NextWorldSerial( unsigned short nPrevious )
 {
-	const unsigned short nNext =
-		(unsigned short)( ( nPrevious + 1 ) & SOURCESHARP_SLOT_SERIAL_MASK );
+	const unsigned short nNext = (unsigned short)( ( nPrevious + 1 ) & SOURCESHARP_SLOT_SERIAL_MASK );
 
 	return nNext ? nNext : (unsigned short)1;
 }
 
-bool SourceSharp_SlotBindAt( const CBaseHandle &handle, CStandaloneEntity *pShell,
-                             edict_t *pEdict );
+bool SourceSharp_SlotBindAt( const CBaseHandle &handle, CStandaloneEntity *pShell, edict_t *pEdict );
 
 void SourceSharp_SlotUnbind( int nEntry );
 

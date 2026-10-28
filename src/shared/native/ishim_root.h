@@ -24,8 +24,7 @@ public:
 	virtual void *Acquire( const char *pszName ) = 0;
 
 	// The engine's interfaces, by factory kind (a SourceSharpFactoryType) and version string.
-	virtual void *AcquireInterface( int32_t nType, const char *pszVersion,
-	                                char *pError, int32_t nErrorBytes ) = 0;
+	virtual void *AcquireInterface( int32_t nType, const char *pszVersion, char *pError, int32_t nErrorBytes ) = 0;
 
 	// The root lives as long as the DLL; this does nothing.
 	virtual void Release() = 0;

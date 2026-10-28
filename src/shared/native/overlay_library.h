@@ -38,21 +38,23 @@ bool Overlay_ViewerIsSet();
 bool Overlay_SegmentIsVisible( const Vector &vecStart, const Vector &vecEnd );
 
 // Unclipped: straight to IVDebugOverlay, as in stock.
-void Overlay_BoxAngles( const Vector &origin, const Vector &mins, const Vector &maxs,
-                        const QAngle &angles, int r, int g, int b, int a, float flDuration );
-void Overlay_Box( const Vector &origin, const Vector &mins, const Vector &maxs,
-                  int r, int g, int b, int a, float flDuration );
-void Overlay_TextAtPosition( const Vector &origin, int nLineOffset, const char *pText,
-                             float flDuration, int r, int g, int b, int a );
+void Overlay_BoxAngles( const Vector &origin, const Vector &mins, const Vector &maxs, const QAngle &angles, int r,
+						int g, int b, int a, float flDuration );
+void Overlay_Box( const Vector &origin, const Vector &mins, const Vector &maxs, int r, int g, int b, int a,
+				  float flDuration );
+void Overlay_TextAtPosition( const Vector &origin, int nLineOffset, const char *pText, float flDuration, int r, int g,
+							 int b, int a );
 void Overlay_ClearAll();
 
 // Clipped against the viewer; counts the branch it took.
-void Overlay_Line( const Vector &origin, const Vector &target,
-                   int r, int g, int b, bool bNoDepthTest, float flDuration );
+void Overlay_Line( const Vector &origin, const Vector &target, int r, int g, int b, bool bNoDepthTest,
+				   float flDuration );
 
 // Twenty slots, oldest reused, drawn once a frame. The caller decides the colour.
-enum { OVERLAY_POOL_LINES = 20 };
+enum
+{
+	OVERLAY_POOL_LINES = 20
+};
 
-void Overlay_AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDepthTest,
-                      int r, int g, int b );
+void Overlay_AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDepthTest, int r, int g, int b );
 void Overlay_DrawPooledLines();

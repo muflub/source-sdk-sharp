@@ -3,15 +3,15 @@
 4	LIVE-API	bool SourceSharp_ThirdPersonSeesOwner()
 8	SLOT-HELP	bool ShellClient_ViewerSeenBegin()
 6	SLOT-HELP	void ShellClient_ViewerSeenEnd( bool bWasSeen )
-67	SLOT-HELP	static void SourceSharp_ApplyThirdPersonCamera( C_StandaloneEntity *pPlayer,
+63	SLOT-HELP	static void SourceSharp_ApplyThirdPersonCamera( C_StandaloneEntity *pPlayer, CViewSetup *pSetup )
 4	BOUNDARY	CON_COMMAND( cl_reload_localization_files, "" )
 8	BOUNDARY	static void ApplyManagedShake( Vector &origin, QAngle &angles )
 11	SLOT-HELP	static bool ApplyViewOverride( CViewSetup *pSetup )
-9	SLOT	void SourceSharp_ViewOverrideSet( int32_t nActive, const float *pOriginXYZ, const float *pAngles, int32_t nSetViewAngles )
-1	HOOK	[CSourceSharpClientMode] CSourceSharpClientMode() : m_pViewport( NULL )
+10	SLOT	void SourceSharp_ViewOverrideSet( int32_t nActive, const float *pOriginXYZ, const float *pAngles, int32_t nSetViewAngles )
+4	HOOK	[CSourceSharpClientMode] : m_pViewport( NULL )
 6	HOOK	[CSourceSharpClientMode] virtual ~CSourceSharpClientMode()
 6	SLOT	[CSourceSharpClientMode] virtual void InitViewport() OVERRIDE
-4	SLOT	[CSourceSharpClientMode] virtual void Init() OVERRIDE
+1	SLOT	[CSourceSharpClientMode] virtual void Init() OVERRIDE
 5	SLOT	[CSourceSharpClientMode] virtual void VGui_Shutdown() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void Shutdown() OVERRIDE
 11	SLOT	[CSourceSharpClientMode] virtual void Enable() OVERRIDE
@@ -48,7 +48,7 @@
 1	SLOT	[CSourceSharpClientMode] virtual wchar_t *GetMapName() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void SetMapName( wchar_t *name ) OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual bool DoPostScreenSpaceEffects( const CViewSetup *pSetup ) OVERRIDE
-2	SLOT	[CSourceSharpClientMode] virtual void DisplayReplayMessage( const char *pLocalizeName, float flDuration, bool bUrgent,
+4	SLOT	[CSourceSharpClientMode] virtual void DisplayReplayMessage( const char *pLocalizeName, float flDuration, bool bUrgent, const char *pSound, b
 18	SLOT	[CSourceSharpClientMode] virtual void Update() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual bool ShouldBlackoutAroundHUD() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual HeadtrackMovementMode_t ShouldOverrideHeadtrackControl() OVERRIDE
@@ -74,5 +74,5 @@
 1	SLOT	[CAbsentFPSPanel] void Destroy() override
 1	SLOT	[CAbsentNetGraphPanel] void Create( vgui::VPANEL ) override
 1	SLOT	[CAbsentNetGraphPanel] void Destroy() override
-3	LIVE-API	void StudioStats_FindClosestEntity( CClientRenderablesList * )
-4	SLOT	void SourceSharp_RegisterAmmoType( const char *pName, int32_t nDamageType, int32_t nMaxCarry,
+1	LIVE-API	void StudioStats_FindClosestEntity( CClientRenderablesList * )
+4	SLOT	void SourceSharp_RegisterAmmoType( const char *pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, floa

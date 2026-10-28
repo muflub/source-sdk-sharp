@@ -90,15 +90,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -142,8 +142,7 @@ TEST( GcSectionsLinkFixture, EveryFileWasReallyOpened )
 	// disk. Neither DLL compiles it, so it has left the source tree and that
 	// half was culled; so has shell_propdata_system.cpp, the file that
 	// replaced it (C9), and the tripwire that read it went with it.
-	EXPECT_TRUE( Has( Read( "../Makefile" ), "GC_SECTIONS" ) )
-		<< "the Makefile did not load";
+	EXPECT_TRUE( Has( Read( "../Makefile" ), "GC_SECTIONS" ) ) << "the Makefile did not load";
 }
 
 TEST( GcSectionsLink, PropsSharedIsInNeitherProject )

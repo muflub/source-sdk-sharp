@@ -4,7 +4,6 @@
 
 #include "sourcesharp_gamesystem.h"
 
-
 // The counterpart of LoadManagedRuntime, shared by both sides.
 void SourceSharp_UnloadManagedSide();
 

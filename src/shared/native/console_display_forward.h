@@ -26,8 +26,10 @@ class CConsoleDisplayReloadGap
 {
 public:
 	CConsoleDisplayReloadGap();
+
 	~CConsoleDisplayReloadGap() { End(); }
-	void End();   // back on the list now; the scope's end then does nothing
+
+	void End(); // back on the list now; the scope's end then does nothing
 	CConsoleDisplayReloadGap( const CConsoleDisplayReloadGap & ) = delete;
 	CConsoleDisplayReloadGap &operator=( const CConsoleDisplayReloadGap & ) = delete;
 

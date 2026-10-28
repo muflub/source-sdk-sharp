@@ -31,7 +31,12 @@ TEST( Tier0ThreadPort, EachThreadHasItsOwnIdAndKeepsIt )
 {
 	const ThreadId_t mine = ThreadGetCurrentId();
 	ThreadId_t first = 0, second = 0;
-	std::thread other( [&] { first = ThreadGetCurrentId(); second = ThreadGetCurrentId(); } );
+	std::thread other(
+		[&]
+		{
+			first = ThreadGetCurrentId();
+			second = ThreadGetCurrentId();
+		} );
 	other.join();
 
 	EXPECT_NE( mine, first );
@@ -46,21 +51,28 @@ TEST( Tier0ThreadPort, TheFastMutexExcludesUnderContention )
 	static volatile CThreadFastMutex s_Mutex;
 	static long s_nCount;
 	s_nCount = 0;
-	enum { kThreads = 8, kEach = 20000 };
 
-	std::vector< std::thread > threads;
+	enum
+	{
+		kThreads = 8,
+		kEach = 20000
+	};
+
+	std::vector<std::thread> threads;
 	for ( int t = 0; t < kThreads; ++t )
 	{
-		threads.emplace_back( [] {
-			for ( int i = 0; i < kEach; ++i )
+		threads.emplace_back(
+			[]
 			{
-				s_Mutex.Lock();
-				const long n = s_nCount;
-				ThreadPause();
-				s_nCount = n + 1;
-				s_Mutex.Unlock();
-			}
-		} );
+				for ( int i = 0; i < kEach; ++i )
+				{
+					s_Mutex.Lock();
+					const long n = s_nCount;
+					ThreadPause();
+					s_nCount = n + 1;
+					s_Mutex.Unlock();
+				}
+			} );
 	}
 	for ( std::thread &t : threads )
 		t.join();
@@ -83,11 +95,14 @@ TEST( Tier0ThreadPort, TheFastMutexNestsOnItsOwnerAndRefusesOthersUntilFullyUnlo
 	EXPECT_FALSE( bOtherGot ) << "one Unlock of two released the lock";
 
 	s_Mutex.Unlock();
-	std::thread( [&] {
-		bOtherGot = s_Mutex.TryLock();
-		if ( bOtherGot )
-			s_Mutex.Unlock();
-	} ).join();
+	std::thread(
+		[&]
+		{
+			bOtherGot = s_Mutex.TryLock();
+			if ( bOtherGot )
+				s_Mutex.Unlock();
+		} )
+		.join();
 	EXPECT_TRUE( bOtherGot );
 }
 
@@ -96,12 +111,14 @@ TEST( Tier0ThreadPort, TheContendedLockWaitsForTheOwnerToLetGo )
 	static volatile CThreadFastMutex s_Mutex;
 	s_Mutex.Lock();
 
-	std::atomic< bool > bGot{ false };
-	std::thread waiter( [&] {
-		s_Mutex.Lock( 1 );   // the sleeping variant of the contended path
-		bGot = true;
-		s_Mutex.Unlock();
-	} );
+	std::atomic<bool> bGot{ false };
+	std::thread waiter(
+		[&]
+		{
+			s_Mutex.Lock( 1 ); // the sleeping variant of the contended path
+			bGot = true;
+			s_Mutex.Unlock();
+		} );
 	usleep( 20 * 1000 );
 	EXPECT_FALSE( bGot.load() ) << "Lock returned while another thread held it";
 

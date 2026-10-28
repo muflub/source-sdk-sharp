@@ -6,12 +6,13 @@
 
 // strided pointers. gives you a class that acts like a pointer, but the ++ and += operators do the
 // right thing
-template<class T> class CStridedPtr
+template <class T>
+class CStridedPtr
 {
 protected:
 	T *m_pData = nullptr;
 	size_t m_nStride = 0;
-	
+
 public:
 	FORCEINLINE CStridedPtr( void *pData, size_t nByteStride )
 	{
@@ -20,15 +21,12 @@ public:
 	}
 
 	FORCEINLINE CStridedPtr() {}
-	
-	FORCEINLINE operator T *()
-	{
-		return m_pData;
-	}
 
+	FORCEINLINE operator T *() { return m_pData; }
 };
 
-template<class T> class CStridedConstPtr
+template <class T>
+class CStridedConstPtr
 {
 protected:
 	const T *m_pData;
@@ -43,45 +41,40 @@ public:
 
 	FORCEINLINE CStridedConstPtr() {}
 
-	FORCEINLINE operator const T *() const
-	{
-		return m_pData;
-	}
-
+	FORCEINLINE operator const T *() const { return m_pData; }
 };
 
 // allowed field data types. if you change these values, you need to change the tables in the .cpp file
 enum EAttributeDataType
 {
-	ATTRDATATYPE_FLOAT = 0,									// a float attribute
-	ATTRDATATYPE_4V = 1,									// vector data type, stored as class FourVectors
-	ATTRDATATYPE_INT = 2,									// integer. not especially sse-able on
-															// all architectures.
-	ATTRDATATYPE_POINTER = 3,								// a pointer.
-	ATTRDATATYPE_NONE = -1,									// pad and varargs ender
+	ATTRDATATYPE_FLOAT = 0, // a float attribute
+	ATTRDATATYPE_4V = 1, // vector data type, stored as class FourVectors
+	ATTRDATATYPE_INT = 2, // integer. not especially sse-able on
+	// all architectures.
+	ATTRDATATYPE_POINTER = 3, // a pointer.
+	ATTRDATATYPE_NONE = -1, // pad and varargs ender
 };
 
 #define MAX_SOA_FIELDS 32
 
 class CSOAContainer
 {
-
 protected:
-	int m_nColumns;											// # of rows and columns created with
+	int m_nColumns; // # of rows and columns created with
 	int m_nRows;
 	int m_nSlices;
 
-	int m_nPaddedColumns;									// # of columns rounded up for sse
-	int m_nNumQuadsPerRow;									// # of groups of 4 elements per row
+	int m_nPaddedColumns; // # of columns rounded up for sse
+	int m_nNumQuadsPerRow; // # of groups of 4 elements per row
 
-	uint8 *m_pDataMemory;									// the actual data memory
+	uint8 *m_pDataMemory; // the actual data memory
 	uint8 *m_pAttributePtrs[MAX_SOA_FIELDS];
 
 	EAttributeDataType m_nDataType[MAX_SOA_FIELDS];
 
-	size_t m_nStrideInBytes[MAX_SOA_FIELDS];			  // stride from one field datum to another
-	size_t m_nRowStrideInBytes[MAX_SOA_FIELDS];			  // stride from one row datum to another per field
-	size_t m_nSliceStrideInBytes[MAX_SOA_FIELDS];         // stride from one slice datum to another per field
+	size_t m_nStrideInBytes[MAX_SOA_FIELDS]; // stride from one field datum to another
+	size_t m_nRowStrideInBytes[MAX_SOA_FIELDS]; // stride from one row datum to another per field
+	size_t m_nSliceStrideInBytes[MAX_SOA_FIELDS]; // stride from one slice datum to another per field
 
 	uint32 m_nFieldPresentMask;
 
@@ -92,14 +85,14 @@ protected:
 		m_nColumns = m_nPaddedColumns = m_nRows = m_nSlices = 0;
 		m_nFieldPresentMask = 0;
 	}
-public:
 
-	CSOAContainer( void )									// an empoty one with no attributes
+public:
+	CSOAContainer( void ) // an empoty one with no attributes
 	{
 		Init();
 	}
 
-	void Purge();										// set back to un-initted state, freeing memory
+	void Purge(); // set back to un-initted state, freeing memory
 
 	~CSOAContainer();
 
@@ -112,18 +105,14 @@ public:
 
 	CSOAContainer( int nCols, int nRows, ... );
 
-	size_t ElementSize() const;					// total bytes per element. not super fast.
+	size_t ElementSize() const; // total bytes per element. not super fast.
 
-	FORCEINLINE int NumCols() const
-	{
-		return m_nColumns;
-	}
+	FORCEINLINE int NumCols() const { return m_nColumns; }
 
-	FORCEINLINE int Count() const						// for 1d data
+	FORCEINLINE int Count() const // for 1d data
 	{
 		return NumCols();
 	}
 
 	// arithmetic and data filling functions. All SIMD and hopefully fast
-
 };

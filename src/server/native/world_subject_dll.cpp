@@ -9,17 +9,14 @@
 //
 // The server's answer to "is this the world", by pointer and by handle.
 
-#include "gametrace.h"
 #include "ss_world.h"
 #include "world_subject.h"
-#include "trace_hit.h"
 
 // An identity compare against the world singleton (see world_subject.h). The cast runs
 // up a single-inheritance chain.
 bool SourceSharp_IsTheWorld( const IHandleEntity *pHandleEntity )
 {
-	return SourceSharp_IsTheWorldHandle(
-		pHandleEntity, static_cast< const IHandleEntity * >( GetWorldEntity() ) );
+	return SourceSharp_IsTheWorldHandle( pHandleEntity, static_cast<const IHandleEntity *>( GetWorldEntity() ) );
 }
 
 // A projection of the bool above, so the two cannot disagree.

@@ -8,6 +8,6 @@
 class IFileList
 {
 public:
-	virtual bool	IsFileInList( const char *pFilename ) = 0;
-	virtual void	Release() = 0;
+	virtual void unused_IsFileInList() = 0;
+	virtual void Release() = 0;
 };

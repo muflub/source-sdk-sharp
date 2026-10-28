@@ -27,56 +27,90 @@ namespace
 class CFakeCvar final : public ICvar
 {
 public:
-	std::map< std::string, ConVar * > m_Vars;
-	std::vector< ConCommandBase * > m_Registered;
-	std::vector< std::string > m_GlobalChanges;
+	std::map<std::string, ConVar *> m_Vars;
+	std::vector<ConCommandBase *> m_Registered;
+	std::vector<std::string> m_GlobalChanges;
 	int m_nUnregisteredId = -2;
 	bool m_bMaterialThreadAllowed = true;
-	std::vector< std::string > m_Queued;
+	std::vector<std::string> m_Queued;
 
 	virtual bool Connect( CreateInterfaceFn ) { return true; }
+
 	virtual void Disconnect() {}
+
 	virtual void *QueryInterface( const char * ) { return NULL; }
+
 	virtual InitReturnVal_t Init() { return INIT_OK; }
+
 	virtual void Shutdown() {}
 
 	virtual CVarDLLIdentifier_t AllocateDLLIdentifier() { return 7; }
+
 	virtual void RegisterConCommand( ConCommandBase *p ) { m_Registered.push_back( p ); }
+
 	virtual void UnregisterConCommand( ConCommandBase * ) {}
+
 	virtual void UnregisterConCommands( CVarDLLIdentifier_t id ) { m_nUnregisteredId = id; }
+
 	virtual const char *GetCommandLineValue( const char * ) { return NULL; }
+
 	virtual ConCommandBase *FindCommandBase( const char * ) { return NULL; }
+
 	virtual const ConCommandBase *FindCommandBase( const char * ) const { return NULL; }
+
 	virtual ConVar *FindVar( const char *name )
 	{
-		std::map< std::string, ConVar * >::iterator it = m_Vars.find( name );
+		std::map<std::string, ConVar *>::iterator it = m_Vars.find( name );
 		return it == m_Vars.end() ? NULL : it->second;
 	}
-	virtual const ConVar *FindVar( const char *name ) const { return const_cast< CFakeCvar * >( this )->FindVar( name ); }
+
+	virtual const ConVar *FindVar( const char *name ) const { return const_cast<CFakeCvar *>( this )->FindVar( name ); }
+
 	virtual ConCommand *FindCommand( const char * ) { return NULL; }
+
 	virtual const ConCommand *FindCommand( const char * ) const { return NULL; }
+
 	virtual ConCommandBase *GetCommands( void ) { return NULL; }
+
 	virtual const ConCommandBase *GetCommands( void ) const { return NULL; }
+
 	virtual void InstallGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void RemoveGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void CallGlobalChangeCallbacks( ConVar *var, const char *pOld, float )
 	{
 		m_GlobalChanges.push_back( std::string( var->GetName() ) + ":" + pOld + "->" + var->GetString() );
 	}
+
 	virtual void InstallConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void RemoveConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void ConsoleColorPrintf( const Color &, const char *, ... ) const {}
+
 	virtual void ConsolePrintf( const char *, ... ) const {}
+
 	virtual void ConsoleDPrintf( const char *, ... ) const {}
+
 	virtual void RevertFlaggedConVars( int ) {}
+
 	virtual void InstallCVarQuery( ICvarQuery * ) {}
+
 	virtual void PublishToVXConsole() {}
+
 	virtual bool IsMaterialThreadSetAllowed() const { return m_bMaterialThreadAllowed; }
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, const char *p ) { m_Queued.push_back( p ); }
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, int ) { m_Queued.push_back( "int" ); }
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, float ) { m_Queued.push_back( "float" ); }
+
 	virtual bool HasQueuedMaterialThreadConVarSets() const { return false; }
+
 	virtual int ProcessQueuedMaterialThreadConVarSets() { return 0; }
+
 	virtual ICVarIteratorInternal *FactoryInternalIterator( void ) { return NULL; }
 };
 
@@ -86,6 +120,7 @@ CFakeCvar *g_pFake = NULL;
 struct Registry : ConCommandBase
 {
 	static ConCommandBase *&Waiting() { return s_pConCommandBases; }
+
 	static IConCommandBaseAccessor *&Accessor() { return s_pAccessor; }
 };
 
@@ -97,6 +132,7 @@ protected:
 		g_pFake = new CFakeCvar;
 		g_pCVar = cvar = g_pFake;
 	}
+
 	virtual void TearDown()
 	{
 		g_pCVar = cvar = NULL;
@@ -173,8 +209,13 @@ namespace
 class CRecordingAccessor : public IConCommandBaseAccessor
 {
 public:
-	std::vector< ConCommandBase * > m_Seen;
-	virtual bool RegisterConCommandBase( ConCommandBase *p ) { m_Seen.push_back( p ); return true; }
+	std::vector<ConCommandBase *> m_Seen;
+
+	virtual bool RegisterConCommandBase( ConCommandBase *p )
+	{
+		m_Seen.push_back( p );
+		return true;
+	}
 };
 
 int g_nDispatched = 0;
@@ -198,7 +239,7 @@ TEST_F( ConVarPort, RegisterHandsTheWaitingListToTheAccessorWithTheFlagsAdded )
 	ConVar_Register( FCVAR_GAMEDLL, &accessor );
 
 	ASSERT_EQ( 2u, accessor.m_Seen.size() );
-	EXPECT_EQ( (ConCommandBase *)&b, accessor.m_Seen[0] );	// newest first
+	EXPECT_EQ( (ConCommandBase *)&b, accessor.m_Seen[0] ); // newest first
 	EXPECT_EQ( (ConCommandBase *)&a, accessor.m_Seen[1] );
 	EXPECT_TRUE( a.IsFlagSet( FCVAR_GAMEDLL ) );
 	EXPECT_FALSE( hidden.IsFlagSet( FCVAR_GAMEDLL ) );
@@ -228,7 +269,7 @@ TEST_F( ConVarPort, ACommandDispatchesToItsInterface )
 	// CCommand's constructor is tier1's and not ported (server.so never builds
 	// one); the callback does not read it.
 	alignas( CCommand ) unsigned char mem[sizeof( CCommand )] = {};
-	c.Dispatch( *reinterpret_cast< const CCommand * >( mem ) );
+	c.Dispatch( *reinterpret_cast<const CCommand *>( mem ) );
 	EXPECT_EQ( 1, g_nDispatched );
 }
 

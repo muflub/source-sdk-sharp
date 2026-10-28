@@ -11,9 +11,7 @@
 #include "appframework/IAppSystemGroup.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "scenefilecache/ISceneFileCache.h"
-#include "tier0/basetypes.h"
-#include "tier1/interface.h"
-#include "tier1/utlvector.h"
+
 #include "cdll_int.h"
 
 class CClientDLLSharedAppSystems : public IClientDLLSharedAppSystems
@@ -25,18 +23,12 @@ public:
 		AddAppSystem( "scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION );
 	}
 
-	virtual int	Count()
-	{
-		return m_Systems.Count();
-	}
-	virtual char const *GetDllName( int idx )
-	{
-		return m_Systems[ idx ].m_pModuleName;
-	}
-	virtual char const *GetInterfaceName( int idx )
-	{
-		return m_Systems[ idx ].m_pInterfaceName;
-	}
+	virtual int Count() { return m_Systems.Count(); }
+
+	virtual char const *GetDllName( int idx ) { return m_Systems[idx].m_pModuleName; }
+
+	virtual char const *GetInterfaceName( int idx ) { return m_Systems[idx].m_pInterfaceName; }
+
 private:
 	void AddAppSystem( char const *moduleName, char const *interfaceName )
 	{
@@ -46,7 +38,7 @@ private:
 		m_Systems.AddToTail( sys );
 	}
 
-	CUtlVector< AppSystemInfo_t >	m_Systems;
+	CUtlVector<AppSystemInfo_t> m_Systems;
 };
 
 EXPOSE_SINGLE_INTERFACE( CClientDLLSharedAppSystems, IClientDLLSharedAppSystems, CLIENT_DLL_SHARED_APPSYSTEMS );

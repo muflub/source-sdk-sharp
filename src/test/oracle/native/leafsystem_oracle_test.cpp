@@ -91,7 +91,7 @@ void LeafLog( const char *pFmt, ... )
 	va_end( copy );
 	std::string line( n > 0 ? n : 0, '\0' );
 	if ( n > 0 )
-		vsnprintf( &line[ 0 ], n + 1, pFmt, ap );
+		vsnprintf( &line[0], n + 1, pFmt, ap );
 	va_end( ap );
 	g_Log += line;
 	g_Log += '\n';
@@ -113,42 +113,78 @@ class CLeafCvar final : public ICvar
 {
 public:
 	virtual bool Connect( CreateInterfaceFn ) { return true; }
+
 	virtual void Disconnect() {}
+
 	virtual void *QueryInterface( const char * ) { return NULL; }
+
 	virtual InitReturnVal_t Init() { return INIT_OK; }
+
 	virtual void Shutdown() {}
+
 	virtual CVarDLLIdentifier_t AllocateDLLIdentifier() { return 1; }
+
 	virtual void RegisterConCommand( ConCommandBase * ) {}
+
 	virtual void UnregisterConCommand( ConCommandBase * ) {}
+
 	virtual void UnregisterConCommands( CVarDLLIdentifier_t ) {}
+
 	virtual const char *GetCommandLineValue( const char * ) { return NULL; }
+
 	virtual ConCommandBase *FindCommandBase( const char * ) { return NULL; }
+
 	virtual const ConCommandBase *FindCommandBase( const char * ) const { return NULL; }
+
 	virtual ConVar *FindVar( const char * ) { return NULL; }
+
 	virtual const ConVar *FindVar( const char * ) const { return NULL; }
+
 	virtual ConCommand *FindCommand( const char * ) { return NULL; }
+
 	virtual const ConCommand *FindCommand( const char * ) const { return NULL; }
+
 	virtual ConCommandBase *GetCommands( void ) { return NULL; }
+
 	virtual const ConCommandBase *GetCommands( void ) const { return NULL; }
+
 	virtual void InstallGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void RemoveGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void CallGlobalChangeCallbacks( ConVar *, const char *, float ) {}
+
 	virtual void InstallConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void RemoveConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void ConsoleColorPrintf( const Color &, const char *, ... ) const {}
+
 	virtual void ConsolePrintf( const char *, ... ) const {}
+
 	virtual void ConsoleDPrintf( const char *, ... ) const {}
+
 	virtual void RevertFlaggedConVars( int ) {}
+
 	virtual void InstallCVarQuery( ICvarQuery * ) {}
+
 	virtual void PublishToVXConsole() {}
+
 	virtual bool IsMaterialThreadSetAllowed() const { return true; }
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, const char * ) {}
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, int ) {}
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, float ) {}
+
 	virtual bool HasQueuedMaterialThreadConVarSets() const { return false; }
+
 	virtual int ProcessQueuedMaterialThreadConVarSets() { return 0; }
+
 	virtual ICVarIteratorInternal *FactoryInternalIterator( void ) { return NULL; }
 };
+
 static CLeafCvar g_LeafCvar;
 
 //-----------------------------------------------------------------------------
@@ -167,7 +203,11 @@ LeafMdlCache *mdlcache = &s_MdlCache;
 static LeafShadowMgr s_ShadowMgr;
 LeafShadowMgr *g_pClientShadowMgr = &s_ShadowMgr;
 static LeafDetailSystem s_DetailSystem;
-LeafDetailSystem *DetailObjectSystem() { return &s_DetailSystem; }
+
+LeafDetailSystem *DetailObjectSystem()
+{
+	return &s_DetailSystem;
+}
 
 //-----------------------------------------------------------------------------
 // The scripted world: leaves are boxes along x, each in an area; a view's
@@ -181,21 +221,21 @@ struct LeafBox_t
 static bool Overlaps( const Vector &mins, const Vector &maxs, const LeafBox_t &b )
 {
 	return mins.x < b.maxs.x && maxs.x > b.mins.x && mins.y < b.maxs.y && maxs.y > b.mins.y && mins.z < b.maxs.z &&
-	       maxs.z > b.mins.z;
+		maxs.z > b.mins.z;
 }
 
 static bool Inside( const Vector &mins, const Vector &maxs, const LeafBox_t &b )
 {
 	return mins.x >= b.mins.x && maxs.x <= b.maxs.x && mins.y >= b.mins.y && maxs.y <= b.maxs.y && mins.z >= b.mins.z &&
-	       maxs.z <= b.maxs.z;
+		maxs.z <= b.maxs.z;
 }
 
-static std::vector< LeafBox_t > s_LeafBoxes;
-static std::vector< int > s_LeafAreas;
+static std::vector<LeafBox_t> s_LeafBoxes;
+static std::vector<int> s_LeafAreas;
 static LeafBox_t s_Frustum;
-static LeafBox_t s_AreaFrustum[ 4 ];
+static LeafBox_t s_AreaFrustum[4];
 static LeafBox_t s_Occluder;
-static int s_nLastBoundsId = -1;   // the renderable whose box the engine is about to be asked about
+static int s_nLastBoundsId = -1; // the renderable whose box the engine is about to be asked about
 
 static LeafBox_t MakeBox( float x0, float y0, float z0, float x1, float y1, float z1 )
 {
@@ -209,19 +249,25 @@ class CLeafBSPQuery final : public ISpatialQuery
 {
 public:
 	virtual int LeafCount() const { return (int)s_LeafBoxes.size(); }
+
 	virtual bool EnumerateLeavesAtPoint( Vector const &, ISpatialLeafEnumerator *, intp ) { return true; }
-	virtual bool EnumerateLeavesInBox( Vector const &mins, Vector const &maxs, ISpatialLeafEnumerator *pEnum, intp context )
+
+	virtual bool EnumerateLeavesInBox( Vector const &mins, Vector const &maxs, ISpatialLeafEnumerator *pEnum,
+									   intp context )
 	{
 		for ( int i = 0; i < (int)s_LeafBoxes.size(); i++ )
 		{
-			if ( Overlaps( mins, maxs, s_LeafBoxes[ i ] ) && !pEnum->EnumerateLeaf( i, context ) )
+			if ( Overlaps( mins, maxs, s_LeafBoxes[i] ) && !pEnum->EnumerateLeaf( i, context ) )
 				return false;
 		}
 		return true;
 	}
+
 	virtual bool EnumerateLeavesInSphere( Vector const &, float, ISpatialLeafEnumerator *, intp ) { return true; }
+
 	virtual bool EnumerateLeavesAlongRay( Ray_t const &, ISpatialLeafEnumerator *, intp ) { return true; }
 };
+
 static CLeafBSPQuery s_BSPQuery;
 
 int LeafEngine::LevelLeafCount()
@@ -233,10 +279,10 @@ int LeafEngine::GetLeavesArea( int *pLeaves, int nLeaves )
 {
 	if ( nLeaves == 0 )
 		return -1;
-	const int nArea = s_LeafAreas[ pLeaves[ 0 ] ];
+	const int nArea = s_LeafAreas[pLeaves[0]];
 	for ( int i = 1; i < nLeaves; i++ )
 	{
-		if ( s_LeafAreas[ pLeaves[ i ] ] != nArea )
+		if ( s_LeafAreas[pLeaves[i]] != nArea )
 			return -1;
 	}
 	return nArea;
@@ -249,7 +295,7 @@ ISpatialQuery *LeafEngine::GetBSPTreeQuery()
 
 bool LeafEngine::DoesBoxTouchAreaFrustum( const Vector &mins, const Vector &maxs, int iArea )
 {
-	const bool bTouch = Overlaps( mins, maxs, s_AreaFrustum[ iArea ] );
+	const bool bTouch = Overlaps( mins, maxs, s_AreaFrustum[iArea] );
 	LeafLog( "Q\tarea\t%d\t%d\t%d", s_nLastBoundsId, iArea, bTouch ? 1 : 0 );
 	return bTouch;
 }
@@ -270,7 +316,7 @@ bool LeafEngine::IsOccluded( const Vector &vecAbsMins, const Vector &vecAbsMaxs 
 
 void LeafEngine::Con_NPrintf( int pos, const char *fmt, ... )
 {
-	char szText[ 512 ];
+	char szText[512];
 	va_list ap;
 	va_start( ap, fmt );
 	vsnprintf( szText, sizeof( szText ), fmt, ap );
@@ -286,8 +332,8 @@ bool LeafRender::AreAnyLeavesVisible( int *pLeafList, int nLeaves )
 	bool bVisible = false;
 	for ( int i = 0; i < nLeaves; i++ )
 	{
-		s += ( i ? "," : "" ) + std::to_string( pLeafList[ i ] );
-		bVisible = bVisible || pLeafList[ i ] < 6;
+		s += ( i ? "," : "" ) + std::to_string( pLeafList[i] );
+		bVisible = bVisible || pLeafList[i] < 6;
 	}
 	LeafLog( "PVQ\t%s\t%d", s.c_str(), bVisible ? 1 : 0 );
 	return bVisible;
@@ -295,10 +341,11 @@ bool LeafRender::AreAnyLeavesVisible( int *pLeafList, int nLeaves )
 
 static int IdOf( IClientRenderable *p )
 {
-	return p ? static_cast< C_BaseEntity * >( p )->m_nId : -1;
+	return p ? static_cast<C_BaseEntity *>( p )->m_nId : -1;
 }
 
-void LeafShadowMgr::AddShadowToReceiver( ClientShadowHandle_t handle, IClientRenderable *pRenderable, ShadowReceiver_t type )
+void LeafShadowMgr::AddShadowToReceiver( ClientShadowHandle_t handle, IClientRenderable *pRenderable,
+										 ShadowReceiver_t type )
 {
 	LeafLog( "SR\t%d\t%d\t%d", handle, IdOf( pRenderable ), type );
 }
@@ -309,11 +356,11 @@ void LeafShadowMgr::RemoveAllShadowsFromReceiver( IClientRenderable *pRenderable
 }
 
 // The detail object system's models, by index; a NULL is a sprite slot.
-static std::vector< IClientRenderable * > s_DetailModels;
+static std::vector<IClientRenderable *> s_DetailModels;
 
 IClientRenderable *LeafDetailSystem::GetDetailModel( int idx )
 {
-	return ( idx >= 0 && idx < (int)s_DetailModels.size() ) ? s_DetailModels[ idx ] : NULL;
+	return ( idx >= 0 && idx < (int)s_DetailModels.size() ) ? s_DetailModels[idx] : NULL;
 }
 
 // What the subject's header and its interface registration link against:
@@ -323,11 +370,13 @@ IClientRenderable *LeafDetailSystem::GetDetailModel( int idx )
 #include "tier1/interface.h"
 
 IGameSystem::~IGameSystem() {}
+
 IGameSystemPerFrame::~IGameSystemPerFrame() {}
 
 static const char *s_pszExposedAs = NULL;
 
-InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName ) : m_pName( pName )
+InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName )
+	: m_pName( pName )
 {
 	m_CreateFn = fn;
 	m_pNext = NULL;
@@ -345,7 +394,7 @@ InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName ) : m_p
 
 static CClientLeafSystem &Subject()
 {
-	return *static_cast< CClientLeafSystem * >( g_pClientLeafSystem );
+	return *static_cast<CClientLeafSystem *>( g_pClientLeafSystem );
 }
 
 static CLeafRegistryMirror &Registry()
@@ -356,7 +405,7 @@ static CLeafRegistryMirror &Registry()
 // The view models' groups as stock's CollateViewModelRenderables leaves them
 // after each one's ComputeFxBlend, in its order (golden mode).
 static bool s_bViewModelCapture = false;
-static std::vector< std::pair< int, int > > s_ViewModelCapture;   // id, group
+static std::vector<std::pair<int, int>> s_ViewModelCapture; // id, group
 
 void C_BaseEntity::ComputeFxBlend()
 {
@@ -366,7 +415,7 @@ void C_BaseEntity::ComputeFxBlend()
 		ClientLeafSystem()->SetRenderGroup( RenderHandle(), (RenderGroup_t)m_nGroupOnBlend );
 	LeafLog( "BL\t%d\t%d", m_nId, m_nFxBlend );
 	if ( s_bViewModelCapture )
-		s_ViewModelCapture.push_back( { m_nId, Registry().m_Renderables[ RenderHandle() ].m_RenderGroup } );
+		s_ViewModelCapture.push_back( { m_nId, Registry().m_Renderables[RenderHandle()].m_RenderGroup } );
 }
 
 int C_BaseEntity::GetFxBlend()
@@ -388,7 +437,7 @@ namespace
 //-----------------------------------------------------------------------------
 // The scenario's things.
 //-----------------------------------------------------------------------------
-std::vector< std::unique_ptr< C_BaseEntity > > s_Things;
+std::vector<std::unique_ptr<C_BaseEntity>> s_Things;
 
 // A renderable at [x0, x0 + wx] along x, centred on y0, hy and hz either
 // side; its origin is the box's low-x face, so its render bounds are not
@@ -417,10 +466,29 @@ C_BaseEntity *Find( int nId )
 }
 
 // The answers a thing gives, set before it is registered (so its R row says them).
-C_BaseEntity *Transparent( C_BaseEntity *p ) { p->m_bTransparent = true; return p; }
-C_BaseEntity *BlendTo( C_BaseEntity *p, int n ) { p->m_nBlendTo = n; return p; }
-C_BaseEntity *GroupOnBlend( C_BaseEntity *p, int g ) { p->m_nGroupOnBlend = g; return p; }
-C_BaseEntity *Receives( C_BaseEntity *p, int f ) { p->m_nReceiveFlags = f; return p; }
+C_BaseEntity *Transparent( C_BaseEntity *p )
+{
+	p->m_bTransparent = true;
+	return p;
+}
+
+C_BaseEntity *BlendTo( C_BaseEntity *p, int n )
+{
+	p->m_nBlendTo = n;
+	return p;
+}
+
+C_BaseEntity *GroupOnBlend( C_BaseEntity *p, int g )
+{
+	p->m_nGroupOnBlend = g;
+	return p;
+}
+
+C_BaseEntity *Receives( C_BaseEntity *p, int f )
+{
+	p->m_nReceiveFlags = f;
+	return p;
+}
 
 // Everything a thing answers, so a replay can build the same one (L2): its
 // model type, transparency, two-pass, blend, the blend and group its
@@ -428,23 +496,23 @@ C_BaseEntity *Receives( C_BaseEntity *p, int f ) { p->m_nReceiveFlags = f; retur
 // world box, render box and origin.
 void LogDesc( C_BaseEntity *p )
 {
-	LeafLog( "T\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x",
-	         p->m_nId, p->m_nModelType, p->m_bTransparent ? 1 : 0, p->m_bTwoPass ? 1 : 0, p->m_nFxBlend, p->m_nBlendTo,
-	         p->m_nGroupOnBlend, p->m_nReceiveFlags,
-	         LeafBits( p->m_vecAbsMins.x ), LeafBits( p->m_vecAbsMins.y ), LeafBits( p->m_vecAbsMins.z ),
-	         LeafBits( p->m_vecAbsMaxs.x ), LeafBits( p->m_vecAbsMaxs.y ), LeafBits( p->m_vecAbsMaxs.z ),
-	         LeafBits( p->m_vecMins.x ), LeafBits( p->m_vecMins.y ), LeafBits( p->m_vecMins.z ),
-	         LeafBits( p->m_vecMaxs.x ), LeafBits( p->m_vecMaxs.y ), LeafBits( p->m_vecMaxs.z ),
-	         LeafBits( p->m_vecOrigin.x ), LeafBits( p->m_vecOrigin.y ), LeafBits( p->m_vecOrigin.z ) );
+	LeafLog(
+		"T\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x",
+		p->m_nId, p->m_nModelType, p->m_bTransparent ? 1 : 0, p->m_bTwoPass ? 1 : 0, p->m_nFxBlend, p->m_nBlendTo,
+		p->m_nGroupOnBlend, p->m_nReceiveFlags, LeafBits( p->m_vecAbsMins.x ), LeafBits( p->m_vecAbsMins.y ),
+		LeafBits( p->m_vecAbsMins.z ), LeafBits( p->m_vecAbsMaxs.x ), LeafBits( p->m_vecAbsMaxs.y ),
+		LeafBits( p->m_vecAbsMaxs.z ), LeafBits( p->m_vecMins.x ), LeafBits( p->m_vecMins.y ),
+		LeafBits( p->m_vecMins.z ), LeafBits( p->m_vecMaxs.x ), LeafBits( p->m_vecMaxs.y ), LeafBits( p->m_vecMaxs.z ),
+		LeafBits( p->m_vecOrigin.x ), LeafBits( p->m_vecOrigin.y ), LeafBits( p->m_vecOrigin.z ) );
 }
 
 void LogThing( const char *pszHow, C_BaseEntity *p, int nGroup )
 {
 	LeafLog( "R\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%d", p->m_nId, pszHow, nGroup,
-	         p->m_nModelType, p->m_bTransparent ? 1 : 0, p->m_bTwoPass ? 1 : 0, p->m_nFxBlend,
-	         LeafBits( p->m_vecAbsMins.x ), LeafBits( p->m_vecAbsMins.y ), LeafBits( p->m_vecAbsMins.z ),
-	         LeafBits( p->m_vecAbsMaxs.x ), LeafBits( p->m_vecAbsMaxs.y ), LeafBits( p->m_vecAbsMaxs.z ),
-	         p->RenderHandle() );
+			 p->m_nModelType, p->m_bTransparent ? 1 : 0, p->m_bTwoPass ? 1 : 0, p->m_nFxBlend,
+			 LeafBits( p->m_vecAbsMins.x ), LeafBits( p->m_vecAbsMins.y ), LeafBits( p->m_vecAbsMins.z ),
+			 LeafBits( p->m_vecAbsMaxs.x ), LeafBits( p->m_vecAbsMaxs.y ), LeafBits( p->m_vecAbsMaxs.z ),
+			 p->RenderHandle() );
 }
 
 // A client renderable: AddRenderable, inserted into the tree at PreRender.
@@ -464,20 +532,20 @@ C_BaseEntity *AddStatic( C_BaseEntity *p )
 	LogDesc( p );
 	Subject().CreateRenderableHandle( p, true );
 	LeafLog( "CH\t%d\t%d", p->m_nId, p->RenderHandle() );
-	unsigned short leaves[ 128 ];
+	unsigned short leaves[128];
 	int n = 0;
 	std::string s;
 	for ( int i = 0; i < (int)s_LeafBoxes.size() && n < 128; i++ )
 	{
-		if ( Overlaps( p->m_vecAbsMins, p->m_vecAbsMaxs, s_LeafBoxes[ i ] ) )
+		if ( Overlaps( p->m_vecAbsMins, p->m_vecAbsMaxs, s_LeafBoxes[i] ) )
 		{
 			s += ( n ? "," : "" ) + std::to_string( i );
-			leaves[ n++ ] = (unsigned short)i;
+			leaves[n++] = (unsigned short)i;
 		}
 	}
 	LeafLog( "SL\t%d\t%s", p->m_nId, s.c_str() );
 	Subject().AddRenderableToLeaves( p->RenderHandle(), n, leaves );
-	LogThing( "static", p, Registry().m_Renderables[ p->RenderHandle() ].m_RenderGroup );
+	LogThing( "static", p, Registry().m_Renderables[p->RenderHandle()].m_RenderGroup );
 	return p;
 }
 
@@ -569,7 +637,7 @@ void DetailState( int nFrame )
 		Subject().GetDetailObjectsInLeaf( leaf, nFirst, nCount );
 		const bool bData = Subject().GetSubSystemDataInLeaf( leaf, CLSUBSYSTEM_DETAILOBJECTS ) != NULL;
 		LeafLog( "GD\t%d\t%d\t%d\t%d\t%d", leaf, nFirst, nCount, bData ? 1 : 0,
-		         Subject().ShouldDrawDetailObjectsInLeaf( leaf, nFrame ) ? 1 : 0 );
+				 Subject().ShouldDrawDetailObjectsInLeaf( leaf, nFrame ) ? 1 : 0 );
 	}
 }
 
@@ -577,8 +645,13 @@ void DetailState( int nFrame )
 class CLeafSubData : public CClientLeafSubSystemData
 {
 public:
-	explicit CLeafSubData( int nTag ) : m_nTag( nTag ) {}
+	explicit CLeafSubData( int nTag )
+		: m_nTag( nTag )
+	{
+	}
+
 	~CLeafSubData() { LeafLog( "SDEL\t%d", m_nTag ); }
+
 	int m_nTag;
 };
 
@@ -613,7 +686,7 @@ std::string Joined( const int *p, int n )
 {
 	std::string s;
 	for ( int i = 0; i < n; i++ )
-		s += ( i ? "," : "" ) + std::to_string( p[ i ] );
+		s += ( i ? "," : "" ) + std::to_string( p[i] );
 	return s;
 }
 
@@ -647,12 +720,12 @@ void Frame( int nFrame )
 		const ClientRenderHandle_t h = p->RenderHandle();
 		if ( h == INVALID_CLIENT_RENDER_HANDLE )
 			continue;
-		int leaves[ 128 ];
+		int leaves[128];
 		const int n = Subject().GetRenderableLeaves( h, leaves );
 		std::string s;
 		for ( int i = 0; i < n; i++ )
-			s += ( i ? "," : "" ) + std::to_string( leaves[ i ] );
-		LeafLog( "IN\t%d\t%d\t%d\t%s", p->m_nId, h, Registry().m_Renderables[ h ].m_Area, s.c_str() );
+			s += ( i ? "," : "" ) + std::to_string( leaves[i] );
+		LeafLog( "IN\t%d\t%d\t%d\t%s", p->m_nId, h, Registry().m_Renderables[h].m_Area, s.c_str() );
 	}
 }
 
@@ -680,9 +753,9 @@ void SetLevel( int nLeaves, float flWidth )
 	for ( int i = 0; i < nLeaves; )
 	{
 		int j = i;
-		while ( j + 1 < nLeaves && s_LeafAreas[ j + 1 ] == s_LeafAreas[ i ] )
+		while ( j + 1 < nLeaves && s_LeafAreas[j + 1] == s_LeafAreas[i] )
 			++j;
-		LeafLog( "LA\t%d\t%d\t%d", i, j, s_LeafAreas[ i ] );
+		LeafLog( "LA\t%d\t%d\t%d", i, j, s_LeafAreas[i] );
 		i = j + 1;
 	}
 }
@@ -694,13 +767,13 @@ void LogWorldBoxes()
 	auto box = []( const char *pszName, const LeafBox_t &b )
 	{
 		LeafLog( "WB\t%s\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x", pszName, LeafBits( b.mins.x ), LeafBits( b.mins.y ),
-		         LeafBits( b.mins.z ), LeafBits( b.maxs.x ), LeafBits( b.maxs.y ), LeafBits( b.maxs.z ) );
+				 LeafBits( b.mins.z ), LeafBits( b.maxs.x ), LeafBits( b.maxs.y ), LeafBits( b.maxs.z ) );
 	};
 	box( "frustum", s_Frustum );
-	box( "area0", s_AreaFrustum[ 0 ] );
-	box( "area1", s_AreaFrustum[ 1 ] );
-	box( "area2", s_AreaFrustum[ 2 ] );
-	box( "area3", s_AreaFrustum[ 3 ] );
+	box( "area0", s_AreaFrustum[0] );
+	box( "area1", s_AreaFrustum[1] );
+	box( "area2", s_AreaFrustum[2] );
+	box( "area3", s_AreaFrustum[3] );
 	box( "occluder", s_Occluder );
 }
 
@@ -710,7 +783,7 @@ void LogWorldBoxes()
 struct LeafView_t
 {
 	const char *m_pszTag;
-	std::vector< int > m_Leaves;
+	std::vector<int> m_Leaves;
 	int m_nViewID;
 	bool m_bTranslucentLeafPass;
 	bool m_bDrawTranslucent;
@@ -719,9 +792,9 @@ struct LeafView_t
 	Vector m_vecForward;
 };
 
-std::vector< int > Range( int a, int b )
+std::vector<int> Range( int a, int b )
 {
-	std::vector< int > v;
+	std::vector<int> v;
 	if ( a <= b )
 		for ( int i = a; i <= b; i++ )
 			v.push_back( i );
@@ -734,13 +807,13 @@ std::vector< int > Range( int a, int b )
 int s_nRenderFrame = 0;
 const int kDetailFrame = 1;
 
-void LogWords( const char *pszTag, const CUtlVector< int32_t > &words )
+void LogWords( const char *pszTag, const CUtlVector<int32_t> &words )
 {
 	std::string s = pszTag;
-	char sz[ 16 ];
+	char sz[16];
 	for ( int i = 0; i < words.Count(); i++ )
 	{
-		snprintf( sz, sizeof( sz ), "\t%08x", (unsigned int)words[ i ] );
+		snprintf( sz, sizeof( sz ), "\t%08x", (unsigned int)words[i] );
 		s += sz;
 	}
 	LeafLog( "%s", s.c_str() );
@@ -749,8 +822,8 @@ void LogWords( const char *pszTag, const CUtlVector< int32_t > &words )
 void RunView( const LeafView_t &view )
 {
 	const int nFrame = ++s_nRenderFrame;
-	std::vector< LeafIndex_t > leafList( view.m_Leaves.begin(), view.m_Leaves.end() );
-	std::vector< LeafFogVolume_t > fogList( view.m_Leaves.size(), -1 );
+	std::vector<LeafIndex_t> leafList( view.m_Leaves.begin(), view.m_Leaves.end() );
+	std::vector<LeafFogVolume_t> fogList( view.m_Leaves.size(), -1 );
 	WorldListInfo_t world;
 	world.m_ViewFogVolume = -1;
 	world.m_LeafCount = (int)leafList.size();
@@ -760,11 +833,11 @@ void RunView( const LeafView_t &view )
 	// After stock's columns, for a replay: the detail build frame, the view's
 	// origin and forward, and its leaves in order.
 	LeafLog( "V\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%s", view.m_pszTag, nFrame,
-	         view.m_nViewID, world.m_LeafCount, view.m_bTranslucentLeafPass ? 1 : 0, view.m_bDrawTranslucent ? 1 : 0,
-	         view.m_bDrawDetail ? 1 : 0, Registry().m_DrawStaticProps ? 1 : 0, kDetailFrame,
-	         LeafBits( view.m_vecOrigin.x ), LeafBits( view.m_vecOrigin.y ), LeafBits( view.m_vecOrigin.z ),
-	         LeafBits( view.m_vecForward.x ), LeafBits( view.m_vecForward.y ), LeafBits( view.m_vecForward.z ),
-	         Joined( view.m_Leaves.data(), (int)view.m_Leaves.size() ).c_str() );
+			 view.m_nViewID, world.m_LeafCount, view.m_bTranslucentLeafPass ? 1 : 0, view.m_bDrawTranslucent ? 1 : 0,
+			 view.m_bDrawDetail ? 1 : 0, Registry().m_DrawStaticProps ? 1 : 0, kDetailFrame,
+			 LeafBits( view.m_vecOrigin.x ), LeafBits( view.m_vecOrigin.y ), LeafBits( view.m_vecOrigin.z ),
+			 LeafBits( view.m_vecForward.x ), LeafBits( view.m_vecForward.y ), LeafBits( view.m_vecForward.z ),
+			 Joined( view.m_Leaves.data(), (int)view.m_Leaves.size() ).c_str() );
 
 	LeafViewRequest_t req;
 	req.m_pWorldListInfo = &world;
@@ -798,26 +871,27 @@ void RunView( const LeafView_t &view )
 		if ( view.m_bTranslucentLeafPass )
 		{
 			LeafLog( "CT\t%d\t%d", nFrame, view.m_nViewID );
-			Subject().ComputeTranslucentRenderLeaf( world.m_LeafCount, world.m_pLeafList, world.m_pLeafFogVolume, nFrame, view.m_nViewID );
+			Subject().ComputeTranslucentRenderLeaf( world.m_LeafCount, world.m_pLeafList, world.m_pLeafFogVolume,
+													nFrame, view.m_nViewID );
 		}
 		g_bQuiet = true;
 		EXPECT_TRUE( gather.Gather( g_pClientLeafSystem, req ) );
 		g_bQuiet = false;
 		EXPECT_EQ( before.m_Handles.Count(), gather.m_Handles.Count() );
-		const int nRowBase = LEAFVIEW_HEADER_WORDS + LEAFVIEW_LEAF_WORDS * world.m_LeafCount + gather.m_Words[ 12 ];
+		const int nRowBase = LEAFVIEW_HEADER_WORDS + LEAFVIEW_LEAF_WORDS * world.m_LeafCount + gather.m_Words[12];
 		for ( int r = 0; r < gather.m_Handles.Count() && r < before.m_Handles.Count(); r++ )
 		{
-			EXPECT_EQ( before.m_Handles[ r ], gather.m_Handles[ r ] );
+			EXPECT_EQ( before.m_Handles[r], gather.m_Handles[r] );
 			const int at = nRowBase + LEAFVIEW_RENDERABLE_WORDS * r;
-			gather.m_Words[ at + 3 ] = before.m_Words[ at + 3 ];
-			gather.m_Words[ at + 4 ] = before.m_Words[ at + 4 ];
+			gather.m_Words[at + 3] = before.m_Words[at + 3];
+			gather.m_Words[at + 4] = before.m_Words[at + 4];
 		}
 	}
 	LogWords( "VB", gather.m_Words );
 
 	CClientRenderablesList *pList = new CClientRenderablesList;
 	for ( int g = 0; g < RENDER_GROUP_COUNT; g++ )
-		pList->m_RenderGroupCounts[ g ] = 0;
+		pList->m_RenderGroupCounts[g] = 0;
 	SetupRenderInfo_t info;
 	info.m_pWorldListInfo = &world;
 	info.m_pRenderList = pList;
@@ -834,15 +908,15 @@ void RunView( const LeafView_t &view )
 	// renderable row (r), its detail model row (d), or the leaf's marker (-).
 	for ( int g = 0; g < RENDER_GROUP_COUNT; g++ )
 	{
-		for ( int i = 0; i < pList->m_RenderGroupCounts[ g ]; i++ )
+		for ( int i = 0; i < pList->m_RenderGroupCounts[g]; i++ )
 		{
-			const CClientRenderablesList::CEntry &e = pList->m_RenderGroups[ g ][ i ];
-			char szSource[ 32 ] = "-\t-1";
+			const CClientRenderablesList::CEntry &e = pList->m_RenderGroups[g][i];
+			char szSource[32] = "-\t-1";
 			if ( e.m_pRenderable && e.m_RenderHandle != DETAIL_PROP_RENDER_HANDLE )
 			{
 				int nRow = -1;
 				for ( int r = 0; r < gather.m_Handles.Count(); r++ )
-					if ( gather.m_Handles[ r ] == e.m_RenderHandle )
+					if ( gather.m_Handles[r] == e.m_RenderHandle )
 						nRow = r;
 				snprintf( szSource, sizeof( szSource ), "r\t%d", nRow );
 			}
@@ -850,19 +924,20 @@ void RunView( const LeafView_t &view )
 			{
 				int nRow = -1;
 				for ( int d = 0; d < gather.m_Details.Count(); d++ )
-					if ( gather.m_Details[ d ] == e.m_pRenderable )
+					if ( gather.m_Details[d] == e.m_pRenderable )
 						nRow = d;
 				snprintf( szSource, sizeof( szSource ), "d\t%d", nRow );
 			}
 			LeafLog( "O\t%d\t%d\t%s\t%d\t%d\t%d\t%d", g, i, szSource, IdOf( e.m_pRenderable ), e.m_iWorldListInfoLeaf,
-			         e.m_TwoPass, e.m_RenderHandle );
+					 e.m_TwoPass, e.m_RenderHandle );
 		}
 	}
 	// And the registry state the buffer's rows are left with.
 	for ( int r = 0; r < gather.m_Handles.Count(); r++ )
 	{
-		const CLeafRegistryMirror::RenderableInfo_t &ri = Registry().m_Renderables[ gather.m_Handles[ r ] ];
-		LeafLog( "ST\t%d\t%d\t%d\t%d\t%d", r, IdOf( ri.m_pRenderable ), ri.m_RenderFrame, (int)ri.m_RenderLeaf, ri.m_RenderFrame2 );
+		const CLeafRegistryMirror::RenderableInfo_t &ri = Registry().m_Renderables[gather.m_Handles[r]];
+		LeafLog( "ST\t%d\t%d\t%d\t%d\t%d", r, IdOf( ri.m_pRenderable ), ri.m_RenderFrame, (int)ri.m_RenderLeaf,
+				 ri.m_RenderFrame2 );
 	}
 	pList->Release();
 	LeafLog( "VE\t%s", view.m_pszTag );
@@ -871,13 +946,13 @@ void RunView( const LeafView_t &view )
 void RunViewModels()
 {
 	LeafLog( "VM\t%d", gpGlobals->framecount );
-	CUtlVector< IClientRenderable * > opaque, translucent;
+	CUtlVector<IClientRenderable *> opaque, translucent;
 	s_ViewModelCapture.clear();
 	s_bViewModelCapture = true;
 	Subject().CollateViewModelRenderables( opaque, translucent );
 	s_bViewModelCapture = false;
 
-	CUtlVector< int32_t > words;
+	CUtlVector<int32_t> words;
 	words.AddToTail( (int32_t)s_ViewModelCapture.size() );
 	std::string ids = "VMI";
 	for ( const auto &c : s_ViewModelCapture )
@@ -889,25 +964,26 @@ void RunViewModels()
 	LeafLog( "%s", ids.c_str() );
 	std::string o = "VML\to", t = "VML\tt";
 	for ( int i = 0; i < opaque.Count(); i++ )
-		o += "\t" + std::to_string( IdOf( opaque[ i ] ) );
+		o += "\t" + std::to_string( IdOf( opaque[i] ) );
 	for ( int i = 0; i < translucent.Count(); i++ )
-		t += "\t" + std::to_string( IdOf( translucent[ i ] ) );
+		t += "\t" + std::to_string( IdOf( translucent[i] ) );
 	LeafLog( "%s", o.c_str() );
 	LeafLog( "%s", t.c_str() );
 }
 
-void EnumShadows( std::vector< int > leaves )
+void EnumShadows( std::vector<int> leaves )
 {
 	class CEnum : public IClientLeafShadowEnum
 	{
 	public:
 		virtual void EnumShadow( ClientShadowHandle_t userId ) { LeafLog( "EN\t%d", userId ); }
 	} e;
+
 	std::string s;
 	for ( size_t i = 0; i < leaves.size(); i++ )
-		s += ( i ? "," : "" ) + std::to_string( leaves[ i ] );
+		s += ( i ? "," : "" ) + std::to_string( leaves[i] );
 	LeafLog( "ES\t%s", s.c_str() );
-	std::vector< LeafIndex_t > list( leaves.begin(), leaves.end() );
+	std::vector<LeafIndex_t> list( leaves.begin(), leaves.end() );
 	Subject().EnumerateShadowsInLeaves( (int)list.size(), list.data(), &e );
 }
 
@@ -935,17 +1011,18 @@ std::string RunScenario()
 
 	SetLevel( 12, 100.0f );
 	s_Frustum = MakeBox( -1000, -400, -400, 2000, 400, 400 );
-	s_AreaFrustum[ 0 ] = MakeBox( 0, 0, 0, 0, 0, 0 );
-	s_AreaFrustum[ 1 ] = MakeBox( -1000, -500, -500, 2000, 500, 500 );
-	s_AreaFrustum[ 2 ] = MakeBox( -1000, -200, -500, 2000, 200, 500 );
-	s_AreaFrustum[ 3 ] = MakeBox( -1000, -500, -500, 2000, 500, 500 );
+	s_AreaFrustum[0] = MakeBox( 0, 0, 0, 0, 0, 0 );
+	s_AreaFrustum[1] = MakeBox( -1000, -500, -500, 2000, 500, 500 );
+	s_AreaFrustum[2] = MakeBox( -1000, -200, -500, 2000, 200, 500 );
+	s_AreaFrustum[3] = MakeBox( -1000, -500, -500, 2000, 500, 500 );
 	s_Occluder = MakeBox( 1000, -100, -100, 1100, 100, 100 );
 	LogWorldBoxes();
 
 	const int kBrush = 1, kSprite = 2, kStudio = 3;
 
 	// Opaque entities, one per size bucket, and one across two leaves.
-	Add( Receives( Thing( 1, kStudio, 10, 10, 5, 5 ), SHADOW_FLAGS_PROJECTED_TEXTURE_TYPE_MASK ), RENDER_GROUP_OPAQUE_ENTITY );
+	Add( Receives( Thing( 1, kStudio, 10, 10, 5, 5 ), SHADOW_FLAGS_PROJECTED_TEXTURE_TYPE_MASK ),
+		 RENDER_GROUP_OPAQUE_ENTITY );
 	Add( Thing( 2, kStudio, 20, 10, 25, 5 ), RENDER_GROUP_OPAQUE_ENTITY );
 	Add( Thing( 3, kStudio, 120, 10, 5, 50 ), RENDER_GROUP_OPAQUE_ENTITY );
 	Add( Thing( 4, kStudio, 130, 10, 5, 150 ), RENDER_GROUP_OPAQUE_ENTITY );
@@ -972,13 +1049,16 @@ std::string RunScenario()
 	// every leaf, whose blends move their groups only at the split.
 	Add( Thing( 15, kStudio, 60, 10, 5, 5 ), RENDER_GROUP_VIEW_MODEL_OPAQUE );
 	Add( Thing( 16, kStudio, 62, 10, 5, 5 ), RENDER_GROUP_VIEW_MODEL_TRANSLUCENT );
-	Add( GroupOnBlend( Thing( 17, kStudio, 5000, 10, 5, 5 ), RENDER_GROUP_OPAQUE_ENTITY ), RENDER_GROUP_VIEW_MODEL_OPAQUE );
-	Add( GroupOnBlend( Thing( 18, kStudio, 5020, 10, 5, 5 ), RENDER_GROUP_TRANSLUCENT_ENTITY ), RENDER_GROUP_VIEW_MODEL_OPAQUE );
-	Add( GroupOnBlend( Thing( 19, kStudio, 5040, 10, 5, 5 ), RENDER_GROUP_VIEW_MODEL_OPAQUE ), RENDER_GROUP_VIEW_MODEL_TRANSLUCENT );
+	Add( GroupOnBlend( Thing( 17, kStudio, 5000, 10, 5, 5 ), RENDER_GROUP_OPAQUE_ENTITY ),
+		 RENDER_GROUP_VIEW_MODEL_OPAQUE );
+	Add( GroupOnBlend( Thing( 18, kStudio, 5020, 10, 5, 5 ), RENDER_GROUP_TRANSLUCENT_ENTITY ),
+		 RENDER_GROUP_VIEW_MODEL_OPAQUE );
+	Add( GroupOnBlend( Thing( 19, kStudio, 5040, 10, 5, 5 ), RENDER_GROUP_VIEW_MODEL_OPAQUE ),
+		 RENDER_GROUP_VIEW_MODEL_TRANSLUCENT );
 	// Six translucent boxes in leaf 3, for the sort; render bounds off-centre.
-	const float sortX[ 6 ] = { 390, 310, 350, 330, 370, 320 };
+	const float sortX[6] = { 390, 310, 350, 330, 370, 320 };
 	for ( int i = 0; i < 6; i++ )
-		Add( Transparent( Thing( 20 + i, kStudio, sortX[ i ], 5 + i, 5, 5 ) ), RENDER_GROUP_TRANSLUCENT_ENTITY );
+		Add( Transparent( Thing( 20 + i, kStudio, sortX[i], 5 + i, 5, 5 ) ), RENDER_GROUP_TRANSLUCENT_ENTITY );
 	// Translucent across leaves 2-4, nearest-leaf and alternately sorted.
 	Add( Transparent( Thing( 26, kStudio, 250, 200, 5, 5 ) ), RENDER_GROUP_TRANSLUCENT_ENTITY );
 	Add( Transparent( Thing( 27, kStudio, 255, 190, 5, 5 ) ), RENDER_GROUP_TRANSLUCENT_ENTITY );
@@ -987,8 +1067,10 @@ std::string RunScenario()
 	Add( Transparent( Thing( 28, kStudio, 410, 10, 5, 5 ) ), RENDER_GROUP_TWOPASS );
 	Add( BlendTo( Transparent( Thing( 29, kStudio, 420, 10, 5, 5 ) ), 128 ), RENDER_GROUP_TWOPASS );
 	// Blends that move the render group, as a temp entity's do.
-	Add( GroupOnBlend( Thing( 30, kStudio, 430, 10, 5, 5 ), RENDER_GROUP_OPAQUE_ENTITY ), RENDER_GROUP_TRANSLUCENT_ENTITY );
-	Add( GroupOnBlend( Thing( 31, kStudio, 440, 10, 5, 5 ), RENDER_GROUP_TRANSLUCENT_ENTITY ), RENDER_GROUP_OPAQUE_ENTITY );
+	Add( GroupOnBlend( Thing( 30, kStudio, 430, 10, 5, 5 ), RENDER_GROUP_OPAQUE_ENTITY ),
+		 RENDER_GROUP_TRANSLUCENT_ENTITY );
+	Add( GroupOnBlend( Thing( 31, kStudio, 440, 10, 5, 5 ), RENDER_GROUP_TRANSLUCENT_ENTITY ),
+		 RENDER_GROUP_OPAQUE_ENTITY );
 	// Translucent in leaf 1 beside the detail objects; and one in leaf 9.
 	Add( Transparent( Thing( 32, kStudio, 150, 10, 5, 5 ) ), RENDER_GROUP_TRANSLUCENT_ENTITY );
 	Add( Transparent( Thing( 33, kStudio, 950, 10, 5, 5 ) ), RENDER_GROUP_TRANSLUCENT_ENTITY );
@@ -1007,18 +1089,19 @@ std::string RunScenario()
 
 	// Detail objects: leaf 1's are drawn this frame, leaf 7's are not, and
 	// leaf 8 has only a sub-system's data.
-	const int detailSpec[ 6 ][ 3 ] = { { -1, 0, 0 }, { 1001, 0, 255 }, { 1002, 1, 200 }, { 1003, 1, 0 }, { 1004, 0, 255 }, { 1005, 1, 100 } };
+	const int detailSpec[6][3] = { { -1, 0, 0 },   { 1001, 0, 255 }, { 1002, 1, 200 },
+								   { 1003, 1, 0 }, { 1004, 0, 255 }, { 1005, 1, 100 } };
 	for ( int i = 0; i < 6; i++ )
 	{
-		if ( detailSpec[ i ][ 0 ] < 0 )
+		if ( detailSpec[i][0] < 0 )
 		{
 			s_DetailModels.push_back( NULL );
 			LeafLog( "DM\t%d\t-1", i );
 			continue;
 		}
-		C_BaseEntity *p = Thing( detailSpec[ i ][ 0 ], kStudio, 160 + 5 * i, 2, 2, 2 );
-		p->m_bTransparent = detailSpec[ i ][ 1 ] != 0;
-		p->m_nFxBlend = detailSpec[ i ][ 2 ];
+		C_BaseEntity *p = Thing( detailSpec[i][0], kStudio, 160 + 5 * i, 2, 2, 2 );
+		p->m_bTransparent = detailSpec[i][1] != 0;
+		p->m_nFxBlend = detailSpec[i][2];
 		s_DetailModels.push_back( p );
 		LogDesc( p );
 		LeafLog( "DM\t%d\t%d", i, p->m_nId );
@@ -1168,9 +1251,9 @@ std::string MarkerPath()
 	return RepoFile( "src/test/oracle/native/leafsystem_golden.regen" );
 }
 
-std::vector< std::string > Lines( const std::string &s )
+std::vector<std::string> Lines( const std::string &s )
 {
-	std::vector< std::string > v;
+	std::vector<std::string> v;
 	std::istringstream in( s );
 	std::string line;
 	while ( std::getline( in, line ) )
@@ -1178,9 +1261,9 @@ std::vector< std::string > Lines( const std::string &s )
 	return v;
 }
 
-std::vector< std::string > Fields( const std::string &line )
+std::vector<std::string> Fields( const std::string &line )
 {
-	std::vector< std::string > v;
+	std::vector<std::string> v;
 	size_t at = 0;
 	while ( true )
 	{
@@ -1197,7 +1280,8 @@ std::vector< std::string > Fields( const std::string &line )
 
 TEST( LeafSystemOracle, StockProducesTheGolden )
 {
-	SS_SKIP_ON_CI( "a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit" );
+	SS_SKIP_ON_CI(
+		"a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit" );
 	const std::string run = RunScenario();
 
 	if ( std::ifstream( MarkerPath() ).good() )
@@ -1214,12 +1298,12 @@ TEST( LeafSystemOracle, StockProducesTheGolden )
 
 	ASSERT_GT( golden.size(), 100000u ) << "the golden is empty or truncated";
 
-	const std::vector< std::string > a = Lines( run ), b = Lines( golden );
+	const std::vector<std::string> a = Lines( run ), b = Lines( golden );
 	for ( size_t n = 0; n < a.size() || n < b.size(); n++ )
 	{
-		ASSERT_TRUE( n < a.size() && n < b.size() && a[ n ] == b[ n ] )
-			<< "line " << n + 1 << ": stock now writes\n  " << ( n < a.size() ? a[ n ].substr( 0, 300 ) : "<end>" )
-			<< "\nand the golden has\n  " << ( n < b.size() ? b[ n ].substr( 0, 300 ) : "<end>" )
+		ASSERT_TRUE( n < a.size() && n < b.size() && a[n] == b[n] )
+			<< "line " << n + 1 << ": stock now writes\n  " << ( n < a.size() ? a[n].substr( 0, 300 ) : "<end>" )
+			<< "\nand the golden has\n  " << ( n < b.size() ? b[n].substr( 0, 300 ) : "<end>" )
 			<< "\nDo NOT regenerate the golden to make this pass; see the file header.";
 	}
 }
@@ -1239,30 +1323,30 @@ namespace
 
 struct ViewRun_t
 {
-	std::vector< int32_t > words;
-	std::vector< std::vector< std::string > > outs;   // O rows
-	std::vector< std::vector< std::string > > queries; // Q rows (stock's, during the build)
-	std::vector< std::vector< std::string > > blends;  // FB rows (stock's, during the build)
-	std::vector< std::string > np;                     // NP rows
-	std::map< int, std::vector< int > > state;         // row -> frame, leaf, frame2 after
+	std::vector<int32_t> words;
+	std::vector<std::vector<std::string>> outs; // O rows
+	std::vector<std::vector<std::string>> queries; // Q rows (stock's, during the build)
+	std::vector<std::vector<std::string>> blends; // FB rows (stock's, during the build)
+	std::vector<std::string> np; // NP rows
+	std::map<int, std::vector<int>> state; // row -> frame, leaf, frame2 after
 };
 
-std::vector< int32_t > Words( const std::vector< std::string > &f )
+std::vector<int32_t> Words( const std::vector<std::string> &f )
 {
-	std::vector< int32_t > w;
+	std::vector<int32_t> w;
 	for ( size_t i = 1; i < f.size(); i++ )
-		w.push_back( (int32_t)strtoul( f[ i ].c_str(), NULL, 16 ) );
+		w.push_back( (int32_t)strtoul( f[i].c_str(), NULL, 16 ) );
 	return w;
 }
 
-std::vector< ViewRun_t > ParseViews( const std::string &run )
+std::vector<ViewRun_t> ParseViews( const std::string &run )
 {
-	std::vector< ViewRun_t > views;
+	std::vector<ViewRun_t> views;
 	bool bIn = false;
 	for ( const std::string &line : Lines( run ) )
 	{
-		const std::vector< std::string > f = Fields( line );
-		if ( f[ 0 ] == "VB" )
+		const std::vector<std::string> f = Fields( line );
+		if ( f[0] == "VB" )
 		{
 			views.emplace_back();
 			views.back().words = Words( f );
@@ -1270,17 +1354,18 @@ std::vector< ViewRun_t > ParseViews( const std::string &run )
 		}
 		else if ( !bIn )
 			continue;
-		else if ( f[ 0 ] == "O" )
+		else if ( f[0] == "O" )
 			views.back().outs.push_back( f );
-		else if ( f[ 0 ] == "Q" )
+		else if ( f[0] == "Q" )
 			views.back().queries.push_back( f );
-		else if ( f[ 0 ] == "FB" )
+		else if ( f[0] == "FB" )
 			views.back().blends.push_back( f );
-		else if ( f[ 0 ] == "NP" )
+		else if ( f[0] == "NP" )
 			views.back().np.push_back( line );
-		else if ( f[ 0 ] == "ST" )
-			views.back().state[ atoi( f[ 1 ].c_str() ) ] = { atoi( f[ 3 ].c_str() ), atoi( f[ 4 ].c_str() ), atoi( f[ 5 ].c_str() ) };
-		else if ( f[ 0 ] == "VE" )
+		else if ( f[0] == "ST" )
+			views.back().state[atoi( f[1].c_str() )] = { atoi( f[3].c_str() ), atoi( f[4].c_str() ),
+														 atoi( f[5].c_str() ) };
+		else if ( f[0] == "VE" )
 			bIn = false;
 	}
 	return views;
@@ -1298,215 +1383,228 @@ float F( int32_t w )
 TEST( LeafSystemOracle, TheScenarioReachesEveryArm )
 {
 	const std::string run = RunScenario();
-	const std::vector< ViewRun_t > views = ParseViews( run );
+	const std::vector<ViewRun_t> views = ParseViews( run );
 	ASSERT_GE( views.size(), 10u );
 
-	std::map< std::string, int > arms;
+	std::map<std::string, int> arms;
 	int nMisnamed = 0;
 	for ( const ViewRun_t &v : views )
-	try
-	{
-		const std::vector< int32_t > &w = v.words;
-		const int nFrame = w.at( 1 ), nFlags = w.at( 2 ), nDrawLeaf = w.at( 3 );
-		const bool bTranslucent = ( nFlags & 1 ) != 0, bDetail = ( nFlags & 2 ) != 0, bStatic = ( nFlags & 4 ) != 0;
-		const bool bPortal = ( nFlags & 8 ) && !( nFlags & 16 );
-		const int L = w.at( 10 ), R = w.at( 11 ), E = w.at( 12 );
-		const int leafAt = LEAFVIEW_HEADER_WORDS, occAt = leafAt + LEAFVIEW_LEAF_WORDS * L, rowAt = occAt + E;
-		const int detailAt = rowAt + LEAFVIEW_RENDERABLE_WORDS * R;
-		auto row = [ & ]( int r, int k ) { return w.at( rowAt + LEAFVIEW_RENDERABLE_WORDS * r + k ); };
-
-		// Stock's entries for (leaf index, row) and its engine questions by id.
-		std::set< std::pair< int, int > > kept;
-		std::set< std::pair< int, int > > keptDetail;
-		int nMarkers = 0;
-		for ( const auto &o : v.outs )
+		try
 		{
-			if ( o[ 3 ] == "r" )
-				kept.insert( { atoi( o[ 6 ].c_str() ), atoi( o[ 4 ].c_str() ) } );
-			else if ( o[ 3 ] == "d" )
-				keptDetail.insert( { atoi( o[ 6 ].c_str() ), atoi( o[ 4 ].c_str() ) } );
-			else
-				++nMarkers;
-		}
-		if ( nMarkers > 0 )
-			arms[ "the leaves' empty markers" ]++;
-		if ( !v.np.empty() )
-			arms[ "a group overflowed and the console said so" ]++;
-
-		std::set< int > seen;
-		for ( int i = 0; i < L; i++ )
-		{
-			const int leaf = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i );
-			const int first = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 1 ), count = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 2 );
-			for ( int k = 0; k < count; k++ )
+			const std::vector<int32_t> &w = v.words;
+			const int nFrame = w.at( 1 ), nFlags = w.at( 2 ), nDrawLeaf = w.at( 3 );
+			const bool bTranslucent = ( nFlags & 1 ) != 0, bDetail = ( nFlags & 2 ) != 0, bStatic = ( nFlags & 4 ) != 0;
+			const bool bPortal = ( nFlags & 8 ) && !( nFlags & 16 );
+			const int L = w.at( 10 ), R = w.at( 11 ), E = w.at( 12 );
+			const int leafAt = LEAFVIEW_HEADER_WORDS, occAt = leafAt + LEAFVIEW_LEAF_WORDS * L, rowAt = occAt + E;
+			const int detailAt = rowAt + LEAFVIEW_RENDERABLE_WORDS * R;
+			auto row = [&]( int r, int k )
 			{
-				const int r = w.at( occAt + first + k );
-				const int group = row( r, 1 ), flags = row( r, 2 ), frame2 = row( r, 5 ), area = row( r, 6 );
-				const int alpha = row( r, 7 ), answers = row( r, 8 );
-				const int renderLeafAfter = v.state.count( r ) ? v.state.at( r )[ 1 ] : -1;
-				const bool bKept = kept.count( { i, r } ) != 0;
-				const bool bIsTranslucent = group == RENDER_GROUP_TRANSLUCENT_ENTITY;
-				std::string arm;
-				bool bExpectKept = false;
-				if ( !bStatic && ( flags & 2 ) )
-					arm = "a static prop with static props off";
-				else if ( !bIsTranslucent && ( seen.count( r ) || frame2 == nFrame ) )
-					arm = "an opaque renderable already met this frame";
-				else if ( bIsTranslucent && renderLeafAfter != leaf )
-					arm = "a translucent renderable outside its render leaf";
-				else if ( bTranslucent && alpha == 0 )
-					arm = "alpha 0 while drawing translucent objects";
-				else if ( bPortal && area != -1 && !( answers & LEAFVIEW_ANSWER_AREA ) )
-					arm = "outside its area's portal frustum";
-				else if ( !( bPortal && area != -1 ) && ( answers & LEAFVIEW_ANSWER_CULLED ) )
-					arm = "outside the main frustum";
-				else if ( ( flags & 8 ) && ( answers & LEAFVIEW_ANSWER_OCCLUDED ) )
-					arm = "a studio model the occlusion system hides";
+				return w.at( rowAt + LEAFVIEW_RENDERABLE_WORDS * r + k );
+			};
+
+			// Stock's entries for (leaf index, row) and its engine questions by id.
+			std::set<std::pair<int, int>> kept;
+			std::set<std::pair<int, int>> keptDetail;
+			int nMarkers = 0;
+			for ( const auto &o : v.outs )
+			{
+				if ( o[3] == "r" )
+					kept.insert( { atoi( o[6].c_str() ), atoi( o[4].c_str() ) } );
+				else if ( o[3] == "d" )
+					keptDetail.insert( { atoi( o[6].c_str() ), atoi( o[4].c_str() ) } );
 				else
+					++nMarkers;
+			}
+			if ( nMarkers > 0 )
+				arms["the leaves' empty markers"]++;
+			if ( !v.np.empty() )
+				arms["a group overflowed and the console said so"]++;
+
+			std::set<int> seen;
+			for ( int i = 0; i < L; i++ )
+			{
+				const int leaf = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i );
+				const int first = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 1 ),
+						  count = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 2 );
+				for ( int k = 0; k < count; k++ )
 				{
-					bExpectKept = true;
-					if ( bPortal && area != -1 )
-						arms[ "inside its area's portal frustum" ]++;
+					const int r = w.at( occAt + first + k );
+					const int group = row( r, 1 ), flags = row( r, 2 ), frame2 = row( r, 5 ), area = row( r, 6 );
+					const int alpha = row( r, 7 ), answers = row( r, 8 );
+					const int renderLeafAfter = v.state.count( r ) ? v.state.at( r )[1] : -1;
+					const bool bKept = kept.count( { i, r } ) != 0;
+					const bool bIsTranslucent = group == RENDER_GROUP_TRANSLUCENT_ENTITY;
+					std::string arm;
+					bool bExpectKept = false;
+					if ( !bStatic && ( flags & 2 ) )
+						arm = "a static prop with static props off";
+					else if ( !bIsTranslucent && ( seen.count( r ) || frame2 == nFrame ) )
+						arm = "an opaque renderable already met this frame";
+					else if ( bIsTranslucent && renderLeafAfter != leaf )
+						arm = "a translucent renderable outside its render leaf";
+					else if ( bTranslucent && alpha == 0 )
+						arm = "alpha 0 while drawing translucent objects";
+					else if ( bPortal && area != -1 && !( answers & LEAFVIEW_ANSWER_AREA ) )
+						arm = "outside its area's portal frustum";
+					else if ( !( bPortal && area != -1 ) && ( answers & LEAFVIEW_ANSWER_CULLED ) )
+						arm = "outside the main frustum";
+					else if ( ( flags & 8 ) && ( answers & LEAFVIEW_ANSWER_OCCLUDED ) )
+						arm = "a studio model the occlusion system hides";
 					else
-						arms[ "inside the main frustum" ]++;
-					if ( !( flags & 8 ) && ( answers & LEAFVIEW_ANSWER_OCCLUDED ) )
-						arms[ "occluded but not a studio model, so drawn" ]++;
-					if ( ( flags & 8 ) )
-						arms[ "a studio model the occlusion system shows" ]++;
-					if ( !bIsTranslucent && group >= RENDER_GROUP_OPAQUE_STATIC && group <= RENDER_GROUP_OPAQUE_ENTITY )
 					{
-						const float d = std::max( std::max( fabsf( F( row( r, 12 ) ) - F( row( r, 9 ) ) ), fabsf( F( row( r, 13 ) ) - F( row( r, 10 ) ) ) ),
-						                          fabsf( F( row( r, 14 ) ) - F( row( r, 11 ) ) ) );
-						const int bucket = d >= 200.f ? 0 : d >= 80.f ? 1 : d >= 30.f ? 2 : 3;
-						arm = std::string( group == RENDER_GROUP_OPAQUE_STATIC ? "static" : "entity" ) + " size bucket " + std::to_string( bucket );
-					}
-					else if ( !bIsTranslucent )
-						arm = "an opaque group with no size buckets";
-					else if ( !bTranslucent )
-						arm = ( flags & 1 ) ? "two-pass, opaque half only, translucent off" : "translucent, not drawn with translucent off";
-					else if ( ( flags & 1 ) && alpha == 255 )
-						arm = "two-pass at 255: translucent and opaque";
-					else if ( flags & 1 )
-						arm = "two-pass below 255: translucent only";
-					else
-						arm = "translucent, drawn";
-				}
-				if ( !bIsTranslucent )
-					seen.insert( r );
-				// "translucent, not drawn" is kept in no list; the rest of the
-				// kept arms are in the leaf's entries, unless cl_drawleaf (a
-				// debug build's filter on the world list's leaf index) drops it.
-				bool bShouldBeListed = bExpectKept && arm != "translucent, not drawn with translucent off";
-				if ( bShouldBeListed && nDrawLeaf >= 0 && i != nDrawLeaf )
-				{
-					bShouldBeListed = false;
-					arms[ "cl_drawleaf drops an entry outside its leaf" ]++;
-				}
-				if ( bKept != bShouldBeListed )
-				{
-					++nMisnamed;
-					ADD_FAILURE() << "view frame " << nFrame << " leaf " << leaf << " row " << r << ": named '" << arm
-					              << "' but stock " << ( bKept ? "kept" : "dropped" ) << " it";
-				}
-				arms[ arm ]++;
-			}
-
-			// The detail objects.
-			const int should = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 3 );
-			const int dFirst = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 4 ), dCount = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 5 );
-			if ( !should && leaf == 7 )
-				arms[ "detail objects in a leaf not drawn this frame" ]++;
-			if ( should && dCount == 0 )
-				arms[ "a leaf with a sub-system's data and no detail objects" ]++;
-			for ( int d = dFirst; d < dFirst + dCount; d++ )
-			{
-				const int *pd = &w.at( detailAt + LEAFVIEW_DETAIL_WORDS * d + LEAFVIEW_DETAIL_WORDS - 1 ) - ( LEAFVIEW_DETAIL_WORDS - 1 );
-				const bool bListed = keptDetail.count( { i, d } ) != 0;
-				std::string arm;
-				bool bExpect = false;
-				if ( !bDetail )
-					arm = "detail objects off";
-				else if ( !pd[ 0 ] )
-					arm = "a detail slot with no model";
-				else if ( pd[ 1 ] && !bTranslucent )
-					arm = "a translucent detail model, translucent off";
-				else if ( pd[ 1 ] && pd[ 2 ] <= 0 )
-					arm = "a translucent detail model at alpha 0";
-				else
-				{
-					bExpect = nDrawLeaf < 0 || i == nDrawLeaf;
-					arm = pd[ 1 ] ? "a translucent detail model, drawn" : "an opaque detail model";
-				}
-				if ( bListed != bExpect )
-				{
-					++nMisnamed;
-					ADD_FAILURE() << "view frame " << nFrame << " detail row " << d << ": named '" << arm << "'";
-				}
-				arms[ arm ]++;
-			}
-		}
-
-		// The sort: a leaf whose translucent entries stock did not leave in the
-		// order it added them.
-		std::map< int, std::vector< int > > translucentByLeaf;
-		for ( const auto &o : v.outs )
-			if ( atoi( o[ 1 ].c_str() ) == RENDER_GROUP_TRANSLUCENT_ENTITY && o[ 3 ] == "r" )
-				translucentByLeaf[ atoi( o[ 6 ].c_str() ) ].push_back( atoi( o[ 4 ].c_str() ) );
-		for ( const auto &kv : translucentByLeaf )
-		{
-			std::vector< int > added;
-			const int first = w.at( leafAt + LEAFVIEW_LEAF_WORDS * kv.first + 1 ), count = w.at( leafAt + LEAFVIEW_LEAF_WORDS * kv.first + 2 );
-			for ( int k = 0; k < count; k++ )
-				for ( int r : kv.second )
-					if ( r == w.at( occAt + first + k ) )
-						added.push_back( r );
-			if ( kv.second.size() > 1 && added != kv.second )
-				arms[ "the back-to-front sort reordered a leaf" ]++;
-		}
-
-		// The translucent render leaf: a renderable met first in one leaf and
-		// placed in another (the alternate sorting), and a nearest-leaf one.
-		if ( nFlags & 32 )
-		{
-			for ( int r = 0; r < R; r++ )
-			{
-				if ( row( r, 1 ) != RENDER_GROUP_TRANSLUCENT_ENTITY || !v.state.count( r ) )
-					continue;
-				int firstLeaf = -1, lastLeaf = -1;
-				for ( int i = 0; i < L; i++ )
-				{
-					const int first = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 1 ), count = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 2 );
-					for ( int k = 0; k < count; k++ )
-						if ( w.at( occAt + first + k ) == r )
+						bExpectKept = true;
+						if ( bPortal && area != -1 )
+							arms["inside its area's portal frustum"]++;
+						else
+							arms["inside the main frustum"]++;
+						if ( !( flags & 8 ) && ( answers & LEAFVIEW_ANSWER_OCCLUDED ) )
+							arms["occluded but not a studio model, so drawn"]++;
+						if ( ( flags & 8 ) )
+							arms["a studio model the occlusion system shows"]++;
+						if ( !bIsTranslucent && group >= RENDER_GROUP_OPAQUE_STATIC &&
+							 group <= RENDER_GROUP_OPAQUE_ENTITY )
 						{
-							if ( firstLeaf < 0 )
-								firstLeaf = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i );
-							lastLeaf = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i );
+							const float d = std::max( std::max( fabsf( F( row( r, 12 ) ) - F( row( r, 9 ) ) ),
+																fabsf( F( row( r, 13 ) ) - F( row( r, 10 ) ) ) ),
+													  fabsf( F( row( r, 14 ) ) - F( row( r, 11 ) ) ) );
+							const int bucket = d >= 200.f ? 0 : d >= 80.f ? 1 : d >= 30.f ? 2 : 3;
+							arm = std::string( group == RENDER_GROUP_OPAQUE_STATIC ? "static" : "entity" ) +
+								" size bucket " + std::to_string( bucket );
 						}
+						else if ( !bIsTranslucent )
+							arm = "an opaque group with no size buckets";
+						else if ( !bTranslucent )
+							arm = ( flags & 1 ) ? "two-pass, opaque half only, translucent off"
+												: "translucent, not drawn with translucent off";
+						else if ( ( flags & 1 ) && alpha == 255 )
+							arm = "two-pass at 255: translucent and opaque";
+						else if ( flags & 1 )
+							arm = "two-pass below 255: translucent only";
+						else
+							arm = "translucent, drawn";
+					}
+					if ( !bIsTranslucent )
+						seen.insert( r );
+					// "translucent, not drawn" is kept in no list; the rest of the
+					// kept arms are in the leaf's entries, unless cl_drawleaf (a
+					// debug build's filter on the world list's leaf index) drops it.
+					bool bShouldBeListed = bExpectKept && arm != "translucent, not drawn with translucent off";
+					if ( bShouldBeListed && nDrawLeaf >= 0 && i != nDrawLeaf )
+					{
+						bShouldBeListed = false;
+						arms["cl_drawleaf drops an entry outside its leaf"]++;
+					}
+					if ( bKept != bShouldBeListed )
+					{
+						++nMisnamed;
+						ADD_FAILURE() << "view frame " << nFrame << " leaf " << leaf << " row " << r << ": named '"
+									  << arm << "' but stock " << ( bKept ? "kept" : "dropped" ) << " it";
+					}
+					arms[arm]++;
 				}
-				if ( firstLeaf == lastLeaf )
-					continue;
-				if ( v.state.at( r )[ 1 ] == lastLeaf && ( row( r, 2 ) & 0x20 ) )
-					arms[ "alternate sorting: the furthest leaf" ]++;
-				else if ( v.state.at( r )[ 1 ] == firstLeaf )
-					arms[ "the nearest leaf" ]++;
+
+				// The detail objects.
+				const int should = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 3 );
+				const int dFirst = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 4 ),
+						  dCount = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 5 );
+				if ( !should && leaf == 7 )
+					arms["detail objects in a leaf not drawn this frame"]++;
+				if ( should && dCount == 0 )
+					arms["a leaf with a sub-system's data and no detail objects"]++;
+				for ( int d = dFirst; d < dFirst + dCount; d++ )
+				{
+					const int *pd = &w.at( detailAt + LEAFVIEW_DETAIL_WORDS * d + LEAFVIEW_DETAIL_WORDS - 1 ) -
+						( LEAFVIEW_DETAIL_WORDS - 1 );
+					const bool bListed = keptDetail.count( { i, d } ) != 0;
+					std::string arm;
+					bool bExpect = false;
+					if ( !bDetail )
+						arm = "detail objects off";
+					else if ( !pd[0] )
+						arm = "a detail slot with no model";
+					else if ( pd[1] && !bTranslucent )
+						arm = "a translucent detail model, translucent off";
+					else if ( pd[1] && pd[2] <= 0 )
+						arm = "a translucent detail model at alpha 0";
+					else
+					{
+						bExpect = nDrawLeaf < 0 || i == nDrawLeaf;
+						arm = pd[1] ? "a translucent detail model, drawn" : "an opaque detail model";
+					}
+					if ( bListed != bExpect )
+					{
+						++nMisnamed;
+						ADD_FAILURE() << "view frame " << nFrame << " detail row " << d << ": named '" << arm << "'";
+					}
+					arms[arm]++;
+				}
+			}
+
+			// The sort: a leaf whose translucent entries stock did not leave in the
+			// order it added them.
+			std::map<int, std::vector<int>> translucentByLeaf;
+			for ( const auto &o : v.outs )
+				if ( atoi( o[1].c_str() ) == RENDER_GROUP_TRANSLUCENT_ENTITY && o[3] == "r" )
+					translucentByLeaf[atoi( o[6].c_str() )].push_back( atoi( o[4].c_str() ) );
+			for ( const auto &kv : translucentByLeaf )
+			{
+				std::vector<int> added;
+				const int first = w.at( leafAt + LEAFVIEW_LEAF_WORDS * kv.first + 1 ),
+						  count = w.at( leafAt + LEAFVIEW_LEAF_WORDS * kv.first + 2 );
+				for ( int k = 0; k < count; k++ )
+					for ( int r : kv.second )
+						if ( r == w.at( occAt + first + k ) )
+							added.push_back( r );
+				if ( kv.second.size() > 1 && added != kv.second )
+					arms["the back-to-front sort reordered a leaf"]++;
+			}
+
+			// The translucent render leaf: a renderable met first in one leaf and
+			// placed in another (the alternate sorting), and a nearest-leaf one.
+			if ( nFlags & 32 )
+			{
+				for ( int r = 0; r < R; r++ )
+				{
+					if ( row( r, 1 ) != RENDER_GROUP_TRANSLUCENT_ENTITY || !v.state.count( r ) )
+						continue;
+					int firstLeaf = -1, lastLeaf = -1;
+					for ( int i = 0; i < L; i++ )
+					{
+						const int first = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 1 ),
+								  count = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i + 2 );
+						for ( int k = 0; k < count; k++ )
+							if ( w.at( occAt + first + k ) == r )
+							{
+								if ( firstLeaf < 0 )
+									firstLeaf = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i );
+								lastLeaf = w.at( leafAt + LEAFVIEW_LEAF_WORDS * i );
+							}
+					}
+					if ( firstLeaf == lastLeaf )
+						continue;
+					if ( v.state.at( r )[1] == lastLeaf && ( row( r, 2 ) & 0x20 ) )
+						arms["alternate sorting: the furthest leaf"]++;
+					else if ( v.state.at( r )[1] == firstLeaf )
+						arms["the nearest leaf"]++;
+				}
 			}
 		}
-	}
-	catch ( const std::exception &e )
-	{
-		ADD_FAILURE() << "view frame " << v.words.at( 1 ) << " (" << v.words.size() << " words, L " << v.words.at( 10 ) << " R "
-		              << v.words.at( 11 ) << " E " << v.words.at( 12 ) << "): " << e.what();
-	}
+		catch ( const std::exception &e )
+		{
+			ADD_FAILURE() << "view frame " << v.words.at( 1 ) << " (" << v.words.size() << " words, L "
+						  << v.words.at( 10 ) << " R " << v.words.at( 11 ) << " E " << v.words.at( 12 )
+						  << "): " << e.what();
+		}
 
 	// The view models: each group the split sees, and the blend that moved one.
 	int nViewModelOpaque = 0, nViewModelTranslucent = 0, nMovedOut = 0;
 	for ( const std::string &line : Lines( run ) )
 	{
-		const std::vector< std::string > f = Fields( line );
-		if ( f[ 0 ] != "VMB" )
+		const std::vector<std::string> f = Fields( line );
+		if ( f[0] != "VMB" )
 			continue;
-		const std::vector< int32_t > w = Words( f );
+		const std::vector<int32_t> w = Words( f );
 		for ( int i = 1; i <= w.at( 0 ); i++ )
 		{
 			if ( w.at( i ) == RENDER_GROUP_VIEW_MODEL_OPAQUE )
@@ -1517,9 +1615,9 @@ TEST( LeafSystemOracle, TheScenarioReachesEveryArm )
 				++nViewModelTranslucent;
 		}
 	}
-	arms[ "a view model, opaque" ] += nViewModelOpaque;
-	arms[ "a view model, translucent" ] += nViewModelTranslucent;
-	arms[ "a view model whose blend made it an opaque entity" ] += nMovedOut;
+	arms["a view model, opaque"] += nViewModelOpaque;
+	arms["a view model, translucent"] += nViewModelTranslucent;
+	arms["a view model whose blend made it an opaque entity"] += nMovedOut;
 
 	const char *kArms[] = {
 		"the leaves' empty markers",
@@ -1535,8 +1633,14 @@ TEST( LeafSystemOracle, TheScenarioReachesEveryArm )
 		"a studio model the occlusion system hides",
 		"a studio model the occlusion system shows",
 		"occluded but not a studio model, so drawn",
-		"static size bucket 0", "static size bucket 1", "static size bucket 2", "static size bucket 3",
-		"entity size bucket 0", "entity size bucket 1", "entity size bucket 2", "entity size bucket 3",
+		"static size bucket 0",
+		"static size bucket 1",
+		"static size bucket 2",
+		"static size bucket 3",
+		"entity size bucket 0",
+		"entity size bucket 1",
+		"entity size bucket 2",
+		"entity size bucket 3",
 		"an opaque group with no size buckets",
 		"translucent, drawn",
 		"translucent, not drawn with translucent off",
@@ -1562,7 +1666,7 @@ TEST( LeafSystemOracle, TheScenarioReachesEveryArm )
 #endif
 	};
 	for ( const char *pszArm : kArms )
-		EXPECT_GT( arms[ pszArm ], 0 ) << "the scenario never reaches: " << pszArm;
+		EXPECT_GT( arms[pszArm], 0 ) << "the scenario never reaches: " << pszArm;
 	if ( getenv( "SS_LEAF_ARMS" ) )
 		for ( const auto &kv : arms )
 			printf( "arm\t%d\t%s\n", kv.second, kv.first.c_str() );
@@ -1581,32 +1685,35 @@ TEST( LeafSystemOracle, TheScenarioReachesEveryArm )
 namespace
 {
 
-template < class S, class T >
+template <class S, class T>
 size_t LeafOffsetOf( T S::*m )
 {
-	alignas( S ) static unsigned char s_Buf[ sizeof( S ) ];
-	S *p = reinterpret_cast< S * >( s_Buf );
-	return (size_t)( reinterpret_cast< unsigned char * >( &( p->*m ) ) - s_Buf );
+	alignas( S ) static unsigned char s_Buf[sizeof( S )];
+	S *p = reinterpret_cast<S *>( s_Buf );
+	return (size_t)( reinterpret_cast<unsigned char *>( &( p->*m ) ) - s_Buf );
 }
 
-template < class S, class T >
+template <class S, class T>
 size_t LeafOwnerSize( T S::* )
 {
 	return sizeof( S );
 }
 
-template < typename Tag, auto M >
+template <typename Tag, auto M>
 struct LeafRob
 {
 	friend size_t LeafRobOffset( Tag ) { return LeafOffsetOf( M ); }
+
 	friend size_t LeafRobOwnerSize( Tag ) { return LeafOwnerSize( M ); }
 };
 
-#define LEAF_ROB( name, member )                                  \
-	struct name {};                                               \
-	size_t LeafRobOffset( name );                                 \
-	size_t LeafRobOwnerSize( name );                              \
-	template struct LeafRob< name, &member >;
+#define LEAF_ROB( name, member )     \
+	struct name                      \
+	{                                \
+	};                               \
+	size_t LeafRobOffset( name );    \
+	size_t LeafRobOwnerSize( name ); \
+	template struct LeafRob<name, &member>;
 
 LEAF_ROB( T_Leaf, CClientLeafSystem::m_Leaf )
 LEAF_ROB( T_Renderables, CClientLeafSystem::m_Renderables )
@@ -1647,7 +1754,12 @@ typedef CLeafRegistryMirror M;
 
 TEST( LeafSystemOracle, MirrorMatchesTheRealClass )
 {
-	struct Row_t { const char *pszName; size_t real, mirror; };
+	struct Row_t
+	{
+		const char *pszName;
+		size_t real, mirror;
+	};
+
 	const Row_t rows[] = {
 		{ "sizeof(CClientLeafSystem)", sizeof( CClientLeafSystem ), sizeof( M ) },
 		{ "m_Leaf", LeafRobOffset( T_Leaf() ), LeafOffsetOf( &M::m_Leaf ) },
@@ -1655,7 +1767,8 @@ TEST( LeafSystemOracle, MirrorMatchesTheRealClass )
 		{ "m_Shadows", LeafRobOffset( T_Shadows() ), LeafOffsetOf( &M::m_Shadows ) },
 		{ "m_RenderablesInLeaf", LeafRobOffset( T_RenderablesInLeaf() ), LeafOffsetOf( &M::m_RenderablesInLeaf ) },
 		{ "m_ShadowsInLeaf", LeafRobOffset( T_ShadowsInLeaf() ), LeafOffsetOf( &M::m_ShadowsInLeaf ) },
-		{ "m_ShadowsOnRenderable", LeafRobOffset( T_ShadowsOnRenderable() ), LeafOffsetOf( &M::m_ShadowsOnRenderable ) },
+		{ "m_ShadowsOnRenderable", LeafRobOffset( T_ShadowsOnRenderable() ),
+		  LeafOffsetOf( &M::m_ShadowsOnRenderable ) },
 		{ "m_DirtyRenderables", LeafRobOffset( T_DirtyRenderables() ), LeafOffsetOf( &M::m_DirtyRenderables ) },
 		{ "m_ViewModels", LeafRobOffset( T_ViewModels() ), LeafOffsetOf( &M::m_ViewModels ) },
 		{ "m_DrawStaticProps", LeafRobOffset( T_DrawStaticProps() ), LeafOffsetOf( &M::m_DrawStaticProps ) },
@@ -1663,25 +1776,41 @@ TEST( LeafSystemOracle, MirrorMatchesTheRealClass )
 		{ "m_ShadowEnum", LeafRobOffset( T_ShadowEnum() ), LeafOffsetOf( &M::m_ShadowEnum ) },
 		{ "m_DeferredInserts", LeafRobOffset( T_DeferredInserts() ), LeafOffsetOf( &M::m_DeferredInserts ) },
 		{ "sizeof(RenderableInfo_t)", LeafRobOwnerSize( T_RI_Renderable() ), sizeof( M::RenderableInfo_t ) },
-		{ "RenderableInfo_t::m_pRenderable", LeafRobOffset( T_RI_Renderable() ), LeafOffsetOf( &M::RenderableInfo_t::m_pRenderable ) },
-		{ "RenderableInfo_t::m_RenderFrame", LeafRobOffset( T_RI_RenderFrame() ), LeafOffsetOf( &M::RenderableInfo_t::m_RenderFrame ) },
-		{ "RenderableInfo_t::m_RenderFrame2", LeafRobOffset( T_RI_RenderFrame2() ), LeafOffsetOf( &M::RenderableInfo_t::m_RenderFrame2 ) },
-		{ "RenderableInfo_t::m_EnumCount", LeafRobOffset( T_RI_EnumCount() ), LeafOffsetOf( &M::RenderableInfo_t::m_EnumCount ) },
-		{ "RenderableInfo_t::m_TranslucencyCalculated", LeafRobOffset( T_RI_TranslucencyCalculated() ), LeafOffsetOf( &M::RenderableInfo_t::m_TranslucencyCalculated ) },
-		{ "RenderableInfo_t::m_LeafList", LeafRobOffset( T_RI_LeafList() ), LeafOffsetOf( &M::RenderableInfo_t::m_LeafList ) },
-		{ "RenderableInfo_t::m_RenderLeaf", LeafRobOffset( T_RI_RenderLeaf() ), LeafOffsetOf( &M::RenderableInfo_t::m_RenderLeaf ) },
+		{ "RenderableInfo_t::m_pRenderable", LeafRobOffset( T_RI_Renderable() ),
+		  LeafOffsetOf( &M::RenderableInfo_t::m_pRenderable ) },
+		{ "RenderableInfo_t::m_RenderFrame", LeafRobOffset( T_RI_RenderFrame() ),
+		  LeafOffsetOf( &M::RenderableInfo_t::m_RenderFrame ) },
+		{ "RenderableInfo_t::m_RenderFrame2", LeafRobOffset( T_RI_RenderFrame2() ),
+		  LeafOffsetOf( &M::RenderableInfo_t::m_RenderFrame2 ) },
+		{ "RenderableInfo_t::m_EnumCount", LeafRobOffset( T_RI_EnumCount() ),
+		  LeafOffsetOf( &M::RenderableInfo_t::m_EnumCount ) },
+		{ "RenderableInfo_t::m_TranslucencyCalculated", LeafRobOffset( T_RI_TranslucencyCalculated() ),
+		  LeafOffsetOf( &M::RenderableInfo_t::m_TranslucencyCalculated ) },
+		{ "RenderableInfo_t::m_LeafList", LeafRobOffset( T_RI_LeafList() ),
+		  LeafOffsetOf( &M::RenderableInfo_t::m_LeafList ) },
+		{ "RenderableInfo_t::m_RenderLeaf", LeafRobOffset( T_RI_RenderLeaf() ),
+		  LeafOffsetOf( &M::RenderableInfo_t::m_RenderLeaf ) },
 		{ "RenderableInfo_t::m_Flags", LeafRobOffset( T_RI_Flags() ), LeafOffsetOf( &M::RenderableInfo_t::m_Flags ) },
-		{ "RenderableInfo_t::m_RenderGroup", LeafRobOffset( T_RI_RenderGroup() ), LeafOffsetOf( &M::RenderableInfo_t::m_RenderGroup ) },
-		{ "RenderableInfo_t::m_FirstShadow", LeafRobOffset( T_RI_FirstShadow() ), LeafOffsetOf( &M::RenderableInfo_t::m_FirstShadow ) },
+		{ "RenderableInfo_t::m_RenderGroup", LeafRobOffset( T_RI_RenderGroup() ),
+		  LeafOffsetOf( &M::RenderableInfo_t::m_RenderGroup ) },
+		{ "RenderableInfo_t::m_FirstShadow", LeafRobOffset( T_RI_FirstShadow() ),
+		  LeafOffsetOf( &M::RenderableInfo_t::m_FirstShadow ) },
 		{ "RenderableInfo_t::m_Area", LeafRobOffset( T_RI_Area() ), LeafOffsetOf( &M::RenderableInfo_t::m_Area ) },
-		{ "RenderableInfo_t::m_TranslucencyCalculatedView", LeafRobOffset( T_RI_TranslucencyCalculatedView() ), LeafOffsetOf( &M::RenderableInfo_t::m_TranslucencyCalculatedView ) },
+		{ "RenderableInfo_t::m_TranslucencyCalculatedView", LeafRobOffset( T_RI_TranslucencyCalculatedView() ),
+		  LeafOffsetOf( &M::RenderableInfo_t::m_TranslucencyCalculatedView ) },
 		{ "sizeof(ClientLeaf_t)", LeafRobOwnerSize( T_CL_FirstElement() ), sizeof( M::ClientLeaf_t ) },
-		{ "ClientLeaf_t::m_FirstElement", LeafRobOffset( T_CL_FirstElement() ), LeafOffsetOf( &M::ClientLeaf_t::m_FirstElement ) },
-		{ "ClientLeaf_t::m_FirstShadow", LeafRobOffset( T_CL_FirstShadow() ), LeafOffsetOf( &M::ClientLeaf_t::m_FirstShadow ) },
-		{ "ClientLeaf_t::m_FirstDetailProp", LeafRobOffset( T_CL_FirstDetailProp() ), LeafOffsetOf( &M::ClientLeaf_t::m_FirstDetailProp ) },
-		{ "ClientLeaf_t::m_DetailPropCount", LeafRobOffset( T_CL_DetailPropCount() ), LeafOffsetOf( &M::ClientLeaf_t::m_DetailPropCount ) },
-		{ "ClientLeaf_t::m_DetailPropRenderFrame", LeafRobOffset( T_CL_DetailPropRenderFrame() ), LeafOffsetOf( &M::ClientLeaf_t::m_DetailPropRenderFrame ) },
-		{ "ClientLeaf_t::m_pSubSystemData", LeafRobOffset( T_CL_SubSystemData() ), LeafOffsetOf( &M::ClientLeaf_t::m_pSubSystemData ) },
+		{ "ClientLeaf_t::m_FirstElement", LeafRobOffset( T_CL_FirstElement() ),
+		  LeafOffsetOf( &M::ClientLeaf_t::m_FirstElement ) },
+		{ "ClientLeaf_t::m_FirstShadow", LeafRobOffset( T_CL_FirstShadow() ),
+		  LeafOffsetOf( &M::ClientLeaf_t::m_FirstShadow ) },
+		{ "ClientLeaf_t::m_FirstDetailProp", LeafRobOffset( T_CL_FirstDetailProp() ),
+		  LeafOffsetOf( &M::ClientLeaf_t::m_FirstDetailProp ) },
+		{ "ClientLeaf_t::m_DetailPropCount", LeafRobOffset( T_CL_DetailPropCount() ),
+		  LeafOffsetOf( &M::ClientLeaf_t::m_DetailPropCount ) },
+		{ "ClientLeaf_t::m_DetailPropRenderFrame", LeafRobOffset( T_CL_DetailPropRenderFrame() ),
+		  LeafOffsetOf( &M::ClientLeaf_t::m_DetailPropRenderFrame ) },
+		{ "ClientLeaf_t::m_pSubSystemData", LeafRobOffset( T_CL_SubSystemData() ),
+		  LeafOffsetOf( &M::ClientLeaf_t::m_pSubSystemData ) },
 		{ "sizeof(ShadowInfo_t)", LeafRobOwnerSize( T_SI_Shadow() ), sizeof( M::ShadowInfo_t ) },
 		{ "ShadowInfo_t::m_Shadow", LeafRobOffset( T_SI_Shadow() ), LeafOffsetOf( &M::ShadowInfo_t::m_Shadow ) },
 		{ "ShadowInfo_t::m_Flags", LeafRobOffset( T_SI_Flags() ), LeafOffsetOf( &M::ShadowInfo_t::m_Flags ) },

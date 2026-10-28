@@ -97,35 +97,74 @@ std::string StripComments( const std::string &strIn )
 	std::string strOut;
 	strOut.reserve( strIn.size() );
 
-	enum { kCode, kLine, kBlock, kString } state = kCode;
+	enum
+	{
+		kCode,
+		kLine,
+		kBlock,
+		kString
+	} state = kCode;
 
 	for ( size_t i = 0; i < strIn.size(); i++ )
 	{
-		const char c = strIn[ i ];
-		const char n = ( i + 1 < strIn.size() ) ? strIn[ i + 1 ] : '\0';
+		const char c = strIn[i];
+		const char n = ( i + 1 < strIn.size() ) ? strIn[i + 1] : '\0';
 
 		switch ( state )
 		{
-		case kCode:
-			if ( c == '/' && n == '/' )      { state = kLine;  i++; }
-			else if ( c == '/' && n == '*' ) { state = kBlock; i++; }
-			else if ( c == '"' )             { state = kString; strOut += c; }
-			else                             { strOut += c; }
-			break;
+			case kCode:
+				if ( c == '/' && n == '/' )
+				{
+					state = kLine;
+					i++;
+				}
+				else if ( c == '/' && n == '*' )
+				{
+					state = kBlock;
+					i++;
+				}
+				else if ( c == '"' )
+				{
+					state = kString;
+					strOut += c;
+				}
+				else
+				{
+					strOut += c;
+				}
+				break;
 
-		case kLine:
-			if ( c == '\n' ) { state = kCode; strOut += c; }
-			break;
+			case kLine:
+				if ( c == '\n' )
+				{
+					state = kCode;
+					strOut += c;
+				}
+				break;
 
-		case kBlock:
-			if ( c == '*' && n == '/' ) { state = kCode; i++; }
-			else if ( c == '\n' )       { strOut += c; }   // keep the line count honest
-			break;
+			case kBlock:
+				if ( c == '*' && n == '/' )
+				{
+					state = kCode;
+					i++;
+				}
+				else if ( c == '\n' )
+				{
+					strOut += c;
+				} // keep the line count honest
+				break;
 
-		case kString:
-			if ( c == '\\' )     { i++; }                   // skip the escaped byte
-			else if ( c == '"' ) { state = kCode; strOut += c; }
-			break;
+			case kString:
+				if ( c == '\\' )
+				{
+					i++;
+				} // skip the escaped byte
+				else if ( c == '"' )
+				{
+					state = kCode;
+					strOut += c;
+				}
+				break;
 		}
 	}
 
@@ -145,24 +184,23 @@ std::string StripComments( const std::string &strIn )
 // that would make this fact MORE likely to fail, never less, which is the
 // right way round for a guard.
 //-----------------------------------------------------------------------------
-std::vector< std::string > NonNullNotifyBodies( const std::string &strRaw )
+std::vector<std::string> NonNullNotifyBodies( const std::string &strRaw )
 {
 	const std::string strText = StripComments( strRaw );
 
-	std::vector< std::string > vecOut;
+	std::vector<std::string> vecOut;
 	const std::string strName = "GetPVSNotifyInterface";
 
-	for ( size_t at = strText.find( strName );
-	      at != std::string::npos;
-	      at = strText.find( strName, at + strName.size() ) )
+	for ( size_t at = strText.find( strName ); at != std::string::npos;
+		  at = strText.find( strName, at + strName.size() ) )
 	{
-		const size_t open  = strText.find( '{', at );
-		const size_t semi  = strText.find( ';', at );
+		const size_t open = strText.find( '{', at );
+		const size_t semi = strText.find( ';', at );
 
 		if ( open == std::string::npos )
-			continue;                       // nothing left to read
+			continue; // nothing left to read
 		if ( semi != std::string::npos && semi < open )
-			continue;                       // a declaration, not a definition
+			continue; // a declaration, not a definition
 
 		const size_t close = strText.find( '}', open );
 		if ( close == std::string::npos )
@@ -207,18 +245,16 @@ std::vector< std::string > NonNullNotifyBodies( const std::string &strRaw )
 
 TEST( PvsNotifyClassifier, AReturnThisBodyIsFound )
 {
-	const std::string strFake =
-		"virtual IPVSNotify* GetPVSNotifyInterface() { return this; }\n";
+	const std::string strFake = "virtual IPVSNotify* GetPVSNotifyInterface() { return this; }\n";
 
-	const std::vector< std::string > vec = NonNullNotifyBodies( strFake );
+	const std::vector<std::string> vec = NonNullNotifyBodies( strFake );
 	ASSERT_EQ( 1u, vec.size() );
-	EXPECT_NE( std::string::npos, vec[ 0 ].find( "return this" ) );
+	EXPECT_NE( std::string::npos, vec[0].find( "return this" ) );
 }
 
 TEST( PvsNotifyClassifier, AReturnNullBodyIsNotFound )
 {
-	const std::string strFake =
-		"IPVSNotify* C_BaseEntity::GetPVSNotifyInterface()\n{\n\treturn NULL;\n}\n";
+	const std::string strFake = "IPVSNotify* C_BaseEntity::GetPVSNotifyInterface()\n{\n\treturn NULL;\n}\n";
 
 	EXPECT_TRUE( NonNullNotifyBodies( strFake ).empty() );
 }
@@ -229,9 +265,8 @@ TEST( PvsNotifyClassifier, ABareDeclarationIsNotADefinition )
 	// returned, and counting it would put c_baseentity.h on the non-NULL list
 	// and make fact 2's count wrong in the safe direction -- which reads as a
 	// real finding.
-	const std::string strFake =
-		"	virtual IPVSNotify*				GetPVSNotifyInterface();\n"
-		"	virtual void SomethingElse() { return; }\n";
+	const std::string strFake = "	virtual IPVSNotify*				GetPVSNotifyInterface();\n"
+								"	virtual void SomethingElse() { return; }\n";
 
 	EXPECT_TRUE( NonNullNotifyBodies( strFake ).empty() );
 }
@@ -244,17 +279,15 @@ TEST( PvsNotifyClassifier, ProseAboutTheInterfaceIsNotAnImplementation )
 	// brace. Before the stripper, the sweep named that file as a second
 	// non-NULL implementation -- a false positive about the very file whose
 	// guard this whole ruling defends.
-	const std::string strFake =
-		"// ... whose GetPVSNotifyInterface() answers non-NULL, and there are\n"
-		"// exactly four implementations { like this one } in the client.\n";
+	const std::string strFake = "// ... whose GetPVSNotifyInterface() answers non-NULL, and there are\n"
+								"// exactly four implementations { like this one } in the client.\n";
 
 	EXPECT_TRUE( NonNullNotifyBodies( strFake ).empty() );
 }
 
 TEST( PvsNotifyClassifier, ABlockCommentedOutImplementationIsNotAnImplementation )
 {
-	const std::string strFake =
-		"/* virtual IPVSNotify* GetPVSNotifyInterface() { return this; } */\n";
+	const std::string strFake = "/* virtual IPVSNotify* GetPVSNotifyInterface() { return this; } */\n";
 
 	EXPECT_TRUE( NonNullNotifyBodies( strFake ).empty() );
 }
@@ -264,13 +297,12 @@ TEST( PvsNotifyClassifier, ARealImplementationBesideProseIsStillFound )
 	// The other half, and the half that keeps the stripper from being a way to
 	// make the sweep answer "nothing" forever: prose about the interface next
 	// to a real body must still yield the body.
-	const std::string strFake =
-		"// GetPVSNotifyInterface() is discussed here { with a brace }\n"
-		"class C_Thing { virtual IPVSNotify* GetPVSNotifyInterface() { return this; } };\n";
+	const std::string strFake = "// GetPVSNotifyInterface() is discussed here { with a brace }\n"
+								"class C_Thing { virtual IPVSNotify* GetPVSNotifyInterface() { return this; } };\n";
 
-	const std::vector< std::string > vec = NonNullNotifyBodies( strFake );
+	const std::vector<std::string> vec = NonNullNotifyBodies( strFake );
 	ASSERT_EQ( 1u, vec.size() );
-	EXPECT_NE( std::string::npos, vec[ 0 ].find( "return this" ) );
+	EXPECT_NE( std::string::npos, vec[0].find( "return this" ) );
 }
 
 TEST( PvsNotifyClassifier, AStringLiteralDoesNotSwallowTheRestOfTheLine )
@@ -311,8 +343,7 @@ TEST( PvsNotifyRuling, TheRagdollsTuAndTheListsTuAreBothInTheFlipsRemovalSeed )
 	// floor against a truncated file; it is retired because CompiledSources
 	// throws unless compile_commands.json and the CMakeLists list agree
 	// exactly, which a truncated read cannot.)
-	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient,
-	                                    "sourcesharp/game/client/shell_cliententitylist.cpp" ) )
+	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_cliententitylist.cpp" ) )
 		<< "the port's own list seam is not compiled into client_sourcesharp, so "
 		   "the two absences below are not being measured the way they look.";
 
@@ -347,4 +378,3 @@ TEST( PvsNotifyRuling, TheRagdollsTuAndTheListsTuAreBothInTheFlipsRemovalSeed )
 // that one returns NULL -- so it is corrected, and the correction is pinned
 // here rather than left to survive on goodwill.
 //=============================================================================
-

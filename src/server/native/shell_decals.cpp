@@ -22,14 +22,14 @@ class CShellDecalEmitter
 public:
 	CShellDecalEmitter()
 	{
-		m_szName[ 0 ] = '\0';
-		m_szTranslated[ 0 ] = '\0';
+		m_szName[0] = '\0';
+		m_szTranslated[0] = '\0';
 	}
 
 	int GetDecalIndexForName( char const *decalname )
 	{
 		// Stock's first line, answered without a crossing.
-		if ( decalname == NULL || decalname[ 0 ] == '\0' )
+		if ( decalname == NULL || decalname[0] == '\0' )
 			return -1;
 
 		IManagedResources *pArea = ManagedResources();
@@ -43,7 +43,7 @@ public:
 	const char *GetDecalNameForIndex( int nIndex )
 	{
 		// Stock answers "" for an unknown index; the ABI's -1 is translated here.
-		m_szName[ 0 ] = '\0';
+		m_szName[0] = '\0';
 
 		IManagedResources *pArea = ManagedResources();
 
@@ -51,13 +51,12 @@ public:
 			return m_szName;
 
 		if ( pArea->ServerDecalNameForIndex( nIndex, m_szName, sizeof( m_szName ) ) < 0 )
-			m_szName[ 0 ] = '\0';
+			m_szName[0] = '\0';
 
 		return m_szName;
 	}
 
-	char const *TranslateDecalForGameMaterial( char const *decalName,
-	                                           unsigned char gamematerial )
+	char const *TranslateDecalForGameMaterial( char const *decalName, unsigned char gamematerial )
 	{
 		IManagedResources *pArea = ManagedResources();
 
@@ -66,8 +65,8 @@ public:
 
 		// Widened through unsigned char so the key byte is the same on both sides; char's
 		// signedness is implementation-defined.
-		int32_t nWritten = pArea->ServerDecalTranslateForGameMaterial(
-			decalName, (int32_t)gamematerial, m_szTranslated, sizeof( m_szTranslated ) );
+		int32_t nWritten = pArea->ServerDecalTranslateForGameMaterial( decalName, (int32_t)gamematerial, m_szTranslated,
+																	   sizeof( m_szTranslated ) );
 
 		// Stock's contract: an untranslated decal comes back unchanged.
 		if ( nWritten < 0 )
@@ -77,8 +76,8 @@ public:
 	}
 
 private:
-	char m_szName[ 260 ];
-	char m_szTranslated[ 260 ];
+	char m_szName[260];
+	char m_szTranslated[260];
 };
 
 // Built on first ask. Every method answers stock's miss value without the managed side.

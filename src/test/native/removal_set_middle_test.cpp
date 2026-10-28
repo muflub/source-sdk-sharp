@@ -122,21 +122,21 @@ std::string StripComments( const std::string &s )
 
 	for ( size_t i = 0; i < s.size(); )
 	{
-		if ( i + 1 < s.size() && s[ i ] == '/' && s[ i + 1 ] == '/' )
+		if ( i + 1 < s.size() && s[i] == '/' && s[i + 1] == '/' )
 		{
-			while ( i < s.size() && s[ i ] != '\n' )
+			while ( i < s.size() && s[i] != '\n' )
 				i++;
 			continue;
 		}
-		if ( i + 1 < s.size() && s[ i ] == '/' && s[ i + 1 ] == '*' )
+		if ( i + 1 < s.size() && s[i] == '/' && s[i + 1] == '*' )
 		{
 			i += 2;
-			while ( i + 1 < s.size() && !( s[ i ] == '*' && s[ i + 1 ] == '/' ) )
+			while ( i + 1 < s.size() && !( s[i] == '*' && s[i + 1] == '/' ) )
 				i++;
 			i = ( i + 1 < s.size() ) ? i + 2 : s.size();
 			continue;
 		}
-		out += s[ i ];
+		out += s[i];
 		i++;
 	}
 	return out;
@@ -144,14 +144,12 @@ std::string StripComments( const std::string &s )
 
 bool IsIdentChar( char c )
 {
-	return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) ||
-	       ( c >= '0' && c <= '9' ) || c == '_';
+	return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) || ( c >= '0' && c <= '9' ) || c == '_';
 }
 
 size_t SkipSpace( const std::string &s, size_t i )
 {
-	while ( i < s.size() && ( s[ i ] == ' ' || s[ i ] == '\t' ||
-	                          s[ i ] == '\r' || s[ i ] == '\n' ) )
+	while ( i < s.size() && ( s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n' ) )
 		i++;
 	return i;
 }
@@ -161,14 +159,15 @@ size_t SkipSpace( const std::string &s, size_t i )
 //-----------------------------------------------------------------------------
 size_t SkipParens( const std::string &strCode, size_t at )
 {
-	if ( at >= strCode.size() || strCode[ at ] != '(' )
+	if ( at >= strCode.size() || strCode[at] != '(' )
 		return std::string::npos;
 
 	int depth = 0;
 	for ( size_t i = at; i < strCode.size(); i++ )
 	{
-		if ( strCode[ i ] == '(' ) depth++;
-		else if ( strCode[ i ] == ')' )
+		if ( strCode[i] == '(' )
+			depth++;
+		else if ( strCode[i] == ')' )
 		{
 			depth--;
 			if ( depth == 0 )
@@ -224,17 +223,16 @@ int DefaultArgumentCount( const std::string &strHeader, const std::string &strNa
 {
 	const std::string strCode = StripComments( strHeader );
 
-	for ( size_t pos = strCode.find( strName ); pos != std::string::npos;
-	      pos = strCode.find( strName, pos + 1 ) )
+	for ( size_t pos = strCode.find( strName ); pos != std::string::npos; pos = strCode.find( strName, pos + 1 ) )
 	{
-		if ( pos > 0 && IsIdentChar( strCode[ pos - 1 ] ) )
+		if ( pos > 0 && IsIdentChar( strCode[pos - 1] ) )
 			continue;
 		const size_t after = pos + strName.size();
-		if ( after < strCode.size() && IsIdentChar( strCode[ after ] ) )
+		if ( after < strCode.size() && IsIdentChar( strCode[after] ) )
 			continue;
 
 		size_t i = SkipSpace( strCode, after );
-		if ( i >= strCode.size() || strCode[ i ] != '(' )
+		if ( i >= strCode.size() || strCode[i] != '(' )
 			continue;
 		const size_t open = i;
 		i = SkipParens( strCode, i );
@@ -242,13 +240,12 @@ int DefaultArgumentCount( const std::string &strHeader, const std::string &strNa
 			continue;
 
 		size_t j = SkipSpace( strCode, i );
-		if ( strCode.compare( j, 5, "const" ) == 0 &&
-		     ( j + 5 >= strCode.size() || !IsIdentChar( strCode[ j + 5 ] ) ) )
+		if ( strCode.compare( j, 5, "const" ) == 0 && ( j + 5 >= strCode.size() || !IsIdentChar( strCode[j + 5] ) ) )
 		{
 			j = SkipSpace( strCode, j + 5 );
 		}
-		if ( j >= strCode.size() || strCode[ j ] != ';' )
-			continue;             // a call or a definition, not a declaration
+		if ( j >= strCode.size() || strCode[j] != ';' )
+			continue; // a call or a definition, not a declaration
 
 		size_t nameOnLine = 0;
 		const std::string strLine = LineAt( strCode, pos, &nameOnLine );
@@ -259,18 +256,18 @@ int DefaultArgumentCount( const std::string &strHeader, const std::string &strNa
 		for ( size_t k = open; k + 1 < i; k++ )
 		{
 			// an `=` inside the parameter list, and not `==` `!=` `<=` `>=`
-			if ( strCode[ k ] != '=' )
+			if ( strCode[k] != '=' )
 				continue;
-			if ( strCode[ k + 1 ] == '=' )
+			if ( strCode[k + 1] == '=' )
 				continue;
-			if ( k > open && ( strCode[ k - 1 ] == '=' || strCode[ k - 1 ] == '!' ||
-			                   strCode[ k - 1 ] == '<' || strCode[ k - 1 ] == '>' ) )
+			if ( k > open &&
+				 ( strCode[k - 1] == '=' || strCode[k - 1] == '!' || strCode[k - 1] == '<' || strCode[k - 1] == '>' ) )
 				continue;
 			n++;
 		}
 		return n;
 	}
-	return -1;                    // not declared here
+	return -1; // not declared here
 }
 
 } // namespace
@@ -288,24 +285,23 @@ int DefaultArgumentCount( const std::string &strHeader, const std::string &strNa
 
 TEST( RemovalSetMiddleFixture, DefaultArgumentCounterAnswersEveryWay )
 {
-	const std::string strFixture =
-		"class CBaseEntity\n"
-		"{\n"
-		"\tvirtual void NoDefaults( int a, int b );\n"
-		"\tvirtual void OneDefault( int a, int b = 0 );\n"
-		"\tvirtual void TwoDefaults( int a = 1, const char *b = NULL );\n"
-		"\tvirtual void DefaultIsAComparison( int a, bool b = ( 1 == 1 ) );\n"
-		"\tbool InlineBody( int a ) const { return a == 0 && a != 1; }\n"
-		"};\n";
+	const std::string strFixture = "class CBaseEntity\n"
+								   "{\n"
+								   "\tvirtual void NoDefaults( int a, int b );\n"
+								   "\tvirtual void OneDefault( int a, int b = 0 );\n"
+								   "\tvirtual void TwoDefaults( int a = 1, const char *b = NULL );\n"
+								   "\tvirtual void DefaultIsAComparison( int a, bool b = ( 1 == 1 ) );\n"
+								   "\tbool InlineBody( int a ) const { return a == 0 && a != 1; }\n"
+								   "};\n";
 
-	EXPECT_EQ( 0,  DefaultArgumentCount( strFixture, "NoDefaults" ) );
-	EXPECT_EQ( 1,  DefaultArgumentCount( strFixture, "OneDefault" ) );
-	EXPECT_EQ( 2,  DefaultArgumentCount( strFixture, "TwoDefaults" ) );
+	EXPECT_EQ( 0, DefaultArgumentCount( strFixture, "NoDefaults" ) );
+	EXPECT_EQ( 1, DefaultArgumentCount( strFixture, "OneDefault" ) );
+	EXPECT_EQ( 2, DefaultArgumentCount( strFixture, "TwoDefaults" ) );
 	EXPECT_EQ( -1, DefaultArgumentCount( strFixture, "NotDeclaredHere" ) )
 		<< "an absent member must be distinguishable from one with no "
 		<< "defaults: 0 and not-there are different answers, and the real "
 		<< "assertion above expects a 0 from one side.";
-	EXPECT_EQ( 1,  DefaultArgumentCount( strFixture, "DefaultIsAComparison" ) )
+	EXPECT_EQ( 1, DefaultArgumentCount( strFixture, "DefaultIsAComparison" ) )
 		<< "the `==` inside a default EXPRESSION was counted as a second "
 		<< "default";
 	EXPECT_EQ( -1, DefaultArgumentCount( strFixture, "InlineBody" ) )

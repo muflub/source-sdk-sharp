@@ -8,29 +8,11 @@
 // SS_REASON a  a vtable the engine calls through
 // The dust motes' brush test: the engine's point test, answered for the owner's brush.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "client_entity.h"
-#include "engine/IEngineTrace.h"
-#include "engine/ivmodelinfo.h"
-#include "engine/ICollideable.h"
-#include "engine/ishadowmgr.h"
-#include "mathlib/vector.h"
-#include "tier0/platform.h"
-#include "cdll_client_int.h"
-#include "collisionproperty.h"
-#include "const.h"
-#include "icliententitylist.h"
-#include "vphysics_interface.h"
+
 #include "shell_standalone_client.h"
 #include "sourcesharp_entrypoints.h"
 
@@ -41,7 +23,8 @@
 class CSourceSharpBrushCollideable : public ICollideable
 {
 public:
-	CSourceSharpBrushCollideable() : m_pOwner( NULL )
+	CSourceSharpBrushCollideable()
+		: m_pOwner( NULL )
 	{
 		m_vecMins.Init();
 		m_vecMaxs.Init();
@@ -49,7 +32,7 @@ public:
 
 	void Bind( C_StandaloneEntity *pOwner, const Vector &vecMins, const Vector &vecMaxs )
 	{
-		m_pOwner  = pOwner;
+		m_pOwner = pOwner;
 		m_vecMins = vecMins;
 		m_vecMaxs = vecMaxs;
 	}
@@ -58,9 +41,13 @@ public:
 
 	// The three answers that are ours; everything else is the entity's.
 	virtual SolidType_t GetSolid() const OVERRIDE { return SOLID_BSP; }
+
 	virtual const Vector &OBBMins() const OVERRIDE { return m_vecMins; }
+
 	virtual const Vector &OBBMaxs() const OVERRIDE { return m_vecMaxs; }
+
 	virtual const Vector &OBBMinsPreScaled() const OVERRIDE { return m_vecMins; }
+
 	virtual const Vector &OBBMaxsPreScaled() const OVERRIDE { return m_vecMaxs; }
 
 	// Stock's dust used this pair: a brush shape that stops nothing, whose contents are
@@ -68,23 +55,46 @@ public:
 	virtual int GetSolidFlags() const OVERRIDE { return FSOLID_NOT_SOLID | FSOLID_VOLUME_CONTENTS; }
 
 	virtual IHandleEntity *GetEntityHandle() OVERRIDE { return m_pOwner->GetEntityHandle(); }
+
 	virtual void WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const OVERRIDE
-		{ m_pOwner->WorldSpaceTriggerBounds( pMins, pMaxs ); }
+	{
+		m_pOwner->WorldSpaceTriggerBounds( pMins, pMaxs );
+	}
+
 	virtual bool TestCollision( const Ray_t &ray, unsigned int mask, trace_t &tr ) OVERRIDE
-		{ return m_pOwner->TestCollision( ray, mask, tr ); }
+	{
+		return m_pOwner->TestCollision( ray, mask, tr );
+	}
+
 	virtual bool TestHitboxes( const Ray_t &ray, unsigned int mask, trace_t &tr ) OVERRIDE
-		{ return m_pOwner->TestHitboxes( ray, mask, tr ); }
+	{
+		return m_pOwner->TestHitboxes( ray, mask, tr );
+	}
+
 	virtual int GetCollisionModelIndex() OVERRIDE { return m_pOwner->GetCollisionModelIndex(); }
+
 	virtual const model_t *GetCollisionModel() OVERRIDE { return m_pOwner->GetCollisionModel(); }
+
 	virtual const Vector &GetCollisionOrigin() const OVERRIDE { return m_pOwner->GetCollisionOrigin(); }
+
 	virtual const QAngle &GetCollisionAngles() const OVERRIDE { return m_pOwner->GetCollisionAngles(); }
+
 	virtual const matrix3x4_t &CollisionToWorldTransform() const OVERRIDE
-		{ return m_pOwner->CollisionToWorldTransform(); }
+	{
+		return m_pOwner->CollisionToWorldTransform();
+	}
+
 	virtual IClientUnknown *GetIClientUnknown() OVERRIDE { return NULL; }
+
 	virtual int GetCollisionGroup() const OVERRIDE { return COLLISION_GROUP_NONE; }
+
 	virtual void WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs ) OVERRIDE
-		{ m_pOwner->WorldSpaceSurroundingBounds( pMins, pMaxs ); }
+	{
+		m_pOwner->WorldSpaceSurroundingBounds( pMins, pMaxs );
+	}
+
 	virtual bool ShouldTouchTrigger( int ) const OVERRIDE { return false; }
+
 	virtual const matrix3x4_t *GetRootParentToWorldTransform() const OVERRIDE { return NULL; }
 
 private:

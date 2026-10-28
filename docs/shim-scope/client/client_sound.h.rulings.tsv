@@ -1,10 +1,10 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[Recipients_t] explicit Recipients_t(	HOST	copies the caller's filter into IManagedSoundEmitterClient's length-prefixed slot buffer; the clamp is the buffer's size
-inline int32_t Options(	HOST	packs the EmitSound_t's three flags into the slot's option bits
+[Recipients_t] explicit Recipients_t( const IRecipientFilter &filter )	HOST	copies the caller's filter into IManagedSoundEmitterClient's length-prefixed slot buffer; the clamp is the buffer's size
+inline int32_t Options( bool bEmitCloseCaption, bool bWarnOnMissingCloseCaption, bool bWarnOnDirectWaveReference )	HOST	packs the EmitSound_t's three flags into the slot's option bits
 inline void Emit( IRecipientFilter &filter, int iEntIndex, const EmitSound_t &ep )	HOST	GameSound_Emit( filter, entindex, params ): one ClientSoundEmit crossing with the EmitSound_t's fields; the managed ClientSoundEmitter decides
-const char *pszSoundName, HSOUNDSCRIPTHANDLE &handle,	HOST	GameSound_Emit's name-and-handle overload: stock's four-field EmitSound_t, by the caller's handle, one crossing
-const char *pszSoundName, const Vector *pOrigin = NULL,	HOST	GameSound_Emit's name overload: the handle overload with a handle of its own
-inline void Stop(	HOST	GameSound_Stop( entindex, channel, sample ): one ClientSoundStop crossing
-inline void EmitCloseCaption(	HOST	GameSound_EmitCloseCaption: one ClientSoundEmitCloseCaption crossing with the filter's slots
-inline bool GetParameters(	BOUNDARY	GameSound_GetParameters' stock body: soundemitterbase's GetActorGender and GetParametersForSound
+inline void Emit( IRecipientFilter &filter, int iEntIndex, const char *pszSoundName, HSOUNDSCRIPTHANDLE &handle, const Vector *pOrigin = NUL	HOST	GameSound_Emit's name-and-handle overload: stock's four-field EmitSound_t, by the caller's handle, one crossing
+inline void Emit( IRecipientFilter &filter, int iEntIndex, const char *pszSoundName, const Vector *pOrigin = NULL, float flSoundTime = 0.0f,	HOST	GameSound_Emit's name overload: the handle overload with a handle of its own
+inline void Stop( int iEntIndex, int iChannel, const char *pszSample )	HOST	GameSound_Stop( entindex, channel, sample ): one ClientSoundStop crossing
+inline void EmitCloseCaption( IRecipientFilter &filter, int iEntIndex, const char *pszToken, float flDuration, bool bWarnIfMissing )	HOST	GameSound_EmitCloseCaption: one ClientSoundEmitCloseCaption crossing with the filter's slots
+inline bool GetParameters( const char *pszSoundName, CSoundParameters &params, const char *pszActorModel )	BOUNDARY	GameSound_GetParameters' stock body: soundemitterbase's GetActorGender and GetParametersForSound

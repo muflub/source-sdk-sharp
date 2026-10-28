@@ -75,6 +75,7 @@ struct FlashlightGlobals_t
 {
 	float curtime;
 };
+
 extern FlashlightGlobals_t *gpGlobals;
 
 //-----------------------------------------------------------------------------
@@ -86,10 +87,15 @@ class C_BaseEntity : public IHandleEntity
 {
 public:
 	C_BaseEntity( const char *pszName, int nCollisionGroup )
-		: m_pszName( pszName ), m_nCollisionGroup( nCollisionGroup ) {}
+		: m_pszName( pszName )
+		, m_nCollisionGroup( nCollisionGroup )
+	{
+	}
+
 	virtual ~C_BaseEntity() {}
 
 	virtual void SetRefEHandle( const CBaseHandle &handle ) { m_Handle = handle; }
+
 	virtual const CBaseHandle &GetRefEHandle() const { return m_Handle; }
 
 	int GetCollisionGroup() const { return m_nCollisionGroup; }
@@ -102,13 +108,20 @@ public:
 class C_BaseViewModel : public C_BaseEntity
 {
 public:
-	C_BaseViewModel( const char *pszName, int nCollisionGroup ) : C_BaseEntity( pszName, nCollisionGroup ) {}
+	C_BaseViewModel( const char *pszName, int nCollisionGroup )
+		: C_BaseEntity( pszName, nCollisionGroup )
+	{
+	}
 };
 
 class C_BasePlayer : public C_BaseEntity
 {
 public:
-	C_BasePlayer( const char *pszName, int nCollisionGroup ) : C_BaseEntity( pszName, nCollisionGroup ), m_nMoveType( MOVETYPE_WALK ) {}
+	C_BasePlayer( const char *pszName, int nCollisionGroup )
+		: C_BaseEntity( pszName, nCollisionGroup )
+		, m_nMoveType( MOVETYPE_WALK )
+	{
+	}
 
 	// The scenario's local player; never NULL here, as stock's never is.
 	static C_BasePlayer *GetLocalPlayer();
@@ -125,7 +138,9 @@ class CFlashlightNonEntity : public IHandleEntity
 {
 public:
 	virtual void SetRefEHandle( const CBaseHandle &handle ) {}
+
 	virtual const CBaseHandle &GetRefEHandle() const { return m_Handle; }
+
 	CBaseHandle m_Handle;
 };
 
@@ -152,17 +167,19 @@ public:
 	IHandleEntity *m_pEnt;
 	int hitbox;
 };
+
 typedef CGameTrace trace_t;
 
-void UTIL_TraceHull( const Vector &vecAbsStart, const Vector &vecAbsEnd, const Vector &hullMin,
-                     const Vector &hullMax, unsigned int mask, ITraceFilter *pFilter, trace_t *ptr );
-void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask,
-                     ITraceFilter *pFilter, trace_t *ptr );
+void UTIL_TraceHull( const Vector &vecAbsStart, const Vector &vecAbsEnd, const Vector &hullMin, const Vector &hullMax,
+					 unsigned int mask, ITraceFilter *pFilter, trace_t *ptr );
+void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask, ITraceFilter *pFilter,
+					 trace_t *ptr );
 
 //-----------------------------------------------------------------------------
 // The client shadow manager's four flashlight calls (iclientshadowmgr.h).
 //-----------------------------------------------------------------------------
 typedef unsigned short ClientShadowHandle_t;
+
 enum
 {
 	CLIENTSHADOW_INVALID_HANDLE = (ClientShadowHandle_t)~0
@@ -176,6 +193,7 @@ public:
 	void UpdateProjectedTexture( ClientShadowHandle_t h, bool force );
 	void DestroyFlashlight( ClientShadowHandle_t shadowHandle );
 };
+
 extern IFlashlightShadowMgr *g_pClientShadowMgr;
 
 //-----------------------------------------------------------------------------
@@ -188,6 +206,7 @@ class IFlashlightEfx
 public:
 	dlight_t *CL_AllocDlight( int key );
 };
+
 extern IFlashlightEfx *effects;
 
 class IFlashlightRender
@@ -195,6 +214,7 @@ class IFlashlightRender
 public:
 	void TouchLight( dlight_t *light );
 };
+
 extern IFlashlightRender *render;
 
 class IFlashlightEngine
@@ -202,16 +222,18 @@ class IFlashlightEngine
 public:
 	int GetDXSupportLevel();
 };
+
 extern IFlashlightEngine *engine;
 
 class IFlashlightDebugOverlay
 {
 public:
-	void AddBoxOverlay( const Vector &origin, const Vector &mins, const Vector &max, QAngle const &orientation,
-	                    int r, int g, int b, int a, float duration );
+	void AddBoxOverlay( const Vector &origin, const Vector &mins, const Vector &max, QAngle const &orientation, int r,
+						int g, int b, int a, float duration );
 	void AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b, bool noDepthTest,
-	                     float duration );
+						 float duration );
 };
+
 extern IFlashlightDebugOverlay *debugoverlay;
 
 class IFlashlightHardwareConfig
@@ -219,6 +241,7 @@ class IFlashlightHardwareConfig
 public:
 	bool SupportsBorderColor();
 };
+
 extern IFlashlightHardwareConfig *g_pMaterialSystemHardwareConfig;
 
 // The material system's texture reference (MaterialSystemUtil.h): what the
@@ -227,11 +250,18 @@ extern IFlashlightHardwareConfig *g_pMaterialSystemHardwareConfig;
 class CTextureReference
 {
 public:
-	CTextureReference() : m_pTexture( NULL ) {}
+	CTextureReference()
+		: m_pTexture( NULL )
+	{
+	}
+
 	void Init( char const *pTexture, const char *pTextureGroupName, bool bComplain = true );
+
 	operator ITexture *() { return m_pTexture; }
+
 	ITexture *m_pTexture;
 };
+
 const char *FlashlightTextureName( const ITexture *pTexture );
 
 //-----------------------------------------------------------------------------
@@ -243,16 +273,23 @@ class IFlashlightClientTools
 public:
 	bool IsInRecordingMode() { return false; }
 };
+
 extern IFlashlightClientTools *clienttools;
 
 class KeyValues
 {
 public:
 	KeyValues( const char *pszName ) {}
+
 	void SetFloat( const char *pszKey, float flValue ) {}
+
 	void SetInt( const char *pszKey, int nValue ) {}
+
 	void SetPtr( const char *pszKey, void *pValue ) {}
+
 	void deleteThis() { delete this; }
 };
+
 #define HTOOLHANDLE_INVALID 0
+
 inline void ToolFramework_PostToolMessage( int hEntity, KeyValues *msg ) {}

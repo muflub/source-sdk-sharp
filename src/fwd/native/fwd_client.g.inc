@@ -391,8 +391,8 @@ static const SSForwarderTable s_SoundEmitterSystemTable = { s_SoundEmitterSystem
 //-----------------------------------------------------------------------------
 // EngineSound: 8 forwarder(s) over IEngineSound.
 //-----------------------------------------------------------------------------
-// void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
-static void SSFwd_EngineSound_EmitSound_2( IEngineSound *self, IRecipientFilter & a0, int a1, int a2, const char * a3, float a4, soundlevel_t a5, int a6, int a7, int a8, const Vector * a9, const Vector * a10, CUtlVector< Vector > * a11, bool a12, float a13, int a14 ) { self->EmitSound( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 ); }
+// void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector<Vector> *, bool, float, int )
+static void SSFwd_EngineSound_EmitSound_2( IEngineSound *self, IRecipientFilter & a0, int a1, int a2, const char * a3, float a4, soundlevel_t a5, int a6, int a7, int a8, const Vector * a9, const Vector * a10, CUtlVector<Vector> * a11, bool a12, float a13, int a14 ) { self->EmitSound( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 ); }
 // void IEngineSound::StopSound( int, int, const char * )
 static void SSFwd_EngineSound_StopSound( IEngineSound *self, int a0, int a1, const char * a2 ) { self->StopSound( a0, a1, a2 ); }
 // float IEngineSound::GetSoundDuration( const char * )
@@ -405,8 +405,8 @@ static bool SSFwd_EngineSound_IsSoundPrecached( IEngineSound *self, const char *
 static void SSFwd_EngineSound_PrefetchSound( IEngineSound *self, const char * a0 ) { self->PrefetchSound( a0 ); }
 // void IEngineSound::EmitAmbientSound( const char *, float, int, int, float )
 static void SSFwd_EngineSound_EmitAmbientSound( IEngineSound *self, const char * a0, float a1, int a2, int a3, float a4 ) { self->EmitAmbientSound( a0, a1, a2, a3, a4 ); }
-// void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, float, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
-static void SSFwd_EngineSound_EmitSound( IEngineSound *self, IRecipientFilter & a0, int a1, int a2, const char * a3, float a4, float a5, int a6, int a7, int a8, const Vector * a9, const Vector * a10, CUtlVector< Vector > * a11, bool a12, float a13, int a14 ) { self->EmitSound( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 ); }
+// void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, float, int, int, int, const Vector *, const Vector *, CUtlVector<Vector> *, bool, float, int )
+static void SSFwd_EngineSound_EmitSound( IEngineSound *self, IRecipientFilter & a0, int a1, int a2, const char * a3, float a4, float a5, int a6, int a7, int a8, const Vector * a9, const Vector * a10, CUtlVector<Vector> * a11, bool a12, float a13, int a14 ) { self->EmitSound( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14 ); }
 
 static void *const s_EngineSoundSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineSound_EmitSound_2 ),

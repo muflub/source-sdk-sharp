@@ -11,7 +11,7 @@
 4	SLOT	int CHudElement::GetRenderGroupPriority()
 4	HOOK	void CHudElement::SetNeedsRemove( bool needsremove )
 8	HOOK	CHud::CHud()
-3	HOOK	CHud::~CHud()
+1	HOOK	CHud::~CHud()
 6	HOOK	void CHud::Init()
 6	HOOK	void CHud::VidInit()
 4	HOOK	void CHud::Shutdown()

@@ -97,12 +97,11 @@ TEST( AliasGuardScanner, ItTellsAGuardedNeedleFromAnUnguardedOne )
 	// THE INSTRUMENT, CHECKED. Six facts below rest on this answer and a helper
 	// that returned the same value for everything would make all six pass
 	// without measuring anything.
-	const std::string kSample =
-		"live_one();\n"
-		"#ifndef SS_CBASEENTITY_ALIAS\n"
-		"dead_one();\n"
-		"#endif // !SS_CBASEENTITY_ALIAS\n"
-		"after_one();\n";
+	const std::string kSample = "live_one();\n"
+								"#ifndef SS_CBASEENTITY_ALIAS\n"
+								"dead_one();\n"
+								"#endif // !SS_CBASEENTITY_ALIAS\n"
+								"after_one();\n";
 
 	EXPECT_TRUE( IsInsideAliasGuard( kSample, "dead_one();" ) );
 	EXPECT_FALSE( IsInsideAliasGuard( kSample, "live_one();" ) );
@@ -130,4 +129,3 @@ TEST( AliasGuardScanner, ItTellsAGuardedNeedleFromAnUnguardedOne )
 namespace
 {
 } // namespace
-

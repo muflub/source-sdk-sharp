@@ -17,7 +17,7 @@ bool UTIL_IsCommandIssuedByServerAdmin();
 // Entries are numbered by position; stock's RB-tree slot means nothing outside its tree.
 static void DumpGameStringEntry( const char *pszString, void *pContext )
 {
-	int &i = *static_cast< int * >( pContext );
+	int &i = *static_cast<int *>( pContext );
 	DevMsg( "  %d (0x%p) : %s\n", i, (const void *)pszString, pszString );
 	i++;
 }
@@ -32,4 +32,8 @@ void CC_DumpGameStringTable()
 	DevMsg( "\n" );
 	DevMsg( "Size:  %d items\n", GameStringPool_Count() );
 }
-SS_NATIVE_COMMAND( dumpgamestringtable ) { CC_DumpGameStringTable(); }
+
+SS_NATIVE_COMMAND( dumpgamestringtable )
+{
+	CC_DumpGameStringTable();
+}

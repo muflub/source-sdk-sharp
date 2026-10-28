@@ -28,7 +28,7 @@ inline IHandleEntity *TraceHitHandle( IHandleEntity *pHit )
 // The field's stock type. Never a conversion: the bits are an IHandleEntity's.
 inline IHandleEntity *TraceHitHandle( SS_GAME_ENTITY *pHit )
 {
-	return reinterpret_cast< IHandleEntity * >( pHit );
+	return reinterpret_cast<IHandleEntity *>( pHit );
 }
 #endif
 

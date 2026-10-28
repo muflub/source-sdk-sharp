@@ -3,7 +3,7 @@
 
 #pragma once
 
-#define TICK_INTERVAL			(gpGlobals->interval_per_tick)
+#define TICK_INTERVAL ( gpGlobals->interval_per_tick )
 
 // Each mod defines these for itself.
 class CViewVectors
@@ -11,16 +11,8 @@ class CViewVectors
 public:
 	CViewVectors() {}
 
-	CViewVectors( 
-		Vector vView,
-		Vector vHullMin,
-		Vector vHullMax,
-		Vector vDuckHullMin,
-		Vector vDuckHullMax,
-		Vector vDuckView,
-		Vector vObsHullMin,
-		Vector vObsHullMax,
-		Vector vDeadViewHeight )
+	CViewVectors( Vector vView, Vector vHullMin, Vector vHullMax, Vector vDuckHullMin, Vector vDuckHullMax,
+				  Vector vDuckView, Vector vObsHullMin, Vector vObsHullMax, Vector vDeadViewHeight )
 	{
 		m_vView = vView;
 		m_vHullMin = vHullMin;
@@ -35,54 +27,55 @@ public:
 
 	// Height above entity position where the viewer's eye is.
 	Vector m_vView;
-	
+
 	Vector m_vHullMin;
 	Vector m_vHullMax;
-	
+
 	Vector m_vDuckHullMin;
 	Vector m_vDuckHullMax;
 	Vector m_vDuckView;
-	
+
 	Vector m_vObsHullMin;
 	Vector m_vObsHullMax;
-	
+
 	Vector m_vDeadViewHeight;
 };
 
 // Height above entity position where the viewer's eye is.
-#define VEC_VIEW			g_pGameRules->GetViewVectors()->m_vView
-#define VEC_HULL_MIN		g_pGameRules->GetViewVectors()->m_vHullMin
-#define VEC_HULL_MAX		g_pGameRules->GetViewVectors()->m_vHullMax
+#define VEC_VIEW g_pGameRules->GetViewVectors()->m_vView
+#define VEC_HULL_MIN g_pGameRules->GetViewVectors()->m_vHullMin
+#define VEC_HULL_MAX g_pGameRules->GetViewVectors()->m_vHullMax
 
-#define VEC_DUCK_HULL_MIN	g_pGameRules->GetViewVectors()->m_vDuckHullMin
-#define VEC_DUCK_HULL_MAX	g_pGameRules->GetViewVectors()->m_vDuckHullMax
-#define VEC_DUCK_VIEW		g_pGameRules->GetViewVectors()->m_vDuckView
+#define VEC_DUCK_HULL_MIN g_pGameRules->GetViewVectors()->m_vDuckHullMin
+#define VEC_DUCK_HULL_MAX g_pGameRules->GetViewVectors()->m_vDuckHullMax
+#define VEC_DUCK_VIEW g_pGameRules->GetViewVectors()->m_vDuckView
 
-#define VEC_OBS_HULL_MIN	g_pGameRules->GetViewVectors()->m_vObsHullMin
-#define VEC_OBS_HULL_MAX	g_pGameRules->GetViewVectors()->m_vObsHullMax
+#define VEC_OBS_HULL_MIN g_pGameRules->GetViewVectors()->m_vObsHullMin
+#define VEC_OBS_HULL_MAX g_pGameRules->GetViewVectors()->m_vObsHullMax
 
-#define VEC_DEAD_VIEWHEIGHT	g_pGameRules->GetViewVectors()->m_vDeadViewHeight
+#define VEC_DEAD_VIEWHEIGHT g_pGameRules->GetViewVectors()->m_vDeadViewHeight
 
 // If the player (enemy bots) are scaled, adjust the hull
-#define VEC_VIEW_SCALED( player )				( g_pGameRules->GetViewVectors()->m_vView * player->GetModelScale() )
-#define VEC_HULL_MIN_SCALED( player )			( g_pGameRules->GetViewVectors()->m_vHullMin * player->GetModelScale() )
-#define VEC_HULL_MAX_SCALED( player )			( g_pGameRules->GetViewVectors()->m_vHullMax * player->GetModelScale() )
+#define VEC_VIEW_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vView * player->GetModelScale() )
+#define VEC_HULL_MIN_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vHullMin * player->GetModelScale() )
+#define VEC_HULL_MAX_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vHullMax * player->GetModelScale() )
 
-#define VEC_DUCK_HULL_MIN_SCALED( player )		( g_pGameRules->GetViewVectors()->m_vDuckHullMin * player->GetModelScale() )
-#define VEC_DUCK_HULL_MAX_SCALED( player )		( g_pGameRules->GetViewVectors()->m_vDuckHullMax * player->GetModelScale() )
-#define VEC_DUCK_VIEW_SCALED( player )			( g_pGameRules->GetViewVectors()->m_vDuckView * player->GetModelScale() )
+#define VEC_DUCK_HULL_MIN_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vDuckHullMin * player->GetModelScale() )
+#define VEC_DUCK_HULL_MAX_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vDuckHullMax * player->GetModelScale() )
+#define VEC_DUCK_VIEW_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vDuckView * player->GetModelScale() )
 
-	// hud item selection slots
-	// max number of items within a slot
-	// hud item selection slots
-	// Max number of weapons available
+// hud item selection slots
+// max number of items within a slot
+// hud item selection slots
+// Max number of weapons available
 
-	// hard coded item types
+// hard coded item types
 
-	// clip sizes set to this tell the weapon it doesn't use a clip
+// clip sizes set to this tell the weapon it doesn't use a clip
 
-#define	MAX_AMMO_TYPES	32		// ???
-		// not really slots
+#define MAX_AMMO_TYPES 32 // ???
+
+// not really slots
 
 // Vote creation or processing failure codes
 typedef enum
@@ -132,19 +125,19 @@ enum
 // Close caption flags
 
 // Hud Element hiding flags
-	// Hide ammo count & weapon selection
+// Hide ammo count & weapon selection
 
-	// Hide health & armor / suit battery
-#define HIDEHUD_PLAYERDEAD			( 1<<4 )	// Hide when local player's dead
-	// Hide when the local player doesn't have the HEV suit
-#define HIDEHUD_MISCSTATUS			( 1<<6 )	// Hide miscellaneous status elements (trains, pickup history, death notices, etc)
-	// Hide all communication elements (saytext, voice icon, etc)
-	// Hide crosshairs
-	// Hide vehicle crosshair
+// Hide health & armor / suit battery
+#define HIDEHUD_PLAYERDEAD ( 1 << 4 ) // Hide when local player's dead
+// Hide when the local player doesn't have the HEV suit
+#define HIDEHUD_MISCSTATUS ( 1 << 6 ) // Hide miscellaneous status elements (trains, pickup history, death notices, etc)
+// Hide all communication elements (saytext, voice icon, etc)
+// Hide crosshairs
+// Hide vehicle crosshair
 
-	// Hide bonus progress display (for bonus map challenges)
+// Hide bonus progress display (for bonus map challenges)
 
-#define HIDEHUD_BITCOUNT			12
+#define HIDEHUD_BITCOUNT 12
 
 // suit usage bits
 
@@ -158,52 +151,52 @@ enum
 //You might be wondering why these aren't multiple of 2. Well the reason is that if servers decide to have HLTV or Replay enabled we need the extra slot.
 //This is ok since MAX_PLAYERS is used for code specific things like arrays and loops, but it doesn't really means that this is the max number of players allowed
 //Since this is decided by the gamerules (and it can be whatever number as long as its less than MAX_PLAYERS).
-	#define MAX_PLAYERS				33  // Absolute max players supported
+#define MAX_PLAYERS 33 // Absolute max players supported
 
 // Josh: Accounts for code that may index this array by an entindex
 // of player rather than the player index... :s
 
 // Team Defines
 
-#define TEAM_UNASSIGNED			0	// not assigned to a team
-	// spectator team
+#define TEAM_UNASSIGNED 0 // not assigned to a team
+// spectator team
 // Start your team numbers after this
 
 // The first team that's game specific (i.e. not unassigned / spectator)
 
-	// Max number of teams in a game
-	// Max length of a team's name
+// Max number of teams in a game
+// Max length of a team's name
 
 // Weapon m_iState
 
-	// Weapon is on the ground
-	// This client is carrying this weapon.
-	// This client is carrying this weapon and it's the currently held weapon
+// Weapon is on the ground
+// This client is carrying this weapon.
+// This client is carrying this weapon and it's the currently held weapon
 
 // Skill Level
 
 // Weapon flags
 //	Flags - NOTE: KEEP g_ItemFlags IN WEAPON_PARSE.CPP UPDATED WITH THESE
 
-	// A player can totally exhaust their ammo supply and lose this weapon
-	// This weapon take hit location into account when applying damage
-	// Don't draw ammo pickup sprites/sounds when ammo is received
-	// Don't draw weapon pickup when this weapon is picked up by the player
+// A player can totally exhaust their ammo supply and lose this weapon
+// This weapon take hit location into account when applying damage
+// Don't draw ammo pickup sprites/sounds when ammo is received
+// Don't draw weapon pickup when this weapon is picked up by the player
 // NOTE: KEEP g_ItemFlags IN WEAPON_PARSE.CPP UPDATED WITH THESE
 
 // Humans only have left and right hands, though we might have aliens with more
 //  than two, sigh
 
-#define TRACER_TYPE_DEFAULT		0x00000001
-#define TRACER_TYPE_GUNSHIP		0x00000002
-#define TRACER_TYPE_STRIDER		0x00000004 // Here ya go, Jay!
-#define TRACER_TYPE_GAUSS		0x00000008
-#define TRACER_TYPE_WATERBULLET	0x00000010
+#define TRACER_TYPE_DEFAULT 0x00000001
+#define TRACER_TYPE_GUNSHIP 0x00000002
+#define TRACER_TYPE_STRIDER 0x00000004 // Here ya go, Jay!
+#define TRACER_TYPE_GAUSS 0x00000008
+#define TRACER_TYPE_WATERBULLET 0x00000010
 
 // Muzzle flash definitions (for the flags field of the "MuzzleFlash" DispatchEffect)
 enum
 {
-	MUZZLEFLASH_AR2				= 0,
+	MUZZLEFLASH_AR2 = 0,
 	MUZZLEFLASH_SHOTGUN,
 	MUZZLEFLASH_SMG1,
 	MUZZLEFLASH_SMG2,
@@ -213,14 +206,14 @@ enum
 	MUZZLEFLASH_RPG,
 	MUZZLEFLASH_COMBINE_TURRET,
 
-	MUZZLEFLASH_FIRSTPERSON		= 0x100,
+	MUZZLEFLASH_FIRSTPERSON = 0x100,
 };
 
 // Tracer Flags
-#define TRACER_FLAG_WHIZ			0x0001
-#define TRACER_FLAG_USEATTACHMENT	0x0002
+#define TRACER_FLAG_WHIZ 0x0001
+#define TRACER_FLAG_USEATTACHMENT 0x0002
 
-#define TRACER_DONT_USE_ATTACHMENT	-1
+#define TRACER_DONT_USE_ATTACHMENT -1
 
 // Entity Dissolve types
 enum
@@ -236,7 +229,7 @@ enum
 
 //  Hit Group standards
 
-			// alerts NPC, but doesn't do damage or bleed (1/100th damage)
+// alerts NPC, but doesn't do damage or bleed (1/100th damage)
 
 // Enumerations for setting player animation.
 enum PLAYER_ANIM
@@ -255,97 +248,99 @@ enum PLAYER_ANIM
 	PLAYER_LEAVE_AIMING,
 };
 
- // approx 60 feet
- // approx 20 feet
- // Can go another 200 units without getting hurt
+// approx 60 feet
+// approx 20 feet
+// Can go another 200 units without getting hurt
 
- // won't punch player's screen/make scrape noise unless player falling at least this fast.
- // damage per unit per second.
+// won't punch player's screen/make scrape noise unless player falling at least this fast.
+// damage per unit per second.
 
 // instant damage
 
 // For a means of resolving these consts into debug string text, see function
 // CTakeDamageInfo::DebugGetDamageTypeString(unsigned int DamageType, char *outbuf, unsigned int outbuflength )
-			// generic damage -- do not use if you want players to flinch and bleed!
-#define DMG_CRUSH			(1 << 0)	// crushed by falling or moving object. 
-										// NOTE: It's assumed crush damage is occurring as a result of physics collision, so no extra physics force is generated by crush damage.
-										// DON'T use DMG_CRUSH when damaging entities unless it's the result of a physics collision. You probably want DMG_CLUB instead.
-	// shot
-	// cut, clawed, stabbed
-#define DMG_BURN			(1 << 3)	// heat burned
-	// hit by a vehicle
-#define DMG_FALL			(1 << 5)	// fell too far
-#define DMG_BLAST			(1 << 6)	// explosive blast damage
-#define DMG_CLUB			(1 << 7)	// crowbar, punch, headbutt
-#define DMG_SHOCK			(1 << 8)	// electric shock
-#define DMG_SONIC			(1 << 9)	// sound pulse shockwave
-	// laser or other high energy beam 
-#define DMG_PREVENT_PHYSICS_FORCE		(1 << 11)	// Prevent a physics force 
-	// with this bit OR'd in, no damage type will be able to gib victims upon death
-	// with this bit OR'd in, any damage type can be made to gib victims upon death.
-#define DMG_DROWN			(1 << 14)	// Drowning
+// generic damage -- do not use if you want players to flinch and bleed!
+#define DMG_CRUSH ( 1 << 0 ) // crushed by falling or moving object.
+// NOTE: It's assumed crush damage is occurring as a result of physics collision, so no extra physics force is generated by crush damage.
+// DON'T use DMG_CRUSH when damaging entities unless it's the result of a physics collision. You probably want DMG_CLUB instead.
+// shot
+// cut, clawed, stabbed
+#define DMG_BURN ( 1 << 3 ) // heat burned
+// hit by a vehicle
+#define DMG_FALL ( 1 << 5 ) // fell too far
+#define DMG_BLAST ( 1 << 6 ) // explosive blast damage
+#define DMG_CLUB ( 1 << 7 ) // crowbar, punch, headbutt
+#define DMG_SHOCK ( 1 << 8 ) // electric shock
+#define DMG_SONIC ( 1 << 9 ) // sound pulse shockwave
+// laser or other high energy beam
+#define DMG_PREVENT_PHYSICS_FORCE ( 1 << 11 ) // Prevent a physics force
+// with this bit OR'd in, no damage type will be able to gib victims upon death
+// with this bit OR'd in, any damage type can be made to gib victims upon death.
+#define DMG_DROWN ( 1 << 14 ) // Drowning
 
-#define DMG_PARALYZE		(1 << 15)	// slows affected creature down
-#define DMG_NERVEGAS		(1 << 16)	// nerve toxins, very bad
-#define DMG_POISON			(1 << 17)	// blood poisoning - heals over time like drowning damage
-#define DMG_RADIATION		(1 << 18)	// radiation exposure
-#define DMG_DROWNRECOVER	(1 << 19)	// drowning recovery
-#define DMG_ACID			(1 << 20)	// toxic chemicals or acid burns
-#define DMG_SLOWBURN		(1 << 21)	// in an oven
+#define DMG_PARALYZE ( 1 << 15 ) // slows affected creature down
+#define DMG_NERVEGAS ( 1 << 16 ) // nerve toxins, very bad
+#define DMG_POISON ( 1 << 17 ) // blood poisoning - heals over time like drowning damage
+#define DMG_RADIATION ( 1 << 18 ) // radiation exposure
+#define DMG_DROWNRECOVER ( 1 << 19 ) // drowning recovery
+#define DMG_ACID ( 1 << 20 ) // toxic chemicals or acid burns
+#define DMG_SLOWBURN ( 1 << 21 ) // in an oven
 
-		// with this bit OR'd in, no ragdoll will be created, and the target will be quietly removed.
-										// use this to kill an entity that you've already got a server-side ragdoll for
+// with this bit OR'd in, no ragdoll will be created, and the target will be quietly removed.
+// use this to kill an entity that you've already got a server-side ragdoll for
 
-#define DMG_PHYSGUN			(1<<23)		// Hit by manipulator. Usually doesn't do any damage.
-#define DMG_PLASMA			(1<<24)		// Shot by Cremator
-		// Hit by the airboat's gun
+#define DMG_PHYSGUN ( 1 << 23 ) // Hit by manipulator. Usually doesn't do any damage.
+#define DMG_PLASMA ( 1 << 24 ) // Shot by Cremator
+// Hit by the airboat's gun
 
-		// Dissolving!
-		// A blast on the surface of water that cannot harm things underwater
+// Dissolving!
+// A blast on the surface of water that cannot harm things underwater
 
-#define DMG_BUCKSHOT		(1<<29)		// not quite a bullet. Little, rounder, different.
+#define DMG_BUCKSHOT ( 1 << 29 ) // not quite a bullet. Little, rounder, different.
 
 // NOTE: DO NOT ADD ANY MORE CUSTOM DMG_ TYPES. MODS USE THE DMG_LASTGENERICFLAG BELOW, AND
 //		 IF YOU ADD NEW DMG_ TYPES, THEIR TYPES WILL BE HOSED. WE NEED A BETTER SOLUTION.
 
 // TODO: keep this up to date so all the mod-specific flags don't overlap anything.
-#define DMG_LASTGENERICFLAG	DMG_BUCKSHOT
+#define DMG_LASTGENERICFLAG DMG_BUCKSHOT
 
 // settings for m_takedamage
-#define	DAMAGE_NO				0
-#define DAMAGE_EVENTS_ONLY		1		// Call damage functions, but don't modify health
-#define	DAMAGE_YES				2
+#define DAMAGE_NO 0
+// Call damage functions, but don't modify health
+#define DAMAGE_YES 2
 
 // Spectator Movement modes
-enum {
-	OBS_MODE_NONE = 0,	// not in spectator mode
-	OBS_MODE_DEATHCAM,	// special mode for death cam animation
-	OBS_MODE_FREEZECAM,	// zooms to a target, and freeze-frames on them
-	OBS_MODE_FIXED,		// view from a fixed camera position
-	OBS_MODE_IN_EYE,	// follow a player in first person view
-	OBS_MODE_CHASE,		// follow a player in third person view
-	OBS_MODE_POI,		// PASSTIME point of interest - game objective, big fight, anything interesting; added in the middle of the enum due to tons of hard-coded "<ROAMING" enum compares
-	OBS_MODE_ROAMING,	// free roaming
+enum
+{
+	OBS_MODE_NONE = 0, // not in spectator mode
+	OBS_MODE_DEATHCAM, // special mode for death cam animation
+	OBS_MODE_FREEZECAM, // zooms to a target, and freeze-frames on them
+	OBS_MODE_FIXED, // view from a fixed camera position
+	OBS_MODE_IN_EYE, // follow a player in first person view
+	OBS_MODE_CHASE, // follow a player in third person view
+	OBS_MODE_POI, // PASSTIME point of interest - game objective, big fight, anything interesting; added in the middle of the enum due to tons of hard-coded "<ROAMING" enum compares
+	OBS_MODE_ROAMING, // free roaming
 
 	NUM_OBSERVER_MODES,
 };
 
 // Force Camera Restrictions with mp_forcecamera
-enum {
-	OBS_ALLOW_ALL = 0,	// allow all modes, all targets
-	OBS_ALLOW_TEAM,		// allow only own team & first person, no PIP
-	OBS_ALLOW_NONE,		// don't allow any spectating after death (fixed & fade to black)
+enum
+{
+	OBS_ALLOW_ALL = 0, // allow all modes, all targets
+	OBS_ALLOW_TEAM, // allow only own team & first person, no PIP
+	OBS_ALLOW_NONE, // don't allow any spectating after death (fixed & fade to black)
 
 	OBS_ALLOW_NUM_MODES,
 };
 
 enum
 {
-	TYPE_TEXT = 0,	// just display this plain text
-	TYPE_INDEX,		// lookup text & title in stringtable
-	TYPE_URL,		// show this URL
-	TYPE_FILE,		// show this local file
-} ;
+	TYPE_TEXT = 0, // just display this plain text
+	TYPE_INDEX, // lookup text & title in stringtable
+	TYPE_URL, // show this URL
+	TYPE_FILE, // show this local file
+};
 
 // HPE_BEGIN:
 // [Forrest] Replaced text window command string with TEXTWINDOW_CMD enumeration
@@ -361,6 +356,7 @@ enum
 	TEXTWINDOW_CMD_CLOSED_HTMLPAGE,
 	TEXTWINDOW_CMD_CHOOSETEAM,
 };
+
 // HPE_END
 
 // VGui Screen Flags
@@ -377,9 +373,9 @@ enum
 
 typedef enum
 {
-	USE_OFF = 0, 
-	USE_ON = 1, 
-	USE_SET = 2, 
+	USE_OFF = 0,
+	USE_ON = 1,
+	USE_SET = 2,
 	USE_TOGGLE = 3
 } USE_TYPE;
 
@@ -394,7 +390,6 @@ enum
 	BLOOD_COLOR_YELLOW,
 	BLOOD_COLOR_GREEN,
 	BLOOD_COLOR_MECH,
-
 };
 
 // Water splash effect flags
@@ -408,54 +403,57 @@ enum
 // entity flags, CBaseEntity::m_iEFlags
 enum
 {
-	EFL_KILLME	=				(1<<0),	// This entity is marked for death -- This allows the game to actually delete ents at a safe time
-	EFL_DORMANT	=				(1<<1),	// Entity is dormant, no updates to client
-	EFL_NOCLIP_ACTIVE =			(1<<2),	// Lets us know when the noclip command is active.
-	EFL_SETTING_UP_BONES =		(1<<3),	// Set while a model is setting up its bones.
-	EFL_KEEP_ON_RECREATE_ENTITIES = (1<<4), // This is a special entity that should not be deleted when we restart entities only
+	EFL_KILLME =
+		( 1 << 0 ), // This entity is marked for death -- This allows the game to actually delete ents at a safe time
+	EFL_DORMANT = ( 1 << 1 ), // Entity is dormant, no updates to client
+	EFL_NOCLIP_ACTIVE = ( 1 << 2 ), // Lets us know when the noclip command is active.
+	EFL_SETTING_UP_BONES = ( 1 << 3 ), // Set while a model is setting up its bones.
+	EFL_KEEP_ON_RECREATE_ENTITIES =
+		( 1 << 4 ), // This is a special entity that should not be deleted when we restart entities only
 
-	EFL_HAS_PLAYER_CHILD=		(1<<4),	// One of the child entities is a player.
+	EFL_HAS_PLAYER_CHILD = ( 1 << 4 ), // One of the child entities is a player.
 
-	EFL_DIRTY_SHADOWUPDATE =	(1<<5),	// Client only- need shadow manager to update the shadow...
-	EFL_NOTIFY =				(1<<6),	// Another entity is watching events on this entity (used by teleport)
+	EFL_DIRTY_SHADOWUPDATE = ( 1 << 5 ), // Client only- need shadow manager to update the shadow...
+	EFL_NOTIFY = ( 1 << 6 ), // Another entity is watching events on this entity (used by teleport)
 
 	// The default behavior in ShouldTransmit is to not send an entity if it doesn't
 	// have a model. Certain entities want to be sent anyway because all the drawing logic
 	// is in the client DLL. They can set this flag and the engine will transmit them even
 	// if they don't have a model.
-	EFL_FORCE_CHECK_TRANSMIT =	(1<<7),
+	EFL_FORCE_CHECK_TRANSMIT = ( 1 << 7 ),
 
-	EFL_BOT_FROZEN =			(1<<8),	// This is set on bots that are frozen.
-	EFL_SERVER_ONLY =			(1<<9),	// Non-networked entity.
-	EFL_NO_AUTO_EDICT_ATTACH =	(1<<10), // Don't attach the edict; we're doing it explicitly
-	
+	EFL_BOT_FROZEN = ( 1 << 8 ), // This is set on bots that are frozen.
+	EFL_SERVER_ONLY = ( 1 << 9 ), // Non-networked entity.
+	EFL_NO_AUTO_EDICT_ATTACH = ( 1 << 10 ), // Don't attach the edict; we're doing it explicitly
+
 	// Some dirty bits with respect to abs computations
-	EFL_DIRTY_ABSTRANSFORM =	(1<<11),
-	EFL_DIRTY_ABSVELOCITY =		(1<<12),
-	EFL_DIRTY_ABSANGVELOCITY =	(1<<13),
-	EFL_DIRTY_SURROUNDING_COLLISION_BOUNDS	= (1<<14),
-	EFL_DIRTY_SPATIAL_PARTITION = (1<<15),
-	EFL_FORCE_ALLOW_MOVEPARENT	= (1<<16),
+	EFL_DIRTY_ABSTRANSFORM = ( 1 << 11 ),
+	EFL_DIRTY_ABSVELOCITY = ( 1 << 12 ),
+	EFL_DIRTY_ABSANGVELOCITY = ( 1 << 13 ),
+	EFL_DIRTY_SURROUNDING_COLLISION_BOUNDS = ( 1 << 14 ),
+	EFL_DIRTY_SPATIAL_PARTITION = ( 1 << 15 ),
+	EFL_FORCE_ALLOW_MOVEPARENT = ( 1 << 16 ),
 
-	EFL_IN_SKYBOX =				(1<<17),	// This is set if the entity detects that it's in the skybox.
-											// This forces it to pass the "in PVS" for transmission.
-	EFL_USE_PARTITION_WHEN_NOT_SOLID = (1<<18),	// Entities with this flag set show up in the partition even when not solid
-	EFL_TOUCHING_FLUID =		(1<<19),	// Used to determine if an entity is floating
+	EFL_IN_SKYBOX = ( 1 << 17 ), // This is set if the entity detects that it's in the skybox.
+	// This forces it to pass the "in PVS" for transmission.
+	EFL_USE_PARTITION_WHEN_NOT_SOLID =
+		( 1 << 18 ), // Entities with this flag set show up in the partition even when not solid
+	EFL_TOUCHING_FLUID = ( 1 << 19 ), // Used to determine if an entity is floating
 
 	// FIXME: Not really sure where I should add this...
-	EFL_IS_BEING_LIFTED_BY_BARNACLE = (1<<20),
-	EFL_NO_ROTORWASH_PUSH =		(1<<21),		// I shouldn't be pushed by the rotorwash
-	EFL_NO_THINK_FUNCTION =		(1<<22),
-	EFL_NO_GAME_PHYSICS_SIMULATION = (1<<23),
+	EFL_IS_BEING_LIFTED_BY_BARNACLE = ( 1 << 20 ),
+	EFL_NO_ROTORWASH_PUSH = ( 1 << 21 ), // I shouldn't be pushed by the rotorwash
+	EFL_NO_THINK_FUNCTION = ( 1 << 22 ),
+	EFL_NO_GAME_PHYSICS_SIMULATION = ( 1 << 23 ),
 
-	EFL_CHECK_UNTOUCH =			(1<<24),
-	EFL_DONTBLOCKLOS =			(1<<25),		// I shouldn't block NPC line-of-sight
-	EFL_DONTWALKON =			(1<<26),		// NPC;s should not walk on this entity
-	EFL_NO_DISSOLVE =			(1<<27),		// These guys shouldn't dissolve
-	EFL_NO_MEGAPHYSCANNON_RAGDOLL = (1<<28),	// Mega physcannon can't ragdoll these guys.
-	EFL_NO_WATER_VELOCITY_CHANGE  =	(1<<29),	// Don't adjust this entity's velocity when transitioning into water
-	EFL_NO_PHYSCANNON_INTERACTION =	(1<<30),	// Physcannon can't pick these up or punt them
-	EFL_NO_DAMAGE_FORCES =		(1<<31),	// Doesn't accept forces from physics damage
+	EFL_CHECK_UNTOUCH = ( 1 << 24 ),
+	EFL_DONTBLOCKLOS = ( 1 << 25 ), // I shouldn't block NPC line-of-sight
+	EFL_DONTWALKON = ( 1 << 26 ), // NPC;s should not walk on this entity
+	EFL_NO_DISSOLVE = ( 1 << 27 ), // These guys shouldn't dissolve
+	EFL_NO_MEGAPHYSCANNON_RAGDOLL = ( 1 << 28 ), // Mega physcannon can't ragdoll these guys.
+	EFL_NO_WATER_VELOCITY_CHANGE = ( 1 << 29 ), // Don't adjust this entity's velocity when transitioning into water
+	EFL_NO_PHYSCANNON_INTERACTION = ( 1 << 30 ), // Physcannon can't pick these up or punt them
+	EFL_NO_DAMAGE_FORCES = ( 1 << 31 ), // Doesn't accept forces from physics damage
 };
 
 // These are the types of data that hang off of CBaseEntities and the flag bits used to mark their presence
@@ -503,7 +501,8 @@ struct FireBulletsInfo_t
 		m_bUseServerRandomSeed = false;
 	}
 
-	FireBulletsInfo_t( int nShots, const Vector &vecSrc, const Vector &vecDir, const Vector &vecSpread, float flDistance, int nAmmoType, bool bPrimaryAttack = true )
+	FireBulletsInfo_t( int nShots, const Vector &vecSrc, const Vector &vecDir, const Vector &vecSpread,
+					   float flDistance, int nAmmoType, bool bPrimaryAttack = true )
 	{
 		m_iShots = nShots;
 		m_vecSrc = vecSrc;
@@ -530,8 +529,8 @@ struct FireBulletsInfo_t
 	int m_iAmmoType;
 	int m_iTracerFreq;
 	float m_flDamage;
-	int m_iPlayerDamage;	// Damage to be used instead of m_flDamage if we hit a player
-	int m_nFlags;			// See FireBulletsFlags_t
+	int m_iPlayerDamage; // Damage to be used instead of m_flDamage if we hit a player
+	int m_nFlags; // See FireBulletsFlags_t
 	float m_flDamageForceScale;
 	CBaseEntity *m_pAttacker;
 	CBaseEntity *m_pAdditionalIgnoreEnt;
@@ -540,88 +539,91 @@ struct FireBulletsInfo_t
 };
 
 // Purpose: Data for making the MOVETYPE_STEP entities appear to simulate every frame
-//  We precompute the simulation and then meter it out each tick during networking of the 
+//  We precompute the simulation and then meter it out each tick during networking of the
 //  entities origin and orientation.  Uses a bit more bandwidth, but it solves the NPCs interacting
 //  with elevators/lifts bugs.
 struct StepSimulationStep
 {
-	int			nTickCount;
-	Vector		vecOrigin;
-	Quaternion	qRotation;
+	int nTickCount;
+	Vector vecOrigin;
+	Quaternion qRotation;
 };
 
 struct StepSimulationData
 {
 	// Are we using the Step Simulation Data
-	bool		m_bOriginActive;
-	bool		m_bAnglesActive;
+	bool m_bOriginActive;
+	bool m_bAnglesActive;
 
 	// This is the pre-pre-Think position, orientation (Quaternion) and tick count
-	StepSimulationStep	m_Previous2;
+	StepSimulationStep m_Previous2;
 
 	// This is the pre-Think position, orientation (Quaternion) and tick count
-	StepSimulationStep	m_Previous;
+	StepSimulationStep m_Previous;
 
 	// This is a potential mid-think position, orientation (Quaternion) and tick count
 	// Used to mark motion discontinuities that happen between thinks
-	StepSimulationStep	m_Discontinuity;
+	StepSimulationStep m_Discontinuity;
 
 	// This is the goal or post-Think position and orientation (and Quaternion for blending) and next think time tick
-	StepSimulationStep	m_Next;
-	QAngle		m_angNextRotation;
+	StepSimulationStep m_Next;
+	QAngle m_angNextRotation;
 
 	// This variable is used so that we only compute networked origin/angles once per tick
-	int			m_nLastProcessTickCount;
+	int m_nLastProcessTickCount;
 	// The computed/interpolated network origin/angles to use
-	Vector		m_vecNetworkOrigin;
-	QAngle		m_angNetworkAngles;
+	Vector m_vecNetworkOrigin;
+	QAngle m_angNetworkAngles;
 };
 
 #include "soundflags.h"
 
 struct CSoundParameters;
 typedef short HSOUNDSCRIPTHANDLE;
+
 // Purpose: Aggregates and sets default parameters for EmitSound function calls
 struct EmitSound_t
 {
-	EmitSound_t() :
-		m_nChannel( 0 ),
-		m_pSoundName( 0 ),
-		m_flVolume( VOL_NORM ),
-		m_SoundLevel( SNDLVL_NONE ),
-		m_nFlags( 0 ),
-		m_nPitch( PITCH_NORM ),
-		m_nSpecialDSP( 0 ),
-		m_pOrigin( 0 ),
-		m_flSoundTime( 0.0f ),
-		m_pflSoundDuration( 0 ),
-		m_bEmitCloseCaption( true ),
-		m_bWarnOnMissingCloseCaption( false ),
-		m_bWarnOnDirectWaveReference( false ),
-		m_nSpeakerEntity( -1 ),
-		m_UtlVecSoundOrigin(),
-		m_hSoundScriptHandle( -1 )
+	EmitSound_t()
+		: m_nChannel( 0 )
+		, m_pSoundName( 0 )
+		, m_flVolume( VOL_NORM )
+		, m_SoundLevel( SNDLVL_NONE )
+		, m_nFlags( 0 )
+		, m_nPitch( PITCH_NORM )
+		, m_nSpecialDSP( 0 )
+		, m_pOrigin( 0 )
+		, m_flSoundTime( 0.0f )
+		, m_pflSoundDuration( 0 )
+		, m_bEmitCloseCaption( true )
+		, m_bWarnOnMissingCloseCaption( false )
+		, m_bWarnOnDirectWaveReference( false )
+		, m_nSpeakerEntity( -1 )
+		, m_UtlVecSoundOrigin()
+		, m_hSoundScriptHandle( -1 )
 	{
 	}
 
 	EmitSound_t( const CSoundParameters &src );
 
-	int							m_nChannel;
-	char const					*m_pSoundName;
-	float						m_flVolume;
-	soundlevel_t				m_SoundLevel;
-	int							m_nFlags;
-	int							m_nPitch;
-	int							m_nSpecialDSP;
-	const Vector				*m_pOrigin;
-	float						m_flSoundTime; ///< NOT DURATION, but rather, some absolute time in the future until which this sound should be delayed
-	float						*m_pflSoundDuration;
-	bool						m_bEmitCloseCaption;
-	bool						m_bWarnOnMissingCloseCaption;
-	bool						m_bWarnOnDirectWaveReference;
-	int							m_nSpeakerEntity;
-	mutable CUtlVector< Vector >	m_UtlVecSoundOrigin;  ///< Actual sound origin(s) (can be multiple if sound routed through speaker entity(ies) )
-	mutable HSOUNDSCRIPTHANDLE		m_hSoundScriptHandle;
+	int m_nChannel;
+	char const *m_pSoundName;
+	float m_flVolume;
+	soundlevel_t m_SoundLevel;
+	int m_nFlags;
+	int m_nPitch;
+	int m_nSpecialDSP;
+	const Vector *m_pOrigin;
+	float
+		m_flSoundTime; ///< NOT DURATION, but rather, some absolute time in the future until which this sound should be delayed
+	float *m_pflSoundDuration;
+	bool m_bEmitCloseCaption;
+	bool m_bWarnOnMissingCloseCaption;
+	bool m_bWarnOnDirectWaveReference;
+	int m_nSpeakerEntity;
+	mutable CUtlVector<Vector>
+		m_UtlVecSoundOrigin; ///< Actual sound origin(s) (can be multiple if sound routed through speaker entity(ies) )
+	mutable HSOUNDSCRIPTHANDLE m_hSoundScriptHandle;
 };
 
 // Multiplayer specific defines
@@ -655,8 +657,8 @@ enum
 // Round timer states
 enum
 {
-	RT_STATE_SETUP,		// Timer is in setup mode
-	RT_STATE_NORMAL,	// Timer is in normal mode
+	RT_STATE_SETUP, // Timer is in setup mode
+	RT_STATE_NORMAL, // Timer is in normal mode
 };
 
 enum
@@ -668,7 +670,7 @@ enum
 
 // The player's method of starting / stopping commentary
 #ifdef GAME_HAS_NO_USE_KEY
-#define COMMENTARY_BUTTONS		(IN_ATTACK | IN_ATTACK2 | IN_USE)
+#define COMMENTARY_BUTTONS ( IN_ATTACK | IN_ATTACK2 | IN_USE )
 #endif
 
 enum
@@ -678,19 +680,20 @@ enum
 	HILL_TYPE_DOWNHILL,
 };
 
-#define NOINTERP_PARITY_MAX_BITS	2
+#define NOINTERP_PARITY_MAX_BITS 2
 
 // Generic activity lookup support
 enum
 {
-	kActivityLookup_Unknown = -2,			// hasn't been searched for
-	kActivityLookup_Missing = -1,			// has been searched for but wasn't found
+	kActivityLookup_Unknown = -2, // hasn't been searched for
+	kActivityLookup_Missing = -1, // has been searched for but wasn't found
 };
 
 class CPhysCollide;
+
 struct collidelist_t
 {
-	const CPhysCollide	*pCollide;
-	Vector			origin;
-	QAngle			angles;
+	const CPhysCollide *pCollide;
+	Vector origin;
+	QAngle angles;
 };

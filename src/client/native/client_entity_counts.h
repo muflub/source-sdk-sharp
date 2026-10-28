@@ -12,15 +12,16 @@
 
 #pragma once
 
-#include "slot_table.h"
-
 class CClientEntityCounts
 {
 public:
 	// A reference, not a copy: RecomputeHighest asks which entries are still bound.
 	explicit CClientEntityCounts( const CSourceSharpSlotTable &table )
-		: m_Table( table ), m_nMaxServerEnts( 0 ), m_nHighestUsed( -1 ),
-		  m_nNetworkedBound( 0 ), m_nNonNetworkedBound( 0 )
+		: m_Table( table )
+		, m_nMaxServerEnts( 0 )
+		, m_nHighestUsed( -1 )
+		, m_nNetworkedBound( 0 )
+		, m_nNonNetworkedBound( 0 )
 	{
 	}
 
@@ -70,13 +71,12 @@ public:
 
 	int NumberOfEntities( bool bIncludeNonNetworkable ) const
 	{
-		return bIncludeNonNetworkable
-		     ? m_nNetworkedBound + m_nNonNetworkedBound
-		     : m_nNetworkedBound;
+		return bIncludeNonNetworkable ? m_nNetworkedBound + m_nNonNetworkedBound : m_nNetworkedBound;
 	}
 
 	void SetMaxEntities( int nMaxEnts ) { m_nMaxServerEnts = nMaxEnts; }
-	int  MaxEntities() const      { return m_nMaxServerEnts; }
+
+	int MaxEntities() const { return m_nMaxServerEnts; }
 
 private:
 	// Removing the highest entity can lower it by any amount, so it is recomputed,

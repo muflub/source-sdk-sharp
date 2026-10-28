@@ -12,7 +12,7 @@ extern ConVar mat_wireframe;
 
 // Transform a world point into normalized screen space (X and Y from -1 to 1).
 // Returns 0 if the point is behind the viewer.
-int ScreenTransform( const Vector& point, Vector& screen );
+int ScreenTransform( const Vector &point, Vector &screen );
 
 extern ConVar r_updaterefracttexture;
 extern int g_viewscene_refractUpdateFrame;
@@ -28,9 +28,10 @@ inline void UpdateRefractTexture( int x, int y, int w, int h, bool bForceUpdate 
 
 	CMatRenderContextPtr pRenderContext( materials );
 	ITexture *pTexture = GetPowerOfTwoFrameBufferTexture();
-	if ( IsPC() || bForceUpdate || g_bAllowMultipleRefractUpdatesPerScenePerFrame || (gpGlobals->framecount != g_viewscene_refractUpdateFrame) )
+	if ( IsPC() || bForceUpdate || g_bAllowMultipleRefractUpdatesPerScenePerFrame ||
+		 ( gpGlobals->framecount != g_viewscene_refractUpdateFrame ) )
 	{
-		// forced or only once per frame 
+		// forced or only once per frame
 		Rect_t rect;
 		rect.x = x;
 		rect.y = y;
@@ -49,12 +50,13 @@ inline void UpdateRefractTexture( bool bForceUpdate = false )
 
 	CMatRenderContextPtr pRenderContext( materials );
 
-	int x,y,w,h;
+	int x, y, w, h;
 	pRenderContext->GetViewport( x, y, w, h );
 	UpdateRefractTexture( x, y, w, h, bForceUpdate );
 }
 
-inline void UpdateScreenEffectTexture( int textureIndex, int x, int y, int w, int h, bool bDestFullScreen = false, Rect_t *pActualRect = NULL )
+inline void UpdateScreenEffectTexture( int textureIndex, int x, int y, int w, int h, bool bDestFullScreen = false,
+									   Rect_t *pActualRect = NULL )
 {
 	Rect_t srcRect;
 	srcRect.x = x;
@@ -70,12 +72,12 @@ inline void UpdateScreenEffectTexture( int textureIndex, int x, int y, int w, in
 	int nDestHeight = pTexture->GetActualHeight();
 
 	Rect_t destRect = srcRect;
-	if( !bDestFullScreen && ( nSrcWidth > nDestWidth || nSrcHeight > nDestHeight ) )
+	if ( !bDestFullScreen && ( nSrcWidth > nDestWidth || nSrcHeight > nDestHeight ) )
 	{
-		// the source and target sizes aren't necessarily the same (specifically in dx7 where 
+		// the source and target sizes aren't necessarily the same (specifically in dx7 where
 		// nonpow2 rendertargets aren't supported), so lets figure it out here.
-		float scaleX = ( float )nDestWidth / ( float )nSrcWidth;
-		float scaleY = ( float )nDestHeight / ( float )nSrcHeight;
+		float scaleX = (float)nDestWidth / (float)nSrcWidth;
+		float scaleY = (float)nDestHeight / (float)nSrcHeight;
 		destRect.x = srcRect.x * scaleX;
 		destRect.y = srcRect.y * scaleY;
 		destRect.width = srcRect.width * scaleX;
@@ -107,9 +109,9 @@ inline void DrawScreenEffectMaterial( IMaterial *pMaterial, int x, int y, int w,
 
 	CMatRenderContextPtr pRenderContext( materials );
 
-	pRenderContext->DrawScreenSpaceRectangle( pMaterial, x, y, w, h,
-		actualRect.x, actualRect.y, actualRect.x+actualRect.width-1, actualRect.y+actualRect.height-1, 
-		pTexture->GetActualWidth(), pTexture->GetActualHeight() );
+	pRenderContext->DrawScreenSpaceRectangle( pMaterial, x, y, w, h, actualRect.x, actualRect.y,
+											  actualRect.x + actualRect.width - 1, actualRect.y + actualRect.height - 1,
+											  pTexture->GetActualWidth(), pTexture->GetActualHeight() );
 }
 
 inline void UpdateScreenEffectTexture()
@@ -117,7 +119,7 @@ inline void UpdateScreenEffectTexture()
 	Assert( !DrawingShadowDepthView() );
 
 	const CViewSetup *pViewSetup = view->GetViewSetup();
-	UpdateScreenEffectTexture( 0, pViewSetup->x, pViewSetup->y, pViewSetup->width, pViewSetup->height);
+	UpdateScreenEffectTexture( 0, pViewSetup->x, pViewSetup->y, pViewSetup->width, pViewSetup->height );
 }
 
 void UpdateFullScreenDepthTexture();

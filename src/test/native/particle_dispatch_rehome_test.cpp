@@ -55,7 +55,7 @@ namespace
 // Every line of code in a file that contains pszNeedle, with its 1-based number.
 struct Hit_t
 {
-	int         nLine;
+	int nLine;
 	std::string strText;
 };
 
@@ -64,7 +64,8 @@ struct Hit_t
 // that closes it, with whitespace squeezed out so the assertions below are
 // about statements rather than about indentation.
 //-----------------------------------------------------------------------------
-const char *kShim      = "sourcesharp/game/shared/particle_manifest.cpp";
+const char *kShim = "sourcesharp/game/shared/particle_manifest.cpp";
+
 //=============================================================================//
 // THE CHECK THAT WOULD OTHERWISE NOT BE ABLE TO FAIL.
 //

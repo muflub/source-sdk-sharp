@@ -2,7 +2,7 @@
 #pragma once
 
 // commonmacros.h
-// This should contain ONLY general purpose macros that are 
+// This should contain ONLY general purpose macros that are
 // appropriate for use in engine/launcher/all tools
 
 // Makes a 4-byte "packed ID" int out of 4 characters
@@ -12,16 +12,16 @@
 template <typename T>
 inline bool IsPowerOfTwo( T value )
 {
-	return (value & ( value - (T)1 )) == (T)0;
+	return ( value & ( value - (T)1 ) ) == (T)0;
 }
 
 #ifndef REFERENCE
-#define REFERENCE(arg) ((void)arg)
+#define REFERENCE( arg ) ( (void)arg )
 #endif
 
- //Wraps the integer in quotes, allowing us to form constant strings with it
- //__LINE__ can only be converted to an actual number by going through this, otherwise the output is literally "__LINE__"
- //Gives you the line number in constant string form
+//Wraps the integer in quotes, allowing us to form constant strings with it
+//__LINE__ can only be converted to an actual number by going through this, otherwise the output is literally "__LINE__"
+//Gives you the line number in constant string form
 
 // Using ARRAYSIZE implementation from winnt.h:
 #ifdef ARRAYSIZE
@@ -32,17 +32,13 @@ inline bool IsPowerOfTwo( T value )
 //   DWORD Buffer[100];
 //   RTL_NUMBER_OF(Buffer) == 100
 // This is also popularly known as: NUMBER_OF, ARRSIZE, _countof, NELEM, etc.
-#define RTL_NUMBER_OF_V1(A) (sizeof(A)/sizeof((A)[0]))
+#define RTL_NUMBER_OF_V1( A ) ( sizeof( A ) / sizeof( ( A )[0] ) )
 
-#if defined(__cplusplus) && \
-    !defined(MIDL_PASS) && \
-    !defined(RC_INVOKED) && \
-    (_MSC_FULL_VER >= 13009466) && \
-    !defined(SORTPP_PASS)
+#if defined( __cplusplus ) && _MSC_FULL_VER >= 13009466
 
 // From crtdefs.h
-#if !defined(UNALIGNED)
-#if defined(_M_AMD64)
+#if !defined( UNALIGNED )
+#if defined( _M_AMD64 )
 #define UNALIGNED __unaligned
 #else
 #define UNALIGNED
@@ -64,10 +60,10 @@ inline bool IsPowerOfTwo( T value )
 // Attempts to pass pointers instead of arrays to this macro result in compile time errors.
 // That is the point.
 extern "C++" // templates cannot be declared to have 'C' linkage
-template <typename T, size_t N>
-char (*RtlpNumberOf( UNALIGNED T (&)[N] ))[N];
+	template <typename T, size_t N>
+	char ( *RtlpNumberOf( UNALIGNED T ( & )[N] ) )[N];
 
-#define RTL_NUMBER_OF_V2(A) (sizeof(*RtlpNumberOf(A)))
+#define RTL_NUMBER_OF_V2( A ) ( sizeof( *RtlpNumberOf( A ) ) )
 
 // This does not work with:
 // void Foo()
@@ -96,13 +92,13 @@ char (*RtlpNumberOf( UNALIGNED T (&)[N] ))[N];
 // }
 
 #else
-#define RTL_NUMBER_OF_V2(A) RTL_NUMBER_OF_V1(A)
+#define RTL_NUMBER_OF_V2( A ) RTL_NUMBER_OF_V1( A )
 #endif
 
 // ARRAYSIZE is more readable version of RTL_NUMBER_OF_V2
 // _ARRAYSIZE is a version useful for anonymous types
-#define ARRAYSIZE(A)    RTL_NUMBER_OF_V2(A)
-#define _ARRAYSIZE(A)   RTL_NUMBER_OF_V1(A)
+#define ARRAYSIZE( A ) RTL_NUMBER_OF_V2( A )
+#define _ARRAYSIZE( A ) RTL_NUMBER_OF_V1( A )
 
-#define Q_ARRAYSIZE(p)		ARRAYSIZE(p)
-#define V_ARRAYSIZE(p)		ARRAYSIZE(p)
+#define Q_ARRAYSIZE( p ) ARRAYSIZE( p )
+#define V_ARRAYSIZE( p ) ARRAYSIZE( p )

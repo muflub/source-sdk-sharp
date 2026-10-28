@@ -14,26 +14,25 @@ class CParticleSubTexture;
 
 class ParticleDraw
 {
-friend class CParticleEffectBinding;
+	friend class CParticleEffectBinding;
 
 public:
+	ParticleDraw();
 
-					ParticleDraw();
-
-	void			Init( CMeshBuilder *pMeshBuilder, IMaterial *pMaterial, float fTimeDelta );
+	void Init( CMeshBuilder *pMeshBuilder, IMaterial *pMaterial, float fTimeDelta );
 
 	// Get the material being used (mostly useful for getting the tcoord padding).
 	//IMaterial*		GetPMaterial();
 
 	// This can return NULL if the particle system is only being simulated.
-	CMeshBuilder*	GetMeshBuilder();
+	CMeshBuilder *GetMeshBuilder();
 
-	CParticleSubTexture	*m_pSubTexture;
+	CParticleSubTexture *m_pSubTexture;
 
 private:
-	CMeshBuilder	*m_pMeshBuilder;
-	IMaterial		*m_pMaterial;
-	float			m_fTimeDelta;
+	CMeshBuilder *m_pMeshBuilder;
+	IMaterial *m_pMaterial;
+	float m_fTimeDelta;
 };
 
 // Inlines
@@ -50,7 +49,7 @@ inline void ParticleDraw::Init( CMeshBuilder *pMeshBuilder, IMaterial *pMaterial
 	m_fTimeDelta = fTimeDelta;
 }
 
-inline CMeshBuilder* ParticleDraw::GetMeshBuilder()
+inline CMeshBuilder *ParticleDraw::GetMeshBuilder()
 {
 	return m_pMeshBuilder;
 }

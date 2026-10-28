@@ -62,7 +62,7 @@ static std::string g_Log;
 
 void FlashlightLog( const char *pFmt, ... )
 {
-	char szLine[ 2048 ];
+	char szLine[2048];
 	va_list ap;
 	va_start( ap, pFmt );
 	vsnprintf( szLine, sizeof( szLine ), pFmt, ap );
@@ -91,42 +91,78 @@ class CFlashlightCvar final : public ICvar
 {
 public:
 	virtual bool Connect( CreateInterfaceFn ) { return true; }
+
 	virtual void Disconnect() {}
+
 	virtual void *QueryInterface( const char * ) { return NULL; }
+
 	virtual InitReturnVal_t Init() { return INIT_OK; }
+
 	virtual void Shutdown() {}
+
 	virtual CVarDLLIdentifier_t AllocateDLLIdentifier() { return 1; }
+
 	virtual void RegisterConCommand( ConCommandBase * ) {}
+
 	virtual void UnregisterConCommand( ConCommandBase * ) {}
+
 	virtual void UnregisterConCommands( CVarDLLIdentifier_t ) {}
+
 	virtual const char *GetCommandLineValue( const char * ) { return NULL; }
+
 	virtual ConCommandBase *FindCommandBase( const char * ) { return NULL; }
+
 	virtual const ConCommandBase *FindCommandBase( const char * ) const { return NULL; }
+
 	virtual ConVar *FindVar( const char * ) { return NULL; }
+
 	virtual const ConVar *FindVar( const char * ) const { return NULL; }
+
 	virtual ConCommand *FindCommand( const char * ) { return NULL; }
+
 	virtual const ConCommand *FindCommand( const char * ) const { return NULL; }
+
 	virtual ConCommandBase *GetCommands( void ) { return NULL; }
+
 	virtual const ConCommandBase *GetCommands( void ) const { return NULL; }
+
 	virtual void InstallGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void RemoveGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void CallGlobalChangeCallbacks( ConVar *, const char *, float ) {}
+
 	virtual void InstallConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void RemoveConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void ConsoleColorPrintf( const Color &, const char *, ... ) const {}
+
 	virtual void ConsolePrintf( const char *, ... ) const {}
+
 	virtual void ConsoleDPrintf( const char *, ... ) const {}
+
 	virtual void RevertFlaggedConVars( int ) {}
+
 	virtual void InstallCVarQuery( ICvarQuery * ) {}
+
 	virtual void PublishToVXConsole() {}
+
 	virtual bool IsMaterialThreadSetAllowed() const { return true; }
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, const char * ) {}
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, int ) {}
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, float ) {}
+
 	virtual bool HasQueuedMaterialThreadConVarSets() const { return false; }
+
 	virtual int ProcessQueuedMaterialThreadConVarSets() { return 0; }
+
 	virtual ICVarIteratorInternal *FactoryInternalIterator( void ) { return NULL; }
 };
+
 static CFlashlightCvar g_FlashlightCvar;
 
 //-----------------------------------------------------------------------------
@@ -171,9 +207,9 @@ bool IFlashlightHardwareConfig::SupportsBorderColor()
 }
 
 // Two textures, by name; the pointer the reference answers is the slot.
-static const char *s_TextureNames[ 8 ];
+static const char *s_TextureNames[8];
 static int s_nTextures = 0;
-static char s_TextureSlots[ 8 ];
+static char s_TextureSlots[8];
 
 void CTextureReference::Init( char const *pTexture, const char *pTextureGroupName, bool bComplain )
 {
@@ -181,20 +217,20 @@ void CTextureReference::Init( char const *pTexture, const char *pTextureGroupNam
 	int i = 0;
 	for ( ; i < s_nTextures; i++ )
 	{
-		if ( !strcmp( s_TextureNames[ i ], pTexture ) )
+		if ( !strcmp( s_TextureNames[i], pTexture ) )
 			break;
 	}
 	if ( i == s_nTextures )
-		s_TextureNames[ s_nTextures++ ] = pTexture;
-	m_pTexture = (ITexture *)&s_TextureSlots[ i ];
+		s_TextureNames[s_nTextures++] = pTexture;
+	m_pTexture = (ITexture *)&s_TextureSlots[i];
 }
 
 const char *FlashlightTextureName( const ITexture *pTexture )
 {
 	for ( int i = 0; i < s_nTextures; i++ )
 	{
-		if ( pTexture == (const ITexture *)&s_TextureSlots[ i ] )
-			return s_TextureNames[ i ];
+		if ( pTexture == (const ITexture *)&s_TextureSlots[i] )
+			return s_TextureNames[i];
 	}
 	return pTexture ? "<unknown>" : "<null>";
 }
@@ -202,18 +238,16 @@ const char *FlashlightTextureName( const ITexture *pTexture )
 static void LogState( const char *pszTag, int nHandle, const FlashlightState_t &s )
 {
 	FlashlightLog( "%s\t%d\t" V3FMT "\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x"
-	               "\t%08x\t%08x\t%08x\t%08x\t%s\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%d",
-	               pszTag, nHandle, V3( s.m_vecLightOrigin ),
-	               B( s.m_quatOrientation.x ), B( s.m_quatOrientation.y ), B( s.m_quatOrientation.z ),
-	               B( s.m_quatOrientation.w ),
-	               B( s.m_NearZ ), B( s.m_FarZ ), B( s.m_fHorizontalFOVDegrees ), B( s.m_fVerticalFOVDegrees ),
-	               B( s.m_fQuadraticAtten ), B( s.m_fLinearAtten ), B( s.m_fConstantAtten ),
-	               B( s.m_Color[ 0 ] ), B( s.m_Color[ 1 ] ), B( s.m_Color[ 2 ] ), B( s.m_Color[ 3 ] ),
-	               FlashlightTextureName( s.m_pSpotlightTexture ), s.m_nSpotlightTextureFrame,
-	               s.m_bEnableShadows ? 1 : 0, s.m_bDrawShadowFrustum ? 1 : 0,
-	               B( s.m_flShadowMapResolution ), B( s.m_flShadowFilterSize ),
-	               B( s.m_flShadowSlopeScaleDepthBias ), B( s.m_flShadowDepthBias ),
-	               B( s.m_flShadowJitterSeed ), B( s.m_flShadowAtten ), s.m_nShadowQuality );
+				   "\t%08x\t%08x\t%08x\t%08x\t%s\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%d",
+				   pszTag, nHandle, V3( s.m_vecLightOrigin ), B( s.m_quatOrientation.x ), B( s.m_quatOrientation.y ),
+				   B( s.m_quatOrientation.z ), B( s.m_quatOrientation.w ), B( s.m_NearZ ), B( s.m_FarZ ),
+				   B( s.m_fHorizontalFOVDegrees ), B( s.m_fVerticalFOVDegrees ), B( s.m_fQuadraticAtten ),
+				   B( s.m_fLinearAtten ), B( s.m_fConstantAtten ), B( s.m_Color[0] ), B( s.m_Color[1] ),
+				   B( s.m_Color[2] ), B( s.m_Color[3] ), FlashlightTextureName( s.m_pSpotlightTexture ),
+				   s.m_nSpotlightTextureFrame, s.m_bEnableShadows ? 1 : 0, s.m_bDrawShadowFrustum ? 1 : 0,
+				   B( s.m_flShadowMapResolution ), B( s.m_flShadowFilterSize ), B( s.m_flShadowSlopeScaleDepthBias ),
+				   B( s.m_flShadowDepthBias ), B( s.m_flShadowJitterSeed ), B( s.m_flShadowAtten ),
+				   s.m_nShadowQuality );
 }
 
 ClientShadowHandle_t IFlashlightShadowMgr::CreateFlashlight( const FlashlightState_t &lightState )
@@ -223,7 +257,8 @@ ClientShadowHandle_t IFlashlightShadowMgr::CreateFlashlight( const FlashlightSta
 	return (ClientShadowHandle_t)h;
 }
 
-void IFlashlightShadowMgr::UpdateFlashlightState( ClientShadowHandle_t shadowHandle, const FlashlightState_t &lightState )
+void IFlashlightShadowMgr::UpdateFlashlightState( ClientShadowHandle_t shadowHandle,
+												  const FlashlightState_t &lightState )
 {
 	LogState( "W", shadowHandle, lightState );
 }
@@ -240,40 +275,40 @@ void IFlashlightShadowMgr::DestroyFlashlight( ClientShadowHandle_t shadowHandle 
 
 // The dynamic-light pool: CL_AllocDlight answers the light already holding
 // the key, cleared, or else the first expired one, cleared and keyed.
-static dlight_t s_Dlights[ 4 ];
+static dlight_t s_Dlights[4];
 
 dlight_t *IFlashlightEfx::CL_AllocDlight( int key )
 {
 	FlashlightLog( "A\t%d", key );
 	for ( int i = 0; i < 4; i++ )
 	{
-		if ( s_Dlights[ i ].key == key )
+		if ( s_Dlights[i].key == key )
 		{
-			memset( (void *)&s_Dlights[ i ], 0, sizeof( s_Dlights[ i ] ) );
-			s_Dlights[ i ].key = key;
-			return &s_Dlights[ i ];
+			memset( (void *)&s_Dlights[i], 0, sizeof( s_Dlights[i] ) );
+			s_Dlights[i].key = key;
+			return &s_Dlights[i];
 		}
 	}
 	for ( int i = 0; i < 4; i++ )
 	{
-		if ( s_Dlights[ i ].die < gpGlobals->curtime )
+		if ( s_Dlights[i].die < gpGlobals->curtime )
 		{
-			memset( (void *)&s_Dlights[ i ], 0, sizeof( s_Dlights[ i ] ) );
-			s_Dlights[ i ].key = key;
-			return &s_Dlights[ i ];
+			memset( (void *)&s_Dlights[i], 0, sizeof( s_Dlights[i] ) );
+			s_Dlights[i].key = key;
+			return &s_Dlights[i];
 		}
 	}
-	memset( (void *)&s_Dlights[ 0 ], 0, sizeof( s_Dlights[ 0 ] ) );
-	s_Dlights[ 0 ].key = key;
-	return &s_Dlights[ 0 ];
+	memset( (void *)&s_Dlights[0], 0, sizeof( s_Dlights[0] ) );
+	s_Dlights[0].key = key;
+	return &s_Dlights[0];
 }
 
 static void LogDlight( const char *pszTag, const dlight_t &d )
 {
-	FlashlightLog( "%s\t%d\t%d\t" V3FMT "\t%08x\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%d\t" V3FMT "\t%08x\t%08x",
-	               pszTag, d.key, d.flags, V3( d.origin ), B( d.radius ), d.color.r, d.color.g, d.color.b,
-	               d.color.exponent, B( d.die ), B( d.decay ), B( d.minlight ), d.style, V3( d.m_Direction ),
-	               B( d.m_InnerAngle ), B( d.m_OuterAngle ) );
+	FlashlightLog( "%s\t%d\t%d\t" V3FMT "\t%08x\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%d\t" V3FMT "\t%08x\t%08x", pszTag,
+				   d.key, d.flags, V3( d.origin ), B( d.radius ), d.color.r, d.color.g, d.color.b, d.color.exponent,
+				   B( d.die ), B( d.decay ), B( d.minlight ), d.style, V3( d.m_Direction ), B( d.m_InnerAngle ),
+				   B( d.m_OuterAngle ) );
 }
 
 void IFlashlightRender::TouchLight( dlight_t *light )
@@ -282,17 +317,17 @@ void IFlashlightRender::TouchLight( dlight_t *light )
 }
 
 void IFlashlightDebugOverlay::AddBoxOverlay( const Vector &origin, const Vector &mins, const Vector &max,
-                                             QAngle const &orientation, int r, int g, int b, int a, float duration )
+											 QAngle const &orientation, int r, int g, int b, int a, float duration )
 {
 	FlashlightLog( "BX\t" V3FMT "\t" V3FMT "\t" V3FMT "\t" V3FMT "\t%d\t%d\t%d\t%d\t%08x", V3( origin ), V3( mins ),
-	               V3( max ), V3( orientation ), r, g, b, a, B( duration ) );
+				   V3( max ), V3( orientation ), r, g, b, a, B( duration ) );
 }
 
 void IFlashlightDebugOverlay::AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b,
-                                              bool noDepthTest, float duration )
+											  bool noDepthTest, float duration )
 {
 	FlashlightLog( "LN\t" V3FMT "\t" V3FMT "\t%d\t%d\t%d\t%d\t%08x", V3( origin ), V3( dest ), r, g, b,
-	               noDepthTest ? 1 : 0, B( duration ) );
+				   noDepthTest ? 1 : 0, B( duration ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -317,7 +352,7 @@ static const char *HandleName( IHandleEntity *p )
 {
 	if ( p == &s_StaticProp )
 		return "staticprop";
-	C_BaseEntity *pEnt = static_cast< C_BaseEntity * >( p );
+	C_BaseEntity *pEnt = static_cast<C_BaseEntity *>( p );
 	return pEnt ? pEnt->m_pszName : "world";
 }
 
@@ -325,16 +360,17 @@ C_BaseEntity *EntityFromEntityHandle( IHandleEntity *pHandleEntity )
 {
 	if ( !pHandleEntity || pHandleEntity == &s_StaticProp )
 		return NULL;
-	return static_cast< C_BaseEntity * >( pHandleEntity );
+	return static_cast<C_BaseEntity *>( pHandleEntity );
 }
 
 struct FlashlightBox_t
 {
 	Vector mins, maxs;
 	int contents;
-	IHandleEntity *pEnt;   // NULL: the world
+	IHandleEntity *pEnt; // NULL: the world
 };
-static std::vector< FlashlightBox_t > s_World;
+
+static std::vector<FlashlightBox_t> s_World;
 
 static void ClearWorld()
 {
@@ -347,7 +383,7 @@ static void AddBox( const Vector &mins, const Vector &maxs, int contents, IHandl
 	FlashlightBox_t b = { mins, maxs, contents, pEnt };
 	s_World.push_back( b );
 	FlashlightLog( "WB\t" V3FMT "\t" V3FMT "\t%08x\t%s", V3( mins ), V3( maxs ), contents,
-	               pEnt ? HandleName( pEnt ) : "world" );
+				   pEnt ? HandleName( pEnt ) : "world" );
 }
 
 // A swept box against the boxes, as the engine's box trace answers it: the
@@ -355,14 +391,14 @@ static void AddBox( const Vector &mins, const Vector &maxs, int contents, IHandl
 // inside a box marks startsolid, and a box the whole sweep stays inside
 // marks allsolid with fraction 0.
 static void TraceBoxes( const char *pszKind, const Vector &start, const Vector &end, const Vector &hmin,
-                        const Vector &hmax, unsigned int mask, ITraceFilter *pFilter, trace_t *tr )
+						const Vector &hmax, unsigned int mask, ITraceFilter *pFilter, trace_t *tr )
 {
 	memset( (void *)tr, 0, sizeof( *tr ) );
 	tr->startpos = start;
 
 	const double kDistEpsilon = 0.03125;
-	double delta[ 3 ] = { (double)end.x - start.x, (double)end.y - start.y, (double)end.z - start.z };
-	const double len = sqrt( delta[ 0 ] * delta[ 0 ] + delta[ 1 ] * delta[ 1 ] + delta[ 2 ] * delta[ 2 ] );
+	double delta[3] = { (double)end.x - start.x, (double)end.y - start.y, (double)end.z - start.z };
+	const double len = sqrt( delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2] );
 
 	double best = 1.0;
 	int bestAxis = -1;
@@ -372,7 +408,7 @@ static void TraceBoxes( const char *pszKind, const Vector &start, const Vector &
 
 	for ( size_t k = 0; k < s_World.size(); k++ )
 	{
-		const FlashlightBox_t &b = s_World[ k ];
+		const FlashlightBox_t &b = s_World[k];
 		if ( !( (unsigned int)b.contents & mask ) )
 			continue;
 		if ( b.pEnt )
@@ -383,9 +419,9 @@ static void TraceBoxes( const char *pszKind, const Vector &start, const Vector &
 				continue;
 		}
 
-		double lo[ 3 ] = { (double)b.mins.x - hmax.x, (double)b.mins.y - hmax.y, (double)b.mins.z - hmax.z };
-		double hi[ 3 ] = { (double)b.maxs.x - hmin.x, (double)b.maxs.y - hmin.y, (double)b.maxs.z - hmin.z };
-		const double s[ 3 ] = { start.x, start.y, start.z };
+		double lo[3] = { (double)b.mins.x - hmax.x, (double)b.mins.y - hmax.y, (double)b.mins.z - hmax.z };
+		double hi[3] = { (double)b.maxs.x - hmin.x, (double)b.maxs.y - hmin.y, (double)b.maxs.z - hmin.z };
+		const double s[3] = { start.x, start.y, start.z };
 
 		double tEnter = -1e30, tExit = 1e30;
 		int axis = -1;
@@ -393,14 +429,14 @@ static void TraceBoxes( const char *pszKind, const Vector &start, const Vector &
 		bool bMiss = false;
 		for ( int i = 0; i < 3; i++ )
 		{
-			if ( fabs( delta[ i ] ) < 1e-12 )
+			if ( fabs( delta[i] ) < 1e-12 )
 			{
-				if ( s[ i ] < lo[ i ] || s[ i ] > hi[ i ] )
+				if ( s[i] < lo[i] || s[i] > hi[i] )
 					bMiss = true;
 				continue;
 			}
-			double t1 = ( lo[ i ] - s[ i ] ) / delta[ i ];
-			double t2 = ( hi[ i ] - s[ i ] ) / delta[ i ];
+			double t1 = ( lo[i] - s[i] ) / delta[i];
+			double t2 = ( hi[i] - s[i] ) / delta[i];
 			double n = -1.0;
 			if ( t1 > t2 )
 			{
@@ -449,27 +485,27 @@ static void TraceBoxes( const char *pszKind, const Vector &start, const Vector &
 	tr->fraction = (float)best;
 	tr->startsolid = bStartSolid;
 	tr->allsolid = bAllSolid;
-	tr->endpos.x = (float)( start.x + delta[ 0 ] * best );
-	tr->endpos.y = (float)( start.y + delta[ 1 ] * best );
-	tr->endpos.z = (float)( start.z + delta[ 2 ] * best );
+	tr->endpos.x = (float)( start.x + delta[0] * best );
+	tr->endpos.y = (float)( start.y + delta[1] * best );
+	tr->endpos.z = (float)( start.z + delta[2] * best );
 	if ( bestAxis >= 0 )
-		tr->plane.normal[ bestAxis ] = (float)bestSign;
+		tr->plane.normal[bestAxis] = (float)bestSign;
 	tr->m_pEnt = pBest;
 
 	FlashlightLog( "T\t%s\t" V3FMT "\t" V3FMT "\t" V3FMT "\t" V3FMT "\t%08x\t%08x\t" V3FMT "\t%d\t%d\t%s", pszKind,
-	               V3( start ), V3( end ), V3( hmin ), V3( hmax ), mask, B( tr->fraction ), V3( tr->endpos ),
-	               tr->startsolid ? 1 : 0, tr->allsolid ? 1 : 0,
-	               ( tr->fraction < 1.0f || tr->allsolid ) ? HandleName( pBest ) : "-" );
+				   V3( start ), V3( end ), V3( hmin ), V3( hmax ), mask, B( tr->fraction ), V3( tr->endpos ),
+				   tr->startsolid ? 1 : 0, tr->allsolid ? 1 : 0,
+				   ( tr->fraction < 1.0f || tr->allsolid ) ? HandleName( pBest ) : "-" );
 }
 
-void UTIL_TraceHull( const Vector &vecAbsStart, const Vector &vecAbsEnd, const Vector &hullMin,
-                     const Vector &hullMax, unsigned int mask, ITraceFilter *pFilter, trace_t *ptr )
+void UTIL_TraceHull( const Vector &vecAbsStart, const Vector &vecAbsEnd, const Vector &hullMin, const Vector &hullMax,
+					 unsigned int mask, ITraceFilter *pFilter, trace_t *ptr )
 {
 	TraceBoxes( "hull", vecAbsStart, vecAbsEnd, hullMin, hullMax, mask, pFilter, ptr );
 }
 
-void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask,
-                     ITraceFilter *pFilter, trace_t *ptr )
+void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask, ITraceFilter *pFilter,
+					 trace_t *ptr )
 {
 	TraceBoxes( "line", vecAbsStart, vecAbsEnd, vec3_origin, vec3_origin, mask, pFilter, ptr );
 }
@@ -498,17 +534,31 @@ int g_nFrame = 0;
 ConVar *FindFlashlightConVar( const char *pszName )
 {
 	ConVar *const kAll[] = {
-		&r_newflashlight, &r_swingflashlight, &r_flashlightlockposition, &r_flashlightfov,
-		&r_flashlightoffsetx, &r_flashlightoffsety, &r_flashlightoffsetz, &r_flashlightnear,
-		&r_flashlightfar, &r_flashlightconstant, &r_flashlightlinear, &r_flashlightquadratic,
-		&r_flashlightvisualizetrace, &r_flashlightambient, &r_flashlightshadowatten, &r_flashlightladderdist,
-		&mat_slopescaledepthbias_shadowmap, &mat_depthbias_shadowmap, &r_flashlightdepthtexture,
+		&r_newflashlight,
+		&r_swingflashlight,
+		&r_flashlightlockposition,
+		&r_flashlightfov,
+		&r_flashlightoffsetx,
+		&r_flashlightoffsety,
+		&r_flashlightoffsetz,
+		&r_flashlightnear,
+		&r_flashlightfar,
+		&r_flashlightconstant,
+		&r_flashlightlinear,
+		&r_flashlightquadratic,
+		&r_flashlightvisualizetrace,
+		&r_flashlightambient,
+		&r_flashlightshadowatten,
+		&r_flashlightladderdist,
+		&mat_slopescaledepthbias_shadowmap,
+		&mat_depthbias_shadowmap,
+		&r_flashlightdepthtexture,
 		&r_flashlightdepthres,
 	};
-	for ( size_t i = 0; i < sizeof( kAll ) / sizeof( kAll[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kAll ) / sizeof( kAll[0] ); i++ )
 	{
-		if ( !strcmp( kAll[ i ]->GetName(), pszName ) )
-			return kAll[ i ];
+		if ( !strcmp( kAll[i]->GetName(), pszName ) )
+			return kAll[i];
 	}
 	return NULL;
 }
@@ -530,16 +580,30 @@ void Set( const char *pszName, const char *pszValue )
 void RevertAll()
 {
 	const char *const kNames[] = {
-		"r_newflashlight", "r_swingflashlight", "r_flashlightlockposition", "r_flashlightfov",
-		"r_flashlightoffsetx", "r_flashlightoffsety", "r_flashlightoffsetz", "r_flashlightnear",
-		"r_flashlightfar", "r_flashlightconstant", "r_flashlightlinear", "r_flashlightquadratic",
-		"r_flashlightvisualizetrace", "r_flashlightambient", "r_flashlightshadowatten", "r_flashlightladderdist",
-		"mat_slopescaledepthbias_shadowmap", "mat_depthbias_shadowmap", "r_flashlightdepthtexture",
+		"r_newflashlight",
+		"r_swingflashlight",
+		"r_flashlightlockposition",
+		"r_flashlightfov",
+		"r_flashlightoffsetx",
+		"r_flashlightoffsety",
+		"r_flashlightoffsetz",
+		"r_flashlightnear",
+		"r_flashlightfar",
+		"r_flashlightconstant",
+		"r_flashlightlinear",
+		"r_flashlightquadratic",
+		"r_flashlightvisualizetrace",
+		"r_flashlightambient",
+		"r_flashlightshadowatten",
+		"r_flashlightladderdist",
+		"mat_slopescaledepthbias_shadowmap",
+		"mat_depthbias_shadowmap",
+		"r_flashlightdepthtexture",
 		"r_flashlightdepthres",
 	};
-	for ( size_t i = 0; i < sizeof( kNames ) / sizeof( kNames[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kNames ) / sizeof( kNames[0] ); i++ )
 	{
-		ConVar *pVar = FindFlashlightConVar( kNames[ i ] );
+		ConVar *pVar = FindFlashlightConVar( kNames[i] );
 		pVar->Revert();
 		LogConVar( pVar );
 	}
@@ -550,8 +614,8 @@ void LogPool()
 {
 	for ( int i = 0; i < 4; i++ )
 	{
-		if ( s_Dlights[ i ].key != 0 )
-			FlashlightLog( "Q\t%d\t%d\t%08x", i, s_Dlights[ i ].key, B( s_Dlights[ i ].die ) );
+		if ( s_Dlights[i].key != 0 )
+			FlashlightLog( "Q\t%d\t%d\t%08x", i, s_Dlights[i].key, B( s_Dlights[i].die ) );
 	}
 }
 
@@ -566,7 +630,7 @@ void Frame( float flTime, bool bDimLight, const Vector &eye, const QAngle &angle
 	AngleVectors( angles, &vecForward, &vecRight, &vecUp );
 
 	FlashlightLog( "U\t%d\t%08x\t%d\t%d\t" V3FMT "\t" V3FMT "\t" V3FMT "\t" V3FMT, g_nFrame++, B( flTime ),
-	               bDimLight ? 1 : 0, nMoveType, V3( eye ), V3( vecForward ), V3( vecRight ), V3( vecUp ) );
+				   bDimLight ? 1 : 0, nMoveType, V3( eye ), V3( vecForward ), V3( vecRight ), V3( vecUp ) );
 
 	if ( bDimLight )
 	{
@@ -681,14 +745,14 @@ void ScenarioNew()
 	// the eye: the player, another player, the view model, the two debris
 	// groups (all skipped), then a prop, a pushaway prop and a static prop
 	// (hit).
-	IHandleEntity *const kAsked[] = { &s_LocalPlayer, &s_OtherPlayer, &s_ViewModel, &s_Debris,
-	                                  &s_InteractiveDebris, &s_Prop, &s_Pushaway, &s_StaticProp };
-	for ( size_t i = 0; i < sizeof( kAsked ) / sizeof( kAsked[ 0 ] ); i++ )
+	IHandleEntity *const kAsked[] = { &s_LocalPlayer,       &s_OtherPlayer, &s_ViewModel, &s_Debris,
+									  &s_InteractiveDebris, &s_Prop,        &s_Pushaway,  &s_StaticProp };
+	for ( size_t i = 0; i < sizeof( kAsked ) / sizeof( kAsked[0] ); i++ )
 	{
 		ClearWorld();
 		FarWalls();
-		AddBox( Vector( 50, -16, 0 ), Vector( 66, 16, 72 ), CONTENTS_SOLID | CONTENTS_MONSTER, kAsked[ i ] );
-		AddBox( Vector( -16, -16, 30 ), Vector( 16, 16, 50 ), CONTENTS_SOLID | CONTENTS_MONSTER, kAsked[ i ] );
+		AddBox( Vector( 50, -16, 0 ), Vector( 66, 16, 72 ), CONTENTS_SOLID | CONTENTS_MONSTER, kAsked[i] );
+		AddBox( Vector( -16, -16, 30 ), Vector( 16, 16, 50 ), CONTENTS_SOLID | CONTENTS_MONSTER, kAsked[i] );
 		Frame( t += dt, true, kEye, QAngle( 0, 0, 0 ) );
 	}
 
@@ -830,7 +894,8 @@ std::string RunScenario()
 	g_nFrame = 0;
 	s_nNextShadow = 0;
 	FlashlightLog( "# flashlight-stock.tsv: written by src/test/oracle/native/flashlight_oracle_test.cpp" );
-	FlashlightLog( "# from the pristine game/client/flashlighteffect.cpp; README-flashlight-stock.md says how to read it." );
+	FlashlightLog(
+		"# from the pristine game/client/flashlighteffect.cpp; README-flashlight-stock.md says how to read it." );
 	ScenarioNew();
 	ScenarioDX6();
 	FlashlightLog( "END" );
@@ -862,7 +927,8 @@ std::string MarkerPath()
 
 TEST( FlashlightOracle, StockProducesTheGolden )
 {
-	SS_SKIP_ON_CI( "a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit" );
+	SS_SKIP_ON_CI(
+		"a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit" );
 	const std::string run = RunScenario();
 
 	if ( std::ifstream( MarkerPath() ).good() )
@@ -889,9 +955,9 @@ TEST( FlashlightOracle, StockProducesTheGolden )
 		++n;
 		if ( !ha && !hb )
 			break;
-		ASSERT_TRUE( ha && hb && la == lb ) << "line " << n << ": stock now writes\n  " << ( ha ? la : "<end>" )
-			<< "\nand the golden has\n  " << ( hb ? lb : "<end>" )
-			<< "\nDo NOT regenerate the golden to make this pass; see the file header.";
+		ASSERT_TRUE( ha && hb && la == lb )
+			<< "line " << n << ": stock now writes\n  " << ( ha ? la : "<end>" ) << "\nand the golden has\n  "
+			<< ( hb ? lb : "<end>" ) << "\nDo NOT regenerate the golden to make this pass; see the file header.";
 	}
 }
 
@@ -900,7 +966,13 @@ TEST( FlashlightOracle, StockProducesTheGolden )
 TEST( FlashlightOracle, TheScenarioReachesEveryArm )
 {
 	const std::string run = RunScenario();
-	struct Arm_t { const char *pszNeedle; const char *pszWhat; };
+
+	struct Arm_t
+	{
+		const char *pszNeedle;
+		const char *pszWhat;
+	};
+
 	static const Arm_t kArms[] = {
 		{ "\nC\t0\t", "the first projected texture was created" },
 		{ "\nW\t0\t", "the projected texture's state was updated" },
@@ -923,8 +995,8 @@ TEST( FlashlightOracle, TheScenarioReachesEveryArm )
 		{ "\nOFF", "TurnOff ran" },
 		{ "\nDEL", "an effect was deleted" },
 	};
-	for ( size_t i = 0; i < sizeof( kArms ) / sizeof( kArms[ 0 ] ); i++ )
-		EXPECT_NE( run.find( kArms[ i ].pszNeedle ), std::string::npos ) << kArms[ i ].pszWhat << ": no";
+	for ( size_t i = 0; i < sizeof( kArms ) / sizeof( kArms[0] ); i++ )
+		EXPECT_NE( run.find( kArms[i].pszNeedle ), std::string::npos ) << kArms[i].pszWhat << ": no";
 
 	// The DX6 card's refusal: the callback put r_newflashlight back to 0.
 	EXPECT_NE( run.find( "V\tr_newflashlight\t1\nCV\tr_newflashlight\t0" ), std::string::npos )
@@ -947,7 +1019,14 @@ TEST( FlashlightOracle, OurFilterAnswersAsStocksClassDoes )
 		C_BaseEntity plain( "plain", group );
 		C_BasePlayer player( "player", group );
 		C_BaseViewModel viewmodel( "viewmodel", group );
-		struct Case_t { IHandleEntity *p; bool bPlayer; bool bViewModel; };
+
+		struct Case_t
+		{
+			IHandleEntity *p;
+			bool bPlayer;
+			bool bViewModel;
+		};
+
 		const Case_t kCases[] = { { &plain, false, false }, { &player, true, false }, { &viewmodel, false, true } };
 		for ( const Case_t &c : kCases )
 		{
@@ -978,13 +1057,13 @@ TEST( FlashlightOracle, ThePullBackMovesTheNearPlane )
 	{
 		if ( line.compare( 0, 2, "W\t" ) && line.compare( 0, 2, "C\t" ) )
 			continue;
-		std::vector< std::string > cols;
+		std::vector<std::string> cols;
 		std::istringstream fields( line );
 		std::string col;
 		while ( std::getline( fields, col, '\t' ) )
 			cols.push_back( col );
 		ASSERT_GT( cols.size(), 10u );
-		unsigned int bits = (unsigned int)strtoul( cols[ 9 ].c_str(), NULL, 16 );
+		unsigned int bits = (unsigned int)strtoul( cols[9].c_str(), NULL, 16 );
 		float flNear;
 		memcpy( &flNear, &bits, sizeof( flNear ) );
 		if ( flNear > 4.5f && flNear < 100.0f )

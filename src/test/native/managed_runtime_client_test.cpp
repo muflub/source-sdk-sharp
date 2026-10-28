@@ -90,12 +90,17 @@ int g_nLastGeneration = -1;
 class CFakeRuntime : public IManagedRuntimeClient
 {
 public:
-	explicit CFakeRuntime( int nGeneration ) : IManagedRuntimeClient( &kTable ), m_nGeneration( nGeneration ) {}
+	explicit CFakeRuntime( int nGeneration )
+		: IManagedRuntimeClient( &kTable )
+		, m_nGeneration( nGeneration )
+	{
+	}
 
 private:
-	static CFakeRuntime *Of( void *self ) { return static_cast< CFakeRuntime * >( self ); }
+	static CFakeRuntime *Of( void *self ) { return static_cast<CFakeRuntime *>( self ); }
 
 	static void Released( IManagedObject * ) { ADD_FAILURE() << "the adapter released the runtime"; }
+
 	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t )
 	{
 		ADD_FAILURE() << "the adapter validated the runtime";
@@ -108,21 +113,38 @@ private:
 		g_LastFrameTime = dt;
 		g_nLastGeneration = Of( self )->m_nGeneration;
 	}
+
 	static void Staged( IManagedRuntimeClient *, int32_t ) { ADD_FAILURE() << "the adapter has no stage forward"; }
+
 	static void LevelInited( IManagedRuntimeClient *self, const char *pName )
 	{
 		g_Tally.nLevelInit++;
 		g_strLastMapName = pName ? pName : "";
 		g_nLastGeneration = Of( self )->m_nGeneration;
 	}
+
 	static void LevelShut( IManagedRuntimeClient *self )
 	{
 		g_Tally.nLevelShutdown++;
 		g_nLastGeneration = Of( self )->m_nGeneration;
 	}
-	static void MdlCacheInvalidated( IManagedRuntimeClient * ) { ADD_FAILURE() << "the adapter has no model-cache forward"; }
-	static int32_t ParticlesAsked( IManagedRuntimeClient *, int32_t ) { ADD_FAILURE() << "the adapter has no particle-reload forward"; return 1; }
-	static int32_t MaterialsAsked( IManagedRuntimeClient *, const char *, const char *, char *, int32_t ) { ADD_FAILURE() << "the adapter has no map-material forward"; return -1; }
+
+	static void MdlCacheInvalidated( IManagedRuntimeClient * )
+	{
+		ADD_FAILURE() << "the adapter has no model-cache forward";
+	}
+
+	static int32_t ParticlesAsked( IManagedRuntimeClient *, int32_t )
+	{
+		ADD_FAILURE() << "the adapter has no particle-reload forward";
+		return 1;
+	}
+
+	static int32_t MaterialsAsked( IManagedRuntimeClient *, const char *, const char *, char *, int32_t )
+	{
+		ADD_FAILURE() << "the adapter has no map-material forward";
+		return -1;
+	}
 
 	static const SSManagedRuntimeClientTable kTable;
 
@@ -130,8 +152,8 @@ private:
 };
 
 const SSManagedRuntimeClientTable CFakeRuntime::kTable = {
-	&Released, &Validated, &Framed, &Staged, &LevelInited, &LevelShut,
-	&MdlCacheInvalidated, &ParticlesAsked, &MaterialsAsked,
+	&Released,  &Validated,           &Framed,         &Staged,         &LevelInited,
+	&LevelShut, &MdlCacheInvalidated, &ParticlesAsked, &MaterialsAsked,
 };
 
 CFakeRuntime g_RuntimeA( 1 );
@@ -140,8 +162,8 @@ IManagedRuntimeClient *g_pInstalled = NULL;
 
 void InstallGeneration( int n )
 {
-	g_pInstalled = ( n == 1 ) ? static_cast< IManagedRuntimeClient * >( &g_RuntimeA )
-	                          : static_cast< IManagedRuntimeClient * >( &g_RuntimeB );
+	g_pInstalled = ( n == 1 ) ? static_cast<IManagedRuntimeClient *>( &g_RuntimeA )
+							  : static_cast<IManagedRuntimeClient *>( &g_RuntimeB );
 }
 
 //-----------------------------------------------------------------------------
@@ -150,8 +172,7 @@ void InstallGeneration( int n )
 //-----------------------------------------------------------------------------
 int TotalCalls()
 {
-	return g_Tally.nFrame + g_Tally.nLevelInit + g_Tally.nLevelShutdown
-	     + g_Tally.nUnloadManagedSide;
+	return g_Tally.nFrame + g_Tally.nLevelInit + g_Tally.nLevelShutdown + g_Tally.nUnloadManagedSide;
 }
 
 class ManagedRuntimeClientTest : public ::testing::Test
@@ -342,4 +363,3 @@ namespace
 // declaration that follows it.
 //-----------------------------------------------------------------------------
 } // namespace
-

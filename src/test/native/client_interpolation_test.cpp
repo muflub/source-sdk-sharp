@@ -56,7 +56,9 @@ namespace
 // src/client/native/CMakeLists.txt). Farm-relative paths.
 const char *const kClientProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 
-class ClientInterpolation : public ::testing::Test {};
+class ClientInterpolation : public ::testing::Test
+{
+};
 
 } // namespace
 

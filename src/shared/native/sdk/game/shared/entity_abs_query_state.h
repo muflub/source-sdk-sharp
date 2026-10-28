@@ -7,6 +7,7 @@
 // Whether absolute-transform queries may be asked right now. False while the hierarchy
 // is incomplete (save/restore); readers only Assert on it.
 inline bool s_bAbsQueriesValid = true;
+
 inline bool &EntityAbs_QueriesValidRef()
 {
 	return s_bAbsQueriesValid;
@@ -14,6 +15,7 @@ inline bool &EntityAbs_QueriesValidRef()
 
 // Whether CalcAbsolutePosition may recompute a coordinate frame right now. Client only.
 inline bool s_bAbsRecomputationEnabled = true;
+
 inline bool &EntityAbs_RecomputationEnabledRef()
 {
 	return s_bAbsRecomputationEnabled;

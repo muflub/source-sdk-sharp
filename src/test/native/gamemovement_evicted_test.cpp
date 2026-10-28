@@ -59,12 +59,12 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string s = std::string( kCandidates[ i ] ) + "/sourcesharp/host/sourcesharp.h";
+		const std::string s = std::string( kCandidates[i] ) + "/sourcesharp/host/sourcesharp.h";
 		if ( stat( s.c_str(), &st ) == 0 )
-			return kCandidates[ i ];
+			return kCandidates[i];
 	}
 	return NULL;
 }
@@ -106,8 +106,8 @@ bool NamesBasename( const std::vector<std::string> &rows, const std::string &bas
 {
 	for ( size_t i = 0; i < rows.size(); i++ )
 	{
-		const size_t slash = rows[ i ].rfind( '/' );
-		if ( rows[ i ].substr( slash == std::string::npos ? 0 : slash + 1 ) == base )
+		const size_t slash = rows[i].rfind( '/' );
+		if ( rows[i].substr( slash == std::string::npos ? 0 : slash + 1 ) == base )
 			return true;
 	}
 	return false;
@@ -174,14 +174,14 @@ TEST( GameMovementEvicted, EveryCompiledSourceInBothBuildsResolvesOnDisk )
 
 	for ( size_t v = 0; v < 2; v++ )
 	{
-		const std::vector<std::string> rows = CompiledRows( kTargets[ v ] );
-		ASSERT_NO_FATAL_FAILURE( AssertRowsAreAFileList( kTargets[ v ], rows ) );
+		const std::vector<std::string> rows = CompiledRows( kTargets[v] );
+		ASSERT_NO_FATAL_FAILURE( AssertRowsAreAFileList( kTargets[v], rows ) );
 
 		for ( size_t i = 0; i < rows.size(); i++ )
 		{
-			EXPECT_TRUE( Exists( Under( rows[ i ] ) ) )
-				<< kTargets[ v ] << " compiles '" << rows[ i ] << "', which is not on "
-				<< "disk at " << Under( rows[ i ] );
+			EXPECT_TRUE( Exists( Under( rows[i] ) ) )
+				<< kTargets[v] << " compiles '" << rows[i] << "', which is not on "
+				<< "disk at " << Under( rows[i] );
 		}
 	}
 }
@@ -195,4 +195,3 @@ TEST( GameMovementEvicted, EveryCompiledSourceInBothBuildsResolvesOnDisk )
 // convar. All three die or move with it, and a tool nobody notices dying is
 // how this step found its own worst bug.
 //=============================================================================
-

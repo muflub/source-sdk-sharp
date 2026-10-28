@@ -106,8 +106,7 @@ const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 void AssertReadsTarget( const char *pTarget )
 {
 	ASSERT_TRUE( cmake_graph::Compiles( pTarget, kProofOfRead ) )
-		<< pTarget << " does not compile " << kProofOfRead
-		<< " -- the reader is not reading that target's source list";
+		<< pTarget << " does not compile " << kProofOfRead << " -- the reader is not reading that target's source list";
 }
 
 } // namespace
@@ -127,10 +126,11 @@ TEST( CommentaryViewerEvicted, TheClientExcludesTheViewerAndBothModelPanels )
 		"game/client/game_controls/basemodel_panel.cpp",
 	};
 
-	for ( size_t i = 0; i < sizeof( kPaths ) / sizeof( kPaths[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kPaths ) / sizeof( kPaths[0] ); i++ )
 	{
-		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kPaths[ i ] ) )
-			<< kPaths[ i ] << " is back in the client build. This one compiles and "
+		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kPaths[i] ) )
+			<< kPaths[i]
+			<< " is back in the client build. This one compiles and "
 			   "links either way — the guard in baseviewport.cpp does not need the "
 			   "file gone — so what comes back is a C_BaseFlex vtable and 120 "
 			   "symbol-needs for a panel nothing can open, with no diagnostic";
@@ -159,4 +159,3 @@ TEST( CommentaryViewerEvicted, TheCommentarySystemIsOutOfBothBuilds )
 		<< "the client's commentary node is back — the other half of the same "
 		   "system";
 }
-

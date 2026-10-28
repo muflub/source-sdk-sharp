@@ -4,7 +4,7 @@
 #pragma once
 
 // Simple class to make it easier to deal with flags
-template< class T >
+template <class T>
 class CUtlFlags
 {
 public:
@@ -27,7 +27,7 @@ private:
 };
 
 // Constructor
-template< class T >
+template <class T>
 CUtlFlags<T>::CUtlFlags( int nInitialFlags )
 {
 	// Makes sure we didn't truncate
@@ -37,7 +37,7 @@ CUtlFlags<T>::CUtlFlags( int nInitialFlags )
 }
 
 // Set flags
-template< class T >
+template <class T>
 void CUtlFlags<T>::SetFlag( int nFlagMask )
 {
 	// Makes sure we didn't truncate
@@ -46,7 +46,7 @@ void CUtlFlags<T>::SetFlag( int nFlagMask )
 	m_nFlags |= (T)nFlagMask;
 }
 
-template< class T >
+template <class T>
 void CUtlFlags<T>::SetFlag( int nFlagMask, bool bEnable )
 {
 	// Makes sure we didn't truncate
@@ -58,27 +58,27 @@ void CUtlFlags<T>::SetFlag( int nFlagMask, bool bEnable )
 	}
 	else
 	{
-		m_nFlags &= ~((T)nFlagMask);
+		m_nFlags &= ~( (T)nFlagMask );
 	}
 }
 
 // Clear flags
-template< class T >
+template <class T>
 void CUtlFlags<T>::ClearFlag( int nFlagMask )
 {
 	// Makes sure we didn't truncate
 	Assert( nFlagMask == (T)nFlagMask );
-	m_nFlags &= ~((T)nFlagMask);
+	m_nFlags &= ~( (T)nFlagMask );
 }
 
-template< class T >
+template <class T>
 void CUtlFlags<T>::ClearAllFlags()
 {
 	m_nFlags = 0;
 }
 
 // Is a flag set?
-template< class T >
+template <class T>
 bool CUtlFlags<T>::IsFlagSet( int nFlagMask ) const
 {
 	// Makes sure we didn't truncate
@@ -87,7 +87,7 @@ bool CUtlFlags<T>::IsFlagSet( int nFlagMask ) const
 }
 
 // Is any flag set?
-template< class T >
+template <class T>
 bool CUtlFlags<T>::IsAnyFlagSet() const
 {
 	return m_nFlags != 0;

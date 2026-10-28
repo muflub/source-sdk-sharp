@@ -7,11 +7,11 @@
 1	SLOT-HELP	[CShellRenderable] const QAngle &GetAbsAngles() const
 7	BOUNDARY	[CShellRenderable] void SetAbsOrigin( const Vector &vecOrigin )
 7	BOUNDARY	[CShellRenderable] void SetAbsAngles( const QAngle &angAngles )
-4	BOUNDARY	[CShellRenderable] void AddToLeafSystem( RenderGroup_t group )
+1	BOUNDARY	[CShellRenderable] void AddToLeafSystem( RenderGroup_t group )
 5	BOUNDARY	[CShellRenderable] void RemoveFromLeafSystem()
 1	SLOT-HELP	[CShellRenderable] bool IsInLeafSystem() const
 5	SLOT-HELP	[CShellRenderable] void Release()
 1	SLOT	[CShellRenderable] virtual const Vector &GetRenderOrigin() OVERRIDE
 1	SLOT	[CShellRenderable] virtual const QAngle &GetRenderAngles() OVERRIDE
 5	SLOT	[CShellRenderable] virtual const matrix3x4_t &RenderableToWorldTransform() OVERRIDE
-4	BOUNDARY	[CShellRenderable] void RenderableMoved()
+1	BOUNDARY	[CShellRenderable] void RenderableMoved()

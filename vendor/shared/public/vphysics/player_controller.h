@@ -7,7 +7,8 @@ class IPhysicsPlayerController
 public:
 	virtual ~IPhysicsPlayerController() {}
 
-	virtual void Update( const Vector &position, const Vector &velocity, float secondsToArrival, bool onground, IPhysicsObject *ground ) = 0;
+	virtual void Update( const Vector &position, const Vector &velocity, float secondsToArrival, bool onground,
+						 IPhysicsObject *ground ) = 0;
 	virtual void unused_SetEventHandler() = 0;
 	virtual bool IsInContact() = 0;
 	virtual void unused_MaxSpeed() = 0;
@@ -24,7 +25,7 @@ public:
 
 	virtual void SetPushMassLimit( float maxPushMass ) = 0;
 	virtual void SetPushSpeedLimit( float maxPushSpeed ) = 0;
-	
+
 	virtual void unused_GetPushMassLimit() = 0;
 	virtual void unused_GetPushSpeedLimit() = 0;
 	virtual bool WasFrozen() = 0;

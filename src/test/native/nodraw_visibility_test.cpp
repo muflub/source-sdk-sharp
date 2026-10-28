@@ -54,12 +54,12 @@
 // than reached for, because this binary deliberately links no engine -- and
 // EF_MAX_BITS is checked against the header below so the copy cannot drift.
 #define MAX_EDICT_BITS 11
-#define EF_MAX_BITS    10
+#define EF_MAX_BITS 10
 // And NOINTERP_PARITY_MAX_BITS from game/shared/shareddefs.h (2), which the
 // table gained with the teleport counter. Checked against its own header in
 // teleport_discontinuity_test.cpp, which is where that field's own facts live.
 #define NOINTERP_PARITY_MAX_BITS 2
-#define ARRAYSIZE( p ) ( (int)( sizeof( p ) / sizeof( (p)[0] ) ) )
+#define ARRAYSIZE( p ) ( (int)( sizeof( p ) / sizeof( ( p )[0] ) ) )
 
 #include "../game/shared/standalone_nettable.h"
 
@@ -84,18 +84,18 @@ TEST( NoDrawVisibility, TheWireCarriesTheEffectsWord )
 		   "there are. Both sides subscript the array by the enum, so the two "
 		   "shells would build props for different fields.";
 
-	EXPECT_STREQ( "m_fEffects", pFields[ STANDALONE_NET_FIELD_EFFECTS ].pName )
+	EXPECT_STREQ( "m_fEffects", pFields[STANDALONE_NET_FIELD_EFFECTS].pName )
 		<< "the enum's EFFECTS index does not name the effects field. An offset "
 		   "written at this index would be applied to whatever prop is here, "
 		   "and the block word the wire wrote into would be somebody else's.";
 
-	EXPECT_EQ( STANDALONE_NET_INT, pFields[ STANDALONE_NET_FIELD_EFFECTS ].kind );
+	EXPECT_EQ( STANDALONE_NET_INT, pFields[STANDALONE_NET_FIELD_EFFECTS].kind );
 
 	// EF_MAX_BITS, exactly as stock sends m_fEffects
 	// (SendPropInt( SENDINFO( m_fEffects ), EF_MAX_BITS, SPROP_UNSIGNED )). A
 	// narrower field silently drops the high EF_ bits on the wire, which for a
 	// visibility flag is a brush hidden on one side and drawn on the other.
-	EXPECT_EQ( EF_MAX_BITS, pFields[ STANDALONE_NET_FIELD_EFFECTS ].nBits );
+	EXPECT_EQ( EF_MAX_BITS, pFields[STANDALONE_NET_FIELD_EFFECTS].nBits );
 }
 
 TEST( NoDrawVisibility, EveryEnumIndexNamesItsOwnField )
@@ -108,15 +108,14 @@ TEST( NoDrawVisibility, EveryEnumIndexNamesItsOwnField )
 	const StandaloneNetField_t *pFields = StandaloneNetFields( &nCount );
 	ASSERT_EQ( STANDALONE_NET_FIELD_COUNT, nCount );
 
-	EXPECT_STREQ( "m_vecOrigin",     pFields[ STANDALONE_NET_FIELD_ORIGIN ].pName );
-	EXPECT_STREQ( "m_angRotation",   pFields[ STANDALONE_NET_FIELD_ANGLES ].pName );
-	EXPECT_STREQ( "m_nModelIndex",   pFields[ STANDALONE_NET_FIELD_MODELINDEX ].pName );
-	EXPECT_STREQ( "m_fEffects",      pFields[ STANDALONE_NET_FIELD_EFFECTS ].pName );
-	EXPECT_STREQ( "m_ubInterpolationFrame",
-	                                 pFields[ STANDALONE_NET_FIELD_INTERPFRAME ].pName );
-	EXPECT_STREQ( "m_nTypeId",       pFields[ STANDALONE_NET_FIELD_TYPEID ].pName );
-	EXPECT_STREQ( "m_nSchemaHash",   pFields[ STANDALONE_NET_FIELD_SCHEMAHASH ].pName );
-	EXPECT_STREQ( "m_nPayloadWords", pFields[ STANDALONE_NET_FIELD_PAYLOADWORDS ].pName );
+	EXPECT_STREQ( "m_vecOrigin", pFields[STANDALONE_NET_FIELD_ORIGIN].pName );
+	EXPECT_STREQ( "m_angRotation", pFields[STANDALONE_NET_FIELD_ANGLES].pName );
+	EXPECT_STREQ( "m_nModelIndex", pFields[STANDALONE_NET_FIELD_MODELINDEX].pName );
+	EXPECT_STREQ( "m_fEffects", pFields[STANDALONE_NET_FIELD_EFFECTS].pName );
+	EXPECT_STREQ( "m_ubInterpolationFrame", pFields[STANDALONE_NET_FIELD_INTERPFRAME].pName );
+	EXPECT_STREQ( "m_nTypeId", pFields[STANDALONE_NET_FIELD_TYPEID].pName );
+	EXPECT_STREQ( "m_nSchemaHash", pFields[STANDALONE_NET_FIELD_SCHEMAHASH].pName );
+	EXPECT_STREQ( "m_nPayloadWords", pFields[STANDALONE_NET_FIELD_PAYLOADWORDS].pName );
 }
 
 //=============================================================================//

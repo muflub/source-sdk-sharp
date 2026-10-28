@@ -8,7 +8,7 @@
 
 #include "fake_engine_tier.h"
 
-#define FAKE_EXPORT extern "C" __attribute__(( visibility( "default" ) ))
+#define FAKE_EXPORT extern "C" __attribute__( ( visibility( "default" ) ) )
 
 namespace
 {
@@ -26,6 +26,17 @@ FAKE_EXPORT void DestroyThreadPool( void *pPool )
 	s_pLastDestroyed = pPool;
 }
 
-FAKE_EXPORT int FakeVstdlib_DestroyCount() { return s_nDestroyed; }
-FAKE_EXPORT void *FakeVstdlib_LastDestroyed() { return s_pLastDestroyed; }
-FAKE_EXPORT void *FakeVstdlib_PoolObject() { return &s_Pool; }
+FAKE_EXPORT int FakeVstdlib_DestroyCount()
+{
+	return s_nDestroyed;
+}
+
+FAKE_EXPORT void *FakeVstdlib_LastDestroyed()
+{
+	return s_pLastDestroyed;
+}
+
+FAKE_EXPORT void *FakeVstdlib_PoolObject()
+{
+	return &s_Pool;
+}

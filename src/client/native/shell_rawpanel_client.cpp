@@ -9,23 +9,20 @@
 // Panel::PaintTraverse and Panel::IsWithinTraverse.
 
 #include "vgui/IVGui.h"
-#include "vgui/IPanel.h"
-#include "vgui/ISurface.h"
+
 #include "vgui/IScheme.h"
 #include "tier1/KeyValues.h"
 #include "vgui_controls/Controls.h"
-#include "tier1/strtools.h"
-#include "tier1/utlvector.h"
-#include "vgui/Cursor.h"
-#include "vgui/KeyCode.h"
-#include "vgui/MouseCode.h"
-#include "vgui/VGUI.h"
-#include "vstdlib/IKeyValuesSystem.h"
+
 #include "shell_rawpanel_client.h"
 
 CSourceSharpRawPanel::CSourceSharpRawPanel( const char *pszName )
-	: m_pszName( pszName ), m_hCursor( vgui::dc_arrow ), m_bPaint( true ),
-	  m_nScreenWide( -1 ), m_nScreenTall( -1 ), m_bFillScreen( false )
+	: m_pszName( pszName )
+	, m_hCursor( vgui::dc_arrow )
+	, m_bPaint( true )
+	, m_nScreenWide( -1 )
+	, m_nScreenTall( -1 )
+	, m_bFillScreen( false )
 {
 	m_hPanel = vgui::ivgui()->AllocPanel();
 	vgui::ipanel()->Init( m_hPanel, this );
@@ -41,14 +38,45 @@ CSourceSharpRawPanel::~CSourceSharpRawPanel()
 	vgui::ivgui()->FreePanel( m_hPanel );
 }
 
-void CSourceSharpRawPanel::SetParent( vgui::VPANEL parent ) { vgui::ipanel()->SetParent( m_hPanel, parent ); }
-void CSourceSharpRawPanel::SetVisible( bool bVisible ) { vgui::ipanel()->SetVisible( m_hPanel, bVisible ); }
-bool CSourceSharpRawPanel::IsVisible() { return vgui::ipanel()->IsVisible( m_hPanel ); }
-void CSourceSharpRawPanel::SetZPos( int z ) { vgui::ipanel()->SetZPos( m_hPanel, z ); }
-void CSourceSharpRawPanel::SetMouseInputEnabled( bool b ) { vgui::ipanel()->SetMouseInputEnabled( m_hPanel, b ); }
-void CSourceSharpRawPanel::SetKeyBoardInputEnabled( bool b ) { vgui::ipanel()->SetKeyBoardInputEnabled( m_hPanel, b ); }
-bool CSourceSharpRawPanel::IsMouseInputEnabled() { return vgui::ipanel()->IsMouseInputEnabled( m_hPanel ); }
-void CSourceSharpRawPanel::GetSize( int &wide, int &tall ) { vgui::ipanel()->GetSize( m_hPanel, wide, tall ); }
+void CSourceSharpRawPanel::SetParent( vgui::VPANEL parent )
+{
+	vgui::ipanel()->SetParent( m_hPanel, parent );
+}
+
+void CSourceSharpRawPanel::SetVisible( bool bVisible )
+{
+	vgui::ipanel()->SetVisible( m_hPanel, bVisible );
+}
+
+bool CSourceSharpRawPanel::IsVisible()
+{
+	return vgui::ipanel()->IsVisible( m_hPanel );
+}
+
+void CSourceSharpRawPanel::SetZPos( int z )
+{
+	vgui::ipanel()->SetZPos( m_hPanel, z );
+}
+
+void CSourceSharpRawPanel::SetMouseInputEnabled( bool b )
+{
+	vgui::ipanel()->SetMouseInputEnabled( m_hPanel, b );
+}
+
+void CSourceSharpRawPanel::SetKeyBoardInputEnabled( bool b )
+{
+	vgui::ipanel()->SetKeyBoardInputEnabled( m_hPanel, b );
+}
+
+bool CSourceSharpRawPanel::IsMouseInputEnabled()
+{
+	return vgui::ipanel()->IsMouseInputEnabled( m_hPanel );
+}
+
+void CSourceSharpRawPanel::GetSize( int &wide, int &tall )
+{
+	vgui::ipanel()->GetSize( m_hPanel, wide, tall );
+}
 
 void CSourceSharpRawPanel::SetBounds( int x, int y, int wide, int tall )
 {
@@ -97,7 +125,8 @@ void CSourceSharpRawPanel::ScreenSizeNow()
 	for ( int i = 0; i < vgui::ipanel()->GetChildCount( m_hPanel ); i++ )
 	{
 		vgui::ivgui()->PostMessage( vgui::ipanel()->GetChild( m_hPanel, i ),
-			new KeyValues( "OnScreenSizeChanged", "oldwide", nOldWide, "oldtall", nOldTall ), m_hPanel );
+									new KeyValues( "OnScreenSizeChanged", "oldwide", nOldWide, "oldtall", nOldTall ),
+									m_hPanel );
 	}
 	OnScreenSizeChanged( nOldWide, nOldTall );
 }
@@ -107,9 +136,9 @@ void CSourceSharpRawPanel::PaintTraverse( bool repaint, bool allowForce )
 	if ( !IsVisible() )
 		return;
 
-	int nClip[ 4 ];
-	vgui::ipanel()->GetClipRect( m_hPanel, nClip[ 0 ], nClip[ 1 ], nClip[ 2 ], nClip[ 3 ] );
-	const bool bPaintSelf = repaint && m_bPaint && nClip[ 2 ] > nClip[ 0 ] && nClip[ 3 ] > nClip[ 1 ];
+	int nClip[4];
+	vgui::ipanel()->GetClipRect( m_hPanel, nClip[0], nClip[1], nClip[2], nClip[3] );
+	const bool bPaintSelf = repaint && m_bPaint && nClip[2] > nClip[0] && nClip[3] > nClip[1];
 	if ( bPaintSelf )
 	{
 		vgui::surface()->PushMakeCurrent( m_hPanel, true );
@@ -119,10 +148,10 @@ void CSourceSharpRawPanel::PaintTraverse( bool repaint, bool allowForce )
 
 	// The children, in order: a child the surface will not paint now is
 	// invalidated and still traversed, painting nothing.
-	CUtlVector< vgui::VPANEL > &children = vgui::ipanel()->GetChildren( m_hPanel );
+	CUtlVector<vgui::VPANEL> &children = vgui::ipanel()->GetChildren( m_hPanel );
 	for ( int i = 0; i < children.Count(); i++ )
 	{
-		const vgui::VPANEL child = children[ i ];
+		const vgui::VPANEL child = children[i];
 		if ( !vgui::ipanel()->IsVisible( child ) )
 			continue;
 		if ( vgui::surface()->ShouldPaintChildPanel( child ) )
@@ -156,14 +185,14 @@ vgui::VPANEL CSourceSharpRawPanel::IsWithinTraverse( int x, int y, bool traverse
 	if ( !IsVisible() || !IsMouseInputEnabled() )
 		return 0;
 
-	CUtlVector< vgui::VPANEL > &children = vgui::ipanel()->GetChildren( m_hPanel );
+	CUtlVector<vgui::VPANEL> &children = vgui::ipanel()->GetChildren( m_hPanel );
 	if ( traversePopups )
 	{
 		for ( int i = children.Count() - 1; i >= 0; i-- )
 		{
-			if ( !vgui::ipanel()->IsPopup( children[ i ] ) )
+			if ( !vgui::ipanel()->IsPopup( children[i] ) )
 				continue;
-			if ( vgui::VPANEL hit = vgui::ipanel()->IsWithinTraverse( children[ i ], x, y, true ) )
+			if ( vgui::VPANEL hit = vgui::ipanel()->IsWithinTraverse( children[i], x, y, true ) )
 				return hit;
 		}
 	}
@@ -174,9 +203,9 @@ vgui::VPANEL CSourceSharpRawPanel::IsWithinTraverse( int x, int y, bool traverse
 
 	for ( int i = children.Count() - 1; i >= 0; i-- )
 	{
-		if ( vgui::ipanel()->IsPopup( children[ i ] ) )
+		if ( vgui::ipanel()->IsPopup( children[i] ) )
 			continue;
-		if ( vgui::VPANEL hit = vgui::ipanel()->IsWithinTraverse( children[ i ], x, y, traversePopups ) )
+		if ( vgui::VPANEL hit = vgui::ipanel()->IsWithinTraverse( children[i], x, y, traversePopups ) )
 			return hit;
 	}
 
@@ -202,7 +231,7 @@ vgui::HScheme CSourceSharpRawPanel::GetScheme()
 void CSourceSharpRawPanel::OnMessage( const KeyValues *params, vgui::VPANEL ifromPanel )
 {
 	const char *pszName = params->GetName();
-	KeyValues *p = const_cast< KeyValues * >( params );
+	KeyValues *p = const_cast<KeyValues *>( params );
 
 	if ( !V_strcmp( pszName, "CursorMoved" ) )
 	{

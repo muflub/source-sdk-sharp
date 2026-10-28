@@ -62,11 +62,11 @@ TEST( LocalRecipient, SlotZeroIsTheWorldAndNeverAPlayer )
 // just failed to find.
 TEST( LocalRecipient, AViewerWhoIsNotACBasePlayerIsStillHeld )
 {
-	const int nEngineSaysLocalIs = 1;		// engine->GetLocalPlayer()
-	const int nCBasePlayerWouldSay = -1;	// C_BasePlayer::GetLocalPlayer() is NULL
+	const int nEngineSaysLocalIs = 1; // engine->GetLocalPlayer()
+	const int nCBasePlayerWouldSay = -1; // C_BasePlayer::GetLocalPlayer() is NULL
 
-	EXPECT_TRUE ( LocalRecipient_ShouldHold( 1, nEngineSaysLocalIs ) );
+	EXPECT_TRUE( LocalRecipient_ShouldHold( 1, nEngineSaysLocalIs ) );
 	EXPECT_FALSE( LocalRecipient_ShouldHold( 1, nCBasePlayerWouldSay ) );
 }
 
-}  // namespace
+} // namespace

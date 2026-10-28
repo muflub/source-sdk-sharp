@@ -29,8 +29,8 @@ TEST( BitbufClient, OurMembersWriteAndReadWhatPristineBitbufDid )
 		const bool hb = (bool)std::getline( in, b );
 		if ( !ha && !hb )
 			break;
-		ASSERT_TRUE( ha && hb && a == b ) << "line " << n + 1 << ": ours\n  " << ( ha ? a : "<end>" ) << "\nstock\n  "
-		                                  << ( hb ? b : "<end>" );
+		ASSERT_TRUE( ha && hb && a == b )
+			<< "line " << n + 1 << ": ours\n  " << ( ha ? a : "<end>" ) << "\nstock\n  " << ( hb ? b : "<end>" );
 		++n;
 	}
 	EXPECT_GT( n, 6000 );

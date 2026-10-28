@@ -12,42 +12,36 @@
 // inputs, explosions).
 
 #include "ss_util.h"
-#include "vphysics_interface.h"
-#include "ss_physics.h"
+
 #include "ss_physics_shared.h"
 #include "physicsowner.h"
-#include "engine/ivmodelinfo.h"
+
 #include "scripted_kinds.h"
-#include "shell_standalone_class.h"
-#include "shell_standalone.h"
+
 #include "shell_standalone_player.h"
-#include "shell_diagnostics.h"
-#include "said_once_per_id.h"
-#include "standalone_relays.h"
-#include "sourcesharp.h"
+
 #include "bone_setup.h"
 #include "datacache/imdlcache.h"
 
 extern CGlobalVars *gpGlobals;
 extern IVModelInfo *modelinfo;
 extern IMDLCache *mdlcache;
-#include "shake.h"
-#include "shell_scripted_internal.h"
+
 #include "ss_string.h"
 
 // Declares an entity class; called once per [ScriptedEntity] at managed startup.
 
 // The values scripted_kinds.h restates, pinned to the engine's own.
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_NONE     == (int)SOLID_NONE );
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_BSP      == (int)SOLID_BSP );
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_BBOX     == (int)SOLID_BBOX );
+COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_NONE == (int)SOLID_NONE );
+COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_BSP == (int)SOLID_BSP );
+COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_BBOX == (int)SOLID_BBOX );
 COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_VPHYSICS == (int)SOLID_VPHYSICS );
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_FSOLID_NOT_SOLID     == (int)FSOLID_NOT_SOLID );
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_FSOLID_TRIGGER       == (int)FSOLID_TRIGGER );
+COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_FSOLID_NOT_SOLID == (int)FSOLID_NOT_SOLID );
+COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_FSOLID_TRIGGER == (int)FSOLID_TRIGGER );
 COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_FSOLID_NOT_STANDABLE == (int)FSOLID_NOT_STANDABLE );
 
-void SourceSharp_RegisterScriptedEntity( const char *pClassName, const char **ppOutputNames,
-                                         int32_t nOutputCount, int32_t nKind )
+void SourceSharp_RegisterScriptedEntity( const char *pClassName, const char **ppOutputNames, int32_t nOutputCount,
+										 int32_t nKind )
 {
 	if ( !pClassName || !pClassName[0] )
 		return;
@@ -59,10 +53,9 @@ void SourceSharp_RegisterScriptedEntity( const char *pClassName, const char **pp
 	if ( params.bShellLess )
 		return;
 
-	SourceSharp_InstallStandaloneClass( pClassName, ppOutputNames, nOutputCount,
-	                                    params.bServerOnly,
-	                                    (SolidType_t)params.nSolidType, params.nSolidFlags,
-	                                    params.bTouchEveryTick, params.bPlayer );
+	SourceSharp_InstallStandaloneClass( pClassName, ppOutputNames, nOutputCount, params.bServerOnly,
+										(SolidType_t)params.nSolidType, params.nSolidFlags, params.bTouchEveryTick,
+										params.bPlayer );
 }
 
 // Counts handles from the engine-invisible range that reach native and do not
@@ -71,7 +64,10 @@ void SourceSharp_RegisterScriptedEntity( const char *pClassName, const char **pp
 // Sites are kept as return addresses for addr2line.
 static int32_t g_nInvisibleRangeReach = 0;
 
-enum { SOURCESHARP_INVISIBLE_SITES = 8 };
+enum
+{
+	SOURCESHARP_INVISIBLE_SITES = 8
+};
 
 // The immediate return address, which addr2line maps to the ABI entry point.
 struct SourceSharpReachSite_t
@@ -79,7 +75,7 @@ struct SourceSharpReachSite_t
 	void *pImmediate;
 };
 
-static SourceSharpReachSite_t g_InvisibleReachSites[ SOURCESHARP_INVISIBLE_SITES ];
+static SourceSharpReachSite_t g_InvisibleReachSites[SOURCESHARP_INVISIBLE_SITES];
 static int g_nInvisibleReachSites = 0;
 
 void SourceSharp_NoteInvisibleRangeReach( void *pReturnAddress )
@@ -97,7 +93,7 @@ void SourceSharp_NoteInvisibleRangeReach( void *pReturnAddress )
 
 	if ( g_nInvisibleReachSites < SOURCESHARP_INVISIBLE_SITES )
 	{
-		g_InvisibleReachSites[ g_nInvisibleReachSites ].pImmediate = pReturnAddress;
+		g_InvisibleReachSites[g_nInvisibleReachSites].pImmediate = pReturnAddress;
 		g_nInvisibleReachSites++;
 	}
 }
@@ -122,8 +118,7 @@ int32_t SourceSharp_InvisibleRangeReach()
 
 // Places a player at its spawn point. Called by managed from OnSelectSpawnPoint,
 // inside Spawn, before the player is solid or has a hull or physics shadow.
-void SourceSharp_PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ,
-                                     const float *pAnglesPYR )
+void SourceSharp_PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ, const float *pAnglesPYR )
 {
 	if ( !pOriginXYZ || !pAnglesPYR )
 		return;
@@ -137,11 +132,11 @@ void SourceSharp_PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ,
 	const QAngle angles( pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2] );
 
 	// Yaw only on the entity; the player state takes all three for the view.
-	pPlayer->SetAbsTransform( vecOrigin, QAngle( 0.0f, angles[ YAW ], 0.0f ) );
+	pPlayer->SetAbsTransform( vecOrigin, QAngle( 0.0f, angles[YAW], 0.0f ) );
 	pPlayer->SetVelocity( vec3_origin );
 
 	// fixangle makes the client adopt v_angle rather than predict over it.
-	pPlayer->PlayerStatePtr()->v_angle  = angles;
+	pPlayer->PlayerStatePtr()->v_angle = angles;
 	pPlayer->PlayerStatePtr()->fixangle = FIXANGLE_ABSOLUTE;
 }
 
@@ -164,7 +159,9 @@ void SourceSharp_EntityGetSpawnOrigin( uint32_t hEntity, float *pOutXYZ )
 	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
 	{
 		const Vector &vec = pStandalone->GetSpawnOrigin();
-		pOutXYZ[0] = vec.x; pOutXYZ[1] = vec.y; pOutXYZ[2] = vec.z;
+		pOutXYZ[0] = vec.x;
+		pOutXYZ[1] = vec.y;
+		pOutXYZ[2] = vec.z;
 	}
 }
 
@@ -179,7 +176,9 @@ void SourceSharp_EntityGetSpawnAngles( uint32_t hEntity, float *pOutPYR )
 	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
 	{
 		const QAngle &ang = pStandalone->GetSpawnAngles();
-		pOutPYR[0] = ang.x; pOutPYR[1] = ang.y; pOutPYR[2] = ang.z;
+		pOutPYR[0] = ang.x;
+		pOutPYR[1] = ang.y;
+		pOutPYR[2] = ang.z;
 	}
 }
 

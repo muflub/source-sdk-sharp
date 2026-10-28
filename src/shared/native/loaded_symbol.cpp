@@ -1,19 +1,17 @@
 // SS_REASON d  a layout the engine reads at fixed offsets
 
-#include "loaded_symbol.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #if defined( _WIN32 )
-	#ifndef WIN32_LEAN_AND_MEAN
-		#define WIN32_LEAN_AND_MEAN
-	#endif
-	#include <windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #else
-	#include <dlfcn.h>
-	#include <link.h>
+
+#include <link.h>
 #endif
 
 namespace ss

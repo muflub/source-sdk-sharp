@@ -20,8 +20,7 @@ struct ShellNotShippedRow_t
 // Interfaces deliberately not exported. Each reason is what the console shows.
 inline const ShellNotShippedRow_t *ShellNotShipped_Interfaces( int *pCount )
 {
-	static const ShellNotShippedRow_t s_Rows[] =
-	{
+	static const ShellNotShippedRow_t s_Rows[] = {
 		// The engine asks for this only when the mod directory is tf or tf_beta.
 		{ "ClientReplay001",
 		  "replay is not shipped (plan_entity.md 7g); the engine only asks for "
@@ -29,7 +28,7 @@ inline const ShellNotShippedRow_t *ShellNotShipped_Interfaces( int *pCount )
 	};
 
 	if ( pCount != NULL )
-		*pCount = (int)( sizeof( s_Rows ) / sizeof( s_Rows[ 0 ] ) );
+		*pCount = (int)( sizeof( s_Rows ) / sizeof( s_Rows[0] ) );
 
 	return s_Rows;
 }
@@ -46,8 +45,8 @@ inline const ShellNotShippedRow_t *ShellNotShipped_FindInterface( const char *ps
 
 	for ( int i = 0; i < nCount; i++ )
 	{
-		if ( strcmp( pRows[ i ].pszName, pszName ) == 0 )
-			return &pRows[ i ];
+		if ( strcmp( pRows[i].pszName, pszName ) == 0 )
+			return &pRows[i];
 	}
 
 	return NULL;
@@ -57,9 +56,16 @@ inline const ShellNotShippedRow_t *ShellNotShipped_FindInterface( const char *ps
 class CShellNotShipped
 {
 public:
-	enum { kMaxNames = 32 };
+	enum
+	{
+		kMaxNames = 32
+	};
 
-	CShellNotShipped() : m_nTotal( 0 ), m_nNames( 0 ) {}
+	CShellNotShipped()
+		: m_nTotal( 0 )
+		, m_nNames( 0 )
+	{
+	}
 
 	// Something reached a path this build does not ship. Warns once per name,
 	// since some paths run every frame; the count is unlimited.
@@ -76,16 +82,16 @@ public:
 			if ( iRow < 0 && m_nNames < kMaxNames )
 			{
 				iRow = m_nNames++;
-				m_pNames[ iRow ] = pName;
-				m_pReasons[ iRow ] = pReason;
-				m_nCounts[ iRow ] = 0;
+				m_pNames[iRow] = pName;
+				m_pReasons[iRow] = pReason;
+				m_nCounts[iRow] = 0;
 			}
 
 			// An overflowed table still counts the total, and the name warns every time.
 			if ( iRow >= 0 )
 			{
-				bFirst = ( m_nCounts[ iRow ] == 0 );
-				m_nCounts[ iRow ]++;
+				bFirst = ( m_nCounts[iRow] == 0 );
+				m_nCounts[iRow]++;
 			}
 		}
 
@@ -98,25 +104,16 @@ public:
 
 	int NameCount() const { return m_nNames; }
 
-	const char *NameAt( int i ) const
-	{
-		return ( i >= 0 && i < m_nNames ) ? m_pNames[ i ] : NULL;
-	}
+	const char *NameAt( int i ) const { return ( i >= 0 && i < m_nNames ) ? m_pNames[i] : NULL; }
 
-	const char *ReasonAt( int i ) const
-	{
-		return ( i >= 0 && i < m_nNames ) ? m_pReasons[ i ] : NULL;
-	}
+	const char *ReasonAt( int i ) const { return ( i >= 0 && i < m_nNames ) ? m_pReasons[i] : NULL; }
 
-	int CountAt( int i ) const
-	{
-		return ( i >= 0 && i < m_nNames ) ? m_nCounts[ i ] : 0;
-	}
+	int CountAt( int i ) const { return ( i >= 0 && i < m_nNames ) ? m_nCounts[i] : 0; }
 
 	int CountOf( const char *pName ) const
 	{
 		const int iRow = Find( pName );
-		return ( iRow < 0 ) ? 0 : m_nCounts[ iRow ];
+		return ( iRow < 0 ) ? 0 : m_nCounts[iRow];
 	}
 
 private:
@@ -127,16 +124,16 @@ private:
 
 		for ( int i = 0; i < m_nNames; i++ )
 		{
-			if ( strcmp( m_pNames[ i ], pName ) == 0 )
+			if ( strcmp( m_pNames[i], pName ) == 0 )
 				return i;
 		}
 
 		return -1;
 	}
 
-	int          m_nTotal;
-	int          m_nNames;
-	const char  *m_pNames[ kMaxNames ];
-	const char  *m_pReasons[ kMaxNames ];
-	int          m_nCounts[ kMaxNames ];
+	int m_nTotal;
+	int m_nNames;
+	const char *m_pNames[kMaxNames];
+	const char *m_pReasons[kMaxNames];
+	int m_nCounts[kMaxNames];
 };

@@ -10,16 +10,6 @@
 // IManagedDecalsClient, and its client-system row. Name answers are copied into
 // members: native may not hold a pointer into managed memory.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -32,10 +22,11 @@
 class CShellDecalSystemClient : public IDecalEmitterSystem, public CClientSystem
 {
 public:
-	CShellDecalSystemClient() : CClientSystem( "CDecalEmitterSystem" )
+	CShellDecalSystemClient()
+		: CClientSystem( "CDecalEmitterSystem" )
 	{
-		m_szName[ 0 ] = '\0';
-		m_szTranslated[ 0 ] = '\0';
+		m_szName[0] = '\0';
+		m_szTranslated[0] = '\0';
 	}
 
 	virtual bool Init()
@@ -60,7 +51,7 @@ public:
 	virtual int GetDecalIndexForName( char const *decalname )
 	{
 		IManagedDecalsClient *pArea = ManagedDecalsClient();
-		if ( !pArea || !decalname || !decalname[ 0 ] )
+		if ( !pArea || !decalname || !decalname[0] )
 			return -1;
 		return pArea->IndexForName( decalname );
 	}
@@ -68,10 +59,10 @@ public:
 	// "" for an index no entry carries, as stock answers.
 	virtual const char *GetDecalNameForIndex( int nIndex )
 	{
-		m_szName[ 0 ] = '\0';
+		m_szName[0] = '\0';
 		IManagedDecalsClient *pArea = ManagedDecalsClient();
 		if ( pArea && pArea->NameForIndex( nIndex, m_szName, sizeof( m_szName ) ) < 0 )
-			m_szName[ 0 ] = '\0';
+			m_szName[0] = '\0';
 		return m_szName;
 	}
 
@@ -82,17 +73,22 @@ public:
 		IManagedDecalsClient *pArea = ManagedDecalsClient();
 		if ( !pArea || !decalName )
 			return decalName;
-		if ( pArea->TranslateForGameMaterial( decalName, (int32_t)gamematerial, m_szTranslated, sizeof( m_szTranslated ) ) < 0 )
+		if ( pArea->TranslateForGameMaterial( decalName, (int32_t)gamematerial, m_szTranslated,
+											  sizeof( m_szTranslated ) ) < 0 )
 			return decalName;
 		return m_szTranslated;
 	}
 
 private:
-	char m_szName[ 260 ];
-	char m_szTranslated[ 260 ];
+	char m_szName[260];
+	char m_szTranslated[260];
 };
 
 static CShellDecalSystemClient g_DecalSystem;
 
-CClientSystem *ClientSystem_DecalEmitter() { return &g_DecalSystem; }
+CClientSystem *ClientSystem_DecalEmitter()
+{
+	return &g_DecalSystem;
+}
+
 IDecalEmitterSystem *decalsystem = &g_DecalSystem;

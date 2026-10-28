@@ -57,15 +57,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub  = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -76,10 +76,8 @@ std::string Read( const std::string &strPath )
 	std::ifstream in( strPath.c_str() );
 	if ( !in )
 		return std::string();
-	return std::string( ( std::istreambuf_iterator< char >( in ) ),
-	                    std::istreambuf_iterator< char >() );
+	return std::string( ( std::istreambuf_iterator<char>( in ) ), std::istreambuf_iterator<char>() );
 }
-
 
 //-----------------------------------------------------------------------------
 // THE PATH A READ ACTUALLY RESOLVED TO, for a failure message.
@@ -98,13 +96,13 @@ std::string Read( const std::string &strPath )
 //-----------------------------------------------------------------------------
 std::string Resolved( const std::string &strRel )
 {
-	char szBuf[ PATH_MAX ];
+	char szBuf[PATH_MAX];
 	if ( realpath( strRel.c_str(), szBuf ) != NULL )
 		return std::string( szBuf );
 
 	// A missing file is often the POINT of the check, so a failed realpath is
 	// not an error here: resolve the directory instead and say it is absent.
-	char szCwd[ PATH_MAX ];
+	char szCwd[PATH_MAX];
 	if ( getcwd( szCwd, sizeof( szCwd ) ) != NULL )
 		return std::string( szCwd ) + "/" + strRel + "   (not present)";
 
@@ -117,7 +115,7 @@ int CountOf( const std::string &strHay, const std::string &strNeedle )
 		return 0;
 	int n = 0;
 	for ( size_t at = strHay.find( strNeedle ); at != std::string::npos;
-	      at = strHay.find( strNeedle, at + strNeedle.size() ) )
+		  at = strHay.find( strNeedle, at + strNeedle.size() ) )
 	{
 		n++;
 	}
@@ -235,33 +233,32 @@ TEST( PhysicsEventSink, EveryPhysWorldCommandHasAToolThatDrivesIt )
 	// The tools are read from the repo, not listed from memory: a tool renamed
 	// or deleted changes this count, and a command whose last driver went is
 	// the one case where deleting it is right.
-	struct Cmd_t { const char *pszName; int nTools; };
-	static const Cmd_t kCommands[] =
+	struct Cmd_t
 	{
+		const char *pszName;
+		int nTools;
+	};
+
+	static const Cmd_t kCommands[] = {
 		// report: 8e-physfreeze, gateseq-probe, 3f-gatebisect
-		{ "ss_physworld_report",  3 },
+		{ "ss_physworld_report", 3 },
 		// object: c8-clientsystems-gate, phys-wakesleep-gate,
 		//         defect-shadow-probe
-		{ "ss_physworld_object",  3 },
+		{ "ss_physworld_object", 3 },
 		// bounds: defect-shadow-probe
-		{ "ss_physworld_bounds",  1 },
+		{ "ss_physworld_bounds", 1 },
 		// recheck: 3f-gatebisect
 		{ "ss_physworld_recheck", 1 },
 		// nan: defect-shadow-probe (managed's PhysWorldNanCommand since the
 		// guard moved with the player shadow, plan_physics_bones_native_zero 2.5)
-		{ "ss_physworld_nan",     1 },
+		{ "ss_physworld_nan", 1 },
 	};
 
-	static const char *const kTools[] =
-	{
-		"tools/8e-physfreeze",
-		"tools/gateseq-probe",
-		"tools/3f-gatebisect",
-		"tools/c8-clientsystems-gate",
-		"tools/phys-wakesleep-gate",
-		"tools/defect-shadow-probe",
+	static const char *const kTools[] = {
+		"tools/8e-physfreeze",         "tools/gateseq-probe",       "tools/3f-gatebisect",
+		"tools/c8-clientsystems-gate", "tools/phys-wakesleep-gate", "tools/defect-shadow-probe",
 	};
-	const size_t nTools = sizeof( kTools ) / sizeof( kTools[ 0 ] );
+	const size_t nTools = sizeof( kTools ) / sizeof( kTools[0] );
 
 	// VACUITY GUARD ON THE READER, not on the result: every tool is above the
 	// src/ root this test's helper reads from, so a wrong prefix would make
@@ -270,7 +267,7 @@ TEST( PhysicsEventSink, EveryPhysWorldCommandHasAToolThatDrivesIt )
 	std::string strMissing;
 	for ( size_t t = 0; t < nTools; t++ )
 	{
-		if ( !RepoFile( kTools[ t ] ).empty() )
+		if ( !RepoFile( kTools[t] ).empty() )
 		{
 			nOpened++;
 			continue;
@@ -279,25 +276,24 @@ TEST( PhysicsEventSink, EveryPhysWorldCommandHasAToolThatDrivesIt )
 		// to a helper that answered about the MAIN checkout from inside a
 		// worktree; the relative path is identical in both trees and says
 		// nothing, and the absolute one is the whole diagnosis.
-		strMissing += std::string( "\n    " ) + kTools[ t ] + "  ->  "
-		            + Resolved( RepoPath( kTools[ t ] ) );
+		strMissing += std::string( "\n    " ) + kTools[t] + "  ->  " + Resolved( RepoPath( kTools[t] ) );
 	}
-	ASSERT_EQ( (int)nTools, nOpened )
-		<< "not every tool file opened, so the counts below measure the reader "
-		   "and not the tree. Resolved to:" << strMissing;
+	ASSERT_EQ( (int)nTools, nOpened ) << "not every tool file opened, so the counts below measure the reader "
+										 "and not the tree. Resolved to:"
+									  << strMissing;
 
-	for ( size_t i = 0; i < sizeof( kCommands ) / sizeof( kCommands[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCommands ) / sizeof( kCommands[0] ); i++ )
 	{
 		int n = 0;
 		for ( size_t t = 0; t < nTools; t++ )
-			n += ( CountOf( RepoFile( kTools[ t ] ), kCommands[ i ].pszName ) > 0 ) ? 1 : 0;
+			n += ( CountOf( RepoFile( kTools[t] ), kCommands[i].pszName ) > 0 ) ? 1 : 0;
 
-		EXPECT_EQ( kCommands[ i ].nTools, n )
-			<< kCommands[ i ].pszName << " is driven by " << n << " committed tool(s), "
-			<< "not " << kCommands[ i ].nTools << ". plan_shim_rulings.tsv rules this "
-			   "block DELETE on the grounds that it has NO tool caller; that premise "
-			   "is what this fact measures. If a tool legitimately stopped using it, "
-			   "lower the number here and say which tool and why -- and if it reaches "
-			   "zero for all four, the block really is dead.";
+		EXPECT_EQ( kCommands[i].nTools, n ) << kCommands[i].pszName << " is driven by " << n << " committed tool(s), "
+											<< "not " << kCommands[i].nTools
+											<< ". plan_shim_rulings.tsv rules this "
+											   "block DELETE on the grounds that it has NO tool caller; that premise "
+											   "is what this fact measures. If a tool legitimately stopped using it, "
+											   "lower the number here and say which tool and why -- and if it reaches "
+											   "zero for all four, the block really is dead.";
 	}
 }

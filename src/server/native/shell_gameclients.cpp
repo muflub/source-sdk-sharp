@@ -46,7 +46,7 @@ void UTIL_SetCommandClientIndex( int index );
 // GetPlayerState's answer, never NULL: two engine sites write through it
 // unchecked, one on an edict with no entity. Orphan states are per edict, so the
 // HLTV and Replay masters don't share one.
-static CPlayerState s_OrphanPlayerStates[ ABSOLUTE_PLAYER_LIMIT + 1 ];
+static CPlayerState s_OrphanPlayerStates[ABSOLUTE_PLAYER_LIMIT + 1];
 
 CPlayerState *SourceSharp_PlayerStateForEdict( edict_t *pEdict )
 {
@@ -63,7 +63,7 @@ CPlayerState *SourceSharp_PlayerStateForEdict( edict_t *pEdict )
 	int nIndex = ( pEdict != NULL ) ? engine->IndexOfEdict( pEdict ) : 0;
 	if ( nIndex < 0 || nIndex > ABSOLUTE_PLAYER_LIMIT )
 		nIndex = 0;
-	return &s_OrphanPlayerStates[ nIndex ];
+	return &s_OrphanPlayerStates[nIndex];
 }
 
 // Where this client's eyes are, asked of managed code at most once per frame;
@@ -82,14 +82,14 @@ bool SourceSharp_ClientViewOrigin( edict_t *pClient, Vector *pOut )
 
 	if ( tail.ViewOriginFrame != gpGlobals->framecount )
 	{
-		float flEyes[ 3 ] = { 0.0f, 0.0f, 0.0f };
+		float flEyes[3] = { 0.0f, 0.0f, 0.0f };
 
 		// A miss writes nothing and answers no; a zeroed flEyes is the world
 		// origin, a real position.
 		if ( !SourceSharp_EarPositionForClient( engine->IndexOfEdict( pClient ), flEyes ) )
 			return false;
 
-		tail.ViewOrigin.Init( flEyes[ 0 ], flEyes[ 1 ], flEyes[ 2 ] );
+		tail.ViewOrigin.Init( flEyes[0], flEyes[1], flEyes[2] );
 		tail.ViewOriginFrame = gpGlobals->framecount;
 	}
 
@@ -99,25 +99,44 @@ bool SourceSharp_ClientViewOrigin( edict_t *pClient, Vector *pOut )
 
 namespace
 {
-	CServerGameClients s_ServerGameClients;
+CServerGameClients s_ServerGameClients;
 }
+
 // INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_3 is compatible with the latest since we're only adding things to the end, so expose that as well.
 // Answered by the factory (shell_factory.cpp), which asks for each by its row.
-static void *SourceSharp_GetServerGameClients003() { return (IServerGameClients003 *)&s_ServerGameClients; }
-const SourceSharpExposed kExposeServerGameClients003 = { INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_3, SourceSharp_GetServerGameClients003 };
-static void *SourceSharp_GetServerGameClients004() { return (IServerGameClients004 *)&s_ServerGameClients; }
-const SourceSharpExposed kExposeServerGameClients004 = { INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_4, SourceSharp_GetServerGameClients004 };
-static void *SourceSharp_GetServerGameClients() { return (IServerGameClients *)&s_ServerGameClients; }
-const SourceSharpExposed kExposeServerGameClients = { INTERFACEVERSION_SERVERGAMECLIENTS, SourceSharp_GetServerGameClients };
+static void *SourceSharp_GetServerGameClients003()
+{
+	return (IServerGameClients003 *)&s_ServerGameClients;
+}
+
+const SourceSharpExposed kExposeServerGameClients003 = { INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_3,
+														 SourceSharp_GetServerGameClients003 };
+
+static void *SourceSharp_GetServerGameClients004()
+{
+	return (IServerGameClients004 *)&s_ServerGameClients;
+}
+
+const SourceSharpExposed kExposeServerGameClients004 = { INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_4,
+														 SourceSharp_GetServerGameClients004 };
+
+static void *SourceSharp_GetServerGameClients()
+{
+	return (IServerGameClients *)&s_ServerGameClients;
+}
+
+const SourceSharpExposed kExposeServerGameClients = { INTERFACEVERSION_SERVERGAMECLIENTS,
+													  SourceSharp_GetServerGameClients };
 
 // Called when a player tries to connect; false refuses, with the reason in reject.
-bool CServerGameClients::ClientConnect( edict_t *pEdict, const char *pszName, const char *pszAddress, char *reject, int maxrejectlen )
+bool CServerGameClients::ClientConnect( edict_t *pEdict, const char *pszName, const char *pszAddress, char *reject,
+										int maxrejectlen )
 {
 	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientConnect );
-	
+
 	if ( !g_pGameRules )
 		return false;
-	
+
 	return g_pGameRules->ClientConnected( pEdict, pszName, pszAddress, reject, maxrejectlen );
 }
 
@@ -139,7 +158,7 @@ bool HandClientMessageToManaged( CSourceSharpClientMessage &msg )
 void RegisterClientMessage( int nEntIndex )
 {
 	// A bot has no channel.
-	INetChannel *pChannel = nEntIndex > 0 ? static_cast< INetChannel * >( engine->GetPlayerNetInfo( nEntIndex ) ) : NULL;
+	INetChannel *pChannel = nEntIndex > 0 ? static_cast<INetChannel *>( engine->GetPlayerNetInfo( nEntIndex ) ) : NULL;
 	if ( !pChannel )
 		return;
 
@@ -168,14 +187,15 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 		const char *pszName = nIndex > 0 ? engine->GetClientConVarValue( nIndex, "name" ) : NULL;
 
 		Msg( "[SourceSharp][save] ClientActive( bLoadGame=1 ) -- the engine skipped "
-		     "ClientPutInServer, so no player exists on edict %d. Creating it here.\n",
-		     nIndex );
+			 "ClientPutInServer, so no player exists on edict %d. Creating it here.\n",
+			 nIndex );
 
 		if ( !StandalonePlayer_Create( pEdict, pszName ? pszName : "" ) )
 		{
 			Warning( "[SourceSharp][save] the standalone player could NOT be created on "
-			         "edict %d. This load has no player: the map is standing, but nothing "
-			         "can be saved from it and the client has no viewpoint.\n", nIndex );
+					 "edict %d. This load has no player: the map is standing, but nothing "
+					 "can be saved from it and the client has no viewpoint.\n",
+					 nIndex );
 		}
 	}
 
@@ -263,7 +283,8 @@ void CServerGameClients::ClientSettingsChanged( edict_t *pEdict )
 
 // Sets up the client's PVS from its view entity and eye position. Do not cache
 // pvs: it is reusable engine memory, good for this frame only.
-void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *pClient, unsigned char *pvs, int pvssize )
+void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *pClient, unsigned char *pvs,
+												int pvssize )
 {
 	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientSetupVisibility );
 
@@ -303,9 +324,9 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 	unsigned char portalBits[MAX_AREA_PORTAL_STATE_BYTES];
 	memset( portalBits, 0, sizeof( portalBits ) );
 
-	const float flOrg[ 3 ] = { org.x, org.y, org.z };
-	const int nTooLarge = SourceSharp_AreaPortalVisibility( flOrg, fovDistanceAdjustFactor,
-	                                                        portalBits, sizeof( portalBits ) );
+	const float flOrg[3] = { org.x, org.y, org.z };
+	const int nTooLarge =
+		SourceSharp_AreaPortalVisibility( flOrg, fovDistanceAdjustFactor, portalBits, sizeof( portalBits ) );
 	if ( nTooLarge >= 0 )
 		Error( "ClientSetupVisibility: portal number (%d) too large", nTooLarge );
 
@@ -317,7 +338,7 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 #define SOURCESHARP_MAX_QUEUED_USERCMDS ( 64 + 24 )
 
 float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int numcmds, int totalcmds,
-	int dropped_packets, bool ignore, bool paused )
+										   int dropped_packets, bool ignore, bool paused )
 {
 	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ProcessUsercmds );
 
@@ -336,15 +357,14 @@ float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int nu
 
 	CStandalonePlayer *pStandalone = ignore ? NULL : CStandalonePlayer::FromEdict( player );
 
-	SourceSharpDecodedUserCmd queued[ SOURCESHARP_MAX_QUEUED_USERCMDS ];
+	SourceSharpDecodedUserCmd queued[SOURCESHARP_MAX_QUEUED_USERCMDS];
 	int32_t nBitsRead = 0;
 	const int nStart = buf->GetNumBitsRead();
 
 	const int nQueued = pCommands->PlayerDecodeCommands(
-		pStandalone ? pStandalone->ManagedHandle() : (uint32_t)INVALID_EHANDLE_INDEX,
-		buf->GetBasePointer(), nStart, nStart + buf->GetNumBitsLeft(),
-		numcmds, totalcmds, dropped_packets, pStandalone != NULL ? 1 : 0,
-		queued, (int32_t)ARRAYSIZE( queued ), &nBitsRead );
+		pStandalone ? pStandalone->ManagedHandle() : (uint32_t)INVALID_EHANDLE_INDEX, buf->GetBasePointer(), nStart,
+		nStart + buf->GetNumBitsLeft(), numcmds, totalcmds, dropped_packets, pStandalone != NULL ? 1 : 0, queued,
+		(int32_t)ARRAYSIZE( queued ), &nBitsRead );
 
 	// Out-of-range counts, a truncated stream or a plan that didn't fit: the
 	// engine drops the packet.
@@ -376,7 +396,7 @@ void CServerGameClients::SetCommandClient( int index )
 	UTIL_SetCommandClientIndex( index );
 }
 
-int	CServerGameClients::GetReplayDelay( edict_t *pEdict, int &entity )
+int CServerGameClients::GetReplayDelay( edict_t *pEdict, int &entity )
 {
 	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_GetReplayDelay );
 
@@ -399,15 +419,15 @@ void CServerGameClients::ClientEarPosition( edict_t *pEdict, Vector *pEarOrigin 
 	if ( SourceSharp_ClientViewOrigin( pEdict, pEarOrigin ) )
 		return;
 
-	float flEars[ 3 ] = { 0.0f, 0.0f, 0.0f };
+	float flEars[3] = { 0.0f, 0.0f, 0.0f };
 	if ( SourceSharp_EarPositionForClient( pEdict ? engine->IndexOfEdict( pEdict ) : 0, flEars ) )
 	{
-		pEarOrigin->Init( flEars[ 0 ], flEars[ 1 ], flEars[ 2 ] );
+		pEarOrigin->Init( flEars[0], flEars[1], flEars[2] );
 		return;
 	}
 
 	// Shouldn't happen
-	Assert(0);
+	Assert( 0 );
 	*pEarOrigin = vec3_origin;
 }
 
@@ -425,7 +445,7 @@ void CServerGameClients::GetBugReportInfo( char *buf, int buflen )
 {
 	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_GetBugReportInfo );
 
-	buf[ 0 ] = 0;
+	buf[0] = 0;
 }
 
 // A player sent a voice packet.

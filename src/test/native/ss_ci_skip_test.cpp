@@ -7,27 +7,29 @@
 
 namespace
 {
-	// The variable as it was, put back after each test that changes it.
-	struct SavedCi
-	{
-		bool bHad;
-		std::string value;
-		SavedCi()
-		{
-			const char *p = std::getenv( "SOURCESHARP_CI" );
-			bHad = p != nullptr;
-			value = p ? p : "";
-		}
-		~SavedCi()
-		{
-			if ( bHad )
-				setenv( "SOURCESHARP_CI", value.c_str(), 1 );
-			else
-				unsetenv( "SOURCESHARP_CI" );
-		}
-	};
+// The variable as it was, put back after each test that changes it.
+struct SavedCi
+{
+	bool bHad;
+	std::string value;
 
-	bool g_bBodyRan = false;
+	SavedCi()
+	{
+		const char *p = std::getenv( "SOURCESHARP_CI" );
+		bHad = p != nullptr;
+		value = p ? p : "";
+	}
+
+	~SavedCi()
+	{
+		if ( bHad )
+			setenv( "SOURCESHARP_CI", value.c_str(), 1 );
+		else
+			unsetenv( "SOURCESHARP_CI" );
+	}
+};
+
+bool g_bBodyRan = false;
 }
 
 TEST( SsCiSkip, OnlyTheExactValueOneIsCi )

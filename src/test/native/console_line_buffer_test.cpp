@@ -47,14 +47,14 @@ TEST( ConsoleLineBuffer, LinesComeOutInPrintOrderNumberedFromOne )
 
 	auto lines = Drain( *buffer );
 	ASSERT_EQ( 3u, lines.size() );
-	EXPECT_EQ( "first\n", lines[ 0 ].text );
-	EXPECT_EQ( 1u, lines[ 0 ].seq );
-	EXPECT_EQ( 0u, lines[ 0 ].warning );
-	EXPECT_EQ( "second\n", lines[ 1 ].text );
-	EXPECT_EQ( 2u, lines[ 1 ].seq );
-	EXPECT_EQ( 1u, lines[ 1 ].warning );
-	EXPECT_EQ( "", lines[ 2 ].text );
-	EXPECT_EQ( 3u, lines[ 2 ].seq );
+	EXPECT_EQ( "first\n", lines[0].text );
+	EXPECT_EQ( 1u, lines[0].seq );
+	EXPECT_EQ( 0u, lines[0].warning );
+	EXPECT_EQ( "second\n", lines[1].text );
+	EXPECT_EQ( 2u, lines[1].seq );
+	EXPECT_EQ( 1u, lines[1].warning );
+	EXPECT_EQ( "", lines[2].text );
+	EXPECT_EQ( 3u, lines[2].seq );
 }
 
 TEST( ConsoleLineBuffer, ADrainEmptiesAndTheNextDrainSeesOnlyNewLines )
@@ -67,25 +67,25 @@ TEST( ConsoleLineBuffer, ADrainEmptiesAndTheNextDrainSeesOnlyNewLines )
 	buffer->Append( "b\n", 0 );
 	auto lines = Drain( *buffer );
 	ASSERT_EQ( 1u, lines.size() );
-	EXPECT_EQ( "b\n", lines[ 0 ].text );
-	EXPECT_EQ( 2u, lines[ 0 ].seq ) << "numbers run on across drains";
+	EXPECT_EQ( "b\n", lines[0].text );
+	EXPECT_EQ( 2u, lines[0].seq ) << "numbers run on across drains";
 }
 
 TEST( ConsoleLineBuffer, ALineThatDoesNotFitIsCountedAndKeepsItsNumber )
 {
 	auto buffer = Fresh();
 	std::string big( kConsoleLineHalfBytes / 2, 'x' );
-	EXPECT_TRUE( buffer->Append( big.c_str(), 0 ) );     // seq 1
-	EXPECT_FALSE( buffer->Append( big.c_str(), 0 ) );    // seq 2: no room left
-	EXPECT_FALSE( buffer->Append( big.c_str(), 0 ) );    // seq 3
-	EXPECT_TRUE( buffer->Append( "small\n", 0 ) );       // seq 4 still fits
+	EXPECT_TRUE( buffer->Append( big.c_str(), 0 ) ); // seq 1
+	EXPECT_FALSE( buffer->Append( big.c_str(), 0 ) ); // seq 2: no room left
+	EXPECT_FALSE( buffer->Append( big.c_str(), 0 ) ); // seq 3
+	EXPECT_TRUE( buffer->Append( "small\n", 0 ) ); // seq 4 still fits
 
 	auto taken = ConsoleLineSwap( *buffer );
 	EXPECT_EQ( 2u, taken.nOverflow );
 	auto lines = Parse( taken );
 	ASSERT_EQ( 2u, lines.size() );
-	EXPECT_EQ( 1u, lines[ 0 ].seq );
-	EXPECT_EQ( 4u, lines[ 1 ].seq ) << "a dropped line's number is spent, so the gap shows";
+	EXPECT_EQ( 1u, lines[0].seq );
+	EXPECT_EQ( 4u, lines[1].seq ) << "a dropped line's number is spent, so the gap shows";
 	EXPECT_EQ( 0u, ConsoleLineSwap( *buffer ).nOverflow ) << "the swap hands the count over once";
 }
 
@@ -110,10 +110,10 @@ TEST( ConsoleLineBuffer, AfterASwapProducersWriteTheOtherHalf )
 	// swap must not land in it.
 	auto lines = Parse( taken );
 	ASSERT_EQ( 1u, lines.size() );
-	EXPECT_EQ( "before\n", lines[ 0 ].text );
+	EXPECT_EQ( "before\n", lines[0].text );
 	auto next = Drain( *buffer );
 	ASSERT_EQ( 1u, next.size() );
-	EXPECT_EQ( "after\n", next[ 0 ].text );
+	EXPECT_EQ( "after\n", next[0].text );
 }
 
 TEST( ConsoleLineBuffer, NumbersWrapAndStillOrderBySignedDifference )
@@ -125,11 +125,11 @@ TEST( ConsoleLineBuffer, NumbersWrapAndStillOrderBySignedDifference )
 	buffer->Append( "c\n", 0 );
 	auto lines = Drain( *buffer );
 	ASSERT_EQ( 3u, lines.size() );
-	EXPECT_EQ( 0xFFFFFFFFu, lines[ 0 ].seq );
-	EXPECT_EQ( 0u, lines[ 1 ].seq );
-	EXPECT_EQ( 1u, lines[ 2 ].seq );
-	EXPECT_GT( (int32_t)( lines[ 1 ].seq - lines[ 0 ].seq ), 0 );
-	EXPECT_GT( (int32_t)( lines[ 2 ].seq - lines[ 0 ].seq ), 0 );
+	EXPECT_EQ( 0xFFFFFFFFu, lines[0].seq );
+	EXPECT_EQ( 0u, lines[1].seq );
+	EXPECT_EQ( 1u, lines[2].seq );
+	EXPECT_GT( (int32_t)( lines[1].seq - lines[0].seq ), 0 );
+	EXPECT_GT( (int32_t)( lines[2].seq - lines[0].seq ), 0 );
 }
 
 TEST( ConsoleLineBuffer, ManyThreadsEachLineOnceEachThreadInOrder )
@@ -138,21 +138,25 @@ TEST( ConsoleLineBuffer, ManyThreadsEachLineOnceEachThreadInOrder )
 	const int kThreads = 8, kLines = 2000;
 	std::vector<Line> all;
 	std::atomic<bool> done{ false };
-	std::thread consumer( [ & ] {
-		while ( !done.load() )
+	std::thread consumer(
+		[&]
 		{
-			auto lines = Drain( *buffer );
-			all.insert( all.end(), lines.begin(), lines.end() );
-		}
-		auto rest = Drain( *buffer );
-		all.insert( all.end(), rest.begin(), rest.end() );
-	} );
+			while ( !done.load() )
+			{
+				auto lines = Drain( *buffer );
+				all.insert( all.end(), lines.begin(), lines.end() );
+			}
+			auto rest = Drain( *buffer );
+			all.insert( all.end(), rest.begin(), rest.end() );
+		} );
 	std::vector<std::thread> producers;
 	for ( int t = 0; t < kThreads; ++t )
-		producers.emplace_back( [ &, t ] {
-			for ( int i = 0; i < kLines; ++i )
-				buffer->Append( ( std::to_string( t ) + ":" + std::to_string( i ) ).c_str(), 0 );
-		} );
+		producers.emplace_back(
+			[&, t]
+			{
+				for ( int i = 0; i < kLines; ++i )
+					buffer->Append( ( std::to_string( t ) + ":" + std::to_string( i ) ).c_str(), 0 );
+			} );
 	for ( auto &p : producers )
 		p.join();
 	done = true;
@@ -162,11 +166,11 @@ TEST( ConsoleLineBuffer, ManyThreadsEachLineOnceEachThreadInOrder )
 	std::map<int, int> nextOf;
 	for ( size_t i = 0; i < all.size(); ++i )
 	{
-		EXPECT_EQ( (uint32_t)( i + 1 ), all[ i ].seq ) << "drained in number order";
-		const auto colon = all[ i ].text.find( ':' );
-		const int t = std::stoi( all[ i ].text.substr( 0, colon ) );
-		const int n = std::stoi( all[ i ].text.substr( colon + 1 ) );
-		EXPECT_EQ( nextOf[ t ]++, n ) << "thread " << t << "'s lines out of order";
+		EXPECT_EQ( (uint32_t)( i + 1 ), all[i].seq ) << "drained in number order";
+		const auto colon = all[i].text.find( ':' );
+		const int t = std::stoi( all[i].text.substr( 0, colon ) );
+		const int n = std::stoi( all[i].text.substr( colon + 1 ) );
+		EXPECT_EQ( nextOf[t]++, n ) << "thread " << t << "'s lines out of order";
 	}
 }
 
@@ -178,19 +182,26 @@ TEST( ConsoleLineBuffer, ASwapReleasesTheLockBeforeTheConsumerParses )
 	auto buffer = Fresh();
 	buffer->Append( "taken\n", 0 );
 	std::atomic<bool> swapped{ false }, release{ false };
-	std::thread consumer( [ & ] {
-		auto taken = ConsoleLineSwap( *buffer );
-		swapped = true;
-		while ( !release.load() )
-			std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
-		EXPECT_EQ( 1u, Parse( taken ).size() );
-	} );
+	std::thread consumer(
+		[&]
+		{
+			auto taken = ConsoleLineSwap( *buffer );
+			swapped = true;
+			while ( !release.load() )
+				std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+			EXPECT_EQ( 1u, Parse( taken ).size() );
+		} );
 	while ( !swapped.load() )
 		std::this_thread::yield();
 	EXPECT_FALSE( ConsoleLineLocked( *buffer ) ) << "the swap still held the lock";
 
 	std::atomic<bool> printed{ false };
-	std::thread producer( [ & ] { buffer->Append( "during the parse\n", 0 ); printed = true; } );
+	std::thread producer(
+		[&]
+		{
+			buffer->Append( "during the parse\n", 0 );
+			printed = true;
+		} );
 	auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds( 300 );
 	while ( !printed.load() && std::chrono::steady_clock::now() < deadline )
 		std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
@@ -208,7 +219,12 @@ TEST( ConsoleLineBuffer, AHeldLockHoldsAPrintOnlyUntilItIsReleased )
 	auto buffer = Fresh();
 	buffer->Lock();
 	std::atomic<bool> printed{ false };
-	std::thread producer( [ & ] { buffer->Append( "held\n", 0 ); printed = true; } );
+	std::thread producer(
+		[&]
+		{
+			buffer->Append( "held\n", 0 );
+			printed = true;
+		} );
 	std::this_thread::sleep_for( std::chrono::milliseconds( 50 ) );
 	EXPECT_FALSE( printed.load() ) << "the lock did not hold the print";
 	buffer->Unlock();
@@ -225,13 +241,13 @@ TEST( ConsoleLineBuffer, AHeldLockHoldsAPrintOnlyUntilItIsReleased )
 // leaves alone reads non-zero too.
 TEST( ConsoleLineBuffer, ConstructionLeavesEveryHeaderByteZero )
 {
-	alignas( CConsoleLineBuffer ) static unsigned char s_Storage[ sizeof( CConsoleLineBuffer ) ];
+	alignas( CConsoleLineBuffer ) static unsigned char s_Storage[sizeof( CConsoleLineBuffer )];
 	memset( s_Storage, 0xAB, sizeof( s_Storage ) );
 	CConsoleLineBuffer *pBuffer = new ( s_Storage ) CConsoleLineBuffer;
 
 	const unsigned char *pHeader = reinterpret_cast<const unsigned char *>( &pBuffer->m_Header );
 	for ( size_t i = 0; i < sizeof( ConsoleLineBufferHeader ); ++i )
-		EXPECT_EQ( 0, pHeader[ i ] ) << "header byte " << i << " is not zero after construction";
+		EXPECT_EQ( 0, pHeader[i] ) << "header byte " << i << " is not zero after construction";
 	pBuffer->~CConsoleLineBuffer();
 }
 

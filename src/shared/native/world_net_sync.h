@@ -18,7 +18,7 @@ unsigned int SourceSharp_PlayerSyncGeneration();
 // packed word, so they carry a placement rather than an offset.
 struct SourceSharpWorldFields_t
 {
-	unsigned int nGeneration;   // 0 = never resolved
+	unsigned int nGeneration; // 0 = never resolved
 
 	int nWaveHeight;
 	int nMaxOccludeeArea;
@@ -32,17 +32,22 @@ struct SourceSharpWorldFields_t
 	SourceSharpPackedField_t StartDark;
 	SourceSharpPackedField_t ColdWorld;
 
-	SourceSharpWorldFields_t() { memset( this, 0, sizeof( *this ) ); nWaveHeight = -1;
-	                             nMaxOccludeeArea = -1; nMinOccluderArea = -1;
-	                             nMaxPropScreenSpaceWidth = -1; nMinPropScreenSpaceWidth = -1;
-	                             nWorldMins = -1; nWorldMaxs = -1; nDetailSpriteMaterial = -1; }
+	SourceSharpWorldFields_t()
+	{
+		memset( this, 0, sizeof( *this ) );
+		nWaveHeight = -1;
+		nMaxOccludeeArea = -1;
+		nMinOccluderArea = -1;
+		nMaxPropScreenSpaceWidth = -1;
+		nMinPropScreenSpaceWidth = -1;
+		nWorldMins = -1;
+		nWorldMaxs = -1;
+		nDetailSpriteMaterial = -1;
+	}
 
 	// Shares the player sync's generation: one republish invalidates every native-held
 	// offset at once.
-	bool IsCurrent() const
-	{
-		return nGeneration != 0 && nGeneration == SourceSharp_PlayerSyncGeneration();
-	}
+	bool IsCurrent() const { return nGeneration != 0 && nGeneration == SourceSharp_PlayerSyncGeneration(); }
 };
 
 // Asks the managed side for all ten placements. False, with one warning, when
@@ -51,18 +56,16 @@ bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields );
 
 // Safe against an unresolved field and a NULL blob; they answer zero, as a fresh
 // stock world would.
-float  SourceSharpWorld_ReadFloat ( const unsigned char *pBlob, int nOffset );
+float SourceSharpWorld_ReadFloat( const unsigned char *pBlob, int nOffset );
 Vector SourceSharpWorld_ReadVector( const unsigned char *pBlob, int nOffset );
-bool   SourceSharpWorld_ReadFlag  ( const unsigned char *pBlob,
-                                    const SourceSharpPackedField_t &field );
+bool SourceSharpWorld_ReadFlag( const unsigned char *pBlob, const SourceSharpPackedField_t &field );
 
 // The detail sprite material, as a pointer into the blob that lives as long as the
 // world object. Never NULL: "" for an unresolved field or a missing terminator.
-const char *SourceSharpWorld_ReadString( const unsigned char *pBlob, int nBlobBytes,
-                                         int nOffset );
+const char *SourceSharpWorld_ReadString( const unsigned char *pBlob, int nBlobBytes, int nOffset );
 
 // Prints all ten values on one line per side, once per level load. The values are
 // read by the renderer and fail silently as plausible zeros, so this is the only live
 // evidence they arrive; one body keeps both sides' lines comparable.
-void SourceSharpWorld_Report( const char *pszSide, const unsigned char *pBlob,
-                              int nBlobBytes, const SourceSharpWorldFields_t &fields );
+void SourceSharpWorld_Report( const char *pszSide, const unsigned char *pBlob, int nBlobBytes,
+							  const SourceSharpWorldFields_t &fields );

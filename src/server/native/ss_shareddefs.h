@@ -17,15 +17,15 @@ namespace ss
 // shareddefs.h: an entity's blood colour (DONT_BLEED for none).
 enum
 {
-	DONT_BLEED       = -1,
-	BLOOD_COLOR_RED  = 0,
+	DONT_BLEED = -1,
+	BLOOD_COLOR_RED = 0,
 	BLOOD_COLOR_MECH = 3,
 };
 
 // shareddefs.h: UTIL_Tracer's flags and its "no attachment" index.
 enum
 {
-	kTracerFlagWhiz          = 0x0001,
+	kTracerFlagWhiz = 0x0001,
 	kTracerFlagUseAttachment = 0x0002,
 	kTracerDontUseAttachment = -1,
 };
@@ -33,26 +33,26 @@ enum
 // shareddefs.h's DMG_* damage-type bits.
 enum
 {
-	kDmgGeneric                  = 0,
-	kDmgCrush                    = 1 << 0,
-	kDmgBullet                   = 1 << 1,
-	kDmgBurn                     = 1 << 3,
-	kDmgFall                     = 1 << 5,
-	kDmgBlast                    = 1 << 6,
-	kDmgClub                     = 1 << 7,
-	kDmgShock                    = 1 << 8,
-	kDmgSonic                    = 1 << 9,
-	kDmgPreventPhysicsForce      = 1 << 11,
-	kDmgDrown                    = 1 << 14,
-	kDmgParalyze                 = 1 << 15,
-	kDmgNervegas                 = 1 << 16,
-	kDmgPoison                   = 1 << 17,
-	kDmgRadiation                = 1 << 18,
-	kDmgDrownrecover             = 1 << 19,
-	kDmgAcid                     = 1 << 20,
-	kDmgSlowburn                 = 1 << 21,
-	kDmgPhysgun                  = 1 << 23,
-	kDmgPlasma                   = 1 << 24,
+	kDmgGeneric = 0,
+	kDmgCrush = 1 << 0,
+	kDmgBullet = 1 << 1,
+	kDmgBurn = 1 << 3,
+	kDmgFall = 1 << 5,
+	kDmgBlast = 1 << 6,
+	kDmgClub = 1 << 7,
+	kDmgShock = 1 << 8,
+	kDmgSonic = 1 << 9,
+	kDmgPreventPhysicsForce = 1 << 11,
+	kDmgDrown = 1 << 14,
+	kDmgParalyze = 1 << 15,
+	kDmgNervegas = 1 << 16,
+	kDmgPoison = 1 << 17,
+	kDmgRadiation = 1 << 18,
+	kDmgDrownrecover = 1 << 19,
+	kDmgAcid = 1 << 20,
+	kDmgSlowburn = 1 << 21,
+	kDmgPhysgun = 1 << 23,
+	kDmgPlasma = 1 << 24,
 };
 
 // shareddefs.h's MAX_PLAYERS for a build that is not CSTRIKE_DLL, TF_DLL or HL2MP.
@@ -89,8 +89,8 @@ enum
 // soundent.h: the sound-hint bits and channel RadiusDamage announces a blast with.
 enum
 {
-	SOUND_COMBAT                 = 0x00000001,
-	SOUND_CONTEXT_EXPLOSION      = 0x02000000,
+	SOUND_COMBAT = 0x00000001,
+	SOUND_CONTEXT_EXPLOSION = 0x02000000,
 	SOUNDENT_CHANNEL_UNSPECIFIED = 0,
 };
 
@@ -103,7 +103,7 @@ enum
 enum
 {
 	GR_NOTTEAMMATE = 0,
-	GR_TEAMMATE    = 1,
+	GR_TEAMMATE = 1,
 };
 
 // decals.h's CHAR_TEX_* surface materials (macros there, so k-names here), the
@@ -111,9 +111,9 @@ enum
 enum
 {
 	kCharTexConcrete = 'C',
-	kCharTexDirt     = 'D',
-	kCharTexGrate    = 'G',
-	kCharTexMetal    = 'M',
+	kCharTexDirt = 'D',
+	kCharTexGrate = 'G',
+	kCharTexMetal = 'M',
 };
 
 // baseentity_shared.h's VPHYSICS_MAX_OBJECT_LIST_COUNT.
@@ -125,8 +125,8 @@ enum
 // shareddefs.h's data-object kinds server.so registers, and their count.
 enum
 {
-	POSITIONWATCHER      = 4,
-	VPHYSICSWATCHER      = 7,
+	POSITIONWATCHER = 4,
+	VPHYSICSWATCHER = 7,
 	NUM_DATAOBJECT_TYPES = 8,
 };
 

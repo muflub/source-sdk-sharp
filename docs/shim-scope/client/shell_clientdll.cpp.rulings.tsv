@@ -1,33 +1,33 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-static INetChannelInfo *ShellNetChannel(	SLOT-HELP	the engine net channel for the three netgraph slots below; decides nothing
-static int32_t ShellPut(	SLOT-HELP	bounded store of one value into the caller array for the netgraph slots
-SourceSharp_ClientNetFlow(	BOUNDARY	the netgraph route: forwards one flow of INetChannelInfo in a fixed order (plan_client_novalve 4.4)
-SourceSharp_ClientNetChannel(	BOUNDARY	the netgraph route: forwards the channel-wide INetChannelInfo reads and GetClientInterpAmount
-SourceSharp_ClientNetPacket(	BOUNDARY	the netgraph route: forwards one packet of INetChannelInfo; managed picks the frames
-SourceSharp_ClientRefusal(	INSTRUMENT	the absences route: reads the CShellClientDllRefusals ledger cs_cl_refusals prints
-void CShellClientDLL::VoiceStatus(	SLOT	IBaseClientDLL::VoiceStatus the engine calls: to the voice manager and to the managed UI's voice panel
-[CShellClientDLL] void RefuseExternal(	INSTRUMENT	the refusal tally's way in for a refused method of an interface implemented outside the class (the particle query's six)
-void ShellClientDll_RefuseExternal(	INSTRUMENT	the refusal tally's free entry for the particles shell's refused IParticleSystemQuery methods
-static void ResetManagedViewEffects(	BOUNDARY	CViewEffects::LevelInit's carry-out: managed's ViewEffects reset at level start
-static void ResetToneMappingScale(	BOUNDARY	ResetToneMapping( 1.0 )'s native half: the render context's tonemap scale reset at level start
-void SourceSharp_ViewFade(	BOUNDARY	CViewEffects::Fade's carry-out: the fade's fields to managed's ViewEffects
-CShellClientDLL::SaveInit(	SLOT	IBaseClientDLL::SaveInit, which the engine's client state save asks first: one forward into IManagedSaveRestoreClient (the client save codec); the managed SaveBlockSession sizes, allocates and places the block, and the NULL's warning decides nothing
-CShellClientDLL::SaveWriteFields(	SLOT	IBaseClientDLL::SaveWriteFields (DECALLIST, MUSICLIST): one forward into IManagedSaveRestoreClient with sizeof( typedescription_t ); the managed codec encodes
-CShellClientDLL::SaveReadFields(	SLOT	IBaseClientDLL::SaveReadFields: one forward into IManagedSaveRestoreClient with sizeof( typedescription_t ); the managed codec decodes
-CShellClientDLL::PreSave(	SLOT	an IBaseClientDLL save slot the engine calls; moves no bytes (no client entity state goes through a datamap), symmetric with ReadRestoreHeaders
-CShellClientDLL::Save( CSaveRestoreData	SLOT	an IBaseClientDLL save slot the engine calls; moves no bytes (no client entity state goes through a datamap), symmetric with Restore
-CShellClientDLL::WriteSaveHeaders(	SLOT	an IBaseClientDLL save slot the engine calls; moves no bytes, symmetric with ReadRestoreHeaders
-CShellClientDLL::ReadRestoreHeaders(	SLOT	an IBaseClientDLL restore slot the engine calls; reads no bytes, symmetric with WriteSaveHeaders
-CShellClientDLL::Restore( CSaveRestoreData	SLOT	an IBaseClientDLL restore slot the engine calls; reads no bytes, symmetric with Save
-CShellClientDLL::DispatchOnRestore(	SLOT	an IBaseClientDLL restore slot the engine calls; there is no restore list to walk (a managed entity's restore is C#'s)
+static INetChannelInfo *ShellNetChannel()	SLOT-HELP	the engine net channel for the three netgraph slots below; decides nothing
+static int32_t ShellPut( float *pOut, int32_t nOut, int32_t i, float flValue )	SLOT-HELP	bounded store of one value into the caller array for the netgraph slots
+int32_t SourceSharp_ClientNetFlow( int32_t nFlow, float *pOut, int32_t nOut )	BOUNDARY	the netgraph route: forwards one flow of INetChannelInfo in a fixed order (plan_client_novalve 4.4)
+int32_t SourceSharp_ClientNetChannel( float *pOut, int32_t nOut )	BOUNDARY	the netgraph route: forwards the channel-wide INetChannelInfo reads and GetClientInterpAmount
+int32_t SourceSharp_ClientNetPacket( int32_t nFlow, int32_t nFrame, float *pOut, int32_t nOut )	BOUNDARY	the netgraph route: forwards one packet of INetChannelInfo; managed picks the frames
+int32_t SourceSharp_ClientRefusal( int32_t iIndex, char *pOutMethod, int32_t nMethodBytes, int32_t *pOutCount, int32_t *pOutTotal )	INSTRUMENT	the absences route: reads the CShellClientDllRefusals ledger cs_cl_refusals prints
+void CShellClientDLL::VoiceStatus( int entindex, qboolean bTalking )	SLOT	IBaseClientDLL::VoiceStatus the engine calls: to the voice manager and to the managed UI's voice panel
+[CShellClientDLL] void RefuseExternal( const char *pMethod )	INSTRUMENT	the refusal tally's way in for a refused method of an interface implemented outside the class (the particle query's six)
+void ShellClientDll_RefuseExternal( const char *pMethod )	INSTRUMENT	the refusal tally's free entry for the particles shell's refused IParticleSystemQuery methods
+static void ResetManagedViewEffects()	BOUNDARY	CViewEffects::LevelInit's carry-out: managed's ViewEffects reset at level start
+static void ResetToneMappingScale()	BOUNDARY	ResetToneMapping( 1.0 )'s native half: the render context's tonemap scale reset at level start
+void SourceSharp_ViewFade( const ScreenFade_t &sf )	BOUNDARY	CViewEffects::Fade's carry-out: the fade's fields to managed's ViewEffects
+CSaveRestoreData *CShellClientDLL::SaveInit( int size )	SLOT	IBaseClientDLL::SaveInit, which the engine's client state save asks first: one forward into IManagedSaveRestoreClient (the client save codec); the managed SaveBlockSession sizes, allocates and places the block, and the NULL's warning decides nothing
+void CShellClientDLL::SaveWriteFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *	SLOT	IBaseClientDLL::SaveWriteFields (DECALLIST, MUSICLIST): one forward into IManagedSaveRestoreClient with sizeof( typedescription_t ); the managed codec encodes
+void CShellClientDLL::SaveReadFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *p	SLOT	IBaseClientDLL::SaveReadFields: one forward into IManagedSaveRestoreClient with sizeof( typedescription_t ); the managed codec decodes
+void CShellClientDLL::PreSave( CSaveRestoreData *s )	SLOT	an IBaseClientDLL save slot the engine calls; moves no bytes (no client entity state goes through a datamap), symmetric with ReadRestoreHeaders
+void CShellClientDLL::Save( CSaveRestoreData *s )	SLOT	an IBaseClientDLL save slot the engine calls; moves no bytes (no client entity state goes through a datamap), symmetric with Restore
+void CShellClientDLL::WriteSaveHeaders( CSaveRestoreData *s )	SLOT	an IBaseClientDLL save slot the engine calls; moves no bytes, symmetric with ReadRestoreHeaders
+void CShellClientDLL::ReadRestoreHeaders( CSaveRestoreData *s )	SLOT	an IBaseClientDLL restore slot the engine calls; reads no bytes, symmetric with WriteSaveHeaders
+void CShellClientDLL::Restore( CSaveRestoreData *s, bool b )	SLOT	an IBaseClientDLL restore slot the engine calls; reads no bytes, symmetric with Save
+void CShellClientDLL::DispatchOnRestore()	SLOT	an IBaseClientDLL restore slot the engine calls; there is no restore list to walk (a managed entity's restore is C#'s)
 void CShellClientDLL::PostInit()	SLOT	IBaseClientDLL::PostInit: the client systems' PostInit walk, then the adapter's maximum DX support level (a material-system fact, -1 with none) handed to managed's LightmapBicubicDefault, which decides the default (lane M1-B)
-static void ShellClientDll_PrintRefusals(	INSTRUMENT	the refusal tally printed (cs_cl_refusals and the DLL's shutdown), CShellGameDll's readout's twin
-void ShellClientDll_RefusalWarning(	INSTRUMENT	the first-time warning a refused IBaseClientDLL method prints (shell_clientdll_refusals.h's engine half)
+static void ShellClientDll_PrintRefusals( const CShellClientDllRefusals &refusals )	INSTRUMENT	the refusal tally printed (cs_cl_refusals and the DLL's shutdown), CShellGameDll's readout's twin
+void ShellClientDll_RefusalWarning( const char *pMethod, int nTotal )	INSTRUMENT	the first-time warning a refused IBaseClientDLL method prints (shell_clientdll_refusals.h's engine half)
 [CShellClientDLL] void PumpWindowDuringLoad()	HOST	SDL_PumpEvents from the launcher's libSDL2 on the main thread during a load step (plan_map_load P6), so the window answers the compositor
 [CShellClientDLL] const CShellClientDllRefusals &Refusals() const	INSTRUMENT	the refusal ledger, for cs_cl_refusals and the absences route
-[CShellClientDLL] void ShellClientDll_Unreachable(	INSTRUMENT	a refused method recorded on the ledger
-[CShellClientDLL] void *GetEngineInterface(	HOST	IManagedRuntimeEnvironment: the engine's factory, which the managed loader acquires through
+[CShellClientDLL] void ShellClientDll_Unreachable( const char *pMethod )	INSTRUMENT	a refused method recorded on the ledger
+[CShellClientDLL] void *GetEngineInterface( const char *pName, int *pReturnCode ) override	HOST	IManagedRuntimeEnvironment: the engine's factory, which the managed loader acquires through
 [CShellClientDLL] CGlobalVarsBase &GetGlobalVars() override	HOST	IManagedRuntimeEnvironment: the engine's globals block the shell was handed
 [CShellClientDLL] CManagedHoldersClient &Managed()	HOST	the managed-built objects the client DLL holds (root, runtime, areas: plan_client_vtables CD)
 [CShellClientDLL] virtual ~CShellClientDLL()	HOST	asserts no managed-built object is still held at destruction
@@ -37,59 +37,59 @@ void ProcessCacheUsedMaterials()	SLOT-HELP	stock's name for FRAME_NET_UPDATE_END
 void CShellClientDLL::RequestCacheMaterials()	SLOT-HELP	sets the request flag a precache raised
 void CShellClientDLL::ProcessCacheMaterials()	BOUNDARY	IMaterialSystem::CacheUsedMaterials once per raised request, at the net update's end (stock's)
 void PrecacheMaterial( const char *pMaterialName )	LIVE-API	stock's free PrecacheMaterial onto the member; shell_detail_props.cpp imports it (nm -u)
-int GetParticleSystemIndex(	BOUNDARY	the ParticleEffectNames string table's index for a name, 0 and stock's missing-precache DevWarning for none; particle_manifest.cpp imports it (nm -u)
-const char *GetParticleSystemNameFromIndex(	BOUNDARY	the ParticleEffectNames string table's name at an index, stock's "error" past its end; shell_managed_particles.cpp imports it (nm -u)
+int GetParticleSystemIndex( const char *pParticleSystemName )	BOUNDARY	the ParticleEffectNames string table's index for a name, 0 and stock's missing-precache DevWarning for none; particle_manifest.cpp imports it (nm -u)
+const char *GetParticleSystemNameFromIndex( int nIndex )	BOUNDARY	the ParticleEffectNames string table's name at an index, stock's "error" past its end; shell_managed_particles.cpp imports it (nm -u)
 CShellClientDLL::CShellClientDLL()	HOOK	the object the engine holds as IBaseClientDLL: the placeholder globals, the two protocol ConVars (cl_team, cl_class, FCVAR_USERINFO, read by the server by name) and the reset of stock's level flag
-int CShellClientDLL::Init(	HOOK	IBaseClientDLL::Init: acquires every engine interface (failing on a missing one, stock's), connects the tiers, registers the ConVars, brings up the native subsystems in stock's order and the managed runtime before the HUD (gHUD.Init hooks managed's messages); the -textmode flag stored for the vgui shell. Chooses nothing
-bool CShellClientDLL::ReplayInit(	SLOT	IBaseClientDLL: replay is not shipped (stock's PC answer)
+int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory, CGlobalVarsBase *pGlobals )	HOOK	IBaseClientDLL::Init: acquires every engine interface (failing on a missing one, stock's), connects the tiers, registers the ConVars, brings up the native subsystems in stock's order and the managed runtime before the HUD (gHUD.Init hooks managed's messages); the -textmode flag stored for the vgui shell. Chooses nothing
+bool CShellClientDLL::ReplayInit( CreateInterfaceFn fnReplayFactory )	SLOT	IBaseClientDLL: replay is not shipped (stock's PC answer)
 bool CShellClientDLL::ReplayPostInit()	SLOT	IBaseClientDLL: replay is not shipped
 void CShellClientDLL::Shutdown()	HOOK	IBaseClientDLL::Shutdown: the teardown in stock's order, the managed runtime stopped and released after a failed Init too (guarded), the refusal tally printed. Chooses nothing
 int CShellClientDLL::HudVidInit()	SLOT	IBaseClientDLL::HudVidInit onto gHUD and the voice manager
-void CShellClientDLL::HudProcessInput(	SLOT	IBaseClientDLL::HudProcessInput onto the client mode
-void CShellClientDLL::HudUpdate(	SLOT	IBaseClientDLL::HudUpdate: the voice manager's frame, gHUD and the client systems' Update walk, in stock's order
+void CShellClientDLL::HudProcessInput( bool bActive )	SLOT	IBaseClientDLL::HudProcessInput onto the client mode
+void CShellClientDLL::HudUpdate( bool bActive )	SLOT	IBaseClientDLL::HudUpdate: the voice manager's frame, gHUD and the client systems' Update walk, in stock's order
 void CShellClientDLL::HudReset()	SLOT	IBaseClientDLL::HudReset onto gHUD and physics
-void CShellClientDLL::HudText(	SLOT	IBaseClientDLL::HudText: nothing (the HUD is managed's)
+void CShellClientDLL::HudText( const char *message )	SLOT	IBaseClientDLL::HudText: nothing (the HUD is managed's)
 bool CShellClientDLL::ShouldDrawDropdownConsole()	SLOT	IBaseClientDLL: stock's constant
 ClientClass *CShellClientDLL::GetAllClasses()	LAYOUT	IBaseClientDLL::GetAllClasses: the ClientClass list head the engine walks by layout
 void CShellClientDLL::IN_ActivateMouse()	SLOT	IBaseClientDLL onto the input (managed's ClientInput behind CInput)
 void CShellClientDLL::IN_DeactivateMouse()	SLOT	IBaseClientDLL onto the input
-void CShellClientDLL::IN_Accumulate ()	SLOT	IBaseClientDLL onto the input
-void CShellClientDLL::IN_ClearStates ()	SLOT	IBaseClientDLL onto the input
-bool CShellClientDLL::IN_IsKeyDown(	SLOT	IBaseClientDLL::IN_IsKeyDown: the button's state is managed's (IManagedInputClient::InputIsKeyDown)
-void CShellClientDLL::IN_OnMouseWheeled(	SLOT	IBaseClientDLL: nothing (stock's PC body)
-int CShellClientDLL::IN_KeyEvent(	SLOT	IBaseClientDLL onto the input
-void CShellClientDLL::ExtraMouseSample(	SLOT	IBaseClientDLL onto the input, inside the MDL cache's critical section
-void CShellClientDLL::IN_SetSampleTime(	SLOT	IBaseClientDLL onto the input
-void CShellClientDLL::CreateMove (	SLOT	IBaseClientDLL onto the input, inside the MDL cache's critical section
-bool CShellClientDLL::WriteUsercmdDeltaToBuffer(	SLOT	IBaseClientDLL onto the input
-void CShellClientDLL::EncodeUserCmdToBuffer(	SLOT	IBaseClientDLL onto the input
-void CShellClientDLL::DecodeUserCmdFromBuffer(	SLOT	IBaseClientDLL onto the input
-void CShellClientDLL::View_Render(	SLOT	IBaseClientDLL::View_Render onto the render plan's executor, past stock's zero-rect guard
-bool CShellClientDLL::GetPlayerView(	SLOT	IBaseClientDLL onto the view's player setup
-void CShellClientDLL::SetupGameProperties(	SLOT	IBaseClientDLL: refused (matchmaking is not shipped; plan_entity.md 7g)
-uint CShellClientDLL::GetPresenceID(	SLOT	IBaseClientDLL: refused, stock's 0
-const char *CShellClientDLL::GetPropertyIdString(	SLOT	IBaseClientDLL: refused, stock's NULL
-void CShellClientDLL::GetPropertyDisplayString(	SLOT	IBaseClientDLL: refused
-void CShellClientDLL::StartStatsReporting(	SLOT	IBaseClientDLL: refused
+void CShellClientDLL::IN_Accumulate()	SLOT	IBaseClientDLL onto the input
+void CShellClientDLL::IN_ClearStates()	SLOT	IBaseClientDLL onto the input
+bool CShellClientDLL::IN_IsKeyDown( const char *name, bool &isdown )	SLOT	IBaseClientDLL::IN_IsKeyDown: the button's state is managed's (IManagedInputClient::InputIsKeyDown)
+void CShellClientDLL::IN_OnMouseWheeled( int nDelta )	SLOT	IBaseClientDLL: nothing (stock's PC body)
+int CShellClientDLL::IN_KeyEvent( int eventcode, ButtonCode_t keynum, const char *pszCurrentBinding )	SLOT	IBaseClientDLL onto the input
+void CShellClientDLL::ExtraMouseSample( float frametime, bool active )	SLOT	IBaseClientDLL onto the input, inside the MDL cache's critical section
+void CShellClientDLL::IN_SetSampleTime( float frametime )	SLOT	IBaseClientDLL onto the input
+void CShellClientDLL::CreateMove( int sequence_number, float input_sample_frametime, bool active )	SLOT	IBaseClientDLL onto the input, inside the MDL cache's critical section
+bool CShellClientDLL::WriteUsercmdDeltaToBuffer( bf_write *buf, int from, int to, bool isnewcommand )	SLOT	IBaseClientDLL onto the input
+void CShellClientDLL::EncodeUserCmdToBuffer( bf_write &buf, int slot )	SLOT	IBaseClientDLL onto the input
+void CShellClientDLL::DecodeUserCmdFromBuffer( bf_read &buf, int slot )	SLOT	IBaseClientDLL onto the input
+void CShellClientDLL::View_Render( vrect_t *rect )	SLOT	IBaseClientDLL::View_Render onto the render plan's executor, past stock's zero-rect guard
+bool CShellClientDLL::GetPlayerView( CViewSetup &playerView )	SLOT	IBaseClientDLL onto the view's player setup
+void CShellClientDLL::SetupGameProperties( CUtlVector<XUSER_CONTEXT> &contexts, CUtlVector<XUSER_PROPERTY> &properties )	SLOT	IBaseClientDLL: refused (matchmaking is not shipped; plan_entity.md 7g)
+uint CShellClientDLL::GetPresenceID( const char *pIDName )	SLOT	IBaseClientDLL: refused, stock's 0
+const char *CShellClientDLL::GetPropertyIdString( const uint id )	SLOT	IBaseClientDLL: refused, stock's NULL
+void CShellClientDLL::GetPropertyDisplayString( uint id, uint value, char *pOutput, int nBytes )	SLOT	IBaseClientDLL: refused
+void CShellClientDLL::StartStatsReporting( HANDLE handle, bool bArbitrated )	SLOT	IBaseClientDLL: refused
 int32_t SourceSharp_ClientEntitiesInvalidateMdlCacheAll()	BOUNDARY	the native half of managed's mdl-cache flush: the standalone shells' bone caches invalidated (shell_standalone_client.cpp)
 void CShellClientDLL::InvalidateMdlCache()	SLOT	IBaseClientDLL::InvalidateMdlCache onto the managed runtime
-void CShellClientDLL::View_Fade(	SLOT	IBaseClientDLL::View_Fade onto managed's view effects
-void CShellClientDLL::LevelInitPreEntity(	SLOT	IBaseClientDLL::LevelInitPreEntity: managed's particle-reload answer carried out (stock's full re-read when no runtime is loaded to ask), stock's once-per-level gate (the engine calls it more than once), the native subsystems' level init in stock's order and managed's level start (LevelPrediction). The decisions in it are managed's
-void CShellClientDLL::LevelInitPostEntity( )	SLOT	IBaseClientDLL::LevelInitPostEntity: the client systems' walk and the centre print cleared
+void CShellClientDLL::View_Fade( ScreenFade_t *pSF )	SLOT	IBaseClientDLL::View_Fade onto managed's view effects
+void CShellClientDLL::LevelInitPreEntity( char const *pMapName )	SLOT	IBaseClientDLL::LevelInitPreEntity: managed's particle-reload answer carried out (stock's full re-read when no runtime is loaded to ask), stock's once-per-level gate (the engine calls it more than once), the native subsystems' level init in stock's order and managed's level start (LevelPrediction). The decisions in it are managed's
+void CShellClientDLL::LevelInitPostEntity()	SLOT	IBaseClientDLL::LevelInitPostEntity: the client systems' walk and the centre print cleared
 void CShellClientDLL::ResetStringTablePointers()	SLOT-HELP	the string-table globals cleared at level shutdown (the tables go with the connection)
 void CShellClientDLL::LevelShutdown()	SLOT	IBaseClientDLL::LevelShutdown: stock's gate, the systems' and subsystems' teardown in the server's order (shells, world, post-entity systems) with the count of what was destroyed logged. Chooses nothing
-void CShellClientDLL::SetCrosshairAngle(	SLOT	IBaseClientDLL: nothing (no crosshair element exists; the HUD is managed's)
-void CShellClientDLL::InitSprite(	SLOT	IBaseClientDLL onto CEngineSprite::Init
-void CShellClientDLL::ShutdownSprite(	SLOT	IBaseClientDLL onto CEngineSprite::Shutdown
+void CShellClientDLL::SetCrosshairAngle( const QAngle &angle )	SLOT	IBaseClientDLL: nothing (no crosshair element exists; the HUD is managed's)
+void CShellClientDLL::InitSprite( CEngineSprite *pSprite, const char *loadname )	SLOT	IBaseClientDLL onto CEngineSprite::Init
+void CShellClientDLL::ShutdownSprite( CEngineSprite *pSprite )	SLOT	IBaseClientDLL onto CEngineSprite::Shutdown
 int CShellClientDLL::GetSpriteSize() const	LAYOUT	IBaseClientDLL: sizeof( CEngineSprite ), what the engine allocates per sprite
-void OnMaterialStringTableChanged(	HOOK	the Materials string table's callback: the material precached and the cache request raised (stock's)
-void OnParticleSystemStringTableChanged(	HOOK	the ParticleEffectNames string table's callback: the system precached and the cache request raised (stock's)
-void OnVguiScreenTableChanged(	HOOK	the VguiScreen string table's callback: nothing (no vgui screen class is compiled)
-void OnSceneStringTableChanged(	HOOK	the Scenes string table's callback: nothing (stock's client body)
-void CShellClientDLL::InstallStringTableCallback(	HOOK	IBaseClientDLL::InstallStringTableCallback: each named table found and its change callback installed (stock's registration), then the game rules'
-void CShellClientDLL::PrecacheMaterial(	BOUNDARY	IMaterialSystem::FindMaterial on the name less ".vmt" (the material system's naming), holding a reference until the level's uncache
-void CShellClientDLL::UncacheAllMaterials( )	BOUNDARY	the held material references released
-bool CShellClientDLL::DispatchUserMessage(	SLOT	IBaseClientDLL::DispatchUserMessage: the payload copied once into a length-prefixed block for managed's dispatch
+void OnMaterialStringTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber, const char *newString, void const *newD	HOOK	the Materials string table's callback: the material precached and the cache request raised (stock's)
+void OnParticleSystemStringTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber, const char *newString, void const	HOOK	the ParticleEffectNames string table's callback: the system precached and the cache request raised (stock's)
+void OnVguiScreenTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber, const char *newString, void const *newData 	HOOK	the VguiScreen string table's callback: nothing (no vgui screen class is compiled)
+void OnSceneStringTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber, const char *newString, void const *newData	HOOK	the Scenes string table's callback: nothing (stock's client body)
+void CShellClientDLL::InstallStringTableCallback( const char *tableName )	HOOK	IBaseClientDLL::InstallStringTableCallback: each named table found and its change callback installed (stock's registration), then the game rules'
+void CShellClientDLL::PrecacheMaterial( const char *pMaterialName )	BOUNDARY	IMaterialSystem::FindMaterial on the name less ".vmt" (the material system's naming), holding a reference until the level's uncache
+void CShellClientDLL::UncacheAllMaterials()	BOUNDARY	the held material references released
+bool CShellClientDLL::DispatchUserMessage( int msg_type, bf_read &msg_data )	SLOT	IBaseClientDLL::DispatchUserMessage: the payload copied once into a length-prefixed block for managed's dispatch
 void UpdateClientRenderableInPVSStatus()	LIVE-API	empty by the PVS-notify ruling (pvs_notify_ruling_test.cpp); shell_view_executor_client.cpp imports it (nm -u)
 void UpdatePVSNotifiers()	SLOT-HELP	empty by the PVS-notify ruling: OnRenderEnd's half of the same list
 void OnRenderStart()	SLOT-HELP	FRAME_RENDER_START's native work in stock's order: the partition and abs-query windows, the interpolation gate, CAM_Think, the view's and ropes' render start, the world's deferred OnDataChanged, the smoke-fog alpha and color-correction resets, physics, events, temp entities, beams and both particle frames. Chooses nothing
@@ -98,32 +98,32 @@ uint64_t SourceSharp_ClientStageCrossings()	INSTRUMENT	ss_cl_stage_crossings' re
 uint64_t CShellClientDLL::ClientStageCrossings() const	INSTRUMENT	the crossings counter
 uint64_t CShellClientDLL::FrameStageNotifyCalls() const	INSTRUMENT	the engine's FrameStageNotify call counter
 uint64_t SourceSharp_FrameStageNotifyCalls()	INSTRUMENT	ss_cl_stage_crossings' reading of the call counter
-void CShellClientDLL::FrameStageNotify(	SLOT	IBaseClientDLL::FrameStageNotify: the one ClientStage crossing per stage, unconditionally, then each engine stage's native work in stock's order (render start/end, the net update's partition and abs windows, prediction's packet copy, the fx window); what a stage means to the game is managed's
-void CShellClientDLL::WriteSaveGameScreenshot(	SLOT	IBaseClientDLL onto the view
-void CShellClientDLL::EmitSentenceCloseCaption(	SLOT	IBaseClientDLL: nothing (no caption element exists; the captions are managed's)
-void CShellClientDLL::EmitCloseCaption(	SLOT	IBaseClientDLL: nothing (no caption element exists; the captions are managed's)
-CStandardRecvProxies* CShellClientDLL::GetStandardRecvProxies()	LAYOUT	IBaseClientDLL: the standard recv proxies the engine calls by layout
-bool CShellClientDLL::CanRecordDemo(	SLOT	IBaseClientDLL onto the client mode
-void CShellClientDLL::OnDemoRecordStart(	SLOT	IBaseClientDLL onto the client mode
+void CShellClientDLL::FrameStageNotify( ClientFrameStage_t curStage )	SLOT	IBaseClientDLL::FrameStageNotify: the one ClientStage crossing per stage, unconditionally, then each engine stage's native work in stock's order (render start/end, the net update's partition and abs windows, prediction's packet copy, the fx window); what a stage means to the game is managed's
+void CShellClientDLL::WriteSaveGameScreenshot( const char *pFilename )	SLOT	IBaseClientDLL onto the view
+void CShellClientDLL::EmitSentenceCloseCaption( char const *tokenstream )	SLOT	IBaseClientDLL: nothing (no caption element exists; the captions are managed's)
+void CShellClientDLL::EmitCloseCaption( char const *captionname, float duration )	SLOT	IBaseClientDLL: nothing (no caption element exists; the captions are managed's)
+CStandardRecvProxies *CShellClientDLL::GetStandardRecvProxies()	LAYOUT	IBaseClientDLL: the standard recv proxies the engine calls by layout
+bool CShellClientDLL::CanRecordDemo( char *errorMsg, int length ) const	SLOT	IBaseClientDLL onto the client mode
+void CShellClientDLL::OnDemoRecordStart( char const *pDemoBaseName )	SLOT	IBaseClientDLL onto the client mode
 void CShellClientDLL::OnDemoRecordStop()	SLOT	IBaseClientDLL onto the client mode
-void CShellClientDLL::OnDemoPlaybackStart(	SLOT	IBaseClientDLL: nothing
+void CShellClientDLL::OnDemoPlaybackStart( char const *pDemoBaseName )	SLOT	IBaseClientDLL: nothing
 void CShellClientDLL::OnDemoPlaybackStop()	SLOT	IBaseClientDLL: nothing
 int CShellClientDLL::GetScreenWidth()	SLOT	IBaseClientDLL onto the HUD size
 int CShellClientDLL::GetScreenHeight()	SLOT	IBaseClientDLL onto the HUD size
-void CShellClientDLL::WriteSaveGameScreenshotOfSize(	SLOT	IBaseClientDLL onto the view
-void CShellClientDLL::RenderView(	SLOT	IBaseClientDLL onto the view
-void CShellClientDLL::ReloadFilesInList(	SLOT	IBaseClientDLL (sv_pure) onto the sound emitter's reload
+void CShellClientDLL::WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded , bool bWriteV	SLOT	IBaseClientDLL onto the view
+void CShellClientDLL::RenderView( const CViewSetup &setup, int nClearFlags, int whatToDraw )	SLOT	IBaseClientDLL onto the view
+void CShellClientDLL::ReloadFilesInList( IFileList *pFilesToReload )	SLOT	IBaseClientDLL (sv_pure) onto the sound emitter's reload
 bool CShellClientDLL::HandleUiToggle()	SLOT	IBaseClientDLL: stock's constant
 bool CShellClientDLL::ShouldAllowConsole()	SLOT	IBaseClientDLL: stock's constant
 CRenamedRecvTableInfo *CShellClientDLL::GetRenamedRecvTableInfos()	LAYOUT	IBaseClientDLL: the renamed recv table list the engine walks
 CMouthInfo *CShellClientDLL::GetClientUIMouthInfo()	LAYOUT	IBaseClientDLL: the UI panels' mouth buffer the engine writes
-void CShellClientDLL::FileReceived(	SLOT	IBaseClientDLL onto the game rules
-void CShellClientDLL::ClientAdjustStartSoundParams(	SLOT	IBaseClientDLL: nothing (stock's body outside TF)
-const char* CShellClientDLL::TranslateEffectForVisionFilter(	SLOT	IBaseClientDLL onto the game rules, the name unchanged without them (stock's)
+void CShellClientDLL::FileReceived( const char *fileName, unsigned int transferID )	SLOT	IBaseClientDLL onto the game rules
+void CShellClientDLL::ClientAdjustStartSoundParams( StartSoundParams_t &params )	SLOT	IBaseClientDLL: nothing (stock's body outside TF)
+const char *CShellClientDLL::TranslateEffectForVisionFilter( const char *pchEffectType, const char *pchEffectName )	SLOT	IBaseClientDLL onto the game rules, the name unchanged without them (stock's)
 bool CShellClientDLL::DisconnectAttempt()	SLOT	IBaseClientDLL: stock's false
-bool CShellClientDLL::IsConnectedUserInfoChangeAllowed(	SLOT	IBaseClientDLL onto the game rules, allowed without them (stock's)
+bool CShellClientDLL::IsConnectedUserInfoChangeAllowed( IConVar *pCvar )	SLOT	IBaseClientDLL onto the game rules, allowed without them (stock's)
 bool CShellClientDLL::BHaveChatSuspensionInCurrentMatch()	SLOT	IBaseClientDLL: refused (TF only), stock's false
 void CShellClientDLL::DisplayVoiceUnavailableMessage()	SLOT	IBaseClientDLL: refused (TF only)
-CON_COMMAND( cs_cl_refusals,	INSTRUMENT	the refusal readout
-CON_COMMAND( ss_cl_stage_crossings,	INSTRUMENT	FrameStageNotify calls against ClientStage crossings
-int32_t SourceSharp_SendServerMessage(	BOUNDARY	IShimNetClient::SendServerMessage: a CSourceSharpClientMessage on the engine's net channel, reliable; managed decides what and when
+CON_COMMAND( cs_cl_refusals, "" )	INSTRUMENT	the refusal readout
+CON_COMMAND( ss_cl_stage_crossings, "" )	INSTRUMENT	FrameStageNotify calls against ClientStage crossings
+int32_t SourceSharp_SendServerMessage( const char *pKey, const uint8_t *pData, int32_t nLen )	BOUNDARY	IShimNetClient::SendServerMessage: a CSourceSharpClientMessage on the engine's net channel, reliable; managed decides what and when

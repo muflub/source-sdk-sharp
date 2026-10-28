@@ -10,8 +10,6 @@
 
 #pragma once
 
-#include "mathlib/vector.h"
-
 namespace ss
 {
 
@@ -20,13 +18,18 @@ class CViewVectors
 public:
 	CViewVectors() {}
 
-	CViewVectors( Vector vView, Vector vHullMin, Vector vHullMax,
-	              Vector vDuckHullMin, Vector vDuckHullMax, Vector vDuckView,
-	              Vector vObsHullMin, Vector vObsHullMax, Vector vDeadViewHeight )
+	CViewVectors( Vector vView, Vector vHullMin, Vector vHullMax, Vector vDuckHullMin, Vector vDuckHullMax,
+				  Vector vDuckView, Vector vObsHullMin, Vector vObsHullMax, Vector vDeadViewHeight )
 	{
-		m_vView = vView;  m_vHullMin = vHullMin;  m_vHullMax = vHullMax;
-		m_vDuckHullMin = vDuckHullMin;  m_vDuckHullMax = vDuckHullMax;  m_vDuckView = vDuckView;
-		m_vObsHullMin = vObsHullMin;  m_vObsHullMax = vObsHullMax;  m_vDeadViewHeight = vDeadViewHeight;
+		m_vView = vView;
+		m_vHullMin = vHullMin;
+		m_vHullMax = vHullMax;
+		m_vDuckHullMin = vDuckHullMin;
+		m_vDuckHullMax = vDuckHullMax;
+		m_vDuckView = vDuckView;
+		m_vObsHullMin = vObsHullMin;
+		m_vObsHullMax = vObsHullMax;
+		m_vDeadViewHeight = vDeadViewHeight;
 	}
 
 	Vector m_vView, m_vHullMin, m_vHullMax;

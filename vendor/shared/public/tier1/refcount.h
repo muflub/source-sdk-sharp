@@ -4,12 +4,10 @@
 
 #pragma once
 
-#include "tier0/threadtools.h"
-
 template <typename T>
-inline void SafeRelease( T** ppInoutPtr )
+inline void SafeRelease( T **ppInoutPtr )
 {
-	Assert( ppInoutPtr  );
+	Assert( ppInoutPtr );
 	if ( *ppInoutPtr )
 		( *ppInoutPtr )->Release();
 
@@ -36,7 +34,7 @@ inline int SafeRelease( REFCOUNTED_ITEM_PTR &pRef )
 	REFCOUNTED_ITEM_PTR *ppRef = &pRef;
 	if ( *ppRef )
 	{
-		int result = (*ppRef)->Release();
+		int result = ( *ppRef )->Release();
 		*ppRef = NULL;
 		return result;
 	}
@@ -50,26 +48,26 @@ class CAutoRef
 {
 public:
 	CAutoRef( T *pRef )
-	  : m_pRef( pRef )
+		: m_pRef( pRef )
 	{
 		if ( m_pRef )
 			m_pRef->AddRef();
 	}
 
-   ~CAutoRef()
-   {
-      if (m_pRef)
-         m_pRef->Release();
-   }
+	~CAutoRef()
+	{
+		if ( m_pRef )
+			m_pRef->Release();
+	}
 
 private:
-   T *m_pRef;
+	T *m_pRef;
 };
 
 // Purpose:	Do a an inline AddRef then return the pointer, useful when
 //			returning an object from a function
 
-#define RetAddRef( p ) ( (p)->AddRef(), (p) )
+#define RetAddRef( p ) ( ( p )->AddRef(), ( p ) )
 
 // Purpose:	A class to both hold a pointer to an object and its reference.
 //			Base exists to support other cleanup models
@@ -78,22 +76,35 @@ template <class T>
 class CBaseAutoPtr
 {
 public:
-	CBaseAutoPtr()                                         	: m_pObject(0) {}
-	CBaseAutoPtr(T *pFrom)                        			: m_pObject(pFrom) {}
+	CBaseAutoPtr()
+		: m_pObject( 0 )
+	{
+	}
 
-	operator const void *() const          					{ return m_pObject; }
-	operator void *()                      					{ return m_pObject; }
+	CBaseAutoPtr( T *pFrom )
+		: m_pObject( pFrom )
+	{
+	}
 
-	operator const T *() const							    { return m_pObject; }
-	operator const T *()          							{ return m_pObject; }
-	operator T *()											{ return m_pObject; }
+	operator const void *() const { return m_pObject; }
 
-	T *  		operator->()								{ return m_pObject; }
+	operator void *() { return m_pObject; }
 
-	const T *   operator->() const							{ return m_pObject; }
+	operator const T *() const { return m_pObject; }
+
+	operator const T *() { return m_pObject; }
+
+	operator T *() { return m_pObject; }
+
+	T *operator->() { return m_pObject; }
+
+	const T *operator->() const { return m_pObject; }
 
 protected:
-	CBaseAutoPtr( const CBaseAutoPtr<T> &from )				: m_pObject( from.m_pObject ) {}
+	CBaseAutoPtr( const CBaseAutoPtr<T> &from )
+		: m_pObject( from.m_pObject )
+	{
+	}
 
 	T *m_pObject;
 };
@@ -102,20 +113,54 @@ template <class T>
 class CRefPtr : public CBaseAutoPtr<T>
 {
 	typedef CBaseAutoPtr<T> BaseClass;
+
 public:
-	CRefPtr()												{}
-	CRefPtr( T *pInit )										: BaseClass( pInit ) {}
-	CRefPtr( const CRefPtr<T> &from )						: BaseClass( from ) {}
-	~CRefPtr()												{ if ( BaseClass::m_pObject ) BaseClass::m_pObject->Release(); }
+	CRefPtr() {}
 
-	T *operator=( T *p )									{ return BaseClass::operator=( p ); }
+	CRefPtr( T *pInit )
+		: BaseClass( pInit )
+	{
+	}
 
-	operator bool() const									{ return !BaseClass::operator!(); }
-	operator bool()											{ return !BaseClass::operator!(); }
+	CRefPtr( const CRefPtr<T> &from )
+		: BaseClass( from )
+	{
+	}
 
-	void SafeRelease()										{ if ( BaseClass::m_pObject ) BaseClass::m_pObject->Release(); BaseClass::m_pObject = 0; }
-	void AssignAddRef( T *pFrom )							{ SafeRelease(); if (pFrom) pFrom->AddRef(); BaseClass::m_pObject = pFrom; }
-	void AddRefAssignTo( T *&pTo )							{ ::SafeRelease( pTo ); if ( BaseClass::m_pObject ) BaseClass::m_pObject->AddRef(); pTo = BaseClass::m_pObject; }
+	~CRefPtr()
+	{
+		if ( BaseClass::m_pObject )
+			BaseClass::m_pObject->Release();
+	}
+
+	T *operator=( T *p ) { return BaseClass::operator=( p ); }
+
+	operator bool() const { return !BaseClass::operator!(); }
+
+	operator bool() { return !BaseClass::operator!(); }
+
+	void SafeRelease()
+	{
+		if ( BaseClass::m_pObject )
+			BaseClass::m_pObject->Release();
+		BaseClass::m_pObject = 0;
+	}
+
+	void AssignAddRef( T *pFrom )
+	{
+		SafeRelease();
+		if ( pFrom )
+			pFrom->AddRef();
+		BaseClass::m_pObject = pFrom;
+	}
+
+	void AddRefAssignTo( T *&pTo )
+	{
+		::SafeRelease( pTo );
+		if ( BaseClass::m_pObject )
+			BaseClass::m_pObject->AddRef();
+		pTo = BaseClass::m_pObject;
+	}
 };
 
 // Purpose:	Traits classes defining reference count threading model
@@ -123,15 +168,17 @@ public:
 class CRefMT
 {
 public:
-	static int Increment( int *p) { return ThreadInterlockedIncrement( (int32 *)p ); }
-	static int Decrement( int *p) { return ThreadInterlockedDecrement( (int32 *)p ); }
+	static int Increment( int *p ) { return ThreadInterlockedIncrement( (int32 *)p ); }
+
+	static int Decrement( int *p ) { return ThreadInterlockedDecrement( (int32 *)p ); }
 };
 
 class CRefST
 {
 public:
-	static int Increment( int *p) { return ++(*p); }
-	static int Decrement( int *p) { return --(*p); }
+	static int Increment( int *p ) { return ++( *p ); }
+
+	static int Decrement( int *p ) { return --( *p ); }
 };
 
 // Purpose:	Actual reference counting implementation. Pulled out to reduce
@@ -142,28 +189,17 @@ class NO_VTABLE CRefCountServiceBase
 {
 protected:
 	CRefCountServiceBase()
-	  : m_iRefs( 1 )
+		: m_iRefs( 1 )
 	{
 	}
 
-	virtual ~CRefCountServiceBase()
-	{
-	}
+	virtual ~CRefCountServiceBase() {}
 
-	virtual bool OnFinalRelease()
-	{
-		return true;
-	}
+	virtual bool OnFinalRelease() { return true; }
 
-	int GetRefCount() const
-	{
-		return m_iRefs;
-	}
+	int GetRefCount() const { return m_iRefs; }
 
-	int DoAddRef()
-	{
-		return CRefThreading::Increment( &m_iRefs );
-	}
+	int DoAddRef() { return CRefThreading::Increment( &m_iRefs ); }
 
 	int DoRelease()
 	{
@@ -183,6 +219,7 @@ class CRefCountServiceNull
 {
 protected:
 	static int DoAddRef() { return 1; }
+
 	static int DoRelease() { return 1; }
 };
 
@@ -195,19 +232,11 @@ protected:
 	{
 	}
 
-	virtual ~CRefCountServiceDestruct()
-	{
-	}
+	virtual ~CRefCountServiceDestruct() {}
 
-	int GetRefCount() const
-	{
-		return m_iRefs;
-	}
+	int GetRefCount() const { return m_iRefs; }
 
-	int DoAddRef()
-	{
-		return CRefThreading::Increment( &m_iRefs );
-	}
+	int DoAddRef() { return CRefThreading::Increment( &m_iRefs ); }
 
 	int DoRelease()
 	{
@@ -222,69 +251,81 @@ private:
 	int m_iRefs;
 };
 
-typedef CRefCountServiceBase<true, CRefMT>	CRefCountServiceMT;
+typedef CRefCountServiceBase<true, CRefMT> CRefCountServiceMT;
 typedef CRefCountServiceBase<false, CRefMT> CRefCountServiceNoDeleteMT;
 
-typedef CRefCountServiceMT					CRefCountService;
+typedef CRefCountServiceMT CRefCountService;
 
 // Purpose:	Base classes to implement reference counting
 
-template < class REFCOUNT_SERVICE = CRefCountService > 
+template <class REFCOUNT_SERVICE = CRefCountService>
 class NO_VTABLE CRefCounted : public REFCOUNT_SERVICE
 {
 public:
-	virtual ~CRefCounted()	{}
-	int AddRef() 			{ return REFCOUNT_SERVICE::DoAddRef(); }
-	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
+	virtual ~CRefCounted() {}
+
+	int AddRef() { return REFCOUNT_SERVICE::DoAddRef(); }
+
+	int Release() { return REFCOUNT_SERVICE::DoRelease(); }
 };
 
-template < class BASE1, class REFCOUNT_SERVICE = CRefCountService > 
-class NO_VTABLE CRefCounted1 : public BASE1,
+template <class BASE1, class REFCOUNT_SERVICE = CRefCountService>
+class NO_VTABLE CRefCounted1 : public BASE1, public REFCOUNT_SERVICE
+{
+public:
+	virtual ~CRefCounted1() {}
+
+	int AddRef() { return REFCOUNT_SERVICE::DoAddRef(); }
+
+	int Release() { return REFCOUNT_SERVICE::DoRelease(); }
+};
+
+template <class BASE1, class BASE2, class REFCOUNT_SERVICE = CRefCountService>
+class NO_VTABLE CRefCounted2 : public BASE1, public BASE2, public REFCOUNT_SERVICE
+{
+public:
+	virtual ~CRefCounted2() {}
+
+	int AddRef() { return REFCOUNT_SERVICE::DoAddRef(); }
+
+	int Release() { return REFCOUNT_SERVICE::DoRelease(); }
+};
+
+template <class BASE1, class BASE2, class BASE3, class REFCOUNT_SERVICE = CRefCountService>
+class NO_VTABLE CRefCounted3 : public BASE1, public BASE2, public BASE3, public REFCOUNT_SERVICE
+{
+	virtual ~CRefCounted3() {}
+
+	int AddRef() { return REFCOUNT_SERVICE::DoAddRef(); }
+
+	int Release() { return REFCOUNT_SERVICE::DoRelease(); }
+};
+
+template <class BASE1, class BASE2, class BASE3, class BASE4, class REFCOUNT_SERVICE = CRefCountService>
+class NO_VTABLE CRefCounted4 : public BASE1, public BASE2, public BASE3, public BASE4, public REFCOUNT_SERVICE
+{
+public:
+	virtual ~CRefCounted4() {}
+
+	int AddRef() { return REFCOUNT_SERVICE::DoAddRef(); }
+
+	int Release() { return REFCOUNT_SERVICE::DoRelease(); }
+};
+
+template <class BASE1, class BASE2, class BASE3, class BASE4, class BASE5, class REFCOUNT_SERVICE = CRefCountService>
+class NO_VTABLE CRefCounted5 : public BASE1,
+							   public BASE2,
+							   public BASE3,
+							   public BASE4,
+							   public BASE5,
 							   public REFCOUNT_SERVICE
 {
 public:
-	virtual ~CRefCounted1()	{}
-	int AddRef() 			{ return REFCOUNT_SERVICE::DoAddRef(); }
-	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
-};
+	virtual ~CRefCounted5() {}
 
-template < class BASE1, class BASE2, class REFCOUNT_SERVICE = CRefCountService > 
-class NO_VTABLE CRefCounted2 : public BASE1, public BASE2,
-							   public REFCOUNT_SERVICE
-{
-public:
-	virtual ~CRefCounted2()	{}
-	int AddRef() 			{ return REFCOUNT_SERVICE::DoAddRef(); }
-	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
-};
+	int AddRef() { return REFCOUNT_SERVICE::DoAddRef(); }
 
-template < class BASE1, class BASE2, class BASE3, class REFCOUNT_SERVICE = CRefCountService > 
-class NO_VTABLE CRefCounted3 : public BASE1, public BASE2, public BASE3,
-							   public REFCOUNT_SERVICE
-{
-	virtual ~CRefCounted3()	{}
-	int AddRef() 			{ return REFCOUNT_SERVICE::DoAddRef(); }
-	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
-};
-
-template < class BASE1, class BASE2, class BASE3, class BASE4, class REFCOUNT_SERVICE = CRefCountService > 
-class NO_VTABLE CRefCounted4 : public BASE1, public BASE2, public BASE3, public BASE4,
-							   public REFCOUNT_SERVICE
-{
-public:
-	virtual ~CRefCounted4()	{}
-	int AddRef() 			{ return REFCOUNT_SERVICE::DoAddRef(); }
-	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
-};
-
-template < class BASE1, class BASE2, class BASE3, class BASE4, class BASE5, class REFCOUNT_SERVICE = CRefCountService > 
-class NO_VTABLE CRefCounted5 : public BASE1, public BASE2, public BASE3, public BASE4, public BASE5,
-							   public REFCOUNT_SERVICE
-{
-public:
-	virtual ~CRefCounted5()	{}
-	int AddRef() 			{ return REFCOUNT_SERVICE::DoAddRef(); }
-	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
+	int Release() { return REFCOUNT_SERVICE::DoRelease(); }
 };
 
 // Purpose:	Class to throw around a reference counted item to debug

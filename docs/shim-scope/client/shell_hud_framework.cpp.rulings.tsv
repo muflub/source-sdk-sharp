@@ -1,15 +1,15 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-CHudElementHelper::CHudElementHelper(	HOOK	DECLARE_HUDELEMENT's static-init registration, kept in stock's depth order
-CHudElementHelper *CHudElementHelper::GetNext(	HOOK	the registration list
-void CHudElementHelper::CreateAllElements(	HOOK	constructs every registered element (CSourceSharpHud, the managed HUD's panel)
-CHudElement::CHudElement(	HOOK	an element joins gHUD on construction
+CHudElementHelper::CHudElementHelper( CHudElement *( *pfnCreate )(), int depth )	HOOK	DECLARE_HUDELEMENT's static-init registration, kept in stock's depth order
+CHudElementHelper *CHudElementHelper::GetNext()	HOOK	the registration list
+void CHudElementHelper::CreateAllElements()	HOOK	constructs every registered element (CSourceSharpHud, the managed HUD's panel)
+CHudElement::CHudElement( const char *pElementName )	HOOK	an element joins gHUD on construction
 CHudElement::~CHudElement()	HOOK	and leaves it on destruction
-void CHudElement::SetActive(	SLOT	CHudElement's virtual: the active flag
-void CHudElement::SetHiddenBits(	SLOT	CHudElement's virtual: the hide flags
-bool CHudElement::ShouldDraw(	SLOT	CHudElement's virtual onto gHUD.IsHidden
-int CHudElement::GetRenderGroupPriority(	SLOT	CHudElement's virtual: no render groups
-void CHudElement::SetNeedsRemove(	HOOK	the element list membership flag
+void CHudElement::SetActive( bool bActive )	SLOT	CHudElement's virtual: the active flag
+void CHudElement::SetHiddenBits( int iBits )	SLOT	CHudElement's virtual: the hide flags
+bool CHudElement::ShouldDraw()	SLOT	CHudElement's virtual onto gHUD.IsHidden
+int CHudElement::GetRenderGroupPriority()	SLOT	CHudElement's virtual: no render groups
+void CHudElement::SetNeedsRemove( bool needsremove )	HOOK	the element list membership flag
 CHud::CHud()	HOOK	gHUD, the object the client DLL and the input call for lifecycle and sensitivity
 CHud::~CHud()	HOOK	nothing to free: the list holds borrowed pointers
 void CHud::Init()	HOOK	IBaseClientDLL::Init's HUD step: the registered elements built, then each one's Init
@@ -20,8 +20,8 @@ void CHud::LevelShutdown()	HOOK	each element's LevelShutdown
 void CHud::ResetHUD()	HOOK	each element's Reset
 void CHud::ProcessInput( bool bActive )	HOOK	each active element's ProcessInput while the client is active (stock's walk)
 void CHud::UpdateHud( bool bActive )	HOOK	onto ProcessInput
-void CHud::AddHudElement(	HOOK	an element joins the list
-void CHud::RemoveHudElement(	HOOK	an element leaves the list
-bool CHud::IsHidden(	SLOT-HELP	ShouldDraw's answer: hidden, the constant it had answered since the local player stopped being a C_BasePlayer (the managed HUD never asks)
-float CHud::GetSensitivity(	LIVE-API	the HUD's mouse sensitivity (0: none set), read by shell_input.cpp (nm -u)
-float CHud::GetFOVSensitivityAdjust(	LIVE-API	the FOV sensitivity factor (1), read by shell_input.cpp (nm -u)
+void CHud::AddHudElement( CHudElement *pHudElement )	HOOK	an element joins the list
+void CHud::RemoveHudElement( CHudElement *pHudElement )	HOOK	an element leaves the list
+bool CHud::IsHidden( int iHudFlags )	SLOT-HELP	ShouldDraw's answer: hidden, the constant it had answered since the local player stopped being a C_BasePlayer (the managed HUD never asks)
+float CHud::GetSensitivity()	LIVE-API	the HUD's mouse sensitivity (0: none set), read by shell_input.cpp (nm -u)
+float CHud::GetFOVSensitivityAdjust()	LIVE-API	the FOV sensitivity factor (1), read by shell_input.cpp (nm -u)

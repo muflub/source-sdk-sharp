@@ -115,11 +115,9 @@ const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 bool Excludes( const char *pszTarget, const char *pszFarmRelative )
 {
 	EXPECT_TRUE( cmake_graph::Compiles( pszTarget, kProofOfRead ) )
-		<< pszTarget << " does not compile " << kProofOfRead
-		<< " -- the reader is not reading its source list";
+		<< pszTarget << " does not compile " << kProofOfRead << " -- the reader is not reading its source list";
 	return !cmake_graph::Compiles( pszTarget, pszFarmRelative );
 }
-
 
 // One datatable, and the two files allowed to name it: the send table's, which
 // is out of the server build, and the receive table's, which is out of the
@@ -146,10 +144,11 @@ TEST( ClientOrphanEvictions, TheClientExcludesAllFourOrphanFiles )
 		"game/shared/baseparticleentity.cpp",
 	};
 
-	for ( size_t i = 0; i < sizeof( kPaths ) / sizeof( kPaths[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kPaths ) / sizeof( kPaths[0] ); i++ )
 	{
-		EXPECT_TRUE( Excludes( cmake_graph::kClient, kPaths[ i ] ) )
-			<< kPaths[ i ] << " is back in the client build. It is an unpaired "
+		EXPECT_TRUE( Excludes( cmake_graph::kClient, kPaths[i] ) )
+			<< kPaths[i]
+			<< " is back in the client build. It is an unpaired "
 			   "receive table -- nothing can send it -- so what comes back is a "
 			   "class that costs a vtable, a classmap entry and a consumer of "
 			   "c_baseentity.o, and can never be constructed";
@@ -160,7 +159,7 @@ TEST( ClientOrphanEvictions, TheClientExcludesAllFourOrphanFiles )
 	// Stated here because the four EXPECTs above would pass three-quarters of the
 	// way to a build that does not link.
 	EXPECT_EQ( Excludes( cmake_graph::kClient, "game/client/c_breakableprop.cpp" ),
-	           Excludes( cmake_graph::kClient, "game/client/c_physicsprop.cpp" ) )
+			   Excludes( cmake_graph::kClient, "game/client/c_physicsprop.cpp" ) )
 		<< "one of the two prop files is excluded and the other is not. "
 		   "C_PhysicsProp derives from C_BreakableProp; they leave together or "
 		   "not at all";

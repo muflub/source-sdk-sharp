@@ -17,16 +17,16 @@
 #include <sys/types.h>
 
 #ifndef S_ISDIR
-	#define S_ISDIR( m ) ( ( ( m ) & _S_IFMT ) == _S_IFDIR )
+#define S_ISDIR( m ) ( ( ( m ) & _S_IFMT ) == _S_IFDIR )
 #endif
 #ifndef S_ISREG
-	#define S_ISREG( m ) ( ( ( m ) & _S_IFMT ) == _S_IFREG )
+#define S_ISREG( m ) ( ( ( m ) & _S_IFMT ) == _S_IFREG )
 #endif
 #ifndef S_IXUSR
-	#define S_IXUSR _S_IEXEC
+#define S_IXUSR _S_IEXEC
 #endif
 #ifndef PATH_MAX
-	#define PATH_MAX _MAX_PATH
+#define PATH_MAX _MAX_PATH
 #endif
 #include <stdint.h>
 typedef intptr_t ssize_t;
@@ -44,7 +44,11 @@ inline int unsetenv( const char *pszName )
 }
 
 // mkdir(path, mode): the mode has no meaning to the CRT's _mkdir.
-inline int ss_posix_mkdir( const char *pszPath, int ) { return _mkdir( pszPath ); }
+inline int ss_posix_mkdir( const char *pszPath, int )
+{
+	return _mkdir( pszPath );
+}
+
 #define mkdir( path, mode ) ss_posix_mkdir( path, mode )
 
 // mkdtemp: the template's trailing XXXXXX made unique, then the directory.

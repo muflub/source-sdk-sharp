@@ -13,8 +13,7 @@
 
 #include "ss_recipient_filter.h"
 #include "usermessage_append.h"
-#include "imanaged_areas.h"
-#include "edict.h"
+
 #include "eiface.h"
 
 extern CGlobalVars *gpGlobals;
@@ -30,8 +29,8 @@ static bool SourceSharp_IsPlayerSlotLive( int nPlayerIndex )
 	return pEdict && !pEdict->IsFree() && pEdict->GetUnknown() != NULL;
 }
 
-static void SourceSharp_SendThrough( IRecipientFilter &filter, int32_t nMsgId,
-                                     const unsigned char *pData, int32_t nBytes )
+static void SourceSharp_SendThrough( IRecipientFilter &filter, int32_t nMsgId, const unsigned char *pData,
+									 int32_t nBytes )
 {
 	bf_write *pBuf = engine->UserMessageBegin( &filter, nMsgId );
 	if ( pBuf && nBytes > 0 )
@@ -41,8 +40,8 @@ static void SourceSharp_SendThrough( IRecipientFilter &filter, int32_t nMsgId,
 
 // 1 when the engine was handed the message; 0 when nPlayerIndex names an empty
 // slot (nothing is sent, so a message for one player never becomes a broadcast).
-int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData, int32_t nBytes,
-                                     int32_t nPlayerIndex, int32_t bReliable )
+int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData, int32_t nBytes, int32_t nPlayerIndex,
+									 int32_t bReliable )
 {
 	if ( nPlayerIndex > 0 )
 	{

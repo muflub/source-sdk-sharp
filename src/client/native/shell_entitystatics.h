@@ -5,6 +5,5 @@
 
 #include <stddef.h>
 
-
 void *EntityMem_Alloc( size_t stAllocateBlock );
-void  EntityMem_Free( void *pMem );
+void EntityMem_Free( void *pMem );

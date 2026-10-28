@@ -32,14 +32,25 @@ namespace
 class CManagedClientSystemRow : public CClientSystem
 {
 public:
-	explicit CManagedClientSystemRow( const char *pszRow ) : CClientSystem( pszRow ), m_pszRow( pszRow ), m_bWarned( false ) {}
+	explicit CManagedClientSystemRow( const char *pszRow )
+		: CClientSystem( pszRow )
+		, m_pszRow( pszRow )
+		, m_bWarned( false )
+	{
+	}
 
 	bool Init() override { return Stage( SS_CLIENT_SYSTEM_STAGE_Init ) != 0; }
+
 	void PostInit() override { Stage( SS_CLIENT_SYSTEM_STAGE_PostInit ); }
+
 	void Shutdown() override { Stage( SS_CLIENT_SYSTEM_STAGE_Shutdown ); }
+
 	void LevelInitPreEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelInitPreEntity ); }
+
 	void LevelInitPostEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelInitPostEntity ); }
+
 	void LevelShutdownPreEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelShutdownPreEntity ); }
+
 	void LevelShutdownPostEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelShutdownPostEntity ); }
 
 private:

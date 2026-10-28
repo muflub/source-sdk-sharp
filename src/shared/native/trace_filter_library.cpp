@@ -9,33 +9,20 @@
 // The client's trace filter family; declarations stay in util_shared.h. The
 // server's filters are managed.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
 #include "util_shared.h"
-#include "physics_shared.h"
-#include "igamerules.h"
-#include "model_types.h"
+
 // See util_shared.h.
-#include "standard_filter_shape.h"
 
 // Read by the UTIL_Trace* inlines in util_shared.h.
 ConVar r_visualizetraces( "r_visualizetraces", "0", FCVAR_CHEAT );
 
 // The client has no AnyEntity_t, so past the pass entity itself this answers true.
-bool PassServerEntityFilter( const IHandleEntity *pTouch, const IHandleEntity *pPass ) 
+bool PassServerEntityFilter( const IHandleEntity *pTouch, const IHandleEntity *pPass )
 {
 	if ( !pPass )
 		return true;
@@ -53,8 +40,9 @@ bool StandardFilterRules( IHandleEntity *pHandleEntity, int fContentsMask )
 // util_shared.h's CTraceFilterSimple. On the client nothing past the pass entity
 // is hit.
 #define SS_SIMPLE_FILTER CTraceFilterSimple
+
 SS_SIMPLE_FILTER::CTraceFilterSimple( const IHandleEntity *passedict, int collisionGroup,
-									   ShouldHitFunc_t pExtraShouldHitFunc )
+									  ShouldHitFunc_t pExtraShouldHitFunc )
 {
 	m_pPassEnt = passedict;
 	m_collisionGroup = collisionGroup;

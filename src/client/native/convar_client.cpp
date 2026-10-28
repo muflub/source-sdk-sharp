@@ -9,18 +9,17 @@
 // the members both DLLs use are in convar_port.cpp.
 
 #include "tier1/convar.h"
-#include "tier1/iconvar.h"
 
 namespace
 {
-int NoCompletions( const char *, char[ COMMAND_COMPLETION_MAXITEMS ][ COMMAND_COMPLETION_ITEM_LENGTH ] )
+int NoCompletions( const char *, char[COMMAND_COMPLETION_MAXITEMS][COMMAND_COMPLETION_ITEM_LENGTH] )
 {
 	return 0;
 }
 }
 
 ConCommand::ConCommand( const char *pName, FnCommandCallbackVoid_t callback, const char *pHelpString, int flags,
-                        FnCommandCompletionCallback completionFunc )
+						FnCommandCompletionCallback completionFunc )
 {
 	m_fnCommandCallbackV1 = callback;
 	m_bUsingNewCommandCallback = false;
@@ -31,7 +30,7 @@ ConCommand::ConCommand( const char *pName, FnCommandCallbackVoid_t callback, con
 }
 
 ConCommand::ConCommand( const char *pName, FnCommandCallback_t callback, const char *pHelpString, int flags,
-                        FnCommandCompletionCallback completionFunc )
+						FnCommandCompletionCallback completionFunc )
 {
 	m_fnCommandCallback = callback;
 	m_bUsingNewCommandCallback = true;
@@ -47,7 +46,7 @@ ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags, const c
 }
 
 ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString,
-                FnChangeCallback_t callback )
+				FnChangeCallback_t callback )
 {
 	Create( pName, pDefaultValue, flags, pHelpString, false, 0.0f, false, 0.0f, false, 0.0f, false, 0.0f, callback );
 }

@@ -18,39 +18,26 @@ public:
 	// WARNING!  Change these in common/MaterialSystem/Sprite.cpp if you change them here!
 	typedef enum
 	{
-		SPR_VP_PARALLEL_UPRIGHT		= 0,
-		SPR_FACING_UPRIGHT			= 1,
-		SPR_VP_PARALLEL				= 2,
-		SPR_ORIENTED				= 3,
-		SPR_VP_PARALLEL_ORIENTED	= 4
+		SPR_VP_PARALLEL_UPRIGHT = 0,
+		SPR_FACING_UPRIGHT = 1,
+		SPR_VP_PARALLEL = 2,
+		SPR_ORIENTED = 3,
+		SPR_VP_PARALLEL_ORIENTED = 4
 	} SPRITETYPE;
-	
+
 	// Sprites can alter blending amount
-	virtual float					GlowBlend( CEngineSprite *psprite, const Vector& entorigin, int rendermode, int renderfx, int alpha, float *scale );
+	virtual float GlowBlend( CEngineSprite *psprite, const Vector &entorigin, int rendermode, int renderfx, int alpha,
+							 float *scale );
 
 	// Draws tempent as a sprite
-	int								DrawSprite( 
-										IClientEntity *entity,
-										const model_t *model, 
-										const Vector& origin, 
-										const QAngle& angles,
-										float frame,
-										IClientEntity *attachedto,
-										int attachmentindex,
-										int rendermode,
-										int renderfx,
-										int alpha,
-										int r, 
-										int g, 
-										int b,
-										float scale,
-										float flHDRColorScale = 1.0f
-										);
+	int DrawSprite( IClientEntity *entity, const model_t *model, const Vector &origin, const QAngle &angles,
+					float frame, IClientEntity *attachedto, int attachmentindex, int rendermode, int renderfx,
+					int alpha, int r, int g, int b, float scale, float flHDRColorScale = 1.0f );
 
 protected:
-	pixelvis_handle_t	m_queryHandle;
-	float				m_flGlowProxySize;
-	float				m_flHDRColorScale;
+	pixelvis_handle_t m_queryHandle;
+	float m_flGlowProxySize;
+	float m_flHDRColorScale;
 };
 
 //========= SourceSharp ======================================================//

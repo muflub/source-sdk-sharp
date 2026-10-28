@@ -132,21 +132,21 @@ std::string StripComments( const std::string &s )
 
 	for ( size_t i = 0; i < s.size(); )
 	{
-		if ( i + 1 < s.size() && s[ i ] == '/' && s[ i + 1 ] == '/' )
+		if ( i + 1 < s.size() && s[i] == '/' && s[i + 1] == '/' )
 		{
-			while ( i < s.size() && s[ i ] != '\n' )
+			while ( i < s.size() && s[i] != '\n' )
 				i++;
 			continue;
 		}
-		if ( i + 1 < s.size() && s[ i ] == '/' && s[ i + 1 ] == '*' )
+		if ( i + 1 < s.size() && s[i] == '/' && s[i + 1] == '*' )
 		{
 			i += 2;
-			while ( i + 1 < s.size() && !( s[ i ] == '*' && s[ i + 1 ] == '/' ) )
+			while ( i + 1 < s.size() && !( s[i] == '*' && s[i + 1] == '/' ) )
 				i++;
 			i = ( i + 1 < s.size() ) ? i + 2 : s.size();
 			continue;
 		}
-		out += s[ i ];
+		out += s[i];
 		i++;
 	}
 	return out;
@@ -158,7 +158,7 @@ std::string Squeezed( const std::string &s )
 	out.reserve( s.size() );
 	for ( size_t i = 0; i < s.size(); i++ )
 	{
-		const char c = s[ i ];
+		const char c = s[i];
 		if ( c != ' ' && c != '\t' && c != '\r' && c != '\n' )
 			out += c;
 	}
@@ -167,8 +167,7 @@ std::string Squeezed( const std::string &s )
 
 bool IsIdentChar( char c )
 {
-	return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) ||
-	       ( c >= '0' && c <= '9' ) || c == '_';
+	return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) || ( c >= '0' && c <= '9' ) || c == '_';
 }
 
 //-----------------------------------------------------------------------------
@@ -177,14 +176,15 @@ bool IsIdentChar( char c )
 //-----------------------------------------------------------------------------
 size_t SkipParens( const std::string &strCode, size_t at )
 {
-	if ( at >= strCode.size() || strCode[ at ] != '(' )
+	if ( at >= strCode.size() || strCode[at] != '(' )
 		return std::string::npos;
 
 	int depth = 0;
 	for ( size_t i = at; i < strCode.size(); i++ )
 	{
-		if ( strCode[ i ] == '(' ) depth++;
-		else if ( strCode[ i ] == ')' )
+		if ( strCode[i] == '(' )
+			depth++;
+		else if ( strCode[i] == ')' )
 		{
 			depth--;
 			if ( depth == 0 )
@@ -196,8 +196,7 @@ size_t SkipParens( const std::string &strCode, size_t at )
 
 size_t SkipSpace( const std::string &s, size_t i )
 {
-	while ( i < s.size() && ( s[ i ] == ' ' || s[ i ] == '\t' ||
-	                          s[ i ] == '\r' || s[ i ] == '\n' ) )
+	while ( i < s.size() && ( s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n' ) )
 		i++;
 	return i;
 }
@@ -209,24 +208,23 @@ size_t SkipSpace( const std::string &s, size_t i )
 // argument list: a definition's next non-space character is '{' (allowing for a
 // trailing `const`), a call's is ';' or ',' or ')' or an operator.
 //-----------------------------------------------------------------------------
-std::vector< std::string > MemberDefinitions( const std::string &strSource )
+std::vector<std::string> MemberDefinitions( const std::string &strSource )
 {
 	const std::string strCode = StripComments( strSource );
 	const std::string kScope = "CBaseEntity::";
 
-	std::vector< std::string > names;
+	std::vector<std::string> names;
 
-	for ( size_t pos = strCode.find( kScope ); pos != std::string::npos;
-	      pos = strCode.find( kScope, pos + 1 ) )
+	for ( size_t pos = strCode.find( kScope ); pos != std::string::npos; pos = strCode.find( kScope, pos + 1 ) )
 	{
 		// Must not be preceded by an identifier char, or "C_BaseEntity::"
 		// and the like would match inside a longer name.
-		if ( pos > 0 && IsIdentChar( strCode[ pos - 1 ] ) )
+		if ( pos > 0 && IsIdentChar( strCode[pos - 1] ) )
 			continue;
 
 		size_t i = pos + kScope.size();
 		const size_t nameStart = i;
-		while ( i < strCode.size() && IsIdentChar( strCode[ i ] ) )
+		while ( i < strCode.size() && IsIdentChar( strCode[i] ) )
 			i++;
 		if ( i == nameStart )
 			continue;
@@ -234,7 +232,7 @@ std::vector< std::string > MemberDefinitions( const std::string &strSource )
 		const std::string strName = strCode.substr( nameStart, i - nameStart );
 
 		i = SkipSpace( strCode, i );
-		if ( i >= strCode.size() || strCode[ i ] != '(' )
+		if ( i >= strCode.size() || strCode[i] != '(' )
 			continue;
 
 		i = SkipParens( strCode, i );
@@ -244,13 +242,12 @@ std::vector< std::string > MemberDefinitions( const std::string &strSource )
 		i = SkipSpace( strCode, i );
 
 		// allow a trailing `const`
-		if ( strCode.compare( i, 5, "const" ) == 0 &&
-		     ( i + 5 >= strCode.size() || !IsIdentChar( strCode[ i + 5 ] ) ) )
+		if ( strCode.compare( i, 5, "const" ) == 0 && ( i + 5 >= strCode.size() || !IsIdentChar( strCode[i + 5] ) ) )
 		{
 			i = SkipSpace( strCode, i + 5 );
 		}
 
-		if ( i < strCode.size() && strCode[ i ] == '{' )
+		if ( i < strCode.size() && strCode[i] == '{' )
 			names.push_back( strName );
 	}
 
@@ -266,18 +263,17 @@ std::string ForwarderBody( const std::string &strSource, const std::string &strM
 	const std::string strCode = StripComments( strSource );
 	const std::string kNeedle = "CBaseEntity::" + strMember;
 
-	for ( size_t pos = strCode.find( kNeedle ); pos != std::string::npos;
-	      pos = strCode.find( kNeedle, pos + 1 ) )
+	for ( size_t pos = strCode.find( kNeedle ); pos != std::string::npos; pos = strCode.find( kNeedle, pos + 1 ) )
 	{
-		if ( pos > 0 && IsIdentChar( strCode[ pos - 1 ] ) )
+		if ( pos > 0 && IsIdentChar( strCode[pos - 1] ) )
 			continue;
 
 		size_t i = pos + kNeedle.size();
-		if ( i < strCode.size() && IsIdentChar( strCode[ i ] ) )
-			continue;   // a longer name that merely starts the same way
+		if ( i < strCode.size() && IsIdentChar( strCode[i] ) )
+			continue; // a longer name that merely starts the same way
 
 		i = SkipSpace( strCode, i );
-		if ( i >= strCode.size() || strCode[ i ] != '(' )
+		if ( i >= strCode.size() || strCode[i] != '(' )
 			continue;
 
 		i = SkipParens( strCode, i );
@@ -285,15 +281,16 @@ std::string ForwarderBody( const std::string &strSource, const std::string &strM
 			continue;
 
 		i = SkipSpace( strCode, i );
-		if ( i >= strCode.size() || strCode[ i ] != '{' )
+		if ( i >= strCode.size() || strCode[i] != '{' )
 			continue;
 
 		int depth = 0;
 		const size_t bodyStart = i + 1;
 		for ( size_t j = i; j < strCode.size(); j++ )
 		{
-			if ( strCode[ j ] == '{' ) depth++;
-			else if ( strCode[ j ] == '}' )
+			if ( strCode[j] == '{' )
+				depth++;
+			else if ( strCode[j] == '}' )
 			{
 				depth--;
 				if ( depth == 0 )
@@ -317,23 +314,22 @@ bool DefinedFree( const std::string &strSource, const std::string &strName )
 {
 	const std::string strCode = StripComments( strSource );
 
-	for ( size_t pos = strCode.find( strName ); pos != std::string::npos;
-	      pos = strCode.find( strName, pos + 1 ) )
+	for ( size_t pos = strCode.find( strName ); pos != std::string::npos; pos = strCode.find( strName, pos + 1 ) )
 	{
-		if ( pos > 0 && IsIdentChar( strCode[ pos - 1 ] ) )
+		if ( pos > 0 && IsIdentChar( strCode[pos - 1] ) )
 			continue;
 		if ( pos >= 2 && strCode.compare( pos - 2, 2, "::" ) == 0 )
-			continue;   // qualified -- that is the forwarder, not the free one
+			continue; // qualified -- that is the forwarder, not the free one
 
 		size_t i = pos + strName.size();
 		i = SkipSpace( strCode, i );
-		if ( i >= strCode.size() || strCode[ i ] != '(' )
+		if ( i >= strCode.size() || strCode[i] != '(' )
 			continue;
 		i = SkipParens( strCode, i );
 		if ( i == std::string::npos )
 			continue;
 		i = SkipSpace( strCode, i );
-		if ( i < strCode.size() && strCode[ i ] == '{' )
+		if ( i < strCode.size() && strCode[i] == '{' )
 			return true;
 	}
 	return false;
@@ -346,7 +342,7 @@ struct Lifted_t
 {
 	const char *pszMember;
 	const char *pszFree;
-	bool        bDeclaredStatic;   // six are; PhysicsClipVelocity is not
+	bool bDeclaredStatic; // six are; PhysicsClipVelocity is not
 };
 
 } // namespace
@@ -425,38 +421,34 @@ struct Lifted_t
 
 TEST( PhysicsLinkLiftFixture, ExtractorTellsADefinitionFromACall )
 {
-	const std::string strFixture =
-		"void CBaseEntity::RealDefinition( int a )\n"
-		"{\n"
-		"    CBaseEntity::NotADefinition( a );\n"
-		"    x = CBaseEntity::AlsoNotOne( a ) + 1;\n"
-		"}\n"
-		"bool CBaseEntity::ConstDefinition( void ) const\n"
-		"{\n"
-		"    return true;\n"
-		"}\n";
+	const std::string strFixture = "void CBaseEntity::RealDefinition( int a )\n"
+								   "{\n"
+								   "    CBaseEntity::NotADefinition( a );\n"
+								   "    x = CBaseEntity::AlsoNotOne( a ) + 1;\n"
+								   "}\n"
+								   "bool CBaseEntity::ConstDefinition( void ) const\n"
+								   "{\n"
+								   "    return true;\n"
+								   "}\n";
 
-	const std::vector< std::string > defs = MemberDefinitions( strFixture );
-	const std::set< std::string > setDefs( defs.begin(), defs.end() );
+	const std::vector<std::string> defs = MemberDefinitions( strFixture );
+	const std::set<std::string> setDefs( defs.begin(), defs.end() );
 
 	EXPECT_EQ( 2u, defs.size() );
 	EXPECT_EQ( 1u, setDefs.count( "RealDefinition" ) );
-	EXPECT_EQ( 1u, setDefs.count( "ConstDefinition" ) )   // trailing const
+	EXPECT_EQ( 1u, setDefs.count( "ConstDefinition" ) ) // trailing const
 		<< "a `const` member definition was missed; the real file has several";
-	EXPECT_EQ( 0u, setDefs.count( "NotADefinition" ) )
-		<< "a CALL was counted as a definition";
-	EXPECT_EQ( 0u, setDefs.count( "AlsoNotOne" ) )
-		<< "a call in an expression was counted as a definition";
+	EXPECT_EQ( 0u, setDefs.count( "NotADefinition" ) ) << "a CALL was counted as a definition";
+	EXPECT_EQ( 0u, setDefs.count( "AlsoNotOne" ) ) << "a call in an expression was counted as a definition";
 }
 
 TEST( PhysicsLinkLiftFixture, ExtractorIgnoresProse )
 {
-	const std::string strFixture =
-		"// CBaseEntity::MentionedInAComment( void )\n"
-		"/* CBaseEntity::AlsoInAComment( void )\n"
-		"{\n"
-		"}\n"
-		"*/\n";
+	const std::string strFixture = "// CBaseEntity::MentionedInAComment( void )\n"
+								   "/* CBaseEntity::AlsoInAComment( void )\n"
+								   "{\n"
+								   "}\n"
+								   "*/\n";
 
 	EXPECT_TRUE( MemberDefinitions( strFixture ).empty() )
 		<< "a name written in prose was counted; both files under test are "
@@ -465,24 +457,22 @@ TEST( PhysicsLinkLiftFixture, ExtractorIgnoresProse )
 
 TEST( PhysicsLinkLiftFixture, ForwarderBodyExtractorWorksOnFixtures )
 {
-	const std::string strPositive =
-		"void CBaseEntity::Thin( int a )\n"
-		"{\n"
-		"    Free_Thin( a );\n"
-		"}\n";
+	const std::string strPositive = "void CBaseEntity::Thin( int a )\n"
+									"{\n"
+									"    Free_Thin( a );\n"
+									"}\n";
 
-	const std::string strGrown =
-		"void CBaseEntity::Thick( int a )\n"
-		"{\n"
-		"    if ( a ) return;\n"
-		"    Free_Thick( a );\n"
-		"}\n";
+	const std::string strGrown = "void CBaseEntity::Thick( int a )\n"
+								 "{\n"
+								 "    if ( a ) return;\n"
+								 "    Free_Thick( a );\n"
+								 "}\n";
 
 	// Each body is bound to a local FIRST. Calling ForwarderBody() twice inside
 	// one std::count() would take begin() and end() from two different
 	// temporaries, which is undefined behaviour -- and did in fact miscount
 	// before this was fixed.
-	const std::string strThin  = ForwarderBody( strPositive, "Thin" );
+	const std::string strThin = ForwarderBody( strPositive, "Thin" );
 	const std::string strThick = ForwarderBody( strGrown, "Thick" );
 
 	EXPECT_EQ( "Free_Thin(a);", strThin );
@@ -497,14 +487,12 @@ TEST( PhysicsLinkLiftFixture, ForwarderBodyExtractorWorksOnFixtures )
 
 TEST( PhysicsLinkLiftFixture, FreeDefinitionDetectorWorksOnFixtures )
 {
-	const std::string strFree   = "void Free_Thing( int a )\n{\n}\n";
+	const std::string strFree = "void Free_Thing( int a )\n{\n}\n";
 	const std::string strMember = "void CBaseEntity::Free_Thing( int a )\n{\n}\n";
-	const std::string strDecl   = "void Free_Thing( int a );\n";
+	const std::string strDecl = "void Free_Thing( int a );\n";
 
-	EXPECT_TRUE ( DefinedFree( strFree, "Free_Thing" ) );
-	EXPECT_FALSE( DefinedFree( strMember, "Free_Thing" ) )
-		<< "a class-scope definition was read as a free one, so "
-		<< "SharedFileDefinesEveryFreeFunction cannot fail";
-	EXPECT_FALSE( DefinedFree( strDecl, "Free_Thing" ) )
-		<< "a declaration was read as a definition";
+	EXPECT_TRUE( DefinedFree( strFree, "Free_Thing" ) );
+	EXPECT_FALSE( DefinedFree( strMember, "Free_Thing" ) ) << "a class-scope definition was read as a free one, so "
+														   << "SharedFileDefinesEveryFreeFunction cannot fail";
+	EXPECT_FALSE( DefinedFree( strDecl, "Free_Thing" ) ) << "a declaration was read as a definition";
 }

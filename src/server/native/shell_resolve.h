@@ -11,14 +11,10 @@
 // so at most one arm is set.
 #pragma once
 
-#include <stdint.h>
-#include "mathlib/vector.h"
-
-#include "igameentity.h"
 class CBasePlayer;
 class CStandaloneEntity;
 class CWorld;
-#include "igameentity_fwd.h"
+
 class IHandleEntity;
 class IPhysicsObject;
 struct edict_t;
@@ -30,16 +26,17 @@ struct matrix3x4_t;
 // hierarchies can answer; a caller needing more reads pBase directly.
 struct SourceSharpEntity_t
 {
-	IGameEntity       *pBase;
+	IGameEntity *pBase;
 	CStandaloneEntity *pStandalone;
 
 	// worldspawn, which neither GetGameEntity() nor GetBaseEntity() answers.
-	CWorld            *pWorld;
+	CWorld *pWorld;
 
 	bool IsValid() const { return pBase != NULL || pStandalone != NULL || pWorld != NULL; }
 
 	// Whether this handle names the world.
 	bool IsWorld() const { return pWorld != NULL; }
+
 	// The entity as an IGameEntity on either hierarchy, or NULL. What a
 	// CTakeDamageInfo's attacker and inflictor take.
 	IGameEntity *GameEntity() const;
@@ -75,7 +72,7 @@ SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity );
 
 // Counts reaches into the engine-invisible index range that the engine's entity
 // list does not resolve (defined in shell_scripted.cpp).
-void    SourceSharp_NoteInvisibleRangeReach( void *pReturnAddress );
+void SourceSharp_NoteInvisibleRangeReach( void *pReturnAddress );
 int32_t SourceSharp_InvisibleRangeReach();
 
 // The standalone arm alone, for calls only that side can answer.

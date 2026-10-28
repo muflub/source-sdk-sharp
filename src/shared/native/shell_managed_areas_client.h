@@ -72,39 +72,20 @@ IManagedRuntimeClient *ManagedRuntimeClient();
 // True when the root, the runtime and every area have been released.
 inline bool ManagedHoldersClient_Empty( const CManagedHoldersClient &holders )
 {
-	return !holders.m_pRoot
-		&& !holders.m_pRuntimeClient
-		&& !holders.m_Areas.m_pCommandsClient
-		&& !holders.m_Areas.m_pEventsClient
-		&& !holders.m_Areas.m_pUserMessagesClient
-		&& !holders.m_Areas.m_pStandaloneClient
-		&& !holders.m_Areas.m_pPredictionClient
-		&& !holders.m_Areas.m_pTempEntsClient
-		&& !holders.m_Areas.m_pSaveRestoreClient
-		&& !holders.m_Areas.m_pBeamsClient
-		&& !holders.m_Areas.m_pDiagnosticsClient
-		&& !holders.m_Areas.m_pDecalsClient
-		&& !holders.m_Areas.m_pParticlesClient
-		&& !holders.m_Areas.m_pUiClient
-		&& !holders.m_Areas.m_pWorldTextClient
-		&& !holders.m_Areas.m_pFxClient
-		&& !holders.m_Areas.m_pSoundControllerClient
-		&& !holders.m_Areas.m_pSoundscapesClient
-		&& !holders.m_Areas.m_pPrecipitationClient
-		&& !holders.m_Areas.m_pConsoleOutputClient
-		&& !holders.m_Areas.m_pMaterialFilesClient
-		&& !holders.m_Areas.m_pMaterialProxyClient
-		&& !holders.m_Areas.m_pRenderClient
-		&& !holders.m_Areas.m_pInputClient
-		&& !holders.m_Areas.m_pBonesClient
-		&& !holders.m_Areas.m_pPhysicsClient
-		&& !holders.m_Areas.m_pDetailPropsClient
-		&& !holders.m_Areas.m_pLeafSystemClient
-		&& !holders.m_Areas.m_pSoundEmitterClient
-		&& !holders.m_Areas.m_pClientSystemsClient
-		&& !holders.m_Areas.m_pPixelVisClient
-		&& !holders.m_Areas.m_pGlowClient
-		&& !holders.m_Areas.m_pShadowsClient;
+	return !holders.m_pRoot && !holders.m_pRuntimeClient && !holders.m_Areas.m_pCommandsClient &&
+		!holders.m_Areas.m_pEventsClient && !holders.m_Areas.m_pUserMessagesClient &&
+		!holders.m_Areas.m_pStandaloneClient && !holders.m_Areas.m_pPredictionClient &&
+		!holders.m_Areas.m_pTempEntsClient && !holders.m_Areas.m_pSaveRestoreClient &&
+		!holders.m_Areas.m_pBeamsClient && !holders.m_Areas.m_pDiagnosticsClient && !holders.m_Areas.m_pDecalsClient &&
+		!holders.m_Areas.m_pParticlesClient && !holders.m_Areas.m_pUiClient && !holders.m_Areas.m_pWorldTextClient &&
+		!holders.m_Areas.m_pFxClient && !holders.m_Areas.m_pSoundControllerClient &&
+		!holders.m_Areas.m_pSoundscapesClient && !holders.m_Areas.m_pPrecipitationClient &&
+		!holders.m_Areas.m_pConsoleOutputClient && !holders.m_Areas.m_pMaterialFilesClient &&
+		!holders.m_Areas.m_pMaterialProxyClient && !holders.m_Areas.m_pRenderClient &&
+		!holders.m_Areas.m_pInputClient && !holders.m_Areas.m_pBonesClient && !holders.m_Areas.m_pPhysicsClient &&
+		!holders.m_Areas.m_pDetailPropsClient && !holders.m_Areas.m_pLeafSystemClient &&
+		!holders.m_Areas.m_pSoundEmitterClient && !holders.m_Areas.m_pClientSystemsClient &&
+		!holders.m_Areas.m_pPixelVisClient && !holders.m_Areas.m_pGlowClient && !holders.m_Areas.m_pShadowsClient;
 }
 
 bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot, char *pWhy, size_t nWhy );

@@ -41,7 +41,7 @@ std::mt19937 &Rng()
 	return s_rng;
 }
 
-int Pick( int lo, int hi )	// inclusive
+int Pick( int lo, int hi ) // inclusive
 {
 	return std::uniform_int_distribution<int>( lo, hi )( Rng() );
 }
@@ -57,17 +57,23 @@ std::string Random( const char *alphabet, size_t alphabetLen, int maxLen )
 
 // No '\0' in these: the strings are C strings. Each is the characters its
 // functions treat specially, with ordinary letters and high bytes around them.
-const char kText[]    = "aAbBzZ@`[{_ -.\x7f\x80\xC0\xE0\xE9\xFF";
-const char kNumber[]  = "0123456789aAfFgxX-+.eE' ";
-const char kPath[]    = "ab/\\.cC.";
-const char kTokens[]  = "ab,,c ";
+const char kText[] = "aAbBzZ@`[{_ -.\x7f\x80\xC0\xE0\xE9\xFF";
+const char kNumber[] = "0123456789aAfFgxX-+.eE' ";
+const char kPath[] = "ab/\\.cC.";
+const char kTokens[] = "ab,,c ";
 
 #define RANDOM( alphabet, maxLen ) Random( alphabet, sizeof( alphabet ) - 1, maxLen )
 
-int Sign( int v ) { return ( v > 0 ) - ( v < 0 ); }
+int Sign( int v )
+{
+	return ( v > 0 ) - ( v < 0 );
+}
 
 // Offset of a found pointer, or -1 for NULL, so two different buffers compare.
-long Offset( const char *base, const char *p ) { return p ? (long)( p - base ) : -1L; }
+long Offset( const char *base, const char *p )
+{
+	return p ? (long)( p - base ) : -1L;
+}
 
 int ValveVsn( char *dst, int size, const char *fmt, ... )
 {
@@ -91,8 +97,19 @@ struct Pair
 {
 	char valve[48];
 	char ours[48];
-	Pair() { std::memset( valve, '#', sizeof( valve ) ); std::memset( ours, '#', sizeof( ours ) ); }
-	void Load( const std::string &s ) { std::memcpy( valve, s.c_str(), s.size() + 1 ); std::memcpy( ours, s.c_str(), s.size() + 1 ); }
+
+	Pair()
+	{
+		std::memset( valve, '#', sizeof( valve ) );
+		std::memset( ours, '#', sizeof( ours ) );
+	}
+
+	void Load( const std::string &s )
+	{
+		std::memcpy( valve, s.c_str(), s.size() + 1 );
+		std::memcpy( ours, s.c_str(), s.size() + 1 );
+	}
+
 	bool Same() const { return std::memcmp( valve, ours, sizeof( valve ) ) == 0; }
 };
 
@@ -188,18 +205,23 @@ std::string Near( const std::string &a )
 	std::string b = a;
 	switch ( Pick( 0, 4 ) )
 	{
-	case 0: break;
-	case 1:
-		for ( char &c : b )
-			if ( Pick( 0, 1 ) && ( ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) ) )
-				c ^= 0x20;
-		break;
-	case 2: b = b.substr( 0, (size_t)Pick( 0, (int)b.size() ) ); break;
-	case 3: b += RANDOM( kText, 3 ); break;
-	case 4:
-		if ( !b.empty() )
-			b[(size_t)Pick( 0, (int)b.size() - 1 )] = kText[Pick( 0, (int)sizeof( kText ) - 2 )];
-		break;
+		case 0:
+			break;
+		case 1:
+			for ( char &c : b )
+				if ( Pick( 0, 1 ) && ( ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) ) )
+					c ^= 0x20;
+			break;
+		case 2:
+			b = b.substr( 0, (size_t)Pick( 0, (int)b.size() ) );
+			break;
+		case 3:
+			b += RANDOM( kText, 3 );
+			break;
+		case 4:
+			if ( !b.empty() )
+				b[(size_t)Pick( 0, (int)b.size() - 1 )] = kText[Pick( 0, (int)sizeof( kText ) - 2 )];
+			break;
 	}
 	return b;
 }
@@ -264,8 +286,22 @@ TEST( SsStringOracle, StrIStrIsVStristr )
 
 TEST( SsStringOracle, AtoIIsVAtoi )
 {
-	const char *fixed[] = { "", "0", "-0", "+7", "--7", "0x", "0X1f", "-0xFF", "'a", "-'a", "'", "12ab",
-		"0xFFFFFFFF", "4294967297", "-9000000000000000000", "9223372036854775807" };
+	const char *fixed[] = { "",
+							"0",
+							"-0",
+							"+7",
+							"--7",
+							"0x",
+							"0X1f",
+							"-0xFF",
+							"'a",
+							"-'a",
+							"'",
+							"12ab",
+							"0xFFFFFFFF",
+							"4294967297",
+							"-9000000000000000000",
+							"9223372036854775807" };
 	int n = 0;
 	for ( const char *s : fixed )
 	{
@@ -289,15 +325,16 @@ TEST( SsStringOracle, AtoIIsVAtoi )
 
 TEST( SsStringOracle, AtoFIsVAtofBitForBit )
 {
-	const char *fixed[] = { "", ".", "-.", "1.5", ".25", "3.", "1.5.7", "1.5e2", "1.5E-2", "3e+2", "7e",
-		"0x10.8", "-0x1F", "'A", "1e", "123456789.987654321", "0.1", "1e30", "1e-30" };
+	const char *fixed[] = { "",       ".",    "-.",   "1.5",    ".25",   "3.", "1.5.7", "1.5e2",
+							"1.5E-2", "3e+2", "7e",   "0x10.8", "-0x1F", "'A", "1e",    "123456789.987654321",
+							"0.1",    "1e30", "1e-30" };
 	int n = 0;
 	auto check = [&]( const std::string &s )
 	{
 		const float fv = V_atof( s.c_str() );
 		const float fo = ss::AtoF( s.c_str() );
 		if ( fv != fv && fo != fo )
-			return true;	// both NaN (an infinite exponent times zero)
+			return true; // both NaN (an infinite exponent times zero)
 		return std::memcmp( &fv, &fo, sizeof( float ) ) == 0;
 	};
 	for ( const char *s : fixed )
@@ -459,7 +496,7 @@ TEST( SsStringOracle, GetFileNameIsVGetFileName )
 	{
 		std::string s = RANDOM( kPath, 20 );
 		if ( s.empty() )
-			s = "x";	// tier1 answers path-1 for "": undefined, not generated
+			s = "x"; // tier1 answers path-1 for "": undefined, not generated
 		ASSERT_EQ( V_GetFileName( s.c_str() ), ss::GetFileName( s.c_str() ) ) << Show( s );
 		++n;
 	}
@@ -480,7 +517,9 @@ TEST( SsStringOracle, StrNCmpIsVStrncmp )
 	int n = 0;
 	for ( int round = 0; round < kRandomRounds; ++round )
 	{
-		const std::string a = RANDOM( kText, 8 ), b = Pick( 0, 3 ) ? a.substr( 0, Pick( 0, (int)a.size() ) ) + RANDOM( kText, 4 ) : RANDOM( kText, 8 );
+		const std::string a = RANDOM( kText, 8 ),
+						  b = Pick( 0, 3 ) ? a.substr( 0, Pick( 0, (int)a.size() ) ) + RANDOM( kText, 4 )
+										   : RANDOM( kText, 8 );
 		const int count = Pick( 0, 12 );
 		ASSERT_EQ( V_strncmp( a.c_str(), b.c_str(), count ), ss::StrNCmp( a.c_str(), b.c_str(), count ) )
 			<< Show( a ) << " vs " << Show( b ) << " n " << count;
@@ -494,7 +533,10 @@ TEST( SsStringOracle, StrNIStrIsVStrnistr )
 	int n = 0, found = 0;
 	for ( int round = 0; round < kRandomRounds; ++round )
 	{
-		const std::string h = RANDOM( "aAbB\x80" "c", 14 ), needle = RANDOM( "aAbB", 3 );
+		const std::string h = RANDOM( "aAbB\x80"
+									  "c",
+									  14 ),
+						  needle = RANDOM( "aAbB", 3 );
 		const int count = Pick( -1, 16 );
 		const char *rv = V_strnistr( h.c_str(), needle.c_str(), count );
 		const char *ro = ss::StrNIStr( h.c_str(), needle.c_str(), count );
@@ -514,7 +556,8 @@ TEST( SsStringOracle, StrNChrIsVStrnchr )
 		const std::string s = RANDOM( "abc", 10 );
 		const int count = Pick( 0, 12 );
 		const char c = "abcd"[Pick( 0, 3 )];
-		ASSERT_EQ( V_strnchr( s.c_str(), c, count ), ss::StrNChr( s.c_str(), c, count ) ) << Show( s ) << " n " << count;
+		ASSERT_EQ( V_strnchr( s.c_str(), c, count ), ss::StrNChr( s.c_str(), c, count ) )
+			<< Show( s ) << " n " << count;
 		++n;
 	}
 	EXPECT_EQ( kRandomRounds, n );
@@ -647,8 +690,8 @@ TEST( SsStringOracle, ComposeFileNameIsVComposeFileName )
 
 TEST( SsStringOracle, RemoveDotSlashesIsVRemoveDotSlashes )
 {
-	const char *fixed[] = { "./foo", "k./foo", "foo./", "../foo", "a/../b", "a/b/..", "a//b", "/./a", "a/.", "..", "a/..",
-	                        "/a/../..", "x/./y/../z/.", ".\\a\\..\\b" };
+	const char *fixed[] = { "./foo", "k./foo", "foo./", "../foo", "a/../b",   "a/b/..",       "a//b",
+							"/./a",  "a/.",    "..",    "a/..",   "/a/../..", "x/./y/../z/.", ".\\a\\..\\b" };
 	int n = 0, refused = 0;
 	auto one = [&]( const std::string &s, char sep )
 	{
@@ -687,7 +730,8 @@ TEST( SsStringOracle, MakeAbsolutePathIsVMakeAbsolutePath )
 		std::memset( ours, '#', sizeof( ours ) );
 		V_MakeAbsolutePath( valve, sizeof( valve ), path.c_str(), pStart );
 		ASSERT_TRUE( ss::MakeAbsolutePath( ours, sizeof( ours ), path.c_str(), pStart ) );
-		ASSERT_EQ( 0, std::memcmp( valve, ours, sizeof( valve ) ) ) << Show( path ) << " from " << ( pStart ? Show( start ) : "(null)" );
+		ASSERT_EQ( 0, std::memcmp( valve, ours, sizeof( valve ) ) )
+			<< Show( path ) << " from " << ( pStart ? Show( start ) : "(null)" );
 		++n;
 	}
 	EXPECT_GT( n, kRandomRounds / 3 );
@@ -699,9 +743,10 @@ TEST( SsStringOracle, MakeAbsolutePathIsVMakeAbsolutePath )
 // small for the whole string, and the NULL-destination length form.
 TEST( SsStringOracle, UTF32ToUTF8IsQUTF32ToUTF8 )
 {
-	const uint32_t kEdges[] = { 1, 0x41, 0x7F, 0x80, 0x7FF, 0x800, 0xD7FF, 0xD800, 0xDFFF, 0xE000, 0xFDCF, 0xFDD0,
-	                            0xFDEF, 0xFDF0, 0xFFFD, 0xFFFE, 0xFFFF, 0x10000, 0x1FFFE, 0x10FFFD, 0x10FFFF, 0x110000,
-	                            0x7FFFFFFF, 0x80000000u, 0xFFFFFFFFu };
+	const uint32_t kEdges[] = { 1,        0x41,       0x7F,        0x80,       0x7FF,   0x800,    0xD7FF,
+								0xD800,   0xDFFF,     0xE000,      0xFDCF,     0xFDD0,  0xFDEF,   0xFDF0,
+								0xFFFD,   0xFFFE,     0xFFFF,      0x10000,    0x1FFFE, 0x10FFFD, 0x10FFFF,
+								0x110000, 0x7FFFFFFF, 0x80000000u, 0xFFFFFFFFu };
 	const int nEdges = (int)( sizeof( kEdges ) / sizeof( kEdges[0] ) );
 	int n = 0, invalid = 0;
 	for ( int round = 0; round < kRandomRounds; ++round )
@@ -712,7 +757,8 @@ TEST( SsStringOracle, UTF32ToUTF8IsQUTF32ToUTF8 )
 			src[i] = Pick( 0, 3 ) ? kEdges[Pick( 0, nEdges - 1 )] : (uint32_t)Pick( 1, 0x10FFFF );
 		src[len] = 0;
 		for ( int i = 0; i < len; ++i )
-			invalid += !( src[i] < 0x110000u && ( src[i] - 0xD800u ) > 0x7FFu && ( src[i] & 0xFFFFu ) < 0xFFFEu && ( src[i] - 0xFDD0u ) > 0x1Fu );
+			invalid += !( src[i] < 0x110000u && ( src[i] - 0xD800u ) > 0x7FFu && ( src[i] & 0xFFFFu ) < 0xFFFEu &&
+						  ( src[i] - 0xFDD0u ) > 0x1Fu );
 
 		const int size = Pick( 0, 3 ) ? Pick( 0, 100 ) : Pick( 0, 8 );
 		char valve[128], ours[128];
@@ -722,7 +768,8 @@ TEST( SsStringOracle, UTF32ToUTF8IsQUTF32ToUTF8 )
 		const int ro = ss::UTF32ToUTF8( src, ours, size );
 		ASSERT_EQ( rv, ro ) << "round " << round << " size " << size;
 		ASSERT_EQ( 0, std::memcmp( valve, ours, sizeof( valve ) ) ) << "round " << round << " size " << size;
-		ASSERT_EQ( Q_UTF32ToUTF8( (const uchar32 *)src, NULL, 0 ), ss::UTF32ToUTF8( src, NULL, 0 ) ) << "round " << round;
+		ASSERT_EQ( Q_UTF32ToUTF8( (const uchar32 *)src, NULL, 0 ), ss::UTF32ToUTF8( src, NULL, 0 ) )
+			<< "round " << round;
 		++n;
 	}
 	EXPECT_EQ( n, kRandomRounds );
@@ -737,8 +784,8 @@ TEST( SsStringOracle, UTF32ToUTF8IsQUTF32ToUTF8 )
 // too small for the whole string, and the NULL-destination length form.
 TEST( SsStringOracle, UTF16ToUTF8IsQUTF16ToUTF8 )
 {
-	const uint16_t kEdges[] = { 1, 0x41, 0x7F, 0x80, 0x7FF, 0x800, 0xD7FF, 0xD800, 0xDBFF, 0xDC00, 0xDFFF, 0xE000,
-	                            0xFDCF, 0xFDD0, 0xFDEF, 0xFDF0, 0xFFFD, 0xFFFE, 0xFFFF };
+	const uint16_t kEdges[] = { 1,      0x41,   0x7F,   0x80,   0x7FF,  0x800,  0xD7FF, 0xD800, 0xDBFF, 0xDC00,
+								0xDFFF, 0xE000, 0xFDCF, 0xFDD0, 0xFDEF, 0xFDF0, 0xFFFD, 0xFFFE, 0xFFFF };
 	const int nEdges = (int)( sizeof( kEdges ) / sizeof( kEdges[0] ) );
 	int n = 0, pairs = 0, unpaired = 0;
 	for ( int round = 0; round < kRandomRounds; ++round )
@@ -774,7 +821,8 @@ TEST( SsStringOracle, UTF16ToUTF8IsQUTF16ToUTF8 )
 		const int ro = ss::UTF16ToUTF8( src, ours, size );
 		ASSERT_EQ( rv, ro ) << "round " << round << " size " << size;
 		ASSERT_EQ( 0, std::memcmp( valve, ours, sizeof( valve ) ) ) << "round " << round << " size " << size;
-		ASSERT_EQ( Q_UTF16ToUTF8( (const uchar16 *)src, NULL, 0 ), ss::UTF16ToUTF8( src, NULL, 0 ) ) << "round " << round;
+		ASSERT_EQ( Q_UTF16ToUTF8( (const uchar16 *)src, NULL, 0 ), ss::UTF16ToUTF8( src, NULL, 0 ) )
+			<< "round " << round;
 		++n;
 	}
 	EXPECT_EQ( n, kRandomRounds );
@@ -793,7 +841,7 @@ TEST( SsStringOracle, WideToUTF8ConvertsThisPlatformsWchar )
 	std::memset( direct, '#', sizeof( direct ) );
 	const int rw = ss::WideToUTF8( pWide, wide, sizeof( wide ) );
 	const int rd = sizeof( wchar_t ) == 4 ? ss::UTF32ToUTF8( (const uint32_t *)pWide, direct, sizeof( direct ) )
-	                                      : ss::UTF16ToUTF8( (const uint16_t *)pWide, direct, sizeof( direct ) );
+										  : ss::UTF16ToUTF8( (const uint16_t *)pWide, direct, sizeof( direct ) );
 	EXPECT_EQ( rd, rw );
 	EXPECT_EQ( 0, std::memcmp( wide, direct, sizeof( wide ) ) );
 	EXPECT_STREQ( "A\xc3\xa9\xf0\x9f\x98\x80", wide );

@@ -76,13 +76,12 @@ const CBaseHandle kUnbound = CBaseHandle();
 // test unless it is read here too.
 const std::string kClientEntityHdr = "game/client/c_baseentity.h";
 
-const std::string kStockH   = "game/client/cliententitylist.h";
-const std::string kPortCpp  = "sourcesharp/game/client/shell_cliententitylist.cpp";
-const std::string kPortH    = "sourcesharp/game/client/shell_cliententitylist.h";
+const std::string kStockH = "game/client/cliententitylist.h";
+const std::string kPortCpp = "sourcesharp/game/client/shell_cliententitylist.cpp";
+const std::string kPortH = "sourcesharp/game/client/shell_cliententitylist.h";
 const std::string kWorldCpp = "sourcesharp/game/client/world_adapter_client.cpp";
 
 } // namespace
-
 
 //=============================================================================
 // THE STRIPPER, first, because three facts below rest on it
@@ -136,7 +135,6 @@ TEST( ClientWorldArm, AnUnboundWorldRefusesTheLastEntry )
 	EXPECT_FALSE( SourceSharp_ClientWorldAnswersForIndex( kUnbound, NUM_ENT_ENTRIES - 1 ) );
 }
 
-
 //=============================================================================
 // HALF B, THE RULE: does the world answer for this handle?
 //=============================================================================
@@ -174,7 +172,6 @@ TEST( ClientWorldArm, ABoundWorldRefusesAnotherEntitysHandle )
 {
 	EXPECT_FALSE( SourceSharp_ClientWorldAnswersForHandle( H( 0, 7 ), H( 12, 7 ) ) );
 }
-
 
 //=============================================================================
 // HALF B, THE RULE: the two counts IClientEntityList maintains
@@ -227,7 +224,6 @@ TEST( ClientWorldArm, ABoundWorldIsTheWholeCountWhenTheTableIsEmpty )
 	EXPECT_EQ( 1, SourceSharp_ClientCountWithWorld( H( 0, 7 ), 0 ) );
 }
 
-
 //=============================================================================
 // HALF B, THE WIRING: the arm is asked, and asked in the right ORDER
 //=============================================================================
@@ -252,7 +248,7 @@ TEST( ClientWorldArm, ATraceThatHitNothingHasNoIndex )
 
 TEST( ClientWorldArm, ANetworkedHitAnswersItsEntry )
 {
-	EXPECT_EQ( 0, SourceSharp_ClientIndexOfHit( H( 0, 3 ), true ) );      // the world
+	EXPECT_EQ( 0, SourceSharp_ClientIndexOfHit( H( 0, 3 ), true ) ); // the world
 	EXPECT_EQ( 42, SourceSharp_ClientIndexOfHit( H( 42, 9 ), true ) );
 	EXPECT_EQ( MAX_EDICTS - 1, SourceSharp_ClientIndexOfHit( H( MAX_EDICTS - 1, 1 ), true ) );
 }
@@ -274,4 +270,3 @@ TEST( ClientWorldArm, AClientOnlyEntityHasNoIndex )
 // defined them, left client.so. The world compare is the shared rule
 // (SourceSharp_IsTheWorld, world_adapter_client.cpp), the index the rule above.
 //=============================================================================
-

@@ -15,12 +15,14 @@ class CPointEntity : public IGameEntity
 public:
 	DECLARE_CLASS( CPointEntity, IGameEntity );
 
-	void	Spawn();
+	void Spawn();
 
 	// 0: CBaseEntity::ObjectCaps can only be non-zero for a parented entity, and this
 	// hierarchy has no parent to forward from.
-	virtual int	ObjectCaps() { return 0; }
+	virtual int ObjectCaps() { return 0; }
+
 	virtual bool KeyValue( const char *szKeyName, const char *szValue );
+
 private:
 };
 
@@ -28,6 +30,7 @@ private:
 class CServerOnlyEntity : public IGameEntity
 {
 	DECLARE_CLASS( CServerOnlyEntity, IGameEntity );
+
 public:
 	// CBaseEntity's bServerOnly only set EFL_SERVER_ONLY, which this hierarchy has no use for.
 	CServerOnlyEntity() {}
@@ -60,7 +63,22 @@ public:
 
 struct datamap_t;
 
-inline void DataMapAccess( CPointEntity *, datamap_t **p )			{ *p = NULL; }
-inline void DataMapAccess( CServerOnlyEntity *, datamap_t **p )		{ *p = NULL; }
-inline void DataMapAccess( CServerOnlyPointEntity *, datamap_t **p ){ *p = NULL; }
-inline void DataMapAccess( CLogicalEntity *, datamap_t **p )		{ *p = NULL; }
+inline void DataMapAccess( CPointEntity *, datamap_t **p )
+{
+	*p = NULL;
+}
+
+inline void DataMapAccess( CServerOnlyEntity *, datamap_t **p )
+{
+	*p = NULL;
+}
+
+inline void DataMapAccess( CServerOnlyPointEntity *, datamap_t **p )
+{
+	*p = NULL;
+}
+
+inline void DataMapAccess( CLogicalEntity *, datamap_t **p )
+{
+	*p = NULL;
+}

@@ -8,7 +8,7 @@ class QAngle;
 class VPlane;
 
 // near and far Z it uses to render the world.
-#define VIEW_NEARZ	7
+#define VIEW_NEARZ 7
 //#define VIEW_FARZ	28400
 
 // There's a difference between the 'current view' and the 'main view'

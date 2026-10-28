@@ -9,37 +9,36 @@
 
 #pragma once
 
-
-#include "vcollide_parse.h"     // IVPhysicsKeyHandler
+#include "vcollide_parse.h" // IVPhysicsKeyHandler
 
 // Defined in game/server/physics.cpp.
-extern IPhysicsObject			*g_PhysWorldObject;
-extern IPhysics					*physics;
-extern IPhysicsCollision		*physcollision;
-extern IPhysicsEnvironment		*physenv;
-extern IPhysicsSurfaceProps		*physprops;
+extern IPhysicsObject *g_PhysWorldObject;
+extern IPhysics *physics;
+extern IPhysicsCollision *physcollision;
+extern IPhysicsEnvironment *physenv;
+extern IPhysicsSurfaceProps *physprops;
 
 namespace ss
 {
 // The game's bits in IPhysicsObject::GetGameFlags; VPhysics stores them and reads none.
 enum PhysGameFlag : unsigned short
 {
-	kPhysFlagSliceDamage        = 0x0001,	// FVPHYSICS_DMG_SLICE
-	kPhysFlagConstraintStatic   = 0x0002,	// FVPHYSICS_CONSTRAINT_STATIC: pinned to the world
-	kPhysFlagPlayerHeld         = 0x0004,	// FVPHYSICS_PLAYER_HELD
-	kPhysFlagPartOfRagdoll      = 0x0008,	// FVPHYSICS_PART_OF_RAGDOLL
-	kPhysFlagMultiObjectEntity  = 0x0010,	// FVPHYSICS_MULTIOBJECT_ENTITY
-	kPhysFlagHeavyObject        = 0x0020,	// FVPHYSICS_HEAVY_OBJECT
-	kPhysFlagPenetrating        = 0x0040,	// FVPHYSICS_PENETRATING
-	kPhysFlagNoPlayerPickup     = 0x0080,	// FVPHYSICS_NO_PLAYER_PICKUP
-	kPhysFlagWasThrown          = 0x0100,	// FVPHYSICS_WAS_THROWN
-	kPhysFlagDissolveDamage     = 0x0200,	// FVPHYSICS_DMG_DISSOLVE
-	kPhysFlagNoImpactDamage     = 0x0400,	// FVPHYSICS_NO_IMPACT_DMG
-	kPhysFlagNoNpcImpactDamage  = 0x0800,	// FVPHYSICS_NO_NPC_IMPACT_DMG
+	kPhysFlagSliceDamage = 0x0001, // FVPHYSICS_DMG_SLICE
+	kPhysFlagConstraintStatic = 0x0002, // FVPHYSICS_CONSTRAINT_STATIC: pinned to the world
+	kPhysFlagPlayerHeld = 0x0004, // FVPHYSICS_PLAYER_HELD
+	kPhysFlagPartOfRagdoll = 0x0008, // FVPHYSICS_PART_OF_RAGDOLL
+	kPhysFlagMultiObjectEntity = 0x0010, // FVPHYSICS_MULTIOBJECT_ENTITY
+	kPhysFlagHeavyObject = 0x0020, // FVPHYSICS_HEAVY_OBJECT
+	kPhysFlagPenetrating = 0x0040, // FVPHYSICS_PENETRATING
+	kPhysFlagNoPlayerPickup = 0x0080, // FVPHYSICS_NO_PLAYER_PICKUP
+	kPhysFlagWasThrown = 0x0100, // FVPHYSICS_WAS_THROWN
+	kPhysFlagDissolveDamage = 0x0200, // FVPHYSICS_DMG_DISSOLVE
+	kPhysFlagNoImpactDamage = 0x0400, // FVPHYSICS_NO_IMPACT_DMG
+	kPhysFlagNoNpcImpactDamage = 0x0800, // FVPHYSICS_NO_NPC_IMPACT_DMG
 	// Ours, in a bit stock leaves free: forces collision with any moveable
 	// MOVETYPE_VPHYSICS object (func_clip_vphysics).
 	kPhysFlagForceCollideMoveable = 0x1000,
-	kPhysFlagNoSelfCollisions   = 0x8000,	// FVPHYSICS_NO_SELF_COLLISIONS
+	kPhysFlagNoSelfCollisions = 0x8000, // FVPHYSICS_NO_SELF_COLLISIONS
 };
 
 // physics_shared.h's FLUID_TIME_MAX: how long, in seconds, a splash is remembered.

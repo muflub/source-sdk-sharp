@@ -6,20 +6,18 @@
 extern IGameEventManager2 *gameeventmanager;
 
 // A safer method than inheriting straight from IGameEventListener2.
-// Avoids requiring the user to remove themselves as listeners in 
+// Avoids requiring the user to remove themselves as listeners in
 // their deconstructor, and sets the serverside variable based on
 // our dll location.
 class CGameEventListener : public IGameEventListener2
 {
 public:
-	CGameEventListener() : m_bRegisteredForEvents(false)
+	CGameEventListener()
+		: m_bRegisteredForEvents( false )
 	{
 	}
 
-	~CGameEventListener()
-	{
-		StopListeningForAllEvents();
-	}
+	~CGameEventListener() { StopListeningForAllEvents(); }
 
 	void ListenForGameEvent( const char *name )
 	{
@@ -30,7 +28,7 @@ public:
 		{
 			gameeventmanager->AddListener( this, name, bServerSide );
 		}
-		
+
 		AssertMsg1( gameeventmanager, "Failed to subscribe to event %s!", name );
 	}
 
@@ -49,7 +47,6 @@ public:
 	virtual void FireGameEvent( IGameEvent *event ) = 0;
 
 private:
-
 	// Have we registered for any events?
 	bool m_bRegisteredForEvents;
 };

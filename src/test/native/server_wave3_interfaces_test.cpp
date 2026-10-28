@@ -75,9 +75,9 @@ namespace
 // "c_baseentity.cpp" must not answer for "baseentity.cpp").
 bool ServerCompiles( const char *pszBasename )
 {
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( cmake_graph::kServer );
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( cmake_graph::kServer );
 	const std::string base( pszBasename );
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
 	{
 		const size_t slash = it->find_last_of( '/' );
 		if ( ( slash == std::string::npos ? *it : it->substr( slash + 1 ) ) == base )
@@ -150,7 +150,7 @@ int ImportersOf( const char *pszTarget, const char *pszName, size_t *pnObjects )
 	{
 		if ( rel.size() > 2 && rel.compare( rel.size() - 2, 2, ".o" ) == 0 )
 		{
-			cmd += " '" + ( rel[ 0 ] == '/' ? rel : strBuild + "/" + rel ) + "'";
+			cmd += " '" + ( rel[0] == '/' ? rel : strBuild + "/" + rel ) + "'";
 			n++;
 		}
 	}
@@ -159,7 +159,7 @@ int ImportersOf( const char *pszTarget, const char *pszName, size_t *pnObjects )
 	if ( !pPipe )
 		return -1;
 	int nHits = 0;
-	char buf[ 1024 ];
+	char buf[1024];
 	const std::string want = std::string( " U " ) + pszName + "\n";
 	while ( fgets( buf, sizeof( buf ), pPipe ) )
 	{
@@ -257,7 +257,7 @@ TEST( ServerWave3, TheOtherZeroConsumerFilesAreStillCompiled )
 	// place a source can come from. plan_server_novalve.md P4.8 took
 	// public/tier0/memoverride.cpp out of it (server.so uses glibc directly),
 	// so the list names it ZERO times now.
-	const std::vector< std::string > listed = cmake_graph::ListedSources( cmake_graph::kServer );
+	const std::vector<std::string> listed = cmake_graph::ListedSources( cmake_graph::kServer );
 	EXPECT_FALSE( listed.empty() ) << "the server's source list read empty";
 	EXPECT_EQ( 0, (int)std::count( listed.begin(), listed.end(), std::string( "public/tier0/memoverride.cpp" ) ) )
 		<< "src/server/native/CMakeLists.txt lists public/tier0/memoverride.cpp "

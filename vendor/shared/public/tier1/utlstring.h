@@ -17,15 +17,15 @@
 #ifndef wcsdup
 // The mem override tools may provide a copy of this if active, otherwise it is not available in OS X's libc due to
 // being introduced in POSIX-20008
-inline wchar_t *wcsdup(const wchar_t *pString)
+inline wchar_t *wcsdup( const wchar_t *pString )
 {
 	wchar_t *pMemory;
 
-	if (!pString)
+	if ( !pString )
 		return NULL;
 
-	size_t len = (wcslen(pString) + 1);
-	if ((pMemory = (wchar_t *)malloc(len * sizeof(wchar_t))) != NULL)
+	size_t len = ( wcslen( pString ) + 1 );
+	if ( ( pMemory = (wchar_t *)malloc( len * sizeof( wchar_t ) ) ) != NULL )
 	{
 		return wcscpy( pMemory, pString );
 	}
@@ -34,32 +34,32 @@ inline wchar_t *wcsdup(const wchar_t *pString)
 }
 #endif
 
-inline size_t strnlen(const char *s, size_t n)
+inline size_t strnlen( const char *s, size_t n )
 {
-	const char *p = (const char *)memchr(s, 0, n);
-	return (p ? p - s : n);
+	const char *p = (const char *)memchr( s, 0, n );
+	return ( p ? p - s : n );
 }
 
 #endif
 
 #define MOVE_CONSTRUCTOR_SUPPORT
 
-// Simple string class. 
+// Simple string class.
 // NOTE: This is *not* optimal! Use in tools, but not runtime code
 class CUtlString
 {
 public:
 	typedef enum
 	{
-		PATTERN_NONE		= 0x00000000,
-		PATTERN_DIRECTORY	= 0x00000001
+		PATTERN_NONE = 0x00000000,
+		PATTERN_DIRECTORY = 0x00000001
 	} TUtlStringPattern;
 
 public:
 	CUtlString();
 	CUtlString( const char *pString );
 	CUtlString( const char *pString, int length );
-	CUtlString( const CUtlString& string );
+	CUtlString( const CUtlString &string );
 
 #ifdef MOVE_CONSTRUCTOR_SUPPORT
 	// Support moving of CUtlString objects. Long live C++11
@@ -68,15 +68,16 @@ public:
 	// which are about to be destroyed. It can also be explicitly invoked with
 	// std::move().
 	// Move constructor:
-	CUtlString( CUtlString&& rhs )
+	CUtlString( CUtlString &&rhs )
 	{
 		// Move the string pointer from the source to this -- be sure to
 		// zero out the source to avoid double frees.
 		m_pString = rhs.m_pString;
 		rhs.m_pString = 0;
 	}
+
 	// Move assignment operator:
-	CUtlString& operator=( CUtlString&& rhs )
+	CUtlString &operator=( CUtlString &&rhs )
 	{
 		// Move the string pointer from the source to this -- be sure to
 		// zero out the source to avoid double frees.  SetPtr will free our existing
@@ -98,49 +99,48 @@ public:
 
 	~CUtlString();
 
-	const char	*Get( ) const;
-	void		Set( const char *pValue );
-	operator const char*() const;
+	const char *Get() const;
+	void Set( const char *pValue );
+	operator const char *() const;
 
 	// Set directly and don't look for a null terminator in pValue.
 	// nChars does not include the nul and this will only copy
 	// at most nChars (even if pValue is longer).  If nChars
 	// is >strlen(pValue) it will copy past the end, don't do it
 	// Does nothing if pValue == String()
-	void		SetDirect( const char *pValue, int nChars );
+	void SetDirect( const char *pValue, int nChars );
 
-	char *Access() { return GetForModify(); }
 	// for compatibility switching items from UtlSymbol
-	const char  *String() const { return Get(); }
+	const char *String() const { return Get(); }
 
 	// Returns strlen
-	int			Length() const;
+	int Length() const;
 	// IsEmpty() is more efficient than Length() == 0
-	bool		IsEmpty() const;
+	bool IsEmpty() const;
 
 	// Sets the length (used to serialize into the buffer )
-	// Note: If nLen != 0, then this adds an extra byte for a null-terminator.	
-	void		SetLength( int nLen );
-	char		*GetForModify();
-	void		Clear();
-	void		Purge();
+	// Note: If nLen != 0, then this adds an extra byte for a null-terminator.
+	void SetLength( int nLen );
+	char *GetForModify();
+	void Clear();
+	void Purge();
 
 	// Case Change
-	void		ToLower();
-	void		Append( const char *pAddition, int nChars );
+	void ToLower();
+	void Append( const char *pAddition, int nChars );
 
-	void		Append( const char *pchAddition );
-	void		Append( const char chAddition ) { char temp[2] = { chAddition, 0 }; Append( temp ); }
+	void Append( const char *pchAddition );
+
 	// Strips the trailing slash
-	void		StripTrailingSlash();
+	void StripTrailingSlash();
 
 	// Trim whitespace
-	void		TrimLeft( char cTarget );
-	void		TrimLeft( const char *szTargets = "\t\r\n " );
-	void		TrimRight( char cTarget );
-	void		TrimRight( const char *szTargets = "\t\r\n " );
+	void TrimLeft( char cTarget );
+	void TrimLeft( const char *szTargets = "\t\r\n " );
+	void TrimRight( char cTarget );
+	void TrimRight( const char *szTargets = "\t\r\n " );
 
-	bool		IsEqual_CaseSensitive( const char *src ) const;
+	bool IsEqual_CaseSensitive( const char *src ) const;
 
 	CUtlString &operator=( const CUtlString &src );
 	CUtlString &operator=( const char *src );
@@ -163,8 +163,6 @@ public:
 	// is valid?
 	bool IsValid() const { return m_pString != NULL; }
 
-	// Don't let SWIG see the PRINTF_FORMAT_STRING attribute or it will complain.
-	int Format( PRINTF_FORMAT_STRING const char *pFormat, ... )  FMTFUNCTION( 2, 3 );
 	int FormatV( PRINTF_FORMAT_STRING const char *pFormat, va_list marker );
 
 	// Defining AltArgumentType_t hints that associative container classes should
@@ -174,7 +172,7 @@ public:
 	// Get a copy of part of the string.
 	// If you only specify nStart, it'll go from nStart to the end.
 	// You can use negative numbers and it'll wrap around to the start.
-	CUtlString Slice( int32 nStart=0, int32 nEnd=INT_MAX ) const;
+	CUtlString Slice( int32 nStart = 0, int32 nEnd = INT_MAX ) const;
 
 	// Get a substring starting from the left or the right side.
 	CUtlString Left( int32 nChars ) const;
@@ -183,7 +181,7 @@ public:
 	CUtlString Remove( char const *pTextToRemove, bool bCaseSensitive = false ) const;
 
 	// Get this string as an absolute path (calls right through to V_MakeAbsolutePath).
-	CUtlString AbsPath( const char *pStartingDir=NULL ) const;	
+	CUtlString AbsPath( const char *pStartingDir = NULL ) const;
 
 private:
 	// INTERNALS
@@ -204,24 +202,24 @@ private:
 
 // Inline methods
 inline CUtlString::CUtlString()
-: m_pString( NULL )
+	: m_pString( NULL )
 {
 }
 
 inline CUtlString::CUtlString( const char *pString )
-: m_pString( NULL )
+	: m_pString( NULL )
 {
 	Set( pString );
 }
 
 inline CUtlString::CUtlString( const char *pString, int length )
-: m_pString( NULL )
+	: m_pString( NULL )
 {
 	SetDirect( pString, length );
 }
 
-inline CUtlString::CUtlString( const CUtlString& string )
-: m_pString( NULL )
+inline CUtlString::CUtlString( const CUtlString &string )
+	: m_pString( NULL )
 {
 	Set( string.Get() );
 }
@@ -233,7 +231,7 @@ inline CUtlString::~CUtlString()
 
 inline int CUtlString::Length() const
 {
-	if (m_pString)
+	if ( m_pString )
 	{
 		return V_strlen( m_pString );
 	}
@@ -246,55 +244,75 @@ inline bool CUtlString::IsEmpty() const
 }
 
 // Converts to c-strings
-inline CUtlString::operator const char*() const
+inline CUtlString::operator const char *() const
 {
 	return Get();
 }
 
 // Purpose: Implementation of low-level string functionality for character types.
 
-template < typename T >
+template <typename T>
 class StringFuncs
 {
 public:
-	static T		*Duplicate( const T *pValue );
+	static T *Duplicate( const T *pValue );
 	// Note that this function takes a character count, and does not guarantee null-termination.
-	static void		 Copy( T *out_pOut, const T *pIn, int iLengthInChars );
-	static int		 Compare( const T *pLhs, const T *pRhs );
-	static int		 CaselessCompare( const T *pLhs, const T *pRhs );
-	static int		 Length( const T *pValue );
-	static const T  *FindChar( const T *pStr, const T cSearch );
-	static const T	*EmptyString();
-	static const T	*NullDebugString();
+	static void Copy( T *out_pOut, const T *pIn, int iLengthInChars );
+	static int Compare( const T *pLhs, const T *pRhs );
+	static int CaselessCompare( const T *pLhs, const T *pRhs );
+	static int Length( const T *pValue );
+	static const T *FindChar( const T *pStr, const T cSearch );
+	static const T *EmptyString();
+	static const T *NullDebugString();
 };
 
-template < >
+template <>
 class StringFuncs<char>
 {
 public:
-	static char		  *Duplicate( const char *pValue ) { return strdup( pValue ); }
+	static char *Duplicate( const char *pValue ) { return strdup( pValue ); }
+
 	// Note that this function takes a character count, and does not guarantee null-termination.
-	static void		   Copy( OUT_CAP(iLengthInChars) char *out_pOut, const char *pIn, int iLengthInChars ) { strncpy( out_pOut, pIn, iLengthInChars ); }
-	static int		   Compare( const char *pLhs, const char *pRhs ) { return strcmp( pLhs, pRhs ); }
-	static int		   CaselessCompare( const char *pLhs, const char *pRhs ) { return Q_strcasecmp( pLhs, pRhs ); }
-	static int		   Length( const char *pValue ) { return (int)strlen( pValue ); }
+	static void Copy( OUT_CAP( iLengthInChars ) char *out_pOut, const char *pIn, int iLengthInChars )
+	{
+		strncpy( out_pOut, pIn, iLengthInChars );
+	}
+
+	static int Compare( const char *pLhs, const char *pRhs ) { return strcmp( pLhs, pRhs ); }
+
+	static int CaselessCompare( const char *pLhs, const char *pRhs ) { return Q_strcasecmp( pLhs, pRhs ); }
+
+	static int Length( const char *pValue ) { return (int)strlen( pValue ); }
+
 	static const char *FindChar( const char *pStr, const char cSearch ) { return strchr( pStr, cSearch ); }
+
 	static const char *EmptyString() { return ""; }
+
 	static const char *NullDebugString() { return "(null)"; }
 };
 
-template < >
+template <>
 class StringFuncs<wchar_t>
 {
 public:
-	static wchar_t		 *Duplicate( const wchar_t *pValue ) { return wcsdup( pValue ); }
+	static wchar_t *Duplicate( const wchar_t *pValue ) { return wcsdup( pValue ); }
+
 	// Note that this function takes a character count, and does not guarantee null-termination.
-	static void			  Copy( OUT_CAP(iLengthInChars) wchar_t *out_pOut, const wchar_t  *pIn, int iLengthInChars ) { wcsncpy( out_pOut, pIn, iLengthInChars ); }
-	static int			  Compare( const wchar_t *pLhs, const wchar_t *pRhs ) { return wcscmp( pLhs, pRhs ); }
-	static int			  CaselessCompare( const wchar_t *pLhs, const wchar_t *pRhs ); // no implementation?
-	static int			  Length( const wchar_t *pValue ) { return (int)wcslen( pValue ); }
+	static void Copy( OUT_CAP( iLengthInChars ) wchar_t *out_pOut, const wchar_t *pIn, int iLengthInChars )
+	{
+		wcsncpy( out_pOut, pIn, iLengthInChars );
+	}
+
+	static int Compare( const wchar_t *pLhs, const wchar_t *pRhs ) { return wcscmp( pLhs, pRhs ); }
+
+	static int CaselessCompare( const wchar_t *pLhs, const wchar_t *pRhs ); // no implementation?
+
+	static int Length( const wchar_t *pValue ) { return (int)wcslen( pValue ); }
+
 	static const wchar_t *FindChar( const wchar_t *pStr, const wchar_t cSearch ) { return wcschr( pStr, cSearch ); }
+
 	static const wchar_t *EmptyString() { return L""; }
+
 	static const wchar_t *NullDebugString() { return L"(null)"; }
 };
 
@@ -303,26 +321,43 @@ public:
 // Note the benefit over CUtlString: sizeof(CUtlConstString) == sizeof(char*).
 // Also note: null char* pointers are treated identically to empty strings.
 
-template < typename T = char >
+template <typename T = char>
 class CUtlConstStringBase
 {
 public:
-	CUtlConstStringBase() : m_pString( NULL ) {}
-	explicit CUtlConstStringBase( const T *pString ) : m_pString( NULL ) { Set( pString ); }
-	CUtlConstStringBase( const CUtlConstStringBase& src ) : m_pString( NULL ) { Set( src.m_pString ); }
+	CUtlConstStringBase()
+		: m_pString( NULL )
+	{
+	}
+
+	explicit CUtlConstStringBase( const T *pString )
+		: m_pString( NULL )
+	{
+		Set( pString );
+	}
+
+	CUtlConstStringBase( const CUtlConstStringBase &src )
+		: m_pString( NULL )
+	{
+		Set( src.m_pString );
+	}
+
 	~CUtlConstStringBase() { Set( NULL ); }
 
 	void Set( const T *pValue );
+
 	void Clear() { Set( NULL ); }
 
 	const T *Get() const { return m_pString ? m_pString : StringFuncs<T>::EmptyString(); }
-	operator const T*() const { return m_pString ? m_pString : StringFuncs<T>::EmptyString(); }
+
+	operator const T *() const { return m_pString ? m_pString : StringFuncs<T>::EmptyString(); }
 
 	bool IsEmpty() const { return m_pString == NULL; } // Note: empty strings are never stored by Set
 
 	int Compare( const T *rhs ) const;
 
 	bool operator==( const T *rhs ) const { return Compare( rhs ) == 0; }
+
 	bool operator==( const CUtlConstStringBase &rhs ) const { return Compare( rhs.m_pString ) == 0; }
 
 	// Defining AltArgumentType_t is a hint to containers that they should
@@ -333,17 +368,17 @@ protected:
 	const T *m_pString;
 };
 
-template < typename T >
+template <typename T>
 void CUtlConstStringBase<T>::Set( const T *pValue )
 {
 	if ( pValue != m_pString )
 	{
-		free( ( void* ) m_pString );
+		free( (void *)m_pString );
 		m_pString = pValue && pValue[0] ? StringFuncs<T>::Duplicate( pValue ) : NULL;
 	}
 }
 
-template < typename T >
+template <typename T>
 int CUtlConstStringBase<T>::Compare( const T *rhs ) const
 {
 	// Empty or null RHS?
@@ -358,7 +393,7 @@ int CUtlConstStringBase<T>::Compare( const T *rhs ) const
 	return StringFuncs<T>::Compare( m_pString, rhs );
 }
 
-typedef	CUtlConstStringBase<char>		CUtlConstString;
+typedef CUtlConstStringBase<char> CUtlConstString;
 
 // Helper functor objects.
 
@@ -378,23 +413,13 @@ public:
 	//explicit CUtlStringBuilder( IFillStringFunctor& func );
 	~CUtlStringBuilder();
 
-	// operator=
-	CUtlStringBuilder &operator=( const CUtlStringBuilder &src );
-	CUtlStringBuilder &operator=( const char *pchString );
 	//CUtlStringBuilder &operator=( const CUtlStringResult &strMoveSource );
 
 	// operator==
 	bool operator==( CUtlStringBuilder const &src ) const;
 	bool operator==( const char *pchString ) const;
 
-	// operator!=
-	bool operator!=( CUtlStringBuilder const &src ) const;
-	bool operator!=( const char *pchString ) const;
-
-	// operator </>, performs case sensitive comparison
-	bool operator<( const CUtlStringBuilder &val ) const;
 	bool operator<( const char *pchString ) const;
-	bool operator>( const CUtlStringBuilder &val ) const;
 
 	// is valid?
 	bool IsValid() const;
@@ -402,21 +427,23 @@ public:
 	// gets the string
 	// never returns NULL, use IsValid() to see if it's never been set
 	const char *String() const;
+
 	const char *Get() const { return String(); }
+
 	operator const char *() const { return String(); }
 
 	// returns the string directly (could be NULL)
 	// useful for doing inline operations on the string
-	char *Access() 
+	char *Access()
 	{
 		// aggressive warning that there has been a bad error;
 		// probably should not be retrieving the string by pointer.
-		Assert(!m_data.HasError());
+		Assert( !m_data.HasError() );
 
-		if ( !IsValid() || ( Capacity() == 0 ) ) 
+		if ( !IsValid() || ( Capacity() == 0 ) )
 			return NULL;
 
-		return m_data.Access(); 
+		return m_data.Access();
 	}
 
 	// return false if capacity can't be set. If false is returned,
@@ -426,19 +453,20 @@ public:
 	// append in-place, causing a re-allocation
 	void Append( const char *pchAddition );
 	void Append( const char *pchAddition, size_t cbLen );
-	void Append( const CUtlStringBuilder &str ) { Append( str.String(), str.Length() ); }
 
 	// sets the string
 	void SetValue( const char *pchString );
 	void Set( const char *pchString );
+
 	void Clear() { m_data.Clear(); }
+
 	void SetPtr( char *pchString, size_t nLength );
 	void Swap( CUtlStringBuilder &src );
 
-	// If you want to take ownership of the ptr, you can use this. So for instance if you had 
-	// a CUtlString you wanted to move it to a CUtlStringConst without making a copy, you 
+	// If you want to take ownership of the ptr, you can use this. So for instance if you had
+	// a CUtlString you wanted to move it to a CUtlStringConst without making a copy, you
 	// could do: CUtlStringConst strConst( strUtl.Detach() );
-	// Also used for fast temporaries when a string that does not need to be retained is being 
+	// Also used for fast temporaries when a string that does not need to be retained is being
 	// returned from a func. ie: return (str.Detach());
 	// All strings in this file can take a CUtlStringResult as a constructor parm and will take ownership directly.
 	//CUtlStringResult Detach();
@@ -451,12 +479,8 @@ public:
 	// Get the length of the string in characters.
 	size_t Length() const;
 	bool IsEmpty() const;
-	size_t Capacity() const { return m_data.Capacity(); } // how much room is there to scribble
 
-	// Format like sprintf.
-	size_t Format( PRINTF_FORMAT_STRING const char *pFormat, ... ) FMTFUNCTION( 2, 3 );
-	// format, then append what we crated in the format
-	size_t AppendFormat( PRINTF_FORMAT_STRING const char *pFormat, ... ) FMTFUNCTION( 2, 3 );
+	size_t Capacity() const { return m_data.Capacity(); } // how much room is there to scribble
 
 	// Allows setting the size to anything under the current
 	// capacity.  Typically should not be used unless there was a specific
@@ -471,19 +495,22 @@ public:
 	// if ClearError() is called.  The error can be set be the user, and it
 	// will also be set if a dynamic allocation fails in string operations
 	// where it needs to grow the capacity.
-	void SetError()			{ m_data.SetError(true); }
-	bool HasError() const	{ return m_data.HasError(); }
+	void SetError() { m_data.SetError( true ); }
+
+	bool HasError() const { return m_data.HasError(); }
 
 #ifdef DBGFLAG_VALIDATE
-	void Validate( CValidator &validator, const char *pchName );	// validate our internal structures
+	void Validate( CValidator &validator, const char *pchName ); // validate our internal structures
 #endif // DBGFLAG_VALIDATE
 
 	size_t VFormat( const char *pFormat, va_list args );
 	size_t VAppendFormat( const char *pFormat, va_list args );
 
 private:
-	size_t ReplaceInternal( const char *pstrTarget, const char *pstrReplacement, const char *pfnCompare(const char*, const char*)  );
-	operator bool () const	{ return IsValid(); }
+	size_t ReplaceInternal( const char *pstrTarget, const char *pstrReplacement,
+							const char *pfnCompare( const char *, const char * ) );
+
+	operator bool() const { return IsValid(); }
 
 	// nChars is the number of characters you want, NOT including the null
 	char *PrepareBuffer( size_t nChars, bool bCopyOld = false, size_t nMinCapacity = 0 )
@@ -499,7 +526,7 @@ private:
 
 			// SetLength will have added the null. Pointer might
 			// be NULL if there is an error state and no buffer
-			Assert( !pszString ||  pszString[nChars] == '\0' );
+			Assert( !pszString || pszString[nChars] == '\0' );
 
 			return pszString;
 		}
@@ -522,9 +549,10 @@ private:
 	}
 
 	// correct for 32 or 64 bit
-	static const uint8 MAX_STACK_STRLEN = (sizeof(void*)==4 ? 15 : 19 );
-	enum 
-	{  
+	static const uint8 MAX_STACK_STRLEN = ( sizeof( void * ) == 4 ? 15 : 19 );
+
+	enum
+	{
 		// Note: If it's ever desired to have the embedded string be larger than
 		// 63 (0x40-1), just make the sentinal 0xFF, and the error something (0xFF also
 		// is fine).  Then shrink the scrap size by 1 and add a uint8 for the error state.
@@ -539,50 +567,53 @@ private:
 	union Data
 	{
 		struct _Heap
-		{	// 16 on 32 bit, sentinel == 0xff if Heap is the active union item
+		{ // 16 on 32 bit, sentinel == 0xff if Heap is the active union item
 		private:
 			char *m_pchString;
 			uint32 m_nLength;
 			uint32 m_nCapacity; // without trailing null; ie: m_pchString[m_nCapacity] = '\0' is not out of bounds
-			alignas( 8 ) unsigned char unused_scrap[ 3 ];
-			uint8  sentinel;
+			alignas( 8 ) unsigned char unused_scrap[3];
+			uint8 sentinel;
+
 		public:
 			friend union Data;
-			friend char *CUtlStringBuilder::InternalPrepareBuffer(size_t, bool, size_t);
+			friend char *CUtlStringBuilder::InternalPrepareBuffer( size_t, bool, size_t );
 		} Heap;
 
 		struct _Stack
 		{
 		private:
-			// last byte is doing a hack double duty.  It holds how many bytes 
+			// last byte is doing a hack double duty.  It holds how many bytes
 			// are left in the string; so when the string is 'full' it will be
 			// '0' and thus suffice as the terminating null.  This is why
 			// we hold remaining chars instead of 'string length'
-			char m_szString[MAX_STACK_STRLEN+1];
+			char m_szString[MAX_STACK_STRLEN + 1];
+
 		public:
-			uint8 BytesLeft() const { return (uint8)(m_szString[MAX_STACK_STRLEN]); }
+			uint8 BytesLeft() const { return (uint8)( m_szString[MAX_STACK_STRLEN] ); }
+
 			void SetBytesLeft( char n ) { m_szString[MAX_STACK_STRLEN] = n; }
 
-			friend char *CUtlStringBuilder::InternalPrepareBuffer(size_t, bool, size_t);
+			friend char *CUtlStringBuilder::InternalPrepareBuffer( size_t, bool, size_t );
 			friend union Data;
 		} Stack;
 
 		// set to a clear state without looking at the current state
-		void Construct() 
+		void Construct()
 		{
-			Stack.m_szString[0] = '\0'; 
-			Stack.SetBytesLeft( MAX_STACK_STRLEN ); 
+			Stack.m_szString[0] = '\0';
+			Stack.SetBytesLeft( MAX_STACK_STRLEN );
 		}
 
 		// If we have heap allocated data, free it
 		void FreeHeap()
 		{
-			if ( IsHeap() && Heap.m_pchString ) 
+			if ( IsHeap() && Heap.m_pchString )
 				free( Heap.m_pchString );
 		}
 
 		// Back to a clean state, but retain the error state.
-		void Clear() 
+		void Clear()
 		{
 			if ( HasError() )
 				return;
@@ -593,13 +624,15 @@ private:
 			Construct();
 		}
 
-		bool IsHeap() const { return ( (Heap.sentinel & STRING_TYPE_SENTINEL) != 0 ); }
+		bool IsHeap() const { return ( ( Heap.sentinel & STRING_TYPE_SENTINEL ) != 0 ); }
 
 		char *Access() { return IsHeap() ? Heap.m_pchString : Stack.m_szString; }
+
 		const char *String() const { return IsHeap() ? Heap.m_pchString : Stack.m_szString; }
 
 		size_t Length() const { return IsHeap() ? Heap.m_nLength : ( MAX_STACK_STRLEN - Stack.BytesLeft() ); }
-		bool IsEmpty() const 
+
+		bool IsEmpty() const
 		{
 			if ( IsHeap() )
 				return Heap.m_nLength == 0;
@@ -642,7 +675,7 @@ private:
 
 		// If string is in the heap and the error bit is set in the sentinel
 		// the error state is true.
-		bool HasError() const { return IsHeap() && ( (Heap.sentinel & STRING_TYPE_ERROR) != 0 ); }
+		bool HasError() const { return IsHeap() && ( ( Heap.sentinel & STRING_TYPE_ERROR ) != 0 ); }
 
 		// If it's stack based, get it to the heap and return if it is
 		// successfully on the heap (or already was)
@@ -653,7 +686,6 @@ private:
 
 private: // data
 	Data m_data;
-
 };
 
 // Purpose: constructor
@@ -663,7 +695,7 @@ inline CUtlStringBuilder::CUtlStringBuilder()
 }
 
 // Purpose: constructor
-inline CUtlStringBuilder::CUtlStringBuilder( size_t nPreallocateBytes ) 
+inline CUtlStringBuilder::CUtlStringBuilder( size_t nPreallocateBytes )
 {
 	if ( nPreallocateBytes <= MAX_STACK_STRLEN )
 	{
@@ -776,14 +808,14 @@ inline void CUtlStringBuilder::SetDirect( const char *pchSource, size_t nChars )
 	if ( pszString )
 	{
 		memcpy( pszString, pchSource, nChars );
-		// PrepareBuffer already allocated space for the terminating null, 
+		// PrepareBuffer already allocated space for the terminating null,
 		// and inserted it for us. Make sure we didn't clobber it.
 		// Also assign it anyways so we don't risk the caller having a buffer
 		// running into random bytes.
 #ifdef _DEBUG
 		// Suppress a bogus noisy warning:
 		// warning C6385: Invalid data: accessing 'pszString', the readable size is 'nChars' bytes, but '1001' bytes might be read
-		ANALYZE_SUPPRESS(6385);
+		ANALYZE_SUPPRESS( 6385 );
 		Assert( pszString[nChars] == '\0' );
 		pszString[nChars] = '\0';
 #endif
@@ -818,16 +850,6 @@ inline size_t CUtlStringBuilder::Length() const
 	return m_data.Length();
 }
 
-// Purpose: format something sprintf() style, and take it as the new value of this CUtlStringBuilder
-inline size_t CUtlStringBuilder::Format( const char *pFormat, ... )
-{
-	va_list args;
-	va_start( args, pFormat );
-	size_t nLen = VFormat( pFormat, args );
-	va_end( args );
-	return nLen;
-}
-
 // Purpose: Helper for Format() method
 inline size_t CUtlStringBuilder::VFormat( const char *pFormat, va_list args )
 {
@@ -847,11 +869,11 @@ inline size_t CUtlStringBuilder::VFormat( const char *pFormat, va_list args )
 	// There does not seem to be a magic vasprintf that is significantly
 	// faster than 2 passes (some guess and get lucky).
 
-    // Scope ReuseArgs.
-    {
-        CReuseVaList ReuseArgs( args );
-        len = vsnprintf( NULL, 0, pFormat, ReuseArgs.m_ReuseList );
-    }
+	// Scope ReuseArgs.
+	{
+		CReuseVaList ReuseArgs( args );
+		len = vsnprintf( NULL, 0, pFormat, ReuseArgs.m_ReuseList );
+	}
 #endif
 	if ( len > 0 )
 	{
@@ -862,19 +884,9 @@ inline size_t CUtlStringBuilder::VFormat( const char *pFormat, va_list args )
 		else
 			len = 0;
 	}
-	
+
 	Assert( len > 0 || HasError() );
 	return len;
-}
-
-// format a string and append the result to the string we hold
-inline size_t CUtlStringBuilder::AppendFormat( const char *pFormat, ... )
-{
-	va_list args;
-	va_start( args, pFormat );
-	size_t nLen = VAppendFormat( pFormat, args );
-	va_end( args );
-	return nLen;
 }
 
 // Purpose: implementation helper for AppendFormat()
@@ -896,11 +908,11 @@ inline size_t CUtlStringBuilder::VAppendFormat( const char *pFormat, va_list arg
 	// There does not seem to be a magic vasprintf that is significantly
 	// faster than 2 passes (some guess and get lucky).
 
-    // Scope ReuseArgs.
-    {
-        CReuseVaList ReuseArgs( args );
-        len = vsnprintf( NULL, 0, pFormat, ReuseArgs.m_ReuseList );
-    }
+	// Scope ReuseArgs.
+	{
+		CReuseVaList ReuseArgs( args );
+		len = vsnprintf( NULL, 0, pFormat, ReuseArgs.m_ReuseList );
+	}
 #endif
 	size_t nOldLen = Length();
 
@@ -966,9 +978,9 @@ inline void CUtlStringBuilder::Swap( CUtlStringBuilder &src )
 inline void CUtlStringBuilder::Validate( CValidator &validator, const char *pchName )
 {
 #ifdef _WIN32
-	validator.Push( typeid(*this).raw_name(), this, pchName );
+	validator.Push( typeid( *this ).raw_name(), this, pchName );
 #else
-	validator.Push( typeid(*this).name(), this, pchName );
+	validator.Push( typeid( *this ).name(), this, pchName );
 #endif
 
 	if ( m_data.IsHeap() )

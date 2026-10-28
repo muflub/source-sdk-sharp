@@ -12,18 +12,31 @@ class CShellTransmitSet
 {
 public:
 	// MAX_EDICTS; the capture site asserts the two agree.
-	enum { kMaxEdicts = 2048, kWords = kMaxEdicts / 32 };
+	enum
+	{
+		kMaxEdicts = 2048,
+		kWords = kMaxEdicts / 32
+	};
 
 	// Arms for the next CheckTransmit, or the next whose recipient is nOnlyRecipient.
-	void Arm( int nOnlyRecipient = -1 ) { m_bArmed = true; m_nOnlyRecipient = nOnlyRecipient; }
+	void Arm( int nOnlyRecipient = -1 )
+	{
+		m_bArmed = true;
+		m_nOnlyRecipient = nOnlyRecipient;
+	}
+
 	bool Armed() const { return m_bArmed; }
+
 	bool HaveCapture() const { return m_bCaptured; }
-	int  Recipient() const { return m_nRecipient; }
-	int  Count() const { return m_nCount; }
+
+	int Recipient() const { return m_nRecipient; }
+
+	int Count() const { return m_nCount; }
 
 	// The skybox area is recorded beside the set, since a wrong area often
 	// leaves the set unchanged.
-	int  SkyboxArea() const { return m_nSkyboxArea; }
+	int SkyboxArea() const { return m_nSkyboxArea; }
+
 	void SetSkyboxArea( int nArea ) { m_nSkyboxArea = nArea; }
 
 	// Begins a capture if one is armed; false on every other frame.
@@ -47,9 +60,9 @@ public:
 			return;
 		const int w = iEdict / 32;
 		const unsigned int bit = 1u << ( iEdict % 32 );
-		if ( ( m_Words[ w ] & bit ) == 0 )
+		if ( ( m_Words[w] & bit ) == 0 )
 		{
-			m_Words[ w ] |= bit;
+			m_Words[w] |= bit;
 			m_nCount++;
 		}
 	}
@@ -58,17 +71,17 @@ public:
 	{
 		if ( iEdict < 0 || iEdict >= kMaxEdicts )
 			return false;
-		return ( m_Words[ iEdict / 32 ] & ( 1u << ( iEdict % 32 ) ) ) != 0;
+		return ( m_Words[iEdict / 32] & ( 1u << ( iEdict % 32 ) ) ) != 0;
 	}
 
 private:
-	unsigned int m_Words[ kWords ] = {};
-	int          m_nRecipient = -1;
-	int          m_nCount = 0;
-	int          m_nSkyboxArea = 0;
-	bool         m_bArmed = false;
-	int          m_nOnlyRecipient = -1;
-	bool         m_bCaptured = false;
+	unsigned int m_Words[kWords] = {};
+	int m_nRecipient = -1;
+	int m_nCount = 0;
+	int m_nSkyboxArea = 0;
+	bool m_bArmed = false;
+	int m_nOnlyRecipient = -1;
+	bool m_bCaptured = false;
 };
 
 // Defined by whoever links the header: the shell in the game, a recorder in the

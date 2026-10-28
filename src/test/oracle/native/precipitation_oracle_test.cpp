@@ -59,7 +59,7 @@ static bool g_bLogTracers = false;
 
 void PrecipLog( const char *pFmt, ... )
 {
-	char line[ 1024 ];
+	char line[1024];
 	va_list ap;
 	va_start( ap, pFmt );
 	vsnprintf( line, sizeof( line ), pFmt, ap );
@@ -78,42 +78,78 @@ class CPrecipCvar final : public ICvar
 {
 public:
 	virtual bool Connect( CreateInterfaceFn ) { return true; }
+
 	virtual void Disconnect() {}
+
 	virtual void *QueryInterface( const char * ) { return NULL; }
+
 	virtual InitReturnVal_t Init() { return INIT_OK; }
+
 	virtual void Shutdown() {}
+
 	virtual CVarDLLIdentifier_t AllocateDLLIdentifier() { return 1; }
+
 	virtual void RegisterConCommand( ConCommandBase * ) {}
+
 	virtual void UnregisterConCommand( ConCommandBase * ) {}
+
 	virtual void UnregisterConCommands( CVarDLLIdentifier_t ) {}
+
 	virtual const char *GetCommandLineValue( const char * ) { return NULL; }
+
 	virtual ConCommandBase *FindCommandBase( const char * ) { return NULL; }
+
 	virtual const ConCommandBase *FindCommandBase( const char * ) const { return NULL; }
+
 	virtual ConVar *FindVar( const char * ) { return NULL; }
+
 	virtual const ConVar *FindVar( const char * ) const { return NULL; }
+
 	virtual ConCommand *FindCommand( const char * ) { return NULL; }
+
 	virtual const ConCommand *FindCommand( const char * ) const { return NULL; }
+
 	virtual ConCommandBase *GetCommands( void ) { return NULL; }
+
 	virtual const ConCommandBase *GetCommands( void ) const { return NULL; }
+
 	virtual void InstallGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void RemoveGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void CallGlobalChangeCallbacks( ConVar *, const char *, float ) {}
+
 	virtual void InstallConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void RemoveConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void ConsoleColorPrintf( const Color &, const char *, ... ) const {}
+
 	virtual void ConsolePrintf( const char *, ... ) const {}
+
 	virtual void ConsoleDPrintf( const char *, ... ) const {}
+
 	virtual void RevertFlaggedConVars( int ) {}
+
 	virtual void InstallCVarQuery( ICvarQuery * ) {}
+
 	virtual void PublishToVXConsole() {}
+
 	virtual bool IsMaterialThreadSetAllowed() const { return true; }
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, const char * ) {}
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, int ) {}
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, float ) {}
+
 	virtual bool HasQueuedMaterialThreadConVarSets() const { return false; }
+
 	virtual int ProcessQueuedMaterialThreadConVarSets() { return 0; }
+
 	virtual ICVarIteratorInternal *FactoryInternalIterator( void ) { return NULL; }
 };
+
 static CPrecipCvar g_PrecipCvar;
 
 //-----------------------------------------------------------------------------
@@ -124,26 +160,35 @@ static CPrecipCvar g_PrecipCvar;
 class CPrecipRandom : public IUniformRandomStream
 {
 public:
-	CPrecipRandom( char cTag, int nSeed ) : m_cTag( cTag ) { m_Stream.SetSeed( nSeed ); }
+	CPrecipRandom( char cTag, int nSeed )
+		: m_cTag( cTag )
+	{
+		m_Stream.SetSeed( nSeed );
+	}
+
 	virtual void SetSeed( int iSeed ) { m_Stream.SetSeed( iSeed ); }
+
 	virtual float RandomFloat( float flMinVal = 0.0f, float flMaxVal = 1.0f )
 	{
 		const float v = m_Stream.RandomFloat( flMinVal, flMaxVal );
 		PrecipLog( "R\t%c\tf\t%.9g\t%.9g\t%.9g", m_cTag, flMinVal, flMaxVal, v );
 		return v;
 	}
+
 	virtual int RandomInt( int iMinVal, int iMaxVal )
 	{
 		const int v = m_Stream.RandomInt( iMinVal, iMaxVal );
 		PrecipLog( "R\t%c\ti\t%d\t%d\t%d", m_cTag, iMinVal, iMaxVal, v );
 		return v;
 	}
+
 	virtual float RandomFloatExp( float flMinVal = 0.0f, float flMaxVal = 1.0f, float flExponent = 1.0f )
 	{
 		const float v = m_Stream.RandomFloatExp( flMinVal, flMaxVal, flExponent );
 		PrecipLog( "R\t%c\tx\t%.9g\t%.9g\t%.9g\t%.9g", m_cTag, flMinVal, flMaxVal, flExponent, v );
 		return v;
 	}
+
 private:
 	CUniformRandomStream m_Stream;
 	char m_cTag;
@@ -153,7 +198,12 @@ private:
 // which is what the game's client.so draws on Linux. MSVC: the Windows CRT's
 // generator (x = x * 214013 + 2531011; ( x >> 16 ) & 0x7fff), seed 1, values
 // 0..0x7fff, which is what VALVE_RAND_MAX assumes.
-enum PrecipRand_t { PRECIP_RAND_GLIBC, PRECIP_RAND_MSVC };
+enum PrecipRand_t
+{
+	PRECIP_RAND_GLIBC,
+	PRECIP_RAND_MSVC
+};
+
 static PrecipRand_t g_eRand = PRECIP_RAND_GLIBC;
 static unsigned int g_nMsvcRand = 1;
 
@@ -198,10 +248,18 @@ IPrecipDebugOverlay *debugoverlay = &g_DebugOverlay;
 static IPrecipLeafSystem g_LeafSystem;
 IPrecipLeafSystem *g_pClientLeafSystem = &g_LeafSystem;
 static CPrecipParticleMgr g_ParticleMgr;
-CPrecipParticleMgr *ParticleMgr() { return &g_ParticleMgr; }
+
+CPrecipParticleMgr *ParticleMgr()
+{
+	return &g_ParticleMgr;
+}
 
 static C_World g_World;
-C_World *GetClientWorldEntity() { return &g_World; }
+
+C_World *GetClientWorldEntity()
+{
+	return &g_World;
+}
 
 // The scripted world, in one place:
 //   solid below z = 0, and a pillar x 300..400, y -100..100, all z;
@@ -209,7 +267,10 @@ C_World *GetClientWorldEntity() { return &g_World; }
 //   over the emission traces (MASK_SOLID_BRUSHONLY, upwards): a sky ceiling
 //     at z = 500 where y > 400, a plain ceiling at z = 450 where x > 600;
 //   a wall at x = 1500 for the ash's forward trace (MASK_SHOT_HULL).
-static bool InPillar( const Vector &p ) { return p.x >= 300 && p.x <= 400 && p.y >= -100 && p.y <= 100; }
+static bool InPillar( const Vector &p )
+{
+	return p.x >= 300 && p.x <= 400 && p.y >= -100 && p.y <= 100;
+}
 
 int IPrecipEngineTrace::GetPointContents( const Vector &p )
 {
@@ -237,8 +298,8 @@ static bool CrossZ( const Vector &start, const Vector &end, float flZ, trace_t *
 	return true;
 }
 
-void UTIL_TraceLine( const Vector &start, const Vector &end, unsigned int mask,
-                     const C_BaseEntity *ignore, int collisionGroup, trace_t *ptr )
+void UTIL_TraceLine( const Vector &start, const Vector &end, unsigned int mask, const C_BaseEntity *ignore,
+					 int collisionGroup, trace_t *ptr )
 {
 	ClearTrace( start, end, ptr );
 
@@ -277,14 +338,14 @@ void UTIL_TraceLine( const Vector &start, const Vector &end, unsigned int mask,
 		}
 	}
 
-	PrecipLog( "L\t%u\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d", mask, start.x, start.y, start.z,
-	           end.x, end.y, end.z, ptr->fraction, (int)ptr->surface.flags );
+	PrecipLog( "L\t%u\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d", mask, start.x, start.y, start.z, end.x, end.y,
+			   end.z, ptr->fraction, (int)ptr->surface.flags );
 }
 
 // Against the entity's own box: a point trace answers startsolid inside it, a
 // swept hull answers the box grown by the hull (upstream's IntersectRayWithBox).
-void UTIL_TraceModel( const Vector &start, const Vector &end, const Vector &hullMin,
-                      const Vector &hullMax, C_BaseEntity *pEnt, int collisionGroup, trace_t *ptr )
+void UTIL_TraceModel( const Vector &start, const Vector &end, const Vector &hullMin, const Vector &hullMax,
+					  C_BaseEntity *pEnt, int collisionGroup, trace_t *ptr )
 {
 	ClearTrace( start, end, ptr );
 	const Vector boxMin = pEnt->WorldAlignMins() - hullMax;
@@ -301,42 +362,82 @@ void UTIL_TraceModel( const Vector &start, const Vector &end, const Vector &hull
 	}
 
 	PrecipLog( "M\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%d", pEnt->entindex(), start.x, start.y, start.z,
-	           end.x, end.y, end.z, ptr->m_pEnt ? 1 : 0, ptr->fraction, ptr->startsolid ? 1 : 0 );
+			   end.x, end.y, end.z, ptr->m_pEnt ? 1 : 0, ptr->fraction, ptr->startsolid ? 1 : 0 );
 }
 
-bool IPrecipLeafSystem::IsRenderableInPVS( IClientRenderable *pRenderable ) { return true; }
+bool IPrecipLeafSystem::IsRenderableInPVS( IClientRenderable *pRenderable )
+{
+	return true;
+}
 
 static Vector g_vWind;
-void GetWindspeedAtTime( float flTime, Vector &vecVelocity ) { vecVelocity = g_vWind; }
 
-int ScreenWidth() { return 1280; }
+void GetWindspeedAtTime( float flTime, Vector &vecVelocity )
+{
+	vecVelocity = g_vWind;
+}
+
+int ScreenWidth()
+{
+	return 1280;
+}
 
 static VMatrix g_WorldToView;
 static Vector g_vViewOrigin, g_vViewForward;
-const VMatrix &CurrentWorldToViewMatrix() { return g_WorldToView; }
-const Vector &CurrentViewForward() { return g_vViewForward; }
-const Vector &CurrentViewOrigin() { return g_vViewOrigin; }
-int CurrentViewID() { return VIEW_MAIN; }
 
-void IPrecipRenderContext::GetMatrix( MaterialMatrixMode_t mode, VMatrix *pMatrix ) { pMatrix->Identity(); }
+const VMatrix &CurrentWorldToViewMatrix()
+{
+	return g_WorldToView;
+}
+
+const Vector &CurrentViewForward()
+{
+	return g_vViewForward;
+}
+
+const Vector &CurrentViewOrigin()
+{
+	return g_vViewOrigin;
+}
+
+int CurrentViewID()
+{
+	return VIEW_MAIN;
+}
+
+void IPrecipRenderContext::GetMatrix( MaterialMatrixMode_t mode, VMatrix *pMatrix )
+{
+	pMatrix->Identity();
+}
+
 static IMesh g_Mesh;
-IMesh *IPrecipRenderContext::GetDynamicMesh() { return &g_Mesh; }
+
+IMesh *IPrecipRenderContext::GetDynamicMesh()
+{
+	return &g_Mesh;
+}
+
 static IPrecipRenderContext g_RenderContext;
-IPrecipRenderContext *CMatRenderContextPtr::operator->() { return &g_RenderContext; }
+
+IPrecipRenderContext *CMatRenderContextPtr::operator->()
+{
+	return &g_RenderContext;
+}
 
 static IMaterial g_RainMaterial = { "particle/rain" };
 static IMaterial g_SnowMaterial = { "particle/snow" };
+
 IMaterial *IPrecipMaterialSystem::FindMaterial( const char *pName, const char *pGroup )
 {
 	return !strcmp( pName, "particle/rain" ) ? &g_RainMaterial : &g_SnowMaterial;
 }
 
-void Tracer_Draw( CMeshBuilder *pMeshBuilder, Vector &start, Vector &delta, float width, float *color,
-                  float startV, float endV )
+void Tracer_Draw( CMeshBuilder *pMeshBuilder, Vector &start, Vector &delta, float width, float *color, float startV,
+				  float endV )
 {
 	if ( g_bLogTracers )
-		PrecipLog( "T\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", start.x, start.y, start.z,
-		           delta.x, delta.y, delta.z, width, color[ 3 ] );
+		PrecipLog( "T\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", start.x, start.y, start.z, delta.x, delta.y,
+				   delta.z, width, color[3] );
 }
 
 void FX_WaterRipple( const Vector &origin, float scale, Vector *pColor, float flLifetime, float flAlpha )
@@ -345,24 +446,34 @@ void FX_WaterRipple( const Vector &origin, float scale, Vector *pColor, float fl
 }
 
 void Draw_SetSpriteTexture( const model_t *, int, int ) {}
+
 void DrawBeamQuadratic( const Vector &, const Vector &, const Vector &, float, const Vector &, float ) {}
 
 //-----------------------------------------------------------------------------
 // Entities and the player.
 //-----------------------------------------------------------------------------
-static std::vector< C_BaseEntity * > g_Thinkers;
+static std::vector<C_BaseEntity *> g_Thinkers;
 static int g_nNextIndex = 1;
 
-C_BaseEntity::C_BaseEntity() : m_nIndex( g_nNextIndex++ ), m_bThinks( false )
+C_BaseEntity::C_BaseEntity()
+	: m_nIndex( g_nNextIndex++ )
+	, m_bThinks( false )
 {
 	memset( &m_clrRender, 255, sizeof( m_clrRender ) );
-	m_vecMins.Init(); m_vecMaxs.Init(); m_vecOrigin.Init(); m_angAngles.Init();
+	m_vecMins.Init();
+	m_vecMaxs.Init();
+	m_vecOrigin.Init();
+	m_angAngles.Init();
 }
 
 C_BaseEntity::~C_BaseEntity()
 {
 	for ( size_t i = 0; i < g_Thinkers.size(); i++ )
-		if ( g_Thinkers[ i ] == this ) { g_Thinkers.erase( g_Thinkers.begin() + i ); break; }
+		if ( g_Thinkers[i] == this )
+		{
+			g_Thinkers.erase( g_Thinkers.begin() + i );
+			break;
+		}
 }
 
 void C_BaseEntity::SetNextClientThink( float flTime )
@@ -382,9 +493,14 @@ bool C_BaseEntity::InitializeAsClientEntity( const char *pszModelName, RenderGro
 
 static C_BasePlayer g_Player;
 static bool g_bHavePlayer = true;
-C_BasePlayer *C_BasePlayer::GetLocalPlayer() { return g_bHavePlayer ? &g_Player : NULL; }
+
+C_BasePlayer *C_BasePlayer::GetLocalPlayer()
+{
+	return g_bHavePlayer ? &g_Player : NULL;
+}
 
 static QAngle g_angEye;
+
 void C_BasePlayer::GetVectors( Vector *pForward, Vector *pRight, Vector *pUp ) const
 {
 	AngleVectors( g_angEye, pForward, pRight, pUp );
@@ -393,12 +509,15 @@ void C_BasePlayer::GetVectors( Vector *pForward, Vector *pRight, Vector *pUp ) c
 //-----------------------------------------------------------------------------
 // The simple emitter's stand-in: particles_simple.cpp's base behaviours.
 //-----------------------------------------------------------------------------
-static std::vector< CSimpleEmitter * > g_Emitters;
+static std::vector<CSimpleEmitter *> g_Emitters;
 static int g_nNextEmitter = 1;
 static int g_nNextParticle = 1;
 
 CSimpleEmitter::CSimpleEmitter( const char *pDebugName )
-	: m_pszDebugName( pDebugName ), m_nEmitter( g_nNextEmitter++ ), m_Binding( &m_Particles ), m_nRefs( 0 )
+	: m_pszDebugName( pDebugName )
+	, m_nEmitter( g_nNextEmitter++ )
+	, m_Binding( &m_Particles )
+	, m_nRefs( 0 )
 {
 	m_vSortOrigin.Init();
 	g_Emitters.push_back( this );
@@ -407,19 +526,27 @@ CSimpleEmitter::CSimpleEmitter( const char *pDebugName )
 CSimpleEmitter::~CSimpleEmitter()
 {
 	for ( size_t i = 0; i < g_Emitters.size(); i++ )
-		if ( g_Emitters[ i ] == this ) { g_Emitters.erase( g_Emitters.begin() + i ); break; }
+		if ( g_Emitters[i] == this )
+		{
+			g_Emitters.erase( g_Emitters.begin() + i );
+			break;
+		}
 	for ( int i = 0; i < m_Particles.Count(); i++ )
-		free( m_Particles[ i ] );
+		free( m_Particles[i] );
 }
 
 float CSimpleEmitter::UpdateAlpha( const SimpleParticle *pParticle )
 {
-	return ( pParticle->m_uchStartAlpha / 255.0f ) + ( (float)( pParticle->m_uchEndAlpha / 255.0f ) - (float)( pParticle->m_uchStartAlpha / 255.0f ) ) * ( pParticle->m_flLifetime / pParticle->m_flDieTime );
+	return ( pParticle->m_uchStartAlpha / 255.0f ) +
+		( (float)( pParticle->m_uchEndAlpha / 255.0f ) - (float)( pParticle->m_uchStartAlpha / 255.0f ) ) *
+		( pParticle->m_flLifetime / pParticle->m_flDieTime );
 }
 
 float CSimpleEmitter::UpdateScale( const SimpleParticle *pParticle )
 {
-	return (float)pParticle->m_uchStartSize + ( (float)pParticle->m_uchEndSize - (float)pParticle->m_uchStartSize ) * ( pParticle->m_flLifetime / pParticle->m_flDieTime );
+	return (float)pParticle->m_uchStartSize +
+		( (float)pParticle->m_uchEndSize - (float)pParticle->m_uchStartSize ) *
+		( pParticle->m_flLifetime / pParticle->m_flDieTime );
 }
 
 float CSimpleEmitter::UpdateRoll( SimpleParticle *pParticle, float timeDelta )
@@ -436,17 +563,17 @@ void CSimpleEmitter::UpdateVelocity( SimpleParticle *pParticle, float timeDelta 
 		GetWindspeedAtTime( gpGlobals->curtime, vecWind );
 		for ( int i = 0; i < 2; i++ )
 		{
-			if ( pParticle->m_vecVelocity[ i ] < vecWind[ i ] )
+			if ( pParticle->m_vecVelocity[i] < vecWind[i] )
 			{
-				pParticle->m_vecVelocity[ i ] += ( timeDelta * 50 );
-				if ( pParticle->m_vecVelocity[ i ] > vecWind[ i ] )
-					pParticle->m_vecVelocity[ i ] = vecWind[ i ];
+				pParticle->m_vecVelocity[i] += ( timeDelta * 50 );
+				if ( pParticle->m_vecVelocity[i] > vecWind[i] )
+					pParticle->m_vecVelocity[i] = vecWind[i];
 			}
-			else if ( pParticle->m_vecVelocity[ i ] > vecWind[ i ] )
+			else if ( pParticle->m_vecVelocity[i] > vecWind[i] )
 			{
-				pParticle->m_vecVelocity[ i ] -= ( timeDelta * 50 );
-				if ( pParticle->m_vecVelocity[ i ] < vecWind[ i ] )
-					pParticle->m_vecVelocity[ i ] = vecWind[ i ];
+				pParticle->m_vecVelocity[i] -= ( timeDelta * 50 );
+				if ( pParticle->m_vecVelocity[i] < vecWind[i] )
+					pParticle->m_vecVelocity[i] = vecWind[i];
 			}
 		}
 	}
@@ -454,7 +581,8 @@ void CSimpleEmitter::UpdateVelocity( SimpleParticle *pParticle, float timeDelta 
 
 Vector CSimpleEmitter::UpdateColor( const SimpleParticle *pParticle )
 {
-	return Vector( pParticle->m_uchColor[ 0 ] / 255.0f, pParticle->m_uchColor[ 1 ] / 255.0f, pParticle->m_uchColor[ 2 ] / 255.0f );
+	return Vector( pParticle->m_uchColor[0] / 255.0f, pParticle->m_uchColor[1] / 255.0f,
+				   pParticle->m_uchColor[2] / 255.0f );
 }
 
 void CSimpleEmitter::SimulateParticles( CParticleSimulateIterator *pIterator )
@@ -488,7 +616,7 @@ Particle *CSimpleEmitter::AddParticle( unsigned int particleSize, PMaterialHandl
 
 void CParticleSimulateIterator::RemoveParticle( Particle *pParticle )
 {
-	SimpleParticle *p = ( *m_pList )[ m_iCur ];
+	SimpleParticle *p = ( *m_pList )[m_iCur];
 	PrecipLog( "X\t%d", p->m_nHarnessId );
 	m_pList->Remove( m_iCur );
 	free( p );
@@ -526,9 +654,9 @@ CClient_Precipitation *MakeVolume( PrecipitationType_t type, int nAlpha, const V
 	p->m_clrRender.a = (unsigned char)nAlpha;
 	p->m_vecMins = mins;
 	p->m_vecMaxs = maxs;
-	PrecipLog( "E\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", p->entindex(), (int)type, nAlpha,
-	           mins.x, mins.y, mins.z, maxs.x, maxs.y, maxs.z );
-	static_cast< C_BaseEntity * >( p )->OnDataChanged( DATA_UPDATE_CREATED );
+	PrecipLog( "E\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", p->entindex(), (int)type, nAlpha, mins.x, mins.y,
+			   mins.z, maxs.x, maxs.y, maxs.z );
+	static_cast<C_BaseEntity *>( p )->OnDataChanged( DATA_UPDATE_CREATED );
 	return p;
 }
 
@@ -551,38 +679,37 @@ void PlacePlayer( int f, float dt )
 	g_vViewOrigin = g_Player.m_vecEye;
 	g_vViewForward = fwd;
 	// World to view: x right, y up, z backwards (Source's view space).
-	g_WorldToView.Init( right.x, right.y, right.z, -DotProduct( right, g_vViewOrigin ),
-	                    up.x, up.y, up.z, -DotProduct( up, g_vViewOrigin ),
-	                    -fwd.x, -fwd.y, -fwd.z, DotProduct( fwd, g_vViewOrigin ),
-	                    0, 0, 0, 1 );
+	g_WorldToView.Init( right.x, right.y, right.z, -DotProduct( right, g_vViewOrigin ), up.x, up.y, up.z,
+						-DotProduct( up, g_vViewOrigin ), -fwd.x, -fwd.y, -fwd.z, DotProduct( fwd, g_vViewOrigin ), 0,
+						0, 0, 1 );
 
-	PrecipLog( "F\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%.9g\t%.9g",
-	           f, gpGlobals->curtime, dt, g_Player.m_vecOrigin.x, g_Player.m_vecOrigin.y, g_Player.m_vecOrigin.z,
-	           g_Player.m_vecVelocity.x, g_Player.m_vecVelocity.y, g_Player.m_vecVelocity.z,
-	           g_angEye.y, g_Player.m_flFOV, g_Player.m_nDefaultFOV, g_vWind.x, g_vWind.y, g_vWind.z );
+	PrecipLog( "F\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%.9g\t%.9g", f,
+			   gpGlobals->curtime, dt, g_Player.m_vecOrigin.x, g_Player.m_vecOrigin.y, g_Player.m_vecOrigin.z,
+			   g_Player.m_vecVelocity.x, g_Player.m_vecVelocity.y, g_Player.m_vecVelocity.z, g_angEye.y,
+			   g_Player.m_flFOV, g_Player.m_nDefaultFOV, g_vWind.x, g_vWind.y, g_vWind.z );
 }
 
 void LogNewPrecipParticles( CClient_Precipitation *p )
 {
 	for ( int i = p->m_Particles.Head(); i != p->m_Particles.InvalidIndex(); i = p->m_Particles.Next( i ) )
 	{
-		CPrecipitationParticle &q = p->m_Particles[ i ];
+		CPrecipitationParticle &q = p->m_Particles[i];
 		if ( q.m_SpawnTime != gpGlobals->curtime )
 			continue;
-		PrecipLog( "C\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", p->entindex(), q.m_Pos.x, q.m_Pos.y, q.m_Pos.z,
-		           q.m_Velocity.x, q.m_Velocity.y, q.m_Velocity.z, q.m_Mass, q.m_Ramp );
+		PrecipLog( "C\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", p->entindex(), q.m_Pos.x, q.m_Pos.y,
+				   q.m_Pos.z, q.m_Velocity.x, q.m_Velocity.y, q.m_Velocity.z, q.m_Mass, q.m_Ramp );
 	}
 }
 
 void SnapshotPrecip( CClient_Precipitation *p )
 {
-	PrecipLog( "Q\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g", p->entindex(), p->m_Particles.Count(), p->m_Remainder, p->m_Lifetime,
-	           p->s_WindVector.x, p->s_WindVector.y );
+	PrecipLog( "Q\t%d\t%d\t%.9g\t%.9g\t%.9g\t%.9g", p->entindex(), p->m_Particles.Count(), p->m_Remainder,
+			   p->m_Lifetime, p->s_WindVector.x, p->s_WindVector.y );
 	for ( int i = p->m_Particles.Head(); i != p->m_Particles.InvalidIndex(); i = p->m_Particles.Next( i ) )
 	{
-		CPrecipitationParticle &q = p->m_Particles[ i ];
+		CPrecipitationParticle &q = p->m_Particles[i];
 		PrecipLog( "S\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", p->entindex(), q.m_Pos.x, q.m_Pos.y, q.m_Pos.z,
-		           q.m_Velocity.x, q.m_Velocity.y, q.m_Velocity.z, q.m_Ramp );
+				   q.m_Velocity.x, q.m_Velocity.y, q.m_Velocity.z, q.m_Ramp );
 	}
 }
 
@@ -590,18 +717,19 @@ void LogNewSimpleParticles()
 {
 	for ( size_t e = 0; e < g_Emitters.size(); e++ )
 	{
-		CSimpleEmitter *pEmitter = g_Emitters[ e ];
+		CSimpleEmitter *pEmitter = g_Emitters[e];
 		for ( int i = pEmitter->m_Particles.Count() - 1; i >= 0; i-- )
 		{
-			SimpleParticle *q = pEmitter->m_Particles[ i ];
+			SimpleParticle *q = pEmitter->m_Particles[i];
 			if ( q->m_bHarnessLogged )
 				continue;
 			q->m_bHarnessLogged = true;
-			PrecipLog( "N\t%d\t%d\t%s\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g",
-			           pEmitter->m_nEmitter, q->m_nHarnessId, (const char *)q->m_pSubTexture,
-			           q->m_Pos.x, q->m_Pos.y, q->m_Pos.z, q->m_vecVelocity.x, q->m_vecVelocity.y, q->m_vecVelocity.z,
-			           q->m_flRoll, q->m_flDieTime, q->m_flLifetime, q->m_uchColor[ 0 ], q->m_uchColor[ 1 ], q->m_uchColor[ 2 ],
-			           q->m_uchStartAlpha, q->m_uchEndAlpha, q->m_uchStartSize, q->m_uchEndSize, q->m_iFlags, q->m_flRollDelta );
+			PrecipLog(
+				"N\t%d\t%d\t%s\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g",
+				pEmitter->m_nEmitter, q->m_nHarnessId, (const char *)q->m_pSubTexture, q->m_Pos.x, q->m_Pos.y,
+				q->m_Pos.z, q->m_vecVelocity.x, q->m_vecVelocity.y, q->m_vecVelocity.z, q->m_flRoll, q->m_flDieTime,
+				q->m_flLifetime, q->m_uchColor[0], q->m_uchColor[1], q->m_uchColor[2], q->m_uchStartAlpha,
+				q->m_uchEndAlpha, q->m_uchStartSize, q->m_uchEndSize, q->m_iFlags, q->m_flRollDelta );
 		}
 	}
 }
@@ -610,18 +738,18 @@ void SnapshotSimpleParticles()
 {
 	for ( size_t e = 0; e < g_Emitters.size(); e++ )
 	{
-		CSimpleEmitter *pEmitter = g_Emitters[ e ];
+		CSimpleEmitter *pEmitter = g_Emitters[e];
 		if ( !pEmitter->m_Particles.Count() )
 			continue;
 		PrecipLog( "G\t%d\t%s\t%d\t%.9g\t%.9g\t%.9g", pEmitter->m_nEmitter, pEmitter->m_pszDebugName,
-		           pEmitter->m_Particles.Count(), pEmitter->m_vSortOrigin.x, pEmitter->m_vSortOrigin.y,
-		           pEmitter->m_vSortOrigin.z );
+				   pEmitter->m_Particles.Count(), pEmitter->m_vSortOrigin.x, pEmitter->m_vSortOrigin.y,
+				   pEmitter->m_vSortOrigin.z );
 		for ( int i = 0; i < pEmitter->m_Particles.Count(); i++ )
 		{
-			SimpleParticle *q = pEmitter->m_Particles[ i ];
-			PrecipLog( "H\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", q->m_nHarnessId,
-			           q->m_Pos.x, q->m_Pos.y, q->m_Pos.z, q->m_vecVelocity.x, q->m_vecVelocity.y, q->m_vecVelocity.z,
-			           q->m_flRoll, q->m_flLifetime, pEmitter->UpdateAlpha( q ) );
+			SimpleParticle *q = pEmitter->m_Particles[i];
+			PrecipLog( "H\t%d\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g", q->m_nHarnessId, q->m_Pos.x,
+					   q->m_Pos.y, q->m_Pos.z, q->m_vecVelocity.x, q->m_vecVelocity.y, q->m_vecVelocity.z, q->m_flRoll,
+					   q->m_flLifetime, pEmitter->UpdateAlpha( q ) );
 		}
 	}
 }
@@ -641,9 +769,9 @@ void RunFrames( const char *pszPhase, int nFrames, CClient_Precipitation *pRain,
 
 		// Client thinks, in registration order (the snowfall manager after the
 		// first snowfall volume, which made it).
-		std::vector< C_BaseEntity * > thinkers = g_Thinkers;
+		std::vector<C_BaseEntity *> thinkers = g_Thinkers;
 		for ( size_t i = 0; i < thinkers.size(); i++ )
-			thinkers[ i ]->ClientThink();
+			thinkers[i]->ClientThink();
 
 		if ( pRain )
 			LogNewPrecipParticles( pRain );
@@ -654,8 +782,8 @@ void RunFrames( const char *pszPhase, int nFrames, CClient_Precipitation *pRain,
 		// The particle manager's simulation of the simple emitters.
 		for ( size_t e = 0; e < g_Emitters.size(); e++ )
 		{
-			CParticleSimulateIterator it( &g_Emitters[ e ]->m_Particles, dt );
-			g_Emitters[ e ]->SimulateParticles( &it );
+			CParticleSimulateIterator it( &g_Emitters[e]->m_Particles, dt );
+			g_Emitters[e]->SimulateParticles( &it );
 		}
 
 		// The render, every frame; its tracers written down on snapshot frames.
@@ -678,10 +806,10 @@ void RunFrames( const char *pszPhase, int nFrames, CClient_Precipitation *pRain,
 std::string RunScenario()
 {
 	g_Log.clear();
-	g_nNextIndex = 2;		// 1 is the player
+	g_nNextIndex = 2; // 1 is the player
 	g_nNextEmitter = 1;
 	g_nNextParticle = 1;
-	g_Emitters.clear();		// the snowfall manager's per-volume emitters leak, as in stock
+	g_Emitters.clear(); // the snowfall manager's per-volume emitters leak, as in stock
 	InstallUniformRandomStream( &g_GlobalRandom );
 	g_EngineRandom.SetSeed( 0x5eed );
 	g_GlobalRandom.SetSeed( 0x5eee );
@@ -697,7 +825,8 @@ std::string RunScenario()
 	g_World.m_WorldMins.Init( -4096, -4096, -4096 );
 	g_World.m_WorldMaxs.Init( 4096, 4096, 4096 );
 
-	PrecipLog( "# c2-sims precipitation oracle: stock c_effects.cpp, run offline (src/test/oracle/native/precipitation_oracle_test.cpp)" );
+	PrecipLog(
+		"# c2-sims precipitation oracle: stock c_effects.cpp, run offline (src/test/oracle/native/precipitation_oracle_test.cpp)" );
 
 	// PHASE A, glibc's rand(): every volume kind at once.
 	g_eRand = PRECIP_RAND_GLIBC;
@@ -705,11 +834,16 @@ std::string RunScenario()
 	gpGlobals->frametime = 0.0f;
 	PlacePlayer( -1, 0.0f );
 
-	CClient_Precipitation *pRain = MakeVolume( PRECIPITATION_TYPE_RAIN, 60, Vector( -1200, -1200, 0 ), Vector( 1200, 1200, 600 ) );
-	CClient_Precipitation *pSnow = MakeVolume( PRECIPITATION_TYPE_SNOW, 30, Vector( -800, -800, 0 ), Vector( 800, 800, 500 ) );
-	CClient_Precipitation *pAsh = MakeVolume( PRECIPITATION_TYPE_ASH, 255, Vector( -2000, -2000, 0 ), Vector( 3000, 2000, 800 ) );
-	CClient_Precipitation *pFallA = MakeVolume( PRECIPITATION_TYPE_SNOWFALL, 255, Vector( -500, -500, 0 ), Vector( 500, 500, 400 ) );
-	CClient_Precipitation *pFallB = MakeVolume( PRECIPITATION_TYPE_SNOWFALL, 255, Vector( 2000, -500, 0 ), Vector( 3000, 500, 400 ) );
+	CClient_Precipitation *pRain =
+		MakeVolume( PRECIPITATION_TYPE_RAIN, 60, Vector( -1200, -1200, 0 ), Vector( 1200, 1200, 600 ) );
+	CClient_Precipitation *pSnow =
+		MakeVolume( PRECIPITATION_TYPE_SNOW, 30, Vector( -800, -800, 0 ), Vector( 800, 800, 500 ) );
+	CClient_Precipitation *pAsh =
+		MakeVolume( PRECIPITATION_TYPE_ASH, 255, Vector( -2000, -2000, 0 ), Vector( 3000, 2000, 800 ) );
+	CClient_Precipitation *pFallA =
+		MakeVolume( PRECIPITATION_TYPE_SNOWFALL, 255, Vector( -500, -500, 0 ), Vector( 500, 500, 400 ) );
+	CClient_Precipitation *pFallB =
+		MakeVolume( PRECIPITATION_TYPE_SNOWFALL, 255, Vector( 2000, -500, 0 ), Vector( 3000, 500, 400 ) );
 
 	RunFrames( "glibc", kFrames, pRain, pSnow );
 
@@ -745,7 +879,6 @@ std::string MarkerPath()
 	const char *pszRepo = getenv( "SOURCESHARP_REPO" );
 	return std::string( pszRepo ? pszRepo : "." ) + "/src/test/oracle/native/precipitation_golden.regen";
 }
-
 
 //-----------------------------------------------------------------------------
 // THE SNOWFALL RAY-BOX TOLERANCE.
@@ -838,7 +971,7 @@ void RunFindSnowVolumes( const Vector &mins, const Vector &maxs, int *pnActive, 
 {
 	CClient_Precipitation *pVol = RayArmVolume( mins, maxs );
 	Vector center = kEye; // the sphere is centred on the EMIT origin; the eye
-	                      // is 64 units back and both are > 3000 from the box.
+	// is 64 units back and both are > 3000 from the box.
 	Vector eye = kEye;
 	Vector fwd = SnowfallForward();
 	s_pSnowFallMgr->FindSnowVolumes( center, 1024.0f, eye, fwd );
@@ -885,30 +1018,42 @@ std::string RunLiveSnowfall( const Vector &mins, const Vector &maxs, int *pnArea
 // an out-trace); the managed port's returns the fraction, so 5.
 static float FifthArgOfCall( const std::string &text, const size_t nParen )
 {
-	std::vector< std::string > args;
+	std::vector<std::string> args;
 	int depth = 0;
 	std::string arg;
 	for ( size_t i = nParen + 1; i < text.size(); i++ )
 	{
-		const char ch = text[ i ];
-		if ( ch == '(' || ch == '[' ) ++depth;
+		const char ch = text[i];
+		if ( ch == '(' || ch == '[' )
+			++depth;
 		else if ( ch == ')' || ch == ']' )
 		{
-			if ( depth == 0 ) { args.push_back( arg ); break; }
+			if ( depth == 0 )
+			{
+				args.push_back( arg );
+				break;
+			}
 			--depth;
 		}
-		if ( depth == 0 && ch == ',' ) { args.push_back( arg ); arg.clear(); continue; }
-		if ( depth == 0 ) arg += ch;
+		if ( depth == 0 && ch == ',' )
+		{
+			args.push_back( arg );
+			arg.clear();
+			continue;
+		}
+		if ( depth == 0 )
+			arg += ch;
 	}
 	if ( args.size() < 5 )
 		return NAN;
 	// Trim, and drop a C++/C# float suffix.
-	std::string tok = args[ 4 ];
+	std::string tok = args[4];
 	size_t b = tok.find_first_not_of( " \t\n\r" );
 	size_t e = tok.find_last_not_of( " \t\n\r" );
-	if ( b == std::string::npos ) return NAN;
+	if ( b == std::string::npos )
+		return NAN;
 	tok = tok.substr( b, e - b + 1 );
-	if ( !tok.empty() && ( tok[ tok.size() - 1 ] == 'f' || tok[ tok.size() - 1 ] == 'F' ) )
+	if ( !tok.empty() && ( tok[tok.size() - 1] == 'f' || tok[tok.size() - 1] == 'F' ) )
 		tok.erase( tok.size() - 1 );
 	const char *psz = tok.c_str();
 	char *pen = NULL;
@@ -924,8 +1069,9 @@ float CallTolerance( const std::string &text, const size_t nFrom, const char *ps
 	for ( size_t n = text.find( pszFn, nFrom ); n != std::string::npos; n = text.find( pszFn, n + strlen( pszFn ) ) )
 	{
 		size_t p = n + strlen( pszFn );
-		while ( p < text.size() && ( text[ p ] == ' ' || text[ p ] == '\t' ) ) ++p;
-		if ( p < text.size() && text[ p ] == '(' )
+		while ( p < text.size() && ( text[p] == ' ' || text[p] == '\t' ) )
+			++p;
+		if ( p < text.size() && text[p] == '(' )
 		{
 			const float v = FifthArgOfCall( text, p );
 			if ( v == v ) // NAN compares unequal to itself
@@ -945,8 +1091,7 @@ std::string ReadRepoFile( const char *pszRel )
 		ADD_FAILURE() << path << " is unreadable: a managed-side pin must exist.";
 		return std::string();
 	}
-	return std::string( ( std::istreambuf_iterator<char>( f ) ),
-	                    std::istreambuf_iterator<char>() );
+	return std::string( ( std::istreambuf_iterator<char>( f ) ), std::istreambuf_iterator<char>() );
 }
 
 } // namespace
@@ -988,7 +1133,7 @@ TEST( PrecipitationOracle, SnowfallRayBoxToleranceIsBracketedByItsHitAndMiss )
 	s_pSnowFallMgr->FindSnowVolumes( center, 1024.0f, eye, fwd );
 	EXPECT_EQ( s_pSnowFallMgr->m_nActiveSnowCount, 1 ) << "exactly the flared box is active";
 	if ( s_pSnowFallMgr->m_nActiveSnowCount == 1 )
-		EXPECT_EQ( s_pSnowFallMgr->m_aActiveSnow[ 0 ], 0 ) << "the active one is the nearer box";
+		EXPECT_EQ( s_pSnowFallMgr->m_aActiveSnow[0], 0 ) << "the active one is the nearer box";
 	EXPECT_TRUE( s_pSnowFallMgr->m_bRayParticles );
 	delete pOut;
 	delete pIn;
@@ -1002,8 +1147,7 @@ TEST( PrecipitationOracle, SnowfallSphereArmActivatesWithoutTheRayAndNeverSetsRa
 	BeginSnowfallRun();
 	int nActive = -1;
 	bool bRay = true;
-	RunFindSnowVolumes( Vector( -1000.0f, -300.0f, -40.0f ), Vector( -200.0f, 300.0f, 668.0f ),
-	                   &nActive, &bRay );
+	RunFindSnowVolumes( Vector( -1000.0f, -300.0f, -40.0f ), Vector( -200.0f, 300.0f, 668.0f ), &nActive, &bRay );
 	EXPECT_EQ( nActive, 1 ) << "the sphere arm did not activate";
 	EXPECT_FALSE( bRay ) << "the sphere arm must never set m_bRayParticles";
 }
@@ -1038,7 +1182,7 @@ TEST( PrecipitationOracle, ManagedSnowfallUsesStocksRayBoxTolerance )
 	const size_t fn = stock.find( "void CSnowFallManager::FindSnowVolumes" );
 	const float flStock = CallTolerance( stock, fn, "IntersectRayWithBox" );
 	ASSERT_EQ( flStock, 0.325f ) << "stock's snowfall ray tolerance is no longer 0.325;"
-		<< " the golden's ray cases (and the port) must follow it on purpose";
+								 << " the golden's ray cases (and the port) must follow it on purpose";
 
 	const std::string managed = ReadRepoFile( "src/client/managed/Effects/PrecipitationSim.cs" );
 	ASSERT_FALSE( managed.empty() );
@@ -1054,7 +1198,8 @@ TEST( PrecipitationOracle, ManagedSnowfallUsesStocksRayBoxTolerance )
 
 TEST( PrecipitationOracle, StockProducesTheGolden )
 {
-	SS_SKIP_ON_CI( "a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit" );
+	SS_SKIP_ON_CI(
+		"a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit" );
 	const std::string run = RunScenario();
 
 	if ( std::ifstream( MarkerPath() ).good() )
@@ -1081,16 +1226,22 @@ TEST( PrecipitationOracle, StockProducesTheGolden )
 		++n;
 		if ( !ha && !hb )
 			break;
-		ASSERT_TRUE( ha && hb && la == lb ) << "line " << n << ": stock now writes\n  " << ( ha ? la : "<end>" )
-			<< "\nand the golden has\n  " << ( hb ? lb : "<end>" )
-			<< "\nDo NOT regenerate the golden to make this pass; see the file header.";
+		ASSERT_TRUE( ha && hb && la == lb )
+			<< "line " << n << ": stock now writes\n  " << ( ha ? la : "<end>" ) << "\nand the golden has\n  "
+			<< ( hb ? lb : "<end>" ) << "\nDo NOT regenerate the golden to make this pass; see the file header.";
 	}
 }
 
 TEST( PrecipitationOracle, TheScenarioReachesEveryArm )
 {
 	const std::string run = RunScenario();
-	struct Arm_t { const char *pszNeedle; const char *pszWhat; };
+
+	struct Arm_t
+	{
+		const char *pszNeedle;
+		const char *pszWhat;
+	};
+
 	static const Arm_t kArms[] = {
 		{ "\nC\t2\t", "rain particles were emitted" },
 		{ "\nC\t3\t", "snow particles were emitted" },
@@ -1101,6 +1252,6 @@ TEST( PrecipitationOracle, TheScenarioReachesEveryArm )
 		{ "\nX\t", "a simple particle died" },
 		{ "effects/ember_swirling001", "the ash's ember arm ran" },
 	};
-	for ( size_t i = 0; i < sizeof( kArms ) / sizeof( kArms[ 0 ] ); i++ )
-		EXPECT_NE( run.find( kArms[ i ].pszNeedle ), std::string::npos ) << kArms[ i ].pszWhat << ": no";
+	for ( size_t i = 0; i < sizeof( kArms ) / sizeof( kArms[0] ); i++ )
+		EXPECT_NE( run.find( kArms[i].pszNeedle ), std::string::npos ) << kArms[i].pszWhat << ": no";
 }

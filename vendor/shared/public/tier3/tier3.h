@@ -8,20 +8,19 @@
 // Forward declarations
 class IStudioRender;
 class IMatSystemSurface;
-class IDataCache;
 class IMDLCache;
 class IPhysicsCollision;
 class ISoundEmitterSystemBase;
 
 namespace vgui
 {
-	class ISurface;
-	class IVGui;
-	class IInput;
-	class IPanel;
-	class ILocalize;
-	class ISchemeManager;
-	class ISystem;
+class ISurface;
+class IVGui;
+class IInput;
+class IPanel;
+class ILocalize;
+class ISchemeManager;
+class ISystem;
 }
 
 extern IStudioRender *studiorender;
@@ -41,17 +40,18 @@ void ConnectTier3Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount )
 void DisconnectTier3Libraries();
 
 // Helper empty implementation of an IAppSystem for tier2 libraries
-template< class IInterface, int ConVarFlag = 0 > 
-class CTier3AppSystem : public CTier2AppSystem< IInterface, ConVarFlag >
+template <class IInterface, int ConVarFlag = 0>
+class CTier3AppSystem : public CTier2AppSystem<IInterface, ConVarFlag>
 {
-	typedef CTier2AppSystem< IInterface, ConVarFlag > BaseClass;
+	typedef CTier2AppSystem<IInterface, ConVarFlag> BaseClass;
 
 public:
-	CTier3AppSystem( bool bIsPrimaryAppSystem = true ) : BaseClass(	bIsPrimaryAppSystem )
+	CTier3AppSystem( bool bIsPrimaryAppSystem = true )
+		: BaseClass( bIsPrimaryAppSystem )
 	{
 	}
 
-	virtual bool Connect( CreateInterfaceFn factory ) 
+	virtual bool Connect( CreateInterfaceFn factory )
 	{
 		if ( !BaseClass::Connect( factory ) )
 			return false;
@@ -63,7 +63,7 @@ public:
 		return true;
 	}
 
-	virtual void Disconnect() 
+	virtual void Disconnect()
 	{
 		if ( BaseClass::IsPrimaryAppSystem() )
 		{

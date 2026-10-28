@@ -17,7 +17,7 @@
 #endif
 
 #ifdef CLIENT_DLL
-	#define CSourceSharpGameRules      C_SourceSharpGameRules
+#define CSourceSharpGameRules C_SourceSharpGameRules
 #endif
 
 class CSourceSharpGameRules;
@@ -40,30 +40,35 @@ public:
 
 	// The damage-type masks are C#'s policy, pushed once. Only these two are reached
 	// through the rules pointer.
-	virtual int  Damage_GetTimeBased() OVERRIDE;
-	virtual int  Damage_GetNoPhysicsForce() OVERRIDE;
+	virtual int Damage_GetTimeBased() OVERRIDE;
+	virtual int Damage_GetNoPhysicsForce() OVERRIDE;
 
 	virtual bool IsMultiplayer() OVERRIDE;
 
 	// Stock CGameRules' answers.
 	virtual bool AllowThirdPersonCamera() OVERRIDE { return false; }
+
 	virtual void ClientSpawned( edict_t *pPlayer ) OVERRIDE { return; }
+
 	virtual void OnFileReceived( const char *fileName, unsigned int transferID ) OVERRIDE { return; }
+
 	virtual bool ShouldDrawHeadLabels() OVERRIDE { return true; }
 
 	// Declared in IGameRules' shared arm, so both sides need them.
 	virtual bool Init() OVERRIDE { return true; }
+
 	virtual void ClientCommandKeyValues( edict_t *pEntity, KeyValues *pKeyValues ) OVERRIDE {}
 
 	virtual const RulesViewVectors_t *GetViewVectors() const OVERRIDE;
 
 	// Not an IGameRules member: nothing calls it through the rules pointer.
 	virtual bool ShouldUseRobustRadiusDamage( IGameEntity *pEntity ) { return false; }
-	virtual bool  ShouldCollide( int collisionGroup0, int collisionGroup1 ) OVERRIDE;
+
+	virtual bool ShouldCollide( int collisionGroup0, int collisionGroup1 ) OVERRIDE;
 
 #ifndef CLIENT_DLL
-	virtual bool  ClientConnected( edict_t *pEntity, const char *pszName,
-	                               const char *pszAddress, char *reject, int maxrejectlen ) OVERRIDE;
+	virtual bool ClientConnected( edict_t *pEntity, const char *pszName, const char *pszAddress, char *reject,
+								  int maxrejectlen ) OVERRIDE;
 
 	// Empty: player_manager is a managed entity, created by the server module at level
 	// init. The base would create it through CBaseEntity::Create, which fails for one.
@@ -75,22 +80,27 @@ public:
 
 	// Required by IGameRules and unreachable in this build; they answer stock's values.
 	virtual float AdjustPlayerDamageInflicted( float damage ) OVERRIDE { return damage; }
-	virtual void  AdjustPlayerDamageTaken( RulesDamageInfo_t *pInfo ) OVERRIDE {}
-	virtual void  CreateCustomNetworkStringTables() OVERRIDE {}
-	virtual void  InitDefaultAIRelationships() OVERRIDE { return; }
-	virtual void  Precache() OVERRIDE { return; }
-	virtual void  ResetMapCycleTimeStamp() OVERRIDE { return; }
-	virtual void  Status( void (*print) (const char *fmt, ...) ) OVERRIDE {}
+
+	virtual void AdjustPlayerDamageTaken( RulesDamageInfo_t *pInfo ) OVERRIDE {}
+
+	virtual void CreateCustomNetworkStringTables() OVERRIDE {}
+
+	virtual void InitDefaultAIRelationships() OVERRIDE { return; }
+
+	virtual void Precache() OVERRIDE { return; }
+
+	virtual void ResetMapCycleTimeStamp() OVERRIDE { return; }
+
+	virtual void Status( void ( *print )( const char *fmt, ... ) ) OVERRIDE {}
 #else
 	// The two the client half of IGameRules declares.
 	virtual bool AllowMapVisionFilterShaders() OVERRIDE { return false; }
-	virtual const char *TranslateEffectForVisionFilter( const char *pchEffectType,
-	                                                    const char *pchEffectName ) OVERRIDE
+
+	virtual const char *TranslateEffectForVisionFilter( const char *pchEffectType, const char *pchEffectName ) OVERRIDE
 	{
 		return pchEffectName;
 	}
 #endif
-
 };
 
 // Makes the one rules object and tells the client to make its own.
@@ -100,5 +110,5 @@ void SourceSharp_CreateGameRules();
 
 inline CSourceSharpGameRules *SourceSharpGameRules()
 {
-	return static_cast< CSourceSharpGameRules * >( g_pGameRules );
+	return static_cast<CSourceSharpGameRules *>( g_pGameRules );
 }

@@ -11,15 +11,11 @@
 // writes through it, marking a dirty word; once a frame the dirty entities get one
 // NetworkStateChanged each. Reads mark nothing, so untouched entities skip encoding.
 
-#include "basehandle.h"
-#include "entity_slots.h"
-#include "slot_table.h"
-#include "standalone_netserial.h"
 #include "shell_standalone.h"
-#include "shell_resolve.h"
+
 #include "world_subject.h"
 #include "ss_world.h"
-#include "sourcesharp.h"
+
 #include "native_command_body.h"
 #include "server_state.h"
 
@@ -73,8 +69,8 @@ static bool SourceSharp_MarkStateChanged( uint32_t hEntity )
 // The one crossing per bound state: the blob, its size, a pointer to the slot and the
 // slot's serial. Slots never move for the life of the DLL tier. NULL, size 0 and serial
 // 0 for anything with no blob.
-void *SourceSharp_EntityBindBlob( uint32_t hEntity, int32_t *pOutSize,
-                                  SourceSharpEntitySlot_t **pOutSlot, uint32_t *pOutSerial )
+void *SourceSharp_EntityBindBlob( uint32_t hEntity, int32_t *pOutSize, SourceSharpEntitySlot_t **pOutSlot,
+								  uint32_t *pOutSerial )
 {
 	if ( pOutSize )
 		*pOutSize = 0;
@@ -133,7 +129,6 @@ void SourceSharp_EntitySlotClosed( uint32_t hEntity )
 // tail entry into the freed position.
 int SourceSharp_DrainEntitySlots()
 {
-
 	int nMarked = 0;
 	CSourceSharpEntitySlots *pSlots = EntitySlots();
 	if ( !pSlots )
@@ -156,7 +151,8 @@ int SourceSharp_DrainEntitySlots()
 
 			// Dirty and gone: a shell freed an entity without closing its slot.
 			Warning( "[SourceSharp] entity slot %d was written and its entity is gone; "
-			         "a shell is freeing without closing its slot\n", nEntry );
+					 "a shell is freeing without closing its slot\n",
+					 nEntry );
 		}
 		else if ( !SourceSharp_ResolveEntity( hEntity ).IsValid() )
 		{
@@ -213,8 +209,7 @@ CBaseHandle SourceSharp_SlotIssue( int nEntry )
 }
 
 // Binds a handle assigned elsewhere.
-bool SourceSharp_SlotBindAt( const CBaseHandle &handle, CStandaloneEntity *pShell,
-                             edict_t *pEdict )
+bool SourceSharp_SlotBindAt( const CBaseHandle &handle, CStandaloneEntity *pShell, edict_t *pEdict )
 {
 	CSourceSharpSlotTable *pTable = SlotTable();
 	if ( !pTable || !pTable->BindAt( handle, pShell ) )
@@ -239,7 +234,7 @@ void SourceSharp_SlotUnbind( int nEntry )
 CStandaloneEntity *SourceSharp_ShellFromHandle( const CBaseHandle &handle )
 {
 	CSourceSharpSlotTable *pTable = SlotTable();
-	return pTable ? static_cast< CStandaloneEntity * >( pTable->Resolve( handle ) ) : NULL;
+	return pTable ? static_cast<CStandaloneEntity *>( pTable->Resolve( handle ) ) : NULL;
 }
 
 // By entry index (the engine's route, no serial), through the handle resolver so there
@@ -268,10 +263,10 @@ IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle )
 		return NULL;
 
 	if ( CStandaloneEntity *pShell = SourceSharp_ShellFromHandle( handle ) )
-		return static_cast< IHandleEntity * >( static_cast< IServerEntity * >( pShell ) );
+		return static_cast<IHandleEntity *>( static_cast<IServerEntity *>( pShell ) );
 
 	if ( CWorld *pWorld = SourceSharp_WorldFromHandle( handle ) )
-		return static_cast< IHandleEntity * >( static_cast< IServerEntity * >( pWorld ) );
+		return static_cast<IHandleEntity *>( static_cast<IServerEntity *>( pWorld ) );
 
 	// No other population remains.
 	return NULL;

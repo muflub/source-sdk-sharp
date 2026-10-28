@@ -15,12 +15,15 @@ public:
 	typedef void ( *Fn )( const CCommand &args );
 
 	CNativeCommandBody( const char *pName, Fn pfn )
-		: m_pName( pName ), m_pfn( pfn ), m_pNext( Head() )
+		: m_pName( pName )
+		, m_pfn( pfn )
+		, m_pNext( Head() )
 	{
 		Head() = this;
 	}
 
 	const char *Name() const { return m_pName; }
+
 	void Run( const CCommand &args ) const { m_pfn( args ); }
 
 	// Case-insensitive, as the console is. NULL when no body has that name.
@@ -36,6 +39,7 @@ public:
 
 	// The whole list, for tests.
 	static const CNativeCommandBody *First() { return Head(); }
+
 	const CNativeCommandBody *Next() const { return m_pNext; }
 
 private:
@@ -47,12 +51,12 @@ private:
 		return s_pHead;
 	}
 
-	const char               *m_pName;
-	Fn                        m_pfn;
+	const char *m_pName;
+	Fn m_pfn;
 	const CNativeCommandBody *m_pNext;
 };
 
-#define SS_NATIVE_COMMAND( name )                                                        \
-	static void SSNativeCommand_##name( const CCommand &args );                          \
+#define SS_NATIVE_COMMAND( name )                                                            \
+	static void SSNativeCommand_##name( const CCommand &args );                              \
 	static CNativeCommandBody s_SSNativeCommandBody_##name( #name, SSNativeCommand_##name ); \
 	static void SSNativeCommand_##name( const CCommand &args )

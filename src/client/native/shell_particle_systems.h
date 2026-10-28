@@ -7,8 +7,8 @@ class CShellNewParticleEffect;
 // SourceSharpParticleSystemInfo_t's Kind.
 enum
 {
-	SOURCESHARP_PARTICLE_SYSTEM_OWNED    = 1,   // a managed entity's, kept at its owner
-	SOURCESHARP_PARTICLE_SYSTEM_ONE_SHOT = 2,   // started at a world point, unheld
+	SOURCESHARP_PARTICLE_SYSTEM_OWNED = 1, // a managed entity's, kept at its owner
+	SOURCESHARP_PARTICLE_SYSTEM_ONE_SHOT = 2, // started at a world point, unheld
 };
 
 // The invalid entity handle is 0xFFFFFFFF, never 0.

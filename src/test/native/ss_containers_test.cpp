@@ -22,7 +22,7 @@ TEST( StringPool, EqualStringsShareOnePointer )
 	ss::StringPool pool;
 	char szName[] = "OnTrigger";
 	const char *pA = pool.Intern( szName );
-	szName[0] = 'X';   // the caller's buffer is not what was kept
+	szName[0] = 'X'; // the caller's buffer is not what was kept
 	const char *pB = pool.Intern( "OnTrigger" );
 
 	EXPECT_EQ( pA, pB );
@@ -76,7 +76,7 @@ TEST( CaselessHash, OnlyAsciiLettersFold )
 
 TEST( CaselessHash, AnUnorderedMapUnderItFindsAnyCaseAndKeepsTheFirst )
 {
-	std::unordered_map< std::string, int, ss::CaselessHash, ss::CaselessEqual > map;
+	std::unordered_map<std::string, int, ss::CaselessHash, ss::CaselessEqual> map;
 
 	EXPECT_TRUE( map.emplace( "Info_Player_Start", 1 ).second );
 	EXPECT_FALSE( map.emplace( "info_player_start", 2 ).second ) << "another case is the same key";

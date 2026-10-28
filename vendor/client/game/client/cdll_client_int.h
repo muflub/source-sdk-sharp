@@ -15,7 +15,6 @@ class IVRenderView;
 class IVDebugOverlay;
 class IMaterialSystem;
 class IMaterialSystemStub;
-class IDataCache;
 class IMDLCache;
 class IVModelInfoClient;
 class IEngineVGui;
@@ -46,7 +45,7 @@ class CSteamID;
 // HPE_END
 
 extern IVModelRender *modelrender;
-extern IVEngineClient	*engine;
+extern IVEngineClient *engine;
 extern IVModelRender *modelrender;
 extern IVEfx *effects;
 extern IVRenderView *render;
@@ -57,7 +56,7 @@ extern IMaterialSystemHardwareConfig *g_pMaterialSystemHardwareConfig;
 extern IMDLCache *mdlcache;
 extern IVModelInfoClient *modelinfo;
 extern IEngineVGui *enginevgui;
-extern ISpatialPartition* partition;
+extern ISpatialPartition *partition;
 extern IBaseClientDLL *clientdll;
 extern IFileSystem *filesystem;
 extern IStaticPropMgrClient *staticpropmgr;
@@ -76,7 +75,7 @@ extern IClientReplayContext *g_pClientReplayContext;
 // HPE_END
 
 // Set to true between LevelInit and LevelShutdown.
-extern bool	g_bLevelInitialized;
+extern bool g_bLevelInitialized;
 extern bool g_bTextMode;
 
 // Precaches a material

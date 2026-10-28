@@ -2,9 +2,9 @@
 //    Note: The older ISteamController interface has been deprecated in favor of ISteamInput - this interface
 //			was updated in this SDK but will be removed from future SDK's. The Steam Client will retain
 //			compatibility with the older interfaces so your any existing integrations should be unaffected.
-// Purpose: Steam Input is a flexible input API that supports over three hundred devices including all 
+// Purpose: Steam Input is a flexible input API that supports over three hundred devices including all
 //          common variants of Xbox, Playstation, Nintendo Switch Pro, and Steam Controllers.
-//			For more info including a getting started guide for developers 
+//			For more info including a getting started guide for developers
 //			please visit: https://partner.steamgames.com/doc/features/steam_controller
 
 #pragma once
@@ -73,7 +73,7 @@ enum EControllerActionOrigin
 	k_EControllerActionOrigin_Gyro_Pitch,
 	k_EControllerActionOrigin_Gyro_Yaw,
 	k_EControllerActionOrigin_Gyro_Roll,
-	
+
 	// PS4 Dual Shock
 	k_EControllerActionOrigin_PS4_X,
 	k_EControllerActionOrigin_PS4_Circle,
@@ -81,8 +81,8 @@ enum EControllerActionOrigin
 	k_EControllerActionOrigin_PS4_Square,
 	k_EControllerActionOrigin_PS4_LeftBumper,
 	k_EControllerActionOrigin_PS4_RightBumper,
-	k_EControllerActionOrigin_PS4_Options,  //Start
-	k_EControllerActionOrigin_PS4_Share,	//Back
+	k_EControllerActionOrigin_PS4_Options, //Start
+	k_EControllerActionOrigin_PS4_Share, //Back
 	k_EControllerActionOrigin_PS4_LeftPad_Touch,
 	k_EControllerActionOrigin_PS4_LeftPad_Swipe,
 	k_EControllerActionOrigin_PS4_LeftPad_Click,
@@ -136,8 +136,8 @@ enum EControllerActionOrigin
 	k_EControllerActionOrigin_XBoxOne_Y,
 	k_EControllerActionOrigin_XBoxOne_LeftBumper,
 	k_EControllerActionOrigin_XBoxOne_RightBumper,
-	k_EControllerActionOrigin_XBoxOne_Menu,  //Start
-	k_EControllerActionOrigin_XBoxOne_View,  //Back
+	k_EControllerActionOrigin_XBoxOne_Menu, //Start
+	k_EControllerActionOrigin_XBoxOne_View, //Back
 	k_EControllerActionOrigin_XBoxOne_LeftTrigger_Pull,
 	k_EControllerActionOrigin_XBoxOne_LeftTrigger_Click,
 	k_EControllerActionOrigin_XBoxOne_RightTrigger_Pull,
@@ -166,8 +166,8 @@ enum EControllerActionOrigin
 	k_EControllerActionOrigin_XBox360_Y,
 	k_EControllerActionOrigin_XBox360_LeftBumper,
 	k_EControllerActionOrigin_XBox360_RightBumper,
-	k_EControllerActionOrigin_XBox360_Start,  //Start
-	k_EControllerActionOrigin_XBox360_Back,  //Back
+	k_EControllerActionOrigin_XBox360_Start, //Start
+	k_EControllerActionOrigin_XBox360_Back, //Back
 	k_EControllerActionOrigin_XBox360_LeftTrigger_Pull,
 	k_EControllerActionOrigin_XBox360_LeftTrigger_Click,
 	k_EControllerActionOrigin_XBox360_RightTrigger_Pull,
@@ -187,7 +187,7 @@ enum EControllerActionOrigin
 	k_EControllerActionOrigin_XBox360_DPad_North,
 	k_EControllerActionOrigin_XBox360_DPad_South,
 	k_EControllerActionOrigin_XBox360_DPad_West,
-	k_EControllerActionOrigin_XBox360_DPad_East,	
+	k_EControllerActionOrigin_XBox360_DPad_East,
 
 	// SteamController V2
 	k_EControllerActionOrigin_SteamV2_A,
@@ -247,8 +247,8 @@ enum EControllerActionOrigin
 	k_EControllerActionOrigin_Switch_Y,
 	k_EControllerActionOrigin_Switch_LeftBumper,
 	k_EControllerActionOrigin_Switch_RightBumper,
-	k_EControllerActionOrigin_Switch_Plus,  //Start
-	k_EControllerActionOrigin_Switch_Minus,	//Back
+	k_EControllerActionOrigin_Switch_Plus, //Start
+	k_EControllerActionOrigin_Switch_Minus, //Back
 	k_EControllerActionOrigin_Switch_Capture,
 	k_EControllerActionOrigin_Switch_LeftTrigger_Pull,
 	k_EControllerActionOrigin_Switch_LeftTrigger_Click,
@@ -270,23 +270,23 @@ enum EControllerActionOrigin
 	k_EControllerActionOrigin_Switch_DPad_South,
 	k_EControllerActionOrigin_Switch_DPad_West,
 	k_EControllerActionOrigin_Switch_DPad_East,
-	k_EControllerActionOrigin_Switch_ProGyro_Move,  // Primary Gyro in Pro Controller, or Right JoyCon
-	k_EControllerActionOrigin_Switch_ProGyro_Pitch,  // Primary Gyro in Pro Controller, or Right JoyCon
-	k_EControllerActionOrigin_Switch_ProGyro_Yaw,  // Primary Gyro in Pro Controller, or Right JoyCon
-	k_EControllerActionOrigin_Switch_ProGyro_Roll,  // Primary Gyro in Pro Controller, or Right JoyCon
+	k_EControllerActionOrigin_Switch_ProGyro_Move, // Primary Gyro in Pro Controller, or Right JoyCon
+	k_EControllerActionOrigin_Switch_ProGyro_Pitch, // Primary Gyro in Pro Controller, or Right JoyCon
+	k_EControllerActionOrigin_Switch_ProGyro_Yaw, // Primary Gyro in Pro Controller, or Right JoyCon
+	k_EControllerActionOrigin_Switch_ProGyro_Roll, // Primary Gyro in Pro Controller, or Right JoyCon
 	// Switch JoyCon Specific
-	k_EControllerActionOrigin_Switch_RightGyro_Move,  // Right JoyCon Gyro generally should correspond to Pro's single gyro
-	k_EControllerActionOrigin_Switch_RightGyro_Pitch,  // Right JoyCon Gyro generally should correspond to Pro's single gyro
-	k_EControllerActionOrigin_Switch_RightGyro_Yaw,  // Right JoyCon Gyro generally should correspond to Pro's single gyro
-	k_EControllerActionOrigin_Switch_RightGyro_Roll,  // Right JoyCon Gyro generally should correspond to Pro's single gyro
+	k_EControllerActionOrigin_Switch_RightGyro_Move, // Right JoyCon Gyro generally should correspond to Pro's single gyro
+	k_EControllerActionOrigin_Switch_RightGyro_Pitch, // Right JoyCon Gyro generally should correspond to Pro's single gyro
+	k_EControllerActionOrigin_Switch_RightGyro_Yaw, // Right JoyCon Gyro generally should correspond to Pro's single gyro
+	k_EControllerActionOrigin_Switch_RightGyro_Roll, // Right JoyCon Gyro generally should correspond to Pro's single gyro
 	k_EControllerActionOrigin_Switch_LeftGyro_Move,
 	k_EControllerActionOrigin_Switch_LeftGyro_Pitch,
 	k_EControllerActionOrigin_Switch_LeftGyro_Yaw,
 	k_EControllerActionOrigin_Switch_LeftGyro_Roll,
 	k_EControllerActionOrigin_Switch_LeftGrip_Lower, // Left JoyCon SR Button
 	k_EControllerActionOrigin_Switch_LeftGrip_Upper, // Left JoyCon SL Button
-	k_EControllerActionOrigin_Switch_RightGrip_Lower,  // Right JoyCon SL Button
-	k_EControllerActionOrigin_Switch_RightGrip_Upper,  // Right JoyCon SR Button
+	k_EControllerActionOrigin_Switch_RightGrip_Lower, // Right JoyCon SL Button
+	k_EControllerActionOrigin_Switch_RightGrip_Upper, // Right JoyCon SR Button
 
 	// Added in SDK 1.45
 	k_EControllerActionOrigin_PS4_DPad_Move,
@@ -301,8 +301,8 @@ enum EControllerActionOrigin
 	k_EControllerActionOrigin_PS5_Square,
 	k_EControllerActionOrigin_PS5_LeftBumper,
 	k_EControllerActionOrigin_PS5_RightBumper,
-	k_EControllerActionOrigin_PS5_Option,  //Start
-	k_EControllerActionOrigin_PS5_Create,	//Back
+	k_EControllerActionOrigin_PS5_Option, //Start
+	k_EControllerActionOrigin_PS5_Create, //Back
 	k_EControllerActionOrigin_PS5_Mute,
 	k_EControllerActionOrigin_PS5_LeftPad_Touch,
 	k_EControllerActionOrigin_PS5_LeftPad_Swipe,
@@ -351,8 +351,8 @@ enum EControllerActionOrigin
 	k_EControllerActionOrigin_PS5_Gyro_Yaw,
 	k_EControllerActionOrigin_PS5_Gyro_Roll,
 
-	k_EControllerActionOrigin_XBoxOne_LeftGrip_Lower, 
-	k_EControllerActionOrigin_XBoxOne_LeftGrip_Upper, 
+	k_EControllerActionOrigin_XBoxOne_LeftGrip_Lower,
+	k_EControllerActionOrigin_XBoxOne_LeftGrip_Upper,
 	k_EControllerActionOrigin_XBoxOne_RightGrip_Lower,
 	k_EControllerActionOrigin_XBoxOne_RightGrip_Upper,
 	k_EControllerActionOrigin_XBoxOne_Share,
@@ -455,8 +455,8 @@ enum EXboxOrigin
 	k_EXboxOrigin_Y,
 	k_EXboxOrigin_LeftBumper,
 	k_EXboxOrigin_RightBumper,
-	k_EXboxOrigin_Menu,  //Start
-	k_EXboxOrigin_View,  //Back
+	k_EXboxOrigin_Menu, //Start
+	k_EXboxOrigin_View, //Back
 	k_EXboxOrigin_LeftTrigger_Pull,
 	k_EXboxOrigin_LeftTrigger_Click,
 	k_EXboxOrigin_RightTrigger_Pull,
@@ -485,16 +485,16 @@ enum ESteamInputType
 	k_ESteamInputType_SteamController,
 	k_ESteamInputType_XBox360Controller,
 	k_ESteamInputType_XBoxOneController,
-	k_ESteamInputType_GenericGamepad,		// DirectInput controllers
+	k_ESteamInputType_GenericGamepad, // DirectInput controllers
 	k_ESteamInputType_PS4Controller,
-	k_ESteamInputType_AppleMFiController,	// Unused
-	k_ESteamInputType_AndroidController,	// Unused
-	k_ESteamInputType_SwitchJoyConPair,		// Unused
-	k_ESteamInputType_SwitchJoyConSingle,	// Unused
+	k_ESteamInputType_AppleMFiController, // Unused
+	k_ESteamInputType_AndroidController, // Unused
+	k_ESteamInputType_SwitchJoyConPair, // Unused
+	k_ESteamInputType_SwitchJoyConSingle, // Unused
 	k_ESteamInputType_SwitchProController,
-	k_ESteamInputType_MobileTouch,			// Steam Link App On-screen Virtual Controller
-	k_ESteamInputType_PS3Controller,		// Currently uses PS4 Origins
-	k_ESteamInputType_PS5Controller,		// Added in SDK 151
+	k_ESteamInputType_MobileTouch, // Steam Link App On-screen Virtual Controller
+	k_ESteamInputType_PS3Controller, // Currently uses PS4 Origins
+	k_ESteamInputType_PS5Controller, // Added in SDK 151
 	k_ESteamInputType_Count,
 	k_ESteamInputType_MaximumPossibleValue = 255,
 };
@@ -509,17 +509,17 @@ typedef uint64 ControllerActionSetHandle_t;
 #ifdef ISTEAMINPUT_H
 #define ControllerAnalogActionData_t InputAnalogActionData_t
 #define ControllerDigitalActionData_t InputDigitalActionData_t
-#define ControllerMotionData_t  InputMotionData_t
+#define ControllerMotionData_t InputMotionData_t
 
 #else
 struct ControllerAnalogActionData_t
 {
 	// Type of data coming from this action, this will match what got specified in the action set
 	EControllerSourceMode eMode;
-	
+
 	// The current state of this action; will be delta updates for mouse actions
 	float x, y;
-	
+
 	// Whether or not this action is currently available to be bound in the active action set
 	bool bActive;
 };
@@ -528,7 +528,7 @@ struct ControllerDigitalActionData_t
 {
 	// The current state of this action; will be true if currently pressed
 	bool bState;
-	
+
 	// Whether or not this action is currently available to be bound in the active action set
 	bool bActive;
 };
@@ -540,7 +540,7 @@ struct ControllerMotionData_t
 	float rotQuatY;
 	float rotQuatZ;
 	float rotQuatW;
-	
+
 	// Positional acceleration
 	float posAccelX;
 	float posAccelY;
@@ -558,11 +558,10 @@ struct ControllerMotionData_t
 class ISteamController
 {
 public:
-	
 	// Init and Shutdown must be called when starting/ending use of this interface
 	virtual bool Init() = 0;
 	virtual bool Shutdown() = 0;
-	
+
 	// Synchronize API state with the latest Steam Controller inputs available. This
 	// is performed automatically by SteamAPI_RunCallbacks, but for the absolute lowest
 	// possible latency, you call this directly before reading controller state. This must
@@ -573,12 +572,12 @@ public:
 	// handlesOut should point to a STEAM_CONTROLLER_MAX_COUNT sized array of ControllerHandle_t handles
 	// Returns the number of handles written to handlesOut
 	virtual void unused_GetConnectedControllers() = 0;
-	
+
 	// ACTION SETS
 
 	// Lookup the handle for an Action Set. Best to do this once on startup, and store the handles for all future API calls.
 	virtual void unused_GetActionSetHandle() = 0;
-	
+
 	// Reconfigure the controller to use the specified action set (ie 'Menu', 'Walk' or 'Drive')
 	// This is cheap, and can be safely called repeatedly. It's often easier to repeatedly call it in
 	// your state loops, instead of trying to place it in all of your state transitions.
@@ -598,18 +597,18 @@ public:
 
 	// Lookup the handle for a digital action. Best to do this once on startup, and store the handles for all future API calls.
 	virtual void unused_GetDigitalActionHandle() = 0;
-	
+
 	// Returns the current state of the supplied digital game action
 	virtual void unused_GetDigitalActionData() = 0;
-	
+
 	// Get the origin(s) for a digital action within an action set. Returns the number of origins supplied in originsOut. Use this to display the appropriate on-screen prompt for the action.
 	// originsOut should point to a STEAM_CONTROLLER_MAX_ORIGINS sized array of EControllerActionOrigin handles. The EControllerActionOrigin enum will get extended as support for new controller controllers gets added to
 	// the Steam client and will exceed the values from this header, please check bounds if you are using a look up table.
 	virtual void unused_GetDigitalActionOrigins() = 0;
-	
+
 	// Lookup the handle for an analog action. Best to do this once on startup, and store the handles for all future API calls.
 	virtual void unused_GetAnalogActionHandle() = 0;
-	
+
 	// Returns the current state of these supplied analog game action
 	virtual void unused_GetAnalogActionData() = 0;
 
@@ -617,10 +616,10 @@ public:
 	// originsOut should point to a STEAM_CONTROLLER_MAX_ORIGINS sized array of EControllerActionOrigin handles. The EControllerActionOrigin enum will get extended as support for new controller controllers gets added to
 	// the Steam client and will exceed the values from this header, please check bounds if you are using a look up table.
 	virtual void unused_GetAnalogActionOrigins() = 0;
-	
+
 	// Get a local path to art for on-screen glyph for a particular origin - this call is cheap
 	virtual void unused_GetGlyphForActionOrigin() = 0;
-	
+
 	// Returns a localized string (from Steam's language setting) for the specified origin - this call is serialized
 	virtual void unused_GetStringForActionOrigin() = 0;
 
@@ -637,11 +636,11 @@ public:
 	// Trigger a pulse with a duty cycle of usDurationMicroSec / usOffMicroSec, unRepeat times.
 	// nFlags is currently unused and reserved for future use.
 	virtual void unused_TriggerRepeatedHapticPulse() = 0;
-	
-	// Trigger a vibration event on supported controllers.  
+
+	// Trigger a vibration event on supported controllers.
 	virtual void unused_TriggerVibration() = 0;
 
-	// Set the controller LED color on supported controllers.  
+	// Set the controller LED color on supported controllers.
 	virtual void unused_SetLEDColor() = 0;
 
 	// Utility functions available without using the rest of Steam Input API
@@ -651,7 +650,7 @@ public:
 	virtual void unused_ShowBindingPanel() = 0;
 
 	// Returns the input type for a particular handle - unlike EControllerActionOrigin which update with Steam and may return unrecognized values
-	// ESteamInputType will remain static and only return valid values from your SDK version 
+	// ESteamInputType will remain static and only return valid values from your SDK version
 	virtual void unused_GetInputTypeForHandle() = 0;
 
 	// Returns the associated controller handle for the specified emulated gamepad - can be used with the above 2 functions
@@ -660,11 +659,11 @@ public:
 
 	// Returns the associated gamepad index for the specified controller, if emulating a gamepad or -1 if not associated with an Xinput index
 	virtual void unused_GetGamepadIndexForController() = 0;
-	
+
 	// Returns a localized string (from Steam's language setting) for the specified Xbox controller origin.
 	virtual void unused_GetStringForXboxOrigin() = 0;
 
-	// Get a local path to art for on-screen glyph for a particular Xbox controller origin. 
+	// Get a local path to art for on-screen glyph for a particular Xbox controller origin.
 	virtual void unused_GetGlyphForXboxOrigin() = 0;
 
 	// Get the equivalent ActionOrigin for a given Xbox controller origin this can be chained with GetGlyphForActionOrigin to provide future proof glyphs for

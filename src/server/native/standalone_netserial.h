@@ -12,7 +12,10 @@
 #pragma once
 
 // Stock's NUM_NETWORKED_EHANDLE_SERIAL_NUMBER_BITS; asserted equal beside the caller.
-enum { STANDALONE_NETSERIAL_BITS = 10 };
+enum
+{
+	STANDALONE_NETSERIAL_BITS = 10
+};
 
 inline int StandaloneNetSerial_ForHandle( unsigned long nHandleSerial )
 {
@@ -21,7 +24,7 @@ inline int StandaloneNetSerial_ForHandle( unsigned long nHandleSerial )
 
 // Mirrors a newly assigned handle serial onto the edict. A null edict is a
 // server-only entity. Runs for INVALID_EHANDLE on removal too, as stock does.
-template < typename TEdict >
+template <typename TEdict>
 inline void StandaloneNetSerial_Mirror( TEdict *pEdict, unsigned long nHandleSerial )
 {
 	if ( !pEdict )

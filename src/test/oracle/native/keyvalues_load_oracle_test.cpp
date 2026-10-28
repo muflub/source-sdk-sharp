@@ -51,9 +51,12 @@ std::string RepoPath( const char *pszRel )
 
 int Hex( char c )
 {
-	if ( c >= '0' && c <= '9' ) return c - '0';
-	if ( c >= 'a' && c <= 'f' ) return c - 'a' + 10;
-	if ( c >= 'A' && c <= 'F' ) return c - 'A' + 10;
+	if ( c >= '0' && c <= '9' )
+		return c - '0';
+	if ( c >= 'a' && c <= 'f' )
+		return c - 'a' + 10;
+	if ( c >= 'A' && c <= 'F' )
+		return c - 'A' + 10;
 	return -1;
 }
 
@@ -63,26 +66,46 @@ bool Unescape( const std::string &in, std::string &out )
 	out.clear();
 	for ( size_t i = 0; i < in.size(); i++ )
 	{
-		if ( in[i] != '\\' ) { out += in[i]; continue; }
-		if ( ++i >= in.size() ) return false;
+		if ( in[i] != '\\' )
+		{
+			out += in[i];
+			continue;
+		}
+		if ( ++i >= in.size() )
+			return false;
 		switch ( in[i] )
 		{
-		case 'n': out += '\n'; break;
-		case 'r': out += '\r'; break;
-		case 't': out += '\t'; break;
-		case 'v': out += '\v'; break;
-		case 'f': out += '\f'; break;
-		case '\\': out += '\\'; break;
-		case 'x':
-		{
-			if ( i + 2 >= in.size() ) return false;
-			const int hi = Hex( in[i + 1] ), lo = Hex( in[i + 2] );
-			if ( hi < 0 || lo < 0 ) return false;
-			out += (char)( hi * 16 + lo );
-			i += 2;
-			break;
-		}
-		default: return false;
+			case 'n':
+				out += '\n';
+				break;
+			case 'r':
+				out += '\r';
+				break;
+			case 't':
+				out += '\t';
+				break;
+			case 'v':
+				out += '\v';
+				break;
+			case 'f':
+				out += '\f';
+				break;
+			case '\\':
+				out += '\\';
+				break;
+			case 'x':
+			{
+				if ( i + 2 >= in.size() )
+					return false;
+				const int hi = Hex( in[i + 1] ), lo = Hex( in[i + 2] );
+				if ( hi < 0 || lo < 0 )
+					return false;
+				out += (char)( hi * 16 + lo );
+				i += 2;
+				break;
+			}
+			default:
+				return false;
 		}
 	}
 	return true;
@@ -96,21 +119,33 @@ std::string Escape( const char *psz )
 	{
 		switch ( *p )
 		{
-		case '\n': out += "\\n"; break;
-		case '\r': out += "\\r"; break;
-		case '\t': out += "\\t"; break;
-		case '\v': out += "\\v"; break;
-		case '\f': out += "\\f"; break;
-		case '\\': out += "\\\\"; break;
-		default:
-			if ( *p < 0x20 || *p >= 0x7f )
-			{
-				char b[8];
-				snprintf( b, sizeof( b ), "\\x%02x", *p );
-				out += b;
-			}
-			else
-				out += (char)*p;
+			case '\n':
+				out += "\\n";
+				break;
+			case '\r':
+				out += "\\r";
+				break;
+			case '\t':
+				out += "\\t";
+				break;
+			case '\v':
+				out += "\\v";
+				break;
+			case '\f':
+				out += "\\f";
+				break;
+			case '\\':
+				out += "\\\\";
+				break;
+			default:
+				if ( *p < 0x20 || *p >= 0x7f )
+				{
+					char b[8];
+					snprintf( b, sizeof( b ), "\\x%02x", *p );
+					out += b;
+				}
+				else
+					out += (char)*p;
 		}
 	}
 	return out;
@@ -128,19 +163,28 @@ void Dump( KeyValues *kv, int nDepth, const std::string &strCase, std::string &o
 	out += b;
 	switch ( nType )
 	{
-	case KeyValues::TYPE_STRING: out += Escape( kv->GetString() ); break;
-	case KeyValues::TYPE_INT: snprintf( b, sizeof( b ), "%d", kv->GetInt() ); out += b; break;
-	case KeyValues::TYPE_FLOAT:
-	{
-		const float fl = kv->GetFloat();
-		uint32_t u;
-		memcpy( &u, &fl, 4 );
-		snprintf( b, sizeof( b ), "%08x", u );
-		out += b;
-		break;
-	}
-	case KeyValues::TYPE_UINT64: snprintf( b, sizeof( b ), "%016llx", (unsigned long long)kv->GetUint64() ); out += b; break;
-	default: break;
+		case KeyValues::TYPE_STRING:
+			out += Escape( kv->GetString() );
+			break;
+		case KeyValues::TYPE_INT:
+			snprintf( b, sizeof( b ), "%d", kv->GetInt() );
+			out += b;
+			break;
+		case KeyValues::TYPE_FLOAT:
+		{
+			const float fl = kv->GetFloat();
+			uint32_t u;
+			memcpy( &u, &fl, 4 );
+			snprintf( b, sizeof( b ), "%08x", u );
+			out += b;
+			break;
+		}
+		case KeyValues::TYPE_UINT64:
+			snprintf( b, sizeof( b ), "%016llx", (unsigned long long)kv->GetUint64() );
+			out += b;
+			break;
+		default:
+			break;
 	}
 	out += "\n";
 	for ( KeyValues *sub = kv->GetFirstSubKey(); sub; sub = sub->GetNextKey() )
@@ -152,8 +196,9 @@ std::string RunCorpus( int &nCases )
 	nCases = 0;
 	std::ifstream in( RepoPath( "src/test/client/Fixtures/keyvalues-load-cases.tsv" ) );
 	EXPECT_TRUE( in.good() ) << "the corpus is missing";
-	std::string out = "# pristine KeyValues::LoadFromBuffer: case | depth | name | type (0 none, 1 string, 2 int, 3 float, 7 uint64) | value\n"
-	                  "# (float as its bits; names and strings escaped as the corpus is)\n";
+	std::string out =
+		"# pristine KeyValues::LoadFromBuffer: case | depth | name | type (0 none, 1 string, 2 int, 3 float, 7 uint64) | value\n"
+		"# (float as its bits; names and strings escaped as the corpus is)\n";
 	std::string line;
 	while ( std::getline( in, line ) )
 	{
@@ -196,5 +241,6 @@ TEST( KeyValuesLoadOracle, StockProducesTheGolden )
 	std::stringstream ss;
 	ss << in.rdbuf();
 	ASSERT_GT( ss.str().size(), 4000u ) << "the golden is empty or truncated";
-	ASSERT_TRUE( ss.str() == run ) << "pristine LoadFromBuffer no longer writes the golden; do NOT regenerate it to pass";
+	ASSERT_TRUE( ss.str() == run )
+		<< "pristine LoadFromBuffer no longer writes the golden; do NOT regenerate it to pass";
 }

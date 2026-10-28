@@ -12,12 +12,12 @@
 
 #include "tier1/bitbuf.h"
 
-#include <stdint.h>
-#include <string.h>
-
 namespace ss
 {
-enum { kBitBlockHeaderBytes = 4 };
+enum
+{
+	kBitBlockHeaderBytes = 4
+};
 
 inline int32_t BitBlockBits( const uint8_t *pBlock )
 {

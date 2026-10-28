@@ -44,27 +44,35 @@ namespace
 // Count() returns int and Remove(i) removes by index, which is what
 // shell_effect_registry.h uses and all it uses.
 //-----------------------------------------------------------------------------
-template < typename T >
+template <typename T>
 struct FakeList
 {
-	std::vector< T > v;
+	std::vector<T> v;
 
 	int Count() const { return (int)v.size(); }
+
 	T &operator[]( int i ) { return v[i]; }
+
 	const T &operator[]( int i ) const { return v[i]; }
+
 	void Remove( int i ) { v.erase( v.begin() + i ); }
-	int AddToTail( const T &row ) { v.push_back( row ); return (int)v.size() - 1; }
+
+	int AddToTail( const T &row )
+	{
+		v.push_back( row );
+		return (int)v.size() - 1;
+	}
 };
 
 struct FakeEffect;
 
 struct Row
 {
-	unsigned int  hOwner;
-	FakeEffect   *pEffect;
+	unsigned int hOwner;
+	FakeEffect *pEffect;
 };
 
-typedef FakeList< Row > List;
+typedef FakeList<Row> List;
 
 //-----------------------------------------------------------------------------
 // A stand-in for CShellParticleEffect. Release() does what the real one does:
@@ -78,11 +86,15 @@ typedef FakeList< Row > List;
 struct FakeEffect
 {
 	List *m_pList;
-	bool  m_bHooked;
-	int   m_nReleases;
+	bool m_bHooked;
+	int m_nReleases;
 
 	FakeEffect( List *pList, bool bHooked = true )
-		: m_pList( pList ), m_bHooked( bHooked ), m_nReleases( 0 ) {}
+		: m_pList( pList )
+		, m_bHooked( bHooked )
+		, m_nReleases( 0 )
+	{
+	}
 
 	void Release()
 	{
@@ -96,7 +108,7 @@ struct FakeEffect
 void Add( List &list, unsigned int hOwner, FakeEffect *pEffect )
 {
 	Row row;
-	row.hOwner  = hOwner;
+	row.hOwner = hOwner;
 	row.pEffect = pEffect;
 	list.AddToTail( row );
 }
@@ -310,7 +322,7 @@ TEST( ShellEffectRegistry, ReleaseAloneIsEnoughAndRemovingAsWellEatsANeighbour )
 	EXPECT_EQ( 0, wrong.Count() ) << "d's row was eaten by the redundant Remove";
 }
 
-}  // namespace
+} // namespace
 
 //=============================================================================
 // PART 2 — AND EVERY SHELL ASKS IT, WHICH IS A DIFFERENT KIND OF FACT.
@@ -344,7 +356,11 @@ namespace
 // that a shell DELETED is a red test and not a silently shorter list.
 // nOwnLoops is how many hand-rolled lookups the shell is ALLOWED, which is zero
 // everywhere but one — and the one is not a leftover.
-struct Shell_t { const char *pszFile; size_t nCalls; size_t nOwnLoops; };
+struct Shell_t
+{
+	const char *pszFile;
+	size_t nCalls;
+	size_t nOwnLoops;
+};
 
 } // namespace
-

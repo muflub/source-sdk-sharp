@@ -14,7 +14,10 @@
 #include "materialsystem/imaterialsystem.h"
 #include "particles/particles.h"
 
-enum { BEAM_STRIP_VERTEX_FLOATS = 17 };
+enum
+{
+	BEAM_STRIP_VERTEX_FLOATS = 17
+};
 
 namespace ss
 {

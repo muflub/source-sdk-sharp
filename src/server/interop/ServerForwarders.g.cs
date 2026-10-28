@@ -88,7 +88,7 @@ internal unsafe struct EngineServerFwd : IForwarderTable
     // void IVEngineServer::EmitAmbientSound( int, const Vector &, const char *, float, soundlevel_t, int, int, float )
     public delegate* unmanaged<void*, int, void*, byte*, float, int, int, int, float, void> EmitAmbientSound;
 
-    // void IVEngineServer::Message_DetermineMulticastRecipients( bool, const Vector &, CBitVec< ABSOLUTE_PLAYER_LIMIT > & )
+    // void IVEngineServer::Message_DetermineMulticastRecipients( bool, const Vector &, CBitVec<ABSOLUTE_PLAYER_LIMIT> & )
     public delegate* unmanaged<void*, byte, void*, void*, void> Message_DetermineMulticastRecipients;
 
     // int IVEngineServer::SentenceIndexFromName( const char * )

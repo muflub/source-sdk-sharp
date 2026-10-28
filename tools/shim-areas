@@ -1044,6 +1044,14 @@ def self_test():
     return 0 if all(arms) else 1
 
 
+def formatted(text, name):
+    '''What tools/clang-format makes of a native file this writes.'''
+    import importlib.machinery
+    cf = importlib.machinery.SourceFileLoader(
+        'clang_format_tool', os.path.join(os.path.dirname(os.path.realpath(__file__)), 'clang-format')).load_module()
+    return cf.format_text(text, name)
+
+
 def main(argv):
     if '--self-test' in argv:
         return self_test()
@@ -1055,7 +1063,8 @@ def main(argv):
             return 1
         print('tools/shim-areas: the hand-kept headers declare every TSV interface in its TSV order.')
         return 0
-    out = generate()
+    out = {rel: formatted(text, rel) if rel.endswith(('.h', '.cpp', '.inl')) else text
+           for rel, text in generate().items()}
     if '--write' in argv:
         for rel, text in out.items():
             with open(os.path.join(ROOT, rel), 'w') as f:

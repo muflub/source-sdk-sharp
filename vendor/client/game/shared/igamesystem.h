@@ -33,7 +33,7 @@ public:
 	// Entities are deleted / released here...
 	virtual void LevelShutdownPostEntity() = 0;
 	// end of level shutdown
-	
+
 	// Called during game save
 	virtual void OnSave() = 0;
 
@@ -43,7 +43,7 @@ public:
 	// Called every frame. It's safe to remove an igamesystem from within this callback.
 	virtual void SafeRemoveIfDesired() = 0;
 
-	virtual bool	IsPerFrame() = 0;
+	virtual bool IsPerFrame() = 0;
 
 	// destructor, cleans up automagically....
 	virtual ~IGameSystem();
@@ -51,10 +51,9 @@ public:
 	// These methods are used to add and remove server systems from the
 	// main server loop. The systems are invoked in the order in which
 	// they are added.
-	static void Add ( IGameSystem* pSys );
-	static void Remove ( IGameSystem* pSys );
-	static void RemoveAll (  );
-
+	static void Add( IGameSystem * pSys );
+	static void Remove( IGameSystem * pSys );
+	static void RemoveAll();
 };
 
 class IGameSystemPerFrame : public IGameSystem
@@ -78,29 +77,36 @@ public:
 class CBaseGameSystem : public IGameSystem
 {
 public:
-
 	virtual char const *Name() { return "unnamed"; }
 
 	// Init, shutdown
 	// return true on success. false to abort DLL init!
 	virtual bool Init() { return true; }
+
 	virtual void PostInit() {}
+
 	virtual void Shutdown() {}
 
 	// Level init, shutdown
 	virtual void LevelInitPreEntity() {}
+
 	virtual void LevelInitPostEntity() {}
+
 	virtual void LevelShutdownPreClearSteamAPIContext() {}
+
 	virtual void LevelShutdownPreEntity() {}
+
 	virtual void LevelShutdownPostEntity() {}
 
 	virtual void OnSave() {}
+
 	virtual void OnRestore() {}
+
 	virtual void SafeRemoveIfDesired() {}
 
-	virtual bool	IsPerFrame() { return false; }
-private:
+	virtual bool IsPerFrame() { return false; }
 
+private:
 	// Prevent anyone derived from CBaseGameSystem from implementing these, they need
 	//  to derive from CBaseGameSystemPerFrame below!!!
 	// Called before rendering
@@ -123,30 +129,38 @@ public:
 	// Init, shutdown
 	// return true on success. false to abort DLL init!
 	virtual bool Init() { return true; }
+
 	virtual void PostInit() {}
+
 	virtual void Shutdown() {}
 
 	// Level init, shutdown
 	virtual void LevelInitPreEntity() {}
+
 	virtual void LevelInitPostEntity() {}
+
 	virtual void LevelShutdownPreClearSteamAPIContext() {}
+
 	virtual void LevelShutdownPreEntity() {}
+
 	virtual void LevelShutdownPostEntity() {}
 
 	virtual void OnSave() {}
+
 	virtual void OnRestore() {}
+
 	virtual void SafeRemoveIfDesired() {}
 
-	virtual bool	IsPerFrame() { return true; }
+	virtual bool IsPerFrame() { return true; }
 
 	// Called before rendering
-	virtual void PreRender () { }
+	virtual void PreRender() {}
 
 	// Gets called each frame
-	virtual void Update( float frametime ) { }
+	virtual void Update( float frametime ) {}
 
 	// Called after rendering
-	virtual void PostRender () { }
+	virtual void PostRender() {}
 };
 
 // Quick and dirty server system for users who don't care about precise ordering
@@ -154,8 +168,8 @@ public:
 class CAutoGameSystem : public CBaseGameSystem
 {
 public:
-	CAutoGameSystem( char const *name = NULL );	// hooks in at startup, no need to explicitly add
-	CAutoGameSystem		*m_pNext;
+	CAutoGameSystem( char const *name = NULL ); // hooks in at startup, no need to explicitly add
+	CAutoGameSystem *m_pNext;
 
 	virtual char const *Name() { return m_pszName ? m_pszName : "unnamed"; }
 
@@ -171,7 +185,7 @@ public:
 	CAutoGameSystemPerFrame *m_pNext;
 
 	virtual char const *Name() { return m_pszName ? m_pszName : "unnamed"; }
-	
+
 private:
 	char const *m_pszName;
 };

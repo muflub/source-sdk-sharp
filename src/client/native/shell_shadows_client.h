@@ -8,10 +8,6 @@
 // and the queue the entity shells write.
 #pragma once
 
-
-
-
-
 class CViewSetup;
 class CClientSystem;
 class CBaseHandle;
@@ -20,9 +16,9 @@ class CBaseHandle;
 // call, so an entity that moves every frame costs no crossing of its own.
 enum ShellShadowPending_t
 {
-	SHELL_SHADOW_PENDING_DIRTY = 1,     // entity, 1 when its render-to-texture texture is dirty too
-	SHELL_SHADOW_PENDING_REFRESH = 2,   // entity, shadow type | shadow flags << 8 (the block's, as managed wrote them)
-	SHELL_SHADOW_PENDING_DESTROY = 3,   // entity
+	SHELL_SHADOW_PENDING_DIRTY = 1, // entity, 1 when its render-to-texture texture is dirty too
+	SHELL_SHADOW_PENDING_REFRESH = 2, // entity, shadow type | shadow flags << 8 (the block's, as managed wrote them)
+	SHELL_SHADOW_PENDING_DESTROY = 3, // entity
 	SHELL_SHADOW_PENDING_WORDS = 3,
 	SHELL_SHADOW_PENDING_MAX = 256,
 };

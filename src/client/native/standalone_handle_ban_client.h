@@ -5,9 +5,11 @@
 // SourceSharp_ClientShellFromHandle) instead, which answer NULL for the other kind.
 #pragma once
 
-template< class T > class CHandle;
+template <class T>
+class CHandle;
 class C_StandaloneEntity;
 
 // Declared, never defined. Must be seen before any implicit instantiation, so
 // shell_standalone_client.h includes it.
-template<> class CHandle< C_StandaloneEntity >;
+template <>
+class CHandle<C_StandaloneEntity>;

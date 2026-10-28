@@ -118,13 +118,13 @@ const Letter kLetters[] = {
 	{ 'h', "the CoreCLR host and bootstrap dispatch" },
 	{ 'x', "NO LETTER FITS -- see docs/shim-reasons.md" },
 };
-const size_t kNumLetters = sizeof( kLetters ) / sizeof( kLetters[ 0 ] );
+const size_t kNumLetters = sizeof( kLetters ) / sizeof( kLetters[0] );
 
 const char *TextForLetter( char c )
 {
 	for ( size_t i = 0; i < kNumLetters; i++ )
-		if ( kLetters[ i ].c == c )
-			return kLetters[ i ].pszText;
+		if ( kLetters[i].c == c )
+			return kLetters[i].pszText;
 	return NULL;
 }
 
@@ -133,14 +133,14 @@ char MarkerLetterOf( const std::string &strLine )
 {
 	const size_t nPrefix = strlen( kMarkerPrefix );
 	if ( strLine.compare( 0, nPrefix, kMarkerPrefix ) != 0 )
-		return '\0';                         // must start at column zero
+		return '\0'; // must start at column zero
 	if ( strLine.size() < nPrefix + 3 )
 		return '\0';
-	const char c = strLine[ nPrefix ];
+	const char c = strLine[nPrefix];
 	if ( TextForLetter( c ) == NULL )
-		return '\0';                         // not one of the nine
-	if ( strLine[ nPrefix + 1 ] != ' ' || strLine[ nPrefix + 2 ] != ' ' )
-		return '\0';                         // exactly two spaces
+		return '\0'; // not one of the nine
+	if ( strLine[nPrefix + 1] != ' ' || strLine[nPrefix + 2] != ' ' )
+		return '\0'; // exactly two spaces
 	return c;
 }
 
@@ -180,8 +180,7 @@ TEST( ShimReasonLetters, ProseAboutTheMarkerIsNotAMarker )
 		<< "a sentence ABOUT the marker. This is the exact shape that has "
 		   "been read as code four times on this project.";
 	EXPECT_EQ( MarkerLetterOf( "//  SS_REASON a  a vtable the engine calls through" ), '\0' );
-	EXPECT_EQ( MarkerLetterOf( "// SS_REASON a a vtable the engine calls through" ), '\0' )
-		<< "one space, not two";
+	EXPECT_EQ( MarkerLetterOf( "// SS_REASON a a vtable the engine calls through" ), '\0' ) << "one space, not two";
 	EXPECT_EQ( MarkerLetterOf( "// SS_REASON i  some ninth reason nobody agreed" ), '\0' )
 		<< "there are eight letters and one x. A ninth would be a new licence "
 		   "to write C++ and cannot be created by typing one.";

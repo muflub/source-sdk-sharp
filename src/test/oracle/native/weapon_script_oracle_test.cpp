@@ -97,9 +97,9 @@
 void UTIL_DecodeICE( unsigned char *, int, const unsigned char * )
 {
 	ADD_FAILURE() << "UTIL_DecodeICE was called. No shipped weapon script is "
-	                 "encrypted, so reaching this means the test drove the "
-	                 ".ctx path by accident and its readings are of a buffer "
-	                 "nothing decoded.";
+					 "encrypted, so reaching this means the test drove the "
+					 ".ctx path by accident and its readings are of a buffer "
+					 "nothing decoded.";
 }
 
 // Upstream's ammodef.h only DECLARES CAmmoDef's constructor, destructor and
@@ -113,9 +113,7 @@ CAmmoDef::CAmmoDef()
 	m_nAmmoIndex = 1;
 }
 
-CAmmoDef::~CAmmoDef()
-{
-}
+CAmmoDef::~CAmmoDef() {}
 
 int CAmmoDef::Index( const char * )
 {
@@ -134,27 +132,16 @@ CAmmoDef *GetAmmoDef()
 // script disappearing is a RED TEST and not a silently shorter run --
 // `a check that cannot fail` is the recorded failure this guards against.
 //-----------------------------------------------------------------------------
-static const char *const kWeapons[] =
-{
-	"weapon_357",
-	"weapon_ar2",
-	"weapon_crossbow",
-	"weapon_crowbar",
-	"weapon_cubemap",
-	"weapon_frag",
-	"weapon_physcannon",
-	"weapon_pistol",
-	"weapon_rpg",
-	"weapon_shotgun",
-	"weapon_slam",
-	"weapon_smg1",
-	"weapon_stunstick",
+static const char *const kWeapons[] = {
+	"weapon_357",  "weapon_ar2",        "weapon_crossbow",  "weapon_crowbar", "weapon_cubemap",
+	"weapon_frag", "weapon_physcannon", "weapon_pistol",    "weapon_rpg",     "weapon_shotgun",
+	"weapon_slam", "weapon_smg1",       "weapon_stunstick",
 };
 
 static const int kWeaponCount = (int)( sizeof( kWeapons ) / sizeof( kWeapons[0] ) );
 
 static const char *const kGoldenPath = "sourcesharp/test/weapon_script_cases.txt";
-static const char *const kScriptDir  = "../game/mod_sharp/scripts/";
+static const char *const kScriptDir = "../game/mod_sharp/scripts/";
 static const char *const kRegenMarkerPath = "sourcesharp/test/weapon_script_cases.regen";
 
 //-----------------------------------------------------------------------------
@@ -175,8 +162,8 @@ static std::string ReadFile( const std::string &path, bool *pOk )
 }
 
 // weapon -> ( field -> value ), which is the golden's shape too.
-typedef std::map< std::string, std::string > FieldMap;
-typedef std::map< std::string, FieldMap >    ScriptMap;
+typedef std::map<std::string, std::string> FieldMap;
+typedef std::map<std::string, FieldMap> ScriptMap;
 
 //-----------------------------------------------------------------------------
 // Run the REAL parse over one script.
@@ -208,7 +195,7 @@ static FileWeaponInfo_t *ParseRealScript( const char *pName )
 
 static std::string Int( int v )
 {
-	char buf[ 32 ];
+	char buf[32];
 	V_snprintf( buf, sizeof( buf ), "%d", v );
 	return buf;
 }
@@ -230,40 +217,40 @@ static FieldMap FieldsOf( const FileWeaponInfo_t *pInfo )
 {
 	FieldMap f;
 
-	f[ "classname" ]         = pInfo->szClassName;
-	f[ "printname" ]         = pInfo->szPrintName;
-	f[ "viewmodel" ]         = pInfo->szViewModel;
-	f[ "worldmodel" ]        = pInfo->szWorldModel;
-	f[ "animprefix" ]        = pInfo->szAnimationPrefix;
+	f["classname"] = pInfo->szClassName;
+	f["printname"] = pInfo->szPrintName;
+	f["viewmodel"] = pInfo->szViewModel;
+	f["worldmodel"] = pInfo->szWorldModel;
+	f["animprefix"] = pInfo->szAnimationPrefix;
 
-	f[ "slot" ]              = Int( pInfo->iSlot );
-	f[ "position" ]          = Int( pInfo->iPosition );
+	f["slot"] = Int( pInfo->iSlot );
+	f["position"] = Int( pInfo->iPosition );
 
-	f[ "maxclip1" ]          = Int( pInfo->iMaxClip1 );
-	f[ "maxclip2" ]          = Int( pInfo->iMaxClip2 );
-	f[ "defaultclip1" ]      = Int( pInfo->iDefaultClip1 );
-	f[ "defaultclip2" ]      = Int( pInfo->iDefaultClip2 );
+	f["maxclip1"] = Int( pInfo->iMaxClip1 );
+	f["maxclip2"] = Int( pInfo->iMaxClip2 );
+	f["defaultclip1"] = Int( pInfo->iDefaultClip1 );
+	f["defaultclip2"] = Int( pInfo->iDefaultClip2 );
 
-	f[ "weight" ]            = Int( pInfo->iWeight );
-	f[ "rumble" ]            = Int( pInfo->iRumbleEffect );
-	f[ "flags" ]             = Int( pInfo->iFlags );
+	f["weight"] = Int( pInfo->iWeight );
+	f["rumble"] = Int( pInfo->iRumbleEffect );
+	f["flags"] = Int( pInfo->iFlags );
 
-	f[ "ammo1" ]             = pInfo->szAmmo1;
-	f[ "ammo2" ]             = pInfo->szAmmo2;
+	f["ammo1"] = pInfo->szAmmo1;
+	f["ammo2"] = pInfo->szAmmo2;
 
-	f[ "autoswitchto" ]      = Bool( pInfo->bAutoSwitchTo );
-	f[ "autoswitchfrom" ]    = Bool( pInfo->bAutoSwitchFrom );
-	f[ "melee" ]             = Bool( pInfo->m_bMeleeWeapon );
-	f[ "builtrighthanded" ]  = Bool( pInfo->m_bBuiltRightHanded );
-	f[ "allowflipping" ]     = Bool( pInfo->m_bAllowFlipping );
-	f[ "showusagehint" ]     = Bool( pInfo->bShowUsageHint );
+	f["autoswitchto"] = Bool( pInfo->bAutoSwitchTo );
+	f["autoswitchfrom"] = Bool( pInfo->bAutoSwitchFrom );
+	f["melee"] = Bool( pInfo->m_bMeleeWeapon );
+	f["builtrighthanded"] = Bool( pInfo->m_bBuiltRightHanded );
+	f["allowflipping"] = Bool( pInfo->m_bAllowFlipping );
+	f["showusagehint"] = Bool( pInfo->bShowUsageHint );
 
-	extern const char *pWeaponSoundCategories[ NUM_SHOOT_SOUND_TYPES ];
+	extern const char *pWeaponSoundCategories[NUM_SHOOT_SOUND_TYPES];
 
 	for ( int i = 0; i < NUM_SHOOT_SOUND_TYPES; i++ )
 	{
-		if ( pInfo->aShootSounds[ i ][ 0 ] )
-			f[ std::string( "sound." ) + pWeaponSoundCategories[ i ] ] = pInfo->aShootSounds[ i ];
+		if ( pInfo->aShootSounds[i][0] )
+			f[std::string( "sound." ) + pWeaponSoundCategories[i]] = pInfo->aShootSounds[i];
 	}
 
 	return f;
@@ -284,11 +271,13 @@ static ScriptMap ParseGolden( const std::string &text )
 			continue;
 
 		size_t a = line.find( '\t' );
-		if ( a == std::string::npos ) continue;
+		if ( a == std::string::npos )
+			continue;
 		size_t b = line.find( '\t', a + 1 );
-		if ( b == std::string::npos ) continue;
+		if ( b == std::string::npos )
+			continue;
 
-		out[ line.substr( 0, a ) ][ line.substr( a + 1, b - a - 1 ) ] = line.substr( b + 1 );
+		out[line.substr( 0, a )][line.substr( a + 1, b - a - 1 )] = line.substr( b + 1 );
 	}
 
 	return out;
@@ -300,12 +289,12 @@ static ScriptMap NativeAnswers()
 
 	for ( int i = 0; i < kWeaponCount; i++ )
 	{
-		FileWeaponInfo_t *pInfo = ParseRealScript( kWeapons[ i ] );
+		FileWeaponInfo_t *pInfo = ParseRealScript( kWeapons[i] );
 
 		if ( !pInfo )
 			continue;
 
-		out[ kWeapons[ i ] ] = FieldsOf( pInfo );
+		out[kWeapons[i]] = FieldsOf( pInfo );
 
 		// NOT deleted, and that is deliberate. FileWeaponInfo_t is polymorphic
 		// with a NON-VIRTUAL destructor -- stock's own, which is why its
@@ -407,12 +396,12 @@ protected:
 	{
 		for ( int i = 0; i < kWeaponCount; i++ )
 		{
-			const char *w = kWeapons[ i ];
+			const char *w = kWeapons[i];
 
 			EXPECT_EQ( Golden( w, pField ), Native( w, pField ) )
 				<< w << '.' << pField << ": the REAL FileWeaponInfo_t::Parse and "
-				<< "the golden table disagree. Either weapon_parse.cpp changed or "
-				<< kGoldenPath << " is stale -- do NOT regenerate to make this pass "
+				<< "the golden table disagree. Either weapon_parse.cpp changed or " << kGoldenPath
+				<< " is stale -- do NOT regenerate to make this pass "
 				<< "without establishing which.";
 		}
 	}
@@ -437,27 +426,24 @@ TEST_F( WeaponScriptOracle, TheRealParseAnsweredForEveryShippedScript )
 
 	for ( int i = 0; i < kWeaponCount; i++ )
 	{
-		EXPECT_FALSE( s_native[ kWeapons[ i ] ].empty() )
-			<< kWeapons[ i ] << " parsed to no fields at all";
+		EXPECT_FALSE( s_native[kWeapons[i]].empty() ) << kWeapons[i] << " parsed to no fields at all";
 	}
 }
 
 TEST_F( WeaponScriptOracle, TheGoldenTableIsPresentAndCoversEveryScript )
 {
-	ASSERT_FALSE( s_golden.empty() )
-		<< kGoldenPath << " could not be read or holds no rows. Every comparison "
-		<< "below would then be against an empty map and would pass whatever the "
-		<< "parse said.";
+	ASSERT_FALSE( s_golden.empty() ) << kGoldenPath << " could not be read or holds no rows. Every comparison "
+									 << "below would then be against an empty map and would pass whatever the "
+									 << "parse said.";
 
-	ASSERT_EQ( (size_t)kWeaponCount, s_golden.size() )
-		<< "the golden table does not cover every shipped script.";
+	ASSERT_EQ( (size_t)kWeaponCount, s_golden.size() ) << "the golden table does not cover every shipped script.";
 
 	// Not just present -- SUBSTANTIAL. A golden holding one field per weapon
 	// would satisfy the count above and check almost nothing.
 	for ( int i = 0; i < kWeaponCount; i++ )
 	{
-		EXPECT_GE( s_golden[ kWeapons[ i ] ].size(), (size_t)21 )
-			<< kWeapons[ i ] << " has fewer golden fields than the parse always "
+		EXPECT_GE( s_golden[kWeapons[i]].size(), (size_t)21 )
+			<< kWeapons[i] << " has fewer golden fields than the parse always "
 			<< "produces (21 non-sound fields), so some were dropped.";
 	}
 }
@@ -481,37 +467,35 @@ TEST_F( WeaponScriptOracle, TheSoundCategoryNamesAreLiteralAndInOrder )
 	// something, and it is also what pins WeaponScriptSound's numbering in
 	// SourceSharp.Shared/WeaponScript.cs: the managed enum is the index into
 	// this list.
-	extern const char *pWeaponSoundCategories[ NUM_SHOOT_SOUND_TYPES ];
+	extern const char *pWeaponSoundCategories[NUM_SHOOT_SOUND_TYPES];
 
-	static const char *const kExpected[] =
-	{
-		"empty",            // EMPTY            = 0
-		"single_shot",      // SINGLE           = 1
-		"single_shot_npc",  // SINGLE_NPC       = 2
-		"double_shot",      // WPN_DOUBLE       = 3
-		"double_shot_npc",  // DOUBLE_NPC       = 4
-		"burst",            // BURST            = 5
-		"reload",           // RELOAD           = 6
-		"reload_npc",       // RELOAD_NPC       = 7
-		"melee_miss",       // MELEE_MISS       = 8
-		"melee_hit",        // MELEE_HIT        = 9
-		"melee_hit_world",  // MELEE_HIT_WORLD  = 10
-		"special1",         // SPECIAL1         = 11
-		"special2",         // SPECIAL2         = 12
-		"special3",         // SPECIAL3         = 13
-		"taunt",            // TAUNT            = 14
-		"deploy",           // DEPLOY           = 15
+	static const char *const kExpected[] = {
+		"empty", // EMPTY            = 0
+		"single_shot", // SINGLE           = 1
+		"single_shot_npc", // SINGLE_NPC       = 2
+		"double_shot", // WPN_DOUBLE       = 3
+		"double_shot_npc", // DOUBLE_NPC       = 4
+		"burst", // BURST            = 5
+		"reload", // RELOAD           = 6
+		"reload_npc", // RELOAD_NPC       = 7
+		"melee_miss", // MELEE_MISS       = 8
+		"melee_hit", // MELEE_HIT        = 9
+		"melee_hit_world", // MELEE_HIT_WORLD  = 10
+		"special1", // SPECIAL1         = 11
+		"special2", // SPECIAL2         = 12
+		"special3", // SPECIAL3         = 13
+		"taunt", // TAUNT            = 14
+		"deploy", // DEPLOY           = 15
 	};
 
-	ASSERT_EQ( (int)( sizeof( kExpected ) / sizeof( kExpected[0] ) ),
-	           (int)NUM_SHOOT_SOUND_TYPES )
+	ASSERT_EQ( (int)( sizeof( kExpected ) / sizeof( kExpected[0] ) ), (int)NUM_SHOOT_SOUND_TYPES )
 		<< "a sound category was added or removed in weapon_parse.h. The managed "
 		<< "WeaponScriptSound enum and WeaponScriptSounds.Categories must follow, "
 		<< "and every weapon's sounds shift if the ORDER changed.";
 
 	for ( int i = 0; i < NUM_SHOOT_SOUND_TYPES; i++ )
 	{
-		EXPECT_STREQ( kExpected[ i ], pWeaponSoundCategories[ i ] )
+		EXPECT_STREQ( kExpected[i], pWeaponSoundCategories[i] )
 			<< "category " << i << " is not the name the weapon scripts use.";
 	}
 }
@@ -536,10 +520,10 @@ TEST_F( WeaponScriptOracle, BucketsAgree )
 
 TEST_F( WeaponScriptOracle, SoundsAgree )
 {
-	extern const char *pWeaponSoundCategories[ NUM_SHOOT_SOUND_TYPES ];
+	extern const char *pWeaponSoundCategories[NUM_SHOOT_SOUND_TYPES];
 
 	for ( int i = 0; i < NUM_SHOOT_SOUND_TYPES; i++ )
-		ExpectFieldAgrees( ( std::string( "sound." ) + pWeaponSoundCategories[ i ] ).c_str() );
+		ExpectFieldAgrees( ( std::string( "sound." ) + pWeaponSoundCategories[i] ).c_str() );
 }
 
 TEST_F( WeaponScriptOracle, AmmoNamesAgree )
@@ -624,8 +608,8 @@ TEST_F( WeaponScriptOracle, AnAbsentSecondaryClipIsNoClipAndAZeroOneIsZero )
 	// What is actually worth pinning is that an ABSENT key and an explicit
 	// "-1" reach the same value by different routes, and that "0" is a real,
 	// distinct answer rather than a parse failure.
-	EXPECT_EQ( "-1", Native( "weapon_pistol",     "maxclip2" ) );  // absent
-	EXPECT_EQ( "-1", Native( "weapon_crowbar",    "maxclip2" ) );  // absent
-	EXPECT_EQ( "-1", Native( "weapon_ar2",        "maxclip2" ) );  // explicit -1
-	EXPECT_EQ( "0",  Native( "weapon_physcannon", "maxclip2" ) );  // explicit 0
+	EXPECT_EQ( "-1", Native( "weapon_pistol", "maxclip2" ) ); // absent
+	EXPECT_EQ( "-1", Native( "weapon_crowbar", "maxclip2" ) ); // absent
+	EXPECT_EQ( "-1", Native( "weapon_ar2", "maxclip2" ) ); // explicit -1
+	EXPECT_EQ( "0", Native( "weapon_physcannon", "maxclip2" ) ); // explicit 0
 }

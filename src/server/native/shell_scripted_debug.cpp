@@ -9,9 +9,8 @@
 
 // Debug builds only.
 
-#include <stdint.h>
 #include "tier0/dbg.h"
-#include "ss_platform.h"
+
 #include "sourcesharp_entrypoints.h"
 #include "shell_scripted_internal.h"
 #include "native_command_body.h"
@@ -24,11 +23,9 @@ static void SourceSharp_PrintReachAddress( const char *pWhat, void *pAddress )
 	// exported symbol is only a hint.
 	if ( SS_ModuleOfAddress( pAddress, &info ) )
 	{
-		Msg( "    %-9s %p  %s+0x%lx  (near %s)\n",
-		     pWhat, pAddress,
-		     info.szPath[ 0 ] ? info.szPath : "?",
-		     (unsigned long)( (const char *)pAddress - (const char *)info.pBase ),
-		     info.pszSymbol ? info.pszSymbol : "?" );
+		Msg( "    %-9s %p  %s+0x%lx  (near %s)\n", pWhat, pAddress, info.szPath[0] ? info.szPath : "?",
+			 (unsigned long)( (const char *)pAddress - (const char *)info.pBase ),
+			 info.pszSymbol ? info.pszSymbol : "?" );
 	}
 	else
 	{
@@ -47,13 +44,13 @@ SS_NATIVE_COMMAND( cs_sv_invisible_reach )
 	if ( nReach == 0 )
 	{
 		Msg( "  nothing crossed. Read this beside status.logical.live -- a build that "
-		     "made no shell-less entities would read zero here too.\n" );
+			 "made no shell-less entities would read zero here too.\n" );
 		return;
 	}
 
 	Msg( "  %d distinct call site(s)%s; resolve with "
-	     "addr2line -f -e game/mod_sharp/bin/linux64/server.so <addr>\n",
-	     nSites, bCapped ? " (capped)" : "" );
+		 "addr2line -f -e game/mod_sharp/bin/linux64/server.so <addr>\n",
+		 nSites, bCapped ? " (capped)" : "" );
 
 	for ( int i = 0; i < nSites; i++ )
 	{

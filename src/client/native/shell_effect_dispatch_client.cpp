@@ -9,36 +9,18 @@
 // The client's effect registrations. Managed picks the effect by name; native keeps the
 // list DECLARE_CLIENT_EFFECT joins at static init and the doors in and out of it.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
 #include "c_te_effect_dispatch.h"
-#include "effect_dispatch_data.h"
+
 #include "c_recipientfilter.h"
 #include "itempents.h"
-#include "mathlib/vector.h"
-#include "tier1/strtools.h"
-#include "basehandle.h"
-#include "collisionproperty.h"
-#include "eiface.h"
-#include "iclientnetworkable.h"
-#include "irecipientfilter.h"
-#include "particle_parse.h"
 
 #include "shell_cliententitylist.h"
 
-#include "sourcesharp.h"
 #include "imanaged_areas_client.h"
 
 // Zero-initialised, so ready before any DECLARE_CLIENT_EFFECT constructor runs.
@@ -71,24 +53,22 @@ void EffectDataToClient( const SourceSharpEffectData_t *pData, CEffectData *pOut
 	CEffectData &data = *pOut;
 
 	data.m_vOrigin.Init( pData->OriginXYZ[0], pData->OriginXYZ[1], pData->OriginXYZ[2] );
-	data.m_vStart.Init ( pData->StartXYZ[0],  pData->StartXYZ[1],  pData->StartXYZ[2]  );
+	data.m_vStart.Init( pData->StartXYZ[0], pData->StartXYZ[1], pData->StartXYZ[2] );
 	data.m_vNormal.Init( pData->NormalXYZ[0], pData->NormalXYZ[1], pData->NormalXYZ[2] );
 	data.m_vAngles.Init( pData->AnglesPYR[0], pData->AnglesPYR[1], pData->AnglesPYR[2] );
 
-	data.m_fFlags           = pData->Flags;
-	data.m_flScale          = pData->Scale;
-	data.m_flMagnitude      = pData->Magnitude;
-	data.m_flRadius         = pData->Radius;
+	data.m_fFlags = pData->Flags;
+	data.m_flScale = pData->Scale;
+	data.m_flMagnitude = pData->Magnitude;
+	data.m_flRadius = pData->Radius;
 	data.m_nAttachmentIndex = pData->AttachmentIndex;
-	data.m_nSurfaceProp     = (short)pData->SurfaceProp;
-	data.m_nMaterial        = pData->Material;
-	data.m_nDamageType      = pData->DamageType;
-	data.m_nHitBox          = pData->HitBox;
-	data.m_nColor           = (unsigned char)pData->Color;
+	data.m_nSurfaceProp = (short)pData->SurfaceProp;
+	data.m_nMaterial = pData->Material;
+	data.m_nDamageType = pData->DamageType;
+	data.m_nHitBox = pData->HitBox;
+	data.m_nColor = (unsigned char)pData->Color;
 
-	data.m_hEntity = ( pData->EntIndex >= 0 )
-	               ? SourceSharp_ClientHandleFromIndex( pData->EntIndex )
-	               : INVALID_EHANDLE;
+	data.m_hEntity = ( pData->EntIndex >= 0 ) ? SourceSharp_ClientHandleFromIndex( pData->EntIndex ) : INVALID_EHANDLE;
 
 	data.m_bCustomColors = ( pData->CustomColors != 0 );
 	data.m_CustomColors.m_vecColor1.Init( pData->Color1XYZ[0], pData->Color1XYZ[1], pData->Color1XYZ[2] );
@@ -96,9 +76,8 @@ void EffectDataToClient( const SourceSharpEffectData_t *pData, CEffectData *pOut
 
 	data.m_bControlPoint1 = ( pData->ControlPoint1 != 0 );
 	data.m_ControlPoint1.m_eParticleAttachment = (ParticleAttachment_t)pData->ControlPointAttachment;
-	data.m_ControlPoint1.m_vecOffset.Init( pData->ControlPointOffsetXYZ[0],
-	                                       pData->ControlPointOffsetXYZ[1],
-	                                       pData->ControlPointOffsetXYZ[2] );
+	data.m_ControlPoint1.m_vecOffset.Init( pData->ControlPointOffsetXYZ[0], pData->ControlPointOffsetXYZ[1],
+										   pData->ControlPointOffsetXYZ[2] );
 }
 
 // The handle crosses as its entry index, -1 for none.
@@ -106,33 +85,47 @@ void EffectDataFromClient( const CEffectData &data, SourceSharpEffectData_t *pOu
 {
 	SourceSharpEffectData_t &d = *pOut;
 
-	d.OriginXYZ[0] = data.m_vOrigin.x; d.OriginXYZ[1] = data.m_vOrigin.y; d.OriginXYZ[2] = data.m_vOrigin.z;
-	d.StartXYZ[0]  = data.m_vStart.x;  d.StartXYZ[1]  = data.m_vStart.y;  d.StartXYZ[2]  = data.m_vStart.z;
-	d.NormalXYZ[0] = data.m_vNormal.x; d.NormalXYZ[1] = data.m_vNormal.y; d.NormalXYZ[2] = data.m_vNormal.z;
-	d.AnglesPYR[0] = data.m_vAngles.x; d.AnglesPYR[1] = data.m_vAngles.y; d.AnglesPYR[2] = data.m_vAngles.z;
+	d.OriginXYZ[0] = data.m_vOrigin.x;
+	d.OriginXYZ[1] = data.m_vOrigin.y;
+	d.OriginXYZ[2] = data.m_vOrigin.z;
+	d.StartXYZ[0] = data.m_vStart.x;
+	d.StartXYZ[1] = data.m_vStart.y;
+	d.StartXYZ[2] = data.m_vStart.z;
+	d.NormalXYZ[0] = data.m_vNormal.x;
+	d.NormalXYZ[1] = data.m_vNormal.y;
+	d.NormalXYZ[2] = data.m_vNormal.z;
+	d.AnglesPYR[0] = data.m_vAngles.x;
+	d.AnglesPYR[1] = data.m_vAngles.y;
+	d.AnglesPYR[2] = data.m_vAngles.z;
 
-	d.Flags           = data.m_fFlags;
-	d.EntIndex        = data.m_hEntity.IsValid() ? data.m_hEntity.GetEntryIndex() : -1;
-	d.Scale           = data.m_flScale;
-	d.Magnitude       = data.m_flMagnitude;
-	d.Radius          = data.m_flRadius;
+	d.Flags = data.m_fFlags;
+	d.EntIndex = data.m_hEntity.IsValid() ? data.m_hEntity.GetEntryIndex() : -1;
+	d.Scale = data.m_flScale;
+	d.Magnitude = data.m_flMagnitude;
+	d.Radius = data.m_flRadius;
 	d.AttachmentIndex = data.m_nAttachmentIndex;
-	d.SurfaceProp     = data.m_nSurfaceProp;
-	d.Material        = data.m_nMaterial;
-	d.DamageType      = data.m_nDamageType;
-	d.HitBox          = data.m_nHitBox;
-	d.Color           = data.m_nColor;
+	d.SurfaceProp = data.m_nSurfaceProp;
+	d.Material = data.m_nMaterial;
+	d.DamageType = data.m_nDamageType;
+	d.HitBox = data.m_nHitBox;
+	d.Color = data.m_nColor;
 
 	d.CustomColors = data.m_bCustomColors ? 1 : 0;
 	const Vector &c1 = data.m_CustomColors.m_vecColor1;
 	const Vector &c2 = data.m_CustomColors.m_vecColor2;
-	d.Color1XYZ[0] = c1.x; d.Color1XYZ[1] = c1.y; d.Color1XYZ[2] = c1.z;
-	d.Color2XYZ[0] = c2.x; d.Color2XYZ[1] = c2.y; d.Color2XYZ[2] = c2.z;
+	d.Color1XYZ[0] = c1.x;
+	d.Color1XYZ[1] = c1.y;
+	d.Color1XYZ[2] = c1.z;
+	d.Color2XYZ[0] = c2.x;
+	d.Color2XYZ[1] = c2.y;
+	d.Color2XYZ[2] = c2.z;
 
-	d.ControlPoint1          = data.m_bControlPoint1 ? 1 : 0;
+	d.ControlPoint1 = data.m_bControlPoint1 ? 1 : 0;
 	d.ControlPointAttachment = (int32_t)data.m_ControlPoint1.m_eParticleAttachment;
 	const Vector &off = data.m_ControlPoint1.m_vecOffset;
-	d.ControlPointOffsetXYZ[0] = off.x; d.ControlPointOffsetXYZ[1] = off.y; d.ControlPointOffsetXYZ[2] = off.z;
+	d.ControlPointOffsetXYZ[0] = off.x;
+	d.ControlPointOffsetXYZ[1] = off.y;
+	d.ControlPointOffsetXYZ[2] = off.z;
 }
 
 } // namespace
@@ -199,7 +192,8 @@ void DispatchEffectToCallback( const char *pEffectName, const CEffectData &data 
 
 // TE_DispatchEffect is the client's ITempEntsSystem::DispatchEffect body; DispatchEffect
 // is a client dispatching for itself through that same te.
-void TE_DispatchEffect( IRecipientFilter& filter, float delay, const Vector &pos, const char *pName, const CEffectData &data )
+void TE_DispatchEffect( IRecipientFilter &filter, float delay, const Vector &pos, const char *pName,
+						const CEffectData &data )
 {
 	DispatchEffectToCallback( pName, data );
 }

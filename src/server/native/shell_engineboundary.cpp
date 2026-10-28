@@ -13,28 +13,25 @@
 #include "networkstringtabledefs.h"
 #include "engine/IEngineTrace.h"
 #include "filesystem.h"
-#include "ivoiceserver.h"
-#include "ispatialpartition.h"
+
 #include "engine/IEngineSound.h"
 #include "engine/IStaticPropMgr.h"
 #include "engine/ivdebugoverlay.h"
-#include "datacache/idatacache.h"
+
 #include "igameevents.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "scenefilecache/ISceneFileCache.h"
 
 #include "eiface.h"
 #include "ss_init_factory.h"
-#include "vstdlib/random.h"
-#include "tier0/icommandline.h"
+
 #include "datacache/imdlcache.h"
 #include "shell_server.h"
 
 IUploadGameStats *gamestatsuploader = NULL;
 
 // Engine interfaces, assigned only by SourceSharp_AcquireEngineInterfaces.
-IVEngineServer	*engine = NULL;
-IFileSystem		*filesystem = NULL;
+IVEngineServer *engine = NULL;
+IFileSystem *filesystem = NULL;
 INetworkStringTableContainer *networkstringtable = NULL;
 IStaticPropMgrServer *staticpropmgr = NULL;
 // sharedInterface.h renames `random` to random_valve under POSIX, so that is the link name.
@@ -43,7 +40,7 @@ ISpatialPartition *partition = NULL;
 IVModelInfo *modelinfo = NULL;
 IEngineTrace *enginetrace = NULL;
 IGameEventManager2 *gameeventmanager = NULL;
-IVDebugOverlay * debugoverlay = NULL;
+IVDebugOverlay *debugoverlay = NULL;
 
 // Created by SourceSharp_CreateNetworkStringTables (shell_stringtables.cpp).
 INetworkStringTable *g_pStringTableParticleEffectNames = NULL;
@@ -71,28 +68,32 @@ extern IMDLCache *mdlcache;
 
 // Acquires the engine interfaces and loads the game event files. Returns false on
 // the first missing interface, as stock's DLLInit does.
-bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
-                                          CreateInterfaceFn physicsFactory,
-                                          CreateInterfaceFn fileSystemFactory )
+bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory,
+										  CreateInterfaceFn fileSystemFactory )
 {
-	if ( (networkstringtable = (INetworkStringTableContainer *)appSystemFactory( INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL )) == NULL )
+	if ( ( networkstringtable = (INetworkStringTableContainer *)appSystemFactory(
+			   INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL ) ) == NULL )
 		return false;
-	if ( (staticpropmgr = (IStaticPropMgrServer *)appSystemFactory( INTERFACEVERSION_STATICPROPMGR_SERVER, NULL )) == NULL )
+	if ( ( staticpropmgr = (IStaticPropMgrServer *)appSystemFactory( INTERFACEVERSION_STATICPROPMGR_SERVER, NULL ) ) ==
+		 NULL )
 		return false;
-	if ( (random_valve = (IUniformRandomStream *)appSystemFactory( VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL )) == NULL )
+	if ( ( random_valve = (IUniformRandomStream *)appSystemFactory( VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL ) ) ==
+		 NULL )
 		return false;
-	if ( (::partition = (ISpatialPartition *)appSystemFactory( INTERFACEVERSION_SPATIALPARTITION, NULL )) == NULL )
+	if ( ( ::partition = (ISpatialPartition *)appSystemFactory( INTERFACEVERSION_SPATIALPARTITION, NULL ) ) == NULL )
 		return false;
-	if ( (modelinfo = (IVModelInfo *)appSystemFactory( VMODELINFO_SERVER_INTERFACE_VERSION, NULL )) == NULL )
+	if ( ( modelinfo = (IVModelInfo *)appSystemFactory( VMODELINFO_SERVER_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( (enginetrace = (IEngineTrace *)appSystemFactory( INTERFACEVERSION_ENGINETRACE_SERVER, NULL )) == NULL )
+	if ( ( enginetrace = (IEngineTrace *)appSystemFactory( INTERFACEVERSION_ENGINETRACE_SERVER, NULL ) ) == NULL )
 		return false;
-	if ( (filesystem = (IFileSystem *)fileSystemFactory( FILESYSTEM_INTERFACE_VERSION, NULL )) == NULL )
+	if ( ( filesystem = (IFileSystem *)fileSystemFactory( FILESYSTEM_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( (gameeventmanager = (IGameEventManager2 *)appSystemFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL )) == NULL )
+	if ( ( gameeventmanager = (IGameEventManager2 *)appSystemFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL ) ) ==
+		 NULL )
 		return false;
 
-	if ( (gamestatsuploader = (IUploadGameStats *)appSystemFactory( INTERFACEVERSION_UPLOADGAMESTATS, NULL )) == NULL )
+	if ( ( gamestatsuploader = (IUploadGameStats *)appSystemFactory( INTERFACEVERSION_UPLOADGAMESTATS, NULL ) ) ==
+		 NULL )
 		return false;
 	ISoundEmitterSystemBase *pSoundEmitter =
 		(ISoundEmitterSystemBase *)appSystemFactory( SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL );

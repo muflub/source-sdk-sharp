@@ -49,173 +49,167 @@ inline Vec3 VecFrom( const float *p )
 // each call.
 struct EffectRequest
 {
-	bool  bDraw;
+	bool bDraw;
 
-	Vec3  vecPosition;
+	Vec3 vecPosition;
 
 	// A direction the caller may omit; only Sparks accepts none.
-	bool  bHasDirection;
-	Vec3  vecDirection;
+	bool bHasDirection;
+	Vec3 vecDirection;
 
 	// Pitch-yaw-roll, for the muzzle flash.
-	Vec3  vecAngles;
+	Vec3 vecAngles;
 
-	int   nMagnitude;
-	int   nTrailLength;
-	int   nModelIndex;
+	int nMagnitude;
+	int nTrailLength;
+	int nModelIndex;
 
 	// Already tenfold for smoke, as both stock callers pass m_fScale * 10.0f.
 	float flScale;
 	float flFrameRate;
 
 	// MUZZLEFLASH_TYPE_*.
-	int   nType;
+	int nType;
 };
 
 inline EffectRequest EffectRequestZero()
 {
 	EffectRequest req;
 
-	req.bDraw         = false;
-	req.vecPosition   = VecZero();
+	req.bDraw = false;
+	req.vecPosition = VecZero();
 	req.bHasDirection = false;
-	req.vecDirection  = VecZero();
-	req.vecAngles     = VecZero();
-	req.nMagnitude    = 0;
-	req.nTrailLength  = 0;
-	req.nModelIndex   = 0;
-	req.flScale       = 0.0f;
-	req.flFrameRate   = 0.0f;
-	req.nType         = 0;
+	req.vecDirection = VecZero();
+	req.vecAngles = VecZero();
+	req.nMagnitude = 0;
+	req.nTrailLength = 0;
+	req.nModelIndex = 0;
+	req.flScale = 0.0f;
+	req.flFrameRate = 0.0f;
+	req.nType = 0;
 
 	return req;
 }
 
 // Electric sparks. The direction stays optional: a NULL is a spark with no preferred
 // direction, not one aimed at a zero vector.
-inline EffectRequest Sparks( const float *pPositionXYZ,
-                             int nMagnitude, int nTrailLength,
-                             const float *pDirectionXYZ )
+inline EffectRequest Sparks( const float *pPositionXYZ, int nMagnitude, int nTrailLength, const float *pDirectionXYZ )
 {
 	EffectRequest req = EffectRequestZero();
 
 	if ( !pPositionXYZ )
 		return req;
 
-	req.bDraw         = true;
-	req.vecPosition   = VecFrom( pPositionXYZ );
-	req.nMagnitude    = nMagnitude;
-	req.nTrailLength  = nTrailLength;
+	req.bDraw = true;
+	req.vecPosition = VecFrom( pPositionXYZ );
+	req.nMagnitude = nMagnitude;
+	req.nTrailLength = nTrailLength;
 	req.bHasDirection = ( pDirectionXYZ != 0 );
-	req.vecDirection  = VecFrom( pDirectionXYZ );
+	req.vecDirection = VecFrom( pDirectionXYZ );
 
 	return req;
 }
 
 // Ricochet and MetalSparks: a position and a direction.
-inline EffectRequest PositionAndDirection( const float *pPositionXYZ,
-                                           const float *pDirectionXYZ )
+inline EffectRequest PositionAndDirection( const float *pPositionXYZ, const float *pDirectionXYZ )
 {
 	EffectRequest req = EffectRequestZero();
 
 	if ( !pPositionXYZ || !pDirectionXYZ )
 		return req;
 
-	req.bDraw         = true;
-	req.vecPosition   = VecFrom( pPositionXYZ );
+	req.bDraw = true;
+	req.vecPosition = VecFrom( pPositionXYZ );
 	req.bHasDirection = true;
-	req.vecDirection  = VecFrom( pDirectionXYZ );
+	req.vecDirection = VecFrom( pDirectionXYZ );
 
 	return req;
 }
 
-inline EffectRequest Smoke( const float *pOriginXYZ, int nModelIndex,
-                            float flScale, float flFrameRate )
+inline EffectRequest Smoke( const float *pOriginXYZ, int nModelIndex, float flScale, float flFrameRate )
 {
 	EffectRequest req = EffectRequestZero();
 
 	if ( !pOriginXYZ )
 		return req;
 
-	req.bDraw       = true;
+	req.bDraw = true;
 	req.vecPosition = VecFrom( pOriginXYZ );
 	req.nModelIndex = nModelIndex;
-	req.flScale     = flScale;
+	req.flScale = flScale;
 	req.flFrameRate = flFrameRate;
 
 	return req;
 }
 
 // A muzzle flash. The angles are required.
-inline EffectRequest MuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR,
-                                  float flScale, int nType )
+inline EffectRequest MuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int nType )
 {
 	EffectRequest req = EffectRequestZero();
 
 	if ( !pOriginXYZ || !pAnglesPYR )
 		return req;
 
-	req.bDraw       = true;
+	req.bDraw = true;
 	req.vecPosition = VecFrom( pOriginXYZ );
-	req.vecAngles   = VecFrom( pAnglesPYR );
-	req.flScale     = flScale;
-	req.nType       = nType;
+	req.vecAngles = VecFrom( pAnglesPYR );
+	req.flScale = flScale;
+	req.nType = nType;
 
 	return req;
 }
 
 struct DecalRequest
 {
-	bool  bDraw;
+	bool bDraw;
 
-	int   nDecalIndex;
+	int nDecalIndex;
 
 	// An entity index, resolved by the .cpp. Zero is the world and valid; negative is not.
-	int   nEntity;
+	int nEntity;
 
-	Vec3  vecPosition;
+	Vec3 vecPosition;
 
 	// The decal's S axis, optional. NULL and a zero vector are different arguments to
 	// DecalShoot, so the flag is carried.
-	bool  bHasSAxis;
-	Vec3  vecSAxis;
+	bool bHasSAxis;
+	Vec3 vecSAxis;
 
-	int   nFlags;
+	int nFlags;
 };
 
 inline DecalRequest DecalRequestZero()
 {
 	DecalRequest req;
 
-	req.bDraw       = false;
+	req.bDraw = false;
 	req.nDecalIndex = -1;
-	req.nEntity     = 0;
+	req.nEntity = 0;
 	req.vecPosition = VecZero();
-	req.bHasSAxis   = false;
-	req.vecSAxis    = VecZero();
-	req.nFlags      = 0;
+	req.bHasSAxis = false;
+	req.vecSAxis = VecZero();
+	req.nFlags = 0;
 
 	return req;
 }
 
 // A decal on the world, a brush model or a static prop. A negative decal index (an unknown
 // name's -1) or entity index is refused: DecalShoot would index below zero.
-inline DecalRequest DecalShoot( int nDecalIndex, int nEntity,
-                                const float *pPositionXYZ, const float *pSAxisXYZ,
-                                int nFlags )
+inline DecalRequest DecalShoot( int nDecalIndex, int nEntity, const float *pPositionXYZ, const float *pSAxisXYZ,
+								int nFlags )
 {
 	DecalRequest req = DecalRequestZero();
 
 	if ( !pPositionXYZ || nDecalIndex < 0 || nEntity < 0 )
 		return req;
 
-	req.bDraw       = true;
+	req.bDraw = true;
 	req.nDecalIndex = nDecalIndex;
-	req.nEntity     = nEntity;
+	req.nEntity = nEntity;
 	req.vecPosition = VecFrom( pPositionXYZ );
-	req.bHasSAxis   = ( pSAxisXYZ != 0 );
-	req.vecSAxis    = VecFrom( pSAxisXYZ );
-	req.nFlags      = nFlags;
+	req.bHasSAxis = ( pSAxisXYZ != 0 );
+	req.vecSAxis = VecFrom( pSAxisXYZ );
+	req.nFlags = nFlags;
 
 	return req;
 }
@@ -229,26 +223,26 @@ struct StaticPropDecalRequest
 	Vec3 vecStart;
 	Vec3 vecEnd;
 
-	int  nStaticPropIndex;
+	int nStaticPropIndex;
 
-	int  nDecalIndex;
+	int nDecalIndex;
 };
 
 inline StaticPropDecalRequest StaticPropDecalRequestZero()
 {
 	StaticPropDecalRequest req;
 
-	req.bDraw            = false;
-	req.vecStart         = VecZero();
-	req.vecEnd           = VecZero();
+	req.bDraw = false;
+	req.vecStart = VecZero();
+	req.vecEnd = VecZero();
 	req.nStaticPropIndex = -1;
-	req.nDecalIndex      = -1;
+	req.nDecalIndex = -1;
 
 	return req;
 }
 
-inline StaticPropDecalRequest DecalStaticProp( const float *pStartXYZ, const float *pEndXYZ,
-                                               int nStaticPropIndex, int nDecalIndex )
+inline StaticPropDecalRequest DecalStaticProp( const float *pStartXYZ, const float *pEndXYZ, int nStaticPropIndex,
+											   int nDecalIndex )
 {
 	StaticPropDecalRequest req = StaticPropDecalRequestZero();
 
@@ -256,11 +250,11 @@ inline StaticPropDecalRequest DecalStaticProp( const float *pStartXYZ, const flo
 	if ( !pStartXYZ || !pEndXYZ || nStaticPropIndex < 0 || nDecalIndex < 0 )
 		return req;
 
-	req.bDraw            = true;
-	req.vecStart         = VecFrom( pStartXYZ );
-	req.vecEnd           = VecFrom( pEndXYZ );
+	req.bDraw = true;
+	req.vecStart = VecFrom( pStartXYZ );
+	req.vecEnd = VecFrom( pEndXYZ );
 	req.nStaticPropIndex = nStaticPropIndex;
-	req.nDecalIndex      = nDecalIndex;
+	req.nDecalIndex = nDecalIndex;
 
 	return req;
 }
@@ -273,17 +267,17 @@ struct TraceLineRequest
 	Vec3 vecEnd;
 
 	// One of SourceSharpTraceMask; this header cannot see the engine's MASK_* constants.
-	int  nMask;
+	int nMask;
 };
 
 inline TraceLineRequest TraceLineRequestZero()
 {
 	TraceLineRequest req;
 
-	req.bTrace   = false;
+	req.bTrace = false;
 	req.vecStart = VecZero();
-	req.vecEnd   = VecZero();
-	req.nMask    = SOURCESHARP_TRACE_BRUSHES;
+	req.vecEnd = VecZero();
+	req.nMask = SOURCESHARP_TRACE_BRUSHES;
 
 	return req;
 }
@@ -295,10 +289,10 @@ inline TraceLineRequest TraceLineArgs( const float *pStartXYZ, const float *pEnd
 	if ( !pStartXYZ || !pEndXYZ )
 		return req;
 
-	req.bTrace   = true;
+	req.bTrace = true;
 	req.vecStart = VecFrom( pStartXYZ );
-	req.vecEnd   = VecFrom( pEndXYZ );
-	req.nMask    = nMask;
+	req.vecEnd = VecFrom( pEndXYZ );
+	req.nMask = nMask;
 
 	return req;
 }
@@ -307,21 +301,21 @@ inline TraceLineRequest TraceLineArgs( const float *pStartXYZ, const float *pEnd
 // something counts as a hit, as stock's rule.
 struct TraceAnswer
 {
-	bool  bHit;
+	bool bHit;
 
 	float flFraction;
-	Vec3  vecEnd;
-	Vec3  vecNormal;
+	Vec3 vecEnd;
+	Vec3 vecNormal;
 
 	// Non-zero is a static prop, numbered from one; zero is world, brush or a hitbox-less entity.
-	int   nHitbox;
+	int nHitbox;
 
 	// Answers for both hierarchies. -1 for nothing.
-	int   nEntityIndex;
+	int nEntityIndex;
 
 	// csurface_t's shorts, widened to int for the boundary.
-	int   nSurfaceProps;
-	int   nSurfaceFlags;
+	int nSurfaceProps;
+	int nSurfaceFlags;
 };
 
 inline TraceAnswer TraceAnswerMiss( const Vec3 &vecEnd )
@@ -329,12 +323,12 @@ inline TraceAnswer TraceAnswerMiss( const Vec3 &vecEnd )
 	TraceAnswer ans;
 
 	// A miss ends where it was aimed with fraction one.
-	ans.bHit          = false;
-	ans.flFraction    = 1.0f;
-	ans.vecEnd        = vecEnd;
-	ans.vecNormal     = VecZero();
-	ans.nHitbox       = 0;
-	ans.nEntityIndex  = -1;
+	ans.bHit = false;
+	ans.flFraction = 1.0f;
+	ans.vecEnd = vecEnd;
+	ans.vecNormal = VecZero();
+	ans.nHitbox = 0;
+	ans.nEntityIndex = -1;
 	ans.nSurfaceProps = -1;
 	ans.nSurfaceFlags = 0;
 
@@ -342,10 +336,8 @@ inline TraceAnswer TraceAnswerMiss( const Vec3 &vecEnd )
 }
 
 // The answer into whichever out pointers the caller supplied; every one may be NULL.
-inline int WriteTraceOuts( const TraceAnswer &ans,
-                           float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ,
-                           int *pOutHitbox, int *pOutEntityIndex,
-                           int *pOutSurfaceProps, int *pOutSurfaceFlags )
+inline int WriteTraceOuts( const TraceAnswer &ans, float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ,
+						   int *pOutHitbox, int *pOutEntityIndex, int *pOutSurfaceProps, int *pOutSurfaceFlags )
 {
 	if ( pOutFraction )
 		*pOutFraction = ans.flFraction;
@@ -412,30 +404,29 @@ struct StudioDecalRequest
 {
 	bool bDraw;
 
-	int  nEntity;
+	int nEntity;
 
 	Vec3 vecStart;
 	Vec3 vecDelta;
 
-	int  nDecalIndex;
+	int nDecalIndex;
 };
 
 inline StudioDecalRequest StudioDecalRequestZero()
 {
 	StudioDecalRequest req;
 
-	req.bDraw       = false;
-	req.nEntity     = -1;
-	req.vecStart    = VecZero();
-	req.vecDelta    = VecZero();
+	req.bDraw = false;
+	req.nEntity = -1;
+	req.vecStart = VecZero();
+	req.vecDelta = VecZero();
 	req.nDecalIndex = -1;
 
 	return req;
 }
 
-inline StudioDecalRequest DecalStudioModel( int nEntity,
-                                            const float *pRayStartXYZ, const float *pRayDeltaXYZ,
-                                            int nDecalIndex )
+inline StudioDecalRequest DecalStudioModel( int nEntity, const float *pRayStartXYZ, const float *pRayDeltaXYZ,
+											int nDecalIndex )
 {
 	StudioDecalRequest req = StudioDecalRequestZero();
 
@@ -444,10 +435,10 @@ inline StudioDecalRequest DecalStudioModel( int nEntity,
 	if ( !pRayStartXYZ || !pRayDeltaXYZ || nEntity < 0 || nDecalIndex < 0 )
 		return req;
 
-	req.bDraw       = true;
-	req.nEntity     = nEntity;
-	req.vecStart    = VecFrom( pRayStartXYZ );
-	req.vecDelta    = VecFrom( pRayDeltaXYZ );
+	req.bDraw = true;
+	req.nEntity = nEntity;
+	req.vecStart = VecFrom( pRayStartXYZ );
+	req.vecDelta = VecFrom( pRayDeltaXYZ );
 	req.nDecalIndex = nDecalIndex;
 
 	return req;
@@ -457,28 +448,27 @@ struct BrushDecalRequest
 {
 	bool bDraw;
 
-	int  nEntity;
+	int nEntity;
 
 	// AddDecal's third argument, not always its second.
 	Vec3 vecCenter;
 
-	int  nDecalIndex;
+	int nDecalIndex;
 };
 
 inline BrushDecalRequest BrushDecalRequestZero()
 {
 	BrushDecalRequest req;
 
-	req.bDraw       = false;
-	req.nEntity     = -1;
-	req.vecCenter   = VecZero();
+	req.bDraw = false;
+	req.nEntity = -1;
+	req.vecCenter = VecZero();
 	req.nDecalIndex = -1;
 
 	return req;
 }
 
-inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenterXYZ,
-                                          int nDecalIndex )
+inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenterXYZ, int nDecalIndex )
 {
 	BrushDecalRequest req = BrushDecalRequestZero();
 
@@ -486,9 +476,9 @@ inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenter
 	if ( !pDecalCenterXYZ || nEntity < 0 || nDecalIndex < 0 )
 		return req;
 
-	req.bDraw       = true;
-	req.nEntity     = nEntity;
-	req.vecCenter   = VecFrom( pDecalCenterXYZ );
+	req.bDraw = true;
+	req.nEntity = nEntity;
+	req.vecCenter = VecFrom( pDecalCenterXYZ );
 	req.nDecalIndex = nDecalIndex;
 
 	return req;
@@ -497,8 +487,8 @@ inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenter
 // Which entities may stop a predicted shot: any that is solid. ClipRayToEntity does not
 // skip non-solid ones itself. The values are const.h's; shell_worldquery_client.cpp
 // asserts them.
-const int kClipSolidNone = 0;        // SOLID_NONE
-const int kClipNotSolid  = 0x0004;   // FSOLID_NOT_SOLID
+const int kClipSolidNone = 0; // SOLID_NONE
+const int kClipNotSolid = 0x0004; // FSOLID_NOT_SOLID
 
 inline bool ClipCandidateIsSolid( int nSolidType, int nSolidFlags )
 {

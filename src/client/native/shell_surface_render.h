@@ -11,14 +11,8 @@
 #pragma once
 
 #include "materialsystem/imaterialvar.h"
-#include "materialsystem/imesh.h"
+
 #include "materialsystem/itexture.h"
-#include "ivrenderview.h"
-#include "tier1/utlvector.h"
-#include "materialsystem/MaterialSystemUtil.h"
-#include "tier0/platform.h"
-#include "collisionproperty.h"
-#include "icliententitylist.h"
 
 class CMeshBuilder;
 
@@ -34,14 +28,14 @@ enum SurfaceWinSide_t
 
 enum SurfaceWinEdge_t
 {
-	SURF_EDGE_NOT = -1,     // No edge at all
-	SURF_EDGE_NONE,         /* No edge on either side   /##\ */
-	SURF_EDGE_FULL,         // Edge on both             |##|
-	SURF_EDGE_LEFT,         /* Left only                |##\ */
-	SURF_EDGE_RIGHT,        // Right only               /##|
+	SURF_EDGE_NOT = -1, // No edge at all
+	SURF_EDGE_NONE, /* No edge on either side   /##\ */
+	SURF_EDGE_FULL, // Edge on both             |##|
+	SURF_EDGE_LEFT, /* Left only                |##\ */
+	SURF_EDGE_RIGHT, // Right only               /##|
 };
 
-#define SOURCESHARP_SURFACE_EDGE_TYPES  4
+#define SOURCESHARP_SURFACE_EDGE_TYPES 4
 #define SOURCESHARP_SURFACE_EDGE_STYLES 3
 
 // The plan: a header of eight floats' bits (normal, corner, pane width and
@@ -51,13 +45,13 @@ enum SurfaceWinEdge_t
 enum
 {
 	SURFACE_PLAN_HEADER_WORDS = 8,
-	SURFACE_PLAN_ENTRY_WORDS  = 4,
+	SURFACE_PLAN_ENTRY_WORDS = 4,
 };
 
 enum
 {
-	SURFACE_PLAN_SOLID     = 0,
-	SURFACE_PLAN_EDGE      = 1,
+	SURFACE_PLAN_SOLID = 0,
+	SURFACE_PLAN_EDGE = 1,
 	SURFACE_PLAN_HIGHLIGHT = 2,
 };
 
@@ -68,14 +62,14 @@ enum
 // SurfaceSetMaterials' flags.
 enum
 {
-	SURFACE_MATERIALS_SWAPS_DETAIL = 1 << 0,  // the pieces' material takes the detail texture
-	SURFACE_MATERIALS_DEBUG        = 1 << 1,  // the pieces' material is the debug stand-in
+	SURFACE_MATERIALS_SWAPS_DETAIL = 1 << 0, // the pieces' material takes the detail texture
+	SURFACE_MATERIALS_DEBUG = 1 << 1, // the pieces' material is the debug stand-in
 };
 
 struct SurfaceEdgeTexture_t
 {
-	CMaterialReference  m_pMaterialEdge;
-	CTextureReference   m_pMaterialEdgeTexture;
+	CMaterialReference m_pMaterialEdge;
+	CTextureReference m_pMaterialEdgeTexture;
 };
 
 // One broken surface's draw, owned by the shell and made when managed code first
@@ -95,28 +89,26 @@ public:
 	void BeginDraw();
 	void EndDraw();
 
-	virtual bool RenderBrushModelSurface( IClientEntity *pBaseEntity,
-	                                      IBrushSurface *pBrushSurface ) OVERRIDE;
+	virtual bool RenderBrushModelSurface( IClientEntity *pBaseEntity, IBrushSurface *pBrushSurface ) OVERRIDE;
 
 private:
 	void SetDetailTexture( ITexture *pTexture );
 	void Steps( Vector *pWidthStep, Vector *pHeightStep ) const;
-	void DrawQuad( IBrushSurface *pBrushSurface, IMesh *pMesh, CMeshBuilder *pBuilder,
-	               const Vector &vStart, const Vector &vWStep, const Vector &vHStep,
-	               const float ( *pCorners )[2], bool bGrout );
+	void DrawQuad( IBrushSurface *pBrushSurface, IMesh *pMesh, CMeshBuilder *pBuilder, const Vector &vStart,
+				   const Vector &vWStep, const Vector &vHStep, const float ( *pCorners )[2], bool bGrout );
 
 	Vector m_vNormal;
 	Vector m_vCorner;
-	float  m_flPanelWidth;
-	float  m_flPanelHeight;
-	CUtlVector< int32_t > m_Plan;
+	float m_flPanelWidth;
+	float m_flPanelHeight;
+	CUtlVector<int32_t> m_Plan;
 
 	CMaterialReference m_pCrackedMaterial;
 	CMaterialReference m_pMaterialBox;
-	CTextureReference  m_pMaterialBoxTexture;
-	IMaterialVar      *m_pDetailVar;
+	CTextureReference m_pMaterialBoxTexture;
+	IMaterialVar *m_pDetailVar;
 
-	SurfaceEdgeTexture_t m_pEdge[ SOURCESHARP_SURFACE_EDGE_TYPES ][ SOURCESHARP_SURFACE_EDGE_STYLES ];
+	SurfaceEdgeTexture_t m_pEdge[SOURCESHARP_SURFACE_EDGE_TYPES][SOURCESHARP_SURFACE_EDGE_STYLES];
 
 	bool m_bMaterialsReady;
 	bool m_bDrawReported;

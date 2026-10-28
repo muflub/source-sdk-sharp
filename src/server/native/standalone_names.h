@@ -19,8 +19,10 @@ inline bool StandaloneNameMatches( const char *pQuery, const char *pName )
 		char a = *pName;
 		char b = *pQuery;
 
-		if ( a >= 'A' && a <= 'Z' ) a = (char)( a - 'A' + 'a' );
-		if ( b >= 'A' && b <= 'Z' ) b = (char)( b - 'A' + 'a' );
+		if ( a >= 'A' && a <= 'Z' )
+			a = (char)( a - 'A' + 'a' );
+		if ( b >= 'A' && b <= 'Z' )
+			b = (char)( b - 'A' + 'a' );
 
 		if ( a != b )
 			break;

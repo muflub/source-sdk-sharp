@@ -11,40 +11,13 @@
 // separate slots from the server's: they report a hitbox, and the hit as an
 // entity index rather than a handle (entindex() answers for both hierarchies).
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "client_entity.h"
 #include "trace_hit.h"
 #include "util_shared.h"
-#include "engine/IEngineTrace.h"
-#include "engine/ICollideable.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "tier0/platform.h"
-#include "basehandle.h"
-#include "bspflags.h"
-#include "cmodel.h"
-#include "collisionproperty.h"
-#include "const.h"
-#include "gametrace.h"
-#include "icliententitylist.h"
-#include "iclientrenderable.h"
-#include "iclientunknown.h"
-#include "ihandleentity.h"
-#include "trace.h"
-#include "vphysics_interface.h"
 
 #include "shell_cliententitylist.h"
 #include "standalone_renderable_handle.h"
@@ -80,7 +53,7 @@ public:
 		if ( !pShell )
 			return true;
 		return SkipPlayerAndViewModelHits( pShell->IsPlayerShell(), pShell->Block().Client.ViewModel != 0,
-		                                   pShell->GetCollisionGroup() );
+										   pShell->GetCollisionGroup() );
 	}
 };
 
@@ -89,7 +62,11 @@ public:
 class CGlowSightFilter : public CTraceFilterSimple
 {
 public:
-	CGlowSightFilter() : CTraceFilterSimple( NULL, COLLISION_GROUP_NONE ) {}
+	CGlowSightFilter()
+		: CTraceFilterSimple( NULL, COLLISION_GROUP_NONE )
+	{
+	}
+
 	virtual bool ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask ) OVERRIDE
 	{
 		IClientUnknown *pUnk = (IClientUnknown *)pHandleEntity;
@@ -157,22 +134,19 @@ static unsigned int ClientTraceMaskOf( int32_t nMask )
 
 // A line through the client's world. SOURCESHARP_TRACE_ALL exists because stock
 // projects decals with MASK_ALL.
-int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask,
-                                     int32_t nFilter, int32_t nPassEntityIndex,
-                                     float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ,
-                                     int32_t *pOutHitbox, int32_t *pOutEntityIndex,
-                                     int32_t *pOutSurfaceProps, int32_t *pOutSurfaceFlags )
+int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, int32_t nFilter,
+									 int32_t nPassEntityIndex, float *pOutFraction, float *pOutEndXYZ,
+									 float *pOutNormalXYZ, int32_t *pOutHitbox, int32_t *pOutEntityIndex,
+									 int32_t *pOutSurfaceProps, int32_t *pOutSurfaceFlags )
 {
 	const TraceLineRequest req = TraceLineArgs( pStartXYZ, pEndXYZ, nMask );
 
 	if ( !req.bTrace )
-		return WriteTraceOuts( TraceAnswerMiss( VecZero() ),
-		                       pOutFraction, pOutEndXYZ, pOutNormalXYZ,
-		                       pOutHitbox, pOutEntityIndex,
-		                       pOutSurfaceProps, pOutSurfaceFlags );
+		return WriteTraceOuts( TraceAnswerMiss( VecZero() ), pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHitbox,
+							   pOutEntityIndex, pOutSurfaceProps, pOutSurfaceFlags );
 
 	const Vector vecStart( req.vecStart.x, req.vecStart.y, req.vecStart.z );
-	const Vector vecEnd  ( req.vecEnd.x,   req.vecEnd.y,   req.vecEnd.z   );
+	const Vector vecEnd( req.vecEnd.x, req.vecEnd.y, req.vecEnd.z );
 
 	const unsigned int nTraceMask = ClientTraceMaskOf( req.nMask );
 
@@ -190,13 +164,11 @@ int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXY
 		// The pass entity, resolved from an index (a handle read back through
 		// CBaseHandle::Get() is unsafe on this side). A NULL pass entity still
 		// gives a simple filter, not hit-all.
-		IClientEntity *pEnt = ( nPassEntityIndex >= 0 )
-		                    ? SourceSharp_ClientEntityFromIndex( nPassEntityIndex )
-		                    : NULL;
+		IClientEntity *pEnt = ( nPassEntityIndex >= 0 ) ? SourceSharp_ClientEntityFromIndex( nPassEntityIndex ) : NULL;
 
 		// Through IClientUnknown explicitly: IClientEntity inherits
 		// IHandleEntity down more than one path, so the conversion is ambiguous.
-		IHandleEntity *pPass = pEnt ? static_cast< IClientUnknown * >( pEnt ) : NULL;
+		IHandleEntity *pPass = pEnt ? static_cast<IClientUnknown *>( pEnt ) : NULL;
 
 		// COLLISION_GROUP_NONE always; the group is not a parameter.
 		CTraceFilterSimple traceFilter( pPass, COLLISION_GROUP_NONE );
@@ -221,27 +193,26 @@ int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXY
 	TraceAnswer ans;
 
 	// Starting inside something counts as a hit, as on the server and in stock.
-	ans.bHit         = ( tr.fraction < 1.0f || tr.startsolid );
-	ans.flFraction   = tr.fraction;
-	ans.vecEnd.x     = tr.endpos.x;
-	ans.vecEnd.y     = tr.endpos.y;
-	ans.vecEnd.z     = tr.endpos.z;
-	ans.vecNormal.x  = tr.plane.normal.x;
-	ans.vecNormal.y  = tr.plane.normal.y;
-	ans.vecNormal.z  = tr.plane.normal.z;
+	ans.bHit = ( tr.fraction < 1.0f || tr.startsolid );
+	ans.flFraction = tr.fraction;
+	ans.vecEnd.x = tr.endpos.x;
+	ans.vecEnd.y = tr.endpos.y;
+	ans.vecEnd.z = tr.endpos.z;
+	ans.vecNormal.x = tr.plane.normal.x;
+	ans.vecNormal.y = tr.plane.normal.y;
+	ans.vecNormal.z = tr.plane.normal.z;
 
 	// The index is read off the hit's own handle, through the table that
 	// resolves both hierarchies.
-	ans.nHitbox      = tr.hitbox;
+	ans.nHitbox = tr.hitbox;
 	ans.nEntityIndex = TraceHitIndex( ss::TraceHit( tr ) );
 
 	// No caller yet. Both are shorts in csurface_t; the cast widens.
 	ans.nSurfaceProps = (int)tr.surface.surfaceProps;
 	ans.nSurfaceFlags = (int)tr.surface.flags;
 
-	return WriteTraceOuts( ans, pOutFraction, pOutEndXYZ, pOutNormalXYZ,
-	                       pOutHitbox, pOutEntityIndex,
-	                       pOutSurfaceProps, pOutSurfaceFlags );
+	return WriteTraceOuts( ans, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHitbox, pOutEntityIndex, pOutSurfaceProps,
+						   pOutSurfaceFlags );
 }
 
 // A line against the entities the caller names. The shells are in no spatial
@@ -252,24 +223,22 @@ COMPILE_TIME_ASSERT( (int)SOLID_NONE == kClipSolidNone );
 COMPILE_TIME_ASSERT( (int)FSOLID_NOT_SOLID == kClipNotSolid );
 
 int32_t SourceSharp_ClientClipRayToEntities( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask,
-                                             const int32_t *pEntityIndices, int32_t nEntities,
-                                             float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ,
-                                             int32_t *pOutHitbox, int32_t *pOutEntityIndex,
-                                             int32_t *pOutSurfaceProps, int32_t *pOutSurfaceFlags )
+											 const int32_t *pEntityIndices, int32_t nEntities, float *pOutFraction,
+											 float *pOutEndXYZ, float *pOutNormalXYZ, int32_t *pOutHitbox,
+											 int32_t *pOutEntityIndex, int32_t *pOutSurfaceProps,
+											 int32_t *pOutSurfaceFlags )
 {
 	const TraceLineRequest req = TraceLineArgs( pStartXYZ, pEndXYZ, nMask );
 
 	if ( !req.bTrace || !pEntityIndices || nEntities <= 0 )
-		return WriteTraceOuts( TraceAnswerMiss( req.bTrace ? req.vecEnd : VecZero() ),
-		                       pOutFraction, pOutEndXYZ, pOutNormalXYZ,
-		                       pOutHitbox, pOutEntityIndex,
-		                       pOutSurfaceProps, pOutSurfaceFlags );
+		return WriteTraceOuts( TraceAnswerMiss( req.bTrace ? req.vecEnd : VecZero() ), pOutFraction, pOutEndXYZ,
+							   pOutNormalXYZ, pOutHitbox, pOutEntityIndex, pOutSurfaceProps, pOutSurfaceFlags );
 
 	const unsigned int nTraceMask = ClientTraceMaskOf( req.nMask );
 
 	Ray_t ray;
 	ray.Init( Vector( req.vecStart.x, req.vecStart.y, req.vecStart.z ),
-	          Vector( req.vecEnd.x, req.vecEnd.y, req.vecEnd.z ) );
+			  Vector( req.vecEnd.x, req.vecEnd.y, req.vecEnd.z ) );
 
 	trace_t best;
 	memset( &best, 0, sizeof( best ) );
@@ -295,28 +264,25 @@ int32_t SourceSharp_ClientClipRayToEntities( const float *pStartXYZ, const float
 	}
 
 	if ( !bHit )
-		return WriteTraceOuts( TraceAnswerMiss( req.vecEnd ),
-		                       pOutFraction, pOutEndXYZ, pOutNormalXYZ,
-		                       pOutHitbox, pOutEntityIndex,
-		                       pOutSurfaceProps, pOutSurfaceFlags );
+		return WriteTraceOuts( TraceAnswerMiss( req.vecEnd ), pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHitbox,
+							   pOutEntityIndex, pOutSurfaceProps, pOutSurfaceFlags );
 
 	TraceAnswer ans;
-	ans.bHit          = true;
-	ans.flFraction    = best.fraction;
-	ans.vecEnd.x      = best.endpos.x;
-	ans.vecEnd.y      = best.endpos.y;
-	ans.vecEnd.z      = best.endpos.z;
-	ans.vecNormal.x   = best.plane.normal.x;
-	ans.vecNormal.y   = best.plane.normal.y;
-	ans.vecNormal.z   = best.plane.normal.z;
-	ans.nHitbox       = best.hitbox;
-	ans.nEntityIndex  = TraceHitIndex( best.m_pEnt );
+	ans.bHit = true;
+	ans.flFraction = best.fraction;
+	ans.vecEnd.x = best.endpos.x;
+	ans.vecEnd.y = best.endpos.y;
+	ans.vecEnd.z = best.endpos.z;
+	ans.vecNormal.x = best.plane.normal.x;
+	ans.vecNormal.y = best.plane.normal.y;
+	ans.vecNormal.z = best.plane.normal.z;
+	ans.nHitbox = best.hitbox;
+	ans.nEntityIndex = TraceHitIndex( best.m_pEnt );
 	ans.nSurfaceProps = (int)best.surface.surfaceProps;
 	ans.nSurfaceFlags = (int)best.surface.flags;
 
-	return WriteTraceOuts( ans, pOutFraction, pOutEndXYZ, pOutNormalXYZ,
-	                       pOutHitbox, pOutEntityIndex,
-	                       pOutSurfaceProps, pOutSurfaceFlags );
+	return WriteTraceOuts( ans, pOutFraction, pOutEndXYZ, pOutNormalXYZ, pOutHitbox, pOutEntityIndex, pOutSurfaceProps,
+						   pOutSurfaceFlags );
 }
 
 // The observer's camera.
@@ -335,13 +301,16 @@ namespace
 class CObserverNoNPCsOrPlayerFilter : public CTraceFilterSimple
 {
 public:
-	CObserverNoNPCsOrPlayerFilter( const IHandleEntity *pPass ) : CTraceFilterSimple( pPass, COLLISION_GROUP_NONE ) {}
+	CObserverNoNPCsOrPlayerFilter( const IHandleEntity *pPass )
+		: CTraceFilterSimple( pPass, COLLISION_GROUP_NONE )
+	{
+	}
 
 	virtual bool ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask ) OVERRIDE
 	{
 		if ( !CTraceFilterSimple::ShouldHitEntity( pHandleEntity, contentsMask ) )
 			return false;
-		IClientUnknown *pUnknown = static_cast< IClientUnknown * >( pHandleEntity );
+		IClientUnknown *pUnknown = static_cast<IClientUnknown *>( pHandleEntity );
 		uint32_t nWord = 0;
 		if ( RenderableEntityHandleWord( pUnknown, nWord ) )
 		{
@@ -353,10 +322,9 @@ public:
 };
 } // namespace
 
-int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXYZ,
-                                     const float *pMinsXYZ, const float *pMaxsXYZ,
-                                     int32_t nMask, int32_t nFilter, int32_t nPassEntityIndex,
-                                     float *pOutFraction, float *pOutEndXYZ )
+int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ,
+									 const float *pMaxsXYZ, int32_t nMask, int32_t nFilter, int32_t nPassEntityIndex,
+									 float *pOutFraction, float *pOutEndXYZ )
 {
 	if ( !pStartXYZ || !pEndXYZ || !pMinsXYZ || !pMaxsXYZ )
 		return 0;
@@ -368,7 +336,7 @@ int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXY
 	const unsigned int nTraceMask = ClientTraceMaskOf( nMask );
 
 	IClientEntity *pEnt = ( nPassEntityIndex >= 0 ) ? SourceSharp_ClientEntityFromIndex( nPassEntityIndex ) : NULL;
-	IHandleEntity *pPass = pEnt ? static_cast< IClientUnknown * >( pEnt ) : NULL;
+	IHandleEntity *pPass = pEnt ? static_cast<IClientUnknown *>( pEnt ) : NULL;
 
 	trace_t tr;
 	if ( nFilter == SOURCESHARP_TRACE_FILTER_NO_NPCS_OR_PLAYER )
@@ -417,12 +385,10 @@ int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXY
 // each entity managed names (the shells are in no spatial partition). The
 // nearest stop is the answer: whether it stopped, the fraction and end, the
 // index of what it stopped on (the world's is 0) and that entity's GetAbsOrigin.
-int32_t SourceSharp_ClientTraceHullEntities( const float *pStartXYZ, const float *pEndXYZ,
-                                             const float *pMinsXYZ, const float *pMaxsXYZ,
-                                             int32_t nMask, int32_t nPassEntityIndex,
-                                             const int32_t *pEntityIndices, int32_t nEntities,
-                                             float *pOutFraction, float *pOutEndXYZ,
-                                             int32_t *pOutEntityIndex, float *pOutEntityOriginXYZ )
+int32_t SourceSharp_ClientTraceHullEntities( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ,
+											 const float *pMaxsXYZ, int32_t nMask, int32_t nPassEntityIndex,
+											 const int32_t *pEntityIndices, int32_t nEntities, float *pOutFraction,
+											 float *pOutEndXYZ, int32_t *pOutEntityIndex, float *pOutEntityOriginXYZ )
 {
 	if ( !pStartXYZ || !pEndXYZ || !pMinsXYZ || !pMaxsXYZ )
 		return 0;
@@ -434,7 +400,7 @@ int32_t SourceSharp_ClientTraceHullEntities( const float *pStartXYZ, const float
 	const unsigned int nTraceMask = ClientTraceMaskOf( nMask );
 
 	IClientEntity *pPassEnt = ( nPassEntityIndex >= 0 ) ? SourceSharp_ClientEntityFromIndex( nPassEntityIndex ) : NULL;
-	IHandleEntity *pPass = pPassEnt ? static_cast< IClientUnknown * >( pPassEnt ) : NULL;
+	IHandleEntity *pPass = pPassEnt ? static_cast<IClientUnknown *>( pPassEnt ) : NULL;
 
 	trace_t best;
 	CTraceFilterSimple traceFilter( pPass, COLLISION_GROUP_NONE );

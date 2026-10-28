@@ -44,15 +44,20 @@ struct FakeRenderable;
 //-----------------------------------------------------------------------------
 struct FakeLeaf
 {
-	std::vector< int >  added;      // handles handed out
-	std::vector< int >  removed;    // handles removed
-	std::vector< int >  changed;    // handles reported as moved
-	int                 nNextHandle;
+	std::vector<int> added; // handles handed out
+	std::vector<int> removed; // handles removed
+	std::vector<int> changed; // handles reported as moved
+	int nNextHandle;
 
-	FakeLeaf() : nNextHandle( 100 ) {}
+	FakeLeaf()
+		: nNextHandle( 100 )
+	{
+	}
 
 	void AddRenderable( FakeRenderable *pRenderable, int group );
+
 	void RemoveRenderable( int handle ) { removed.push_back( handle ); }
+
 	void RenderableChanged( int handle ) { changed.push_back( handle ); }
 };
 
@@ -60,9 +65,13 @@ struct FakeRenderable
 {
 	int m_hRenderHandle;
 
-	FakeRenderable() : m_hRenderHandle( kInvalidHandle ) {}
+	FakeRenderable()
+		: m_hRenderHandle( kInvalidHandle )
+	{
+	}
 
 	int &RenderHandle() { return m_hRenderHandle; }
+
 	bool IsInLeafSystem() const { return m_hRenderHandle != kInvalidHandle; }
 };
 
@@ -70,7 +79,7 @@ void FakeLeaf::AddRenderable( FakeRenderable *pRenderable, int group )
 {
 	const int h = nNextHandle++;
 	added.push_back( h );
-	pRenderable->RenderHandle() = h;   // exactly what NewRenderable does
+	pRenderable->RenderHandle() = h; // exactly what NewRenderable does
 }
 
 //=============================================================================
@@ -130,8 +139,7 @@ TEST( ShellLeafLink, RemoveOnSomethingNeverAddedTellsTheLeafSystemNOTHING )
 
 	ShellLeaf_Remove( &leaf, &r );
 
-	EXPECT_TRUE( leaf.removed.empty() )
-		<< "an INVALID handle must not reach RemoveRenderable at all";
+	EXPECT_TRUE( leaf.removed.empty() ) << "an INVALID handle must not reach RemoveRenderable at all";
 }
 
 //=============================================================================
@@ -183,15 +191,15 @@ TEST( ShellLeafLink, PlaceAddMoveRemoveIsTheWholeLifeAndItBalances )
 	FakeLeaf leaf;
 	FakeRenderable r;
 
-	ShellLeaf_Moved( &leaf, &r );          // placed by the factory, not linked yet
-	ShellLeaf_Add( &leaf, &r, 0 );         // into the leaf system
+	ShellLeaf_Moved( &leaf, &r ); // placed by the factory, not linked yet
+	ShellLeaf_Add( &leaf, &r, 0 ); // into the leaf system
 	const int h = r.RenderHandle();
-	ShellLeaf_Moved( &leaf, &r );          // followed for a frame
-	ShellLeaf_Moved( &leaf, &r );          // and another
-	ShellLeaf_Remove( &leaf, &r );         // destroyed
-	r.RenderHandle() = kInvalidHandle;     // what RemoveRenderable does
-	ShellLeaf_Moved( &leaf, &r );          // a stray follow after the release
-	ShellLeaf_Remove( &leaf, &r );         // and a second remove
+	ShellLeaf_Moved( &leaf, &r ); // followed for a frame
+	ShellLeaf_Moved( &leaf, &r ); // and another
+	ShellLeaf_Remove( &leaf, &r ); // destroyed
+	r.RenderHandle() = kInvalidHandle; // what RemoveRenderable does
+	ShellLeaf_Moved( &leaf, &r ); // a stray follow after the release
+	ShellLeaf_Remove( &leaf, &r ); // and a second remove
 
 	EXPECT_EQ( 1u, leaf.added.size() );
 	EXPECT_EQ( 1u, leaf.removed.size() ) << "removed exactly as many times as added";
@@ -199,4 +207,4 @@ TEST( ShellLeafLink, PlaceAddMoveRemoveIsTheWholeLifeAndItBalances )
 	EXPECT_EQ( 2u, leaf.changed.size() ) << "only the two moves made while linked";
 }
 
-}  // namespace
+} // namespace

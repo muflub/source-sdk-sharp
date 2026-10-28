@@ -56,7 +56,7 @@ public:
 
 	virtual void unused_DestroyEntityByHammerId() = 0;
 	virtual void unused_GetBaseEntityByEntIndex() = 0;
-	virtual void RemoveEntity( CBaseEntity *pEntity ) = 0;
+	virtual void unused_RemoveEntity() = 0;
 	virtual void unused_RemoveEntityImmediate() = 0;
 	virtual void unused_GetEntityFactoryDictionary() = 0;
 
@@ -83,8 +83,10 @@ public:
 	virtual void unused_FindEntityByNameNearest() = 0;
 	virtual void unused_FindEntityByNameWithin() = 0;
 	virtual void unused_FindEntityByClassnameNearest() = 0;
-	virtual CBaseEntity *FindEntityByClassnameWithin( CBaseEntity *pStartEntity, const char *szName, const Vector &vecSrc, float flRadius ) = 0;
-	virtual CBaseEntity *FindEntityByClassnameWithin( CBaseEntity *pStartEntity, const char *szName, const Vector &vecMins, const Vector &vecMaxs ) = 0;
+	virtual CBaseEntity *FindEntityByClassnameWithin( CBaseEntity *pStartEntity, const char *szName,
+													  const Vector &vecSrc, float flRadius ) = 0;
+	virtual CBaseEntity *FindEntityByClassnameWithin( CBaseEntity *pStartEntity, const char *szName,
+													  const Vector &vecMins, const Vector &vecMaxs ) = 0;
 	virtual void unused_FindEntityGeneric() = 0;
 	virtual void unused_FindEntityGenericWithin() = 0;
 	virtual void unused_FindEntityGenericNearest() = 0;

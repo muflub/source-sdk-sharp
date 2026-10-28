@@ -11,15 +11,11 @@
 // Each relay first tests the class's override bit, so a class that does not
 // override an op costs no crossing for it.
 
-#include "shell_standalone_class.h"
 #include "shell_standalone_player.h"
 #include "entity_op.h"
 #include "slot_table.h"
-#include "generic_nettable.h"
-#include "standalone_relays.h"
-#include "ss_variant.h"
 
-#include "sourcesharp.h"
+#include "ss_variant.h"
 
 #include "imanaged_areas.h"
 #include "ss_takedamageinfo.h"
@@ -44,7 +40,7 @@ static int DispatchOp( CStandaloneEntity *pEntity, int nOp, SourceSharpOpArgs &a
 	if ( !pApi )
 		return 0;
 
-	args.pBlob      = pEntity->DataBlob();
+	args.pBlob = pEntity->DataBlob();
 	args.nBlobBytes = pEntity->BlobBytes();
 
 	return pApi->Dispatch( pEntity->ManagedHandle(), nOp, &args );
@@ -78,9 +74,8 @@ bool CStandaloneEntity::OnManagedKeyValue( const char *szKeyName, const char *sz
 
 // pShell is NULL for a shell-less entity, which has no blob or override bit.
 // Both kinds share this body so inputs reach managed by one path.
-static bool DispatchInput( CStandaloneEntity *pShell, uint32_t hEntity,
-                           const char *szInputName, const Activator_t &activator,
-                           const ss::variant_t &Value )
+static bool DispatchInput( CStandaloneEntity *pShell, uint32_t hEntity, const char *szInputName,
+						   const Activator_t &activator, const ss::variant_t &Value )
 {
 	// The value's string form is copied by managed before any game code runs, so
 	// ToString's static buffer is safe here. Convert works on a copy, as it mutates.
@@ -90,15 +85,14 @@ static bool DispatchInput( CStandaloneEntity *pShell, uint32_t hEntity,
 
 	// The activator crosses as a handle, which covers both entity hierarchies.
 	SourceSharpOpArgs args = EmptyOpArgs();
-	args.hOther   = activator.pBase
-		? SourceSharp_HandleFromEntity( activator.pBase )
-		: SourceSharp_HandleFromAnyEntity( activator.pGameHandle );
-	args.pText1   = szInputName;
-	args.pText2   = Value.String();
+	args.hOther = activator.pBase ? SourceSharp_HandleFromEntity( activator.pBase )
+								  : SourceSharp_HandleFromAnyEntity( activator.pGameHandle );
+	args.pText1 = szInputName;
+	args.pText2 = Value.String();
 	args.flFloat0 = flValue;
 
 	// The variant's field type plus one, so zero means "not given" rather than FIELD_VOID.
-	args.nInt0    = nFieldType + 1;
+	args.nInt0 = nFieldType + 1;
 
 	if ( pShell )
 		return DispatchOp( pShell, ENTITY_OP_INPUT, args ) != 0;
@@ -109,14 +103,14 @@ static bool DispatchInput( CStandaloneEntity *pShell, uint32_t hEntity,
 		return false;
 
 	// A shell-less entity has no blob; managed keeps its state in fields.
-	args.pBlob      = NULL;
+	args.pBlob = NULL;
 	args.nBlobBytes = 0;
 
 	return pApi->Dispatch( hEntity, ENTITY_OP_INPUT, &args ) != 0;
 }
 
 bool CStandaloneEntity::OnManagedInput( const char *szInputName, const Activator_t &activator,
-                                        const ss::variant_t &Value )
+										const ss::variant_t &Value )
 {
 	if ( !ClassOverridesOp( ENTITY_OP_INPUT ) )
 		return false;
@@ -178,15 +172,15 @@ int CStandaloneEntity::OnManagedDamage( const ss::CTakeDamageInfo &info )
 		return 0;
 
 	// Both zero for damage with no place, such as trigger_hurt.
-	const Vector &vecPos   = info.GetDamagePosition();
+	const Vector &vecPos = info.GetDamagePosition();
 	const Vector &vecForce = info.GetDamageForce();
 
 	SourceSharpOpArgs args = EmptyOpArgs();
-	args.hOther   = SourceSharp_HandleFromEntity( info.GetAttacker() );
+	args.hOther = SourceSharp_HandleFromEntity( info.GetAttacker() );
 	args.flFloat0 = info.GetDamage();
-	args.nInt0    = info.GetDamageType();
-	args.pVec0    = vecPos.Base();
-	args.pVec1    = vecForce.Base();
+	args.nInt0 = info.GetDamageType();
+	args.pVec0 = vecPos.Base();
+	args.pVec1 = vecForce.Base();
 
 	return DispatchOp( this, ENTITY_OP_DAMAGE, args );
 }
@@ -213,19 +207,19 @@ int32_t SourceSharp_EntityDispatch( uint32_t hEntity, int32_t nOp, const SourceS
 
 	switch ( nOp )
 	{
-	case ENTITY_OP_POSITION_CHANGED:
-	{
-		const Vector vecPrevOrigin = ( pArgs && pArgs->pVec0 )
-			? Vector( pArgs->pVec0[0], pArgs->pVec0[1], pArgs->pVec0[2] )
-			: pShell->Block().Head.Origin;
+		case ENTITY_OP_POSITION_CHANGED:
+		{
+			const Vector vecPrevOrigin = ( pArgs && pArgs->pVec0 )
+				? Vector( pArgs->pVec0[0], pArgs->pVec0[1], pArgs->pVec0[2] )
+				: pShell->Block().Head.Origin;
 
-		pShell->OnPositionChanged( vecPrevOrigin );
-		return 1;
-	}
+			pShell->OnPositionChanged( vecPrevOrigin );
+			return 1;
+		}
 
-	default:
-		// An op this build does not know: a newer managed side. Nothing happened.
-		return 0;
+		default:
+			// An op this build does not know: a newer managed side. Nothing happened.
+			return 0;
 	}
 }
 

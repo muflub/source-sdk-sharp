@@ -38,8 +38,7 @@ namespace
 //-----------------------------------------------------------------------------
 // The subjects.
 //-----------------------------------------------------------------------------
-const char *kEvicted[] =
-{
+const char *kEvicted[] = {
 	"game/client/c_env_fog_controller.cpp",
 	"game/client/c_func_dust.cpp",
 	"game/client/c_sprite.cpp",
@@ -57,15 +56,14 @@ const char *kEvicted[] =
 	"game/client/fx_impact.cpp",
 };
 
-const char *kReplacements[] =
-{
+const char *kReplacements[] = {
 	"sourcesharp/game/client/shell_sprite_leaf.cpp",
 	"sourcesharp/game/client/shell_impact_effects.cpp",
 	"sourcesharp/game/client/shell_effect_ledger.cpp",
 };
 
-const size_t kNumEvicted = sizeof( kEvicted ) / sizeof( kEvicted[ 0 ] );
-const size_t kNumReplacements = sizeof( kReplacements ) / sizeof( kReplacements[ 0 ] );
+const size_t kNumEvicted = sizeof( kEvicted ) / sizeof( kEvicted[0] );
+const size_t kNumReplacements = sizeof( kReplacements ) / sizeof( kReplacements[0] );
 
 } // namespace
 
@@ -79,14 +77,14 @@ TEST( EffectTusEvicted, TheFiveStockTusAreOutOfTheClient )
 	//
 	// Proof-of-read before any absence: a replacement this step put in IS
 	// compiled, so the reader is reading the client's list.
-	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kReplacements[ 0 ] ) )
-		<< "client_sourcesharp does not compile " << kReplacements[ 0 ]
-		<< "; every absence below would pass vacuously";
+	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kReplacements[0] ) )
+		<< "client_sourcesharp does not compile " << kReplacements[0] << "; every absence below would pass vacuously";
 
 	for ( size_t i = 0; i < kNumEvicted; i++ )
 	{
-		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kEvicted[ i ] ) )
-			<< kEvicted[ i ] << " is compiled again. Step 7a took it out because "
+		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kEvicted[i] ) )
+			<< kEvicted[i]
+			<< " is compiled again. Step 7a took it out because "
 			   "everything it still held is inside `#ifndef SOURCESHARP` -- so "
 			   "putting it back compiles a translation unit with no content, and "
 			   "if a body came back with it, two definitions.";
@@ -98,8 +96,9 @@ TEST( EffectTusEvicted, TheThreeShimReplacementsAreInTheClient )
 {
 	for ( size_t i = 0; i < kNumReplacements; i++ )
 	{
-		EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kReplacements[ i ] ) )
-			<< kReplacements[ i ] << " is not compiled into client_sourcesharp. An "
+		EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kReplacements[i] ) )
+			<< kReplacements[i]
+			<< " is not compiled into client_sourcesharp. An "
 			   "eviction whose replacement is not in the build is a capability "
 			   "that stopped being shipped -- and for the leaf renderers it is "
 			   "every sprite, every impact and every dust puff on the client.";

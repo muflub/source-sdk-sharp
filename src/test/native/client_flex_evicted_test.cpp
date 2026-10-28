@@ -124,7 +124,6 @@ namespace
 // and client_csharp.vpc. The proof-of-read is the same shim on both sides.
 const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 
-
 // Does this target leave the file out of the build? Out means NO compiled
 // source of the target has its BASENAME -- the strength the flattened-vpc
 // check had (basename in any directory, or the full path), so a copy moved to
@@ -133,15 +132,14 @@ const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 // list from answering "excluded" for everything.
 bool Excludes( const char *pszTarget, const std::string &strPath )
 {
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( pszTarget );
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( pszTarget );
 
-	EXPECT_TRUE( compiled.count( kProofOfRead ) )
-		<< pszTarget << " does not compile " << kProofOfRead
-		<< " -- this is not the target's source list, and every exclusion "
-		   "below would pass vacuously";
+	EXPECT_TRUE( compiled.count( kProofOfRead ) ) << pszTarget << " does not compile " << kProofOfRead
+												  << " -- this is not the target's source list, and every exclusion "
+													 "below would pass vacuously";
 
 	const std::string strBase = strPath.substr( strPath.rfind( '/' ) + 1 );
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
 	{
 		if ( it->substr( it->rfind( '/' ) + 1 ) == strBase )
 			return false;
@@ -191,15 +189,12 @@ TEST( ClientFlexEvicted, TheClientBuildExcludesBothFlexFilesTogether )
 	const bool bFlex = Excludes( cmake_graph::kClient, "game/client/c_baseflex.cpp" );
 	const bool bOverlay = Excludes( cmake_graph::kClient, "game/client/c_baseanimatingoverlay.cpp" );
 
-	EXPECT_TRUE( bFlex )
-		<< "game/client/c_baseflex.cpp is back in the client build";
-	EXPECT_TRUE( bOverlay )
-		<< "game/client/c_baseanimatingoverlay.cpp is back in the client build";
+	EXPECT_TRUE( bFlex ) << "game/client/c_baseflex.cpp is back in the client build";
+	EXPECT_TRUE( bOverlay ) << "game/client/c_baseanimatingoverlay.cpp is back in the client build";
 
-	EXPECT_EQ( bFlex, bOverlay )
-		<< "c_baseflex.cpp and c_baseanimatingoverlay.cpp are no longer excluded "
-		   "TOGETHER. C_BaseFlex derives from C_BaseAnimatingOverlay: excluding "
-		   "the base while the derived class is compiled is an undefined vtable, "
-		   "and excluding the derived while the base stays leaves an object "
-		   "nothing on the link line references.";
+	EXPECT_EQ( bFlex, bOverlay ) << "c_baseflex.cpp and c_baseanimatingoverlay.cpp are no longer excluded "
+									"TOGETHER. C_BaseFlex derives from C_BaseAnimatingOverlay: excluding "
+									"the base while the derived class is compiled is an undefined vtable, "
+									"and excluding the derived while the base stays leaves an object "
+									"nothing on the link line references.";
 }

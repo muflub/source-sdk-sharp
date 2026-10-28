@@ -17,7 +17,15 @@ namespace
 struct Rng
 {
 	uint32_t s = 0x9E3779B9u;
-	uint32_t Next() { s ^= s << 13; s ^= s >> 17; s ^= s << 5; return s; }
+
+	uint32_t Next()
+	{
+		s ^= s << 13;
+		s ^= s >> 17;
+		s ^= s << 5;
+		return s;
+	}
+
 	int Pick( int lo, int hi ) { return lo + (int)( Next() % (uint32_t)( hi - lo + 1 ) ); }
 };
 }
@@ -31,7 +39,7 @@ TEST( SsCrc32Oracle, TheTableIsStocks )
 TEST( SsCrc32Oracle, EveryBufferChecksumsAsStocks )
 {
 	Rng r;
-	unsigned char data[ 320 + 8 ];
+	unsigned char data[320 + 8];
 	int n = 0;
 	for ( int len = 0; len <= 300; len++ )
 	{
@@ -57,7 +65,8 @@ TEST( SsCrc32Oracle, EveryBufferChecksumsAsStocks )
 			}
 			CRC32_Final( &stock );
 			ASSERT_EQ( stock, ss::Crc32Finish( ours ) ) << "len " << len << " align " << align;
-			ASSERT_EQ( CRC32_ProcessSingleBuffer( p, len ), ss::Crc32Finish( ss::Crc32Add( ss::Crc32Start(), p, len ) ) );
+			ASSERT_EQ( CRC32_ProcessSingleBuffer( p, len ),
+					   ss::Crc32Finish( ss::Crc32Add( ss::Crc32Start(), p, len ) ) );
 			n++;
 		}
 	}

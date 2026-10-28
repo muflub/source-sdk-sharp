@@ -5,7 +5,7 @@
 template <class T>
 inline T LoopingLerp( float flPercent, T flFrom, T flTo )
 {
-	T s = flTo * flPercent + flFrom * (1.0f - flPercent);
+	T s = flTo * flPercent + flFrom * ( 1.0f - flPercent );
 	return s;
 }
 
@@ -14,88 +14,80 @@ inline float LoopingLerp( float flPercent, float flFrom, float flTo )
 {
 	if ( fabs( flTo - flFrom ) >= 0.5f )
 	{
-		if (flFrom < flTo)
+		if ( flFrom < flTo )
 			flFrom += 1.0f;
 		else
 			flTo += 1.0f;
 	}
 
-	float s = flTo * flPercent + flFrom * (1.0f - flPercent);
+	float s = flTo * flPercent + flFrom * ( 1.0f - flPercent );
 
-	s = s - (int)(s);
-	if (s < 0.0f)
+	s = s - (int)( s );
+	if ( s < 0.0f )
 		s = s + 1.0f;
 
 	return s;
 }
 
 template <class T>
-inline T Lerp_Hermite( float t, const T& p0, const T& p1, const T& p2 )
+inline T Lerp_Hermite( float t, const T &p0, const T &p1, const T &p2 )
 {
 	T d1 = p1 - p0;
 	T d2 = p2 - p1;
 
 	T output;
-	float tSqr = t*t;
-	float tCube = t*tSqr;
+	float tSqr = t * t;
+	float tCube = t * tSqr;
 
-	output = p1 * (2*tCube-3*tSqr+1);
-	output += p2 * (-2*tCube+3*tSqr);
-	output += d1 * (tCube-2*tSqr+t);
-	output += d2 * (tCube-tSqr);
+	output = p1 * ( 2 * tCube - 3 * tSqr + 1 );
+	output += p2 * ( -2 * tCube + 3 * tSqr );
+	output += d1 * ( tCube - 2 * tSqr + t );
+	output += d2 * ( tCube - tSqr );
 
 	return output;
 }
 
 template <class T>
-inline T Derivative_Hermite( float t, const T& p0, const T& p1, const T& p2 )
+inline T Derivative_Hermite( float t, const T &p0, const T &p1, const T &p2 )
 {
 	T d1 = p1 - p0;
 	T d2 = p2 - p1;
 
 	T output;
-	float tSqr = t*t;
+	float tSqr = t * t;
 
-	output = p1 * (6*tSqr - 6*t);
-	output += p2 * (-6*tSqr + 6*t);
-	output += d1 * (3*tSqr - 4*t + 1);
-	output += d2 * (3*tSqr - 2*t);
+	output = p1 * ( 6 * tSqr - 6 * t );
+	output += p2 * ( -6 * tSqr + 6 * t );
+	output += d1 * ( 3 * tSqr - 4 * t + 1 );
+	output += d2 * ( 3 * tSqr - 2 * t );
 
 	return output;
 }
 
-inline void Lerp_Clamp( int val )
-{
-}
+inline void Lerp_Clamp( int val ) {}
 
-inline void Lerp_Clamp( float val )
-{
-}
+inline void Lerp_Clamp( float val ) {}
 
-inline void Lerp_Clamp( const Vector &val )
-{
-}
+inline void Lerp_Clamp( const Vector &val ) {}
 
-inline void Lerp_Clamp( const QAngle &val )
-{
-}
+inline void Lerp_Clamp( const QAngle &val ) {}
 
 // If we have a range checked var, then we can clamp to its limits.
-template< class T, int minValue, int maxValue, int startValue >
-inline void Lerp_Clamp( CRangeCheckedVar<T,minValue,maxValue,startValue> &val )
+template <class T, int minValue, int maxValue, int startValue>
+inline void Lerp_Clamp( CRangeCheckedVar<T, minValue, maxValue, startValue> &val )
 {
 	val.Clamp();
 }
 
-template<> 
-inline QAngle Lerp_Hermite<QAngle>( float t, const QAngle& p0, const QAngle& p1, const QAngle& p2 )
+template <>
+inline QAngle Lerp_Hermite<QAngle>( float t, const QAngle &p0, const QAngle &p1, const QAngle &p2 )
 {
 	// Can't do hermite with QAngles, get discontinuities, just do a regular interpolation
 	return Lerp( t, p1, p2 );
 }
 
 template <class T>
-inline T LoopingLerp_Hermite( float t, T p0, T p1, T p2  )
+inline T LoopingLerp_Hermite( float t, T p0, T p1, T p2 )
 {
 	return Lerp_Hermite( t, p0, p1, p2 );
 }
@@ -133,11 +125,11 @@ inline float LoopingLerp_Hermite( float t, float p0, float p1, float p2 )
 			p2 += 1.0f;
 		}
 	}
-		
+
 	float s = Lerp_Hermite( t, p0, p1, p2 );
 
-	s = s - (int)(s);
-	if (s < 0.0f)
+	s = s - (int)( s );
+	if ( s < 0.0f )
 	{
 		s = s + 1.0f;
 	}

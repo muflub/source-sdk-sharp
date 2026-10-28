@@ -52,33 +52,44 @@ public:
 
 	void Position3fv( const float *v )
 	{
-		m_p[0] = v[0]; m_p[1] = v[1]; m_p[2] = v[2];
+		m_p[0] = v[0];
+		m_p[1] = v[1];
+		m_p[2] = v[2];
 		CMeshBuilder::Position3fv( v );
 	}
 
 	void Normal3fv( const float *n )
 	{
-		m_n[0] = n[0]; m_n[1] = n[1]; m_n[2] = n[2];
+		m_n[0] = n[0];
+		m_n[1] = n[1];
+		m_n[2] = n[2];
 		CMeshBuilder::Normal3fv( n );
 	}
 
 	void TexCoord2f( int stage, float s, float t )
 	{
-		m_st[0] = s; m_st[1] = t;
+		m_st[0] = s;
+		m_st[1] = t;
 		CMeshBuilder::TexCoord2f( stage, s, t );
 	}
 
 	void Color4fv( const float *rgba )
 	{
 		m_bByte = false;
-		m_c[0] = rgba[0]; m_c[1] = rgba[1]; m_c[2] = rgba[2]; m_c[3] = rgba[3];
+		m_c[0] = rgba[0];
+		m_c[1] = rgba[1];
+		m_c[2] = rgba[2];
+		m_c[3] = rgba[3];
 		CMeshBuilder::Color4fv( rgba );
 	}
 
 	void Color4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a )
 	{
 		m_bByte = true;
-		m_c[0] = r; m_c[1] = g; m_c[2] = b; m_c[3] = a;
+		m_c[0] = r;
+		m_c[1] = g;
+		m_c[2] = b;
+		m_c[3] = a;
 		CMeshBuilder::Color4ub( r, g, b, a );
 	}
 
@@ -90,9 +101,8 @@ public:
 
 	void AdvanceVertex()
 	{
-		FxProbeLog( "fxm-v %.9g %.9g %.9g %.9g %.9g %s %.9g %.9g %.9g %.9g %.9g %.9g %.9g",
-		            m_p[0], m_p[1], m_p[2], m_st[0], m_st[1], m_bByte ? "b" : "f",
-		            m_c[0], m_c[1], m_c[2], m_c[3], m_n[0], m_n[1], m_n[2] );
+		FxProbeLog( "fxm-v %.9g %.9g %.9g %.9g %.9g %s %.9g %.9g %.9g %.9g %.9g %.9g %.9g", m_p[0], m_p[1], m_p[2],
+					m_st[0], m_st[1], m_bByte ? "b" : "f", m_c[0], m_c[1], m_c[2], m_c[3], m_n[0], m_n[1], m_n[2] );
 		CMeshBuilder::AdvanceVertex();
 	}
 

@@ -12,53 +12,20 @@
 // the reads managed code needs: the view, model frames, endpoint facts, box
 // tests, the halo's sight test and the overlay's screen position.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "client_entity.h"
 #include "iviewrender_beams.h"
 #include "enginesprite.h"
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/imaterial.h"
+
 #include "materialsystem/imaterialvar.h"
-#include "materialsystem/imesh.h"
-#include "engine/ivdebugoverlay.h"
-#include "clientleafsystem.h"
-#include "view.h"
-#include "engine/ICollideable.h"
-#include "engine/IClientLeafSystem.h"
-#include "engine/ivmodelinfo.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "mathlib/vmatrix.h"
+
 #include "particles/particles.h"
-#include "tier1/refcount.h"
-#include "tier1/utlvector.h"
-#include "basehandle.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
+
 #include "client_entity.h"
-#include "client_render_handle.h"
-#include "const.h"
-#include "eiface.h"
-#include "globalvars_base.h"
-#include "icliententitylist.h"
-#include "iclientrenderable.h"
-#include "iclientunknown.h"
-#include "ihandleentity.h"
-#include "texture_group_names.h"
-#include "vphysics_interface.h"
+
 #include "beam_strip_vertex.h"
 #include "shell_cliententitylist.h"
 #include "slot_table.h"
@@ -91,7 +58,9 @@ uint32_t RawFromEntity( IClientEntity *pEnt )
 class CBeamRenderable : public CDefaultClientRenderable
 {
 public:
-	CBeamRenderable() : m_nIndex( -1 ), m_bLive( false )
+	CBeamRenderable()
+		: m_nIndex( -1 )
+		, m_bLive( false )
 	{
 		m_vecOrigin.Init();
 		m_vecMins.Init();
@@ -106,6 +75,7 @@ public:
 	}
 
 	const Vector &GetRenderOrigin() override { return m_vecOrigin; }
+
 	const QAngle &GetRenderAngles() override { return vec3_angle; }
 
 	const matrix3x4_t &RenderableToWorldTransform() override
@@ -122,8 +92,11 @@ public:
 	}
 
 	bool ShouldDraw() override { return true; }
+
 	bool IsTransparent() override { return true; }
+
 	void ComputeFxBlend() override {}
+
 	int GetFxBlend() override { return 255; }
 
 	int DrawModel( int ) override
@@ -143,8 +116,8 @@ private:
 	matrix3x4_t m_Transform;
 };
 
-CUtlVector< CBeamRenderable * > g_BeamRenderables;
-CUtlVector< int > g_FreeBeamRenderables;
+CUtlVector<CBeamRenderable *> g_BeamRenderables;
+CUtlVector<int> g_FreeBeamRenderables;
 
 CBeamRenderable *RenderableAt( int nIndex )
 {
@@ -170,10 +143,11 @@ public:
 	{
 		if ( IManagedBeamsClient *pBeams = ManagedBeamsClient() )
 		{
-			char szParticles[ 32 ];
+			char szParticles[32];
 			pBeams->BeamsLifecycle( BEAM_LIFECYCLE_INIT,
-			                        ss::CommandLineValue( "-particles", "", szParticles, sizeof( szParticles ) )
-			                            ? atoi( szParticles ) : -1 );
+									ss::CommandLineValue( "-particles", "", szParticles, sizeof( szParticles ) )
+										? atoi( szParticles )
+										: -1 );
 		}
 	}
 
@@ -196,6 +170,7 @@ public:
 	}
 
 	void DrawBeam( Beam_t * ) override {}
+
 	void DrawBeam( C_Beam *, ITraceFilter * ) override {}
 
 	void KillDeadBeams( IGameEntity *pDead ) override {}
@@ -208,28 +183,53 @@ public:
 	}
 
 	Beam_t *CreateBeamEnts( BeamInfo_t & ) override { return NULL; }
+
 	Beam_t *CreateBeamEntPoint( BeamInfo_t & ) override { return NULL; }
+
 	Beam_t *CreateBeamPoints( BeamInfo_t & ) override { return NULL; }
+
 	Beam_t *CreateBeamRing( BeamInfo_t & ) override { return NULL; }
+
 	Beam_t *CreateBeamRingPoint( BeamInfo_t & ) override { return NULL; }
+
 	Beam_t *CreateBeamCirclePoints( BeamInfo_t & ) override { return NULL; }
+
 	Beam_t *CreateBeamFollow( BeamInfo_t & ) override { return NULL; }
 
 	void FreeBeam( Beam_t * ) override {}
+
 	void UpdateBeamInfo( Beam_t *, BeamInfo_t & ) override {}
 
-	void CreateBeamEnts( int, int, int, int, float, float, float, float, float, float, float, float, int, float,
-	                     float, float, float, int ) override {}
+	void CreateBeamEnts( int, int, int, int, float, float, float, float, float, float, float, float, int, float, float,
+						 float, float, int ) override
+	{
+	}
+
 	void CreateBeamEntPoint( int, const Vector *, int, const Vector *, int, int, float, float, float, float, float,
-	                         float, float, float, int, float, float, float, float ) override {}
-	void CreateBeamPoints( Vector &, Vector &, int, int, float, float, float, float, float, float, float, float,
-	                       int, float, float, float, float ) override {}
-	void CreateBeamRing( int, int, int, int, float, float, float, float, float, float, float, float, int, float,
-	                     float, float, float, int ) override {}
-	void CreateBeamRingPoint( const Vector &, float, float, int, int, float, float, float, float, float, float,
-	                          float, float, int, float, float, float, float, int ) override {}
-	void CreateBeamCirclePoints( int, Vector &, Vector &, int, int, float, float, float, float, float, float,
-	                             float, float, int, float, float, float, float ) override {}
+							 float, float, float, int, float, float, float, float ) override
+	{
+	}
+
+	void CreateBeamPoints( Vector &, Vector &, int, int, float, float, float, float, float, float, float, float, int,
+						   float, float, float, float ) override
+	{
+	}
+
+	void CreateBeamRing( int, int, int, int, float, float, float, float, float, float, float, float, int, float, float,
+						 float, float, int ) override
+	{
+	}
+
+	void CreateBeamRingPoint( const Vector &, float, float, int, int, float, float, float, float, float, float, float,
+							  float, int, float, float, float, float, int ) override
+	{
+	}
+
+	void CreateBeamCirclePoints( int, Vector &, Vector &, int, int, float, float, float, float, float, float, float,
+								 float, int, float, float, float, float ) override
+	{
+	}
+
 	void CreateBeamFollow( int, int, int, float, float, float, float, float, float, float, float, float ) override {}
 };
 
@@ -249,7 +249,7 @@ void SourceSharp_BeamView( int32_t bCurrentView, float *pOut42 )
 	if ( !pOut42 )
 		return;
 
-	Vector *v = reinterpret_cast< Vector * >( pOut42 );
+	Vector *v = reinterpret_cast<Vector *>( pOut42 );
 	if ( bCurrentView )
 	{
 		v[0] = CurrentViewOrigin();
@@ -261,7 +261,7 @@ void SourceSharp_BeamView( int32_t bCurrentView, float *pOut42 )
 
 		// The render context's world-space camera: what a strip faces.
 		CMatRenderContextPtr pRenderContext( materials );
-		pRenderContext->GetWorldSpaceCameraPosition( reinterpret_cast< Vector * >( pOut42 + 39 ) );
+		pRenderContext->GetWorldSpaceCameraPosition( reinterpret_cast<Vector *>( pOut42 + 39 ) );
 	}
 	v[5] = MainViewUp();
 	v[6] = MainViewRight();
@@ -304,18 +304,18 @@ int32_t SourceSharp_BeamEntityHasModel( uint32_t hEntity )
 // render origin).
 enum BeamEntityFact_t
 {
-	BEAM_FACT_RESOLVED     = 0x01,
-	BEAM_FACT_RENDERABLE   = 0x04,
-	BEAM_FACT_PLAYER       = 0x08,
-	BEAM_FACT_ATTACHMENT   = 0x10,
-	BEAM_FACT_COLLIDEABLE  = 0x20,
+	BEAM_FACT_RESOLVED = 0x01,
+	BEAM_FACT_RENDERABLE = 0x04,
+	BEAM_FACT_PLAYER = 0x08,
+	BEAM_FACT_ATTACHMENT = 0x10,
+	BEAM_FACT_COLLIDEABLE = 0x20,
 };
 
 int32_t SourceSharp_BeamEntityFacts( uint32_t hEntity, int32_t nAttachment, int32_t bTryAttachment, float *pOut9 )
 {
 	if ( !pOut9 )
 		return 0;
-	Vector *pOut = reinterpret_cast< Vector * >( pOut9 );
+	Vector *pOut = reinterpret_cast<Vector *>( pOut9 );
 
 	IClientUnknown *pUnknown = SourceSharp_ClientUnknownFromHandle( HandleFromRaw( hEntity ) );
 	if ( !pUnknown )
@@ -351,16 +351,16 @@ int32_t SourceSharp_BeamEntityFacts( uint32_t hEntity, int32_t nAttachment, int3
 
 int32_t SourceSharp_BeamBoxVisibility( const float *pMinsXYZ, const float *pMaxsXYZ )
 {
-	const Vector &mins = *reinterpret_cast< const Vector * >( pMinsXYZ );
-	const Vector &maxs = *reinterpret_cast< const Vector * >( pMaxsXYZ );
+	const Vector &mins = *reinterpret_cast<const Vector *>( pMinsXYZ );
+	const Vector &maxs = *reinterpret_cast<const Vector *>( pMaxsXYZ );
 	return ( engine->IsBoxVisible( mins, maxs ) ? 1 : 0 ) | ( engine->CullBox( mins, maxs ) ? 2 : 0 );
 }
 
 int32_t SourceSharp_BeamScreenPosition( const float *pPointXYZ, float *pOutScreenXYZ )
 {
 	Vector screen;
-	const int behind = debugoverlay->ScreenPosition( *reinterpret_cast< const Vector * >( pPointXYZ ), screen );
-	VectorCopy( screen, *reinterpret_cast< Vector * >( pOutScreenXYZ ) );
+	const int behind = debugoverlay->ScreenPosition( *reinterpret_cast<const Vector *>( pPointXYZ ), screen );
+	VectorCopy( screen, *reinterpret_cast<Vector *>( pOutScreenXYZ ) );
 	return behind;
 }
 
@@ -431,7 +431,8 @@ CEngineSprite *SourceSharp_BindSpriteModel( const model_t *pModel, int nFrame, i
 	if ( bWireframe )
 	{
 		if ( !g_pBeamWireframeMaterial )
-			g_pBeamWireframeMaterial = materials->FindMaterial( "shadertest/wireframevertexcolor", TEXTURE_GROUP_OTHER );
+			g_pBeamWireframeMaterial =
+				materials->FindMaterial( "shadertest/wireframevertexcolor", TEXTURE_GROUP_OTHER );
 		pRenderContext->Bind( g_pBeamWireframeMaterial, NULL );
 		return pSprite;
 	}
@@ -442,7 +443,8 @@ CEngineSprite *SourceSharp_BindSpriteModel( const model_t *pModel, int nFrame, i
 
 int32_t SourceSharp_BeamBindSprite( int32_t nModelIndex, int32_t nFrame, int32_t nRenderMode, int32_t bWireframe )
 {
-	return SourceSharp_BindSpriteModel( modelinfo->GetModel( nModelIndex ), nFrame, nRenderMode, bWireframe != 0 ) ? 1 : 0;
+	return SourceSharp_BindSpriteModel( modelinfo->GetModel( nModelIndex ), nFrame, nRenderMode, bWireframe != 0 ) ? 1
+																												   : 0;
 }
 
 void SourceSharp_BeamSetHdrColorScale( int32_t nModelIndex, int32_t nRenderMode, float flScale )
@@ -485,17 +487,20 @@ void SourceSharp_BeamDrawStrip( const float *pVerts, int32_t nVerts )
 }
 
 // One vertex as BeamVertex lays it out: position, r g b a, u v.
-enum { BEAM_VERTEX_FLOATS = 9 };
+enum
+{
+	BEAM_VERTEX_FLOATS = 9
+};
 
 enum BeamColorKind_t
 {
-	BEAM_COLOR_FLOAT = 0,	// Color3fv
-	BEAM_COLOR_RGB,			// Color3ubv
-	BEAM_COLOR_RGBA,		// Color4ubv
+	BEAM_COLOR_FLOAT = 0, // Color3fv
+	BEAM_COLOR_RGB, // Color3ubv
+	BEAM_COLOR_RGBA, // Color4ubv
 };
 
 void SourceSharp_BeamDrawMesh( int32_t nPrimitive, int32_t nPrimitives, int32_t nColorKind, const float *pVerts,
-                               int32_t nVerts )
+							   int32_t nVerts )
 {
 	if ( !pVerts || nVerts <= 0 || nPrimitives <= 0 )
 		return;
@@ -512,22 +517,22 @@ void SourceSharp_BeamDrawMesh( int32_t nPrimitive, int32_t nPrimitives, int32_t 
 
 		switch ( nColorKind )
 		{
-		case BEAM_COLOR_RGB:
-		{
-			const unsigned char c[3] = { (unsigned char)v[3], (unsigned char)v[4], (unsigned char)v[5] };
-			meshBuilder.Color3ubv( c );
-			break;
-		}
-		case BEAM_COLOR_RGBA:
-		{
-			const unsigned char c[4] = { (unsigned char)v[3], (unsigned char)v[4], (unsigned char)v[5],
-			                             (unsigned char)v[6] };
-			meshBuilder.Color4ubv( c );
-			break;
-		}
-		default:
-			meshBuilder.Color3fv( v + 3 );
-			break;
+			case BEAM_COLOR_RGB:
+			{
+				const unsigned char c[3] = { (unsigned char)v[3], (unsigned char)v[4], (unsigned char)v[5] };
+				meshBuilder.Color3ubv( c );
+				break;
+			}
+			case BEAM_COLOR_RGBA:
+			{
+				const unsigned char c[4] = { (unsigned char)v[3], (unsigned char)v[4], (unsigned char)v[5],
+											 (unsigned char)v[6] };
+				meshBuilder.Color4ubv( c );
+				break;
+			}
+			default:
+				meshBuilder.Color3fv( v + 3 );
+				break;
 		}
 
 		meshBuilder.TexCoord2f( 0, v[7], v[8] );

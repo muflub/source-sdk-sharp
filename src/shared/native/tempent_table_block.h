@@ -9,12 +9,12 @@
 // Rows are unaligned, so callers copy them out one at a time.
 struct SourceSharpTeTableBlock_t
 {
-	SourceSharpTeTableHeader_t  header;
-	const unsigned char        *pPayload;
-	int                         nPayload;
-	const unsigned char        *pRows;
-	const char                 *pClassName;
-	const char                 *pTableName;
+	SourceSharpTeTableHeader_t header;
+	const unsigned char *pPayload;
+	int nPayload;
+	const unsigned char *pRows;
+	const char *pClassName;
+	const char *pTableName;
 };
 
 // A name at a payload offset: NULL when the offset is outside the payload, the
@@ -26,7 +26,7 @@ inline const char *SourceSharpTe_BlockName( const SourceSharpTeTableBlock_t &blo
 
 	for ( int i = oName; i < block.nPayload; i++ )
 	{
-		if ( block.pPayload[ i ] == 0 )
+		if ( block.pPayload[i] == 0 )
 			return i > oName ? (const char *)block.pPayload + oName : NULL;
 	}
 
@@ -35,7 +35,7 @@ inline const char *SourceSharpTe_BlockName( const SourceSharpTeTableBlock_t &blo
 
 // Checks a whole-byte bit count that fits, a header, the rows it claims and both names.
 inline bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockBytes, int32_t nRowBytes,
-                                          SourceSharpTeTableBlock_t *pOut )
+										  SourceSharpTeTableBlock_t *pOut )
 {
 	if ( !pBlock || !pOut || nRowBytes <= 0 || nBlockBytes < (int32_t)sizeof( int32_t ) )
 		return false;
@@ -49,8 +49,7 @@ inline bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockByte
 
 	const int nPayload = nBits / 8;
 
-	if ( nPayload > nBlockBytes - (int)sizeof( int32_t )
-	  || nPayload < (int)sizeof( SourceSharpTeTableHeader_t ) )
+	if ( nPayload > nBlockBytes - (int)sizeof( int32_t ) || nPayload < (int)sizeof( SourceSharpTeTableHeader_t ) )
 		return false;
 
 	SourceSharpTeTableBlock_t block;

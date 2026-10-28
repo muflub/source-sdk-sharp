@@ -63,14 +63,14 @@ float GetCurrentGravity();
 #include <vector>
 
 #ifndef CLIENT_DLL
-	#include "shell_server.h"
+#include "shell_server.h"
 #endif
 
 // Entry points the fill calls directly rather than through a slot. Server only.
 #ifndef CLIENT_DLL
-	// server/shell_entityslots.cpp: slots changed since the last frame; reset at level shutdown.
-	int  SourceSharp_DrainEntitySlots();
-	void SourceSharp_ResetEntitySlots();
+// server/shell_entityslots.cpp: slots changed since the last frame; reset at level shutdown.
+int SourceSharp_DrainEntitySlots();
+void SourceSharp_ResetEntitySlots();
 
 #endif
 
@@ -94,13 +94,13 @@ static void *SourceSharp_GetGlobalVarsPtr()
 
 #ifndef CLIENT_DLL
 // Closes the window the engine's single walk of g_pServerClassHead defines.
-void    SourceSharp_TempEntCloseRegistration();
+void SourceSharp_TempEntCloseRegistration();
 
 #endif
 
 #ifdef CLIENT_DLL
 // Closes the build window, which ends before gHUD.Init().
-void    SourceSharp_TempEntClientCloseRegistration();
+void SourceSharp_TempEntClientCloseRegistration();
 #endif
 
 // Wired on both sides so neither answers a plausible managed fallback.
@@ -109,44 +109,86 @@ static float SourceSharp_CurrentGravity()
 	return GetCurrentGravity();
 }
 
-void        SourceSharp_StopListeningForGameEvents();
+void SourceSharp_StopListeningForGameEvents();
 
 #ifdef CLIENT_DLL
-	#include "cdll_client_int.h"
-	#define SOURCESHARP_SIDE_TAG "client"
-	#define SourceSharp_LoadMySide_Host   SourceSharp_LoadClient
-	#define SourceSharp_UnloadMySide      SourceSharp_UnloadClient
-	#define SourceSharp_ReloadCheckMySide SourceSharp_ReloadCheckClient
+#include "cdll_client_int.h"
+#define SOURCESHARP_SIDE_TAG "client"
+#define SourceSharp_LoadMySide_Host SourceSharp_LoadClient
+#define SourceSharp_UnloadMySide SourceSharp_UnloadClient
+#define SourceSharp_ReloadCheckMySide SourceSharp_ReloadCheckClient
 #else
-	#include "eiface.h"
-	#define SOURCESHARP_SIDE_TAG "server"
-	#define SourceSharp_LoadMySide_Host   SourceSharp_LoadServer
-	#define SourceSharp_UnloadMySide      SourceSharp_UnloadServer
-	#define SourceSharp_ReloadCheckMySide SourceSharp_ReloadCheckServer
+#include "eiface.h"
+#define SOURCESHARP_SIDE_TAG "server"
+#define SourceSharp_LoadMySide_Host SourceSharp_LoadServer
+#define SourceSharp_UnloadMySide SourceSharp_UnloadServer
+#define SourceSharp_ReloadCheckMySide SourceSharp_ReloadCheckServer
 #endif
-
 
 static bool g_bSourceSharpLoaded = false;
 
 // The client's struct reaches IShimConsole's bodies through these.
 #ifdef CLIENT_DLL
-static void SourceSharp_ConsoleMsg( const char *p ) { ShimConsole().Msg( p ); }
-static void SourceSharp_ConsoleWarning( const char *p ) { ShimConsole().Warning( p ); }
+static void SourceSharp_ConsoleMsg( const char *p )
+{
+	ShimConsole().Msg( p );
+}
+
+static void SourceSharp_ConsoleWarning( const char *p )
+{
+	ShimConsole().Warning( p );
+}
+
 static int32_t SourceSharp_ConsoleRegisterConCommand( const char *n, const char *h, int32_t f )
-	{ return ShimConsole().RegisterConCommand( n, h, f ); }
-static int32_t SourceSharp_ConsoleRegisterConVar( const char *n, const char *d, const char *h, int32_t f,
-                                                  int32_t bMin, float flMin, int32_t bMax, float flMax )
-	{ return ShimConsole().RegisterConVar( n, d, h, f, bMin, flMin, bMax, flMax ); }
-static void SourceSharp_ConsoleSetConVarValue( int32_t id, const char *v ) { ShimConsole().SetConVarValue( id, v ); }
-static void SourceSharp_ConsoleGetConVarValue( int32_t id, char *o, int32_t n ) { ShimConsole().GetConVarValue( id, o, n ); }
+{
+	return ShimConsole().RegisterConCommand( n, h, f );
+}
+
+static int32_t SourceSharp_ConsoleRegisterConVar( const char *n, const char *d, const char *h, int32_t f, int32_t bMin,
+												  float flMin, int32_t bMax, float flMax )
+{
+	return ShimConsole().RegisterConVar( n, d, h, f, bMin, flMin, bMax, flMax );
+}
+
+static void SourceSharp_ConsoleSetConVarValue( int32_t id, const char *v )
+{
+	ShimConsole().SetConVarValue( id, v );
+}
+
+static void SourceSharp_ConsoleGetConVarValue( int32_t id, char *o, int32_t n )
+{
+	ShimConsole().GetConVarValue( id, o, n );
+}
+
 static int32_t SourceSharp_ConsoleFindConVarValue( const char *n, char *o, int32_t s )
-	{ return ShimConsole().FindConVarValue( n, o, s ); }
-static void SourceSharp_ConsoleSetNamedConVarValue( const char *n, const char *v ) { ShimConsole().SetNamedConVarValue( n, v ); }
-static void SourceSharp_ConsoleRevertNamedConVar( const char *n ) { ShimConsole().RevertNamedConVar( n ); }
-static int32_t SourceSharp_ConsoleConsoleSnapshot() { return ShimConsole().ConsoleSnapshot(); }
+{
+	return ShimConsole().FindConVarValue( n, o, s );
+}
+
+static void SourceSharp_ConsoleSetNamedConVarValue( const char *n, const char *v )
+{
+	ShimConsole().SetNamedConVarValue( n, v );
+}
+
+static void SourceSharp_ConsoleRevertNamedConVar( const char *n )
+{
+	ShimConsole().RevertNamedConVar( n );
+}
+
+static int32_t SourceSharp_ConsoleConsoleSnapshot()
+{
+	return ShimConsole().ConsoleSnapshot();
+}
+
 static int32_t SourceSharp_ConsoleConsoleSnapshotEntry( int32_t i, SourceSharpConsoleEntry *o )
-	{ return ShimConsole().ConsoleSnapshotEntry( i, o ); }
-static int32_t SourceSharp_ConsoleFindConVarFlags( const char *n ) { return ShimConsole().FindConVarFlags( n ); }
+{
+	return ShimConsole().ConsoleSnapshotEntry( i, o );
+}
+
+static int32_t SourceSharp_ConsoleFindConVarFlags( const char *n )
+{
+	return ShimConsole().FindConVarFlags( n );
+}
 #endif
 
 // One load, for the first load and the reload alike.
@@ -161,7 +203,7 @@ static int SourceSharp_LoadMySide()
 	if ( rc != SOURCESHARP_OK )
 		return rc;
 
-	char szWhy[ 160 ];
+	char szWhy[160];
 
 	// A reload: native kept every object and the new build patched them in place.
 	if ( ManagedRoot_Get() )
@@ -173,7 +215,7 @@ static int SourceSharp_LoadMySide()
 		}
 
 		Msg( "[SourceSharp] %s: managed root re-attached in place (%d slots, validated); every area validated\n",
-		     SOURCESHARP_SIDE_TAG, (int)kIManagedRootSlotCount );
+			 SOURCESHARP_SIDE_TAG, (int)kIManagedRootSlotCount );
 		return rc;
 	}
 
@@ -194,12 +236,12 @@ static int SourceSharp_LoadMySide()
 	if ( !ConsoleDisplay_Install( g_pCVar ) )
 	{
 		Warning( "[SourceSharp] %s: the console display func was not installed "
-		         "(no ICvar); engine prints will not reach managed code\n",
-		         SOURCESHARP_SIDE_TAG );
+				 "(no ICvar); engine prints will not reach managed code\n",
+				 SOURCESHARP_SIDE_TAG );
 	}
 
-	Msg( "[SourceSharp] %s: managed root accepted (%d slots, validated), runtime acquired\n",
-	     SOURCESHARP_SIDE_TAG, (int)kIManagedRootSlotCount );
+	Msg( "[SourceSharp] %s: managed root accepted (%d slots, validated), runtime acquired\n", SOURCESHARP_SIDE_TAG,
+		 (int)kIManagedRootSlotCount );
 	return rc;
 }
 
@@ -259,11 +301,11 @@ class CSourceSharpCommand final : public ICommandCallback
 {
 public:
 	CSourceSharpCommand( int nId, const char *pName, const char *pHelp, int nFlags )
-		: m_nId( nId ),
-		  m_Name( pName ? pName : "" ),
-		  m_Help( pHelp ? pHelp : "" ),
-		  m_Command( m_Name.c_str(), this, m_Help.c_str(), nFlags ),
-		  m_pNativeBody( NativeBodyFor( m_Name.c_str() ) )
+		: m_nId( nId )
+		, m_Name( pName ? pName : "" )
+		, m_Help( pHelp ? pHelp : "" )
+		, m_Command( m_Name.c_str(), this, m_Help.c_str(), nFlags )
+		, m_pNativeBody( NativeBodyFor( m_Name.c_str() ) )
 	{
 	}
 
@@ -300,53 +342,51 @@ public:
 
 private:
 	// Declared before the command, which is handed these pointers.
-	int			m_nId;
+	int m_nId;
 	std::string m_Name;
 	std::string m_Help;
-	ConCommand	m_Command;
+	ConCommand m_Command;
 	const CNativeCommandBody *m_pNativeBody;
 };
 
-static CConsoleRegistry< CSourceSharpCommand > g_SourceSharpCommands;
+static CConsoleRegistry<CSourceSharpCommand> g_SourceSharpCommands;
 
 class CSourceSharpConVar;
-static CConsoleRegistry< CSourceSharpConVar > g_SourceSharpConVars;
+static CConsoleRegistry<CSourceSharpConVar> g_SourceSharpConVars;
 
 static void SourceSharp_OnConVarChanged( IConVar *pVar, const char *pOldValue, float flOldValue );
 
 class CSourceSharpConVar final
 {
 public:
-	CSourceSharpConVar( int nId, const char *pName, const char *pDefault, const char *pHelp,
-	                    int nFlags, bool bHasMin, float flMin, bool bHasMax, float flMax )
-		: m_nId( nId ),
-		  m_Name( pName ? pName : "" ),
-		  m_Default( pDefault ? pDefault : "" ),
-		  m_Help( pHelp ? pHelp : "" ),
-		  // Bounds and no per-convar callback: the change callback is global (see
-		  // SourceSharp_OnConVarChanged).
-		  m_ConVar( m_Name.c_str(), m_Default.c_str(), nFlags, m_Help.c_str(),
-		            bHasMin, flMin, bHasMax, flMax )
+	CSourceSharpConVar( int nId, const char *pName, const char *pDefault, const char *pHelp, int nFlags, bool bHasMin,
+						float flMin, bool bHasMax, float flMax )
+		: m_nId( nId )
+		, m_Name( pName ? pName : "" )
+		, m_Default( pDefault ? pDefault : "" )
+		, m_Help( pHelp ? pHelp : "" )
+		,
+		// Bounds and no per-convar callback: the change callback is global (see
+		// SourceSharp_OnConVarChanged).
+		m_ConVar( m_Name.c_str(), m_Default.c_str(), nFlags, m_Help.c_str(), bHasMin, flMin, bHasMax, flMax )
 	{
 	}
 
-	int      GetId() const   { return m_nId; }
-	ConVar  *GetVar()        { return &m_ConVar; }
+	int GetId() const { return m_nId; }
+
+	ConVar *GetVar() { return &m_ConVar; }
 
 	// By name, never by pointer: when the name was registered first elsewhere,
 	// tier1 makes ours a child and hands callbacks the parent.
-	bool     IsNamed( const char *pName ) const
-	{
-		return pName != NULL && ss::StrICmp( m_Name.c_str(), pName ) == 0;
-	}
+	bool IsNamed( const char *pName ) const { return pName != NULL && ss::StrICmp( m_Name.c_str(), pName ) == 0; }
 
 private:
 	// Declared before the convar, which is handed these pointers.
-	int         m_nId;
+	int m_nId;
 	std::string m_Name;
 	std::string m_Default;
 	std::string m_Help;
-	ConVar      m_ConVar;
+	ConVar m_ConVar;
 };
 
 // Deletes the C#-declared commands and convars. Only after ConVar_Unregister in
@@ -432,10 +472,8 @@ void SourceSharp_EnsureConVarChangeCallback()
 
 // A re-registered name rebinds to the surviving object: tier1 refuses a duplicate,
 // and a new object would reset the operator's value to its default.
-int32_t CShimConsole::RegisterConVar( const char *pName, const char *pDefaultValue,
-                                                 const char *pHelp, int32_t nFlags,
-                                                 int32_t bHasMin, float flMin,
-                                                 int32_t bHasMax, float flMax )
+int32_t CShimConsole::RegisterConVar( const char *pName, const char *pDefaultValue, const char *pHelp, int32_t nFlags,
+									  int32_t bHasMin, float flMin, int32_t bHasMax, float flMax )
 {
 	if ( !pName || !pName[0] )
 		return -1;
@@ -445,9 +483,8 @@ int32_t CShimConsole::RegisterConVar( const char *pName, const char *pDefaultVal
 	if ( CSourceSharpConVar *pConVar = g_SourceSharpConVars.ByName( pName ) )
 	{
 		if ( SourceSharp_GetVerbosity() > 0 )
-			::Msg( "[SourceSharp] C# re-registered convar '%s' -> existing id %d, value '%s'\n",
-				pName, pConVar->GetId(),
-				pConVar->GetVar()->GetString() );
+			::Msg( "[SourceSharp] C# re-registered convar '%s' -> existing id %d, value '%s'\n", pName,
+				   pConVar->GetId(), pConVar->GetVar()->GetString() );
 
 		return pConVar->GetId();
 	}
@@ -463,13 +500,13 @@ int32_t CShimConsole::RegisterConVar( const char *pName, const char *pDefaultVal
 
 	const int nId = g_SourceSharpConVars.NextId();
 	g_SourceSharpConVars.Add( pName,
-		new CSourceSharpConVar( nId, pName, pDefaultValue ? pDefaultValue : "",
-		                        pHelp ? pHelp : "", nFlags,
-		                        bHasMin != 0, flMin, bHasMax != 0, flMax ) );
+							  new CSourceSharpConVar( nId, pName, pDefaultValue ? pDefaultValue : "",
+													  pHelp ? pHelp : "", nFlags, bHasMin != 0, flMin, bHasMax != 0,
+													  flMax ) );
 
 	if ( SourceSharp_GetVerbosity() > 0 )
-		::Msg( "[SourceSharp] C# registered convar '%s' = '%s' (id %d)\n",
-			pName, pDefaultValue ? pDefaultValue : "", nId );
+		::Msg( "[SourceSharp] C# registered convar '%s' = '%s' (id %d)\n", pName, pDefaultValue ? pDefaultValue : "",
+			   nId );
 
 	return nId;
 }
@@ -499,8 +536,7 @@ void CShimConsole::GetConVarValue( int32_t nId, char *pOut, int32_t nOutSize )
 }
 
 // A re-registered name returns the surviving command's id; tier1 refuses duplicates.
-int32_t CShimConsole::RegisterConCommand( const char *pName, const char *pHelp,
-                                          int32_t nFlags )
+int32_t CShimConsole::RegisterConCommand( const char *pName, const char *pHelp, int32_t nFlags )
 {
 	if ( !pName || !pName[0] )
 		return -1;
@@ -508,8 +544,8 @@ int32_t CShimConsole::RegisterConCommand( const char *pName, const char *pHelp,
 	if ( CSourceSharpCommand *pCommand = g_SourceSharpCommands.ByName( pName ) )
 	{
 		if ( SourceSharp_GetVerbosity() > 0 )
-			::Msg( "[SourceSharp] C# re-registered console command '%s' -> existing id %d\n",
-				pName, pCommand->GetId() );
+			::Msg( "[SourceSharp] C# re-registered console command '%s' -> existing id %d\n", pName,
+				   pCommand->GetId() );
 
 		return pCommand->GetId();
 	}
@@ -523,18 +559,16 @@ int32_t CShimConsole::RegisterConCommand( const char *pName, const char *pHelp,
 #endif
 
 	const int nId = g_SourceSharpCommands.NextId();
-	g_SourceSharpCommands.Add( pName,
-		new CSourceSharpCommand( nId, pName, pHelp ? pHelp : "", nFlags ) );
+	g_SourceSharpCommands.Add( pName, new CSourceSharpCommand( nId, pName, pHelp ? pHelp : "", nFlags ) );
 
 	if ( SourceSharp_GetVerbosity() > 0 )
-		::Msg( "[SourceSharp] C# registered console command '%s' (id %d, flags 0x%x)\n",
-			pName, nId, nFlags );
+		::Msg( "[SourceSharp] C# registered console command '%s' (id %d, flags 0x%x)\n", pName, nId, nFlags );
 
 	return nId;
 }
 
 // A snapshot of the engine's console registry, copied out entry by entry in one frame.
-static std::vector< ConCommandBase * > g_SourceSharpConsoleSnapshot;
+static std::vector<ConCommandBase *> g_SourceSharpConsoleSnapshot;
 
 static void SourceSharp_CopyOut( char *pOut, int nOutSize, const char *pIn )
 {
@@ -601,13 +635,13 @@ int32_t CShimConsole::ConsoleSnapshotEntry( int32_t nIndex, SourceSharpConsoleEn
 	SourceSharp_CopyOut( pOut->szName, sizeof( pOut->szName ), pBase->GetName() );
 	SourceSharp_CopyOut( pOut->szHelp, sizeof( pOut->szHelp ), pBase->GetHelpText() );
 
-	pOut->nFlags     = SourceSharp_ConsoleFlags( pBase );
+	pOut->nFlags = SourceSharp_ConsoleFlags( pBase );
 	pOut->bIsCommand = pBase->IsCommand() ? 1 : 0;
 
 	// A command has no value or default; the buffers stay empty.
 	if ( !pBase->IsCommand() )
 	{
-		ConVar *pVar = static_cast< ConVar * >( pBase );
+		ConVar *pVar = static_cast<ConVar *>( pBase );
 
 		SourceSharp_CopyOut( pOut->szValue, sizeof( pOut->szValue ), pVar->GetString() );
 		SourceSharp_CopyOut( pOut->szDefault, sizeof( pOut->szDefault ), pVar->GetDefault() );
@@ -618,13 +652,13 @@ int32_t CShimConsole::ConsoleSnapshotEntry( int32_t nIndex, SourceSharpConsoleEn
 		if ( pVar->GetMin( flBound ) )
 		{
 			pOut->bHasMin = 1;
-			pOut->flMin   = flBound;
+			pOut->flMin = flBound;
 		}
 
 		if ( pVar->GetMax( flBound ) )
 		{
 			pOut->bHasMax = 1;
-			pOut->flMax   = flBound;
+			pOut->flMax = flBound;
 		}
 	}
 
@@ -707,8 +741,7 @@ static bool SourceSharp_GetModBinDir( char *pOut, int nOutSize )
 static void SourceSharp_FatalInitFailure( int nStage, int rc, const char *pDetail )
 {
 	char szMessage[2048];
-	SourceSharpInit_Format( szMessage, sizeof( szMessage ),
-		SOURCESHARP_SIDE_TAG, nStage, rc, pDetail );
+	SourceSharpInit_Format( szMessage, sizeof( szMessage ), SOURCESHARP_SIDE_TAG, nStage, rc, pDetail );
 
 	// "%s": the detail holds a path and host text.
 	Error( "%s", szMessage );
@@ -748,8 +781,7 @@ bool SourceSharp_LoadManagedSide()
 	if ( rc != SOURCESHARP_OK )
 	{
 		// No SourceSharp_Release(): Error() does not return.
-		SourceSharp_FatalInitFailure( kSourceSharpInitStage_LoadSide, rc,
-			SourceSharp_LastError() );
+		SourceSharp_FatalInitFailure( kSourceSharpInitStage_LoadSide, rc, SourceSharp_LastError() );
 	}
 
 	g_bSourceSharpLoaded = true;
@@ -764,8 +796,8 @@ bool SourceSharp_LoadManagedSide()
 
 	g_SourceSharpInitGate.MarkSucceeded();
 
-	Msg( "[SourceSharp] managed %s runtime online (%d C# console command(s) registered)\n",
-		SOURCESHARP_SIDE_TAG, g_SourceSharpCommands.Count() );
+	Msg( "[SourceSharp] managed %s runtime online (%d C# console command(s) registered)\n", SOURCESHARP_SIDE_TAG,
+		 g_SourceSharpCommands.Count() );
 	return true;
 }
 
@@ -804,8 +836,7 @@ void SourceSharp_ManagedLevelInitPreEntity( const char *pszMapName )
 		return;
 
 	if ( SourceSharp_GetVerbosity() > 0 )
-		Msg( "[SourceSharp] %s level init pre-entity -> C#: %s\n",
-		     SOURCESHARP_SIDE_TAG, pszMapName );
+		Msg( "[SourceSharp] %s level init pre-entity -> C#: %s\n", SOURCESHARP_SIDE_TAG, pszMapName );
 
 	pRuntime->OnMapLoadPreEntity( pszMapName );
 }
@@ -836,15 +867,15 @@ int SourceSharp_EarPositionForClient( int iClientEdict, float *pOutXYZ )
 	if ( !g_bSourceSharpLoaded || !ManagedClients() )
 		return 0;
 
-	float flEars[ 3 ] = { 0.0f, 0.0f, 0.0f };
+	float flEars[3] = { 0.0f, 0.0f, 0.0f };
 	const int32_t nFound = ManagedClients()->ServerEarPositionForClient( iClientEdict, flEars );
 
 	// Written only on a hit: the world origin is a real position.
 	if ( nFound )
 	{
-		pOutXYZ[ 0 ] = flEars[ 0 ];
-		pOutXYZ[ 1 ] = flEars[ 1 ];
-		pOutXYZ[ 2 ] = flEars[ 2 ];
+		pOutXYZ[0] = flEars[0];
+		pOutXYZ[1] = flEars[1];
+		pOutXYZ[2] = flEars[2];
 	}
 
 	return nFound ? 1 : 0;
@@ -852,13 +883,13 @@ int SourceSharp_EarPositionForClient( int iClientEdict, float *pOutXYZ )
 
 // ClientSetupVisibility's area portal walk, over managed records.
 int SourceSharp_AreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor,
-                                      unsigned char *pPortalBits, int nPortalBytes )
+									  unsigned char *pPortalBits, int nPortalBytes )
 {
 	if ( !g_bSourceSharpLoaded || !ManagedClients() )
 		return -1;
 
-	return ManagedClients()->ServerAreaPortalVisibility( pOriginXYZ, flFovDistanceAdjustFactor,
-	                                                     pPortalBits, nPortalBytes );
+	return ManagedClients()->ServerAreaPortalVisibility( pOriginXYZ, flFovDistanceAdjustFactor, pPortalBits,
+														 nPortalBytes );
 }
 
 #endif // !CLIENT_DLL
@@ -872,7 +903,11 @@ int SourceSharp_AreaPortalVisibility( const float *pOriginXYZ, float flFovDistan
 class CSourceSharpSystem : public CClientSystemPerFrame
 {
 public:
-	CSourceSharpSystem() : CClientSystemPerFrame( "SourceSharp" ), m_pRuntime( NULL ) {}
+	CSourceSharpSystem()
+		: CClientSystemPerFrame( "SourceSharp" )
+		, m_pRuntime( NULL )
+	{
+	}
 
 	// Set from CShellClientDLL::Init after LoadManagedRuntime; this row does not load.
 	void SetRuntime( IClientRuntimeAdapter *pRuntime ) { m_pRuntime = pRuntime; }
@@ -897,7 +932,7 @@ public:
 		if ( !g_bSourceSharpLoaded || m_pRuntime == NULL )
 			return;
 
-		char szMapName[ MAX_PATH ];
+		char szMapName[MAX_PATH];
 		SourceSharp_ClientMapName( szMapName, sizeof( szMapName ) );
 
 		if ( SourceSharp_GetVerbosity() > 0 )
@@ -938,7 +973,10 @@ private:
 
 static CSourceSharpSystem g_SourceSharpSystem;
 
-CClientSystem *ClientSystem_SourceSharpManaged() { return &g_SourceSharpSystem; }
+CClientSystem *ClientSystem_SourceSharpManaged()
+{
+	return &g_SourceSharpSystem;
+}
 
 void SourceSharp_SetClientRuntime( IClientRuntimeAdapter *pRuntime )
 {
@@ -952,21 +990,20 @@ void SourceSharp_SetClientRuntime( IClientRuntimeAdapter *pRuntime )
 // and commands); managed objects do not. Not FCVAR_CHEAT: the command is local.
 #ifndef CLIENT_DLL
 void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped );
-int  SourceSharp_RetireEntitySlots();
-int  SourceSharp_StandaloneLiveCount();
+int SourceSharp_RetireEntitySlots();
+int SourceSharp_StandaloneLiveCount();
 #endif
 
 static void SourceSharp_ReloadManagedSide()
 {
 	if ( !g_bSourceSharpLoaded )
 	{
-		Warning( "[SourceSharp] %s: nothing to reload -- the managed runtime is not up\n",
-			SOURCESHARP_SIDE_TAG );
+		Warning( "[SourceSharp] %s: nothing to reload -- the managed runtime is not up\n", SOURCESHARP_SIDE_TAG );
 		return;
 	}
 
 	// The new build must keep every held object's slot hashes, or nothing is touched.
-	char szWhy[ 256 ];
+	char szWhy[256];
 	if ( SourceSharp_ReloadCheckMySide( szWhy, sizeof( szWhy ) ) != 0 )
 	{
 		Warning( "[SourceSharp] %s: reload REFUSED, the running build stays: %s\n", SOURCESHARP_SIDE_TAG, szWhy );
@@ -1006,17 +1043,17 @@ static void SourceSharp_ReloadManagedSide()
 	{
 		// Fatal: nothing stock stands behind the shell.
 		Error( "[SourceSharp] %s: managed reload FAILED (%d): %s -- this side is now dead "
-		       "and there is no stock behaviour behind it, so the process stops here rather "
-		       "than calling through an unloaded assembly on the next frame. %d entity(ies) "
-		       "worth of saved state is dropped with it, because the assembly that was going "
-		       "to adopt them is not there and state kept for a restore that never happens "
-		       "would be applied to whatever the next reload finds at those handles.\n",
-			SOURCESHARP_SIDE_TAG, rc, SourceSharp_LastError(), nSaved );
+			   "and there is no stock behaviour behind it, so the process stops here rather "
+			   "than calling through an unloaded assembly on the next frame. %d entity(ies) "
+			   "worth of saved state is dropped with it, because the assembly that was going "
+			   "to adopt them is not there and state kept for a restore that never happens "
+			   "would be applied to whatever the next reload finds at those handles.\n",
+			   SOURCESHARP_SIDE_TAG, rc, SourceSharp_LastError(), nSaved );
 		return;
 	}
 
 	g_bSourceSharpLoaded = true;
-	consoleGap.End();  // the blocks are patched; the new build takes the prints
+	consoleGap.End(); // the blocks are patched; the new build takes the prints
 
 	// The type table now holds the new hashes; live entities still carry the old.
 #ifndef CLIENT_DLL
@@ -1025,8 +1062,8 @@ static void SourceSharp_ReloadManagedSide()
 	int nChecked = 0, nRestamped = 0;
 	SourceSharp_StandaloneResyncSchema( &nChecked, &nRestamped );
 
-	Msg( "[SourceSharp] %s: %d stamped entity(ies) checked, %d reshaped and re-stamped\n",
-		SOURCESHARP_SIDE_TAG, nChecked, nRestamped );
+	Msg( "[SourceSharp] %s: %d stamped entity(ies) checked, %d reshaped and re-stamped\n", SOURCESHARP_SIDE_TAG,
+		 nChecked, nRestamped );
 #endif
 
 	// After the resync, which zeroes the blobs of reshaped classes and would wipe
@@ -1038,26 +1075,26 @@ static void SourceSharp_ReloadManagedSide()
 #endif
 	const int nRestored = pRestoreArea ? pRestoreArea->ReloadRestore() : 0;
 
-	Msg( "[SourceSharp] %s: managed reload complete -- %d entity(ies) saved, %d restored\n",
-		SOURCESHARP_SIDE_TAG, nSaved, nRestored );
+	Msg( "[SourceSharp] %s: managed reload complete -- %d entity(ies) saved, %d restored\n", SOURCESHARP_SIDE_TAG,
+		 nSaved, nRestored );
 
 	// Entities not restored exist but will not think, take inputs or fire outputs.
 	if ( nRestored < nSaved )
 	{
 		Warning( "[SourceSharp] %d of %d saved entity(ies) did NOT come back. Each one still "
-		         "exists, still replicates and still looks normal, and none of them will "
-		         "think, accept an input or fire an output. The lines above name them.\n",
-			nSaved - nRestored, nSaved );
+				 "exists, still replicates and still looks normal, and none of them will "
+				 "think, accept an input or fire an output. The lines above name them.\n",
+				 nSaved - nRestored, nSaved );
 	}
 
 #ifndef CLIENT_DLL
 	if ( nRestamped > 0 )
 	{
 		Warning( "[SourceSharp] a layout moved. Any client whose OWN managed side has not "
-		         "been reloaded will now REFUSE those entities' payloads rather than decode "
-		         "them through the wrong offsets -- which is the intended outcome and not a "
-		         "fault. Reload the client side too (cs_cl_reload on a listen server), or "
-		         "reconnect a remote client with a rebuilt game.\n" );
+				 "been reloaded will now REFUSE those entities' payloads rather than decode "
+				 "them through the wrong offsets -- which is the intended outcome and not a "
+				 "fault. Reload the client side too (cs_cl_reload on a listen server), or "
+				 "reconnect a remote client with a rebuilt game.\n" );
 	}
 #endif
 }
@@ -1075,8 +1112,7 @@ static void SourceSharp_RequestReload()
 }
 
 #ifdef CLIENT_DLL
-CON_COMMAND( cs_cl_reload,
-	"Reload the CLIENT's managed assemblies in place, without restarting the game" )
+CON_COMMAND( cs_cl_reload, "Reload the CLIENT's managed assemblies in place, without restarting the game" )
 {
 	SourceSharp_RequestReload();
 }
@@ -1086,7 +1122,6 @@ SS_NATIVE_COMMAND( cs_sv_reload )
 	SourceSharp_RequestReload();
 }
 #endif
-
 
 #ifndef CLIENT_DLL
 // Server shell hooks: each asks C# and falls back to a default when it is not up.

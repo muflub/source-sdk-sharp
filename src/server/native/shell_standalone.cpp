@@ -9,16 +9,10 @@
 //
 // The per-tier ServerClasses every networked standalone entity uses.
 
-#include "shell_standalone.h"
 #include "shell_standalone_player.h"
 #include "standalone_nettable.h"
-#include "generic_nettable.h"
-#include "generic_payload.h"
-#include "sourcesharp.h"
 
-#include <vector>
-
-std::vector< CStandaloneEntity * > &StandaloneEntities();
+std::vector<CStandaloneEntity *> &StandaloneEntities();
 
 static void BuildStandaloneProps( SendProp *pOut, int &nOut )
 {
@@ -26,32 +20,24 @@ static void BuildStandaloneProps( SendProp *pOut, int &nOut )
 
 	// Our members' offsets in the shared list's order; names, order and encoding come from
 	// standalone_nettable.h.
-	int nOffsets[ STANDALONE_NET_FIELD_COUNT ];
+	int nOffsets[STANDALONE_NET_FIELD_COUNT];
 	// Block fields use the same arithmetic as MarkBlockChanged: the engine matches change
 	// offsets against SendProp offsets exactly.
-	nOffsets[ STANDALONE_NET_FIELD_ORIGIN ]       = CStandaloneEntity::BlockBase()
-	                                              + SS_BLOCK_HEAD_OFFSET( Origin );
-	nOffsets[ STANDALONE_NET_FIELD_ANGLES ]       = CStandaloneEntity::BlockBase()
-	                                              + SS_BLOCK_HEAD_OFFSET( Angles );
-	nOffsets[ STANDALONE_NET_FIELD_MODELINDEX ]   = CStandaloneEntity::BlockBase()
-	                                              + SS_BLOCK_HEAD_OFFSET( ModelIndex );
-	nOffsets[ STANDALONE_NET_FIELD_EFFECTS ]      = CStandaloneEntity::BlockBase()
-	                                              + SS_BLOCK_HEAD_OFFSET( Effects );
-	nOffsets[ STANDALONE_NET_FIELD_INTERPFRAME ]  = CStandaloneEntity::BlockBase()
-	                                              + SS_BLOCK_HEAD_OFFSET( InterpolationFrame );
-	nOffsets[ STANDALONE_NET_FIELD_TYPEID ]       = (int)( (intp)&pNull->m_nTypeId );
-	nOffsets[ STANDALONE_NET_FIELD_SCHEMAHASH ]   = (int)( (intp)&pNull->m_nSchemaHash );
-	nOffsets[ STANDALONE_NET_FIELD_PAYLOADWORDS ] = (int)( (intp)&pNull->m_nPayloadWords );
-	nOffsets[ STANDALONE_NET_FIELD_SOLIDTYPE ]    = CStandaloneEntity::BlockBase()
-	                                              + SS_BLOCK_HEAD_OFFSET( SolidType );
-	nOffsets[ STANDALONE_NET_FIELD_SOLIDFLAGS ]   = CStandaloneEntity::BlockBase()
-	                                              + SS_BLOCK_HEAD_OFFSET( SolidFlags );
-	nOffsets[ STANDALONE_NET_FIELD_SKIN ]         = CStandaloneEntity::BlockBase()
-	                                              + (int)offsetof( EngineBlock_t, Client )
-	                                              + (int)offsetof( EngineBlockClientTail_t, Skin );
-	nOffsets[ STANDALONE_NET_FIELD_BODY ]         = CStandaloneEntity::BlockBase()
-	                                              + (int)offsetof( EngineBlock_t, Client )
-	                                              + (int)offsetof( EngineBlockClientTail_t, Body );
+	nOffsets[STANDALONE_NET_FIELD_ORIGIN] = CStandaloneEntity::BlockBase() + SS_BLOCK_HEAD_OFFSET( Origin );
+	nOffsets[STANDALONE_NET_FIELD_ANGLES] = CStandaloneEntity::BlockBase() + SS_BLOCK_HEAD_OFFSET( Angles );
+	nOffsets[STANDALONE_NET_FIELD_MODELINDEX] = CStandaloneEntity::BlockBase() + SS_BLOCK_HEAD_OFFSET( ModelIndex );
+	nOffsets[STANDALONE_NET_FIELD_EFFECTS] = CStandaloneEntity::BlockBase() + SS_BLOCK_HEAD_OFFSET( Effects );
+	nOffsets[STANDALONE_NET_FIELD_INTERPFRAME] =
+		CStandaloneEntity::BlockBase() + SS_BLOCK_HEAD_OFFSET( InterpolationFrame );
+	nOffsets[STANDALONE_NET_FIELD_TYPEID] = (int)( (intp)&pNull->m_nTypeId );
+	nOffsets[STANDALONE_NET_FIELD_SCHEMAHASH] = (int)( (intp)&pNull->m_nSchemaHash );
+	nOffsets[STANDALONE_NET_FIELD_PAYLOADWORDS] = (int)( (intp)&pNull->m_nPayloadWords );
+	nOffsets[STANDALONE_NET_FIELD_SOLIDTYPE] = CStandaloneEntity::BlockBase() + SS_BLOCK_HEAD_OFFSET( SolidType );
+	nOffsets[STANDALONE_NET_FIELD_SOLIDFLAGS] = CStandaloneEntity::BlockBase() + SS_BLOCK_HEAD_OFFSET( SolidFlags );
+	nOffsets[STANDALONE_NET_FIELD_SKIN] = CStandaloneEntity::BlockBase() + (int)offsetof( EngineBlock_t, Client ) +
+		(int)offsetof( EngineBlockClientTail_t, Skin );
+	nOffsets[STANDALONE_NET_FIELD_BODY] = CStandaloneEntity::BlockBase() + (int)offsetof( EngineBlock_t, Client ) +
+		(int)offsetof( EngineBlockClientTail_t, Body );
 
 	int nCount = 0;
 	const StandaloneNetField_t *pFields = StandaloneNetFields( &nCount );
@@ -60,28 +46,27 @@ static void BuildStandaloneProps( SendProp *pOut, int &nOut )
 	{
 		switch ( pFields[i].kind )
 		{
-		case STANDALONE_NET_VECTOR:
-			pOut[ nOut++ ] = SendPropVector( pFields[i].pName, nOffsets[i], 12, 32, SPROP_NOSCALE );
-			break;
+			case STANDALONE_NET_VECTOR:
+				pOut[nOut++] = SendPropVector( pFields[i].pName, nOffsets[i], 12, 32, SPROP_NOSCALE );
+				break;
 
-		case STANDALONE_NET_INT:
-			pOut[ nOut++ ] = SendPropInt( pFields[i].pName, nOffsets[i], 4,
-			                              pFields[i].nBits, SPROP_UNSIGNED );
-			break;
+			case STANDALONE_NET_INT:
+				pOut[nOut++] = SendPropInt( pFields[i].pName, nOffsets[i], 4, pFields[i].nBits, SPROP_UNSIGNED );
+				break;
 
-		case STANDALONE_NET_STRING:
-			pOut[ nOut++ ] = SendPropString( pFields[i].pName, nOffsets[i], pFields[i].nBits );
-			break;
+			case STANDALONE_NET_STRING:
+				pOut[nOut++] = SendPropString( pFields[i].pName, nOffsets[i], pFields[i].nBits );
+				break;
 		}
 	}
 }
 
 // One ServerClass per tier for the whole hierarchy, all registered at DLL init: the
 // engine walks g_pServerClassHead once, and the class list is negotiated at connect.
-static SendProp    *g_pTierProps[ SOURCESHARP_TIER_MAX ]   = { NULL };
-static SendTable   *g_pTierTables[ SOURCESHARP_TIER_MAX ]  = { NULL };
-static ServerClass *g_pTierClasses[ SOURCESHARP_TIER_MAX ] = { NULL };
-static bool         g_bTiersRegistered = false;
+static SendProp *g_pTierProps[SOURCESHARP_TIER_MAX] = { NULL };
+static SendTable *g_pTierTables[SOURCESHARP_TIER_MAX] = { NULL };
+static ServerClass *g_pTierClasses[SOURCESHARP_TIER_MAX] = { NULL };
+static bool g_bTiersRegistered = false;
 
 static void RegisterStandaloneTiers()
 {
@@ -95,8 +80,8 @@ static void RegisterStandaloneTiers()
 
 	const int nBlobBase = SourceSharp_StandaloneBlobOffset();
 
-	Msg( "[SourceSharp] standalone: blob offset %d (entity shell %d, player shell %d)\n",
-		nBlobBase, (int)sizeof( CStandaloneEntity ), (int)sizeof( CStandalonePlayer ) );
+	Msg( "[SourceSharp] standalone: blob offset %d (entity shell %d, player shell %d)\n", nBlobBase,
+		 (int)sizeof( CStandaloneEntity ), (int)sizeof( CStandalonePlayer ) );
 
 	for ( int iTier = 0; iTier < SourceSharp_TierCount(); iTier++ )
 	{
@@ -107,49 +92,51 @@ static void RegisterStandaloneTiers()
 		if ( nWords < 0 || !SourceSharpPayload_OffsetsFit( nBlobBase, nWords ) )
 		{
 			Warning( "[SourceSharp] standalone tier '%s': %d word(s) will not fit at blob "
-			         "base %d; NOT registered — every entity on the hierarchy would then "
-			         "have no class at all\n", pTableName, nWords, nBlobBase );
+					 "base %d; NOT registered — every entity on the hierarchy would then "
+					 "have no class at all\n",
+					 pTableName, nWords, nBlobBase );
 			continue;
 		}
 
-		g_pTierProps[ iTier ] = new SendProp[ nShared + nWords ];
+		g_pTierProps[iTier] = new SendProp[nShared + nWords];
 
 		int nBuilt = 0;
-		BuildStandaloneProps( g_pTierProps[ iTier ], nBuilt );
+		BuildStandaloneProps( g_pTierProps[iTier], nBuilt );
 
-		if ( SourceSharpPayload_BuildSendProps( g_pTierProps[ iTier ] + nBuilt,
-		                                        nWords, nBlobBase ) != nWords )
+		if ( SourceSharpPayload_BuildSendProps( g_pTierProps[iTier] + nBuilt, nWords, nBlobBase ) != nWords )
 		{
 			Warning( "[SourceSharp] standalone tier '%s': payload build refused %d word(s); "
-			         "not registered\n", pTableName, nWords );
-			delete[] g_pTierProps[ iTier ];
-			g_pTierProps[ iTier ] = NULL;
+					 "not registered\n",
+					 pTableName, nWords );
+			delete[] g_pTierProps[iTier];
+			g_pTierProps[iTier] = NULL;
 			continue;
 		}
 
 		nBuilt += nWords;
 
-		g_pTierTables[ iTier ]  = new SendTable( g_pTierProps[ iTier ], nBuilt, pTableName );
-		g_pTierClasses[ iTier ] = new ServerClass( pClassName, g_pTierTables[ iTier ] );
+		g_pTierTables[iTier] = new SendTable( g_pTierProps[iTier], nBuilt, pTableName );
+		g_pTierClasses[iTier] = new ServerClass( pClassName, g_pTierTables[iTier] );
 
 		int nSlow = 0;
 
 		for ( int i = 0; i < nWords; i++ )
 		{
-			if ( !SourceSharpPayload_IsFastSendProxy( g_pTierTables[ iTier ]->GetProp( nShared + i ) ) )
+			if ( !SourceSharpPayload_IsFastSendProxy( g_pTierTables[iTier]->GetProp( nShared + i ) ) )
 				nSlow++;
 		}
 
 		Msg( "[SourceSharp] standalone tier %d '%s' -> '%s': %d real + %d payload word(s) "
-		     "= %d prop(s), %d payload byte(s) at blob base %d\n",
-			iTier, pClassName, pTableName, nShared, nWords, nBuilt,
-			SourceSharp_Tiers( NULL )[ iTier ].nBytes, nBlobBase );
+			 "= %d prop(s), %d payload byte(s) at blob base %d\n",
+			 iTier, pClassName, pTableName, nShared, nWords, nBuilt, SourceSharp_Tiers( NULL )[iTier].nBytes,
+			 nBlobBase );
 
 		if ( nSlow > 0 )
 		{
 			Warning( "[SourceSharp] standalone tier '%s': %d of %d payload word(s) did NOT "
-			         "resolve to m_UInt32ToInt32 and would be copied slowly, proxies and "
-			         "all\n", pTableName, nSlow, nWords );
+					 "resolve to m_UInt32ToInt32 and would be copied slowly, proxies and "
+					 "all\n",
+					 pTableName, nSlow, nWords );
 		}
 	}
 }
@@ -162,7 +149,7 @@ bool SourceSharp_IsStandaloneTierServerClass( const ServerClass *pClass )
 
 	for ( int i = 0; i < SOURCESHARP_TIER_MAX; i++ )
 	{
-		if ( g_pTierClasses[ i ] == pClass )
+		if ( g_pTierClasses[i] == pClass )
 			return true;
 	}
 
@@ -197,28 +184,27 @@ int32_t SourceSharp_NetHierarchyDeclare( int32_t nBlobBytes )
 	if ( iTier < 0 )
 	{
 		Warning( "[SourceSharp] standalone: %d declared blob byte(s) exceeds the largest tier "
-		         "(%d); that class has NO table it can use and its entities will not "
-		         "replicate\n", nBlobBytes,
-			SourceSharp_TierBytes( SourceSharp_TierCount() - 1 ) );
+				 "(%d); that class has NO table it can use and its entities will not "
+				 "replicate\n",
+				 nBlobBytes, SourceSharp_TierBytes( SourceSharp_TierCount() - 1 ) );
 		return -1;
 	}
 
 	const int nWords = SourceSharp_TierWords( iTier );
 
 	Msg( "[SourceSharp] standalone: the greediest declaration is %d byte(s) -> tier %d '%s' "
-	     "(%d bytes, %d payload word(s)); every OTHER class is sized to its own tier, "
-	     "blob base %d\n",
-		nBlobBytes, iTier, SourceSharp_TierTableName( SS_SHELL_STANDALONE, iTier ),
-		SourceSharp_TierBytes( iTier ), nWords, SourceSharp_StandaloneBlobOffset() );
+		 "(%d bytes, %d payload word(s)); every OTHER class is sized to its own tier, "
+		 "blob base %d\n",
+		 nBlobBytes, iTier, SourceSharp_TierTableName( SS_SHELL_STANDALONE, iTier ), SourceSharp_TierBytes( iTier ),
+		 nWords, SourceSharp_StandaloneBlobOffset() );
 
 	return nWords;
 }
 
 // C# publishing one managed type: a name, its layout hash and size. Answers the type's
 // tier. pOutTypeId hands back native's FNV-1a of the name so C# can check its own.
-int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell,
-                                    uint32_t nSchemaHash, int32_t nLayoutBytes,
-                                    uint32_t *pOutTypeId )
+int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
+									uint32_t *pOutTypeId )
 {
 	if ( pOutTypeId )
 		*pOutTypeId = pClassName ? SourceSharp_HashClassName( pClassName ) : 0;
@@ -230,9 +216,9 @@ int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell,
 	if ( nShell == SS_SHELL_NETENTITY )
 	{
 		Warning( "[SourceSharp] type '%s': shell %d is the RETIRED runtime-networked "
-		         "entity, which no longer exists; NOT published. A managed build "
-		         "publishing on it is older than this native one.\n",
-			pClassName, (int)nShell );
+				 "entity, which no longer exists; NOT published. A managed build "
+				 "publishing on it is older than this native one.\n",
+				 pClassName, (int)nShell );
 		return -1;
 	}
 
@@ -243,8 +229,8 @@ int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell,
 	if ( iTier < 0 )
 	{
 		Warning( "[SourceSharp] type '%s': %d layout byte(s) exceeds the largest tier; "
-		         "NOT published, and its entities will carry no state\n",
-			pClassName, nLayoutBytes );
+				 "NOT published, and its entities will carry no state\n",
+				 pClassName, nLayoutBytes );
 		return -1;
 	}
 
@@ -252,9 +238,9 @@ int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell,
 	{
 		// A name collision (same FNV-1a) or a full table.
 		Warning( "[SourceSharp] type '%s' (id 0x%08x) was REFUSED by the type table: either a "
-		         "name collision with a type already published, or the table is full "
-		         "(%d entries). Its entities cannot be paired with a managed class.\n",
-			pClassName, SourceSharp_HashClassName( pClassName ), SOURCESHARP_TYPES_MAX );
+				 "name collision with a type already published, or the table is full "
+				 "(%d entries). Its entities cannot be paired with a managed class.\n",
+				 pClassName, SourceSharp_HashClassName( pClassName ), SOURCESHARP_TYPES_MAX );
 		return -1;
 	}
 
@@ -262,9 +248,8 @@ int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell,
 }
 
 // One tier as native registered it, with the props native actually built.
-int32_t SourceSharp_NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable,
-                                 int32_t *pOutBytes, int32_t *pOutWords,
-                                 int32_t *pOutProps, int32_t *pOutLive )
+int32_t SourceSharp_NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable, int32_t *pOutBytes,
+								 int32_t *pOutWords, int32_t *pOutProps, int32_t *pOutLive )
 {
 	RegisterStandaloneTiers();
 
@@ -272,12 +257,12 @@ int32_t SourceSharp_NetTierInfo( int32_t nShell, int32_t iTier, const char **ppO
 		return 0;
 
 	const int nWords = SourceSharp_TierWords( iTier );
-	const int nReal  = SourceSharp_TierRealProps( nShell );
+	const int nReal = SourceSharp_TierRealProps( nShell );
 
 	if ( ppOutTable )
 		*ppOutTable = SourceSharp_TierTableName( nShell, iTier );
 	if ( pOutBytes )
-		*pOutBytes = SourceSharp_Tiers( NULL )[ iTier ].nBytes;
+		*pOutBytes = SourceSharp_Tiers( NULL )[iTier].nBytes;
 	if ( pOutWords )
 		*pOutWords = nWords;
 	if ( pOutProps )
@@ -295,8 +280,7 @@ int32_t SourceSharp_NetTierInfo( int32_t nShell, int32_t iTier, const char **ppO
 
 // Checks that each payload word's SendProp offset reads the entity's blob. False with
 // *pOutWords == 0 for an entity whose class carries no payload.
-bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity,
-                                          int *pOutWords, int *pOutFirstBadWord )
+bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity, int *pOutWords, int *pOutFirstBadWord )
 {
 	if ( pOutWords )
 		*pOutWords = 0;
@@ -312,7 +296,7 @@ bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity,
 	if ( iTier < 0 || iTier >= SourceSharp_TierCount() )
 		return false;
 
-	SendTable *pTable = g_pTierTables[ iTier ];
+	SendTable *pTable = g_pTierTables[iTier];
 
 	if ( !pTable )
 		return false;
@@ -329,7 +313,7 @@ bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity,
 		*pOutWords = nWords;
 
 	const unsigned char *pObject = (const unsigned char *)pEntity;
-	const unsigned char *pBlob   = pEntity->DataBlob();
+	const unsigned char *pBlob = pEntity->DataBlob();
 	const int nBlobBytes = pEntity->BlobBytes();
 
 	bool bAgrees = true;
@@ -350,9 +334,8 @@ bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity,
 			continue;
 		}
 
-		if ( memcmp( pObject + pProp->GetOffset(),
-		               pBlob + i * SOURCESHARP_PAYLOAD_WORD_BYTES,
-		               SOURCESHARP_PAYLOAD_WORD_BYTES ) == 0 )
+		if ( memcmp( pObject + pProp->GetOffset(), pBlob + i * SOURCESHARP_PAYLOAD_WORD_BYTES,
+					 SOURCESHARP_PAYLOAD_WORD_BYTES ) == 0 )
 		{
 			continue;
 		}
@@ -370,7 +353,7 @@ bool SourceSharp_StandalonePayloadAgrees( CStandaloneEntity *pEntity,
 // entities, so this file walks its own.
 void SourceSharp_StandalonePayloadAgreeReport( int nWantedIndex, int *pOutChecked, int *pOutAgreed )
 {
-	const std::vector< CStandaloneEntity * > &standalones = StandaloneEntities();
+	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
 
 	int nShared = 0;
 	StandaloneNetFields( &nShared );
@@ -388,36 +371,35 @@ void SourceSharp_StandalonePayloadAgreeReport( int nWantedIndex, int *pOutChecke
 		{
 			if ( nWantedIndex >= 0 )
 			{
-				Msg( "[SourceSharp]   standalone %d '%s': no payload props on its table\n",
-					pEnt->EntIndex(), pEnt->GetClassname() );
+				Msg( "[SourceSharp]   standalone %d '%s': no payload props on its table\n", pEnt->EntIndex(),
+					 pEnt->GetClassname() );
 			}
 			continue;
 		}
 
 		if ( pOutChecked )
-			(*pOutChecked)++;
+			( *pOutChecked )++;
 
 		if ( bAgrees )
 		{
 			if ( pOutAgreed )
-				(*pOutAgreed)++;
+				( *pOutAgreed )++;
 
-			Msg( "[SourceSharp]   standalone %d '%s': %d payload word(s) land where the blob is\n",
-				pEnt->EntIndex(), pEnt->GetClassname(), nWords );
+			Msg( "[SourceSharp]   standalone %d '%s': %d payload word(s) land where the blob is\n", pEnt->EntIndex(),
+				 pEnt->GetClassname(), nWords );
 		}
 		else
 		{
 			Warning( "[SourceSharp]   standalone %d '%s': payload word %d DISAGREES with the "
-			         "blob (%d word(s) checked)\n",
-				pEnt->EntIndex(), pEnt->GetClassname(), nFirstBad, nWords );
+					 "blob (%d word(s) checked)\n",
+					 pEnt->EntIndex(), pEnt->GetClassname(), nFirstBad, nWords );
 		}
 
 		if ( nWantedIndex < 0 )
 			continue;
 
 		const int iTier = pEnt->Tier();
-		SendTable *pTable = ( iTier >= 0 && iTier < SourceSharp_TierCount() )
-			? g_pTierTables[ iTier ] : NULL;
+		SendTable *pTable = ( iTier >= 0 && iTier < SourceSharp_TierCount() ) ? g_pTierTables[iTier] : NULL;
 
 		for ( int i = 0; pTable && i < nWords; i++ )
 		{
@@ -426,12 +408,11 @@ void SourceSharp_StandalonePayloadAgreeReport( int nWantedIndex, int *pOutChecke
 			const unsigned char *pAtBlob = pEnt->DataBlob() + i * SOURCESHARP_PAYLOAD_WORD_BYTES;
 
 			Msg( "[SourceSharp]     %-6s offset=%-5d prop=%02x%02x%02x%02x  "
-			     "blob=%02x%02x%02x%02x  %s  proxy=%s\n",
-				pProp->GetName(), pProp->GetOffset(),
-				pAtProp[0], pAtProp[1], pAtProp[2], pAtProp[3],
-				pAtBlob[0], pAtBlob[1], pAtBlob[2], pAtBlob[3],
-				memcmp( pAtProp, pAtBlob, SOURCESHARP_PAYLOAD_WORD_BYTES ) == 0 ? "ok" : "DIFFERS",
-				SourceSharpPayload_SendProxyName( pProp ) );
+				 "blob=%02x%02x%02x%02x  %s  proxy=%s\n",
+				 pProp->GetName(), pProp->GetOffset(), pAtProp[0], pAtProp[1], pAtProp[2], pAtProp[3], pAtBlob[0],
+				 pAtBlob[1], pAtBlob[2], pAtBlob[3],
+				 memcmp( pAtProp, pAtBlob, SOURCESHARP_PAYLOAD_WORD_BYTES ) == 0 ? "ok" : "DIFFERS",
+				 SourceSharpPayload_SendProxyName( pProp ) );
 		}
 	}
 }
@@ -440,7 +421,7 @@ void SourceSharp_StandalonePayloadAgreeReport( int nWantedIndex, int *pOutChecke
 // for the payload checks. Called by cs_sv_poke_payload.
 bool SourceSharp_StandalonePokePayload( int nIndex, int iWord, uint32 nValue )
 {
-	const std::vector< CStandaloneEntity * > &standalones = StandaloneEntities();
+	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
 
 	for ( CStandaloneEntity *pEnt : standalones )
 	{
@@ -451,8 +432,8 @@ bool SourceSharp_StandalonePokePayload( int nIndex, int iWord, uint32 nValue )
 
 		if ( iWord < 0 || ( iWord + 1 ) * SOURCESHARP_PAYLOAD_WORD_BYTES > nBlobBytes )
 		{
-			Warning( "[SourceSharp] word %d is outside a %d-byte blob (%d word(s))\n",
-				iWord, nBlobBytes, nBlobBytes / SOURCESHARP_PAYLOAD_WORD_BYTES );
+			Warning( "[SourceSharp] word %d is outside a %d-byte blob (%d word(s))\n", iWord, nBlobBytes,
+					 nBlobBytes / SOURCESHARP_PAYLOAD_WORD_BYTES );
 			return true;
 		}
 
@@ -462,9 +443,8 @@ bool SourceSharp_StandalonePokePayload( int nIndex, int iWord, uint32 nValue )
 		// The engine skips the encode for an edict nothing marked.
 		pEnt->NetworkStateChanged();
 
-		Msg( "[SourceSharp] standalone %d '%s': blob word %d (offset %d) = 0x%08x\n",
-			nIndex, pEnt->GetClassname(), iWord,
-			iWord * SOURCESHARP_PAYLOAD_WORD_BYTES, nValue );
+		Msg( "[SourceSharp] standalone %d '%s': blob word %d (offset %d) = 0x%08x\n", nIndex, pEnt->GetClassname(),
+			 iWord, iWord * SOURCESHARP_PAYLOAD_WORD_BYTES, nValue );
 
 		return true;
 	}
@@ -476,7 +456,7 @@ bool SourceSharp_StandalonePokePayload( int nIndex, int iWord, uint32 nValue )
 // index only, so the client can recompute it (SourceSharpPayload_ProbeWord).
 bool SourceSharp_StandaloneProbePayload( int nIndex, uint32 nSeed, int *pOutWords )
 {
-	const std::vector< CStandaloneEntity * > &standalones = StandaloneEntities();
+	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
 
 	for ( CStandaloneEntity *pEnt : standalones )
 	{
@@ -490,8 +470,7 @@ bool SourceSharp_StandaloneProbePayload( int nIndex, uint32 nSeed, int *pOutWord
 		for ( int i = 0; i < nWords; i++ )
 		{
 			const uint32 nWord = (uint32)SourceSharpPayload_ProbeWord( nSeed, i );
-			memcpy( pBlob + i * SOURCESHARP_PAYLOAD_WORD_BYTES, &nWord,
-			          SOURCESHARP_PAYLOAD_WORD_BYTES );
+			memcpy( pBlob + i * SOURCESHARP_PAYLOAD_WORD_BYTES, &nWord, SOURCESHARP_PAYLOAD_WORD_BYTES );
 		}
 
 		// The engine skips the encode for an edict nothing marked.
@@ -501,7 +480,8 @@ bool SourceSharp_StandaloneProbePayload( int nIndex, uint32 nSeed, int *pOutWord
 			*pOutWords = nWords;
 
 		Msg( "[SourceSharp] standalone %d '%s': %d payload word(s) filled with probe seed "
-		     "0x%08x\n", nIndex, pEnt->GetClassname(), nWords, nSeed );
+			 "0x%08x\n",
+			 nIndex, pEnt->GetClassname(), nWords, nSeed );
 
 		return true;
 	}
@@ -513,7 +493,7 @@ bool SourceSharp_StandaloneProbePayload( int nIndex, uint32 nSeed, int *pOutWord
 // exercised; on a listen server the hashes otherwise always agree.
 bool SourceSharp_StandaloneBreakSchema( int nIndex, uint32 nHash )
 {
-	const std::vector< CStandaloneEntity * > &standalones = StandaloneEntities();
+	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
 
 	for ( CStandaloneEntity *pEnt : standalones )
 	{
@@ -528,8 +508,8 @@ bool SourceSharp_StandaloneBreakSchema( int nIndex, uint32 nHash )
 		pEnt->NetworkStateChanged();
 
 		Msg( "[SourceSharp] standalone %d '%s': schema hash 0x%08x -> 0x%08x; the client must "
-		     "now REFUSE its payload and say so\n",
-			nIndex, pEnt->GetClassname(), nWas, nHash );
+			 "now REFUSE its payload and say so\n",
+			 nIndex, pEnt->GetClassname(), nWas, nHash );
 
 		return true;
 	}
@@ -542,9 +522,9 @@ bool SourceSharp_StandaloneBreakSchema( int nIndex, uint32 nHash )
 // grew past the tier it was allocated at is stamped zero, which receivers refuse.
 void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped )
 {
-	const std::vector< CStandaloneEntity * > &standalones = StandaloneEntities();
+	const std::vector<CStandaloneEntity *> &standalones = StandaloneEntities();
 
-	int nChecked   = 0;
+	int nChecked = 0;
 	int nRestamped = 0;
 
 	for ( CStandaloneEntity *pEnt : standalones )
@@ -557,14 +537,14 @@ void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped )
 
 		unsigned int nWanted = 0;
 
-		if ( !SourceSharp_SchemaNeedsRestamp( SourceSharp_NetTypes(), pEnt->GetClassname(),
-		                                      pEnt->m_nSchemaHash, &nWanted ) )
+		if ( !SourceSharp_SchemaNeedsRestamp( SourceSharp_NetTypes(), pEnt->GetClassname(), pEnt->m_nSchemaHash,
+											  &nWanted ) )
 		{
 			continue;
 		}
 
-		const uint32 nWas       = pEnt->m_nSchemaHash;
-		const int    nBlobBytes = pEnt->BlobBytes();
+		const uint32 nWas = pEnt->m_nSchemaHash;
+		const int nBlobBytes = pEnt->BlobBytes();
 
 		if ( nBlobBytes > 0 && pEnt->DataBlob() )
 			memset( pEnt->DataBlob(), 0, nBlobBytes );
@@ -573,17 +553,16 @@ void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped )
 
 		if ( pType && pType->iTier > pEnt->Tier() )
 		{
-			pEnt->m_nSchemaHash   = 0;
+			pEnt->m_nSchemaHash = 0;
 			pEnt->m_nPayloadWords = 0;
 			pEnt->NetworkStateChanged();
 			nRestamped++;
 
 			Warning( "[SourceSharp] reload: standalone %d '%s' grew past the tier it was "
-			         "ALLOCATED at (%d byte(s), tier %d -> tier %d): its blob cannot hold "
-			         "the new layout, so it carries no schema hash and every receiving side "
-			         "will refuse its payload. Create it again to get the new width.\n",
-				pEnt->EntIndex(), pEnt->GetClassname(), nBlobBytes,
-				pEnt->Tier(), pType->iTier );
+					 "ALLOCATED at (%d byte(s), tier %d -> tier %d): its blob cannot hold "
+					 "the new layout, so it carries no schema hash and every receiving side "
+					 "will refuse its payload. Create it again to get the new width.\n",
+					 pEnt->EntIndex(), pEnt->GetClassname(), nBlobBytes, pEnt->Tier(), pType->iTier );
 			continue;
 		}
 
@@ -592,8 +571,8 @@ void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped )
 		nRestamped++;
 
 		Msg( "[SourceSharp] reload: standalone %d '%s' reshaped -- schema hash 0x%08x -> "
-		     "0x%08x, %d blob byte(s) cleared\n",
-			pEnt->EntIndex(), pEnt->GetClassname(), nWas, pEnt->m_nSchemaHash, nBlobBytes );
+			 "0x%08x, %d blob byte(s) cleared\n",
+			 pEnt->EntIndex(), pEnt->GetClassname(), nWas, pEnt->m_nSchemaHash, nBlobBytes );
 	}
 
 	// Added, not assigned: one caller passes the same counters to both shells' walks.
@@ -614,7 +593,7 @@ ServerClass *CStandaloneEntity::GetServerClass()
 	// Clamped: an out-of-range tier would index the static array out of bounds.
 	const int iTier = ( m_iTier >= 0 && m_iTier < SourceSharp_TierCount() ) ? m_iTier : 0;
 
-	m_pServerClass = g_pTierClasses[ iTier ];
+	m_pServerClass = g_pTierClasses[iTier];
 
 	// Stamped here because the classname (factory) and type table (managed startup) both
 	// exist by the first time the engine asks.
@@ -629,7 +608,7 @@ ServerClass *CStandaloneEntity::GetServerClass()
 	else
 	{
 		// A class nobody published carries a zero hash, which the client refuses.
-		m_nSchemaHash   = 0;
+		m_nSchemaHash = 0;
 		m_nPayloadWords = 0;
 
 		static bool s_bWarned = false;
@@ -638,8 +617,9 @@ ServerClass *CStandaloneEntity::GetServerClass()
 		{
 			s_bWarned = true;
 			Warning( "[SourceSharp] standalone '%s' has no published type; its entities will "
-			         "carry type id 0x%08x with no schema hash, and the client will refuse "
-			         "their payload\n", GetClassname(), m_nTypeId );
+					 "carry type id 0x%08x with no schema hash, and the client will refuse "
+					 "their payload\n",
+					 GetClassname(), m_nTypeId );
 		}
 	}
 

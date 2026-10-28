@@ -1,5 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-// Purpose: An extra interface implemented by the material system 
+// Purpose: An extra interface implemented by the material system
 // implementation of vgui::ISurface
 
 #pragma once
@@ -13,11 +13,12 @@ struct InputEvent_t;
 
 // An extra interface implemented by the material system implementation of vgui::ISurface
 #define MAT_SYSTEM_SURFACE_INTERFACE_VERSION "MatSystemSurface008"
+
 class IMatSystemSurface : public vgui::ISurface
 {
 public:
 	// Hook needed to get input to work.
-	// If the app drives the input (like the engine needs to do for VCR mode), 
+	// If the app drives the input (like the engine needs to do for VCR mode),
 	// it can set bLetAppDriveInput to true and call HandleInputEvent for the input events.
 	virtual void unused_AttachToWindow() = 0;
 
@@ -34,7 +35,10 @@ public:
 	// method of a panel. Use it to disable clipping for the rendering
 	// of this panel.
 	virtual void DisableClipping( bool bDisable ) = 0;
-	virtual void GetClippingRect( int &left, int &top, int &right, int &bottom, bool &bClippingDisabled ) = 0;  // <<<<< NOTE: output flag is *disabled* state, not enabled, to match the rest of the interface
+	virtual void GetClippingRect(
+		int &left, int &top, int &right, int &bottom,
+		bool &
+			bClippingDisabled ) = 0; // <<<<< NOTE: output flag is *disabled* state, not enabled, to match the rest of the interface
 	virtual void SetClippingRect( int left, int top, int right, int bottom ) = 0;
 
 	// Prevents vgui from changing the cursor
@@ -61,7 +65,7 @@ public:
 	// Also assumes the (x,y) coordinates of the panels are defined in 640xN coords
 	// (N isn't necessary 480 because the panel may not be 4x3)
 	// The width + height specified are the size of the panel in world coordinates
-	virtual void unused_DrawPanelIn3DSpace() = 0; 
+	virtual void unused_DrawPanelIn3DSpace() = 0;
 
 	// Binds a material to a surface texture ID
 	virtual void DrawSetTextureMaterial( int id, IMaterial *pMaterial ) = 0;
@@ -72,7 +76,7 @@ public:
 	virtual void unused_Set3DPaintTempRenderTarget() = 0;
 	virtual void unused_Reset3DPaintTempRenderTarget() = 0;
 
-// Gets a material bound to a surface texture ID
+	// Gets a material bound to a surface texture ID
 	virtual void unused_DrawGetTextureMaterial() = 0;
 
 	virtual void unused_GetFullscreenViewportAndRenderTarget() = 0;

@@ -44,10 +44,10 @@ namespace
 struct RecordedWarning
 {
 	std::string strMethod;
-	int         nTotal;
+	int nTotal;
 };
 
-std::vector< RecordedWarning > g_Warnings;
+std::vector<RecordedWarning> g_Warnings;
 
 } // namespace
 
@@ -71,7 +71,7 @@ protected:
 // The two methods the shell actually refuses. Spelt as the shell spells them,
 // which is ClientDllProbeName's spelling -- so a rename in the probe table that
 // forgot this file would show up as a name mismatch rather than as nothing.
-const char *const kChat  = "IBaseClientDLL::BHaveChatSuspensionInCurrentMatch";
+const char *const kChat = "IBaseClientDLL::BHaveChatSuspensionInCurrentMatch";
 const char *const kVoice = "IBaseClientDLL::DisplayVoiceUnavailableMessage";
 
 } // namespace
@@ -87,7 +87,7 @@ TEST_F( ClientDllRefusals, AFreshCounterIsZero )
 TEST_F( ClientDllRefusals, AFreshCounterWarnsAboutNothing )
 {
 	CShellClientDllRefusals refusals;
-	(void)refusals;  // constructed for its constructor's (absent) warnings
+	(void)refusals; // constructed for its constructor's (absent) warnings
 
 	EXPECT_TRUE( g_Warnings.empty() );
 }
@@ -159,7 +159,7 @@ TEST_F( ClientDllRefusals, ARefusalWarns )
 	refusals.Unreachable( kChat );
 
 	ASSERT_EQ( 1u, g_Warnings.size() );
-	EXPECT_EQ( std::string( kChat ), g_Warnings[ 0 ].strMethod );
+	EXPECT_EQ( std::string( kChat ), g_Warnings[0].strMethod );
 }
 
 // The warning carries the RUNNING TOTAL, so the line a reader sees in the
@@ -171,8 +171,8 @@ TEST_F( ClientDllRefusals, TheWarningCarriesTheRunningTotal )
 	refusals.Unreachable( kVoice );
 
 	ASSERT_EQ( 2u, g_Warnings.size() );
-	EXPECT_EQ( 1, g_Warnings[ 0 ].nTotal );
-	EXPECT_EQ( 2, g_Warnings[ 1 ].nTotal );
+	EXPECT_EQ( 1, g_Warnings[0].nTotal );
+	EXPECT_EQ( 2, g_Warnings[1].nTotal );
 }
 
 // NOT RATE LIMITED, and that is deliberate on both sides: the claim about a
@@ -202,7 +202,7 @@ TEST_F( ClientDllRefusals, ANullMethodStillWarns )
 	refusals.Unreachable( NULL );
 
 	ASSERT_EQ( 1u, g_Warnings.size() );
-	EXPECT_EQ( std::string( "(unnamed)" ), g_Warnings[ 0 ].strMethod );
+	EXPECT_EQ( std::string( "(unnamed)" ), g_Warnings[0].strMethod );
 }
 
 // A table that overflowed still counts the total, which IS the gate. Losing the
@@ -212,12 +212,12 @@ TEST_F( ClientDllRefusals, AnOverflowingTableKeepsTheTotal )
 {
 	CShellClientDllRefusals refusals;
 
-	std::vector< std::string > names;
+	std::vector<std::string> names;
 	for ( int i = 0; i < CShellClientDllRefusals::kMaxMethods + 5; ++i )
 		names.push_back( "IBaseClientDLL::Method" + std::to_string( i ) );
 
 	for ( size_t i = 0; i < names.size(); ++i )
-		refusals.Unreachable( names[ i ].c_str() );
+		refusals.Unreachable( names[i].c_str() );
 
 	EXPECT_EQ( (int)names.size(), refusals.Total() );
 	EXPECT_EQ( CShellClientDllRefusals::kMaxMethods, refusals.MethodCount() );

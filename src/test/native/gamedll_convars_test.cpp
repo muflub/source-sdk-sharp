@@ -45,7 +45,7 @@ namespace
 {
 
 const char *const kShimGameDll = "sourcesharp/game/server/shell_gamedll.cpp";
-const char *const kStockCpp  = "game/server/game.cpp";
+const char *const kStockCpp = "game/server/game.cpp";
 // WHAT THE SERVER COMPILES is server_sourcesharp's source list, read through
 // cmake_graph.h: compile_commands.json cross-checked against
 // src/server/native/CMakeLists.txt, farm-relative paths. (This used to be a
@@ -118,4 +118,3 @@ TEST( GameDllConVars, TheStockTranslationUnitHasLeftTheServer )
 // deleted (plan_server_native_min P1) and with it the banner it proved
 // non-empty. NoManagedNeedleIsSatisfiedByProseAlone keeps the form over the
 // managed file.
-

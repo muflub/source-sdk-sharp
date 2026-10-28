@@ -87,15 +87,15 @@ struct File_t
 // `$SRCDIR\game\shared\baseentity_shared.cpp`, and THE FLIP REMOVED THAT ROW along with the rest of
 // the entity hierarchy: a stock TU is not an anchor for this port.)
 const char *const kServerProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
+
 // Is the server compiling ANY source whose path contains the needle? The
 // read is proved first, so an unread list cannot answer "no" for free.
 bool ServerCompilesAnyNaming( const std::string &strNeedle )
 {
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( cmake_graph::kServer );
-	EXPECT_TRUE( compiled.count( kServerProofOfRead ) )
-		<< "server_sourcesharp does not compile " << kServerProofOfRead
-		<< " -- the reader is not reading the server's source list";
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( cmake_graph::kServer );
+	EXPECT_TRUE( compiled.count( kServerProofOfRead ) ) << "server_sourcesharp does not compile " << kServerProofOfRead
+														<< " -- the reader is not reading the server's source list";
+	for ( std::set<std::string>::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
 		if ( it->find( strNeedle ) != std::string::npos )
 			return true;
 	return false;
@@ -208,4 +208,3 @@ TEST( EffectsEvicted, TheHelicopterThatWantedTheRotorShooterIsStillNotBuilt )
 // These live in this file rather than a new one because kSpriteShell is already
 // here with its anchor, and a new binary is a buildcpptests edit.
 //=============================================================================
-

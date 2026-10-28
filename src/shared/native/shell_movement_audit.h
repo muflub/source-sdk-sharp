@@ -25,8 +25,8 @@ enum SourceSharpMovementConVarVerdict
 
 // flRegistered is what the mod wrote, flDeclaredDefault the ConVar declaration's
 // default, flNow the current value. "As registered" wins when the two match.
-SourceSharpMovementConVarVerdict SourceSharp_ClassifyMovementConVar(
-	float flRegistered, float flDeclaredDefault, float flNow );
+SourceSharpMovementConVarVerdict SourceSharp_ClassifyMovementConVar( float flRegistered, float flDeclaredDefault,
+																	 float flNow );
 
 // Which of the eight a name is, or -1. By name because a global change callback is
 // handed the parent ConVar, which may not be this DLL's.

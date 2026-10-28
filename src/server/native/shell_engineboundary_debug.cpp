@@ -21,7 +21,7 @@
 #endif
 
 // Defined and acquired in shell_engineboundary.cpp.
-extern IEngineTrace         *enginetrace;
+extern IEngineTrace *enginetrace;
 extern IStaticPropMgrServer *staticpropmgr;
 
 // Has the engine fill two vectors over the whole map, reads them and releases
@@ -30,7 +30,7 @@ extern IStaticPropMgrServer *staticpropmgr;
 // across the releases (-1 without the checker). The live gate reads this line.
 SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 {
-	ss::IEngineHeap *pHeap   = ss::FindEngineHeap();
+	ss::IEngineHeap *pHeap = ss::FindEngineHeap();
 	ss::IEngineHeap *pEngine = ss::EngineHeapSeenBy( "engine.so" );
 
 #ifdef SOURCESHARP_ALLOC_CHECK
@@ -38,16 +38,16 @@ SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 #endif
 
 	const Vector vMins( -MAX_COORD_FLOAT, -MAX_COORD_FLOAT, -MAX_COORD_FLOAT );
-	const Vector vMaxs(  MAX_COORD_FLOAT,  MAX_COORD_FLOAT,  MAX_COORD_FLOAT );
+	const Vector vMaxs( MAX_COORD_FLOAT, MAX_COORD_FLOAT, MAX_COORD_FLOAT );
 
 	int nBrushes = -1;
 	int nNegative = 0;
 	int nBrushAlloc = 0;
 	if ( enginetrace )
 	{
-		ss::EngineFilledUtlVector< int > brushes;
-		enginetrace->GetBrushesInAABB( vMins, vMaxs, brushes.ForEngine< CUtlVector< int > >() );
-		const ss::EngineUtlVector< int > &view = brushes.View();
+		ss::EngineFilledUtlVector<int> brushes;
+		enginetrace->GetBrushesInAABB( vMins, vMaxs, brushes.ForEngine<CUtlVector<int>>() );
+		const ss::EngineUtlVector<int> &view = brushes.View();
 		nBrushes = view.Count();
 		nBrushAlloc = view.m_nAllocationCount;
 		for ( int iBrush : view )
@@ -58,9 +58,9 @@ SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 	int nNullProps = 0;
 	if ( staticpropmgr )
 	{
-		ss::EngineFilledUtlVector< ICollideable * > props;
-		staticpropmgr->GetAllStaticProps( props.ForEngine< CUtlVector< ICollideable * > >() );
-		const ss::EngineUtlVector< ICollideable * > &view = props.View();
+		ss::EngineFilledUtlVector<ICollideable *> props;
+		staticpropmgr->GetAllStaticProps( props.ForEngine<CUtlVector<ICollideable *>>() );
+		const ss::EngineUtlVector<ICollideable *> &view = props.View();
 		nProps = view.Count();
 		for ( ICollideable *pProp : view )
 			nNullProps += ( pProp == NULL );
@@ -69,12 +69,12 @@ SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 	long long nForeign = -1, nMismatch = -1;
 #ifdef SOURCESHARP_ALLOC_CHECK
 	const SourceSharpAllocCheckCounts after = SourceSharp_AllocCheckCounts();
-	nForeign  = (long long)( after.foreignFrees - before.foreignFrees );
+	nForeign = (long long)( after.foreignFrees - before.foreignFrees );
 	nMismatch = (long long)( after.mismatches - before.mismatches );
 #endif
 
 	Msg( "[SourceSharp] engine vectors: heap %s (%p, engine.so %p) brushes %d "
-	     "(allocated %d, negative %d) props %d (null %d) foreign %lld mismatch %lld\n",
-	     ( pHeap && pHeap == pEngine ) ? "same" : "DIFFERENT", (void *)pHeap, (void *)pEngine,
-	     nBrushes, nBrushAlloc, nNegative, nProps, nNullProps, nForeign, nMismatch );
+		 "(allocated %d, negative %d) props %d (null %d) foreign %lld mismatch %lld\n",
+		 ( pHeap && pHeap == pEngine ) ? "same" : "DIFFERENT", (void *)pHeap, (void *)pEngine, nBrushes, nBrushAlloc,
+		 nNegative, nProps, nNullProps, nForeign, nMismatch );
 }

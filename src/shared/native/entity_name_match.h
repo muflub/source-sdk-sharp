@@ -26,10 +26,10 @@ inline bool EntityNames_Match( const char *pszQuery, const char *pszName )
 
 	while ( *pszName && *pszQuery )
 	{
-		const unsigned char cName  = (unsigned char)*pszName;
+		const unsigned char cName = (unsigned char)*pszName;
 		const unsigned char cQuery = (unsigned char)*pszQuery;
 
-	// Simple ASCII case conversion, both directions, as stock.
+		// Simple ASCII case conversion, both directions, as stock.
 		if ( cName == cQuery )
 			;
 		else if ( cName - 'A' <= (unsigned char)'Z' - 'A' && cName - 'A' + 'a' == cQuery )

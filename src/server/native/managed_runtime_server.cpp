@@ -10,7 +10,6 @@
 // The server's managed runtime loader. The load sequence itself is shared with the
 // client (SourceSharp_LoadManagedSide, sourcesharp_gamesystem.cpp).
 
-#include "tier0/dbg.h"
 #include "eiface.h"
 
 extern IVEngineServer *engine;
@@ -34,7 +33,7 @@ IManagedRuntimeServer *LoadManagedRuntime( IManagedRuntimeEnvironment *env )
 	if ( engine == NULL )
 	{
 		Warning( "[SourceSharp] no " INTERFACEVERSION_VENGINESERVER " -- the managed "
-		         "runtime cannot be located without it\n" );
+				 "runtime cannot be located without it\n" );
 		return NULL;
 	}
 

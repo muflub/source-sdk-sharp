@@ -4,5 +4,5 @@
 4	BOUNDARY	client_textmessage_t *TextMessageGet( const char *pName )
 6	BOUNDARY	int ScreenHeight()
 6	BOUNDARY	int ScreenWidth()
-6	LOGIC	bool UTIL_IsLowViolence()
+7	LOGIC	bool UTIL_IsLowViolence()
 4	BOUNDARY	void ReloadSoundEntriesInList( IFileList *pFilesToReload )

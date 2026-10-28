@@ -128,6 +128,16 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   comment (a list names what it builds, not what it used to).
   After reordering sources, the daily gate covers the new static-init order (a
   new object order is a new one); read its next report before building on it.
+- **Every native file is in one clang-format style** (`.clang-format`, no
+  per-file settings; user 2026-10-26). Run `tools/clang-format --write`
+  before committing C or C++; the routine `clang-format` check fails an
+  unformatted file. Generators write through it, so regenerate rather than
+  hand-format a generated file.
+- **A native function added or removed is a reviewed change:**
+  `tools/native-symbols` lists what server.so and client.so define
+  (`docs/native-symbols.tsv`); record it with `--write` in the same commit.
+  Tests that read native source as text were dropped (user 2026-10-26); don't
+  add new ones.
 - Never edit a Valve source to satisfy clang: fix our code, or a named
   `-Wno-...` on the Valve target/source with a comment. Zero warnings.
 - **The object directory is not the link line.** Ninja keeps stale `.o` files

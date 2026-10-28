@@ -53,8 +53,7 @@ TEST( StandardFilterShape, APropIsNotTheWorld )
 //-----------------------------------------------------------------------------
 TEST( StandardFilterShape, APropStopsATraceThatAskedForEntities )
 {
-	EXPECT_TRUE( StandardFilterShapePasses( false, true, true ) )
-		<< "a crate stops a bullet";
+	EXPECT_TRUE( StandardFilterShapePasses( false, true, true ) ) << "a crate stops a bullet";
 
 	EXPECT_TRUE( StandardFilterShapePasses( false, false, true ) )
 		<< "whatever its solid type, once entities were asked for";
@@ -82,13 +81,11 @@ TEST( StandardFilterShape, ABrushModelThatIsNotSolidAsOneIsStillAnEntity )
 TEST( StandardFilterShape, NeitherFactAloneDecidesIt )
 {
 	// Same solid type, different model type -> different answer.
-	EXPECT_NE( StandardFilterShapePasses( true,  true, false ),
-	           StandardFilterShapePasses( false, true, false ) )
+	EXPECT_NE( StandardFilterShapePasses( true, true, false ), StandardFilterShapePasses( false, true, false ) )
 		<< "the model type matters when the solid type is held still";
 
 	// Same model type, different solid type -> different answer.
-	EXPECT_NE( StandardFilterShapePasses( true, true,  false ),
-	           StandardFilterShapePasses( true, false, false ) )
+	EXPECT_NE( StandardFilterShapePasses( true, true, false ), StandardFilterShapePasses( true, false, false ) )
 		<< "the solid type matters when the model type is held still";
 }
 
@@ -98,8 +95,7 @@ TEST( StandardFilterShape, NeitherFactAloneDecidesIt )
 //-----------------------------------------------------------------------------
 TEST( StandardFilterShape, NothingSolidStopsNothing )
 {
-	EXPECT_FALSE( StandardFilterShapePasses( false, false, false ) )
-		<< "a point entity is not in anybody's way";
+	EXPECT_FALSE( StandardFilterShapePasses( false, false, false ) ) << "a point entity is not in anybody's way";
 }
 
 } // namespace

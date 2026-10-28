@@ -7,15 +7,6 @@
 // The client's vgui start, shutdown and global panels, without vgui_controls.
 // SS_REASON b  an interface resolved by name at load
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -30,19 +21,12 @@
 #include "imessagechars.h"
 #include "inetgraphpanel.h"
 #include "idebugoverlaypanel.h"
-#include "materialsystem/imaterialsystem.h"
-#include "tier3/tier3.h"
+
 #include "vgui/ISurface.h"
 #include "vgui/IVGui.h"
 #include "vgui/IPanel.h"
 #include "vgui/IInputInternal.h"
-#include "vgui/IInput.h"
-#include "tier0/dbg.h"
-#include "tier1/interface.h"
-#include "tier2/tier2.h"
-#include "vgui/VGUI.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
+
 #include "imanaged_areas_client.h"
 
 vgui::IInputInternal *g_InputInternal = NULL;
@@ -136,9 +120,9 @@ static int s_nPausedSeconds = -1;
 
 void VGui_PreRender()
 {
-	const int nFacts = ( engine->IsDrawingLoadingImage() ? 1 : 0 ) | ( engine->IsPlayingDemo() ? 2 : 0 )
-		| ( enginevgui->IsGameUIVisible() ? 4 : 0 ) | ( engine->IsPaused() ? 8 : 0 )
-		| ( engine->IsTakingScreenshot() ? 16 : 0 );
+	const int nFacts = ( engine->IsDrawingLoadingImage() ? 1 : 0 ) | ( engine->IsPlayingDemo() ? 2 : 0 ) |
+		( enginevgui->IsGameUIVisible() ? 4 : 0 ) | ( engine->IsPaused() ? 8 : 0 ) |
+		( engine->IsTakingScreenshot() ? 16 : 0 );
 	const float flExpire = engine->GetPausedExpireTime();
 	// The expiry is on the engine's clock, which engine->Time() answers.
 	const int nSeconds = flExpire != -1.f ? (int)( flExpire - engine->Time() ) : -1;
@@ -152,9 +136,7 @@ void VGui_PreRender()
 	pUi->PlaqueState( nFacts, nSeconds );
 }
 
-void VGui_PostRender()
-{
-}
+void VGui_PostRender() {}
 
 // The HUD's size: the client panel's, or the screen's before there is one.
 void GetHudSize( int &w, int &h )

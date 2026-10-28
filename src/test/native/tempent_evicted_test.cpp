@@ -68,15 +68,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "..", "../src", "src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -89,8 +89,7 @@ bool Exists( const std::string &strRelative )
 		return false;
 
 	struct stat st;
-	return stat( ( std::string( root ) + "/" + strRelative ).c_str(), &st ) == 0
-		&& S_ISREG( st.st_mode );
+	return stat( ( std::string( root ) + "/" + strRelative ).c_str(), &st ) == 0 && S_ISREG( st.st_mode );
 }
 
 //-----------------------------------------------------------------------------
@@ -118,8 +117,7 @@ bool Exists( const std::string &strRelative )
 // src/client/native/CMakeLists.txt). Until Phase 6b this walked the `$File`
 // rows of game/client/client_csharp.vpc.
 //-----------------------------------------------------------------------------
-const char *kEvicted[] =
-{
+const char *kEvicted[] = {
 	"game/client/c_basetempentity.cpp",
 	"game/client/c_te_particlesystem.cpp",
 	"game/client/c_te_explosion.cpp",
@@ -129,8 +127,7 @@ const char *kEvicted[] =
 // (shell_explosion_overlay.cpp, c_te_explosion.cpp's overlay, left with the
 // glow overlays' port, C7: CExplosionOverlay is the managed GlowOverlaySystem's
 // RampOverlay.)
-const char *kReplacements[] =
-{
+const char *kReplacements[] = {
 	"sourcesharp/game/client/shell_te_backends_client.cpp",
 };
 
@@ -159,20 +156,22 @@ TEST( TempEntEvicted, TheThreeStockTusAreOutOfTheClientBuild )
 		<< "client_sourcesharp does not compile " << kClientProofOfRead
 		<< " -- the reader is not reading the client's source list";
 
-	for ( size_t i = 0; i < sizeof( kEvicted ) / sizeof( kEvicted[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kEvicted ) / sizeof( kEvicted[0] ); i++ )
 	{
-		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kEvicted[ i ] ) )
-			<< kEvicted[ i ] << " is out of the client build "
+		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kEvicted[i] ) )
+			<< kEvicted[i]
+			<< " is out of the client build "
 			   "(client_sourcesharp, src/client/native/CMakeLists.txt)";
 	}
 }
 
 TEST( TempEntEvicted, TheTwoShimReplacementsAreInTheClientBuild )
 {
-	for ( size_t i = 0; i < sizeof( kReplacements ) / sizeof( kReplacements[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kReplacements ) / sizeof( kReplacements[0] ); i++ )
 	{
-		EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kReplacements[ i ] ) )
-			<< kReplacements[ i ] << " is compiled -- an eviction whose replacement is "
+		EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kReplacements[i] ) )
+			<< kReplacements[i]
+			<< " is compiled -- an eviction whose replacement is "
 			   "not in the build is a capability that stopped being shipped";
 	}
 }
@@ -261,24 +260,15 @@ TEST( TempEntEvicted, TheParticleEmitterIsCSharpAndItsShimIsGone )
 namespace
 {
 
-const char *kPerLaneForwarders[] =
-{
-	"sourcesharp/game/server/shell_te_fwd_a.cpp",
-	"sourcesharp/game/server/shell_te_fwd_b.cpp",
-	"sourcesharp/game/server/shell_te_fwd_c.cpp",
-	"sourcesharp/game/server/shell_te_fwd_d.cpp",
-	"sourcesharp/game/server/shell_te_fwd_e.cpp",
-	"sourcesharp/game/server/shell_te_fwd_f.cpp",
-	"sourcesharp/game/server/shell_te_fwd_s1.cpp",
-	"sourcesharp/game/server/shell_te_fwd_s4.cpp",
-	"sourcesharp/game/client/shell_te_fwd_c1.cpp",
-	"sourcesharp/game/client/shell_te_fwd_c4.cpp",
-	"sourcesharp/game/client/shell_te_fwd_ca.cpp",
-	"sourcesharp/game/client/shell_te_fwd_cd.cpp",
-	"sourcesharp/game/client/shell_te_fwd_ce.cpp",
-	"sourcesharp/game/client/shell_te_fwd_cn.cpp",
-	"sourcesharp/game/client/shell_te_fwd_cp.cpp",
-	"sourcesharp/game/client/shell_te_fwd_cx.cpp",
+const char *kPerLaneForwarders[] = {
+	"sourcesharp/game/server/shell_te_fwd_a.cpp",     "sourcesharp/game/server/shell_te_fwd_b.cpp",
+	"sourcesharp/game/server/shell_te_fwd_c.cpp",     "sourcesharp/game/server/shell_te_fwd_d.cpp",
+	"sourcesharp/game/server/shell_te_fwd_e.cpp",     "sourcesharp/game/server/shell_te_fwd_f.cpp",
+	"sourcesharp/game/server/shell_te_fwd_s1.cpp",    "sourcesharp/game/server/shell_te_fwd_s4.cpp",
+	"sourcesharp/game/client/shell_te_fwd_c1.cpp",    "sourcesharp/game/client/shell_te_fwd_c4.cpp",
+	"sourcesharp/game/client/shell_te_fwd_ca.cpp",    "sourcesharp/game/client/shell_te_fwd_cd.cpp",
+	"sourcesharp/game/client/shell_te_fwd_ce.cpp",    "sourcesharp/game/client/shell_te_fwd_cn.cpp",
+	"sourcesharp/game/client/shell_te_fwd_cp.cpp",    "sourcesharp/game/client/shell_te_fwd_cx.cpp",
 	"sourcesharp/game/client/shell_te_fwd_pool2.cpp",
 };
 
@@ -291,14 +281,12 @@ TEST( TempEntForwardersCollapsed, TheSeventeenPerLaneForwardersAreOutOfBothBuild
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_te_forwards_client.cpp" ) )
 		<< "client_sourcesharp (src/client/native/CMakeLists.txt) is read and names its forwarder";
 
-	for ( size_t i = 0; i < sizeof( kPerLaneForwarders ) / sizeof( kPerLaneForwarders[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kPerLaneForwarders ) / sizeof( kPerLaneForwarders[0] ); i++ )
 	{
-		const std::string rel = kPerLaneForwarders[ i ];
+		const std::string rel = kPerLaneForwarders[i];
 
-		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, rel ) )
-			<< rel << " is out of the server build";
-		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, rel ) )
-			<< rel << " is out of the client build";
+		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, rel ) ) << rel << " is out of the server build";
+		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, rel ) ) << rel << " is out of the client build";
 	}
 }
 
@@ -306,10 +294,10 @@ TEST( TempEntForwardersCollapsed, TheSeventeenPerLaneForwardersAreGoneFromDisk )
 {
 	// A ROW REMOVED WITH THE FILE LEFT BEHIND is drift this tree keeps paying
 	// for: the next reader greps, finds a forward, and believes it is compiled.
-	for ( size_t i = 0; i < sizeof( kPerLaneForwarders ) / sizeof( kPerLaneForwarders[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kPerLaneForwarders ) / sizeof( kPerLaneForwarders[0] ); i++ )
 	{
-		EXPECT_FALSE( Exists( kPerLaneForwarders[ i ] ) )
-			<< kPerLaneForwarders[ i ] << " is still on disk, uncompiled, with forwards in it";
+		EXPECT_FALSE( Exists( kPerLaneForwarders[i] ) )
+			<< kPerLaneForwarders[i] << " is still on disk, uncompiled, with forwards in it";
 	}
 }
 
@@ -328,7 +316,8 @@ TEST( TempEntForwardersCollapsed, TheTwoReplacementsAreCompiledOnTheirOwnSides )
 	// and DIFFERENT SourceSharpTe_Forward signatures -- the server's takes a
 	// filter and a delay and sends, the client's takes neither and plays -- so a
 	// crossed row is a link error at best and the wrong effect at worst.
-	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/client/shell_te_forwards_client.cpp" ) )
+	EXPECT_FALSE(
+		cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/client/shell_te_forwards_client.cpp" ) )
 		<< "the server does not compile the client's forwarder";
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/server/shell_te_forwards.cpp" ) )
 		<< "and the client does not compile the server's";

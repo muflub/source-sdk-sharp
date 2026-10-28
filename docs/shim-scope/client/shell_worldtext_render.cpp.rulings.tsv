@@ -1,16 +1,16 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CManagedWorldText] explicit CManagedWorldText(	LAYOUT	the renderable's construction: its owner, nothing decided
-[CManagedWorldText] void Configure(	BOUNDARY	binds the font page managed named and stores the local bounds managed measured
-[CManagedWorldText] virtual bool ShouldDraw()	SLOT	IClientRenderable::ShouldDraw the leaf system calls: stock's constant
-[CManagedWorldText] virtual bool IsTransparent()	SLOT	IClientRenderable::IsTransparent: stock's constant
-[CManagedWorldText] virtual void GetRenderBounds(	SLOT	IClientRenderable::GetRenderBounds: managed's bounds
-[CManagedWorldText] virtual int DrawModel(	SLOT	IClientRenderable::DrawModel: IManagedWorldTextClient::Draw's vertices, built as quads on the bound page (the mesh builder)
-static void ManagedWorldText_Forget(	HOOK	the destroy latch's callback
-int32_t SourceSharp_WorldTextMeshUpdate(	SLOT	IShimParticlesClient::WorldTextMeshUpdate: makes the renderable at the owner's pose on the first, configures it on each
-void SourceSharp_WorldTextMeshDestroy(	SLOT	IShimParticlesClient::WorldTextMeshDestroy
+[CManagedWorldText] explicit CManagedWorldText( uint32_t hOwner )	LAYOUT	the renderable's construction: its owner, nothing decided
+[CManagedWorldText] void Configure( const char *pszMaterial, const float *pBounds )	BOUNDARY	binds the font page managed named and stores the local bounds managed measured
+[CManagedWorldText] virtual bool ShouldDraw() OVERRIDE	SLOT	IClientRenderable::ShouldDraw the leaf system calls: stock's constant
+[CManagedWorldText] virtual bool IsTransparent() OVERRIDE	SLOT	IClientRenderable::IsTransparent: stock's constant
+[CManagedWorldText] virtual void GetRenderBounds( Vector &mins, Vector &maxs ) OVERRIDE	SLOT	IClientRenderable::GetRenderBounds: managed's bounds
+[CManagedWorldText] virtual int DrawModel( int flags ) OVERRIDE	SLOT	IClientRenderable::DrawModel: IManagedWorldTextClient::Draw's vertices, built as quads on the bound page (the mesh builder)
+static void ManagedWorldText_Forget( CShellRenderable *pText )	HOOK	the destroy latch's callback
+int32_t SourceSharp_WorldTextMeshUpdate( uint32_t hOwner, const char *pszMaterial, const float *pBounds, int32_t nFloats )	SLOT	IShimParticlesClient::WorldTextMeshUpdate: makes the renderable at the owner's pose on the first, configures it on each
+void SourceSharp_WorldTextMeshDestroy( uint32_t hOwner )	SLOT	IShimParticlesClient::WorldTextMeshDestroy
 static void ManagedWorldText_Follow()	HOOK	PreRender: each renderable at its owner's pose; an ownerless one is released
-[CSourceSharpWorldTextSystem] : CClientSystemPerFrame(	HOOK	kClientSystems row
-[CSourceSharpWorldTextSystem] virtual void PreRender()	HOOK	client system PreRender
-[CSourceSharpWorldTextSystem] virtual void LevelShutdownPostEntity()	HOOK	client system level shutdown: releases every renderable
+[CSourceSharpWorldTextSystem] : CClientSystemPerFrame( "" )	HOOK	kClientSystems row
+[CSourceSharpWorldTextSystem] virtual void PreRender() OVERRIDE	HOOK	client system PreRender
+[CSourceSharpWorldTextSystem] virtual void LevelShutdownPostEntity() OVERRIDE	HOOK	client system level shutdown: releases every renderable
 CClientSystem *ClientSystem_WorldText()	HOOK	kClientSystems accessor

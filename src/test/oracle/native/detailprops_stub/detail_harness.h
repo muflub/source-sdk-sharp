@@ -67,7 +67,11 @@ int ss_detail_rand();
 #define DECLARE_CLASS_NOBASE( className ) typedef className ThisClass;
 
 // ispatialpartition.h's, for the subject's EnumElement declaration.
-enum IterationRetval_t { ITERATION_CONTINUE = 0, ITERATION_STOP };
+enum IterationRetval_t
+{
+	ITERATION_CONTINUE = 0,
+	ITERATION_STOP
+};
 
 #ifndef VPROF_BUDGET
 #define VPROF_BUDGET( name, group )
@@ -96,9 +100,23 @@ typedef unsigned short LeafIndex_t;
 typedef unsigned short ClientShadowHandle_t;
 typedef unsigned short ClientRenderHandle_t;
 typedef unsigned short ModelInstanceHandle_t;
-enum { CLIENTSHADOW_INVALID_HANDLE = 0xffff };
-enum { MODEL_INSTANCE_INVALID = 0xffff };
-enum ShadowType_t { SHADOWS_NONE = 0, SHADOWS_SIMPLE };
+
+enum
+{
+	CLIENTSHADOW_INVALID_HANDLE = 0xffff
+};
+
+enum
+{
+	MODEL_INSTANCE_INVALID = 0xffff
+};
+
+enum ShadowType_t
+{
+	SHADOWS_NONE = 0,
+	SHADOWS_SIMPLE
+};
+
 #define TEXTURE_GROUP_OTHER "Other textures"
 
 //-----------------------------------------------------------------------------
@@ -107,9 +125,9 @@ enum ShadowType_t { SHADOWS_NONE = 0, SHADOWS_SIMPLE };
 //-----------------------------------------------------------------------------
 struct model_t
 {
-	char szName[ 128 ];
+	char szName[128];
 	int nId;
-	int nType;			// mod_studio etc. (model_types.h)
+	int nType; // mod_studio etc. (model_types.h)
 	bool bVertexLit;
 	bool bTranslucent;
 	bool bProxy;
@@ -138,6 +156,7 @@ class IHandleEntity
 {
 public:
 	virtual ~IHandleEntity() {}
+
 	virtual void SetRefEHandle( const CBaseHandle &handle ) = 0;
 	virtual const CBaseHandle &GetRefEHandle() const = 0;
 };
@@ -191,6 +210,7 @@ public:
 	void ComputeDynamicLighting( const Vector &pt, const Vector *pNormal, Vector &color );
 	ISpatialQuery *GetBSPTreeQuery();
 };
+
 extern CDetailEngine *engine;
 
 class CDetailModelInfo
@@ -200,19 +220,22 @@ public:
 	void GetModelRenderBounds( const model_t *model, Vector &mins, Vector &maxs ) const;
 	bool ModelHasMaterialProxy( const model_t *model ) const;
 	bool IsTranslucent( model_t const *model ) const;
-	void RecomputeTranslucency( const model_t *model, int nSkin, int nBody, void *pClientRenderable, float fInstanceAlphaModulate = 1.0f );
+	void RecomputeTranslucency( const model_t *model, int nSkin, int nBody, void *pClientRenderable,
+								float fInstanceAlphaModulate = 1.0f );
 	bool IsModelVertexLit( const model_t *model ) const;
 	studiohdr_t *GetStudiomodel( const model_t *mod );
 };
+
 extern CDetailModelInfo *modelinfo;
 
 class CDetailModelRender
 {
 public:
 	int DrawModel( int flags, IClientRenderable *pRenderable, ModelInstanceHandle_t instance, int entity_index,
-	               const model_t *model, Vector const &origin, QAngle const &angles, int skin, int body, int hitboxset,
-	               const matrix3x4_t *modelToWorld = NULL, const matrix3x4_t *pLightingOffset = NULL );
+				   const model_t *model, Vector const &origin, QAngle const &angles, int skin, int body, int hitboxset,
+				   const matrix3x4_t *modelToWorld = NULL, const matrix3x4_t *pLightingOffset = NULL );
 };
+
 extern CDetailModelRender *modelrender;
 
 //-----------------------------------------------------------------------------
@@ -235,6 +258,7 @@ public:
 	void GetDetailObjectsInLeaf( int leaf, int &firstDetailObject, int &detailObjectCount );
 	void DrawDetailObjectsInLeaf( int leaf, int frameNumber, int &firstDetailObject, int &detailObjectCount );
 };
+
 CDetailLeafSystem *ClientLeafSystem();
 
 //-----------------------------------------------------------------------------
@@ -245,6 +269,7 @@ class CDetailView
 public:
 	int BuildWorldListsNumber() const;
 };
+
 extern CDetailView *view;
 
 const Vector &CurrentViewOrigin();
@@ -255,6 +280,7 @@ class CDetailClientMode
 public:
 	bool ShouldDrawDetailObjects();
 };
+
 extern CDetailClientMode *g_pClientMode;
 
 class C_EnvDetailController
@@ -263,6 +289,7 @@ public:
 	float m_flFadeStartDist;
 	float m_flFadeEndDist;
 };
+
 C_EnvDetailController *GetDetailController();
 
 // The local player, whose FOV scales both fades in stock. This build has no
@@ -273,6 +300,7 @@ class C_BasePlayer
 {
 public:
 	static C_BasePlayer *GetLocalPlayer() { return NULL; }
+
 	float GetFOVDistanceAdjustFactor() { return 1.0f; }
 };
 
@@ -281,15 +309,37 @@ class C_World
 public:
 	const char *GetDetailSpriteMaterial() const;
 };
+
 C_World *GetClientWorldEntity();
 
 //-----------------------------------------------------------------------------
 // The material system.
 //-----------------------------------------------------------------------------
-enum MaterialMatrixMode_t { MATERIAL_VIEW = 0, MATERIAL_PROJECTION, MATERIAL_MODEL = 10 };
-enum MaterialPrimitiveType_t { MATERIAL_POINTS = 0, MATERIAL_LINES, MATERIAL_TRIANGLES, MATERIAL_TRIANGLE_STRIP,
-                               MATERIAL_LINE_STRIP, MATERIAL_LINE_LOOP, MATERIAL_POLYGON, MATERIAL_QUADS };
-enum HDRType_t { HDR_TYPE_NONE = 0, HDR_TYPE_INTEGER, HDR_TYPE_FLOAT };
+enum MaterialMatrixMode_t
+{
+	MATERIAL_VIEW = 0,
+	MATERIAL_PROJECTION,
+	MATERIAL_MODEL = 10
+};
+
+enum MaterialPrimitiveType_t
+{
+	MATERIAL_POINTS = 0,
+	MATERIAL_LINES,
+	MATERIAL_TRIANGLES,
+	MATERIAL_TRIANGLE_STRIP,
+	MATERIAL_LINE_STRIP,
+	MATERIAL_LINE_LOOP,
+	MATERIAL_POLYGON,
+	MATERIAL_QUADS
+};
+
+enum HDRType_t
+{
+	HDR_TYPE_NONE = 0,
+	HDR_TYPE_INTEGER,
+	HDR_TYPE_FLOAT
+};
 
 class IMaterial
 {
@@ -302,10 +352,16 @@ public:
 class CMaterialReference
 {
 public:
-	CMaterialReference() : m_pMaterial( NULL ) {}
+	CMaterialReference()
+		: m_pMaterial( NULL )
+	{
+	}
+
 	void Init( const char *pMaterialName, const char *pTextureGroupName, bool bComplain = true );
 	void Shutdown();
+
 	operator IMaterial *() { return m_pMaterial; }
+
 	IMaterial *m_pMaterial;
 };
 
@@ -324,7 +380,8 @@ public:
 	void PushMatrix();
 	void LoadIdentity();
 	void PopMatrix();
-	IMesh *GetDynamicMesh( bool buffered = true, IMesh *pVertexOverride = 0, IMesh *pIndexOverride = 0, IMaterial *pAutoBind = 0 );
+	IMesh *GetDynamicMesh( bool buffered = true, IMesh *pVertexOverride = 0, IMesh *pIndexOverride = 0,
+						   IMaterial *pAutoBind = 0 );
 	void GetMaxToRender( IMesh *pMesh, bool bMaxUntilFlush, int *pMaxVerts, int *pMaxIndices );
 };
 
@@ -333,13 +390,19 @@ class IMaterialSystem
 public:
 	IMatRenderContext *GetRenderContext();
 };
+
 extern IMaterialSystem *materials;
 
 class CMatRenderContextPtr
 {
 public:
-	CMatRenderContextPtr( IMaterialSystem *pFrom ) : m_pContext( pFrom->GetRenderContext() ) {}
+	CMatRenderContextPtr( IMaterialSystem *pFrom )
+		: m_pContext( pFrom->GetRenderContext() )
+	{
+	}
+
 	IMatRenderContext *operator->() const { return m_pContext; }
+
 private:
 	IMatRenderContext *m_pContext;
 };
@@ -355,10 +418,11 @@ public:
 	void TexCoord2f( int stage, float s, float t );
 	void TexCoord2fv( int stage, const float *st );
 	void AdvanceVertex();
+
 private:
-	float m_Pos[ 3 ];
-	unsigned char m_Color[ 4 ];
-	float m_Tex[ 2 ];
+	float m_Pos[3];
+	unsigned char m_Color[4];
+	float m_Tex[2];
 	int m_nVerts;
 };
 
@@ -367,4 +431,5 @@ class CDetailHardwareConfig
 public:
 	HDRType_t GetHDRType() const;
 };
+
 extern CDetailHardwareConfig *g_pMaterialSystemHardwareConfig;

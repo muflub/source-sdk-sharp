@@ -32,37 +32,37 @@
 
 namespace
 {
-	// The client viewport this lane built: the reader must see it compiled, or
-	// "absent" below is the answer of a reader that saw nothing.
-	const char *const kViewport = "src/client/native/shell_viewport_client.cpp";
+// The client viewport this lane built: the reader must see it compiled, or
+// "absent" below is the answer of a reader that saw nothing.
+const char *const kViewport = "src/client/native/shell_viewport_client.cpp";
 
-	const char *const kGameControls = "game/client/game_controls/";
+const char *const kGameControls = "game/client/game_controls/";
 
-	bool AnyUnder( const std::set< std::string > &compiled, const std::string &strPrefix, std::string &strHit )
+bool AnyUnder( const std::set<std::string> &compiled, const std::string &strPrefix, std::string &strHit )
+{
+	for ( const std::string &s : compiled )
 	{
-		for ( const std::string &s : compiled )
+		if ( s.compare( 0, strPrefix.size(), strPrefix ) == 0 )
 		{
-			if ( s.compare( 0, strPrefix.size(), strPrefix ) == 0 )
-			{
-				strHit = s;
-				return true;
-			}
+			strHit = s;
+			return true;
 		}
-		return false;
 	}
+	return false;
+}
 
-	bool AnyToken( const std::vector< std::string > &tokens, const std::string &strNeedle, std::string &strHit )
+bool AnyToken( const std::vector<std::string> &tokens, const std::string &strNeedle, std::string &strHit )
+{
+	for ( const std::string &t : tokens )
 	{
-		for ( const std::string &t : tokens )
+		if ( t.find( strNeedle ) != std::string::npos )
 		{
-			if ( t.find( strNeedle ) != std::string::npos )
-			{
-				strHit = t;
-				return true;
-			}
+			strHit = t;
+			return true;
 		}
-		return false;
 	}
+	return false;
+}
 }
 
 TEST( NoHtmlPanelAtJoin, TheReaderSeesTheClientsOwnViewportCompiled )
@@ -73,7 +73,7 @@ TEST( NoHtmlPanelAtJoin, TheReaderSeesTheClientsOwnViewportCompiled )
 
 TEST( NoHtmlPanelAtJoin, NoStockViewportPanelIsCompiled )
 {
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( cmake_graph::kClient );
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( cmake_graph::kClient );
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, cmake_graph::RepoToFarm( kViewport ) ) );
 
 	std::string strHit;
@@ -84,7 +84,7 @@ TEST( NoHtmlPanelAtJoin, NoStockViewportPanelIsCompiled )
 
 TEST( NoHtmlPanelAtJoin, TheLinkReaderSeesTheClientsLibraries )
 {
-	const std::vector< std::string > libs = cmake_graph::LinkLibraries( cmake_graph::kClient );
+	const std::vector<std::string> libs = cmake_graph::LinkLibraries( cmake_graph::kClient );
 	std::string strHit;
 	// libdl: every Linux link line names it (no Valve library is left on the
 	// client's line since C9 took tier1 off it).
@@ -94,7 +94,7 @@ TEST( NoHtmlPanelAtJoin, TheLinkReaderSeesTheClientsLibraries )
 
 TEST( NoHtmlPanelAtJoin, NoVguiControlsArchiveIsLinked )
 {
-	const std::vector< std::string > libs = cmake_graph::LinkLibraries( cmake_graph::kClient );
+	const std::vector<std::string> libs = cmake_graph::LinkLibraries( cmake_graph::kClient );
 	std::string strHit;
 	EXPECT_FALSE( AnyToken( libs, "vgui_controls", strHit ) )
 		<< cmake_graph::kClient << " links " << strHit << ": vgui::HTML can be built again";

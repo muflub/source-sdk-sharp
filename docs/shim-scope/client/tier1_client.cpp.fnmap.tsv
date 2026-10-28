@@ -3,7 +3,7 @@
 4	HOST	void CRC32_Init( CRC32_t *pulCRC )
 4	HOST	void CRC32_ProcessBuffer( CRC32_t *pulCRC, const void *p, int len )
 4	HOST	void CRC32_Final( CRC32_t *pulCRC )
-12	HOST	CUtlMemoryPool::CUtlMemoryPool( int blockSize, int numElements, int growMode, const char *pszAllocOwner, int nAlignment )
+13	HOST	CUtlMemoryPool::CUtlMemoryPool( int blockSize, int numElements, int growMode, const char *pszAllocOwner, int nAlignment )
 4	HOST	CUtlMemoryPool::~CUtlMemoryPool()
 8	HOST	void CUtlMemoryPool::Init()
 11	HOST	void CUtlMemoryPool::Clear()

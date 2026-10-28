@@ -11,14 +11,13 @@
 
 #include "ss_util.h"
 #include "ss_recipient_filter.h"
-#include "engine/IEngineSound.h"
 
 int fSentencesInit = false;
 
 // Called from world spawn; only the first call does anything.
 void SENTENCEG_Init()
 {
-	if (fSentencesInit)
+	if ( fSentencesInit )
 		return;
 
 	engine->PrecacheSentenceFile( "scripts/sentences.txt" );

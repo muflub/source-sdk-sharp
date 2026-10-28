@@ -8,7 +8,6 @@
 // The engine calls the installed IConsoleDisplayFunc on the printing thread.
 // A print is appended to the line buffer, which the managed side drains itself.
 
-#include "basetypes.h"
 #include "icvar.h"
 #include "Color.h"
 #ifdef CLIENT_DLL
@@ -26,8 +25,13 @@ namespace
 class CConsoleDisplayForward final : public IConsoleDisplayFunc
 {
 public:
-	void ColorPrint( const Color &color, const char *pMessage ) override { Forward( pMessage, IsEngineWarningColor( color ) ? 1 : 0 ); }
+	void ColorPrint( const Color &color, const char *pMessage ) override
+	{
+		Forward( pMessage, IsEngineWarningColor( color ) ? 1 : 0 );
+	}
+
 	void Print( const char *pMessage ) override { Forward( pMessage, 0 ); }
+
 	void DPrint( const char *pMessage ) override { Forward( pMessage, 0 ); }
 
 	CConsoleDisplayForward() = default;
@@ -36,23 +40,24 @@ public:
 
 	/// Hands the buffer to this load's area, once per install; false outside a load.
 	bool Attach();
+
 	void Detach() { m_bAttached.store( false, std::memory_order_release ); }
 
 private:
 	void Forward( const char *pText, int nWarning );
 
-	std::atomic< bool > m_bAttached{ false };
+	std::atomic<bool> m_bAttached{ false };
 
 	// Every spew reaches ColorPrint with its spew type's colour: warning (255,90,90),
 	// assert (255,20,20), error (20,70,255).
 	static bool IsEngineWarningColor( const Color &c )
 	{
 		return c.r() == 255 ? ( c.g() == 90 && c.b() == 90 ) || ( c.g() == 20 && c.b() == 20 )
-		                    : c.r() == 20 && c.g() == 70 && c.b() == 255;
+							: c.r() == 20 && c.g() == 70 && c.b() == 255;
 	}
 };
 
-CConsoleLineBuffer g_LineBuffer;  // not a member: the forwarder's vtable would put 1 MiB in .data
+CConsoleLineBuffer g_LineBuffer; // not a member: the forwarder's vtable would put 1 MiB in .data
 CConsoleDisplayForward g_Forwarder;
 ICvar *g_pInstalledCvar = NULL;
 

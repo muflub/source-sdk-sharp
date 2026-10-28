@@ -34,7 +34,7 @@ public:
 
 	// Tells whoever holds a raw pointer to this effect that it is going; called
 	// from the destructor, whichever route reached it.
-	typedef CTrailDestroyLatch< CShellParticleEffect >::GoneFn_t TrailGoneFn_t;
+	typedef CTrailDestroyLatch<CShellParticleEffect>::GoneFn_t TrailGoneFn_t;
 
 	void SetGoneCallback( TrailGoneFn_t pfnGone ) { m_Destroy.SetGoneCallback( pfnGone ); }
 
@@ -54,11 +54,13 @@ public:
 	}
 
 	// The place, written once a frame by the shell's PreRender sweep.
-	const Vector &GetAbsOrigin() const   { return m_vecOrigin; }
-	const QAngle &GetAbsAngles() const   { return m_angAngles; }
+	const Vector &GetAbsOrigin() const { return m_vecOrigin; }
 
-	void SetAbsOrigin( const Vector &vecOrigin )   { m_vecOrigin  = vecOrigin; }
-	void SetAbsAngles( const QAngle &angAngles )   { m_angAngles  = angAngles; }
+	const QAngle &GetAbsAngles() const { return m_angAngles; }
+
+	void SetAbsOrigin( const Vector &vecOrigin ) { m_vecOrigin = vecOrigin; }
+
+	void SetAbsAngles( const QAngle &angAngles ) { m_angAngles = angAngles; }
 
 	// The shell's destroy path, as C_BaseEntity::Release() was for a client-only entity.
 	void Release()
@@ -68,13 +70,13 @@ public:
 	}
 
 protected:
-	Vector	m_vecOrigin;
-	QAngle	m_angAngles;
+	Vector m_vecOrigin;
+	QAngle m_angAngles;
 
 	// Claimed by the first destroy route to arrive; every one after is a no-op.
 	// Also carries the registry's "it has gone" callback. See trail_lifetime.h.
-	CTrailDestroyLatch< CShellParticleEffect >	m_Destroy;
+	CTrailDestroyLatch<CShellParticleEffect> m_Destroy;
 
 private:
-	CShellParticleEffect( const CShellParticleEffect & );	// not defined, not accessible
+	CShellParticleEffect( const CShellParticleEffect & ); // not defined, not accessible
 };

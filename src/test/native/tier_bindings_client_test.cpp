@@ -137,12 +137,12 @@ TEST( TierBindingsClientDeathTest, AMissingLibraryStopsTheProcessNamingIt )
 	// The positive arm first: the same call finds a name that is there.
 	ASSERT_NE( nullptr, ss::RequireLoadedSymbol( "libtier0.so", "CommandLine_Tier0" ) );
 	EXPECT_DEATH( ss::RequireLoadedSymbol( "libss_never_loaded.so", "CommandLine_Tier0" ),
-	              "CommandLine_Tier0: no loaded libss_never_loaded.so defines it" );
+				  "CommandLine_Tier0: no loaded libss_never_loaded.so defines it" );
 }
 
 TEST( TierBindingsClientDeathTest, AMissingNameStopsTheProcessNamingIt )
 {
 	SS_DEATH_NO_CORE();
 	EXPECT_DEATH( ss::RequireLoadedSymbol( "libtier0.so", "SS_NoSuchTier0Name" ),
-	              "SS_NoSuchTier0Name: no loaded libtier0.so defines it" );
+				  "SS_NoSuchTier0Name: no loaded libtier0.so defines it" );
 }

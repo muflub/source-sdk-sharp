@@ -33,17 +33,17 @@ using namespace TeBackendArgs;
 
 namespace
 {
-	// Three coordinates nobody could confuse for another three.
-	const float g_Start[3]  = { 11.0f, 12.0f, 13.0f };
-	const float g_End[3]    = { 21.0f, 22.0f, 23.0f };
-	const float g_Centre[3] = { 31.0f, 32.0f, 33.0f };
+// Three coordinates nobody could confuse for another three.
+const float g_Start[3] = { 11.0f, 12.0f, 13.0f };
+const float g_End[3] = { 21.0f, 22.0f, 23.0f };
+const float g_Centre[3] = { 31.0f, 32.0f, 33.0f };
 
-	void ExpectVec( const Vec3 &v, float x, float y, float z )
-	{
-		EXPECT_FLOAT_EQ( x, v.x );
-		EXPECT_FLOAT_EQ( y, v.y );
-		EXPECT_FLOAT_EQ( z, v.z );
-	}
+void ExpectVec( const Vec3 &v, float x, float y, float z )
+{
+	EXPECT_FLOAT_EQ( x, v.x );
+	EXPECT_FLOAT_EQ( y, v.y );
+	EXPECT_FLOAT_EQ( z, v.z );
+}
 }
 
 //=============================================================================//
@@ -91,7 +91,7 @@ TEST( TeBackendSparks, TellsAbsentDirectionFromAZeroOne )
 	const float zero[3] = { 0.0f, 0.0f, 0.0f };
 
 	const EffectRequest absent = Sparks( g_Start, 1, 1, NULL );
-	const EffectRequest given  = Sparks( g_Start, 1, 1, zero );
+	const EffectRequest given = Sparks( g_Start, 1, 1, zero );
 
 	EXPECT_TRUE( absent.bDraw );
 	EXPECT_FALSE( absent.bHasDirection );
@@ -102,7 +102,7 @@ TEST( TeBackendSparks, TellsAbsentDirectionFromAZeroOne )
 	// Same VALUE either way; only the flag tells them apart, which is why the
 	// flag is carried rather than inferred.
 	ExpectVec( absent.vecDirection, 0.0f, 0.0f, 0.0f );
-	ExpectVec( given.vecDirection,  0.0f, 0.0f, 0.0f );
+	ExpectVec( given.vecDirection, 0.0f, 0.0f, 0.0f );
 }
 
 TEST( TeBackendSparks, RefusesAMissingPosition )
@@ -122,14 +122,14 @@ TEST( TeBackendPositionAndDirection, KeepsThemTheRightWayRound )
 
 	EXPECT_TRUE( req.bDraw );
 	EXPECT_TRUE( req.bHasDirection );
-	ExpectVec( req.vecPosition,  11.0f, 12.0f, 13.0f );
+	ExpectVec( req.vecPosition, 11.0f, 12.0f, 13.0f );
 	ExpectVec( req.vecDirection, 21.0f, 22.0f, 23.0f );
 }
 
 TEST( TeBackendPositionAndDirection, RefusesEitherMissing )
 {
-	EXPECT_FALSE( PositionAndDirection( NULL,    g_End ).bDraw );
-	EXPECT_FALSE( PositionAndDirection( g_Start, NULL  ).bDraw );
+	EXPECT_FALSE( PositionAndDirection( NULL, g_End ).bDraw );
+	EXPECT_FALSE( PositionAndDirection( g_Start, NULL ).bDraw );
 }
 
 TEST( TeBackendSmoke, CarriesModelScaleAndFrameRate )
@@ -158,7 +158,7 @@ TEST( TeBackendMuzzleFlash, PutsAnglesInTheAngleFieldAndNotTheDirection )
 
 	EXPECT_TRUE( req.bDraw );
 	ExpectVec( req.vecPosition, 11.0f, 12.0f, 13.0f );
-	ExpectVec( req.vecAngles,   21.0f, 22.0f, 23.0f );
+	ExpectVec( req.vecAngles, 21.0f, 22.0f, 23.0f );
 	ExpectVec( req.vecDirection, 0.0f, 0.0f, 0.0f );
 	EXPECT_FALSE( req.bHasDirection );
 
@@ -193,7 +193,7 @@ TEST( TeBackendMuzzleFlash, PassesAnUnknownTypeThroughRatherThanDefaultingIt )
 TEST( TeBackendDecalShoot, CarriesIndexEntityPositionAndFlags )
 {
 	const DecalRequest req = DecalShoot( /*decal*/ 12, /*entity*/ 34, g_Start,
-	                                     /*sAxis*/ g_End, /*flags*/ 8 );
+										 /*sAxis*/ g_End, /*flags*/ 8 );
 
 	EXPECT_TRUE( req.bDraw );
 	EXPECT_EQ( 12, req.nDecalIndex );
@@ -227,7 +227,7 @@ TEST( TeBackendDecalShoot, TellsAnAbsentSAxisFromAZeroOne )
 	const float zero[3] = { 0.0f, 0.0f, 0.0f };
 
 	EXPECT_FALSE( DecalShoot( 5, 0, g_Start, NULL, 0 ).bHasSAxis );
-	EXPECT_TRUE ( DecalShoot( 5, 0, g_Start, zero, 0 ).bHasSAxis );
+	EXPECT_TRUE( DecalShoot( 5, 0, g_Start, zero, 0 ).bHasSAxis );
 }
 
 //-----------------------------------------------------------------------------
@@ -239,13 +239,12 @@ TEST( TeBackendDecalShoot, TellsAnAbsentSAxisFromAZeroOne )
 TEST( TeBackendDecalShoot, RefusesAnUnknownDecalIndex )
 {
 	EXPECT_FALSE( DecalShoot( -1, 0, g_Start, NULL, 0 ).bDraw );
-	EXPECT_FALSE( DecalShoot(  5, -1, g_Start, NULL, 0 ).bDraw );
-	EXPECT_FALSE( DecalShoot(  5, 0, NULL, NULL, 0 ).bDraw );
+	EXPECT_FALSE( DecalShoot( 5, -1, g_Start, NULL, 0 ).bDraw );
+	EXPECT_FALSE( DecalShoot( 5, 0, NULL, NULL, 0 ).bDraw );
 }
 
 // (The spray's arguments are the managed PlayerSprays' since lane M1-C;
 // PlayerSpraysTests holds player 0 and a negative entity refused.)
-
 
 //=============================================================================//
 // THE DISPATCH.
@@ -253,12 +252,12 @@ TEST( TeBackendDecalShoot, RefusesAnUnknownDecalIndex )
 
 namespace
 {
-	SourceSharpEffectData_t ZeroEffectData( void )
-	{
-		SourceSharpEffectData_t data;
-		memset( &data, 0, sizeof( data ) );
-		return data;
-	}
+SourceSharpEffectData_t ZeroEffectData( void )
+{
+	SourceSharpEffectData_t data;
+	memset( &data, 0, sizeof( data ) );
+	return data;
+}
 }
 
 //-----------------------------------------------------------------------------
@@ -321,13 +320,13 @@ TEST( TeBackendDispatch, TheEffectDataStructIsFlatFourByteFields )
 TEST( TeBackendStaticPropDecal, CarriesBothPointsAndBothIndices )
 {
 	const StaticPropDecalRequest req = DecalStaticProp( g_Start, g_End,
-	                                                    /*prop*/ 41, /*decal*/ 7 );
+														/*prop*/ 41, /*decal*/ 7 );
 
 	EXPECT_TRUE( req.bDraw );
 	ExpectVec( req.vecStart, 11.0f, 12.0f, 13.0f );
-	ExpectVec( req.vecEnd,   21.0f, 22.0f, 23.0f );
+	ExpectVec( req.vecEnd, 21.0f, 22.0f, 23.0f );
 	EXPECT_EQ( 41, req.nStaticPropIndex );
-	EXPECT_EQ(  7, req.nDecalIndex );
+	EXPECT_EQ( 7, req.nDecalIndex );
 }
 
 //-----------------------------------------------------------------------------
@@ -355,11 +354,11 @@ TEST( TeBackendStaticPropDecal, DoesNotSwapTheRayEnds )
 //-----------------------------------------------------------------------------
 TEST( TeBackendStaticPropDecal, RefusesANegativeIndexAndDrawsPropZero )
 {
-	EXPECT_TRUE ( DecalStaticProp( g_Start, g_End,  0, 0 ).bDraw );
+	EXPECT_TRUE( DecalStaticProp( g_Start, g_End, 0, 0 ).bDraw );
 	EXPECT_FALSE( DecalStaticProp( g_Start, g_End, -1, 0 ).bDraw );
-	EXPECT_FALSE( DecalStaticProp( g_Start, g_End,  0, -1 ).bDraw );
-	EXPECT_FALSE( DecalStaticProp( NULL,    g_End,  0, 0 ).bDraw );
-	EXPECT_FALSE( DecalStaticProp( g_Start, NULL,   0, 0 ).bDraw );
+	EXPECT_FALSE( DecalStaticProp( g_Start, g_End, 0, -1 ).bDraw );
+	EXPECT_FALSE( DecalStaticProp( NULL, g_End, 0, 0 ).bDraw );
+	EXPECT_FALSE( DecalStaticProp( g_Start, NULL, 0, 0 ).bDraw );
 }
 
 TEST( TeBackendClientTrace, CarriesBothPointsAndTheMask )
@@ -368,7 +367,7 @@ TEST( TeBackendClientTrace, CarriesBothPointsAndTheMask )
 
 	EXPECT_TRUE( req.bTrace );
 	ExpectVec( req.vecStart, 11.0f, 12.0f, 13.0f );
-	ExpectVec( req.vecEnd,   21.0f, 22.0f, 23.0f );
+	ExpectVec( req.vecEnd, 21.0f, 22.0f, 23.0f );
 	EXPECT_EQ( (int)SOURCESHARP_TRACE_ALL, req.nMask );
 }
 
@@ -390,9 +389,9 @@ TEST( TeBackendClientTrace, TellsTheFourMasksApart )
 
 TEST( TeBackendClientTrace, RefusesEitherPointMissing )
 {
-	EXPECT_FALSE( TraceLineArgs( NULL,    g_End, SOURCESHARP_TRACE_ALL ).bTrace );
-	EXPECT_FALSE( TraceLineArgs( g_Start, NULL,  SOURCESHARP_TRACE_ALL ).bTrace );
-	EXPECT_FALSE( TraceLineArgs( NULL,    NULL,  SOURCESHARP_TRACE_ALL ).bTrace );
+	EXPECT_FALSE( TraceLineArgs( NULL, g_End, SOURCESHARP_TRACE_ALL ).bTrace );
+	EXPECT_FALSE( TraceLineArgs( g_Start, NULL, SOURCESHARP_TRACE_ALL ).bTrace );
+	EXPECT_FALSE( TraceLineArgs( NULL, NULL, SOURCESHARP_TRACE_ALL ).bTrace );
 }
 
 //-----------------------------------------------------------------------------
@@ -406,25 +405,28 @@ TEST( TeBackendClientTrace, RefusesEitherPointMissing )
 TEST( TeBackendTraceOuts, EachFieldLandsInItsOwnPointer )
 {
 	TraceAnswer ans;
-	ans.bHit          = true;
-	ans.flFraction    = 0.25f;
-	ans.vecEnd.x      = 41.0f; ans.vecEnd.y    = 42.0f; ans.vecEnd.z    = 43.0f;
-	ans.vecNormal.x   = 51.0f; ans.vecNormal.y = 52.0f; ans.vecNormal.z = 53.0f;
-	ans.nHitbox       = 61;
-	ans.nEntityIndex  = 71;
+	ans.bHit = true;
+	ans.flFraction = 0.25f;
+	ans.vecEnd.x = 41.0f;
+	ans.vecEnd.y = 42.0f;
+	ans.vecEnd.z = 43.0f;
+	ans.vecNormal.x = 51.0f;
+	ans.vecNormal.y = 52.0f;
+	ans.vecNormal.z = 53.0f;
+	ans.nHitbox = 61;
+	ans.nEntityIndex = 71;
 	ans.nSurfaceProps = 81;
 	ans.nSurfaceFlags = 91;
 
 	float flFraction = -1.0f;
-	float end[3]     = { -1.0f, -1.0f, -1.0f };
-	float normal[3]  = { -1.0f, -1.0f, -1.0f };
-	int   nHitbox    = -1;
-	int   nEntity    = -1;
-	int   nProps     = -1;
-	int   nFlags     = -1;
+	float end[3] = { -1.0f, -1.0f, -1.0f };
+	float normal[3] = { -1.0f, -1.0f, -1.0f };
+	int nHitbox = -1;
+	int nEntity = -1;
+	int nProps = -1;
+	int nFlags = -1;
 
-	const int nHit = WriteTraceOuts( ans, &flFraction, end, normal, &nHitbox, &nEntity,
-	                                 &nProps, &nFlags );
+	const int nHit = WriteTraceOuts( ans, &flFraction, end, normal, &nHitbox, &nEntity, &nProps, &nFlags );
 
 	EXPECT_EQ( 1, nHit );
 	EXPECT_FLOAT_EQ( 0.25f, flFraction );
@@ -469,14 +471,16 @@ TEST( TeBackendTraceOuts, EveryPointerMayBeNull )
 TEST( TeBackendTraceOuts, AMissEndsWhereItWasAimed )
 {
 	Vec3 aim;
-	aim.x = 81.0f; aim.y = 82.0f; aim.z = 83.0f;
+	aim.x = 81.0f;
+	aim.y = 82.0f;
+	aim.z = 83.0f;
 
 	const TraceAnswer ans = TraceAnswerMiss( aim );
 
 	EXPECT_FALSE( ans.bHit );
 	EXPECT_FLOAT_EQ( 1.0f, ans.flFraction );
 	ExpectVec( ans.vecEnd, 81.0f, 82.0f, 83.0f );
-	EXPECT_EQ(  0, ans.nHitbox );
+	EXPECT_EQ( 0, ans.nHitbox );
 	EXPECT_EQ( -1, ans.nEntityIndex );
 
 	// -1 rather than 0 for the surface, because 0 is a REAL surfaceprops index
@@ -485,7 +489,7 @@ TEST( TeBackendTraceOuts, AMissEndsWhereItWasAimed )
 	// than that nothing was hit. The flags are 0, which is honest: a miss has
 	// no SURF_ bits.
 	EXPECT_EQ( -1, ans.nSurfaceProps );
-	EXPECT_EQ(  0, ans.nSurfaceFlags );
+	EXPECT_EQ( 0, ans.nSurfaceFlags );
 }
 
 //-----------------------------------------------------------------------------
@@ -493,7 +497,7 @@ TEST( TeBackendTraceOuts, AMissEndsWhereItWasAimed )
 //-----------------------------------------------------------------------------
 TEST( TeBackendDecalName, CopiesTheNameAndReportsItsLength )
 {
-	char buf[ 32 ];
+	char buf[32];
 	memset( buf, 'Z', sizeof( buf ) );
 
 	EXPECT_EQ( 9, CopyName( "Blood_Big", buf, (int)sizeof( buf ) ) );
@@ -508,7 +512,7 @@ TEST( TeBackendDecalName, CopiesTheNameAndReportsItsLength )
 //-----------------------------------------------------------------------------
 TEST( TeBackendDecalName, AnEmptyNameIsALengthOfZero )
 {
-	char buf[ 32 ];
+	char buf[32];
 	memset( buf, 'Z', sizeof( buf ) );
 
 	EXPECT_EQ( 0, CopyName( "", buf, (int)sizeof( buf ) ) );
@@ -527,7 +531,7 @@ TEST( TeBackendDecalName, AnEmptyNameIsALengthOfZero )
 //-----------------------------------------------------------------------------
 TEST( TeBackendDecalName, TruncatesAndStillTerminates )
 {
-	char buf[ 5 ];
+	char buf[5];
 	memset( buf, 'Z', sizeof( buf ) );
 
 	EXPECT_EQ( 4, CopyName( "Blood_Big", buf, (int)sizeof( buf ) ) );
@@ -536,7 +540,7 @@ TEST( TeBackendDecalName, TruncatesAndStillTerminates )
 
 TEST( TeBackendDecalName, RefusesNoBufferAtAll )
 {
-	char buf[ 4 ];
+	char buf[4];
 	memset( buf, 'Z', sizeof( buf ) );
 
 	EXPECT_EQ( 0, CopyName( "Blood_Big", NULL, 32 ) );
@@ -574,7 +578,7 @@ TEST( TeBackendDecalName, RefusesNoBufferAtAll )
 TEST( TeBackendStudioDecal, CarriesTheEntityTheStartTheDeltaAndTheDecal )
 {
 	const StudioDecalRequest req = DecalStudioModel( /*entity*/ 17, g_Start, g_End,
-	                                                 /*decal*/ 7 );
+													 /*decal*/ 7 );
 
 	EXPECT_TRUE( req.bDraw );
 	EXPECT_EQ( 17, req.nEntity );
@@ -589,7 +593,7 @@ TEST( TeBackendStudioDecal, CarriesTheEntityTheStartTheDeltaAndTheDecal )
 //-----------------------------------------------------------------------------
 TEST( TeBackendStudioDecal, DoesNotSwapTheStartAndTheDelta )
 {
-	const StudioDecalRequest forwards  = DecalStudioModel( 1, g_Start, g_End, 0 );
+	const StudioDecalRequest forwards = DecalStudioModel( 1, g_Start, g_End, 0 );
 	const StudioDecalRequest backwards = DecalStudioModel( 1, g_End, g_Start, 0 );
 
 	EXPECT_FLOAT_EQ( 11.0f, forwards.vecStart.x );
@@ -605,11 +609,11 @@ TEST( TeBackendStudioDecal, DoesNotSwapTheStartAndTheDelta )
 //-----------------------------------------------------------------------------
 TEST( TeBackendStudioDecal, RefusesNegativesAndDrawsEntityZero )
 {
-	EXPECT_TRUE ( DecalStudioModel(  0, g_Start, g_End,  0 ).bDraw );
-	EXPECT_FALSE( DecalStudioModel( -1, g_Start, g_End,  0 ).bDraw );
-	EXPECT_FALSE( DecalStudioModel(  0, g_Start, g_End, -1 ).bDraw );
-	EXPECT_FALSE( DecalStudioModel(  0, NULL,    g_End,  0 ).bDraw );
-	EXPECT_FALSE( DecalStudioModel(  0, g_Start, NULL,   0 ).bDraw );
+	EXPECT_TRUE( DecalStudioModel( 0, g_Start, g_End, 0 ).bDraw );
+	EXPECT_FALSE( DecalStudioModel( -1, g_Start, g_End, 0 ).bDraw );
+	EXPECT_FALSE( DecalStudioModel( 0, g_Start, g_End, -1 ).bDraw );
+	EXPECT_FALSE( DecalStudioModel( 0, NULL, g_End, 0 ).bDraw );
+	EXPECT_FALSE( DecalStudioModel( 0, g_Start, NULL, 0 ).bDraw );
 }
 
 TEST( TeBackendBrushDecal, CarriesTheEntityTheCentreAndTheDecal )
@@ -628,11 +632,11 @@ TEST( TeBackendBrushDecal, CarriesTheEntityTheCentreAndTheDecal )
 //-----------------------------------------------------------------------------
 TEST( TeBackendBrushDecal, RefusesNegativesAndDrawsTheWorld )
 {
-	EXPECT_TRUE ( DecalBrushModel(  0, g_Centre,  0 ).bDraw );
-	EXPECT_TRUE ( DecalBrushModel( 42, g_Centre,  0 ).bDraw );
-	EXPECT_FALSE( DecalBrushModel( -1, g_Centre,  0 ).bDraw );
-	EXPECT_FALSE( DecalBrushModel(  0, g_Centre, -1 ).bDraw );
-	EXPECT_FALSE( DecalBrushModel(  0, NULL,      0 ).bDraw );
+	EXPECT_TRUE( DecalBrushModel( 0, g_Centre, 0 ).bDraw );
+	EXPECT_TRUE( DecalBrushModel( 42, g_Centre, 0 ).bDraw );
+	EXPECT_FALSE( DecalBrushModel( -1, g_Centre, 0 ).bDraw );
+	EXPECT_FALSE( DecalBrushModel( 0, g_Centre, -1 ).bDraw );
+	EXPECT_FALSE( DecalBrushModel( 0, NULL, 0 ).bDraw );
 }
 
 //-----------------------------------------------------------------------------
@@ -647,9 +651,9 @@ TEST( TeBackendBrushDecal, RefusesNegativesAndDrawsTheWorld )
 //-----------------------------------------------------------------------------
 TEST( ClientClipRayToEntities, OnlyASolidEntityMayStopTheShot )
 {
-	const int kSolidBsp = 1;          // SOLID_BSP
-	const int kSolidVPhysics = 6;     // SOLID_VPHYSICS
-	const int kTrigger = 0x0008;      // FSOLID_TRIGGER, which a trigger carries with NOT_SOLID
+	const int kSolidBsp = 1; // SOLID_BSP
+	const int kSolidVPhysics = 6; // SOLID_VPHYSICS
+	const int kTrigger = 0x0008; // FSOLID_TRIGGER, which a trigger carries with NOT_SOLID
 
 	EXPECT_TRUE( ClipCandidateIsSolid( kSolidBsp, 0 ) );
 	EXPECT_TRUE( ClipCandidateIsSolid( kSolidVPhysics, kTrigger ) );
@@ -663,8 +667,8 @@ TEST( ClientClipRayToEntities, TheNearestStopWinsAndAMissNever )
 	EXPECT_TRUE( ClipIsNearer( 0.25f, false, 1.0f ) );
 	EXPECT_TRUE( ClipIsNearer( 0.25f, false, 0.5f ) );
 	EXPECT_FALSE( ClipIsNearer( 0.5f, false, 0.25f ) );
-	EXPECT_FALSE( ClipIsNearer( 0.25f, false, 0.25f ) );   // a tie keeps the first
-	EXPECT_FALSE( ClipIsNearer( 1.0f, false, 1.0f ) );     // a clip that did not stop
+	EXPECT_FALSE( ClipIsNearer( 0.25f, false, 0.25f ) ); // a tie keeps the first
+	EXPECT_FALSE( ClipIsNearer( 1.0f, false, 1.0f ) ); // a clip that did not stop
 }
 
 TEST( ClientClipRayToEntities, AShotThatBeginsInsideAnEntityStopsThere )

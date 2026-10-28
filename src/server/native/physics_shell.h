@@ -9,31 +9,24 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <string.h>
-
 // physics.cpp defines SOURCESHARP_PHYSICS_SHELL_ENGINE before including this; the guard
 // keeps the header compilable by a gtest with no Source includes.
 #ifdef SOURCESHARP_PHYSICS_SHELL_ENGINE
-
-#include "vphysics_interface.h"
 
 // Creates the environment, wires the four callback handlers, and destroys it.
 class CSourceSharpPhysicsEnvironment
 {
 public:
-	CSourceSharpPhysicsEnvironment() : m_pEnv( 0 ) {}
+	CSourceSharpPhysicsEnvironment()
+		: m_pEnv( 0 )
+	{
+	}
 
 	// The handlers are parameters: this class does not know what implements them.
-	IPhysicsEnvironment *Create( IPhysics *pPhysics,
-	                             IPhysicsCollisionSolver *pSolver,
-	                             IPhysicsCollisionEvent *pCollisionEvents,
-	                             IPhysicsObjectEvent *pObjectEvents,
-	                             IPhysicsConstraintEvent *pConstraintEvents,
-	                             CreateInterfaceFn engineFactory,
-	                             float flTimestep,
-	                             float flGravity,
-	                             int nMaxCollisionsPerObjectPerTimestep )
+	IPhysicsEnvironment *Create( IPhysics *pPhysics, IPhysicsCollisionSolver *pSolver,
+								 IPhysicsCollisionEvent *pCollisionEvents, IPhysicsObjectEvent *pObjectEvents,
+								 IPhysicsConstraintEvent *pConstraintEvents, CreateInterfaceFn engineFactory,
+								 float flTimestep, float flGravity, int nMaxCollisionsPerObjectPerTimestep )
 	{
 		if ( !pPhysics )
 			return 0;

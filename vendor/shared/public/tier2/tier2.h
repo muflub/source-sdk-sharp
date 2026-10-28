@@ -27,17 +27,18 @@ void ConnectTier2Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount )
 void DisconnectTier2Libraries();
 
 // Helper empty implementation of an IAppSystem for tier2 libraries
-template< class IInterface, int ConVarFlag = 0 > 
-class CTier2AppSystem : public CTier1AppSystem< IInterface, ConVarFlag >
+template <class IInterface, int ConVarFlag = 0>
+class CTier2AppSystem : public CTier1AppSystem<IInterface, ConVarFlag>
 {
-	typedef CTier1AppSystem< IInterface, ConVarFlag > BaseClass;
+	typedef CTier1AppSystem<IInterface, ConVarFlag> BaseClass;
 
 public:
-	CTier2AppSystem( bool bIsPrimaryAppSystem = true ) : BaseClass( bIsPrimaryAppSystem )
+	CTier2AppSystem( bool bIsPrimaryAppSystem = true )
+		: BaseClass( bIsPrimaryAppSystem )
 	{
 	}
 
-	virtual bool Connect( CreateInterfaceFn factory ) 
+	virtual bool Connect( CreateInterfaceFn factory )
 	{
 		if ( !BaseClass::Connect( factory ) )
 			return false;
@@ -59,12 +60,9 @@ public:
 		return INIT_OK;
 	}
 
-	virtual void Shutdown()
-	{
-		BaseClass::Shutdown();
-	}
+	virtual void Shutdown() { BaseClass::Shutdown(); }
 
-	virtual void Disconnect() 
+	virtual void Disconnect()
 	{
 		if ( BaseClass::IsPrimaryAppSystem() )
 		{

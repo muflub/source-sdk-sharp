@@ -1,13 +1,13 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
 bool ParticleLib_Connect( CreateInterfaceFn appSystemFactory )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
-ParticleLib_Disconnect	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
-ParticleLib_Counters	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
+void ParticleLib_Disconnect()	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
+void ParticleLib_Counters( SSParticleLibCounters_t *pOut )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 ISSParticleLib *Lib()	SLOT-HELP	the library's object, for the forwards beside it
 void *CParticleCollection::operator new( size_t nSize )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 void CParticleCollection::operator delete( void *pData )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
-void SSParticleLib_CollectionC2( CParticleCollection *p )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
-void SSParticleLib_CollectionD2( CParticleCollection *p )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
+extern "" void SSParticleLib_CollectionC2( CParticleCollection *p )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
+extern "" void SSParticleLib_CollectionD2( CParticleCollection *p )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 bool CParticleCollection::Init( CParticleSystemDefinition *pDef )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 bool CParticleCollection::Init( const char *pszName )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 void CParticleCollection::BloatBoundsUsingControlPoint()	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
@@ -46,5 +46,5 @@ void CParticleSystemMgr::SetLastSimulationTime( float flTime )	BOUNDARY	a pass-t
 void CParticleSystemMgr::ShouldLoadSheets( bool bLoadSheets )	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 void CParticleSystemMgr::UncacheAllParticleSystems()	BOUNDARY	a pass-through onto libss_particles.so's ISSParticleLib, the particles.a member client.so named before the split (plan_particles_so.md spike)
 void *ParticleLib_Acquire()	BOUNDARY	the internal factory's row for SSParticleLib001: the library's object, which managed calls through SSFwd_ParticleLib (plan_particles_so.md, plan_forwarders_everywhere.md)
-SSParticleLib_CollectionCtor	BOUNDARY	the MSVC spelling of SSParticleLib_CollectionC2 (bound to CParticleCollection's ??0 by /alternatename): a pass-through onto ss_particles.dll's ISSParticleLib, returning this as an MSVC constructor does
-SSParticleLib_CollectionDtor	BOUNDARY	the MSVC spelling of SSParticleLib_CollectionD2 (bound to CParticleCollection's ??1 by /alternatename): a pass-through onto ss_particles.dll's ISSParticleLib
+extern "" CParticleCollection *SSParticleLib_CollectionCtor( CParticleCollection *p )	BOUNDARY	the MSVC spelling of SSParticleLib_CollectionC2 (bound to CParticleCollection's ??0 by /alternatename): a pass-through onto ss_particles.dll's ISSParticleLib, returning this as an MSVC constructor does
+extern "" void SSParticleLib_CollectionDtor( CParticleCollection *p )	BOUNDARY	the MSVC spelling of SSParticleLib_CollectionD2 (bound to CParticleCollection's ??1 by /alternatename): a pass-through onto ss_particles.dll's ISSParticleLib

@@ -1,5 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-// Purpose: An application framework 
+// Purpose: An application framework
 
 #pragma once
 
@@ -22,7 +22,7 @@ enum InitReturnVal_t
 abstract_class IAppSystem
 {
 public:
-	// Here's where the app systems get to learn about each other 
+	// Here's where the app systems get to learn about each other
 	virtual bool Connect( CreateInterfaceFn factory ) = 0;
 	virtual void Disconnect() = 0;
 
@@ -36,12 +36,13 @@ public:
 };
 
 // Helper empty implementation of an IAppSystem
-template< class IInterface > 
+template <class IInterface>
 class CBaseAppSystem : public IInterface
 {
 public:
-	// Here's where the app systems get to learn about each other 
+	// Here's where the app systems get to learn about each other
 	virtual bool Connect( CreateInterfaceFn factory ) { return true; }
+
 	virtual void Disconnect() {}
 
 	// Here's where systems can access other interfaces implemented by this object
@@ -50,18 +51,16 @@ public:
 
 	// Init, shutdown
 	virtual InitReturnVal_t Init() { return INIT_OK; }
+
 	virtual void Shutdown() {}
 };
 
 // Helper implementation of an IAppSystem for tier0
-template< class IInterface > 
-class CTier0AppSystem : public CBaseAppSystem< IInterface >
+template <class IInterface>
+class CTier0AppSystem : public CBaseAppSystem<IInterface>
 {
 public:
-	CTier0AppSystem( bool bIsPrimaryAppSystem = true )
-	{
-		m_bIsPrimaryAppSystem = bIsPrimaryAppSystem;
-	}
+	CTier0AppSystem( bool bIsPrimaryAppSystem = true ) { m_bIsPrimaryAppSystem = bIsPrimaryAppSystem; }
 
 protected:
 	// NOTE: a single DLL may have multiple AppSystems it's trying to
@@ -82,7 +81,7 @@ private:
 abstract_class IAppSystemV0
 {
 public:
-	// Here's where the app systems get to learn about each other 
+	// Here's where the app systems get to learn about each other
 	virtual bool Connect( CreateInterfaceFn factory ) = 0;
 	virtual void Disconnect() = 0;
 

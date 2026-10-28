@@ -6,10 +6,10 @@
 #pragma once
 
 #ifndef WIN32_LEAN_AND_MEAN
-	#define WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
 #endif
 #ifndef NOMINMAX
-	#define NOMINMAX
+#define NOMINMAX
 #endif
 #include <windows.h>
 #include <stdlib.h>
@@ -17,7 +17,12 @@
 
 // d_type as POSIX spells it: a directory or a regular file, which is all
 // the tests ask.
-enum { DT_UNKNOWN = 0, DT_DIR = 4, DT_REG = 8 };
+enum
+{
+	DT_UNKNOWN = 0,
+	DT_DIR = 4,
+	DT_REG = 8
+};
 
 struct dirent
 {

@@ -13,11 +13,10 @@
 // Declared as plain C here so client.dll exports none of these; other files'
 // imports bind to them through SS_BIND_IMPORT below.
 #if defined( _MSC_VER )
-	#undef VSTDLIB_INTERFACE
-	#define VSTDLIB_INTERFACE extern "C"
+#undef VSTDLIB_INTERFACE
+#define VSTDLIB_INTERFACE extern "C"
 #endif
 
-#include <math.h>
 #include <mutex>
 #include "ss_platform.h"
 #include "vstdlib/random.h"
@@ -31,30 +30,31 @@ namespace
 {
 enum
 {
-	kA = 16807,          // multiplier
-	kM = 2147483647,     // modulus, 2^31 - 1
-	kQ = 127773,         // kM / kA
-	kR = 2836,           // kM % kA
+	kA = 16807, // multiplier
+	kM = 2147483647, // modulus, 2^31 - 1
+	kQ = 127773, // kM / kA
+	kR = 2836, // kM % kA
 	kTable = 32,
 	kDiv = 1 + ( kM - 1 ) / kTable,
 };
+
 const unsigned kMaxRandomRange = 0x7FFFFFFFu;
 const double kScale = 1.0 / kM;
-const double kMaxFraction = 1.0 - 1.2e-7;   // the largest fraction a draw maps to
+const double kMaxFraction = 1.0 - 1.2e-7; // the largest fraction a draw maps to
 
 class CStream
 {
 public:
 	void Seed( int iSeed )
 	{
-		std::lock_guard< std::mutex > hold( m_Lock );
+		std::lock_guard<std::mutex> hold( m_Lock );
 		m_nState = iSeed < 0 ? iSeed : -iSeed;
 		m_nLast = 0;
 	}
 
 	int Draw()
 	{
-		std::lock_guard< std::mutex > hold( m_Lock );
+		std::lock_guard<std::mutex> hold( m_Lock );
 		return DrawLocked();
 	}
 
@@ -104,24 +104,24 @@ private:
 			{
 				m_nState = Step( m_nState );
 				if ( j < kTable )
-					m_Table[ j ] = m_nState;
+					m_Table[j] = m_nState;
 			}
-			m_nLast = m_Table[ 0 ];
+			m_nLast = m_Table[0];
 		}
 
 		m_nState = Step( m_nState );
 		int j = m_nLast / kDiv;
 		if ( j < 0 || j >= kTable )
 			j = ( j % kTable ) & 0x7fffffff;
-		m_nLast = m_Table[ j ];
-		m_Table[ j ] = m_nState;
+		m_nLast = m_Table[j];
+		m_Table[j] = m_nState;
 		return m_nLast;
 	}
 
 	std::mutex m_Lock;
-	int m_nState = 0;    // seeded with 0, as vstdlib's global stream is
+	int m_nState = 0; // seeded with 0, as vstdlib's global stream is
 	int m_nLast = 0;
-	int m_Table[ kTable ] = {};
+	int m_Table[kTable] = {};
 };
 
 CStream s_Stream;

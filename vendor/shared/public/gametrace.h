@@ -4,13 +4,13 @@
 
 #include "cmodel.h"
 #include "utlvector.h"
-#include "ihandleentity.h"
+
 #include "ispatialpartition.h"
 
 #if defined( CLIENT_DLL )
-	class C_BaseEntity;
+class C_BaseEntity;
 #else
-	class CBaseEntity;
+class CBaseEntity;
 #endif
 
 // Purpose: A trace is returned when a box is swept through the world
@@ -18,49 +18,47 @@
 class CGameTrace : public CBaseTrace
 {
 public:
-
 	// Returns true if there was any kind of impact at all
 	bool DidHit() const;
 
-	// The engine doesn't know what a CBaseEntity is, so it has a backdoor to 
+	// The engine doesn't know what a CBaseEntity is, so it has a backdoor to
 	// let it get at the edict.
 
 public:
+	float fractionleftsolid; // time we left a solid, only valid if we started in solid
+	csurface_t surface; // surface hit (impact surface)
 
-	float		fractionleftsolid;		// time we left a solid, only valid if we started in solid
-	csurface_t	surface;				// surface hit (impact surface)
-
-	int			hitgroup;				// 0 == generic, non-zero is specific body part
-	short		physicsbone;			// physics bone hit by trace in studio
+	int hitgroup; // 0 == generic, non-zero is specific body part
+	short physicsbone; // physics bone hit by trace in studio
 
 #if defined( CLIENT_DLL )
-		C_BaseEntity *m_pEnt;
+	C_BaseEntity *m_pEnt;
 #else
-		CBaseEntity *m_pEnt;
+	CBaseEntity *m_pEnt;
 #endif
 
 	// NOTE: this member is overloaded.
 	// If hEnt points at the world entity, then this is the static prop index.
 	// Otherwise, this is the hitbox index.
-	int			hitbox;					// box hit by trace in studio
+	int hitbox; // box hit by trace in studio
 
 	CGameTrace() = default;
 
 private:
 	// No copy constructors allowed
-	CGameTrace(const CGameTrace& vOther);
+	CGameTrace( const CGameTrace &vOther );
 };
 
 // Returns true if there was any kind of impact at all
-inline bool CGameTrace::DidHit() const 
-{ 
-	return fraction < 1 || allsolid || startsolid; 
+inline bool CGameTrace::DidHit() const
+{
+	return fraction < 1 || allsolid || startsolid;
 }
 
 typedef CGameTrace trace_t;
 
-#define TLD_DEF_LEAF_MAX	256
-#define TLD_DEF_ENTITY_MAX	1024
+#define TLD_DEF_LEAF_MAX 256
+#define TLD_DEF_ENTITY_MAX 1024
 
 // misyl: Made final to workaround the warning:
 //   "deleting object of polymorphic class type 'CTraceListData' which has non-virtual destructor might cause undefined behavior [-Wdelete-non-virtual-dtor]"
@@ -69,7 +67,6 @@ typedef CGameTrace trace_t;
 class CTraceListData final : public IPartitionEnumerator
 {
 public:
-
 	CTraceListData( int nLeafMax = TLD_DEF_LEAF_MAX, int nEntityMax = TLD_DEF_ENTITY_MAX )
 	{
 		MEM_ALLOC_CREDIT();
@@ -95,7 +92,7 @@ public:
 		m_nEntityCount = 0;
 	}
 
-	bool	IsEmpty() const			{ return ( m_nLeafCount == 0 && m_nEntityCount == 0 ); }
+	bool IsEmpty() const { return ( m_nLeafCount == 0 && m_nEntityCount == 0 ); }
 
 	// For entities...
 	IterationRetval_t EnumElement( IHandleEntity *pHandleEntity )
@@ -111,12 +108,11 @@ public:
 
 		return ITERATION_CONTINUE;
 	}
-	
+
 public:
+	int m_nLeafCount;
+	CUtlVector<int> m_aLeafList;
 
-	int							m_nLeafCount;
-	CUtlVector<int>				m_aLeafList;
-
-	int							m_nEntityCount;
-	CUtlVector<IHandleEntity*>	m_aEntityList;
+	int m_nEntityCount;
+	CUtlVector<IHandleEntity *> m_aEntityList;
 };

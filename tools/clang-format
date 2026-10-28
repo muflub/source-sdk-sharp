@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+"""tools/clang-format -- the one clang-format this tree is formatted with.
+
+    tools/clang-format [clang-format args...]   run it (provisioned on first use)
+    tools/clang-format --provision              fetch it if missing, print its path
+    tools/clang-format --files                  print every native file it formats
+    tools/clang-format --check                  exit 1 naming each file that is not formatted
+    tools/clang-format --write                  format every native file in place
+    tools/clang-format --self-test
+
+The style is .clang-format at the root, the same for every file. The binary
+is LLVM's clang-format at VERSION, taken from its PyPI wheel and checked
+against SHA256, and cached under ~/.cache/sourcesharp (XDG_CACHE_HOME), so
+every machine formats byte for byte the same: a distribution's clang-format
+of another version breaks lines differently.
+
+The native files are every tracked C and C++ source and header (EXTENSIONS),
+generated ones included: their generators pipe what they write through
+format_text(), so a regenerated header is already formatted.
+"""
+import hashlib
+import io
+import os
+import platform
+import stat
+import subprocess
+import sys
+import urllib.request
+import zipfile
+
+VERSION = "22.1.8"
+WHEEL = ("https://files.pythonhosted.org/packages/e5/88/b82c066fa807da4ca2518fecf79071361f6324b77375e5e92c059c0697fd/"
+         "clang_format-22.1.8-py2.py3-none-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl")
+SHA256 = "b00cff6bfd1f1686f073a4fdf1cb937dbd58bf7510c659477805c03afdea0816"
+MEMBER = "clang_format/data/bin/clang-format"
+EXTENSIONS = (".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".inl")
+
+REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+STYLE = os.path.join(REPO, ".clang-format")
+
+
+def binary_path():
+    cache = os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache")
+    return os.path.join(cache, "sourcesharp", "clang-format-" + VERSION, "clang-format")
+
+
+def provision():
+    path = binary_path()
+    if os.path.exists(path):
+        return path
+    if platform.system() != "Linux" or platform.machine() not in ("x86_64", "AMD64"):
+        raise SystemExit("tools/clang-format: the pinned clang-format is the Linux x86_64 build; "
+                         "format on Linux")
+    with urllib.request.urlopen(WHEEL) as r:
+        data = r.read()
+    got = hashlib.sha256(data).hexdigest()
+    if got != SHA256:
+        raise SystemExit("tools/clang-format: the wheel's sha256 is %s, not %s" % (got, SHA256))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".part"
+    with zipfile.ZipFile(io.BytesIO(data)) as z, open(tmp, "wb") as out:
+        out.write(z.read(MEMBER))
+    os.chmod(tmp, os.stat(tmp).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    os.replace(tmp, path)
+    return path
+
+
+def run(args, stdin=None):
+    return subprocess.run([provision(), "--style=file:" + STYLE, *args], input=stdin,
+                          capture_output=True, text=True)
+
+
+def format_text(text, name="x.h"):
+    """text as the tree's style formats it; name picks the language."""
+    r = run(["--assume-filename=" + name], stdin=text)
+    if r.returncode != 0:
+        raise SystemExit("tools/clang-format: %s" % r.stderr.strip())
+    return r.stdout
+
+
+def native_files():
+    out = subprocess.run(["git", "-C", REPO, "ls-files", "-z"], capture_output=True, text=True).stdout
+    return sorted(f for f in out.split("\0") if f.endswith(EXTENSIONS))
+
+
+def chunks(items, n=200):
+    for i in range(0, len(items), n):
+        yield items[i:i + n]
+
+
+def check(files):
+    """The files whose formatted text differs from what is on disk. Compared,
+    not --dry-run: SeparateDefinitionBlocks emits replacements that change
+    nothing, and --dry-run reports those as violations."""
+    import concurrent.futures
+
+    def differs(f):
+        path = os.path.join(REPO, f)
+        with open(path, encoding="utf-8", errors="surrogateescape", newline="") as fh:
+            have = fh.read()
+        r = subprocess.run([provision(), "--style=file:" + STYLE, path], capture_output=True)
+        return f if r.returncode != 0 or r.stdout.decode("utf-8", "surrogateescape") != have else None
+
+    with concurrent.futures.ThreadPoolExecutor(os.cpu_count() or 4) as ex:
+        return [f for f in ex.map(differs, files) if f]
+
+
+def self_test():
+    checks = 0
+
+    def eq(a, b, what):
+        nonlocal checks
+        checks += 1
+        if a != b:
+            raise AssertionError("%s: %r != %r" % (what, a, b))
+
+    eq(format_text("int  f( void ){return 1;}\n", "a.cpp"), "int f( void )\n{\n\treturn 1;\n}\n",
+       "the style: Allman braces, tab indents, spaces inside parentheses")
+    eq(format_text("char* p;\n", "a.h"), "char *p;\n", "one pointer alignment, not the file's")
+    eq(format_text("#include \"b.h\"\n#include \"a.h\"\n", "a.cpp"), "#include \"b.h\"\n#include \"a.h\"\n",
+       "includes keep their order")
+    long = 'void f()\n{\n\tWarning( "%s" );\n}\n' % ("x" * 150)
+    eq('"%s"' % ("x" * 150) in format_text(long, "a.cpp"), True, "a long string literal is not split")
+    eq(all(f.endswith(EXTENSIONS) for f in native_files()) and len(native_files()) > 1000, True,
+       "the native files are the tracked C and C++ files, all of them")
+    print("tools/clang-format --self-test: %d checks passed" % checks)
+    return 0
+
+
+def main(argv):
+    if argv == ["--self-test"]:
+        return self_test()
+    if argv == ["--provision"]:
+        print(provision())
+        return 0
+    if argv == ["--files"]:
+        print("\n".join(native_files()))
+        return 0
+    if argv == ["--check"]:
+        files = native_files()
+        bad = check(files)
+        for f in bad:
+            print("  not formatted: %s" % f)
+        print("tools/clang-format: %d native files, %d not formatted (tools/clang-format --write)"
+              % (len(files), len(bad)))
+        return 1 if bad else 0
+    if argv == ["--write"]:
+        files = native_files()
+        # A few constructs settle on the second pass (a definition block
+        # separated, then its comment aligned); write until nothing changes.
+        todo = files
+        for _ in range(4):
+            for part in chunks(todo):
+                r = run(["-i", *[os.path.join(REPO, f) for f in part]])
+                if r.returncode != 0:
+                    raise SystemExit("tools/clang-format: %s" % r.stderr.strip())
+            todo = check(todo)
+            if not todo:
+                break
+        if todo:
+            raise SystemExit("tools/clang-format: still changing after four passes: %s" % ", ".join(todo))
+        print("tools/clang-format: %d native files formatted" % len(files))
+        return 0
+    os.execv(provision(), [provision(), *argv])
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

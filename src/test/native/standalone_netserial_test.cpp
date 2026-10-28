@@ -110,10 +110,10 @@ TEST( StandaloneNetSerial, SameTierReuseIsRefusedAsWell )
 //-----------------------------------------------------------------------------
 TEST( StandaloneNetSerial, TheSerialIsMaskedToStocksTenBits )
 {
-	EXPECT_EQ( 0,    StandaloneNetSerial_ForHandle( 0ul ) );
+	EXPECT_EQ( 0, StandaloneNetSerial_ForHandle( 0ul ) );
 	EXPECT_EQ( 1023, StandaloneNetSerial_ForHandle( 1023ul ) );
-	EXPECT_EQ( 0,    StandaloneNetSerial_ForHandle( 1024ul ) );
-	EXPECT_EQ( 5,    StandaloneNetSerial_ForHandle( 1029ul ) );
+	EXPECT_EQ( 0, StandaloneNetSerial_ForHandle( 1024ul ) );
+	EXPECT_EQ( 5, StandaloneNetSerial_ForHandle( 1029ul ) );
 
 	// The entity list's serials are sixteen bits and INVALID_EHANDLE's is all
 	// ones; both must land inside the mask rather than sign-extend the short.
@@ -130,8 +130,7 @@ TEST( StandaloneNetSerial, ConsecutiveSerialsStayDistinctUnderTheMask )
 {
 	for ( unsigned long i = 0; i < 2048; i++ )
 	{
-		EXPECT_NE( StandaloneNetSerial_ForHandle( i ),
-		           StandaloneNetSerial_ForHandle( i + 1 ) );
+		EXPECT_NE( StandaloneNetSerial_ForHandle( i ), StandaloneNetSerial_ForHandle( i + 1 ) );
 	}
 }
 

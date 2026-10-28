@@ -10,12 +10,6 @@
 // handle. Its networked values live in a blob past the object; what they mean and what
 // the client does with them are managed's.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -23,35 +17,20 @@
 #include "igamerules.h"
 #include "client_world.h"
 #include "ivmodemanager.h"
-#include "engine/ivmodelinfo.h"
-#include "cdll_client_int.h"
-#include "haptics/ihaptics.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
-#include "tier1/strtools.h"
-#include "basehandle.h"
-#include "cdll_int.h"
-#include "client_render_handle.h"
-#include "const.h"
-#include "icliententitylist.h"
-#include "iclientnetworkable.h"
-#include "iclientrenderable.h"
-#include "iclientthinkable.h"
+
 #include "vphysics_interface.h"
 #include "world_subject.h"
 #include "shell_world_nettable_client.h"
 #include "shell_cliententitylist.h"
 #include "c_baseentity_statics.h"
-#include "imanaged_runtime_client.h"
+
 #include "shell_managed_areas_client.h"
 
 // What managed's answer to a world update asks this file to do.
 enum
 {
-	kWorldArrival_NormalMode      = 1,
-	kWorldArrival_Occlusion       = 2,
+	kWorldArrival_NormalMode = 1,
+	kWorldArrival_Occlusion = 2,
 	kWorldArrival_ScreenFadeRange = 4,
 };
 
@@ -72,11 +51,11 @@ CWorldClientCollideable::CWorldClientCollideable( C_World *pOuter )
 	m_vecMaxs = vec3_origin;
 
 	// A debug engine asserts the world is unrotated on every world trace.
-	m_vecOrigin   = vec3_origin;
+	m_vecOrigin = vec3_origin;
 	m_angRotation = vec3_angle;
 	SetIdentityMatrix( m_Transform );
 
-	m_nSolidType  = SOLID_BSP;
+	m_nSolidType = SOLID_BSP;
 	m_nSolidFlags = 0;
 }
 
@@ -122,7 +101,7 @@ IClientNetworkable *SourceSharp_ClientWorldFactory( int entnum, int serialNum )
 	if ( g_pClientWorld == NULL )
 	{
 		Warning( "[SourceSharp] worldspawn arrived with no client world object. "
-		         "ClientWorldFactoryInit has not run.\n" );
+				 "ClientWorldFactoryInit has not run.\n" );
 		return NULL;
 	}
 
@@ -164,8 +143,7 @@ void *C_World::operator new( size_t stAllocateBlock )
 	return AllocClientWorld( stAllocateBlock );
 }
 
-void *C_World::operator new( size_t stAllocateBlock, int nBlockUse,
-                             const char *pFileName, int nLine )
+void *C_World::operator new( size_t stAllocateBlock, int nBlockUse, const char *pFileName, int nLine )
 {
 	return AllocClientWorld( stAllocateBlock );
 }
@@ -205,8 +183,7 @@ bool C_World::ResolveFields()
 const char *C_World::GetDetailSpriteMaterial()
 {
 	ResolveFields();
-	return SourceSharpWorld_ReadString( DataBlob(), BlobBytes(),
-	                                    m_Fields.nDetailSpriteMaterial );
+	return SourceSharpWorld_ReadString( DataBlob(), BlobBytes(), m_Fields.nDetailSpriteMaterial );
 }
 
 Vector C_World::GetWorldMins()
@@ -272,7 +249,6 @@ void C_World::PreDataUpdate( DataUpdateType_t updateType )
 // ref is cleared before the call so a nested PreDataUpdate's deferral is kept.
 void C_World::DeliverPendingDataChanged()
 {
-
 	if ( m_DataChangeEventRef < 0 )
 		return;
 
@@ -292,10 +268,9 @@ bool C_World::Init( int entnum, int iSerialNum )
 	if ( m_RefEHandle.IsValid() )
 	{
 		Warning( "[SourceSharp] worldspawn: the client world is still bound to "
-		         "entity %d (serial %d) and a create for entity %d (serial %d) "
-		         "arrived. The previous level's Release did not run; REFUSED.\n",
-		         m_RefEHandle.GetEntryIndex(), m_RefEHandle.GetSerialNumber(),
-		         entnum, iSerialNum );
+				 "entity %d (serial %d) and a create for entity %d (serial %d) "
+				 "arrived. The previous level's Release did not run; REFUSED.\n",
+				 m_RefEHandle.GetEntryIndex(), m_RefEHandle.GetSerialNumber(), entnum, iSerialNum );
 		return false;
 	}
 
@@ -334,11 +309,10 @@ void C_World::Release()
 void C_World::OnDataChanged( DataUpdateType_t updateType )
 {
 	// WorldArrival's order: max occludee area, min occluder area, min and max prop screen width.
-	float flPlan[ 4 ] = {};
+	float flPlan[4] = {};
 	IManagedRuntimeClient *pRuntime = ManagedRuntimeClient();
-	const int nActions = pRuntime
-		? pRuntime->WorldDataChanged( DataBlob(), BlobBytes(), (int32_t)updateType, flPlan, 4 )
-		: 0;
+	const int nActions =
+		pRuntime ? pRuntime->WorldDataChanged( DataBlob(), BlobBytes(), (int32_t)updateType, flPlan, 4 ) : 0;
 
 	if ( nActions & kWorldArrival_NormalMode )
 		modemanager->SwitchMode( false, true );
@@ -346,13 +320,13 @@ void C_World::OnDataChanged( DataUpdateType_t updateType )
 	if ( nActions & kWorldArrival_Occlusion )
 	{
 		OcclusionParams_t params;
-		params.m_flMaxOccludeeArea = flPlan[ 0 ];
-		params.m_flMinOccluderArea = flPlan[ 1 ];
+		params.m_flMaxOccludeeArea = flPlan[0];
+		params.m_flMinOccluderArea = flPlan[1];
 		engine->SetOcclusionParameters( params );
 	}
 
 	if ( nActions & kWorldArrival_ScreenFadeRange )
-		modelinfo->SetLevelScreenFadeRange( flPlan[ 2 ], flPlan[ 3 ] );
+		modelinfo->SetLevelScreenFadeRange( flPlan[2], flPlan[3] );
 
 	// Prints only when the bytes change, in the server's format.
 	ReportIfChanged();
@@ -379,15 +353,30 @@ void C_World::ReportIfChanged()
 
 // The world's place is the origin and never moves. File-scope so references to them are
 // not references to temporaries.
-static const Vector      s_vecWorldOrigin( 0.0f, 0.0f, 0.0f );
-static const QAngle      s_angWorldAngles( 0.0f, 0.0f, 0.0f );
-static matrix3x4_t       s_matWorldTransform;
-static bool              s_bWorldTransformBuilt = false;
+static const Vector s_vecWorldOrigin( 0.0f, 0.0f, 0.0f );
+static const QAngle s_angWorldAngles( 0.0f, 0.0f, 0.0f );
+static matrix3x4_t s_matWorldTransform;
+static bool s_bWorldTransformBuilt = false;
 
-const Vector &C_World::GetAbsOrigin() const     { return s_vecWorldOrigin; }
-const QAngle &C_World::GetAbsAngles() const     { return s_angWorldAngles; }
-const Vector &C_World::GetRenderOrigin()        { return s_vecWorldOrigin; }
-const QAngle &C_World::GetRenderAngles()        { return s_angWorldAngles; }
+const Vector &C_World::GetAbsOrigin() const
+{
+	return s_vecWorldOrigin;
+}
+
+const QAngle &C_World::GetAbsAngles() const
+{
+	return s_angWorldAngles;
+}
+
+const Vector &C_World::GetRenderOrigin()
+{
+	return s_vecWorldOrigin;
+}
+
+const QAngle &C_World::GetRenderAngles()
+{
+	return s_angWorldAngles;
+}
 
 const matrix3x4_t &C_World::RenderableToWorldTransform()
 {
@@ -420,20 +409,15 @@ void C_World::GetShadowRenderBounds( Vector &mins, Vector &maxs, ShadowType_t sh
 void C_World::GetColorModulation( float *color )
 {
 	Assert( color );
-	color[ 0 ] = color[ 1 ] = color[ 2 ] = 1.0f;
+	color[0] = color[1] = color[2] = 1.0f;
 }
-
 
 #if defined( WIN32 )
 // Stock falls back to a no-op without the Novint library, which the SDK does not ship;
 // haptics stays NULL.
-void ConnectHaptics( CreateInterfaceFn )
-{
-}
+void ConnectHaptics( CreateInterfaceFn ) {}
 
-void DisconnectHaptics()
-{
-}
+void DisconnectHaptics() {}
 #endif
 
 C_World *GetClientWorldEntity()
@@ -460,34 +444,28 @@ bool SourceSharp_ClientWorldLevelShutdown()
 CBaseHandle SourceSharp_ClientWorldHandle()
 {
 	// A NULL singleton has no object to ask.
-	return ( g_pClientWorld && g_pClientWorld->IsBoundToTheLevel() )
-	     ? g_pClientWorld->GetRefEHandle()
-	     : CBaseHandle();
+	return ( g_pClientWorld && g_pClientWorld->IsBoundToTheLevel() ) ? g_pClientWorld->GetRefEHandle() : CBaseHandle();
 }
 
 IClientUnknown *SourceSharp_ClientWorldFromIndex( int nEntry )
 {
 	const CBaseHandle hWorld = SourceSharp_ClientWorldHandle();
 
-	return SourceSharp_ClientWorldAnswersForIndex( hWorld, nEntry )
-	     ? g_pClientWorld->GetIClientUnknown()
-	     : NULL;
+	return SourceSharp_ClientWorldAnswersForIndex( hWorld, nEntry ) ? g_pClientWorld->GetIClientUnknown() : NULL;
 }
 
 IClientUnknown *SourceSharp_ClientWorldFromHandle( const CBaseHandle &hEnt )
 {
 	const CBaseHandle hWorld = SourceSharp_ClientWorldHandle();
 
-	return SourceSharp_ClientWorldAnswersForHandle( hWorld, hEnt )
-	     ? g_pClientWorld->GetIClientUnknown()
-	     : NULL;
+	return SourceSharp_ClientWorldAnswersForHandle( hWorld, hEnt ) ? g_pClientWorld->GetIClientUnknown() : NULL;
 }
 
 // The shared world_subject.h rule against the bound world, NULL between maps.
 bool SourceSharp_IsTheWorld( const IHandleEntity *pHandleEntity )
 {
-	return SourceSharp_IsTheWorldHandle(
-		pHandleEntity, SourceSharp_ClientWorldFromHandle( SourceSharp_ClientWorldHandle() ) );
+	return SourceSharp_IsTheWorldHandle( pHandleEntity,
+										 SourceSharp_ClientWorldFromHandle( SourceSharp_ClientWorldHandle() ) );
 }
 
 // NULL for no world, no declaration or an empty string. Not asserted: a level init may
@@ -499,7 +477,7 @@ const char *SourceSharp_WorldDetailSpriteMaterial()
 
 	const char *pszMaterial = g_pClientWorld->GetDetailSpriteMaterial();
 
-	if ( pszMaterial == NULL || pszMaterial[ 0 ] == '\0' )
+	if ( pszMaterial == NULL || pszMaterial[0] == '\0' )
 		return NULL;
 
 	return pszMaterial;

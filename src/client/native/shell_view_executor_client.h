@@ -34,7 +34,6 @@ void SourceSharp_FreezeFrame( float flFreezeTime );
 #include "materialsystem/imaterialvar.h"
 #include "bsptreedata.h"
 
-
 struct ShellCamera_t
 {
 	Vector origin;
@@ -42,6 +41,7 @@ struct ShellCamera_t
 	Vector forward, right, up;
 	VMatrix worldToView;
 };
+
 // view.cpp's ComputeCameraVariables: the view's bases and its world-to-view matrix.
 void ShellView_ComputeCamera( const Vector &vecOrigin, const QAngle &angles, ShellCamera_t &out );
 // SetUpViews' end: this frame's main view, the last one kept as the previous.
@@ -63,8 +63,8 @@ int ShellView_CurrentViewID();
 bool SourceSharp_ScreenshotView( const CViewSetup &eye, int nWidth, int nHeight, CViewSetup &out );
 
 // SetUpViews' planes and FOV as managed code decides them; false with no managed client.
-bool SourceSharp_SetUpView( float &flZFar, float &flZFarViewmodel, float &flZNear, float &flZNearViewmodel, float &flFov,
-                            float &flViewModelFovOffset );
+bool SourceSharp_SetUpView( float &flZFar, float &flZFarViewmodel, float &flZNear, float &flZNearViewmodel,
+							float &flFov, float &flViewModelFovOffset );
 
 // GetZNear and GetZFar's planes as managed code decides them. False with no managed client.
 bool SourceSharp_AskViewPlanes( float &flZNear, float &flZFar );
@@ -72,4 +72,5 @@ bool SourceSharp_AskViewPlanes( float &flZNear, float &flZFar );
 // This frame's view for CShellViewRender::Render: the eye RenderView draws, its
 // clear and draw flags, gl_clear_randomcolor's colour (pRandomClear: on, r, g, b)
 // and the level overview's green clear. False when managed code made none.
-bool SourceSharp_FrameViewDecision( CViewSetup &eye, int &nClearFlags, int &nDrawFlags, int *pRandomClear, bool &bOverview );
+bool SourceSharp_FrameViewDecision( CViewSetup &eye, int &nClearFlags, int &nDrawFlags, int *pRandomClear,
+									bool &bOverview );

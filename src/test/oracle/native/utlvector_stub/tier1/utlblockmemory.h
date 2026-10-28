@@ -11,4 +11,5 @@
 #pragma once
 #define UTLBLOCKMEMORY_H
 
-template < class T, class I > class CUtlBlockMemory;
+template <class T, class I>
+class CUtlBlockMemory;

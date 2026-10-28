@@ -46,13 +46,11 @@
 namespace
 {
 
-const float kNaN      = std::numeric_limits<float>::quiet_NaN();
-const float kInf      = std::numeric_limits<float>::infinity();
+const float kNaN = std::numeric_limits<float>::quiet_NaN();
+const float kInf = std::numeric_limits<float>::infinity();
 
-const float kSteamDefault = SOURCESHARP_STEAMJET_DEFAULT_LENGTH
-                          / SOURCESHARP_STEAMJET_DEFAULT_SPEED;
-const float kStackDefault = SOURCESHARP_SMOKESTACK_DEFAULT_SPEED
-                          / SOURCESHARP_SMOKESTACK_DEFAULT_LENGTH;
+const float kSteamDefault = SOURCESHARP_STEAMJET_DEFAULT_LENGTH / SOURCESHARP_STEAMJET_DEFAULT_SPEED;
+const float kStackDefault = SOURCESHARP_SMOKESTACK_DEFAULT_SPEED / SOURCESHARP_SMOKESTACK_DEFAULT_LENGTH;
 
 // The contract, as a predicate. Every test below ends here, because "finite and
 // strictly positive" is the whole guarantee and anything else is a NaN pump.
@@ -146,8 +144,7 @@ TEST( SmokeStackInvLifetime, AConfiguredStackDividesNormally )
 {
 	// Speed over length: a stack 180 long at 30 a second lives six seconds, so
 	// the inverse lifetime is one sixth.
-	EXPECT_FLOAT_EQ( 30.0f / 180.0f,
-	                 SourceSharp_SmokeStackInvLifetime( 30.0f, 180.0f ) );
+	EXPECT_FLOAT_EQ( 30.0f / 180.0f, SourceSharp_SmokeStackInvLifetime( 30.0f, 180.0f ) );
 }
 
 // THE REPRODUCED DEFECT. Speed set, JetLength left at the C# property's
@@ -190,10 +187,10 @@ TEST( SmokeStackInvLifetime, NaNAndInfinityInEitherArgumentAreTheDefault )
 TEST( JetLifetime, TheTwoCallersAreReciprocalsOfEachOther )
 {
 	const float flLength = 240.0f;
-	const float flSpeed  = 60.0f;
+	const float flSpeed = 60.0f;
 
 	const float flDuration = SourceSharp_SteamJetLifetime( flLength, flSpeed );
-	const float flInverse  = SourceSharp_SmokeStackInvLifetime( flSpeed, flLength );
+	const float flInverse = SourceSharp_SmokeStackInvLifetime( flSpeed, flLength );
 
 	EXPECT_FLOAT_EQ( 4.0f, flDuration );
 	EXPECT_FLOAT_EQ( 1.0f / 4.0f, flInverse );
@@ -231,26 +228,21 @@ TEST( JetLifetime, FiniteInputsThatUnderflowToZeroAreTheDefault )
 
 TEST( JetLifetime, EveryDegenerateInputPairStillProducesAUsableNumber )
 {
-	const float rgInputs[] =
-	{
-		0.0f, -0.0f, 1.0f, -1.0f, 1e-45f, 1e38f, 1e-38f, 3.4e38f,
-		kNaN, kInf, -kInf, 120.0f, -120.0f
-	};
-	const int nInputs = (int)( sizeof( rgInputs ) / sizeof( rgInputs[ 0 ] ) );
+	const float rgInputs[] = { 0.0f,    -0.0f, 1.0f, -1.0f, 1e-45f, 1e38f,  1e-38f,
+							   3.4e38f, kNaN,  kInf, -kInf, 120.0f, -120.0f };
+	const int nInputs = (int)( sizeof( rgInputs ) / sizeof( rgInputs[0] ) );
 
 	for ( int i = 0; i < nInputs; ++i )
 	{
 		for ( int j = 0; j < nInputs; ++j )
 		{
-			const float flDuration = SourceSharp_SteamJetLifetime( rgInputs[ i ], rgInputs[ j ] );
-			const float flInverse  = SourceSharp_SmokeStackInvLifetime( rgInputs[ i ], rgInputs[ j ] );
+			const float flDuration = SourceSharp_SteamJetLifetime( rgInputs[i], rgInputs[j] );
+			const float flInverse = SourceSharp_SmokeStackInvLifetime( rgInputs[i], rgInputs[j] );
 
 			EXPECT_TRUE( Usable( flDuration ) )
-				<< "length " << rgInputs[ i ] << " speed " << rgInputs[ j ]
-				<< " gave " << flDuration;
+				<< "length " << rgInputs[i] << " speed " << rgInputs[j] << " gave " << flDuration;
 			EXPECT_TRUE( Usable( flInverse ) )
-				<< "speed " << rgInputs[ i ] << " length " << rgInputs[ j ]
-				<< " gave " << flInverse;
+				<< "speed " << rgInputs[i] << " length " << rgInputs[j] << " gave " << flInverse;
 		}
 	}
 }
@@ -275,12 +267,12 @@ TEST( JetLifetime, AWellFormedJetGetsItsOwnAnswerAndNotTheDefault )
 TEST( JetLifetime, TheDefaultsAreStocksOwnConstructorPairs )
 {
 	// C_SteamJet::C_SteamJet   — m_JetLength = 80,  m_Speed = 120
-	EXPECT_FLOAT_EQ( 80.0f,  SOURCESHARP_STEAMJET_DEFAULT_LENGTH );
+	EXPECT_FLOAT_EQ( 80.0f, SOURCESHARP_STEAMJET_DEFAULT_LENGTH );
 	EXPECT_FLOAT_EQ( 120.0f, SOURCESHARP_STEAMJET_DEFAULT_SPEED );
 
 	// C_SmokeStack::C_SmokeStack — m_JetLength = 180, m_Speed = 30
 	EXPECT_FLOAT_EQ( 180.0f, SOURCESHARP_SMOKESTACK_DEFAULT_LENGTH );
-	EXPECT_FLOAT_EQ( 30.0f,  SOURCESHARP_SMOKESTACK_DEFAULT_SPEED );
+	EXPECT_FLOAT_EQ( 30.0f, SOURCESHARP_SMOKESTACK_DEFAULT_SPEED );
 }
 
 } // namespace

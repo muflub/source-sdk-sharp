@@ -45,11 +45,11 @@ namespace recv
 // default proxy must be the very function the table holds, which is the
 // Valve-named one client.so's callers also pass by name.
 RecvProp Float( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-                const CStandardRecvProxies &standard );
+				const CStandardRecvProxies &standard );
 RecvProp Vector( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-                 const CStandardRecvProxies &standard );
+				 const CStandardRecvProxies &standard );
 RecvProp Int( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-              const CStandardRecvProxies &standard );
+			  const CStandardRecvProxies &standard );
 RecvProp String( const char *pVarName, int offset, int bufferSize, int flags, RecvVarProxyFn proxy );
 RecvProp DataTable( const char *pVarName, int offset, int flags, RecvTable *pTable, DataTableRecvVarProxyFn proxy );
 RecvProp ArrayLength( int elementCount, int elementStride, const char *pName, ArrayLengthRecvProxyFn proxy );

@@ -49,12 +49,12 @@ namespace
 const char *Root()
 {
 	static const char *kCandidates[] = { ".", "..", "../..", "../../.." };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string tool = std::string( kCandidates[ i ] ) + "/tools/4f-component";
+		const std::string tool = std::string( kCandidates[i] ) + "/tools/4f-component";
 		if ( stat( tool.c_str(), &st ) == 0 && S_ISREG( st.st_mode ) )
-			return kCandidates[ i ];
+			return kCandidates[i];
 	}
 	return NULL;
 }
@@ -70,18 +70,19 @@ struct Run_t
 // comparison against 2 there is off by a factor of 256 and passes nothing.
 Run_t RunTool( const std::string &strArgs )
 {
-	Run_t r; r.nExit = -1; r.bRan = false;
+	Run_t r;
+	r.nExit = -1;
+	r.bRan = false;
 	const char *pszRoot = Root();
 	if ( !pszRoot )
 		return r;
 
-	const std::string cmd = "cd " + std::string( pszRoot )
-		+ " && tools/4f-component " + strArgs + " 2>&1";
+	const std::string cmd = "cd " + std::string( pszRoot ) + " && tools/4f-component " + strArgs + " 2>&1";
 	FILE *pPipe = popen( cmd.c_str(), "r" );
 	if ( !pPipe )
 		return r;
 
-	char buf[ 512 ];
+	char buf[512];
 	while ( fgets( buf, sizeof( buf ), pPipe ) )
 		r.strOut += buf;
 
@@ -105,9 +106,9 @@ bool HaveBuild()
 	return stat( ninja.c_str(), &st ) == 0 && stat( db.c_str(), &st ) == 0;
 }
 
-std::set< std::string > SourcesOf( const std::string &strTsv )
+std::set<std::string> SourcesOf( const std::string &strTsv )
 {
-	std::set< std::string > out;
+	std::set<std::string> out;
 	size_t at = 0;
 	while ( at < strTsv.size() )
 	{
@@ -131,9 +132,8 @@ std::set< std::string > SourcesOf( const std::string &strTsv )
 
 TEST( ComponentClosure, TheToolIsWhereThisTestExpectsIt )
 {
-	ASSERT_TRUE( Root() != NULL )
-		<< "no tools/4f-component above the working directory; every fact below "
-		   "would report a tool that cannot be run as a tool that passed";
+	ASSERT_TRUE( Root() != NULL ) << "no tools/4f-component above the working directory; every fact below "
+									 "would report a tool that cannot be run as a tool that passed";
 }
 
 TEST( ComponentClosure, TheFixtureChecksPassAndThereAreSome )
@@ -142,13 +142,13 @@ TEST( ComponentClosure, TheFixtureChecksPassAndThereAreSome )
 	ASSERT_TRUE( r.bRan ) << "could not run tools/4f-component --self-test";
 	EXPECT_EQ( r.nExit, 0 ) << "tools/4f-component --self-test failed:\n" << r.strOut;
 
-	EXPECT_NE( r.strOut.find( "0 failure(s)" ), std::string::npos )
-		<< "the self-test reported failures:\n" << r.strOut;
+	EXPECT_NE( r.strOut.find( "0 failure(s)" ), std::string::npos ) << "the self-test reported failures:\n" << r.strOut;
 
 	// AND THERE ARE SOME. "0 check(s), 0 failure(s)" is exit 0 from a tool that
 	// measured nothing, and it is the shape this project has found 24 times.
 	EXPECT_EQ( r.strOut.find( " 0 check(s)" ), std::string::npos )
-		<< "the self-test ran ZERO checks and still reported success:\n" << r.strOut;
+		<< "the self-test ran ZERO checks and still reported success:\n"
+		<< r.strOut;
 	EXPECT_NE( r.strOut.find( "check(s)" ), std::string::npos )
 		<< "the self-test printed no check count at all; its report line has "
 		   "been reworded and this fact has stopped reading anything";
@@ -161,11 +161,12 @@ TEST( ComponentClosure, ASeedThisSideDoesNotCompileIsRefusedNotClosed )
 	// exists to disprove.
 	const Run_t r = RunTool( "game/server/no_such_file_4f.cpp" );
 	ASSERT_TRUE( r.bRan ) << "could not run tools/4f-component";
-	EXPECT_EQ( r.nExit, 2 )
-		<< "a seed the server project does not compile must be REFUSED (exit 2), "
-		   "not closed to the empty set. Got exit " << r.nExit << ":\n" << r.strOut;
-	EXPECT_NE( r.strOut.find( "not compiled" ), std::string::npos )
-		<< "the refusal does not say what was wrong:\n" << r.strOut;
+	EXPECT_EQ( r.nExit, 2 ) << "a seed the server project does not compile must be REFUSED (exit 2), "
+							   "not closed to the empty set. Got exit "
+							<< r.nExit << ":\n"
+							<< r.strOut;
+	EXPECT_NE( r.strOut.find( "not compiled" ), std::string::npos ) << "the refusal does not say what was wrong:\n"
+																	<< r.strOut;
 }
 
 TEST( ComponentClosure, TheBoundedClosureIsASubsetOfTheFixpoint )
@@ -174,10 +175,9 @@ TEST( ComponentClosure, TheBoundedClosureIsASubsetOfTheFixpoint )
 	// build to read, the native leg always has one, and this project has
 	// recorded a live gate whose SILENT SKIP downgrade was one of its checks
 	// that could not fail. If there is no build, say so and be red.
-	ASSERT_TRUE( HaveBuild() )
-		<< "no build/build.ninja + build/compile_commands.json under the farm "
-		   "-- run `make debug` first. Passing here without a build "
-		   "would be a check on nothing.";
+	ASSERT_TRUE( HaveBuild() ) << "no build/build.ninja + build/compile_commands.json under the farm "
+								  "-- run `make debug` first. Passing here without a build "
+								  "would be a check on nothing.";
 
 	// THE SEED MOVED, AND THE PROPERTY UNDER TEST DID NOT.
 	//
@@ -205,21 +205,21 @@ TEST( ComponentClosure, TheBoundedClosureIsASubsetOfTheFixpoint )
 	ASSERT_EQ( hop.nExit, 0 ) << hop.strOut;
 	ASSERT_EQ( all.nExit, 0 ) << all.strOut;
 
-	const std::set< std::string > setHop = SourcesOf( hop.strOut );
-	const std::set< std::string > setAll = SourcesOf( all.strOut );
+	const std::set<std::string> setHop = SourcesOf( hop.strOut );
+	const std::set<std::string> setAll = SourcesOf( all.strOut );
 
-	ASSERT_FALSE( setHop.empty() )
-		<< "`--hops 1` named no blocker at all for " << kSeed << ". It breaks 26 "
-		   "shim TUs immediately on this tree; an empty answer means the parse "
-		   "below is reading nothing";
+	ASSERT_FALSE( setHop.empty() ) << "`--hops 1` named no blocker at all for " << kSeed
+								   << ". It breaks 26 "
+									  "shim TUs immediately on this tree; an empty answer means the parse "
+									  "below is reading nothing";
 	EXPECT_LE( setHop.size(), setAll.size() );
 
-	for ( std::set< std::string >::const_iterator it = setHop.begin(); it != setHop.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = setHop.begin(); it != setHop.end(); ++it )
 	{
-		EXPECT_TRUE( setAll.count( *it ) > 0 )
-			<< *it << " is in the `--hops 1` answer but not in the fixpoint. "
-			   "The bound cannot name something the unbounded closure does not; "
-			   "one of the two numbers the handover quotes is wrong.";
+		EXPECT_TRUE( setAll.count( *it ) > 0 ) << *it
+											   << " is in the `--hops 1` answer but not in the fixpoint. "
+												  "The bound cannot name something the unbounded closure does not; "
+												  "one of the two numbers the handover quotes is wrong.";
 	}
 }
 
@@ -242,29 +242,29 @@ TEST( ComponentClosure, TheBoundedClosureIsASubsetOfTheFixpoint )
 //-----------------------------------------------------------------------------
 TEST( ComponentClosure, TheOldFourFSeedIsNotCompiledAnyMoreAndTheToolSaysSo )
 {
-	ASSERT_TRUE( HaveBuild() )
-		<< "no build/build.ninja + build/compile_commands.json under the farm "
-		   "-- run `make debug` first.";
+	ASSERT_TRUE( HaveBuild() ) << "no build/build.ninja + build/compile_commands.json under the farm "
+								  "-- run `make debug` first.";
 
 	const Run_t r = RunTool( "--hops 1 --tsv game/server/baseentity.cpp" );
 	ASSERT_TRUE( r.bRan ) << "could not run tools/4f-component";
 
-	EXPECT_EQ( r.nExit, 2 )
-		<< "game/server/baseentity.cpp is compiled into the server project "
-		   "again. The flip removed its vpc row with the rest of the entity "
-		   "hierarchy; if it is back, tools/4f-component's SEED_4F default is "
-		   "live again and the seed the test above uses is the workaround, not "
-		   "this. Got exit " << r.nExit << ":\n" << r.strOut;
-	EXPECT_NE( r.strOut.find( "not compiled" ), std::string::npos )
-		<< "the refusal does not say what was wrong:\n" << r.strOut;
+	EXPECT_EQ( r.nExit, 2 ) << "game/server/baseentity.cpp is compiled into the server project "
+							   "again. The flip removed its vpc row with the rest of the entity "
+							   "hierarchy; if it is back, tools/4f-component's SEED_4F default is "
+							   "live again and the seed the test above uses is the workaround, not "
+							   "this. Got exit "
+							<< r.nExit << ":\n"
+							<< r.strOut;
+	EXPECT_NE( r.strOut.find( "not compiled" ), std::string::npos ) << "the refusal does not say what was wrong:\n"
+																	<< r.strOut;
 
 	// THE OTHER HALF, so this is not a one-sided "everything is gone". The tool
 	// still measures: the shim that replaced the seed closes normally, and a
 	// tool that refused EVERY seed would satisfy the exit-2 above for free.
 	const Run_t ok = RunTool( "--hops 1 --tsv sourcesharp/game/server/shell_standalone.cpp" );
 	ASSERT_TRUE( ok.bRan );
-	EXPECT_EQ( ok.nExit, 0 )
-		<< "tools/4f-component refuses the port's own shell_standalone.cpp too, "
-		   "so the refusal above is the tool being broken rather than the seed "
-		   "being gone:\n" << ok.strOut;
+	EXPECT_EQ( ok.nExit, 0 ) << "tools/4f-component refuses the port's own shell_standalone.cpp too, "
+								"so the refusal above is the tool being broken rather than the seed "
+								"being gone:\n"
+							 << ok.strOut;
 }

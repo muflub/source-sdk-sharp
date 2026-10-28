@@ -15,7 +15,7 @@
 class CHLVoiceStatusHelper : public IVoiceStatusHelper
 {
 public:
-	virtual void			GetPlayerTextColor( int entindex, int color[3] );
-	virtual void			UpdateCursorState();
-	virtual bool			CanShowSpeakerLabels();
+	virtual void GetPlayerTextColor( int entindex, int color[3] );
+	virtual void UpdateCursorState();
+	virtual bool CanShowSpeakerLabels();
 };

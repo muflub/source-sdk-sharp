@@ -6,18 +6,13 @@
 //=============================================================================//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
 
-#include "stdlib.h"
 #include "vstdlib/random.h"
-#include "tier0/platform.h"
-
 
 #ifdef GNUC
-#define __cdecl 
+#define __cdecl
 #endif
 
-void __cdecl srand(unsigned int)
-{
-}
+void __cdecl srand( unsigned int ) {}
 
 int __cdecl rand()
 {

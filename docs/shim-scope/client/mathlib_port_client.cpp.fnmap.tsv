@@ -7,7 +7,7 @@
 4	HOST	void MatrixCopy( const matrix3x4_t &in, matrix3x4_t &out )
 4	HOST	void ClearBounds( Vector &mins, Vector &maxs )
 4	HOST	void AddPointToBounds( const Vector &v, Vector &mins, Vector &maxs )
-4	HOST	void TransformAABB( const matrix3x4_t &transform, const Vector &vecMinsIn, const Vector &vecMaxsIn, Vector &vecMinsOut, Vector &vecMaxsOut )
+5	HOST	void TransformAABB( const matrix3x4_t &transform, const Vector &vecMinsIn, const Vector &vecMaxsIn, Vector &vecMinsOut, Vector &vecMaxsOut )
 4	HOST	float LinearToGammaFullRange( float linear )
 4	HOST	void MatrixSetIdentity( VMatrix &dst )
 5	HOST	VMatrix &VMatrix::operator=( const VMatrix &mOther )

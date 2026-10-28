@@ -12,53 +12,30 @@
 #ifndef CLIENT_DLL
 #include "ss_physsaverestore.h"
 
-void ss::PhysSaveRestore_ForgetAllModels()
-{
-}
+void ss::PhysSaveRestore_ForgetAllModels() {}
 
 #else // CLIENT_DLL
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "client_entity.h"
 #include "physics_saverestore.h"
-#include "isaverestore.h"
 
 // Keeps no table: nothing would read it.
 class CShellPhysSaveRestoreAbsent : public IPhysSaveRestoreManager
 {
 public:
-	void NoteBBox( const Vector &, const Vector &, CPhysCollide * ) override
-	{
-	}
+	void NoteBBox( const Vector &, const Vector &, CPhysCollide * ) override {}
 
-	void AssociateModel( IPhysicsObject *, int ) override
-	{
-	}
+	void AssociateModel( IPhysicsObject *, int ) override {}
 
-	void AssociateModel( IPhysicsObject *, const CPhysCollide * ) override
-	{
-	}
+	void AssociateModel( IPhysicsObject *, const CPhysCollide * ) override {}
 
-	void ForgetModel( IPhysicsObject * ) override
-	{
-	}
+	void ForgetModel( IPhysicsObject * ) override {}
 
-	void ForgetAllModels() override
-	{
-	}
+	void ForgetAllModels() override {}
 };
 
 static IPhysSaveRestoreManager *ShellPhysSaveRestoreManager()
@@ -75,27 +52,15 @@ IPhysSaveRestoreManager *g_pPhysSaveRestoreManager = ShellPhysSaveRestoreManager
 class CShellPhysObjOpsAbsent : public ISaveRestoreOps
 {
 public:
-	void Save( const SaveRestoreFieldInfo_t &, ISave * ) override
-	{
-	}
+	void Save( const SaveRestoreFieldInfo_t &, ISave * ) override {}
 
-	void Restore( const SaveRestoreFieldInfo_t &, IRestore * ) override
-	{
-	}
+	void Restore( const SaveRestoreFieldInfo_t &, IRestore * ) override {}
 
-	bool IsEmpty( const SaveRestoreFieldInfo_t & ) override
-	{
-		return true;
-	}
+	bool IsEmpty( const SaveRestoreFieldInfo_t & ) override { return true; }
 
-	void MakeEmpty( const SaveRestoreFieldInfo_t & ) override
-	{
-	}
+	void MakeEmpty( const SaveRestoreFieldInfo_t & ) override {}
 
-	bool Parse( const SaveRestoreFieldInfo_t &, char const * ) override
-	{
-		return false;
-	}
+	bool Parse( const SaveRestoreFieldInfo_t &, char const * ) override { return false; }
 };
 
 ISaveRestoreOps *GetPhysObjSaveRestoreOps( PhysInterfaceId_t )

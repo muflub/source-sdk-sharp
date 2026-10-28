@@ -45,15 +45,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -72,13 +72,13 @@ bool Exists( const std::string &strPath )
 // missing, empty or stale input.
 bool CompilesBasename( const char *pszTarget, const char *pszBasename )
 {
-	const std::set< std::string > src = cmake_graph::CompiledSources( pszTarget );
+	const std::set<std::string> src = cmake_graph::CompiledSources( pszTarget );
 	const std::string strTail = std::string( "/" ) + pszBasename;
-	for ( std::set< std::string >::const_iterator it = src.begin(); it != src.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = src.begin(); it != src.end(); ++it )
 	{
-		if ( *it == pszBasename
-			|| ( it->size() >= strTail.size()
-				&& it->compare( it->size() - strTail.size(), strTail.size(), strTail ) == 0 ) )
+		if ( *it == pszBasename ||
+			 ( it->size() >= strTail.size() &&
+			   it->compare( it->size() - strTail.size(), strTail.size(), strTail ) == 0 ) )
 			return true;
 	}
 	return false;
@@ -108,13 +108,12 @@ TEST( ServerGlobalsMerge, TheFiveAreOutOfTheListAndTheMergedFileIsIn )
 		<< "shell_globals.cpp is not compiled by server_sourcesharp, and the five "
 		<< "files it replaced are not either -- so eight definitions are missing.";
 
-	static const char *kGone[] = { "globals.cpp", "init_factory.cpp",
-	                               "variant_t.cpp", "server_class.cpp",
-	                               "networkvar.cpp" };
-	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[ 0 ] ); i++ )
+	static const char *kGone[] = { "globals.cpp", "init_factory.cpp", "variant_t.cpp", "server_class.cpp",
+								   "networkvar.cpp" };
+	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[0] ); i++ )
 	{
-		EXPECT_FALSE( CompilesBasename( cmake_graph::kServer, kGone[ i ] ) )
-			<< kGone[ i ] << " is in the server list again, and "
+		EXPECT_FALSE( CompilesBasename( cmake_graph::kServer, kGone[i] ) )
+			<< kGone[i] << " is in the server list again, and "
 			<< "shell_globals.cpp defines everything it defines. That is a "
 			<< "duplicate-symbol link at best; for g_pServerClassHead it would "
 			<< "be two list heads.";
@@ -132,13 +131,12 @@ TEST( ServerGlobalsMerge, TheThreeServerOnlyFilesAreDeletedFromTheTree )
 	// IGameEntity a file left in the tree for later is a file that cannot be
 	// put back. Leaving them would also give the next person two copies of
 	// g_iSkillLevel to choose between with nothing to say which is live.
-	static const char *kDeleted[] = { "game/server/globals.cpp",
-	                                  "game/server/init_factory.cpp",
-	                                  "game/server/variant_t.cpp" };
-	for ( size_t i = 0; i < sizeof( kDeleted ) / sizeof( kDeleted[ 0 ] ); i++ )
+	static const char *kDeleted[] = { "game/server/globals.cpp", "game/server/init_factory.cpp",
+									  "game/server/variant_t.cpp" };
+	for ( size_t i = 0; i < sizeof( kDeleted ) / sizeof( kDeleted[0] ); i++ )
 	{
-		EXPECT_FALSE( Exists( std::string( pszRoot ) + "/" + kDeleted[ i ] ) )
-			<< kDeleted[ i ] << " is back in the tree. Its definitions are in "
+		EXPECT_FALSE( Exists( std::string( pszRoot ) + "/" + kDeleted[i] ) )
+			<< kDeleted[i] << " is back in the tree. Its definitions are in "
 			<< "shell_globals.cpp; two copies is a question with no answer.";
 	}
 }

@@ -22,7 +22,7 @@ class IEngineHeap
 public:
 	virtual void *Alloc( size_t nSize ) = 0;
 	virtual void *Realloc( void *pMem, size_t nSize ) = 0;
-	virtual void  Free( void *pMem ) = 0;
+	virtual void Free( void *pMem ) = 0;
 };
 
 // The process's tier0 allocator, or NULL when no libtier0.so is loaded.

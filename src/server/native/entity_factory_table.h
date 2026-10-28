@@ -33,7 +33,7 @@ enum EntityFactoryInstall_t
 };
 
 // Does not own the factories; owns its copy of every name.
-template < class T >
+template <class T>
 class CEntityFactoryTable
 {
 public:
@@ -46,9 +46,7 @@ public:
 
 		if ( it != m_Factories.end() )
 		{
-			return ( it->second == pFactory )
-				? kEntityFactoryAlreadyInstalled
-				: kEntityFactoryNameTaken;
+			return ( it->second == pFactory ) ? kEntityFactoryAlreadyInstalled : kEntityFactoryNameTaken;
 		}
 
 		m_Order.push_back( &*m_Factories.emplace( pClassName, pFactory ).first );
@@ -102,9 +100,9 @@ public:
 	}
 
 private:
-	typedef std::map< std::string, T *, ss::CaselessLess > Map_t;
+	typedef std::map<std::string, T *, ss::CaselessLess> Map_t;
 
 	// A map node never moves, so a pointer to one stays valid; entries are never removed.
-	Map_t                                        m_Factories;
-	std::vector< const typename Map_t::value_type * > m_Order;
+	Map_t m_Factories;
+	std::vector<const typename Map_t::value_type *> m_Order;
 };

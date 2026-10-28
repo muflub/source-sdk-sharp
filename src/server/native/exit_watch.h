@@ -9,25 +9,35 @@
 // What ExitWatch_Arm installed: bits of these.
 enum
 {
-	kExitWatchSignals = 1,   // the SIGTERM / SIGINT / SIGHUP recorders
-	kExitWatchSdl     = 2,   // the SDL event watch (no SDL in the process: absent)
+	kExitWatchSignals = 1, // the SIGTERM / SIGINT / SIGHUP recorders
+	kExitWatchSdl = 2, // the SDL event watch (no SDL in the process: absent)
 };
 
 // The facts, in order, as ExitWatch_Read writes them. Times are milliseconds
 // since the first arm; a count of zero leaves its other fields zero.
 enum ExitWatchFact_t
 {
-	kExitFactVersion = 0,      // 1
-	kExitFactArmed,            // kExitWatch* bits
-	kExitFactNowMs,            // the clock the times below are on, read now
+	kExitFactVersion = 0, // 1
+	kExitFactArmed, // kExitWatch* bits
+	kExitFactNowMs, // the clock the times below are on, read now
 	kExitFactSignalCount,
-	kExitFactFirstSigno, kExitFactFirstPid, kExitFactFirstUid, kExitFactFirstAtMs,
-	kExitFactLastSigno, kExitFactLastPid, kExitFactLastUid, kExitFactLastAtMs,
-	kExitFactSdlQuitCount, kExitFactSdlQuitAtMs,
-	kExitFactWindowCloseCount, kExitFactWindowCloseAtMs,
+	kExitFactFirstSigno,
+	kExitFactFirstPid,
+	kExitFactFirstUid,
+	kExitFactFirstAtMs,
+	kExitFactLastSigno,
+	kExitFactLastPid,
+	kExitFactLastUid,
+	kExitFactLastAtMs,
+	kExitFactSdlQuitCount,
+	kExitFactSdlQuitAtMs,
+	kExitFactWindowCloseCount,
+	kExitFactWindowCloseAtMs,
 	// What each watched signal's disposition was before the arm: 0 default,
 	// 1 ignored, 2 a plain handler, 3 an SA_SIGINFO handler.
-	kExitFactPrevTerm, kExitFactPrevInt, kExitFactPrevHup,
+	kExitFactPrevTerm,
+	kExitFactPrevInt,
+	kExitFactPrevHup,
 	kExitFactCount
 };
 

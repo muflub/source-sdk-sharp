@@ -9,7 +9,9 @@ class CPhysicsBridgeRefusal
 {
 public:
 	CPhysicsBridgeRefusal( const char *pszWhat, const char *pszRefusal )
-		: m_pszWhat( pszWhat ), m_pszRefusal( pszRefusal ), m_nReached( 0 )
+		: m_pszWhat( pszWhat )
+		, m_pszRefusal( pszRefusal )
+		, m_nReached( 0 )
 	{
 	}
 
@@ -23,13 +25,13 @@ public:
 	int ReachCount() const { return m_nReached; }
 
 	const char *What() const { return m_pszWhat ? m_pszWhat : ""; }
+
 	const char *Refusal() const { return m_pszRefusal ? m_pszRefusal : ""; }
 
 	// A refusal must name what and why.
 	bool IsDeclared() const
 	{
-		return m_pszWhat != 0 && m_pszWhat[ 0 ] != '\0'
-		    && m_pszRefusal != 0 && m_pszRefusal[ 0 ] != '\0';
+		return m_pszWhat != 0 && m_pszWhat[0] != '\0' && m_pszRefusal != 0 && m_pszRefusal[0] != '\0';
 	}
 
 private:
@@ -41,5 +43,4 @@ private:
 // The one print format, used as:
 //     if ( s_Refuse.Reached() )
 //         Warning( SOURCESHARP_PHYSICS_REFUSAL_FMT, s_Refuse.What(), s_Refuse.Refusal() );
-#define SOURCESHARP_PHYSICS_REFUSAL_FMT \
-	"SourceSharp: %s is REFUSED in this build (plan_entity.md §7). %s\n"
+#define SOURCESHARP_PHYSICS_REFUSAL_FMT "SourceSharp: %s is REFUSED in this build (plan_entity.md §7). %s\n"

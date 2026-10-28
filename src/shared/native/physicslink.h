@@ -11,8 +11,6 @@
 #pragma once
 #define PHYSICSLINK_H
 
-
-
 struct touchlink_t;
 struct groundlink_t;
 
@@ -21,7 +19,6 @@ class CGameTrace;
 typedef CGameTrace trace_t;
 
 // Not a forward declaration: `class CBaseEntity;` cannot coexist with the alias.
-
 
 // Touch links. Each reaches its entities only through its arguments.
 void PhysicsLink_RemoveTouchedList( IGameEntity *ent );

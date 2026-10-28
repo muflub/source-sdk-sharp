@@ -86,12 +86,13 @@ TEST( GameRulesInterface, GameRulesRegisterCppIsInNeitherBuild )
 	const char *kTargets[] = { cmake_graph::kServer, cmake_graph::kClient };
 	for ( size_t t = 0; t < 2; t++ )
 	{
-		const std::set< std::string > src = cmake_graph::CompiledSources( kTargets[ t ] );
-		for ( std::set< std::string >::const_iterator it = src.begin(); it != src.end(); ++it )
+		const std::set<std::string> src = cmake_graph::CompiledSources( kTargets[t] );
+		for ( std::set<std::string>::const_iterator it = src.begin(); it != src.end(); ++it )
 		{
-			EXPECT_FALSE( it->size() >= strTail.size()
-				&& it->compare( it->size() - strTail.size(), strTail.size(), strTail ) == 0 )
-				<< kTargets[ t ] << " compiles " << *it << " again, and its half "
+			EXPECT_FALSE( it->size() >= strTail.size() &&
+						  it->compare( it->size() - strTail.size(), strTail.size(), strTail ) == 0 )
+				<< kTargets[t] << " compiles " << *it
+				<< " again, and its half "
 				   "collides with the direct construction in shell_gamerules.cpp.";
 		}
 	}

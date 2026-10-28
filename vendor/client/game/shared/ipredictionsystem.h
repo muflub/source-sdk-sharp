@@ -25,15 +25,9 @@ public:
 
 	virtual ~IPredictionSystem() {};
 
-	IPredictionSystem *GetNext()
-	{
-		return m_pNextSystem;
-	}
+	IPredictionSystem *GetNext() { return m_pNextSystem; }
 
-	void SetSuppressEvent( bool state )
-	{
-		m_bSuppressEvent = state;
-	}
+	void SetSuppressEvent( bool state ) { m_bSuppressEvent = state; }
 
 	bool CanPredict() const
 	{
@@ -58,7 +52,6 @@ public:
 	}
 
 private:
-
 	static void Push()
 	{
 		IPredictionSystem *sys = g_pPredictionSystems;
@@ -79,25 +72,17 @@ private:
 		}
 	}
 
-	void _Push()
-	{
-		++m_nStatusPushed;
-	}
-	void _Pop()
-	{
-		--m_nStatusPushed;
-	}
+	void _Push() { ++m_nStatusPushed; }
 
-	bool DisableFiltering() const
-	{
-		return ( m_nStatusPushed > 0  ) ? true : false;
-	}
+	void _Pop() { --m_nStatusPushed; }
 
-	IPredictionSystem	*m_pNextSystem;
-	bool				m_bSuppressEvent;
-	CBaseEntity			*m_pSuppressHost;
+	bool DisableFiltering() const { return ( m_nStatusPushed > 0 ) ? true : false; }
 
-	int					m_nStatusPushed;
+	IPredictionSystem *m_pNextSystem;
+	bool m_bSuppressEvent;
+	CBaseEntity *m_pSuppressHost;
+
+	int m_nStatusPushed;
 
 	friend class CDisablePredictionFiltering;
 };
@@ -121,6 +106,7 @@ public:
 			IPredictionSystem::Pop();
 		}
 	}
+
 private:
-	bool	m_bDisabled;
+	bool m_bDisabled;
 };

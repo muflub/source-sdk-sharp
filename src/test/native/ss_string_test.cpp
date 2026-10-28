@@ -20,10 +20,14 @@ namespace
 struct Buf
 {
 	char b[16];
+
 	Buf() { std::memset( b, '#', sizeof( b ) ); }
 };
 
-int Sign( int v ) { return ( v > 0 ) - ( v < 0 ); }
+int Sign( int v )
+{
+	return ( v > 0 ) - ( v < 0 );
+}
 
 int CallFormatV( char *dst, int size, const char *fmt, ... )
 {

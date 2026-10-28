@@ -2,8 +2,8 @@
 # code_lines	verdict	head   (UNRULED counts as LOGIC)
 7	HOOK	CClientEffectRegistration::CClientEffectRegistration( const char *pEffectName, ClientEffectCallback fn )
 9	SLOT-HELP	CClientEffectRegistration *EffectRegistrationAt( int32_t iIndex )
-29	BOUNDARY	void EffectDataToClient( const SourceSharpEffectData_t *pData, CEffectData *pOut )
-28	BOUNDARY	void EffectDataFromClient( const CEffectData &data, SourceSharpEffectData_t *pOut )
+26	BOUNDARY	void EffectDataToClient( const SourceSharpEffectData_t *pData, CEffectData *pOut )
+42	BOUNDARY	void EffectDataFromClient( const CEffectData &data, SourceSharpEffectData_t *pOut )
 4	LIVE-API	IClientRenderable *CEffectData::GetRenderable() const
 4	LIVE-API	IGameEntity *CEffectData::GetEntity() const
 5	LIVE-API	int CEffectData::entindex() const
@@ -11,6 +11,6 @@
 9	HOOK	int32_t SourceSharp_EffectRegistrationName( int32_t iIndex, char *pOut, int32_t nOutSize )
 9	BOUNDARY	void SourceSharp_EffectRegistrationRun( int32_t iIndex, const SourceSharpEffectData_t *pData )
 9	BOUNDARY	void DispatchEffectToCallback( const char *pEffectName, const CEffectData &data )
-4	LIVE-API	void TE_DispatchEffect( IRecipientFilter& filter, float delay, const Vector &pos, const char *pName, const CEffectData &data )
+5	LIVE-API	void TE_DispatchEffect( IRecipientFilter &filter, float delay, const Vector &pos, const char *pName, const CEffectData &data )
 5	LIVE-API	void DispatchEffect( const char *pName, const CEffectData &data )
 4	LIVE-API	void DispatchEffect( const char *pName, const CEffectData &data, C_RecipientFilter &filter )

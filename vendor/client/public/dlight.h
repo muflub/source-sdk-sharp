@@ -9,14 +9,14 @@ enum
 	DLIGHT_NO_MODEL_ILLUMINATION = 0x2,
 
 	// NOTE: These two features are used to dynamically tweak the alpha on displacements
-	// which is a special effect for selecting which texture to use. If 
+	// which is a special effect for selecting which texture to use. If
 	// we ever change how alpha is stored for displacements, we'll have to kill this feature
 	DLIGHT_ADD_DISPLACEMENT_ALPHA = 0x4,
 	DLIGHT_SUBTRACT_DISPLACEMENT_ALPHA = 0x8,
-	DLIGHT_DISPLACEMENT_MASK = (DLIGHT_ADD_DISPLACEMENT_ALPHA | DLIGHT_SUBTRACT_DISPLACEMENT_ALPHA),
+	DLIGHT_DISPLACEMENT_MASK = ( DLIGHT_ADD_DISPLACEMENT_ALPHA | DLIGHT_SUBTRACT_DISPLACEMENT_ALPHA ),
 };
 
-// This is the lighting value that is used to determine when something can be 
+// This is the lighting value that is used to determine when something can be
 // culle from lighting because it is close enough to black to be virtually black.
 //#define MIN_LIGHTING_VALUE	(1.0f/256.0f)
 
@@ -28,19 +28,18 @@ enum
 
 struct dlight_t
 {
-	int		flags;
-	Vector	origin;
-	float	radius;
-	ColorRGBExp32	color;		// Light color with exponent
-	float	die;				// stop lighting after this time
-	float	decay;				// drop this each second
-	float	minlight;			// don't add when contributing less
-	alignas( 4 ) unsigned char unused_key[ 4 ];
-	int		style;				// lightstyle
+	int flags;
+	Vector origin;
+	float radius;
+	ColorRGBExp32 color; // Light color with exponent
+	float die; // stop lighting after this time
+	float decay; // drop this each second
+	float minlight; // don't add when contributing less
+	alignas( 4 ) unsigned char unused_key[4];
+	int style; // lightstyle
 
 	// For spotlights. Use m_OuterAngle == 0 for point lights
-	Vector	m_Direction;		// center of the light cone
-	float	m_InnerAngle;
-	float	m_OuterAngle;
-
+	Vector m_Direction; // center of the light cone
+	float m_InnerAngle;
+	float m_OuterAngle;
 };

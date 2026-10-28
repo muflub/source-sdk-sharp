@@ -11,22 +11,21 @@
 // and brush model 0. Every key it is given is offered to C#.
 
 #include "ss_util.h"
-#include "ss_shareddefs.h"
+
 #include "ss_gamestringpool.h"
-#include "engine/ivmodelinfo.h"
+
 #include "shell_tempents.h"
 #include "ss_soundent.h"
 #include "ss_decals.h"
 #include "igamerules.h"
 #include "isaverestore.h"
 #include "ss_world.h"
-#include "mempool.h"
-#include "engine/IEngineSound.h"
+
 #include "engine/IStaticPropMgr.h"
 
 // Defined beside the other engine-boundary globals.
-extern IVModelInfo  *modelinfo;
-extern CGlobalVars  *gpGlobals;
+extern IVModelInfo *modelinfo;
+extern CGlobalVars *gpGlobals;
 
 void PrecacheParticleSystem( const char *pParticleSystemName );
 void SENTENCEG_Init();
@@ -41,22 +40,20 @@ void SENTENCEG_Init();
 #include "shell_resolve.h"
 #include "managed_runtime_server.h"
 
-#include "entity_shared_statics.h"
-
 #include "native_command_body.h"
 #include "ss_recipient_filter.h"
 #include "ss_entityfactory.h"
 
 // The global sprite indexes, precached by the world.
-short		g_sModelIndexSmoke;			// holds the index for the smoke cloud
+short g_sModelIndexSmoke; // holds the index for the smoke cloud
 
 // Only the smoke index has a native reader; the rest are precached but not stored.
 static void W_Precache()
 {
-	g_sModelIndexSmoke = Precache_Model("sprites/steam1.vmt");// smoke
-	Precache_Model("sprites/bubble.vmt");//bubbles
-	Precache_Model("sprites/bloodspray.vmt"); // initial blood
-	Precache_Model("sprites/blood.vmt"); // splattered blood
+	g_sModelIndexSmoke = Precache_Model( "sprites/steam1.vmt" ); // smoke
+	Precache_Model( "sprites/bubble.vmt" ); //bubbles
+	Precache_Model( "sprites/bloodspray.vmt" ); // initial blood
+	Precache_Model( "sprites/blood.vmt" ); // splattered blood
 }
 
 // Registered with its own factory rather than LINK_ENTITY_TO_CLASS, whose template
@@ -68,10 +65,7 @@ namespace
 class CWorldFactory : public ss::IEntityFactory
 {
 public:
-	CWorldFactory()
-	{
-		ss::EntityFactoryDictionary()->InstallFactory( this, "worldspawn" );
-	}
+	CWorldFactory() { ss::EntityFactoryDictionary()->InstallFactory( this, "worldspawn" ); }
 
 	virtual IServerNetworkable *Create( const char * ) OVERRIDE
 	{
@@ -81,8 +75,8 @@ public:
 		if ( GetWorldEntity() != NULL )
 		{
 			Warning( "[SourceSharp] worldspawn: a second one was asked for while "
-			         "one exists. REFUSED -- it would take edict 0 from the world "
-			         "that is already in the level.\n" );
+					 "one exists. REFUSED -- it would take edict 0 from the world "
+					 "that is already in the level.\n" );
 			return NULL;
 		}
 
@@ -158,9 +152,9 @@ ServerClass *CWorld::GetServerClass()
 		return pClass;
 
 	Error( "[SourceSharp] worldspawn has no ServerClass: the managed side never "
-	       "declared SourceSharp.Shared.WorldNetState. There is no base table to "
-	       "fall back to -- CWorld is not a CBaseEntity, so DT_BaseEntity's props "
-	       "would read this object at offsets that belong to a different class.\n" );
+		   "declared SourceSharp.Shared.WorldNetState. There is no base table to "
+		   "fall back to -- CWorld is not a CBaseEntity, so DT_BaseEntity's props "
+		   "would read this object at offsets that belong to a different class.\n" );
 
 	return NULL;
 }
@@ -181,10 +175,9 @@ bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
 	// Every key goes to C#; the shim keeps no list of the keys C# answers.
 	IManagedRuntimeServer *pRuntime = ManagedRuntimeServer();
 
-	if ( pRuntime != NULL
-	  && pRuntime->OnWorldKeyValue(
-	         SourceSharp_HandleFromAnyEntity( static_cast< IServerEntity * >( this ) ),
-	         szKeyName, szValue ) != 0 )
+	if ( pRuntime != NULL &&
+		 pRuntime->OnWorldKeyValue( SourceSharp_HandleFromAnyEntity( static_cast<IServerEntity *>( this ) ), szKeyName,
+									szValue ) != 0 )
 	{
 		return true;
 	}
@@ -195,7 +188,7 @@ bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
 
 static CWorld *g_WorldEntity = NULL;
 
-CWorld* GetWorldEntity()
+CWorld *GetWorldEntity()
 {
 	return g_WorldEntity;
 }
@@ -206,10 +199,10 @@ CWorldCollideable::CWorldCollideable( CWorld *pOuter )
 	m_pOuter = pOuter;
 
 	// The level's own shape.
-	m_nSolidType  = SOLID_BSP;
+	m_nSolidType = SOLID_BSP;
 	m_nSolidFlags = 0;
 
-	m_vecOrigin   = vec3_origin;
+	m_vecOrigin = vec3_origin;
 	m_angRotation = vec3_angle;
 	SetIdentityMatrix( m_Transform );
 
@@ -233,7 +226,7 @@ CWorldNetworkable::CWorldNetworkable( CWorld *pOuter )
 #endif
 
 // The members are constructed first, then the body hands &m_Networkable to edict 0.
-CWorld::CWorld( )
+CWorld::CWorld()
 	: m_Collideable( this )
 	, m_Networkable( this )
 {
@@ -241,14 +234,14 @@ CWorld::CWorld( )
 	// Precache, and the world's blob is found by identity against this singleton.
 	g_WorldEntity = this;
 
-	m_pEdict       = NULL;
-	m_nModelIndex  = 0;
+	m_pEdict = NULL;
+	m_nModelIndex = 0;
 	m_iszModelName = NULL_STRING;
 
 	AttachToEdictZero();
 }
 
-CWorld::~CWorld( )
+CWorld::~CWorld()
 {
 	// The world owns the game rules object.
 	if ( g_pGameRules )
@@ -278,7 +271,7 @@ CWorld::~CWorld( )
 	g_WorldEntity = NULL;
 }
 
-void CWorld::DecalTrace( trace_t *pTrace, char const *decalName)
+void CWorld::DecalTrace( trace_t *pTrace, char const *decalName )
 {
 	int index = ss::DecalIndexForName( decalName );
 	if ( index < 0 )
@@ -314,13 +307,13 @@ void CWorld::AttachToEdictZero()
 	if ( !m_pEdict )
 	{
 		Warning( "[SourceSharp] worldspawn: edict %d does not exist. The world "
-		         "will not be sent and nothing will resolve a handle to it.\n",
-			RequiredEdictIndex() );
+				 "will not be sent and nothing will resolve a handle to it.\n",
+				 RequiredEdictIndex() );
 		return;
 	}
 
-	m_pEdict->SetEdict( static_cast< IServerUnknown * >( this ), true );
-	m_pEdict->m_EdictIndex   = RequiredEdictIndex();
+	m_pEdict->SetEdict( static_cast<IServerUnknown *>( this ), true );
+	m_pEdict->m_EdictIndex = RequiredEdictIndex();
 
 	// CBaseEdict::AreaNum and GetClassName read this unguarded; ~CWorld clears it.
 	m_pEdict->m_pNetworkable = &m_Networkable;
@@ -343,8 +336,7 @@ void CWorld::Spawn()
 	SetModelIndex( 1 );
 
 	// world model
-	m_iszModelName = AllocPooledString(
-		modelinfo->GetModelName( m_Collideable.GetCollisionModel() ) );
+	m_iszModelName = AllocPooledString( modelinfo->GetModelName( m_Collideable.GetCollisionModel() ) );
 
 	// The box, from the model the index names.
 	if ( const model_t *pModel = m_Collideable.GetCollisionModel() )
@@ -354,7 +346,7 @@ void CWorld::Spawn()
 		m_Collideable.SetBounds( vecMins, vecMaxs );
 	}
 
-	Precache( );
+	Precache();
 
 	// After the keys have been parsed, so it reports what the map set.
 	ReportNetState();
@@ -371,7 +363,7 @@ void CWorld::Precache()
 {
 	// Set up game rules.
 	Assert( !g_pGameRules );
-	if (g_pGameRules)
+	if ( g_pGameRules )
 	{
 		delete g_pGameRules;
 	}

@@ -1,78 +1,78 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CAbsentFPSPanel] void Create	SLOT	IFPSPanel slot vgui_int.cpp (fork) calls; the FPS panel is deleted by ruling (C1), so it does nothing
-[CAbsentFPSPanel] void Destroy	SLOT	IFPSPanel slot vgui_int.cpp (fork) calls; the FPS panel is deleted by ruling (C1), so it does nothing
-[CAbsentNetGraphPanel] void Create	SLOT	INetGraphPanel slot vgui_int.cpp (fork) calls; the net-graph panel is deleted by ruling (C1), so it does nothing
-[CAbsentNetGraphPanel] void Destroy	SLOT	INetGraphPanel slot vgui_int.cpp (fork) calls; the net-graph panel is deleted by ruling (C1), so it does nothing
-void StudioStats_FindClosestEntity(	LIVE-API	no-op for a deleted tool (studio_stats.cpp, C1): viewrender.cpp (fork) imports it (nm -u); absence row 10
-[CSourceSharpClientMode] virtual int KeyInput(	SLOT	IClientMode::KeyInput CInput::KeyEvent calls: the decision is managed's (IManagedUiClient::KeyInput); the HUD elements when it makes none
-CON_COMMAND( cl_reload_localization_files	BOUNDARY	the console command onto ILocalize::ReloadLocalizationFiles (stock clientmode_shared.cpp)
-[CSourceSharpClientMode] CSourceSharpClientMode() : m_pViewport	HOOK	the client mode object the engine reaches through g_pClientMode
+[CAbsentFPSPanel] void Create( vgui::VPANEL ) override	SLOT	IFPSPanel slot vgui_int.cpp (fork) calls; the FPS panel is deleted by ruling (C1), so it does nothing
+[CAbsentFPSPanel] void Destroy() override	SLOT	IFPSPanel slot vgui_int.cpp (fork) calls; the FPS panel is deleted by ruling (C1), so it does nothing
+[CAbsentNetGraphPanel] void Create( vgui::VPANEL ) override	SLOT	INetGraphPanel slot vgui_int.cpp (fork) calls; the net-graph panel is deleted by ruling (C1), so it does nothing
+[CAbsentNetGraphPanel] void Destroy() override	SLOT	INetGraphPanel slot vgui_int.cpp (fork) calls; the net-graph panel is deleted by ruling (C1), so it does nothing
+void StudioStats_FindClosestEntity( CClientRenderablesList * )	LIVE-API	no-op for a deleted tool (studio_stats.cpp, C1): viewrender.cpp (fork) imports it (nm -u); absence row 10
+[CSourceSharpClientMode] virtual int KeyInput( int down, ButtonCode_t keynum, const char *pszCurrentBinding ) OVERRIDE	SLOT	IClientMode::KeyInput CInput::KeyEvent calls: the decision is managed's (IManagedUiClient::KeyInput); the HUD elements when it makes none
+CON_COMMAND( cl_reload_localization_files, "" )	BOUNDARY	the console command onto ILocalize::ReloadLocalizationFiles (stock clientmode_shared.cpp)
+[CSourceSharpClientMode] : m_pViewport( NULL )	HOOK	the client mode object the engine reaches through g_pClientMode
 [CSourceSharpClientMode] virtual ~CSourceSharpClientMode()	HOOK	frees the viewport
-[CSourceSharpClientMode] virtual void InitViewport()	SLOT	IClientMode::InitViewport: the raw viewport, listening for game_newmap
-[CSourceSharpClientMode] virtual void Init()	SLOT	IClientMode::Init: listens for the one native event (teamplay_broadcast_audio)
-[CSourceSharpClientMode] virtual void VGui_Shutdown()	SLOT	IClientMode::VGui_Shutdown: frees the viewport
-[CSourceSharpClientMode] virtual void Shutdown()	SLOT	IClientMode::Shutdown: nothing
-[CSourceSharpClientMode] virtual void Enable()	SLOT	IClientMode::Enable: the viewport under the client root, shown, laid out
-[CSourceSharpClientMode] virtual void Disable()	SLOT	IClientMode::Disable: the viewport unparented and hidden
-[CSourceSharpClientMode] virtual void Layout()	SLOT	IClientMode::Layout: the viewport fills the client root
-[CSourceSharpClientMode] virtual vgui::Panel *GetViewport()	SLOT	IClientMode::GetViewport: no vgui_controls panel
-[CSourceSharpClientMode] virtual vgui::AnimationController *GetViewportAnimationController()	SLOT	IClientMode: no animation controller
+[CSourceSharpClientMode] virtual void InitViewport() OVERRIDE	SLOT	IClientMode::InitViewport: the raw viewport, listening for game_newmap
+[CSourceSharpClientMode] virtual void Init() OVERRIDE	SLOT	IClientMode::Init: listens for the one native event (teamplay_broadcast_audio)
+[CSourceSharpClientMode] virtual void VGui_Shutdown() OVERRIDE	SLOT	IClientMode::VGui_Shutdown: frees the viewport
+[CSourceSharpClientMode] virtual void Shutdown() OVERRIDE	SLOT	IClientMode::Shutdown: nothing
+[CSourceSharpClientMode] virtual void Enable() OVERRIDE	SLOT	IClientMode::Enable: the viewport under the client root, shown, laid out
+[CSourceSharpClientMode] virtual void Disable() OVERRIDE	SLOT	IClientMode::Disable: the viewport unparented and hidden
+[CSourceSharpClientMode] virtual void Layout() OVERRIDE	SLOT	IClientMode::Layout: the viewport fills the client root
+[CSourceSharpClientMode] virtual vgui::Panel *GetViewport() OVERRIDE	SLOT	IClientMode::GetViewport: no vgui_controls panel
+[CSourceSharpClientMode] virtual vgui::AnimationController *GetViewportAnimationController() OVERRIDE	SLOT	IClientMode: no animation controller
 [CSourceSharpClientMode] vgui::VPANEL GetViewportVPanel()	SLOT-HELP	the viewport VPANEL the HUD and menu roots hang from
-[CSourceSharpClientMode] virtual void ProcessInput(	SLOT	IClientMode::ProcessInput onto gHUD
-[CSourceSharpClientMode] virtual bool ShouldDrawDetailObjects()	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual bool ShouldDrawEntity(	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual bool ShouldDrawParticles()	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual bool ShouldDrawFog(	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual bool ShouldDrawViewModel(	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual bool ShouldDrawCrosshair(	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual bool ShouldDrawLocalPlayer(	SLOT	IClientMode: the camera pass's answer (SourceSharp_ThirdPersonSeesOwner)
-[CSourceSharpClientMode] virtual void StartMessageMode(	SLOT	IClientMode: the chat is managed (ChatOpener)
-[CSourceSharpClientMode] virtual vgui::Panel *GetMessagePanel()	SLOT	IClientMode: no message panel
-[CSourceSharpClientMode] virtual void OverrideMouseInput(	SLOT	IClientMode: no weapon overrides the mouse
-[CSourceSharpClientMode] virtual bool CreateMove(	SLOT	IClientMode: the command stands (stock's answer for this build)
-[CSourceSharpClientMode] virtual void LevelInit(	SLOT	IClientMode::LevelInit: game_newmap fired client side, the DSP reset
-[CSourceSharpClientMode] virtual void LevelShutdown(	SLOT	IClientMode::LevelShutdown: the third-person manager and the DSP reset
-[CSourceSharpClientMode] virtual void AdjustEngineViewport(	SLOT	IClientMode: nothing
-[CSourceSharpClientMode] virtual void PostRender(	SLOT	IClientMode::PostRender onto the particle manager
-[CSourceSharpClientMode] virtual void PostRenderVGui()	SLOT	IClientMode: nothing
-[CSourceSharpClientMode] virtual void ActivateInGameVGuiContext(	SLOT	IClientMode: no compiled caller
-[CSourceSharpClientMode] virtual void DeactivateInGameVGuiContext()	SLOT	IClientMode: no compiled caller
-[CSourceSharpClientMode] virtual float GetViewModelFOV(	SLOT	IClientMode onto v_viewmodel_fov
-[CSourceSharpClientMode] virtual bool CanRecordDemo(	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual void ComputeVguiResConditions(	SLOT	IClientMode: no .res is loaded
-[CSourceSharpClientMode] virtual wchar_t *GetServerName()	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual void SetServerName(	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual wchar_t *GetMapName()	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual void SetMapName(	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual bool DoPostScreenSpaceEffects(	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual void DisplayReplayMessage(	SLOT	IClientMode: replay is not shipped
-[CSourceSharpClientMode] virtual void Update()	SLOT	IClientMode::Update: the rumble update and stock's particle-count readout
-[CSourceSharpClientMode] virtual bool ShouldBlackoutAroundHUD()	SLOT	IClientMode onto IEngineVGui::IsGameUIVisible
-[CSourceSharpClientMode] virtual HeadtrackMovementMode_t ShouldOverrideHeadtrackControl()	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual bool IsInfoPanelAllowed()	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual void InfoPanelDisplayed()	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual bool IsHTMLInfoPanelAllowed()	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual void OnDemoRecordStart(	SLOT	IClientMode: nothing
-[CSourceSharpClientMode] virtual void OnDemoRecordStop()	SLOT	IClientMode: nothing
-[CSourceSharpClientMode] virtual void FireGameEvent(	SLOT	IGameEventListener2: the team-255 broadcast sound on the local player (stock's arm)
+[CSourceSharpClientMode] virtual void ProcessInput( bool bActive ) OVERRIDE	SLOT	IClientMode::ProcessInput onto gHUD
+[CSourceSharpClientMode] virtual bool ShouldDrawDetailObjects() OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual bool ShouldDrawEntity( C_BaseEntity *pEnt ) OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual bool ShouldDrawParticles() OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual bool ShouldDrawFog() OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual bool ShouldDrawViewModel() OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual bool ShouldDrawCrosshair() OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual bool ShouldDrawLocalPlayer( C_BasePlayer *pPlayer ) OVERRIDE	SLOT	IClientMode: the camera pass's answer (SourceSharp_ThirdPersonSeesOwner)
+[CSourceSharpClientMode] virtual void StartMessageMode( int iMessageModeType ) OVERRIDE	SLOT	IClientMode: the chat is managed (ChatOpener)
+[CSourceSharpClientMode] virtual vgui::Panel *GetMessagePanel() OVERRIDE	SLOT	IClientMode: no message panel
+[CSourceSharpClientMode] virtual void OverrideMouseInput( float *x, float *y ) OVERRIDE	SLOT	IClientMode: no weapon overrides the mouse
+[CSourceSharpClientMode] virtual bool CreateMove( float flInputSampleTime, CUserCmd *cmd ) OVERRIDE	SLOT	IClientMode: the command stands (stock's answer for this build)
+[CSourceSharpClientMode] virtual void LevelInit( const char *newmap ) OVERRIDE	SLOT	IClientMode::LevelInit: game_newmap fired client side, the DSP reset
+[CSourceSharpClientMode] virtual void LevelShutdown() OVERRIDE	SLOT	IClientMode::LevelShutdown: the third-person manager and the DSP reset
+[CSourceSharpClientMode] virtual void AdjustEngineViewport( int &x, int &y, int &width, int &height ) OVERRIDE	SLOT	IClientMode: nothing
+[CSourceSharpClientMode] virtual void PostRender() OVERRIDE	SLOT	IClientMode::PostRender onto the particle manager
+[CSourceSharpClientMode] virtual void PostRenderVGui() OVERRIDE	SLOT	IClientMode: nothing
+[CSourceSharpClientMode] virtual void ActivateInGameVGuiContext( vgui::Panel *pPanel ) OVERRIDE	SLOT	IClientMode: no compiled caller
+[CSourceSharpClientMode] virtual void DeactivateInGameVGuiContext() OVERRIDE	SLOT	IClientMode: no compiled caller
+[CSourceSharpClientMode] virtual float GetViewModelFOV() OVERRIDE	SLOT	IClientMode onto v_viewmodel_fov
+[CSourceSharpClientMode] virtual bool CanRecordDemo( char *errorMsg, int length ) const OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual void ComputeVguiResConditions( KeyValues *pkvConditions ) OVERRIDE	SLOT	IClientMode: no .res is loaded
+[CSourceSharpClientMode] virtual wchar_t *GetServerName() OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual void SetServerName( wchar_t *name ) OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual wchar_t *GetMapName() OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual void SetMapName( wchar_t *name ) OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual bool DoPostScreenSpaceEffects( const CViewSetup *pSetup ) OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual void DisplayReplayMessage( const char *pLocalizeName, float flDuration, bool bUrgent, const char *pSound, b	SLOT	IClientMode: replay is not shipped
+[CSourceSharpClientMode] virtual void Update() OVERRIDE	SLOT	IClientMode::Update: the rumble update and stock's particle-count readout
+[CSourceSharpClientMode] virtual bool ShouldBlackoutAroundHUD() OVERRIDE	SLOT	IClientMode onto IEngineVGui::IsGameUIVisible
+[CSourceSharpClientMode] virtual HeadtrackMovementMode_t ShouldOverrideHeadtrackControl() OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual bool IsInfoPanelAllowed() OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual void InfoPanelDisplayed() OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual bool IsHTMLInfoPanelAllowed() OVERRIDE	SLOT	IClientMode: stock's constant
+[CSourceSharpClientMode] virtual void OnDemoRecordStart( char const *pDemoBaseName ) OVERRIDE	SLOT	IClientMode: nothing
+[CSourceSharpClientMode] virtual void OnDemoRecordStop() OVERRIDE	SLOT	IClientMode: nothing
+[CSourceSharpClientMode] virtual void FireGameEvent( IGameEvent *event ) OVERRIDE	SLOT	IGameEventListener2: the team-255 broadcast sound on the local player (stock's arm)
 vgui::VPANEL SourceSharp_ClientViewportPanel()	SLOT-HELP	the viewport VPANEL for the HUD and menu roots
 bool ShellClient_ViewerSeenBegin()	SLOT-HELP	a view target whose setup asks for the viewer's body: SeesOwner answers true and the body enters the leaf system for that draw (lane camproto)
-void ShellClient_ViewerSeenEnd(	SLOT-HELP	restores SeesOwner and the body's leaf-system presence after that draw (lane camproto)
-[CSourceSharpClientMode] virtual void PreRender(	HOOK	IClientMode::PreRender, which view.cpp (fork) calls before the main view: draws the queued view targets (lane camproto)
-void SourceSharp_ViewOverrideSet(	SLOT	IShimViewClient::ViewOverrideSet: keeps the view managed's ObserverCamera decided for OverrideView
-static bool ApplyViewOverride(	SLOT-HELP	carries out managed's observer view in OverrideView: the view, the engine angles when asked, stock's shake
-static void ApplyManagedShake(	BOUNDARY	CViewEffects::CalcShake and ApplyShake carried out: managed's offset and roll added to the view at factor 1
+void ShellClient_ViewerSeenEnd( bool bWasSeen )	SLOT-HELP	restores SeesOwner and the body's leaf-system presence after that draw (lane camproto)
+[CSourceSharpClientMode] virtual void PreRender( CViewSetup *pSetup ) OVERRIDE	HOOK	IClientMode::PreRender, which view.cpp (fork) calls before the main view: draws the queued view targets (lane camproto)
+void SourceSharp_ViewOverrideSet( int32_t nActive, const float *pOriginXYZ, const float *pAngles, int32_t nSetViewAngles )	SLOT	IShimViewClient::ViewOverrideSet: keeps the view managed's ObserverCamera decided for OverrideView
+static bool ApplyViewOverride( CViewSetup *pSetup )	SLOT-HELP	carries out managed's observer view in OverrideView: the view, the engine angles when asked, stock's shake
+static void ApplyManagedShake( Vector &origin, QAngle &angles )	BOUNDARY	CViewEffects::CalcShake and ApplyShake carried out: managed's offset and roll added to the view at factor 1
 void SourceSharp_ClientModeLayout()	BOUNDARY	IShimUiClient::ClientModeLayout: g_pClientMode->Layout(), when managed's ViewportClientSystem asks (C7)
-static void SourceSharp_ApplyThirdPersonCamera(	SLOT-HELP	OverrideView's third-person pass, carrying out managed's camera (ThirdPersonCamera, both phases): hands PLACE the view angles and the cam_* values (managed's own convars, read by name), sweeps the hull PLACE answered (size and mask managed's, none when it says 0), hands RESOLVE the fraction, writes the answered origin and angles into CViewSetup and publishes the answered SeesOwner; the leaf-system UpdateVisibility on every mode change. No number of the camera is native's (lane M1-B)
+static void SourceSharp_ApplyThirdPersonCamera( C_StandaloneEntity *pPlayer, CViewSetup *pSetup )	SLOT-HELP	OverrideView's third-person pass, carrying out managed's camera (ThirdPersonCamera, both phases): hands PLACE the view angles and the cam_* values (managed's own convars, read by name), sweeps the hull PLACE answered (size and mask managed's, none when it says 0), hands RESOLVE the fraction, writes the answered origin and angles into CViewSetup and publishes the answered SeesOwner; the leaf-system UpdateVisibility on every mode change. No number of the camera is native's (lane M1-B)
 bool SourceSharp_ThirdPersonSeesOwner()	LIVE-API	the camera pass's published SeesOwner (managed's answer), read by shell_standalone_client.cpp and shell_view_executor_client.cpp (nm -u)
-[CSourceSharpClientMode] virtual void OverrideView(	SLOT	IClientMode::OverrideView, which view.cpp's SetUpViews calls every frame: managed's observer view when one is set, else stock CalcPlayerView's order carried out over managed values (the eye, the predicted punch added to the engine's angles, managed's shake, the viewmodel pinned to that eye, then managed's third-person camera); with no viewer, ::input's orthographic size (managed's) written into CViewSetup's four edges. No number is native's
+[CSourceSharpClientMode] virtual void OverrideView( CViewSetup *pSetup ) OVERRIDE	SLOT	IClientMode::OverrideView, which view.cpp's SetUpViews calls every frame: managed's observer view when one is set, else stock CalcPlayerView's order carried out over managed values (the eye, the predicted punch added to the engine's angles, managed's shake, the viewmodel pinned to that eye, then managed's third-person camera); with no viewer, ::input's orthographic size (managed's) written into CViewSetup's four edges. No number is native's
 IClientMode *GetClientModeNormal()	LIVE-API	the client mode, for shell_clientdll.cpp, shell_usermessages_client.cpp and shell_view_executor_client.cpp (nm -u)
-[CSourceSharpModeManager] virtual void Init()	SLOT	IVModeManager::Init: nothing
-[CSourceSharpModeManager] virtual void SwitchMode(	SLOT	IVModeManager::SwitchMode: nothing (one mode)
-[CSourceSharpModeManager] virtual void LevelInit(	SLOT	IVModeManager::LevelInit onto the client mode
-[CSourceSharpModeManager] virtual void LevelShutdown(	SLOT	IVModeManager::LevelShutdown onto the client mode
+[CSourceSharpModeManager] virtual void Init() OVERRIDE	SLOT	IVModeManager::Init: nothing
+[CSourceSharpModeManager] virtual void SwitchMode( bool commander, bool force ) OVERRIDE	SLOT	IVModeManager::SwitchMode: nothing (one mode)
+[CSourceSharpModeManager] virtual void LevelInit( const char *newmap ) OVERRIDE	SLOT	IVModeManager::LevelInit onto the client mode
+[CSourceSharpModeManager] virtual void LevelShutdown() OVERRIDE	SLOT	IVModeManager::LevelShutdown onto the client mode
 void VGUI_CreateClientDLLRootPanel()	LIVE-API	the client's root panel under the engine's PANEL_CLIENTDLL, filling the screen; shell_vgui_client.cpp imports it (nm -u)
 void VGUI_DestroyClientDLLRootPanel()	LIVE-API	frees the root panel; shell_vgui_client.cpp imports it (nm -u)
 vgui::VPANEL VGui_GetClientDLLRootPanel()	LIVE-API	the root panel's VPANEL; shell_vgui_client.cpp imports it (nm -u)
-void SourceSharp_RegisterAmmoType(	SLOT	the IShimStandaloneClient RegisterAmmoType slot, empty: the CAmmoDef it filled had no reader and went with the client's stock headers (2026-10-25); the serialised ABI pass retires the row (docs/todo.md)
+void SourceSharp_RegisterAmmoType( const char *pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType, float flDamageForce, floa	SLOT	the IShimStandaloneClient RegisterAmmoType slot, empty: the CAmmoDef it filled had no reader and went with the client's stock headers (2026-10-25); the serialised ABI pass retires the row (docs/todo.md)

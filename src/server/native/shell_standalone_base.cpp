@@ -10,58 +10,55 @@
 // managed code's, reached through the OnManaged* virtuals subclasses implement.
 
 #include "ss_util.h"
-#include "ss_platform.h"
-#include "shell_standalone.h"
+
 #include "standalone_collision_rules.h"
-#include "standalone_netserial.h"
+
 #include "slot_table.h"
 #include "standalone_model_bounds.h"
 #include "shell_standalone_class.h"
 #include "standalone_names.h"
 #include "shell_model_name.h"
 #include "generic_nettable.h"
-#include "vphysics_interface.h"
+
 #include "ss_physics_shared.h"
 #include "physicsowner.h"
-#include "engine/ivmodelinfo.h"
+
 #include "slot_table.h"
 
 #include "ss_world.h"
 #include "world_subject.h"
 #include "engine/IEngineSound.h"
-#include "tier0/icommandline.h"
 
-#include "sourcesharp.h"
 #include "managed_convar_ref.h"
 #include "precache_model.h"
-#include "native_command_body.h"
+
 #include "ss_string.h"
 #include "ss_cpp20.h"
 #include "world_aligned_bounds.h"
-
-#include <algorithm>
-#include <vector>
 
 #include "imanaged_areas.h"
 #include "ss_takedamageinfo.h"
 #include "ss_entityhandle.h"
 
 extern ISpatialPartition *partition;
-extern IVModelInfo       *modelinfo;
-extern CGlobalVars       *gpGlobals;
+extern IVModelInfo *modelinfo;
+extern CGlobalVars *gpGlobals;
 
 // A slot outliving its entity would let C# write into freed memory, so the shell
 // that frees the memory closes the slot.
 void SourceSharp_EntitySlotClosed( uint32_t hEntity );
 
 // Every live standalone entity; gEntList's traversals skip them.
-static std::vector< CStandaloneEntity * > g_Standalones;
+static std::vector<CStandaloneEntity *> g_Standalones;
 
 // Removals managed code did not take (a shell never bound on the managed side).
 // Emptied after the frame's thinks.
-static std::vector< CStandaloneEntity * > g_PendingDeletes;
+static std::vector<CStandaloneEntity *> g_PendingDeletes;
 
-std::vector< CStandaloneEntity * > &StandaloneEntities() { return g_Standalones; }
+std::vector<CStandaloneEntity *> &StandaloneEntities()
+{
+	return g_Standalones;
+}
 
 IGameEntity *SourceSharpEntity_t::GameEntity() const
 {
@@ -75,17 +72,16 @@ IGameEntity *SourceSharpEntity_t::GameEntity() const
 SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity )
 {
 	SourceSharpEntity_t ent;
-	ent.pBase       = NULL;
+	ent.pBase = NULL;
 	ent.pStandalone = NULL;
-	ent.pWorld      = NULL;
+	ent.pWorld = NULL;
 
 	if ( hEntity == INVALID_EHANDLE_INDEX )
 		return ent;
 
 	// UnsafeFromIndex, not Init( entry, serial ): ENT_ENTRY_MASK comes from the
 	// serial width, so decomposing by hand does not round-trip.
-	IHandleEntity *pHandleEntity =
-		SourceSharp_EntityFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
+	IHandleEntity *pHandleEntity = SourceSharp_EntityFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
 	if ( !pHandleEntity )
 	{
 		// An unresolved handle in the engine-invisible entry range: a shell-less
@@ -129,15 +125,19 @@ void SourceSharpEntity_t::Bounds( Vector *pOutMins, Vector *pOutMaxs ) const
 {
 	if ( pStandalone )
 	{
-		if ( pOutMins ) *pOutMins = pStandalone->OBBMins();
-		if ( pOutMaxs ) *pOutMaxs = pStandalone->OBBMaxs();
+		if ( pOutMins )
+			*pOutMins = pStandalone->OBBMins();
+		if ( pOutMaxs )
+			*pOutMaxs = pStandalone->OBBMaxs();
 		return;
 	}
 
 	if ( !pBase )
 	{
-		if ( pOutMins ) *pOutMins = vec3_origin;
-		if ( pOutMaxs ) *pOutMaxs = vec3_origin;
+		if ( pOutMins )
+			*pOutMins = vec3_origin;
+		if ( pOutMaxs )
+			*pOutMaxs = vec3_origin;
 		return;
 	}
 }
@@ -171,9 +171,7 @@ const matrix3x4_t &SourceSharpEntity_t::EntityToWorld() const
 		return pStandalone->CollisionToWorldTransform();
 
 	// Nothing resolved: identity, so a transformed point stays in world space.
-	static const matrix3x4_t s_matIdentity( 1.0f, 0.0f, 0.0f, 0.0f,
-	                                        0.0f, 1.0f, 0.0f, 0.0f,
-	                                        0.0f, 0.0f, 1.0f, 0.0f );
+	static const matrix3x4_t s_matIdentity( 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f );
 	return s_matIdentity;
 }
 
@@ -204,8 +202,7 @@ uint32_t SourceSharp_HandleFromAnyEntity( IHandleEntity *pHandleEntity )
 }
 
 // The next entity of a classname after pStartAfter; gEntList's walk skips these.
-CStandaloneEntity *StandaloneEntities_FindByClassname( CStandaloneEntity *pStartAfter,
-                                                       const char *pClassName )
+CStandaloneEntity *StandaloneEntities_FindByClassname( CStandaloneEntity *pStartAfter, const char *pClassName )
 {
 	if ( !pClassName || !pClassName[0] )
 		return NULL;
@@ -214,7 +211,7 @@ CStandaloneEntity *StandaloneEntities_FindByClassname( CStandaloneEntity *pStart
 
 	if ( pStartAfter )
 	{
-		std::vector< CStandaloneEntity * >::const_iterator it =
+		std::vector<CStandaloneEntity *>::const_iterator it =
 			std::find( g_Standalones.begin(), g_Standalones.end(), pStartAfter );
 
 		// A removed start entity ends the iteration; restarting would never terminate.
@@ -224,8 +221,8 @@ CStandaloneEntity *StandaloneEntities_FindByClassname( CStandaloneEntity *pStart
 		nStart = ( it - g_Standalones.begin() ) + 1;
 	}
 
-	auto it = std::find_if( g_Standalones.begin() + nStart, g_Standalones.end(),
-		[pClassName]( CStandaloneEntity *pEnt ) { return StandaloneNameMatches( pClassName, pEnt->GetClassname() ); } );
+	auto it = std::find_if( g_Standalones.begin() + nStart, g_Standalones.end(), [pClassName]( CStandaloneEntity *pEnt )
+							{ return StandaloneNameMatches( pClassName, pEnt->GetClassname() ); } );
 
 	return ( it != g_Standalones.end() ) ? *it : NULL;
 }
@@ -242,8 +239,7 @@ void *CStandaloneEntity::operator new( size_t nBytes, int nBlobBytes )
 	if ( nBlobBytes < SourceSharp_StandaloneMinBlobBytes() )
 		nBlobBytes = SourceSharp_StandaloneMinBlobBytes();
 
-	return engine->PvAllocEntPrivateData(
-		SourceSharp_StandaloneBlobOffset() + nBlobBytes );
+	return engine->PvAllocEntPrivateData( SourceSharp_StandaloneBlobOffset() + nBlobBytes );
 }
 
 unsigned char *CStandaloneEntity::DataBlob()
@@ -289,7 +285,7 @@ int CStandaloneEntity::BlobBytes() const
 
 // BlockHandle and BlockOwner overlay a CBaseHandle on a uint32 in the block.
 static_assert( sizeof( CBaseHandle ) == sizeof( uint32_t ),
-	"CBaseHandle is no longer one uint32; EngineBlockHead_t::Handle cannot overlay it" );
+			   "CBaseHandle is no longer one uint32; EngineBlockHead_t::Handle cannot overlay it" );
 
 int CStandaloneEntity::BlockBase()
 {
@@ -309,8 +305,8 @@ int SourceSharp_StandaloneMinTier()
 	}
 
 	Warning( "[SourceSharp] standalone: NO TIER holds the %d-byte engine block; "
-	         "the largest is %d bytes\n",
-		(int)sizeof( EngineBlock_t ), SourceSharp_TierBytes( nCount - 1 ) );
+			 "the largest is %d bytes\n",
+			 (int)sizeof( EngineBlock_t ), SourceSharp_TierBytes( nCount - 1 ) );
 
 	return nCount - 1;
 }
@@ -325,52 +321,52 @@ int SourceSharp_StandaloneMinBlobBytes()
 #pragma warning( disable : 4355 )
 #endif
 CStandaloneEntity::CStandaloneEntity()
-	  // First: members initialise in declaration order, and the header declares it first.
-	: m_pEngineBlock( reinterpret_cast< EngineBlock_t * >(
-	      reinterpret_cast< unsigned char * >( this ) + BlockBase() ) ),
-	  m_nSpawnFlags( 0 ),
-	  m_iHealth( 0 ),
-	  m_nTriggerBloat( 0 ),
-	  m_bUniformTriggerBloat( false ),
-	  m_vecSpawnOrigin( vec3_origin ),
-	  m_angSpawnRotation( 0, 0, 0 ),
-	  m_pPhysics( NULL ),
-	  m_vecVelocity( vec3_origin ),
-	  m_vecMoveVelocity( vec3_origin ),
-	  m_flGravityScale( 0.0f ),
-	  m_nBouncesLeft( 0 ),
-	  m_angVelocity( 0, 0, 0 ),
-	  m_pClass( NULL ),
-	  m_pServerClass( NULL ),
+	// First: members initialise in declaration order, and the header declares it first.
+	: m_pEngineBlock( reinterpret_cast<EngineBlock_t *>( reinterpret_cast<unsigned char *>( this ) + BlockBase() ) )
+	, m_nSpawnFlags( 0 )
+	, m_iHealth( 0 )
+	, m_nTriggerBloat( 0 )
+	, m_bUniformTriggerBloat( false )
+	, m_vecSpawnOrigin( vec3_origin )
+	, m_angSpawnRotation( 0, 0, 0 )
+	, m_pPhysics( NULL )
+	, m_vecVelocity( vec3_origin )
+	, m_vecMoveVelocity( vec3_origin )
+	, m_flGravityScale( 0.0f )
+	, m_nBouncesLeft( 0 )
+	, m_angVelocity( 0, 0, 0 )
+	, m_pClass( NULL )
+	, m_pServerClass( NULL )
+	,
 
-	  // Never -1: readers index the tier table with it.
-	  m_iTier( SourceSharp_StandaloneMinTier() ),
-	  m_pEdict( NULL ),
-	  m_bOwnsEdict( true ),
-	  m_Partition( PARTITION_INVALID_HANDLE )
+	// Never -1: readers index the tier table with it.
+	m_iTier( SourceSharp_StandaloneMinTier() )
+	, m_pEdict( NULL )
+	, m_bOwnsEdict( true )
+	, m_Partition( PARTITION_INVALID_HANDLE )
 {
 	// The block's non-zero defaults; PvAllocEntPrivateData zeroes the rest. The
 	// handles above all: a zeroed handle is index 0, the world.
 	EngineBlockHead_t &head = m_pEngineBlock->Head;
 
-	head.Handle              = INVALID_EHANDLE_INDEX;
-	head.ParentHandle        = INVALID_EHANDLE_INDEX;
-	head.OwnerHandle         = INVALID_EHANDLE_INDEX;
-	head.ClassnameIndex      = 0;
-	head.ModelIndex          = 0;
+	head.Handle = INVALID_EHANDLE_INDEX;
+	head.ParentHandle = INVALID_EHANDLE_INDEX;
+	head.OwnerHandle = INVALID_EHANDLE_INDEX;
+	head.ClassnameIndex = 0;
+	head.ModelIndex = 0;
 	head.CollisionModelIndex = 0;
-	head.Origin              = vec3_origin;
-	head.Angles              = QAngle( 0, 0, 0 );
+	head.Origin = vec3_origin;
+	head.Angles = QAngle( 0, 0, 0 );
 	head.Mins.Init( -16, -16, -16 );
-	head.Maxs.Init(  16,  16,  16 );
+	head.Maxs.Init( 16, 16, 16 );
 
-	head.SolidType      = SOLID_NONE;
-	head.SolidFlags     = FSOLID_NOT_SOLID;
+	head.SolidType = SOLID_NONE;
+	head.SolidFlags = FSOLID_NOT_SOLID;
 	head.CollisionGroup = COLLISION_GROUP_NONE;
 
-	head.MoveType   = 0;
-	head.Flags      = 0;
-	head.Effects    = 0;
+	head.MoveType = 0;
+	head.Flags = 0;
+	head.Effects = 0;
 	head.WaterLevel = 0;
 
 	// Managed owns this word from here on; native only asks whether it is zero.
@@ -384,17 +380,17 @@ CStandaloneEntity::CStandaloneEntity()
 	m_szName[0] = 0;
 	m_szModel[0] = 0;
 	m_szClassname[0] = 0;
-	m_nTypeId        = 0;
-	m_nSchemaHash    = 0;
-	m_nPayloadWords  = 0;
+	m_nTypeId = 0;
+	m_nSchemaHash = 0;
+	m_nPayloadWords = 0;
 
 	// A playback rate of one: zero would freeze every animation on its first frame.
-	Block().Client.Sequence     = 0;
+	Block().Client.Sequence = 0;
 	Block().Client.PlaybackRate = 1.0f;
-	Block().Client.AnimTime     = 0.0f;
+	Block().Client.AnimTime = 0.0f;
 
 	// One, "as the artist built it": zero reads as a model with no extent.
-	m_flModelScale        = 1.0f;
+	m_flModelScale = 1.0f;
 }
 
 CStandaloneEntity::~CStandaloneEntity()
@@ -501,9 +497,8 @@ void CStandaloneEntity::SetModelName( const char *pModel )
 	ss::StrCopy( m_szModel, pModel, sizeof( m_szModel ) );
 
 	// A brush model ("*23") is already in the BSP, so it is looked up, not precached.
-	Block().Head.ModelIndex = SourceSharp_IsBrushModelName( m_szModel )
-		? modelinfo->GetModelIndex( m_szModel )
-		: Precache_Model( m_szModel );
+	Block().Head.ModelIndex =
+		SourceSharp_IsBrushModelName( m_szModel ) ? modelinfo->GetModelIndex( m_szModel ) : Precache_Model( m_szModel );
 
 	if ( Block().Head.ModelIndex <= 0 )
 	{
@@ -548,8 +543,7 @@ void CStandaloneEntity::SetVisible( bool bVisible )
 		MarkBlockChanged( SS_BLOCK_HEAD_OFFSET( ModelIndex ) );
 	}
 
-	const int nEffects = bVisible ? ( Block().Head.Effects & ~EF_NODRAW )
-	                              : ( Block().Head.Effects |  EF_NODRAW );
+	const int nEffects = bVisible ? ( Block().Head.Effects & ~EF_NODRAW ) : ( Block().Head.Effects | EF_NODRAW );
 
 	if ( nEffects != Block().Head.Effects )
 	{
@@ -643,7 +637,7 @@ static bool CollisionRulesRecheck()
 // below is a no-op at spawn.
 void CStandaloneEntity::SetSolidity( SolidType_t nSolidType, int nSolidFlags )
 {
-	Block().Head.SolidType  = nSolidType;
+	Block().Head.SolidType = nSolidType;
 	Block().Head.SolidFlags = nSolidFlags;
 
 	MarkBlockChanged( SS_BLOCK_HEAD_OFFSET( SolidType ) );
@@ -690,12 +684,12 @@ void CStandaloneEntity::UpdatePartition()
 
 	if ( m_Partition == PARTITION_INVALID_HANDLE )
 	{
-		m_Partition = ::partition->CreateHandle( static_cast< IHandleEntity * >(
-			static_cast< IServerEntity * >( this ) ) );
+		m_Partition = ::partition->CreateHandle( static_cast<IHandleEntity *>( static_cast<IServerEntity *>( this ) ) );
 	}
 
-	::partition->Remove( PARTITION_ENGINE_NON_STATIC_EDICTS | PARTITION_ENGINE_SOLID_EDICTS
-	                   | PARTITION_ENGINE_TRIGGER_EDICTS, m_Partition );
+	::partition->Remove( PARTITION_ENGINE_NON_STATIC_EDICTS | PARTITION_ENGINE_SOLID_EDICTS |
+							 PARTITION_ENGINE_TRIGGER_EDICTS,
+						 m_Partition );
 
 	SpatialPartitionListMask_t mask = PARTITION_ENGINE_NON_STATIC_EDICTS;
 
@@ -716,75 +710,74 @@ void CStandaloneEntity::UpdatePartition()
 
 namespace
 {
-	// g_Pending accumulates the engine's overlap reports throughout the frame.
-	// g_Report is the frame's answer, built once and not consumed by reading: a
-	// second ask must see the same pairs, or the diff reads a departure. Both are
-	// flat handle pairs, element 2n and 2n+1, the shape the ABI hands over.
-	std::vector< uint32_t > g_Pending;
-	std::vector< uint32_t > g_Report;
+// g_Pending accumulates the engine's overlap reports throughout the frame.
+// g_Report is the frame's answer, built once and not consumed by reading: a
+// second ask must see the same pairs, or the diff reads a departure. Both are
+// flat handle pairs, element 2n and 2n+1, the shape the ABI hands over.
+std::vector<uint32_t> g_Pending;
+std::vector<uint32_t> g_Report;
 
-	int g_ReportFrame = -1;
+int g_ReportFrame = -1;
 
-	// Pairs the solver holds open: reported every frame until it says they ended,
-	// so the managed diff sees a continuing overlap.
-	std::vector< uint32_t > g_SolverHeld;
+// Pairs the solver holds open: reported every frame until it says they ended,
+// so the managed diff sees a continuing overlap.
+std::vector<uint32_t> g_SolverHeld;
 
-	// A ceiling, not a size: the list is drained every frame, and only grows
-	// unbounded when managed code never reads it.
-	const int kMaxOverlapPairs = 8192;
+// A ceiling, not a size: the list is drained every frame, and only grows
+// unbounded when managed code never reads it.
+const int kMaxOverlapPairs = 8192;
 
-	bool g_bOverlapsOverflowed = false;
+bool g_bOverlapsOverflowed = false;
 
-	// Appends a pair once; the engine can report the same pair twice in a frame.
-	void OverlapAppend( std::vector< uint32_t > &list, uint32_t hOne, uint32_t hTwo )
+// Appends a pair once; the engine can report the same pair twice in a frame.
+void OverlapAppend( std::vector<uint32_t> &list, uint32_t hOne, uint32_t hTwo )
+{
+	if ( hOne == INVALID_EHANDLE_INDEX || hTwo == INVALID_EHANDLE_INDEX || hOne == hTwo )
+		return;
+
+	if ( (int)list.size() >= kMaxOverlapPairs * 2 )
 	{
-		if ( hOne == INVALID_EHANDLE_INDEX || hTwo == INVALID_EHANDLE_INDEX || hOne == hTwo )
+		if ( !g_bOverlapsOverflowed )
+		{
+			g_bOverlapsOverflowed = true;
+			Warning( "[SourceSharp/Touch] the overlap list reached %d pairs without being "
+					 "read. Managed code is not calling EntityOverlapReport, so no touch, "
+					 "trigger or pickup will fire.\n",
+					 kMaxOverlapPairs );
+		}
+
+		return;
+	}
+
+	for ( size_t i = 0; i + 1 < list.size(); i += 2 )
+	{
+		if ( ( list[i] == hOne && list[i + 1] == hTwo ) || ( list[i] == hTwo && list[i + 1] == hOne ) )
 			return;
+	}
 
-		if ( (int)list.size() >= kMaxOverlapPairs * 2 )
+	list.push_back( hOne );
+	list.push_back( hTwo );
+}
+
+void OverlapDrainPending( std::vector<uint32_t> &into )
+{
+	for ( size_t i = 0; i + 1 < g_Pending.size(); i += 2 )
+		OverlapAppend( into, g_Pending[i], g_Pending[i + 1] );
+
+	g_Pending.clear();
+}
+
+void OverlapForget( std::vector<uint32_t> &list, uint32_t hOne, uint32_t hTwo )
+{
+	for ( size_t i = 0; i + 1 < list.size(); i += 2 )
+	{
+		if ( ( list[i] == hOne && list[i + 1] == hTwo ) || ( list[i] == hTwo && list[i + 1] == hOne ) )
 		{
-			if ( !g_bOverlapsOverflowed )
-			{
-				g_bOverlapsOverflowed = true;
-				Warning( "[SourceSharp/Touch] the overlap list reached %d pairs without being "
-				         "read. Managed code is not calling EntityOverlapReport, so no touch, "
-				         "trigger or pickup will fire.\n", kMaxOverlapPairs );
-			}
-
+			list.erase( list.begin() + i, list.begin() + i + 2 );
 			return;
 		}
-
-		for ( size_t i = 0; i + 1 < list.size(); i += 2 )
-		{
-			if ( ( list[i] == hOne && list[i + 1] == hTwo )
-			  || ( list[i] == hTwo && list[i + 1] == hOne ) )
-				return;
-		}
-
-		list.push_back( hOne );
-		list.push_back( hTwo );
 	}
-
-	void OverlapDrainPending( std::vector< uint32_t > &into )
-	{
-		for ( size_t i = 0; i + 1 < g_Pending.size(); i += 2 )
-			OverlapAppend( into, g_Pending[i], g_Pending[i + 1] );
-
-		g_Pending.clear();
-	}
-
-	void OverlapForget( std::vector< uint32_t > &list, uint32_t hOne, uint32_t hTwo )
-	{
-		for ( size_t i = 0; i + 1 < list.size(); i += 2 )
-		{
-			if ( ( list[i] == hOne && list[i + 1] == hTwo )
-			  || ( list[i] == hTwo && list[i + 1] == hOne ) )
-			{
-				list.erase( list.begin() + i, list.begin() + i + 2 );
-				return;
-			}
-		}
-	}
+}
 }
 
 // Drops everything: on a level change every handle names a departing entity.
@@ -870,12 +863,7 @@ int32_t SourceSharp_EntityOverlapReport( uint32_t *pOutPairs, int32_t nMaxPairs 
 
 Toucher_t CStandaloneEntity::AsToucher()
 {
-	Toucher_t toucher =
-	{
-		static_cast< IHandleEntity * >( static_cast< IServerEntity * >( this ) ),
-		NULL,
-		this
-	};
+	Toucher_t toucher = { static_cast<IHandleEntity *>( static_cast<IServerEntity *>( this ) ), NULL, this };
 
 	return toucher;
 }
@@ -891,7 +879,7 @@ void CStandaloneEntity::TouchTriggers( const Vector &vecPrevOrigin )
 		return;
 
 	const bool bIsTrigger = ( Block().Head.SolidFlags & FSOLID_TRIGGER ) != 0;
-	const bool bIsSolid   = ( Block().Head.SolidType != SOLID_NONE ) && !( Block().Head.SolidFlags & FSOLID_NOT_SOLID );
+	const bool bIsSolid = ( Block().Head.SolidType != SOLID_NONE ) && !( Block().Head.SolidFlags & FSOLID_NOT_SOLID );
 
 	if ( Block().Head.SolidType == SOLID_BSP && Block().Head.CollisionModelIndex <= 0 )
 		return;
@@ -932,11 +920,13 @@ void CStandaloneEntity::SetTriggerBloat( int nBloat, bool bUniform )
 void CStandaloneEntity::WorldCollisionBounds( Vector *pMins, Vector *pMaxs ) const
 {
 	Vector vecMins, vecMaxs;
-	SourceSharp_CollisionBoundsToWorld( Block().Head.SolidType, Block().Head.SolidFlags,
-	                                    Block().Head.Mins, Block().Head.Maxs,
-	                                    Block().Head.Origin, Block().Head.Angles, &vecMins, &vecMaxs );
-	if ( pMins ) *pMins = vecMins;
-	if ( pMaxs ) *pMaxs = vecMaxs;
+	SourceSharp_CollisionBoundsToWorld( Block().Head.SolidType, Block().Head.SolidFlags, Block().Head.Mins,
+										Block().Head.Maxs, Block().Head.Origin, Block().Head.Angles, &vecMins,
+										&vecMaxs );
+	if ( pMins )
+		*pMins = vecMins;
+	if ( pMaxs )
+		*pMaxs = vecMaxs;
 }
 
 void CStandaloneEntity::MovePartitionElement()
@@ -944,7 +934,8 @@ void CStandaloneEntity::MovePartitionElement()
 	// The surrounding box, as CCollisionProperty::UpdatePartition files it.
 	Vector vecMins, vecMaxs;
 	WorldCollisionBounds( &vecMins, &vecMaxs );
-	SourceSharp_SurroundingBounds( Block().Head.SolidFlags, m_nTriggerBloat, m_bUniformTriggerBloat, &vecMins, &vecMaxs );
+	SourceSharp_SurroundingBounds( Block().Head.SolidFlags, m_nTriggerBloat, m_bUniformTriggerBloat, &vecMins,
+								   &vecMaxs );
 	::partition->ElementMoved( m_Partition, vecMins, vecMaxs );
 }
 
@@ -986,8 +977,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 	// The tier the factory sized the allocation from; looking it up again could
 	// disagree after a managed reload. Never below the block's tier.
 	if ( pClass )
-		m_iTier = ( pClass->iTier >= 0 ) ? pClass->iTier
-		                                 : SourceSharp_StandaloneMinTier();
+		m_iTier = ( pClass->iTier >= 0 ) ? pClass->iTier : SourceSharp_StandaloneMinTier();
 
 	// A blob shorter than the class's published layout means the entity was
 	// created before its type was published, and managed state would overrun it.
@@ -1003,10 +993,10 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 		{
 			s_bWarnedShortBlob = true;
 			Warning( "[SourceSharp] standalone '%s': allocated a %d-byte blob (tier %d) for a "
-			         "class whose published layout is %d bytes. Its managed state would write "
-			         "past the end of the allocation. This is a startup ORDERING fault -- the "
-			         "entity was created before its type was published.\n",
-				pName, BlobBytes(), m_iTier, pType->nLayoutBytes );
+					 "class whose published layout is %d bytes. Its managed state would write "
+					 "past the end of the allocation. This is a startup ORDERING fault -- the "
+					 "entity was created before its type was published.\n",
+					 pName, BlobBytes(), m_iTier, pType->nLayoutBytes );
 		}
 	}
 
@@ -1016,7 +1006,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 	// Set before the map's keys, which may change it; Spawn applies the result.
 	if ( pClass )
 	{
-		Block().Head.SolidType  = pClass->nSolidType;
+		Block().Head.SolidType = pClass->nSolidType;
 		Block().Head.SolidFlags = pClass->nSolidFlags;
 	}
 
@@ -1026,12 +1016,12 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 	if ( pClass && pClass->bServerOnly )
 	{
 		Warning( "[SourceSharp] standalone '%s' is a SERVER-ONLY class with a shell. "
-		         "This build has no route that creates one (step 2e made every "
-		         "server-only class shell-less), so there is no engine-invisible "
-		         "entry to bind it at: the engine-invisible half of the handle "
-		         "range belongs to the managed EntityDirectory. The entity is "
-		         "constructed and holds NO handle -- nothing will resolve it.\n",
-			pClass->pClassName ? pClass->pClassName : "?" );
+				 "This build has no route that creates one (step 2e made every "
+				 "server-only class shell-less), so there is no engine-invisible "
+				 "entry to bind it at: the engine-invisible half of the handle "
+				 "range belongs to the managed EntityDirectory. The entity is "
+				 "constructed and holds NO handle -- nothing will resolve it.\n",
+				 pClass->pClassName ? pClass->pClassName : "?" );
 
 		g_Standalones.push_back( this );
 		return;
@@ -1069,11 +1059,11 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 	if ( !hIssued.IsValid() )
 	{
 		Warning( "[SourceSharp] standalone '%s': entry %d could not issue a "
-		         "handle -- it is out of range or ALREADY BOUND to another "
-		         "shell. This entity will exist and resolve to nothing: no "
-		         "handle to it resolves and no find-by-name reaches it. "
-		         "cs_sv_slot_table's refusal counter is the other half of this.\n",
-			( pClass && pClass->pClassName ) ? pClass->pClassName : GetClassname(), nEntry );
+				 "handle -- it is out of range or ALREADY BOUND to another "
+				 "shell. This entity will exist and resolve to nothing: no "
+				 "handle to it resolves and no find-by-name reaches it. "
+				 "cs_sv_slot_table's refusal counter is the other half of this.\n",
+				 ( pClass && pClass->pClassName ) ? pClass->pClassName : GetClassname(), nEntry );
 	}
 
 	SetRefEHandle( hIssued );
@@ -1085,14 +1075,14 @@ void CStandaloneEntity::Spawn()
 {
 	// Remembered before anything can move it: movement is relative to where
 	// the mapper drew the entity.
-	m_vecSpawnOrigin   = Block().Head.Origin;
+	m_vecSpawnOrigin = Block().Head.Origin;
 	m_angSpawnRotation = Block().Head.Angles;
 
 	AngleMatrix( Block().Head.Angles, Block().Head.Origin, Block().Head.WorldTransform );
 
 	if ( m_szModel[0] )
 	{
-		char szModel[ sizeof( m_szModel ) ];
+		char szModel[sizeof( m_szModel )];
 		ss::StrCopy( szModel, m_szModel, sizeof( szModel ) );
 		SetModelName( szModel );
 	}
@@ -1124,7 +1114,7 @@ bool CStandaloneEntity::KeyValue( const char *szKeyName, const char *szValue )
 {
 	// Two statements, not `||`: the offer to managed code is unconditional,
 	// including for keys the shell claims.
-	const bool bShell   = KeyValueShellOnly( szKeyName, szValue );
+	const bool bShell = KeyValueShellOnly( szKeyName, szValue );
 	const bool bManaged = OnManagedKeyValue( szKeyName, szValue );
 
 	return bShell || bManaged;
@@ -1192,8 +1182,8 @@ bool CStandaloneEntity::KeyValueShellOnly( const char *szKeyName, const char *sz
 }
 
 // An input from the map. The shell claims none of its own: managed code decides.
-bool CStandaloneEntity::AcceptInput( const char *szInputName, const Activator_t &activator,
-                                     IGameEntity *pCaller, const ss::variant_t &Value )
+bool CStandaloneEntity::AcceptInput( const char *szInputName, const Activator_t &activator, IGameEntity *pCaller,
+									 const ss::variant_t &Value )
 {
 	return OnManagedInput( szInputName, activator, Value );
 }
@@ -1262,9 +1252,7 @@ void CStandaloneEntity::SetVelocity( const Vector &vecVelocity )
 
 void CStandaloneEntity::SetOwnerHandle( uint32_t hOwner )
 {
-	BlockOwner() = ( hOwner == INVALID_EHANDLE_INDEX )
-		? CBaseHandle()
-		: CBaseHandle::UnsafeFromIndex( (int)hOwner );
+	BlockOwner() = ( hOwner == INVALID_EHANDLE_INDEX ) ? CBaseHandle() : CBaseHandle::UnsafeFromIndex( (int)hOwner );
 
 	MarkBlockChanged( SS_BLOCK_HEAD_OFFSET( OwnerHandle ) );
 }
@@ -1293,8 +1281,7 @@ void CStandaloneEntity::Remove()
 	{
 		IManagedEntities *pApi = ManagedEntities();
 
-		if ( pApi &&
-		     pApi->EntityRemoveRequested( (uint32_t)handle.ToInt() ) != 0 )
+		if ( pApi && pApi->EntityRemoveRequested( (uint32_t)handle.ToInt() ) != 0 )
 			return;
 	}
 
@@ -1312,7 +1299,7 @@ void SourceSharp_DestroyShell( const uint32_t *pHandles, int32_t nCount )
 
 	for ( int32_t i = 0; i < nCount; i++ )
 	{
-		const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( pHandles[ i ] );
+		const SourceSharpEntity_t ent = SourceSharp_ResolveEntity( pHandles[i] );
 
 		if ( ent.pStandalone )
 			delete ent.pStandalone;

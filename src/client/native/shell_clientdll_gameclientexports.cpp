@@ -8,48 +8,26 @@
 // SS_REASON b  an interface resolved by name at load
 // The gameui's channel into the client: voice bans, the gameui_activated and
 // gameui_hidden events, and the achievements panel this client does not have.
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
+
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
 #include "voice_status.h"
-#include "igameevents.h"
+
 #include "game/client/IGameClientExports.h"
-#include "tier1/interface.h"
-#include "vgui_controls/Image.h"
-#include "GameEventListener.h"
-#include "hud.h"
 
 // Interface for gameui to modify voice bans.
 class CGameClientExports : public IGameClientExports
 {
 public:
 	// ingame voice manipulation
-	bool IsPlayerGameVoiceMuted(int playerIndex)
-	{
-		return GetClientVoiceMgr()->IsPlayerBlocked(playerIndex);
-	}
+	bool IsPlayerGameVoiceMuted( int playerIndex ) { return GetClientVoiceMgr()->IsPlayerBlocked( playerIndex ); }
 
-	void MutePlayerGameVoice(int playerIndex)
-	{
-		GetClientVoiceMgr()->SetPlayerBlockedState(playerIndex, true);
-	}
+	void MutePlayerGameVoice( int playerIndex ) { GetClientVoiceMgr()->SetPlayerBlockedState( playerIndex, true ); }
 
-	void UnmutePlayerGameVoice(int playerIndex)
-	{
-		GetClientVoiceMgr()->SetPlayerBlockedState(playerIndex, false);
-	}
+	void UnmutePlayerGameVoice( int playerIndex ) { GetClientVoiceMgr()->SetPlayerBlockedState( playerIndex, false ); }
 
 	void OnGameUIActivated()
 	{
@@ -72,10 +50,15 @@ public:
 	// Stock's achievements interface is never set here and the econ strings are NULL
 	// without econ items, so these answer nothing.
 	void CreateAchievementsPanel( vgui::Panel *pParent ) {}
+
 	void DisplayAchievementPanel() {}
+
 	void ShutdownAchievementPanel() {}
+
 	int GetAchievementsPanelMinWidth() const { return 0; }
+
 	const char *GetHolidayString() { return NULL; }
+
 	const char *GetOperationString() { return NULL; }
 };
 

@@ -9,49 +9,19 @@
 // C_LocalTempEntity's renderable members; managed code decides everything they
 // carry out. ITempEnts slots nothing in this mod calls warn once if called.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "client_entity.h"
+
 #include "tempent.h"
 #include "c_te_legacytempents.h"
 #include "clienteffectprecachesystem.h"
-#include "engine/ivmodelinfo.h"
+
 #include "model_types.h"
-#include "view.h"
-#include "datacache/imdlcache.h"
-#include "clientleafsystem.h"
-#include "engine/IClientLeafSystem.h"
-#include "engine/ivmodelrender.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "tier0/basetypes.h"
-#include "tier0/dbg.h"
-#include "tier1/mempool.h"
-#include "tier1/utllinkedlist.h"
-#include "Sprite.h"
-#include "basehandle.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
-#include "const.h"
-#include "eiface.h"
-#include "globalvars_base.h"
-#include "icliententityinternal.h"
-#include "iclientrenderable.h"
+
 #include "particlemgr.h"
-#include "shared_classnames.h"
-#include "vphysics_interface.h"
-#include "sourcesharp.h"
+
 #include "imanaged_areas_client.h"
-#include "shell_renderable.h"
 
 // The pool's seam (shell_te_pool_client.cpp).
 void SourceSharpTePool_Update( float flFrameTime );
@@ -78,9 +48,14 @@ CLIENTEFFECT_MATERIAL( "effects/strider_muzzle" )
 CLIENTEFFECT_REGISTER_END()
 
 static CTempEnts g_TempEnts;
-ITempEnts *tempents = ( ITempEnts * )&g_TempEnts;
+ITempEnts *tempents = (ITempEnts *)&g_TempEnts;
 
-static void PutVector( float *p, const Vector &v ) { p[0] = v.x; p[1] = v.y; p[2] = v.z; }
+static void PutVector( float *p, const Vector &v )
+{
+	p[0] = v.x;
+	p[1] = v.y;
+	p[2] = v.z;
+}
 
 C_LocalTempEntity::C_LocalTempEntity()
 {
@@ -95,12 +70,12 @@ C_LocalTempEntity::C_LocalTempEntity()
 
 	// The block arrives zeroed; these are the values zero is wrong for.
 	// m_nFXComputeFrame: zero is a real frame number.
-	index             = -1;
-	m_pModel          = NULL;
-	m_nRenderMode     = kRenderNormal;
-	m_nRenderFX       = kRenderFxNone;
+	index = -1;
+	m_pModel = NULL;
+	m_nRenderMode = kRenderNormal;
+	m_nRenderFX = kRenderFxNone;
 	m_clrRender.r = m_clrRender.g = m_clrRender.b = m_clrRender.a = 255;
-	m_nRenderFXBlend  = 255;
+	m_nRenderFXBlend = 255;
 	m_nFXComputeFrame = -1;
 }
 
@@ -136,9 +111,7 @@ bool C_LocalTempEntity::Frame( float frametime, int framenumber )
 }
 
 // The managed pool removes a slot from its breakmodel group when it frees it.
-void C_LocalTempEntity::OnRemoveTempEntity()
-{
-}
+void C_LocalTempEntity::OnRemoveTempEntity() {}
 
 bool C_LocalTempEntity::IsTransparent()
 {
@@ -198,7 +171,7 @@ void C_LocalTempEntity::ComputeFxBlend()
 	if ( !pFx )
 		return;
 
-	float in[ 14 ];
+	float in[14];
 	in[0] = (float)m_nRenderFX;
 	in[1] = (float)m_clrRender.a;
 	in[2] = (float)m_nRenderMode;
@@ -208,7 +181,7 @@ void C_LocalTempEntity::ComputeFxBlend()
 	PutVector( in + 8, CurrentViewOrigin() );
 	PutVector( in + 11, CurrentViewForward() );
 
-	int32_t out[ 2 ] = { 255, m_clrRender.a };
+	int32_t out[2] = { 255, m_clrRender.a };
 	pFx->TempEntBlend( in, out );
 
 	SetRenderColorA( (byte)out[1] );
@@ -222,7 +195,6 @@ void C_LocalTempEntity::ComputeFxBlend()
 
 int C_LocalTempEntity::DrawStudioModel( int modelFlags )
 {
-
 	if ( !GetModel() || modelinfo->GetModelType( GetModel() ) != mod_studio )
 		return 0;
 
@@ -233,8 +205,8 @@ int C_LocalTempEntity::DrawStudioModel( int modelFlags )
 	if ( m_pfnDrawHelper )
 		return ( *m_pfnDrawHelper )( this, modelFlags );
 
-	return modelrender->DrawModel( modelFlags, this, MODEL_INSTANCE_INVALID, index, GetModel(),
-	                               GetAbsOrigin(), GetAbsAngles(), m_nSkin, m_nBody, m_nHitboxSet );
+	return modelrender->DrawModel( modelFlags, this, MODEL_INSTANCE_INVALID, index, GetModel(), GetAbsOrigin(),
+								   GetAbsAngles(), m_nSkin, m_nBody, m_nHitboxSet );
 }
 
 int C_LocalTempEntity::DrawModel( int modelFlags )
@@ -247,7 +219,7 @@ int C_LocalTempEntity::DrawModel( int modelFlags )
 	{
 		if ( IManagedFxClient *pFx = ManagedFxClient() )
 		{
-			float in[ 9 ];
+			float in[9];
 			PutVector( in, m_vecNormal );
 			PutVector( in + 3, GetAbsOrigin() );
 			PutVector( in + 6, MainViewOrigin() );
@@ -257,16 +229,16 @@ int C_LocalTempEntity::DrawModel( int modelFlags )
 
 	switch ( modelinfo->GetModelType( GetModel() ) )
 	{
-	case mod_sprite:
-		// NULL entity: a tempent has no IClientEntity for the material proxies, and
-		// they treat NULL as "not an entity".
-		return DrawSprite( NULL, GetModel(), GetAbsOrigin(), GetAbsAngles(), m_flFrame, NULL, m_nSkin,
-		                   GetRenderMode(), m_nRenderFX, m_clrRender.a, m_clrRender.r, m_clrRender.g,
-		                   m_clrRender.b, m_flSpriteScale );
-	case mod_studio:
-		return DrawStudioModel( modelFlags );
-	default:
-		return 0;
+		case mod_sprite:
+			// NULL entity: a tempent has no IClientEntity for the material proxies, and
+			// they treat NULL as "not an entity".
+			return DrawSprite( NULL, GetModel(), GetAbsOrigin(), GetAbsAngles(), m_flFrame, NULL, m_nSkin,
+							   GetRenderMode(), m_nRenderFX, m_clrRender.a, m_clrRender.r, m_clrRender.g, m_clrRender.b,
+							   m_flSpriteScale );
+		case mod_studio:
+			return DrawStudioModel( modelFlags );
+		default:
+			return 0;
 	}
 }
 
@@ -274,8 +246,7 @@ int C_LocalTempEntity::DrawModel( int modelFlags )
 // builds stock's tempent pose (sequence 0, cycle 0, zero pose parameters) and
 // writes the render transform into every slot the build did not; with no
 // managed side, or a non-studio model, every slot is the render transform.
-bool CShellRenderable::SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask,
-                                   float currentTime )
+bool CShellRenderable::SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime )
 {
 	if ( !pBoneToWorldOut || nMaxBones <= 0 )
 		return true;
@@ -288,17 +259,16 @@ bool CShellRenderable::SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, 
 	{
 		const Vector &vecOrigin = GetRenderOrigin();
 		const QAngle &angAngles = GetRenderAngles();
-		const float flPlace[ 6 ] = { vecOrigin.x, vecOrigin.y, vecOrigin.z,
-		                             angAngles.x, angAngles.y, angAngles.z };
+		const float flPlace[6] = { vecOrigin.x, vecOrigin.y, vecOrigin.z, angAngles.x, angAngles.y, angAngles.z };
 
 		if ( pBones->PoseModel( modelinfo->GetModelIndex( modelinfo->GetModelName( pModel ) ), flPlace,
-		                        matRender.Base(), pBoneToWorldOut[0].Base(), nMaxBones, boneMask,
-		                        currentTime, gpGlobals->framecount ) )
+								matRender.Base(), pBoneToWorldOut[0].Base(), nMaxBones, boneMask, currentTime,
+								gpGlobals->framecount ) )
 			return true;
 	}
 
 	for ( int i = 0; i < nMaxBones; i++ )
-		MatrixCopy( matRender, pBoneToWorldOut[ i ] );
+		MatrixCopy( matRender, pBoneToWorldOut[i] );
 
 	return true;
 }
@@ -334,8 +304,8 @@ void SourceSharpTePool_JoinBreakGroup( C_LocalTempEntity *pTemp, bool bSlave )
 		pTemp->SetDrawHelper( BreakModelDrawHelper );
 }
 
-CTempEnts::CTempEnts() :
-	m_TempEntsPool( ( MAX_TEMP_ENTITIES / 20 ), CUtlMemoryPool::GROW_SLOW )
+CTempEnts::CTempEnts()
+	: m_TempEntsPool( ( MAX_TEMP_ENTITIES / 20 ), CUtlMemoryPool::GROW_SLOW )
 {
 }
 
@@ -368,7 +338,6 @@ void CTempEnts::LevelShutdown()
 
 void CTempEnts::Update()
 {
-
 	if ( !engine->IsInGame() )
 		return;
 
@@ -409,7 +378,8 @@ void CTempEnts::MuzzleFlash( int type, ClientEntityHandle_t hEntity, int attachm
 		pFx->TempEntMuzzleFlash( type, (uint32_t)hEntity.ToInt(), attachmentIndex, firstPerson ? 1 : 0, 0 );
 }
 
-void CTempEnts::MuzzleFlash( const Vector &pos1, const QAngle &angles, int type, ClientEntityHandle_t hEntity, bool firstPerson )
+void CTempEnts::MuzzleFlash( const Vector &pos1, const QAngle &angles, int type, ClientEntityHandle_t hEntity,
+							 bool firstPerson )
 {
 	if ( IManagedFxClient *pFx = ManagedFxClient() )
 		pFx->TempEntMuzzleFlash( type, (uint32_t)hEntity.ToInt(), 1, firstPerson ? 1 : 0, 1 );
@@ -420,10 +390,14 @@ void CTempEnts::EjectBrass( const Vector &pos1, const QAngle &angles, const QAng
 	IManagedFxClient *pFx = ManagedFxClient();
 	if ( !pFx )
 		return;
-	float in[ 9 ];
+	float in[9];
 	PutVector( in, pos1 );
-	in[3] = angles.x; in[4] = angles.y; in[5] = angles.z;
-	in[6] = gunAngles.x; in[7] = gunAngles.y; in[8] = gunAngles.z;
+	in[3] = angles.x;
+	in[4] = angles.y;
+	in[5] = angles.z;
+	in[6] = gunAngles.x;
+	in[7] = gunAngles.y;
+	in[8] = gunAngles.z;
 	pFx->TempEntEjectBrass( in, type );
 }
 
@@ -434,29 +408,129 @@ void CTempEnts::AttachTentToPlayer( int client, int modelIndex, float zoffset, f
 }
 
 // The slots nothing in this mod calls: each warns once.
-#define SS_TEMPENTS_NO_CALLER( name ) \
-	do { static bool s_bSaid = false; if ( !s_bSaid ) { s_bSaid = true; \
-		DevWarning( "[SourceSharp] CTempEnts::" name " was called; nothing in this mod calls it, and the " \
-		            "managed temp entities spawn through TempEntSpawns. Nothing drawn.\n" ); } } while ( 0 )
+#define SS_TEMPENTS_NO_CALLER( name )                                                                          \
+	do                                                                                                         \
+	{                                                                                                          \
+		static bool s_bSaid = false;                                                                           \
+		if ( !s_bSaid )                                                                                        \
+		{                                                                                                      \
+			s_bSaid = true;                                                                                    \
+			DevWarning( "[SourceSharp] CTempEnts::" name " was called; nothing in this mod calls it, and the " \
+						"managed temp entities spawn through TempEntSpawns. Nothing drawn.\n" );               \
+		}                                                                                                      \
+	} while ( 0 )
 
-void CTempEnts::BloodSprite( const Vector &, int, int, int, int, int, int, float ) { SS_TEMPENTS_NO_CALLER( "BloodSprite" ); }
-void CTempEnts::RicochetSprite( const Vector &, model_t *, float, float ) { SS_TEMPENTS_NO_CALLER( "RicochetSprite" ); }
-void CTempEnts::BreakModel( const Vector &, const QAngle &, const Vector &, const Vector &, float, float, int, int, char ) { SS_TEMPENTS_NO_CALLER( "BreakModel" ); }
-void CTempEnts::Bubbles( const Vector &, const Vector &, float, int, int, float ) { SS_TEMPENTS_NO_CALLER( "Bubbles" ); }
-void CTempEnts::BubbleTrail( const Vector &, const Vector &, float, int, int, float ) { SS_TEMPENTS_NO_CALLER( "BubbleTrail" ); }
-void CTempEnts::Sprite_Explode( C_LocalTempEntity *, float, int ) { SS_TEMPENTS_NO_CALLER( "Sprite_Explode" ); }
-void CTempEnts::FizzEffect( IClientRenderable *, int, int, int ) { SS_TEMPENTS_NO_CALLER( "FizzEffect" ); }
-C_LocalTempEntity *CTempEnts::DefaultSprite( const Vector &, int, float ) { SS_TEMPENTS_NO_CALLER( "DefaultSprite" ); return NULL; }
-void CTempEnts::Sprite_Smoke( C_LocalTempEntity *, float ) { SS_TEMPENTS_NO_CALLER( "Sprite_Smoke" ); }
-C_LocalTempEntity *CTempEnts::TempSprite( const Vector &, const Vector &, float, int, int, int, float, float, int, const Vector & ) { SS_TEMPENTS_NO_CALLER( "TempSprite" ); return NULL; }
-void CTempEnts::KillAttachedTents( int ) { SS_TEMPENTS_NO_CALLER( "KillAttachedTents" ); }
-void CTempEnts::Sprite_Spray( const Vector &, const Vector &, int, int, int, int ) { SS_TEMPENTS_NO_CALLER( "Sprite_Spray" ); }
-void CTempEnts::PlaySound( C_LocalTempEntity *, float ) { SS_TEMPENTS_NO_CALLER( "PlaySound" ); }
-C_LocalTempEntity *CTempEnts::SpawnTempModel( const model_t *, const Vector &, const QAngle &, const Vector &, float, int ) { SS_TEMPENTS_NO_CALLER( "SpawnTempModel" ); return NULL; }
-void CTempEnts::Sprite_Trail( const Vector &, const Vector &, int, int, float, float, float, int, float ) { SS_TEMPENTS_NO_CALLER( "Sprite_Trail" ); }
-void CTempEnts::RocketFlare( const Vector & ) { SS_TEMPENTS_NO_CALLER( "RocketFlare" ); }
-void CTempEnts::HL1EjectBrass( const Vector &, const QAngle &, const Vector &, int ) { SS_TEMPENTS_NO_CALLER( "HL1EjectBrass" ); }
-void CTempEnts::CSEjectBrass( const Vector &, const QAngle &, int, int, CBasePlayer * ) { SS_TEMPENTS_NO_CALLER( "CSEjectBrass" ); }
-void CTempEnts::PhysicsProp( int, int, const Vector &, const QAngle &, const Vector &, int, int ) { SS_TEMPENTS_NO_CALLER( "PhysicsProp" ); }
-C_LocalTempEntity *CTempEnts::ClientProjectile( const Vector &, const Vector &, const Vector &, int, int, IGameEntity *, const char *, const char * ) { SS_TEMPENTS_NO_CALLER( "ClientProjectile" ); return NULL; }
-C_PhysPropClientside *CTempEnts::PhysicsProp( const model_t *, int, const Vector &, const QAngle &, const Vector &, int, int, int ) { SS_TEMPENTS_NO_CALLER( "PhysicsProp(model)" ); return NULL; }
+void CTempEnts::BloodSprite( const Vector &, int, int, int, int, int, int, float )
+{
+	SS_TEMPENTS_NO_CALLER( "BloodSprite" );
+}
+
+void CTempEnts::RicochetSprite( const Vector &, model_t *, float, float )
+{
+	SS_TEMPENTS_NO_CALLER( "RicochetSprite" );
+}
+
+void CTempEnts::BreakModel( const Vector &, const QAngle &, const Vector &, const Vector &, float, float, int, int,
+							char )
+{
+	SS_TEMPENTS_NO_CALLER( "BreakModel" );
+}
+
+void CTempEnts::Bubbles( const Vector &, const Vector &, float, int, int, float )
+{
+	SS_TEMPENTS_NO_CALLER( "Bubbles" );
+}
+
+void CTempEnts::BubbleTrail( const Vector &, const Vector &, float, int, int, float )
+{
+	SS_TEMPENTS_NO_CALLER( "BubbleTrail" );
+}
+
+void CTempEnts::Sprite_Explode( C_LocalTempEntity *, float, int )
+{
+	SS_TEMPENTS_NO_CALLER( "Sprite_Explode" );
+}
+
+void CTempEnts::FizzEffect( IClientRenderable *, int, int, int )
+{
+	SS_TEMPENTS_NO_CALLER( "FizzEffect" );
+}
+
+C_LocalTempEntity *CTempEnts::DefaultSprite( const Vector &, int, float )
+{
+	SS_TEMPENTS_NO_CALLER( "DefaultSprite" );
+	return NULL;
+}
+
+void CTempEnts::Sprite_Smoke( C_LocalTempEntity *, float )
+{
+	SS_TEMPENTS_NO_CALLER( "Sprite_Smoke" );
+}
+
+C_LocalTempEntity *CTempEnts::TempSprite( const Vector &, const Vector &, float, int, int, int, float, float, int,
+										  const Vector & )
+{
+	SS_TEMPENTS_NO_CALLER( "TempSprite" );
+	return NULL;
+}
+
+void CTempEnts::KillAttachedTents( int )
+{
+	SS_TEMPENTS_NO_CALLER( "KillAttachedTents" );
+}
+
+void CTempEnts::Sprite_Spray( const Vector &, const Vector &, int, int, int, int )
+{
+	SS_TEMPENTS_NO_CALLER( "Sprite_Spray" );
+}
+
+void CTempEnts::PlaySound( C_LocalTempEntity *, float )
+{
+	SS_TEMPENTS_NO_CALLER( "PlaySound" );
+}
+
+C_LocalTempEntity *CTempEnts::SpawnTempModel( const model_t *, const Vector &, const QAngle &, const Vector &, float,
+											  int )
+{
+	SS_TEMPENTS_NO_CALLER( "SpawnTempModel" );
+	return NULL;
+}
+
+void CTempEnts::Sprite_Trail( const Vector &, const Vector &, int, int, float, float, float, int, float )
+{
+	SS_TEMPENTS_NO_CALLER( "Sprite_Trail" );
+}
+
+void CTempEnts::RocketFlare( const Vector & )
+{
+	SS_TEMPENTS_NO_CALLER( "RocketFlare" );
+}
+
+void CTempEnts::HL1EjectBrass( const Vector &, const QAngle &, const Vector &, int )
+{
+	SS_TEMPENTS_NO_CALLER( "HL1EjectBrass" );
+}
+
+void CTempEnts::CSEjectBrass( const Vector &, const QAngle &, int, int, CBasePlayer * )
+{
+	SS_TEMPENTS_NO_CALLER( "CSEjectBrass" );
+}
+
+void CTempEnts::PhysicsProp( int, int, const Vector &, const QAngle &, const Vector &, int, int )
+{
+	SS_TEMPENTS_NO_CALLER( "PhysicsProp" );
+}
+
+C_LocalTempEntity *CTempEnts::ClientProjectile( const Vector &, const Vector &, const Vector &, int, int, IGameEntity *,
+												const char *, const char * )
+{
+	SS_TEMPENTS_NO_CALLER( "ClientProjectile" );
+	return NULL;
+}
+
+C_PhysPropClientside *CTempEnts::PhysicsProp( const model_t *, int, const Vector &, const QAngle &, const Vector &, int,
+											  int, int )
+{
+	SS_TEMPENTS_NO_CALLER( "PhysicsProp(model)" );
+	return NULL;
+}

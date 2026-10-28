@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <cstddef>
 #include <string>
 #include <unordered_set>
 
@@ -18,20 +17,17 @@ struct CaselessLess
 	using is_transparent = void;
 
 	bool operator()( const char *a, const char *b ) const { return StrICmp( a, b ) < 0; }
-	bool operator()( const std::string &a, const std::string &b ) const
-	{
-		return StrICmp( a.c_str(), b.c_str() ) < 0;
-	}
+
+	bool operator()( const std::string &a, const std::string &b ) const { return StrICmp( a.c_str(), b.c_str() ) < 0; }
+
 	bool operator()( const std::string &a, const char *b ) const { return StrICmp( a.c_str(), b ) < 0; }
+
 	bool operator()( const char *a, const std::string &b ) const { return StrICmp( a, b.c_str() ) < 0; }
 };
 
 struct CaselessEqual
 {
-	bool operator()( const std::string &a, const std::string &b ) const
-	{
-		return StrICmp( a.c_str(), b.c_str() ) == 0;
-	}
+	bool operator()( const std::string &a, const std::string &b ) const { return StrICmp( a.c_str(), b.c_str() ) == 0; }
 };
 
 struct CaselessHash
@@ -53,10 +49,11 @@ class StringPool
 {
 public:
 	const char *Intern( const char *psz ) { return m_Strings.emplace( psz ).first->c_str(); }
+
 	int Count() const { return (int)m_Strings.size(); }
 
 private:
-	std::unordered_set< std::string > m_Strings;
+	std::unordered_set<std::string> m_Strings;
 };
 
 } // namespace ss

@@ -4,8 +4,6 @@
 // must match SourceSharp.Abi/EntityOp.cs. No engine headers, for the tests.
 #pragma once
 
-
-
 enum EntityOp_t
 {
 	// Inbound: native tells managed.
@@ -58,11 +56,9 @@ enum EntityOp_t
 
 // Ops that are always dispatched: they create or drop the managed instance, or
 // ask a question with no virtual to compute a bit from.
-#define ENTITY_OP_ALWAYS_MASK                          \
-	( ENTITY_OP_BIT( ENTITY_OP_SPAWN )                 \
-	| ENTITY_OP_BIT( ENTITY_OP_KEY_VALUE )             \
-	| ENTITY_OP_BIT( ENTITY_OP_REMOVED )               \
-	| ENTITY_OP_BIT( ENTITY_OP_FILTER_PASSES ) )
+#define ENTITY_OP_ALWAYS_MASK                                                                                        \
+	( ENTITY_OP_BIT( ENTITY_OP_SPAWN ) | ENTITY_OP_BIT( ENTITY_OP_KEY_VALUE ) | ENTITY_OP_BIT( ENTITY_OP_REMOVED ) | \
+	  ENTITY_OP_BIT( ENTITY_OP_FILTER_PASSES ) )
 
 // The default mask for a class whose RegisterClassOps never arrived: deliver everything.
 #define ENTITY_OP_MASK_ALL 0xFFFFFFFFu

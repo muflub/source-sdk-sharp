@@ -4,10 +4,10 @@ static CClientSystem *ClientLeafGameSystem()	HOOK	kClientSystems[]'s adapter for
 static CClientSystem *DetailObjectGameSystem()	HOOK	kClientSystems[]'s adapter for the detail props' row
 static CClientSystem *ClientShadowGameSystem()	HOOK	kClientSystems[]'s adapter for the shadow manager's row
 static CClientSystem *ClientEffectPrecacheGameSystem()	HOOK	kClientSystems[]'s adapter for the effect precache row
-const char *SourceSharp_ClientMapName(	BOUNDARY	IVEngineClient::GetLevelName's file base into the caller's buffer, empty before a level (what IGameSystem::MapName answered)
-static void WalkForward(	HOOK	a stage walked over the fixed client-system table in its order (stock's IGameSystem::*AllSystems)
-static void WalkBackward(	HOOK	a shutdown stage walked over the same table in reverse
-static void WalkForwardPerFrame(	HOOK	a per-frame stage walked over the table's per-frame rows
+const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes )	BOUNDARY	IVEngineClient::GetLevelName's file base into the caller's buffer, empty before a level (what IGameSystem::MapName answered)
+static void WalkForward( ClientSystemStage_t fn )	HOOK	a stage walked over the fixed client-system table in its order (stock's IGameSystem::*AllSystems)
+static void WalkBackward( ClientSystemStage_t fn )	HOOK	a shutdown stage walked over the same table in reverse
+static void WalkForwardPerFrame( ClientSystemFrameStage_t fn )	HOOK	a per-frame stage walked over the table's per-frame rows
 bool SourceSharp_ClientSystemsInit()	HOOK	the Init walk, stopping at the first system that refuses (stock's InitAllSystems), naming it
 void SourceSharp_ClientSystemsPostInit()	HOOK	the PostInit walk
 void SourceSharp_ClientSystemsShutdown()	HOOK	the Shutdown walk, backwards

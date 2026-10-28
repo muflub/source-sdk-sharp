@@ -18,7 +18,10 @@ void ShellClientDll_RefuseExternal( const char *pMethod );
 class CShellClientDllRefusals
 {
 public:
-	enum { kMaxMethods = 24 };
+	enum
+	{
+		kMaxMethods = 24
+	};
 
 	// Warns and counts. Not rate limited: a refused method is expected never to run.
 	void Unreachable( const char *pMethod )
@@ -32,13 +35,13 @@ public:
 			if ( iRow < 0 && m_nMethods < kMaxMethods )
 			{
 				iRow = m_nMethods++;
-				m_pMethods[ iRow ] = pMethod;
-				m_nCounts[ iRow ] = 0;
+				m_pMethods[iRow] = pMethod;
+				m_nCounts[iRow] = 0;
 			}
 
 			// An overflowed table still counts the total.
 			if ( iRow >= 0 )
-				m_nCounts[ iRow ]++;
+				m_nCounts[iRow]++;
 		}
 
 		ShellClientDll_RefusalWarning( pMethod, m_nTotal );
@@ -48,20 +51,14 @@ public:
 
 	int MethodCount() const { return m_nMethods; }
 
-	const char *MethodAt( int i ) const
-	{
-		return ( i >= 0 && i < m_nMethods ) ? m_pMethods[ i ] : NULL;
-	}
+	const char *MethodAt( int i ) const { return ( i >= 0 && i < m_nMethods ) ? m_pMethods[i] : NULL; }
 
-	int CountAt( int i ) const
-	{
-		return ( i >= 0 && i < m_nMethods ) ? m_nCounts[ i ] : 0;
-	}
+	int CountAt( int i ) const { return ( i >= 0 && i < m_nMethods ) ? m_nCounts[i] : 0; }
 
 	int CountOf( const char *pMethod ) const
 	{
 		const int iRow = Find( pMethod );
-		return ( iRow < 0 ) ? 0 : m_nCounts[ iRow ];
+		return ( iRow < 0 ) ? 0 : m_nCounts[iRow];
 	}
 
 private:
@@ -72,7 +69,7 @@ private:
 
 		for ( int i = 0; i < m_nMethods; i++ )
 		{
-			if ( m_pMethods[ i ] != NULL && strcmp( m_pMethods[ i ], pMethod ) == 0 )
+			if ( m_pMethods[i] != NULL && strcmp( m_pMethods[i], pMethod ) == 0 )
 				return i;
 		}
 
@@ -81,6 +78,6 @@ private:
 
 	int m_nTotal = 0;
 	int m_nMethods = 0;
-	const char *m_pMethods[ kMaxMethods ] = {};
-	int m_nCounts[ kMaxMethods ] = {};
+	const char *m_pMethods[kMaxMethods] = {};
+	int m_nCounts[kMaxMethods] = {};
 };

@@ -34,23 +34,24 @@ class IThing
 {
 public:
 	virtual ~IThing() {}
-	virtual int  Connect() = 0;
-	virtual int  Shutdown() = 0;
+
+	virtual int Connect() = 0;
+	virtual int Shutdown() = 0;
 };
 
 class IReader
 {
 public:
-	virtual int  Open( const char *name ) = 0;
+	virtual int Open( const char *name ) = 0;
 	virtual bool Exists( const char *name ) = 0;
-	virtual int  Read( int handle ) = 0;
+	virtual int Read( int handle ) = 0;
 };
 
 class IFace : public IThing, public IReader
 {
 public:
-	virtual int  Search( const char *path ) = 0;
-	virtual int  Count() = 0;
+	virtual int Search( const char *path ) = 0;
+	virtual int Count() = 0;
 };
 
 // The concrete class carries virtuals of its own past the end of the interface,
@@ -59,22 +60,35 @@ public:
 class CThing : public IFace
 {
 public:
-	CThing() : m_nOpened( 0 ) {}
+	CThing()
+		: m_nOpened( 0 )
+	{
+	}
 
-	virtual int  Connect() { return 1; }
-	virtual int  Shutdown() { return 2; }
+	virtual int Connect() { return 1; }
 
-	virtual int  Open( const char *name ) { m_nOpened++; return Decorate( (int)strlen( name ) ); }
+	virtual int Shutdown() { return 2; }
+
+	virtual int Open( const char *name )
+	{
+		m_nOpened++;
+		return Decorate( (int)strlen( name ) );
+	}
+
 	virtual bool Exists( const char *name ) { return name != NULL && name[0] == 'y'; }
-	virtual int  Read( int handle ) { return handle * 2; }
 
-	virtual int  Search( const char *path ) { return path != NULL ? 7 : 0; }
-	virtual int  Count() { return m_nOpened; }
+	virtual int Read( int handle ) { return handle * 2; }
+
+	virtual int Search( const char *path ) { return path != NULL ? 7 : 0; }
+
+	virtual int Count() { return m_nOpened; }
 
 	// Past the interface, and reached through the vtable from Open above.
-	virtual int  Decorate( int value ) { return value + 100; }
-	virtual int  Unused1() { return 0; }
-	virtual int  Unused2() { return 0; }
+	virtual int Decorate( int value ) { return value + 100; }
+
+	virtual int Unused1() { return 0; }
+
+	virtual int Unused2() { return 0; }
 
 	int m_nOpened;
 };
@@ -83,17 +97,17 @@ public:
 // Hooks. Plain functions taking the object first, which is what the ABI makes of
 // a member function.
 //-----------------------------------------------------------------------------
-typedef int  ( *OpenFn )( void *self, const char *name );
+typedef int ( *OpenFn )( void *self, const char *name );
 typedef bool ( *ExistsFn )( void *self, const char *name );
-typedef int  ( *SearchFn )( void *self, const char *path );
+typedef int ( *SearchFn )( void *self, const char *path );
 
-OpenFn   g_pfnOpen = NULL;
+OpenFn g_pfnOpen = NULL;
 ExistsFn g_pfnExists = NULL;
 SearchFn g_pfnSearch = NULL;
 
-int  g_nOpenSeen = 0;
-int  g_nExistsSeen = 0;
-int  g_nSearchSeen = 0;
+int g_nOpenSeen = 0;
+int g_nExistsSeen = 0;
+int g_nSearchSeen = 0;
 const char *g_pLastName = NULL;
 
 class VTableHookTest : public ::testing::Test
@@ -155,7 +169,6 @@ TEST_F( VTableHookTest, AnInheritedMethodIsNumberedAgainstTheClassThatDeclaredIt
 	EXPECT_LT( throughDerived.slot, 16 );
 }
 
-
 TEST_F( VTableHookTest, MethodsDeclaredTogetherAreConsecutive )
 {
 	VTableHook::Member open = VTableHook::MemberOf( &IReader::Open );
@@ -170,7 +183,10 @@ TEST_F( VTableHookTest, MethodsDeclaredTogetherAreConsecutive )
 
 TEST_F( VTableHookTest, ANonVirtualMemberIsRefused )
 {
-	struct Plain { void Method() {} };
+	struct Plain
+	{
+		void Method() {}
+	};
 
 	VTableHook::Member member = VTableHook::MemberOf( &Plain::Method );
 	EXPECT_FALSE( member.isVirtual );

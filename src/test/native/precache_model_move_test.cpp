@@ -99,9 +99,9 @@ namespace
 // Every distinct name reached through "CBaseEntity::" in code (comments already
 // stripped by the caller).
 //-----------------------------------------------------------------------------
-std::set< std::string > CBaseEntityNamesIn( const std::string &strCode )
+std::set<std::string> CBaseEntityNamesIn( const std::string &strCode )
 {
-	std::set< std::string > names;
+	std::set<std::string> names;
 	const std::string strNeedle( "CBaseEntity::" );
 
 	size_t at = 0;
@@ -113,10 +113,9 @@ std::set< std::string > CBaseEntityNamesIn( const std::string &strCode )
 
 		size_t p = at + strNeedle.size();
 		std::string strName;
-		while ( p < strCode.size() &&
-		        ( isalnum( (unsigned char)strCode[ p ] ) || strCode[ p ] == '_' ) )
+		while ( p < strCode.size() && ( isalnum( (unsigned char)strCode[p] ) || strCode[p] == '_' ) )
 		{
-			strName += strCode[ p ];
+			strName += strCode[p];
 			p++;
 		}
 
@@ -197,7 +196,7 @@ std::set< std::string > CBaseEntityNamesIn( const std::string &strCode )
 
 TEST( PrecacheModelMoveScanner, NameExtractorFindsWhatItShould )
 {
-	const std::set< std::string > got =
+	const std::set<std::string> got =
 		CBaseEntityNamesIn( "x = CBaseEntity::Alpha(); CBaseEntity::Beta_2; CFoo::Gamma();" );
 
 	EXPECT_EQ( (size_t)2, got.size() );

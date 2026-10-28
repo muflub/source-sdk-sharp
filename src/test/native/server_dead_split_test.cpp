@@ -16,8 +16,8 @@ namespace
 {
 struct Split_t
 {
-	const char *pszSymbol;      // as nm prints it, mangled
-	const char *pszClientFile;  // farm-relative
+	const char *pszSymbol; // as nm prints it, mangled
+	const char *pszClientFile; // farm-relative
 };
 
 const Split_t kSplits[] = {
@@ -59,7 +59,8 @@ const Split_t kSplits[] = {
 	// importer, C_StandaloneEntity::ComputeFxBlend's portal-window fade, is
 	// managed's StandaloneFade, and client.so's link drops the wrapper (nm).
 	{ "_Z22LinearToGammaFullRangef", "sourcesharp/game/client/mathlib_port_client.cpp" },
-	{ "_Z34Vector3DMultiplyPositionProjectiveRK7VMatrixRK6VectorRS2_", "sourcesharp/game/client/mathlib_port_client.cpp" },
+	{ "_Z34Vector3DMultiplyPositionProjectiveRK7VMatrixRK6VectorRS2_",
+	  "sourcesharp/game/client/mathlib_port_client.cpp" },
 	{ "_ZN7VMatrixaSERKS_", "sourcesharp/game/client/mathlib_port_client.cpp" },
 	{ "ThreadGetCurrentId", "sourcesharp/game/client/tier0_thread_port.cpp" },
 	{ "_ZNV16CThreadFastMutex4LockEyj", "sourcesharp/game/client/tier0_thread_port.cpp" },
@@ -78,7 +79,7 @@ std::string NmRun( const std::string &cmd )
 	if ( !pPipe )
 		return std::string();
 	std::string out;
-	char buf[ 4096 ];
+	char buf[4096];
 	while ( fgets( buf, sizeof( buf ), pPipe ) )
 		out += buf;
 	pclose( pPipe );
@@ -94,7 +95,7 @@ std::string ObjectsOf( const char *pszTarget, size_t *pn )
 	{
 		if ( rel.size() > 2 && rel.compare( rel.size() - 2, 2, ".o" ) == 0 )
 		{
-			objs += " '" + ( rel[ 0 ] == '/' ? rel : strBuild + "/" + rel ) + "'";
+			objs += " '" + ( rel[0] == '/' ? rel : strBuild + "/" + rel ) + "'";
 			( *pn )++;
 		}
 	}
@@ -135,8 +136,7 @@ TEST( ServerDeadSplit, NoServerObjectImportsASplitSymbolAndServerSoDoesNotDefine
 	{
 		EXPECT_FALSE( HasLine( undef, std::string( " U " ) + s.pszSymbol ) )
 			<< s.pszSymbol << " is imported by a server object again: it goes back to the shared port";
-		EXPECT_FALSE( HasLine( so, std::string( " " ) + s.pszSymbol ) )
-			<< s.pszSymbol << " is defined in server.so";
+		EXPECT_FALSE( HasLine( so, std::string( " " ) + s.pszSymbol ) ) << s.pszSymbol << " is defined in server.so";
 	}
 }
 
@@ -149,6 +149,7 @@ TEST( ServerDeadSplit, TheClientFileStillDefinesEachSplitSymbol )
 	const std::string so = NmRun( "nm '" + cmake_graph::BuildDir() + "/out/client.so'" );
 	ASSERT_GT( so.size(), 10000u ) << "client.so read as nearly empty";
 	for ( const Split_t &s : kSplits )
-		EXPECT_TRUE( HasLine( so, std::string( " T " ) + s.pszSymbol ) || HasLine( so, std::string( " t " ) + s.pszSymbol ) )
+		EXPECT_TRUE( HasLine( so, std::string( " T " ) + s.pszSymbol ) ||
+					 HasLine( so, std::string( " t " ) + s.pszSymbol ) )
 			<< "client.so does not define " << s.pszSymbol;
 }

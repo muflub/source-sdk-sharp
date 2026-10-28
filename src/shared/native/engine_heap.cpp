@@ -39,9 +39,11 @@ void EngineHeapFree( void *pMem )
 	IEngineHeap *pHeap = FindEngineHeap();
 	if ( !pHeap )
 	{
-		fprintf( stderr, "[SourceSharp] EngineHeapFree(%p): no libtier0.so g_pMemAlloc in "
-		                 "this process, so the block cannot be tier0's. Refusing to free "
-		                 "it into another heap.\n", pMem );
+		fprintf( stderr,
+				 "[SourceSharp] EngineHeapFree(%p): no libtier0.so g_pMemAlloc in "
+				 "this process, so the block cannot be tier0's. Refusing to free "
+				 "it into another heap.\n",
+				 pMem );
 		abort();
 	}
 

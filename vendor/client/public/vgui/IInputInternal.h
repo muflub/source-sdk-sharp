@@ -9,7 +9,7 @@ namespace vgui
 
 typedef int HInputContext;
 
-#define DEFAULT_INPUT_CONTEXT ((vgui::HInputContext)~0)
+#define DEFAULT_INPUT_CONTEXT ( (vgui::HInputContext)~0 )
 
 class IInputInternal : public IInput
 {
@@ -22,7 +22,7 @@ public:
 	// called when a panel becomes invalid
 	virtual void unused_PanelDeleted() = 0;
 
-	// inputs into vgui input handling 
+	// inputs into vgui input handling
 	virtual void unused_InternalCursorMoved() = 0; //expects input in surface space
 	virtual void unused_InternalMousePressed() = 0;
 	virtual void unused_InternalMouseDoublePressed() = 0;
@@ -36,7 +36,7 @@ public:
 	// Creates/ destroys "input" contexts, which contains information
 	// about which controls have mouse + key focus, for example.
 	virtual void unused_CreateInputContext() = 0;
-	virtual void unused_DestroyInputContext() = 0; 
+	virtual void unused_DestroyInputContext() = 0;
 
 	// Associates a particular panel with an input context
 	// Associating NULL is valid; it disconnects the panel from the context

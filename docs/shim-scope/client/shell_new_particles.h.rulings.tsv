@@ -4,12 +4,12 @@
 [CShellNewParticleEffect] const char *GetEffectName() const	LAYOUT	the collection's name
 [CShellNewParticleEffect] CParticleCollection *Collection() const	LAYOUT	the library's collection
 [CShellNewParticleEffect] uint32_t Id() const	LAYOUT	the shell's id, managed's key
-[CShellNewParticleEffect] void SetSortOrigin(	LAYOUT	m_vSortOrigin, the caller's
+[CShellNewParticleEffect] void SetSortOrigin( const Vector &vSortOrigin )	LAYOUT	m_vSortOrigin, the caller's
 [CShellNewParticleEffect] const Vector &GetSortOrigin() const	LAYOUT	m_vSortOrigin
-[CShellNewParticleEffect] virtual const Vector &GetRenderOrigin(	SLOT	IClientRenderable: the sort origin
-[CShellNewParticleEffect] virtual const QAngle &GetRenderAngles(	SLOT	IClientRenderable: no rotation
+[CShellNewParticleEffect] virtual const Vector &GetRenderOrigin() OVERRIDE	SLOT	IClientRenderable: the sort origin
+[CShellNewParticleEffect] virtual const QAngle &GetRenderAngles() OVERRIDE	SLOT	IClientRenderable: no rotation
 [CShellNewParticleEffect] const char *GetDebugName() const	LAYOUT	the debug name Create was given
-[CShellNewParticleEffect] virtual bool ShouldDraw(	SLOT	IClientRenderable: always, as stock's
+[CShellNewParticleEffect] virtual bool ShouldDraw() OVERRIDE	SLOT	IClientRenderable: always, as stock's
 [CShellNewParticleEffect] bool IsReleasedSinceFrame() const	LAYOUT	the frame's released flag
 [CShellNewParticleEffect] bool IsAddedSinceFrame() const	LAYOUT	the frame's added flag
 [CShellNewParticleEffect] void ClearFrameFlags()	LAYOUT	the frame's flags cleared once read

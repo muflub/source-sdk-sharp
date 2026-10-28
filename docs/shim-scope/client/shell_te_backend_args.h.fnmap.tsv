@@ -3,22 +3,22 @@
 8	SLOT-HELP	inline Vec3 VecZero()
 10	SLOT-HELP	inline Vec3 VecFrom( const float *p )
 16	SLOT-HELP	inline EffectRequest EffectRequestZero()
-15	SLOT-HELP	inline EffectRequest Sparks( const float *pPositionXYZ,
-12	SLOT-HELP	inline EffectRequest PositionAndDirection( const float *pPositionXYZ,
-13	SLOT-HELP	inline EffectRequest Smoke( const float *pOriginXYZ, int nModelIndex,
-13	SLOT-HELP	inline EffectRequest MuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR,
+13	SLOT-HELP	inline EffectRequest Sparks( const float *pPositionXYZ, int nMagnitude, int nTrailLength, const float *pDirectionXYZ )
+11	SLOT-HELP	inline EffectRequest PositionAndDirection( const float *pPositionXYZ, const float *pDirectionXYZ )
+12	SLOT-HELP	inline EffectRequest Smoke( const float *pOriginXYZ, int nModelIndex, float flScale, float flFrameRate )
+12	SLOT-HELP	inline EffectRequest MuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int nType )
 12	SLOT-HELP	inline DecalRequest DecalRequestZero()
-16	SLOT-HELP	inline DecalRequest DecalShoot( int nDecalIndex, int nEntity,
+15	SLOT-HELP	inline DecalRequest DecalShoot( int nDecalIndex, int nEntity, const float *pPositionXYZ, const float *pSAxisXYZ, int nFlags )
 10	SLOT-HELP	inline StaticPropDecalRequest StaticPropDecalRequestZero()
-13	SLOT-HELP	inline StaticPropDecalRequest DecalStaticProp( const float *pStartXYZ, const float *pEndXYZ,
+13	SLOT-HELP	inline StaticPropDecalRequest DecalStaticProp( const float *pStartXYZ, const float *pEndXYZ, int nStaticPropIndex, int nDecalIndex )
 9	SLOT-HELP	inline TraceLineRequest TraceLineRequestZero()
 11	SLOT-HELP	inline TraceLineRequest TraceLineArgs( const float *pStartXYZ, const float *pEndXYZ, int nMask )
 13	SLOT-HELP	inline TraceAnswer TraceAnswerMiss( const Vec3 &vecEnd )
-29	SLOT-HELP	inline int WriteTraceOuts( const TraceAnswer &ans,
+27	SLOT-HELP	inline int WriteTraceOuts( const TraceAnswer &ans, float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ, int *pOutHitbox, int *pOutE
 16	SLOT-HELP	inline int CopyName( const char *pName, char *pOut, int nOutSize )
 10	SLOT-HELP	inline StudioDecalRequest StudioDecalRequestZero()
-14	SLOT-HELP	inline StudioDecalRequest DecalStudioModel( int nEntity,
+13	SLOT-HELP	inline StudioDecalRequest DecalStudioModel( int nEntity, const float *pRayStartXYZ, const float *pRayDeltaXYZ, int nDecalIndex )
 9	SLOT-HELP	inline BrushDecalRequest BrushDecalRequestZero()
-12	SLOT-HELP	inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenterXYZ,
+11	SLOT-HELP	inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenterXYZ, int nDecalIndex )
 4	SLOT-HELP	inline bool ClipCandidateIsSolid( int nSolidType, int nSolidFlags )
 4	SLOT-HELP	inline bool ClipIsNearer( float flFraction, bool bStartSolid, float flBestFraction )

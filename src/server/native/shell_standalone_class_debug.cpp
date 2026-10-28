@@ -10,8 +10,6 @@
 // shell_standalone_class.cpp's diagnostic console commands. Debug builds only; managed
 // NativeCommands declares the matching rows under #if DEBUG.
 
-#include "tier0/dbg.h"
-#include "tier1/convar.h"
 #include "ss_util.h"
 #include "shell_standalone_class.h"
 #include "native_command_body.h"
@@ -24,7 +22,7 @@ SS_NATIVE_COMMAND( dumpentityfactories )
 		return;
 
 	const bool bDetail = args.ArgC() > 1;
-	const int  nCount  = SourceSharp_EntityFactoryCount();
+	const int nCount = SourceSharp_EntityFactoryCount();
 
 	for ( int i = 0; i < nCount; i++ )
 	{
@@ -46,14 +44,11 @@ SS_NATIVE_COMMAND( dumpentityfactories )
 	if ( nRefused == 0 )
 		return;
 
-	Msg( "[SourceSharp] and %d classname%s asked for that nothing answers to:\n",
-	     nRefused, nRefused == 1 ? "" : "s" );
+	Msg( "[SourceSharp] and %d classname%s asked for that nothing answers to:\n", nRefused, nRefused == 1 ? "" : "s" );
 
 	for ( int i = 0; i < nRefused; i++ )
 	{
-		Msg( "    %-40s refused %d time(s)\n",
-		     SourceSharp_EntityFactoryRefusalNameAt( i ),
-		     SourceSharp_EntityFactoryRefusalTimesAt( i ) );
+		Msg( "    %-40s refused %d time(s)\n", SourceSharp_EntityFactoryRefusalNameAt( i ),
+			 SourceSharp_EntityFactoryRefusalTimesAt( i ) );
 	}
 }
-

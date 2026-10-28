@@ -3,7 +3,7 @@
 6	SLOT-HELP	void Release( ITexture *&pTexture )
 6	SLOT-HELP	ITexture *Hold( ITexture *pTexture )
 4	SLOT-HELP	void TargetName( int nTarget, char *pOut, int nOut )
-26	SLOT	[CSourceSharpRenderTargets] virtual void InitClientRenderTargets( IMaterialSystem *pMaterialSystem, IMaterialSystemHardwareConfig *pHardware
+24	SLOT	[CSourceSharpRenderTargets] virtual void InitClientRenderTargets( IMaterialSystem *pMaterialSystem, IMaterialSystemHardwareConfig *pHardware
 11	SLOT	[CSourceSharpRenderTargets] virtual void ShutdownClientRenderTargets() OVERRIDE
 14	SLOT	int32_t SourceSharp_RenderViewToTarget( int32_t nTarget, const SourceSharpViewTargetSetup *pSetup )
 33	SLOT	int32_t SourceSharp_ViewTargetInfo( int32_t nTarget, int32_t *pOut4 )

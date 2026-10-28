@@ -9,17 +9,13 @@
 // and CWorldFactory register from their static initialisers, and the world and
 // template entities built from keys the managed map spawner already parsed.
 
-#include "igameentity.h"
-#include "iservernetworkable.h"
-#include "handle_cross.h"
 #include "ss_util.h"
 #include "ss_entityhandle.h"
 #include "standalone_relays.h"
-#include "ss_mapentities.h"
+
 #include "ss_entityfactory.h"
 #include "ss_world.h"
 
-#include <algorithm>
 #include <vector>
 
 IServerNetworkable *CreateNetworkableEntityByName( const char *className )
@@ -31,7 +27,7 @@ IServerNetworkable *CreateNetworkableEntityByName( const char *className )
 // reached through its handle, since the networkable is a different subobject.
 // The caller owns the result.
 IGameEntity *CreateEntityByNameEither( const char *className, IGameEntity **ppOutBaseEntity,
-                                       IServerEntity **ppOutServerEntity )
+									   IServerEntity **ppOutServerEntity )
 {
 	if ( ppOutBaseEntity )
 		*ppOutBaseEntity = NULL;
@@ -81,7 +77,7 @@ bool MapEntity_SpawnWorld( const char *const *ppKeys, const char *const *ppValue
 		return false;
 
 	for ( int i = 0; i < nKeys; i++ )
-		pWorld->KeyValue( ppKeys[ i ], ppValues[ i ] );
+		pWorld->KeyValue( ppKeys[i], ppValues[i] );
 
 	pWorld->Spawn();
 	return true;
@@ -89,8 +85,8 @@ bool MapEntity_SpawnWorld( const char *const *ppKeys, const char *const *ppValue
 
 // A standalone entity from parsed key/value pairs, keyed in order. The caller
 // places and spawns it.
-IGameEntity *MapEntity_CreateFromKeys( const char *pClassName, const char *const *ppKeys,
-                                       const char *const *ppValues, int nKeys )
+IGameEntity *MapEntity_CreateFromKeys( const char *pClassName, const char *const *ppKeys, const char *const *ppValues,
+									   int nKeys )
 {
 	if ( !pClassName )
 		return NULL;
@@ -100,7 +96,7 @@ IGameEntity *MapEntity_CreateFromKeys( const char *pClassName, const char *const
 		return NULL;
 
 	for ( int i = 0; i < nKeys; i++ )
-		StandaloneEntity_ApplyMapKey( pGameEntity, ppKeys[ i ], ppValues[ i ] );
+		StandaloneEntity_ApplyMapKey( pGameEntity, ppKeys[i], ppValues[i] );
 
 	return pGameEntity;
 }
@@ -119,7 +115,7 @@ static CWorld *MapEntity_CreateWorld()
 	if ( !pWorld )
 	{
 		Warning( "[SourceSharp] worldspawn was created and did not claim the "
-		         "world singleton. The level has no world.\n" );
+				 "world singleton. The level has no world.\n" );
 		pNetworkable->Release();
 		return NULL;
 	}

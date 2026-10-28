@@ -3,7 +3,7 @@
 #pragma once
 
 #include "sourcesharp_gamesystem.h"
-#include "sourcesharp.h"
+
 #include "imanaged_runtime_client.h"
 
 // This load's managed-built runtime, held by the client DLL object.
@@ -18,23 +18,11 @@ class CManagedRuntimeClient : public IClientRuntimeAdapter
 {
 public:
 	// The client's release of the refcounted CLR; the managed Shutdown slot runs inside it.
-	void OnSystemStop() override
-	{
-		SourceSharp_UnloadManagedSide();
-	}
+	void OnSystemStop() override { SourceSharp_UnloadManagedSide(); }
 
-	void OnLevelInit( const char *pMapName ) override
-	{
-		ManagedRuntimeClient()->LevelInit( pMapName );
-	}
+	void OnLevelInit( const char *pMapName ) override { ManagedRuntimeClient()->LevelInit( pMapName ); }
 
-	void OnLevelShutdown() override
-	{
-		ManagedRuntimeClient()->LevelShutdown();
-	}
+	void OnLevelShutdown() override { ManagedRuntimeClient()->LevelShutdown(); }
 
-	void OnFrame( float flFrameTime ) override
-	{
-		ManagedRuntimeClient()->Frame( flFrameTime );
-	}
+	void OnFrame( float flFrameTime ) override { ManagedRuntimeClient()->Frame( flFrameTime ); }
 };

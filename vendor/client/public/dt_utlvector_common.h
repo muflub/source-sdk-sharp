@@ -6,23 +6,23 @@ const char *DT_ArrayElementNameForIdx( size_t i );
 
 #include "utlvector.h"
 
-template< class T >
+template <class T>
 void UtlVector_InitializeAllocatedElements( T *pBase, int count )
 {
-	memset( reinterpret_cast<void*>( pBase ), 0, count * sizeof( T ) );
+	memset( reinterpret_cast<void *>( pBase ), 0, count * sizeof( T ) );
 }
 
-template< class T, class A >
+template <class T, class A>
 class UtlVectorTemplate
 {
 public:
 	static void ResizeUtlVector( void *pStruct, int offsetToUtlVector, int len )
 	{
-		CUtlVector<T,A> *pVec = (CUtlVector<T,A>*)((char*)pStruct + offsetToUtlVector);
+		CUtlVector<T, A> *pVec = (CUtlVector<T, A> *)( (char *)pStruct + offsetToUtlVector );
 		if ( pVec->Count() < len )
 			pVec->AddMultipleToTail( len - pVec->Count() );
 		else if ( pVec->Count() > len )
-			pVec->RemoveMultiple( len, pVec->Count()-len );
+			pVec->RemoveMultiple( len, pVec->Count() - len );
 
 		// Ensure capacity
 		pVec->EnsureCapacity( len );
@@ -37,10 +37,10 @@ public:
 
 	static void EnsureCapacity( void *pStruct, int offsetToUtlVector, int len )
 	{
-		CUtlVector<T,A> *pVec = (CUtlVector<T,A>*)((char*)pStruct + offsetToUtlVector);
+		CUtlVector<T, A> *pVec = (CUtlVector<T, A> *)( (char *)pStruct + offsetToUtlVector );
 
 		pVec->EnsureCapacity( len );
-		
+
 		int nNumAllocated = pVec->NumAllocated();
 
 		// This is important to do because EnsureCapacity doesn't actually call the constructors
@@ -51,8 +51,8 @@ public:
 };
 
 // Format and allocate a string.
-char* AllocateStringHelper( PRINTF_FORMAT_STRING const char *pFormat, ... );
+char *AllocateStringHelper( PRINTF_FORMAT_STRING const char *pFormat, ... );
 
 // Allocates a string for a data table name. Data table names must be unique, so this will
 // assert if you try to allocate a duplicate.
-char* AllocateUniqueDataTableName( bool bSendTable, PRINTF_FORMAT_STRING const char *pFormat, ... );
+char *AllocateUniqueDataTableName( bool bSendTable, PRINTF_FORMAT_STRING const char *pFormat, ... );

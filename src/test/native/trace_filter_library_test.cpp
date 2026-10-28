@@ -62,9 +62,8 @@ const char *const kStaticsSource = "sourcesharp/game/shared/entity_shared_static
 void ExpectCompiledOnce( const char *pszTarget, const char *pszSource )
 {
 	EXPECT_TRUE( cmake_graph::Compiles( pszTarget, pszSource ) )
-		<< pszTarget << " (" << cmake_graph::ListFile( pszTarget ) << ") does not compile "
-		<< pszSource;
-	const std::vector< std::string > listed = cmake_graph::ListedSources( pszTarget );
+		<< pszTarget << " (" << cmake_graph::ListFile( pszTarget ) << ") does not compile " << pszSource;
+	const std::vector<std::string> listed = cmake_graph::ListedSources( pszTarget );
 	EXPECT_EQ( 1, (int)std::count( listed.begin(), listed.end(), std::string( pszSource ) ) )
 		<< pszSource << " is not listed exactly once in " << cmake_graph::ListFile( pszTarget );
 }
@@ -118,7 +117,8 @@ TEST( TraceFilterLibrary, TheServerNoLongerCompilesIt )
 	// plan_server_native_v2 T4f: every server trace runs the managed rule over
 	// libss_fwd_server's ITraceFilter, so nothing in server.so imports this TU.
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, kLibrarySource ) )
-		<< kLibrarySource << " is back in server_sourcesharp; the server's trace "
+		<< kLibrarySource
+		<< " is back in server_sourcesharp; the server's trace "
 		   "filter is managed's (TraceFilterRules) and this TU is the client's";
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kLibrarySource ) )
 		<< "and the client still compiles it, which is what makes the absence above a move";
@@ -129,7 +129,7 @@ TEST( TraceFilterLibrary, TheClientCompilesIt )
 	ExpectCompiledOnce( cmake_graph::kClient, kLibrarySource );
 	if ( ::testing::Test::HasFailure() )
 		ADD_FAILURE() << "the client does not compile the trace filter library -- so every "
-		   "client trace links against nothing, or against a definition this step deleted.";
+						 "client trace links against nothing, or against a definition this step deleted.";
 }
 
 TEST( TraceFilterLibrary, BothSidesCompileTheStaticsLibraryToo )
@@ -138,7 +138,7 @@ TEST( TraceFilterLibrary, BothSidesCompileTheStaticsLibraryToo )
 	ExpectCompiledOnce( cmake_graph::kClient, kStaticsSource );
 	if ( ::testing::Test::HasFailure() )
 		ADD_FAILURE() << "entity_shared_statics.cpp holds EntitySim_IsSimulatingOnAlternateTicks "
-		   "and the prediction-seed setter, and the client calls both.";
+						 "and the prediction-seed setter, and the client calls both.";
 }
 
 //=============================================================================//
@@ -147,10 +147,10 @@ TEST( TraceFilterLibrary, BothSidesCompileTheStaticsLibraryToo )
 
 static size_t EntriesCarrying( const std::string &strTarget, const std::string &strNeedle )
 {
-	const std::vector< cmake_graph::CompileEntry > entries = cmake_graph::TargetEntries( strTarget );
+	const std::vector<cmake_graph::CompileEntry> entries = cmake_graph::TargetEntries( strTarget );
 	size_t n = 0;
 	for ( size_t i = 0; i < entries.size(); i++ )
-		n += entries[ i ].strCommand.find( strNeedle ) != std::string::npos;
+		n += entries[i].strCommand.find( strNeedle ) != std::string::npos;
 	return n;
 }
 
@@ -179,4 +179,3 @@ TEST( TraceFilterLibrary, NoTuOnEitherSideTakesTheServersVisualiseMacro )
 // CBaseEntity* and read it on no arm this build compiles, so the parameter's
 // only effect was to require its callers to hold an entity pointer.
 //=============================================================================//
-

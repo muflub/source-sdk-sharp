@@ -19,40 +19,26 @@
 #include "ss_gamestringpool.h"
 #include "gamestringpool_internal.h"
 #include "tier0/dbg.h"
-#include <cstddef>
-#endif
 
-#ifdef CLIENT_DLL
-#include "igamesystem.h"
-#include "gamestringpool.h"
 #endif
 
 #include "server_string_pool.h"
 
 // The storage for pooled per-level strings.
 #ifdef CLIENT_DLL
-class CGameStringPool : public CServerStringPool,	public CClientSystem
+class CGameStringPool : public CServerStringPool, public CClientSystem
 #else
-class CGameStringPool : public CServerStringPool,	public CServerSystem
+class CGameStringPool : public CServerStringPool, public CServerSystem
 #endif
 {
 	virtual char const *Name() { return "CGameStringPool"; }
 
-	virtual void LevelShutdownPostEntity()
-	{
-		Cleanup();
-	}
+	virtual void LevelShutdownPostEntity() { Cleanup(); }
 
 public:
-	~CGameStringPool()
-	{
-		Cleanup();
-	}
+	~CGameStringPool() { Cleanup(); }
 
-	void Cleanup()
-	{
-		FreeAll();
-	}
+	void Cleanup() { FreeAll(); }
 
 #ifndef CLIENT_DLL
 	// Every pooled string, in order.
@@ -78,9 +64,9 @@ CServerSystem *GameStringSystem()
 }
 
 // Allocates a level-global pooled string.
-string_t AllocPooledString( const char * pszValue )
+string_t AllocPooledString( const char *pszValue )
 {
-	if (pszValue && *pszValue)
+	if ( pszValue && *pszValue )
 		return MAKE_STRING( g_GameStringPool.Allocate( pszValue ) );
 	return NULL_STRING;
 }

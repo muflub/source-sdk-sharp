@@ -15,8 +15,7 @@ class IHandleEntity;
 
 // The rule, with the singleton passed in so it can be tested. Both pointers are NULL
 // during level load, so a plain == would call every trace that hit nothing the world.
-inline bool SourceSharp_IsTheWorldHandle( const IHandleEntity *pHandleEntity,
-                                          const IHandleEntity *pWorldHandle )
+inline bool SourceSharp_IsTheWorldHandle( const IHandleEntity *pHandleEntity, const IHandleEntity *pWorldHandle )
 {
 	// Nothing is not the world, even when there is no world.
 	if ( !pHandleEntity || !pWorldHandle )

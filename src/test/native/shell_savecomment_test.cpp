@@ -49,7 +49,7 @@ struct PoisonedBuffer
 {
 	PoisonedBuffer() { memset( buf, '\xAB', sizeof( buf ) ); }
 
-	char buf[ kEngineComment + 8 ];
+	char buf[kEngineComment + 8];
 };
 
 } // namespace
@@ -68,11 +68,10 @@ TEST( SaveComment, AShortMapNameIsPaddedToSixtyFourSoTheClockStartsAtAFixedColum
 	// The clock is the last seven characters of both, at the same offset,
 	// regardless of how long the two names are.
 	ASSERT_EQ( strlen( a.buf ), strlen( b.buf ) )
-		<< "two different map names produced different lengths: '"
-		<< a.buf << "' vs '" << b.buf << "'";
+		<< "two different map names produced different lengths: '" << a.buf << "' vs '" << b.buf << "'";
 	EXPECT_EQ( 71u, strlen( a.buf ) ) << "'" << a.buf << "'";
 	EXPECT_STREQ( "000:00", a.buf + 65 );
-	EXPECT_EQ( ' ', a.buf[ 64 ] );
+	EXPECT_EQ( ' ', a.buf[64] );
 }
 
 TEST( SaveComment, ALongMapNameIsCutAtSixtyFour )
@@ -83,9 +82,9 @@ TEST( SaveComment, ALongMapNameIsCutAtSixtyFour )
 	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, strLong.c_str(), 0, 0, false );
 
 	EXPECT_EQ( 71u, strlen( p.buf ) ) << "'" << p.buf << "'";
-	EXPECT_EQ( 'm', p.buf[ 63 ] );
-	EXPECT_EQ( ' ', p.buf[ 64 ] ) << "the 65th character of a 100-character name "
-	                                 "reached the buffer: the .64 precision is gone";
+	EXPECT_EQ( 'm', p.buf[63] );
+	EXPECT_EQ( ' ', p.buf[64] ) << "the 65th character of a 100-character name "
+								   "reached the buffer: the .64 precision is gone";
 }
 
 TEST( SaveComment, TheClockIsThreeDigitMinutesAndTwoDigitSeconds )
@@ -129,8 +128,7 @@ TEST( SaveComment, TheClampRunsBeforeTheRolloverExactlyAsStockDoesIt )
 	// column after it moves.
 	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, "dm_lockdown", 999, 120, false );
 
-	EXPECT_STREQ( "1001:00", p.buf + 65 )
-		<< "the clamp moved relative to the rollover; stock prints 1001:00 here";
+	EXPECT_STREQ( "1001:00", p.buf + 65 ) << "the clamp moved relative to the rollover; stock prints 1001:00 here";
 }
 
 TEST( SaveComment, NoTimeIsTheNameAloneWithNoClock )
@@ -157,7 +155,7 @@ TEST( SaveComment, ALongMapNameIsCutAtSixtyFourInTheNoTimeSpellingToo )
 	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, strLong.c_str(), 0, 0, true );
 
 	EXPECT_EQ( 64u, strlen( p.buf ) ) << "'" << p.buf << "'";
-	EXPECT_EQ( '\0', p.buf[ 64 ] );
+	EXPECT_EQ( '\0', p.buf[64] );
 }
 
 TEST( SaveComment, TheNameLeadsTheStringInBothSpellings )
@@ -202,8 +200,8 @@ TEST( SaveComment, AShortBufferTruncatesAndStillNullTerminates )
 	ShellGameDll_FormatSaveComment( p.buf, (int)nShortLength, "dm_lockdown", 7, 4, false );
 
 	EXPECT_EQ( 9u, strlen( p.buf ) ) << "'" << p.buf << "'";
-	EXPECT_EQ( '\0', p.buf[ 9 ] );
-	EXPECT_EQ( '\xAB', p.buf[ 10 ] ) << "the formatter wrote past the length it was given";
+	EXPECT_EQ( '\0', p.buf[9] );
+	EXPECT_EQ( '\xAB', p.buf[10] ) << "the formatter wrote past the length it was given";
 }
 
 TEST( SaveComment, ANonPositiveLengthWritesNothingRatherThanOneNullByte )
@@ -213,8 +211,8 @@ TEST( SaveComment, ANonPositiveLengthWritesNothingRatherThanOneNullByte )
 	ShellGameDll_FormatSaveComment( zero.buf, 0, "dm_lockdown", 7, 4, false );
 	ShellGameDll_FormatSaveComment( negative.buf, -1, "dm_lockdown", 7, 4, false );
 
-	EXPECT_EQ( '\xAB', zero.buf[ 0 ] );
-	EXPECT_EQ( '\xAB', negative.buf[ 0 ] );
+	EXPECT_EQ( '\xAB', zero.buf[0] );
+	EXPECT_EQ( '\xAB', negative.buf[0] );
 }
 
 TEST( SaveComment, ANullBufferIsNotADereference )
@@ -232,7 +230,7 @@ TEST( SaveComment, ANullMapNameProducesADefinedStringRatherThanACrash )
 
 	EXPECT_EQ( 71u, strlen( p.buf ) ) << "'" << p.buf << "'";
 	EXPECT_STREQ( "007:04", p.buf + 65 );
-	EXPECT_EQ( ' ', p.buf[ 0 ] ) << "a NULL name should pad, not print a pointer";
+	EXPECT_EQ( ' ', p.buf[0] ) << "a NULL name should pad, not print a pointer";
 }
 
 // THE DEFECT ITSELF, stated as a fact rather than implied by the others: the
@@ -244,7 +242,7 @@ TEST( SaveComment, TheEnginesBufferIsWrittenAndNotLeftAsItWasFound )
 
 	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, "dm_lockdown", 0, 0, false );
 
-	EXPECT_NE( '\xAB', p.buf[ 0 ] ) << "the buffer came back exactly as it went in";
+	EXPECT_NE( '\xAB', p.buf[0] ) << "the buffer came back exactly as it went in";
 }
 
 //-----------------------------------------------------------------------------
@@ -255,4 +253,3 @@ namespace
 {
 
 } // namespace
-

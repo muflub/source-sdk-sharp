@@ -24,7 +24,7 @@ namespace
 
 int g_Objects[11];
 
-template < int N >
+template <int N>
 void *StandIn()
 {
 	return &g_Objects[N];
@@ -39,8 +39,7 @@ struct Expected
 	int nObject;
 };
 
-const Expected kExpected[] =
-{
+const Expected kExpected[] = {
 	{ "ServerGameDLL012", 0 },
 	{ "ServerGameEnts001", 1 },
 	{ "ServerGameClients005", 2 },
@@ -52,13 +51,13 @@ const Expected kExpected[] =
 
 }
 
-const SourceSharpExposed kExposeServerGameDll = { "ServerGameDLL012", StandIn< 0 > };
-const SourceSharpExposed kExposeServerGameEnts = { "ServerGameEnts001", StandIn< 1 > };
-const SourceSharpExposed kExposeServerGameClients = { "ServerGameClients005", StandIn< 2 > };
-const SourceSharpExposed kExposeServerGameClients004 = { "ServerGameClients004", StandIn< 3 > };
-const SourceSharpExposed kExposeServerGameClients003 = { "ServerGameClients003", StandIn< 4 > };
-const SourceSharpExposed kExposeServerGameTags = { "ServerGameTags001", StandIn< 5 > };
-const SourceSharpExposed kExposeServerDllSharedAppSystems = { "VServerDllSharedAppSystems001", StandIn< 8 > };
+const SourceSharpExposed kExposeServerGameDll = { "ServerGameDLL012", StandIn<0> };
+const SourceSharpExposed kExposeServerGameEnts = { "ServerGameEnts001", StandIn<1> };
+const SourceSharpExposed kExposeServerGameClients = { "ServerGameClients005", StandIn<2> };
+const SourceSharpExposed kExposeServerGameClients004 = { "ServerGameClients004", StandIn<3> };
+const SourceSharpExposed kExposeServerGameClients003 = { "ServerGameClients003", StandIn<4> };
+const SourceSharpExposed kExposeServerGameTags = { "ServerGameTags001", StandIn<5> };
+const SourceSharpExposed kExposeServerDllSharedAppSystems = { "VServerDllSharedAppSystems001", StandIn<8> };
 
 TEST( ServerFactory, EveryNameAnswersItsOwnObject )
 {
@@ -135,7 +134,7 @@ TEST( ServerFactory, TheGameMovementInterfaceIsNotExposed )
 TEST( ServerFactory, TheTableHasSevenRowsAndNoNameTwice )
 {
 	ASSERT_EQ( 7, SourceSharp_ExposedCount() );
-	std::set< std::string > names;
+	std::set<std::string> names;
 	for ( int i = 0; i < SourceSharp_ExposedCount(); i++ )
 		EXPECT_TRUE( names.insert( SourceSharp_ExposedAt( i ).m_pszVersion ).second )
 			<< SourceSharp_ExposedAt( i ).m_pszVersion << " is in the table twice";
@@ -172,4 +171,3 @@ struct Site
 };
 
 }
-

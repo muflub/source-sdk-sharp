@@ -87,17 +87,19 @@ namespace
 
 class FakeGameEntity;
 
-class FakeHandleEntity                                  // ~ IHandleEntity
+class FakeHandleEntity // ~ IHandleEntity
 {
 public:
 	virtual ~FakeHandleEntity() {}
+
 	virtual int RefEHandle() const = 0;
 };
 
-class FakeGameEntity                                    // ~ IGameEntity, CBaseEntity on the server
+class FakeGameEntity // ~ IGameEntity, CBaseEntity on the server
 {
 public:
 	virtual ~FakeGameEntity() {}
+
 	virtual int WhoAreYou() const = 0;
 };
 
@@ -106,13 +108,13 @@ public:
 // model beside the standalone (FakeBase, whose GetBaseEntity() answered
 // itself) is gone from the server, so the narrowing below answers NULL for
 // every object there is -- which is the bug's premise in its strongest form.
-class FakeUnknown : public FakeHandleEntity             // ~ IServerUnknown
+class FakeUnknown : public FakeHandleEntity // ~ IServerUnknown
 {
 public:
 	virtual FakeGameEntity *GetBaseEntity() = 0;
 };
 
-class FakeServerEntity : public FakeUnknown             // ~ IServerEntity
+class FakeServerEntity : public FakeUnknown // ~ IServerEntity
 {
 };
 
@@ -124,7 +126,8 @@ class FakePadding
 {
 public:
 	virtual ~FakePadding() {}
-	int m_nPadding[ 4 ];
+
+	int m_nPadding[4];
 };
 
 class FakeStandalone : public FakeServerEntity, public FakePadding, public FakeGameEntity
@@ -133,6 +136,7 @@ public:
 	virtual FakeGameEntity *GetBaseEntity() { return this; }
 
 	virtual int RefEHandle() const { return 0x57A10; }
+
 	virtual int WhoAreYou() const { return 0x57A10; }
 };
 
@@ -143,14 +147,14 @@ FakeGameEntity *NarrowToTheSdksTree( FakeHandleEntity *pHit )
 	if ( !pHit )
 		return 0;
 
-	FakeUnknown *pUnknown = static_cast< FakeUnknown * >( pHit );
+	FakeUnknown *pUnknown = static_cast<FakeUnknown *>( pHit );
 
-	return SourceSharp_SDKEntityFromUnknown< FakeServerEntity >( pUnknown );
+	return SourceSharp_SDKEntityFromUnknown<FakeServerEntity>( pUnknown );
 }
 
 TEST( ImpactSubject, NothingHitNamesNothingEitherWay )
 {
-	EXPECT_EQ( ( FakeGameEntity * )0, NarrowToTheSdksTree( 0 ) );
+	EXPECT_EQ( (FakeGameEntity *)0, NarrowToTheSdksTree( 0 ) );
 }
 
 TEST( ImpactSubject, StandaloneIsNamedWhereNarrowingDropsIt )
@@ -160,11 +164,11 @@ TEST( ImpactSubject, StandaloneIsNamedWhereNarrowingDropsIt )
 
 	// The premise: the standalone HAS a face, so the NULL below is the
 	// narrowing's verdict and not an empty object.
-	ASSERT_NE( ( FakeGameEntity * )0, standalone.GetBaseEntity() );
+	ASSERT_NE( (FakeGameEntity *)0, standalone.GetBaseEntity() );
 
 	// The narrowing answers NULL, exactly as designed — and the shell then
 	// turned that NULL into the invalid handle and told C# "you hit nothing".
-	EXPECT_EQ( ( FakeGameEntity * )0, NarrowToTheSdksTree( pHit ) );
+	EXPECT_EQ( (FakeGameEntity *)0, NarrowToTheSdksTree( pHit ) );
 
 	// The handle-table pointer names it, and under its own handle. This is the
 	// number the managed side gets now and did not get before.
@@ -182,7 +186,7 @@ TEST( ImpactSubject, TheStandalonesTwoViewsAreDifferentAddresses )
 	FakeHandleEntity *pTableView = &standalone;
 	FakeGameEntity *pBoundaryView = standalone.GetBaseEntity();
 
-	EXPECT_NE( ( void * )pTableView, ( void * )pBoundaryView );
+	EXPECT_NE( (void *)pTableView, (void *)pBoundaryView );
 	EXPECT_EQ( 0x57A10, pBoundaryView->WhoAreYou() );
 }
 

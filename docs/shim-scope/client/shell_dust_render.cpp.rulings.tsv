@@ -1,7 +1,7 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-int32_t SourceSharp_ParticlesBrushPointContents(	SLOT	IShimParticlesClient::ParticlesBrushPointContents: the owner's brush through the collideable above, one engine point test; the dust motes decide the point
-[CSourceSharpBrushCollideable] CSourceSharpBrushCollideable() : m_pOwner( NULL )	SLOT	the ICollideable the engine's point test calls through (the dust motes' spawn test): stock's SOLID_BSP dust volume over the owner's own model and transform; nothing decided
+int32_t SourceSharp_ParticlesBrushPointContents( uint32_t hOwner, const float *pPointXYZ )	SLOT	IShimParticlesClient::ParticlesBrushPointContents: the owner's brush through the collideable above, one engine point test; the dust motes decide the point
+[CSourceSharpBrushCollideable] : m_pOwner( NULL )	SLOT	the ICollideable the engine's point test calls through (the dust motes' spawn test): stock's SOLID_BSP dust volume over the owner's own model and transform; nothing decided
 [CSourceSharpBrushCollideable] void Bind( C_StandaloneEntity *pOwner, const Vector &vecMins, const Vector &vecMaxs )	SLOT	the ICollideable the engine's point test calls through (the dust motes' spawn test): stock's SOLID_BSP dust volume over the owner's own model and transform; nothing decided
 [CSourceSharpBrushCollideable] bool IsBound() const	SLOT	the ICollideable the engine's point test calls through (the dust motes' spawn test): stock's SOLID_BSP dust volume over the owner's own model and transform; nothing decided
 [CSourceSharpBrushCollideable] virtual SolidType_t GetSolid() const OVERRIDE	SLOT	the ICollideable the engine's point test calls through (the dust motes' spawn test): stock's SOLID_BSP dust volume over the owner's own model and transform; nothing decided

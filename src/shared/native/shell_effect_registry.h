@@ -5,7 +5,7 @@
 #pragma once
 
 // The first row for an owner, or -1. An owner has at most one effect per family.
-template < typename TList >
+template <typename TList>
 inline int ShellEffects_Find( const TList &list, unsigned int hOwner )
 {
 	for ( int i = 0; i < list.Count(); i++ )
@@ -19,7 +19,7 @@ inline int ShellEffects_Find( const TList &list, unsigned int hOwner )
 
 // Drops every row pointing at a destroyed effect. Called from the effect's destructor;
 // walks backwards so a removal cannot skip a neighbour.
-template < typename TList, typename TEffect >
+template <typename TList, typename TEffect>
 inline void ShellEffects_Forget( TList &list, const TEffect *pEffect )
 {
 	for ( int i = list.Count() - 1; i >= 0; i-- )
@@ -32,7 +32,7 @@ inline void ShellEffects_Forget( TList &list, const TEffect *pEffect )
 // Releases every effect, at a level change. Release() shortens the list through the
 // gone callback, so the loop stops if the list fails to shrink rather than hang.
 // Returns the number released, negated when it stopped early.
-template < typename TList >
+template <typename TList>
 inline int ShellEffects_ReleaseAll( TList &list )
 {
 	int nReleased = 0;

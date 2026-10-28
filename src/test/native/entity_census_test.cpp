@@ -60,12 +60,12 @@ namespace
 const char *WorktreeRoot()
 {
 	static const char *kCandidates[] = { ".", "..", "../..", "../../.." };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
-		std::string szProbe = std::string( kCandidates[ i ] ) + "/tools/entity-census";
+		std::string szProbe = std::string( kCandidates[i] ) + "/tools/entity-census";
 		struct stat st;
 		if ( stat( szProbe.c_str(), &st ) == 0 && S_ISREG( st.st_mode ) )
-			return kCandidates[ i ];
+			return kCandidates[i];
 	}
 	return NULL;
 }
@@ -85,7 +85,7 @@ std::string ReadFile( const std::string &szPath )
 		return std::string();
 
 	std::string szOut;
-	char rgchBuf[ 8192 ];
+	char rgchBuf[8192];
 	size_t cRead;
 	while ( ( cRead = fread( rgchBuf, 1, sizeof( rgchBuf ), pFile ) ) > 0 )
 		szOut.append( rgchBuf, cRead );
@@ -129,7 +129,7 @@ Run_t RunAtRoot( const std::string &szCommand )
 	if ( !pPipe )
 		return run;
 
-	char rgchBuf[ 4096 ];
+	char rgchBuf[4096];
 	while ( fgets( rgchBuf, sizeof( rgchBuf ), pPipe ) )
 		run.m_szOutput += rgchBuf;
 
@@ -143,21 +143,21 @@ Run_t RunAtRoot( const std::string &szCommand )
 // tool reads from.
 std::string ScratchPath( const char *pszSuffix )
 {
-	char rgchBuf[ 256 ];
+	char rgchBuf[256];
 	snprintf( rgchBuf, sizeof( rgchBuf ), "/tmp/entity_census_test_%d_%s", (int)getpid(), pszSuffix );
 	return std::string( rgchBuf );
 }
 
-const char *const kToolRelative     = "tools/entity-census";
+const char *const kToolRelative = "tools/entity-census";
 const char *const kPatternsRelative = "tools/entity-census-patterns";
 const char *const kBaselineRelative = "docs/entity-census.txt";
 
 // The exit codes the tool promises. 1 is "the tree and the baseline disagree",
 // 2 is "I could not take the measurement". A test that accepted "non-zero" for
 // both would pass when a drift check turned into a crash.
-const int kExitAgrees   = 0;
+const int kExitAgrees = 0;
 const int kExitDisagrees = 1;
-const int kExitRefused  = 2;
+const int kExitRefused = 2;
 
 //=============================================================================
 // (0) The scanner is itself checked: the subjects exist and are not stubs.
@@ -165,9 +165,8 @@ const int kExitRefused  = 2;
 
 TEST( EntityCensus, TheWorktreeRootIsFound )
 {
-	ASSERT_TRUE( WorktreeRoot() != NULL )
-		<< "No directory among '.', '..', '../..' holds tools/entity-census. "
-		   "Every other fact in this file would then be vacuously true.";
+	ASSERT_TRUE( WorktreeRoot() != NULL ) << "No directory among '.', '..', '../..' holds tools/entity-census. "
+											 "Every other fact in this file would then be vacuously true.";
 }
 
 TEST( EntityCensus, TheToolIsExecutable )
@@ -177,11 +176,10 @@ TEST( EntityCensus, TheToolIsExecutable )
 
 	struct stat st;
 	ASSERT_EQ( 0, stat( szPath.c_str(), &st ) ) << szPath;
-	EXPECT_TRUE( ( st.st_mode & S_IXUSR ) != 0 )
-		<< kToolRelative << " is not executable, so every caller of it silently "
-		   "gets a shell error instead of a census.";
-	EXPECT_GT( ReadFile( szPath ).size(), 4000u )
-		<< kToolRelative << " came back too small to be the census tool.";
+	EXPECT_TRUE( ( st.st_mode & S_IXUSR ) != 0 ) << kToolRelative
+												 << " is not executable, so every caller of it silently "
+													"gets a shell error instead of a census.";
+	EXPECT_GT( ReadFile( szPath ).size(), 4000u ) << kToolRelative << " came back too small to be the census tool.";
 }
 
 TEST( EntityCensus, ThePatternFileCarriesTheCastFamilies )
@@ -199,7 +197,7 @@ TEST( EntityCensus, ThePatternFileCarriesTheCastFamilies )
 	{
 		const size_t iEnd = szBody.find( '\n', iPos );
 		const std::string szLine = szBody.substr( iPos, iEnd == std::string::npos ? std::string::npos : iEnd - iPos );
-		if ( !szLine.empty() && szLine[ 0 ] != '#' && szLine.find( '\t' ) != std::string::npos )
+		if ( !szLine.empty() && szLine[0] != '#' && szLine.find( '\t' ) != std::string::npos )
 			cFamilies++;
 		if ( iEnd == std::string::npos )
 			break;
@@ -277,7 +275,7 @@ std::string CastCensusSection()
 	if ( szBody.empty() )
 		return std::string();
 	const size_t iCast = szBody.find( "CAST CENSUS" );
-	const size_t iEnd  = szBody.find( "CROSS-EDGES", ( iCast == std::string::npos ) ? 0 : iCast );
+	const size_t iEnd = szBody.find( "CROSS-EDGES", ( iCast == std::string::npos ) ? 0 : iCast );
 	if ( iCast == std::string::npos || iEnd == std::string::npos )
 		return std::string();
 	return szBody.substr( iCast, iEnd - iCast );
@@ -285,9 +283,9 @@ std::string CastCensusSection()
 
 // Every data row of that section -- the ones with counts on them, not the
 // header and not the '#' preamble.
-std::vector< std::string > CastCensusRows()
+std::vector<std::string> CastCensusRows()
 {
-	std::vector< std::string > vecRows;
+	std::vector<std::string> vecRows;
 	const std::string szSection = CastCensusSection();
 	size_t iPos = 0;
 	while ( iPos < szSection.size() )
@@ -295,7 +293,7 @@ std::vector< std::string > CastCensusRows()
 		const size_t iEol = szSection.find( '\n', iPos );
 		const std::string szLine =
 			szSection.substr( iPos, iEol == std::string::npos ? std::string::npos : iEol - iPos );
-		if ( !szLine.empty() && szLine[ 0 ] != '#' && szLine.find( " in " ) != std::string::npos )
+		if ( !szLine.empty() && szLine[0] != '#' && szLine.find( " in " ) != std::string::npos )
 			vecRows.push_back( szLine );
 		if ( iEol == std::string::npos )
 			break;
@@ -340,15 +338,14 @@ int ZeroColumns( const std::string &szRow )
 //-----------------------------------------------------------------------------
 TEST( EntityCensus, EveryGatedCastFamilyReadsZeroExceptTheAllowlistedResolvers )
 {
-	const std::vector< std::string > vecRows = CastCensusRows();
-	ASSERT_GE( vecRows.size(), (size_t)13 )
-		<< "the cast census has fewer rows than the pattern file has families; "
-		   "a section that stopped printing rows would satisfy the loop below by "
-		   "never entering it.";
+	const std::vector<std::string> vecRows = CastCensusRows();
+	ASSERT_GE( vecRows.size(), (size_t)13 ) << "the cast census has fewer rows than the pattern file has families; "
+											   "a section that stopped printing rows would satisfy the loop below by "
+											   "never entering it.";
 
 	for ( size_t i = 0; i < vecRows.size(); i++ )
 	{
-		const std::string &szRow = vecRows[ i ];
+		const std::string &szRow = vecRows[i];
 
 		// ToEngineIface is the OTHER direction (entity -> engine interface) and
 		// §3.16 does not gate it. It is reported, never driven to zero.
@@ -363,20 +360,21 @@ TEST( EntityCensus, EveryGatedCastFamilyReadsZeroExceptTheAllowlistedResolvers )
 		// not covered by anything.
 		if ( szRow.compare( 0, strlen( "static_cast" ), "static_cast" ) == 0 )
 		{
-			EXPECT_EQ( 2, ZeroColumns( szRow ) )
-				<< "the static_cast row should read zero in the two STOCK columns "
-				   "and one site in each SHIM column -- the two resolvers on "
-				   "tools/entity-gates-allowlist: " << szRow;
+			EXPECT_EQ( 2, ZeroColumns( szRow ) ) << "the static_cast row should read zero in the two STOCK columns "
+													"and one site in each SHIM column -- the two resolvers on "
+													"tools/entity-gates-allowlist: "
+												 << szRow;
 			EXPECT_NE( std::string::npos, szRow.find( "1 in 1 files" ) )
 				<< "neither resolver is counted; the allowlist excuses a site the "
-				   "census cannot see: " << szRow;
+				   "census cannot see: "
+				<< szRow;
 			continue;
 		}
 
-		EXPECT_EQ( 4, ZeroColumns( szRow ) )
-			<< "a gated cast family is still counted on this tree. "
-			   "plan_entity.md's clause 3 says there are no entity casts left "
-			   "except the resolvers: " << szRow;
+		EXPECT_EQ( 4, ZeroColumns( szRow ) ) << "a gated cast family is still counted on this tree. "
+												"plan_entity.md's clause 3 says there are no entity casts left "
+												"except the resolvers: "
+											 << szRow;
 	}
 }
 
@@ -398,21 +396,21 @@ TEST( EntityCensus, TheCastCensusIsStillMatchingRatherThanQuietlyMatchingNothing
 	ASSERT_FALSE( szSection.empty() ) << "no CAST CENSUS section in the baseline.";
 	ASSERT_NE( std::string::npos, szSection.find( "dynamic_cast" ) );
 
-	const std::vector< std::string > vecRows = CastCensusRows();
+	const std::vector<std::string> vecRows = CastCensusRows();
 	int cLiveRows = 0;
 	for ( size_t i = 0; i < vecRows.size(); i++ )
 	{
-		if ( ZeroColumns( vecRows[ i ] ) < 4 )
+		if ( ZeroColumns( vecRows[i] ) < 4 )
 			cLiveRows++;
 	}
 
-	EXPECT_GE( cLiveRows, 2 )
-		<< "every row in the cast census reads zero in all four columns. On a "
-		   "finished tree that is indistinguishable from the pattern loader "
-		   "having eaten its own regexes -- which is the bug this fact was "
-		   "written for. Two rows are non-zero by design: static_cast (the two "
-		   "allowlisted resolvers) and ToEngineIface (the ungated other "
-		   "direction).\n" << szSection;
+	EXPECT_GE( cLiveRows, 2 ) << "every row in the cast census reads zero in all four columns. On a "
+								 "finished tree that is indistinguishable from the pattern loader "
+								 "having eaten its own regexes -- which is the bug this fact was "
+								 "written for. Two rows are non-zero by design: static_cast (the two "
+								 "allowlisted resolvers) and ToEngineIface (the ungated other "
+								 "direction).\n"
+							  << szSection;
 }
 
 //-----------------------------------------------------------------------------
@@ -430,14 +428,14 @@ bool ReadRow( const std::string &szBody, const char *pszNeedle, long *pnServer, 
 	// several rows' labels also occur inside the file's '#' preamble. Step over
 	// it before looking for the row's END, or the row is the empty string
 	// between one newline and itself and every number parse comes back short.
-	const size_t iRow = ( szBody[ iFound ] == '\n' ) ? iFound + 1 : iFound;
+	const size_t iRow = ( szBody[iFound] == '\n' ) ? iFound + 1 : iFound;
 	const size_t iEol = szBody.find( '\n', iRow );
 	const std::string szLine = szBody.substr( iRow, iEol == std::string::npos ? std::string::npos : iEol - iRow );
 
-	std::vector< long > vecNumbers;
+	std::vector<long> vecNumbers;
 	for ( size_t i = 0; i < szLine.size(); )
 	{
-		if ( isdigit( (unsigned char)szLine[ i ] ) )
+		if ( isdigit( (unsigned char)szLine[i] ) )
 		{
 			char *pszEnd = NULL;
 			vecNumbers.push_back( strtol( szLine.c_str() + i, &pszEnd, 10 ) );
@@ -451,8 +449,8 @@ bool ReadRow( const std::string &szBody, const char *pszNeedle, long *pnServer, 
 	if ( vecNumbers.size() < 2 )
 		return false;
 
-	*pnServer = vecNumbers[ vecNumbers.size() - 2 ];
-	*pnClient = vecNumbers[ vecNumbers.size() - 1 ];
+	*pnServer = vecNumbers[vecNumbers.size() - 2];
+	*pnClient = vecNumbers[vecNumbers.size() - 1];
 	return true;
 }
 
@@ -503,20 +501,23 @@ TEST( EntityCensus, TheBaselineCarriesBothReadingsOfTheEntityListCount )
 
 TEST( EntityCensus, TheTreeAgreesWithTheCommittedBaseline )
 {
-	SS_SKIP_ON_CI( "reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
+	SS_SKIP_ON_CI(
+		"reads the fork's own edits to Valve files (its markers, comments or line counts), which the public patch series CI sets up from does not carry" );
 	// The baseline is the DEBUG build's (-O2 inlines cross-edges away), so a
 	// release run measures farm/debug too -- the VPC-era tool read
 	// sdk_csharp_debug.ninja whatever the farm. RunAtRoot runs at
 	// farm/<config>, so ../debug is farm/debug.
 	const Run_t run = RunAtRoot( std::string( kToolRelative ) +
-		" --build-dir ../debug/build --bindir ../debug/game/mod_sharp/bin/linux64" );
-	EXPECT_EQ( kExitAgrees, run.m_nExit )
-		<< "\n" << run.m_szOutput
-		<< "\nThe census moved and " << kBaselineRelative << " did not. If the "
-		   "move is the intended one, re-take the baseline:\n"
-		   "    tools/entity-census --write && git add " << kBaselineRelative << "\n"
-		   "If it is not, something changed that nobody meant to change.\n"
-		   "(Exit 2 means the tree is not built: src/buildsourcesharp debug.)";
+								 " --build-dir ../debug/build --bindir ../debug/game/mod_sharp/bin/linux64" );
+	EXPECT_EQ( kExitAgrees, run.m_nExit ) << "\n"
+										  << run.m_szOutput << "\nThe census moved and " << kBaselineRelative
+										  << " did not. If the "
+											 "move is the intended one, re-take the baseline:\n"
+											 "    tools/entity-census --write && git add "
+										  << kBaselineRelative
+										  << "\n"
+											 "If it is not, something changed that nobody meant to change.\n"
+											 "(Exit 2 means the tree is not built: src/buildsourcesharp debug.)";
 }
 
 //=============================================================================
@@ -552,10 +553,11 @@ TEST( EntityCensus, ADisagreeingBaselineIsRejected )
 	const Run_t run = RunAtRoot( std::string( kToolRelative ) + " --baseline '" + szTmp + "'" );
 	unlink( szTmp.c_str() );
 
-	EXPECT_EQ( kExitDisagrees, run.m_nExit )
-		<< "the tool accepted a baseline claiming 999999 objects:\n" << run.m_szOutput;
+	EXPECT_EQ( kExitDisagrees, run.m_nExit ) << "the tool accepted a baseline claiming 999999 objects:\n"
+											 << run.m_szOutput;
 	EXPECT_NE( std::string::npos, run.m_szOutput.find( "999999" ) )
-		<< "the tool refused, but did not print WHICH line disagreed:\n" << run.m_szOutput;
+		<< "the tool refused, but did not print WHICH line disagreed:\n"
+		<< run.m_szOutput;
 }
 
 TEST( EntityCensus, AMissingObjectTableIsRefusedRatherThanCountedAsZero )
@@ -582,8 +584,8 @@ TEST( EntityCensus, AnEmptyPatternFileIsRefused )
 	const Run_t run = RunAtRoot( std::string( kToolRelative ) + " --dump-patterns --patterns '" + szTmp + "'" );
 	unlink( szTmp.c_str() );
 
-	EXPECT_EQ( kExitRefused, run.m_nExit )
-		<< "an empty pattern list would report zero casts everywhere:\n" << run.m_szOutput;
+	EXPECT_EQ( kExitRefused, run.m_nExit ) << "an empty pattern list would report zero casts everywhere:\n"
+										   << run.m_szOutput;
 	EXPECT_NE( std::string::npos, run.m_szOutput.find( "produced no patterns" ) ) << run.m_szOutput;
 }
 
@@ -624,11 +626,10 @@ TEST( EntityCensus, TheLoaderHandsBackTheBackslashesItWasGiven )
 	unlink( szTmp.c_str() );
 
 	ASSERT_EQ( kExitAgrees, run.m_nExit ) << run.m_szOutput;
-	EXPECT_EQ( szLine, run.m_szOutput )
-		<< "the pattern went in as\n  " << szLine
-		<< "and came back as\n  " << run.m_szOutput
-		<< "\nA `read` without -r eats the backslashes and every cast count is "
-		   "then wrong. See tools/entity-census-patterns.";
+	EXPECT_EQ( szLine, run.m_szOutput ) << "the pattern went in as\n  " << szLine << "and came back as\n  "
+										<< run.m_szOutput
+										<< "\nA `read` without -r eats the backslashes and every cast count is "
+										   "then wrong. See tools/entity-census-patterns.";
 }
 
 TEST( EntityCensus, ABareReadWouldHaveEatenThem )
@@ -645,8 +646,7 @@ TEST( EntityCensus, ABareReadWouldHaveEatenThem )
 	// The IFS below is a LITERAL TAB, not the two characters backslash-t: the
 	// point of the control is that it differs from the tool in exactly one way,
 	// the missing -r.
-	const std::string szCmd =
-		"bash -c 'while IFS=\"\t\" read n r; do printf \"%s\\n\" \"$r\"; done < " + szTmp + "'";
+	const std::string szCmd = "bash -c 'while IFS=\"\t\" read n r; do printf \"%s\\n\" \"$r\"; done < " + szTmp + "'";
 	const Run_t run = RunAtRoot( szCmd );
 	unlink( szTmp.c_str() );
 
@@ -654,7 +654,8 @@ TEST( EntityCensus, ABareReadWouldHaveEatenThem )
 	EXPECT_EQ( std::string::npos, run.m_szOutput.find( '\\' ) )
 		<< "a bare `read` returned the backslashes intact, so the -r in the "
 		   "tool is not what is keeping them and the fact above proves nothing. "
-		   "Got: " << run.m_szOutput;
+		   "Got: "
+		<< run.m_szOutput;
 	EXPECT_NE( std::string::npos, run.m_szOutput.find( "bTo(BasePlayer|BaseFlex)" ) )
 		<< "the control did not read the fixture at all. Got: " << run.m_szOutput;
 }
@@ -669,12 +670,13 @@ TEST( EntityCensus, TheRealPatternFileStillContainsBackslashes )
 
 	int cBackslashes = 0;
 	for ( size_t i = 0; i < run.m_szOutput.size(); i++ )
-		if ( run.m_szOutput[ i ] == '\\' )
+		if ( run.m_szOutput[i] == '\\' )
 			cBackslashes++;
 
-	EXPECT_GT( cBackslashes, 20 )
-		<< "only " << cBackslashes << " backslashes survived the loader over the "
-		   "real pattern file:\n" << run.m_szOutput;
+	EXPECT_GT( cBackslashes, 20 ) << "only " << cBackslashes
+								  << " backslashes survived the loader over the "
+									 "real pattern file:\n"
+								  << run.m_szOutput;
 	EXPECT_NE( std::string::npos, run.m_szOutput.find( "\\s*" ) ) << run.m_szOutput;
 	EXPECT_NE( std::string::npos, run.m_szOutput.find( "\\b" ) ) << run.m_szOutput;
 }

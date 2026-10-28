@@ -22,42 +22,42 @@
 #include "shell_cliententitylist.h"
 
 // Temporary entity array
-#define TENTPRIORITY_LOW	0
+#define TENTPRIORITY_LOW 0
 
 // TEMPENTITY flags
 
-#define	FTENT_SINEWAVE				0x00000001
+#define FTENT_SINEWAVE 0x00000001
 
-#define FTENT_ROTATE				0x00000004
+#define FTENT_ROTATE 0x00000004
 
-#define FTENT_COLLIDEWORLD			0x00000020
-#define FTENT_FLICKER				0x00000040
-#define FTENT_FADEOUT				0x00000080
-#define FTENT_SPRANIMATE			0x00000100
+#define FTENT_COLLIDEWORLD 0x00000020
+#define FTENT_FLICKER 0x00000040
+#define FTENT_FADEOUT 0x00000080
+#define FTENT_SPRANIMATE 0x00000100
 
-#define FTENT_SPRCYCLE				0x00000800
-#define FTENT_COLLIDEALL			0x00001000 // will collide with world and slideboxes
-#define FTENT_PERSIST				0x00002000 // tent is not removed when unable to draw 
-#define FTENT_COLLIDEKILL			0x00004000 // tent is removed upon collision with anything
-#define FTENT_PLYRATTACHMENT		0x00008000 // tent is attached to a player (owner)
-#define FTENT_SPRANIMATELOOP		0x00010000 // animating sprite doesn't die when last frame is displayed
- // rapid grow and fade. Very specific for gunsmoke
- // attach to whatever we hit, and stay there until die time is up
- // Doesn't have a model, never try to draw ( it just triggers other things )
- // Must specify callback.  Callback function is responsible for killing tempent and updating fields ( unless other flags specify how to do things )
-#define FTENT_WINDBLOWN				0x00200000 // This is set when the temp entity is blown by the wind
- // Don't die as long as die != 0
-#define FTENT_BEOCCLUDED			0x00800000 // Don't draw if my specified normal's facing away from the view
-	//when we collide with something, change our rendergroup to RENDER_GROUP_OTHER
-	// if set, use the C_BaseEntity::GetCollisionGroup when doing collide trace
-	// Change angles to always point in the direction of motion
-	// The object has a clientside particle system.
-	// Use fast collisions (cl_fasttempentcollision).
-	// Collide with the world and props
+#define FTENT_SPRCYCLE 0x00000800
+// will collide with world and slideboxes
+#define FTENT_PERSIST 0x00002000 // tent is not removed when unable to draw
+#define FTENT_COLLIDEKILL 0x00004000 // tent is removed upon collision with anything
+#define FTENT_PLYRATTACHMENT 0x00008000 // tent is attached to a player (owner)
+#define FTENT_SPRANIMATELOOP 0x00010000 // animating sprite doesn't die when last frame is displayed
+// rapid grow and fade. Very specific for gunsmoke
+// attach to whatever we hit, and stay there until die time is up
+// Doesn't have a model, never try to draw ( it just triggers other things )
+// Must specify callback.  Callback function is responsible for killing tempent and updating fields ( unless other flags specify how to do things )
+#define FTENT_WINDBLOWN 0x00200000 // This is set when the temp entity is blown by the wind
+// Don't die as long as die != 0
+#define FTENT_BEOCCLUDED 0x00800000 // Don't draw if my specified normal's facing away from the view
+//when we collide with something, change our rendergroup to RENDER_GROUP_OTHER
+// if set, use the C_BaseEntity::GetCollisionGroup when doing collide trace
+// Change angles to always point in the direction of motion
+// The object has a clientside particle system.
+// Use fast collisions (cl_fasttempentcollision).
+// Collide with the world and props
 
 class C_LocalTempEntity;
 
-typedef int (*pfnDrawHelper)( C_LocalTempEntity *entity, int flags );
+typedef int ( *pfnDrawHelper )( C_LocalTempEntity *entity, int flags );
 
 //========= SourceSharp -- the tempent's disposition, and the measurement =====//
 // Valve's own comment on this class was "Purpose: Should this derive from some
@@ -136,23 +136,26 @@ public:
 
 	C_LocalTempEntity();
 
-	virtual void					Prepare( const model_t *pmodel, float time );
+	virtual void Prepare( const model_t *pmodel, float time );
 
-	virtual bool					IsActive();
-	virtual bool					Frame( float frametime, int framenumber );
+	virtual bool IsActive();
+	virtual bool Frame( float frametime, int framenumber );
 
-	virtual int						DrawModel( int flags ) OVERRIDE;
+	virtual int DrawModel( int flags ) OVERRIDE;
 
 	// Sets the velocity
 	void SetVelocity( const Vector &vecVelocity );
+
 	const Vector &GetVelocity() const { return m_vecTempEntVelocity; }
 
 	// Set the acceleration
 	void SetAcceleration( const Vector &vecAccel );
+
 	const Vector &GetAcceleration() const { return m_vecTempEntAcceleration; }
 
-	void							SetDrawHelper( pfnDrawHelper helper ) { m_pfnDrawHelper = helper; }
-	void							OnRemoveTempEntity();
+	void SetDrawHelper( pfnDrawHelper helper ) { m_pfnDrawHelper = helper; }
+
+	void OnRemoveTempEntity();
 
 	// THE PLACE, in the local form the simulation is written in.
 	// Frame() opened with Assert( !GetMoveParent() ) for as long as this was an
@@ -165,33 +168,42 @@ public:
 	// system the object moved. That side effect is not decoration: without it a
 	// tempent draws only from the leaves it was first added to, so a shell
 	// casing bouncing out of the room it spawned in stops being drawn.
-	const Vector &GetLocalOrigin() const                 { return GetAbsOrigin(); }
-	void          SetLocalOrigin( const Vector &vecOrg ) { SetAbsOrigin( vecOrg ); }
+	const Vector &GetLocalOrigin() const { return GetAbsOrigin(); }
 
-	const QAngle &GetLocalAngles() const                 { return GetAbsAngles(); }
-	void          SetLocalAngles( const QAngle &ang )    { SetAbsAngles( ang ); }
+	void SetLocalOrigin( const Vector &vecOrg ) { SetAbsOrigin( vecOrg ); }
+
+	const QAngle &GetLocalAngles() const { return GetAbsAngles(); }
+
+	void SetLocalAngles( const QAngle &ang ) { SetAbsAngles( ang ); }
 
 	// THE MODEL. One pointer, which is all GetModel() ever was on this path:
 	// nothing here has a model INDEX and nothing here precaches.
 	virtual const model_t *GetModel() const OVERRIDE { return m_pModel; }
-	void SetModelPointer( const model_t *pModel )          { m_pModel = pModel; }
+
+	void SetModelPointer( const model_t *pModel ) { m_pModel = pModel; }
 
 	// RENDER STATE. Stock's setters, over plain members.
 	RenderMode_t GetRenderMode() const { return (RenderMode_t)m_nRenderMode; }
+
 	void SetRenderMode( RenderMode_t nMode, bool bForceUpdate = false ) { m_nRenderMode = nMode; }
 
 	void SetRenderColor( byte r, byte g, byte b )
 	{
-		m_clrRender.r = r; m_clrRender.g = g; m_clrRender.b = b;
+		m_clrRender.r = r;
+		m_clrRender.g = g;
+		m_clrRender.b = b;
 	}
+
 	void SetRenderColor( byte r, byte g, byte b, byte a )
 	{
 		SetRenderColor( r, g, b );
 		m_clrRender.a = a;
 	}
+
 	void SetRenderColorA( byte a ) { m_clrRender.a = a; }
 
 	void SetTempEntOwnerHandle( const CBaseHandle &hOwner ) { m_hOwnerEntity = hOwner; }
+
 	IHandleEntity *TempEntOwnerHandle() const
 	{
 		// THROUGH THE SLOT TABLE. Lane `f-list`. This was
@@ -213,10 +225,7 @@ public:
 	// number out of the handle word; it does not go through
 	// CBaseHandle::Get(), which is the unfiltered reinterpret of a handle
 	// table that holds managed entities that row C8 exists for.
-	int TempEntOwnerIndex() const
-	{
-		return m_hOwnerEntity.IsValid() ? m_hOwnerEntity.GetEntryIndex() : -1;
-	}
+	int TempEntOwnerIndex() const { return m_hOwnerEntity.IsValid() ? m_hOwnerEntity.GetEntryIndex() : -1; }
 
 	// IClientRenderable. CDefaultClientRenderable leaves ShouldDraw,
 	// IsTransparent and GetRenderBounds pure; IgnoresZBuffer and GetFxBlend
@@ -251,6 +260,7 @@ public:
 	// calls it for a tempent whose m_RenderGroup is RENDER_GROUP_OTHER. Same
 	// body, so the two spellings cannot drift.
 	using CShellRenderable::AddToLeafSystem;
+
 	void AddToLeafSystem() { AddToLeafSystem( GetRenderGroup() ); }
 
 	virtual bool IgnoresZBuffer() const OVERRIDE
@@ -268,44 +278,44 @@ public:
 	// ramps m_clrRender.a down and expects the model to fade with it; against a
 	// constant 255 it would stay solid and then disappear at once.
 	virtual void ComputeFxBlend() OVERRIDE;
-	virtual int  GetFxBlend() OVERRIDE { return m_nRenderFXBlend; }
+
+	virtual int GetFxBlend() OVERRIDE { return m_nRenderFXBlend; }
 
 protected:
-
-	pfnDrawHelper					m_pfnDrawHelper;
+	pfnDrawHelper m_pfnDrawHelper;
 
 public:
-	int								flags;
-	float							die;
-	float							m_flFrameMax;
-	float							x;
-	float							y;
-	float							fadeSpeed;
-	float							bounceFactor;
-	int								hitSound;
-	int								priority;
+	int flags;
+	float die;
+	float m_flFrameMax;
+	float x;
+	float y;
+	float fadeSpeed;
+	float bounceFactor;
+	int hitSound;
+	int priority;
 	// if attached, this is the index of the client to stick to
 	// if COLLIDEALL, this is the index of the client to ignore
-	// TENTS with FTENT_PLYRATTACHMENT MUST set the clientindex! 
-	short							clientIndex;	
+	// TENTS with FTENT_PLYRATTACHMENT MUST set the clientindex!
+	short clientIndex;
 
 	// if attached, client origin + tentOffset = tent origin.
-	Vector							tentOffset;		
+	Vector tentOffset;
 
 	// Used by temp entities.
-	QAngle							m_vecTempEntAngVelocity;
-	int								tempent_renderamt;
-	Vector							m_vecNormal;
+	QAngle m_vecTempEntAngVelocity;
+	int tempent_renderamt;
+	Vector m_vecNormal;
 
-	float							m_flSpriteScale;
-	int								m_nFlickerFrame;
+	float m_flSpriteScale;
+	int m_nFlickerFrame;
 
-	float							m_flFrameRate;
-	float							m_flFrame;
+	float m_flFrameRate;
+	float m_flFrame;
 
-	RenderGroup_t					m_RenderGroup;
+	RenderGroup_t m_RenderGroup;
 
-	alignas( 4 ) unsigned char unused_m_bParticleCollision[ 20 ];
+	alignas( 4 ) unsigned char unused_m_bParticleCollision[20];
 
 	// WHAT THE ENTITY HELD, now held here.
 	// Every one of these was a plain member of C_BaseEntity except m_clrRender,
@@ -318,38 +328,37 @@ public:
 	// CTempEnts::AddVisibleTempEntity re-asserts it every time one is made
 	// visible, with the comment "Temporary entities have no corresponding
 	// element in cl_entitylist".
-	int								index;
+	int index;
 
-	int								m_nBody;
-	int								m_nSkin;
-	int								m_nHitboxSet;
+	int m_nBody;
+	int m_nSkin;
+	int m_nHitboxSet;
 
-	int								m_nRenderMode;
-	int								m_nRenderFX;
-	color32							m_clrRender;
+	int m_nRenderMode;
+	int m_nRenderFX;
+	color32 m_clrRender;
 
 private:
 	C_LocalTempEntity( const C_LocalTempEntity & );
 
-	const model_t					*m_pModel;
+	const model_t *m_pModel;
 
 	// The owner, for the one trace that ignores it. A bare handle, so the read
 	// side names no entity type -- see SetTempEntOwner above.
-	CBaseHandle						m_hOwnerEntity;
+	CBaseHandle m_hOwnerEntity;
 
 	// ComputeFxBlend's output, and the frame it was computed on. Stock kept the
 	// pair on C_BaseEntity for the same reason: the engine's contract is
 	// ComputeFxBlend once per frame and GetFxBlend as many times as the
 	// renderer likes afterwards, so the answer has to be stored.
-	int								m_nRenderFXBlend;
-	int								m_nFXComputeFrame;
+	int m_nRenderFXBlend;
+	int m_nFXComputeFrame;
 
-	Vector							m_vecTempEntVelocity;
-	alignas( 8 ) unsigned char unused_m_vecPrevLocalOrigin[ 12 ];
+	Vector m_vecTempEntVelocity;
+	alignas( 8 ) unsigned char unused_m_vecPrevLocalOrigin[12];
 
-	Vector							m_vecTempEntAcceleration;
+	Vector m_vecTempEntAcceleration;
 
 	// Draw tempent as a studio model
-	int								DrawStudioModel( int flags );
-
+	int DrawStudioModel( int flags );
 };

@@ -44,7 +44,10 @@ struct Payload
 // Keys that are NOT entities and never were. Three distinct addresses; what
 // they point at is irrelevant, which is the whole point of the retype.
 //-----------------------------------------------------------------------------
-struct NotAnEntity { char pad[ 64 ]; };
+struct NotAnEntity
+{
+	char pad[64];
+};
 
 NotAnEntity g_a, g_b, g_c;
 
@@ -53,7 +56,7 @@ NotAnEntity g_a, g_b, g_c;
 //-----------------------------------------------------------------------------
 TEST( DataObjectKey, CreateThenGetAnswersTheSameObject )
 {
-	CEntityDataInstantiator< Payload > table;
+	CEntityDataInstantiator<Payload> table;
 
 	void *pCreated = table.CreateDataObject( &g_a );
 	ASSERT_TRUE( pCreated != NULL );
@@ -69,7 +72,7 @@ TEST( DataObjectKey, CreateThenGetAnswersTheSameObject )
 //-----------------------------------------------------------------------------
 TEST( DataObjectKey, DistinctKeysGetDistinctObjects )
 {
-	CEntityDataInstantiator< Payload > table;
+	CEntityDataInstantiator<Payload> table;
 
 	Payload *pA = (Payload *)table.CreateDataObject( &g_a );
 	Payload *pB = (Payload *)table.CreateDataObject( &g_b );
@@ -94,7 +97,7 @@ TEST( DataObjectKey, DistinctKeysGetDistinctObjects )
 //-----------------------------------------------------------------------------
 TEST( DataObjectKey, AnUnknownKeyAnswersNull )
 {
-	CEntityDataInstantiator< Payload > table;
+	CEntityDataInstantiator<Payload> table;
 
 	table.CreateDataObject( &g_a );
 	EXPECT_TRUE( table.GetDataObject( &g_c ) == NULL );
@@ -109,7 +112,7 @@ TEST( DataObjectKey, AnUnknownKeyAnswersNull )
 //-----------------------------------------------------------------------------
 TEST( DataObjectKey, CreateTwiceForOneKeyKeepsTheFirstObject )
 {
-	CEntityDataInstantiator< Payload > table;
+	CEntityDataInstantiator<Payload> table;
 
 	Payload *pFirst = (Payload *)table.CreateDataObject( &g_a );
 	pFirst->nMark = 0x3333;
@@ -129,7 +132,7 @@ TEST( DataObjectKey, CreateTwiceForOneKeyKeepsTheFirstObject )
 //-----------------------------------------------------------------------------
 TEST( DataObjectKey, ACreatedObjectIsZeroed )
 {
-	CEntityDataInstantiator< Payload > table;
+	CEntityDataInstantiator<Payload> table;
 
 	Payload *p = (Payload *)table.CreateDataObject( &g_a );
 	ASSERT_TRUE( p != NULL );
@@ -146,7 +149,7 @@ TEST( DataObjectKey, ACreatedObjectIsZeroed )
 //-----------------------------------------------------------------------------
 TEST( DataObjectKey, DestroyRemovesOnlyThatKey )
 {
-	CEntityDataInstantiator< Payload > table;
+	CEntityDataInstantiator<Payload> table;
 
 	table.CreateDataObject( &g_a );
 	Payload *pB = (Payload *)table.CreateDataObject( &g_b );
@@ -168,7 +171,7 @@ TEST( DataObjectKey, DestroyRemovesOnlyThatKey )
 //-----------------------------------------------------------------------------
 TEST( DataObjectKey, DestroyingAnUnknownKeyIsANoOp )
 {
-	CEntityDataInstantiator< Payload > table;
+	CEntityDataInstantiator<Payload> table;
 
 	table.CreateDataObject( &g_a );
 	table.DestroyDataObject( &g_c );
@@ -185,7 +188,7 @@ TEST( DataObjectKey, DestroyingAnUnknownKeyIsANoOp )
 //-----------------------------------------------------------------------------
 TEST( DataObjectKey, AKeyRecreatedAfterDestroyGetsAFreshObject )
 {
-	CEntityDataInstantiator< Payload > table;
+	CEntityDataInstantiator<Payload> table;
 
 	Payload *pFirst = (Payload *)table.CreateDataObject( &g_a );
 	pFirst->nMark = 0x5555;

@@ -5,7 +5,7 @@
 #include "ss_particles/iparticlelib.h"
 
 #include "Color.h"
-#include "mathlib/vector.h"
+
 #include "tier2/beamsegdraw.h"
 
 extern SSParticleLibCounters_t g_SSParticleLibCounters;
@@ -14,10 +14,10 @@ extern SSParticleLibCounters_t g_SSParticleLibCounters;
 // was compiled against.
 void RenderWireframeSphere( const Vector &vCenter, float flRadius, int nTheta, int nPhi, Color c, bool bZBuffer );
 void RenderWireframeBox( const Vector &vOrigin, const QAngle &angles, const Vector &vMins, const Vector &vMaxs, Color c,
-                         bool bZBuffer );
+						 bool bZBuffer );
 
 void CBeamSegDraw::Start( IMatRenderContext *pRenderContext, int nSegs, IMaterial *, CMeshBuilder *pMeshBuilder,
-                          int nMeshVertCount )
+						  int nMeshVertCount )
 {
 	m_pRenderContext = pRenderContext;
 	m_pMeshBuilder = pMeshBuilder;

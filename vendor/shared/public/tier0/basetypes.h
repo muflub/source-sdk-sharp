@@ -8,8 +8,8 @@
 #include "tier0/valve_off.h"
 
 // This is a trick to get the DLL extension off the -D option on the command line.
-#define DLLExtTokenPaste(x) #x
-#define DLLExtTokenPaste2(x) DLLExtTokenPaste(x)
+#define DLLExtTokenPaste( x ) #x
+#define DLLExtTokenPaste2( x ) DLLExtTokenPaste( x )
 #define DLL_EXT_STRING DLLExtTokenPaste2( _DLL_EXT )
 
 #include "protected_things.h"
@@ -31,12 +31,11 @@ inline T AlignValue( T val, uintptr_t alignment )
 
 // Pad a number so it lies on an N byte boundary.
 // So PAD_NUMBER(0,4) is 0 and PAD_NUMBER(1,4) is 4
-#define PAD_NUMBER(number, boundary) \
-	( ((number) + ((boundary)-1)) / (boundary) ) * (boundary)
+#define PAD_NUMBER( number, boundary ) ( ( ( number ) + ( ( boundary ) - 1 ) ) / ( boundary ) ) * ( boundary )
 
 // In case this ever changes
-#if !defined(M_PI)
-#define M_PI			3.14159265358979323846
+#if !defined( M_PI )
+#define M_PI 3.14159265358979323846
 #endif
 
 #include "valve_minmax_on.h"
@@ -58,12 +57,12 @@ inline T AlignValue( T val, uintptr_t alignment )
 // unexpected side-effects or more expensive code. Even the clamp (all
 // lower-case) function can generate more expensive code because of the
 // mixed types involved.
-template< class T >
+template <class T>
 T Clamp( T const &val, T const &minVal, T const &maxVal )
 {
-	if( val < minVal )
+	if ( val < minVal )
 		return minVal;
-	else if( val > maxVal )
+	else if ( val > maxVal )
 		return maxVal;
 	else
 		return val;
@@ -71,7 +70,7 @@ T Clamp( T const &val, T const &minVal, T const &maxVal )
 
 // This is the preferred Min operator. Using the MIN macro can lead to unexpected
 // side-effects or more expensive code.
-template< class T >
+template <class T>
 T Min( T const &val1, T const &val2 )
 {
 	return val1 < val2 ? val1 : val2;
@@ -79,7 +78,7 @@ T Min( T const &val1, T const &val2 )
 
 // This is the preferred Max operator. Using the MAX macro can lead to unexpected
 // side-effects or more expensive code.
-template< class T >
+template <class T>
 T Max( T const &val1, T const &val2 )
 {
 	return val1 > val2 ? val1 : val2;
@@ -100,7 +99,7 @@ typedef unsigned short ucs2;
 
 #ifndef FALSE
 #define FALSE 0
-#define TRUE (!FALSE)
+#define TRUE ( !FALSE )
 #endif
 
 #ifdef POSIX
@@ -109,13 +108,13 @@ typedef unsigned short ucs2;
 
 typedef float vec_t;
 
-#if defined(__GNUC__)
+#if defined( __GNUC__ )
 #define fpmin __builtin_fminf
 #define fpmax __builtin_fmaxf
 #else
 static inline float fpmin( float a, float b )
 {
-	return a > b  ? b : a;
+	return a > b ? b : a;
 }
 
 static inline float fpmax( float a, float b )
@@ -124,22 +123,22 @@ static inline float fpmax( float a, float b )
 }
 #endif
 
-// look for NANs, infinities, and underflows. 
+// look for NANs, infinities, and underflows.
 // This assumes the ANSI/IEEE 754-1985 standard
 
-inline unsigned int& FloatBits( vec_t& f )
+inline unsigned int &FloatBits( vec_t &f )
 {
-	return *reinterpret_cast<unsigned int*>(&f);
+	return *reinterpret_cast<unsigned int *>( &f );
 }
 
 inline vec_t BitsToFloat( unsigned int i )
 {
-	return *reinterpret_cast<vec_t*>(&i);
+	return *reinterpret_cast<vec_t *>( &i );
 }
 
 inline bool IsFinite( vec_t f )
 {
-	return ((FloatBits(f) & 0x7F800000) != 0x7F800000);
+	return ( ( FloatBits( f ) & 0x7F800000 ) != 0x7F800000 );
 }
 
 // Given today's processors, I cannot think of any circumstance
@@ -148,18 +147,18 @@ inline bool IsFinite( vec_t f )
 #ifndef _In_
 #define _In_
 #endif
-extern "C" _Check_return_ __inline float __CRTDECL fabsf(_In_ float _X);
+extern "C" _Check_return_ __inline float __CRTDECL fabsf( _In_ float _X );
 #else
 #include <math.h>
 #endif
 
 inline float FloatMakePositive( vec_t f )
 {
-	return fabsf(f);
+	return fabsf( f );
 }
 
-#define FLOAT32_NAN_BITS     (unsigned long)0x7FC00000	// not a number!
-#define FLOAT32_NAN          BitsToFloat( FLOAT32_NAN_BITS )
+#define FLOAT32_NAN_BITS (unsigned long)0x7FC00000 // not a number!
+#define FLOAT32_NAN BitsToFloat( FLOAT32_NAN_BITS )
 
 #define VEC_T_NAN FLOAT32_NAN
 
@@ -187,19 +186,19 @@ struct colorVec
 };
 
 #ifndef NOTE_UNUSED
-#define NOTE_UNUSED(x)	(void)(x)	// for pesky compiler / lint warnings
+#define NOTE_UNUSED( x ) (void)( x ) // for pesky compiler / lint warnings
 #endif
 
 struct vrect_t
 {
-	int				x,y,width,height;
-	vrect_t			*pnext;
+	int x, y, width, height;
+	vrect_t *pnext;
 };
 
 // MaterialRect_t struct - used for DrawDebugText
 struct Rect_t
 {
-    int x, y;
+	int x, y;
 	int width, height;
 };
 
@@ -215,93 +214,73 @@ struct interval_t
 // 32-bit pointer handles.
 
 // Typesafe 8-bit and 16-bit handles.
-template< class HandleType >
+template <class HandleType>
 class CBaseIntHandle
 {
 public:
-	
 	// Only the code that doles out these handles should use these functions.
 	// Everyone else should treat them as a transparent type.
-	inline HandleType	GetHandleValue()					{ return m_Handle; }
-	inline void			SetHandleValue( HandleType val )	{ m_Handle = val; }
+	inline HandleType GetHandleValue() { return m_Handle; }
 
-	typedef HandleType	HANDLE_TYPE;
+	inline void SetHandleValue( HandleType val ) { m_Handle = val; }
+
+	typedef HandleType HANDLE_TYPE;
 
 protected:
-
-	HandleType	m_Handle;
+	HandleType m_Handle;
 };
 
-template< class DummyType >
-class CIntHandle16 : public CBaseIntHandle< unsigned short >
+template <class DummyType>
+class CIntHandle16 : public CBaseIntHandle<unsigned short>
 {
 public:
-	inline			CIntHandle16() {}
+	inline CIntHandle16() {}
 
-	static inline	CIntHandle16<DummyType> MakeHandle( HANDLE_TYPE val )
-	{
-		return CIntHandle16<DummyType>( val );
-	}
+	static inline CIntHandle16<DummyType> MakeHandle( HANDLE_TYPE val ) { return CIntHandle16<DummyType>( val ); }
 
 protected:
-	inline			CIntHandle16( HANDLE_TYPE val )
-	{
-		m_Handle = val;
-	}
+	inline CIntHandle16( HANDLE_TYPE val ) { m_Handle = val; }
 };
 
-template< class DummyType >
-class CIntHandle32 : public CBaseIntHandle< unsigned long >
+template <class DummyType>
+class CIntHandle32 : public CBaseIntHandle<unsigned long>
 {
 public:
-	inline			CIntHandle32() {}
+	inline CIntHandle32() {}
 
-	static inline	CIntHandle32<DummyType> MakeHandle( HANDLE_TYPE val )
-	{
-		return CIntHandle32<DummyType>( val );
-	}
+	static inline CIntHandle32<DummyType> MakeHandle( HANDLE_TYPE val ) { return CIntHandle32<DummyType>( val ); }
 
 protected:
-	inline			CIntHandle32( HANDLE_TYPE val )
-	{
-		m_Handle = val;
-	}
+	inline CIntHandle32( HANDLE_TYPE val ) { m_Handle = val; }
 };
 
 // NOTE: This macro is the same as windows uses; so don't change the guts of it
 
-#define DECLARE_POINTER_HANDLE(name) struct name##__ { int unused; }; typedef struct name##__ *name
-#define FORWARD_DECLARE_HANDLE(name) typedef struct name##__ *name
+#define DECLARE_POINTER_HANDLE( name ) \
+	struct name##__                    \
+	{                                  \
+		int unused;                    \
+	};                                 \
+	typedef struct name##__ *name
+#define FORWARD_DECLARE_HANDLE( name ) typedef struct name##__ *name
 
 // @TODO: Find a better home for this
-#if !defined(PUBLISH_DLL_SUBSYSTEM)
+#if !defined( PUBLISH_DLL_SUBSYSTEM )
 // for platforms built with dynamic linking, the dll interface does not need spoofing
 #define PUBLISH_DLL_SUBSYSTEM()
 #endif
 
 #define UID_PREFIX generated_id_
-#define UID_CAT1(a,c) a ## c
-#define UID_CAT2(a,c) UID_CAT1(a,c)
+#define UID_CAT1( a, c ) a##c
+#define UID_CAT2( a, c ) UID_CAT1( a, c )
 
 #ifdef _MSC_VER
-#define UNIQUE_ID UID_CAT2(UID_PREFIX,__COUNTER__)
+#define UNIQUE_ID UID_CAT2( UID_PREFIX, __COUNTER__ )
 #else
-#define UNIQUE_ID UID_CAT2(UID_PREFIX,__LINE__)
+#define UNIQUE_ID UID_CAT2( UID_PREFIX, __LINE__ )
 #endif
 
 // this allows enumerations to be used as flags, and still remain type-safe!
-#define DEFINE_ENUM_BITWISE_OPERATORS( Type ) \
-	inline Type  operator|  ( Type  a, Type b ) { return Type( int( a ) | int( b ) ); } \
-	inline Type  operator&  ( Type  a, Type b ) { return Type( int( a ) & int( b ) ); } \
-	inline Type  operator^  ( Type  a, Type b ) { return Type( int( a ) ^ int( b ) ); } \
-	inline Type  operator<< ( Type  a, int  b ) { return Type( int( a ) << b ); } \
-	inline Type  operator>> ( Type  a, int  b ) { return Type( int( a ) >> b ); } \
-	inline Type &operator|= ( Type &a, Type b ) { return a = a |  b; } \
-	inline Type &operator&= ( Type &a, Type b ) { return a = a &  b; } \
-	inline Type &operator^= ( Type &a, Type b ) { return a = a ^  b; } \
-	inline Type &operator<<=( Type &a, int  b ) { return a = a << b; } \
-	inline Type &operator>>=( Type &a, int  b ) { return a = a >> b; } \
-	inline Type  operator~( Type a ) { return Type( ~int( a ) ); }
 
 // defines increment/decrement operators for enums for easy iteration
 

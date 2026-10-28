@@ -28,18 +28,19 @@ public:
 private:
 	struct QueueEntry_t
 	{
-		float	m_flTime;
-		T		m_Data;
+		float m_flTime;
+		T m_Data;
 	};
 
 	float m_flQueueHeadTime;
 	float m_flMaxTime;
-	CUtlLinkedList< T, I >	m_Queue;
+	CUtlLinkedList<T, I> m_Queue;
 };
 
 // The time passed in here represents the amount of time the queue stores
 template <class T, class I>
-CTimedEventQueue<T,I>::CTimedEventQueue( float flMaxTime ) : m_flMaxTime(flMaxTime)
+CTimedEventQueue<T, I>::CTimedEventQueue( float flMaxTime )
+	: m_flMaxTime( flMaxTime )
 {
 	// The length of time of events in the queue must be reasonable
 	Assert( m_flMaxTime > 0.0f );
@@ -48,7 +49,7 @@ CTimedEventQueue<T,I>::CTimedEventQueue( float flMaxTime ) : m_flMaxTime(flMaxTi
 
 // Adds an event to the queue, will pop off stale events from the queue
 template <class T, class I>
-I CTimedEventQueue<T,I>::PushEvent( float flTime, const T &data )
+I CTimedEventQueue<T, I>::PushEvent( float flTime, const T &data )
 {
 	Assert( m_flQueueHeadTime <= flTime );
 	m_flQueueHeadTime = flTime;
@@ -57,14 +58,14 @@ I CTimedEventQueue<T,I>::PushEvent( float flTime, const T &data )
 	I idx = m_Queue.AddToHead();
 	m_Queue[idx].m_flTime = flTime;
 	m_Queue[idx].m_Data = data;
-	
+
 	// Then retire stale events...
 	I i = m_Queue.Tail();
-	while (m_Queue[i].m_flTime < m_flQueueHeadTime - m_flMaxTime )
+	while ( m_Queue[i].m_flTime < m_flQueueHeadTime - m_flMaxTime )
 	{
-		I prev = m_Queue.Prev(i);
+		I prev = m_Queue.Prev( i );
 		Assert( prev != m_Queue.InvalidIndex() );
-		m_Queue.Remove(i);
+		m_Queue.Remove( i );
 		i = prev;
 	}
 
@@ -73,16 +74,16 @@ I CTimedEventQueue<T,I>::PushEvent( float flTime, const T &data )
 
 // Grabs the last event that happened before or at the specified time
 template <class T, class I>
-I CTimedEventQueue<T,I>::GetEventIndex( float flTime ) const
+I CTimedEventQueue<T, I>::GetEventIndex( float flTime ) const
 {
 	// This checks for a request that fell off the queue
-	Assert( (flTime >= m_flQueueHeadTime - m_flMaxTime) && (flTime <= m_flQueueHeadTime) );
-	
+	Assert( ( flTime >= m_flQueueHeadTime - m_flMaxTime ) && ( flTime <= m_flQueueHeadTime ) );
+
 	// Then retire stale events...
 	I i = m_Queue.Head();
-	while( m_Queue[i].m_flTime > flTime )
+	while ( m_Queue[i].m_flTime > flTime )
 	{
-		i = m_Queue.Next(i);
+		i = m_Queue.Next( i );
 		Assert( i != m_Queue.InvalidIndex() );
 	}
 
@@ -91,13 +92,13 @@ I CTimedEventQueue<T,I>::GetEventIndex( float flTime ) const
 
 // Gets event information
 template <class T, class I>
-inline float CTimedEventQueue<T,I>::GetEventTime( I i )	const
+inline float CTimedEventQueue<T, I>::GetEventTime( I i ) const
 {
 	return m_Queue[i].m_flTime;
 }
 
 template <class T, class I>
-inline const T &CTimedEventQueue<T,I>::GetEventData( I i ) const
+inline const T &CTimedEventQueue<T, I>::GetEventData( I i ) const
 {
 	return m_Queue[i].m_Data;
 }
@@ -108,7 +109,7 @@ class CEnvWindShared
 public:
 	DECLARE_CLASS_NOBASE( CEnvWindShared );
 	DECLARE_EMBEDDED_NETWORKVAR();
-	
+
 	CEnvWindShared();
 	~CEnvWindShared();
 
@@ -118,23 +119,23 @@ public:
 	// FIXME: These really should be private
 	CNetworkVar( float, m_flStartTime );
 
-	CNetworkVar( int, m_iWindSeed );		// random number seed...
+	CNetworkVar( int, m_iWindSeed ); // random number seed...
 
-	CNetworkVar( int, m_iMinWind );			// the slowest the wind can normally blow
-	CNetworkVar( int, m_iMaxWind );			// the fastest the wind can normally blow
-	CNetworkVar( int, m_windRadius );		// the radius this entity affects with its windiness, so a map can have multiple
-	CNetworkVar( int, m_iMinGust );			// the slowest that a gust can be
-	CNetworkVar( int, m_iMaxGust );			// the fastest that a gust can be
+	CNetworkVar( int, m_iMinWind ); // the slowest the wind can normally blow
+	CNetworkVar( int, m_iMaxWind ); // the fastest the wind can normally blow
+	CNetworkVar( int, m_windRadius ); // the radius this entity affects with its windiness, so a map can have multiple
+	CNetworkVar( int, m_iMinGust ); // the slowest that a gust can be
+	CNetworkVar( int, m_iMaxGust ); // the fastest that a gust can be
 
-	CNetworkVar( float, m_flMinGustDelay );	// min time between gusts
-	CNetworkVar( float, m_flMaxGustDelay );	// max time between gusts
+	CNetworkVar( float, m_flMinGustDelay ); // min time between gusts
+	CNetworkVar( float, m_flMaxGustDelay ); // max time between gusts
 
-	CNetworkVar( float, m_flGustDuration );	// max time between gusts
+	CNetworkVar( float, m_flGustDuration ); // max time between gusts
 
-	CNetworkVar( int, m_iGustDirChange );	// max number of degrees wind dir changes on gusts.
-	CNetworkVector( m_location );			// The location of this wind controller
+	CNetworkVar( int, m_iGustDirChange ); // max number of degrees wind dir changes on gusts.
+	CNetworkVector( m_location ); // The location of this wind controller
 
-	alignas( 8 ) unsigned char unused_m_iszGustSound[ 48 ];
+	alignas( 8 ) unsigned char unused_m_iszGustSound[48];
 
 	CNetworkVar( int, m_iInitialWindDir );
 	CNetworkVar( float, m_flInitialWindSpeed );
@@ -142,8 +143,8 @@ public:
 private:
 	struct WindAveEvent_t
 	{
-		float m_flStartWindSpeed;	// the wind speed at the time of the event
-		float m_flAveWindSpeed;		// the average wind speed of the event
+		float m_flStartWindSpeed; // the wind speed at the time of the event
+		float m_flAveWindSpeed; // the average wind speed of the event
 	};
 
 	struct WindVariationEvent_t
@@ -152,12 +153,12 @@ private:
 		float m_flWindSpeedVariation;
 	};
 
-	float	m_flVariationTime;
-	float	m_flSwayTime;
-	float	m_flSimTime;		// What's the time I last simulated up to?
-	float	m_flSwitchTime;		// when do I actually switch from gust to not gust
-	float	m_flAveWindSpeed;	// the average wind speed
-	bool	m_bGusting;			// is the wind gusting right now?
+	float m_flVariationTime;
+	float m_flSwayTime;
+	float m_flSimTime; // What's the time I last simulated up to?
+	float m_flSwitchTime; // when do I actually switch from gust to not gust
+	float m_flAveWindSpeed; // the average wind speed
+	bool m_bGusting; // is the wind gusting right now?
 
 	float m_flWindAngleVariation;
 	float m_flWindSpeedVariation;
@@ -177,8 +178,8 @@ private:
 	CSoundPatch *m_pWindSound;
 
 	// Event history required for prediction
-	CTimedEventQueue< WindAveEvent_t, unsigned short >	m_WindAveQueue;
-	CTimedEventQueue< WindVariationEvent_t, unsigned short > m_WindVariationQueue;
+	CTimedEventQueue<WindAveEvent_t, unsigned short> m_WindAveQueue;
+	CTimedEventQueue<WindVariationEvent_t, unsigned short> m_WindVariationQueue;
 
 private:
 	CEnvWindShared( const CEnvWindShared & ); // not defined, not accessible

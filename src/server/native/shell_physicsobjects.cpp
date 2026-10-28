@@ -11,16 +11,8 @@
 // owner lookups physicsowner.h asks mid-callback turn a handle into the shell.
 
 #include "shell_standalone_class.h"
-#include "sourcesharp.h"
-#include "shell_diagnostics.h"
-#include "model_types.h"
-#include "shell_model_name.h"
-
-#include "precache_model.h"
 
 #include "slot_table.h"
-#include "physicslink.h"
-#include "physics_bridge_refusal.h"
 
 // Both take the handle, never the object. A stale handle answers NULL, so a
 // callback about a dead entity never reaches whatever reused its slot.
@@ -54,7 +46,7 @@ int32_t SourceSharp_EntitySwapPhysicsObject( uint32_t hEntity, void *pObject, vo
 	if ( !pShell )
 		return 0;
 
-	IPhysicsObject *pPrevious = pShell->SwapPhysics( static_cast< IPhysicsObject * >( pObject ) );
+	IPhysicsObject *pPrevious = pShell->SwapPhysics( static_cast<IPhysicsObject *>( pObject ) );
 	if ( ppPrevious )
 		*ppPrevious = pPrevious;
 

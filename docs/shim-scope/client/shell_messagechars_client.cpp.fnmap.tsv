@@ -4,7 +4,7 @@
 1	SLOT	[CSourceSharpMessageChars] virtual void Destroy() OVERRIDE
 1	SLOT	[CSourceSharpMessageChars] virtual int DrawString( vgui::HFont, int, int, int, int, int, int, const char *, int, ... ) OVERRIDE
 1	SLOT	[CSourceSharpMessageChars] virtual int DrawString( vgui::HFont, int, int, const char *, int, ... ) OVERRIDE
-1	SLOT	[CSourceSharpMessageChars] virtual int DrawStringForTime( float, vgui::HFont, int, int, int, int, int, int, const char *, int, ... ) OVERRID
+4	SLOT	[CSourceSharpMessageChars] virtual int DrawStringForTime( float, vgui::HFont, int, int, int, int, int, int, const char *, int, ... ) OVERRID
 1	SLOT	[CSourceSharpMessageChars] virtual int DrawStringForTime( float, vgui::HFont, int, int, const char *, int, ... ) OVERRIDE
 1	SLOT	[CSourceSharpMessageChars] virtual void RemoveStringsByID( int ) OVERRIDE
 7	SLOT	[CSourceSharpMessageChars] virtual void GetStringLength( vgui::HFont, int *width, int *height, const char *, ... ) OVERRIDE

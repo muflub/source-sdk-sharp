@@ -3,5 +3,5 @@
 6	SLOT-HELP	float FloatOf( int32_t nBits )
 71	SLOT	void Execute( const int32_t *pCmds, int nWords )
 6	SLOT	int32_t SourceSharp_GlowMaterialFind( const char *pszName, const char *pszGroup )
-33	HOOK	void ShellGlowDrawOverlays( bool bCacheFullSceneState )
+37	HOOK	void ShellGlowDrawOverlays( bool bCacheFullSceneState )
 9	HOOK	void ShellGlowUpdateSkyOverlays( float flZFar, bool bCacheFullSceneState )

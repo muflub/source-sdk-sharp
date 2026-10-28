@@ -75,10 +75,10 @@ namespace
 std::string Trim( const std::string &strIn )
 {
 	size_t a = 0;
-	while ( a < strIn.size() && ( strIn[ a ] == ' ' || strIn[ a ] == '\t' || strIn[ a ] == '\r' ) )
+	while ( a < strIn.size() && ( strIn[a] == ' ' || strIn[a] == '\t' || strIn[a] == '\r' ) )
 		a++;
 	size_t b = strIn.size();
-	while ( b > a && ( strIn[ b - 1 ] == ' ' || strIn[ b - 1 ] == '\t' || strIn[ b - 1 ] == '\r' ) )
+	while ( b > a && ( strIn[b - 1] == ' ' || strIn[b - 1] == '\t' || strIn[b - 1] == '\r' ) )
 		b--;
 	return strIn.substr( a, b - a );
 }
@@ -110,8 +110,8 @@ enum Arm_t
 
 struct Frame_t
 {
-	bool bIsAliasGuard;   // this #if is `#ifndef SS_CBASEENTITY_ALIAS`
-	bool bInElse;         // we have passed its #else
+	bool bIsAliasGuard; // this #if is `#ifndef SS_CBASEENTITY_ALIAS`
+	bool bInElse; // we have passed its #else
 };
 
 // The EXACT spelling survey_arm_alias.py's negative control rewrites: optional
@@ -126,15 +126,13 @@ bool IsDefeatableGuardLine( const std::string &strLine )
 bool IsUndefeatableGuardLine( const std::string &strLine )
 {
 	const std::string t = Trim( strLine );
-	if ( t.size() < 3 || t[ 0 ] != '#' )
+	if ( t.size() < 3 || t[0] != '#' )
 		return false;
 	if ( IsDefeatableGuardLine( t ) )
 		return false;
 	// #ifdef / #ifndef / #if / #elif that names the macro.
-	const bool bIsCondition =
-		t.compare( 0, 4, "#if " ) == 0 || t.compare( 0, 4, "#if(" ) == 0 ||
-		t.compare( 0, 6, "#ifdef" ) == 0 || t.compare( 0, 7, "#ifndef" ) == 0 ||
-		t.compare( 0, 5, "#elif" ) == 0;
+	const bool bIsCondition = t.compare( 0, 4, "#if " ) == 0 || t.compare( 0, 4, "#if(" ) == 0 ||
+		t.compare( 0, 6, "#ifdef" ) == 0 || t.compare( 0, 7, "#ifndef" ) == 0 || t.compare( 0, 5, "#elif" ) == 0;
 	if ( !bIsCondition )
 		return false;
 	// SS_CBASEENTITY_ALIAS_H is the alias header's own include guard and is not
@@ -143,41 +141,39 @@ bool IsUndefeatableGuardLine( const std::string &strLine )
 	if ( p == std::string::npos )
 		return false;
 	const size_t after = p + sizeof( "SS_CBASEENTITY_ALIAS" ) - 1;
-	if ( after < t.size() && ( t[ after ] == '_' || isalnum( t[ after ] ) ) )
+	if ( after < t.size() && ( t[after] == '_' || isalnum( t[after] ) ) )
 		return false;
 	return true;
 }
 
-void SplitLines( const std::string &strIn, std::vector< std::string > *pOut )
+void SplitLines( const std::string &strIn, std::vector<std::string> *pOut )
 {
 	std::string cur;
 	for ( size_t i = 0; i < strIn.size(); i++ )
 	{
-		if ( strIn[ i ] == '\n' )
+		if ( strIn[i] == '\n' )
 		{
 			pOut->push_back( cur );
 			cur.clear();
 			continue;
 		}
-		cur += strIn[ i ];
+		cur += strIn[i];
 	}
 	pOut->push_back( cur );
 }
 
 // Per-line arm, for the RAW text of a file.
-void WalkArms( const std::string &strRaw, std::vector< std::string > *pLines,
-               std::vector< Arm_t > *pArms )
+void WalkArms( const std::string &strRaw, std::vector<std::string> *pLines, std::vector<Arm_t> *pArms )
 {
 	pLines->clear();
 	pArms->clear();
 	SplitLines( strRaw, pLines );
 
-	std::vector< Frame_t > stack;
+	std::vector<Frame_t> stack;
 	for ( size_t i = 0; i < pLines->size(); i++ )
 	{
-		const std::string t = Trim( ( *pLines )[ i ] );
-		const bool bIsIf =
-			t.compare( 0, 3, "#if" ) == 0;
+		const std::string t = Trim( ( *pLines )[i] );
+		const bool bIsIf = t.compare( 0, 3, "#if" ) == 0;
 		const bool bIsElse = ( t == "#else" ) || t.compare( 0, 5, "#elif" ) == 0;
 		const bool bIsEndif = t.compare( 0, 6, "#endif" ) == 0;
 
@@ -193,9 +189,9 @@ void WalkArms( const std::string &strRaw, std::vector< std::string > *pLines,
 		Arm_t arm = ARM_ALWAYS;
 		for ( size_t f = 0; f < stack.size(); f++ )
 		{
-			if ( !stack[ f ].bIsAliasGuard )
+			if ( !stack[f].bIsAliasGuard )
 				continue;
-			arm = stack[ f ].bInElse ? ARM_ALIAS : ARM_SDK;
+			arm = stack[f].bInElse ? ARM_ALIAS : ARM_SDK;
 			break;
 		}
 		pArms->push_back( arm );
@@ -249,7 +245,6 @@ void WalkArms( const std::string &strRaw, std::vector< std::string > *pLines,
 // directions.
 //-----------------------------------------------------------------------------
 } // namespace
-
 
 //=============================================================================
 // CLAIM 2 FIRST, because it is the one that protects the measurement.
@@ -333,48 +328,49 @@ void WalkArms( const std::string &strRaw, std::vector< std::string > *pLines,
 //=============================================================================
 TEST( CppAliasShardT3Fixture, TheGuardWalkAnswersKnownInputCorrectly )
 {
-	const std::string strFixture =
-		"always_a\n"
-		"#ifndef SS_CBASEENTITY_ALIAS\n"
-		"sdk_a\n"
-		"#else\n"
-		"alias_a\n"
-		"#endif\n"
-		"always_b\n"
-		"#ifdef CLIENT_DLL\n"
-		"always_c\n"
-		"	#ifndef SS_CBASEENTITY_ALIAS\n"
-		"sdk_b\n"
-		"	#endif\n"
-		"always_d\n"
-		"#endif\n"
-		"always_e\n";
+	const std::string strFixture = "always_a\n"
+								   "#ifndef SS_CBASEENTITY_ALIAS\n"
+								   "sdk_a\n"
+								   "#else\n"
+								   "alias_a\n"
+								   "#endif\n"
+								   "always_b\n"
+								   "#ifdef CLIENT_DLL\n"
+								   "always_c\n"
+								   "	#ifndef SS_CBASEENTITY_ALIAS\n"
+								   "sdk_b\n"
+								   "	#endif\n"
+								   "always_d\n"
+								   "#endif\n"
+								   "always_e\n";
 
-	std::vector< std::string > lines;
-	std::vector< Arm_t > arms;
+	std::vector<std::string> lines;
+	std::vector<Arm_t> arms;
 	WalkArms( strFixture, &lines, &arms );
 
 	for ( size_t i = 0; i < lines.size(); i++ )
 	{
-		const std::string t = Trim( lines[ i ] );
-		if ( t.empty() || t[ 0 ] == '#' )
+		const std::string t = Trim( lines[i] );
+		if ( t.empty() || t[0] == '#' )
 			continue;
 		Arm_t expect = ARM_ALWAYS;
 		if ( t.compare( 0, 4, "sdk_" ) == 0 )
 			expect = ARM_SDK;
 		else if ( t.compare( 0, 6, "alias_" ) == 0 )
 			expect = ARM_ALIAS;
-		EXPECT_EQ( expect, arms[ i ] ) << "line " << ( i + 1 ) << " (" << t
-		                               << ") landed in the wrong arm.";
+		EXPECT_EQ( expect, arms[i] ) << "line " << ( i + 1 ) << " (" << t << ") landed in the wrong arm.";
 	}
 
 	// And the walk does not simply answer ARM_SDK for everything.
 	int nAlways = 0, nSdk = 0, nAlias = 0;
 	for ( size_t i = 0; i < arms.size(); i++ )
 	{
-		if ( arms[ i ] == ARM_ALWAYS ) nAlways++;
-		else if ( arms[ i ] == ARM_SDK ) nSdk++;
-		else nAlias++;
+		if ( arms[i] == ARM_ALWAYS )
+			nAlways++;
+		else if ( arms[i] == ARM_SDK )
+			nSdk++;
+		else
+			nAlias++;
 	}
 	EXPECT_GT( nAlways, 0 );
 	EXPECT_GT( nSdk, 0 );
@@ -394,8 +390,7 @@ TEST( CppAliasShardT3Fixture, TheDefeatabilityTestRejectsTheCompoundSpelling )
 
 	// ...and those same non-matches are reported as UNDEFEATABLE, which is what
 	// the whole-tree scan above fires on.
-	EXPECT_TRUE( IsUndefeatableGuardLine(
-		"#if defined( CLIENT_DLL ) && !defined( SS_CBASEENTITY_ALIAS )" ) );
+	EXPECT_TRUE( IsUndefeatableGuardLine( "#if defined( CLIENT_DLL ) && !defined( SS_CBASEENTITY_ALIAS )" ) );
 	EXPECT_TRUE( IsUndefeatableGuardLine( "#if !defined( SS_CBASEENTITY_ALIAS )" ) );
 	EXPECT_TRUE( IsUndefeatableGuardLine( "#ifdef SS_CBASEENTITY_ALIAS" ) );
 	EXPECT_TRUE( IsUndefeatableGuardLine( "	#elif !defined( SS_CBASEENTITY_ALIAS )" ) );
@@ -407,4 +402,3 @@ TEST( CppAliasShardT3Fixture, TheDefeatabilityTestRejectsTheCompoundSpelling )
 	EXPECT_FALSE( IsUndefeatableGuardLine( "#ifdef SS_CBASEENTITY_ALIAS_H" ) );
 	EXPECT_FALSE( IsUndefeatableGuardLine( "int x = SS_CBASEENTITY_ALIAS;" ) );
 }
-

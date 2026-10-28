@@ -10,21 +10,15 @@
 // The classnames the standalone hierarchy hosts: one factory per class C# declares, its
 // override mask, the blob offset, and the entity factory dictionary.
 
-#include "shell_standalone_class.h"
 #include "shell_standalone_player.h"
 #include "entity_op.h"
-#include "slot_table.h"
+
 #include "generic_nettable.h"
 #include "entity_factory_table.h"
 
-#include "sourcesharp.h"
-#include "native_command_body.h"
-#include "ss_string.h"
-
 #include <map>
-#include <string>
+
 #include <unordered_map>
-#include <vector>
 
 #include "ss_entityfactory.h"
 
@@ -37,22 +31,18 @@ void SourceSharp_LogEntityDestroy( const char *pClassName );
 class CStandaloneScriptedClass : public ss::IEntityFactory
 {
 public:
-	CStandaloneScriptedClass( const char *pClassName, const char **ppOutputNames,
-	                          int nOutputCount, bool bServerOnly,
-	                          SolidType_t nSolidType, int nSolidFlags,
-	                          bool bTouchEveryTick, bool bPlayer )
+	CStandaloneScriptedClass( const char *pClassName, const char **ppOutputNames, int nOutputCount, bool bServerOnly,
+							  SolidType_t nSolidType, int nSolidFlags, bool bTouchEveryTick, bool bPlayer )
 	{
 		memset( &m_Desc, 0, sizeof( m_Desc ) );
-		Describe( pClassName, ppOutputNames, nOutputCount, bServerOnly,
-		          nSolidType, nSolidFlags, bTouchEveryTick, bPlayer );
+		Describe( pClassName, ppOutputNames, nOutputCount, bServerOnly, nSolidType, nSolidFlags, bTouchEveryTick,
+				  bPlayer );
 	}
 
 	// Re-described, not re-installed, when C# reloads: the dictionary cannot remove an
 	// entry and the engine keeps the factory pointer it was given.
-	void Describe( const char *pClassName, const char **ppOutputNames,
-	               int nOutputCount, bool bServerOnly,
-	               SolidType_t nSolidType, int nSolidFlags,
-	               bool bTouchEveryTick, bool bPlayer )
+	void Describe( const char *pClassName, const char **ppOutputNames, int nOutputCount, bool bServerOnly,
+				   SolidType_t nSolidType, int nSolidFlags, bool bTouchEveryTick, bool bPlayer )
 	{
 		// Outputs are managed; the desc's output fields stay empty.
 		(void)ppOutputNames;
@@ -63,12 +53,12 @@ public:
 			m_Desc.pClassName = Keep( pClassName );
 
 		m_Desc.ppOutputNames = NULL;
-		m_Desc.nOutputCount  = 0;
-		m_Desc.bServerOnly   = bServerOnly;
-		m_Desc.nSolidType      = nSolidType;
-		m_Desc.nSolidFlags     = nSolidFlags;
+		m_Desc.nOutputCount = 0;
+		m_Desc.bServerOnly = bServerOnly;
+		m_Desc.nSolidType = nSolidType;
+		m_Desc.nSolidFlags = nSolidFlags;
 		m_Desc.bTouchEveryTick = bTouchEveryTick;
-		m_Desc.bPlayer         = bPlayer;
+		m_Desc.bPlayer = bPlayer;
 
 		// Types are published after registration, so the tier is looked up on first Create.
 		m_Desc.iTier = -1;
@@ -80,10 +70,7 @@ public:
 
 	// ENTITY_OP_ALWAYS_MASK is OR'd in here so a wrong managed mask can never switch off
 	// the bookkeeping ops (spawn, keyvalue, removed, filter).
-	void SetOps( uint32_t nOpMask )
-	{
-		m_Desc.nOverrideMask = nOpMask | ENTITY_OP_ALWAYS_MASK;
-	}
+	void SetOps( uint32_t nOpMask ) { m_Desc.nOverrideMask = nOpMask | ENTITY_OP_ALWAYS_MASK; }
 
 	uint32_t Ops() const { return m_Desc.nOverrideMask; }
 
@@ -97,8 +84,7 @@ public:
 		if ( m_Desc.iTier >= 0 )
 			return m_Desc.iTier;
 
-		const SourceSharpNetType_t *pType =
-			SourceSharp_NetTypes().ByName( m_Desc.pClassName );
+		const SourceSharpNetType_t *pType = SourceSharp_NetTypes().ByName( m_Desc.pClassName );
 
 		// Nothing published yet: answer the floor and DO NOT remember it.
 		if ( !pType || pType->iTier < 0 )
@@ -117,9 +103,8 @@ public:
 		const int iTier = ResolveTier();
 
 		// The player is the one subclass, chosen here where the class is known.
-		CStandaloneEntity *pEnt = m_Desc.bPlayer
-			? new ( SourceSharp_TierBytes( iTier ) ) CStandalonePlayer
-			: new ( SourceSharp_TierBytes( iTier ) ) CStandaloneEntity;
+		CStandaloneEntity *pEnt = m_Desc.bPlayer ? new ( SourceSharp_TierBytes( iTier ) ) CStandalonePlayer
+												 : new ( SourceSharp_TierBytes( iTier ) ) CStandaloneEntity;
 
 		if ( !pEnt )
 		{
@@ -143,8 +128,7 @@ public:
 
 	size_t GetEntitySize() OVERRIDE
 	{
-		return m_Desc.bPlayer ? sizeof( CStandalonePlayer )
-		                      : sizeof( CStandaloneEntity );
+		return m_Desc.bPlayer ? sizeof( CStandalonePlayer ) : sizeof( CStandaloneEntity );
 	}
 
 private:
@@ -152,7 +136,7 @@ private:
 	const char *Keep( const char *psz ) { return m_Kept.Intern( psz ); }
 
 	StandaloneClassDesc_t m_Desc;
-	ss::StringPool        m_Kept;
+	ss::StringPool m_Kept;
 };
 
 // The blob offset: past the concrete shell, 16-aligned.
@@ -166,7 +150,7 @@ int SourceSharp_StandaloneBlobOffset()
 
 // The classes this hierarchy hosts, by factory, case-blind. Other shells register
 // factories too, so "has a factory" is not the same question.
-static std::unordered_map< std::string, CStandaloneScriptedClass *, ss::CaselessHash, ss::CaselessEqual >
+static std::unordered_map<std::string, CStandaloneScriptedClass *, ss::CaselessHash, ss::CaselessEqual>
 	g_StandaloneClassNames;
 
 static CStandaloneScriptedClass *FindStandaloneClass( const char *pClassName )
@@ -176,10 +160,9 @@ static CStandaloneScriptedClass *FindStandaloneClass( const char *pClassName )
 }
 
 // Idempotent by classname: C# re-declares every class on a reload.
-bool SourceSharp_InstallStandaloneClass( const char *pClassName, const char **ppOutputNames,
-                                         int nOutputCount, bool bServerOnly,
-                                         SolidType_t nSolidType, int nSolidFlags,
-                                         bool bTouchEveryTick, bool bPlayer )
+bool SourceSharp_InstallStandaloneClass( const char *pClassName, const char **ppOutputNames, int nOutputCount,
+										 bool bServerOnly, SolidType_t nSolidType, int nSolidFlags,
+										 bool bTouchEveryTick, bool bPlayer )
 {
 	if ( !pClassName || !pClassName[0] )
 		return false;
@@ -187,14 +170,13 @@ bool SourceSharp_InstallStandaloneClass( const char *pClassName, const char **pp
 	if ( CStandaloneScriptedClass *pExisting = FindStandaloneClass( pClassName ) )
 	{
 		// Take the new declaration without installing a second time.
-		pExisting->Describe( pClassName, ppOutputNames, nOutputCount, bServerOnly,
-			nSolidType, nSolidFlags, bTouchEveryTick, bPlayer );
+		pExisting->Describe( pClassName, ppOutputNames, nOutputCount, bServerOnly, nSolidType, nSolidFlags,
+							 bTouchEveryTick, bPlayer );
 		return true;
 	}
 
 	CStandaloneScriptedClass *pClass = new CStandaloneScriptedClass(
-		pClassName, ppOutputNames, nOutputCount, bServerOnly, nSolidType, nSolidFlags,
-		bTouchEveryTick, bPlayer );
+		pClassName, ppOutputNames, nOutputCount, bServerOnly, nSolidType, nSolidFlags, bTouchEveryTick, bPlayer );
 
 	g_StandaloneClassNames.emplace( pClass->GetClassName(), pClass );
 
@@ -239,28 +221,25 @@ public:
 	{
 		switch ( m_Table.Install( pFactory, pClassName ) )
 		{
-		case kEntityFactoryInstalled:
-		case kEntityFactoryAlreadyInstalled:
-			// A reload re-declaring the same factory object; silent.
-			return;
+			case kEntityFactoryInstalled:
+			case kEntityFactoryAlreadyInstalled:
+				// A reload re-declaring the same factory object; silent.
+				return;
 
-		case kEntityFactoryNameTaken:
-			// The first is kept: the engine may hold instances made through it.
-			Warning( "[SourceSharp] two entity factories claim the classname '%s'; "
-			         "keeping the first, the second will never be reached\n",
-			         pClassName ? pClassName : "(null)" );
-			return;
+			case kEntityFactoryNameTaken:
+				// The first is kept: the engine may hold instances made through it.
+				Warning( "[SourceSharp] two entity factories claim the classname '%s'; "
+						 "keeping the first, the second will never be reached\n",
+						 pClassName ? pClassName : "(null)" );
+				return;
 
-		case kEntityFactoryNoName:
-			Warning( "[SourceSharp] an entity factory was installed with no classname; refused\n" );
-			return;
+			case kEntityFactoryNoName:
+				Warning( "[SourceSharp] an entity factory was installed with no classname; refused\n" );
+				return;
 		}
 	}
 
-	virtual ss::IEntityFactory *FindFactory( const char *pClassName ) OVERRIDE
-	{
-		return m_Table.Find( pClassName );
-	}
+	virtual ss::IEntityFactory *FindFactory( const char *pClassName ) OVERRIDE { return m_Table.Find( pClassName ); }
 
 	virtual const char *GetCannonicalName( const char *pClassName ) OVERRIDE
 	{
@@ -288,19 +267,19 @@ public:
 		{
 			// Not counted as a refusal: the caller holds something this dictionary did not make.
 			Warning( "[SourceSharp] asked to destroy a '%s', which no factory here made\n",
-			         pClassName ? pClassName : "(null)" );
+					 pClassName ? pClassName : "(null)" );
 			return;
 		}
 
 		pFactory->Destroy( pNetworkable );
 	}
 
-	CEntityFactoryTable< ss::IEntityFactory > m_Table;
+	CEntityFactoryTable<ss::IEntityFactory> m_Table;
 
 	// Classname to refusal count, case-blind; m_RefusedOrder is first-refusal order.
-	typedef std::map< std::string, int, ss::CaselessLess > Refused_t;
-	Refused_t                              m_Refused;
-	std::vector< Refused_t::value_type * > m_RefusedOrder;
+	typedef std::map<std::string, int, ss::CaselessLess> Refused_t;
+	Refused_t m_Refused;
+	std::vector<Refused_t::value_type *> m_RefusedOrder;
 
 private:
 	void Refuse( const char *pClassName )
@@ -322,8 +301,9 @@ private:
 		m_RefusedOrder.push_back( &*m_Refused.emplace( pClassName, 1 ).first );
 
 		Warning( "[SourceSharp] REFUSED: no entity factory answers to '%s'. Nothing of "
-		         "that class will be created, in this map or any other, until one is "
-		         "registered -- see `dumpentityfactories`\n", pClassName );
+				 "that class will be created, in this map or any other, until one is "
+				 "registered -- see `dumpentityfactories`\n",
+				 pClassName );
 	}
 };
 

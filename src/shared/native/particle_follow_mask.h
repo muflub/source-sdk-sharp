@@ -4,11 +4,17 @@
 #pragma once
 
 // An unconfigured system follows control point 0 only.
-enum { kSourceSharpParticleFollowDefault = 1 };
+enum
+{
+	kSourceSharpParticleFollowDefault = 1
+};
 
 // The highest point a 32-bit mask can name. MAX_PARTICLE_CONTROL_POINTS is 64, so the
 // mask runs out before the array does.
-enum { kSourceSharpParticleMaxFollowPoint = 31 };
+enum
+{
+	kSourceSharpParticleMaxFollowPoint = 31
+};
 
 // Bit 0 is forced on, or the effect would stay where it was created.
 inline int SourceSharpParticleFollow_Normalise( int nRequested )

@@ -64,7 +64,7 @@ TEST( ClientRecvNames, ADefaultIntProxyIsThePointerTheEngineComparesAgainst )
 	EXPECT_EQ( g_StandardRecvProxies.m_Int32ToInt16, RecvPropInt( "a", 0, 2, 0, NULL ).GetProxyFn() );
 	EXPECT_EQ( g_StandardRecvProxies.m_Int32ToInt32, RecvPropInt( "a", 0, 4, 0, NULL ).GetProxyFn() );
 	EXPECT_EQ( g_StandardRecvProxies.m_FloatToFloat,
-	           RecvPropFloat( "f", 0, 4, 0, RecvProxy_FloatToFloat ).GetProxyFn() );
+			   RecvPropFloat( "f", 0, 4, 0, RecvProxy_FloatToFloat ).GetProxyFn() );
 }
 
 TEST( ClientRecvNames, TheValveNamedProxiesDoTheWork )

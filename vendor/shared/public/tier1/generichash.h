@@ -26,7 +26,7 @@ inline intp HashIntp( intp s )
 {
 #ifdef PLATFORM_64BITS
 	COMPILE_TIME_ASSERT( sizeof( s ) == sizeof( uint64 ) );
-	return ( intp )HashUint64( ( uint64 )s );
+	return (intp)HashUint64( (uint64)s );
 #else
 	return HashInt( s );
 #endif
@@ -35,13 +35,13 @@ inline intp HashIntp( intp s )
 inline unsigned HashIntConventional( const int n ) // faster but less effective
 {
 	// first byte
-	unsigned hash = 0xAAAAAAAA + (n & 0xFF);
+	unsigned hash = 0xAAAAAAAA + ( n & 0xFF );
 	// second byte
-	hash = ( hash << 5 ) + hash + ( (n >> 8) & 0xFF );
+	hash = ( hash << 5 ) + hash + ( ( n >> 8 ) & 0xFF );
 	// third byte
-	hash = ( hash << 5 ) + hash + ( (n >> 16) & 0xFF );
+	hash = ( hash << 5 ) + hash + ( ( n >> 16 ) & 0xFF );
 	// fourth byte
-	hash = ( hash << 5 ) + hash + ( (n >> 24) & 0xFF );
+	hash = ( hash << 5 ) + hash + ( ( n >> 24 ) & 0xFF );
 
 	return hash;
 
@@ -57,4 +57,4 @@ inline unsigned HashIntConventional( const int n ) // faster but less effective
 }
 
 // Murmur hash
-uint32 MurmurHash2( const void * key, int len, uint32 seed );
+uint32 MurmurHash2( const void *key, int len, uint32 seed );

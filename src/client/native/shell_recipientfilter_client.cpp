@@ -11,26 +11,13 @@
 // IRecipientFilter slots) and the adds the client's callers make: by PVS, by
 // PAS, every player, and the local player.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
 #include "c_recipientfilter.h"
-#include "tier1/utlvector.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
-#include "collisionproperty.h"
+
 #include "local_recipient.h"
 
 C_RecipientFilter::C_RecipientFilter()
@@ -38,13 +25,11 @@ C_RecipientFilter::C_RecipientFilter()
 	Reset();
 }
 
-C_RecipientFilter::~C_RecipientFilter()
-{
-}
+C_RecipientFilter::~C_RecipientFilter() {}
 
 void C_RecipientFilter::Reset()
 {
-	m_bReliable			= false;
+	m_bReliable = false;
 	m_Recipients.RemoveAll();
 	m_bUsingPredictionRules = false;
 	m_bIgnorePredictionCull = false;
@@ -65,7 +50,7 @@ int C_RecipientFilter::GetRecipientIndex( int slot ) const
 	if ( slot < 0 || slot >= GetRecipientCount() )
 		return -1;
 
-	return m_Recipients[ slot ];
+	return m_Recipients[slot];
 }
 
 // The viewer, by the index the engine names: C_BasePlayer::GetLocalPlayer()
@@ -95,12 +80,12 @@ void C_RecipientFilter::AddRecipientByPlayerIndex( int playerindex )
 	m_Recipients.AddToTail( playerindex );
 }
 
-void C_RecipientFilter::AddRecipientsByPVS( const Vector& origin )
+void C_RecipientFilter::AddRecipientsByPVS( const Vector &origin )
 {
 	AddAllPlayers();
 }
 
-void C_RecipientFilter::AddRecipientsByPAS( const Vector& origin )
+void C_RecipientFilter::AddRecipientsByPAS( const Vector &origin )
 {
 	AddAllPlayers();
 }

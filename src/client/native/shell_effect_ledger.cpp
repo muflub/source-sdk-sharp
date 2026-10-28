@@ -8,7 +8,7 @@
 // SS_REASON c  static-init registration
 
 #include "engine/iserverplugin.h"
-#include "tier0/dbg.h"
+
 #include "tier1/convar.h"
 #include "shell_effect_ledger.h"
 #include "particles_lib_client.h"
@@ -18,7 +18,7 @@ SourceSharpEffectLedger_t g_SourceSharpEffects = {};
 
 // Does not call the fog functions, which would count the ask; cs_cl_fog reports fog.
 CON_COMMAND( cs_cl_effects_report,
-	"SourceSharp: how many primitives each of step 7a's leaf effect renderers has emitted." )
+			 "SourceSharp: how many primitives each of step 7a's leaf effect renderers has emitted." )
 {
 	const SourceSharpEffectLedger_t &l = g_SourceSharpEffects;
 

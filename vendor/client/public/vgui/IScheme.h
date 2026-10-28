@@ -36,7 +36,7 @@ public:
 
 	// colors
 	virtual void unused_GetColor() = 0;
-	
+
 	// Get the number of borders
 	virtual void unused_GetBorderCount() = 0;
 
@@ -47,7 +47,7 @@ public:
 	virtual void unused_GetFontCount() = 0;
 
 	// Get the font at the given index
-	virtual void unused_GetFontAtIndex() = 0;	
+	virtual void unused_GetFontAtIndex() = 0;
 
 	// Get color data
 	virtual void unused_GetColorData() = 0;
@@ -58,7 +58,7 @@ public:
 	virtual void unused_GetSizingPanel() = 0;
 };
 
-class ISchemeManager: public IBaseInterface
+class ISchemeManager : public IBaseInterface
 {
 public:
 	// loads a scheme from a file
@@ -75,7 +75,7 @@ public:
 	virtual HScheme GetDefaultScheme() = 0;
 
 	// returns a handle to the scheme identified by "tag"
-	virtual HScheme GetScheme(const char *tag) = 0;
+	virtual HScheme GetScheme( const char *tag ) = 0;
 
 	// returns a pointer to an image
 	virtual void unused_GetImage() = 0;

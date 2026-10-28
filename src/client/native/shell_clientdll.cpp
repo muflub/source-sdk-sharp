@@ -9,23 +9,13 @@
 // The client DLL the engine holds: CShellClientDLL implements IBaseClientDLL, which the
 // engine resolves by name, so every slot must exist. FrameStageNotify reaches managed
 // code through one crossing per stage.
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
+
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
-#include "client_entity.h"
+
 #include "inetchannel.h"
-#include "cdll_bounded_cvars.h"
+
 #include "igamerules.h"
 #include "sharedInterface.h"
 #include "vgui_int.h"
@@ -33,18 +23,17 @@
 #include "iviewrender.h"
 #include "ivmodemanager.h"
 #include "prediction.h"
-#include "clientsideeffects.h"
+
 #include "smoke_fog_overlay.h"
 #include "ienginevgui.h"
 #include "iefx.h"
 #include "enginesprite.h"
-#include "voice_status.h"
-#include "filesystem.h"
+
 #include "c_te_legacytempents.h"
 #include "c_rope.h"
-#include "engine/ishadowmgr.h"
+
 #include "engine/IStaticPropMgr.h"
-#include "view_shared.h"
+
 #include "env_wind_shared.h"
 #include "materialsystem/imaterialsystemstub.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
@@ -52,13 +41,10 @@
 #include "vguicenterprint.h"
 #include "iviewrender_beams.h"
 #include "engine/IEngineTrace.h"
-#include "engine/ivmodelinfo.h"
+
 #include "physics.h"
 #include "saverestore.h"
-#include "physics_saverestore.h"
-#include "igameevents.h"
-#include "datacache/idatacache.h"
-#include "datacache/imdlcache.h"
+
 #include "gamerules_register.h"
 #include "client_world.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
@@ -66,64 +52,28 @@
 #include "client_factorylist.h"
 #include "iclientmode.h"
 #include "inputsystem/iinputsystem.h"
-#include "scenefilecache/ISceneFileCache.h"
-#include "tier3/tier3.h"
+
 #include "particle_parse.h"
 #include "renamed_recvtable_compat.h"
 #include "mouthinfo.h"
 #include "haptics/ihaptics.h"
 #include "haptics/haptic_utils.h"
-#include "appframework/IAppSystem.h"
+
 #include "engine/IEngineSound.h"
-#include "engine/ivmodelrender.h"
-#include "inputsystem/ButtonCode.h"
-#include "materialsystem/imaterial.h"
-#include "materialsystem/imaterialsystem.h"
-#include "mathlib/mathlib.h"
-#include "particles/particles.h"
-#include "tier0/basetypes.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
-#include "tier0/threadtools.h"
-#include "tier0/wchartypes.h"
-#include "tier1/convar.h"
-#include "tier1/iconvar.h"
-#include "tier1/interface.h"
-#include "tier1/refcount.h"
-#include "tier1/strtools.h"
-#include "tier1/tier1.h"
-#include "tier1/utlvector.h"
-#include "tier2/tier2.h"
-#include "vgui/VGUI.h"
-#include "vgui_controls/MessageMap.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
+
 #include "cdll_util.h"
-#include "client_class.h"
-#include "const.h"
-#include "datamap.h"
-#include "dt_recv.h"
-#include "eiface.h"
-#include "globalvars_base.h"
-#include "hud.h"
-#include "inetchannelinfo.h"
-#include "inetmessage.h"
-#include "interpolatedvar.h"
-#include "ispatialpartition.h"
-#include "ivrenderview.h"
+
 #include "networkstringtabledefs.h"
-#include "predictioncopy.h"
-#include "shake.h"
-#include "texture_group_names.h"
+
 #include "usercmd.h"
 #include "ss_client_message_write.h"
-#include "sourcesharp.h"
+
 // The managed runtime this DLL loads, and the environment it loads it from.
 #include "sourcesharp_gamesystem.h"
 #include "shell_managed_areas_client.h"
 #include "shell_view_executor_client.h"
 #include "shell_clientdll_refusals.h"
-#include "shell_entitystatics.h"
+
 #include "shell_clientsystem.h"
 #include "shell_clientdll_voicehelper.h"
 #include "shell_cliententitylist.h"
@@ -132,11 +82,12 @@
 #include "ss_bitblock.h"
 
 // The largest user-message payload copied for managed; the engine's own limit is 255.
-enum { kMaxUserMessageBlockBytes = 512 };
+enum
+{
+	kMaxUserMessageBlockBytes = 512
+};
 
 extern vgui::IInputInternal *g_InputInternal;
-
-#include "imanaged_areas_client.h"
 
 #include "ss_command_line.h"
 #include "shell_particle_systems.h"
@@ -144,7 +95,7 @@ extern vgui::IInputInternal *g_InputInternal;
 
 extern IClientMode *GetClientModeNormal();
 
-IVEngineClient	*engine = NULL;
+IVEngineClient *engine = NULL;
 IVModelRender *modelrender = NULL;
 IVEfx *effects = NULL;
 IVRenderView *render = NULL;
@@ -153,7 +104,7 @@ IMaterialSystemStub *materials_stub = NULL;
 IVModelInfoClient *modelinfo = NULL;
 IEngineVGui *enginevgui = NULL;
 INetworkStringTableContainer *networkstringtable = NULL;
-ISpatialPartition* partition = NULL;
+ISpatialPartition *partition = NULL;
 IFileSystem *filesystem = NULL;
 IShadowMgr *shadowmgr = NULL;
 IStaticPropMgrClient *staticpropmgr = NULL;
@@ -165,22 +116,18 @@ IGameEventManager2 *gameeventmanager = NULL;
 ISoundEmitterSystemBase *soundemitterbase = NULL;
 IClientReplayContext *g_pClientReplayContext = NULL;
 
-IHaptics* haptics = NULL;
+IHaptics *haptics = NULL;
 
 // Engine player info.
 BEGIN_BYTESWAP_DATADESC( player_info_s )
-	DEFINE_ARRAY( name, FIELD_CHARACTER, MAX_PLAYER_NAME_LENGTH ),
-	DEFINE_FIELD( userID, FIELD_INTEGER ),
-	DEFINE_ARRAY( guid, FIELD_CHARACTER, SIGNED_GUID_LEN + 1 ),
-	DEFINE_FIELD( friendsID, FIELD_INTEGER ),
-	DEFINE_ARRAY( friendsName, FIELD_CHARACTER, MAX_PLAYER_NAME_LENGTH ),
-	DEFINE_FIELD( fakeplayer, FIELD_BOOLEAN ),
-	DEFINE_FIELD( ishltv, FIELD_BOOLEAN ),
-	DEFINE_ARRAY( customFiles, FIELD_INTEGER, MAX_CUSTOM_FILES ),
+DEFINE_ARRAY( name, FIELD_CHARACTER, MAX_PLAYER_NAME_LENGTH ), DEFINE_FIELD( userID, FIELD_INTEGER ),
+	DEFINE_ARRAY( guid, FIELD_CHARACTER, SIGNED_GUID_LEN + 1 ), DEFINE_FIELD( friendsID, FIELD_INTEGER ),
+	DEFINE_ARRAY( friendsName, FIELD_CHARACTER, MAX_PLAYER_NAME_LENGTH ), DEFINE_FIELD( fakeplayer, FIELD_BOOLEAN ),
+	DEFINE_FIELD( ishltv, FIELD_BOOLEAN ), DEFINE_ARRAY( customFiles, FIELD_INTEGER, MAX_CUSTOM_FILES ),
 	DEFINE_FIELD( filesDownloaded, FIELD_INTEGER ),
-END_BYTESWAP_DATADESC()
+	END_BYTESWAP_DATADESC()
 
-INetworkStringTable *g_pStringTableParticleEffectNames = NULL;
+		INetworkStringTable *g_pStringTableParticleEffectNames = NULL;
 INetworkStringTable *g_StringTableEffectDispatch = NULL;
 INetworkStringTable *g_StringTableVguiScreen = NULL;
 INetworkStringTable *g_pStringTableMaterials = NULL;
@@ -195,8 +142,6 @@ extern void StopAllRumbleEffects();
 ISaveRestoreBlockHandler *GetEntitySaveRestoreBlockHandler();
 ISaveRestoreBlockHandler *GetViewEffectsRestoreBlockHandler();
 
-
-
 class IMoveHelper;
 
 void DispatchHudText( const char *pszName );
@@ -207,8 +152,7 @@ bool g_bTextMode = false;
 // The refusal tally, printed by a console command and at DLL shutdown.
 static void ShellClientDll_PrintRefusals( const CShellClientDllRefusals &refusals )
 {
-	Msg( "[SourceSharp] client refusals: %d call(s) across %d method(s)\n",
-	     refusals.Total(), refusals.MethodCount() );
+	Msg( "[SourceSharp] client refusals: %d call(s) across %d method(s)\n", refusals.Total(), refusals.MethodCount() );
 
 	for ( int i = 0; i < refusals.MethodCount(); i++ )
 	{
@@ -218,7 +162,7 @@ static void ShellClientDll_PrintRefusals( const CShellClientDllRefusals &refusal
 	if ( refusals.Total() == 0 )
 	{
 		Msg( "[SourceSharp]   none -- every refused IBaseClientDLL method is "
-		     "still unreached\n" );
+			 "still unreached\n" );
 	}
 }
 
@@ -226,12 +170,12 @@ static void ShellClientDll_PrintRefusals( const CShellClientDllRefusals &refusal
 void ShellClientDll_RefusalWarning( const char *pMethod, int nTotal )
 {
 	Warning( "[SourceSharp] REFUSED: %s was called. plan_entity.md 5b argues this "
-	         "method is unreachable in this build -- no caller of it was ever "
-	         "observed from the engine and its body is entirely "
-	         "inside #if defined( TF_CLIENT_DLL ) -- so it is a no-op. If you are "
-	         "reading this, that argument was wrong for this method. "
-	         "Refusal #%d; cs_cl_refusals for the tally.\n",
-	         ( pMethod != NULL ) ? pMethod : "(unnamed)", nTotal );
+			 "method is unreachable in this build -- no caller of it was ever "
+			 "observed from the engine and its body is entirely "
+			 "inside #if defined( TF_CLIENT_DLL ) -- so it is a no-op. If you are "
+			 "reading this, that argument was wrong for this method. "
+			 "Refusal #%d; cs_cl_refusals for the tally.\n",
+			 ( pMethod != NULL ) ? pMethod : "(unnamed)", nTotal );
 }
 
 // The engine's IBaseClientDLL, and the environment the managed loader reads the factory
@@ -241,122 +185,123 @@ class CShellClientDLL : public IBaseClientDLL, public IManagedRuntimeEnvironment
 public:
 	CShellClientDLL();
 
-	virtual int						Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory, CGlobalVarsBase *pGlobals );
+	virtual int Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory, CGlobalVarsBase *pGlobals );
 
-	virtual void					PostInit();
-	virtual void					Shutdown();
+	virtual void PostInit();
+	virtual void Shutdown();
 
-	virtual bool					ReplayInit( CreateInterfaceFn fnReplayFactory );
-	virtual bool					ReplayPostInit();
+	virtual bool ReplayInit( CreateInterfaceFn fnReplayFactory );
+	virtual bool ReplayPostInit();
 
-	virtual void					LevelInitPreEntity( const char *pMapName );
-	virtual void					LevelInitPostEntity();
-	virtual void					LevelShutdown();
+	virtual void LevelInitPreEntity( const char *pMapName );
+	virtual void LevelInitPostEntity();
+	virtual void LevelShutdown();
 
-	virtual ClientClass				*GetAllClasses();
+	virtual ClientClass *GetAllClasses();
 
-	virtual int						HudVidInit();
-	virtual void					HudProcessInput( bool bActive );
-	virtual void					HudUpdate( bool bActive );
-	virtual void					HudReset();
-	virtual void					HudText( const char * message );
+	virtual int HudVidInit();
+	virtual void HudProcessInput( bool bActive );
+	virtual void HudUpdate( bool bActive );
+	virtual void HudReset();
+	virtual void HudText( const char *message );
 
-	virtual void					IN_ActivateMouse();
-	virtual void					IN_DeactivateMouse();
-	virtual void					IN_Accumulate();
-	virtual void					IN_ClearStates();
-	virtual bool					IN_IsKeyDown( const char *name, bool& isdown );
-	virtual void					IN_OnMouseWheeled( int nDelta );
-	virtual int						IN_KeyEvent( int eventcode, ButtonCode_t keynum, const char *pszCurrentBinding );
-	virtual void					IN_SetSampleTime( float frametime );
-	virtual void					CreateMove ( int sequence_number, float input_sample_frametime, bool active );
-	virtual void					ExtraMouseSample( float frametime, bool active );
-	virtual bool					WriteUsercmdDeltaToBuffer( bf_write *buf, int from, int to, bool isnewcommand );	
-	virtual void					EncodeUserCmdToBuffer( bf_write& buf, int slot );
-	virtual void					DecodeUserCmdFromBuffer( bf_read& buf, int slot );
+	virtual void IN_ActivateMouse();
+	virtual void IN_DeactivateMouse();
+	virtual void IN_Accumulate();
+	virtual void IN_ClearStates();
+	virtual bool IN_IsKeyDown( const char *name, bool &isdown );
+	virtual void IN_OnMouseWheeled( int nDelta );
+	virtual int IN_KeyEvent( int eventcode, ButtonCode_t keynum, const char *pszCurrentBinding );
+	virtual void IN_SetSampleTime( float frametime );
+	virtual void CreateMove( int sequence_number, float input_sample_frametime, bool active );
+	virtual void ExtraMouseSample( float frametime, bool active );
+	virtual bool WriteUsercmdDeltaToBuffer( bf_write *buf, int from, int to, bool isnewcommand );
+	virtual void EncodeUserCmdToBuffer( bf_write &buf, int slot );
+	virtual void DecodeUserCmdFromBuffer( bf_read &buf, int slot );
 
+	virtual void View_Render( vrect_t *rect );
+	virtual void RenderView( const CViewSetup &view, int nClearFlags, int whatToDraw );
+	virtual void View_Fade( ScreenFade_t *pSF );
 
-	virtual void					View_Render( vrect_t *rect );
-	virtual void					RenderView( const CViewSetup &view, int nClearFlags, int whatToDraw );
-	virtual void					View_Fade( ScreenFade_t *pSF );
-	
-	virtual void					SetCrosshairAngle( const QAngle& angle );
+	virtual void SetCrosshairAngle( const QAngle &angle );
 
-	virtual void					InitSprite( CEngineSprite *pSprite, const char *loadname );
-	virtual void					ShutdownSprite( CEngineSprite *pSprite );
+	virtual void InitSprite( CEngineSprite *pSprite, const char *loadname );
+	virtual void ShutdownSprite( CEngineSprite *pSprite );
 
-	virtual int						GetSpriteSize() const;
+	virtual int GetSpriteSize() const;
 
-	virtual void					VoiceStatus( int entindex, qboolean bTalking );
+	virtual void VoiceStatus( int entindex, qboolean bTalking );
 
-	virtual void					InstallStringTableCallback( const char *tableName );
+	virtual void InstallStringTableCallback( const char *tableName );
 
-	virtual void					FrameStageNotify( ClientFrameStage_t curStage );
+	virtual void FrameStageNotify( ClientFrameStage_t curStage );
 
-	virtual bool					DispatchUserMessage( int msg_type, bf_read &msg_data );
+	virtual bool DispatchUserMessage( int msg_type, bf_read &msg_data );
 
-	virtual CSaveRestoreData  *SaveInit( int size );
-	virtual void			SaveWriteFields( CSaveRestoreData *, const char *, void *, datamap_t *, typedescription_t *, int );
-	virtual void			SaveReadFields( CSaveRestoreData *, const char *, void *, datamap_t *, typedescription_t *, int );
-	virtual void			PreSave( CSaveRestoreData * );
-	virtual void			Save( CSaveRestoreData * );
-	virtual void			WriteSaveHeaders( CSaveRestoreData * );
-	virtual void			ReadRestoreHeaders( CSaveRestoreData * );
-	virtual void			Restore( CSaveRestoreData *, bool );
-	virtual void			DispatchOnRestore();
-	virtual void			WriteSaveGameScreenshot( const char *pFilename );
+	virtual CSaveRestoreData *SaveInit( int size );
+	virtual void SaveWriteFields( CSaveRestoreData *, const char *, void *, datamap_t *, typedescription_t *, int );
+	virtual void SaveReadFields( CSaveRestoreData *, const char *, void *, datamap_t *, typedescription_t *, int );
+	virtual void PreSave( CSaveRestoreData * );
+	virtual void Save( CSaveRestoreData * );
+	virtual void WriteSaveHeaders( CSaveRestoreData * );
+	virtual void ReadRestoreHeaders( CSaveRestoreData * );
+	virtual void Restore( CSaveRestoreData *, bool );
+	virtual void DispatchOnRestore();
+	virtual void WriteSaveGameScreenshot( const char *pFilename );
 
 	// Looks up the localized text for "S(wavname)" tokens and emits the close caption when
 	// closecaption is 1.
-	virtual void			EmitSentenceCloseCaption( char const *tokenstream );
-	virtual void			EmitCloseCaption( char const *captionname, float duration );
+	virtual void EmitSentenceCloseCaption( char const *tokenstream );
+	virtual void EmitCloseCaption( char const *captionname, float duration );
 
-	virtual CStandardRecvProxies* GetStandardRecvProxies();
+	virtual CStandardRecvProxies *GetStandardRecvProxies();
 
-	virtual bool			CanRecordDemo( char *errorMsg, int length ) const;
+	virtual bool CanRecordDemo( char *errorMsg, int length ) const;
 
-	virtual void			OnDemoRecordStart( char const* pDemoBaseName );
-	virtual void			OnDemoRecordStop();
-	virtual void			OnDemoPlaybackStart( char const* pDemoBaseName );
-	virtual void			OnDemoPlaybackStop();
+	virtual void OnDemoRecordStart( char const *pDemoBaseName );
+	virtual void OnDemoRecordStop();
+	virtual void OnDemoPlaybackStart( char const *pDemoBaseName );
+	virtual void OnDemoPlaybackStop();
 
-	virtual bool			ShouldDrawDropdownConsole();
+	virtual bool ShouldDrawDropdownConsole();
 
-	virtual int				GetScreenWidth();
-	virtual int				GetScreenHeight();
+	virtual int GetScreenWidth();
+	virtual int GetScreenHeight();
 
-	virtual void			WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded/*=false*/, bool bWriteVTF/*=false*/ );
+	virtual void WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height,
+												bool bCreatePowerOf2Padded /*=false*/, bool bWriteVTF /*=false*/ );
 
-	virtual bool			GetPlayerView( CViewSetup &playerView );
+	virtual bool GetPlayerView( CViewSetup &playerView );
 
-	virtual void			SetupGameProperties( CUtlVector< XUSER_CONTEXT > &contexts, CUtlVector< XUSER_PROPERTY > &properties );
-	virtual uint			GetPresenceID( const char *pIDName );
-	virtual const char		*GetPropertyIdString( const uint id );
-	virtual void			GetPropertyDisplayString( uint id, uint value, char *pOutput, int nBytes );
-	virtual void			StartStatsReporting( HANDLE handle, bool bArbitrated );
+	virtual void SetupGameProperties( CUtlVector<XUSER_CONTEXT> &contexts, CUtlVector<XUSER_PROPERTY> &properties );
+	virtual uint GetPresenceID( const char *pIDName );
+	virtual const char *GetPropertyIdString( const uint id );
+	virtual void GetPropertyDisplayString( uint id, uint value, char *pOutput, int nBytes );
+	virtual void StartStatsReporting( HANDLE handle, bool bArbitrated );
 
-	virtual void			InvalidateMdlCache();
+	virtual void InvalidateMdlCache();
 
-	virtual void			ReloadFilesInList( IFileList *pFilesToReload );
+	virtual void ReloadFilesInList( IFileList *pFilesToReload );
 
 	// Let the client handle UI toggle - if this function returns false, the UI will toggle, otherwise it will not.
-	virtual bool			HandleUiToggle();
+	virtual bool HandleUiToggle();
 
-	virtual bool			ShouldAllowConsole();
+	virtual bool ShouldAllowConsole();
 
-	virtual CRenamedRecvTableInfo	*GetRenamedRecvTableInfos();
+	virtual CRenamedRecvTableInfo *GetRenamedRecvTableInfos();
 
-	virtual CMouthInfo		*GetClientUIMouthInfo();
+	virtual CMouthInfo *GetClientUIMouthInfo();
 
 	// Notify the client that a file has been received from the game server
-	virtual void			FileReceived( const char * fileName, unsigned int transferID );
+	virtual void FileReceived( const char *fileName, unsigned int transferID );
 
-	virtual const char* TranslateEffectForVisionFilter( const char *pchEffectType, const char *pchEffectName );
-	
-	virtual void			ClientAdjustStartSoundParams( struct StartSoundParams_t& params );
-	
+	virtual const char *TranslateEffectForVisionFilter( const char *pchEffectType, const char *pchEffectName );
+
+	virtual void ClientAdjustStartSoundParams( struct StartSoundParams_t &params );
+
 	// Returns true if the disconnect command has been handled by the client
 	virtual bool DisconnectAttempt();
+
 public:
 	void PrecacheMaterial( const char *pMaterialName );
 
@@ -367,10 +312,10 @@ public:
 	virtual void DisplayVoiceUnavailableMessage();
 
 private:
-	void UncacheAllMaterials( );
+	void UncacheAllMaterials();
 	void ResetStringTablePointers();
 
-	CUtlVector< IMaterial * > m_CachedMaterials;
+	CUtlVector<IMaterial *> m_CachedMaterials;
 
 	// The map-specific particle files the previous level read; -1 before the first level.
 	int m_nPreviousMapParticleFiles = -1;
@@ -378,32 +323,37 @@ private:
 public:
 	// Public and addressed directly: gpGlobals points at m_DummyGlobals from static
 	// initialisation, and an address constant keeps that initialisation constant.
-	CGlobalVarsBase			m_DummyGlobals;
+	CGlobalVarsBase m_DummyGlobals;
 
 	// Bodies of stock free functions of nearly the same name, which forward here.
-	void					RequestCacheMaterials();
-	void					ProcessCacheMaterials();
-	uint64_t				ClientStageCrossings() const;
-	uint64_t				FrameStageNotifyCalls() const;
+	void RequestCacheMaterials();
+	void ProcessCacheMaterials();
+	uint64_t ClientStageCrossings() const;
+	uint64_t FrameStageNotifyCalls() const;
 
 private:
-	bool					m_bRequestCacheUsedMaterials;
-	uint64_t				m_nClientStageCrossings;
-	uint64_t				m_nFrameStageNotifyCalls;
-	CMouthInfo				m_ClientUIMouth;
-	ClientFrameStage_t		m_CurFrameStage;
+	bool m_bRequestCacheUsedMaterials;
+	uint64_t m_nClientStageCrossings;
+	uint64_t m_nFrameStageNotifyCalls;
+	CMouthInfo m_ClientUIMouth;
+	ClientFrameStage_t m_CurFrameStage;
 
-	CHLVoiceStatusHelper	m_VoiceStatusHelper;
+	CHLVoiceStatusHelper m_VoiceStatusHelper;
 
 	// Members of a file-scope object, so they are constructed during static initialisation
 	// and register in Init's ConVar_Register. The server reads them off the wire by name.
-	ConVar					m_cl_team;
-	ConVar					m_cl_class;
+	ConVar m_cl_team;
+	ConVar m_cl_class;
 
 	// SDL_PumpEvents from the launcher's libSDL2, or NULL. Called during long loads so the
 	// window answers the compositor; SDL wants its main thread.
 	void ( *m_pfnPumpEvents )() = nullptr;
-	void PumpWindowDuringLoad() { if ( m_pfnPumpEvents && ThreadInMainThread() ) m_pfnPumpEvents(); }
+
+	void PumpWindowDuringLoad()
+	{
+		if ( m_pfnPumpEvents && ThreadInMainThread() )
+			m_pfnPumpEvents();
+	}
 
 public:
 	// Read by the refusal console command: zero means every method the engine called was
@@ -414,10 +364,7 @@ public:
 	void RefuseExternal( const char *pMethod ) { ShellClientDll_Unreachable( pMethod ); }
 
 private:
-	void ShellClientDll_Unreachable( const char *pMethod )
-	{
-		m_Refusals.Unreachable( pMethod );
-	}
+	void ShellClientDll_Unreachable( const char *pMethod ) { m_Refusals.Unreachable( pMethod ); }
 
 	CShellClientDllRefusals m_Refusals;
 
@@ -428,17 +375,14 @@ public:
 	}
 
 	// Engine-owned memory, changing every frame; managed reads through the pointer.
-	CGlobalVarsBase &GetGlobalVars() override
-	{
-		return *m_pGlobals;
-	}
+	CGlobalVarsBase &GetGlobalVars() override { return *m_pGlobals; }
 
 private:
-	CreateInterfaceFn		m_pEngineFactory;
-	CGlobalVarsBase		   *m_pGlobals;
+	CreateInterfaceFn m_pEngineFactory;
+	CGlobalVarsBase *m_pGlobals;
 
 	// One load and one release per DLL.
-	IClientRuntimeAdapter  *m_pManagedRuntime;
+	IClientRuntimeAdapter *m_pManagedRuntime;
 
 public:
 	// Everything the client holds from managed: the root, the runtime, the areas.
@@ -447,7 +391,7 @@ public:
 	virtual ~CShellClientDLL()
 	{
 		AssertMsg( ManagedHoldersClient_Empty( m_Managed ),
-		           "the client DLL object is destroyed holding a managed-built object" );
+				   "the client DLL object is destroyed holding a managed-built object" );
 	}
 
 private:
@@ -456,9 +400,7 @@ private:
 
 // Records a refusal in the boundary probe table and the refusal tally. A macro so
 // SS_BOUNDARY_CALLER() captures the engine's return address, not a helper's.
-#define SS_CLIENTDLL_UNREACHABLE( pszMethod ) \
-	ShellClientDll_Unreachable( ( pszMethod ) )
-
+#define SS_CLIENTDLL_UNREACHABLE( pszMethod ) ShellClientDll_Unreachable( ( pszMethod ) )
 
 CShellClientDLL g_ShellClientDLL;
 IBaseClientDLL *clientdll = &g_ShellClientDLL;
@@ -520,7 +462,7 @@ int GetParticleSystemIndex( const char *pParticleSystemName )
 		int nIndex = g_pStringTableParticleEffectNames->FindStringIndex( pParticleSystemName );
 		if ( nIndex != INVALID_STRING_INDEX )
 			return nIndex;
-		DevWarning("Client: Missing precache for particle system \"%s\"!\n", pParticleSystemName );
+		DevWarning( "Client: Missing precache for particle system \"%s\"!\n", pParticleSystemName );
 	}
 
 	// The invalid string index.
@@ -540,10 +482,8 @@ CShellClientDLL::CShellClientDLL()
 	, m_nClientStageCrossings( 0 )
 	, m_nFrameStageNotifyCalls( 0 )
 	, m_CurFrameStage( FRAME_UNDEFINED )
-	, m_cl_team( "cl_team", "default", FCVAR_USERINFO|FCVAR_ARCHIVE,
-	             "Default team when joining a game" )
-	, m_cl_class( "cl_class", "default", FCVAR_USERINFO|FCVAR_ARCHIVE,
-	              "Default class when joining a game" )
+	, m_cl_team( "cl_team", "default", FCVAR_USERINFO | FCVAR_ARCHIVE, "Default team when joining a game" )
+	, m_cl_class( "cl_class", "default", FCVAR_USERINFO | FCVAR_ARCHIVE, "Default class when joining a game" )
 	, m_pEngineFactory( NULL )
 	, m_pGlobals( NULL )
 	, m_pManagedRuntime( NULL )
@@ -551,9 +491,9 @@ CShellClientDLL::CShellClientDLL()
 	g_bLevelInitialized = false;
 }
 
-int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory, CGlobalVarsBase *pGlobals )
+int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory,
+						   CGlobalVarsBase *pGlobals )
 {
-
 	gpGlobals = pGlobals;
 
 	// The same two as members, served through IManagedRuntimeEnvironment.
@@ -570,44 +510,49 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 		g_pFullFileSystem->SetWriteProtectionEnable( true );
 	}
 
-	if ( (engine = (IVEngineClient *)appSystemFactory( VENGINE_CLIENT_INTERFACE_VERSION, NULL )) == NULL )
+	if ( ( engine = (IVEngineClient *)appSystemFactory( VENGINE_CLIENT_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( (modelrender = (IVModelRender *)appSystemFactory( VENGINE_HUDMODEL_INTERFACE_VERSION, NULL )) == NULL )
+	if ( ( modelrender = (IVModelRender *)appSystemFactory( VENGINE_HUDMODEL_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( (effects = (IVEfx *)appSystemFactory( VENGINE_EFFECTS_INTERFACE_VERSION, NULL )) == NULL )
+	if ( ( effects = (IVEfx *)appSystemFactory( VENGINE_EFFECTS_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( (enginetrace = (IEngineTrace *)appSystemFactory( INTERFACEVERSION_ENGINETRACE_CLIENT, NULL )) == NULL )
+	if ( ( enginetrace = (IEngineTrace *)appSystemFactory( INTERFACEVERSION_ENGINETRACE_CLIENT, NULL ) ) == NULL )
 		return false;
-	if ( (render = (IVRenderView *)appSystemFactory( VENGINE_RENDERVIEW_INTERFACE_VERSION, NULL )) == NULL )
+	if ( ( render = (IVRenderView *)appSystemFactory( VENGINE_RENDERVIEW_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( (debugoverlay = (IVDebugOverlay *)appSystemFactory( VDEBUG_OVERLAY_INTERFACE_VERSION, NULL )) == NULL )
+	if ( ( debugoverlay = (IVDebugOverlay *)appSystemFactory( VDEBUG_OVERLAY_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
 	if ( !mdlcache )
 		return false;
-	if ( (modelinfo = (IVModelInfoClient *)appSystemFactory(VMODELINFO_CLIENT_INTERFACE_VERSION, NULL )) == NULL )
+	if ( ( modelinfo = (IVModelInfoClient *)appSystemFactory( VMODELINFO_CLIENT_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( (enginevgui = (IEngineVGui *)appSystemFactory(VENGINE_VGUI_VERSION, NULL )) == NULL )
+	if ( ( enginevgui = (IEngineVGui *)appSystemFactory( VENGINE_VGUI_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( (networkstringtable = (INetworkStringTableContainer *)appSystemFactory(INTERFACENAME_NETWORKSTRINGTABLECLIENT,NULL)) == NULL )
+	if ( ( networkstringtable = (INetworkStringTableContainer *)appSystemFactory(
+			   INTERFACENAME_NETWORKSTRINGTABLECLIENT, NULL ) ) == NULL )
 		return false;
-	if ( (::partition = (ISpatialPartition *)appSystemFactory(INTERFACEVERSION_SPATIALPARTITION, NULL)) == NULL )
+	if ( ( ::partition = (ISpatialPartition *)appSystemFactory( INTERFACEVERSION_SPATIALPARTITION, NULL ) ) == NULL )
 		return false;
-	if ( (shadowmgr = (IShadowMgr *)appSystemFactory(ENGINE_SHADOWMGR_INTERFACE_VERSION, NULL)) == NULL )
+	if ( ( shadowmgr = (IShadowMgr *)appSystemFactory( ENGINE_SHADOWMGR_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( (staticpropmgr = (IStaticPropMgrClient *)appSystemFactory(INTERFACEVERSION_STATICPROPMGR_CLIENT, NULL)) == NULL )
+	if ( ( staticpropmgr = (IStaticPropMgrClient *)appSystemFactory( INTERFACEVERSION_STATICPROPMGR_CLIENT, NULL ) ) ==
+		 NULL )
 		return false;
-	if ( (enginesound = (IEngineSound *)appSystemFactory(IENGINESOUND_CLIENT_INTERFACE_VERSION, NULL)) == NULL )
+	if ( ( enginesound = (IEngineSound *)appSystemFactory( IENGINESOUND_CLIENT_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( (filesystem = (IFileSystem *)appSystemFactory(FILESYSTEM_INTERFACE_VERSION, NULL)) == NULL )
+	if ( ( filesystem = (IFileSystem *)appSystemFactory( FILESYSTEM_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
-	if ( (random = (IUniformRandomStream *)appSystemFactory(VENGINE_CLIENT_RANDOM_INTERFACE_VERSION, NULL)) == NULL )
+	if ( ( random = (IUniformRandomStream *)appSystemFactory( VENGINE_CLIENT_RANDOM_INTERFACE_VERSION, NULL ) ) ==
+		 NULL )
 		return false;
-	if ( (gameeventmanager = (IGameEventManager2 *)appSystemFactory(INTERFACEVERSION_GAMEEVENTSMANAGER2,NULL)) == NULL )
+	if ( ( gameeventmanager = (IGameEventManager2 *)appSystemFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL ) ) ==
+		 NULL )
 		return false;
-	if ( (soundemitterbase = (ISoundEmitterSystemBase *)appSystemFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL)) == NULL )
+	if ( ( soundemitterbase =
+			   (ISoundEmitterSystemBase *)appSystemFactory( SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL ) ) == NULL )
 		return false;
 
-	if (!g_pMatSystemSurface)
+	if ( !g_pMatSystemSurface )
 		return false;
 
 	factorylist_t factories;
@@ -624,9 +569,9 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 	if ( ss::CommandLineHas( "-textmode" ) )
 		g_bTextMode = true;
 
-	materials_stub = (IMaterialSystemStub*)appSystemFactory( MATERIAL_SYSTEM_STUB_INTERFACE_VERSION, NULL );
+	materials_stub = (IMaterialSystemStub *)appSystemFactory( MATERIAL_SYSTEM_STUB_INTERFACE_VERSION, NULL );
 
-	if( !g_pMaterialSystemHardwareConfig )
+	if ( !g_pMaterialSystemHardwareConfig )
 		return false;
 
 	ConVar_Register( FCVAR_CLIENTDLL );
@@ -636,7 +581,7 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 
 	// A listen server's spawn reloads only what the map paks can have changed. Failing to
 	// install falls back to the stock full reload.
-	bool SourceSharp_InstallMapMaterialReload( IFileSystem *pFileSystem, IMaterialSystem *pMaterials );
+	bool SourceSharp_InstallMapMaterialReload( IFileSystem * pFileSystem, IMaterialSystem * pMaterials );
 	SourceSharp_InstallMapMaterialReload( filesystem, materials );
 
 	// RTLD_NOLOAD: the launcher's SDL or nothing. Windows has no SDL to find.
@@ -644,15 +589,15 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 	if ( void *hSDL = dlopen( "libSDL2-2.0.so.0", RTLD_NOW | RTLD_NOLOAD ) )
 		m_pfnPumpEvents = (void ( * )())dlsym( hSDL, "SDL_PumpEvents" );
 #endif
-	Msg( "[SourceSharp] load pump: %s\n", m_pfnPumpEvents ? "SDL_PumpEvents" : "none (the window is pumped only between frames)" );
+	Msg( "[SourceSharp] load pump: %s\n",
+		 m_pfnPumpEvents ? "SDL_PumpEvents" : "none (the window is pumped only between frames)" );
 
-
-	if (!VGui_Startup( appSystemFactory ))
+	if ( !VGui_Startup( appSystemFactory ) )
 		return false;
 
 	Assert( g_pMaterialSystem && g_pMatSystemSurface && g_pMaterialSystemHardwareConfig );
 
-	modemanager->Init( );
+	modemanager->Init();
 
 	g_pClientMode->InitViewport();
 
@@ -701,11 +646,10 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 	if ( !PhysicsDLLInit( physicsFactory ) )
 		return false;
 
-
 	ClientWorldFactoryInit();
 
 #if defined( WIN32 )
-	ConnectHaptics(appSystemFactory);
+	ConnectHaptics( appSystemFactory );
 #endif
 
 	return true;
@@ -753,9 +697,7 @@ void CShellClientDLL::Shutdown()
 
 	ClientWorldFactoryShutdown();
 
-
 	ClientVoiceMgr_Shutdown();
-
 
 	g_pClientMode->Disable();
 	g_pClientMode->Shutdown();
@@ -780,12 +722,12 @@ void CShellClientDLL::Shutdown()
 
 	gHUD.Shutdown();
 	VGui_Shutdown();
-	
+
 	ShellParticleMgr_Term();
-	
+
 	SourceSharp_DisconnectTier2();
 	ConVar_Unregister();
-	DisconnectTier1Libraries( );
+	DisconnectTier1Libraries();
 
 	gameeventmanager = NULL;
 
@@ -797,7 +739,6 @@ void CShellClientDLL::Shutdown()
 // Called at startup and on every vid_mode change so the HUD can reinitialize.
 int CShellClientDLL::HudVidInit()
 {
-	
 	gHUD.VidInit();
 
 	GetClientVoiceMgr()->VidInit();
@@ -828,9 +769,7 @@ void CShellClientDLL::HudReset()
 	PhysicsReset();
 }
 
-void CShellClientDLL::HudText( const char * message )
-{
-}
+void CShellClientDLL::HudText( const char *message ) {}
 
 bool CShellClientDLL::ShouldDrawDropdownConsole()
 {
@@ -852,17 +791,17 @@ void CShellClientDLL::IN_DeactivateMouse()
 	input->DeactivateMouse();
 }
 
-void CShellClientDLL::IN_Accumulate ()
+void CShellClientDLL::IN_Accumulate()
 {
 	input->AccumulateMouse();
 }
 
-void CShellClientDLL::IN_ClearStates ()
+void CShellClientDLL::IN_ClearStates()
 {
 	input->ClearStates();
 }
 
-bool CShellClientDLL::IN_IsKeyDown( const char *name, bool& isdown )
+bool CShellClientDLL::IN_IsKeyDown( const char *name, bool &isdown )
 {
 	// The button's state is managed's.
 	IManagedInputClient *pInput = ManagedInputClient();
@@ -874,9 +813,7 @@ bool CShellClientDLL::IN_IsKeyDown( const char *name, bool& isdown )
 	return true;
 }
 
-void CShellClientDLL::IN_OnMouseWheeled( int nDelta )
-{
-}
+void CShellClientDLL::IN_OnMouseWheeled( int nDelta ) {}
 
 int CShellClientDLL::IN_KeyEvent( int eventcode, ButtonCode_t keynum, const char *pszCurrentBinding )
 {
@@ -898,10 +835,10 @@ void CShellClientDLL::IN_SetSampleTime( float frametime )
 	input->Joystick_SetSampleTime( frametime );
 	input->IN_SetSampleTime( frametime );
 }
-// Fills in the usercmd from the current view angles and inputs.
-void CShellClientDLL::CreateMove ( int sequence_number, float input_sample_frametime, bool active )
-{
 
+// Fills in the usercmd from the current view angles and inputs.
+void CShellClientDLL::CreateMove( int sequence_number, float input_sample_frametime, bool active )
+{
 	// Compiled out in release builds, so only a debug build checks it.
 	Assert( EntityAbs_AreRecomputationsEnabled() );
 	Assert( EntityAbs_AreQueriesValid() );
@@ -915,19 +852,18 @@ bool CShellClientDLL::WriteUsercmdDeltaToBuffer( bf_write *buf, int from, int to
 	return input->WriteUsercmdDeltaToBuffer( buf, from, to, isnewcommand );
 }
 
-void CShellClientDLL::EncodeUserCmdToBuffer( bf_write& buf, int slot )
+void CShellClientDLL::EncodeUserCmdToBuffer( bf_write &buf, int slot )
 {
 	input->EncodeUserCmdToBuffer( buf, slot );
 }
 
-void CShellClientDLL::DecodeUserCmdFromBuffer( bf_read& buf, int slot )
+void CShellClientDLL::DecodeUserCmdFromBuffer( bf_read &buf, int slot )
 {
 	input->DecodeUserCmdFromBuffer( buf, slot );
 }
 
 void CShellClientDLL::View_Render( vrect_t *rect )
 {
-
 	// UNDONE: This gets hit at startup sometimes, investigate - will cause NaNs in calcs inside Render()
 	if ( rect->width == 0 || rect->height == 0 )
 		return;
@@ -943,7 +879,7 @@ bool CShellClientDLL::GetPlayerView( CViewSetup &playerView )
 
 // Matchmaking and rich presence: the engine may call these, and stock's PC bodies were
 // empty, so they are counted refusals with stock's return values.
-void CShellClientDLL::SetupGameProperties( CUtlVector< XUSER_CONTEXT > &contexts, CUtlVector< XUSER_PROPERTY > &properties )
+void CShellClientDLL::SetupGameProperties( CUtlVector<XUSER_CONTEXT> &contexts, CUtlVector<XUSER_PROPERTY> &properties )
 {
 	SS_CLIENTDLL_UNREACHABLE( "IBaseClientDLL::SetupGameProperties" );
 }
@@ -1015,7 +951,7 @@ void CShellClientDLL::View_Fade( ScreenFade_t *pSF )
 		SourceSharp_ViewFade( *pSF );
 }
 
-void CShellClientDLL::LevelInitPreEntity( char const* pMapName )
+void CShellClientDLL::LevelInitPreEntity( char const *pMapName )
 {
 	// Managed decides whether this level re-reads every particle definition file or only
 	// re-precaches; with no runtime, the stock re-read.
@@ -1028,18 +964,18 @@ void CShellClientDLL::LevelInitPreEntity( char const* pMapName )
 		PrecacheDefinedParticleSystems();
 	PumpWindowDuringLoad();
 
-	if (g_bLevelInitialized)
+	if ( g_bLevelInitialized )
 		return;
 	g_bLevelInitialized = true;
 
 	input->LevelInit();
 
 	ResetManagedViewEffects();
-	
+
 	// How many files this read is what the next level's reload decision needs.
 	int ParseParticleEffectsMapFiles( const char *pMapName, bool bLoadSheets );
 	m_nPreviousMapParticleFiles = ParseParticleEffectsMapFiles( pMapName, true );
-	
+
 	modemanager->LevelInit( pMapName );
 	ShellParticleMgr_LevelInit();
 
@@ -1057,10 +993,9 @@ void CShellClientDLL::LevelInitPreEntity( char const* pMapName )
 		pRuntime->LevelInitPreEntity();
 
 	gHUD.LevelInit();
-
 }
 
-void CShellClientDLL::LevelInitPostEntity( )
+void CShellClientDLL::LevelInitPostEntity()
 {
 	PumpWindowDuringLoad();
 	SourceSharp_ClientSystemsLevelInitPostEntity();
@@ -1080,7 +1015,7 @@ void CShellClientDLL::ResetStringTablePointers()
 
 void CShellClientDLL::LevelShutdown()
 {
-	if (!g_bLevelInitialized)
+	if ( !g_bLevelInitialized )
 		return;
 
 	g_bLevelInitialized = false;
@@ -1103,7 +1038,8 @@ void CShellClientDLL::LevelShutdown()
 	const bool bWorld = SourceSharp_ClientWorldLevelShutdown();
 
 	Msg( "[SourceSharp] client level shutdown: destroyed %d standalone shell(s), "
-	     "world %s\n", nShells, bWorld ? "released" : "was not bound" );
+		 "world %s\n",
+		 nShells, bWorld ? "released" : "was not bound" );
 
 	SourceSharp_ClientSystemsLevelShutdownPostEntity();
 
@@ -1112,7 +1048,7 @@ void CShellClientDLL::LevelShutdown()
 	// The new-style effects removed, then the particle materials released.
 	ShellNewParticles_RemoveAll();
 	ShellParticleMgr_LevelShutdown();
-	
+
 	StopAllRumbleEffects();
 
 	gHUD.LevelShutdown();
@@ -1129,9 +1065,7 @@ void CShellClientDLL::LevelShutdown()
 }
 
 // No crosshair element exists, so the autoaim offset goes nowhere; the engine calls it.
-void CShellClientDLL::SetCrosshairAngle( const QAngle& angle )
-{
-}
+void CShellClientDLL::SetCrosshairAngle( const QAngle &angle ) {}
 
 // Initializes a sprite from its .spr.
 void CShellClientDLL::InitSprite( CEngineSprite *pSprite, const char *loadname )
@@ -1165,38 +1099,42 @@ void CShellClientDLL::VoiceStatus( int entindex, qboolean bTalking )
 		pUi->VoiceStatus( entindex, bTalking ? 1 : 0 );
 }
 
-void OnMaterialStringTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber, const char *newString, void const *newData )
+void OnMaterialStringTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber,
+								   const char *newString, void const *newData )
 {
 	g_ShellClientDLL.PrecacheMaterial( newString );
 	RequestCacheUsedMaterials();
 }
 
-void OnParticleSystemStringTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber, const char *newString, void const *newData )
+void OnParticleSystemStringTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber,
+										 const char *newString, void const *newData )
 {
 	g_pParticleSystemMgr->PrecacheParticleSystem( newString );
 	RequestCacheUsedMaterials();
 }
 
-void OnVguiScreenTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber, const char *newString, void const *newData )
+void OnVguiScreenTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber, const char *newString,
+							   void const *newData )
 {
 	// No vgui screen class is compiled into this client, so there is nothing to precache.
 }
 
 // Preloads the string on the client.
-void OnSceneStringTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber, const char *newString, void const *newData )
+void OnSceneStringTableChanged( void *object, INetworkStringTable *stringTable, int stringNumber, const char *newString,
+								void const *newData )
 {
 }
 
 // The table definition has been parsed but no data added yet.
 void CShellClientDLL::InstallStringTableCallback( const char *tableName )
 {
-	if (!Q_strcasecmp(tableName, "VguiScreen"))
+	if ( !Q_strcasecmp( tableName, "VguiScreen" ) )
 	{
 		g_StringTableVguiScreen = networkstringtable->FindTable( tableName );
 
 		g_StringTableVguiScreen->SetStringChangedCallback( NULL, OnVguiScreenTableChanged );
 	}
-	else if (!Q_strcasecmp(tableName, "Materials"))
+	else if ( !Q_strcasecmp( tableName, "Materials" ) )
 	{
 		g_pStringTableMaterials = networkstringtable->FindTable( tableName );
 
@@ -1234,14 +1172,14 @@ void CShellClientDLL::PrecacheMaterial( const char *pMaterialName )
 	Assert( pMaterialName );
 
 	int nLen = Q_strlen( pMaterialName );
-	char *pTempBuf = (char*)stackalloc( nLen + 1 );
+	char *pTempBuf = (char *)stackalloc( nLen + 1 );
 	memcpy( pTempBuf, pMaterialName, nLen + 1 );
 	char *pFound = Q_strstr( pTempBuf, ".vmt\0" );
 	if ( pFound )
 	{
 		*pFound = 0;
 	}
-		
+
 	IMaterial *pMaterial = materials->FindMaterial( pTempBuf, TEXTURE_GROUP_PRECACHED );
 	if ( !IsErrorMaterial( pMaterial ) )
 	{
@@ -1250,16 +1188,17 @@ void CShellClientDLL::PrecacheMaterial( const char *pMaterialName )
 	}
 	else
 	{
-		if (IsOSX())
+		if ( IsOSX() )
 		{
-			printf("\n ##### CShellClientDLL::PrecacheMaterial could not find material %s (%s)", pMaterialName, pTempBuf );
+			printf( "\n ##### CShellClientDLL::PrecacheMaterial could not find material %s (%s)", pMaterialName,
+					pTempBuf );
 		}
 	}
 }
 
-void CShellClientDLL::UncacheAllMaterials( )
+void CShellClientDLL::UncacheAllMaterials()
 {
-	for (int i = m_CachedMaterials.Count(); --i >= 0; )
+	for ( int i = m_CachedMaterials.Count(); --i >= 0; )
 	{
 		m_CachedMaterials[i]->DecrementReferenceCount();
 	}
@@ -1274,7 +1213,7 @@ bool CShellClientDLL::DispatchUserMessage( int msg_type, bf_read &msg_data )
 	IManagedUserMessagesClient *pMessages = ManagedUserMessagesClient();
 	if ( !pMessages )
 		return false;
-	uint8_t block[ ss::kBitBlockHeaderBytes + kMaxUserMessageBlockBytes ];
+	uint8_t block[ss::kBitBlockHeaderBytes + kMaxUserMessageBlockBytes];
 	const int32_t nBits = ss::BitBlockFromEngine( msg_data, block, sizeof( block ) );
 	if ( nBits < 0 )
 		memcpy( block, &nBits, sizeof( nBits ) );
@@ -1283,14 +1222,9 @@ bool CShellClientDLL::DispatchUserMessage( int msg_type, bf_read &msg_data )
 
 // The PVS-notify walks. No renderable in this build answers a non-NULL
 // GetPVSNotifyInterface(), so the list is always empty.
-void UpdateClientRenderableInPVSStatus()
-{
-}
+void UpdateClientRenderableInPVSStatus() {}
 
-void UpdatePVSNotifiers()
-{
-}
-
+void UpdatePVSNotifiers() {}
 
 void OnRenderStart()
 {
@@ -1312,7 +1246,7 @@ void OnRenderStart()
 	view->OnRenderStart();
 
 	RopeManager()->OnRenderStart();
-	
+
 	::partition->SuppressLists( PARTITION_ALL_CLIENT_EDICTS, false );
 
 	// The world's deferred OnDataChanged: it must see a complete net update.
@@ -1322,7 +1256,7 @@ void OnRenderStart()
 	}
 
 	// Entities can change the overlay alpha in their thinks.
-	g_SmokeFogOverlayAlpha = 0;	
+	g_SmokeFogOverlayAlpha = 0;
 
 	PhysicsSimulate();
 
@@ -1341,7 +1275,6 @@ void OnRenderStart()
 		ShellNewParticles_Frame( gpGlobals->frametime );
 	}
 }
-
 
 void OnRenderEnd()
 {
@@ -1386,32 +1319,31 @@ void CShellClientDLL::FrameStageNotify( ClientFrameStage_t curStage )
 		pRuntime->ClientStage( (int32_t)curStage );
 	}
 
-	switch( curStage )
+	switch ( curStage )
 	{
-	default:
-		break;
+		default:
+			break;
 
-	case FRAME_RENDER_START:
+		case FRAME_RENDER_START:
 		{
-
 			OnRenderStart();
 		}
 		break;
-		
-	case FRAME_RENDER_END:
+
+		case FRAME_RENDER_END:
 		{
 			OnRenderEnd();
 		}
 		break;
-		
-	case FRAME_NET_UPDATE_START:
+
+		case FRAME_NET_UPDATE_START:
 		{
 			EntityAbs_SetRecomputationsEnabled( false );
 			EntityAbs_SetQueriesValid( false );
 			::partition->SuppressLists( PARTITION_ALL_CLIENT_EDICTS, true );
 		}
 		break;
-	case FRAME_NET_UPDATE_END:
+		case FRAME_NET_UPDATE_END:
 		{
 			ProcessCacheUsedMaterials();
 
@@ -1420,14 +1352,14 @@ void CShellClientDLL::FrameStageNotify( ClientFrameStage_t curStage )
 			::partition->SuppressLists( PARTITION_ALL_CLIENT_EDICTS, false );
 		}
 		break;
-	case FRAME_NET_UPDATE_POSTDATAUPDATE_START:
-		break;
-	case FRAME_NET_UPDATE_POSTDATAUPDATE_END:
+		case FRAME_NET_UPDATE_POSTDATAUPDATE_START:
+			break;
+		case FRAME_NET_UPDATE_POSTDATAUPDATE_END:
 		{
 			prediction->PostEntityPacketReceived();
 		}
 		break;
-	case FRAME_START:
+		case FRAME_START:
 		{
 			SetFXCreationAllowed( true );
 		}
@@ -1438,19 +1370,18 @@ void CShellClientDLL::FrameStageNotify( ClientFrameStage_t curStage )
 // Save/restore hooks. The engine asks SaveInit for the client state buffer first and
 // abandons the save on NULL, so the three that move bytes forward to the managed save
 // codec. The client entity block is empty, which the engine accepts.
-CSaveRestoreData  *CShellClientDLL::SaveInit( int size )
+CSaveRestoreData *CShellClientDLL::SaveInit( int size )
 {
 	IManagedSaveRestoreClient *pArea = ManagedSaveRestoreClient();
-	CSaveRestoreData *pSaveData = pArea
-		? static_cast< CSaveRestoreData * >( pArea->SaveInit( size, gpGlobals->curtime ) )
-		: NULL;
+	CSaveRestoreData *pSaveData =
+		pArea ? static_cast<CSaveRestoreData *>( pArea->SaveInit( size, gpGlobals->curtime ) ) : NULL;
 
 	if ( pSaveData == NULL )
 	{
 		// The engine abandons the save here silently, so say so.
 		Warning( "[SourceSharp] client SaveInit is answering NULL: the engine will "
-		         "abandon the client state file and, with it, the whole save, "
-		         "printing nothing\n" );
+				 "abandon the client state file and, with it, the whole save, "
+				 "printing nothing\n" );
 	}
 
 	return pSaveData;
@@ -1458,13 +1389,16 @@ CSaveRestoreData  *CShellClientDLL::SaveInit( int size )
 
 // pMap is unused, as stock's. sizeof( typedescription_t ) is passed because the struct
 // holds a member-function pointer whose width is the C++ ABI's.
-void CShellClientDLL::SaveWriteFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *pFields, int fieldCount )
+void CShellClientDLL::SaveWriteFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap,
+									   typedescription_t *pFields, int fieldCount )
 {
 	if ( IManagedSaveRestoreClient *pArea = ManagedSaveRestoreClient() )
-		pArea->SaveWriteFields( pSaveData, pname, pBaseData, pFields, (int32_t)sizeof( typedescription_t ), fieldCount );
+		pArea->SaveWriteFields( pSaveData, pname, pBaseData, pFields, (int32_t)sizeof( typedescription_t ),
+								fieldCount );
 }
 
-void CShellClientDLL::SaveReadFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *pFields, int fieldCount )
+void CShellClientDLL::SaveReadFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap,
+									  typedescription_t *pFields, int fieldCount )
 {
 	if ( IManagedSaveRestoreClient *pArea = ManagedSaveRestoreClient() )
 		pArea->SaveReadFields( pSaveData, pname, pBaseData, pFields, (int32_t)sizeof( typedescription_t ), fieldCount );
@@ -1472,30 +1406,18 @@ void CShellClientDLL::SaveReadFields( CSaveRestoreData *pSaveData, const char *p
 
 // The other six move no bytes: entities are not saved through a datamap. A no-op is
 // symmetric across save and load.
-void CShellClientDLL::PreSave( CSaveRestoreData *s )
-{
-}
+void CShellClientDLL::PreSave( CSaveRestoreData *s ) {}
 
-void CShellClientDLL::Save( CSaveRestoreData *s )
-{
-}
+void CShellClientDLL::Save( CSaveRestoreData *s ) {}
 
-void CShellClientDLL::WriteSaveHeaders( CSaveRestoreData *s )
-{
-}
+void CShellClientDLL::WriteSaveHeaders( CSaveRestoreData *s ) {}
 
-void CShellClientDLL::ReadRestoreHeaders( CSaveRestoreData *s )
-{
-}
+void CShellClientDLL::ReadRestoreHeaders( CSaveRestoreData *s ) {}
 
-void CShellClientDLL::Restore( CSaveRestoreData *s, bool b )
-{
-}
+void CShellClientDLL::Restore( CSaveRestoreData *s, bool b ) {}
 
 // The engine calls it; a managed entity's restore is managed's.
-void CShellClientDLL::DispatchOnRestore()
-{
-}
+void CShellClientDLL::DispatchOnRestore() {}
 
 void CShellClientDLL::WriteSaveGameScreenshot( const char *pFilename )
 {
@@ -1503,15 +1425,11 @@ void CShellClientDLL::WriteSaveGameScreenshot( const char *pFilename )
 }
 
 // The engine's close-caption slots; the captions this client shows are managed's.
-void CShellClientDLL::EmitSentenceCloseCaption( char const *tokenstream )
-{
-}
+void CShellClientDLL::EmitSentenceCloseCaption( char const *tokenstream ) {}
 
-void CShellClientDLL::EmitCloseCaption( char const *captionname, float duration )
-{
-}
+void CShellClientDLL::EmitCloseCaption( char const *captionname, float duration ) {}
 
-CStandardRecvProxies* CShellClientDLL::GetStandardRecvProxies()
+CStandardRecvProxies *CShellClientDLL::GetStandardRecvProxies()
 {
 	return &g_StandardRecvProxies;
 }
@@ -1526,7 +1444,7 @@ bool CShellClientDLL::CanRecordDemo( char *errorMsg, int length ) const
 	return true;
 }
 
-void CShellClientDLL::OnDemoRecordStart( char const* pDemoBaseName )
+void CShellClientDLL::OnDemoRecordStart( char const *pDemoBaseName )
 {
 	if ( GetClientModeNormal() )
 	{
@@ -1542,13 +1460,9 @@ void CShellClientDLL::OnDemoRecordStop()
 	}
 }
 
-void CShellClientDLL::OnDemoPlaybackStart( char const* pDemoBaseName )
-{
-}
+void CShellClientDLL::OnDemoPlaybackStart( char const *pDemoBaseName ) {}
 
-void CShellClientDLL::OnDemoPlaybackStop()
-{
-}
+void CShellClientDLL::OnDemoPlaybackStop() {}
 
 int CShellClientDLL::GetScreenWidth()
 {
@@ -1560,8 +1474,8 @@ int CShellClientDLL::GetScreenHeight()
 	return ScreenHeight();
 }
 
-void CShellClientDLL::WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded/*=false*/,
-											   bool bWriteVTF/*=false*/ )
+void CShellClientDLL::WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height,
+													 bool bCreatePowerOf2Padded /*=false*/, bool bWriteVTF /*=false*/ )
 {
 	view->WriteSaveGameScreenshotOfSize( pFilename, width, height, bCreatePowerOf2Padded, bWriteVTF );
 }
@@ -1601,7 +1515,7 @@ CMouthInfo *CShellClientDLL::GetClientUIMouthInfo()
 	return &m_ClientUIMouth;
 }
 
-void CShellClientDLL::FileReceived( const char * fileName, unsigned int transferID )
+void CShellClientDLL::FileReceived( const char *fileName, unsigned int transferID )
 {
 	if ( g_pGameRules )
 	{
@@ -1609,11 +1523,9 @@ void CShellClientDLL::FileReceived( const char * fileName, unsigned int transfer
 	}
 }
 
-void CShellClientDLL::ClientAdjustStartSoundParams( StartSoundParams_t& params )
-{
-}
+void CShellClientDLL::ClientAdjustStartSoundParams( StartSoundParams_t &params ) {}
 
-const char* CShellClientDLL::TranslateEffectForVisionFilter( const char *pchEffectType, const char *pchEffectName )
+const char *CShellClientDLL::TranslateEffectForVisionFilter( const char *pchEffectType, const char *pchEffectName )
 {
 	if ( !GameRules() )
 		return pchEffectName;
@@ -1648,7 +1560,7 @@ void CShellClientDLL::DisplayVoiceUnavailableMessage()
 
 // Prints the refusal tally; zero means every method the engine called was answered.
 CON_COMMAND( cs_cl_refusals,
-	"SourceSharp: how many times each refused IBaseClientDLL method was called (plan_entity.md 5b)" )
+			 "SourceSharp: how many times each refused IBaseClientDLL method was called (plan_entity.md 5b)" )
 {
 	ShellClientDll_PrintRefusals( g_ShellClientDLL.Refusals() );
 }
@@ -1658,18 +1570,17 @@ CON_COMMAND( cs_cl_refusals,
 uint64_t SourceSharp_ClientStageCrossings();
 uint64_t SourceSharp_FrameStageNotifyCalls();
 
-CON_COMMAND( ss_cl_stage_crossings,
-	"ss_cl_stage_crossings -- FrameStageNotify calls vs ClientStage crossings" )
+CON_COMMAND( ss_cl_stage_crossings, "ss_cl_stage_crossings -- FrameStageNotify calls vs ClientStage crossings" )
 {
 	Msg( "[SourceSharp] FrameStageNotify: %llu call(s), %llu crossing(s) into managed code\n",
-	     (unsigned long long)SourceSharp_FrameStageNotifyCalls(),
-	     (unsigned long long)SourceSharp_ClientStageCrossings() );
+		 (unsigned long long)SourceSharp_FrameStageNotifyCalls(),
+		 (unsigned long long)SourceSharp_ClientStageCrossings() );
 }
 
 // Sends a managed message to the server on the engine's net channel, reliable.
 int32_t SourceSharp_SendServerMessage( const char *pKey, const uint8_t *pData, int32_t nLen )
 {
-	INetChannel *pChannel = engine ? static_cast< INetChannel * >( engine->GetNetChannelInfo() ) : NULL;
+	INetChannel *pChannel = engine ? static_cast<INetChannel *>( engine->GetNetChannelInfo() ) : NULL;
 	if ( !pChannel )
 		return 0;
 
@@ -1690,7 +1601,7 @@ static INetChannelInfo *ShellNetChannel()
 static int32_t ShellPut( float *pOut, int32_t nOut, int32_t i, float flValue )
 {
 	if ( pOut && i < nOut )
-		pOut[ i ] = flValue;
+		pOut[i] = flValue;
 	return i + 1;
 }
 
@@ -1764,8 +1675,8 @@ int32_t SourceSharp_ClientNetPacket( int32_t nFlow, int32_t nFrame, float *pOut,
 
 // The refused methods, one per index, with how often each was reached. Returns the method
 // count; the total goes through pOutTotal.
-int32_t SourceSharp_ClientRefusal( int32_t iIndex, char *pOutMethod, int32_t nMethodBytes,
-                                   int32_t *pOutCount, int32_t *pOutTotal )
+int32_t SourceSharp_ClientRefusal( int32_t iIndex, char *pOutMethod, int32_t nMethodBytes, int32_t *pOutCount,
+								   int32_t *pOutTotal )
 {
 	const CShellClientDllRefusals &refusals = g_ShellClientDLL.Refusals();
 	if ( pOutTotal )

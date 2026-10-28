@@ -15,11 +15,11 @@ class IClientRenderable;
 abstract_class IRecordingList
 {
 public:
-	virtual ~IRecordingList() {};
-	virtual void	AddToList( ClientEntityHandle_t add ) = 0;
-	virtual void	RemoveFromList( ClientEntityHandle_t remove ) = 0;
+	virtual ~IRecordingList(){};
+	virtual void AddToList( ClientEntityHandle_t add ) = 0;
+	virtual void RemoveFromList( ClientEntityHandle_t remove ) = 0;
 
-	virtual int		Count() = 0;
+	virtual int Count() = 0;
 	virtual IClientRenderable *Get( int index ) = 0;
 };
 

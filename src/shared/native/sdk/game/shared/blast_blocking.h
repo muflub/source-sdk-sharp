@@ -21,9 +21,8 @@ const float BLAST_BLOCKED_NO_PHYSICS = 0.25f;
 
 // Whether what the trace stopped on is in the way. pBlocker is NULL for the world
 // and static props; something owned by the victim does not shield it.
-inline bool BlastBlockerCounts( const IHandleEntity *pVictim,
-                                const IHandleEntity *pBlocker,
-                                const IHandleEntity *pBlockerOwner )
+inline bool BlastBlockerCounts( const IHandleEntity *pVictim, const IHandleEntity *pBlocker,
+								const IHandleEntity *pBlockerOwner )
 {
 	if ( !pBlocker )
 		return false;

@@ -23,14 +23,14 @@
 #include "ss_fwd.h"
 
 #if defined( _WIN32 )
-	#include <windows.h>
+#include <windows.h>
 #else
-	#include <dlfcn.h>
+#include <dlfcn.h>
 #endif
 
 namespace
 {
-using TableFn = const SSForwarderTable *( * )( const char * );
+using TableFn = const SSForwarderTable *(*)( const char * );
 
 // Each library: its built file, its one export, a table it serves and a table
 // only the other side calls (which it must not serve).
@@ -54,23 +54,23 @@ TableFn LoadTableFunction( const Library &lib )
 #if defined( _WIN32 )
 	HMODULE hLib = LoadLibraryA( lib.pszPath );
 	EXPECT_NE( nullptr, hLib ) << lib.pszPath << " did not load (error " << GetLastError() << ")";
-	return hLib ? reinterpret_cast< TableFn >( GetProcAddress( hLib, lib.pszExport ) ) : nullptr;
+	return hLib ? reinterpret_cast<TableFn>( GetProcAddress( hLib, lib.pszExport ) ) : nullptr;
 #else
 	void *pLib = dlopen( lib.pszPath, RTLD_NOW | RTLD_LOCAL );
 	EXPECT_NE( nullptr, pLib ) << lib.pszPath << " did not load: " << dlerror();
-	return pLib ? reinterpret_cast< TableFn >( dlsym( pLib, lib.pszExport ) ) : nullptr;
+	return pLib ? reinterpret_cast<TableFn>( dlsym( pLib, lib.pszExport ) ) : nullptr;
 #endif
 }
 
 #if defined( _WIN32 )
-std::vector< unsigned char > ReadAll( const char *pszPath )
+std::vector<unsigned char> ReadAll( const char *pszPath )
 {
 	std::ifstream in( pszPath, std::ios::binary );
-	return std::vector< unsigned char >( std::istreambuf_iterator< char >( in ), std::istreambuf_iterator< char >() );
+	return std::vector<unsigned char>( std::istreambuf_iterator<char>( in ), std::istreambuf_iterator<char>() );
 }
 
-template < typename T >
-bool At( const std::vector< unsigned char > &b, uint64_t off, T &out )
+template <typename T>
+bool At( const std::vector<unsigned char> &b, uint64_t off, T &out )
 {
 	if ( off + sizeof( T ) > b.size() )
 		return false;
@@ -80,13 +80,13 @@ bool At( const std::vector< unsigned char > &b, uint64_t off, T &out )
 
 // Data directory N of a PE32+ image (0 exports, 1 imports, 13 delay
 // imports): its size, or -1 when the file is not a PE32+ image.
-int64_t DataDirectorySize( const std::vector< unsigned char > &b, int index )
+int64_t DataDirectorySize( const std::vector<unsigned char> &b, int index )
 {
 	uint32_t peOffset = 0, signature = 0;
 	uint16_t magic = 0;
 	if ( !At( b, 0x3c, peOffset ) || !At( b, peOffset, signature ) || signature != 0x4550 )
 		return -1;
-	const uint64_t optional = peOffset + 4 + 20;   // after "PE\0\0" and the COFF header
+	const uint64_t optional = peOffset + 4 + 20; // after "PE\0\0" and the COFF header
 	if ( !At( b, optional, magic ) || magic != 0x20b )
 		return -1;
 	uint32_t size = 0;
@@ -111,9 +111,9 @@ TEST( FwdLibrariesLoad, EachBuiltLibraryServesItsTableWithEverySlotSet )
 
 		for ( int i = 0; i < pTable->nSlots; i++ )
 		{
-			EXPECT_NE( nullptr, pTable->ppSlots[ i ] ) << lib.pszTable << " slot " << i << " was not set at load";
+			EXPECT_NE( nullptr, pTable->ppSlots[i] ) << lib.pszTable << " slot " << i << " was not set at load";
 			for ( int j = 0; j < i; j++ )
-				EXPECT_NE( pTable->ppSlots[ j ], pTable->ppSlots[ i ] ) << lib.pszTable << " slots " << j << " and " << i;
+				EXPECT_NE( pTable->ppSlots[j], pTable->ppSlots[i] ) << lib.pszTable << " slots " << j << " and " << i;
 		}
 	}
 }
@@ -127,8 +127,8 @@ TEST( FwdLibrariesLoad, EachBuiltLibraryMatchesNamesExactlyAndServesOnlyItsOwn )
 
 		const std::string name = lib.pszTable;
 		EXPECT_NE( nullptr, table( name.c_str() ) );
-		EXPECT_EQ( nullptr, table( name.substr( 0, name.size() - 1 ).c_str() ) );   // a prefix of a served name
-		EXPECT_EQ( nullptr, table( ( name + "X" ).c_str() ) );                       // a served name and more
+		EXPECT_EQ( nullptr, table( name.substr( 0, name.size() - 1 ).c_str() ) ); // a prefix of a served name
+		EXPECT_EQ( nullptr, table( ( name + "X" ).c_str() ) ); // a served name and more
 		EXPECT_EQ( nullptr, table( "ssfwd_modelinfo" ) );
 		EXPECT_EQ( nullptr, table( "" ) );
 		EXPECT_EQ( nullptr, table( nullptr ) );
@@ -144,11 +144,12 @@ TEST( FwdLibrariesLoad, EachDllImportsNothing )
 {
 	for ( const Library &lib : kLibraries )
 	{
-		const std::vector< unsigned char > file = ReadAll( lib.pszPath );
+		const std::vector<unsigned char> file = ReadAll( lib.pszPath );
 		// Proof of read: the export directory holds the library's export.
 		ASSERT_GT( DataDirectorySize( file, 0 ), 0 ) << lib.pszPath << " read as no PE32+ image with exports";
 
-		EXPECT_EQ( 0, DataDirectorySize( file, 1 ) ) << lib.pszPath << " imports something: a CRT or system library came back";
+		EXPECT_EQ( 0, DataDirectorySize( file, 1 ) )
+			<< lib.pszPath << " imports something: a CRT or system library came back";
 		EXPECT_EQ( 0, DataDirectorySize( file, 13 ) ) << lib.pszPath << " delay-imports something";
 	}
 }

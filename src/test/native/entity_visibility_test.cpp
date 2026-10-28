@@ -65,8 +65,7 @@ namespace
 // compiled on NEITHER side, so it answers the first question correctly while
 // binding nothing at all. Lane `abi-tail` found that by mutating a server-arm
 // fact into exactly that shape and watching it stay GREEN.
-bool CompiledWithSymbol( const std::string &src, size_t at, const char *pszSymbol,
-                         bool bDefined )
+bool CompiledWithSymbol( const std::string &src, size_t at, const char *pszSymbol, bool bDefined )
 {
 	const std::string sym( pszSymbol );
 
@@ -77,11 +76,10 @@ bool CompiledWithSymbol( const std::string &src, size_t at, const char *pszSymbo
 	while ( line < src.size() && line <= at )
 	{
 		const size_t end = src.find( '\n', line );
-		const std::string text = src.substr( line, ( end == std::string::npos )
-		                                           ? std::string::npos : end - line );
+		const std::string text = src.substr( line, ( end == std::string::npos ) ? std::string::npos : end - line );
 
 		size_t h = text.find_first_not_of( " \t" );
-		if ( h != std::string::npos && text[ h ] == '#' )
+		if ( h != std::string::npos && text[h] == '#' )
 		{
 			const std::string d = text.substr( h + 1 );
 			const bool mentions = d.find( sym ) != std::string::npos;
@@ -105,7 +103,7 @@ bool CompiledWithSymbol( const std::string &src, size_t at, const char *pszSymbo
 
 	for ( size_t i = 0; i < live.size(); i++ )
 	{
-		if ( !live[ i ] )
+		if ( !live[i] )
 			return false;
 	}
 
@@ -244,8 +242,7 @@ TEST( PreprocessorNesting, ItSeesThroughNestingToAnOuterIfndef )
 {
 	// THE EXACT SHAPE OF THE BUG: an `#ifdef CLIENT_DLL` that is correct in
 	// itself and dead because of what encloses it.
-	const std::string src =
-		"#ifndef CLIENT_DLL\n#ifdef CLIENT_DLL\nTARGET\n#endif\n#endif\n";
+	const std::string src = "#ifndef CLIENT_DLL\n#ifdef CLIENT_DLL\nTARGET\n#endif\n#endif\n";
 
 	EXPECT_FALSE( CompiledWhenDefined( src, src.find( "TARGET" ), "CLIENT_DLL" ) );
 }
@@ -365,8 +362,7 @@ TEST( PreprocessorNesting, NotDefinedAnswersFalseInsideAnIfdefOfTheSymbol )
 //-----------------------------------------------------------------------------
 TEST( PreprocessorNesting, ARegionCompiledOnNeitherSideAnswersFalseToBoth )
 {
-	const std::string src =
-		"#ifndef CLIENT_DLL\n#ifdef CLIENT_DLL\nTARGET\n#endif\n#endif\n";
+	const std::string src = "#ifndef CLIENT_DLL\n#ifdef CLIENT_DLL\nTARGET\n#endif\n#endif\n";
 
 	const size_t at = src.find( "TARGET" );
 

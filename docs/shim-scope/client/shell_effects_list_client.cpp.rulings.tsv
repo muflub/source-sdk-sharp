@@ -1,50 +1,50 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-static int32_t MaterialId(	SLOT-HELP	the IMaterial* -> integer id table managed holds materials by (B4 handle table); decides nothing
-static IMaterial *MaterialOf(	SLOT-HELP	the id -> IMaterial* half of the same table
-[CEffectsListThunk] void AddEffect(	SLOT	IEffectsList::AddEffect: no native effect kind is left, so nothing to add
-[CEffectsListThunk] void RemoveEffect(	SLOT	IEffectsList::RemoveEffect: likewise
-[CEffectsListThunk] void DrawEffects(	SLOT	IEffectsList::DrawEffects (viewrender.cpp, once a frame), carried to managed's ClientEffectList
-[CEffectsListThunk] void Flush(	SLOT	IEffectsList::Flush (the client DLL's level change), carried to managed
-[CBulletWhizTimer] CBulletWhizTimer(	HOOK	the client system shell_clientsystems.cpp lists (ClientSystem_BulletWhizTimer)
-[CBulletWhizTimer] void LevelInitPreEntity(	HOOK	the system's level start, carried to managed (the whiz clock is managed's)
-CClientSystem *ClientSystem_BulletWhizTimer(	LIVE-API	shell_clientsystems.cpp imports it (nm -u) to list the system
-void SetFXCreationAllowed(	LIVE-API	viewrender.cpp and shell_clientdll.cpp import it (nm -u); stores the flag
-bool FXCreationAllowed(	LIVE-API	the flag's read, as stock's; nothing in the build calls it
-void FX_AddLine(	LIVE-API	fx_explosion.cpp imports it (nm -u); FXLineData_t carried to managed, the material as an id
-void FX_AddStaticLine(	LIVE-API	stock's entry, carried to managed
-void FX_AddDiscreetLine(	LIVE-API	fx.cpp imports it (nm -u); carried to managed
+static int32_t MaterialId( IMaterial *pMaterial )	SLOT-HELP	the IMaterial* -> integer id table managed holds materials by (B4 handle table); decides nothing
+static IMaterial *MaterialOf( int32_t nMaterial )	SLOT-HELP	the id -> IMaterial* half of the same table
+[CEffectsListThunk] void AddEffect( CClientSideEffect *effect ) override	SLOT	IEffectsList::AddEffect: no native effect kind is left, so nothing to add
+[CEffectsListThunk] void RemoveEffect( CClientSideEffect *effect ) override	SLOT	IEffectsList::RemoveEffect: likewise
+[CEffectsListThunk] void DrawEffects( double frametime ) override	SLOT	IEffectsList::DrawEffects (viewrender.cpp, once a frame), carried to managed's ClientEffectList
+[CEffectsListThunk] void Flush() override	SLOT	IEffectsList::Flush (the client DLL's level change), carried to managed
+[CBulletWhizTimer] : CClientSystem( name )	HOOK	the client system shell_clientsystems.cpp lists (ClientSystem_BulletWhizTimer)
+[CBulletWhizTimer] void LevelInitPreEntity() override	HOOK	the system's level start, carried to managed (the whiz clock is managed's)
+CClientSystem *ClientSystem_BulletWhizTimer()	LIVE-API	shell_clientsystems.cpp imports it (nm -u) to list the system
+void SetFXCreationAllowed( bool state )	LIVE-API	viewrender.cpp and shell_clientdll.cpp import it (nm -u); stores the flag
+bool FXCreationAllowed()	LIVE-API	the flag's read, as stock's; nothing in the build calls it
+void FX_AddLine( const FXLineData_t &data )	LIVE-API	fx_explosion.cpp imports it (nm -u); FXLineData_t carried to managed, the material as an id
+void FX_AddStaticLine( const Vector &start, const Vector &end, float scale, float life, const char *materialName, unsigned char flags )	LIVE-API	stock's entry, carried to managed
+void FX_AddDiscreetLine( const Vector &start, const Vector &direction, float velocity, float length, float clipLength, float scale, float li	LIVE-API	fx.cpp imports it (nm -u); carried to managed
 void FX_AddQuad( const FXQuadData_t &data )	LIVE-API	fx_sparks.cpp imports it (nm -u); FXQuadData_t carried to managed, the material as an id
-void FX_AddQuad( const Vector &origin,	LIVE-API	fx_explosion.cpp, fx_sparks.cpp, fx_water.cpp import it (nm -u); carried to managed
-void FX_TracerSound(	LIVE-API	fx.cpp imports it (nm -u); carried to managed
-SourceSharp_FxMaterialFind	BOUNDARY	materials->FindMaterial + IncrementReferenceCount, the id back (B4)
-SourceSharp_FxMaterialAddRef	BOUNDARY	IncrementReferenceCount on an id (B4)
-SourceSharp_FxMaterialRelease	BOUNDARY	DecrementReferenceCount on an id (B4)
-SourceSharp_FxMaterialName	BOUNDARY	IMaterial::GetName on an id (B4)
-SourceSharp_FxDrawQuads	BOUNDARY	the one quad-mesh draw: the vertices managed computed, through CMeshBuilder (B4)
-SourceSharp_FxView( float	BOUNDARY	CurrentViewOrigin, CurrentViewForward, ScreenWidth read for managed
-SourceSharp_FxMainViewOrigin	BOUNDARY	MainViewOrigin read for managed
-SourceSharp_FxLocalPlayer	BOUNDARY	engine->GetLocalPlayer read for managed
-SourceSharp_FxViewAngles	BOUNDARY	engine->GetViewAngles read for managed
-SourceSharp_FxEntityAttachment	BOUNDARY	an entity's renderable GetAttachment (and its model name on failure) read for managed
-SourceSharp_FxDispatchParticleEffect	BOUNDARY	DispatchParticleEffect with the arguments managed chose (B4)
-SourceSharp_FxEntityRenderAngles	BOUNDARY	an entity's renderable GetRenderAngles read for the managed shell-eject effects
-SourceSharp_FxEjectBrass	BOUNDARY	tempents->EjectBrass with the arguments managed chose (B4)
-[CSourceSharpEffectPrecacheSystem] int Count()	SLOT-HELP	the registry's size, for FxPrecacheCount (m_Effects is protected in the fork's header)
-[CSourceSharpEffectPrecacheSystem] void CacheAt(	SLOT-HELP	one registration's Cache, for FxPrecacheCache
+void FX_AddQuad( const Vector &origin, const Vector &normal, float startSize, float endSize, float sizeBias, float startAlpha, float endAlph	LIVE-API	fx_explosion.cpp, fx_sparks.cpp, fx_water.cpp import it (nm -u); carried to managed
+void FX_TracerSound( const Vector &start, const Vector &end, int iTracerType )	LIVE-API	fx.cpp imports it (nm -u); carried to managed
+int32_t SourceSharp_FxMaterialFind( const char *pName )	BOUNDARY	materials->FindMaterial + IncrementReferenceCount, the id back (B4)
+void SourceSharp_FxMaterialAddRef( int32_t nMaterial )	BOUNDARY	IncrementReferenceCount on an id (B4)
+void SourceSharp_FxMaterialRelease( int32_t nMaterial )	BOUNDARY	DecrementReferenceCount on an id (B4)
+int32_t SourceSharp_FxMaterialName( int32_t nMaterial, char *pOut, int32_t nOutSize )	BOUNDARY	IMaterial::GetName on an id (B4)
+void SourceSharp_FxDrawQuads( int32_t nMaterial, int32_t nVertices, const float *pVertices, int32_t bByteColor )	BOUNDARY	the one quad-mesh draw: the vertices managed computed, through CMeshBuilder (B4)
+void SourceSharp_FxView( float *pOut )	BOUNDARY	CurrentViewOrigin, CurrentViewForward, ScreenWidth read for managed
+void SourceSharp_FxMainViewOrigin( float *pOutXYZ )	BOUNDARY	MainViewOrigin read for managed
+int32_t SourceSharp_FxLocalPlayer()	BOUNDARY	engine->GetLocalPlayer read for managed
+void SourceSharp_FxViewAngles( float *pOutPYR )	BOUNDARY	engine->GetViewAngles read for managed
+int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float *pOutXYZ, char *pModelOut, int32_t nModelSize )	BOUNDARY	an entity's renderable GetAttachment (and its model name on failure) read for managed
+void SourceSharp_FxDispatchParticleEffect( int32_t nSystem, const float *pStartXYZ, const float *pEndXYZ, const float *pAnglesPYR, int32_t n	BOUNDARY	DispatchParticleEffect with the arguments managed chose (B4)
+int32_t SourceSharp_FxEntityRenderAngles( int32_t nEntIndex, float *pOutPYR )	BOUNDARY	an entity's renderable GetRenderAngles read for the managed shell-eject effects
+void SourceSharp_FxEjectBrass( const float *pOriginXYZ, const float *pAnglesPYR, const float *pGunAnglesPYR, int32_t nType )	BOUNDARY	tempents->EjectBrass with the arguments managed chose (B4)
+[CSourceSharpEffectPrecacheSystem] int Count() const	SLOT-HELP	the registry's size, for FxPrecacheCount (m_Effects is protected in the fork's header)
+[CSourceSharpEffectPrecacheSystem] void CacheAt( int i, bool bPrecache )	SLOT-HELP	one registration's Cache, for FxPrecacheCache
 static CSourceSharpEffectPrecacheSystem *EffectPrecache()	SLOT-HELP	the one registry object
-CClientEffectPrecacheSystem *ClientEffectPrecacheSystem(	LAYOUT	the accessor every CLIENTEFFECT_REGISTER object's constructor calls (clienteffectprecachesystem.h)
-void CClientEffectPrecacheSystem::LevelInitPreEntity(	HOOK	CClientSystem: the level start, carried to IManagedFxClient::EffectsPrecache (ClientEffectPrecache.cs)
-void CClientEffectPrecacheSystem::LevelShutdownPreEntity(	HOOK	CClientSystem: nothing at this point, as stock
-void CClientEffectPrecacheSystem::LevelShutdownPostEntity(	HOOK	CClientSystem: the level end, carried to IManagedFxClient::EffectsPrecache
-void CClientEffectPrecacheSystem::Shutdown(	HOOK	CClientSystem: the registry's own memory at DLL shutdown
-void CClientEffectPrecacheSystem::Register(	LAYOUT	the registry each CLIENTEFFECT_REGISTER object adds itself to at static init
-int32_t SourceSharp_FxPrecacheCount(	BOUNDARY	IShimFxClient: the registry's size
-void SourceSharp_FxPrecacheCache(	BOUNDARY	IShimFxClient: one registration's Cache( precache ), as managed asks
-void SourceSharp_FxCacheUsedMaterials(	BOUNDARY	IShimFxClient: materials->CacheUsedMaterials
-void SourceSharp_FxCacheMaterialHandles(	BOUNDARY	IShimFxClient: FX_CacheMaterialHandles
+CClientEffectPrecacheSystem *ClientEffectPrecacheSystem()	LAYOUT	the accessor every CLIENTEFFECT_REGISTER object's constructor calls (clienteffectprecachesystem.h)
+void CClientEffectPrecacheSystem::LevelInitPreEntity()	HOOK	CClientSystem: the level start, carried to IManagedFxClient::EffectsPrecache (ClientEffectPrecache.cs)
+void CClientEffectPrecacheSystem::LevelShutdownPreEntity()	HOOK	CClientSystem: nothing at this point, as stock
+void CClientEffectPrecacheSystem::LevelShutdownPostEntity()	HOOK	CClientSystem: the level end, carried to IManagedFxClient::EffectsPrecache
+void CClientEffectPrecacheSystem::Shutdown()	HOOK	CClientSystem: the registry's own memory at DLL shutdown
+void CClientEffectPrecacheSystem::Register( IClientEffect *effect )	LAYOUT	the registry each CLIENTEFFECT_REGISTER object adds itself to at static init
+int32_t SourceSharp_FxPrecacheCount()	BOUNDARY	IShimFxClient: the registry's size
+void SourceSharp_FxPrecacheCache( int32_t nIndex, int32_t bPrecache )	BOUNDARY	IShimFxClient: one registration's Cache( precache ), as managed asks
+void SourceSharp_FxCacheUsedMaterials()	BOUNDARY	IShimFxClient: materials->CacheUsedMaterials
+void SourceSharp_FxCacheMaterialHandles()	BOUNDARY	IShimFxClient: FX_CacheMaterialHandles
 void InitSmokeFogOverlay()	HOOK	the client DLL's init: the overlay's material, held for its draw
 void TermSmokeFogOverlay()	HOOK	the client DLL's shutdown: the material let go
 void DrawSmokeFogOverlay()	BOUNDARY	the view's call: SmokeFogOverlay's plan (IManagedFxClient::SmokeFogPlan) carried out as the full-screen quad
-IMaterial *SourceSharp_FxMaterialOf(	SLOT-HELP	an IFxRender material id as the material, for the render plan's executor
-int32_t SourceSharp_FxMaterialIdOf(	SLOT-HELP	a material as the effect list's id with no reference taken, for IShimViewClient::GlowMaterialFind (shell_glow_client.cpp)
+IMaterial *SourceSharp_FxMaterialOf( int32_t nMaterial )	SLOT-HELP	an IFxRender material id as the material, for the render plan's executor
+int32_t SourceSharp_FxMaterialIdOf( IMaterial *pMaterial )	SLOT-HELP	a material as the effect list's id with no reference taken, for IShimViewClient::GlowMaterialFind (shell_glow_client.cpp)

@@ -131,7 +131,7 @@ const char *WorktreeRoot()
 
 struct Run_t
 {
-	int         m_nExit;
+	int m_nExit;
 	std::string m_szOutput;
 };
 
@@ -162,7 +162,7 @@ Run_t RunAtRoot( const std::string &szCommand )
 	if ( !pPipe )
 		return run;
 
-	char rgchBuf[ 4096 ];
+	char rgchBuf[4096];
 
 	while ( fgets( rgchBuf, sizeof( rgchBuf ), pPipe ) )
 		run.m_szOutput += rgchBuf;
@@ -177,14 +177,13 @@ struct Orphan_t
 {
 	const char *m_pszObject;
 	const char *m_pszSource;
-	int         m_nWas;      // definitions before
-	int         m_nIs;       // definitions after
+	int m_nWas; // definitions before
+	int m_nIs; // definitions after
 };
 
-const Orphan_t kOrphans[] =
-{
+const Orphan_t kOrphans[] = {
 	{ "shell_player_orphans.o", "shell_player_orphans.cpp", 26, 5 },
-	{ "shell_client_orphans.o", "shell_client_orphans.cpp",  7, 3 },
+	{ "shell_client_orphans.o", "shell_client_orphans.cpp", 7, 3 },
 };
 
 const size_t kNumOrphans = sizeof( kOrphans ) / sizeof( kOrphans[0] );
@@ -196,30 +195,30 @@ const size_t kNumOrphans = sizeof( kOrphans ) / sizeof( kOrphans[0] );
 //-----------------------------------------------------------------------------
 TEST( OrphanReach, NeitherOrphanFileDefinesAnythingUnimported )
 {
-	ASSERT_NE( WorktreeRoot(), (const char *)NULL )
-		<< "tools/shim-orphan-reach was not found from the test's working "
-		   "directory, so nothing below measured anything.";
+	ASSERT_NE( WorktreeRoot(), (const char *)NULL ) << "tools/shim-orphan-reach was not found from the test's working "
+													   "directory, so nothing below measured anything.";
 
 	for ( size_t i = 0; i < kNumOrphans; i++ )
 	{
-		const Run_t run = RunAtRoot( std::string( "tools/shim-orphan-reach " ) +
-		                             kDebugBuild + kOrphans[i].m_pszObject );
+		const Run_t run =
+			RunAtRoot( std::string( "tools/shim-orphan-reach " ) + kDebugBuild + kOrphans[i].m_pszObject );
 
-		ASSERT_NE( 2, run.m_nExit )
-			<< kOrphans[i].m_pszSource << ": the tool REFUSED, which is not a "
-			   "pass and is not a failure of the code under test. Build the tree "
-			   "first (make debug): an "
-			   "unbuilt tree answers \"nobody imports anything\", which reads "
-			   "exactly like \"delete this whole file\".\n" << run.m_szOutput;
+		ASSERT_NE( 2, run.m_nExit ) << kOrphans[i].m_pszSource
+									<< ": the tool REFUSED, which is not a "
+									   "pass and is not a failure of the code under test. Build the tree "
+									   "first (make debug): an "
+									   "unbuilt tree answers \"nobody imports anything\", which reads "
+									   "exactly like \"delete this whole file\".\n"
+									<< run.m_szOutput;
 
-		EXPECT_EQ( 0, run.m_nExit )
-			<< kOrphans[i].m_pszSource << " defines something no object on the "
-			   "client link line imports. These files exist ONLY to satisfy the "
-			   "linker, so a definition with no importer is dead source kept "
-			   "alive by a rule nobody re-ran. Delete the DEAD rows -- the "
-			   "transitive set, because a sibling in the same object does not "
-			   "import its neighbour -- and update the file's roster comment.\n"
-			<< run.m_szOutput;
+		EXPECT_EQ( 0, run.m_nExit ) << kOrphans[i].m_pszSource
+									<< " defines something no object on the "
+									   "client link line imports. These files exist ONLY to satisfy the "
+									   "linker, so a definition with no importer is dead source kept "
+									   "alive by a rule nobody re-ran. Delete the DEAD rows -- the "
+									   "transitive set, because a sibling in the same object does not "
+									   "import its neighbour -- and update the file's roster comment.\n"
+									<< run.m_szOutput;
 	}
 }
 
@@ -234,19 +233,20 @@ TEST( OrphanReach, TheToolActuallyFoundTheObjectsAndTheirSymbols )
 
 	for ( size_t i = 0; i < kNumOrphans; i++ )
 	{
-		const Run_t run = RunAtRoot( std::string( "tools/shim-orphan-reach " ) +
-		                             kDebugBuild + kOrphans[i].m_pszObject );
+		const Run_t run =
+			RunAtRoot( std::string( "tools/shim-orphan-reach " ) + kDebugBuild + kOrphans[i].m_pszObject );
 
 		ASSERT_NE( 2, run.m_nExit ) << run.m_szOutput;
 
-		EXPECT_NE( run.m_szOutput.find( "objects on the graph, all on disk" ),
-		           std::string::npos )
-			<< kOrphans[i].m_pszObject << ": the tool did not report a graph it "
+		EXPECT_NE( run.m_szOutput.find( "objects on the graph, all on disk" ), std::string::npos )
+			<< kOrphans[i].m_pszObject
+			<< ": the tool did not report a graph it "
 			   "had checked, so its exit code is not about the link line.\n"
 			<< run.m_szOutput;
 
 		EXPECT_NE( run.m_szOutput.find( "LIVE " ), std::string::npos )
-			<< kOrphans[i].m_pszObject << ": not one LIVE row. A file that "
+			<< kOrphans[i].m_pszObject
+			<< ": not one LIVE row. A file that "
 			   "defines nothing at all satisfies the fact above vacuously, and "
 			   "these two files exist precisely because something imports them.\n"
 			<< run.m_szOutput;
@@ -264,11 +264,11 @@ TEST( OrphanReach, AnObjectTheGraphDoesNotNameIsRefusedRatherThanCalledDead )
 
 	const Run_t run = RunAtRoot( "tools/shim-orphan-reach no_such_object_at_all.o" );
 
-	EXPECT_EQ( 2, run.m_nExit )
-		<< "an object the graph does not name came back as exit " << run.m_nExit
-		<< " rather than a refusal. Exit 0 there would mean 'nothing unimported', "
-		   "which is the answer this tool must never give for a question it "
-		   "could not ask.\n" << run.m_szOutput;
+	EXPECT_EQ( 2, run.m_nExit ) << "an object the graph does not name came back as exit " << run.m_nExit
+								<< " rather than a refusal. Exit 0 there would mean 'nothing unimported', "
+								   "which is the answer this tool must never give for a question it "
+								   "could not ask.\n"
+								<< run.m_szOutput;
 }
 
 //-----------------------------------------------------------------------------
@@ -294,31 +294,29 @@ TEST( OrphanReach, NoLinkedObjectEmitsAVtableForCBasePlayer )
 		"python3 \"$(readlink -f tools/cmakegraph.py)\" objects client --build-dir ../debug/build | "
 		"cut -d' ' -f1 | xargs -r nm -C | ";
 
-	const Run_t probe = RunAtRoot( szLinked +
-		"grep -c 'vtable for C_BasePlayer$' || true" );
+	const Run_t probe = RunAtRoot( szLinked + "grep -c 'vtable for C_BasePlayer$' || true" );
 
-	ASSERT_NE( -1, probe.m_nExit )
-		<< "the vtable probe did not run at all.";
+	ASSERT_NE( -1, probe.m_nExit ) << "the vtable probe did not run at all.";
 
 	// A positive control on the same command shape: the shell's OWN vtable is
 	// there, so a zero above is a statement about C_BasePlayer and not about
 	// nm, the object list, or an unbuilt tree.
-	const Run_t control = RunAtRoot( szLinked +
-		"grep -c 'vtable for C_StandaloneEntity$' || true" );
+	const Run_t control = RunAtRoot( szLinked + "grep -c 'vtable for C_StandaloneEntity$' || true" );
 
 	const int nControl = atoi( control.m_szOutput.c_str() );
 
-	ASSERT_GT( nControl, 0 )
-		<< "no object emits a vtable for C_StandaloneEntity either, so the "
-		   "reading below is about an unbuilt tree or an object list that "
-		   "named nothing -- not about C_BasePlayer.\n" << control.m_szOutput;
+	ASSERT_GT( nControl, 0 ) << "no object emits a vtable for C_StandaloneEntity either, so the "
+								"reading below is about an unbuilt tree or an object list that "
+								"named nothing -- not about C_BasePlayer.\n"
+							 << control.m_szOutput;
 
 	EXPECT_EQ( 0, atoi( probe.m_szOutput.c_str() ) )
 		<< "an object on the client link line emits a vtable for C_BasePlayer, "
 		   "so instances of it can exist and its members can be reached "
 		   "virtually. The undefined-reference count the orphan facts above rest "
 		   "on is then a FLOOR rather than a total, and a DEAD row is no longer "
-		   "evidence that a definition can go.\n" << probe.m_szOutput;
+		   "evidence that a definition can go.\n"
+		<< probe.m_szOutput;
 }
 
 //-----------------------------------------------------------------------------
@@ -338,20 +336,16 @@ TEST( OrphanReach, NoLinkedObjectNamesOrBuildsACBaseAnimating )
 		"python3 \"$(readlink -f tools/cmakegraph.py)\" objects client --build-dir ../debug/build | "
 		"cut -d' ' -f1 | xargs -r nm -C | ";
 
-	const Run_t control = RunAtRoot( szLinked +
-		"grep -c 'vtable for C_StandaloneEntity$' || true" );
+	const Run_t control = RunAtRoot( szLinked + "grep -c 'vtable for C_StandaloneEntity$' || true" );
 
 	ASSERT_GT( atoi( control.m_szOutput.c_str() ), 0 )
 		<< "no object emits a vtable for C_StandaloneEntity either, so the "
 		   "readings below are about an unbuilt tree, not C_BaseAnimating.\n"
 		<< control.m_szOutput;
 
-	const Run_t named = RunAtRoot( szLinked +
-		"grep -c 'C_BaseAnimating::LookupAttachment' || true" );
-	const Run_t vtable = RunAtRoot( szLinked +
-		"grep -c 'vtable for C_BaseAnimating$' || true" );
-	const Run_t ctor = RunAtRoot( szLinked +
-		"grep -cE ' [TW] C_BaseAnimating::C_BaseAnimating\\(' || true" );
+	const Run_t named = RunAtRoot( szLinked + "grep -c 'C_BaseAnimating::LookupAttachment' || true" );
+	const Run_t vtable = RunAtRoot( szLinked + "grep -c 'vtable for C_BaseAnimating$' || true" );
+	const Run_t ctor = RunAtRoot( szLinked + "grep -cE ' [TW] C_BaseAnimating::C_BaseAnimating\\(' || true" );
 
 	ASSERT_NE( -1, named.m_nExit ) << "the import probe did not run at all.";
 	ASSERT_NE( -1, vtable.m_nExit ) << "the vtable probe did not run at all.";
@@ -362,12 +356,12 @@ TEST( OrphanReach, NoLinkedObjectNamesOrBuildsACBaseAnimating )
 		   "C_BaseAnimating::LookupAttachment again; with no definition the "
 		   "GC_SECTIONS=0 link (BothDllsLinkWithoutGcSections) is what breaks.\n"
 		<< named.m_szOutput;
-	EXPECT_EQ( 0, atoi( vtable.m_szOutput.c_str() ) )
-		<< "an object on the client link line emits a vtable for "
-		   "C_BaseAnimating, so instances can exist.\n" << vtable.m_szOutput;
-	EXPECT_EQ( 0, atoi( ctor.m_szOutput.c_str() ) )
-		<< "an object on the client link line defines a C_BaseAnimating "
-		   "constructor; see the vtable message.\n" << ctor.m_szOutput;
+	EXPECT_EQ( 0, atoi( vtable.m_szOutput.c_str() ) ) << "an object on the client link line emits a vtable for "
+														 "C_BaseAnimating, so instances can exist.\n"
+													  << vtable.m_szOutput;
+	EXPECT_EQ( 0, atoi( ctor.m_szOutput.c_str() ) ) << "an object on the client link line defines a C_BaseAnimating "
+													   "constructor; see the vtable message.\n"
+													<< ctor.m_szOutput;
 }
 
 //-----------------------------------------------------------------------------
@@ -388,16 +382,16 @@ TEST( OrphanReach, BothDllsLinkWithoutGcSections )
 
 	const Run_t run = RunAtRoot( std::string( "tools/nogc-relink " ) + kDebugBuild );
 
-	ASSERT_NE( 2, run.m_nExit )
-		<< "tools/nogc-relink REFUSED, which is neither a pass nor a failure of "
-		   "the link. Build the tree first (make debug).\n" << run.m_szOutput;
+	ASSERT_NE( 2, run.m_nExit ) << "tools/nogc-relink REFUSED, which is neither a pass nor a failure of "
+								   "the link. Build the tree first (make debug).\n"
+								<< run.m_szOutput;
 
-	EXPECT_EQ( 0, run.m_nExit )
-		<< "a DLL fails to link once --gc-sections is off, so `make debug "
-		   "GC_SECTIONS=0` is broken. A retained file names a symbol nothing "
-		   "defines, and only the collector was hiding it. Supply the symbol "
-		   "(an orphan stub, or the definition moved to a kept file) or take "
-		   "the caller out of the build.\n" << run.m_szOutput;
+	EXPECT_EQ( 0, run.m_nExit ) << "a DLL fails to link once --gc-sections is off, so `make debug "
+								   "GC_SECTIONS=0` is broken. A retained file names a symbol nothing "
+								   "defines, and only the collector was hiding it. Supply the symbol "
+								   "(an orphan stub, or the definition moved to a kept file) or take "
+								   "the caller out of the build.\n"
+								<< run.m_szOutput;
 
 	// The stimulus reached the subject: both links ran, and each one really
 	// had the collector to drop.
@@ -413,7 +407,7 @@ TEST( OrphanReach, NoGcRelinkRefusesAMissingBuild )
 
 	const Run_t run = RunAtRoot( "tools/nogc-relink --build-dir no_such_build_dir" );
 
-	EXPECT_EQ( 2, run.m_nExit )
-		<< "a build directory that does not exist came back as exit "
-		<< run.m_nExit << " rather than a refusal.\n" << run.m_szOutput;
+	EXPECT_EQ( 2, run.m_nExit ) << "a build directory that does not exist came back as exit " << run.m_nExit
+								<< " rather than a refusal.\n"
+								<< run.m_szOutput;
 }

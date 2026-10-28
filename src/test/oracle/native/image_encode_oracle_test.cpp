@@ -42,7 +42,14 @@ std::string RepoPath( const char *pszRel )
 struct Rng
 {
 	uint32_t s = 0x5EED1234u;
-	uint32_t Next() { s ^= s << 13; s ^= s >> 17; s ^= s << 5; return s; }
+
+	uint32_t Next()
+	{
+		s ^= s << 13;
+		s ^= s >> 17;
+		s ^= s << 5;
+		return s;
+	}
 };
 
 std::string Hex( const unsigned char *p, int n )
@@ -52,8 +59,8 @@ std::string Hex( const unsigned char *p, int n )
 	out.reserve( n * 2 );
 	for ( int i = 0; i < n; i++ )
 	{
-		out += kDigits[ p[i] >> 4 ];
-		out += kDigits[ p[i] & 15 ];
+		out += kDigits[p[i] >> 4];
+		out += kDigits[p[i] & 15];
 	}
 	return out;
 }
@@ -63,13 +70,19 @@ std::string RunCases( int &nRefused )
 	nRefused = 0;
 	Rng r;
 	std::string out = "# kind | width | height | input pixels (hex) | the file stock wrote (hex)\n";
-	struct Case_t { const char *pszKind; int w, h; };
+
+	struct Case_t
+	{
+		const char *pszKind;
+		int w, h;
+	};
+
 	const Case_t kCases[] = {
-		{ "tga-rgb", 1, 1 }, { "tga-rgb", 3, 2 }, { "tga-rgb", 5, 7 }, { "tga-rgb", 16, 16 }, { "tga-rgb", 180, 100 },
-		{ "tga-rgb", 256, 128 },
-		{ "tga-rgba", 1, 1 }, { "tga-rgba", 4, 3 }, { "tga-rgba", 7, 5 },
-		{ "vtf-rgb", 1, 1 }, { "vtf-rgb", 3, 2 }, { "vtf-rgb", 2, 2 }, { "vtf-rgb", 4, 6 }, { "vtf-rgb", 12, 8 }, { "vtf-rgb", 8, 4 }, { "vtf-rgb", 16, 16 }, { "vtf-rgb", 180, 100 },
-		{ "vtf-rgb", 256, 128 },
+		{ "tga-rgb", 1, 1 },     { "tga-rgb", 3, 2 },     { "tga-rgb", 5, 7 },  { "tga-rgb", 16, 16 },
+		{ "tga-rgb", 180, 100 }, { "tga-rgb", 256, 128 }, { "tga-rgba", 1, 1 }, { "tga-rgba", 4, 3 },
+		{ "tga-rgba", 7, 5 },    { "vtf-rgb", 1, 1 },     { "vtf-rgb", 3, 2 },  { "vtf-rgb", 2, 2 },
+		{ "vtf-rgb", 4, 6 },     { "vtf-rgb", 12, 8 },    { "vtf-rgb", 8, 4 },  { "vtf-rgb", 16, 16 },
+		{ "vtf-rgb", 180, 100 }, { "vtf-rgb", 256, 128 },
 	};
 	for ( const Case_t &c : kCases )
 	{
@@ -129,5 +142,6 @@ TEST( ImageEncodeOracle, StockProducesTheGolden )
 	std::stringstream ss;
 	ss << in.rdbuf();
 	ASSERT_GT( ss.str().size(), 100000u ) << "the golden is empty or truncated";
-	ASSERT_TRUE( ss.str() == run ) << "pristine bitmap.a / vtf.a no longer write the golden; do NOT regenerate it to pass";
+	ASSERT_TRUE( ss.str() == run )
+		<< "pristine bitmap.a / vtf.a no longer write the golden; do NOT regenerate it to pass";
 }

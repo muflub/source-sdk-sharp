@@ -20,27 +20,27 @@ namespace OptimizedModel
 {
 }
 
-// Reference to a loaded studiomdl 
+// Reference to a loaded studiomdl
 typedef unsigned short MDLHandle_t;
 
 enum
 {
-	MDLHANDLE_INVALID = (MDLHandle_t)~0 
+	MDLHANDLE_INVALID = (MDLHandle_t)~0
 };
 
-// Flags for flushing 
+// Flags for flushing
 enum MDLCacheFlush_t
 {
-	MDLCACHE_FLUSH_STUDIOHDR		= 0x01,
-	MDLCACHE_FLUSH_STUDIOHWDATA		= 0x02,
-	MDLCACHE_FLUSH_VCOLLIDE			= 0x04,
-	MDLCACHE_FLUSH_ANIMBLOCK		= 0x08,
-	MDLCACHE_FLUSH_VIRTUALMODEL		= 0x10,
-	MDLCACHE_FLUSH_AUTOPLAY         = 0x20,
-	MDLCACHE_FLUSH_VERTEXES         = 0x40,
+	MDLCACHE_FLUSH_STUDIOHDR = 0x01,
+	MDLCACHE_FLUSH_STUDIOHWDATA = 0x02,
+	MDLCACHE_FLUSH_VCOLLIDE = 0x04,
+	MDLCACHE_FLUSH_ANIMBLOCK = 0x08,
+	MDLCACHE_FLUSH_VIRTUALMODEL = 0x10,
+	MDLCACHE_FLUSH_AUTOPLAY = 0x20,
+	MDLCACHE_FLUSH_VERTEXES = 0x40,
 
-	MDLCACHE_FLUSH_IGNORELOCK       = 0x80000000,
-	MDLCACHE_FLUSH_ALL              = 0xFFFFFFFF
+	MDLCACHE_FLUSH_IGNORELOCK = 0x80000000,
+	MDLCACHE_FLUSH_ALL = 0xFFFFFFFF
 };
 
 /*
@@ -111,9 +111,9 @@ public:
 }
 */
 
-// The main MDL cacher 
+// The main MDL cacher
 #define MDLCACHE_INTERFACE_VERSION "MDLCache004"
- 
+
 abstract_class IMDLCache : public IAppSystem
 {
 public:
@@ -162,7 +162,7 @@ public:
 	// faster access when you already have the studiohdr
 	virtual void unused_GetVirtualModelFast() = 0;
 
-	// all cache entries that subsequently allocated or successfully checked 
+	// all cache entries that subsequently allocated or successfully checked
 	// are considered "locked" and will not be freed when additional memory is needed
 	virtual void BeginLock() = 0;
 
@@ -203,7 +203,7 @@ public:
 	virtual void unused_ResetErrorModelStatus() = 0;
 
 	virtual void unused_MarkFrame() = 0;
-	
+
 	virtual void unused_TouchAllData() = 0;
 };
 
@@ -211,15 +211,13 @@ public:
 class CMDLCacheCriticalSection
 {
 public:
-	CMDLCacheCriticalSection( IMDLCache *pCache ) : m_pCache( pCache )
+	CMDLCacheCriticalSection( IMDLCache *pCache )
+		: m_pCache( pCache )
 	{
 		m_pCache->BeginLock();
 	}
 
-	~CMDLCacheCriticalSection()
-	{
-		m_pCache->EndLock();
-	}
+	~CMDLCacheCriticalSection() { m_pCache->EndLock(); }
 
 private:
 	IMDLCache *m_pCache;
@@ -227,12 +225,12 @@ private:
 
 #define MDCACHE_FINE_GRAINED 1
 
-#if defined(MDCACHE_FINE_GRAINED)
-#define MDLCACHE_CRITICAL_SECTION_( pCache ) CMDLCacheCriticalSection cacheCriticalSection(pCache)
-#define MDLCACHE_COARSE_LOCK_( pCache ) ((void)(0))
+#if defined( MDCACHE_FINE_GRAINED )
+#define MDLCACHE_CRITICAL_SECTION_( pCache ) CMDLCacheCriticalSection cacheCriticalSection( pCache )
+#define MDLCACHE_COARSE_LOCK_( pCache ) ( (void)( 0 ) )
 #else
-#define MDLCACHE_CRITICAL_SECTION_( pCache ) ((void)(0))
-#define MDLCACHE_COARSE_LOCK_( pCache ) CMDLCacheCriticalSection cacheCriticalSection(pCache)
+#define MDLCACHE_CRITICAL_SECTION_( pCache ) ( (void)( 0 ) )
+#define MDLCACHE_COARSE_LOCK_( pCache ) CMDLCacheCriticalSection cacheCriticalSection( pCache )
 #endif
-#define MDLCACHE_CRITICAL_SECTION() MDLCACHE_CRITICAL_SECTION_(mdlcache)
-#define MDLCACHE_COARSE_LOCK() MDLCACHE_COARSE_LOCK_(mdlcache)
+#define MDLCACHE_CRITICAL_SECTION() MDLCACHE_CRITICAL_SECTION_( mdlcache )
+#define MDLCACHE_COARSE_LOCK() MDLCACHE_COARSE_LOCK_( mdlcache )

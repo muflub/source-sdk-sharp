@@ -8,41 +8,24 @@
 // The view_scene.cpp names the rest of client.so still imports.
 // SS_REASON c  static-init registration
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "vphysics_interface.h"
-#include "materialsystem/imaterialsystem.h"
+
 #include "materialsystem/imaterialvar.h"
-#include "materialsystem/imaterialsystemhardwareconfig.h"
-#include "materialsystem/imaterial.h"
+
 #include "materialsystem/itexture.h"
-#include "mathlib/vector.h"
-#include "mathlib/vmatrix.h"
-#include "tier1/convar.h"
-#include "tier1/iconvar.h"
-#include "tier1/refcount.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
+
 #include "client_entity.h"
-#include "collisionproperty.h"
-#include "texture_group_names.h"
+
 #include "shell_render_targets.h"
 #include "view_frustum_transform.h"
 
 ConVar r_updaterefracttexture( "r_updaterefracttexture", "1", FCVAR_CHEAT );
-static ConVar r_depthoverlay( "r_depthoverlay", "0", FCVAR_CHEAT,
-                              "Replaces opaque objects with their grayscaled depth values. r_showz_power scales the output." );
+static ConVar r_depthoverlay(
+	"r_depthoverlay", "0", FCVAR_CHEAT,
+	"Replaces opaque objects with their grayscaled depth values. r_showz_power scales the output." );
 
 int g_viewscene_refractUpdateFrame = 0;
 bool g_bAllowMultipleRefractUpdatesPerScenePerFrame = false;
@@ -53,7 +36,7 @@ int ScreenTransform( const Vector &point, Vector &screen )
 	float rows[16];
 	for ( int r = 0; r < 4; ++r )
 		for ( int c = 0; c < 4; ++c )
-			rows[ r * 4 + c ] = m[r][c];
+			rows[r * 4 + c] = m[r][c];
 	return ViewFrustumTransform( rows, &point.x, &screen.x );
 }
 

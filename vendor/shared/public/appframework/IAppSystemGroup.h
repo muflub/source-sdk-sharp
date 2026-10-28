@@ -32,15 +32,15 @@ public:
 	// An installed application creation function, you should tell the group
 	// the DLLs and the singleton interfaces you want to instantiate.
 	// Return false if there's any problems and the app will abort
-	virtual bool Create( ) = 0;
+	virtual bool Create() = 0;
 
-	// Allow the application to do some work after AppSystems are connected but 
+	// Allow the application to do some work after AppSystems are connected but
 	// they are all Initialized.
 	// Return false if there's any problems and the app will abort
 	virtual bool PreInit() = 0;
 
 	// Main loop implemented by the application
-	virtual int Main( ) = 0;
+	virtual int Main() = 0;
 
 	// Allow the application to do some work after all AppSystems are shut down
 	virtual void PostShutdown() = 0;
@@ -74,7 +74,7 @@ public:
 		DISCONNECTION,
 		DESTRUCTION,
 
-		NONE,	// This means no error
+		NONE, // This means no error
 	};
 
 public:
@@ -85,7 +85,7 @@ public:
 	// First, modules are loaded, next they are connected, followed by initialization
 	// Then Main() is run
 	// Then modules are shut down, disconnected, and unloaded
-	int Run( );
+	int Run();
 
 	// Use this version in cases where you can't control the main loop and
 	// expect to be ticked
@@ -96,7 +96,6 @@ protected:
 	// These methods are meant to be called by derived classes of CAppSystemGroup
 
 private:
-
 	// Loads a module the standard way
 	virtual CSysModule *LoadModuleDLL( const char *pDLLName );
 
@@ -108,7 +107,7 @@ private:
 	};
 
 	CUtlVector<Module_t> m_Modules;
-	CUtlVector<IAppSystem*> m_Systems;
+	CUtlVector<IAppSystem *> m_Systems;
 	CUtlDict<int, unsigned short> m_SystemDict;
 	CAppSystemGroup *m_pParentAppSystem;
 	AppSystemGroupStage_t m_nErrorStage;
@@ -123,14 +122,13 @@ public:
 	CSteamAppSystemGroup( IFileSystem *pFileSystem = NULL, CAppSystemGroup *pParentAppSystem = NULL );
 
 protected:
-
 private:
 	virtual CSysModule *LoadModuleDLL( const char *pDLLName );
 
 	IFileSystem *m_pFileSystem;
-	char m_pGameInfoPath[ MAX_PATH ];
+	char m_pGameInfoPath[MAX_PATH];
 };
 
 // Special helper for game info directory suggestion
 
-class CFSSteamSetupInfo;	// Forward declaration
+class CFSSteamSetupInfo; // Forward declaration

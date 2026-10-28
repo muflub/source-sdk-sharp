@@ -42,7 +42,10 @@ struct SSLeafSystemEnv
 };
 
 // The forwarder object's size, at most: client.so's storage for it.
-enum { kSSLeafSystemBytes = 4096 };
+enum
+{
+	kSSLeafSystemBytes = 4096
+};
 
 // How many bytes Construct needs.
 int SSFwd_LeafSystem_SizeOf();
@@ -57,7 +60,8 @@ void *SSFwd_LeafSystem_Construct( void *pMemory, const SSLeafSystemEnv *pEnv );
 // written to pPending (three words each, nMaxPending at most) and their count
 // returned. 0 with no system; a queue that does not fit is handed to managed
 // through Pending instead, and 0 returned.
-int32_t SSFwd_LeafSystem_ComputeFxBlends( void *pSystem, void **ppRenderables, int32_t nCount, int32_t *pPending, int32_t nMaxPending );
+int32_t SSFwd_LeafSystem_ComputeFxBlends( void *pSystem, void **ppRenderables, int32_t nCount, int32_t *pPending,
+										  int32_t nMaxPending );
 
 // Each renderable's answers its mask asks for, into its 17 words (see
 // SourceSharp.Client.Interop.LeafFacts): 1 GetFxBlend, 2 IsTransparent, 4
@@ -70,7 +74,8 @@ void SSFwd_LeafSystem_Receives( void **ppRenderables, const int32_t *pFlags, int
 // The leaves each box (mins, maxs) touches through the engine's
 // EnumerateLeavesInBox: per box its count, then its leaves. The words
 // written, or the negative of the words needed.
-int32_t SSFwd_LeafSystem_EnumerateLeaves( void *pEngine, const float *pBoxes, int32_t nBoxes, int32_t *pOut, int32_t nMaxWords );
+int32_t SSFwd_LeafSystem_EnumerateLeaves( void *pEngine, const float *pBoxes, int32_t nBoxes, int32_t *pOut,
+										  int32_t nMaxWords );
 
 // GetLeavesArea of each run (a count, then the leaves).
 void SSFwd_LeafSystem_LeavesAreas( void *pEngine, const int32_t *pRuns, int32_t nRuns, int32_t *pAreas );
@@ -78,7 +83,8 @@ void SSFwd_LeafSystem_LeavesAreas( void *pEngine, const int32_t *pRuns, int32_t 
 // The culling questions over boxes, each box's program its tests in order
 // (1 DoesBoxTouchAreaFrustum, the area in bits 8 and up; 2 CullBox; 4
 // IsOccluded) up to the first that rejects; each answer that test's bit, or 0.
-void SSFwd_LeafSystem_BoxQueries( void *pEngine, const float *pBoxes, const int32_t *pPrograms, int32_t nCount, int32_t *pAnswers );
+void SSFwd_LeafSystem_BoxQueries( void *pEngine, const float *pBoxes, const int32_t *pPrograms, int32_t nCount,
+								  int32_t *pAnswers );
 
 // IDetailObjectSystem::GetDetailModel over ranges (a first and a count each).
 void SSFwd_LeafSystem_DetailModels( void *pDetailSystem, const int32_t *pRanges, int32_t nRanges, void **ppModels );

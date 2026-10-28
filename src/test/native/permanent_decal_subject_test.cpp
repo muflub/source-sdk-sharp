@@ -117,25 +117,23 @@ Vector LocalPositionThrough( const matrix3x4_t &frame, const Vector &vecWorld )
 TEST( PermanentDecalFrame, TheTwoTransformsDisagreeOnARotatedEntity )
 {
 	const Vector vecOrigin( 128.0f, -64.0f, 32.0f );
-	const QAngle angles( 0.0f, 90.0f, 0.0f );          // a yawed brush
-	const Vector vecHit( 160.0f, -64.0f, 40.0f );      // a point on its face
+	const QAngle angles( 0.0f, 90.0f, 0.0f ); // a yawed brush
+	const Vector vecHit( 160.0f, -64.0f, 40.0f ); // a point on its face
 
-	const Vector vecEntitySpace =
-		LocalPositionThrough( EntityFrame( vecOrigin, angles ), vecHit );
-	const Vector vecWorldAligned =
-		LocalPositionThrough( WorldAlignedFrame( vecOrigin ), vecHit );
+	const Vector vecEntitySpace = LocalPositionThrough( EntityFrame( vecOrigin, angles ), vecHit );
+	const Vector vecWorldAligned = LocalPositionThrough( WorldAlignedFrame( vecOrigin ), vecHit );
 
 	// 32 units along world +X from the origin. In the entity's own frame that
 	// is 32 units along its LOCAL -Y, because the entity is yawed 90 degrees.
-	EXPECT_NEAR( 0.0f,  vecEntitySpace.x, kEps );
+	EXPECT_NEAR( 0.0f, vecEntitySpace.x, kEps );
 	EXPECT_NEAR( -32.0f, vecEntitySpace.y, kEps );
-	EXPECT_NEAR( 8.0f,  vecEntitySpace.z, kEps );
+	EXPECT_NEAR( 8.0f, vecEntitySpace.z, kEps );
 
 	// The world-aligned frame keeps the translation and nothing else, so the
 	// same point comes out on +X.
 	EXPECT_NEAR( 32.0f, vecWorldAligned.x, kEps );
-	EXPECT_NEAR( 0.0f,  vecWorldAligned.y, kEps );
-	EXPECT_NEAR( 8.0f,  vecWorldAligned.z, kEps );
+	EXPECT_NEAR( 0.0f, vecWorldAligned.y, kEps );
+	EXPECT_NEAR( 8.0f, vecWorldAligned.z, kEps );
 
 	// And therefore: substituting one for the other moves the mark. 45.25
 	// units, on a brush 32 units wide — a decal off the surface entirely.
@@ -153,10 +151,8 @@ TEST( PermanentDecalFrame, TheyAgreeExactlyWhenNothingIsRotated )
 	const QAngle angles( 0.0f, 0.0f, 0.0f );
 	const Vector vecHit( 160.0f, -64.0f, 40.0f );
 
-	const Vector vecEntitySpace =
-		LocalPositionThrough( EntityFrame( vecOrigin, angles ), vecHit );
-	const Vector vecWorldAligned =
-		LocalPositionThrough( WorldAlignedFrame( vecOrigin ), vecHit );
+	const Vector vecEntitySpace = LocalPositionThrough( EntityFrame( vecOrigin, angles ), vecHit );
+	const Vector vecWorldAligned = LocalPositionThrough( WorldAlignedFrame( vecOrigin ), vecHit );
 
 	EXPECT_NEAR( vecEntitySpace.x, vecWorldAligned.x, kEps );
 	EXPECT_NEAR( vecEntitySpace.y, vecWorldAligned.y, kEps );
@@ -187,8 +183,7 @@ TEST( PermanentDecalFrame, TheNarrowedAnswerStoredTheWorldPositionUntouched )
 	EXPECT_NEAR( vecHit.z, vecAgainstTheWorld.z, kEps );
 
 	// And how far that is from where the mark belonged.
-	const Vector vecCorrect =
-		LocalPositionThrough( EntityFrame( vecOrigin, angles ), vecHit );
+	const Vector vecCorrect = LocalPositionThrough( EntityFrame( vecOrigin, angles ), vecHit );
 
 	EXPECT_GT( ( vecAgainstTheWorld - vecCorrect ).Length(), 100.0f );
 }

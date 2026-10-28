@@ -55,7 +55,6 @@ public:
 // A global rather than a fixture: some of these files build their case tables
 // at static init, so the environment has to be registered before main() and up
 // before the first TEST body.
-::testing::Environment *const g_pSourceSharpMathLib =
-	::testing::AddGlobalTestEnvironment( new MathLibEnvironment );
+::testing::Environment *const g_pSourceSharpMathLib = ::testing::AddGlobalTestEnvironment( new MathLibEnvironment );
 
 } // namespace

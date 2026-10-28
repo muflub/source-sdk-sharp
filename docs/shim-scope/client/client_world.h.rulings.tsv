@@ -8,11 +8,11 @@
 [CWorldClientCollideable] virtual void WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
 [CWorldClientCollideable] virtual bool TestCollision( const Ray_t &, unsigned int, trace_t & ) OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
 [CWorldClientCollideable] virtual bool TestHitboxes( const Ray_t &, unsigned int, trace_t & ) OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
-[CWorldClientCollideable] virtual const Vector      &GetCollisionOrigin() const OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
-[CWorldClientCollideable] virtual const QAngle      &GetCollisionAngles() const OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
+[CWorldClientCollideable] virtual const Vector &GetCollisionOrigin() const OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
+[CWorldClientCollideable] virtual const QAngle &GetCollisionAngles() const OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
 [CWorldClientCollideable] virtual const matrix3x4_t &CollisionToWorldTransform() const OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
 [CWorldClientCollideable] virtual SolidType_t GetSolid() const OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
-[CWorldClientCollideable] virtual int         GetSolidFlags() const OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
+[CWorldClientCollideable] virtual int GetSolidFlags() const OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
 [CWorldClientCollideable] virtual int GetCollisionGroup() const OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
 [CWorldClientCollideable] virtual void WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs ) OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
 [CWorldClientCollideable] virtual bool ShouldTouchTrigger( int ) const OVERRIDE	SLOT	ICollideable slot the engine's traces call on the world
@@ -20,61 +20,61 @@
 [C_World] virtual void SetRefEHandle( const CBaseHandle &handle ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] virtual const CBaseHandle &GetRefEHandle() const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] bool IsBoundToTheLevel() const	LIVE-API	world_subject.h and world_adapter_client.cpp ask it
-[C_World] virtual IClientUnknown     *GetIClientUnknown() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual ICollideable       *GetCollideable() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual IClientUnknown *GetIClientUnknown() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual ICollideable *GetCollideable() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] virtual IClientNetworkable *GetClientNetworkable() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual IClientRenderable  *GetClientRenderable() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual IClientEntity      *GetIClientEntity() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual IClientThinkable   *GetClientThinkable() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual IClientRenderable *GetClientRenderable() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual IClientEntity *GetIClientEntity() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual IClientThinkable *GetClientThinkable() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] virtual IGameEntity *GetBaseEntity() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void         NotifyShouldTransmit( ShouldTransmitState_t state ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void         OnPreDataChanged( DataUpdateType_t updateType ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void         PostDataUpdate( DataUpdateType_t updateType ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool         IsDormant() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual int          entindex() const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void         ReceiveMessage( int classID, bf_read &msg ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void         SetDestroyedOnRecreateEntities() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void         OnDataUnchangedInPVS() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void NotifyShouldTransmit( ShouldTransmitState_t state ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void OnPreDataChanged( DataUpdateType_t updateType ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void PostDataUpdate( DataUpdateType_t updateType ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool IsDormant() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual int entindex() const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void ReceiveMessage( int classID, bf_read &msg ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void SetDestroyedOnRecreateEntities() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void OnDataUnchangedInPVS() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] virtual void *GetDataTableBasePtr() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void                ClientThink() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void ClientThink() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] virtual ClientThinkHandle_t GetThinkHandle() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void                SetThinkHandle( ClientThinkHandle_t hThink ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual CMouthInfo   *GetMouth() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool          GetSoundSpatialization( SpatializationInfo_t &info ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              ShouldDraw() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              IsTransparent() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              IsTwoPass() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void              OnThreadedDrawSetup() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              UsesPowerOfTwoFrameBufferTexture() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              UsesFullFrameBufferTexture() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void SetThinkHandle( ClientThinkHandle_t hThink ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual CMouthInfo *GetMouth() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool GetSoundSpatialization( SpatializationInfo_t &info ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool ShouldDraw() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool IsTransparent() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool IsTwoPass() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void OnThreadedDrawSetup() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool UsesPowerOfTwoFrameBufferTexture() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool UsesFullFrameBufferTexture() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] virtual ClientShadowHandle_t GetShadowHandle() const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] virtual ClientRenderHandle_t &RenderHandle() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual int               GetBody() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual int               GetSkin() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              UsesFlexDelayedWeights() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual const model_t    *GetModel() const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual int               DrawModel( int flags ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void              ComputeFxBlend() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual int               GetFxBlend() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              LODTest() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones,	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void              SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount,	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void              DoAnimationEvents() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual IPVSNotify       *GetPVSNotifyInterface() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              ShouldReceiveProjectedTextures( int flags ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              GetShadowCastDistance( float *pDist, ShadowType_t shadowType ) const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              GetShadowCastDirection( Vector *pDirection, ShadowType_t shadowType ) const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              IsShadowDirty() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void              MarkShadowDirty( bool bDirty ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual int GetBody() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual int GetSkin() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool UsesFlexDelayedWeights() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual const model_t *GetModel() const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual int DrawModel( int flags ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void ComputeFxBlend() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual int GetFxBlend() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool LODTest() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount, float *pFlexWeights, float *pFlexDelayedWeights 	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void DoAnimationEvents() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual IPVSNotify *GetPVSNotifyInterface() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool ShouldReceiveProjectedTextures( int flags ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool GetShadowCastDistance( float *pDist, ShadowType_t shadowType ) const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool GetShadowCastDirection( Vector *pDirection, ShadowType_t shadowType ) const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool IsShadowDirty() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void MarkShadowDirty( bool bDirty ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] virtual IClientRenderable *GetShadowParent() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] virtual IClientRenderable *FirstShadowChild() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] virtual IClientRenderable *NextShadowPeer() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual ShadowType_t      ShadowCastType() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void              CreateModelInstance() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual ShadowType_t ShadowCastType() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void CreateModelInstance() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
 [C_World] virtual ModelInstanceHandle_t GetModelInstance() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual int               LookupAttachment( const char *pAttachmentName ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              GetAttachment( int number, Vector &origin, QAngle &angles ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              GetAttachment( int number, matrix3x4_t &matrix ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual float            *GetRenderClipPlane() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual void              RecordToolMessage() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
-[C_World] virtual bool              IgnoresZBuffer() const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual int LookupAttachment( const char *pAttachmentName ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool GetAttachment( int number, Vector &origin, QAngle &angles ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool GetAttachment( int number, matrix3x4_t &matrix ) OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual float *GetRenderClipPlane() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual void RecordToolMessage() OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity
+[C_World] virtual bool IgnoresZBuffer() const OVERRIDE	SLOT	IClientEntity slot the engine calls on worldspawn's client entity

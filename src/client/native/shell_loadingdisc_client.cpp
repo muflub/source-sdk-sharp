@@ -9,16 +9,16 @@
 // answers vgui_int's calls.
 
 #include "iloadingdisc.h"
-#include "tier0/platform.h"
-#include "vgui/VGUI.h"
 
 class CSourceSharpLoadingDisc : public ILoadingDisc
 {
 public:
 	virtual void Create( vgui::VPANEL parent ) OVERRIDE {}
+
 	virtual void Destroy() OVERRIDE {}
 
 	virtual void SetLoadingVisible( bool bVisible ) OVERRIDE {}
+
 	virtual void SetPausedVisible( bool bVisible, float flExpireTime ) OVERRIDE {}
 };
 

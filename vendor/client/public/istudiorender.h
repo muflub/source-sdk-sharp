@@ -24,7 +24,11 @@ class IMesh;
 struct vertexFileHeader_t;
 struct FlashlightState_t;
 class VMatrix;
-namespace OptimizedModel { ; }
+
+namespace OptimizedModel
+{
+;
+}
 class IPooledVBAllocator;
 
 // Studio render interface
@@ -38,27 +42,27 @@ enum
 // DrawModel flags
 enum
 {
-	STUDIORENDER_DRAW_ENTIRE_MODEL		= 0,
-	STUDIORENDER_DRAW_OPAQUE_ONLY		= 0x01,
-	STUDIORENDER_DRAW_TRANSLUCENT_ONLY	= 0x02,
-	STUDIORENDER_DRAW_GROUP_MASK		= 0x03,
+	STUDIORENDER_DRAW_ENTIRE_MODEL = 0,
+	STUDIORENDER_DRAW_OPAQUE_ONLY = 0x01,
+	STUDIORENDER_DRAW_TRANSLUCENT_ONLY = 0x02,
+	STUDIORENDER_DRAW_GROUP_MASK = 0x03,
 
-	STUDIORENDER_DRAW_NO_FLEXES			= 0x04,
-	STUDIORENDER_DRAW_STATIC_LIGHTING	= 0x08,
+	STUDIORENDER_DRAW_NO_FLEXES = 0x04,
+	STUDIORENDER_DRAW_STATIC_LIGHTING = 0x08,
 
-	STUDIORENDER_DRAW_ACCURATETIME		= 0x10,		// Use accurate timing when drawing the model.
-	STUDIORENDER_DRAW_NO_SHADOWS		= 0x20,
-	STUDIORENDER_DRAW_GET_PERF_STATS	= 0x40,
+	STUDIORENDER_DRAW_ACCURATETIME = 0x10, // Use accurate timing when drawing the model.
+	STUDIORENDER_DRAW_NO_SHADOWS = 0x20,
+	STUDIORENDER_DRAW_GET_PERF_STATS = 0x40,
 
-	STUDIORENDER_DRAW_WIREFRAME			= 0x80,
+	STUDIORENDER_DRAW_WIREFRAME = 0x80,
 
-	STUDIORENDER_DRAW_ITEM_BLINK		= 0x100,
+	STUDIORENDER_DRAW_ITEM_BLINK = 0x100,
 
-	STUDIORENDER_SHADOWDEPTHTEXTURE		= 0x200,
+	STUDIORENDER_SHADOWDEPTHTEXTURE = 0x200,
 
-	STUDIORENDER_SSAODEPTHTEXTURE				= 0x1000,
+	STUDIORENDER_SSAODEPTHTEXTURE = 0x1000,
 
-	STUDIORENDER_GENERATE_STATS					= 0x8000,
+	STUDIORENDER_GENERATE_STATS = 0x8000,
 };
 
 // Standard model vertex formats
@@ -90,7 +94,7 @@ enum
 
 struct DrawModelResults_t
 {
-	int m_ActualTriCount; 
+	int m_ActualTriCount;
 	int m_TextureMemoryBytes;
 	int m_NumHardwareBones;
 	int m_NumBatches;
@@ -98,43 +102,43 @@ struct DrawModelResults_t
 	int m_nLODUsed;
 	int m_flLODMetric;
 	CFastTimer m_RenderTime;
-	CUtlVectorFixed<IMaterial *,MAX_DRAW_MODEL_INFO_MATERIALS> m_Materials;
+	CUtlVectorFixed<IMaterial *, MAX_DRAW_MODEL_INFO_MATERIALS> m_Materials;
 };
 
 struct ColorTexelsInfo_t
 {
-	int						m_nWidth;
-	int						m_nHeight;
-	int						m_nMipmapCount;
-	ImageFormat				m_ImageFormat;
-	int						m_nByteCount;
-	byte*					m_pTexelData;
+	int m_nWidth;
+	int m_nHeight;
+	int m_nMipmapCount;
+	ImageFormat m_ImageFormat;
+	int m_nByteCount;
+	byte *m_pTexelData;
 };
 
 struct ColorMeshInfo_t
 {
 	// A given color mesh can own a unique Mesh, or it can use a shared Mesh
 	// (in which case it uses a sub-range defined by m_nVertOffset and m_nNumVerts)
-	IMesh				*	m_pMesh;
-	IPooledVBAllocator	*	m_pPooledVBAllocator;
-	int						m_nVertOffsetInBytes;
-	int						m_nNumVerts;
-	ITexture			*   m_pLightmap;
-	ColorTexelsInfo_t   *   m_pLightmapData;
+	IMesh *m_pMesh;
+	IPooledVBAllocator *m_pPooledVBAllocator;
+	int m_nVertOffsetInBytes;
+	int m_nNumVerts;
+	ITexture *m_pLightmap;
+	ColorTexelsInfo_t *m_pLightmapData;
 };
 
 struct DrawModelInfo_t
 {
-	alignas( 8 ) unsigned char unused_m_pStudioHdr[ 24 ];
-	int				m_Skin;
-	int				m_Body;
-	alignas( 8 ) unsigned char unused_m_HitboxSet[ 16 ];
-	int				m_Lod;
-	ColorMeshInfo_t	*m_pColorMeshes;
-	bool			m_bStaticLighting;
-	Vector			m_vecAmbientCube[6];		// ambient, and lights that aren't in locallight[]
-	int				m_nLocalLightCount;
-	LightDesc_t		m_LocalLightDescs[4];
+	alignas( 8 ) unsigned char unused_m_pStudioHdr[24];
+	int m_Skin;
+	int m_Body;
+	alignas( 8 ) unsigned char unused_m_HitboxSet[16];
+	int m_Lod;
+	ColorMeshInfo_t *m_pColorMeshes;
+	bool m_bStaticLighting;
+	Vector m_vecAmbientCube[6]; // ambient, and lights that aren't in locallight[]
+	int m_nLocalLightCount;
+	LightDesc_t m_LocalLightDescs[4];
 };
 
 // Cache Callback Function
@@ -152,14 +156,14 @@ public:
 	virtual void unused_EndFrame() = 0;
 
 	// Used for the mat_stub console command.
-	virtual void Mat_Stub( IMaterialSystem *pMatSys ) = 0;
+	virtual void Mat_Stub( IMaterialSystem * pMatSys ) = 0;
 
-	// Updates the rendering configuration 
+	// Updates the rendering configuration
 	virtual void unused_UpdateConfig() = 0;
 	virtual void unused_GetCurrentConfig() = 0;
 
 	// Load, unload model data
-	virtual bool LoadModel( studiohdr_t *pStudioHdr, void *pVtxData, studiohwdata_t	*pHardwareData ) = 0;
+	virtual bool LoadModel( studiohdr_t * pStudioHdr, void *pVtxData, studiohwdata_t *pHardwareData ) = 0;
 	virtual void unused_UnloadModel() = 0;
 
 	// Refresh the studiohdr since it was lost...
@@ -167,9 +171,9 @@ public:
 
 	// This is needed to do eyeglint and calculate the correct texcoords for the eyes.
 	virtual void unused_SetEyeViewTarget() = 0;
-		
+
 	// Methods related to lighting state
-	// NOTE: SetAmbientLightColors assumes that the arraysize is the same as 
+	// NOTE: SetAmbientLightColors assumes that the arraysize is the same as
 	// returned from GetNumAmbientLightSamples
 	virtual void unused_GetNumAmbientLightSamples() = 0;
 	virtual void unused_GetAmbientLightDirections() = 0;
@@ -179,28 +183,29 @@ public:
 
 	// Sets information about the camera location + orientation
 	virtual void unused_SetViewState() = 0;
-	
+
 	// Allocates flex weights for use in rendering
 	// NOTE: Pass in a non-null second parameter to lock delayed flex weights
 	virtual void unused_LockFlexWeights() = 0;
 	virtual void unused_UnlockFlexWeights() = 0;
-	
+
 	// Used to allocate bone matrices to be used to pass into DrawModel
 	virtual void unused_LockBoneMatrices() = 0;
 	virtual void unused_UnlockBoneMatrices() = 0;
-	
+
 	// LOD stuff
 	virtual void unused_GetNumLODs() = 0;
 	virtual void unused_GetLODSwitchValue() = 0;
 	virtual void unused_SetLODSwitchValue() = 0;
 
 	// Sets the color/alpha modulation
-	virtual void SetColorModulation( float const* pColor ) = 0;
+	virtual void SetColorModulation( float const *pColor ) = 0;
 	virtual void unused_SetAlphaModulation() = 0;
-	
+
 	// Draws the model
-	virtual void DrawModel( DrawModelResults_t *pResults, const DrawModelInfo_t& info, 
-		matrix3x4_t *pBoneToWorld, float *pFlexWeights, float *pFlexDelayedWeights, const Vector &modelOrigin, int flags = STUDIORENDER_DRAW_ENTIRE_MODEL ) = 0;
+	virtual void DrawModel( DrawModelResults_t * pResults, const DrawModelInfo_t &info, matrix3x4_t *pBoneToWorld,
+							float *pFlexWeights, float *pFlexDelayedWeights, const Vector &modelOrigin,
+							int flags = STUDIORENDER_DRAW_ENTIRE_MODEL ) = 0;
 
 	// Methods related to static prop rendering
 	virtual void unused_DrawModelStaticProp() = 0;
@@ -208,7 +213,7 @@ public:
 	virtual void unused_DrawStaticPropShadows() = 0;
 
 	// Causes a material to be used instead of the materials the model was compiled with
-	virtual void ForcedMaterialOverride( IMaterial *newMaterial, OverrideType_t nOverrideType = OVERRIDE_NORMAL ) = 0;
+	virtual void ForcedMaterialOverride( IMaterial * newMaterial, OverrideType_t nOverrideType = OVERRIDE_NORMAL ) = 0;
 
 	// Create, destroy list of decals for a particular model
 	virtual void unused_CreateDecalList() = 0;
@@ -216,12 +221,13 @@ public:
 
 	// Add decals to a decal list by doing a planar projection along the ray
 	// The BoneToWorld matrices must be set before this is called
-	virtual void AddDecal( StudioDecalHandle_t handle, studiohdr_t *pStudioHdr, matrix3x4_t *pBoneToWorld, 
-		const Ray_t & ray, const Vector& decalUp, IMaterial* pDecalMaterial, float radius, int body, bool noPokethru = false, int maxLODToDecal = ADDDECAL_TO_ALL_LODS ) = 0;
+	virtual void AddDecal( StudioDecalHandle_t handle, studiohdr_t * pStudioHdr, matrix3x4_t * pBoneToWorld,
+						   const Ray_t &ray, const Vector &decalUp, IMaterial *pDecalMaterial, float radius, int body,
+						   bool noPokethru = false, int maxLODToDecal = ADDDECAL_TO_ALL_LODS ) = 0;
 
 	// Compute the lighting at a point and normal
-	virtual void ComputeLighting( const Vector* pAmbient, int lightCount,
-		LightDesc_t* pLights, const Vector& pt, const Vector& normal, Vector& lighting ) = 0;
+	virtual void ComputeLighting( const Vector *pAmbient, int lightCount, LightDesc_t *pLights, const Vector &pt,
+								  const Vector &normal, Vector &lighting ) = 0;
 
 	// Compute the lighting at a point, constant directional component is passed
 	// as flDirectionalAmount
@@ -231,7 +237,7 @@ public:
 	virtual void unused_AddShadow() = 0;
 	virtual void unused_ClearAllShadows() = 0;
 
-	// Gets the model LOD; pass in the screen size in pixels of a sphere 
+	// Gets the model LOD; pass in the screen size in pixels of a sphere
 	// of radius 1 that has the same origin as the model to get the LOD out...
 	virtual void unused_ComputeModelLod() = 0;
 

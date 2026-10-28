@@ -91,9 +91,9 @@ namespace
 // compiled source is scanned now.
 //-----------------------------------------------------------------------------
 // The -D definitions of one compile command, as NAME or NAME=VALUE, whole.
-std::set< std::string > DefinesOf( const std::string &strCommand )
+std::set<std::string> DefinesOf( const std::string &strCommand )
 {
-	std::set< std::string > out;
+	std::set<std::string> out;
 	std::istringstream toks( strCommand );
 	std::string strTok;
 	while ( toks >> strTok )
@@ -120,12 +120,29 @@ std::set< std::string > DefinesOf( const std::string &strCommand )
 struct GuardWorld
 {
 	bool bClient;
+
 	bool Known( const std::string &name, bool &bValue ) const
 	{
-		if ( name == "SOURCESHARP" )          { bValue = true;      return true; }
-		if ( name == "CLIENT_DLL" )           { bValue = bClient;   return true; }
-		if ( name == "GAME_DLL" )             { bValue = !bClient;  return true; }
-		if ( name == "SS_CBASEENTITY_ALIAS" ) { bValue = false;     return true; }
+		if ( name == "SOURCESHARP" )
+		{
+			bValue = true;
+			return true;
+		}
+		if ( name == "CLIENT_DLL" )
+		{
+			bValue = bClient;
+			return true;
+		}
+		if ( name == "GAME_DLL" )
+		{
+			bValue = !bClient;
+			return true;
+		}
+		if ( name == "SS_CBASEENTITY_ALIAS" )
+		{
+			bValue = false;
+			return true;
+		}
 		return false;
 	}
 };
@@ -150,125 +167,129 @@ struct GuardWorld
 // they are the cluster -- so this list is the Phase 7 exit's remaining work
 // written as a test rather than as a sentence.
 //-----------------------------------------------------------------------------
-struct Waiver { const char *pszFile; const char *pszWhy; };
+struct Waiver
+{
+	const char *pszFile;
+	const char *pszWhy;
+};
 
 // THE WAIVER TABLE. It is EMPTY, and the prose below is its history -- every
 // row that was ever in it, why it was waived, and which lane took it out.
 
-	// LANE armed-link TOOK FOUR OUT HERE, AND THE FLIP IS WHY.
-	//
-	// game/client/cliententitylist.cpp, c_baseentity.cpp,
-	// c_baseentity_statics.cpp and c_baseanimating.cpp were waived because they
-	// were the stock list and the class it is a cycle around. The armed flip
-	// removes all four from client_csharp.vpc, so this scan no longer reaches
-	// them and every one of their waivers matched nothing.
-	//
-	// Removed rather than left standing, for the reason the fact below prints
-	// and for the reason five earlier lanes removed theirs: "a waiver that
-	// matches nothing excuses whatever is written there next." A waiver on a
-	// file that is not in the build is not a smaller waiver -- it is an open
-	// door with no one watching it.
-	// LANE c8-listseam MOVED THE PORT'S OWN SEAM CODE INTO THIS FILE, and that
-	// is why it is here rather than being fixed.
-	//
-	// Six SourceSharp_LegacyList* bodies and four ask counters were DEFINED in
-	// game/client/cliententitylist.cpp -- the port's own code inside the
-	// translation unit the client flip deletes, so the lane that deleted the
-	// vpc row would have deleted eleven port definitions with it. They are now
-	// at the foot of shell_cliententitylist.cpp, and naming `cl_entitylist` is
-	// what they ARE: they are the seam, not a caller of it.
-	//
-	// This is a trade and not a fix, so it is written down. Before the move,
-	// the shim named no entity list and the port's coupling was six functions
-	// in a file that leaves; after it, the coupling is the same six functions
-	// in one delimited region of a file the port owns. tools/entity-gates
-	// row 2 counts the same mentions either way -- they moved file, they did
-	// not become fewer. What changed is that deleting them is one edit in one
-	// place with a named owner, instead of a side effect of somebody else's
-	// vpc commit.
-	// (shell_cliententitylist.cpp -- "IT IS THE SEAM ITSELF" -- and
-	// shell_clientdll.cpp -- "ITERATION AND RELEASE" -- stood here until
-	// `the-close`. See the paragraph at the foot of this block.
+// LANE armed-link TOOK FOUR OUT HERE, AND THE FLIP IS WHY.
+//
+// game/client/cliententitylist.cpp, c_baseentity.cpp,
+// c_baseentity_statics.cpp and c_baseanimating.cpp were waived because they
+// were the stock list and the class it is a cycle around. The armed flip
+// removes all four from client_csharp.vpc, so this scan no longer reaches
+// them and every one of their waivers matched nothing.
+//
+// Removed rather than left standing, for the reason the fact below prints
+// and for the reason five earlier lanes removed theirs: "a waiver that
+// matches nothing excuses whatever is written there next." A waiver on a
+// file that is not in the build is not a smaller waiver -- it is an open
+// door with no one watching it.
+// LANE c8-listseam MOVED THE PORT'S OWN SEAM CODE INTO THIS FILE, and that
+// is why it is here rather than being fixed.
+//
+// Six SourceSharp_LegacyList* bodies and four ask counters were DEFINED in
+// game/client/cliententitylist.cpp -- the port's own code inside the
+// translation unit the client flip deletes, so the lane that deleted the
+// vpc row would have deleted eleven port definitions with it. They are now
+// at the foot of shell_cliententitylist.cpp, and naming `cl_entitylist` is
+// what they ARE: they are the seam, not a caller of it.
+//
+// This is a trade and not a fix, so it is written down. Before the move,
+// the shim named no entity list and the port's coupling was six functions
+// in a file that leaves; after it, the coupling is the same six functions
+// in one delimited region of a file the port owns. tools/entity-gates
+// row 2 counts the same mentions either way -- they moved file, they did
+// not become fewer. What changed is that deleting them is one edit in one
+// place with a named owner, instead of a side effect of somebody else's
+// vpc commit.
+// (shell_cliententitylist.cpp -- "IT IS THE SEAM ITSELF" -- and
+// shell_clientdll.cpp -- "ITERATION AND RELEASE" -- stood here until
+// `the-close`. See the paragraph at the foot of this block.
 
-	// NOT THIS LANE'S FILES. Everything under game/shared/ and
-	// sourcesharp/game/shared/ is owned WHOLE, on both sides, by lane p4-exit,
-	// which ran concurrently with p7-exit. A shared file's virtuals differ per
-	// side, so a one-sided edit here compiles green on the client and breaks
-	// the server. The ask is written into
-	// .claude/entity-port/requests/p7-exit.md; each row is an index or a handle
-	// lookup and each takes the same resolver the client TUs above now take.
-	// AND TWO MORE, THE SAME WAY AND IN THE SAME COMMIT.
-	//
-	// game/shared/baseentity_shared.cpp and game/shared/gamerules.cpp were
-	// p4-exit's, waived as shared files whose server arm a one-sided edit would
-	// break. The flip removes both from the CLIENT's list, so the hazard that
-	// argued for the waiver is gone on this side and the waiver matched nothing.
-	// The server keeps its own copy of each and this scan never read that.
-	// game/shared/util_shared.cpp WAS HERE, AND LANE c8-shared6 TOOK IT OUT
-	// BECAUSE THE TEST SAID TO. Its one row was the client's
-	// `UTIL_PlayerByIndex`, `ToBasePlayer( ClientEntityList().GetEnt( i ) )`.
-	// That is now a declared, printed refusal: the viewer is a
-	// C_StandalonePlayer, IClientUnknown::GetBaseEntity() is NULL for it, and
-	// client.so links no C_BasePlayer at all, so the lookup could only ever
-	// answer NULL — and `cliententitylist.cpp` leaves in the client flip while
-	// util_shared.cpp stays (§6's trace-filter row).
-	//
-	// Removed rather than left standing for the reason this fact prints:
-	// "a waiver that matches nothing excuses whatever is written there next."
-	// game/shared/voice_status.cpp, game/shared/collisionproperty.cpp and
-	// game/shared/effect_dispatch_data.cpp WERE HERE AND LANE `f-list` TOOK ALL
-	// THREE OUT, because the fact below says to and a waiver that matches
-	// nothing excuses whatever is written there next.
-	//
-	// The shared-file hazard the "p4-exit's: shared, both sides" reason names is
-	// real and none of the three had it: every row was inside an
-	// `#ifdef CLIENT_DLL` / `#else` pair that already existed in the file, so the
-	// server arm is untouched in all three by construction.
-	//
-	// EACH KEPT ITS FACE RATHER THAN BEING WIDENED. GetBaseEntityFromHandle
-	// became SourceSharp_ClientSdkEntityFromHandle -- the FILTERED ask, which
-	// answers NULL for a managed entity by design -- in both files that used it,
-	// because both then call CBaseEntity members on the result.
-	// LANE sub-entitylist REMOVED TWO ROWS HERE, and this note is what stops
-	// them being put back as waivers instead of fixed.
-	//
-	// sourcesharp/game/client/sound_emitter.cpp and
-	// sourcesharp/game/shared/util_shared_library.cpp were waived as
-	// "p4-exit's: the shim's shared half". Neither is a shared-file HAZARD:
-	// both rows were CLIENT arms inside `#ifdef CLIENT_DLL`, both were an
-	// index lookup, and neither file is in a stock vpc, so there is no server
-	// virtual and no !SOURCESHARP arm to disagree with. They take
-	// shell_cliententitylist.h's resolvers now, exactly as the nine migrated
-	// files above do (kMigratedStockArmGone) -- see TheShimsSharedClientArmsResolveThroughTheSlotTable.
-	//
-	// The two facts below are the positive half: this list going empty of them
-	// says only that they stopped NAMING the list, which deletion satisfies
-	// just as well as routing.
-	//
-	// THE LAST TWO ROWS WENT IN `the-close`, AND THE LIST IS NOW EMPTY.
-	//
-	// sourcesharp/game/client/shell_cliententitylist.cpp ("it is the seam
-	// itself") and sourcesharp/game/client/shell_clientdll.cpp ("iteration and
-	// release") were the two survivors. Every line in either of them that named
-	// the stock list was inside `#ifndef SS_CBASEENTITY_ALIAS` -- an arm no
-	// project compiles, since both targets define that macro -- and `the-close
-	// 1/N` deleted all of them. Both files still NAME cl_entitylist in prose,
-	// which is why the scan reads LiveText and not the raw file.
-	//
-	// Removed rather than left standing, for the reason this fact prints and
-	// for the reason six earlier lanes removed theirs: "a waiver that matches
-	// nothing excuses whatever is written there next."
-	//
-	// AN EMPTY WAIVER LIST IS THE CLAUSE LANDING, NOT THE FACT WEAKENING. The
-	// scan's first direction -- no compiled client TU may name the stock list
-	// -- now has no exceptions at all, and it is the direction that catches a
-	// new one. The second direction has nothing left to check, which is what
-	// "zero waivers" means. And because "nobody names it" is also what an empty
-	// file answers, the two survivors' LIVE SUCCESSORS are asserted by name in
-	// TheSeamBlockStillAnswersWithoutTheStockList below.
-	//
-	// A NULL table rather than a zero-length array: C++ has no empty one, and
-	// a placeholder row would be a waiver.
+// NOT THIS LANE'S FILES. Everything under game/shared/ and
+// sourcesharp/game/shared/ is owned WHOLE, on both sides, by lane p4-exit,
+// which ran concurrently with p7-exit. A shared file's virtuals differ per
+// side, so a one-sided edit here compiles green on the client and breaks
+// the server. The ask is written into
+// .claude/entity-port/requests/p7-exit.md; each row is an index or a handle
+// lookup and each takes the same resolver the client TUs above now take.
+// AND TWO MORE, THE SAME WAY AND IN THE SAME COMMIT.
+//
+// game/shared/baseentity_shared.cpp and game/shared/gamerules.cpp were
+// p4-exit's, waived as shared files whose server arm a one-sided edit would
+// break. The flip removes both from the CLIENT's list, so the hazard that
+// argued for the waiver is gone on this side and the waiver matched nothing.
+// The server keeps its own copy of each and this scan never read that.
+// game/shared/util_shared.cpp WAS HERE, AND LANE c8-shared6 TOOK IT OUT
+// BECAUSE THE TEST SAID TO. Its one row was the client's
+// `UTIL_PlayerByIndex`, `ToBasePlayer( ClientEntityList().GetEnt( i ) )`.
+// That is now a declared, printed refusal: the viewer is a
+// C_StandalonePlayer, IClientUnknown::GetBaseEntity() is NULL for it, and
+// client.so links no C_BasePlayer at all, so the lookup could only ever
+// answer NULL — and `cliententitylist.cpp` leaves in the client flip while
+// util_shared.cpp stays (§6's trace-filter row).
+//
+// Removed rather than left standing for the reason this fact prints:
+// "a waiver that matches nothing excuses whatever is written there next."
+// game/shared/voice_status.cpp, game/shared/collisionproperty.cpp and
+// game/shared/effect_dispatch_data.cpp WERE HERE AND LANE `f-list` TOOK ALL
+// THREE OUT, because the fact below says to and a waiver that matches
+// nothing excuses whatever is written there next.
+//
+// The shared-file hazard the "p4-exit's: shared, both sides" reason names is
+// real and none of the three had it: every row was inside an
+// `#ifdef CLIENT_DLL` / `#else` pair that already existed in the file, so the
+// server arm is untouched in all three by construction.
+//
+// EACH KEPT ITS FACE RATHER THAN BEING WIDENED. GetBaseEntityFromHandle
+// became SourceSharp_ClientSdkEntityFromHandle -- the FILTERED ask, which
+// answers NULL for a managed entity by design -- in both files that used it,
+// because both then call CBaseEntity members on the result.
+// LANE sub-entitylist REMOVED TWO ROWS HERE, and this note is what stops
+// them being put back as waivers instead of fixed.
+//
+// sourcesharp/game/client/sound_emitter.cpp and
+// sourcesharp/game/shared/util_shared_library.cpp were waived as
+// "p4-exit's: the shim's shared half". Neither is a shared-file HAZARD:
+// both rows were CLIENT arms inside `#ifdef CLIENT_DLL`, both were an
+// index lookup, and neither file is in a stock vpc, so there is no server
+// virtual and no !SOURCESHARP arm to disagree with. They take
+// shell_cliententitylist.h's resolvers now, exactly as the nine migrated
+// files above do (kMigratedStockArmGone) -- see TheShimsSharedClientArmsResolveThroughTheSlotTable.
+//
+// The two facts below are the positive half: this list going empty of them
+// says only that they stopped NAMING the list, which deletion satisfies
+// just as well as routing.
+//
+// THE LAST TWO ROWS WENT IN `the-close`, AND THE LIST IS NOW EMPTY.
+//
+// sourcesharp/game/client/shell_cliententitylist.cpp ("it is the seam
+// itself") and sourcesharp/game/client/shell_clientdll.cpp ("iteration and
+// release") were the two survivors. Every line in either of them that named
+// the stock list was inside `#ifndef SS_CBASEENTITY_ALIAS` -- an arm no
+// project compiles, since both targets define that macro -- and `the-close
+// 1/N` deleted all of them. Both files still NAME cl_entitylist in prose,
+// which is why the scan reads LiveText and not the raw file.
+//
+// Removed rather than left standing, for the reason this fact prints and
+// for the reason six earlier lanes removed theirs: "a waiver that matches
+// nothing excuses whatever is written there next."
+//
+// AN EMPTY WAIVER LIST IS THE CLAUSE LANDING, NOT THE FACT WEAKENING. The
+// scan's first direction -- no compiled client TU may name the stock list
+// -- now has no exceptions at all, and it is the direction that catches a
+// new one. The second direction has nothing left to check, which is what
+// "zero waivers" means. And because "nobody names it" is also what an empty
+// file answers, the two survivors' LIVE SUCCESSORS are asserted by name in
+// TheSeamBlockStillAnswersWithoutTheStockList below.
+//
+// A NULL table rather than a zero-length array: C++ has no empty one, and
+// a placeholder row would be a waiver.
 } // namespace
 
 //-----------------------------------------------------------------------------
@@ -359,30 +380,29 @@ TEST( ClientEntityResolve, TheShimsSharedFilesAreBuiltOnlyWithSOURCESHARPSoTheyK
 	const char *kTargets[] = { cmake_graph::kServer, cmake_graph::kClient, cmake_graph::kHost };
 
 	int nCompiling = 0;
-	for ( size_t t = 0; t < sizeof( kTargets ) / sizeof( kTargets[ 0 ] ); t++ )
+	for ( size_t t = 0; t < sizeof( kTargets ) / sizeof( kTargets[0] ); t++ )
 	{
-		for ( size_t f = 0; f < sizeof( kShimShared ) / sizeof( kShimShared[ 0 ] ); f++ )
+		for ( size_t f = 0; f < sizeof( kShimShared ) / sizeof( kShimShared[0] ); f++ )
 		{
-			if ( !cmake_graph::Compiles( kTargets[ t ], kShimShared[ f ] ) )
+			if ( !cmake_graph::Compiles( kTargets[t], kShimShared[f] ) )
 				continue;
 			nCompiling++;
-			const std::set< std::string > defs = DefinesOf(
-				cmake_graph::CompileCommand( kTargets[ t ], kShimShared[ f ] ) );
+			const std::set<std::string> defs = DefinesOf( cmake_graph::CompileCommand( kTargets[t], kShimShared[f] ) );
 			EXPECT_TRUE( defs.count( "SOURCESHARP" ) )
-			    << kTargets[ t ] << " (" << cmake_graph::ListFile( kTargets[ t ] )
-			    << ") compiles " << kShimShared[ f ] << " without -DSOURCESHARP. "
-			       "Its client arm names shell_cliententitylist.h, which no "
-			       "stock build has -- put the !SOURCESHARP arm back, the way "
-			       "game/client/fx.cpp carries one.";
+				<< kTargets[t] << " (" << cmake_graph::ListFile( kTargets[t] ) << ") compiles " << kShimShared[f]
+				<< " without -DSOURCESHARP. "
+				   "Its client arm names shell_cliententitylist.h, which no "
+				   "stock build has -- put the !SOURCESHARP arm back, the way "
+				   "game/client/fx.cpp carries one.";
 		}
 	}
 
 	// The proof-of-read: the client compiles it. A reader that found the file
 	// nowhere would make every EXPECT above pass by never running.
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kShimShared[ 0 ] ) )
-	    << "client_sourcesharp does not compile the shim-shared file, so "
-	       "this fact is not measuring what it says (" << nCompiling
-	    << " target/file pairs compiled).";
+	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kShimShared[0] ) )
+		<< "client_sourcesharp does not compile the shim-shared file, so "
+		   "this fact is not measuring what it says ("
+		<< nCompiling << " target/file pairs compiled).";
 }
 
 //-----------------------------------------------------------------------------
@@ -476,22 +496,22 @@ TEST( ClientEntityResolve, TheClientProjectStillDefinesTheGuardThisFileAssumes )
 	//
 	// Asked twice: the list src/client/native/CMakeLists.txt writes, and the
 	// compile command the compiler ran (the proof the list reached a TU).
-	const std::vector< std::string > listed = cmake_graph::ListedDefinitions( cmake_graph::kClient );
-	const std::set< std::string > compiled = cmake_graph::CompileDefinitions( cmake_graph::kClient );
+	const std::vector<std::string> listed = cmake_graph::ListedDefinitions( cmake_graph::kClient );
+	const std::set<std::string> compiled = cmake_graph::CompileDefinitions( cmake_graph::kClient );
 
 	// Proof-of-read: CLIENT_DLL, the other half of ClientWorld().
-	ASSERT_TRUE( std::find( listed.begin(), listed.end(), std::string( "CLIENT_DLL" ) ) != listed.end()
-	          && compiled.count( "CLIENT_DLL" ) )
-	    << "client_sourcesharp does not define CLIENT_DLL -- the reader is not "
-	       "reading the client's definitions, or ClientWorld() is wrong.";
+	ASSERT_TRUE( std::find( listed.begin(), listed.end(), std::string( "CLIENT_DLL" ) ) != listed.end() &&
+				 compiled.count( "CLIENT_DLL" ) )
+		<< "client_sourcesharp does not define CLIENT_DLL -- the reader is not "
+		   "reading the client's definitions, or ClientWorld() is wrong.";
 
 	EXPECT_TRUE( std::find( listed.begin(), listed.end(), std::string( "SOURCESHARP" ) ) != listed.end() )
-	    << "src/client/native/CMakeLists.txt no longer defines SOURCESHARP for "
-	       "client_sourcesharp, so the guard world in this file is wrong and "
-	       "every arm it strips is one the build actually compiles.";
+		<< "src/client/native/CMakeLists.txt no longer defines SOURCESHARP for "
+		   "client_sourcesharp, so the guard world in this file is wrong and "
+		   "every arm it strips is one the build actually compiles.";
 	EXPECT_TRUE( compiled.count( "SOURCESHARP" ) )
-	    << "client_sourcesharp's compile command carries no -DSOURCESHARP, so "
-	       "the guard world in this file is wrong.";
+		<< "client_sourcesharp's compile command carries no -DSOURCESHARP, so "
+		   "the guard world in this file is wrong.";
 }
 
 //-----------------------------------------------------------------------------

@@ -25,27 +25,26 @@ SourceSharpRecvPropRow_t Row( int nType, int nProxy, int nOffset = 0, int nFlags
 {
 	SourceSharpRecvPropRow_t row;
 	memset( &row, 0, sizeof( row ) );
-	row.nType          = nType;
-	row.nProxy         = nProxy;
-	row.nOffset        = nOffset;
-	row.nFlags         = nFlags;
-	row.nElements      = 1;
+	row.nType = nType;
+	row.nProxy = nProxy;
+	row.nOffset = nOffset;
+	row.nFlags = nFlags;
+	row.nElements = 1;
 	row.nElementStride = -1;
-	row.hDataTable     = -1;
+	row.hDataTable = -1;
 	return row;
 }
 
 // A block as TempEntRecvBlock.Write lays it out: the bit count, the header, the
 // rows, then the names.
-std::vector< unsigned char > Block( const char *pClass, const char *pTable,
-                                    std::vector< SourceSharpRecvPropRow_t > rows,
-                                    const std::vector< std::string > &names )
+std::vector<unsigned char> Block( const char *pClass, const char *pTable, std::vector<SourceSharpRecvPropRow_t> rows,
+								  const std::vector<std::string> &names )
 {
-	const int nFixed = (int)sizeof( SourceSharpTeTableHeader_t )
-	                 + (int)( rows.size() * sizeof( SourceSharpRecvPropRow_t ) );
-	std::vector< unsigned char > pool;
+	const int nFixed =
+		(int)sizeof( SourceSharpTeTableHeader_t ) + (int)( rows.size() * sizeof( SourceSharpRecvPropRow_t ) );
+	std::vector<unsigned char> pool;
 
-	auto Name = [ & ]( const std::string &text )
+	auto Name = [&]( const std::string &text )
 	{
 		const int at = nFixed + (int)pool.size();
 		pool.insert( pool.end(), text.begin(), text.end() );
@@ -55,17 +54,17 @@ std::vector< unsigned char > Block( const char *pClass, const char *pTable,
 
 	SourceSharpTeTableHeader_t header;
 	memset( &header, 0, sizeof( header ) );
-	header.nProps         = (int32_t)rows.size();
+	header.nProps = (int32_t)rows.size();
 	header.bRegisterClass = 1;
-	header.oClassName     = Name( pClass );
-	header.oTableName     = Name( pTable );
-	header.nShapeHash     = 0x5678u;
+	header.oClassName = Name( pClass );
+	header.oTableName = Name( pTable );
+	header.nShapeHash = 0x5678u;
 
 	for ( size_t i = 0; i < rows.size(); i++ )
-		rows[ i ].oName = Name( names[ i ] );
+		rows[i].oName = Name( names[i] );
 
 	const int32_t nBits = ( nFixed + (int)pool.size() ) * 8;
-	std::vector< unsigned char > block( sizeof( nBits ) + nFixed + pool.size() );
+	std::vector<unsigned char> block( sizeof( nBits ) + nFixed + pool.size() );
 	memcpy( block.data(), &nBits, sizeof( nBits ) );
 	memcpy( block.data() + sizeof( nBits ), &header, sizeof( header ) );
 	if ( !rows.empty() )
@@ -76,11 +75,11 @@ std::vector< unsigned char > Block( const char *pClass, const char *pTable,
 
 TEST( TempEntRecvStore, ABlockReadsBackItsHeaderRowsAndNames )
 {
-	const std::vector< unsigned char > block =
+	const std::vector<unsigned char> block =
 		Block( "CTEEnergySplash", "DT_TEEnergySplash",
-		       { Row( DPT_Vector, SOURCESHARP_RECVPROXY_VECTOR_TO_VECTOR, 0, SPROP_COORD ),
-		         Row( DPT_Int, SOURCESHARP_RECVPROXY_INT32_TO_INT8, 24, SPROP_UNSIGNED ) },
-		       { "Position", "Explosive" } );
+			   { Row( DPT_Vector, SOURCESHARP_RECVPROXY_VECTOR_TO_VECTOR, 0, SPROP_COORD ),
+				 Row( DPT_Int, SOURCESHARP_RECVPROXY_INT32_TO_INT8, 24, SPROP_UNSIGNED ) },
+			   { "Position", "Explosive" } );
 
 	SourceSharpTeTableBlock_t read;
 	ASSERT_TRUE( SourceSharpTe_ReadRecvTableBlock( block.data(), (int32_t)block.size(), &read ) );
@@ -99,7 +98,7 @@ TEST( TempEntRecvStore, ABlockReadsBackItsHeaderRowsAndNames )
 
 TEST( TempEntRecvStore, AMalformedBlockIsRefused )
 {
-	const std::vector< unsigned char > good =
+	const std::vector<unsigned char> good =
 		Block( "CTEX", "DT_TEX", { Row( DPT_Int, SOURCESHARP_RECVPROXY_INT32_TO_INT32 ) }, { "Count" } );
 	SourceSharpTeTableBlock_t read;
 
@@ -111,7 +110,7 @@ TEST( TempEntRecvStore, AMalformedBlockIsRefused )
 	EXPECT_FALSE( SourceSharpTe_ReadRecvTableBlock( good.data(), (int32_t)good.size() - 1, &read ) )
 		<< "a bit count longer than the bytes given";
 
-	std::vector< unsigned char > tooMany = good;
+	std::vector<unsigned char> tooMany = good;
 	SourceSharpTeTableHeader_t header;
 	memcpy( &header, tooMany.data() + 4, sizeof( header ) );
 	header.nProps = 9;
@@ -119,8 +118,7 @@ TEST( TempEntRecvStore, AMalformedBlockIsRefused )
 	EXPECT_FALSE( SourceSharpTe_ReadRecvTableBlock( tooMany.data(), (int32_t)tooMany.size(), &read ) )
 		<< "more rows than the payload holds at the client's row size";
 
-	EXPECT_FALSE( SourceSharpTe_ReadTableBlock( good.data(), (int32_t)good.size(), 0, &read ) )
-		<< "no row size";
+	EXPECT_FALSE( SourceSharpTe_ReadTableBlock( good.data(), (int32_t)good.size(), 0, &read ) ) << "no row size";
 }
 
 TEST( TempEntRecvStore, AScalarRowIsStoredFieldForField )
@@ -142,10 +140,14 @@ TEST( TempEntRecvStore, AScalarRowIsStoredFieldForField )
 
 TEST( TempEntRecvStore, EachIntProxyIdIsTheStandardNarrowingWrite )
 {
-	EXPECT_EQ( (RecvVarProxyFn)RecvProxy_Int32ToInt8,  SourceSharpTe_RecvVarProxy( SOURCESHARP_RECVPROXY_INT32_TO_INT8 ) );
-	EXPECT_EQ( (RecvVarProxyFn)RecvProxy_Int32ToInt16, SourceSharpTe_RecvVarProxy( SOURCESHARP_RECVPROXY_INT32_TO_INT16 ) );
-	EXPECT_EQ( (RecvVarProxyFn)RecvProxy_Int32ToInt32, SourceSharpTe_RecvVarProxy( SOURCESHARP_RECVPROXY_INT32_TO_INT32 ) );
-	EXPECT_EQ( (RecvVarProxyFn)RecvProxy_FloatToFloat, SourceSharpTe_RecvVarProxy( SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT ) );
+	EXPECT_EQ( (RecvVarProxyFn)RecvProxy_Int32ToInt8,
+			   SourceSharpTe_RecvVarProxy( SOURCESHARP_RECVPROXY_INT32_TO_INT8 ) );
+	EXPECT_EQ( (RecvVarProxyFn)RecvProxy_Int32ToInt16,
+			   SourceSharpTe_RecvVarProxy( SOURCESHARP_RECVPROXY_INT32_TO_INT16 ) );
+	EXPECT_EQ( (RecvVarProxyFn)RecvProxy_Int32ToInt32,
+			   SourceSharpTe_RecvVarProxy( SOURCESHARP_RECVPROXY_INT32_TO_INT32 ) );
+	EXPECT_EQ( (RecvVarProxyFn)RecvProxy_FloatToFloat,
+			   SourceSharpTe_RecvVarProxy( SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT ) );
 	EXPECT_EQ( NULL, SourceSharpTe_RecvVarProxy( SOURCESHARP_RECVPROXY_STATIC_DATATABLE ) );
 	EXPECT_EQ( NULL, SourceSharpTe_RecvVarProxy( SOURCESHARP_RECVPROXY_NONE ) );
 	EXPECT_EQ( NULL, SourceSharpTe_RecvVarProxy( SOURCESHARP_RECVPROXY_COUNT ) );
@@ -169,7 +171,7 @@ TEST( TempEntRecvStore, ADataTableRowNestsTheTableItIsHandedAndNeedsOne )
 TEST( TempEntRecvStore, AnArrayRowIsInternalRecvPropArraysShape )
 {
 	SourceSharpRecvPropRow_t row = Row( DPT_Array, SOURCESHARP_RECVPROXY_NONE );
-	row.nElements      = 16;
+	row.nElements = 16;
 	row.nElementStride = 12;
 	RecvProp prop;
 
@@ -192,14 +194,18 @@ TEST( TempEntRecvStore, ARowWhoseProxyDoesNotFitItsTypeIsRefusedAndLeavesTheProp
 	RecvProp prop;
 	prop.m_pVarName = "untouched";
 
-	EXPECT_FALSE( SourceSharpTe_StoreRecvProp( Row( DPT_Int, SOURCESHARP_RECVPROXY_STATIC_DATATABLE ), "a", NULL, &prop ) );
-	EXPECT_FALSE( SourceSharpTe_StoreRecvProp( Row( DPT_Array, SOURCESHARP_RECVPROXY_INT32_TO_INT32 ), "b", NULL, &prop ) );
+	EXPECT_FALSE(
+		SourceSharpTe_StoreRecvProp( Row( DPT_Int, SOURCESHARP_RECVPROXY_STATIC_DATATABLE ), "a", NULL, &prop ) );
+	EXPECT_FALSE(
+		SourceSharpTe_StoreRecvProp( Row( DPT_Array, SOURCESHARP_RECVPROXY_INT32_TO_INT32 ), "b", NULL, &prop ) );
 	EXPECT_FALSE( SourceSharpTe_StoreRecvProp( Row( DPT_Float, SOURCESHARP_RECVPROXY_NONE ), "c", NULL, &prop ) );
-	EXPECT_FALSE( SourceSharpTe_StoreRecvProp( Row( DPT_Float, SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT ), NULL, NULL, &prop ) );
+	EXPECT_FALSE(
+		SourceSharpTe_StoreRecvProp( Row( DPT_Float, SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT ), NULL, NULL, &prop ) );
 	EXPECT_STREQ( "untouched", prop.m_pVarName );
 
 	// The control: the same prop with a fitting proxy is stored.
-	EXPECT_TRUE( SourceSharpTe_StoreRecvProp( Row( DPT_Float, SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT ), "d", NULL, &prop ) );
+	EXPECT_TRUE(
+		SourceSharpTe_StoreRecvProp( Row( DPT_Float, SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT ), "d", NULL, &prop ) );
 	EXPECT_STREQ( "d", prop.m_pVarName );
 }
 

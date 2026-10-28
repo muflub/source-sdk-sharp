@@ -10,16 +10,7 @@
 // client proxies for the IVEngineClient calls a managed function pointer cannot express.
 
 #ifdef CLIENT_DLL
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
+
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -33,7 +24,7 @@
 #include "con_nprint.h"
 #endif
 #include "filesystem.h"
-#include "engine/ivmodelinfo.h"
+
 #include "engine/IStaticPropMgr.h"
 #include "engine/IEngineTrace.h"
 #include "engine/ivdebugoverlay.h"
@@ -41,13 +32,13 @@
 #include "igameevents.h"
 #include "vphysics_interface.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "vstdlib/random.h"
+
 #include "networkstringtabledefs.h"
 
 // Without this, `random` resolves to <stdlib.h>'s random() rather than
 // sharedInterface.h's IUniformRandomStream *.
 #ifdef CLIENT_DLL
-#include "sharedInterface.h"
+
 #include "inputsystem/iinputsystem.h"
 #endif
 
@@ -61,9 +52,8 @@ using ss::factorylist_t;
 using ss::FactoryList_Retrieve;
 #endif
 
-#include "sourcesharp.h"
 #include "shell_vtable_interfaces.h"
-#include "shell_diagnostics.h"
+
 #include "ss_string.h"
 
 // The engine interface versions this side was built to serve. Decided here rather than
@@ -81,8 +71,7 @@ bool SourceSharpServes( const char *pszVersion )
 		return true;
 
 	// The engine registers two IVModelInfo objects; one forwarder table calls either.
-	if ( !ss::StrICmp( pszVersion, "VModelInfoServer004" )
-	     || !ss::StrICmp( pszVersion, "VModelInfoClient006" ) )
+	if ( !ss::StrICmp( pszVersion, "VModelInfoServer004" ) || !ss::StrICmp( pszVersion, "VModelInfoClient006" ) )
 		return true;
 
 	if ( !ss::StrICmp( pszVersion, "VBaseFileSystem011" ) )
@@ -179,26 +168,27 @@ CreateInterfaceFn FactoryFor( SourceSharpFactoryType eType, bool *pbStored )
 
 	switch ( eType )
 	{
-	case SOURCESHARP_FACTORY_APPSYSTEM:  return pAppSystem;
-	case SOURCESHARP_FACTORY_PHYSICS:    return factories.physicsFactory;
-	case SOURCESHARP_FACTORY_FILESYSTEM: return pFileSystem;
-	default:                             return NULL;
+		case SOURCESHARP_FACTORY_APPSYSTEM:
+			return pAppSystem;
+		case SOURCESHARP_FACTORY_PHYSICS:
+			return factories.physicsFactory;
+		case SOURCESHARP_FACTORY_FILESYSTEM:
+			return pFileSystem;
+		default:
+			return NULL;
 	}
 }
 
 } // namespace
 
 // pError is written only on failure, truncating.
-void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *pszVersion,
-                                    char *pError, int32_t nErrorBytes )
+void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *pszVersion, char *pError,
+									int32_t nErrorBytes )
 {
-	if ( eType != SOURCESHARP_FACTORY_APPSYSTEM
-	     && eType != SOURCESHARP_FACTORY_PHYSICS
-	     && eType != SOURCESHARP_FACTORY_FILESYSTEM
-	     && eType != SOURCESHARP_FACTORY_INTERNAL )
+	if ( eType != SOURCESHARP_FACTORY_APPSYSTEM && eType != SOURCESHARP_FACTORY_PHYSICS &&
+		 eType != SOURCESHARP_FACTORY_FILESYSTEM && eType != SOURCESHARP_FACTORY_INTERNAL )
 	{
-		SourceSharp_SayAcquireReason( pError, nErrorBytes,
-		                              SOURCESHARP_ACQUIRE_UNKNOWN_FACTORY_TYPE );
+		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_FACTORY_TYPE );
 		return NULL;
 	}
 
@@ -210,16 +200,14 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 
 		if ( !pShim )
 		{
-			SourceSharp_SayAcquireReason( pError, nErrorBytes,
-			                              SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+			SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
 			return NULL;
 		}
 
 		return pShim;
 #else
 		// The server's root serves this kind itself and never reaches here.
-		SourceSharp_SayAcquireReason( pError, nErrorBytes,
-		                              SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
 		return NULL;
 #endif
 	}
@@ -227,8 +215,7 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 	// Refused before any factory is asked, so another side's object is never reached.
 	if ( !SourceSharpServes( pszVersion ) )
 	{
-		SourceSharp_SayAcquireReason( pError, nErrorBytes,
-		                              SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
 		return NULL;
 	}
 
@@ -237,15 +224,13 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 
 	if ( !bStored )
 	{
-		SourceSharp_SayAcquireReason( pError, nErrorBytes,
-		                              SOURCESHARP_ACQUIRE_NOT_YET_AVAILABLE );
+		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_NOT_YET_AVAILABLE );
 		return NULL;
 	}
 
 	if ( !pFactory )
 	{
-		SourceSharp_SayAcquireReason( pError, nErrorBytes,
-		                              SOURCESHARP_ACQUIRE_NO_SUCH_FACTORY );
+		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_NO_SUCH_FACTORY );
 		return NULL;
 	}
 
@@ -254,8 +239,7 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 	if ( !pInterface )
 	{
 		// A factory answers only for what it registered.
-		SourceSharp_SayAcquireReason( pError, nErrorBytes,
-		                              SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
 		return NULL;
 	}
 
@@ -268,7 +252,7 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 // never as the format string.
 void SourceSharp_ConNPrintf( void *pEngineClient, int32_t nPos, const char *pszText )
 {
-	IVEngineClient *pEngine = static_cast< IVEngineClient * >( pEngineClient );
+	IVEngineClient *pEngine = static_cast<IVEngineClient *>( pEngineClient );
 
 	if ( !pEngine || !pszText )
 		return;
@@ -277,21 +261,20 @@ void SourceSharp_ConNPrintf( void *pEngineClient, int32_t nPos, const char *pszT
 }
 
 // Con_NXPrintf, with con_nprint_s flattened into scalars so managed need not mirror it.
-void SourceSharp_ConNXPrintf( void *pEngineClient, int32_t nIndex, float flTimeToLive,
-                              const float *pColorRGB, int32_t bFixedWidthFont,
-                              const char *pszText )
+void SourceSharp_ConNXPrintf( void *pEngineClient, int32_t nIndex, float flTimeToLive, const float *pColorRGB,
+							  int32_t bFixedWidthFont, const char *pszText )
 {
-	IVEngineClient *pEngine = static_cast< IVEngineClient * >( pEngineClient );
+	IVEngineClient *pEngine = static_cast<IVEngineClient *>( pEngineClient );
 
 	if ( !pEngine || !pszText || !pColorRGB )
 		return;
 
 	con_nprint_t info;
-	info.index            = nIndex;
-	info.time_to_live     = flTimeToLive;
-	info.color[ 0 ]       = pColorRGB[ 0 ];
-	info.color[ 1 ]       = pColorRGB[ 1 ];
-	info.color[ 2 ]       = pColorRGB[ 2 ];
+	info.index = nIndex;
+	info.time_to_live = flTimeToLive;
+	info.color[0] = pColorRGB[0];
+	info.color[1] = pColorRGB[1];
+	info.color[2] = pColorRGB[2];
 	info.fixed_width_font = bFixedWidthFont != 0;
 
 	pEngine->Con_NXPrintf( &info, "%s", pszText );
@@ -299,36 +282,34 @@ void SourceSharp_ConNXPrintf( void *pEngineClient, int32_t nIndex, float flTimeT
 
 // GetLightForPoint(Fast) return Vector by value in xmm registers, which a managed function
 // pointer cannot express. pOutXYZ is written only on success.
-void SourceSharp_GetLightForPoint( void *pEngineClient, const float *pPosXYZ,
-                                   int32_t bClamp, float *pOutXYZ )
+void SourceSharp_GetLightForPoint( void *pEngineClient, const float *pPosXYZ, int32_t bClamp, float *pOutXYZ )
 {
-	IVEngineClient *pEngine = static_cast< IVEngineClient * >( pEngineClient );
+	IVEngineClient *pEngine = static_cast<IVEngineClient *>( pEngineClient );
 
 	if ( !pEngine || !pPosXYZ || !pOutXYZ )
 		return;
 
-	const Vector position( pPosXYZ[ 0 ], pPosXYZ[ 1 ], pPosXYZ[ 2 ] );
+	const Vector position( pPosXYZ[0], pPosXYZ[1], pPosXYZ[2] );
 	const Vector light = pEngine->GetLightForPoint( position, bClamp != 0 );
 
-	pOutXYZ[ 0 ] = light.x;
-	pOutXYZ[ 1 ] = light.y;
-	pOutXYZ[ 2 ] = light.z;
+	pOutXYZ[0] = light.x;
+	pOutXYZ[1] = light.y;
+	pOutXYZ[2] = light.z;
 }
 
-void SourceSharp_GetLightForPointFast( void *pEngineClient, const float *pPosXYZ,
-                                       int32_t bClamp, float *pOutXYZ )
+void SourceSharp_GetLightForPointFast( void *pEngineClient, const float *pPosXYZ, int32_t bClamp, float *pOutXYZ )
 {
-	IVEngineClient *pEngine = static_cast< IVEngineClient * >( pEngineClient );
+	IVEngineClient *pEngine = static_cast<IVEngineClient *>( pEngineClient );
 
 	if ( !pEngine || !pPosXYZ || !pOutXYZ )
 		return;
 
-	const Vector position( pPosXYZ[ 0 ], pPosXYZ[ 1 ], pPosXYZ[ 2 ] );
+	const Vector position( pPosXYZ[0], pPosXYZ[1], pPosXYZ[2] );
 	const Vector light = pEngine->GetLightForPointFast( position, bClamp != 0 );
 
-	pOutXYZ[ 0 ] = light.x;
-	pOutXYZ[ 1 ] = light.y;
-	pOutXYZ[ 2 ] = light.z;
+	pOutXYZ[0] = light.x;
+	pOutXYZ[1] = light.y;
+	pOutXYZ[2] = light.z;
 }
 
 #endif // CLIENT_DLL

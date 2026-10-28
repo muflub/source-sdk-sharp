@@ -3,7 +3,7 @@
 17	INSTRUMENT	[CShellClientDllRefusals] void Unreachable( const char *pMethod )
 1	INSTRUMENT	[CShellClientDllRefusals] int Total() const
 1	INSTRUMENT	[CShellClientDllRefusals] int MethodCount() const
-4	INSTRUMENT	[CShellClientDllRefusals] const char *MethodAt( int i ) const
-4	INSTRUMENT	[CShellClientDllRefusals] int CountAt( int i ) const
+1	INSTRUMENT	[CShellClientDllRefusals] const char *MethodAt( int i ) const
+1	INSTRUMENT	[CShellClientDllRefusals] int CountAt( int i ) const
 5	INSTRUMENT	[CShellClientDllRefusals] int CountOf( const char *pMethod ) const
 11	INSTRUMENT	[CShellClientDllRefusals] int Find( const char *pMethod ) const

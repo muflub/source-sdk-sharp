@@ -14,7 +14,7 @@
 #include "eiface.h"
 #include "igamerules.h"
 #include "ishim_frame.h"
-#include "shell_server.h"
+
 #include "shell_standalone_player.h"
 #include "datacache/imdlcache.h"
 
@@ -47,33 +47,18 @@ public:
 	// No fields: the object exists only to give the forwarder table an address.
 
 	// gameinterface.cpp:1326. C# does the branching.
-	virtual int32_t IsSimulatingOnAlternateTicks() OVERRIDE
-	{
-		return EntitySim_IsSimulatingOnAlternateTicks() ? 1 : 0;
-	}
+	virtual int32_t IsSimulatingOnAlternateTicks() OVERRIDE { return EntitySim_IsSimulatingOnAlternateTicks() ? 1 : 0; }
 
 	// For the `tickcount & 1` test; Globals is unavailable on this path.
-	virtual int32_t TickCount() OVERRIDE
-	{
-		return gpGlobals->tickcount;
-	}
+	virtual int32_t TickCount() OVERRIDE { return gpGlobals->tickcount; }
 
 	// A pair, so the alternate-tick arithmetic stays in C# beside stock's.
-	virtual float GetFrameTime() OVERRIDE
-	{
-		return gpGlobals->frametime;
-	}
+	virtual float GetFrameTime() OVERRIDE { return gpGlobals->frametime; }
 
-	virtual void SetFrameTime( float flFrameTime ) OVERRIDE
-	{
-		gpGlobals->frametime = flFrameTime;
-	}
+	virtual void SetFrameTime( float flFrameTime ) OVERRIDE { gpGlobals->frametime = flFrameTime; }
 
 	// gameinterface.cpp:1389.
-	virtual void UpdateAllClientData() OVERRIDE
-	{
-		::UpdateAllClientData();
-	}
+	virtual void UpdateAllClientData() OVERRIDE { ::UpdateAllClientData(); }
 
 	// gameinterface.cpp:1391-1394. The null test stays native: g_pGameRules does not exist
 	// between levels.
@@ -83,44 +68,23 @@ public:
 			g_pGameRules->EndGameFrame();
 	}
 
-	virtual void GamestatsUpdateConnection() OVERRIDE
-	{
-		gamestatsuploader->UpdateConnection();
-	}
+	virtual void GamestatsUpdateConnection() OVERRIDE { gamestatsuploader->UpdateConnection(); }
 
 	// PreClientUpdate, gameinterface.cpp:1440.
-	virtual void DrawAllDebugOverlays() OVERRIDE
-	{
-		::DrawAllDebugOverlays();
-	}
+	virtual void DrawAllDebugOverlays() OVERRIDE { ::DrawAllDebugOverlays(); }
 
 	// The hierarchy's player commands run, then the managed thinks, then Finish composes
 	// parented children and drains deferred deletes. C# owns that order.
-	virtual void StandalonePlayerCommands() OVERRIDE
-	{
-		CStandalonePlayer::RunAllQueuedCommands();
-	}
+	virtual void StandalonePlayerCommands() OVERRIDE { CStandalonePlayer::RunAllQueuedCommands(); }
 
-	virtual void StandaloneFinish() OVERRIDE
-	{
-		StandaloneEntities_Finish();
-	}
+	virtual void StandaloneFinish() OVERRIDE { StandaloneEntities_Finish(); }
 
 	// After the managed frame, at the position ServerSystems gives it.
-	virtual void DrainEntitySlots() OVERRIDE
-	{
-		SourceSharp_DrainEntitySlots();
-	}
+	virtual void DrainEntitySlots() OVERRIDE { SourceSharp_DrainEntitySlots(); }
 
-	virtual void BeginModelCacheLock() OVERRIDE
-	{
-		mdlcache->BeginLock();
-	}
+	virtual void BeginModelCacheLock() OVERRIDE { mdlcache->BeginLock(); }
 
-	virtual void EndModelCacheLock() OVERRIDE
-	{
-		mdlcache->EndLock();
-	}
+	virtual void EndModelCacheLock() OVERRIDE { mdlcache->EndLock(); }
 };
 
 } // namespace
@@ -131,5 +95,5 @@ static CShimFrame g_ShimFrame;
 // ishim_frame.h with its own slot count.
 void *ShimFrame_Acquire()
 {
-	return static_cast< IShimFrame * >( &g_ShimFrame );
+	return static_cast<IShimFrame *>( &g_ShimFrame );
 }

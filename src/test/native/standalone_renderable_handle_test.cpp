@@ -16,6 +16,7 @@ namespace
 struct FakeHandle
 {
 	int nValue;
+
 	int ToInt() const { return nValue; }
 };
 
@@ -26,7 +27,12 @@ struct FakeUnknown
 	FakeHandle handle;
 
 	void *GetIClientEntity() { return pEntity; }
-	const FakeHandle &GetRefEHandle() { ++nHandleAsks; return handle; }
+
+	const FakeHandle &GetRefEHandle()
+	{
+		++nHandleAsks;
+		return handle;
+	}
 };
 
 TEST( StandaloneRenderableHandle, ANonEntityIsNeverAskedForAHandle )

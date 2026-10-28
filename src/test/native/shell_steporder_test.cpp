@@ -69,27 +69,10 @@ void ShellGameDll_TransmitCaptureMark( int iEdict )
 // HALF ONE -- THE BODIES.
 //=============================================================================
 
-
-
-
-
-
-
-
-
-
-
-
 //-----------------------------------------------------------------------------
 // The trigger. Without it the level load cannot be recorded at all -- see
 // shell_steporder.h for the measurement that produced it.
 //-----------------------------------------------------------------------------
-
-
-
-
-
-
 
 //-----------------------------------------------------------------------------
 // The transmit set.
@@ -256,6 +239,3 @@ namespace
 {
 
 } // namespace
-
-
-

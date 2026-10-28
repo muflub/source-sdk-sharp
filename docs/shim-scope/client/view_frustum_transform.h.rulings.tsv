@@ -1,3 +1,3 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-inline int ViewFrustumTransform(	SLOT-HELP	view_scene.cpp's FrustumTransform: a point through a 4x4 matrix, divided by w
+inline int ViewFrustumTransform( const float *m, const float *point, float *screen )	SLOT-HELP	view_scene.cpp's FrustumTransform: a point through a 4x4 matrix, divided by w

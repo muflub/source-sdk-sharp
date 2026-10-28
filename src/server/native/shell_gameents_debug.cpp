@@ -9,7 +9,7 @@
 // Debug builds only; NativeCommands declares the matching rows under #if DEBUG.
 
 #include "edict.h"
-#include "tier0/dbg.h"
+
 #include "shell_boundary_probe.h"
 #include "native_command_body.h"
 
@@ -20,13 +20,12 @@ extern CGlobalVars *gpGlobals;
 SS_NATIVE_COMMAND( ss_boundary_probe_report )
 {
 	Msg( "[SourceSharp] engine-boundary probe (server): map '%s', tick %d\n",
-	     gpGlobals->mapname.ToCStr() ? gpGlobals->mapname.ToCStr() : "(none)",
-	     gpGlobals->tickcount );
+		 gpGlobals->mapname.ToCStr() ? gpGlobals->mapname.ToCStr() : "(none)", gpGlobals->tickcount );
 
 	for ( int id = 0; id < kBoundaryProbeCount; id++ )
 	{
 		// The widest line: a 56-column name, three counts, sixteen 64-character callers.
-		char szLine[ 2048 ];
+		char szLine[2048];
 		BoundaryProbes().FormatLine( id, szLine, sizeof( szLine ) );
 		Msg( "  %s\n", szLine );
 	}

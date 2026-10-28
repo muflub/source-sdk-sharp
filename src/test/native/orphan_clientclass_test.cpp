@@ -67,15 +67,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -106,8 +106,8 @@ std::string NoWhitespace( const std::string &in )
 	std::string out;
 	out.reserve( in.size() );
 	for ( size_t i = 0; i < in.size(); i++ )
-		if ( !isspace( (unsigned char)in[ i ] ) )
-			out += in[ i ];
+		if ( !isspace( (unsigned char)in[i] ) )
+			out += in[i];
 	return out;
 }
 
@@ -125,10 +125,10 @@ std::string NoWhitespace( const std::string &in )
 // which is the walker's "did it really read the whole list" check, done by
 // the helper against a second reading.
 //-----------------------------------------------------------------------------
-std::vector< std::string > TargetFiles( const char *pszTarget )
+std::vector<std::string> TargetFiles( const char *pszTarget )
 {
-	const std::set< std::string > srcs = cmake_graph::CompiledSources( pszTarget );
-	return std::vector< std::string >( srcs.begin(), srcs.end() );
+	const std::set<std::string> srcs = cmake_graph::CompiledSources( pszTarget );
+	return std::vector<std::string>( srcs.begin(), srcs.end() );
 }
 
 //-----------------------------------------------------------------------------
@@ -196,13 +196,30 @@ std::vector< std::string > TargetFiles( const char *pszTarget )
 struct GuardWorld
 {
 	bool bClient;
-	bool bAlias;        // SS_CBASEENTITY_ALIAS, from the build. See AliasArmedIn.
+	bool bAlias; // SS_CBASEENTITY_ALIAS, from the build. See AliasArmedIn.
+
 	bool Known( const std::string &name, bool &bValue ) const
 	{
-		if ( name == "SOURCESHARP" )          { bValue = true;      return true; }
-		if ( name == "CLIENT_DLL" )           { bValue = bClient;   return true; }
-		if ( name == "GAME_DLL" )             { bValue = !bClient;  return true; }
-		if ( name == "SS_CBASEENTITY_ALIAS" ) { bValue = bAlias;    return true; }
+		if ( name == "SOURCESHARP" )
+		{
+			bValue = true;
+			return true;
+		}
+		if ( name == "CLIENT_DLL" )
+		{
+			bValue = bClient;
+			return true;
+		}
+		if ( name == "GAME_DLL" )
+		{
+			bValue = !bClient;
+			return true;
+		}
+		if ( name == "SS_CBASEENTITY_ALIAS" )
+		{
+			bValue = bAlias;
+			return true;
+		}
 		return false;
 	}
 };
@@ -210,31 +227,30 @@ struct GuardWorld
 std::string FirstIdentifier( const std::string &in )
 {
 	size_t i = 0;
-	while ( i < in.size() && !( isalpha( (unsigned char)in[ i ] ) || in[ i ] == '_' ) )
+	while ( i < in.size() && !( isalpha( (unsigned char)in[i] ) || in[i] == '_' ) )
 		i++;
 	size_t start = i;
-	while ( i < in.size() && ( isalnum( (unsigned char)in[ i ] ) || in[ i ] == '_' ) )
+	while ( i < in.size() && ( isalnum( (unsigned char)in[i] ) || in[i] == '_' ) )
 		i++;
 	return in.substr( start, i - start );
 }
 
 std::string StripDeadArms( const std::string &in, const GuardWorld &world )
 {
-	std::vector< std::pair< bool, bool > > stack;   // (known, emitting)
+	std::vector<std::pair<bool, bool>> stack; // (known, emitting)
 	std::string out;
 	size_t pos = 0;
 	while ( pos <= in.size() )
 	{
 		size_t nl = in.find( '\n', pos );
-		const std::string line =
-			in.substr( pos, ( nl == std::string::npos ? in.size() : nl ) - pos );
+		const std::string line = in.substr( pos, ( nl == std::string::npos ? in.size() : nl ) - pos );
 
 		std::string t = line;
 		size_t a = t.find_first_not_of( " \t\r" );
 		t = ( a == std::string::npos ) ? std::string() : t.substr( a );
 
 		bool bDirective = false;
-		if ( !t.empty() && t[ 0 ] == '#' )
+		if ( !t.empty() && t[0] == '#' )
 		{
 			std::string rest = t.substr( 1 );
 			size_t b = rest.find_first_not_of( " \t" );
@@ -248,21 +264,32 @@ std::string StripDeadArms( const std::string &in, const GuardWorld &world )
 				std::string name;
 				bool bWant = true;
 				bool bParsed = false;
-				if ( word == "ifdef" )       { name = FirstIdentifier( tail ); bWant = true;  bParsed = true; }
-				else if ( word == "ifndef" ) { name = FirstIdentifier( tail ); bWant = false; bParsed = true; }
+				if ( word == "ifdef" )
+				{
+					name = FirstIdentifier( tail );
+					bWant = true;
+					bParsed = true;
+				}
+				else if ( word == "ifndef" )
+				{
+					name = FirstIdentifier( tail );
+					bWant = false;
+					bParsed = true;
+				}
 				else
 				{
 					const std::string cond = NoWhitespace( tail );
-					if ( cond.compare( 0, 8, "defined(" ) == 0
-					    || cond.compare( 0, 7, "defined" ) == 0 )
+					if ( cond.compare( 0, 8, "defined(" ) == 0 || cond.compare( 0, 7, "defined" ) == 0 )
 					{
 						name = FirstIdentifier( cond.substr( 7 ) );
-						bWant = true; bParsed = true;
+						bWant = true;
+						bParsed = true;
 					}
 					else if ( cond.compare( 0, 8, "!defined" ) == 0 )
 					{
 						name = FirstIdentifier( cond.substr( 8 ) );
-						bWant = false; bParsed = true;
+						bWant = false;
+						bParsed = true;
 					}
 					// A `defined(A) && defined(B)` reads as its FIRST name only,
 					// which keeps both arms unless that one name settles it --
@@ -303,7 +330,8 @@ std::string StripDeadArms( const std::string &in, const GuardWorld &world )
 
 		bool bEmit = true;
 		for ( size_t i = 0; i < stack.size(); i++ )
-			if ( !stack[ i ].second ) bEmit = false;
+			if ( !stack[i].second )
+				bEmit = false;
 
 		out += ( bDirective || !bEmit ) ? std::string() : line;
 		out += '\n';
@@ -334,9 +362,9 @@ std::string StripDeadArms( const std::string &in, const GuardWorld &world )
 //-----------------------------------------------------------------------------
 // The rule on its own, so it can be checked on a set rather than only on
 // whatever the tree is in today.
-bool DefinesAlias( const std::set< std::string > &defs )
+bool DefinesAlias( const std::set<std::string> &defs )
 {
-	for ( std::set< std::string >::const_iterator it = defs.begin(); it != defs.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = defs.begin(); it != defs.end(); ++it )
 	{
 		if ( *it == "SS_CBASEENTITY_ALIAS" || it->compare( 0, 21, "SS_CBASEENTITY_ALIAS=" ) == 0 )
 			return true;
@@ -352,7 +380,7 @@ bool AliasArmedIn( const char *pszTarget )
 const char *const kClient = cmake_graph::kClient;
 const char *const kServer = cmake_graph::kServer;
 
-const char *kRagdoll     = "game/client/ragdoll.cpp";
+const char *kRagdoll = "game/client/ragdoll.cpp";
 } // namespace
 
 //=============================================================================//
@@ -386,26 +414,25 @@ TEST( OrphanClientClass, TheAliasIsReadOutOfTheBuildAndNotAssumed )
 	// POSITIVE CONTROL, both ways, on constructed sets rather than on the tree
 	// -- so this fact is not satisfied by whatever the tree happens to be today.
 	{
-		std::set< std::string > armed;
-		armed.insert( "SOURCESHARP" ); armed.insert( "SS_CBASEENTITY_ALIAS" );
-		std::set< std::string > armedValue;
-		armedValue.insert( "SOURCESHARP" ); armedValue.insert( "SS_CBASEENTITY_ALIAS=1" );
-		std::set< std::string > bare;
+		std::set<std::string> armed;
+		armed.insert( "SOURCESHARP" );
+		armed.insert( "SS_CBASEENTITY_ALIAS" );
+		std::set<std::string> armedValue;
+		armedValue.insert( "SOURCESHARP" );
+		armedValue.insert( "SS_CBASEENTITY_ALIAS=1" );
+		std::set<std::string> bare;
 		bare.insert( "SOURCESHARP" );
 		// A NAME match, not a prefix one.
-		std::set< std::string > lookalike;
-		lookalike.insert( "SOURCESHARP" ); lookalike.insert( "SS_CBASEENTITY_ALIAS_OFF" );
+		std::set<std::string> lookalike;
+		lookalike.insert( "SOURCESHARP" );
+		lookalike.insert( "SS_CBASEENTITY_ALIAS_OFF" );
 
-		EXPECT_TRUE( DefinesAlias( armed ) )
-			<< "the reader cannot see the macro in a definitions set, so it "
-			   "would answer 'unarmed' about an armed tree -- which is the "
-			   "defect this fact exists for";
-		EXPECT_TRUE( DefinesAlias( armedValue ) )
-			<< "the reader misses -DSS_CBASEENTITY_ALIAS=1";
-		EXPECT_FALSE( DefinesAlias( bare ) )
-			<< "the reader says 'armed' about a build that defines nothing";
-		EXPECT_FALSE( DefinesAlias( lookalike ) )
-			<< "the reader is matching a PREFIX of the macro's name";
+		EXPECT_TRUE( DefinesAlias( armed ) ) << "the reader cannot see the macro in a definitions set, so it "
+												"would answer 'unarmed' about an armed tree -- which is the "
+												"defect this fact exists for";
+		EXPECT_TRUE( DefinesAlias( armedValue ) ) << "the reader misses -DSS_CBASEENTITY_ALIAS=1";
+		EXPECT_FALSE( DefinesAlias( bare ) ) << "the reader says 'armed' about a build that defines nothing";
+		EXPECT_FALSE( DefinesAlias( lookalike ) ) << "the reader is matching a PREFIX of the macro's name";
 	}
 
 	// And the guard world really uses it: an armed world must strip a
@@ -414,8 +441,12 @@ TEST( OrphanClientClass, TheAliasIsReadOutOfTheBuildAndNotAssumed )
 		const std::string body =
 			"#ifndef SS_CBASEENTITY_ALIAS\nIMPLEMENT_CLIENTCLASS_DT(C_Probe,DT_Probe,CProbe)\n#endif\n";
 
-		GuardWorld unarmed; unarmed.bClient = true; unarmed.bAlias = false;
-		GuardWorld armed;   armed.bClient   = true; armed.bAlias   = true;
+		GuardWorld unarmed;
+		unarmed.bClient = true;
+		unarmed.bAlias = false;
+		GuardWorld armed;
+		armed.bClient = true;
+		armed.bAlias = true;
 
 		EXPECT_TRUE( Has( StripDeadArms( body, unarmed ), "IMPLEMENT_CLIENTCLASS_DT" ) )
 			<< "an UNARMED world dropped an arm it compiles";
@@ -455,7 +486,8 @@ TEST( OrphanClientClass, TheAttachedRagdollClientClassAndItsRecvTableAreGone )
 		<< "client_sourcesharp does not compile shell_clientdll.cpp -- the "
 		   "reader is not reading the client's source list";
 	EXPECT_FALSE( cmake_graph::Compiles( kClient, kRagdoll ) )
-		<< kRagdoll << " is back in the client project, and with it the place "
+		<< kRagdoll
+		<< " is back in the client project, and with it the place "
 		   "the attached ragdoll's ClientClass registration lived.";
 }
 
@@ -473,20 +505,19 @@ TEST( OrphanClientClass, EveryCompiledSourceResolvesOnDisk )
 	for ( size_t v = 0; v < 2; v++ )
 	{
 		// cmake_graph throws on a missing, empty or stale list; see TargetFiles.
-		const std::vector< std::string > files = TargetFiles( targets[ v ] );
+		const std::vector<std::string> files = TargetFiles( targets[v] );
 
 		std::string missing;
 		int nMissing = 0;
 		for ( size_t i = 0; i < files.size(); i++ )
-			if ( !Exists( files[ i ] ) )
+			if ( !Exists( files[i] ) )
 			{
 				nMissing++;
-				missing += "\n    " + files[ i ];
+				missing += "\n    " + files[i];
 			}
 
-		EXPECT_EQ( 0, nMissing ) << targets[ v ] << " ("
-			<< cmake_graph::ListFile( targets[ v ] ) << ") names " << nMissing
-			<< " file(s) that are not on disk:" << missing;
+		EXPECT_EQ( 0, nMissing ) << targets[v] << " (" << cmake_graph::ListFile( targets[v] ) << ") names " << nMissing
+								 << " file(s) that are not on disk:" << missing;
 	}
 }
 

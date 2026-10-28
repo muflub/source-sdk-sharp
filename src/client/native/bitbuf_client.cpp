@@ -10,15 +10,9 @@
 // debug builds. The buffers are the engine's, written by bitbuf.h's layout.
 
 #include "tier1/bitbuf.h"
-#include "tier0/platform.h"
-
-#include <cstdint>
-#include <cstring>
 
 // Debug builds' error hook; nothing on client.so installs a handler.
-void InternalBitBufErrorHandler( BitBufErrorType, const char * )
-{
-}
+void InternalBitBufErrorHandler( BitBufErrorType, const char * ) {}
 
 const char *bf_write::GetDebugName()
 {
@@ -61,8 +55,8 @@ bool bf_write::WriteBits( const void *pIn, int nBits )
 	if ( left >= 32 )
 	{
 		const uint32 shift = m_iCurBit & 31;
-		const uint32 keepLow = shift ? ( ( 1u << shift ) - 1 ) : 0;	// bits below shift in the first word
-		uint32 *dst = &m_pData[ m_iCurBit >> 5 ];
+		const uint32 keepLow = shift ? ( ( 1u << shift ) - 1 ) : 0; // bits below shift in the first word
+		uint32 *dst = &m_pData[m_iCurBit >> 5];
 		for ( ; left >= 32; left -= 32, m_iCurBit += 32 )
 		{
 			uint32 word;

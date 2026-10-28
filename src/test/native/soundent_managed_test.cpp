@@ -38,9 +38,10 @@
 namespace
 {
 
-const char *kShim         = "sourcesharp/game/server/shell_soundent.cpp";
-const char *kEnvShim      = "sourcesharp/game/server/shell_soundenvelope.cpp";
-const char *kEnvCpp       = "game/shared/soundenvelope.cpp";
+const char *kShim = "sourcesharp/game/server/shell_soundent.cpp";
+const char *kEnvShim = "sourcesharp/game/server/shell_soundenvelope.cpp";
+const char *kEnvCpp = "game/shared/soundenvelope.cpp";
+
 // How many times server_sourcesharp's CMakeLists source list names a
 // farm-relative path. The match is on the WHOLE path, so a bare
 // "soundent.cpp" cannot be satisfied by shell_soundent.cpp -- the prefix shape
@@ -49,7 +50,7 @@ const char *kEnvCpp       = "game/shared/soundenvelope.cpp";
 // cmake_graph::Compiles, which throws on a missing, empty or stale input.
 int NamedInServer( const char *pszFarmRelative )
 {
-	const std::vector< std::string > listed = cmake_graph::ListedSources( cmake_graph::kServer );
+	const std::vector<std::string> listed = cmake_graph::ListedSources( cmake_graph::kServer );
 	const int n = (int)std::count( listed.begin(), listed.end(), std::string( pszFarmRelative ) );
 	EXPECT_EQ( n > 0, cmake_graph::Compiles( cmake_graph::kServer, pszFarmRelative ) )
 		<< pszFarmRelative << ": the CMakeLists list and compile_commands.json disagree";
@@ -68,7 +69,6 @@ int NamedInServer( const char *pszFarmRelative )
 // carry "CShim", so the body's own `::<body>(` never counts as a slot.
 //-----------------------------------------------------------------------------
 } // namespace
-
 
 //=============================================================================//
 // 1. THE ROW LEFT THE TABLE, AND THE TABLE SAYS WHY
@@ -113,10 +113,9 @@ TEST( SoundEntManaged, SoundEntCppIsNotInTheServersProject )
 
 TEST( SoundEntManaged, TheShimIsInTheServersProject )
 {
-	EXPECT_EQ( 1, NamedInServer( kShim ) )
-		<< "shell_soundent.cpp is not compiled, so every CSoundEnt static the "
-		   "tree spells is undefined -- which at least fails to link, unlike "
-		   "everything else this file guards against";
+	EXPECT_EQ( 1, NamedInServer( kShim ) ) << "shell_soundent.cpp is not compiled, so every CSoundEnt static the "
+											  "tree spells is undefined -- which at least fails to link, unlike "
+											  "everything else this file guards against";
 }
 
 // TheHeaderStillDeclaresTheStaticsTheShimDefines IS RETIRED. It pinned
@@ -177,12 +176,10 @@ TEST( SoundEntManaged, TheShimIsInTheServersProject )
 TEST( SoundControllerManaged, NeitherSoundenvelopeCppNorTheShimIsInTheServersProject )
 {
 	// Proof-of-read before the absences: a sound file that IS listed.
-	ASSERT_EQ( 1, NamedInServer( kShim ) )
-		<< "shell_soundent.cpp is not compiled, so the read below proves nothing";
+	ASSERT_EQ( 1, NamedInServer( kShim ) ) << "shell_soundent.cpp is not compiled, so the read below proves nothing";
 
-	EXPECT_EQ( 0, NamedInServer( kEnvCpp ) )
-		<< "game/shared/soundenvelope.cpp is compiled into server.so again, so "
-		   "there are two sound controllers and only one of them is driven";
+	EXPECT_EQ( 0, NamedInServer( kEnvCpp ) ) << "game/shared/soundenvelope.cpp is compiled into server.so again, so "
+												"there are two sound controllers and only one of them is driven";
 
 	// plan_server_native_v2 T4a: the server's patches are managed
 	// (ServerSoundPatches), so the shim that held them left the project.
@@ -199,4 +196,3 @@ TEST( SoundControllerManaged, NeitherSoundenvelopeCppNorTheShimIsInTheServersPro
 // own tests, and nothing in production calling it, passes every check that
 // exists and does nothing.
 //=============================================================================//
-

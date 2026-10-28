@@ -1,7 +1,7 @@
 //====== Copyright 1996-2018, Valve Corporation, All rights reserved. =======
-// Purpose: Steam Input is a flexible input API that supports over three hundred devices including all 
+// Purpose: Steam Input is a flexible input API that supports over three hundred devices including all
 //          common variants of Xbox, Playstation, Nintendo Switch Pro, and Steam Controllers.
-//			For more info including a getting started guide for developers 
+//			For more info including a getting started guide for developers
 //			please visit: https://partner.steamgames.com/doc/features/steam_controller
 
 #pragma once
@@ -44,17 +44,17 @@ enum ESteamInputType
 	k_ESteamInputType_SteamController,
 	k_ESteamInputType_XBox360Controller,
 	k_ESteamInputType_XBoxOneController,
-	k_ESteamInputType_GenericGamepad,		// DirectInput controllers
+	k_ESteamInputType_GenericGamepad, // DirectInput controllers
 	k_ESteamInputType_PS4Controller,
-	k_ESteamInputType_AppleMFiController,	// Unused
-	k_ESteamInputType_AndroidController,	// Unused
-	k_ESteamInputType_SwitchJoyConPair,		// Unused
-	k_ESteamInputType_SwitchJoyConSingle,	// Unused
+	k_ESteamInputType_AppleMFiController, // Unused
+	k_ESteamInputType_AndroidController, // Unused
+	k_ESteamInputType_SwitchJoyConPair, // Unused
+	k_ESteamInputType_SwitchJoyConSingle, // Unused
 	k_ESteamInputType_SwitchProController,
-	k_ESteamInputType_MobileTouch,			// Steam Link App On-screen Virtual Controller
-	k_ESteamInputType_PS3Controller,		// Currently uses PS4 Origins
-	k_ESteamInputType_PS5Controller,		// Added in SDK 151
-	k_ESteamInputType_SteamDeckController,	// Added in SDK 153
+	k_ESteamInputType_MobileTouch, // Steam Link App On-screen Virtual Controller
+	k_ESteamInputType_PS3Controller, // Currently uses PS4 Origins
+	k_ESteamInputType_PS5Controller, // Added in SDK 151
+	k_ESteamInputType_SteamDeckController, // Added in SDK 153
 	k_ESteamInputType_Count,
 	k_ESteamInputType_MaximumPossibleValue = 255,
 };
@@ -69,10 +69,10 @@ struct InputAnalogActionData_t
 {
 	// Type of data coming from this action, this will match what got specified in the action set
 	EInputSourceMode eMode;
-	
+
 	// The current state of this action; will be delta updates for mouse actions
 	float x, y;
-	
+
 	// Whether or not this action is currently available to be bound in the active action set
 	bool bActive;
 };
@@ -81,7 +81,7 @@ struct InputDigitalActionData_t
 {
 	// The current state of this action; will be true if currently pressed
 	bool bState;
-	
+
 	// Whether or not this action is currently available to be bound in the active action set
 	bool bActive;
 };
@@ -111,13 +111,12 @@ struct InputMotionData_t
 class ISteamInput
 {
 public:
-	
 	// Init and Shutdown must be called when starting/ending use of this interface.
 	// if bExplicitlyCallRunFrame is called then you will need to manually call RunFrame
 	// each frame, otherwise Steam Input will updated when SteamAPI_RunCallbacks() is called
 	virtual bool Init( bool bExplicitlyCallRunFrame ) = 0;
 	virtual bool Shutdown() = 0;
-	
+
 	// Set the absolute path to the Input Action Manifest file containing the in-game actions
 	// and file paths to the official configurations. Used in games that bundle Steam Input
 	// configurations inside of the game depot instead of using the Steam Workshop
@@ -125,7 +124,7 @@ public:
 
 	// Synchronize API state with the latest Steam Input action data available. This
 	// is performed automatically by SteamAPI_RunCallbacks, but for the absolute lowest
-	// possible latency, you call this directly before reading controller state. 
+	// possible latency, you call this directly before reading controller state.
 	// Note: This must be called from somewhere before GetConnectedControllers will
 	// return any handles
 	virtual void RunFrame( bool bReservedValue = true ) = 0;
@@ -145,9 +144,9 @@ public:
 	// handlesOut should point to a STEAM_INPUT_MAX_COUNT sized array of InputHandle_t handles
 	// Returns the number of handles written to handlesOut
 	virtual void unused_GetConnectedControllers() = 0;
-	
+
 	// CALLBACKS
-	
+
 	// Controller configuration loaded - these callbacks will always fire if you have
 	// a handler. Note: this is called within either SteamInput()->RunFrame or by SteamAPI_RunCallbacks
 	STEAM_CALL_BACK( SteamInputConfigurationLoaded_t )
@@ -180,7 +179,7 @@ public:
 
 	// Lookup the handle for an Action Set. Best to do this once on startup, and store the handles for all future API calls.
 	virtual void unused_GetActionSetHandle() = 0;
-	
+
 	// Reconfigure the controller to use the specified action set (ie 'Menu', 'Walk' or 'Drive')
 	// This is cheap, and can be safely called repeatedly. It's often easier to repeatedly call it in
 	// your state loops, instead of trying to place it in all of your state transitions.
@@ -201,21 +200,21 @@ public:
 
 	// Lookup the handle for a digital action. Best to do this once on startup, and store the handles for all future API calls.
 	virtual void unused_GetDigitalActionHandle() = 0;
-	
+
 	// Returns the current state of the supplied digital game action
 	virtual void unused_GetDigitalActionData() = 0;
-	
+
 	// Get the origin(s) for a digital action within an action set. Returns the number of origins supplied in originsOut. Use this to display the appropriate on-screen prompt for the action.
 	// originsOut should point to a STEAM_INPUT_MAX_ORIGINS sized array of EInputActionOrigin handles. The EInputActionOrigin enum will get extended as support for new controller controllers gets added to
 	// the Steam client and will exceed the values from this header, please check bounds if you are using a look up table.
 	virtual void unused_GetDigitalActionOrigins() = 0;
-	
+
 	// Returns a localized string (from Steam's language setting) for the user-facing action name corresponding to the specified handle
 	virtual void unused_GetStringForDigitalActionName() = 0;
 
 	// Lookup the handle for an analog action. Best to do this once on startup, and store the handles for all future API calls.
 	virtual void unused_GetAnalogActionHandle() = 0;
-	
+
 	// Returns the current state of these supplied analog game action
 	virtual void unused_GetAnalogActionData() = 0;
 
@@ -224,15 +223,15 @@ public:
 	// the Steam client and will exceed the values from this header, please check bounds if you are using a look up table.
 	virtual void unused_GetAnalogActionOrigins() = 0;
 
-	// Get a local path to a PNG file for the provided origin's glyph. 
+	// Get a local path to a PNG file for the provided origin's glyph.
 	virtual void unused_GetGlyphPNGForActionOrigin() = 0;
 
-	// Get a local path to a SVG file for the provided origin's glyph. 
+	// Get a local path to a SVG file for the provided origin's glyph.
 	virtual void unused_GetGlyphSVGForActionOrigin() = 0;
 
 	// Get a local path to an older, Big Picture Mode-style PNG file for a particular origin
 	virtual void unused_GetGlyphForActionOrigin_Legacy() = 0;
-	
+
 	// Returns a localized string (from Steam's language setting) for the specified origin.
 	virtual void unused_GetStringForActionOrigin() = 0;
 
@@ -275,7 +274,7 @@ public:
 	virtual void unused_ShowBindingPanel() = 0;
 
 	// Returns the input type for a particular handle - unlike EInputActionOrigin which update with Steam and may return unrecognized values
-	// ESteamInputType will remain static and only return valid values from your SDK version 
+	// ESteamInputType will remain static and only return valid values from your SDK version
 	virtual void unused_GetInputTypeForHandle() = 0;
 
 	// Returns the associated controller handle for the specified emulated gamepad - can be used with the above 2 functions
@@ -284,7 +283,7 @@ public:
 
 	// Returns the associated gamepad index for the specified controller, if emulating a gamepad or -1 if not associated with an Xinput index
 	virtual void unused_GetGamepadIndexForController() = 0;
-	
+
 	// Returns a localized string (from Steam's language setting) for the specified Xbox controller origin.
 	virtual void unused_GetStringForXboxOrigin() = 0;
 
@@ -325,50 +324,66 @@ STEAM_DEFINE_USER_INTERFACE_ACCESSOR( ISteamInput *, SteamInput, STEAMINPUT_INTE
 #pragma pack( push, 8 )
 #else
 #error steam_api_common.h should define VALVE_CALLBACK_PACK_xxx
-#endif 
+#endif
 
 // Purpose: called when a new controller has been connected, will fire once
 // per controller if multiple new controllers connect in the same frame
 struct SteamInputDeviceConnected_t
 {
-	enum { k_iCallback = k_iSteamControllerCallbacks + 1 };
-	InputHandle_t		m_ulConnectedDeviceHandle;	// Handle for device
+	enum
+	{
+		k_iCallback = k_iSteamControllerCallbacks + 1
+	};
+
+	InputHandle_t m_ulConnectedDeviceHandle; // Handle for device
 };
 
 // Purpose: called when a new controller has been connected, will fire once
 // per controller if multiple new controllers connect in the same frame
 struct SteamInputDeviceDisconnected_t
 {
-	enum { k_iCallback = k_iSteamControllerCallbacks + 2 };
-	InputHandle_t		m_ulDisconnectedDeviceHandle;	// Handle for device
+	enum
+	{
+		k_iCallback = k_iSteamControllerCallbacks + 2
+	};
+
+	InputHandle_t m_ulDisconnectedDeviceHandle; // Handle for device
 };
 
 // Purpose: called when a controller configuration has been loaded, will fire once
 // per controller per focus change for Steam Input enabled controllers
 struct SteamInputConfigurationLoaded_t
 {
-	enum { k_iCallback = k_iSteamControllerCallbacks + 3 };
-	AppId_t			m_unAppID;
-	InputHandle_t	m_ulDeviceHandle;		// Handle for device
-	CSteamID		m_ulMappingCreator;		// May differ from local user when using
-											// an unmodified community or official config
-	uint32			m_unMajorRevision;		// Binding revision from In-game Action File. 
-											// Same value as queried by GetDeviceBindingRevision
-	uint32			m_unMinorRevision;
-	bool			m_bUsesSteamInputAPI;	// Does the configuration contain any Analog/Digital actions?
-	bool			m_bUsesGamepadAPI;		// Does the configuration contain any Xinput bindings?
+	enum
+	{
+		k_iCallback = k_iSteamControllerCallbacks + 3
+	};
+
+	AppId_t m_unAppID;
+	InputHandle_t m_ulDeviceHandle; // Handle for device
+	CSteamID m_ulMappingCreator; // May differ from local user when using
+	// an unmodified community or official config
+	uint32 m_unMajorRevision; // Binding revision from In-game Action File.
+	// Same value as queried by GetDeviceBindingRevision
+	uint32 m_unMinorRevision;
+	bool m_bUsesSteamInputAPI; // Does the configuration contain any Analog/Digital actions?
+	bool m_bUsesGamepadAPI; // Does the configuration contain any Xinput bindings?
 };
 
 // Purpose: called when controller gamepad slots change - on Linux/macOS these
 // slots are shared for all running apps.
 struct SteamInputGamepadSlotChange_t
 {
-	enum { k_iCallback = k_iSteamControllerCallbacks + 4 };
-	AppId_t			m_unAppID;
-	InputHandle_t	m_ulDeviceHandle;		// Handle for device
-	ESteamInputType m_eDeviceType;			// Type of device
-	int				m_nOldGamepadSlot;		// Previous GamepadSlot - can be -1 controller doesn't uses gamepad bindings
-	int				m_nNewGamepadSlot;		// New Gamepad Slot - can be -1 controller doesn't uses gamepad bindings
+	enum
+	{
+		k_iCallback = k_iSteamControllerCallbacks + 4
+	};
+
+	AppId_t m_unAppID;
+	InputHandle_t m_ulDeviceHandle; // Handle for device
+	ESteamInputType m_eDeviceType; // Type of device
+	int m_nOldGamepadSlot; // Previous GamepadSlot - can be -1 controller doesn't uses gamepad bindings
+	int m_nNewGamepadSlot; // New Gamepad Slot - can be -1 controller doesn't uses gamepad bindings
 };
 
 #pragma pack( pop )

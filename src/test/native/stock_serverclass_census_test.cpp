@@ -100,15 +100,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -122,23 +122,28 @@ std::string StripComments( const std::string &strIn )
 	{
 		if ( bInBlock )
 		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
+			if ( i + 1 < strIn.size() && strIn[i] == '*' && strIn[i + 1] == '/' )
 			{
-				bInBlock = false; i++;
+				bInBlock = false;
+				i++;
 			}
 			continue;
 		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
+		if ( i + 1 < strIn.size() && strIn[i] == '/' && strIn[i + 1] == '*' )
 		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
+			bInBlock = true;
+			i++;
 			continue;
 		}
-		out += strIn[ i ];
+		if ( i + 1 < strIn.size() && strIn[i] == '/' && strIn[i + 1] == '/' )
+		{
+			while ( i < strIn.size() && strIn[i] != '\n' )
+				i++;
+			if ( i < strIn.size() )
+				out += '\n';
+			continue;
+		}
+		out += strIn[i];
 	}
 	return out;
 }
@@ -158,7 +163,7 @@ std::string ReadRaw( const std::string &strRelative )
 	std::string all, line;
 	while ( std::getline( file, line ) )
 	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
+		if ( !line.empty() && line[line.size() - 1] == '\r' )
 			line.erase( line.size() - 1 );
 		all += line;
 		all += '\n';
@@ -200,10 +205,10 @@ int CountOf( const std::string &hay, const std::string &needle )
 // anchor on one is a proof-of-read the flip can evict.
 const char *kServerProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 
-std::vector< std::string > CompiledServerSources()
+std::vector<std::string> CompiledServerSources()
 {
-	const std::set< std::string > src = cmake_graph::CompiledSources( cmake_graph::kServer );
-	return std::vector< std::string >( src.begin(), src.end() );
+	const std::set<std::string> src = cmake_graph::CompiledSources( cmake_graph::kServer );
+	return std::vector<std::string>( src.begin(), src.end() );
 }
 
 //-----------------------------------------------------------------------------
@@ -218,12 +223,11 @@ std::vector< std::string > CompiledServerSources()
 // the wrong file is already a failure before this is reached. What is left here
 // is the proof-of-read: the list contains the port's own shim.
 //-----------------------------------------------------------------------------
-void AssertTheServerFileListParsed( const std::vector< std::string > &files )
+void AssertTheServerFileListParsed( const std::vector<std::string> &files )
 {
-	ASSERT_TRUE( std::find( files.begin(), files.end(), std::string( kServerProofOfRead ) )
-		!= files.end() )
-		<< "server_sourcesharp's compiled sources do not include "
-		<< kServerProofOfRead << ", so what was read is not this project's file "
+	ASSERT_TRUE( std::find( files.begin(), files.end(), std::string( kServerProofOfRead ) ) != files.end() )
+		<< "server_sourcesharp's compiled sources do not include " << kServerProofOfRead
+		<< ", so what was read is not this project's file "
 		   "list. Every absence check below is measured over this list.";
 }
 
@@ -236,9 +240,9 @@ const std::string &CompiledServerCode()
 	if ( !s_bDone )
 	{
 		s_bDone = true;
-		const std::vector< std::string > files = CompiledServerSources();
+		const std::vector<std::string> files = CompiledServerSources();
 		for ( size_t i = 0; i < files.size(); i++ )
-			s_all += ReadStripped( files[ i ] );
+			s_all += ReadStripped( files[i] );
 	}
 	return s_all;
 }
@@ -250,9 +254,9 @@ const std::string &CompiledServerCode()
 // empty, and a matcher that had stopped recognising the macro would return an
 // empty set too. Given fixture text it must still find one -- see
 // TheRegistrationMatcherStillRecognisesTheMacro.
-std::set< std::string > ServerClassesIn( const std::string &all )
+std::set<std::string> ServerClassesIn( const std::string &all )
 {
-	std::set< std::string > out;
+	std::set<std::string> out;
 	const std::string needle = "IMPLEMENT_SERVERCLASS";
 
 	for ( size_t at = all.find( needle ); at != std::string::npos; at = all.find( needle, at + 1 ) )
@@ -262,24 +266,22 @@ std::set< std::string > ServerClassesIn( const std::string &all )
 		// there and land on the open paren. The macro DEFINITIONS live in
 		// public/server_class.h, which is not in the compiled set, so every
 		// occurrence here is a use.
-		while ( i < all.size() && ( all[ i ] == '_' || ( all[ i ] >= 'A' && all[ i ] <= 'Z' ) ) )
+		while ( i < all.size() && ( all[i] == '_' || ( all[i] >= 'A' && all[i] <= 'Z' ) ) )
 			i++;
-		while ( i < all.size() && ( all[ i ] == ' ' || all[ i ] == '\t' ) )
+		while ( i < all.size() && ( all[i] == ' ' || all[i] == '\t' ) )
 			i++;
-		if ( i >= all.size() || all[ i ] != '(' )
+		if ( i >= all.size() || all[i] != '(' )
 			continue;
 		i++;
-		while ( i < all.size() && ( all[ i ] == ' ' || all[ i ] == '\t' || all[ i ] == '\n' ) )
+		while ( i < all.size() && ( all[i] == ' ' || all[i] == '\t' || all[i] == '\n' ) )
 			i++;
 
 		std::string name;
-		while ( i < all.size()
-			&& ( all[ i ] == '_'
-				|| ( all[ i ] >= 'a' && all[ i ] <= 'z' )
-				|| ( all[ i ] >= 'A' && all[ i ] <= 'Z' )
-				|| ( all[ i ] >= '0' && all[ i ] <= '9' ) ) )
+		while ( i < all.size() &&
+				( all[i] == '_' || ( all[i] >= 'a' && all[i] <= 'z' ) || ( all[i] >= 'A' && all[i] <= 'Z' ) ||
+				  ( all[i] >= '0' && all[i] <= '9' ) ) )
 		{
-			name += all[ i ];
+			name += all[i];
 			i++;
 		}
 		if ( !name.empty() )
@@ -288,15 +290,15 @@ std::set< std::string > ServerClassesIn( const std::string &all )
 	return out;
 }
 
-std::set< std::string > RegisteredServerClasses()
+std::set<std::string> RegisteredServerClasses()
 {
 	return ServerClassesIn( CompiledServerCode() );
 }
 
-std::string Join( const std::set< std::string > &s )
+std::string Join( const std::set<std::string> &s )
 {
 	std::string out;
-	for ( std::set< std::string >::const_iterator it = s.begin(); it != s.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = s.begin(); it != s.end(); ++it )
 	{
 		if ( !out.empty() )
 			out += " ";
@@ -338,7 +340,6 @@ const char *kEntityNames = "sourcesharp/managed/SourceSharp.Shared/EntityNames.c
 //-----------------------------------------------------------------------------
 } // namespace
 
-
 //=============================================================================//
 // THE METER'S FLOOR
 //=============================================================================//
@@ -376,16 +377,15 @@ TEST( StockServerClassCensus, ExactlyFourSdkServerClassRegistrationsSurvive )
 	// has reached zero. The direction of the ratchet is unchanged -- a CEILING
 	// that must come down and never go up -- and at zero every arrival is a
 	// regression, which is a stronger statement than the four-name set was.
-	std::set< std::string > expected;   // deliberately empty; see above.
+	std::set<std::string> expected; // deliberately empty; see above.
 
-	const std::set< std::string > got = RegisteredServerClasses();
+	const std::set<std::string> got = RegisteredServerClasses();
 
-	EXPECT_EQ( expected, got )
-		<< "the surviving SDK ServerClass registrations are now [" << Join( got )
-		<< "] and there should be none. The flip removed every TU that carried "
-		   "one, so an arrival is a stock entity TU coming back into the server "
-		   "project -- the endgame moving backwards, and g_pServerClassHead "
-		   "needed again after Part 5 was told it could go";
+	EXPECT_EQ( expected, got ) << "the surviving SDK ServerClass registrations are now [" << Join( got )
+							   << "] and there should be none. The flip removed every TU that carried "
+								  "one, so an arrival is a stock entity TU coming back into the server "
+								  "project -- the endgame moving backwards, and g_pServerClassHead "
+								  "needed again after Part 5 was told it could go";
 }
 
 //-----------------------------------------------------------------------------
@@ -401,12 +401,11 @@ TEST( StockServerClassCensus, ExactlyFourSdkServerClassRegistrationsSurvive )
 //-----------------------------------------------------------------------------
 TEST( StockServerClassCensus, TheRegistrationMatcherStillRecognisesTheMacro )
 {
-	const std::string fixture =
-		"IMPLEMENT_SERVERCLASS_ST( CBaseEntity, DT_BaseEntity )\n"
-		"IMPLEMENT_SERVERCLASS_ST_NOBASE( CRagdollProp, DT_Ragdoll )\n"
-		"IMPLEMENT_SERVERCLASS(CWorld, DT_WORLD)\n";
+	const std::string fixture = "IMPLEMENT_SERVERCLASS_ST( CBaseEntity, DT_BaseEntity )\n"
+								"IMPLEMENT_SERVERCLASS_ST_NOBASE( CRagdollProp, DT_Ragdoll )\n"
+								"IMPLEMENT_SERVERCLASS(CWorld, DT_WORLD)\n";
 
-	const std::set< std::string > got = ServerClassesIn( fixture );
+	const std::set<std::string> got = ServerClassesIn( fixture );
 
 	EXPECT_EQ( 3u, got.size() ) << "matched [" << Join( got ) << "]";
 	EXPECT_EQ( 1u, got.count( "CBaseEntity" ) );
@@ -437,18 +436,17 @@ TEST( StockServerClassCensus, TeamCppIsNotOneOfTheFilesTheServerCompiles )
 {
 	// Asked of the COMPILED list rather than of any file's text: when this was
 	// the vpc, that carried a long note that spelled "team.cpp" several times.
-	const std::vector< std::string > files = CompiledServerSources();
+	const std::vector<std::string> files = CompiledServerSources();
 	ASSERT_NO_FATAL_FAILURE( AssertTheServerFileListParsed( files ) );
 
 	int nTeam = 0;
 	for ( size_t i = 0; i < files.size(); i++ )
 	{
-		if ( files[ i ] == kTeamCpp )
+		if ( files[i] == kTeamCpp )
 			nTeam++;
 	}
-	EXPECT_EQ( 0, nTeam )
-		<< "team.cpp is back in the server's file list. The team concept is "
-		   "managed work now; a native CTeam is not the way back to it";
+	EXPECT_EQ( 0, nTeam ) << "team.cpp is back in the server's file list. The team concept is "
+							 "managed work now; a native CTeam is not the way back to it";
 }
 
 TEST( StockServerClassCensus, NothingInTheBuildNamesATeamRegistry )
@@ -469,8 +467,7 @@ TEST( StockServerClassCensus, NothingInTheBuildNamesATeamRegistry )
 	const std::string &all = CompiledServerCode();
 	ASSERT_FALSE( all.empty() );
 
-	EXPECT_EQ( 0, CountOf( all, "g_Teams" ) )
-		<< "g_Teams is named in the compiled server and defined nowhere in it";
+	EXPECT_EQ( 0, CountOf( all, "g_Teams" ) ) << "g_Teams is named in the compiled server and defined nowhere in it";
 	EXPECT_EQ( 0, CountOf( all, "GetGlobalTeam" ) )
 		<< "GetGlobalTeam is named in the compiled server and defined nowhere "
 		   "in it. It answered NULL for the life of the server before team.cpp "
@@ -478,9 +475,8 @@ TEST( StockServerClassCensus, NothingInTheBuildNamesATeamRegistry )
 	EXPECT_EQ( 0, CountOf( all, "GetNumberOfTeams" ) )
 		<< "GetNumberOfTeams is named in the compiled server and defined "
 		   "nowhere in it";
-	EXPECT_EQ( 0, CountOf( all, "CTeam::" ) )
-		<< "a CTeam member function is named in the compiled server. None of "
-		   "them is compiled";
+	EXPECT_EQ( 0, CountOf( all, "CTeam::" ) ) << "a CTeam member function is named in the compiled server. None of "
+												 "them is compiled";
 	EXPECT_EQ( 0, CountOf( all, "team_manager" ) )
 		<< "team_manager is spelled in the compiled server. Nothing links that "
 		   "classname to a class any more, so CreateEntityByName answers NULL "
@@ -549,28 +545,25 @@ TEST( StockServerClassCensus, NothingInTheBuildNamesATeamRegistry )
 TEST( StockServerClassCensus, TheSdkArmFixtureFileIsGone )
 {
 	const char *pszRoot = SrcRoot();
-	ASSERT_TRUE( pszRoot != NULL )
-		<< "SrcRoot() found no candidate with both game/ and public/ under it; "
-		   "the absence below would pass on a tree that was never read";
+	ASSERT_TRUE( pszRoot != NULL ) << "SrcRoot() found no candidate with both game/ and public/ under it; "
+									  "the absence below would pass on a tree that was never read";
 
 	// THE ANCHOR. A tree this test can read at all still has the census test's
 	// own subject in it. If this is missing the root is wrong and the absence
 	// claim underneath is worthless.
 	const std::string anchor = std::string( pszRoot ) + "/" + kEntityNames;
 	struct stat st;
-	ASSERT_EQ( 0, stat( anchor.c_str(), &st ) )
-		<< "resolved SrcRoot() to '" << pszRoot << "' but " << anchor
-		<< " is not there, so this tree is not the one the deletion was made "
-		   "in and the absence below would be about somebody else's checkout";
+	ASSERT_EQ( 0, stat( anchor.c_str(), &st ) ) << "resolved SrcRoot() to '" << pszRoot << "' but " << anchor
+												<< " is not there, so this tree is not the one the deletion was made "
+												   "in and the absence below would be about somebody else's checkout";
 
 	const std::string gone = std::string( pszRoot ) + "/" + kSdkArmFixtureFile;
-	EXPECT_NE( 0, stat( gone.c_str(), &st ) )
-		<< gone << " still exists. Resolved SrcRoot() to '" << pszRoot
-		<< "'. Lane 5e-testonly deleted it: no .vpc named it, neither ninja "
-		   "graph carried an object for it, its class and LINK_ENTITY_TO_CLASS "
-		   "had already been stripped by f288a5e11, and the AbiBothHierarchies "
-		   "probe it was the stock arm for went in step 8a. If it is back, the "
-		   "two sweeps above need their needles rechecked before it stays.";
+	EXPECT_NE( 0, stat( gone.c_str(), &st ) ) << gone << " still exists. Resolved SrcRoot() to '" << pszRoot
+											  << "'. Lane 5e-testonly deleted it: no .vpc named it, neither ninja "
+												 "graph carried an object for it, its class and LINK_ENTITY_TO_CLASS "
+												 "had already been stripped by f288a5e11, and the AbiBothHierarchies "
+												 "probe it was the stock arm for went in step 8a. If it is back, the "
+												 "two sweeps above need their needles rechecked before it stays.";
 }
 
 //=============================================================================//
@@ -602,8 +595,6 @@ TEST( StockServerClassCensus, NothingInTheBuildNamesAnAttachedRagdoll )
 	EXPECT_EQ( 0, CountOf( all, "InitRagdollAttached" ) );
 }
 
-
 //=============================================================================//
 // RULING 1, AS A CHECKABLE FACT
 //=============================================================================//
-

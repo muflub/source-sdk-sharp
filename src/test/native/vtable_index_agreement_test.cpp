@@ -32,7 +32,6 @@
 #include "const.h"
 #include "bitvec.h"
 
-
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -87,7 +86,7 @@ TEST( SteamCallbackLayout, CallbackIdsAndSizes )
 // are the numbers VCollisionEventLayoutTests pins on the managed side.
 TEST( VCollisionEventLayout, OffsetsAreTheManagedViews )
 {
-	EXPECT_EQ( 0u,  offsetof( vcollisionevent_t, pObjects ) );
+	EXPECT_EQ( 0u, offsetof( vcollisionevent_t, pObjects ) );
 	EXPECT_EQ( 16u, offsetof( vcollisionevent_t, surfaceProps ) );
 	EXPECT_EQ( 24u, offsetof( vcollisionevent_t, isCollision ) );
 	EXPECT_EQ( 25u, offsetof( vcollisionevent_t, isShadowCollision ) );
@@ -107,7 +106,7 @@ TEST( VCollisionEventLayout, OffsetsAreTheManagedViews )
 // (ObjectParams, ConstraintGroupParams) and SolidLayout / VCollideFields spell.
 TEST( RagdollParamsLayout, ObjectParamsSolidGroupAndCollide )
 {
-	EXPECT_EQ( 8u,  offsetof( objectparams_t, mass ) );
+	EXPECT_EQ( 8u, offsetof( objectparams_t, mass ) );
 	EXPECT_EQ( 24u, offsetof( objectparams_t, rotInertiaLimit ) );
 	EXPECT_EQ( 32u, offsetof( objectparams_t, pName ) );
 	EXPECT_EQ( 40u, offsetof( objectparams_t, pGameData ) );
@@ -116,18 +115,18 @@ TEST( RagdollParamsLayout, ObjectParamsSolidGroupAndCollide )
 	EXPECT_EQ( 56u, offsetof( objectparams_t, enableCollisions ) );
 	EXPECT_EQ( 64u, sizeof( objectparams_t ) );
 
-	EXPECT_EQ( 4u,    offsetof( solid_t, name ) );
-	EXPECT_EQ( 516u,  offsetof( solid_t, parent ) );
+	EXPECT_EQ( 4u, offsetof( solid_t, name ) );
+	EXPECT_EQ( 516u, offsetof( solid_t, parent ) );
 	EXPECT_EQ( 1028u, offsetof( solid_t, surfaceprop ) );
 	EXPECT_EQ( 1540u, offsetof( solid_t, massCenterOverride ) );
 	EXPECT_EQ( 1552u, offsetof( solid_t, params ) );
 	EXPECT_EQ( 1616u, sizeof( solid_t ) );
 
-	EXPECT_EQ( 4u,  offsetof( constraint_groupparams_t, minErrorTicks ) );
-	EXPECT_EQ( 8u,  offsetof( constraint_groupparams_t, errorTolerance ) );
+	EXPECT_EQ( 4u, offsetof( constraint_groupparams_t, minErrorTicks ) );
+	EXPECT_EQ( 8u, offsetof( constraint_groupparams_t, errorTolerance ) );
 	EXPECT_EQ( 12u, sizeof( constraint_groupparams_t ) );
 
-	EXPECT_EQ( 8u,  offsetof( vcollide_t, solids ) );
+	EXPECT_EQ( 8u, offsetof( vcollide_t, solids ) );
 	EXPECT_EQ( 16u, offsetof( vcollide_t, pKeyValues ) );
 }
 
@@ -155,10 +154,10 @@ TEST( RagdollParamsLayout, ObjectParamsSolidGroupAndCollide )
 //-----------------------------------------------------------------------------
 TEST( VectorByValue, IsReturnedInRegisters )
 {
-	static_assert( std::is_trivially_copy_constructible< Vector >::value, "Vector grew a copy constructor" );
-	static_assert( std::is_trivially_destructible< Vector >::value, "Vector grew a destructor" );
-	static_assert( !std::is_polymorphic< Vector >::value, "Vector grew a vtable" );
-	static_assert( std::is_standard_layout< Vector >::value, "Vector is not standard layout" );
+	static_assert( std::is_trivially_copy_constructible<Vector>::value, "Vector grew a copy constructor" );
+	static_assert( std::is_trivially_destructible<Vector>::value, "Vector grew a destructor" );
+	static_assert( !std::is_polymorphic<Vector>::value, "Vector grew a vtable" );
+	static_assert( std::is_standard_layout<Vector>::value, "Vector is not standard layout" );
 
 	EXPECT_EQ( 12u, sizeof( Vector ) );
 	EXPECT_EQ( 0u, offsetof( Vector, x ) );
@@ -168,20 +167,20 @@ TEST( VectorByValue, IsReturnedInRegisters )
 
 TEST( WorldParamsLayout, FluidAndSurfaceSounds )
 {
-	EXPECT_EQ( 0u,   offsetof( fluid_t, index ) );
-	EXPECT_EQ( 4u,   offsetof( fluid_t, surfaceprop ) );
+	EXPECT_EQ( 0u, offsetof( fluid_t, index ) );
+	EXPECT_EQ( 4u, offsetof( fluid_t, surfaceprop ) );
 	EXPECT_EQ( 512u, sizeof( fluid_t::surfaceprop ) );
 	EXPECT_EQ( 520u, offsetof( fluid_t, params ) );
-	EXPECT_EQ( 40u,  offsetof( fluidparams_t, pGameData ) );
-	EXPECT_EQ( 56u,  sizeof( fluidparams_t ) );
+	EXPECT_EQ( 40u, offsetof( fluidparams_t, pGameData ) );
+	EXPECT_EQ( 56u, sizeof( fluidparams_t ) );
 	EXPECT_EQ( 576u, sizeof( fluid_t ) );
 
 	EXPECT_EQ( 44u, offsetof( surfacedata_t, sounds ) );
-	EXPECT_EQ( 0u,  offsetof( surfacesoundnames_t, stepleft ) );
+	EXPECT_EQ( 0u, offsetof( surfacesoundnames_t, stepleft ) );
 	EXPECT_EQ( 18u, offsetof( surfacesoundnames_t, strainSound ) );
 	EXPECT_EQ( 20u, sizeof( surfacesoundnames_t ) );
 	EXPECT_EQ( 76u, offsetof( surfacedata_t, soundhandles ) );
-	EXPECT_EQ( 0u,  offsetof( surfacesoundhandles_t, stepleft ) );
+	EXPECT_EQ( 0u, offsetof( surfacesoundhandles_t, stepleft ) );
 	EXPECT_EQ( 18u, offsetof( surfacesoundhandles_t, strainSound ) );
 	EXPECT_EQ( 20u, sizeof( surfacesoundhandles_t ) );
 	EXPECT_EQ( 96u, sizeof( surfacedata_t ) );
@@ -190,9 +189,9 @@ TEST( WorldParamsLayout, FluidAndSurfaceSounds )
 
 TEST( ConstraintParamsLayout, BreakableAndAxisLimit )
 {
-	EXPECT_EQ( 0u,  offsetof( constraint_breakableparams_t, strength ) );
-	EXPECT_EQ( 4u,  offsetof( constraint_breakableparams_t, forceLimit ) );
-	EXPECT_EQ( 8u,  offsetof( constraint_breakableparams_t, torqueLimit ) );
+	EXPECT_EQ( 0u, offsetof( constraint_breakableparams_t, strength ) );
+	EXPECT_EQ( 4u, offsetof( constraint_breakableparams_t, forceLimit ) );
+	EXPECT_EQ( 8u, offsetof( constraint_breakableparams_t, torqueLimit ) );
 	EXPECT_EQ( 12u, offsetof( constraint_breakableparams_t, bodyMassScale ) );
 	EXPECT_EQ( 20u, offsetof( constraint_breakableparams_t, isActive ) );
 	EXPECT_EQ( 24u, sizeof( constraint_breakableparams_t ) );
@@ -224,7 +223,7 @@ TEST( ConstraintParamsLayout, FixedHingeBallsocketLength )
 // (VPhysicsGrabCalls.cs's ShadowControlParams).
 TEST( ShadowControlLayout, HlShadowControlParams )
 {
-	EXPECT_EQ( 0u,  offsetof( hlshadowcontrol_params_t, targetPosition ) );
+	EXPECT_EQ( 0u, offsetof( hlshadowcontrol_params_t, targetPosition ) );
 	EXPECT_EQ( 12u, offsetof( hlshadowcontrol_params_t, targetRotation ) );
 	EXPECT_EQ( 24u, offsetof( hlshadowcontrol_params_t, maxAngular ) );
 	EXPECT_EQ( 28u, offsetof( hlshadowcontrol_params_t, maxDampAngular ) );
@@ -237,12 +236,12 @@ TEST( ShadowControlLayout, HlShadowControlParams )
 
 TEST( ConstraintParamsLayout, SlidingPulleyRagdollSpring )
 {
-	EXPECT_EQ( 48u,  offsetof( constraint_slidingparams_t, slideAxisRef ) );
-	EXPECT_EQ( 60u,  offsetof( constraint_slidingparams_t, constraint ) );
-	EXPECT_EQ( 84u,  offsetof( constraint_slidingparams_t, limitMin ) );
-	EXPECT_EQ( 88u,  offsetof( constraint_slidingparams_t, limitMax ) );
-	EXPECT_EQ( 92u,  offsetof( constraint_slidingparams_t, friction ) );
-	EXPECT_EQ( 96u,  offsetof( constraint_slidingparams_t, velocity ) );
+	EXPECT_EQ( 48u, offsetof( constraint_slidingparams_t, slideAxisRef ) );
+	EXPECT_EQ( 60u, offsetof( constraint_slidingparams_t, constraint ) );
+	EXPECT_EQ( 84u, offsetof( constraint_slidingparams_t, limitMin ) );
+	EXPECT_EQ( 88u, offsetof( constraint_slidingparams_t, limitMax ) );
+	EXPECT_EQ( 92u, offsetof( constraint_slidingparams_t, friction ) );
+	EXPECT_EQ( 96u, offsetof( constraint_slidingparams_t, velocity ) );
 	EXPECT_EQ( 100u, sizeof( constraint_slidingparams_t ) );
 
 	EXPECT_EQ( 24u, offsetof( constraint_pulleyparams_t, pulleyPosition ) );
@@ -252,8 +251,8 @@ TEST( ConstraintParamsLayout, SlidingPulleyRagdollSpring )
 	EXPECT_EQ( 80u, offsetof( constraint_pulleyparams_t, isRigid ) );
 	EXPECT_EQ( 84u, sizeof( constraint_pulleyparams_t ) );
 
-	EXPECT_EQ( 24u,  offsetof( constraint_ragdollparams_t, constraintToReference ) );
-	EXPECT_EQ( 72u,  offsetof( constraint_ragdollparams_t, constraintToAttached ) );
+	EXPECT_EQ( 24u, offsetof( constraint_ragdollparams_t, constraintToReference ) );
+	EXPECT_EQ( 72u, offsetof( constraint_ragdollparams_t, constraintToAttached ) );
 	EXPECT_EQ( 120u, offsetof( constraint_ragdollparams_t, parentIndex ) );
 	EXPECT_EQ( 124u, offsetof( constraint_ragdollparams_t, childIndex ) );
 	EXPECT_EQ( 128u, offsetof( constraint_ragdollparams_t, axes ) );
@@ -262,8 +261,8 @@ TEST( ConstraintParamsLayout, SlidingPulleyRagdollSpring )
 	EXPECT_EQ( 178u, offsetof( constraint_ragdollparams_t, useClockwiseRotations ) );
 	EXPECT_EQ( 180u, sizeof( constraint_ragdollparams_t ) );
 
-	EXPECT_EQ( 4u,  offsetof( springparams_t, naturalLength ) );
-	EXPECT_EQ( 8u,  offsetof( springparams_t, damping ) );
+	EXPECT_EQ( 4u, offsetof( springparams_t, naturalLength ) );
+	EXPECT_EQ( 8u, offsetof( springparams_t, damping ) );
 	EXPECT_EQ( 12u, offsetof( springparams_t, relativeDamping ) );
 	EXPECT_EQ( 16u, offsetof( springparams_t, startPosition ) );
 	EXPECT_EQ( 28u, offsetof( springparams_t, endPosition ) );
@@ -277,8 +276,8 @@ TEST( ConstraintParamsLayout, SlidingPulleyRagdollSpring )
 // SourceSharp.Abi carries the same offsets.
 TEST( ObjectParamsLayout, TheFieldsTheManagedShadowWrites )
 {
-	EXPECT_EQ( 0u,  offsetof( objectparams_t, massCenterOverride ) );
-	EXPECT_EQ( 8u,  offsetof( objectparams_t, mass ) );
+	EXPECT_EQ( 0u, offsetof( objectparams_t, massCenterOverride ) );
+	EXPECT_EQ( 8u, offsetof( objectparams_t, mass ) );
 	EXPECT_EQ( 12u, offsetof( objectparams_t, inertia ) );
 	EXPECT_EQ( 16u, offsetof( objectparams_t, damping ) );
 	EXPECT_EQ( 20u, offsetof( objectparams_t, rotdamping ) );
@@ -332,16 +331,16 @@ TEST( SurfaceDataLayout, TheSoundFieldsTheManagedBatchReads )
 //-----------------------------------------------------------------------------
 TEST( SoundParametersLayout, OffsetsAndConstructor )
 {
-	EXPECT_EQ( 0u,   offsetof( CSoundParameters, channel ) );
-	EXPECT_EQ( 4u,   offsetof( CSoundParameters, volume ) );
-	EXPECT_EQ( 8u,   offsetof( CSoundParameters, pitch ) );
-	EXPECT_EQ( 12u,  offsetof( CSoundParameters, pitchlow ) );
-	EXPECT_EQ( 16u,  offsetof( CSoundParameters, pitchhigh ) );
-	EXPECT_EQ( 20u,  offsetof( CSoundParameters, soundlevel ) );
-	EXPECT_EQ( 4u,   sizeof( soundlevel_t ) );
-	EXPECT_EQ( 24u,  offsetof( CSoundParameters, play_to_owner_only ) );
-	EXPECT_EQ( 28u,  offsetof( CSoundParameters, count ) );
-	EXPECT_EQ( 32u,  offsetof( CSoundParameters, soundname ) );
+	EXPECT_EQ( 0u, offsetof( CSoundParameters, channel ) );
+	EXPECT_EQ( 4u, offsetof( CSoundParameters, volume ) );
+	EXPECT_EQ( 8u, offsetof( CSoundParameters, pitch ) );
+	EXPECT_EQ( 12u, offsetof( CSoundParameters, pitchlow ) );
+	EXPECT_EQ( 16u, offsetof( CSoundParameters, pitchhigh ) );
+	EXPECT_EQ( 20u, offsetof( CSoundParameters, soundlevel ) );
+	EXPECT_EQ( 4u, sizeof( soundlevel_t ) );
+	EXPECT_EQ( 24u, offsetof( CSoundParameters, play_to_owner_only ) );
+	EXPECT_EQ( 28u, offsetof( CSoundParameters, count ) );
+	EXPECT_EQ( 32u, offsetof( CSoundParameters, soundname ) );
 	EXPECT_EQ( 160u, offsetof( CSoundParameters, delay_msec ) );
 	EXPECT_EQ( 164u, sizeof( CSoundParameters ) );
 
@@ -370,8 +369,8 @@ TEST( SoundParametersInternalLayout, TheWaveListAndChannelTheStopReads )
 	EXPECT_EQ( 0u, offsetof( SoundFile, symbol ) );
 	EXPECT_EQ( 2u, sizeof( CUtlSymbol ) );
 
-	alignas( 8 ) unsigned char raw[ 36 ] = {};
-	const CSoundParametersInternal *pEntry = reinterpret_cast< const CSoundParametersInternal * >( raw );
+	alignas( 8 ) unsigned char raw[36] = {};
+	const CSoundParametersInternal *pEntry = reinterpret_cast<const CSoundParametersInternal *>( raw );
 
 	// channel, a uint16 at 30.
 	const uint16 nChannel = 6;
@@ -385,17 +384,17 @@ TEST( SoundParametersInternalLayout, TheWaveListAndChannelTheStopReads )
 	const uint16 nSymbol = 0x1234;
 	memcpy( raw + 0, &nSymbol, sizeof( nSymbol ) );
 	EXPECT_EQ( 1, pEntry->NumSoundNames() );
-	EXPECT_EQ( static_cast< const void * >( raw ), static_cast< const void * >( pEntry->GetSoundNames() ) );
-	EXPECT_EQ( 0x1234, (int)(UtlSymId_t)pEntry->GetSoundNames()[ 0 ].symbol );
+	EXPECT_EQ( static_cast<const void *>( raw ), static_cast<const void *>( pEntry->GetSoundNames() ) );
+	EXPECT_EQ( 0x1234, (int)(UtlSymId_t)pEntry->GetSoundNames()[0].symbol );
 
 	// MORE than one: the field at 0 points at the array.
-	SoundFile waves[ 2 ];
+	SoundFile waves[2];
 	SoundFile *pWaves = waves;
 	const uint16 nTwo = 2;
 	memcpy( raw + 16, &nTwo, sizeof( nTwo ) );
 	memcpy( raw + 0, &pWaves, sizeof( pWaves ) );
 	EXPECT_EQ( 2, pEntry->NumSoundNames() );
-	EXPECT_EQ( static_cast< const void * >( waves ), static_cast< const void * >( pEntry->GetSoundNames() ) );
+	EXPECT_EQ( static_cast<const void *>( waves ), static_cast<const void *>( pEntry->GetSoundNames() ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -408,25 +407,25 @@ TEST( SoundParametersInternalLayout, TheWaveListAndChannelTheStopReads )
 //-----------------------------------------------------------------------------
 TEST( SoundParametersInternalLayout, ShouldPreloadIsBitThreeOfByte34 )
 {
-	alignas( 8 ) unsigned char raw[ 36 ] = {};
-	const CSoundParametersInternal *pEntry = reinterpret_cast< const CSoundParametersInternal * >( raw );
+	alignas( 8 ) unsigned char raw[36] = {};
+	const CSoundParametersInternal *pEntry = reinterpret_cast<const CSoundParametersInternal *>( raw );
 
 	EXPECT_FALSE( pEntry->ShouldPreload() );
 
-	raw[ 34 ] = 0x08;
+	raw[34] = 0x08;
 	EXPECT_TRUE( pEntry->ShouldPreload() );
 
 	// Every other bit of the byte, and the bytes either side, set: still no.
-	raw[ 33 ] = 0xFF;
-	raw[ 34 ] = 0xF7;
-	raw[ 35 ] = 0xFF;
+	raw[33] = 0xFF;
+	raw[34] = 0xF7;
+	raw[35] = 0xFF;
 	EXPECT_FALSE( pEntry->ShouldPreload() );
 
 	// And the setter writes the same bit.
-	CSoundParametersInternal *pWritable = reinterpret_cast< CSoundParametersInternal * >( raw );
-	raw[ 34 ] = 0x00;
+	CSoundParametersInternal *pWritable = reinterpret_cast<CSoundParametersInternal *>( raw );
+	raw[34] = 0x00;
 	pWritable->SetShouldPreload( true );
-	EXPECT_EQ( 0x08, raw[ 34 ] );
+	EXPECT_EQ( 0x08, raw[34] );
 }
 
 //-----------------------------------------------------------------------------
@@ -438,17 +437,16 @@ TEST( SoundParametersInternalLayout, ShouldPreloadIsBitThreeOfByte34 )
 TEST( PlayerBitVecLayout, EightWordsBitNInWordNOver32 )
 {
 	EXPECT_EQ( 255, ABSOLUTE_PLAYER_LIMIT );
-	EXPECT_EQ( 32u, sizeof( CBitVec< ABSOLUTE_PLAYER_LIMIT > ) );
+	EXPECT_EQ( 32u, sizeof( CBitVec<ABSOLUTE_PLAYER_LIMIT> ) );
 
-	CBitVec< ABSOLUTE_PLAYER_LIMIT > bits;
+	CBitVec<ABSOLUTE_PLAYER_LIMIT> bits;
 	bits.ClearAll();
 	bits.Set( 37 );
 
-	uint32 words[ 8 ];
+	uint32 words[8];
 	memcpy( words, &bits, sizeof( words ) );
-	EXPECT_EQ( 0u, words[ 0 ] );
-	EXPECT_EQ( 1u << 5, words[ 1 ] );
+	EXPECT_EQ( 0u, words[0] );
+	EXPECT_EQ( 1u << 5, words[1] );
 	for ( int i = 2; i < 8; i++ )
-		EXPECT_EQ( 0u, words[ i ] ) << i;
+		EXPECT_EQ( 0u, words[i] ) << i;
 }
-

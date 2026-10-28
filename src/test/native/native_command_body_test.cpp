@@ -39,7 +39,7 @@ SS_NATIVE_COMMAND( ss_test_body_beta )
 
 TEST( NativeCommandBody, EveryBodyDefinedIsOnTheList )
 {
-	std::vector< std::string > names;
+	std::vector<std::string> names;
 	for ( const CNativeCommandBody *p = CNativeCommandBody::First(); p; p = p->Next() )
 		names.push_back( p->Name() );
 
@@ -62,8 +62,7 @@ TEST( NativeCommandBody, FindAnswersTheBodyOfThatNameAndRunsIt )
 
 TEST( NativeCommandBody, FindIgnoresCaseAsTheConsoleDoes )
 {
-	EXPECT_EQ( CNativeCommandBody::Find( "ss_test_body_alpha" ),
-	           CNativeCommandBody::Find( "SS_Test_Body_ALPHA" ) );
+	EXPECT_EQ( CNativeCommandBody::Find( "ss_test_body_alpha" ), CNativeCommandBody::Find( "SS_Test_Body_ALPHA" ) );
 	EXPECT_NE( nullptr, CNativeCommandBody::Find( "SS_Test_Body_ALPHA" ) );
 }
 

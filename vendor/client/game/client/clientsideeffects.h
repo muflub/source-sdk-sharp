@@ -2,51 +2,51 @@
 
 #pragma once
 
-class	Vector;
-struct	FXQuadData_t;
-struct	FXLineData_t;
+class Vector;
+struct FXQuadData_t;
+struct FXLineData_t;
 // Purpose: Base class for client side effects
 abstract_class CClientSideEffect
 {
 public:
 	// Constructs the named effect
-						CClientSideEffect( const char *name );
-	virtual				~CClientSideEffect();
+	CClientSideEffect( const char *name );
+	virtual ~CClientSideEffect();
 
 	// Update/Draw the effect
 	// Derived classes must implement this method!
-	virtual void		Draw( double frametime ) = 0;
+	virtual void Draw( double frametime ) = 0;
 	// Returns name of effect
-	virtual const char	*GetName();
+	virtual const char *GetName();
 	// Retuns whether the effect is still active
-	virtual bool		IsActive();
+	virtual bool IsActive();
 	// Sets the effect to inactive so it can be destroed
-	virtual void		Destroy();
+	virtual void Destroy();
 
 	// Sets the effect name (useful for debugging).
-	virtual void		SetEffectName( const char *pszName );
+	virtual void SetEffectName( const char *pszName );
 
 private:
 	// Name of effect ( static data )
-	const char			*m_pszName;
+	const char *m_pszName;
 	// Is the effect active
-	bool				m_bActive;
+	bool m_bActive;
 };
 
 // Purpose: Base interface to effects list
 abstract_class IEffectsList
 {
 public:
-	virtual			~IEffectsList() {}
+	virtual ~IEffectsList() {}
 
 	// Add an effect to the list of effects
-	virtual void	AddEffect( CClientSideEffect *effect ) = 0;
+	virtual void AddEffect( CClientSideEffect * effect ) = 0;
 	// Remove the specified effect
-	virtual void	RemoveEffect( CClientSideEffect *effect ) = 0;
+	virtual void RemoveEffect( CClientSideEffect * effect ) = 0;
 	// Simulate/Update/Draw effects on list
-	virtual void	DrawEffects( double frametime ) = 0;
+	virtual void DrawEffects( double frametime ) = 0;
 	// Flush out all effects fbrom the list
-	virtual void	Flush() = 0;
+	virtual void Flush() = 0;
 };
 
 extern IEffectsList *clienteffects;
@@ -54,27 +54,18 @@ extern IEffectsList *clienteffects;
 class IMaterialSystem;
 extern IMaterialSystem *materials;
 
-void FX_AddStaticLine( const Vector& start, const Vector& end, float scale, float life, const char *materialName, unsigned char flags );
-void FX_AddDiscreetLine( const Vector& start, const Vector& direction, float velocity, float length, float clipLength, float scale, float life, const char *shader );
+void FX_AddStaticLine( const Vector &start, const Vector &end, float scale, float life, const char *materialName,
+					   unsigned char flags );
+void FX_AddDiscreetLine( const Vector &start, const Vector &direction, float velocity, float length, float clipLength,
+						 float scale, float life, const char *shader );
 
 void FX_AddLine( const FXLineData_t &data );
 
 void FX_AddQuad( const FXQuadData_t &data );
 
-void FX_AddQuad( const Vector &origin, 
-				 const Vector &normal, 
-				 float startSize, 
-				 float endSize, 
-				 float sizeBias,
-				 float startAlpha, 
-				 float endAlpha,
-				 float alphaBias,
-				 float yaw,
-				 float deltaYaw,
-				 const Vector &color, 
-				 float lifeTime, 
-				 const char *shader, 
-				 unsigned int flags );
+void FX_AddQuad( const Vector &origin, const Vector &normal, float startSize, float endSize, float sizeBias,
+				 float startAlpha, float endAlpha, float alphaBias, float yaw, float deltaYaw, const Vector &color,
+				 float lifeTime, const char *shader, unsigned int flags );
 
 // For safe addition of client effects
 void SetFXCreationAllowed( bool state );

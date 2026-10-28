@@ -57,20 +57,23 @@ void Trap()
 struct Fake_t
 {
 	void **pVtbl;
-	void *pTable[ kSlots ];
-	Fake_t() : pVtbl( pTable )
+	void *pTable[kSlots];
+
+	Fake_t()
+		: pVtbl( pTable )
 	{
 		for ( int i = 0; i < kSlots; i++ )
-			pTable[ i ] = (void *)&Trap;
+			pTable[i] = (void *)&Trap;
 	}
-	template < typename Fn, typename Impl >
+
+	template <typename Fn, typename Impl>
 	void Set( Fn pmf, Impl impl )
 	{
 		const VTableHook::Member m = VTableHook::MemberOf( pmf );
 		ASSERT_EQ( m.adjust, 0 );
 		ASSERT_GE( m.slot, 0 );
 		ASSERT_LT( m.slot, kSlots );
-		pTable[ m.slot ] = (void *)impl;
+		pTable[m.slot] = (void *)impl;
 	}
 };
 
@@ -90,9 +93,9 @@ struct Vertex_t
 // What the double saw and holds.
 struct Record_t
 {
-	Vertex_t verts[ kMaxVerts ];
-	unsigned short indices[ kMaxIndices ];
-	float dummy[ 64 ];
+	Vertex_t verts[kMaxVerts];
+	unsigned short indices[kMaxIndices];
+	float dummy[64];
 	int nPrimitiveType;
 	int nLocks;
 	int nUnlockVerts;
@@ -104,9 +107,21 @@ struct Record_t
 Record_t g_Rec;
 Fake_t g_Context, g_Mesh;
 
-void GetCamera( void *, Vector *pOut ) { *pOut = g_Rec.camera; }
-IMesh *GetDynamicMesh( void *, bool, IMesh *, IMesh *, IMaterial * ) { return (IMesh *)&g_Mesh; }
-void SetPrimitiveType( void *, MaterialPrimitiveType_t type ) { g_Rec.nPrimitiveType = type; }
+void GetCamera( void *, Vector *pOut )
+{
+	*pOut = g_Rec.camera;
+}
+
+IMesh *GetDynamicMesh( void *, bool, IMesh *, IMesh *, IMaterial * )
+{
+	return (IMesh *)&g_Mesh;
+}
+
+void SetPrimitiveType( void *, MaterialPrimitiveType_t type )
+{
+	g_Rec.nPrimitiveType = type;
+}
+
 void LockMesh( void *, int nVerts, int nIndices, MeshDesc_t &desc )
 {
 	EXPECT_LE( nVerts, kMaxVerts );
@@ -142,12 +157,17 @@ void LockMesh( void *, int nVerts, int nIndices, MeshDesc_t &desc )
 	desc.m_pIndices = g_Rec.indices;
 	desc.m_nIndexSize = 1;
 }
+
 void UnlockMesh( void *, int nVerts, int nIndices, MeshDesc_t & )
 {
 	g_Rec.nUnlockVerts = nVerts;
 	g_Rec.nUnlockIndices = nIndices;
 }
-void Draw( void *, int, int ) { g_Rec.nDraws++; }
+
+void Draw( void *, int, int )
+{
+	g_Rec.nDraws++;
+}
 
 void Build()
 {
@@ -156,7 +176,7 @@ void Build()
 	g_Mesh.Set( &IMesh::SetPrimitiveType, &SetPrimitiveType );
 	g_Mesh.Set( &IMesh::LockMesh, &LockMesh );
 	g_Mesh.Set( &IMesh::UnlockMesh, &UnlockMesh );
-	g_Mesh.Set( static_cast< void ( IMesh::* )( int, int ) >( &IMesh::Draw ), &Draw );
+	g_Mesh.Set( static_cast<void ( IMesh::* )( int, int )>( &IMesh::Draw ), &Draw );
 }
 
 void Reset( const Vector &camera )
@@ -166,7 +186,10 @@ void Reset( const Vector &camera )
 	g_Rec.camera = camera;
 }
 
-IMatRenderContext *Context() { return (IMatRenderContext *)&g_Context; }
+IMatRenderContext *Context()
+{
+	return (IMatRenderContext *)&g_Context;
+}
 
 //-----------------------------------------------------------------------------
 // The scenario: seeded strips, and the shapes a strip can take that a random
@@ -175,6 +198,7 @@ IMatRenderContext *Context() { return (IMatRenderContext *)&g_Context; }
 struct Rng_t
 {
 	unsigned int s = 0x2545F491u;
+
 	unsigned int Next()
 	{
 		s ^= s << 13;
@@ -182,14 +206,16 @@ struct Rng_t
 		s ^= s << 5;
 		return s;
 	}
+
 	float Range( float lo, float hi ) { return lo + ( hi - lo ) * (float)( Next() & 0xFFFFFF ) / (float)0xFFFFFF; }
+
 	// k / 255: a colour CMeshBuilder's byte conversion maps back to k.
 	float Unit() { return (float)( Next() % 256 ) / 255.0f; }
 };
 
 struct Strip_t
 {
-	std::vector< BeamSeg_t > segs;
+	std::vector<BeamSeg_t> segs;
 };
 
 // A case: one camera, and one strip on its own mesh ('m') or several strips
@@ -199,7 +225,7 @@ struct Case_t
 	char cMode;
 	int nBase;
 	Vector camera;
-	std::vector< Strip_t > strips;
+	std::vector<Strip_t> strips;
 };
 
 BeamSeg_t RandomSeg( Rng_t &r, const Vector &around )
@@ -213,10 +239,10 @@ BeamSeg_t RandomSeg( Rng_t &r, const Vector &around )
 	return s;
 }
 
-std::vector< Case_t > Scenario()
+std::vector<Case_t> Scenario()
 {
 	Rng_t r;
-	std::vector< Case_t > cases;
+	std::vector<Case_t> cases;
 
 	// Random strips, 2 to 16 segments, both ways.
 	for ( int i = 0; i < 60; i++ )
@@ -324,7 +350,7 @@ void RunStock( const Case_t &c )
 	CMeshBuilder mb;
 	mb.Begin( (IMesh *)&g_Mesh, MATERIAL_TRIANGLES, c.nBase + nVerts, nIndices );
 	for ( int i = 0; i < c.nBase; i++ )
-		mb.AdvanceVertex();	// the vertices earlier strips in the builder wrote
+		mb.AdvanceVertex(); // the vertices earlier strips in the builder wrote
 	CBeamSegDraw draw;
 	int nSoFar = c.nBase;
 	for ( const Strip_t &strip : c.strips )
@@ -350,7 +376,7 @@ int VertexCount( const Case_t &c )
 int IndexCount( const Case_t &c )
 {
 	if ( c.cMode == 'm' )
-		return (int)c.strips[0].segs.size() * 2;	// a triangle strip's indices are its vertices
+		return (int)c.strips[0].segs.size() * 2; // a triangle strip's indices are its vertices
 	int n = 0;
 	for ( const Strip_t &s : c.strips )
 		n += ( (int)s.segs.size() - 1 ) * 6;
@@ -363,7 +389,7 @@ std::string Buffers( const Case_t &c )
 	std::string out;
 	char buf[96];
 	snprintf( buf, sizeof( buf ), "P\t%d\t%d\t%d\t%d\t%d\n", g_Rec.nPrimitiveType, g_Rec.nLocks, g_Rec.nUnlockVerts,
-	          g_Rec.nUnlockIndices, g_Rec.nDraws );
+			  g_Rec.nUnlockIndices, g_Rec.nDraws );
 	out += buf;
 	for ( int i = c.nBase; i < VertexCount( c ); i++ )
 	{
@@ -389,7 +415,7 @@ std::string RunScenario()
 {
 	Build();
 	std::string out = "# tier2.a beamsegdraw.o over beamsegdraw_oracle_test's scenario; README-beamsegdraw-stock.md\n";
-	const std::vector< Case_t > cases = Scenario();
+	const std::vector<Case_t> cases = Scenario();
 	char buf[64];
 	for ( size_t i = 0; i < cases.size(); i++ )
 	{
@@ -415,8 +441,15 @@ std::string RepoPath( const char *pszRel )
 	return std::string( pszRepo ? pszRepo : "." ) + "/" + pszRel;
 }
 
-std::string GoldenPath() { return RepoPath( "src/test/client/Fixtures/beamsegdraw-stock.tsv" ); }
-std::string MarkerPath() { return RepoPath( "src/test/oracle/native/beamsegdraw_golden.regen" ); }
+std::string GoldenPath()
+{
+	return RepoPath( "src/test/client/Fixtures/beamsegdraw-stock.tsv" );
+}
+
+std::string MarkerPath()
+{
+	return RepoPath( "src/test/oracle/native/beamsegdraw_golden.regen" );
+}
 
 std::string ReadGolden()
 {
@@ -429,7 +462,8 @@ std::string ReadGolden()
 
 TEST( BeamSegDrawOracle, StockProducesTheGolden )
 {
-	SS_SKIP_ON_CI( "a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit" );
+	SS_SKIP_ON_CI(
+		"a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit" );
 	const std::string run = RunScenario();
 
 	if ( std::ifstream( MarkerPath() ).good() )
@@ -452,9 +486,9 @@ TEST( BeamSegDrawOracle, StockProducesTheGolden )
 		++n;
 		if ( !ha && !hb )
 			break;
-		ASSERT_TRUE( ha && hb && la == lb ) << "line " << n << ": stock now writes\n  " << ( ha ? la : "<end>" )
-			<< "\nand the golden has\n  " << ( hb ? lb : "<end>" )
-			<< "\nDo NOT regenerate the golden to make this pass; see the file header.";
+		ASSERT_TRUE( ha && hb && la == lb )
+			<< "line " << n << ": stock now writes\n  " << ( ha ? la : "<end>" ) << "\nand the golden has\n  "
+			<< ( hb ? lb : "<end>" ) << "\nDo NOT regenerate the golden to make this pass; see the file header.";
 	}
 }
 
@@ -463,7 +497,7 @@ TEST( BeamSegDrawOracle, StockProducesTheGolden )
 TEST( BeamSegDrawOracle, TheScenarioReachesEveryArm )
 {
 	Build();
-	const std::vector< Case_t > cases = Scenario();
+	const std::vector<Case_t> cases = Scenario();
 	int nOwn = 0, nShared = 0;
 	for ( const Case_t &c : cases )
 	{
@@ -497,7 +531,7 @@ TEST( BeamSegDrawOracle, TheScenarioReachesEveryArm )
 TEST( BeamSegDrawOracle, TheExecutorWritesStocksBuffers )
 {
 	Build();
-	const std::vector< Case_t > cases = Scenario();
+	const std::vector<Case_t> cases = Scenario();
 	int nCompared = 0;
 	for ( const Case_t &c : cases )
 	{
@@ -505,23 +539,21 @@ TEST( BeamSegDrawOracle, TheExecutorWritesStocksBuffers )
 		const Record_t stock = g_Rec;
 
 		// Managed's vertices, per strip.
-		std::vector< std::vector< float > > strips;
+		std::vector<std::vector<float>> strips;
 		int iVert = c.nBase;
 		for ( const Strip_t &s : c.strips )
 		{
-			std::vector< float > v;
+			std::vector<float> v;
 			for ( size_t k = 0; k < s.segs.size(); k++ )
 			{
 				for ( int side = 0; side < 2; side++ )
 				{
-					const Vertex_t &sv = stock.verts[ iVert++ ];
+					const Vertex_t &sv = stock.verts[iVert++];
 					const BeamSeg_t &seg = s.segs[k];
-					const float f[ BEAM_STRIP_VERTEX_FLOATS ] = {
-						sv.pos[0], sv.pos[1], sv.pos[2],
-						seg.m_vColor.x, seg.m_vColor.y, seg.m_vColor.z, seg.m_flAlpha,
-						sv.tc0[0], sv.tc0[1], sv.tc1[0], sv.tc1[1],
-						sv.tangentS[0], sv.tangentS[1], sv.tangentS[2],
-						sv.tangentT[0], sv.tangentT[1], sv.tangentT[2] };
+					const float f[BEAM_STRIP_VERTEX_FLOATS] = {
+						sv.pos[0],      sv.pos[1],      sv.pos[2],      seg.m_vColor.x, seg.m_vColor.y, seg.m_vColor.z,
+						seg.m_flAlpha,  sv.tc0[0],      sv.tc0[1],      sv.tc1[0],      sv.tc1[1],      sv.tangentS[0],
+						sv.tangentS[1], sv.tangentS[2], sv.tangentT[0], sv.tangentT[1], sv.tangentT[2] };
 					v.insert( v.end(), f, f + BEAM_STRIP_VERTEX_FLOATS );
 				}
 			}
@@ -531,7 +563,8 @@ TEST( BeamSegDrawOracle, TheExecutorWritesStocksBuffers )
 		Reset( c.camera );
 		if ( c.cMode == 'm' )
 		{
-			ss::beamstrip::DrawStrip( (IMesh *)&g_Mesh, strips[0].data(), (int)strips[0].size() / BEAM_STRIP_VERTEX_FLOATS );
+			ss::beamstrip::DrawStrip( (IMesh *)&g_Mesh, strips[0].data(),
+									  (int)strips[0].size() / BEAM_STRIP_VERTEX_FLOATS );
 		}
 		else
 		{
@@ -540,7 +573,7 @@ TEST( BeamSegDrawOracle, TheExecutorWritesStocksBuffers )
 			for ( int i = 0; i < c.nBase; i++ )
 				mb.AdvanceVertex();
 			int nSoFar = c.nBase;
-			for ( const std::vector< float > &v : strips )
+			for ( const std::vector<float> &v : strips )
 			{
 				const int n = (int)v.size() / BEAM_STRIP_VERTEX_FLOATS;
 				ss::beamstrip::WriteIndexed( mb, v.data(), n, nSoFar );

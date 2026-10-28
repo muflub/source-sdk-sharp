@@ -1,7 +1,7 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-void GenerateSequentialIndexBuffer(	BOUNDARY	the Valve name over ss::meshutils
-void GenerateQuadIndexBuffer(	BOUNDARY	the Valve name over ss::meshutils
-void GeneratePolygonIndexBuffer(	BOUNDARY	the Valve name over ss::meshutils
-void GenerateLineStripIndexBuffer(	BOUNDARY	the Valve name over ss::meshutils
-void GenerateLineLoopIndexBuffer(	BOUNDARY	the Valve name over ss::meshutils
+void GenerateSequentialIndexBuffer( unsigned short *pIndexMemory, int nIndexCount, int nFirstVertex )	BOUNDARY	the Valve name over ss::meshutils
+void GenerateQuadIndexBuffer( unsigned short *pIndexMemory, int nIndexCount, int nFirstVertex )	BOUNDARY	the Valve name over ss::meshutils
+void GeneratePolygonIndexBuffer( unsigned short *pIndexMemory, int nIndexCount, int nFirstVertex )	BOUNDARY	the Valve name over ss::meshutils
+void GenerateLineStripIndexBuffer( unsigned short *pIndexMemory, int nIndexCount, int nFirstVertex )	BOUNDARY	the Valve name over ss::meshutils
+void GenerateLineLoopIndexBuffer( unsigned short *pIndexMemory, int nIndexCount, int nFirstVertex )	BOUNDARY	the Valve name over ss::meshutils

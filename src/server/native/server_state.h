@@ -19,7 +19,6 @@
 #include "slot_table.h"
 #include "generic_nettable.h"
 
-#include <stdint.h>
 #include <set>
 #include <string>
 
@@ -29,16 +28,19 @@ class ServerClass;
 
 // The temp entity tables built from the managed plan. Leaked on purpose: the engine
 // reads a SendTable for the life of the process.
-enum { SOURCESHARP_TE_MAX_TABLES = 64 };
+enum
+{
+	SOURCESHARP_TE_MAX_TABLES = 64
+};
 
 struct SourceSharpTeBuilt_t
 {
-	SendProp    *pProps;
-	int          nProps;
-	SendTable   *pTable;
-	ServerClass *pClass;      // NULL for a table registered without one
-	const char  *pClassName;  // interned: what a managed reload asks for again
-	uint32_t     nShapeHash;
+	SendProp *pProps;
+	int nProps;
+	SendTable *pTable;
+	ServerClass *pClass; // NULL for a table registered without one
+	const char *pClassName; // interned: what a managed reload asks for again
+	uint32_t nShapeHash;
 };
 
 class CServerTempEnts
@@ -48,21 +50,21 @@ public:
 	CServerTempEnts( const CServerTempEnts & ) = delete;
 	CServerTempEnts &operator=( const CServerTempEnts & ) = delete;
 
-	SourceSharpTeBuilt_t m_Built[ SOURCESHARP_TE_MAX_TABLES ] = {};
+	SourceSharpTeBuilt_t m_Built[SOURCESHARP_TE_MAX_TABLES] = {};
 	int m_nBuilt = 0;
 	bool m_bClosed = false;
 
 	// Names the engine keeps by pointer. A std::set node never moves, so c_str() is stable.
-	std::set< std::string > m_Names;
+	std::set<std::string> m_Names;
 
 	// The encode buffer one PlaybackTempEntity is written into.
-	unsigned char m_Scratch[ 512 ] = {};
+	unsigned char m_Scratch[512] = {};
 };
 
 // One heap tier: an owning pointer whose object exists between Begin and End. Begin
 // destroys a stale object first, so a tier is never reused. End clears the pointer
 // before deleting. The destructor does not delete: DLLShutdown ends the tiers.
-template < typename T >
+template <typename T>
 class CStateTier
 {
 public:

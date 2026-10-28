@@ -32,8 +32,14 @@
 
 #undef _AssertMsg
 #undef _AssertMsgOnce
-#define _AssertMsg( _exp, _msg, _executeExp, _bFatal ) do { } while ( 0 )
-#define _AssertMsgOnce( _exp, _msg, _bFatal ) do { } while ( 0 )
+#define _AssertMsg( _exp, _msg, _executeExp, _bFatal ) \
+	do                                                 \
+	{                                                  \
+	} while ( 0 )
+#define _AssertMsgOnce( _exp, _msg, _bFatal ) \
+	do                                        \
+	{                                         \
+	} while ( 0 )
 
 #if defined( _MSC_VER ) && defined( SS_NO_CRT )
 // MSVC references _fltused from an object that touches floating point (the

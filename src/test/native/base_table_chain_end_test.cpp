@@ -83,14 +83,14 @@ namespace
 //-----------------------------------------------------------------------------
 struct OwnsTables
 {
-	static datamap_t  m_DataMap;
-	static datamap_t  m_PredMap;
+	static datamap_t m_DataMap;
+	static datamap_t m_PredMap;
 	static SendTable *m_pClassSendTable;
 	static RecvTable *m_pClassRecvTable;
 };
 
-datamap_t  OwnsTables::m_DataMap = { 0, 0, "OwnsTables", NULL };
-datamap_t  OwnsTables::m_PredMap = { 0, 0, "OwnsTables", NULL };
+datamap_t OwnsTables::m_DataMap = { 0, 0, "OwnsTables", NULL };
+datamap_t OwnsTables::m_PredMap = { 0, 0, "OwnsTables", NULL };
 SendTable *OwnsTables::m_pClassSendTable = NULL;
 RecvTable *OwnsTables::m_pClassRecvTable = NULL;
 
@@ -106,33 +106,33 @@ RecvTable *OwnsTables::m_pClassRecvTable = NULL;
 //-----------------------------------------------------------------------------
 struct DerivedOwnsTables : public IGameEntity
 {
-	static datamap_t  m_DataMap;
-	static datamap_t  m_PredMap;
+	static datamap_t m_DataMap;
+	static datamap_t m_PredMap;
 	static SendTable *m_pClassSendTable;
 	static RecvTable *m_pClassRecvTable;
 };
 
-datamap_t  DerivedOwnsTables::m_DataMap = { 0, 0, "DerivedOwnsTables", NULL };
-datamap_t  DerivedOwnsTables::m_PredMap = { 0, 0, "DerivedOwnsTables", NULL };
+datamap_t DerivedOwnsTables::m_DataMap = { 0, 0, "DerivedOwnsTables", NULL };
+datamap_t DerivedOwnsTables::m_PredMap = { 0, 0, "DerivedOwnsTables", NULL };
 SendTable *DerivedOwnsTables::m_pClassSendTable = NULL;
 RecvTable *DerivedOwnsTables::m_pClassRecvTable = NULL;
 
 // Distinct non-null values, so "the right table came back" is a real
 // comparison rather than NULL == NULL. Set once, in SetUp of each test that
 // reads them, to keep the static initialisers above trivial.
-SendTable *const kOwnSend      = reinterpret_cast<SendTable *>( 0x1001 );
-SendTable *const kDerivedSend  = reinterpret_cast<SendTable *>( 0x1002 );
-RecvTable *const kOwnRecv      = reinterpret_cast<RecvTable *>( 0x2001 );
-RecvTable *const kDerivedRecv  = reinterpret_cast<RecvTable *>( 0x2002 );
+SendTable *const kOwnSend = reinterpret_cast<SendTable *>( 0x1001 );
+SendTable *const kDerivedSend = reinterpret_cast<SendTable *>( 0x1002 );
+RecvTable *const kOwnRecv = reinterpret_cast<RecvTable *>( 0x2001 );
+RecvTable *const kDerivedRecv = reinterpret_cast<RecvTable *>( 0x2002 );
 
 class BaseTableChainEnd : public ::testing::Test
 {
 protected:
 	void SetUp() override
 	{
-		OwnsTables::m_pClassSendTable        = kOwnSend;
+		OwnsTables::m_pClassSendTable = kOwnSend;
 		DerivedOwnsTables::m_pClassSendTable = kDerivedSend;
-		OwnsTables::m_pClassRecvTable        = kOwnRecv;
+		OwnsTables::m_pClassRecvTable = kOwnRecv;
 		DerivedOwnsTables::m_pClassRecvTable = kDerivedRecv;
 	}
 };
@@ -190,21 +190,18 @@ TEST_F( BaseTableChainEnd, PredMapStillChainsForAnOrdinaryBase )
 	// answer NULL and every predicted class in the tree would silently lose
 	// its own fields, which is the same failure the DERIVED case above guards
 	// from the other side.
-	EXPECT_EQ( &OwnsTables::m_PredMap,
-	           PredMapBaseAccess( static_cast<OwnsTables *>( NULL ) ) );
-	EXPECT_NE( static_cast<datamap_t *>( NULL ),
-	           PredMapBaseAccess( static_cast<OwnsTables *>( NULL ) ) );
+	EXPECT_EQ( &OwnsTables::m_PredMap, PredMapBaseAccess( static_cast<OwnsTables *>( NULL ) ) );
+	EXPECT_NE( static_cast<datamap_t *>( NULL ), PredMapBaseAccess( static_cast<OwnsTables *>( NULL ) ) );
 }
 
 TEST_F( BaseTableChainEnd, PredMapStillChainsForABaseDERIVEDFromTheBoundary )
 {
-	EXPECT_EQ( &DerivedOwnsTables::m_PredMap,
-	           PredMapBaseAccess( static_cast<DerivedOwnsTables *>( NULL ) ) );
+	EXPECT_EQ( &DerivedOwnsTables::m_PredMap, PredMapBaseAccess( static_cast<DerivedOwnsTables *>( NULL ) ) );
 
 	// ...and the two are different objects, so the line above is a comparison
 	// rather than an accident of both being the same table.
 	EXPECT_NE( PredMapBaseAccess( static_cast<OwnsTables *>( NULL ) ),
-	           PredMapBaseAccess( static_cast<DerivedOwnsTables *>( NULL ) ) );
+			   PredMapBaseAccess( static_cast<DerivedOwnsTables *>( NULL ) ) );
 }
 
 // THE INITIALISATION CATEGORY, asserted rather than described. BEGIN_PREDICTION_DATA
@@ -213,18 +210,16 @@ TEST_F( BaseTableChainEnd, PredMapStillChainsForABaseDERIVEDFromTheBoundary )
 // silently demote that object to dynamic initialisation. static_assert is the
 // only thing that can tell the difference, and it fails at BUILD time, so this
 // pair guards the property even though neither line runs.
-constexpr datamap_t *kPredEndsAtBoundary =
-	PredMapBaseAccess( static_cast<IGameEntity *>( NULL ) );
+constexpr datamap_t *kPredEndsAtBoundary = PredMapBaseAccess( static_cast<IGameEntity *>( NULL ) );
 static_assert( kPredEndsAtBoundary == NULL,
-               "PredMapBaseAccess(IGameEntity*) must be usable in a constant "
-               "expression: BEGIN_PREDICTION_DATA calls it from the aggregate "
-               "initialiser of a static datamap_t." );
+			   "PredMapBaseAccess(IGameEntity*) must be usable in a constant "
+			   "expression: BEGIN_PREDICTION_DATA calls it from the aggregate "
+			   "initialiser of a static datamap_t." );
 
-constexpr datamap_t *kPredDerived =
-	PredMapBaseAccess( static_cast<DerivedOwnsTables *>( NULL ) );
+constexpr datamap_t *kPredDerived = PredMapBaseAccess( static_cast<DerivedOwnsTables *>( NULL ) );
 static_assert( kPredDerived == &DerivedOwnsTables::m_PredMap,
-               "the template arm must ALSO be a constant expression, or every "
-               "predicted class in the SDK loses its constant initialisation." );
+			   "the template arm must ALSO be a constant expression, or every "
+			   "predicted class in the SDK loses its constant initialisation." );
 
 //-----------------------------------------------------------------------------
 // m_pClassSendTable  --  BEGIN_SEND_TABLE's "baseclass" prop
@@ -242,8 +237,7 @@ TEST_F( BaseTableChainEnd, SendTableStillChainsForAnOrdinaryBase )
 
 TEST_F( BaseTableChainEnd, SendTableStillChainsForABaseDERIVEDFromTheBoundary )
 {
-	EXPECT_EQ( kDerivedSend,
-	           SendTableBaseAccess( static_cast<DerivedOwnsTables *>( NULL ) ) );
+	EXPECT_EQ( kDerivedSend, SendTableBaseAccess( static_cast<DerivedOwnsTables *>( NULL ) ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -262,8 +256,7 @@ TEST_F( BaseTableChainEnd, RecvTableStillChainsForAnOrdinaryBase )
 
 TEST_F( BaseTableChainEnd, RecvTableStillChainsForABaseDERIVEDFromTheBoundary )
 {
-	EXPECT_EQ( kDerivedRecv,
-	           RecvTableBaseAccess( static_cast<DerivedOwnsTables *>( NULL ) ) );
+	EXPECT_EQ( kDerivedRecv, RecvTableBaseAccess( static_cast<DerivedOwnsTables *>( NULL ) ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -283,7 +276,7 @@ TEST_F( BaseTableChainEnd, RecvTableStillChainsForABaseDERIVEDFromTheBoundary )
 // top-level commas. A one-parameter stringiser is a compile error here, not a
 // wrong answer -- which is how this was found.
 #define SS_STRINGISE_( ... ) #__VA_ARGS__
-#define SS_STRINGISE( ... )  SS_STRINGISE_( __VA_ARGS__ )
+#define SS_STRINGISE( ... ) SS_STRINGISE_( __VA_ARGS__ )
 
 TEST_F( BaseTableChainEnd, SendTableMacroRoutesThroughTheAccessor )
 {
@@ -358,7 +351,10 @@ struct FreeRider : public IGameEntity
 {
 };
 
-inline void DataMapAccess( FreeRider *, datamap_t **p ) { *p = NULL; }
+inline void DataMapAccess( FreeRider *, datamap_t **p )
+{
+	*p = NULL;
+}
 
 //-----------------------------------------------------------------------------
 // A free-rider UNDER a free-rider. Not hypothetical: CServerOnlyPointEntity
@@ -370,7 +366,10 @@ struct NestedFreeRider : public FreeRider
 {
 };
 
-inline void DataMapAccess( NestedFreeRider *, datamap_t **p ) { *p = NULL; }
+inline void DataMapAccess( NestedFreeRider *, datamap_t **p )
+{
+	*p = NULL;
+}
 
 //-----------------------------------------------------------------------------
 // The class that chains THROUGH a free-rider and has a real datadesc of its
@@ -387,9 +386,8 @@ TEST_F( BaseTableChainEnd, DataMapChainEndsAtAFreeRider )
 {
 	datamap_t *p = reinterpret_cast<datamap_t *>( 0xDEAD );
 	DataMapAccess( static_cast<FreeRider *>( NULL ), &p );
-	EXPECT_EQ( NULL, p )
-		<< "a class deriving from a free-rider must terminate the chain; "
-		<< "this is the CPointEntity/CLogicalEntity/C_BaseAnimating/CSprite case";
+	EXPECT_EQ( NULL, p ) << "a class deriving from a free-rider must terminate the chain; "
+						 << "this is the CPointEntity/CLogicalEntity/C_BaseAnimating/CSprite case";
 }
 
 TEST_F( BaseTableChainEnd, DataMapChainEndsAtANestedFreeRider )
@@ -399,9 +397,8 @@ TEST_F( BaseTableChainEnd, DataMapChainEndsAtANestedFreeRider )
 	// compiles at all is the assertion; the value is the confirmation.
 	datamap_t *p = reinterpret_cast<datamap_t *>( 0xDEAD );
 	DataMapAccess( static_cast<NestedFreeRider *>( NULL ), &p );
-	EXPECT_EQ( NULL, p )
-		<< "two free-rider overloads in one hierarchy must resolve to the "
-		<< "exact match, not ambiguously and not to the base one";
+	EXPECT_EQ( NULL, p ) << "two free-rider overloads in one hierarchy must resolve to the "
+						 << "exact match, not ambiguously and not to the base one";
 }
 
 TEST_F( BaseTableChainEnd, FreeRiderOverloadDoesNotSwallowARealDatadescBelowIt )

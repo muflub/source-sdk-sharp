@@ -14,8 +14,7 @@
 extern IGameEventManager2 *gameeventmanager;
 
 #include "shell_diagnostics.h"
-#include "sourcesharp.h"
-#include "ss_string.h"
+
 #include "game_event_subscriptions.h"
 #include "imanaged_areas.h"
 #include "imanaged_areas_client.h"
@@ -59,8 +58,9 @@ void SourceSharp_ListenForGameEvent( const char *pEventName )
 #else
 	static const bool kServerSide = true;
 #endif
-	const CGameEventSubscriptions::Result_t eResult = g_SubscribedEvents.Subscribe( pEventName,
-		[]( const char *pName ) { return gameeventmanager->AddListener( &g_SourceSharpEventListener, pName, kServerSide ); } );
+	const CGameEventSubscriptions::Result_t eResult = g_SubscribedEvents.Subscribe(
+		pEventName, []( const char *pName )
+		{ return gameeventmanager->AddListener( &g_SourceSharpEventListener, pName, kServerSide ); } );
 
 	if ( eResult == CGameEventSubscriptions::kAlreadyListening )
 	{
@@ -72,7 +72,8 @@ void SourceSharp_ListenForGameEvent( const char *pEventName )
 	if ( eResult == CGameEventSubscriptions::kRefused )
 	{
 		Warning( "[SourceSharp] could not listen for game event '%s' — "
-		         "no such event is declared in the game's event files\n", pEventName );
+				 "no such event is declared in the game's event files\n",
+				 pEventName );
 		return;
 	}
 
@@ -90,8 +91,7 @@ void SourceSharp_StopListeningForGameEvents()
 
 	if ( g_SubscribedEvents.Count() > 0 && SourceSharp_GetVerbosity() > 0 )
 	{
-		Msg( "[SourceSharp] stopped listening for %d game event(s)\n",
-			g_SubscribedEvents.Count() );
+		Msg( "[SourceSharp] stopped listening for %d game event(s)\n", g_SubscribedEvents.Count() );
 	}
 
 	g_SubscribedEvents.Clear();

@@ -32,22 +32,21 @@ public:
 	bool IsActive() const;
 
 private:
-
 	enum
 	{
 		eChangeTrackerBufSize = 128,
 	};
 
 	// Returns field size
-	void				GetValue( char *buf, size_t bufsize );
+	void GetValue( char *buf, size_t bufsize );
 
-	bool				m_bActive : 1;
-	bool				m_bTracking : 1;
-	EHANDLE				m_hEntityToTrack;
-	CUtlVector< typedescription_t * > m_FieldStack;
-	CUtlString			m_strFieldName;
-	CUtlString			m_strContext;
+	bool m_bActive : 1;
+	bool m_bTracking : 1;
+	EHANDLE m_hEntityToTrack;
+	CUtlVector<typedescription_t *> m_FieldStack;
+	CUtlString m_strFieldName;
+	CUtlString m_strContext;
 	// First 128 bytes of data is all we will consider
-	char				m_OrigValueBuf[ eChangeTrackerBufSize ];
-	CUtlVector< CUtlString >	 m_History;
+	char m_OrigValueBuf[eChangeTrackerBufSize];
+	CUtlVector<CUtlString> m_History;
 };

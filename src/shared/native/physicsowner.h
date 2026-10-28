@@ -11,22 +11,22 @@
 #pragma once
 
 #ifdef CLIENT_DLL
-	#include "client_entity.h"
+#include "client_entity.h"
 #endif
 
 #ifndef CLIENT_DLL
-	#include "igameentity.h"
-	#include "standalone_relays.h"
-	#include "const.h"
-	#include "mathlib/mathlib.h"
-	#include "bspflags.h"
-	#include "iservernetworkable.h"
-	#include "iserverentity.h"
-	#include "engine/ICollideable.h"
+#include "igameentity.h"
+#include "standalone_relays.h"
+#include "const.h"
+#include "mathlib/mathlib.h"
+#include "bspflags.h"
+#include "iservernetworkable.h"
+#include "iserverentity.h"
+#include "engine/ICollideable.h"
 #else
-	// The client has no parallel hierarchy; these exist so shared code compiles.
-	class IGameEntity;
-	class IServerEntity;
+// The client has no parallel hierarchy; these exist so shared code compiles.
+class IGameEntity;
+class IServerEntity;
 #endif
 
 #include "vphysics_interface.h"
@@ -63,13 +63,13 @@ struct PhysicsOwner_t
 	void *Key() const
 	{
 		if ( pBase )
-			return static_cast< void * >( pBase );
+			return static_cast<void *>( pBase );
 #ifndef CLIENT_DLL
 		if ( pWorld )
-			return static_cast< void * >( pWorld );
+			return static_cast<void *>( pWorld );
 #endif
 #ifndef CLIENT_DLL
-		return static_cast< void * >( pGame );
+		return static_cast<void *>( pGame );
 #else
 		return NULL;
 #endif
@@ -88,7 +88,8 @@ struct PhysicsOwner_t
 	const char *GetClassname() const
 	{
 #ifndef CLIENT_DLL
-		if ( pServer ) return pServer->GetNetworkable()->GetClassName();
+		if ( pServer )
+			return pServer->GetNetworkable()->GetClassName();
 #endif
 		return "";
 	}
@@ -108,9 +109,11 @@ struct PhysicsOwner_t
 
 	int GetCollisionGroup() const
 	{
-		if ( pBase ) return pBase->GetCollisionGroup();
+		if ( pBase )
+			return pBase->GetCollisionGroup();
 #ifndef CLIENT_DLL
-		if ( pGame ) return pGame->GetCollisionGroup();
+		if ( pGame )
+			return pGame->GetCollisionGroup();
 #endif
 		return COLLISION_GROUP_NONE;
 	}
@@ -118,7 +121,8 @@ struct PhysicsOwner_t
 	const Vector &GetAbsOrigin() const
 	{
 #ifndef CLIENT_DLL
-		if ( pServer ) return pServer->GetCollideable()->GetCollisionOrigin();
+		if ( pServer )
+			return pServer->GetCollideable()->GetCollisionOrigin();
 #endif
 		return vec3_origin;
 	}
@@ -126,7 +130,8 @@ struct PhysicsOwner_t
 	bool IsPlayer() const
 	{
 #ifndef CLIENT_DLL
-		if ( pGame ) return StandaloneEntity_IsPlayer( pGame );
+		if ( pGame )
+			return StandaloneEntity_IsPlayer( pGame );
 #endif
 		return false;
 	}
@@ -148,41 +153,31 @@ struct PhysicsOwner_t
 	MoveType_t GetMoveType() const
 	{
 #ifndef CLIENT_DLL
-		if ( pGame ) return (MoveType_t)StandaloneEntity_MoveType( pGame );
+		if ( pGame )
+			return (MoveType_t)StandaloneEntity_MoveType( pGame );
 #endif
 		return MOVETYPE_NONE;
 	}
 
 	bool IsNPC() const { return false; }
 
-	bool CanTakeDamage() const
-	{
-		return true;
-	}
+	bool CanTakeDamage() const { return true; }
 
 	// Always plain water: entities outside the SDK track no water level.
-	int GetWaterType() const
-	{
-		return 0;
-	}
+	int GetWaterType() const { return 0; }
 
 	// The solver is the only thing that moves an entity on the parallel hierarchy.
-	bool IsVPhysicsSimulated() const
-	{
-		return ( pGame != NULL );
-	}
+	bool IsVPhysicsSimulated() const { return ( pGame != NULL ); }
 
 	// The object this owner was looked up from; a ragdoll's first object, as stock.
-	bool IsVPhysicsMoveable() const
-	{
-		return pObject && pObject->IsMoveable();
-	}
+	bool IsVPhysicsMoveable() const { return pObject && pObject->IsMoveable(); }
 
 	// Read from the entity's collideable, as stock's ShouldCollide does.
 	SolidType_t GetSolid() const
 	{
 #ifndef CLIENT_DLL
-		if ( pServer ) return (SolidType_t)pServer->GetCollideable()->GetSolid();
+		if ( pServer )
+			return (SolidType_t)pServer->GetCollideable()->GetSolid();
 #endif
 		return SOLID_VPHYSICS;
 	}
@@ -190,7 +185,8 @@ struct PhysicsOwner_t
 	int GetSolidFlags() const
 	{
 #ifndef CLIENT_DLL
-		if ( pServer ) return pServer->GetCollideable()->GetSolidFlags();
+		if ( pServer )
+			return pServer->GetCollideable()->GetSolidFlags();
 #endif
 		return 0;
 	}
@@ -207,31 +203,27 @@ struct PhysicsOwner_t
 #ifndef CLIENT_DLL
 	// Whether this entity forces a collision the ordinary rules would skip
 	// (func_clip_vphysics). Nothing in this build does.
-	bool ForcesCollisionWith( const PhysicsOwner_t &other ) const
-	{
-		return false;
-	}
+	bool ForcesCollisionWith( const PhysicsOwner_t &other ) const { return false; }
 #endif
 
 	void VPhysicsUpdate( IPhysicsObject *pObject ) const
 	{
-		if ( pBase ) { pBase->VPhysicsUpdate( pObject ); return; }
+		if ( pBase )
+		{
+			pBase->VPhysicsUpdate( pObject );
+			return;
+		}
 #ifndef CLIENT_DLL
-		if ( pGame ) pGame->VPhysicsUpdate( pObject );
+		if ( pGame )
+			pGame->VPhysicsUpdate( pObject );
 #endif
 	}
 
 #ifdef CLIENT_DLL
 	// Toucher_t is server-only, so the client has no touch path.
-	void StartTouch( const PhysicsOwner_t &other ) const
-	{
-		(void)other;
-	}
+	void StartTouch( const PhysicsOwner_t &other ) const { (void)other; }
 
-	void EndTouch( const PhysicsOwner_t &other ) const
-	{
-		(void)other;
-	}
+	void EndTouch( const PhysicsOwner_t &other ) const { (void)other; }
 #else
 	// Defined at the end of this file: toucher.h includes this header.
 	void StartTouch( const PhysicsOwner_t &other ) const;
@@ -289,7 +281,7 @@ inline PhysicsOwner_t PhysicsOwnerOfGameData( void *pGameData, IPhysicsObject *p
 		return owner;
 #endif
 
-	owner.pBase = static_cast< IGameEntity * >( pGameData );
+	owner.pBase = static_cast<IGameEntity *>( pGameData );
 	return owner;
 }
 
@@ -357,13 +349,15 @@ inline void PhysicsOwner_t::StartTouch( const PhysicsOwner_t &other ) const
 {
 	const Toucher_t toucher = other.AsToucher();
 
-	if ( pGame ) pGame->StartTouch( toucher );
+	if ( pGame )
+		pGame->StartTouch( toucher );
 }
 
 inline void PhysicsOwner_t::EndTouch( const PhysicsOwner_t &other ) const
 {
 	const Toucher_t toucher = other.AsToucher();
 
-	if ( pGame ) pGame->EndTouch( toucher );
+	if ( pGame )
+		pGame->EndTouch( toucher );
 }
 #endif

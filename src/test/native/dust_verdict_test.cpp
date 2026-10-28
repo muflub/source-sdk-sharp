@@ -113,7 +113,11 @@ struct File_t
 // Not a preprocessor. It does not evaluate anything, it does not follow
 // includes, and it takes no view on any macro but the one it is named after.
 //-----------------------------------------------------------------------------
-struct Range_t { size_t begin; size_t end; };
+struct Range_t
+{
+	size_t begin;
+	size_t end;
+};
 
 // Is this line a preprocessor directive of the given kind? Leading whitespace
 // and whitespace after the '#' are both allowed, which is how this tree spells
@@ -121,19 +125,23 @@ struct Range_t { size_t begin; size_t end; };
 bool IsDirective( const std::string &strLine, const char *pszKeyword )
 {
 	size_t i = 0;
-	while ( i < strLine.size() && ( strLine[ i ] == ' ' || strLine[ i ] == '\t' ) ) i++;
-	if ( i >= strLine.size() || strLine[ i ] != '#' ) return false;
+	while ( i < strLine.size() && ( strLine[i] == ' ' || strLine[i] == '\t' ) )
+		i++;
+	if ( i >= strLine.size() || strLine[i] != '#' )
+		return false;
 	i++;
-	while ( i < strLine.size() && ( strLine[ i ] == ' ' || strLine[ i ] == '\t' ) ) i++;
+	while ( i < strLine.size() && ( strLine[i] == ' ' || strLine[i] == '\t' ) )
+		i++;
 
 	const std::string kw( pszKeyword );
-	if ( strLine.compare( i, kw.size(), kw ) != 0 ) return false;
+	if ( strLine.compare( i, kw.size(), kw ) != 0 )
+		return false;
 
 	// Whole word: `#if` must not match `#ifndef`.
 	const size_t after = i + kw.size();
 	if ( after < strLine.size() )
 	{
-		const char c = strLine[ after ];
+		const char c = strLine[after];
 		if ( ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) || ( c >= '0' && c <= '9' ) || c == '_' )
 			return false;
 	}
@@ -167,9 +175,9 @@ bool NamesMacro( const std::string &strLine, const char *pszMacro )
 
 	while ( ( at = strLine.find( macro, at ) ) != std::string::npos )
 	{
-		const bool bLeftOk  = ( at == 0 ) || !IsIdentChar( strLine[ at - 1 ] );
-		const size_t after  = at + macro.size();
-		const bool bRightOk = ( after >= strLine.size() ) || !IsIdentChar( strLine[ after ] );
+		const bool bLeftOk = ( at == 0 ) || !IsIdentChar( strLine[at - 1] );
+		const size_t after = at + macro.size();
+		const bool bRightOk = ( after >= strLine.size() ) || !IsIdentChar( strLine[after] );
 
 		if ( bLeftOk && bRightOk )
 			return true;
@@ -184,8 +192,8 @@ bool OpensSourceSharpExclusion( const std::string &strLine )
 	if ( IsDirective( strLine, "ifndef" ) && NamesMacro( strLine, "SOURCESHARP" ) )
 		return true;
 
-	if ( IsDirective( strLine, "if" ) && strLine.find( "!defined" ) != std::string::npos
-	     && NamesMacro( strLine, "SOURCESHARP" ) )
+	if ( IsDirective( strLine, "if" ) && strLine.find( "!defined" ) != std::string::npos &&
+		 NamesMacro( strLine, "SOURCESHARP" ) )
 	{
 		return true;
 	}
@@ -198,19 +206,20 @@ bool OpensAnyConditional( const std::string &strLine )
 	return IsDirective( strLine, "if" ) || IsDirective( strLine, "ifdef" ) || IsDirective( strLine, "ifndef" );
 }
 
-std::vector< Range_t > ExcludedUnderSourceSharp( const std::string &src )
+std::vector<Range_t> ExcludedUnderSourceSharp( const std::string &src )
 {
-	std::vector< Range_t > out;
+	std::vector<Range_t> out;
 
 	size_t pos = 0;
-	int nDepthInside = 0;			// nesting depth within an open exclusion
+	int nDepthInside = 0; // nesting depth within an open exclusion
 	bool bInside = false;
 	size_t nBegin = 0;
 
 	while ( pos <= src.size() )
 	{
 		size_t eol = src.find( '\n', pos );
-		if ( eol == std::string::npos ) eol = src.size();
+		if ( eol == std::string::npos )
+			eol = src.size();
 
 		const std::string line = src.substr( pos, eol - pos );
 
@@ -224,7 +233,9 @@ std::vector< Range_t > ExcludedUnderSourceSharp( const std::string &src )
 			{
 				if ( nDepthInside == 0 )
 				{
-					Range_t r; r.begin = nBegin; r.end = pos;
+					Range_t r;
+					r.begin = nBegin;
+					r.end = pos;
 					out.push_back( r );
 					bInside = false;
 				}
@@ -236,7 +247,9 @@ std::vector< Range_t > ExcludedUnderSourceSharp( const std::string &src )
 			else if ( ( IsDirective( line, "else" ) || IsDirective( line, "elif" ) ) && nDepthInside == 0 )
 			{
 				// The other arm is the one this build compiles.
-				Range_t r; r.begin = nBegin; r.end = pos;
+				Range_t r;
+				r.begin = nBegin;
+				r.end = pos;
 				out.push_back( r );
 				bInside = false;
 			}
@@ -248,7 +261,8 @@ std::vector< Range_t > ExcludedUnderSourceSharp( const std::string &src )
 			nBegin = pos;
 		}
 
-		if ( eol == src.size() ) break;
+		if ( eol == src.size() )
+			break;
 		pos = eol + 1;
 	}
 
@@ -258,18 +272,20 @@ std::vector< Range_t > ExcludedUnderSourceSharp( const std::string &src )
 	// OUTSIDE assertion rather than as silence.
 	if ( bInside )
 	{
-		Range_t r; r.begin = nBegin; r.end = src.size();
+		Range_t r;
+		r.begin = nBegin;
+		r.end = src.size();
 		out.push_back( r );
 	}
 
 	return out;
 }
 
-bool IsExcluded( const std::vector< Range_t > &ranges, size_t pos )
+bool IsExcluded( const std::vector<Range_t> &ranges, size_t pos )
 {
 	for ( size_t i = 0; i < ranges.size(); i++ )
 	{
-		if ( pos >= ranges[ i ].begin && pos < ranges[ i ].end )
+		if ( pos >= ranges[i].begin && pos < ranges[i].end )
 			return true;
 	}
 	return false;
@@ -277,9 +293,14 @@ bool IsExcluded( const std::vector< Range_t > &ranges, size_t pos )
 
 // Where the needle is, and whether the preprocessor keeps it. Returns npos in
 // pOut when the needle is absent, which every caller distinguishes.
-enum Placement_t { kAbsent, kCompiled, kGuardedOut };
+enum Placement_t
+{
+	kAbsent,
+	kCompiled,
+	kGuardedOut
+};
 
-Placement_t Place( const std::string &src, const std::vector< Range_t > &ranges, const char *pszNeedle )
+Placement_t Place( const std::string &src, const std::vector<Range_t> &ranges, const char *pszNeedle )
 {
 	const size_t at = src.find( pszNeedle );
 	if ( at == std::string::npos )
@@ -296,29 +317,28 @@ Placement_t Place( const std::string &src, const std::vector< Range_t > &ranges,
 //=============================================================================//
 TEST( DustVerdictScanner, TellsTheTwoSidesOfAGuardApart )
 {
-	const std::string kFixture =
-		"alpha\n"
-		"#ifndef SOURCESHARP\n"
-		"beta\n"
-		"#if defined( CLIENT_DLL )\n"
-		"gamma\n"
-		"#endif\n"
-		"delta\n"
-		"#endif\n"
-		"epsilon\n";
+	const std::string kFixture = "alpha\n"
+								 "#ifndef SOURCESHARP\n"
+								 "beta\n"
+								 "#if defined( CLIENT_DLL )\n"
+								 "gamma\n"
+								 "#endif\n"
+								 "delta\n"
+								 "#endif\n"
+								 "epsilon\n";
 
-	const std::vector< Range_t > ranges = ExcludedUnderSourceSharp( kFixture );
+	const std::vector<Range_t> ranges = ExcludedUnderSourceSharp( kFixture );
 
 	ASSERT_EQ( 1u, ranges.size() ) << "one guarded region, and the nested #if must not close it";
 
-	EXPECT_EQ( kCompiled,   Place( kFixture, ranges, "alpha" ) );
+	EXPECT_EQ( kCompiled, Place( kFixture, ranges, "alpha" ) );
 	EXPECT_EQ( kGuardedOut, Place( kFixture, ranges, "beta" ) );
 	EXPECT_EQ( kGuardedOut, Place( kFixture, ranges, "gamma" ) )
 		<< "the nested #endif closed the outer region — everything after a nested "
 		   "conditional would read as compiled";
 	EXPECT_EQ( kGuardedOut, Place( kFixture, ranges, "delta" ) );
-	EXPECT_EQ( kCompiled,   Place( kFixture, ranges, "epsilon" ) );
-	EXPECT_EQ( kAbsent,     Place( kFixture, ranges, "zeta" ) );
+	EXPECT_EQ( kCompiled, Place( kFixture, ranges, "epsilon" ) );
+	EXPECT_EQ( kAbsent, Place( kFixture, ranges, "zeta" ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -331,43 +351,38 @@ TEST( DustVerdictScanner, TellsTheTwoSidesOfAGuardApart )
 //-----------------------------------------------------------------------------
 TEST( DustVerdictScanner, AMacroThatMerelyCONTAINSTheNameOpensNothing )
 {
-	const std::string kFixture =
-		"#ifndef SOURCESHARP_DECOY\n"
-		"nothing_is_guarded_here\n"
-		"#endif\n";
+	const std::string kFixture = "#ifndef SOURCESHARP_DECOY\n"
+								 "nothing_is_guarded_here\n"
+								 "#endif\n";
 
-	const std::vector< Range_t > ranges = ExcludedUnderSourceSharp( kFixture );
+	const std::vector<Range_t> ranges = ExcludedUnderSourceSharp( kFixture );
 
-	EXPECT_TRUE( ranges.empty() )
-		<< "SOURCESHARP_DECOY is not SOURCESHARP. Matching the macro by substring "
-		   "makes every rename of the guard invisible to this test.";
+	EXPECT_TRUE( ranges.empty() ) << "SOURCESHARP_DECOY is not SOURCESHARP. Matching the macro by substring "
+									 "makes every rename of the guard invisible to this test.";
 
 	EXPECT_EQ( kCompiled, Place( kFixture, ranges, "nothing_is_guarded_here" ) );
 
 	// And the prefix direction, which is the other half of a whole-identifier
 	// match: a macro the name is a suffix OF.
-	const std::string kPrefixed =
-		"#ifndef SS_SOURCESHARP\n"
-		"also_not_guarded\n"
-		"#endif\n";
+	const std::string kPrefixed = "#ifndef SS_SOURCESHARP\n"
+								  "also_not_guarded\n"
+								  "#endif\n";
 
 	EXPECT_TRUE( ExcludedUnderSourceSharp( kPrefixed ).empty() );
 }
 
 TEST( DustVerdictScanner, AnElseEndsTheExcludedHalf )
 {
-	const std::string kFixture =
-		"#ifndef SOURCESHARP\n"
-		"stock\n"
-		"#else\n"
-		"ours\n"
-		"#endif\n";
+	const std::string kFixture = "#ifndef SOURCESHARP\n"
+								 "stock\n"
+								 "#else\n"
+								 "ours\n"
+								 "#endif\n";
 
-	const std::vector< Range_t > ranges = ExcludedUnderSourceSharp( kFixture );
+	const std::vector<Range_t> ranges = ExcludedUnderSourceSharp( kFixture );
 
 	EXPECT_EQ( kGuardedOut, Place( kFixture, ranges, "stock" ) );
-	EXPECT_EQ( kCompiled,   Place( kFixture, ranges, "ours" ) )
-		<< "the #else arm is what this build compiles";
+	EXPECT_EQ( kCompiled, Place( kFixture, ranges, "ours" ) ) << "the #else arm is what this build compiles";
 }
 
 //=============================================================================//

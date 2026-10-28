@@ -38,19 +38,19 @@ struct SSForwarderNamed
 };
 
 #if defined( _WIN32 )
-	#if defined( SS_FWD_SERVER_BUILD )
-		#define SS_FWD_SERVER_API extern "C" __declspec( dllexport )
-	#else
-		#define SS_FWD_SERVER_API extern "C" __declspec( dllimport )
-	#endif
-	#if defined( SS_FWD_CLIENT_BUILD )
-		#define SS_FWD_CLIENT_API extern "C" __declspec( dllexport )
-	#else
-		#define SS_FWD_CLIENT_API extern "C" __declspec( dllimport )
-	#endif
+#if defined( SS_FWD_SERVER_BUILD )
+#define SS_FWD_SERVER_API extern "C" __declspec( dllexport )
 #else
-	#define SS_FWD_SERVER_API extern "C" __attribute__(( visibility( "default" ) ))
-	#define SS_FWD_CLIENT_API extern "C" __attribute__(( visibility( "default" ) ))
+#define SS_FWD_SERVER_API extern "C" __declspec( dllimport )
+#endif
+#if defined( SS_FWD_CLIENT_BUILD )
+#define SS_FWD_CLIENT_API extern "C" __declspec( dllexport )
+#else
+#define SS_FWD_CLIENT_API extern "C" __declspec( dllimport )
+#endif
+#else
+#define SS_FWD_SERVER_API extern "C" __attribute__( ( visibility( "default" ) ) )
+#define SS_FWD_CLIENT_API extern "C" __attribute__( ( visibility( "default" ) ) )
 #endif
 
 // Each library's one export: the table served under pszName, or NULL for a
@@ -61,8 +61,8 @@ SS_FWD_CLIENT_API const SSForwarderTable *SSFwdClient_Table( const char *pszName
 
 // The lookup each export is: the named table, by exact name. Written out
 // rather than strcmp because the libraries link no runtime (NO_RUNTIME).
-template < int N >
-inline const SSForwarderTable *SSFwd_Find( const SSForwarderNamed ( &tables )[ N ], const char *pszName )
+template <int N>
+inline const SSForwarderTable *SSFwd_Find( const SSForwarderNamed ( &tables )[N], const char *pszName )
 {
 	if ( !pszName )
 		return nullptr;
@@ -105,5 +105,5 @@ inline void *SSFwd_Serve( const char *pszName )
 	if ( !pTable )
 		return nullptr;
 
-	return const_cast< SSForwarderTable * >( pTable );
+	return const_cast<SSForwarderTable *>( pTable );
 }

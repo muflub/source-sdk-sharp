@@ -38,17 +38,21 @@ class CShellNewParticleEffect : public CDefaultClientRenderable
 public:
 	// The named system, allocated; the manager removes it when it finishes. A
 	// name no .pcf defines gives an effect that is not IsValid, as stock's did.
-	static CSmartPtr< CShellNewParticleEffect > Create( const char *pszName, const char *pszDebugName = NULL );
+	static CSmartPtr<CShellNewParticleEffect> Create( const char *pszName, const char *pszDebugName = NULL );
 
 	bool IsValid() const { return m_pCollection && m_pCollection->IsValid(); }
+
 	const char *GetEffectName() const { return m_pCollection ? m_pCollection->GetName() : ""; }
+
 	CParticleCollection *Collection() const { return m_pCollection; }
+
 	uint32_t Id() const { return m_nId; }
 
 	// The definition reads this control point (CParticleSystemDefinition::ReadsControlPoint).
 	bool DefinitionReadsControlPoint( int nPoint ) const;
 
 	void SetSortOrigin( const Vector &vSortOrigin ) { m_vSortOrigin = vSortOrigin; }
+
 	const Vector &GetSortOrigin() const { return m_vSortOrigin; }
 
 	void SetControlPoint( int nWhichPoint, const Vector &v );
@@ -67,11 +71,17 @@ public:
 
 	// IClientRenderable, answered as CNewParticleEffect did.
 	virtual const Vector &GetRenderOrigin() OVERRIDE { return m_vSortOrigin; }
+
 	virtual const QAngle &GetRenderAngles() OVERRIDE { return vec3_angle; }
+
 	virtual const matrix3x4_t &RenderableToWorldTransform() OVERRIDE;
+
 	const char *GetDebugName() const { return m_pDebugName; }
+
 	virtual void GetRenderBounds( Vector &mins, Vector &maxs ) OVERRIDE;
+
 	virtual bool ShouldDraw() OVERRIDE { return true; }
+
 	virtual bool IsTransparent() OVERRIDE;
 	virtual bool IsTwoPass() OVERRIDE;
 	virtual bool UsesPowerOfTwoFrameBufferTexture() OVERRIDE;
@@ -79,9 +89,13 @@ public:
 	virtual int DrawModel( int flags ) OVERRIDE;
 
 	bool IsReleasedSinceFrame() const { return m_bReleasedSinceFrame; }
+
 	bool IsAddedSinceFrame() const { return m_bAddedSinceFrame; }
+
 	void ClearFrameFlags() { m_bReleasedSinceFrame = m_bAddedSinceFrame = false; }
+
 	int RefCount() const { return m_nRefCount; }
+
 	void Remove();
 
 private:
@@ -102,7 +116,7 @@ private:
 	// address: the library only tests it for non-NULL. A plain handle from the
 	// shell's own GetRefEHandle(), because an EHANDLE set from an entity pointer
 	// stores the invalid handle.
-	CBaseHandle m_hControlPointOwners[ MAX_PARTICLE_CONTROL_POINTS ];
+	CBaseHandle m_hControlPointOwners[MAX_PARTICLE_CONTROL_POINTS];
 };
 
 // The live effects, newest first (stock's AddToHead order).

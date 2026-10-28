@@ -49,12 +49,26 @@ TEST( CMakeGraphReal, ALocalPathMapsBackToItsFarmSpelling )
 	EXPECT_EQ( "sourcesharp/game/shared/shell_shared.cpp", RepoToFarm( "src/shared/native/shell_shared.cpp" ) );
 	EXPECT_EQ( "sourcesharp/public/dt_send.cpp", RepoToFarm( "src/shared/native/dt_send.cpp" ) );
 	EXPECT_EQ( "sourcesharp/game/server/shell_gamedll.cpp",
-	           FarmRelative( RepoRoot() + "/src/server/native/shell_gamedll.cpp" ) );
+			   FarmRelative( RepoRoot() + "/src/server/native/shell_gamedll.cpp" ) );
 	bool bThrew = false;
-	try { RepoToFarm( "docs2/nowhere.cpp" ); } catch ( const std::exception & ) { bThrew = true; }
+	try
+	{
+		RepoToFarm( "docs2/nowhere.cpp" );
+	}
+	catch ( const std::exception & )
+	{
+		bThrew = true;
+	}
 	EXPECT_TRUE( bThrew ) << "a local path no module-map row links was given a farm spelling";
 	bThrew = false;
-	try { ListToken( "${UNKNOWN}/x.cpp", kServer ); } catch ( const std::exception & ) { bThrew = true; }
+	try
+	{
+		ListToken( "${UNKNOWN}/x.cpp", kServer );
+	}
+	catch ( const std::exception & )
+	{
+		bThrew = true;
+	}
 	EXPECT_TRUE( bThrew ) << "an unreadable source-list entry was accepted";
 }
 
@@ -63,7 +77,14 @@ TEST( CMakeGraphReal, AVendoredValveFileIsNamedByItsValvePath )
 	EXPECT_EQ( "tier1/bitbuf.cpp", RepoToFarm( "vendor/client/tier1/bitbuf.cpp" ) );
 	EXPECT_EQ( "public/tier0/platform.h", RepoToFarm( "vendor/shared/public/tier0/platform.h" ) );
 	bool bThrew = false;
-	try { RepoToFarm( "vendor/other/tier1/bitbuf.cpp" ); } catch ( const std::exception & ) { bThrew = true; }
+	try
+	{
+		RepoToFarm( "vendor/other/tier1/bitbuf.cpp" );
+	}
+	catch ( const std::exception & )
+	{
+		bThrew = true;
+	}
 	EXPECT_TRUE( bThrew ) << "a vendor/ path outside the three sides was given a farm spelling";
 }
 
@@ -80,18 +101,18 @@ TEST( CMakeGraphReal, TheLinkEdgeNamesOneObjectPerCompiledSource )
 	const char *const targets[] = { kServer, kClient, kHost };
 	for ( size_t i = 0; i < 3; i++ )
 	{
-		const std::vector< std::string > objects = LinkObjects( targets[ i ] );
-		EXPECT_EQ( CompiledSources( targets[ i ] ).size(), objects.size() ) << targets[ i ];
+		const std::vector<std::string> objects = LinkObjects( targets[i] );
+		EXPECT_EQ( CompiledSources( targets[i] ).size(), objects.size() ) << targets[i];
 		for ( size_t j = 0; j < objects.size(); j++ )
-			EXPECT_NE( objects[ j ].find( std::string( "CMakeFiles/" ) + targets[ i ] + ".dir/" ),
-				std::string::npos ) << objects[ j ];
+			EXPECT_NE( objects[j].find( std::string( "CMakeFiles/" ) + targets[i] + ".dir/" ), std::string::npos )
+				<< objects[j];
 	}
 }
 
 TEST( CMakeGraphReal, TheGameDllsLinkTheHost )
 {
-	const std::vector< std::string > server = LinkLibraries( kServer );
-	const std::vector< std::string > client = LinkLibraries( kClient );
+	const std::vector<std::string> server = LinkLibraries( kServer );
+	const std::vector<std::string> client = LinkLibraries( kClient );
 	EXPECT_NE( std::find( server.begin(), server.end(), "out/libmanaged_host.so" ), server.end() );
 	EXPECT_NE( std::find( client.begin(), client.end(), "out/libmanaged_host.so" ), client.end() );
 	EXPECT_EQ( Link( kServer ).strOutput, "out/server.so" );
@@ -101,11 +122,11 @@ TEST( CMakeGraphReal, TheGameDllsLinkTheHost )
 
 TEST( CMakeGraphReal, TheServerIsCompiledWithItsOwnDefinitions )
 {
-	const std::set< std::string > defs = CompileDefinitions( kServer );
+	const std::set<std::string> defs = CompileDefinitions( kServer );
 	EXPECT_TRUE( defs.count( "GAME_DLL" ) );
 	EXPECT_TRUE( defs.count( "SOURCESHARP" ) );
 	EXPECT_FALSE( defs.count( "CLIENT_DLL" ) );
-	const std::vector< std::string > listed = ListedDefinitions( kServer );
+	const std::vector<std::string> listed = ListedDefinitions( kServer );
 	EXPECT_NE( std::find( listed.begin(), listed.end(), "GAME_DLL" ), listed.end() );
 }
 
@@ -117,7 +138,7 @@ TEST( CMakeGraphReal, EveryFileThisTreeCompilesTurnsAWarningIntoAnError )
 	// but googletest's own (fetched, not ours) must carry it, and none may carve
 	// an exemption back out with -Wno-error.
 	int nChecked = 0;
-	std::vector< std::string > missing, exempted;
+	std::vector<std::string> missing, exempted;
 	for ( const CompileEntry &e : CompileCommands() )
 	{
 		if ( e.strFile.find( "/_deps/" ) != std::string::npos )
@@ -131,9 +152,9 @@ TEST( CMakeGraphReal, EveryFileThisTreeCompilesTurnsAWarningIntoAnError )
 	}
 	EXPECT_GT( nChecked, 500 ) << "compile_commands.json names too few files to be this tree";
 	EXPECT_TRUE( missing.empty() ) << missing.size() << " file(s) compile without -Werror, e.g. "
-	                               << ( missing.empty() ? "" : missing.front() );
+								   << ( missing.empty() ? "" : missing.front() );
 	EXPECT_TRUE( exempted.empty() ) << exempted.size() << " file(s) carry a -Wno-error, e.g. "
-	                                << ( exempted.empty() ? "" : exempted.front() );
+									<< ( exempted.empty() ? "" : exempted.front() );
 }
 
 //-----------------------------------------------------------------------------
@@ -174,16 +195,21 @@ protected:
 	// raytrace, because its fixture file name is the only one ListFile derives.
 	void WriteList( const std::string &strBody )
 	{
-		Write( "repo/cmake/sdk/raytrace.cmake",
-			"# raytrace\nset(raytrace_sources\n" + strBody + ")\n" );
+		Write( "repo/cmake/sdk/raytrace.cmake", "# raytrace\nset(raytrace_sources\n" + strBody + ")\n" );
 	}
 
 	std::string Entry( const std::string &strSrc )
 	{
-		return "{\n  \"directory\": \"" + m_strRoot + "/farm/build\",\n"
-			"  \"command\": \"/usr/bin/c++ -DX=\\\"y\\\" -c " + m_strRoot + "/farm/src/" + strSrc + "\",\n"
-			"  \"file\": \"" + m_strRoot + "/farm/src/" + strSrc + "\",\n"
-			"  \"output\": \"cmake/sdk/CMakeFiles/raytrace.dir/__/" + strSrc + ".o\"\n}";
+		return "{\n  \"directory\": \"" + m_strRoot +
+			"/farm/build\",\n"
+			"  \"command\": \"/usr/bin/c++ -DX=\\\"y\\\" -c " +
+			m_strRoot + "/farm/src/" + strSrc +
+			"\",\n"
+			"  \"file\": \"" +
+			m_strRoot + "/farm/src/" + strSrc +
+			"\",\n"
+			"  \"output\": \"cmake/sdk/CMakeFiles/raytrace.dir/__/" +
+			strSrc + ".o\"\n}";
 	}
 
 	std::string ErrorOf( void ( *pfn )() )
@@ -208,16 +234,16 @@ void ReadRaytrace()
 TEST_F( CMakeGraphFixture, AFreshMatchingPairIsRead )
 {
 	WriteList( "    a/one.cpp\n    a/two.cpp  # a comment\n" );
-	const std::vector< std::string > listed = ListedSources( "raytrace" );
+	const std::vector<std::string> listed = ListedSources( "raytrace" );
 	ASSERT_EQ( 2u, listed.size() );
-	EXPECT_EQ( "a/one.cpp", listed[ 0 ] );
-	EXPECT_EQ( "a/two.cpp", listed[ 1 ] );
+	EXPECT_EQ( "a/one.cpp", listed[0] );
+	EXPECT_EQ( "a/two.cpp", listed[1] );
 
-	const std::vector< CompileEntry > v =
+	const std::vector<CompileEntry> v =
 		ParseCompileCommands( "[\n" + Entry( "a/one.cpp" ) + ",\n" + Entry( "a/two.cpp" ) + "\n]\n" );
 	ASSERT_EQ( 2u, v.size() );
-	EXPECT_EQ( "a/one.cpp", FarmRelative( v[ 0 ].strFile ) );
-	EXPECT_NE( std::string::npos, v[ 0 ].strCommand.find( "-DX=\"y\"" ) ) << v[ 0 ].strCommand;
+	EXPECT_EQ( "a/one.cpp", FarmRelative( v[0].strFile ) );
+	EXPECT_NE( std::string::npos, v[0].strCommand.find( "-DX=\"y\"" ) ) << v[0].strCommand;
 }
 
 TEST_F( CMakeGraphFixture, AStaleDatabaseIsAnErrorNotAnAnswer )
@@ -265,11 +291,11 @@ TEST_F( CMakeGraphFixture, AnEmptyDatabaseIsAnError )
 
 TEST_F( CMakeGraphFixture, AMissingOrEmptyListIsAnError )
 {
-	EXPECT_THROW( ListedSources( "raytrace" ), Error );   // no file
+	EXPECT_THROW( ListedSources( "raytrace" ), Error ); // no file
 	WriteList( "" );
-	EXPECT_THROW( ListedSources( "raytrace" ), Error );   // empty block
+	EXPECT_THROW( ListedSources( "raytrace" ), Error ); // empty block
 	Write( "repo/cmake/sdk/raytrace.cmake", "add_library(raytrace STATIC)\n" );
-	EXPECT_THROW( ListedSources( "raytrace" ), Error );   // no block
+	EXPECT_THROW( ListedSources( "raytrace" ), Error ); // no block
 	EXPECT_THROW( ListFile( "not_a_target" ), Error );
 }
 
@@ -281,21 +307,21 @@ TEST_F( CMakeGraphFixture, TheReaderRefusesAFileOutsideTheFarm )
 TEST_F( CMakeGraphFixture, ALinkEdgeIsFoundByItsTargetNotAPrefixOfIt )
 {
 	Write( "farm/build/build.ninja",
-		"build out/x_more.so: CXX_SHARED_LIBRARY_LINKER__x_more_Debug wrong.o\n"
-		"  LINK_LIBRARIES = -lwrong\n"
-		"\n"
-		"build out/x.so: CXX_SHARED_LIBRARY_LINKER__x_Debug a$ b.o c.o | dep.so || order\n"
-		"  LINK_LIBRARIES = -lfoo  lib/libbar.a\n"
-		"  TARGET_FILE = out/x.so\n"
-		"\n" );
+		   "build out/x_more.so: CXX_SHARED_LIBRARY_LINKER__x_more_Debug wrong.o\n"
+		   "  LINK_LIBRARIES = -lwrong\n"
+		   "\n"
+		   "build out/x.so: CXX_SHARED_LIBRARY_LINKER__x_Debug a$ b.o c.o | dep.so || order\n"
+		   "  LINK_LIBRARIES = -lfoo  lib/libbar.a\n"
+		   "  TARGET_FILE = out/x.so\n"
+		   "\n" );
 	const LinkEdge edge = Link( "x" );
 	EXPECT_EQ( "out/x.so", edge.strOutput );
 	ASSERT_EQ( 2u, edge.objects.size() );
-	EXPECT_EQ( "a b.o", edge.objects[ 0 ] );
-	EXPECT_EQ( "c.o", edge.objects[ 1 ] );
-	const std::vector< std::string > libs = LinkLibraries( "x" );
+	EXPECT_EQ( "a b.o", edge.objects[0] );
+	EXPECT_EQ( "c.o", edge.objects[1] );
+	const std::vector<std::string> libs = LinkLibraries( "x" );
 	ASSERT_EQ( 2u, libs.size() );
-	EXPECT_EQ( "-lfoo", libs[ 0 ] );
+	EXPECT_EQ( "-lfoo", libs[0] );
 	EXPECT_THROW( Link( "absent" ), Error );
 }
 

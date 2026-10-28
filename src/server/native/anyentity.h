@@ -13,18 +13,9 @@
 #pragma once
 #define ANYENTITY_H
 
-
-
-
-
-
-
-
-
 #include "entity_name_match.h"
 #include "collideable_center.h"
 #include "shell_shot_path.h"
-
 
 extern ISpatialPartition *partition;
 
@@ -76,45 +67,27 @@ struct AnyEntity_t
 	}
 
 	// An entity outside the SDK tracks no water level, so it reads as dry.
-	int GetWaterLevel() const
-	{
-		return 0;
-	}
+	int GetWaterLevel() const { return 0; }
 
 	bool IsNPC() const { return false; }
 
 	// What the shared trace filters ask.
 
 	// Most entities block sight, so that is the neutral answer.
-	bool BlocksLOS() const
-	{
-		return true;
-	}
+	bool BlocksLOS() const { return true; }
 
-	bool IsPlayer() const
-	{
-		return pGame ? StandaloneEntity_IsPlayer( pGame ) : false;
-	}
+	bool IsPlayer() const { return pGame ? StandaloneEntity_IsPlayer( pGame ) : false; }
 
 	// Stock's FClassnameIs rule over the same classname string.
-	bool ClassMatches( const char *pszClassname ) const
-	{
-		return EntityNames_Match( pszClassname, GetClassname() );
-	}
+	bool ClassMatches( const char *pszClassname ) const { return EntityNames_Match( pszClassname, GetClassname() ); }
 
 	// What a blast asks about the entity standing in the way of a victim.
 
 	// Weighed by the blocking rule: stock scales what a blocker absorbs by its mass.
-	IPhysicsObject *VPhysicsGetObject() const
-	{
-		return pGame ? StandaloneEntity_PhysicsObject( pGame ) : NULL;
-	}
+	IPhysicsObject *VPhysicsGetObject() const { return pGame ? StandaloneEntity_PhysicsObject( pGame ) : NULL; }
 
 	// Who owns it, as a handle comparable with Is().
-	IHandleEntity *GetOwnerHandle() const
-	{
-		return pGame ? StandaloneEntity_OwnerHandle( pGame ) : NULL;
-	}
+	IHandleEntity *GetOwnerHandle() const { return pGame ? StandaloneEntity_OwnerHandle( pGame ) : NULL; }
 
 	// Where to aim at it: the collideable's world-space centre, as stock's
 	// CBaseEntity::BodyTarget for a non-character. Not the middle of the surrounding
@@ -145,8 +118,8 @@ struct AnyEntity_t
 
 	// Triggers along the path of the hit. Only an SDK entity walks them; the
 	// standalone hierarchy keeps no touch links.
-	void TraceAttackToTriggers( const ss::CTakeDamageInfo &info, const Vector &start,
-	                            const Vector &end, const Vector &dir ) const
+	void TraceAttackToTriggers( const ss::CTakeDamageInfo &info, const Vector &start, const Vector &end,
+								const Vector &dir ) const
 	{
 		if ( pBase )
 			EntityShot_TraceAttackToTriggers( info, start, end, dir );
@@ -179,7 +152,9 @@ class CAnyEntitiesEnum : public IPartitionEnumerator
 {
 public:
 	CAnyEntitiesEnum( IHandleEntity **pList, int listMax )
-		: m_pList( pList ), m_listMax( listMax ), m_count( 0 )
+		: m_pList( pList )
+		, m_listMax( listMax )
+		, m_count( 0 )
 	{
 	}
 
@@ -203,8 +178,8 @@ public:
 
 private:
 	IHandleEntity **m_pList;
-	int             m_listMax;
-	int             m_count;
+	int m_listMax;
+	int m_count;
 };
 
 // CEntitySphereQuery for both kinds, with the same MAX_SPHERE_QUERY limit.
@@ -214,8 +189,8 @@ public:
 	CAnyEntitySphereQuery( const Vector &center, float radius )
 	{
 		CAnyEntitiesEnum sphereEnum( m_pList, ARRAYSIZE( m_pList ) );
-		::partition->EnumerateElementsInSphere( PARTITION_ENGINE_NON_STATIC_EDICTS,
-		                                        center, radius, false, &sphereEnum );
+		::partition->EnumerateElementsInSphere( PARTITION_ENGINE_NON_STATIC_EDICTS, center, radius, false,
+												&sphereEnum );
 
 		m_listIndex = 0;
 		m_listCount = sphereEnum.GetCount();
@@ -234,7 +209,7 @@ public:
 	inline void NextEntity() { m_listIndex++; }
 
 private:
-	int            m_listIndex;
-	int            m_listCount;
+	int m_listIndex;
+	int m_listCount;
 	IHandleEntity *m_pList[ss::kMaxSphereQuery];
 };

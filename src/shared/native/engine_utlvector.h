@@ -12,82 +12,85 @@
 
 #include "engine_heap.h"
 
-#include <string.h>
 #include <type_traits>
 
 namespace ss
 {
 
 // CUtlVector<T>'s bytes (PC layout). All zero is a default-constructed vector.
-template < class T >
+template <class T>
 struct EngineUtlVectorLayout
 {
 	// CUtlMemory<T>
-	T  *m_pMemory;
+	T *m_pMemory;
 	int m_nAllocationCount;
 	int m_nGrowSize;
 	// CUtlVector<T>
 	int m_Size;
-	T  *m_pElements;
+	T *m_pElements;
 };
 
-template < class T >
-struct EngineUtlVector : EngineUtlVectorLayout< T >
+template <class T>
+struct EngineUtlVector : EngineUtlVectorLayout<T>
 {
-	using EngineUtlVectorLayout< T >::m_pMemory;
-	using EngineUtlVectorLayout< T >::m_nAllocationCount;
-	using EngineUtlVectorLayout< T >::m_nGrowSize;
-	using EngineUtlVectorLayout< T >::m_Size;
-	using EngineUtlVectorLayout< T >::m_pElements;
+	using EngineUtlVectorLayout<T>::m_pMemory;
+	using EngineUtlVectorLayout<T>::m_nAllocationCount;
+	using EngineUtlVectorLayout<T>::m_nGrowSize;
+	using EngineUtlVectorLayout<T>::m_Size;
+	using EngineUtlVectorLayout<T>::m_pElements;
 
 	EngineUtlVector() = delete;
 	EngineUtlVector( const EngineUtlVector & ) = delete;
 	EngineUtlVector &operator=( const EngineUtlVector & ) = delete;
 
-	int  Count() const                { return m_Size; }
-	bool IsValidIndex( int i ) const  { return i >= 0 && i < m_Size; }
+	int Count() const { return m_Size; }
+
+	bool IsValidIndex( int i ) const { return i >= 0 && i < m_Size; }
+
 	const T &operator[]( int i ) const { return m_pMemory[i]; }
-	const T *begin() const            { return m_pMemory; }
-	const T *end() const              { return m_pMemory + m_Size; }
+
+	const T *begin() const { return m_pMemory; }
+
+	const T *end() const { return m_pMemory + m_Size; }
 };
 
 // An out-parameter an engine interface fills. Its block is freed with tier0's allocator,
 // the one the engine's copy of the template grew it with.
-template < class T >
+template <class T>
 class EngineFilledUtlVector
 {
 public:
-	EngineFilledUtlVector() : m_Vec() {}
+	EngineFilledUtlVector()
+		: m_Vec()
+	{
+	}
+
 	~EngineFilledUtlVector() { EngineHeapFree( m_Vec.m_pMemory ); }
 
 	EngineFilledUtlVector( const EngineFilledUtlVector & ) = delete;
 	EngineFilledUtlVector &operator=( const EngineFilledUtlVector & ) = delete;
 
 	// V is the interface's CUtlVector<T>, named by a caller that has the engine header.
-	template < class V >
+	template <class V>
 	V *ForEngine()
 	{
-		static_assert( sizeof( V ) == sizeof( EngineUtlVectorLayout< T > ),
-		               "not the layout of a CUtlVector of this T" );
-		return reinterpret_cast< V * >( &m_Vec );
+		static_assert( sizeof( V ) == sizeof( EngineUtlVectorLayout<T> ), "not the layout of a CUtlVector of this T" );
+		return reinterpret_cast<V *>( &m_Vec );
 	}
 
-	const EngineUtlVector< T > &View() const
-	{
-		return *reinterpret_cast< const EngineUtlVector< T > * >( &m_Vec );
-	}
+	const EngineUtlVector<T> &View() const { return *reinterpret_cast<const EngineUtlVector<T> *>( &m_Vec ); }
 
 private:
-	EngineUtlVectorLayout< T > m_Vec;
+	EngineUtlVectorLayout<T> m_Vec;
 };
 
 // Appends to a vector another module owns and frees, e.g. AutoCompleteSuggest's
 // CUtlVector<CUtlString>: growth goes through that module's heap. T is copied bytewise.
 // False, with nothing changed, for external memory (m_nGrowSize < 0), no heap, or a refusal.
-template < class T >
-bool EngineUtlVectorAppend( IEngineHeap *pHeap, EngineUtlVectorLayout< T > &vec, const T &value )
+template <class T>
+bool EngineUtlVectorAppend( IEngineHeap *pHeap, EngineUtlVectorLayout<T> &vec, const T &value )
 {
-	static_assert( std::is_trivially_copyable< T >::value, "an element is copied bytewise" );
+	static_assert( std::is_trivially_copyable<T>::value, "an element is copied bytewise" );
 
 	if ( !pHeap || vec.m_nGrowSize < 0 || vec.m_Size < 0 )
 		return false;
@@ -109,7 +112,7 @@ bool EngineUtlVectorAppend( IEngineHeap *pHeap, EngineUtlVectorLayout< T > &vec,
 		vec.m_nAllocationCount = nNew;
 	}
 
-	memcpy( (void *)&vec.m_pMemory[ vec.m_Size ], (const void *)&value, sizeof( T ) );
+	memcpy( (void *)&vec.m_pMemory[vec.m_Size], (const void *)&value, sizeof( T ) );
 	vec.m_Size++;
 	vec.m_pElements = vec.m_pMemory;
 	return true;
@@ -117,12 +120,11 @@ bool EngineUtlVectorAppend( IEngineHeap *pHeap, EngineUtlVectorLayout< T > &vec,
 
 // The layout of a vector of type V (the interface's CUtlVector<...>, named by
 // the caller, which has the header) as elements T.
-template < class T, class V >
-EngineUtlVectorLayout< T > &EngineUtlVectorLayoutOf( V &vec )
+template <class T, class V>
+EngineUtlVectorLayout<T> &EngineUtlVectorLayoutOf( V &vec )
 {
-	static_assert( sizeof( V ) == sizeof( EngineUtlVectorLayout< T > ),
-	               "not the layout of a CUtlVector of this T" );
-	return *reinterpret_cast< EngineUtlVectorLayout< T > * >( &vec );
+	static_assert( sizeof( V ) == sizeof( EngineUtlVectorLayout<T> ), "not the layout of a CUtlVector of this T" );
+	return *reinterpret_cast<EngineUtlVectorLayout<T> *>( &vec );
 }
 
 // CUtlString's layout: one char *, freed by the owner's CUtlString::Purge.
@@ -145,8 +147,8 @@ inline char *EngineHeapStrDup( IEngineHeap *pHeap, const char *psz )
 
 // Appends a copy of psz, as a CUtlString, to an owner's CUtlVector<CUtlString>.
 // The copy goes back to the heap if the vector cannot take it.
-inline bool EngineUtlStringVectorAppend( IEngineHeap *pHeap, EngineUtlVectorLayout< EngineUtlString > &vec,
-                                         const char *psz )
+inline bool EngineUtlStringVectorAppend( IEngineHeap *pHeap, EngineUtlVectorLayout<EngineUtlString> &vec,
+										 const char *psz )
 {
 	EngineUtlString str = { EngineHeapStrDup( pHeap, psz ) };
 	if ( !str.m_pString )

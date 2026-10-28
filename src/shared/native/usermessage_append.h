@@ -24,5 +24,5 @@ inline void SourceSharp_AppendBits( bf_write *pBuf, const void *pData, int nBits
 
 	const uint8_t *pBytes = (const uint8_t *)pData;
 	for ( int i = 0; i < nBits; i++ )
-		pBuf->WriteOneBitNoCheck( ( pBytes[ i >> 3 ] >> ( i & 7 ) ) & 1 );
+		pBuf->WriteOneBitNoCheck( ( pBytes[i >> 3] >> ( i & 7 ) ) & 1 );
 }

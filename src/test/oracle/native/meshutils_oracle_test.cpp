@@ -21,15 +21,15 @@ struct Pair_t
 	const char *pszName;
 	Generator_t ours;
 	Generator_t stock;
-	int nStep;	// counts the stock function is defined for are multiples of this
+	int nStep; // counts the stock function is defined for are multiples of this
 };
 
 const Pair_t kPairs[] = {
 	{ "Sequential", ss::meshutils::GenerateSequential, GenerateSequentialIndexBuffer, 1 },
-	{ "Quad",       ss::meshutils::GenerateQuad,       GenerateQuadIndexBuffer,       6 },
-	{ "Polygon",    ss::meshutils::GeneratePolygon,    GeneratePolygonIndexBuffer,    3 },
-	{ "LineStrip",  ss::meshutils::GenerateLineStrip,  GenerateLineStripIndexBuffer,  2 },
-	{ "LineLoop",   ss::meshutils::GenerateLineLoop,   GenerateLineLoopIndexBuffer,   2 },
+	{ "Quad", ss::meshutils::GenerateQuad, GenerateQuadIndexBuffer, 6 },
+	{ "Polygon", ss::meshutils::GeneratePolygon, GeneratePolygonIndexBuffer, 3 },
+	{ "LineStrip", ss::meshutils::GenerateLineStrip, GenerateLineStripIndexBuffer, 2 },
+	{ "LineLoop", ss::meshutils::GenerateLineLoop, GenerateLineLoopIndexBuffer, 2 },
 };
 } // namespace
 
@@ -42,7 +42,7 @@ TEST( MeshUtilsOracle, EveryGeneratorWritesTheArchivesIndices )
 		{
 			for ( int nCount = 0; nCount <= 64; nCount += pair.nStep )
 			{
-				unsigned short ours[ 80 ], stock[ 80 ];
+				unsigned short ours[80], stock[80];
 				memset( ours, 0xCD, sizeof( ours ) );
 				memset( stock, 0xCD, sizeof( stock ) );
 				pair.ours( ours, nCount, nFirst );
@@ -62,9 +62,9 @@ TEST( MeshUtilsOracle, TheArchiveWritesSomethingForEachGenerator )
 	// The control: a comparison of two untouched arrays proves nothing.
 	for ( const Pair_t &pair : kPairs )
 	{
-		unsigned short stock[ 12 ];
+		unsigned short stock[12];
 		memset( stock, 0xCD, sizeof( stock ) );
 		pair.stock( stock, 6, 3 );
-		EXPECT_NE( 0xCDCD, stock[ 0 ] ) << pair.pszName;
+		EXPECT_NE( 0xCDCD, stock[0] ) << pair.pszName;
 	}
 }

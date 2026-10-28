@@ -8,7 +8,8 @@ template <class T>
 class CUtlStringMap
 {
 public:
-	CUtlStringMap( bool caseInsensitive = true ) : m_SymbolTable( 0, 32, caseInsensitive )
+	CUtlStringMap( bool caseInsensitive = true )
+		: m_SymbolTable( 0, 32, caseInsensitive )
 	{
 	}
 
@@ -18,30 +19,15 @@ public:
 		return m_Vector.Count();
 	}
 
-	bool Defined( const char *pString ) const
-	{
-		return m_SymbolTable.Find( pString ) != UTL_INVAL_SYMBOL;
-	}
+	bool Defined( const char *pString ) const { return m_SymbolTable.Find( pString ) != UTL_INVAL_SYMBOL; }
 
-	UtlSymId_t Find( const char *pString ) const
-	{
-		return m_SymbolTable.Find( pString );
-	}
+	UtlSymId_t Find( const char *pString ) const { return m_SymbolTable.Find( pString ); }
 
-	static UtlSymId_t InvalidIndex()
-	{
-		return UTL_INVAL_SYMBOL;
-	}
+	static UtlSymId_t InvalidIndex() { return UTL_INVAL_SYMBOL; }
 
-	int GetNumStrings() const
-	{
-		return m_SymbolTable.GetNumStrings();
-	}
+	int GetNumStrings() const { return m_SymbolTable.GetNumStrings(); }
 
-	const char *String( int n )	const
-	{
-		return m_SymbolTable.String( n );
-	}
+	const char *String( int n ) const { return m_SymbolTable.String( n ); }
 
 	// Clear all of the data from the map
 	void Clear()

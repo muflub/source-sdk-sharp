@@ -12,10 +12,10 @@
 4	BOUNDARY	RecvProp RecvPropVector( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn varProxy )
 4	BOUNDARY	RecvProp RecvPropInt( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn varProxy )
 4	BOUNDARY	RecvProp RecvPropString( const char *pVarName, int offset, int bufferSize, int flags, RecvVarProxyFn varProxy )
-5	BOUNDARY	RecvProp RecvPropDataTable( const char *pVarName, int offset, int flags, RecvTable *pTable,
-5	BOUNDARY	RecvProp InternalRecvPropArray( const int elementCount, const int elementStride, const char *pName,
+5	BOUNDARY	RecvProp RecvPropDataTable( const char *pVarName, int offset, int flags, RecvTable *pTable, DataTableRecvVarProxyFn varProxy )
+5	BOUNDARY	RecvProp InternalRecvPropArray( const int elementCount, const int elementStride, const char *pName, ArrayLengthRecvProxyFn proxy )
 18	LAYOUT	RecvProp::RecvProp()
 4	LAYOUT	RecvTable::RecvTable()
 4	LAYOUT	RecvTable::RecvTable( RecvProp *pProps, int nProps, const char *pNetTableName )
-3	LAYOUT	RecvTable::~RecvTable()
+1	LAYOUT	RecvTable::~RecvTable()
 9	LAYOUT	void RecvTable::Construct( RecvProp *pProps, int nProps, const char *pNetTableName )

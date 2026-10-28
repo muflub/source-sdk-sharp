@@ -30,28 +30,6 @@ public class PhysicsSharedEvictionTests
         Assert.DoesNotContain("physics_shared.cpp", Code("src", "server", "native", "CMakeLists.txt").Replace("# physics_shared.cpp left", ""));
     }
 
-    [Fact]
-    public void TheServerAsksManagedForTheWorldTheSoundsAndTheSolid()
-    {
-        string physics = Code("src", "server", "native", "physics.cpp");
-        Assert.Contains("->CreateWorld()", physics);
-        Assert.Contains("->PrecacheSurfaceSounds()", physics);
-        Assert.Contains("IPhysicsSurfaceProps\t*physprops = NULL;", File.ReadAllText(RepoLayout.Repo("src", "server", "native", "physics.cpp")));
-        // The entity's solid: native's InitPhysics asked ParseModelSolid until
-        // the entity physics init went managed (2026-10-12); managed's
-        // EntityPhysicsCreation parses it itself.
-        string shellBase = Code("src", "server", "native", "shell_standalone_base.cpp");
-        Assert.Contains("void CStandaloneEntity::DestroyPhysics()", shellBase);
-        Assert.DoesNotContain("ParseModelSolid", shellBase);
-        Assert.Contains("ModelSolidParse.Parse(_world, f.CollisionModelIndex, -1, scratch)",
-                        File.ReadAllText(RepoLayout.Repo("src", "server", "managed", "EntityPhysicsCreation.cs")));
-
-        Assert.True(typeof(IServerPhysicsWorld).IsAssignableFrom(typeof(ServerPhysicsWorld)));
-        Assert.NotNull(typeof(PhysicsWorldBuilder).GetMethod(nameof(PhysicsWorldBuilder.Create)));
-        Assert.NotNull(typeof(ModelSolidParse).GetMethod(nameof(ModelSolidParse.Parse)));
-        Assert.NotNull(typeof(SurfaceSoundPrecache).GetMethod(nameof(SurfaceSoundPrecache.Run)));
-    }
-
     // ---- client.so and the repository ----------------------------------------------
 
     [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]

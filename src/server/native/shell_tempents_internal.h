@@ -12,10 +12,10 @@ class SendTable;
 class ServerClass;
 
 // How many tables were built, and whether the registration window has shut.
-int  SourceSharpTe_BuiltCount();
+int SourceSharpTe_BuiltCount();
 bool SourceSharpTe_RegistrationClosed();
 
 // The table and the ServerClass built for handle i. NULL when nothing was
 // built, when the plan asked for no ServerClass, or when i is out of range.
-SendTable   *SourceSharpTe_BuiltTable( int i );
+SendTable *SourceSharpTe_BuiltTable( int i );
 ServerClass *SourceSharpTe_BuiltClass( int i );

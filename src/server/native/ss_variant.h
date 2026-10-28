@@ -26,42 +26,69 @@ class variant_t
 	// union because CBaseHandle has a constructor.
 	union
 	{
-		bool     bVal;
+		bool bVal;
 		string_t iszVal;
-		int      iVal;
-		float    flVal;
-		float    vecVal[ 3 ];
-		color32  rgbaVal;
+		int iVal;
+		float flVal;
+		float vecVal[3];
+		color32 rgbaVal;
 	};
+
 	CBaseHandle eVal;
 	fieldtype_t fieldType;
 
 public:
-	variant_t() : fieldType( FIELD_VOID ), iVal( 0 ) {}
+	variant_t()
+		: fieldType( FIELD_VOID )
+		, iVal( 0 )
+	{
+	}
 
 	fieldtype_t FieldType() { return fieldType; }
 
 	// Readers. A string read of a non-string value formats it (ToString);
 	// a float read of anything else is 0.
 	const char *String() const { return fieldType == FIELD_STRING ? STRING( iszVal ) : ToString(); }
-	float Float() const        { return fieldType == FIELD_FLOAT ? flVal : 0; }
+
+	float Float() const { return fieldType == FIELD_FLOAT ? flVal : 0; }
 
 	// The entity a FIELD_EHANDLE value names, or NULL for any other type or a
 	// stale handle. Resolved the way the typed handle's Get did.
 	IGameEntity *Entity() const;
 
 	// Writers. Each sets the value and its tag together.
-	void SetBool( bool b )          { bVal = b;     fieldType = FIELD_BOOLEAN; }
-	void SetString( string_t str )  { iszVal = str; fieldType = FIELD_STRING; }
-	void SetInt( int val )          { iVal = val;   fieldType = FIELD_INTEGER; }
-	void SetFloat( float val )      { flVal = val;  fieldType = FIELD_FLOAT; }
+	void SetBool( bool b )
+	{
+		bVal = b;
+		fieldType = FIELD_BOOLEAN;
+	}
+
+	void SetString( string_t str )
+	{
+		iszVal = str;
+		fieldType = FIELD_STRING;
+	}
+
+	void SetInt( int val )
+	{
+		iVal = val;
+		fieldType = FIELD_INTEGER;
+	}
+
+	void SetFloat( float val )
+	{
+		flVal = val;
+		fieldType = FIELD_FLOAT;
+	}
+
 	void SetVector3D( const Vector &val )
 	{
-		vecVal[ 0 ] = val[ 0 ];
-		vecVal[ 1 ] = val[ 1 ];
-		vecVal[ 2 ] = val[ 2 ];
+		vecVal[0] = val[0];
+		vecVal[1] = val[1];
+		vecVal[2] = val[2];
 		fieldType = FIELD_VECTOR;
 	}
+
 	void SetColor32( int r, int g, int b, int a )
 	{
 		rgbaVal.r = r;
@@ -70,6 +97,7 @@ public:
 		rgbaVal.a = a;
 		fieldType = FIELD_COLOR32;
 	}
+
 	void SetEntity( IGameEntity *val );
 
 	// Out of line, in shell_globals.cpp.

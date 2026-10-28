@@ -3,4 +3,4 @@
 
 // Whether a data object of `type` (shareddefs.h's GROUNDLINK..VPHYSICSWATCHER) hangs
 // off pKey. Out-of-range types assert and answer false.
-bool  EntityDataObject_Has( int type, const void *pKey );
+bool EntityDataObject_Has( int type, const void *pKey );

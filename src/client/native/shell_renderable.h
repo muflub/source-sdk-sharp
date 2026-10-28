@@ -17,18 +17,8 @@
 
 #pragma once
 
-#include "iclientrenderable.h"
-#include "clientleafsystem.h"
-#include "mathlib/vector.h"
-#include "tier0/memalloc.h"
-#include "engine/IClientLeafSystem.h"
-#include "mathlib/mathlib.h"
-#include "tier0/platform.h"
-#include "client_render_handle.h"
 #include "clientsideeffects.h"
-#include "collisionproperty.h"
-#include "ivieweffects.h"
-#include "ragdoll_shared.h"
+
 #include "view.h"
 #include "vphysics_interface.h"
 #include "trail_lifetime.h"
@@ -45,7 +35,7 @@ public:
 	// promise that the block arrived zeroed. See trail_lifetime.h.
 	SOURCESHARP_ZEROING_ALLOCATOR( MemAlloc_Alloc, MemAlloc_Free )
 
-	typedef CTrailDestroyLatch< CShellRenderable >::GoneFn_t GoneFn_t;
+	typedef CTrailDestroyLatch<CShellRenderable>::GoneFn_t GoneFn_t;
 
 	void SetGoneCallback( GoneFn_t pfnGone ) { m_Destroy.SetGoneCallback( pfnGone ); }
 
@@ -70,6 +60,7 @@ public:
 	// The place. The leaf-system notification is why these are not plain
 	// assignments; RenderableChanged() is a no-op on an invalid handle.
 	const Vector &GetAbsOrigin() const { return m_vecOrigin; }
+
 	const QAngle &GetAbsAngles() const { return m_angAngles; }
 
 	void SetAbsOrigin( const Vector &vecOrigin )
@@ -91,10 +82,7 @@ public:
 	}
 
 	// Into and out of the leaf system. The guards are in shell_leaf_link.h.
-	void AddToLeafSystem( RenderGroup_t group )
-	{
-		ShellLeaf_Add( ClientLeafSystem(), this, group );
-	}
+	void AddToLeafSystem( RenderGroup_t group ) { ShellLeaf_Add( ClientLeafSystem(), this, group ); }
 
 	void RemoveFromLeafSystem()
 	{
@@ -116,10 +104,11 @@ public:
 			delete this;
 	}
 
-// IClientRenderable. ShouldDraw and IsTransparent stay pure: only the subclass
-// can decide them.
+	// IClientRenderable. ShouldDraw and IsTransparent stay pure: only the subclass
+	// can decide them.
 public:
 	virtual const Vector &GetRenderOrigin() OVERRIDE { return m_vecOrigin; }
+
 	virtual const QAngle &GetRenderAngles() OVERRIDE { return m_angAngles; }
 
 	virtual const matrix3x4_t &RenderableToWorldTransform() OVERRIDE
@@ -135,22 +124,18 @@ public:
 	// draw. This answers the model's sequence 0 at cycle 0 at the render origin,
 	// and the render transform in every slot the pose did not write. Defined in
 	// shell_legacy_tempents_client.cpp.
-	virtual bool SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask,
-	                         float currentTime ) OVERRIDE;
+	virtual bool SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime ) OVERRIDE;
 
 protected:
 	// Tells the leaf system its copy of where this is is stale.
-	void RenderableMoved()
-	{
-		ShellLeaf_Moved( ClientLeafSystem(), this );
-	}
+	void RenderableMoved() { ShellLeaf_Moved( ClientLeafSystem(), this ); }
 
-	Vector		m_vecOrigin;
-	QAngle		m_angAngles;
-	matrix3x4_t	m_matRenderable;
+	Vector m_vecOrigin;
+	QAngle m_angAngles;
+	matrix3x4_t m_matRenderable;
 
-	CTrailDestroyLatch< CShellRenderable >	m_Destroy;
+	CTrailDestroyLatch<CShellRenderable> m_Destroy;
 
 private:
-	CShellRenderable( const CShellRenderable & );	// not defined, not accessible
+	CShellRenderable( const CShellRenderable & ); // not defined, not accessible
 };

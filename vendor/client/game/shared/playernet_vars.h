@@ -4,7 +4,7 @@
 
 #include "shared_classnames.h"
 
-#define NUM_AUDIO_LOCAL_SOUNDS	8
+#define NUM_AUDIO_LOCAL_SOUNDS 8
 
 // These structs are contained in each player's local data and shared by the client & server
 
@@ -32,7 +32,7 @@ struct fogparams_t
 	CNetworkVar( bool, radial );
 };
 
-// Needs to be here because it wants to use 
+// Needs to be here because it wants to use
 #define CFogController C_FogController
 
 class CFogController;
@@ -43,15 +43,15 @@ struct fogplayerparams_t
 	DECLARE_EMBEDDED_NETWORKVAR();
 
 	CNetworkHandle( CFogController, m_hCtrl );
-	float					m_flTransitionTime;
+	float m_flTransitionTime;
 
-	color32					m_OldColor;
-	float					m_flOldStart;
-	float					m_flOldEnd;
+	color32 m_OldColor;
+	float m_flOldStart;
+	float m_flOldEnd;
 
-	color32					m_NewColor;
-	float					m_flNewStart;
-	float					m_flNewEnd;
+	color32 m_NewColor;
+	float m_flNewStart;
+	float m_flNewEnd;
 
 	fogplayerparams_t()
 	{
@@ -86,7 +86,7 @@ struct audioparams_t
 	DECLARE_EMBEDDED_NETWORKVAR();
 
 	CNetworkArray( Vector, localSound, NUM_AUDIO_LOCAL_SOUNDS )
-	CNetworkVar( int, soundscapeIndex );	// index of the current soundscape from soundscape.txt
-	CNetworkVar( int, localBits );			// if bits 0,1,2,3 are set then position 0,1,2,3 are valid/used
-	CNetworkVar( int, entIndex );			// the entity setting the soundscape
+		CNetworkVar( int, soundscapeIndex ); // index of the current soundscape from soundscape.txt
+	CNetworkVar( int, localBits ); // if bits 0,1,2,3 are set then position 0,1,2,3 are valid/used
+	CNetworkVar( int, entIndex ); // the entity setting the soundscape
 };

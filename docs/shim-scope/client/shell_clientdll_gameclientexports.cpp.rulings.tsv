@@ -1,13 +1,13 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CGameClientExports] bool IsPlayerGameVoiceMuted(	SLOT	IGameClientExports onto the voice manager
-[CGameClientExports] void MutePlayerGameVoice(	SLOT	IGameClientExports onto the voice manager
-[CGameClientExports] void UnmutePlayerGameVoice(	SLOT	IGameClientExports onto the voice manager
-[CGameClientExports] void OnGameUIActivated(	SLOT	IGameClientExports: gameui_activated fired client side
-[CGameClientExports] void OnGameUIHidden(	SLOT	IGameClientExports: gameui_hidden fired client side
-[CGameClientExports] void CreateAchievementsPanel(	SLOT	IGameClientExports: no achievements panel
+[CGameClientExports] bool IsPlayerGameVoiceMuted( int playerIndex )	SLOT	IGameClientExports onto the voice manager
+[CGameClientExports] void MutePlayerGameVoice( int playerIndex )	SLOT	IGameClientExports onto the voice manager
+[CGameClientExports] void UnmutePlayerGameVoice( int playerIndex )	SLOT	IGameClientExports onto the voice manager
+[CGameClientExports] void OnGameUIActivated()	SLOT	IGameClientExports: gameui_activated fired client side
+[CGameClientExports] void OnGameUIHidden()	SLOT	IGameClientExports: gameui_hidden fired client side
+[CGameClientExports] void CreateAchievementsPanel( vgui::Panel *pParent )	SLOT	IGameClientExports: no achievements panel
 [CGameClientExports] void DisplayAchievementPanel()	SLOT	IGameClientExports: no achievements panel
 [CGameClientExports] void ShutdownAchievementPanel()	SLOT	IGameClientExports: no achievements panel
-[CGameClientExports] int GetAchievementsPanelMinWidth(	SLOT	IGameClientExports: no achievements panel
+[CGameClientExports] int GetAchievementsPanelMinWidth() const	SLOT	IGameClientExports: no achievements panel
 [CGameClientExports] const char *GetHolidayString()	SLOT	IGameClientExports: no econ holiday
 [CGameClientExports] const char *GetOperationString()	SLOT	IGameClientExports: no econ operation

@@ -8,30 +8,14 @@
 
 // The wind's native answer; the rest of stock's c_effects.cpp is managed.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "client_entity.h"
-#include "materialsystem/imaterialsystem.h"
+
 #include "renderparm.h"
-#include "engine/iserverplugin.h"
-#include "mathlib/vector.h"
-#include "tier0/dbg.h"
-#include "tier1/convar.h"
-#include "tier1/refcount.h"
-#include "cdll_client_int.h"
-#include "collisionproperty.h"
-#include "globalvars_base.h"
+
 #include "shell_standalone_client.h"
 
 // The wind, as published by managed's WindSim. Native readers call
@@ -55,7 +39,8 @@ void SourceSharp_WindPublish( const float *pWind, const float *pSway, int32_t nW
 	if ( pSway )
 	{
 		CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
-		pRenderContext->SetVectorRenderingParameter( VECTOR_RENDERPARM_WIND_DIRECTION, Vector( pSway[0], pSway[1], pSway[2] ) );
+		pRenderContext->SetVectorRenderingParameter( VECTOR_RENDERPARM_WIND_DIRECTION,
+													 Vector( pSway[0], pSway[1], pSway[2] ) );
 	}
 }
 
@@ -78,7 +63,7 @@ void GetWindspeedAtTime( float flTime, Vector &vecVelocity )
 // cs_cl_wind_report: the vector GetWindspeedAtTime answers this frame, and how
 // many winds published it.
 CON_COMMAND( cs_cl_wind_report,
-	"the wind vector GetWindspeedAtTime hands the four section-6 readers, and the controllers behind it" )
+			 "the wind vector GetWindspeedAtTime hands the four section-6 readers, and the controllers behind it" )
 {
 	Vector vecAtTime;
 	GetWindspeedAtTime( gpGlobals->curtime, vecAtTime );
@@ -88,8 +73,7 @@ CON_COMMAND( cs_cl_wind_report,
 		vecAtLocal = GetWindspeedAtLocation( pShell->GetAbsOrigin() );
 
 	Msg( "[SourceSharp/Client] cs_cl_wind_report: %d controller(s)  "
-	     "at_time (%.4f %.4f %.4f) len %.4f  at_local (%.4f %.4f %.4f)\n",
-		s_nPublishedWinds,
-		vecAtTime.x, vecAtTime.y, vecAtTime.z, vecAtTime.Length(),
-		vecAtLocal.x, vecAtLocal.y, vecAtLocal.z );
+		 "at_time (%.4f %.4f %.4f) len %.4f  at_local (%.4f %.4f %.4f)\n",
+		 s_nPublishedWinds, vecAtTime.x, vecAtTime.y, vecAtTime.z, vecAtTime.Length(), vecAtLocal.x, vecAtLocal.y,
+		 vecAtLocal.z );
 }

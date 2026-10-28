@@ -31,11 +31,36 @@ namespace
 // variants, '_' and '[' / '`' (which sort differently folded up and folded
 // down), digits, prefixes, the empty string and high-bit bytes.
 const char *const kKeys[] = {
-	"info_player_start", "Info_Player_Start", "info_node", "INFO_NODE_HINT",
-	"prop_physics", "prop_physics_multiplayer", "Prop_Physics_Override",
-	"a", "A", "ab", "aB", "a_b", "A[b", "a`b", "a{b", "a0", "a9", "Z", "z_",
-	"_underscore", "[bracket", "`tick", "", "func_door", "func_door_rotating",
-	"\xe9t\xe9", "\xc9T\xc9", "weapon_357", "weapon_crowbar", "WEAPON_AR2",
+	"info_player_start",
+	"Info_Player_Start",
+	"info_node",
+	"INFO_NODE_HINT",
+	"prop_physics",
+	"prop_physics_multiplayer",
+	"Prop_Physics_Override",
+	"a",
+	"A",
+	"ab",
+	"aB",
+	"a_b",
+	"A[b",
+	"a`b",
+	"a{b",
+	"a0",
+	"a9",
+	"Z",
+	"z_",
+	"_underscore",
+	"[bracket",
+	"`tick",
+	"",
+	"func_door",
+	"func_door_rotating",
+	"\xe9t\xe9",
+	"\xc9T\xc9",
+	"weapon_357",
+	"weapon_crowbar",
+	"WEAPON_AR2",
 };
 const int kNumKeys = (int)( sizeof( kKeys ) / sizeof( kKeys[0] ) );
 
@@ -90,8 +115,8 @@ TEST( CaselessEqual, AgreesWithStricmpAndEqualNamesHashEqual )
 // wins), same in-order walk, same answer to every probe.
 TEST( CaselessLess, AMapUnderItKeepsWhatCUtlDictKeepsInItsOrder )
 {
-	CUtlDict< int, int > dict( k_eDictCompareTypeCaseInsensitive );
-	std::map< std::string, int, ss::CaselessLess > map;
+	CUtlDict<int, int> dict( k_eDictCompareTypeCaseInsensitive );
+	std::map<std::string, int, ss::CaselessLess> map;
 
 	for ( int i = 0; i < kNumKeys; i++ )
 	{
@@ -103,10 +128,10 @@ TEST( CaselessLess, AMapUnderItKeepsWhatCUtlDictKeepsInItsOrder )
 	ASSERT_EQ( (size_t)dict.Count(), map.size() );
 	ASSERT_LT( map.size(), (size_t)kNumKeys ) << "no key folded onto another: the case rule was not exercised";
 
-	std::vector< std::string > stockOrder;
+	std::vector<std::string> stockOrder;
 	for ( int i = dict.First(); i != dict.InvalidIndex(); i = dict.Next( i ) )
 		stockOrder.push_back( dict.GetElementName( i ) );
-	std::vector< std::string > ourOrder;
+	std::vector<std::string> ourOrder;
 	for ( const auto &kv : map )
 		ourOrder.push_back( kv.first );
 	EXPECT_EQ( stockOrder, ourOrder );

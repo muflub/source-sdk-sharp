@@ -8,14 +8,18 @@
 class CChainStateNotify
 {
 public:
-	CChainStateNotify() : m_pOwner( 0 ), m_pfnNotify( 0 ) {}
+	CChainStateNotify()
+		: m_pOwner( 0 )
+		, m_pfnNotify( 0 )
+	{
+	}
 
 	// Spelled as an assignment so IMPLEMENT_NETWORKVAR_CHAIN's `= this` still compiles.
-	template < class T >
+	template <class T>
 	CChainStateNotify &operator=( T *pOwner )
 	{
-		m_pOwner    = pOwner;
-		m_pfnNotify = &Notify< T >;
+		m_pOwner = pOwner;
+		m_pfnNotify = &Notify<T>;
 		return *this;
 	}
 
@@ -29,10 +33,10 @@ public:
 	}
 
 private:
-	template < class T >
+	template <class T>
 	static void Notify( void *pOwner )
 	{
-		( ( T * )pOwner )->NetworkStateChanged();
+		( (T *)pOwner )->NetworkStateChanged();
 	}
 
 	void *m_pOwner;

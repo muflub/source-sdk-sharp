@@ -73,14 +73,12 @@ const char *kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 // an absence is never answered by a reader that saw nothing.
 bool CompilesTail( const char *pszTarget, const std::string &strTail )
 {
-	const std::set< std::string > src = cmake_graph::CompiledSources( pszTarget );
+	const std::set<std::string> src = cmake_graph::CompiledSources( pszTarget );
 	EXPECT_TRUE( src.count( kProofOfRead ) > 0 )
-		<< pszTarget << " does not compile " << kProofOfRead
-		<< " -- the reader is not reading its source list";
-	for ( std::set< std::string >::const_iterator it = src.begin(); it != src.end(); ++it )
+		<< pszTarget << " does not compile " << kProofOfRead << " -- the reader is not reading its source list";
+	for ( std::set<std::string>::const_iterator it = src.begin(); it != src.end(); ++it )
 	{
-		if ( it->size() >= strTail.size()
-			&& it->compare( it->size() - strTail.size(), strTail.size(), strTail ) == 0 )
+		if ( it->size() >= strTail.size() && it->compare( it->size() - strTail.size(), strTail.size(), strTail ) == 0 )
 			return true;
 	}
 	return false;
@@ -144,12 +142,12 @@ TEST( Step7eSubjects, TheMovedFilesAreInTheClientAndNotTheServer )
 		"sourcesharp/game/client/shell_recipientfilter_client.cpp",
 	};
 
-	for ( size_t i = 0; i < sizeof( kRows ) / sizeof( kRows[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kRows ) / sizeof( kRows[0] ); i++ )
 	{
-		EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kRows[ i ] ) )
-			<< kRows[ i ] << " is not compiled by client_sourcesharp";
-		EXPECT_FALSE( CompilesTail( cmake_graph::kServer, kRows[ i ] ) )
-			<< kRows[ i ] << " is compiled by server_sourcesharp. Both are #ifdef "
+		EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kRows[i] ) )
+			<< kRows[i] << " is not compiled by client_sourcesharp";
+		EXPECT_FALSE( CompilesTail( cmake_graph::kServer, kRows[i] ) )
+			<< kRows[i] << " is compiled by server_sourcesharp. Both are #ifdef "
 			<< "CLIENT_DLL-side files and neither is reachable from the server.";
 	}
 }
@@ -161,13 +159,12 @@ TEST( Step7eSubjects, TheStockPathsAreGoneFromBothTargets )
 		"game/client/c_recipientfilter.cpp",
 	};
 
-	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[0] ); i++ )
 	{
-		EXPECT_FALSE( CompilesTail( cmake_graph::kClient, kGone[ i ] ) )
-			<< kGone[ i ] << " is still compiled by client_sourcesharp and the "
+		EXPECT_FALSE( CompilesTail( cmake_graph::kClient, kGone[i] ) )
+			<< kGone[i] << " is still compiled by client_sourcesharp and the "
 			<< "file is not on disk any more; the build fails on a stale row.";
-		EXPECT_FALSE( CompilesTail( cmake_graph::kServer, kGone[ i ] ) )
-			<< kGone[ i ] << " is compiled by server_sourcesharp.";
+		EXPECT_FALSE( CompilesTail( cmake_graph::kServer, kGone[i] ) )
+			<< kGone[i] << " is compiled by server_sourcesharp.";
 	}
 }
-

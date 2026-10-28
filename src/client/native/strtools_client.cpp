@@ -10,12 +10,9 @@
 // where tier1 called Error, so do these.
 
 #include "tier0/dbg.h"
-#include "tier0/basetypes.h"
-#include "tier0/platform.h"
+
 #include "ss_string.h"
 
-#include <stdarg.h>
-#include <string.h>
 #include <wchar.h>
 
 void _V_memcpy( const char *, int, void *dest, const void *src, int count )
@@ -51,7 +48,7 @@ void _V_strcpy( const char *, int, char *dest, const char *src )
 
 char *_V_strstr( const char *, int, const char *s1, const char *search )
 {
-	return const_cast< char * >( strstr( s1, search ) );
+	return const_cast<char *>( strstr( s1, search ) );
 }
 
 int _V_wcslen( const char *, int, const wchar_t *pwch )
@@ -71,7 +68,7 @@ void V_strncpy( char *pDest, const char *pSrc, int maxLen )
 	if ( maxLen <= 0 )
 		return;
 	strncpy( pDest, pSrc, maxLen );
-	pDest[ maxLen - 1 ] = 0;
+	pDest[maxLen - 1] = 0;
 }
 
 int V_strncmp( const char *s1, const char *s2, int count )

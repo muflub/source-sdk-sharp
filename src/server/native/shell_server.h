@@ -8,8 +8,6 @@
 // Server-side hooks that route mod decisions into C#.
 #pragma once
 
-
-
 #include "igameentity.h"
 struct edict_t;
 
@@ -22,7 +20,11 @@ void SourceSharp_OnClientActive( edict_t *pEntity, bool bLoadGame );
 
 // The 3D skybox a managed sky_camera pushed, for ClientData_Update when no
 // CSkyCamera exists. False when nothing was pushed.
-namespace ss { struct sky3dparams_t; }
+namespace ss
+{
+struct sky3dparams_t;
+}
+
 bool SourceSharp_FillSkyboxParams( ss::sky3dparams_t &out );
 
 // Whether a ServerClass was declared by C# rather than registered by the SDK.
@@ -34,10 +36,9 @@ void SourceSharp_CreateNetworkStringTables();
 
 // Acquires every engine interface this binary reaches by global. False on the
 // first miss, as stock's DLLInit.
-typedef void *(*CreateInterfaceFn)( const char *pName, int *pReturnCode );
-bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
-                                          CreateInterfaceFn physicsFactory,
-                                          CreateInterfaceFn fileSystemFactory );
+typedef void *( *CreateInterfaceFn )( const char *pName, int *pReturnCode );
+bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory,
+										  CreateInterfaceFn fileSystemFactory );
 
 int32_t SourceSharp_EntitiesInvalidateMdlCacheAll();
 
@@ -54,4 +55,4 @@ int SourceSharp_EarPositionForClient( int iClientEdict, float *pOutXYZ );
 // pPortalBits (zeroed by the caller) and returns -1, or a portal number too large
 // for the bits. -1 with nothing written when managed is not loaded.
 int SourceSharp_AreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor,
-                                      unsigned char *pPortalBits, int nPortalBytes );
+									  unsigned char *pPortalBits, int nPortalBytes );

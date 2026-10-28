@@ -1,6 +1,6 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CollectionAccess] CollectionAccess() : CParticleCollection()	SLOT-HELP	reaches CParticleCollection's protected constructor and Init for the slots beside it
+[CollectionAccess] : CParticleCollection()	SLOT-HELP	reaches CParticleCollection's protected constructor and Init for the slots beside it
 [CollectionAccess] bool InitDef( CParticleSystemDefinition *pDef )	SLOT-HELP	reaches CParticleCollection's protected constructor and Init for the slots beside it
 [CollectionAccess] bool InitName( const char *pszName )	SLOT-HELP	reaches CParticleCollection's protected constructor and Init for the slots beside it
 [CollectionAccess] void BloatBounds()	SLOT-HELP	reaches CParticleCollection's protected constructor and Init for the slots beside it
@@ -50,11 +50,11 @@ CollectionAccess *Access( CParticleCollection *p )	SLOT-HELP	reaches CParticleCo
 [CSSParticleLib] void MgrSetLastSimulationTime( CParticleSystemMgr *p, float flTime ) override	BOUNDARY	a pass-through onto the particles.a member client.so named before the split (plan_particles_so.md spike)
 [CSSParticleLib] void MgrShouldLoadSheets( CParticleSystemMgr *p, bool bLoadSheets ) override	BOUNDARY	a pass-through onto the particles.a member client.so named before the split (plan_particles_so.md spike)
 [CSSParticleLib] void MgrUncacheAllParticleSystems( CParticleSystemMgr *p ) override	BOUNDARY	a pass-through onto the particles.a member client.so named before the split (plan_particles_so.md spike)
-SSParticleLib_Interface	LIVE-API	the library's one export: client.so imports it (nm -D -u client.so: U SSParticleLib_Interface) and takes ISSParticleLib from it, linked by SONAME rather than looked up at load
+SS_PARTICLELIB_API ISSParticleLib *SSParticleLib_Interface()	LIVE-API	the library's one export: client.so imports it (nm -D -u client.so: U SSParticleLib_Interface) and takes ISSParticleLib from it, linked by SONAME rather than looked up at load
 [CollectionAccess] const Vector &Min() const	SLOT-HELP	reaches CParticleCollection's protected bounds for the batch and the bounds slots beside it
 [CollectionAccess] const Vector &Max() const	SLOT-HELP	reaches CParticleCollection's protected bounds for the batch and the bounds slots beside it
-[CollectionAccess] void SetBounds(	SLOT-HELP	reaches CParticleCollection's protected bounds for the bounds slot beside it
+[CollectionAccess] void SetBounds( const Vector &vMin, const Vector &vMax )	SLOT-HELP	reaches CParticleCollection's protected bounds for the bounds slot beside it
 const CollectionAccess *Access( const CParticleCollection *p )	SLOT-HELP	the const view of the protected-member access
-[CSSParticleLib] void CollectionSimulateBatch(	BOUNDARY	C7 particles phase 3: each listed collection stepped as managed decided (dt, bounds only), and what the next decisions read answered back; nothing decided here
-[CSSParticleLib] void CollectionGetBounds(	BOUNDARY	the collection's bounds, read
-[CSSParticleLib] void CollectionSetBounds(	BOUNDARY	the collection's bounds, written as managed's first box decided
+[CSSParticleLib] void CollectionSimulateBatch( const SSParticleSimEntry_t *pEntries, int nCount, SSParticleSimResult_t *pResults ) override	BOUNDARY	C7 particles phase 3: each listed collection stepped as managed decided (dt, bounds only), and what the next decisions read answered back; nothing decided here
+[CSSParticleLib] void CollectionGetBounds( const CParticleCollection *p, float *pMin3, float *pMax3 ) override	BOUNDARY	the collection's bounds, read
+[CSSParticleLib] void CollectionSetBounds( CParticleCollection *p, const float *pMin3, const float *pMax3 ) override	BOUNDARY	the collection's bounds, written as managed's first box decided

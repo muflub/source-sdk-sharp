@@ -1,7 +1,7 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CSourceSharpDebugOverlayPanel] virtual void Create(	SLOT	IDebugOverlayPanel's slot vgui_int.cpp calls: the panel is the UI's, nothing to make
-[CSourceSharpDebugOverlayPanel] virtual void Destroy(	SLOT	IDebugOverlayPanel's slot: nothing to unmake
-void DebugDrawLine(	BOUNDARY	stock's helper, one debugoverlay->AddLineOverlay
-int32_t SourceSharp_UiDebugOverlayText(	SLOT	IShimUiClient: the list's entry by index, placed by the engine's ScreenPosition, for the managed UI
-void SourceSharp_UiDebugOverlayClearDead(	BOUNDARY	debugoverlay->ClearDeadOverlays, one stock call
+[CSourceSharpDebugOverlayPanel] virtual void Create( vgui::VPANEL parent ) OVERRIDE	SLOT	IDebugOverlayPanel's slot vgui_int.cpp calls: the panel is the UI's, nothing to make
+[CSourceSharpDebugOverlayPanel] virtual void Destroy() OVERRIDE	SLOT	IDebugOverlayPanel's slot: nothing to unmake
+void DebugDrawLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, int r, int g, int b, bool test, float duration )	BOUNDARY	stock's helper, one debugoverlay->AddLineOverlay
+int32_t SourceSharp_UiDebugOverlayText( int32_t nIndex, float *pOutX, float *pOutY, int32_t *pOutLine, uint32_t *pOutRgba, uint8_t *pText, i	SLOT	IShimUiClient: the list's entry by index, placed by the engine's ScreenPosition, for the managed UI
+void SourceSharp_UiDebugOverlayClearDead()	BOUNDARY	debugoverlay->ClearDeadOverlays, one stock call

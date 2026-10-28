@@ -9,29 +9,18 @@
 // IGameClientExports asks and the squelch mode in_main.cpp stops. The other
 // calls have nothing to do.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
 #include "voice_status.h"
-#include "vgui_controls/MessageMap.h"
-#include "hud.h"
-#include "voice_banmgr.h"
+
 #include "imanaged_areas_client.h"
 
 // The ban list is managed; this member of CVoiceStatus is never used.
 CVoiceBanMgr::CVoiceBanMgr() {}
+
 CVoiceBanMgr::~CVoiceBanMgr() {}
 
 static CVoiceStatus *s_pVoiceStatus = NULL;
@@ -56,13 +45,14 @@ void ClientVoiceMgr_Shutdown()
 }
 
 CVoiceStatus::CVoiceStatus()
-	: m_pParentPanel( 0 ), m_pHelper( NULL ), m_bInSquelchMode( false ), m_pHeadLabelMaterial( NULL )
+	: m_pParentPanel( 0 )
+	, m_pHelper( NULL )
+	, m_bInSquelchMode( false )
+	, m_pHeadLabelMaterial( NULL )
 {
 }
 
-CVoiceStatus::~CVoiceStatus()
-{
-}
+CVoiceStatus::~CVoiceStatus() {}
 
 int CVoiceStatus::Init( IVoiceStatusHelper *pHelper, vgui::VPANEL pParentPanel )
 {
@@ -76,6 +66,7 @@ void CVoiceStatus::VidInit() {}
 // The managed voice manager hears the engine's VoiceStatus and ticks on the
 // client's frame; these calls have nothing left to do.
 void CVoiceStatus::Frame( double frametime ) {}
+
 void CVoiceStatus::UpdateSpeakerStatus( int entindex, bool bTalking ) {}
 
 // Stock's body drew nothing for any entity this build has.

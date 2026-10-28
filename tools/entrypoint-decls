@@ -458,12 +458,21 @@ def self_test():
     return 0 if ok else 1
 
 
+def formatted(text, name):
+    """What tools/clang-format makes of a native file this writes."""
+    import importlib.machinery
+    cf = importlib.machinery.SourceFileLoader(
+        "clang_format_tool", os.path.join(os.path.dirname(os.path.realpath(__file__)), "clang-format")).load_module()
+    return cf.format_text(text, name)
+
+
 def main():
     args = sys.argv[1:]
     if args == ["--self-test"]:
         return self_test()
 
     text, rows, local = generate()
+    text = formatted(text, OUTPUT)
 
     if args == ["--emit"]:
         sys.stdout.write(text)

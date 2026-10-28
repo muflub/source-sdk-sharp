@@ -12,17 +12,9 @@
 // pointer before asking.
 
 #include "vphysics_interface.h"
-#include "standalone_relays.h"
-#include "shell_standalone.h"
+
 #include "shell_standalone_player.h"
 #include "standalone_movetype.h"
-#include "shell_resolve.h"
-#include "managed_runtime_server.h"
-#include "shellless_find.h"
-#include "game_entity_relays.h"
-#include "imanaged_areas.h"
-
-#include "sourcesharp.h"
 
 static CStandaloneEntity *ShellOf( IGameEntity *pEnt )
 {
@@ -52,13 +44,11 @@ bool StandaloneEntity_IsPlayer( const IGameEntity *pEnt )
 int StandaloneEntity_MoveType( const IGameEntity *pEnt )
 {
 	// SourceSharp_PlayerOf takes a non-const shell; nothing here writes through it.
-	CStandaloneEntity *pShell = ShellOf( const_cast< IGameEntity * >( pEnt ) );
+	CStandaloneEntity *pShell = ShellOf( const_cast<IGameEntity *>( pEnt ) );
 	CStandalonePlayer *pPlayer = pShell->IsPlayer() ? SourceSharp_PlayerOf( pShell ) : NULL;
 
-	return StandaloneMoveType_Report( pPlayer != NULL,
-	                                  pPlayer ? (int)pPlayer->MvGetMoveType() : 0,
-	                                  pShell->GetPhysics() != NULL,
-	                                  pShell->Block().Head.MoveType );
+	return StandaloneMoveType_Report( pPlayer != NULL, pPlayer ? (int)pPlayer->MvGetMoveType() : 0,
+									  pShell->GetPhysics() != NULL, pShell->Block().Head.MoveType );
 }
 
 IPhysicsObject *StandaloneEntity_PhysicsObject( const IGameEntity *pEnt )
@@ -86,14 +76,12 @@ IHandleEntity *StandaloneEntity_OwnerHandle( const IGameEntity *pEnt )
 	return ShellOf( pEnt )->OwnerHandleEntity();
 }
 
-bool StandaloneEntity_ApplyMapKey( IGameEntity *pEnt, const char *szKeyName,
-                                   const char *szValue )
+bool StandaloneEntity_ApplyMapKey( IGameEntity *pEnt, const char *szKeyName, const char *szValue )
 {
 	return ShellOf( pEnt )->KeyValue( szKeyName, szValue );
 }
 
-void StandaloneEntity_Place( IGameEntity *pEnt, const Vector *pOrigin,
-                             const QAngle *pAngles )
+void StandaloneEntity_Place( IGameEntity *pEnt, const Vector *pOrigin, const QAngle *pAngles )
 {
 	CStandaloneEntity *pShell = ShellOf( pEnt );
 
@@ -104,8 +92,7 @@ void StandaloneEntity_Place( IGameEntity *pEnt, const Vector *pOrigin,
 		pShell->SetAbsAngles( *pAngles );
 }
 
-void StandaloneEntity_PlaceAndSpawn( IGameEntity *pEnt, const Vector *pOrigin,
-                                     const QAngle *pAngles )
+void StandaloneEntity_PlaceAndSpawn( IGameEntity *pEnt, const Vector *pOrigin, const QAngle *pAngles )
 {
 	StandaloneEntity_Place( pEnt, pOrigin, pAngles );
 

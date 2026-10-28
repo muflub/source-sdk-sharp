@@ -13,7 +13,7 @@
 #include "ss_util.h"
 #include "ss_shareddefs.h"
 #include "ss_physics_shared.h"
-#include "ss_entityhandle.h"
+
 #include "ss_gamestringpool.h"
 extern CGlobalVars *gpGlobals;
 int UTIL_GetCommandClientIndex();
@@ -23,34 +23,28 @@ int UTIL_GetCommandClientIndex();
 #include "movement_ground.h"
 #include "standalone_player_sync.h"
 #include "shell_server.h"
-#include "shell_resolve.h"
-#include "sourcesharp.h"
+
 #include "shell_gamemovement.h"
-#include "vphysics_interface.h"
+
 #include "vphysics/player_controller.h"
-#include "physics_gamedata.h"
-#include "anyentity.h"
-#include "slot_table.h"
+
 #include "physicsowner.h"
-#include "standalone_relays.h"
+
 #include "ss_takedamageinfo.h"
 
-#include "entity_shared_statics.h"
 #include "native_command_body.h"
 #include "ss_string.h"
 #include "ss_entityfactory.h"
-#include "imanaged_areas.h"
-#include "trace_hit.h"
 
 // Stock's player physics-shadow states (player.h VPHYS_*).
 namespace
 {
-	enum
-	{
-		VPHYS_WALK = 0,
-		VPHYS_CROUCH,
-		VPHYS_NOCLIP,
-	};
+enum
+{
+	VPHYS_WALK = 0,
+	VPHYS_CROUCH,
+	VPHYS_NOCLIP,
+};
 }
 
 // Field placements, resolved once per generation and shared by every player.
@@ -88,14 +82,14 @@ int CStandalonePlayer::TakeDamage( const ss::CTakeDamageInfo &info )
 }
 
 // Connected players by entindex, asked once per packet and per snapshot.
-static CStandalonePlayer *s_StandalonePlayers[ ss::kMaxPlayers + 1 ];
+static CStandalonePlayer *s_StandalonePlayers[ss::kMaxPlayers + 1];
 
 CStandalonePlayer *CStandalonePlayer::FromEdict( const edict_t *pEdict )
 {
 	if ( !pEdict )
 		return NULL;
 
-	return FromIndex( engine->IndexOfEdict( const_cast< edict_t * >( pEdict ) ) );
+	return FromIndex( engine->IndexOfEdict( const_cast<edict_t *>( pEdict ) ) );
 }
 
 CStandalonePlayer *CStandalonePlayer::FromIndex( int nEntIndex )
@@ -103,45 +97,46 @@ CStandalonePlayer *CStandalonePlayer::FromIndex( int nEntIndex )
 	if ( nEntIndex < 1 || nEntIndex > ss::kMaxPlayers )
 		return NULL;
 
-	return s_StandalonePlayers[ nEntIndex ];
+	return s_StandalonePlayers[nEntIndex];
 }
 
 CStandalonePlayer::CStandalonePlayer()
-	: m_flWaterJumpTime( 0.0f ),
-	  m_vecWaterJumpVel( 0, 0, 0 ),
-	  m_flSwimSoundTime( 0.0f ),
-	  m_flStepSoundTime( 0.0f ),
-	  m_flSurfaceFriction( 1.0f ),
-	  m_pSurfaceData( NULL ),
-	  m_nSurfaceProps( 0 ),
-	  m_chTextureType( 0 ),
-	  m_chPreviousTextureType( 0 ),
-	  m_vecLadderNormal( 0, 0, 0 ),
-	  m_nStuckLast( 0 ),
-	  m_nNumCrouches( 0 ),
-	  m_vecAbsVelocity( 0, 0, 0 ),
-	  m_vecBaseVelocity( 0, 0, 0 ),
-	  m_vecViewOffset( 0, 0, 64 ),
-	  m_vecPreviouslyPredictedOrigin( 0, 0, 0 ),
-	  m_flGravity( 1.0f ),
-	  m_flMaxSpeed( 320.0f ),
-	  m_fFlags( 0 ),
-	  m_MoveType( MOVETYPE_WALK ),
-	  m_MoveCollide( MOVECOLLIDE_DEFAULT ),
-	  m_nWaterLevel( 0 ),
-	  m_nWaterType( 0 ),
-	  m_bObserver( false ),
-	  m_nObserverMode( 0 ),
-	  // TEAM_UNASSIGNED: the born answer, as stock's is.
-	  m_iTeamNum( 0 ),
-	  m_pShadowStand( NULL ),
-	  m_pShadowCrouch( NULL ),
-	  m_pShadowActive( NULL ),
-	  m_pPhysicsController( NULL ),
-	  m_pShadowEnv( NULL ),
-	  m_nVCollisionState( -1 ),
-	  m_nSimulationTick( -1 ),
-	  m_nPendingCmds( 0 )
+	: m_flWaterJumpTime( 0.0f )
+	, m_vecWaterJumpVel( 0, 0, 0 )
+	, m_flSwimSoundTime( 0.0f )
+	, m_flStepSoundTime( 0.0f )
+	, m_flSurfaceFriction( 1.0f )
+	, m_pSurfaceData( NULL )
+	, m_nSurfaceProps( 0 )
+	, m_chTextureType( 0 )
+	, m_chPreviousTextureType( 0 )
+	, m_vecLadderNormal( 0, 0, 0 )
+	, m_nStuckLast( 0 )
+	, m_nNumCrouches( 0 )
+	, m_vecAbsVelocity( 0, 0, 0 )
+	, m_vecBaseVelocity( 0, 0, 0 )
+	, m_vecViewOffset( 0, 0, 64 )
+	, m_vecPreviouslyPredictedOrigin( 0, 0, 0 )
+	, m_flGravity( 1.0f )
+	, m_flMaxSpeed( 320.0f )
+	, m_fFlags( 0 )
+	, m_MoveType( MOVETYPE_WALK )
+	, m_MoveCollide( MOVECOLLIDE_DEFAULT )
+	, m_nWaterLevel( 0 )
+	, m_nWaterType( 0 )
+	, m_bObserver( false )
+	, m_nObserverMode( 0 )
+	,
+	// TEAM_UNASSIGNED: the born answer, as stock's is.
+	m_iTeamNum( 0 )
+	, m_pShadowStand( NULL )
+	, m_pShadowCrouch( NULL )
+	, m_pShadowActive( NULL )
+	, m_pPhysicsController( NULL )
+	, m_pShadowEnv( NULL )
+	, m_nVCollisionState( -1 )
+	, m_nSimulationTick( -1 )
+	, m_nPendingCmds( 0 )
 {
 	m_szPlayerName[0] = 0;
 
@@ -167,8 +162,8 @@ CStandalonePlayer::~CStandalonePlayer()
 
 	const int nIndex = EntIndex();
 
-	if ( nIndex >= 1 && nIndex <= ss::kMaxPlayers && s_StandalonePlayers[ nIndex ] == this )
-		s_StandalonePlayers[ nIndex ] = NULL;
+	if ( nIndex >= 1 && nIndex <= ss::kMaxPlayers && s_StandalonePlayers[nIndex] == this )
+		s_StandalonePlayers[nIndex] = NULL;
 }
 
 void CStandalonePlayer::SetPlayerName( const char *pName )
@@ -190,7 +185,7 @@ void CStandalonePlayer::Spawn()
 	// Managed code places the player inside this call, before it is solid and before the
 	// hull is set. The returned handle is deliberately ignored.
 	if ( pApi )
-		( void )pApi->OnSelectSpawnPoint( ManagedHandle() );
+		(void)pApi->OnSelectSpawnPoint( ManagedHandle() );
 
 	SetCollisionBounds( g_pGameRules->GetViewVectors()->m_vHullMin, g_pGameRules->GetViewVectors()->m_vHullMax );
 	m_vecViewOffset = g_pGameRules->GetViewVectors()->m_vView;
@@ -283,8 +278,8 @@ void CStandalonePlayer::RunAllQueuedCommands()
 {
 	for ( int i = 1; i <= ss::kMaxPlayers; i++ )
 	{
-		if ( s_StandalonePlayers[ i ] )
-			s_StandalonePlayers[ i ]->RunQueuedCommands();
+		if ( s_StandalonePlayers[i] )
+			s_StandalonePlayers[i]->RunQueuedCommands();
 	}
 }
 
@@ -299,7 +294,7 @@ void CStandalonePlayer::RunQueuedCommands()
 		return;
 
 	// The managed loop sets each command's clock; the frame's is restored after the batch.
-	const float flSaveCurtime   = gpGlobals->curtime;
+	const float flSaveCurtime = gpGlobals->curtime;
 	const float flSaveFrametime = gpGlobals->frametime;
 
 	// One crossing for the whole queue.
@@ -311,13 +306,12 @@ void CStandalonePlayer::RunQueuedCommands()
 	}
 	else
 	{
-		Warning( "[SourceSharp] no managed run loop; %d queued command(s) dropped\n",
-		         m_nPendingCmds );
+		Warning( "[SourceSharp] no managed run loop; %d queued command(s) dropped\n", m_nPendingCmds );
 	}
 
 	m_nPendingCmds = 0;
 
-	gpGlobals->curtime   = flSaveCurtime;
+	gpGlobals->curtime = flSaveCurtime;
 	gpGlobals->frametime = flSaveFrametime;
 }
 
@@ -351,9 +345,9 @@ void CStandalonePlayer::CommandFacts( SourceSharpPlayerCommandFacts *pOut )
 	pOut->nFixAngle = pl.fixangle;
 	pOut->bDeadFlag = pl.deadflag ? 1 : 0;
 
-	pOut->nHealth      = GetHealth();
+	pOut->nHealth = GetHealth();
 	pOut->flModelScale = GetModelScale();
-	pOut->nEntIndex    = EntIndex();
+	pOut->nEntIndex = EntIndex();
 
 	// NULL for a ground entity that has gone.
 	IHandleEntity *pGround = SourceSharp_EntityFromHandle( CBaseHandle::UnsafeFromIndex( (int)pOut->hGround ) );
@@ -368,12 +362,12 @@ void CStandalonePlayer::CommandFacts( SourceSharpPlayerCommandFacts *pOut )
 void CStandalonePlayer::FinishCommand( const SourceSharpPlayerCommandResult &result )
 {
 	// Written before the trigger sweep below can call back into anything that reads them.
-	m_fFlags          = result.nFlags;
-	m_MoveType        = (MoveType_t)result.nMoveType;
+	m_fFlags = result.nFlags;
+	m_MoveType = (MoveType_t)result.nMoveType;
 	m_vecViewOffset.Init( result.vecViewOffset[0], result.vecViewOffset[1], result.vecViewOffset[2] );
 	m_vecAbsVelocity.Init( result.vecVelocity[0], result.vecVelocity[1], result.vecVelocity[2] );
 	m_vecBaseVelocity.Init( result.vecBaseVelocity[0], result.vecBaseVelocity[1], result.vecBaseVelocity[2] );
-	m_hGround         = CBaseHandle::UnsafeFromIndex( (int)result.hGround );
+	m_hGround = CBaseHandle::UnsafeFromIndex( (int)result.hGround );
 	m_Local.m_flFallVelocity = result.flFallVelocity;
 
 	// FinishMove's engine-facing writes; the body takes the yaw alone.
@@ -456,7 +450,7 @@ void SourceSharp_PlayerSyncEngineSide( uint32_t hPlayer )
 //
 // Shadows still in the solver, and those that outlived their environment, which is
 // recreated at every level change. physics.cpp checks both.
-int g_nSourceSharpPlayerShadowsLive     = 0;
+int g_nSourceSharpPlayerShadowsLive = 0;
 int g_nSourceSharpPlayerShadowsOutlived = 0;
 
 // Copies live, outlived into pOut.
@@ -469,7 +463,7 @@ int32_t SourceSharp_PlayerShadowCounts( int32_t *pOut, int32_t nMax )
 	const int32_t nAll = int32_t( sizeof( values ) / sizeof( values[0] ) );
 	const int32_t n = nMax < nAll ? nMax : nAll;
 	for ( int32_t i = 0; i < n; ++i )
-		pOut[ i ] = values[ i ];
+		pOut[i] = values[i];
 	return n;
 }
 
@@ -489,27 +483,27 @@ void CStandalonePlayer::ShadowFacts( SourceSharpPlayerShadowFacts *pOut )
 	memset( pOut, 0, sizeof( *pOut ) );
 	pOut->struct_size = sizeof( *pOut );
 
-	pOut->bHasShadow   = m_pPhysicsController && m_pShadowStand && m_pShadowCrouch ? 1 : 0;
+	pOut->bHasShadow = m_pPhysicsController && m_pShadowStand && m_pShadowCrouch ? 1 : 0;
 	pOut->bBodyCurrent = m_pShadowEnv && m_pShadowEnv == physenv ? 1 : 0;
-	pOut->nState       = m_nVCollisionState;
-	pOut->pStand       = m_pShadowStand;
-	pOut->pCrouch      = m_pShadowCrouch;
-	pOut->pController  = m_pPhysicsController;
+	pOut->nState = m_nVCollisionState;
+	pOut->pStand = m_pShadowStand;
+	pOut->pCrouch = m_pShadowCrouch;
+	pOut->pController = m_pPhysicsController;
 
 	const Vector &vecOrigin = GetAbsOrigin();
-	pOut->vecOrigin[0]    = vecOrigin.x;
-	pOut->vecOrigin[1]    = vecOrigin.y;
-	pOut->vecOrigin[2]    = vecOrigin.z;
-	pOut->vecVelocity[0]  = m_vecAbsVelocity.x;
-	pOut->vecVelocity[1]  = m_vecAbsVelocity.y;
-	pOut->vecVelocity[2]  = m_vecAbsVelocity.z;
+	pOut->vecOrigin[0] = vecOrigin.x;
+	pOut->vecOrigin[1] = vecOrigin.y;
+	pOut->vecOrigin[2] = vecOrigin.z;
+	pOut->vecVelocity[0] = m_vecAbsVelocity.x;
+	pOut->vecVelocity[1] = m_vecAbsVelocity.y;
+	pOut->vecVelocity[2] = m_vecAbsVelocity.z;
 
-	pOut->flMaxSpeed         = m_flMaxSpeed;
-	pOut->nFlags             = m_fFlags;
-	pOut->nMoveType          = m_MoveType;
+	pOut->flMaxSpeed = m_flMaxSpeed;
+	pOut->nFlags = m_fFlags;
+	pOut->nMoveType = m_MoveType;
 
-	pOut->flFrameTime        = gpGlobals->frametime;
-	pOut->flTickInterval     = gpGlobals->interval_per_tick;
+	pOut->flFrameTime = gpGlobals->frametime;
+	pOut->flTickInterval = gpGlobals->interval_per_tick;
 
 	// Managed decides whether the ground is physics ground.
 	pOut->hGround = INVALID_EHANDLE_INDEX;
@@ -527,13 +521,13 @@ void CStandalonePlayer::ShadowFacts( SourceSharpPlayerShadowFacts *pOut )
 }
 
 void CStandalonePlayer::AdoptShadow( IPhysicsObject *pStand, IPhysicsObject *pCrouch,
-                                     IPhysicsPlayerController *pController )
+									 IPhysicsPlayerController *pController )
 {
-	m_pShadowStand       = pStand;
-	m_pShadowCrouch      = pCrouch;
+	m_pShadowStand = pStand;
+	m_pShadowCrouch = pCrouch;
 	m_pPhysicsController = pController;
-	m_pShadowActive      = NULL;
-	m_nVCollisionState   = -1;
+	m_pShadowActive = NULL;
+	m_nVCollisionState = -1;
 
 	// Remembered so the teardown can tell whether the environment that built it still exists.
 	m_pShadowEnv = physenv;
@@ -543,9 +537,7 @@ void CStandalonePlayer::AdoptShadow( IPhysicsObject *pStand, IPhysicsObject *pCr
 void CStandalonePlayer::CommitShadow( int nState, bool bAfterCommand )
 {
 	m_nVCollisionState = nState;
-	m_pShadowActive = nState == VPHYS_WALK ? m_pShadowStand
-	                : nState == VPHYS_CROUCH ? m_pShadowCrouch
-	                : NULL;
+	m_pShadowActive = nState == VPHYS_WALK ? m_pShadowStand : nState == VPHYS_CROUCH ? m_pShadowCrouch : NULL;
 
 	// The managed command loop consumes the step height.
 	(void)bAfterCommand;
@@ -569,8 +561,8 @@ int32_t SourceSharp_PlayerShadowAdopt( uint32_t hPlayer, void *pStand, void *pCr
 
 	// Stock destroys before it builds.
 	pPlayer->DestroyVCollision();
-	pPlayer->AdoptShadow( static_cast< IPhysicsObject * >( pStand ), static_cast< IPhysicsObject * >( pCrouch ),
-	                      static_cast< IPhysicsPlayerController * >( pController ) );
+	pPlayer->AdoptShadow( static_cast<IPhysicsObject *>( pStand ), static_cast<IPhysicsObject *>( pCrouch ),
+						  static_cast<IPhysicsPlayerController *>( pController ) );
 	return 1;
 }
 
@@ -627,8 +619,8 @@ void CStandalonePlayer::DestroyVCollision()
 		m_pShadowCrouch = NULL;
 	}
 
-	m_pShadowActive    = NULL;
-	m_pShadowEnv       = NULL;
+	m_pShadowActive = NULL;
+	m_pShadowEnv = NULL;
 	m_nVCollisionState = -1;
 }
 
@@ -719,7 +711,7 @@ CStandalonePlayer *StandalonePlayer_Create( edict_t *pEdict, const char *pPlayer
 	if ( !pFactory )
 	{
 		Warning( "[SourceSharp] standalone player: no 'ss_player' class was registered — "
-		         "is the managed assembly older than -ss_player?\n" );
+				 "is the managed assembly older than -ss_player?\n" );
 		return NULL;
 	}
 
@@ -740,12 +732,11 @@ CStandalonePlayer *StandalonePlayer_Create( edict_t *pEdict, const char *pPlayer
 
 	if ( nIndex >= 1 && nIndex <= ss::kMaxPlayers )
 	{
-		s_StandalonePlayers[ nIndex ] = pPlayer;
+		s_StandalonePlayers[nIndex] = pPlayer;
 	}
 	else
 	{
-		Warning( "[SourceSharp] standalone player: bound to edict index %d, outside 1..%d\n",
-			nIndex, ss::kMaxPlayers );
+		Warning( "[SourceSharp] standalone player: bound to edict index %d, outside 1..%d\n", nIndex, ss::kMaxPlayers );
 	}
 
 	pPlayer->SetPlayerName( pPlayerName );

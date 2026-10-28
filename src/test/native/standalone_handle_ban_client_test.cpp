@@ -77,16 +77,15 @@ class C_StandaloneEntity;
 // and with STANDALONE_HANDLE_BAN_CLIENT_ABSENT it is an ordinary object that
 // compiles and runs.
 //-----------------------------------------------------------------------------
-CHandle< C_StandaloneEntity > g_hClientShell;
+CHandle<C_StandaloneEntity> g_hClientShell;
 
 TEST( StandaloneHandleBanClient, TheControlLegCompilesTheBannedTypeWhenTheBanIsAbsent )
 {
 	// Reached only by the control leg. It exists so that leg RUNS something
 	// rather than merely linking: a control that compiled an unused object
 	// would still pass if the compiler folded it away.
-	EXPECT_FALSE( g_hClientShell.IsValid() )
-		<< "a default-constructed handle is invalid; if this fails, the control "
-		   "leg is not exercising CHandle at all";
+	EXPECT_FALSE( g_hClientShell.IsValid() ) << "a default-constructed handle is invalid; if this fails, the control "
+												"leg is not exercising CHandle at all";
 }
 
 #else // !STANDALONE_HANDLE_BAN_CLIENT_NOCOMPILE
@@ -121,7 +120,7 @@ static std::string ReadManifest()
 //-----------------------------------------------------------------------------
 TEST( StandaloneHandleBanClient, APointerToTheBannedTypeIsStillNameable )
 {
-	CHandle< C_StandaloneEntity > *pBanned = 0;
+	CHandle<C_StandaloneEntity> *pBanned = 0;
 
 	EXPECT_EQ( (void *)0, (void *)pBanned );
 }
@@ -154,7 +153,7 @@ TEST( StandaloneHandleBanClient, TheBuildScriptCarriesBothLegs )
 	const std::string s = ReadManifest();
 
 	ASSERT_FALSE( s.empty() ) << "src/test/native/CMakeLists.txt is missing or "
-		"SOURCESHARP_REPO is unset (ctest sets it)";
+								 "SOURCESHARP_REPO is unset (ctest sets it)";
 
 	// AT THE START OF A LINE, and that is not pedantry. A bare substring search
 	// passes on `# ss_cpptest(...` and on `_disabled_ss_cpptest(...` -- the
@@ -163,13 +162,11 @@ TEST( StandaloneHandleBanClient, TheBuildScriptCarriesBothLegs )
 	// with a prefix left this fact GREEN until the newline was put in front of
 	// it. And UP TO THE END OF THE NAME (the newline after it), so a renamed
 	// `..._absent_disabled` is not read as the leg either.
-	EXPECT_NE( std::string::npos,
-	           s.find( "\nss_must_not_compile(standalone_handle_ban_client\n" ) )
+	EXPECT_NE( std::string::npos, s.find( "\nss_must_not_compile(standalone_handle_ban_client\n" ) )
 		<< "the refusal leg is gone, commented out, or renamed; nothing checks "
 		   "that the client ban bans anything.";
 
-	EXPECT_NE( std::string::npos,
-	           s.find( "\nss_cpptest(standalone_handle_ban_client_absent\n" ) )
+	EXPECT_NE( std::string::npos, s.find( "\nss_cpptest(standalone_handle_ban_client_absent\n" ) )
 		<< "the CONTROL leg is gone, commented out, or renamed. Without it the "
 		   "refusal is evidence of nothing -- a typo in the probe refuses just "
 		   "as loudly.";

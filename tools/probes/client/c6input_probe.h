@@ -15,7 +15,7 @@
 struct kbutton_t;
 
 // One fixture line (a '\n' is added), while armed.
-void C6P_Log( const char *pFmt, ... ) __attribute__(( format( printf, 1, 2 ) ));
+void C6P_Log( const char *pFmt, ... ) __attribute__( ( format( printf, 1, 2 ) ) );
 bool C6P_Armed();
 
 // A kbutton_t's name for the "K" lines; the two TUs that own buttons register

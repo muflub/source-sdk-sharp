@@ -54,14 +54,14 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-		     && stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-			return kCandidates[ i ];
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
+			return kCandidates[i];
 	}
 	return NULL;
 }
@@ -72,13 +72,12 @@ bool Exists( const std::string &strRel )
 	if ( pszRoot == NULL )
 		return false;
 	struct stat st;
-	return stat( ( std::string( pszRoot ) + "/" + strRel ).c_str(), &st ) == 0
-	       && S_ISREG( st.st_mode );
+	return stat( ( std::string( pszRoot ) + "/" + strRel ).c_str(), &st ) == 0 && S_ISREG( st.st_mode );
 }
 
 // The three targets that are ours: server.so, client.so, libmanaged_host.so.
 const char *const kTargets[] = { cmake_graph::kServer, cmake_graph::kClient, cmake_graph::kHost };
-const size_t kNumTargets = sizeof( kTargets ) / sizeof( kTargets[ 0 ] );
+const size_t kNumTargets = sizeof( kTargets ) / sizeof( kTargets[0] );
 
 } // namespace
 
@@ -92,24 +91,25 @@ TEST( ClientPchPrelude, NoCompileCommandForcesAPrelude )
 {
 	for ( size_t t = 0; t < kNumTargets; t++ )
 	{
-		const std::string list = cmake_graph::ListText( kTargets[ t ] );
+		const std::string list = cmake_graph::ListText( kTargets[t] );
 		EXPECT_EQ( list.find( "precompile_headers" ), std::string::npos )
-			<< cmake_graph::ListFile( kTargets[ t ] ) << " asks for a precompiled "
+			<< cmake_graph::ListFile( kTargets[t] )
+			<< " asks for a precompiled "
 			   "header again. In this project that is a FORCED PRELUDE, and every "
 			   "TU's include list stops being what it compiles against.";
 
-		const std::vector< cmake_graph::CompileEntry > entries = cmake_graph::TargetEntries( kTargets[ t ] );
-		ASSERT_FALSE( entries.empty() ) << kTargets[ t ];
+		const std::vector<cmake_graph::CompileEntry> entries = cmake_graph::TargetEntries( kTargets[t] );
+		ASSERT_FALSE( entries.empty() ) << kTargets[t];
 		for ( size_t i = 0; i < entries.size(); i++ )
 		{
-			std::istringstream toks( entries[ i ].strCommand );
+			std::istringstream toks( entries[i].strCommand );
 			std::string tok;
 			while ( toks >> tok )
 			{
-				EXPECT_NE( tok, "-include" ) << entries[ i ].strFile << " is compiled with a forced -include";
-				EXPECT_EQ( tok.find( "-include-pch" ), std::string::npos ) << entries[ i ].strFile;
-				EXPECT_EQ( tok.find( ".gch" ), std::string::npos ) << entries[ i ].strFile;
-				EXPECT_EQ( tok.find( ".pch" ), std::string::npos ) << entries[ i ].strFile;
+				EXPECT_NE( tok, "-include" ) << entries[i].strFile << " is compiled with a forced -include";
+				EXPECT_EQ( tok.find( "-include-pch" ), std::string::npos ) << entries[i].strFile;
+				EXPECT_EQ( tok.find( ".gch" ), std::string::npos ) << entries[i].strFile;
+				EXPECT_EQ( tok.find( ".pch" ), std::string::npos ) << entries[i].strFile;
 			}
 		}
 	}
@@ -124,11 +124,10 @@ TEST( ClientPchPrelude, NoTargetCompilesAStdafxAndNeitherFileIsOnDisk )
 {
 	for ( size_t t = 0; t < kNumTargets; t++ )
 	{
-		const std::set< std::string > srcs = cmake_graph::CompiledSources( kTargets[ t ] );
-		ASSERT_FALSE( srcs.empty() ) << kTargets[ t ];
-		for ( std::set< std::string >::const_iterator it = srcs.begin(); it != srcs.end(); ++it )
-			EXPECT_EQ( it->find( "stdafx" ), std::string::npos )
-				<< kTargets[ t ] << " compiles " << *it << " again.";
+		const std::set<std::string> srcs = cmake_graph::CompiledSources( kTargets[t] );
+		ASSERT_FALSE( srcs.empty() ) << kTargets[t];
+		for ( std::set<std::string>::const_iterator it = srcs.begin(); it != srcs.end(); ++it )
+			EXPECT_EQ( it->find( "stdafx" ), std::string::npos ) << kTargets[t] << " compiles " << *it << " again.";
 	}
 
 	EXPECT_FALSE( Exists( "game/server/stdafx.cpp" ) )
@@ -152,8 +151,8 @@ TEST( ClientPchPrelude, NoTargetCompilesAStdafxAndNeitherFileIsOnDisk )
 //-----------------------------------------------------------------------------
 TEST( ClientPchPrelude, EveryCompiledClientSourceIsOnDisk )
 {
-	const std::set< std::string > srcs = cmake_graph::CompiledSources( cmake_graph::kClient );
+	const std::set<std::string> srcs = cmake_graph::CompiledSources( cmake_graph::kClient );
 	ASSERT_FALSE( srcs.empty() );
-	for ( std::set< std::string >::const_iterator it = srcs.begin(); it != srcs.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = srcs.begin(); it != srcs.end(); ++it )
 		EXPECT_TRUE( Exists( *it ) ) << "client_sourcesharp compiles " << *it << ", which is not on disk";
 }

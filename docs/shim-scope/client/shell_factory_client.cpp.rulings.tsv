@@ -1,6 +1,6 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName 	SLOT	tier1 interface.cpp's registry row: the EXPOSE macros make one per interface the engine may ask client.so for (C9)
-void *CreateInterface( const char *pName, int *pReturnCode 	SLOT	the export the engine resolves client.so's interfaces through, by name; shell_factory_client_test holds it (C9)
-void FactoryList_Store( const factorylist_t &sourceData 	SLOT	client_factorylist.h's store: the engine's factories, kept at Init for the tool framework and the vtable interfaces (C9)
-void FactoryList_Retrieve( factorylist_t &destData 	SLOT	client_factorylist.h's read-back of the engine's factories (C9)
+InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName )	SLOT	tier1 interface.cpp's registry row: the EXPOSE macros make one per interface the engine may ask client.so for (C9)
+void *CreateInterface( const char *pName, int *pReturnCode )	SLOT	the export the engine resolves client.so's interfaces through, by name; shell_factory_client_test holds it (C9)
+void FactoryList_Store( const factorylist_t &sourceData )	SLOT	client_factorylist.h's store: the engine's factories, kept at Init for the tool framework and the vtable interfaces (C9)
+void FactoryList_Retrieve( factorylist_t &destData )	SLOT	client_factorylist.h's read-back of the engine's factories (C9)

@@ -228,8 +228,8 @@ namespace
 
 struct Lifted
 {
-	const char *pszMember;   // the old C_BaseEntity:: name, now an inline forwarder
-	const char *pszFree;     // the free function it forwards to
+	const char *pszMember; // the old C_BaseEntity:: name, now an inline forwarder
+	const char *pszFree; // the free function it forwards to
 };
 
 } // namespace
@@ -291,7 +291,7 @@ struct FrameLoopLifted
 {
 	const char *pszMember;
 	const char *pszFree;
-	bool        bShim;      // true: moved to the shim. false: RETIRED.
+	bool bShim; // true: moved to the shim. false: RETIRED.
 };
 
 } // namespace
@@ -419,9 +419,24 @@ namespace
 // Stand-ins for the real shapes. A player is not a standard-layout single-base
 // type in the SDK, and the risk the void* raises is precisely that a cast on
 // one side and a cast on the other pick up different base-subobject offsets.
-struct FakeUnknownBase { virtual ~FakeUnknownBase() {} int a; };
-struct FakeNetworkableBase { virtual ~FakeNetworkableBase() {} int b; };
-struct FakePlayer : public FakeUnknownBase, public FakeNetworkableBase { int c; };
+struct FakeUnknownBase
+{
+	virtual ~FakeUnknownBase() {}
+
+	int a;
+};
+
+struct FakeNetworkableBase
+{
+	virtual ~FakeNetworkableBase() {}
+
+	int b;
+};
+
+struct FakePlayer : public FakeUnknownBase, public FakeNetworkableBase
+{
+	int c;
+};
 
 // The header's shape, reproduced exactly: a function-local static behind an
 // inline accessor. Reproduced rather than included because buildcpptests links
@@ -434,8 +449,15 @@ inline void *&FakePlayerStorage()
 }
 
 // The two forwarders from baseentity_shared.h, same static type at both casts.
-inline FakePlayer *GetFakePlayer() { return static_cast< FakePlayer * >( FakePlayerStorage() ); }
-inline void SetFakePlayer( FakePlayer *p ) { FakePlayerStorage() = p; }
+inline FakePlayer *GetFakePlayer()
+{
+	return static_cast<FakePlayer *>( FakePlayerStorage() );
+}
+
+inline void SetFakePlayer( FakePlayer *p )
+{
+	FakePlayerStorage() = p;
+}
 
 } // namespace
 
@@ -445,16 +467,15 @@ TEST( BaseEntityStatics, VoidStorageRoundTripsThePointerExactly )
 	player.c = 0x5A5A;
 
 	SetFakePlayer( &player );
-	ASSERT_EQ( &player, GetFakePlayer() )
-		<< "the void* storage did not return the pointer that was put in it. "
-		<< "The two casts in baseentity_shared.h are the only place the "
-		<< "prediction player's type exists; if they stop agreeing, "
-		<< "GetPredictionPlayer() hands out a pointer into the middle of an "
-		<< "object and every caller reads garbage.";
+	ASSERT_EQ( &player, GetFakePlayer() ) << "the void* storage did not return the pointer that was put in it. "
+										  << "The two casts in baseentity_shared.h are the only place the "
+										  << "prediction player's type exists; if they stop agreeing, "
+										  << "GetPredictionPlayer() hands out a pointer into the middle of an "
+										  << "object and every caller reads garbage.";
 	EXPECT_EQ( 0x5A5A, GetFakePlayer()->c );
 
 	SetFakePlayer( 0 );
-	EXPECT_EQ( ( FakePlayer * )0, GetFakePlayer() )
+	EXPECT_EQ( (FakePlayer *)0, GetFakePlayer() )
 		<< "storing NULL did not read back as NULL. player_command.cpp and "
 		<< "prediction.cpp both clear it that way at the end of a usercmd, and "
 		<< "IsInPrediction() is `GetPredictionPlayer() != NULL`.";
@@ -468,7 +489,14 @@ TEST( BaseEntityStatics, VoidStorageStartsNull )
 	//
 	// A second storage, untouched by the test above, because that one has
 	// already written to FakePlayerStorage().
-	struct Fresh { static void *&Ref() { static void *s_p = 0; return s_p; } };
-	EXPECT_EQ( ( void * )0, Fresh::Ref() )
-		<< "a function-local static void* did not start null";
+	struct Fresh
+	{
+		static void *&Ref()
+		{
+			static void *s_p = 0;
+			return s_p;
+		}
+	};
+
+	EXPECT_EQ( (void *)0, Fresh::Ref() ) << "a function-local static void* did not start null";
 }

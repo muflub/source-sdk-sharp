@@ -43,15 +43,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -72,9 +72,9 @@ bool Exists( const std::string &strPath )
 // (a file listed at either spelling answers). Never a suffix match.
 bool ServerCompilesBasename( const char *pszBasename )
 {
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( cmake_graph::kServer );
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( cmake_graph::kServer );
 	const std::string base( pszBasename );
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
 	{
 		const size_t slash = it->find_last_of( '/' );
 		if ( ( slash == std::string::npos ? *it : it->substr( slash + 1 ) ) == base )
@@ -100,38 +100,34 @@ TEST( ServerWave0, TheFourOwnFilesLiveUnderSourceSharp )
 	// baseentity_statics and entity_bases LEFT THIS LIST
 	// (plan_server_native_min P1): both .cpp files were deleted, and their
 	// absence at both paths is asserted below.
-	static const char *kOurs[] = { "precache_model" };   // toucher.cpp went in plan_server_native_v2 T2
+	static const char *kOurs[] = { "precache_model" }; // toucher.cpp went in plan_server_native_v2 T2
 
-	for ( size_t i = 0; i < sizeof( kOurs ) / sizeof( kOurs[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kOurs ) / sizeof( kOurs[0] ); i++ )
 	{
-		const std::string strBase = kOurs[ i ];
+		const std::string strBase = kOurs[i];
 		const std::string strStock = std::string( pszRoot ) + "/game/server/" + strBase;
-		const std::string strMine  = std::string( pszRoot )
-			+ "/sourcesharp/game/server/" + strBase;
+		const std::string strMine = std::string( pszRoot ) + "/sourcesharp/game/server/" + strBase;
 
-		EXPECT_TRUE( Exists( strMine + ".cpp" ) )
-			<< strBase << ".cpp is not under sourcesharp/game/server/. It "
-			<< "opens with \"//========= SourceSharp\" and was written by this "
-			<< "port; while it sits in game/server/ the meter in "
-			<< "plan_server_all.md section 1 counts it as borrowed C++.";
-		EXPECT_TRUE( Exists( strMine + ".h" ) )
-			<< strBase << ".h did not move with its .cpp.";
+		EXPECT_TRUE( Exists( strMine + ".cpp" ) ) << strBase << ".cpp is not under sourcesharp/game/server/. It "
+												  << "opens with \"//========= SourceSharp\" and was written by this "
+												  << "port; while it sits in game/server/ the meter in "
+												  << "plan_server_all.md section 1 counts it as borrowed C++.";
+		EXPECT_TRUE( Exists( strMine + ".h" ) ) << strBase << ".h did not move with its .cpp.";
 
 		EXPECT_FALSE( Exists( strStock + ".cpp" ) )
 			<< strBase << ".cpp is back under game/server/ as well. Two copies "
 			<< "on two include paths -- both directories are on this project's "
 			<< "$AdditionalIncludeDirectories -- is how a stale definition wins "
 			<< "silently.";
-		EXPECT_FALSE( Exists( strStock + ".h" ) )
-			<< strBase << ".h is back under game/server/ as well.";
+		EXPECT_FALSE( Exists( strStock + ".h" ) ) << strBase << ".h is back under game/server/ as well.";
 	}
 
 	// DELETED, not moved: one unreferenced send proxy and one write-only
 	// global (plan_server_native_min P1). Neither path may hold it.
 	static const char *kGone[] = { "baseentity_statics", "entity_bases" };
-	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[0] ); i++ )
 	{
-		const std::string strGone = kGone[ i ];
+		const std::string strGone = kGone[i];
 		EXPECT_FALSE( Exists( std::string( pszRoot ) + "/sourcesharp/game/server/" + strGone + ".cpp" ) )
 			<< strGone << ".cpp is back under sourcesharp/game/server/.";
 		EXPECT_FALSE( Exists( std::string( pszRoot ) + "/game/server/" + strGone + ".cpp" ) )
@@ -155,22 +151,22 @@ TEST( ServerWave0, TheServerCompilesTheFourAtTheirNewPaths )
 	// must not be listed (the flip removed it), the bare basename must not be
 	// listed either (the old path, same as the other three), and the file must
 	// still be where the move put it.
-	static const char *kOurs[] = { "precache_model.cpp" };   // toucher.cpp went in plan_server_native_v2 T2
+	static const char *kOurs[] = { "precache_model.cpp" }; // toucher.cpp went in plan_server_native_v2 T2
 
-	for ( size_t i = 0; i < sizeof( kOurs ) / sizeof( kOurs[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kOurs ) / sizeof( kOurs[0] ); i++ )
 	{
-		const std::string want = std::string( "sourcesharp/game/server/" ) + kOurs[ i ];
+		const std::string want = std::string( "sourcesharp/game/server/" ) + kOurs[i];
 
 		EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, want ) )
-			<< kOurs[ i ] << " is not listed at its sourcesharp path. If it is "
+			<< kOurs[i] << " is not listed at its sourcesharp path. If it is "
 			<< "not listed at all the server loses a definition; if it is "
 			<< "listed at game/server/ it is being read from where it no longer "
 			<< "lives.";
 
 		// ...and not ALSO at the old one. A build list is happy to compile a
 		// file twice; the linker is not.
-		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, std::string( "game/server/" ) + kOurs[ i ] ) )
-			<< kOurs[ i ] << " is compiled from game/server/ as well as from its "
+		EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, std::string( "game/server/" ) + kOurs[i] ) )
+			<< kOurs[i] << " is compiled from game/server/ as well as from its "
 			<< "sourcesharp path -- that is two translation units for one "
 			<< "file and a duplicate-symbol link.";
 	}

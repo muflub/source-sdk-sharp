@@ -18,19 +18,19 @@ public:
 	virtual int GetPredictableCount();
 
 protected:
-	void	AddToPredictableList( ClientEntityHandle_t add );
-	void	RemoveFromPredictablesList( ClientEntityHandle_t remove );
+	void AddToPredictableList( ClientEntityHandle_t add );
+	void RemoveFromPredictablesList( ClientEntityHandle_t remove );
 
 private:
-	CUtlVector< ClientEntityHandle_t >	m_Predictables;
+	CUtlVector<ClientEntityHandle_t> m_Predictables;
 
-	// C++ has no `friend class X;` for an alias; C++11's class-key-less
-	// `friend X;` does take a typedef-name, so that is the alias arm.
-	#ifndef SS_CBASEENTITY_ALIAS
+// C++ has no `friend class X;` for an alias; C++11's class-key-less
+// `friend X;` does take a typedef-name, so that is the alias arm.
+#ifndef SS_CBASEENTITY_ALIAS
 	friend class C_BaseEntity;
-	#else
+#else
 	friend C_BaseEntity;
-	#endif
+#endif
 };
 
 // Defined in c_baseentity_statics.cpp.

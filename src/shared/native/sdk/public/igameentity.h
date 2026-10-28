@@ -12,7 +12,6 @@
 
 #include "mathlib/vector.h"
 #include "igameentity_fwd.h"
-#include "ihandleentity.h"
 
 class IPhysicsObject;
 
@@ -34,7 +33,7 @@ abstract_class IGameEntity
 public:
 	// What CTraceFilterSimple asks an entity for.
 	virtual bool ShouldCollide( int collisionGroup, int contentsMask ) const = 0;
-	virtual int  GetCollisionGroup() const = 0;
+	virtual int GetCollisionGroup() const = 0;
 
 	// Deliberately absent: the engine never asks these, so other interfaces, relays or
 	// the SDK class answer them. VPhysicsGetObject, GetMoveType, GetFlags, EyePosition,
@@ -48,7 +47,7 @@ public:
 	virtual void EndTouch( const Toucher_t &toucher ) = 0;
 
 	// The solver's once-a-tick report of the object it moved.
-	virtual void VPhysicsUpdate( IPhysicsObject *pObject ) = 0;
+	virtual void VPhysicsUpdate( IPhysicsObject * pObject ) = 0;
 
 protected:
 #ifdef SS_GAME_ENTITY

@@ -36,15 +36,15 @@
 #else
 // The engine's random stream, named random_valve under POSIX so stdlib's random()
 // does not collide; defined in shell_engineboundary.cpp.
-#include <vstdlib/random.h>
+
 extern IUniformRandomStream *random_valve;
 #define random random_valve
 // The damage bits this file names, under their stock spellings.
-#include "ss_shareddefs.h"
+
 #define DMG_GENERIC ss::kDmgGeneric
-#define DMG_BULLET  ss::kDmgBullet
-#define DMG_BLAST   ss::kDmgBlast
-#define DMG_CRUSH   ss::kDmgCrush
+#define DMG_BULLET ss::kDmgBullet
+#define DMG_BLAST ss::kDmgBlast
+#define DMG_CRUSH ss::kDmgCrush
 #endif
 #ifdef CLIENT_DLL
 #include "takedamageinfo.h"
@@ -66,24 +66,20 @@ namespace ss
 // Client only: nothing on the server accumulates multi-damage.
 #ifdef CLIENT_DLL
 BEGIN_SIMPLE_DATADESC( CTakeDamageInfo )
-	DEFINE_FIELD( m_vecDamageForce, FIELD_VECTOR ),
-	DEFINE_FIELD( m_vecDamagePosition, FIELD_POSITION_VECTOR),
-	DEFINE_FIELD( m_vecReportedPosition, FIELD_POSITION_VECTOR),
-	DEFINE_FIELD( m_hInflictor, FIELD_EHANDLE),
-	DEFINE_FIELD( m_hAttacker, FIELD_EHANDLE),
-	DEFINE_FIELD( m_hWeapon, FIELD_EHANDLE),
-	DEFINE_FIELD( m_flDamage, FIELD_FLOAT),
-	DEFINE_FIELD( m_flMaxDamage, FIELD_FLOAT),
-	DEFINE_FIELD( m_flBaseDamage, FIELD_FLOAT ),
-	DEFINE_FIELD( m_bitsDamageType, FIELD_INTEGER),
-	DEFINE_FIELD( m_iDamageCustom, FIELD_INTEGER),
-	DEFINE_FIELD( m_iDamageStats, FIELD_INTEGER),
-	DEFINE_FIELD( m_iAmmoType, FIELD_INTEGER),
-	DEFINE_FIELD( m_iDamagedOtherPlayers, FIELD_INTEGER),
-END_DATADESC()
+DEFINE_FIELD( m_vecDamageForce, FIELD_VECTOR ), DEFINE_FIELD( m_vecDamagePosition, FIELD_POSITION_VECTOR ),
+	DEFINE_FIELD( m_vecReportedPosition, FIELD_POSITION_VECTOR ), DEFINE_FIELD( m_hInflictor, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_hAttacker, FIELD_EHANDLE ), DEFINE_FIELD( m_hWeapon, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_flDamage, FIELD_FLOAT ), DEFINE_FIELD( m_flMaxDamage, FIELD_FLOAT ),
+	DEFINE_FIELD( m_flBaseDamage, FIELD_FLOAT ), DEFINE_FIELD( m_bitsDamageType, FIELD_INTEGER ),
+	DEFINE_FIELD( m_iDamageCustom, FIELD_INTEGER ), DEFINE_FIELD( m_iDamageStats, FIELD_INTEGER ),
+	DEFINE_FIELD( m_iAmmoType, FIELD_INTEGER ), DEFINE_FIELD( m_iDamagedOtherPlayers, FIELD_INTEGER ),
+	END_DATADESC()
 #endif // CLIENT_DLL
 
-void CTakeDamageInfo::Init( IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon, const Vector &damageForce, const Vector &damagePosition, const Vector &reportedPosition, float flDamage, int bitsDamageType, int iCustomDamage )
+		void CTakeDamageInfo::Init( IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon,
+									const Vector &damageForce, const Vector &damagePosition,
+									const Vector &reportedPosition, float flDamage, int bitsDamageType,
+									int iCustomDamage )
 {
 	m_hInflictor = pInflictor;
 	if ( pAttacker )
@@ -126,12 +122,14 @@ CTakeDamageInfo::CTakeDamageInfo()
 	Init( NULL, NULL, NULL, vec3_origin, vec3_origin, vec3_origin, 0, 0, 0 );
 }
 
-CTakeDamageInfo::CTakeDamageInfo( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType, int iKillType )
+CTakeDamageInfo::CTakeDamageInfo( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType,
+								  int iKillType )
 {
 	Set( pInflictor, pAttacker, flDamage, bitsDamageType, iKillType );
 }
 
-void CTakeDamageInfo::Set( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType, int iKillType )
+void CTakeDamageInfo::Set( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType,
+						   int iKillType )
 {
 	Init( pInflictor, pAttacker, NULL, vec3_origin, vec3_origin, vec3_origin, flDamage, bitsDamageType, iKillType );
 }
@@ -139,20 +137,23 @@ void CTakeDamageInfo::Set( IGameEntity *pInflictor, IGameEntity *pAttacker, floa
 #ifdef CLIENT_DLL
 // MultiDamage: collects multiple small damages into a single damage.
 BEGIN_SIMPLE_DATADESC_( CMultiDamage, CTakeDamageInfo )
-	DEFINE_FIELD( m_hTarget, FIELD_EHANDLE),
-END_DATADESC()
+DEFINE_FIELD( m_hTarget, FIELD_EHANDLE ),
+	END_DATADESC()
 
-CMultiDamage g_MultiDamage;
+		CMultiDamage g_MultiDamage;
 
 CMultiDamage::CMultiDamage()
 {
 	m_hTarget = NULL;
 }
 
-void CMultiDamage::Init( IGameEntity *pTarget, IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon, const Vector &damageForce, const Vector &damagePosition, const Vector &reportedPosition, float flDamage, int bitsDamageType, int iKillType )
+void CMultiDamage::Init( IGameEntity *pTarget, IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon,
+						 const Vector &damageForce, const Vector &damagePosition, const Vector &reportedPosition,
+						 float flDamage, int bitsDamageType, int iKillType )
 {
 	m_hTarget = pTarget;
-	BaseClass::Init( pInflictor, pAttacker, pWeapon, damageForce, damagePosition, reportedPosition, flDamage, bitsDamageType, iKillType );
+	BaseClass::Init( pInflictor, pAttacker, pWeapon, damageForce, damagePosition, reportedPosition, flDamage,
+					 bitsDamageType, iKillType );
 }
 
 // Resets the global multi damage accumulator.
@@ -176,11 +177,12 @@ void ApplyMultiDamage()
 // inches/sec.
 float ImpulseScale( float flTargetMass, float flDesiredSpeed )
 {
-	return (flTargetMass * flDesiredSpeed);
+	return ( flTargetMass * flDesiredSpeed );
 }
 
 // Fills out a takedamageinfo with a damage force for an explosive.
-void CalculateExplosiveDamageForce( CTakeDamageInfo *info, const Vector &vecDir, const Vector &vecForceOrigin, float flScale )
+void CalculateExplosiveDamageForce( CTakeDamageInfo *info, const Vector &vecDir, const Vector &vecForceOrigin,
+									float flScale )
 {
 	info->SetDamagePosition( vecForceOrigin );
 
@@ -189,11 +191,11 @@ void CalculateExplosiveDamageForce( CTakeDamageInfo *info, const Vector &vecDir,
 	// Calculate an impulse large enough to push a 75kg man 4 in/sec per point of damage
 	float flForceScale = info->GetBaseDamage() * ImpulseScale( 75, 4 );
 
-	if( flForceScale > flClampForce )
+	if ( flForceScale > flClampForce )
 		flForceScale = flClampForce;
 
 	// Fudge blast forces a little bit, so that each
-	// victim gets a slightly different trajectory. 
+	// victim gets a slightly different trajectory.
 	// This simulates features that usually vary from
 	// person-to-person variables such as bodyweight,
 	// which are all indentical for characters using the same model.

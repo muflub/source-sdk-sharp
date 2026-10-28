@@ -8,14 +8,6 @@
 // The engine's debug-overlay text list, read by the managed UI one entry at a
 // time and placed with the engine's ScreenPosition, as stock's panel did.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/dbg.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -24,39 +16,30 @@
 #include "idebugoverlaypanel.h"
 #include "engine/ivdebugoverlay.h"
 #include "overlaytext.h"
-#include "mathlib/vector.h"
-#include "tier0/platform.h"
-#include "tier1/strtools.h"
-#include "vgui/VGUI.h"
-#include "cdll_client_int.h"
-#include "sourcesharp_entrypoints.h"
 
 class CSourceSharpDebugOverlayPanel : public IDebugOverlayPanel
 {
 public:
-	virtual void Create( vgui::VPANEL parent ) OVERRIDE
-	{
-	}
+	virtual void Create( vgui::VPANEL parent ) OVERRIDE {}
 
-	virtual void Destroy() OVERRIDE
-	{
-	}
+	virtual void Destroy() OVERRIDE {}
 };
 
 static CSourceSharpDebugOverlayPanel g_DebugOverlay;
 IDebugOverlayPanel *debugoverlaypanel = &g_DebugOverlay;
 
-void DebugDrawLine( const Vector& vecAbsStart, const Vector& vecAbsEnd, int r, int g, int b, bool test, float duration )
+void DebugDrawLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, int r, int g, int b, bool test, float duration )
 {
 	if ( debugoverlay )
-		debugoverlay->AddLineOverlay( vecAbsStart + Vector( 0, 0, 0.1 ), vecAbsEnd + Vector( 0, 0, 0.1 ), r, g, b, test, duration );
+		debugoverlay->AddLineOverlay( vecAbsStart + Vector( 0, 0, 0.1 ), vecAbsEnd + Vector( 0, 0, 0.1 ), r, g, b, test,
+									  duration );
 }
 
 // The text overlay at position nIndex of the engine's list: -1 past its end,
 // 0 when it has no text or is off the screen, 1 with its screen position, line
 // offset, colour (0xRRGGBBAA) and text.
 int32_t SourceSharp_UiDebugOverlayText( int32_t nIndex, float *pOutX, float *pOutY, int32_t *pOutLine,
-                                        uint32_t *pOutRgba, uint8_t *pText, int32_t nTextBytes )
+										uint32_t *pOutRgba, uint8_t *pText, int32_t nTextBytes )
 {
 	if ( !debugoverlay )
 		return -1;
@@ -65,19 +48,20 @@ int32_t SourceSharp_UiDebugOverlayText( int32_t nIndex, float *pOutX, float *pOu
 		p = debugoverlay->GetNext( p );
 	if ( !p )
 		return -1;
-	if ( p->text[ 0 ] == 0 )
+	if ( p->text[0] == 0 )
 		return 0;
 
 	Vector screen;
 	bool bOff = p->bUseOrigin ? debugoverlay->ScreenPosition( p->origin, screen )
-	                          : debugoverlay->ScreenPosition( p->flXPos, p->flYPos, screen );
+							  : debugoverlay->ScreenPosition( p->flXPos, p->flYPos, screen );
 	if ( bOff )
 		return 0;
 
-	*pOutX = screen[ 0 ];
-	*pOutY = screen[ 1 ];
+	*pOutX = screen[0];
+	*pOutY = screen[1];
 	*pOutLine = p->lineOffset;
-	*pOutRgba = ( (uint32_t)( p->r & 0xFF ) << 24 ) | ( (uint32_t)( p->g & 0xFF ) << 16 ) | ( (uint32_t)( p->b & 0xFF ) << 8 ) | (uint32_t)( p->a & 0xFF );
+	*pOutRgba = ( (uint32_t)( p->r & 0xFF ) << 24 ) | ( (uint32_t)( p->g & 0xFF ) << 16 ) |
+		( (uint32_t)( p->b & 0xFF ) << 8 ) | (uint32_t)( p->a & 0xFF );
 	V_strncpy( (char *)pText, p->text, nTextBytes );
 	return 1;
 }

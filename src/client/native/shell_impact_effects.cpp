@@ -11,49 +11,24 @@
 // managed bullet impact (a MASK_SHOT trace, the surface-lighting reads, the
 // effect ledger's rows and the new-style impact particle).
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "client_entity.h"
 #include "trace_hit.h"
-#include "fx.h"
+
 #include "clienteffectprecachesystem.h"
-#include "engine/IStaticPropMgr.h"
-#include "engine/IEngineTrace.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "tier1/smartptr.h"
-#include "basehandle.h"
-#include "bspflags.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
-#include "cmodel.h"
-#include "const.h"
-#include "gametrace.h"
-#include "icliententitylist.h"
-#include "ihandleentity.h"
-#include "particlemgr.h"
-#include "trace.h"
+
 #include "util_shared.h"
-#include "vphysics_interface.h"
+
 #include "shell_new_particles.h"
 #include "shell_particle_mgr.h"
 #include "shell_effect_ledger.h"
 #include "shell_cliententitylist.h"
 #include "world_subject.h"
 #include "slot_table.h"
-#include "sourcesharp.h"
+
 #include "shell_particle_systems.h"
 
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectImpacts )
@@ -85,7 +60,7 @@ void FX_CacheMaterialHandles()
 	g_Mat_Fleck_Wood[0] = ShellParticleMaterial_Find( "effects/fleck_wood1" );
 	g_Mat_Fleck_Wood[1] = ShellParticleMaterial_Find( "effects/fleck_wood2" );
 
-	g_Mat_Fleck_Cement[0] = ShellParticleMaterial_Find( "effects/fleck_cement1");
+	g_Mat_Fleck_Cement[0] = ShellParticleMaterial_Find( "effects/fleck_cement1" );
 	g_Mat_Fleck_Cement[1] = ShellParticleMaterial_Find( "effects/fleck_cement2" );
 
 	g_Mat_Fleck_Antlion[0] = ShellParticleMaterial_Find( "effects/fleck_antlion1" );
@@ -102,7 +77,7 @@ void FX_CacheMaterialHandles()
 
 	g_Mat_BloodPuff[0] = ShellParticleMaterial_Find( "effects/blood" );
 	g_Mat_BloodPuff[1] = ShellParticleMaterial_Find( "effects/blood2" );
-	
+
 	g_Mat_SMG_Muzzleflash[0] = ShellParticleMaterial_Find( "effects/muzzleflash1" );
 	g_Mat_SMG_Muzzleflash[1] = ShellParticleMaterial_Find( "effects/muzzleflash2" );
 	g_Mat_SMG_Muzzleflash[2] = ShellParticleMaterial_Find( "effects/muzzleflash3" );
@@ -118,9 +93,8 @@ void FX_CacheMaterialHandles()
 // Out: floats [fraction, endpos xyz, plane normal xyz]; ints [DidHit, hitbox,
 // the hit's entity index (-1 for none or a client-only entity), surfaceProps,
 // surface flags, whether the hit is the world]. Answers DidHit (1 or 0).
-int32_t SourceSharp_ClientShotTrace( const float *pStartXYZ, const float *pEndXYZ, int32_t nEntity,
-                                     float *pOutFloats, int32_t nOutFloats, int32_t *pOutInts,
-                                     int32_t nOutInts )
+int32_t SourceSharp_ClientShotTrace( const float *pStartXYZ, const float *pEndXYZ, int32_t nEntity, float *pOutFloats,
+									 int32_t nOutFloats, int32_t *pOutInts, int32_t nOutInts )
 {
 	if ( !pStartXYZ || !pEndXYZ || !pOutFloats || nOutFloats < 7 || !pOutInts || nOutInts < 6 )
 		return -1;
@@ -185,8 +159,7 @@ void SourceSharp_ClientWorldLighting( const float *pStartXYZ, const float *pEndX
 
 	Vector vecDiffuse, vecBase;
 	engine->TraceLineMaterialAndLighting( Vector( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] ),
-	                                      Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] ),
-	                                      vecDiffuse, vecBase );
+										  Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] ), vecDiffuse, vecBase );
 
 	pOut6[0] = vecDiffuse.x;
 	pOut6[1] = vecDiffuse.y;
@@ -198,8 +171,8 @@ void SourceSharp_ClientWorldLighting( const float *pStartXYZ, const float *pEndX
 
 // GetColorForSurface's static-prop read, over a trace holding the start, end
 // and plane normal the engine reads.
-void SourceSharp_ClientStaticPropLighting( const float *pStartXYZ, const float *pEndXYZ,
-                                           const float *pNormalXYZ, int32_t nStaticProp, float *pOut6 )
+void SourceSharp_ClientStaticPropLighting( const float *pStartXYZ, const float *pEndXYZ, const float *pNormalXYZ,
+										   int32_t nStaticProp, float *pOut6 )
 {
 	if ( !pStartXYZ || !pEndXYZ || !pNormalXYZ || !pOut6 )
 		return;
@@ -236,8 +209,8 @@ void SourceSharp_ClientImpactLedger( int32_t nFlecks, int32_t nDust )
 // up), each bound to the entity hit, control point 3 the scale, and control
 // point 4 the surface colour when the definition reads it. Answers 1 when a
 // definition answered the name.
-int32_t SourceSharp_ParticleSystemImpact( const char *pszName, const float *pPoints, int32_t nEntity,
-                                          float flScale, const float *pColorXYZ )
+int32_t SourceSharp_ParticleSystemImpact( const char *pszName, const float *pPoints, int32_t nEntity, float flScale,
+										  const float *pColorXYZ )
 {
 	if ( !pszName || !pPoints )
 		return 0;
@@ -257,8 +230,8 @@ int32_t SourceSharp_ParticleSystemImpact( const char *pszName, const float *pPoi
 	{
 		const float *p = pPoints + nPoint * 12;
 		pEffect->SetControlPoint( nPoint, Vector( p[0], p[1], p[2] ) );
-		pEffect->SetControlPointOrientation( nPoint, Vector( p[3], p[4], p[5] ),
-		                                     Vector( p[6], p[7], p[8] ), Vector( p[9], p[10], p[11] ) );
+		pEffect->SetControlPointOrientation( nPoint, Vector( p[3], p[4], p[5] ), Vector( p[6], p[7], p[8] ),
+											 Vector( p[9], p[10], p[11] ) );
 		pEffect->SetControlPointEntity( nPoint, pShell );
 	}
 

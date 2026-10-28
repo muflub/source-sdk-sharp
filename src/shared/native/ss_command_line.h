@@ -4,7 +4,6 @@
 
 #pragma once
 
-
 #include <string>
 
 namespace ss
@@ -20,8 +19,8 @@ bool CommandLineValue( const char *pParam, const char *pDefault, char *pOut, siz
 
 // The same, over an argv block: nLen bytes of NUL-terminated arguments.
 bool CommandLineHasIn( const char *pArgs, size_t nLen, const char *pParam );
-bool CommandLineValueIn( const char *pArgs, size_t nLen, const char *pParam,
-                         const char *pDefault, char *pOut, size_t nOut );
+bool CommandLineValueIn( const char *pArgs, size_t nLen, const char *pParam, const char *pDefault, char *pOut,
+						 size_t nOut );
 
 // The variable the launcher moves SourceSharp's own flags into, one per line, because
 // libtier0 refuses an engine command line over 512 bytes. Read as if it followed argv.

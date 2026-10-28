@@ -196,11 +196,10 @@ TEST( LeafCyclePch, NoPrecompiledHeaderDirectiveExistsInThisProjectAnyMore )
 	// `-include .../cmake_pch.hxx`; a forced include of cbase.h is the stock
 	// shape under another name.
 	const std::string cmd = cmake_graph::CompileCommand( cmake_graph::kClient, kPixelVis );
-	EXPECT_FALSE( Contains( cmd, "cmake_pch" ) )
-		<< kPixelVis << " is compiled with a PCH:\n" << cmd;
-	EXPECT_FALSE( Contains( cmd, " -include" ) )
-		<< kPixelVis << " is compiled with a forced include, and there is "
-		<< "nothing left for a file to opt out of:\n" << cmd;
+	EXPECT_FALSE( Contains( cmd, "cmake_pch" ) ) << kPixelVis << " is compiled with a PCH:\n" << cmd;
+	EXPECT_FALSE( Contains( cmd, " -include" ) ) << kPixelVis << " is compiled with a forced include, and there is "
+												 << "nothing left for a file to opt out of:\n"
+												 << cmd;
 }
 
 //-----------------------------------------------------------------------------

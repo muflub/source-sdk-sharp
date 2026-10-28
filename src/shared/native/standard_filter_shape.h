@@ -13,9 +13,7 @@
 // bIsBrushModel          modelinfo->GetModelType( model ) == mod_brush
 // bSolidIsBspOrVPhysics  solid == SOLID_BSP || solid == SOLID_VPHYSICS
 // bMaskWantsEntities     fContentsMask & CONTENTS_MONSTER
-inline bool StandardFilterShapePasses( bool bIsBrushModel,
-                                       bool bSolidIsBspOrVPhysics,
-                                       bool bMaskWantsEntities )
+inline bool StandardFilterShapePasses( bool bIsBrushModel, bool bSolidIsBspOrVPhysics, bool bMaskWantsEntities )
 {
 	// World-like: every trace stops on it.
 	if ( bIsBrushModel && bSolidIsBspOrVPhysics )

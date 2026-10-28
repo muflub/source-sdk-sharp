@@ -10,34 +10,19 @@
 #pragma once
 
 // Stock c_baseentity.h's includes, in its order; the client's headers rely on them.
-#include "mathlib/vector.h"
-#include "tier1/convar.h"
-#include "tier0/threadtools.h"
-#include "igameentity_fwd.h"
-#include "shared_classnames.h"
-#include "icliententityinternal.h"
-#include "engine/ivmodelinfo.h"
-#include "engine/ivmodelrender.h"
+
 #include "client_class.h"
-#include "ehandle.h"
 
 // Must precede iclientshadowmgr.h, which names it.
-typedef CHandle< C_BaseEntity > EHANDLE;
+typedef CHandle<C_BaseEntity> EHANDLE;
 
 #include "iclientshadowmgr.h"
-#include "iclientunknown.h"
-#include "iclientrenderable.h"
-#include "client_thinklist.h"
-#include "soundflags.h"
-#include "shareddefs.h"
+
 #include "networkvar.h"
 #include "interpolatedvar.h"
 #include "isaverestore.h"
-#include "cdll_client_int.h"
-#include "handle_cross.h"
-#include "entity_debug_globals.h"
+
 #include "entity_abs_query_state.h"
-#include "c_baseentity_statics.h"
 
 // playernet_vars.h needs igameentity.h first.
 #include "igameentity.h"

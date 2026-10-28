@@ -14,31 +14,22 @@
 // one stock primitive with the arguments managed code chose; nothing is decided
 // here.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "string_t.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
-#include "vphysics_interface.h"
-#include "client_entity.h"
-#include "view.h"
-#include "iviewrender.h"
+
 #include "viewrender.h"
-#include "view_shared.h"
+
 #include "view_scene.h"
 #include "iclientmode.h"
 #include "model_types.h"
-#include "vgui_controls/Controls.h"
-#include "clientsideeffects.h"
+
 #include "smoke_fog_overlay.h"
 #include "c_effects.h"
-#include "clientleafsystem.h"
+
 #include "particles/particles.h"
 #include "engine/IStaticPropMgr.h"
-#include "detailobjectsystem.h"
+
 #include "particles_ez.h"
 #include "c_rope.h"
 #include "studio_stats.h"
@@ -46,66 +37,17 @@
 #include "vgui_int.h"
 #include "ienginevgui.h"
 #include "engine/IEngineTrace.h"
-#include "materialsystem/imaterialsystemhardwareconfig.h"
+
 #include "materialsystem/materialsystem_config.h"
-#include "materialsystem/imaterial.h"
-#include "materialsystem/imaterialvar.h"
-#include "materialsystem/itexture.h"
-#include "tier1/refcount.h"
-#include "vgui/IPanel.h"
-#include "materialsystem/imesh.h"
-#include "client_world.h"
+
 #include "filesystem.h"
-#include "engine/ishadowmgr.h"
+
 #include "voice_status.h"
-#include "bitmap/imageformat.h"
-#include "datacache/imdlcache.h"
-#include "engine/IClientLeafSystem.h"
-#include "engine/ivmodelinfo.h"
-#include "engine/ivmodelrender.h"
-#include "materialsystem/MaterialSystemUtil.h"
-#include "materialsystem/imaterialsystem.h"
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
-#include "mathlib/vmatrix.h"
-#include "mathlib/vplane.h"
-#include "tier0/basetypes.h"
-#include "tier0/commonmacros.h"
-#include "tier0/dbg.h"
-#include "tier0/platform.h"
-#include "tier1/KeyValues.h"
-#include "tier1/convar.h"
-#include "tier1/strtools.h"
-#include "tier1/tier1.h"
-#include "tier1/utlmemory.h"
-#include "tier1/utlvector.h"
-#include "tier2/tier2.h"
-#include "tier3/tier3.h"
-#include "toolframework/itoolentity.h"
-#include "vgui_controls/MessageMap.h"
-#include "bspflags.h"
-#include "bsptreedata.h"
-#include "cdll_client_int.h"
-#include "cdll_int.h"
-#include "const.h"
-#include "globalvars_base.h"
-#include "hud.h"
-#include "icliententitylist.h"
-#include "iclientnetworkable.h"
-#include "iclientrenderable.h"
-#include "iclientunknown.h"
-#include "icvar.h"
-#include "igameevents.h"
-#include "istudiorender.h"
-#include "ivrenderview.h"
-#include "networkvar.h"
-#include "playernet_vars.h"
-#include "texture_group_names.h"
+
 #include "shell_render_targets.h"
 #include "shell_glow_client.h"
 #include "shell_pixelvis_client.h"
-#include "sourcesharp.h"
-#include "imanaged_areas_client.h"
+
 #include "shell_clientsystem.h"
 #include "view_facts.h"
 #include "vtable_slot_patch.h"
@@ -130,9 +72,9 @@ void SetupCurrentView( const Vector &vecOrigin, const QAngle &angles, view_id_t 
 void FinishCurrentView();
 
 // The map's tonemap overrides (viewpostprocess.cpp's globals), noted with a traced frame.
-extern bool  g_bUseCustomAutoExposureMin;
-extern bool  g_bUseCustomAutoExposureMax;
-extern bool  g_bUseCustomBloomScale;
+extern bool g_bUseCustomAutoExposureMin;
+extern bool g_bUseCustomAutoExposureMax;
+extern bool g_bUseCustomBloomScale;
 extern float g_flCustomAutoExposureMin;
 extern float g_flCustomAutoExposureMax;
 extern float g_flCustomBloomScale;
@@ -306,41 +248,119 @@ enum RenderTarget_t
 };
 
 // The convars the post-processing planner reads, in managed PostCvar order.
-const char *const kPostCvars[] =
-{
-	"mat_bloomscale", "mat_hdr_level", "mat_bloomamount_rate", "mat_debug_postprocessing_effects",
-	"mat_debug_process_halfscreen", "mat_postprocessing_combine", "mat_dynamic_tonemapping", "mat_show_ab_hdr",
-	"mat_tonemapping_occlusion_use_stencil", "mat_debug_autoexposure", "mat_autoexposure_max",
-	"mat_autoexposure_min", "mat_show_histogram", "mat_hdr_tonemapscale", "mat_hdr_uncapexposure",
-	"mat_force_bloom", "mat_disable_bloom", "mat_debug_bloom", "mat_accelerate_adjust_exposure_down",
-	"mat_hdr_manual_tonemap_rate", "mat_non_hdr_bloom_scalefactor", "mat_bloom_scalefactor_scalar",
-	"mat_exposure_center_region_x", "mat_exposure_center_region_y", "mat_exposure_center_region_x_flashlight",
-	"mat_exposure_center_region_y_flashlight", "mat_tonemap_algorithm", "mat_tonemap_percent_target",
-	"mat_tonemap_percent_bright_pixels", "mat_tonemap_min_avglum", "mat_fullbright", "mat_force_tonemap_scale",
-	"mat_software_aa_strength", "mat_software_aa_quality", "mat_software_aa_edge_threshold",
-	"mat_software_aa_blur_one_pixel_lines", "mat_software_aa_tap_offset", "mat_software_aa_debug",
-	"mat_software_aa_strength_vgui", "mat_colorcorrection", "mat_postprocess_x", "mat_postprocess_y",
-	"mat_dump_rts", "mat_queue_mode", "building_cubemaps", "localplayer_visionflags", "mat_motion_blur_enabled",
-	"mat_motion_blur_forward_enabled", "mat_motion_blur_falling_min", "mat_motion_blur_falling_max",
-	"mat_motion_blur_falling_intensity", "mat_motion_blur_rotation_intensity", "mat_motion_blur_strength",
+const char *const kPostCvars[] = {
+	"mat_bloomscale",
+	"mat_hdr_level",
+	"mat_bloomamount_rate",
+	"mat_debug_postprocessing_effects",
+	"mat_debug_process_halfscreen",
+	"mat_postprocessing_combine",
+	"mat_dynamic_tonemapping",
+	"mat_show_ab_hdr",
+	"mat_tonemapping_occlusion_use_stencil",
+	"mat_debug_autoexposure",
+	"mat_autoexposure_max",
+	"mat_autoexposure_min",
+	"mat_show_histogram",
+	"mat_hdr_tonemapscale",
+	"mat_hdr_uncapexposure",
+	"mat_force_bloom",
+	"mat_disable_bloom",
+	"mat_debug_bloom",
+	"mat_accelerate_adjust_exposure_down",
+	"mat_hdr_manual_tonemap_rate",
+	"mat_non_hdr_bloom_scalefactor",
+	"mat_bloom_scalefactor_scalar",
+	"mat_exposure_center_region_x",
+	"mat_exposure_center_region_y",
+	"mat_exposure_center_region_x_flashlight",
+	"mat_exposure_center_region_y_flashlight",
+	"mat_tonemap_algorithm",
+	"mat_tonemap_percent_target",
+	"mat_tonemap_percent_bright_pixels",
+	"mat_tonemap_min_avglum",
+	"mat_fullbright",
+	"mat_force_tonemap_scale",
+	"mat_software_aa_strength",
+	"mat_software_aa_quality",
+	"mat_software_aa_edge_threshold",
+	"mat_software_aa_blur_one_pixel_lines",
+	"mat_software_aa_tap_offset",
+	"mat_software_aa_debug",
+	"mat_software_aa_strength_vgui",
+	"mat_colorcorrection",
+	"mat_postprocess_x",
+	"mat_postprocess_y",
+	"mat_dump_rts",
+	"mat_queue_mode",
+	"building_cubemaps",
+	"localplayer_visionflags",
+	"mat_motion_blur_enabled",
+	"mat_motion_blur_forward_enabled",
+	"mat_motion_blur_falling_min",
+	"mat_motion_blur_falling_max",
+	"mat_motion_blur_falling_intensity",
+	"mat_motion_blur_rotation_intensity",
+	"mat_motion_blur_strength",
 };
 const int kPostCvarCount = (int)ARRAYSIZE( kPostCvars );
 
 // The convars RenderView's decisions read, in managed RenderCvar order. The fog
 // colours are strings; their three numbers take three slots each, after.
-const char *const kRenderCvars[] =
-{
-	"r_skybox", "r_3dsky", "mat_motion_blur_enabled", "building_cubemaps", "r_flashlightdepthtexture",
-	"mat_viewportscale", "mat_viewportupscale", "cl_leveloverview", "fog_override", "fog_start",
-	"fog_end", "fog_enable", "fog_maxdensity", "fog_radial", "fog_startskybox",
-	"fog_endskybox", "fog_maxdensityskybox", "fog_enableskybox", "fog_radialskybox", "mat_drawwater",
-	"r_waterforceexpensive", "r_waterforcereflectentities", "r_WaterDrawReflection", "r_WaterDrawRefraction", "r_ForceWaterLeaf",
-	"mat_clipz", "r_eyewaterepsilon", "r_drawviewmodel", "r_drawentities",
+const char *const kRenderCvars[] = {
+	"r_skybox",
+	"r_3dsky",
+	"mat_motion_blur_enabled",
+	"building_cubemaps",
+	"r_flashlightdepthtexture",
+	"mat_viewportscale",
+	"mat_viewportupscale",
+	"cl_leveloverview",
+	"fog_override",
+	"fog_start",
+	"fog_end",
+	"fog_enable",
+	"fog_maxdensity",
+	"fog_radial",
+	"fog_startskybox",
+	"fog_endskybox",
+	"fog_maxdensityskybox",
+	"fog_enableskybox",
+	"fog_radialskybox",
+	"mat_drawwater",
+	"r_waterforceexpensive",
+	"r_waterforcereflectentities",
+	"r_WaterDrawReflection",
+	"r_WaterDrawRefraction",
+	"r_ForceWaterLeaf",
+	"mat_clipz",
+	"r_eyewaterepsilon",
+	"r_drawviewmodel",
+	"r_drawentities",
 	// The per-view draws' switches.
-	"r_drawopaquerenderables", "r_drawtranslucentrenderables", "r_drawtranslucentworld", "r_entityclips", "vcollide_wireframe",
-	"r_drawopaqueworld", "r_DrawDetailProps", "cl_maxrenderable_dist", "r_worldlistcache",
+	"r_drawopaquerenderables",
+	"r_drawtranslucentrenderables",
+	"r_drawtranslucentworld",
+	"r_entityclips",
+	"vcollide_wireframe",
+	"r_drawopaqueworld",
+	"r_DrawDetailProps",
+	"cl_maxrenderable_dist",
+	"r_worldlistcache",
 	// The 2D debug overlays' switches (viewdebug.cpp's Draw2DDebuggingInfo).
-	"mat_yuv", "mat_hsv", "mat_showlightmappage", "cl_drawshadowtexture", "cl_shadowtextureoverlaysize", "mat_showwatertextures", "mat_wateroverlaysize", "mat_showcamerarendertarget", "mat_showframebuffertexture", "mat_framebuffercopyoverlaysize", "mat_drawTextureScale", "r_flashlightdrawdepth", "cl_overdraw_test",
+	"mat_yuv",
+	"mat_hsv",
+	"mat_showlightmappage",
+	"cl_drawshadowtexture",
+	"cl_shadowtextureoverlaysize",
+	"mat_showwatertextures",
+	"mat_wateroverlaysize",
+	"mat_showcamerarendertarget",
+	"mat_showframebuffertexture",
+	"mat_framebuffercopyoverlaysize",
+	"mat_drawTextureScale",
+	"r_flashlightdrawdepth",
+	"cl_overdraw_test",
 };
 const int kRenderCvarCount = ARRAYSIZE( kRenderCvars );
 const int kRenderCvarFogColor = kRenderCvarCount;
@@ -355,20 +375,32 @@ const int kMaxRenderOps = 512;
 //-----------------------------------------------------------------------------
 struct WorldListKey_t
 {
-	float m_flValues[ 18 ];
-	int   m_nOrtho;
-	int   m_nOffCenter;
+	float m_flValues[18];
+	int m_nOrtho;
+	int m_nOffCenter;
 
 	explicit WorldListKey_t( const CViewSetup &v )
 	{
 		memset( this, 0, sizeof( *this ) );
 		float *f = m_flValues;
-		*f++ = v.m_OrthoLeft; *f++ = v.m_OrthoTop; *f++ = v.m_OrthoRight; *f++ = v.m_OrthoBottom;
+		*f++ = v.m_OrthoLeft;
+		*f++ = v.m_OrthoTop;
+		*f++ = v.m_OrthoRight;
+		*f++ = v.m_OrthoBottom;
 		*f++ = v.fov;
-		*f++ = v.origin.x; *f++ = v.origin.y; *f++ = v.origin.z;
-		*f++ = v.angles.x; *f++ = v.angles.y; *f++ = v.angles.z;
-		*f++ = v.zNear; *f++ = v.zFar; *f++ = v.m_flAspectRatio;
-		*f++ = v.m_flOffCenterTop; *f++ = v.m_flOffCenterBottom; *f++ = v.m_flOffCenterLeft; *f++ = v.m_flOffCenterRight;
+		*f++ = v.origin.x;
+		*f++ = v.origin.y;
+		*f++ = v.origin.z;
+		*f++ = v.angles.x;
+		*f++ = v.angles.y;
+		*f++ = v.angles.z;
+		*f++ = v.zNear;
+		*f++ = v.zFar;
+		*f++ = v.m_flAspectRatio;
+		*f++ = v.m_flOffCenterTop;
+		*f++ = v.m_flOffCenterBottom;
+		*f++ = v.m_flOffCenterLeft;
+		*f++ = v.m_flOffCenterRight;
 		m_nOrtho = v.m_bOrtho ? 1 : 0;
 		m_nOffCenter = v.m_bOffCenter ? 1 : 0;
 	}
@@ -386,19 +418,22 @@ struct PlanWorldListInfo_t : public CRefCounted1<WorldListInfo_t>
 		m_pActualLeafIndex = NULL;
 	}
 
-	LeafIndex_t      *m_pActualLeafIndex;
-	CUtlMemory<byte>  m_Owned;
+	LeafIndex_t *m_pActualLeafIndex;
+	CUtlMemory<byte> m_Owned;
 };
 
 typedef CRefCounted1<WorldListInfo_t> ListInfoBase_t;
 
-inline ListInfoBase_t *ListInfo( PlanWorldListInfo_t *p ) { return p; }
+inline ListInfoBase_t *ListInfo( PlanWorldListInfo_t *p )
+{
+	return p;
+}
 
 struct WorldListEntry_t
 {
-	WorldListKey_t         m_Key;
-	IWorldRenderList      *m_pList;
-	PlanWorldListInfo_t   *m_pInfo;
+	WorldListKey_t m_Key;
+	IWorldRenderList *m_pList;
+	PlanWorldListInfo_t *m_pInfo;
 };
 
 // One view of the plan: its setup and lists, and the list builds the plan asks
@@ -408,6 +443,7 @@ class CPlanView : public CRefCounted<>, protected CViewSetup
 {
 public:
 	CPlanView() {}
+
 	~CPlanView() { ReleaseLists(); }
 
 	void Begin( const CViewSetup &setup, int nDrawFlags, int nClearFlags )
@@ -424,7 +460,7 @@ public:
 	// BuildWorldRenderLists, with this file's list cache, and
 	// UpdateRenderablesOpacity at the plan's prop-fade factor.
 	void BuildWorld( CUtlVector<WorldListEntry_t> &cache, bool bDrawEntities, int iForceViewLeaf, bool bUseCache,
-	                 bool bShadowDepth, float *pReflectionWaterHeight, float flOpacityFactor );
+					 bool bShadowDepth, float *pReflectionWaterHeight, float flOpacityFactor );
 
 	// PruneWorldListInfo: only the leaves on the water side the draw flags ask for.
 	void Prune();
@@ -434,19 +470,21 @@ public:
 
 	// The view's lists, read by the scene gather and the program's ops.
 	IWorldRenderList *WorldList() const { return m_pWorldRenderList; }
+
 	WorldListInfo_t *WorldInfo() const { return m_pWorldListInfo; }
+
 	CClientRenderablesList *RenderList() const { return m_bBuiltRenderables ? m_pRenderablesList : NULL; }
 
 	// The view's draw program and where it is: the next section a list-dependent
 	// draw op runs, the entries' renderables in scene order, and the static props
 	// and detail leaves queued by its ops.
-	bool                           m_bBuiltRenderables = false;
-	bool                           m_bHasProgram = false;
-	int                            m_nSectionStart = 0;
+	bool m_bBuiltRenderables = false;
+	bool m_bHasProgram = false;
+	int m_nSectionStart = 0;
 	CUtlVector<SourceSharpRenderOp_t> m_Program;
 	CUtlVector<IClientRenderable *> m_Entries;
 	CUtlVector<IClientRenderable *> m_Statics;
-	CUtlVector<LeafIndex_t>         m_DetailLeaves;
+	CUtlVector<LeafIndex_t> m_DetailLeaves;
 
 	IClientRenderable *Entry( int e ) const { return ( e >= 0 && e < m_Entries.Count() ) ? m_Entries[e] : NULL; }
 
@@ -478,15 +516,15 @@ public:
 	}
 
 private:
-	IWorldRenderList       *m_pWorldRenderList = NULL;
+	IWorldRenderList *m_pWorldRenderList = NULL;
 	CClientRenderablesList *m_pRenderablesList = NULL;
-	PlanWorldListInfo_t    *m_pWorldListInfo = NULL;
-	int                     m_DrawFlags = 0;
-	int                     m_ClearFlags = 0;
+	PlanWorldListInfo_t *m_pWorldListInfo = NULL;
+	int m_DrawFlags = 0;
+	int m_ClearFlags = 0;
 };
 
 void CPlanView::BuildWorld( CUtlVector<WorldListEntry_t> &cache, bool bDrawEntities, int iForceViewLeaf, bool bUseCache,
-                            bool bShadowDepth, float *pReflectionWaterHeight, float flOpacityFactor )
+							bool bShadowDepth, float *pReflectionWaterHeight, float flOpacityFactor )
 {
 	ConVarRef r_worldlistcache( "r_worldlistcache" );
 	const bool bCache = bUseCache && r_worldlistcache.GetBool();
@@ -514,7 +552,8 @@ void CPlanView::BuildWorld( CUtlVector<WorldListEntry_t> &cache, bool bDrawEntit
 		ShellViewRender_IncWorldListsNumber();
 		m_pWorldRenderList = render->CreateWorldList();
 		m_pWorldListInfo = new PlanWorldListInfo_t;
-		render->BuildWorldLists( m_pWorldRenderList, m_pWorldListInfo, iForceViewLeaf, NULL, bShadowDepth, pReflectionWaterHeight );
+		render->BuildWorldLists( m_pWorldRenderList, m_pWorldListInfo, iForceViewLeaf, NULL, bShadowDepth,
+								 pReflectionWaterHeight );
 		if ( bCache )
 		{
 			WorldListEntry_t entry = { WorldListKey_t( *this ), m_pWorldRenderList, m_pWorldListInfo };
@@ -547,7 +586,8 @@ void CPlanView::Prune()
 		byte *pMemory = pNew->m_Owned.Base();
 		pNew->m_pLeafList = (LeafIndex_t *)pMemory;
 		pNew->m_pLeafFogVolume = (LeafFogVolume_t *)( pMemory + nLeaves * sizeof( LeafIndex_t ) );
-		pNew->m_pActualLeafIndex = (LeafIndex_t *)( (byte *)pNew->m_pLeafFogVolume + nLeaves * sizeof( LeafFogVolume_t ) );
+		pNew->m_pActualLeafIndex =
+			(LeafIndex_t *)( (byte *)pNew->m_pLeafFogVolume + nLeaves * sizeof( LeafFogVolume_t ) );
 
 		const bool bUnderwater = ( nWaterDrawFlags & DF_RENDER_UNDERWATER ) != 0;
 		for ( int i = 0; i < nLeaves; ++i )
@@ -555,9 +595,9 @@ void CPlanView::Prune()
 			const bool bLeafUnderwater = m_pWorldListInfo->m_pLeafFogVolume[i] != -1;
 			if ( bUnderwater != bLeafUnderwater )
 				continue;
-			pNew->m_pLeafList[ pNew->m_LeafCount ] = m_pWorldListInfo->m_pLeafList[i];
-			pNew->m_pLeafFogVolume[ pNew->m_LeafCount ] = m_pWorldListInfo->m_pLeafFogVolume[i];
-			pNew->m_pActualLeafIndex[ pNew->m_LeafCount ] = i;
+			pNew->m_pLeafList[pNew->m_LeafCount] = m_pWorldListInfo->m_pLeafList[i];
+			pNew->m_pLeafFogVolume[pNew->m_LeafCount] = m_pWorldListInfo->m_pLeafFogVolume[i];
+			pNew->m_pActualLeafIndex[pNew->m_LeafCount] = i;
 			++pNew->m_LeafCount;
 		}
 	}
@@ -592,7 +632,7 @@ void CPlanView::Renderables( int nViewID, bool bEntities, bool bDetail, bool bTr
 		// The leaf system is managed: both calls answer from the managed registry.
 		if ( !bShadowDepth )
 			ClientLeafSystem()->ComputeTranslucentRenderLeaf( info.m_LeafCount, info.m_pLeafList, info.m_pLeafFogVolume,
-			                                                  ShellViewRender_RenderablesListsNumber(), nViewID );
+															  ShellViewRender_RenderablesListsNumber(), nViewID );
 		ClientLeafSystem()->BuildRenderablesList( setupInfo );
 	}
 
@@ -605,7 +645,8 @@ void CPlanView::Renderables( int nViewID, bool bEntities, bool bDetail, bool bTr
 		CClientRenderablesList::CEntry *pEntities = m_pRenderablesList->m_RenderGroups[RENDER_GROUP_OPAQUE_BRUSH];
 		const int nOpaque = m_pRenderablesList->m_RenderGroupCounts[RENDER_GROUP_OPAQUE_BRUSH];
 		for ( int i = 0; i < nOpaque; ++i )
-			render->UpdateBrushModelLightmap( (model_t *)pEntities[i].m_pRenderable->GetModel(), pEntities[i].m_pRenderable );
+			render->UpdateBrushModelLightmap( (model_t *)pEntities[i].m_pRenderable->GetModel(),
+											  pEntities[i].m_pRenderable );
 
 		pEntities = m_pRenderablesList->m_RenderGroups[RENDER_GROUP_TRANSLUCENT_ENTITY];
 		const int nTranslucent = m_pRenderablesList->m_RenderGroupCounts[RENDER_GROUP_TRANSLUCENT_ENTITY];
@@ -623,53 +664,52 @@ void CPlanView::Renderables( int nViewID, bool bEntities, bool bDetail, bool bTr
 // The executor's state, made at the first frame.
 struct ExecutorState_t
 {
-	bool                         m_bHooked = false;
-	bool                         m_bPlanFrame = false;
-	VTableSlotPatch::Patch       m_BuildRenderablesPatch = {};
+	bool m_bHooked = false;
+	bool m_bPlanFrame = false;
+	VTableSlotPatch::Patch m_BuildRenderablesPatch = {};
 
 	// The two textures UpdateShadowDepthTexture was handed, while its plan runs,
 	// and that plan's ops (it runs inside the frame's plan, whose ops are m_Ops).
-	ITexture                    *m_pShadowColor = NULL;
-	ITexture                    *m_pShadowDepth = NULL;
-	SourceSharpRenderOp_t        m_ShadowOps[ 256 ];
+	ITexture *m_pShadowColor = NULL;
+	ITexture *m_pShadowDepth = NULL;
+	SourceSharpRenderOp_t m_ShadowOps[256];
 
 	// This frame's view decision from managed code, and whether the frame's first
 	// RenderView is still to be compared.
-	SourceSharpRenderFrameOut_t  m_FrameDecision = {};
-	bool                         m_bDecisionPending = false;
+	SourceSharpRenderFrameOut_t m_FrameDecision = {};
+	bool m_bDecisionPending = false;
 
-	CMaterialReference           m_FreezeFrameMaterial;
-	int32_t                      m_nLastPath = 0;
-	float                        m_flLastRenderMs = 0.0f;
+	CMaterialReference m_FreezeFrameMaterial;
+	int32_t m_nLastPath = 0;
+	float m_flLastRenderMs = 0.0f;
 
-	ITexture                    *m_pSavedRenderTarget = NULL;
-	unsigned int                 m_nLastVisFlags = 0;
-	CUtlVector<CPlanView *>      m_Views;
-	CUtlVector<ITexture *>       m_FrameBufferCopies;
-	CUtlVector<bool>             m_ViewerSeen;
+	ITexture *m_pSavedRenderTarget = NULL;
+	unsigned int m_nLastVisFlags = 0;
+	CUtlVector<CPlanView *> m_Views;
+	CUtlVector<ITexture *> m_FrameBufferCopies;
+	CUtlVector<bool> m_ViewerSeen;
 	CUtlVector<WorldListEntry_t> m_ListCache;
-	Vector                       m_vSavedLightmapScale = Vector( -1, -1, -1 );
-	unsigned char               *m_pSavedAreaBits = NULL;
-	unsigned char                m_AreaBits[ 32 ] = {};
-	CMaterialReference           m_UnderWaterOverlay;
-	CMaterialReference           m_TranslucentSingleColor;
-	CMaterialReference           m_ModulateSingleColor;
-	char                         m_szUnderwaterOverlay[ MAX_PATH ] = {};
+	Vector m_vSavedLightmapScale = Vector( -1, -1, -1 );
+	unsigned char *m_pSavedAreaBits = NULL;
+	unsigned char m_AreaBits[32] = {};
+	CMaterialReference m_UnderWaterOverlay;
+	CMaterialReference m_TranslucentSingleColor;
+	CMaterialReference m_ModulateSingleColor;
+	char m_szUnderwaterOverlay[MAX_PATH] = {};
 
 	// The histogram buckets' occlusion queries (created on first use, kept for the
 	// process, as stock's), and the buckets the next post crossing reads back.
-	OcclusionQueryObjectHandle_t m_PostQueries[ 32 ] = {};
-	int32_t                      m_nPostReadbackMask = 0;
+	OcclusionQueryObjectHandle_t m_PostQueries[32] = {};
+	int32_t m_nPostReadbackMask = 0;
 	// Draws over a view's lists that found no program section.
-	int32_t                      m_nProgramMisses = 0;
+	int32_t m_nProgramMisses = 0;
 	// A post mesh being built (PostMeshBegin .. PostMeshEnd).
-	IMesh                       *m_pPostMesh = NULL;
-	CMeshBuilder                 m_PostMeshBuilder;
-	bool                         m_bPostMeshIdentity = false;
-	SourceSharpRenderOp_t        m_PostOps[ 512 ];
+	IMesh *m_pPostMesh = NULL;
+	CMeshBuilder m_PostMeshBuilder;
+	bool m_bPostMeshIdentity = false;
+	SourceSharpRenderOp_t m_PostOps[512];
 
-	SourceSharpRenderOp_t        m_Ops[ kMaxRenderOps ];
-
+	SourceSharpRenderOp_t m_Ops[kMaxRenderOps];
 };
 
 ExecutorState_t *g_pExecutor = NULL;
@@ -683,21 +723,35 @@ ExecutorState_t &State()
 
 void ToViewSetup( const SourceSharpViewSetup_t &in, CViewSetup &out )
 {
-	out.x = in.X; out.y = in.Y; out.width = in.Width; out.height = in.Height;
-	out.m_nUnscaledX = in.UnscaledX; out.m_nUnscaledY = in.UnscaledY;
-	out.m_nUnscaledWidth = in.UnscaledWidth; out.m_nUnscaledHeight = in.UnscaledHeight;
+	out.x = in.X;
+	out.y = in.Y;
+	out.width = in.Width;
+	out.height = in.Height;
+	out.m_nUnscaledX = in.UnscaledX;
+	out.m_nUnscaledY = in.UnscaledY;
+	out.m_nUnscaledWidth = in.UnscaledWidth;
+	out.m_nUnscaledHeight = in.UnscaledHeight;
 	out.m_eStereoEye = (StereoEye_t)in.StereoEye;
 	out.m_bOrtho = in.Ortho != 0;
-	out.m_OrthoLeft = in.OrthoLeft; out.m_OrthoTop = in.OrthoTop; out.m_OrthoRight = in.OrthoRight; out.m_OrthoBottom = in.OrthoBottom;
-	out.fov = in.Fov; out.fovViewmodel = in.FovViewmodel;
+	out.m_OrthoLeft = in.OrthoLeft;
+	out.m_OrthoTop = in.OrthoTop;
+	out.m_OrthoRight = in.OrthoRight;
+	out.m_OrthoBottom = in.OrthoBottom;
+	out.fov = in.Fov;
+	out.fovViewmodel = in.FovViewmodel;
 	out.origin.Init( in.OriginXYZ[0], in.OriginXYZ[1], in.OriginXYZ[2] );
 	out.angles.Init( in.AnglesXYZ[0], in.AnglesXYZ[1], in.AnglesXYZ[2] );
-	out.zNear = in.ZNear; out.zFar = in.ZFar; out.zNearViewmodel = in.ZNearViewmodel; out.zFarViewmodel = in.ZFarViewmodel;
+	out.zNear = in.ZNear;
+	out.zFar = in.ZFar;
+	out.zNearViewmodel = in.ZNearViewmodel;
+	out.zFarViewmodel = in.ZFarViewmodel;
 	out.m_bRenderToSubrectOfLargerScreen = in.RenderToSubrect != 0;
 	out.m_flAspectRatio = in.AspectRatio;
 	out.m_bOffCenter = in.OffCenter != 0;
-	out.m_flOffCenterTop = in.OffCenterTop; out.m_flOffCenterBottom = in.OffCenterBottom;
-	out.m_flOffCenterLeft = in.OffCenterLeft; out.m_flOffCenterRight = in.OffCenterRight;
+	out.m_flOffCenterTop = in.OffCenterTop;
+	out.m_flOffCenterBottom = in.OffCenterBottom;
+	out.m_flOffCenterLeft = in.OffCenterLeft;
+	out.m_flOffCenterRight = in.OffCenterRight;
 	out.m_bDoBloomAndToneMapping = in.DoBloomAndToneMapping != 0;
 	out.m_bCacheFullSceneState = in.CacheFullSceneState != 0;
 	out.m_bViewToProjectionOverride = in.ViewToProjectionOverride != 0;
@@ -707,21 +761,39 @@ void ToViewSetup( const SourceSharpViewSetup_t &in, CViewSetup &out )
 void FromViewSetup( const CViewSetup &in, SourceSharpViewSetup_t &out )
 {
 	memset( &out, 0, sizeof( out ) );
-	out.X = in.x; out.Y = in.y; out.Width = in.width; out.Height = in.height;
-	out.UnscaledX = in.m_nUnscaledX; out.UnscaledY = in.m_nUnscaledY;
-	out.UnscaledWidth = in.m_nUnscaledWidth; out.UnscaledHeight = in.m_nUnscaledHeight;
+	out.X = in.x;
+	out.Y = in.y;
+	out.Width = in.width;
+	out.Height = in.height;
+	out.UnscaledX = in.m_nUnscaledX;
+	out.UnscaledY = in.m_nUnscaledY;
+	out.UnscaledWidth = in.m_nUnscaledWidth;
+	out.UnscaledHeight = in.m_nUnscaledHeight;
 	out.StereoEye = (int32_t)in.m_eStereoEye;
 	out.Ortho = in.m_bOrtho ? 1 : 0;
-	out.OrthoLeft = in.m_OrthoLeft; out.OrthoTop = in.m_OrthoTop; out.OrthoRight = in.m_OrthoRight; out.OrthoBottom = in.m_OrthoBottom;
-	out.Fov = in.fov; out.FovViewmodel = in.fovViewmodel;
-	out.OriginXYZ[0] = in.origin.x; out.OriginXYZ[1] = in.origin.y; out.OriginXYZ[2] = in.origin.z;
-	out.AnglesXYZ[0] = in.angles.x; out.AnglesXYZ[1] = in.angles.y; out.AnglesXYZ[2] = in.angles.z;
-	out.ZNear = in.zNear; out.ZFar = in.zFar; out.ZNearViewmodel = in.zNearViewmodel; out.ZFarViewmodel = in.zFarViewmodel;
+	out.OrthoLeft = in.m_OrthoLeft;
+	out.OrthoTop = in.m_OrthoTop;
+	out.OrthoRight = in.m_OrthoRight;
+	out.OrthoBottom = in.m_OrthoBottom;
+	out.Fov = in.fov;
+	out.FovViewmodel = in.fovViewmodel;
+	out.OriginXYZ[0] = in.origin.x;
+	out.OriginXYZ[1] = in.origin.y;
+	out.OriginXYZ[2] = in.origin.z;
+	out.AnglesXYZ[0] = in.angles.x;
+	out.AnglesXYZ[1] = in.angles.y;
+	out.AnglesXYZ[2] = in.angles.z;
+	out.ZNear = in.zNear;
+	out.ZFar = in.zFar;
+	out.ZNearViewmodel = in.zNearViewmodel;
+	out.ZFarViewmodel = in.zFarViewmodel;
 	out.RenderToSubrect = in.m_bRenderToSubrectOfLargerScreen ? 1 : 0;
 	out.AspectRatio = in.m_flAspectRatio;
 	out.OffCenter = in.m_bOffCenter ? 1 : 0;
-	out.OffCenterTop = in.m_flOffCenterTop; out.OffCenterBottom = in.m_flOffCenterBottom;
-	out.OffCenterLeft = in.m_flOffCenterLeft; out.OffCenterRight = in.m_flOffCenterRight;
+	out.OffCenterTop = in.m_flOffCenterTop;
+	out.OffCenterBottom = in.m_flOffCenterBottom;
+	out.OffCenterLeft = in.m_flOffCenterLeft;
+	out.OffCenterRight = in.m_flOffCenterRight;
 	out.DoBloomAndToneMapping = in.m_bDoBloomAndToneMapping ? 1 : 0;
 	out.CacheFullSceneState = in.m_bCacheFullSceneState ? 1 : 0;
 	out.ViewToProjectionOverride = in.m_bViewToProjectionOverride ? 1 : 0;
@@ -735,12 +807,26 @@ void FromFog( const fogparams_t *pFog, SourceSharpFogParams_t &out )
 		return;
 	out.Present = 1;
 	Vector dir = pFog->dirPrimary;
-	out.DirPrimaryXYZ[0] = dir.x; out.DirPrimaryXYZ[1] = dir.y; out.DirPrimaryXYZ[2] = dir.z;
+	out.DirPrimaryXYZ[0] = dir.x;
+	out.DirPrimaryXYZ[1] = dir.y;
+	out.DirPrimaryXYZ[2] = dir.z;
 	color32 c;
-	c = pFog->colorPrimary;         out.ColorPrimary[0] = c.r; out.ColorPrimary[1] = c.g; out.ColorPrimary[2] = c.b;
-	c = pFog->colorSecondary;       out.ColorSecondary[0] = c.r; out.ColorSecondary[1] = c.g; out.ColorSecondary[2] = c.b;
-	c = pFog->colorPrimaryLerpTo;   out.ColorPrimaryLerpTo[0] = c.r; out.ColorPrimaryLerpTo[1] = c.g; out.ColorPrimaryLerpTo[2] = c.b;
-	c = pFog->colorSecondaryLerpTo; out.ColorSecondaryLerpTo[0] = c.r; out.ColorSecondaryLerpTo[1] = c.g; out.ColorSecondaryLerpTo[2] = c.b;
+	c = pFog->colorPrimary;
+	out.ColorPrimary[0] = c.r;
+	out.ColorPrimary[1] = c.g;
+	out.ColorPrimary[2] = c.b;
+	c = pFog->colorSecondary;
+	out.ColorSecondary[0] = c.r;
+	out.ColorSecondary[1] = c.g;
+	out.ColorSecondary[2] = c.b;
+	c = pFog->colorPrimaryLerpTo;
+	out.ColorPrimaryLerpTo[0] = c.r;
+	out.ColorPrimaryLerpTo[1] = c.g;
+	out.ColorPrimaryLerpTo[2] = c.b;
+	c = pFog->colorSecondaryLerpTo;
+	out.ColorSecondaryLerpTo[0] = c.r;
+	out.ColorSecondaryLerpTo[1] = c.g;
+	out.ColorSecondaryLerpTo[2] = c.b;
 	out.Start = pFog->start;
 	out.End = pFog->end;
 	out.MaxDensity = pFog->maxdensity;
@@ -848,7 +934,9 @@ void GatherInputs( const CViewSetup &setup, int nClearFlags, int whatToDraw, Sou
 		in.SkyPresent = 1;
 		in.SkyScale = pSky->scale;
 		Vector origin = pSky->origin;
-		in.SkyOriginXYZ[0] = origin.x; in.SkyOriginXYZ[1] = origin.y; in.SkyOriginXYZ[2] = origin.z;
+		in.SkyOriginXYZ[0] = origin.x;
+		in.SkyOriginXYZ[1] = origin.y;
+		in.SkyOriginXYZ[2] = origin.z;
 		in.SkyArea = pSky->area;
 		FromFog( &pSky->fog, in.SkyFog );
 	}
@@ -896,7 +984,9 @@ void GatherInputs( const CViewSetup &setup, int nClearFlags, int whatToDraw, Sou
 	in.GlassInView = IsReflectiveGlassInView( setup, glass ) ? 1 : 0;
 	if ( in.GlassInView )
 	{
-		in.GlassPlane[0] = glass.normal.x; in.GlassPlane[1] = glass.normal.y; in.GlassPlane[2] = glass.normal.z;
+		in.GlassPlane[0] = glass.normal.x;
+		in.GlassPlane[1] = glass.normal.y;
+		in.GlassPlane[2] = glass.normal.z;
 		in.GlassPlane[3] = glass.dist;
 	}
 
@@ -907,7 +997,10 @@ void GatherInputs( const CViewSetup &setup, int nClearFlags, int whatToDraw, Sou
 	int32_t fade[5] = { 0, 0, 0, 0, 0 };
 	if ( IManagedRenderClient *p = ManagedRenderClient() )
 		p->ViewEffectsFadeParams( gpGlobals->curtime, fade );
-	in.FadeColor[0] = (byte)fade[0]; in.FadeColor[1] = (byte)fade[1]; in.FadeColor[2] = (byte)fade[2]; in.FadeColor[3] = (byte)fade[3];
+	in.FadeColor[0] = (byte)fade[0];
+	in.FadeColor[1] = (byte)fade[1];
+	in.FadeColor[2] = (byte)fade[2];
+	in.FadeColor[3] = (byte)fade[3];
 	in.FadeBlend = fade[4] != 0 ? 1 : 0;
 
 	if ( IMaterial *pOverlay = view->GetScreenOverlayMaterial() )
@@ -924,8 +1017,8 @@ void GatherInputs( const CViewSetup &setup, int nClearFlags, int whatToDraw, Sou
 		in.Cvars[i] = var.IsValid() ? var.GetFloat() : 0.0f;
 	}
 	ConVarRef fogColor( "fog_color", true ), fogColorSkybox( "fog_colorskybox", true );
-	ParseColor( fogColor.IsValid() ? fogColor.GetString() : NULL, &in.Cvars[ kRenderCvarFogColor ] );
-	ParseColor( fogColorSkybox.IsValid() ? fogColorSkybox.GetString() : NULL, &in.Cvars[ kRenderCvarFogColorSkybox ] );
+	ParseColor( fogColor.IsValid() ? fogColor.GetString() : NULL, &in.Cvars[kRenderCvarFogColor] );
+	ParseColor( fogColorSkybox.IsValid() ? fogColorSkybox.GetString() : NULL, &in.Cvars[kRenderCvarFogColorSkybox] );
 }
 
 // A struct as recorded lines of hex bytes, so managed code reads back exactly
@@ -939,10 +1032,10 @@ void NoteBytes( const char *pszHead, const char *pszBytesPrefix, const void *pDa
 	hex.SetCount( n * 2 + 1 );
 	for ( int i = 0; i < n; ++i )
 	{
-		hex[ i * 2 ] = kHex[ p[i] >> 4 ];
-		hex[ i * 2 + 1 ] = kHex[ p[i] & 15 ];
+		hex[i * 2] = kHex[p[i] >> 4];
+		hex[i * 2 + 1] = kHex[p[i] & 15];
 	}
-	hex[ n * 2 ] = 0;
+	hex[n * 2] = 0;
 	RenderTrace::Note( "%s\tsize=%d", pszHead, n );
 	RenderTrace::NoteLong( pszBytesPrefix, hex.Base() );
 }
@@ -967,7 +1060,8 @@ void NoteFrameEnvironment()
 	RenderTrace::Note( "env\tdxlevel\t%d", engine->GetDXSupportLevel() );
 	RenderTrace::Note( "env\thwdxlevel\t%d", g_pMaterialSystemHardwareConfig->GetDXSupportLevel() );
 	RenderTrace::Note( "env\tmaphashdrlighting\t%d", engine->MapHasHDRLighting() ? 1 : 0 );
-	RenderTrace::Note( "env\tcandosrgbreadfromrts\t%d", g_pMaterialSystemHardwareConfig->CanDoSRGBReadFromRTs() ? 1 : 0 );
+	RenderTrace::Note( "env\tcandosrgbreadfromrts\t%d",
+					   g_pMaterialSystemHardwareConfig->CanDoSRGBReadFromRTs() ? 1 : 0 );
 	RenderTrace::Note( "env\tfakesrgbwrite\t%d", g_pMaterialSystemHardwareConfig->FakeSRGBWrite() ? 1 : 0 );
 	RenderTrace::Note( "env\tsupportsps20\t%d", g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_0() ? 1 : 0 );
 	RenderTrace::Note( "env\ttonemapscalelinear\t%.9g,%.9g,%.9g", vScale.x, vScale.y, vScale.z );
@@ -975,11 +1069,12 @@ void NoteFrameEnvironment()
 	// The frame's starting copy texture, which a frame's restore names.
 	ITexture *pCopy = pRenderContext->GetFrameBufferCopyTexture( 0 );
 	RenderTrace::Note( "env\tfbcopy0\t%s", pCopy ? pCopy->GetName() : "-" );
-	RenderTrace::Note( "env\tvideomodeheight\t%d", g_pMaterialSystem->GetCurrentConfigForVideoCard().m_VideoMode.m_Height );
+	RenderTrace::Note( "env\tvideomodeheight\t%d",
+					   g_pMaterialSystem->GetCurrentConfigForVideoCard().m_VideoMode.m_Height );
 	RenderTrace::Note( "env\tgamedirectory\t%s", engine->GetGameDirectory() );
 	RenderTrace::Note( "env\tcustomtonemap\t%d,%d,%d,%.9g,%.9g,%.9g,%.9g", g_bUseCustomAutoExposureMin ? 1 : 0,
-	                   g_bUseCustomAutoExposureMax ? 1 : 0, g_bUseCustomBloomScale ? 1 : 0, g_flCustomAutoExposureMin,
-	                   g_flCustomAutoExposureMax, g_flCustomBloomScale, g_flCustomBloomScaleMinimum );
+					   g_bUseCustomAutoExposureMax ? 1 : 0, g_bUseCustomBloomScale ? 1 : 0, g_flCustomAutoExposureMin,
+					   g_flCustomAutoExposureMax, g_flCustomBloomScale, g_flCustomBloomScaleMinimum );
 
 	ICvar::Iterator iter( g_pCVar );
 	for ( iter.SetFirst(); iter.IsValid(); iter.Next() )
@@ -1000,11 +1095,16 @@ struct ViewSceneBuffer_t
 	CUtlVector<unsigned char> m_Bytes;
 
 	SourceSharpViewScene_t *Header() { return (SourceSharpViewScene_t *)m_Bytes.Base(); }
-	SourceSharpViewSceneLeaf_t *Leaves() { return (SourceSharpViewSceneLeaf_t *)( m_Bytes.Base() + sizeof( SourceSharpViewScene_t ) ); }
+
+	SourceSharpViewSceneLeaf_t *Leaves()
+	{
+		return (SourceSharpViewSceneLeaf_t *)( m_Bytes.Base() + sizeof( SourceSharpViewScene_t ) );
+	}
+
 	SourceSharpViewSceneEntry_t *Entries()
 	{
 		return (SourceSharpViewSceneEntry_t *)( m_Bytes.Base() + sizeof( SourceSharpViewScene_t ) +
-		                                        Header()->LeafCount * sizeof( SourceSharpViewSceneLeaf_t ) );
+												Header()->LeafCount * sizeof( SourceSharpViewSceneLeaf_t ) );
 	}
 };
 
@@ -1013,7 +1113,7 @@ COMPILE_TIME_ASSERT( RENDER_GROUP_COUNT == 14 );
 // Fills the buffer from a view's world list info and renderables list. A null
 // world list leaves every leaf's translucent answers 0.
 void BuildViewScene( ViewSceneBuffer_t &out, WorldListInfo_t *pInfo, CClientRenderablesList *pList, int nDetailFrame,
-                     IWorldRenderList *pWorld, const int nTranslucentFlags[2], int nOpIndex )
+					 IWorldRenderList *pWorld, const int nTranslucentFlags[2], int nOpIndex )
 {
 	const int nLeaves = pInfo ? pInfo->m_LeafCount : 0;
 	int nEntries = 0;
@@ -1022,7 +1122,7 @@ void BuildViewScene( ViewSceneBuffer_t &out, WorldListInfo_t *pInfo, CClientRend
 			nEntries += pList->m_RenderGroupCounts[g];
 
 	out.m_Bytes.SetCount( sizeof( SourceSharpViewScene_t ) + nLeaves * sizeof( SourceSharpViewSceneLeaf_t ) +
-	                      nEntries * sizeof( SourceSharpViewSceneEntry_t ) );
+						  nEntries * sizeof( SourceSharpViewSceneEntry_t ) );
 	memset( out.m_Bytes.Base(), 0, out.m_Bytes.Count() );
 	SourceSharpViewScene_t *pHeader = out.Header();
 	pHeader->LeafCount = nLeaves;
@@ -1033,11 +1133,14 @@ void BuildViewScene( ViewSceneBuffer_t &out, WorldListInfo_t *pInfo, CClientRend
 	pHeader->OpIndex = nOpIndex;
 
 	// A pruned list's remap; stock's ClientWorldListInfo_t has the same shape after its base.
-	const LeafIndex_t *pActual = pInfo ? static_cast<PlanWorldListInfo_t *>( static_cast<CRefCounted1<WorldListInfo_t> *>( pInfo ) )->m_pActualLeafIndex : NULL;
+	const LeafIndex_t *pActual = pInfo
+		? static_cast<PlanWorldListInfo_t *>( static_cast<CRefCounted1<WorldListInfo_t> *>( pInfo ) )
+			  ->m_pActualLeafIndex
+		: NULL;
 	SourceSharpViewSceneLeaf_t *pLeaves = out.Leaves();
 	// Every leaf's detail decision in one crossing to the managed leaf system; none
 	// drawn with no managed answer.
-	CUtlVector< int32_t > detail;
+	CUtlVector<int32_t> detail;
 	detail.SetCount( nLeaves );
 	for ( int i = 0; i < nLeaves; ++i )
 		detail[i] = 0;
@@ -1051,8 +1154,10 @@ void BuildViewScene( ViewSceneBuffer_t &out, WorldListInfo_t *pInfo, CClientRend
 		leaf.Detail = detail[i] ? 1 : 0;
 		if ( pWorld )
 		{
-			leaf.Translucent[0] = render->LeafContainsTranslucentSurfaces( pWorld, leaf.ActualLeaf, nTranslucentFlags[0] ) ? 1 : 0;
-			leaf.Translucent[1] = render->LeafContainsTranslucentSurfaces( pWorld, leaf.ActualLeaf, nTranslucentFlags[1] ) ? 1 : 0;
+			leaf.Translucent[0] =
+				render->LeafContainsTranslucentSurfaces( pWorld, leaf.ActualLeaf, nTranslucentFlags[0] ) ? 1 : 0;
+			leaf.Translucent[1] =
+				render->LeafContainsTranslucentSurfaces( pWorld, leaf.ActualLeaf, nTranslucentFlags[1] ) ? 1 : 0;
 		}
 	}
 
@@ -1072,13 +1177,19 @@ void BuildViewScene( ViewSceneBuffer_t &out, WorldListInfo_t *pInfo, CClientRend
 			if ( !pRenderable )
 				continue;
 			int flags = 1;
-			if ( e.m_TwoPass ) flags |= 2;
-			if ( pRenderable->IgnoresZBuffer() ) flags |= 4;
-			if ( pRenderable->UsesPowerOfTwoFrameBufferTexture() ) flags |= 8;
-			if ( pRenderable->UsesFullFrameBufferTexture() ) flags |= 16;
+			if ( e.m_TwoPass )
+				flags |= 2;
+			if ( pRenderable->IgnoresZBuffer() )
+				flags |= 4;
+			if ( pRenderable->UsesPowerOfTwoFrameBufferTexture() )
+				flags |= 8;
+			if ( pRenderable->UsesFullFrameBufferTexture() )
+				flags |= 16;
 			const model_t *pModel = pRenderable->GetModel();
-			if ( pModel && modelinfo->GetModelType( pModel ) == mod_brush ) flags |= 32;
-			if ( pRenderable == g_pStudioStatsEntity ) flags |= 64;
+			if ( pModel && modelinfo->GetModelType( pModel ) == mod_brush )
+				flags |= 32;
+			if ( pRenderable == g_pStudioStatsEntity )
+				flags |= 64;
 			pEntry->Flags = flags;
 			IClientUnknown *pUnknown = pRenderable->GetIClientUnknown();
 			IClientEntity *pEntity = pUnknown ? pUnknown->GetIClientEntity() : NULL;
@@ -1094,14 +1205,22 @@ ITexture *Target( int nTarget )
 {
 	switch ( nTarget )
 	{
-	case RENDER_TARGET_FullFrameFB0: return ShellRenderTarget( SS_RT_FullFrameFrameBuffer0 );
-	case RENDER_TARGET_WaterReflection: return ShellRenderTarget( SS_RT_WaterReflection );
-	case RENDER_TARGET_WaterRefraction: return ShellRenderTarget( SS_RT_WaterRefraction );
-	case RENDER_TARGET_Saved: return State().m_pSavedRenderTarget;
-	case RENDER_TARGET_ViewTarget0: return ShellViewTargets_Texture( 0 );
-	case RENDER_TARGET_ShadowColor: return State().m_pShadowColor;
-	case RENDER_TARGET_ShadowDepth: return State().m_pShadowDepth;
-	default: return NULL;
+		case RENDER_TARGET_FullFrameFB0:
+			return ShellRenderTarget( SS_RT_FullFrameFrameBuffer0 );
+		case RENDER_TARGET_WaterReflection:
+			return ShellRenderTarget( SS_RT_WaterReflection );
+		case RENDER_TARGET_WaterRefraction:
+			return ShellRenderTarget( SS_RT_WaterRefraction );
+		case RENDER_TARGET_Saved:
+			return State().m_pSavedRenderTarget;
+		case RENDER_TARGET_ViewTarget0:
+			return ShellViewTargets_Texture( 0 );
+		case RENDER_TARGET_ShadowColor:
+			return State().m_pShadowColor;
+		case RENDER_TARGET_ShadowDepth:
+			return State().m_pShadowDepth;
+		default:
+			return NULL;
 	}
 }
 
@@ -1126,7 +1245,7 @@ void SetClearColorToFogColor()
 	pRenderContext->ClearColor4ub( ucFogColor[0], ucFogColor[1], ucFogColor[2], 255 );
 }
 
-bool UpdateRefractIfNeededByList( CUtlVector< IClientRenderable * > &list )
+bool UpdateRefractIfNeededByList( CUtlVector<IClientRenderable *> &list )
 {
 	for ( int i = 0; i < list.Count(); ++i )
 	{
@@ -1140,7 +1259,7 @@ bool UpdateRefractIfNeededByList( CUtlVector< IClientRenderable * > &list )
 	return false;
 }
 
-void DrawRenderablesInList( CUtlVector< IClientRenderable * > &list, int flags )
+void DrawRenderablesInList( CUtlVector<IClientRenderable *> &list, int flags )
 {
 	for ( int i = 0; i < list.Count(); ++i )
 	{
@@ -1166,8 +1285,8 @@ void ViewModels( const CViewSetup &setup, bool bDrawPlayer )
 
 	if ( bDrawPlayer )
 	{
-		CUtlVector< IClientRenderable * > opaque( 32 );
-		CUtlVector< IClientRenderable * > translucent( 32 );
+		CUtlVector<IClientRenderable *> opaque( 32 );
+		CUtlVector<IClientRenderable *> translucent( 32 );
 		ClientLeafSystem()->CollateViewModelRenderables( opaque, translucent );
 		if ( !UpdateRefractIfNeededByList( opaque ) )
 			UpdateRefractIfNeededByList( translucent );
@@ -1226,7 +1345,8 @@ void HudPaint( const CViewSetup &setup )
 	const int viewHeight = setup.m_nUnscaledHeight;
 
 	CMatRenderContextPtr pRenderContext( materials );
-	pRenderContext->PushRenderTargetAndViewport( NULL, NULL, setup.m_nUnscaledX, setup.m_nUnscaledY, viewWidth, viewHeight );
+	pRenderContext->PushRenderTargetAndViewport( NULL, NULL, setup.m_nUnscaledX, setup.m_nUnscaledY, viewWidth,
+												 viewHeight );
 	pRenderContext.SafeRelease();
 
 	VGui_PreRender();
@@ -1256,12 +1376,18 @@ void Upscale( const CViewSetup &setup )
 	IMaterial *pCopyMaterial = materials->FindMaterial( "dev/upscale", TEXTURE_GROUP_OTHER );
 	pCopyMaterial->IncrementReferenceCount();
 	Rect_t down, up;
-	down.x = setup.x; down.y = setup.y; down.width = setup.width; down.height = setup.height;
-	up.x = setup.m_nUnscaledX; up.y = setup.m_nUnscaledY; up.width = setup.m_nUnscaledWidth; up.height = setup.m_nUnscaledHeight;
+	down.x = setup.x;
+	down.y = setup.y;
+	down.width = setup.width;
+	down.height = setup.height;
+	up.x = setup.m_nUnscaledX;
+	up.y = setup.m_nUnscaledY;
+	up.width = setup.m_nUnscaledWidth;
+	up.height = setup.m_nUnscaledHeight;
 	pRenderContext->CopyRenderTargetToTextureEx( pFullFrameFB1, 0, &down, &down );
-	pRenderContext->DrawScreenSpaceRectangle( pCopyMaterial, up.x, up.y, up.width, up.height,
-		down.x, down.y, down.x + down.width - 1, down.y + down.height - 1,
-		pFullFrameFB1->GetActualWidth(), pFullFrameFB1->GetActualHeight() );
+	pRenderContext->DrawScreenSpaceRectangle( pCopyMaterial, up.x, up.y, up.width, up.height, down.x, down.y,
+											  down.x + down.width - 1, down.y + down.height - 1,
+											  pFullFrameFB1->GetActualWidth(), pFullFrameFB1->GetActualHeight() );
 	pCopyMaterial->DecrementReferenceCount();
 }
 
@@ -1325,375 +1451,609 @@ void ExecuteOps( const SourceSharpRenderOp_t *pOps, int nOps, int nIndexBase )
 
 		switch ( op.Kind )
 		{
-		case RENDER_OP_SceneBegin: render->SceneBegin(); break;
-		case RENDER_OP_SceneEnd: render->SceneEnd(); break;
-		case RENDER_OP_TurnOnToneMapping: { CMatRenderContextPtr ctx( materials ); ctx->TurnOnToneMapping(); break; }
-		case RENDER_OP_ShadowAdvanceFrame: ShellShadows_AdvanceFrame(); break;
-		case RENDER_OP_Push3DView:
-			if ( op.I[3] )
-				render->Push3DView( setup, op.I[0], Target( op.I[1] ), view->GetFrustum(), Target( op.I[2] ) );
-			else
-				render->Push3DView( setup, op.I[0], Target( op.I[1] ), view->GetFrustum() );
-			break;
-		case RENDER_OP_Push2DView: render->Push2DView( setup, op.I[0], Target( op.I[1] ), view->GetFrustum() ); break;
-		case RENDER_OP_PopView: render->PopView( view->GetFrustum() ); break;
-		case RENDER_OP_SetupCurrentView: ShellView_SetupCurrentView( setup.origin, setup.angles, op.I[0], true ); break;
-		case RENDER_OP_FinishCurrentView: ShellView_FinishCurrentView(); break;
-		case RENDER_OP_AllowCurrentViewAccess: ShellView_AllowCurrentViewAccess( op.I[0] != 0 ); break;
-		case RENDER_OP_ShadowPreRender: ShellShadows_PreRender(); break;
-		case RENDER_OP_ShadowComputeDepthTextures: ShellShadows_ComputeShadowDepthTextures( setup ); break;
-		case RENDER_OP_ShadowUnlockDepthTextures: ShellShadows_UnlockAllShadowDepthTextures(); break;
-		case RENDER_OP_ClientSystemsPreRender: SourceSharp_ClientSystemsPreRender(); break;
-		case RENDER_OP_ViewSetupVisEx:
-		{
-			Vector origin( op.F[0], op.F[1], op.F[2] );
-			unsigned int flags = 0;
-			render->ViewSetupVisEx( op.I[0] != 0, 1, &origin, flags );
-			state.m_nLastVisFlags = flags;
-			break;
-		}
-		case RENDER_OP_ClearColorToFogIfRadialVis:
-			if ( state.m_nLastVisFlags & IVRenderView::VIEW_SETUP_VIS_EX_RETURN_FLAGS_USES_RADIAL_VIS )
-				SetClearColorToFogColor();
-			break;
-		case RENDER_OP_SetClearColorToFogColor: SetClearColorToFogColor(); break;
-		case RENDER_OP_ClearColor4ub: { CMatRenderContextPtr ctx( materials ); ctx->ClearColor4ub( op.I[0], op.I[1], op.I[2], op.I[3] ); break; }
-		case RENDER_OP_ClearColor3ub: { CMatRenderContextPtr ctx( materials ); ctx->ClearColor3ub( op.I[0], op.I[1], op.I[2] ); break; }
-		case RENDER_OP_ForcedMaterialOverride: modelrender->ForcedMaterialOverride( NULL, (OverrideType_t)op.I[0] ); break;
-		case RENDER_OP_ParticleIncrementFrameCode:
-			ShellParticles_FrameCode();	// the old-style effects' frame code
-			break;
-		case RENDER_OP_WorldViewBegin:
-		{
-			CPlanView *pNew = new CPlanView();
-			pNew->Begin( setup, op.I[0], op.I[1] );
-			state.m_Views.AddToTail( pNew );
-			break;
-		}
-		case RENDER_OP_WorldViewEnd:
-			if ( pView )
-			{
-				state.m_Views.RemoveMultipleFromTail( 1 );
-				pView->Release();
-			}
-			break;
-		case RENDER_OP_BeginUpdateLightmaps: render->BeginUpdateLightmaps(); break;
-		case RENDER_OP_EndUpdateLightmaps: render->EndUpdateLightmaps(); break;
-		case RENDER_OP_BuildWorldLists:
-			if ( pView )
-			{
-				float flHeight = op.F[0];
-				pView->BuildWorld( state.m_ListCache, op.I[0] != 0, op.I[1], op.I[2] != 0, op.I[3] != 0, op.I[4] ? &flHeight : NULL, op.F[1] );
-			}
-			break;
-		case RENDER_OP_PruneWorldList: if ( pView ) pView->Prune(); break;
-		case RENDER_OP_BuildRenderables: if ( pView ) pView->Renderables( op.I[0], op.I[1] != 0, op.I[2] != 0, op.I[3] != 0, op.F[0] ); break;
-		case RENDER_OP_FogLinear:
-		{
-			CMatRenderContextPtr ctx( materials );
-			float color[3] = { op.F[0], op.F[1], op.F[2] };
-			ctx->FogMode( MATERIAL_FOG_LINEAR );
-			ctx->FogColor3fv( color );
-			ctx->FogStart( op.F[3] );
-			ctx->FogEnd( op.F[4] );
-			ctx->FogMaxDensity( op.F[5] );
-			ctx->FogRadial( op.I[0] != 0 );
-			break;
-		}
-		case RENDER_OP_FogNone: { CMatRenderContextPtr ctx( materials ); ctx->FogMode( MATERIAL_FOG_NONE ); break; }
-		case RENDER_OP_FogVolumeState: render->SetFogVolumeState( op.I[0], op.I[1] != 0 ); break;
-		case RENDER_OP_ClearColorFromFogColor:
-		{
-			CMatRenderContextPtr ctx( materials );
-			unsigned char ucFogColor[3];
-			ctx->GetFogColor( ucFogColor );
-			ctx->ClearColor4ub( ucFogColor[0], ucFogColor[1], ucFogColor[2], op.I[0] );
-			break;
-		}
-		case RENDER_OP_WorldViewShadowTextures: if ( pView ) pView->ShadowTextures(); break;
-		case RENDER_OP_SoundExtraUpdate: engine->Sound_ExtraUpdate(); break;
-		case RENDER_OP_SetFogZ: { CMatRenderContextPtr ctx( materials ); ctx->SetFogZ( op.F[0] ); break; }
-		case RENDER_OP_SetHeightClipZ: { CMatRenderContextPtr ctx( materials ); ctx->SetHeightClipZ( op.F[0] ); break; }
-		case RENDER_OP_SetHeightClipMode: { CMatRenderContextPtr ctx( materials ); ctx->SetHeightClipMode( (MaterialHeightClipMode_t)op.I[0] ); break; }
-		case RENDER_OP_ClearForView:
-		{
-			int clear = op.I[0];
-			if ( op.I[1] && ( state.m_nLastVisFlags & IVRenderView::VIEW_SETUP_VIS_EX_RETURN_FLAGS_USES_RADIAL_VIS ) )
-				clear |= VIEW_CLEAR_COLOR;
-			if ( clear & ( VIEW_CLEAR_DEPTH | VIEW_CLEAR_COLOR | VIEW_CLEAR_STENCIL ) )
+			case RENDER_OP_SceneBegin:
+				render->SceneBegin();
+				break;
+			case RENDER_OP_SceneEnd:
+				render->SceneEnd();
+				break;
+			case RENDER_OP_TurnOnToneMapping:
 			{
 				CMatRenderContextPtr ctx( materials );
-				if ( clear & VIEW_CLEAR_OBEY_STENCIL )
-					ctx->ClearBuffersObeyStencil( ( clear & VIEW_CLEAR_COLOR ) != 0, ( clear & VIEW_CLEAR_DEPTH ) != 0 );
+				ctx->TurnOnToneMapping();
+				break;
+			}
+			case RENDER_OP_ShadowAdvanceFrame:
+				ShellShadows_AdvanceFrame();
+				break;
+			case RENDER_OP_Push3DView:
+				if ( op.I[3] )
+					render->Push3DView( setup, op.I[0], Target( op.I[1] ), view->GetFrustum(), Target( op.I[2] ) );
 				else
-					ctx->ClearBuffers( ( clear & VIEW_CLEAR_COLOR ) != 0, ( clear & VIEW_CLEAR_DEPTH ) != 0, ( clear & VIEW_CLEAR_STENCIL ) != 0 );
+					render->Push3DView( setup, op.I[0], Target( op.I[1] ), view->GetFrustum() );
+				break;
+			case RENDER_OP_Push2DView:
+				render->Push2DView( setup, op.I[0], Target( op.I[1] ), view->GetFrustum() );
+				break;
+			case RENDER_OP_PopView:
+				render->PopView( view->GetFrustum() );
+				break;
+			case RENDER_OP_SetupCurrentView:
+				ShellView_SetupCurrentView( setup.origin, setup.angles, op.I[0], true );
+				break;
+			case RENDER_OP_FinishCurrentView:
+				ShellView_FinishCurrentView();
+				break;
+			case RENDER_OP_AllowCurrentViewAccess:
+				ShellView_AllowCurrentViewAccess( op.I[0] != 0 );
+				break;
+			case RENDER_OP_ShadowPreRender:
+				ShellShadows_PreRender();
+				break;
+			case RENDER_OP_ShadowComputeDepthTextures:
+				ShellShadows_ComputeShadowDepthTextures( setup );
+				break;
+			case RENDER_OP_ShadowUnlockDepthTextures:
+				ShellShadows_UnlockAllShadowDepthTextures();
+				break;
+			case RENDER_OP_ClientSystemsPreRender:
+				SourceSharp_ClientSystemsPreRender();
+				break;
+			case RENDER_OP_ViewSetupVisEx:
+			{
+				Vector origin( op.F[0], op.F[1], op.F[2] );
+				unsigned int flags = 0;
+				render->ViewSetupVisEx( op.I[0] != 0, 1, &origin, flags );
+				state.m_nLastVisFlags = flags;
+				break;
 			}
-			break;
-		}
-		case RENDER_OP_WaterLightmapScale:
-		{
-			CMatRenderContextPtr ctx( materials );
-			state.m_vSavedLightmapScale = ctx->GetToneMappingScaleLinear();
-			Vector scaled = state.m_vSavedLightmapScale;
-			scaled *= 0.25;
-			ctx->SetToneMappingScaleLinear( scaled );
-			break;
-		}
-		case RENDER_OP_RestoreWaterLightmapScale:
-			if ( state.m_vSavedLightmapScale.x >= 0 )
+			case RENDER_OP_ClearColorToFogIfRadialVis:
+				if ( state.m_nLastVisFlags & IVRenderView::VIEW_SETUP_VIS_EX_RETURN_FLAGS_USES_RADIAL_VIS )
+					SetClearColorToFogColor();
+				break;
+			case RENDER_OP_SetClearColorToFogColor:
+				SetClearColorToFogColor();
+				break;
+			case RENDER_OP_ClearColor4ub:
 			{
 				CMatRenderContextPtr ctx( materials );
-				ctx->SetToneMappingScaleLinear( state.m_vSavedLightmapScale );
-				state.m_vSavedLightmapScale.x = -1;
+				ctx->ClearColor4ub( op.I[0], op.I[1], op.I[2], op.I[3] );
+				break;
 			}
-			break;
-		case RENDER_OP_FrameBufferCopyPush:
-		{
-			CMatRenderContextPtr ctx( materials );
-			state.m_FrameBufferCopies.AddToTail( ctx->GetFrameBufferCopyTexture( 0 ) );
-			if ( op.I[0] )
-				ctx->SetFrameBufferCopyTexture( ShellRenderTarget( SS_RT_PowerOfTwoFrameBuffer ) );
-			break;
-		}
-		case RENDER_OP_FrameBufferCopyPop:
-			if ( state.m_FrameBufferCopies.Count() )
+			case RENDER_OP_ClearColor3ub:
 			{
 				CMatRenderContextPtr ctx( materials );
-				ctx->SetFrameBufferCopyTexture( state.m_FrameBufferCopies.Tail() );
-				state.m_FrameBufferCopies.RemoveMultipleFromTail( 1 );
+				ctx->ClearColor3ub( op.I[0], op.I[1], op.I[2] );
+				break;
 			}
-			break;
-		case RENDER_OP_DrawWorld:
-			if ( pView && pView->WorldList() )
-				render->DrawWorldLists( pView->WorldList(), (unsigned long)(unsigned int)op.I[0], op.F[0] );
-			break;
-		// The view's program is the only draw over its lists. A view without one draws
-		// nothing there; the first miss is reported.
-		case RENDER_OP_DrawOpaque:
-		case RENDER_OP_DrawTranslucent:
-		case RENDER_OP_DrawNoZTranslucent:
-		case RENDER_OP_DrawTranslucentWorldInLeaves:
-			if ( pView && !RunSection( pView ) && state.m_nProgramMisses++ == 0 )
-				Warning( "[SourceSharp] render plan: a world view drew over its lists with no program section (managed declined it); it draws nothing there\n" );
-			break;
+			case RENDER_OP_ForcedMaterialOverride:
+				modelrender->ForcedMaterialOverride( NULL, (OverrideType_t)op.I[0] );
+				break;
+			case RENDER_OP_ParticleIncrementFrameCode:
+				ShellParticles_FrameCode(); // the old-style effects' frame code
+				break;
+			case RENDER_OP_WorldViewBegin:
+			{
+				CPlanView *pNew = new CPlanView();
+				pNew->Begin( setup, op.I[0], op.I[1] );
+				state.m_Views.AddToTail( pNew );
+				break;
+			}
+			case RENDER_OP_WorldViewEnd:
+				if ( pView )
+				{
+					state.m_Views.RemoveMultipleFromTail( 1 );
+					pView->Release();
+				}
+				break;
+			case RENDER_OP_BeginUpdateLightmaps:
+				render->BeginUpdateLightmaps();
+				break;
+			case RENDER_OP_EndUpdateLightmaps:
+				render->EndUpdateLightmaps();
+				break;
+			case RENDER_OP_BuildWorldLists:
+				if ( pView )
+				{
+					float flHeight = op.F[0];
+					pView->BuildWorld( state.m_ListCache, op.I[0] != 0, op.I[1], op.I[2] != 0, op.I[3] != 0,
+									   op.I[4] ? &flHeight : NULL, op.F[1] );
+				}
+				break;
+			case RENDER_OP_PruneWorldList:
+				if ( pView )
+					pView->Prune();
+				break;
+			case RENDER_OP_BuildRenderables:
+				if ( pView )
+					pView->Renderables( op.I[0], op.I[1] != 0, op.I[2] != 0, op.I[3] != 0, op.F[0] );
+				break;
+			case RENDER_OP_FogLinear:
+			{
+				CMatRenderContextPtr ctx( materials );
+				float color[3] = { op.F[0], op.F[1], op.F[2] };
+				ctx->FogMode( MATERIAL_FOG_LINEAR );
+				ctx->FogColor3fv( color );
+				ctx->FogStart( op.F[3] );
+				ctx->FogEnd( op.F[4] );
+				ctx->FogMaxDensity( op.F[5] );
+				ctx->FogRadial( op.I[0] != 0 );
+				break;
+			}
+			case RENDER_OP_FogNone:
+			{
+				CMatRenderContextPtr ctx( materials );
+				ctx->FogMode( MATERIAL_FOG_NONE );
+				break;
+			}
+			case RENDER_OP_FogVolumeState:
+				render->SetFogVolumeState( op.I[0], op.I[1] != 0 );
+				break;
+			case RENDER_OP_ClearColorFromFogColor:
+			{
+				CMatRenderContextPtr ctx( materials );
+				unsigned char ucFogColor[3];
+				ctx->GetFogColor( ucFogColor );
+				ctx->ClearColor4ub( ucFogColor[0], ucFogColor[1], ucFogColor[2], op.I[0] );
+				break;
+			}
+			case RENDER_OP_WorldViewShadowTextures:
+				if ( pView )
+					pView->ShadowTextures();
+				break;
+			case RENDER_OP_SoundExtraUpdate:
+				engine->Sound_ExtraUpdate();
+				break;
+			case RENDER_OP_SetFogZ:
+			{
+				CMatRenderContextPtr ctx( materials );
+				ctx->SetFogZ( op.F[0] );
+				break;
+			}
+			case RENDER_OP_SetHeightClipZ:
+			{
+				CMatRenderContextPtr ctx( materials );
+				ctx->SetHeightClipZ( op.F[0] );
+				break;
+			}
+			case RENDER_OP_SetHeightClipMode:
+			{
+				CMatRenderContextPtr ctx( materials );
+				ctx->SetHeightClipMode( (MaterialHeightClipMode_t)op.I[0] );
+				break;
+			}
+			case RENDER_OP_ClearForView:
+			{
+				int clear = op.I[0];
+				if ( op.I[1] &&
+					 ( state.m_nLastVisFlags & IVRenderView::VIEW_SETUP_VIS_EX_RETURN_FLAGS_USES_RADIAL_VIS ) )
+					clear |= VIEW_CLEAR_COLOR;
+				if ( clear & ( VIEW_CLEAR_DEPTH | VIEW_CLEAR_COLOR | VIEW_CLEAR_STENCIL ) )
+				{
+					CMatRenderContextPtr ctx( materials );
+					if ( clear & VIEW_CLEAR_OBEY_STENCIL )
+						ctx->ClearBuffersObeyStencil( ( clear & VIEW_CLEAR_COLOR ) != 0,
+													  ( clear & VIEW_CLEAR_DEPTH ) != 0 );
+					else
+						ctx->ClearBuffers( ( clear & VIEW_CLEAR_COLOR ) != 0, ( clear & VIEW_CLEAR_DEPTH ) != 0,
+										   ( clear & VIEW_CLEAR_STENCIL ) != 0 );
+				}
+				break;
+			}
+			case RENDER_OP_WaterLightmapScale:
+			{
+				CMatRenderContextPtr ctx( materials );
+				state.m_vSavedLightmapScale = ctx->GetToneMappingScaleLinear();
+				Vector scaled = state.m_vSavedLightmapScale;
+				scaled *= 0.25;
+				ctx->SetToneMappingScaleLinear( scaled );
+				break;
+			}
+			case RENDER_OP_RestoreWaterLightmapScale:
+				if ( state.m_vSavedLightmapScale.x >= 0 )
+				{
+					CMatRenderContextPtr ctx( materials );
+					ctx->SetToneMappingScaleLinear( state.m_vSavedLightmapScale );
+					state.m_vSavedLightmapScale.x = -1;
+				}
+				break;
+			case RENDER_OP_FrameBufferCopyPush:
+			{
+				CMatRenderContextPtr ctx( materials );
+				state.m_FrameBufferCopies.AddToTail( ctx->GetFrameBufferCopyTexture( 0 ) );
+				if ( op.I[0] )
+					ctx->SetFrameBufferCopyTexture( ShellRenderTarget( SS_RT_PowerOfTwoFrameBuffer ) );
+				break;
+			}
+			case RENDER_OP_FrameBufferCopyPop:
+				if ( state.m_FrameBufferCopies.Count() )
+				{
+					CMatRenderContextPtr ctx( materials );
+					ctx->SetFrameBufferCopyTexture( state.m_FrameBufferCopies.Tail() );
+					state.m_FrameBufferCopies.RemoveMultipleFromTail( 1 );
+				}
+				break;
+			case RENDER_OP_DrawWorld:
+				if ( pView && pView->WorldList() )
+					render->DrawWorldLists( pView->WorldList(), (unsigned long)(unsigned int)op.I[0], op.F[0] );
+				break;
+			// The view's program is the only draw over its lists. A view without one draws
+			// nothing there; the first miss is reported.
+			case RENDER_OP_DrawOpaque:
+			case RENDER_OP_DrawTranslucent:
+			case RENDER_OP_DrawNoZTranslucent:
+			case RENDER_OP_DrawTranslucentWorldInLeaves:
+				if ( pView && !RunSection( pView ) && state.m_nProgramMisses++ == 0 )
+					Warning(
+						"[SourceSharp] render plan: a world view drew over its lists with no program section (managed declined it); it draws nothing there\n" );
+				break;
 
-		// The view's scene, and its program's ops.
-		case RENDER_OP_ViewScene: if ( pView && nIndexBase >= 0 ) ViewScene( pView, op, nIndexBase + i ); break;
-		case RENDER_OP_SectionEnd: break;
-		case RENDER_OP_SetBlend: render->SetBlend( op.F[0] ); break;
-		case RENDER_OP_SetColorModulation: render->SetColorModulation( op.F ); break;
-		case RENDER_OP_DrawEntity: if ( pView ) DrawProgramEntity( pView, op ); break;
-		case RENDER_OP_StaticProp:
-			if ( pView && pView->Entry( op.I[0] ) )
-				pView->m_Statics.AddToTail( pView->Entry( op.I[0] ) );
-			break;
-		case RENDER_OP_DrawStaticPropsBatch:
-			if ( pView && pView->m_Statics.Count() )
+			// The view's scene, and its program's ops.
+			case RENDER_OP_ViewScene:
+				if ( pView && nIndexBase >= 0 )
+					ViewScene( pView, op, nIndexBase + i );
+				break;
+			case RENDER_OP_SectionEnd:
+				break;
+			case RENDER_OP_SetBlend:
+				render->SetBlend( op.F[0] );
+				break;
+			case RENDER_OP_SetColorModulation:
+				render->SetColorModulation( op.F );
+				break;
+			case RENDER_OP_DrawEntity:
+				if ( pView )
+					DrawProgramEntity( pView, op );
+				break;
+			case RENDER_OP_StaticProp:
+				if ( pView && pView->Entry( op.I[0] ) )
+					pView->m_Statics.AddToTail( pView->Entry( op.I[0] ) );
+				break;
+			case RENDER_OP_DrawStaticPropsBatch:
+				if ( pView && pView->m_Statics.Count() )
+				{
+					staticpropmgr->DrawStaticProps( pView->m_Statics.Base(), pView->m_Statics.Count(), op.I[0] != 0,
+													op.I[1] != 0 );
+					pView->m_Statics.RemoveAll();
+				}
+				break;
+			case RENDER_OP_RopeResetCache:
+				RopeManager()->ResetRenderCache();
+				break;
+			case RENDER_OP_ParticleSystemResetCache:
+				g_pParticleSystemMgr->ResetRenderCache();
+				break;
+			case RENDER_OP_RopeDrawCache:
+				RopeManager()->DrawRenderCache( op.I[0] != 0 );
+				break;
+			case RENDER_OP_ParticleSystemDrawCache:
+				g_pParticleSystemMgr->DrawRenderCache( op.I[0] != 0 );
+				break;
+			case RENDER_OP_ParticleSingletons:
+				DrawParticleSingletons( op.I[0] != 0 );
+				break;
+			case RENDER_OP_UpdateFullScreenDepthTexture:
+				UpdateFullScreenDepthTexture();
+				break;
+			case RENDER_OP_FullScreenDepthTextureValidity:
 			{
-				staticpropmgr->DrawStaticProps( pView->m_Statics.Base(), pView->m_Statics.Count(), op.I[0] != 0, op.I[1] != 0 );
-				pView->m_Statics.RemoveAll();
+				CMatRenderContextPtr ctx( materials );
+				ctx->SetFullScreenDepthTextureValidityFlag( op.I[0] != 0 );
+				break;
 			}
-			break;
-		case RENDER_OP_RopeResetCache: RopeManager()->ResetRenderCache(); break;
-		case RENDER_OP_ParticleSystemResetCache: g_pParticleSystemMgr->ResetRenderCache(); break;
-		case RENDER_OP_RopeDrawCache: RopeManager()->DrawRenderCache( op.I[0] != 0 ); break;
-		case RENDER_OP_ParticleSystemDrawCache: g_pParticleSystemMgr->DrawRenderCache( op.I[0] != 0 ); break;
-		case RENDER_OP_ParticleSingletons: DrawParticleSingletons( op.I[0] != 0 ); break;
-		case RENDER_OP_UpdateFullScreenDepthTexture: UpdateFullScreenDepthTexture(); break;
-		case RENDER_OP_FullScreenDepthTextureValidity:
-		{
-			CMatRenderContextPtr ctx( materials );
-			ctx->SetFullScreenDepthTextureValidityFlag( op.I[0] != 0 );
-			break;
-		}
-		case RENDER_OP_DetailBeginTranslucent: DetailObjectSystem()->BeginTranslucentDetailRendering(); break;
-		case RENDER_OP_DetailLeaf: if ( pView ) pView->m_DetailLeaves.AddToTail( (LeafIndex_t)op.I[0] ); break;
-		case RENDER_OP_DetailRenderTranslucent:
-			if ( pView )
+			case RENDER_OP_DetailBeginTranslucent:
+				DetailObjectSystem()->BeginTranslucentDetailRendering();
+				break;
+			case RENDER_OP_DetailLeaf:
+				if ( pView )
+					pView->m_DetailLeaves.AddToTail( (LeafIndex_t)op.I[0] );
+				break;
+			case RENDER_OP_DetailRenderTranslucent:
+				if ( pView )
+				{
+					DetailObjectSystem()->RenderTranslucentDetailObjects(
+						CurrentViewOrigin(), CurrentViewForward(), CurrentViewRight(), CurrentViewUp(),
+						pView->m_DetailLeaves.Count(), pView->m_DetailLeaves.Base() );
+					pView->m_DetailLeaves.RemoveAll();
+				}
+				break;
+			case RENDER_OP_DetailRenderInLeaf:
 			{
-				DetailObjectSystem()->RenderTranslucentDetailObjects( CurrentViewOrigin(), CurrentViewForward(), CurrentViewRight(), CurrentViewUp(),
-				                                                      pView->m_DetailLeaves.Count(), pView->m_DetailLeaves.Base() );
-				pView->m_DetailLeaves.RemoveAll();
+				IClientRenderable *pEnt = pView ? pView->Entry( op.I[1] ) : NULL;
+				Vector vecOrigin = pEnt ? pEnt->GetRenderOrigin() : vec3_origin;
+				DetailObjectSystem()->RenderTranslucentDetailObjectsInLeaf( CurrentViewOrigin(), CurrentViewForward(),
+																			CurrentViewRight(), CurrentViewUp(),
+																			op.I[0], pEnt ? &vecOrigin : NULL );
+				break;
 			}
-			break;
-		case RENDER_OP_DetailRenderInLeaf:
-		{
-			IClientRenderable *pEnt = pView ? pView->Entry( op.I[1] ) : NULL;
-			Vector vecOrigin = pEnt ? pEnt->GetRenderOrigin() : vec3_origin;
-			DetailObjectSystem()->RenderTranslucentDetailObjectsInLeaf( CurrentViewOrigin(), CurrentViewForward(), CurrentViewRight(), CurrentViewUp(),
-			                                                            op.I[0], pEnt ? &vecOrigin : NULL );
-			break;
-		}
-		case RENDER_OP_TranslucentSurfaces:
-			if ( pView && pView->WorldList() )
-				render->DrawTranslucentSurfaces( pView->WorldList(), op.I[0], (unsigned long)(unsigned int)op.I[1], op.I[2] != 0 );
-			break;
-		case RENDER_OP_FrameBufferForEntity: FrameBufferForEntity( op ); break;
-		case RENDER_OP_UpdateRefractTexture: UpdateRefractTexture(); break;
-		case RENDER_OP_UpdateScreenEffectTexture: UpdateScreenEffectTexture(); break;
+			case RENDER_OP_TranslucentSurfaces:
+				if ( pView && pView->WorldList() )
+					render->DrawTranslucentSurfaces( pView->WorldList(), op.I[0], (unsigned long)(unsigned int)op.I[1],
+													 op.I[2] != 0 );
+				break;
+			case RENDER_OP_FrameBufferForEntity:
+				FrameBufferForEntity( op );
+				break;
+			case RENDER_OP_UpdateRefractTexture:
+				UpdateRefractTexture();
+				break;
+			case RENDER_OP_UpdateScreenEffectTexture:
+				UpdateScreenEffectTexture();
+				break;
 
-		// The second camera's pass.
-		case RENDER_OP_ViewerSeenBegin: state.m_ViewerSeen.AddToTail( ShellClient_ViewerSeenBegin() ); break;
-		case RENDER_OP_ViewerSeenEnd:
-			if ( state.m_ViewerSeen.Count() )
-			{
-				ShellClient_ViewerSeenEnd( state.m_ViewerSeen.Tail() );
-				state.m_ViewerSeen.RemoveMultipleFromTail( 1 );
-			}
-			break;
-		case RENDER_OP_ViewTargetDrawn: ShellViewTargets_NoteDrawn( op.I[0] ); break;
+			// The second camera's pass.
+			case RENDER_OP_ViewerSeenBegin:
+				state.m_ViewerSeen.AddToTail( ShellClient_ViewerSeenBegin() );
+				break;
+			case RENDER_OP_ViewerSeenEnd:
+				if ( state.m_ViewerSeen.Count() )
+				{
+					ShellClient_ViewerSeenEnd( state.m_ViewerSeen.Tail() );
+					state.m_ViewerSeen.RemoveMultipleFromTail( 1 );
+				}
+				break;
+			case RENDER_OP_ViewTargetDrawn:
+				ShellViewTargets_NoteDrawn( op.I[0] );
+				break;
 
-		// viewdebug.cpp's overlays, as managed code placed them.
-		case RENDER_OP_DebugQuad: DebugQuad( op ); break;
-		case RENDER_OP_DebugScreenMaterial:
-			if ( IMaterial *pMaterial = SourceSharp_FxMaterialOf( op.I[0] ) )
+			// viewdebug.cpp's overlays, as managed code placed them.
+			case RENDER_OP_DebugQuad:
+				DebugQuad( op );
+				break;
+			case RENDER_OP_DebugScreenMaterial:
+				if ( IMaterial *pMaterial = SourceSharp_FxMaterialOf( op.I[0] ) )
+				{
+					if ( !IsErrorMaterial( pMaterial ) )
+						DrawScreenEffectMaterial( pMaterial, setup.x, setup.y, setup.width, setup.height );
+				}
+				break;
+			case RENDER_OP_DebugLightmapPage:
 			{
-				if ( !IsErrorMaterial( pMaterial ) )
-					DrawScreenEffectMaterial( pMaterial, setup.x, setup.y, setup.width, setup.height );
+				CPlanView *pDebug = new CPlanView();
+				pDebug->Begin( setup, 0, 0 );
+				Frustum frustum;
+				AllowCurrentViewAccess( true );
+				render->Push3DView( setup, 0, NULL, frustum );
+				pDebug->BuildWorld( state.m_ListCache, true, 1, true, false, NULL, op.F[0] );
+				render->PopView( frustum );
+				AllowCurrentViewAccess( false );
+				if ( pDebug->WorldList() )
+					render->DrawLightmaps( pDebug->WorldList(), op.I[0] );
+				pDebug->Release();
+				break;
 			}
-			break;
-		case RENDER_OP_DebugLightmapPage:
-		{
-			CPlanView *pDebug = new CPlanView();
-			pDebug->Begin( setup, 0, 0 );
-			Frustum frustum;
-			AllowCurrentViewAccess( true );
-			render->Push3DView( setup, 0, NULL, frustum );
-			pDebug->BuildWorld( state.m_ListCache, true, 1, true, false, NULL, op.F[0] );
-			render->PopView( frustum );
-			AllowCurrentViewAccess( false );
-			if ( pDebug->WorldList() )
-				render->DrawLightmaps( pDebug->WorldList(), op.I[0] );
-			pDebug->Release();
-			break;
-		}
-		case RENDER_OP_DebugShadowTexture: ShellShadows_RenderShadowTexture( op.I[0], op.I[0] ); break;
-		case RENDER_OP_DebugShowTexture: DebugShowTexture( op.F[0] ); break;
-		case RENDER_OP_DebugFlashlightDepth: shadowmgr->DrawFlashlightDepthTexture(); break;
-		case RENDER_OP_Draw3DDebugOverlays: render->Draw3DDebugOverlays(); break;
-		case RENDER_OP_DrawLineFile: render->DrawLineFile(); break;
-		case RENDER_OP_SmokeFogOverlayAlpha: g_SmokeFogOverlayAlpha = op.F[0]; break;
-		case RENDER_OP_PushDefaultTarget: { CMatRenderContextPtr ctx( materials ); ctx->PushRenderTargetAndViewport( NULL ); break; }
-		case RENDER_OP_PopRenderTargetAndViewport: { CMatRenderContextPtr ctx( materials ); ctx->PopRenderTargetAndViewport(); break; }
-		case RENDER_OP_PostCopyScreenEffect:
-		case RENDER_OP_PostSetRenderTarget:
-		case RENDER_OP_PostSetRenderTargetAndViewport:
-		case RENDER_OP_PostPushRenderTargetAndViewport:
-		case RENDER_OP_PostDrawRect:
-		case RENDER_OP_PostMaterialVarFloat:
-		case RENDER_OP_PostQueryBegin:
-		case RENDER_OP_PostQueryEnd:
-		case RENDER_OP_PostStencil:
-		case RENDER_OP_PostGoalToneScale:
-		case RENDER_OP_PostResetToneScale:
-		case RENDER_OP_PostEnableColorCorrection:
-		case RENDER_OP_PostScissor:
-		case RENDER_OP_PostClearColor3ub:
-		case RENDER_OP_PostViewport:
-		case RENDER_OP_PostClearBuffers:
-		case RENDER_OP_PostDumpTga:
-		case RENDER_OP_PostReadbackNext:
-		case RENDER_OP_PostPushRenderTarget:
-		case RENDER_OP_PostMeshBegin:
-		case RENDER_OP_PostMeshVertex:
-		case RENDER_OP_PostMeshFrame:
-		case RENDER_OP_PostMeshEnd:
-		case RENDER_OP_PostClearColor4ub:
-			PostOp( op );
-			break;
-		case RENDER_OP_PixelVisEndCurrentView: ShellPixelVisEndView(); break;
-		case RENDER_OP_PixelVisEndScene: ShellPixelVisEndScene(); break;
-		case RENDER_OP_Flush: { CMatRenderContextPtr ctx( materials ); ctx->Flush( op.I[0] != 0 ); break; }
-		case RENDER_OP_CopyRefractionTarget:
-		{
-			Rect_t src;
-			src.x = op.I[0]; src.y = op.I[1]; src.width = op.I[2]; src.height = op.I[3];
-			CMatRenderContextPtr ctx( materials );
-			ctx->CopyRenderTargetToTextureEx( ShellRenderTarget( SS_RT_WaterRefraction ), 0, &src, NULL );
-			break;
-		}
-		case RENDER_OP_PushCustomClipPlane: { CMatRenderContextPtr ctx( materials ); ctx->PushCustomClipPlane( op.F ); break; }
-		case RENDER_OP_PopCustomClipPlane: { CMatRenderContextPtr ctx( materials ); ctx->PopCustomClipPlane(); break; }
-		case RENDER_OP_GlowDrawOverlays: ShellGlowDrawOverlays( op.I[0] != 0 ); break;
-		case RENDER_OP_GlowUpdateSkyOverlays: ShellGlowUpdateSkyOverlays( op.F[0], op.I[0] != 0 ); break;
-		case RENDER_OP_DrawPrecipitation: DrawPrecipitation(); break;
-		case RENDER_OP_ClientEffectsDraw: clienteffects->DrawEffects( gpGlobals->frametime ); break;
-		case RENDER_OP_SetFXCreationAllowed: SetFXCreationAllowed( op.I[0] != 0 ); break;
-		case RENDER_OP_DrawPortals: engine->DrawPortals(); break;
-		case RENDER_OP_DrawLights: render->DrawLights(); break;
-		// CViewRender::RenderPlayerSprites: the voice icons over players' heads.
-		case RENDER_OP_RenderPlayerSprites: GetClientVoiceMgr()->DrawHeadLabels(); break;
-		case RENDER_OP_MotionBlur: RunPostProgram( 1, setup, setup.x, setup.y, setup.width, setup.height, false, false ); break;
-		case RENDER_OP_PostScreenSpaceEffects: GetClientModeNormal()->DoPostScreenSpaceEffects( &setup ); break;
-		case RENDER_OP_ViewModels: ViewModels( setup, op.I[0] != 0 ); break;
-		case RENDER_OP_UnderwaterOverlay: UnderwaterOverlay(); break;
-		case RENDER_OP_SmokeFogOverlay: DrawSmokeFogOverlay(); break;
-		case RENDER_OP_ViewDrawFade:
-		{
-			byte color[4] = { (byte)op.I[0], (byte)op.I[1], (byte)op.I[2], (byte)op.I[3] };
-			if ( !state.m_ModulateSingleColor.IsValid() )
-				state.m_ModulateSingleColor.Init( "engine/modulatesinglecolor", TEXTURE_GROUP_OTHER );
-			if ( !state.m_TranslucentSingleColor.IsValid() )
-				state.m_TranslucentSingleColor.Init( "debug/debugtranslucentsinglecolor", TEXTURE_GROUP_OTHER );
-			render->ViewDrawFade( color, op.I[4] ? (IMaterial *)state.m_ModulateSingleColor : (IMaterial *)state.m_TranslucentSingleColor );
-			break;
-		}
-		case RENDER_OP_ScreenOverlay:
-			if ( IMaterial *pOverlay = view->GetScreenOverlayMaterial() )
-				DrawOverlayMaterial( pOverlay, op.I[4], op.I[0], op.I[1], op.I[2], op.I[3] );
-			break;
-		case RENDER_OP_EnginePostProcessing: RunPostProgram( 0, setup, op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] != 0, false ); break;
-		case RENDER_OP_GrabPreColorCorrectedFrame: engine->GrabPreColorCorrectedFrame( op.I[0], op.I[1], op.I[2], op.I[3] ); break;
-		case RENDER_OP_ToneMapScaleLinear: { CMatRenderContextPtr ctx( materials ); ctx->SetToneMappingScaleLinear( Vector( op.F[0], op.F[1], op.F[2] ) ); break; }
-		case RENDER_OP_SaveRenderTarget: { CMatRenderContextPtr ctx( materials ); state.m_pSavedRenderTarget = ctx->GetRenderTarget(); break; }
-		case RENDER_OP_SetRenderTargetSaved: { CMatRenderContextPtr ctx( materials ); ctx->SetRenderTarget( state.m_pSavedRenderTarget ); break; }
-		case RENDER_OP_HudPaint: HudPaint( setup ); break;
-		case RENDER_OP_WorldListCacheFlush: FlushListCache(); break;
-		case RENDER_OP_Skybox3DAreaBits:
-		{
-			unsigned char **ppAreaBits = render->GetAreaBits();
-			state.m_pSavedAreaBits = *ppAreaBits;
-			memset( state.m_AreaBits, 0, sizeof( state.m_AreaBits ) );
-			state.m_AreaBits[ op.I[0] >> 3 ] |= 1 << ( op.I[0] & 7 );
-			*ppAreaBits = state.m_AreaBits;
-			break;
-		}
-		case RENDER_OP_Skybox3DAreaBitsRestore:
-			*render->GetAreaBits() = state.m_pSavedAreaBits;
-			break;
-		case RENDER_OP_ViewSetupVis:
-		{
-			Vector origin( op.F[0], op.F[1], op.F[2] );
-			render->ViewSetupVis( op.I[0] != 0, 1, &origin );
-			break;
-		}
-		case RENDER_OP_SetUnderwaterOverlay:
-			if ( state.m_szUnderwaterOverlay[0] )
-				state.m_UnderWaterOverlay.Init( materials->FindMaterial( state.m_szUnderwaterOverlay, TEXTURE_GROUP_OTHER ) );
-			break;
-		case RENDER_OP_ClearUnderwaterOverlay: state.m_UnderWaterOverlay.Shutdown(); break;
-		case RENDER_OP_Upscale: Upscale( setup ); break;
-		case RENDER_OP_FreezeFrameDraw: FreezeFrameDraw( op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] ); break;
-		case RENDER_OP_FreezeFrameCapture:
-		{
-			Rect_t rect;
-			rect.x = op.I[0]; rect.y = op.I[1]; rect.width = op.I[2]; rect.height = op.I[3];
-			CMatRenderContextPtr ctx( materials );
-			ctx->CopyRenderTargetToTextureEx( ShellRenderTarget( SS_RT_Fullscreen ), 0, &rect, &rect );
-			break;
-		}
-		case RENDER_OP_SetCurrentViewSetup:
-		{
-			// GetViewSetup answers the view between frames too, so the plan's view is kept.
-			ShellViewRender_SetCurrentView( setup );
-			break;
-		}
-		default:
-			Warning( "[SourceSharp] render plan: op %d (kind %d) is not one this executor knows; skipped\n", i, op.Kind );
-			break;
+			case RENDER_OP_DebugShadowTexture:
+				ShellShadows_RenderShadowTexture( op.I[0], op.I[0] );
+				break;
+			case RENDER_OP_DebugShowTexture:
+				DebugShowTexture( op.F[0] );
+				break;
+			case RENDER_OP_DebugFlashlightDepth:
+				shadowmgr->DrawFlashlightDepthTexture();
+				break;
+			case RENDER_OP_Draw3DDebugOverlays:
+				render->Draw3DDebugOverlays();
+				break;
+			case RENDER_OP_DrawLineFile:
+				render->DrawLineFile();
+				break;
+			case RENDER_OP_SmokeFogOverlayAlpha:
+				g_SmokeFogOverlayAlpha = op.F[0];
+				break;
+			case RENDER_OP_PushDefaultTarget:
+			{
+				CMatRenderContextPtr ctx( materials );
+				ctx->PushRenderTargetAndViewport( NULL );
+				break;
+			}
+			case RENDER_OP_PopRenderTargetAndViewport:
+			{
+				CMatRenderContextPtr ctx( materials );
+				ctx->PopRenderTargetAndViewport();
+				break;
+			}
+			case RENDER_OP_PostCopyScreenEffect:
+			case RENDER_OP_PostSetRenderTarget:
+			case RENDER_OP_PostSetRenderTargetAndViewport:
+			case RENDER_OP_PostPushRenderTargetAndViewport:
+			case RENDER_OP_PostDrawRect:
+			case RENDER_OP_PostMaterialVarFloat:
+			case RENDER_OP_PostQueryBegin:
+			case RENDER_OP_PostQueryEnd:
+			case RENDER_OP_PostStencil:
+			case RENDER_OP_PostGoalToneScale:
+			case RENDER_OP_PostResetToneScale:
+			case RENDER_OP_PostEnableColorCorrection:
+			case RENDER_OP_PostScissor:
+			case RENDER_OP_PostClearColor3ub:
+			case RENDER_OP_PostViewport:
+			case RENDER_OP_PostClearBuffers:
+			case RENDER_OP_PostDumpTga:
+			case RENDER_OP_PostReadbackNext:
+			case RENDER_OP_PostPushRenderTarget:
+			case RENDER_OP_PostMeshBegin:
+			case RENDER_OP_PostMeshVertex:
+			case RENDER_OP_PostMeshFrame:
+			case RENDER_OP_PostMeshEnd:
+			case RENDER_OP_PostClearColor4ub:
+				PostOp( op );
+				break;
+			case RENDER_OP_PixelVisEndCurrentView:
+				ShellPixelVisEndView();
+				break;
+			case RENDER_OP_PixelVisEndScene:
+				ShellPixelVisEndScene();
+				break;
+			case RENDER_OP_Flush:
+			{
+				CMatRenderContextPtr ctx( materials );
+				ctx->Flush( op.I[0] != 0 );
+				break;
+			}
+			case RENDER_OP_CopyRefractionTarget:
+			{
+				Rect_t src;
+				src.x = op.I[0];
+				src.y = op.I[1];
+				src.width = op.I[2];
+				src.height = op.I[3];
+				CMatRenderContextPtr ctx( materials );
+				ctx->CopyRenderTargetToTextureEx( ShellRenderTarget( SS_RT_WaterRefraction ), 0, &src, NULL );
+				break;
+			}
+			case RENDER_OP_PushCustomClipPlane:
+			{
+				CMatRenderContextPtr ctx( materials );
+				ctx->PushCustomClipPlane( op.F );
+				break;
+			}
+			case RENDER_OP_PopCustomClipPlane:
+			{
+				CMatRenderContextPtr ctx( materials );
+				ctx->PopCustomClipPlane();
+				break;
+			}
+			case RENDER_OP_GlowDrawOverlays:
+				ShellGlowDrawOverlays( op.I[0] != 0 );
+				break;
+			case RENDER_OP_GlowUpdateSkyOverlays:
+				ShellGlowUpdateSkyOverlays( op.F[0], op.I[0] != 0 );
+				break;
+			case RENDER_OP_DrawPrecipitation:
+				DrawPrecipitation();
+				break;
+			case RENDER_OP_ClientEffectsDraw:
+				clienteffects->DrawEffects( gpGlobals->frametime );
+				break;
+			case RENDER_OP_SetFXCreationAllowed:
+				SetFXCreationAllowed( op.I[0] != 0 );
+				break;
+			case RENDER_OP_DrawPortals:
+				engine->DrawPortals();
+				break;
+			case RENDER_OP_DrawLights:
+				render->DrawLights();
+				break;
+			// CViewRender::RenderPlayerSprites: the voice icons over players' heads.
+			case RENDER_OP_RenderPlayerSprites:
+				GetClientVoiceMgr()->DrawHeadLabels();
+				break;
+			case RENDER_OP_MotionBlur:
+				RunPostProgram( 1, setup, setup.x, setup.y, setup.width, setup.height, false, false );
+				break;
+			case RENDER_OP_PostScreenSpaceEffects:
+				GetClientModeNormal()->DoPostScreenSpaceEffects( &setup );
+				break;
+			case RENDER_OP_ViewModels:
+				ViewModels( setup, op.I[0] != 0 );
+				break;
+			case RENDER_OP_UnderwaterOverlay:
+				UnderwaterOverlay();
+				break;
+			case RENDER_OP_SmokeFogOverlay:
+				DrawSmokeFogOverlay();
+				break;
+			case RENDER_OP_ViewDrawFade:
+			{
+				byte color[4] = { (byte)op.I[0], (byte)op.I[1], (byte)op.I[2], (byte)op.I[3] };
+				if ( !state.m_ModulateSingleColor.IsValid() )
+					state.m_ModulateSingleColor.Init( "engine/modulatesinglecolor", TEXTURE_GROUP_OTHER );
+				if ( !state.m_TranslucentSingleColor.IsValid() )
+					state.m_TranslucentSingleColor.Init( "debug/debugtranslucentsinglecolor", TEXTURE_GROUP_OTHER );
+				render->ViewDrawFade( color,
+									  op.I[4] ? (IMaterial *)state.m_ModulateSingleColor
+											  : (IMaterial *)state.m_TranslucentSingleColor );
+				break;
+			}
+			case RENDER_OP_ScreenOverlay:
+				if ( IMaterial *pOverlay = view->GetScreenOverlayMaterial() )
+					DrawOverlayMaterial( pOverlay, op.I[4], op.I[0], op.I[1], op.I[2], op.I[3] );
+				break;
+			case RENDER_OP_EnginePostProcessing:
+				RunPostProgram( 0, setup, op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] != 0, false );
+				break;
+			case RENDER_OP_GrabPreColorCorrectedFrame:
+				engine->GrabPreColorCorrectedFrame( op.I[0], op.I[1], op.I[2], op.I[3] );
+				break;
+			case RENDER_OP_ToneMapScaleLinear:
+			{
+				CMatRenderContextPtr ctx( materials );
+				ctx->SetToneMappingScaleLinear( Vector( op.F[0], op.F[1], op.F[2] ) );
+				break;
+			}
+			case RENDER_OP_SaveRenderTarget:
+			{
+				CMatRenderContextPtr ctx( materials );
+				state.m_pSavedRenderTarget = ctx->GetRenderTarget();
+				break;
+			}
+			case RENDER_OP_SetRenderTargetSaved:
+			{
+				CMatRenderContextPtr ctx( materials );
+				ctx->SetRenderTarget( state.m_pSavedRenderTarget );
+				break;
+			}
+			case RENDER_OP_HudPaint:
+				HudPaint( setup );
+				break;
+			case RENDER_OP_WorldListCacheFlush:
+				FlushListCache();
+				break;
+			case RENDER_OP_Skybox3DAreaBits:
+			{
+				unsigned char **ppAreaBits = render->GetAreaBits();
+				state.m_pSavedAreaBits = *ppAreaBits;
+				memset( state.m_AreaBits, 0, sizeof( state.m_AreaBits ) );
+				state.m_AreaBits[op.I[0] >> 3] |= 1 << ( op.I[0] & 7 );
+				*ppAreaBits = state.m_AreaBits;
+				break;
+			}
+			case RENDER_OP_Skybox3DAreaBitsRestore:
+				*render->GetAreaBits() = state.m_pSavedAreaBits;
+				break;
+			case RENDER_OP_ViewSetupVis:
+			{
+				Vector origin( op.F[0], op.F[1], op.F[2] );
+				render->ViewSetupVis( op.I[0] != 0, 1, &origin );
+				break;
+			}
+			case RENDER_OP_SetUnderwaterOverlay:
+				if ( state.m_szUnderwaterOverlay[0] )
+					state.m_UnderWaterOverlay.Init(
+						materials->FindMaterial( state.m_szUnderwaterOverlay, TEXTURE_GROUP_OTHER ) );
+				break;
+			case RENDER_OP_ClearUnderwaterOverlay:
+				state.m_UnderWaterOverlay.Shutdown();
+				break;
+			case RENDER_OP_Upscale:
+				Upscale( setup );
+				break;
+			case RENDER_OP_FreezeFrameDraw:
+				FreezeFrameDraw( op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] );
+				break;
+			case RENDER_OP_FreezeFrameCapture:
+			{
+				Rect_t rect;
+				rect.x = op.I[0];
+				rect.y = op.I[1];
+				rect.width = op.I[2];
+				rect.height = op.I[3];
+				CMatRenderContextPtr ctx( materials );
+				ctx->CopyRenderTargetToTextureEx( ShellRenderTarget( SS_RT_Fullscreen ), 0, &rect, &rect );
+				break;
+			}
+			case RENDER_OP_SetCurrentViewSetup:
+			{
+				// GetViewSetup answers the view between frames too, so the plan's view is kept.
+				ShellViewRender_SetCurrentView( setup );
+				break;
+			}
+			default:
+				Warning( "[SourceSharp] render plan: op %d (kind %d) is not one this executor knows; skipped\n", i,
+						 op.Kind );
+				break;
 		}
 	}
-
 }
 
 // Gathers the view's scene once its lists are built and asks managed code for
@@ -1709,7 +2069,8 @@ void ViewScene( CPlanView *pView, const SourceSharpRenderOp_t &op, int nOpIndex 
 	const int nFlags[2] = { op.I[0], op.I[1] };
 	CClientRenderablesList *pList = pView->RenderList();
 	ViewSceneBuffer_t scene;
-	BuildViewScene( scene, pView->WorldInfo(), pList, view->BuildWorldListsNumber(), pView->WorldList(), nFlags, nOpIndex );
+	BuildViewScene( scene, pView->WorldInfo(), pList, view->BuildWorldListsNumber(), pView->WorldList(), nFlags,
+					nOpIndex );
 
 	pView->m_Entries.RemoveAll();
 	if ( pList )
@@ -1829,16 +2190,22 @@ ITexture *PostTexture( int nTexture )
 {
 	switch ( nTexture )
 	{
-	case 1: return ShellRenderTarget( SS_RT_FullFrameFrameBuffer0 );
-	case 2: return materials->FindTexture( "_rt_SmallFB0", TEXTURE_GROUP_RENDER_TARGET );
-	case 3: return materials->FindTexture( "_rt_SmallFB1", TEXTURE_GROUP_RENDER_TARGET );
-	case 4: return materials->FindTexture( "_rt_ResolvedFullFrameDepth", TEXTURE_GROUP_RENDER_TARGET );
-	default: return NULL;
+		case 1:
+			return ShellRenderTarget( SS_RT_FullFrameFrameBuffer0 );
+		case 2:
+			return materials->FindTexture( "_rt_SmallFB0", TEXTURE_GROUP_RENDER_TARGET );
+		case 3:
+			return materials->FindTexture( "_rt_SmallFB1", TEXTURE_GROUP_RENDER_TARGET );
+		case 4:
+			return materials->FindTexture( "_rt_ResolvedFullFrameDepth", TEXTURE_GROUP_RENDER_TARGET );
+		default:
+			return NULL;
 	}
 }
 
 const char *const kPostVarNames[] = { NULL, "$C0_X", "$C0_Y", "$C0_Z", "$bloomamount" };
-const char *const kPostDumpNames[] = { "BackBuffer", "QuarterSizeFB", "BlurX", "BlurYAndBloom", "EnginePost", "MotionBlur" };
+const char *const kPostDumpNames[] = { "BackBuffer",    "QuarterSizeFB", "BlurX",
+									   "BlurYAndBloom", "EnginePost",    "MotionBlur" };
 
 // A render target's pixels to //MOD/<index>_<name>_PC.tga.
 void PostDumpTga( int nWidth, int nHeight, const char *pszName, int nIndex )
@@ -1854,14 +2221,15 @@ void PostDumpTga( int nWidth, int nHeight, const char *pszName, int nIndex )
 
 	// The TGA is encoded in managed code.
 	int nFileBytes = 0;
-	unsigned char *pFile = ss::ImageEncode( ss::kImageTgaRgba, nWidth, nHeight, false, pBlock, nPixelBytes, &nFileBytes );
+	unsigned char *pFile =
+		ss::ImageEncode( ss::kImageTgaRgba, nWidth, nHeight, false, pBlock, nPixelBytes, &nFileBytes );
 	free( pBlock );
 	if ( !pFile )
 	{
 		Warning( "[SourceSharp] post: could not write %s as a TGA\n", pszName );
 		return;
 	}
-	char szPath[ MAX_PATH ];
+	char szPath[MAX_PATH];
 	V_snprintf( szPath, sizeof( szPath ), "//MOD/%d_%s_PC.tga", nIndex, pszName );
 	FileHandle_t hFile = g_pFullFileSystem->Open( szPath, "wb" );
 	if ( hFile )
@@ -1885,7 +2253,10 @@ bool RunPostProgram( int nKind, const CViewSetup &setup, int x, int y, int w, in
 	SourceSharpPostInputs_t in;
 	V_memset( &in, 0, sizeof( in ) );
 	in.Kind = nKind;
-	in.X = x; in.Y = y; in.Width = w; in.Height = h;
+	in.X = x;
+	in.Y = y;
+	in.Width = w;
+	in.Height = h;
 	in.FlashlightOn = bFlashlight ? 1 : 0;
 	in.PostVGui = bPostVGui ? 1 : 0;
 	in.HdrType = g_pMaterialSystemHardwareConfig->GetHDRType();
@@ -1911,8 +2282,8 @@ bool RunPostProgram( int nKind, const CViewSetup &setup, int x, int y, int w, in
 	{
 		if ( ITexture *pTexture = PostTexture( t ) )
 		{
-			in.TextureSize[ 2 * t ] = pTexture->GetActualWidth();
-			in.TextureSize[ 2 * t + 1 ] = pTexture->GetActualHeight();
+			in.TextureSize[2 * t] = pTexture->GetActualWidth();
+			in.TextureSize[2 * t + 1] = pTexture->GetActualHeight();
 		}
 	}
 	materials->GetBackBufferDimensions( in.BackBufferWidth, in.BackBufferHeight );
@@ -1970,164 +2341,192 @@ void PostOp( const SourceSharpRenderOp_t &op )
 	CMatRenderContextPtr ctx( materials );
 	switch ( op.Kind )
 	{
-	case RENDER_OP_PostCopyScreenEffect: UpdateScreenEffectTexture( 0, op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] != 0 ); break;
-	case RENDER_OP_PostSetRenderTarget: ctx->SetRenderTarget( PostTexture( op.I[0] ) ); break;
-	case RENDER_OP_PostSetRenderTargetAndViewport:
-	{
-		ITexture *pTarget = PostTexture( op.I[0] );
-		ctx->SetRenderTarget( pTarget );
-		if ( pTarget )
-			ctx->Viewport( 0, 0, pTarget->GetActualWidth(), pTarget->GetActualHeight() );
-		break;
-	}
-	case RENDER_OP_PostPushRenderTargetAndViewport: ctx->PushRenderTargetAndViewport(); break;
-	case RENDER_OP_PostDrawRect:
-	{
-		IMaterial *pMaterial = SourceSharp_FxMaterialOf( op.I[0] );
-		if ( pMaterial )
-			ctx->DrawScreenSpaceRectangle( pMaterial, op.I[1], op.I[2], op.I[3], op.I[4], op.F[0], op.F[1], op.F[2], op.F[3],
-			                               op.I[5], op.I[6], op.F[6] != 0.0f ? GetClientWorldRenderable() : NULL, (int)op.F[4], (int)op.F[5] );
-		break;
-	}
-	case RENDER_OP_PostMaterialVarFloat:
-	{
-		IMaterial *pMaterial = SourceSharp_FxMaterialOf( op.I[0] );
-		if ( pMaterial && op.I[1] > 0 && op.I[1] < (int)ARRAYSIZE( kPostVarNames ) )
-		{
-			bool bFound = false;
-			IMaterialVar *pVar = pMaterial->FindVar( kPostVarNames[ op.I[1] ], &bFound, false );
-			if ( bFound && pVar )
-				pVar->SetFloatValue( op.F[0] );
-		}
-		break;
-	}
-	case RENDER_OP_PostQueryBegin:
-	case RENDER_OP_PostQueryEnd:
-	{
-		if ( op.I[0] < 0 || op.I[0] >= (int)ARRAYSIZE( state.m_PostQueries ) )
+		case RENDER_OP_PostCopyScreenEffect:
+			UpdateScreenEffectTexture( 0, op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] != 0 );
 			break;
-		OcclusionQueryObjectHandle_t &hQuery = state.m_PostQueries[ op.I[0] ];
-		if ( !hQuery )
-			hQuery = ctx->CreateOcclusionQueryObject();
-		if ( op.Kind == RENDER_OP_PostQueryBegin )
-			ctx->BeginOcclusionQueryDrawing( hQuery );
-		else
-			ctx->EndOcclusionQueryDrawing( hQuery );
-		break;
-	}
-	case RENDER_OP_PostStencil:
-		if ( op.I[0] == 0 )
+		case RENDER_OP_PostSetRenderTarget:
+			ctx->SetRenderTarget( PostTexture( op.I[0] ) );
+			break;
+		case RENDER_OP_PostSetRenderTargetAndViewport:
 		{
-			ctx->SetStencilEnable( false );
+			ITexture *pTarget = PostTexture( op.I[0] );
+			ctx->SetRenderTarget( pTarget );
+			if ( pTarget )
+				ctx->Viewport( 0, 0, pTarget->GetActualWidth(), pTarget->GetActualHeight() );
 			break;
 		}
-		ctx->SetStencilEnable( true );
-		ctx->SetStencilFailOperation( STENCILOPERATION_KEEP );
-		ctx->SetStencilZFailOperation( STENCILOPERATION_KEEP );
-		ctx->SetStencilReferenceValue( 1 );
-		if ( op.I[0] == 1 )
-		{
-			ctx->SetStencilWriteMask( 1 );
-			ctx->SetStencilPassOperation( STENCILOPERATION_REPLACE );
-			ctx->SetStencilCompareFunction( STENCILCOMPARISONFUNCTION_ALWAYS );
-		}
-		else
-		{
-			ctx->SetStencilTestMask( 1 );
-			ctx->SetStencilPassOperation( STENCILOPERATION_KEEP );
-			ctx->SetStencilCompareFunction( STENCILCOMPARISONFUNCTION_EQUAL );
-		}
-		break;
-	case RENDER_OP_PostGoalToneScale: ctx->SetGoalToneMappingScale( op.F[0] ); break;
-	case RENDER_OP_PostResetToneScale: ctx->ResetToneMappingScale( op.F[0] ); break;
-	case RENDER_OP_PostEnableColorCorrection: ctx->EnableColorCorrection( op.I[0] != 0 ); break;
-	case RENDER_OP_PostScissor: ctx->SetScissorRect( op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] != 0 ); break;
-	case RENDER_OP_PostClearColor3ub: ctx->ClearColor3ub( (unsigned char)op.I[0], (unsigned char)op.I[1], (unsigned char)op.I[2] ); break;
-	case RENDER_OP_PostViewport: ctx->Viewport( op.I[0], op.I[1], op.I[2], op.I[3] ); break;
-	case RENDER_OP_PostClearBuffers: ctx->ClearBuffers( op.I[0] != 0, op.I[1] != 0 ); break;
-	case RENDER_OP_PostDumpTga:
-		if ( op.I[2] >= 0 && op.I[2] < (int)ARRAYSIZE( kPostDumpNames ) )
-			PostDumpTga( op.I[0], op.I[1], kPostDumpNames[ op.I[2] ], op.I[3] );
-		break;
-	case RENDER_OP_PostReadbackNext: state.m_nPostReadbackMask = op.I[0]; break;
-	case RENDER_OP_PostClearColor4ub: ctx->ClearColor4ub( (unsigned char)op.I[0], (unsigned char)op.I[1], (unsigned char)op.I[2], (unsigned char)op.I[3] ); break;
-	case RENDER_OP_PostPushRenderTarget: ctx->PushRenderTargetAndViewport( PostTexture( op.I[0] ) ); break;
-	case RENDER_OP_PostMeshBegin:
-	{
-		state.m_pPostMesh = NULL;
-		state.m_bPostMeshIdentity = false;
-		IMaterial *pMaterial = SourceSharp_FxMaterialOf( op.I[0] );
-		if ( !pMaterial )
+		case RENDER_OP_PostPushRenderTargetAndViewport:
+			ctx->PushRenderTargetAndViewport();
 			break;
-		if ( op.I[3] & 4 )
+		case RENDER_OP_PostDrawRect:
 		{
-			// The material's own switch.
-			bool bFound = false;
-			IMaterialVar *pVar = pMaterial->FindVar( "$disabled", &bFound, false );
-			if ( bFound && pVar && pVar->GetIntValue() )
+			IMaterial *pMaterial = SourceSharp_FxMaterialOf( op.I[0] );
+			if ( pMaterial )
+				ctx->DrawScreenSpaceRectangle(
+					pMaterial, op.I[1], op.I[2], op.I[3], op.I[4], op.F[0], op.F[1], op.F[2], op.F[3], op.I[5], op.I[6],
+					op.F[6] != 0.0f ? GetClientWorldRenderable() : NULL, (int)op.F[4], (int)op.F[5] );
+			break;
+		}
+		case RENDER_OP_PostMaterialVarFloat:
+		{
+			IMaterial *pMaterial = SourceSharp_FxMaterialOf( op.I[0] );
+			if ( pMaterial && op.I[1] > 0 && op.I[1] < (int)ARRAYSIZE( kPostVarNames ) )
+			{
+				bool bFound = false;
+				IMaterialVar *pVar = pMaterial->FindVar( kPostVarNames[op.I[1]], &bFound, false );
+				if ( bFound && pVar )
+					pVar->SetFloatValue( op.F[0] );
+			}
+			break;
+		}
+		case RENDER_OP_PostQueryBegin:
+		case RENDER_OP_PostQueryEnd:
+		{
+			if ( op.I[0] < 0 || op.I[0] >= (int)ARRAYSIZE( state.m_PostQueries ) )
 				break;
-		}
-		if ( op.I[3] & 1 )
-		{
-			ctx->MatrixMode( MATERIAL_VIEW );
-			ctx->PushMatrix();
-			ctx->LoadIdentity();
-			ctx->MatrixMode( MATERIAL_PROJECTION );
-			ctx->PushMatrix();
-			ctx->LoadIdentity();
-			state.m_bPostMeshIdentity = true;
-		}
-		ctx->Bind( pMaterial, ( op.I[3] & 2 ) ? GetClientWorldRenderable() : NULL );
-		state.m_pPostMesh = ctx->GetDynamicMesh( true );
-		state.m_PostMeshBuilder.Begin( state.m_pPostMesh, (MaterialPrimitiveType_t)op.I[1], op.I[2] );
-		break;
-	}
-	case RENDER_OP_PostMeshVertex:
-	{
-		if ( !state.m_pPostMesh )
+			OcclusionQueryObjectHandle_t &hQuery = state.m_PostQueries[op.I[0]];
+			if ( !hQuery )
+				hQuery = ctx->CreateOcclusionQueryObject();
+			if ( op.Kind == RENDER_OP_PostQueryBegin )
+				ctx->BeginOcclusionQueryDrawing( hQuery );
+			else
+				ctx->EndOcclusionQueryDrawing( hQuery );
 			break;
-		CMeshBuilder &mb = state.m_PostMeshBuilder;
-		mb.Position3f( op.F[0], op.F[1], op.F[2] );
-		if ( op.I[0] & 1 )
-		{
-			float flAlpha;
-			V_memcpy( &flAlpha, &op.I[1], sizeof( flAlpha ) );
-			mb.Color4f( op.F[5], op.F[6], op.F[7], flAlpha );
 		}
-		mb.TexCoord2f( 0, op.F[3], op.F[4] );
-		if ( !( op.I[0] & 2 ) )
-			mb.AdvanceVertex();
-		break;
-	}
-	case RENDER_OP_PostMeshFrame:
-	{
-		if ( !state.m_pPostMesh )
+		case RENDER_OP_PostStencil:
+			if ( op.I[0] == 0 )
+			{
+				ctx->SetStencilEnable( false );
+				break;
+			}
+			ctx->SetStencilEnable( true );
+			ctx->SetStencilFailOperation( STENCILOPERATION_KEEP );
+			ctx->SetStencilZFailOperation( STENCILOPERATION_KEEP );
+			ctx->SetStencilReferenceValue( 1 );
+			if ( op.I[0] == 1 )
+			{
+				ctx->SetStencilWriteMask( 1 );
+				ctx->SetStencilPassOperation( STENCILOPERATION_REPLACE );
+				ctx->SetStencilCompareFunction( STENCILCOMPARISONFUNCTION_ALWAYS );
+			}
+			else
+			{
+				ctx->SetStencilTestMask( 1 );
+				ctx->SetStencilPassOperation( STENCILOPERATION_KEEP );
+				ctx->SetStencilCompareFunction( STENCILCOMPARISONFUNCTION_EQUAL );
+			}
 			break;
-		CMeshBuilder &mb = state.m_PostMeshBuilder;
-		float flNormalZ;
-		V_memcpy( &flNormalZ, &op.I[0], sizeof( flNormalZ ) );
-		mb.TangentS3f( op.F[0], op.F[1], op.F[2] );
-		mb.TangentT3f( op.F[3], op.F[4], op.F[5] );
-		mb.Normal3f( op.F[6], op.F[7], flNormalZ );
-		mb.AdvanceVertex();
-		break;
-	}
-	case RENDER_OP_PostMeshEnd:
-		if ( state.m_pPostMesh )
+		case RENDER_OP_PostGoalToneScale:
+			ctx->SetGoalToneMappingScale( op.F[0] );
+			break;
+		case RENDER_OP_PostResetToneScale:
+			ctx->ResetToneMappingScale( op.F[0] );
+			break;
+		case RENDER_OP_PostEnableColorCorrection:
+			ctx->EnableColorCorrection( op.I[0] != 0 );
+			break;
+		case RENDER_OP_PostScissor:
+			ctx->SetScissorRect( op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] != 0 );
+			break;
+		case RENDER_OP_PostClearColor3ub:
+			ctx->ClearColor3ub( (unsigned char)op.I[0], (unsigned char)op.I[1], (unsigned char)op.I[2] );
+			break;
+		case RENDER_OP_PostViewport:
+			ctx->Viewport( op.I[0], op.I[1], op.I[2], op.I[3] );
+			break;
+		case RENDER_OP_PostClearBuffers:
+			ctx->ClearBuffers( op.I[0] != 0, op.I[1] != 0 );
+			break;
+		case RENDER_OP_PostDumpTga:
+			if ( op.I[2] >= 0 && op.I[2] < (int)ARRAYSIZE( kPostDumpNames ) )
+				PostDumpTga( op.I[0], op.I[1], kPostDumpNames[op.I[2]], op.I[3] );
+			break;
+		case RENDER_OP_PostReadbackNext:
+			state.m_nPostReadbackMask = op.I[0];
+			break;
+		case RENDER_OP_PostClearColor4ub:
+			ctx->ClearColor4ub( (unsigned char)op.I[0], (unsigned char)op.I[1], (unsigned char)op.I[2],
+								(unsigned char)op.I[3] );
+			break;
+		case RENDER_OP_PostPushRenderTarget:
+			ctx->PushRenderTargetAndViewport( PostTexture( op.I[0] ) );
+			break;
+		case RENDER_OP_PostMeshBegin:
 		{
-			state.m_PostMeshBuilder.End();
-			state.m_pPostMesh->Draw();
 			state.m_pPostMesh = NULL;
-		}
-		if ( state.m_bPostMeshIdentity )
-		{
-			ctx->MatrixMode( MATERIAL_VIEW );
-			ctx->PopMatrix();
-			ctx->MatrixMode( MATERIAL_PROJECTION );
-			ctx->PopMatrix();
 			state.m_bPostMeshIdentity = false;
+			IMaterial *pMaterial = SourceSharp_FxMaterialOf( op.I[0] );
+			if ( !pMaterial )
+				break;
+			if ( op.I[3] & 4 )
+			{
+				// The material's own switch.
+				bool bFound = false;
+				IMaterialVar *pVar = pMaterial->FindVar( "$disabled", &bFound, false );
+				if ( bFound && pVar && pVar->GetIntValue() )
+					break;
+			}
+			if ( op.I[3] & 1 )
+			{
+				ctx->MatrixMode( MATERIAL_VIEW );
+				ctx->PushMatrix();
+				ctx->LoadIdentity();
+				ctx->MatrixMode( MATERIAL_PROJECTION );
+				ctx->PushMatrix();
+				ctx->LoadIdentity();
+				state.m_bPostMeshIdentity = true;
+			}
+			ctx->Bind( pMaterial, ( op.I[3] & 2 ) ? GetClientWorldRenderable() : NULL );
+			state.m_pPostMesh = ctx->GetDynamicMesh( true );
+			state.m_PostMeshBuilder.Begin( state.m_pPostMesh, (MaterialPrimitiveType_t)op.I[1], op.I[2] );
+			break;
 		}
-		break;
+		case RENDER_OP_PostMeshVertex:
+		{
+			if ( !state.m_pPostMesh )
+				break;
+			CMeshBuilder &mb = state.m_PostMeshBuilder;
+			mb.Position3f( op.F[0], op.F[1], op.F[2] );
+			if ( op.I[0] & 1 )
+			{
+				float flAlpha;
+				V_memcpy( &flAlpha, &op.I[1], sizeof( flAlpha ) );
+				mb.Color4f( op.F[5], op.F[6], op.F[7], flAlpha );
+			}
+			mb.TexCoord2f( 0, op.F[3], op.F[4] );
+			if ( !( op.I[0] & 2 ) )
+				mb.AdvanceVertex();
+			break;
+		}
+		case RENDER_OP_PostMeshFrame:
+		{
+			if ( !state.m_pPostMesh )
+				break;
+			CMeshBuilder &mb = state.m_PostMeshBuilder;
+			float flNormalZ;
+			V_memcpy( &flNormalZ, &op.I[0], sizeof( flNormalZ ) );
+			mb.TangentS3f( op.F[0], op.F[1], op.F[2] );
+			mb.TangentT3f( op.F[3], op.F[4], op.F[5] );
+			mb.Normal3f( op.F[6], op.F[7], flNormalZ );
+			mb.AdvanceVertex();
+			break;
+		}
+		case RENDER_OP_PostMeshEnd:
+			if ( state.m_pPostMesh )
+			{
+				state.m_PostMeshBuilder.End();
+				state.m_pPostMesh->Draw();
+				state.m_pPostMesh = NULL;
+			}
+			if ( state.m_bPostMeshIdentity )
+			{
+				ctx->MatrixMode( MATERIAL_VIEW );
+				ctx->PopMatrix();
+				ctx->MatrixMode( MATERIAL_PROJECTION );
+				ctx->PopMatrix();
+				state.m_bPostMeshIdentity = false;
+			}
+			break;
 	}
 }
 
@@ -2156,10 +2555,18 @@ void DebugShowTexture( float flScale )
 	CMeshBuilder meshBuilder;
 	meshBuilder.Begin( pMesh, MATERIAL_QUADS, 1 );
 	const float x = 32, y = 32;
-	meshBuilder.Position3f( x, y, 0.0f ); meshBuilder.TexCoord2f( 0, 0, 0 ); meshBuilder.AdvanceVertex();
-	meshBuilder.Position3f( x + w, y, 0.0f ); meshBuilder.TexCoord2f( 0, 1, 0 ); meshBuilder.AdvanceVertex();
-	meshBuilder.Position3f( x + w, y + h, 0.0f ); meshBuilder.TexCoord2f( 0, 1, 1 ); meshBuilder.AdvanceVertex();
-	meshBuilder.Position3f( x, y + h, 0.0f ); meshBuilder.TexCoord2f( 0, 0, 1 ); meshBuilder.AdvanceVertex();
+	meshBuilder.Position3f( x, y, 0.0f );
+	meshBuilder.TexCoord2f( 0, 0, 0 );
+	meshBuilder.AdvanceVertex();
+	meshBuilder.Position3f( x + w, y, 0.0f );
+	meshBuilder.TexCoord2f( 0, 1, 0 );
+	meshBuilder.AdvanceVertex();
+	meshBuilder.Position3f( x + w, y + h, 0.0f );
+	meshBuilder.TexCoord2f( 0, 1, 1 );
+	meshBuilder.AdvanceVertex();
+	meshBuilder.Position3f( x, y + h, 0.0f );
+	meshBuilder.TexCoord2f( 0, 0, 1 );
+	meshBuilder.AdvanceVertex();
 	meshBuilder.End();
 	pMesh->Draw();
 }
@@ -2233,7 +2640,8 @@ void AfterRenderablesList( const SetupRenderInfo_t &info )
 	{
 		static const int kNoFlags[2] = { 0, 0 };
 		ViewSceneBuffer_t scene;
-		BuildViewScene( scene, info.m_pWorldListInfo, info.m_pRenderList, info.m_nDetailBuildFrame, NULL, kNoFlags, -1 );
+		BuildViewScene( scene, info.m_pWorldListInfo, info.m_pRenderList, info.m_nDetailBuildFrame, NULL, kNoFlags,
+						-1 );
 		NoteBytes( "scene", "scenebytes\t", scene.m_Bytes.Base(), scene.m_Bytes.Count() );
 	}
 }
@@ -2257,7 +2665,8 @@ bool PlanShadowDepthView( ITexture *pRenderTarget, ITexture *pDepthTexture, cons
 		SourceSharpViewSetup_t view;
 		FromViewSetup( shadowView, view );
 		int32_t nIndexBase = 0;
-		int nOps = pManaged->RenderShadowDepthPlan( &view, state.m_ShadowOps, ARRAYSIZE( state.m_ShadowOps ), &nIndexBase );
+		int nOps =
+			pManaged->RenderShadowDepthPlan( &view, state.m_ShadowOps, ARRAYSIZE( state.m_ShadowOps ), &nIndexBase );
 		if ( nOps >= 0 )
 		{
 			state.m_pShadowColor = pRenderTarget;
@@ -2276,8 +2685,8 @@ bool InstallHooks()
 	ExecutorState_t &state = State();
 	if ( state.m_bHooked )
 		return true;
-	if ( !VTableSlotPatch::Install( ClientLeafSystem(), &IClientLeafSystem::BuildRenderablesList, (void *)&H_BuildRenderablesList,
-	                                &state.m_BuildRenderablesPatch ) )
+	if ( !VTableSlotPatch::Install( ClientLeafSystem(), &IClientLeafSystem::BuildRenderablesList,
+									(void *)&H_BuildRenderablesList, &state.m_BuildRenderablesPatch ) )
 	{
 		return false;
 	}
@@ -2322,7 +2731,8 @@ int SourceSharp_ActiveViewDrawFlags()
 	return pView ? pView->GetDrawFlags() : 0;
 }
 
-bool SourceSharp_FrameViewDecision( CViewSetup &eye, int &nClearFlags, int &nDrawFlags, int *pRandomClear, bool &bOverview )
+bool SourceSharp_FrameViewDecision( CViewSetup &eye, int &nClearFlags, int &nDrawFlags, int *pRandomClear,
+									bool &bOverview )
 {
 	ExecutorState_t &state = State();
 	if ( !state.m_bDecisionPending )
@@ -2386,8 +2796,8 @@ void GatherFrame( const vrect_t &rect, const CViewSetup &eye, SourceSharpRenderF
 	in.ViewportHeight = h;
 }
 
-bool SourceSharp_SetUpView( float &flZFar, float &flZFarViewmodel, float &flZNear, float &flZNearViewmodel, float &flFov,
-                            float &flViewModelFovOffset )
+bool SourceSharp_SetUpView( float &flZFar, float &flZFarViewmodel, float &flZNear, float &flZNearViewmodel,
+							float &flFov, float &flViewModelFovOffset )
 {
 	IManagedRenderClient *pManaged = ManagedRenderClient();
 	if ( !pManaged )
@@ -2428,7 +2838,8 @@ void SourceSharp_ViewRender( vrect_t *rect )
 		if ( !s_bSaid )
 		{
 			s_bSaid = true;
-			Warning( "[SourceSharp] render plan: the leaf system's BuildRenderablesList could not be hooked; views draw their custom entities one by one\n" );
+			Warning(
+				"[SourceSharp] render plan: the leaf system's BuildRenderablesList could not be hooked; views draw their custom entities one by one\n" );
 		}
 	}
 
@@ -2458,7 +2869,8 @@ void SourceSharp_ViewRender( vrect_t *rect )
 	const bool bTrace = out.Trace != 0 && RenderTrace::Begin();
 	if ( bTrace )
 	{
-		RenderTrace::Note( "frame\tpath=%d framecount=%d rect=%d,%d,%d,%d", out.Path, in.FrameCount, in.X, in.Y, in.Width, in.Height );
+		RenderTrace::Note( "frame\tpath=%d framecount=%d rect=%d,%d,%d,%d", out.Path, in.FrameCount, in.X, in.Y,
+						   in.Width, in.Height );
 		NoteFrameEnvironment();
 	}
 

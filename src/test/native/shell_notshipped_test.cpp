@@ -39,10 +39,10 @@ struct RecordedWarning
 {
 	std::string strName;
 	std::string strReason;
-	int         nTotal;
+	int nTotal;
 };
 
-std::vector< RecordedWarning > g_Warnings;
+std::vector<RecordedWarning> g_Warnings;
 
 void ResetWarnings()
 {
@@ -54,12 +54,11 @@ void ResetWarnings()
 void ShellNotShipped_Warning( const char *pName, const char *pReason, int nTotal )
 {
 	RecordedWarning w;
-	w.strName   = ( pName   != NULL ) ? pName   : "(null)";
+	w.strName = ( pName != NULL ) ? pName : "(null)";
 	w.strReason = ( pReason != NULL ) ? pReason : "(null)";
-	w.nTotal    = nTotal;
+	w.nTotal = nTotal;
 	g_Warnings.push_back( w );
 }
-
 
 //-----------------------------------------------------------------------------
 // The counter.
@@ -117,14 +116,14 @@ TEST( ShellNotShipped, RowsAreMatchedByTextAndNotByPointer )
 	// pointer identity would work today and would stop working silently the
 	// moment one moved. Two distinct buffers holding the same text must be ONE
 	// row.
-	char szFirst[ 8 ];
-	char szSecond[ 8 ];
-	strcpy( szFirst,  "same" );
+	char szFirst[8];
+	char szSecond[8];
+	strcpy( szFirst, "same" );
 	strcpy( szSecond, "same" );
 	ASSERT_NE( szFirst, szSecond );
 
 	CShellNotShipped led;
-	led.Reached( szFirst,  "r" );
+	led.Reached( szFirst, "r" );
 	led.Reached( szSecond, "r" );
 
 	EXPECT_EQ( 1, led.NameCount() );
@@ -182,16 +181,16 @@ TEST( ShellNotShipped, AFullTableKeepsCountingTheTotal )
 	// One more distinct name than the table can hold. The names must outlive the
 	// call, so they are held in a vector of std::string rather than built in a
 	// loop-local buffer.
-	std::vector< std::string > names;
+	std::vector<std::string> names;
 	for ( int i = 0; i < CShellNotShipped::kMaxNames + 1; i++ )
 	{
-		char sz[ 16 ];
+		char sz[16];
 		snprintf( sz, sizeof( sz ), "n%d", i );
 		names.push_back( std::string( sz ) );
 	}
 
 	for ( size_t i = 0; i < names.size(); i++ )
-		led.Reached( names[ i ].c_str(), "r" );
+		led.Reached( names[i].c_str(), "r" );
 
 	EXPECT_EQ( CShellNotShipped::kMaxNames + 1, led.Total() );
 	EXPECT_EQ( CShellNotShipped::kMaxNames, led.NameCount() );
@@ -199,7 +198,6 @@ TEST( ShellNotShipped, AFullTableKeepsCountingTheTotal )
 		<< "the overflowed name should have no row, and its reach should still "
 		   "be in the total";
 }
-
 
 //-----------------------------------------------------------------------------
 // The warning.
@@ -213,9 +211,9 @@ TEST( ShellNotShipped, AReachWarnsWithItsNameReasonAndRunningTotal )
 	led.Reached( "cap", "why not" );
 
 	ASSERT_EQ( (size_t)1, g_Warnings.size() );
-	EXPECT_EQ( "cap", g_Warnings[ 0 ].strName );
-	EXPECT_EQ( "why not", g_Warnings[ 0 ].strReason );
-	EXPECT_EQ( 1, g_Warnings[ 0 ].nTotal );
+	EXPECT_EQ( "cap", g_Warnings[0].strName );
+	EXPECT_EQ( "why not", g_Warnings[0].strReason );
+	EXPECT_EQ( 1, g_Warnings[0].nTotal );
 }
 
 TEST( ShellNotShipped, ANameWarnsOnceHoweverOftenItIsReached )
@@ -245,12 +243,12 @@ TEST( ShellNotShipped, EachNameGetsItsOwnFirstWarning )
 	led.Reached( "b", "r" );
 
 	ASSERT_EQ( (size_t)2, g_Warnings.size() );
-	EXPECT_EQ( "a", g_Warnings[ 0 ].strName );
-	EXPECT_EQ( "b", g_Warnings[ 1 ].strName );
+	EXPECT_EQ( "a", g_Warnings[0].strName );
+	EXPECT_EQ( "b", g_Warnings[1].strName );
 
 	// The total carried by the second line is the RUNNING total, not that row's
 	// count -- what a reader sees must be the number the readout will print.
-	EXPECT_EQ( 3, g_Warnings[ 1 ].nTotal );
+	EXPECT_EQ( 3, g_Warnings[1].nTotal );
 }
 
 TEST( ShellNotShipped, AnOverflowedNameWarnsEveryTimeRatherThanNever )
@@ -260,15 +258,15 @@ TEST( ShellNotShipped, AnOverflowedNameWarnsEveryTimeRatherThanNever )
 	ResetWarnings();
 
 	CShellNotShipped led;
-	std::vector< std::string > names;
+	std::vector<std::string> names;
 	for ( int i = 0; i < CShellNotShipped::kMaxNames; i++ )
 	{
-		char sz[ 16 ];
+		char sz[16];
 		snprintf( sz, sizeof( sz ), "n%d", i );
 		names.push_back( std::string( sz ) );
 	}
 	for ( size_t i = 0; i < names.size(); i++ )
-		led.Reached( names[ i ].c_str(), "r" );
+		led.Reached( names[i].c_str(), "r" );
 
 	const size_t nBefore = g_Warnings.size();
 	ASSERT_EQ( (size_t)CShellNotShipped::kMaxNames, nBefore );
@@ -278,7 +276,6 @@ TEST( ShellNotShipped, AnOverflowedNameWarnsEveryTimeRatherThanNever )
 
 	EXPECT_EQ( nBefore + 2, g_Warnings.size() );
 }
-
 
 //-----------------------------------------------------------------------------
 // The declared interface list.
@@ -304,11 +301,11 @@ TEST( ShellNotShippedInterfaces, EveryRowCarriesANameAndAReason )
 
 	for ( int i = 0; i < nCount; i++ )
 	{
-		ASSERT_TRUE( pRows[ i ].pszName != NULL ) << "row " << i;
-		ASSERT_TRUE( pRows[ i ].pszReason != NULL ) << "row " << i;
-		EXPECT_GT( strlen( pRows[ i ].pszName ), (size_t)0 ) << "row " << i;
-		EXPECT_GT( strlen( pRows[ i ].pszReason ), (size_t)8 )
-			<< "row " << i << " (" << pRows[ i ].pszName << ") has no reason "
+		ASSERT_TRUE( pRows[i].pszName != NULL ) << "row " << i;
+		ASSERT_TRUE( pRows[i].pszReason != NULL ) << "row " << i;
+		EXPECT_GT( strlen( pRows[i].pszName ), (size_t)0 ) << "row " << i;
+		EXPECT_GT( strlen( pRows[i].pszReason ), (size_t)8 )
+			<< "row " << i << " (" << pRows[i].pszName << ") has no reason "
 			<< "worth reading. A declared absence without an argument is the "
 			<< "silent no-op with a table entry.";
 	}
@@ -319,13 +316,11 @@ TEST( ShellNotShippedInterfaces, TheReplayInterfaceIsDeclared )
 	// The one interface plan_entity.md step 7g takes out of client.so's export
 	// set. Named rather than counted so that a row disappearing is a failure
 	// about THIS interface and not about a total.
-	const ShellNotShippedRow_t *pRow =
-		ShellNotShipped_FindInterface( "ClientReplay001" );
+	const ShellNotShippedRow_t *pRow = ShellNotShipped_FindInterface( "ClientReplay001" );
 
-	ASSERT_TRUE( pRow != NULL )
-		<< "ClientReplay001 is no longer declared not-shipped. If replay is "
-		   "back, the row should go with cdll_replay.cpp returning to the vpc; "
-		   "if it is not, the engine's miss now reads as a broken export.";
+	ASSERT_TRUE( pRow != NULL ) << "ClientReplay001 is no longer declared not-shipped. If replay is "
+								   "back, the row should go with cdll_replay.cpp returning to the vpc; "
+								   "if it is not, the engine's miss now reads as a broken export.";
 	EXPECT_STREQ( "ClientReplay001", pRow->pszName );
 }
 
@@ -367,8 +362,7 @@ TEST( ShellNotShippedInterfaces, NoNameIsDeclaredTwice )
 	{
 		for ( int j = i + 1; j < nCount; j++ )
 		{
-			EXPECT_STRNE( pRows[ i ].pszName, pRows[ j ].pszName )
-				<< "declared twice at rows " << i << " and " << j;
+			EXPECT_STRNE( pRows[i].pszName, pRows[j].pszName ) << "declared twice at rows " << i << " and " << j;
 		}
 	}
 }
@@ -381,9 +375,8 @@ TEST( ShellNotShippedInterfaces, ALookupHandsBackTheRowItFound )
 	const ShellNotShippedRow_t *pRows = ShellNotShipped_Interfaces( &nCount );
 	ASSERT_GE( nCount, 1 );
 
-	const ShellNotShippedRow_t *pFound =
-		ShellNotShipped_FindInterface( pRows[ 0 ].pszName );
+	const ShellNotShippedRow_t *pFound = ShellNotShipped_FindInterface( pRows[0].pszName );
 
-	EXPECT_EQ( pRows[ 0 ].pszName, pFound->pszName );
-	EXPECT_EQ( pRows[ 0 ].pszReason, pFound->pszReason );
+	EXPECT_EQ( pRows[0].pszName, pFound->pszName );
+	EXPECT_EQ( pRows[0].pszReason, pFound->pszReason );
 }

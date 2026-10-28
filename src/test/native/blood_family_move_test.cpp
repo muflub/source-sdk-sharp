@@ -55,7 +55,7 @@
 namespace
 {
 
-const char *const kLibrary   = "sourcesharp/game/shared/util_shared_library.cpp";
+const char *const kLibrary = "sourcesharp/game/shared/util_shared_library.cpp";
 } // anonymous namespace
 
 //=============================================================================//
@@ -82,12 +82,10 @@ TEST( BloodFamilyMove, TheLibraryIsOnBothLinkLines )
 	const char *const aTargets[] = { cmake_graph::kServer, cmake_graph::kClient };
 	for ( const char *pTarget : aTargets )
 	{
-		const std::vector< std::string > listed = cmake_graph::ListedSources( pTarget );
+		const std::vector<std::string> listed = cmake_graph::ListedSources( pTarget );
 		EXPECT_EQ( 1, std::count( listed.begin(), listed.end(), std::string( kLibrary ) ) )
-			<< kLibrary << " is not listed exactly once in " << pTarget
-			<< " (" << cmake_graph::ListFile( pTarget ) << ")";
-		EXPECT_TRUE( cmake_graph::Compiles( pTarget, kLibrary ) )
-			<< kLibrary << " is not compiled into " << pTarget;
+			<< kLibrary << " is not listed exactly once in " << pTarget << " (" << cmake_graph::ListFile( pTarget )
+			<< ")";
+		EXPECT_TRUE( cmake_graph::Compiles( pTarget, kLibrary ) ) << kLibrary << " is not compiled into " << pTarget;
 	}
 }
-

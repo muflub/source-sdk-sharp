@@ -72,6 +72,7 @@ namespace
 {
 
 const char *kClientMode = "game/client/clientmode_shared.cpp";
+
 //-----------------------------------------------------------------------------
 // WHAT EACH SIDE COMPILES is read through cmake_graph.h: client_sourcesharp
 // (src/client/native/CMakeLists.txt) and server_sourcesharp
@@ -99,18 +100,18 @@ TEST( CTeamEvicted, NeitherProjectCompilesATeamEntity )
 {
 	// PROOF-OF-READ first, per side: each side's own shell entry point.
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_clientdll.cpp" ) )
-	    << "client_sourcesharp is not the client's source list";
+		<< "client_sourcesharp is not the client's source list";
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, "sourcesharp/game/server/shell_gamedll.cpp" ) )
-	    << "server_sourcesharp is not the server's source list";
+		<< "server_sourcesharp is not the server's source list";
 
 	EXPECT_FALSE( CompilesBasename( cmake_graph::kClient, "c_team.cpp" ) )
-	    << "c_team.cpp is back in the client project. It defines g_Teams, the "
-	       "six global team functions and a CTeam ClientClass, and every one of "
-	       "them has been unreachable since no server sends a CTeam.";
+		<< "c_team.cpp is back in the client project. It defines g_Teams, the "
+		   "six global team functions and a CTeam ClientClass, and every one of "
+		   "them has been unreachable since no server sends a CTeam.";
 	EXPECT_FALSE( CompilesBasename( cmake_graph::kServer, "team.cpp" ) )
-	    << "team.cpp is back in the server project. The client half is asserted "
-	       "against the server half deliberately: c_team.cpp is safe to remove "
-	       "ONLY because no compiled server class is named CTeam.";
+		<< "team.cpp is back in the server project. The client half is asserted "
+		   "against the server half deliberately: c_team.cpp is safe to remove "
+		   "ONLY because no compiled server class is named CTeam.";
 }
 
 //-----------------------------------------------------------------------------
@@ -130,8 +131,8 @@ TEST( CTeamEvicted, TheJoinChatLineStillPrintsTheTeamNumberItAlwaysPrinted )
 	// The file is out of the client, so no compiled chat line can print a
 	// team through GetGlobalTeam: the line is SourceSharp.Client's now.
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kClientMode ) )
-	    << "clientmode_shared.cpp is back in the client; its player_team chat "
-	       "line printed the team number because GetGlobalTeam answered NULL";
+		<< "clientmode_shared.cpp is back in the client; its player_team chat "
+		   "line printed the team number because GetGlobalTeam answered NULL";
 }
 
 //-----------------------------------------------------------------------------

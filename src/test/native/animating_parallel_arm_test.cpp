@@ -60,7 +60,7 @@ namespace
 // the braces inside it nest.
 bool IsEntryPointStart( const std::string &line, std::string *pOutName )
 {
-	if ( line.empty() || line[ 0 ] == ' ' || line[ 0 ] == '\t' || line[ 0 ] == '#' )
+	if ( line.empty() || line[0] == ' ' || line[0] == '\t' || line[0] == '#' )
 		return false;
 
 	const size_t nAt = line.find( "SourceSharp_" );
@@ -84,9 +84,9 @@ bool IsEntryPointStart( const std::string &line, std::string *pOutName )
 struct Entry
 {
 	std::string name;
-	int         nLine;        // 1-based
-	bool        bAsksSdkArm;
-	bool        bAnswersParallel;
+	int nLine; // 1-based
+	bool bAsksSdkArm;
+	bool bAnswersParallel;
 };
 
 // A CALL ON the parallel hierarchy, not a MENTION of it.
@@ -110,10 +110,8 @@ struct Entry
 // is none of them.
 bool NamesParallelArm( const std::string &line )
 {
-	return line.find( "pStandalone->" )    != std::string::npos
-	    || line.find( "pStandalone," )     != std::string::npos
-	    || line.find( "CStandaloneEntity" ) != std::string::npos
-	    || line.find( "Block()" )          != std::string::npos;
+	return line.find( "pStandalone->" ) != std::string::npos || line.find( "pStandalone," ) != std::string::npos ||
+		line.find( "CStandaloneEntity" ) != std::string::npos || line.find( "Block()" ) != std::string::npos;
 }
 
 // The parser proper, over lines that have already had their comment-only ones
@@ -121,30 +119,30 @@ bool NamesParallelArm( const std::string &line )
 // feed it TEXT: a control that names a function in the tree is a control the
 // tree getting better makes vacuous, and this one has had to move twice for
 // exactly that reason.
-std::vector< Entry > ScanLines( const std::vector< std::string > &lines )
+std::vector<Entry> ScanLines( const std::vector<std::string> &lines )
 {
-	std::vector< Entry > out;
+	std::vector<Entry> out;
 	for ( size_t i = 0; i < lines.size(); i++ )
 	{
 		std::string name;
-		if ( !IsEntryPointStart( lines[ i ], &name ) )
+		if ( !IsEntryPointStart( lines[i], &name ) )
 			continue;
 
 		Entry e;
-		e.name             = name;
-		e.nLine            = (int)( i + 1 );
-		e.bAsksSdkArm      = false;
+		e.name = name;
+		e.nLine = (int)( i + 1 );
+		e.bAsksSdkArm = false;
 		e.bAnswersParallel = false;
 
 		for ( size_t j = i + 1; j < lines.size(); j++ )
 		{
 			std::string next;
-			if ( IsEntryPointStart( lines[ j ], &next ) )
+			if ( IsEntryPointStart( lines[j], &next ) )
 				break;
 
-			if ( lines[ j ].find( ".Animating()" ) != std::string::npos )
+			if ( lines[j].find( ".Animating()" ) != std::string::npos )
 				e.bAsksSdkArm = true;
-			if ( NamesParallelArm( lines[ j ] ) )
+			if ( NamesParallelArm( lines[j] ) )
 				e.bAnswersParallel = true;
 		}
 
@@ -156,14 +154,14 @@ std::vector< Entry > ScanLines( const std::vector< std::string > &lines )
 
 // The same blanking CodeLines does, over a string. A comment-only line becomes
 // an empty one rather than disappearing, so line numbers survive.
-std::vector< Entry > ScanText( const std::string &szSource )
+std::vector<Entry> ScanText( const std::string &szSource )
 {
-	std::vector< std::string > lines;
+	std::vector<std::string> lines;
 	std::string line;
 
 	for ( size_t i = 0; i <= szSource.size(); i++ )
 	{
-		if ( i == szSource.size() || szSource[ i ] == '\n' )
+		if ( i == szSource.size() || szSource[i] == '\n' )
 		{
 			const size_t nFirst = line.find_first_not_of( " \t" );
 
@@ -176,7 +174,7 @@ std::vector< Entry > ScanText( const std::string &szSource )
 			continue;
 		}
 
-		line += szSource[ i ];
+		line += szSource[i];
 	}
 
 	return ScanLines( lines );
@@ -205,60 +203,54 @@ std::vector< Entry > ScanText( const std::string &szSource )
 //-----------------------------------------------------------------------------
 TEST( AnimatingParallelArm, TheSweepSeesAnSdkArmWhenThereIsOneToSee )
 {
-	const std::string szSource =
-		"int32_t SourceSharp_Fixture( uint32_t hEntity )\n"
-		"{\n"
-		"\tconst SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );\n"
-		"\n"
-		"\tif ( CBaseAnimating *pAnimating = ent.Animating() )\n"
-		"\t\treturn pAnimating->GetSequence();\n"
-		"\n"
-		"\tif ( ent.pStandalone )\n"
-		"\t\treturn ent.pStandalone->GetSequence();\n"
-		"\n"
-		"\treturn -1;\n"
-		"}\n";
+	const std::string szSource = "int32_t SourceSharp_Fixture( uint32_t hEntity )\n"
+								 "{\n"
+								 "\tconst SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );\n"
+								 "\n"
+								 "\tif ( CBaseAnimating *pAnimating = ent.Animating() )\n"
+								 "\t\treturn pAnimating->GetSequence();\n"
+								 "\n"
+								 "\tif ( ent.pStandalone )\n"
+								 "\t\treturn ent.pStandalone->GetSequence();\n"
+								 "\n"
+								 "\treturn -1;\n"
+								 "}\n";
 
-	const std::vector< Entry > entries = ScanText( szSource );
+	const std::vector<Entry> entries = ScanText( szSource );
 
-	ASSERT_EQ( 1u, entries.size() )
-		<< "the entry-point parser did not find one definition in text that "
-		   "has exactly one; every sweep over the tree is reading nothing.";
+	ASSERT_EQ( 1u, entries.size() ) << "the entry-point parser did not find one definition in text that "
+									   "has exactly one; every sweep over the tree is reading nothing.";
 
-	EXPECT_EQ( "SourceSharp_Fixture", entries[ 0 ].name );
+	EXPECT_EQ( "SourceSharp_Fixture", entries[0].name );
 
-	EXPECT_TRUE( entries[ 0 ].bAsksSdkArm )
-		<< "the parser no longer recognises an .Animating() arm, so the sweep's "
-		   "silence over the tree means nothing.";
+	EXPECT_TRUE( entries[0].bAsksSdkArm ) << "the parser no longer recognises an .Animating() arm, so the sweep's "
+											 "silence over the tree means nothing.";
 
-	EXPECT_TRUE( entries[ 0 ].bAnswersParallel )
-		<< "the parser no longer recognises a parallel arm, so every entry "
-		   "point would read as SDK-only and the sweep would fail on all of "
-		   "them rather than none.";
+	EXPECT_TRUE( entries[0].bAnswersParallel ) << "the parser no longer recognises a parallel arm, so every entry "
+												  "point would read as SDK-only and the sweep would fail on all of "
+												  "them rather than none.";
 }
 
 TEST( AnimatingParallelArm, TheSweepNamesAnSdkOnlyEntryPoint )
 {
 	// The other direction: a function with the SDK arm and NO parallel arm is
 	// exactly what the sweep exists to name, and the fixture proves it would.
-	const std::string szSource =
-		"int32_t SourceSharp_Fixture( uint32_t hEntity )\n"
-		"{\n"
-		"\tconst SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );\n"
-		"\n"
-		"\tif ( CBaseAnimating *pAnimating = ent.Animating() )\n"
-		"\t\treturn pAnimating->GetSequence();\n"
-		"\n"
-		"\treturn -1;\n"
-		"}\n";
+	const std::string szSource = "int32_t SourceSharp_Fixture( uint32_t hEntity )\n"
+								 "{\n"
+								 "\tconst SourceSharpEntity_t ent = SourceSharp_ResolveEntity( hEntity );\n"
+								 "\n"
+								 "\tif ( CBaseAnimating *pAnimating = ent.Animating() )\n"
+								 "\t\treturn pAnimating->GetSequence();\n"
+								 "\n"
+								 "\treturn -1;\n"
+								 "}\n";
 
-	const std::vector< Entry > entries = ScanText( szSource );
+	const std::vector<Entry> entries = ScanText( szSource );
 
 	ASSERT_EQ( 1u, entries.size() );
-	EXPECT_TRUE( entries[ 0 ].bAsksSdkArm );
-	EXPECT_FALSE( entries[ 0 ].bAnswersParallel )
-		<< "the parser reports a parallel arm in a function that has none, so "
-		   "the sweep can never name anything.";
+	EXPECT_TRUE( entries[0].bAsksSdkArm );
+	EXPECT_FALSE( entries[0].bAnswersParallel ) << "the parser reports a parallel arm in a function that has none, so "
+												   "the sweep can never name anything.";
 }
 
 //=============================================================================//

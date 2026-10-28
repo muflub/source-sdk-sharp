@@ -326,7 +326,8 @@ public sealed class LauncherTests : IDisposable
     public void TheFatalExitCodeIsTheOneTheGameExitsWith()
     {
         string header = File.ReadAllText(RepoLayout.Repo("src", "shared", "native", "fatal_report.h"));
-        Assert.Contains($"enum {{ kSourceSharpFatalExitCode = {Launcher.Launcher.FatalExitCode} }};", header);
+        Assert.Matches(new System.Text.RegularExpressions.Regex(
+            $@"enum\s*\{{\s*kSourceSharpFatalExitCode\s*=\s*{Launcher.Launcher.FatalExitCode}\s*\}};"), header);
     }
 
     [Fact]

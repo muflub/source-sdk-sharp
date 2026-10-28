@@ -21,11 +21,14 @@ public:
 
 namespace
 {
-	CServerGameTags s_ServerGameTags;
+CServerGameTags s_ServerGameTags;
 }
-static void *SourceSharp_GetServerGameTags() { return (IServerGameTags *)&s_ServerGameTags; }
+
+static void *SourceSharp_GetServerGameTags()
+{
+	return (IServerGameTags *)&s_ServerGameTags;
+}
+
 const SourceSharpExposed kExposeServerGameTags = { INTERFACEVERSION_SERVERGAMETAGS, SourceSharp_GetServerGameTags };
 
-void CServerGameTags::GetTaggedConVarList( KeyValues *pCvarTagList )
-{
-}
+void CServerGameTags::GetTaggedConVarList( KeyValues *pCvarTagList ) {}

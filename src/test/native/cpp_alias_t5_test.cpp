@@ -70,23 +70,28 @@ std::string StripComments( const std::string &strIn )
 	{
 		if ( bInBlock )
 		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
+			if ( i + 1 < strIn.size() && strIn[i] == '*' && strIn[i + 1] == '/' )
 			{
-				bInBlock = false; i++;
+				bInBlock = false;
+				i++;
 			}
 			continue;
 		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
+		if ( i + 1 < strIn.size() && strIn[i] == '/' && strIn[i + 1] == '*' )
 		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
+			bInBlock = true;
+			i++;
 			continue;
 		}
-		out += strIn[ i ];
+		if ( i + 1 < strIn.size() && strIn[i] == '/' && strIn[i + 1] == '/' )
+		{
+			while ( i < strIn.size() && strIn[i] != '\n' )
+				i++;
+			if ( i < strIn.size() )
+				out += '\n';
+			continue;
+		}
+		out += strIn[i];
 	}
 	return out;
 }
@@ -134,9 +139,8 @@ TEST( CppAliasT5Scanner, StrippingIsWhatStopsTheProseFalsePositive )
 	// rule "the armed arm must not name the deleted member" fires and a correct
 	// arm reads as broken. Every arm in this shard is written in exactly that
 	// style, so this is load-bearing here rather than defensive.
-	const std::string strArmedArm =
-		"\t// m_debugOverlays never crosses, so this does nothing.\n"
-		"\treturn;\n";
+	const std::string strArmedArm = "\t// m_debugOverlays never crosses, so this does nothing.\n"
+									"\treturn;\n";
 
 	EXPECT_TRUE( Contains( strArmedArm, "m_debugOverlays" ) )
 		<< "the synthetic arm no longer reproduces the false positive";
@@ -148,9 +152,8 @@ TEST( CppAliasT5Scanner, StrippingIsWhatStopsTheProseFalsePositive )
 	// genuinely broken armed arm must survive stripping and be caught. Without
 	// this, StripComments could return the empty string and every rule above
 	// would pass vacuously.
-	const std::string strBrokenArm =
-		"\t// m_debugOverlays never crosses.\n"
-		"\tpEntity->m_debugOverlays |= bit;\n";
+	const std::string strBrokenArm = "\t// m_debugOverlays never crosses.\n"
+									 "\tpEntity->m_debugOverlays |= bit;\n";
 
 	EXPECT_TRUE( Contains( StripComments( strBrokenArm ), "m_debugOverlays" ) )
 		<< "stripping ate the code as well as the comment";

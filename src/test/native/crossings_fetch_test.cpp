@@ -78,7 +78,7 @@ int FakeRefuses( char *, int, int )
 int FakeEmpty( char *pBuffer, int nBytes, int )
 {
 	if ( pBuffer != NULL && nBytes >= 1 )
-		pBuffer[ 0 ] = '\0';
+		pBuffer[0] = '\0';
 
 	return 1;
 }
@@ -133,8 +133,7 @@ TEST( CrossingsFetch, AGoodSlotAnswersTheReport )
 	ResetFakes();
 
 	char *pOut = NULL;
-	EXPECT_EQ( SOURCESHARP_CROSSINGS_OK,
-	           SourceSharp_FetchCrossingsReport( FakeGood, false, &pOut ) );
+	EXPECT_EQ( SOURCESHARP_CROSSINGS_OK, SourceSharp_FetchCrossingsReport( FakeGood, false, &pOut ) );
 	ASSERT_TRUE( pOut != NULL );
 	EXPECT_STREQ( g_pText, pOut );
 	free( pOut );
@@ -197,16 +196,14 @@ TEST( CrossingsFetch, TheFillingCallCarriesNoResetWhenNoneWasAsked )
 TEST( CrossingsFetch, ANullSlotIsNotAnError )
 {
 	char *pOut = NULL;
-	EXPECT_EQ( SOURCESHARP_CROSSINGS_NO_SLOT,
-	           SourceSharp_FetchCrossingsReport( NULL, false, &pOut ) );
+	EXPECT_EQ( SOURCESHARP_CROSSINGS_NO_SLOT, SourceSharp_FetchCrossingsReport( NULL, false, &pOut ) );
 	EXPECT_TRUE( pOut == NULL );
 }
 
 TEST( CrossingsFetch, ARefusalIsReportedAsARefusal )
 {
 	char *pOut = NULL;
-	EXPECT_EQ( SOURCESHARP_CROSSINGS_REFUSED,
-	           SourceSharp_FetchCrossingsReport( FakeRefuses, false, &pOut ) );
+	EXPECT_EQ( SOURCESHARP_CROSSINGS_REFUSED, SourceSharp_FetchCrossingsReport( FakeRefuses, false, &pOut ) );
 	EXPECT_TRUE( pOut == NULL );
 }
 
@@ -216,22 +213,19 @@ TEST( CrossingsFetch, ARefusalIsReportedAsARefusal )
 TEST( CrossingsFetch, ATerminatorAloneIsEmptyAndNotARefusal )
 {
 	char *pOut = NULL;
-	EXPECT_EQ( SOURCESHARP_CROSSINGS_EMPTY,
-	           SourceSharp_FetchCrossingsReport( FakeEmpty, false, &pOut ) );
+	EXPECT_EQ( SOURCESHARP_CROSSINGS_EMPTY, SourceSharp_FetchCrossingsReport( FakeEmpty, false, &pOut ) );
 }
 
 TEST( CrossingsFetch, AZeroSizeIsEmpty )
 {
 	char *pOut = NULL;
-	EXPECT_EQ( SOURCESHARP_CROSSINGS_EMPTY,
-	           SourceSharp_FetchCrossingsReport( FakeZero, false, &pOut ) );
+	EXPECT_EQ( SOURCESHARP_CROSSINGS_EMPTY, SourceSharp_FetchCrossingsReport( FakeZero, false, &pOut ) );
 }
 
 TEST( CrossingsFetch, AnAbsurdSizeIsRefusedRatherThanAllocated )
 {
 	char *pOut = NULL;
-	EXPECT_EQ( SOURCESHARP_CROSSINGS_TOO_BIG,
-	           SourceSharp_FetchCrossingsReport( FakeAbsurd, false, &pOut ) );
+	EXPECT_EQ( SOURCESHARP_CROSSINGS_TOO_BIG, SourceSharp_FetchCrossingsReport( FakeAbsurd, false, &pOut ) );
 	EXPECT_TRUE( pOut == NULL );
 }
 
@@ -240,8 +234,7 @@ TEST( CrossingsFetch, AnAbsurdSizeIsRefusedRatherThanAllocated )
 TEST( CrossingsFetch, ASlotThatGrewBetweenTheTwoCallsIsRefused )
 {
 	char *pOut = NULL;
-	EXPECT_EQ( SOURCESHARP_CROSSINGS_GREW,
-	           SourceSharp_FetchCrossingsReport( FakeGrew, false, &pOut ) );
+	EXPECT_EQ( SOURCESHARP_CROSSINGS_GREW, SourceSharp_FetchCrossingsReport( FakeGrew, false, &pOut ) );
 	EXPECT_TRUE( pOut == NULL );
 }
 
@@ -251,8 +244,7 @@ TEST( CrossingsFetch, ASlotThatGrewBetweenTheTwoCallsIsRefused )
 TEST( CrossingsFetch, ASlotThatWritesNothingLeavesAValidString )
 {
 	char *pOut = NULL;
-	ASSERT_EQ( SOURCESHARP_CROSSINGS_OK,
-	           SourceSharp_FetchCrossingsReport( FakeWritesNothing, false, &pOut ) );
+	ASSERT_EQ( SOURCESHARP_CROSSINGS_OK, SourceSharp_FetchCrossingsReport( FakeWritesNothing, false, &pOut ) );
 	ASSERT_TRUE( pOut != NULL );
 	EXPECT_STREQ( "", pOut );
 	free( pOut );
@@ -262,8 +254,7 @@ TEST( CrossingsFetch, ASlotThatWritesNothingLeavesAValidString )
 TEST( CrossingsFetch, TheReportIsTerminatedWhateverTheSlotWrote )
 {
 	char *pOut = NULL;
-	ASSERT_EQ( SOURCESHARP_CROSSINGS_OK,
-	           SourceSharp_FetchCrossingsReport( FakeForgetsTheNul, false, &pOut ) );
+	ASSERT_EQ( SOURCESHARP_CROSSINGS_OK, SourceSharp_FetchCrossingsReport( FakeForgetsTheNul, false, &pOut ) );
 	ASSERT_TRUE( pOut != NULL );
 	EXPECT_EQ( strlen( g_pText ), strlen( pOut ) );
 	free( pOut );
@@ -271,8 +262,7 @@ TEST( CrossingsFetch, TheReportIsTerminatedWhateverTheSlotWrote )
 
 TEST( CrossingsFetch, ANullOutPointerIsRefusedRatherThanWritten )
 {
-	EXPECT_EQ( SOURCESHARP_CROSSINGS_NO_SLOT,
-	           SourceSharp_FetchCrossingsReport( FakeGood, false, NULL ) );
+	EXPECT_EQ( SOURCESHARP_CROSSINGS_NO_SLOT, SourceSharp_FetchCrossingsReport( FakeGood, false, NULL ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -286,27 +276,23 @@ TEST( CrossingsFetch, ANullOutPointerIsRefusedRatherThanWritten )
 TEST( CrossingsFetch, EveryStatusHasItsOwnSentence )
 {
 	static const SourceSharpCrossingsStatus kAll[] = {
-		SOURCESHARP_CROSSINGS_OK,
-		SOURCESHARP_CROSSINGS_NO_SLOT,
-		SOURCESHARP_CROSSINGS_REFUSED,
-		SOURCESHARP_CROSSINGS_EMPTY,
-		SOURCESHARP_CROSSINGS_TOO_BIG,
-		SOURCESHARP_CROSSINGS_NO_MEMORY,
+		SOURCESHARP_CROSSINGS_OK,    SOURCESHARP_CROSSINGS_NO_SLOT, SOURCESHARP_CROSSINGS_REFUSED,
+		SOURCESHARP_CROSSINGS_EMPTY, SOURCESHARP_CROSSINGS_TOO_BIG, SOURCESHARP_CROSSINGS_NO_MEMORY,
 		SOURCESHARP_CROSSINGS_GREW,
 	};
 
-	const size_t nAll = sizeof( kAll ) / sizeof( kAll[ 0 ] );
+	const size_t nAll = sizeof( kAll ) / sizeof( kAll[0] );
 
 	for ( size_t i = 0; i < nAll; i++ )
 	{
-		const char *pText = SourceSharp_CrossingsStatusText( kAll[ i ] );
-		ASSERT_TRUE( pText != NULL ) << "status " << (int)kAll[ i ] << " has no sentence";
-		EXPECT_GT( strlen( pText ), 1u ) << "status " << (int)kAll[ i ] << " has an empty sentence";
+		const char *pText = SourceSharp_CrossingsStatusText( kAll[i] );
+		ASSERT_TRUE( pText != NULL ) << "status " << (int)kAll[i] << " has no sentence";
+		EXPECT_GT( strlen( pText ), 1u ) << "status " << (int)kAll[i] << " has an empty sentence";
 
 		for ( size_t j = 0; j < i; j++ )
 		{
-			EXPECT_STRNE( SourceSharp_CrossingsStatusText( kAll[ j ] ), pText )
-				<< "statuses " << (int)kAll[ j ] << " and " << (int)kAll[ i ]
+			EXPECT_STRNE( SourceSharp_CrossingsStatusText( kAll[j] ), pText )
+				<< "statuses " << (int)kAll[j] << " and " << (int)kAll[i]
 				<< " share one sentence, so the console cannot tell them apart";
 		}
 	}

@@ -44,7 +44,8 @@ void AddPointToBounds( const Vector &v, Vector &mins, Vector &maxs )
 	ss_mathlib::AddPointToBounds( v, mins, maxs );
 }
 
-void TransformAABB( const matrix3x4_t &transform, const Vector &vecMinsIn, const Vector &vecMaxsIn, Vector &vecMinsOut, Vector &vecMaxsOut )
+void TransformAABB( const matrix3x4_t &transform, const Vector &vecMinsIn, const Vector &vecMaxsIn, Vector &vecMinsOut,
+					Vector &vecMaxsOut )
 {
 	ss_mathlib::TransformAABB( transform, vecMinsIn, vecMaxsIn, vecMinsOut, vecMaxsOut );
 }

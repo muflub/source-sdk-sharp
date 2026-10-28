@@ -10,7 +10,6 @@
 // Who typed the command: the console client slot the engine names, and the queries over
 // it. Declarations stay in util.h.
 
-#include "edict.h"
 #include "eiface.h"
 
 extern IVEngineServer *engine;
@@ -22,9 +21,13 @@ extern CGlobalVars *gpGlobals;
 class CSourceSharpCommandClient
 {
 public:
-	CSourceSharpCommandClient() : m_nSlot( 0 ) {}
+	CSourceSharpCommandClient()
+		: m_nSlot( 0 )
+	{
+	}
 
-	int  Slot() const        { return m_nSlot; }
+	int Slot() const { return m_nSlot; }
+
 	void SetSlot( int nSlot ) { m_nSlot = nSlot; }
 
 private:
@@ -49,7 +52,7 @@ int UTIL_GetCommandClientIndex()
 	// 0  == player 1
 
 	// Convert to 1 based offset
-	return (CommandClient().Slot()+1);
+	return ( CommandClient().Slot() + 1 );
 }
 
 // Returns true if the command was issued by the listenserver host, or by the dedicated

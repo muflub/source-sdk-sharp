@@ -102,14 +102,13 @@ public:
 		if ( !file.is_open() )
 			return;
 
-		m_Bytes.assign( ( std::istreambuf_iterator< char >( file ) ),
-		                std::istreambuf_iterator< char >() );
+		m_Bytes.assign( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
 
 		if ( m_Bytes.size() < sizeof( Elf64_Ehdr ) )
 			return;
-		if ( memcmp( &m_Bytes[ 0 ], ELFMAG, SELFMAG ) != 0 )
+		if ( memcmp( &m_Bytes[0], ELFMAG, SELFMAG ) != 0 )
 			return;
-		if ( (unsigned char)m_Bytes[ EI_CLASS ] != ELFCLASS64 )
+		if ( (unsigned char)m_Bytes[EI_CLASS] != ELFCLASS64 )
 			return;
 
 		m_bLoaded = Parse();
@@ -128,75 +127,72 @@ public:
 	{
 		for ( size_t i = 0; i < m_Needed.size(); i++ )
 		{
-			if ( m_Needed[ i ] == pszName )
+			if ( m_Needed[i] == pszName )
 				return true;
 		}
 		return false;
 	}
 
-	const std::vector< std::string > &Needed() const { return m_Needed; }
+	const std::vector<std::string> &Needed() const { return m_Needed; }
 
 private:
 	struct Sym
 	{
 		std::string strName;
-		bool		bDefined;
+		bool bDefined;
 	};
 
 	const void *At( uint64_t nOffset, uint64_t nSize ) const
 	{
 		if ( nOffset + nSize > m_Bytes.size() )
 			return NULL;
-		return &m_Bytes[ nOffset ];
+		return &m_Bytes[nOffset];
 	}
 
 	bool Has( const char *pszName, bool bDefined ) const
 	{
 		for ( size_t i = 0; i < m_Syms.size(); i++ )
 		{
-			if ( m_Syms[ i ].strName == pszName && m_Syms[ i ].bDefined == bDefined )
+			if ( m_Syms[i].strName == pszName && m_Syms[i].bDefined == bDefined )
 				return true;
 		}
 		return false;
 	}
 
-	bool ReadSymbols( const Elf64_Shdr *pSections, uint16_t nSections,
-	                  const Elf64_Shdr &section )
+	bool ReadSymbols( const Elf64_Shdr *pSections, uint16_t nSections, const Elf64_Shdr &section )
 	{
 		if ( section.sh_link >= nSections || section.sh_entsize == 0 )
 			return false;
 
-		const Elf64_Shdr &strtab = pSections[ section.sh_link ];
+		const Elf64_Shdr &strtab = pSections[section.sh_link];
 		const char *pStrings = (const char *)At( strtab.sh_offset, strtab.sh_size );
 		if ( !pStrings )
 			return false;
 
 		const uint64_t nCount = section.sh_size / section.sh_entsize;
-		const Elf64_Sym *pSyms =
-			(const Elf64_Sym *)At( section.sh_offset, section.sh_size );
+		const Elf64_Sym *pSyms = (const Elf64_Sym *)At( section.sh_offset, section.sh_size );
 		if ( !pSyms )
 			return false;
 
 		for ( uint64_t i = 0; i < nCount; i++ )
 		{
-			if ( pSyms[ i ].st_name == 0 || pSyms[ i ].st_name >= strtab.sh_size )
+			if ( pSyms[i].st_name == 0 || pSyms[i].st_name >= strtab.sh_size )
 				continue;
 
 			Sym sym;
-			sym.strName = pStrings + pSyms[ i ].st_name;
-			sym.bDefined = ( pSyms[ i ].st_shndx != SHN_UNDEF );
+			sym.strName = pStrings + pSyms[i].st_name;
+			sym.bDefined = ( pSyms[i].st_shndx != SHN_UNDEF );
 			m_Syms.push_back( sym );
 		}
 		return true;
 	}
 
-	void ReadNeeded( const Elf64_Shdr *pSections, uint16_t nSections,
-	                 const Elf64_Shdr &section )
+	void ReadNeeded( const Elf64_Shdr *pSections, uint16_t nSections, const Elf64_Shdr &section )
 	{
 		if ( section.sh_link >= nSections || section.sh_entsize == 0 )
 			return;
 
-		const Elf64_Shdr &strtab = pSections[ section.sh_link ];
+		const Elf64_Shdr &strtab = pSections[section.sh_link];
 		const char *pStrings = (const char *)At( strtab.sh_offset, strtab.sh_size );
 		if ( !pStrings )
 			return;
@@ -208,48 +204,47 @@ private:
 
 		for ( uint64_t i = 0; i < nCount; i++ )
 		{
-			if ( pDyn[ i ].d_tag == DT_NULL )
+			if ( pDyn[i].d_tag == DT_NULL )
 				break;
-			if ( pDyn[ i ].d_tag != DT_NEEDED )
+			if ( pDyn[i].d_tag != DT_NEEDED )
 				continue;
-			if ( pDyn[ i ].d_un.d_val >= strtab.sh_size )
+			if ( pDyn[i].d_un.d_val >= strtab.sh_size )
 				continue;
 
-			m_Needed.push_back( pStrings + pDyn[ i ].d_un.d_val );
+			m_Needed.push_back( pStrings + pDyn[i].d_un.d_val );
 		}
 	}
 
 	bool Parse()
 	{
-		const Elf64_Ehdr *pHeader = (const Elf64_Ehdr *)&m_Bytes[ 0 ];
+		const Elf64_Ehdr *pHeader = (const Elf64_Ehdr *)&m_Bytes[0];
 		if ( pHeader->e_shentsize != sizeof( Elf64_Shdr ) || pHeader->e_shnum == 0 )
 			return false;
 
-		const Elf64_Shdr *pSections = (const Elf64_Shdr *)At(
-			pHeader->e_shoff, (uint64_t)pHeader->e_shnum * sizeof( Elf64_Shdr ) );
+		const Elf64_Shdr *pSections =
+			(const Elf64_Shdr *)At( pHeader->e_shoff, (uint64_t)pHeader->e_shnum * sizeof( Elf64_Shdr ) );
 		if ( !pSections )
 			return false;
 
 		bool bAnySymbols = false;
 		for ( uint16_t i = 0; i < pHeader->e_shnum; i++ )
 		{
-			if ( pSections[ i ].sh_type == SHT_SYMTAB ||
-			     pSections[ i ].sh_type == SHT_DYNSYM )
+			if ( pSections[i].sh_type == SHT_SYMTAB || pSections[i].sh_type == SHT_DYNSYM )
 			{
-				bAnySymbols |= ReadSymbols( pSections, pHeader->e_shnum, pSections[ i ] );
+				bAnySymbols |= ReadSymbols( pSections, pHeader->e_shnum, pSections[i] );
 			}
-			else if ( pSections[ i ].sh_type == SHT_DYNAMIC )
+			else if ( pSections[i].sh_type == SHT_DYNAMIC )
 			{
-				ReadNeeded( pSections, pHeader->e_shnum, pSections[ i ] );
+				ReadNeeded( pSections, pHeader->e_shnum, pSections[i] );
 			}
 		}
 		return bAnySymbols;
 	}
 
-	std::string					m_Bytes;
-	std::vector< Sym >			m_Syms;
-	std::vector< std::string >	m_Needed;
-	bool						m_bLoaded;
+	std::string m_Bytes;
+	std::vector<Sym> m_Syms;
+	std::vector<std::string> m_Needed;
+	bool m_bLoaded;
 };
 
 // The link line a target's link edge in build.ninja gives the linker: its
@@ -259,7 +254,7 @@ std::string LinkText( const char *pszTarget )
 {
 	const cmake_graph::LinkEdge edge = cmake_graph::Link( pszTarget );
 	std::string s;
-	std::map< std::string, std::string >::const_iterator it = edge.vars.find( "LINK_FLAGS" );
+	std::map<std::string, std::string>::const_iterator it = edge.vars.find( "LINK_FLAGS" );
 	if ( it != edge.vars.end() )
 		s += it->second + " ";
 	it = edge.vars.find( "LINK_LIBRARIES" );
@@ -270,7 +265,7 @@ std::string LinkText( const char *pszTarget )
 
 bool LinksToken( const char *pszTarget, const std::string &strTok )
 {
-	const std::vector< std::string > libs = cmake_graph::LinkLibraries( pszTarget );
+	const std::vector<std::string> libs = cmake_graph::LinkLibraries( pszTarget );
 	return std::find( libs.begin(), libs.end(), strTok ) != libs.end();
 }
 
@@ -325,14 +320,14 @@ TEST( ManagedHostSingleInstance, NeitherGameProjectLinksTheHostStatically )
 	const char *const kGame[] = { cmake_graph::kServer, cmake_graph::kClient };
 	for ( size_t i = 0; i < 2; i++ )
 	{
-		const std::vector< std::string > libs = cmake_graph::LinkLibraries( kGame[ i ] );
+		const std::vector<std::string> libs = cmake_graph::LinkLibraries( kGame[i] );
 		for ( size_t k = 0; k < libs.size(); k++ )
-			EXPECT_EQ( libs[ k ].find( "libsourcesharp.a" ), std::string::npos )
-				<< kGame[ i ] << " links the host as a static lib again: " << libs[ k ];
+			EXPECT_EQ( libs[k].find( "libsourcesharp.a" ), std::string::npos )
+				<< kGame[i] << " links the host as a static lib again: " << libs[k];
 		// By target (ss_link_host): the shared object itself, whose SONAME is
 		// what DT_NEEDED records (it was -L/-l while the host had no SONAME).
-		EXPECT_TRUE( LinksToken( kGame[ i ], "out/libmanaged_host.so" ) )
-			<< kGame[ i ] << " no longer links libmanaged_host.so.";
+		EXPECT_TRUE( LinksToken( kGame[i], "out/libmanaged_host.so" ) )
+			<< kGame[i] << " no longer links libmanaged_host.so.";
 	}
 }
 
@@ -344,11 +339,12 @@ TEST( ManagedHostSingleInstance, BothGameProjectsKeepTheOriginRunpath )
 	const char *const kGame[] = { cmake_graph::kServer, cmake_graph::kClient };
 	for ( size_t i = 0; i < 2; i++ )
 	{
-		const std::string text = LinkText( kGame[ i ] );
+		const std::string text = LinkText( kGame[i] );
 		ASSERT_NE( text.find( "out/libmanaged_host.so" ), std::string::npos )
-			<< kGame[ i ] << "'s link line read as something else";
+			<< kGame[i] << "'s link line read as something else";
 		EXPECT_NE( text.find( "-Wl,-rpath,\"\\$$ORIGIN\"" ), std::string::npos )
-			<< kGame[ i ] << " has lost its $ORIGIN runpath:\n" << text;
+			<< kGame[i] << " has lost its $ORIGIN runpath:\n"
+			<< text;
 	}
 }
 

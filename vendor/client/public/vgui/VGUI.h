@@ -9,25 +9,25 @@
 
 #ifndef NULL
 #ifdef __cplusplus
-#define NULL    0
+#define NULL 0
 #else
-#define NULL    ((void *)0)
+#define NULL ( (void *)0 )
 #endif
 #endif
 
-#pragma warning( disable: 4800 )	// disables 'performance warning converting int to bool'
-#pragma warning( disable: 4786 )	// disables 'identifier truncated in browser information' warning
-#pragma warning( disable: 4355 )	// disables 'this' : used in base member initializer list
-#pragma warning( disable: 4097 )	// warning C4097: typedef-name 'BaseClass' used as synonym for class-name
-#pragma warning( disable: 4514 )	// warning C4514: 'Color::Color' : unreferenced inline function has been removed
-#pragma warning( disable: 4100 )	// warning C4100: 'code' : unreferenced formal parameter
-#pragma warning( disable: 4127 )	// warning C4127: conditional expression is constant
+#pragma warning( disable : 4800 ) // disables 'performance warning converting int to bool'
+#pragma warning( disable : 4786 ) // disables 'identifier truncated in browser information' warning
+#pragma warning( disable : 4355 ) // disables 'this' : used in base member initializer list
+#pragma warning( disable : 4097 ) // warning C4097: typedef-name 'BaseClass' used as synonym for class-name
+#pragma warning( disable : 4514 ) // warning C4514: 'Color::Color' : unreferenced inline function has been removed
+#pragma warning( disable : 4100 ) // warning C4100: 'code' : unreferenced formal parameter
+#pragma warning( disable : 4127 ) // warning C4127: conditional expression is constant
 
-typedef unsigned int   uint;
+typedef unsigned int uint;
 
 #ifndef _WCHAR_T_DEFINED
 // DAL - wchar_t is a built in define in gcc 3.2 with a size of 4 bytes
-#if !defined( __x86_64__ ) && !defined( __WCHAR_TYPE__  )
+#if !defined( __x86_64__ ) && !defined( __WCHAR_TYPE__ )
 typedef unsigned short wchar_t;
 #define _WCHAR_T_DEFINED
 #endif

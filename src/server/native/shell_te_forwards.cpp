@@ -12,14 +12,13 @@
 // managed TeForwardDispatch decides the class and fields. Stock's te_*.cpp files are not
 // compiled, since their ServerClasses would clash with the managed ones.
 
-#include <stddef.h>
 #include "edict.h"
 #include "networkstringtabledefs.h"
-#include "irecipientfilter.h"
+
 #include "tempent_forwards.h"
 #include "ss_recipient_filter.h"
 #include "shell_tempents.h"
-#include "iservernetworkable.h"
+
 #include "ss_effect_dispatch.h"
 
 // The engine's globals and the EffectDispatch string table.
@@ -38,34 +37,23 @@ static int EffectNameIndex( const char *pName )
 }
 
 // m_vecOrigin is DT_TEParticleSystem's, nested at offset zero in the same blob.
-void TE_BloodStream( IRecipientFilter& filter, float delay,
-	const Vector* org, const Vector* dir, int r, int g, int b, int a, int amount )
+void TE_BloodStream( IRecipientFilter &filter, float delay, const Vector *org, const Vector *dir, int r, int g, int b,
+					 int a, int amount )
 {
-	const float f[] =
-	{
-		org->x,
-		org->y,
-		org->z,
-		dir->x,
-		dir->y,
-		dir->z,
+	const float f[] = {
+		org->x, org->y, org->z, dir->x, dir->y, dir->z,
 	};
 
-	const int i[] =
-	{
-		r,
-		g,
-		b,
-		a,
-		amount,
+	const int i[] = {
+		r, g, b, a, amount,
 	};
 
 	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_BLOOD_STREAM, filter, delay, f, ARRAYSIZE( f ), i, ARRAYSIZE( i ) );
 }
 
 // The client re-traces from m_vecStart to m_vecOrigin, so a missing start is refused.
-void TE_Decal( IRecipientFilter& filter, float delay,
-	const Vector* pos, const Vector* start, int entity, int hitbox, int index )
+void TE_Decal( IRecipientFilter &filter, float delay, const Vector *pos, const Vector *start, int entity, int hitbox,
+			   int index )
 {
 	Assert( pos && start );
 
@@ -73,18 +61,11 @@ void TE_Decal( IRecipientFilter& filter, float delay,
 	if ( !pos || !start )
 		return;
 
-	const float f[] =
-	{
-		pos->x,
-		pos->y,
-		pos->z,
-		start->x,
-		start->y,
-		start->z,
+	const float f[] = {
+		pos->x, pos->y, pos->z, start->x, start->y, start->z,
 	};
 
-	const int i[] =
-	{
+	const int i[] = {
 		entity,
 		hitbox,
 		index,
@@ -95,11 +76,10 @@ void TE_Decal( IRecipientFilter& filter, float delay,
 
 // Every field lives in the nested DT_EffectData table at offset zero. `pos` is stock's
 // and ignored; data.m_vOrigin is the position.
-void TE_DispatchEffect( IRecipientFilter& filter, float delay,
-	const Vector &pos, const char *pName, const ss::CEffectData &data )
+void TE_DispatchEffect( IRecipientFilter &filter, float delay, const Vector &pos, const char *pName,
+						const ss::CEffectData &data )
 {
-	const float f[] =
-	{
+	const float f[] = {
 		data.m_vOrigin.x,
 		data.m_vOrigin.y,
 		data.m_vOrigin.z,
@@ -126,8 +106,7 @@ void TE_DispatchEffect( IRecipientFilter& filter, float delay,
 		data.m_ControlPoint1.m_vecOffset.z,
 	};
 
-	const int i[] =
-	{
+	const int i[] = {
 		data.m_fFlags,
 		data.m_nAttachmentIndex,
 		data.m_nSurfaceProp + 1,
@@ -146,19 +125,16 @@ void TE_DispatchEffect( IRecipientFilter& filter, float delay,
 }
 
 // UTIL_Smoke reaches this through ss::Effects().
-void TE_Smoke( IRecipientFilter& filter, float delay,
-	const Vector* pos, int modelindex, float scale, int framerate )
+void TE_Smoke( IRecipientFilter &filter, float delay, const Vector *pos, int modelindex, float scale, int framerate )
 {
-	const float f[] =
-	{
+	const float f[] = {
 		pos ? pos->x : 0.0f,
 		pos ? pos->y : 0.0f,
 		pos ? pos->z : 0.0f,
 		scale,
 	};
 
-	const int i[] =
-	{
+	const int i[] = {
 		modelindex,
 		framerate,
 	};
@@ -167,21 +143,15 @@ void TE_Smoke( IRecipientFilter& filter, float delay,
 }
 
 // A NULL direction is sent as zero, stock's "no particular direction".
-void TE_Sparks( IRecipientFilter& filter, float delay,
-	const Vector* pos, int nMagnitude, int nTrailLength, const Vector *pDir )
+void TE_Sparks( IRecipientFilter &filter, float delay, const Vector *pos, int nMagnitude, int nTrailLength,
+				const Vector *pDir )
 {
-	const float f[] =
-	{
-		pos ? pos->x : 0.0f,
-		pos ? pos->y : 0.0f,
-		pos ? pos->z : 0.0f,
-		pDir ? pDir->x : 0.0f,
-		pDir ? pDir->y : 0.0f,
-		pDir ? pDir->z : 0.0f,
+	const float f[] = {
+		pos ? pos->x : 0.0f,   pos ? pos->y : 0.0f,   pos ? pos->z : 0.0f,
+		pDir ? pDir->x : 0.0f, pDir ? pDir->y : 0.0f, pDir ? pDir->z : 0.0f,
 	};
 
-	const int i[] =
-	{
+	const int i[] = {
 		nMagnitude,
 		nTrailLength,
 	};
@@ -189,22 +159,19 @@ void TE_Sparks( IRecipientFilter& filter, float delay,
 	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_SPARKS, filter, delay, f, ARRAYSIZE( f ), i, ARRAYSIZE( i ) );
 }
 
-void TE_WorldDecal( IRecipientFilter& filter, float delay,
-	const Vector* pos, int index )
+void TE_WorldDecal( IRecipientFilter &filter, float delay, const Vector *pos, int index )
 {
 	// Stock returns here; C# never sees a null pointer.
 	if ( !pos )
 		return;
 
-	const float f[] =
-	{
+	const float f[] = {
 		pos->x,
 		pos->y,
 		pos->z,
 	};
 
-	const int i[] =
-	{
+	const int i[] = {
 		index,
 	};
 
@@ -214,7 +181,6 @@ void TE_WorldDecal( IRecipientFilter& filter, float delay,
 // The two entry points the rest of the server calls (te_effect_dispatch.cpp).
 static void DispatchEffect( const char *pName, const ss::CEffectData &data, ss::CRecipientFilter &filter )
 {
-
 	TE_DispatchEffect( filter, 0.0, data.m_vOrigin, pName, data );
 }
 
@@ -226,13 +192,13 @@ void DispatchEffect( const char *pName, const ss::CEffectData &data )
 
 // The server's ss::IEffects: Smoke and Sparks, over the forwards above.
 
-#include "shake.h"
 #include "ss_effects.h"
 
 class CEffectsServer : public ss::IEffects
 {
 public:
 	CEffectsServer() {}
+
 	virtual ~CEffectsServer() {}
 
 	virtual void Smoke( const Vector &origin, int mModel, float flScale, float flFramerate )
@@ -244,13 +210,12 @@ public:
 	}
 
 	virtual void Sparks( const Vector &position, int nMagnitude = 1, int nTrailLength = 1,
-	                     const Vector *pvecDir = NULL )
+						 const Vector *pvecDir = NULL )
 	{
 		ss::CPVSFilter filter( position );
 
 		TE_Sparks( filter, 0.0, &position, nMagnitude, nTrailLength, pvecDir );
 	}
-
 };
 
 static CEffectsServer s_EffectServer;

@@ -58,19 +58,16 @@ namespace
 // that called it, the managed-built slot it forwarded to, and the shim slot C#
 // ran each hook back through.
 const char *const kHookRoute[] = {
-	"voidCUserMessages::HookMessage(",
-	"CUserMessages*usermessages",
-	"CUserMessageRegister::RegisterAll(",
-	"HookMessage(constchar*pName,void*pfnHook)",
-	"UserMessageRunHook(",
+	"voidCUserMessages::HookMessage(",           "CUserMessages*usermessages", "CUserMessageRegister::RegisterAll(",
+	"HookMessage(constchar*pName,void*pfnHook)", "UserMessageRunHook(",
 };
 
 std::string HookRouteIn( const std::string &code )
 {
-	for ( size_t i = 0; i < sizeof( kHookRoute ) / sizeof( kHookRoute[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kHookRoute ) / sizeof( kHookRoute[0] ); i++ )
 	{
-		if ( code.find( kHookRoute[ i ] ) != std::string::npos )
-			return kHookRoute[ i ];
+		if ( code.find( kHookRoute[i] ) != std::string::npos )
+			return kHookRoute[i];
 	}
 	return std::string();
 }
@@ -86,8 +83,8 @@ TEST( UserMessageForwarders, ThePlantedHookRouteIsSeen )
 		"virtualvoidHookMessage(constchar*pName,void*pfnHook)=0;",
 		"virtualvoidUserMessageRunHook(void*pfnHook,void*pMsg)=0;",
 	};
-	for ( size_t i = 0; i < sizeof( pszPlanted ) / sizeof( pszPlanted[ 0 ] ); i++ )
-		EXPECT_EQ( HookRouteIn( pszPlanted[ i ] ), kHookRoute[ i ] ) << pszPlanted[ i ];
+	for ( size_t i = 0; i < sizeof( pszPlanted ) / sizeof( pszPlanted[0] ); i++ )
+		EXPECT_EQ( HookRouteIn( pszPlanted[i] ), kHookRoute[i] ) << pszPlanted[i];
 
 	EXPECT_EQ( HookRouteIn( "int32_tSourceSharp_ClientViewportQuery(constchar*pszPanel){" ), "" )
 		<< "a slot that stays must not look like the route";
@@ -108,4 +105,3 @@ TEST( UserMessageForwarders, ThePlantedHookRouteIsSeen )
 // there is no name lookup to refuse and no open message to track. The send
 // slot above is the only way a message reaches the engine.
 //-----------------------------------------------------------------------------
-

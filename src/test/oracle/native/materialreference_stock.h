@@ -5,7 +5,7 @@
 // under the same names.
 #pragma once
 
-#include "materialsystem/MaterialSystemUtil.h"   // ours first: its guard is set
+#include "materialsystem/MaterialSystemUtil.h" // ours first: its guard is set
 
 #undef MATERIALSYSTEMUTIL_H
 #define CMaterialReference StockMaterialReference

@@ -1,7 +1,7 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-void GenerateSequential( unsigned short *pIndices,	LAYOUT	writes the index buffer the renderer reads by layout (meshutils_oracle_test holds it to tier2.a)
-void GenerateQuad( unsigned short *pIndices,	LAYOUT	writes the index buffer the renderer reads by layout (meshutils_oracle_test holds it to tier2.a)
-void GeneratePolygon( unsigned short *pIndices,	LAYOUT	writes the index buffer the renderer reads by layout (meshutils_oracle_test holds it to tier2.a)
-void GenerateLineStrip( unsigned short *pIndices,	LAYOUT	writes the index buffer the renderer reads by layout (meshutils_oracle_test holds it to tier2.a)
-void GenerateLineLoop( unsigned short *pIndices,	LAYOUT	writes the index buffer the renderer reads by layout (meshutils_oracle_test holds it to tier2.a)
+void GenerateSequential( unsigned short *pIndices, int nIndexCount, int nFirstVertex )	LAYOUT	writes the index buffer the renderer reads by layout (meshutils_oracle_test holds it to tier2.a)
+void GenerateQuad( unsigned short *pIndices, int nIndexCount, int nFirstVertex )	LAYOUT	writes the index buffer the renderer reads by layout (meshutils_oracle_test holds it to tier2.a)
+void GeneratePolygon( unsigned short *pIndices, int nIndexCount, int nFirstVertex )	LAYOUT	writes the index buffer the renderer reads by layout (meshutils_oracle_test holds it to tier2.a)
+void GenerateLineStrip( unsigned short *pIndices, int nIndexCount, int nFirstVertex )	LAYOUT	writes the index buffer the renderer reads by layout (meshutils_oracle_test holds it to tier2.a)
+void GenerateLineLoop( unsigned short *pIndices, int nIndexCount, int nFirstVertex )	LAYOUT	writes the index buffer the renderer reads by layout (meshutils_oracle_test holds it to tier2.a)

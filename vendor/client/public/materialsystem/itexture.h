@@ -29,7 +29,7 @@ public:
 
 	// (erics): This should have a virtual destructor, but would be ABI breaking (non-versioned interface implemented
 	//          by the game)
-//	virtual ~ITextureRegenerator(){}
+	//	virtual ~ITextureRegenerator(){}
 };
 
 abstract_class ITexture
@@ -59,8 +59,14 @@ public:
 	virtual void IncrementReferenceCount() = 0;
 	virtual void DecrementReferenceCount() = 0;
 
-	inline void AddRef() { IncrementReferenceCount(); }
-	inline void Release() { DecrementReferenceCount(); }
+	inline void AddRef()
+	{
+		IncrementReferenceCount();
+	}
+	inline void Release()
+	{
+		DecrementReferenceCount();
+	}
 
 	// Used to modify the texture bits (procedural textures only)
 	virtual void unused_SetTextureRegenerator() = 0;
@@ -107,7 +113,7 @@ public:
 	// Save texture to a file.
 	virtual void unused_SaveToFile() = 0;
 
-	// Copy this texture, which must be a render target or a renderable texture, to the destination texture, 
+	// Copy this texture, which must be a render target or a renderable texture, to the destination texture,
 	// which must have been created with the STAGING bit.
 	virtual void unused_CopyToStagingTexture() = 0;
 

@@ -15,17 +15,16 @@
 #include "imovementplayer.h"
 #include "generic_payload.h"
 #include "ground_handle_wire.h"
-#include "sourcesharp.h"
 
 // Bumped by a managed reload on both sides; stale field sets re-ask before use.
 unsigned int SourceSharp_PlayerSyncGeneration();
-void         SourceSharp_PlayerSyncInvalidate( const char *pReason );
+void SourceSharp_PlayerSyncInvalidate( const char *pReason );
 
 // The resolved placements: whole-storage fields keep an offset, narrow ones the
 // packed placement the C# packer chose.
 struct SourceSharpPlayerFields_t
 {
-	unsigned int nGeneration;   // 0 = never resolved
+	unsigned int nGeneration; // 0 = never resolved
 
 	// Whole words.
 	int nHealth, nMaxSpeed, nFallVelocity, nDuckTime, nDuckJumpTime, nJumpTime;
@@ -42,10 +41,7 @@ struct SourceSharpPlayerFields_t
 
 	SourceSharpPlayerFields_t() { memset( this, 0, sizeof( *this ) ); }
 
-	bool IsCurrent() const
-	{
-		return nGeneration != 0 && nGeneration == SourceSharp_PlayerSyncGeneration();
-	}
+	bool IsCurrent() const { return nGeneration != 0 && nGeneration == SourceSharp_PlayerSyncGeneration(); }
 };
 
 // Asks the managed side for every placement. False, with one warning, when the
@@ -97,12 +93,12 @@ inline bool SourceSharp_NetStateAsk( SourceSharpNetStateAsk_t *pAsk )
 	if ( !pAsk || !ManagedNetState() )
 		return false;
 	pAsk->pfnFieldOffset = &SourceSharp_ServerNetStateFieldOffset;
-	pAsk->pfnFieldBits   = &SourceSharp_ServerNetStateFieldBits;
+	pAsk->pfnFieldBits = &SourceSharp_ServerNetStateFieldBits;
 #else
 	if ( !pAsk || !ManagedStandaloneClient() )
 		return false;
 	pAsk->pfnFieldOffset = &SourceSharp_ClientNetStateFieldOffset;
-	pAsk->pfnFieldBits   = &SourceSharp_ClientNetStateFieldBits;
+	pAsk->pfnFieldBits = &SourceSharp_ClientNetStateFieldBits;
 #endif
 	return true;
 }
@@ -127,7 +123,6 @@ inline int SourceSharpPlayerSync_EncodeGround( const CBaseHandle &handle )
 #ifndef CLIENT_DLL
 // The server's engine side to the blob: origin, health and alive, the words
 // native holds. The managed command loop publishes the rest.
-void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob,
-                                            const SourceSharpPlayerFields_t &fields,
-                                            const Vector &vecOrigin, int nHealth, bool bAlive );
+void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob, const SourceSharpPlayerFields_t &fields,
+											const Vector &vecOrigin, int nHealth, bool bAlive );
 #endif

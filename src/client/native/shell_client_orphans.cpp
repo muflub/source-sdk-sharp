@@ -8,16 +8,6 @@
 // SS_REASON g  leaf math over mdl/bsp data
 // Free functions client.so still names whose stock files are not built.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -26,13 +16,12 @@
 #include "view.h"
 #include "view_shared.h"
 #include "iviewrender.h"
-#include "mathlib/vector.h"
 
 class C_BasePlayer;
 struct cplane_t;
 
 // No reflective glass exists on the client.
-bool IsReflectiveGlassInView( const CViewSetup& view, cplane_t &plane )
+bool IsReflectiveGlassInView( const CViewSetup &view, cplane_t &plane )
 {
 	return false;
 }
@@ -44,8 +33,8 @@ void FormatViewModelAttachment( Vector &vOrigin, bool bInverse )
 	// Presumably, SetUpView has been called so we know our FOV and render origin.
 	const CViewSetup *pViewSetup = view->GetPlayerViewSetup();
 
-	float worldx = tan( pViewSetup->fov * M_PI/360.0 );
-	float viewx = tan( pViewSetup->fovViewmodel * M_PI/360.0 );
+	float worldx = tan( pViewSetup->fov * M_PI / 360.0 );
+	float viewx = tan( pViewSetup->fovViewmodel * M_PI / 360.0 );
 
 	// aspect ratio cancels out, so only need one factor
 	// the difference between the screen coordinates of the 2 systems is the ratio
@@ -79,6 +68,7 @@ void FormatViewModelAttachment( Vector &vOrigin, bool bInverse )
 	}
 
 	// Transform back to world space.
-	Vector vOut = (MainViewRight() * vTransformed.x) + (MainViewUp() * vTransformed.y) + (MainViewForward() * vTransformed.z);
+	Vector vOut = ( MainViewRight() * vTransformed.x ) + ( MainViewUp() * vTransformed.y ) +
+		( MainViewForward() * vTransformed.z );
 	vOrigin = pViewSetup->origin + vOut;
 }

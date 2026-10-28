@@ -112,23 +112,28 @@ std::string StripComments( const std::string &strIn )
 	{
 		if ( bInBlock )
 		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
+			if ( i + 1 < strIn.size() && strIn[i] == '*' && strIn[i + 1] == '/' )
 			{
-				bInBlock = false; i++;
+				bInBlock = false;
+				i++;
 			}
 			continue;
 		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
+		if ( i + 1 < strIn.size() && strIn[i] == '/' && strIn[i + 1] == '*' )
 		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
+			bInBlock = true;
+			i++;
 			continue;
 		}
-		out += strIn[ i ];
+		if ( i + 1 < strIn.size() && strIn[i] == '/' && strIn[i + 1] == '/' )
+		{
+			while ( i < strIn.size() && strIn[i] != '\n' )
+				i++;
+			if ( i < strIn.size() )
+				out += '\n';
+			continue;
+		}
+		out += strIn[i];
 	}
 	return out;
 }
@@ -145,7 +150,6 @@ std::string StripComments( const std::string &strIn )
 // BodyIsEmpty went with Claim 7's subject: entity_bases.cpp held the bodies
 // it measured (plan_server_native_min P1).
 
-
 //-----------------------------------------------------------------------------
 // One SS_CBASEENTITY_ALIAS region, split into arms. Both polarities, because
 // the armed arm is whichever side the opening directive says it is and not
@@ -156,35 +160,48 @@ struct Guard_t
 	std::string strFile;
 	int nLine;
 	int nEndifLine;
-	std::vector< std::string > unarmed;
-	std::vector< std::string > armed;
+	std::vector<std::string> unarmed;
+	std::vector<std::string> armed;
 	bool bHasElse;
 	bool bClosed;
 
-	Guard_t() : nLine( 0 ), nEndifLine( 0 ), bHasElse( false ), bClosed( false ) {}
+	Guard_t()
+		: nLine( 0 )
+		, nEndifLine( 0 )
+		, bHasElse( false )
+		, bClosed( false )
+	{
+	}
 
 	std::string UnarmedText() const
 	{
 		std::string s;
-		for ( size_t i = 0; i < unarmed.size(); i++ ) s += unarmed[ i ] + "\n";
+		for ( size_t i = 0; i < unarmed.size(); i++ )
+			s += unarmed[i] + "\n";
 		return StripComments( s );
 	}
+
 	std::string ArmedText() const
 	{
 		std::string s;
-		for ( size_t i = 0; i < armed.size(); i++ ) s += armed[ i ] + "\n";
+		for ( size_t i = 0; i < armed.size(); i++ )
+			s += armed[i] + "\n";
 		return StripComments( s );
 	}
+
 	bool ArmedHasCode() const
 	{
 		for ( size_t i = 0; i < armed.size(); i++ )
-			if ( !IsBlankOrComment( armed[ i ] ) ) return true;
+			if ( !IsBlankOrComment( armed[i] ) )
+				return true;
 		return false;
 	}
+
 	bool UnarmedHasCode() const
 	{
 		for ( size_t i = 0; i < unarmed.size(); i++ )
-			if ( !IsBlankOrComment( unarmed[ i ] ) ) return true;
+			if ( !IsBlankOrComment( unarmed[i] ) )
+				return true;
 		return false;
 	}
 };
@@ -210,7 +227,7 @@ struct FileFloor_t
 	const char *pszAnchor;
 };
 
-}  // namespace
+} // namespace
 
 //-----------------------------------------------------------------------------
 // CLAIM 1 — toucher.cpp, and the reason this file exists.
@@ -247,6 +264,5 @@ TEST( CppAliasRetypeW1Scanner, CountOfCountsAndDoesNotOverlapItself )
 	EXPECT_EQ( 0u, CountOf( "abc", "d" ) );
 	EXPECT_EQ( 3u, CountOf( "xaxaxa", "xa" ) );
 	EXPECT_EQ( 1u, CountOf( "aaa", "aaa" ) );
-	EXPECT_EQ( 1u, CountOf( "aaaa", "aaa" ) )
-		<< "overlapping matches would make the seven-ask count meaningless";
+	EXPECT_EQ( 1u, CountOf( "aaaa", "aaa" ) ) << "overlapping matches would make the seven-ask count meaningless";
 }

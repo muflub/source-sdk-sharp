@@ -234,7 +234,7 @@ internal unsafe struct EngineSoundFwd : IForwarderTable
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_EngineSound";
 
-    // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
+    // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector<Vector> *, bool, float, int )
     public delegate* unmanaged<void*, void*, int, int, byte*, float, int, int, int, int, void*, void*, void*, byte, float, int, void> EmitSound_2;
 
     // void IEngineSound::StopSound( int, int, const char * )
@@ -255,7 +255,7 @@ internal unsafe struct EngineSoundFwd : IForwarderTable
     // void IEngineSound::EmitAmbientSound( const char *, float, int, int, float )
     public delegate* unmanaged<void*, byte*, float, int, int, float, void> EmitAmbientSound;
 
-    // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, float, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
+    // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, float, int, int, int, const Vector *, const Vector *, CUtlVector<Vector> *, bool, float, int )
     public delegate* unmanaged<void*, void*, int, int, byte*, float, float, int, int, int, void*, void*, void*, byte, float, int, void> EmitSound;
 }
 

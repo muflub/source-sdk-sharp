@@ -14,7 +14,7 @@ public:
 	virtual ColorCorrectionHandle_t AddLookup( const char *pName ) = 0;
 	virtual bool RemoveLookup( ColorCorrectionHandle_t handle ) = 0;
 
-	virtual void  SetLookupWeight( ColorCorrectionHandle_t handle, float flWeight ) = 0;
+	virtual void SetLookupWeight( ColorCorrectionHandle_t handle, float flWeight ) = 0;
 	virtual float GetLookupWeight( ColorCorrectionHandle_t handle ) = 0;
 	virtual float GetLookupWeight( int i ) = 0;
 
@@ -37,12 +37,12 @@ public:
 	virtual void CopyLookup( ColorCorrectionHandle_t handle, const color24 *pSrcColorCorrection ) = 0;
 
 	virtual void ResetLookup( ColorCorrectionHandle_t handle ) = 0;
-	virtual void ResetLookup( ) = 0;
+	virtual void ResetLookup() = 0;
 
 	virtual void unused_ReleaseTextures() = 0;
 	virtual void unused_RestoreTextures() = 0;
 
-	virtual void ResetLookupWeights( ) = 0;
+	virtual void ResetLookupWeights() = 0;
 
 	virtual void unused_GetNumLookups() = 0;
 

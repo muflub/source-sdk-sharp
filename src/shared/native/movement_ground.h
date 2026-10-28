@@ -10,12 +10,11 @@
 // for both hierarchies.
 #pragma once
 
-#include "mathlib/vector.h"
 #if defined( CLIENT_DLL )
-#include "util_shared.h"
+
 #include "slot_table.h"
 #else
-#include "gametrace.h"
+
 #include "ss_entityhandle.h"
 #endif
 

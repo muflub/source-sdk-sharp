@@ -10,42 +10,43 @@
 
 #include "eiface.h"
 
-
 struct edict_t;
 
 // Player / Client related functions
 class CServerGameClients : public IServerGameClients
 {
 public:
-	virtual bool			ClientConnect( edict_t *pEntity, char const* pszName, char const* pszAddress, char *reject, int maxrejectlen ) OVERRIDE;
-	virtual void			ClientActive( edict_t *pEntity, bool bLoadGame ) OVERRIDE;
-	virtual void			ClientDisconnect( edict_t *pEntity ) OVERRIDE;
-	virtual void			ClientPutInServer( edict_t *pEntity, const char *playername ) OVERRIDE;
-	virtual void			ClientCommand( edict_t *pEntity, const CCommand &args ) OVERRIDE;
-	virtual void			ClientSettingsChanged( edict_t *pEntity ) OVERRIDE;
-	virtual void			ClientSetupVisibility( edict_t *pViewEntity, edict_t *pClient, unsigned char *pvs, int pvssize ) OVERRIDE;
-	virtual float			ProcessUsercmds( edict_t *player, bf_read *buf, int numcmds, int totalcmds,
-								int dropped_packets, bool ignore, bool paused ) OVERRIDE;
+	virtual bool ClientConnect( edict_t *pEntity, char const *pszName, char const *pszAddress, char *reject,
+								int maxrejectlen ) OVERRIDE;
+	virtual void ClientActive( edict_t *pEntity, bool bLoadGame ) OVERRIDE;
+	virtual void ClientDisconnect( edict_t *pEntity ) OVERRIDE;
+	virtual void ClientPutInServer( edict_t *pEntity, const char *playername ) OVERRIDE;
+	virtual void ClientCommand( edict_t *pEntity, const CCommand &args ) OVERRIDE;
+	virtual void ClientSettingsChanged( edict_t *pEntity ) OVERRIDE;
+	virtual void ClientSetupVisibility( edict_t *pViewEntity, edict_t *pClient, unsigned char *pvs,
+										int pvssize ) OVERRIDE;
+	virtual float ProcessUsercmds( edict_t *player, bf_read *buf, int numcmds, int totalcmds, int dropped_packets,
+								   bool ignore, bool paused ) OVERRIDE;
 	// Player is running a command
-	virtual void			PostClientMessagesSent_DEPRECIATED() OVERRIDE;
-	virtual void			SetCommandClient( int index ) OVERRIDE;
-	virtual CPlayerState	*GetPlayerState( edict_t *player ) OVERRIDE;
-	virtual void			ClientEarPosition( edict_t *pEntity, Vector *pEarOrigin ) OVERRIDE;
+	virtual void PostClientMessagesSent_DEPRECIATED() OVERRIDE;
+	virtual void SetCommandClient( int index ) OVERRIDE;
+	virtual CPlayerState *GetPlayerState( edict_t *player ) OVERRIDE;
+	virtual void ClientEarPosition( edict_t *pEntity, Vector *pEarOrigin ) OVERRIDE;
 
-	virtual void			GetPlayerLimits( int& minplayers, int& maxplayers, int &defaultMaxPlayers ) const OVERRIDE;
-	
+	virtual void GetPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers ) const OVERRIDE;
+
 	// returns number of delay ticks if player is in Replay mode (0 = no delay)
-	virtual int				GetReplayDelay( edict_t *player, int& entity ) OVERRIDE;
+	virtual int GetReplayDelay( edict_t *player, int &entity ) OVERRIDE;
 	// Anything this game .dll wants to add to the bug reporter text (e.g., the entity/model under the picker crosshair)
 	//  can be added here
-	virtual void			GetBugReportInfo( char *buf, int buflen ) OVERRIDE;
-	virtual void			NetworkIDValidated( const char *pszUserName, const char *pszNetworkID ) OVERRIDE;
+	virtual void GetBugReportInfo( char *buf, int buflen ) OVERRIDE;
+	virtual void NetworkIDValidated( const char *pszUserName, const char *pszNetworkID ) OVERRIDE;
 
 	// The client has submitted a keyvalues command
-	virtual void			ClientCommandKeyValues( edict_t *pEntity, KeyValues *pKeyValues ) OVERRIDE;
+	virtual void ClientCommandKeyValues( edict_t *pEntity, KeyValues *pKeyValues ) OVERRIDE;
 
 	// Notify that the player is spawned
-	virtual void			ClientSpawned( edict_t *pPlayer ) OVERRIDE;
+	virtual void ClientSpawned( edict_t *pPlayer ) OVERRIDE;
 
-	virtual void			ClientVoice( edict_t* pEdict ) OVERRIDE;
+	virtual void ClientVoice( edict_t *pEdict ) OVERRIDE;
 };

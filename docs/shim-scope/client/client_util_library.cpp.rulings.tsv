@@ -1,8 +1,8 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-char *VarArgs(	LIVE-API	a printf into a static buffer, for shell_soundscape_audio_client.cpp and shell_te_backends_client.cpp (nm -u)
-client_textmessage_t *TextMessageGet(	BOUNDARY	IVEngineClient::TextMessageGet, a pointer into the engine's own titles table
+char *VarArgs( const char *format, ... )	LIVE-API	a printf into a static buffer, for shell_soundscape_audio_client.cpp and shell_te_backends_client.cpp (nm -u)
+client_textmessage_t *TextMessageGet( const char *pName )	BOUNDARY	IVEngineClient::TextMessageGet, a pointer into the engine's own titles table
 int ScreenHeight()	BOUNDARY	the HUD surface's height (GetHudSize)
 int ScreenWidth()	BOUNDARY	the HUD surface's width (GetHudSize)
 bool UTIL_IsLowViolence()	LOGIC	stock's rule (util_shared.cpp): low violence when any of the four violence_* convars is off, else the engine's IsLowViolence. Managed asks it through IShimTempEntBackendsClient::ClientIsLowViolence (shell_te_backends_client.cpp); the port needs IVEngineClient::IsLowViolence forwarded and that row retired in the serialised ABI pass (docs/todo.md)
-void ReloadSoundEntriesInList(	BOUNDARY	ISoundEmitterSystemBase::ReloadSoundEntriesInList (sv_pure's reload)
+void ReloadSoundEntriesInList( IFileList *pFilesToReload )	BOUNDARY	ISoundEmitterSystemBase::ReloadSoundEntriesInList (sv_pure's reload)

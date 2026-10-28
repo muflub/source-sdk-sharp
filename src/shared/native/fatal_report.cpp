@@ -10,10 +10,10 @@
 #include <string.h>
 
 #if defined( _WIN32 )
-	#include <io.h>
-	#include <sys/stat.h>
+#include <io.h>
+#include <sys/stat.h>
 #else
-	#include <unistd.h>
+#include <unistd.h>
 #endif
 
 #if defined( SS_COVERAGE )
@@ -21,25 +21,28 @@ extern "C" void __gcov_dump();
 #endif
 
 // Deep enough for the frame loop plus a render path plus the leaf.
-enum { kFatalStackDepth = 48 };
+enum
+{
+	kFatalStackDepth = 48
+};
 
 // POSIX file calls under the CRT's names. Nothing here uses stdio or allocates, so a
 // report from an assert inside the allocator still comes out.
 #if defined( _WIN32 )
-	#define ss_open( path ) _open( path, _O_WRONLY | _O_CREAT | _O_TRUNC, _S_IREAD | _S_IWRITE )
-	#define ss_write _write
-	#define ss_close _close
-	#define ss_fileno _fileno
+#define ss_open( path ) _open( path, _O_WRONLY | _O_CREAT | _O_TRUNC, _S_IREAD | _S_IWRITE )
+#define ss_write _write
+#define ss_close _close
+#define ss_fileno _fileno
 #else
-	#define ss_open( path ) open( path, O_WRONLY | O_CREAT | O_TRUNC, 0644 )
-	#define ss_write write
-	#define ss_close close
-	#define ss_fileno fileno
+#define ss_open( path ) open( path, O_WRONLY | O_CREAT | O_TRUNC, 0644 )
+#define ss_write write
+#define ss_close close
+#define ss_fileno fileno
 #endif
 
 static void SourceSharp_Printf( int fd, const char *pFormat, ... )
 {
-	char szLine[ 1024 ];
+	char szLine[1024];
 	va_list args;
 	va_start( args, pFormat );
 	int n = vsnprintf( szLine, sizeof( szLine ), pFormat, args );
@@ -57,17 +60,17 @@ static void SourceSharp_Printf( int fd, const char *pFormat, ... )
 static void SourceSharp_WriteReport( int fd, const char *pKind, const char *pMsg, bool bStopLine )
 {
 	SourceSharp_Printf( fd, "[SourceSharp] FATAL %s: %s", pKind, pMsg ? pMsg : "(no message)\n" );
-	if ( pMsg && pMsg[0] && pMsg[ strlen( pMsg ) - 1 ] != '\n' )
+	if ( pMsg && pMsg[0] && pMsg[strlen( pMsg ) - 1] != '\n' )
 		SourceSharp_Printf( fd, "\n" );
 
 	if ( bStopLine )
 	{
 		SourceSharp_Printf( fd, "[SourceSharp] the process is stopping here.%s\n",
-		         strcmp( pKind, "ASSERT" ) == 0
-		             ? " Pass -assertlog to log assertions and keep going." : "" );
+							strcmp( pKind, "ASSERT" ) == 0 ? " Pass -assertlog to log assertions and keep going."
+														   : "" );
 	}
 
-	void *pFrames[ kFatalStackDepth ];
+	void *pFrames[kFatalStackDepth];
 	const int nFrames = SS_Backtrace( pFrames, kFatalStackDepth );
 	SourceSharp_Printf( fd, "[SourceSharp] stack (%d frame(s)):\n", nFrames );
 #if defined( __linux__ )
@@ -76,15 +79,15 @@ static void SourceSharp_WriteReport( int fd, const char *pKind, const char *pMsg
 	for ( int i = 0; i < nFrames; ++i )
 	{
 		SSModuleInfo info;
-		if ( SS_ModuleOfAddress( pFrames[ i ], &info ) )
+		if ( SS_ModuleOfAddress( pFrames[i], &info ) )
 		{
 			SourceSharp_Printf( fd, "%s(+0x%llx) [%p]\n", info.szPath,
-			                    (unsigned long long)( (const char *)pFrames[ i ] - (const char *)info.pBase ),
-			                    pFrames[ i ] );
+								(unsigned long long)( (const char *)pFrames[i] - (const char *)info.pBase ),
+								pFrames[i] );
 		}
 		else
 		{
-			SourceSharp_Printf( fd, "[%p]\n", pFrames[ i ] );
+			SourceSharp_Printf( fd, "[%p]\n", pFrames[i] );
 		}
 	}
 #endif
@@ -94,10 +97,12 @@ static void SourceSharp_WriteReport( int fd, const char *pKind, const char *pMsg
 // MSVC has no weak references, so /alternatename binds a no-op fallback instead.
 #if defined( _MSC_VER )
 extern "C" void SourceSharp_FatalWitness( const char *pKind, const char *pMsg );
+
 extern "C" void SourceSharp_FatalWitness_NoWitness( const char *, const char * ) {}
+
 #pragma comment( linker, "/alternatename:SourceSharp_FatalWitness=SourceSharp_FatalWitness_NoWitness" )
 #else
-extern "C" void SourceSharp_FatalWitness( const char *pKind, const char *pMsg ) __attribute__(( weak ));
+extern "C" void SourceSharp_FatalWitness( const char *pKind, const char *pMsg ) __attribute__( ( weak ) );
 #endif
 
 void SourceSharp_FatalReport( const char *pKind, const char *pMsg )
@@ -116,7 +121,7 @@ void SourceSharp_FatalReport( const char *pKind, const char *pMsg )
 	const char *pszDir = getenv( "SOURCESHARP_ASSERT_DIR" );
 	if ( pszDir && pszDir[0] )
 	{
-		char szPath[ 1024 ];
+		char szPath[1024];
 		snprintf( szPath, sizeof( szPath ), "%s/assert-%d.txt", pszDir, SS_GetPid() );
 		const int fd = ss_open( szPath );
 		if ( fd >= 0 )

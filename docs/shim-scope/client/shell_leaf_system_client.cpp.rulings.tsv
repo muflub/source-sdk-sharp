@@ -1,12 +1,12 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-void AppendRenderable(	SLOT-HELP	the forwarder's CUtlVector append (CollateViewModelRenderables' output), which allocates and so cannot be in libss_fwd_client
+void AppendRenderable( void *pVector, IClientRenderable *pRenderable )	SLOT-HELP	the forwarder's CUtlVector append (CollateViewModelRenderables' output), which allocates and so cannot be in libss_fwd_client
 IDetailObjectSystem *DetailSystem()	SLOT-HELP	hands the forwarder the detail object system BuildRenderablesList asks managed's detail models of
 IClientLeafSystem *BuildLeafSystem()	HOOK	builds libss_fwd_client's leaf system in client.so's storage over client.so's addresses (the engine's ClientLeafSystem002, Valve code's g_pClientLeafSystem)
 void *CreateLeafSystem()	HOOK	the factory row the engine asks ClientLeafSystem002 of
-[CLeafSystemGameSystem] char const *Name()	HOOK	the client-system row's name, which ClientSystemNamesMatchTheirSystems holds to the row's label
-[CLeafSystemGameSystem] void LevelInitPreEntity()	HOOK	the client-system stage handed to the leaf system (libss_fwd_client's object has no RTTI for the walk's dynamic_cast)
-[CLeafSystemGameSystem] void LevelShutdownPostEntity()	HOOK	the client-system stage handed to the leaf system
-[CLeafSystemGameSystem] void PreRender()	HOOK	the client-system stage handed to the leaf system
+[CLeafSystemGameSystem] char const *Name() override	HOOK	the client-system row's name, which ClientSystemNamesMatchTheirSystems holds to the row's label
+[CLeafSystemGameSystem] void LevelInitPreEntity() override	HOOK	the client-system stage handed to the leaf system (libss_fwd_client's object has no RTTI for the walk's dynamic_cast)
+[CLeafSystemGameSystem] void LevelShutdownPostEntity() override	HOOK	the client-system stage handed to the leaf system
+[CLeafSystemGameSystem] void PreRender() override	HOOK	the client-system stage handed to the leaf system
 CClientSystem *ClientLeafSystemGameSystem()	HOOK	shell_clientsystems.cpp's row for the leaf system
-void DefaultRenderBoundsWorldspace(	SLOT-HELP	the world box a native renderable answers its GetRenderBoundsWorldspace slot with (iclientrenderable.h; moved from clientleafsystem.cpp at its eviction): its render bounds about its origin, turned by its angles
+void DefaultRenderBoundsWorldspace( IClientRenderable *pRenderable, Vector &absMins, Vector &absMaxs )	SLOT-HELP	the world box a native renderable answers its GetRenderBoundsWorldspace slot with (iclientrenderable.h; moved from clientleafsystem.cpp at its eviction): its render bounds about its origin, turned by its angles

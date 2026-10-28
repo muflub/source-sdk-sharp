@@ -81,7 +81,7 @@
 #include <set>
 #include <sstream>
 #include <sys/stat.h>
-#include <stdlib.h>   // realpath, for the absence check below
+#include <stdlib.h> // realpath, for the absence check below
 #include "gtest/gtest.h"
 
 #include "cmake_graph.h"
@@ -96,9 +96,9 @@ namespace
 // so a relocation cannot hide a row from the absence checks below.
 bool CompilesAnyNamed( const char *pszTarget, const char *pszTail )
 {
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( pszTarget );
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( pszTarget );
 	const std::string tail = std::string( "/" ) + pszTail;
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
 		if ( it->size() >= tail.size() && it->compare( it->size() - tail.size(), tail.size(), tail ) == 0 )
 			return true;
 	return false;
@@ -113,18 +113,18 @@ const char *kProofOfRead = "sourcesharp/game/shared/shell_physsaverestore_absent
 TEST( SaveRestoreEvicted, NeitherProjectCompilesTheSaveMachinery )
 {
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kProofOfRead ) )
-	    << "the reader is not reading server_sourcesharp's source list";
+		<< "the reader is not reading server_sourcesharp's source list";
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kProofOfRead ) )
-	    << "the reader is not reading client_sourcesharp's source list";
+		<< "the reader is not reading client_sourcesharp's source list";
 
 	EXPECT_FALSE( CompilesAnyNamed( cmake_graph::kServer, "shared/saverestore.cpp" ) )
-	    << "saverestore.cpp is back in the server project";
+		<< "saverestore.cpp is back in the server project";
 	EXPECT_FALSE( CompilesAnyNamed( cmake_graph::kClient, "shared/saverestore.cpp" ) )
-	    << "saverestore.cpp is back in the client project";
+		<< "saverestore.cpp is back in the client project";
 	EXPECT_FALSE( CompilesAnyNamed( cmake_graph::kServer, "shared/physics_saverestore.cpp" ) )
-	    << "physics_saverestore.cpp is back in the server project";
+		<< "physics_saverestore.cpp is back in the server project";
 	EXPECT_FALSE( CompilesAnyNamed( cmake_graph::kClient, "shared/physics_saverestore.cpp" ) )
-	    << "physics_saverestore.cpp is back in the client project";
+		<< "physics_saverestore.cpp is back in the client project";
 }
 
 TEST( SaveRestoreEvicted, TheNoOpPhysicsManagerIsInBothProjects )
@@ -136,9 +136,9 @@ TEST( SaveRestoreEvicted, TheNoOpPhysicsManagerIsInBothProjects )
 	// but it must be in BOTH, and a line added to one script only would leave
 	// the other side linking against nothing on its next full build.
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kProofOfRead ) )
-	    << "server_sourcesharp (src/server/native/CMakeLists.txt) does not compile " << kProofOfRead;
+		<< "server_sourcesharp (src/server/native/CMakeLists.txt) does not compile " << kProofOfRead;
 	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kProofOfRead ) )
-	    << "client_sourcesharp (src/client/native/CMakeLists.txt) does not compile " << kProofOfRead;
+		<< "client_sourcesharp (src/client/native/CMakeLists.txt) does not compile " << kProofOfRead;
 }
 
 // RETIRED BY plan_shim.md PHASE 1d (lane 1d).
@@ -182,11 +182,10 @@ TEST( SaveRestoreEvicted, TheClientAchievementBlockIsEvictedOnItsOwnArgument )
 	// is a decision somebody has to make here, in front of the reasoning, the
 	// way `gib.cpp`'s eviction is kept in sdk_player_cast_test.cpp.
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kProofOfRead ) )
-	    << "the reader is not reading client_sourcesharp's source list";
+		<< "the reader is not reading client_sourcesharp's source list";
 	EXPECT_FALSE( CompilesAnyNamed( cmake_graph::kClient, "shared/achievement_saverestore.cpp" ) )
-	    << "achievement_saverestore.cpp is in the client build again. Step 7g "
-	       "removed it with the achievement manager it saves for; if the mod "
-	       "now ships achievements this is right, and the sentence above is "
-	       "what has to be rewritten -- do not just flip the assertion back.";
+		<< "achievement_saverestore.cpp is in the client build again. Step 7g "
+		   "removed it with the achievement manager it saves for; if the mod "
+		   "now ships achievements this is right, and the sentence above is "
+		   "what has to be rewritten -- do not just flip the assertion back.";
 }
-

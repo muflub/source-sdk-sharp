@@ -57,7 +57,7 @@ namespace
 
 // The references, by id (0 is none). A freed slot is reused; a live slot's id is never
 // handed out.
-template < typename T >
+template <typename T>
 class CReferenceTable
 {
 public:
@@ -65,9 +65,9 @@ public:
 	{
 		for ( int i = 0; i < m_Slots.Count(); ++i )
 		{
-			if ( !m_Slots[ i ] )
+			if ( !m_Slots[i] )
 			{
-				m_Slots[ i ] = p;
+				m_Slots[i] = p;
 				return i + 1;
 			}
 		}
@@ -75,28 +75,28 @@ public:
 		return m_Slots.Count();
 	}
 
-	T *Find( int32_t id ) const { return ( id >= 1 && id <= m_Slots.Count() ) ? m_Slots[ id - 1 ] : NULL; }
+	T *Find( int32_t id ) const { return ( id >= 1 && id <= m_Slots.Count() ) ? m_Slots[id - 1] : NULL; }
 
 	T *Remove( int32_t id )
 	{
 		T *p = Find( id );
 		if ( p )
-			m_Slots[ id - 1 ] = NULL;
+			m_Slots[id - 1] = NULL;
 		return p;
 	}
 
 private:
-	CUtlVector< T * > m_Slots;
+	CUtlVector<T *> m_Slots;
 };
 
-CReferenceTable< CMaterialReference > s_Materials;
-CReferenceTable< CTextureReference > s_Textures;
+CReferenceTable<CMaterialReference> s_Materials;
+CReferenceTable<CTextureReference> s_Textures;
 
 // Held for the DLL's life so the pointer the engine keeps in a FlashlightState_t stays
 // referenced.
 const int kMaxFlashlightTextures = 4;
-CTextureReference *s_FlashlightTextures[ kMaxFlashlightTextures ];
-char s_szFlashlightTextureNames[ kMaxFlashlightTextures ][ MAX_PATH ];
+CTextureReference *s_FlashlightTextures[kMaxFlashlightTextures];
+char s_szFlashlightTextureNames[kMaxFlashlightTextures][MAX_PATH];
 int s_nFlashlightTextures = 0;
 
 int32_t InitMaterial( const char *pszName, const char *pszGroup )
@@ -123,15 +123,16 @@ IMaterial *Material( int32_t id )
 	return p ? (IMaterial *)*p : NULL;
 }
 
-int32_t InitRenderTarget( const char *pszName, int32_t w, int32_t h, int32_t nSizeMode, int32_t nFormat, int32_t nDepth, int32_t bHdr )
+int32_t InitRenderTarget( const char *pszName, int32_t w, int32_t h, int32_t nSizeMode, int32_t nFormat, int32_t nDepth,
+						  int32_t bHdr )
 {
 	if ( !pszName )
 		return 0;
-	char szName[ MAX_PATH ];
+	char szName[MAX_PATH];
 	V_strncpy( szName, pszName, sizeof( szName ) );
 	CTextureReference *p = new CTextureReference;
-	p->InitRenderTarget( w, h, (RenderTargetSizeMode_t)nSizeMode, (ImageFormat)nFormat, (MaterialRenderTargetDepth_t)nDepth,
-	                     bHdr != 0, szName );
+	p->InitRenderTarget( w, h, (RenderTargetSizeMode_t)nSizeMode, (ImageFormat)nFormat,
+						 (MaterialRenderTargetDepth_t)nDepth, bHdr != 0, szName );
 	return s_Textures.Add( p );
 }
 
@@ -152,7 +153,7 @@ ITexture *Texture( int32_t id )
 
 ITexture *FlashlightTexture( int32_t nIndex )
 {
-	return ( nIndex >= 0 && nIndex < s_nFlashlightTextures ) ? (ITexture *)*s_FlashlightTextures[ nIndex ] : NULL;
+	return ( nIndex >= 0 && nIndex < s_nFlashlightTextures ) ? (ITexture *)*s_FlashlightTextures[nIndex] : NULL;
 }
 
 // The queue rides in PreRender's arguments; any other call hands it over first, so its
@@ -231,13 +232,13 @@ void DrawTextureQuad( IMaterial *pMaterial, float w, float h )
 	pRenderContext->Bind( pMaterial );
 	IMesh *pMesh = pRenderContext->GetDynamicMesh( true );
 
-	const float kCorners[ 4 ][ 2 ] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
+	const float kCorners[4][2] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
 	CMeshBuilder mesh;
 	mesh.Begin( pMesh, MATERIAL_QUADS, 1 );
 	for ( int i = 0; i < 4; ++i )
 	{
-		mesh.Position3f( kCorners[ i ][ 0 ] * w, kCorners[ i ][ 1 ] * h, 0.0f );
-		mesh.TexCoord2f( 0, kCorners[ i ][ 0 ], kCorners[ i ][ 1 ] );
+		mesh.Position3f( kCorners[i][0] * w, kCorners[i][1] * h, 0.0f );
+		mesh.TexCoord2f( 0, kCorners[i][0], kCorners[i][1] );
 		mesh.Color4ub( 0, 0, 0, 0 );
 		mesh.AdvanceVertex();
 	}
@@ -258,7 +259,7 @@ void BuildEnv()
 	s_Env.ppEngine = &engine;
 	s_Env.ppModelInfo = &modelinfo;
 	s_Env.ppDebugOverlay = &debugoverlay;
-	s_Env.ppGlobals = reinterpret_cast< CGlobalVarsBase *const * >( &gpGlobals );
+	s_Env.ppGlobals = reinterpret_cast<CGlobalVarsBase *const *>( &gpGlobals );
 	s_Env.pfnInitMaterial = InitMaterial;
 	s_Env.pfnShutdownMaterial = ShutdownMaterial;
 	s_Env.pfnMaterial = Material;
@@ -279,7 +280,10 @@ void BuildEnv()
 class CShadowMgrGameSystem final : public CClientSystemPerFrame
 {
 public:
-	CShadowMgrGameSystem() : CClientSystemPerFrame( "CClientShadowMgr" ) {}
+	CShadowMgrGameSystem()
+		: CClientSystemPerFrame( "CClientShadowMgr" )
+	{
+	}
 
 	char const *Name() override { return "CClientShadowMgr"; }
 
@@ -357,7 +361,7 @@ void ShellShadows_AdvanceFrame()
 	RenderTrace::ShadowEnter( "shadow.AdvanceFrame" );
 	if ( IManagedShadowsClient *pManaged = Carrier() )
 	{
-		int32_t pPending[ CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX ];
+		int32_t pPending[CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX];
 		const int32_t nPending = s_Queue.Take( pPending );
 		pManaged->AdvanceFrame( pPending, nPending );
 	}
@@ -369,7 +373,7 @@ void ShellShadows_PreRender()
 	RenderTrace::ShadowEnter( "shadow.PreRender" );
 	if ( IManagedShadowsClient *pManaged = Carrier() )
 	{
-		int32_t pPending[ CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX ];
+		int32_t pPending[CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX];
 		const int32_t nPending = s_Queue.Take( pPending );
 		pManaged->PreRender( pPending, nPending );
 	}
@@ -378,12 +382,12 @@ void ShellShadows_PreRender()
 
 void ShellShadows_ComputeShadowTextures( int nLeafCount, const LeafIndex_t *pLeafList )
 {
-	char szLine[ 64 ];
+	char szLine[64];
 	V_snprintf( szLine, sizeof( szLine ), "shadow.ComputeShadowTextures\tleaves=%d", nLeafCount );
 	RenderTrace::ShadowEnter( szLine );
 	if ( IManagedShadowsClient *pManaged = Carrier() )
 	{
-		int32_t pPending[ CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX ];
+		int32_t pPending[CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX];
 		const int32_t nPending = s_Queue.Take( pPending );
 		pManaged->ComputeShadowTextures( pLeafList, nLeafCount, pPending, nPending );
 	}
@@ -395,9 +399,9 @@ void ShellShadows_ComputeShadowDepthTextures( const CViewSetup &view )
 	RenderTrace::ShadowEnter( "shadow.ComputeShadowDepthTextures" );
 	if ( IManagedShadowsClient *pManaged = Carrier() )
 	{
-		const float flView[ 10 ] = { view.origin.x, view.origin.y, view.origin.z, view.angles.x, view.angles.y, view.angles.z,
-		                             view.zNear, view.zFar, view.fov, view.m_flAspectRatio };
-		int32_t pPending[ CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX ];
+		const float flView[10] = { view.origin.x, view.origin.y, view.origin.z, view.angles.x, view.angles.y,
+								   view.angles.z, view.zNear,    view.zFar,     view.fov,      view.m_flAspectRatio };
+		int32_t pPending[CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX];
 		const int32_t nPending = s_Queue.Take( pPending );
 		pManaged->ComputeShadowDepthTextures( flView, 10, pPending, nPending );
 	}
@@ -409,7 +413,7 @@ void ShellShadows_UnlockAllShadowDepthTextures()
 	RenderTrace::ShadowNote( "shadow.UnlockAllShadowDepthTextures" );
 	if ( IManagedShadowsClient *pManaged = Carrier() )
 	{
-		int32_t pPending[ CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX ];
+		int32_t pPending[CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX];
 		const int32_t nPending = s_Queue.Take( pPending );
 		pManaged->UnlockAllShadowDepthTextures( pPending, nPending );
 	}
@@ -430,12 +434,12 @@ CClientSystem *ClientShadowMgrGameSystem()
 // engine names the same reference.
 int32_t SourceSharp_FlashlightTexture( const char *pszName )
 {
-	if ( !pszName || !pszName[ 0 ] )
+	if ( !pszName || !pszName[0] )
 		return -1;
 
 	for ( int i = 0; i < s_nFlashlightTextures; i++ )
 	{
-		if ( !V_strcmp( s_szFlashlightTextureNames[ i ], pszName ) )
+		if ( !V_strcmp( s_szFlashlightTextureNames[i], pszName ) )
 			return i;
 	}
 
@@ -443,9 +447,9 @@ int32_t SourceSharp_FlashlightTexture( const char *pszName )
 		return -1;
 
 	const int i = s_nFlashlightTextures++;
-	V_strncpy( s_szFlashlightTextureNames[ i ], pszName, sizeof( s_szFlashlightTextureNames[ i ] ) );
-	s_FlashlightTextures[ i ] = new CTextureReference;
-	s_FlashlightTextures[ i ]->Init( pszName, TEXTURE_GROUP_OTHER, true );
+	V_strncpy( s_szFlashlightTextureNames[i], pszName, sizeof( s_szFlashlightTextureNames[i] ) );
+	s_FlashlightTextures[i] = new CTextureReference;
+	s_FlashlightTextures[i]->Init( pszName, TEXTURE_GROUP_OTHER, true );
 	return i;
 }
 

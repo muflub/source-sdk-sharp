@@ -9,20 +9,28 @@
 class CClientSystem
 {
 public:
-	CClientSystem( char const *pszName = NULL ) : m_pszName( pszName ) {}
+	CClientSystem( char const *pszName = NULL )
+		: m_pszName( pszName )
+	{
+	}
+
 	virtual ~CClientSystem() {}
 
 	virtual char const *Name() { return m_pszName ? m_pszName : "unnamed"; }
 
 	// Return false to abort the client's start-up; the walk stops on the first refusal.
 	virtual bool Init() { return true; }
+
 	virtual void PostInit() {}
+
 	virtual void Shutdown() {}
 
 	virtual void LevelInitPreEntity() {}
+
 	virtual void LevelInitPostEntity() {}
 
 	virtual void LevelShutdownPreEntity() {}
+
 	virtual void LevelShutdownPostEntity() {}
 
 	// The per-frame walks select on this, so a system that is not per-frame is not
@@ -38,11 +46,15 @@ private:
 class CClientSystemPerFrame : public CClientSystem
 {
 public:
-	CClientSystemPerFrame( char const *pszName = NULL ) : CClientSystem( pszName ) {}
+	CClientSystemPerFrame( char const *pszName = NULL )
+		: CClientSystem( pszName )
+	{
+	}
 
 	virtual bool IsPerFrame() { return true; }
 
 	virtual void PreRender() {}
+
 	virtual void Update( float frametime ) { NOTE_UNUSED( frametime ); }
 };
 
@@ -67,19 +79,29 @@ const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes );
 // to the object.
 class IGameSystem;
 
-template< class TGameSystem >
+template <class TGameSystem>
 class CGameSystemRow : public CClientSystem
 {
 public:
-	explicit CGameSystemRow( TGameSystem *pSystem ) : m_pSystem( pSystem ) {}
+	explicit CGameSystemRow( TGameSystem *pSystem )
+		: m_pSystem( pSystem )
+	{
+	}
 
 	virtual char const *Name() { return m_pSystem->Name(); }
+
 	virtual bool Init() { return m_pSystem->Init(); }
+
 	virtual void PostInit() { m_pSystem->PostInit(); }
+
 	virtual void Shutdown() { m_pSystem->Shutdown(); }
+
 	virtual void LevelInitPreEntity() { m_pSystem->LevelInitPreEntity(); }
+
 	virtual void LevelInitPostEntity() { m_pSystem->LevelInitPostEntity(); }
+
 	virtual void LevelShutdownPreEntity() { m_pSystem->LevelShutdownPreEntity(); }
+
 	virtual void LevelShutdownPostEntity() { m_pSystem->LevelShutdownPostEntity(); }
 
 private:

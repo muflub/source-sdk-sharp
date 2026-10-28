@@ -1,10 +1,10 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-CShellDecalSystemClient() : CClientSystem(	HOOK	the kClientSystems row's object: names itself and clears its two answer buffers
-virtual bool Init()	HOOK	client system Init (kClientSystems): forwards to IManagedDecalsClient.Init (C# reads the script)
-virtual void Shutdown()	HOOK	client system Shutdown: forwards to IManagedDecalsClient.Shutdown
-virtual void LevelInitPreEntity()	HOOK	client system LevelInitPreEntity: forwards (C# precaches every entry through Draw_DecalIndexFromName)
-virtual int GetDecalIndexForName(	SLOT	IDecalEmitterSystem slot shell_impact_effects.cpp calls: forwards the name; the weighted pick is C#'s
-virtual const char *GetDecalNameForIndex(	SLOT	IDecalEmitterSystem slot shell_te_backends_client.cpp calls: copies C#'s answer into a member ("" when none)
-virtual char const *TranslateDecalForGameMaterial(	SLOT	IDecalEmitterSystem slot shell_impact_effects.cpp calls: C#'s answer, or the caller's pointer when C# has none
+[CShellDecalSystemClient] : CClientSystem( "" )	HOOK	the kClientSystems row's object: names itself and clears its two answer buffers
+[CShellDecalSystemClient] virtual bool Init()	HOOK	client system Init (kClientSystems): forwards to IManagedDecalsClient.Init (C# reads the script)
+[CShellDecalSystemClient] virtual void Shutdown()	HOOK	client system Shutdown: forwards to IManagedDecalsClient.Shutdown
+[CShellDecalSystemClient] virtual void LevelInitPreEntity()	HOOK	client system LevelInitPreEntity: forwards (C# precaches every entry through Draw_DecalIndexFromName)
+[CShellDecalSystemClient] virtual int GetDecalIndexForName( char const *decalname )	SLOT	IDecalEmitterSystem slot shell_impact_effects.cpp calls: forwards the name; the weighted pick is C#'s
+[CShellDecalSystemClient] virtual const char *GetDecalNameForIndex( int nIndex )	SLOT	IDecalEmitterSystem slot shell_te_backends_client.cpp calls: copies C#'s answer into a member ("" when none)
+[CShellDecalSystemClient] virtual char const *TranslateDecalForGameMaterial( char const *decalName, unsigned char gamematerial )	SLOT	IDecalEmitterSystem slot shell_impact_effects.cpp calls: C#'s answer, or the caller's pointer when C# has none
 CClientSystem *ClientSystem_DecalEmitter()	HOOK	kClientSystems accessor (shell_clientsystems.cpp)

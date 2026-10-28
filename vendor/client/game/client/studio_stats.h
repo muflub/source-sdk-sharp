@@ -4,4 +4,4 @@
 
 void StudioStats_FindClosestEntity( CClientRenderablesList *pClientRenderablesList );
 
-extern IClientRenderable	*g_pStudioStatsEntity;
+extern IClientRenderable *g_pStudioStatsEntity;

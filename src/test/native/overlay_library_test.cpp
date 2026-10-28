@@ -82,9 +82,9 @@ struct RecordedLine
 {
 	Vector vecOrigin;
 	Vector vecDest;
-	int    r, g, b;
-	bool   bNoDepthTest;
-	float  flDuration;
+	int r, g, b;
+	bool bNoDepthTest;
+	float flDuration;
 };
 
 struct RecordedBox
@@ -93,31 +93,36 @@ struct RecordedBox
 	Vector vecMins;
 	Vector vecMaxs;
 	QAngle angles;
-	int    r, g, b, a;
-	float  flDuration;
+	int r, g, b, a;
+	float flDuration;
 };
 
 struct RecordedText
 {
-	Vector      vecOrigin;
-	int         nLine;
+	Vector vecOrigin;
+	int nLine;
 	std::string sText;
-	int         r, g, b, a;
+	int r, g, b, a;
 };
 
 class CRecordingOverlay : public IVDebugOverlay
 {
 public:
-	std::vector< RecordedLine > lines;
-	std::vector< RecordedBox >  boxes;
-	std::vector< RecordedText > rgbText;
-	std::vector< RecordedText > plainText;
-	std::vector< RecordedText > entityText;
+	std::vector<RecordedLine> lines;
+	std::vector<RecordedBox> boxes;
+	std::vector<RecordedText> rgbText;
+	std::vector<RecordedText> plainText;
+	std::vector<RecordedText> entityText;
 	int nGrids;
 	int nClears;
 	int nSweptBoxes;
 
-	CRecordingOverlay() : nGrids( 0 ), nClears( 0 ), nSweptBoxes( 0 ) {}
+	CRecordingOverlay()
+		: nGrids( 0 )
+		, nClears( 0 )
+		, nSweptBoxes( 0 )
+	{
+	}
 
 	void Reset()
 	{
@@ -130,42 +135,59 @@ public:
 	}
 
 	virtual void AddEntityTextOverlay( int ent_index, int line_offset, float, int r, int g, int b, int a,
-	                                   const char *format, ... ) OVERRIDE
+									   const char *format, ... ) OVERRIDE
 	{
 		RecordedText t;
 		t.vecOrigin.Init( (float)ent_index, 0, 0 );
 		t.nLine = line_offset;
 		t.sText = format ? format : "";
-		t.r = r; t.g = g; t.b = b; t.a = a;
+		t.r = r;
+		t.g = g;
+		t.b = b;
+		t.a = a;
 		entityText.push_back( t );
 	}
 
-	virtual void AddBoxOverlay( const Vector &origin, const Vector &mins, const Vector &maxs,
-	                            QAngle const &orientation, int r, int g, int b, int a, float duration ) OVERRIDE
+	virtual void AddBoxOverlay( const Vector &origin, const Vector &mins, const Vector &maxs, QAngle const &orientation,
+								int r, int g, int b, int a, float duration ) OVERRIDE
 	{
 		RecordedBox box;
-		box.vecOrigin = origin; box.vecMins = mins; box.vecMaxs = maxs; box.angles = orientation;
-		box.r = r; box.g = g; box.b = b; box.a = a; box.flDuration = duration;
+		box.vecOrigin = origin;
+		box.vecMins = mins;
+		box.vecMaxs = maxs;
+		box.angles = orientation;
+		box.r = r;
+		box.g = g;
+		box.b = b;
+		box.a = a;
+		box.flDuration = duration;
 		boxes.push_back( box );
 	}
 
-	virtual void AddTriangleOverlay( const Vector &, const Vector &, const Vector &,
-	                                 int, int, int, int, bool, float ) OVERRIDE {}
+	virtual void AddTriangleOverlay( const Vector &, const Vector &, const Vector &, int, int, int, int, bool,
+									 float ) OVERRIDE
+	{
+	}
 
-	virtual void AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b,
-	                             bool noDepthTest, float duration ) OVERRIDE
+	virtual void AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b, bool noDepthTest,
+								 float duration ) OVERRIDE
 	{
 		RecordedLine line;
-		line.vecOrigin = origin; line.vecDest = dest;
-		line.r = r; line.g = g; line.b = b;
-		line.bNoDepthTest = noDepthTest; line.flDuration = duration;
+		line.vecOrigin = origin;
+		line.vecDest = dest;
+		line.r = r;
+		line.g = g;
+		line.b = b;
+		line.bNoDepthTest = noDepthTest;
+		line.flDuration = duration;
 		lines.push_back( line );
 	}
 
 	virtual void AddTextOverlay( const Vector &origin, float, const char *format, ... ) OVERRIDE
 	{
 		RecordedText t;
-		t.vecOrigin = origin; t.nLine = 0;
+		t.vecOrigin = origin;
+		t.nLine = 0;
 		t.sText = format ? format : "";
 		t.r = t.g = t.b = t.a = 0;
 		plainText.push_back( t );
@@ -174,7 +196,8 @@ public:
 	virtual void AddTextOverlay( const Vector &origin, int line_offset, float, const char *format, ... ) OVERRIDE
 	{
 		RecordedText t;
-		t.vecOrigin = origin; t.nLine = line_offset;
+		t.vecOrigin = origin;
+		t.nLine = line_offset;
 		t.sText = format ? format : "";
 		t.r = t.g = t.b = t.a = 0;
 		plainText.push_back( t );
@@ -182,42 +205,61 @@ public:
 
 	virtual void AddScreenTextOverlay( float, float, float, int, int, int, int, const char * ) OVERRIDE {}
 
-	virtual void AddSweptBoxOverlay( const Vector &, const Vector &, const Vector &, const Vector &,
-	                                 const QAngle &, int, int, int, int, float ) OVERRIDE { nSweptBoxes++; }
+	virtual void AddSweptBoxOverlay( const Vector &, const Vector &, const Vector &, const Vector &, const QAngle &,
+									 int, int, int, int, float ) OVERRIDE
+	{
+		nSweptBoxes++;
+	}
 
 	virtual void AddGridOverlay( const Vector & ) OVERRIDE { nGrids++; }
 
 	virtual int ScreenPosition( const Vector &, Vector & ) OVERRIDE { return 0; }
+
 	virtual int ScreenPosition( float, float, Vector & ) OVERRIDE { return 0; }
 
 	virtual OverlayText_t *GetFirst( void ) OVERRIDE { return NULL; }
+
 	virtual OverlayText_t *GetNext( OverlayText_t * ) OVERRIDE { return NULL; }
+
 	virtual void ClearDeadOverlays( void ) OVERRIDE {}
+
 	virtual void ClearAllOverlays() OVERRIDE { nClears++; }
 
-	virtual void AddTextOverlayRGB( const Vector &origin, int line_offset, float, float r, float g,
-	                                float b, float alpha, const char *format, ... ) OVERRIDE
+	virtual void AddTextOverlayRGB( const Vector &origin, int line_offset, float, float r, float g, float b,
+									float alpha, const char *format, ... ) OVERRIDE
 	{
 		RecordedText t;
-		t.vecOrigin = origin; t.nLine = line_offset;
+		t.vecOrigin = origin;
+		t.nLine = line_offset;
 		t.sText = format ? format : "";
-		t.r = (int)r; t.g = (int)g; t.b = (int)b; t.a = (int)alpha;
+		t.r = (int)r;
+		t.g = (int)g;
+		t.b = (int)b;
+		t.a = (int)alpha;
 		rgbText.push_back( t );
 	}
 
-	virtual void AddTextOverlayRGB( const Vector &origin, int line_offset, float, int r, int g,
-	                                int b, int a, const char *format, ... ) OVERRIDE
+	virtual void AddTextOverlayRGB( const Vector &origin, int line_offset, float, int r, int g, int b, int a,
+									const char *format, ... ) OVERRIDE
 	{
 		RecordedText t;
-		t.vecOrigin = origin; t.nLine = line_offset;
+		t.vecOrigin = origin;
+		t.nLine = line_offset;
 		t.sText = format ? format : "";
-		t.r = r; t.g = g; t.b = b; t.a = a;
+		t.r = r;
+		t.g = g;
+		t.b = b;
+		t.a = a;
 		rgbText.push_back( t );
 	}
 
 	virtual void AddLineOverlayAlpha( const Vector &, const Vector &, int, int, int, int, bool, float ) OVERRIDE {}
-	virtual void AddBoxOverlay2( const Vector &, const Vector &, const Vector &, QAngle const &,
-	                             const Color &, const Color &, float ) OVERRIDE {}
+
+	virtual void AddBoxOverlay2( const Vector &, const Vector &, const Vector &, QAngle const &, const Color &,
+								 const Color &, float ) OVERRIDE
+	{
+	}
+
 	virtual void AddScreenTextOverlay2( float, float, int, float, int, int, int, int, const char * ) OVERRIDE {}
 };
 
@@ -239,16 +281,10 @@ protected:
 		Overlay_ClearViewer();
 	}
 
-	void TearDown() OVERRIDE
-	{
-		Overlay_ClearViewer();
-	}
+	void TearDown() OVERRIDE { Overlay_ClearViewer(); }
 
 	// Eyes at the origin looking down +X.
-	void SetLookingAlongX()
-	{
-		Overlay_SetViewer( Vector( 0, 0, 0 ), Vector( 1, 0, 0 ) );
-	}
+	void SetLookingAlongX() { Overlay_SetViewer( Vector( 0, 0, 0 ), Vector( 1, 0, 0 ) ); }
 };
 
 //-----------------------------------------------------------------------------
@@ -306,8 +342,7 @@ TEST_F( OverlayLibrary, SegmentWithOneEndInRangeIsVisible )
 TEST_F( OverlayLibrary, SegmentWithBothEndsOutOfRangeIsNotVisible )
 {
 	SetLookingAlongX();
-	EXPECT_FALSE( Overlay_SegmentIsVisible( Vector( kBeyondRange, 0, 0 ),
-	                                        Vector( kBeyondRange + 100, 0, 0 ) ) );
+	EXPECT_FALSE( Overlay_SegmentIsVisible( Vector( kBeyondRange, 0, 0 ), Vector( kBeyondRange + 100, 0, 0 ) ) );
 }
 
 //=============================================================================//
@@ -483,7 +518,7 @@ namespace
 
 std::string ResolvedCwd()
 {
-	char buf[ 4096 ];
+	char buf[4096];
 	if ( getcwd( buf, sizeof( buf ) ) )
 		return std::string( buf );
 	return std::string( "<getcwd failed>" );
@@ -525,23 +560,23 @@ namespace
 
 // The objects on server_sourcesharp's link edge, as paths nm can open from
 // the test's cwd (the edge names them relative to the build dir).
-std::vector< std::string > ServerLinkLine()
+std::vector<std::string> ServerLinkLine()
 {
 	const std::string strBuild = cmake_graph::BuildDir();
-	const std::vector< std::string > rel = cmake_graph::LinkObjects( cmake_graph::kServer );
+	const std::vector<std::string> rel = cmake_graph::LinkObjects( cmake_graph::kServer );
 
-	std::vector< std::string > out;
+	std::vector<std::string> out;
 	for ( size_t i = 0; i < rel.size(); i++ )
 	{
-		if ( rel[ i ].size() > 2 && rel[ i ].compare( rel[ i ].size() - 2, 2, ".o" ) == 0 )
-			out.push_back( rel[ i ][ 0 ] == '/' ? rel[ i ] : strBuild + "/" + rel[ i ] );
+		if ( rel[i].size() > 2 && rel[i].compare( rel[i].size() - 2, 2, ".o" ) == 0 )
+			out.push_back( rel[i][0] == '/' ? rel[i] : strBuild + "/" + rel[i] );
 	}
 	return out;
 }
 
 // The proof-of-read for the link line: the object of the server's own overlay
 // shim, which imports the overlay entries the positive control below names.
-bool HasOverlayShimObject( const std::vector< std::string > &objs )
+bool HasOverlayShimObject( const std::vector<std::string> &objs )
 {
 	// CMake names an object after its source's path: this repo's
 	// src/server/native/shell_debugoverlays.cpp compiles to
@@ -549,8 +584,7 @@ bool HasOverlayShimObject( const std::vector< std::string > &objs )
 	const std::string kObj = "/server_sourcesharp.dir/shell_debugoverlays.cpp.o";
 	for ( size_t i = 0; i < objs.size(); i++ )
 	{
-		if ( objs[ i ].size() >= kObj.size()
-		     && objs[ i ].compare( objs[ i ].size() - kObj.size(), kObj.size(), kObj ) == 0 )
+		if ( objs[i].size() >= kObj.size() && objs[i].compare( objs[i].size() - kObj.size(), kObj.size(), kObj ) == 0 )
 			return true;
 	}
 	return false;
@@ -558,14 +592,14 @@ bool HasOverlayShimObject( const std::vector< std::string > &objs )
 
 // `nm -C --undefined-only` over every object at once. Demangled, because the
 // namespace is only spelled `NDebugOverlay::` after demangling.
-std::string UndefinedSymbolsOnTheServerLink( const std::vector< std::string > &objs )
+std::string UndefinedSymbolsOnTheServerLink( const std::vector<std::string> &objs )
 {
 	if ( objs.empty() )
 		return std::string();
 
 	std::string cmd = "nm -C --undefined-only";
 	for ( size_t i = 0; i < objs.size(); i++ )
-		cmd += " '" + objs[ i ] + "'";
+		cmd += " '" + objs[i] + "'";
 	cmd += " 2>/dev/null";
 
 	FILE *pPipe = popen( cmd.c_str(), "r" );
@@ -573,7 +607,7 @@ std::string UndefinedSymbolsOnTheServerLink( const std::vector< std::string > &o
 		return std::string();
 
 	std::string out;
-	char buf[ 1024 ];
+	char buf[1024];
 	while ( fgets( buf, sizeof( buf ), pPipe ) )
 		out += buf;
 	pclose( pPipe );
@@ -584,7 +618,7 @@ std::string UndefinedSymbolsOnTheServerLink( const std::vector< std::string > &o
 
 TEST( OverlayLinkLine, TheGraphNamesAServerLinkWithObjectsOnIt )
 {
-	const std::vector< std::string > objs = ServerLinkLine();
+	const std::vector<std::string> objs = ServerLinkLine();
 
 	// RED AND NOT SKIPPED when there is no graph. A fact that passes because it
 	// could not measure is the shape this tree has recorded 51 times. (The
@@ -592,14 +626,14 @@ TEST( OverlayLinkLine, TheGraphNamesAServerLinkWithObjectsOnIt )
 	// throws on a missing graph or an empty edge, and the anchor below says the
 	// edge is the server's.)
 	ASSERT_TRUE( HasOverlayShimObject( objs ) )
-		<< "read " << objs.size() << " objects off server_sourcesharp's link edge in "
-		<< cmake_graph::BuildDir() << "/build.ninja and none is shell_debugoverlays.cpp.o"
+		<< "read " << objs.size() << " objects off server_sourcesharp's link edge in " << cmake_graph::BuildDir()
+		<< "/build.ninja and none is shell_debugoverlays.cpp.o"
 		<< " -- run `make debug` first. Working directory: " << ResolvedCwd();
 }
 
 TEST( OverlayLinkLine, TheScanReachesTheOverlayConsumers )
 {
-	const std::vector< std::string > objs = ServerLinkLine();
+	const std::vector<std::string> objs = ServerLinkLine();
 	ASSERT_TRUE( HasOverlayShimObject( objs ) ) << "no server link line; working directory: " << ResolvedCwd();
 
 	const std::string undefined = UndefinedSymbolsOnTheServerLink( objs );
@@ -608,14 +642,15 @@ TEST( OverlayLinkLine, TheScanReachesTheOverlayConsumers )
 	// import this entry, so an nm that ran and read the right objects says so.
 	// Without this, an empty string passes the absence below.
 	EXPECT_NE( std::string::npos, undefined.find( "Overlay_TextAtPosition" ) )
-		<< "nm over " << objs.size() << " objects found no importer of a known "
+		<< "nm over " << objs.size()
+		<< " objects found no importer of a known "
 		   "imported overlay entry, so it measured nothing. Working directory: "
 		<< ResolvedCwd();
 }
 
 TEST( OverlayLinkLine, NoObjectAsksForAnNDebugOverlayEntry )
 {
-	const std::vector< std::string > objs = ServerLinkLine();
+	const std::vector<std::string> objs = ServerLinkLine();
 	ASSERT_TRUE( HasOverlayShimObject( objs ) ) << "no server link line; working directory: " << ResolvedCwd();
 
 	const std::string undefined = UndefinedSymbolsOnTheServerLink( objs );
@@ -623,12 +658,11 @@ TEST( OverlayLinkLine, NoObjectAsksForAnNDebugOverlayEntry )
 		<< "the scan measured nothing; working directory: " << ResolvedCwd();
 
 	const size_t at = undefined.find( "NDebugOverlay::" );
-	EXPECT_EQ( std::string::npos, at )
-		<< "an object on the server link line asks for an NDebugOverlay entry "
-		   "that nothing in this build defines. It links today only because "
-		   "--gc-sections drops the caller first; a caller makes it a link "
-		   "error. The spelling is Overlay_* now:\n"
-		<< ( at == std::string::npos ? std::string() : undefined.substr( at, 200 ) );
+	EXPECT_EQ( std::string::npos, at ) << "an object on the server link line asks for an NDebugOverlay entry "
+										  "that nothing in this build defines. It links today only because "
+										  "--gc-sections drops the caller first; a caller makes it a link "
+										  "error. The spelling is Overlay_* now:\n"
+									   << ( at == std::string::npos ? std::string() : undefined.substr( at, 200 ) );
 }
 
 //=============================================================================//
@@ -649,4 +683,3 @@ namespace
 {
 
 } // namespace
-

@@ -11,21 +11,14 @@
 
 #pragma once
 
-#include "basetypes.h"
-#include "mathlib/vector.h"
-#include "edict.h"
 #include "eiface.h"
-#include "gametrace.h"
-#include "engine/IEngineTrace.h"
-#include "shake.h"
-#include "tier1/convar.h"
-#include "tier1/strtools.h"
 
-#include "igameentity_fwd.h"
+#include "engine/IEngineTrace.h"
+
 class IServerNetworkable;
 
 extern IVEngineServer *engine;
-extern IEngineTrace   *enginetrace;
+extern IEngineTrace *enginetrace;
 
 // Defined in our TUs.
 void UTIL_ClearTrace( trace_t &trace );
@@ -56,7 +49,7 @@ inline edict_t *INDEXENT( int iEdictNum )
 
 // A line through the world over the caller's filter, for native diagnostics.
 inline void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask,
-                            ITraceFilter *pFilter, trace_t *ptr )
+							ITraceFilter *pFilter, trace_t *ptr )
 {
 	Ray_t ray;
 	ray.Init( vecAbsStart, vecAbsEnd );

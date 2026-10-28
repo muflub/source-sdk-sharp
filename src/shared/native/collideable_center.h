@@ -10,8 +10,6 @@
 // callers with a base entity use its own WorldSpaceCenter.
 #pragma once
 
-#include "mathlib/vector.h"
-#include "mathlib/mathlib.h"
 #include "engine/ICollideable.h"
 #include "collideable_center_math.h"
 
@@ -23,10 +21,7 @@ inline Vector UTIL_CollideableWorldSpaceCenter( const ICollideable *pCollide )
 	const float *pXform = bAnglesAreZero ? NULL : pCollide->CollisionToWorldTransform().Base();
 
 	Vector vecResult;
-	CollideableCenter_Compute( pCollide->OBBMins().Base(), pCollide->OBBMaxs().Base(),
-	                           bAnglesAreZero,
-	                           pCollide->GetCollisionOrigin().Base(),
-	                           pXform,
-	                           vecResult.Base() );
+	CollideableCenter_Compute( pCollide->OBBMins().Base(), pCollide->OBBMaxs().Base(), bAnglesAreZero,
+							   pCollide->GetCollisionOrigin().Base(), pXform, vecResult.Base() );
 	return vecResult;
 }

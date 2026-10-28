@@ -56,22 +56,65 @@ for ln in lines:
 sig = re.compile(r"^[A-Za-z_~][\w:<>,*&\s~]*\(")
 kw = re.compile(r"^(class|struct|enum|namespace|extern|union|typedef|template)\b")
 
+QUALIFIERS = re.compile(r"(?:\s*(?:const|override|final|noexcept|volatile|OVERRIDE|FINAL|&&|&|->\s*[\w:<>*& ]+))*")
+
+
+def skip_attribute(text):
+    """(attribute, rest) when text starts with __attribute__(( ... )), however spaced."""
+    if not text.startswith("__attribute__"):
+        return "", text
+    i = text.find("(")
+    depth = 0
+    for j in range(i, len(text)):
+        depth += text[j] == "("
+        depth -= text[j] == ")"
+        if depth == 0:
+            return text[:j + 1], text[j + 1:].lstrip()
+    return "", text
+
+
+def signature(text):
+    """The head on one line however it was wrapped: up to the parameter list's
+    closing parenthesis and its qualifiers (never an initialiser list)."""
+    attribute, text = skip_attribute(" ".join(text.split()))
+    if attribute:
+        return (attribute + " " + signature(text)).strip()
+    open_at = text.find("(")
+    if open_at < 0:
+        return text
+    depth = 0
+    for i in range(open_at, len(text)):
+        if text[i] == "(":
+            depth += 1
+        elif text[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return text[:QUALIFIERS.match(text, i + 1).end()].rstrip()
+    return text
+
+
 depth = 0
 start = None
 head = None
+opened = False
 for n, s in enumerate(code, 1):
     stripped = s.strip()
     if depth == 0 and stripped and not stripped.startswith("#"):
         if sig.match(s) and not kw.match(s) and start is None:
             start = n
             head = stripped
+            opened = False
         elif kw.match(s) and start is None:
             start = n
             head = stripped
+            opened = True
+        elif start is not None and not opened:
+            head += " " + stripped.split("{", 1)[0]
     for ch in s:
         if ch == "{":
             if depth == 0 and start is not None:
                 body_start = n
+                opened = True
             depth += 1
         elif ch == "}":
             depth -= 1
@@ -79,7 +122,7 @@ for n, s in enumerate(code, 1):
                 nlines = sum(
                     1 for k in range(start - 1, n) if code[k].strip()
                 )
-                print("%d\t%d\t%d\t%s" % (start, n, nlines, head[:110]))
+                print("%d\t%d\t%d\t%s" % (start, n, nlines, signature(head)[:110]))
                 start = None
                 head = None
     if depth == 0 and start is not None and stripped.endswith(";"):

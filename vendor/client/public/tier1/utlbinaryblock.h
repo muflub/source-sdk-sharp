@@ -13,25 +13,25 @@ public:
 	CUtlBinaryBlock( int growSize = 0, int initSize = 0 );
 
 	// NOTE: nInitialLength indicates how much of the buffer starts full
-	CUtlBinaryBlock( void* pMemory, int nSizeInBytes, int nInitialLength );
-	CUtlBinaryBlock( const void* pMemory, int nSizeInBytes );
-	CUtlBinaryBlock( const CUtlBinaryBlock& src );
+	CUtlBinaryBlock( void *pMemory, int nSizeInBytes, int nInitialLength );
+	CUtlBinaryBlock( const void *pMemory, int nSizeInBytes );
+	CUtlBinaryBlock( const CUtlBinaryBlock &src );
 
-	void		Get( void *pValue, int nMaxLen ) const;
-	void		Set( const void *pValue, int nLen );
-	const void	*Get( ) const;
-	void		*Get( );
+	void Get( void *pValue, int nMaxLen ) const;
+	void Set( const void *pValue, int nLen );
+	const void *Get() const;
+	void *Get();
 
-	unsigned char& operator[]( int i );
-	const unsigned char& operator[]( int i ) const;
+	unsigned char &operator[]( int i );
+	const unsigned char &operator[]( int i ) const;
 
-	int			Length() const;
-	void		SetLength( int nLength );	// Undefined memory will result
-	bool		IsEmpty() const;
-	void		Clear();
-	void		Purge();
+	int Length() const;
+	void SetLength( int nLength ); // Undefined memory will result
+	bool IsEmpty() const;
+	void Clear();
+	void Purge();
 
-	bool		IsReadOnly() const;
+	bool IsReadOnly() const;
 
 	CUtlBinaryBlock &operator=( const CUtlBinaryBlock &src );
 
@@ -44,12 +44,12 @@ private:
 };
 
 // class inlines
-inline const void *CUtlBinaryBlock::Get( ) const
+inline const void *CUtlBinaryBlock::Get() const
 {
 	return m_Memory.Base();
 }
 
-inline void *CUtlBinaryBlock::Get( )
+inline void *CUtlBinaryBlock::Get()
 {
 	return m_Memory.Base();
 }
@@ -59,12 +59,12 @@ inline int CUtlBinaryBlock::Length() const
 	return m_nActualLength;
 }
 
-inline unsigned char& CUtlBinaryBlock::operator[]( int i )
+inline unsigned char &CUtlBinaryBlock::operator[]( int i )
 {
 	return m_Memory[i];
 }
 
-inline const unsigned char& CUtlBinaryBlock::operator[]( int i ) const
+inline const unsigned char &CUtlBinaryBlock::operator[]( int i ) const
 {
 	return m_Memory[i];
 }

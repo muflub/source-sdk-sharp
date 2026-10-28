@@ -32,17 +32,25 @@ struct SSManagedSteamCallbackTable
 class IManagedSteamCallback : public IManagedObject
 {
 public:
-	explicit IManagedSteamCallback( const SSManagedSteamCallbackTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedSteamCallback( const SSManagedSteamCallbackTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
 	void Run( void *pvParam ) { Table()->Run( this, pvParam ); }
 
 private:
-	const SSManagedSteamCallbackTable *Table() const { return static_cast< const SSManagedSteamCallbackTable * >( m_pTable ); }
+	const SSManagedSteamCallbackTable *Table() const
+	{
+		return static_cast<const SSManagedSteamCallbackTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedSteamCallbackSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xde3e0200,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xde3e0200,
 };
 static const int32_t kIManagedSteamCallbackSlotCount = 3;
-static_assert( sizeof( SSManagedSteamCallbackTable ) == 3 * sizeof( void * ), "SSManagedSteamCallbackTable is one pointer per slot" );
-
+static_assert( sizeof( SSManagedSteamCallbackTable ) == 3 * sizeof( void * ),
+			   "SSManagedSteamCallbackTable is one pointer per slot" );

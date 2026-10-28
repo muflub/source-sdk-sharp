@@ -3,7 +3,10 @@
 #pragma once
 
 // -3 as the 8-bit status the parent sees; the launcher keys on it.
-enum { kSourceSharpFatalExitCode = 253 };
+enum
+{
+	kSourceSharpFatalExitCode = 253
+};
 
 // Reports pKind ("ASSERT", "ERROR") and pMsg with the stack to stderr and, when
 // $SOURCESHARP_ASSERT_DIR names a directory, to <dir>/assert-<pid>.txt, then

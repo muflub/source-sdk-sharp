@@ -83,42 +83,59 @@ namespace armed
 #include "../game/server/entity_bases.h"
 
 void CPointEntity::Spawn( void ) {}
-bool CPointEntity::KeyValue( const char *, const char * ) { return true; }
-bool CServerOnlyPointEntity::KeyValue( const char *, const char * ) { return true; }
-bool CLogicalEntity::KeyValue( const char *, const char * ) { return true; }
+
+bool CPointEntity::KeyValue( const char *, const char * )
+{
+	return true;
+}
+
+bool CServerOnlyPointEntity::KeyValue( const char *, const char * )
+{
+	return true;
+}
+
+bool CLogicalEntity::KeyValue( const char *, const char * )
+{
+	return true;
+}
 
 // Armed, these four derive from an abstract interface, so a leaf that answers
 // IGameEntity's six is needed before anything can be instantiated. That is the
 // shape the flip leaves them in and it is not a defect of the test.
-template < typename TBase >
+template <typename TBase>
 class CLeaf : public TBase
 {
 public:
 	virtual bool ShouldCollide( int, int ) const { return true; }
+
 	virtual int GetCollisionGroup() const { return 0; }
+
 	virtual void Touch( const Toucher_t & ) {}
+
 	virtual void StartTouch( const Toucher_t & ) {}
+
 	virtual void EndTouch( const Toucher_t & ) {}
+
 	virtual void VPhysicsUpdate( IPhysicsObject * ) {}
 };
 
-}  // namespace armed
+} // namespace armed
 
 namespace
 {
 
 // Does T answer ObjectCaps()? A compile-time question, asked of the REAL
 // IGameEntity rather than of anything this file wrote.
-template < typename T >
+template <typename T>
 struct HasObjectCaps
 {
-	template < typename U >
+	template <typename U>
 	static auto Probe( int ) -> decltype( ( (U *)0 )->ObjectCaps(), char() );
-	template < typename U >
+	template <typename U>
 	static long Probe( ... );
 	// constexpr, so inline (C++17): EXPECT_TRUE takes it by reference, and a
 	// static const member a reference binds to needs a definition at -O0.
-	static constexpr bool value = sizeof( Probe< T >( 0 ) ) == sizeof( char );
+	static constexpr bool value = sizeof( Probe<T>( 0 ) ) == sizeof( char );
 };
 
 //-----------------------------------------------------------------------------
@@ -141,7 +158,7 @@ struct HasObjectCaps
 // buildcpptests runs each binary with src/ as the working directory; the other
 // candidates are so that running this by hand from the repo root also works.
 //-----------------------------------------------------------------------------
-}  // namespace
+} // namespace
 
 //-----------------------------------------------------------------------------
 // WHAT THE ARMED ARM ANSWERS.
@@ -153,13 +170,13 @@ struct HasObjectCaps
 //-----------------------------------------------------------------------------
 TEST( EntityBasesArmed, PointEntityAnswersNoCaps )
 {
-	armed::CLeaf< armed::CPointEntity > ent;
+	armed::CLeaf<armed::CPointEntity> ent;
 	EXPECT_EQ( 0, ent.ObjectCaps() );
 }
 
 TEST( EntityBasesArmed, ServerOnlyEntityAnswersNoCaps )
 {
-	armed::CLeaf< armed::CServerOnlyEntity > ent;
+	armed::CLeaf<armed::CServerOnlyEntity> ent;
 	EXPECT_EQ( 0, ent.ObjectCaps() );
 }
 
@@ -168,8 +185,8 @@ TEST( EntityBasesArmed, ServerOnlyEntityStillDefaultConstructs )
 	// The deleted `: CBaseEntity( true )` is gone for good; what must survive is
 	// that the two classes deriving from it -- and they are in the prelude too
 	// -- still have a default constructor to call.
-	armed::CLeaf< armed::CServerOnlyPointEntity > pt;
-	armed::CLeaf< armed::CLogicalEntity > logical;
+	armed::CLeaf<armed::CServerOnlyPointEntity> pt;
+	armed::CLeaf<armed::CLogicalEntity> logical;
 	EXPECT_EQ( 0, pt.ObjectCaps() );
 	EXPECT_EQ( 0, logical.ObjectCaps() );
 }

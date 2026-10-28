@@ -35,16 +35,17 @@ enum view_id_t
 	VIEW_SSAO = 8,
 	VIEW_ID_COUNT
 };
+
 view_id_t CurrentViewID();
 
 // Purpose: Stored pitch drifting variables
 class CPitchDrift
 {
 public:
-	float		pitchvel;
-	bool		nodrift;
-	float		driftmove;
-	double		laststop;
+	float pitchvel;
+	bool nodrift;
+	float driftmove;
+	double laststop;
 };
 
 struct ViewCustomVisibility_t
@@ -52,38 +53,39 @@ struct ViewCustomVisibility_t
 	ViewCustomVisibility_t()
 	{
 		m_nNumVisOrigins = 0;
-		m_VisData.m_fDistToAreaPortalTolerance = FLT_MAX; 
+		m_VisData.m_fDistToAreaPortalTolerance = FLT_MAX;
 		m_iForceViewLeaf = -1;
 	}
 
 	// Set to true if you want to use multiple origins for doing client side map vis culling
 	// NOTE:  In generaly, you won't want to do this, and by default the 3d origin of the camera, as above,
 	//  will be used as the origin for vis, too.
-	int				m_nNumVisOrigins;
+	int m_nNumVisOrigins;
 	// Array of origins
-	Vector			m_rgVisOrigins[ MAX_VIS_LEAVES ];
+	Vector m_rgVisOrigins[MAX_VIS_LEAVES];
 
 	// The view data overrides for visibility calculations with area portals
 	VisOverrideData_t m_VisData;
 
 	// The starting leaf to determing which area to start in when performing area portal culling on the engine
 	// Default behavior is to use the leaf the camera position is in.
-	int				m_iForceViewLeaf;
+	int m_iForceViewLeaf;
 };
 
-class CBase3dView : public CRefCounted<>,
-					protected CViewSetup
+class CBase3dView : public CRefCounted<>, protected CViewSetup
 {
 	DECLARE_CLASS_NOBASE( CBase3dView );
+
 public:
 	CBase3dView( CViewRender *pMainView );
 
-	VPlane *		GetFrustum();
-	virtual int		GetDrawFlags() { return 0; }
+	VPlane *GetFrustum();
+
+	virtual int GetDrawFlags() { return 0; }
 
 protected:
 	// @MULTICORE (toml 8/11/2006): need to have per-view frustum. Change when move view stack to client
-	VPlane			*m_Frustum;
+	VPlane *m_Frustum;
 	CViewRender *m_pMainView;
 };
 
@@ -91,19 +93,20 @@ protected:
 class CRendering3dView : public CBase3dView
 {
 	DECLARE_CLASS( CRendering3dView, CBase3dView );
+
 public:
 	CRendering3dView( CViewRender *pMainView );
+
 	virtual ~CRendering3dView() { ReleaseLists(); }
 
 	void Setup( const CViewSetup &setup );
 
 	// What are we currently rendering? Returns a combination of DF_ flags.
-	virtual int		GetDrawFlags();
+	virtual int GetDrawFlags();
 
-	virtual void	Draw() {};
+	virtual void Draw() {};
 
 protected:
-
 	void ReleaseLists();
 
 	// Combination of DF_ flags.
@@ -119,160 +122,140 @@ protected:
 class CRenderExecutor
 {
 	DECLARE_CLASS_NOBASE( CRenderExecutor );
+
 public:
 	virtual void AddView( CRendering3dView *pView ) = 0;
 	virtual void Execute() = 0;
 
 protected:
-	CRenderExecutor( CViewRender *pMainView ) : m_pMainView( pMainView ) {}
+	CRenderExecutor( CViewRender *pMainView )
+		: m_pMainView( pMainView )
+	{
+	}
+
 	CViewRender *m_pMainView;
 };
 
 class CSimpleRenderExecutor : public CRenderExecutor
 {
 	DECLARE_CLASS( CSimpleRenderExecutor, CRenderExecutor );
+
 public:
-	CSimpleRenderExecutor( CViewRender *pMainView ) : CRenderExecutor( pMainView ) {}
+	CSimpleRenderExecutor( CViewRender *pMainView )
+		: CRenderExecutor( pMainView )
+	{
+	}
 
 	void AddView( CRendering3dView *pView );
+
 	void Execute() {}
 };
 
 // Purpose: Implements the interface to view rendering for the client .dll
 
-class CViewRender : public IViewRender,
-					public IReplayScreenshotSystem
+class CViewRender : public IViewRender, public IReplayScreenshotSystem
 {
 	DECLARE_CLASS_NOBASE( CViewRender );
+
 public:
-	virtual void	Init();
-	virtual void	Shutdown();
+	virtual void Init();
+	virtual void Shutdown();
 
-	const CViewSetup *GetPlayerViewSetup( ) const;
+	const CViewSetup *GetPlayerViewSetup() const;
 
-	virtual void	StartPitchDrift();
-	virtual void	StopPitchDrift();
+	virtual void StartPitchDrift();
+	virtual void StopPitchDrift();
 
-	virtual float	GetZNear();
-	virtual float	GetZFar();
+	virtual float GetZNear();
+	virtual float GetZFar();
 
-	virtual void	OnRenderStart();
-	void			DriftPitch ();
+	virtual void OnRenderStart();
+	void DriftPitch();
 
 protected:
-
 	// generates a low-res screenshot for save games
-	virtual void	WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height, bool bCreatePowerOf2Padded = false, bool bWriteVTF = false );
-	void			WriteSaveGameScreenshot( const char *filename );
+	virtual void WriteSaveGameScreenshotOfSize( const char *pFilename, int width, int height,
+												bool bCreatePowerOf2Padded = false, bool bWriteVTF = false );
+	void WriteSaveGameScreenshot( const char *filename );
 
 	virtual IReplayScreenshotSystem *GetReplayScreenshotSystem() { return this; }
 
 	// IReplayScreenshot implementation
-	virtual void	WriteReplayScreenshot( WriteReplayScreenshotParams_t &params );
-	virtual void	UpdateReplayScreenshotCache();
+	virtual void WriteReplayScreenshot( WriteReplayScreenshotParams_t &params );
+	virtual void UpdateReplayScreenshotCache();
 
 	// This stores all of the view setup parameters that the engine needs to know about.
-    // Best way to pick the right one is with ::GetView(), rather than directly.
-	CViewSetup		m_View;         // mono <- in stereo mode, this will be between the two eyes and is the "main" view.
-	CViewSetup		m_ViewLeft;     // left (unused for mono)
-	CViewSetup		m_ViewRight;    // right (unused for mono)
+	// Best way to pick the right one is with ::GetView(), rather than directly.
+	CViewSetup m_View; // mono <- in stereo mode, this will be between the two eyes and is the "main" view.
+	CViewSetup m_ViewLeft; // left (unused for mono)
+	CViewSetup m_ViewRight; // right (unused for mono)
 
 	// Pitch drifting data
-	CPitchDrift		m_PitchDrift;
+	CPitchDrift m_PitchDrift;
 
 public:
-					CViewRender();
-	virtual			~CViewRender() {}
+	CViewRender();
 
-// Implementation of IViewRender interface
+	virtual ~CViewRender() {}
+
+	// Implementation of IViewRender interface
 public:
-
 	// Render functions
-	virtual	void	Render( vrect_t *rect );
-	virtual void	RenderView( const CViewSetup &view, int nClearFlags, int whatToDraw );
+	virtual void Render( vrect_t *rect );
+	virtual void RenderView( const CViewSetup &view, int nClearFlags, int whatToDraw );
 	virtual void unused_RenderPlayerSprites() = 0;
 	virtual void unused_Render2DEffectsPreHUD() = 0;
 	virtual void unused_Render2DEffectsPostHUD() = 0;
 
 	// Called once per level change
-	void			LevelInit();
-	void			LevelShutdown();
+	void LevelInit();
+	void LevelShutdown();
 
 	// Add entity to transparent entity queue
 
-	bool			ShouldDrawBrushModels();
+	bool ShouldDrawBrushModels();
 
-	const CViewSetup *GetViewSetup( ) const;
-	
-	void			DisableVis();
+	const CViewSetup *GetViewSetup() const;
 
-	void			SetCheapWaterStartDistance( float flCheapWaterStartDistance );
-	void			SetCheapWaterEndDistance( float flCheapWaterEndDistance );
+	void DisableVis();
 
-	void			GetWaterLODParams( float &flCheapWaterStartDistance, float &flCheapWaterEndDistance );
+	void SetCheapWaterStartDistance( float flCheapWaterStartDistance );
+	void SetCheapWaterEndDistance( float flCheapWaterEndDistance );
 
-	virtual void	QueueOverlayRenderView( const CViewSetup &view, int nClearFlags, int whatToDraw );
+	void GetWaterLODParams( float &flCheapWaterStartDistance, float &flCheapWaterEndDistance );
 
-	virtual void	GetScreenFadeDistances( float *min, float *max );
+	virtual void QueueOverlayRenderView( const CViewSetup &view, int nClearFlags, int whatToDraw );
+
+	virtual void GetScreenFadeDistances( float *min, float *max );
 
 	virtual C_BaseEntity *GetCurrentlyDrawingEntity();
-	virtual void		  SetCurrentlyDrawingEntity( C_BaseEntity *pEnt );
+	virtual void SetCurrentlyDrawingEntity( C_BaseEntity *pEnt );
 
-	virtual bool		UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView );
+	virtual bool UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture,
+										   const CViewSetup &shadowView );
 
 	virtual void unused_ShouldForceNoVis() = 0;
 
-	int				BuildWorldListsNumber() const;
+	int BuildWorldListsNumber() const;
 
-	virtual VPlane*	GetFrustum() { return ( m_pActiveRenderer ) ? m_pActiveRenderer->GetFrustum() : m_Frustum; }
+	virtual VPlane *GetFrustum() { return ( m_pActiveRenderer ) ? m_pActiveRenderer->GetFrustum() : m_Frustum; }
 
 	// What are we currently rendering? Returns a combination of DF_ flags.
-	virtual int		GetDrawFlags() { return ( m_pActiveRenderer ) ? m_pActiveRenderer->GetDrawFlags() : 0; }
+	virtual int GetDrawFlags() { return ( m_pActiveRenderer ) ? m_pActiveRenderer->GetDrawFlags() : 0; }
 
-	void			FreezeFrame( float flFreezeTime );
+	void FreezeFrame( float flFreezeTime );
 
 private:
-	int				m_BuildWorldListsNumber;
+	int m_BuildWorldListsNumber;
 
 	// Overlays
-	void			SetScreenOverlayMaterial( IMaterial *pMaterial );
-	IMaterial		*GetScreenOverlayMaterial( );
+	void SetScreenOverlayMaterial( IMaterial *pMaterial );
+	IMaterial *GetScreenOverlayMaterial();
 
 	virtual void unused_ViewDrawScene_Intro() = 0;
 
 	// This stores the current view
- 	CViewSetup		m_CurrentView;
-
-	// VIS Overrides
-	// Set to true to turn off client side vis ( !!!! rendering will be slow since everything will draw )
-	bool			m_bForceNoVis;	
-
-	// Some cvars needed by this system
-	const ConVar	*m_pDrawEntities;
-	const ConVar	*m_pDrawBrushModels;
-
-	// Some materials used...
-	CMaterialReference	m_TranslucentSingleColor;
-	CMaterialReference	m_ModulateSingleColor;
-	CMaterialReference	m_ScreenOverlayMaterial;
-	CMaterialReference m_UnderWaterOverlayMaterial;
-
-	CMaterialReference	m_ScriptOverlayMaterial;
-	char m_szCurrentScriptMaterialName[ MAX_PATH ];
-
-	Vector			m_vecLastFacing;
-	float			m_flCheapWaterStartDistance;
-	float			m_flCheapWaterEndDistance;
-
-	CViewSetup			m_OverlayViewSetup;
-	int					m_OverlayClearFlags;
-	int					m_OverlayDrawFlags;
-	bool				m_bDrawOverlay;
-
-	int					m_BaseDrawFlags;	// Set in ViewDrawScene and OR'd into m_DrawFlags as it goes.
-	C_BaseEntity		*m_pCurrentlyDrawingEntity;
-
-	int				m_BuildRenderableListsNumber;
+	alignas( 4 ) unsigned char unused_m_CurrentView[768];
 
 	friend class CBase3dView;
 
@@ -281,7 +264,6 @@ private:
 	CBase3dView *m_pActiveRenderer;
 	CSimpleRenderExecutor m_SimpleExecutor;
 
-	bool			m_rbTakeFreezeFrame[ STEREO_EYE_MAX ];
-	float			m_flFreezeFrameUntil;
-
+	bool m_rbTakeFreezeFrame[STEREO_EYE_MAX];
+	float m_flFreezeFrameUntil;
 };

@@ -2,8 +2,6 @@
 // engine-free so it can be tested.
 #pragma once
 
-#include <stdlib.h>
-
 // The CrossingsReport slot's shape.
 typedef int ( *SourceSharpCrossingsReportFn )( char *pBuffer, int nBytes, int bReset );
 
@@ -34,8 +32,8 @@ enum SourceSharpCrossingsStatus
 
 // Sizes, allocates, fills. bReset goes on the filling call only. On OK, *ppOut is
 // a NUL-terminated buffer the caller frees; otherwise it is NULL.
-inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReport(
-	SourceSharpCrossingsReportFn pFn, bool bReset, char **ppOut )
+inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReport( SourceSharpCrossingsReportFn pFn, bool bReset,
+																	char **ppOut )
 {
 	if ( ppOut == NULL )
 		return SOURCESHARP_CROSSINGS_NO_SLOT;
@@ -63,8 +61,8 @@ inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReport(
 		return SOURCESHARP_CROSSINGS_NO_MEMORY;
 
 	// Pre-terminated, so a slot that writes nothing yields an empty string.
-	pBuffer[ 0 ] = '\0';
-	pBuffer[ nNeeded - 1 ] = '\0';
+	pBuffer[0] = '\0';
+	pBuffer[nNeeded - 1] = '\0';
 
 	const int nFilled = pFn( pBuffer, nNeeded, bReset ? 1 : 0 );
 
@@ -75,7 +73,7 @@ inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReport(
 	}
 
 	// Do not trust the far side to terminate.
-	pBuffer[ nNeeded - 1 ] = '\0';
+	pBuffer[nNeeded - 1] = '\0';
 
 	*ppOut = pBuffer;
 	return SOURCESHARP_CROSSINGS_OK;
@@ -86,20 +84,20 @@ inline const char *SourceSharp_CrossingsStatusText( SourceSharpCrossingsStatus s
 {
 	switch ( status )
 	{
-	case SOURCESHARP_CROSSINGS_OK:
-		return "ok";
-	case SOURCESHARP_CROSSINGS_NO_SLOT:
-		return "no managed side is loaded, so nothing has crossed the boundary";
-	case SOURCESHARP_CROSSINGS_REFUSED:
-		return "the managed side refused to encode the report";
-	case SOURCESHARP_CROSSINGS_EMPTY:
-		return "the managed side answered an empty report";
-	case SOURCESHARP_CROSSINGS_TOO_BIG:
-		return "the managed side asked for an absurd buffer; refused";
-	case SOURCESHARP_CROSSINGS_NO_MEMORY:
-		return "out of memory sizing the report";
-	case SOURCESHARP_CROSSINGS_GREW:
-		return "the managed side sized the report and then would not fill it";
+		case SOURCESHARP_CROSSINGS_OK:
+			return "ok";
+		case SOURCESHARP_CROSSINGS_NO_SLOT:
+			return "no managed side is loaded, so nothing has crossed the boundary";
+		case SOURCESHARP_CROSSINGS_REFUSED:
+			return "the managed side refused to encode the report";
+		case SOURCESHARP_CROSSINGS_EMPTY:
+			return "the managed side answered an empty report";
+		case SOURCESHARP_CROSSINGS_TOO_BIG:
+			return "the managed side asked for an absurd buffer; refused";
+		case SOURCESHARP_CROSSINGS_NO_MEMORY:
+			return "out of memory sizing the report";
+		case SOURCESHARP_CROSSINGS_GREW:
+			return "the managed side sized the report and then would not fill it";
 	}
 
 	return "unknown failure";

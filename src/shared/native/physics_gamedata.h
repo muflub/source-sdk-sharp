@@ -10,14 +10,8 @@
 // CBaseEntity pointer: no user-space pointer sets it on either target.
 #pragma once
 
-#include <stddef.h>
-#include <stdint.h>
-
-#include "basehandle.h"
-
 // The top bit of a pointer-sized word, so a 32-bit build tags bit 31.
-#define SOURCESHARP_PHYSICS_GAMEDATA_TAG \
-	( (uintptr_t)1 << ( sizeof( uintptr_t ) * 8 - 1 ) )
+#define SOURCESHARP_PHYSICS_GAMEDATA_TAG ( (uintptr_t)1 << ( sizeof( uintptr_t ) * 8 - 1 ) )
 
 // The +1 and the -1 must move together.
 #define SOURCESHARP_PHYSICS_GAMEDATA_BIAS ( (uintptr_t)1 )
@@ -55,8 +49,7 @@ inline void *PhysicsGameDataFromHandle( const CBaseHandle &handle )
 	if ( !handle.IsValid() )
 		return NULL;
 
-	const uintptr_t word = (uintptr_t)(uint32)handle.ToInt()
-	                     + SOURCESHARP_PHYSICS_GAMEDATA_BIAS;
+	const uintptr_t word = (uintptr_t)(uint32)handle.ToInt() + SOURCESHARP_PHYSICS_GAMEDATA_BIAS;
 
 	return (void *)( word | SOURCESHARP_PHYSICS_GAMEDATA_TAG );
 }
@@ -67,8 +60,8 @@ inline CBaseHandle PhysicsHandleFromGameData( const void *pGameData )
 	if ( !PhysicsGameDataIsHandle( pGameData ) )
 		return CBaseHandle();
 
-	const uintptr_t word = ( (uintptr_t)pGameData & ~SOURCESHARP_PHYSICS_GAMEDATA_TAG )
-	                     - SOURCESHARP_PHYSICS_GAMEDATA_BIAS;
+	const uintptr_t word =
+		( (uintptr_t)pGameData & ~SOURCESHARP_PHYSICS_GAMEDATA_TAG ) - SOURCESHARP_PHYSICS_GAMEDATA_BIAS;
 
 	return CBaseHandle::UnsafeFromIndex( (int)(uint32)word );
 }

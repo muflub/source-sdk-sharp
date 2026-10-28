@@ -53,8 +53,7 @@ TEST( StandaloneModelBounds, PlayerKeepsItsHullDespiteAModelWithBounds )
 TEST( StandaloneModelBounds, PlayerRefusalDoesNotDependOnTheModel )
 {
 	EXPECT_FALSE( StandaloneModel_AdoptsBounds( true, false ) );
-	EXPECT_EQ( StandaloneModel_AdoptsBounds( true, true ),
-	           StandaloneModel_AdoptsBounds( true, false ) );
+	EXPECT_EQ( StandaloneModel_AdoptsBounds( true, true ), StandaloneModel_AdoptsBounds( true, false ) );
 }
 
 //-----------------------------------------------------------------------------

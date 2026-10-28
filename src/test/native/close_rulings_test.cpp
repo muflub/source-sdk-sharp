@@ -46,12 +46,12 @@ namespace
 const char *WorktreeRoot()
 {
 	static const char *kCandidates[] = { ".", "..", "../..", "../../.." };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
-		std::string szProbe = std::string( kCandidates[ i ] ) + "/tools/entity-census-patterns";
+		std::string szProbe = std::string( kCandidates[i] ) + "/tools/entity-census-patterns";
 		struct stat st;
 		if ( stat( szProbe.c_str(), &st ) == 0 && S_ISREG( st.st_mode ) )
-			return kCandidates[ i ];
+			return kCandidates[i];
 	}
 	return NULL;
 }
@@ -68,7 +68,7 @@ std::string ReadRoot( const char *pszRelative )
 		return std::string();
 
 	std::string szOut;
-	char rgchBuf[ 8192 ];
+	char rgchBuf[8192];
 	size_t cRead;
 	while ( ( cRead = fread( rgchBuf, 1, sizeof( rgchBuf ), pFile ) ) > 0 )
 		szOut.append( rgchBuf, cRead );
@@ -85,14 +85,13 @@ std::string ReadRoot( const char *pszRelative )
 std::string PatternFor( const char *pszName )
 {
 	const std::string szBody = ReadRoot( "tools/entity-census-patterns" );
-	const std::string szKey  = std::string( pszName ) + "\t";
+	const std::string szKey = std::string( pszName ) + "\t";
 
 	size_t iPos = 0;
 	while ( iPos < szBody.size() )
 	{
-		const size_t iEnd  = szBody.find( '\n', iPos );
-		const std::string szLine =
-			szBody.substr( iPos, ( iEnd == std::string::npos ? szBody.size() : iEnd ) - iPos );
+		const size_t iEnd = szBody.find( '\n', iPos );
+		const std::string szLine = szBody.substr( iPos, ( iEnd == std::string::npos ? szBody.size() : iEnd ) - iPos );
 		iPos = ( iEnd == std::string::npos ) ? szBody.size() : iEnd + 1;
 
 		if ( szLine.compare( 0, szKey.size(), szKey ) == 0 )
@@ -126,7 +125,7 @@ std::string Shell( const std::string &szCommand )
 		return std::string();
 
 	std::string szOut;
-	char rgchBuf[ 4096 ];
+	char rgchBuf[4096];
 	while ( fgets( rgchBuf, sizeof( rgchBuf ), pPipe ) )
 		szOut += rgchBuf;
 	pclose( pPipe );
@@ -240,8 +239,7 @@ TEST( CloseRulings, EveryTypedCastRowToleratesALeadingConst )
 {
 	// `static_cast< const C_StandaloneEntity * >` was invisible to this file
 	// until the close, and there was a real one in the tree.
-	static const char *const kRows[] = { "cstyle", "static_cast", "reinterpret_cast",
-	                                     "dynamic_cast", "assert_cast" };
+	static const char *const kRows[] = { "cstyle", "static_cast", "reinterpret_cast", "dynamic_cast", "assert_cast" };
 	static const char *const kText[] = {
 		"\t( const CBaseEntity * )p",
 		"\tstatic_cast< const C_StandaloneEntity * >( pEnt )",
@@ -249,12 +247,11 @@ TEST( CloseRulings, EveryTypedCastRowToleratesALeadingConst )
 		"\tdynamic_cast< const C_BaseEntity * >( p )",
 		"\tassert_cast< const CBasePlayer * >( p )",
 	};
-	for ( size_t i = 0; i < sizeof( kRows ) / sizeof( kRows[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kRows ) / sizeof( kRows[0] ); i++ )
 	{
-		const std::string szRe = PatternFor( kRows[ i ] );
-		ASSERT_FALSE( szRe.empty() ) << kRows[ i ];
-		EXPECT_TRUE( Matches( szRe, kText[ i ] ) )
-			<< kRows[ i ] << " stopped seeing a const-qualified cast: " << kText[ i ];
+		const std::string szRe = PatternFor( kRows[i] );
+		ASSERT_FALSE( szRe.empty() ) << kRows[i];
+		EXPECT_TRUE( Matches( szRe, kText[i] ) ) << kRows[i] << " stopped seeing a const-qualified cast: " << kText[i];
 	}
 }
 
@@ -263,8 +260,7 @@ TEST( CloseRulings, EveryTypedCastRowAlsoNamesTheHierarchyThatActuallyEXISTS )
 	// The stock entity classes are gone from this tree, so the rows naming them
 	// are tripwires. THIS is the half that can still fire: IGameEntity is the
 	// hierarchy the port has.
-	static const char *const kRows[] = { "cstyle", "static_cast", "reinterpret_cast",
-	                                     "dynamic_cast", "assert_cast" };
+	static const char *const kRows[] = { "cstyle", "static_cast", "reinterpret_cast", "dynamic_cast", "assert_cast" };
 	static const char *const kText[] = {
 		"\t( IGameEntity * )pThing",
 		"\tstatic_cast< IGameEntity * >( pThing )",
@@ -272,13 +268,12 @@ TEST( CloseRulings, EveryTypedCastRowAlsoNamesTheHierarchyThatActuallyEXISTS )
 		"\tdynamic_cast< IGameEntity * >( pThing )",
 		"\tassert_cast< IGameEntity * >( pThing )",
 	};
-	for ( size_t i = 0; i < sizeof( kRows ) / sizeof( kRows[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kRows ) / sizeof( kRows[0] ); i++ )
 	{
-		const std::string szRe = PatternFor( kRows[ i ] );
-		ASSERT_FALSE( szRe.empty() ) << kRows[ i ];
-		EXPECT_TRUE( Matches( szRe, kText[ i ] ) )
-			<< kRows[ i ] << " does not name IGameEntity, so the only entity "
-			<< "hierarchy this build has is ungated: " << kText[ i ];
+		const std::string szRe = PatternFor( kRows[i] );
+		ASSERT_FALSE( szRe.empty() ) << kRows[i];
+		EXPECT_TRUE( Matches( szRe, kText[i] ) ) << kRows[i] << " does not name IGameEntity, so the only entity "
+												 << "hierarchy this build has is ungated: " << kText[i];
 	}
 }
 
@@ -325,13 +320,12 @@ TEST( CloseRulings, ScanSitesSeesARealCastAndIgnoresOneInAStringOrAComment )
 	Shell( "rm -rf '" + szDir + "' && mkdir -p '" + szDir + "'" );
 
 	// Three occurrences of ONE spelling: code, string, comment.
-	const std::string szProbe =
-		"void f( void *p )\n"
-		"{\n"
-		"\tIGameEntity *a = static_cast< IGameEntity * >( p );\n"
-		"\tMsg( \\\"static_cast< IGameEntity * >( p ) is what the refusal says\\\" );\n"
-		"\t// static_cast< IGameEntity * >( p ) in a comment\n"
-		"}\n";
+	const std::string szProbe = "void f( void *p )\n"
+								"{\n"
+								"\tIGameEntity *a = static_cast< IGameEntity * >( p );\n"
+								"\tMsg( \\\"static_cast< IGameEntity * >( p ) is what the refusal says\\\" );\n"
+								"\t// static_cast< IGameEntity * >( p ) in a comment\n"
+								"}\n";
 	Shell( "printf '%b' \"" + szProbe + "\" > '" + szDir + "/probe.cpp'" );
 	Shell( "echo probe.cpp > '" + szDir + "/list.txt'" );
 
@@ -341,20 +335,24 @@ TEST( CloseRulings, ScanSitesSeesARealCastAndIgnoresOneInAStringOrAComment )
 	const std::string szRe = PatternFor( "static_cast" );
 	ASSERT_FALSE( szRe.empty() );
 
-	const std::string szOut = Shell(
-		"export LC_ALL=C; SRC_ABS='" + szDir + "'; . '" + szDir + "/scan.sh'; "
-		"scan_sites '" + szDir + "/list.txt' '" + szRe + "'" );
+	const std::string szOut = Shell( "export LC_ALL=C; SRC_ABS='" + szDir + "'; . '" + szDir +
+									 "/scan.sh'; "
+									 "scan_sites '" +
+									 szDir + "/list.txt' '" + szRe + "'" );
 
 	// The code site, and ONLY the code site.
 	EXPECT_NE( std::string::npos, szOut.find( "probe.cpp:3" ) )
 		<< "scan_sites stopped seeing a real cast, which is the direction that "
-		   "turns the gate green over a tree that is not finished:\n" << szOut;
+		   "turns the gate green over a tree that is not finished:\n"
+		<< szOut;
 	EXPECT_EQ( std::string::npos, szOut.find( "probe.cpp:4" ) )
 		<< "scan_sites counts a cast spelling inside a STRING LITERAL, so a §7 "
 		   "refusal message raises gate 3 and the only fix is to reword the "
-		   "refusal:\n" << szOut;
+		   "refusal:\n"
+		<< szOut;
 	EXPECT_EQ( std::string::npos, szOut.find( "probe.cpp:5" ) )
-		<< "scan_sites counts a cast spelling inside a COMMENT:\n" << szOut;
+		<< "scan_sites counts a cast spelling inside a COMMENT:\n"
+		<< szOut;
 
 	Shell( "rm -rf '" + szDir + "'" );
 }

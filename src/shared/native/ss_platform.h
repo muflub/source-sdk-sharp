@@ -3,58 +3,57 @@
 // Windows and macOS. System headers only, so it can be tested free of Source headers.
 #pragma once
 
-#include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
 #ifdef _WIN32
-	#ifndef WIN32_LEAN_AND_MEAN
-		#define WIN32_LEAN_AND_MEAN
-	#endif
-	#ifndef NOMINMAX
-		#define NOMINMAX
-	#endif
-	#include <windows.h>
-	#include <intrin.h>
-	#include <process.h>
-	#include <direct.h>
-	// <windows.h> macros rename methods such as GetClassName and CreateEvent in
-	// every later declaration; this header is included by headers, so it must not
-	// leak them. Win32 code names the explicit ...A functions.
-	#undef GetClassName
-	#undef GetProp
-	#undef SetProp
-	#undef GetObject
-	#undef CreateEvent
-	#undef GetCurrentTime
-	#undef PostMessage
-	#undef SendMessage
-	#undef CreateFont
-	#undef DrawText
-	#undef GetMessage
-	#undef CopyFile
-	#undef DeleteFile
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <intrin.h>
+#include <process.h>
+#include <direct.h>
+// <windows.h> macros rename methods such as GetClassName and CreateEvent in
+// every later declaration; this header is included by headers, so it must not
+// leak them. Win32 code names the explicit ...A functions.
+#undef GetClassName
+#undef GetProp
+#undef SetProp
+#undef GetObject
+#undef CreateEvent
+#undef GetCurrentTime
+#undef PostMessage
+#undef SendMessage
+#undef CreateFont
+#undef DrawText
+#undef GetMessage
+#undef CopyFile
+#undef DeleteFile
 #else
-	#include <dlfcn.h>
-	#include <execinfo.h>
-	#include <sys/mman.h>
-	#include <unistd.h>
+#include <dlfcn.h>
+#include <execinfo.h>
+#include <sys/mman.h>
+#include <unistd.h>
 #endif
 
 // The caller's return address. Level 0 only.
 #ifdef _MSC_VER
-	#define SS_RETURN_ADDRESS() _ReturnAddress()
+#define SS_RETURN_ADDRESS() _ReturnAddress()
 #else
-	#define SS_RETURN_ADDRESS() __builtin_return_address( 0 )
+#define SS_RETURN_ADDRESS() __builtin_return_address( 0 )
 #endif
 
 #ifdef _WIN32
-	#define ss_strcasecmp _stricmp
+#define ss_strcasecmp _stricmp
 #else
-	#include <strings.h>
-	#define ss_strcasecmp strcasecmp
+#include <strings.h>
+#define ss_strcasecmp strcasecmp
 #endif
 
 // The module that holds an address: its load base, its path ("" when unknown) and the
@@ -64,7 +63,7 @@ struct SSModuleInfo
 {
 	const void *pBase;
 	const char *pszSymbol;
-	char szPath[ 1024 ];
+	char szPath[1024];
 };
 
 inline bool SS_ModuleOfAddress( const void *pAddress, SSModuleInfo *pInfo )
@@ -73,17 +72,18 @@ inline bool SS_ModuleOfAddress( const void *pAddress, SSModuleInfo *pInfo )
 		return false;
 	pInfo->pBase = NULL;
 	pInfo->pszSymbol = NULL;
-	pInfo->szPath[ 0 ] = '\0';
+	pInfo->szPath[0] = '\0';
 	if ( !pAddress )
 		return false;
 #ifdef _WIN32
 	HMODULE hModule = NULL;
 	if ( !::GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-	                            (LPCSTR)pAddress, &hModule ) || !hModule )
+								(LPCSTR)pAddress, &hModule ) ||
+		 !hModule )
 		return false;
 	pInfo->pBase = (const void *)hModule;
 	if ( ::GetModuleFileNameA( hModule, pInfo->szPath, (DWORD)sizeof( pInfo->szPath ) ) == 0 )
-		pInfo->szPath[ 0 ] = '\0';
+		pInfo->szPath[0] = '\0';
 	return true;
 #else
 	Dl_info info;
@@ -94,7 +94,7 @@ inline bool SS_ModuleOfAddress( const void *pAddress, SSModuleInfo *pInfo )
 	if ( info.dli_fname )
 	{
 		strncpy( pInfo->szPath, info.dli_fname, sizeof( pInfo->szPath ) - 1 );
-		pInfo->szPath[ sizeof( pInfo->szPath ) - 1 ] = '\0';
+		pInfo->szPath[sizeof( pInfo->szPath ) - 1] = '\0';
 	}
 	return true;
 #endif
@@ -150,12 +150,20 @@ inline int SS_PageBitsFromWindows( DWORD dwProtect )
 {
 	switch ( dwProtect & 0xFF )
 	{
-	case PAGE_READONLY: return SS_PAGE_READ;
-	case PAGE_READWRITE: case PAGE_WRITECOPY: return SS_PAGE_READ | SS_PAGE_WRITE;
-	case PAGE_EXECUTE: return SS_PAGE_EXEC;
-	case PAGE_EXECUTE_READ: return SS_PAGE_READ | SS_PAGE_EXEC;
-	case PAGE_EXECUTE_READWRITE: case PAGE_EXECUTE_WRITECOPY: return SS_PAGE_READ | SS_PAGE_WRITE | SS_PAGE_EXEC;
-	default: return 0;
+		case PAGE_READONLY:
+			return SS_PAGE_READ;
+		case PAGE_READWRITE:
+		case PAGE_WRITECOPY:
+			return SS_PAGE_READ | SS_PAGE_WRITE;
+		case PAGE_EXECUTE:
+			return SS_PAGE_EXEC;
+		case PAGE_EXECUTE_READ:
+			return SS_PAGE_READ | SS_PAGE_EXEC;
+		case PAGE_EXECUTE_READWRITE:
+		case PAGE_EXECUTE_WRITECOPY:
+			return SS_PAGE_READ | SS_PAGE_WRITE | SS_PAGE_EXEC;
+		default:
+			return 0;
 	}
 }
 
@@ -184,19 +192,22 @@ inline int SS_PageProtection( const void *pAddress )
 		return -1;
 	const uintptr_t address = (uintptr_t)pAddress;
 	int nProtection = -1;
-	char szLine[ 512 ];
+	char szLine[512];
 	while ( fgets( szLine, sizeof( szLine ), pMaps ) )
 	{
 		unsigned long lo = 0, hi = 0;
-		char szPerms[ 8 ] = { 0 };
+		char szPerms[8] = { 0 };
 		if ( sscanf( szLine, "%lx-%lx %7s", &lo, &hi, szPerms ) != 3 )
 			continue;
 		if ( address < lo || address >= hi )
 			continue;
 		nProtection = 0;
-		if ( szPerms[0] == 'r' ) nProtection |= SS_PAGE_READ;
-		if ( szPerms[1] == 'w' ) nProtection |= SS_PAGE_WRITE;
-		if ( szPerms[2] == 'x' ) nProtection |= SS_PAGE_EXEC;
+		if ( szPerms[0] == 'r' )
+			nProtection |= SS_PAGE_READ;
+		if ( szPerms[1] == 'w' )
+			nProtection |= SS_PAGE_WRITE;
+		if ( szPerms[2] == 'x' )
+			nProtection |= SS_PAGE_EXEC;
 		break;
 	}
 	fclose( pMaps );
@@ -214,9 +225,12 @@ inline bool SS_PageProtect( const void *pAddress, int nProtection )
 	return ::VirtualProtect( (LPVOID)page, nPage, SS_PageBitsToWindows( nProtection ), &dwOld ) != 0;
 #else
 	int nProt = 0;
-	if ( nProtection & SS_PAGE_READ ) nProt |= PROT_READ;
-	if ( nProtection & SS_PAGE_WRITE ) nProt |= PROT_WRITE;
-	if ( nProtection & SS_PAGE_EXEC ) nProt |= PROT_EXEC;
+	if ( nProtection & SS_PAGE_READ )
+		nProt |= PROT_READ;
+	if ( nProtection & SS_PAGE_WRITE )
+		nProt |= PROT_WRITE;
+	if ( nProtection & SS_PAGE_EXEC )
+		nProt |= PROT_EXEC;
 	return mprotect( (void *)page, nPage, nProt ) == 0;
 #endif
 }
@@ -257,13 +271,14 @@ inline int SS_UnsetEnv( const char *pszName )
 // bind locally rather than to tier0.lib or vstdlib.lib. C linkage only; use at file
 // scope after the definition, with C4273 disabled. A no-op on Linux.
 #ifdef _WIN32
-	#define SS_BIND_IMPORT( name ) extern "C" const void *const __imp_##name = (const void *)&name;
-	// The same for an overloaded name: Type is the C-linkage overload's
-	// function-pointer type, which picks it.
-	#define SS_BIND_IMPORT_AS( name, Type ) extern "C" const void *const __imp_##name = (const void *)static_cast< Type >( &name );
+#define SS_BIND_IMPORT( name ) extern "C" const void *const __imp_##name = (const void *)&name;
+// The same for an overloaded name: Type is the C-linkage overload's
+// function-pointer type, which picks it.
+#define SS_BIND_IMPORT_AS( name, Type ) \
+	extern "C" const void *const __imp_##name = (const void *)static_cast<Type>( &name );
 #else
-	#define SS_BIND_IMPORT( name )
-	#define SS_BIND_IMPORT_AS( name, Type )
+#define SS_BIND_IMPORT( name )
+#define SS_BIND_IMPORT_AS( name, Type )
 #endif
 
 inline char *SS_GetCwd( char *pOut, size_t nOut )

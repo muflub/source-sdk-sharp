@@ -26,12 +26,13 @@
 
 typedef std::align_val_t AlignVal;
 
-extern "C" {
+extern "C"
+{
 void *__real_malloc( size_t );
 void *__real_calloc( size_t, size_t );
 void *__real_realloc( void *, size_t );
-void  __real_free( void * );
-int   __real_posix_memalign( void **, size_t, size_t );
+void __real_free( void * );
+int __real_posix_memalign( void **, size_t, size_t );
 void *__real_aligned_alloc( size_t, size_t );
 void *__real_memalign( size_t, size_t );
 char *__real_strdup( const char * );
@@ -45,16 +46,16 @@ void *__real__ZnwmSt11align_val_t( size_t, AlignVal );
 void *__real__ZnamSt11align_val_t( size_t, AlignVal );
 void *__real__ZnwmSt11align_val_tRKSt9nothrow_t( size_t, AlignVal, const std::nothrow_t & );
 void *__real__ZnamSt11align_val_tRKSt9nothrow_t( size_t, AlignVal, const std::nothrow_t & );
-void  __real__ZdlPv( void * );
-void  __real__ZdaPv( void * );
-void  __real__ZdlPvm( void *, size_t );
-void  __real__ZdaPvm( void *, size_t );
-void  __real__ZdlPvSt11align_val_t( void *, AlignVal );
-void  __real__ZdaPvSt11align_val_t( void *, AlignVal );
-void  __real__ZdlPvmSt11align_val_t( void *, size_t, AlignVal );
-void  __real__ZdaPvmSt11align_val_t( void *, size_t, AlignVal );
-void  __real__ZdlPvRKSt9nothrow_t( void *, const std::nothrow_t & );
-void  __real__ZdaPvRKSt9nothrow_t( void *, const std::nothrow_t & );
+void __real__ZdlPv( void * );
+void __real__ZdaPv( void * );
+void __real__ZdlPvm( void *, size_t );
+void __real__ZdaPvm( void *, size_t );
+void __real__ZdlPvSt11align_val_t( void *, AlignVal );
+void __real__ZdaPvSt11align_val_t( void *, AlignVal );
+void __real__ZdlPvmSt11align_val_t( void *, size_t, AlignVal );
+void __real__ZdaPvmSt11align_val_t( void *, size_t, AlignVal );
+void __real__ZdlPvRKSt9nothrow_t( void *, const std::nothrow_t & );
+void __real__ZdaPvRKSt9nothrow_t( void *, const std::nothrow_t & );
 }
 
 namespace
@@ -63,7 +64,7 @@ namespace
 enum Kind : uint8_t
 {
 	KIND_NONE = 0,
-	KIND_MALLOC,        // malloc calloc realloc posix_memalign aligned_alloc memalign strdup strndup
+	KIND_MALLOC, // malloc calloc realloc posix_memalign aligned_alloc memalign strdup strndup
 	KIND_NEW,
 	KIND_NEW_ARRAY,
 	KIND_NEW_ALIGNED,
@@ -74,33 +75,40 @@ const char *KindName( uint8_t k )
 {
 	switch ( k )
 	{
-	case KIND_MALLOC:            return "malloc";
-	case KIND_NEW:               return "new";
-	case KIND_NEW_ARRAY:         return "new[]";
-	case KIND_NEW_ALIGNED:       return "new(align)";
-	case KIND_NEW_ARRAY_ALIGNED: return "new[](align)";
-	default:                     return "?";
+		case KIND_MALLOC:
+			return "malloc";
+		case KIND_NEW:
+			return "new";
+		case KIND_NEW_ARRAY:
+			return "new[]";
+		case KIND_NEW_ALIGNED:
+			return "new(align)";
+		case KIND_NEW_ARRAY_ALIGNED:
+			return "new[](align)";
+		default:
+			return "?";
 	}
 }
 
 struct Slot
 {
-	uintptr_t ptr;      // 0 empty, 1 tombstone
-	size_t    size;
-	void     *site;
-	uint8_t   kind;
+	uintptr_t ptr; // 0 empty, 1 tombstone
+	size_t size;
+	void *site;
+	uint8_t kind;
 };
 
 const uintptr_t kEmpty = 0;
-const uintptr_t kTomb  = 1;
+const uintptr_t kTomb = 1;
 
 // Foreign-free sites, deduplicated by caller address; a fixed array because a
 // grown one would have to allocate while the lock is held.
 struct Site
 {
-	void    *site;
+	void *site;
 	uint64_t count;
 };
+
 const int kMaxSites = 256;
 
 // Plain zero-initialised data with no constructor: it must work for the first
@@ -108,17 +116,17 @@ const int kMaxSites = 256;
 struct State
 {
 	std::atomic<bool> lock;
-	Slot    *slots;
-	size_t   cap;           // power of two
-	size_t   used;          // live + tombstones
-	size_t   live;
+	Slot *slots;
+	size_t cap; // power of two
+	size_t used; // live + tombstones
+	size_t live;
 	uint64_t allocations;
 	uint64_t releases;
 	uint64_t mismatches;
 	uint64_t foreign;
-	Site     foreignSites[kMaxSites];
-	int      foreignSiteCount;
-	int      mode;          // 0 not read, 1 off, 2 report, 3 abort
+	Site foreignSites[kMaxSites];
+	int foreignSiteCount;
+	int mode; // 0 not read, 1 off, 2 report, 3 abort
 };
 
 State g_State;
@@ -126,13 +134,20 @@ thread_local int t_depth = 0;
 
 struct Guard
 {
-	Guard()  { while ( g_State.lock.exchange( true, std::memory_order_acquire ) ) {} }
+	Guard()
+	{
+		while ( g_State.lock.exchange( true, std::memory_order_acquire ) )
+		{
+		}
+	}
+
 	~Guard() { g_State.lock.store( false, std::memory_order_release ); }
 };
 
 struct Depth
 {
-	Depth()  { ++t_depth; }
+	Depth() { ++t_depth; }
+
 	~Depth() { --t_depth; }
 };
 
@@ -142,9 +157,12 @@ int Mode()
 	if ( g_State.mode == 0 )
 	{
 		const char *v = getenv( "SOURCESHARP_ALLOC_CHECK" );
-		if ( v && !strcmp( v, "off" ) )        g_State.mode = 1;
-		else if ( v && !strcmp( v, "abort" ) ) g_State.mode = 3;
-		else                                   g_State.mode = 2;
+		if ( v && !strcmp( v, "off" ) )
+			g_State.mode = 1;
+		else if ( v && !strcmp( v, "abort" ) )
+			g_State.mode = 3;
+		else
+			g_State.mode = 2;
 	}
 	return g_State.mode - 1;
 }
@@ -269,9 +287,8 @@ void Symbolise( void *site, char *out, size_t n )
 		const char *base = strrchr( info.dli_fname, '/' );
 		base = base ? base + 1 : info.dli_fname;
 		// Module-relative, so addr2line can read it back (most symbols are hidden).
-		snprintf( out, n, "%s+0x%lx%s%s", base,
-			(unsigned long)( (char *)site - (char *)info.dli_fbase ),
-			info.dli_sname ? " " : "", info.dli_sname ? info.dli_sname : "" );
+		snprintf( out, n, "%s+0x%lx%s%s", base, (unsigned long)( (char *)site - (char *)info.dli_fbase ),
+				  info.dli_sname ? " " : "", info.dli_sname ? info.dli_sname : "" );
 	}
 	else
 	{
@@ -284,8 +301,8 @@ void Finding( const char *what, void *p, uint8_t had, uint8_t want, size_t hadSi
 	Depth d;
 	char where[512];
 	Symbolise( site, where, sizeof( where ) );
-	Out( SOURCESHARP_ALLOC_CHECK_TAG " %s: %p allocated as %s (%zu bytes), released as %s (%zu bytes) at %s\n",
-		what, p, KindName( had ), hadSize, KindName( want ), wantSize, where );
+	Out( SOURCESHARP_ALLOC_CHECK_TAG " %s: %p allocated as %s (%zu bytes), released as %s (%zu bytes) at %s\n", what, p,
+		 KindName( had ), hadSize, KindName( want ), wantSize, where );
 	void *frames[32];
 	int nf = backtrace( frames, 32 );
 	backtrace_symbols_fd( frames, nf, 2 );
@@ -297,7 +314,7 @@ void Finding( const char *what, void *p, uint8_t had, uint8_t want, size_t hadSi
 		{
 			const char *b = strrchr( fi.dli_fname, '/' );
 			snprintf( at, sizeof( at ), "%s+0x%lx", b ? b + 1 : fi.dli_fname,
-				(unsigned long)( (char *)frames[i] - (char *)fi.dli_fbase ) );
+					  (unsigned long)( (char *)frames[i] - (char *)fi.dli_fbase ) );
 		}
 		else
 		{
@@ -363,10 +380,12 @@ bool Remove( void *p, uint8_t kind, size_t size, bool sized, void *site )
 } // namespace
 
 #define SITE __builtin_return_address( 0 )
-#define PASS if ( t_depth ) return
+#define PASS       \
+	if ( t_depth ) \
+	return
 
-extern "C" {
-
+extern "C"
+{
 void *__wrap_malloc( size_t n )
 {
 	PASS __real_malloc( n );
@@ -395,7 +414,7 @@ void *__wrap_realloc( void *old, size_t n )
 	if ( p )
 		Insert( p, n, KIND_MALLOC, SITE );
 	else if ( old && n )
-		Insert( old, 0, KIND_MALLOC, SITE );   // failed: the old block is still ours
+		Insert( old, 0, KIND_MALLOC, SITE ); // failed: the old block is still ours
 	return p;
 }
 
@@ -454,14 +473,14 @@ char *__wrap_strndup( const char *s, size_t n )
 	return p;
 }
 
-#define WRAP_NEW( name, kind, params, args )            \
-	void *__wrap_##name params                          \
-	{                                                   \
-		PASS __real_##name args;                        \
-		Depth d;                                        \
-		void *p = __real_##name args;                   \
-		Insert( p, n, kind, SITE );                     \
-		return p;                                       \
+#define WRAP_NEW( name, kind, params, args ) \
+	void *__wrap_##name params               \
+	{                                        \
+		PASS __real_##name args;             \
+		Depth d;                             \
+		void *p = __real_##name args;        \
+		Insert( p, n, kind, SITE );          \
+		return p;                            \
 	}
 
 WRAP_NEW( _Znwm, KIND_NEW, ( size_t n ), ( n ) )
@@ -470,10 +489,10 @@ WRAP_NEW( _ZnwmRKSt9nothrow_t, KIND_NEW, ( size_t n, const std::nothrow_t &t ), 
 WRAP_NEW( _ZnamRKSt9nothrow_t, KIND_NEW_ARRAY, ( size_t n, const std::nothrow_t &t ), ( n, t ) )
 WRAP_NEW( _ZnwmSt11align_val_t, KIND_NEW_ALIGNED, ( size_t n, AlignVal a ), ( n, a ) )
 WRAP_NEW( _ZnamSt11align_val_t, KIND_NEW_ARRAY_ALIGNED, ( size_t n, AlignVal a ), ( n, a ) )
-WRAP_NEW( _ZnwmSt11align_val_tRKSt9nothrow_t, KIND_NEW_ALIGNED,
-	( size_t n, AlignVal a, const std::nothrow_t &t ), ( n, a, t ) )
-WRAP_NEW( _ZnamSt11align_val_tRKSt9nothrow_t, KIND_NEW_ARRAY_ALIGNED,
-	( size_t n, AlignVal a, const std::nothrow_t &t ), ( n, a, t ) )
+WRAP_NEW( _ZnwmSt11align_val_tRKSt9nothrow_t, KIND_NEW_ALIGNED, ( size_t n, AlignVal a, const std::nothrow_t &t ),
+		  ( n, a, t ) )
+WRAP_NEW( _ZnamSt11align_val_tRKSt9nothrow_t, KIND_NEW_ARRAY_ALIGNED, ( size_t n, AlignVal a, const std::nothrow_t &t ),
+		  ( n, a, t ) )
 
 #define WRAP_DELETE( name, kind, sized, size, params, args ) \
 	void __wrap_##name params                                \
@@ -490,18 +509,16 @@ WRAP_DELETE( _ZdlPvm, KIND_NEW, true, n, ( void *p, size_t n ), ( p, n ) )
 WRAP_DELETE( _ZdaPvm, KIND_NEW_ARRAY, false, n, ( void *p, size_t n ), ( p, n ) )
 WRAP_DELETE( _ZdlPvSt11align_val_t, KIND_NEW_ALIGNED, false, 0, ( void *p, AlignVal a ), ( p, a ) )
 WRAP_DELETE( _ZdaPvSt11align_val_t, KIND_NEW_ARRAY_ALIGNED, false, 0, ( void *p, AlignVal a ), ( p, a ) )
-WRAP_DELETE( _ZdlPvmSt11align_val_t, KIND_NEW_ALIGNED, true, n,
-	( void *p, size_t n, AlignVal a ), ( p, n, a ) )
-WRAP_DELETE( _ZdaPvmSt11align_val_t, KIND_NEW_ARRAY_ALIGNED, false, n,
-	( void *p, size_t n, AlignVal a ), ( p, n, a ) )
+WRAP_DELETE( _ZdlPvmSt11align_val_t, KIND_NEW_ALIGNED, true, n, ( void *p, size_t n, AlignVal a ), ( p, n, a ) )
+WRAP_DELETE( _ZdaPvmSt11align_val_t, KIND_NEW_ARRAY_ALIGNED, false, n, ( void *p, size_t n, AlignVal a ), ( p, n, a ) )
 WRAP_DELETE( _ZdlPvRKSt9nothrow_t, KIND_NEW, false, 0, ( void *p, const std::nothrow_t &t ), ( p, t ) )
 WRAP_DELETE( _ZdaPvRKSt9nothrow_t, KIND_NEW_ARRAY, false, 0, ( void *p, const std::nothrow_t &t ), ( p, t ) )
 
 SourceSharpAllocCheckCounts SourceSharp_AllocCheckCounts()
 {
 	Guard g;
-	return SourceSharpAllocCheckCounts{ g_State.allocations, g_State.releases,
-		g_State.mismatches, g_State.foreign, g_State.live };
+	return SourceSharpAllocCheckCounts{ g_State.allocations, g_State.releases, g_State.mismatches, g_State.foreign,
+										g_State.live };
 }
 
 void SourceSharp_AllocCheckResetForTest()
@@ -520,10 +537,9 @@ void SourceSharp_AllocCheckReport( const char *when )
 	Depth d;
 	SourceSharpAllocCheckCounts c = SourceSharp_AllocCheckCounts();
 	Out( SOURCESHARP_ALLOC_CHECK_TAG " %s: %llu allocations, %llu releases, %llu mismatches, "
-	     "%llu foreign frees, %llu live\n", when ? when : "report",
-		(unsigned long long)c.allocations, (unsigned long long)c.releases,
-		(unsigned long long)c.mismatches, (unsigned long long)c.foreignFrees,
-		(unsigned long long)c.live );
+									 "%llu foreign frees, %llu live\n",
+		 when ? when : "report", (unsigned long long)c.allocations, (unsigned long long)c.releases,
+		 (unsigned long long)c.mismatches, (unsigned long long)c.foreignFrees, (unsigned long long)c.live );
 
 	// Snapshot the foreign sites under the lock, symbolise outside it.
 	Site sites[kMaxSites];
@@ -537,14 +553,20 @@ void SourceSharp_AllocCheckReport( const char *when )
 	{
 		char where[512];
 		Symbolise( sites[i].site, where, sizeof( where ) );
-		Out( SOURCESHARP_ALLOC_CHECK_TAG "   foreign free x%llu at %s\n",
-			(unsigned long long)sites[i].count, where );
+		Out( SOURCESHARP_ALLOC_CHECK_TAG "   foreign free x%llu at %s\n", (unsigned long long)sites[i].count, where );
 	}
 
 	// Every live allocation site; sites past kTop are counted, not dropped.
 	const int kTop = 512;
-	struct Agg { void *site; uint64_t n; uint64_t bytes; };
-	Agg top[kTop];   // 12 KB of stack: the report runs on an ordinary thread
+
+	struct Agg
+	{
+		void *site;
+		uint64_t n;
+		uint64_t bytes;
+	};
+
+	Agg top[kTop]; // 12 KB of stack: the report runs on an ordinary thread
 	int nt = 0;
 	uint64_t nOverflow = 0;
 	{
@@ -574,14 +596,14 @@ void SourceSharp_AllocCheckReport( const char *when )
 		}
 	}
 	if ( nOverflow )
-		Out( SOURCESHARP_ALLOC_CHECK_TAG "   live blocks at sites past the first %d: %llu (not itemised)\n",
-			kTop, (unsigned long long)nOverflow );
+		Out( SOURCESHARP_ALLOC_CHECK_TAG "   live blocks at sites past the first %d: %llu (not itemised)\n", kTop,
+			 (unsigned long long)nOverflow );
 	for ( int i = 0; i < nt; i++ )
 	{
 		char where[512];
 		Symbolise( top[i].site, where, sizeof( where ) );
-		Out( SOURCESHARP_ALLOC_CHECK_TAG "   live x%llu (%llu bytes) from %s\n",
-			(unsigned long long)top[i].n, (unsigned long long)top[i].bytes, where );
+		Out( SOURCESHARP_ALLOC_CHECK_TAG "   live x%llu (%llu bytes) from %s\n", (unsigned long long)top[i].n,
+			 (unsigned long long)top[i].bytes, where );
 	}
 }
 
@@ -599,7 +621,7 @@ static void AllocCheckAtUnload( void * )
 		SourceSharp_AllocCheckReport( "unload" );
 }
 
-__attribute__(( constructor( 101 ) )) static void AllocCheckArmUnloadReport()
+__attribute__( ( constructor( 101 ) ) ) static void AllocCheckArmUnloadReport()
 {
 	__cxa_atexit( AllocCheckAtUnload, nullptr, &__dso_handle );
 }

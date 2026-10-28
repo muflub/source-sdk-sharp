@@ -16,12 +16,8 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <string.h>
-
 #include "inetchannelinfo.h"
 #include "inetmessage.h"
-#include "tier1/bitbuf.h"
 
 #define SOURCESHARP_NETMSG_TYPE_BITS 6
 #define SOURCESHARP_NETMSG_CLIENT_MESSAGE 60
@@ -41,9 +37,15 @@ public:
 	typedef bool ( *Writer )( const CSourceSharpClientMessage &msg, bf_write &buffer );
 
 	explicit CSourceSharpClientMessage( Handler pHandler = NULL, Writer pWriter = NULL )
-		: m_pHandler( pHandler ), m_pWriter( pWriter ), m_pChannel( NULL ), m_bReliable( true ), m_nOwner( 0 ), m_nKey( 0 ), m_nData( 0 )
+		: m_pHandler( pHandler )
+		, m_pWriter( pWriter )
+		, m_pChannel( NULL )
+		, m_bReliable( true )
+		, m_nOwner( 0 )
+		, m_nKey( 0 )
+		, m_nData( 0 )
 	{
-		m_szKey[ 0 ] = 0;
+		m_szKey[0] = 0;
 	}
 
 	// The client's: what to send. False, and nothing set, for a key that is
@@ -51,12 +53,12 @@ public:
 	bool Set( const char *pKey, const uint8_t *pData, int nData )
 	{
 		const size_t nKey = pKey ? strlen( pKey ) : 0;
-		if ( nKey == 0 || nKey > SOURCESHARP_CLIENT_MESSAGE_MAX_KEY
-			|| nData < 0 || nData > SOURCESHARP_CLIENT_MESSAGE_MAX_BYTES || ( nData > 0 && !pData ) )
+		if ( nKey == 0 || nKey > SOURCESHARP_CLIENT_MESSAGE_MAX_KEY || nData < 0 ||
+			 nData > SOURCESHARP_CLIENT_MESSAGE_MAX_BYTES || ( nData > 0 && !pData ) )
 			return false;
 
 		memcpy( m_szKey, pKey, nKey );
-		m_szKey[ nKey ] = 0;
+		m_szKey[nKey] = 0;
 		m_nKey = (int)nKey;
 		if ( nData > 0 )
 			memcpy( m_Data, pData, (size_t)nData );
@@ -66,16 +68,22 @@ public:
 
 	// The server's: the entity index of the client whose channel this is registered on.
 	void SetOwner( int nEntIndex ) { m_nOwner = nEntIndex; }
+
 	int Owner() const { return m_nOwner; }
 
 	const char *Key() const { return m_szKey; }
+
 	int KeyLength() const { return m_nKey; }
+
 	const uint8_t *Data() const { return m_Data; }
+
 	int DataLength() const { return m_nData; }
 
 	// INetMessage
 	virtual void SetNetChannel( INetChannel *netchan ) OVERRIDE { m_pChannel = netchan; }
+
 	virtual void SetReliable( bool state ) OVERRIDE { m_bReliable = state; }
+
 	virtual bool Process() OVERRIDE { return m_pHandler ? m_pHandler( *this ) : true; }
 
 	virtual bool ReadFromBuffer( bf_read &buffer ) OVERRIDE
@@ -85,7 +93,7 @@ public:
 		int nUsed = 0;
 		if ( !Decode( buffer.GetBasePointer(), nStart, nEnd, &nUsed ) )
 		{
-			buffer.Seek( nEnd + 1 );   // past the end: the engine sees an overflowed read
+			buffer.Seek( nEnd + 1 ); // past the end: the engine sees an overflowed read
 			return false;
 		}
 		return buffer.Seek( nStart + nUsed );
@@ -97,32 +105,32 @@ public:
 	{
 		m_nKey = 0;
 		m_nData = 0;
-		m_szKey[ 0 ] = 0;
+		m_szKey[0] = 0;
 
 		int bit = nStart;
 		uint32_t nKey = 0, nData = 0;
 		if ( !pBase || !Bits( pBase, &bit, nEnd, SOURCESHARP_CLIENT_MESSAGE_KEY_BITS, &nKey ) || nKey == 0 )
 			return false;
 
-		char key[ SOURCESHARP_CLIENT_MESSAGE_MAX_KEY + 1 ];
+		char key[SOURCESHARP_CLIENT_MESSAGE_MAX_KEY + 1];
 		for ( uint32_t i = 0; i < nKey; i++ )
 		{
 			uint32_t c = 0;
 			if ( !Bits( pBase, &bit, nEnd, 8, &c ) || c == 0 )
 				return false;
-			key[ i ] = (char)c;
+			key[i] = (char)c;
 		}
-		key[ nKey ] = 0;
+		key[nKey] = 0;
 
-		if ( !Bits( pBase, &bit, nEnd, SOURCESHARP_CLIENT_MESSAGE_LENGTH_BITS, &nData )
-			|| nData > SOURCESHARP_CLIENT_MESSAGE_MAX_BYTES )
+		if ( !Bits( pBase, &bit, nEnd, SOURCESHARP_CLIENT_MESSAGE_LENGTH_BITS, &nData ) ||
+			 nData > SOURCESHARP_CLIENT_MESSAGE_MAX_BYTES )
 			return false;
 		for ( uint32_t i = 0; i < nData; i++ )
 		{
 			uint32_t b = 0;
 			if ( !Bits( pBase, &bit, nEnd, 8, &b ) )
 				return false;
-			m_Data[ i ] = (uint8_t)b;
+			m_Data[i] = (uint8_t)b;
 		}
 
 		memcpy( m_szKey, key, nKey + 1 );
@@ -138,17 +146,24 @@ public:
 	}
 
 	virtual bool IsReliable() const OVERRIDE { return m_bReliable; }
+
 	virtual int GetType() const OVERRIDE { return SOURCESHARP_NETMSG_CLIENT_MESSAGE; }
+
 	virtual int GetGroup() const OVERRIDE { return INetChannelInfo::GENERIC; }
+
 	virtual const char *GetName() const OVERRIDE { return "ss_ClientMessage"; }
+
 	virtual INetChannel *GetNetChannel() const OVERRIDE { return m_pChannel; }
+
 	virtual const char *ToString() const OVERRIDE { return m_szKey; }
+
 	virtual bool BIncomingMessageForProcessing( double dblNetTime, int numBytes ) OVERRIDE
 	{
 		(void)dblNetTime;
 		(void)numBytes;
 		return true;
 	}
+
 	virtual size_t GetSize() const OVERRIDE { return sizeof( *this ); }
 
 private:
@@ -159,7 +174,7 @@ private:
 			return false;
 		uint32_t value = 0;
 		for ( int i = 0; i < nBits; i++, ( *pBit )++ )
-			value |= (uint32_t)( ( pBase[ *pBit >> 3 ] >> ( *pBit & 7 ) ) & 1 ) << i;
+			value |= (uint32_t)( ( pBase[*pBit >> 3] >> ( *pBit & 7 ) ) & 1 ) << i;
 		*pOut = value;
 		return true;
 	}
@@ -171,6 +186,6 @@ private:
 	int m_nOwner;
 	int m_nKey;
 	int m_nData;
-	char m_szKey[ SOURCESHARP_CLIENT_MESSAGE_MAX_KEY + 1 ];
-	uint8_t m_Data[ SOURCESHARP_CLIENT_MESSAGE_MAX_BYTES ];
+	char m_szKey[SOURCESHARP_CLIENT_MESSAGE_MAX_KEY + 1];
+	uint8_t m_Data[SOURCESHARP_CLIENT_MESSAGE_MAX_BYTES];
 };

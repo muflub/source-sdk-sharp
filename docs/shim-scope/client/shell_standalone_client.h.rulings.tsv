@@ -1,8 +1,8 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[C_StandaloneEntity] virtual bool TestCollision(	SLOT	ICollideable, called by the engine clip (ClipRayToEntity / the box sweep): stock C_BaseAnimating::TestCollision gate (c_baseanimating.cpp:5280)
-[C_StandaloneEntity] bool IsSolidFlagSet(	SLOT-HELP	block-head flag read, its only caller is the TestCollision SLOT, deciding nothing
-[C_StandaloneEntity] EngineBlock_t       &Block()	SLOT-HELP	accessor: the engine block member every slot answers from
+[C_StandaloneEntity] virtual bool TestCollision( const Ray_t &ray, unsigned int fContentsMask, trace_t &tr ) OVERRIDE	SLOT	ICollideable, called by the engine clip (ClipRayToEntity / the box sweep): stock C_BaseAnimating::TestCollision gate (c_baseanimating.cpp:5280)
+[C_StandaloneEntity] bool IsSolidFlagSet( int nFlagMask ) const	SLOT-HELP	block-head flag read, its only caller is the TestCollision SLOT, deciding nothing
+[C_StandaloneEntity] EngineBlock_t &Block()	SLOT-HELP	accessor: the engine block member every slot answers from
 [C_StandaloneEntity] const EngineBlock_t &Block() const	SLOT-HELP	accessor: the engine block member every slot answers from
 [C_StandaloneEntity] CBaseHandle &BlockHandle()	SLOT-HELP	accessor: the block head's handle word viewed as the CBaseHandle it overlays
 [C_StandaloneEntity] const CBaseHandle &BlockHandle() const	SLOT-HELP	accessor: the block head's handle word viewed as the CBaseHandle it overlays
@@ -14,89 +14,89 @@
 [C_StandaloneEntity] const QAngle &PredictedPunchAngleVel() const	SLOT-HELP	accessor of what managed's PredictionDrive published
 [C_StandaloneEntity] const Vector &PredictedViewOffset() const	SLOT-HELP	accessor of what managed's PredictionDrive published
 [C_StandaloneEntity] float GetModelScale() const	SLOT-HELP	accessor of the scale managed pushed (StandaloneSetModelScale)
-[C_StandaloneEntity] int  ShadowCastChoice() const	SLOT-HELP	accessor of the block's ShadowChoice
+[C_StandaloneEntity] int ShadowCastChoice() const	SLOT-HELP	accessor of the block's ShadowChoice
 [C_StandaloneEntity] int NetworkedModelIndex() const	SLOT-HELP	accessor of the block head's networked model index
 [C_StandaloneEntity] int PredictedHealth() const	SLOT-HELP	accessor of what managed's PredictionDrive published
 [C_StandaloneEntity] int Tier() const	SLOT-HELP	accessor of the tier the create function was made through
 [C_StandaloneEntity] void BumpPolicyInputs()	SLOT-HELP	the input serial managed's ClientRenderPolicy pass keys its re-decision on; a counter, no choice
-[C_StandaloneEntity] void SetOverlayModel(	SLOT-HELP	stores the second model managed chose (StandaloneSetOverlayModel)
-[C_StandaloneEntity] void SetPlayerShell(	SLOT-HELP	stores the player-slot bit the create function computed
-[C_StandaloneEntity] void SetSkin(	SLOT-HELP	stores the skin managed chose into the block (EntitySetSkin)
-[C_StandaloneEntity] virtual CMouthInfo *GetMouth(	SLOT	IClientRenderable: no mouth (no flex), stock C_BaseEntity's answer
-[C_StandaloneEntity] virtual ClientRenderHandle_t &RenderHandle()	SLOT	IClientUnknown/IClientRenderable: the leaf system's handle
-[C_StandaloneEntity] virtual ClientShadowHandle_t GetShadowHandle() const	SLOT	IClientRenderable: no native shadow handle; the managed manager keeps them (EntityShadows)
-[C_StandaloneEntity] virtual ClientThinkHandle_t GetThinkHandle()	SLOT	IClientThinkable: the think list's handle
-[C_StandaloneEntity] virtual IClientEntity *GetIClientEntity()	SLOT	IClientUnknown: this
-[C_StandaloneEntity] virtual IClientNetworkable *GetClientNetworkable()	SLOT	IClientUnknown: this
-[C_StandaloneEntity] virtual IClientRenderable *FirstShadowChild()	SLOT	IClientRenderable: no shadow hierarchy, stock's NULL for an unparented entity
-[C_StandaloneEntity] virtual IClientRenderable *GetClientRenderable()	SLOT	IClientUnknown: this
-[C_StandaloneEntity] virtual IClientRenderable *GetShadowParent()	SLOT	IClientRenderable: no shadow hierarchy, stock's NULL for an unparented entity
-[C_StandaloneEntity] virtual IClientRenderable *NextShadowPeer()	SLOT	IClientRenderable: no shadow hierarchy, stock's NULL for an unparented entity
-[C_StandaloneEntity] virtual IClientThinkable *GetClientThinkable()	SLOT	IClientUnknown: this
+[C_StandaloneEntity] void SetOverlayModel( int nModelIndex )	SLOT-HELP	stores the second model managed chose (StandaloneSetOverlayModel)
+[C_StandaloneEntity] void SetPlayerShell( bool bIsPlayer )	SLOT-HELP	stores the player-slot bit the create function computed
+[C_StandaloneEntity] void SetSkin( int nSkin )	SLOT-HELP	stores the skin managed chose into the block (EntitySetSkin)
+[C_StandaloneEntity] virtual CMouthInfo *GetMouth() OVERRIDE	SLOT	IClientRenderable: no mouth (no flex), stock C_BaseEntity's answer
+[C_StandaloneEntity] virtual ClientRenderHandle_t &RenderHandle() OVERRIDE	SLOT	IClientUnknown/IClientRenderable: the leaf system's handle
+[C_StandaloneEntity] virtual ClientShadowHandle_t GetShadowHandle() const OVERRIDE	SLOT	IClientRenderable: no native shadow handle; the managed manager keeps them (EntityShadows)
+[C_StandaloneEntity] virtual ClientThinkHandle_t GetThinkHandle() OVERRIDE	SLOT	IClientThinkable: the think list's handle
+[C_StandaloneEntity] virtual IClientEntity *GetIClientEntity() OVERRIDE	SLOT	IClientUnknown: this
+[C_StandaloneEntity] virtual IClientNetworkable *GetClientNetworkable() OVERRIDE	SLOT	IClientUnknown: this
+[C_StandaloneEntity] virtual IClientRenderable *FirstShadowChild() OVERRIDE	SLOT	IClientRenderable: no shadow hierarchy, stock's NULL for an unparented entity
+[C_StandaloneEntity] virtual IClientRenderable *GetClientRenderable() OVERRIDE	SLOT	IClientUnknown: this
+[C_StandaloneEntity] virtual IClientRenderable *GetShadowParent() OVERRIDE	SLOT	IClientRenderable: no shadow hierarchy, stock's NULL for an unparented entity
+[C_StandaloneEntity] virtual IClientRenderable *NextShadowPeer() OVERRIDE	SLOT	IClientRenderable: no shadow hierarchy, stock's NULL for an unparented entity
+[C_StandaloneEntity] virtual IClientThinkable *GetClientThinkable() OVERRIDE	SLOT	IClientUnknown: this
 [C_StandaloneEntity] virtual IClientUnknown *GetIClientUnknown() OVERRIDE	SLOT	IClientEntity: this
 [C_StandaloneEntity] virtual IClientUnknown *GetIClientUnknown() const	SLOT	ICollideable's const twin: NULL, as stock's CCollisionProperty answers off an entity
-[C_StandaloneEntity] virtual ICollideable *GetCollideable()	SLOT	IClientUnknown: this
-[C_StandaloneEntity] virtual IGameEntity *GetBaseEntity()	SLOT	IClientUnknown: no C_BaseEntity behind the shell (the static_assert in the .cpp)
-[C_StandaloneEntity] virtual IHandleEntity *GetEntityHandle()	SLOT	ICollideable: this
-[C_StandaloneEntity] virtual IPVSNotify *GetPVSNotifyInterface()	SLOT	IClientRenderable: no PVS notify, stock's NULL
-[C_StandaloneEntity] virtual ModelInstanceHandle_t GetModelInstance()	SLOT	IClientRenderable: the model instance DrawModel creates
-[C_StandaloneEntity] virtual SolidType_t GetSolid() const	SLOT	ICollideable: the networked solid type, a block load
-[C_StandaloneEntity] virtual bool GetShadowCastDirection(	SLOT	IClientRenderable: no per-entity override, stock C_BaseEntity's false
-[C_StandaloneEntity] virtual bool GetShadowCastDistance(	SLOT	IClientRenderable: no per-entity override, stock C_BaseEntity's false
-[C_StandaloneEntity] virtual bool GetSoundSpatialization(	SLOT	IClientEntity: no spatialization override; false
-[C_StandaloneEntity] virtual bool IgnoresZBuffer(	SLOT	IClientRenderable: the bit managed's SetBlending stored
-[C_StandaloneEntity] virtual bool IsDormant(	SLOT	IClientNetworkable: the block's Dormant, written by NotifyShouldTransmit
-[C_StandaloneEntity] virtual bool IsShadowDirty(	SLOT	IClientRenderable: the managed shadow manager keeps dirtiness; false here
-[C_StandaloneEntity] virtual bool IsTransparent(	SLOT	IClientRenderable: the block's Transparent, managed's ClientRenderPolicy answer
-[C_StandaloneEntity] virtual bool IsTwoPass(	SLOT	IClientRenderable: false, a constant
-[C_StandaloneEntity] virtual bool LODTest()	SLOT	IClientRenderable: stock C_BaseEntity's true
-[C_StandaloneEntity] virtual bool ShouldTouchTrigger(	SLOT	ICollideable: client entities touch no triggers, stock's false
-[C_StandaloneEntity] virtual bool UsesFlexDelayedWeights()	SLOT	IClientRenderable: no flex, stock's false
-[C_StandaloneEntity] virtual bool UsesFullFrameBufferTexture(	SLOT	IClientRenderable: stock C_BaseEntity's false
-[C_StandaloneEntity] virtual bool UsesPowerOfTwoFrameBufferTexture(	SLOT	IClientRenderable: stock C_BaseEntity's false
-[C_StandaloneEntity] virtual const CBaseHandle &GetRefEHandle() const	SLOT	IHandleEntity: the block head's handle
-[C_StandaloneEntity] virtual const QAngle &GetAbsAngles(	SLOT	IClientEntity: the block's drawn angles
-[C_StandaloneEntity] virtual const QAngle &GetCollisionAngles()	SLOT	ICollideable: the block head's angles
-[C_StandaloneEntity] virtual const QAngle &GetRenderAngles(	SLOT	IClientRenderable: the block tail's render angles
-[C_StandaloneEntity] virtual const Vector &GetAbsOrigin(	SLOT	IClientEntity: the block's drawn origin
-[C_StandaloneEntity] virtual const Vector &GetCollisionOrigin()	SLOT	ICollideable: the block head's origin
-[C_StandaloneEntity] virtual const Vector &GetRenderOrigin(	SLOT	IClientRenderable: the block tail's render origin
-[C_StandaloneEntity] virtual const Vector &OBBMaxs()	SLOT	ICollideable: the block head's box
-[C_StandaloneEntity] virtual const Vector &OBBMaxsPreScaled()	SLOT	ICollideable: the block head's box
-[C_StandaloneEntity] virtual const Vector &OBBMins()	SLOT	ICollideable: the block head's box
-[C_StandaloneEntity] virtual const Vector &OBBMinsPreScaled()	SLOT	ICollideable: the block head's box
-[C_StandaloneEntity] virtual const matrix3x4_t &CollisionToWorldTransform()	SLOT	ICollideable: the block head's transform
-[C_StandaloneEntity] virtual const matrix3x4_t &RenderableToWorldTransform()	SLOT	IClientRenderable: the block tail's render transform
-[C_StandaloneEntity] virtual const matrix3x4_t *GetRootParentToWorldTransform()	SLOT	ICollideable: no parent, stock's NULL
-[C_StandaloneEntity] virtual const model_t *GetCollisionModel()	SLOT	ICollideable: the entity's model
-[C_StandaloneEntity] virtual float *GetRenderClipPlane(	SLOT	IClientRenderable: no clip plane, stock's NULL
-[C_StandaloneEntity] virtual int  GetBody()	SLOT	IClientRenderable: the block's Body
-[C_StandaloneEntity] virtual int  GetFxBlend(	SLOT	IClientRenderable: the block's FxBlend, a load
-[C_StandaloneEntity] virtual int  GetSkin()	SLOT	IClientRenderable: the block's Skin
-[C_StandaloneEntity] virtual int  entindex(	SLOT	IClientNetworkable: the entity's index
-[C_StandaloneEntity] virtual int GetCollisionGroup()	SLOT	ICollideable: stock's COLLISION_GROUP_NONE
-[C_StandaloneEntity] virtual int GetCollisionModelIndex()	SLOT	ICollideable: the networked model index
-[C_StandaloneEntity] virtual int GetSolidFlags()	SLOT	ICollideable: the networked solid flags, a block load
-[C_StandaloneEntity] virtual void *GetDataTableBasePtr()	SLOT	IClientNetworkable: the shell, which the recv props decode into
-[C_StandaloneEntity] virtual void ClientThink()	SLOT	IClientThinkable: no native think
-[C_StandaloneEntity] virtual void DoAnimationEvents(	SLOT	IClientRenderable: animation events are managed's
-[C_StandaloneEntity] virtual void MarkShadowDirty(	SLOT	IClientRenderable: the managed shadow manager keeps dirtiness
-[C_StandaloneEntity] virtual void OnDataChanged(	SLOT	IClientNetworkable: empty, PostDataUpdate carries the update
-[C_StandaloneEntity] virtual void OnDataUnchangedInPVS()	SLOT	IClientNetworkable: empty
-[C_StandaloneEntity] virtual void OnPreDataChanged(	SLOT	IClientNetworkable: empty
-[C_StandaloneEntity] virtual void OnThreadedDrawSetup()	SLOT	IClientRenderable: empty
-[C_StandaloneEntity] virtual void PreDataUpdate(	SLOT	IClientNetworkable: empty
-[C_StandaloneEntity] virtual void ReceiveMessage(	SLOT	IClientNetworkable: entity messages are managed's; empty
-[C_StandaloneEntity] virtual void RecordToolMessage()	SLOT	IClientRenderable: no tool framework (SFM is dead); empty
-[C_StandaloneEntity] virtual void Release()	SLOT	IClientNetworkable/IClientUnknown: delete this
-[C_StandaloneEntity] virtual void SetDestroyedOnRecreateEntities(	SLOT	IClientNetworkable: empty
-[C_StandaloneEntity] virtual void SetRefEHandle(	SLOT	IHandleEntity: stores the handle the list binds
-[C_StandaloneEntity] virtual void SetThinkHandle(	SLOT	IClientThinkable: stores the think list's handle
-[C_StandaloneEntity] virtual void SetupWeights(	SLOT	IClientRenderable: no flex weights; empty
-[C_StandaloneEntity] virtual void GetColorModulation(	SLOT	IClientRenderable: the block's colour as floats, stock C_BaseEntity's arithmetic
-[C_StandaloneEntity] virtual void GetRenderBoundsWorldspace(	SLOT	IClientRenderable: stock's DefaultRenderBoundsWorldspace
-[C_StandaloneEntity] virtual void GetShadowRenderBounds(	SLOT	IClientRenderable: the render bounds, stock C_BaseEntity's answer
-inline C_StandaloneEntity *SourceSharp_ClientShellFromRecvStruct(	SLOT-HELP	the recv proxy's struct pointer as the shell (GetDataTableBasePtr is the shell)
-[C_StandaloneEntity] virtual void ComputeFxBlend(	SLOT	IClientRenderable::ComputeFxBlend: empty; managed's StandaloneFadePass writes the block's FxBlend for the view before the leaf system's blend batch reaches this slot
-[C_StandaloneEntity] void SetInterpAdmitted(	SLOT-HELP	stores whether managed's interpolation admitted the entity on its last pass
+[C_StandaloneEntity] virtual ICollideable *GetCollideable() OVERRIDE	SLOT	IClientUnknown: this
+[C_StandaloneEntity] virtual IGameEntity *GetBaseEntity() OVERRIDE	SLOT	IClientUnknown: no C_BaseEntity behind the shell (the static_assert in the .cpp)
+[C_StandaloneEntity] virtual IHandleEntity *GetEntityHandle() OVERRIDE	SLOT	ICollideable: this
+[C_StandaloneEntity] virtual IPVSNotify *GetPVSNotifyInterface() OVERRIDE	SLOT	IClientRenderable: no PVS notify, stock's NULL
+[C_StandaloneEntity] virtual ModelInstanceHandle_t GetModelInstance() OVERRIDE	SLOT	IClientRenderable: the model instance DrawModel creates
+[C_StandaloneEntity] virtual SolidType_t GetSolid() const OVERRIDE	SLOT	ICollideable: the networked solid type, a block load
+[C_StandaloneEntity] virtual bool GetShadowCastDirection( Vector *, ShadowType_t ) const OVERRIDE	SLOT	IClientRenderable: no per-entity override, stock C_BaseEntity's false
+[C_StandaloneEntity] virtual bool GetShadowCastDistance( float *, ShadowType_t ) const OVERRIDE	SLOT	IClientRenderable: no per-entity override, stock C_BaseEntity's false
+[C_StandaloneEntity] virtual bool GetSoundSpatialization( SpatializationInfo_t & ) OVERRIDE	SLOT	IClientEntity: no spatialization override; false
+[C_StandaloneEntity] virtual bool IgnoresZBuffer() const OVERRIDE	SLOT	IClientRenderable: the bit managed's SetBlending stored
+[C_StandaloneEntity] virtual bool IsDormant() OVERRIDE	SLOT	IClientNetworkable: the block's Dormant, written by NotifyShouldTransmit
+[C_StandaloneEntity] virtual bool IsShadowDirty() OVERRIDE	SLOT	IClientRenderable: the managed shadow manager keeps dirtiness; false here
+[C_StandaloneEntity] virtual bool IsTransparent() OVERRIDE	SLOT	IClientRenderable: the block's Transparent, managed's ClientRenderPolicy answer
+[C_StandaloneEntity] virtual bool IsTwoPass() OVERRIDE	SLOT	IClientRenderable: false, a constant
+[C_StandaloneEntity] virtual bool LODTest() OVERRIDE	SLOT	IClientRenderable: stock C_BaseEntity's true
+[C_StandaloneEntity] virtual bool ShouldTouchTrigger( int ) const OVERRIDE	SLOT	ICollideable: client entities touch no triggers, stock's false
+[C_StandaloneEntity] virtual bool UsesFlexDelayedWeights() OVERRIDE	SLOT	IClientRenderable: no flex, stock's false
+[C_StandaloneEntity] virtual bool UsesFullFrameBufferTexture() OVERRIDE	SLOT	IClientRenderable: stock C_BaseEntity's false
+[C_StandaloneEntity] virtual bool UsesPowerOfTwoFrameBufferTexture() OVERRIDE	SLOT	IClientRenderable: stock C_BaseEntity's false
+[C_StandaloneEntity] virtual const CBaseHandle &GetRefEHandle() const OVERRIDE	SLOT	IHandleEntity: the block head's handle
+[C_StandaloneEntity] virtual const QAngle &GetAbsAngles() const OVERRIDE	SLOT	IClientEntity: the block's drawn angles
+[C_StandaloneEntity] virtual const QAngle &GetCollisionAngles() const OVERRIDE	SLOT	ICollideable: the block head's angles
+[C_StandaloneEntity] virtual const QAngle &GetRenderAngles() OVERRIDE	SLOT	IClientRenderable: the block tail's render angles
+[C_StandaloneEntity] virtual const Vector &GetAbsOrigin() const OVERRIDE	SLOT	IClientEntity: the block's drawn origin
+[C_StandaloneEntity] virtual const Vector &GetCollisionOrigin() const OVERRIDE	SLOT	ICollideable: the block head's origin
+[C_StandaloneEntity] virtual const Vector &GetRenderOrigin() OVERRIDE	SLOT	IClientRenderable: the block tail's render origin
+[C_StandaloneEntity] virtual const Vector &OBBMaxs() const OVERRIDE	SLOT	ICollideable: the block head's box
+[C_StandaloneEntity] virtual const Vector &OBBMaxsPreScaled() const OVERRIDE	SLOT	ICollideable: the block head's box
+[C_StandaloneEntity] virtual const Vector &OBBMins() const OVERRIDE	SLOT	ICollideable: the block head's box
+[C_StandaloneEntity] virtual const Vector &OBBMinsPreScaled() const OVERRIDE	SLOT	ICollideable: the block head's box
+[C_StandaloneEntity] virtual const matrix3x4_t &CollisionToWorldTransform() const OVERRIDE	SLOT	ICollideable: the block head's transform
+[C_StandaloneEntity] virtual const matrix3x4_t &RenderableToWorldTransform() OVERRIDE	SLOT	IClientRenderable: the block tail's render transform
+[C_StandaloneEntity] virtual const matrix3x4_t *GetRootParentToWorldTransform() const OVERRIDE	SLOT	ICollideable: no parent, stock's NULL
+[C_StandaloneEntity] virtual const model_t *GetCollisionModel() OVERRIDE	SLOT	ICollideable: the entity's model
+[C_StandaloneEntity] virtual float *GetRenderClipPlane() OVERRIDE	SLOT	IClientRenderable: no clip plane, stock's NULL
+[C_StandaloneEntity] virtual int GetBody() OVERRIDE	SLOT	IClientRenderable: the block's Body
+[C_StandaloneEntity] virtual int GetFxBlend() OVERRIDE	SLOT	IClientRenderable: the block's FxBlend, a load
+[C_StandaloneEntity] virtual int GetSkin() OVERRIDE	SLOT	IClientRenderable: the block's Skin
+[C_StandaloneEntity] virtual int entindex() const OVERRIDE	SLOT	IClientNetworkable: the entity's index
+[C_StandaloneEntity] virtual int GetCollisionGroup() const OVERRIDE	SLOT	ICollideable: stock's COLLISION_GROUP_NONE
+[C_StandaloneEntity] virtual int GetCollisionModelIndex() OVERRIDE	SLOT	ICollideable: the networked model index
+[C_StandaloneEntity] virtual int GetSolidFlags() const OVERRIDE	SLOT	ICollideable: the networked solid flags, a block load
+[C_StandaloneEntity] virtual void *GetDataTableBasePtr() OVERRIDE	SLOT	IClientNetworkable: the shell, which the recv props decode into
+[C_StandaloneEntity] virtual void ClientThink() OVERRIDE	SLOT	IClientThinkable: no native think
+[C_StandaloneEntity] virtual void DoAnimationEvents() OVERRIDE	SLOT	IClientRenderable: animation events are managed's
+[C_StandaloneEntity] virtual void MarkShadowDirty( bool ) OVERRIDE	SLOT	IClientRenderable: the managed shadow manager keeps dirtiness
+[C_StandaloneEntity] virtual void OnDataChanged( DataUpdateType_t ) OVERRIDE	SLOT	IClientNetworkable: empty, PostDataUpdate carries the update
+[C_StandaloneEntity] virtual void OnDataUnchangedInPVS() OVERRIDE	SLOT	IClientNetworkable: empty
+[C_StandaloneEntity] virtual void OnPreDataChanged( DataUpdateType_t ) OVERRIDE	SLOT	IClientNetworkable: empty
+[C_StandaloneEntity] virtual void OnThreadedDrawSetup() OVERRIDE	SLOT	IClientRenderable: empty
+[C_StandaloneEntity] virtual void PreDataUpdate( DataUpdateType_t ) OVERRIDE	SLOT	IClientNetworkable: empty
+[C_StandaloneEntity] virtual void ReceiveMessage( int, bf_read & ) OVERRIDE	SLOT	IClientNetworkable: entity messages are managed's; empty
+[C_StandaloneEntity] virtual void RecordToolMessage() OVERRIDE	SLOT	IClientRenderable: no tool framework (SFM is dead); empty
+[C_StandaloneEntity] virtual void Release() OVERRIDE	SLOT	IClientNetworkable/IClientUnknown: delete this
+[C_StandaloneEntity] virtual void SetDestroyedOnRecreateEntities() OVERRIDE	SLOT	IClientNetworkable: empty
+[C_StandaloneEntity] virtual void SetRefEHandle( const CBaseHandle &h ) OVERRIDE	SLOT	IHandleEntity: stores the handle the list binds
+[C_StandaloneEntity] virtual void SetThinkHandle( ClientThinkHandle_t hThink ) OVERRIDE	SLOT	IClientThinkable: stores the think list's handle
+[C_StandaloneEntity] virtual void SetupWeights( const matrix3x4_t *, int, float *, float * ) OVERRIDE	SLOT	IClientRenderable: no flex weights; empty
+[C_StandaloneEntity] virtual void GetColorModulation( float *color ) OVERRIDE	SLOT	IClientRenderable: the block's colour as floats, stock C_BaseEntity's arithmetic
+[C_StandaloneEntity] virtual void GetRenderBoundsWorldspace( Vector &absMins, Vector &absMaxs ) OVERRIDE	SLOT	IClientRenderable: stock's DefaultRenderBoundsWorldspace
+[C_StandaloneEntity] virtual void GetShadowRenderBounds( Vector &mins, Vector &maxs, ShadowType_t ) OVERRIDE	SLOT	IClientRenderable: the render bounds, stock C_BaseEntity's answer
+inline C_StandaloneEntity *SourceSharp_ClientShellFromRecvStruct( void *pStruct )	SLOT-HELP	the recv proxy's struct pointer as the shell (GetDataTableBasePtr is the shell)
+[C_StandaloneEntity] virtual void ComputeFxBlend() OVERRIDE	SLOT	IClientRenderable::ComputeFxBlend: empty; managed's StandaloneFadePass writes the block's FxBlend for the view before the leaf system's blend batch reaches this slot
+[C_StandaloneEntity] void SetInterpAdmitted( bool bAdmitted )	SLOT-HELP	stores whether managed's interpolation admitted the entity on its last pass
 [C_StandaloneEntity] bool IsInterpAdmitted() const	SLOT-HELP	accessor of managed's admission mark

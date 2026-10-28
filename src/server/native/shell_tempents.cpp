@@ -16,17 +16,11 @@
 
 extern IVEngineServer *engine;
 #include "shell_tempents.h"
-#include "shell_tempents_internal.h"
-#include "sourcesharp.h"
-#include "dt_send.h"
+
 #include "server_class.h"
 #include "shell_tempents_store.h"
 #include "imanaged_areas.h"
 #include "server_state.h"
-
-#include <string.h>
-#include <set>
-#include <string>
 
 // The tables live in the DLL tier; NULL outside DLLInit..DLLShutdown.
 static CServerTempEnts *TempEnts()
@@ -44,13 +38,13 @@ static const char *InternName( CServerTempEnts &te, const char *pName )
 SendTable *SourceSharpTe_BuiltTable( int i )
 {
 	CServerTempEnts *pTe = TempEnts();
-	return ( pTe && i >= 0 && i < pTe->m_nBuilt ) ? pTe->m_Built[ i ].pTable : NULL;
+	return ( pTe && i >= 0 && i < pTe->m_nBuilt ) ? pTe->m_Built[i].pTable : NULL;
 }
 
 ServerClass *SourceSharpTe_BuiltClass( int i )
 {
 	CServerTempEnts *pTe = TempEnts();
-	return ( pTe && i >= 0 && i < pTe->m_nBuilt ) ? pTe->m_Built[ i ].pClass : NULL;
+	return ( pTe && i >= 0 && i < pTe->m_nBuilt ) ? pTe->m_Built[i].pClass : NULL;
 }
 
 int SourceSharpTe_BuiltCount()
@@ -65,8 +59,7 @@ bool SourceSharpTe_RegistrationClosed()
 	return pTe ? pTe->m_bClosed : false;
 }
 
-int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
-                                  SourceSharpTeBuiltTable_t *pOut )
+int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t *pOut )
 {
 	SourceSharpTeTableBlock_t block;
 	CServerTempEnts *pTe = TempEnts();
@@ -78,13 +71,13 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
 	// list once, so a managed reload cannot add tables.
 	for ( int i = 0; i < te.m_nBuilt; i++ )
 	{
-		if ( strcmp( te.m_Built[ i ].pClassName, block.pClassName ) )
+		if ( strcmp( te.m_Built[i].pClassName, block.pClassName ) )
 			continue;
 
-		pOut->bExisted   = 1;
-		pOut->nShapeHash = te.m_Built[ i ].nShapeHash;
-		pOut->pSendTable = te.m_Built[ i ].pTable;
-		pOut->pClassId   = te.m_Built[ i ].pClass ? &te.m_Built[ i ].pClass->m_ClassID : NULL;
+		pOut->bExisted = 1;
+		pOut->nShapeHash = te.m_Built[i].nShapeHash;
+		pOut->pSendTable = te.m_Built[i].pTable;
+		pOut->pClassId = te.m_Built[i].pClass ? &te.m_Built[i].pClass->m_ClassID : NULL;
 		return i;
 	}
 
@@ -93,17 +86,17 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
 		return -1;
 
 	const int nProps = block.header.nProps;
-	SendProp *pProps = new SendProp[ nProps > 0 ? nProps : 1 ];
+	SendProp *pProps = new SendProp[nProps > 0 ? nProps : 1];
 
 	for ( int i = 0; i < nProps; i++ )
 	{
 		const SourceSharpSendPropRow_t row = SourceSharpTe_BlockRow( block, i );
 		const char *pName = SourceSharpTe_BlockName( block, row.oName );
 
-		SendTable *pNested = ( row.hDataTable >= 0 && row.hDataTable < te.m_nBuilt )
-			? te.m_Built[ row.hDataTable ].pTable : NULL;
+		SendTable *pNested =
+			( row.hDataTable >= 0 && row.hDataTable < te.m_nBuilt ) ? te.m_Built[row.hDataTable].pTable : NULL;
 
-		if ( !pName || !SourceSharpTe_StoreProp( row, InternName( te, pName ), pNested, &pProps[ i ] ) )
+		if ( !pName || !SourceSharpTe_StoreProp( row, InternName( te, pName ), pNested, &pProps[i] ) )
 		{
 			delete[] pProps;
 			return -1;
@@ -111,20 +104,20 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
 	}
 
 	const int iHandle = te.m_nBuilt;
-	SourceSharpTeBuilt_t &built = te.m_Built[ iHandle ];
+	SourceSharpTeBuilt_t &built = te.m_Built[iHandle];
 
-	built.pProps     = pProps;
-	built.nProps     = nProps;
-	built.pTable     = new SendTable( pProps, nProps, InternName( te, block.pTableName ) );
+	built.pProps = pProps;
+	built.nProps = nProps;
+	built.pTable = new SendTable( pProps, nProps, InternName( te, block.pTableName ) );
 	built.pClassName = InternName( te, block.pClassName );
 	built.nShapeHash = block.header.nShapeHash;
-	built.pClass     = block.header.bRegisterClass ? new ServerClass( built.pClassName, built.pTable ) : NULL;
+	built.pClass = block.header.bRegisterClass ? new ServerClass( built.pClassName, built.pTable ) : NULL;
 	te.m_nBuilt = iHandle + 1;
 
-	pOut->bExisted   = 0;
+	pOut->bExisted = 0;
 	pOut->nShapeHash = built.nShapeHash;
 	pOut->pSendTable = built.pTable;
-	pOut->pClassId   = built.pClass ? &built.pClass->m_ClassID : NULL;
+	pOut->pClassId = built.pClass ? &built.pClass->m_ClassID : NULL;
 	return iHandle;
 }
 
@@ -147,7 +140,8 @@ void SourceSharp_TempEntCloseRegistration()
 	}
 
 	Msg( "[SourceSharp] temp entities: %d table(s), %d ServerClass(es); "
-	     "registration closed\n", te.m_nBuilt, nClasses );
+		 "registration closed\n",
+		 te.m_nBuilt, nClasses );
 }
 
 // The native TE_*() callers pass an IRecipientFilter managed cannot read, so
@@ -155,9 +149,8 @@ void SourceSharp_TempEntCloseRegistration()
 // caller's filter. A managed refusal sends nothing. One scratch blob suffices:
 // this runs on the server thread and nothing yields in between.
 
-bool SourceSharpTe_Forward( int nId, IRecipientFilter &filter, float flDelay,
-                            const float *pFloats, int nFloats,
-                            const int *pInts, int nInts )
+bool SourceSharpTe_Forward( int nId, IRecipientFilter &filter, float flDelay, const float *pFloats, int nFloats,
+							const int *pInts, int nInts )
 {
 	IManagedTempEnts *pTempEnts = ManagedTempEnts();
 	CServerTempEnts *pTe = TempEnts();
@@ -167,21 +160,20 @@ bool SourceSharpTe_Forward( int nId, IRecipientFilter &filter, float flDelay,
 
 	int hClass = -1;
 
-	const int nBytes = pTempEnts->OnNativeTempEntity( nId, pFloats, nFloats, pInts, nInts,
-	                                                  pTe->m_Scratch, (int)sizeof( pTe->m_Scratch ),
-	                                                  &hClass );
+	const int nBytes = pTempEnts->OnNativeTempEntity( nId, pFloats, nFloats, pInts, nInts, pTe->m_Scratch,
+													  (int)sizeof( pTe->m_Scratch ), &hClass );
 
 	if ( nBytes <= 0 || hClass < 0 || hClass >= pTe->m_nBuilt )
 		return false;
 
-	if ( !pTe->m_Built[ hClass ].pTable || !pTe->m_Built[ hClass ].pClass )
+	if ( !pTe->m_Built[hClass].pTable || !pTe->m_Built[hClass].pClass )
 		return false;
 
 	Assert( !filter.IsReliable() && !filter.IsInitMessage() );
 	Assert( flDelay >= -1 && flDelay <= 1 );
 
-	engine->PlaybackTempEntity( filter, flDelay, pTe->m_Scratch, pTe->m_Built[ hClass ].pTable,
-	                            pTe->m_Built[ hClass ].pClass->m_ClassID );
+	engine->PlaybackTempEntity( filter, flDelay, pTe->m_Scratch, pTe->m_Built[hClass].pTable,
+								pTe->m_Built[hClass].pClass->m_ClassID );
 	return true;
 }
 
@@ -194,7 +186,7 @@ bool SourceSharp_IsTempEntServerClass( const ServerClass *pClass )
 
 	for ( int i = 0; i < pTe->m_nBuilt; i++ )
 	{
-		if ( pTe->m_Built[ i ].pClass == pClass )
+		if ( pTe->m_Built[i].pClass == pClass )
 			return true;
 	}
 

@@ -11,16 +11,16 @@ typedef unsigned char uint8;
 #endif
 
 #ifdef __GNUC__
-	#if __GNUC__ < 4
-		#error "Steamworks requires GCC 4.X (4.2 or 4.4 have been tested)"
-	#endif
+#if __GNUC__ < 4
+#error "Steamworks requires GCC 4.X (4.2 or 4.4 have been tested)"
+#endif
 #endif
 
-#if defined(__LP64__) || defined(__x86_64__) || defined(_WIN64) || defined(__aarch64__) || defined(__s390x__)
+#if defined( __LP64__ ) || defined( __x86_64__ ) || defined( _WIN64 ) || defined( __aarch64__ ) || defined( __s390x__ )
 #define X64BITS
 #endif
 
-#if !defined(VALVE_BIG_ENDIAN)
+#if !defined( VALVE_BIG_ENDIAN )
 #if defined( __GNUC__ ) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #define VALVE_BIG_ENDIAN 1
 #endif
@@ -39,8 +39,8 @@ typedef __int64 int64;
 typedef unsigned __int64 uint64;
 
 #ifdef X64BITS
-typedef __int64 intp;				// intp is an integer that can accomodate a pointer
-typedef unsigned __int64 uintp;		// (ie, sizeof(intp) >= sizeof(int) && sizeof(intp) >= sizeof(void *)
+typedef __int64 intp; // intp is an integer that can accomodate a pointer
+typedef unsigned __int64 uintp; // (ie, sizeof(intp) >= sizeof(int) && sizeof(intp) >= sizeof(void *)
 #else
 typedef __int32 intp;
 typedef unsigned __int32 uintp;
@@ -78,7 +78,7 @@ typedef uint32 AppId_t;
 const AppId_t k_uAppIdInvalid = 0x0;
 
 // RTime32.  Seconds elapsed since Jan 1 1970, i.e. unix timestamp.
-// It's the same as time_t, but it is always 32-bit and unsigned.  
+// It's the same as time_t, but it is always 32-bit and unsigned.
 typedef uint32 RTime32;
 
 // handle to a Steam API call

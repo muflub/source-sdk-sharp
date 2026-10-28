@@ -75,7 +75,7 @@ void SourceSharp_DisconnectTier1()
 void ConnectTier1Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount )
 {
 	for ( int i = 0; i < nFactoryCount; i++ )
-		SourceSharp_ConnectTier1( pFactoryList[ i ] );
+		SourceSharp_ConnectTier1( pFactoryList[i] );
 }
 
 void DisconnectTier1Libraries()
@@ -98,8 +98,8 @@ void SourceSharp_ConnectTier2( CreateInterfaceFn engineFactory )
 
 	g_pFullFileSystem = (IFileSystem *)engineFactory( FILESYSTEM_INTERFACE_VERSION, NULL );
 	g_pMaterialSystem = materials = (IMaterialSystem *)engineFactory( MATERIAL_SYSTEM_INTERFACE_VERSION, NULL );
-	g_pMaterialSystemHardwareConfig = (IMaterialSystemHardwareConfig *)engineFactory(
-		MATERIALSYSTEM_HARDWARECONFIG_INTERFACE_VERSION, NULL );
+	g_pMaterialSystemHardwareConfig =
+		(IMaterialSystemHardwareConfig *)engineFactory( MATERIALSYSTEM_HARDWARECONFIG_INTERFACE_VERSION, NULL );
 	// libss_particles.so's own tier1/tier2 globals and ConVars, from the same factory.
 	if ( !ParticleLib_Connect( engineFactory ) )
 		Error( "[SourceSharp] libss_particles.so did not connect to the engine's interfaces\n" );
@@ -117,7 +117,7 @@ void SourceSharp_DisconnectTier2()
 void ConnectTier2Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount )
 {
 	for ( int i = 0; i < nFactoryCount; i++ )
-		SourceSharp_ConnectTier2( pFactoryList[ i ] );
+		SourceSharp_ConnectTier2( pFactoryList[i] );
 }
 
 void DisconnectTier2Libraries()

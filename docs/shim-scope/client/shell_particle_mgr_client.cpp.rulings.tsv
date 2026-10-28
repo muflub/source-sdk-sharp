@@ -1,19 +1,19 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-CUtlVector< CParticleSubTextureGroup * > &Groups()	LAYOUT	the table's page groups, allocated on first use (no static constructor)
-CUtlDict< CParticleSubTexture *, unsigned short > &SubTextures()	LAYOUT	the table by material name, allocated on first use
-CParticleSubTextureGroup *FindOrAddSubTextureGroup(	BOUNDARY	CParticleMgr::FindOrAddSubTextureGroup: a texture page's group, held with a reference
-void RepairPMaterial(	BOUNDARY	CParticleMgr::RepairPMaterial: a handle a level shutdown released, its material found again by name and bound once
-void ReleaseMaterials(	BOUNDARY	RemoveAllEffects' and Term's release of every held material reference
-bool ShellParticleMgr_Init(	BOUNDARY	CParticleMgr::Init's calls into the particle library: its manager with the client's query, the built-in operators, the manifests read
+CUtlVector<CParticleSubTextureGroup *> &Groups()	LAYOUT	the table's page groups, allocated on first use (no static constructor)
+CUtlDict<CParticleSubTexture *, unsigned short> &SubTextures()	LAYOUT	the table by material name, allocated on first use
+CParticleSubTextureGroup *FindOrAddSubTextureGroup( IMaterial *pPageMaterial )	BOUNDARY	CParticleMgr::FindOrAddSubTextureGroup: a texture page's group, held with a reference
+void RepairPMaterial( PMaterialHandle hMaterial )	BOUNDARY	CParticleMgr::RepairPMaterial: a handle a level shutdown released, its material found again by name and bound once
+void ReleaseMaterials( bool bDelete )	BOUNDARY	RemoveAllEffects' and Term's release of every held material reference
+bool ShellParticleMgr_Init( IMaterialSystem *pMaterials )	BOUNDARY	CParticleMgr::Init's calls into the particle library: its manager with the client's query, the built-in operators, the manifests read
 void ShellParticleMgr_Term()	BOUNDARY	CParticleMgr::Term: the table released, the library's systems and the unused materials uncached
 void ShellParticleMgr_LevelInit()	BOUNDARY	CParticleMgr::LevelInit: the library's clock at the level's start
 void ShellParticleMgr_LevelShutdown()	BOUNDARY	CParticleMgr::RemoveAllEffects' material release; the handles leak to the next level as stock's did
-PMaterialHandle ShellParticleMaterial_Find(	BOUNDARY	CParticleMgr::GetPMaterial: a material by name held with its page and the page mapping's texcoords; nothing decided
-IMaterial *ShellParticleMaterial_Material(	BOUNDARY	CParticleMgr::PMaterialToIMaterial: the handle's material, repaired
+PMaterialHandle ShellParticleMaterial_Find( const char *pMaterialName )	BOUNDARY	CParticleMgr::GetPMaterial: a material by name held with its page and the page mapping's texcoords; nothing decided
+IMaterial *ShellParticleMaterial_Material( PMaterialHandle hMaterial )	BOUNDARY	CParticleMgr::PMaterialToIMaterial: the handle's material, repaired
 VMatrix &ShellParticleDraw_ModelView()	LAYOUT	the draw's model-view matrix (CParticleMgr::m_mModelView), set by the old-style draw, read by the light proxy
-void ShellParticleDraw_GetLight(	LAYOUT	the directional light the light proxy reads
-void ShellParticleDraw_SetLight(	LAYOUT	the directional light the old-style draw sets
+void ShellParticleDraw_GetLight( CParticleLightInfo &info )	LAYOUT	the directional light the light proxy reads
+void ShellParticleDraw_SetLight( const CParticleLightInfo &info )	LAYOUT	the directional light the old-style draw sets
 void *ShellParticleDraw_BindArg()	LAYOUT	the argument particle binds carry (stock: the manager); ParticleProxies.cs tests it for NULL
 CParticleSubTextureGroup::CParticleSubTextureGroup()	LAYOUT	particlemgr.h's value class, constructed as particlemgr.cpp did (moved with its eviction)
 CParticleSubTextureGroup::~CParticleSubTextureGroup()	LAYOUT	particlemgr.h's value class's empty destructor (moved with the eviction)

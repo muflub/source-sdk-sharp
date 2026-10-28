@@ -58,10 +58,12 @@ private:
 std::vector<QAngle> Angles()
 {
 	std::vector<QAngle> out = {
-		QAngle( 0, 0, 0 ), QAngle( 90, 0, 0 ), QAngle( -90, 0, 0 ),
-		QAngle( 0, 90, 0 ), QAngle( 0, 180, 0 ), QAngle( 0, -180, 0 ),
-		QAngle( 0, 0, 90 ), QAngle( 45, 45, 45 ), QAngle( -30, 270, 15 ),
-		QAngle( 89.9f, 10, 5 ), QAngle( 90, 33, 77 ), QAngle( -90, -33, 12 ),
+		QAngle( 0, 0, 0 ),        QAngle( 90, 0, 0 ),
+		QAngle( -90, 0, 0 ),      QAngle( 0, 90, 0 ),
+		QAngle( 0, 180, 0 ),      QAngle( 0, -180, 0 ),
+		QAngle( 0, 0, 90 ),       QAngle( 45, 45, 45 ),
+		QAngle( -30, 270, 15 ),   QAngle( 89.9f, 10, 5 ),
+		QAngle( 90, 33, 77 ),     QAngle( -90, -33, 12 ),
 		QAngle( 360, 720, -360 ), QAngle( -0.0f, -0.0f, -0.0f ),
 	};
 	Inputs rng;
@@ -73,10 +75,18 @@ std::vector<QAngle> Angles()
 std::vector<Vector> Vectors()
 {
 	std::vector<Vector> out = {
-		Vector( 0, 0, 0 ), Vector( 1, 0, 0 ), Vector( -1, 0, 0 ),
-		Vector( 0, 1, 0 ), Vector( 0, -1, 0 ), Vector( 0, 0, 1 ),
-		Vector( 0, 0, -1 ), Vector( 1, 1, 1 ), Vector( -3, 4, -5 ),
-		Vector( 1e-7f, 0, 1 ), Vector( 0, -1e-7f, -1 ), Vector( -0.0f, 0.0f, -0.0f ),
+		Vector( 0, 0, 0 ),
+		Vector( 1, 0, 0 ),
+		Vector( -1, 0, 0 ),
+		Vector( 0, 1, 0 ),
+		Vector( 0, -1, 0 ),
+		Vector( 0, 0, 1 ),
+		Vector( 0, 0, -1 ),
+		Vector( 1, 1, 1 ),
+		Vector( -3, 4, -5 ),
+		Vector( 1e-7f, 0, 1 ),
+		Vector( 0, -1e-7f, -1 ),
+		Vector( -0.0f, 0.0f, -0.0f ),
 		Vector( 16384, -16384, 4096 ),
 	};
 	Inputs rng;
@@ -94,16 +104,16 @@ std::vector<matrix3x4_t> Matrices()
 	matrix3x4_t m;
 	SetIdentityMatrix( m );
 	out.push_back( m );
-	m[0][3] = 10; m[1][3] = -20; m[2][3] = 30;
+	m[0][3] = 10;
+	m[1][3] = -20;
+	m[2][3] = 30;
 	out.push_back( m );
 	const float nearVertical[] = { 0.0f, 0.0005f, 0.000999f, 0.001001f, 0.002f };
 	for ( float h : nearVertical )
 	{
 		for ( float up : { 1.0f, -1.0f } )
 		{
-			matrix3x4_t g( h, 0.6f, 0.0f, 1.0f,
-			               0.0f, 0.8f, 0.0f, 2.0f,
-			               -up, 0.0f, 0.3f, 3.0f );
+			matrix3x4_t g( h, 0.6f, 0.0f, 1.0f, 0.0f, 0.8f, 0.0f, 2.0f, -up, 0.0f, 0.3f, 3.0f );
 			out.push_back( g );
 		}
 	}
@@ -124,9 +134,8 @@ std::vector<matrix3x4_t> Matrices()
 		if ( Bits( port[i] ) != Bits( stock[i] ) )
 		{
 			return ::testing::AssertionFailure()
-				<< what << " input #" << index << " component " << i << ": port "
-				<< port[i] << " (0x" << std::hex << Bits( port[i] ) << ") stock "
-				<< stock[i] << " (0x" << Bits( stock[i] ) << ")";
+				<< what << " input #" << index << " component " << i << ": port " << port[i] << " (0x" << std::hex
+				<< Bits( port[i] ) << ") stock " << stock[i] << " (0x" << Bits( stock[i] ) << ")";
 		}
 	}
 	return ::testing::AssertionSuccess();
@@ -290,7 +299,7 @@ TEST( MathlibPortStock, CalcSqrDistanceToAABBMatchesStock )
 	}
 	const Vector onFace( 100, 0, 0 );
 	EXPECT_EQ( Bits( ss_mathlib::CalcSqrDistanceToAABB( mins, maxs, onFace ) ),
-	           Bits( CalcSqrDistanceToAABB( mins, maxs, onFace ) ) );
+			   Bits( CalcSqrDistanceToAABB( mins, maxs, onFace ) ) );
 }
 
 } // namespace
@@ -307,7 +316,8 @@ namespace
 
 std::vector<Quaternion> Quaternions()
 {
-	std::vector<Quaternion> out = { Quaternion( 0, 0, 0, 1 ), Quaternion( 1, 0, 0, 0 ), Quaternion( 0, 0.7071068f, 0, 0.7071068f ) };
+	std::vector<Quaternion> out = { Quaternion( 0, 0, 0, 1 ), Quaternion( 1, 0, 0, 0 ),
+									Quaternion( 0, 0.7071068f, 0, 0.7071068f ) };
 	for ( const QAngle &a : Angles() )
 	{
 		Quaternion q;
@@ -359,7 +369,8 @@ std::vector<VMatrix> VMatrices()
 		if ( !r )
 			return r;
 		if ( a.type != b.type || a.signbits != b.signbits )
-			return ::testing::AssertionFailure() << what << " input #" << index << " plane " << p << ": type/signbits differ";
+			return ::testing::AssertionFailure()
+				<< what << " input #" << index << " plane " << p << ": type/signbits differ";
 	}
 	return ::testing::AssertionSuccess();
 }
@@ -557,7 +568,7 @@ TEST( MathlibPortStock, BoxOnPlaneSideMatchesStockForEveryPlaneKind )
 		plane.signbits = SignbitsForPlane( &plane );
 		ASSERT_EQ( ss_mathlib::SignbitsForPlane( &plane ), plane.signbits ) << i;
 		ASSERT_EQ( ss_mathlib::BoxOnPlaneSide( &lo.x, &hi.x, &plane ), BoxOnPlaneSide( &lo.x, &hi.x, &plane ) ) << i;
-		kinds[ plane.type < 3 ? plane.type : 3 + plane.signbits ]++;
+		kinds[plane.type < 3 ? plane.type : 3 + plane.signbits]++;
 	}
 	for ( int k = 0; k < 11; ++k )
 		EXPECT_GT( kinds[k], 0 ) << "plane kind " << k << " was never tested";
@@ -577,7 +588,8 @@ TEST( MathlibPortStock, FrustumsMatchStock )
 		ss_mathlib::GeneratePerspectiveFrustum( v[i % v.size()], angles[i], 7.0f, 28000.0f, fov, aspect, p );
 		GeneratePerspectiveFrustum( v[i % v.size()], angles[i], 7.0f, 28000.0f, fov, aspect, s );
 		ASSERT_TRUE( SameFrustum( p, s, "GeneratePerspectiveFrustum", i ) );
-		const Vector lo = v[i % v.size()].Min( v[( i + 1 ) % v.size()] ), hi = v[i % v.size()].Max( v[( i + 1 ) % v.size()] );
+		const Vector lo = v[i % v.size()].Min( v[( i + 1 ) % v.size()] ),
+					 hi = v[i % v.size()].Max( v[( i + 1 ) % v.size()] );
 		ASSERT_EQ( ss_mathlib::R_CullBox( lo, hi, s ), R_CullBox( lo, hi, s ) ) << i;
 	}
 }

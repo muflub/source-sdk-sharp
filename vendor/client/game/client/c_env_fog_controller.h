@@ -11,11 +11,11 @@ class C_FogController : public C_BaseEntity
 {
 public:
 	DECLARE_NETWORKCLASS();
-	DECLARE_CLASS_GAMEROOT( C_FogController, C_BaseEntity );	// SourceSharp: the base is our entity face (vendor/README.md)
+	DECLARE_CLASS_GAMEROOT( C_FogController,
+							C_BaseEntity ); // SourceSharp: the base is our entity face (vendor/README.md)
 
 	C_FogController();
 
 public:
-
-	fogparams_t				m_fog;
+	fogparams_t m_fog;
 };

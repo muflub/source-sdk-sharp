@@ -45,87 +45,94 @@
 
 namespace
 {
-	// Every path here is relative to the tree's src/, which is where the
-	// harness runs these binaries from.
-	std::string FileText( const char *pRelative )
-	{
-		std::ifstream in( pRelative );
-		EXPECT_TRUE( in.good() )
-			<< "cannot read " << pRelative << " -- run this from the tree's src/";
+// Every path here is relative to the tree's src/, which is where the
+// harness runs these binaries from.
+std::string FileText( const char *pRelative )
+{
+	std::ifstream in( pRelative );
+	EXPECT_TRUE( in.good() ) << "cannot read " << pRelative << " -- run this from the tree's src/";
 
-		std::ostringstream ss;
-		ss << in.rdbuf();
-		return ss.str();
+	std::ostringstream ss;
+	ss << in.rdbuf();
+	return ss.str();
+}
+
+std::string ShellText()
+{
+	return FileText( "sourcesharp/game/client/shell_clientdll.cpp" );
+}
+
+std::string DocText()
+{
+	return FileText( "../docs/clientdll-boundary.md" );
+}
+
+// How many times `needle` occurs in `haystack`.
+int CountOf( const std::string &haystack, const std::string &needle )
+{
+	int n = 0;
+	for ( size_t at = haystack.find( needle ); at != std::string::npos;
+		  at = haystack.find( needle, at + needle.size() ) )
+	{
+		++n;
 	}
+	return n;
+}
 
-	std::string ShellText() { return FileText( "sourcesharp/game/client/shell_clientdll.cpp" ); }
-	std::string DocText()   { return FileText( "../docs/clientdll-boundary.md" ); }
+//-------------------------------------------------------------------------
+// THE INTERFACE'S OWN METHOD NAMES, off public/cdll_int.h.
+//
+// For each `virtual`, the text up to the next `;` or `{` is the
+// declaration; the identifier before its first `(` is the method name.
+// Declarations are returned IN ORDER and WITH the one duplicate, so a
+// caller can assert both the eighty and the seventy-nine.
+//-------------------------------------------------------------------------
+std::vector<std::string> DeclaredMethods()
+{
+	const std::string hdr = FileText( "public/cdll_int.h" );
 
-	// How many times `needle` occurs in `haystack`.
-	int CountOf( const std::string &haystack, const std::string &needle )
-	{
-		int n = 0;
-		for ( size_t at = haystack.find( needle );
-		      at != std::string::npos;
-		      at = haystack.find( needle, at + needle.size() ) )
-		{
-			++n;
-		}
-		return n;
-	}
+	std::vector<std::string> out;
 
-	//-------------------------------------------------------------------------
-	// THE INTERFACE'S OWN METHOD NAMES, off public/cdll_int.h.
-	//
-	// For each `virtual`, the text up to the next `;` or `{` is the
-	// declaration; the identifier before its first `(` is the method name.
-	// Declarations are returned IN ORDER and WITH the one duplicate, so a
-	// caller can assert both the eighty and the seventy-nine.
-	//-------------------------------------------------------------------------
-	std::vector< std::string > DeclaredMethods()
-	{
-		const std::string hdr = FileText( "public/cdll_int.h" );
-
-		std::vector< std::string > out;
-
-		const size_t open = hdr.find( "abstract_class IBaseClientDLL" );
-		if ( open == std::string::npos )
-			return out;
-
-		const size_t close = hdr.find( "\n};", open );
-		const std::string blk = hdr.substr( open, close - open );
-
-		size_t pos = 0;
-		for ( size_t v = blk.find( "virtual" ); v != std::string::npos; v = blk.find( "virtual", pos ) )
-		{
-			pos = v + strlen( "virtual" );
-
-			size_t stop = blk.size();
-			const size_t semi  = blk.find( ';', pos );
-			const size_t brace = blk.find( '{', pos );
-			if ( semi  != std::string::npos ) stop = std::min( stop, semi );
-			if ( brace != std::string::npos ) stop = std::min( stop, brace );
-
-			const std::string seg = blk.substr( pos, stop - pos );
-
-			const size_t paren = seg.find( '(' );
-			if ( paren == std::string::npos )
-				continue;
-
-			size_t e = paren;
-			while ( e > 0 && isspace( (unsigned char)seg[ e - 1 ] ) )
-				--e;
-
-			size_t s = e;
-			while ( s > 0 && ( isalnum( (unsigned char)seg[ s - 1 ] ) || seg[ s - 1 ] == '_' ) )
-				--s;
-
-			if ( s < e )
-				out.push_back( seg.substr( s, e - s ) );
-		}
-
+	const size_t open = hdr.find( "abstract_class IBaseClientDLL" );
+	if ( open == std::string::npos )
 		return out;
+
+	const size_t close = hdr.find( "\n};", open );
+	const std::string blk = hdr.substr( open, close - open );
+
+	size_t pos = 0;
+	for ( size_t v = blk.find( "virtual" ); v != std::string::npos; v = blk.find( "virtual", pos ) )
+	{
+		pos = v + strlen( "virtual" );
+
+		size_t stop = blk.size();
+		const size_t semi = blk.find( ';', pos );
+		const size_t brace = blk.find( '{', pos );
+		if ( semi != std::string::npos )
+			stop = std::min( stop, semi );
+		if ( brace != std::string::npos )
+			stop = std::min( stop, brace );
+
+		const std::string seg = blk.substr( pos, stop - pos );
+
+		const size_t paren = seg.find( '(' );
+		if ( paren == std::string::npos )
+			continue;
+
+		size_t e = paren;
+		while ( e > 0 && isspace( (unsigned char)seg[e - 1] ) )
+			--e;
+
+		size_t s = e;
+		while ( s > 0 && ( isalnum( (unsigned char)seg[s - 1] ) || seg[s - 1] == '_' ) )
+			--s;
+
+		if ( s < e )
+			out.push_back( seg.substr( s, e - s ) );
 	}
+
+	return out;
+}
 }
 
 //=============================================================================
@@ -139,29 +146,28 @@ namespace
 // transcribed enum, which could only ever agree with the transcription.
 TEST( ClientDllInterface, EightyDeclarationsBecomeSeventyNineLinuxSlots )
 {
-	const std::vector< std::string > decls = DeclaredMethods();
+	const std::vector<std::string> decls = DeclaredMethods();
 	ASSERT_FALSE( decls.empty() ) << "public/cdll_int.h did not parse";
 
 	EXPECT_EQ( 80u, decls.size() );
 
-	const std::set< std::string > distinct( decls.begin(), decls.end() );
+	const std::set<std::string> distinct( decls.begin(), decls.end() );
 	EXPECT_EQ( 79u, distinct.size() );
 }
 
 TEST( ClientDllInterface, StartStatsReportingIsTheOneDeclaredTwice )
 {
-	const std::vector< std::string > decls = DeclaredMethods();
+	const std::vector<std::string> decls = DeclaredMethods();
 
 	int n = 0;
 	for ( size_t i = 0; i < decls.size(); ++i )
-		if ( decls[ i ] == "StartStatsReporting" )
+		if ( decls[i] == "StartStatsReporting" )
 			++n;
 
-	EXPECT_EQ( 2, n )
-		<< "the duplicate declaration is what makes eighty declarations into "
-		   "seventy-nine Linux vtable slots; if it is no longer "
-		   "StartStatsReporting, every row in docs/clientdll-boundary.md "
-		   "shifts by one.";
+	EXPECT_EQ( 2, n ) << "the duplicate declaration is what makes eighty declarations into "
+						 "seventy-nine Linux vtable slots; if it is no longer "
+						 "StartStatsReporting, every row in docs/clientdll-boundary.md "
+						 "shifts by one.";
 }
 
 // A PARSE THAT QUIETLY RETURNED THE WRONG THING would satisfy the two counts
@@ -169,8 +175,8 @@ TEST( ClientDllInterface, StartStatsReportingIsTheOneDeclaredTwice )
 // are spread across the interface and are named in the doc's own rows.
 TEST( ClientDllInterface, TheParseYieldsActualMethodNames )
 {
-	const std::vector< std::string > decls = DeclaredMethods();
-	const std::set< std::string > distinct( decls.begin(), decls.end() );
+	const std::vector<std::string> decls = DeclaredMethods();
+	const std::set<std::string> distinct( decls.begin(), decls.end() );
 
 	EXPECT_EQ( 1u, distinct.count( "Init" ) );
 	EXPECT_EQ( 1u, distinct.count( "FrameStageNotify" ) );
@@ -221,7 +227,8 @@ TEST( ClientDllShell, TheTwoMethodsWithNoEngineCallerAreRefusals )
 {
 	const std::string shell = ShellText();
 
-	EXPECT_EQ( 1, CountOf( shell, "SS_CLIENTDLL_UNREACHABLE( \"IBaseClientDLL::BHaveChatSuspensionInCurrentMatch\" )" ) );
+	EXPECT_EQ( 1,
+			   CountOf( shell, "SS_CLIENTDLL_UNREACHABLE( \"IBaseClientDLL::BHaveChatSuspensionInCurrentMatch\" )" ) );
 	EXPECT_EQ( 1, CountOf( shell, "SS_CLIENTDLL_UNREACHABLE( \"IBaseClientDLL::DisplayVoiceUnavailableMessage\" )" ) );
 }
 
@@ -261,9 +268,8 @@ TEST( ClientDllShell, NoMethodStillForwardsToTheDeletedPresenceSingleton )
 {
 	const std::string shell = ShellText();
 
-	EXPECT_EQ( 0, CountOf( shell, "presence->" ) )
-		<< "the client shell reaches `presence` again; basepresence.cpp was "
-		<< "deleted at step 7g and there is nothing behind that pointer.";
+	EXPECT_EQ( 0, CountOf( shell, "presence->" ) ) << "the client shell reaches `presence` again; basepresence.cpp was "
+												   << "deleted at step 7g and there is nothing behind that pointer.";
 	EXPECT_EQ( 0, CountOf( shell, "#include \"ipresence.h\"" ) );
 }
 
@@ -306,8 +312,8 @@ TEST( ClientDllShell, TheShellIsWhatIsExposedAsIBaseClientDLL )
 
 	EXPECT_NE( std::string::npos, shell.find( "class CShellClientDLL : public IBaseClientDLL" ) );
 	EXPECT_NE( std::string::npos,
-	           shell.find( "EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellClientDLL, IBaseClientDLL, "
-	                       "CLIENT_DLL_INTERFACE_VERSION, g_ShellClientDLL )" ) );
+			   shell.find( "EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellClientDLL, IBaseClientDLL, "
+						   "CLIENT_DLL_INTERFACE_VERSION, g_ShellClientDLL )" ) );
 }
 
 // plan_entity.md 5b: cdll_client_int.cpp LEAVES. Read off the build's source
@@ -318,14 +324,16 @@ TEST( ClientDllShell, TheShellIsWhatIsExposedAsIBaseClientDLL )
 // directory, the reach the old substring count had.
 TEST( ClientDllShell, TheStockTranslationUnitIsOffTheClientBuild )
 {
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( cmake_graph::kClient );
+	const std::set<std::string> compiled = cmake_graph::CompiledSources( cmake_graph::kClient );
 
 	int nStock = 0, nShell = 0;
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
 	{
 		const std::string base = it->substr( it->rfind( '/' ) + 1 );
-		if ( base == "cdll_client_int.cpp" ) nStock++;
-		if ( base == "shell_clientdll.cpp" ) nShell++;
+		if ( base == "cdll_client_int.cpp" )
+			nStock++;
+		if ( base == "shell_clientdll.cpp" )
+			nShell++;
 	}
 
 	// The proof-of-read, and the replacement: exactly one client shell.
@@ -354,23 +362,21 @@ TEST( ClientDllShell, TheStockTranslationUnitIsOffTheClientBuild )
 
 namespace
 {
-	// THE ASSIGNMENTS AND NOT THE BARE NAMES. `shell_clientdll.cpp` DECLARES
-	// `int SourceSharp_StandaloneClientsLevelShutdown();` locally -- this
-	// file's own idiom for the hierarchy -- ten lines above it calls it, so a
-	// search for the bare name finds the DECLARATION and every ordering fact
-	// below would be about a line that is not the call. Measured: the
-	// "teardown moved inside the arming guard" mutation stayed green twice
-	// because of it.
-	const char *const kShellTeardownCall =
-		"const int nShells = SourceSharp_StandaloneClientsLevelShutdown();";
-	const char *const kWorldTeardownCall =
-		"const bool bWorld = SourceSharp_ClientWorldLevelShutdown();";
-	// The reset the entity teardown has to run BEFORE. lane `f-list` measured
-	// what violating it costs: a segfault in the client shadow manager on the
-	// SECOND map load, 0 of 5 runs, with every shell surviving the level change
-	// holding leaf-system and shadow handles into subsystems this very function
-	// had already reset.
-	const char *const kPostEntity = "SourceSharp_ClientSystemsLevelShutdownPostEntity();";
+// THE ASSIGNMENTS AND NOT THE BARE NAMES. `shell_clientdll.cpp` DECLARES
+// `int SourceSharp_StandaloneClientsLevelShutdown();` locally -- this
+// file's own idiom for the hierarchy -- ten lines above it calls it, so a
+// search for the bare name finds the DECLARATION and every ordering fact
+// below would be about a line that is not the call. Measured: the
+// "teardown moved inside the arming guard" mutation stayed green twice
+// because of it.
+const char *const kShellTeardownCall = "const int nShells = SourceSharp_StandaloneClientsLevelShutdown();";
+const char *const kWorldTeardownCall = "const bool bWorld = SourceSharp_ClientWorldLevelShutdown();";
+// The reset the entity teardown has to run BEFORE. lane `f-list` measured
+// what violating it costs: a segfault in the client shadow manager on the
+// SECOND map load, 0 of 5 runs, with every shell surviving the level change
+// holding leaf-system and shadow handles into subsystems this very function
+// had already reset.
+const char *const kPostEntity = "SourceSharp_ClientSystemsLevelShutdownPostEntity();";
 }
 
 TEST( ClientDllShell, LevelShutdownDestroysTheStandaloneShells )
@@ -399,25 +405,23 @@ TEST( ClientDllShell, TheShellTeardownRunsBeforeTheSubsystemsItHoldsHandlesInto 
 	const std::string shell = ShellText();
 
 	const size_t shells = shell.find( kShellTeardownCall );
-	const size_t world  = shell.find( kWorldTeardownCall );
-	const size_t post   = shell.find( kPostEntity );
+	const size_t world = shell.find( kWorldTeardownCall );
+	const size_t post = shell.find( kPostEntity );
 
 	ASSERT_NE( std::string::npos, shells );
 	ASSERT_NE( std::string::npos, world );
-	ASSERT_NE( std::string::npos, post )
-		<< "CShellClientDLL::LevelShutdown no longer runs the post-entity "
-		   "system shutdown at all, so there is nothing for the two teardowns "
-		   "to be ordered against -- and the subsystems the shells hold "
-		   "handles into are never reset.";
+	ASSERT_NE( std::string::npos, post ) << "CShellClientDLL::LevelShutdown no longer runs the post-entity "
+											"system shutdown at all, so there is nothing for the two teardowns "
+											"to be ordered against -- and the subsystems the shells hold "
+											"handles into are never reset.";
 
 	EXPECT_LT( shells, world ) << "shells, then the world: a shell's destructor "
-	                              "can reach the world and nothing in the "
-	                              "world's Release reaches a shell";
-	EXPECT_LT( world, post )
-		<< "the entity teardown runs AFTER the post-entity system shutdown. "
-		   "That is the ordering lane `f-list` measured the cost of: a "
-		   "segfault in the client shadow manager on the second map load, 0 of "
-		   "5 runs.";
+								  "can reach the world and nothing in the "
+								  "world's Release reaches a shell";
+	EXPECT_LT( world, post ) << "the entity teardown runs AFTER the post-entity system shutdown. "
+								"That is the ordering lane `f-list` measured the cost of: a "
+								"segfault in the client shadow manager on the second map load, 0 of "
+								"5 runs.";
 }
 
 // READ THE ASSERTIONS, NOT THE NAME. There is no arm flag left in this file.
@@ -438,15 +442,13 @@ TEST( ClientDllShell, TheShellTeardownIsNotGuardedOnTheArmFlag )
 		   "compiler sees and an `#ifdef` on it is decoration.";
 
 	const size_t world = shell.find( kWorldTeardownCall );
-	const size_t post  = shell.find( kPostEntity );
+	const size_t post = shell.find( kPostEntity );
 	ASSERT_NE( std::string::npos, world );
 	ASSERT_NE( std::string::npos, post );
-	EXPECT_LT( shells, post )
-		<< "the shell teardown is no longer ahead of the post-entity system "
-		   "shutdown";
-	EXPECT_LT( world, post )
-		<< "the world teardown is no longer ahead of the post-entity system "
-		   "shutdown";
+	EXPECT_LT( shells, post ) << "the shell teardown is no longer ahead of the post-entity system "
+								 "shutdown";
+	EXPECT_LT( world, post ) << "the world teardown is no longer ahead of the post-entity system "
+								"shutdown";
 }
 
 //=============================================================================
@@ -464,19 +466,16 @@ TEST( ClientDllDoc, EveryDeclaredMethodHasARow )
 	const std::string doc = DocText();
 	ASSERT_FALSE( doc.empty() );
 
-	const std::vector< std::string > decls = DeclaredMethods();
-	const std::set< std::string > distinct( decls.begin(), decls.end() );
+	const std::vector<std::string> decls = DeclaredMethods();
+	const std::set<std::string> distinct( decls.begin(), decls.end() );
 	ASSERT_EQ( 79u, distinct.size() );
 
-	for ( std::set< std::string >::const_iterator it = distinct.begin();
-	      it != distinct.end(); ++it )
+	for ( std::set<std::string>::const_iterator it = distinct.begin(); it != distinct.end(); ++it )
 	{
 		// The row's own cell: "| `Method` |". Backticked so `Init` does not
 		// match the word inside "ReplayInit" or inside a sentence.
 		const std::string cell = "| `" + *it + "` |";
-		EXPECT_EQ( 1, CountOf( doc, cell ) )
-			<< "docs/clientdll-boundary.md has no row (or more than one) for "
-			<< *it;
+		EXPECT_EQ( 1, CountOf( doc, cell ) ) << "docs/clientdll-boundary.md has no row (or more than one) for " << *it;
 	}
 }
 

@@ -10,8 +10,6 @@
 
 #pragma once
 
-#include "mathlib/vector.h"
-
 namespace ss
 {
 
@@ -22,7 +20,7 @@ public:
 	virtual void Smoke( const Vector &origin, int modelIndex, float scale, float framerate ) = 0;
 
 	virtual void Sparks( const Vector &position, int nMagnitude = 1, int nTrailLength = 1,
-	                     const Vector *pvecDir = NULL ) = 0;
+						 const Vector *pvecDir = NULL ) = 0;
 
 protected:
 	~IEffects() {}

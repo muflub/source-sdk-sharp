@@ -1,11 +1,11 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CSourceSharpMessageChars] virtual void Create(	SLOT	IMessageChars slot vgui_int.cpp calls: nothing to make (no string is ever queued)
-[CSourceSharpMessageChars] virtual void Destroy(	SLOT	IMessageChars slot vgui_int.cpp calls: nothing to destroy
-[CSourceSharpMessageChars] virtual int DrawString( vgui::HFont, int, int, int	SLOT	IMessageChars slot no compiled code calls: draws nothing
-[CSourceSharpMessageChars] virtual int DrawString( vgui::HFont, int, int, const	SLOT	IMessageChars slot no compiled code calls: draws nothing
-[CSourceSharpMessageChars] virtual int DrawStringForTime( float, vgui::HFont, int, int, int	SLOT	IMessageChars slot no compiled code calls: draws nothing
-[CSourceSharpMessageChars] virtual int DrawStringForTime( float, vgui::HFont, int, int, const	SLOT	IMessageChars slot no compiled code calls: draws nothing
-[CSourceSharpMessageChars] virtual void RemoveStringsByID(	SLOT	IMessageChars slot: nothing queued
-[CSourceSharpMessageChars] virtual void GetStringLength(	SLOT	IMessageChars slot no compiled code calls: an empty string's size
-[CSourceSharpMessageChars] virtual void Clear(	SLOT	IMessageChars slot the shell calls at a level change: nothing queued
+[CSourceSharpMessageChars] virtual void Create( vgui::VPANEL parent ) OVERRIDE	SLOT	IMessageChars slot vgui_int.cpp calls: nothing to make (no string is ever queued)
+[CSourceSharpMessageChars] virtual void Destroy() OVERRIDE	SLOT	IMessageChars slot vgui_int.cpp calls: nothing to destroy
+[CSourceSharpMessageChars] virtual int DrawString( vgui::HFont, int, int, int, int, int, int, const char *, int, ... ) OVERRIDE	SLOT	IMessageChars slot no compiled code calls: draws nothing
+[CSourceSharpMessageChars] virtual int DrawString( vgui::HFont, int, int, const char *, int, ... ) OVERRIDE	SLOT	IMessageChars slot no compiled code calls: draws nothing
+[CSourceSharpMessageChars] virtual int DrawStringForTime( float, vgui::HFont, int, int, int, int, int, int, const char *, int, ... ) OVERRID	SLOT	IMessageChars slot no compiled code calls: draws nothing
+[CSourceSharpMessageChars] virtual int DrawStringForTime( float, vgui::HFont, int, int, const char *, int, ... ) OVERRIDE	SLOT	IMessageChars slot no compiled code calls: draws nothing
+[CSourceSharpMessageChars] virtual void RemoveStringsByID( int ) OVERRIDE	SLOT	IMessageChars slot: nothing queued
+[CSourceSharpMessageChars] virtual void GetStringLength( vgui::HFont, int *width, int *height, const char *, ... ) OVERRIDE	SLOT	IMessageChars slot no compiled code calls: an empty string's size
+[CSourceSharpMessageChars] virtual void Clear() OVERRIDE	SLOT	IMessageChars slot the shell calls at a level change: nothing queued

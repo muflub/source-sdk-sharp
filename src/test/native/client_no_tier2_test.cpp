@@ -27,7 +27,7 @@ std::string Run( const std::string &cmd )
 	if ( !pPipe )
 		return std::string();
 	std::string out;
-	char buf[ 4096 ];
+	char buf[4096];
 	while ( fgets( buf, sizeof( buf ), pPipe ) )
 		out += buf;
 	pclose( pPipe );
@@ -37,9 +37,9 @@ std::string Run( const std::string &cmd )
 // The names `nm --defined-only` lists with one of pszTypes (T/D/B/R: global
 // strong definitions; lower case: local; V/W: weak COMDAT copies, which any
 // object may emit and so name no member).
-std::set< std::string > Defined( const std::string &strNmArgs, const char *pszTypes = "TtDdBbRrVvWw" )
+std::set<std::string> Defined( const std::string &strNmArgs, const char *pszTypes = "TtDdBbRrVvWw" )
 {
-	std::set< std::string > out;
+	std::set<std::string> out;
 	const std::string text = Run( "nm --defined-only " + strNmArgs );
 	size_t start = 0;
 	while ( start < text.size() )
@@ -53,21 +53,25 @@ std::set< std::string > Defined( const std::string &strNmArgs, const char *pszTy
 		const size_t a = line.find( ' ' );
 		if ( a == std::string::npos || a + 3 > line.size() )
 			continue;
-		const char t = line[ a + 1 ];
-		if ( strchr( pszTypes, t ) == NULL || line[ a + 2 ] != ' ' )
+		const char t = line[a + 1];
+		if ( strchr( pszTypes, t ) == NULL || line[a + 2] != ' ' )
 			continue;
 		out.insert( line.substr( a + 3 ) );
 	}
 	return out;
 }
 
-std::string Tier2Archive() { return cmake_graph::FarmSrc() + "/lib/public/linux64/tier2.a"; }
+std::string Tier2Archive()
+{
+	return cmake_graph::FarmSrc() + "/lib/public/linux64/tier2.a";
+}
 
 struct Lib_t
 {
-	const char *pszTarget;	// the CMake target
-	const char *pszOutput;	// its link output, build-dir relative
+	const char *pszTarget; // the CMake target
+	const char *pszOutput; // its link output, build-dir relative
 };
+
 const Lib_t kLibs[] = {
 	{ cmake_graph::kClient, "out/client.so" },
 	{ "ss_particles", "out/libss_particles.so" },
@@ -75,7 +79,7 @@ const Lib_t kLibs[] = {
 
 bool LinesNameTier2( const char *pszTarget )
 {
-	const std::vector< std::string > libs = cmake_graph::LinkLibraries( pszTarget );
+	const std::vector<std::string> libs = cmake_graph::LinkLibraries( pszTarget );
 	for ( const std::string &tok : libs )
 	{
 		const std::string base = tok.substr( tok.find_last_of( '/' ) + 1 );
@@ -90,7 +94,7 @@ TEST( ClientNoTier2, TheArchiveIsNotOnTheLinkLine )
 {
 	for ( const Lib_t &lib : kLibs )
 	{
-		const std::vector< std::string > libs = cmake_graph::LinkLibraries( lib.pszTarget );
+		const std::vector<std::string> libs = cmake_graph::LinkLibraries( lib.pszTarget );
 		// Proof of read: a library that stays is there: libdl, which every
 		// Linux link line names (libmathlib.a left client.so's, C9).
 		bool bDl = false;
@@ -105,7 +109,7 @@ TEST( ClientNoTier2, TheArchiveIsNotOnTheLinkLine )
 
 TEST( ClientNoTier2, EveryTier2NameInEachLibraryIsOneOfOurObjects )
 {
-	const std::set< std::string > archive = Defined( "'" + Tier2Archive() + "'", "TDBR" );
+	const std::set<std::string> archive = Defined( "'" + Tier2Archive() + "'", "TDBR" );
 	ASSERT_GT( archive.size(), 50u ) << Tier2Archive() << " read as nearly empty";
 
 	const std::string strBuild = cmake_graph::BuildDir();
@@ -118,14 +122,14 @@ TEST( ClientNoTier2, EveryTier2NameInEachLibraryIsOneOfOurObjects )
 		{
 			if ( rel.size() > 2 && rel.compare( rel.size() - 2, 2, ".o" ) == 0 )
 			{
-				objs += " '" + ( rel[ 0 ] == '/' ? rel : strBuild + "/" + rel ) + "'";
+				objs += " '" + ( rel[0] == '/' ? rel : strBuild + "/" + rel ) + "'";
 				nObjects++;
 			}
 		}
 		ASSERT_GT( nObjects, 2u ) << lib.pszTarget << "'s link edge named too few objects";
-		const std::set< std::string > ours = Defined( objs );
+		const std::set<std::string> ours = Defined( objs );
 
-		const std::set< std::string > so = Defined( "'" + strBuild + "/" + lib.pszOutput + "'" );
+		const std::set<std::string> so = Defined( "'" + strBuild + "/" + lib.pszOutput + "'" );
 		ASSERT_GT( so.size(), 1000u ) << lib.pszOutput << " read as nearly empty";
 
 		int nShared = 0;
@@ -142,6 +146,6 @@ TEST( ClientNoTier2, EveryTier2NameInEachLibraryIsOneOfOurObjects )
 		EXPECT_GT( nShared, 4 ) << lib.pszOutput;
 	}
 	// The stand-ins particles.a links against are the library's own.
-	const std::set< std::string > lib = Defined( "'" + strBuild + "/out/libss_particles.so'" );
+	const std::set<std::string> lib = Defined( "'" + strBuild + "/out/libss_particles.so'" );
 	EXPECT_TRUE( lib.count( kStart ) ) << "libss_particles.so has no CBeamSegDraw::Start";
 }

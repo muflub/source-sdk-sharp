@@ -10,7 +10,6 @@
 // shell_nettable.cpp's diagnostic console commands. Debug builds only; managed
 // NativeCommands declares the matching rows under #if DEBUG.
 
-#include "tier0/dbg.h"
 #include "tier1/convar.h"
 #include "generic_nettable.h"
 #include "native_command_body.h"
@@ -29,14 +28,14 @@ SS_NATIVE_COMMAND( cs_sv_payload_agree )
 	const int nWanted = args.ArgC() > 1 ? ss::AtoI( args[1] ) : -1;
 
 	int nChecked = 0;
-	int nAgreed  = 0;
+	int nAgreed = 0;
 
 	SourceSharp_StandalonePayloadAgreeReport( nWanted, &nChecked, &nAgreed );
 
 	if ( nChecked == 0 )
 	{
 		Warning( "[SourceSharp] payload agreement: no entity carrying a payload%s\n",
-			nWanted >= 0 ? " at that index" : " is alive" );
+				 nWanted >= 0 ? " at that index" : " is alive" );
 		return;
 	}
 
@@ -54,7 +53,7 @@ SS_NATIVE_COMMAND( cs_sv_poke_payload )
 	}
 
 	const int nIndex = ss::AtoI( args[1] );
-	const int iWord  = ss::AtoI( args[2] );
+	const int iWord = ss::AtoI( args[2] );
 	const uint32 nValue = (uint32)strtoul( args[3], NULL, 0 );
 
 	if ( SourceSharp_StandalonePokePayload( nIndex, iWord, nValue ) )
@@ -108,16 +107,14 @@ SS_NATIVE_COMMAND( cs_sv_dump_types )
 {
 	CSourceSharpTypeTable &types = SourceSharp_NetTypes();
 
-	Msg( "[SourceSharp] --- published types: %d, %d collision(s) ---\n",
-		types.Count(), types.Collisions() );
+	Msg( "[SourceSharp] --- published types: %d, %d collision(s) ---\n", types.Count(), types.Collisions() );
 
 	for ( int i = 0; i < types.Count(); i++ )
 	{
 		const SourceSharpNetType_t *pType = types.At( i );
 
-		Msg( "[SourceSharp]   %-28s id=0x%08x schema=0x%08x layout=%-5d shell=%d tier=%d (%s)\n",
-			pType->szClass, pType->nTypeId, pType->nSchemaHash, pType->nLayoutBytes,
-			pType->nShell, pType->iTier,
-			SourceSharp_TierTableName( pType->nShell, pType->iTier ) );
+		Msg( "[SourceSharp]   %-28s id=0x%08x schema=0x%08x layout=%-5d shell=%d tier=%d (%s)\n", pType->szClass,
+			 pType->nTypeId, pType->nSchemaHash, pType->nLayoutBytes, pType->nShell, pType->iTier,
+			 SourceSharp_TierTableName( pType->nShell, pType->iTier ) );
 	}
 }

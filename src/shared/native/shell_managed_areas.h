@@ -54,24 +54,12 @@ CManagedHolders &ShellGameDll_Managed();
 // True when the root, the runtime and every area have been released.
 inline bool ManagedHolders_Empty( const CManagedHolders &holders )
 {
-	return !holders.m_pRoot
-		&& !holders.m_pRuntimeServer
-		&& !holders.m_Areas.m_pPhysicsFrame
-		&& !holders.m_Areas.m_pResources
-		&& !holders.m_Areas.m_pSaveRestore
-		&& !holders.m_Areas.m_pSoundEnt
-		&& !holders.m_Areas.m_pHierarchy
-		&& !holders.m_Areas.m_pEntities
-		&& !holders.m_Areas.m_pClients
-		&& !holders.m_Areas.m_pEvents
-		&& !holders.m_Areas.m_pUserMessages
-		&& !holders.m_Areas.m_pTempEnts
-		&& !holders.m_Areas.m_pDiagnostics
-		&& !holders.m_Areas.m_pCommands
-		&& !holders.m_Areas.m_pNetState
-		&& !holders.m_Areas.m_pPlayerCommands
-		&& !holders.m_Areas.m_pConsoleOutput
-		&& !holders.m_Areas.m_pBones;
+	return !holders.m_pRoot && !holders.m_pRuntimeServer && !holders.m_Areas.m_pPhysicsFrame &&
+		!holders.m_Areas.m_pResources && !holders.m_Areas.m_pSaveRestore && !holders.m_Areas.m_pSoundEnt &&
+		!holders.m_Areas.m_pHierarchy && !holders.m_Areas.m_pEntities && !holders.m_Areas.m_pClients &&
+		!holders.m_Areas.m_pEvents && !holders.m_Areas.m_pUserMessages && !holders.m_Areas.m_pTempEnts &&
+		!holders.m_Areas.m_pDiagnostics && !holders.m_Areas.m_pCommands && !holders.m_Areas.m_pNetState &&
+		!holders.m_Areas.m_pPlayerCommands && !holders.m_Areas.m_pConsoleOutput && !holders.m_Areas.m_pBones;
 }
 
 // Every area from the root, each accepted through its Validate; false with the

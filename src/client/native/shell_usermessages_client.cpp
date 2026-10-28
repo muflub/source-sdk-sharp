@@ -9,16 +9,6 @@
 // What the stock user-message hooks did after their reads, carried out over
 // values managed code parsed. Every decision is the managed handler's.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier1/strtools.h"
-#include "vstdlib/random.h"
-#include "utlvector.h"
-#include "const.h"
-#include "string_t.h"
-#include "icvar.h"
 #include "predictable_entity.h"
 #include "cdll_util.h"
 #include "util_shared.h"
@@ -27,12 +17,9 @@
 #include "game/client/iviewport.h"
 #include "iclientmode.h"
 #include "hud.h"
-#include "igameevents.h"
-#include "tier1/KeyValues.h"
+
 #include "GameEventListener.h"
-#include "cdll_client_int.h"
-#include "globalvars_base.h"
-#include "sourcesharp.h"
+
 extern IClientMode *GetClientModeNormal();
 
 // Facts for managed code's VGUIMenu handler: bit 0, the viewport has a panel by
@@ -56,7 +43,7 @@ int32_t SourceSharp_ClientViewportQuery( const char *pszPanel )
 // screenshot in a second, 4 fire ds_screenshot client side, 8 tell the client
 // mode the info panel was shown, 16 show (or hide, by bShow) the panel.
 void SourceSharp_ClientViewportShow( const char *pszPanel, int32_t bShow, const unsigned char *pPairs,
-                                     int32_t nPairBytes, int32_t nFlags )
+									 int32_t nPairBytes, int32_t nFlags )
 {
 	if ( !gViewPortInterface || !pszPanel )
 		return;
@@ -69,7 +56,7 @@ void SourceSharp_ClientViewportShow( const char *pszPanel, int32_t bShow, const 
 	{
 		KeyValues *pKeys = new KeyValues( "data" );
 
-		const char *pszAt  = (const char *)pPairs;
+		const char *pszAt = (const char *)pPairs;
 		const char *pszEnd = pszAt + nPairBytes;
 		while ( pszAt < pszEnd )
 		{

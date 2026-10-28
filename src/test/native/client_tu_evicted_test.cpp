@@ -62,15 +62,15 @@ namespace
 const char *SrcRoot()
 {
 	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
 	{
 		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub  = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
+		const std::string game = std::string( kCandidates[i] ) + "/game";
+		const std::string pub = std::string( kCandidates[i] ) + "/public";
+		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) && stat( pub.c_str(), &st ) == 0 &&
+			 S_ISDIR( st.st_mode ) )
 		{
-			return kCandidates[ i ];
+			return kCandidates[i];
 		}
 	}
 	return NULL;
@@ -93,13 +93,12 @@ const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 bool Builds( const char *pszTarget, const char *pszPath )
 {
 	EXPECT_TRUE( cmake_graph::Compiles( pszTarget, kProofOfRead ) )
-		<< pszTarget << " does not compile " << kProofOfRead
-		<< " -- the reader is not reading its source list";
+		<< pszTarget << " does not compile " << kProofOfRead << " -- the reader is not reading its source list";
 	return cmake_graph::Compiles( pszTarget, pszPath );
 }
 
-const char *const kClientCpp  = "game/server/client.cpp";
-const char *const kOrphans    = "sourcesharp/game/server/shell_client_orphans.cpp";
+const char *const kClientCpp = "game/server/client.cpp";
+const char *const kOrphans = "sourcesharp/game/server/shell_client_orphans.cpp";
 } // anonymous namespace
 
 //=============================================================================
@@ -129,12 +128,14 @@ TEST( ClientTuEvicted, TheShimOrphanFileIsInNeitherBuild )
 	// The three registrations are asserted against their managed homes below, so
 	// this direction is not the only thing standing between the gate and nothing.
 	EXPECT_FALSE( Builds( cmake_graph::kServer, kOrphans ) )
-		<< kOrphans << " is back in server_sourcesharp. Its ConVar and its two "
+		<< kOrphans
+		<< " is back in server_sourcesharp. Its ConVar and its two "
 		   "ConCommands are declared in managed code now; compiling it again "
 		   "registers sv_allow_point_servercommand twice, and nothing says which "
 		   "one PointServerCommand's by-name read finds.";
 	EXPECT_FALSE( Builds( cmake_graph::kClient, kOrphans ) )
-		<< kOrphans << " is in client_sourcesharp. (The client has its OWN file of "
+		<< kOrphans
+		<< " is in client_sourcesharp. (The client has its OWN file of "
 		   "that basename, sourcesharp/game/client/shell_client_orphans.cpp, "
 		   "which is a different row and stays -- this is the server path.)";
 }
@@ -223,13 +224,15 @@ TEST( ClientTuEvicted, TheOwedInstrumentIsRetiredAndTheRowItMeasuredHasMoved )
 		   "somewhere, because a mode nobody invokes rots.";
 
 	EXPECT_FALSE( Builds( cmake_graph::kServer, kClientCpp ) )
-		<< kClientCpp << " is back in server_sourcesharp. That is the row the "
+		<< kClientCpp
+		<< " is back in server_sourcesharp. That is the row the "
 		   "owed instrument read zero for and the one this whole file is the "
 		   "record of; with it back, the six registrations enumerated above are "
 		   "made twice.";
 
 	EXPECT_FALSE( Builds( cmake_graph::kServer, kOrphans ) )
-		<< kOrphans << " is back in server_sourcesharp. Phase 1b moved all "
+		<< kOrphans
+		<< " is back in server_sourcesharp. Phase 1b moved all "
 		   "three registrations to managed code and deleted it; compiling it "
 		   "again makes each of them twice.";
 }
@@ -259,10 +262,11 @@ TEST( ClientTuEvicted, TheWholeRemovalSetInstrumentFamilyWentTogether )
 		"src/sourcesharp/test/relink_exit_contract_test.cpp",
 		"src/sourcesharp/test/exit_batches_test.cpp",
 	};
-	for ( size_t i = 0; i < sizeof( kRetired ) / sizeof( kRetired[ 0 ] ); i++ )
+	for ( size_t i = 0; i < sizeof( kRetired ) / sizeof( kRetired[0] ); i++ )
 	{
-		EXPECT_FALSE( RepoPathExists( kRetired[ i ] ) )
-			<< kRetired[ i ] << " is back. The seven removal-set instruments and "
+		EXPECT_FALSE( RepoPathExists( kRetired[i] ) )
+			<< kRetired[i]
+			<< " is back. The seven removal-set instruments and "
 			   "their two gtests were retired as one thing because they read one "
 			   "another's output; restoring one alone gives an answer computed "
 			   "from inputs that are not there.";

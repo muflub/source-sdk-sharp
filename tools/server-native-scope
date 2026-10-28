@@ -164,10 +164,14 @@ def fn_name(head):
     head names no function."""
     h = head
     if h.startswith("__attribute__"):
-        # __attribute__(( ... )) static void F(): skip past the attribute
-        i = h.find("))")
-        if i >= 0:
-            h = h[i + 2:].strip()
+        # __attribute__(( ... )) static void F(), however it is spaced
+        depth, i = 0, h.find("(")
+        for j in range(i, len(h)):
+            depth += h[j] == "("
+            depth -= h[j] == ")"
+            if depth == 0:
+                h = h[j + 1:].strip()
+                break
     i = h.find("(")
     if i < 0:
         return None
@@ -461,24 +465,24 @@ def self_test():
         rows = fnmap_rows(tu)
         ck("fnmap reads the three planted functions", rows is not None and len(rows) == 3)
         code = {r[3]: r[2] for r in rows}
-        ledger = {tu: [("int Kept() { return 1; }", "KEEP-OUT", 1, 1, 1),
-                       ("int Moved() { return 2; }", "MOVE", 0, 2, 2),
-                       ("int Folded() { return 3; }", "FOLD", 0, 3, 3),
-                       ("int Dead() { return 4; }", "DELETE", 3, 9, 9)]}
+        ledger = {tu: [("int Kept()", "KEEP-OUT", 1, 1, 1),
+                       ("int Moved()", "MOVE", 0, 2, 2),
+                       ("int Folded()", "FOLD", 0, 3, 3),
+                       ("int Dead()", "DELETE", 3, 9, 9)]}
         unruled, vanished, counts = measure([tu], ledger)
         ck("a ruled function is not unruled", unruled == [])
         ck("a DELETE row whose function is gone is fine", vanished == [])
         ck("a KEEP row whose function is gone fails",
-           measure([tu], {tu: ledger[tu] + [("int Gone2() { return 4; }", "KEEP-OUT", 4, 9, 9)]})[1]
-           == ["%s: int Gone2() { return 4; } (KEEP-OUT)" % tu])
+           measure([tu], {tu: ledger[tu] + [("int Gone2()", "KEEP-OUT", 4, 9, 9)]})[1]
+           == ["%s: int Gone2() (KEEP-OUT)" % tu])
         ck("the ratchet counts MOVE+FOLD code, not KEEP",
-           counts is not None and counts[tu] == code["int Moved() { return 2; }"] + code["int Folded() { return 3; }"])
+           counts is not None and counts[tu] == code["int Moved()"] + code["int Folded()"])
 
         # a planted function with no row is named by the check
         with open(tu, "a") as fh:
             fh.write("\nint Unruled_new() { return 9; }\n")
         unruled, _v, _c = measure([tu], ledger)
-        ck("a planted unruled function is named", unruled == ["%s: int Unruled_new() { return 9; }" % tu])
+        ck("a planted unruled function is named", unruled == ["%s: int Unruled_new()" % tu])
 
         # a raised ratchet row is red; a fallen one is not
         rose, _ = compare({"a.cpp": 3, "b.cpp": 1}, {"a.cpp": 4})

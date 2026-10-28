@@ -1,13 +1,13 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CWords] explicit CWords(	LAYOUT	reads a managed answer's length word: the layout DetailPropsWire (C#) writes (C7 cluster 10)
-[CWords] bool Has(	LAYOUT	bounds a read to the answer's length
+[CWords] explicit CWords( const void *p )	LAYOUT	reads a managed answer's length word: the layout DetailPropsWire (C#) writes (C7 cluster 10)
+[CWords] bool Has( int n ) const	LAYOUT	bounds a read to the answer's length
 [CWords] int32_t Int()	LAYOUT	one word of a managed answer, refused past its length
 [CWords] float Float()	LAYOUT	a float's bits from one word
 [CWords] void *Pointer()	LAYOUT	a model pointer from two words, low first
-[CWords] void Vec(	LAYOUT	three floats
-[CWords] bool Bad()	LAYOUT	whether a read ran past the answer
-bool ReadLevel(	BOUNDARY	hands a level's managed parse (objects, leaf runs, precache) to shell_detail_props.cpp's renderables and leaf-system calls
-bool ReadView(	BOUNDARY	hands a view's managed list build (radius, proxied models, model states) to the BSP query and the renderables
-int ReadPrepare(	BOUNDARY	hands a prepared draw's material and the sorts' model alphas to the renderables
-bool RunEmit(	BOUNDARY	carries a managed draw's begins, vertices and draws out into the mesh
+[CWords] void Vec( float *pOut )	LAYOUT	three floats
+[CWords] bool Bad() const	LAYOUT	whether a read ran past the answer
+bool ReadLevel( const void *p, LEVEL &level )	BOUNDARY	hands a level's managed parse (objects, leaf runs, precache) to shell_detail_props.cpp's renderables and leaf-system calls
+bool ReadView( const void *p, VIEW &view, float *pRadius )	BOUNDARY	hands a view's managed list build (radius, proxied models, model states) to the BSP query and the renderables
+int ReadPrepare( const void *p, SINK &sink )	BOUNDARY	hands a prepared draw's material and the sorts' model alphas to the renderables
+bool RunEmit( const void *p, MESH &mesh )	BOUNDARY	carries a managed draw's begins, vertices and draws out into the mesh

@@ -118,11 +118,11 @@ TEST( AnimEventNames, TheTableIsTheFiveNativeCodeReads )
 
 	for ( int i = 0; i < nRows; i++ )
 	{
-		EXPECT_NE( (const char *)NULL, pRows[ i ].pszName );
-		EXPECT_NE( 0, pRows[ i ].nType )
-			<< pRows[ i ].pszName << " carries no type bit, so a client-ness "
-			   "question about it answers the same as one about a name the "
-			   "table does not hold at all.";
+		EXPECT_NE( (const char *)NULL, pRows[i].pszName );
+		EXPECT_NE( 0, pRows[i].nType ) << pRows[i].pszName
+									   << " carries no type bit, so a client-ness "
+										  "question about it answers the same as one about a name the "
+										  "table does not hold at all.";
 	}
 }
 
@@ -137,4 +137,3 @@ TEST( AnimEventNames, TheTableIsTheFiveNativeCodeReads )
 //=============================================================================//
 // THE CALLER. A header nobody reads from is a table, not a rule.
 //=============================================================================//
-

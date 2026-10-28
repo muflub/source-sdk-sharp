@@ -26,7 +26,7 @@ struct OverlayViewer_t
 {
 	Vector vecOrigin;
 	Vector vecForward;
-	bool   bSet;
+	bool bSet;
 };
 
 OverlayViewer_t &ViewerRef()
@@ -46,17 +46,17 @@ struct OverlayPoolLine_t
 {
 	Vector vecOrigin;
 	Vector vecDest;
-	int    r;
-	int    g;
-	int    b;
-	bool   bNoDepthTest;
-	bool   bDraw;
+	int r;
+	int g;
+	int b;
+	bool bNoDepthTest;
+	bool bDraw;
 };
 
 struct OverlayPool_t
 {
-	OverlayPoolLine_t lines[ OVERLAY_POOL_LINES ];
-	int               nNext;      // the slot the next AddLine writes
+	OverlayPoolLine_t lines[OVERLAY_POOL_LINES];
+	int nNext; // the slot the next AddLine writes
 };
 
 OverlayPool_t &PoolRef()
@@ -75,7 +75,7 @@ OverlayPool_t &PoolRef()
 			s_Pool.lines[i].bNoDepthTest = true;
 			s_Pool.lines[i].bDraw = false;
 		}
-		s_Pool.nNext  = 0;
+		s_Pool.nNext = 0;
 		s_bInitialised = true;
 	}
 	return s_Pool;
@@ -110,9 +110,9 @@ void Overlay_ResetCounts()
 void Overlay_SetViewer( const Vector &vecEyeOrigin, const Vector &vecEyeForward )
 {
 	OverlayViewer_t &v = ViewerRef();
-	v.vecOrigin  = vecEyeOrigin;
+	v.vecOrigin = vecEyeOrigin;
 	v.vecForward = vecEyeForward;
-	v.bSet       = true;
+	v.bSet = true;
 }
 
 void Overlay_ClearViewer()
@@ -133,20 +133,20 @@ bool Overlay_SegmentIsVisible( const Vector &vecStart, const Vector &vecEnd )
 		return false;
 
 	const float flStartSqr = ( v.vecOrigin - vecStart ).LengthSqr();
-	const float flEndSqr   = ( v.vecOrigin - vecEnd ).LengthSqr();
+	const float flEndSqr = ( v.vecOrigin - vecEnd ).LengthSqr();
 	if ( flStartSqr > OVERLAY_MAX_DIST_SQR && flEndSqr > OVERLAY_MAX_DIST_SQR )
 		return false;
 
 	const float flDotStart = DotProduct( v.vecForward, vecStart - v.vecOrigin );
-	const float flDotEnd   = DotProduct( v.vecForward, vecEnd   - v.vecOrigin );
+	const float flDotEnd = DotProduct( v.vecForward, vecEnd - v.vecOrigin );
 	if ( flDotStart < 0.0f && flDotEnd < 0.0f )
 		return false;
 
 	return true;
 }
 
-void Overlay_BoxAngles( const Vector &origin, const Vector &mins, const Vector &maxs,
-                        const QAngle &angles, int r, int g, int b, int a, float flDuration )
+void Overlay_BoxAngles( const Vector &origin, const Vector &mins, const Vector &maxs, const QAngle &angles, int r,
+						int g, int b, int a, float flDuration )
 {
 	if ( !HaveOverlay() )
 		return;
@@ -155,14 +155,14 @@ void Overlay_BoxAngles( const Vector &origin, const Vector &mins, const Vector &
 	CountsRef().nDrawn++;
 }
 
-void Overlay_Box( const Vector &origin, const Vector &mins, const Vector &maxs,
-                  int r, int g, int b, int a, float flDuration )
+void Overlay_Box( const Vector &origin, const Vector &mins, const Vector &maxs, int r, int g, int b, int a,
+				  float flDuration )
 {
 	Overlay_BoxAngles( origin, mins, maxs, vec3_angle, r, g, b, a, flDuration );
 }
 
-void Overlay_TextAtPosition( const Vector &origin, int nLineOffset, const char *pText,
-                             float flDuration, int r, int g, int b, int a )
+void Overlay_TextAtPosition( const Vector &origin, int nLineOffset, const char *pText, float flDuration, int r, int g,
+							 int b, int a )
 {
 	if ( !pText )
 		return;
@@ -182,8 +182,8 @@ void Overlay_ClearAll()
 	debugoverlay->ClearAllOverlays();
 }
 
-void Overlay_Line( const Vector &origin, const Vector &target,
-                   int r, int g, int b, bool bNoDepthTest, float flDuration )
+void Overlay_Line( const Vector &origin, const Vector &target, int r, int g, int b, bool bNoDepthTest,
+				   float flDuration )
 {
 	if ( !Overlay_ViewerIsSet() )
 	{
@@ -204,19 +204,18 @@ void Overlay_Line( const Vector &origin, const Vector &target,
 	CountsRef().nDrawn++;
 }
 
-void Overlay_AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDepthTest,
-                      int r, int g, int b )
+void Overlay_AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDepthTest, int r, int g, int b )
 {
 	OverlayPool_t &pool = PoolRef();
 
-	OverlayPoolLine_t &line = pool.lines[ pool.nNext ];
-	line.vecOrigin    = vecStart;
-	line.vecDest      = vecEnd;
+	OverlayPoolLine_t &line = pool.lines[pool.nNext];
+	line.vecOrigin = vecStart;
+	line.vecDest = vecEnd;
 	line.bNoDepthTest = bNoDepthTest;
-	line.r            = r;
-	line.g            = g;
-	line.b            = b;
-	line.bDraw        = true;
+	line.r = r;
+	line.g = g;
+	line.b = b;
+	line.bDraw = true;
 
 	pool.nNext = ( pool.nNext + 1 ) % OVERLAY_POOL_LINES;
 }
@@ -230,8 +229,7 @@ void Overlay_DrawPooledLines()
 		if ( !pool.lines[i].bDraw )
 			continue;
 
-		Overlay_Line( pool.lines[i].vecOrigin, pool.lines[i].vecDest,
-		              pool.lines[i].r, pool.lines[i].g, pool.lines[i].b,
-		              pool.lines[i].bNoDepthTest, 0 );
+		Overlay_Line( pool.lines[i].vecOrigin, pool.lines[i].vecDest, pool.lines[i].r, pool.lines[i].g, pool.lines[i].b,
+					  pool.lines[i].bNoDepthTest, 0 );
 	}
 }

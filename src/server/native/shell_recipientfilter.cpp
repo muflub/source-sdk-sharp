@@ -14,7 +14,6 @@
 extern CGlobalVars *gpGlobals;
 #include "ss_recipient_filter.h"
 
-#include <algorithm>
 #include "shell_standalone_player.h"
 
 void ss::CRecipientFilter::AddAllPlayers()
@@ -34,7 +33,7 @@ void ss::CRecipientFilter::AddAllPlayers()
 	}
 }
 
-void ss::CRecipientFilter::AddRecipientsByPVS( const Vector& origin )
+void ss::CRecipientFilter::AddRecipientsByPVS( const Vector &origin )
 {
 	if ( gpGlobals->maxClients == 1 )
 	{
@@ -42,13 +41,13 @@ void ss::CRecipientFilter::AddRecipientsByPVS( const Vector& origin )
 	}
 	else
 	{
-		CBitVec< ABSOLUTE_PLAYER_LIMIT > playerbits;
+		CBitVec<ABSOLUTE_PLAYER_LIMIT> playerbits;
 		engine->Message_DetermineMulticastRecipients( false, origin, playerbits );
 		AddPlayersFromBitMask( playerbits );
 	}
 }
 
-void ss::CRecipientFilter::AddRecipientsByPAS( const Vector& origin )
+void ss::CRecipientFilter::AddRecipientsByPAS( const Vector &origin )
 {
 	if ( gpGlobals->maxClients == 1 )
 	{
@@ -56,7 +55,7 @@ void ss::CRecipientFilter::AddRecipientsByPAS( const Vector& origin )
 	}
 	else
 	{
-		CBitVec< ABSOLUTE_PLAYER_LIMIT > playerbits;
+		CBitVec<ABSOLUTE_PLAYER_LIMIT> playerbits;
 		engine->Message_DetermineMulticastRecipients( true, origin, playerbits );
 		AddPlayersFromBitMask( playerbits );
 	}

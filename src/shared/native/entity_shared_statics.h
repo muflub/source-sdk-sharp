@@ -11,14 +11,16 @@
 #pragma once
 #define ENTITY_SHARED_STATICS_H
 
-#include "mathlib/vector.h"
-
 // The usercmd the prediction seeds are read from, per side.
 #ifdef CLIENT_DLL
 class CUserCmd;
 typedef CUserCmd EntityPredictionCmd_t;
 #else
-namespace ss { struct CUserCmd; }
+namespace ss
+{
+struct CUserCmd;
+}
+
 typedef ss::CUserCmd EntityPredictionCmd_t;
 #endif
 
@@ -28,6 +30,7 @@ typedef ss::CUserCmd EntityPredictionCmd_t;
 // Whether precaching is legal right now. Callers bracket a block of precaching with it
 // and put the old value back.
 inline bool s_bAllowPrecache = false;
+
 inline bool &EntityPrecache_AllowedRef()
 {
 	return s_bAllowPrecache;

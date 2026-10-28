@@ -8,7 +8,6 @@
 // SS_REASON c  static-init registration
 // Debug builds only.
 
-#include "tier0/dbg.h"
 #include "tier1/convar.h"
 #include "dt_send.h"
 #include "generic_payload.h"
@@ -32,29 +31,27 @@ SS_NATIVE_COMMAND( cs_sv_dump_payload )
 
 	if ( nWords < 0 )
 	{
-		Warning( "[SourceSharp] payload dump: %d bytes is more than the largest tier (%d)\n",
-			nBytes, SOURCESHARP_PAYLOAD_MAX_WORDS * SOURCESHARP_PAYLOAD_WORD_BYTES );
+		Warning( "[SourceSharp] payload dump: %d bytes is more than the largest tier (%d)\n", nBytes,
+				 SOURCESHARP_PAYLOAD_MAX_WORDS * SOURCESHARP_PAYLOAD_WORD_BYTES );
 		return;
 	}
 
 	// The real blob base, so the offsets are the ones a table would get today.
 	const int nBlobBase = SourceSharp_StandaloneBlobOffset();
 
-	SendProp *pProps = new SendProp[ nWords > 0 ? nWords : 1 ];
+	SendProp *pProps = new SendProp[nWords > 0 ? nWords : 1];
 	const int nBuilt = SourceSharpPayload_BuildSendProps( pProps, nWords, nBlobBase );
 
 	if ( nBuilt != nWords )
 	{
-		Warning( "[SourceSharp] payload dump: build refused %d word(s) at blob base %d\n",
-			nWords, nBlobBase );
+		Warning( "[SourceSharp] payload dump: build refused %d word(s) at blob base %d\n", nWords, nBlobBase );
 		delete[] pProps;
 		return;
 	}
 
 	Msg( "[SourceSharp] --- payload prop dump: %d byte(s) -> %d word prop(s), "
-	     "blob base %d, last offset %d ---\n",
-		nBytes, nWords, nBlobBase,
-		nWords > 0 ? SourceSharpPayload_WordOffset( nBlobBase, nWords - 1 ) : nBlobBase );
+		 "blob base %d, last offset %d ---\n",
+		 nBytes, nWords, nBlobBase, nWords > 0 ? SourceSharpPayload_WordOffset( nBlobBase, nWords - 1 ) : nBlobBase );
 
 	int nFast = 0;
 
@@ -66,22 +63,23 @@ SS_NATIVE_COMMAND( cs_sv_dump_payload )
 		if ( bFast )
 			nFast++;
 
-		Msg( "[SourceSharp]     %-20s offset=%-4d bits=%-3d type=%d proxy=%s%s\n",
-			pProp->GetName(), pProp->GetOffset(), pProp->m_nBits, (int)pProp->GetType(),
-			SourceSharpPayload_SendProxyName( pProp ),
-			bFast ? "" : "   <-- NOT ON THE FAST LOCAL-TRANSFER LIST" );
+		Msg( "[SourceSharp]     %-20s offset=%-4d bits=%-3d type=%d proxy=%s%s\n", pProp->GetName(), pProp->GetOffset(),
+			 pProp->m_nBits, (int)pProp->GetType(), SourceSharpPayload_SendProxyName( pProp ),
+			 bFast ? "" : "   <-- NOT ON THE FAST LOCAL-TRANSFER LIST" );
 	}
 
 	if ( nFast == nBuilt )
 	{
 		Msg( "[SourceSharp] payload dump: all %d prop(s) resolved to m_UInt32ToInt32 "
-		     "(engine fast int32 local transfer)\n", nBuilt );
+			 "(engine fast int32 local transfer)\n",
+			 nBuilt );
 	}
 	else
 	{
 		Warning( "[SourceSharp] payload dump: %d of %d prop(s) did NOT resolve to "
-		         "m_UInt32ToInt32 — those words would be copied slowly, proxies and "
-		         "all\n", nBuilt - nFast, nBuilt );
+				 "m_UInt32ToInt32 — those words would be copied slowly, proxies and "
+				 "all\n",
+				 nBuilt - nFast, nBuilt );
 	}
 
 	delete[] pProps;

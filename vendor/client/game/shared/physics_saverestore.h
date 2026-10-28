@@ -10,8 +10,15 @@ class CPhysCollide;
 
 ISaveRestoreOps *GetPhysObjSaveRestoreOps( PhysInterfaceId_t );
 
-#define DEFINE_PHYSPTR(name) \
-	{ FIELD_CUSTOM, #name, { (int)offsetof(classNameTypedef,name), 0 }, 1, FTYPEDESC_SAVE, NULL, GetPhysObjSaveRestoreOps( GetPhysIID( &(((classNameTypedef *)0)->name) ) ), NULL }
+#define DEFINE_PHYSPTR( name )                                                        \
+	{ FIELD_CUSTOM,                                                                   \
+	  #name,                                                                          \
+	  { (int)offsetof( classNameTypedef, name ), 0 },                                 \
+	  1,                                                                              \
+	  FTYPEDESC_SAVE,                                                                 \
+	  NULL,                                                                           \
+	  GetPhysObjSaveRestoreOps( GetPhysIID( &( ( (classNameTypedef *)0 )->name ) ) ), \
+	  NULL }
 
 abstract_class IPhysSaveRestoreManager
 {

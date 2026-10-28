@@ -2,7 +2,7 @@
 # code_lines	verdict	head   (UNRULED counts as LOGIC)
 6	SLOT-HELP	OcclusionQueryObjectHandle_t QueryOf( int32_t nQuery )
 6	SLOT-HELP	float FloatOf( int32_t nBits )
-45	SLOT	void Execute( const int32_t *pCmds, int nWords )
+46	SLOT	void Execute( const int32_t *pCmds, int nWords )
 19	SLOT	int32_t SourceSharp_PixelVisQueryCreate()
 9	SLOT	void SourceSharp_PixelVisQueryDestroy( int32_t nQuery )
 8	SLOT	void SourceSharp_PixelVisQueryReset( int32_t nQuery )
