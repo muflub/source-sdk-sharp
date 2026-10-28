@@ -31,10 +31,6 @@ typedef int32 HSteamUser;
 #define __cdecl
 #endif
 
-// function prototype
-extern "C";
-extern "C";
-
 //	steam callback and call-result helpers
 //	The following macros and classes are used to register your application for
 //	callbacks and call-results, which are delivered in a predictable manner.
