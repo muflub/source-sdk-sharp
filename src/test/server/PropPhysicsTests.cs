@@ -361,6 +361,44 @@ public class PropPhysicsTests
         return ((PropPhysics)registry.Get(handle)!, engine);
     }
 
+    [Fact]
+    public void TheGravityGunFreesAPinnedPropOnlyWhenItsMapSaysItMay()
+    {
+        var (pinned, pinnedEngine) = Pinned(spawnFlags: 8 | 0x40);
+        var (bolted, boltedEngine) = Pinned(spawnFlags: 8);
+        pinned.OnPhysicsCreated();
+        bolted.OnPhysicsCreated();
+
+        ((IPhysGunTarget)pinned).OnPhysGunPickup(new EntityHandle(1), PhysGunPickup.PickedUpByCannon);
+        ((IPhysGunTarget)bolted).OnPhysGunPickup(new EntityHandle(1), PhysGunPickup.PickedUpByCannon);
+
+        Assert.Equal((1, 0), (Enabled(pinnedEngine, true), Enabled(boltedEngine, true)));
+        Assert.True(((IPhysGunTarget)pinned).EnablesOnPhyscannon && !((IPhysGunTarget)bolted).EnablesOnPhyscannon,
+                    "SF_PHYSPROP_ENABLE_ON_PHYSCANNON is what the gun asks");
+    }
+
+    [Fact]
+    public void ALaunchFromTheGunMarksThePropThrownAndADropDoesNot()
+    {
+        var (prop, engine) = Pinned();
+
+        ((IPhysGunTarget)prop).OnPhysGunDrop(new EntityHandle(1), PhysGunDrop.DroppedByCannon);
+        Assert.DoesNotContain(engine.Calls, c => c.Member == "EntityPhysics.AddGameFlags");
+
+        ((IPhysGunTarget)prop).OnPhysGunDrop(new EntityHandle(1), PhysGunDrop.LaunchedByCannon);
+        Assert.Contains(engine.Calls, c => c.Member == "EntityPhysics.AddGameFlags" && c.ArgAs<uint>(1) == 0x0100u);
+    }
+
+    [Fact]
+    public void APreventPickupPropRefusesTheGun()
+    {
+        var (prevented, _) = Pinned(spawnFlags: 0x200);
+        var (plain, _) = Pinned(spawnFlags: 0);
+
+        Assert.True(((IPhysGunTarget)prevented).PreventsPickup && !((IPhysGunTarget)plain).PreventsPickup,
+                    "SF_PHYSPROP_PREVENT_PICKUP");
+    }
+
     private static int Enabled(RecordingEngine engine, bool enable)
         => engine.Calls.Count(c => c.Member == "EntityPhysics.EnableMotion" && c.ArgAs<bool>(1) == enable);
 

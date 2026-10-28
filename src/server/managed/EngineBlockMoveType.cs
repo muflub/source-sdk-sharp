@@ -24,4 +24,33 @@ public static class EngineBlockMoveType
 
         MemoryMarshal.Write(block.Slice(Offset), (int)moveType);
     }
+
+    /// <summary>The entity's movetype as its block holds it; <see cref="MoveType.None"/> for a handle with none.</summary>
+    public static MoveType Read(IEngineEntities entities, EntityHandle entity)
+    {
+        Span<byte> block = entities.GetEngineBlock(entity);
+        if (block.Length < EngineBlock.SizeBytes)
+            return MoveType.None;
+
+        return (MoveType)MemoryMarshal.Read<int>(block.Slice(Offset));
+    }
+}
+
+/// <summary>
+/// The engine block's <c>OwnerHandle</c> word: GetOwnerEntity, read where it
+/// is kept. <see cref="IEngineEntities.SetOwner"/> is the write.
+/// </summary>
+public static class EngineBlockOwner
+{
+    private static readonly int Offset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.OwnerHandle));
+
+    /// <summary>The entity's owner, or <see cref="EntityHandle.None"/>.</summary>
+    public static EntityHandle Read(IEngineEntities entities, EntityHandle entity)
+    {
+        Span<byte> block = entities.GetEngineBlock(entity);
+        if (block.Length < EngineBlock.SizeBytes)
+            return EntityHandle.None;
+
+        return new EntityHandle(MemoryMarshal.Read<uint>(block.Slice(Offset)));
+    }
 }

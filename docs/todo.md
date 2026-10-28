@@ -1030,6 +1030,12 @@ the stock-ab branch's base 9074634e7 and still open after its fixes:
   stock-ab draws no VGUI for that reason.
 - **env_beam and env_laser** now draw through ClientBeam's stock path, but
   with none of CBeam's flags, fade or halo: only point_spotlight sets them.
+- **Players created before ArsenalPlayers.** ServerModule creates
+  PvsCheckClient, DeathNotice, ImpulseCheats, PlayerFlashlight and the arsenal
+  before it registers the ArsenalPlayers decorator over IEnginePlayers, so
+  they hold the undecorated players and its GiveItem/GiveAmmo arms. Waived by
+  name in ServerModuleWiringOrderTests. Next: check whether impulse 101's gives
+  want the decorator's arm.
 
 ## Rulings and divergences recorded only here (not open work)
 

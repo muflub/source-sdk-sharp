@@ -91,6 +91,23 @@ public sealed class ClientSsViewModel : ClientStandaloneEntity
         // gate makes the second writer free: a held prediction decodes to the
         // same (sequence, parity) the replay already presented.
         Present(State.Sequence, State.AnimationParity, State.PlaybackRate);
+        ShowSkin(State.Skin);
+    }
+
+    /// <summary>The skin last handed to the renderer, so <see cref="ShowSkin"/> is edge-triggered.</summary>
+    public int ShownSkin { get; private set; }
+
+    /// <summary>
+    /// Puts the weapon's chosen skin on the drawn viewmodel, once per change:
+    /// from the server's word and from each replayed command alike.
+    /// </summary>
+    public void ShowSkin(int skin)
+    {
+        if (!IsLocal || skin == ShownSkin)
+            return;
+
+        ShownSkin = skin;
+        Render.SetSkin(Handle, skin);
     }
 
     /// <summary>

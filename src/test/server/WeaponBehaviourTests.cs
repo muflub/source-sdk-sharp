@@ -215,6 +215,10 @@ public class WeaponBehaviourTests
     /// <paramref name="behaviours"/>, on a clock the caller can move.
     /// </summary>
     private static Arsenal ArmedArsenal(WeaponBehaviours behaviours, Func<float> clock)
+        => ArmedArsenal(behaviours, clock, out _);
+
+    private static Arsenal ArmedArsenal(WeaponBehaviours behaviours, Func<float> clock,
+                                        out WeaponSwitchTests.SpawningEntities spawned)
     {
         var engine = TestServices.Mock().Returns("Entities.IsValid", true).Returns("Entities.GetIndex", 1)
             .Returns("Entities.GetClassName", EntityNames.SsPlayer)
@@ -222,6 +226,7 @@ public class WeaponBehaviourTests
             .Returns("Entities.GetEyeAngles", new Vector(0, 0, 0))
             .Returns("Players.GetShootOrigin", new Vector(0, 0, 64))
             .Returns("Players.IsAlive", true)
+            .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
             .ReturnsEachCall("Clock.Now", () => clock())
             .Ignores("EntityRender.LookupSequenceByActivity");
 
@@ -230,7 +235,8 @@ public class WeaponBehaviourTests
         registry.Services = TestServices.Services(out _);
         registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
 
-        var arsenal = new Arsenal(new RecordingLog(), new WeaponSwitchTests.SpawningEntities(engine, registry),
+        spawned = new WeaponSwitchTests.SpawningEntities(engine, registry);
+        var arsenal = new Arsenal(new RecordingLog(), spawned,
                                   engine, engine, engine, engine, engine, engine, engine, registry, engine, new DamageHitGroups(),
                                   weapons: Catalog(), behaviours: behaviours);
 
@@ -273,5 +279,108 @@ public class WeaponBehaviourTests
         var launch = Assert.Single(launches);
         Assert.True(launch.Flying != EntityHandle.None, "the projectile was created");
         Assert.Equal((Player, LaunchesItsOwn.Velocity, 2.5f), (launch.Launcher, launch.Velocity, launch.Fuse));
+    }
+
+    /// <summary>A behaviour that runs the whole command, recording what it was handed.</summary>
+    private sealed class RunsItsOwn : IWeaponBehaviour
+    {
+        public readonly List<(int Buttons, int Pressed)> Commands = [];
+        public int PostFrames;
+
+        public bool RunCommand(in WeaponAttackContext attack, int buttons, int pressed)
+        {
+            Commands.Add((buttons, pressed));
+            return true;
+        }
+
+        public void ItemPostFrame(in WeaponAttackContext attack) => PostFrames++;
+    }
+
+    [Fact]
+    public void ABehaviourThatRunsTheCommandReplacesStocksFireAndIdle()
+    {
+        var arms = new Arms();
+        var own = new RunsItsOwn();
+        var (w, vm) = Armed(clip: 18, reserve: 30);
+
+        // Held through an attack and released past the idle time: stock would
+        // fire a round and then send the idle.
+        Machine(arms, With(own)).RunCommand(w, vm, Attack, now: 10f, effectsLive: true);
+        Machine(arms, With(own)).RunCommand(w, vm, 0, now: 20f, effectsLive: true);
+
+        Assert.Equal((18, 0, 0, 0), (w.Clip, arms.Bullets, arms.Sounds, vm.Sequence));
+        // The command it ran was its whole frame: no stock tail after it.
+        Assert.Equal(0, own.PostFrames);
+    }
+
+    [Fact]
+    public void ABehaviourThatRunsTheCommandIsHandedTheButtonsAndTheirLeadingEdge()
+    {
+        var own = new RunsItsOwn();
+        var machine = Machine(new Arms(), With(own));
+        var (w, vm) = Armed(clip: 18, reserve: 30);
+
+        machine.RunCommand(w, vm, Attack, now: 10f, effectsLive: true);
+        machine.RunCommand(w, vm, Attack | ReloadKey, now: 10.1f, effectsLive: true);
+
+        Assert.Equal([(Attack, Attack), (Attack | ReloadKey, ReloadKey)], own.Commands);
+        Assert.Equal(Attack | ReloadKey, w.LastButtons);
+    }
+
+    //-------------------------------------------------------------------------
+    // The arsenal asks a behaviour about putting its weapon away.
+    //-------------------------------------------------------------------------
+
+    /// <summary>Records the deploy and holster hooks, and answers the holster and drop questions as told.</summary>
+    private sealed class Hooks(bool canHolster = true, bool leavesPickup = true) : IWeaponBehaviour
+    {
+        public int Deploys;
+        public int Holsters;
+
+        public void Deploy(in WeaponAttackContext attack) => Deploys++;
+        public bool CanHolster(in WeaponAttackContext attack) => canHolster;
+        public void Holster(in WeaponAttackContext attack) => Holsters++;
+        public bool LeavesPickup => leavesPickup;
+    }
+
+    [Fact]
+    public void AWeaponThatWillNotBePutAwayRefusesTheSwitch()
+    {
+        var hooks = new Hooks(canHolster: false);
+        var arsenal = ArmedArsenal(With(hooks), () => 10f);
+        Assert.True(arsenal.GiveWeapon(Player, EntityNames.WeaponPistol), "a second weapon to switch to");
+
+        Assert.Equal(SwitchOutcome.CannotHolster, arsenal.Switch(Player, EntityNames.WeaponPistol));
+        Assert.Equal((Gun, true), (arsenal.Holdings(Player)[0].ClassName, arsenal.Holdings(Player)[0].Active));
+        Assert.Equal(0, hooks.Holsters);
+    }
+
+    [Fact]
+    public void ASwitchHolstersTheOutgoingWeaponAndDeploysTheIncoming()
+    {
+        var hooks = new Hooks();
+        var arsenal = ArmedArsenal(With(hooks), () => 10f);
+        Assert.True(arsenal.GiveWeapon(Player, EntityNames.WeaponPistol), "a second weapon to switch to");
+
+        Assert.Equal(1, hooks.Deploys);
+        Assert.Equal(SwitchOutcome.Switched, arsenal.Switch(Player, EntityNames.WeaponPistol));
+        Assert.Equal((1, 1), (hooks.Deploys, hooks.Holsters));
+
+        Assert.Equal(SwitchOutcome.Switched, arsenal.Switch(Player, Gun));
+        Assert.Equal((2, 1), (hooks.Deploys, hooks.Holsters));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ADeathDropLeavesAPickupOnlyForAWeaponThatLeavesOne(bool leavesPickup)
+    {
+        var hooks = new Hooks(leavesPickup: leavesPickup);
+        var arsenal = ArmedArsenal(With(hooks), () => 10f, out var spawned);
+
+        arsenal.DropActive(Player, Vector.Zero);
+
+        Assert.Equal(leavesPickup, spawned.CreatedClasses.Contains(Gun));
+        Assert.Equal((1, 0), (hooks.Holsters, arsenal.Holdings(Player).Count));
     }
 }

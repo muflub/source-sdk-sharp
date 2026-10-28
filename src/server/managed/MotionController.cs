@@ -37,6 +37,14 @@ public enum MotionControllerKind
     /// gains and loses objects as they come and go.
     /// </summary>
     Medium = 3,
+
+    /// <summary>
+    /// A controller whose Simulate is a managed object's own
+    /// (<see cref="SourceSharp.Server.IMotionSimulate"/>): the physcannon's grab
+    /// controller, stock's CGrabController::Simulate. Made only through
+    /// <c>PhysicsMotionControllers.CreateCustom</c>, never by kind number.
+    /// </summary>
+    Custom = 4,
 }
 
 /// <summary>

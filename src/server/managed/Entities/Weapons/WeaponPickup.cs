@@ -33,6 +33,7 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.WeaponFrag,     ScriptedEntityKind.Item)]
 [ScriptedEntity(EntityNames.WeaponStunstick, ScriptedEntityKind.Item)]
 [ScriptedEntity(EntityNames.WeaponSlam,     ScriptedEntityKind.Item)]
+[ScriptedEntity(EntityNames.WeaponPhyscannon, ScriptedEntityKind.Item)]
 public sealed class WeaponPickup : PickupItem
 {
     private readonly Arsenal _arsenal;

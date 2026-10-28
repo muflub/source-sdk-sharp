@@ -106,6 +106,27 @@ public interface IWeaponBehaviour
     /// <paramref name="clipSize"/> for the row's own.
     /// </summary>
     int ModifyClipSize(in WeaponType type, int clipSize) => clipSize;
+
+    /// <summary>
+    /// Asked when the weapon comes into the hands, after the side has set the
+    /// deploy's timers and sent the draw: stock's per-class Deploy tail.
+    /// </summary>
+    void Deploy(in WeaponAttackContext attack) { }
+
+    /// <summary>Whether the weapon may be put away now (stock's CanHolster).</summary>
+    bool CanHolster(in WeaponAttackContext attack) => true;
+
+    /// <summary>
+    /// Asked as the weapon leaves the hands — a switch, a death, a strip, a
+    /// disconnect — before its state is handed to the next weapon.
+    /// </summary>
+    void Holster(in WeaponAttackContext attack) { }
+
+    /// <summary>
+    /// Whether a death drops this weapon as a pickup. False for one whose stock
+    /// Drop removes it instead (the physcannon).
+    /// </summary>
+    bool LeavesPickup => true;
 }
 
 /// <summary>

@@ -167,6 +167,19 @@ public class WeaponAnimResolveTests
     //-------------------------------------------------------------------------
 
     [Fact]
+    public void TheSecondaryResolvesThroughTheAltfireActivity()
+    {
+        // v_physcannon tags its punt 'altfire' ACT_VM_SECONDARYATTACK and its
+        // dry fire 'fire' ACT_VM_PRIMARYATTACK: two different animations.
+        var table = new SequenceTable();
+        table.Activities["ACT_VM_PRIMARYATTACK"] = 4;
+        table.Activities["ACT_VM_SECONDARYATTACK"] = 5;
+
+        Assert.Equal((4, 5), (WeaponAnimNames.Resolve(table, ViewModel, WeaponAnim.Primary),
+                              WeaponAnimNames.Resolve(table, ViewModel, WeaponAnim.Secondary)));
+    }
+
+    [Fact]
     public void ThePrimaryActivityListIsStocksInOrder()
     {
         Assert.True(WeaponAnimNames.ActivitiesFor(WeaponAnim.Primary)

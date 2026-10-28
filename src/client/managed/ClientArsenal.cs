@@ -155,6 +155,7 @@ public sealed class ClientArsenal : ILocalArsenal
         // the prediction held.
         _localViewModel.Present(_viewModel.Sequence, _viewModel.AnimationParity,
                                 _viewModel.PlaybackRate);
+        _localViewModel.ShowSkin(_viewModel.Skin);
     }
 
     //-------------------------------------------------------------------------
@@ -431,6 +432,40 @@ public sealed class ClientArsenal : ILocalArsenal
     /// The sequence an animation kind resolves to on the local viewmodel's
     /// current model — the ONE lookup the replay's arms fire with.
     /// </summary>
+    //-------------------------------------------------------------------------
+    // The physcannon's claws (C_WeaponPhysCannon::ClientThink's
+    // UpdateElementPosition): once a frame, the local viewmodel's "active"
+    // pose parameter follows the gun's networked m_bOpen.
+    //-------------------------------------------------------------------------
+
+    private readonly PhysCannonElements _claws = new();
+
+    /// <summary>The claws' last value, for the facts and the reports.</summary>
+    public float ClawPosition { get; private set; }
+
+    public void Frame()
+    {
+        int local = _screen.LocalPlayerIndex;
+
+        if (local <= 0)
+            return;
+
+        FindLocalPair(local);
+
+        if (_localWeapon is null || _localViewModel is null
+            || _weapons.ByIndex(_localWeapon.State.WeaponTypeId) is not { Behaviour: PhysCannonBehaviour.Key })
+        {
+            _claws.Reset();
+            return;
+        }
+
+        ClawPosition = _claws.Advance(_localWeapon.State.CannonOpen, _clock.Now);
+
+        int pose = _render.LookupPoseParameter(_localViewModel.Handle, PhysCannonElements.PoseParameter);
+        if (pose >= 0)
+            _render.SetPoseParameter(_localViewModel.Handle, pose, ClawPosition);
+    }
+
     internal int ResolveSequence(WeaponAnim anim)
         => _localViewModel is null
             ? -1

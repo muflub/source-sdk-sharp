@@ -236,6 +236,60 @@ public class PhysicsMotionControllersTests
     private static MotionState StateOf(PhysicsMotionControllers t, uint id)
         => t.StateOf(id) ?? throw new InvalidOperationException("no controller");
 
+    /// <summary>A custom Simulate that says what it was asked and answers a fixed push.</summary>
+    private sealed class Pusher : IMotionSimulate
+    {
+        public readonly List<(nint Object, float Dt)> Asked = [];
+
+        public MotionSimResult Simulate(nint physicsObject, float deltaTime, out Vector linear, out Vector angular)
+        {
+            Asked.Add((physicsObject, deltaTime));
+            linear = new Vector(7f, 0f, 0f);
+            angular = Vector.Zero;
+            return MotionSimResult.GlobalAcceleration;
+        }
+    }
+
+    [Fact]
+    public void ACustomControllerIsAttachedToItsEntityAndSimulatedByItsOwner()
+    {
+        var (t, v, _, _) = Make();
+        var pusher = new Pusher();
+
+        uint id = t.CreateCustom(Crate, pusher);
+        int result = t.Simulate(v.Attached.Keys.Single(), CrateObj, 0.015f, out Vector linear, out _);
+
+        Assert.True(id != 0u && v.Attached.Values.Single().Single() == CrateObj,
+                    "the controller exists and holds the crate's object");
+        Assert.Equal(((int)MotionSimResult.GlobalAcceleration, 7f), (result, linear.X));
+        Assert.Equal((CrateObj, 0.015f), pusher.Asked.Single());
+    }
+
+    [Fact]
+    public void ACustomControllerForAnEntityWithNoPhysicsIsNotMade()
+    {
+        var (t, v, _, _) = Make();
+        Assert.Equal(0u, t.CreateCustom(new EntityHandle(0x0001_0099), new Pusher()));
+        Assert.Empty(v.Calls);
+    }
+
+    [Fact]
+    public void AReloadDoesNotCarryACustomController()
+    {
+        var (t, v, w, log) = Make();
+        M(t).Create(Crate, (int)MotionControllerKind.Motor);
+        uint custom = t.CreateCustom(Crate, new Pusher());
+
+        var record = new ReloadRecord("motion");
+        ((ISaveCustom)t).OnSave(new SaveRecordAccess(record, "motion", log));
+
+        var next = new PhysicsMotionControllers(new PhysicsJointTable(), v, w, log) { Handler = Handler };
+        ((ISaveCustom)next).OnRestore(new SaveRecordAccess(record, "motion", log));
+
+        Assert.True(M(next).Count() == 1 && next.StateOf(custom) is null,
+                    "the motor crossed and the custom controller, whose Simulate is its owner's object, did not");
+    }
+
     [Theory]
     [InlineData(MotionControllerKind.ConstantForce, MotionSimResult.GlobalForce)]
     [InlineData(MotionControllerKind.Motor, MotionSimResult.LocalForce)]

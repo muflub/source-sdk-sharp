@@ -443,7 +443,7 @@ internal unsafe struct PhysicsEnvironmentFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IPhysicsObject</c> through its forwarders (SSFwd_PhysicsObject): 54 slot(s).
+/// <c>IPhysicsObject</c> through its forwarders (SSFwd_PhysicsObject): 59 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsObjectFwd : IForwarderTable
@@ -612,6 +612,21 @@ internal unsafe struct PhysicsObjectFwd : IForwarderTable
 
     // void IPhysicsObject::DestroyFrictionSnapshot( IPhysicsFrictionSnapshot * )
     public delegate* unmanaged<void*, void*, void> DestroyFrictionSnapshot;
+
+    // void IPhysicsObject::EnableDrag( bool )
+    public delegate* unmanaged<void*, byte, void> EnableDrag;
+
+    // void IPhysicsObject::SetDamping( const float *, const float * )
+    public delegate* unmanaged<void*, void*, void*, void> SetDamping;
+
+    // void IPhysicsObject::GetDamping( float *, float * )
+    public delegate* unmanaged<void*, void*, void*, void> GetDamping;
+
+    // void IPhysicsObject::SetVelocityInstantaneous( const Vector *, const AngularImpulse * )
+    public delegate* unmanaged<void*, void*, void*, void> SetVelocityInstantaneous;
+
+    // float IPhysicsObject::ComputeShadowControl( const hlshadowcontrol_params_t &, float, float )
+    public delegate* unmanaged<void*, void*, float, float, float> ComputeShadowControl;
 }
 
 /// <summary>

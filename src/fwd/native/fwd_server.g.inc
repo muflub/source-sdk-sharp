@@ -600,7 +600,7 @@ static void *const s_PhysicsEnvironmentSlots[] = {
 static const SSForwarderTable s_PhysicsEnvironmentTable = { s_PhysicsEnvironmentSlots, 37 };
 
 //-----------------------------------------------------------------------------
-// PhysicsObject: 54 forwarder(s) over IPhysicsObject.
+// PhysicsObject: 59 forwarder(s) over IPhysicsObject.
 //-----------------------------------------------------------------------------
 // bool IPhysicsObject::IsStatic( void )
 static bool SSFwd_PhysicsObject_IsStatic( IPhysicsObject *self ) { return self->IsStatic(); }
@@ -710,6 +710,16 @@ static void SSFwd_PhysicsObject_RemoveTrigger( IPhysicsObject *self ) { self->Re
 static IPhysicsFrictionSnapshot * SSFwd_PhysicsObject_CreateFrictionSnapshot( IPhysicsObject *self ) { return self->CreateFrictionSnapshot(); }
 // void IPhysicsObject::DestroyFrictionSnapshot( IPhysicsFrictionSnapshot * )
 static void SSFwd_PhysicsObject_DestroyFrictionSnapshot( IPhysicsObject *self, IPhysicsFrictionSnapshot * a0 ) { self->DestroyFrictionSnapshot( a0 ); }
+// void IPhysicsObject::EnableDrag( bool )
+static void SSFwd_PhysicsObject_EnableDrag( IPhysicsObject *self, bool a0 ) { self->EnableDrag( a0 ); }
+// void IPhysicsObject::SetDamping( const float *, const float * )
+static void SSFwd_PhysicsObject_SetDamping( IPhysicsObject *self, const float * a0, const float * a1 ) { self->SetDamping( a0, a1 ); }
+// void IPhysicsObject::GetDamping( float *, float * )
+static void SSFwd_PhysicsObject_GetDamping( IPhysicsObject *self, float * a0, float * a1 ) { self->GetDamping( a0, a1 ); }
+// void IPhysicsObject::SetVelocityInstantaneous( const Vector *, const AngularImpulse * )
+static void SSFwd_PhysicsObject_SetVelocityInstantaneous( IPhysicsObject *self, const Vector * a0, const AngularImpulse * a1 ) { self->SetVelocityInstantaneous( a0, a1 ); }
+// float IPhysicsObject::ComputeShadowControl( const hlshadowcontrol_params_t &, float, float )
+static float SSFwd_PhysicsObject_ComputeShadowControl( IPhysicsObject *self, const hlshadowcontrol_params_t & a0, float a1, float a2 ) { return self->ComputeShadowControl( a0, a1, a2 ); }
 
 static void *const s_PhysicsObjectSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsObject_IsStatic ),
@@ -766,9 +776,14 @@ static void *const s_PhysicsObjectSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsObject_RemoveTrigger ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsObject_CreateFrictionSnapshot ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsObject_DestroyFrictionSnapshot ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsObject_EnableDrag ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsObject_SetDamping ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsObject_GetDamping ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsObject_SetVelocityInstantaneous ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsObject_ComputeShadowControl ),
 };
 
-static const SSForwarderTable s_PhysicsObjectTable = { s_PhysicsObjectSlots, 54 };
+static const SSForwarderTable s_PhysicsObjectTable = { s_PhysicsObjectSlots, 59 };
 
 //-----------------------------------------------------------------------------
 // PhysicsShadowController: 2 forwarder(s) over IPhysicsShadowController.

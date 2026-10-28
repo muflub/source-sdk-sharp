@@ -295,6 +295,21 @@ TEST( ConstraintParamsLayout, FixedHingeBallsocketLength )
 	EXPECT_EQ( 56u, sizeof( constraint_lengthparams_t ) );
 }
 
+// The physcannon's grab controller hands ComputeShadowControl this block
+// (VPhysicsGrabCalls.cs's ShadowControlParams).
+TEST( ShadowControlLayout, HlShadowControlParams )
+{
+	EXPECT_EQ( 0u,  offsetof( hlshadowcontrol_params_t, targetPosition ) );
+	EXPECT_EQ( 12u, offsetof( hlshadowcontrol_params_t, targetRotation ) );
+	EXPECT_EQ( 24u, offsetof( hlshadowcontrol_params_t, maxAngular ) );
+	EXPECT_EQ( 28u, offsetof( hlshadowcontrol_params_t, maxDampAngular ) );
+	EXPECT_EQ( 32u, offsetof( hlshadowcontrol_params_t, maxSpeed ) );
+	EXPECT_EQ( 36u, offsetof( hlshadowcontrol_params_t, maxDampSpeed ) );
+	EXPECT_EQ( 40u, offsetof( hlshadowcontrol_params_t, dampFactor ) );
+	EXPECT_EQ( 44u, offsetof( hlshadowcontrol_params_t, teleportDistance ) );
+	EXPECT_EQ( 48u, sizeof( hlshadowcontrol_params_t ) );
+}
+
 TEST( ConstraintParamsLayout, SlidingPulleyRagdollSpring )
 {
 	EXPECT_EQ( 48u,  offsetof( constraint_slidingparams_t, slideAxisRef ) );

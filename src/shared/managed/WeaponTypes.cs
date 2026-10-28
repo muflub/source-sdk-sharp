@@ -486,5 +486,22 @@ public static class WeaponTypes
             ViewModel            = "models/weapons/v_slam.mdl",
             WorldModel           = "models/weapons/w_slam.mdl",
         },
+
+        // The gravity gun (stock HL2MP gives one to every player). APPENDED,
+        // because a row's position is its wire index. It spends nothing and its
+        // command is its own (PhysCannonBehaviour): secondary pulls and holds,
+        // primary punts. The interval is stock's 0.5 between punts, which the
+        // behaviour writes itself; the deploy is immediate, as stock's Deploy
+        // sets both triggers to now.
+        new(EntityNames.WeaponPhyscannon, Interval: 0.5f)
+        {
+            ViewModel   = "models/weapons/v_physcannon.mdl",
+            WorldModel  = "models/weapons/w_Physics.mdl",
+            DeployTime  = 0f,
+            FireSound   = PhysCannonSounds.Launch,
+            EmptySound  = PhysCannonSounds.DryFire,
+            ReloadSound = PhysCannonSounds.Charge,
+            Behaviour   = PhysCannonBehaviour.Key,
+        },
     ];
 }

@@ -192,7 +192,7 @@ public static class SandboxPass
 
             [EntityNames.SsWeapon] =
                 "the carried weapon, created by the Arsenal when a player first receives one; "
-                + "what a map places is the weapon_* pickup, and the weapons station holds all nine",
+                + "what a map places is the weapon_* pickup, and the weapons station holds every one",
 
             [EntityNames.SsViewModel] =
                 "the viewmodel, created with the carried weapon; a map-placed one is arms in "

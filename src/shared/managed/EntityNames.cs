@@ -354,6 +354,7 @@ public static class EntityNames
     public const string WeaponSmg1      = "weapon_smg1";
     public const string WeaponStunstick = "weapon_stunstick";
     public const string WeaponSlam      = "weapon_slam";
+    public const string WeaponPhyscannon = "weapon_physcannon";
 
     // What weapon_slam leaves in the world: the satchel it throws and the
     // laser tripmine it plants. Stock's own classnames (grenade_satchel.cpp,

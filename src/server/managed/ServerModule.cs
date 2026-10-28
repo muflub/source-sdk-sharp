@@ -695,6 +695,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the body.
         int engineAreas = ComposeEngineAreas();
 
+        // THE EFFECTS, STRAIGHT AFTER THE AREAS: EffectsOverTempEnts replaces
+        // the engine's IEngineEffects, and a service created above the
+        // replacement silently keeps the engine's, whose managed-answered
+        // members (the impact, the dust, the tracer...) are empty bodies. The
+        // arsenal was created above it and no bullet ever made an impact
+        // (ServerModuleWiringOrderTests). Only the tables' REGISTRATION stays
+        // in the DLL-init window below.
+        ComposeEffects();
+
         // THE PROCESS' OWN COMMAND LINE, read from /proc/self/cmdline: -tickrate
         // and -debugapi. It was two engine slots, retired for this reader.
         _services.AddInstance<ILocalCommandLine>(new ProcessCommandLine());
@@ -967,6 +976,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             () => _services.ResolveAll<SourceSharp.Shared.Anim.IAnimStateLayer>()));
 
         _arsenal = _services.Create<Arsenal>();
+
+        // The named effects a weapon sends itself (the stunstick's) reach the
+        // temp entities, composed before it (ComposeEffects), through this door.
+        _arsenal.Temps = _services.Require<ITempEnts>();
         _services.AddInstance(_arsenal);
         _services.AddInstance<IWeaponGiver>(_arsenal);
 
@@ -1423,14 +1436,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // one built later is simply not in the list and the first effect that
         // claims it sends the engine into a table that was never flattened.
         // Ordering between game systems is link order, so a second
-        // CAutoGameSystem would be a coin toss (plan 2D).
-        //
-        // THE TABLES ARE PLANNED HERE AND STORED BY NATIVE (plan_server_native_v2
-        // T4b): ServerTempEntEngine answers the registration, the playback and
-        // the effect index; every other IEngineEffects member is the engine's.
-        _tempEntEngine = new ServerTempEntEngine(_services.Require<IEngineEffects>(), TempEntTables.For(_engine), Log,
-                                                 EffectDispatchNames.For(_services));
-        _tempEnts.RegisterAll("Server", Game, (ITempEntRegistrar)_tempEntEngine);
+        // CAutoGameSystem would be a coin toss (plan 2D). The engine itself was
+        // built by ComposeEffects, straight after the areas.
+        ServerTempEntEngine tempEntEngine = _tempEntEngine!;
+        _tempEnts.RegisterAll("Server", Game, (ITempEntRegistrar)tempEntEngine);
 
         // THE REGISTRY ITSELF, as the client already registers its own
         // (ClientModule). ITempEnts covers twenty-one of the forty-three tables
@@ -1443,49 +1452,20 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // The demonstration sender cs_te_fire and ss_te_tester share: this
         // module's registry, and the names it has already complained about.
-        _services.AddInstance<ITeFire>(new TeFire(Log, _tempEnts, _tempEntEngine,
+        _services.AddInstance<ITeFire>(new TeFire(Log, _tempEnts, tempEntEngine,
                                                  _services.Require<IEnginePrecache>()));
 
-        // Registered by CONTRACT: what a caller wants is "make sparks happen",
-        // and the class that answers it is a detail of which side is asking.
-        // The client's own implementation of the same interface plays what
-        // arrives instead of sending it.
-        //
-        // IT HOLDS THE REAL ENGINE, taken before the line below replaces the
-        // registration. TempEnts needs TempEntPlayback and nothing else from
-        // the engine; handing it the wrapper instead would work today and would
-        // be a cycle waiting to be closed the first time a rewired member of
-        // that wrapper wanted a temp entity.
-        IEngineEffects nativeEffects = _tempEntEngine;
-        var temps = new TempEnts(Log, _tempEnts, nativeEffects);
 
-        _services.AddInstance<ITempEnts>(temps);
-
-        // The arsenal was built long before the temp entities; the named
-        // effects a weapon sends itself (the stunstick's) reach them through
-        // this one late door.
-        _arsenal.Temps = temps;
-
-        // PLAN Part 8, THE REWIRING. IEngineEffects keeps every one of its call
-        // sites; what changes is who answers eight of them. Sparks, the
-        // explosion, the muzzle flash, the funnel, the dust, the impact, the
-        // splash and the tracer are packed and sent by managed code over the
-        // managed tables from here on; the other forty-seven members are the
-        // engine's and EffectsOverTempEnts forwards them to the binding
-        // untouched. See that class for the three rows of Part 8's table that
-        // did NOT move and exactly why each is still native.
-        //
-        // A REPLACEMENT AND IT SAYS SO. ServiceContainer warns when a contract
-        // is registered twice, and this is the case its comment names -- "a
-        // module registering a better implementation over a default". The line
-        // in the console is the port being visible rather than a mistake.
-        _services.AddInstance<IEngineEffects>(new EffectsOverTempEnts(
-            nativeEffects, temps,
-            _services.Require<IEngineSound>(),
-            _services.Require<IEngineEntities>(),
-            new EngineEffectsWorld(_services.Require<SideRoute<IServerTraceRoute>>(), _services.Require<IEngineEntities>(),
-                                   _services.Require<IEnginePrecache>(), _engineServer),
-            text => Log.Warning(text)));
+        // The gravity gun's world (weapon_physcannon): its grab controllers'
+        // vphysics calls, its traces, and the behaviour the weapon row names,
+        // which the weapon machines resolve on their first command. After the
+        // temp entities above, which carry its launch effect.
+        _services.AddInstance<IVPhysicsGrabCalls>(new VPhysicsGrabCalls(_engine.VPhysics));
+        _services.AddInstance<ITraceQueries>(new EngineTraceQueries(_engine));
+        _services.AddInstance<ICustomMotionControllers>(_services.Require<PhysicsMotionControllers>());
+        var physCannon = _services.Create<PhysCannonWorld>();
+        _services.AddInstance(physCannon);
+        _services.AddInstance(new PhysCannonBehaviourSource(physCannon));
 
         // plan_entity.md §3.8: the physics event ring's consumer. AFTER the
         // IEngineEffects replacement above, deliberately -- dust from a physics
@@ -2924,6 +2904,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         SwitchOutcome.NotOwned        => "the player does not own that weapon",
         SwitchOutcome.NoSuchSlot      => "no weapon in that slot",
         SwitchOutcome.NoHistory       => "nothing was held before this",
+        SwitchOutcome.CannotHolster   => "the weapon in the hands will not be put away (it is holding something)",
         _                             => outcome.ToString(),
     };
 
@@ -3210,6 +3191,58 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         }
 
         return _managedRoot.Address;
+    }
+
+    /// <summary>
+    /// The temp-entity engine and the effects over it, registered before
+    /// anything that takes <see cref="IEngineEffects"/> or
+    /// <see cref="ITempEnts"/> is created. Building them registers no
+    /// ServerClass: <c>_tempEnts.RegisterAll</c> does that, later, inside
+    /// the DLL-init window.
+    /// </summary>
+    private void ComposeEffects()
+    {
+        // THE TABLES ARE PLANNED HERE AND STORED BY NATIVE (plan_server_native_v2
+        // T4b): ServerTempEntEngine answers the registration, the playback and
+        // the effect index; every other IEngineEffects member is the engine's.
+        _tempEntEngine = new ServerTempEntEngine(_services.Require<IEngineEffects>(), TempEntTables.For(_engine), Log,
+                                                 EffectDispatchNames.For(_services));
+
+        // Registered by CONTRACT: what a caller wants is "make sparks happen",
+        // and the class that answers it is a detail of which side is asking.
+        // The client's own implementation of the same interface plays what
+        // arrives instead of sending it.
+        //
+        // IT HOLDS THE REAL ENGINE, taken before the line below replaces the
+        // registration. TempEnts needs TempEntPlayback and nothing else from
+        // the engine; handing it the wrapper instead would work today and would
+        // be a cycle waiting to be closed the first time a rewired member of
+        // that wrapper wanted a temp entity.
+        IEngineEffects nativeEffects = _tempEntEngine;
+        var temps = new TempEnts(Log, _tempEnts, nativeEffects);
+
+        _services.AddInstance<ITempEnts>(temps);
+
+        // PLAN Part 8, THE REWIRING. IEngineEffects keeps every one of its call
+        // sites; what changes is who answers eight of them. Sparks, the
+        // explosion, the muzzle flash, the funnel, the dust, the impact, the
+        // splash and the tracer are packed and sent by managed code over the
+        // managed tables from here on; the other forty-seven members are the
+        // engine's and EffectsOverTempEnts forwards them to the binding
+        // untouched. See that class for the three rows of Part 8's table that
+        // did NOT move and exactly why each is still native.
+        //
+        // A REPLACEMENT AND IT SAYS SO. ServiceContainer warns when a contract
+        // is registered twice, and this is the case its comment names -- "a
+        // module registering a better implementation over a default". The line
+        // in the console is the port being visible rather than a mistake.
+        _services.AddInstance<IEngineEffects>(new EffectsOverTempEnts(
+            nativeEffects, temps,
+            _services.Require<IEngineSound>(),
+            _services.Require<IEngineEntities>(),
+            new EngineEffectsWorld(_services.Require<SideRoute<IServerTraceRoute>>(), _services.Require<IEngineEntities>(),
+                                   _services.Require<IEnginePrecache>(), _engineServer),
+            text => Log.Warning(text)));
     }
 
     /// <summary>

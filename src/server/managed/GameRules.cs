@@ -200,8 +200,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     ///
     /// <para>
     /// Stock's kit (CHL2MP_Player::GiveDefaultItems): the melee weapon, the
-    /// pistol, the SMG1 and a frag (and the gravity gun, which joins this list
-    /// with its weapon row). Stock's melee follows the
+    /// pistol, the SMG1, a frag and the gravity gun. Stock's melee follows the
     /// player model -- a stunstick for a combine or police model, a crowbar for
     /// a citizen -- and every player here wears SsPlayer's citizen
     /// (models/humans/...), so the crowbar.
@@ -213,6 +212,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         "weapon_pistol",
         "weapon_smg1",
         "weapon_frag",
+        "weapon_physcannon",
     ];
 
     /// <summary>

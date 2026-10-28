@@ -1350,6 +1350,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(new AmmoCatalog(() => _services.ResolveAll<IAmmoTypeSource>(), Log));
         _services.AddInstance(new WeaponBehaviours(() => _services.ResolveAll<IWeaponBehaviourSource>(), Log));
 
+        // The physcannon's behaviour, which the server resolves under the same
+        // key: the replay predicts it over a world that holds nothing.
+        _services.AddInstance(new PhysCannonBehaviourSource(new ReplayPhysCannonWorld()));
+
         // The animation layer chain's composition, the server's twin: the
         // mods' IAnimStateLayer services and the core's HL2 layer, so the
         // predicted body asks the layers the server's copy asked.
@@ -1783,6 +1787,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                               _services.Require<IFxGameSounds>())
                 : new Ragdolls.NoRagdollBoltPin());
         effectHandlers.Add(_services.Create<Effects.CrossbowBoltEffect>());
+        // PhyscannonImpact (weapon_physcannon.cpp's client effect): the gravity gun's blast.
+        effectHandlers.Add(_services.Create<Effects.PhysCannonImpactEffect>());
         // The mods' effects (stage 0.9): every [SideService(Side.Client)]
         // IClientEffectHandler, after the core's, now the services they may
         // ask for exist.
@@ -2313,6 +2319,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The ropes AFTER the winds: a rope reads this frame's published wind.
         _ropes?.Frame(frameTime);
+
+        // The physcannon's claws on the local viewmodel (its ClientThink).
+        _clientArsenal?.Frame();
     }
 
     /// <summary>

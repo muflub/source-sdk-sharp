@@ -594,3 +594,8 @@ src/server/managed/Entities/Ladders/InfoLadderDismount.cs	ports CInfoLadderDismo
 src/server/managed/UseableLadders.cs	ports CFuncLadder::s_Ladders / GetLadderCount / GetLadder and CInfoLadderDismount::s_Dismounts (func_ladder.cpp) as a service
 src/client/managed/Standalone/ClientUseableLadder.cs	ports C_FuncLadder's SearchForDismountPoints and the CLIENT_DLL arm of FindNearbyDismountPoints, and C_InfoLadderDismount (func_ladder.cpp)
 src/client/managed/ClientUseableLadders.cs	ports the client's CFuncLadder::s_Ladders / GetLadder and CInfoLadderDismount::s_Dismounts reads (func_ladder.cpp)
+src/shared/managed/PhysCannon.cs	ports CWeaponPhysCannon's shared state machine (weapon_physcannon.cpp, HL2MP): ItemPreFrame/ItemPostFrame, Primary/SecondaryAttack, the punts, LaunchObject, DetachObject, Open/CloseElements, and ApplyVelocityBasedForce's speed rule
+src/server/managed/GrabController.cs	ports CGrabController (weapon_physcannon.cpp, HL2MP): AttachEntity, DetachEntity, UpdateObject, ComputeError, Simulate, and PhysComputeSlideDirection (physics_shared.cpp) with the mathlib it reads
+src/server/managed/PhysCannonWorld.cs	ports CWeaponPhysCannon's server half (weapon_physcannon.cpp, HL2MP): FindObject, FindObjectInCone, AttachObject, CanPickupObject (with CBasePlayer::CanPickupObject, player.cpp), CheckForTarget, PuntVPhysics/PuntNonVPhysics and the pickup interface (player_pickup.h)
+src/client/managed/PhysCannonElements.cs	ports C_WeaponPhysCannon's m_ElementParameter (weapon_physcannon.cpp, HL2MP) and CInterpolatedValue's InitFromCurrent/Interp (fx_interpvalue.cpp)
+src/client/managed/Effects/PhysCannonImpactEffect.cs	ports CallbackPhyscannonImpact (weapon_physcannon.cpp, HL2MP): the gauss explosion and the beam of the physcannon's blast

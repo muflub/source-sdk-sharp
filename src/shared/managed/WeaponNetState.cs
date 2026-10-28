@@ -178,4 +178,56 @@ public partial class WeaponNetState
     /// <summary>The mode word's clock: the SLAM's <c>m_flWallSwitchTime</c>.</summary>
     [Predicted(0.001f)]
     public partial float SpecialTime { get; set; }
+
+    //-------------------------------------------------------------------------
+    // The physcannon's (PhysCannonBehaviour): CWeaponPhysCannon's members.
+    // m_bActive, m_hAttachedObject, m_EffectState and m_bOpen are networked
+    // there, the last two predicted; the rest are its plain members, which the
+    // replay must start from the server's word as it does every other field.
+    // Unused and zero on every other weapon.
+    //-------------------------------------------------------------------------
+
+    /// <summary>m_bActive: an object is held.</summary>
+    [Predicted]
+    public partial bool CannonActive { get; set; }
+
+    /// <summary>m_bOpen: the claws are open.</summary>
+    [Predicted]
+    public partial bool CannonOpen { get; set; }
+
+    /// <summary>m_EffectState, a <see cref="PhysCannonEffect"/>.</summary>
+    [Predicted]
+    public partial int CannonEffect { get; set; }
+
+    /// <summary>m_hAttachedObject, as an entindex: 0 for nothing.</summary>
+    [Predicted]
+    public partial int CannonHeld { get; set; }
+
+    /// <summary>m_nChangeState, a <see cref="PhysCannonElements"/>.</summary>
+    [Predicted]
+    public partial int CannonChangeState { get; set; }
+
+    /// <summary>m_flElementDebounce.</summary>
+    [Predicted(0.001f)]
+    public partial float CannonElementDebounce { get; set; }
+
+    /// <summary>m_flCheckSuppressTime.</summary>
+    [Predicted(0.001f)]
+    public partial float CannonCheckSuppress { get; set; }
+
+    /// <summary>m_nAttack2Debounce: the buttons held when the last pickup took.</summary>
+    [Predicted]
+    public partial int CannonAttack2Debounce { get; set; }
+
+    /// <summary>m_flLastDenySoundPlayed (a bool in stock, despite the name).</summary>
+    [Predicted]
+    public partial bool CannonDenyPlayed { get; set; }
+
+    /// <summary>m_flRepuntObjectTime.</summary>
+    [Predicted(0.001f)]
+    public partial float CannonRepuntTime { get; set; }
+
+    /// <summary>m_hLastPuntedObject, as an entindex.</summary>
+    [Predicted]
+    public partial int CannonLastPunted { get; set; }
 }

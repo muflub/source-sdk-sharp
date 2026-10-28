@@ -29,9 +29,9 @@ public class WeaponCatalogTests
 {
     // The core table's two ends, by name: the first and last rows the wire
     // has always carried (WeaponTypes.All).
-    private const int CoreCount = 11;
+    private const int CoreCount = 12;
     private const string FirstCore = "weapon_crowbar";
-    private const string LastCore = "weapon_slam";
+    private const string LastCore = "weapon_physcannon";
 
     private sealed class RowsSource(params WeaponType[] rows) : IWeaponTypeSource
     {

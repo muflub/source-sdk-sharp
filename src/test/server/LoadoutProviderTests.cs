@@ -147,7 +147,8 @@ public class LoadoutProviderTests
         var rig = new Rig();
 
         // BEFORE: the core's kit, stock's GiveDefaultItems.
-        Assert.True(rig.Gave(rig.Rules()).SequenceEqual(["weapon_crowbar", "weapon_pistol", "weapon_smg1", "weapon_frag"]));
+        Assert.True(rig.Gave(rig.Rules()).SequenceEqual(["weapon_crowbar", "weapon_pistol", "weapon_smg1", "weapon_frag",
+                                                         "weapon_physcannon"]));
 
         var kit = new Provider(["weapon_357"], [("Buckshot", 6)]);
         Assert.True(rig.Gave(rig.Rules(new ListHooks<ILoadoutProvider>(kit)))

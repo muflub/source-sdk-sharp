@@ -562,6 +562,11 @@ public class LifecycleTests
                                            // gap (between GlobalState 50 and Rules
                                            // 100) rather than appended, so no
                                            // existing participant moved.
+        (typeof(PhysCannonWorld),   650),  // weapon_physcannon: the grab controllers
+                                           // hold the level's objects and go with it;
+                                           // the gun's sounds are precached at level
+                                           // init. Inserted in the Arsenal/Soundscapes
+                                           // gap; no recorded participant moved.
         (typeof(PlayerComposites),  450),  // tf2 stage 0.7 (D9/D10): the per-player
                                            // composite's level-shutdown detach,
                                            // FOUR HUNDRED FIFTY — beside the player

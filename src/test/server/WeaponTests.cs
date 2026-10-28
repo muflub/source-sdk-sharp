@@ -218,6 +218,7 @@ public class WeaponTests
             EntityNames.WeaponCrowbar, EntityNames.WeaponFrag, EntityNames.WeaponPistol,
             EntityNames.WeaponRpg, EntityNames.WeaponShotgun, EntityNames.WeaponSmg1,
             EntityNames.WeaponStunstick, EntityNames.WeaponSlam,
+            EntityNames.WeaponPhyscannon,
         };
 
         foreach (string name in expected)

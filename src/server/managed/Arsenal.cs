@@ -50,6 +50,12 @@ public enum SwitchOutcome
 
     /// <summary>lastinv, with nothing held before this — or the weapon it named has gone.</summary>
     NoHistory,
+
+    /// <summary>
+    /// The weapon in the hands refused to be put away: stock's CanHolster,
+    /// which the physcannon answers no to while it holds something.
+    /// </summary>
+    CannotHolster,
 }
 
 /// <summary>
@@ -522,6 +528,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (slot == carry.ActiveSlot)
             return SwitchOutcome.AlreadyHeld;
 
+        if (ActiveBehaviour(carry, out var context) is { } behaviour && !behaviour.CanHolster(in context))
+            return SwitchOutcome.CannotHolster;
+
         Deploy(carry, slot);
         return SwitchOutcome.Switched;
     }
@@ -538,7 +547,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             _directory.Get(carry.ViewModel) is not SsViewModel viewModel)
             return;
 
-        // The outgoing weapon keeps what was left in its clip.
+        // The outgoing weapon is put away (its Holster), and keeps what was
+        // left in its clip.
+        Holster(carry);
         StoreActiveClip(carry, weapon);
 
         var owned = carry.Weapons[slot];
@@ -606,7 +617,41 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (type.SparksOnDeploy)
             carry.Arms.DeploySparks();
 
+        // And the weapon's own Deploy tail, over the timers just set.
+        if (ActiveBehaviour(carry, out var deployed) is { } behaviour)
+            behaviour.Deploy(in deployed);
+
         _log.Msg($"[SourceSharp/Arsenal] {carry.Player} deployed {type.Name}\n");
+    }
+
+    /// <summary>
+    /// The active weapon's behaviour and the context its hooks are asked
+    /// with, or null for a stock weapon or empty hands.
+    /// </summary>
+    private IWeaponBehaviour? ActiveBehaviour(Carry carry, out WeaponAttackContext context)
+    {
+        context = default;
+
+        if (carry.ActiveSlot < 0 || carry.ActiveSlot >= carry.Weapons.Count)
+            return null;
+
+        if (_directory.Get(carry.Weapon) is not SsWeapon weapon ||
+            _directory.Get(carry.ViewModel) is not SsViewModel viewModel)
+            return null;
+
+        if (_weapons.ByIndex(weapon.State.WeaponTypeId) is not WeaponType type ||
+            _behaviours.For(type.Behaviour) is not { } behaviour)
+            return null;
+
+        context = new WeaponAttackContext(type, weapon.State, viewModel.State, _clock.Now, true, carry.Arms);
+        return behaviour;
+    }
+
+    /// <summary>The active weapon's Holster, before it leaves the hands for any reason.</summary>
+    private void Holster(Carry carry)
+    {
+        if (ActiveBehaviour(carry, out var context) is { } behaviour)
+            behaviour.Holster(in context);
     }
 
     /// <summary>Writes the active weapon's live clip back into its inventory slot.</summary>
@@ -814,6 +859,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (_directory.Get(carry.Weapon) is not SsWeapon weapon)
             return;
 
+        // Whatever the weapon was doing ends here (the physcannon lets go),
+        // and a weapon whose stock Drop removes it leaves nothing behind.
+        bool leavesPickup = ActiveBehaviour(carry, out _) is not { LeavesPickup: false };
+        Holster(carry);
         StoreActiveClip(carry, weapon);
 
         var owned = carry.Weapons[carry.ActiveSlot];
@@ -823,7 +872,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (_weapons.ByIndex(owned.TypeIndex) is WeaponType type)
             carry.Arms.Sound(type.HolsterSound);
 
-        if (_weapons.ByIndex(owned.TypeIndex) is WeaponType { RemovedOnDrop: false } kept)
+        if (leavesPickup && _weapons.ByIndex(owned.TypeIndex) is WeaponType { RemovedOnDrop: false } kept)
         {
             EntityHandle dropped = _entities.Create(kept.Name);
 
@@ -907,6 +956,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (!_carries.TryGetValue(player.Value, out var carry))
             return;
 
+        Holster(carry);
         carry.Weapons.Clear();
         carry.Ammo.Clear();
 
@@ -957,6 +1007,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     {
         if (!_carries.TryGetValue(player.Value, out var carry))
             return;
+
+        Holster(carry);
 
         if (_entities.IsValid(carry.Weapon))
             _entities.Remove(carry.Weapon);

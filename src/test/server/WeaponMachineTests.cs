@@ -36,9 +36,10 @@ public class WeaponMachineTests
 
         // Every field of the weapon's state is machine state, so every field
         // is predicted — the 9c5 gate answers yes for it, which is what makes
-        // the client replay it at all.
-        Assert.Equal(23, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
-        Assert.Equal(4, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsViewModel)));
+        // the client replay it at all. The machine's and the HL2MP behaviours',
+        // the SLAM's two, and eleven of the physcannon's (PhysCannonBehaviour).
+        Assert.Equal(34, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
+        Assert.Equal(5, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsViewModel)));
     }
 
     [Fact]
@@ -92,7 +93,10 @@ public class WeaponMachineTests
                 Assert.True(AmmoCatalog.Stock().For(type.SecondaryAmmoName) is not null,
                     $"{type.Name}'s secondary ammo '{type.SecondaryAmmoName}' has a row");
 
-            if (type.IsMelee)
+            // The physcannon spends nothing and throws nothing, which is the
+            // row's definition of melee; it never swings, because its
+            // behaviour runs the whole command.
+            if (type.IsMelee && type.Behaviour != PhysCannonBehaviour.Key)
                 Assert.True(type.MeleeRange > 0 && type.MeleeDamage > 0,
                     $"{type.Name} is melee and must say its reach and damage");
         }

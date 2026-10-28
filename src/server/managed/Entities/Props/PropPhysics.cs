@@ -29,7 +29,7 @@ namespace SourceSharp.Server;
 // under names that differ for the editor's benefit.
 [ScriptedEntity(EntityNames.PhysicsProp, ScriptedEntityKind.Prop)]
 [ScriptedEntity(EntityNames.PropPhysicsOverride, ScriptedEntityKind.Prop)]
-public class PropPhysics : ScriptedEntity
+public class PropPhysics : ScriptedEntity, IPhysGunTarget
 {
     public PropPhysics(IEngineDamage damage, IEngineEntityPhysics physics, IEngineWorldQuery world,
                        IEngineEffects effects, IEnginePrecache precache, IEngineHost host, IBlastSweep blast, IServerDecals decals,
@@ -146,6 +146,15 @@ public class PropPhysics : ScriptedEntity
 
     /// <summary>SF_PHYSPROP_START_ASLEEP: the prop is put to sleep when it spawns.</summary>
     private const int StartAsleep = 1;
+
+    /// <summary>SF_PHYSPROP_ENABLE_ON_PHYSCANNON: pinned, until the gravity gun takes it.</summary>
+    private const int EnableOnPhyscannon = 0x40;
+
+    /// <summary>SF_PHYSPROP_PREVENT_PICKUP: neither +use nor the gravity gun may pick it up.</summary>
+    private const int PreventPickup = 0x200;
+
+    /// <summary>FVPHYSICS_WAS_THROWN: what a launch from the gun marks the object with.</summary>
+    private const uint WasThrown = 0x0100;
 
     /// <summary>SF_PHYSPROP_DEBRIS (props_shared.h).</summary>
     private const int DebrisFlag = 4;
@@ -398,6 +407,38 @@ public class PropPhysics : ScriptedEntity
     [ScriptedEvent] private void OnEnableMotion() => EnableMotion();
 
     [ScriptedEvent] private void OnDisableMotion() => Physics.EnableMotion(Handle, false);
+
+    //-------------------------------------------------------------------------
+    // The gravity gun (CPhysicsProp's IPlayerPickupVPhysics, props.cpp).
+    //-------------------------------------------------------------------------
+
+    /// <summary>SF_PHYSPROP_PREVENT_PICKUP: stock sets FVPHYSICS_NO_PLAYER_PICKUP from it at creation.</summary>
+    bool IPhysGunTarget.PreventsPickup => (SpawnFlags & PreventPickup) != 0;
+
+    /// <summary>A pinned prop the gun may take: SF_PHYSPROP_ENABLE_ON_PHYSCANNON.</summary>
+    bool IPhysGunTarget.EnablesOnPhyscannon => (SpawnFlags & EnableOnPhyscannon) != 0;
+
+    /// <summary>
+    /// CPhysicsProp::OnPhysGunPickup: a pinned prop comes loose only if its
+    /// map said the gun may free it.
+    /// </summary>
+    void IPhysGunTarget.OnPhysGunPickup(EntityHandle player, PhysGunPickup reason)
+    {
+        if (!_motionDisabled)
+            return;
+
+        if ((SpawnFlags & EnableOnPhyscannon) == 0)
+            return;
+
+        EnableMotion();
+    }
+
+    /// <summary>CPhysicsProp::OnPhysGunDrop: a launch marks the object thrown.</summary>
+    void IPhysGunTarget.OnPhysGunDrop(EntityHandle player, PhysGunDrop reason)
+    {
+        if (reason == PhysGunDrop.LaunchedByCannon)
+            Physics.AddGameFlags(Handle, WasThrown);
+    }
 
     [ScriptedEvent] private void OnSetHealth(float health)
     {

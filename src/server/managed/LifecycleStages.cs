@@ -120,6 +120,13 @@ public enum LifecycleStage
     /// <summary>Inventories, which hold handles that do not survive the map.</summary>
     Arsenal = 600,
 
+    /// <summary>
+    /// The gravity guns' grab controllers (PhysCannonWorld), which hold the
+    /// level's objects and its motion controllers; and the gun's sounds,
+    /// precached at level init. After the inventories that carry the guns.
+    /// </summary>
+    PhysCannon = 650,
+
     /// <summary>Soundscape identity tokens, which restart with the map.</summary>
     Soundscapes = 700,
 

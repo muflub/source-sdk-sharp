@@ -186,7 +186,7 @@ public static class WeaponAnimNames
         WeaponAnim.Primary => new[] { "fire", "attack1", "shoot", "fire1" },
         WeaponAnim.Reload  => new[] { "reload", "reload1" },
         WeaponAnim.Draw    => new[] { "draw", "deploy" },
-        WeaponAnim.Secondary    => new[] { "altfire", "fire2" },
+        WeaponAnim.Secondary    => new[] { "altfire", "fire2", "secondaryattack" },
         WeaponAnim.DryFire      => new[] { "dryfire" },
         WeaponAnim.Pump         => new[] { "pump" },
         WeaponAnim.ReloadStart  => new[] { "reload1" },

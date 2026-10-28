@@ -423,6 +423,9 @@ FORWARD = [
             'GetShadowController', 'RemoveShadowController', 'GetCollide', 'GetName',
             'BecomeTrigger', 'RemoveTrigger', 'CreateFrictionSnapshot',
             'DestroyFrictionSnapshot',
+            # The physcannon's grab controller (CGrabController).
+            'EnableDrag', 'SetDamping', 'GetDamping', 'SetVelocityInstantaneous',
+            'ComputeShadowControl',
         ],
     ),
     dict(

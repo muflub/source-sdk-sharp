@@ -759,6 +759,7 @@ public static class Sandbox
             EntityNames.WeaponSmg1, EntityNames.WeaponAr2, EntityNames.WeaponShotgun,
             EntityNames.WeaponCrossbow, EntityNames.WeaponRpg, EntityNames.WeaponFrag,
             EntityNames.WeaponStunstick, EntityNames.WeaponSlam,
+            EntityNames.WeaponPhyscannon,
         ];
 
         for (int i = 0; i < kinds.Length; i++)
