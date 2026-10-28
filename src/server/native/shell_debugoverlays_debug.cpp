@@ -11,7 +11,7 @@
 // NativeCommands declares the matching row under #if DEBUG.
 
 #include "ss_util.h"
-#include "overlay_library.h"
+#include "server_services.h"
 #include "native_command_body.h"
 
 // Allow all debug overlays to be cleared at once (the engine's overlay list).
@@ -20,5 +20,5 @@ SS_NATIVE_COMMAND( clear_debug_overlays )
 	if ( !UTIL_IsCommandIssuedByServerAdmin() )
 		return;
 
-	Overlay_ClearAll();
+	services.m_OverlayLibrary.ClearAll();
 }

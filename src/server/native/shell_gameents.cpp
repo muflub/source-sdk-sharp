@@ -8,7 +8,7 @@
 // SS_REASON b  an interface resolved by name at load
 // IServerGameEnts: the edict/entity map and the transmit walk.
 
-#include "server_engine.h"
+#include "shell_gameents.h"
 #include "ss_util.h"
 #include "server_class.h"
 
@@ -21,36 +21,7 @@
 #include "imanaged_areas.h"
 
 #include "toucher.h"
-#include "shell_factory.h"
-
-extern CGlobalVars *gpGlobals;
-
-class CServerGameEnts : public IServerGameEnts
-{
-public:
-	virtual void SetDebugEdictBase( edict_t *base );
-	virtual void MarkEntitiesAsTouching( edict_t *e1, edict_t *e2 );
-	virtual void FreeContainingEntity( edict_t * );
-	virtual edict_t *BaseEntityToEdict( IGameEntity *pEnt );
-	virtual IGameEntity *EdictToBaseEntity( edict_t *pEdict );
-	virtual void CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned short *pEdictIndices, int nEdicts );
-
-private:
-	edict_t *m_pDebugEdictBase = NULL;
-};
-
-namespace
-{
-CServerGameEnts s_ServerGameEnts;
-}
-
-// Answered by the factory (shell_factory.cpp), which asks for it by this row.
-static void *SourceSharp_GetServerGameEnts()
-{
-	return (IServerGameEnts *)&s_ServerGameEnts;
-}
-
-const SourceSharpExposed kExposeServerGameEnts = { INTERFACEVERSION_SERVERGAMEENTS, SourceSharp_GetServerGameEnts };
+#include "shell_managed_areas.h"
 
 void CServerGameEnts::SetDebugEdictBase( edict_t *base )
 {
@@ -120,7 +91,7 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 	// is consecutive in memory. If either of these things change, then this routine needs to change, but
 	// ideally we won't be calling any virtual from this routine. This speedy routine was added as an
 	// optimization which would be nice to keep.
-	edict_t *pBaseEdict = ServerEngine()->PEntityOfEntIndex( 0 );
+	edict_t *pBaseEdict = m_pEngine->PEntityOfEntIndex( 0 );
 
 	// Read only by the Assert below.
 	[[maybe_unused]] IGameEntity *pRecipientEntity = NULL;
@@ -139,20 +110,20 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 	// Armed after the early return, so a declined recipient doesn't spend the
 	// one-shot capture. The set is copied at the end, since SetTransmit marks bits
 	// this walk never touches.
-	const bool bCaptureTransmit = ShellGameDll_TransmitCaptureBegin( nRecipientIndex );
+	const bool bCaptureTransmit = m_TransmitSet.BeginCapture( nRecipientIndex );
 
 	if ( bCaptureTransmit )
-		ShellGameDll_TransmitCaptureSkyboxArea( skyBoxArea );
+		m_TransmitSet.SetSkyboxArea( skyBoxArea );
 
-	MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
+	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
 
 	// Stock's CBasePlayer::ShouldTransmit first arm, decided in C#: the
 	// recipient's own player is always sent. Marked before the walk, which skips
 	// edicts already marked.
-	if ( IManagedClients *pApi = ManagedClients() )
+	if ( IManagedClients *pApi = m_Managed.m_pClients )
 	{
 		const int iAlways = pApi->ServerTransmitAlwaysForClient( nRecipientIndex );
-		if ( iAlways > 0 && iAlways < ServerEngine()->GetEntityCount() && !pBaseEdict[iAlways].IsFree() )
+		if ( iAlways > 0 && iAlways < m_pEngine->GetEntityCount() && !pBaseEdict[iAlways].IsFree() )
 			pInfo->m_pTransmitEdict->Set( iAlways );
 	}
 
@@ -162,7 +133,7 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 		int iEdict = pEdictIndices[i];
 
 		edict_t *pEdict = &pBaseEdict[iEdict];
-		Assert( pEdict == ServerEngine()->PEntityOfEntIndex( iEdict ) );
+		Assert( pEdict == m_pEngine->PEntityOfEntIndex( iEdict ) );
 		int nFlags =
 			pEdict->m_fStateFlags & ( FL_EDICT_DONTSEND | FL_EDICT_ALWAYS | FL_EDICT_PVSCHECK | FL_EDICT_FULLCHECK );
 
@@ -192,7 +163,7 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 		Vector vecMins, vecMaxs;
 		pCollide->WorldSpaceSurroundingBounds( &vecMins, &vecMaxs );
 
-		if ( ServerEngine()->CheckBoxInPVS( vecMins, vecMaxs, pInfo->m_PVS, pInfo->m_nPVSSize ) )
+		if ( m_pEngine->CheckBoxInPVS( vecMins, vecMaxs, pInfo->m_PVS, pInfo->m_nPVSSize ) )
 			pInfo->m_pTransmitEdict->Set( iEdict );
 	}
 
@@ -203,7 +174,7 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 		for ( int i = 0; i < MAX_EDICTS; i++ )
 		{
 			if ( pInfo->m_pTransmitEdict->Get( i ) )
-				ShellGameDll_TransmitCaptureMark( i );
+				m_TransmitSet.Mark( i );
 		}
 	}
 }

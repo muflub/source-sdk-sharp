@@ -582,7 +582,9 @@ counted as code relocations against them over the server's link-edge objects
 (`tools/globals-census summary`'s `locator_calls`; `globals_locator_calls` in
 `docs/globals-ratchet.tsv`, held by `globals_ledger_test`). 181 at its first
 measure (fe875afa0 plus the tool, debug; `objdump -dr` agreed; the 211 above
-is a source grep that also counts declarations and comments). It only falls. A free-function row counts server.so's free
+is a source grep that also counts declarations and comments). It only falls.
+Widened the same day to the 16 managed-area accessors (`ManagedCommands()` and the
+rest, native finding the managed object it calls): 251 at e0334fd36. A free-function row counts server.so's free
 functions that read state, with the pure helpers ruled by name.
 
 **Order.** The smallest areas first, to set the pattern and the generator

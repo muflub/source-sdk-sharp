@@ -430,7 +430,14 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 #   (server_engine.h), and LoadManagedRuntime no longer seeds it a second time.
 # LOWERED 2026-10-27, 118 -> 116: bitvec.h's firstBitLUT and g_StartMask left with
 #   ss::CRecipientFilter::AddPlayersFromBitMask, whose callers (the PVS/PAS filters) had gone (todo, user ruling 2026-10-20).
-globals_link_level	src/sourcesharp/game/server	116
+# LOWERED 2026-10-27, 116 -> 111: overlay_library's four statics are COverlayLibrary's members and g_ShimFrame is
+#   CServerFrame, both built by CServerDllServices (T6 part 3).
+# LOWERED 2026-10-27, 111 -> 109: s_ServerGameClients and s_OrphanPlayerStates: the engine holds the root's
+#   CLateBoundServerGameClients; the DLL tier's CServerGameClients owns the orphan states (T6 part 3).
+# LOWERED 2026-10-27, 109 -> 108: s_ServerGameEnts: the engine holds the root's CLateBoundServerGameEnts (T6 part 3).
+# LOWERED 2026-10-27, 108 -> 106: s_ServerGameTags and s_ServerDLLSharedAppSystems are root members; the app
+#   systems are a constant table (T6 part 3).
+globals_link_level	src/sourcesharp/game/server	106
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the
@@ -483,7 +490,9 @@ globals_unruled	docs/globals-ledger.tsv	0
 # LOWERED 2026-10-18, 116 -> 105: studio.cpp's eviction; studio.cpp's CManagedConVarRef was a static initialiser (measured by tools/globals-census summary --side server: 107 at main d6d3b9a3d, 106 once model_descriptor.cpp left, 105 now; the rest was slack).
 # LOWERED 2026-10-18, 105 -> 104: studio_mdlcache.cpp left server.so; its object carried studio.h's header statics' initialiser (measured by tools/globals-census summary --side server).
 # LOWERED 2026-10-19, 104 -> 85: re-measured at f087134f5 for plan_server_native_v2 T6 step 1 (python3 tools/globals-census summary -> objects_with_a_static_initialiser 85 of 98); the rest was slack the T2-T5 evictions left.
-globals_objects_with_static_init	src/sourcesharp/game/server	85
+# LOWERED 2026-10-27, 85 -> 32: re-measured (tools/globals-census summary, debug, lane t6-globals): the T6 part 3
+#   conversions took the engine-facing singletons' initialisers; the rest of the fall was slack.
+globals_objects_with_static_init	src/sourcesharp/game/server	32
 #
 # ---------------------------------------------------------------------------
 # THE SECOND INSTRUMENT MUST RECONCILE.
@@ -534,4 +543,12 @@ globals_reconcile_unattributed	src/sourcesharp/game/server	0
 # LOCATORS (ShellGameDll_Dll/Level/Managed/ShimRoot, the Server*() engine
 # accessors, SharedEdictChangeInfo): one per call site. 181 at its first
 # measure (2026-10-27, debug, lane t6-globals; objdump -dr agreed). Target 0.
-globals_locator_calls	src/sourcesharp/game/server	181
+# LOWERED 2026-10-27, 181 -> 174: the overlay library and the frame are handed the overlay, game stats and model
+#   cache; clear_debug_overlays finds the library through the DLL tier until command bodies take the services.
+# LOWERED 2026-10-27, 174 -> 173: native command bodies are handed the DLL tier's services (clear_debug_overlays).
+# WIDENED 2026-10-27, 173 -> 251: the list now names the 16 managed-area accessors (ManagedCommands() ...),
+#   native finding the managed object it calls: 78 calls (readelf and objdump -dr over the link edge agree on 251).
+#   Not a regression.
+# LOWERED 2026-10-27, 251 -> 235: CServerGameClients is handed the engine, globals, model cache and managed areas.
+# LOWERED 2026-10-27, 235 -> 229: CServerGameEnts is handed the engine, model cache, managed areas and transmit set.
+globals_locator_calls	src/sourcesharp/game/server	229

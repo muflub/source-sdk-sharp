@@ -38,33 +38,6 @@
 
 #include "shell_steporder.h"
 
-//-----------------------------------------------------------------------------
-// The seam the header declares, defined here against a recorder of this file's
-// own. In the game these three reach CShellGameDll's field; nothing in this
-// binary has a CShellGameDll, and the point of the header being engine-free is
-// that it does not need one.
-//
-// They are defined at all because shell_steporder.h DECLARES them: a header
-// that declared three functions nobody defined would link in the game and fail
-// only here, which is backwards.
-//-----------------------------------------------------------------------------
-namespace
-{
-
-CShellTransmitSet g_TestSet;
-
-} // namespace
-
-bool ShellGameDll_TransmitCaptureBegin( int nRecipientEdict )
-{
-	return g_TestSet.BeginCapture( nRecipientEdict );
-}
-
-void ShellGameDll_TransmitCaptureMark( int iEdict )
-{
-	g_TestSet.Mark( iEdict );
-}
-
 //=============================================================================
 // HALF ONE -- THE BODIES.
 //=============================================================================
@@ -212,23 +185,6 @@ TEST( ShellTransmitSet, TwoSetsShareNothing )
 	EXPECT_FALSE( b.HaveCapture() );
 	EXPECT_FALSE( b.IsSet( 11 ) );
 	EXPECT_EQ( 0, b.Count() );
-}
-
-TEST( ShellTransmitSet, TheSeamReachesTheShippedBodies )
-{
-	// The three free functions shell_steporder.h declares, driven end to end.
-	// In the game they land on CShellGameDll's field; the property being held
-	// is that they land ANYWHERE -- a header that declares a seam nobody wires
-	// is a recorder that records nothing and a gate that reports a green empty.
-	//
-	// THE RING'S THREE ROWS ARE GONE with ShellGameDll_RecordStep, which had no
-	// reader; what is left is the transmit seam, which tools/p4-exit-probe-skybox
-	// reads.
-	g_TestSet.Arm();
-	EXPECT_TRUE( ShellGameDll_TransmitCaptureBegin( 3 ) );
-	ShellGameDll_TransmitCaptureMark( 12 );
-	EXPECT_TRUE( g_TestSet.IsSet( 12 ) );
-	EXPECT_EQ( 3, g_TestSet.Recipient() );
 }
 
 //=============================================================================

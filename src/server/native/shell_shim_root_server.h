@@ -13,6 +13,7 @@
 #include "ishim_root.h"
 #include "shell_shim_console.h"
 #include "shell_shim_areas.h"
+#include "ishim_frame.h"
 
 class CShimRootServer final : public IShimRoot
 {
@@ -29,6 +30,9 @@ public:
 	// The native-side shim areas. What native holds from managed is ShellGameDll_Managed()'s.
 	CShimConsole m_Console;
 	CShimAreas m_Areas;
+
+	// The frame area, the DLL tier's (CServerFrame); NULL outside DLLInit..DLLShutdown.
+	IShimFrame *m_pFrame = nullptr;
 };
 
 // The game DLL's shim root. Defined beside the root in shell_gamedll.cpp.

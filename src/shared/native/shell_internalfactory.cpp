@@ -37,7 +37,6 @@ void *ShadowEnv_Acquire();
 
 #ifndef CLIENT_DLL
 // Defined in shell_frame.cpp.
-void *ShimFrame_Acquire();
 void *ShimLevel_Acquire();
 #endif
 
@@ -91,7 +90,7 @@ void *CShimRootServer::Acquire( const char *pszName )
 		return pTable;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_FRAME_VERSION ) )
-		return ShimFrame_Acquire();
+		return m_pFrame;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_LEVEL_VERSION ) )
 		return ShimLevel_Acquire();

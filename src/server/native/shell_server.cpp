@@ -54,11 +54,3 @@ void ClientActive( edict_t *pEdict, bool bLoadGame )
 
 	SourceSharp_OnClientActive( pEdict, bLoadGame );
 }
-
-void CServerGameClients::GetPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers ) const
-{
-	SOURCESHARP_TRACE();
-	minplayers = 1;
-	maxplayers = ss::kMaxPlayers; // shareddefs.h's MAX_PLAYERS
-	defaultMaxPlayers = 16;
-}

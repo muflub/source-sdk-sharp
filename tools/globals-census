@@ -1415,6 +1415,12 @@ LOCATORS = (
     "ServerEngine", "ServerFileSystem", "ServerPartition", "ServerGameStats", "ServerStringTables",
     "ServerModelInfo", "ServerStaticProps", "ServerTrace", "ServerMdlCache", "ServerEvents",
     "ServerOverlay", "ServerRandom", "SharedEdictChangeInfo",
+    # The managed areas' holders (tools/managed-areas), read the same way in the other
+    # direction: native finding the managed object it calls.
+    "ManagedBones", "ManagedClients", "ManagedCommands", "ManagedConsoleOutput", "ManagedDiagnostics",
+    "ManagedEntities", "ManagedEvents", "ManagedHierarchy", "ManagedNetState", "ManagedPhysicsFrame",
+    "ManagedPlayerCommands", "ManagedResources", "ManagedRuntimeServer", "ManagedSaveRestore",
+    "ManagedSoundEnt", "ManagedUserMessages",
 )
 LOCATOR_MANGLED = frozenset("_Z%d%sv" % (len(n), n) for n in LOCATORS)
 

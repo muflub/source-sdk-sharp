@@ -188,22 +188,26 @@ TEST( ClientMessage, ItsTypeIsClearOfTheEnginesAndFitsTheTypeField )
 
 namespace
 {
-int s_nHandled;
-
-bool CountHandled( CSourceSharpClientMessage &msg )
+class CCountingHandler : public IClientMessageHandler
 {
-	s_nHandled += msg.Owner();
-	return true;
-}
+public:
+	bool OnClientMessage( CSourceSharpClientMessage &msg ) override
+	{
+		m_nHandled += msg.Owner();
+		return true;
+	}
+
+	int m_nHandled = 0;
+};
 }
 
 TEST( ClientMessage, ProcessHandsTheMessageWithItsOwnerToTheHandler )
 {
-	CSourceSharpClientMessage m( CountHandled );
+	CCountingHandler handler;
+	CSourceSharpClientMessage m( &handler );
 	m.SetOwner( 7 );
-	s_nHandled = 0;
 
 	EXPECT_TRUE( m.Process() );
-	EXPECT_EQ( 7, s_nHandled );
+	EXPECT_EQ( 7, handler.m_nHandled );
 	EXPECT_TRUE( CSourceSharpClientMessage().Process() ); // no handler: kept, not dropped
 }

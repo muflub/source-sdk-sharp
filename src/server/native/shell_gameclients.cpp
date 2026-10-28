@@ -9,7 +9,6 @@
 // IServerGameClients: everything the engine asks the game about one player,
 // exposed under three version strings so three engine vintages can load it.
 
-#include "server_engine.h"
 #include "eiface.h"
 #include "ss_entityhandle.h"
 #include "shell_gameclients.h"
@@ -21,7 +20,6 @@
 #include "physicslink.h"
 #include "datacache/imdlcache.h"
 
-extern CGlobalVars *gpGlobals;
 void ClientActive( edict_t *pEdict, bool bLoadGame );
 void ClientPutInServer( edict_t *pEdict, const char *playername );
 void UTIL_SetClientVisibilityPVS( edict_t *pClient, const unsigned char *pvs, int pvssize );
@@ -41,13 +39,11 @@ void UTIL_SetCommandClientIndex( int index );
 #include "shell_boundary_probe.h"
 #include "shell_factory.h"
 #include "ss_string.h"
+#include "shell_managed_areas.h"
+#include "shell_diagnostics.h"
+#include "ss_shareddefs.h"
 
-// GetPlayerState's answer, never NULL: two engine sites write through it
-// unchecked, one on an edict with no entity. Orphan states are per edict, so the
-// HLTV and Replay masters don't share one.
-static CPlayerState s_OrphanPlayerStates[ABSOLUTE_PLAYER_LIMIT + 1];
-
-CPlayerState *SourceSharp_PlayerStateForEdict( edict_t *pEdict )
+CPlayerState *CServerGameClients::PlayerStateForEdict( edict_t *pEdict )
 {
 	CStandalonePlayer *pPlayer = CStandalonePlayer::FromEdict( pEdict );
 
@@ -59,15 +55,14 @@ CPlayerState *SourceSharp_PlayerStateForEdict( edict_t *pEdict )
 
 	SS_BOUNDARY_HIT( kBoundaryProbe_GetPlayerState_Null );
 
-	int nIndex = ( pEdict != NULL ) ? ServerEngine()->IndexOfEdict( pEdict ) : 0;
+	int nIndex = ( pEdict != NULL ) ? m_pEngine->IndexOfEdict( pEdict ) : 0;
 	if ( nIndex < 0 || nIndex > ABSOLUTE_PLAYER_LIMIT )
 		nIndex = 0;
-	return &s_OrphanPlayerStates[nIndex];
+	return &m_OrphanPlayerStates[nIndex];
 }
 
-// Where this client's eyes are, asked of managed code at most once per frame;
-// the block's stamp says whether this frame's answer is already held.
-bool SourceSharp_ClientViewOrigin( edict_t *pClient, Vector *pOut )
+// The block's stamp says whether this frame's answer is already held.
+bool CServerGameClients::ClientViewOrigin( edict_t *pClient, Vector *pOut )
 {
 	if ( pOut == NULL )
 		return false;
@@ -79,53 +74,22 @@ bool SourceSharp_ClientViewOrigin( edict_t *pClient, Vector *pOut )
 
 	EngineBlockServerTail_t &tail = pPlayer->Block().Server;
 
-	if ( tail.ViewOriginFrame != gpGlobals->framecount )
+	if ( tail.ViewOriginFrame != m_pGlobals->framecount )
 	{
 		float flEyes[3] = { 0.0f, 0.0f, 0.0f };
 
 		// A miss writes nothing and answers no; a zeroed flEyes is the world
 		// origin, a real position.
-		if ( !SourceSharp_EarPositionForClient( ServerEngine()->IndexOfEdict( pClient ), flEyes ) )
+		if ( !SourceSharp_EarPositionForClient( m_pEngine->IndexOfEdict( pClient ), flEyes ) )
 			return false;
 
 		tail.ViewOrigin.Init( flEyes[0], flEyes[1], flEyes[2] );
-		tail.ViewOriginFrame = gpGlobals->framecount;
+		tail.ViewOriginFrame = m_pGlobals->framecount;
 	}
 
 	*pOut = tail.ViewOrigin;
 	return true;
 }
-
-namespace
-{
-CServerGameClients s_ServerGameClients;
-}
-
-// INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_3 is compatible with the latest since we're only adding things to the end, so expose that as well.
-// Answered by the factory (shell_factory.cpp), which asks for each by its row.
-static void *SourceSharp_GetServerGameClients003()
-{
-	return (IServerGameClients003 *)&s_ServerGameClients;
-}
-
-const SourceSharpExposed kExposeServerGameClients003 = { INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_3,
-														 SourceSharp_GetServerGameClients003 };
-
-static void *SourceSharp_GetServerGameClients004()
-{
-	return (IServerGameClients004 *)&s_ServerGameClients;
-}
-
-const SourceSharpExposed kExposeServerGameClients004 = { INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_4,
-														 SourceSharp_GetServerGameClients004 };
-
-static void *SourceSharp_GetServerGameClients()
-{
-	return (IServerGameClients *)&s_ServerGameClients;
-}
-
-const SourceSharpExposed kExposeServerGameClients = { INTERFACEVERSION_SERVERGAMECLIENTS,
-													  SourceSharp_GetServerGameClients };
 
 // Called when a player tries to connect; false refuses, with the reason in reject.
 bool CServerGameClients::ClientConnect( edict_t *pEdict, const char *pszName, const char *pszAddress, char *reject,
@@ -139,36 +103,30 @@ bool CServerGameClients::ClientConnect( edict_t *pEdict, const char *pszName, co
 	return g_pGameRules->ClientConnected( pEdict, pszName, pszAddress, reject, maxrejectlen );
 }
 
-// A client's net message to the server: registered on each client's channel when
-// it goes active, and handed to managed code, which decides what it means. The
-// channel lives for the connection, so a level change keeps the registration.
-namespace
+// A client's net message to the server is registered on each client's channel when
+// it goes active. The channel lives for the connection, so a level change keeps the
+// registration.
+bool CServerGameClients::OnClientMessage( CSourceSharpClientMessage &msg )
 {
-
-// Process's answer is the engine's: false drops the client. A message nobody
-// claims, or no managed side, is not the client's fault.
-bool HandClientMessageToManaged( CSourceSharpClientMessage &msg )
-{
-	if ( IManagedClients *pApi = ManagedClients() )
+	if ( IManagedClients *pApi = m_Managed.m_pClients )
 		pApi->OnClientNetMessage( msg.Owner(), msg.Key(), msg.Data(), msg.DataLength() );
 	return true;
 }
 
-void RegisterClientMessage( int nEntIndex )
+void CServerGameClients::RegisterClientMessage( int nEntIndex )
 {
 	// A bot has no channel.
 	INetChannel *pChannel =
-		nEntIndex > 0 ? static_cast<INetChannel *>( ServerEngine()->GetPlayerNetInfo( nEntIndex ) ) : NULL;
+		nEntIndex > 0 ? static_cast<INetChannel *>( m_pEngine->GetPlayerNetInfo( nEntIndex ) ) : NULL;
 	if ( !pChannel )
 		return;
 
 	// The channel keeps it (RegisterMessage stores the pointer), so it is on
 	// the heap; a channel that has one already refuses a second.
-	CSourceSharpClientMessage *pMsg = new CSourceSharpClientMessage( HandClientMessageToManaged );
+	CSourceSharpClientMessage *pMsg = new CSourceSharpClientMessage( this );
 	pMsg->SetOwner( nEntIndex );
 	if ( !pChannel->RegisterMessage( pMsg ) )
 		delete pMsg;
-}
 }
 
 // Called when a player is fully active (ready to receive messages).
@@ -176,15 +134,15 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 {
 	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_ClientActive );
 
-	MDLCACHE_CRITICAL_SECTION_( ServerMdlCache() );
+	MDLCACHE_CRITICAL_SECTION_( m_pMdlCache );
 
 	// On a savegame load the engine skips ClientPutInServer and calls only
 	// ClientActive, and no saved entity table recreates the player, so create it
 	// here. Not fatal on failure: the map is still standing and playable.
 	if ( ShellSave_LoadGameNeedsPlayer( bLoadGame, CStandalonePlayer::FromEdict( pEdict ) != NULL ) )
 	{
-		const int nIndex = pEdict ? ServerEngine()->IndexOfEdict( pEdict ) : 0;
-		const char *pszName = nIndex > 0 ? ServerEngine()->GetClientConVarValue( nIndex, "name" ) : NULL;
+		const int nIndex = pEdict ? m_pEngine->IndexOfEdict( pEdict ) : 0;
+		const char *pszName = nIndex > 0 ? m_pEngine->GetClientConVarValue( nIndex, "name" ) : NULL;
 
 		Msg( "[SourceSharp][save] ClientActive( bLoadGame=1 ) -- the engine skipped "
 			 "ClientPutInServer, so no player exists on edict %d. Creating it here.\n",
@@ -201,11 +159,11 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 
 	// Before the managed side hears of the client: from here on it may ask the
 	// client something, and the answer comes back as this message.
-	RegisterClientMessage( pEdict ? ServerEngine()->IndexOfEdict( pEdict ) : 0 );
+	RegisterClientMessage( pEdict ? m_pEngine->IndexOfEdict( pEdict ) : 0 );
 
 	::ClientActive( pEdict, bLoadGame );
 
-	if ( gpGlobals->eLoadType != MapLoad_LoadGame )
+	if ( m_pGlobals->eLoadType != MapLoad_LoadGame )
 	{
 		// notify all entities that the player is now in the game
 	}
@@ -272,13 +230,13 @@ void CServerGameClients::ClientSettingsChanged( edict_t *pEdict )
 	// Managed fires player_changename and answers whether the player takes the
 	// new name; this carries it out.
 	CStandalonePlayer *pPlayer = CStandalonePlayer::FromEdict( pEdict );
-	IManagedClients *pApi = ManagedClients();
+	IManagedClients *pApi = m_Managed.m_pClients;
 	if ( !pPlayer || !pApi )
 		return;
 
-	const int nIndex = ServerEngine()->IndexOfEdict( pEdict );
+	const int nIndex = m_pEngine->IndexOfEdict( pEdict );
 	if ( pApi->OnClientSettingsChanged( nIndex ) )
-		pPlayer->SetPlayerName( ServerEngine()->GetClientConVarValue( nIndex, "name" ) );
+		pPlayer->SetPlayerName( m_pEngine->GetClientConVarValue( nIndex, "name" ) );
 }
 
 // Sets up the client's PVS from its view entity and eye position. Do not cache
@@ -293,7 +251,7 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 	Vector org = vec3_origin;
 
 	// Reset the PVS!!!
-	ServerEngine()->ResetPVS( pvs, pvssize );
+	m_pEngine->ResetPVS( pvs, pvssize );
 
 	// Find the client's PVS
 	if ( pViewEntity )
@@ -304,7 +262,7 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 		if ( ss::GameEntityFromEntityHandle( pViewEntity->GetUnknown() ) )
 		{
 			org = pViewEntity->GetUnknown()->GetCollideable()->GetCollisionOrigin();
-			ServerEngine()->AddOriginToPVS( org );
+			m_pEngine->AddOriginToPVS( org );
 		}
 	}
 
@@ -312,11 +270,11 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 
 	// No view origin for a client without a player, which keeps the HLTV and
 	// Replay masters out of this arm.
-	if ( SourceSharp_ClientViewOrigin( pClient, &org ) )
+	if ( ClientViewOrigin( pClient, &org ) )
 	{
 		// Only when no view entity overrode the view, as CBasePlayer::SetupVisibility.
 		if ( !pViewEntity )
-			ServerEngine()->AddOriginToPVS( org );
+			m_pEngine->AddOriginToPVS( org );
 	}
 
 	// The area portal walk is managed; it answers the engine for every portal. A
@@ -346,7 +304,7 @@ float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int nu
 	// queue, in run order, and where they end; native seeks past them.
 	(void)paused;
 
-	IManagedPlayerCommands *pCommands = ManagedPlayerCommands();
+	IManagedPlayerCommands *pCommands = m_Managed.m_pPlayerCommands;
 	if ( !pCommands )
 	{
 		// No decoder: refuse the packet, as an undecodable one is.
@@ -380,7 +338,7 @@ float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int nu
 		return 0.0f;
 
 	pStandalone->QueuedUsercmds( nQueued );
-	return gpGlobals->interval_per_tick;
+	return m_pGlobals->interval_per_tick;
 }
 
 void CServerGameClients::PostClientMessagesSent_DEPRECIATED()
@@ -416,11 +374,11 @@ void CServerGameClients::ClientEarPosition( edict_t *pEdict, Vector *pEarOrigin 
 	// Which hierarchy answers, and in which order, is decided in managed code.
 	// The answer is cached per client per frame, shared with ClientSetupVisibility.
 	// The miss path (Assert, then vec3_origin) is stock's.
-	if ( SourceSharp_ClientViewOrigin( pEdict, pEarOrigin ) )
+	if ( ClientViewOrigin( pEdict, pEarOrigin ) )
 		return;
 
 	float flEars[3] = { 0.0f, 0.0f, 0.0f };
-	if ( SourceSharp_EarPositionForClient( pEdict ? ServerEngine()->IndexOfEdict( pEdict ) : 0, flEars ) )
+	if ( SourceSharp_EarPositionForClient( pEdict ? m_pEngine->IndexOfEdict( pEdict ) : 0, flEars ) )
 	{
 		pEarOrigin->Init( flEars[0], flEars[1], flEars[2] );
 		return;
@@ -437,7 +395,7 @@ CPlayerState *CServerGameClients::GetPlayerState( edict_t *player )
 
 	// May not answer NULL: the engine writes through it for the HLTV and Replay
 	// masters before ClientPutInServer has run.
-	return SourceSharp_PlayerStateForEdict( player );
+	return PlayerStateForEdict( player );
 }
 
 // Anything this game .dll wants to add to the bug reporter text.
@@ -474,4 +432,12 @@ void CServerGameClients::ClientCommandKeyValues( edict_t *pEntity, KeyValues *pK
 	{
 		g_pGameRules->ClientCommandKeyValues( pEntity, pKeyValues );
 	}
+}
+
+void CServerGameClients::GetPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers ) const
+{
+	SOURCESHARP_TRACE();
+	minplayers = 1;
+	maxplayers = ss::kMaxPlayers; // shareddefs.h's MAX_PLAYERS
+	defaultMaxPlayers = 16;
 }

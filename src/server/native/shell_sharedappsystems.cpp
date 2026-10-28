@@ -6,56 +6,32 @@
 //=============================================================================//
 
 // SS_REASON b  an interface resolved by name at load
-//
-// IServerDLLSharedAppSystems: the two DLLs the engine loads as app systems on the game's
-// behalf (gameinterface.cpp). Necessarily native: the engine asks before DLLInit, when
-// no managed runtime exists.
+
+#include "shell_sharedappsystems.h"
 
 #include "appframework/IAppSystemGroup.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "scenefilecache/ISceneFileCache.h"
-#include "eiface.h"
-#include "shell_factory.h"
-
-#include <vector>
-
-class CServerDLLSharedAppSystems : public IServerDLLSharedAppSystems
-{
-public:
-	CServerDLLSharedAppSystems()
-	{
-		AddAppSystem( "soundemittersystem" DLL_EXT_STRING, SOUNDEMITTERSYSTEM_INTERFACE_VERSION );
-		AddAppSystem( "scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION );
-	}
-
-	virtual int Count() { return (int)m_Systems.size(); }
-
-	virtual char const *GetDllName( int idx ) { return m_Systems[idx].m_pModuleName; }
-
-	virtual char const *GetInterfaceName( int idx ) { return m_Systems[idx].m_pInterfaceName; }
-
-private:
-	void AddAppSystem( char const *moduleName, char const *interfaceName )
-	{
-		AppSystemInfo_t sys;
-		sys.m_pModuleName = moduleName;
-		sys.m_pInterfaceName = interfaceName;
-		m_Systems.push_back( sys );
-	}
-
-	std::vector<AppSystemInfo_t> m_Systems;
-};
 
 namespace
 {
-CServerDLLSharedAppSystems s_ServerDLLSharedAppSystems;
-}
+const AppSystemInfo_t kSharedAppSystems[] = {
+	{ "soundemittersystem" DLL_EXT_STRING, SOUNDEMITTERSYSTEM_INTERFACE_VERSION },
+	{ "scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION },
+};
+} // namespace
 
-// Answered by the factory (shell_factory.cpp), which asks for it by this row.
-static void *SourceSharp_GetServerDllSharedAppSystems()
+int CServerDLLSharedAppSystems::Count()
 {
-	return (IServerDLLSharedAppSystems *)&s_ServerDLLSharedAppSystems;
+	return (int)( sizeof( kSharedAppSystems ) / sizeof( kSharedAppSystems[0] ) );
 }
 
-const SourceSharpExposed kExposeServerDllSharedAppSystems = { SERVER_DLL_SHARED_APPSYSTEMS,
-															  SourceSharp_GetServerDllSharedAppSystems };
+char const *CServerDLLSharedAppSystems::GetDllName( int idx )
+{
+	return kSharedAppSystems[idx].m_pModuleName;
+}
+
+char const *CServerDLLSharedAppSystems::GetInterfaceName( int idx )
+{
+	return kSharedAppSystems[idx].m_pInterfaceName;
+}

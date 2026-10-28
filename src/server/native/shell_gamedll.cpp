@@ -7,6 +7,10 @@
 
 // SS_REASON b  an interface resolved by name at load
 
+#include "late_bound_game_clients.g.h"
+#include "late_bound_game_ents.g.h"
+#include "shell_gametags.h"
+#include "shell_sharedappsystems.h"
 #include "tier_connect.h"
 
 #include "eiface.h"
@@ -85,7 +89,8 @@ public:
 		Dll()->m_Engine.m_pChangeInfo = m_pEngine->GetSharedEdictChangeInfo();
 
 		// Before the runtime loads: managed acquires the areas these implement.
-		Dll()->m_pServices = std::make_unique<CServerDllServices>( m_pEngine, pGlobals );
+		Dll()->m_pServices =
+			std::make_unique<CServerDllServices>( Dll()->m_Engine, pGlobals, m_Managed.m_Areas, m_TransmitSet );
 		BindServiceAreas( Dll()->m_pServices.get() );
 
 		ConVar_Register( FCVAR_GAMEDLL, this );
@@ -520,6 +525,15 @@ public:
 
 	CShimRootServer &ShimRoot() { return m_ShimRoot; }
 
+	// The engine fetches this when it loads the DLL, before DLLInit.
+	IServerGameClients *GameClients() { return &m_GameClients; }
+
+	IServerGameEnts *GameEnts() { return &m_GameEnts; }
+
+	IServerGameTags *GameTags() { return &m_GameTags; }
+
+	IServerDLLSharedAppSystems *SharedAppSystems() { return &m_SharedAppSystems; }
+
 private:
 	void ShellGameDll_Unreachable( const char *pMethod )
 	{
@@ -534,6 +548,11 @@ private:
 	void BindServiceAreas( CServerDllServices *pServices )
 	{
 		m_ShimRoot.m_Areas.m_pUserMessages = pServices ? &pServices->m_UserMessages : nullptr;
+		m_ShimRoot.m_Areas.m_pDebugOverlay = pServices ? &pServices->m_DebugOverlays : nullptr;
+		m_ShimRoot.m_pFrame = pServices ? &pServices->m_Frame : nullptr;
+		m_ShimRoot.m_Console.m_pServices = pServices;
+		m_GameClients.Bind( pServices ? &pServices->m_GameClients : nullptr );
+		m_GameEnts.Bind( pServices ? &pServices->m_GameEnts : nullptr );
 	}
 
 	static const char *Answer( const char *pBuffer, int nSize, int nWritten )
@@ -576,6 +595,13 @@ private:
 
 	// The object handed to managed at load; every other area is acquired from it.
 	CShimRootServer m_ShimRoot;
+
+	CLateBoundServerGameClients m_GameClients;
+	CLateBoundServerGameEnts m_GameEnts;
+
+	// Asked for at load, before DLLInit; they need nothing.
+	CServerGameTags m_GameTags;
+	CServerDLLSharedAppSystems m_SharedAppSystems;
 };
 
 namespace
@@ -583,8 +609,7 @@ namespace
 CShellGameDll s_gameShellDll;
 }
 
-// The recording seam shell_steporder.h declares; shell_gameents.cpp records
-// through it without seeing CShellGameDll. Not compiled out of release builds.
+// The managed holders, for code not yet handed them.
 CManagedHolders &ShellGameDll_Managed()
 {
 	return s_gameShellDll.Managed();
@@ -605,21 +630,6 @@ CShimRootServer &ShellGameDll_ShimRoot()
 	return s_gameShellDll.ShimRoot();
 }
 
-bool ShellGameDll_TransmitCaptureBegin( int nRecipientEdict )
-{
-	return s_gameShellDll.TransmitSet().BeginCapture( nRecipientEdict );
-}
-
-void ShellGameDll_TransmitCaptureMark( int iEdict )
-{
-	s_gameShellDll.TransmitSet().Mark( iEdict );
-}
-
-void ShellGameDll_TransmitCaptureSkyboxArea( int nArea )
-{
-	s_gameShellDll.TransmitSet().SetSkyboxArea( nArea );
-}
-
 CShellTransmitSet &ShellGameDll_TransmitSet()
 {
 	return s_gameShellDll.TransmitSet();
@@ -631,6 +641,41 @@ static void *SourceSharp_GetServerGameDll()
 }
 
 const SourceSharpExposed kExposeServerGameDll = { INTERFACEVERSION_SERVERGAMEDLL, SourceSharp_GetServerGameDll };
+
+static void *SourceSharp_GetServerGameEnts()
+{
+	return s_gameShellDll.GameEnts();
+}
+
+const SourceSharpExposed kExposeServerGameEnts = { INTERFACEVERSION_SERVERGAMEENTS, SourceSharp_GetServerGameEnts };
+
+static void *SourceSharp_GetServerGameTags()
+{
+	return s_gameShellDll.GameTags();
+}
+
+const SourceSharpExposed kExposeServerGameTags = { INTERFACEVERSION_SERVERGAMETAGS, SourceSharp_GetServerGameTags };
+
+static void *SourceSharp_GetServerDllSharedAppSystems()
+{
+	return s_gameShellDll.SharedAppSystems();
+}
+
+const SourceSharpExposed kExposeServerDllSharedAppSystems = { SERVER_DLL_SHARED_APPSYSTEMS,
+															  SourceSharp_GetServerDllSharedAppSystems };
+
+// IServerGameClients only appends, so one object answers all three versions.
+static void *SourceSharp_GetServerGameClients()
+{
+	return s_gameShellDll.GameClients();
+}
+
+const SourceSharpExposed kExposeServerGameClients = { INTERFACEVERSION_SERVERGAMECLIENTS,
+													  SourceSharp_GetServerGameClients };
+const SourceSharpExposed kExposeServerGameClients004 = { INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_4,
+														 SourceSharp_GetServerGameClients };
+const SourceSharpExposed kExposeServerGameClients003 = { INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_3,
+														 SourceSharp_GetServerGameClients };
 
 // When bumping the version to this interface, check that our assumption is
 // still valid and expose the older version in the same way.

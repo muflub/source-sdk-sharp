@@ -3883,6 +3883,50 @@ ss_cpptest(shell_usermessage_send_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_usermessage_send_test.cpp
             ${PROJECT_SOURCE_DIR}/src/server/native/shell_usermessage_send.cpp
             ${PROJECT_SOURCE_DIR}/src/server/native/ss_recipient_filter.cpp)
+# shell_debugoverlays.cpp: CServerDebugOverlays over the overlay library and the
+# generated IVDebugOverlay fake (tools/native-fakes), on the server's vendor headers.
+ss_cpptest_mathlib(shell_debugoverlays_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field  # vendor's byte-run fields, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_debugoverlays_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/shell_debugoverlays.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/overlay_library.cpp)
+# shell_gameclients.cpp: CServerGameClients and its root-held forwarder over generated
+# fakes (tools/native-fakes); a client with no player throughout. Links tier1 for bf_read.
+ss_cpptest_mathlib(shell_gameclients_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field  # vendor's byte-run fields, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_gameclients_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/shell_gameclients.cpp)
+# shell_gameents.cpp: CServerGameEnts' transmit walk and its root-held forwarder over
+# generated fakes (tools/native-fakes).
+ss_cpptest_mathlib(shell_gameents_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field  # vendor's byte-run fields, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_gameents_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/shell_gameents.cpp)
+# shell_sharedappsystems.cpp: the app systems the engine loads for the game.
+ss_cpptest(shell_sharedappsystems_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+            _DLL_EXT=.so
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field  # vendor's byte-run fields, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/shell_sharedappsystems_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/server/native/shell_sharedappsystems.cpp)
 # ss_command_line.h: this process's own argv from /proc/self/cmdline, in place of
 # tier0's CommandLine() (P4). Links no tier0. Built as the client's arm: the
 # Value half is client-only since the server gc cull (server.so never reads a value).
@@ -4078,7 +4122,7 @@ ss_cpptest(ss_bitblock_test
 # the level reset is structural only if a Begin after an End is a new object.
 ss_cpptest(server_state_test
     DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
     INCLUDES ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
              ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub public public/tier0 public/tier1 common
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/server_state_test.cpp)

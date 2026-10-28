@@ -247,17 +247,6 @@ public:
 	int32_t TempEntBuild( const void *pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t *pOut ) override;
 };
 
-class CShimDebugOverlay final : public IShimDebugOverlay
-{
-public:
-	int32_t DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char *pText, float flDuration, int32_t r,
-							   int32_t g, int32_t b, int32_t a ) override;
-	void AddLineOverlay( const float *pStartXYZ, const float *pEndXYZ, int32_t r, int32_t g, int32_t b,
-						 int32_t bNoDepthTest, float flDuration ) override;
-	void OverlayCounts( uint32_t *pOutDrawn, uint32_t *pOutClipped, uint32_t *pOutNoViewer, uint32_t *pOutNoOverlay,
-						int32_t *pOutViewerSet ) override;
-};
-
 class CShimDiagnostics final : public IShimDiagnostics
 {
 public:
@@ -287,7 +276,7 @@ struct CShimAreas
 	CShimGameRules m_GameRules;
 	CShimPlayers m_Players;
 	CShimEffectsServer m_EffectsServer;
-	CShimDebugOverlay m_DebugOverlay;
+	IShimDebugOverlay *m_pDebugOverlay = nullptr; // CServerDebugOverlays
 	IShimUserMessages *m_pUserMessages = nullptr; // CServerUserMessages
 	CShimDiagnostics m_Diagnostics;
 };

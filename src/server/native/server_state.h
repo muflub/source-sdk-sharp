@@ -23,6 +23,7 @@
 #include "world_nettable.h"
 #include "standalone_player_sync.h"
 #include "ss_shareddefs.h"
+#include "server_engine_interfaces.h"
 #include "server_services.h"
 
 #include <memory>
@@ -172,26 +173,6 @@ public:
 	CServerPlayersLevel &operator=( const CServerPlayersLevel & ) = delete;
 
 	CStandalonePlayer *m_pByIndex[ss::kMaxPlayers + 1] = {};
-};
-
-// Engine interfaces the server acquires in DLLInit (SourceSharp_AcquireEngineInterfaces)
-// and reads through the accessors below; valid until DLLShutdown.
-class CServerEngineInterfaces
-{
-public:
-	IVEngineServer *m_pEngine = nullptr;
-	IFileSystem *m_pFileSystem = nullptr;
-	ISpatialPartition *m_pPartition = nullptr;
-	IUploadGameStats *m_pGameStats = nullptr;
-	INetworkStringTableContainer *m_pStringTables = nullptr;
-	IVModelInfo *m_pModelInfo = nullptr;
-	IStaticPropMgrServer *m_pStaticProps = nullptr;
-	IEngineTrace *m_pTrace = nullptr;
-	IMDLCache *m_pMdlCache = nullptr;
-	IGameEventManager2 *m_pEvents = nullptr;
-	IVDebugOverlay *m_pOverlay = nullptr;
-	IUniformRandomStream *m_pRandom = nullptr;
-	CSharedEdictChangeInfo *m_pChangeInfo = nullptr;
 };
 
 // The length of variant_t::ToString's answer buffer.

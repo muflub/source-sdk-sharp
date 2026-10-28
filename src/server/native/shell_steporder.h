@@ -83,9 +83,3 @@ private:
 	int m_nOnlyRecipient = -1;
 	bool m_bCaptured = false;
 };
-
-// Defined by whoever links the header: the shell in the game, a recorder in the
-// gtest. CheckTransmit calls these rather than reaching CShellGameDll.
-bool ShellGameDll_TransmitCaptureBegin( int nRecipientEdict );
-void ShellGameDll_TransmitCaptureMark( int iEdict );
-void ShellGameDll_TransmitCaptureSkyboxArea( int nArea );

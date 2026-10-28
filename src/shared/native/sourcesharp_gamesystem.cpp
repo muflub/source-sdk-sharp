@@ -295,12 +295,13 @@ static const CNativeCommandBody *NativeBodyFor( const char *pName )
 class CSourceSharpCommand final : public ICommandCallback
 {
 public:
-	CSourceSharpCommand( int nId, const char *pName, const char *pHelp, int nFlags )
+	CSourceSharpCommand( int nId, const char *pName, const char *pHelp, int nFlags, CServerDllServices *pServices )
 		: m_nId( nId )
 		, m_Name( pName ? pName : "" )
 		, m_Help( pHelp ? pHelp : "" )
 		, m_Command( m_Name.c_str(), this, m_Help.c_str(), nFlags )
 		, m_pNativeBody( NativeBodyFor( m_Name.c_str() ) )
+		, m_pServices( pServices )
 	{
 	}
 
@@ -309,7 +310,10 @@ public:
 		// A native body runs on the engine's CCommand with no crossing.
 		if ( m_pNativeBody )
 		{
-			m_pNativeBody->Run( command );
+			if ( m_pServices )
+				m_pNativeBody->Run( command, *m_pServices );
+			else
+				Warning( "[SourceSharp] '%s' ignored: no DLL tier\n", command.Arg( 0 ) );
 			return;
 		}
 
@@ -342,6 +346,7 @@ private:
 	std::string m_Help;
 	ConCommand m_Command;
 	const CNativeCommandBody *m_pNativeBody;
+	CServerDllServices *m_pServices;
 };
 
 static CConsoleRegistry<CSourceSharpCommand> g_SourceSharpCommands;
@@ -554,7 +559,7 @@ int32_t CShimConsole::RegisterConCommand( const char *pName, const char *pHelp, 
 #endif
 
 	const int nId = g_SourceSharpCommands.NextId();
-	g_SourceSharpCommands.Add( pName, new CSourceSharpCommand( nId, pName, pHelp ? pHelp : "", nFlags ) );
+	g_SourceSharpCommands.Add( pName, new CSourceSharpCommand( nId, pName, pHelp ? pHelp : "", nFlags, m_pServices ) );
 
 	if ( SourceSharp_GetVerbosity() > 0 )
 		::Msg( "[SourceSharp] C# registered console command '%s' (id %d, flags 0x%x)\n", pName, nId, nFlags );

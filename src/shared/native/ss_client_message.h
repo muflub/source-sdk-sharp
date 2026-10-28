@@ -26,12 +26,20 @@
 #define SOURCESHARP_CLIENT_MESSAGE_LENGTH_BITS 13
 #define SOURCESHARP_CLIENT_MESSAGE_MAX_BYTES 4096
 
+class CSourceSharpClientMessage;
+
+// The server's: handed each message Process reads. Its answer is Process's, and
+// false makes the engine drop the client.
+class IClientMessageHandler
+{
+public:
+	virtual bool OnClientMessage( CSourceSharpClientMessage &msg ) = 0;
+};
+
 class CSourceSharpClientMessage : public INetMessage
 {
 public:
-	// The server's: called by Process with the message just read. Its answer
-	// is Process's, and false makes the engine drop the client.
-	typedef bool ( *Handler )( CSourceSharpClientMessage &msg );
+	typedef IClientMessageHandler *Handler;
 
 	// The client's: writes the type, then the wire above, with tier1's bf_write.
 	typedef bool ( *Writer )( const CSourceSharpClientMessage &msg, bf_write &buffer );
@@ -84,7 +92,7 @@ public:
 
 	virtual void SetReliable( bool state ) OVERRIDE { m_bReliable = state; }
 
-	virtual bool Process() OVERRIDE { return m_pHandler ? m_pHandler( *this ) : true; }
+	virtual bool Process() OVERRIDE { return m_pHandler ? m_pHandler->OnClientMessage( *this ) : true; }
 
 	virtual bool ReadFromBuffer( bf_read &buffer ) OVERRIDE
 	{

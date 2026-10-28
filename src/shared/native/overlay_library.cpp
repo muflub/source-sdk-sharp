@@ -13,121 +13,43 @@
 #include "engine/ivdebugoverlay.h"
 #include "tier1/strtools.h"
 
-#include "server_engine.h"
-
 // Stock's MAX_OVERLAY_DIST_SQR.
 #define OVERLAY_MAX_DIST_SQR 90000000.0f
 
-namespace
+COverlayLibrary::COverlayLibrary( IVDebugOverlay *pOverlay )
+	: m_pOverlay( pOverlay )
+	, m_Viewer{ Vector( 0, 0, 0 ), Vector( 0, 0, 0 ), false }
+	, m_Counts{ 0, 0, 0, 0 }
+	, m_nNextPoolLine( 0 )
 {
-
-struct OverlayViewer_t
-{
-	Vector vecOrigin;
-	Vector vecForward;
-	bool bSet;
-};
-
-OverlayViewer_t &ViewerRef()
-{
-	static OverlayViewer_t s_Viewer = { Vector( 0, 0, 0 ), Vector( 0, 0, 0 ), false };
-	return s_Viewer;
+	for ( PoolLine_t &line : m_Pool )
+		line = { Vector( 0, 0, 0 ), Vector( 0, 0, 0 ), 255, 255, 255, true, false };
 }
 
-OverlayCounts_t &CountsRef()
+bool COverlayLibrary::HaveOverlay()
 {
-	static OverlayCounts_t s_Counts = { 0, 0, 0, 0 };
-	return s_Counts;
-}
-
-// ndebugoverlay.h's OverlayLine_t, restated so that header is not needed.
-struct OverlayPoolLine_t
-{
-	Vector vecOrigin;
-	Vector vecDest;
-	int r;
-	int g;
-	int b;
-	bool bNoDepthTest;
-	bool bDraw;
-};
-
-struct OverlayPool_t
-{
-	OverlayPoolLine_t lines[OVERLAY_POOL_LINES];
-	int nNext; // the slot the next AddLine writes
-};
-
-OverlayPool_t &PoolRef()
-{
-	static OverlayPool_t s_Pool;
-	static bool s_bInitialised = false;
-	if ( !s_bInitialised )
-	{
-		for ( int i = 0; i < OVERLAY_POOL_LINES; i++ )
-		{
-			s_Pool.lines[i].vecOrigin.Init();
-			s_Pool.lines[i].vecDest.Init();
-			s_Pool.lines[i].r = 255;
-			s_Pool.lines[i].g = 255;
-			s_Pool.lines[i].b = 255;
-			s_Pool.lines[i].bNoDepthTest = true;
-			s_Pool.lines[i].bDraw = false;
-		}
-		s_Pool.nNext = 0;
-		s_bInitialised = true;
-	}
-	return s_Pool;
-}
-
-// Counts calls made with no overlay interface.
-bool HaveOverlay()
-{
-	if ( ServerOverlay() )
+	if ( m_pOverlay )
 		return true;
 
-	CountsRef().nNoOverlay++;
+	m_Counts.nNoOverlay++;
 	return false;
 }
 
-} // anonymous namespace
-
-const OverlayCounts_t &Overlay_Counts()
+void COverlayLibrary::ResetCounts()
 {
-	return CountsRef();
+	m_Counts = { 0, 0, 0, 0 };
 }
 
-void Overlay_ResetCounts()
+void COverlayLibrary::SetViewer( const Vector &vecEyeOrigin, const Vector &vecEyeForward )
 {
-	OverlayCounts_t &c = CountsRef();
-	c.nDrawn = 0;
-	c.nClipped = 0;
-	c.nNoViewer = 0;
-	c.nNoOverlay = 0;
+	m_Viewer.vecOrigin = vecEyeOrigin;
+	m_Viewer.vecForward = vecEyeForward;
+	m_Viewer.bSet = true;
 }
 
-void Overlay_SetViewer( const Vector &vecEyeOrigin, const Vector &vecEyeForward )
+bool COverlayLibrary::SegmentIsVisible( const Vector &vecStart, const Vector &vecEnd ) const
 {
-	OverlayViewer_t &v = ViewerRef();
-	v.vecOrigin = vecEyeOrigin;
-	v.vecForward = vecEyeForward;
-	v.bSet = true;
-}
-
-void Overlay_ClearViewer()
-{
-	ViewerRef().bSet = false;
-}
-
-bool Overlay_ViewerIsSet()
-{
-	return ViewerRef().bSet;
-}
-
-// Stock keeps a line when either end is in range and either end is in front of the eye.
-bool Overlay_SegmentIsVisible( const Vector &vecStart, const Vector &vecEnd )
-{
-	const OverlayViewer_t &v = ViewerRef();
+	const Viewer_t &v = m_Viewer;
 	if ( !v.bSet )
 		return false;
 
@@ -144,24 +66,24 @@ bool Overlay_SegmentIsVisible( const Vector &vecStart, const Vector &vecEnd )
 	return true;
 }
 
-void Overlay_BoxAngles( const Vector &origin, const Vector &mins, const Vector &maxs, const QAngle &angles, int r,
-						int g, int b, int a, float flDuration )
+void COverlayLibrary::BoxAngles( const Vector &origin, const Vector &mins, const Vector &maxs, const QAngle &angles,
+								 int r, int g, int b, int a, float flDuration )
 {
 	if ( !HaveOverlay() )
 		return;
 
-	ServerOverlay()->AddBoxOverlay( origin, mins, maxs, angles, r, g, b, a, flDuration );
-	CountsRef().nDrawn++;
+	m_pOverlay->AddBoxOverlay( origin, mins, maxs, angles, r, g, b, a, flDuration );
+	m_Counts.nDrawn++;
 }
 
-void Overlay_Box( const Vector &origin, const Vector &mins, const Vector &maxs, int r, int g, int b, int a,
-				  float flDuration )
+void COverlayLibrary::Box( const Vector &origin, const Vector &mins, const Vector &maxs, int r, int g, int b, int a,
+						   float flDuration )
 {
-	Overlay_BoxAngles( origin, mins, maxs, vec3_angle, r, g, b, a, flDuration );
+	BoxAngles( origin, mins, maxs, vec3_angle, r, g, b, a, flDuration );
 }
 
-void Overlay_TextAtPosition( const Vector &origin, int nLineOffset, const char *pText, float flDuration, int r, int g,
-							 int b, int a )
+void COverlayLibrary::TextAtPosition( const Vector &origin, int nLineOffset, const char *pText, float flDuration, int r,
+									  int g, int b, int a )
 {
 	if ( !pText )
 		return;
@@ -169,66 +91,51 @@ void Overlay_TextAtPosition( const Vector &origin, int nLineOffset, const char *
 	if ( !HaveOverlay() )
 		return;
 
-	ServerOverlay()->AddTextOverlayRGB( origin, nLineOffset, flDuration, r, g, b, a, "%s", pText );
-	CountsRef().nDrawn++;
+	m_pOverlay->AddTextOverlayRGB( origin, nLineOffset, flDuration, r, g, b, a, "%s", pText );
+	m_Counts.nDrawn++;
 }
 
-void Overlay_ClearAll()
+void COverlayLibrary::ClearAll()
 {
 	if ( !HaveOverlay() )
 		return;
 
-	ServerOverlay()->ClearAllOverlays();
+	m_pOverlay->ClearAllOverlays();
 }
 
-void Overlay_Line( const Vector &origin, const Vector &target, int r, int g, int b, bool bNoDepthTest,
-				   float flDuration )
+void COverlayLibrary::Line( const Vector &origin, const Vector &target, int r, int g, int b, bool bNoDepthTest,
+							float flDuration )
 {
-	if ( !Overlay_ViewerIsSet() )
+	if ( !ViewerIsSet() )
 	{
-		CountsRef().nNoViewer++;
+		m_Counts.nNoViewer++;
 		return;
 	}
 
-	if ( !Overlay_SegmentIsVisible( origin, target ) )
+	if ( !SegmentIsVisible( origin, target ) )
 	{
-		CountsRef().nClipped++;
+		m_Counts.nClipped++;
 		return;
 	}
 
 	if ( !HaveOverlay() )
 		return;
 
-	ServerOverlay()->AddLineOverlay( origin, target, r, g, b, bNoDepthTest, flDuration );
-	CountsRef().nDrawn++;
+	m_pOverlay->AddLineOverlay( origin, target, r, g, b, bNoDepthTest, flDuration );
+	m_Counts.nDrawn++;
 }
 
-void Overlay_AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDepthTest, int r, int g, int b )
+void COverlayLibrary::AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDepthTest, int r, int g, int b )
 {
-	OverlayPool_t &pool = PoolRef();
-
-	OverlayPoolLine_t &line = pool.lines[pool.nNext];
-	line.vecOrigin = vecStart;
-	line.vecDest = vecEnd;
-	line.bNoDepthTest = bNoDepthTest;
-	line.r = r;
-	line.g = g;
-	line.b = b;
-	line.bDraw = true;
-
-	pool.nNext = ( pool.nNext + 1 ) % OVERLAY_POOL_LINES;
+	m_Pool[m_nNextPoolLine] = { vecStart, vecEnd, r, g, b, bNoDepthTest, true };
+	m_nNextPoolLine = ( m_nNextPoolLine + 1 ) % kPoolLines;
 }
 
-void Overlay_DrawPooledLines()
+void COverlayLibrary::DrawPooledLines()
 {
-	OverlayPool_t &pool = PoolRef();
-
-	for ( int i = 0; i < OVERLAY_POOL_LINES; i++ )
+	for ( const PoolLine_t &line : m_Pool )
 	{
-		if ( !pool.lines[i].bDraw )
-			continue;
-
-		Overlay_Line( pool.lines[i].vecOrigin, pool.lines[i].vecDest, pool.lines[i].r, pool.lines[i].g, pool.lines[i].b,
-					  pool.lines[i].bNoDepthTest, 0 );
+		if ( line.bDraw )
+			Line( line.vecOrigin, line.vecDest, line.r, line.g, line.b, line.bNoDepthTest, 0 );
 	}
 }

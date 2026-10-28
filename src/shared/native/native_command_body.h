@@ -8,11 +8,13 @@
 #include "ss_platform.h"
 
 class CCommand;
+class CServerDllServices;
 
 class CNativeCommandBody
 {
 public:
-	typedef void ( *Fn )( const CCommand &args );
+	// A body is handed the DLL tier's services, which it reads instead of finding them.
+	typedef void ( *Fn )( const CCommand &args, CServerDllServices &services );
 
 	CNativeCommandBody( const char *pName, Fn pfn )
 		: m_pName( pName )
@@ -24,7 +26,7 @@ public:
 
 	const char *Name() const { return m_pName; }
 
-	void Run( const CCommand &args ) const { m_pfn( args ); }
+	void Run( const CCommand &args, CServerDllServices &services ) const { m_pfn( args, services ); }
 
 	// Case-insensitive, as the console is. NULL when no body has that name.
 	static const CNativeCommandBody *Find( const char *pName )
@@ -56,7 +58,7 @@ private:
 	const CNativeCommandBody *m_pNext;
 };
 
-#define SS_NATIVE_COMMAND( name )                                                            \
-	static void SSNativeCommand_##name( const CCommand &args );                              \
-	static CNativeCommandBody s_SSNativeCommandBody_##name( #name, SSNativeCommand_##name ); \
-	static void SSNativeCommand_##name( const CCommand &args )
+#define SS_NATIVE_COMMAND( name )                                                             \
+	static void SSNativeCommand_##name( const CCommand &args, CServerDllServices &services ); \
+	static CNativeCommandBody s_SSNativeCommandBody_##name( #name, SSNativeCommand_##name );  \
+	static void SSNativeCommand_##name( const CCommand &args, CServerDllServices &services )

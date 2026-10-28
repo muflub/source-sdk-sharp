@@ -53,22 +53,18 @@ void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 116 slots.
+// SERVER ONLY -- 113 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
 //---------------------------------------------------------------------------
 #ifndef CLIENT_DLL
-void SourceSharp_AddLineOverlay( const float *pStartXYZ, const float *pEndXYZ, int32_t r, int32_t g, int32_t b,
-								 int32_t bNoDepthTest, float flDuration );
 void SourceSharp_ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType );
 void SourceSharp_ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,
 								   const float *pForceXYZ, const float *pPositionXYZ );
 int32_t SourceSharp_ClientsStandalonePlayerEarPosition( int32_t iEdict, float *pOutXYZ );
 uint32_t SourceSharp_CreateEntity( const char *pClassName );
 void SourceSharp_DestroyShell( const uint32_t *pHandles, int32_t nCount );
-int32_t SourceSharp_DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char *pText, float flDuration, int32_t r,
-									   int32_t g, int32_t b, int32_t a );
 int32_t SourceSharp_EntitiesInSphere( const float *pCenterXYZ, float flRadius, uint32_t *pOutHandles, int32_t nMax );
 int32_t SourceSharp_EntitiesInvalidateMdlCacheAll();
 int32_t SourceSharp_EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t *pOutArea );
@@ -154,8 +150,6 @@ uint32_t SourceSharp_MapSpawnCreate( const char *pClassName, const char *pPacked
 void SourceSharp_MoveTraceServer( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ,
 								  const float *pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup,
 								  SourceSharpMoveTraceResult *pOut, void *pFilter, uint32_t *pOutHandles );
-void SourceSharp_OverlayCounts( uint32_t *pOutDrawn, uint32_t *pOutClipped, uint32_t *pOutNoViewer,
-								uint32_t *pOutNoOverlay, int32_t *pOutViewerSet );
 void *SourceSharp_PhysicsEnvironmentPointer();
 int32_t SourceSharp_PhysicsUpdateOwners( void **ppObjects, float *pVelocities, int32_t nCount, uint32_t *pOutOwners );
 void *SourceSharp_PhysicsWorldObject();

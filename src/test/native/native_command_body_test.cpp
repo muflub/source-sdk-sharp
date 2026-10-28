@@ -20,6 +20,13 @@ public:
 	int m_nMarker;
 };
 
+// The test's stand-in for the DLL tier's services a body is handed.
+class CServerDllServices
+{
+public:
+	int m_nSeen = 0;
+};
+
 namespace
 {
 
@@ -35,6 +42,7 @@ SS_NATIVE_COMMAND( ss_test_body_alpha )
 SS_NATIVE_COMMAND( ss_test_body_beta )
 {
 	g_nCalledWith = -args.m_nMarker;
+	services.m_nSeen = args.m_nMarker;
 }
 
 TEST( NativeCommandBody, EveryBodyDefinedIsOnTheList )
@@ -56,8 +64,10 @@ TEST( NativeCommandBody, FindAnswersTheBodyOfThatNameAndRunsIt )
 	CCommand args;
 	args.m_nMarker = 7;
 	g_nCalledWith = 0;
-	p->Run( args );
+	CServerDllServices services;
+	p->Run( args, services );
 	EXPECT_EQ( -7, g_nCalledWith );
+	EXPECT_EQ( 7, services.m_nSeen ) << "the body was not handed the services Run was given";
 }
 
 TEST( NativeCommandBody, FindIgnoresCaseAsTheConsoleDoes )

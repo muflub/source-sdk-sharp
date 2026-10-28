@@ -12,6 +12,8 @@
 
 #include "mathlib/vector.h"
 
+class IVDebugOverlay;
+
 // Per-outcome call counts, so "nothing drawn" can be told from "nothing asked".
 //
 //   nDrawn      calls that reached IVDebugOverlay
@@ -26,35 +28,73 @@ struct OverlayCounts_t
 	unsigned int nNoOverlay;
 };
 
-const OverlayCounts_t &Overlay_Counts();
-void Overlay_ResetCounts();
-
-// Set once per frame from the local player's eye; cleared when there is none.
-void Overlay_SetViewer( const Vector &vecEyeOrigin, const Vector &vecEyeForward );
-void Overlay_ClearViewer();
-bool Overlay_ViewerIsSet();
-
-// Stock's clip: keeps a line when either end is in range and either end is in front of the eye.
-bool Overlay_SegmentIsVisible( const Vector &vecStart, const Vector &vecEnd );
-
-// Unclipped: straight to IVDebugOverlay, as in stock.
-void Overlay_BoxAngles( const Vector &origin, const Vector &mins, const Vector &maxs, const QAngle &angles, int r,
-						int g, int b, int a, float flDuration );
-void Overlay_Box( const Vector &origin, const Vector &mins, const Vector &maxs, int r, int g, int b, int a,
-				  float flDuration );
-void Overlay_TextAtPosition( const Vector &origin, int nLineOffset, const char *pText, float flDuration, int r, int g,
-							 int b, int a );
-void Overlay_ClearAll();
-
-// Clipped against the viewer; counts the branch it took.
-void Overlay_Line( const Vector &origin, const Vector &target, int r, int g, int b, bool bNoDepthTest,
-				   float flDuration );
-
-// Twenty slots, oldest reused, drawn once a frame. The caller decides the colour.
-enum
+class COverlayLibrary
 {
-	OVERLAY_POOL_LINES = 20
-};
+public:
+	// Twenty pooled slots, oldest reused, drawn once a frame. The caller decides the colour.
+	static constexpr int kPoolLines = 20;
 
-void Overlay_AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDepthTest, int r, int g, int b );
-void Overlay_DrawPooledLines();
+	// pOverlay may be NULL (a dedicated server): draws are then counted, not made.
+	explicit COverlayLibrary( IVDebugOverlay *pOverlay );
+
+	COverlayLibrary( const COverlayLibrary & ) = delete;
+	COverlayLibrary &operator=( const COverlayLibrary & ) = delete;
+
+	const OverlayCounts_t &Counts() const { return m_Counts; }
+
+	void ResetCounts();
+
+	// Set once per frame from the local player's eye; cleared when there is none.
+	void SetViewer( const Vector &vecEyeOrigin, const Vector &vecEyeForward );
+
+	void ClearViewer() { m_Viewer.bSet = false; }
+
+	bool ViewerIsSet() const { return m_Viewer.bSet; }
+
+	// Stock's clip: keeps a line when either end is in range and either end is in front of the eye.
+	bool SegmentIsVisible( const Vector &vecStart, const Vector &vecEnd ) const;
+
+	// Unclipped: straight to IVDebugOverlay, as in stock.
+	void BoxAngles( const Vector &origin, const Vector &mins, const Vector &maxs, const QAngle &angles, int r, int g,
+					int b, int a, float flDuration );
+	void Box( const Vector &origin, const Vector &mins, const Vector &maxs, int r, int g, int b, int a,
+			  float flDuration );
+	void TextAtPosition( const Vector &origin, int nLineOffset, const char *pText, float flDuration, int r, int g,
+						 int b, int a );
+	void ClearAll();
+
+	// Clipped against the viewer; counts the branch it took.
+	void Line( const Vector &origin, const Vector &target, int r, int g, int b, bool bNoDepthTest, float flDuration );
+
+	void AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDepthTest, int r, int g, int b );
+	void DrawPooledLines();
+
+private:
+	struct Viewer_t
+	{
+		Vector vecOrigin;
+		Vector vecForward;
+		bool bSet;
+	};
+
+	// ndebugoverlay.h's OverlayLine_t, restated so that header is not needed.
+	struct PoolLine_t
+	{
+		Vector vecOrigin;
+		Vector vecDest;
+		int r;
+		int g;
+		int b;
+		bool bNoDepthTest;
+		bool bDraw;
+	};
+
+	// Counts a call made with no overlay interface.
+	bool HaveOverlay();
+
+	IVDebugOverlay *m_pOverlay;
+	Viewer_t m_Viewer;
+	OverlayCounts_t m_Counts;
+	PoolLine_t m_Pool[kPoolLines];
+	int m_nNextPoolLine;
+};
