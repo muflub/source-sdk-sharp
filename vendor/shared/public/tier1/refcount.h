@@ -1,20 +1,10 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Tools for correctly implementing & handling reference counted
 //			objects
-//
-//=============================================================================
 
-#ifndef REFCOUNT_H
-#define REFCOUNT_H
+#pragma once
 
 #include "tier0/threadtools.h"
-
-#if defined( _WIN32 )
-#pragma once
-#endif
-
-
 
 template <typename T>
 inline void SafeRelease( T** ppInoutPtr )
@@ -26,11 +16,9 @@ inline void SafeRelease( T** ppInoutPtr )
 	( *ppInoutPtr ) = NULL;
 }
 
-//-----------------------------------------------------------------------------
 // Purpose:	Implement a standard reference counted interface. Use of this
 //			is optional insofar as all the concrete tools only require
 //			at compile time that the function signatures match.
-//-----------------------------------------------------------------------------
 
 class IRefCounted
 {
@@ -39,10 +27,7 @@ public:
 	virtual int Release() = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose:	Release a pointer and mark it NULL
-//-----------------------------------------------------------------------------
 
 template <class REFCOUNTED_ITEM_PTR>
 inline int SafeRelease( REFCOUNTED_ITEM_PTR &pRef )
@@ -58,9 +43,7 @@ inline int SafeRelease( REFCOUNTED_ITEM_PTR &pRef )
 	return 0;
 }
 
-//-----------------------------------------------------------------------------
 // Purpose:	Maintain a reference across a scope
-//-----------------------------------------------------------------------------
 
 template <class T = IRefCounted>
 class CAutoRef
@@ -83,19 +66,13 @@ private:
    T *m_pRef;
 };
 
-//-----------------------------------------------------------------------------
 // Purpose:	Do a an inline AddRef then return the pointer, useful when
 //			returning an object from a function
-//-----------------------------------------------------------------------------
 
 #define RetAddRef( p ) ( (p)->AddRef(), (p) )
 
-
-
-//-----------------------------------------------------------------------------
 // Purpose:	A class to both hold a pointer to an object and its reference.
 //			Base exists to support other cleanup models
-//-----------------------------------------------------------------------------
 
 template <class T>
 class CBaseAutoPtr
@@ -111,34 +88,15 @@ public:
 	operator const T *()          							{ return m_pObject; }
 	operator T *()											{ return m_pObject; }
 
-	int			operator=( int i )							{ AssertMsg( i == 0, "Only NULL allowed on integer assign" ); m_pObject = 0; return 0; }
-	T *			operator=( T *p )							{ m_pObject = p; return p; }
-
-    bool        operator !() const							{ return ( !m_pObject ); }
-    bool        operator!=( int i ) const					{ AssertMsg( i == 0, "Only NULL allowed on integer compare" ); return (m_pObject != NULL); }
-	bool		operator==( const void *p ) const			{ return ( m_pObject == p ); }
-	bool		operator!=( const void *p ) const			{ return ( m_pObject != p ); }
-	bool		operator==( T *p ) const					{ return operator==( (void *)p ); }
-	bool		operator!=( T *p ) const					{ return operator!=( (void *)p ); }
-	bool		operator==( const CBaseAutoPtr<T> &p ) const { return operator==( (const void *)p ); }
-	bool		operator!=( const CBaseAutoPtr<T> &p ) const { return operator!=( (const void *)p ); }
-
 	T *  		operator->()								{ return m_pObject; }
-	T &  		operator *()								{ return *m_pObject; }
-	T ** 		operator &()								{ return &m_pObject; }
 
 	const T *   operator->() const							{ return m_pObject; }
-	const T &   operator *() const							{ return *m_pObject; }
-	T * const * operator &() const							{ return &m_pObject; }
 
 protected:
 	CBaseAutoPtr( const CBaseAutoPtr<T> &from )				: m_pObject( from.m_pObject ) {}
-	void operator=( const CBaseAutoPtr<T> &from ) 			{ m_pObject = from.m_pObject; }
 
 	T *m_pObject;
 };
-
-//---------------------------------------------------------
 
 template <class T>
 class CRefPtr : public CBaseAutoPtr<T>
@@ -150,9 +108,6 @@ public:
 	CRefPtr( const CRefPtr<T> &from )						: BaseClass( from ) {}
 	~CRefPtr()												{ if ( BaseClass::m_pObject ) BaseClass::m_pObject->Release(); }
 
-	void operator=( const CRefPtr<T> &from )				{ BaseClass::operator=( from ); }
-
-	int operator=( int i )									{ return BaseClass::operator=( i ); }
 	T *operator=( T *p )									{ return BaseClass::operator=( p ); }
 
 	operator bool() const									{ return !BaseClass::operator!(); }
@@ -163,10 +118,7 @@ public:
 	void AddRefAssignTo( T *&pTo )							{ ::SafeRelease( pTo ); if ( BaseClass::m_pObject ) BaseClass::m_pObject->AddRef(); pTo = BaseClass::m_pObject; }
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose:	Traits classes defining reference count threading model
-//-----------------------------------------------------------------------------
 
 class CRefMT
 {
@@ -182,10 +134,8 @@ public:
 	static int Decrement( int *p) { return --(*p); }
 };
 
-//-----------------------------------------------------------------------------
 // Purpose:	Actual reference counting implementation. Pulled out to reduce
 //			code bloat.
-//-----------------------------------------------------------------------------
 
 template <const bool bSelfDelete, typename CRefThreading = CRefMT>
 class NO_VTABLE CRefCountServiceBase
@@ -272,16 +222,12 @@ private:
 	int m_iRefs;
 };
 
-
-
 typedef CRefCountServiceBase<true, CRefMT>	CRefCountServiceMT;
 typedef CRefCountServiceBase<false, CRefMT> CRefCountServiceNoDeleteMT;
 
 typedef CRefCountServiceMT					CRefCountService;
 
-//-----------------------------------------------------------------------------
 // Purpose:	Base classes to implement reference counting
-//-----------------------------------------------------------------------------
 
 template < class REFCOUNT_SERVICE = CRefCountService > 
 class NO_VTABLE CRefCounted : public REFCOUNT_SERVICE
@@ -291,8 +237,6 @@ public:
 	int AddRef() 			{ return REFCOUNT_SERVICE::DoAddRef(); }
 	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
 };
-
-//-------------------------------------
 
 template < class BASE1, class REFCOUNT_SERVICE = CRefCountService > 
 class NO_VTABLE CRefCounted1 : public BASE1,
@@ -304,8 +248,6 @@ public:
 	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
 };
 
-//-------------------------------------
-
 template < class BASE1, class BASE2, class REFCOUNT_SERVICE = CRefCountService > 
 class NO_VTABLE CRefCounted2 : public BASE1, public BASE2,
 							   public REFCOUNT_SERVICE
@@ -316,8 +258,6 @@ public:
 	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
 };
 
-//-------------------------------------
-
 template < class BASE1, class BASE2, class BASE3, class REFCOUNT_SERVICE = CRefCountService > 
 class NO_VTABLE CRefCounted3 : public BASE1, public BASE2, public BASE3,
 							   public REFCOUNT_SERVICE
@@ -326,8 +266,6 @@ class NO_VTABLE CRefCounted3 : public BASE1, public BASE2, public BASE3,
 	int AddRef() 			{ return REFCOUNT_SERVICE::DoAddRef(); }
 	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
 };
-
-//-------------------------------------
 
 template < class BASE1, class BASE2, class BASE3, class BASE4, class REFCOUNT_SERVICE = CRefCountService > 
 class NO_VTABLE CRefCounted4 : public BASE1, public BASE2, public BASE3, public BASE4,
@@ -339,8 +277,6 @@ public:
 	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
 };
 
-//-------------------------------------
-
 template < class BASE1, class BASE2, class BASE3, class BASE4, class BASE5, class REFCOUNT_SERVICE = CRefCountService > 
 class NO_VTABLE CRefCounted5 : public BASE1, public BASE2, public BASE3, public BASE4, public BASE5,
 							   public REFCOUNT_SERVICE
@@ -351,10 +287,8 @@ public:
 	int Release()			{ return REFCOUNT_SERVICE::DoRelease(); }
 };
 
-//-----------------------------------------------------------------------------
 // Purpose:	Class to throw around a reference counted item to debug
 //			referencing problems
-//-----------------------------------------------------------------------------
 
 template <class BASE_REFCOUNTED, int FINAL_REFS, const char *pszName>
 class CRefDebug : public BASE_REFCOUNTED
@@ -387,7 +321,3 @@ public:
 	}
 #endif
 };
-
-//-----------------------------------------------------------------------------
-
-#endif // REFCOUNT_H

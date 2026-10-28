@@ -1,35 +1,17 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( IVIEWRENDER_BEAMS_H )
-#define IVIEWRENDER_BEAMS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 // common to server, too
 #include "beam_flags.h"
 #include "tempentity.h"
 
-extern void SetBeamCreationAllowed( bool state );
-extern bool BeamCreationAllowed( void );
-
-//-----------------------------------------------------------------------------
 // beam flags
-//-----------------------------------------------------------------------------
-
 
 class C_Beam;
 class Beam_t;
 
-//-----------------------------------------------------------------------------
 // Purpose: Popcorn trail for Beam Follow rendering...
-//-----------------------------------------------------------------------------
 
 struct BeamTrail_t
 {
@@ -40,45 +22,20 @@ struct BeamTrail_t
 	Vector			vel;
 };
 
-//-----------------------------------------------------------------------------
 // Data type for beams.
-//-----------------------------------------------------------------------------
 struct BeamInfo_t
 {
 	int			m_nType;
 
 	// Entities
-	C_BaseEntity* m_pStartEnt;
-	int			m_nStartAttachment;
-	C_BaseEntity* m_pEndEnt;
-	int			m_nEndAttachment;
-
-	// Points
-	Vector		m_vecStart;
-	Vector		m_vecEnd;
+	alignas( 8 ) unsigned char unused_m_pStartEnt[ 52 ];
 
 	int			m_nModelIndex;
 	const char	*m_pszModelName;
 
 	int			m_nHaloIndex;
 	const char	*m_pszHaloName;
-	float		m_flHaloScale;
-
-	float		m_flLife;
-	float		m_flWidth;
-	float		m_flEndWidth;
-	float		m_flFadeLength;
-	float		m_flAmplitude;
-
-	float		m_flBrightness;
-	float		m_flSpeed;
-	
-	int			m_nStartFrame;
-	float		m_flFrameRate;
-
-	float		m_flRed;
-	float		m_flGreen;
-	float		m_flBlue;
+	alignas( 8 ) unsigned char unused_m_flHaloScale[ 52 ];
 
 	bool		m_bRenderable;
 
@@ -104,9 +61,7 @@ struct BeamInfo_t
 	}
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: Declare client .dll beam entity interface
-//-----------------------------------------------------------------------------
 
 abstract_class IViewRenderBeams
 {
@@ -167,5 +122,3 @@ public:
 };
 
 extern IViewRenderBeams *beams;
-
-#endif // VIEWRENDER_BEAMS_H

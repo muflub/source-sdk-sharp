@@ -7,11 +7,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_SHELL_SCRIPTED_INTERNAL_H
-#define SOURCESHARP_SHELL_SCRIPTED_INTERNAL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // How many distinct sites were kept. *pbCapped (when given) says whether the
 // table is full, so that further sites were counted and not named.
@@ -19,5 +15,3 @@ int ShellScripted_InvisibleReachSiteCount( bool *pbCapped );
 
 // The return address of site i, or NULL when i is out of range.
 void *ShellScripted_InvisibleReachSite( int i );
-
-#endif // SOURCESHARP_SHELL_SCRIPTED_INTERNAL_H

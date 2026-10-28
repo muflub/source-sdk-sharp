@@ -39,13 +39,11 @@
 //
 //===========================================================================//
 
-#ifndef SOURCESHARP_SHELL_CLIENTENTITYLIST_H
-#define SOURCESHARP_SHELL_CLIENTENTITYLIST_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basehandle.h"
+#include "const.h"
+#include "icliententitylist.h"
 
 class IClientEntity;
 class IClientNetworkable;
@@ -326,5 +324,3 @@ IClientUnknown *SourceSharp_LegacyListUnknownFromHandle( const CBaseHandle &hEnt
 // IClientUnknown that is not an IClientEntity, which is the object the
 // counters existed to notice.
 //-----------------------------------------------------------------------------
-
-#endif // SOURCESHARP_SHELL_CLIENTENTITYLIST_H

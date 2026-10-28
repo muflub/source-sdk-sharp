@@ -1,20 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================
 
-#ifndef DMELEMENTHANDLE_H
-#define DMELEMENTHANDLE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
-
-//-----------------------------------------------------------------------------
 // handle to an CDmElement
-//-----------------------------------------------------------------------------
 #define PERFORM_HANDLE_TYPECHECKING 0
 #if PERFORM_HANDLE_TYPECHECKING
 
@@ -41,7 +29,3 @@ enum DmElementHandle_t : intp
 };
 
 #endif // PERFORM_HANDLE_TYPECHECKING
-
-
-
-#endif // DMELEMENTHANDLE_H

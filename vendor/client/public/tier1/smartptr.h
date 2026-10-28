@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef SMARTPTR_H
-#define SMARTPTR_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 class CRefCountAccessor
 {
@@ -45,22 +35,15 @@ public:
 	}
 };
 
-
-//
 //	CPlainAutoPtr
 //		is a smart wrapper for a pointer on the stack that performs "delete" upon destruction.
-//
 //	No reference counting is performed, copying is prohibited "s_p2.Attach( s_p1.Detach() )" should be used
 //	for readability and ease of maintenance.
-//
 //	Auto pointer supports an "arrow" operator for invoking methods on the pointee and a "dereference" operator
 //	for getting a pointee reference.
-//
 //	No automatic casting to bool/ptrtype is performed to avoid bugs and problems (read on "safe bool idiom"
 //	if casting to bool or pointer happens to be useful).
-//
 //	Test for validity with "IsValid", get the pointer with "Get".
-//
 template < typename T >
 class CPlainAutoPtr
 {
@@ -73,7 +56,6 @@ public:
 
 private:	// Disallow copying, use Detach() instead to avoid ambiguity
 	CPlainAutoPtr( CPlainAutoPtr const &x );
-	CPlainAutoPtr & operator = ( CPlainAutoPtr const &x );
 
 public:
 	void Attach( T *p )							{ m_p = p; }
@@ -82,27 +64,19 @@ public:
 public:
 	bool IsValid( void ) const					{ return m_p != NULL; }
 	T * Get( void ) const						{ return m_p; }
-	T * operator -> ( void ) const				{ return Get(); }
-	T & operator *  ( void ) const				{ return *Get(); }
 
 private:
 	T * m_p;
 };
 
-//
 //	CArrayAutoPtr
 //		is a smart wrapper for an array pointer on the stack that performs "delete []" upon destruction.
-//
 //	No reference counting is performed, copying is prohibited "s_p2.Attach( s_p1.Detach() )" should be used
 //	for readability and ease of maintenance.
-//
 //	Auto pointer supports an "indexing" operator for accessing array elements.
-//
 //	No automatic casting to bool/ptrtype is performed to avoid bugs and problems (read on "safe bool idiom"
 //	if casting to bool or pointer happens to be useful).
-//
 //	Test for validity with "IsValid", get the array pointer with "Get".
-//
 template < typename T >
 class CArrayAutoPtr : public CPlainAutoPtr < T > // Warning: no polymorphic destructor (delete on base class will be a mistake)
 {
@@ -114,9 +88,7 @@ public:
 	void Delete( void )							{ delete [] CPlainAutoPtr < T >::Detach(); }
 
 public:
-	T & operator [] ( int k ) const				{ return CPlainAutoPtr < T >::Get()[ k ]; }
 };
-
 
 // Smart pointers can be used to automatically free an object when nobody points
 // at it anymore. Things contained in smart pointers must implement AddRef and Release
@@ -135,8 +107,6 @@ public:
 	void			operator=( const CSmartPtr<T,RefCountAccessor> &other );
 	const T*		operator->() const;
 	T*				operator->();
-	bool			operator!() const;
-	bool			operator==( const T *pOther ) const;
 	bool			IsValid() const; // Tells if the pointer is valid.
 	T*				GetObject() const; // Get temporary object pointer, don't store it for later reuse!
 	void			MarkDeleted();
@@ -144,7 +114,6 @@ public:
 private:
 	T				*m_pObj;
 };
-
 
 template< class T, class RefCountAccessor >
 inline CSmartPtr<T,RefCountAccessor>::CSmartPtr()
@@ -218,18 +187,6 @@ inline T* CSmartPtr<T,RefCountAccessor>::operator->()
 }
 
 template< class T, class RefCountAccessor >
-inline bool CSmartPtr<T,RefCountAccessor>::operator!() const
-{
-	return !m_pObj;
-}
-
-template< class T, class RefCountAccessor >
-inline bool CSmartPtr<T,RefCountAccessor>::operator==( const T *pOther ) const
-{
-	return m_pObj == pOther;
-}
-
-template< class T, class RefCountAccessor >
 inline bool CSmartPtr<T,RefCountAccessor>::IsValid() const
 {
 	return m_pObj != NULL;
@@ -241,8 +198,6 @@ inline T* CSmartPtr<T,RefCountAccessor>::GetObject() const
 	return m_pObj;
 }
 
-
-//
 // CAutoPushPop
 //				allows you to set value of a variable upon construction and destruction.
 // Constructors:
@@ -252,7 +207,6 @@ inline T* CSmartPtr<T,RefCountAccessor>::GetObject() const
 //			saves the value, assigns new value upon construction, restores saved value upon destruction.
 //		CAutoPushPop x( myvar, newvalue, restorevalue )
 //			assigns new value upon construction, assignes restorevalue upon destruction.
-//
 template < typename T >
 class CAutoPushPop
 {
@@ -265,7 +219,6 @@ public:
 
 private:	// forbid copying
 	CAutoPushPop( CAutoPushPop const &x );
-	CAutoPushPop & operator = ( CAutoPushPop const &x );
 
 public:
 	T & Get() { return m_rVar; }
@@ -274,6 +227,3 @@ private:
 	T &m_rVar;
 	T m_valPop;
 };
-
-
-#endif // SMARTPTR_H

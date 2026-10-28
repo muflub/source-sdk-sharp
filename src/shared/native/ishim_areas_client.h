@@ -13,8 +13,6 @@
 // (EngineApiCensusTests reads that file as the server's slots). Rules as
 // ishim_areas.h: no virtual destructor, blittable arguments, APPEND-ONLY.
 
-#ifndef ISHIM_AREAS_CLIENT_H
-#define ISHIM_AREAS_CLIENT_H
 #pragma once
 
 #include <stdint.h>
@@ -513,5 +511,3 @@ public:
 	virtual int32_t FlashlightTexture( const char *pszName ) = 0;
 	virtual int32_t FlashlightSupportsBorderColor() = 0;
 };
-
-#endif // ISHIM_AREAS_CLIENT_H

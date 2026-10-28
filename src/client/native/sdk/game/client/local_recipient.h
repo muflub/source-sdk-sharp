@@ -38,11 +38,7 @@
 // running client (sourcesharp/test/local_recipient_test.cpp).
 //
 //=============================================================================//
-#ifndef LOCAL_RECIPIENT_H
-#define LOCAL_RECIPIENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // Should a client-side filter hold this slot?
@@ -63,5 +59,3 @@ inline bool LocalRecipient_ShouldHold( int nSlot, int nLocalSlot )
 
 	return nSlot == nLocalSlot;
 }
-
-#endif // LOCAL_RECIPIENT_H

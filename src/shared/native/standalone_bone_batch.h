@@ -21,8 +21,7 @@
 // every offset equal; the static_asserts hold this side.
 //=============================================================================//
 
-#ifndef STANDALONE_BONE_BATCH_H
-#define STANDALONE_BONE_BATCH_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -134,5 +133,3 @@ inline const SourceSharpBoneBatchEntry_t *SourceSharp_BoneBatchEntry(
 
 	return pEntry;
 }
-
-#endif // STANDALONE_BONE_BATCH_H

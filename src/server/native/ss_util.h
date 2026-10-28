@@ -29,11 +29,7 @@
 //   trace filter (plan_server_native_v2 T4f): the game's rule is managed's.
 //=============================================================================//
 
-#ifndef SS_UTIL_H
-#define SS_UTIL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basetypes.h"            // byte and color32, which shake.h assumes
 #include "mathlib/vector.h"
@@ -102,5 +98,3 @@ inline void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, 
 }
 
 } // namespace ss
-
-#endif // SS_UTIL_H

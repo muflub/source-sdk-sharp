@@ -34,9 +34,11 @@
 // pointing here would outlive the code it names.
 //
 //=============================================================================//
-#include "cbase.h"
 #include "filesystem.h"
 #include "materialsystem/imaterialsystem.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "cdll_client_int.h"
 #include "imanaged_runtime_client.h"
 #include "shell_managed_areas_client.h"
 #include "vtable_hook.h"

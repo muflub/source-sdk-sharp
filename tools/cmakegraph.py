@@ -227,6 +227,19 @@ def repo_to_farm(repo_rel, repo=None):
     return best[1][len('src/'):]
 
 
+def stock_src(repo):
+    """The pristine clone's src/ (libss_particles, tier1 and mathlib build
+    from it): $SOURCESHARP_VALVE_SDK, else valve-sdk.lock.local; None without."""
+    root = os.environ.get('SOURCESHARP_VALVE_SDK')
+    if not root:
+        try:
+            with open(os.path.join(repo, 'valve-sdk.lock.local')) as f:
+                root = f.read().split()[0]
+        except (OSError, IndexError):
+            return None
+    return os.path.normpath(os.path.join(root, 'src'))
+
+
 def farm_relative(path, bdir):
     prefix = farm_src(bdir) + '/'
     p = os.path.normpath(path)
@@ -235,6 +248,9 @@ def farm_relative(path, bdir):
     repo = REPO
     if p.startswith(repo + '/') and not p.startswith(repo + '/farm/'):
         return repo_to_farm(p[len(repo) + 1:], repo)
+    stock = stock_src(repo)
+    if stock and p.startswith(stock + '/'):
+        return p[len(stock) + 1:]
     raise GraphError("%s is neither under the farm's src/ (%s) nor a file of "
                      'this repo' % (path, prefix))
 

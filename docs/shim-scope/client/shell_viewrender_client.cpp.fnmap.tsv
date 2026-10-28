@@ -34,8 +34,8 @@
 6	SLOT	[CShellViewRender] float GetZNear() override
 6	SLOT	[CShellViewRender] float GetZFar() override
 13	SLOT	[CShellViewRender] void GetScreenFadeDistances( float *pMin, float *pMax ) override
-1	SLOT	[CShellViewRender] IClientUnknown *GetCurrentlyDrawingEntity() override
-1	SLOT	[CShellViewRender] void SetCurrentlyDrawingEntity( IClientUnknown *pEnt ) override
+1	SLOT	[CShellViewRender] IGameEntity *GetCurrentlyDrawingEntity() override
+1	SLOT	[CShellViewRender] void SetCurrentlyDrawingEntity( IGameEntity *pEntity ) override
 4	SLOT	[CShellViewRender] bool UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView ) override
 1	SLOT	[CShellViewRender] void FreezeFrame( float flFreezeTime ) override
 1	SLOT	[CShellViewRender] IReplayScreenshotSystem *GetReplayScreenshotSystem() override

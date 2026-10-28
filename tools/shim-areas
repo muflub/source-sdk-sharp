@@ -287,7 +287,7 @@ def generate():
          '// string beside it. Shared bases are what both DLLs will implement; each',
          '// extension appends the server-only slots of the same family. Rules as',
          '// ishim_frame.h: no virtual destructor, blittable arguments, APPEND-ONLY.',
-         '', '#ifndef ISHIM_AREAS_H', '#define ISHIM_AREAS_H', '#pragma once', '',
+         '', '#pragma once', '',
          '#include <stdint.h>', '#include "tier0/platform.h"', '#include "sourcesharp.h"', '']
     for i in order:
         h.append('#define SOURCESHARP_SHIM_%s_VERSION "%s"' % (short(i).upper(), version(i)))
@@ -299,7 +299,7 @@ def generate():
             ret, params = sigs[s]
             h.append('\tvirtual ' + decl(ret, s, params, ' = 0;'))
         h += ['};', '']
-    h += ['#endif // ISHIM_AREAS_H', '']
+    h += ['']
 
     # ---- the server's concrete classes ----------------------------------------
     c = [valve, '', GENERATED, '//',
@@ -307,7 +307,7 @@ def generate():
          '// class per interface managed binds, whose methods forward to the bodies the',
          '// struct slots are filled with (shell_shim_areas.inc). The shim root holds',
          '// CShimAreas by value, so the areas add one member to one static.',
-         '', '#ifndef SHELL_SHIM_AREAS_H', '#define SHELL_SHIM_AREAS_H', '#pragma once', '',
+         '', '#pragma once', '',
          '#include "ishim_areas.h"', '#include "ishim_areas_client.h"', '', '#ifndef CLIENT_DLL', '']
     for i in concrete:
         c += ['class CShim%s final : public %s' % (short(i), i), '{', 'public:']
@@ -346,7 +346,7 @@ def generate():
     c += ['};', '',
           '// The client factory\'s rows: each shared base by its own version string.',
           'void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName );',
-          '', '#endif // CLIENT_DLL', '', '#endif // SHELL_SHIM_AREAS_H', '']
+          '', '#endif // CLIENT_DLL', '', '']
 
     # ---- the forwards ------------------------------------------------------------
     im = [valve, '', GENERATED, '//',

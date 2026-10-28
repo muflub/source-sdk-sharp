@@ -21,13 +21,33 @@
 //   * C_QuadraticBeam went to SourceSharp_DrawBeamQuadratic.
 //=============================================================================//
 
-#include "cbase.h"
-#include "shell_standalone_client.h"   // SourceSharp_LocalPlayerShell, for cs_cl_wind_report
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "materialsystem/imaterialsystem.h"
 #include "renderparm.h"
+#include "engine/iserverplugin.h"
+#include "mathlib/vector.h"
+#include "tier0/dbg.h"
+#include "tier1/convar.h"
+#include "tier1/refcount.h"
+#include "cdll_client_int.h"
+#include "collisionproperty.h"
+#include "globalvars_base.h"
+#include "shell_standalone_client.h"   // SourceSharp_LocalPlayerShell, for cs_cl_wind_report
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //=============================================================================//
 // THE WIND, PUBLISHED (plan_client_novalve C2, lane c2-sims).

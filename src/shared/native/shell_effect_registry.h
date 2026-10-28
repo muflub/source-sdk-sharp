@@ -34,11 +34,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_SHELL_EFFECT_REGISTRY_H
-#define SOURCESHARP_SHELL_EFFECT_REGISTRY_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // The row for an owner, or -1.
@@ -121,5 +117,3 @@ inline int ShellEffects_ReleaseAll( TList &list )
 
 	return nReleased;
 }
-
-#endif // SOURCESHARP_SHELL_EFFECT_REGISTRY_H

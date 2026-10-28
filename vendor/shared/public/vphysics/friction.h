@@ -1,14 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef FRICTION_H
-#define FRICTION_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // NOTE: This is an iterator for the contact points on an object
 // NOTE: This should only be used temporarily.  Holding one of these
@@ -45,7 +37,3 @@ public:
 	virtual void NextFrictionData() = 0;
 	virtual void unused_GetFrictionCoefficient() = 0;
 };
-
-
-
-#endif // FRICTION_H

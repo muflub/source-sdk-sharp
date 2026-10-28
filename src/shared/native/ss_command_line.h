@@ -13,11 +13,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_COMMAND_LINE_H
-#define SOURCESHARP_SS_COMMAND_LINE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <cstddef>
 #include <string>
@@ -47,5 +43,3 @@ extern const char kLaunchArgsVariable[];
 std::string LaunchArgsBlock( const char *pValue );
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_COMMAND_LINE_H

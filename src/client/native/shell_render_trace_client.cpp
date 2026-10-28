@@ -46,10 +46,16 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
-#include "shell_render_trace_client.h"
-#include "vtable_slot_patch.h"
-
+#include <stdlib.h>
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "client_entity.h"
 #include "ivrenderview.h"
 #include "engine/ivmodelrender.h"
 #include "engine/ivmodelinfo.h"
@@ -59,9 +65,36 @@
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/itexture.h"
 #include "view_shared.h"
-#include "ss_fwd.h"
 #include "engine/ishadowmgr.h"
 #include "mathlib/vmatrix.h"
+#include "materialsystem/imesh.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "mathlib/vector2d.h"
+#include "mathlib/vplane.h"
+#include "tier0/basetypes.h"
+#include "tier0/commonmacros.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "tier1/utlvector.h"
+#include "toolframework/itoolentity.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "clientleafsystem.h"
+#include "collisionproperty.h"
+#include "icliententitylist.h"
+#include "iclientnetworkable.h"
+#include "iclientrenderable.h"
+#include "iclientshadowmgr.h"
+#include "iclientunknown.h"
+#include "istudiorender.h"
+#include "vphysics_interface.h"
+#include "shell_render_trace_client.h"
+#include "vtable_slot_patch.h"
+
+#include "ss_fwd.h"
 
 #include "ss_platform.h"
 #include <stdarg.h>
@@ -69,7 +102,6 @@
 #include <string.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 namespace
 {

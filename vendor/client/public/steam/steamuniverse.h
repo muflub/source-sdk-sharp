@@ -1,15 +1,6 @@
 //========= Copyright � 1996-2008, Valve LLC, All rights reserved. ============
-//
-// Purpose:
-//
-//=============================================================================
 
-#ifndef STEAMUNIVERSE_H
-#define STEAMUNIVERSE_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 // Steam universes.  Each universe is a self-contained Steam instance.
 enum EUniverse
@@ -22,6 +13,3 @@ enum EUniverse
 	// k_EUniverseRC = 5,				// no such universe anymore
 	k_EUniverseMax
 };
-
-
-#endif // STEAMUNIVERSE_H

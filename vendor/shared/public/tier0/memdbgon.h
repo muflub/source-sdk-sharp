@@ -1,11 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: This header, which must be the final include in a .cpp (or .h) file,
 // causes all crt methods to use debugging versions of the memory allocators.
 // NOTE: Use memdbgoff.h to disable memory debugging.
-//
-// $NoKeywords: $
-//=============================================================================//
 
 // SPECIAL NOTE! This file must *not* use include guards; we need to be able
 // to include this potentially multiple times (since we can deactivate debugging
@@ -66,7 +62,6 @@
 
 #include "tier0/memdbgoff.h"
 
-// --------------------------------------------------------
 // Debug/non-debug agnostic elements
 
 #define MEM_OVERRIDE_ON 1
@@ -94,7 +89,6 @@ inline void *MemAlloc_InlineCallocMemset( void *pMem, size_t nCount, size_t nEle
 #define _expand(p, s)		_expand_NoLongerSupported(p, s)
 #define _aligned_free( p )	MemAlloc_FreeAligned( p )
 
-// --------------------------------------------------------
 // Debug path
 #if defined(USE_MEM_DEBUG)
 
@@ -165,7 +159,6 @@ inline wchar_t *MemAlloc_WcStrDup(const wchar_t *pString, const char *pFileName,
 #endif // DBMEM_DEFINED_STRDUP
 
 #else
-// --------------------------------------------------------
 // Release path
 
 #define malloc(s)				g_pMemAlloc->Alloc( s )
@@ -291,7 +284,6 @@ inline void *valve_aligned_malloc_check_oom( size_t size, size_t alignment )
 		MemAllocOOMError( size );
 	return ptr;
 }
-
 
 #endif // VALVE_ALLOCS_DEFINED
 

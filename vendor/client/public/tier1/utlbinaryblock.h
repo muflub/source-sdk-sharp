@@ -1,22 +1,12 @@
 //====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
-//
-// Purpose: 
-//
-//=============================================================================
 
-#ifndef UTLBINARYBLOCK_H
-#define UTLBINARYBLOCK_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier1/utlmemory.h"
 #include "tier1/strtools.h"
 #include "limits.h"
 
-//-----------------------------------------------------------------------------
 // Base class, containing simple memory management
-//-----------------------------------------------------------------------------
 class CUtlBinaryBlock
 {
 public:
@@ -53,10 +43,7 @@ private:
 	int m_nActualLength;
 };
 
-
-//-----------------------------------------------------------------------------
 // class inlines
-//-----------------------------------------------------------------------------
 inline const void *CUtlBinaryBlock::Get( ) const
 {
 	return m_Memory.Base();
@@ -102,6 +89,3 @@ inline void CUtlBinaryBlock::Purge()
 	SetLength( 0 );
 	m_Memory.Purge();
 }
-
-#endif // UTLBINARYBLOCK_H
-

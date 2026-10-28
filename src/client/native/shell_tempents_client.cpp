@@ -31,20 +31,43 @@
 //
 //=============================================================================//
 
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include <set>
 #include <string>
 
-#include "cbase.h"
-#include "shell_tempents_store_client.h"
-#include "sourcesharp.h"
-#include "imanaged_areas_client.h"   // plan_client_vtables CE6: IManagedTempEntsClient
 #include "dt_recv.h"
 #include "client_class.h"
 #include "iclientnetworkable.h"
 #include "iclientunknown.h"
+#include "engine/ICollideable.h"
+#include "engine/iserverplugin.h"
+#include "tier0/dbg.h"
+#include "tier1/bitbuf.h"
+#include "tier1/convar.h"
+#include "tier1/strtools.h"
+#include "toolframework/itoolentity.h"
+#include "basehandle.h"
+#include "dt_common.h"
+#include "eiface.h"
+#include "icliententitylist.h"
+#include "iclientthinkable.h"
+#include "shell_tempents_store_client.h"
+#include "sourcesharp.h"
+#include "imanaged_areas_client.h"   // plan_client_vtables CE6: IManagedTempEntsClient
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //=============================================================================//
 // THE RECEIVING SHELL.

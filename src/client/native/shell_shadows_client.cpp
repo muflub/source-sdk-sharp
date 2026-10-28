@@ -38,19 +38,38 @@
 // host like the other proxies (shell_material_proxy_client.cpp; user ruling
 // Q1, 2026-10-19).
 //=============================================================================//
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/dbg.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterialsystemhardwareconfig.h"
 #include "materialsystem/MaterialSystemUtil.h"
 #include "materialsystem/imesh.h"
 #include "iviewrender.h"
-#include "view.h"
 #include "view_shared.h"
 #include "tier0/icommandline.h"
 #include "tier1/utlvector.h"
-#include "engine/ivdebugoverlay.h"
-#include "engine/ishadowmgr.h"
-#include "engine/IStaticPropMgr.h"
+#include "bitmap/imageformat.h"
+#include "mathlib/vector.h"
+#include "particles/particles.h"
+#include "tier0/platform.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "basehandle.h"
+#include "cdll_client_int.h"
+#include "const.h"
+#include "iclientunknown.h"
+#include "ivrenderview.h"
+#include "texture_group_names.h"
 #include "imanaged_areas_client.h"
 #include "shell_clientsystem.h"
 #include "shell_cliententitylist.h"
@@ -63,7 +82,6 @@
 #include "sourcesharp_entrypoints.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 namespace
 {

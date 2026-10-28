@@ -1,22 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//===========================================================================//
 
-#ifndef IMATERIALSYSTEM_H
-#define IMATERIALSYSTEM_H
-
-#ifdef _WIN32
 #pragma once
-#endif
-
-
 
 #define GAMMA 2.2f
-
 
 #include "tier0/icommandline.h"
 #include "mathlib/vector.h"
@@ -31,10 +17,7 @@
 #include "materialsystem/deformations.h"
 #include "materialsystem/IColorCorrection.h"
 
-
-//-----------------------------------------------------------------------------
 // forward declarations
-//-----------------------------------------------------------------------------
 class IMaterial;
 class IMesh;
 class IVertexBuffer;
@@ -53,15 +36,10 @@ class ICallQueue;
 struct MorphWeight_t;
 class IFileList;
 
-
-//-----------------------------------------------------------------------------
 // The vertex format type
-//-----------------------------------------------------------------------------
 typedef uint64 VertexFormat_t;
 
-//-----------------------------------------------------------------------------
 // important enumeration
-//-----------------------------------------------------------------------------
 
 // NOTE NOTE NOTE!!!!  If you up this, grep for "NEW_INTERFACE" to see if there is anything
 // waiting to be enabled during an interface revision.
@@ -69,16 +47,9 @@ typedef uint64 VertexFormat_t;
 // V081 - 10/25/2016 - Added new Suspend/Resume texture streaming interfaces. Might also have added more calls here due
 //                     to the streaming work that didn't get bumped, but we're not guarding versions on the TF branch
 //                     very judiciously since we need to audit them when merging to SDK branch either way.
-//
 // misyl: unfrogged this interface to be compatible, added MATERIAL_SYSTEM_INTERFACE_VERSION_OLD for sdk 2013 compat.
 #define MATERIAL_SYSTEM_INTERFACE_VERSION "VMaterialSystem082"
 #define MATERIAL_SYSTEM_INTERFACE_VERSION_OLD "VMaterialSystem080"
-
-#ifdef POSIX
-
-#else
-
-#endif
 
 // HDRFIXME NOTE: must match common_ps_fxc.h
 enum HDRType_t
@@ -87,7 +58,6 @@ enum HDRType_t
 	HDR_TYPE_INTEGER,
 	HDR_TYPE_FLOAT,
 };
-
 
 enum MaterialMatrixMode_t
 {
@@ -113,9 +83,6 @@ enum MaterialMatrixMode_t
 	NUM_TEXTURE_TRANSFORMS = MATERIAL_TEXTURE7 - MATERIAL_TEXTURE0 + 1
 };
 
-// FIXME: How do I specify the actual number of matrix modes?
-const int NUM_MODEL_TRANSFORMS = 53;
-
 enum MaterialPrimitiveType_t 
 { 
 	MATERIAL_POINTS			= 0x0,
@@ -126,7 +93,7 @@ enum MaterialPrimitiveType_t
 	MATERIAL_LINE_LOOP,	// a single line loop
 	MATERIAL_POLYGON,	// this is a *single* polygon
 	MATERIAL_QUADS,
-	MATERIAL_INSTANCED_QUADS, // (X360) like MATERIAL_QUADS, but uses vertex instancing
+	MATERIAL_INSTANCED_QUADS,
 
 	// This is used for static meshes that contain multiple types of
 	// primitive types.	When calling draw, you'll need to specify
@@ -141,8 +108,6 @@ enum MaterialPropertyTypes_t
 	MATERIAL_PROPERTY_REFLECTIVITY,							// vec3_t
 	MATERIAL_PROPERTY_NEEDS_BUMPED_LIGHTMAPS				// bool
 };
-
-
 
 enum MaterialCullMode_t
 {
@@ -180,16 +145,7 @@ enum MaterialNonInteractiveMode_t
 	MATERIAL_NON_INTERACTIVE_MODE_COUNT,
 };
 
-
-//-----------------------------------------------------------------------------
 // Special morph used in decalling pass
-//-----------------------------------------------------------------------------
-
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
 
 enum MaterialThreadMode_t
 {
@@ -198,10 +154,6 @@ enum MaterialThreadMode_t
 	MATERIAL_QUEUED_THREADED
 };
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-
 enum MaterialContextType_t
 {
 	MATERIAL_HARDWARE_CONTEXT,
@@ -209,14 +161,7 @@ enum MaterialContextType_t
 	MATERIAL_NULL_CONTEXT
 };
 
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-
-
-//-----------------------------------------------------------------------------
 // Light structure
-//-----------------------------------------------------------------------------
 #include "mathlib/lightdesc.h"
 
 #if 0
@@ -234,7 +179,6 @@ enum LightType_OptimizationFlags_t
 	LIGHTTYPE_OPTIMIZATIONFLAGS_HAS_ATTENUATION1 = 2,
 	LIGHTTYPE_OPTIMIZATIONFLAGS_HAS_ATTENUATION2 = 4,
 };
-
 
 struct LightDesc_t 
 {
@@ -254,7 +198,6 @@ struct LightDesc_t
 	float	m_PhiDot;
 	unsigned int	m_Flags;
 
-
 	LightDesc_t() {}
 
 private:
@@ -265,17 +208,11 @@ private:
 
 #define CREATERENDERTARGETFLAGS_HDR				0x00000001
 
-
-// XBOX ONLY:
- // inhibit allocation in 360 EDRAM
  // only allocates memory upon first resolve, destroyed at level end
 
-//-----------------------------------------------------------------------------
 // allowed stencil operations. These match the d3d operations
-//-----------------------------------------------------------------------------
 enum StencilOperation_t 
 {
-#if !defined( _X360 )
 	STENCILOPERATION_KEEP = 1,
 	STENCILOPERATION_ZERO = 2,
 	STENCILOPERATION_REPLACE = 3,
@@ -284,22 +221,11 @@ enum StencilOperation_t
 	STENCILOPERATION_INVERT = 6,
 	STENCILOPERATION_INCR = 7,
 	STENCILOPERATION_DECR = 8,
-#else
-	STENCILOPERATION_KEEP = D3DSTENCILOP_KEEP,
-	STENCILOPERATION_ZERO = D3DSTENCILOP_ZERO,
-	STENCILOPERATION_REPLACE = D3DSTENCILOP_REPLACE,
-	STENCILOPERATION_INCRSAT = D3DSTENCILOP_INCRSAT,
-	STENCILOPERATION_DECRSAT = D3DSTENCILOP_DECRSAT,
-	STENCILOPERATION_INVERT = D3DSTENCILOP_INVERT,
-	STENCILOPERATION_INCR = D3DSTENCILOP_INCR,
-	STENCILOPERATION_DECR = D3DSTENCILOP_DECR,
-#endif
 	STENCILOPERATION_FORCE_DWORD = 0x7fffffff
 };
 
 enum StencilComparisonFunction_t 
 {
-#if !defined( _X360 )
 	STENCILCOMPARISONFUNCTION_NEVER = 1,
 	STENCILCOMPARISONFUNCTION_LESS = 2,
 	STENCILCOMPARISONFUNCTION_EQUAL = 3,
@@ -308,30 +234,12 @@ enum StencilComparisonFunction_t
 	STENCILCOMPARISONFUNCTION_NOTEQUAL = 6,
 	STENCILCOMPARISONFUNCTION_GREATEREQUAL = 7,
 	STENCILCOMPARISONFUNCTION_ALWAYS = 8,
-#else
-	STENCILCOMPARISONFUNCTION_NEVER = D3DCMP_NEVER,
-	STENCILCOMPARISONFUNCTION_LESS = D3DCMP_LESS,
-	STENCILCOMPARISONFUNCTION_EQUAL = D3DCMP_EQUAL,
-	STENCILCOMPARISONFUNCTION_LESSEQUAL = D3DCMP_LESSEQUAL,
-	STENCILCOMPARISONFUNCTION_GREATER = D3DCMP_GREATER,
-	STENCILCOMPARISONFUNCTION_NOTEQUAL = D3DCMP_NOTEQUAL,
-	STENCILCOMPARISONFUNCTION_GREATEREQUAL = D3DCMP_GREATEREQUAL,
-	STENCILCOMPARISONFUNCTION_ALWAYS = D3DCMP_ALWAYS,
-#endif
 
 	STENCILCOMPARISONFUNCTION_FORCE_DWORD = 0x7fffffff
 };
 
-
-
-
-//-----------------------------------------------------------------------------
 // The morph format type
-//-----------------------------------------------------------------------------
 typedef unsigned int MorphFormat_t;
-
-
-
 
 struct MaterialSystem_SortInfo_t
 {
@@ -339,12 +247,9 @@ struct MaterialSystem_SortInfo_t
 	int			lightmapPageID;
 };
 
-
 #define MAX_FB_TEXTURES 4
 
-//-----------------------------------------------------------------------------
 // Information about each adapter
-//-----------------------------------------------------------------------------
 enum
 {
 	MATERIAL_ADAPTER_NAME_LENGTH = 512
@@ -352,26 +257,20 @@ enum
 
 struct MaterialAdapterInfo_t
 {
-	char m_pDriverName[MATERIAL_ADAPTER_NAME_LENGTH];
+	alignas( 4 ) unsigned char unused_m_pDriverName[ 512 ];
 	unsigned int m_VendorID;
-	unsigned int m_DeviceID;
-	unsigned int m_SubSysID;
-	unsigned int m_Revision;
-	int m_nDXSupportLevel;			// This is the *preferred* dx support level
+	alignas( 4 ) unsigned char unused_m_DeviceID[ 16 ];
 	int m_nMaxDXSupportLevel;
 	unsigned int m_nDriverVersionHigh;
 	unsigned int m_nDriverVersionLow;
 };
 
-
-//-----------------------------------------------------------------------------
 // Video mode info..
-//-----------------------------------------------------------------------------
 struct MaterialVideoMode_t
 {
 	int m_Width;			// if width and height are 0 and you select 
 	int m_Height;			// windowed mode, it'll use the window size
-	ImageFormat m_Format;	// use ImageFormats (ignored for windowed mode)
+	alignas( 4 ) unsigned char unused_m_Format[ 4 ];
 	int m_RefreshRate;		// 0 == default (ignored for windowed mode)
 };
 
@@ -452,11 +351,7 @@ public:
 	virtual void unused_GetRefCount() = 0;
 };
 
-
-
-//-----------------------------------------------------------------------------
 // Flags to specify type of depth buffer used with RT
-//-----------------------------------------------------------------------------
 
 // GR - this is to add RT with no depth buffer bound
 
@@ -467,8 +362,6 @@ enum MaterialRenderTargetDepth_t
 	MATERIAL_RT_DEPTH_NONE     = 0x2,
 	MATERIAL_RT_DEPTH_ONLY	   = 0x3,
 };
-
-
 
 // NOTE: All size modes will force the render target to be smaller than or equal to
 // the size of the framebuffer.
@@ -566,10 +459,6 @@ FORCEINLINE RenderBackend_t DetermineRenderBackend()
 #endif
 }
 
-//-----------------------------------------------------------------------------
-// 
-//-----------------------------------------------------------------------------
-
 abstract_class IMaterialSystem : public IAppSystem
 {
 public:
@@ -581,9 +470,7 @@ public:
 	virtual InitReturnVal_t Init() = 0;
 	virtual void Shutdown() = 0;
 
-	//---------------------------------------------------------
 	// Initialization and shutdown
-	//---------------------------------------------------------
 
 	// Call this to initialize the material system
 	// returns a method to create interfaces in the shader dll
@@ -604,20 +491,14 @@ public:
 	virtual void				ModInit() = 0;
 	virtual void				ModShutdown() = 0;
 
-	//---------------------------------------------------------
-	//
-	//---------------------------------------------------------
 	virtual void					SetThreadMode( MaterialThreadMode_t mode, int nServiceThread = -1 ) = 0;
 	virtual MaterialThreadMode_t	GetThreadMode( ) = 0;
 	virtual bool					IsRenderThreadSafe( ) = 0;
 	virtual void					ExecuteQueued() = 0;
 
-	//---------------------------------------------------------
 	// Config management
-	//---------------------------------------------------------
 
 	virtual IMaterialSystemHardwareConfig *GetHardwareConfig( const char *pVersion, int *returnCode ) = 0;
-
 
 	// Call this before rendering each frame with the current config
 	// for the material system.
@@ -642,10 +523,7 @@ public:
 	// and then we would read that in, and send it back to the client
 	virtual bool				GetRecommendedConfigurationInfo( int nDXLevel, KeyValues * pKeyValues ) = 0;
 
-
-	// -----------------------------------------------------------
 	// Device methods
-	// -----------------------------------------------------------
 
 	// Gets the number of adapters...
 	virtual int					GetDisplayAdapterCount() const = 0;
@@ -686,10 +564,7 @@ public:
 
 	virtual bool				SupportsHDRMode( HDRType_t nHDRModede ) = 0;
 
-
-	// -----------------------------------------------------------
 	// Window methods
-	// -----------------------------------------------------------
 
 	// Creates/ destroys a child window
 	virtual bool				AddView( void* hwnd ) = 0;
@@ -698,10 +573,7 @@ public:
 	// Sets the view
 	virtual void				SetView( void* hwnd ) = 0;
 
-
-	// -----------------------------------------------------------
 	// Control flow
-	// -----------------------------------------------------------
 
 	virtual void				BeginFrame( float frameTime ) = 0;
 	virtual void				EndFrame( ) = 0;
@@ -717,10 +589,7 @@ public:
 	virtual void				ReleaseResources(void) = 0;
 	virtual void				ReacquireResources(void ) = 0;
 
-
-	// -----------------------------------------------------------
 	// Device loss/restore
-	// -----------------------------------------------------------
 
 	// Installs a function to be called when we need to release vertex buffers + textures
 	virtual void				AddReleaseFunc( MaterialBufferReleaseFunc_t func ) = 0;
@@ -736,10 +605,7 @@ public:
 	// For dealing with device lost in cases where SwapBuffers isn't called all the time (Hammer)
 	virtual void				HandleDeviceLost() = 0;
 
-
-	// -----------------------------------------------------------
 	// Shaders
-	// -----------------------------------------------------------
 
 	// Used to iterate over all shaders for editing purposes
 	// GetShaders returns the number of shaders it actually found
@@ -754,36 +620,24 @@ public:
 	// Gets the actual shader fallback for a particular shader
 	virtual void				GetShaderFallback( const char *pShaderName, char *pFallbackShader, int nFallbackLength ) = 0;
 
-
-	// -----------------------------------------------------------
 	// Material proxies
-	// -----------------------------------------------------------
 
 	virtual IMaterialProxyFactory *GetMaterialProxyFactory() = 0;
 
 	// Sets the material proxy factory. Calling this causes all materials to be uncached.
 	virtual void				SetMaterialProxyFactory( IMaterialProxyFactory* pFactory ) = 0;
 
-
-	// -----------------------------------------------------------
 	// Editor mode
-	// -----------------------------------------------------------
 
 	// Used to enable editor materials. Must be called before Init.
 	virtual void				EnableEditorMaterials() = 0;
 
-
-	// -----------------------------------------------------------
 	// Stub mode mode
-	// -----------------------------------------------------------
 
 	// Force it to ignore Draw calls.
 	virtual void				SetInStubMode( bool bInStubMode ) = 0;
 
-
-	//---------------------------------------------------------
 	// Debug support
-	//---------------------------------------------------------
 
 	virtual void				DebugPrintUsedMaterials( const char *pSearchSubString, bool bVerbose ) = 0;
 	virtual void				DebugPrintUsedTextures( void ) = 0;
@@ -791,19 +645,13 @@ public:
 	virtual void				ToggleSuppressMaterial( char const* pMaterialName ) = 0;
 	virtual void				ToggleDebugMaterial( char const* pMaterialName ) = 0;
 
-
-	//---------------------------------------------------------
 	// Misc features
-	//---------------------------------------------------------
 	//returns whether fast clipping is being used or not - needed to be exposed for better per-object clip behavior
 	virtual bool				UsingFastClipping( void ) = 0;
 
 	virtual int					StencilBufferBits( void ) = 0; //number of bits per pixel in the stencil buffer
 
-
-	//---------------------------------------------------------
 	// Material and texture management
-	//---------------------------------------------------------
 
 	// uncache all materials. .  good for forcing reload of materials.
 	virtual void				UncacheAllMaterials( ) = 0;
@@ -831,9 +679,7 @@ public:
 	// a file extension.
 	// eg. "dev/dev_bumptest" refers to somethign similar to:
 	// "d:/hl2/hl2/materials/dev/dev_bumptest.vmt"
-	//
 	// Most of the texture groups for pTextureGroupName are listed in texture_group_names.h.
-	// 
 	// Note: if the material can't be found, this returns a checkerboard material. You can 
 	// find out if you have that material by calling IMaterial::IsErrorMaterial().
 	// (Or use the global IsErrorMaterial function, which checks if it's null too).
@@ -842,7 +688,6 @@ public:
 	// Query whether a material is loaded (eg, whether FindMaterial will be nonblocking)
 	virtual bool				IsMaterialLoaded( char const* pMaterialName ) = 0;
 
-	//---------------------------------
 	// This is the interface for knowing what materials are available
 	// is to use the following functions to get a list of materials.  The
 	// material names will have the full path to the material, and that is the 
@@ -867,8 +712,6 @@ public:
 	// materials, but the complete collection.
 	virtual int					GetNumMaterials( ) const = 0;
 
-	//---------------------------------
-
 	virtual void				SetAsyncTextureLoadCache( void* hFileCache ) = 0;
 
 	virtual ITexture *			FindTexture( char const* pTextureName, const char *pTextureGroupName, bool complain = true, int nAdditionalCreationFlags = 0  ) = 0;
@@ -884,9 +727,7 @@ public:
 		ImageFormat fmt, 
 		int nFlags ) = 0;
 
-	//
 	// Render targets
-	//
 	virtual void				BeginRenderTargetAllocation() = 0;
 	virtual void				EndRenderTargetAllocation() = 0; // Simulate an Alt-Tab in here, which causes a release/restore of all resources
 
@@ -928,9 +769,7 @@ public:
 		unsigned int textureFlags = TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT,
 		unsigned int renderTargetFlags = 0 ) = 0;
 
-	// -----------------------------------------------------------
 	// Lightmaps
-	// -----------------------------------------------------------
 
 	// To allocate lightmaps, sort the whole world by material twice.
 	// The first time through, call AllocateLightmap for every surface.
@@ -967,40 +806,16 @@ public:
 
 	virtual void				ResetMaterialLightmapPageInfo() = 0;
 
-
-
 	virtual void				ClearBuffers( bool bClearColor, bool bClearDepth, bool bClearStencil = false ) = 0;
 
-	// -----------------------------------------------------------
-	// X360 specifics
-	// -----------------------------------------------------------
-
-#if defined( _X360 )
-	virtual void				ListUsedMaterials( void ) = 0;
-	virtual HXUIFONT			OpenTrueTypeFont( const char *pFontname, int tall, int style ) = 0;
-	virtual void				CloseTrueTypeFont( HXUIFONT hFont ) = 0;
-	virtual bool				GetTrueTypeFontMetrics( HXUIFONT hFont, XUIFontMetrics *pFontMetrics, XUICharMetrics charMetrics[256] ) = 0;
-	// Render a sequence of characters and extract the data into a buffer
-	// For each character, provide the width+height of the font texture subrect,
-	// an offset to apply when rendering the glyph, and an offset into a buffer to receive the RGBA data
-	virtual bool				GetTrueTypeGlyphs( HXUIFONT hFont, int numChars, wchar_t *pWch, int *pOffsetX, int *pOffsetY, int *pWidth, int *pHeight, unsigned char *pRGBA, int *pRGBAOffset ) = 0;
-	virtual void				PersistDisplay() = 0;
-	virtual void				*GetD3DDevice() = 0;
-	virtual bool				OwnGPUResources( bool bEnable ) = 0;
-#endif
-
-	// -----------------------------------------------------------
 	// Access the render contexts
-	// -----------------------------------------------------------
 	virtual IMatRenderContext *	GetRenderContext() = 0;
 
 	virtual bool				SupportsShadowDepthTextures( void ) = 0;
 	virtual void				BeginUpdateLightmaps( void ) = 0;
 	virtual void				EndUpdateLightmaps( void ) = 0;
 
-	// -----------------------------------------------------------
 	// Methods to force the material system into non-threaded, non-queued mode
-	// -----------------------------------------------------------
 	virtual MaterialLock_t		Lock() = 0;
 	virtual void				Unlock( MaterialLock_t ) = 0;
 
@@ -1107,10 +922,6 @@ FORCEINLINE bool IsOpenGL( void )
 	return g_pMaterialSystem->GetRenderBackend() == RENDER_BACKEND_TOGL;
 }
 
-
-//-----------------------------------------------------------------------------
-// 
-//-----------------------------------------------------------------------------
 abstract_class IMatRenderContext : public IRefCounted
 {
 public:
@@ -1156,9 +967,7 @@ public:
 	virtual void				SetFrameBufferCopyTexture( ITexture *pTexture, int textureIndex = 0 ) = 0;
 	virtual ITexture		   *GetFrameBufferCopyTexture( int textureIndex ) = 0;
 
-	//
 	// end vertex array api
-	//
 
 	// matrix api
 	virtual void				MatrixMode( MaterialMatrixMode_t matrixMode ) = 0;
@@ -1232,7 +1041,6 @@ public:
 	//		etc
 	// Use Vertex or Index Override to supply a static vertex or index buffer
 	// to use in place of the dynamic buffers.
-	//
 	// If you pass in a material in pAutoBind, it will automatically bind the
 	// material. This can be helpful since you must bind the material you're
 	// going to use BEFORE calling GetDynamicMesh.
@@ -1252,8 +1060,8 @@ public:
 	// Do we need to specify the stream here in the case of locking multiple dynamic VBs on different streams?
 	virtual void unused_GetDynamicVertexBuffer() = 0;
 	virtual void unused_GetDynamicIndexBuffer() = 0;
-	virtual void BindVertexBuffer( int streamID, IVertexBuffer *pVertexBuffer, int nOffsetInBytes, int nFirstVertex, int nVertexCount, VertexFormat_t fmt, int nRepetitions = 1 ) = 0;
-	virtual void BindIndexBuffer( IIndexBuffer *pIndexBuffer, int nOffsetInBytes ) = 0;
+	virtual void unused_BindVertexBuffer() = 0;
+	virtual void unused_BindIndexBuffer() = 0;
 	virtual void Draw( MaterialPrimitiveType_t primitiveType, int firstIndex, int numIndices ) = 0;
 	// ------------ End ----------------------------
 
@@ -1272,7 +1080,6 @@ public:
 	// Allows us to override the depth buffer setting of a material
 	virtual void	OverrideDepthEnable( bool bEnable, bool bDepthEnable ) = 0;
 
-	// FIXME: This is a hack required for NVidia/XBox, can they fix in drivers?
 	virtual void	DrawScreenSpaceQuad( IMaterial* pMaterial ) = 0;
 
 	// For debugging and building recording files. This will stuff a token into the recording file,
@@ -1286,9 +1093,7 @@ public:
 	// Use ComputePixelDiameterOfSphere below in all new code instead.
 	virtual void unused_ComputePixelWidthOfSphere() = 0;
 
-	//
 	// Occlusion query support
-	//
 
 	// Allocate and delete query objects.
 	virtual OcclusionQueryObjectHandle_t CreateOcclusionQueryObject( void ) = 0;
@@ -1509,12 +1314,6 @@ public:
 
 	virtual void				FogMaxDensity( float flMaxDensity ) = 0;
 
-#if defined( _X360 )
-	//Seems best to expose GPR allocation to scene rendering code. 128 total to split between vertex/pixel shaders (pixel will be set to 128 - vertex). Minimum value of 16. More GPR's = more threads.
-	virtual void				PushVertexShaderGPRAllocation( int iVertexShaderCount = 64 ) = 0;
-	virtual void				PopVertexShaderGPRAllocation( void ) = 0;
-#endif
-
 	virtual void unused_GetCurrentMaterial() = 0;
 	virtual void unused_GetCurrentNumBones() = 0;
 	virtual void unused_GetCurrentProxy() = 0;
@@ -1536,7 +1335,6 @@ public:
 	//Use this to mark it as invalid and use a dummy texture for depth reads.
 	virtual void SetFullScreenDepthTextureValidityFlag( bool bIsValid ) = 0;
 
-	// A special path used to tick the front buffer while loading on the 360
 	virtual void unused_SetNonInteractivePacifierTexture() = 0;
 	virtual void unused_SetNonInteractiveTempFullscreenBuffer() = 0;
 	virtual void unused_EnableNonInteractiveMode() = 0;
@@ -1586,10 +1384,7 @@ template< class E > inline E* IMatRenderContext::LockRenderDataTyped( int nCount
 	return pDstData;
 }
 
-
-//-----------------------------------------------------------------------------
 // Utility class for addreffing/releasing render data (prevents freeing on single core)
-//-----------------------------------------------------------------------------
 class CMatRenderDataReference
 {
 public:
@@ -1602,7 +1397,6 @@ public:
 private:
 	IMatRenderContext *m_pRenderContext;
 };
-
 
 inline CMatRenderDataReference::CMatRenderDataReference()
 {
@@ -1638,10 +1432,7 @@ inline void CMatRenderDataReference::Release()
 	}
 }
 
-
-//-----------------------------------------------------------------------------
 // Utility class for locking/unlocking render data
-//-----------------------------------------------------------------------------
 template< typename E > 
 class CMatRenderData
 {
@@ -1654,8 +1445,6 @@ public:
 	bool IsValid() const;
 	const E* Base() const;
 	E* Base();
-	const E& operator[]( int i ) const;
-	E& operator[]( int i );
 
 private:
 	IMatRenderContext* m_pRenderContext;
@@ -1744,23 +1533,6 @@ inline const E* CMatRenderData<E>::Base() const
 	return m_pRenderData;
 }
 
-template< typename E >
-inline E& CMatRenderData<E>::operator[]( int i )
-{
-	Assert( ( i >= 0 ) && ( i < m_nCount ) );
-	return m_pRenderData[i];
-}
-
-template< typename E >
-inline const E& CMatRenderData<E>::operator[]( int i ) const
-{
-	Assert( ( i >= 0 ) && ( i < m_nCount ) );
-	return m_pRenderData[i];
-}
-
-
-//-----------------------------------------------------------------------------
-
 class CMatRenderContextPtr : public CRefPtr<IMatRenderContext>
 {
 	typedef CRefPtr<IMatRenderContext> BaseClass;
@@ -1770,23 +1542,17 @@ public:
 	CMatRenderContextPtr( IMaterialSystem *pFrom )				: BaseClass( pFrom->GetRenderContext() )	{ if ( BaseClass::m_pObject ) BaseClass::m_pObject->BeginRender(); }
 	~CMatRenderContextPtr()																					{ if ( BaseClass::m_pObject ) BaseClass::m_pObject->EndRender(); }
 
-	IMatRenderContext *operator=( IMatRenderContext *p )		{ if ( p ) p->BeginRender(); return BaseClass::operator=( p ); }
-
 	void SafeRelease()											{ if ( BaseClass::m_pObject ) BaseClass::m_pObject->EndRender(); BaseClass::SafeRelease(); }
 	void AssignAddRef( IMatRenderContext *pFrom )				{ if ( BaseClass::m_pObject ) BaseClass::m_pObject->EndRender(); BaseClass::AssignAddRef( pFrom ); BaseClass::m_pObject->BeginRender(); }
 
 	void GetFrom( IMaterialSystem *pFrom )						{ AssignAddRef( pFrom->GetRenderContext() ); }
 
-
 private:
 	CMatRenderContextPtr( const CMatRenderContextPtr &from );
-	void operator=( const CMatRenderContextPtr &from );
 
 };
 
-//-----------------------------------------------------------------------------
 // Helper class for begin/end of pix event via constructor/destructor 
-//-----------------------------------------------------------------------------
 #define PIX_VALVE_ORANGE	0xFFF5940F
 
 class PIXEvent
@@ -1807,17 +1573,12 @@ private:
 	IMatRenderContext *m_pRenderContext;
 };
 
-
 // Also be sure to enable PIX_INSTRUMENTATION in shaderdevicedx8.h
 //#define PIX_ENABLE 1		// set this to 1 and build engine/studiorender to enable pix events in the engine
 
 #if PIX_ENABLE
 #	define PIXEVENT PIXEvent _pixEvent
-#else
- 
 #endif
-
-//-----------------------------------------------------------------------------
 
 #ifdef MATERIAL_SYSTEM_DEBUG_CALL_QUEUE
 #include "tier1/callqueue.h"
@@ -1830,12 +1591,6 @@ static void DoMatSysQueueMark( IMaterialSystem *pMaterialSystem, const char *psz
 }
 
 #define MatSysQueueMark( pMaterialSystem, ...) DoMatSysQueueMark( pMaterialSystem, CFmtStr( __VA_ARGS__ ) )
-#else
-
 #endif
 
-//-----------------------------------------------------------------------------
-
 #include "materialsystem/imaterialsystemhardwareconfig.h"
-
-#endif // IMATERIALSYSTEM_H

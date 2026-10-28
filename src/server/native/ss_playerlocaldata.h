@@ -24,11 +24,7 @@
 //   * CPlayerLocalData::UpdateAreaBits(CBasePlayer *) is not declared: its one
 //     caller went in P5 wave 8b.
 //=============================================================================//
-#ifndef SOURCESHARP_SS_PLAYERLOCALDATA_H
-#define SOURCESHARP_SS_PLAYERLOCALDATA_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "const.h"          // MAX_AREA_STATE_BYTES, MAX_AREA_PORTAL_STATE_BYTES
 #include "basehandle.h"
@@ -178,5 +174,3 @@ public:
 EXTERN_SEND_TABLE( DT_Local );
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_PLAYERLOCALDATA_H

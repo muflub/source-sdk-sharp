@@ -16,8 +16,6 @@
 // Each is acquired again on every load and released before every unload,
 // so native keeps no pointer and calls through the accessor.
 
-#ifndef IMANAGED_AREAS_H
-#define IMANAGED_AREAS_H
 #pragma once
 
 #include <stdint.h>
@@ -557,4 +555,3 @@ IManagedBones *ManagedBones();   // this load's area, or NULL outside a load
 
 #endif // !CLIENT_DLL
 
-#endif // IMANAGED_AREAS_H

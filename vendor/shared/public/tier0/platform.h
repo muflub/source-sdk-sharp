@@ -1,13 +1,14 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose:
-//
-// $NoKeywords: $
-//
-//===========================================================================//
 
-#ifndef PLATFORM_H
-#define PLATFORM_H
+#pragma once
+
+// SourceSharp (vendor/README.md): one value per record layout ABI, for the
+// byte stubs tools/vendor-fields writes where MSVC and Itanium disagree.
+#ifdef _MSC_VER
+#define SS_ABI_PICK( msvc, itanium ) msvc
+#else
+#define SS_ABI_PICK( msvc, itanium ) itanium
+#endif
 
 #if defined(__x86_64__) || defined(_WIN64)
 #define PLATFORM_64BITS 1
@@ -21,23 +22,6 @@
 #define COMPILER_CLANG 1
 #endif
 
-#if defined( _X360 )
-	#define NO_STEAM
-	#define NO_VOICE
-	// for the 360, the ppc platform and the rtos are tightly coupled
-	// setup the 360 environment here !once! for much less leaf module include wackiness
-	// these are critical order and purposely appear *before* anything else
-	#define _XBOX
-#include <xtl.h>
-	#include <xaudio2.h>
-	#include <xbdm.h>
-#include <Xgraphics.h>
-	#include <xui.h>
-	#include <pmcpbsetup.h>
-#include <XMAHardwareAbstraction.h>
-	#undef _XBOX
-#endif
-
 #define __STDC_LIMIT_MACROS
 #include <stdint.h>
 
@@ -45,7 +29,6 @@
 #include "basetypes.h"
 #include "tier0/valve_off.h"
 
-//-----------------------------------------------------------------------------
 // This macro predates universal static_assert support in our toolchains
 #define COMPILE_TIME_ASSERT( pred ) static_assert( pred, "Compile time assert constraint is not true: " #pred )
 
@@ -53,12 +36,7 @@
 // scope. However the new COMPILE_TIME_ASSERT macro supports that by default.
 #define ASSERT_INVARIANT( pred )	COMPILE_TIME_ASSERT( pred )
 
-#ifdef _WIN32
-#pragma once
-#endif
-
 // feature enables
-
 
 #ifdef POSIX
 // need this for _alloca
@@ -108,25 +86,18 @@
 #define IsDebug() false
 #endif
 
-// Deprecating, infavor of IsX360() which will revert to IsXbox()
-// after confidence of xbox 1 code flush
-#define IsXbox()	false
-
 #ifdef _WIN32
 	#define IsLinux() false
 	#define IsOSX() false
 	#define IsPosix() false
-	#define PLATFORM_WINDOWS 1 // Windows PC or Xbox 360
-	#ifndef _X360
+	#define PLATFORM_WINDOWS 1
 		#define IsWindows() true
 		#define IsPC() true
 		#define IsConsole() false
-		#define IsX360() false
 
 		#define IS_WINDOWS_PC 1
 		#define PLATFORM_WINDOWS_PC 1 // Windows PC
 		#ifdef _WIN64
-
 
 			#define PLATFORM_WINDOWS_PC64 1
 		#else
@@ -134,22 +105,10 @@
 			#define IsPlatformWindowsPC32() true
 			#define PLATFORM_WINDOWS_PC32 1
 		#endif
-	#else
-		#define PLATFORM_X360 1
-		#ifndef _CONSOLE
-			#define _CONSOLE
-		#endif
-		#define IsWindows() false
-		#define IsPC() false
-		#define IsConsole() true
-		#define IsX360() true
-		#define IsPS3() false
-	#endif
 #elif defined(POSIX)
 	#define IsPC() true
 	#define IsWindows() false
 	#define IsConsole() false
-	#define IsX360() false
 
 	#if defined( LINUX )
 		#define IsLinux() true
@@ -171,7 +130,7 @@
 #if PLATFORM_WINDOWS_PC
 
 # if PLATFORM_64BITS
-#  define PLATFORM_DIR "\\x64"
+
 # else
 #  define PLATFORM_DIR ""
 # endif
@@ -180,7 +139,7 @@
 #elif LINUX
 
 # if PLATFORM_64BITS
-#  define PLATFORM_DIR "/linux64"
+
 # else
 #  define PLATFORM_DIR ""
 # endif
@@ -202,8 +161,6 @@
 # error "Define a platform dir for me!"
 #endif
 
-
-
 typedef unsigned char uint8;
 typedef signed char int8;
 
@@ -222,13 +179,6 @@ typedef signed char int8;
 	#else
 		typedef __int32 intp;
 		typedef unsigned __int32 uintp;
-	#endif
-
-	#if defined( _X360 )
-		#ifdef __m128
-			#undef __m128
-		#endif
-		#define __m128				__vector4
 	#endif
 
 	// Use this to specify that a function is an override of a virtual function.
@@ -252,8 +202,6 @@ typedef signed char int8;
 	#else
 		typedef int					intp;
 		typedef unsigned int		uintp;
-	#endif
-	#ifndef USE_DXVK
 	#endif
 
 	// Avoid redefinition warnings if a previous header defines this.
@@ -283,10 +231,8 @@ typedef signed char int8;
 
 #endif // else _WIN32
 
-//-----------------------------------------------------------------------------
 // Set up platform type defines.
-//-----------------------------------------------------------------------------
-#if defined( PLATFORM_X360 ) || defined( _PS3 )
+#if defined( _PS3 )
 	#if !defined( _GAMECONSOLE )
 		#define _GAMECONSOLE
 	#endif
@@ -360,25 +306,14 @@ typedef unsigned int		uint;
 
 // This can be used to declare an abstract (interface only) class.
 // Classes marked abstract should not be instantiated.  If they are, and access violation will occur.
-//
 // Example of use:
-//
 // abstract_class CFoo
 // {
-//      ...
 // }
-//
 // MSDN __declspec(novtable) documentation: http://msdn.microsoft.com/library/default.asp?url=/library/en-us/vclang/html/_langref_novtable.asp
-//
 // Note: NJS: This is not enabled for regular PC, due to not knowing the implications of exporting a class with no no vtable.
 //       It's probable that this shouldn't be an issue, but an experiment should be done to verify this.
-//
-#ifndef _X360
 #define abstract_class class
-#else
-#define abstract_class class NO_VTABLE
-#endif
-
 
 // MSVC CRT uses 0x7fff while gcc uses MAX_INT, leading to mismatches between platforms
 // As a result, we pick the least common denominator here.  This should be used anywhere
@@ -445,23 +380,10 @@ typedef unsigned short WORD;
 
 #endif // defined(_WIN32) && !defined(WINDED)
 
-#ifdef POSIX
-#endif
-
- 
-
 // Defines MAX_PATH
 #ifndef MAX_PATH
 #define MAX_PATH  260
 #endif
-
-#ifdef _WIN32
-#define MAX_UNICODE_PATH 32767
-#else
-#define MAX_UNICODE_PATH MAX_PATH
-#endif
-
-
 
 #if !defined( offsetof )
 	#ifdef __GNUC__
@@ -471,14 +393,11 @@ typedef unsigned short WORD;
 	#endif
 #endif // !defined( offsetof )
 
-
 #define ALIGN_VALUE( val, alignment ) ( ( val + alignment - 1 ) & ~( alignment - 1 ) ) //  need macro for constant expression
 
 // Used to step into the debugger
-#if defined( _WIN32 ) && !defined( _X360 )
+#if defined( _WIN32 )
 #define DebuggerBreak()  __debugbreak()
-#elif defined( _X360 )
-#define DebuggerBreak() DebugBreak()
 #else
 	// On OSX, SIGTRAP doesn't really stop the thread cold when debugging.
 	// So if being debugged, use INT3 which is precise.
@@ -506,8 +425,6 @@ typedef unsigned short WORD;
 
 #if defined __i386__ && !defined __linux__
 	#define id386	1
-#else
-
 #endif  // __i386__
 
 // decls for aligning data
@@ -567,16 +484,10 @@ typedef unsigned short WORD;
 // Pull in the /analyze code annotations.
 #include "annotations.h"
 
-//-----------------------------------------------------------------------------
 // Convert int<-->pointer, avoiding 32/64-bit compiler warnings:
-//-----------------------------------------------------------------------------
 #define INT_TO_POINTER( i ) (void *)( ( i ) + (char *)NULL )
 
-
-
-//-----------------------------------------------------------------------------
 // Stack-based allocation related helpers
-//-----------------------------------------------------------------------------
 #if defined( GNUC )
 	#define stackalloc( _size )		alloca( ALIGN_VALUE( _size, 16 ) )
 #if defined(OSX)
@@ -595,11 +506,6 @@ typedef unsigned short WORD;
 
 // Linux had a few areas where it didn't construct objects in the same order that Windows does.
 // So when CVProfile::CVProfile() would access g_pMemAlloc, it would crash because the allocator wasn't initalized yet.
-#ifdef POSIX
-
-#else
-
-	#endif
 
 #if defined(_MSC_VER)
 
@@ -638,8 +544,6 @@ typedef unsigned short WORD;
 	#define DLL_GLOBAL_EXPORT		extern __declspec( dllexport )
 	#define DLL_GLOBAL_IMPORT		extern __declspec( dllimport )
 
-
-
 #elif defined GNUC
 // Used for dll exporting and importing
 #define  DLL_EXPORT   extern "C" __attribute__ ((visibility("default")))
@@ -653,26 +557,17 @@ typedef unsigned short WORD;
 #define  DLL_GLOBAL_EXPORT   extern __attribute ((visibility("default")))
 #define  DLL_GLOBAL_IMPORT   extern
 
-
-
 #else
 #error "Unsupported Platform."
 #endif
 
 // Used for standard calling conventions
-#if defined( _WIN32 ) && !defined( _X360 )
+#if defined( _WIN32 )
 
 	#define  FASTCALL				__fastcall
 	#define  FORCEINLINE			__forceinline
 	// GCC 3.4.1 has a bug in supporting forced inline of templated functions
 	// this macro lets us not force inlining in that case
-	#define  FORCEINLINE_TEMPLATE		__forceinline
-#elif defined( _X360 )
-	#define  STDCALL				__stdcall
-	#ifdef FORCEINLINE
-		#undef FORCEINLINE
-#endif 
-	#define  FORCEINLINE			__forceinline
 	#define  FORCEINLINE_TEMPLATE		__forceinline
 	#else
 
@@ -686,7 +581,7 @@ typedef unsigned short WORD;
 //	#define  __stdcall			__attribute__ ((__stdcall__))
 #endif
 
-#if ( defined(__SANITIZE_ADDRESS__) && __SANITIZE_ADDRESS__ )
+#if defined(__SANITIZE_ADDRESS__) && __SANITIZE_ADDRESS__
 	#define NO_ASAN __attribute__((no_sanitize("address")))
 	#define NO_ASAN_FORCEINLINE NO_ASAN inline
 #else
@@ -696,11 +591,9 @@ typedef unsigned short WORD;
 
 // Force a function call site -not- to inlined. (useful for profiling)
 
-
 // Pass hints to the compiler to prevent it from generating unnessecary / stupid code
 // in certain situations.  Several compilers other than MSVC also have an equivilent
 // construct.
-//
 // Essentially the 'Hint' is that the condition specified is assumed to be true at
 // that point in the compilation.  If '0' is passed, then the compiler assumes that
 // any subsequent code in the same 'basic block' is unreachable, and thus usually
@@ -717,8 +610,6 @@ typedef unsigned short WORD;
 
 // In cases where no default is present or appropriate, this causes MSVC to generate
 // as little code as possible, and throw an assertion in debug.
-
-
 
 #ifdef _WIN32
 
@@ -752,7 +643,6 @@ typedef unsigned short WORD;
 #pragma warning(disable : 4996)	// functions declared deprecated
 #endif
 
-
 #endif // _WIN32
 
 #if defined( LINUX ) && ((__GNUC__ * 100) + __GNUC_MINOR__) >= 406
@@ -764,9 +654,6 @@ typedef unsigned short WORD;
 
   #define GCC_DIAG_PUSH_OFF(x)	GCC_DIAG_PRAGMA(push) GCC_DIAG_PRAGMA(ignored GCC_DIAG_JOINSTR(-W,x))
   #define GCC_DIAG_POP()		GCC_DIAG_PRAGMA(pop)
-#else
-
-
 #endif
 
 #ifdef LINUX
@@ -782,14 +669,12 @@ typedef unsigned short WORD;
 #pragma GCC diagnostic ignored "-Wswitch"					// enumeration values not handled in switch
 #endif
 
-
 // When we port to 64 bit, we'll have to resolve the int, ptr vs size_t 32/64 bit problems...
 #if !defined( _WIN64 )
 #pragma warning( disable : 4267 )	// conversion from 'size_t' to 'int', possible loss of data
 #pragma warning( disable : 4311 )	// pointer truncation from 'char *' to 'int'
 #pragma warning( disable : 4312 )	// conversion from 'unsigned int' to 'memhandle_t' of greater size
 #endif
-
 
 #ifdef POSIX
 #define _stricmp stricmp
@@ -808,21 +693,12 @@ typedef unsigned short WORD;
 #define _getcwd getcwd
 #define _snwprintf swprintf
 
-
-#define _wcsicmp wcscmp
 #define _finite finite
-
-
-
 
 #define _wtoi(arg) wcstol(arg, NULL, 10)
 #define _wtoi64(arg) wcstoll(arg, NULL, 10)
 
-
-
-
 #define _open open
-
 
 #define _close close
 
@@ -831,27 +707,11 @@ typedef void *HANDLE;
 #endif
 #endif
 
-//-----------------------------------------------------------------------------
 // fsel
-//-----------------------------------------------------------------------------
-#ifndef _X360
 
-
-#else
-
-// __fsel(double fComparand, double fValGE, double fLT) == fComparand >= 0 ? fValGE : fLT
-// this is much faster than if ( aFloat > 0 ) { x = .. }
-#define fsel __fsel
-
-#endif
-
-
-//-----------------------------------------------------------------------------
 // FP exception handling
-//-----------------------------------------------------------------------------
 //#define CHECK_FLOAT_EXCEPTIONS		1
 
-#if !defined( _X360 )
 #if defined( _MSC_VER )
 
 	#if defined( PLATFORM_WINDOWS_PC64 )
@@ -895,61 +755,18 @@ typedef void *HANDLE;
 		#endif
 	#endif
 
-#else
-
-
 #endif // _MSC_VER
 
-#else
-
-	#ifdef _DEBUG
-		FORCEINLINE bool IsFPUControlWordSet()
-		{
-			float f = 0.996f;
-			union
-			{
-				double flResult;
-				int pResult[2];
-			};
-			flResult = __fctiw( f );
-			return ( pResult[1] == 1 );
-		}
-	#endif
-
-	inline void SetupFPUControlWord()
-	{
-		// Set round-to-nearest in FPSCR
-		// (cannot assemble, must use op-code form)
-		__emit( 0xFF80010C );	// mtfsfi  7,0
-
-		// Favour compatibility over speed (make sure the VPU set to Java-compliant mode)
-		// NOTE: the VPU *always* uses round-to-nearest
-			__vector4  a = { 0.0f, 0.0f, 0.0f, 0.0f };
-			a;				//	Avoid compiler warning
-			__asm
-		{
-			mtvscr a;	// Clear the Vector Status & Control Register to zero
-		}
-	}
-
-#endif // _X360
-
-//-----------------------------------------------------------------------------
 // Portability casting
-//-----------------------------------------------------------------------------
 template < typename Tdst, typename Tsrc > FORCEINLINE Tdst size_cast( Tsrc val )
 {
 	static_assert( sizeof( Tdst ) <= sizeof( uint64 ) && sizeof( Tsrc ) <= sizeof( uint64 ), "Okay in my defense there weren't any types larger than 64-bits when this code was written." );
 	return ( Tdst )val;
 }
 
-//-----------------------------------------------------------------------------
 // Purpose: Standard functions for handling endian-ness
-//-----------------------------------------------------------------------------
 
-//-------------------------------------
 // Basic swaps
-//-------------------------------------
 
 template <typename T>
 inline T WordSwapC( T w )
@@ -1001,9 +818,7 @@ inline T QWordSwapC( T dw )
 	return *((T*)&temp);
 }
 
-//-------------------------------------
 // Fast swaps
-//-------------------------------------
 
 #if defined _MSC_VER		// MSVC (What about MinGW and Clang for Windows)
 
@@ -1027,9 +842,7 @@ inline T QWordSwapC( T dw )
 
 #endif
 
-//-------------------------------------
 // The typically used methods.
-//-------------------------------------
 
 #define VALVE_LITTLE_ENDIAN 1
 
@@ -1105,17 +918,6 @@ inline void SwapFloat( float *pOut, const float *pIn )		{ SafeSwapFloat( pOut, p
 
 #endif
 
-#if _X360
-FORCEINLINE unsigned long LoadLittleDWord( const unsigned long *base, unsigned int dwordIndex )
-		{
-			return __loadwordbytereverse( dwordIndex<<2, base );
-		}
-
-FORCEINLINE void StoreLittleDWord( unsigned long *base, unsigned int dwordIndex, unsigned long dword )
-		{
-			__storewordbytereverse( dword, dwordIndex<<2, base );
-		}
-#else
 	FORCEINLINE uint32 LoadLittleDWord( uint32 *base, unsigned int dwordIndex )
 	{
 		return LittleDWord( base[dwordIndex] );
@@ -1125,17 +927,13 @@ FORCEINLINE void StoreLittleDWord( unsigned long *base, unsigned int dwordIndex,
 	{
 		base[dwordIndex] = LittleDWord(dword);
 	}
-#endif
-
 
 inline int64 CastPtrToInt64( const void* p )
 {
 	return (int64) ( (uintp) p );
 }
 
-//-----------------------------------------------------------------------------
 // DLL export for platform utilities
-//-----------------------------------------------------------------------------
 #ifndef STATIC_TIER0
 
 #ifdef TIER0_DLL_EXPORT
@@ -1158,20 +956,9 @@ inline int64 CastPtrToInt64( const void* p )
 
 typedef class CSysModule* PlatModule_t;
 
-
-
-
 PLATFORM_INTERFACE double			Plat_FloatTime();		// Returns time in seconds since the module was loaded.
 
-PLATFORM_INTERFACE void				Plat_ExitProcess( int nCode );
-
 typedef uint32 strlen_t;
-
-
-
-
-
-
 
 //sets the callback that will be triggered by Plat_ExitProcessWithError. NULL is valid. The return value true indicates that
 //the exit has been handled and no further processing should be performed. False will cause a minidump to be generated, and the process
@@ -1188,9 +975,7 @@ PLATFORM_INTERFACE struct tm *		Plat_localtime( const time_t *timep, struct tm *
 
 inline uint64 Plat_Rdtsc()
 {
-#if defined( _X360 )
-	return ( uint64 )__mftb32();
-#elif defined( _WIN64 )
+#if defined( _WIN64 )
 	return ( uint64 )__rdtsc();
 #elif defined( _WIN32 )
   #if defined( _MSC_VER ) && ( _MSC_VER >= 1400 )
@@ -1217,9 +1002,7 @@ inline uint64 Plat_Rdtsc()
 
 // Protect against bad auto operator=
 
-
 // Define a reasonable operator=
-
 
 // Processor Information:
 struct CPUInformation
@@ -1290,44 +1073,18 @@ struct MemoryInformation
 	}
 };
 
-
-
-
-//-----------------------------------------------------------------------------
 // D3DX
-//-----------------------------------------------------------------------------
 
-
-
-
-//-----------------------------------------------------------------------------
 // Thread related functions
-//-----------------------------------------------------------------------------
-
-
 
 #ifndef _WIN32
 // helper function for OS's that don't have a ::GetCommandLine() call
 PLATFORM_INTERFACE ;
 #endif
-PLATFORM_INTERFACE const char *Plat_GetCommandLineA();
 
-
-
-
-
-
-#if _X360
-#define Plat_FastMemset XMemSet
-#define Plat_FastMemcpy XMemCpy
-#else
 #define Plat_FastMemset memset
 
-#endif
-
-//-----------------------------------------------------------------------------
 // Returns true if debugger attached, false otherwise
-//-----------------------------------------------------------------------------
 #if defined(_WIN32) || defined(LINUX) || defined(OSX)
 PLATFORM_INTERFACE bool Plat_IsInDebugSession();
 #else
@@ -1335,76 +1092,15 @@ inline bool Plat_IsInDebugSession( bool bForceRecheck = false ) { return false; 
 #define Plat_DebugString(s) ((void)0)
 #endif
 
-
-
-//-----------------------------------------------------------------------------
-// XBOX Components valid in PC compilation space
-//-----------------------------------------------------------------------------
-
-
- // driver reads in quantum ECC blocks
-
-
-// Custom windows messages for Xbox input
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// flat view, 6 hw threads
-#define XBOX_PROCESSOR_0			( 1<<0 )
-#define XBOX_PROCESSOR_1			( 1<<1 )
-#define XBOX_PROCESSOR_2			( 1<<2 )
-#define XBOX_PROCESSOR_3			( 1<<3 )
-#define XBOX_PROCESSOR_4			( 1<<4 )
-#define XBOX_PROCESSOR_5			( 1<<5 )
-
-// core view, 3 cores with 2 hw threads each
-
-
-
-
-
-
-
-//-----------------------------------------------------------------------------
 // Include additional dependant header components.
-//-----------------------------------------------------------------------------
 #include "tier0/fasttimer.h"
 
-#if defined( _X360 )
-#include "xbox/xbox_core.h"
-#endif
-
-//-----------------------------------------------------------------------------
 // There is no requirement that a va_list be usable in multiple calls,
 // but the Steam code does this.  Linux64 does not support reuse, whereas
 // Windows does, so Linux64 breaks on code that was written and working
 // on Windows.  Fortunately Linux has va_copy, which provides a simple
 // way to let a va_list be used multiple times.  Unfortunately Windows
 // does not have va_copy, so here we provide things to hide the difference.
-//-----------------------------------------------------------------------------
 
 class CReuseVaList
 {
@@ -1427,9 +1123,7 @@ public:
     va_list m_ReuseList;
 };
 
-//-----------------------------------------------------------------------------
 // Methods to invoke the constructor, copy constructor, and destructor
-//-----------------------------------------------------------------------------
 
 template <class T>
 inline T* Construct( T* pMemory )
@@ -1466,19 +1160,6 @@ inline T* Construct( T* pMemory, ARG1 a1, ARG2 a2, ARG3 a3, ARG4 a4, ARG5 a5 )
 {
 	return reinterpret_cast<T*>(::new( pMemory ) T( a1, a2, a3, a4, a5 ));
 }
-
-template <class T, class P>
-inline void ConstructOneArg( T* pMemory, P const& arg)
-{
-	::new( pMemory ) T(arg);
-}
-
-template <class T, class P1, class P2 >
-inline void ConstructTwoArg( T* pMemory, P1 const& arg1, P2 const& arg2)
-{
-	::new( pMemory ) T(arg1, arg2);
-}
-
 
 template <class T>
 inline T* CopyConstruct( T* pMemory, T const& src )
@@ -1525,14 +1206,10 @@ constexpr RemoveReference<T>&& Move(T&& arg)
 }
 
 // misyl: Shamelessly nicked from Source 2 =)
-//
-//--------------------------------------------------------------------------------------------------
 // RunCodeAtScopeExit
-//
 // Example:
 //	int *x = new int;
 //	RunCodeAtScopeExit( delete x )
-//--------------------------------------------------------------------------------------------------
 template <typename LambdaType>
 class CScopeGuardLambdaImpl
 {
@@ -1543,26 +1220,21 @@ private:
 	LambdaType m_lambda;
 };
 
-//--------------------------------------------------------------------------------------------------
 template <typename LambdaType>
 CScopeGuardLambdaImpl< LambdaType > MakeScopeGuardLambda( LambdaType&& lambda )
 {
 	return CScopeGuardLambdaImpl< LambdaType >( Move( lambda ) );
 }
 
-//--------------------------------------------------------------------------------------------------
 #define RunLambdaAtScopeExit2( VarName, ... )		const auto VarName( MakeScopeGuardLambda( __VA_ARGS__ ) ); (void)VarName
 #define RunLambdaAtScopeExit( ... )					RunLambdaAtScopeExit2( UNIQUE_ID, __VA_ARGS__ )
 #define RunCodeAtScopeExit( ... )					RunLambdaAtScopeExit( [&]() { __VA_ARGS__ ; } )
 
-//
 // GET_OUTER()
-//
 // A platform-independent way for a contained class to get a pointer to its
 // owner. If you know a class is exclusively used in the context of some
 // "outer" class, this is a much more space efficient way to get at the outer
 // class than having the inner class store a pointer to it.
-//
 //	class COuter
 //	{
 //		class CInner // Note: this does not need to be a nested class to work
@@ -1572,14 +1244,12 @@ CScopeGuardLambdaImpl< LambdaType > MakeScopeGuardLambda( LambdaType&& lambda )
 //				printf( "Outer is at 0x%x\n", GET_OUTER( COuter, m_Inner ) );
 //			}
 //		};
-//
 //		CInner m_Inner;
 //		friend class CInner;
 //	};
 
 #define GET_OUTER( OuterType, OuterMember ) \
    ( ( OuterType * ) ( (uint8 *)this - offsetof( OuterType, OuterMember ) ) )
-
 
 /*	TEMPLATE_FUNCTION_TABLE()
 
@@ -1638,9 +1308,6 @@ CScopeGuardLambdaImpl< LambdaType > MakeScopeGuardLambda( LambdaType&& lambda )
 	};
 */
 
-PLATFORM_INTERFACE bool vtune( bool resume );
-
-
 #define TEMPLATE_FUNCTION_TABLE(RETURN_TYPE, NAME, ARGS, COUNT)			\
 																		\
 typedef RETURN_TYPE (FASTCALL *__Type_##NAME) ARGS;						\
@@ -1678,12 +1345,7 @@ const __Type_##NAME* NAME::functions = (__Type_##NAME*)&m;				\
 template<const int nArgument>													\
 RETURN_TYPE FASTCALL __Function_##NAME<nArgument>::Run ARGS
 
-
-
-
-//-----------------------------------------------------------------------------
 // Dynamic libs support
-//-----------------------------------------------------------------------------
 #if 0 // defined( PLATFORM_WINDOWS_PC )
 
 PLATFORM_INTERFACE void *Plat_GetProcAddress( const char *pszModule, const char *pszName );
@@ -1711,10 +1373,7 @@ private:
 };
 #endif
 
-
-
 typedef void (*Plat_WatchDogHandlerFunction_t)(void);
-
 
 // Use ValidateAlignment to sanity-check alignment usage when allocating arrays of an aligned type
 #define ALIGN_ASSERT( pred ) { COMPILE_TIME_ASSERT( pred ); }
@@ -1735,7 +1394,7 @@ inline void ValidateAlignmentExplicit(void)
 }
 
 // Portable alternative to __alignof
-template<class T> struct AlignOf_t { AlignOf_t(){} AlignOf_t & operator=(const AlignOf_t &) { return *this; } byte b; T t; };
+template<class T> struct AlignOf_t { AlignOf_t(){}  byte b; T t; };
 
 template < size_t NUM, class T, int ALIGN > struct AlignedByteArrayExplicit_t{};
 template < size_t NUM, class T > struct AlignedByteArray_t : public AlignedByteArrayExplicit_t< NUM, T, VALIGNOF_TEMPLATE_SAFE(T) > {};
@@ -1761,8 +1420,6 @@ DECLARE_ALIGNED_BYTE_ARRAY(32);
 DECLARE_ALIGNED_BYTE_ARRAY(64);
 DECLARE_ALIGNED_BYTE_ARRAY(128);
 
-//-----------------------------------------------------------------------------
-
 #include "tier0/valve_on.h"
 
 #if defined(TIER0_DLL_EXPORT)
@@ -1777,6 +1434,3 @@ extern "C" int V_tier0_stricmp(const char *s1, const char *s2 );
 // I am so evil I put it in platform.h, but a few places need this define and I didn't want to think too
 // hard about it.
 // >:)
-
-
-#endif /* PLATFORM_H */

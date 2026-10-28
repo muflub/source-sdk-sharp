@@ -20,8 +20,7 @@
 // them (particlemgr.cpp, particles_new.cpp) compile unchanged.
 //=============================================================================//
 
-#ifndef SS_PARTICLES_IPARTICLELIB_H
-#define SS_PARTICLES_IPARTICLELIB_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -146,5 +145,3 @@ public:
 	#define SS_PARTICLELIB_API extern "C"
 #endif
 SS_PARTICLELIB_API ISSParticleLib *SSParticleLib_Interface();
-
-#endif // SS_PARTICLES_IPARTICLELIB_H

@@ -1,41 +1,25 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // The copyright to the contents herein is the property of Valve, L.L.C.
 // The contents may be used and/or copied only with the written permission of
 // Valve, L.L.C., or in accordance with the terms and conditions stipulated in
 // the agreement/contract under which the contents have been supplied.
-//
 // Purpose: Defines a group of app systems that all have the same lifetime
 // that need to be connected/initialized, etc. in a well-defined order
-//
-// $Revision: $
-// $NoKeywords: $
-//=============================================================================
 
-#ifndef IAPPSYSTEMGROUP_H
-#define IAPPSYSTEMGROUP_H
-
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "tier1/interface.h"
 #include "tier1/utlvector.h"
 #include "tier1/utldict.h"
 #include "IAppSystem.h"
 
-//-----------------------------------------------------------------------------
 // forward declarations
-//-----------------------------------------------------------------------------
 class IAppSystem;
 class CSysModule;
 class IBaseInterface;
 class IFileSystem;
 
-//-----------------------------------------------------------------------------
 // Handle to a DLL
-//-----------------------------------------------------------------------------
 typedef int AppModule_t;
 
 enum
@@ -43,11 +27,8 @@ enum
 	APP_MODULE_INVALID = (AppModule_t)~0
 };
 
-
-//-----------------------------------------------------------------------------
 // NOTE: The following methods must be implemented in your application
 // although they can be empty implementations if you like...
-//-----------------------------------------------------------------------------
 abstract_class IAppSystemGroup
 {
 public:
@@ -72,21 +53,15 @@ public:
 	virtual void Destroy() = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Specifies a module + interface name for initialization
-//-----------------------------------------------------------------------------
 struct AppSystemInfo_t
 {
 	const char *m_pModuleName;
 	const char *m_pInterfaceName;
 };
 
-
-//-----------------------------------------------------------------------------
 // This class represents a group of app systems that all have the same lifetime
 // that need to be connected/initialized, etc. in a well-defined order
-//-----------------------------------------------------------------------------
 class CAppSystemGroup : public IAppSystemGroup
 {
 public:
@@ -120,24 +95,13 @@ public:
 	virtual int Startup();
 	virtual void Shutdown();
 
-
 protected:
 	// These methods are meant to be called by derived classes of CAppSystemGroup
 
-
-
-
-
-
 private:
-
-
-
- 
 
 	// Loads a module the standard way
 	virtual CSysModule *LoadModuleDLL( const char *pDLLName );
-
 
 	struct Module_t
 	{
@@ -155,18 +119,13 @@ private:
 	friend class CSteamAppSystemGroup;
 };
 
-
-//-----------------------------------------------------------------------------
 // This class represents a group of app systems that are loaded through steam
-//-----------------------------------------------------------------------------
 class CSteamAppSystemGroup : public CAppSystemGroup
 {
 public:
 	CSteamAppSystemGroup( IFileSystem *pFileSystem = NULL, CAppSystemGroup *pParentAppSystem = NULL );
 
-
 protected:
-
 
 private:
 	virtual CSysModule *LoadModuleDLL( const char *pDLLName );
@@ -175,34 +134,6 @@ private:
 	char m_pGameInfoPath[ MAX_PATH ];
 };
 
-
-
-
-//-----------------------------------------------------------------------------
 // Special helper for game info directory suggestion
-//-----------------------------------------------------------------------------
 
 class CFSSteamSetupInfo;	// Forward declaration
-
-//
-// SuggestGameInfoDirFn_t
-//		Game info suggestion function.
-//		Provided by the application to possibly detect the suggested game info
-//		directory and initialize all the game-info-related systems appropriately.
-// Parameters:
-//		pFsSteamSetupInfo		steam file system setup information if available.
-//		pchPathBuffer			buffer to hold game info directory path on return.
-//		nBufferLength			length of the provided buffer to hold game info directory path.
-//		pbBubbleDirectories		should contain "true" on return to bubble the directories up searching for game info file.
-// Return values:
-//		Returns "true" if the game info directory path suggestion is available and
-//		was successfully copied into the provided buffer.
-//		Returns "false" otherwise, interpreted that no suggestion will be used.
-//
-typedef bool ( * SuggestGameInfoDirFn_t ) ( CFSSteamSetupInfo const *pFsSteamSetupInfo, char *pchPathBuffer, int nBufferLength, bool *pbBubbleDirectories );
-
-
-
-#endif // APPSYSTEMGROUP_H
-
-

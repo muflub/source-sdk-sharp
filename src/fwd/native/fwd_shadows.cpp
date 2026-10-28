@@ -49,6 +49,16 @@
 #include "materialsystem/imaterialsystemhardwareconfig.h"
 #include "materialsystem/itexture.h"
 #include "mathlib/vmatrix.h"
+#include "materialsystem/MaterialSystemUtil.h"
+#include "materialsystem/imaterial.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "mathlib/vector2d.h"
+#include "tier0/platform.h"
+#include "tier1/convar.h"
+#include "tier1/refcount.h"
+#include "ispatialpartition.h"
+#include "istudiorender.h"
 #include "sourcesharp.h"
 
 namespace

@@ -35,8 +35,7 @@
 // Header-only and engine-free so the rule is checked by gtest rather than by
 // standing on a lift (src/sourcesharp/test/standalone_model_bounds_test.cpp).
 
-#ifndef SOURCESHARP_STANDALONE_MODEL_BOUNDS_H
-#define SOURCESHARP_STANDALONE_MODEL_BOUNDS_H
+#pragma once
 
 inline bool StandaloneModel_AdoptsBounds( bool bIsPlayer, bool bModelHasBounds )
 {
@@ -45,5 +44,3 @@ inline bool StandaloneModel_AdoptsBounds( bool bIsPlayer, bool bModelHasBounds )
 
 	return bModelHasBounds;
 }
-
-#endif // SOURCESHARP_STANDALONE_MODEL_BOUNDS_H

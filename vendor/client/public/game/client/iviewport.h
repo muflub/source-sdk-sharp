@@ -1,20 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-//
-//-----------------------------------------------------------------------------
-// $Log: $
-//
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( IVIEWPORT_H )
-#define IVIEWPORT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <vgui/VGUI.h>
 
@@ -34,12 +19,12 @@ public:
 	virtual void SetData(KeyValues *data) = 0; // set ViewPortPanel data
 	virtual void Reset( void ) = 0;		// clears internal state, deactivates it
 	virtual void Update( void ) = 0;	// updates all (size, position, content, etc)
-	virtual bool NeedsUpdate( void ) = 0; // query panel if content needs to be updated
-	virtual bool HasInputElements( void ) = 0;	// true if panel contains elments which accepts input
+	virtual void unused_NeedsUpdate() = 0; // query panel if content needs to be updated
+	virtual void unused_HasInputElements() = 0;	// true if panel contains elments which accepts input
 
 	virtual void ShowPanel( bool state ) = 0; // activate VGUI Frame
 
-	virtual GameActionSet_t GetPreferredActionSet() = 0;
+	virtual void unused_GetPreferredActionSet() = 0;
 		
 	// VGUI functions:
 	virtual vgui::VPANEL GetVPanel( void ) = 0; // returns VGUI panel handle
@@ -60,6 +45,3 @@ public:
 };
 
 extern IViewPort *gViewPortInterface;
-
-
-#endif // IVIEWPORT_H

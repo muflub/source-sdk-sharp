@@ -1,17 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( IENGINEVGUI_H )
-#define IENGINEVGUI_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "interface.h"
 #include "vgui/VGUI.h"
@@ -52,13 +40,12 @@ public:
 
 	virtual bool			IsGameUIVisible() = 0;
 
-	virtual bool			GetWorkshopMap( uint32 uIndex, WorkshopMapDesc_t *pDesc ) = 0;
+	virtual void unused_GetWorkshopMap() = 0;
 };
 
 #define VENGINE_VGUI_VERSION		"VEngineVGui002"
-#define VENGINE_VGUI_VERSION_OLD	"VEngineVGui001"
 
-#if defined(_STATIC_LINKED) && defined(CLIENT_DLL)
+#if defined(_STATIC_LINKED)
 namespace Client
 {
 extern IEngineVGui *enginevgui;
@@ -66,5 +53,3 @@ extern IEngineVGui *enginevgui;
 #else
 extern IEngineVGui *enginevgui;
 #endif
-
-#endif // IENGINEVGUI_H

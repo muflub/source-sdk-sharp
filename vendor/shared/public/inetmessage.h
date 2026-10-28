@@ -1,12 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: INetMessage interface
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef INETMESSAGE_H
-#define INETMESSAGE_H
+#pragma once
 
 #include "tier1/bitbuf.h"
 
@@ -44,7 +39,3 @@ public:
 
 	virtual size_t			GetSize() const = 0;
 };
-
-
-#endif
-

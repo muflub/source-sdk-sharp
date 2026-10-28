@@ -13,8 +13,6 @@
 // extension appends the server-only slots of the same family. Rules as
 // ishim_frame.h: no virtual destructor, blittable arguments, APPEND-ONLY.
 
-#ifndef ISHIM_AREAS_H
-#define ISHIM_AREAS_H
 #pragma once
 
 #include <stdint.h>
@@ -350,5 +348,3 @@ public:
 	// (sourcesharp.h, SourceSharpTeTableHeader_t). Answers the handle, or -1.
 	virtual int32_t TempEntBuild( const void * pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t * pOut ) = 0;
 };
-
-#endif // ISHIM_AREAS_H

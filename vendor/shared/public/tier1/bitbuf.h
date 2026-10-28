@@ -1,19 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
 
 // NOTE: bf_read is guaranteed to return zeros if it overflows.
 
-#ifndef BITBUF_H
-#define BITBUF_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "platform.h"
 
@@ -22,28 +11,21 @@
 #include "basetypes.h"
 #include "tier0/dbg.h"
 
-
 #if _DEBUG
 #define BITBUF_INLINE inline
 #else
 #define BITBUF_INLINE FORCEINLINE
 #endif
 
-//-----------------------------------------------------------------------------
 // Forward declarations.
-//-----------------------------------------------------------------------------
 
 class Vector;
 class QAngle;
 
-//-----------------------------------------------------------------------------
 // You can define a handler function that will be called in case of 
 // out-of-range values and overruns here.
-//
 // NOTE: the handler is only called in debug mode.
-//
 // Call SetBitBufErrorHandler to install a handler.
-//-----------------------------------------------------------------------------
 
 typedef enum
 {
@@ -53,9 +35,7 @@ typedef enum
 	BITBUFERROR_NUM_ERRORS
 } BitBufErrorType;
 
-
 typedef void (*BitBufErrorHandler)( BitBufErrorType errorType, const char *pDebugName );
-
 
 #if defined( _DEBUG )
 	extern void InternalBitBufErrorHandler( BitBufErrorType errorType, const char *pDebugName );
@@ -64,29 +44,13 @@ typedef void (*BitBufErrorHandler)( BitBufErrorType errorType, const char *pDebu
 	#define CallErrorHandler( errorType, pDebugName )
 #endif
 
-
-// Use this to install the error handler. Call with NULL to uninstall your error handler.
-void SetBitBufErrorHandler( BitBufErrorHandler fn );
-
-
-//-----------------------------------------------------------------------------
 // Helpers.
-//-----------------------------------------------------------------------------
 
-inline int BitByte( int bits )
-{
-	// return PAD_NUMBER( bits, 8 ) >> 3;
-	return (bits + 7) >> 3;
-}
-
-//-----------------------------------------------------------------------------
 // namespaced helpers
-//-----------------------------------------------------------------------------
 namespace bitbuf
 {
 	// ZigZag Transform:  Encodes signed integers so that they can be
 	// effectively used with varint encoding.
-	//
 	// varint operates on unsigned integers, encoding smaller numbers into
 	// fewer bytes.  If you try to use it on a signed integer, it will treat
 	// this number as a very large unsigned integer, which means that even
@@ -94,9 +58,7 @@ namespace bitbuf
 	// (10) to encode.  ZigZagEncode() maps signed integers to unsigned
 	// in such a way that those with a small absolute value will have smaller
 	// encoded values, making them appropriate for encoding using varint.
-	//
 	//       int32 ->     uint32
-	// -------------------------
 	//           0 ->          0
 	//          -1 ->          1
 	//           1 ->          2
@@ -104,7 +66,6 @@ namespace bitbuf
 	//         ... ->        ...
 	//  2147483647 -> 4294967294
 	// -2147483648 -> 4294967295
-	//
 	//        >> encode >>
 	//        << decode <<
 
@@ -134,9 +95,7 @@ namespace bitbuf
 	const int kMaxVarint32Bytes = 5;
 }
 
-//-----------------------------------------------------------------------------
 // Used for serialization
-//-----------------------------------------------------------------------------
 
 class bf_write
 {
@@ -156,22 +115,13 @@ public:
 	// Restart buffer writing.
 	void			Reset();
 
-
-	// Enable or disable assertion on overflow. 99% of the time, it's a bug that we need to catch,
-	// but there may be the occasional buffer that is allowed to overflow gracefully.
-	void			SetAssertOnOverflow( bool bAssert );
-
 	// This can be set to assign a name that gets output if the buffer overflows.
 	const char*		GetDebugName();
 	void			SetDebugName( const char *pDebugName );
 
-
 // Seek to a specific position.
 public:
 	
-	void			SeekToBit( int bitPos );
-
-
 // Bit functions.
 public:
 
@@ -183,52 +133,27 @@ public:
 	void			WriteUBitLong( unsigned int data, int numbits, bool bCheckRange=true );
 	void			WriteSBitLong( int data, int numbits );
 	
-	// Tell it whether or not the data is unsigned. If it's signed,
-	// cast to unsigned before passing in (it will cast back inside).
-	void			WriteBitLong(unsigned int data, int numbits, bool bSigned);
-
 	// Write a list of bits in.
 	bool			WriteBits(const void *pIn, int nBits);
-
 
 	// writes a varint encoded integer
 	void			WriteVarInt32( uint32 data );
 	void			WriteVarInt64( uint64 data );
-	void			WriteSignedVarInt32( int32 data );
-	void			WriteSignedVarInt64( int64 data );
 	int				ByteSizeVarInt32( uint32 data );
 	int				ByteSizeVarInt64( uint64 data );
-	int				ByteSizeSignedVarInt32( int32 data );
-	int				ByteSizeSignedVarInt64( int64 data );
 
 	// Copy the bits straight out of pIn. This seeks pIn forward by nBits.
 	// Returns an error if this buffer or the read buffer overflows.
 	bool			WriteBitsFromBuffer( class bf_read *pIn, int nBits );
 	
-	void			WriteBitAngle( float fAngle, int numbits );
 	void			WriteBitCoord (const float f);
-	void			WriteBitCoordMP( const float f, bool bIntegral, bool bLowPrecision );
 	void			WriteBitVec3Coord( const Vector& fa );
 	void			WriteBitNormal( float f );
-	void			WriteBitVec3Normal( const Vector& fa );
-	void			WriteBitAngles( const QAngle& fa );
-
 
 // Byte functions.
 public:
 
 	void			WriteChar(int val);
-	void			WriteByte(int val);
-	void			WriteShort(int val);
-	void			WriteWord(int val);
-	void			WriteLong(int32 val);
-	void			WriteLongLong(int64 val);
-	void			WriteFloat(float val);
-	bool			WriteBytes( const void *pBuf, int nBytes );
-
-	// Returns false if it overflows the buffer.
-	bool			WriteString(const char *pStr);
-
 
 // Status.
 public:
@@ -240,7 +165,6 @@ public:
 	inline bool		IsOverflowed() const {return m_bOverflow;}
 
 	void			SetOverflowFlag();
-
 
 public:
 	// The current buffer.
@@ -260,19 +184,12 @@ private:
 	const char		*m_pDebugName;
 };
 
-
-//-----------------------------------------------------------------------------
 // Inlined methods
-//-----------------------------------------------------------------------------
-
-
-
 
 inline int bf_write::GetNumBitsLeft()	
 {
 	return m_nDataBits - m_iCurBit;
 }
-
 
 inline unsigned char* bf_write::GetData()			
 {
@@ -283,7 +200,6 @@ inline const unsigned char* bf_write::GetData()	const
 {
 	return (unsigned char*) m_pData;
 }
-
 
 BITBUF_INLINE void bf_write::SetOverflowFlag()
 {
@@ -324,7 +240,6 @@ inline void bf_write::WriteOneBit(int nValue)
 	}
 	WriteOneBitNoCheck( nValue );
 }
-
 
 inline void	bf_write::WriteOneBitAt( int iBit, int nValue )
 {
@@ -401,26 +316,9 @@ BITBUF_INLINE void bf_write::WriteUBitLong( unsigned int curData, int numbits, b
 	StoreLittleDWord( pOut, 0, dword1 );
 }
 
-
-
-//-----------------------------------------------------------------------------
 // This is useful if you just want a buffer to write into on the stack.
-//-----------------------------------------------------------------------------
 
-template<int SIZE>
-class old_bf_write_static : public bf_write
-{
-public:
-	inline old_bf_write_static() : bf_write(m_StaticData, SIZE) {}
-
-	char	m_StaticData[SIZE];
-};
-
-
-
-//-----------------------------------------------------------------------------
 // Used for unserialization
-//-----------------------------------------------------------------------------
 
 class bf_read
 {
@@ -441,16 +339,9 @@ public:
 	// Restart buffer reading.
 	void			Reset();
 
-	// Enable or disable assertion on overflow. 99% of the time, it's a bug that we need to catch,
-	// but there may be the occasional buffer that is allowed to overflow gracefully.
-	void			SetAssertOnOverflow( bool bAssert );
-
 	// This can be set to assign a name that gets output if the buffer overflows.
 	const char*		GetDebugName() const { return m_pDebugName; }
 	void			SetDebugName( const char *pName );
-
-	void			ExciseBits( int startbit, int bitstoremove );
-
 
 // Bit functions.
 public:
@@ -458,18 +349,14 @@ public:
 	// Returns 0 or 1.
 	int				ReadOneBit();
 
-
 protected:
 
-	unsigned int	CheckReadUBitLong(int numbits);		// For debugging.
 	int				ReadOneBitNoCheck();				// Faster version, doesn't check bounds and is inlined.
-
 
 public:
 
 	// Get the base pointer.
 	const unsigned char*	GetBasePointer() { return m_pData; }
-
 
 	// Read a list of bits in.
 	void            ReadBits(void *pOut, int nBits);
@@ -478,11 +365,7 @@ public:
 	// bits are skipped over.
 	int             ReadBitsClamped_ptr(void *pOut, size_t outSizeBytes, size_t nBits);
 	
-	float			ReadBitAngle( int numbits );
-
 	unsigned int	ReadUBitLong( int numbits ) RESTRICT;
-	unsigned int	ReadUBitLongNoInline( int numbits ) RESTRICT;
-	unsigned int	PeekUBitLong( int numbits );
 	int				ReadSBitLong( int numbits );
 
 	unsigned int	ReadUBitVarInternal( int encodingType );
@@ -490,52 +373,25 @@ public:
 	// reads a varint encoded integer
 	uint32			ReadVarInt32();
 	uint64			ReadVarInt64();
-	int32			ReadSignedVarInt32();
-	int64			ReadSignedVarInt64();
-
-	// You can read signed or unsigned data with this, just cast to 
-	// a signed int if necessary.
-	unsigned int	ReadBitLong(int numbits, bool bSigned);
 
 	float			ReadBitCoord();
-	float			ReadBitCoordMP( bool bIntegral, bool bLowPrecision );
 	float			ReadBitNormal();
 	void			ReadBitVec3Coord( Vector& fa );
-	void			ReadBitVec3Normal( Vector& fa );
-	void			ReadBitAngles( QAngle& fa );
-
-	// Faster for comparisons but do not fully decode float values
-	unsigned int	ReadBitCoordBits();
-	unsigned int	ReadBitCoordMPBits( bool bIntegral, bool bLowPrecision );
 
 // Byte functions (these still read data in bit-by-bit).
 public:
 	
 	BITBUF_INLINE int	ReadChar() { return (char)ReadUBitLong(8); }
-	int64			ReadLongLong();
-	float			ReadFloat();
-	bool			ReadBytes(void *pOut, int nBytes);
 
 	// Returns false if bufLen isn't large enough to hold the
 	// string in the buffer.
-	//
 	// Always reads to the end of the string (so you can read the
 	// next piece of data waiting).
-	//
 	// If bLine is true, it stops when it reaches a '\n' or a null-terminator.
-	//
 	// pStr is always null-terminated (unless bufLen is 0).
-	//
 	// pOutNumChars is set to the number of characters left in pStr when the routine is 
 	// complete (this will never exceed bufLen-1).
-	//
 	bool			ReadString( char *pStr, int bufLen, bool bLine=false, int *pOutNumChars=NULL );
-
-	// Reads a string and allocates memory for it. If the string in the buffer
-	// is > 2048 bytes, then pOverflow is set to true (if it's not NULL).
-	char*			ReadAndAllocateString( bool *pOverflow = 0 );
-
-	int				CompareBitsAt( int offset, bf_read * RESTRICT other, int otherOffset, int bits ) RESTRICT;
 
 // Status.
 public:
@@ -551,7 +407,6 @@ public:
 	// Called when the buffer is overflowed.
 	void			SetOverflowFlag();
 
-
 public:
 
 	// The current buffer.
@@ -561,7 +416,6 @@ public:
 	
 	// Where we are in the buffer.
 	int				m_iCurBit;
-
 
 private:	
 	// Errors?
@@ -573,16 +427,12 @@ private:
 	const char		*m_pDebugName;
 };
 
-//-----------------------------------------------------------------------------
 // Inlines.
-//-----------------------------------------------------------------------------
-
 
 inline int bf_read::GetNumBitsLeft()	
 {
 	return m_nDataBits - m_iCurBit;
 }
-
 
 inline int bf_read::GetNumBitsRead() const
 {
@@ -610,7 +460,6 @@ inline bool	bf_read::SeekRelative(int iBitDelta)
 	return Seek(m_iCurBit+iBitDelta);
 }	
 
-
 inline int bf_read::ReadOneBitNoCheck()
 {
 #if VALVE_LITTLE_ENDIAN
@@ -632,8 +481,6 @@ inline int bf_read::ReadOneBit()
 	}
 	return ReadOneBitNoCheck();
 }
-
-
 
 BITBUF_INLINE unsigned int bf_read::ReadUBitLong( int numbits ) RESTRICT
 {
@@ -665,10 +512,3 @@ BITBUF_INLINE unsigned int bf_read::ReadUBitLong( int numbits ) RESTRICT
 
 	return (dw1 | dw2) & bitmask;
 }
-
-
-
-#endif
-
-
-

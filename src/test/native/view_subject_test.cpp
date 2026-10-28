@@ -412,7 +412,13 @@ TEST( ReplayText, NothingInThoseThreeCallsTheDeletedCamera )
 
 		EXPECT_EQ( std::string::npos, strFile.find( "ReplayCamera()->" ) )
 			<< kFiles[ i ] << " calls ReplayCamera(), which step 7g deleted";
-		EXPECT_EQ( std::string::npos, strFile.find( "#include \"replay/" ) )
+		// The one replay header allowed is the interface the view renderer
+		// implements: stock IViewRender hands out an IReplayScreenshotSystem.
+		const std::string strAllowed = "#include \"replay/ireplayscreenshotsystem.h\"";
+		std::string strRest = strFile;
+		for ( size_t at; ( at = strRest.find( strAllowed ) ) != std::string::npos; )
+			strRest.erase( at, strAllowed.size() );
+		EXPECT_EQ( std::string::npos, strRest.find( "#include \"replay/" ) )
 			<< kFiles[ i ] << " includes a replay header";
 	}
 }
@@ -483,7 +489,7 @@ TEST( SeesOwner, ThreeReadersAskTheSameFunction )
 		<< "the plan's viewmodel pass no longer asks the camera";
 	EXPECT_NE( strShell.find( "SourceSharp_ThirdPersonSeesOwner()" ), std::string::npos )
 		<< "C_StandaloneEntity::ShouldDraw no longer asks the camera";
-	EXPECT_NE( strMode.find( "virtual bool ShouldDrawLocalPlayer() OVERRIDE { return SourceSharp_ThirdPersonSeesOwner(); }" ), std::string::npos )
+	EXPECT_NE( strMode.find( "virtual bool ShouldDrawLocalPlayer( C_BasePlayer *pPlayer ) OVERRIDE { return SourceSharp_ThirdPersonSeesOwner(); }" ), std::string::npos )
 		<< "the client mode's ShouldDrawLocalPlayer no longer asks the camera";
 }
 

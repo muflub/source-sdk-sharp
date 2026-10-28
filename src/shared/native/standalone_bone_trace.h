@@ -13,8 +13,7 @@
 // trace that lands its hit on the wrong axis.
 //=============================================================================//
 
-#ifndef STANDALONE_BONE_TRACE_H
-#define STANDALONE_BONE_TRACE_H
+#pragma once
 
 // The ray, in: Ray_t's four vectors and two flags (as 0.0f / 1.0f).
 enum StandaloneBoneRayFloat
@@ -56,5 +55,3 @@ enum StandaloneBoneTraceInt
 	SS_BONE_TRACE_SURFACE_IS_STUDIO = 9,
 	SS_BONE_TRACE_INTS = 10,
 };
-
-#endif // STANDALONE_BONE_TRACE_H

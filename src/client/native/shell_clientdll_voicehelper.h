@@ -24,11 +24,7 @@
 // be declared where CShellClientDLL is compiled, hence this header.
 //
 //===========================================================================//
-#ifndef SHELL_CLIENTDLL_VOICEHELPER_H
-#define SHELL_CLIENTDLL_VOICEHELPER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "voice_status.h"
 
@@ -42,5 +38,3 @@ public:
 	virtual void			UpdateCursorState();
 	virtual bool			CanShowSpeakerLabels();
 };
-
-#endif // SHELL_CLIENTDLL_VOICEHELPER_H

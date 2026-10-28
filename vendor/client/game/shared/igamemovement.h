@@ -1,39 +1,21 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
 
-#if !defined( IGAMEMOVEMENT_H )
-#define IGAMEMOVEMENT_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 #include "interface.h"
 #include "imovehelper.h"
 #include "const.h"
 
-//-----------------------------------------------------------------------------
 // Name of the class implementing the game movement.
-//-----------------------------------------------------------------------------
 
 #define INTERFACENAME_GAMEMOVEMENT	"GameMovement001"
 
-//-----------------------------------------------------------------------------
 // Forward declarations.
-//-----------------------------------------------------------------------------
 
 class IMoveHelper;
 
-//-----------------------------------------------------------------------------
 // Purpose: Encapsulated input parameters to player movement.
-//-----------------------------------------------------------------------------
 
 class CMoveData
 {
@@ -85,13 +67,6 @@ inline const Vector &CMoveData::GetAbsOrigin() const
 	return m_vecAbsOrigin;
 }
 
-#if !defined( CLIENT_DLL ) && defined( _DEBUG )
-// We only ever want this code path on the server side in a debug build
-//  and you have to uncomment the code below and rebuild to have the test operate.
-//#define PLAYER_GETTING_STUCK_TESTING
-
-#endif
-
 #if !defined( PLAYER_GETTING_STUCK_TESTING )
 
 // This is implemented with a more exhaustive test in gamemovement.cpp.  We check if the origin being requested is
@@ -103,10 +78,7 @@ inline void CMoveData::SetAbsOrigin( const Vector &vec )
 
 #endif
 
-
-//-----------------------------------------------------------------------------
 // Purpose: The basic player movement interface
-//-----------------------------------------------------------------------------
 
 abstract_class IGameMovement
 {
@@ -125,6 +97,3 @@ public:
 	virtual Vector  GetPlayerViewOffset( bool ducked ) const = 0;
 
 };
-
-
-#endif // IGAMEMOVEMENT_H

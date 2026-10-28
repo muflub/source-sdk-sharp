@@ -8,15 +8,9 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_SHELL_GAMEDLL_INTERNAL_H
-#define SOURCESHARP_SHELL_GAMEDLL_INTERNAL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 class CShellTransmitSet;
 
 // The game-DLL object's recorder. Non-const because `arm` writes.
 CShellTransmitSet &ShellGameDll_TransmitSet();
-
-#endif // SOURCESHARP_SHELL_GAMEDLL_INTERNAL_H

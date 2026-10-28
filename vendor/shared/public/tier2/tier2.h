@@ -1,63 +1,32 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: A higher level link library for general use in the game and tools.
-//
-//===========================================================================//
 
-
-#ifndef TIER2_H
-#define TIER2_H
-
-#if defined( _WIN32 )
 #pragma once
-#endif
 
 #include "tier1/tier1.h"
 
-
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 class IFileSystem;
 class IMaterialSystem;
 class IColorCorrectionSystem;
 class IMaterialSystemHardwareConfig;
-class IDebugTextureInfo;
-class IVBAllocTracker;
 class IInputSystem;
-class INetworkSystem;
-class IP4;
-class IMdlLib;
-class IQueuedLoader;
 
-
-//-----------------------------------------------------------------------------
 // These tier2 libraries must be set by any users of this library.
 // They can be set by calling ConnectTier2Libraries or InitDefaultFileSystem.
 // It is hoped that setting this, and using this library will be the common mechanism for
 // allowing link libraries to access tier2 library interfaces
-//-----------------------------------------------------------------------------
 extern IFileSystem *g_pFullFileSystem;
 extern IMaterialSystem *materials;
 extern IMaterialSystem *g_pMaterialSystem;
 extern IMaterialSystemHardwareConfig *g_pMaterialSystemHardwareConfig;
 
-
-//-----------------------------------------------------------------------------
 // Call this to connect to/disconnect from all tier 2 libraries.
 // It's up to the caller to check the globals it cares about to see if ones are missing
-//-----------------------------------------------------------------------------
 void ConnectTier2Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount );
 void DisconnectTier2Libraries();
 
-
-
-
-
-
-//-----------------------------------------------------------------------------
 // Helper empty implementation of an IAppSystem for tier2 libraries
-//-----------------------------------------------------------------------------
 template< class IInterface, int ConVarFlag = 0 > 
 class CTier2AppSystem : public CTier1AppSystem< IInterface, ConVarFlag >
 {
@@ -104,7 +73,3 @@ public:
 		BaseClass::Disconnect();
 	}
 };
-
-
-#endif // TIER2_H
-

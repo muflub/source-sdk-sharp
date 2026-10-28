@@ -82,3 +82,9 @@ void Vertex(	BOUNDARY	detail_props_wire.h's draw handler: one vertex into the me
 void EndDraw()	BOUNDARY	detail_props_wire.h's draw handler: End and Draw
 void Draw( int nKind	BOUNDARY	one of stock's translucent draws carried out: managed's Prepare, the render context to GetMaxToRender, managed's Emit
 IDetailObjectSystem *DetailObjectSystem()	HOOK	the accessor kClientSystems, the leaf system and the view executor reach the system by
+[CShellDetailProps] virtual void PostInit() OVERRIDE	SLOT	IGameSystem stage the system list calls; stock's empty default
+[CShellDetailProps] virtual void Shutdown() OVERRIDE	SLOT	IGameSystem stage the system list calls; stock's empty default
+[CShellDetailProps] virtual void OnSave() OVERRIDE	SLOT	IGameSystem stage the system list calls; stock's empty default
+[CShellDetailProps] virtual void OnRestore() OVERRIDE	SLOT	IGameSystem stage the system list calls; stock's empty default
+[CShellDetailProps] virtual void SafeRemoveIfDesired() OVERRIDE	SLOT	IGameSystem stage the system list calls; stock's empty default
+[CShellDetailProps] virtual bool IsPerFrame() OVERRIDE	SLOT	IGameSystem stage the system list calls; stock's empty default

@@ -16,10 +16,11 @@
 // texture coordinates (u v, u v), tangent S, tangent T.
 //=============================================================================//
 
-#ifndef BEAM_STRIP_VERTEX_H
-#define BEAM_STRIP_VERTEX_H
+#pragma once
 
 #include "materialsystem/imesh.h"
+#include "materialsystem/imaterialsystem.h"
+#include "particles/particles.h"
 
 enum { BEAM_STRIP_VERTEX_FLOATS = 17 };
 
@@ -68,5 +69,3 @@ inline void DrawStrip( IMesh *pMesh, const float *pVerts, int nVerts )
 }
 } // namespace beamstrip
 } // namespace ss
-
-#endif // BEAM_STRIP_VERTEX_H

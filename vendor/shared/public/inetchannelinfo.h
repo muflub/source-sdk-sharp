@@ -1,23 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-//
-//-----------------------------------------------------------------------------
-// $Log: $
-//
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( INETCHANNELINFO_H )
-#define INETCHANNELINFO_H
-#ifdef _WIN32
 #pragma once
-#endif
-
-
-		
 
 #define MAX_FLOWS		2		// in & out
 
@@ -72,5 +54,3 @@ public:
 
 	virtual float		GetTimeoutSeconds() const = 0;
 };
-
-#endif // INETCHANNELINFO_H

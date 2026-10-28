@@ -23,11 +23,7 @@
 // whatever used to be there.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_STANDALONE_PLAYER_SYNC_H
-#define SOURCESHARP_STANDALONE_PLAYER_SYNC_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basehandle.h"
 #include "imovementplayer.h"
@@ -182,5 +178,3 @@ void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob,
                                             const SourceSharpPlayerFields_t &fields,
                                             const Vector &vecOrigin, int nHealth, bool bAlive );
 #endif
-
-#endif // SOURCESHARP_STANDALONE_PLAYER_SYNC_H

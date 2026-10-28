@@ -23,11 +23,7 @@
 //
 //=============================================================================//
 
-#ifndef SERVER_STRING_POOL_H
-#define SERVER_STRING_POOL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "ss_string.h"
 
@@ -64,5 +60,3 @@ protected:
 
 	Set m_Strings;
 };
-
-#endif // SERVER_STRING_POOL_H

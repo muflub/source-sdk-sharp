@@ -36,7 +36,16 @@
 // the same commit (docs/client_evictions.md).
 //=============================================================================
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
 #include "detailobjectsystem.h"
 #include "clientleafsystem.h"
 #include "view.h"
@@ -50,12 +59,41 @@
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialsystemhardwareconfig.h"
 #include "materialsystem/MaterialSystemUtil.h"
+#include "engine/ICollideable.h"
+#include "engine/ishadowmgr.h"
+#include "materialsystem/imaterialsystem.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "particles/particles.h"
+#include "tier0/basetypes.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier0/wchartypes.h"
+#include "tier1/convar.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "tier1/utlvector.h"
+#include "tier2/tier2.h"
+#include "toolframework/itoolentity.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "client_entity.h"
+#include "client_render_handle.h"
+#include "eiface.h"
+#include "icliententitylist.h"
+#include "iclientrenderable.h"
+#include "iclientthinkable.h"
+#include "iclientunknown.h"
+#include "ivrenderview.h"
+#include "particledraw.h"
+#include "studio.h"
+#include "texture_group_names.h"
+#include "vphysics_interface.h"
 #include "imanaged_areas_client.h"
 #include "shell_world_nettable_client.h"
 #include "detail_props_wire.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 // viewrender's, kept native with the render plan's other inputs
 // (shell_viewrender_client.cpp).
@@ -233,6 +271,14 @@ class CShellDetailProps : public IDetailObjectSystem, public ISpatialLeafEnumera
 {
 public:
 	virtual char const *Name() OVERRIDE { return "DetailObjectSystem"; }
+
+	// IGameSystem's stages stock's detail props had no body for.
+	virtual void PostInit() OVERRIDE {}
+	virtual void Shutdown() OVERRIDE {}
+	virtual void OnSave() OVERRIDE {}
+	virtual void OnRestore() OVERRIDE {}
+	virtual void SafeRemoveIfDesired() OVERRIDE {}
+	virtual bool IsPerFrame() OVERRIDE { return false; }
 
 	virtual bool Init() OVERRIDE
 	{

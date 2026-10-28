@@ -1,18 +1,9 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: This header should never be used directly from leaf code!!!
 // Instead, just add the file memoverride.cpp into your project and all this
 // will automagically be used
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef TIER0_MEMALLOC_H
-#define TIER0_MEMALLOC_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 // These memory debugging switches aren't relevant under Linux builds since memoverride.cpp
 // isn't built into Linux projects
@@ -41,14 +32,10 @@
 
 struct _CrtMemState;
 
-
-
 typedef size_t (*MemAllocFailHandler_t)( size_t );
 
-//-----------------------------------------------------------------------------
 // NOTE! This should never be called directly from leaf code
 // Just use new,delete,malloc,free etc. They will call into this eventually
-//-----------------------------------------------------------------------------
 abstract_class IMemAlloc
 {
 public:
@@ -103,7 +90,7 @@ public:
 	virtual void unused_CompactHeap() = 0;
 
 	// Function called when malloc fails or memory limits hit to attempt to free up memory (can come in any thread)
-	virtual MemAllocFailHandler_t SetAllocFailHandler( MemAllocFailHandler_t pfnMemAllocFailHandler ) = 0;
+	virtual void unused_SetAllocFailHandler() = 0;
 
 	virtual void unused_DumpBlockStats() = 0;
 
@@ -122,15 +109,11 @@ public:
 	virtual void unused_InitDebugInfo() = 0;
 
 	// Replacement for ::GlobalMemoryStatus which accounts for unused memory in our system
-	virtual void GlobalMemoryStatus( size_t *pUsedMemory, size_t *pFreeMemory ) = 0;
+	virtual void unused_GlobalMemoryStatus() = 0;
 };
 
-//-----------------------------------------------------------------------------
 // Singleton interface
-//-----------------------------------------------------------------------------
 MEM_INTERFACE IMemAlloc *g_pMemAlloc;
-
-//-----------------------------------------------------------------------------
 
 #ifdef MEMALLOC_REGIONS
 #ifndef MEMALLOC_REGION
@@ -161,8 +144,6 @@ inline void MemAlloc_Free( void *ptr, const char *pFileName, int nLine )
 {
 	g_pMemAlloc->Free( ptr, pFileName, nLine );
 }
-
-//-----------------------------------------------------------------------------
 
 inline bool ValueIsPowerOfTwo( size_t value )			// don't clash with mathlib definition
 {
@@ -204,7 +185,6 @@ inline void *MemAlloc_AllocAligned( size_t size, size_t align, const char *pszFi
 
 	return (void *)pResult;
 }
-
 
 inline void *MemAlloc_AllocAlignedFileLine( size_t size, size_t align, const char *pszFile, int nLine )
 {
@@ -289,9 +269,6 @@ inline void MemAlloc_FreeAligned( void *pMemBlock, const char *pFileName, int nL
 	g_pMemAlloc->Free( pAlloc, pFileName, nLine );
 }
 
-
-//-----------------------------------------------------------------------------
-
 #if defined(USE_MEM_DEBUG)
 #define MEM_ALLOC_CREDIT_JOIN_AGAIN( a, b )							a ## b
 #define MEM_ALLOC_CREDIT_JOIN( a, b )								MEM_ALLOC_CREDIT_JOIN_AGAIN( a, b )
@@ -308,21 +285,6 @@ inline void MemAlloc_FreeAligned( void *pMemBlock, const char *pFileName, int nL
 #define MemAlloc_RegisterDeallocation( pFileName, nLine, nLogicalSize, nActualSize, nTime ) ((void)0)
 #endif
 
-
-
-
-
-#define MemAlloc_CrtCheckMemory() g_pMemAlloc->CrtCheckMemory()
-#define MemAlloc_GlobalMemoryStatus( _usedMemory, _freeMemory ) g_pMemAlloc->GlobalMemoryStatus( _usedMemory, _freeMemory )
-
-
-
-
-
-
-
-//-----------------------------------------------------------------------------
-
 class CMemAllocAttributeAlloction
 {
 public:
@@ -338,8 +300,6 @@ public:
 };
 
 #define MEM_ALLOC_CREDIT()	MEM_ALLOC_CREDIT_(__FILE__)
-
-//-----------------------------------------------------------------------------
 
 #if defined(_WIN32) && defined(USE_MEM_DEBUG)
 
@@ -371,8 +331,6 @@ public:
 	#define MEM_ALLOC_CLASSNAME(type) NULL
 	#define MEM_ALLOC_CREDIT_FUNCTION() 
 #endif
-
-//-----------------------------------------------------------------------------
 
 #if defined(USE_MEM_DEBUG)
 struct MemAllocFileLine_t
@@ -424,8 +382,6 @@ struct MemAllocFileLine_t
 
 #endif
 
-//-----------------------------------------------------------------------------
-
 #elif defined( POSIX )
 
 inline void MemAlloc_CheckAlloc( void *ptr, size_t nSize )
@@ -471,15 +427,7 @@ inline void *MemAlloc_ReallocAligned( void *ptr, size_t size, size_t align )
 	MemAlloc_CheckAlloc( ptr_new_aligned, size ); 
 	return ptr_new_aligned;
 }
-#else
-
-
-
-
-
 #endif // !STEAM && !NO_MALLOC_OVERRIDE
-
-//-----------------------------------------------------------------------------
 
 #if !defined(STEAM) && defined(NO_MALLOC_OVERRIDE)
 
@@ -494,46 +442,26 @@ inline void *MemAlloc_ReallocAligned( void *ptr, size_t size, size_t align )
 #define MemAlloc_RegisterAllocation( pFileName, nLine, nLogicalSize, nActualSize, nTime ) ((void)0)
 #define MemAlloc_RegisterDeallocation( pFileName, nLine, nLogicalSize, nActualSize, nTime ) ((void)0)
 
-
-
-
-
-
-
-
-
-
-
-
 #define MEMALLOC_DEFINE_EXTERNAL_TRACKING( tag )
 #define MemAlloc_RegisterExternalAllocation( tag, p, size ) ((void)0)
 #define MemAlloc_RegisterExternalDeallocation( tag, p, size ) ((void)0)
 
 #endif // !STEAM && NO_MALLOC_OVERRIDE
 
-//-----------------------------------------------------------------------------
-
-
-
 // linux memory tracking via hooks.
 #if defined( POSIX ) && !defined( NO_HOOK_MALLOC )
-PLATFORM_INTERFACE void MemoryLogMessage( char const *s );						// throw a message into the memory log
-PLATFORM_INTERFACE void EnableMemoryLogging( bool bOnOff );
-PLATFORM_INTERFACE void DumpMemoryLog( int nThresh );
-PLATFORM_INTERFACE void DumpMemorySummary( void );
-PLATFORM_INTERFACE void SetMemoryMark( void );
-PLATFORM_INTERFACE void DumpChangedMemory( int nThresh );
-
-#else
-
+PLATFORM_INTERFACE ;						// throw a message into the memory log
+PLATFORM_INTERFACE ;
+PLATFORM_INTERFACE ;
+PLATFORM_INTERFACE ;
+PLATFORM_INTERFACE ;
+PLATFORM_INTERFACE ;
 
 #endif
 
 #ifdef POSIX
 // ApproximateProcessMemoryUsage returns the approximate memory footprint of this process.
 PLATFORM_INTERFACE ;
-#else
-
 #endif
 
 struct aligned_tmp_t
@@ -551,6 +479,3 @@ allocator should take care of this automatically. Any object whose size is a mul
 of 16 will be 16-byte aligned. Existing uses of this class were not changed because
 the cost/benefit did not justify it.
 */
-
-
-#endif /* TIER0_MEMALLOC_H */

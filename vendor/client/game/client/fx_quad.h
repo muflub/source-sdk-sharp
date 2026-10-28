@@ -1,8 +1,4 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
 #include "clientsideeffects.h"
 
@@ -18,7 +14,7 @@
 // Flags
 #define	FXQUAD_BIAS_SCALE	0x0001	//Bias the scale's interpolation function
 #define	FXQUAD_BIAS_ALPHA	0x0002	//Bias the alpha's interpolation function
-#define FXQUAD_COLOR_FADE	0x0004	//Blend the color towards black via the alpha (overcomes additive ignoring alpha)
+	//Blend the color towards black via the alpha (overcomes additive ignoring alpha)
 
 struct FXQuadData_t
 {
@@ -29,26 +25,7 @@ struct FXQuadData_t
 		m_uiFlags		= 0;
 	}
 
-	void SetFlags( unsigned int flags )			{ m_uiFlags |= flags; }
-	void SetOrigin( const Vector &origin )		{ m_vecOrigin = origin; }
-	void SetNormal( const Vector &normal )		{ m_vecNormal = normal; }
-	void SetScale( float start, float end )		{ m_flStartScale = start; m_flEndScale = end; }
-	void SetAlpha( float start, float end )		{ m_flStartAlpha = start; m_flEndAlpha = end; }
-	void SetLifeTime( float lifetime )			{ m_flDieTime = lifetime; }
 	void SetColor( float r, float g, float b )	{ m_Color = Vector( r, g, b ); }
-	void SetAlphaBias( float bias )				{ m_flAlphaBias = bias; }
-	void SetScaleBias( float bias )				{ m_flScaleBias = bias; }
-	void SetYaw( float yaw, float delta = 0.0f ){ m_flYaw = yaw; m_flDeltaYaw = delta; }
-
-	void SetMaterial( const char *shader )	
-	{ 
-		m_pMaterial = materials->FindMaterial( shader, TEXTURE_GROUP_CLIENT_EFFECTS );
-
-		if ( m_pMaterial != NULL )
-		{
-			m_pMaterial->IncrementReferenceCount();
-		}
-	}
 
 	unsigned int	m_uiFlags;
 	IMaterial		*m_pMaterial;

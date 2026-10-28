@@ -1,16 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Deals with singleton  
-//
-// $Revision: $
-// $NoKeywords: $
-//=============================================================================//
 
-#if !defined( DETAILOBJECTSYSTEM_H )
-#define DETAILOBJECTSYSTEM_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "igamesystem.h"
 #include "icliententityinternal.h"
@@ -20,10 +11,7 @@
 
 struct model_t;
 
-
-//-----------------------------------------------------------------------------
 // Responsible for managing detail objects
-//-----------------------------------------------------------------------------
 abstract_class IDetailObjectSystem : public IGameSystem
 {
 public:
@@ -46,12 +34,5 @@ public:
 	virtual void RenderTranslucentDetailObjectsInLeaf( const Vector &viewOrigin, const Vector &viewForward, const Vector &viewRight, const Vector &viewUp, int nLeaf, const Vector *pVecClosestPoint ) = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // System for dealing with detail objects
-//-----------------------------------------------------------------------------
 IDetailObjectSystem* DetailObjectSystem();
-
-
-#endif // DETAILOBJECTSYSTEM_H
-

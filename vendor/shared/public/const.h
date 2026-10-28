@@ -1,65 +1,35 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
-#ifndef CONST_H
-#define CONST_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 // the command line param that tells the engine to use steam
 
 // the command line param to tell dedicated server to restart 
 // if they are out of date
 
-
 // the message a server sends when a clients steam login is expired
-
-
-
-
-
-
-
 
 // This is the default, see shareddefs.h for mod-specific value, which can override this
 #define DEFAULT_TICK_INTERVAL	(0.015)				// 15 msec is the default
 
-
-
 // This is the max # of players the engine can handle
 #define ABSOLUTE_PLAYER_LIMIT 255  // not 256, so we can send the limit as a byte 
 
-
 // a player name may have 31 chars + 0 on the PC.
-// the 360 only allows 15 char + 0, but stick with the larger PC size for cross-platform communication
 #define MAX_PLAYER_NAME_LENGTH		32
 
-#ifdef _X360
-#define MAX_PLAYERS_PER_CLIENT		XUSER_MAX_COUNT	// Xbox 360 supports 4 players per console
-#else
 	// One player per PC
-#endif
 
 // Max decorated map name, with things like workshop/cp_foo.ugc123456
-#define MAX_MAP_NAME				96
 
 // Max name used in save files. Needs to be left at 32 for SourceSDK compatibility.
 #define MAX_MAP_NAME_SAVE			32
 
 // Max non-decorated map name for e.g. server browser (just cp_foo)
 
-
   // num chars for a network (i.e steam) ID
 
 // BUGBUG: Reconcile with or derive this from the engine's internal definition!
 // FIXME: I added an extra bit because I needed to make it signed
-#define SP_MODEL_INDEX_BITS			13
 
 // How many bits to use to encode an edict.
 #define	MAX_EDICT_BITS				11			// # of bits needed to represent max edicts
@@ -67,9 +37,8 @@
 #define	MAX_EDICTS					(1<<MAX_EDICT_BITS)
 
 // How many bits to use to encode an server class index
-#define MAX_SERVER_CLASS_BITS		9
-// Max # of networkable server classes
 
+// Max # of networkable server classes
 
 #define SIGNED_GUID_LEN 32 // Hashed CD Key (32 hex alphabetic chars + 0 terminator )
 
@@ -82,7 +51,6 @@
 #define NUM_SERIAL_NUM_SHIFT_BITS (32 - NUM_SERIAL_NUM_BITS)
 #define ENT_ENTRY_MASK			(( 1 << NUM_SERIAL_NUM_BITS) - 1)
 
-
 // Networked ehandles use less bits to encode the serial number.
 #define NUM_NETWORKED_EHANDLE_SERIAL_NUMBER_BITS	10
 #define NUM_NETWORKED_EHANDLE_BITS					(MAX_EDICT_BITS + NUM_NETWORKED_EHANDLE_SERIAL_NUMBER_BITS)
@@ -91,15 +59,12 @@
 // This is the maximum amount of data a PackedEntity can have. Having a limit allows us
 // to use static arrays sometimes instead of allocating memory all over the place.
 
-
 // This is the maximum number of properties that can be delta'd. Must be evenly divisible by 8.
-
 
 // a client can have up to 4 customization files (logo, sounds, models, txt).
 #define MAX_CUSTOM_FILES		4		// max 4 files
 	// Half a megabyte
 
-//
 // Constants shared by the engine and dlls
 // This header file included by engine files and DLL files.
 // Most came from server.h
@@ -164,12 +129,10 @@
 
 // NOTE if you move things up, make sure to change this value
 
-
 	// Changes the SV_Movestep() behavior to not need to be on ground
 	// Changes the SV_Movestep() behavior to not need to be on ground (but stay in water)
 
 #define	FL_NPC					(1<<14)
-
 
 	// set if the crosshair needs to aim onto the entity
 	// not all corners are valid
@@ -182,7 +145,7 @@
 #define FL_WORLDBRUSH			(1<<25)	// Not moveable/removeable brush entity (really part of the world, but represented as an entity for transparency or something)
  // Terrible name. This is an object that NPCs should see. Missiles, for example.
 	// This entity is marked for death -- will be freed by game DLL
-#define FL_ONFIRE				(1<<28)	// You know...
+	// You know...
  // We're dissolving!
  // In the process of turning into a client side ragdoll.
  // pusher that can't be blocked by the player
@@ -262,21 +225,10 @@ enum SolidFlags_t
 	FSOLID_MAX_BITS	= 10
 };
 
-//-----------------------------------------------------------------------------
-// A couple of inline helper methods
-//-----------------------------------------------------------------------------
-inline bool IsSolid( SolidType_t solidType, int nSolidFlags )
-{
-	return (solidType != SOLID_NONE) && ((nSolidFlags & FSOLID_NOT_SOLID) == 0);
-}
-
-
 // m_lifeState values
-#define	LIFE_ALIVE				0 // alive
+ // alive
  // playing death animation or still falling off of a ledge waiting to hit ground
  // dead. lying still.
-
-
 
 // entity effects
 enum
@@ -298,14 +250,9 @@ enum
 	EF_MAX_BITS = 10
 };
 
-#define EF_PARITY_BITS	3
-
-
 // How many bits does the muzzle flash parity thing get?
 
-
 // plats
-
 
 // Trains
 
@@ -318,33 +265,11 @@ enum
 
 // Break Model Defines
 
-#define BREAK_GLASS		0x01
-#define BREAK_METAL		0x02
-#define BREAK_FLESH		0x04
-#define BREAK_WOOD		0x08
-
-
-
-#define BREAK_CONCRETE	0x40
-
 // If this is set, then we share a lighting origin with the last non-slave breakable sent down to the client
-
 
 // Colliding temp entity sounds
 
-
-
-
-
-
-
-
-
-
 // Temp entity bounce sound types
-
-
-
 
 // Rendering constants
 // if this is changed, update common/MaterialSystem/Sprite.cpp
@@ -425,15 +350,11 @@ enum Collision_Group_t
 
 #include "basetypes.h"
 
-
-
 // How many networked area portals do we allow?
 #define MAX_AREA_STATE_BYTES		32
 #define MAX_AREA_PORTAL_STATE_BYTES 24
 
 // user message max payload size (note, this value is used by the engine, so MODs cannot change it)
-
-
 
 #define SOURCE_MT
 #ifdef SOURCE_MT
@@ -442,6 +363,3 @@ class CThreadMutex;
 class CThreadNullMutex;
 typedef CThreadNullMutex CSourceMutex;
 #endif
-
-#endif
-

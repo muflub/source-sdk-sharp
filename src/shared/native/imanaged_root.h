@@ -22,8 +22,6 @@
 //
 //=============================================================================//
 
-#ifndef IMANAGED_ROOT_H
-#define IMANAGED_ROOT_H
 #pragma once
 
 #include <stdint.h>
@@ -60,5 +58,3 @@ bool ManagedRoot_AcquireAreas( char *pWhy, size_t nWhy );
 bool ManagedRoot_Reattached( void *pObject, char *pWhy, size_t nWhy );
 
 void ManagedRoot_Release();
-
-#endif // IMANAGED_ROOT_H

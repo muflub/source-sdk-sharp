@@ -1,89 +1,36 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//===========================================================================//
 
-#ifndef IMATERIAL_H
-#define IMATERIAL_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "bitmap/imageformat.h"
 #include "materialsystem/imaterialsystem.h"
 
-//-----------------------------------------------------------------------------
 // forward declaraions
-//-----------------------------------------------------------------------------
 
 class IMaterialVar;
 class ITexture;
 class IMaterialProxy;
 class Vector;
 
-//-----------------------------------------------------------------------------
 // Flags for GetVertexFormat
-//-----------------------------------------------------------------------------
-#define	VERTEX_POSITION					0x0001
-#define	VERTEX_NORMAL					0x0002
-#define	VERTEX_COLOR					0x0004
-#define	VERTEX_SPECULAR					0x0008
-
-#define	VERTEX_TANGENT_S				0x0010
-#define	VERTEX_TANGENT_T				0x0020
-
 
 // Indicates we're using wrinkle
 
-
 // Indicates we're using bone indices
-#define	VERTEX_BONE_INDEX				0x0080
 
 // Indicates this is a vertex shader
-#define	VERTEX_FORMAT_VERTEX_SHADER		0x0100
 
 // Indicates this format shouldn't be bloated to cache align it
 // (only used for VertexUsage)
-
 
 // Indicates that compressed vertex elements are to be used (see also VertexCompressionType_t)
 #define	VERTEX_FORMAT_COMPRESSED		0x400
 
 // Update this if you add or remove bits...
-#define	VERTEX_LAST_BIT					10
-
-#define	VERTEX_BONE_WEIGHT_BIT			(VERTEX_LAST_BIT + 1)
-#define	USER_DATA_SIZE_BIT				(VERTEX_LAST_BIT + 4)
-#define	TEX_COORD_SIZE_BIT				(VERTEX_LAST_BIT + 7)
-
-
-
-
-
 
 // If everything is off, it's an unknown vertex format
 
-
-
-
-//-----------------------------------------------------------------------------
 // Macros for construction..
-//-----------------------------------------------------------------------------
-#define VERTEX_BONEWEIGHT( _n )				((_n) << VERTEX_BONE_WEIGHT_BIT)
-#define VERTEX_USERDATA_SIZE( _n )			((_n) << USER_DATA_SIZE_BIT)
-
-
-
-
-
-
-
-
-
 
 inline VertexCompressionType_t CompressionType( VertexFormat_t vertexFormat )
 {
@@ -94,10 +41,7 @@ inline VertexCompressionType_t CompressionType( VertexFormat_t vertexFormat )
 		return VERTEX_COMPRESSION_NONE;
 }
 
-
-//-----------------------------------------------------------------------------
 // VertexElement_t (enumerates all usable vertex elements)
-//-----------------------------------------------------------------------------
 // FIXME: unify this with VertexFormat_t (i.e. construct the lower bits of VertexFormat_t with "1 << (VertexElement_t)element")
 enum VertexElement_t
 {
@@ -237,7 +181,7 @@ inline int GetVertexElementSize( VertexElement_t element, VertexCompressionType_
 		// Compressed-vertex element sizes
 		switch ( element )
 		{
-#if		( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_SEPARATETANGENTS_SHORT2 )
+#if COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_SEPARATETANGENTS_SHORT2
 			case VERTEX_ELEMENT_NORMAL:
 				return ( 2 * sizeof( short ) );
 			case VERTEX_ELEMENT_USERDATA4:
@@ -315,12 +259,9 @@ inline int GetVertexElementSize( VertexElement_t element, VertexCompressionType_
 	};
 }
 
-
-//-----------------------------------------------------------------------------
 // Shader state flags can be read from the FLAGS materialvar
 // Also can be read or written to with the Set/GetMaterialVarFlags() call
 // Also make sure you add/remove a string associated with each flag below to CShaderSystem::ShaderStateString in ShaderSystem.cpp
-//-----------------------------------------------------------------------------
 enum MaterialVarFlags_t
 {
 	MATERIAL_VAR_DEBUG					  = (1 << 0),
@@ -361,48 +302,7 @@ enum MaterialVarFlags_t
 	// flags should to into the flag enum in imaterialinternal.h
 };
 
-
-//-----------------------------------------------------------------------------
-// Internal flags not accessible from outside the material system. Stored in Flags2
-//-----------------------------------------------------------------------------
-enum MaterialVarFlags2_t
-{
-	// NOTE: These are for $flags2!!!!!
-//	UNUSED											= (1 << 0),
-
-	MATERIAL_VAR2_LIGHTING_UNLIT					= 0,
-	MATERIAL_VAR2_LIGHTING_VERTEX_LIT				= (1 << 1),
-	MATERIAL_VAR2_LIGHTING_LIGHTMAP					= (1 << 2),
-	MATERIAL_VAR2_LIGHTING_BUMPED_LIGHTMAP			= (1 << 3),
-	MATERIAL_VAR2_LIGHTING_MASK						= 
-		( MATERIAL_VAR2_LIGHTING_VERTEX_LIT | 
-		  MATERIAL_VAR2_LIGHTING_LIGHTMAP | 
-		  MATERIAL_VAR2_LIGHTING_BUMPED_LIGHTMAP ),
-
-	// FIXME: Should this be a part of the above lighting enums?
-	MATERIAL_VAR2_DIFFUSE_BUMPMAPPED_MODEL					= (1 << 4),
-	MATERIAL_VAR2_USES_ENV_CUBEMAP							= (1 << 5),
-	MATERIAL_VAR2_NEEDS_TANGENT_SPACES						= (1 << 6),
-	MATERIAL_VAR2_NEEDS_SOFTWARE_LIGHTING					= (1 << 7),
-	// GR - HDR path puts lightmap alpha in separate texture...
-	MATERIAL_VAR2_BLEND_WITH_LIGHTMAP_ALPHA					= (1 << 8),
-	MATERIAL_VAR2_NEEDS_BAKED_LIGHTING_SNAPSHOTS			= (1 << 9),
-	MATERIAL_VAR2_USE_FLASHLIGHT							= (1 << 10),
-	MATERIAL_VAR2_USE_FIXED_FUNCTION_BAKED_LIGHTING			= (1 << 11),
-	MATERIAL_VAR2_NEEDS_FIXED_FUNCTION_FLASHLIGHT			= (1 << 12),
-	MATERIAL_VAR2_USE_EDITOR								= (1 << 13),
-	MATERIAL_VAR2_NEEDS_POWER_OF_TWO_FRAME_BUFFER_TEXTURE	= (1 << 14),
-	MATERIAL_VAR2_NEEDS_FULL_FRAME_BUFFER_TEXTURE			= (1 << 15),
-	MATERIAL_VAR2_IS_SPRITECARD								= (1 << 16),
-	MATERIAL_VAR2_USES_VERTEXID								= (1 << 17),
-	MATERIAL_VAR2_SUPPORTS_HW_SKINNING						= (1 << 18),
-	MATERIAL_VAR2_SUPPORTS_FLASHLIGHT						= (1 << 19),
-};
-
-
-//-----------------------------------------------------------------------------
 // Preview image return values
-//-----------------------------------------------------------------------------
 enum PreviewImageRetVal_t
 {
 	MATERIAL_PREVIEW_IMAGE_BAD = 0,
@@ -410,10 +310,7 @@ enum PreviewImageRetVal_t
 	MATERIAL_NO_PREVIEW_IMAGE,
 };
 
-
-//-----------------------------------------------------------------------------
 // material interface
-//-----------------------------------------------------------------------------
 abstract_class IMaterial
 {
 public:
@@ -433,7 +330,6 @@ public:
 	// Will do resampling if necessary.(not yet!!! :) )
 	// Will do color format conversion. (works now.)
 	virtual void unused_GetPreviewImage() = 0;
-	// 
 	virtual int				GetMappingWidth( ) = 0;
 	virtual int				GetMappingHeight( ) = 0;
 
@@ -571,10 +467,7 @@ public:
 	virtual void unused_IsPrecached() = 0;
 };
 
-
 inline bool IsErrorMaterial( IMaterial *pMat )
 {
 	return !pMat || pMat->IsErrorMaterial();
 }
-
-#endif // IMATERIAL_H

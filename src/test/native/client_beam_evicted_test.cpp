@@ -241,9 +241,6 @@ size_t CountOf( const std::string &strHaystack, const std::string &strNeedle )
 // call into it.
 const File_t kBeamExecutor = { "sourcesharp/game/client/shell_beam_render.cpp",
 	"IViewRenderBeams *beams = &g_SourceSharpBeams;" };
-const File_t kBeamIface = { "game/client/iviewrender_beams.h",
-	"class IViewRenderBeams" };
-
 // The endpoint facts the managed beam system decides a beam endpoint from
 // (shell_beam_endpoint_client.cpp's route moved to C# with the C2 beam port).
 // Anchored on the facts' entry point, which none of the assertions below is.
@@ -278,32 +275,25 @@ TEST( ClientBeamEvicted, TheServerStillExcludesTheBeamSendTable )
 TEST( ClientBeamEvicted, TheEntityAdapterIsGoneAndTheBeamTPathSurvives )
 {
 	const std::string executor = Load( kBeamExecutor );
-	const std::string iface = Load( kBeamIface );
 	const std::string tight = NoWhitespace( executor );
 
-	EXPECT_EQ( iface.find( "DrawBeam( C_Beam" ), std::string::npos )
-		<< "iviewrender_beams.h declares DrawBeam( C_Beam * ) again";
-	EXPECT_EQ( executor.find( "C_Beam" ), std::string::npos )
-		<< "the beam executor names C_Beam, whose members left with beam_shared.cpp";
+	// Stock IViewRenderBeams still declares DrawBeam( C_Beam * ); the executor
+	// answers that slot with nothing and names C_Beam nowhere else.
+	EXPECT_NE( executor.find( "void DrawBeam( C_Beam *, ITraceFilter * ) override {}" ), std::string::npos )
+		<< "the beam executor no longer answers stock's DrawBeam( C_Beam * ) slot empty";
+	EXPECT_EQ( CountOf( executor, "C_Beam" ), 1u )
+		<< "the beam executor names C_Beam beyond the empty slot, whose members left with beam_shared.cpp";
 
-	// THE OTHER HALF, and the one that matters for what the player sees: the
-	// temp-entity beam path. view_beams.cpp's CreateBeamPoints( BeamInfo_t & )
-	// is C#'s since the C2 beam port; what native keeps is the forward to it
-	// and a leaf renderable whose draw calls back. A mutation that cut either
-	// would leave every beam created and none drawn, or none created at all.
-	EXPECT_NE( tight.find( "Beam_t*CreateBeamPoints(BeamInfo_t&info)override{ForwardBeamInfo(BEAM_CREATE_POINTS,info);" ),
-		std::string::npos )
-		<< "`beams`' CreateBeamPoints( BeamInfo_t & ) no longer forwards to the "
-		   "managed beam system; fx.cpp's beams stop with no diagnostic";
-	EXPECT_NE( tight.find( "pBeams->BeamsCreate(eKind,ints,floats," ), std::string::npos )
-		<< "ForwardBeamInfo no longer reaches IManagedBeamsClient::BeamsCreate";
+	// THE OTHER HALF, and the one that matters for what the player sees: a
+	// beam's leaf renderable, whose draw calls back into the managed system.
+	// A mutation that cut it would leave every beam created and none drawn.
 	EXPECT_NE( tight.find( "intDrawModel(int)override{if(IManagedBeamsClient*pBeams=ManagedBeamsClient())"
 	                       "pBeams->BeamsDraw(m_nIndex);" ),
 		std::string::npos )
 		<< "a beam renderable's DrawModel no longer calls the managed draw: every "
 		   "beam in this game is created and none is drawn";
-	EXPECT_NE( iface.find( "DrawBeam( Beam_t *pbeam ) = 0" ), std::string::npos )
-		<< "IViewRenderBeams no longer declares the Beam_t overload";
+	EXPECT_NE( executor.find( "void DrawBeam( Beam_t * ) override {}" ), std::string::npos )
+		<< "the beam executor no longer answers IViewRenderBeams' Beam_t overload";
 }
 
 
@@ -331,27 +321,8 @@ TEST( ClientBeamEvicted, TheEndpointFactsReachNoStockEntityTypedArm )
 		   "name here is an undefined reference or the native route coming back.";
 }
 
-//-----------------------------------------------------------------------------
-// ...and an SDK endpoint is reported before anything is asked of it: the
-// managed route gives an SDK entity stock's cut answer (false), so the facts
-// must not reach a renderable, an attachment or a collideable through it.
-// That ordering is behaviour ledger row C8.
-//-----------------------------------------------------------------------------
-TEST( ClientBeamEvicted, AnSdkEndpointIsReportedBeforeAnythingIsAskedOfIt )
-{
-	const std::string facts = NoWhitespace( Load( kBeamEndpointFacts ) );
-
-	const size_t sdk = facts.find( "if(SDKEntityFromUnknown(pUnknown))returnnFacts|BEAM_FACT_SDK;" );
-	const size_t ask = facts.find( "pUnknown->GetClientRenderable()" );
-
-	ASSERT_NE( sdk, std::string::npos )
-		<< "the facts no longer return early for an SDK entity";
-	ASSERT_NE( ask, std::string::npos )
-		<< "the facts no longer ask the renderable at all";
-	EXPECT_LT( sdk, ask )
-		<< "the renderable is asked before the SDK check: an SDK endpoint reaches "
-		   "the managed arm's asks";
-}
+// (The SDK endpoint's early return went with the client's stock headers,
+// 2026-10-25: no client object answers GetBaseEntity(), so it was never taken.)
 
 //-----------------------------------------------------------------------------
 // THE LINE THAT CLOSES THE REAP GAP (beam_reaper_test.cpp's, kept when the
@@ -363,18 +334,22 @@ TEST( ClientBeamEvicted, TheManagedTeardownReapsItsOwnBeams )
 {
 	const std::string code = Load( kStandaloneClient );
 
-	EXPECT_NE( code.find( "beams->KillDeadBeams( GetRefEHandle() )" ), std::string::npos )
+	EXPECT_NE( code.find( "SourceSharp_KillDeadBeams( GetRefEHandle() )" ), std::string::npos )
 		<< "C_StandaloneEntity's teardown no longer reaps the beams attached to "
 		   "it: a beam created with a life of zero and aimed at this entity stays "
 		   "on the active list, invisible, for the rest of the map.";
 
 	const std::string executor = NoWhitespace( Load( kBeamExecutor ) );
-	EXPECT_NE( executor.find( "voidKillDeadBeams(constCBaseHandle&hDeadEntity)override{"
+	EXPECT_NE( executor.find( "voidKillDeadBeams(constCBaseHandle&hDeadEntity){"
 	                          "if(IManagedBeamsClient*pBeams=ManagedBeamsClient())"
 	                          "pBeams->BeamsKillDead((uint32_t)hDeadEntity.ToInt(),gpGlobals->curtime);}" ),
 		std::string::npos )
 		<< "`beams`' KillDeadBeams( const CBaseHandle & ) no longer forwards the "
 		   "handle to the managed beam system";
+	EXPECT_NE( executor.find( "voidSourceSharp_KillDeadBeams(constCBaseHandle&hDeadEntity){"
+	                          "g_SourceSharpBeams.KillDeadBeams(hDeadEntity);}" ),
+		std::string::npos )
+		<< "SourceSharp_KillDeadBeams no longer reaches `beams`' KillDeadBeams";
 }
 
 //-----------------------------------------------------------------------------

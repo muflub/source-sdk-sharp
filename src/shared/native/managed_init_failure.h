@@ -48,11 +48,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_MANAGED_INIT_FAILURE_H
-#define SOURCESHARP_MANAGED_INIT_FAILURE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 #include <stdio.h>
@@ -287,5 +283,3 @@ public:
 private:
 	bool m_bSucceeded;
 };
-
-#endif // SOURCESHARP_MANAGED_INIT_FAILURE_H

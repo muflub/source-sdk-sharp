@@ -12,8 +12,6 @@
 // and Validate at 1 (IManagedObject). Declared on both sides so native tests see it;
 // only the client holds one (shell_managed_areas_client.h).
 
-#ifndef IMANAGED_RUNTIME_CLIENT_H
-#define IMANAGED_RUNTIME_CLIENT_H
 #pragma once
 
 #include <stdint.h>
@@ -72,4 +70,3 @@ static const uint32_t kIManagedRuntimeClientSlotHashes[] = {
 static const int32_t kIManagedRuntimeClientSlotCount = 15;
 static_assert( sizeof( SSManagedRuntimeClientTable ) == 15 * sizeof( void * ), "SSManagedRuntimeClientTable is one pointer per slot" );
 
-#endif // IMANAGED_RUNTIME_CLIENT_H

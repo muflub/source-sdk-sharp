@@ -12,8 +12,7 @@
 // Engine-free so the arithmetic has a test (view_frustum_transform_test).
 //=============================================================================//
 
-#ifndef VIEW_FRUSTUM_TRANSFORM_H
-#define VIEW_FRUSTUM_TRANSFORM_H
+#pragma once
 
 inline int ViewFrustumTransform( const float *m, const float *point, float *screen )
 {
@@ -34,5 +33,3 @@ inline int ViewFrustumTransform( const float *m, const float *point, float *scre
 	screen[1] = y * invw;
 	return 0;
 }
-
-#endif // VIEW_FRUSTUM_TRANSFORM_H

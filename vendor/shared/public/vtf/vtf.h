@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef VTF_H
-#define VTF_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "bitmap/imageformat.h"
 #include "tier0/platform.h"
@@ -18,17 +8,13 @@
 // #define VTF_FILE_FORMAT_ONLY to just include the vtf header and none of the code declaration
 #ifndef VTF_FILE_FORMAT_ONLY
 
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 class CUtlBuffer;
 class Vector;
 struct Rect_t;
 class IFileSystem;
 
-//-----------------------------------------------------------------------------
 // Texture flags
-//-----------------------------------------------------------------------------
 enum CompiledVtfFlags
 {
 	// flags from the *.txt config file
@@ -83,15 +69,11 @@ enum CompiledVtfFlags
 
 };
 
-
-
 struct VtfProcessingOptions
 {
 	uint32 cbSize;					// Set to sizeof( VtfProcessingOptions )
 
-	//
 	// Flags0
-	//
 	enum Flags0
 	{
 		// Have a channel decaying to a given decay goal for the given last number of mips
@@ -116,20 +98,13 @@ struct VtfProcessingOptions
 
 	uint32 flags0;					// A combination of "Flags0"
 
-	//
 	// Decay settings
-	//
 	uint8 clrDecayGoal[4];			// Goal colors for R G B A
 	uint8 numNotDecayMips[4];		// Number of first mips unaffected by decay (0 means all below mip0)
 	float fDecayExponentBase[4];	// For exponential decay the base number (e.g. 0.75)
 };
 
-
-
-
-//-----------------------------------------------------------------------------
 // Enumeration used for spheremap generation
-//-----------------------------------------------------------------------------
 enum LookDir_t
 {
 	LOOK_DOWN_X = 0,
@@ -140,19 +115,12 @@ enum LookDir_t
 	LOOK_DOWN_NEGZ,
 };
 
-//-----------------------------------------------------------------------------
 // What mipmap (and coarser) is always available when we ship 
-//-----------------------------------------------------------------------------
 
-
-//-----------------------------------------------------------------------------
 // Use this image format if you want to perform tool operations on the texture
-//-----------------------------------------------------------------------------
 #define IMAGE_FORMAT_DEFAULT	((ImageFormat)-2)
 
-//-----------------------------------------------------------------------------
 // Interface to get at various bits of a VTF texture
-//-----------------------------------------------------------------------------
 class IVTFTexture
 {
 public:
@@ -307,26 +275,12 @@ public:
 	// Blends adjacent pixels on cubemap borders, since the card doesn't do it. If the texture
 	// is S3TC compressed, then it has to do it AFTER the texture has been compressed to prevent
 	// artifacts along the edges.
-	//
 	// If bSkybox is true, it assumes the faces are oriented in the way the engine draws the skybox
 	// (which happens to be different from the way cubemaps have their faces).
 	virtual void unused_MatchCubeMapBorders() = 0;
 
 	// Sets threshhold values for alphatest mipmapping
 	virtual void unused_SetAlphaTestThreshholds() = 0;
-
-#if defined( _X360 )
-	virtual int UpdateOrCreate( const char *pFilename, const char *pPathID = NULL, bool bForce = false ) = 0;
-	virtual bool UnserializeFromBuffer( CUtlBuffer &buf, bool bBufferIsVolatile, bool bHeaderOnly, bool bPreloadOnly, int nMipSkipCount ) = 0;
-	virtual int FileSize( bool bPreloadOnly, int nMipSkipCount ) const = 0;
-	virtual int MappingWidth() const = 0;
-	virtual int MappingHeight() const = 0;
-	virtual int MappingDepth() const = 0;
-	virtual int MipSkipCount() const = 0;
-	virtual bool IsPreTiled() const = 0;
-	virtual unsigned char *LowResImageSample() = 0;
-	virtual void ReleaseImageMemory() = 0;
-#endif
 
 	// Sets post-processing flags (settings are copied, pointer passed to distinguish between structure versions)
 	virtual void unused_SetPostProcessingSettings() = 0;
@@ -339,40 +293,25 @@ public:
 	virtual void unused_GetMipmapRange() = 0;
 };
 
-
-
-//-----------------------------------------------------------------------------
-// 360 Conversion
-//-----------------------------------------------------------------------------
-typedef bool (*CompressFunc_t)( CUtlBuffer &inputBuffer, CUtlBuffer &outputBuffer );
-
-
 #include "mathlib/vector.h"
 
 #endif // VTF_FILE_FORMAT_ONLY
 
-//-----------------------------------------------------------------------------
 // Disk format for VTF files ver. 7.2 and earlier
-//
 // NOTE: After the header is the low-res image data
 // Then follows image data, which is sorted in the following manner
-//
 //	for each mip level (starting with 1x1, and getting larger)
 //		for each animation frame
 //			for each face
 //				store the image data for the face
-//
 // NOTE: In memory, we store the data in the following manner:
 //	for each animation frame
 //		for each face
 //			for each mip level (starting with the largest, and getting smaller)
 //				store the image data for the face
-//
 // This is done because the various image manipulation function we have
 // expect this format
-//-----------------------------------------------------------------------------
 // Disk format for VTF files ver. 7.3
-//
 // NOTE: After the header is the array of ResourceEntryInfo structures,
 // number of elements in the array is defined by "numResources".
 // there are entries for:
@@ -384,16 +323,12 @@ typedef bool (*CompressFunc_t)( CUtlBuffer &inputBuffer, CUtlBuffer &outputBuffe
 //		for each animation frame
 //			for each face
 //				store the image data for the face
-//
 // NOTE: In memory, we store the data in the following manner:
 //	for each animation frame
 //		for each face
 //			for each mip level (starting with the largest, and getting smaller)
 //				store the image data for the face
 // }
-//
-//-----------------------------------------------------------------------------
-
 
 #include "datamap.h"
 
@@ -401,20 +336,12 @@ typedef bool (*CompressFunc_t)( CUtlBuffer &inputBuffer, CUtlBuffer &outputBuffe
 
 // version number for the disk texture cache
 
-
-
-//-----------------------------------------------------------------------------
 // !!!!CRITICAL!!!! BEFORE YOU CHANGE THE FORMAT
-//
 // The structure sizes ARE NOT what they appear, regardless of Pack(1).
 // The "VectorAligned" causes invisible padding in the FINAL derived structure.
-// 
 // Each VTF format has been silently plagued by this.
-//
 // LOOK AT A 7.3 FILE. The 7.3 structure ends at 0x48 as you would expect by
 // counting structure bytes. But, the "Infos" start at 0x50! because the PC
-// compiler pads, the 360 compiler does NOT.
-//-----------------------------------------------------------------------------
 
 struct VTFFileBaseHeader_t
 {
@@ -432,7 +359,7 @@ struct VTFFileHeaderV7_1_t : public VTFFileBaseHeader_t
 	unsigned int	flags;
 	unsigned short	numFrames;
 	unsigned short	startFrame;
-#if !defined( POSIX ) && !defined( _X360 )
+#if !defined( POSIX )
 	VectorAligned	reflectivity;
 #else
 	// must manually align in order to maintain pack(1) expected layout with existing binaries
@@ -455,19 +382,6 @@ struct VTFFileHeaderV7_2_t : public VTFFileHeaderV7_1_t
 	unsigned short depth;
 };
 
-#define BYTE_POS( byteVal, shft )	uint32( uint32(uint8(byteVal)) << uint8(shft * 8) )
-#if !defined( _X360 )
-#define MK_VTF_RSRC_ID(a, b, c)		uint32( BYTE_POS(a, 0) | BYTE_POS(b, 1) | BYTE_POS(c, 2) )
-#define MK_VTF_RSRCF(d)				BYTE_POS(d, 3)
-#else
-#define MK_VTF_RSRC_ID(a, b, c)		uint32( BYTE_POS(a, 3) | BYTE_POS(b, 2) | BYTE_POS(c, 1) )
-#define MK_VTF_RSRCF(d)				BYTE_POS(d, 0)
-#endif
-
-
-
-
-
 struct VTFFileHeaderV7_3_t : public VTFFileHeaderV7_2_t
 {
 	DECLARE_BYTESWAP_DATADESC();
@@ -475,7 +389,7 @@ struct VTFFileHeaderV7_3_t : public VTFFileHeaderV7_2_t
 	char			pad4[3];
 	unsigned int	numResources;
 
-#if defined( _X360 ) || defined( POSIX )
+#if defined( POSIX )
 	// must manually align in order to maintain pack(1) expected layout with existing binaries
 	char			pad5[8];
 #endif
@@ -490,42 +404,10 @@ struct VTFFileHeader_t : public VTFFileHeaderV7_3_t
 	DECLARE_BYTESWAP_DATADESC();
 };
 
-
-
-struct VTFFileHeaderX360_t : public VTFFileBaseHeader_t 
-{
-	DECLARE_BYTESWAP_DATADESC();
-	unsigned int	flags;
-	unsigned short	width;					// actual width of data in file
-	unsigned short	height;					// actual height of data in file
-	unsigned short	depth;					// actual depth of data in file
-	unsigned short	numFrames;
-	unsigned short	preloadDataSize;		// exact size of preload data (may extend into image!)
-	unsigned char	mipSkipCount;			// used to resconstruct mapping dimensions
-	unsigned char	numResources;
-	Vector			reflectivity;			// Resides on 16 byte boundary!
-	float			bumpScale;
-	ImageFormat		imageFormat;
-	unsigned char	lowResImageSample[4];
-	unsigned int	compressedSize;
-
-	// *** followed by *** ResourceEntryInfo resources[0];
-};
-
-///////////////////////////
 //  Resource Extensions  //
-///////////////////////////
 
 // extended texture lod control:
 
-
 // Extended flags and settings:
 
-
-
-
-
-
 #pragma pack()
-
-#endif // VTF_H

@@ -14,14 +14,13 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include "client_class.h"
+#include "tier0/dbg.h"
+#include "dt_recv.h"
 #include "shell_world_nettable_client.h"
 #include "generic_payload.h"
-#include "c_world.h"
-#include "client_class.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // EVERYTHING THIS FILE REMEMBERS, AS FIELDS, in one function-local static — the

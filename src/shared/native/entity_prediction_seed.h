@@ -37,11 +37,8 @@
 // caller on either side reads and writes this and nothing else does.
 //
 //=============================================================================//
-#ifndef ENTITY_PREDICTION_SEED_H
-#define ENTITY_PREDICTION_SEED_H
-#ifdef _WIN32
 #pragma once
-#endif
+#define ENTITY_PREDICTION_SEED_H
 
 //-----------------------------------------------------------------------------
 // -1 means "not inside a usercmd", which is what the four SharedRandom*
@@ -119,5 +116,3 @@ inline void *&EntityPrediction_PlayerStorage()
 {
 	return s_pPredictionPlayer;
 }
-
-#endif // ENTITY_PREDICTION_SEED_H

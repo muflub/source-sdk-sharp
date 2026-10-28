@@ -22,11 +22,7 @@
 // the save tables, Bool/Int/StringID/Color32 and the position-vector setter.
 //=============================================================================//
 
-#ifndef SS_VARIANT_H
-#define SS_VARIANT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basehandle.h"
 #include "basetypes.h"
@@ -100,5 +96,3 @@ protected:
 };
 
 } // namespace ss
-
-#endif // SS_VARIANT_H

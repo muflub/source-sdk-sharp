@@ -11,8 +11,7 @@
 // the two plan ops' bodies (shell_glow_client.cpp).
 //=============================================================================//
 
-#ifndef SHELL_GLOW_CLIENT_H
-#define SHELL_GLOW_CLIENT_H
+#pragma once
 
 enum
 {
@@ -27,5 +26,3 @@ enum
 
 void ShellGlowDrawOverlays( bool bCacheFullSceneState );
 void ShellGlowUpdateSkyOverlays( float flZFar, bool bCacheFullSceneState );
-
-#endif // SHELL_GLOW_CLIENT_H

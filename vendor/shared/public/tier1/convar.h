@@ -1,20 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-//
-//-----------------------------------------------------------------------------
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef CONVAR_H
-#define CONVAR_H
-
-#if _WIN32
 #pragma once
-#endif
 
 #include "tier0/dbg.h"
 #include "tier1/iconvar.h"
@@ -30,22 +16,15 @@
 #error "implement me"
 #endif
 
-
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 class ConVar;
 class CCommand;
 class ConCommand;
 class ConCommandBase;
 struct characterset_t;
 
-
-
-//-----------------------------------------------------------------------------
 // Any executable that wants to use ConVars need to implement one of
 // these to hook up access to console variables.
-//-----------------------------------------------------------------------------
 class IConCommandBaseAccessor
 {
 public:
@@ -54,33 +33,19 @@ public:
 	virtual bool RegisterConCommandBase( ConCommandBase *pVar ) = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Helper method for console development
-//-----------------------------------------------------------------------------
-#if defined( _X360 ) && !defined( _RETAIL )
-void ConVar_PublishToVXConsole();
-#endif
 
-
-//-----------------------------------------------------------------------------
 // Called when a ConCommand needs to execute
-//-----------------------------------------------------------------------------
 typedef void ( *FnCommandCallbackVoid_t )( void );
 typedef void ( *FnCommandCallback_t )( const CCommand &command );
 
 #define COMMAND_COMPLETION_MAXITEMS		64
 #define COMMAND_COMPLETION_ITEM_LENGTH	64
 
-//-----------------------------------------------------------------------------
 // Returns 0 to COMMAND_COMPLETION_MAXITEMS worth of completion strings
-//-----------------------------------------------------------------------------
 typedef int  ( *FnCommandCompletionCallback )( const char *partial, char commands[ COMMAND_COMPLETION_MAXITEMS ][ COMMAND_COMPLETION_ITEM_LENGTH ] );
 
-
-//-----------------------------------------------------------------------------
 // Interface version
-//-----------------------------------------------------------------------------
 class ICommandCallback
 {
 public:
@@ -93,9 +58,7 @@ public:
 	virtual int  CommandCompletionCallback( const char *pPartial, CUtlVector< CUtlString > &commands ) = 0;
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: The base console invoked command/cvar interface
-//-----------------------------------------------------------------------------
 class ConCommandBase
 {
 	friend class CCvar;
@@ -143,9 +106,6 @@ protected:
 	virtual void				Init();
 	void						Shutdown();
 
-	// Internal copy routine ( uses new operator from correct module )
-	char						*CopyString( const char *from );
-
 private:
 	// Next ConVar in chain
 	// Prior to register, it points to the next convar in the DLL.
@@ -173,16 +133,12 @@ protected:
 	static IConCommandBaseAccessor	*s_pAccessor;
 };
 
-
-//-----------------------------------------------------------------------------
 // Command tokenizer
-//-----------------------------------------------------------------------------
 class CCommand
 {
 public:
 	CCommand();
 	CCommand( int nArgC, const char **ppArgV );
-	bool Tokenize( const char *pCommand, characterset_t *pBreakSet = NULL );
 	void Reset();
 
 	int ArgC() const;
@@ -193,9 +149,6 @@ public:
 	
 	// Helper functions to parse arguments to commands.
 	const char* FindArg( const char *pName ) const;
-	int FindArgInt( const char *pName, int nDefaultVal ) const;
-
-	static characterset_t* DefaultBreakSet();
 
 private:
 	enum
@@ -211,12 +164,10 @@ private:
 	const char*	m_ppArgv[ COMMAND_MAX_ARGC ];
 };
 
-
 inline int CCommand::ArgC() const
 {
 	return m_nArgc;
 }
-
 
 inline const char *CCommand::ArgS() const
 {
@@ -243,10 +194,7 @@ inline const char *CCommand::operator[]( int nIndex ) const
 	return Arg( nIndex );
 }
 
-
-//-----------------------------------------------------------------------------
 // Purpose: The console invoked command
-//-----------------------------------------------------------------------------
 class ConCommand : public ConCommandBase
 {
 friend class CCvar;
@@ -300,10 +248,7 @@ private:
 	bool m_bUsingCommandCallbackInterface : 1;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: A console variable
-//-----------------------------------------------------------------------------
 class ConVar : public ConCommandBase, public IConVar
 {
 friend class CCvar;
@@ -328,8 +273,6 @@ public:
 									bool bCompMin, float fCompMin, bool bCompMax, float fCompMax,
 									FnChangeCallback_t callback );
 
-
-
 	virtual						~ConVar( void );
 
 	virtual bool				IsFlagSet( int flag ) const;
@@ -338,9 +281,6 @@ public:
 	virtual const char			*GetName( void ) const;
 	virtual void				AddFlags( int flags );
 	virtual	bool				IsCommand( void ) const;
-
-	// Install a change callback (there shouldn't already be one....)
-	void InstallChangeCallback( FnChangeCallback_t callback );
 
 	// Retrieve value
 	FORCEINLINE_CVAR float			GetFloat( void ) const;
@@ -356,21 +296,13 @@ public:
 	virtual void				SetValue( float value );
 	virtual void				SetValue( int value );
 		
-	// Reset to default value
-	void						Revert( void );
-
 	// True if it has a min/max setting
 	bool						GetMin( float& minVal ) const;
 	bool						GetMax( float& maxVal ) const;
 	const char					*GetDefault( void ) const;
 	void						SetDefault( const char *pszDefault );
 
-	// True if it has a min/max competitive setting
-	bool						GetCompMin( float& minVal ) const;
-	bool						GetCompMax( float& maxVal ) const;
-
 	FORCEINLINE_CVAR bool		IsCompetitiveRestricted() const;
-	bool						SetCompetitiveMode( bool bCompetitive );
 
 private:
 	// Called by CCvar when the value of a var is changing.
@@ -392,7 +324,6 @@ private:
 									bool bCompMin = false, float fCompMin = 0.0, 
 									bool bCompMax = false, float fCompMax = 0.0,
 									FnChangeCallback_t callback = 0 );
-
 
 	// Used internally by OneTimeInit to initialize.
 	virtual void				Init();
@@ -439,30 +370,22 @@ private:
 	bool						m_bCompetitiveRestrictions;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Return ConVar value as a float
 // Output : float
-//-----------------------------------------------------------------------------
 FORCEINLINE_CVAR float ConVar::GetFloat( void ) const
 {
 	return m_pParent->m_fValue;
 }
 
-//-----------------------------------------------------------------------------
 // Purpose: Return ConVar value as an int
 // Output : int
-//-----------------------------------------------------------------------------
 FORCEINLINE_CVAR int ConVar::GetInt( void ) const 
 {
 	return m_pParent->m_nValue;
 }
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Return ConVar value as a string, return "" for bogus string pointer, etc.
 // Output : const char *
-//-----------------------------------------------------------------------------
 FORCEINLINE_CVAR const char *ConVar::GetString( void ) const 
 {
 	if ( m_nFlags & FCVAR_NEVER_AS_STRING )
@@ -471,10 +394,8 @@ FORCEINLINE_CVAR const char *ConVar::GetString( void ) const
 	return ( m_pParent->m_pszString ) ? m_pParent->m_pszString : "";
 }
 
-//-----------------------------------------------------------------------------
 // Purpose: Return whether this convar is restricted for competitive play.
 // Output : bool
-//-----------------------------------------------------------------------------
 FORCEINLINE_CVAR bool ConVar::IsCompetitiveRestricted() const
 {
 	const int nFlags = m_pParent->m_nFlags;
@@ -486,10 +407,7 @@ FORCEINLINE_CVAR bool ConVar::IsCompetitiveRestricted() const
 	return bHasCompSettings || !( bClientCanAdjust || bInternalUseOnly );
 }
 
-
-//-----------------------------------------------------------------------------
 // Used to read/write convars that already exist (replaces the FindVar method)
-//-----------------------------------------------------------------------------
 class ConVarRef
 {
 public:
@@ -510,10 +428,8 @@ public:
 	void SetValue( const char *pValue );
 	void SetValue( float flValue );
 	void SetValue( int nValue );
-	void SetValue( bool bValue );
 
 	const char *GetName() const;
-
 
 private:
 	// High-speed method to read convar data
@@ -521,48 +437,35 @@ private:
 	ConVar *m_pConVarState;
 };
 
-
-//-----------------------------------------------------------------------------
 // Did we find an existing convar of that name?
-//-----------------------------------------------------------------------------
 FORCEINLINE_CVAR bool ConVarRef::IsFlagSet( int nFlags ) const
 {
 	return ( m_pConVar->IsFlagSet( nFlags ) != 0 );
 }
-
 
 FORCEINLINE_CVAR const char *ConVarRef::GetName() const
 {
 	return m_pConVar->GetName();
 }
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Return ConVar value as a float
-//-----------------------------------------------------------------------------
 FORCEINLINE_CVAR float ConVarRef::GetFloat( void ) const
 {
 	return m_pConVarState->m_fValue;
 }
 
-//-----------------------------------------------------------------------------
 // Purpose: Return ConVar value as an int
-//-----------------------------------------------------------------------------
 FORCEINLINE_CVAR int ConVarRef::GetInt( void ) const 
 {
 	return m_pConVarState->m_nValue;
 }
 
-//-----------------------------------------------------------------------------
 // Purpose: Return ConVar value as a string, return "" for bogus string pointer, etc.
-//-----------------------------------------------------------------------------
 FORCEINLINE_CVAR const char *ConVarRef::GetString( void ) const 
 {
 	Assert( !IsFlagSet( FCVAR_NEVER_AS_STRING ) );
 	return m_pConVarState->m_pszString;
 }
-
-
 
 FORCEINLINE_CVAR void ConVarRef::SetValue( const char *pValue )
 {
@@ -579,32 +482,22 @@ FORCEINLINE_CVAR void ConVarRef::SetValue( int nValue )
 	m_pConVar->SetValue( nValue );
 }
 
-FORCEINLINE_CVAR void ConVarRef::SetValue( bool bValue )
-{
-	m_pConVar->SetValue( bValue ? 1 : 0 );
-}
-
-
 class IVEngineClient;
 // Josh:
 // This class is here to solve the problem
 // that we had VGUI CVar sliders, etc changing sv_cheats
 // and other CVars forcefully.
-//
 // This uses engine->CLientCmd_Unrestricted instead of
 // setting the convar's value directly, so it goes
 // through all of the filtering code.
-//
 // In lieu of IVEngineClient being present,
 // it will fall back to never being able to set
 // FCVAR_UNREGISTERED, FCVAR_DEVELOPMENTONLY, FCVAR_REPLICATED, FCVAR_CHEAT or FCVAR_SPONLY
 // commands to allow tools like Hammer to still use this.
-//
 // We check that the main ConVar ref (that returns stuff like GetString, GetFloat
 // has a valid convar so we don't end up sending a random string of junk via
 // ClientCmd_Unrestricted, and we have no support for setting strings directly
 // to just avoid the whole escaping nightmare.
-//
 // If you want to quickly audit potential ConVarRefs
 // that are not using string literals, you can use the
 //   ConVarRef.*\([^"][^"]
@@ -617,12 +510,7 @@ public:
 	void Init( const char *pName, bool bIgnoreMissing ) = delete;
 	void Init( IVEngineClient *pEngine, const char *pName, bool bIgnoreMissing );
 
-	// Josh:
-	// No setting of strings plox!
-	void SetValue( const char *pValue ) = delete;
-	void SetValue( float flValue );
 	void SetValue( int nValue );
-	void SetValue( bool bValue );
 
 private:
 	bool CanSetWithoutEngine();
@@ -630,23 +518,14 @@ private:
 	IVEngineClient *m_pEngine;
 };
 
-//-----------------------------------------------------------------------------
 // Called by the framework to register ConCommands with the ICVar
-//-----------------------------------------------------------------------------
 void ConVar_Register( int nCVarFlag = 0, IConCommandBaseAccessor *pAccessor = NULL );
 void ConVar_Unregister( );
 
-
-//-----------------------------------------------------------------------------
 // Utility methods 
-//-----------------------------------------------------------------------------
 void ConVar_PrintFlags( const ConCommandBase *var );
-void ConVar_PrintDescription( const ConCommandBase *pVar );
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Utility class to quickly allow ConCommands to call member methods
-//-----------------------------------------------------------------------------
 #pragma warning (disable : 4355 )
 
 template< class T >
@@ -696,10 +575,7 @@ private:
 
 #pragma warning ( default : 4355 )
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Utility macros to quicky generate a simple console command
-//-----------------------------------------------------------------------------
 #define CON_COMMAND( name, description ) \
    static void name( const CCommand &args ); \
    static ConCommand name##_command( #name, name, description ); \
@@ -709,13 +585,3 @@ private:
    static void name( const CCommand &args ); \
    static ConCommand name##_command( #name, name, description, flags ); \
    static void name( const CCommand &args )
-
-
-
-
-
-
-
-
-
-#endif // CONVAR_H

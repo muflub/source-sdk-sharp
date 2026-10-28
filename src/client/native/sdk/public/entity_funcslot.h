@@ -61,11 +61,7 @@
 // does not change it -- IGameEntity becomes the single root, not a second one.
 //
 //=============================================================================//
-#ifndef ENTITY_FUNCSLOT_H
-#define ENTITY_FUNCSLOT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // Store a member function of OWNER in a SLOT typed as a member of ROOT.
@@ -105,5 +101,3 @@ inline SLOT EntityFuncSlot( FUNC pfn )
 	// of the same class. Read back by name, never called.
 	return reinterpret_cast< SLOT >( pfn );
 }
-
-#endif // ENTITY_FUNCSLOT_H

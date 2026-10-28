@@ -29,11 +29,7 @@
 // Accessors nothing in server.so calls are not declared; the fields stay.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_TAKEDAMAGEINFO_H
-#define SOURCESHARP_SS_TAKEDAMAGEINFO_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <float.h>
 #include "mathlib/vector.h"
@@ -168,5 +164,3 @@ float ImpulseScale( float flTargetMass, float flDesiredSpeed );
 void CalculateExplosiveDamageForce( CTakeDamageInfo *info, const Vector &vecDir, const Vector &vecForceOrigin, float flScale = 1.0 );
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_TAKEDAMAGEINFO_H

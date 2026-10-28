@@ -43,6 +43,7 @@
 #include "tier1/ilocalize.h"
 #include "tier1/KeyValues.h"
 #include "vstdlib/IKeyValuesSystem.h"
+#include "tier0/platform.h"
 #include "engine_heap.h"
 #include "loaded_symbol.h"
 #include "ss_string.h"

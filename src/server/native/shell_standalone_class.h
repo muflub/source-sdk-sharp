@@ -26,11 +26,7 @@
 // which are two questions with two answers and were one file only by history.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_STANDALONE_CLASS_H
-#define SOURCESHARP_SHELL_STANDALONE_CLASS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "shell_standalone.h"
 
@@ -115,5 +111,3 @@ int         SourceSharp_EntityFactoryRefusalTimesAt( int i );
 // `dumpentityfactories` and `dump_entity_sizes` (shell_standalone_class_debug.cpp,
 // debug builds only), which cannot see the file-static dictionary itself.
 size_t      SourceSharp_EntityFactorySizeAt( int i );
-
-#endif // SOURCESHARP_SHELL_STANDALONE_CLASS_H

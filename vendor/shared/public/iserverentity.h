@@ -1,21 +1,9 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef ISERVERENTITY_H
-#define ISERVERENTITY_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "iserverunknown.h"
 #include "string_t.h"
-
-
 
 struct Ray_t;
 class ServerClass;
@@ -37,6 +25,3 @@ public:
 
 	virtual void			SetModelIndex( int index ) = 0;
 };
-
-
-#endif // ISERVERENTITY_H

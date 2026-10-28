@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose:
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef PHYSICS_SAVERESTORE_H
-#define PHYSICS_SAVERESTORE_H
-
-#if defined( _WIN32 )
 #pragma once
-#endif
 
 #include "vphysics_interface.h"
 
@@ -18,20 +8,10 @@ class ISaveRestoreBlockHandler;
 class IPhysicsObject;
 class CPhysCollide;
 
-//-----------------------------------------------------------------------------
-
-ISaveRestoreBlockHandler *GetPhysSaveRestoreBlockHandler();
 ISaveRestoreOps *GetPhysObjSaveRestoreOps( PhysInterfaceId_t );
-
-//-------------------------------------
 
 #define DEFINE_PHYSPTR(name) \
 	{ FIELD_CUSTOM, #name, { (int)offsetof(classNameTypedef,name), 0 }, 1, FTYPEDESC_SAVE, NULL, GetPhysObjSaveRestoreOps( GetPhysIID( &(((classNameTypedef *)0)->name) ) ), NULL }
-
-#define DEFINE_PHYSPTR_ARRAY(name) \
-	{ FIELD_CUSTOM, #name, { (int)offsetof(classNameTypedef,name), 0 }, ARRAYSIZE(((classNameTypedef *)0)->name), FTYPEDESC_SAVE, NULL, GetPhysObjSaveRestoreOps( GetPhysIID( &(((classNameTypedef *)0)->name[0]) ) ), NULL }
-
-//-----------------------------------------------------------------------------
 
 abstract_class IPhysSaveRestoreManager
 {
@@ -46,7 +26,3 @@ public:
 };
 
 extern IPhysSaveRestoreManager *g_pPhysSaveRestoreManager;
-
-//=============================================================================
-
-#endif // PHYSICS_SAVERESTORE_H

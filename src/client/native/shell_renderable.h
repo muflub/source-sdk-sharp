@@ -57,16 +57,22 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_RENDERABLE_H
-#define SHELL_RENDERABLE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "iclientrenderable.h"
 #include "clientleafsystem.h"
 #include "mathlib/vector.h"
 #include "tier0/memalloc.h"
+#include "engine/IClientLeafSystem.h"
+#include "mathlib/mathlib.h"
+#include "tier0/platform.h"
+#include "client_render_handle.h"
+#include "clientsideeffects.h"
+#include "collisionproperty.h"
+#include "ivieweffects.h"
+#include "ragdoll_shared.h"
+#include "view.h"
+#include "vphysics_interface.h"
 #include "trail_lifetime.h"
 #include "shell_leaf_link.h"
 
@@ -236,5 +242,3 @@ protected:
 private:
 	CShellRenderable( const CShellRenderable & );	// not defined, not accessible
 };
-
-#endif // SHELL_RENDERABLE_H

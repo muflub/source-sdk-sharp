@@ -53,11 +53,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_IGAMERULES_H
-#define SOURCESHARP_IGAMERULES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // SELF-CONTAINED, and it has to be: gamerules.h includes THIS so that
 // CGameRules can implement it, so including gamerules.h back would be a cycle.
@@ -174,8 +170,9 @@ public:
 // declaration is the one a TU built without game/ headers reaches it through.
 extern IGameRules *g_pGameRules;
 
+// Stock gamerules.h's accessor.
+inline IGameRules *GameRules() { return g_pGameRules; }
+
 // Builds the rules object for a new level (shell_server.cpp); gamerules.h
 // declares it too.
 void InstallGameRules();
-
-#endif // SOURCESHARP_IGAMERULES_H

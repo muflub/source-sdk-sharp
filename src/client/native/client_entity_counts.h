@@ -39,11 +39,7 @@
 //
 //===========================================================================//
 
-#ifndef SOURCESHARP_CLIENT_ENTITY_COUNTS_H
-#define SOURCESHARP_CLIENT_ENTITY_COUNTS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "slot_table.h"
 
@@ -169,5 +165,3 @@ private:
 	int m_nNetworkedBound;
 	int m_nNonNetworkedBound;
 };
-
-#endif // SOURCESHARP_CLIENT_ENTITY_COUNTS_H

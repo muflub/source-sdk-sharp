@@ -1,16 +1,9 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: The implementation of ISourceVirtualReality, which provides utility
 //			functions for VR including head tracking, window/viewport information,
 //			rendering information, and distortion
-//
-//=============================================================================
 
-#ifndef CLIENTVIRTUALREALITY_H
-#define CLIENTVIRTUALREALITY_H
-#if defined( _WIN32 )
 #pragma once
-#endif
 
 #include "tier3/tier3.h"
 #include "iclientvirtualreality.h"
@@ -34,11 +27,7 @@ enum HeadtrackMovementMode_t
 	HMM_NOOVERRIDE = HMM_LAST		// Used as a retrun from ShouldOverrideHeadtrackControl(), not an actual mode.
 };
 
-
-//-----------------------------------------------------------------------------
 // The implementation
-//-----------------------------------------------------------------------------
-
 
 class CClientVirtualReality: public CTier3AppSystem< IClientVirtualReality >
 {
@@ -49,13 +38,9 @@ public:
 	CClientVirtualReality();
 	~CClientVirtualReality();
 
-	//---------------------------------------------------------
 	// Initialization and shutdown
-	//---------------------------------------------------------
 
-	//
 	// IAppSystem
-	//
 	virtual bool							Connect( CreateInterfaceFn factory );
 	virtual void							Disconnect();
 	virtual void *							QueryInterface( const char *pInterfaceName );
@@ -64,45 +49,8 @@ public:
 	virtual InitReturnVal_t					Init();
 	virtual void							Shutdown();
 
-	// Called when startup is complete
-	void StartupComplete();
-
-	//---------------------------------------------------------
 	// IClientVirtualReality implementation
-	//---------------------------------------------------------
 	virtual void DrawMainMenu() OVERRIDE;
-
-
-	//---------------------------------------------------------
-	// VR utilities for use in the client
-	//---------------------------------------------------------
-	bool OverrideView ( CViewSetup *pViewMiddle, Vector *pViewModelOrigin, QAngle *pViewModelAngles, HeadtrackMovementMode_t hmmMovementOverride );
-	bool OverrideStereoView( CViewSetup *pViewMiddle, CViewSetup *pViewLeft, CViewSetup *pViewRight );
-	bool OverridePlayerMotion( float flInputSampleFrametime, const QAngle &oldAngles, const QAngle &curAngles, const Vector &curMotion, QAngle *pNewAngles, Vector *pNewMotion );
-	bool OverrideWeaponHudAimVectors ( Vector *pAimOrigin, Vector *pAimDirection );
-	bool CurrentlyZoomed();
-	void OverrideTorsoTransform( const Vector & position, const QAngle & angles ) ;
-	void CancelTorsoTransformOverride( ) ;
-	bool CanOverlayHudQuad();
-	void GetHUDBounds( Vector *pViewer, Vector *pUL, Vector *pUR, Vector *pLL, Vector *pLR );
-	void RenderHUDQuad( bool bBlackout, bool bTranslucent );
-	float GetZoomedModeMagnification();
-	bool ProcessCurrentTrackingState( float fGameFOV );
-	const VMatrix &GetHudProjectionFromWorld();
-	void GetTorsoRelativeAim( Vector *pPosition, QAngle *pAngles );
-	float GetHUDDistance();
-	bool ShouldRenderHUDInWorld();
-	const VMatrix & GetWorldFromMidEye() const { return m_WorldFromMidEyeNoDebugCam; }
-	void OverrideViewModelTransform( Vector & vmorigin, QAngle & vmangles, bool bUseLargeOverride );
-	void AlignTorsoAndViewToWeapon();
-	void PostProcessFrame( StereoEye_t eEye );
-	void OverlayHUDQuadWithUndistort( const CViewSetup &view, bool bDoUndistort, bool bBlackout, bool bTranslucent );
-
-	//---------------------------------------------------------
-	// Enter/leave VR mode
-	//---------------------------------------------------------
-	void Activate();
-	void Deactivate();
 
 private:
 	HeadtrackMovementMode_t m_hmmMovementActual;
@@ -159,7 +107,3 @@ private:
 #endif
     bool m_bNonVRRawInput;
 };
-
-extern CClientVirtualReality g_ClientVirtualReality;
-
-#endif // CLIENTVIRTUALREALITY_H

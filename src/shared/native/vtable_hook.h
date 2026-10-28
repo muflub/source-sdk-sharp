@@ -28,11 +28,7 @@
 // against a class this file's tests declare. See test/vtable_hook_test.cpp.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_VTABLE_HOOK_H
-#define SOURCESHARP_VTABLE_HOOK_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 #include <stdint.h>
@@ -258,5 +254,3 @@ inline Member MemberOf( Fn )
 #endif
 
 } // namespace VTableHook
-
-#endif // SOURCESHARP_VTABLE_HOOK_H

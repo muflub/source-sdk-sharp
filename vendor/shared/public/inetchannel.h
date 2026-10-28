@@ -1,25 +1,13 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef INETCHANNEL_H
-#define INETCHANNEL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/platform.h"
 #include "inetchannelinfo.h"
 #include "tier1/bitbuf.h"
 
-class	IDemoRecorder;
 class	INetMessage;
-class	INetChannelHandler;
 class	INetChannelInfo;
-typedef struct netpacket_s netpacket_t;
-typedef struct netadr_s	netadr_t;
 
 abstract_class INetChannel : public INetChannelInfo
 {
@@ -40,8 +28,6 @@ public:
 	virtual void unused_ProcessPacket() = 0;
 			
 	virtual bool	SendNetMsg(INetMessage &msg, bool bForceReliable = false, bool bVoice = false ) = 0;
-#ifdef POSIX
-#endif
 	virtual void unused_SendData() = 0;
 	virtual void unused_SendFile() = 0;
 	virtual void unused_DenyFile() = 0;
@@ -82,6 +68,3 @@ public:
 
 	virtual int		GetProtocolVersion() = 0;
 };
-
-
-#endif // INETCHANNEL_H

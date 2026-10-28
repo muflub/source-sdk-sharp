@@ -22,17 +22,40 @@
 // renderable (a detail model, a standalone entity) answers
 // GetRenderBoundsWorldspace with.
 //=============================================================================//
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "client_entity.h"
+#include "shell_clientsystem.h"
 #include "mathlib/mathlib.h"
 #include "clientleafsystem.h"
 #include "detailobjectsystem.h"
 #include "tier1/interface.h"
+#include "engine/IClientLeafSystem.h"
+#include "mathlib/vector.h"
+#include "tier1/mempool.h"
+#include "tier1/utlvector.h"
+#include "cdll_client_int.h"
+#include "collisionproperty.h"
+#include "iclientrenderable.h"
+#include "ivrenderview.h"
+#include "particlemgr.h"
+#include "vphysics_interface.h"
 #include "ss_fwd.h"
 #include "fwd_leaf_system.h"
 #include "shell_managed_areas_client.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 DEFINE_FIXEDSIZE_ALLOCATOR( CClientRenderablesList, 1, CUtlMemoryPool::GROW_SLOW );
 

@@ -45,11 +45,7 @@
 // mapentities.cpp rather than to this one.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_GAMECLIENTS_H
-#define SOURCESHARP_SHELL_GAMECLIENTS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "eiface.h"
 #include "convar.h"
@@ -112,5 +108,3 @@ public:
 	// it policy rather than transmitted state. ProcessUsercmds still reads it,
 	// by name through CManagedConVarRef.
 };
-
-#endif // SOURCESHARP_SHELL_GAMECLIENTS_H

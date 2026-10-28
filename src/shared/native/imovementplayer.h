@@ -44,11 +44,7 @@
 // send tables, the shim's blob) computes at compile time or asks at runtime.
 //
 //=============================================================================//
-#ifndef IMOVEMENTPLAYER_H
-#define IMOVEMENTPLAYER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 #include "const.h"
@@ -174,7 +170,7 @@ public:
 #ifndef CLIENT_DLL
 	//-------------------------------------------------------------------------
 	// Server-only, because their call sites are: the splash, the fall rumble,
-	// the X360 crouch-hint counter and the surface-trigger texture memory all
+	// the console crouch-hint counter and the surface-trigger texture memory all
 	// sit under !CLIENT_DLL guards in the loop, and the duck toggle's only
 	// live caller is inside the crouch-hint block. Guarded here rather than
 	// implemented with dummies, so the client half of a player never carries
@@ -204,5 +200,3 @@ public:
 protected:
 	virtual ~IMovementPlayer() {}
 };
-
-#endif // IMOVEMENTPLAYER_H

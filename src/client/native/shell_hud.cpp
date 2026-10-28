@@ -21,28 +21,52 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
-#include "shell_standalone_client.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "hudelement.h"
-#include "iclientmode.h"
-#include "shell_rawpanel_client.h"
 #include "vgui_controls/Controls.h"
 #include "vgui/ISurface.h"
 #include "vgui/ILocalize.h"
 #include "vgui/Cursor.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
 #include "tier3/tier3.h"
-#include "sourcesharp_entrypoints.h"
 #include "client_textmessage.h"
-#include "c_baseplayer.h"
-#include "c_basecombatweapon.h"
-#include "input.h"
+#include "engine/ishadowmgr.h"
+#include "mathlib/vector2d.h"
+#include "tier0/commonmacros.h"
+#include "tier0/platform.h"
+#include "tier1/ilocalize.h"
+#include "tier1/strtools.h"
+#include "vgui/KeyCode.h"
+#include "vgui/MouseCode.h"
+#include "vgui/VGUI.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "cdll_util.h"
+#include "eiface.h"
+#include "hud_element_helper.h"
+#include "shareddefs.h"
+#include "shell_standalone_client.h"
+#include "shell_rawpanel_client.h"
+#include "sourcesharp_entrypoints.h"
 #include "shell_diagnostics.h"
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"   // IManagedUiClient (plan_client_ui U2)
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 using namespace vgui;
 

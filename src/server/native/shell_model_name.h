@@ -32,11 +32,7 @@
 // (src/sourcesharp/test/model_name_test.cpp).
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_MODEL_NAME_H
-#define SOURCESHARP_SHELL_MODEL_NAME_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // Whether this name is a submodel of the map rather than a file.
@@ -51,5 +47,3 @@ inline bool SourceSharp_IsBrushModelName( const char *pszModel )
 {
 	return pszModel != 0 && pszModel[0] == '*';
 }
-
-#endif // SOURCESHARP_SHELL_MODEL_NAME_H

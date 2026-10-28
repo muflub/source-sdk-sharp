@@ -492,20 +492,9 @@ TEST( ClientSystemsTable, TheClientBaseHasNoConstructorSideEffectAndNoState )
 		<< "CClientSystem's constructor has a body: " << ctor;
 }
 
-TEST( ClientSystemsTable, TheClientBaseRefusesToBeIncludedByTheServer )
-{
-	// T1's hazard, pointing the other way. Including this header from the SERVER
-	// half of a shared file is the mistake this phase is arranged around, and it
-	// is refused at compile time rather than discovered as a server that quietly
-	// stopped initialising.
-	const std::string base = Read( kBaseFile );
-	EXPECT_NE( base.find( "#ifndef CLIENT_DLL" ), std::string::npos );
-	EXPECT_NE( base.find( "#error" ), std::string::npos )
-		<< "shell_clientsystem.h no longer refuses a server include";
-	EXPECT_LT( base.find( "#ifndef CLIENT_DLL" ), base.find( "class CClientSystem" ) )
-		<< "the refusal is below the class, so the server would compile the class "
-		<< "before reaching it";
-}
+// (TheClientBaseRefusesToBeIncludedByTheServer went 2026-10-25: a client-only
+// header carries no CLIENT_DLL guard, user ruling; src/client/native is on no
+// server target's include path, which is what keeps the server out.)
 
 TEST( ClientSystemsTable, TheSecureLaunchSystemIsNotARow )
 {

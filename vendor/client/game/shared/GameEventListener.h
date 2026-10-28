@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef GAME_EVENT_LISTENER_H
-#define GAME_EVENT_LISTENER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "igameevents.h"
 extern IGameEventManager2 *gameeventmanager;
@@ -34,11 +25,7 @@ public:
 	{
 		m_bRegisteredForEvents = true;
 
-#ifdef CLIENT_DLL
 		bool bServerSide = false;
-#else
-		bool bServerSide = true;
-#endif
 		if ( gameeventmanager )
 		{
 			gameeventmanager->AddListener( this, name, bServerSide );
@@ -66,5 +53,3 @@ private:
 	// Have we registered for any events?
 	bool m_bRegisteredForEvents;
 };
-
-#endif

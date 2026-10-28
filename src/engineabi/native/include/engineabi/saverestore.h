@@ -30,11 +30,7 @@
 //     the engine resolves the same tokens in the same table
 //     (saverestore_symbol_oracle_test holds it to upstream).
 //=============================================================================//
-#ifndef SOURCESHARP_ENGINEABI_SAVERESTORE_H
-#define SOURCESHARP_ENGINEABI_SAVERESTORE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "const.h"            // MAX_MAP_NAME_SAVE
 #include "string_t.h"
@@ -236,5 +232,3 @@ inline CSaveRestoreData *MakeSaveRestoreData( void *pMemory )
 {
 	return new ( pMemory ) CSaveRestoreData;
 }
-
-#endif // SOURCESHARP_ENGINEABI_SAVERESTORE_H

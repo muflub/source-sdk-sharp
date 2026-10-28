@@ -459,8 +459,8 @@ TEST( EntityBasesShape, NoGuardAndNoFlipSiteRemainsAndTheArmedTextIsLive )
 	EXPECT_EQ( 0, nElse )
 		<< "entity_bases.h has a conditional arm again; there is nothing left in "
 		   "this header for a build to choose between.";
-	// The include guard's own #endif, and no other.
-	EXPECT_EQ( 1, nEndif );
+	// No conditional at all: the header is guarded by #pragma once.
+	EXPECT_EQ( 0, nEndif );
 
 	EXPECT_EQ( 0, CountCodeLinesContaining( lines, "BaseClass::ObjectCaps" ) )
 		<< "the base term is back in a prelude header. BaseClass is IGameEntity "

@@ -14,8 +14,7 @@
 // the append to bf_write's own writers at every starting bit offset.
 //=============================================================================//
 
-#ifndef SOURCESHARP_USERMESSAGE_APPEND_H
-#define SOURCESHARP_USERMESSAGE_APPEND_H
+#pragma once
 
 #include <stdint.h>
 
@@ -47,4 +46,3 @@ inline void SourceSharp_AppendBits( bf_write *pBuf, const void *pData, int nBits
 // The three Valve-code senders' message (shell_usermessage_send.cpp): Begin
 // resolves the name through C#'s registry, and a name C# refuses opens a
 // DROPPED message that takes no bytes and is never handed to the engine.
-#endif // SOURCESHARP_USERMESSAGE_APPEND_H

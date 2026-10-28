@@ -58,17 +58,13 @@
 // with whatever entity took over its entry.
 //
 //=============================================================================//
-#ifndef PHYSICSOWNER_H
-#define PHYSICSOWNER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // The client's half of the entity. The server needs no entity class here:
 // nothing below names CBaseEntity, so the server arm includes only the public
 // interfaces it calls (plan_server_novalve.md P5: it compiles on the R5 set).
 #ifdef CLIENT_DLL
-	#include "c_baseentity.h"
+	#include "client_entity.h"
 #endif
 
 #ifndef CLIENT_DLL
@@ -677,5 +673,3 @@ inline void PhysicsOwner_t::EndTouch( const PhysicsOwner_t &other ) const
 	if ( pGame ) pGame->EndTouch( toucher );
 }
 #endif
-
-#endif // PHYSICSOWNER_H

@@ -1,13 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Random number generator
-//
-// $Workfile: $
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef VSTDLIB_RANDOM_H
-#define VSTDLIB_RANDOM_H
+#pragma once
 
 #include "vstdlib/vstdlib.h"
 #include "tier0/basetypes.h"
@@ -19,9 +13,7 @@
 #pragma warning(push)
 #pragma warning( disable:4251 )
 
-//-----------------------------------------------------------------------------
 // A generator of uniformly distributed random numbers
-//-----------------------------------------------------------------------------
 class VSTDLIB_CLASS IUniformRandomStream
 {
 public:
@@ -36,10 +28,7 @@ public:
 	virtual float	RandomFloatExp( float flMinVal = 0.0f, float flMaxVal = 1.0f, float flExponent = 1.0f ) = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // The standard generator of uniformly distributed random numbers
-//-----------------------------------------------------------------------------
 class VSTDLIB_CLASS CUniformRandomStream : public IUniformRandomStream
 {
 public:
@@ -62,17 +51,13 @@ private:
 	CThreadFastMutex m_mutex;
 };
 
-
-//-----------------------------------------------------------------------------
 // A generator of gaussian distributed random numbers
-//-----------------------------------------------------------------------------
 class VSTDLIB_CLASS CGaussianRandomStream
 {
 public:
 	// Passing in NULL will cause the gaussian stream to use the
 	// installed global random number generator
 	CGaussianRandomStream( IUniformRandomStream *pUniformStream = NULL );
-
 
 	// Generates random numbers
 	float	RandomFloat( float flMean = 0.0f, float flStdDev = 1.0f );
@@ -85,17 +70,13 @@ private:
 	CThreadFastMutex m_mutex;
 };
 
-//-----------------------------------------------------------------------------
 // A couple of convenience functions to access the library's global uniform stream
-//-----------------------------------------------------------------------------
 VSTDLIB_INTERFACE void	RandomSeed( int iSeed );
 VSTDLIB_INTERFACE float	RandomFloat( float flMinVal = 0.0f, float flMaxVal = 1.0f );
 VSTDLIB_INTERFACE float	RandomFloatExp( float flMinVal = 0.0f, float flMaxVal = 1.0f, float flExponent = 1.0f );
 VSTDLIB_INTERFACE int	RandomInt( int iMinVal, int iMaxVal );
 
-//-----------------------------------------------------------------------------
 // IUniformRandomStream interface for free functions
-//-----------------------------------------------------------------------------
 class VSTDLIB_CLASS CDefaultUniformRandomStream : public IUniformRandomStream
 {
 public:
@@ -105,11 +86,4 @@ public:
 	virtual float	RandomFloatExp( float flMinVal, float flMaxVal, float flExponent ) OVERRIDE	{ return ::RandomFloatExp( flMinVal, flMaxVal, flExponent ); }
 };
 
-
-
 #pragma warning(pop)
-
-#endif // VSTDLIB_RANDOM_H
-
-
-

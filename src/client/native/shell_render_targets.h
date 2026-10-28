@@ -12,11 +12,8 @@
 // for a slot nobody declared.
 //=============================================================================//
 
-#ifndef SHELL_RENDER_TARGETS_H
-#define SHELL_RENDER_TARGETS_H
+#pragma once
 
 #include "render_target_store.h"
 
 ITexture *ShellRenderTarget( int nSlot );
-
-#endif // SHELL_RENDER_TARGETS_H

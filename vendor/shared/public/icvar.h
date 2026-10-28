@@ -1,14 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//===========================================================================//
 
-#ifndef ICVAR_H
-#define ICVAR_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "appframework/IAppSystem.h"
 #include "tier1/iconvar.h"
@@ -18,16 +10,10 @@ class ConCommand;
 class ConVar;
 class Color;
 
-
-//-----------------------------------------------------------------------------
 // ConVars/ComCommands are marked as having a particular DLL identifier
-//-----------------------------------------------------------------------------
 typedef int CVarDLLIdentifier_t;
 
-
-//-----------------------------------------------------------------------------
 // Used to display console messages
-//-----------------------------------------------------------------------------
 abstract_class IConsoleDisplayFunc
 {
 public:
@@ -36,10 +22,7 @@ public:
 	virtual void DPrint( const char *pMessage ) = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Applications can implement this to modify behavior in ICvar
-//-----------------------------------------------------------------------------
 
 abstract_class ICvarQuery : public IAppSystem
 {
@@ -48,10 +31,7 @@ public:
 	virtual void unused_AreConVarsLinkable() = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: DLL interface to ConVars/ConCommands
-//-----------------------------------------------------------------------------
 abstract_class ICvar : public IAppSystem
 {
 public:
@@ -99,9 +79,6 @@ public:
 	// well after ICVar, so we can't use the standard connect pattern
 	virtual void unused_InstallCVarQuery() = 0;
 
-#if defined( _X360 )
-	virtual void			PublishToVXConsole( ) = 0;
-#endif
 	virtual bool			IsMaterialThreadSetAllowed( ) const = 0;
 	virtual void			QueueMaterialThreadSetValue( ConVar *pConVar, const char *pValue ) = 0;
 	virtual void			QueueMaterialThreadSetValue( ConVar *pConVar, int nValue ) = 0;
@@ -189,15 +166,9 @@ inline ConCommandBase * ICvar::Iterator::Get( void )
 
 #define CVAR_INTERFACE_VERSION "VEngineCvar004"
 
-
-//-----------------------------------------------------------------------------
 // These global names are defined by tier1.h, duplicated here so you
 // don't have to include tier1.h
-//-----------------------------------------------------------------------------
 
 // These are marked DLL_EXPORT for Linux.
 DLL_EXPORT ICvar *cvar;
 extern ICvar *g_pCVar;
-
-
-#endif // ICVAR_H

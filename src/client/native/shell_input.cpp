@@ -39,23 +39,45 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
 #include "iinput.h"
 #include "kbutton.h"
 #include "usercmd.h"
-#include "bitbuf.h"
+#include "tier1/bitbuf.h"
 #include "cam_thirdperson.h"
-#include "c_rumble.h"
 #include "iclientmode.h"
 #include "iviewrender.h"
 #include "prediction.h"
 #include "hud.h"
-#include "view_facts.h"
 #include "game/client/iviewport.h"
 #include "voice_status.h"
 #include "vgui/ISurface.h"
 #include "vgui/Cursor.h"
-#include "tier0/icommandline.h"
+#include "engine/ivmodelinfo.h"
+#include "inputsystem/ButtonCode.h"
+#include "inputsystem/InputEnums.h"
+#include "mathlib/vector.h"
+#include "tier0/commonmacros.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/checksum_crc.h"
+#include "tier1/strtools.h"
+#include "vgui_controls/Controls.h"
+#include "cdll_client_int.h"
+#include "client_entity.h"
+#include "globalvars_base.h"
+#include "viewport_panel_names.h"
+#include "view_facts.h"
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"
 #include "sourcesharp_entrypoints.h"
@@ -63,7 +85,6 @@
 #include "ss_command_line.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 // vgui_int.cpp's cursor, as in_mouse.cpp reached it.
 void GetVGUICursorPos( int &x, int &y );
@@ -331,11 +352,10 @@ public:
 		return pSlot->command_number == sequence_number ? pSlot : NULL;
 	}
 
-	virtual void MakeWeaponSelection( int nWeaponEntIndex ) OVERRIDE
-	{
-		if ( IManagedInputClient *p = ManagedInputClient() )
-			p->InputMakeWeaponSelection( nWeaponEntIndex );
-	}
+	// Stock's slot takes the weapon entity. This build makes no
+	// C_BaseCombatWeapon (weapons are managed's), so no caller can name one;
+	// the selection is WeaponSelection's commands.
+	virtual void MakeWeaponSelection( C_BaseCombatWeapon *pWeapon ) OVERRIDE {}
 
 	virtual float KeyState( kbutton_t *key ) OVERRIDE
 	{

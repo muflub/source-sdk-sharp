@@ -1,14 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef PANELANIMATIONVAR_H
-#define PANELANIMATIONVAR_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier1/utlvector.h"
 #include <vgui_controls/Panel.h>
@@ -95,42 +87,12 @@ typedef void *( *PANELLOOKUPFUNC )( vgui::Panel *panel );
 	CPanelAnimationVarAliasType( type, name, scriptname, defaultvalue, #type )
 
 // Use this macro to define a variable which hudanimations.txt and hudlayout.res scripts can access
-#define CPanelAnimationStringVarAliasType( count, name, scriptname, defaultvalue, typealias ) \
-	class PanelAnimationVar_##name; \
-	friend class PanelAnimationVar_##name; \
-	static void *GetVar_##name( vgui::Panel *panel ) \
-	{								\
-		return &(( ThisClass *)panel)->name;	\
-	}								\
-	class PanelAnimationVar_##name \
-	{ \
-	public: \
-		static void InitVar() \
-		{ \
-			static bool bAdded = false; \
-			if ( !bAdded ) \
-			{ \
-				bAdded = true; \
-				AddToAnimationMap( scriptname, typealias, #name, defaultvalue, true, ThisClass::GetVar_##name ); \
-			} \
-		}												\
-		PanelAnimationVar_##name()						\
-		{												\
-			PanelAnimationVar_##name::InitVar();		\
-		}												\
-	};													\
-	PanelAnimationVar_##name m_##name##_register;		\
-	char name[ count ];
-
-#define CPanelAnimationStringVar( count, name, scriptname, defaultvalue )	\
-	CPanelAnimationStringVarAliasType( count, name, scriptname, defaultvalue, "string" )
 
 struct PanelAnimationMapEntry
 {
 	char const *name() { return m_pszScriptName; }
 	char const *type() { return m_pszType; }
 	char const *defaultvalue() { return m_pszDefaultValue; }
-	bool		isarray() { return m_bArray; }
 
 	char const *m_pszScriptName;
 	char const *m_pszVariable;
@@ -154,8 +116,4 @@ struct PanelAnimationMap
 	char const *(*pfnClassName)( void );
 };
 
-PanelAnimationMap *FindPanelAnimationMap( char const *className );
 PanelAnimationMap *FindOrAddPanelAnimationMap( char const *className );
-void PanelAnimationDumpVars( char const *className );
-
-#endif // PANELANIMATIONVAR_H

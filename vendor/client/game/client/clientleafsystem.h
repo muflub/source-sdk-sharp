@@ -1,19 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Revision: $
-// $NoKeywords: $
-//
 // This file contains code to allow us to associate client data with bsp leaves.
-//
-//===========================================================================//
 
-#if !defined( CLIENTLEAFSYSTEM_H )
-#define CLIENTLEAFSYSTEM_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "igamesystem.h"
 #include "engine/IClientLeafSystem.h"
@@ -22,10 +10,7 @@
 #include "tier1/mempool.h"
 #include "tier1/refcount.h"
 
-
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 struct WorldListInfo_t;
 class IClientRenderable;
 class Vector;
@@ -33,17 +18,12 @@ class CGameTrace;
 typedef CGameTrace trace_t;
 struct Ray_t;
 class Vector2D;
-class CStaticProp;
 
-
-//-----------------------------------------------------------------------------
 // Handle to an renderables in the client leaf system
-//-----------------------------------------------------------------------------
 enum
 {
 	DETAIL_PROP_RENDER_HANDLE = (ClientRenderHandle_t)0xfffe
 };
-
 
 class CClientRenderablesList : public CRefCounted<>
 {
@@ -68,10 +48,7 @@ public:
 	int			m_RenderGroupCounts[RENDER_GROUP_COUNT];
 };
 
-
-//-----------------------------------------------------------------------------
 // Used by CollateRenderablesInLeaf
-//-----------------------------------------------------------------------------
 struct SetupRenderInfo_t
 {
 	WorldListInfo_t *m_pWorldListInfo;
@@ -91,27 +68,20 @@ struct SetupRenderInfo_t
 	}
 };
 
-
-//-----------------------------------------------------------------------------
 // A handle associated with shadows managed by the client leaf system
-//-----------------------------------------------------------------------------
 typedef unsigned short ClientLeafShadowHandle_t;
 enum
 {
 	CLIENT_LEAF_SHADOW_INVALID_HANDLE = (ClientLeafShadowHandle_t)~0 
 };
 
-
-//-----------------------------------------------------------------------------
 // The client leaf system
-//-----------------------------------------------------------------------------
 abstract_class IClientLeafShadowEnum
 {
 public:
 	// The user ID is the id passed into CreateShadow
 	virtual void EnumShadow( ClientShadowHandle_t userId ) = 0;
 };
-
 
 // subclassed by things which wish to add per-leaf data managed by the client leafsystem
 class CClientLeafSubSystemData
@@ -122,16 +92,10 @@ public:
 	}
 };
 
-
 // defines for subsystem ids. each subsystem id uses up one pointer in each leaf
 #define CLSUBSYSTEM_DETAILOBJECTS 0
-#define N_CLSUBSYSTEMS 1
 
-
-
-//-----------------------------------------------------------------------------
 // The client leaf system
-//-----------------------------------------------------------------------------
 abstract_class IClientLeafSystem : public IClientLeafSystemEngine, public IGameSystemPerFrame
 {
 public:
@@ -144,7 +108,6 @@ public:
 
 	virtual void SetSubSystemDataInLeaf( int leaf, int nSubSystemIdx, CClientLeafSubSystemData *pData ) =0;
 	virtual CClientLeafSubSystemData *GetSubSystemDataInLeaf( int leaf, int nSubSystemIdx ) =0;
-
 
 	virtual void SetDetailObjectsInLeaf( int leaf, int firstDetailObject, int detailObjectCount ) = 0;
 	virtual void GetDetailObjectsInLeaf( int leaf, int& firstDetailObject, int& detailObjectCount ) = 0;
@@ -201,17 +164,9 @@ public:
 	virtual void EnableAlternateSorting( ClientRenderHandle_t handle, bool bEnable ) = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Singleton accessor
-//-----------------------------------------------------------------------------
 extern IClientLeafSystem *g_pClientLeafSystem;
 inline IClientLeafSystem* ClientLeafSystem()
 {
 	return g_pClientLeafSystem;
 }
-
-
-#endif	// CLIENTLEAFSYSTEM_H
-
-

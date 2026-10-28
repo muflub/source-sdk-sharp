@@ -28,13 +28,14 @@
 // CParticleMgr itself (particlemgr.h) is no longer defined in client.so.
 //=============================================================================//
 
-#ifndef SHELL_PARTICLE_MGR_H
-#define SHELL_PARTICLE_MGR_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "particlemgr.h"
+#include "materialsystem/imaterialvar.h"
+#include "cdll_int.h"
+#include "particledraw.h"
+#include "view.h"
+#include "voice_status.h"
 
 class IMaterialSystem;
 
@@ -67,5 +68,3 @@ VMatrix &ShellParticleDraw_ModelView();
 void ShellParticleDraw_GetLight( CParticleLightInfo &info );
 void ShellParticleDraw_SetLight( const CParticleLightInfo &info );
 void *ShellParticleDraw_BindArg();
-
-#endif // SHELL_PARTICLE_MGR_H

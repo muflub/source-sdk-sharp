@@ -6,7 +6,6 @@ ss_sdk_target(server_sourcesharp PROJECTDIR game/server RPATH_ORIGIN NO_WRAP
     VERSION_SCRIPT ${PROJECT_SOURCE_DIR}/cmake/version_script_server.txt)
 
 set(server_sourcesharp_sources
-    ${LOCAL}/alloc_check.cpp
     ${LOCAL}/exit_watch.cpp
     ${LOCAL}/managed_runtime_server.cpp
     ${LOCAL}/physics.cpp
@@ -56,6 +55,7 @@ set(server_sourcesharp_sources
     ${LOCAL}/standalone_relays.cpp
     ${LOCAL}/world_adapter.cpp
     ${LOCAL}/world_subject_dll.cpp
+    ${SHARED}/alloc_check.cpp
     ${SHARED}/console_display_forward.cpp
     ${SHARED}/convar_port.cpp
     ${SHARED}/dt_send.cpp

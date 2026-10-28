@@ -292,6 +292,22 @@ internal sealed class CMakeBuild(string buildDir)
         return found;
     }
 
+    private static string? StockSrc()
+    {
+        string? root = Environment.GetEnvironmentVariable("SOURCESHARP_VALVE_SDK");
+        if (string.IsNullOrEmpty(root))
+        {
+            string lockFile = Path.Combine(CMakeGraph.RepoOfBuild, "valve-sdk.lock.local");
+            if (!File.Exists(lockFile))
+                return null;
+            string[] words = File.ReadAllText(lockFile).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length == 0)
+                return null;
+            root = words[0];
+        }
+        return Path.GetFullPath(Path.Combine(root, "src"));
+    }
+
     public string FarmRelative(string absolute)
     {
         string prefix = FarmSrc + "/";
@@ -301,6 +317,10 @@ internal sealed class CMakeBuild(string buildDir)
         string repo = CMakeGraph.RepoOfBuild + "/";
         if (path.StartsWith(repo, StringComparison.Ordinal) && !path.StartsWith(repo + "farm/", StringComparison.Ordinal))
             return CMakeGraph.RepoToFarm(path[repo.Length..]);
+        // The pristine clone's src/: libss_particles, tier1 and mathlib build from it.
+        string? stock = StockSrc();
+        if (stock != null && path.StartsWith(stock + "/", StringComparison.Ordinal))
+            return path[(stock.Length + 1)..];
         throw new InvalidOperationException($"cmake_graph: {absolute} is neither under the farm's src/ ({prefix}) nor a file of this repo");
     }
 

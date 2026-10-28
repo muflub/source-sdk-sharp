@@ -1,28 +1,15 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: An application framework 
-//
-// $Revision: $
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef IAPPSYSTEM_H
-#define IAPPSYSTEM_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier1/interface.h"
 
-
-//-----------------------------------------------------------------------------
 // Client systems are singleton objects in the client codebase responsible for
 // various tasks
 // The order in which the client systems appear in this list are the
 // order in which they are initialized and updated. They are shut down in
 // reverse order from which they are initialized.
-//-----------------------------------------------------------------------------
 
 enum InitReturnVal_t
 {
@@ -31,7 +18,6 @@ enum InitReturnVal_t
 
 	INIT_LAST_VAL,
 };
-
 
 abstract_class IAppSystem
 {
@@ -49,10 +35,7 @@ public:
 	virtual void Shutdown() = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Helper empty implementation of an IAppSystem
-//-----------------------------------------------------------------------------
 template< class IInterface > 
 class CBaseAppSystem : public IInterface
 {
@@ -70,10 +53,7 @@ public:
 	virtual void Shutdown() {}
 };
 
-
-//-----------------------------------------------------------------------------
 // Helper implementation of an IAppSystem for tier0
-//-----------------------------------------------------------------------------
 template< class IInterface > 
 class CTier0AppSystem : public CBaseAppSystem< IInterface >
 {
@@ -97,11 +77,8 @@ private:
 	bool m_bIsPrimaryAppSystem;
 };
 
-
-//-----------------------------------------------------------------------------
 // This is the version of IAppSystem shipped 10/15/04
 // NOTE: Never change this!!!
-//-----------------------------------------------------------------------------
 abstract_class IAppSystemV0
 {
 public:
@@ -117,6 +94,3 @@ public:
 	virtual InitReturnVal_t Init() = 0;
 	virtual void Shutdown() = 0;
 };
-
-#endif // IAPPSYSTEM_H
-

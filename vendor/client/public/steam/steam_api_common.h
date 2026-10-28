@@ -1,20 +1,15 @@
 //====== Copyright Valve Corporation, All rights reserved. ====================
-//
 // Steamworks SDK minimal include
-//
 // Defines the minimal set of things we need to use any single interface
 // or register for any callback.
-//
-//=============================================================================
 
-#ifndef STEAM_API_COMMON_H
-#define STEAM_API_COMMON_H
+#pragma once
 
 #include "steamtypes.h"
 #include "steamclientpublic.h"
 
 // S_API defines the linkage and calling conventions for steam_api.dll exports
-#if defined( _WIN32 ) && !defined( _X360 )
+#if defined( _WIN32 )
 	#if defined( STEAM_API_EXPORTS )
 	#define S_API extern "C" __declspec( dllexport ) 
 	#elif defined( STEAM_API_NODLL )
@@ -40,12 +35,8 @@
 #define STEAM_PRIVATE_API( ... ) __VA_ARGS__
 #elif defined(STEAM_API_EXPORTS) && defined(API_GEN)
 #define STEAM_PRIVATE_API( ... )
-#else
-#define STEAM_PRIVATE_API( ... ) protected: __VA_ARGS__ public:
 #endif
 
-// handle to a communication pipe to the Steam client
-typedef int32 HSteamPipe;
 // handle to single instance of a steam user
 typedef int32 HSteamUser;
 
@@ -58,44 +49,28 @@ typedef int32 HSteamUser;
 #endif
 
 // function prototype
-extern "C" typedef void ( S_CALLTYPE *SteamAPIWarningMessageHook_t )( int, const char * );
-extern "C" typedef uint32 ( S_CALLTYPE *SteamAPI_CheckCallbackRegistered_t )( int iCallbackNum );
+extern "C" ;
+extern "C" ;
 #if defined( __SNC__ )
 	#pragma diag_suppress=1700	   // warning 1700: class "%s" has virtual functions but non-virtual destructor
 #endif
 
-//----------------------------------------------------------------------------------------------------------------------------------------------------------//
 //	steam callback and call-result helpers
-//
 //	The following macros and classes are used to register your application for
 //	callbacks and call-results, which are delivered in a predictable manner.
-//
 //	STEAM_CALLBACK macros are meant for use inside of a C++ class definition.
 //	They map a Steam notification callback directly to a class member function
 //	which is automatically prototyped as "void func( callback_type *pParam )".
-//
 //	CCallResult is used with specific Steam APIs that return "result handles".
 //	The handle can be passed to a CCallResult object's Set function, along with
 //	an object pointer and member-function pointer. The member function will
 //	be executed once the results of the Steam API call are available.
-//
 //	CCallback and CCallbackManual classes can be used instead of STEAM_CALLBACK
 //	macros if you require finer control over registration and unregistration.
-//
 //	Callbacks and call-results are queued automatically and are only
 //	delivered/executed when your application calls SteamAPI_RunCallbacks().
-//
 //  Note that there is an alternative, lower level callback dispatch mechanism.
 //  See SteamAPI_ManualDispatch_Init
-//----------------------------------------------------------------------------------------------------------------------------------------------------------//
-
-// Dispatch all queued Steamworks callbacks.
-//
-// This is safe to call from multiple threads simultaneously,
-// but if you choose to do this, callback code could be executed on any thread.
-// One alternative is to call SteamAPI_RunCallbacks from the main thread only,
-// and call SteamAPI_ReleaseCurrentThreadMemory regularly on other threads.
-S_API void S_CALLTYPE SteamAPI_RunCallbacks();
 
 // Declares a callback member function plus a helper member variable which
 // registers the callback on object creation and unregisters on destruction.
@@ -109,21 +84,10 @@ S_API void S_CALLTYPE SteamAPI_RunCallbacks();
 #define STEAM_CALLBACK_MANUAL( thisclass, func, callback_type, var )	\
 	CCallbackManual< thisclass, callback_type > var; void func( callback_type *pParam )
 
-// Dispatch callbacks relevant to the gameserver client and interfaces.
-// To register for these, you need to use STEAM_GAMESERVER_CALLBACK.
-// (Or call SetGameserverFlag on your CCallbackBase object.)
-S_API void S_CALLTYPE SteamGameServer_RunCallbacks();
-
 // Same as STEAM_CALLBACK, but for callbacks on the gameserver interface.
 // These will be dispatched during SteamGameServer_RunCallbacks
-#define STEAM_GAMESERVER_CALLBACK( thisclass, func, /*callback_type, [deprecated] var*/... ) \
-	_STEAM_CALLBACK_SELECT( ( __VA_ARGS__, GS, 3 ), ( this->SetGameserverFlag();, thisclass, func, __VA_ARGS__ ) )
-#define STEAM_GAMESERVER_CALLBACK_MANUAL( thisclass, func, callback_type, var ) \
-	CCallbackManual< thisclass, callback_type, true > var; void func( callback_type *pParam )
 
-//-----------------------------------------------------------------------------
 // Purpose: base for callbacks and call results - internal implementation detail
-//-----------------------------------------------------------------------------
 class CCallbackBase
 {
 public:
@@ -142,12 +106,9 @@ protected:
 
 private:
 	CCallbackBase( const CCallbackBase& );
-	CCallbackBase& operator=( const CCallbackBase& );
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: templated base for callbacks - internal implementation detail
-//-----------------------------------------------------------------------------
 template< int sizeof_P >
 class CCallbackImpl : protected CCallbackBase
 {
@@ -162,11 +123,8 @@ protected:
 	virtual int GetCallbackSizeBytes() { return sizeof_P; }
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: maps a steam async call result to a class member function
 //			template params: T = local class, P = parameter struct
-//-----------------------------------------------------------------------------
 template< class T, class P >
 class CCallResult : private CCallbackBase
 {
@@ -191,13 +149,9 @@ private:
 	func_t m_Func;
 };
 
-
-
-//-----------------------------------------------------------------------------
 // Purpose: maps a steam callback to a class member function
 //			template params: T = local class, P = parameter struct,
 //			bGameserver = listen for gameserver callbacks instead of client callbacks
-//-----------------------------------------------------------------------------
 template< class T, class P, bool bGameserver = false >
 class CCallback : public CCallbackImpl< sizeof( P ) >
 {
@@ -218,11 +172,8 @@ protected:
 	func_t m_Func;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: subclass of CCallback which allows default-construction in
 //			an unregistered state; you must call Register manually
-//-----------------------------------------------------------------------------
 template< class T, class P, bool bGameServer = false >
 class CCallbackManual : public CCallback< T, P, bGameServer >
 {
@@ -234,5 +185,3 @@ public:
 
 // Internal implementation details for all of the above
 #include "steam_api_internal.h"
-
-#endif // STEAM_API_COMMON_H

@@ -4,8 +4,7 @@
 // the calls the rest of client.so makes on it.
 //=============================================================================//
 
-#ifndef PARTICLES_LIB_CLIENT_H
-#define PARTICLES_LIB_CLIENT_H
+#pragma once
 
 #include <stdint.h>
 
@@ -25,5 +24,3 @@ void ParticleLib_Counters( SSParticleLibCounters_t *pOut );
 // library's ISSParticleLib (shell_internalfactory.cpp), so managed binds the
 // same object client.so's forwards call.
 void *ParticleLib_Acquire();
-
-#endif // PARTICLES_LIB_CLIENT_H

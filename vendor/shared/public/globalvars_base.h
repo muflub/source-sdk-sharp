@@ -1,29 +1,16 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef GLOBALVARS_BASE_H
-#define GLOBALVARS_BASE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 class CSaveRestoreData;
 
-//-----------------------------------------------------------------------------
 // Purpose: Global variables used by shared code
-//-----------------------------------------------------------------------------
 class CGlobalVarsBase
 {
 public:
 
 	CGlobalVarsBase( bool bIsClient );
 	
-
-
 public:
 	
 	// Absolute time (per frame still - Use Plat_FloatTime() for a high precision real time 
@@ -35,18 +22,14 @@ public:
 	float			absoluteframetime;
 
 	// Current time 
-	//
 	// On the client, this (along with tickcount) takes a different meaning based on what
 	// piece of code you're in:
-	// 
 	//   - While receiving network packets (like in PreDataUpdate/PostDataUpdate and proxies),
 	//     this is set to the SERVER TICKCOUNT for that packet. There is no interval between
 	//     the server ticks.
 	//     [server_current_Tick * tick_interval]
-	//
 	//   - While rendering, this is the exact client clock 
 	//     [client_current_tick * tick_interval + interpolation_amount]
-	//
 	//   - During prediction, this is based on the client's current tick:
 	//     [client_current_tick * tick_interval]
 	float			curtime;
@@ -71,7 +54,6 @@ public:
 	// current saverestore data
 	CSaveRestoreData *pSaveData;
 	
-
 private:
 	// Set to true in client code.
 	bool			m_bClient;
@@ -84,13 +66,9 @@ private:
 	
 };
 
-
 inline CGlobalVarsBase::CGlobalVarsBase( bool bIsClient ) :
 	m_bClient( bIsClient ),
 	nTimestampNetworkingBase( 100 ),
 	nTimestampRandomizeWindow( 32 )
 {
 }
-
-
-#endif // GLOBALVARS_BASE_H

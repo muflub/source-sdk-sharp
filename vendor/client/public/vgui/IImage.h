@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef IIMAGE_H
-#define IIMAGE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <vgui/VGUI.h>
 
@@ -21,17 +11,7 @@ namespace vgui
 
 typedef uint32 HTexture;
 
-enum iimage_rotation_t
-{
-	ROTATED_UNROTATED = 0,
-	ROTATED_CLOCKWISE_90,
-	ROTATED_ANTICLOCKWISE_90,
-	ROTATED_FLIPPED,
-};
-
-//-----------------------------------------------------------------------------
 // Purpose: Interface to drawing an image
-//-----------------------------------------------------------------------------
 class IImage
 {
 public:
@@ -70,6 +50,3 @@ public:
 };
 
 } // namespace vgui
-
-
-#endif // IIMAGE_H

@@ -52,11 +52,7 @@
 // refusal would be evidence of nothing — a typo refuses just as loudly.
 //
 //=============================================================================
-#ifndef SOURCESHARP_STANDALONE_HANDLE_BAN_H
-#define SOURCESHARP_STANDALONE_HANDLE_BAN_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // ENGINE-FREE ON PURPOSE, and that is what lets the probe compile it on its
 // own. Neither name needs a definition here: the primary template is declared
@@ -75,5 +71,3 @@ class CStandaloneEntity;
 // CStandaloneEntity nameable at all, so nothing can spell the banned type
 // without having read this first.
 template<> class CHandle< CStandaloneEntity >;
-
-#endif // SOURCESHARP_STANDALONE_HANDLE_BAN_H

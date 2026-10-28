@@ -1,19 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef MATERIALSYSTEM_CONFIG_H
-#define MATERIALSYSTEM_CONFIG_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "materialsystem/imaterialsystem.h"
-
-#define MATERIALSYSTEM_CONFIG_VERSION "VMaterialSystemConfig002"
 
 enum MaterialSystem_Config_Flags_t
 {
@@ -47,32 +36,9 @@ struct MaterialSystemHardwareIdentifier_t
 
 struct MaterialSystem_Config_t
 {
-	bool Windowed() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_WINDOWED ) != 0; }
-	bool NoWindowBorder() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_NO_WINDOW_BORDER ) != 0; }
-	bool Resizing() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_RESIZING ) != 0; }
 #ifdef CSS_PERF_TEST
 	bool WaitForVSync() const { return false; }//( m_Flags & MATSYS_VIDCFG_FLAGS_NO_WAIT_FOR_VSYNC ) == 0; }
-#else
-	bool WaitForVSync() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_NO_WAIT_FOR_VSYNC ) == 0; }
 #endif
-	bool Stencil() const { return (m_Flags & MATSYS_VIDCFG_FLAGS_STENCIL ) != 0; }
-	bool ForceTrilinear() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_FORCE_TRILINEAR ) != 0; }
-	bool ForceHWSync() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_FORCE_HWSYNC ) != 0; }
-	bool UseSpecular() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_DISABLE_SPECULAR ) == 0; }
-	bool UseBumpmapping() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_DISABLE_BUMPMAP ) == 0; }
-	bool UseParallaxMapping() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_ENABLE_PARALLAX_MAPPING ) != 0; }
-	bool UseZPrefill() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_USE_Z_PREFILL ) != 0; }
-	bool ReduceFillrate() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_REDUCE_FILLRATE ) != 0; }
-	bool LightmapBicubic() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_LIGHTMAP_BICUBIC ) != 0; }
-	bool HDREnabled() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_ENABLE_HDR ) != 0; }
-	bool LimitWindowedSize() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_LIMIT_WINDOWED_SIZE ) != 0; }
-	bool ScaleToOutputResolution() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_SCALE_TO_OUTPUT_RESOLUTION ) != 0; }
-	bool UsingMultipleWindows() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_USING_MULTIPLE_WINDOWS ) != 0; }
-	bool UsePhong() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_DISABLE_PHONG ) == 0; }
-	bool VRMode() const { return ( m_Flags & MATSYS_VIDCFG_FLAGS_VR_MODE) != 0; }
-	bool ShadowDepthTexture() const { return m_bShadowDepthTexture; }
-	bool MotionBlur() const { return m_bMotionBlur; }
-	bool SupportFlashlight() const { return m_bSupportFlashlight; }
 
 	void SetFlag( unsigned int flag, bool val )
 	{
@@ -95,8 +61,7 @@ struct MaterialSystem_Config_t
 	bool m_bGammaTVEnabled;
 
 	int m_nAASamples;
-	int m_nForceAnisotropicLevel;
-	int skipMipLevels;
+	alignas( 4 ) unsigned char unused_m_nForceAnisotropicLevel[ 8 ];
 	int dxSupportLevel;
 	unsigned int m_Flags;
 	bool bEditMode;				// true if in Hammer.
@@ -125,7 +90,7 @@ struct MaterialSystem_Config_t
 	bool bShowDiffuse;  // This is the fast version that doesn't require reloading materials
 
 	// misc
-	int m_nReserved;	// Currently unused
+	alignas( 4 ) unsigned char unused_m_nReserved[ 4 ];
 
 	// No depth bias
 	float m_SlopeScaleDepthBias_Normal;
@@ -141,7 +106,7 @@ struct MaterialSystem_Config_t
 
 	uint m_WindowedSizeLimitWidth;
 	uint m_WindowedSizeLimitHeight;
-	int m_nAAQuality;
+	alignas( 4 ) unsigned char unused_m_nAAQuality[ 4 ];
 	bool m_bShadowDepthTexture;
 	bool m_bMotionBlur;
 	bool m_bSupportFlashlight;
@@ -186,7 +151,7 @@ struct MaterialSystem_Config_t
 		m_fGammaTVRangeMin = 16.0f;
 		m_fGammaTVRangeMax = 255.0f;
 		m_fGammaTVExponent = 2.5;
-		m_bGammaTVEnabled = IsX360();
+		m_bGammaTVEnabled = false;
 
 		m_nAASamples = 1;
 		m_bShadowDepthTexture = false;
@@ -230,6 +195,3 @@ struct MaterialSystem_Config_t
 		m_WindowedSizeLimitHeight = 1024;
 	}
 };
-
-
-#endif // MATERIALSYSTEM_CONFIG_H

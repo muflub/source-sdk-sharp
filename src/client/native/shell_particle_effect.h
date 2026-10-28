@@ -47,16 +47,13 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_PARTICLE_EFFECT_H
-#define SHELL_PARTICLE_EFFECT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "iclientrenderable.h"
-#include "mathlib/vmatrix.h"
-#include "tier0/dbg.h"
 #include "tier0/memalloc.h"
+#include "mathlib/vector.h"
+#include "networkvar.h"
+#include "view.h"
 #include "trail_lifetime.h"
 
 //-----------------------------------------------------------------------------
@@ -137,6 +134,3 @@ protected:
 private:
 	CShellParticleEffect( const CShellParticleEffect & );	// not defined, not accessible
 };
-
-
-#endif // SHELL_PARTICLE_EFFECT_H

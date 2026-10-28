@@ -53,11 +53,7 @@
 // discarded each; the definitions went then and the declarations after.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_STANDALONE_RELAYS_H
-#define SOURCESHARP_STANDALONE_RELAYS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 #include "mathlib/vector.h"
@@ -160,5 +156,3 @@ Vector StandaloneEntity_Velocity( const IGameEntity *pEnt );
 // The velocity managed's physics frame says the entity's own object moves at,
 // held for StandaloneEntity_Velocity (plan_physics_bones_perf C2).
 void StandaloneEntity_HoldMoveVelocity( IGameEntity *pEnt, const Vector &vecVelocity );
-
-#endif // SOURCESHARP_STANDALONE_RELAYS_H

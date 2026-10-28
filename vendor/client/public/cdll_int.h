@@ -1,14 +1,13 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Interfaces between the client.dll and engine
-//
-//===========================================================================//
 
-#ifndef CDLL_INT_H
-#define CDLL_INT_H
-#ifdef _WIN32
 #pragma once
-#endif
+
+// The matchmaking slot's two element types; no code here reads either.
+struct _XUSER_CONTEXT;
+struct _XUSER_PROPERTY;
+typedef _XUSER_CONTEXT XUSER_CONTEXT;
+typedef _XUSER_PROPERTY XUSER_PROPERTY;
 
 #include "basetypes.h"
 #include "interface.h"
@@ -20,13 +19,7 @@
 #include "inputsystem/ButtonCode.h"
 #include "modes.h"
 
-#if !defined( _X360 )
-#include "xbox/xboxstubs.h"
-#endif
-
-//-----------------------------------------------------------------------------
 // forward declarations
-//-----------------------------------------------------------------------------
 class ClientClass;
 struct model_t;
 class CSentence;
@@ -57,10 +50,8 @@ class CRenamedRecvTableInfo;
 class CMouthInfo;
 class IConVar;
 
-//-----------------------------------------------------------------------------
 // Purpose: This data structure is filled in by the engine when the client .dll requests information about
 //  other players that the engine knows about
-//-----------------------------------------------------------------------------
 
 // Engine player info, no game related infos here
 // If you change this, change the two byteswap defintions: 
@@ -92,10 +83,7 @@ typedef struct player_info_s
 	unsigned char	filesDownloaded;
 } player_info_t;
 
-
-//-----------------------------------------------------------------------------
 // Hearing info
-//-----------------------------------------------------------------------------
 struct AudioState_t
 {
 	Vector m_Origin;
@@ -103,10 +91,7 @@ struct AudioState_t
 	bool m_bIsUnderwater;
 };
 
-
-//-----------------------------------------------------------------------------
 // Skybox visibility
-//-----------------------------------------------------------------------------
 enum SkyboxVisibility_t
 {
 	SKYBOX_NOT_VISIBLE = 0,
@@ -114,13 +99,10 @@ enum SkyboxVisibility_t
 	SKYBOX_2DSKYBOX_VISIBLE,
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: The engine reports to the client DLL what stage it's entering so the DLL can latch events
 //  and make sure that certain operations only happen during the right stages.
 // The value for each stage goes up as you move through the frame so you can check ranges of values
 //  and if new stages get added in-between, the range is still valid.
-//-----------------------------------------------------------------------------
 enum ClientFrameStage_t
 {
 	FRAME_UNDEFINED=-1,			// (haven't run any frames yet)
@@ -150,36 +132,25 @@ enum RenderViewInfo_t
 	RENDERVIEW_SUPPRESSMONITORRENDERING = (1<<2),
 };
 
-//-----------------------------------------------------------------------------
 // Lightcache entry handle
-//-----------------------------------------------------------------------------
 DECLARE_POINTER_HANDLE( LightCacheHandle_t );
 
-
-//-----------------------------------------------------------------------------
 // Occlusion parameters
-//-----------------------------------------------------------------------------
 struct OcclusionParams_t
 {
 	float	m_flMaxOccludeeArea;
 	float	m_flMinOccluderArea;
 };
 
-
-//-----------------------------------------------------------------------------
 // Just an interface version name for the random number interface
 // See vstdlib/random.h for the interface definition
 // NOTE: If you change this, also change VENGINE_SERVER_RANDOM_INTERFACE_VERSION in eiface.h
-//-----------------------------------------------------------------------------
 #define VENGINE_CLIENT_RANDOM_INTERFACE_VERSION	"VEngineRandom001"
 
 // change this when the new version is incompatable with the old
 #define VENGINE_CLIENT_INTERFACE_VERSION		"VEngineClient014"
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Interface exposed from the engine to the client .dll
-//-----------------------------------------------------------------------------
 abstract_class IVEngineClient013
 {
 public:
@@ -456,7 +427,6 @@ public:
 
 	// Inserts szCmdString into the command buffer as if it was typed by the client to his/her console.
 	// And then executes the command string immediately (vs ClientCmd() which executes in the next frame)
-	//
 	// Note: this is NOT checked against the FCVAR_CLIENTCMD_CAN_EXECUTE vars.
 	virtual void			ExecuteClientCmd( const char *szCmdString ) = 0;
 
@@ -568,10 +538,7 @@ public:
 	virtual void unused_SetRichPresenceConnect() = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Interface exposed from the client .dll back to the engine
-//-----------------------------------------------------------------------------
 abstract_class IBaseClientDLL
 {
 public:
@@ -747,7 +714,6 @@ public:
 
 	virtual void			IN_SetSampleTime( float frametime ) = 0;
 
-
 	// For sv_pure mode. The filesystem figures out which files the client needs to reload to be "pure" ala the server's preferences.
 	virtual void			ReloadFilesInList( IFileList *pFilesToReload ) = 0;
 #ifdef POSIX
@@ -788,9 +754,7 @@ public:
 
 #define CLIENT_DLL_INTERFACE_VERSION		"VClient017"
 
-//-----------------------------------------------------------------------------
 // Purpose: Interface exposed from the client .dll back to the engine for specifying shared .dll IAppSystems (e.g., ISoundEmitterSystem)
-//-----------------------------------------------------------------------------
 abstract_class IClientDLLSharedAppSystems
 {
 public:
@@ -800,5 +764,3 @@ public:
 };
 
 #define CLIENT_DLL_SHARED_APPSYSTEMS		"VClientDllSharedAppSystems001"
-
-#endif // CDLL_INT_H

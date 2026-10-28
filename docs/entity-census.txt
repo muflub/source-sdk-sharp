@@ -1,3 +1,6 @@
+# 2026-10-25, client.so on stock headers (M2): takedamageinfo_library.cpp left client.so (its one client caller,
+#   ClearMultiDamage, went: nothing fills the accumulator): client objects 134 -> 133, shim 134 -> 133; no cross-edge
+#   moved. Hand-applied from tools/entity-census's diff.
 # 2026-10-25, lane M1-C, measured on 1f8f3e52d + the lane: md5_pseudorandom.cpp left client.so (nothing imported
 #   MD5_PseudoRandom): client objects 135 -> 134, shim 135 -> 134; no cross-edge moved. Hand-applied from
 #   tools/entity-census's diff.
@@ -943,11 +946,11 @@
 #
 == 1. WHERE THE TREE STANDS ==
                                                             server    client
-objects linked                                                  98       134
+objects linked                                                  98       133
   ... stock game/server | game/client                            0         0
   ... stock game/shared                                          0         0
   ... stock public                                               0         0
-  ... SourceSharp shim (sourcesharp/**)                         98       134
+  ... SourceSharp shim (sourcesharp/**)                         98       133
 stock TUs that define an entity class                            0         0
   ... their code lines                                           0         0
 stock TUs that use an entity type but define none                0         0

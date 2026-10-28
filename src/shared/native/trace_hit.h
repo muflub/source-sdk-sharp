@@ -24,11 +24,7 @@
 // bits reinterpreted, never converted.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_TRACE_HIT_H
-#define SOURCESHARP_TRACE_HIT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "gametrace.h"
 
@@ -42,9 +38,11 @@ inline IHandleEntity *TraceHitHandle( IHandleEntity *pHit )
 	return pHit;
 }
 
-#if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )
+#include "igameentity_fwd.h"
+
+#ifdef SS_GAME_ENTITY
 // The field's stock type. Never a conversion: the bits are an IHandleEntity's.
-inline IHandleEntity *TraceHitHandle( CBaseEntity *pHit )
+inline IHandleEntity *TraceHitHandle( SS_GAME_ENTITY *pHit )
 {
 	return reinterpret_cast< IHandleEntity * >( pHit );
 }
@@ -57,5 +55,3 @@ inline IHandleEntity *TraceHit( const CGameTrace &tr )
 }
 
 } // namespace ss
-
-#endif // SOURCESHARP_TRACE_HIT_H

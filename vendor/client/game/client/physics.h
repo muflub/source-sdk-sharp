@@ -1,16 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: insulates client DLL from dependencies on vphysics
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef PHYSICS_H
-#define PHYSICS_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "interface.h"
 #include "physics_shared.h"
@@ -22,6 +13,3 @@ struct solid_t;
 extern bool PhysicsDLLInit( CreateInterfaceFn physicsFactory );
 extern void PhysicsReset();
 extern void PhysicsSimulate();
-extern float PhysGetSyncCreateTime();
-
-#endif // PHYSICS_H

@@ -14,8 +14,6 @@
 // table managed wrote. The object lives in the block's 3 reserved words after
 // word 0, so it is the block's, across a reload too. Engine types cross as void *.
 
-#ifndef IMANAGED_PHYSICS_CALLBACKS_H
-#define IMANAGED_PHYSICS_CALLBACKS_H
 #pragma once
 
 #include <stdint.h>
@@ -278,4 +276,3 @@ static_assert( sizeof( SSManagedTraceFilterTable ) == 3 * sizeof( void * ), "SSM
 // The words a block reserves for the object libss_fwd builds in it.
 static const int32_t kManagedPhysicsCallbackWords = 3;
 
-#endif // IMANAGED_PHYSICS_CALLBACKS_H

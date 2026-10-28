@@ -10,8 +10,7 @@
 //
 //=============================================================================//
 
-#ifndef STANDALONE_RENDERABLE_HANDLE_H
-#define STANDALONE_RENDERABLE_HANDLE_H
+#pragma once
 
 #include <stdint.h>
 
@@ -25,5 +24,3 @@ inline bool RenderableEntityHandleWord( Unknown *pUnknown, uint32_t &nWord )
 	nWord = (uint32_t)pUnknown->GetRefEHandle().ToInt();
 	return true;
 }
-
-#endif // STANDALONE_RENDERABLE_HANDLE_H

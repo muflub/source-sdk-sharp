@@ -1,23 +1,12 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//===========================================================================//
 
-#ifndef ICOLORCORRECTION_H
-#define ICOLORCORRECTION_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier1/interface.h"
 #include "bitmap/imageformat.h"
 
 typedef uintp ColorCorrectionHandle_t;
 struct ShaderColorCorrectionInfo_t;
-
-
 
 abstract_class IColorCorrectionSystem
 {
@@ -69,5 +58,3 @@ public:
 	// FIXME: Move this to a private interface only the material system can see?
 	virtual void unused_GetCurrentColorCorrection() = 0;
 };
-
-#endif

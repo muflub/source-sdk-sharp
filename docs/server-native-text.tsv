@@ -2,7 +2,7 @@
 # (size -B). An object may only shrink; one that is new is listed
 # by --write in the commit that adds it, with its reason there.
 # total 249799 over 80 objects
-sourcesharp/game/server/alloc_check.cpp	0
+sourcesharp/game/shared/alloc_check.cpp	0
 sourcesharp/game/server/exit_watch.cpp	3571
 sourcesharp/game/server/managed_runtime_server.cpp	282
 sourcesharp/game/server/physics.cpp	3468

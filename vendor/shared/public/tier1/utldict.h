@@ -1,17 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: A dictionary mapping from symbol to structure 
-//
-// $Header: $
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef UTLDICT_H
-#define UTLDICT_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/dbg.h"
 #include "tier1/utlmap.h"
@@ -28,17 +18,11 @@ enum EDictCompareType
 	k_eDictCompareTypeFilenames				// Slashes and backslashes count as the same character..
 };
 
-//-----------------------------------------------------------------------------
 // A dictionary mapping from symbol to structure
-//-----------------------------------------------------------------------------
-
 
 // faster iteration, but in an unspecified order
 
-
-//-----------------------------------------------------------------------------
 // A dictionary mapping from symbol to structure
-//-----------------------------------------------------------------------------
 template <class T, class I = int > 
 class CUtlDict
 {
@@ -105,10 +89,7 @@ protected:
 	DictElementMap_t m_Elements;
 };
 
-
-//-----------------------------------------------------------------------------
 // constructor, destructor
-//-----------------------------------------------------------------------------
 template <class T, class I>
 CUtlDict<T, I>::CUtlDict( int compareType, int growSize, int initSize ) : m_Elements( growSize, initSize )
 {
@@ -138,9 +119,7 @@ inline void CUtlDict<T, I>::EnsureCapacity( int num )
 	return m_Elements.EnsureCapacity( num ); 
 }
 
-//-----------------------------------------------------------------------------
 // gets particular elements
-//-----------------------------------------------------------------------------
 template <class T, class I>
 inline T& CUtlDict<T, I>::Element( I i )        
 { 
@@ -153,9 +132,7 @@ inline const T& CUtlDict<T, I>::Element( I i ) const
 	return m_Elements[i]; 
 }
 
-//-----------------------------------------------------------------------------
 // gets element names
-//-----------------------------------------------------------------------------
 template <class T, class I>
 inline char *CUtlDict<T, I>::GetElementName( I i )
 {
@@ -191,47 +168,35 @@ inline void CUtlDict<T, I>::SetElementName( I i, char const *pName )
 	m_Elements.Reinsert( strdup( pName ), i );
 }
 
-//-----------------------------------------------------------------------------
 // Num elements
-//-----------------------------------------------------------------------------
 template <class T, class I>
 inline	unsigned int CUtlDict<T, I>::Count() const          
 { 
 	return m_Elements.Count(); 
 }
 
-//-----------------------------------------------------------------------------
 // Number of allocated slots
-//-----------------------------------------------------------------------------
 template <class T, class I>
 inline I CUtlDict<T, I>::MaxElement() const
 {
 	return m_Elements.MaxElement();
 }
 	
-//-----------------------------------------------------------------------------
 // Checks if a node is valid and in the tree
-//-----------------------------------------------------------------------------
 template <class T, class I>
 inline	bool CUtlDict<T, I>::IsValidIndex( I i ) const 
 {
 	return m_Elements.IsValidIndex(i);
 }
 	
-	
-//-----------------------------------------------------------------------------
 // Invalid index
-//-----------------------------------------------------------------------------
 template <class T, class I>
 inline I CUtlDict<T, I>::InvalidIndex()         
 { 
 	return DictElementMap_t::InvalidIndex(); 
 }
 
-	
-//-----------------------------------------------------------------------------
 // Delete a node from the tree
-//-----------------------------------------------------------------------------
 template <class T, class I>
 void CUtlDict<T, I>::RemoveAt(I elem) 
 {
@@ -239,10 +204,7 @@ void CUtlDict<T, I>::RemoveAt(I elem)
 	m_Elements.RemoveAt(elem);
 }
 
-
-//-----------------------------------------------------------------------------
 // remove a node in the tree
-//-----------------------------------------------------------------------------
 template <class T, class I> void CUtlDict<T, I>::Remove( const char *search )
 {
 	I node = Find( search );
@@ -252,10 +214,7 @@ template <class T, class I> void CUtlDict<T, I>::Remove( const char *search )
 	}
 }
 
-
-//-----------------------------------------------------------------------------
 // Removes all nodes from the tree
-//-----------------------------------------------------------------------------
 template <class T, class I>
 void CUtlDict<T, I>::RemoveAll()
 {
@@ -275,7 +234,6 @@ void CUtlDict<T, I>::Purge()
 	RemoveAll();
 }
 
-
 template <class T, class I>
 void CUtlDict<T, I>::PurgeAndDeleteElements()
 {
@@ -291,10 +249,7 @@ void CUtlDict<T, I>::PurgeAndDeleteElements()
 	m_Elements.RemoveAll();
 }
 
-
-//-----------------------------------------------------------------------------
 // inserts a node into the tree
-//-----------------------------------------------------------------------------
 template <class T, class I> 
 I CUtlDict<T, I>::Insert( const char *pName, const T &element )
 {
@@ -309,10 +264,7 @@ I CUtlDict<T, I>::Insert( const char *pName )
 	return m_Elements.Insert( strdup( pName ) );
 }
 
-
-//-----------------------------------------------------------------------------
 // finds a node in the tree
-//-----------------------------------------------------------------------------
 template <class T, class I> 
 I CUtlDict<T, I>::Find( const char *pName ) const
 {
@@ -323,9 +275,7 @@ I CUtlDict<T, I>::Find( const char *pName ) const
 		return InvalidIndex();
 }
 
-//-----------------------------------------------------------------------------
 // returns true if we already have this node
-//-----------------------------------------------------------------------------
 template <class T, class I> 
 bool CUtlDict<T, I>::HasElement( const char *pName ) const
 {
@@ -335,10 +285,7 @@ bool CUtlDict<T, I>::HasElement( const char *pName ) const
 		return false;
 }
 
-
-//-----------------------------------------------------------------------------
 // Iteration methods
-//-----------------------------------------------------------------------------
 template <class T, class I> 
 I CUtlDict<T, I>::First() const
 {
@@ -352,5 +299,3 @@ I CUtlDict<T, I>::Next( I i ) const
 }
 
 #include "tier0/memdbgoff.h"
-
-#endif // UTLDICT_H

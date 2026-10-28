@@ -27,7 +27,6 @@
 #include "sourcesharp.h"
 #include "imanaged_runtime_client.h"
 
-#ifdef CLIENT_DLL
 
 // Forward-declared rather than included: this load's managed-built runtime
 // (plan_client_vtables CE1), held by the client DLL object and answered by
@@ -92,5 +91,3 @@ public:
 		ManagedRuntimeClient()->Frame( flFrameTime );
 	}
 };
-
-#endif // CLIENT_DLL

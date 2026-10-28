@@ -15,11 +15,25 @@
 //=============================================================================//
 
 #ifdef CLIENT_DLL
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 // The client's player hierarchy (c_baseplayer.h), which completes C_FogController
 // for playernet_vars.h's fog handle. The server needs none of it: server.so has
 // no CBasePlayer (plan_server_novalve.md P5).
-#include "baseplayer_shared.h"
+#include "client_entity.h"
 #endif
 #if defined( CLIENT_DLL )
 #include "c_playerlocaldata.h"

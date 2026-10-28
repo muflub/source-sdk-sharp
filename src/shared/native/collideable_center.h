@@ -30,11 +30,7 @@
 // mathlib; this adapter only unwraps the interface's answers.
 //
 //=============================================================================//
-#ifndef COLLIDEABLE_CENTER_H
-#define COLLIDEABLE_CENTER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 #include "mathlib/mathlib.h"
@@ -57,5 +53,3 @@ inline Vector UTIL_CollideableWorldSpaceCenter( const ICollideable *pCollide )
 	                           vecResult.Base() );
 	return vecResult;
 }
-
-#endif // COLLIDEABLE_CENTER_H

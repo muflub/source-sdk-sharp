@@ -55,11 +55,7 @@
 // standalone_handle_ban_client_absent which must compile AND RUN.
 //
 //=============================================================================
-#ifndef SOURCESHARP_STANDALONE_HANDLE_BAN_CLIENT_H
-#define SOURCESHARP_STANDALONE_HANDLE_BAN_CLIENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // ENGINE-FREE ON PURPOSE, and that is what lets the probe compile it on its
 // own. Neither name needs a definition here: the primary template is declared
@@ -77,5 +73,3 @@ class C_StandaloneEntity;
 // makes C_StandaloneEntity nameable at all, so nothing can spell the banned
 // type without having read this first.
 template<> class CHandle< C_StandaloneEntity >;
-
-#endif // SOURCESHARP_STANDALONE_HANDLE_BAN_CLIENT_H

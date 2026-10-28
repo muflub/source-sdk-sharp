@@ -26,11 +26,7 @@
 // 2026-10-12).
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_PHYSICS_SHARED_H
-#define SOURCESHARP_SS_PHYSICS_SHARED_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "vphysics_interface.h"
 #include "vcollide_parse.h"     // IVPhysicsKeyHandler
@@ -80,5 +76,3 @@ constexpr float kEnergyVolumeScale = 1.0f / 15500.0f;
 // physics_shared.h's MASS10_SPEED2ENERGY: the energy of a 10 kg mass at a speed.
 // A macro, as stock's is, so a constant speed stays a constant at -O0.
 #define SS_MASS10_SPEED2ENERGY( speed ) ( ( speed ) * ( speed ) * 10 )
-
-#endif // SOURCESHARP_SS_PHYSICS_SHARED_H

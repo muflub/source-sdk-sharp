@@ -18,11 +18,7 @@
 // tier1 in here would take the test's compile with it.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_CROSSINGS_FETCH_H
-#define SOURCESHARP_CROSSINGS_FETCH_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdlib.h>
 
@@ -170,5 +166,3 @@ inline const char *SourceSharp_CrossingsStatusText( SourceSharpCrossingsStatus s
 
 	return "unknown failure";
 }
-
-#endif // SOURCESHARP_CROSSINGS_FETCH_H

@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef FASTTIMER_H
-#define FASTTIMER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #ifdef _WIN32
 #include <intrin.h>
@@ -19,9 +10,6 @@
 #include "tier0/platform.h"
 
 PLATFORM_INTERFACE uint64 g_ClockSpeed;
-#if defined( _X360 ) && defined( _CERT )
-PLATFORM_INTERFACE unsigned long g_dwFakeFastCounter;
-#endif
 
 PLATFORM_INTERFACE double g_ClockSpeedMicrosecondsMultiplier;
 PLATFORM_INTERFACE double g_ClockSpeedMillisecondsMultiplier;
@@ -45,17 +33,13 @@ public:
 
 	uint64			GetLongCycles() const;
 
-
 	double			GetMillisecondsF() const;
-
 
 	CCycleCount&	operator+=( CCycleCount const &other );
 
 	// dest = rSrc1 + rSrc2
 	static void		Add( CCycleCount const &rSrc1, CCycleCount const &rSrc2, CCycleCount &dest );	// Add two samples together.
 	
-
-
 	uint64			m_Int64;
 };
 
@@ -79,14 +63,12 @@ public:
 
 	const CCycleCount &	GetDuration() const;	// Get the elapsed time between Start and End calls.
 
-
 private:
 	CCycleCount	m_Duration;
 #ifdef DEBUG_FASTTIMER
 	bool m_bRunning;		// Are we currently running?
 #endif
 };
-
 
 // This is a helper class that times whatever block of code it's in
 class CTimeScope
@@ -146,21 +128,9 @@ inline void CTimeAdder::End()
 	}
 }
 
-
-
-// -------------------------------------------------------------------------- // 
 // Simple tool to support timing a block of code, and reporting the results on
 // program exit or at each iteration
-//
 //	Macros used because dbg.h uses this header, thus Msg() is unavailable
-// -------------------------------------------------------------------------- // 
-
-
-
-
-
-
-// -------------------------------------------------------------------------- // 
 
 class CAverageCycleCounter
 {
@@ -170,19 +140,11 @@ public:
 	void Init();
 	void MarkIter( const CCycleCount &duration );
 	
-	unsigned GetIters() const;
-	
-	double GetAverageMilliseconds() const;
-	double GetTotalMilliseconds() const;
-	double GetPeakMilliseconds() const;
-
 private:
 	unsigned	m_nIters;
 	CCycleCount m_Total;
 	CCycleCount	m_Peak;
 };
-
-// -------------------------------------------------------------------------- // 
 
 class CAverageTimeMarker
 {
@@ -195,10 +157,7 @@ private:
 	CFastTimer	m_Timer;
 };
 
-
-// -------------------------------------------------------------------------- // 
 // CCycleCount inlines.
-// -------------------------------------------------------------------------- // 
 
 inline CCycleCount::CCycleCount()
 {
@@ -239,46 +198,27 @@ inline CCycleCount& CCycleCount::operator+=( CCycleCount const &other )
 	return *this;
 }
 
-
 inline void CCycleCount::Add( CCycleCount const &rSrc1, CCycleCount const &rSrc2, CCycleCount &dest )
 {
 	dest.m_Int64 = rSrc1.m_Int64 + rSrc2.m_Int64;
 }
-
-
 
 inline bool CCycleCount::IsLessThan(CCycleCount const &other) const
 {
 	return m_Int64 < other.m_Int64;
 }
 
-
-
 inline uint64 CCycleCount::GetLongCycles() const
 {
 	return m_Int64;
 }
-
-
-
-
-
-
-
-
-
 
 inline double CCycleCount::GetMillisecondsF() const
 {
 	return (double)( m_Int64 * g_ClockSpeedMillisecondsMultiplier );
 }
 
-
-
-
-// -------------------------------------------------------------------------- // 
 // CFastTimer inlines.
-// -------------------------------------------------------------------------- // 
 inline void CFastTimer::Start()
 {
 	m_Duration.Sample();
@@ -287,32 +227,16 @@ inline void CFastTimer::Start()
 #endif
 }
 
-
 inline void CFastTimer::End()
 {
 	CCycleCount cnt;
 	cnt.Sample();
-	if ( IsX360() )
-	{
-		// have to handle rollover, hires timer is only accurate to 32 bits
-		// more than one overflow should not have occurred, otherwise caller should use a slower timer
-		if ( (uint64)cnt.m_Int64 <= (uint64)m_Duration.m_Int64 )
-		{
-			// rollover occurred	
-			cnt.m_Int64 += 0x100000000LL;	
-		}
-	}
-
 	m_Duration.m_Int64 = cnt.m_Int64 - m_Duration.m_Int64;
 
 #ifdef DEBUG_FASTTIMER
 	m_bRunning = false;
 #endif
 }
-
-
-
-
 
 inline CCycleCount const& CFastTimer::GetDuration() const
 {
@@ -322,8 +246,6 @@ inline CCycleCount const& CFastTimer::GetDuration() const
 	return m_Duration;
 }
 
-
-// -------------------------------------------------------------------------- // 
 // CAverageCycleCounter inlines
 
 inline CAverageCycleCounter::CAverageCycleCounter()
@@ -346,31 +268,6 @@ inline void CAverageCycleCounter::MarkIter( const CCycleCount &duration )
 		m_Peak = duration;
 }
 
-inline unsigned CAverageCycleCounter::GetIters() const
-{
-	return m_nIters;
-}
-
-inline double CAverageCycleCounter::GetAverageMilliseconds() const
-{
-	if ( m_nIters )
-		return (m_Total.GetMillisecondsF() / (double)m_nIters);
-	else
-		return 0;
-}
-
-inline double CAverageCycleCounter::GetTotalMilliseconds() const
-{
-	return m_Total.GetMillisecondsF();
-}
-
-inline double CAverageCycleCounter::GetPeakMilliseconds() const
-{
-	return m_Peak.GetMillisecondsF();
-}
-
-// -------------------------------------------------------------------------- // 
-
 inline CAverageTimeMarker::CAverageTimeMarker( CAverageCycleCounter *pCounter )
 {
 	m_pCounter = pCounter;
@@ -383,7 +280,6 @@ inline CAverageTimeMarker::~CAverageTimeMarker()
 	m_pCounter->MarkIter( m_Timer.GetDuration() );
 }
 
-
 // CLimitTimer
 // Use this to time whether a desired interval of time has passed.  It's extremely fast
 // to check while running.  NOTE: CMicroSecOverage() and CMicroSecLeft() are not as fast to check.
@@ -394,16 +290,12 @@ public:
 	CLimitTimer( uint64 cMicroSecDuration ) { SetLimit( cMicroSecDuration ); }
 	void SetLimit( uint64 m_cMicroSecDuration );
 
-
 private:
 	uint64 m_lCycleLimit;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Initializes the limit timer with a period of time to measure.
 // Input  : cMicroSecDuration -		How long a time period to measure
-//-----------------------------------------------------------------------------
 inline void CLimitTimer::SetLimit( uint64 cMicroSecDuration )
 {
 	uint64 dlCycles = ( ( uint64 ) cMicroSecDuration * g_ClockSpeed ) / ( uint64 ) 1000000L;
@@ -411,12 +303,3 @@ inline void CLimitTimer::SetLimit( uint64 cMicroSecDuration )
 	cycleCount.Sample( );
 	m_lCycleLimit = cycleCount.GetLongCycles( ) + dlCycles;
 }
-
-
-
-
-
-
-
-
-#endif // FASTTIMER_H

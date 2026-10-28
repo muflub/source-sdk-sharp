@@ -29,23 +29,50 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
-#include "shell_standalone_client.h"
-#include "shell_renderable.h"
-#include "shell_effect_registry.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/dbg.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "materialsystem/MaterialSystemUtil.h"
 #include "model_types.h"
 #include "view.h"
+#include "engine/IClientLeafSystem.h"
+#include "materialsystem/imaterial.h"
+#include "materialsystem/imaterialsystem.h"
+#include "materialsystem/imesh.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "particles/particles.h"
+#include "tier0/platform.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "tier1/utlvector.h"
+#include "cdll_client_int.h"
+#include "globalvars_base.h"
+#include "networkvar.h"
+#include "particledraw.h"
+#include "texture_group_names.h"
+#include "shell_standalone_client.h"
+#include "shell_renderable.h"
+#include "shell_effect_registry.h"
 #include "imanaged_areas_client.h"
 #include "sourcesharp.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 class CManagedWorldText : public CShellRenderable
 {
 public:
-	DECLARE_CLASS( CManagedWorldText, CShellRenderable );
+	DECLARE_CLASS_GAMEROOT( CManagedWorldText, CShellRenderable );
 
 	explicit CManagedWorldText( uint32_t hOwner ) : m_hOwner( hOwner )
 	{

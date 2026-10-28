@@ -56,11 +56,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_JET_LIFETIME_H
-#define SOURCESHARP_JET_LIFETIME_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // What a jet nobody configured is worth.
@@ -157,5 +153,3 @@ inline float SourceSharp_SmokeStackInvLifetime( float flSpeed, float flJetLength
 	                                SOURCESHARP_SMOKESTACK_DEFAULT_SPEED,
 	                                SOURCESHARP_SMOKESTACK_DEFAULT_LENGTH );
 }
-
-#endif // SOURCESHARP_JET_LIFETIME_H

@@ -57,11 +57,8 @@
 //
 //===========================================================================//
 
-#ifndef SOURCESHARP_TEMPENT_FORWARDS_H
-#define SOURCESHARP_TEMPENT_FORWARDS_H
-#ifdef _WIN32
 #pragma once
-#endif
+#define SOURCESHARP_TEMPENT_FORWARDS_H
 
 enum SourceSharpTeForward_t
 {
@@ -86,5 +83,3 @@ enum SourceSharpTeForward_t
 
 	SOURCESHARP_TE_FWD_COUNT                       = 18,
 };
-
-#endif // SOURCESHARP_TEMPENT_FORWARDS_H

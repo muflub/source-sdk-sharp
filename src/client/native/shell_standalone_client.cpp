@@ -15,7 +15,58 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
+#include "clientleafsystem.h"
+#include "engine/ishadowmgr.h"
+#include "ivrenderview.h"
+#include "cdll_bounded_cvars.h"
+#include "iviewrender_beams.h"
+#include "dlight.h"
+#include "iefx.h"
+#include "engine/IClientLeafSystem.h"
+#include "engine/ivmodelinfo.h"
+#include "engine/ivmodelrender.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "tier0/basetypes.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/strtools.h"
+#include "tier1/utlvector.h"
+#include "basehandle.h"
+#include "bsptreedata.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "client_class.h"
+#include "client_render_handle.h"
+#include "cmodel.h"
+#include "const.h"
+#include "dt_common.h"
+#include "dt_recv.h"
+#include "eiface.h"
+#include "fx.h"
+#include "gametrace.h"
+#include "globalvars_base.h"
+#include "icliententity.h"
+#include "icliententitylist.h"
+#include "iclientnetworkable.h"
+#include "iclientrenderable.h"
+#include "iclientthinkable.h"
+#include "model_types.h"
+#include "ragdoll_shared.h"
+#include "recvproxy.h"
+#include "shareddefs.h"
+#include "trace.h"
 #include "shell_standalone_client.h"
 #include "standalone_renderable_handle.h"
 
@@ -29,27 +80,13 @@
 #include "shell_surface_render.h"
 #include "standalone_nettable.h"
 #include "said_once_per_id.h"
-#include "clientleafsystem.h"
 #include "shell_effect_ledger.h"
-#include "engine/ishadowmgr.h"
 #include "shell_shadows_client.h"
-#include "ivrenderview.h"
-#include "bone_accessor.h"
-#include "animation.h"
-#include "cdll_bounded_cvars.h"
-#include "iviewrender_beams.h"
-#include "beam_flags.h"
 
-#include "dlight.h"
-#include "iefx.h"
 
-#include "view.h"
-#include "c_baseplayer.h"
-#include "c_recipientfilter.h"
 
 // SOUND_FROM_WORLD, for the animation events that outlive the entity that
 // fired them.
-#include "engine/IEngineSound.h"
 #include "sourcesharp.h"
 #include "shell_diagnostics.h"
 #include "generic_payload.h"
@@ -62,11 +99,9 @@
 // and the calls below name the free functions directly.
 #include "entity_shared_statics.h"
 
-#include "clientleafsystem.h"
 #include "shell_beam_render.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //=============================================================================//
 // C_StandaloneEntity — the C_BaseEntity layer.
@@ -297,7 +332,7 @@ C_StandaloneEntity::~C_StandaloneEntity()
 	// the next InitBeams; a shell freed in that window has nothing to reap.
 	if ( beams )
 	{
-		beams->KillDeadBeams( GetRefEHandle() );
+		SourceSharp_KillDeadBeams( GetRefEHandle() );
 	}
 
 	if ( m_ModelInstance != MODEL_INSTANCE_INVALID )
@@ -449,6 +484,7 @@ bool C_StandaloneEntity::EnsureManagedHalf()
 
 	return m_bHasManaged;
 }
+
 
 void C_StandaloneEntity::PostDataUpdate( DataUpdateType_t updateType )
 {
@@ -2438,6 +2474,7 @@ ClientClass *C_StandaloneEntity::GetClientClass()
 // init, and a class created later is not in it.
 //-----------------------------------------------------------------------------
 #include "shell_clientsystem.h"	// plan_cworld_trace.md T4
+
 
 class CSourceSharpStandaloneClientSystem : public CClientSystem
 {

@@ -1,32 +1,13 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
-#if !defined( USERCMD_H )
-#define USERCMD_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 #include "utlvector.h"
 #include "imovehelper.h"
 #include "checksum_crc.h"
 
-
 class bf_read;
 class bf_write;
-
-class CEntityGroundContact
-{
-public:
-	int					entindex;
-	float				minheight;
-	float				maxheight;
-};
 
 class CUserCmd
 {
@@ -51,9 +32,6 @@ public:
 		weaponselect = 0;
 		weaponsubtype = 0;
 		random_seed = 0;
-#ifdef GAME_DLL
-		server_random_seed = 0;
-#endif
 		mousedx = 0;
 		mousedy = 0;
 
@@ -79,9 +57,6 @@ public:
 		weaponselect		= src.weaponselect;
 		weaponsubtype		= src.weaponsubtype;
 		random_seed			= src.random_seed;
-#ifdef GAME_DLL
-		server_random_seed = src.server_random_seed;
-#endif
 		mousedx				= src.mousedx;
 		mousedy				= src.mousedy;
 
@@ -122,17 +97,6 @@ public:
 		return crc;
 	}
 
-	// Allow command, but negate gameplay-affecting values
-	void MakeInert( void )
-	{
-		viewangles = vec3_angle;
-		forwardmove = 0.f;
-		sidemove = 0.f;
-		upmove = 0.f;
-		buttons = 0;
-		impulse = 0;
-	}
-
 	// For matching server and client commands for debugging
 	int		command_number;
 	
@@ -157,9 +121,6 @@ public:
 	int		weaponsubtype;
 
 	int		random_seed;	// For shared random functions
-#ifdef GAME_DLL
-	int		server_random_seed; // Only the server populates this seed
-#endif
 
 	short	mousedx;		// mouse accum in x from create move
 	short	mousedy;		// mouse accum in y from create move
@@ -173,8 +134,3 @@ public:
 #endif
 
 };
-
-void ReadUsercmd( bf_read *buf, CUserCmd *move, CUserCmd *from );
-void WriteUsercmd( bf_write *buf, const CUserCmd *to, const CUserCmd *from );
-
-#endif // USERCMD_H

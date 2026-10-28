@@ -1,27 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Revision: $
-// $NoKeywords: $
-//
 // This file contains code to allow us to associate client data with bsp leaves.
-//
-//=============================================================================//
 
-#if !defined( ICLIENTLEAFSYSTEM_H )
-#define ICLIENTLEAFSYSTEM_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "client_render_handle.h"
 
-
-//-----------------------------------------------------------------------------
 // Render groups
-//-----------------------------------------------------------------------------
 enum RenderGroup_Config_t
 {
 	// Number of buckets that are used to hold opaque entities
@@ -49,13 +33,9 @@ enum RenderGroup_t
 	RENDER_GROUP_COUNT
 };
 
-#define CLIENTLEAFSYSTEM_INTERFACE_VERSION_1 "ClientLeafSystem001"
 #define CLIENTLEAFSYSTEM_INTERFACE_VERSION	"ClientLeafSystem002"
 
-
-//-----------------------------------------------------------------------------
 // The client leaf system
-//-----------------------------------------------------------------------------
 abstract_class IClientLeafSystemEngine
 {
 public:
@@ -66,8 +46,3 @@ public:
 	virtual void AddRenderableToLeaves( ClientRenderHandle_t renderable, int nLeafCount, unsigned short *pLeaves ) = 0;
 	virtual void ChangeRenderableRenderGroup( ClientRenderHandle_t handle, RenderGroup_t group ) = 0;
 };
-
-
-#endif	// ICLIENTLEAFSYSTEM_H
-
-

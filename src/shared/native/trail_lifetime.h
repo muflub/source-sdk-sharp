@@ -56,11 +56,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_TRAIL_LIFETIME_H
-#define SOURCESHARP_TRAIL_LIFETIME_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 #include <string.h>
@@ -193,5 +189,3 @@ private:
 	bool		m_bDeleting;
 	GoneFn_t	m_pfnGone;
 };
-
-#endif // SOURCESHARP_TRAIL_LIFETIME_H

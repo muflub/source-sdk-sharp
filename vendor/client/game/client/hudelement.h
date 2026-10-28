@@ -1,14 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( HUDELEMENT_H )
-#define HUDELEMENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "hud.h"
 #include "hud_element_helper.h"
@@ -17,9 +8,7 @@
 #include "tier0/memdbgon.h"
 #undef new
 
-//-----------------------------------------------------------------------------
 // Purpose: Base class for all hud elements
-//-----------------------------------------------------------------------------
 class CHudElement : public CGameEventListener
 {
 public:
@@ -46,7 +35,6 @@ public:
 
 	// Called once per frame for visible elements before general key processing
 	virtual void				ProcessInput( void ) { return; }
-	// 
 	virtual const char			*GetName( void ) const { return m_pElementName; };
 
 	// Return true if this hud element should be visible in the current hud state
@@ -61,9 +49,6 @@ public:
 	// HIDEHUD_ flags that note when this element should be hidden in the HUD
 	virtual void				SetHiddenBits( int iBits );
 
-	bool						IsParentedToClientDLLRootPanel() const;
-	void						SetParentedToClientDLLRootPanel( bool parented );
-
 	// memory handling, uses calloc so members are zero'd out on instantiation
     void *operator new( size_t stAllocateBlock )	
 	{												
@@ -73,14 +58,6 @@ public:
 		return pMem;												
 	}
 	
-	void* operator new( size_t stAllocateBlock, int nBlockUse, const char *pFileName, int nLine )  
-	{ 
-		Assert( stAllocateBlock != 0 );
-		void *pMem = MemAlloc_Alloc( stAllocateBlock, pFileName, nLine );
-		memset( pMem, 0, stAllocateBlock );
-		return pMem;												
-	}
-
 	void operator delete( void *pMem )				
 	{												
 #if defined( _DEBUG )
@@ -90,17 +67,7 @@ public:
 		free( pMem );								
 	}
 
-	void operator delete( void *pMem, int nBlockUse, const char *pFileName, int nLine )				
-	{
-		operator delete( pMem );
-	}
-
 	void SetNeedsRemove( bool needsremove );
-
-	void RegisterForRenderGroup( const char *pszName );
-	void UnregisterForRenderGroup( const char *pszGroupName );
-	void HideLowerPriorityHudElementsInGroup( const char *pszGroupName );
-	void UnhideLowerPriorityHudElementsInGroup( const char *pszGroupName );
 
 	// For now, CHUdElements declare a single priority value. They will only be hidden 
 	// by panels with a lower priority and will only lock out panels with a lower priority
@@ -150,5 +117,3 @@ public:
 };
 
 #include "tier0/memdbgoff.h"
-
-#endif // HUDELEMENT_H

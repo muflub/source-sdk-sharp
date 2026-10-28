@@ -44,11 +44,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_SHELL_LEAF_LINK_H
-#define SOURCESHARP_SHELL_LEAF_LINK_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // Into the leaf system, at most once.
@@ -94,5 +90,3 @@ inline void ShellLeaf_Moved( TLeaf *pLeaf, TRenderable *pRenderable )
 
 	pLeaf->RenderableChanged( pRenderable->RenderHandle() );
 }
-
-#endif // SOURCESHARP_SHELL_LEAF_LINK_H

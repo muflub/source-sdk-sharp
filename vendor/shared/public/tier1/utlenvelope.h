@@ -1,9 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: A class to wrap data for transport over a boundary like a thread
 //			or window.
-//
-//=============================================================================
 
 #include "tier1/utlstring.h"
 #include "tier0/basetypes.h"
@@ -15,16 +12,12 @@
 #pragma once
 #endif
 
-//-----------------------------------------------------------------------------
-
 class CUtlDataEnvelope
 {
 public:
 	CUtlDataEnvelope( const void *pData, int nBytes );
 	CUtlDataEnvelope( const CUtlDataEnvelope &from );
 	~CUtlDataEnvelope();
-
-	CUtlDataEnvelope &operator=( const CUtlDataEnvelope &from );
 
 	operator void *();
 	operator void *() const;
@@ -42,73 +35,6 @@ private:
 	};
 	int m_nBytes;
 };
-
-
-//-----------------------------------------------------------------------------
-
-template <typename T>
-class CUtlEnvelope : protected CUtlDataEnvelope
-{
-public:
-	CUtlEnvelope( const T *pData, int nElems = 1 );
-	CUtlEnvelope( const CUtlEnvelope<T> &from );
-
-	CUtlEnvelope<T> &operator=( const CUtlEnvelope<T> &from );
-
-	operator T *();
-	operator T *() const;
-
-	operator void *();
-	operator void *() const;
-};
-
-//-----------------------------------------------------------------------------
-
-template <>
-class CUtlEnvelope<const char *>
-{
-public:
-	CUtlEnvelope( const char *pData )
-	{
-		m_string = pData;
-	}
-
-	CUtlEnvelope( const CUtlEnvelope<const char *> &from )
-	{
-		m_string = from.m_string;
-	}
-
-	CUtlEnvelope<const char *> &operator=( const CUtlEnvelope<const char *> &from )
-	{
-		m_string = from.m_string;
-		return *this;
-	}
-
-	operator char *()
-	{
-		return (char *) m_string.Get();
-	}
-
-	operator char *() const
-	{
-		return (char *) m_string.Get();
-	}
-
-	operator void *()
-	{
-		return (void *) m_string.Get();
-	}
-
-	operator void *() const
-	{
-		return (void *) m_string.Get();
-	}
-
-private:
-	CUtlString m_string;
-};
-
-//-----------------------------------------------------------------------------
 
 #include "tier0/memdbgon.h"
 
@@ -161,13 +87,6 @@ inline CUtlDataEnvelope::~CUtlDataEnvelope()
 	Purge();
 }
 
-inline CUtlDataEnvelope &CUtlDataEnvelope::operator=( const CUtlDataEnvelope &from )
-{
-	Purge();
-	Assign( from );
-	return *this;
-}
-
 inline CUtlDataEnvelope::operator void *()
 {
 	if ( !m_nBytes )
@@ -187,54 +106,6 @@ inline CUtlDataEnvelope::operator void *() const
 
 	return ( m_nBytes > 4) ? (void *)m_pData : (void *)m_data;
 }
-
-//-----------------------------------------------------------------------------
-
-template <typename T>
-inline CUtlEnvelope<T>::CUtlEnvelope( const T *pData, int nElems )
-	: CUtlDataEnvelope( pData, sizeof(T) * nElems )
-{
-}
-
-template <typename T>
-inline CUtlEnvelope<T>::CUtlEnvelope( const CUtlEnvelope<T> &from )
-	: CUtlDataEnvelope( from )
-{
-	
-}
-
-template <typename T>
-inline CUtlEnvelope<T> &CUtlEnvelope<T>::operator=( const CUtlEnvelope<T> &from )
-{
-	CUtlDataEnvelope::operator=( from );
-	return *this;
-}
-
-template <typename T>
-inline CUtlEnvelope<T>::operator T *()
-{
-	return (T *)CUtlDataEnvelope::operator void *();
-}
-
-template <typename T>
-inline CUtlEnvelope<T>::operator T *() const
-{
-	return (T *)( (const_cast<CUtlEnvelope<T> *>(this))->operator T *() );
-}
-
-template <typename T>
-inline CUtlEnvelope<T>::operator void *()
-{
-	return CUtlDataEnvelope::operator void *();
-}
-
-template <typename T>
-inline CUtlEnvelope<T>::operator void *() const
-{
-	return ( (const_cast<CUtlEnvelope<T> *>(this))->operator void *() );
-}
-
-//-----------------------------------------------------------------------------
 
 #include "tier0/memdbgoff.h"
 

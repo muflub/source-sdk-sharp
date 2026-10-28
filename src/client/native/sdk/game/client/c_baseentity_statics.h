@@ -117,11 +117,8 @@
 // nothing on the server link line.
 //
 //=============================================================================//
-#ifndef C_BASEENTITY_STATICS_H
-#define C_BASEENTITY_STATICS_H
-#ifdef _WIN32
 #pragma once
-#endif
+#define C_BASEENTITY_STATICS_H
 
 //-----------------------------------------------------------------------------
 // The aim-ent pass, in two halves. The first clears DIRTY_ABSTRANSFORM on every
@@ -225,5 +222,3 @@ void EntityMem_Free( void *pMem );
 // survives as an inline forwarder.
 //-----------------------------------------------------------------------------
 bool EntityWater_ClientIsFloating();
-
-#endif // C_BASEENTITY_STATICS_H

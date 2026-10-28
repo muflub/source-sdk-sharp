@@ -37,7 +37,18 @@
 // that changes, rather than doing what stock did natively.
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "client_entity.h"
 #include "tempent.h"
 #include "c_te_legacytempents.h"
 #include "clienteffectprecachesystem.h"
@@ -46,13 +57,31 @@
 #include "view.h"
 #include "datacache/imdlcache.h"
 #include "clientleafsystem.h"
+#include "engine/IClientLeafSystem.h"
+#include "engine/ivmodelrender.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "tier0/basetypes.h"
+#include "tier0/dbg.h"
+#include "tier1/mempool.h"
+#include "tier1/utllinkedlist.h"
+#include "Sprite.h"
+#include "basehandle.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "const.h"
+#include "eiface.h"
+#include "globalvars_base.h"
+#include "icliententityinternal.h"
+#include "iclientrenderable.h"
+#include "particlemgr.h"
+#include "shared_classnames.h"
+#include "vphysics_interface.h"
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"
 #include "shell_renderable.h"
-#include "studio.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 // The pool's seam (shell_te_pool_client.cpp).
 void SourceSharpTePool_Update( float flFrameTime );
@@ -96,7 +125,6 @@ C_LocalTempEntity::C_LocalTempEntity()
 #endif
 	m_vecTempEntAcceleration.Init();
 	m_pfnDrawHelper = 0;
-	m_pszImpactEffect = NULL;
 
 	// The block arrives zeroed (the pool's AllocZero); these are the values a
 	// zero is wrong for. m_nFXComputeFrame: zero is a real frame number.
@@ -107,7 +135,6 @@ C_LocalTempEntity::C_LocalTempEntity()
 	m_clrRender.r = m_clrRender.g = m_clrRender.b = m_clrRender.a = 255;
 	m_nRenderFXBlend  = 255;
 	m_nFXComputeFrame = -1;
-	m_flGravity       = 0.0f;
 }
 
 // SetTempEntOwner( IGameEntity * ) is not defined here any more (C8): no

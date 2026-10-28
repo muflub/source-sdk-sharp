@@ -13,11 +13,7 @@
 // not move and nothing outside the two files is offered a way to write them.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_TEMPENTS_INTERNAL_H
-#define SOURCESHARP_SHELL_TEMPENTS_INTERNAL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 class SendTable;
 class ServerClass;
@@ -30,5 +26,3 @@ bool SourceSharpTe_RegistrationClosed( void );
 // built, when the plan asked for no ServerClass, or when i is out of range.
 SendTable   *SourceSharpTe_BuiltTable( int i );
 ServerClass *SourceSharpTe_BuiltClass( int i );
-
-#endif // SOURCESHARP_SHELL_TEMPENTS_INTERNAL_H

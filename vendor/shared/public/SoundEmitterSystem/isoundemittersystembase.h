@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef ISOUNDEMITTERSYSTEMBASE_H
-#define ISOUNDEMITTERSYSTEMBASE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier1/utldict.h"
 #include "vstdlib/random.h"
@@ -17,9 +8,7 @@
 #include "mathlib/compressed_vector.h"
 #include "appframework/IAppSystem.h"
 
-
 #define SOUNDEMITTERSYSTEM_INTERFACE_VERSION	"VSoundEmitter002"
-
 
 		// Length of above including $
 
@@ -28,9 +17,6 @@ typedef short HSOUNDSCRIPTHANDLE;
 
 class IFileList;
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 struct CSoundParameters
 {
 	CSoundParameters()
@@ -62,15 +48,12 @@ struct CSoundParameters
 	int				delay_msec;
 };
 
-
-
 enum gender_t
 {
 	GENDER_NONE = 0,
 	GENDER_MALE,
 	GENDER_FEMALE,
 };
-
 
 #pragma pack(1)
 struct SoundFile
@@ -102,7 +85,6 @@ struct sound_interval_t
 	float Random() const								{ return RandomFloat( start, start + range ); }
 };
 
-
 #pragma pack()
 
 typedef sound_interval_t<float16_with_assign> volume_interval_t;
@@ -117,16 +99,7 @@ struct CSoundParametersInternal
 
 	void CopyFrom( const CSoundParametersInternal& src );
 
-	bool operator == ( const CSoundParametersInternal& other ) const;
-
-
-
-
-
-
-
 private:
-	void operator=( const CSoundParametersInternal& src ); // disallow implicit copies
 	CSoundParametersInternal( const CSoundParametersInternal& src );
 
 	void		AddToTail( SoundFile **pDest, uint16 *pDestCount, const SoundFile &source );
@@ -150,14 +123,10 @@ private:
 
 	byte			reserved;						// 28
 
-
 };
 #pragma pack()
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Base class for sound emitter system handling (can be used by tools)
-//-----------------------------------------------------------------------------
 abstract_class ISoundEmitterSystemBase : public IAppSystem
 {
 public:
@@ -227,5 +196,3 @@ public:
 	// Called by either client or server to force ModShutdown and ModInit
 	virtual void			Flush() = 0;
 };
-
-#endif // ISOUNDEMITTERSYSTEMBASE_H

@@ -1,19 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef VCR_SHARED_H
-#define VCR_SHARED_H
-#ifdef _WIN32
 #pragma once
-#endif
-
-
-
-
 
 // Identifiers for the things we record. When playing back, these things should
 // be asked for in the exact same order (otherwise, the engine isn't making all
@@ -49,6 +36,3 @@ typedef enum
 	VCREvent_GenericString,
 	VCREvent_NUMEVENTS
 } VCREvent;
-
-
-#endif // VCR_SHARED_H

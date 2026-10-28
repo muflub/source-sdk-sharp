@@ -1,16 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Basic header for using vgui
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef VGUI_H
-#define VGUI_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/platform.h"
 
@@ -32,8 +23,6 @@
 #pragma warning( disable: 4100 )	// warning C4100: 'code' : unreferenced formal parameter
 #pragma warning( disable: 4127 )	// warning C4127: conditional expression is constant
 
-typedef unsigned char  uchar;
-typedef unsigned short ushort;
 typedef unsigned int   uint;
 
 #ifndef _WCHAR_T_DEFINED
@@ -72,9 +61,4 @@ const HFont INVALID_FONT = 0; // the value of an invalid font handle
 //  turned off renders much closer to Windows and Linux and also uses the same
 //  code paths (which is good).
 #define USE_GETKERNEDCHARWIDTH 1
-#else
-#define USE_GETKERNEDCHARWIDTH 0
 #endif
-
-
-#endif // VGUI_H

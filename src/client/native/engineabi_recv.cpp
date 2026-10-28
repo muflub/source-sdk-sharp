@@ -14,8 +14,11 @@
 
 #include "engineabi/recv.h"
 
-#include "mathlib/mathlib.h"
 #include "tier0/dbg.h"
+#include "tier0/basetypes.h"
+#include "tier0/platform.h"
+#include "dt_common.h"
+#include "dt_recv.h"
 
 namespace engineabi
 {

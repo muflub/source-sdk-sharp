@@ -24,12 +24,11 @@
 // (glow_overlay.cpp, C7).
 //=============================================================================//
 
-#include "cbase.h"
+#include "tier0/dbg.h"
 #include "shell_clientsystem.h"
 #include "imanaged_areas_client.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 // ClientSystemStage (C#), same names and numbers.
 enum ClientSystemStage_t

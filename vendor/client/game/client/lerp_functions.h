@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef LERP_FUNCTIONS_H
-#define LERP_FUNCTIONS_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 template <class T>
 inline T LoopingLerp( float flPercent, T flFrom, T flTo )
@@ -56,7 +47,6 @@ inline T Lerp_Hermite( float t, const T& p0, const T& p1, const T& p2 )
 	return output;
 }
 
-
 template <class T>
 inline T Derivative_Hermite( float t, const T& p0, const T& p1, const T& p2 )
 {
@@ -74,7 +64,6 @@ inline T Derivative_Hermite( float t, const T& p0, const T& p1, const T& p2 )
 	return output;
 }
 
-
 inline void Lerp_Clamp( int val )
 {
 }
@@ -91,14 +80,12 @@ inline void Lerp_Clamp( const QAngle &val )
 {
 }
 
-
 // If we have a range checked var, then we can clamp to its limits.
 template< class T, int minValue, int maxValue, int startValue >
 inline void Lerp_Clamp( CRangeCheckedVar<T,minValue,maxValue,startValue> &val )
 {
 	val.Clamp();
 }
-
 
 template<> 
 inline QAngle Lerp_Hermite<QAngle>( float t, const QAngle& p0, const QAngle& p1, const QAngle& p2 )
@@ -158,8 +145,4 @@ inline float LoopingLerp_Hermite( float t, float p0, float p1, float p2 )
 	return s;
 }
 
-
 // NOTE: C_AnimationLayer has its own versions of these functions in animationlayer.h.
-
-
-#endif // LERP_FUNCTIONS_H

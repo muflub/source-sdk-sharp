@@ -26,11 +26,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_PHYSICS_SHELL_H
-#define SOURCESHARP_PHYSICS_SHELL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 #include <string.h>
@@ -137,5 +133,3 @@ private:
 };
 
 #endif // SOURCESHARP_PHYSICS_SHELL_ENGINE
-
-#endif // SOURCESHARP_PHYSICS_SHELL_H

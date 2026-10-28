@@ -10,11 +10,7 @@
 // No engine headers, so the gtests of both stores reach it.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_TEMPENT_TABLE_BLOCK_H
-#define SOURCESHARP_TEMPENT_TABLE_BLOCK_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <string.h>
 
@@ -92,5 +88,3 @@ inline bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockByte
 	*pOut = block;
 	return true;
 }
-
-#endif // SOURCESHARP_TEMPENT_TABLE_BLOCK_H

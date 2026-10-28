@@ -16,8 +16,6 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_EXIT_WATCH_H
-#define SOURCESHARP_EXIT_WATCH_H
 #pragma once
 
 #include <stdint.h>
@@ -71,5 +69,3 @@ void ExitWatch_OnSdlEventForTest( const void *pEvent );
 
 // Restores every handler the arm replaced and forgets the facts. For the tests.
 void ExitWatch_ResetForTest();
-
-#endif // SOURCESHARP_EXIT_WATCH_H

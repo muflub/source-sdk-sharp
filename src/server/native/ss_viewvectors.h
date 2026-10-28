@@ -17,11 +17,7 @@
 // that still use them.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_VIEWVECTORS_H
-#define SOURCESHARP_SS_VIEWVECTORS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 
@@ -51,5 +47,3 @@ public:
 };
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_VIEWVECTORS_H

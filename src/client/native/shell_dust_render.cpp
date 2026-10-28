@@ -27,15 +27,33 @@
 //   (FX_Dust, the dust PUFF, is C#'s too: DustPuff, see the note at the bottom.)
 //=============================================================================
 
-#include "cbase.h"
-#include "shell_standalone_client.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "client_entity.h"
 #include "engine/IEngineTrace.h"
 #include "engine/ivmodelinfo.h"
-#include "bspflags.h"
+#include "engine/ICollideable.h"
+#include "engine/ishadowmgr.h"
+#include "mathlib/vector.h"
+#include "tier0/platform.h"
+#include "cdll_client_int.h"
+#include "collisionproperty.h"
+#include "const.h"
+#include "icliententitylist.h"
+#include "vphysics_interface.h"
+#include "shell_standalone_client.h"
 #include "sourcesharp_entrypoints.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 
 

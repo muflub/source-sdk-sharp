@@ -1,30 +1,13 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Definitions that are shared by the game DLL and the client DLL.
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef SHAREDDEFS_H
-#define SHAREDDEFS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #define TICK_INTERVAL			(gpGlobals->interval_per_tick)
 
-
-#define TIME_TO_TICKS( dt )		( (int)( 0.5f + (float)(dt) / TICK_INTERVAL ) )
-#define TICKS_TO_TIME( t )		( TICK_INTERVAL *( t ) )
-#define ROUND_TO_TICKS( t )		( TICK_INTERVAL * TIME_TO_TICKS( t ) )
-#define TICK_NEVER_THINK		(-1)
-
 #if defined( TF_DLL )
 #define ANIMATION_CYCLE_BITS		10
-#else
-#define ANIMATION_CYCLE_BITS		15
 #endif
-#define ANIMATION_CYCLE_MINFRAC		(1.0f / (1<<ANIMATION_CYCLE_BITS))
 
 // Each mod defines these for itself.
 class CViewVectors
@@ -93,41 +76,22 @@ public:
 #define VEC_DUCK_HULL_MAX_SCALED( player )		( g_pGameRules->GetViewVectors()->m_vDuckHullMax * player->GetModelScale() )
 #define VEC_DUCK_VIEW_SCALED( player )			( g_pGameRules->GetViewVectors()->m_vDuckView * player->GetModelScale() )
 
-#define VEC_OBS_HULL_MIN_SCALED( player )		( g_pGameRules->GetViewVectors()->m_vObsHullMin * player->GetModelScale() )
-#define VEC_OBS_HULL_MAX_SCALED( player )		( g_pGameRules->GetViewVectors()->m_vObsHullMax * player->GetModelScale() )
-
-#define VEC_DEAD_VIEWHEIGHT_SCALED( player )	( g_pGameRules->GetViewVectors()->m_vDeadViewHeight * player->GetModelScale() )
-
-#define WATERJUMP_HEIGHT			8
-
-#define MAX_CLIMB_SPEED		200
-
 #if defined(TF_DLL) || defined(TF_CLIENT_DLL)
 	#define TIME_TO_DUCK		0.2
 	#define TIME_TO_DUCK_MS		200.0f
-#else
-	#define TIME_TO_DUCK		0.4
-	#define TIME_TO_DUCK_MS		400.0f
 #endif 
-#define TIME_TO_UNDUCK		0.2
-#define TIME_TO_UNDUCK_MS	200.0f
 
-#define MAX_WEAPON_SLOTS		6	// hud item selection slots
-#define MAX_WEAPON_POSITIONS	20	// max number of items within a slot
-#define MAX_ITEM_TYPES			6	// hud item selection slots
-#define MAX_WEAPONS				48	// Max number of weapons available
+	// hud item selection slots
+	// max number of items within a slot
+	// hud item selection slots
+	// Max number of weapons available
 
-#define MAX_ITEMS				5	// hard coded item types
+	// hard coded item types
 
-#define WEAPON_NOCLIP			-1	// clip sizes set to this tell the weapon it doesn't use a clip
+	// clip sizes set to this tell the weapon it doesn't use a clip
 
 #define	MAX_AMMO_TYPES	32		// ???
-#define MAX_AMMO_SLOTS  32		// not really slots
-
-#define HUD_PRINTNOTIFY		1
-#define HUD_PRINTCONSOLE	2
-#define HUD_PRINTTALK		3
-#define HUD_PRINTCENTER		4
+		// not really slots
 
 // Vote creation or processing failure codes
 typedef enum
@@ -156,7 +120,6 @@ typedef enum
 	VOTE_FAILED_KICK_DENIED_BY_GC,
 	// Special reason - the vote issue itself will handle this request specially -- the vote system shouldn't proceed
 	// with the vote.  Shows no error to user.
-	//
 	// Used by match-based votekicks to send a votekick request to the match system when the user tries to call one --
 	// which then owns starting a proper vote later or telling the user why the match system isn't allowing the
 	// votekick.
@@ -175,46 +138,20 @@ enum
 	SERVER_MODIFICATION_ITEM_DURATION_IN_MINUTES = 120
 };
 
-#define MAX_VOTE_DETAILS_LENGTH 64
-#define INVALID_ISSUE			-1
-#define MAX_VOTE_OPTIONS		5
-#define DEDICATED_SERVER		99
-
-enum CastVote
-{
-	VOTE_OPTION1 = 0,  // Use this for Yes
-	VOTE_OPTION2 = 1,  // Use this for No
-	VOTE_OPTION3 = 2,
-	VOTE_OPTION4 = 3,
-	VOTE_OPTION5 = 4,
-	VOTE_UNCAST  = 5,
-
-	// Alias yes/no to OPTION1/OPTION2
-	VOTE_YES = 0,
-	VOTE_NO  = 1,
-};
-
-//===================================================================================================================
 // Close caption flags
-#define CLOSE_CAPTION_WARNIFMISSING	( 1<<0 )
-#define CLOSE_CAPTION_FROMPLAYER	( 1<<1 )
-#define CLOSE_CAPTION_GENDER_MALE	( 1<<2 )
-#define CLOSE_CAPTION_GENDER_FEMALE	( 1<<3 )
 
-//===================================================================================================================
 // Hud Element hiding flags
-#define	HIDEHUD_WEAPONSELECTION		( 1<<0 )	// Hide ammo count & weapon selection
-#define	HIDEHUD_FLASHLIGHT			( 1<<1 )
-#define	HIDEHUD_ALL					( 1<<2 )
-#define HIDEHUD_HEALTH				( 1<<3 )	// Hide health & armor / suit battery
+	// Hide ammo count & weapon selection
+
+	// Hide health & armor / suit battery
 #define HIDEHUD_PLAYERDEAD			( 1<<4 )	// Hide when local player's dead
-#define HIDEHUD_NEEDSUIT			( 1<<5 )	// Hide when the local player doesn't have the HEV suit
+	// Hide when the local player doesn't have the HEV suit
 #define HIDEHUD_MISCSTATUS			( 1<<6 )	// Hide miscellaneous status elements (trains, pickup history, death notices, etc)
-#define HIDEHUD_CHAT				( 1<<7 )	// Hide all communication elements (saytext, voice icon, etc)
-#define	HIDEHUD_CROSSHAIR			( 1<<8 )	// Hide crosshairs
-#define	HIDEHUD_VEHICLE_CROSSHAIR	( 1<<9 )	// Hide vehicle crosshair
-#define HIDEHUD_INVEHICLE			( 1<<10 )
-#define HIDEHUD_BONUS_PROGRESS		( 1<<11 )	// Hide bonus progress display (for bonus map challenges)
+	// Hide all communication elements (saytext, voice icon, etc)
+	// Hide crosshairs
+	// Hide vehicle crosshair
+
+	// Hide bonus progress display (for bonus map challenges)
 
 #if defined( TF_DLL ) || defined ( TF_CLIENT_DLL )
 #define HIDEHUD_BUILDING_STATUS		        ( 1<<12 )	// Hide Engineer building status
@@ -228,17 +165,8 @@ enum CastVote
 #define HIDEHUD_BITCOUNT			12
 #endif
 
-
-//===================================================================================================================
 // suit usage bits
-#define bits_SUIT_DEVICE_SPRINT		0x00000001
-#define bits_SUIT_DEVICE_FLASHLIGHT	0x00000002
-#define bits_SUIT_DEVICE_BREATHER	0x00000004
 
-#define MAX_SUIT_DEVICES			3
-
-
-//===================================================================================================================
 // Player Defines
 
 // Max number of players in a game ( see const.h for ABSOLUTE_PLAYER_LIMIT (256 ) )
@@ -259,82 +187,43 @@ enum CastVote
 
 // Josh: Accounts for code that may index this array by an entindex
 // of player rather than the player index... :s
-#define MAX_PLAYERS_ARRAY_SAFE		( MAX_PLAYERS + 1 )
 
-inline bool IsIndexIntoPlayerArrayValid( int iIndex )
-{
-	if ( iIndex < 0 || iIndex >= MAX_PLAYERS_ARRAY_SAFE )
-		return false;
-		
-	return true;
-}
-
-#define MAX_PLACE_NAME_LENGTH		18
-
-#define MAX_FOV						90
-
-//===================================================================================================================
 // Team Defines
-#define TEAM_ANY				-2
-#define	TEAM_INVALID			-1
+
 #define TEAM_UNASSIGNED			0	// not assigned to a team
-#define TEAM_SPECTATOR			1	// spectator team
+	// spectator team
 // Start your team numbers after this
-#define LAST_SHARED_TEAM		TEAM_SPECTATOR
 
 // The first team that's game specific (i.e. not unassigned / spectator)
-#define FIRST_GAME_TEAM			(LAST_SHARED_TEAM+1)
 
-#define MAX_TEAMS				32	// Max number of teams in a game
-#define MAX_TEAM_NAME_LENGTH	32	// Max length of a team's name
-
-#define MAX_TEAMS_ARRAY_SAFE 	MAX_TEAMS
+	// Max number of teams in a game
+	// Max length of a team's name
 
 // Weapon m_iState
-#define WEAPON_IS_ONTARGET				0x40
 
-#define WEAPON_NOT_CARRIED				0	// Weapon is on the ground
-#define WEAPON_IS_CARRIED_BY_PLAYER		1	// This client is carrying this weapon.
-#define WEAPON_IS_ACTIVE				2	// This client is carrying this weapon and it's the currently held weapon
+	// Weapon is on the ground
+	// This client is carrying this weapon.
+	// This client is carrying this weapon and it's the currently held weapon
 
-// -----------------------------------------
 // Skill Level
-// -----------------------------------------
-#define SKILL_EASY		1
-#define SKILL_MEDIUM	2
-#define SKILL_HARD		3
-
 
 // Weapon flags
-// -----------------------------------------
 //	Flags - NOTE: KEEP g_ItemFlags IN WEAPON_PARSE.CPP UPDATED WITH THESE
-// -----------------------------------------
-#define ITEM_FLAG_SELECTONEMPTY		(1<<0)
-#define ITEM_FLAG_NOAUTORELOAD		(1<<1)
-#define ITEM_FLAG_NOAUTOSWITCHEMPTY	(1<<2)
-#define ITEM_FLAG_LIMITINWORLD		(1<<3)
-#define ITEM_FLAG_EXHAUSTIBLE		(1<<4)	// A player can totally exhaust their ammo supply and lose this weapon
-#define ITEM_FLAG_DOHITLOCATIONDMG	(1<<5)	// This weapon take hit location into account when applying damage
-#define ITEM_FLAG_NOAMMOPICKUPS		(1<<6)	// Don't draw ammo pickup sprites/sounds when ammo is received
-#define ITEM_FLAG_NOITEMPICKUP		(1<<7)	// Don't draw weapon pickup when this weapon is picked up by the player
-// NOTE: KEEP g_ItemFlags IN WEAPON_PARSE.CPP UPDATED WITH THESE
 
+	// A player can totally exhaust their ammo supply and lose this weapon
+	// This weapon take hit location into account when applying damage
+	// Don't draw ammo pickup sprites/sounds when ammo is received
+	// Don't draw weapon pickup when this weapon is picked up by the player
+// NOTE: KEEP g_ItemFlags IN WEAPON_PARSE.CPP UPDATED WITH THESE
 
 // Humans only have left and right hands, though we might have aliens with more
 //  than two, sigh
-#define MAX_VIEWMODELS			2
-
-#define MAX_BEAM_ENTS			10
 
 #define TRACER_TYPE_DEFAULT		0x00000001
 #define TRACER_TYPE_GUNSHIP		0x00000002
 #define TRACER_TYPE_STRIDER		0x00000004 // Here ya go, Jay!
 #define TRACER_TYPE_GAUSS		0x00000008
 #define TRACER_TYPE_WATERBULLET	0x00000010
-
-#define MUZZLEFLASH_TYPE_DEFAULT	0x00000001
-#define MUZZLEFLASH_TYPE_GUNSHIP	0x00000002
-#define MUZZLEFLASH_TYPE_STRIDER	0x00000004
 
 // Muzzle flash definitions (for the flags field of the "MuzzleFlash" DispatchEffect)
 enum
@@ -370,22 +259,11 @@ enum
 	ENTITY_DISSOLVE_BITS = 3
 };
 
-// ---------------------------
 //  Hit Group standards
-// ---------------------------
-#define	HITGROUP_GENERIC	0
-#define	HITGROUP_HEAD		1
-#define	HITGROUP_CHEST		2
-#define	HITGROUP_STOMACH	3
-#define HITGROUP_LEFTARM	4	
-#define HITGROUP_RIGHTARM	5
-#define HITGROUP_LEFTLEG	6
-#define HITGROUP_RIGHTLEG	7
-#define HITGROUP_GEAR		10			// alerts NPC, but doesn't do damage or bleed (1/100th damage)
 
-//
+			// alerts NPC, but doesn't do damage or bleed (1/100th damage)
+
 // Enumerations for setting player animation.
-//
 enum PLAYER_ANIM
 {
 	PLAYER_IDLE,
@@ -412,47 +290,36 @@ enum PLAYER_ANIM
 #define PLAYER_MIN_BOUNCE_SPEED		173
 #define PLAYER_FALL_PUNCH_THRESHOLD 303.0f // won't punch player's screen/make scrape noise unless player falling at least this fast - at least a 76" fall (sqrt( 2 * g * 76))
 #else
-#define PLAYER_FATAL_FALL_SPEED		1024 // approx 60 feet
-#define PLAYER_MAX_SAFE_FALL_SPEED	580 // approx 20 feet
-#define PLAYER_LAND_ON_FLOATING_OBJECT	200 // Can go another 200 units without getting hurt
-#define PLAYER_MIN_BOUNCE_SPEED		200
-#define PLAYER_FALL_PUNCH_THRESHOLD (float)350 // won't punch player's screen/make scrape noise unless player falling at least this fast.
+ // approx 60 feet
+ // approx 20 feet
+ // Can go another 200 units without getting hurt
+
+ // won't punch player's screen/make scrape noise unless player falling at least this fast.
 #endif
-#define DAMAGE_FOR_FALL_SPEED		100.0f / ( PLAYER_FATAL_FALL_SPEED - PLAYER_MAX_SAFE_FALL_SPEED ) // damage per unit per second.
-
-
-#define AUTOAIM_2DEGREES  0.0348994967025
-#define AUTOAIM_5DEGREES  0.08715574274766
-#define AUTOAIM_8DEGREES  0.1391731009601
-#define AUTOAIM_10DEGREES 0.1736481776669
-#define AUTOAIM_20DEGREES 0.3490658503989
-
-#define AUTOAIM_SCALE_DEFAULT		1.0f
-#define AUTOAIM_SCALE_DIRECT_ONLY	0.0f
+ // damage per unit per second.
 
 // instant damage
 
 // For a means of resolving these consts into debug string text, see function
 // CTakeDamageInfo::DebugGetDamageTypeString(unsigned int DamageType, char *outbuf, unsigned int outbuflength )
-#define DMG_GENERIC			0			// generic damage -- do not use if you want players to flinch and bleed!
+			// generic damage -- do not use if you want players to flinch and bleed!
 #define DMG_CRUSH			(1 << 0)	// crushed by falling or moving object. 
 										// NOTE: It's assumed crush damage is occurring as a result of physics collision, so no extra physics force is generated by crush damage.
 										// DON'T use DMG_CRUSH when damaging entities unless it's the result of a physics collision. You probably want DMG_CLUB instead.
-#define DMG_BULLET			(1 << 1)	// shot
-#define DMG_SLASH			(1 << 2)	// cut, clawed, stabbed
+	// shot
+	// cut, clawed, stabbed
 #define DMG_BURN			(1 << 3)	// heat burned
-#define DMG_VEHICLE			(1 << 4)	// hit by a vehicle
+	// hit by a vehicle
 #define DMG_FALL			(1 << 5)	// fell too far
 #define DMG_BLAST			(1 << 6)	// explosive blast damage
 #define DMG_CLUB			(1 << 7)	// crowbar, punch, headbutt
 #define DMG_SHOCK			(1 << 8)	// electric shock
 #define DMG_SONIC			(1 << 9)	// sound pulse shockwave
-#define DMG_ENERGYBEAM		(1 << 10)	// laser or other high energy beam 
+	// laser or other high energy beam 
 #define DMG_PREVENT_PHYSICS_FORCE		(1 << 11)	// Prevent a physics force 
-#define DMG_NEVERGIB		(1 << 12)	// with this bit OR'd in, no damage type will be able to gib victims upon death
-#define DMG_ALWAYSGIB		(1 << 13)	// with this bit OR'd in, any damage type can be made to gib victims upon death.
+	// with this bit OR'd in, no damage type will be able to gib victims upon death
+	// with this bit OR'd in, any damage type can be made to gib victims upon death.
 #define DMG_DROWN			(1 << 14)	// Drowning
-
 
 #define DMG_PARALYZE		(1 << 15)	// slows affected creature down
 #define DMG_NERVEGAS		(1 << 16)	// nerve toxins, very bad
@@ -462,16 +329,16 @@ enum PLAYER_ANIM
 #define DMG_ACID			(1 << 20)	// toxic chemicals or acid burns
 #define DMG_SLOWBURN		(1 << 21)	// in an oven
 
-#define DMG_REMOVENORAGDOLL	(1<<22)		// with this bit OR'd in, no ragdoll will be created, and the target will be quietly removed.
+		// with this bit OR'd in, no ragdoll will be created, and the target will be quietly removed.
 										// use this to kill an entity that you've already got a server-side ragdoll for
 
 #define DMG_PHYSGUN			(1<<23)		// Hit by manipulator. Usually doesn't do any damage.
 #define DMG_PLASMA			(1<<24)		// Shot by Cremator
-#define DMG_AIRBOAT			(1<<25)		// Hit by the airboat's gun
+		// Hit by the airboat's gun
 
-#define DMG_DISSOLVE		(1<<26)		// Dissolving!
-#define DMG_BLAST_SURFACE	(1<<27)		// A blast on the surface of water that cannot harm things underwater
-#define DMG_DIRECT			(1<<28)
+		// Dissolving!
+		// A blast on the surface of water that cannot harm things underwater
+
 #define DMG_BUCKSHOT		(1<<29)		// not quite a bullet. Little, rounder, different.
 
 // NOTE: DO NOT ADD ANY MORE CUSTOM DMG_ TYPES. MODS USE THE DMG_LASTGENERICFLAG BELOW, AND
@@ -480,13 +347,10 @@ enum PLAYER_ANIM
 // TODO: keep this up to date so all the mod-specific flags don't overlap anything.
 #define DMG_LASTGENERICFLAG	DMG_BUCKSHOT
 
-
-
 // settings for m_takedamage
 #define	DAMAGE_NO				0
 #define DAMAGE_EVENTS_ONLY		1		// Call damage functions, but don't modify health
 #define	DAMAGE_YES				2
-#define	DAMAGE_AIM				3
 
 // Spectator Movement modes
 enum {
@@ -501,8 +365,6 @@ enum {
 
 	NUM_OBSERVER_MODES,
 };
-
-#define LAST_PLAYER_OBSERVERMODE	OBS_MODE_ROAMING
 
 // Force Camera Restrictions with mp_forcecamera
 enum {
@@ -521,12 +383,10 @@ enum
 	TYPE_FILE,		// show this local file
 } ;
 
-//=============================================================================
 // HPE_BEGIN:
 // [Forrest] Replaced text window command string with TEXTWINDOW_CMD enumeration
 // of options.  Passing a command string is dangerous and allowed a server network
 // message to run arbitrary commands on the client.
-//=============================================================================
 enum
 {
 	TEXTWINDOW_CMD_NONE = 0,
@@ -537,9 +397,7 @@ enum
 	TEXTWINDOW_CMD_CLOSED_HTMLPAGE,
 	TEXTWINDOW_CMD_CHOOSETEAM,
 };
-//=============================================================================
 // HPE_END
-//=============================================================================
 
 // VGui Screen Flags
 enum
@@ -562,13 +420,6 @@ typedef enum
 } USE_TYPE;
 
 // basic team colors
-#define COLOR_RED		Color(255, 64, 64, 255)
-#define COLOR_BLUE		Color(153, 204, 255, 255)
-#define COLOR_YELLOW	Color(255, 178, 0, 255)
-#define COLOR_GREEN		Color(153, 255, 153, 255)
-#define COLOR_GREY		Color(204, 204, 204, 255)
-#define COLOR_WHITE		Color(255, 255, 255, 255)
-#define COLOR_BLACK		Color(0, 0, 0, 255)
 
 // All NPCs need this data
 enum
@@ -587,31 +438,13 @@ enum
 #endif // HL2_EPISODIC
 };
 
-//-----------------------------------------------------------------------------
-// Vehicles may have more than one passenger.
-// This enum may be expanded by derived classes
-//-----------------------------------------------------------------------------
-enum PassengerRole_t
-{
-	VEHICLE_ROLE_NONE = -1,
-
-	VEHICLE_ROLE_DRIVER = 0,	// Only one driver
-	
-	LAST_SHARED_VEHICLE_ROLE,
-};
-
-//-----------------------------------------------------------------------------
 // Water splash effect flags
-//-----------------------------------------------------------------------------
 enum
 {
 	FX_WATER_IN_SLIME = 0x1,
 };
 
-
 // Shared think context stuff
-#define	MAX_CONTEXT_LENGTH		32
-#define NO_THINK_CONTEXT	-1
 
 // entity flags, CBaseEntity::m_iEFlags
 enum
@@ -666,17 +499,6 @@ enum
 	EFL_NO_DAMAGE_FORCES =		(1<<31),	// Doesn't accept forces from physics damage
 };
 
-//-----------------------------------------------------------------------------
-// EFFECTS
-//-----------------------------------------------------------------------------
-const int FX_BLOODSPRAY_DROPS	= 0x01;
-const int FX_BLOODSPRAY_GORE	= 0x02;
-const int FX_BLOODSPRAY_CLOUD	= 0x04;
-const int FX_BLOODSPRAY_ALL		= 0xFF;
-
-//-----------------------------------------------------------------------------
-#define MAX_SCREEN_OVERLAYS		10
-
 // These are the types of data that hang off of CBaseEntities and the flag bits used to mark their presence
 enum
 {
@@ -695,19 +517,8 @@ enum
 
 class CBaseEntity;
 
-//-----------------------------------------------------------------------------
 // Bullet firing information
-//-----------------------------------------------------------------------------
 class CBaseEntity;
-
-enum FireBulletsFlags_t
-{
-	FIRE_BULLETS_FIRST_SHOT_ACCURATE = 0x1,		// Pop the first shot with perfect accuracy
-	FIRE_BULLETS_DONT_HIT_UNDERWATER = 0x2,		// If the shot hits its target underwater, don't damage it
-	FIRE_BULLETS_ALLOW_WATER_SURFACE_IMPACTS = 0x4,	// If the shot hits water surface, still call DoImpactEffect
-	FIRE_BULLETS_TEMPORARY_DANGER_SOUND = 0x8,		// Danger sounds added from this impact can be stomped immediately if another is queued
-};
-
 
 struct FireBulletsInfo_t
 {
@@ -769,12 +580,10 @@ struct FireBulletsInfo_t
 	bool m_bUseServerRandomSeed;
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: Data for making the MOVETYPE_STEP entities appear to simulate every frame
 //  We precompute the simulation and then meter it out each tick during networking of the 
 //  entities origin and orientation.  Uses a bit more bandwidth, but it solves the NPCs interacting
 //  with elevators/lifts bugs.
-//-----------------------------------------------------------------------------
 struct StepSimulationStep
 {
 	int			nTickCount;
@@ -809,24 +618,11 @@ struct StepSimulationData
 	QAngle		m_angNetworkAngles;
 };
 
-//-----------------------------------------------------------------------------
-// Purpose: Simple state tracking for changing model sideways shrinkage during barnacle swallow
-//-----------------------------------------------------------------------------
-struct ModelScale
-{
-	float		m_flModelScaleStart;
-	float		m_flModelScaleGoal;
-	float		m_flModelScaleFinishTime;
-	float		m_flModelScaleStartTime;
-};
-
 #include "soundflags.h"
 
 struct CSoundParameters;
 typedef short HSOUNDSCRIPTHANDLE;
-//-----------------------------------------------------------------------------
 // Purpose: Aggregates and sets default parameters for EmitSound function calls
-//-----------------------------------------------------------------------------
 struct EmitSound_t
 {
 	EmitSound_t() :
@@ -869,31 +665,19 @@ struct EmitSound_t
 	mutable HSOUNDSCRIPTHANDLE		m_hSoundScriptHandle;
 };
 
-#define MAX_ACTORS_IN_SCENE 16
-
-//-----------------------------------------------------------------------------
 // Multiplayer specific defines
-//-----------------------------------------------------------------------------
-#define MAX_CONTROL_POINTS			8
-#define MAX_CONTROL_POINT_GROUPS	8
 
 // Maximum number of points that a control point may need owned to be cappable
-#define MAX_PREVIOUS_POINTS			3
 
 // The maximum number of teams the control point system knows how to deal with
-#define MAX_CONTROL_POINT_TEAMS		8
 
 // Maximum length of the cap layout string
-#define MAX_CAPLAYOUT_LENGTH		32
 
 // Maximum length of the current round printname
-#define MAX_ROUND_NAME				32
 
 // Maximum length of the current round name
-#define MAX_ROUND_IMAGE_NAME		64
 
 // Score added to the team score for a round win
-#define TEAMPLAY_ROUND_WIN_SCORE	1
 
 enum
 {
@@ -909,9 +693,7 @@ enum
 // NOTE:  This stuff only works on a listen server since it punches a hole from the client .dll to server .dll!!!
 #define PREDICTION_ERROR_CHECK_LEVEL 0
 
-//-----------------------------------------------------------------------------
 // Round timer states
-//-----------------------------------------------------------------------------
 enum
 {
 	RT_STATE_SETUP,		// Timer is in setup mode
@@ -923,9 +705,7 @@ enum
 	SIMULATION_TIME_WINDOW_BITS = 8,
 };
 
-//-----------------------------------------------------------------------------
 // Commentary Mode
-//-----------------------------------------------------------------------------
 #if defined(TF_DLL) || defined(TF_CLIENT_DLL)
 #define GAME_HAS_NO_USE_KEY
 
@@ -940,14 +720,7 @@ enum
 // The player's method of starting / stopping commentary
 #ifdef GAME_HAS_NO_USE_KEY
 #define COMMENTARY_BUTTONS		(IN_ATTACK | IN_ATTACK2 | IN_USE)
-#else
-#define COMMENTARY_BUTTONS		(IN_USE)
 #endif
-
-#define TEAM_TRAIN_MAX_TEAMS			4
-#define TEAM_TRAIN_MAX_HILLS			5
-#define TEAM_TRAIN_FLOATS_PER_HILL		2
-#define TEAM_TRAIN_HILLS_ARRAY_SIZE		TEAM_TRAIN_MAX_TEAMS * TEAM_TRAIN_MAX_HILLS * TEAM_TRAIN_FLOATS_PER_HILL
 
 enum
 {
@@ -956,12 +729,9 @@ enum
 	HILL_TYPE_DOWNHILL,
 };
 
-#define NOINTERP_PARITY_MAX			4
 #define NOINTERP_PARITY_MAX_BITS	2
 
-//-----------------------------------------------------------------------------
 // Generic activity lookup support
-//-----------------------------------------------------------------------------
 enum
 {
 	kActivityLookup_Unknown = -2,			// hasn't been searched for
@@ -969,9 +739,7 @@ enum
 };
 
 #if defined(TF_DLL) || defined(TF_CLIENT_DLL)
-//-----------------------------------------------------------------------------
 // Vision Filters.
-//-----------------------------------------------------------------------------
 // Also used in the item schema to define vision filter or vision mode opt in
 #define TF_VISION_FILTER_NONE			0
 #define TF_VISION_FILTER_PYRO			(1<<0)		// 1
@@ -997,4 +765,3 @@ struct collidelist_t
 	Vector			origin;
 	QAngle			angles;
 };
-#endif // SHAREDDEFS_H

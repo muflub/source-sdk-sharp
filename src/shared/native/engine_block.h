@@ -63,15 +63,9 @@
 //
 //===========================================================================//
 
-#ifndef SOURCESHARP_ENGINE_BLOCK_H
-#define SOURCESHARP_ENGINE_BLOCK_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // EngineBlockHead_t, EngineBlockServerTail_t, EngineBlockClientTail_t and
 // EngineBlock_t, generated from SourceSharp.Abi.EngineBlock, with one
 // static_assert per field under them. It brings its own includes.
 #include "engine_block_generated.h"
-
-#endif // SOURCESHARP_ENGINE_BLOCK_H

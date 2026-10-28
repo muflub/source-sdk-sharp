@@ -1,24 +1,12 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef IGAMESYSTEM_H
-#define IGAMESYSTEM_H
-#ifdef _WIN32
 #pragma once
-#endif
 
-//-----------------------------------------------------------------------------
 // Game systems are singleton objects in the client + server codebase responsible for
 // various tasks
 // The order in which the server systems appear in this list are the
 // order in which they are initialized and updated. They are shut down in
 // reverse order from which they are initialized.
-//-----------------------------------------------------------------------------
-
 
 // UNDONE: Do these need GameInit/GameShutdown as well?
 // UNDONE: Remove the Pre/Post entity semantics and rely on system ordering?
@@ -60,9 +48,6 @@ public:
 	// destructor, cleans up automagically....
 	virtual ~IGameSystem();
 
-	// Client systems can use this to get at the map name
-	static char const*	MapName();
-
 	// These methods are used to add and remove server systems from the
 	// main server loop. The systems are invoked in the order in which
 	// they are added.
@@ -70,34 +55,6 @@ public:
 	static void Remove ( IGameSystem* pSys );
 	static void RemoveAll (  );
 
-	// These methods are used to initialize, shutdown, etc all systems
-	static bool InitAllSystems();
-	static void PostInitAllSystems();
-	static void ShutdownAllSystems();
-	static void LevelInitPreEntityAllSystems( char const* pMapName );
-	static void LevelInitPostEntityAllSystems();
-	static void LevelShutdownPreClearSteamAPIContextAllSystems(); // Called prior to steamgameserverapicontext->Clear()
-	static void LevelShutdownPreEntityAllSystems();
-	static void LevelShutdownPostEntityAllSystems();
-
-	static void OnSaveAllSystems();
-	static void OnRestoreAllSystems();
-
-	static void SafeRemoveIfDesiredAllSystems();
-
-#ifdef CLIENT_DLL
-	static void PreRenderAllSystems();
-	static void UpdateAllSystems( float frametime );
-	static void PostRenderAllSystems();
-#else
-	static void FrameUpdatePreEntityThinkAllSystems();
-	static void FrameUpdatePostEntityThinkAllSystems();
-	static void PreClientUpdateAllSystems();
-
-	// Accessors for the above function
-	static CBasePlayer *RunCommandPlayer();
-	static CUserCmd *RunCommandUserCmd();
-#endif
 };
 
 class IGameSystemPerFrame : public IGameSystem
@@ -106,7 +63,6 @@ public:
 	// destructor, cleans up automagically....
 	virtual ~IGameSystemPerFrame();
 
-#ifdef CLIENT_DLL
 	// Called before rendering
 	virtual void PreRender() = 0;
 
@@ -115,13 +71,6 @@ public:
 
 	// Called after rendering
 	virtual void PostRender() = 0;
-#else
-	// Called each frame before entities think
-	virtual void FrameUpdatePreEntityThink() = 0;
-	// called after entities think
-	virtual void FrameUpdatePostEntityThink() = 0;
-	virtual void PreClientUpdate() = 0;
-#endif
 };
 
 // Quick and dirty server system for users who don't care about precise ordering
@@ -154,7 +103,6 @@ private:
 
 	// Prevent anyone derived from CBaseGameSystem from implementing these, they need
 	//  to derive from CBaseGameSystemPerFrame below!!!
-#ifdef CLIENT_DLL
 	// Called before rendering
 	virtual void PreRender() {}
 
@@ -163,13 +111,6 @@ private:
 
 	// Called after rendering
 	virtual void PostRender() {}
-#else
-	// Called each frame before entities think
-	virtual void FrameUpdatePreEntityThink() {}
-	// called after entities think
-	virtual void FrameUpdatePostEntityThink() {}
-	virtual void PreClientUpdate() {}
-#endif
 };
 
 // Quick and dirty server system for users who don't care about precise ordering
@@ -198,7 +139,6 @@ public:
 
 	virtual bool	IsPerFrame() { return true; }
 
-#ifdef CLIENT_DLL
 	// Called before rendering
 	virtual void PreRender () { }
 
@@ -207,13 +147,6 @@ public:
 
 	// Called after rendering
 	virtual void PostRender () { }
-#else
-	// Called each frame before entities think
-	virtual void FrameUpdatePreEntityThink() { }
-	// called after entities think
-	virtual void FrameUpdatePostEntityThink() { }
-	virtual void PreClientUpdate() { }
-#endif
 };
 
 // Quick and dirty server system for users who don't care about precise ordering
@@ -230,9 +163,7 @@ private:
 	char const *m_pszName;
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: This is a CAutoGameSystem which also cares about the "per frame" hooks
-//-----------------------------------------------------------------------------
 class CAutoGameSystemPerFrame : public CBaseGameSystemPerFrame
 {
 public:
@@ -244,16 +175,3 @@ public:
 private:
 	char const *m_pszName;
 };
-
-
-//-----------------------------------------------------------------------------
-// Purpose: This interface is here to add more hooks than IGameSystemPerFrame exposes,
-// so we don't pollute it with hooks that only the tool cares about
-//-----------------------------------------------------------------------------
-class IToolFrameworkServer
-{
-public:
-	virtual void PreSetupVisibility() = 0;
-};
-
-#endif // IGAMESYSTEM_H

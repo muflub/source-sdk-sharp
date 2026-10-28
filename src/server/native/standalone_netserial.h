@@ -50,11 +50,7 @@
 // differently than the engine does.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_STANDALONE_NETSERIAL_H
-#define SOURCESHARP_STANDALONE_NETSERIAL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 enum { STANDALONE_NETSERIAL_BITS = 10 };
 
@@ -90,5 +86,3 @@ inline void StandaloneNetSerial_Mirror( TEdict *pEdict, unsigned long nHandleSer
 
 	pEdict->m_NetworkSerialNumber = (short)StandaloneNetSerial_ForHandle( nHandleSerial );
 }
-
-#endif // SOURCESHARP_STANDALONE_NETSERIAL_H

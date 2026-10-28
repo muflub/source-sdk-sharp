@@ -46,25 +46,27 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "view.h"
 #include "iviewrender.h"
 #include "viewrender.h"
 #include "view_shared.h"
 #include "view_scene.h"
-#include "viewpostprocess.h"
-#include "shell_render_targets.h"   // the render targets managed declares (C7)
 #include "iclientmode.h"
-#include "c_env_fog_controller.h"
 #include "model_types.h"
 #include "vgui_controls/Controls.h"
-#include "ivieweffects.h"
-#include "shell_glow_client.h"
-#include "shell_pixelvis_client.h"
 #include "clientsideeffects.h"
 #include "smoke_fog_overlay.h"
 #include "c_effects.h"
-#include "particlemgr.h"
 #include "clientleafsystem.h"
 #include "particles/particles.h"
 #include "engine/IStaticPropMgr.h"
@@ -83,6 +85,57 @@
 #include "materialsystem/itexture.h"
 #include "tier1/refcount.h"
 #include "vgui/IPanel.h"
+#include "materialsystem/imesh.h"
+#include "client_world.h"
+#include "filesystem.h"
+#include "engine/ishadowmgr.h"
+#include "voice_status.h"
+#include "bitmap/imageformat.h"
+#include "datacache/imdlcache.h"
+#include "engine/IClientLeafSystem.h"
+#include "engine/ivmodelinfo.h"
+#include "engine/ivmodelrender.h"
+#include "materialsystem/MaterialSystemUtil.h"
+#include "materialsystem/imaterialsystem.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "mathlib/vmatrix.h"
+#include "mathlib/vplane.h"
+#include "tier0/basetypes.h"
+#include "tier0/commonmacros.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/KeyValues.h"
+#include "tier1/convar.h"
+#include "tier1/strtools.h"
+#include "tier1/tier1.h"
+#include "tier1/utlmemory.h"
+#include "tier1/utlvector.h"
+#include "tier2/tier2.h"
+#include "tier3/tier3.h"
+#include "toolframework/itoolentity.h"
+#include "vgui_controls/MessageMap.h"
+#include "bspflags.h"
+#include "bsptreedata.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "const.h"
+#include "globalvars_base.h"
+#include "hud.h"
+#include "icliententitylist.h"
+#include "iclientnetworkable.h"
+#include "iclientrenderable.h"
+#include "iclientunknown.h"
+#include "icvar.h"
+#include "igameevents.h"
+#include "istudiorender.h"
+#include "ivrenderview.h"
+#include "networkvar.h"
+#include "playernet_vars.h"
+#include "texture_group_names.h"
+#include "shell_render_targets.h"   // the render targets managed declares (C7)
+#include "shell_glow_client.h"
+#include "shell_pixelvis_client.h"
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"
 #include "shell_clientsystem.h"
@@ -92,24 +145,17 @@
 #include "shell_shadows_client.h"
 #include "shell_standalone_client.h"
 #include "shell_view_targets.h"
-#include "materialsystem/imesh.h"
-#include "c_world.h"
-#include "filesystem.h"
 #include "ss_image_encode.h"
 
 bool SourceSharp_ColorCorrectionActive();	// shell_worldrender.cpp (C9: colorcorrectionmgr.cpp left)
-#include "engine/ishadowmgr.h"
-#include "smoke_fog_overlay.h"
 
 // shell_effects_list_client.cpp's material ids (IFxRender), as materials.
 IMaterial *SourceSharp_FxMaterialOf( int32_t nMaterial );
 #include "shell_view_executor_client.h"
-#include "voice_status.h"
 #include "ss_clock.h"
 #include "shell_particle_systems.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 extern void UpdateClientRenderableInPVSStatus();
 extern IClientMode *GetClientModeNormal();
@@ -1156,15 +1202,10 @@ void DrawRenderablesInList( CUtlVector< IClientRenderable * > &list, int flags )
 {
 	for ( int i = 0; i < list.Count(); ++i )
 	{
-		IClientUnknown *pUnk = list[i]->GetIClientUnknown();
-		IClientRenderable *pRenderable = pUnk->GetClientRenderable();
+		IClientRenderable *pRenderable = list[i]->GetIClientUnknown()->GetClientRenderable();
 		if ( pRenderable->ShouldDraw() )
-		{
-			view->SetCurrentlyDrawingEntity( pUnk );
 			pRenderable->DrawModel( STUDIO_RENDER | flags );
-		}
 	}
-	view->SetCurrentlyDrawingEntity( NULL );
 }
 
 // The viewmodels' pass: managed chose the view and whether the player's
@@ -1769,9 +1810,7 @@ void DrawProgramEntity( CPlanView *pView, const SourceSharpRenderOp_t &op )
 	}
 	// Stock draws a clipped depth box first under fast clipping
 	// (viewrender.cpp's DrawClippedDepthBox); not carried yet (docs/todo.md).
-	view->SetCurrentlyDrawingEntity( pEnt->GetIClientUnknown() );
 	pEnt->DrawModel( op.I[1] );
-	view->SetCurrentlyDrawingEntity( NULL );
 	if ( bPushClip )
 	{
 		CMatRenderContextPtr ctx( materials );

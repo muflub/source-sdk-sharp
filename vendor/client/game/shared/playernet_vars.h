@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef PLAYERNET_VARS_H
-#define PLAYERNET_VARS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "shared_classnames.h"
 
@@ -21,12 +12,6 @@ struct fogparams_t
 {
 	DECLARE_CLASS_NOBASE( fogparams_t );
 	DECLARE_EMBEDDED_NETWORKVAR();
-
-#ifndef CLIENT_DLL
-	DECLARE_SIMPLE_DATADESC();
-#endif
-
-	bool operator !=( const fogparams_t& other ) const;
 
 	CNetworkVector( dirPrimary );
 	CNetworkColor32( colorPrimary );
@@ -48,9 +33,7 @@ struct fogparams_t
 };
 
 // Needs to be here because it wants to use 
-#ifdef CLIENT_DLL
 #define CFogController C_FogController
-#endif
 
 class CFogController;
 
@@ -58,10 +41,6 @@ struct fogplayerparams_t
 {
 	DECLARE_CLASS_NOBASE( fogplayerparams_t );
 	DECLARE_EMBEDDED_NETWORKVAR();
-
-#ifndef CLIENT_DLL
-	DECLARE_SIMPLE_DATADESC();
-#endif
 
 	CNetworkHandle( CFogController, m_hCtrl );
 	float					m_flTransitionTime;
@@ -92,10 +71,6 @@ struct sky3dparams_t
 	DECLARE_CLASS_NOBASE( sky3dparams_t );
 	DECLARE_EMBEDDED_NETWORKVAR();
 
-#ifndef CLIENT_DLL
-	DECLARE_SIMPLE_DATADESC();
-#endif
-
 	// 3d skybox camera data
 	CNetworkVar( int, scale );
 	CNetworkVector( origin );
@@ -110,15 +85,8 @@ struct audioparams_t
 	DECLARE_CLASS_NOBASE( audioparams_t );
 	DECLARE_EMBEDDED_NETWORKVAR();
 
-#ifndef CLIENT_DLL
-	DECLARE_SIMPLE_DATADESC();
-#endif
-
 	CNetworkArray( Vector, localSound, NUM_AUDIO_LOCAL_SOUNDS )
 	CNetworkVar( int, soundscapeIndex );	// index of the current soundscape from soundscape.txt
 	CNetworkVar( int, localBits );			// if bits 0,1,2,3 are set then position 0,1,2,3 are valid/used
 	CNetworkVar( int, entIndex );			// the entity setting the soundscape
 };
-
-
-#endif // PLAYERNET_VARS_H

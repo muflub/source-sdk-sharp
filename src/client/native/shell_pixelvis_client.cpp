@@ -32,19 +32,40 @@
 // switch over a command's kind.
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "view.h"
 #include "viewrender.h"
 #include "materialsystem/imesh.h"
-#include "materialsystem/imaterial.h"
+#include "clienteffectprecachesystem.h"
+#include "materialsystem/imaterialsystem.h"
+#include "mathlib/vector.h"
+#include "mathlib/vmatrix.h"
+#include "particles/particles.h"
+#include "tier0/dbg.h"
+#include "tier1/refcount.h"
+#include "tier1/utlvector.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "particledraw.h"
 #include "imanaged_areas_client.h"
 #include "sourcesharp_entrypoints.h"
 #include "shell_pixelvis_client.h"
 
-#include "clienteffectprecachesystem.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // c_pixel_visibility.cpp's precache list, which left with it (C7): the

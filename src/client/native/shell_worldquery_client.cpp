@@ -52,7 +52,40 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
+#include "trace_hit.h"
+#include "util_shared.h"
+#include "engine/IEngineTrace.h"
+#include "engine/ICollideable.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "tier0/platform.h"
+#include "basehandle.h"
+#include "bspflags.h"
+#include "cmodel.h"
+#include "collisionproperty.h"
+#include "const.h"
+#include "gametrace.h"
+#include "icliententitylist.h"
+#include "iclientrenderable.h"
+#include "iclientunknown.h"
+#include "ihandleentity.h"
+#include "trace.h"
+#include "vphysics_interface.h"
 
 // plan_entity.md Phase 5a: an entity index or handle resolves through §3.3's
 // slot table, not through cl_entitylist. shell_cliententitylist.h says which of
@@ -60,8 +93,6 @@
 #include "shell_cliententitylist.h"
 #include "standalone_renderable_handle.h"
 #include "shell_standalone_client.h"
-#include "util_shared.h"
-#include "engine/IEngineTrace.h"
 
 // TraceLineArgs, TraceAnswer and WriteTraceOuts. The header has no engine in it
 // and sourcesharp/test/te_backend_args_test.cpp is what reads it -- which is
@@ -75,7 +106,6 @@
 #include "glow_trace_filter.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 using namespace TeBackendArgs;
 
@@ -291,7 +321,7 @@ int32_t SourceSharp_ClientTraceLine( const float *pStartXYZ, const float *pEndXY
 	// (SourceSharp_ClientIndexOfHit; gametrace_client.cpp's GetEntityIndex
 	// left client.so in C6).
 	ans.nHitbox      = tr.hitbox;
-	ans.nEntityIndex = TraceHitIndex( tr.m_pEnt );
+	ans.nEntityIndex = TraceHitIndex( ss::TraceHit( tr ) );
 
 	// NO CALLER YET, and the slot's comment in sourcesharp.h says why they are
 	// here anyway: rows C4 and C5 sit in a collision block that reads exactly
@@ -476,7 +506,6 @@ int32_t SourceSharp_ClientEntityRenderPose( int32_t nEntityIndex, float *pOutOri
 // IPhysicsSurfaceProps both sides use. Included here rather than at the top
 // because it is this one function's only need -- see it for why the two arms
 // agree by construction.
-#include "physics_shared.h"
 
 // SurfacePropGameMaterial left native code (2026-10-19): managed reads
 // game.material through IPhysicsSurfaceProps' forwarders on both sides.

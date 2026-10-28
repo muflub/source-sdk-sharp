@@ -16,11 +16,7 @@
 //     queue again while it reads.
 // No SDK header: the shell supplies the sink.
 //=============================================================================//
-#ifndef SHADOW_PENDING_QUEUE_H
-#define SHADOW_PENDING_QUEUE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 
@@ -136,5 +132,3 @@ private:
 	void *m_pSinkContext;
 	int32_t m_Entries[ WORDS * MAX ];
 };
-
-#endif // SHADOW_PENDING_QUEUE_H

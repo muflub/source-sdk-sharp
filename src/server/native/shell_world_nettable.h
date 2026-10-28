@@ -61,11 +61,7 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_WORLD_NETTABLE_H
-#define SHELL_WORLD_NETTABLE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basetypes.h"
 
@@ -130,5 +126,3 @@ ServerClass *SourceSharp_WorldServerClass();
 // halves at once.
 //-----------------------------------------------------------------------------
 bool SourceSharp_IsWorldServerClass( const ServerClass *pClass );
-
-#endif // SHELL_WORLD_NETTABLE_H

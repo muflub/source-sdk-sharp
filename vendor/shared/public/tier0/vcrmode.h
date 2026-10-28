@@ -1,23 +1,13 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: VCR mode records a client's game and allows you to 
 //			play it back and reproduce it exactly. When playing it back, nothing
 //			is simulated on the server, but all server packets are recorded.
-//
 //			Most of the VCR mode functionality is accomplished through hooks
 //			called at various points in the engine.
-//
-// $NoKeywords: $
-//===========================================================================//
-#ifndef VCRMODE_H
-#define VCRMODE_H
+#pragma once
 
 #ifdef _WIN32
 #include <process.h>
-#endif
-
-#ifdef _WIN32
-#pragma once
 #endif
 
 #include "tier0/platform.h"
@@ -29,11 +19,6 @@ DBG_INTERFACE ;
 tchar *GetCommandLine();
 #endif
 
-#ifdef _X360
-#define NO_VCR 1
-#endif
-
-
 // Enclose lines of code in this if you don't want anything in them written to or read from the VCR file.
 #ifndef NO_VCR
 
@@ -44,16 +29,10 @@ tchar *GetCommandLine();
 }
 #endif
 
-
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 struct InputEvent_t;
 
-
-//-----------------------------------------------------------------------------
 // Definitions.
-//-----------------------------------------------------------------------------
 enum VCRMode_t
 {
 	VCR_Invalid=-1,
@@ -68,16 +47,13 @@ typedef uint64 VCRThreadId_t;
 typedef uint32 VCRThreadId_t;
 #endif
 
-//-----------------------------------------------------------------------------
 // Functions.
-//-----------------------------------------------------------------------------
 abstract_class IVCRHelpers
 {
 public:
 	virtual void unused_ErrorMessage() = 0;
 	virtual void unused_GetMainWindow() = 0;
 };
-
 
 // Used by the vcrtrace program.
 abstract_class IVCRTrace
@@ -152,7 +128,6 @@ typedef struct VCR_s
 	// pRecs is an INPUT_RECORD pointer.
 	int			(*Hook_ReadConsoleInput)( void *hInput, void *pRecs, int nMaxRecs, unsigned long *pNumRead );
 
-	
 	// This calls time() then gives you localtime()'s result.
 	void		(*Hook_LocalTime)( struct tm *today );
 
@@ -167,14 +142,12 @@ typedef struct VCR_s
 	// If pEventName is null, then verification is not performed.
 	void		(*GenericRecord)( const tchar *pEventName, const void *pData, int len );
 	
-
 	// Returns the number of bytes written in the generic event.
 	// If bForceLenSame is true, then it will error out unless the value in the VCR file is the same as maxLen.
 	int			(*GenericPlayback)( const tchar *pEventName, void *pOutData, int maxLen, bool bForceLenSame );
 
 	// If you just want to record and playback a value and not worry about whether or not you're
 	// recording or playing back, use this. It also will do nothing if you're not recording or playing back.
-	//
 	// NOTE: also see GenericValueVerify, which allows you to have it VERIFY that pData's contents are the same upon playback
 	// (rather than just copying whatever is in the VCR file into pData).
 	void		(*GenericValue)( const tchar *pEventName, void *pData, int maxLen );
@@ -218,45 +191,9 @@ PLATFORM_INTERFACE VCR_t *g_pVCR;
 
 #endif
 
-
 #ifndef NO_VCR
 
-
-
-
-#define VCRSetEnabled							g_pVCR->SetEnabled
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #define VCRHook_EnterCriticalSection			g_pVCR->Hook_EnterCriticalSection
-
 
 #else
 #define VCRStart( a, b, c )						(1)
@@ -292,15 +229,9 @@ PLATFORM_INTERFACE VCR_t *g_pVCR;
 #define VCRHook_GetKeyState						GetKeyState
 #define VCRHook_recv							recv
 #define VCRHook_send							send
-#if defined( _X360 )
-#define VCRHook_CreateThread					CreateThread
-#else
 #define VCRHook_CreateThread					(void*)_beginthreadex
-#endif
 #define VCRHook_WaitForSingleObject				WaitForSingleObject
 #define VCRHook_EnterCriticalSection			EnterCriticalSection
 #define VCRHook_WaitForMultipleObjects( a, b, c, d) WaitForMultipleObjects( a, (const HANDLE *)b, c, d)
 #define VCRHook_Time							Time
 #endif
-
-#endif // VCRMODE_H

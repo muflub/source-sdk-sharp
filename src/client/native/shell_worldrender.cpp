@@ -20,16 +20,32 @@
 // second thing to keep in step.
 //
 //=============================================================================//
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
+#include "iviewrender.h"
+#include "materialsystem/imaterialsystem.h"
+#include "materialsystem/IColorCorrection.h"
+#include "mathlib/vector.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "fx.h"
 #include "shell_standalone_client.h"
 #include "sourcesharp.h"
 
-#include "iviewrender.h"
-#include "materialsystem/imaterialsystem.h"
-#include "c_baseplayer.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // The tonemap controls viewpostprocess.cpp held as plain globals: written here

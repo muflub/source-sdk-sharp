@@ -21,34 +21,72 @@
 // declarations (RenderViewConVars.cs).
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "iviewrender.h"
 #include "viewrender.h"
-#include "shell_view_executor_client.h"
-#include "sourcesharp.h"
-#include "imanaged_areas_client.h"
 #include "view.h"
 #include "iviewrender_beams.h"
 #include "c_te_legacytempents.h"
-#include "view_facts.h"
 #include "iinput.h"
-#include "c_baseplayer.h"
+#include "client_entity.h"
 #include "clienteffectprecachesystem.h"
 #include "vgui/ISurface.h"
 #include "vgui_controls/Controls.h"
 #include "tier1/convar.h"
-#include "shell_diagnostics.h"
 #include "iclientmode.h"
 #include "cl_mat_stub.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterial.h"
 #include "ienginevgui.h"
-#include "ss_image_encode.h"
 #include "filesystem.h"
-#include "tier1/utlbuffer.h"
+#include "bitmap/imageformat.h"
+#include "engine/iserverplugin.h"
+#include "engine/ivmodelinfo.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "mathlib/vmatrix.h"
+#include "mathlib/vplane.h"
+#include "replay/ireplayscreenshotsystem.h"
+#include "tier0/basetypes.h"
+#include "tier0/commonmacros.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/iconvar.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "tier2/tier2.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "fx.h"
+#include "globalvars_base.h"
+#include "icliententitylist.h"
+#include "ispatialpartition.h"
+#include "ivrenderview.h"
+#include "particledraw.h"
+#include "texture_group_names.h"
+#include "view_shared.h"
+#include "shell_view_executor_client.h"
+#include "sourcesharp.h"
+#include "imanaged_areas_client.h"
+#include "view_facts.h"
+#include "shell_diagnostics.h"
+#include "ss_image_encode.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 namespace
 {
@@ -156,7 +194,6 @@ private:
 	float m_flCheapWaterStartDistance = 0.0f;
 	float m_flCheapWaterEndDistance = 0.1f;
 	IMaterial *m_pScreenOverlay = NULL;
-	IClientUnknown *m_pCurrentlyDrawingEntity = NULL;
 	int m_nBuildWorldListsNumber = 0;
 	int m_nBuildRenderablesListsNumber = 0;
 	CViewSetup m_CurrentView;
@@ -258,10 +295,10 @@ public:
 			*pMax = maxSize.IsValid() ? maxSize.GetFloat() : 0.0f;
 		}
 	}
-	// Who is being drawn right now: the tool framework's material-proxy
-	// recording asks it, the executor's entity draws set it.
-	IClientUnknown *GetCurrentlyDrawingEntity() override { return m_pCurrentlyDrawingEntity; }
-	void SetCurrentlyDrawingEntity( IClientUnknown *pEnt ) override { m_pCurrentlyDrawingEntity = pEnt; }
+	// Who is being drawn right now: only the tool framework's material-proxy
+	// recording asked, and SFM is gone (user ruling 2026-10-19).
+	IGameEntity *GetCurrentlyDrawingEntity() override { return NULL; }
+	void SetCurrentlyDrawingEntity( IGameEntity *pEntity ) override {}
 	bool UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &shadowView ) override
 	{
 		// The shadow-depth view is the plan's (inside the frame's

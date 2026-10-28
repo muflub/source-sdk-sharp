@@ -45,11 +45,7 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_GAMEMOVEMENT_H
-#define SHELL_GAMEMOVEMENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 #include <stdio.h>
@@ -223,5 +219,3 @@ inline int SourceSharpMovement_Format( char *pOut, size_t cOut,
 // (shell_movement_debug.cpp) are its two callers.
 //-----------------------------------------------------------------------------
 void SourceSharp_MoveManagedReport();
-
-#endif // SHELL_GAMEMOVEMENT_H

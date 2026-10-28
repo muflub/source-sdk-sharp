@@ -69,11 +69,8 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_SHOT_PATH_H
-#define SHELL_SHOT_PATH_H
-#ifdef _WIN32
 #pragma once
-#endif
+#define SHELL_SHOT_PATH_H
 
 #include "mathlib/vector.h"
 
@@ -126,5 +123,3 @@ void EntityShot_CreateBubbleTrail( IGameEntity *pEntity, const Vector &vecShotSr
 // EntityTracer_ComputeStartPosition.
 //-----------------------------------------------------------------------------
 void EntityShot_UpdateStatistics( IGameEntity *pEntity, const trace_t &tr );
-
-#endif // SHELL_SHOT_PATH_H

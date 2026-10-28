@@ -59,6 +59,12 @@
 1	SLOT	[CShellDetailModel] virtual void RecordToolMessage() OVERRIDE
 1	SLOT	[CShellDetailModel] virtual bool IgnoresZBuffer() const OVERRIDE
 1	HOOK	[CShellDetailProps] virtual char const *Name() OVERRIDE
+1	SLOT	[CShellDetailProps] virtual void PostInit() OVERRIDE
+1	SLOT	[CShellDetailProps] virtual void Shutdown() OVERRIDE
+1	SLOT	[CShellDetailProps] virtual void OnSave() OVERRIDE
+1	SLOT	[CShellDetailProps] virtual void OnRestore() OVERRIDE
+1	SLOT	[CShellDetailProps] virtual void SafeRemoveIfDesired() OVERRIDE
+1	SLOT	[CShellDetailProps] virtual bool IsPerFrame() OVERRIDE
 7	HOOK	[CShellDetailProps] virtual bool Init() OVERRIDE
 17	HOOK	[CShellDetailProps] virtual void LevelInitPreEntity() OVERRIDE
 8	HOOK	[CShellDetailProps] virtual void LevelInitPostEntity() OVERRIDE

@@ -27,11 +27,7 @@
 // so at most one arm of the result is ever set.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_RESOLVE_H
-#define SOURCESHARP_SHELL_RESOLVE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 #include "mathlib/vector.h"
@@ -236,5 +232,3 @@ uint32_t SourceSharp_HandleFromAnyEntity( IHandleEntity *pHandleEntity );
 // pointer the compiler adjusts.
 //-----------------------------------------------------------------------------
 IGameEntity *SourceSharp_GameEntityFromHandleEntity( IHandleEntity *pHandleEntity );
-
-#endif // SOURCESHARP_SHELL_RESOLVE_H

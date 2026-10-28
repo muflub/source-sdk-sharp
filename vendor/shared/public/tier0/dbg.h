@@ -1,16 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose:  
-//
-// $NoKeywords: $
-//
-//=============================================================================//
-#ifndef DBG_H
-#define DBG_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basetypes.h"
 #include "dbgflag.h"
@@ -23,9 +12,7 @@
 #define __cdecl
 #endif
 
-//-----------------------------------------------------------------------------
 // dll export stuff
-//-----------------------------------------------------------------------------
 #ifndef STATIC_TIER0
 
 #ifdef TIER0_DLL_EXPORT
@@ -45,113 +32,78 @@
 #define DBG_CLASS		
 #endif // BUILD_AS_DLL
 
-
 class Color;
 
-
-//-----------------------------------------------------------------------------
 // Usage model for the Dbg library
-//
 // 1. Spew.
-// 
 //   Spew can be used in a static and a dynamic mode. The static
 //   mode allows us to display assertions and other messages either only
 //   in debug builds, or in non-release builds. The dynamic mode allows us to
 //   turn on and off certain spew messages while the application is running.
-// 
 //   Static Spew messages:
-//
 //     Assertions are used to detect and warn about invalid states
 //     Spews are used to display a particular status/warning message.
-//
 //     To use an assertion, use
-//
 //     Assert( (f == 5) );
 //     AssertMsg( (f == 5), ("F needs to be %d here!\n", 5) );
 //     AssertFunc( (f == 5), BadFunc() );
 //     AssertEquals( f, 5 );
 //     AssertFloatEquals( f, 5.0f, 1e-3 );
-//
 //     The first will simply report that an assertion failed on a particular
 //     code file and line. The second version will display a print-f formatted message 
 //	   along with the file and line, the third will display a generic message and
 //     will also cause the function BadFunc to be executed, and the last two
 //	   will report an error if f is not equal to 5 (the last one asserts within
 //	   a particular tolerance).
-//
 //     To use a warning, use
-//      
 //     Warning("Oh I feel so %s all over\n", "yummy");
-//
 //     Warning will do its magic in only Debug builds. To perform spew in *all*
 //     builds, use RelWarning.
-//
 //	   Three other spew types, Msg, Log, and Error, are compiled into all builds.
 //	   These error types do *not* need two sets of parenthesis.
-//
 //	   Msg( "Isn't this exciting %d?", 5 );
 //	   Error( "I'm just thrilled" );
-//
 //   Dynamic Spew messages
-//
 //     It is possible to dynamically turn spew on and off. Dynamic spew is 
 //     identified by a spew group and priority level. To turn spew on for a 
 //     particular spew group, use SpewActivate( "group", level ). This will 
 //     cause all spew in that particular group with priority levels <= the 
 //     level specified in the SpewActivate function to be printed. Use DSpew 
 //     to perform the spew:
-//
 //     DWarning( "group", level, "Oh I feel even yummier!\n" );
-//
 //     Priority level 0 means that the spew will *always* be printed, and group
 //     '*' is the default spew group. If a DWarning is encountered using a group 
 //     whose priority has not been set, it will use the priority of the default 
 //     group. The priority of the default group is initially set to 0.      
-//
 //   Spew output
-//   
 //     The output of the spew system can be redirected to an externally-supplied
 //     function which is responsible for outputting the spew. By default, the 
 //     spew is simply printed using printf.
-//
 //     To redirect spew output, call SpewOutput.
-//
 //     SpewOutputFunc( OutputFunc );
-//
 //     This will cause OutputFunc to be called every time a spew message is
 //     generated. OutputFunc will be passed a spew type and a message to print.
 //     It must return a value indicating whether the debugger should be invoked,
 //     whether the program should continue running, or whether the program 
 //     should abort. 
-//
 // 2. Code activation
-//
 //   To cause code to be run only in debug builds, use DBG_CODE:
 //   An example is below.
-//
 //   DBG_CODE(
 //				{
 //					int x = 5;
 //					++x;
 //				}
 //           ); 
-//
 //   Code can be activated based on the dynamic spew groups also. Use
-//  
 //   DBG_DCODE( "group", level,
 //              { int x = 5; ++x; }
 //            );
-//
 // 3. Breaking into the debugger.
-//
 //   To cause an unconditional break into the debugger in debug builds only, use DBG_BREAK
-//
 //   DBG_BREAK();
-//
 //	 You can force a break in any build (release or debug) using
-//
 //	 DebuggerBreak();
-//-----------------------------------------------------------------------------
 
 /* Various types of spew messages */
 // I'm sure you're asking yourself why SPEW_ instead of DBG_ ?
@@ -184,9 +136,6 @@ DBG_INTERFACE void   SpewOutputFunc( SpewOutputFunc_t func );
 /* Used to get the current spew output function */
 DBG_INTERFACE SpewOutputFunc_t GetSpewOutputFunc( void );
 
-
-
-
 DBG_INTERFACE bool   IsSpewActive( const tchar* pGroupName, int level );
 
 /* Used to display messages, should never be called directly. */
@@ -194,14 +143,12 @@ DBG_INTERFACE void   _SpewInfo( SpewType_t type, const tchar* pFile, int line );
 DBG_INTERFACE SpewRetval_t   _SpewMessage( PRINTF_FORMAT_STRING const tchar* pMsg, ... ) FMTFUNCTION( 1, 2 );
 ;
 ;
-DBG_INTERFACE SpewRetval_t   ColorSpewMessage2( SpewType_t type, const Color &color, PRINTF_FORMAT_STRING const tchar* pMsg, ... ) FMTFUNCTION( 3, 4 );
+;
 DBG_INTERFACE void _ExitOnFatalAssert( const tchar* pFile, int line );
 DBG_INTERFACE bool ShouldUseNewAssertDialog();
 
-
 // Returns true if they want to break in the debugger.
 DBG_INTERFACE bool DoNewAssertDialog( const tchar *pFile, int line, const tchar *pExpression );
-
 
 // Provides a callback that is called on asserts regardless of spew levels
 typedef void (*AssertFailedNotifyFunc_t)( const char *pchFile, int nLine, const char *pchMessage );
@@ -277,22 +224,6 @@ DBG_INTERFACE ;
 
 #define  AssertFatalMsg( _exp, _msg, ... )						_AssertMsg( _exp, (const tchar *)CDbgFmtMsg( _msg, ##__VA_ARGS__ ), ((void)0), true )
 
-
-#define  AssertFatalEquals( _exp, _expectedValue )				AssertFatalMsg2( (_exp) == (_expectedValue), _T("Expected %d but got %d!"), (_expectedValue), (_exp) ) 
-
-
-
-
-
-#define  AssertFatalMsg2( _exp, _msg, a1, a2 )								AssertFatalMsg( _exp, _msg, a1, a2 )
-
-
-
-
-
-
-
-
 #else // DBGFLAG_ASSERTFATAL
 
 #define  AssertFatal( _exp )									((void)0)
@@ -332,20 +263,11 @@ DBG_INTERFACE ;
 #define  AssertFloatEquals( _exp, _expectedValue, _tol )  	AssertMsg2( fabs((_exp) - (_expectedValue)) <= (_tol), _T("Expected %f but got %f!"), (_expectedValue), (_exp) )
 #define  Verify( _exp )           							Assert( _exp )
 
-
-
 #define  VerifyEquals( _exp, _expectedValue )           	AssertEquals( _exp, _expectedValue )
-
 
 #define  AssertMsg1( _exp, _msg, a1 )									AssertMsg( _exp, _msg, a1 )
 #define  AssertMsg2( _exp, _msg, a1, a2 )								AssertMsg( _exp, _msg, a1, a2 )
 #define  AssertMsg3( _exp, _msg, a1, a2, a3 )							AssertMsg( _exp, _msg, a1, a2, a3 )
-
-
-
-
-
-
 
 #else // DBGFLAG_ASSERT
 
@@ -358,28 +280,16 @@ DBG_INTERFACE ;
 #define  AssertFloatEquals( _exp, _expectedValue, _tol )	((void)0)
 #define  Verify( _exp )										(_exp)
 
-
-
 #define  VerifyEquals( _exp, _expectedValue )           	(_exp)
-
 
 #define  AssertMsg1( _exp, _msg, a1 )									((void)0)
 #define  AssertMsg2( _exp, _msg, a1, a2 )								((void)0)
 #define  AssertMsg3( _exp, _msg, a1, a2, a3 )							((void)0)
 
-
-
-
-
-
-
-
 #endif // DBGFLAG_ASSERT
 
 // The Always version of the assert macros are defined even when DBGFLAG_ASSERT is not, 
 // so they will be available even in release.
-
-
 
 // Stringify a number
 #define V_STRINGIFY_INTERNAL(x) #x
@@ -388,16 +298,10 @@ DBG_INTERFACE ;
 
 // Macros to help decorate warnings or errors with the location in code
 
-
-
-
 // Handy define for inserting clickable messages into the build output.
 // Use like this:
 // #pragma MESSAGE("Some message")
 #define MESSAGE(msg) message(__FILE__ "(" V_STRINGIFY(__LINE__) "): " msg)
-
-
-#if !defined( _X360 ) || !defined( _RETAIL )
 
 /* These are always compiled in */
 DBG_INTERFACE void Msg( PRINTF_FORMAT_STRING const tchar* pMsg, ... ) FMTFUNCTION( 1, 2 );
@@ -418,26 +322,9 @@ DBG_INTERFACE void NORETURN Error( PRINTF_FORMAT_STRING const tchar *pMsg, ... )
 
 #endif
 
-#else
-
-inline void Msg( ... ) {}
-inline void DMsg( ... ) {}
-inline void MsgV( PRINTF_FORMAT_STRING const tchar *pMsg, va_list arglist ) {}
-inline void Warning( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) {}
-inline void WarningV( PRINTF_FORMAT_STRING const tchar *pMsg, va_list arglist ) {}
-inline void DWarning( ... ) {}
-inline void Log( ... ) {}
-inline void DLog( ... ) {}
-inline void LogV( PRINTF_FORMAT_STRING const tchar *pMsg, va_list arglist ) {}
-inline void Error( ... ) {}
-inline void ErrorV( PRINTF_FORMAT_STRING const tchar *pMsg, va_list arglist ) {}
-
-#endif
-
 // You can use this macro like a runtime assert macro.
 // If the condition fails, then Error is called with the message. This macro is called
 // like AssertMsg, where msg must be enclosed in parenthesis:
-//
 // ErrorIfNot( bCondition, ("a b c %d %d %d", 1, 2, 3) );
 #define ErrorIfNot( condition, msg ) \
 	if ( condition )		\
@@ -446,8 +333,6 @@ inline void ErrorV( PRINTF_FORMAT_STRING const tchar *pMsg, va_list arglist ) {}
 	{						\
 		Error msg;			\
 	}
-
-#if !defined( _X360 ) || !defined( _RETAIL )
 
 /* A couple of super-common dynamic spew messages, here for convenience */
 /* These looked at the "developer" group */
@@ -479,19 +364,6 @@ DBG_OVERLOAD void ConMsg( PRINTF_FORMAT_STRING const tchar* pMsg, ... ) FMTFUNCT
 
 void ValidateSpew( class CValidator &validator );
 
-#else
-
-inline void DevMsg( ... ) {}
-inline void DevWarning( ... ) {}
-inline void DevLog( ... ) {}
-inline void ConMsg( ... ) {}
-inline void ConLog( ... ) {}
-inline void NetMsg( ... ) {}
-inline void NetWarning( ... ) {}
-inline void NetLog( ... ) {}
-
-#endif
-
 DBG_INTERFACE void COM_TimestampedLog( PRINTF_FORMAT_STRING char const *fmt, ... ) FMTFUNCTION( 1, 2 );
 
 /* Code macros, debugger interface */
@@ -511,8 +383,6 @@ DBG_INTERFACE void COM_TimestampedLog( PRINTF_FORMAT_STRING char const *fmt, ...
 #define DBG_BREAK()                  ((void)0)
 
 #endif /* _DEBUG */
-
-//-----------------------------------------------------------------------------
 
 #ifndef _RETAIL
 class CScopeMsg
@@ -534,9 +404,7 @@ public:
 #define SCOPE_MSG( msg )
 #endif
 
-//-----------------------------------------------------------------------------
 // Utilities to suppress warnings or other annotations
-
 
 // NOTE: On GCC / Clang, assert_cast can sometimes fire even if the type is correct. We should just workaround these.
 // The situation where this would occur is 
@@ -544,17 +412,10 @@ public:
 // 2. You pass it across a DLL boundary
 // 3. You use assert_cast to verify it in the second DLL boundary (where it also could've been created).
 #ifdef _DEBUG
-template<typename DEST_POINTER_TYPE, typename SOURCE_POINTER_TYPE>
-inline DEST_POINTER_TYPE assert_cast(SOURCE_POINTER_TYPE* pSource)
-{
-    Assert( static_cast<DEST_POINTER_TYPE>(pSource) == dynamic_cast<DEST_POINTER_TYPE>(pSource) );
-    return static_cast<DEST_POINTER_TYPE>(pSource);
-}
 #else
 #define assert_cast static_cast
 #endif
 
-//-----------------------------------------------------------------------------
 // Templates to assist in validating pointers:
 
 // Have to use these stubs so we don't have to include windows.h here.
@@ -568,21 +429,16 @@ DBG_INTERFACE void AssertValidStringPtr( const tchar* ptr, int maxchar = 0xFFFFF
 
 FORCEINLINE void AssertValidReadPtr( const void* ptr, int count = 1 )	    { _AssertValidReadPtr( (void*)ptr, count ); }
 FORCEINLINE void AssertValidWritePtr( const void* ptr, int count = 1 )		{ _AssertValidWritePtr( (void*)ptr, count ); }
-FORCEINLINE void AssertValidReadWritePtr( const void* ptr, int count = 1 )	{ _AssertValidReadWritePtr( (void*)ptr, count ); }
 
 #else
 
 FORCEINLINE void AssertValidReadPtr( const void* ptr, int count = 1 )			 { }
 FORCEINLINE void AssertValidReadPtr( const void* ptr, size_t count )			 { }
 FORCEINLINE void AssertValidWritePtr( const void* ptr, int count = 1 )		     { }
-FORCEINLINE void AssertValidReadWritePtr( const void* ptr, int count = 1 )	     { }
 #define AssertValidStringPtr AssertValidReadPtr
 
 #endif
 
-
-
-//-----------------------------------------------------------------------------
 // Macro to protect functions that are not reentrant
 
 #ifdef _DEBUG
@@ -604,15 +460,9 @@ private:
 	int *m_pSemaphore;
 };
 
-
-#else
-
 #endif
 
-//-----------------------------------------------------------------------------
-//
 // Purpose: Inline string formatter
-//
 
 #include "tier0/valve_off.h"
 class CDbgFmtMsg
@@ -639,11 +489,8 @@ private:
 };
 #include "tier0/valve_on.h"
 
-//-----------------------------------------------------------------------------
-//
 // Purpose: Embed debug info in each file.
-//
-#if defined( _WIN32 ) && !defined( _X360 )
+#if defined( _WIN32 )
 
 	#ifdef _DEBUG
 		#pragma comment(compiler)
@@ -651,10 +498,7 @@ private:
 
 #endif
 
-//-----------------------------------------------------------------------------
-//
 // Purpose: Wrap around a variable to create a simple place to put a breakpoint
-//
 
 #ifdef _DEBUG
 
@@ -662,15 +506,6 @@ template< class Type >
 class CDataWatcher
 {
 public:
-	const Type& operator=( const Type &val ) 
-	{ 
-		return Set( val ); 
-	}
-	
-	const Type& operator=( const CDataWatcher<Type> &val ) 
-	{ 
-		return Set( val.m_Value ); 
-	}
 	
 	const Type& Set( const Type &val )
 	{
@@ -684,69 +519,6 @@ public:
 		return m_Value;
 	}
 	
-	const Type& operator+=( const Type &val ) 
-	{
-		return Set( m_Value + val ); 
-	}
-	
-	const Type& operator-=( const Type &val ) 
-	{
-		return Set( m_Value - val ); 
-	}
-	
-	const Type& operator/=( const Type &val ) 
-	{
-		return Set( m_Value / val ); 
-	}
-	
-	const Type& operator*=( const Type &val ) 
-	{
-		return Set( m_Value * val ); 
-	}
-	
-	const Type& operator^=( const Type &val ) 
-	{
-		return Set( m_Value ^ val ); 
-	}
-	
-	const Type& operator|=( const Type &val ) 
-	{
-		return Set( m_Value | val ); 
-	}
-	
-	const Type& operator++()
-	{
-		return (*this += 1);
-	}
-	
-	Type operator--()
-	{
-		return (*this -= 1);
-	}
-	
-	Type operator++( int ) // postfix version..
-	{
-		Type val = m_Value;
-		(*this += 1);
-		return val;
-	}
-	
-	Type operator--( int ) // postfix version..
-	{
-		Type val = m_Value;
-		(*this -= 1);
-		return val;
-	}
-	
-	// For some reason the compiler only generates type conversion warnings for this operator when used like 
-	// CNetworkVarBase<unsigned tchar> = 0x1
-	// (it warns about converting from an int to an unsigned char).
-	template< class C >
-	const Type& operator&=( C val ) 
-	{ 
-		return Set( m_Value & val ); 
-	}
-	
 	operator const Type&() const 
 	{
 		return m_Value; 
@@ -755,11 +527,6 @@ public:
 	const Type& Get() const 
 	{
 		return m_Value; 
-	}
-	
-	const Type* operator->() const 
-	{
-		return &m_Value; 
 	}
 	
 	Type m_Value;
@@ -777,25 +544,10 @@ private:
 
 #endif
 
-//-----------------------------------------------------------------------------
-
-
 // This is horrible, but we don't want to integrate CS:GO new logging system atm.
 
 #ifdef BUILDING_VPC
 #define Log_Warning( ignore, ... )	::Warning( __VA_ARGS__ );
 #define Log_Msg( ignore, ... )		::Msg( __VA_ARGS__ );
 #define Log_Error( ignore, ... )		::Error( __VA_ARGS__ );
-#else
-
-
-#define Log_Error( ignore, ... )		::Error( __VA_ARGS__ );
 #endif
-
-
-
-
-
-
-
-#endif /* DBG_H */

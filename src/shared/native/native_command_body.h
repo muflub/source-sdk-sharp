@@ -27,11 +27,7 @@
 //
 //=============================================================================//
 
-#ifndef NATIVE_COMMAND_BODY_H
-#define NATIVE_COMMAND_BODY_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "ss_platform.h"   // ss_strcasecmp
 
@@ -85,5 +81,3 @@ private:
 	static void SSNativeCommand_##name( const CCommand &args );                          \
 	static CNativeCommandBody s_SSNativeCommandBody_##name( #name, SSNativeCommand_##name ); \
 	static void SSNativeCommand_##name( const CCommand &args )
-
-#endif // NATIVE_COMMAND_BODY_H

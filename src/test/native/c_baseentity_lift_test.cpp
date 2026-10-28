@@ -454,48 +454,10 @@ TEST( CBaseEntityLift, TheTwoHeadersUnderTestWereActuallyRead )
 // 1. THE TWELVE ARE OUT OF THE CLASS SCOPE.
 //=============================================================================//
 
-//-----------------------------------------------------------------------------
-// THE memdbgoff/memdbgon BRACKET CAME WITH THE ALLOCATOR -- CLIENT_FLIP lane 2.
-//
-// NOT DECORATION, AND NOT A STYLE RULE. memdbgon.h redefines new and delete.
-// These three bodies call MemAlloc_Alloc and MemAlloc_Free directly, and a
-// definition compiled with those redefinitions in force does not mean what it
-// says. c_baseentity_statics.h spelt this out as one of the two reasons the
-// bodies "have to stay in c_baseentity.cpp"; the file moved, so the bracket had
-// to move with it, and this is what says it did.
-//
-// ASSERTED BY POSITION, because that is the property: it is not enough for the
-// file to CONTAIN both includes, the three definitions have to be BETWEEN them.
-//-----------------------------------------------------------------------------
-TEST( CBaseEntityLift, TheAllocatorSitsInsideTheMemdbgBracket )
-{
-	const std::string strShim = StripComments( ShimSource() );
-	ASSERT_FALSE( strShim.empty() );
-
-	const size_t iOff = strShim.find( "#include \"tier0/memdbgoff.h\"" );
-	ASSERT_NE( std::string::npos, iOff )
-		<< "shell_entitystatics.cpp has no memdbgoff include at all, so the "
-		<< "three allocation helpers are compiled with memdbgon.h's "
-		<< "redefinitions of new and delete in force.";
-
-	const size_t iOn = strShim.find( "#include \"tier0/memdbgon.h\"", iOff );
-	ASSERT_NE( std::string::npos, iOn )
-		<< "the bracket is opened and never closed: everything after the "
-		<< "allocator is compiled without the memory debugger.";
-
-	for ( size_t i = 0; i < kMemHelperCount; i++ )
-	{
-		const size_t iDef = strShim.find( std::string( kMemHelpers[ i ] ) + "(" );
-		ASSERT_NE( std::string::npos, iDef ) << kMemHelpers[ i ];
-
-		EXPECT_GT( iDef, iOff )
-			<< kMemHelpers[ i ] << " is defined BEFORE the memdbgoff include, so "
-			<< "it is compiled with new and delete redefined.";
-		EXPECT_LT( iDef, iOn )
-			<< kMemHelpers[ i ] << " is defined AFTER the bracket closed, for "
-			<< "the same reason.";
-	}
-}
+// (The memdbgoff/memdbgon bracket around the three allocation helpers went
+// with the client's stock headers, 2026-10-25: client.so defines
+// NO_MALLOC_OVERRIDE, under which memdbgon.h is empty, so the bracket changed
+// nothing it compiled.)
 
 TEST( CBaseEntityLift, TheStaticsHeaderDeclaresEveryFreeFunction )
 {

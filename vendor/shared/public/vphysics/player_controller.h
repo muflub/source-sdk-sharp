@@ -1,20 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef PLAYER_CONTROLLER_H
-#define PLAYER_CONTROLLER_H
-#ifdef _WIN32
 #pragma once
-#endif
-
-class IPhysicsPlayerControllerEvent
-{
-public:
-	virtual void unused_ShouldMoveTo() = 0;
-};
 
 class IPhysicsPlayerController
 {
@@ -43,5 +29,3 @@ public:
 	virtual void unused_GetPushSpeedLimit() = 0;
 	virtual bool WasFrozen() = 0;
 };
-
-#endif // PLAYER_CONTROLLER_H

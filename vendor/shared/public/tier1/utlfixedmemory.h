@@ -1,18 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
 // A growable memory class.
-//===========================================================================//
 
-#ifndef UTLFIXEDMEMORY_H
-#define UTLFIXEDMEMORY_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/dbg.h"
 #include "tier0/platform.h"
@@ -23,21 +12,13 @@
 #pragma warning (disable:4100)
 #pragma warning (disable:4514)
 
-//-----------------------------------------------------------------------------
-
 #ifdef UTLFIXEDMEMORY_TRACK
 #define UTLFIXEDMEMORY_TRACK_ALLOC()		MemAlloc_RegisterAllocation( "Sum of all UtlFixedMemory", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
 #define UTLFIXEDMEMORY_TRACK_FREE()		if ( !m_pMemory ) ; else MemAlloc_RegisterDeallocation( "Sum of all UtlFixedMemory", 0, NumAllocated() * sizeof(T), NumAllocated() * sizeof(T), 0 )
-#else
-
-
 #endif
 
-
-//-----------------------------------------------------------------------------
 // The CUtlFixedMemory class:
 // A growable memory class that allocates non-sequential blocks, but is indexed sequentially
-//-----------------------------------------------------------------------------
 template< class T >
 class CUtlFixedMemory
 {
@@ -158,9 +139,7 @@ protected:
 	int m_nGrowSize;
 };
 
-//-----------------------------------------------------------------------------
 // constructor, destructor
-//-----------------------------------------------------------------------------
 
 template< class T >
 CUtlFixedMemory<T>::CUtlFixedMemory( int nGrowSize, int nInitAllocationCount )
@@ -175,10 +154,7 @@ CUtlFixedMemory<T>::~CUtlFixedMemory()
 	Purge();
 }
 
-
-//-----------------------------------------------------------------------------
 // Fast swap - WARNING: Swap invalidates all ptr-based indices!!!
-//-----------------------------------------------------------------------------
 template< class T >
 void CUtlFixedMemory<T>::Swap( CUtlFixedMemory< T > &mem )
 {
@@ -187,10 +163,7 @@ void CUtlFixedMemory<T>::Swap( CUtlFixedMemory< T > &mem )
 	V_swap( m_nGrowSize, mem.m_nGrowSize );
 }
 
-
-//-----------------------------------------------------------------------------
 // Set the size by which the memory grows - round up to the next power of 2
-//-----------------------------------------------------------------------------
 template< class T >
 void CUtlFixedMemory<T>::Init( int nGrowSize /* = 0 */, int nInitSize /* = 0 */ )
 {
@@ -199,23 +172,6 @@ void CUtlFixedMemory<T>::Init( int nGrowSize /* = 0 */, int nInitSize /* = 0 */ 
 	m_nGrowSize = nGrowSize;
 
 	Grow( nInitSize );
-}
-
-//-----------------------------------------------------------------------------
-// element access
-//-----------------------------------------------------------------------------
-template< class T >
-inline T& CUtlFixedMemory<T>::operator[]( intp i )
-{
-	Assert( IsIdxValid(i) );
-	return *( T* )i;
-}
-
-template< class T >
-inline const T& CUtlFixedMemory<T>::operator[]( intp i ) const
-{
-	Assert( IsIdxValid(i) );
-	return *( T* )i;
 }
 
 template< class T >
@@ -232,20 +188,14 @@ inline const T& CUtlFixedMemory<T>::Element( intp i ) const
 	return *( T* )i;
 }
 
-
-//-----------------------------------------------------------------------------
 // Size
-//-----------------------------------------------------------------------------
 template< class T >
 inline int CUtlFixedMemory<T>::NumAllocated() const
 {
 	return m_nAllocationCount;
 }
 
-
-//-----------------------------------------------------------------------------
 // Is element index valid?
-//-----------------------------------------------------------------------------
 template< class T >
 inline bool CUtlFixedMemory<T>::IsIdxValid( intp i ) const
 {
@@ -319,20 +269,14 @@ void CUtlFixedMemory<T>::Grow( int num )
 	}
 }
 
-
-//-----------------------------------------------------------------------------
 // Makes sure we've got at least this much memory
-//-----------------------------------------------------------------------------
 template< class T >
 inline void CUtlFixedMemory<T>::EnsureCapacity( int num )
 {
 	Grow( num - NumAllocated() );
 }
 
-
-//-----------------------------------------------------------------------------
 // Memory deallocation
-//-----------------------------------------------------------------------------
 template< class T >
 void CUtlFixedMemory<T>::Purge()
 {
@@ -350,5 +294,3 @@ void CUtlFixedMemory<T>::Purge()
 }
 
 #include "tier0/memdbgoff.h"
-
-#endif // UTLFIXEDMEMORY_H

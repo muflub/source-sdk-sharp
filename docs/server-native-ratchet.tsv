@@ -1,7 +1,7 @@
 # docs/server-native-ratchet.tsv -- per-file not-native code lines
 # (MOVE+DELETE+FOLD+DEBUG) from docs/plans/server_native_audit.tsv,
 # maintained by tools/server-native-scope --write; reviewed in the diff.
-src/server/native/alloc_check.cpp	510
+src/shared/native/alloc_check.cpp	510
 src/server/native/exit_watch.cpp	22
 src/server/native/precache_model.cpp	25
 src/server/native/server_util_library.cpp	13

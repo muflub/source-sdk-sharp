@@ -1,22 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-//
-//-----------------------------------------------------------------------------
-// $Log: $
-//
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef MEMPOOL_H
-#define MEMPOOL_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/memalloc.h"
 #include "tier0/tslist.h"
@@ -24,11 +8,7 @@
 #include "tier1/utlvector.h"
 #include "tier1/utlrbtree.h"
 
-//-----------------------------------------------------------------------------
 // Purpose: Optimized pool memory allocator
-//-----------------------------------------------------------------------------
-
-typedef void (*MemoryPoolReportFunc_t)( PRINTF_FORMAT_STRING char const* pMsg, ... );
 
 // Ways a memory pool can grow when it needs to make a new blob:
 enum MemoryPoolGrowType_t
@@ -61,7 +41,6 @@ public:
 	
 	// Frees everything
 	void		Clear();
-
 
 	// returns number of allocated blocks
 	int Count() const { return m_BlocksAllocated; }
@@ -99,15 +78,10 @@ protected:
 
 };
 
-
-//-----------------------------------------------------------------------------
-// 
-//-----------------------------------------------------------------------------
 class CMemoryPoolMT : public CUtlMemoryPool
 {
 public:
 	CMemoryPoolMT(int blockSize, int numElements, int growMode = UTLMEMORYPOOL_GROW_FAST, const char *pszAllocOwner = NULL) : CUtlMemoryPool( blockSize, numElements, growMode, pszAllocOwner) {}
-
 
 	void*		Alloc()	{ AUTO_LOCK( m_mutex ); return CUtlMemoryPool::Alloc(); }
 	void*		Alloc( size_t amount )	{ AUTO_LOCK( m_mutex ); return CUtlMemoryPool::Alloc( amount ); }
@@ -121,11 +95,8 @@ private:
 	CThreadFastMutex m_mutex; // @TODO: Rework to use tslist (toml 7/6/2007)
 };
 
-
-//-----------------------------------------------------------------------------
 // Wrapper macro to make an allocator that returns particular typed allocations
 // and construction and destruction of objects.
-//-----------------------------------------------------------------------------
 template< class T >
 class CClassMemoryPool : public CUtlMemoryPool
 {
@@ -159,10 +130,6 @@ public:
     void    Clear();
 };
 
-
-//-----------------------------------------------------------------------------
-// Specialized pool for aligned data management (e.g., Xbox cubemaps)
-//-----------------------------------------------------------------------------
 template <int ITEM_SIZE, int ALIGNMENT, int CHUNK_SIZE, class CAllocator, int COMPACT_THRESHOLD = 4 >
 class CAlignedMemPool
 {
@@ -206,9 +173,7 @@ private:
 	float				m_TimeLastCompact;
 };
 
-//-----------------------------------------------------------------------------
 // Pool variant using standard allocation
-//-----------------------------------------------------------------------------
 template <typename T, int nInitialCount = 0, bool bDefCreateNewIfEmpty = true >
 class CObjectPool
 {
@@ -259,9 +224,6 @@ public:
 private:
 	CTSList<T *> m_AvailableObjects;
 };
-
-//-----------------------------------------------------------------------------
-
 
 template< class T >
 inline T* CClassMemoryPool<T>::Alloc()
@@ -340,12 +302,9 @@ inline void CClassMemoryPool<T>::Clear()
 
 }
 
-
-//-----------------------------------------------------------------------------
 // Macros that make it simple to make a class use a fixed-size allocator
 // Put DECLARE_FIXEDSIZE_ALLOCATOR in the private section of a class,
 // Put DEFINE_FIXEDSIZE_ALLOCATOR in the CPP file
-//-----------------------------------------------------------------------------
 #define DECLARE_FIXEDSIZE_ALLOCATOR( _class )									\
 	public:																		\
 		inline void* operator new( size_t size ) { MEM_ALLOC_CREDIT_(#_class " pool"); return s_Allocator.Alloc(size); }   \
@@ -358,18 +317,10 @@ inline void CClassMemoryPool<T>::Clear()
 #define DEFINE_FIXEDSIZE_ALLOCATOR( _class, _initsize, _grow )					\
 	CUtlMemoryPool   _class::s_Allocator(sizeof(_class), _initsize, _grow, #_class " pool", alignof( _class ) )
 
-
-
-
-
-
-
-//-----------------------------------------------------------------------------
 // Macros that make it simple to make a class use a fixed-size allocator
 // This version allows us to use a memory pool which is externally defined...
 // Put DECLARE_FIXEDSIZE_ALLOCATOR_EXTERNAL in the private section of a class,
 // Put DEFINE_FIXEDSIZE_ALLOCATOR_EXTERNAL in the CPP file
-//-----------------------------------------------------------------------------
 
 #define DECLARE_FIXEDSIZE_ALLOCATOR_EXTERNAL( _class )							\
    public:																		\
@@ -381,7 +332,6 @@ inline void CClassMemoryPool<T>::Clear()
 
 #define DEFINE_FIXEDSIZE_ALLOCATOR_EXTERNAL( _class, _allocator )				\
    CUtlMemoryPool*   _class::s_pAllocator = _allocator
-
 
 template <int ITEM_SIZE, int ALIGNMENT, int CHUNK_SIZE, class CAllocator, int COMPACT_THRESHOLD >
 inline CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, COMPACT_THRESHOLD>::CAlignedMemPool()
@@ -556,5 +506,3 @@ inline void CAlignedMemPool<ITEM_SIZE, ALIGNMENT, CHUNK_SIZE, CAllocator, COMPAC
 		}
 	}
 }
-
-#endif // MEMPOOL_H

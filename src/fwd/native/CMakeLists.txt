@@ -70,7 +70,7 @@ function(ss_fwd_library side)
   if(side STREQUAL server)
     ss_vendor_includes(valve_includes server public public/tier0 public/tier1)
   else()
-    set(valve_includes ${SS_SRC}/common ${SS_SRC}/public ${SS_SRC}/public/tier0 ${SS_SRC}/public/tier1)
+    ss_vendor_includes(valve_includes client common public public/tier0 public/tier1)
   endif()
   target_include_directories(${tgt} PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}
@@ -120,10 +120,12 @@ target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_steam.cpp)
 # interface is a game/client header (clientleafsystem.h, which takes
 # shell_clientsystem.h's CClientSystem base), so that file alone is built as
 # client code, with the client's headers and the managed areas' on its path.
+ss_vendor_includes(fwd_client_game_includes client game/client game/shared)
+list(PREPEND fwd_client_game_includes ${PROJECT_SOURCE_DIR}/src/client/native)
 target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_leaf_system.cpp)
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_leaf_system.cpp PROPERTIES
     COMPILE_DEFINITIONS CLIENT_DLL
-    INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
+    INCLUDE_DIRECTORIES "${fwd_client_game_includes}")
 # And the client shadow manager's native table (fwd_shadows.cpp, C7 cluster 12
 # S2): the engine calls and questions of the managed manager, carried out over
 # client.so's environment. Client code too (iclientrenderable.h and the view's
@@ -132,7 +134,7 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_leaf_system.cpp PROP
 target_sources(ss_fwd_client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fwd_shadows.cpp)
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/fwd_shadows.cpp PROPERTIES
     COMPILE_DEFINITIONS CLIENT_DLL
-    INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
+    INCLUDE_DIRECTORIES "${fwd_client_game_includes}")
 foreach(no_rtti fwd_steam.cpp fwd_physics.cpp fwd_recipient_filter.cpp fwd_trace_filter.cpp fwd_leaf_system.cpp fwd_shadows.cpp)
   if(SS_IS_MSVC)
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/${no_rtti} PROPERTIES COMPILE_OPTIONS /GR-)

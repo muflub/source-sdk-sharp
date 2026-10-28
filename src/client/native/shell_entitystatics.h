@@ -40,12 +40,8 @@
 // in the test.
 //=============================================================================//
 
-#ifndef SHELL_ENTITYSTATICS_H
-#define SHELL_ENTITYSTATICS_H
-
-#ifdef _WIN32
 #pragma once
-#endif
+
 
 #include <stddef.h>
 #include <string.h>
@@ -97,5 +93,3 @@ void  EntityMem_Free( void *pMem );
 
 // EntityTool_RecordEntities, the tool-recording pass, is deleted: SFM is dead
 // (user ruling 2026-10-19).
-
-#endif // SHELL_ENTITYSTATICS_H

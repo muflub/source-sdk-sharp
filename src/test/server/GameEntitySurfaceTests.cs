@@ -212,13 +212,13 @@ public class GameEntitySurfaceTests
         string body = ClassBodyOf(File.ReadAllText(header));
 
         // ONE #if IS ALLOWED, AND IT DECLARES ONE MEMBER EITHER WAY: the
-        // destructor's name. On the server built on stock public headers the
-        // class is CBaseEntity (plan_server_native_v2 D1), and a destructor
-        // must be spelled with the class's own name, never an alias. Removing
-        // exactly that block must leave no other conditional.
+        // destructor's name. On stock headers the class is the side's entity
+        // face, CBaseEntity or C_BaseEntity (SS_GAME_ENTITY, plan_server_native_v2
+        // D1), and a destructor must be spelled with the class's own name, never
+        // an alias. Removing exactly that block must leave no other conditional.
         const string destructorArms =
-            "#if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )\n" +
-            "\tvirtual ~CBaseEntity() {}\n" +
+            "#ifdef SS_GAME_ENTITY\n" +
+            "\tvirtual ~SS_GAME_ENTITY() {}\n" +
             "#else\n" +
             "\tvirtual ~IGameEntity() {}\n" +
             "#endif";

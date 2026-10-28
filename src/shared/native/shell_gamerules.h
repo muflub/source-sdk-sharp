@@ -15,14 +15,10 @@
 // Behaviour that represents an actual game decision routes into C#.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_GAMERULES_H
-#define SOURCESHARP_SHELL_GAMERULES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #ifdef CLIENT_DLL
-#include "gamerules.h"
+#include "igamerules.h"
 #else
 // The server reaches the rules object through IGameRules alone: game/shared/
 // gamerules.h (stock's CGameRules) is no longer in this header's reach there.
@@ -369,5 +365,3 @@ inline CSourceSharpGameRules *SourceSharpGameRules()
 {
 	return static_cast< CSourceSharpGameRules * >( g_pGameRules );
 }
-
-#endif // SOURCESHARP_SHELL_GAMERULES_H

@@ -80,11 +80,7 @@
 // each arm answers.
 //
 //=============================================================================//
-#ifndef ENTITY_BASES_H
-#define ENTITY_BASES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 class CPointEntity : public IGameEntity
 {
@@ -232,6 +228,3 @@ inline void DataMapAccess( CPointEntity *, datamap_t **p )			{ *p = NULL; }
 inline void DataMapAccess( CServerOnlyEntity *, datamap_t **p )		{ *p = NULL; }
 inline void DataMapAccess( CServerOnlyPointEntity *, datamap_t **p ){ *p = NULL; }
 inline void DataMapAccess( CLogicalEntity *, datamap_t **p )		{ *p = NULL; }
-
-
-#endif // ENTITY_BASES_H

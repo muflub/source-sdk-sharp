@@ -1,14 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
-#ifndef VSTDLIB_IKEYVALUESSYSTEM_H
-#define VSTDLIB_IKEYVALUESSYSTEM_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "vstdlib/vstdlib.h"
 
@@ -19,10 +10,8 @@ typedef int HKeySymbol;
 class IBaseFileSystem;
 class KeyValues;
 
-//-----------------------------------------------------------------------------
 // Purpose: Interface to shared data repository for KeyValues (included in vgui_controls.lib)
 //			allows for central data storage point of KeyValues symbol table
-//-----------------------------------------------------------------------------
 class IKeyValuesSystem
 {
 public:
@@ -61,5 +50,3 @@ public:
 VSTDLIB_INTERFACE IKeyValuesSystem *KeyValuesSystem();
 
 // #define KEYVALUESSYSTEM_INTERFACE_VERSION "KeyValuesSystem002"
-
-#endif // VSTDLIB_IKEYVALUESSYSTEM_H

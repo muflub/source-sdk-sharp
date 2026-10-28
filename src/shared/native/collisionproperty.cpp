@@ -75,8 +75,23 @@ extern ISpatialPartition *partition;
 #else
 // The client's set, in its old order; the server arms it carried went with
 // the server's move above.
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "igamesystem.h"
+#include "shell_clientsystem.h"
 #include "worldsize.h"
 #include "physics_shared.h"
 #include "sharedInterface.h"
@@ -91,7 +106,7 @@ extern ISpatialPartition *partition;
 #include <thread>
 #include <vector>
 
-#include "c_baseanimating.h"
+#include "tier1/convar.h"
 #include "recvproxy.h"
 // The dirty-partition drain resolves its handles here. Lane `f-list`.
 #include "shell_cliententitylist.h"

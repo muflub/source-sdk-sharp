@@ -42,25 +42,43 @@
 // the client leaf system holds the same. Neither has ever named C_BaseEntity.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_STANDALONE_CLIENT_H
-#define SOURCESHARP_SHELL_STANDALONE_CLIENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
-#include "convar.h"
 #include "iclientunknown.h"
 #include "iclientnetworkable.h"
 #include "iclientrenderable.h"
 #include "icliententity.h"
-#include "igameentity.h"
 #include "client_class.h"
 #include "engine/ICollideable.h"
-#include "engine/ivmodelrender.h"
-#include "model_types.h"
+#include "engine/IEngineSound.h"
+#include "engine/ishadowmgr.h"
+#include "engine/ivdebugoverlay.h"
+#include "mathlib/vector.h"
+#include "tier0/platform.h"
+#include "tier1/bitbuf.h"
+#include "basehandle.h"
+#include "bsptreedata.h"
+#include "client_render_handle.h"
+#include "client_world.h"
+#include "cmodel.h"
+#include "collisionproperty.h"
+#include "const.h"
+#include "detailobjectsystem.h"
+#include "eiface.h"
+#include "fx.h"
+#include "gametrace.h"
+#include "icliententitylist.h"
+#include "iclientthinkable.h"
+#include "ihandleentity.h"
+#include "iinput.h"
+#include "ivieweffects.h"
+#include "mouthinfo.h"
+#include "ragdoll_shared.h"
+#include "usercmd.h"
+#include "view.h"
+#include "vphysics_interface.h"
+#include "igameentity.h"
 // MAXSTUDIOPOSEPARAM and MDLHandle_t, for the pose-parameter storage below.
-#include "studio.h"
-#include "datacache/imdlcache.h"
 // THE ENGINE BLOCK (plan_entity.md §3.2). The client's half of step 1a's
 // declaration: the same struct at the same offset, read by the same getters,
 // with the CLIENT tail live rather than the server one.
@@ -137,6 +155,9 @@ class CBoneBitList;
 // entities through the slot table (slot_table.h's shell resolvers), so the
 // game-entity face and its six inert slots went; GetGameEntity() answers
 // IClientEntity's NULL. shell_standalone_client.cpp's static_assert keeps it so.
+// A removed shell's beams go with it (shell_beam_render.cpp).
+void SourceSharp_KillDeadBeams( const CBaseHandle &hDeadEntity );
+
 class C_StandaloneEntity : public IClientEntity, public ICollideable
 {
 	// THE ENGINE BLOCK, AND IT IS A MEMBER HERE WHERE THE SERVER'S IS THE
@@ -1224,5 +1245,3 @@ inline C_StandaloneEntity *SourceSharp_ClientShellFromRecvStruct( void *pStruct 
 // needs its own, and 1e's shell_standalone.h for the server's twin.
 //-----------------------------------------------------------------------------
 #include "standalone_handle_ban_client.h"
-
-#endif // SOURCESHARP_SHELL_STANDALONE_CLIENT_H

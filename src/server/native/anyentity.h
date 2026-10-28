@@ -55,11 +55,8 @@
 // client-side version of this would be a promise it could not keep.
 //
 //=============================================================================//
-#ifndef ANYENTITY_H
-#define ANYENTITY_H
-#ifdef _WIN32
 #pragma once
-#endif
+#define ANYENTITY_H
 
 #include "const.h"
 #include "iserverentity.h"
@@ -499,5 +496,3 @@ private:
 	int            m_listCount;
 	IHandleEntity *m_pList[ss::kMaxSphereQuery];
 };
-
-#endif // ANYENTITY_H

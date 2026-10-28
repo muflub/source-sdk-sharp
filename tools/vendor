@@ -20,8 +20,9 @@
 
 vendor/ holds the Valve SDK files the MODULES compile and link: server.so
 (server_sourcesharp, ss_fwd_server) and client.so (client_sourcesharp,
-ss_fwd_client, ss_particles and the tier1/mathlib it links). Tests may still
-read the fork (user ruling 2026-10-25). A file sits at its Valve path, less
+ss_fwd_client). libss_particles and the tier1 and mathlib it links build
+from the pristine clone and never from vendor/ or the fork (user 2026-10-25);
+tests may still read the fork (user ruling 2026-10-25). A file sits at its Valve path, less
 the leading src/, under the side that reads it:
 
     vendor/shared/   read by both sides
@@ -37,7 +38,7 @@ target's link line names them (build.ninja).
 
 Findings: a vendor/ file no module reads (strip it), a file under the wrong
 side, and with --strict a module reading a Valve file from the fork or the
-pristine clone. A missing or unreadable input is a failure, never a pass.
+pristine clone, or libss_particles' build reading one from vendor/ or the fork. A missing or unreadable input is a failure, never a pass.
 """
 import concurrent.futures
 import json
@@ -54,11 +55,13 @@ SIDE_DIRS = ("shared", "server", "client")
 
 SIDE_TARGETS = {
     "server": ("server_sourcesharp", "ss_fwd_server"),
-    "client": ("client_sourcesharp", "ss_fwd_client", "ss_particles"),
+    "client": ("client_sourcesharp", "ss_fwd_client"),
 }
 # Static libraries a module links, built from Valve sources: their objects
 # count for every side whose module links them.
-LIB_TARGETS = {"tier1": ("client",), "mathlib": ("client",), "raytrace": ()}
+LIB_TARGETS = {"raytrace": ()}
+# Built from the pristine clone: they read no vendor/ file and no fork file.
+STOCK_TARGETS = ("ss_particles", "tier1", "mathlib")
 
 # The Linux platform defines the Windows pass drops, and the Windows set it
 # adds (cmake/SourceSharp.cmake's SS_COMMON_DEFS per platform).
@@ -71,17 +74,13 @@ WINDOWS_DEFS = ["COMPILER_MSVC", "COMPILER_MSVC64", "WIN64", "_WIN64", "WIN32",
                 "_CRT_NONSTDC_NO_DEPRECATE", "_DLL_EXT=.dll", "_EXTERNAL_DLL_EXT=.dll",
                 "AVI_VIDEO", "WMV_VIDEO", "_MSC_VER=1938", "_MSC_FULL_VER=193833130"]
 WINDOWS_FORCED = os.path.join(REPO, "cmake", "compat", "windows", "ss_memalloc_windows.h")
-WINDOWS_FORCED_TARGETS = {"client_sourcesharp", "ss_fwd_client", "ss_fwd_server", "ss_particles"}
+WINDOWS_FORCED_TARGETS = {"client_sourcesharp", "ss_fwd_client", "ss_fwd_server"}
 
 
 # What the Windows build of a module reads that neither Linux pass can see:
 # the import libraries and archives cmake/sdk/CMakeLists.txt names for the
 # platform. Each is read by one target.
 WINDOWS_INPUTS = {
-    "lib/public/x64/particles.lib": "ss_particles",
-    "lib/public/x64/dmxloader.lib": "ss_particles",
-    "lib/public/x64/tier0.lib": "ss_particles",
-    "lib/public/x64/vstdlib.lib": "ss_particles",
     "lib/public/x64/libz.lib": "client_sourcesharp",
 }
 
@@ -149,9 +148,13 @@ def target_of(obj):
 
 
 def sides_of_target(tgt):
+    """The vendor/ sides a target's reads count for: () for one read but
+    for no side (the stock targets), None for one not read at all."""
     for side, tgts in SIDE_TARGETS.items():
         if tgt in tgts:
             return (side,)
+    if tgt in STOCK_TARGETS:
+        return ()
     return LIB_TARGETS.get(tgt)
 
 
@@ -321,6 +324,8 @@ def measure(cfg, windows=True):
                 for side in sides:
                     e["kinds"].setdefault(side, set()).add(kind)
                 e.setdefault("targets", set()).add(tgt)
+                if tgt in STOCK_TARGETS:
+                    e.setdefault("stock_kinds", set()).add(kind)
     return files
 
 
@@ -364,6 +369,9 @@ def findings(files, have, strict):
                             for k in ks if not k.startswith("vendor:")})
             if kinds and side_dir(e["sides"]):
                 outside.append((rel, side_dir(e["sides"]), kinds))
+            bad = sorted(k for k in e.get("stock_kinds", ()) if k != "stock")
+            if bad and (strict is True or "client" in strict):
+                outside.append((rel, "stock", bad))
     return unread, misplaced, outside
 
 
@@ -373,7 +381,7 @@ def git(*args):
 
 def write(unread, misplaced, outside, import_side, files, only=None):
     for rel, side in unread:
-        git("rm", "-q", os.path.join("vendor", side, rel))
+        git("rm", "-q", "-f", os.path.join("vendor", side, rel))
     for rel, have, want in misplaced:
         dst = os.path.join(VENDOR, want, rel)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -381,6 +389,8 @@ def write(unread, misplaced, outside, import_side, files, only=None):
     if import_side:
         src_root = os.path.join(pristine(), "src")
         for rel, want, _ in outside:
+            if want == "stock":
+                continue        # libss_particles' build: point it at the clone, never import
             if import_side not in files[rel]["sides"]:
                 continue
             if only and not (files[rel]["targets"] & only):
@@ -434,7 +444,12 @@ def self_test():
        "--strict server ignores the client's outside read of a shared file")
     eq(findings(files, have, {"client"})[2], [("public/b.h", "shared", ["stock"])],
        "--strict client sees it")
-    eq(sides_of_target("tier1"), ("client",), "tier1 serves the client side")
+    eq(sides_of_target("tier1"), (), "tier1 is read, for no vendor/ side")
+    files = {"public/s.h": {"sides": set(), "kinds": {}, "stock_kinds": {"vendor:client"}}}
+    eq(findings(files, {}, True)[2], [("public/s.h", "stock", ["vendor:client"])],
+       "libss_particles reading vendor/ is a finding under --strict")
+    files["public/s.h"]["stock_kinds"] = {"stock"}
+    eq(findings(files, {}, True)[2], [], "and reading the pristine clone is not")
     eq(sides_of_target("fwd_steam_test"), None, "a test target is not a module")
     argv, _ = windows_command({"command": "c++ -DGNUC -DFOO=1 -Ia -o x.o -c f.cpp",
                                "file": "f.cpp"}, "server_sourcesharp")
@@ -487,7 +502,8 @@ def main(argv):
         for rel, h, w in misplaced:
             print("  misplaced  vendor/%s/%s -> vendor/%s/" % (h, rel, w))
         for rel, w, kinds in outside:
-            print("  outside    %s (%s) -> vendor/%s/" % (rel, ",".join(kinds), w))
+            print("  outside    %s (%s) -> %s" % (rel, ",".join(kinds),
+                                                  "the pristine clone" if w == "stock" else "vendor/%s/" % w))
     return 1 if n else 0
 
 

@@ -22,8 +22,6 @@
 //
 //=============================================================================//
 
-#ifndef ISHIM_ROOT_H
-#define ISHIM_ROOT_H
 #pragma once
 
 #include <stdint.h>
@@ -56,5 +54,3 @@ public:
 
 // This side's root, and its forwarder table in *ppTable. Defined in shell_internalfactory.cpp.
 IShimRoot *ShimRoot_Get( const void **ppTable );
-
-#endif // ISHIM_ROOT_H

@@ -32,21 +32,38 @@
 // a function-local static (the server shell's shape).
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/dbg.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
 #include "soundenvelope.h"
 #include "c_recipientfilter.h"
 #include "engine/IEngineSound.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
+#include "igamerules.h"
+#include "tier1/utlvector.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "tier0/platform.h"
+#include "tier1/strtools.h"
+#include "client_entity.h"
+#include "const.h"
+#include "irecipientfilter.h"
+#include "shared_classnames.h"
+#include "shareddefs.h"
+#include "soundflags.h"
+#include "string_t.h"
 #include "client_sound.h"
-#include "gamerules.h"
 #include "imanaged_areas_client.h"
-#include "utlvector.h"
-#include "vphysics_interface.h"
-#include "physics_shared.h"
 #include "shell_standalone_client.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 namespace
 {

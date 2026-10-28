@@ -1,25 +1,12 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
 
-#ifndef DATATABLE_SEND_H
-#define DATATABLE_SEND_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "dt_common.h"
 #include "tier0/dbg.h"
 #include "const.h"
 #include "bitvec.h"
 
-
-// ------------------------------------------------------------------------ //
 // Send proxies can be used to convert a variable into a networkable type 
 // (a good example is converting an edict pointer into an integer index).
 
@@ -37,7 +24,6 @@
 
 // Return false if you don't want the engine to register and send a delta to
 // the clients for this property (regardless of whether it actually changed or not).
-// ------------------------------------------------------------------------ //
 typedef void (*SendVarProxyFn)( const SendProp *pProp, const void *pStructBase, const void *pData, DVariant *pOut, int iElement, int objectID );
 
 // Return the pointer to the data for the datatable.
@@ -51,7 +37,6 @@ typedef void* (*SendTableProxyFn)(
 	CSendProxyRecipients *pRecipients, 
 	int objectID );
 
-
 class CNonModifiedPointerProxy
 {
 public:
@@ -63,13 +48,10 @@ public:
 	CNonModifiedPointerProxy *m_pNext;
 };
 
-
 // This tells the engine that the send proxy will not modify the pointer
 // - it only plays with the recipients. This must be set on proxies that work
 // this way, otherwise the engine can't track which properties changed
 // in NetworkStateChanged().
-
-
 
 class CStandardSendProxiesV1
 {
@@ -105,21 +87,15 @@ public:
 
 extern CStandardSendProxies g_StandardSendProxies;
 
-
 // Max # of datatable send proxies you can have in a tree.
 
-
-// ------------------------------------------------------------------------ //
 // Datatable send proxies are used to tell the engine where the datatable's 
 // data is and to specify which clients should get the data. 
-//
 // pRecipients is the object that allows you to specify which clients will
 // receive the data.
-// ------------------------------------------------------------------------ //
 class CSendProxyRecipients
 {
 public:
-
 
 	// Clear all recipients and set only the specified one.
 	void	SetOnly( int iClient );
@@ -129,39 +105,24 @@ public:
 	CBitVec< ABSOLUTE_PLAYER_LIMIT >	m_Bits;
 };
 
-
-
-
-
 inline void CSendProxyRecipients::SetOnly( int iClient )
 {
 	m_Bits.ClearAll();
 	m_Bits.Set( iClient );
 }
 
-
-
-// ------------------------------------------------------------------------ //
 // ArrayLengthSendProxies are used when you want to specify an array's length
 // dynamically.
-// ------------------------------------------------------------------------ //
 typedef int (*ArrayLengthSendProxyFn)( const void *pStruct, int objectID );
-
-
 
 class RecvProp;
 class SendTable;
 class CSendTablePrecalc;
 
-
-// -------------------------------------------------------------------------------------------------------------- //
 // SendProp.
-// -------------------------------------------------------------------------------------------------------------- //
 
 // If SendProp::GetDataTableProxyIndex() returns this, then the proxy is one that always sends
 // the data to all clients, so we don't need to store the results.
-
-
 
 class SendProp
 {
@@ -183,12 +144,7 @@ public:
 	SendTable*			GetDataTable() const;
 	void				SetDataTable( SendTable *pTable );
 
-	
-
 	const char*			GetName() const;
-
-	
-	
 
 	SendProp*			GetArrayProp() const;
 
@@ -196,18 +152,14 @@ public:
 	void					SetArrayLengthProxy( ArrayLengthSendProxyFn fn );
 	ArrayLengthSendProxyFn	GetArrayLengthProxy() const;
 
-
-
-
 	SendPropType		GetType() const;
 
 	int					GetFlags() const;
 	void				SetFlags( int flags );	
 
-
 public:
 
-	RecvProp		*m_pMatchingRecvProp;	// This is temporary and only used while precalculating
+	alignas( 8 ) unsigned char unused_m_pMatchingRecvProp[ 8 ];
 												// data for the decoders.
 
 	SendPropType	m_Type;
@@ -243,7 +195,6 @@ private:
 	// Extra data bound to this property.
 	const void			*m_pExtraData;
 };
-
 
 inline int SendProp::GetOffset() const
 {
@@ -287,19 +238,10 @@ inline void SendProp::SetDataTable( SendTable *pTable )
 	m_pDataTable = pTable; 
 }
 
-
-
-
 inline const char* SendProp::GetName() const
 {
 	return m_pVarName; 
 }
-
-
-
-
-
-
 
 inline SendProp* SendProp::GetArrayProp() const
 {
@@ -316,9 +258,6 @@ inline ArrayLengthSendProxyFn SendProp::GetArrayLengthProxy() const
 	return m_ArrayLengthProxy;
 }
 	 
-
-
-
 inline SendPropType SendProp::GetType() const
 {
 	return m_Type; 
@@ -336,17 +275,11 @@ inline void SendProp::SetFlags( int flags )
 	m_Flags = flags;
 }
 
-
-
-
-// -------------------------------------------------------------------------------------------------------------- //
 // SendTable.
-// -------------------------------------------------------------------------------------------------------------- //
 
 class SendTable
 {
 public:
-
 
 				SendTable();
 				SendTable( SendProp *pProps, int nProps, const char *pNetTableName );
@@ -359,9 +292,6 @@ public:
 	int			GetNumProps() const;
 	SendProp*	GetProp( int i );
 
-
-
-
 public:
 
 	SendProp	*m_pProps;
@@ -372,25 +302,21 @@ public:
 	// The engine hooks the SendTable here.
 	CSendTablePrecalc	*m_pPrecalc;
 
-
 protected:		
 	bool		m_bInitialized : 1;	
 	bool		m_bHasBeenWritten : 1;		
 	bool		m_bHasPropsEncodedAgainstCurrentTickCount : 1; // m_flSimulationTime and m_flAnimTime, e.g.
 };
 
-
 inline const char* SendTable::GetName() const
 {
 	return m_pNetTableName;
 }
 
-
 inline int SendTable::GetNumProps() const
 {
 	return m_nProps;
 }
-
 
 inline SendProp* SendTable::GetProp( int i )
 {
@@ -398,17 +324,6 @@ inline SendProp* SendTable::GetProp( int i )
 	return &m_pProps[i];
 }
 
-
-
-
-
-
-
-
-
-
-
-// ------------------------------------------------------------------------------------------------------ //
 // Use BEGIN_SEND_TABLE if you want to declare a SendTable and have it inherit all the properties from
 // its base class. There are two requirements for this to work:
 
@@ -422,7 +337,6 @@ inline SendProp* SendTable::GetProp( int i )
 //    };
 
 // If you don't want to interit a base class's properties, use BEGIN_SEND_TABLE_NOBASE.
-// ------------------------------------------------------------------------------------------------------ //
 #define BEGIN_SEND_TABLE(className, tableName) \
 	BEGIN_SEND_TABLE_NOBASE(className, tableName) \
 		SendPropDataTable("baseclass", 0, className::BaseClass::m_pClassSendTable, SendProxy_DataTableToDataTable),
@@ -445,12 +359,6 @@ inline SendProp* SendTable::GetProp( int i )
 		static SendProp g_SendProps[] = { \
 			SendPropInt("should_never_see_this", 0, sizeof(int)),		// It adds a dummy property at the start so you can define "empty" SendTables.
 
-#define END_SEND_TABLE() \
-		};\
-		sendTable.Construct(g_SendProps+1, sizeof(g_SendProps) / sizeof(SendProp) - 1, g_pSendTableName);\
-		return 1; \
-	} 
-
 // Normal offset of is invalid on non-array-types, this is dubious as hell. The rest of the codebase converted to the
 // legit offsetof from the C headers, so we'll use the old impl here to avoid exposing temptation to others
 #define _hacky_dtsend_offsetof(s,m)	( (size_t)&(((s *)0x1000000)->m) - 0x1000000u )
@@ -460,30 +368,16 @@ inline SendProp* SendTable::GetProp( int i )
 // there as a check to make sure all networked variables use the CNetworkXXXX macros in network_var.h.
 #define SENDINFO(varName)					#varName, _hacky_dtsend_offsetof(currentSendDTClass::MakeANetworkVar_##varName, varName), sizeof(((currentSendDTClass*)0)->varName)
 
-
-
-
-
 // NOTE: Be VERY careful to specify any other vector elems for the same vector IN ORDER and 
 // right after each other, otherwise it might miss the Y or Z component in SP.
-//
 // Note: this macro specifies a negative offset so the engine can detect it and setup m_pNext
-
-
-
-
 
 // Use this when you're not using a CNetworkVar to represent the data you're sending.
 
-
-
-
 #define SENDINFO_NAME(varName,remoteVarName)			#remoteVarName, _hacky_dtsend_offsetof(currentSendDTClass, varName), sizeof(((currentSendDTClass*)0)->varName)
 
-// ------------------------------------------------------------------------ //
 // Built-in proxy types.
 // See the definition of SendVarProxyFn for information about these.
-// ------------------------------------------------------------------------ //
 void SendProxy_QAngles			( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut, int iElement, int objectID );
 void SendProxy_AngleToFloat		( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut, int iElement, int objectID );
 void SendProxy_FloatToFloat		( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut, int iElement, int objectID );
@@ -503,11 +397,8 @@ void SendProxy_StringToString	( const SendProp *pProp, const void *pStruct, cons
 // pData is the address of a data table.
 void* SendProxy_DataTableToDataTable( const SendProp *pProp, const void *pStructBase, const void *pData, CSendProxyRecipients *pRecipients, int objectID );
 
-
 // Used on player entities - only sends the data to the local player (objectID-1).
 void* SendProxy_SendLocalDataTable( const SendProp *pProp, const void *pStruct, const void *pVarData, CSendProxyRecipients *pRecipients, int objectID );
-
-
 
 SendProp SendPropVector(
 	const char *pVarName,
@@ -519,7 +410,6 @@ SendProp SendPropVector(
 	float fHighValue=HIGH_DEFAULT,	// High value. If HIGH_DEFAULT, it's (1<<nBits).
 	SendVarProxyFn varProxy=SendProxy_VectorToVector
 	);
-
 
 #if 0 // We can't ship this since it changes the size of DTVariant to be 20 bytes instead of 16 and that breaks MODs!!!
 SendProp SendPropQuaternion(
@@ -534,8 +424,6 @@ SendProp SendPropQuaternion(
 	);
 #endif
 
-
-
 SendProp SendPropInt(
 	const char *pVarName,
 	int offset,
@@ -544,7 +432,6 @@ SendProp SendPropInt(
 	int flags=0,
 	SendVarProxyFn varProxy=0
 	);
-
 
 SendProp SendPropString(
 	const char *pVarName,
@@ -561,9 +448,6 @@ SendProp SendPropDataTable(
 	SendTableProxyFn varProxy=SendProxy_DataTableToDataTable
 	);
 
-
-
-
 // Use the macro to let it automatically generate a table name. You shouldn't 
 // ever need to reference the table name. If you want to exclude this array, then
 // reference the name of the variable in varTemplate.
@@ -574,11 +458,8 @@ SendProp InternalSendPropArray(
 	ArrayLengthSendProxyFn proxy
 	);
 
-
 // Use this and pass the array name and it will figure out the count and stride automatically.
 
-
-//
 // Use this when you want to send a variable-length array of data but there is no physical array you can point it at.
 // You need to provide:
 // 1. A proxy function that returns the current length of the array.
@@ -586,25 +467,5 @@ SendProp InternalSendPropArray(
 // 2. A SendProp describing what the elements are comprised of.
 // 3. In the SendProp, you'll want to specify a proxy function so you can go grab the data from wherever it is.
 // 4. A property name that matches the definition on the client.
-//
-
-
-
-#define SendPropVariableLengthArray( arrayLengthSendProxy, varTemplate, arrayName )	\
-	varTemplate,										\
-	InternalSendPropArray(								\
-		sizeof(((currentSendDTClass*)0)->arrayName) / PROPSIZEOF(currentSendDTClass, arrayName[0]), \
-		PROPSIZEOF(currentSendDTClass, arrayName[0]),	\
-		#arrayName,										\
-		arrayLengthSendProxy							\
-		)
 
 // Use this one to specify the element count and stride manually.
-
-
-
-	
-
-
-
-#endif // DATATABLE_SEND_H

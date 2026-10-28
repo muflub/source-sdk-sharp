@@ -8,7 +8,21 @@
 //========= SourceSharp — game rules ==========================================//
 // SS_REASON a  a vtable the engine calls through
 #ifdef CLIENT_DLL
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #endif
 #include "shell_gamerules.h"
 #include "shell_diagnostics.h"
@@ -431,13 +445,9 @@ CSourceSharpGameRules::CSourceSharpGameRules()
 	Assert( !g_pGameRules );
 	g_pGameRules = this;
 
-	// Also stock's, and it matters: the multi-damage accumulator is global and
-	// a level change leaves whatever the last frame put in it. The server has
-	// no accumulator since plan_server_native_v2 T6: nothing filled it, so
-	// there is nothing for a level change to leave.
-#ifdef CLIENT_DLL
-	ClearMultiDamage();
-#endif
+	// Stock cleared the multi-damage accumulator here. Neither side has one:
+	// nothing filled it (AddMultiDamage exists in neither DLL), the server's
+	// went in plan_server_native_v2 T6 and the client's with its stock headers.
 }
 
 CSourceSharpGameRules::~CSourceSharpGameRules()

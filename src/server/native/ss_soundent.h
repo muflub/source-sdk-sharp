@@ -17,11 +17,7 @@
 // last legacy caller has switched; then they, and soundent.h, leave server.so.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_SOUNDENT_H
-#define SOURCESHARP_SS_SOUNDENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 
@@ -41,5 +37,3 @@ void SoundEnt_ResetClientSound( int iIndex );
 int SoundEnt_ClientSoundIndex( edict_t *pClient );
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_SOUNDENT_H

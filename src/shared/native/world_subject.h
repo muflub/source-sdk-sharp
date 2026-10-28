@@ -88,11 +88,7 @@
 // Two spellings of "is it the world" in one DLL is how the two sides drift.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_WORLD_SUBJECT_H
-#define SOURCESHARP_WORLD_SUBJECT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 class IHandleEntity;
 
@@ -214,5 +210,3 @@ CWorld *SourceSharp_WorldFromEntityHandle( IHandleEntity *pHandleEntity );
 //-----------------------------------------------------------------------------
 CWorld *SourceSharp_WorldFromHandle( const CBaseHandle &handle );
 #endif // !CLIENT_DLL
-
-#endif // SOURCESHARP_WORLD_SUBJECT_H

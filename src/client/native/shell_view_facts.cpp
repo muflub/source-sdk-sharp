@@ -21,7 +21,31 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
+#include "imovehelper.h"
+#include "mathlib/vector.h"
+#include "tier0/basetypes.h"
+#include "tier0/platform.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "icliententity.h"
+#include "ivrenderview.h"
+#include "networkvar.h"
+#include "playernet_vars.h"
+#include "ragdoll.h"
 
 #include "view_facts.h"
 #include "view_subject.h"
@@ -33,12 +57,10 @@
 // WL_Eyes, so the value view_subject.h quotes can be checked against the enum
 // it was quoted from. A restated constant that nothing compares is a second
 // declaration nobody would notice going wrong.
-#include "imovehelper.h"
 
 COMPILE_TIME_ASSERT( ViewSubject::WATER_LEVEL_EYES == WL_Eyes );
 
 // For the bone-access gate forwarded at the foot of this file.
-#include "c_baseanimating.h"
 
 // SourceSharpFogParams, which managed code pushes the viewer's fog through,
 // and fogparams_t, which is what it is unpacked into. The second is the
@@ -54,10 +76,8 @@ COMPILE_TIME_ASSERT( ViewSubject::WATER_LEVEL_EYES == WL_Eyes );
 // its own `#ifndef SOURCESHARP`, which covers only the network table and the
 // constructor body) and then includes playernet_vars.h, so this order is the
 // one every other client TU reaching fogparams_t already gets transitively.
-#include "c_env_fog_controller.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 bool SourceSharp_HasLocalViewer()

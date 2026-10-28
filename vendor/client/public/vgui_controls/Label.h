@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef LABEL_H
-#define LABEL_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "utlvector.h"
 #include "vgui/VGUI.h"
@@ -20,10 +10,8 @@
 namespace vgui
 {
 
-//-----------------------------------------------------------------------------
 // Purpose: Contains and displays a set of images
 //			By default starts with one TextImage
-//-----------------------------------------------------------------------------
 class Label : public Panel
 {
 	DECLARE_CLASS_SIMPLE( Label, Panel );
@@ -151,11 +139,6 @@ public:
 		Content = 8,
 	};
 
-	void SetWrap( bool bWrap );
-	void SetCenterWrap( bool bWrap );
-
-	void SetAllCaps( bool bAllCaps );
-
 protected:
 	virtual void PerformLayout();
 	virtual wchar_t CalculateHotkey(const char *text);
@@ -179,8 +162,6 @@ protected:
 	virtual const char *GetDescription( void );
 
 	MESSAGE_FUNC_PARAMS( OnDialogVariablesChanged, "DialogVariables", dialogVariables );
-
-	void HandleAutoSizing( void );
 
 private:
 	void Init();
@@ -223,5 +204,3 @@ private:
 };
 
 } // namespace vgui
-
-#endif // LABEL_H

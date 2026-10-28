@@ -22,6 +22,7 @@
 //=============================================================================//
 
 #include "tier1/bitbuf.h"
+#include "tier0/platform.h"
 
 #include <cstdint>
 #include <cstring>

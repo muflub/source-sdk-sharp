@@ -20,8 +20,7 @@
 // No SDK header: this is the contract between the library, the game DLL that
 // serves its tables (SourceSharp_InternalFactory) and managed.
 //=============================================================================//
-#ifndef SS_FWD_H
-#define SS_FWD_H
+#pragma once
 
 #include <stdint.h>
 
@@ -108,5 +107,3 @@ inline void *SSFwd_Serve( const char *pszName )
 
 	return const_cast< SSForwarderTable * >( pTable );
 }
-
-#endif // SS_FWD_H

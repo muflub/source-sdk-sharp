@@ -1,41 +1,20 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef BASETYPES_H
-#define BASETYPES_H
+#pragma once
 
 #include "commonmacros.h"
 #include "wchartypes.h"
 
 #include "tier0/valve_off.h"
 
-#ifdef _WIN32
-#pragma once
-#endif
-
-
 // This is a trick to get the DLL extension off the -D option on the command line.
 #define DLLExtTokenPaste(x) #x
 #define DLLExtTokenPaste2(x) DLLExtTokenPaste(x)
 #define DLL_EXT_STRING DLLExtTokenPaste2( _DLL_EXT )
 
-
 #include "protected_things.h"
 
-// There's a different version of this file in the xbox codeline
-// so the PC version built in the xbox branch includes things like 
 // tickrate changes.
-#include "xbox_codeline_defines.h"
-
-#ifdef IN_XBOX_CODELINE
-#define XBOX_CODELINE_ONLY()
-#else
-
-#endif
 
 // stdio.h
 #ifndef NULL
@@ -44,26 +23,11 @@
 
 #include <stdint.h>
 
-#define ExecuteNTimes( nTimes, x )	\
-	{								\
-		static int __executeCount=0;\
-		if ( __executeCount < nTimes )\
-		{							\
-			x;						\
-			++__executeCount;		\
-		}							\
-	}
-
-
-
-
-
 template <typename T>
 inline T AlignValue( T val, uintptr_t alignment )
 {
 	return (T)( ( (uintptr_t)val + alignment - 1 ) & ~( alignment - 1 ) );
 }
-
 
 // Pad a number so it lies on an N byte boundary.
 // So PAD_NUMBER(0,4) is 0 and PAD_NUMBER(1,4) is 4
@@ -124,8 +88,6 @@ T Max( T const &val1, T const &val2 )
 #endif
 
 #ifndef USE_DXVK_NATIVE
-#ifndef DONT_DEFINE_BOOL // Needed for Cocoa stuff to compile.
-#endif
 typedef unsigned char BYTE;
 #else
 #include <windows.h>
@@ -149,13 +111,12 @@ typedef unsigned short ucs2;
 #include <stdint.h>
 #endif
 
-
 typedef float vec_t;
 
 #if defined(__GNUC__)
 #define fpmin __builtin_fminf
 #define fpmax __builtin_fmaxf
-#elif !defined(_X360)
+#else
 static inline float fpmin( float a, float b )
 {
 	return a > b  ? b : a;
@@ -167,17 +128,13 @@ static inline float fpmax( float a, float b )
 }
 #endif
 
-
-//-----------------------------------------------------------------------------
 // look for NANs, infinities, and underflows. 
 // This assumes the ANSI/IEEE 754-1985 standard
-//-----------------------------------------------------------------------------
 
 inline unsigned int& FloatBits( vec_t& f )
 {
 	return *reinterpret_cast<unsigned int*>(&f);
 }
-
 
 inline vec_t BitsToFloat( unsigned int i )
 {
@@ -188,7 +145,6 @@ inline bool IsFinite( vec_t f )
 {
 	return ((FloatBits(f) & 0x7F800000) != 0x7F800000);
 }
-
 
 // Given today's processors, I cannot think of any circumstance
 // where bit tricks would be faster than fabs. henryg 8/16/2011
@@ -201,20 +157,15 @@ extern "C" _Check_return_ __inline float __CRTDECL fabsf(_In_ float _X);
 #include <math.h>
 #endif
 
-
 inline float FloatMakePositive( vec_t f )
 {
 	return fabsf(f);
 }
 
-
-
 #define FLOAT32_NAN_BITS     (unsigned long)0x7FC00000	// not a number!
 #define FLOAT32_NAN          BitsToFloat( FLOAT32_NAN_BITS )
 
 #define VEC_T_NAN FLOAT32_NAN
-
-
 
 // FIXME: why are these here?  Hardly anyone actually needs them.
 struct color24
@@ -239,7 +190,6 @@ struct colorVec
 	unsigned r, g, b, a;
 };
 
-
 #ifndef NOTE_UNUSED
 #define NOTE_UNUSED(x)	(void)(x)	// for pesky compiler / lint warnings
 #endif
@@ -250,30 +200,21 @@ struct vrect_t
 	vrect_t			*pnext;
 };
 
-
-//-----------------------------------------------------------------------------
 // MaterialRect_t struct - used for DrawDebugText
-//-----------------------------------------------------------------------------
 struct Rect_t
 {
     int x, y;
 	int width, height;
 };
 
-
-//-----------------------------------------------------------------------------
 // Interval, used by soundemittersystem + the game
-//-----------------------------------------------------------------------------
 struct interval_t
 {
 	float start;
 	float range;
 };
 
-
-//-----------------------------------------------------------------------------
 // Declares a type-safe handle type; you can't assign one handle to the next
-//-----------------------------------------------------------------------------
 
 // 32-bit pointer handles.
 
@@ -283,9 +224,6 @@ class CBaseIntHandle
 {
 public:
 	
-	inline bool			operator==( const CBaseIntHandle &other )	{ return m_Handle == other.m_Handle; }
-	inline bool			operator!=( const CBaseIntHandle &other )	{ return m_Handle != other.m_Handle; }
-
 	// Only the code that doles out these handles should use these functions.
 	// Everyone else should treat them as a transparent type.
 	inline HandleType	GetHandleValue()					{ return m_Handle; }
@@ -316,7 +254,6 @@ protected:
 	}
 };
 
-
 template< class DummyType >
 class CIntHandle32 : public CBaseIntHandle< unsigned long >
 {
@@ -335,10 +272,7 @@ protected:
 	}
 };
 
-
 // NOTE: This macro is the same as windows uses; so don't change the guts of it
-
-
 
 #define DECLARE_POINTER_HANDLE(name) struct name##__ { int unused; }; typedef struct name##__ *name
 #define FORWARD_DECLARE_HANDLE(name) typedef struct name##__ *name
@@ -375,7 +309,4 @@ protected:
 
 // defines increment/decrement operators for enums for easy iteration
 
-
 #include "tier0/valve_on.h"
-
-#endif // BASETYPES_H

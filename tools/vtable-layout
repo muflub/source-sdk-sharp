@@ -393,15 +393,6 @@ INTERFACES = [
              'on the boundary.',
     ),
     dict(
-        struct='GameUIFuncsVtbl',
-        header='src/public/IGameUIFuncs.h',
-        chain=['IGameUIFuncs'],
-        version='VENGINE_GAMEUIFUNCS_VERSION005',
-        summary='<c>IGameUIFuncs</c>, three call sites.',
-        note='The version string is spelled by concatenation in the header, which '
-             'is why it does not read like the others.',
-    ),
-    dict(
         struct='DataCacheVtbl',
         header='src/public/datacache/idatacache.h',
         chain=['IAppSystem', 'IDataCache'],
@@ -413,16 +404,6 @@ INTERFACES = [
              'there are NONE. The layout exists because it costs nothing and '
              'because a later lane that finds a caller should not have to derive '
              'it -- but nothing may call it until something does.',
-    ),
-    dict(
-        struct='SceneFileCacheVtbl',
-        header='src/public/scenefilecache/ISceneFileCache.h',
-        chain=['IAppSystem', 'ISceneFileCache'],
-        chain_headers={'IAppSystem': APP},
-        version='SceneFileCache002',
-        summary='<c>ISceneFileCache</c>, the other one with ZERO call sites.',
-        note='The plan counted six. See IDataCache above for why the layout is '
-             'here anyway and why nothing is exposed.',
     ),
     dict(
         struct='CvarVtbl',
@@ -459,14 +440,6 @@ INTERFACES = [
         version='VPhysicsSurfaceProps001',
         summary='<c>IPhysicsSurfaceProps</c>, the surface property table.',
         note='PINNED, as <c>IPhysics</c> above.',
-    ),
-    dict(
-        struct='VoiceServerVtbl',
-        header='src/public/ivoiceserver.h',
-        chain=['IVoiceServer'],
-        version='VoiceServer002',
-        summary='<c>IVoiceServer</c>, who can hear whom.',
-        note='Server only.',
     ),
     # ServerPluginHelpersVtbl went with the plugin ABI (plan_server_native_min
     # P1, Decision 1): third-party plugins are dropped and nothing acquired the
@@ -617,9 +590,9 @@ INTERFACES = [
         # Nothing that sets, wakes, sleeps, rechecks (RecheckCollisionFilter
         # asks managed's ShouldCollide) or creates is here, and
         # VPhysicsSuppressionTests holds this list to that rule.
-        suppress=['IsStatic', 'IsAsleep', 'IsTrigger', 'IsMotionEnabled', 'IsMoveable',
+        suppress=['IsStatic', 'IsAsleep', 'IsTrigger', 'IsMoveable',
                   'GetGameData', 'GetGameFlags', 'GetCallbackFlags', 'GetContents',
-                  'GetMass', 'GetInvMass', 'GetInertia', 'GetShadowController', 'GetCollide',
+                  'GetMass', 'GetInertia', 'GetShadowController', 'GetCollide',
                   'GetPosition', 'GetPositionMatrix', 'GetVelocity', 'GetVelocityAtPoint',
                   'LocalToWorld', 'WorldToLocal', 'LocalToWorldVector', 'WorldToLocalVector',
                   'CalculateLinearDrag', 'CalculateAngularDrag'],
@@ -1586,13 +1559,26 @@ def load_policy():
             if not cls.startswith('_')}
 
 
+VENDOR = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'vendor')
+# The self-test's fixtures are the Valve headers as written, the farm's: in
+# vendor/ a method nothing uses is a stub (tools/vendor-strip --stub).
+READ_VENDOR = [True]
+
+
 def read(relative):
-    """A file's text, or None."""
-    try:
-        with open(os.path.join(ROOT, relative)) as handle:
-            return handle.read()
-    except OSError:
-        return None
+    """A file's text, or None. A Valve header (src/...) is read from vendor/,
+    which the modules build from, before the farm."""
+    candidates = [os.path.join(ROOT, relative)]
+    if relative.startswith('src/') and READ_VENDOR[0]:
+        candidates[:0] = [os.path.join(VENDOR, side, relative[len('src/'):])
+                          for side in ('shared', 'client', 'server')]
+    for path in candidates:
+        try:
+            with open(path) as handle:
+                return handle.read()
+        except OSError:
+            continue
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -1750,6 +1736,7 @@ def check(out=sys.stdout):
 # THE SELF-TEST. A walk with no arm that bites is decoration.
 # ---------------------------------------------------------------------------
 def self_test(out=sys.stdout):
+    READ_VENDOR[0] = False
     arms = []
 
     def expect(name, condition):

@@ -26,8 +26,6 @@
 // IT DECIDES NOTHING. Its `if`s are the bounds of a record, the null guards
 // and the switch over the kind.
 //=============================================================================//
-#ifndef FWD_SHADOWS_H
-#define FWD_SHADOWS_H
 #pragma once
 
 #include <stdint.h>
@@ -195,5 +193,3 @@ enum SSShadowOp_t
 // no environment or no records. A record whose payload runs past nWords, or
 // is shorter than its kind reads, ends the run there.
 int32_t SSFwd_Shadows_Run( const SSShadowEnv *pEnv, const int32_t *pOps, int32_t nWords, int32_t *pAnswers, int32_t nAnswerWords );
-
-#endif // FWD_SHADOWS_H

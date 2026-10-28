@@ -33,13 +33,11 @@
 // changes.
 //
 //=============================================================================//
-#ifndef IGAMEENTITY_H
-#define IGAMEENTITY_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
+#include "igameentity_fwd.h"
+#include "ihandleentity.h"
 
 class IPhysicsObject;
 
@@ -63,8 +61,13 @@ struct Toucher_t;
 // vendor/); the patched headers forward-declare `class IGameEntity`, which an
 // alias of the same name could not sit beside.
 //-----------------------------------------------------------------------------
-#if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )
-abstract_class CBaseEntity
+#if defined( SS_GAME_ENTITY ) && defined( CLIENT_DLL )
+// Stock's C_BaseEntity is an IHandleEntity (through IClientEntity), and the
+// stock headers convert one to the other (CNetworkHandle< C_FogController >).
+// No client object implements this class, so the base costs nothing.
+abstract_class SS_GAME_ENTITY : public IHandleEntity
+#elif defined( SS_GAME_ENTITY )
+abstract_class SS_GAME_ENTITY
 #else
 abstract_class IGameEntity
 #endif
@@ -311,15 +314,9 @@ public:
 	virtual void VPhysicsUpdate( IPhysicsObject *pObject ) = 0;
 
 protected:
-#if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )
-	virtual ~CBaseEntity() {}
+#ifdef SS_GAME_ENTITY
+	virtual ~SS_GAME_ENTITY() {}
 #else
 	virtual ~IGameEntity() {}
 #endif
 };
-
-#if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )
-using IGameEntity = CBaseEntity;
-#endif
-
-#endif // IGAMEENTITY_H

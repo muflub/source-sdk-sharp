@@ -66,11 +66,7 @@
 // and nothing else can be one.
 //
 //=============================================================================//
-#ifndef TOUCHER_H
-#define TOUCHER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basehandle.h"
 #include "ihandleentity.h"
@@ -153,5 +149,3 @@ inline Toucher_t ToucherFromHandle( const CBaseHandle &handle )
 	// shim holds handles and resolves on use; nothing here needs the LIST.
 	return ToucherFromEntityHandle( handle.Get() );
 }
-
-#endif // TOUCHER_H

@@ -24,18 +24,17 @@
 // and lightmap coordinates at each vertex.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_SURFACE_RENDER_H
-#define SOURCESHARP_SHELL_SURFACE_RENDER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
-#include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/imesh.h"
 #include "materialsystem/itexture.h"
 #include "ivrenderview.h"
-#include "utlvector.h"
+#include "tier1/utlvector.h"
+#include "materialsystem/MaterialSystemUtil.h"
+#include "tier0/platform.h"
+#include "collisionproperty.h"
+#include "icliententitylist.h"
 
 class CMeshBuilder;
 
@@ -150,5 +149,3 @@ private:
 	bool m_bMaterialsReady;
 	bool m_bDrawReported;
 };
-
-#endif // SOURCESHARP_SHELL_SURFACE_RENDER_H

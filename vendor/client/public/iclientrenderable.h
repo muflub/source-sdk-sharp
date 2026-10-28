@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef ICLIENTRENDERABLE_H
-#define ICLIENTRENDERABLE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/mathlib.h"
 #include "interface.h"
@@ -22,9 +13,7 @@ struct matrix3x4_t;
 
 extern void DefaultRenderBoundsWorldspace( IClientRenderable *pRenderable, Vector &absMins, Vector &absMaxs );
 
-//-----------------------------------------------------------------------------
 // Handles to a client shadow
-//-----------------------------------------------------------------------------
 typedef unsigned short ClientShadowHandle_t;
 
 enum
@@ -32,9 +21,7 @@ enum
 	CLIENTSHADOW_INVALID_HANDLE = (ClientShadowHandle_t)~0
 };
 
-//-----------------------------------------------------------------------------
 // What kind of shadows to render?
-//-----------------------------------------------------------------------------
 enum ShadowType_t
 {
 	SHADOWS_NONE = 0,
@@ -44,25 +31,19 @@ enum ShadowType_t
 	SHADOWS_RENDER_TO_DEPTH_TEXTURE,
 };
 
-
 // This provides a way for entities to know when they've entered or left the PVS.
 // Normally, server entities can use NotifyShouldTransmit to get this info, but client-only
 // entities can use this. Store a CPVSNotifyInfo in your 
-//
 // When bInPVS=true, it's being called DURING rendering. It might be after rendering any
 // number of views.
-//
 // If no views had the entity, then it is called with bInPVS=false after rendering.
 abstract_class IPVSNotify
 {
 public:
-	virtual void OnPVSStatusChanged( bool bInPVS ) = 0;
+	virtual void unused_OnPVSStatusChanged() = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: All client entities must implement this interface.
-//-----------------------------------------------------------------------------
 abstract_class IClientRenderable
 {
 public:
@@ -172,7 +153,6 @@ public:
 	virtual bool	IgnoresZBuffer( void ) const = 0;
 };
 
-
 // This class can be used to implement default versions of some of the 
 // functions of IClientRenderable.
 abstract_class CDefaultClientRenderable : public IClientUnknown, public IClientRenderable
@@ -273,10 +253,6 @@ public:
 	virtual C_BaseEntity*		GetBaseEntity()			{ return 0; }
 	virtual IClientThinkable*	GetClientThinkable()	{ return 0; }
 
-
 public:
 	ClientRenderHandle_t m_hRenderHandle;
 };
-
-
-#endif // ICLIENTRENDERABLE_H

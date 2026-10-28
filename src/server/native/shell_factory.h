@@ -14,11 +14,7 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_FACTORY_H
-#define SHELL_FACTORY_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // One interface this DLL answers: the version name the engine (or a plugin)
 // asks for, and the object that answers it.
@@ -40,5 +36,3 @@ extern const SourceSharpExposed kExposeServerDllSharedAppSystems;
 // the tests, which must see what the factory sees.
 int SourceSharp_ExposedCount();
 const SourceSharpExposed &SourceSharp_ExposedAt( int nIndex );
-
-#endif // SHELL_FACTORY_H

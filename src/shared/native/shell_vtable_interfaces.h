@@ -14,11 +14,7 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_VTABLE_INTERFACES_H
-#define SHELL_VTABLE_INTERFACES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "sourcesharp.h"
 
@@ -53,5 +49,3 @@ const char *SourceSharp_AcquireReason( SourceSharpAcquireReason eReason );
 //-----------------------------------------------------------------------------
 void SourceSharp_SayAcquireReason( char *pOut, int32_t nBytes,
                                    SourceSharpAcquireReason eReason );
-
-#endif // SHELL_VTABLE_INTERFACES_H

@@ -1,38 +1,21 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Real-Time Hierarchical Telemetry Profiling
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef VPROF_TELEMETRY_H
-#define VPROF_TELEMETRY_H
-
-#if !defined( MAKE_VPC )
-
-
-#endif // !MAKE_VPC
-
+#pragma once
 
 #if !defined( RAD_TELEMETRY_ENABLED )
 
-//
 // Kill all tmZone() macros, etc.
-//
 #include "tmapi_dummy.h"
 
 #define TelemetrySetLockName( _ctx, _location, _description ) 
-
-
 
 #define TM_ZONE_DEFAULT( context ) 
 #define TM_ZONE_DEFAULT_PARAM( context, string_param ) 
 
 #else
 
-//
 // Telemetry is enabled. Include the telemetry header.
-//
 #include "../../thirdparty/telemetry/include/telemetry.h"
 // Different versions of radbase.h define RADCOPYRIGHT to different values. So undef that here.
 #undef RADCOPYRIGHT
@@ -130,5 +113,3 @@ private:
 };
 
 #endif // RAD_TELEMETRY_ENABLED
-
-#endif // VPROF_TELEMETRY_H

@@ -7,11 +7,7 @@
 // testable against a fake engine harness with no Source dependency.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_H
-#define SOURCESHARP_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 
@@ -2903,5 +2899,3 @@ SOURCESHARP_EXPORT const char *SourceSharp_LastError( void );
 #ifdef __cplusplus
 }
 #endif
-
-#endif // SOURCESHARP_H

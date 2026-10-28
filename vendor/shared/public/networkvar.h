@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef NETWORKVAR_H
-#define NETWORKVAR_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "tier0/dbg.h"
 #include "convar.h"
@@ -17,7 +8,6 @@
 #if defined( CLIENT_DLL ) || defined( GAME_DLL )
 	#include "basehandle.h"
 #endif
-
 
 #pragma warning( disable : 4284 ) // warning C4284: return type for 'CNetworkVarT<int>::operator ->' is 'int *' (ie; not a UDT or reference to a UDT.  Will produce errors if applied using infix notation)
 
@@ -29,8 +19,6 @@
 #else
 	#define CHECK_USENETWORKVARS // don't check for g_bUseNetworkVars
 #endif
-
-
 
 inline int InternalCheckDeclareClass( const char *pClassName, const char *pClassNameMatch, void *pTestPtr, void *pBasePtr )
 {
@@ -44,7 +32,6 @@ inline int InternalCheckDeclareClass( const char *pClassName, const char *pClass
 	Assert( (void*)pClassName == (void*)pClassNameMatch );
 	return 0;
 }
-
 
 template <typename T> 
 inline int CheckDeclareClass_Access( T *, const char *pShouldBe )
@@ -85,7 +72,6 @@ inline int CheckDeclareClass_Access( T *, const char *pShouldBe )
 
 	// Deprecated macro formerly used to work around VC++98 bug
 
-
 	#define DECLARE_CLASS_NOBASE( className ) \
 		typedef className ThisClass; \
 		template <typename T> friend int CheckDeclareClass_Access(T *, const char *pShouldBe); \
@@ -101,12 +87,8 @@ inline int CheckDeclareClass_Access( T *, const char *pShouldBe )
 
 	#define DECLARE_CLASS_GAMEROOT( className, baseClassName )	DECLARE_CLASS( className, baseClassName )
 
-
 	#define DECLARE_CLASS_NOBASE( className )					typedef className ThisClass;
 #endif
-
-
-
 
 // All classes that contain CNetworkVars need a NetworkStateChanged() function. If the class is not an entity,
 // it needs to forward the call to the entity it's in. These macros can help.
@@ -134,8 +116,6 @@ inline int CheckDeclareClass_Access( T *, const char *pShouldBe )
 	#define IMPLEMENT_NETWORKVAR_CHAIN( varName ) \
 		(varName)->__m_pChainEntity.m_pEnt = this;
 
-
-
 // Use this macro when you want to embed a structure inside your entity and have CNetworkVars in it.
 template< class T >
 static inline void DispatchNetworkStateChanged( T *pObj )
@@ -147,7 +127,6 @@ static inline void DispatchNetworkStateChanged( T *pObj, void *pVar )
 {
 	CHECK_USENETWORKVARS pObj->NetworkStateChanged( pVar );
 }
-
 
 #define DECLARE_EMBEDDED_NETWORKVAR() \
 	template <typename T> friend int ServerClassInit(T *);	\
@@ -229,12 +208,6 @@ public:
 		return Set( ( const Type )val ); 
 	}
 	
-	template< class C >
-	const Type& operator=( const CNetworkVarBase< C, Changer > &val ) 
-	{ 
-		return Set( ( const Type )val.m_Value ); 
-	}
-
 	FORCEINLINE const Type& SetDirect( const Type &val )
 	{
 		NetworkStateChanged();
@@ -258,75 +231,6 @@ public:
 		return m_Value;
 	}
 
-	template< class C >
-	const Type& operator+=( const C &val ) 
-	{
-		return Set( m_Value + ( const Type )val ); 
-	}
-
-	template< class C >
-	const Type& operator-=( const C &val ) 
-	{
-		return Set( m_Value - ( const Type )val ); 
-	}
-	
-	template< class C >
-	const Type& operator/=( const C &val ) 
-	{
-		return Set( m_Value / ( const Type )val ); 
-	}
-	
-	template< class C >
-	const Type& operator*=( const C &val ) 
-	{
-		return Set( m_Value * ( const Type )val ); 
-	}
-	
-	template< class C >
-	const Type& operator^=( const C &val ) 
-	{
-		return Set( m_Value ^ ( const Type )val ); 
-	}
-
-	template< class C >
-	const Type& operator|=( const C &val ) 
-	{
-		return Set( m_Value | ( const Type )val ); 
-	}
-
-	const Type& operator++()
-	{
-		return (*this += 1);
-	}
-
-	Type operator--()
-	{
-		return (*this -= 1);
-	}
-	
-	Type operator++( int ) // postfix version..
-	{
-		Type val = m_Value;
-		(*this += 1);
-		return val;
-	}
-
-	Type operator--( int ) // postfix version..
-	{
-		Type val = m_Value;
-		(*this -= 1);
-		return val;
-	}
-	
-	// For some reason the compiler only generates type conversion warnings for this operator when used like 
-	// CNetworkVarBase<unsigned char> = 0x1
-	// (it warns about converting from an int to an unsigned char).
-	template< class C >
-	const Type& operator&=( const C &val ) 
-	{	
-		return Set( m_Value & ( const Type )val ); 
-	}
-
 	operator const Type&() const 
 	{
 		return m_Value; 
@@ -337,11 +241,6 @@ public:
 		return m_Value; 
 	}
 	
-	const Type* operator->() const 
-	{
-		return &m_Value; 
-	}
-
 	Type m_Value;
 
 protected:
@@ -350,7 +249,6 @@ protected:
 		Changer::NetworkStateChanged( this );
 	}
 };
-
 
 template< class Type, class Changer >
 class CNetworkColor32Base : public CNetworkVarBase< Type, Changer >
@@ -400,7 +298,6 @@ protected:
 	}
 };
 
-
 // Network vector wrapper.
 template< class Type, class Changer >
 class CNetworkVectorBase : public CNetworkVarBase< Type, Changer >
@@ -426,52 +323,11 @@ public:
 	inline float GetX() const { return CNetworkVectorBase<Type,Changer>::m_Value.x; }
 	inline float GetY() const { return CNetworkVectorBase<Type,Changer>::m_Value.y; }
 	inline float GetZ() const { return CNetworkVectorBase<Type,Changer>::m_Value.z; }
-	inline float operator[]( int i ) const { return CNetworkVectorBase<Type,Changer>::m_Value[i]; }
 
 	inline void SetX( float val ) { DetectChange( CNetworkVectorBase<Type,Changer>::m_Value.x, val ); }
 	inline void SetY( float val ) { DetectChange( CNetworkVectorBase<Type,Changer>::m_Value.y, val ); }
 	inline void SetZ( float val ) { DetectChange( CNetworkVectorBase<Type,Changer>::m_Value.z, val ); }
 	inline void Set( int i, float val ) { DetectChange( CNetworkVectorBase<Type,Changer>::m_Value[i], val ); }
-
-	bool operator==( const Type &val ) const 
-	{ 
-		return !NetworkParanoidUnequal( this->m_Value, ( Type )val );
-	}
-
-	bool operator!=( const Type &val ) const 
-	{
-		return NetworkParanoidUnequal( this->m_Value, val );
-	}
-
-	const Type operator+( const Type &val ) const 
-	{
-		return CNetworkVectorBase<Type,Changer>::m_Value + val; 
-	}
-
-	const Type operator-( const Type &val ) const
-	{ 
-		return CNetworkVectorBase<Type,Changer>::m_Value - val; 
-	}
-
-	const Type operator*( const Type &val ) const
-	{
-		return CNetworkVectorBase<Type,Changer>::m_Value * val; 
-	}
-
-	const Type& operator*=( float val )
-	{
-		return CNetworkVarBase< Type, Changer >::Set( CNetworkVectorBase<Type,Changer>::m_Value * val );
-	}
-
-	const Type operator*( float val ) const
-	{
-		return CNetworkVectorBase<Type,Changer>::m_Value * val; 
-	}
-
-	const Type operator/( const Type &val ) const
-	{
-		return CNetworkVectorBase<Type,Changer>::m_Value / val; 
-	}
 
 private:
 	inline void DetectChange( float &out, float in ) 
@@ -483,7 +339,6 @@ private:
 		}
 	}
 };
-
 
 // Network vector wrapper.
 template< class Type, class Changer >
@@ -498,67 +353,16 @@ public:
 		SetW( iw );
 	}
 	
-	const Type& operator=( const Type &val ) 
-	{ 
-		return CNetworkVarBase< Type, Changer >::Set( val ); 
-	}
-
-	const Type& operator=( const CNetworkQuaternionBase<Type,Changer> &val ) 
-	{ 
-		return CNetworkVarBase<Type,Changer>::Set( val.m_Value );
-	}
-
 	inline float GetX() const { return CNetworkQuaternionBase<Type,Changer>::m_Value.x; }
 	inline float GetY() const { return CNetworkQuaternionBase<Type,Changer>::m_Value.y; }
 	inline float GetZ() const { return CNetworkQuaternionBase<Type,Changer>::m_Value.z; }
 	inline float GetW() const { return CNetworkQuaternionBase<Type,Changer>::m_Value.w; }
-	inline float operator[]( int i ) const { return CNetworkQuaternionBase<Type,Changer>::m_Value[i]; }
 
 	inline void SetX( float val ) { DetectChange( CNetworkQuaternionBase<Type,Changer>::m_Value.x, val ); }
 	inline void SetY( float val ) { DetectChange( CNetworkQuaternionBase<Type,Changer>::m_Value.y, val ); }
 	inline void SetZ( float val ) { DetectChange( CNetworkQuaternionBase<Type,Changer>::m_Value.z, val ); }
 	inline void SetW( float val ) { DetectChange( CNetworkQuaternionBase<Type,Changer>::m_Value.w, val ); }
 	inline void Set( int i, float val ) { DetectChange( CNetworkQuaternionBase<Type,Changer>::m_Value[i], val ); }
-
-	bool operator==( const Type &val ) const 
-	{ 
-		return CNetworkQuaternionBase<Type,Changer>::m_Value == (Type)val; 
-	}
-
-	bool operator!=( const Type &val ) const 
-	{
-		return CNetworkQuaternionBase<Type,Changer>::m_Value != (Type)val; 
-	}
-
-	const Type operator+( const Type &val ) const 
-	{
-		return CNetworkQuaternionBase<Type,Changer>::m_Value + val; 
-	}
-
-	const Type operator-( const Type &val ) const
-	{ 
-		return CNetworkQuaternionBase<Type,Changer>::m_Value - val; 
-	}
-
-	const Type operator*( const Type &val ) const
-	{
-		return CNetworkQuaternionBase<Type,Changer>::m_Value * val; 
-	}
-
-	const Type& operator*=( float val )
-	{
-		return CNetworkQuaternionBase< Type, Changer >::Set( CNetworkQuaternionBase<Type,Changer>::m_Value * val );
-	}
-
-	const Type operator*( float val ) const
-	{
-		return CNetworkQuaternionBase<Type,Changer>::m_Value * val; 
-	}
-
-	const Type operator/( const Type &val ) const
-	{
-		return CNetworkQuaternionBase<Type,Changer>::m_Value / val; 
-	}
 
 private:
 	inline void DetectChange( float &out, float in ) 
@@ -571,7 +375,6 @@ private:
 	}
 };
 
-
 // Network ehandle wrapper.
 #if defined( CLIENT_DLL ) || defined( GAME_DLL )
 	inline void NetworkVarConstruct( CBaseHandle &x ) {}
@@ -580,22 +383,7 @@ private:
 	class CNetworkHandleBase : public CNetworkVarBase< CBaseHandle, Changer >
 	{
 	public:
-		const Type* operator=( const Type *val ) 
-		{ 
-			return Set( val ); 
-		}
 			
-		const Type& operator=( const CNetworkHandleBase<Type,Changer> &val ) 
-		{ 
-			const CBaseHandle &handle = CNetworkVarBase<CBaseHandle,Changer>::Set( val.m_Value );
-			return *(const Type*)handle.Get();
-		}
-
-		bool operator !() const 
-		{ 
-			return !CNetworkHandleBase<Type,Changer>::m_Value.Get(); 
-		}
-		
 		operator Type*() const 
 		{ 
 			return static_cast< Type* >( CNetworkHandleBase<Type,Changer>::m_Value.Get() );
@@ -616,23 +404,7 @@ private:
 			return static_cast< Type* >( CNetworkHandleBase<Type,Changer>::m_Value.Get() );
 		}
 
-		Type* operator->() const 
-		{ 
-			return static_cast< Type* >( CNetworkHandleBase<Type,Changer>::m_Value.Get() );
-		}
-
-		bool operator==( const Type *val ) const 
-		{
-			return CNetworkHandleBase<Type,Changer>::m_Value == val; 
-		}
-
-		bool operator!=( const Type *val ) const 
-		{
-			return CNetworkHandleBase<Type,Changer>::m_Value != val;
-		}
 	};
-
-
 
 	#define CNetworkHandle( type, name ) CNetworkHandleInternal( type, name, NetworkStateChanged )
 
@@ -641,40 +413,23 @@ private:
 		NETWORK_VAR_END( type, name, CNetworkHandleBase, stateChangedFn )
 #endif
 
-
 // Use this macro to define a network variable.
 #define CNetworkVar( type, name ) \
 	NETWORK_VAR_START( type, name ) \
 	NETWORK_VAR_END( type, name, CNetworkVarBase, NetworkStateChanged )
 
-
 // Use this macro when you have a base class with a variable, and it doesn't have that variable in a SendTable,
 // but a derived class does. Then, the entity is only flagged as changed when the variable is changed in
 // an entity that wants to transmit the variable.
-
-
-
-		
-
-		
-
-
-	#define IMPLEMENT_NETWORK_VAR_FOR_DERIVED( name ) \
-		virtual void NetworkStateChanged_##name() { CHECK_USENETWORKVARS NetworkStateChanged(); } \
-		virtual void NetworkStateChanged_##name( void *pVar ) { CHECK_USENETWORKVARS NetworkStateChanged( pVar ); }
-
 
 // This virtualizes the change detection on the variable, but it is ON by default.
 // Use this when you have a base class in which MOST of its derived classes use this variable
 // in their SendTables, but there are a couple that don't (and they
 // can use DISABLE_NETWORK_VAR_FOR_DERIVED).
 
-
 	#define DISABLE_NETWORK_VAR_FOR_DERIVED( name ) \
 		virtual void NetworkStateChanged_##name() {} \
 		virtual void NetworkStateChanged_##name( void *pVar ) {}
-
-
 
 // Vectors + some convenient helper functions.
 #define CNetworkVector( name ) CNetworkVectorInternal( Vector, name, NetworkStateChanged )
@@ -684,13 +439,10 @@ private:
 	NETWORK_VAR_START( type, name ) \
 	NETWORK_VAR_END( type, name, CNetworkVectorBase, stateChangedFn )
 
-
-
 // Helper for color32's. Contains GetR(), SetR(), etc.. functions.
 #define CNetworkColor32( name ) \
 	NETWORK_VAR_START( color32, name ) \
 	NETWORK_VAR_END( color32, name, CNetworkColor32Base, NetworkStateChanged )
-
 
 #define CNetworkString( name, length ) \
 	class NetworkVar_##name; \
@@ -716,9 +468,6 @@ private:
 		char m_Value[length]; \
 	}; \
 	NetworkVar_##name name;
-
-
-
 
 // Use this to define networked arrays.
 // You can access elements for reading with operator[], and you can set elements with the Set() function.
@@ -773,9 +522,7 @@ private:
 	}; \
 	NetworkVar_##name name;
 
-
 #define CNetworkArray( type, name, count )  CNetworkArrayInternal( type, name, count, NetworkStateChanged )
-
 
 // Internal macros used in definitions of network vars.
 #define NETWORK_VAR_START( type, name ) \
@@ -787,7 +534,6 @@ private:
 	public: \
 		template <typename T> friend int ServerClassInit(T *);
 
-
 #define NETWORK_VAR_END( type, name, base, stateChangedFn ) \
 	public: \
 		static inline void NetworkStateChanged( void *ptr ) \
@@ -796,7 +542,3 @@ private:
 		} \
 	}; \
 	base< type, NetworkVar_##name > name;
-
-
-
-#endif // NETWORKVAR_H

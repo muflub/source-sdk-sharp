@@ -14,7 +14,6 @@ uint32_t RawFromEntity(	SLOT-HELP	an IClientEntity's handle as the raw value man
 [CBeamRenderable] int GetFxBlend	SLOT	IClientRenderable, read by the leaf system
 [CBeamRenderable] int DrawModel	SLOT	IClientRenderable: the engine's draw, forwarded to IManagedBeamsClient::BeamsDraw
 CBeamRenderable *RenderableAt(	SLOT-HELP	the pool's index lookup for the renderable slots
-void ForwardBeamInfo(	SLOT-HELP	packs a BeamInfo_t (fx.cpp's creators) into IManagedBeamsClient::BeamsCreate's payload
 [CSourceSharpBeams] void InitBeams	SLOT	IViewRenderBeams, called by view.cpp; forwarded with -particles to the managed system
 [CSourceSharpBeams] void ShutdownBeams	SLOT	IViewRenderBeams, called by view.cpp; forwarded
 [CSourceSharpBeams] void ClearBeams	SLOT	IViewRenderBeams, called by view.cpp and the level shutdown; forwarded
@@ -56,3 +55,5 @@ void SourceSharp_BeamSetHdrColorScale(	BOUNDARY	IShimEffectsRenderClient::BeamSe
 int32_t SourceSharp_BeamGlow(	BOUNDARY	IShimEffectsRenderClient::BeamGlow: a halo sprite's glow material, asked or bound
 void SourceSharp_BeamDrawStrip(	BOUNDARY	IShimEffectsRenderClient::BeamDrawStrip: tier2 CBeamSegDraw over a managed BeamSeg_t strip
 void SourceSharp_BeamDrawMesh(	BOUNDARY	IShimEffectsRenderClient::BeamDrawMesh: one dynamic mesh from managed vertices, in the colour form the builder chose
+[CSourceSharpBeams] void DrawBeam( C_Beam *, ITraceFilter * ) override	SLOT	IViewRenderBeams slot; nothing in this build draws a C_Beam
+void SourceSharp_KillDeadBeams( const CBaseHandle &hDeadEntity )	LIVE-API	C_StandaloneEntity's teardown calls it (shell_standalone_client.cpp)

@@ -33,11 +33,7 @@
 // SourceSharp.Shared.BulletGlass.)
 //
 //=============================================================================//
-#ifndef SOURCESHARP_STANDALONE_NAMES_H
-#define SOURCESHARP_STANDALONE_NAMES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // Whether a classname matches a query, with the SDK's own wildcard rule.
@@ -86,5 +82,3 @@ inline bool StandaloneNameMatches( const char *pQuery, const char *pName )
 
 	return *pQuery == '*';
 }
-
-#endif // SOURCESHARP_STANDALONE_NAMES_H

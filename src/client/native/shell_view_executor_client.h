@@ -5,11 +5,7 @@
 // frame is recorded; shell_view_executor_client.cpp carries that out.
 //
 //=============================================================================//
-#ifndef SHELL_VIEW_EXECUTOR_CLIENT_H
-#define SHELL_VIEW_EXECUTOR_CLIENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 struct vrect_t;
 class CViewSetup;
@@ -47,8 +43,10 @@ void SourceSharp_FreezeFrame( float flFreezeTime );
 // main view SetUpViews made (and the last frame's), and the view being drawn
 // now -- as CShellViewRender's. The stock names (MainViewOrigin,
 // CurrentViewForward, SetupCurrentView, ...) answer from it.
-#include "mathlib/vector.h"
-#include "mathlib/vmatrix.h"
+#include "materialsystem/imaterialvar.h"
+#include "bsptreedata.h"
+#include "cdll_int.h"
+#include "collisionproperty.h"
 struct ShellCamera_t
 {
 	Vector origin;
@@ -91,5 +89,3 @@ bool SourceSharp_SetUpView( float &flZFar, float &flZFarViewmodel, float &flZNea
 bool SourceSharp_AskViewPlanes( float &flZNear, float &flZFar );
 
 bool SourceSharp_FrameViewDecision( CViewSetup &eye, int &nClearFlags, int &nDrawFlags, int *pRandomClear, bool &bOverview );
-
-#endif // SHELL_VIEW_EXECUTOR_CLIENT_H

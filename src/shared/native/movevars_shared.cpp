@@ -97,7 +97,7 @@ float GetCurrentGravity( void );
 // not a tidy-up, and the value is measured rather than assumed:
 //
 //     grep -oE '\-D[A-Za-z0-9_]+' src/_vpc_/ninja/sdk_csharp_debug.ninja
-//         | sort -u | grep -E 'HL2|TF_|DOD|CSTRIKE|HL1MP|_XBOX'   ->  no match
+//         | sort -u | grep -E 'HL2|TF_|DOD|CSTRIKE|HL1MP'   ->  no match
 //
 // Neither define is on either link line, so "800" is what both DLLs have always
 // compiled. See the banner for what this convar's value then does at runtime,
@@ -137,9 +137,7 @@ ConVar	sv_specnoclip	( "sv_specnoclip", "1", FCVAR_ARCHIVE | FCVAR_NOTIFY | FCVA
 
 ConVar	sv_maxspeed		( "sv_maxspeed", "320", FCVAR_NOTIFY | FCVAR_REPLICATED);
 
-// stock's `#ifdef _XBOX` arm declared sv_accelerate at "7". There is no _XBOX
-// build here and there has not been one for a decade; the #else arm is what
-// both DLLs compile, and a shim TU may not carry a guard this build never takes.
+// Stock's PC value; a shim TU carries no guard this build never takes.
 ConVar	sv_accelerate	( "sv_accelerate", "10", FCVAR_NOTIFY | FCVAR_REPLICATED);
 
 ConVar	sv_airaccelerate(  "sv_airaccelerate", "10", FCVAR_NOTIFY | FCVAR_REPLICATED );    

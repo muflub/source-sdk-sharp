@@ -18,11 +18,7 @@
 // TU may include both.
 //=============================================================================//
 
-#ifndef SS_MAPENTITIES_H
-#define SS_MAPENTITIES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 
@@ -42,5 +38,3 @@ bool MapEntity_SpawnWorld( const char *const *ppKeys, const char *const *ppValue
 // class answers pClassName.
 IGameEntity *MapEntity_CreateFromKeys( const char *pClassName, const char *const *ppKeys,
                                        const char *const *ppValues, int nKeys );
-
-#endif // SS_MAPENTITIES_H

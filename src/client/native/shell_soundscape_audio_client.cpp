@@ -29,20 +29,36 @@
 //     main view, and the -makereslists touch. Each is one stock call.
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "c_recipientfilter.h"
 #include "engine/IEngineSound.h"
 #include "filesystem.h"
 #include "soundchars.h"
 #include "view.h"
-#include "tier0/icommandline.h"
+#include "mathlib/vector.h"
+#include "tier0/platform.h"
+#include "cdll_client_int.h"
+#include "cdll_util.h"
 #include "imanaged_areas_client.h"
 #include "shell_clientsystem.h"
 #include "sourcesharp_entrypoints.h"
 #include "ss_command_line.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 namespace
 {

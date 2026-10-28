@@ -15,7 +15,7 @@ launcher-name-test	routine	tools/launcher-name-test --self-test && tools/launche
 valve-text-audit	routine	tools/valve-text-audit --self-test && tools/valve-text-audit
 valve-header	routine	tools/valve-header --self-test && tools/valve-header check
 sdk-census	routine	tools/sdk-census --self-test && tools/sdk-census --config $SOURCESHARP_CONFIG
-vendor	routine	tools/vendor --self-test && tools/vendor --strict server --config $SOURCESHARP_CONFIG
+vendor	routine	tools/vendor --self-test && tools/vendor --strict --config $SOURCESHARP_CONFIG
 convar-ref-census	routine	tools/convar-ref-census --self-test
 novalve-snapshot	routine	tools/novalve-snapshot --self-test
 abi-parity	routine	tools/abi-parity --self-test && tools/abi-parity --config $SOURCESHARP_CONFIG
@@ -38,3 +38,5 @@ ccomments	routine	tools/ccomments.py --self-test
 vpk-extract	routine	tools/vpk-extract --self-test
 server-native-scope	routine	tools/server-native-scope --self-test && tools/server-native-scope
 client-probe-link	full	tools/client-probe-link --self-test && tools/client-probe-link
+source-tidy	routine	tools/source-tidy --self-test && tools/source-tidy
+vendor-fields	routine	tools/vendor-fields --self-test

@@ -1,10 +1,4 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
 
 // This header defines the interface convention used in the valve engine.
 // To make an interface and expose it:
@@ -29,12 +23,7 @@
 // via the lib's primary module (usually the lib's interface exposure)
 // therby stitching all of that lib's code/data together for eventual final exe link inclusion.
 
-#ifndef INTERFACE_H
-#define INTERFACE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #ifdef _LINUX
 #include <dlfcn.h> // dlopen,dlclose, et al
@@ -58,13 +47,6 @@ public:
 	virtual	~IBaseInterface() {}
 };
 
-#if !defined( _X360 )
-
-#else
-// x360 only allows ordinal exports, .def files export "CreateInterface" at 1
-#define CREATEINTERFACE_PROCNAME	((const char*)1)
-#endif
-
 typedef void* (*CreateInterfaceFn)(const char *pName, int *pReturnCode);
 typedef void* (*InstantiateInterfaceFn)();
 
@@ -87,12 +69,9 @@ public:
 // EXPOSE_INTERFACE( CInterfaceImp, IInterface, "MyInterface001" )
 // This will expose a class called CInterfaceImp that implements IInterface (a pure class)
 // clients can receive a pointer to this class by calling CreateInterface( "MyInterface001" )
-//
 // In practice, the shared header file defines the interface (IInterface) and version name ("MyInterface001")
 // so that each component can use these names/vtables to communicate
-//
 // A single class can support multiple interfaces through multiple inheritance
-//
 // Use this if you want to write the factory function.
 #if !defined(_STATIC_LINKED) || !defined(_SUBSYSTEM)
 
@@ -158,29 +137,13 @@ enum
 	IFACE_FAILED
 };
 
-//-----------------------------------------------------------------------------
 // This function is automatically exported and allows you to access any interfaces exposed with the above macros.
 // if pReturnCode is set, it will return one of the following values (IFACE_OK, IFACE_FAILED)
 // extend this for other error conditions/code
-//-----------------------------------------------------------------------------
 DLL_EXPORT void* CreateInterface(const char *pName, int *pReturnCode);
-
-#if defined( _X360 )
-DLL_EXPORT void *CreateInterfaceThunk( const char *pName, int *pReturnCode );
-#endif
-
 
 enum Sys_Flags
 {
     SYS_NOFLAGS = 0x00,
     SYS_NOLOAD = 0x01   // no loading, no ref-counting, only returns handle if lib is loaded. 
 };
-
-
-
-
-
-#endif
-
-
-

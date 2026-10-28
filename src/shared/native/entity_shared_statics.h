@@ -77,11 +77,8 @@
 //
 //=============================================================================//
 
-#ifndef ENTITY_SHARED_STATICS_H
-#define ENTITY_SHARED_STATICS_H
-#ifdef _WIN32
 #pragma once
-#endif
+#define ENTITY_SHARED_STATICS_H
 
 #include "mathlib/vector.h"
 
@@ -157,5 +154,3 @@ void EntityPrediction_SetSeedFromCommand( const EntityPredictionCmd_t *cmd );
 // this one needs nothing.
 //-----------------------------------------------------------------------------
 void EntityTracer_ComputeStartPosition( const Vector &vecShotSrc, Vector *pVecTracerStart );
-
-#endif // ENTITY_SHARED_STATICS_H

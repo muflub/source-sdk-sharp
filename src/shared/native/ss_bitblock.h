@@ -14,8 +14,7 @@
 // an engine buffer is the payload's bits alone, in one copy.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_BITBLOCK_H
-#define SOURCESHARP_SS_BITBLOCK_H
+#pragma once
 
 #include "tier1/bitbuf.h"
 
@@ -71,5 +70,3 @@ inline int32_t BitBlockFromEngine( const bf_read &buf, uint8_t *pBlock, int nBlo
 	return nBits;
 }
 } // namespace ss
-
-#endif // SOURCESHARP_SS_BITBLOCK_H

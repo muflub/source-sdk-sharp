@@ -87,8 +87,6 @@ extern CGlobalVars *gpGlobals;   // shell_engineboundary.cpp
 //------------------------------------------------------------------------------
 // DBG_AssertFunction
 //------------------------------------------------------------------------------
-#ifdef	DEBUG
-#endif	// DEBUG
 
 //------------------------------------------------------------------------------
 // g_NullSurface
@@ -216,6 +214,3 @@ void UTIL_BloodStream( const Vector &origin, const Vector &direction, int color,
 // CWaterTraceFilter went (plan_server_native_min P1): nm shows no vtable or
 // typeinfo for it emitted or imported by any server object; nothing constructed
 // one.
-
-
-

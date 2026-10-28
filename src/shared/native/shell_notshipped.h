@@ -50,12 +50,8 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_SHELL_NOTSHIPPED_H
-#define SOURCESHARP_SHELL_NOTSHIPPED_H
-
-#ifdef _WIN32
 #pragma once
-#endif
+
 
 #include <string.h>
 
@@ -252,5 +248,3 @@ private:
 	const char  *m_pReasons[ kMaxNames ];
 	int          m_nCounts[ kMaxNames ];
 };
-
-#endif // SOURCESHARP_SHELL_NOTSHIPPED_H

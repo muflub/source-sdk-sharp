@@ -1,21 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-//
-//-----------------------------------------------------------------------------
-// $Log: $
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#if !defined( FXLINE_H )
-#define FXLINE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 struct FXLineData_t
 {
@@ -52,8 +37,3 @@ protected:
 
 	FXLineData_t	m_FXData;
 };
-
-void FX_DrawLine( const Vector &start, const Vector &end, float scale, IMaterial *pMaterial, const color32 &color );
-void FX_DrawLineFade( const Vector &start, const Vector &end, float scale, IMaterial *pMaterial, const color32 &color, float fadeDist );
-
-#endif	//FXLINE_H

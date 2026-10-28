@@ -1,18 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef SOUNDENVELOPE_H
-#define SOUNDENVELOPE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "engine/IEngineSound.h"
 
@@ -76,16 +64,5 @@ public:
 	virtual void		SoundSetCloseCaptionDuration( CSoundPatch *pSound, float flDuration ) = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Save/restore
-//-----------------------------------------------------------------------------
 class ISaveRestoreOps;
-
-ISaveRestoreOps *GetSoundSaveRestoreOps( );
-
-#define DEFINE_SOUNDPATCH(name) \
-	{ FIELD_CUSTOM, #name, { offsetof(classNameTypedef,name), 0 }, 1, FTYPEDESC_SAVE, NULL, GetSoundSaveRestoreOps( ), NULL }
-
-
-#endif // SOUNDENVELOPE_H

@@ -1,12 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Defines and structures for the BSP file format.
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef BSPFILE_H
-#define BSPFILE_H
 #pragma once
 
 #ifndef MATHLIB_H
@@ -19,29 +13,18 @@
 
 // little-endian "VBSP"
 		
-
 // MINBSPVERSION is the minimum acceptable version.  The engine will load MINBSPVERSION through BSPVERSION
 #define MINBSPVERSION 19
 #define BSPVERSION 20
-
 
 // This needs to match the value in gl_lightmap.h
 // Need to dynamically allocate the weights and light values in radial_t to make this variable.
 
 // This is one more than what vbsp cuts for to allow for rounding errors
 
-
 // We can have larger lightmaps on displacements
-#define MAX_DISP_LIGHTMAP_DIM_WITHOUT_BORDER	125
-#define MAX_DISP_LIGHTMAP_DIM_INCLUDING_BORDER	128
-
 
 // This is the actual max.. (change if you change the brush lightmap dim or disp lightmap dim
-
-
-
-
-
 
 // upper design bounds
 	// Minimum and maximum power a displacement can be.
@@ -63,7 +46,6 @@
 
 #define MAX_MAP_TEXDATA					2048
 #define MAX_MAP_DISPINFO				2048
-
 
 #define MAX_DISPVERTS					NUM_DISP_POWER_VERTS( MAX_MAP_DISP_POWER )
 
@@ -90,11 +72,9 @@
 
 #define	MAX_MAP_VISIBILITY				0x1000000			// increased BSPVERSION 7
 
-
 #define MAX_MAP_CUBEMAPSAMPLES			1024
 #define MAX_MAP_OVERLAYS				512 
 #define MAX_MAP_WATEROVERLAYS			16384
-
 
 // this is stuff for trilist/tristrips, etc.
 #define MAX_MAP_PRIMITIVES				32768
@@ -103,7 +83,6 @@
 
 #else
 
-// Xbox 360 - Force static arrays to be very small
 #define	MAX_MAP_MODELS					2
 #define	MAX_MAP_BRUSHES					2
 #define	MAX_MAP_ENTITIES				2
@@ -150,68 +129,42 @@
 
 // key / value pair sizes
 
-
-
-
-// ------------------------------------------------------------------------------------------------ //
 // Displacement neighbor rules
-// ------------------------------------------------------------------------------------------------ //
-//
 // Each displacement is considered to be in its own space:
-//
 //               NEIGHBOREDGE_TOP
-//
 //                   1 --- 2
 //                   |     |
 // NEIGHBOREDGE_LEFT |     | NEIGHBOREDGE_RIGHT
 //                   |     |
 //                   0 --- 3
-//
 //   			NEIGHBOREDGE_BOTTOM
-//
-//
 // Edge edge of a displacement can have up to two neighbors. If it only has one neighbor
 // and the neighbor fills the edge, then SubNeighbor 0 uses CORNER_TO_CORNER (and SubNeighbor 1
 // is undefined).
-//
 // CORNER_TO_MIDPOINT means that it spans [bottom edge,midpoint] or [left edge,midpoint] depending
 // on which edge you're on.
-//
 // MIDPOINT_TO_CORNER means that it spans [midpoint,top edge] or [midpoint,right edge] depending
 // on which edge you're on.
-//
 // Here's an illustration (where C2M=CORNER_TO_MIDPOINT and M2C=MIDPOINT_TO_CORNER
-//
-//
 //				 C2M			  M2C
-//
 //       1 --------------> x --------------> 2
-//
 //       ^                                   ^
 //       |                                   |
 //       |                                   |
 //  M2C  |                                   |	M2C
 //       |                                   |
 //       |                                   |
-//
 //       x                 x                 x 
-//
 //       ^                                   ^
 //       |                                   |
 //       |                                   |
 //  C2M  |                                   |	C2M
 //       |                                   |
 //       |                                   |
-// 
 //       0 --------------> x --------------> 3
-//
 //               C2M			  M2C
-//
-//
 // The CHILDNODE_ defines can be used to refer to a node's child nodes (this is for when you're
 // recursing into the node tree inside a displacement):
-//
-// ---------
 // |   |   |
 // | 1 | 0 |
 // |   |   |
@@ -219,9 +172,6 @@
 // |   |   |
 // | 2 | 3 |
 // |   |   |
-// ---------
-// 
-// ------------------------------------------------------------------------------------------------ //
 
 // These can be used to index g_ChildNodeIndexMul.
 enum
@@ -232,7 +182,6 @@ enum
 	CHILDNODE_LOWER_RIGHT=3
 };
 
-
 // Corner indices. Used to index m_CornerNeighbors.
 enum
 {
@@ -242,7 +191,6 @@ enum
 	CORNER_LOWER_RIGHT=3
 };
 
-
 // These edge indices must match the edge indices of the CCoreDispSurface.
 enum
 {
@@ -251,7 +199,6 @@ enum
 	NEIGHBOREDGE_RIGHT=2,
 	NEIGHBOREDGE_BOTTOM=3
 };
-
 
 // These denote where one dispinfo fits on another.
 // Note: tables are generated based on these indices so make sure to update
@@ -263,7 +210,6 @@ typedef enum
 	MIDPOINT_TO_CORNER=2
 } NeighborSpan;
 
-
 // These define relative orientations of displacement neighbors.
 typedef enum
 {
@@ -272,9 +218,6 @@ typedef enum
 	ORIENTATION_CCW_180=2,
 	ORIENTATION_CCW_270=3
 } NeighborOrientation;
-
-
-//=============================================================================
 
 enum
 {
@@ -349,12 +292,11 @@ enum
 	LUMP_LEAF_AMBIENT_LIGHTING_HDR	= 55,	// NOTE: this data overrides part of the data stored in LUMP_LEAFS.
 	LUMP_LEAF_AMBIENT_LIGHTING		= 56,	// NOTE: this data overrides part of the data stored in LUMP_LEAFS.
 
-	LUMP_XZIPPAKFILE				= 57,   // deprecated. xbox 1: xzip version of pak file
+	LUMP_XZIPPAKFILE				= 57,
 	LUMP_FACES_HDR					= 58,	// HDR maps may have different face data.
 	LUMP_MAP_FLAGS                  = 59,   // extended level-wide flags. not present in all levels
 	LUMP_OVERLAY_FADES				= 60,	// Fade distances for overlays
 };
-
 
 // Lumps that have versions are listed here
 enum
@@ -365,7 +307,6 @@ enum
 	LUMP_LEAFS_VERSION			   = 1,
 	LUMP_LEAF_AMBIENT_LIGHTING_VERSION = 1,
 };
-
 
 #define	HEADER_LUMPS		64
 
@@ -380,7 +321,6 @@ struct lump_t
 	// repurposed for compression.  0 implies the lump is not compressed.
 	int		uncompressedSize; // default to zero
 };
-
 
 struct dheader_t
 {
@@ -401,7 +341,6 @@ struct dflagslump_t
 	uint32 m_LevelFlags;						// LVLFLAGS_xxx
 };
 
-
 struct dgamelumpheader_t
 {
 	DECLARE_BYTESWAP_DATADESC();
@@ -417,7 +356,6 @@ typedef int GameLumpId_t;
 // use next entry fileofs to determine actual disk lump compressed size
 // compression stage ensures a terminal null dictionary entry
 
-
 struct dgamelump_t
 {
 	DECLARE_BYTESWAP_DATADESC();
@@ -427,7 +365,6 @@ struct dgamelump_t
 	int				fileofs;
 	int				filelen;
 };
-
 
 struct dmodel_t
 {
@@ -490,8 +427,7 @@ struct dnode_t
 typedef struct texinfo_s
 {
 	DECLARE_BYTESWAP_DATADESC();
-	float		textureVecsTexelsPerWorldUnits[2][4];			// [s/t][xyz offset]
-	float		lightmapVecsLuxelsPerWorldUnits[2][4];			// [s/t][xyz offset] - length is in units of texels/area
+	alignas( 4 ) unsigned char unused_textureVecsTexelsPerWorldUnits[ 64 ];
 	int			flags;				// miptex flags + overrides
 	int			texdata;			// Pointer to texture name, size, etc.
 } texinfo_t;
@@ -501,16 +437,13 @@ typedef struct texinfo_s
 struct dtexdata_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	Vector		reflectivity;
+	alignas( 4 ) unsigned char unused_reflectivity[ 12 ];
 	int			nameStringTableID;				// index into g_StringTable for the texture name
 	int			width, height;					// source image
 	int			view_width, view_height;		//
 };
 
-
-//-----------------------------------------------------------------------------
 // Occluders are simply polygons
-//-----------------------------------------------------------------------------
 // Flags field of doccluderdata_t
 enum
 {
@@ -545,7 +478,6 @@ struct doccluderpolydata_t
 	int			planenum;
 };
 
-
 // NOTE: see the section above titled "displacement neighbor rules".
 struct CDispSubNeighbor
 {
@@ -554,7 +486,6 @@ public:
 
 	bool				IsValid() const				{ return m_iNeighbor != 0xFFFF; }
 	void				SetInvalid()				{ m_iNeighbor = 0xFFFF; }
-
 
 public:
 	unsigned short		m_iNeighbor;		// This indexes into ddispinfos.
@@ -567,7 +498,6 @@ public:
 	unsigned char		m_NeighborSpan;				// Where we fit onto our neighbor.
 };
 
-
 // NOTE: see the section above titled "displacement neighbor rules".
 class CDispNeighbor
 {
@@ -577,25 +507,21 @@ public:
 	// Returns false if there isn't anything touching this edge.
 	bool				IsValid()		{ return m_SubNeighbors[0].IsValid() || m_SubNeighbors[1].IsValid(); }
 
-
 public:
 	// Note: if there is a neighbor that fills the whole side (CORNER_TO_CORNER),
 	//       then it will always be in CDispNeighbor::m_Neighbors[0]
 	CDispSubNeighbor	m_SubNeighbors[2];
 };
 
-
 class CDispCornerNeighbors
 {
 public:
 	DECLARE_BYTESWAP_DATADESC();
 
-
 public:
-	unsigned short	m_Neighbors[MAX_DISP_CORNER_NEIGHBORS];	// indices of neighbors.
+	alignas( 2 ) unsigned char unused_m_Neighbors[ 8 ];
 	unsigned char	m_nNeighbors;
 };
-
 
 class CDispVert
 {
@@ -605,13 +531,6 @@ public:
 	float		m_flDist;		// Displacement distances.
 	float		m_flAlpha;		// "per vertex" alpha values.
 };
-
-
-
-
-
-
-
 
 class CDispTri
 {
@@ -650,7 +569,6 @@ public:
 														// and tells us which vertices are allowed to be active.
 };
 
-
 // note that edge 0 is never used, because negative edge nums are used for
 // counterclockwise use of the edge in a face
 struct dedge_t
@@ -660,7 +578,6 @@ struct dedge_t
 };
 
 #define	MAXLIGHTMAPS	4
-
 
 struct dprimitive_t
 {
@@ -681,9 +598,7 @@ struct dprimvert_t
 struct dface_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	unsigned short	planenum;
-	byte		side;	// faces opposite to the node's plane direction
-	byte		onNode; // 1 of on node, 0 if in leaf
+	alignas( 4 ) unsigned char unused_planenum[ 4 ];
 
 	int			firstedge;		// we must support > 64k edges
 	short		numedges;	
@@ -699,23 +614,11 @@ struct dface_t
 		// (ie. water surfaces)
 		// All of the rest of the surfaces can look at their leaf to find out
 		// what fog volume they are in.
-		short		surfaceFogVolumeID;
-//	};
-
-	// lighting info
-	byte		styles[MAXLIGHTMAPS];
+		alignas( 2 ) unsigned char unused_surfaceFogVolumeID[ 6 ];
 	int			lightofs;		// start of [numstyles*surfsize] samples
-    float       area;
-
-	// TODO: make these unsigned chars?
-	int			m_LightmapTextureMinsInLuxels[2];
-	int			m_LightmapTextureSizeInLuxels[2];
-
-	int origFace;				// reference the original face this face was derived from
-
+    alignas( 4 ) unsigned char unused_area[ 24 ];
 
 public:
-
 
 	// non-polygon primitives (strips and lists)
 private:
@@ -727,27 +630,17 @@ public:
 	unsigned int	smoothingGroups;
 };
 
-
-
-
-
-
 struct dfaceid_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	unsigned short	hammerfaceid;
 };
 
-
-
 // NOTE: Only 7-bits stored!!!
 		// This leaf has 3D sky in its PVS
 		// This leaf culled away some portals due to radial vis
 		// This leaf has 2D sky in its PVS
 
-#if defined( _X360 )
-#pragma bitfield_order( push, lsb_to_msb )
-#endif
 #pragma warning( disable:4201 )	// C4201: nonstandard extension used: nameless struct/union
 struct dleaf_version_0_t
 {
@@ -803,9 +696,6 @@ struct dleaf_t
 //	CompressedLightCube m_AmbientLighting;
 };
 #pragma warning( default:4201 )	// C4201: nonstandard extension used: nameless struct/union
-#if defined( _X360 )
-#pragma bitfield_order( pop )
-#endif
 
 // each leaf contains N samples of the ambient lighting
 // each sample contains a cube of ambient light projected on to each axis
@@ -845,14 +735,9 @@ struct dbrush_t
 	int			contents;
 };
 
-
-
-
-
 // the visibility lump consists of a header with a count, then
 // byte offsets for the PVS and PHS of each cluster, then the raw
 // compressed bit vectors
-
 
 struct dvis_t
 {
@@ -877,7 +762,6 @@ struct dareaportal_t
 
 	int				planenum;
 };
-
 
 struct darea_t
 {
@@ -914,10 +798,8 @@ enum emittype_t
 	emit_skyambient,	// spherical light source with no falloff (surface must trace to SKY texture)
 };
 
-
 // Flags for dworldlight_t::flags
 	// This says that the light was put into the per-leaf ambient cubes.
-
 
 struct dworldlight_t
 {
@@ -953,17 +835,13 @@ struct dcubemapsample_t
 
 #define OVERLAY_BSP_FACE_COUNT	64
 
-
 #define OVERLAY_RENDER_ORDER_NUM_BITS	2
 #define OVERLAY_RENDER_ORDER_MASK		0xC000	// top 2 bits set
 
 struct doverlay_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	int			nId;
-	short		nTexInfo;
-
-
+	alignas( 4 ) unsigned char unused_nId[ 6 ];
 
 private:
 	unsigned short	m_nFaceCountAndRenderOrder;
@@ -977,12 +855,6 @@ public:
 	Vector		vecBasisNormal;
 };
 
-
-
-
-
-
-
 struct doverlayfade_t
 {
 	DECLARE_BYTESWAP_DATADESC();
@@ -991,7 +863,6 @@ struct doverlayfade_t
 	float flFadeDistMaxSq;
 };
 
-
 #define WATEROVERLAY_BSP_FACE_COUNT				256
 #define WATEROVERLAY_RENDER_ORDER_NUM_BITS		2
 
@@ -999,9 +870,7 @@ struct doverlayfade_t
 struct dwateroverlay_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	int				nId;
-	short			nTexInfo;
-
+	alignas( 4 ) unsigned char unused_nId[ 6 ];
 
 private:
 
@@ -1017,23 +886,11 @@ public:
 	Vector			vecBasisNormal;
 };
 
-
-
-
-
 #ifndef _DEF_BYTE_
 #define _DEF_BYTE_
 typedef unsigned char	byte;
 typedef unsigned short	word;
 #endif
-
-
-
-
-
-
-//===============
-
 
 struct epair_t
 {
@@ -1060,5 +917,3 @@ typedef struct nameForDatadesc_dlightmappageinfo_t // unnamed structs collide in
 	byte			pad;			// unused
 	ColorRGBExp32	avgColor;		// average used for runtime lighting calcs
 } dlightmappageinfo_t;
-
-#endif // BSPFILE_H

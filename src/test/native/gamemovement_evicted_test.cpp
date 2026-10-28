@@ -414,15 +414,15 @@ TEST( GameMovementEvicted, ThePredictionErrorPairStoppedReadingTheConvar )
 	// beside it must not, because a test that chooses between one implementation
 	// and none is the check that cannot fail.
 	EXPECT_TRUE( Has( Shim(),
-		"voidCShellGameMovement::StartTrackPredictionErrors(IMovementPlayer*pPlayer)"
-		"{player=pPlayer;}" ) )
+		"voidCShellGameMovement::StartTrackPredictionErrors(CBasePlayer*pPlayer)"
+		"{player=Player(pPlayer);}" ) )
 		<< "StartTrackPredictionErrors is not just the assignment any more. It is "
 		   "the only thing that sets `player` before ProcessMovement asserts on it, "
 		   "and anything else here is either a dead convar read or a forward to a "
 		   "mover that no longer exists.";
 
 	EXPECT_TRUE( Has( Shim(),
-		"voidCShellGameMovement::FinishTrackPredictionErrors(IMovementPlayer*pPlayer)"
+		"voidCShellGameMovement::FinishTrackPredictionErrors(CBasePlayer*pPlayer)"
 		"{}" ) )
 		<< "FinishTrackPredictionErrors is not empty. Stock's is, at "
 		   "PREDICTION_ERROR_CHECK_LEVEL 0 (shareddefs.h:914), which is this build.";

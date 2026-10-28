@@ -1,17 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose:	This file sets all of our debugging flags.  It should be 
 //			called before all other header files.
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef DBGFLAG_H
-#define DBGFLAG_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 // Here are all the flags we support:
 // DBGFLAG_MEMORY:			Enables our memory debugging system, which overrides malloc & free
@@ -31,10 +22,8 @@
 #undef DBGFLAG_ASSERTDLG
 #undef DBGFLAG_STRINGS
 
-//-----------------------------------------------------------------------------
 // Default flags for debug builds
-//-----------------------------------------------------------------------------
-#if (defined( _DEBUG ) || defined( RELEASEASSERTS ) )
+#if defined( _DEBUG ) || defined( RELEASEASSERTS )
 
 #define DBGFLAG_MEMORY
 #ifdef _SERVER	// only enable new & delete tracking for server; on client it conflicts with CRT mem leak tracking
@@ -48,10 +37,7 @@
 #define DBGFLAG_ASSERTDLG
 #define DBGFLAG_STRINGS
 
-
-//-----------------------------------------------------------------------------
 // Default flags for release builds
-//-----------------------------------------------------------------------------
 #else // _DEBUG
 
 #ifdef STEAM
@@ -61,5 +47,3 @@
 #define DBGFLAG_ASSERTDLG
 
 #endif // _DEBUG
-
-#endif // DBGFLAG_H

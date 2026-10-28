@@ -1,5 +1,4 @@
-#ifndef DXFORMATS_H
-#define DXFORMATS_H
+#pragma once
 
 #if (defined( POSIX ) || defined( DX_TO_GL_ABSTRACTION ) || defined( _PS3 )) && !defined( USE_DXVK )
 
@@ -74,7 +73,6 @@ typedef enum _D3DFORMAT
 #endif // !D3D_DISABLE_9EX
 /* -- D3D9Ex only */
 
-
     D3DFMT_L16                  = 81,
 
     D3DFMT_VERTEXDATA           =100,
@@ -108,16 +106,13 @@ typedef enum _D3DFORMAT
     // 2.8 biased fixed point
     D3DFMT_A2B10G10R10_XR_BIAS  = 119,
 
-
     // Binary format indicating that the data has no inherent type
     D3DFMT_BINARYBUFFER         = 199,
     
 #endif // !D3D_DISABLE_9EX
 /* -- D3D9Ex only */
 
-    //////////
     // TOGL DEFINITIONS:
-    /////////
 
 	// NV shadow depth tex
 	D3DFMT_NV_INTZ		= OUR_MAKEFOURCC('I','N','T','Z'),
@@ -136,6 +131,4 @@ typedef enum _D3DFORMAT
 
     D3DFMT_FORCE_DWORD          =0x7fffffff
 } D3DFORMAT;
-#endif
-
 #endif

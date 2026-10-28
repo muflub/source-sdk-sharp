@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef ISURFACE_H
-#define ISURFACE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <vgui/VGUI.h>
 #include <vgui/IHTML.h> // CreateHTML, PaintHTML 
@@ -45,9 +35,7 @@ typedef uint32 HCursor;
 typedef uint32 HTexture;
 typedef uint32 HFont;
 
-
 //SRC only defines
-
 
 struct Vertex_t
 {
@@ -67,7 +55,6 @@ struct Vertex_t
 	Vector2D	m_TexCoord;
 };
 
-
 enum FontDrawType_t
 {
 	// Use the "additive" value from the scheme file
@@ -80,14 +67,12 @@ enum FontDrawType_t
 	FONT_DRAW_TYPE_COUNT = 2,
 };
 
-
 // Refactor these two
 struct CharRenderInfo
 {
 	// Text pos
 	int				x, y;
 	// Top left and bottom right
-	// This is now a pointer to an array maintained by the surface, to avoid copying the data on the 360
 	Vertex_t		*verts;
 	int				textureId;
 	int				abcA;
@@ -105,7 +90,6 @@ struct CharRenderInfo
 	bool			shouldclip;
 };
 
-
 struct IntRect
 {
 	int x0;
@@ -114,9 +98,7 @@ struct IntRect
 	int y1;
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: Wraps contextless windows system functions
-//-----------------------------------------------------------------------------
 class ISurface : public IAppSystem
 {
 public:
@@ -337,7 +319,6 @@ public:
 
 	virtual float GetZPos() const = 0;
 
-	// From the Xbox
 	virtual void SetPanelForInput( VPANEL vpanel ) = 0;
 	virtual void DrawFilledRectFastFade( int x0, int y0, int x1, int y1, int fadeStartPt, int fadeEndPt, unsigned int alpha0, unsigned int alpha1, bool bHorizontal ) = 0;
 	virtual void DrawFilledRectFade( int x0, int y0, int x1, int y1, unsigned int alpha0, unsigned int alpha1, bool bHorizontal ) = 0;
@@ -367,7 +348,6 @@ public:
 	virtual bool ForceScreenPosOffset( bool bState, int x, int y ) = 0;
 	virtual void OffsetAbsPos( int &x, int &y ) = 0;
 
-
 	// Causes fonts to get reloaded, etc.
 	virtual void ResetFontCaches() = 0;
 
@@ -395,15 +375,10 @@ public:
 	virtual void SetSoftwareCursor( bool bUseSoftwareCursor ) = 0;
 	virtual void PaintSoftwareCursor() = 0;
 
-
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// !! WARNING! YOU MUST NOT ADD YOUR NEW METHOD HERE OR YOU WILL BREAK MODS !!
 	// !! Add your new stuff to the bottom of IMatSystemSurface instead.        !!
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 };
 
 }
 
 #define VGUI_SURFACE_INTERFACE_VERSION "VGUI_Surface030"
-
-#endif // ISURFACE_H

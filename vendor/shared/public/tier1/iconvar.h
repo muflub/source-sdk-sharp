@@ -1,36 +1,16 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-//
-//-----------------------------------------------------------------------------
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef ICONVAR_H
-#define ICONVAR_H
-
-#if _WIN32
 #pragma once
-#endif
 
 #include "tier0/dbg.h"
 #include "tier0/platform.h"
 #include "tier1/strtools.h"
 
-
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 class IConVar;
 class CCommand;
 
-
-//-----------------------------------------------------------------------------
 // ConVar flags
-//-----------------------------------------------------------------------------
 // The default, no flags at all
 #define FCVAR_NONE				0 
 
@@ -67,7 +47,6 @@ class CCommand;
 
 #define FCVAR_NOT_CONNECTED		(1<<22)	// cvar cannot be changed by a client that is connected to a server
 #define FCVAR_MATERIAL_SYSTEM_THREAD (1<<23)	// Indicates this cvar is read from the material system thread
- // cvar written to config.cfg on the Xbox
 
 	// used as a debugging tool necessary to check material system thread convars
 
@@ -86,16 +65,11 @@ class CCommand;
 
 #define FCVAR_MATERIAL_THREAD_MASK ( FCVAR_RELOAD_MATERIALS | FCVAR_RELOAD_TEXTURES | FCVAR_MATERIAL_SYSTEM_THREAD )	
 
-//-----------------------------------------------------------------------------
 // Called when a ConVar changes value
 // NOTE: For FCVAR_NEVER_AS_STRING ConVars, pOldValue == NULL
-//-----------------------------------------------------------------------------
 typedef void ( *FnChangeCallback_t )( IConVar *var, const char *pOldValue, float flOldValue );
 
-
-//-----------------------------------------------------------------------------
 // Abstract interface for ConVars
-//-----------------------------------------------------------------------------
 abstract_class IConVar
 {
 public:
@@ -111,6 +85,3 @@ public:
 	// if you call these methods multiple times on the same IConVar
 	virtual bool IsFlagSet( int nFlag ) const = 0;
 };
-
-
-#endif // ICONVAR_H

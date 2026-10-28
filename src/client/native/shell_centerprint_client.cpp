@@ -20,8 +20,10 @@
 // SetTextColor on its own has no visible effect and carries nothing here.
 //=============================================================================//
 
-#include "cbase.h"
 #include "vguicenterprint.h"
+#include "tier1/interface.h"
+#include "vgui/VGUI.h"
+#include "ivguicenterprint.h"
 #include "imanaged_areas_client.h"
 
 CCenterPrint::CCenterPrint( void )

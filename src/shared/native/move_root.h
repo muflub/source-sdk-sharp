@@ -39,8 +39,7 @@
 // See `sourcesharp/test/move_root_test.cpp`.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_MOVE_ROOT_H
-#define SOURCESHARP_MOVE_ROOT_H
+#pragma once
 
 #ifndef NULL
 #define NULL 0
@@ -73,5 +72,3 @@ inline TEntity *SourceSharpRootMoveParent( TEntity *pEntity, int nMaxDepth = 64 
 
 	return pRoot;
 }
-
-#endif // SOURCESHARP_MOVE_ROOT_H

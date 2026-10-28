@@ -1,24 +1,12 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef VIEW_SHARED_H
-#define VIEW_SHARED_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "convar.h"
 #include "mathlib/vector.h"
 #include "materialsystem/MaterialSystemUtil.h"
 
-
-//-----------------------------------------------------------------------------
 // Flags passed in with view setup
-//-----------------------------------------------------------------------------
 enum ClearFlags_t
 {
 	VIEW_CLEAR_COLOR = 0x1,
@@ -37,10 +25,7 @@ enum StereoEye_t
 	STEREO_EYE_MAX = 3,
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Renderer setup data.  
-//-----------------------------------------------------------------------------
 class CViewSetup
 {
 public:
@@ -130,7 +115,3 @@ public:
     bool        m_bViewToProjectionOverride;
     VMatrix     m_ViewToProjection;
 };
-
-
-
-#endif // VIEW_SHARED_H

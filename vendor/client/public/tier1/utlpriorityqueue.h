@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef UTLPRIORITYQUEUE_H
-#define UTLPRIORITYQUEUE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "utlvector.h"
 
@@ -120,7 +111,6 @@ void CUtlPriorityQueue<T>::RemoveAtHead()
 	}
 }
 
-
 template <class T>
 void CUtlPriorityQueue<T>::RemoveAt( int index )
 {
@@ -194,5 +184,3 @@ void CUtlPriorityQueue<T>::SetLessFunc( LessFunc_t lessfunc )
 {
 	m_LessFunc = lessfunc;
 }
-
-#endif // UTLPRIORITYQUEUE_H

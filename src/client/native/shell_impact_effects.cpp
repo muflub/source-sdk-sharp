@@ -27,10 +27,42 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
+#include "trace_hit.h"
 #include "fx.h"
 #include "clienteffectprecachesystem.h"
 #include "engine/IStaticPropMgr.h"
+#include "engine/IEngineTrace.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "tier1/smartptr.h"
+#include "basehandle.h"
+#include "bspflags.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "cmodel.h"
+#include "const.h"
+#include "gametrace.h"
+#include "icliententitylist.h"
+#include "ihandleentity.h"
+#include "particlemgr.h"
+#include "trace.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
 // The new-style effect's shell (C7 particles phase 3), for the impact
 // particle's control points.
 #include "shell_new_particles.h"
@@ -46,7 +78,6 @@
 #include "shell_particle_systems.h"   // c5-particles: the one-shots are watched
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //Precahce the effects
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectImpacts )
@@ -170,7 +201,7 @@ int32_t SourceSharp_ClientShotTrace( const float *pStartXYZ, const float *pEndXY
 	// The hit's index off its own handle, through the table that resolves both
 	// hierarchies (shell_worldquery_client.cpp's TraceHitIndex, the same rule).
 	int32_t nHit = -1;
-	IHandleEntity *pHit = tr.m_pEnt;
+	IHandleEntity *pHit = ss::TraceHit( tr );
 	if ( pHit )
 	{
 		const CBaseHandle hHit = pHit->GetRefEHandle();
@@ -183,7 +214,7 @@ int32_t SourceSharp_ClientShotTrace( const float *pStartXYZ, const float *pEndXY
 	pOutInts[2] = nHit;
 	pOutInts[3] = (int32_t)tr.surface.surfaceProps;
 	pOutInts[4] = (int32_t)tr.surface.flags;
-	pOutInts[5] = SourceSharp_IsTheWorld( tr.m_pEnt ) ? 1 : 0;
+	pOutInts[5] = SourceSharp_IsTheWorld( ss::TraceHit( tr ) ) ? 1 : 0;
 
 	return bHit ? 1 : 0;
 }

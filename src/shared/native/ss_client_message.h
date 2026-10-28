@@ -34,8 +34,6 @@
 //
 //=============================================================================//
 
-#ifndef SS_CLIENT_MESSAGE_H
-#define SS_CLIENT_MESSAGE_H
 #pragma once
 
 #include <stdint.h>
@@ -196,5 +194,3 @@ private:
 	char m_szKey[ SOURCESHARP_CLIENT_MESSAGE_MAX_KEY + 1 ];
 	uint8_t m_Data[ SOURCESHARP_CLIENT_MESSAGE_MAX_BYTES ];
 };
-
-#endif // SS_CLIENT_MESSAGE_H

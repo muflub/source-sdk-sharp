@@ -13,15 +13,11 @@
 // CClientShadowMgr row, and the queue the shells write. These are its
 // callers' calls.
 //=============================================================================//
-#ifndef SHELL_SHADOWS_CLIENT_H
-#define SHELL_SHADOWS_CLIENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 
-#include "bsptreedata.h"
+#include "ivrenderview.h"
 
 class CViewSetup;
 class CClientSystem;
@@ -68,5 +64,3 @@ const int32_t *ShellShadows_PendingEntries();
 
 // shell_clientsystems.cpp's CClientShadowMgr row.
 CClientSystem *ClientShadowMgrGameSystem();
-
-#endif // SHELL_SHADOWS_CLIENT_H

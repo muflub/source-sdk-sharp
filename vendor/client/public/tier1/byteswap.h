@@ -1,14 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Low level byte swapping routines.
-//
-// $NoKeywords: $
-//=============================================================================
-#ifndef BYTESWAP_H
-#define BYTESWAP_H
-#if defined(_WIN32)
 #pragma once
-#endif
 
 #include "datamap.h"	// Needed for typedescription_t.  Note datamap.h is tier1 as well.
 
@@ -21,10 +13,7 @@ public:
 		SetTargetBigEndian( IsMachineBigEndian() );
 	}
 
-
-	//-----------------------------------------------------------------------------
 	// Write a block of fields.  Works a bit like the saverestore code.  
-	//-----------------------------------------------------------------------------
 	void SwapFieldsToTargetEndian( void *pOutputBuffer, void *pBaseData, datamap_t *pDataMap );
 
 	// Swaps fields for the templated type to the output buffer.
@@ -43,11 +32,9 @@ public:
 		SwapFieldsToTargetEndian<T>( pOutputBuffer, (void*)pOutputBuffer, objectCount );
 	}
 
-	//-----------------------------------------------------------------------------
 	// True if the current machine is detected as big endian. 
 	// (Endienness is effectively detected at compile time when optimizations are
 	// enabled)
-	//-----------------------------------------------------------------------------
 	static bool IsMachineBigEndian()
 	{
 		short nIsBigEndian = 1;
@@ -56,19 +43,15 @@ public:
 		return (bool)(0 ==  *(char *)&nIsBigEndian );
 	}
 
-	//-----------------------------------------------------------------------------
 	// Sets the target byte ordering we are swapping to or from.
-	//
 	// Braindead Endian Reference:
 	//		x86 is LITTLE Endian
 	//		PowerPC is BIG Endian
-	//-----------------------------------------------------------------------------
 	inline void SetTargetBigEndian( bool bigEndian )
 	{
 		m_bBigEndian = bigEndian;
 		m_bSwapBytes = IsMachineBigEndian() != bigEndian;
 	}
-
 
 	// Forces byte swapping state, regardless of endianess
 	inline void ActivateByteSwapping( bool bActivate )	
@@ -76,11 +59,8 @@ public:
 		SetTargetBigEndian( IsMachineBigEndian() != bActivate );
 	}
 
-	//-----------------------------------------------------------------------------
 	// Returns true if the target machine is the same as this one in endianness.
-	//
 	// Used to determine when a byteswap needs to take place.
-	//-----------------------------------------------------------------------------
 	inline bool IsSwappingBytes( void )	// Are bytes being swapped?
 	{
 		return m_bSwapBytes;
@@ -91,15 +71,10 @@ public:
 		return m_bBigEndian;
 	}
 
-
-
-	//-----------------------------------------------------------------------------
 	// Swaps an input buffer full of type T into the given output buffer.
-	//
 	// Swaps [count] items from the inputBuffer to the outputBuffer.
 	// If inputBuffer is omitted or NULL, then it is assumed to be the same as
 	// outputBuffer - effectively swapping the contents of the buffer in place.
-	//-----------------------------------------------------------------------------
 	template<typename T> inline void SwapBufferToTargetEndian( T* outputBuffer, T* inputBuffer = NULL, int count = 1 )
 	{
 		assert( count >= 0 );
@@ -136,49 +111,20 @@ public:
 	}
 
 private:
-	//-----------------------------------------------------------------------------
 	// The lowest level byte swapping workhorse of doom.  output always contains the 
 	// swapped version of input.  ( Doesn't compare machine to target endianness )
-	//-----------------------------------------------------------------------------
 	template<typename T> static void LowLevelByteSwap( T *output, const T *input )
 	{
 		T temp = *output;
-#if defined( _X360 )
-		// Intrinsics need the source type to be fixed-point
-		DWORD* word = (DWORD*)input;
-		switch( sizeof(T) )
-		{
-		case 8:
-			{
-			__storewordbytereverse( *word, 0, &temp );
-			__storewordbytereverse( *(word+1), 4, &temp );
-			}
-			break;
-
-		case 4:
-			__storewordbytereverse( *word, 0, &temp );
-			break;
-
-		case 2:
-			__storeshortbytereverse( *input, 0, &temp );
-			break;
-
-		default:
-			Assert( "Invalid size in CByteswap::LowLevelByteSwap" && 0 );
-		}
-#else
 		for( auto i = 0; i < sizeof(T); i++ )
 		{
 			unsigned char *pByteOut = (unsigned char *) &temp;
 			const unsigned char *pByteIn = (const unsigned char *) input;
 			pByteOut[i] = pByteIn[ sizeof( T ) - ( i + 1 ) ]; 
 		}
-#endif
 		Q_memcpy( output, &temp, sizeof(T) );
 	}
 
 	unsigned int m_bSwapBytes : 1;
 	unsigned int m_bBigEndian : 1;
 };
-
-#endif /* !BYTESWAP_H */

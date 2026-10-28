@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef DATAMAP_H
-#define DATAMAP_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #ifndef VECTOR_H
 #include "mathlib/vector.h"
@@ -68,10 +59,7 @@ typedef enum _fieldtypes
 	FIELD_TYPECOUNT,		// MUST BE LAST
 } fieldtype_t;
 
-
-//-----------------------------------------------------------------------------
 // Field sizes... 
-//-----------------------------------------------------------------------------
 template <int FIELD_TYPE>
 class CDatamapFieldSizeDeducer
 {
@@ -89,8 +77,6 @@ public:
 
 #define DECLARE_FIELD_SIZE( _fieldType, _fieldSize )	\
 	template< > class CDatamapFieldSizeDeducer<_fieldType> { public: enum { SIZE = _fieldSize }; static int FieldSize() { return _fieldSize; } };
-#define FIELD_SIZE( _fieldType )	CDatamapFieldSizeDeducer<_fieldType>::SIZE
-#define FIELD_BITS( _fieldType )	(FIELD_SIZE( _fieldType ) * 8)
 
 DECLARE_FIELD_SIZE( FIELD_FLOAT,		sizeof(float) )
 DECLARE_FIELD_SIZE( FIELD_STRING,		sizeof(intp) )
@@ -124,8 +110,6 @@ DECLARE_FIELD_SIZE( FIELD_INTERVAL,		2 * sizeof( float) )  // NOTE:  Must match 
 DECLARE_FIELD_SIZE( FIELD_MODELINDEX,	sizeof(int) )
 DECLARE_FIELD_SIZE( FIELD_MATERIALINDEX,	sizeof(int) )
 
-
-#define ARRAYSIZE2D(p)		(sizeof(p)/sizeof(p[0][0]))
 #define SIZE_OF_ARRAY(p)	_ARRAYSIZE(p)
 
 // Normal offset of is invalid on non-array-types, this is dubious as hell. The rest of the codebase converted to the
@@ -137,35 +121,11 @@ DECLARE_FIELD_SIZE( FIELD_MATERIALINDEX,	sizeof(int) )
 #define DEFINE_FIELD(name,fieldtype)			_FIELD(name, fieldtype, 1,  FTYPEDESC_SAVE, NULL, 0 )
 #define DEFINE_KEYFIELD(name,fieldtype, mapname) _FIELD(name, fieldtype, 1,  FTYPEDESC_KEY | FTYPEDESC_SAVE, mapname, 0 )
 
-
-
 #define DEFINE_ARRAY(name,fieldtype, count)		_FIELD(name, fieldtype, count, FTYPEDESC_SAVE, NULL, 0 )
-
-
-
-
-
-
 
 // Used by byteswap datadescs
 
-
-
-
-
-
-
-
-
-
-
-
-
 #ifndef NO_ENTITY_PREDICTION
-
-
-
-
 
 #else
 
@@ -177,11 +137,7 @@ DECLARE_FIELD_SIZE( FIELD_MATERIALINDEX,	sizeof(int) )
 // Extensions to datamap.h macros for predicted entities only
 #define DEFINE_PRED_FIELD(name,fieldtype, flags)			_FIELD(name, fieldtype, 1,  flags, NULL, 0.0f )
 
-
 // Predictable macros, which include a tolerance for floating point values...
-
-
-
 
 //#define DEFINE_DATA( name, fieldextname, flags ) _FIELD(name, fieldtype, 1,  flags, extname )
 
@@ -193,21 +149,17 @@ DECLARE_FIELD_SIZE( FIELD_MATERIALINDEX,	sizeof(int) )
 // the variable 'name' MUST BE derived from CBaseOutput
 // we know the output type from the variable itself, so it doesn't need to be specified here
 class ISaveRestoreOps;
-extern ISaveRestoreOps *eventFuncs;
 
-
-// replaces EXPORT table for portability and non-DLL based systems (xbox)
 #define DEFINE_FUNCTION_RAW( function, func_type )			{ FIELD_VOID, nameHolder.GenerateName(#function), { NULL, NULL }, 1, FTYPEDESC_FUNCTIONTABLE, NULL, NULL, (inputfunc_t)((func_type)(&classNameTypedef::function)) }
 #define DEFINE_FUNCTION( function )			DEFINE_FUNCTION_RAW( function, inputfunc_t )
 
-
-#define FTYPEDESC_GLOBAL			0x0001		// This field is masked for global entity save/restore
+		// This field is masked for global entity save/restore
 #define FTYPEDESC_SAVE				0x0002		// This field is saved to disk
 #define FTYPEDESC_KEY				0x0004		// This field can be requested and written to by string name at load time
 #define FTYPEDESC_INPUT				0x0008		// This field can be written to by string name at run time, and a function called
-#define FTYPEDESC_OUTPUT			0x0010		// This field propogates it's value to all targets whenever it changes
+		// This field propogates it's value to all targets whenever it changes
 #define FTYPEDESC_FUNCTIONTABLE		0x0020		// This is a table entry for a member function pointer
-#define FTYPEDESC_PTR				0x0040		// This field is a pointer, not an embedded object
+		// This field is a pointer, not an embedded object
 #define FTYPEDESC_OVERRIDE			0x0080		// The field is an override for one in a base class (only used by prediction system for now)
 
 // Flags used by other systems (e.g., prediction system)
@@ -217,7 +169,7 @@ extern ISaveRestoreOps *eventFuncs;
 
 		// The field is a model index (used for debugging output)
 
-#define FTYPEDESC_INDEX				0x1000		// The field is an index into file data, used for byteswapping. 
+		// The field is an index into file data, used for byteswapping. 
 
 // These flags apply to C_BasePlayer derived objects only
 #define FTYPEDESC_VIEW_OTHER_PLAYER		0x2000		// By default you can only view fields on the local player (yourself), 
@@ -232,12 +184,9 @@ extern ISaveRestoreOps *eventFuncs;
 
 struct typedescription_t;
 
-
 class ISaveRestoreOps;
 
-//
 // Function prototype for all input handlers.
-//
 typedef void (CBaseEntity::*inputfunc_t)(inputdata_t &data);
 
 struct datamap_t;
@@ -281,11 +230,8 @@ struct typedescription_t
 	float				fieldTolerance;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: stores the list of objects in the hierarchy
 //			used to iterate through an object's data descriptions
-//-----------------------------------------------------------------------------
 struct datamap_t
 {
 	typedescription_t	*dataDesc;
@@ -303,11 +249,7 @@ struct datamap_t
 #endif // _DEBUG
 };
 
-
-//-----------------------------------------------------------------------------
-//
 // Macros used to implement datadescs
-//
 #define DECLARE_SIMPLE_DATADESC() \
 	static datamap_t m_DataMap; \
 	static datamap_t *GetBaseMap(); \
@@ -375,11 +317,6 @@ struct datamap_t
 
 // used for when there is no data description
 
-
-
-
-
-
 // helps get the offset of a bitfield
 #define BEGIN_BITFIELD( name ) \
 	union \
@@ -392,7 +329,6 @@ struct datamap_t
 		}; \
 	};
 
-//-----------------------------------------------------------------------------
 // Forward compatability with potential seperate byteswap datadescs
 
 #define DECLARE_BYTESWAP_DATADESC() DECLARE_SIMPLE_DATADESC()
@@ -400,15 +336,11 @@ struct datamap_t
  
 #define END_BYTESWAP_DATADESC() END_DATADESC()
 
-//-----------------------------------------------------------------------------
-
 template <typename T> 
 inline void DataMapAccess(T *ignored, datamap_t **p)
 {
 	*p = &T::m_DataMap;
 }
-
-//-----------------------------------------------------------------------------
 
 class CDatadescGeneratedNameHolder
 {
@@ -442,8 +374,4 @@ private:
 	CUtlVector<char *> m_Names;
 };
 
-//-----------------------------------------------------------------------------
-
 #include "tier0/memdbgoff.h"
-
-#endif // DATAMAP_H

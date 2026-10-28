@@ -40,8 +40,7 @@
 // Header-only and engine-free so the precedence is checked by gtest rather
 // than by standing on a lift (src/sourcesharp/test/standalone_movetype_test.cpp).
 
-#ifndef SOURCESHARP_STANDALONE_MOVETYPE_H
-#define SOURCESHARP_STANDALONE_MOVETYPE_H
+#pragma once
 
 #include "sourcesharp.h"
 
@@ -62,5 +61,3 @@ inline int32_t StandaloneMoveType_Report( bool bIsPlayer, int nPlayerMoveType, b
 
 	return SOURCESHARP_MOVETYPE_NONE;
 }
-
-#endif // SOURCESHARP_STANDALONE_MOVETYPE_H

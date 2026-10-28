@@ -22,11 +22,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_CPP20_H
-#define SOURCESHARP_SS_CPP20_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <algorithm>
 #include <deque>
@@ -179,5 +175,3 @@ typename std::unordered_set< K, H, E, A >::size_type erase_if( std::unordered_se
 #endif
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_CPP20_H

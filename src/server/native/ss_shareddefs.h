@@ -18,11 +18,7 @@
 // checks every one, so a restated value cannot drift from its source.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_SHAREDDEFS_H
-#define SOURCESHARP_SS_SHAREDDEFS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 namespace ss
 {
@@ -156,5 +152,3 @@ enum
 };
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_SHAREDDEFS_H

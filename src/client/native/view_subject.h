@@ -20,11 +20,7 @@
 // game does not obviously show.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_VIEW_SUBJECT_H
-#define SOURCESHARP_VIEW_SUBJECT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 namespace ViewSubject
 {
@@ -104,5 +100,3 @@ inline bool ViewEntityOverridesTheEye( int nViewEntity, int nLocalPlayer )
 // 2026-10-19), so the pass draws the player's viewmodels or none.
 
 } // namespace ViewSubject
-
-#endif // SOURCESHARP_VIEW_SUBJECT_H

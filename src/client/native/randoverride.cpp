@@ -10,17 +10,16 @@
 
 #include "stdlib.h"
 #include "vstdlib/random.h"
+#include "tier0/platform.h"
 
 
 #ifdef GNUC
 #define __cdecl 
 #endif
 
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
 void __cdecl srand(unsigned int)
 {
 }
-#endif
 
 int __cdecl rand()
 {

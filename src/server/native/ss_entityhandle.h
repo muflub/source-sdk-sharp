@@ -14,11 +14,7 @@
 // it, which ss_util.h cannot offer.
 //=============================================================================//
 
-#ifndef SS_ENTITYHANDLE_H
-#define SS_ENTITYHANDLE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "iserverentity.h"
 #include "engine/IStaticPropMgr.h"
@@ -63,5 +59,3 @@ inline IGameEntity *TraceGameEntity( const trace_t &tr )
 }
 
 } // namespace ss
-
-#endif // SS_ENTITYHANDLE_H

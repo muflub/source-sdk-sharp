@@ -13,7 +13,7 @@
 // call tier0's allocator (utlmemory.h under memdbgon.h), which is what keeps
 // g_pMemAlloc in server.so's imports.
 //
-// The layout, from public/tier1/utlmemory.h and utlvector.h (not _X360):
+// The layout, from public/tier1/utlmemory.h and utlvector.h (the PC arm):
 //   CUtlMemory<T>   T *m_pMemory; int m_nAllocationCount; int m_nGrowSize;
 //   CUtlVector<T>   CUtlMemory<T> m_Memory; int m_Size; T *m_pElements;
 // (CUtlVector's one base, base_vector_t, is empty.) The elements are
@@ -27,11 +27,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_ENGINE_UTLVECTOR_H
-#define SOURCESHARP_ENGINE_UTLVECTOR_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "engine_heap.h"
 
@@ -208,5 +204,3 @@ inline bool EngineUtlStringVectorAppend( IEngineHeap *pHeap, EngineUtlVectorLayo
 }
 
 } // namespace ss
-
-#endif // SOURCESHARP_ENGINE_UTLVECTOR_H

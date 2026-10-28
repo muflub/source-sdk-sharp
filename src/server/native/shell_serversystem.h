@@ -60,30 +60,10 @@
 //
 //=============================================================================
 
-#ifndef SHELL_SERVERSYSTEM_H
-#define SHELL_SERVERSYSTEM_H
+#pragma once
 
 #include <cstddef>
-#ifdef _WIN32
-#pragma once
-#endif
 
-#ifdef CLIENT_DLL
-// The client still has IGameSystem and still calls InitAllSystems -- but NOT
-// for the reason this comment used to give. It claimed client_csharp.vpc
-// $Includes client_base.vpc. It does not, and a grep says so: that vpc has zero
-// $Include of client_base and lists its own 280 $File entries, exactly as
-// server_csharp.vpc does. The client's systems keep their stock base because
-// nothing has ported them yet, which is a different fact with a different
-// owner (Phase 6/7), and the false premise was what made the old arrangement
-// look reasonable.
-//
-// Including this header from the client's half of a SHARED file is the one
-// mistake this whole phase is arranged around, and it is refused here rather
-// than discovered as a
-// client that quietly stopped initialising.
-#error "shell_serversystem.h is the SERVER's game-system base. The client keeps IGameSystem -- see plan_gamedll.md T1."
-#endif
 
 //-----------------------------------------------------------------------------
 // The base the two native server systems derive from. Every stage is a no-op,
@@ -110,5 +90,3 @@ public:
 private:
 	char const *m_pszName;
 };
-
-#endif // SHELL_SERVERSYSTEM_H

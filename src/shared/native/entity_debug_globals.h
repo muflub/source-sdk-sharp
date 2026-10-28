@@ -38,11 +38,7 @@
 // answerable by grepping for one name, which was never true of a public static.
 //
 //=============================================================================//
-#ifndef ENTITY_DEBUG_GLOBALS_H
-#define ENTITY_DEBUG_GLOBALS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // Debug entity selection (m_bInDebugSelect / m_nDebugPlayer) went in
@@ -122,5 +118,3 @@ inline bool &EntityDebug_TouchFuncsDisabledRef()
 
 inline bool EntityDebug_TouchFuncsDisabled()          { return EntityDebug_TouchFuncsDisabledRef(); }
 inline void EntityDebug_SetTouchFuncsDisabled( bool b ) { EntityDebug_TouchFuncsDisabledRef() = b; }
-
-#endif // ENTITY_DEBUG_GLOBALS_H

@@ -1,20 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Helper class for cvars that have restrictions on their value.
-//
-//=============================================================================//
 
-#ifndef CONVAR_SERVERBOUNDED_H
-#define CONVAR_SERVERBOUNDED_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 // This class is used to virtualize a ConVar's value, so the client can restrict its 
 // value while connected to a server. When using this across modules, it's important
 // to dynamic_cast it to a ConVar_ServerBounded or you won't get the restricted value.
-//
 // NOTE: FCVAR_USERINFO vars are not virtualized before they are sent to the server
 //       (we have no way to detect if the virtualized value would change), so
 //       if you want to use a bounded cvar's value on the server, you must rebound it
@@ -48,6 +39,3 @@ public:
 		return ConVar::GetFloat();
 	}
 };
-
-
-#endif // CONVAR_SERVERBOUNDED_H

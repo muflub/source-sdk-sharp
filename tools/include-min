@@ -8,8 +8,9 @@
     src/server/native) or all (default); --cache FILE
     keeps the walk.
 
-WHAT A FILE NEEDS. Every module object (tools/vendor's targets) is parsed
-with libclang from its debug compile command. For each file the walk records
+WHAT A FILE NEEDS. Every object of the debug build, the modules' (tools/
+vendor's targets) and the tests', is parsed with libclang from its compile
+command. For each file the walk records
 the files that DEFINE what that file's text references -- declarations
 (their definition when there is one) and macros -- and each translation
 unit's include tree.
@@ -21,10 +22,10 @@ ones left.
 
 VERIFIED BY THE MACHINE CODE. A removal can compile and still change what
 compiles (a macro an #ifdef tested, an overload that is no longer visible),
-so --write rebuilds every module object of the debug, release and
-windows-cross builds and compares each object's fingerprint -- its
-disassembly with relocations, its data sections and its defined symbols, and
-not its debug information -- with the one taken before. A removed line
+so --write rebuilds the debug tree (every module and test), the release
+and windows-cross modules, and compares each module object's fingerprint --
+its disassembly with relocations, its data sections and its defined symbols,
+and not its debug information -- with the one taken before. A removed line
 becomes an empty line, so no __LINE__ moves. A wave that does not build or
 changes a fingerprint is split in two and each half retried, down to the one
 include that caused it, which stays.
@@ -51,7 +52,8 @@ OUR_NATIVE = VS.OUR_NATIVE
 OBJDUMP = "llvm-objdump-22"
 MODULE_TARGETS = ("client_sourcesharp", "server_sourcesharp", "ss_fwd_server", "ss_fwd_client",
                   "ss_particles", "sourcesharp", "tier1", "mathlib")
-WINDOWS_TARGETS = ("server_sourcesharp", "ss_fwd_server", "ss_particles", "sourcesharp")
+WINDOWS_TARGETS = ("server_sourcesharp", "ss_fwd_server", "client_sourcesharp", "ss_fwd_client",
+                   "ss_particles", "sourcesharp")
 
 
 def in_scope(path, scope):
@@ -69,13 +71,41 @@ def in_scope(path, scope):
 # The walk
 # ---------------------------------------------------------------------------
 
+RECORD_KINDS = ("StructDecl", "ClassDecl")
+NAMESPACE_REF = 46
+
+
+def forward_declaration(lc, kinds, r):
+    """`class X;`, wrapped in its namespaces, for a record a pointer or a
+    reference can name without its definition; None for anything else (a
+    template or a specialisation of one, a nested class, an anonymous one)."""
+    name = lc.spelling(r)
+    if not name or not lc.cursorIsNull(lc.specializedTemplate(r)):
+        return None
+    keyword = "struct" if kinds.get(r.kind) == "StructDecl" else "class"
+    spaces = []
+    p = lc.getSemanticParent(r)
+    while not lc.cursorIsNull(p) and kinds.get(p.kind) != "TranslationUnit":
+        if kinds.get(p.kind) != "Namespace" or not lc.spelling(p):
+            return None
+        spaces.insert(0, lc.spelling(p))
+        p = lc.getSemanticParent(p)
+    text = "%s %s;" % (keyword, name)
+    for ns in reversed(spaces):
+        text = "namespace %s { %s }" % (ns, text)
+    return text
+
+
 def walk(entry):
     import libclang_lite as lc
     kinds = {v: k for k, v in lc.K.items()}
+    kinds[350] = "TranslationUnit"
     idx = lc.createIndex(0, 0)
     tu = lc.parse(idx, entry["file"], VS.compile_args(entry, False))
     includes = []           # (includer, line, included)
     needs = {}              # file -> set(defining files)
+    records = {}            # (file, defining file) -> {forward declaration}
+    full = set()            # (file, defining file) needing more than a declared name
 
     def file_of(loc):
         f = lc.where(loc)[0]
@@ -98,22 +128,40 @@ def walk(entry):
             g = file_of(lc.getCursorLocation(target))
             if f and g and f != g:
                 needs.setdefault(f, set()).add(g)
+                fwd = (forward_declaration(lc, kinds, target)
+                       if kind == "TypeRef" and kinds.get(target.kind) in RECORD_KINDS else None)
+                if fwd:
+                    records.setdefault((f, g), set()).add(fwd)
+                elif c.kind != NAMESPACE_REF:
+                    # (A qualified name's namespace: the declaration opens it.)
+                    full.add((f, g))
         return 2
 
     lc.visitChildren(lc.getTUCursor(tu), cb, None)
     lc.disposeTU(tu)
     lc.disposeIndex(idx)
-    return os.path.realpath(entry["file"]), includes, needs
+    fwd = {k: v for k, v in records.items() if k not in full}
+    return os.path.realpath(entry["file"]), includes, needs, fwd, set(full)
 
 
 def measure(cfg):
+    """Every translation unit the debug build compiles, the tests' as well as
+    the modules': a test target compiles some of our sources and headers
+    without the module's other includes, and what such a unit needs stays."""
     path = os.path.join(REPO, "farm", cfg, "build", "compile_commands.json")
     db = json.load(open(path))
     entries, seen = [], set()
     for e in db:
-        t = VD.target_of(e.get("output", ""))
-        if t in MODULE_TARGETS and e["file"] not in seen:
-            seen.add(e["file"])
+        if e.get("output") and e["output"] not in seen and e["file"].endswith((".cpp", ".cc", ".c")):
+            seen.add(e["output"])
+            entries.append(e)
+    # The probe build (tools/client-probe-link) compiles client.so with the
+    # debug probes, whose units need our headers as much as the module's do.
+    probes = os.path.join(REPO, "farm", "debug", "build-probes", "compile_commands.json")
+    if not os.path.exists(probes):
+        raise SystemExit("include-min: no probe build at farm/debug/build-probes (tools/client-probe-link)")
+    for e in json.load(open(probes)):
+        if VD.target_of(e.get("output", "")) == "client_sourcesharp" and "/probes/" in e["file"]:
             entries.append(e)
     tus = []
     with concurrent.futures.ProcessPoolExecutor(os.cpu_count() or 4) as ex:
@@ -138,38 +186,59 @@ def reach(main, edges_of, removed):
 
 
 def candidates(tus, scope, keep_lines=frozenset()):
-    """[(file, line, included)]: the includes the simulation says may go."""
+    """[(file, line, included, replacement)]: the includes the simulation
+    says may go -- replacement None -- and then, of the rest, the includes a
+    header needs only for names a forward declaration gives it, with those
+    declarations as the replacement."""
     per_tu = []
     lines = {}
-    for main, includes, needs in tus:
+    fwd_all, full_all = {}, set()
+    for tu in tus:
+        main, includes, needs = tu[0], tu[1], tu[2]
+        fwd, full = (tu[3], tu[4]) if len(tu) > 3 else ({}, set())
         edges_of = {}
         for f, line, g in includes:
             edges_of.setdefault(f, set()).add(g)
             lines.setdefault((f, g), set()).add(line)
         per_tu.append((main, edges_of, needs))
+        for k, v in fwd.items():
+            fwd_all.setdefault(k, set()).update(v)
+        full_all |= full
     removed = set()
+    satisfied = {}          # file -> the defining files its declarations stand in for
     out = []
     cands = sorted({(f, g) for _, e, _ in per_tu for f, gs in e.items() for g in gs
                     if in_scope(f, scope)})
+
+    def holds(trial, sat):
+        for main, edges_of, needs in per_tu:
+            files = reach(main, edges_of, trial)
+            for h in files:
+                if not (needs.get(h, set()) - sat.get(h, set())) <= files:
+                    return False
+        return True
+
     for f, g in cands:
         if any((f, ln) in keep_lines for ln in lines[(f, g)]):
             continue
         trial = removed | {(f, g)}
-        ok = True
-        for main, edges_of, needs in per_tu:
-            if g not in edges_of.get(f, ()):
-                continue
-            files = reach(main, edges_of, trial)
-            for h in files:
-                if not needs.get(h, set()) <= files:
-                    ok = False
-                    break
-            if not ok:
-                break
-        if ok:
+        if holds(trial, satisfied):
             removed = trial
             for ln in sorted(lines[(f, g)]):
-                out.append((f, ln, g))
+                out.append((f, ln, g, None))
+    for f, g in cands:
+        if (f, g) in removed or not f.endswith((".h", ".hpp")) or (f, g) in full_all:
+            continue
+        if (f, g) not in fwd_all or any((f, ln) in keep_lines for ln in lines[(f, g)]):
+            continue
+        if len(lines[(f, g)]) != 1:
+            continue
+        trial = removed | {(f, g)}
+        sat = dict(satisfied)
+        sat[f] = sat.get(f, set()) | {g}
+        if holds(trial, sat):
+            removed, satisfied = trial, sat
+            out.append((f, min(lines[(f, g)]), g, " ".join(sorted(fwd_all[(f, g)]))))
     return out
 
 
@@ -177,13 +246,16 @@ def candidates(tus, scope, keep_lines=frozenset()):
 # Verification
 # ---------------------------------------------------------------------------
 
-BUILDS = (("debug", "build", MODULE_TARGETS), ("release", "build", MODULE_TARGETS),
-          ("debug", "build-windows-cross", WINDOWS_TARGETS))
+# (config, build tree, the targets whose objects are fingerprinted, what is
+# built: None is the tree's default, every module and every test.)
+BUILDS = (("debug", "build", MODULE_TARGETS, None), ("release", "build", MODULE_TARGETS, MODULE_TARGETS),
+          ("debug", "build-windows-cross", WINDOWS_TARGETS, WINDOWS_TARGETS),
+          ("debug", "build-probes", (), ("client_sourcesharp",)))
 
 
 def objects():
     out = []
-    for cfg, bdir, targets in BUILDS:
+    for cfg, bdir, targets, _built in BUILDS:
         b = os.path.join(REPO, "farm", cfg, bdir)
         db = json.load(open(os.path.join(b, "compile_commands.json")))
         for e in db:
@@ -206,8 +278,8 @@ def fingerprint(obj):
 
 
 def build():
-    for cfg, bdir, targets in BUILDS:
-        r = subprocess.run(["ninja", "-C", os.path.join(REPO, "farm", cfg, bdir), *targets],
+    for cfg, bdir, _targets, built in BUILDS:
+        r = subprocess.run(["ninja", "-C", os.path.join(REPO, "farm", cfg, bdir), *(built or ())],
                            capture_output=True, text=True)
         if r.returncode != 0:
             return False
@@ -221,19 +293,20 @@ def fingerprints():
 
 
 def apply(cands):
-    """Blank each candidate's line; returns {file: original text} to restore."""
+    """Blank each candidate's line, or put its forward declarations on it;
+    returns {file: original text} to restore."""
     saved = {}
     by_file = {}
-    for f, line, g in cands:
-        by_file.setdefault(f, set()).add(line)
+    for f, line, g, replacement in cands:
+        by_file.setdefault(f, {})[line] = replacement
     for f, ls in by_file.items():
         with open(f, encoding="latin-1", newline="") as fh:
             text = fh.read()
         saved[f] = text
         rows = text.split("\n")
-        for ln in ls:
+        for ln, replacement in ls.items():
             if re.match(r"^\s*#\s*include\b", rows[ln - 1]):
-                rows[ln - 1] = ""
+                rows[ln - 1] = replacement or ""
         with open(f, "w", encoding="latin-1", newline="") as fh:
             fh.write("\n".join(rows))
     return saved
@@ -262,8 +335,9 @@ def settle(cands, base, log):
         log("  %d removals hold" % len(cands))
         return cands
     if len(cands) == 1:
-        log("  kept: %s:%d (%s)" % (os.path.relpath(cands[0][0], REPO), cands[0][1],
-                                    os.path.relpath(cands[0][2], REPO)))
+        log("  kept: %s:%d (%s)%s" % (os.path.relpath(cands[0][0], REPO), cands[0][1],
+                                      os.path.relpath(cands[0][2], REPO),
+                                      " for " + cands[0][3] if cands[0][3] else ""))
         if not build():
             raise SystemExit("include-min: the tree no longer builds after a restore")
         return []
@@ -285,12 +359,40 @@ def self_test():
     m, a, b, c = r + "/src/server/native/m.cpp", r + "/vendor/shared/a.h", r + "/vendor/shared/b.h", \
         r + "/vendor/shared/c.h"
     tus = [(m, [(m, 1, a), (a, 3, b), (a, 4, c)], {m: {b}})]
-    got = [(os.path.basename(x), ln) for x, ln, _ in candidates(tus, "all")]
+    got = [(os.path.basename(x), ln) for x, ln, _, _ in candidates(tus, "all")]
     eq(got, [("a.h", 4)], "an include nothing needs may go; one the unit still needs stays")
     eq(reach(m, {m: {a}, a: {b}}, {(a, b)}), {m, a}, "a removed edge cuts its subtree")
     tus = [(m, [(m, 1, a), (m, 2, b), (a, 3, b)], {m: {b}})]
-    got = [(os.path.basename(x), ln) for x, ln, _ in candidates(tus, "vendor")]
+    got = [(os.path.basename(x), ln) for x, ln, _, _ in candidates(tus, "vendor")]
     eq(got, [("a.h", 3)], "an include of what another path still brings may go")
+    # a.h names only b.h's class X; m.cpp names nothing in b.h.
+    tus = [(m, [(m, 1, a), (a, 3, b)], {m: {a}, a: {b}}, {(a, b): {"class X;"}}, set())]
+    got = [(os.path.basename(x), ln, rep) for x, ln, _, rep in candidates(tus, "all")]
+    eq(got, [("a.h", 3, "class X;")], "a header that names only a class is given its declaration")
+    tus = [(m, [(m, 1, a), (a, 3, b)], {m: {a}, a: {b}}, {}, {(a, b)})]
+    eq(candidates(tus, "all"), [], "a header that needs more than a name keeps its include")
+    tus = [(m, [(m, 1, a), (a, 3, b)], {m: {a, b}, a: {b}}, {(a, b): {"class X;"}}, set())]
+    eq(candidates(tus, "all"), [], "an include the including unit's other files still need through it stays")
+    tus = [(m, [(m, 1, b)], {m: {b}}, {(m, b): {"class X;"}}, set())]
+    eq(candidates(tus, "all"), [], "a source file keeps its includes")
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        hdr, use = os.path.join(td, "defs.h"), os.path.join(td, "use.h")
+        with open(hdr, "w") as fh:
+            fh.write("namespace vgui { class Panel {}; }\nstruct S {};\ntemplate< class T > class Tpl {};\n"
+                     "struct Outer { struct In {}; };\nstruct Full { int n; };\n")
+        with open(use, "w") as fh:
+            fh.write('#include "defs.h"\nvgui::Panel *p; S *s;\n')
+        src = os.path.join(td, "u.cpp")
+        with open(src, "w") as fh:
+            fh.write('#include "use.h"\nTpl< int > *t; Outer::In *i; int k = sizeof( Full );\n')
+        _main, _inc, _needs, fwd, full = walk({"file": src, "directory": td,
+                                              "command": "clang++ -std=c++17 -c " + src})
+        key = (os.path.realpath(use), os.path.realpath(hdr))
+        eq(sorted(fwd.get(key, ())), ["namespace vgui { class Panel; }", "struct S;"],
+           "the walk declares a namespaced class and a struct a header names")
+        eq((os.path.realpath(src), os.path.realpath(hdr)) in full, True,
+           "a template, a nested class or a sizeof needs the definition")
     print("tools/include-min --self-test: %d checks passed" % checks)
     return 0
 
@@ -312,8 +414,9 @@ def main(argv):
     print("include-min: %d translation units; %d includes may go in %d files (scope %s)"
           % (len(tus), len(cands), files, scope))
     if "--report" in argv:
-        for f, ln, g in cands:
-            print("  %s:%d  %s" % (os.path.relpath(f, REPO), ln, os.path.relpath(g, REPO)))
+        for f, ln, g, replacement in cands:
+            print("  %s:%d  %s%s" % (os.path.relpath(f, REPO), ln, os.path.relpath(g, REPO),
+                                     "  -> " + replacement if replacement else ""))
     if "--write" in argv:
         if not build():
             raise SystemExit("include-min: the tree does not build before any change")

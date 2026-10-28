@@ -21,8 +21,9 @@
 #include "engineabi/recv.h"
 
 #include "client_class.h"
-#include "networkvar.h"
 #include "renamed_recvtable_compat.h"
+#include "dt_common.h"
+#include "dt_recv.h"
 
 //-----------------------------------------------------------------------------
 // The lists the engine and the shells walk. Zero-initialised constants, so

@@ -20,13 +20,15 @@
 // which is already one class in one file; this is that shape on the client.
 //
 //===========================================================================//
-#include "cbase.h"
 #include "appframework/IAppSystemGroup.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "scenefilecache/ISceneFileCache.h"
+#include "tier0/basetypes.h"
+#include "tier1/interface.h"
+#include "tier1/utlvector.h"
+#include "cdll_int.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: the shared app systems the launcher must bring up for this client

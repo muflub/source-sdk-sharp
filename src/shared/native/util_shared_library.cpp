@@ -61,13 +61,27 @@
 //=============================================================================//
 
 #ifdef CLIENT_DLL
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #endif
 
 #include "convar.h"
 #include "managed_convar_ref.h"
 #ifdef CLIENT_DLL
-#include "gamerules.h"
+#include "igamerules.h"
 #else
 #include "igamerules.h"	// g_pGameRules; stock's CGameRules is not reached on the server
 #endif
@@ -87,7 +101,7 @@
 #endif
 
 #ifdef CLIENT_DLL
-	#include "c_baseplayer.h"
+	#include "client_entity.h"
 	#include <vgui/ILocalize.h>
 	extern vgui::ILocalize *g_pVGuiLocalize;
 	#include "c_te_effect_dispatch.h"

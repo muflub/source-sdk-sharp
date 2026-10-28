@@ -106,22 +106,8 @@
 //
 //=============================================================================
 
-#ifndef SHELL_CLIENTSYSTEM_H
-#define SHELL_CLIENTSYSTEM_H
-#ifdef _WIN32
 #pragma once
-#endif
 
-#ifndef CLIENT_DLL
-// The server's base is shell_serversystem.h and its stages are different ones
-// -- FrameUpdatePreEntityThink / FrameUpdatePostEntityThink / PreClientUpdate
-// where this has PreRender / Update / PostRender. Including THIS header from
-// the server's half of a SHARED file is the mistake this whole phase is
-// arranged around, in the direction the mirror image of Phase 7a runs, and it
-// is refused here rather than discovered as a server that quietly stopped
-// initialising.
-#error "shell_clientsystem.h is the CLIENT's game-system base. The server's is shell_serversystem.h -- see plan_cworld_trace.md T4."
-#endif
 
 //-----------------------------------------------------------------------------
 // The base every client game system derives from.
@@ -232,4 +218,28 @@ void SourceSharp_ClientSystemsUpdate( float frametime );
 
 const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes );
 
-#endif // SHELL_CLIENTSYSTEM_H
+//-----------------------------------------------------------------------------
+// A row over an object stock's headers make an IGameSystem (the detail props,
+// the effect precache system): the walks call the row, the row hands each
+// stage to the object, which answers it as stock's did.
+//-----------------------------------------------------------------------------
+class IGameSystem;
+
+template< class TGameSystem >
+class CGameSystemRow : public CClientSystem
+{
+public:
+	explicit CGameSystemRow( TGameSystem *pSystem ) : m_pSystem( pSystem ) {}
+
+	virtual char const *Name() { return m_pSystem->Name(); }
+	virtual bool Init() { return m_pSystem->Init(); }
+	virtual void PostInit() { m_pSystem->PostInit(); }
+	virtual void Shutdown() { m_pSystem->Shutdown(); }
+	virtual void LevelInitPreEntity() { m_pSystem->LevelInitPreEntity(); }
+	virtual void LevelInitPostEntity() { m_pSystem->LevelInitPostEntity(); }
+	virtual void LevelShutdownPreEntity() { m_pSystem->LevelShutdownPreEntity(); }
+	virtual void LevelShutdownPostEntity() { m_pSystem->LevelShutdownPostEntity(); }
+
+private:
+	TGameSystem *m_pSystem;
+};

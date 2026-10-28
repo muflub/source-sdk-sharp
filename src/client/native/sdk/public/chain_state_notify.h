@@ -35,11 +35,7 @@
 // build would report.
 //
 //=============================================================================//
-#ifndef CHAIN_STATE_NOTIFY_H
-#define CHAIN_STATE_NOTIFY_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // The owner of a network-var chain, whatever class that turns out to be.
@@ -82,5 +78,3 @@ private:
 	void *m_pOwner;
 	void ( *m_pfnNotify )( void * );
 };
-
-#endif // CHAIN_STATE_NOTIFY_H

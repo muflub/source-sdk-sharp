@@ -14,7 +14,7 @@
 6	SLOT	[CSourceSharpInput] virtual void EncodeUserCmdToBuffer( bf_write &buf, int sequence_number ) OVERRIDE
 25	SLOT	[CSourceSharpInput] virtual void DecodeUserCmdFromBuffer( bf_read &buf, int sequence_number ) OVERRIDE
 6	SLOT	[CSourceSharpInput] virtual CUserCmd *GetUserCmd( int sequence_number ) OVERRIDE
-5	SLOT	[CSourceSharpInput] virtual void MakeWeaponSelection( int nWeaponEntIndex ) OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual void MakeWeaponSelection( C_BaseCombatWeapon *pWeapon ) OVERRIDE
 6	SLOT	[CSourceSharpInput] virtual float KeyState( kbutton_t *key ) OVERRIDE
 10	SLOT	[CSourceSharpInput] virtual int KeyEvent( int down, ButtonCode_t keynum, const char *pszCurrentBinding ) OVERRIDE
 8	SLOT	[CSourceSharpInput] virtual kbutton_t *FindKey( const char *name ) OVERRIDE

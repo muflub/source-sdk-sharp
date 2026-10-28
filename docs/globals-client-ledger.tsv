@@ -119,7 +119,6 @@ shell_client.o	_ZZL34SourceSharp_ApplyThirdPersonCameraP18C_StandaloneEntityP10C
 shell_client.o	_ZL36cl_reload_localization_files_command	cl_reload_localization_files_command	sourcesharp/game/client/shell_client.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 shell_client.o	_ZL28cl_show_num_particle_systems	cl_show_num_particle_systems	sourcesharp/game/client/shell_client.cpp	LOCAL	bss	file-or-global	144	UNRULED		
 	fps	fps	sourcesharp/game/client/shell_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
-shell_client.o	_ZL9g_AmmoDef	g_AmmoDef	sourcesharp/game/client/shell_client.cpp	LOCAL	bss	file-or-global	2320	UNRULED		
 shell_client.o	_ZL12g_ClientMode	g_ClientMode	sourcesharp/game/client/shell_client.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_client.o	_ZL13g_ModeManager	g_ModeManager	sourcesharp/game/client/shell_client.cpp	LOCAL	data	file-or-global	8	UNRULED		
 	g_pClientMode	g_pClientMode	sourcesharp/game/client/shell_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
@@ -134,7 +133,6 @@ shell_clientdll.o	_ZZ11DataMapInitI13player_info_sEP9datamap_tPT_E10nameHolder	D
 shell_clientdll.o	_ZL43__g_CreateCShellClientDLLIBaseClientDLL_reg	__g_CreateCShellClientDLLIBaseClientDLL_reg	sourcesharp/game/client/shell_clientdll.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
 	clientdll	clientdll	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	data	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp/game/client/shell_clientdll.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-	datacache	datacache	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	debugoverlay	debugoverlay	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	effects	effects	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	engine	engine	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
@@ -154,12 +152,8 @@ shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp
 	g_pStringTableParticleEffectNames	g_pStringTableParticleEffectNames	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_pStringTableServerMapCycle	g_pStringTableServerMapCycle	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	gameeventmanager	gameeventmanager	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	gamestatsuploader	gamestatsuploader	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	gameuifuncs	gameuifuncs	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	gpGlobals	gpGlobals	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 	haptics	haptics	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	inputsystem	inputsystem	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	matchmaking	matchmaking	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 	materials_stub	materials_stub	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	modelinfo	modelinfo	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	modelrender	modelrender	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
@@ -169,13 +163,11 @@ shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp
 	_ZN26player_info_s_DataDescInit15g_DataMapHolderE	player_info_s_DataDescInit::g_DataMapHolder	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 	random_valve	random_valve	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	render	render	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	scenefilecache	scenefilecache	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	shadowmgr	shadowmgr	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	sharedgamerules	sharedgamerules	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 	soundemitterbase	soundemitterbase	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_clientdll.o	_ZL29ss_cl_stage_crossings_command	ss_cl_stage_crossings_command	sourcesharp/game/client/shell_clientdll.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 	staticpropmgr	staticpropmgr	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	xboxsystem	xboxsystem	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
 shell_clientdll_appsystems.o	_ZL40__g_CClientDLLSharedAppSystems_singleton	__g_CClientDLLSharedAppSystems_singleton	sourcesharp/game/client/shell_clientdll_appsystems.cpp	LOCAL	bss	file-or-global	40	FLOOR		engine.so resolves VClientDllSharedAppSystems001 and CreateInterface returns this object's address
 shell_clientdll_appsystems.o	_ZL66__g_CreateCClientDLLSharedAppSystemsIClientDLLSharedAppSystems_reg	__g_CreateCClientDLLSharedAppSystemsIClientDLLSharedAppSystems_reg	sourcesharp/game/client/shell_clientdll_appsystems.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
 shell_clientdll_gameclientexports.o	_ZL32__g_CGameClientExports_singleton	__g_CGameClientExports_singleton	sourcesharp/game/client/shell_clientdll_gameclientexports.cpp	LOCAL	data	file-or-global	8	FLOOR		GameUI.so -- not the engine -- resolves GameClientExports001 and CreateInterface returns this object's address
@@ -187,6 +179,8 @@ shell_cliententitylist.o	_ZL24cs_cl_slot_table_command	cs_cl_slot_table_command	
 shell_cliententitylist.o	_ZL35g_CreateSourceSharpClientEntityList	g_CreateSourceSharpClientEntityList	sourcesharp/game/client/shell_cliententitylist.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
 shell_cliententitylist.o	_ZL35ss_cl_boundary_probe_report_command	ss_cl_boundary_probe_report_command	sourcesharp/game/client/shell_cliententitylist.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 shell_cliententitylist.o	_ZL34ss_cl_boundary_probe_reset_command	ss_cl_boundary_probe_reset_command	sourcesharp/game/client/shell_cliententitylist.cpp	LOCAL	bss	file-or-global	72	UNRULED		
+shell_clientsystems.o	_ZZL30ClientEffectPrecacheGameSystemvE5s_Row	ClientEffectPrecacheGameSystem()::s_Row	sourcesharp/game/client/shell_clientsystems.cpp	LOCAL	bss	function-local	24	UNRULED		
+shell_clientsystems.o	_ZZL22DetailObjectGameSystemvE5s_Row	DetailObjectGameSystem()::s_Row	sourcesharp/game/client/shell_clientsystems.cpp	LOCAL	bss	function-local	24	UNRULED		
 shell_convars_client.o	_ZN12_GLOBAL__N_19g_DecidedE	(anonymous namespace)::g_Decided	sourcesharp/game/client/shell_convars_client.cpp	LOCAL	bss	function-local	544	UNRULED		
 shell_convars_client.o	_ZN12_GLOBAL__N_110g_nDecidedE	(anonymous namespace)::g_nDecided	sourcesharp/game/client/shell_convars_client.cpp	LOCAL	bss	function-local	4	UNRULED		
 shell_convars_client.o	_ZN12_GLOBAL__N_110g_nWatchedE	(anonymous namespace)::g_nWatched	sourcesharp/game/client/shell_convars_client.cpp	LOCAL	bss	function-local	4	UNRULED		
@@ -195,14 +189,14 @@ shell_convars_client.o	_ZN12_GLOBAL__N_111g_szWatchedE	(anonymous namespace)::g_
 shell_debugoverlay_client.o	_ZL14g_DebugOverlay	g_DebugOverlay	sourcesharp/game/client/shell_debugoverlay_client.cpp	LOCAL	data	file-or-global	8	UNRULED		
 	decalsystem	decalsystem	sourcesharp/game/client/shell_decals_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 shell_decals_client.o	_ZL13g_DecalSystem	g_DecalSystem	sourcesharp/game/client/shell_decals_client.cpp	LOCAL	bss	file-or-global	544	UNRULED		
-shell_detail_props.o	_ZN12_GLOBAL__N_118g_ShellDetailPropsE	(anonymous namespace)::g_ShellDetailProps	sourcesharp/game/client/shell_detail_props.cpp	LOCAL	bss	function-local	880	MEMBER	DetailProps:DLL	reset_today=yes for its per-level members (the model props, the leaf runs and the materials, purged at LevelShutdownPreEntity/PostEntity); the object is the DLL's. client.so's IDetailObjectSystem: DetailObjectSystem() returns it to the client systems list (an IGameSystem) and to the leaf system and view render, which call its draw slots; it carries out SourceSharp.Client.Detail's answers and decides nothing (C7 cluster 10)
+shell_detail_props.o	_ZN12_GLOBAL__N_118g_ShellDetailPropsE	(anonymous namespace)::g_ShellDetailProps	sourcesharp/game/client/shell_detail_props.cpp	LOCAL	bss	function-local	872	MEMBER	DetailProps:DLL	reset_today=yes for its per-level members (the model props, the leaf runs and the materials, purged at LevelShutdownPreEntity/PostEntity); the object is the DLL's. client.so's IDetailObjectSystem: DetailObjectSystem() returns it to the client systems list (an IGameSystem) and to the leaf system and view render, which call its draw slots; it carries out SourceSharp.Client.Detail's answers and decides nothing (C7 cluster 10)
 	_ZN25CClientEffectRegistration7s_pHeadE	CClientEffectRegistration::s_pHead	sourcesharp/game/client/shell_effect_dispatch_client.cpp	GLOBAL	bss	class-or-namespace	8	FLOOR		the DECLARE_CLIENT_EFFECT list, walked in shell_effect_dispatch_client.cpp for the managed dispatch table
 shell_effect_ledger.o	_ZL28cs_cl_effects_report_command	cs_cl_effects_report_command	sourcesharp/game/client/shell_effect_ledger.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 	g_SourceSharpEffects	g_SourceSharpEffects	sourcesharp/game/client/shell_effect_ledger.cpp	GLOBAL	bss	file-or-global	40	UNRULED		
 shell_effects_client.o	_ZN12_GLOBAL__N_114s_EffectsThunkE	(anonymous namespace)::s_EffectsThunk	sourcesharp/game/client/shell_effects_client.cpp	LOCAL	bss	function-local	40	UNRULED		
 shell_effects_client.o	_ZL35__g_CreateCEffectsThunkIEffects_reg	__g_CreateCEffectsThunkIEffects_reg	sourcesharp/game/client/shell_effects_client.cpp	LOCAL	bss	file-or-global	24	UNRULED		InterfaceReg node: settle by grepping the ENGINE for the interface string it registers, not by its existence
 	g_pEffects	g_pEffects	sourcesharp/game/client/shell_effects_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
-shell_effects_list_client.o	_ZZL14EffectPrecachevE28s_ClientEffectPrecacheSystem	EffectPrecache()::s_ClientEffectPrecacheSystem	sourcesharp/game/client/shell_effects_list_client.cpp	LOCAL	bss	function-local	48	UNRULED		
+shell_effects_list_client.o	_ZZL14EffectPrecachevE28s_ClientEffectPrecacheSystem	EffectPrecache()::s_ClientEffectPrecacheSystem	sourcesharp/game/client/shell_effects_list_client.cpp	LOCAL	bss	function-local	40	UNRULED		
 	_ZN19PrecacheEffectsTest20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectsTest::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_effects_list_client.cpp	GLOBAL	data	class-or-namespace	24	UNRULED		
 	_ZN19PrecacheEffectsTest29register_ClientEffectRegisterE	PrecacheEffectsTest::register_ClientEffectRegister	sourcesharp/game/client/shell_effects_list_client.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 	_ZN23PrecacheSmokeFogOverlay20ClientEffectRegister14m_pszMaterialsE	PrecacheSmokeFogOverlay::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_effects_list_client.cpp	GLOBAL	data	class-or-namespace	8	UNRULED		
@@ -269,7 +263,7 @@ shell_legacy_tempents_client.o	_ZZN9CTempEnts10BreakModelERK6VectorRK6QAngleS2_S
 shell_legacy_tempents_client.o	_ZZN9CTempEnts11BubbleTrailERK6VectorS2_fiifE7s_bSaid	CTempEnts::BubbleTrail(Vector const&, Vector const&, float, int, int, float)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
 shell_legacy_tempents_client.o	_ZZN9CTempEnts7BubblesERK6VectorS2_fiifE7s_bSaid	CTempEnts::Bubbles(Vector const&, Vector const&, float, int, int, float)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
 shell_legacy_tempents_client.o	_ZZN9CTempEnts12CSEjectBrassERK6VectorRK6QAngleiiP12C_BasePlayerE7s_bSaid	CTempEnts::CSEjectBrass(Vector const&, QAngle const&, int, int, C_BasePlayer*)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
-shell_legacy_tempents_client.o	_ZZN9CTempEnts16ClientProjectileERK6VectorS2_S2_iiP11IGameEntityPKcS6_E7s_bSaid	CTempEnts::ClientProjectile(Vector const&, Vector const&, Vector const&, int, int, IGameEntity*, char const*, char const*)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
+shell_legacy_tempents_client.o	_ZZN9CTempEnts16ClientProjectileERK6VectorS2_S2_iiP12C_BaseEntityPKcS6_E7s_bSaid	CTempEnts::ClientProjectile(Vector const&, Vector const&, Vector const&, int, int, C_BaseEntity*, char const*, char const*)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
 shell_legacy_tempents_client.o	_ZZN9CTempEnts13DefaultSpriteERK6VectorifE7s_bSaid	CTempEnts::DefaultSprite(Vector const&, int, float)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
 shell_legacy_tempents_client.o	_ZZN9CTempEnts10FizzEffectEP17IClientRenderableiiiE7s_bSaid	CTempEnts::FizzEffect(IClientRenderable*, int, int, int)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
 shell_legacy_tempents_client.o	_ZZN9CTempEnts13HL1EjectBrassERK6VectorRK6QAngleS2_iE7s_bSaid	CTempEnts::HL1EjectBrass(Vector const&, QAngle const&, Vector const&, int)::s_bSaid	sourcesharp/game/client/shell_legacy_tempents_client.cpp	LOCAL	bss	function-local	1	UNRULED		
@@ -510,7 +504,7 @@ shell_view_targets.o	_ZL59__g_CreateCSourceSharpRenderTargetsIClientRenderTarget
 shell_view_targets.o	_ZL15s_RenderTargets	s_RenderTargets	sourcesharp/game/client/shell_view_targets.cpp	LOCAL	data	file-or-global	8	UNRULED		
 	gViewPortInterface	gViewPortInterface	sourcesharp/game/client/shell_viewport_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_viewrender_client.o	_ZN12_GLOBAL__N_124g_PostProcessingPrecacheE	(anonymous namespace)::g_PostProcessingPrecache	sourcesharp/game/client/shell_viewrender_client.cpp	LOCAL	bss	function-local	8	UNRULED		
-shell_viewrender_client.o	_ZN12_GLOBAL__N_117g_ShellViewRenderE	(anonymous namespace)::g_ShellViewRender	sourcesharp/game/client/shell_viewrender_client.cpp	LOCAL	bss	function-local	824	UNRULED		
+shell_viewrender_client.o	_ZN12_GLOBAL__N_117g_ShellViewRenderE	(anonymous namespace)::g_ShellViewRender	sourcesharp/game/client/shell_viewrender_client.cpp	LOCAL	bss	function-local	816	UNRULED		
 shell_viewrender_client.o	_ZL10centerview	centerview	sourcesharp/game/client/shell_viewrender_client.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 	cl_drawshadowtexture	cl_drawshadowtexture	sourcesharp/game/client/shell_viewrender_client.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 shell_viewrender_client.o	_ZL18cl_software_cursor	cl_software_cursor	sourcesharp/game/client/shell_viewrender_client.cpp	LOCAL	bss	file-or-global	144	UNRULED		
@@ -559,8 +553,8 @@ world_adapter_client.o	_ZL16s_angWorldAngles	s_angWorldAngles	sourcesharp/game/c
 world_adapter_client.o	_ZL22s_bWorldTransformBuilt	s_bWorldTransformBuilt	sourcesharp/game/client/world_adapter_client.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 world_adapter_client.o	_ZL19s_matWorldTransform	s_matWorldTransform	sourcesharp/game/client/world_adapter_client.cpp	LOCAL	bss	file-or-global	48	UNRULED		
 world_adapter_client.o	_ZL16s_vecWorldOrigin	s_vecWorldOrigin	sourcesharp/game/client/world_adapter_client.cpp	LOCAL	bss	file-or-global	12	UNRULED		
-alloc_check.o	_ZN12_GLOBAL__N_17g_StateE	(anonymous namespace)::g_State	sourcesharp/game/server/alloc_check.cpp	LOCAL	bss	function-local	4176	FLOOR		the debug build's allocation checker (plan_server_novalve.md 3.6, taken for client.so in plan_client_novalve C1): its side table / its per-thread re-entry depth. Compiled only under SS_ALLOC_CHECK; release carries none
-alloc_check.o	_ZN12_GLOBAL__N_17t_depthE	(anonymous namespace)::t_depth	sourcesharp/game/server/alloc_check.cpp	LOCAL	tls	function-local	4	FLOOR		the debug build's allocation checker (plan_server_novalve.md 3.6, taken for client.so in plan_client_novalve C1): its side table / its per-thread re-entry depth. Compiled only under SS_ALLOC_CHECK; release carries none
+alloc_check.o	_ZN12_GLOBAL__N_17g_StateE	(anonymous namespace)::g_State	sourcesharp/game/shared/alloc_check.cpp	LOCAL	bss	function-local	4176	FLOOR		the debug build's allocation checker (plan_server_novalve.md 3.6, taken for client.so in plan_client_novalve C1): its side table / its per-thread re-entry depth. Compiled only under SS_ALLOC_CHECK; release carries none
+alloc_check.o	_ZN12_GLOBAL__N_17t_depthE	(anonymous namespace)::t_depth	sourcesharp/game/shared/alloc_check.cpp	LOCAL	tls	function-local	4	FLOOR		the debug build's allocation checker (plan_server_novalve.md 3.6, taken for client.so in plan_client_novalve C1): its side table / its per-thread re-entry depth. Compiled only under SS_ALLOC_CHECK; release carries none
 	_ZN32CDirtySpatialPartitionEntityList15t_readLockCountE	CDirtySpatialPartitionEntityList::t_readLockCount	sourcesharp/game/shared/collisionproperty.cpp	GLOBAL	tls	class-or-namespace	4	MEMBER	World:DLL	reset_today=n/a (per thread, 0 when no read lock is held). This thread's read-lock depth on s_DirtyKDTree's partition lock; was tier0's CThreadLocalInt member (a pthread key inside libtier0), now std thread_local (P4).
 collisionproperty.o	_ZL13s_DirtyKDTree	s_DirtyKDTree	sourcesharp/game/shared/collisionproperty.cpp	LOCAL	bss	file-or-global	128	UNRULED		
 console_display_forward.o	_ZN12_GLOBAL__N_111g_ForwarderE	(anonymous namespace)::g_Forwarder	sourcesharp/game/shared/console_display_forward.cpp	LOCAL	data	function-local	16	FLOOR		the engine's console code holds this pointer in its display-func list and calls the three virtuals through its vtable (installed at :90); the engine's list is raw-pointer storage so the object can live nowhere else (console-capture lane 2026-10-09, plan_client_novalve C3).
@@ -654,17 +648,6 @@ sourcesharp_gamesystem.o	_ZL18g_bReloadRequested	g_bReloadRequested	sourcesharp/
 sourcesharp_gamesystem.o	_ZL37g_bSourceSharpConVarCallbackInstalled	g_bSourceSharpConVarCallbackInstalled	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 sourcesharp_gamesystem.o	_ZL20g_bSourceSharpLoaded	g_bSourceSharpLoaded	sourcesharp/game/shared/sourcesharp_gamesystem.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 standalone_player_sync.o	_ZL23g_nPlayerSyncGeneration	g_nPlayerSyncGeneration	sourcesharp/game/shared/standalone_player_sync.cpp	LOCAL	data	file-or-global	4	UNRULED		
-	_ZN12CMultiDamage9m_DataMapE	CMultiDamage::m_DataMap	sourcesharp/game/shared/takedamageinfo_library.cpp	GLOBAL	data	class-or-namespace	48	UNRULED		
-	_ZN25CMultiDamage_DataDescInit15g_DataMapHolderE	CMultiDamage_DataDescInit::g_DataMapHolder	sourcesharp/game/shared/takedamageinfo_library.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
-	_ZN15CTakeDamageInfo9m_DataMapE	CTakeDamageInfo::m_DataMap	sourcesharp/game/shared/takedamageinfo_library.cpp	GLOBAL	data	class-or-namespace	48	UNRULED		
-	_ZN28CTakeDamageInfo_DataDescInit15g_DataMapHolderE	CTakeDamageInfo_DataDescInit::g_DataMapHolder	sourcesharp/game/shared/takedamageinfo_library.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
-takedamageinfo_library.o	_ZZ11DataMapInitI12CMultiDamageEP9datamap_tPT_E8dataDesc	DataMapInit<CMultiDamage>(CMultiDamage*)::dataDesc	sourcesharp/game/shared/takedamageinfo_library.cpp	LOCAL	data	function-local	192	UNRULED		
-takedamageinfo_library.o	_ZZ11DataMapInitI12CMultiDamageEP9datamap_tPT_E10nameHolder	DataMapInit<CMultiDamage>(CMultiDamage*)::nameHolder	sourcesharp/game/shared/takedamageinfo_library.cpp	LOCAL	bss	function-local	48	UNRULED		
-takedamageinfo_library.o	_ZZ11DataMapInitI15CTakeDamageInfoEP9datamap_tPT_E8dataDesc	DataMapInit<CTakeDamageInfo>(CTakeDamageInfo*)::dataDesc	sourcesharp/game/shared/takedamageinfo_library.cpp	LOCAL	data	function-local	1440	UNRULED		
-takedamageinfo_library.o	_ZZ11DataMapInitI15CTakeDamageInfoEP9datamap_tPT_E10nameHolder	DataMapInit<CTakeDamageInfo>(CTakeDamageInfo*)::nameHolder	sourcesharp/game/shared/takedamageinfo_library.cpp	LOCAL	bss	function-local	48	UNRULED		
-	_ZZ24SourceSharp_EntityHandlePK11IGameEntityE16s_pLastComplaint	SourceSharp_EntityHandle(IGameEntity const*)::s_pLastComplaint	sourcesharp/game/shared/takedamageinfo_library.cpp	WEAK	bss	function-local	8	UNRULED		
-	g_MultiDamage	g_MultiDamage	sourcesharp/game/shared/takedamageinfo_library.cpp	GLOBAL	bss	file-or-global	108	UNRULED		
-takedamageinfo_library.o	_ZL14phys_pushscale	phys_pushscale	sourcesharp/game/shared/takedamageinfo_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 tier0_spew_port.o	_ZN12_GLOBAL__N_111s_EarlyLockE	(anonymous namespace)::s_EarlyLock	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	bss	function-local	40	UNRULED		
 tier0_spew_port.o	_ZN12_GLOBAL__N_17s_EarlyB5cxx11E	(anonymous namespace)::s_Early[abi:cxx11]	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	bss	function-local	32	UNRULED		
 tier0_spew_port.o	_ZN12_GLOBAL__N_115s_pAssertNotifyE	(anonymous namespace)::s_pAssertNotify	sourcesharp/game/shared/tier0_spew_port.cpp	LOCAL	bss	function-local	8	UNRULED		

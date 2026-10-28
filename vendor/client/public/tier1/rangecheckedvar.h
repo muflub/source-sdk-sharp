@@ -1,21 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef RANGECHECKEDVAR_H
-#define RANGECHECKEDVAR_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "tier0/dbg.h"
 #include "tier0/threadtools.h"
 #include "mathlib/vector.h"
 #include <float.h>
-
 
 // Use this to disable range checks within a scope.
 class CDisableRangeChecks
@@ -24,7 +14,6 @@ public:
 	CDisableRangeChecks();
 	~CDisableRangeChecks();
 };
-
 
 template< class T >
 inline void RangeCheck( const T &value, int minValue, int maxValue )
@@ -47,7 +36,6 @@ inline void RangeCheck( const Vector &value, int minValue, int maxValue )
 	RangeCheck( value.z, minValue, maxValue );
 #endif
 }
-
 
 template< class T, int minValue, int maxValue, int startValue >
 class CRangeCheckedVar
@@ -95,24 +83,7 @@ public:
 		return (*this = m_Val + value);
 	}
 
-	inline CRangeCheckedVar<T, minValue, maxValue, startValue>& operator-=( const T &value )
-	{
-		return (*this = m_Val - value);
-	}
-
-	inline CRangeCheckedVar<T, minValue, maxValue, startValue>& operator*=( const T &value )
-	{
-		return (*this = m_Val * value);
-	}
-
-	inline CRangeCheckedVar<T, minValue, maxValue, startValue>& operator/=( const T &value )
-	{
-		return (*this = m_Val / value);
-	}
-
 private:
 
 	T m_Val;
 };
-
-#endif // RANGECHECKEDVAR_H

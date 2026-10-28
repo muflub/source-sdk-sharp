@@ -305,7 +305,7 @@ TEST( TakeDamageInfoLibrary, BothDatadescsAreInTheSameTranslationUnitAsTheirClas
 }
 
 //=============================================================================//
-// 3. BOTH LINK LINES COMPILE IT
+// 3. THE SERVER'S LINK LINE COMPILES IT
 //=============================================================================//
 
 // Listed EXACTLY ONCE in the target's CMakeLists (a second row is a duplicate
@@ -329,12 +329,14 @@ TEST( TakeDamageInfoLibrary, TheServerCompilesIt )
 		   "CTakeDamageInfo::Init, and takedamageinfo.cpp no longer defines them.";
 }
 
-TEST( TakeDamageInfoLibrary, TheClientCompilesIt )
+TEST( TakeDamageInfoLibrary, TheClientDoesNotCompileIt )
 {
-	ExpectCompiledOnce( cmake_graph::kClient );
-	if ( HasFailure() )
-		ADD_FAILURE() << "client.so asks for ClearMultiDamage and the CTakeDamageInfo "
-		   "constructors, and takedamageinfo.cpp no longer defines any of them.";
+	// client.so stopped asking for it with its stock headers (2026-10-25):
+	// shell_gamerules.cpp's ClearMultiDamage went, because nothing fills the
+	// accumulator on either side, and no client object names CTakeDamageInfo.
+	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kLibrary ) );
+	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kLibrary ) )
+		<< kLibrary << " is compiled into client_sourcesharp again";
 }
 
 TEST( TakeDamageInfoLibrary, TheStockTranslationUnitIsCompiledOnNeitherSide )
@@ -358,11 +360,9 @@ TEST( TakeDamageInfoLibrary, TheStockTranslationUnitIsCompiledOnNeitherSide )
 	// lists it), and every fact above about what it must not contain reads it
 	// from disk and goes on working.
 	//
-	// Proof-of-read for the absences: the successor IS compiled on each side.
+	// Proof-of-read for the absences: the successor IS compiled on the server.
 	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kLibrary ) )
 		<< "server_sourcesharp does not compile " << kLibrary;
-	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kLibrary ) )
-		<< "client_sourcesharp does not compile " << kLibrary;
 
 	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kServer, kStockCpp ) )
 		<< "the stock TU is back in server_sourcesharp "

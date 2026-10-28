@@ -24,16 +24,22 @@
 // deleted once nothing holds it; stock deleted it at once, whoever held it.
 //=============================================================================//
 
-#ifndef SHELL_NEW_PARTICLES_H
-#define SHELL_NEW_PARTICLES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "iclientrenderable.h"
 #include "particles/particles.h"
-#include "smartptr.h"
+#include "tier1/smartptr.h"
 #include "tier1/utlobjectreference.h"
+#include "haptics/ihaptics.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "tier0/platform.h"
+#include "collisionproperty.h"
+#include "fx.h"
+#include "icliententitylist.h"
+#include "isaverestore.h"
+#include "view.h"
+#include "vphysics_interface.h"
 
 class C_StandaloneEntity;
 
@@ -124,5 +130,3 @@ void ShellNewParticles_Frame( float flFrameTime );
 
 // CParticleMgr::RemoveAllNewEffects: level shutdown and the particle reload.
 void ShellNewParticles_RemoveAll();
-
-#endif // SHELL_NEW_PARTICLES_H

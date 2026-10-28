@@ -15,11 +15,7 @@
 // Valve manager for its own callers.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_PHYSSAVERESTORE_H
-#define SOURCESHARP_SS_PHYSSAVERESTORE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 namespace ss
 {
@@ -28,5 +24,3 @@ namespace ss
 void PhysSaveRestore_ForgetAllModels();
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_PHYSSAVERESTORE_H

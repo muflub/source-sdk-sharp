@@ -228,9 +228,9 @@ TEST( ShellGameMovement, EveryPureVirtualOfTheInterfaceIsAnswered )
 
 	static const char *const kSlots[] =
 	{
-		"virtualvoidProcessMovement(IMovementPlayer*pPlayer,CMoveData*pMove)OVERRIDE;",
-		"virtualvoidStartTrackPredictionErrors(IMovementPlayer*pPlayer)OVERRIDE;",
-		"virtualvoidFinishTrackPredictionErrors(IMovementPlayer*pPlayer)OVERRIDE;",
+		"virtualvoidProcessMovement(CBasePlayer*pPlayer,CMoveData*pMove)OVERRIDE;",
+		"virtualvoidStartTrackPredictionErrors(CBasePlayer*pPlayer)OVERRIDE;",
+		"virtualvoidFinishTrackPredictionErrors(CBasePlayer*pPlayer)OVERRIDE;",
 		"virtualvoidDiffPrint(PRINTF_FORMAT_STRINGcharconst*fmt,...)OVERRIDE;",
 		"virtualVectorGetPlayerMins(boolducked)constOVERRIDE;",
 		"virtualVectorGetPlayerMaxs(boolducked)constOVERRIDE;",

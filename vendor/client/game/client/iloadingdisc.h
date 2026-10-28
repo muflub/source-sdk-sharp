@@ -1,17 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef ILOADINGDISC_H
-#define ILOADINGDISC_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <vgui/VGUI.h>
 
@@ -34,5 +23,3 @@ public:
 };
 
 extern ILoadingDisc *loadingdisc;
-
-#endif // ILOADINGDISC_H

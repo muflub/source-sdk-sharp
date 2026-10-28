@@ -1,11 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-#ifndef ANALYSIS_ANNOTATIONS_H
-#define ANALYSIS_ANNOTATIONS_H
+#pragma once
 
 #if _MSC_VER >= 1600 // VS 2010 and above.
-//-----------------------------------------------------------------------------
 // Upgrading important helpful warnings to errors
-//-----------------------------------------------------------------------------
 #pragma warning(error : 4789 ) // warning C4789: destination of memory copy is too small
 
 // Suppress some code analysis warnings
@@ -61,16 +58,12 @@
 #ifndef ANALYZE_SUPPRESS
 #define ANALYZE_SUPPRESS(wnum)
 
-
-
 #define PRINTF_FORMAT_STRING
 #define SCANF_FORMAT_STRING
 #define IN_Z
 
-
 #define OUT_Z_CAP(x)
 #define OUT_CAP(x)
-
 
 #define OUT_Z_BYTECAP(x)
 
@@ -80,5 +73,3 @@
 #define INOUT_Z_ARRAY
 
 #endif
-
-#endif // ANALYSIS_ANNOTATIONS_H

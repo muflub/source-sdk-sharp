@@ -38,13 +38,14 @@
 // swapped.
 //=============================================================================//
 
-#include "cbase.h"
+#include "tier0/dbg.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
 
 #include "managed_init_failure.h"
 #include "managed_runtime_client.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 // The shared acquire-fill-LoadSide sequence. Defined in
 // sourcesharp/game/shared/sourcesharp_gamesystem.cpp; declared here because

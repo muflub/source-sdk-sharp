@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef ENGINE_ICOLLIDEABLE_H
-#define ENGINE_ICOLLIDEABLE_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 enum SolidType_t;
 class IHandleEntity;
@@ -21,7 +11,6 @@ class QAngle;
 class CGameTrace;
 typedef CGameTrace trace_t;
 class IClientUnknown;
-
 
 abstract_class ICollideable
 {
@@ -79,6 +68,3 @@ public:
 	// returns NULL unless this collideable has specified FSOLID_ROOT_PARENT_ALIGNED
 	virtual const matrix3x4_t	*GetRootParentToWorldTransform() const = 0;
 };
-
-
-#endif // ENGINE_ICOLLIDEABLE_H

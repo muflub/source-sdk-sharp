@@ -26,11 +26,7 @@
 //
 //=============================================================================//
 
-#ifndef COLLISION_GROUP_NAMES_H
-#define COLLISION_GROUP_NAMES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // SourceSharp's numbering. MUST match the CollisionGroup enum in
@@ -112,5 +108,3 @@ inline int CollisionGroup_FromEngine( int nEngineGroup, const CollisionGroupName
 
 	return pNames[0].nSourceSharp;
 }
-
-#endif // COLLISION_GROUP_NAMES_H

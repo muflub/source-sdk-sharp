@@ -1,12 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose:
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef MINMAX_H
-#define MINMAX_H
+#pragma once
 
 // Remove the MSVC defines
 #ifdef min
@@ -36,5 +30,3 @@ const T& max(const T& a, const T& b)
 {
     return (a < b) ? b : a;
 }
-
-#endif // MINMAX_H

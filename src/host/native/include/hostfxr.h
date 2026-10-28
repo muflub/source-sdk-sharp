@@ -1,8 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-#ifndef HAVE_HOSTFXR_H
-#define HAVE_HOSTFXR_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -423,5 +422,3 @@ typedef int32_t(HOSTFXR_CALLTYPE* hostfxr_resolve_frameworks_for_runtime_config_
 #ifdef __cplusplus
 }
 #endif // __cplusplus
-
-#endif // HAVE_HOSTFXR_H

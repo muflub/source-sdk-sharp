@@ -1,22 +1,16 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: Shared code for XBox Rumble Effects
-//
-// $NoKeywords: $
-//
-//=============================================================================//
 #pragma once
 #ifndef RUMBLE_SHARED_H
 #define RUMBLE_SHARED_H
 
 #define RUMBLE_FLAGS_NONE				0x0000
-#define RUMBLE_FLAG_STOP				0x0001 // Stop any instance of this type of effect that's already playing.
-#define RUMBLE_FLAG_LOOP				0x0002 // Make this effect loop.
-#define RUMBLE_FLAG_RESTART				0x0004 // If this effect is already playing, restart it.
-#define RUMBLE_FLAG_UPDATE_SCALE		0x0008 // Apply DATA to this effect if already playing, but don't restart.
-#define RUMBLE_FLAG_ONLYONE				0x0010 // Don't play this effect if it is already playing.
-#define RUMBLE_FLAG_RANDOM_AMPLITUDE	0x0020 // Amplitude scale will be randomly chosen. Between 10% and 100%
-#define RUMBLE_FLAG_INITIAL_SCALE		0x0040 // Data is the initial scale to start this effect ( * 100 )
+ // Stop any instance of this type of effect that's already playing.
+ // Make this effect loop.
+ // If this effect is already playing, restart it.
+ // Apply DATA to this effect if already playing, but don't restart.
+ // Don't play this effect if it is already playing.
+ // Amplitude scale will be randomly chosen. Between 10% and 100%
+ // Data is the initial scale to start this effect ( * 100 )
 
 enum
 {

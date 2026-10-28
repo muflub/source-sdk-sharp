@@ -23,13 +23,12 @@
 // (particlemgr.cpp) first reads it.
 //=============================================================================//
 
-#include "tier0/dbg.h"
 #include "particles/particles.h"
+#include "tier1/interface.h"
 #include "ss_particles/iparticlelib.h"
 #include "particles_lib_client.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 CParticleSystemMgr *g_pParticleSystemMgr = NULL;
 

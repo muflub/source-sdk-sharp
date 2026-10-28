@@ -18,6 +18,8 @@
 //=============================================================================//
 
 #include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier0/wchartypes.h"
 #include "tier0/mem.h"         // MemAllocOOMError
 #include "tier0_spew_port.h"
 #include "ss_platform.h"	// SS_BIND_IMPORT

@@ -32,7 +32,6 @@
 #include "sourcesharp_gamesystem.h"
 #include "sourcesharp.h"
 
-#ifndef CLIENT_DLL
 
 // The symmetric partner of LoadManagedRuntime, factored out of
 // CSourceSharpSystem::Shutdown so both sides reach the same teardown.
@@ -45,5 +44,3 @@ void SourceSharp_UnloadManagedSide( void );
 // managed root. What the adapter guaranteed by re-reading the table on every
 // call -- nothing kept across a reload -- the accessor guarantees by holding
 // no pointer in the shell at all.
-
-#endif // !CLIENT_DLL

@@ -14,7 +14,6 @@
 // those (meshutils_oracle_test).
 //=============================================================================//
 
-#include "tier2/meshutils.h"
 #include "mesh_index_client.h"
 
 void GenerateSequentialIndexBuffer( unsigned short *pIndexMemory, int nIndexCount, int nFirstVertex )

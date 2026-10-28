@@ -20,11 +20,7 @@
 // it the same and its own stand-in.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELLLESS_FIND_H
-#define SOURCESHARP_SHELLLESS_FIND_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 
@@ -110,5 +106,3 @@ inline int ShellLessFind_Collect( ShellLessFindFn pfnFind, const char *pQuery,
 
 	return ( nAgain < nTotal ) ? nAgain : nTotal;
 }
-
-#endif // SOURCESHARP_SHELLLESS_FIND_H

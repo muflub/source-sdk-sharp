@@ -9,11 +9,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_GAMESTRINGPOOL_INTERNAL_H
-#define SOURCESHARP_GAMESTRINGPOOL_INTERNAL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 typedef void ( *GameStringPoolVisitFn )( const char *pszString, void *pContext );
 
@@ -22,5 +18,3 @@ void GameStringPool_Visit( GameStringPoolVisitFn pfnVisit, void *pContext );
 
 // How many strings the pool holds.
 int GameStringPool_Count( void );
-
-#endif // SOURCESHARP_GAMESTRINGPOOL_INTERNAL_H

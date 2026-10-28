@@ -46,11 +46,7 @@
 // defined in the .cpp, which is the only part that needs dt_send.h/dt_recv.h.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_GENERIC_PAYLOAD_H
-#define SOURCESHARP_GENERIC_PAYLOAD_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // The payload element. Four bytes, for the delta-index reason above, and not a
@@ -511,5 +507,3 @@ bool SourceSharpPayload_IsFastRecvProxy( const RecvProp *pProp );
 const char *SourceSharpPayload_RecvProxyName( const RecvProp *pProp );
 
 #endif // CLIENT_DLL
-
-#endif // SOURCESHARP_GENERIC_PAYLOAD_H

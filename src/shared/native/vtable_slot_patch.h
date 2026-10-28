@@ -22,11 +22,7 @@
 // class its test declares (test/vtable_slot_patch_test.cpp).
 //
 //=============================================================================//
-#ifndef SOURCESHARP_VTABLE_SLOT_PATCH_H
-#define SOURCESHARP_VTABLE_SLOT_PATCH_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "vtable_hook.h"
 #include "ss_platform.h"
@@ -96,5 +92,3 @@ inline bool Remove( const Patch &patch )
 }
 
 } // namespace VTableSlotPatch
-
-#endif // SOURCESHARP_VTABLE_SLOT_PATCH_H

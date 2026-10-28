@@ -50,11 +50,7 @@
 // running Source. The tests are entity_name_match_test.cpp.
 //
 //=============================================================================//
-#ifndef ENTITY_NAME_MATCH_H
-#define ENTITY_NAME_MATCH_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // pszQuery is what was asked for -- a name, a classname, or a prefix ending in
@@ -118,5 +114,3 @@ inline bool EntityNames_Match( const char *pszQuery, const char *pszName )
 	// stock's comment the way the first draft of those tests was.
 	return ( *pszQuery == '*' );
 }
-
-#endif // ENTITY_NAME_MATCH_H

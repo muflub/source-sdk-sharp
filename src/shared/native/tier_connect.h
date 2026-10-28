@@ -4,11 +4,7 @@
 //
 //=============================================================================//
 
-#ifndef TIER_CONNECT_H
-#define TIER_CONNECT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier1/interface.h"
 
@@ -20,5 +16,3 @@ void SourceSharp_DisconnectTier2();
 #endif
 void SourceSharp_ConnectTier3( CreateInterfaceFn engineFactory );
 void SourceSharp_DisconnectTier3();
-
-#endif // TIER_CONNECT_H

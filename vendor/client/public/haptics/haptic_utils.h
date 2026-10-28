@@ -1,8 +1,4 @@
-#ifndef HAPTIC_UTILS_H
-#define HAPTIC_UTILS_H
-
-
-#ifdef CLIENT_DLL
+#pragma once
 
 #include "haptics/ihaptics.h"
 
@@ -70,35 +66,6 @@ public: // Notify methods
 	virtual void UpdatePlayerFOV(float fov){};
 	virtual void WorldPrecache() {};
 };
-#else
-// forward decl.
-class CBasePlayer;
-class CBaseCombatWeapon;
-class CTakeDamageInfo;
 
-#endif // CLIENT_DLL
-
-void HapticSendWeaponAnim(class CBaseCombatWeapon* weapon, int iActivity);
-void HapticSetConstantForce(class CBasePlayer* pPlayer,Vector force);
-void HapticSetDrag(class CBasePlayer* pPlayer, float drag);
-
-// note: does nothing on server.
-void HapticProcessSound(const char* soundname, int entIndex);
-
-#ifdef CLIENT_DLL
 	void ConnectHaptics(CreateInterfaceFn appFactory);
 	void DisconnectHaptics();
-
-	void UpdateAvatarEffect(void);
-	void HapticsExitedVehicle(C_BaseEntity* vehicle, C_BaseCombatCharacter *pPassenger );
-	void HapticsEnteredVehicle(C_BaseEntity* vehicle, C_BaseCombatCharacter *pPassenger );
-	
-	//bool value true if user is using a haptic device.
-	extern ConVar hap_HasDevice;
-#else
-	void HapticsDamage(CBasePlayer* pPlayer, const CTakeDamageInfo &info);
-	void HapticPunch(CBasePlayer* pPlayer, float amount, float x, float y);
-	void HapticMeleeContact(CBasePlayer* pPlayer);
-#endif
-
-#endif

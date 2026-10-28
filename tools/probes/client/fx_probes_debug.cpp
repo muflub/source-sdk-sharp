@@ -25,7 +25,21 @@
 //                                mode for each call. Logs
 //                                "fxlookup <i or -1> <name>".
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "c_te_effect_dispatch.h"
 #include "fx_probe_log.h"
 #include "IEffects.h"
@@ -155,7 +169,7 @@ CON_COMMAND( cs_cl_probe_fxlookup, "c2-fx probe (debug): which registration stoc
 		return;
 	for ( int i = 1; i < args.ArgC(); ++i )
 	{
-		const char *pName = args.ArgV()[ i ];
+		const char *pName = args[ i ];
 		CEffectData data;
 		g_bDry = true;
 		g_nHit = -1;

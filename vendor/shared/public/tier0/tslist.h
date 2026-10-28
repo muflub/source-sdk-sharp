@@ -1,14 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose:
-//
 // LIFO from disassembly of Windows API and http://perso.wanadoo.fr/gmem/evenements/jim2002/articles/L17_Fober.pdf
 // FIFO from http://perso.wanadoo.fr/gmem/evenements/jim2002/articles/L17_Fober.pdf
-//
-//=============================================================================
 
-#ifndef TSLIST_H
-#define TSLIST_H
+#pragma once
 
 #if defined( _WIN32 )
 #pragma once
@@ -18,7 +12,7 @@
 #pragma warning( disable : 4700 )
 #endif
 
-#if defined( USE_NATIVE_SLIST ) && !defined( _X360 )
+#if defined( USE_NATIVE_SLIST )
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -27,12 +21,6 @@
 #include "tier0/threadtools.h"
 #include "tier0/memalloc.h"
 #include "tier0/memdbgoff.h"
-
-#if defined( _X360 )
-#define USE_NATIVE_SLIST
-#endif
-
-//-----------------------------------------------------------------------------
 
 #if defined( PLATFORM_64BITS )
 
@@ -84,12 +72,7 @@ inline bool ThreadInterlockedAssignIf64x128( volatile int64 *pDest, const int64 
 #error
 #endif
 
-//-----------------------------------------------------------------------------
-
-
-//-----------------------------------------------------------------------------
 // Lock free list.
-//-----------------------------------------------------------------------------
 //#define USE_NATIVE_SLIST
 
 #ifdef USE_NATIVE_SLIST
@@ -116,7 +99,7 @@ union TSLIST_HEAD_ALIGN TSLHead_t
 		int16   Depth;
 		#else
 		int16   Depth;
-		int16	Sequence;
+		alignas( 2 ) unsigned char unused_Sequence[ 2 ];
 		#endif
 #ifdef PLATFORM_64BITS
 		int32   Padding;
@@ -125,7 +108,7 @@ union TSLIST_HEAD_ALIGN TSLHead_t
 
 	struct Value32_t
 	{
-		TSLNodeBase_t *Next_do_not_use_me;
+		alignas( 8 ) unsigned char unused_Next_do_not_use_me[ 8 ];
 		int32   DepthAndSequence;
 	} value32;
 
@@ -138,38 +121,11 @@ union TSLIST_HEAD_ALIGN TSLHead_t
 
 #endif
 
-//-------------------------------------
 class CTSListBase
 {
 public:
 
-	// override new/delete so we can guarantee 8-byte aligned allocs
-	static void * operator new( size_t size )
-	{
-		CTSListBase *pNode = (CTSListBase *)MemAlloc_AllocAligned( size, TSLIST_HEAD_ALIGNMENT, __FILE__, __LINE__ );
-		return pNode;
-	}
-
-	static void * operator new( size_t size, int nBlockUse, const char *pFileName, int nLine )
-	{
-		CTSListBase *pNode = (CTSListBase *)MemAlloc_AllocAligned( size, TSLIST_HEAD_ALIGNMENT, pFileName, nLine );
-		return pNode;
-	}
-
-	static void operator delete( void *p)
-	{
-		MemAlloc_FreeAligned( p );
-	}
-
-	static void operator delete( void *p, int nBlockUse, const char *pFileName, int nLine )
-	{
-		MemAlloc_FreeAligned( p );
-	}
-
 private:
-	// These ain't gonna work
-	static void * operator new[] ( size_t size );
-	static void operator delete [] ( void *p);
 	
 public:
 
@@ -206,17 +162,12 @@ public:
 #endif
 
 #ifdef USE_NATIVE_SLIST
-#ifdef _X360
-		// integrated write-release barrier
-		return (TSLNodeBase_t *)InterlockedPushEntrySListRelease( &m_Head, pNode );
-#else
 		return (TSLNodeBase_t *)InterlockedPushEntrySList( &m_Head, pNode );
-#endif
 #else
 		TSLHead_t oldHead;
 		TSLHead_t newHead;
 
-		#if defined( PLATFORM_PS3 ) || defined( PLATFORM_X360 )
+#if defined( PLATFORM_PS3 )
 		__lwsync(); // write-release barrier
 		#endif
 
@@ -230,7 +181,6 @@ public:
 			newHead.value.Next = pNode;
 			
 			newHead.value32.DepthAndSequence = oldHead.value32.DepthAndSequence + 0x10001;
-			
 			
 			if ( ThreadInterlockedAssignIf64x128( &m_Head.value64x128, newHead.value64x128, oldHead.value64x128 ) )
 			{
@@ -246,12 +196,7 @@ public:
 	TSLNodeBase_t *Pop()
 	{
 #ifdef USE_NATIVE_SLIST
-#ifdef _X360
-		// integrated read-acquire barrier
-		TSLNodeBase_t *pNode = (TSLNodeBase_t *)InterlockedPopEntrySListAcquire( &m_Head );
-#else
 		TSLNodeBase_t *pNode = (TSLNodeBase_t *)InterlockedPopEntrySList( &m_Head );
-#endif
 		return pNode;
 #else
 		TSLHead_t oldHead;
@@ -269,10 +214,9 @@ public:
 			newHead.value.Next = oldHead.value.Next->Next;
 			newHead.value32.DepthAndSequence = oldHead.value32.DepthAndSequence	- 1;
 
-
 			if ( ThreadInterlockedAssignIf64x128( &m_Head.value64x128, newHead.value64x128, oldHead.value64x128 ) )
 			{
-				#if defined( PLATFORM_PS3 ) || defined( PLATFORM_X360 )
+#if defined( PLATFORM_PS3 )
 					__lwsync(); // read-acquire barrier
 				#endif
 				break;
@@ -288,7 +232,7 @@ public:
 	{
 #ifdef USE_NATIVE_SLIST
 		TSLNodeBase_t *pBase = (TSLNodeBase_t *)InterlockedFlushSList( &m_Head );
-#if defined( _X360 ) || defined( _PS3 )
+#if defined( _PS3 )
 		__lwsync(); // read-acquire barrier
 #endif
 		return pBase;
@@ -319,7 +263,6 @@ public:
 #endif
 	}
 
-
 	int Count() const
 	{
 #ifdef USE_NATIVE_SLIST
@@ -332,8 +275,6 @@ public:
 private:
 	TSLHead_t m_Head;
 } TSLIST_HEAD_ALIGN_POST;
-
-//-------------------------------------
 
 template <typename T>
 class TSLIST_HEAD_ALIGN CTSSimpleList : public CTSListBase
@@ -351,7 +292,6 @@ public:
 	}
 } TSLIST_HEAD_ALIGN_POST;
 
-//-------------------------------------
 // this is a replacement for CTSList<> and CObjectPool<> that does not
 // have a per-item, per-alloc new/delete overhead
 // similar to CTSSimpleList except that it allocates it's own pool objects
@@ -410,7 +350,6 @@ public:
 		return GetObject();
 	}
 } TSLIST_HEAD_ALIGN_POST;
-//-------------------------------------
 
 template <typename T>
 class TSLIST_HEAD_ALIGN CTSList : public CTSListBase
@@ -421,29 +360,6 @@ public:
 		Node_t() {}
 		Node_t( const T &init ) : elem( init ) {}
 		T elem;
-
-	    // override new/delete so we can guarantee 8-byte aligned allocs
-	    static void * operator new( size_t size )
-	    {
-      		Node_t *pNode = (Node_t *)MemAlloc_AllocAligned( size, TSLIST_NODE_ALIGNMENT, __FILE__, __LINE__ );
-			return pNode;
-	    }
-
-		// override new/delete so we can guarantee 8-byte aligned allocs
-		static void * operator new( size_t size, int nBlockUse, const char *pFileName, int nLine )
-		{
-			Node_t *pNode = (Node_t *)MemAlloc_AllocAligned( size, TSLIST_NODE_ALIGNMENT, pFileName, nLine );
-			return pNode;
-		}
-
-	    static void operator delete( void *p)
-	    {
-			MemAlloc_FreeAligned( p );
-	    }
-		static void operator delete( void *p, int nBlockUse, const char *pFileName, int nLine )
-		{
-			MemAlloc_FreeAligned( p );
-		}
 
 	} TSLIST_NODE_ALIGN_POST;
 
@@ -500,8 +416,6 @@ public:
 	}
 
 } TSLIST_HEAD_ALIGN_POST;
-
-//-------------------------------------
 
 template <typename T>
 class TSLIST_HEAD_ALIGN CTSListWithFreeList : public CTSListBase
@@ -596,9 +510,7 @@ private:
 	CTSListBase m_FreeList;
 } TSLIST_HEAD_ALIGN_POST;
 
-//-----------------------------------------------------------------------------
 // Lock free queue
-//
 // A special consideration: the element type should be simple. This code
 // actually dereferences freed nodes as part of pop, but later detects
 // that. If the item in the queue is a complex type, only bad things can
@@ -608,74 +520,18 @@ private:
 // The PushItem()/PopItem() for handles this by keeping a persistent
 // free list. Dont mix Push/PushItem. Note also nodes will be freed at the end, 
 // and are expected to have been allocated with operator new.
-//-----------------------------------------------------------------------------
 
 template <typename T, bool bTestOptimizer = false>
 class TSLIST_HEAD_ALIGN CTSQueue
 {
 public:
 
-	// override new/delete so we can guarantee 8-byte aligned allocs
-	static void * operator new( size_t size )
-	{
-		CTSQueue *pNode = (CTSQueue *)MemAlloc_AllocAligned( size, TSLIST_HEAD_ALIGNMENT, __FILE__, __LINE__ );
-		return pNode;
-	}
-
-	// override new/delete so we can guarantee 8-byte aligned allocs
-	static void * operator new( size_t size, int nBlockUse, const char *pFileName, int nLine )
-	{
-		CTSQueue *pNode = (CTSQueue *)MemAlloc_AllocAligned( size, TSLIST_HEAD_ALIGNMENT, pFileName, nLine );
-		return pNode;
-	}
-
-	static void operator delete( void *p)
-	{
-		MemAlloc_FreeAligned( p );
-	}
-
-	static void operator delete( void *p, int nBlockUse, const char *pFileName, int nLine )
-	{
-		MemAlloc_FreeAligned( p );
-	}
-
 private:
-	// These ain't gonna work
-	static void * operator new[] ( size_t size ) throw()
-	{
-		return NULL;
-	}
-
-	static void operator delete [] ( void *p)
-	{
-	}
 
 public:
 
 	struct TSLIST_NODE_ALIGN Node_t
 	{
-		// override new/delete so we can guarantee 8-byte aligned allocs
-		static void * operator new( size_t size )
-		{
-			Node_t *pNode = (Node_t *)MemAlloc_AllocAligned( size, TSLIST_HEAD_ALIGNMENT, __FILE__, __LINE__ );
-			return pNode;
-		}
-
-		static void * operator new( size_t size, int nBlockUse, const char *pFileName, int nLine )
-		{
-			Node_t *pNode = (Node_t *)MemAlloc_AllocAligned( size, TSLIST_HEAD_ALIGNMENT, pFileName, nLine );
-			return pNode;
-		}
-
-		static void operator delete( void *p)
-		{
-			MemAlloc_FreeAligned( p );
-		}
-
-		static void operator delete( void *p, int nBlockUse, const char *pFileName, int nLine )
-		{
-			MemAlloc_FreeAligned( p );
-		}
 
 		Node_t() {}
 		Node_t( const T &init ) : elem( init ) {}
@@ -686,17 +542,6 @@ public:
 
 	union TSLIST_HEAD_ALIGN NodeLink_t
 	{
-		// override new/delete so we can guarantee 8-byte aligned allocs
-		static void * operator new( size_t size )
-		{
-			NodeLink_t *pNode = (NodeLink_t *)MemAlloc_AllocAligned( size, TSLIST_HEAD_ALIGNMENT, __FILE__, __LINE__ );
-			return pNode;
-		}
-
-		static void operator delete( void *p)
-		{
-			MemAlloc_FreeAligned( p );
-		}
 
 		struct Value_t
 		{
@@ -1008,5 +853,3 @@ private:
 // warning C4700: uninitialized local variable 'oldHead' used
 #pragma warning( pop )
 #endif
-
-#endif // TSLIST_H

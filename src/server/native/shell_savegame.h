@@ -15,16 +15,10 @@
 // client save codec lane; docs/managed-saverestore.md keeps the reasoning the
 // codec's sections pointed at.
 
-#ifndef SOURCESHARP_SHELL_SAVEGAME_H
-#define SOURCESHARP_SHELL_SAVEGAME_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // See docs/managed-saverestore.md, "5. Who creates the player on a savegame load".
 inline bool ShellSave_LoadGameNeedsPlayer( bool bLoadGame, bool bPlayerAlreadyBound )
 {
 	return bLoadGame && !bPlayerAlreadyBound;
 }
-
-#endif // SOURCESHARP_SHELL_SAVEGAME_H

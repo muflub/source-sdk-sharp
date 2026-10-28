@@ -93,19 +93,23 @@ if(NOT SS_PLATFORM STREQUAL windows)
   set(_ss_fwd_client_sdl USE_SDL)
 endif()
 # The client library's leaf system (fwd_leaf_system.cpp, C7 cluster 12 L2) is
-# client code built against game/client's headers, here as in the library.
+# client code built against game/client's headers, here as in the library:
+# vendor/'s, on -I ahead of the fork's -isystem roots, so the tests that
+# compile the client library in read the headers it is built from.
+ss_vendor_includes(_ss_fwd_client_vendor client game/client game/shared common public public/tier0 public/tier1)
+list(PREPEND _ss_fwd_client_vendor ${PROJECT_SOURCE_DIR}/src/client/native)
+set(_ss_fwd_client_vendor_wno -Wno-unknown-pragmas -Wno-dangling-else -Wno-inconsistent-missing-override
+    -Wno-nontrivial-memcall -Wno-null-dereference -Wno-overloaded-virtual -Wno-reorder-ctor
+    -Wno-tautological-overlap-compare -Wno-unused-private-field)
 set(_ss_fwd_leaf_system ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_leaf_system.cpp)
-set_source_files_properties(${_ss_fwd_leaf_system} PROPERTIES
-    COMPILE_DEFINITIONS CLIENT_DLL
-    INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
+set_source_files_properties(${_ss_fwd_leaf_system} PROPERTIES COMPILE_DEFINITIONS CLIENT_DLL)
 # And its shadow manager table (fwd_shadows.cpp, C7 cluster 12 S2), the same.
 set(_ss_fwd_shadows ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_shadows.cpp)
-set_source_files_properties(${_ss_fwd_shadows} PROPERTIES
-    COMPILE_DEFINITIONS CLIENT_DLL
-    INCLUDE_DIRECTORIES "${SS_SRC}/game/client;${SS_SRC}/game/shared;${SS_SRC}/sourcesharp/game/client")
+set_source_files_properties(${_ss_fwd_shadows} PROPERTIES COMPILE_DEFINITIONS CLIENT_DLL)
 ss_cpptest_engine_headers(fwd_steam_test
     DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT ${_ss_fwd_client_sdl}
-    INCLUDES sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
+    OPTIONS ${_ss_fwd_client_vendor_wno}  # Valve headers on -I, not -isystem
+    INCLUDES ${_ss_fwd_client_vendor} sourcesharp/game/shared sourcesharp/host ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_steam_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_steam.cpp
@@ -121,7 +125,8 @@ ss_cpptest_engine_headers(fwd_steam_test
 # slots. The client's library is compiled in, as fwd_steam_test's is.
 ss_cpptest_engine_headers(fwd_leaf_system_test
     DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT CLIENT_DLL ${_ss_fwd_client_sdl}
-    INCLUDES sourcesharp/game/shared sourcesharp/host sourcesharp/game/client game/client game/shared
+    OPTIONS ${_ss_fwd_client_vendor_wno}  # Valve headers on -I, not -isystem
+    INCLUDES ${_ss_fwd_client_vendor} sourcesharp/game/shared sourcesharp/host
              ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_leaf_system_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
@@ -137,7 +142,8 @@ ss_cpptest_engine_headers(fwd_leaf_system_test
 # client's library is compiled in, as fwd_leaf_system_test's is.
 ss_cpptest_engine_headers(fwd_shadows_test
     DEFINES SS_FWD_CLIENT_BUILD SS_FWD_SERVES_CLIENT CLIENT_DLL ${_ss_fwd_client_sdl}
-    INCLUDES sourcesharp/game/shared sourcesharp/host sourcesharp/game/client game/client game/shared
+    OPTIONS ${_ss_fwd_client_vendor_wno}  # Valve headers on -I, not -isystem
+    INCLUDES ${_ss_fwd_client_vendor} sourcesharp/game/shared sourcesharp/host
              ${PROJECT_SOURCE_DIR}/src/fwd/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/fwd_shadows_test.cpp
             ${PROJECT_SOURCE_DIR}/src/fwd/native/fwd_client.cpp
@@ -4602,8 +4608,8 @@ endif()
 ss_cpptest(alloc_check_test
     LINUX_ONLY "runs under the allocation checker, which wraps glibc's allocator (--wrap) and resolves symbols with dlsym"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/alloc_check_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/server/native/alloc_check.cpp
-    INCLUDES ${PROJECT_SOURCE_DIR}/src/server/native
+            ${PROJECT_SOURCE_DIR}/src/shared/native/alloc_check.cpp
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
     DEFINES SOURCESHARP_ALLOC_CHECK
     LIBS ss_alloc_check_wraps)
 
@@ -4614,10 +4620,10 @@ ss_cpptest(alloc_check_test
 if(SS_PLATFORM STREQUAL linux)
 add_library(ss_alloc_unload_probe SHARED
     ${PROJECT_SOURCE_DIR}/src/test/native/alloc_unload_probe/alloc_unload_probe.cpp
-    ${PROJECT_SOURCE_DIR}/src/server/native/alloc_check.cpp)
+    ${PROJECT_SOURCE_DIR}/src/shared/native/alloc_check.cpp)
 ss_test_compile_flags(ss_alloc_unload_probe)
 target_compile_definitions(ss_alloc_unload_probe PRIVATE SOURCESHARP_ALLOC_CHECK)
-target_include_directories(ss_alloc_unload_probe PRIVATE ${PROJECT_SOURCE_DIR}/src/server/native)
+target_include_directories(ss_alloc_unload_probe PRIVATE ${PROJECT_SOURCE_DIR}/src/shared/native)
 target_link_libraries(ss_alloc_unload_probe PRIVATE ss_alloc_check_wraps dl)
 set_target_properties(ss_alloc_unload_probe PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/alloc_unload_probe)
@@ -4699,7 +4705,7 @@ ss_cpptest_tier1(server_string_pool_alloc_test
     INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/server/native
              ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/server_string_pool_alloc_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/server/native/alloc_check.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/alloc_check.cpp
     LIBS ss_alloc_check_wraps)
 
 ss_cpptest(tier1_port_test

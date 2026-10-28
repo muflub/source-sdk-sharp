@@ -78,16 +78,31 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "irecipientfilter.h"
-#include "c_recipientfilter.h"
 #include "itempents.h"
 #include "effect_dispatch_data.h"
-#include "tier1/KeyValues.h"
+#include "tier0/dbg.h"
+#include "collisionproperty.h"
+#include "eiface.h"
+#include "ipredictionsystem.h"
+#include "shattersurfacetypes.h"
 #include "imanaged_areas_client.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 // te_effect_dispatch.cpp's, in stock game/client/c_te_effect_dispatch.cpp,
 // which stays: it owns the RecvTable a dispatched effect arrives on.

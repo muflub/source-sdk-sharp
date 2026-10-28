@@ -41,11 +41,7 @@
 // gtest: sourcesharp/test/blast_blocking_test.cpp.
 //
 //=============================================================================//
-#ifndef BLAST_BLOCKING_H
-#define BLAST_BLOCKING_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 class IHandleEntity;
 
@@ -117,5 +113,3 @@ inline float BlastBlockedFraction( bool bHasPhysics, float flMass )
 
 	return flMass / BLAST_MASS_ABSORB_ALL;
 }
-
-#endif // BLAST_BLOCKING_H

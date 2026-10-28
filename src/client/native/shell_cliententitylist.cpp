@@ -114,26 +114,45 @@
 //
 //===========================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
+#include "icliententitylist.h"
+#include "iclientunknown.h"
+#include "engine/IStaticPropMgr.h"
+#include "engine/iserverplugin.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/convar.h"
+#include "tier1/interface.h"
+#include "basehandle.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "collisionproperty.h"
+#include "const.h"
+#include "ihandleentity.h"
 
 #include <typeinfo>
 
-#include "icliententitylist.h"
-#include "iclientunknown.h"
-#include "icliententity.h"
-#include "iclientnetworkable.h"
 
 // For ClientClass -- the seam census below reads a class's m_pNetworkName at
 // print time, having compared the class by POINTER on the hot path. The MEMBER
 // and not GetName(), which is not const and so cannot be called on the const
 // row the census holds; making the row non-const to reach an accessor that
 // returns the member would be the wrong way round.
-#include "client_class.h"
 
 // The port seam, and the ONLY thing this file takes from the stock list. See
 // the block at the bottom of that header for what the six functions are and why
 // they are free functions.
-#include "cliententitylist.h"
 
 #include "slot_table.h"
 #include "client_entity_counts.h"
@@ -141,14 +160,12 @@
 #include "shell_standalone_client.h"
 
 #include "handle_cross.h"          // SourceSharp_ClientShellFromTraceHit
-#include "engine/IStaticPropMgr.h"
 
 // plan_entity.md Phase 0 step 0e -- the engine-boundary probe, carried forward
 // from cliententitylist.cpp onto the object the engine now calls.
 #include "shell_boundary_probe.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //=============================================================================
 // THE TABLE

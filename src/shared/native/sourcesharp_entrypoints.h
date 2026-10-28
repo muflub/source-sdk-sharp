@@ -21,11 +21,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_ENTRYPOINTS_H
-#define SOURCESHARP_ENTRYPOINTS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // sourcesharp.h is what these signatures are derived FROM, so it has to be
 // included before them: every argument type below is one of its typedefs or a
@@ -645,5 +641,3 @@ int32_t SourceSharp_WorldTextMeshUpdate( uint32_t hOwner, const char *pszMateria
                                          const float *pBounds, int32_t nFloats );
 #endif
 
-
-#endif // SOURCESHARP_ENTRYPOINTS_H

@@ -1,14 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef SOUNDCHARS_H
-#define SOUNDCHARS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #define CHAR_STREAM			'*'		// as one of 1st 2 chars in name, indicates streaming wav data
 #define CHAR_USERVOX		'?'		// as one of 1st 2 chars in name, indicates user realtime voice data
@@ -47,22 +39,3 @@ inline char *PSkipSoundChars(const char *pch)
 
 	return pcht;
 }
-
-
-inline bool TestSoundChar(const char *pch, char c)
-{
-	char *pcht = (char *)pch;
-
-	while ( 1 )
-	{
-		if (!IsSoundChar(*pcht))
-			break;
-		if (*pcht == c)
-			return true;
-		pcht++;
-	}
-
-	return false;
-}
-
-#endif // SOUNDCHARS_H

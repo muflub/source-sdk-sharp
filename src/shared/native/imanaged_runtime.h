@@ -13,8 +13,6 @@
 // SourceSharpMapLoad by pointer, and the stop is not a slot (DLLShutdown
 // unloads the managed side itself).
 
-#ifndef IMANAGED_RUNTIME_H
-#define IMANAGED_RUNTIME_H
 #pragma once
 
 #include <stdint.h>
@@ -104,4 +102,3 @@ static_assert( sizeof( SSManagedRuntimeServerTable ) == 27 * sizeof( void * ), "
 
 #endif // !CLIENT_DLL
 
-#endif // IMANAGED_RUNTIME_H

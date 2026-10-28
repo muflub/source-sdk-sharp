@@ -1,11 +1,4 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
-//
 // VMatrix always postmultiply vectors as in Ax = b.
 // Given a set of basis vectors ((F)orward, (L)eft, (U)p), and a (T)ranslation, 
 // a matrix to transform a vector into that space looks like this:
@@ -21,14 +14,8 @@
 // v = A * v;
 // v = B * v;
 // v = C * v;
-//=============================================================================
 
-#ifndef VMATRIX_H
-#define VMATRIX_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <string.h>
 #include "mathlib/vector.h"
@@ -37,7 +24,6 @@
 #include "mathlib/mathlib.h"
 
 struct cplane_t;
-
 
 class VMatrix
 {
@@ -66,7 +52,6 @@ public:
 		vec_t m20, vec_t m21, vec_t m22, vec_t m23,
 		vec_t m30, vec_t m31, vec_t m32, vec_t m33 
 		);
-
 
 	// Initialize from a 3x4
 	void		Init( const matrix3x4_t& matrix3x4 );
@@ -104,34 +89,21 @@ public:
 	Vector &	GetTranslation( Vector &vTrans ) const;
 	void		SetTranslation(const Vector &vTrans);
 
-
 	const matrix3x4_t& As3x4() const;
 	void		CopyFrom3x4( const matrix3x4_t &m3x4 );
 	void		Set3x4( matrix3x4_t& matrix3x4 ) const;
 
 	bool		operator==( const VMatrix& src ) const;
-	bool		operator!=( const VMatrix& src ) const { return !( *this == src ); }
-
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-#endif
-
 
 // Matrix->vector operations.
 public:
-
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
 	// Multiply by a vector (divides by w, assumes input w is 1).
 	Vector		operator*(const Vector &vVec) const;
 
-	// Multiply by the upper 3x3 part of the matrix (ie: only apply rotation).
-	Vector		VMul3x3(const Vector &vVec) const;
-
-
-
 #endif
-
 
 // Matrix->plane operations.
 public:
@@ -151,23 +123,10 @@ public:
 	// Multiply two matrices (out = this * vm).
 	void		MatrixMul( const VMatrix &vm, VMatrix &out ) const;
 
-	// Add two matrices.
-	const VMatrix& operator+=(const VMatrix &other);
-
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 	// Just calls MatrixMul and returns the result.	
 	VMatrix		operator*(const VMatrix &mOther) const;
 
-	// Add/Subtract two matrices.
-	VMatrix		operator+(const VMatrix &other) const;
-	VMatrix		operator-(const VMatrix &other) const;
-
-	// Negation.
-	VMatrix		operator-() const;
-
-	// Return inverse matrix. Be careful because the results are undefined 
-	// if the matrix doesn't have an inverse (ie: InverseGeneral returns false).
-	VMatrix		operator~() const;
 #endif
 
 // Matrix operations.
@@ -175,214 +134,64 @@ public:
 	// Set to identity.
 	void		Identity();
 
-
 	// Setup a matrix for origin and angles.
 	void		SetupMatrixOrgAngles( const Vector &origin, const QAngle &vAngles );
 	
-	// Setup a matrix for angles and no translation.
-	void		SetupMatrixAngles( const QAngle &vAngles );
-
 	// General inverse. This may fail so check the return!
 	bool		InverseGeneral(VMatrix &vInverse) const;
 	
-	// Does a fast inverse, assuming the matrix only contains translation and rotation.
-	void		InverseTR( VMatrix &mRet ) const;
-
-	// Usually used for debug checks. Returns true if the upper 3x3 contains
-	// unit vectors and they are all orthogonal.
-	bool		IsRotationMatrix() const;
-	
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-	// This calls the other InverseTR and returns the result.
-	VMatrix		InverseTR() const;
-
-	// Get the scale of the matrix's basis vectors.
-	Vector		GetScale() const;
-
-	// (Fast) multiply by a scaling matrix setup from vScale.
-	VMatrix		Scale(const Vector &vScale);	
-
-	// Normalize the basis vectors.
-	VMatrix		NormalizeBasisVectors() const;
-
-	// Transpose.
-	VMatrix		Transpose() const;
-
-	// Transpose upper-left 3x3.
-	VMatrix		Transpose3x3() const;
-#endif
-
 public:
 	// The matrix.
 	vec_t		m[4][4];
 };
 
-
-
-//-----------------------------------------------------------------------------
 // Helper functions.
-//-----------------------------------------------------------------------------
-
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
-// Setup an identity matrix.
-VMatrix		SetupMatrixIdentity();
-
-// Setup as a scaling matrix.
-VMatrix		SetupMatrixScale(const Vector &vScale);
-
-// Setup a translation matrix.
-VMatrix		SetupMatrixTranslation(const Vector &vTranslation);
-
-// Setup a matrix to reflect around the plane.
-VMatrix		SetupMatrixReflection(const VPlane &thePlane);
-
-// Setup a matrix to project from vOrigin onto thePlane.
-VMatrix		SetupMatrixProjection(const Vector &vOrigin, const VPlane &thePlane);
-
-// Setup a matrix to rotate the specified amount around the specified axis.
-VMatrix		SetupMatrixAxisRot(const Vector &vAxis, vec_t fDegrees);
-
-// Setup a matrix from euler angles. Just sets identity and calls MatrixAngles.
-VMatrix		SetupMatrixAngles(const QAngle &vAngles);
-
-// Setup a matrix for origin and angles.
-VMatrix		SetupMatrixOrgAngles(const Vector &origin, const QAngle &vAngles);
-
-#endif
 
  // ** Note: this generates a temporary, don't hold reference!
 
-//-----------------------------------------------------------------------------
-// Returns the point at the intersection on the 3 planes.
-// Returns false if it can't be solved (2 or more planes are parallel).
-//-----------------------------------------------------------------------------
-bool PlaneIntersection( const VPlane &vp1, const VPlane &vp2, const VPlane &vp3, Vector &vOut );
-
-
-//-----------------------------------------------------------------------------
 // These methods are faster. Use them if you want faster code
-//-----------------------------------------------------------------------------
 void MatrixSetIdentity( VMatrix &dst );
 void MatrixTranspose( const VMatrix& src, VMatrix& dst );
 void MatrixCopy( const VMatrix& src, VMatrix& dst );
 void MatrixMultiply( const VMatrix& src1, const VMatrix& src2, VMatrix& dst );
 
-// Accessors
-void MatrixGetColumn( const VMatrix &src, int nCol, Vector *pColumn );
 void MatrixSetColumn( VMatrix &src, int nCol, const Vector &column );
 
 // Vector3DMultiply treats src2 as if it's a direction vector
 void Vector3DMultiply( const VMatrix& src1, const Vector& src2, Vector& dst );
 
-// Vector3DMultiplyPosition treats src2 as if it's a point (adds the translation)
-inline void Vector3DMultiplyPosition( const VMatrix& src1, const VectorByValue src2, Vector& dst );
-
 // Vector3DMultiplyPositionProjective treats src2 as if it's a point 
 // and does the perspective divide at the end
 void Vector3DMultiplyPositionProjective( const VMatrix& src1, const Vector &src2, Vector& dst );
 
-// Vector3DMultiplyPosition treats src2 as if it's a direction 
-// and does the perspective divide at the end
-// NOTE: src1 had better be an inverse transpose to use this correctly
-void Vector3DMultiplyProjective( const VMatrix& src1, const Vector &src2, Vector& dst );
-
-void Vector4DMultiply( const VMatrix& src1, const Vector4D& src2, Vector4D& dst );
-
-// Same as Vector4DMultiply except that src2 has an implicit W of 1
-void Vector4DMultiplyPosition( const VMatrix& src1, const Vector &src2, Vector4D& dst );
-
-// Multiplies the vector by the transpose of the matrix
-void Vector3DMultiplyTranspose( const VMatrix& src1, const Vector& src2, Vector& dst );
-void Vector4DMultiplyTranspose( const VMatrix& src1, const Vector4D& src2, Vector4D& dst );
-
-// Transform a plane
-void MatrixTransformPlane( const VMatrix &src, const cplane_t &inPlane, cplane_t &outPlane );
-
-
-void MatrixBuildTranslation( VMatrix& dst, float x, float y, float z );
 void MatrixBuildTranslation( VMatrix& dst, const Vector &translation );
 
-
-
 void MatrixBuildRotationAboutAxis( VMatrix& dst, const Vector& vAxisOfRot, float angleDegrees );
-void MatrixBuildRotateZ( VMatrix& dst, float angleDegrees );
-
-
-// Builds a rotation matrix that rotates one direction vector into another
-void MatrixBuildRotation( VMatrix &dst, const Vector& initialDirection, const Vector& finalDirection );
 
 // Builds a scale matrix
 void MatrixBuildScale( VMatrix &dst, float x, float y, float z );
-void MatrixBuildScale( VMatrix &dst, const Vector& scale );
 
-// Build a perspective matrix.
-// zNear and zFar are assumed to be positive.
-// You end up looking down positive Z, X is to the right, Y is up.
-// X range: [0..1]
-// Y range: [0..1]
-// Z range: [0..1]
-void MatrixBuildPerspective( VMatrix &dst, float fovX, float fovY, float zNear, float zFar );
-
-//-----------------------------------------------------------------------------
-// Given a projection matrix, take the extremes of the space in transformed into world space and
-// get a bounding box.
-//-----------------------------------------------------------------------------
-void CalculateAABBFromProjectionMatrix( const VMatrix &worldToVolume, Vector *pMins, Vector *pMaxs );
-
-//-----------------------------------------------------------------------------
-// Given a projection matrix, take the extremes of the space in transformed into world space and
-// get a bounding sphere.
-//-----------------------------------------------------------------------------
-void CalculateSphereFromProjectionMatrix( const VMatrix &worldToVolume, Vector *pCenter, float *pflRadius );
-
-//-----------------------------------------------------------------------------
 // Given an inverse projection matrix, take the extremes of the space in transformed into world space and
 // get a bounding box.
-//-----------------------------------------------------------------------------
 void CalculateAABBFromProjectionMatrixInverse( const VMatrix &volumeToWorld, Vector *pMins, Vector *pMaxs );
 
-//-----------------------------------------------------------------------------
 // Given an inverse projection matrix, take the extremes of the space in transformed into world space and
 // get a bounding sphere.
-//-----------------------------------------------------------------------------
 void CalculateSphereFromProjectionMatrixInverse( const VMatrix &volumeToWorld, Vector *pCenter, float *pflRadius );
 
-//-----------------------------------------------------------------------------
-// Calculate frustum planes given a clip->world space transform.
-//-----------------------------------------------------------------------------
-void FrustumPlanesFromMatrix( const VMatrix &clipToWorld, Frustum_t &frustum );
-
-//-----------------------------------------------------------------------------
 // Setup a matrix from euler angles. 
-//-----------------------------------------------------------------------------
 void MatrixFromAngles( const QAngle& vAngles, VMatrix& dst );
 
-//-----------------------------------------------------------------------------
-// Creates euler angles from a matrix 
-//-----------------------------------------------------------------------------
-void MatrixToAngles( const VMatrix& src, QAngle& vAngles );
-
-//-----------------------------------------------------------------------------
 // Does a fast inverse, assuming the matrix only contains translation and rotation.
-//-----------------------------------------------------------------------------
 void MatrixInverseTR( const VMatrix& src, VMatrix &dst );
 
-//-----------------------------------------------------------------------------
 // Inverts any matrix at all
-//-----------------------------------------------------------------------------
 bool MatrixInverseGeneral(const VMatrix& src, VMatrix& dst);
 
-//-----------------------------------------------------------------------------
 // Computes the inverse transpose
-//-----------------------------------------------------------------------------
 void MatrixInverseTranspose( const VMatrix& src, VMatrix& dst );
 
-
-
-//-----------------------------------------------------------------------------
 // VMatrix inlines.
-//-----------------------------------------------------------------------------
 inline VMatrix::VMatrix(
 	vec_t m00, vec_t m01, vec_t m02, vec_t m03,
 	vec_t m10, vec_t m11, vec_t m12, vec_t m13,
@@ -397,17 +206,13 @@ inline VMatrix::VMatrix(
 		);
 }
 
-
 inline VMatrix::VMatrix( const matrix3x4_t& matrix3x4 )
 {
 	Init( matrix3x4 );
 }
 
-
-//-----------------------------------------------------------------------------
 // Creates a matrix where the X axis = forward
 // the Y axis = left, and the Z axis = up
-//-----------------------------------------------------------------------------
 inline VMatrix::VMatrix( const Vector& xAxis, const Vector& yAxis, const Vector& zAxis )
 {
 	Init(
@@ -427,7 +232,6 @@ inline VMatrix::VMatrix( const Vector& xAxis, const Vector& yAxis, const Vector&
 		0.0f, 0.0f, 0.0f, 1.0f
 		);
 }
-
 
 inline void VMatrix::Init(
 	vec_t m00, vec_t m01, vec_t m02, vec_t m03,
@@ -457,10 +261,7 @@ inline void VMatrix::Init(
 	m[3][3] = m33;
 }
 
-
-//-----------------------------------------------------------------------------
 // Initialize from a 3x4
-//-----------------------------------------------------------------------------
 inline void VMatrix::Init( const matrix3x4_t& matrix3x4 )
 {
 	memcpy(m, matrix3x4.Base(), sizeof( matrix3x4_t ) );
@@ -471,17 +272,7 @@ inline void VMatrix::Init( const matrix3x4_t& matrix3x4 )
 	m[3][3] = 1.0f;	
 }
 
-
-//-----------------------------------------------------------------------------
 // Methods related to the basis vectors of the matrix
-//-----------------------------------------------------------------------------
-
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
-
-
-
-#endif
 
 inline void VMatrix::SetForward(const Vector &vForward)
 {
@@ -518,14 +309,7 @@ inline void VMatrix::SetBasisVectors(const Vector &vForward, const Vector &vLeft
 	SetUp(vUp);
 }
 
-
-//-----------------------------------------------------------------------------
 // Methods related to the translation component of the matrix
-//-----------------------------------------------------------------------------
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
-
-#endif
 
 inline Vector& VMatrix::GetTranslation( Vector &vTrans ) const
 {
@@ -541,10 +325,6 @@ inline void VMatrix::SetTranslation(const Vector &vTrans)
 	m[1][3] = vTrans.y;
 	m[2][3] = vTrans.z;
 }
-
-		  
-
-
 
 inline const matrix3x4_t& VMatrix::As3x4() const
 {
@@ -563,67 +343,7 @@ inline void	VMatrix::Set3x4( matrix3x4_t& matrix3x4 ) const
 	memcpy(matrix3x4.Base(), m, sizeof( matrix3x4_t ) );
 }
 
-
-//-----------------------------------------------------------------------------
-// Matrix math operations
-//-----------------------------------------------------------------------------
-inline const VMatrix& VMatrix::operator+=(const VMatrix &other)
-{
-	for(int i=0; i < 4; i++)
-	{
-		for(int j=0; j < 4; j++)
-		{
-			m[i][j] += other.m[i][j];
-		}
-	}
-
-	return *this;
-}
-
-
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
-inline VMatrix VMatrix::operator+(const VMatrix &other) const
-{
-	VMatrix ret;
-	for(int i=0; i < 16; i++)
-	{
-		((float*)ret.m)[i] = ((float*)m)[i] + ((float*)other.m)[i];
-	}
-	return ret;
-}
-
-inline VMatrix VMatrix::operator-(const VMatrix &other) const
-{
-	VMatrix ret;
-
-	for(int i=0; i < 4; i++)
-	{
-		for(int j=0; j < 4; j++)
-		{
-			ret.m[i][j] = m[i][j] - other.m[i][j];
-		}
-	}
-
-	return ret;
-}
-
-inline VMatrix VMatrix::operator-() const
-{
-	VMatrix ret;
-	for( int i=0; i < 16; i++ )
-	{
-		((float*)ret.m)[i] = ((float*)m)[i];
-	}
-	return ret;
-}
-
-#endif // VECTOR_NO_SLOW_OPERATIONS
-
-
-//-----------------------------------------------------------------------------
 // Vector transformation
-//-----------------------------------------------------------------------------
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
@@ -637,28 +357,9 @@ inline Vector VMatrix::operator*(const Vector &vVec) const
 	return vRet;
 }
 
-
-
-
-inline Vector VMatrix::VMul3x3(const Vector &vVec) const
-{
-	return Vector(
-		m[0][0]*vVec.x + m[0][1]*vVec.y + m[0][2]*vVec.z,
-		m[1][0]*vVec.x + m[1][1]*vVec.y + m[1][2]*vVec.z,
-		m[2][0]*vVec.x + m[2][1]*vVec.y + m[2][2]*vVec.z
-		);
-}
-
-
 #endif // VECTOR_NO_SLOW_OPERATIONS
 
-
-
-
-
-//-----------------------------------------------------------------------------
 // Plane transformation
-//-----------------------------------------------------------------------------
 inline void	VMatrix::TransformPlane( const VPlane &inPlane, VPlane &outPlane ) const
 {
 	Vector vTrans;
@@ -667,40 +368,10 @@ inline void	VMatrix::TransformPlane( const VPlane &inPlane, VPlane &outPlane ) c
 	outPlane.m_Dist += DotProduct( outPlane.m_Normal, GetTranslation( vTrans ) );
 }
 
-
-//-----------------------------------------------------------------------------
 // Other random stuff
-//-----------------------------------------------------------------------------
 inline void VMatrix::Identity()
 {
 	MatrixSetIdentity( *this );
-}
-
-
-
-#ifndef VECTOR_NO_SLOW_OPERATIONS
-
-
-inline VMatrix VMatrix::operator~() const
-{
-	VMatrix mRet;
-	InverseGeneral(mRet);
-	return mRet;
-}
-
-#endif
-
-
-//-----------------------------------------------------------------------------
-// Accessors
-//-----------------------------------------------------------------------------
-inline void MatrixGetColumn( const VMatrix &src, int nCol, Vector *pColumn )
-{
-	Assert( (nCol >= 0) && (nCol <= 3) );
-
-	pColumn->x = src[0][nCol];
-	pColumn->y = src[1][nCol];
-	pColumn->z = src[2][nCol];
 }
 
 inline void MatrixSetColumn( VMatrix &src, int nCol, const Vector &column )
@@ -712,37 +383,7 @@ inline void MatrixSetColumn( VMatrix &src, int nCol, const Vector &column )
 	src.m[2][nCol] = column.z;
 }
 
-
-
-
-//-----------------------------------------------------------------------------
-// Vector3DMultiplyPosition treats src2 as if it's a point (adds the translation)
-//-----------------------------------------------------------------------------
-// NJS: src2 is passed in as a full vector rather than a reference to prevent the need
-// for 2 branches and a potential copy in the body.  (ie, handling the case when the src2
-// reference is the same as the dst reference ).
-inline void Vector3DMultiplyPosition( const VMatrix& src1, const VectorByValue src2, Vector& dst )
-{
-	dst[0] = src1[0][0] * src2.x + src1[0][1] * src2.y + src1[0][2] * src2.z + src1[0][3];
-	dst[1] = src1[1][0] * src2.x + src1[1][1] * src2.y + src1[1][2] * src2.z + src1[1][3];
-	dst[2] = src1[2][0] * src2.x + src1[2][1] * src2.y + src1[2][2] * src2.z + src1[2][3];
-}
-
-
-
-
-
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
 void MatrixBuildOrtho( VMatrix& dst, double left, double top, double right, double bottom, double zNear, double zFar );
 void MatrixBuildPerspectiveX( VMatrix& dst, double flFovX, double flAspect, double flZNear, double flZFar );
 void MatrixBuildPerspectiveOffCenterX( VMatrix& dst, double flFovX, double flAspect, double flZNear, double flZFar, double bottom, double top, double left, double right );
 void MatrixBuildPerspectiveZRange( VMatrix& dst, double flZNear, double flZFar );
-
-
-
-
-#endif
-
-

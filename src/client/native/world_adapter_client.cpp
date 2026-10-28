@@ -35,29 +35,44 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
-#include "gamerules.h"
-#include "c_world.h"
-#include "world_subject.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "client_entity.h"
+#include "igamerules.h"
+#include "client_world.h"
 #include "ivmodemanager.h"
-#include "ivieweffects.h"
-#include "shake.h"
-#include "activitylist.h"
-#include "decals.h"
 #include "engine/ivmodelinfo.h"
-#include "eventlist.h"
-// NVNT haptic include for notification of world precache
-#include "haptics/haptic_utils.h"
-#include "shell_world_nettable_client.h"
-#include "cliententitylist.h"
-#include "shell_cliententitylist.h"
 #include "cdll_client_int.h"
-#include "datacache/imdlcache.h"
+#include "haptics/ihaptics.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/strtools.h"
+#include "basehandle.h"
+#include "cdll_int.h"
+#include "client_render_handle.h"
+#include "const.h"
+#include "icliententitylist.h"
+#include "iclientnetworkable.h"
+#include "iclientrenderable.h"
+#include "iclientthinkable.h"
+#include "vphysics_interface.h"
+#include "world_subject.h"
+// NVNT haptic include for notification of world precache
+#include "shell_world_nettable_client.h"
+#include "shell_cliententitylist.h"
 #include "c_baseentity_statics.h"
 #include "imanaged_runtime_client.h"
 #include "shell_managed_areas_client.h"
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 // WorldArrivalActions (SourceSharp.Client/WorldArrival.cs): what managed's
 // answer to a world update asks this file to do.

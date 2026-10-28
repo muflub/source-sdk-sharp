@@ -1,21 +1,9 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef COLOR_H
-#define COLOR_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
-//-----------------------------------------------------------------------------
 // Purpose: Basic handler for an rgb set of colors
 //			This class is fully inline
-//-----------------------------------------------------------------------------
 class Color
 {
 public:
@@ -45,7 +33,6 @@ public:
 		_color[2] = (unsigned char)_b;
 		_color[3] = (unsigned char)_a;
 	}
-
 
 	void SetRawColor( int color32 )
 	{
@@ -77,20 +64,6 @@ public:
 		return ( *((int *)this) == *((int *)&rhs) );
 	}
 
-	bool operator != (const Color &rhs) const
-	{
-		return !(operator==(rhs));
-	}
-
-	Color &operator=( const Color &rhs )
-	{
-		SetRawColor( rhs.GetRawColor() );
-		return *this;
-	}
-
 private:
 	unsigned char _color[4];
 };
-
-
-#endif // COLOR_H

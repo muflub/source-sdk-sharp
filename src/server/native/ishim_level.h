@@ -37,11 +37,7 @@
 //
 //=============================================================================//
 
-#ifndef ISHIM_LEVEL_H
-#define ISHIM_LEVEL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/platform.h"
 
@@ -173,5 +169,3 @@ public:
 
 	// NEW METHODS GO HERE, AT THE END.
 };
-
-#endif // ISHIM_LEVEL_H

@@ -1,14 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================
 
-#ifndef KEYBINDINGMAP_H
-#define KEYBINDINGMAP_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier1/utlvector.h"
 
@@ -27,15 +19,12 @@ enum
 	MODIFIER_ALT		= ( 1 << 2 ),
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: An actual keybinding, where bindingname references a bindingmap mentioned below
-//-----------------------------------------------------------------------------
 struct BoundKey_t
 {
 	BoundKey_t();
 	BoundKey_t( const BoundKey_t& src );
 	~BoundKey_t();
-	BoundKey_t& operator =( const BoundKey_t& src );
 
 	bool				isbuiltin;		// whether this was by the #DECLARE macros or via code/parsing a config file
 	char const			*bindingname; // what it's bound to
@@ -43,11 +32,9 @@ struct BoundKey_t
 	int					modifiers;  // which modifiers
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: Single item in a message map
 //			Contains the information to map a string message name with parameters
 //			to a function call
-//-----------------------------------------------------------------------------
 struct KeyBindingMap_t
 {
 	KeyBindingMap_t();
@@ -145,58 +132,7 @@ struct KeyBindingMap_t
 		return s_pMap;																	\
 	}
 
-#define _KBMapFuncCommonFunc( name, keycode, modifiers, function, help, doc, passive )	\
-	class PanelKBMapFunc_##name; \
-	friend class PanelKBMapFunc_##name; \
-	class PanelKBMapFunc_##name \
-	{ \
-	public: \
-		static void InitVar() \
-		{ \
-			static bool bAdded = false; \
-			if ( !bAdded ) \
-			{ \
-				bAdded = true; \
-				KB_AddToMap( #name, keycode, modifiers, (vgui::MessageFunc_t)&ThisClass::function, help, doc, passive ); \
-			}											\
-		}												\
-		PanelKBMapFunc_##name()							\
-		{												\
-			PanelKBMapFunc_##name::InitVar();			\
-		}												\
-	};													\
-	PanelKBMapFunc_##name m_##name##_register;		
-
-#define _KBBindKeyCommon( name, keycode, modifiers, _classname )	\
-	class PanelKBBindFunc_##_classname; \
-	friend class PanelKBBindFunc_##_classname; \
-	class PanelKBBindFunc_##_classname \
-	{ \
-	public: \
-		static void InitVar() \
-		{ \
-			static bool bAdded = false; \
-			if ( !bAdded ) \
-			{ \
-				bAdded = true; \
-				KB_AddBoundKey( #name, keycode, modifiers ); \
-			}											\
-		}												\
-		PanelKBBindFunc_##_classname()					\
-		{												\
-			PanelKBBindFunc_##_classname::InitVar();	\
-		}												\
-	};													\
-	PanelKBBindFunc_##_classname m_##_classname##_bindkey_register;	
-
-#define KEYBINDING_FUNC( name, keycode, modifiers, function, help, doc )				_KBMapFuncCommonFunc( name, keycode, modifiers, function, help, doc, false ); virtual void function()
-#define KEYBINDING_FUNC_NODECLARE( name, keycode, modifiers, function, help, doc )		_KBMapFuncCommonFunc( name, keycode, modifiers, function, help, doc, false );
-#define KEYBINDING_FUNC_PASSIVE( name, keycode, modifiers, function, help, doc )		_KBMapFuncCommonFunc( name, keycode, modifiers, function, help, doc, true );	virtual void function()
-#define KEYBINDING_FUNC_PASSIVE_NODECLARE( name, keycode, modifiers, function, help, doc )		_KBMapFuncCommonFunc( name, keycode, modifiers, function, help, doc, true );
-
 // For definding additional (non-default) keybindings
-#define KEYBINDING_ADDBINDING( name, keycode, modifiers )									_KBBindKeyCommon( name, keycode, modifiers, name );
-#define KEYBINDING_ADDBINDING_MULTIPLE( name, keycode, modifiers, _classname )				_KBBindKeyCommon( name, keycode, modifiers, _classname );
 
 // mapping, one per class
 struct PanelKeyBindingMap
@@ -216,10 +152,6 @@ struct PanelKeyBindingMap
 	char const *(*pfnClassName)( void );
 };
 
-PanelKeyBindingMap *FindPanelKeyBindingMap( char const *className );
 PanelKeyBindingMap *FindOrAddPanelKeyBindingMap( char const *className );
 
 } // namespace vgui
-
-
-#endif // KEYBINDINGMAP_H

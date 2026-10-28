@@ -1,16 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Holds the enumerated list of default cursors
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef CURSOR_H
-#define CURSOR_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <vgui/VGUI.h>
 
@@ -43,5 +34,3 @@ enum CursorCode
 typedef uint32 HCursor;
 
 }
-
-#endif // CURSOR_H

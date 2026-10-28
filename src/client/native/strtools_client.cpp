@@ -24,7 +24,8 @@
 //=============================================================================//
 
 #include "tier0/dbg.h"
-#include "tier1/strtools.h"
+#include "tier0/basetypes.h"
+#include "tier0/platform.h"
 #include "ss_string.h"
 
 #include <stdarg.h>

@@ -1,24 +1,12 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Intrusive linked list templates, both for singly and doubly linked lists
-//
-// $Revision: $
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef UTILINTRUSIVELIST_H
-#define UTILINTRUSIVELIST_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/basetypes.h"
 #include "utlmemory.h"
 #include "tier0/dbg.h"
 
-
-// 
 // These templates are used for intrusive linked list classes. Intrusive linked list templates
 // force the structs and classes contained within them to have their own m_pNext, (optionally),
 // m_pPrev, and other fields contained within. All memory management is up to the caller and their
@@ -26,17 +14,12 @@
 // only having on m_Next field, and manipulating the list while walking it requires that care on
 // the part of the caller. All accessing and searching functions work by passing and returning
 // pointers.
-//
-//
-//
 // naming and field conventions:
 // functions referring to a DList are for doubly linked lists. nodes must have m_pHead and
 // m_pPrev pointer fields.
 // Functions using Priority require an m_Priority field, which must be comparable.
-//
 // Some functions are mean for use with lists which maintain both a head and tail pointer
 // in order to support fast adding to the end.
-
 
 /// validates that the doubly linked list has the proper structure, pointer-wise
 
@@ -68,11 +51,6 @@ namespace IntrusiveList
 	}
 #endif
 
-	
-
-
-    
-
 	// removes node 'which' from doubly linked list with 'head'
 	template<class T> inline void RemoveFromDList(T * &head, T *which)
 	{
@@ -102,7 +80,6 @@ namespace IntrusiveList
 		ValidateDList(head);
   
 	}
-
 
 	// add a node to the end of a singly linked list
 	template<class T> void AddToDTail(T * & head, T * node)
@@ -207,12 +184,6 @@ namespace IntrusiveList
   
 	}
 
-
-
-
-
-
-
 	// Remove from a singly linked list. no delete called.
 	template<class T,class V> void RemoveFromList(T * & head, V *which)
 	{
@@ -232,8 +203,6 @@ namespace IntrusiveList
 			}
 		}
 	}
-
-
 
 	// find the Nth node in a list. null if index too high.
 	template<class T> T *NthNode(T * head, int idx)
@@ -281,8 +250,6 @@ namespace IntrusiveList
 		head=node;
 	}  
 
-
-
 	// return the node in head before in a singly linked list. returns null if head is empty, n is
 	// null, or if n is the first node. not fast.
 	template<class T> static inline T * PrevNode(T *head, T *node)
@@ -295,10 +262,6 @@ namespace IntrusiveList
 		}
 		return i;
 	}
-
-  
-
-
 
 	// count # of elements in list
 	template<class T> int ListLength(T *head)
@@ -322,9 +285,6 @@ namespace IntrusiveList
 		}
 	}
 
-
-
-
 	template <class T> static inline T * FindNamedNodeCaseSensitive(T * head, char const *name)
 	{
 		for(;head && strcmp(head->m_Name,name); head=head->m_pNext)
@@ -332,11 +292,6 @@ namespace IntrusiveList
 		}
 		return head;
 	}
-
-
-
-
-
 
 	// reverse a singly linked list. not recommended for anything other than valve programming
 	// interview :-)
@@ -374,7 +329,6 @@ public:
 		m_pHead = NULL;
 	}
 
-
 	FORCEINLINE void RemoveAll( void )
 	{
 		// empty list. doesn't touch nodes at all
@@ -404,7 +358,6 @@ public:
 			delete m_pHead;
 		}
 	}
-
 
 	// return the node in head before in a singly linked list. returns null if head is empty, n is
 	// null, or if n is the first node. not fast. Fast for dlists
@@ -555,6 +508,3 @@ public:
 	}
 
 };
-
-
-#endif

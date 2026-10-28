@@ -34,11 +34,7 @@
 // as standalone_relays.h's do.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_GAME_ENTITY_RELAYS_H
-#define SOURCESHARP_GAME_ENTITY_RELAYS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basehandle.h"
 
@@ -114,5 +110,3 @@ int GameEntity_EntIndex( const IGameEntity *pEnt );
 // `modelinfo->GetModel( 0 )` already answers NULL for.
 //-----------------------------------------------------------------------------
 int GameEntity_ModelIndex( const IGameEntity *pEnt );
-
-#endif // SOURCESHARP_GAME_ENTITY_RELAYS_H

@@ -50,11 +50,7 @@
 //
 //=============================================================================//
 
-#ifndef MANAGED_CONVAR_REF_H
-#define MANAGED_CONVAR_REF_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "convar.h"
 
@@ -132,5 +128,3 @@ private:
 	mutable ConVarRef  m_Ref;
 	mutable bool       m_bResolved;
 };
-
-#endif // MANAGED_CONVAR_REF_H

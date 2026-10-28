@@ -11,8 +11,6 @@
 // HAND row SteamCallback) lays them out, in this order. They are the
 // library's own: its version script exports none of them.
 //=============================================================================//
-#ifndef FWD_STEAM_H
-#define FWD_STEAM_H
 #pragma once
 
 class CCallbackBase;
@@ -28,5 +26,3 @@ CCallbackBase *SSFwd_SteamCallback_Construct( void *pMemory, IManagedSteamCallba
 
 // Whether Steam holds the callback: unregister it before freeing it only then.
 bool SSFwd_SteamCallback_IsRegistered( CCallbackBase *pCallback );
-
-#endif // FWD_STEAM_H

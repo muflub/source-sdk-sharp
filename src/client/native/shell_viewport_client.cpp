@@ -11,17 +11,34 @@
 // showpanel and hidepanel are SourceSharp.Client's (ViewportPanelCommands.cs).
 //=============================================================================//
 
-#include "cbase.h"
-#include "shell_viewport_client.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "iclientmode.h"
 #include "ienginevgui.h"
+#include "vgui/IPanel.h"
+#include "vgui_controls/Controls.h"
+#include "tier1/KeyValues.h"
+#include "game/client/iviewport.h"
+#include "tier1/strtools.h"
+#include "vstdlib/IKeyValuesSystem.h"
+#include "igameevents.h"
+#include "viewport_panel_names.h"
+#include "shell_viewport_client.h"
 #include "imanaged_areas_client.h"
-#include <vgui/IPanel.h>
-#include <vgui_controls/Controls.h>   // vgui::ipanel(): the module's interface accessors
-#include <KeyValues.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 IViewPort *gViewPortInterface = NULL;
 

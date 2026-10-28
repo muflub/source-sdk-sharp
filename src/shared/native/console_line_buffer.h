@@ -7,8 +7,7 @@
 // nOverflow, its number spent; native decides nothing. The layout is an ABI:
 // NativeConsoleBuffer.cs reads it, both sides' tests pin it.
 
-#ifndef SOURCESHARP_CONSOLE_LINE_BUFFER_H
-#define SOURCESHARP_CONSOLE_LINE_BUFFER_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -111,5 +110,3 @@ public:
 	ConsoleLineBufferHeader m_Header;
 	uint8_t m_Halves[ 2 * kConsoleLineHalfBytes ];
 };
-
-#endif // SOURCESHARP_CONSOLE_LINE_BUFFER_H

@@ -25,7 +25,6 @@
 // engine time (the linker's undefined list without libtier0 names no other).
 //=============================================================================//
 
-#include "tier0/platform.h"
 #include "tier0/threadtools.h"
 #include "ss_clock.h"
 #include "ss_platform.h"	// SS_BIND_IMPORT

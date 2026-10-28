@@ -6,8 +6,7 @@
 // lives beside the third-person camera that sets it (shell_client.cpp).
 //
 //=============================================================================//
-#ifndef SHELL_VIEW_TARGETS_H
-#define SHELL_VIEW_TARGETS_H
+#pragma once
 
 // Draws every view queued by IShimViewClient::RenderViewToTarget this frame.
 void ShellViewTargets_RenderQueued();
@@ -23,5 +22,3 @@ void ShellViewTargets_NoteDrawn( int nTarget );
 // restores what Begin returned.
 bool ShellClient_ViewerSeenBegin();
 void ShellClient_ViewerSeenEnd( bool bWasSeen );
-
-#endif // SHELL_VIEW_TARGETS_H

@@ -24,11 +24,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_CONTAINERS_H
-#define SOURCESHARP_SS_CONTAINERS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <cstddef>
 #include <string>
@@ -86,5 +82,3 @@ private:
 };
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_CONTAINERS_H

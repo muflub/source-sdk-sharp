@@ -1,25 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
 
-#ifndef ISHADOWMGR_H
-#define ISHADOWMGR_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "interface.h"
 #include "mathlib/vmatrix.h"
 
-
-//-----------------------------------------------------------------------------
 // forward declarations
-//-----------------------------------------------------------------------------
 
 class IMaterial;
 class Vector;
@@ -32,10 +18,7 @@ class ITexture;
 // change this when the new version is incompatable with the old
 #define ENGINE_SHADOWMGR_INTERFACE_VERSION	"VEngineShadowMgr002"
 
-
-//-----------------------------------------------------------------------------
 // Flags for the creation method
-//-----------------------------------------------------------------------------
 enum ShadowFlags_t
 {
 	SHADOW_FLAGS_FLASHLIGHT				= (1 << 0),
@@ -44,19 +27,9 @@ enum ShadowFlags_t
 	SHADOW_FLAGS_LAST_FLAG				= SHADOW_FLAGS_SHADOW
 };
 
-#define SHADOW_FLAGS_PROJECTED_TEXTURE_TYPE_MASK ( SHADOW_FLAGS_FLASHLIGHT | SHADOW_FLAGS_SHADOW )
-
-
-//-----------------------------------------------------------------------------
-//
 // Shadow-related functionality exported by the engine
-//
-//-----------------------------------------------------------------------------
 
-
-//-----------------------------------------------------------------------------
 // This is a handle	to shadows, clients can create as many as they want
-//-----------------------------------------------------------------------------
 typedef unsigned short ShadowHandle_t;
 
 enum
@@ -64,22 +37,7 @@ enum
 	SHADOW_HANDLE_INVALID = (ShadowHandle_t)~0
 };
 
-
-//-----------------------------------------------------------------------------
-// Used for the creation Flags field of CreateShadow
-//-----------------------------------------------------------------------------
-enum ShadowCreateFlags_t
-{
-	SHADOW_CACHE_VERTS =  ( 1 << 0 ),
-	SHADOW_FLASHLIGHT =   ( 1 << 1 ),
-
-	SHADOW_LAST_FLAG = SHADOW_FLASHLIGHT,
-};
-
-
-//-----------------------------------------------------------------------------
 // Information about a particular shadow
-//-----------------------------------------------------------------------------
 struct ShadowInfo_t
 {
 	// Transforms from world space into texture space of the shadow
@@ -97,14 +55,12 @@ struct ShadowInfo_t
 
 struct FlashlightState_t;
 
-//-----------------------------------------------------------------------------
 // The engine's interface to the shadow manager
-//-----------------------------------------------------------------------------
 abstract_class IShadowMgr
 {
 public:
 	// Create, destroy shadows (see ShadowCreateFlags_t for creationFlags)
-	virtual ShadowHandle_t CreateShadow( IMaterial* pMaterial, IMaterial* pModelMaterial, void* pBindProxy, int creationFlags ) = 0;
+	virtual void unused_CreateShadow() = 0;
 	virtual void DestroyShadow( ShadowHandle_t handle ) = 0;
 
 	// Resets the shadow material (useful for shadow LOD.. doing blobby at distance) 
@@ -184,6 +140,3 @@ public:
 
 	virtual void SetFlashlightRenderState( ShadowHandle_t handle ) = 0;
 };
-
-
-#endif

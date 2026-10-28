@@ -4,13 +4,68 @@
 # fully ported file's line is deleted. tools/sdk-census decides which list a
 # file belongs in; `make sdk-census` fails on a line nothing uses or a line in
 # the wrong list, and `tools/sdk-census --write` regenerates every list.
-# 10 links here; 532 in all lists (were 539)
-#       4 src/public
+# 65 links here; 484 in all lists (were 532)
+#      59 src/public
 #       3 src/raytrace
 #       3 src/utils
+src/public/appframework/IAppSystem.h
+src/public/bspfile.h
+src/public/bspflags.h
+src/public/datamap.h
+src/public/filesystem.h
 src/public/filesystem_init.h
+src/public/filesystem_passthru.h
+src/public/mathlib/bumpvects.h
+src/public/mathlib/compressed_light_cube.h
 src/public/mathlib/halton.h
+src/public/mathlib/lightdesc.h
+src/public/mathlib/math_pfns.h
+src/public/mathlib/mathlib.h
+src/public/mathlib/ssemath.h
+src/public/mathlib/vector.h
+src/public/mathlib/vector2d.h
+src/public/minmax.h
 src/public/raytrace.h
+src/public/tier0/annotations.h
+src/public/tier0/basetypes.h
+src/public/tier0/commonmacros.h
+src/public/tier0/dbg.h
+src/public/tier0/dbgflag.h
+src/public/tier0/fasttimer.h
+src/public/tier0/mem.h
+src/public/tier0/memalloc.h
+src/public/tier0/memdbgoff.h
+src/public/tier0/memdbgon.h
+src/public/tier0/platform.h
+src/public/tier0/protected_things.h
+src/public/tier0/threadtools.h
+src/public/tier0/tmapi_dummy.h
+src/public/tier0/type_traits.h
+src/public/tier0/valve_minmax_on.h
+src/public/tier0/valve_off.h
+src/public/tier0/valve_on.h
+src/public/tier0/vcr_shared.h
+src/public/tier0/vcrmode.h
+src/public/tier0/vprof_telemetry.h
+src/public/tier0/wchartypes.h
+src/public/tier0/xbox_codeline_defines.h
+src/public/tier1/byteswap.h
+src/public/tier1/checksum_crc.h
+src/public/tier1/checksum_md5.h
+src/public/tier1/interface.h
+src/public/tier1/refcount.h
+src/public/tier1/strtools.h
+src/public/tier1/utlblockmemory.h
+src/public/tier1/utlfixedmemory.h
+src/public/tier1/utllinkedlist.h
+src/public/tier1/utlmemory.h
+src/public/tier1/utlrbtree.h
+src/public/tier1/utlstring.h
+src/public/tier1/utlsymbol.h
+src/public/tier1/utlvector.h
+src/public/vstdlib/random.h
+src/public/vstdlib/vstdlib.h
+src/public/zip_uncompressed.h
 src/public/zip_utils.h
 src/raytrace/raytrace.cpp
 src/raytrace/trace2.cpp

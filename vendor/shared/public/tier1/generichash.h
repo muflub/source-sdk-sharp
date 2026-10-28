@@ -1,31 +1,13 @@
 //======= Copyright © 2005, , Valve Corporation, All rights reserved. =========
-//
 // Purpose: Variant Pearson Hash general purpose hashing algorithm described
 //			by Cargill in C++ Report 1994. Generates a 16-bit result.
-//
-//=============================================================================
 
-#ifndef GENERICHASH_H
-#define GENERICHASH_H
-
-#if defined(_WIN32)
 #pragma once
-#endif
-
-//-----------------------------------------------------------------------------
 
 unsigned FASTCALL HashString( const char *pszKey );
 unsigned FASTCALL HashStringCaseless( const char *pszKey );
-unsigned FASTCALL HashStringCaselessConventional( const char *pszKey );
-unsigned FASTCALL Hash4( const void *pKey );
-unsigned FASTCALL Hash8( const void *pKey );
-unsigned FASTCALL Hash12( const void *pKey );
-unsigned FASTCALL Hash16( const void *pKey );
-unsigned FASTCALL HashBlock( const void *pKey, unsigned size );
 
 unsigned FASTCALL HashInt( const int key );
-
-
 
 inline uint64 HashUint64( uint64 s )
 {
@@ -39,7 +21,6 @@ inline uint64 HashUint64( uint64 s )
 	s = s + ( s << 31 );
 	return s;
 }
-
 
 inline intp HashIntp( intp s )
 {
@@ -75,108 +56,5 @@ inline unsigned HashIntConventional( const int n ) // faster but less effective
 	*/
 }
 
-//-----------------------------------------------------------------------------
-
-template <typename T>
-inline unsigned HashItem( const T &item )
-{
-	// TODO: Confirm comiler optimizes out unused paths
-	if ( sizeof(item) == 4 )
-		return Hash4( &item );
-	else if ( sizeof(item) == 8 )
-		return Hash8( &item );
-	else if ( sizeof(item) == 12 )
-		return Hash12( &item );
-	else if ( sizeof(item) == 16 )
-		return Hash16( &item );
-	else
-		return HashBlock( &item, sizeof(item) );
-}
-
-template <> inline unsigned HashItem<int>(const int &key )
-{
-	return HashInt( key );
-}
-
-template <> inline unsigned HashItem<unsigned>(const unsigned &key )
-{
-	return HashInt( (int)key );
-}
-
-template<> inline unsigned HashItem<const char *>(const char * const &pszKey )
-{
-	return HashString( pszKey );
-}
-
-template<> inline unsigned HashItem<char *>(char * const &pszKey )
-{
-	return HashString( pszKey );
-}
-
-template<typename T>
-struct HashMapFunctor_t
-{
-	typedef uint32 TargetType;
-	TargetType operator()(const T &key) const
-	{
-		return HashItem( key );
-	}
-};
-
-#if	!defined(_MINIMUM_BUILD_)
-template<>
-struct HashMapFunctor_t<char *>
-{
-	typedef uint32 TargetType;
-	TargetType operator()(const char *key) const
-	{
-		return HashString( key );
-	}
-};
-
-template<>
-struct HashMapFunctor_t<const char *>
-{
-	typedef uint32 TargetType;
-	TargetType operator()(const char *key) const
-	{
-		return HashString( key );
-	}
-};
-
-struct HashMapFunctor_tStringCaseless
-{
-	typedef uint32 TargetType;
-	TargetType operator()(const char *key) const
-	{
-		return HashStringCaseless( key );
-	}
-};
-
-template<class T>
-struct HashMapFunctor_tUnpaddedStructure
-{
-	typedef uint32 TargetType;
-	TargetType operator()(const T &key) const
-	{
-		return HashItemAsBytes( key );
-	}
-};
-#endif
-
-
-//-----------------------------------------------------------------------------
-
-
-//-----------------------------------------------------------------------------
 // Murmur hash
-//-----------------------------------------------------------------------------
 uint32 MurmurHash2( const void * key, int len, uint32 seed );
-
-// return murmurhash2 of a downcased string
-uint32 MurmurHash2LowerCase( char const *pString, uint32 nSeed );
-
-uint64 MurmurHash64( const void * key, int len, uint32 seed );
-
-
-#endif /* !GENERICHASH_H */

@@ -40,11 +40,7 @@
 // the other thinks is 32 has its tail simply absent from the wire.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_GENERIC_NETTABLE_H
-#define SOURCESHARP_GENERIC_NETTABLE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "generic_payload.h"
 
@@ -566,5 +562,3 @@ inline bool SourceSharp_SchemaNeedsRestamp( const CSourceSharpTypeTable &types,
 // client and the server each build their own from the same C# list.
 //-----------------------------------------------------------------------------
 CSourceSharpTypeTable &SourceSharp_NetTypes( void );
-
-#endif // SOURCESHARP_GENERIC_NETTABLE_H

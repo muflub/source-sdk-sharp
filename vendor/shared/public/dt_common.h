@@ -1,17 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
 
-#ifndef DATATABLE_COMMON_H
-#define DATATABLE_COMMON_H
-
-#ifdef _WIN32
 #pragma once
-#endif	
 
 #include "basetypes.h"
 #include "tier0/dbg.h"
@@ -32,11 +21,7 @@
 #define DT_MAX_STRING_BITS			9
 #define DT_MAX_STRING_BUFFERSIZE	(1<<DT_MAX_STRING_BITS)	// Maximum length of a string that can be sent.
 
-#define STRINGBUFSIZE(className, varName)	sizeof( ((className*)0)->varName )
-
 // Gets the size of a variable in a class.
-#define PROPSIZEOF(className, varName)		sizeof(((className*)0)->varName)
-
 
 // SendProp::m_Flags.
 #define SPROP_UNSIGNED			(1<<0)	// Unsigned integer data.
@@ -52,11 +37,11 @@
 
 #define SPROP_NORMAL			(1<<5)	// If this is set, the vector is treated like a normal (only valid for vectors)
 							
-#define SPROP_EXCLUDE			(1<<6)	// This is an exclude prop (not excludED, but it points at another prop to be excluded).
+	// This is an exclude prop (not excludED, but it points at another prop to be excluded).
 
 	// Use XYZ/Exponent encoding for vectors.
 
-#define SPROP_INSIDEARRAY		(1<<8)	// This tells us that the property is inside an array, so it shouldn't be put into the
+	// This tells us that the property is inside an array, so it shouldn't be put into the
 										// flattened property list. Its array will point at it when it needs to.
 
 	// Set for datatable props using one of the default datatable proxies like
@@ -82,21 +67,15 @@
 // This is server side only, it's used to mark properties whose SendProxy_* functions encode against gpGlobals->tickcount (the only ones that currently do this are
 //  m_flAnimTime and m_flSimulationTime.  MODs shouldn't need to mess with this probably
 
-
 // See SPROP_NUMFLAGBITS_NETWORKED for the ones which are networked
 #define SPROP_NUMFLAGBITS				17
 
 // Used by the SendProp and RecvProp functions to disable debug checks on type sizes.
 #define SIZEOF_IGNORE		-1
 
-
 // Use this to extern send and receive datatables, and reference them.
 #define EXTERN_SEND_TABLE(tableName)	namespace tableName {extern SendTable g_SendTable;}
 #define EXTERN_RECV_TABLE(tableName)	namespace tableName {extern RecvTable g_RecvTable;}
-
-
-#define REFERENCE_RECV_TABLE(tableName)	tableName::g_RecvTable
-
 
 class SendProp;
 
@@ -123,7 +102,6 @@ typedef enum
 	DPT_NUMSendPropTypes
 
 } SendPropType;
-
 
 class DVariant
 {
@@ -200,8 +178,3 @@ public:
 	};
 	SendPropType	m_Type;
 };
-
-
-
-
-#endif // DATATABLE_COMMON_H

@@ -1,17 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//===========================================================================//
 
-#ifndef IMATERIALVAR_H
-#define IMATERIALVAR_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/platform.h"
 #include "tier1/utlsymbol.h"
@@ -20,17 +9,9 @@ class IMaterial;
 class VMatrix;
 class ITexture;
 
-#define MAKE_MATERIALVAR_FOURCC(ch0, ch1, ch2, ch3)             \
-		((unsigned long)(ch0) | ((unsigned long)(ch1) << 8) |   \
-		((unsigned long)(ch2) << 16) | ((unsigned long)(ch3) << 24 ))
-
 // This fourcc is reserved.
 
-
-
-//-----------------------------------------------------------------------------
 // Various material var types
-//-----------------------------------------------------------------------------
 enum MaterialVarType_t 
 { 
 	MATERIAL_VAR_TYPE_FLOAT = 0,
@@ -44,12 +25,9 @@ enum MaterialVarType_t
 	MATERIAL_VAR_TYPE_MATERIAL,
 };
 
-typedef unsigned short MaterialVarSym_t;
-
 class IMaterialVar
 {
 public:
-	typedef unsigned long FourCC;
 	
 protected:
 	// base data and accessors
@@ -65,13 +43,6 @@ protected:
 	CUtlSymbol m_Name;
 
 public:
-	// class factory methods
-	static IMaterialVar* Create( IMaterial* pMaterial, char const* pKey, VMatrix const& matrix );
-	static IMaterialVar* Create( IMaterial* pMaterial, char const* pKey, char const* pVal );
-	static IMaterialVar* Create( IMaterial* pMaterial, char const* pKey, float* pVal, int numcomps );
-	static IMaterialVar* Create( IMaterial* pMaterial, char const* pKey, float val );
-	static IMaterialVar* Create( IMaterial* pMaterial, char const* pKey, int val );
-	static IMaterialVar* Create( IMaterial* pMaterial, char const* pKey );
 
 	virtual ITexture		*GetTextureValue( void ) = 0;
 
@@ -135,7 +106,6 @@ public:
 		return ( MaterialVarType_t )m_Type;
 	}
 
-
 	FORCEINLINE operator ITexture*()
 	{
 		return GetTextureValue();
@@ -147,10 +117,6 @@ public:
 		// Set methods for float and vector update this
 		return m_intVal;
 	}
-
-
-
-
 
 #ifdef FAST_MATERIALVAR_ACCESS
 	FORCEINLINE int GetIntValue( void ) const
@@ -188,7 +154,6 @@ public:
 		return GetFloatValueInternal();
 	}
 
-
 	FORCEINLINE void GetVecValue( float *val, int numcomps ) const 
 	{
 		return GetVecValueInternal( val, numcomps );
@@ -203,5 +168,3 @@ public:
 private:
 
 };
-
-#endif // IMATERIALVAR_H

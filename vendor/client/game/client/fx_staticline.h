@@ -1,11 +1,4 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
 
 #include "clientsideeffects.h"
 
@@ -19,8 +12,8 @@
 
 class IMaterial;
 
-#define FXSTATICLINE_FLIP_HORIZONTAL	0x00000001	//Swaps the TC's so the texture is flipped horizontally
-#define FXSTATICLINE_FLIP_VERTICAL		0x00000002	//Swaps the TC's so the texture is flipped vertically
+	//Swaps the TC's so the texture is flipped horizontally
+	//Swaps the TC's so the texture is flipped vertically
 
 class CFXStaticLine : public CClientSideEffect
 {

@@ -11,11 +11,7 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_DIAGNOSTICS_COMMANDS_H
-#define SHELL_DIAGNOSTICS_COMMANDS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // The not-shipped ledger of THIS DLL, and the declared list beside it.
 void SourceSharp_PrintNotShipped();
@@ -23,5 +19,3 @@ void SourceSharp_PrintNotShipped();
 // The process-wide crossing counters. bReset closes the interval: the report
 // printed is the one just ended, and the counters start again at zero.
 void SourceSharp_PrintCrossings( bool bReset );
-
-#endif // SHELL_DIAGNOSTICS_COMMANDS_H

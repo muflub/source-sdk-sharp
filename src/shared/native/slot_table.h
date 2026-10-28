@@ -133,11 +133,7 @@
 // address entry 8191 and answer with whatever lives there.
 //
 //=============================================================================
-#ifndef SOURCESHARP_SLOT_TABLE_H
-#define SOURCESHARP_SLOT_TABLE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <string.h>
 
@@ -691,5 +687,3 @@ C_StandaloneEntity *SourceSharp_ClientShellFromHandleEntity( IHandleEntity *pHan
 C_StandaloneEntity *SourceSharp_ClientShellFromTraceHit( IHandleEntity *pHandleEntity );
 
 #endif // CLIENT_DLL
-
-#endif // SOURCESHARP_SLOT_TABLE_H

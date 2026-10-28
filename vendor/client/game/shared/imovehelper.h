@@ -1,34 +1,18 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef IMOVEHELPER_H
-#define IMOVEHELPER_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
-
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 
 enum PLAYER_ANIM;
 class IPhysicsSurfaceProps;
 class Vector;
 struct model_t;
-struct cmodel_t;
 struct vcollide_t;
 class CGameTrace;
 enum soundlevel_t;
 
-//-----------------------------------------------------------------------------
 // Purpose: Identifies how submerged in water a player is.
-//-----------------------------------------------------------------------------
 
 enum
 {
@@ -38,19 +22,11 @@ enum
 	WL_Eyes
 };
 
-
-//-----------------------------------------------------------------------------
 // An entity identifier that works in both game + client dlls
-//-----------------------------------------------------------------------------
 
 typedef CBaseHandle EntityHandle_t;
 
-
-#define INVALID_ENTITY_HANDLE INVALID_EHANDLE
-
-//-----------------------------------------------------------------------------
 // Functions the engine provides to IGameMovement to assist in its movement.
-//-----------------------------------------------------------------------------
 
 abstract_class IMoveHelper
 {
@@ -98,21 +74,14 @@ protected:
 	static IMoveHelper* sm_pSingleton;
 };
 
-//-----------------------------------------------------------------------------
 // Add this to the CPP file that implements the IMoveHelper
-//-----------------------------------------------------------------------------
 
 #define IMPLEMENT_MOVEHELPER()	\
 	IMoveHelper* IMoveHelper::sm_pSingleton = 0
 
-//-----------------------------------------------------------------------------
 // Call this to set the singleton
-//-----------------------------------------------------------------------------
 
 inline IMoveHelper* MoveHelper( )
 {
 	return IMoveHelper::GetSingleton();
 }
-
-
-#endif // IMOVEHELPER_H

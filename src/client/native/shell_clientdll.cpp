@@ -46,10 +46,114 @@
 // once per stage.
 //
 //===========================================================================//
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "inetchannel.h"
+#include "cdll_bounded_cvars.h"
+#include "igamerules.h"
+#include "sharedInterface.h"
+#include "vgui_int.h"
+#include "iinput.h"
+#include "iviewrender.h"
+#include "ivmodemanager.h"
+#include "prediction.h"
+#include "clientsideeffects.h"
+#include "smoke_fog_overlay.h"
+#include "ienginevgui.h"
+#include "iefx.h"
+#include "enginesprite.h"
+#include "voice_status.h"
+#include "filesystem.h"
+#include "c_te_legacytempents.h"
+#include "c_rope.h"
+#include "engine/ishadowmgr.h"
+#include "engine/IStaticPropMgr.h"
+#include "view_shared.h"
+#include "env_wind_shared.h"
+#include "materialsystem/imaterialsystemstub.h"
+#include "VGuiMatSurface/IMatSystemSurface.h"
+#include "engine/ivdebugoverlay.h"
+#include "vguicenterprint.h"
+#include "iviewrender_beams.h"
+#include "engine/IEngineTrace.h"
+#include "engine/ivmodelinfo.h"
+#include "physics.h"
+#include "saverestore.h"
+#include "physics_saverestore.h"
+#include "igameevents.h"
+#include "datacache/idatacache.h"
+#include "datacache/imdlcache.h"
+#include "gamerules_register.h"
+#include "client_world.h"
+#include "SoundEmitterSystem/isoundemittersystembase.h"
+#include "imessagechars.h"
+#include "client_factorylist.h"
+#include "iclientmode.h"
+#include "inputsystem/iinputsystem.h"
+#include "scenefilecache/ISceneFileCache.h"
+#include "tier3/tier3.h"
+#include "particle_parse.h"
+#include "renamed_recvtable_compat.h"
+#include "mouthinfo.h"
+#include "haptics/ihaptics.h"
+#include "haptics/haptic_utils.h"
+#include "appframework/IAppSystem.h"
+#include "engine/IEngineSound.h"
+#include "engine/ivmodelrender.h"
+#include "inputsystem/ButtonCode.h"
+#include "materialsystem/imaterial.h"
+#include "materialsystem/imaterialsystem.h"
+#include "mathlib/mathlib.h"
+#include "particles/particles.h"
+#include "tier0/basetypes.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier0/threadtools.h"
+#include "tier0/wchartypes.h"
+#include "tier1/convar.h"
+#include "tier1/iconvar.h"
+#include "tier1/interface.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "tier1/tier1.h"
+#include "tier1/utlvector.h"
+#include "tier2/tier2.h"
+#include "vgui/VGUI.h"
+#include "vgui_controls/MessageMap.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "cdll_util.h"
+#include "client_class.h"
+#include "const.h"
+#include "datamap.h"
+#include "dt_recv.h"
+#include "eiface.h"
+#include "globalvars_base.h"
+#include "hud.h"
+#include "inetchannelinfo.h"
+#include "inetmessage.h"
+#include "interpolatedvar.h"
+#include "ispatialpartition.h"
+#include "ivrenderview.h"
+#include "networkstringtabledefs.h"
+#include "predictioncopy.h"
+#include "shake.h"
+#include "texture_group_names.h"
+#include "usercmd.h"
 #include "ss_client_message_write.h"   // IShimNetClient::SendServerMessage
-#include "cdll_bounded_cvars.h"         // GetClientInterpAmount, for ClientNetChannel
 #include "sourcesharp.h"			// the managed API table -- ClientStage lives in it
 // The managed runtime this DLL loads, and the environment it loads it from.
 // The server's counterpart of this pair of lines is shell_gamedll.cpp's
@@ -66,97 +170,15 @@
 // registered; the frame's bones are ClientSkeletons' (docs/client_evictions.md).
 #include "shell_clientdll_voicehelper.h"	// IVoiceStatusHelper, a member below
 #include "shell_cliententitylist.h"	// 5d: the handle resolve DispatchOnRestore makes
-#include "gamerules.h"
-#include "sharedInterface.h"
-#include "vgui_int.h"
-#include "clientmode.h"
-#include "iinput.h"
-#include "iviewrender.h"
-#include "ivieweffects.h"
-#include "ivmodemanager.h"
-#include "prediction.h"
-#include "clientsideeffects.h"
 #include "shell_particle_mgr.h"	// CParticleMgr's Init, Term, LevelInit and level shutdown (C7 particles phase 4)
-#include "smoke_fog_overlay.h"
-#include "view.h"
-#include "ienginevgui.h"
-#include "iefx.h"
-#include "enginesprite.h"
-#include "networkstringtable_clientdll.h"
-#include "voice_status.h"
-#include "filesystem.h"
-#include "c_te_legacytempents.h"
-#include "c_rope.h"
-#include "engine/ishadowmgr.h"
-#include "engine/IStaticPropMgr.h"
-#include "hud_basechat.h"
-#include "view_shared.h"
-#include "env_wind_shared.h"
-#include "detailobjectsystem.h"
-#include "clienteffectprecachesystem.h"
-#include "soundenvelope.h"
-#include "materialsystem/imaterialsystemstub.h"
-#include "VGuiMatSurface/IMatSystemSurface.h"
-#include "materialsystem/imaterialsystemhardwareconfig.h"
-#include "c_soundscape.h"
-#include "engine/ivdebugoverlay.h"
-#include "vguicenterprint.h"
-#include "iviewrender_beams.h"
-#include "engine/IEngineTrace.h"
-#include "engine/ivmodelinfo.h"
-#include "physics.h"
-#include "usermessages.h"
-#include "gamestringpool.h"
-#include "IGameUIFuncs.h"
-#include "saverestoretypes.h"
-#include "saverestore.h"
-#include "physics_saverestore.h"
-#include "igameevents.h"
-#include "datacache/idatacache.h"
-#include "datacache/imdlcache.h"
-#include "kbutton.h"
-#include "tier0/icommandline.h"
-#include "gamerules_register.h"
-#include "bitmap/tgawriter.h"
-#include "c_world.h"
-#include "perfvisualbenchmark.h"	
-#include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "c_vguiscreen.h"
-#include "imessagechars.h"
-#include "game/client/IGameClientExports.h"
-#include "client_factorylist.h"
-#include "rendertexture.h"
-#include "view_scene.h"
-#include "iclientmode.h"
-#include "con_nprint.h"
-#include "inputsystem/iinputsystem.h"
-#include "appframework/IAppSystemGroup.h"
-#include "scenefilecache/ISceneFileCache.h"
-#include "tier2/tier2dm.h"
-#include "tier3/tier3.h"
 #include "tier_connect.h"
 #include "ss_bitblock.h"
 
 // The largest user-message payload copied for C# (UserMessageReceiver.MaxPayloadBytes;
 // the engine's own limit is 255).
 enum { kMaxUserMessageBlockBytes = 512 };
-#include "ihudlcd.h"
-#include "vgui/ILocalize.h"
-#include "vgui/IVGui.h"
-#include "ixboxsystem.h"
-#include "engine/imatchmaking.h"
-#include "cdll_bounded_cvars.h"
-#include "gamestats.h"
-#include "particle_parse.h"
-#include "renamed_recvtable_compat.h"
-#include "mouthinfo.h"
-#include "mumble.h"
 
 // NVNT includes
-#include "hud_macros.h"
-#include "haptics/ihaptics.h"
-#include "haptics/haptic_utils.h"
-#include "haptics/haptic_msgs.h"
 
 extern vgui::IInputInternal *g_InputInternal;
 
@@ -176,7 +198,6 @@ extern vgui::IInputInternal *g_InputInternal;
 #include "shell_new_particles.h"	// ShellNewParticles_Frame / _RemoveAll (C7 particles phase 3)
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 extern IClientMode *GetClientModeNormal();
 
@@ -187,7 +208,6 @@ IVEfx *effects = NULL;
 IVRenderView *render = NULL;
 IVDebugOverlay *debugoverlay = NULL;
 IMaterialSystemStub *materials_stub = NULL;
-IDataCache *datacache = NULL;
 IVModelInfoClient *modelinfo = NULL;
 IEngineVGui *enginevgui = NULL;
 INetworkStringTableContainer *networkstringtable = NULL;
@@ -201,14 +221,8 @@ IUniformRandomStream *random = NULL;
 // object on client.so's link reads it since mathproxy.cpp left (nm -u, C9).
 ISharedGameRules *sharedgamerules = NULL;
 IEngineTrace *enginetrace = NULL;
-IGameUIFuncs *gameuifuncs = NULL;
 IGameEventManager2 *gameeventmanager = NULL;
 ISoundEmitterSystemBase *soundemitterbase = NULL;
-IInputSystem *inputsystem = NULL;
-ISceneFileCache *scenefilecache = NULL;
-IXboxSystem *xboxsystem = NULL;	// Xbox 360 only
-IMatchmaking *matchmaking = NULL;
-IUploadGameStats *gamestatsuploader = NULL;
 IClientReplayContext *g_pClientReplayContext = NULL;
 
 IHaptics* haptics = NULL;// NVNT haptics system interface singleton
@@ -868,8 +882,6 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 		return false;
 	if ( (debugoverlay = (IVDebugOverlay *)appSystemFactory( VDEBUG_OVERLAY_INTERFACE_VERSION, NULL )) == NULL )
 		return false;
-	if ( (datacache = (IDataCache*)appSystemFactory(DATACACHE_INTERFACE_VERSION, NULL )) == NULL )
-		return false;
 	if ( !mdlcache )
 		return false;
 	if ( (modelinfo = (IVModelInfoClient *)appSystemFactory(VMODELINFO_CLIENT_INTERFACE_VERSION, NULL )) == NULL )
@@ -890,21 +902,9 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 		return false;
 	if ( (random = (IUniformRandomStream *)appSystemFactory(VENGINE_CLIENT_RANDOM_INTERFACE_VERSION, NULL)) == NULL )
 		return false;
-	if ( (gameuifuncs = (IGameUIFuncs * )appSystemFactory( VENGINE_GAMEUIFUNCS_VERSION, NULL )) == NULL )
-		return false;
 	if ( (gameeventmanager = (IGameEventManager2 *)appSystemFactory(INTERFACEVERSION_GAMEEVENTSMANAGER2,NULL)) == NULL )
 		return false;
 	if ( (soundemitterbase = (ISoundEmitterSystemBase *)appSystemFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL)) == NULL )
-		return false;
-	if ( (inputsystem = (IInputSystem *)appSystemFactory(INPUTSYSTEM_INTERFACE_VERSION, NULL)) == NULL )
-		return false;
-	if ( (scenefilecache = (ISceneFileCache *)appSystemFactory( SCENE_FILE_CACHE_INTERFACE_VERSION, NULL )) == NULL )
-		return false;
-	if ( IsX360() && (xboxsystem = (IXboxSystem *)appSystemFactory( XBOXSYSTEM_INTERFACE_VERSION, NULL )) == NULL )
-		return false;
-	if ( IsX360() && (matchmaking = (IMatchmaking *)appSystemFactory( VENGINE_MATCHMAKING_VERSION, NULL )) == NULL )
-		return false;
-	if ( ( gamestatsuploader = (IUploadGameStats *)appSystemFactory( INTERFACEVERSION_UPLOADGAMESTATS, NULL )) == NULL )
 		return false;
 
 	if (!g_pMatSystemSurface)
@@ -1462,7 +1462,7 @@ bool CShellClientDLL::GetPlayerView( CViewSetup &playerView )
 // THE ENGINE MAY STILL CALL THEM, so this is a refusal and not a deletion. The
 // engine's matchmaking is built into the PC engine, and "CONTEXT_SCENARIO", a
 // presence-ID name, is a string in the shipped bin/linux64/engine.so
-// (`strings -a`). So an Xbox-style session on PC would reach these.
+// (`strings -a`). So a console-style session on PC would reach these.
 // Refusing by name is what makes that visible; returning NULL from a vanished
 // singleton would have been a crash and a stub would have been a lie.
 //
@@ -2303,8 +2303,6 @@ void CShellClientDLL::FrameStageNotify( ClientFrameStage_t curStage )
 	case FRAME_RENDER_END:
 		{
 			OnRenderEnd();
-
-			PREDICTION_SPEWVALUECHANGES();
 		}
 		break;
 		
@@ -2316,8 +2314,6 @@ void CShellClientDLL::FrameStageNotify( ClientFrameStage_t curStage )
 			// Interpolation_SetLastPacketTimeStamp left with interpolatedvar.cpp (C8):
 			// only CInterpolatedVar read the stamp, and the managed rings keep their own.
 			::partition->SuppressLists( PARTITION_ALL_CLIENT_EDICTS, true );
-
-			PREDICTION_STARTTRACKVALUE( "netupdate" );
 		}
 		break;
 	case FRAME_NET_UPDATE_END:
@@ -2328,18 +2324,12 @@ void CShellClientDLL::FrameStageNotify( ClientFrameStage_t curStage )
 			EntityAbs_SetRecomputationsEnabled( true );
 			EntityAbs_SetQueriesValid( true );
 			::partition->SuppressLists( PARTITION_ALL_CLIENT_EDICTS, false );
-
-			PREDICTION_ENDTRACKVALUE();
 		}
 		break;
 	case FRAME_NET_UPDATE_POSTDATAUPDATE_START:
-		{
-			PREDICTION_STARTTRACKVALUE( "postdataupdate" );
-		}
 		break;
 	case FRAME_NET_UPDATE_POSTDATAUPDATE_END:
 		{
-			PREDICTION_ENDTRACKVALUE();
 			// Let prediction copy off pristine data
 			prediction->PostEntityPacketReceived();
 			// step 7g: `HLTVCamera()->PostEntityPacketReceived()` stood here.

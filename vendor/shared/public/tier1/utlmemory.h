@@ -1,18 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
 // A growable memory class.
-//===========================================================================//
 
-#ifndef UTLMEMORY_H
-#define UTLMEMORY_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/dbg.h"
 #include <string.h>
@@ -25,10 +14,6 @@
 #pragma warning (disable:4100)
 #pragma warning (disable:4514)
 
-
-//-----------------------------------------------------------------------------
-
-
 #ifdef UTLMEMORY_TRACK
 #define UTLMEMORY_TRACK_ALLOC()		MemAlloc_RegisterAllocation( "Sum of all UtlMemory", 0, m_nAllocationCount * sizeof(T), m_nAllocationCount * sizeof(T), 0 )
 #define UTLMEMORY_TRACK_FREE()		if ( !m_pMemory ) ; else MemAlloc_RegisterDeallocation( "Sum of all UtlMemory", 0, m_nAllocationCount * sizeof(T), m_nAllocationCount * sizeof(T), 0 )
@@ -37,11 +22,8 @@
 #define UTLMEMORY_TRACK_FREE()		((void)0)
 #endif
 
-
-//-----------------------------------------------------------------------------
 // The CUtlMemory class:
 // A growable memory class which doubles in size by default.
-//-----------------------------------------------------------------------------
 template< class T, class I = int >
 class CUtlMemory
 {
@@ -133,17 +115,6 @@ public:
 protected:
 	void ValidateGrowSize()
 	{
-#ifdef _X360
-		if ( m_nGrowSize && m_nGrowSize != EXTERNAL_BUFFER_MARKER )
-		{
-			// Max grow size at 128 bytes on XBOX
-			const int MAX_GROW = 128;
-			if ( m_nGrowSize * sizeof(T) > MAX_GROW )
-			{
-				m_nGrowSize = max( 1, MAX_GROW / sizeof(T) );
-			}
-		}
-#endif
 	}
 
 	enum
@@ -157,11 +128,8 @@ protected:
 	int m_nGrowSize;
 };
 
-
-//-----------------------------------------------------------------------------
 // The CUtlMemory class:
 // A growable memory class which doubles in size by default.
-//-----------------------------------------------------------------------------
 template< class T, size_t SIZE, class I = int >
 class CUtlMemoryFixedGrowable : public CUtlMemory< T, I >
 {
@@ -202,10 +170,8 @@ private:
 	T m_pFixedMemory[ SIZE ];
 };
 
-//-----------------------------------------------------------------------------
 // The CUtlMemoryFixed class:
 // A fixed memory class
-//-----------------------------------------------------------------------------
 template< typename T, size_t SIZE, int nAlignment = 0 >
 class CUtlMemoryFixed
 {
@@ -226,10 +192,6 @@ public:
 	T* Base()												{ if ( nAlignment == 0 ) return (T*)(&m_Memory[0]); else return (T*)AlignValue( &m_Memory[0], nAlignment ); }
 	const T* Base() const									{ if ( nAlignment == 0 ) return (T*)(&m_Memory[0]); else return (T*)AlignValue( &m_Memory[0], nAlignment ); }
 
-	// element access
-	// Use unsigned math and inlined checks to improve performance.
-	T& operator[]( int i )									{ Assert( (size_t)i < SIZE ); return Base()[i];	}
-	const T& operator[]( int i ) const						{ Assert( (size_t)i < SIZE ); return Base()[i];	}
 	T& Element( int i )										{ Assert( (size_t)i < SIZE ); return Base()[i];	}
 	const T& Element( int i ) const							{ Assert( (size_t)i < SIZE ); return Base()[i];	}
 
@@ -286,10 +248,8 @@ private:
 #define REMEMBER_ALLOC_SIZE_FOR_VALGRIND 1
 #endif
 
-//-----------------------------------------------------------------------------
 // The CUtlMemoryConservative class:
 // A dynamic memory class that tries to minimize overhead (itself small, no custom grow factor)
-//-----------------------------------------------------------------------------
 template< typename T >
 class CUtlMemoryConservative
 {
@@ -314,9 +274,6 @@ public:
 	T* Base()												{ return m_pMemory; }
 	const T* Base() const									{ return m_pMemory; }
 
-	// element access
-	T& operator[]( int i )									{ Assert( IsIdxValid(i) ); return Base()[i];	}
-	const T& operator[]( int i ) const						{ Assert( IsIdxValid(i) ); return Base()[i];	}
 	T& Element( int i )										{ Assert( IsIdxValid(i) ); return Base()[i];	}
 	const T& Element( int i ) const							{ Assert( IsIdxValid(i) ); return Base()[i];	}
 
@@ -409,10 +366,7 @@ private:
 
 };
 
-
-//-----------------------------------------------------------------------------
 // constructor, destructor
-//-----------------------------------------------------------------------------
 
 template< class T, class I >
 CUtlMemory<T,I>::CUtlMemory( int nGrowSize, int nInitAllocationCount ) : m_pMemory(0), 
@@ -467,9 +421,7 @@ void CUtlMemory<T,I>::Init( int nGrowSize /*= 0*/, int nInitSize /*= 0*/ )
 	}
 }
 
-//-----------------------------------------------------------------------------
 // Fast swap
-//-----------------------------------------------------------------------------
 template< class T, class I >
 void CUtlMemory<T,I>::Swap( CUtlMemory<T,I> &mem )
 {
@@ -478,10 +430,7 @@ void CUtlMemory<T,I>::Swap( CUtlMemory<T,I> &mem )
 	V_swap( m_nAllocationCount, mem.m_nAllocationCount );
 }
 
-
-//-----------------------------------------------------------------------------
 // Switches the buffer from an external memory buffer to a reallocatable buffer
-//-----------------------------------------------------------------------------
 template< class T, class I >
 void CUtlMemory<T,I>::ConvertToGrowableMemory( int nGrowSize )
 {
@@ -505,10 +454,7 @@ void CUtlMemory<T,I>::ConvertToGrowableMemory( int nGrowSize )
 	}
 }
 
-
-//-----------------------------------------------------------------------------
 // Attaches the buffer to external memory....
-//-----------------------------------------------------------------------------
 template< class T, class I >
 void CUtlMemory<T,I>::SetExternalBuffer( T* pMemory, int numElements )
 {
@@ -564,9 +510,7 @@ inline T* CUtlMemory<T,I>::Detach()
 	return (T*)DetachMemory();
 }
 
-//-----------------------------------------------------------------------------
 // element access
-//-----------------------------------------------------------------------------
 template< class T, class I >
 inline T& CUtlMemory<T,I>::operator[]( I i )
 {
@@ -601,26 +545,19 @@ inline const T& CUtlMemory<T,I>::Element( I i ) const
 	return m_pMemory[(uint32)i];
 }
 
-
-//-----------------------------------------------------------------------------
 // is the memory externally allocated?
-//-----------------------------------------------------------------------------
 template< class T, class I >
 bool CUtlMemory<T,I>::IsExternallyAllocated() const
 {
 	return (m_nGrowSize < 0);
 }
 
-
-//-----------------------------------------------------------------------------
 // is the memory read only?
-//-----------------------------------------------------------------------------
 template< class T, class I >
 bool CUtlMemory<T,I>::IsReadOnly() const
 {
 	return (m_nGrowSize == EXTERNAL_CONST_BUFFER_MARKER);
 }
-
 
 template< class T, class I >
 void CUtlMemory<T,I>::SetGrowSize( int nSize )
@@ -631,10 +568,7 @@ void CUtlMemory<T,I>::SetGrowSize( int nSize )
 	ValidateGrowSize();
 }
 
-
-//-----------------------------------------------------------------------------
 // Gets the base address (can change when adding elements!)
-//-----------------------------------------------------------------------------
 template< class T, class I >
 inline T* CUtlMemory<T,I>::Base()
 {
@@ -648,10 +582,7 @@ inline const T *CUtlMemory<T,I>::Base() const
 	return m_pMemory;
 }
 
-
-//-----------------------------------------------------------------------------
 // Size
-//-----------------------------------------------------------------------------
 template< class T, class I >
 inline int CUtlMemory<T,I>::NumAllocated() const
 {
@@ -664,10 +595,7 @@ inline int CUtlMemory<T,I>::Count() const
 	return m_nAllocationCount;
 }
 
-
-//-----------------------------------------------------------------------------
 // Is element index valid?
-//-----------------------------------------------------------------------------
 template< class T, class I >
 inline bool CUtlMemory<T,I>::IsIdxValid( I i ) const
 {
@@ -677,9 +605,7 @@ inline bool CUtlMemory<T,I>::IsIdxValid( I i ) const
 	return (uint32)i < (uint32)m_nAllocationCount;
 }
 
-//-----------------------------------------------------------------------------
 // Grows the memory
-//-----------------------------------------------------------------------------
 inline int UtlMemory_CalcNewAllocationCount( int nAllocationCount, int nGrowSize, int nNewSize, int nBytesItem )
 {
 	if ( nGrowSize )
@@ -696,15 +622,7 @@ inline int UtlMemory_CalcNewAllocationCount( int nAllocationCount, int nGrowSize
 
 		while (nAllocationCount < nNewSize)
 		{
-#ifndef _X360
 			nAllocationCount *= 2;
-#else
-			int nNewAllocationCount = ( nAllocationCount * 9) / 8; // 12.5 %
-			if ( nNewAllocationCount > nAllocationCount )
-				nAllocationCount = nNewAllocationCount;
-			else
-				nAllocationCount *= 2;
-#endif
 		}
 	}
 
@@ -771,10 +689,7 @@ void CUtlMemory<T,I>::Grow( int num )
 	}
 }
 
-
-//-----------------------------------------------------------------------------
 // Makes sure we've got at least this much memory
-//-----------------------------------------------------------------------------
 template< class T, class I >
 inline void CUtlMemory<T,I>::EnsureCapacity( int num )
 {
@@ -806,10 +721,7 @@ inline void CUtlMemory<T,I>::EnsureCapacity( int num )
 	}
 }
 
-
-//-----------------------------------------------------------------------------
 // Memory deallocation
-//-----------------------------------------------------------------------------
 template< class T, class I >
 void CUtlMemory<T,I>::Purge()
 {
@@ -856,7 +768,6 @@ void CUtlMemory<T,I>::Purge( int numElements )
 		return;
 	}
 
-
 	if( !m_pMemory )
 	{
 		// Allocation count is non zero, but memory is null.
@@ -875,10 +786,8 @@ void CUtlMemory<T,I>::Purge( int numElements )
 	m_pMemory = (T*)realloc( m_pMemory, m_nAllocationCount * sizeof(T) );
 }
 
-//-----------------------------------------------------------------------------
 // The CUtlMemory class:
 // A growable memory class which doubles in size by default.
-//-----------------------------------------------------------------------------
 template< class T, int nAlignment >
 class CUtlMemoryAligned	: public CUtlMemory<T>
 {
@@ -909,10 +818,7 @@ private:
 	void *Align( const void *pAddr );
 };
 
-
-//-----------------------------------------------------------------------------
 // Aligns a pointer
-//-----------------------------------------------------------------------------
 template< class T, int nAlignment >
 void *CUtlMemoryAligned<T, nAlignment>::Align( const void *pAddr )
 {
@@ -920,10 +826,7 @@ void *CUtlMemoryAligned<T, nAlignment>::Align( const void *pAddr )
 	return (void*)( ((size_t)pAddr + nAlignmentMask) & (~nAlignmentMask) );
 }
 
-
-//-----------------------------------------------------------------------------
 // constructor, destructor
-//-----------------------------------------------------------------------------
 template< class T, int nAlignment >
 CUtlMemoryAligned<T, nAlignment>::CUtlMemoryAligned( int nGrowSize, int nInitAllocationCount )
 {
@@ -969,10 +872,7 @@ CUtlMemoryAligned<T, nAlignment>::~CUtlMemoryAligned()
 	Purge();
 }
 
-
-//-----------------------------------------------------------------------------
 // Attaches the buffer to external memory....
-//-----------------------------------------------------------------------------
 template< class T, int nAlignment >
 void CUtlMemoryAligned<T, nAlignment>::SetExternalBuffer( T* pMemory, int numElements )
 {
@@ -999,10 +899,7 @@ void CUtlMemoryAligned<T, nAlignment>::SetExternalBuffer( const T* pMemory, int 
 	CUtlMemory<T>::m_nGrowSize = CUtlMemory<T>::EXTERNAL_CONST_BUFFER_MARKER;
 }
 
-
-//-----------------------------------------------------------------------------
 // Grows the memory
-//-----------------------------------------------------------------------------
 template< class T, int nAlignment >
 void CUtlMemoryAligned<T, nAlignment>::Grow( int num )
 {
@@ -1039,10 +936,7 @@ void CUtlMemoryAligned<T, nAlignment>::Grow( int num )
 	}
 }
 
-
-//-----------------------------------------------------------------------------
 // Makes sure we've got at least this much memory
-//-----------------------------------------------------------------------------
 template< class T, int nAlignment >
 inline void CUtlMemoryAligned<T, nAlignment>::EnsureCapacity( int num )
 {
@@ -1074,10 +968,7 @@ inline void CUtlMemoryAligned<T, nAlignment>::EnsureCapacity( int num )
 	}
 }
 
-
-//-----------------------------------------------------------------------------
 // Memory deallocation
-//-----------------------------------------------------------------------------
 template< class T, int nAlignment >
 void CUtlMemoryAligned<T, nAlignment>::Purge()
 {
@@ -1094,5 +985,3 @@ void CUtlMemoryAligned<T, nAlignment>::Purge()
 }
 
 #include "tier0/memdbgoff.h"
-
-#endif // UTLMEMORY_H

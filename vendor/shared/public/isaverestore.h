@@ -1,20 +1,10 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose:
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef ISAVERESTORE_H
-#define ISAVERESTORE_H
+#pragma once
 
 #include "string_t.h"
 #include "datamap.h"
 #include "mathlib/vmatrix.h"
-
-#if defined( _WIN32 )
-#pragma once
-#endif
 
 #ifndef CLIENT_DLL
 class SINGLE_INHERITANCE CBaseEntity;
@@ -33,8 +23,6 @@ class CGameSaveRestoreInfo;
 class ISave;
 class IRestore;
 
-//-----------------------------------------------------------------------------
-
 #pragma pack(push,1)
 
 struct SaveRestoreRecordHeader_t
@@ -43,94 +31,57 @@ struct SaveRestoreRecordHeader_t
 	unsigned short		symbol;
 };
 
-
 #pragma pack(pop)
 
-//-----------------------------------------------------------------------------
-//
 // ISaveRestoreBlockHandler
-//
-//-----------------------------------------------------------------------------
 
 const int SIZE_BLOCK_NAME_BUF = 31 + 1;
-
-//-------------------------------------
 
 abstract_class ISaveRestoreBlockHandler
 {
 public:
-	virtual const char *GetBlockName() = 0;
+	virtual void unused_GetBlockName() = 0;
 
 	virtual void PreSave( CSaveRestoreData * ) = 0;					// Called immediately prior to save, generally used to set up any necessary tables
 	virtual void Save( ISave * ) = 0;
 	virtual void WriteSaveHeaders( ISave * ) = 0;					// Called after save to allow the writing out of any dictionaries/tables/indexes generated during save
-	virtual void PostSave() = 0;
+	virtual void unused_PostSave() = 0;
 	
-	virtual void PreRestore() = 0;
+	virtual void unused_PreRestore() = 0;
 	virtual void ReadRestoreHeaders( IRestore * ) = 0;				// Called prior to Restore()
 	virtual void Restore( IRestore *, bool fCreatePlayers ) = 0;
-	virtual void PostRestore() = 0;
+	virtual void unused_PostRestore() = 0;
 };
 
-//-------------------------------------
-
-abstract_class ISaveRestoreBlockSet : public ISaveRestoreBlockHandler
-{
-public:
-	virtual void unused_AddBlockHandler() = 0;
-	virtual void unused_RemoveBlockHandler() = 0;
-	virtual void unused_CallBlockHandlerRestore() = 0;
-};
-
-
-//-------------------------------------
-
-
-//-----------------------------------------------------------------------------
-//
 // ISave
-//
-//-----------------------------------------------------------------------------
 
 abstract_class ISave
 {
 public:
 
-	//---------------------------------
 	// Logging
 	virtual void	StartLogging( const char *pszLogName ) = 0;
 	virtual void	EndLogging( void ) = 0;
 
-	//---------------------------------
 	virtual bool	IsAsync() = 0;
-
-	//---------------------------------
 
 	virtual int		GetWritePos() const = 0;
 	virtual void	SetWritePos(int pos) = 0;
 	
-	//---------------------------------
 	// Datamap based writing
-	//
 	
 	virtual int		WriteAll( const void *pLeafObject, datamap_t *pLeafMap ) = 0;
 	virtual int		WriteFields( const char *pname, const void *pBaseData, datamap_t *pMap, typedescription_t *pFields, int fieldCount ) = 0;
 
-
-	//---------------------------------
 	// Block support
-	//
 	// Using these, one doesn't have to worry about queuing up the read pointer on restore if only
 	// a subset of the data is read
-	//
 	
 	virtual void	StartBlock( const char *pszBlockName ) = 0;
 	virtual void	StartBlock() = 0;
 	virtual void	EndBlock() = 0;
 	
-	//---------------------------------
 	// Primitive types
-	//
 	
 	virtual void	WriteShort( const short *value, int count = 1 ) = 0;
 	virtual void	WriteInt( const int *value, int count = 1 ) = 0;		// Save an int
@@ -158,9 +109,7 @@ public:
 	virtual void	WriteQuaternion( const char *pname, const Quaternion &value ) = 0;				// Save a Quaternion
 	virtual void	WriteQuaternion( const char *pname, const Quaternion *value, int count = 1 ) = 0;	// Save a Quaternion array
 	
-	//---------------------------------
 	// Game types
-	//
 	
 	virtual void	WriteTime( const char *pname, const float *value, int count = 1 ) = 0;	// Save a float (timevalue)
 	virtual void	WriteTick( const char *pname, const int *value, int count = 1 ) = 0;	// Save a tick (timevalue)
@@ -181,7 +130,6 @@ public:
 	virtual void	WriteEdictPtr( edict_t **ppEdict, int count = 1 ) = 0;
 	virtual void	WriteEHandle( const EHANDLE *pEHandle, int count = 1 ) = 0;
 
-	//---------------------------------
 	// Back door to support somewhat awkward ownership of game save/restore data
 	virtual CGameSaveRestoreInfo *GetGameSaveRestoreInfo() = 0;
 
@@ -189,51 +137,36 @@ protected:
 	virtual ~ISave() {};
 };
 
-//-----------------------------------------------------------------------------
-//
 // IRestore
-//
-//-----------------------------------------------------------------------------
 
 abstract_class IRestore
 {
 public:
 
-	//---------------------------------
-
 	virtual int		GetReadPos() const = 0;
 	virtual void	SetReadPos( int pos ) = 0;
 
-	//---------------------------------
 	// Datamap based reading
-	//
 	
 	virtual int		ReadAll( void *pLeafObject, datamap_t *pLeafMap ) = 0;
 	
 	virtual int		ReadFields( const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *pFields, int fieldcount = 1 ) = 0;
 	virtual void	EmptyFields( void *pBaseData, typedescription_t *pFields, int fieldcount = 1 ) = 0;
 
-	
-	//---------------------------------
 	// Block support
-	//
 	
 	virtual void	StartBlock( SaveRestoreRecordHeader_t *pHeader ) = 0;
 	virtual void	StartBlock( char szBlockName[SIZE_BLOCK_NAME_BUF] ) = 0;
 	virtual void	StartBlock() = 0;
 	virtual void	EndBlock() = 0;
 	
-	//---------------------------------
 	// Field header cracking
-	//
 	
 	virtual void	ReadHeader( SaveRestoreRecordHeader_t *pheader ) = 0;
 	virtual int		SkipHeader() = 0; // skips the header, but returns the size of the field
 	virtual const char *StringFromHeaderSymbol( int symbol ) = 0;
 
-	//---------------------------------
 	// Primitive types
-	//
 	
 	virtual short	ReadShort( void ) = 0;
 	virtual int		ReadShort( short *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
@@ -249,9 +182,7 @@ public:
 	virtual int		ReadQuaternion( Quaternion *pValue ) = 0;
 	virtual int		ReadQuaternion( Quaternion *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
 	
-	//---------------------------------
 	// Game types
-	//
 	
 	virtual int		ReadTime( float *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
 	virtual int		ReadTick( int *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
@@ -266,11 +197,8 @@ public:
 	virtual int		ReadVMatrixWorldspace( VMatrix *pValue, int count = 1, int nBytesAvailable = 0) = 0;
 	virtual int		ReadMatrix3x4Worldspace( matrix3x4_t *pValue, int nElems = 1, int nBytesAvailable = 0 ) = 0;
 
-	//---------------------------------
-
 	virtual bool	GetPrecacheMode( void ) = 0;
 
-	//---------------------------------
 	// Back door to support somewhat awkward ownership of game save/restore data
 	virtual CGameSaveRestoreInfo *GetGameSaveRestoreInfo() = 0;
 
@@ -278,10 +206,7 @@ protected:
 	virtual ~IRestore() {};
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: The operations necessary to save and restore custom types (FIELD_CUSTOM)
-//
-//
 
 struct SaveRestoreFieldInfo_t
 {
@@ -304,13 +229,8 @@ public:
 	virtual void MakeEmpty( const SaveRestoreFieldInfo_t &fieldInfo ) = 0;
 	virtual bool Parse( const SaveRestoreFieldInfo_t &fieldInfo, char const* szValue ) = 0;
 
-	//---------------------------------
-
-
 	bool IsEmpty( void *pField)							{ SaveRestoreFieldInfo_t fieldInfo = { pField, NULL, NULL }; return IsEmpty( fieldInfo ); }
 };
-
-//-------------------------------------
 
 class CDefSaveRestoreOps : public ISaveRestoreOps
 {
@@ -324,10 +244,7 @@ public:
 	virtual bool Parse( const SaveRestoreFieldInfo_t &fieldInfo, char const* szValue ) { return false; }
 };
 
-
-//-----------------------------------------------------------------------------
 // Used by ops that deal with pointers
-//-----------------------------------------------------------------------------
 class CClassPtrSaveRestoreOps : public CDefSaveRestoreOps
 {
 public:
@@ -348,8 +265,3 @@ public:
 		memset( fieldInfo.pField, 0, fieldInfo.pTypeDesc->fieldSize * sizeof( void * ) );
 	}
 };
-
-
-//=============================================================================
-
-#endif // ISAVERESTORE_H

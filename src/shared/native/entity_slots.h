@@ -39,11 +39,7 @@
 // game/server/shell_entityslots.cpp.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_ENTITY_SLOTS_H
-#define SOURCESHARP_ENTITY_SLOTS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 #include <string.h>
@@ -336,5 +332,3 @@ private:
 	int      m_nOpens;
 	int      m_nCloses;
 };
-
-#endif // SOURCESHARP_ENTITY_SLOTS_H

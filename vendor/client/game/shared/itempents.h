@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $NoKeywords: $
-//===========================================================================//
 
-#if !defined( ITEMPENTS_H )
-#define ITEMPENTS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "ipredictionsystem.h"
 #include "shattersurfacetypes.h"
@@ -19,10 +9,7 @@
 class CEffectData;
 class KeyValues;
 
-
-//-----------------------------------------------------------------------------
 // Purpose:  Shared interface to temp entities
-//-----------------------------------------------------------------------------
 abstract_class ITempEntsSystem : public IPredictionSystem
 {
 public:
@@ -127,5 +114,3 @@ public:
 };
 
 extern ITempEntsSystem *te;
-
-#endif // ITEMPENTS_H

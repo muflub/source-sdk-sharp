@@ -1,18 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef NETWORKSTRINGTABLEDEFS_H
-#define NETWORKSTRINGTABLEDEFS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 typedef int TABLEID;
-
 
 const unsigned short INVALID_STRING_INDEX = (unsigned short )-1;
 
@@ -26,9 +16,7 @@ class INetworkStringTable;
 
 typedef void (*pfnStringChanged)( void *object, INetworkStringTable *stringTable, int stringNumber, char const *newString, void const *newData );
 
-//-----------------------------------------------------------------------------
 // Purpose: Game .dll shared string table interfaces
-//-----------------------------------------------------------------------------
 class INetworkStringTable
 {
 public:
@@ -76,5 +64,3 @@ public:
 	virtual void unused_CreateStringTableEx() = 0;
 	virtual void				SetAllowClientSideAddString( INetworkStringTable *table, bool bAllowClientSideAddString ) = 0;
 };
-
-#endif // NETWORKSTRINGTABLEDEFS_H

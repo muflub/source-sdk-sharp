@@ -1,16 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Public interfaces to vphysics DLL
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef VPHYSICS_INTERFACE_H
-#define VPHYSICS_INTERFACE_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "tier1/interface.h"
 #include "appframework/IAppSystem.h"
@@ -18,10 +9,7 @@
 #include "mathlib/vector4d.h"
 #include "vcollide.h"
 
-
-// ------------------------------------------------------------------------------------
 // UNITS:
-// ------------------------------------------------------------------------------------
 // NOTE:  Coordinates are in HL units.  1 unit == 1 inch.  X is east (forward), Y is north (left), Z is up (up)
 // QAngle are pitch (around y), Yaw (around Z), Roll (around X)
 // AngularImpulse are exponetial maps (an axis in HL units scaled by a "twist" angle in degrees)
@@ -35,18 +23,12 @@
 //	density = (mass / volume) * CUBIC_METERS_PER_CUBIC_INCH
 // Force is applied using impulses (kg*in/s)
 // Torque is applied using impulses (kg*degrees/s)
-// ------------------------------------------------------------------------------------
 
 #define METERS_PER_INCH					(0.0254f)
 #define CUBIC_METERS_PER_CUBIC_INCH		(METERS_PER_INCH*METERS_PER_INCH*METERS_PER_INCH)
 // 2.2 lbs / kg
-#define POUNDS_PER_KG	(2.2f)
-#define KG_PER_POUND	(1.0f/POUNDS_PER_KG)
 
 // convert from pounds to kg
-
-
-
 
 class IPhysicsObject;
 class IPhysicsEnvironment;
@@ -57,7 +39,6 @@ class IPhysicsFluidController;
 class IPhysicsSpring;
 class IPhysicsVehicleController;
 class IConvexInfo;
-class IPhysicsObjectPairHash;
 class IPhysicsCollisionSet;
 class IPhysicsPlayerController;
 class IPhysicsFrictionSnapshot;
@@ -80,14 +61,11 @@ struct springparams_t;
 struct objectparams_t;
 class CGameTrace;
 typedef CGameTrace trace_t;
-struct physics_stats_t;
 struct physics_performanceparams_t;
-struct virtualmeshparams_t;
 
 //enum PhysInterfaceId_t;
 struct physsaveparams_t;
 struct physrestoreparams_t;
-struct physprerestoreparams_t;
 
 enum PhysInterfaceId_t 
 {
@@ -106,26 +84,8 @@ enum PhysInterfaceId_t
 	PIID_NUM_TYPES
 };
 
-
 class ISave;
 class IRestore;
-
-
-
-
-abstract_class IVPhysicsDebugOverlay
-{
-public:
-	virtual void unused_AddEntityTextOverlay() = 0;
-	virtual void AddBoxOverlay(const Vector& origin, const Vector& mins, const Vector& max, QAngle const& orientation, int r, int g, int b, int a, float duration) = 0;
-	virtual void unused_AddTriangleOverlay() = 0;
-	virtual void AddLineOverlay(const Vector& origin, const Vector& dest, int r, int g, int b,bool noDepthTest, float duration) = 0;
-	virtual void AddTextOverlay(const Vector& origin, float duration, PRINTF_FORMAT_STRING const char *format, ...) = 0;
-	virtual void AddTextOverlay(const Vector& origin, int line_offset, float duration, PRINTF_FORMAT_STRING const char *format, ...) = 0;
-	virtual void unused_AddScreenTextOverlay() = 0;
-	virtual void unused_AddSweptBoxOverlay() = 0;
-	virtual void AddTextOverlayRGB(const Vector& origin, int line_offset, float duration, float r, float g, float b, float alpha, PRINTF_FORMAT_STRING const char *format, ...) = 0;
-};
 
 #define VPHYSICS_INTERFACE_VERSION	"VPhysics031"
 
@@ -149,16 +109,7 @@ public:
 	virtual void						DestroyAllCollisionSets() = 0;
 };
 
-
-// CPhysConvex is a single convex solid
-class CPhysConvex;
-// CPhysPolysoup is an abstract triangle soup mesh
-class CPhysPolysoup;
-class ICollisionQuery;
 class IVPhysicsKeyParser;
-struct convertconvexparams_t;
-
-class CPolyhedron;
 
 // UNDONE: Find a better place for this?  Should be in collisionutils, but it's needs VPHYSICS' solver.
 struct truncatedcone_t
@@ -168,7 +119,6 @@ struct truncatedcone_t
 	float	h;			// height of the cone (hl units)
 	float	theta;		// cone angle (degrees)
 };
-
 
 #define VPHYSICS_COLLISION_INTERFACE_VERSION	"VPhysicsCollision007"
 
@@ -245,7 +195,6 @@ public:
 	virtual CPhysCollide	*BBoxToCollide( const Vector &mins, const Vector &maxs ) = 0;
 	virtual void unused_GetConvexesUsedInCollideable() = 0;
 
-
 	// Trace an AABB against a collide
 	virtual void TraceBox( const Vector &start, const Vector &end, const Vector &mins, const Vector &maxs, const CPhysCollide *pCollide, const Vector &collideOrigin, const QAngle &collideAngles, trace_t *ptr ) = 0;
 	virtual void TraceBox( const Ray_t &ray, const CPhysCollide *pCollide, const Vector &collideOrigin, const QAngle &collideAngles, trace_t *ptr ) = 0;
@@ -284,10 +233,8 @@ public:
 	virtual void unused_CreateVirtualMesh() = 0;
 	virtual bool			SupportsVirtualMesh() = 0;
 
-
 	virtual void unused_GetBBoxCacheSize() = 0;
 
-	
 	// extracts a polyhedron that defines a CPhysConvex's shape
 	virtual void unused_PolyhedronFromConvex() = 0;
 
@@ -296,32 +243,7 @@ public:
 	virtual void unused_ReadStat() = 0;
 };
 
-// this can be used to post-process a collision model
-abstract_class ICollisionQuery
-{
-public:
-	virtual ~ICollisionQuery() {}
-	// number of convex pieces in the whole solid
-	virtual void unused_ConvexCount() = 0;
-	// triangle count for this convex piece
-	virtual void unused_TriangleCount() = 0;
-	// get the stored game data
-	virtual unsigned int GetGameData( int convexIndex ) = 0;
-	// Gets the triangle's verts to an array
-	virtual void unused_GetTriangleVerts() = 0;
-	
-	// UNDONE: This doesn't work!!!
-	virtual void unused_SetTriangleVerts() = 0;
-	
-	// returns the 7-bit material index
-	virtual void unused_GetTriangleMaterialIndex() = 0;
-	// sets a 7-bit material index for this triangle
-	virtual void unused_SetTriangleMaterialIndex() = 0;
-};
-
-//-----------------------------------------------------------------------------
 // Purpose: Ray traces from game engine.
-//-----------------------------------------------------------------------------
 abstract_class IPhysicsGameTrace
 {
 public:
@@ -344,7 +266,6 @@ public:
 	virtual void GetContactPoint( Vector &out ) = 0;		// contact point of collision (in world space)
 	virtual void unused_GetContactSpeed() = 0;		// speed of surface 1 relative to surface 0 (in world space)
 };
-
 
 struct vcollisionevent_t
 {
@@ -382,7 +303,6 @@ public:
 	virtual void ObjectLeaveTrigger( IPhysicsObject *pTrigger, IPhysicsObject *pObject ) {}
 };
 
-
 abstract_class IPhysicsObjectEvent
 {
 public:
@@ -398,18 +318,6 @@ abstract_class IPhysicsConstraintEvent
 public:
 	// the constraint is now inactive, the game code is required to delete it or re-activate it.
 	virtual void ConstraintBroken( IPhysicsConstraint * ) = 0;
-};
-
-struct hlshadowcontrol_params_t
-{
-	Vector			targetPosition;
-	QAngle			targetRotation;
-	float			maxAngular;
-	float			maxDampAngular;
-	float			maxSpeed;
-	float			maxDampSpeed;
-	float			dampFactor;
-	float			teleportDistance;
 };
 
 // UNDONE: At some point allow this to be parameterized using hlshadowcontrol_params_t.
@@ -438,7 +346,6 @@ public:
 	virtual void unused_UseShadowMaterial() = 0;
 	virtual void unused_ObjectMaterialChanged() = 0;
 
-
 	//Basically get the last inputs to IPhysicsShadowController::Update(), returns last input to timeOffset in Update()
 	virtual void unused_GetTargetPosition() = 0;
 	
@@ -458,8 +365,6 @@ public:
 	enum simresult_e { SIM_NOTHING = 0, SIM_LOCAL_ACCELERATION, SIM_LOCAL_FORCE, SIM_GLOBAL_ACCELERATION, SIM_GLOBAL_FORCE };
 	virtual simresult_e	Simulate( IPhysicsMotionController *pController, IPhysicsObject *pObject, float deltaTime, Vector &linear, AngularImpulse &angular ) = 0;
 };
-
-
 
 abstract_class IPhysicsMotionController
 {
@@ -487,10 +392,8 @@ public:
 	virtual void unused_SetPriority() = 0;
 };
 
-// -------------------
 // Collision filter function.  Return 0 if objects should not be tested for collisions, nonzero otherwise
 // Install with IPhysicsEnvironment::SetCollisionFilter()
-// -------------------
 abstract_class IPhysicsCollisionSolver
 {
 public:
@@ -507,15 +410,6 @@ public:
 	// This list of objects is in a connected contact graph that is too large to solve quickly
 	// return true to freeze the system, false to solve it
 	virtual bool ShouldFreezeContacts( IPhysicsObject **pObjectList, int objectCount ) = 0;
-};
-
-enum PhysicsTraceType_t
-{
-	VPHYSICS_TRACE_EVERYTHING = 0,
-	VPHYSICS_TRACE_STATIC_ONLY,
-	VPHYSICS_TRACE_MOVING_ONLY,
-	VPHYSICS_TRACE_TRIGGERS_ONLY,
-	VPHYSICS_TRACE_STATIC_AND_MOVING,
 };
 
 abstract_class IPhysicsTraceFilter
@@ -647,11 +541,9 @@ public:
 	virtual void unused_SerializeObjectToBuffer() = 0;
 	virtual void unused_UnserializeObjectFromBuffer() = 0;
 
-
 	virtual void EnableConstraintNotify( bool bEnable ) = 0;
 	virtual void DebugCheckContacts(void) = 0;
 };
-
 
 abstract_class IPhysicsObject
 {
@@ -808,7 +700,6 @@ public:
 	// returns the new value of secondsToArrival with dt time elapsed
 	virtual void unused_ComputeShadowControl() = 0;
 
-
 	virtual const CPhysCollide	*GetCollide( void ) const = 0;
 	virtual const char			*GetName() const = 0;
 
@@ -830,7 +721,6 @@ public:
 	virtual void unused_GetBuoyancyRatio() = 0;
 };
 
-
 abstract_class IPhysicsSpring
 {
 public:
@@ -847,11 +737,8 @@ public:
 	virtual void unused_GetEndObject() = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: These properties are defined per-material.  This is accessible at 
 //			each triangle in a collision mesh
-//-----------------------------------------------------------------------------
 struct surfacephysicsparams_t
 {
 // vphysics physical properties
@@ -865,12 +752,9 @@ struct surfacephysicsparams_t
 struct surfaceaudioparams_t
 {
 // sounds / audio data
-	float			reflectivity;		// like elasticity, but how much sound should be reflected by this surface
+	alignas( 4 ) unsigned char unused_reflectivity[ 4 ];
 	float			hardnessFactor;	// like elasticity, but only affects impact sound choices
-	float			roughnessFactor;	// like friction, but only affects scrape sound choices
-
-// audio thresholds
-	float			roughThreshold;	// surface roughness > this causes "rough" scrapes, < this causes "smooth" scrapes
+	alignas( 4 ) unsigned char unused_roughnessFactor[ 8 ];
 	float			hardThreshold;	// surface hardness > this causes "hard" impacts, < this causes "soft" impacts
 	float			hardVelocityThreshold;	// collision velocity > this causes "hard" impacts, < this causes "soft" impacts
 									// NOTE: Hard impacts must meet both hardnessFactor AND velocity thresholds
@@ -878,8 +762,7 @@ struct surfaceaudioparams_t
 
 struct surfacesoundnames_t
 {
-	unsigned short	stepleft;
-	unsigned short	stepright;
+	alignas( 2 ) unsigned char unused_stepleft[ 4 ];
 
 	unsigned short	impactSoft;
 	unsigned short	impactHard;
@@ -915,8 +798,7 @@ struct surfacesoundhandles_t
 struct surfacegameprops_t
 {
 // game movement data
-	float			maxSpeedFactor;			// Modulates player max speed when walking on this surface
-	float			jumpFactor;				// Indicates how much higher the player should jump when on the surface
+	alignas( 4 ) unsigned char unused_maxSpeedFactor[ 8 ];
 // Game-specific data
 	unsigned short	material;
 	// Indicates whether or not the player is on a ladder.
@@ -924,12 +806,10 @@ struct surfacegameprops_t
 	unsigned char	pad;
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: Each different material has an entry like this
-//-----------------------------------------------------------------------------
 struct surfacedata_t
 {
-	surfacephysicsparams_t	physics;	// physics parameters
+	alignas( 4 ) unsigned char unused_physics[ 20 ];
 	surfaceaudioparams_t	audio;		// audio parameters
 	surfacesoundnames_t		sounds;		// names of linked sounds
 	surfacegameprops_t		game;		// Game data / properties
@@ -953,7 +833,6 @@ public:
 
 	virtual surfacedata_t	*GetSurfaceData( int surfaceDataIndex ) = 0;
 	virtual const char		*GetString( unsigned short stringTableIndex ) const = 0;
-
 
 	virtual const char		*GetPropName( int surfaceDataIndex ) const = 0;
 
@@ -979,11 +858,8 @@ public:
 	virtual int		GetContents() const = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: parameter block for creating fluid dynamic motion
 // UNDONE: Expose additional fluid model paramters?
-//-----------------------------------------------------------------------------
 struct fluidparams_t
 {
 	Vector4D	surfacePlane;	// x,y,z normal, dist (plane constant) fluid surface
@@ -1009,10 +885,8 @@ struct fluidparams_t
 	}
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: parameter block for creating linear springs
 // UNDONE: Expose additional spring model paramters?
-//-----------------------------------------------------------------------------
 struct springparams_t
 {
 	springparams_t()
@@ -1029,9 +903,7 @@ struct springparams_t
 	bool	onlyStretch;		// only apply forces when the length is greater than the natural length
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: parameter block for creating polygonal objects
-//-----------------------------------------------------------------------------
 struct objectparams_t
 {
 	Vector		*massCenterOverride;
@@ -1047,25 +919,10 @@ struct objectparams_t
 	bool		enableCollisions;
 };
 
-struct convertconvexparams_t
-{
-	bool		buildOuterConvexHull;
-	bool		buildDragAxisAreas;
-	bool		buildOptimizedTraceTables;
-	float		dragAreaEpsilon;
-	CPhysConvex *pForcedOuterHull;
-
-};
-
-//-----------------------------------------------------------------------------
 // Physics interface IDs
-//
 // Note that right now the order of the enum also defines the order of save/load
 
-
-//-----------------------------------------------------------------------------
 // Purpose: parameter blocks for save and load operations
-//-----------------------------------------------------------------------------
 struct physsaveparams_t
 {
 	ISave 				*pSave;
@@ -1085,20 +942,6 @@ struct physrestoreparams_t
 	IPhysicsGameTrace	*pGameTrace;
 };
 
-struct physrecreateparams_t
-{
-	void *pOldObject;
-	void *pNewObject;
-};
-
-struct physprerestoreparams_t
-{
-	int recreatedObjectCount;
-	physrecreateparams_t recreatedObjectList[1];
-};
-
-//-------------------------------------
-
 #define DEFINE_PIID( type, enumval ) \
 	template <> inline PhysInterfaceId_t GetPhysIID<type>( type ** ) { return enumval; }
 
@@ -1114,7 +957,3 @@ DEFINE_PIID( IPhysicsPlayerController,	PIID_IPHYSICSPLAYERCONTROLLER );
 DEFINE_PIID( IPhysicsMotionController,	PIID_IPHYSICSMOTIONCONTROLLER );
 DEFINE_PIID( IPhysicsVehicleController,	PIID_IPHYSICSVEHICLECONTROLLER );
 DEFINE_PIID( IPhysicsGameTrace,			PIID_IPHYSICSGAMETRACE );
-
-//-----------------------------------------------------------------------------
-
-#endif // VPHYSICS_INTERFACE_H

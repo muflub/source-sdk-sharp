@@ -30,8 +30,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_CONSOLE_DISPLAY_FORWARD_H
-#define SOURCESHARP_CONSOLE_DISPLAY_FORWARD_H
+#pragma once
 
 class ICvar;
 
@@ -58,5 +57,3 @@ public:
 private:
 	ICvar *m_pCVar;
 };
-
-#endif // SOURCESHARP_CONSOLE_DISPLAY_FORWARD_H

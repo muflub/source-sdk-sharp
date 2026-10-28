@@ -1,29 +1,15 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // The copyright to the contents herein is the property of Valve, L.L.C.
 // The contents may be used and/or copied only with the written permission of
 // Valve, L.L.C., or in accordance with the terms and conditions stipulated in
 // the agreement/contract under which the contents have been supplied.
-//
-// $Header: $
-// $NoKeywords: $
-//
 // model loading and caching
-//
-//=============================================================================
 
-#ifndef IMDLCACHE_H
-#define IMDLCACHE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "appframework/IAppSystem.h"
 
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 struct studiohdr_t;
 struct studiohwdata_t;
 struct vcollide_t;
@@ -34,51 +20,15 @@ namespace OptimizedModel
 {
 }
 
-
-//-----------------------------------------------------------------------------
 // Reference to a loaded studiomdl 
-//-----------------------------------------------------------------------------
 typedef unsigned short MDLHandle_t;
-
-
 
 enum
 {
 	MDLHANDLE_INVALID = (MDLHandle_t)~0 
 };
 
-
-//-----------------------------------------------------------------------------
-// Cache data types
-//-----------------------------------------------------------------------------
-enum MDLCacheDataType_t
-{
-	// Callbacks to get called when data is loaded or unloaded for these:
-	MDLCACHE_STUDIOHDR = 0,
-	MDLCACHE_STUDIOHWDATA,
-	MDLCACHE_VCOLLIDE,
-
-	// Callbacks NOT called when data is loaded or unloaded for these:
-	MDLCACHE_ANIMBLOCK,
-	MDLCACHE_VIRTUALMODEL,
-	MDLCACHE_VERTEXES,
-	MDLCACHE_DECODEDANIMBLOCK,
-};
-
-abstract_class IMDLCacheNotify
-{
-public:
-	// Called right after the data is loaded
-	virtual void unused_OnDataLoaded() = 0;
-
-	// Called right before the data is unloaded
-	virtual void unused_OnDataUnloaded() = 0;
-};
-
-
-//-----------------------------------------------------------------------------
 // Flags for flushing 
-//-----------------------------------------------------------------------------
 enum MDLCacheFlush_t
 {
 	MDLCACHE_FLUSH_STUDIOHDR		= 0x01,
@@ -158,13 +108,10 @@ public:
 	virtual void FinishPendingLoads() = 0;	
 };
 
-
 }
 */
 
-//-----------------------------------------------------------------------------
 // The main MDL cacher 
-//-----------------------------------------------------------------------------
 #define MDLCACHE_INTERFACE_VERSION "MDLCache004"
  
 abstract_class IMDLCache : public IAppSystem
@@ -185,7 +132,7 @@ public:
 	virtual void unused_GetRef() = 0;
 
 	// Gets at the various data associated with a MDL
-	virtual studiohdr_t *GetStudioHdr( MDLHandle_t handle ) = 0;
+	virtual void unused_GetStudioHdr() = 0;
 	virtual void unused_GetHardwareData() = 0;
 	virtual vcollide_t *GetVCollide( MDLHandle_t handle ) = 0;
 	virtual unsigned char *GetAnimBlock( MDLHandle_t handle, int nBlock ) = 0;
@@ -260,10 +207,7 @@ public:
 	virtual void unused_TouchAllData() = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Critical section helper code
-//-----------------------------------------------------------------------------
 class CMDLCacheCriticalSection
 {
 public:
@@ -295,6 +239,3 @@ private:
 #endif
 #define MDLCACHE_CRITICAL_SECTION() MDLCACHE_CRITICAL_SECTION_(mdlcache)
 #define MDLCACHE_COARSE_LOCK() MDLCACHE_COARSE_LOCK_(mdlcache)
-
-#endif // IMDLCACHE_H
-

@@ -12,8 +12,6 @@
 // LoadSideV2 hands native (both sides). IMPLEMENTED BY MANAGED: native calls
 // each through the table managed wrote, Release at slot 0 and Validate at 1.
 
-#ifndef IMANAGED_CORE_H
-#define IMANAGED_CORE_H
 #pragma once
 
 #include <stdint.h>
@@ -75,4 +73,3 @@ static const uint32_t kIManagedRootSlotHashes[] = {
 static const int32_t kIManagedRootSlotCount = 3;
 static_assert( sizeof( SSManagedRootTable ) == 3 * sizeof( void * ), "SSManagedRootTable is one pointer per slot" );
 
-#endif // IMANAGED_CORE_H

@@ -51,8 +51,7 @@
 // after".
 //
 //=============================================================================//
-#ifndef SOURCESHARP_DATA_OBJECT_ACCESS_H
-#define SOURCESHARP_DATA_OBJECT_ACCESS_H
+#pragma once
 
 //-----------------------------------------------------------------------------
 // The side table, keyed by an opaque pointer. `type` is one of shareddefs.h's
@@ -64,5 +63,3 @@
 //         and Destroy left with physics_shared.cpp at 2.6, unreferenced).
 //-----------------------------------------------------------------------------
 bool  EntityDataObject_Has( int type, const void *pKey );
-
-#endif // SOURCESHARP_DATA_OBJECT_ACCESS_H

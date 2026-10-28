@@ -17,3 +17,4 @@ void SourceSharp_ClientSystemsLevelShutdownPreEntity( void )	HOOK	the LevelShutd
 void SourceSharp_ClientSystemsLevelShutdownPostEntity( void )	HOOK	the LevelShutdownPostEntity walk, backwards
 void SourceSharp_ClientSystemsPreRender( void )	HOOK	the per-frame PreRender walk
 void SourceSharp_ClientSystemsUpdate( float frametime )	HOOK	the per-frame Update walk
+IGameSystem::~IGameSystem()	SLOT	IGameSystem's out-of-line destructor, which emits the class's vtable

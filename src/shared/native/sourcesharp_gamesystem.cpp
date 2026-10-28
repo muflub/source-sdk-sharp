@@ -18,7 +18,21 @@
 //=============================================================================//
 
 #ifdef CLIENT_DLL
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "igamesystem.h"
 #else
 // The server half is on public/ headers and server.so's own: the engine's
@@ -146,12 +160,6 @@ static void *SourceSharp_GetGlobalVarsPtr( void )
 {
 	return (void *)gpGlobals;
 }
-#ifndef CLIENT_DLL
-#ifndef CLIENT_DLL
-#endif
-#ifndef CLIENT_DLL
-#endif
-#endif
 
 #ifndef CLIENT_DLL
 // Temp entities (plan_tmp.md Part 3), implemented in server/shell_tempents.cpp.
@@ -229,8 +237,6 @@ static bool g_bSourceSharpLoaded = false;
 // Its contents are all native function addresses, so they are as valid after a
 // managed unload as before one: nothing in here points into an ALC.
 //-----------------------------------------------------------------------------
-#ifdef CLIENT_DLL
-#endif
 
 //-----------------------------------------------------------------------------
 // THE STRUCT'S WAY INTO IShimConsole (plan_engineapi_vtables A4). The ten

@@ -69,11 +69,7 @@
 //      string is the bug. The map name reaches C# through MapLoad.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_GLOBALVARS_LAYOUT_H
-#define SOURCESHARP_GLOBALVARS_LAYOUT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 #include "edict.h"
@@ -217,5 +213,3 @@ static_assert( offsetof( CGlobalVars, mapname ) == SOURCESHARP_GLOBALVARS_BASE_S
 #if defined( __GNUC__ ) || defined( __clang__ )
 #pragma GCC diagnostic pop
 #endif
-
-#endif // SOURCESHARP_GLOBALVARS_LAYOUT_H

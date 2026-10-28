@@ -42,8 +42,7 @@
 // IPhysicsObject in the build and a counting stub in the test.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_STANDALONE_COLLISION_RULES_H
-#define SOURCESHARP_STANDALONE_COLLISION_RULES_H
+#pragma once
 
 //-----------------------------------------------------------------------------
 // Tell vphysics that what it last answered about this object may now be wrong.
@@ -84,5 +83,3 @@ inline bool SourceSharpCollisionRulesChanged( TPhysicsObject *pObject, bool bArm
 
 	return SourceSharpCollisionRulesChanged( pObject );
 }
-
-#endif // SOURCESHARP_STANDALONE_COLLISION_RULES_H

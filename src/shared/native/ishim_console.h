@@ -18,8 +18,6 @@
 //
 //=============================================================================//
 
-#ifndef ISHIM_CONSOLE_H
-#define ISHIM_CONSOLE_H
 #pragma once
 
 #include <stdint.h>
@@ -52,5 +50,3 @@ public:
 	// (ConVarOwnership); this reads the bits it decides on.
 	virtual int32_t FindConVarFlags( const char *pName ) = 0;
 };
-
-#endif // ISHIM_CONSOLE_H

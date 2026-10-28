@@ -241,7 +241,7 @@ CWorldFactory g_WorldFactory;
 // through CBaseEntity::KeyValue at the end of CWorld::KeyValue.
 //
 // THE BLOCK AT b7a78a3a, RE-DERIVED RATHER THAN QUOTED: three DEFINE_FIELD and
-// nine DEFINE_KEYFIELD, two of the nine behind an #ifdef _X360.
+// nine DEFINE_KEYFIELD, two of the nine for a console this build does not target.
 //
 // THE THREE DEFINE_FIELDs ARE SAVE/RESTORE ONLY, AND NOTHING REACHES THEM.
 // m_flWaveHeight, m_WorldMins and m_WorldMaxs had no key: a plain DEFINE_FIELD
@@ -279,10 +279,8 @@ CWorldFactory g_WorldFactory;
 //          first-spawn title path, player.cpp:7003-7008, not in this build).
 //          docs/divergences.md has the entry.
 //
-// THE _X360 ARM WENT WITH THE BLOCK. It spelt the occlusion pair
-// "maxoccludeearea_x360" / "minoccluderarea_x360" and this build has no X360 arm
-// to compile, so on this platform the pair has always been one key each and the
-// managed side names the one the shipped game read.
+// The occlusion pair is one key each on this platform, and the managed side
+// names the one the shipped game read.
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------

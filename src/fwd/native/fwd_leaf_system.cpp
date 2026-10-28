@@ -63,11 +63,22 @@
 #include "bsptreedata.h"
 #include "clientleafsystem.h"
 #include "detailobjectsystem.h"
+#include "engine/IClientLeafSystem.h"
+#include "mathlib/vector.h"
+#include "tier0/platform.h"
+#include "tier1/utlvector.h"
+#include "client_render_handle.h"
 #include "imanaged_areas_client.h"
 
-// CClientSystem's destructor is virtual and inline, so its vtable (which the
-// class's constructors store) carries a deleting destructor that names the
-// global operator delete. Nothing here deletes a client system, and the
+// igamesystem.h's two destructors are defined out of line (stock's
+// igamesystem.cpp), and those definitions emit IGameSystem's and
+// IGameSystemPerFrame's vtables, which the leaf system's constructor stores.
+// This library links neither DLL's copy, so it carries its own.
+IGameSystem::~IGameSystem() {}
+IGameSystemPerFrame::~IGameSystemPerFrame() {}
+
+// Those vtables carry deleting destructors that name the global operator
+// delete. Nothing here deletes a client system, and the
 // library has no heap: its own, which the version script keeps out of the
 // exports, does nothing. On MSVC fwd_physics.cpp defines it for both
 // libraries under SS_NO_CRT (a second definition is LNK2005).
@@ -136,9 +147,19 @@ namespace
 
 		static void operator delete( void *, size_t ) {}
 
-		// -- IClientSystem: stock's were empty but for these three ----------
+		// -- IGameSystemPerFrame: stock's were empty but for these ----------
 		char const *Name() override { return "CClientLeafSystem"; }
 		bool IsPerFrame() override { return true; }
+		bool Init() override { return true; }
+		void PostInit() override {}
+		void Shutdown() override {}
+		void LevelInitPostEntity() override {}
+		void LevelShutdownPreEntity() override {}
+		void OnSave() override {}
+		void OnRestore() override {}
+		void SafeRemoveIfDesired() override {}
+		void Update( float ) override {}
+		void PostRender() override {}
 
 		void LevelInitPreEntity() override
 		{

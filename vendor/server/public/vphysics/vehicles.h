@@ -1,31 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef VEHICLES_H
-#define VEHICLES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "datamap.h"
 
-
-
-
-
-
-
 #define VEHICLE_MAX_AXLE_COUNT	4
 #define VEHICLE_MAX_GEAR_COUNT	6
-
-
-
-
-
 
 struct vehicle_controlparams_t
 {
@@ -59,17 +39,6 @@ struct vehicle_operatingparams_t
 };
 
 // Debug!
-#define VEHICLE_DEBUGRENDERDATA_MAX_WHEELS		10
-#define VEHICLE_DEBUGRENDERDATA_MAX_AXLES		3
-
-struct vehicle_debugcarsystem_t
-{
-	Vector vecAxlePos[VEHICLE_DEBUGRENDERDATA_MAX_AXLES];
-
-	Vector vecWheelPos[VEHICLE_DEBUGRENDERDATA_MAX_WHEELS];
-	Vector vecWheelRaycasts[VEHICLE_DEBUGRENDERDATA_MAX_WHEELS][2];
-	Vector vecWheelRaycastImpacts[VEHICLE_DEBUGRENDERDATA_MAX_WHEELS];
-};
 
 struct vehicleparams_t;
 
@@ -99,7 +68,6 @@ public:
 	virtual void unused_GetCarSystemDebugData() = 0;
 	virtual void unused_VehicleDataReload() = 0;
 };
-
 
 // parameters for the body object control of the vehicle
 struct vehicle_bodyparams_t
@@ -227,9 +195,4 @@ struct vehicleparams_t
 	vehicle_steeringparams_t	steering;
 };
 
-
-
-
 		// An invalid seat
-
-#endif // VEHICLES_H

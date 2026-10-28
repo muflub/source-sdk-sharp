@@ -18,11 +18,7 @@
 // that builds one is compiled exactly as before.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_EFFECT_DISPATCH_H
-#define SOURCESHARP_SS_EFFECT_DISPATCH_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 
@@ -100,5 +96,3 @@ struct CEffectData
 
 // Send the named effect to everyone in its PVS (shell_te_forwards.cpp).
 void DispatchEffect( const char *pName, const ss::CEffectData &data );
-
-#endif // SOURCESHARP_SS_EFFECT_DISPATCH_H

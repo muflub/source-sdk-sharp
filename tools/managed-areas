@@ -445,7 +445,7 @@ def generate():
     # ---- the root and the runtime ---------------------------------------------
     def core_header(guard, purpose, includes, iface, ss, server_only, with_object=False):
         out = [valve, '', GENERATED, '//'] + ['// ' + l if l else '//' for l in purpose] + \
-              ['', '#ifndef %s' % guard, '#define %s' % guard, '#pragma once', ''] + \
+              ['', '#pragma once', ''] + \
               ['#include %s' % inc for inc in includes] + ['']
         if server_only:
             out += ['#ifndef CLIENT_DLL', '']
@@ -454,7 +454,7 @@ def generate():
         out += interface_lines(iface, ss) + hash_lines(iface, ss)
         if server_only:
             out += ['#endif // !CLIENT_DLL', '']
-        return out + ['#endif // %s' % guard, '']
+        return out + ['']
 
     cores = dict(core())
     k = core_header('IMANAGED_CORE_H',
@@ -487,13 +487,13 @@ def generate():
           '// IPhysicsCollisionEvent and the rest, and its overrides call these through the',
           '// table managed wrote. The object lives in the block\'s %d reserved words after' % CALLBACK_WORDS,
           '// word 0, so it is the block\'s, across a reload too. Engine types cross as void *.',
-          '', '#ifndef IMANAGED_PHYSICS_CALLBACKS_H', '#define IMANAGED_PHYSICS_CALLBACKS_H', '#pragma once', '',
+          '', '#pragma once', '',
           '#include <stdint.h>', '#include "tier0/platform.h"', '#include "imanaged_core.h"', '']
     for i, ss in callbacks():
         cb += interface_lines(i, ss) + hash_lines(i, ss)
     cb += ['// The words a block reserves for the object libss_fwd builds in it.',
            'static const int32_t kManagedPhysicsCallbackWords = %d;' % CALLBACK_WORDS, '',
-           '#endif // IMANAGED_PHYSICS_CALLBACKS_H', '']
+           '']
 
     # ---- the interfaces ------------------------------------------------------
     h = [valve, '', GENERATED, '//',
@@ -505,14 +505,14 @@ def generate():
          '// an area only when Validate matches its k<I>SlotHashes (managed_accept.h).',
          '// Each is acquired again on every load and released before every unload,',
          '// so native keeps no pointer and calls through the accessor.',
-         '', '#ifndef IMANAGED_AREAS_H', '#define IMANAGED_AREAS_H', '#pragma once', '',
+         '', '#pragma once', '',
          '#include <stdint.h>', '#include "tier0/platform.h"', '#include "sourcesharp.h"',
          '#include "imanaged_core.h"', '', '#ifndef CLIENT_DLL', '']
     for i, ss in areas:
         h += interface_lines(i, ss) + hash_lines(i, ss)
     for i, _ss in areas:
         h.append('%s *Managed%s();   // this load\'s area, or NULL outside a load' % (i, short(i)))
-    h += ['', '#endif // !CLIENT_DLL', '', '#endif // IMANAGED_AREAS_H', '']
+    h += ['', '#endif // !CLIENT_DLL', '', '']
 
     # ---- the holder ----------------------------------------------------------
     c = [valve, '', GENERATED, '//',
@@ -629,11 +629,11 @@ def client_outputs(valve, cores, tables):
           '// the mod. IMPLEMENTED BY MANAGED, called through its table: Release is at slot 0',
           '// and Validate at 1 (IManagedObject). Declared on both sides so native tests see it;',
           '// only the client holds one (shell_managed_areas_client.h).', '',
-          '#ifndef IMANAGED_RUNTIME_CLIENT_H', '#define IMANAGED_RUNTIME_CLIENT_H', '#pragma once', '',
+          '#pragma once', '',
           '#include <stdint.h>', '#include "tier0/platform.h"', '#include "imanaged_core.h"', '']
     rc += interface_lines('IManagedRuntimeClient', cores['IManagedRuntimeClient'])
     rc += hash_lines('IManagedRuntimeClient', cores['IManagedRuntimeClient'])
-    rc += ['#endif // IMANAGED_RUNTIME_CLIENT_H', '']
+    rc += ['']
 
     # ---- the areas -------------------------------------------------------------
     h = [valve, '', GENERATED, '//',
@@ -641,7 +641,7 @@ def client_outputs(valve, cores, tables):
          '// the interfaces named *Client). IMPLEMENTED BY MANAGED, as imanaged_areas.h. The',
          '// declarations are unguarded so native tests compile them; the accessors are the',
          '// client\'s.', '',
-         '#ifndef IMANAGED_AREAS_CLIENT_H', '#define IMANAGED_AREAS_CLIENT_H', '#pragma once', '',
+         '#pragma once', '',
          '#include <stdint.h>', '#include "tier0/platform.h"', '#include "sourcesharp.h"',
          '#include "imanaged_core.h"', '']
     for i, ss in areas:
@@ -649,7 +649,7 @@ def client_outputs(valve, cores, tables):
     h += ['#ifdef CLIENT_DLL', '']
     for i, _ss in areas:
         h.append('%s *Managed%s();   // this load\'s area, or NULL outside a load' % (i, short(i)))
-    h += ['', '#endif // CLIENT_DLL', '', '#endif // IMANAGED_AREAS_CLIENT_H', '']
+    h += ['', '#endif // CLIENT_DLL', '', '']
 
     # ---- the holder ------------------------------------------------------------
     c = [valve, '', GENERATED, '//',

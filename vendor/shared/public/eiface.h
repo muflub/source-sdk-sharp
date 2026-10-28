@@ -1,17 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//===========================================================================//
 
-#ifndef EIFACE_H
-#define EIFACE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "convar.h"
 #include "icvar.h"
@@ -24,9 +13,7 @@
 #include "engine/iserverplugin.h"
 #include "tier1/bitbuf.h"
 
-//-----------------------------------------------------------------------------
 // forward declarations
-//-----------------------------------------------------------------------------
 class	SendTable;
 class	ServerClass;
 class	IMoveHelper;
@@ -49,19 +36,14 @@ class	ITraceFilter;
 struct	client_textmessage_t;
 class	INetChannelInfo;
 class	ISpatialPartition;
-class IScratchPad3D;
 class CStandardSendProxies;
 class IAchievementMgr;
 class CGamestatsData;
 class CSteamID;
-class IReplaySystem;
-class IServer;
 
 typedef struct player_info_s player_info_t;
 
-//-----------------------------------------------------------------------------
 // defines
-//-----------------------------------------------------------------------------
 
 #ifdef _WIN32
 
@@ -69,16 +51,7 @@ typedef struct player_info_s player_info_t;
  /* */
 #endif
 
-
-
 #define INTERFACEVERSION_VENGINESERVER				"VEngineServer023"
-
-
-struct bbox_t
-{
-	Vector mins;
-	Vector maxs;
-};
 
 struct WorkshopMapDesc_t
 {
@@ -88,9 +61,7 @@ struct WorkshopMapDesc_t
 	bool	bDownloaded;
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: Interface the engine exposes to the game DLL
-//-----------------------------------------------------------------------------
 abstract_class IVEngineServer
 {
 public:
@@ -301,11 +272,9 @@ public:
 	// This returns which entities, to the best of the server's knowledge, the client currently knows about.
 	// This is really which entities were in the snapshot that this client last acked.
 	// This returns a bit vector with one bit for each entity.
-	//
 	// USE WITH CARE. Whatever tick the client is really currently on is subject to timing and
 	// ordering differences, so you should account for about a quarter-second discrepancy in here.
 	// Also, this will return NULL if the client doesn't exist or if this client hasn't acked any frames yet.
-	// 
 	// iClientIndex is the CLIENT index, so if you use pPlayer->entindex(), subtract 1.
 	virtual void unused_GetEntityTransmitBitsForClient() = 0;
 	
@@ -328,7 +297,6 @@ public:
 	// Is the engine in Commentary mode?
 	virtual void unused_IsInCommentaryMode() = 0;
 	
-
 	// Mark some area portals as open/closed. It's more efficient to use this
 	// than a bunch of individual SetAreaPortalState calls.
 	virtual void		SetAreaPortalStates( const int *portalNumbers, const int *isOpen, int nPortals ) = 0;
@@ -370,10 +338,8 @@ public:
 	virtual bool IsLowViolence() = 0;
 	
 	// Call this to find out the value of a cvar on the client.
-	//
 	// It is an asynchronous query, and it will call IServerGameDLL::OnQueryCvarValueFinished when
 	// the value comes in from the client.
-	//
 	// Store the return value if you want to match this specific query to the OnQueryCvarValueFinished call.
 	// Returns InvalidQueryCvarCookie if the entity is invalid.
 	virtual void unused_StartQueryCvarValue() = 0;
@@ -451,20 +417,12 @@ public:
 	virtual void unused_SetPausedForced() = 0;
 };
 
-
-
-
-
-
-
 #define INTERFACEVERSION_SERVERGAMEDLL				"ServerGameDLL012"
 #define INTERFACEVERSION_SERVERGAMEDLL_INT			12
 
 class IServerGCLobby;
 
-//-----------------------------------------------------------------------------
 // Purpose: These are the interfaces that the game .dll exposes to the engine
-//-----------------------------------------------------------------------------
 abstract_class IServerGameDLL
 {
 public:
@@ -549,10 +507,6 @@ public:
 	// Called once per frame even when no level is loaded...
 	virtual void			Think( bool finalTick ) = 0;
 
-#ifdef _XBOX
-	virtual void			GetTitleName( const char *pMapName, char* pTitleBuff, int titleBuffSize ) = 0;
-#endif
-
 	virtual void			PreSaveGameLoaded( char const *pSaveName, bool bCurrentlyInGame ) = 0;
 
 	// Returns true if the game DLL wants the server not to be made public.
@@ -562,7 +516,6 @@ public:
 	virtual void			InvalidateMdlCache() = 0;
 
 	// * This function is new with version 6 of the interface.
-	//
 	// This is called when a query from IServerPluginHelpers::StartQueryCvarValue is finished.
 	// iCookie is the value returned by IServerPluginHelpers::StartQueryCvarValue.
 	// Added with version 2 of the interface.
@@ -591,13 +544,10 @@ public:
 	virtual void 			Status( void (*print) (const char *fmt, ...) ) = 0;
 
 	// Informs the game we would like to load this level, giving it a chance to prepare dynamic resources.
-	//
 	// - pszMapName is the name of the map we're looking for, and may be overridden to e.g. the canonical name of the
 	//   map.
-	//
 	// - pszMapFile is the file we intend to use for this map ( e.g. maps/<mapname>.bsp ), and may be overridden to the
 	//   file representing this map name. ( e.g. /path/to/steamapps/workshop/cp_mymap.ugc12345.bsp )
-	//
 	// This call is blocking, and may block for extended periods. See AsyncPrepareLevelResources below.
 	virtual void PrepareLevelResources( /* in/out */ char *pszMapName, size_t nMapNameSize,
 	                                    /* in/out */ char *pszMapFile, size_t nMapFileSize ) = 0;
@@ -641,18 +591,13 @@ public:
 	virtual bool			GetWorkshopMap( uint32 uIndex, WorkshopMapDesc_t *pDesc ) = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Just an interface version name for the random number interface
 // See vstdlib/random.h for the interface definition
 // NOTE: If you change this, also change VENGINE_CLIENT_RANDOM_INTERFACE_VERSION in cdll_int.h
-//-----------------------------------------------------------------------------
 #define VENGINE_SERVER_RANDOM_INTERFACE_VERSION	"VEngineRandom001"
 
 #define INTERFACEVERSION_SERVERGAMEENTS			"ServerGameEnts001"
-//-----------------------------------------------------------------------------
 // Purpose: Interface to get at server entities
-//-----------------------------------------------------------------------------
 abstract_class IServerGameEnts
 {
 public:
@@ -673,7 +618,6 @@ public:
 
 	// This sets a bit in pInfo for each edict in the list that wants to be transmitted to the 
 	// client specified in pInfo.
-	//
 	// This is also where an entity can force other entities to be transmitted if it refers to them
 	// with ehandles.
 	virtual void			CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned short *pEdictIndices, int nEdicts ) = 0;
@@ -683,9 +627,7 @@ public:
 #define INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_4	"ServerGameClients004"
 #define INTERFACEVERSION_SERVERGAMECLIENTS				"ServerGameClients005"
 
-//-----------------------------------------------------------------------------
 // Purpose: Player / Client related functions
-//-----------------------------------------------------------------------------
 abstract_class IServerGameClients
 {
 public:
@@ -783,12 +725,7 @@ public:
 	virtual void unused_IsHDREnabled() = 0;
 };
 
-
-
-
-//-----------------------------------------------------------------------------
 // Purpose: Interface exposed from the client .dll back to the engine for specifying shared .dll IAppSystems (e.g., ISoundEmitterSystem)
-//-----------------------------------------------------------------------------
 abstract_class IServerDLLSharedAppSystems
 {
 public:
@@ -801,9 +738,7 @@ public:
 
 #define INTERFACEVERSION_SERVERGAMETAGS		"ServerGameTags001"
 
-//-----------------------------------------------------------------------------
 // Purpose: querying the game dll for Server cvar tags
-//-----------------------------------------------------------------------------
 abstract_class IServerGameTags
 {
 public:
@@ -811,9 +746,7 @@ public:
 	virtual void			GetTaggedConVarList( KeyValues *pCvarTagList ) = 0;
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: Provide hooks for the GC based lobby system
-//-----------------------------------------------------------------------------
 abstract_class IServerGCLobby
 {
 public:
@@ -825,5 +758,3 @@ public:
 	virtual void unused_MatchAllowsNameChanges() = 0;
 	virtual bool GetPlayerGCMatchName( const CSteamID &steamId, char *pszOutGCMatchName, size_t nGCMatchNameLen ) = 0;
 };
-
-#endif // EIFACE_H

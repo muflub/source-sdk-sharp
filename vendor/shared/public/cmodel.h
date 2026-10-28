@@ -1,11 +1,4 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
 
 #ifndef CMODEL_H
 #define CMODEL_H
@@ -34,10 +27,7 @@ COLLISION DETECTION
 // gi.BoxEdicts() can return a list of either solid or trigger entities
 // FIXME: eliminate AREA_ distinction?
 
-
-
 #include "vcollide.h"
-
 
 struct csurface_t
 {
@@ -46,9 +36,7 @@ struct csurface_t
 	unsigned short	flags;		// BUGBUG: These are declared per surface, not per material, but this database is per-material now
 };
 
-//-----------------------------------------------------------------------------
 // A ray...
-//-----------------------------------------------------------------------------
 
 struct Ray_t
 {
@@ -90,13 +78,9 @@ struct Ray_t
 		m_StartOffset *= -1.0f;
 	}
 
-
 private:
 };
 
-
 #endif // CMODEL_H
 
-	
 #include "gametrace.h"
-

@@ -31,24 +31,38 @@
 //
 //=======================================================================//
 
-#include "cbase.h"
-
+#include <stdio.h>
+#include <stdlib.h>
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
 #include "cdll_util.h"
-#include "gamerules.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
 #include "hud.h"
-#include "itextmessage.h"
+#include "SoundEmitterSystem/isoundemittersystembase.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/convar.h"
+#include "tier1/iconvar.h"
+#include "tier1/strtools.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "client_entity.h"
+#include "eiface.h"
+
 // The block from util_shared_library.cpp at the end of this file: the managed
 // violence convars.
 #include "managed_convar_ref.h"
 // The sound block from sound_emitter.cpp at the end of this file.
-#include "engine/IEngineSound.h"
-#include "SoundEmitterSystem/isoundemittersystembase.h"
 extern ISoundEmitterSystemBase *soundemitterbase;   // shell_clientdll.cpp
 
 #include <stdarg.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: Performs a var args printf into a static return buffer

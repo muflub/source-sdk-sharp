@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef VGUI_IINPUT_H
-#define VGUI_IINPUT_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <vgui/VGUI.h>
 #include "tier1/interface.h"
@@ -20,28 +10,9 @@
 namespace vgui
 {
 
-class Cursor;
 typedef uint32 HCursor;
 
-#define VGUI_GCS_COMPREADSTR                 0x0001
-#define VGUI_GCS_COMPREADATTR                0x0002
-#define VGUI_GCS_COMPREADCLAUSE              0x0004
-#define VGUI_GCS_COMPSTR                     0x0008
-#define VGUI_GCS_COMPATTR                    0x0010
-#define VGUI_GCS_COMPCLAUSE                  0x0020
-#define VGUI_GCS_CURSORPOS                   0x0080
-#define VGUI_GCS_DELTASTART                  0x0100
-#define VGUI_GCS_RESULTREADSTR               0x0200
-#define VGUI_GCS_RESULTREADCLAUSE            0x0400
-#define VGUI_GCS_RESULTSTR                   0x0800
-#define VGUI_GCS_RESULTCLAUSE                0x1000
 // style bit flags for WM_IME_COMPOSITION
-#define VGUI_CS_INSERTCHAR                   0x2000
-#define VGUI_CS_NOMOVECARET                  0x4000
-
-#define MESSAGE_CURSOR_POS -1
-#define MESSAGE_CURRENT_KEYFOCUS -2
-
 
 class IInput : public IBaseInterface
 {
@@ -188,6 +159,3 @@ public:
 #define VGUI_INPUT_INTERFACE_VERSION "VGUI_Input005"
 
 } // namespace vgui
-
-
-#endif // VGUI_IINPUT_H

@@ -37,11 +37,7 @@
 // header in the tree and would catch it if that changed.
 //
 //=============================================================================//
-#ifndef ENTITY_RECORDING_LIST_H
-#define ENTITY_RECORDING_LIST_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "icliententitylist.h"
 
@@ -62,5 +58,3 @@ public:
 // class and to EntityTool_RecordEntities, which is the only reader of it that
 // survives step 6.
 extern IRecordingList *recordinglist;
-
-#endif // ENTITY_RECORDING_LIST_H

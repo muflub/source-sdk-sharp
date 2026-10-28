@@ -17,13 +17,13 @@
 # compiled from Valve's own interface.cpp again since Phase 6b, when the fork
 # dropped the Interface_SetMissHook edit.
 
-# The libraries a module links come from vendor/client (libss_particles's
-# particles, dmxloader, tier0 and vstdlib; client.dll's zlib); the rest only
-# the tests link, from the farm.
-set(SS_VENDOR_LIBS dmxloader particles tier0 vstdlib z)
+# libss_particles's particles, dmxloader, tier0 and vstdlib come from the
+# pristine clone (SS_STOCK), client.dll's zlib from vendor/client; the rest
+# only the tests link, from the farm.
+set(SS_STOCK_LIBS dmxloader particles tier0 vstdlib)
 function(ss_sdk_libdir out lib platform_dir)
-  if(lib IN_LIST SS_VENDOR_LIBS)
-    set(${out} "${SS_VENDOR}/client/lib/public/${platform_dir}" PARENT_SCOPE)
+  if(lib IN_LIST SS_STOCK_LIBS)
+    set(${out} "${SS_STOCK}/lib/public/${platform_dir}" PARENT_SCOPE)
   else()
     set(${out} "${SS_SRC}/lib/public/${platform_dir}" PARENT_SCOPE)
   endif()

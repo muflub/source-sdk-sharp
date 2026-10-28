@@ -11,11 +11,7 @@
 // Implemented in sourcesharp_gamesystem.cpp, which owns the managed API table.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_SERVER_H
-#define SOURCESHARP_SHELL_SERVER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 
@@ -154,5 +150,3 @@ int SourceSharp_EarPositionForClient( int iClientEdict, float *pOutXYZ );
 //-----------------------------------------------------------------------------
 int SourceSharp_AreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor,
                                       unsigned char *pPortalBits, int nPortalBytes );
-
-#endif // SOURCESHARP_SHELL_SERVER_H

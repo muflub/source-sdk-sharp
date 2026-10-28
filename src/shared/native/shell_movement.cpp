@@ -34,20 +34,35 @@
 //=============================================================================//
 
 #ifdef CLIENT_DLL
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #endif
 #ifdef CLIENT_DLL
-#include "gamerules.h"
+#include "igamerules.h"
 #else
 #include "igamerules.h"
 #endif
-#ifdef CLIENT_DLL
-#include "baseplayer_shared.h"
-#else
 // CPlayerState and the local data MvLocal() answers, from their own headers:
-// baseplayer_shared.h would bring the whole of player.h to the server, which
-// builds no CBasePlayer (P5).
+// baseplayer_shared.h would bring the whole player to either side, and
+// neither builds one (P5; the client's on stock headers, 2026-10-25).
 #include "PlayerState.h"
+#ifdef CLIENT_DLL
+#include "client_entity.h"
+#include "c_playerlocaldata.h"
+#else
 #include "ss_playerlocaldata.h"
 #endif
 #include "imovementplayer.h"
@@ -99,15 +114,13 @@ extern CGlobalVars *gpGlobals;
 #define VEC_DUCK_HULL_MIN_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vDuckHullMin * player->GetModelScale() )
 #define VEC_DUCK_HULL_MAX_SCALED( player ) ( g_pGameRules->GetViewVectors()->m_vDuckHullMax * player->GetModelScale() )
 #define VEC_DUCK_VIEW_SCALED( player )     ( g_pGameRules->GetViewVectors()->m_vDuckView * player->GetModelScale() )
-// A handle's entity: CBaseHandle::Get()'s SOURCESHARP body (ehandle.h), called
-// directly rather than given a second inline definition here.
-IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle );
-#define SS_HANDLE_ENTITY( h ) SourceSharp_EntityFromHandle( h )
 #include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
 #endif
-#ifdef CLIENT_DLL
-#define SS_HANDLE_ENTITY( h ) ( h ).Get()
-#endif
+// A handle's entity, through the slot table on both sides (stock's
+// CBaseHandle::Get() reads an entity list neither side builds).
+IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle );
+#define SS_HANDLE_ENTITY( h ) SourceSharp_EntityFromHandle( h )
+
 
 #ifdef CLIENT_DLL
 	#define SOURCESHARP_MOVE_SIDE_TAG "client"
@@ -608,9 +621,14 @@ public:
 	virtual ~CShellGameMovement( void );
 
 	// ---- IGameMovement, all seven --------------------------------------
-	virtual void	ProcessMovement( IMovementPlayer *pPlayer, CMoveData *pMove ) OVERRIDE;
-	virtual void	StartTrackPredictionErrors( IMovementPlayer *pPlayer ) OVERRIDE;
-	virtual void	FinishTrackPredictionErrors( IMovementPlayer *pPlayer ) OVERRIDE;
+	// Stock IGameMovement's signatures. Nothing in this build calls them (the
+	// movement is managed's); the interface is published because it is asked
+	// for by name. A player here is an IMovementPlayer, which is what the
+	// pointer holds (Player below).
+	virtual void	ProcessMovement( CBasePlayer *pPlayer, CMoveData *pMove ) OVERRIDE;
+	virtual void	StartTrackPredictionErrors( CBasePlayer *pPlayer ) OVERRIDE;
+	virtual void	FinishTrackPredictionErrors( CBasePlayer *pPlayer ) OVERRIDE;
+	static IMovementPlayer *Player( CBasePlayer *pPlayer ) { return reinterpret_cast< IMovementPlayer * >( pPlayer ); }
 #ifdef CLIENT_DLL
 	// Stock's igamemovement.h, which the client's GameMovement001 export
 	// implements, declares these four; server.so's ss::IGameMovement dropped
@@ -1495,8 +1513,9 @@ CShellGameMovement::~CShellGameMovement( void )
 // command can have nothing to run it are enumerated in shell_gamemovement.h and
 // every one of them says so out loud.
 //-----------------------------------------------------------------------------
-void CShellGameMovement::ProcessMovement( IMovementPlayer *pPlayer, CMoveData *pMove )
+void CShellGameMovement::ProcessMovement( CBasePlayer *pBasePlayer, CMoveData *pMove )
 {
+	IMovementPlayer *pPlayer = Player( pBasePlayer );
 	Assert( pMove && pPlayer );
 
 	if ( !pMove || !pPlayer )
@@ -1566,12 +1585,12 @@ void CShellGameMovement::ProcessMovement( IMovementPlayer *pPlayer, CMoveData *p
 // here any more: reading it to decide between one implementation and none is
 // the check that cannot fail.
 //-----------------------------------------------------------------------------
-void CShellGameMovement::StartTrackPredictionErrors( IMovementPlayer *pPlayer )
+void CShellGameMovement::StartTrackPredictionErrors( CBasePlayer *pPlayer )
 {
-	player = pPlayer;
+	player = Player( pPlayer );
 }
 
-void CShellGameMovement::FinishTrackPredictionErrors( IMovementPlayer *pPlayer )
+void CShellGameMovement::FinishTrackPredictionErrors( CBasePlayer *pPlayer )
 {
 }
 

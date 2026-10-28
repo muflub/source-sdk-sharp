@@ -25,9 +25,9 @@ public class VPhysicsSuppressionTests
     {
         ["PhysicsObjectFwd"] =
         [
-            "IsStatic", "IsAsleep", "IsTrigger", "IsMotionEnabled", "IsMoveable",
+            "IsStatic", "IsAsleep", "IsTrigger", "IsMoveable",
             "GetGameData", "GetGameFlags", "GetCallbackFlags", "GetContents",
-            "GetMass", "GetInvMass", "GetInertia", "GetShadowController", "GetCollide",
+            "GetMass", "GetInertia", "GetShadowController", "GetCollide",
             "GetPosition", "GetPositionMatrix", "GetVelocity", "GetVelocityAtPoint",
             "LocalToWorld", "WorldToLocal", "LocalToWorldVector", "WorldToLocalVector",
             "CalculateLinearDrag", "CalculateAngularDrag",

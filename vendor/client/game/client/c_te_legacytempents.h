@@ -1,23 +1,32 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( C_TE_LEGACYTEMPENTS_H )
-#define C_TE_LEGACYTEMPENTS_H
-#ifdef _WIN32
-#pragma once
-#endif
 
-class C_BaseEntity;
+//========= SourceSharp's edit of c_te_legacytempents.h (vendor/README.md) =====//
+// ITempEnts and CTempEnts, the client's temp entity factory, which
+// shell_legacy_tempents_client.cpp and shell_te_pool_client.cpp implement:
+// moved out of the fork's edited game/client/c_te_legacytempents.h (client.so
+// on unmodified Valve headers, user 2026-10-25).
+#pragma once
+
+#include "igameentity.h"
+
+// FizzEffect TAKES AN IClientRenderable, NOT AN IGameEntity. It reads exactly
+// two things off the entity a fizz was fired at -- the model, for its bounds,
+// and the render angles, for which way the current drags -- and both are pure
+// virtuals on IClientRenderable that EVERY client entity implements. Typed as
+// IGameEntity the call needed a relay and a cast through the one class in this
+// DLL that implements that interface; typed this way it needs neither and works
+// for an entity of either hierarchy.
+class IClientRenderable;
+
 class C_LocalTempEntity;
 class C_PhysPropClientside;
 struct model_t;
 
 #include "mempool.h"
+
+// particlemgr.h's handle to a particle material.
+class CParticleSubTexture;
+typedef CParticleSubTexture *PMaterialHandle;
 #include "utllinkedlist.h"
 
 #if defined( CSTRIKE_DLL ) || defined( SDK_DLL )
@@ -32,9 +41,7 @@ enum
 };
 #endif
 
-//-----------------------------------------------------------------------------
 // Purpose: Interface for lecacy temp entities
-//-----------------------------------------------------------------------------
 abstract_class ITempEnts
 {
 public:
@@ -60,7 +67,7 @@ public:
 	virtual void				Bubbles( const Vector &mins, const Vector &maxs, float height, int modelIndex, int count, float speed ) = 0;
 	virtual void				BubbleTrail( const Vector &start, const Vector &end, float flWaterZ, int modelIndex, int count, float speed ) = 0;
 	virtual void				Sprite_Explode( C_LocalTempEntity *pTemp, float scale, int flags ) = 0;
-	virtual void				FizzEffect( C_BaseEntity *pent, int modelIndex, int density, int current ) = 0;
+	virtual void				FizzEffect( IClientRenderable *pent, int modelIndex, int density, int current ) = 0;
 	virtual C_LocalTempEntity	*DefaultSprite( const Vector &pos, int spriteIndex, float framerate ) = 0;
 	virtual void				Sprite_Smoke( C_LocalTempEntity *pTemp, float scale ) = 0;
 	virtual C_LocalTempEntity	*TempSprite( const Vector &pos, const Vector &dir, float scale, int modelIndex, int rendermode, int renderfx, float a, float life, int flags, const Vector &normal = vec3_origin ) = 0;
@@ -74,14 +81,11 @@ public:
 	
 	virtual void				PlaySound ( C_LocalTempEntity *pTemp, float damp ) = 0;
 	virtual void				PhysicsProp( int modelindex, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects = 0 ) = 0;
-	virtual C_LocalTempEntity	*ClientProjectile( const Vector& vecOrigin, const Vector& vecVelocity, const Vector& vecAccel, int modelindex, int lifetime, CBaseEntity *pOwner, const char *pszImpactEffect = NULL, const char *pszParticleEffect = NULL ) = 0;
+	virtual C_LocalTempEntity	*ClientProjectile( const Vector& vecOrigin, const Vector& vecVelocity, const Vector& vecAccel, int modelindex, int lifetime, IGameEntity *pOwner, const char *pszImpactEffect = NULL, const char *pszParticleEffect = NULL ) = 0;
 	virtual C_PhysPropClientside		*PhysicsProp( const model_t *pModel, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects = 0, int nModelIndex = -1 ) = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Default implementation of the temp entity interface
-//-----------------------------------------------------------------------------
 class CTempEnts : public ITempEnts
 {
 // Construction
@@ -113,7 +117,7 @@ public:
 	virtual void			Bubbles( const Vector &mins, const Vector &maxs, float height, int modelIndex, int count, float speed );
 	virtual void			BubbleTrail( const Vector &start, const Vector &end, float height, int modelIndex, int count, float speed );
 	virtual void			Sprite_Explode( C_LocalTempEntity *pTemp, float scale, int flags );
-	virtual void			FizzEffect( C_BaseEntity *pent, int modelIndex, int density, int current );
+	virtual void			FizzEffect( IClientRenderable *pent, int modelIndex, int density, int current );
 	virtual C_LocalTempEntity		*DefaultSprite( const Vector &pos, int spriteIndex, float framerate );
 	virtual void			Sprite_Smoke( C_LocalTempEntity *pTemp, float scale );
 	virtual C_LocalTempEntity		*TempSprite( const Vector &pos, const Vector &dir, float scale, int modelIndex, int rendermode, int renderfx, float a, float life, int flags, const Vector &normal = vec3_origin );
@@ -129,7 +133,7 @@ public:
 	void					HL1EjectBrass( const Vector &vecPosition, const QAngle &angAngles, const Vector &vecVelocity, int nType );
 	void					CSEjectBrass( const Vector &vecPosition, const QAngle &angAngles, int nType, int nShellType, CBasePlayer *pShooter );
 	void					PhysicsProp( int modelindex, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects = 0 );
-	C_LocalTempEntity		*ClientProjectile( const Vector& vecOrigin, const Vector& vecVelocity, const Vector& vecAcceleration, int modelindex, int lifetime, CBaseEntity *pOwner, const char *pszImpactEffect = NULL, const char *pszParticleEffect = NULL );
+	C_LocalTempEntity		*ClientProjectile( const Vector& vecOrigin, const Vector& vecVelocity, const Vector& vecAcceleration, int modelindex, int lifetime, IGameEntity *pOwner, const char *pszImpactEffect = NULL, const char *pszParticleEffect = NULL );
 	C_PhysPropClientside	*PhysicsProp( const model_t *pModel, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects = 0, int modelindex = -1 );
 
 // Data
@@ -168,13 +172,34 @@ private:
 
 // Internal methods also available to children
 protected:
-	C_LocalTempEntity		*TempEntAlloc( const Vector& org, const model_t *model );
-	C_LocalTempEntity		*TempEntAllocHigh( const Vector& org, const model_t *model );
+
+	// SourceSharp -- the two things the MANAGED pool needs from this class
+	// that it cannot reach any other way (plan_tmp.md Part 5).
+	// The pool's bookkeeping is C#'s: the active list, the free list, the
+	// priority classes, the eviction, the lifetime and the update loop all live
+	// in SourceSharp.Client/TempEnts/ClientTempEntPool.cs. What stays here is
+	// the OBJECT -- a C_LocalTempEntity is already the draw shell -- and these
+	// two are the only members of this class the slot table in
+	// sourcesharp/game/client/shell_te_pool_client.cpp cannot get at from
+	// outside, because m_TempEntsPool and AddVisibleTempEntity are private.
+	// PUBLIC RATHER THAN FRIENDED, deliberately: a friend declaration here
+	// would name a SourceSharp translation unit inside a stock header, and the
+	// stock client compiles this header with SOURCESHARP undefined.
+public:
+	void					 PoolFreeObject( C_LocalTempEntity *pTemp );
+	int						 PoolAddVisible( C_LocalTempEntity *pTemp );
+
+	// C-Phase 5's third, and the same reason as the first two: the no-argument
+	// TempEntAlloc() below is private, and a MANAGED spawn helper has to be
+	// able to ask for the object after the managed pool has already reserved
+	// its slot. A member, so it can reach the private one; defined in
+	// shell_te_pool_client.cpp with the other two.
+	C_LocalTempEntity		*PoolCreateObject();
+private:
 
 // Material handle caches
 private:
 
-	inline void				CacheMuzzleFlashes( void );
 	PMaterialHandle			m_Material_MuzzleFlash_Player[4];
 	PMaterialHandle			m_Material_MuzzleFlash_NPC[4];
 	PMaterialHandle			m_Material_Combine_MuzzleFlash_Player[2];
@@ -184,41 +209,10 @@ private:
 private:
 	CTempEnts( const CTempEnts & );
 
-	void					TempEntFree( int index );
 	C_LocalTempEntity		*TempEntAlloc();	
-	bool					FreeLowPriorityTempEnt();
 
 	int						AddVisibleTempEntity( C_LocalTempEntity *pEntity );
 
-	// AR2
-	void					MuzzleFlash_AR2_Player( const Vector &origin, const QAngle &angles, ClientEntityHandle_t hEntity );
-	void					MuzzleFlash_AR2_NPC( const Vector &origin, const QAngle &angles, ClientEntityHandle_t hEntity );
-							
-	// SMG1					
-	void					MuzzleFlash_SMG1_Player( ClientEntityHandle_t hEntity, int attachmentIndex );
-	void					MuzzleFlash_SMG1_NPC( ClientEntityHandle_t hEntity, int attachmentIndex );
-							
-	// Shotgun				
-	void					MuzzleFlash_Shotgun_Player( ClientEntityHandle_t hEntity, int attachmentIndex );
-	void					MuzzleFlash_Shotgun_NPC( ClientEntityHandle_t hEntity, int attachmentIndex );
-							
-	// Pistol				
-	void					MuzzleFlash_Pistol_Player( ClientEntityHandle_t hEntity, int attachmentIndex );
-	void					MuzzleFlash_Pistol_NPC( ClientEntityHandle_t hEntity, int attachmentIndex );
-							
-	// Combine				
-	void					MuzzleFlash_Combine_Player( ClientEntityHandle_t hEntity, int attachmentIndex );
-	void					MuzzleFlash_Combine_NPC( ClientEntityHandle_t hEntity, int attachmentIndex );
-
-	// 357
-	void					MuzzleFlash_357_Player( ClientEntityHandle_t hEntity, int attachmentIndex );
-
-	// RPG
-	void					MuzzleFlash_RPG_NPC( ClientEntityHandle_t hEntity, int attachmentIndex );
 };
 
-
 extern ITempEnts *tempents;
-
-
-#endif // C_TE_LEGACYTEMPENTS_H

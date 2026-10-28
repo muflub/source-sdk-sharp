@@ -1,12 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef IMATERIALPROXY_H
-#define IMATERIALPROXY_H
 #pragma once
 
 #include "interface.h"
@@ -28,5 +21,3 @@ protected:
 	// no one should call this directly
 	virtual ~IMaterialProxy() {}
 };
-
-#endif // IMATERIALPROXY_H

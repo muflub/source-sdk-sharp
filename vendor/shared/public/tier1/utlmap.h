@@ -1,31 +1,15 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Header: $
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef UTLMAP_H
-#define UTLMAP_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/dbg.h"
 #include "utlrbtree.h"
 
-//-----------------------------------------------------------------------------
-//
 // Purpose:	An associative container. Pretty much identical to std::map.
-//
-//-----------------------------------------------------------------------------
 
 // VC++ does not like us using (*p).IsUtlMap in some cases, throwing out analyze warnings. Pass through
 // this identify ref functions to convince it that (*p) is just a regular reference and can be used without warning us.
 template <typename T> FORCEINLINE_TEMPLATE T& AnalyzeMapRef(T& ref) { return ref; }
-
 
 // This is a useful macro to iterate from start to end in order in a map
 #define FOR_EACH_MAP( mapName, iteratorName ) \
@@ -36,7 +20,6 @@ template <typename T> FORCEINLINE_TEMPLATE T& AnalyzeMapRef(T& ref) { return ref
 	for ( int iteratorName = 0; AnalyzeMapRef(mapName).IsUtlMap && iteratorName < AnalyzeMapRef(mapName).MaxElement(); ++iteratorName ) if ( !AnalyzeMapRef(mapName).IsValidIndex( iteratorName ) ) continue; else
 
 // Iterate in reverse order
-
 
 struct base_utlmap_t
 {
@@ -81,7 +64,6 @@ public:
 	KeyType_t &			Key( IndexType_t i )				{ return m_Tree.Element( i ).key; }
 	const KeyType_t &	Key( IndexType_t i ) const			{ return m_Tree.Element( i ).key; }
 
-	
 	// Num elements
 	unsigned int Count() const								{ return m_Tree.Count(); }
 	
@@ -138,14 +120,12 @@ public:
 		return m_Tree.Insert( node );
 	}
 
-
 	bool HasElement( const KeyType_t &key ) const
 	{
 		Node_t dummyNode;
 		dummyNode.key = key;
 		return m_Tree.HasElement( dummyNode );
 	}
-
 
 	// Find method
 	IndexType_t  Find( const KeyType_t &key ) const
@@ -164,7 +144,6 @@ public:
 		return m_Tree.FindFirst( dummyNode );
 	}
 
-
 	const ElemType_t &FindElement( const KeyType_t &key, const ElemType_t &defaultValue ) const
 	{
 		IndexType_t i = Find( key );
@@ -172,7 +151,6 @@ public:
 			return defaultValue;
 		return Element( i );
 	}
-
 
 	// First element >= key
 	IndexType_t  FindClosest( const KeyType_t &key, CompareOperands_t eFindCriteria ) const
@@ -239,7 +217,6 @@ public:
 		m_Tree.Swap( that.m_Tree );
 	}
 
-
 	struct Node_t
 	{
 		Node_t()
@@ -282,8 +259,6 @@ protected:
 	CTree 	   m_Tree;
 };
 
-//-----------------------------------------------------------------------------
-
 // Purges the list and calls delete on each element in it.
 template< typename K, typename T, typename I, typename LessFunc_t >
 inline void CUtlMap<K, T, I, LessFunc_t>::PurgeAndDeleteElements()
@@ -298,7 +273,3 @@ inline void CUtlMap<K, T, I, LessFunc_t>::PurgeAndDeleteElements()
 
 	Purge();
 }
-
-//-----------------------------------------------------------------------------
-
-#endif // UTLMAP_H

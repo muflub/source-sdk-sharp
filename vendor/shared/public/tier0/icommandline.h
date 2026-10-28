@@ -1,21 +1,10 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//===========================================================================//
 
-#ifndef TIER0_ICOMMANDLINE_H
-#define TIER0_ICOMMANDLINE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/platform.h"
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Interface to engine command line
-//-----------------------------------------------------------------------------
 abstract_class ICommandLine
 {
 public:
@@ -53,16 +42,11 @@ public:
 	virtual void		CreateCmdLine1( int argc, char **argv, bool bParseParamFiles ) = 0;
 };
 
-//-----------------------------------------------------------------------------
 // Gets a singleton to the commandline interface
 // NOTE: The #define trickery here is necessary for backwards compat:
 // this interface used to lie in the vstdlib library.
-//-----------------------------------------------------------------------------
 PLATFORM_INTERFACE ICommandLine *CommandLine_Tier0();
 
 #if !defined( VSTDLIB_BACKWARD_COMPAT )
 #define CommandLine CommandLine_Tier0
 #endif
-
-#endif // TIER0_ICOMMANDLINE_H
-

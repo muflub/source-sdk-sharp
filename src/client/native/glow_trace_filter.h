@@ -15,8 +15,7 @@
 //
 //=============================================================================
 
-#ifndef SS_GLOW_TRACE_FILTER_H
-#define SS_GLOW_TRACE_FILTER_H
+#pragma once
 
 #include "const.h"
 
@@ -24,5 +23,3 @@ inline bool GlowSightAdmits( int nSolid )
 {
 	return nSolid == SOLID_VPHYSICS || nSolid == SOLID_BSP;
 }
-
-#endif // SS_GLOW_TRACE_FILTER_H

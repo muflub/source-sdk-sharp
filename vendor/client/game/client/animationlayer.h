@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef ANIMATIONLAYER_H
-#define ANIMATIONLAYER_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "rangecheckedvar.h"
 #include "lerp_functions.h"
@@ -25,8 +16,6 @@ public:
 	C_AnimationLayer();
 	void Reset();
 
-	void SetOrder( int order );
-
 public:
 
 	bool IsActive( void );
@@ -40,10 +29,6 @@ public:
 	CRangeCheckedVar<float, -50, 50, 1>		m_flPlaybackRate;
 	CRangeCheckedVar<float, -2, 2, 0>		m_flCycle;
 
-	float GetFadeout( float flCurTime );
-
-	void BlendWeight();
-
 	float	m_flLayerAnimtime;
 	float	m_flLayerFadeOuttime;
 
@@ -52,9 +37,6 @@ public:
 
 	bool    m_bClientBlend;
 };
-#ifdef CLIENT_DLL
-	#define CAnimationLayer C_AnimationLayer
-#endif
 
 inline C_AnimationLayer::C_AnimationLayer()
 {
@@ -74,39 +56,6 @@ inline void C_AnimationLayer::Reset()
 	m_flBlendOut = 0;
 	m_bClientBlend = false;
 }
-
-
-inline void C_AnimationLayer::SetOrder( int order )
-{
-	m_nOrder = order;
-}
-
-inline float C_AnimationLayer::GetFadeout( float flCurTime )
-{
-	float s;
-
-    if (m_flLayerFadeOuttime <= 0.0f)
-	{
-		s = 0;
-	}
-	else
-	{
-		// blend in over 0.2 seconds
-		s = 1.0 - (flCurTime - m_flLayerAnimtime) / m_flLayerFadeOuttime;
-		if (s > 0 && s <= 1.0)
-		{
-			// do a nice spline curve
-			s = 3 * s * s - 2 * s * s * s;
-		}
-		else if ( s > 1.0f )
-		{
-			// Shouldn't happen, but maybe curtime is behind animtime?
-			s = 1.0f;
-		}
-	}
-	return s;
-}
-
 
 inline C_AnimationLayer LoopingLerp( float flPercent, C_AnimationLayer& from, C_AnimationLayer& to )
 {
@@ -179,35 +128,3 @@ inline void Lerp_Clamp( C_AnimationLayer &val )
 	Lerp_Clamp( val.m_flLayerAnimtime );
 	Lerp_Clamp( val.m_flLayerFadeOuttime );
 }
-
-inline void C_AnimationLayer::BlendWeight()
-{
-	if ( !m_bClientBlend )
-		return;
-
-	m_flWeight = 1;
-
-	// blend in?
-	if ( m_flBlendIn != 0.0f )
-	{
-		if (m_flCycle < m_flBlendIn)
-		{
-			m_flWeight = m_flCycle / m_flBlendIn;
-		}
-	}
-
-	// blend out?
-	if ( m_flBlendOut != 0.0f )
-	{
-		if (m_flCycle > 1.0 - m_flBlendOut)
-		{
-			m_flWeight = (1.0 - m_flCycle) / m_flBlendOut;
-		}
-	}
-
-	m_flWeight = 3.0 * m_flWeight * m_flWeight - 2.0 * m_flWeight * m_flWeight * m_flWeight;
-	if (m_nSequence == 0)
-		m_flWeight = 0;
-}
-
-#endif // ANIMATIONLAYER_H

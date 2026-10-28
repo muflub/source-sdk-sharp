@@ -22,11 +22,7 @@
 // event handler names, is declared.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_PHYSICS_H
-#define SOURCESHARP_SS_PHYSICS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "vphysics_interface.h"
 #include "basehandle.h"
@@ -91,5 +87,3 @@ void PhysCollisionScreenShake( ss::gamevcollisionevent_t *pEvent, int index );
 void PhysCollisionDust( ss::gamevcollisionevent_t *pEvent, surfacedata_t *phit );
 void PhysFrictionSound( IGameEntity *pEntity, IPhysicsObject *pObject, float energy, int surfaceProps,
                         int surfacePropsHit );
-
-#endif // SOURCESHARP_SS_PHYSICS_H

@@ -1,17 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( ICLIENTENTITYLIST_H )
-#define ICLIENTENTITYLIST_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "interface.h"
 
@@ -21,10 +9,7 @@ class IClientNetworkable;
 class CBaseHandle;
 class IClientUnknown;
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Exposes IClientEntity's to engine
-//-----------------------------------------------------------------------------
 abstract_class IClientEntityList
 {
 public:
@@ -49,8 +34,4 @@ public:
 	virtual int					GetMaxEntities( ) = 0;
 };
 
-extern IClientEntityList *entitylist;
-
 #define VCLIENTENTITYLIST_INTERFACE_VERSION	"VClientEntityList003"
-
-#endif // ICLIENTENTITYLIST_H

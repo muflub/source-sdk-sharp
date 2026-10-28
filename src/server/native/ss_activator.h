@@ -80,11 +80,7 @@
 // not exist.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SS_ACTIVATOR_H
-#define SOURCESHARP_SS_ACTIVATOR_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basehandle.h"
 #include "ihandleentity.h"
@@ -169,5 +165,3 @@ Activator_t ActivatorFromGameHandle( const CBaseHandle &handle );
 // ordinary activator costs one null-handle test more than it did.
 //-----------------------------------------------------------------------------
 Activator_t ActivatorOf( IGameEntity *pBase, const CBaseHandle &hGame );
-
-#endif // SOURCESHARP_SS_ACTIVATOR_H

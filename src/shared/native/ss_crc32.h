@@ -13,11 +13,7 @@
 // leaves the running value as it was. ss_crc32_oracle_test holds this to
 // pristine checksum_crc.cpp.
 //=============================================================================//
-#ifndef SOURCESHARP_SS_CRC32_H
-#define SOURCESHARP_SS_CRC32_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <cstdint>
 
@@ -59,5 +55,3 @@ inline uint32_t Crc32Finish( uint32_t crc ) { return crc ^ 0xFFFFFFFFu; }
 
 inline uint32_t Crc32TableEntry( unsigned int slot ) { return kCrc32Table[slot & 0xFFu]; }
 } // namespace ss
-
-#endif // SOURCESHARP_SS_CRC32_H

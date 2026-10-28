@@ -31,11 +31,7 @@
 // at compile time rather than by a map that stopped colliding.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SCRIPTED_KINDS_H
-#define SOURCESHARP_SCRIPTED_KINDS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // Which shell a C#-declared class is instantiated as. Must match
 // ScriptedEntityKind in C#.
@@ -248,5 +244,3 @@ inline SourceSharpScriptedKindParams_t SourceSharp_ScriptedKindParams( int nKind
 		return p;
 	}
 }
-
-#endif // SOURCESHARP_SCRIPTED_KINDS_H

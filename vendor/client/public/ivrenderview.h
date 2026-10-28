@@ -1,15 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $NoKeywords: $
-//===========================================================================//
-#if !defined( IVRENDERVIEW_H )
-#define IVRENDERVIEW_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basetypes.h"
 #include "mathlib/vplane.h"
@@ -18,10 +8,7 @@
 #include "const.h"
 #include "tier1/refcount.h"
 
-
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 class CViewSetup;
 class CEngineSprite;
 class IClientEntity;
@@ -29,10 +16,7 @@ class IMaterial;
 struct model_t;
 class IClientRenderable;
 
-
-//-----------------------------------------------------------------------------
 // Flags used by DrawWorldLists
-//-----------------------------------------------------------------------------
 enum
 {
 	DRAWWORLDLISTS_DRAW_STRICTLYABOVEWATER		= 0x001,
@@ -69,10 +53,7 @@ enum ERenderDepthMode
 
 typedef VPlane Frustum[FRUSTUM_NUMPLANES];
 
-
-//-----------------------------------------------------------------------------
 // Leaf index
-//-----------------------------------------------------------------------------
 typedef unsigned short LeafIndex_t;
 typedef short LeafFogVolume_t;
 enum
@@ -80,10 +61,7 @@ enum
 	INVALID_LEAF_INDEX = (LeafIndex_t)~0
 };
 
-
-//-----------------------------------------------------------------------------
 // Describes the leaves to be rendered this view, set by BuildWorldLists
-//-----------------------------------------------------------------------------
 struct WorldListInfo_t
 {
 	int		m_ViewFogVolume;
@@ -96,9 +74,7 @@ class IWorldRenderList : public IRefCounted
 {
 };
 
-//-----------------------------------------------------------------------------
 // Describes the fog volume for a particular point
-//-----------------------------------------------------------------------------
 struct VisibleFogVolumeInfo_t
 {
 	int		m_nVisibleFogVolume;
@@ -109,36 +85,14 @@ struct VisibleFogVolumeInfo_t
 	IMaterial *m_pFogVolumeMaterial;
 };
 
-
-//-----------------------------------------------------------------------------
-// Vertex format for brush models
-//-----------------------------------------------------------------------------
-struct BrushVertex_t
-{
-	Vector		m_Pos;
-	Vector		m_Normal;
-	Vector		m_TangentS;
-	Vector		m_TangentT;
-	Vector2D	m_TexCoord;
-	Vector2D	m_LightmapCoord;
-
-private:
-	BrushVertex_t( const BrushVertex_t& src );
-};
-
-//-----------------------------------------------------------------------------
 // Visibility data for area portal culling
-//-----------------------------------------------------------------------------
 struct VisOverrideData_t
 {
-	Vector		m_vecVisOrigin;					// The point to to use as the viewpoint for area portal backface cull checks.
+	alignas( 4 ) unsigned char unused_m_vecVisOrigin[ 12 ];
 	float		m_fDistToAreaPortalTolerance;	// The distance from an area portal before using the full screen as the viewable portion.
 };
 
-
-//-----------------------------------------------------------------------------
 // interface for asking about the Brush surfaces from the client DLL
-//-----------------------------------------------------------------------------
 
 class IBrushSurface
 {
@@ -148,17 +102,14 @@ public:
 	virtual void ComputeLightmapCoordinate( Vector const& worldPos, Vector2D& lightmapCoord ) = 0;
 
 	// Gets the vertex data for this surface
-	virtual int  GetVertexCount() const = 0;
-	virtual void GetVertexData( BrushVertex_t* pVerts ) = 0;
+	virtual void unused_GetVertexCount() = 0;
+	virtual void unused_GetVertexData() = 0;
 
 	// Gets at the material properties for this surface
 	virtual IMaterial* GetMaterial() = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // interface for installing a new renderer for brush surfaces
-//-----------------------------------------------------------------------------
 
 class IBrushRenderer
 {
@@ -167,13 +118,10 @@ public:
 	virtual bool RenderBrushModelSurface( IClientEntity* pBaseEntity, IBrushSurface* pBrushSurface ) = 0;
 };
 
-
 #define MAX_VIS_LEAVES	32
-//-----------------------------------------------------------------------------
 // Purpose: Interface to client .dll to set up a rendering pass over world
 //  The client .dll can call Render multiple times to overlay one or more world
 //  views on top of one another
-//-----------------------------------------------------------------------------
 enum DrawBrushModelMode_t
 {
 	DBM_DRAW_ALL = 0,
@@ -201,7 +149,7 @@ public:
 	virtual void			DrawIdentityBrushModel( IWorldRenderList *pList, model_t *model ) = 0;
 
 	// Mark this dynamic light as having changed this frame ( so light maps affected will be recomputed )
-	virtual void			TouchLight( struct dlight_t *light ) = 0;
+	virtual void unused_TouchLight() = 0;
 	// Draw 3D Overlays
 	virtual void			Draw3DDebugOverlays( void ) = 0;
 	// Sets global blending fraction
@@ -229,8 +177,8 @@ public:
 	virtual void			DrawWorldLists( IWorldRenderList *pList, unsigned long flags, float waterZAdjust ) = 0;
 
 	// Optimization for top view
-	virtual void			DrawTopView( bool enable ) = 0;
-	virtual void			TopViewBounds( Vector2D const& mins, Vector2D const& maxs ) = 0;
+	virtual void unused_DrawTopView() = 0;
+	virtual void unused_TopViewBounds() = 0;
 
 	// Draw lights
 	virtual void			DrawLights( void ) = 0;
@@ -254,13 +202,13 @@ public:
 	// Sets up view fade parameters
 	virtual void			ViewDrawFade( byte *color, IMaterial *pMaterial ) = 0;
 	// Sets up the projection matrix for the specified field of view
-	virtual void			OLD_SetProjectionMatrix( float fov, float zNear, float zFar ) = 0;
+	virtual void unused_OLD_SetProjectionMatrix() = 0;
 	// Determine lighting at specified position
-	virtual colorVec		GetLightAtPoint( Vector& pos ) = 0;
+	virtual void unused_GetLightAtPoint() = 0;
 	// Whose eyes are we looking through?
 	virtual int				GetViewEntity( void ) = 0;
 	// Get engine field of view setting
-	virtual float			GetFieldOfView( void ) = 0;
+	virtual void unused_GetFieldOfView() = 0;
 	// 1 == ducking, 0 == not
 	virtual unsigned char	**GetAreaBits( void ) = 0;
 
@@ -278,9 +226,7 @@ public:
 
 	virtual bool			DoesBoxIntersectWaterVolume( const Vector &mins, const Vector &maxs, int leafWaterDataID ) = 0;
 
-	virtual void			SetAreaState( 
-			unsigned char chAreaBits[MAX_AREA_STATE_BYTES],
-			unsigned char chAreaPortalBits[MAX_AREA_PORTAL_STATE_BYTES] ) = 0;
+	virtual void unused_SetAreaState() = 0;
 
 	// See i
 	virtual void			VGui_Paint( int mode ) = 0;
@@ -308,8 +254,8 @@ public:
 	virtual void			UpdateBrushModelLightmap( model_t *model, IClientRenderable *pRenderable ) = 0;
 	virtual void			BeginUpdateLightmaps( void ) = 0;
 	virtual void			EndUpdateLightmaps( void ) = 0;
-	virtual void			OLD_SetOffCenterProjectionMatrix( float fov, float zNear, float zFar, float flAspectRatio, float flBottom, float flTop, float flLeft, float flRight ) = 0;
-	virtual void			OLD_SetProjectionMatrixOrtho( float left, float top, float right, float bottom, float zNear, float zFar ) = 0;
+	virtual void unused_OLD_SetOffCenterProjectionMatrix() = 0;
+	virtual void unused_OLD_SetProjectionMatrixOrtho() = 0;
 	virtual void			Push3DView( const CViewSetup &view, int nFlags, ITexture* pRenderTarget, Frustum frustumPlanes, ITexture* pDepthTexture ) = 0;
 	virtual void			GetMatricesForView( const CViewSetup &view, VMatrix *pWorldToView, VMatrix *pViewToProjection, VMatrix *pWorldToProjection, VMatrix *pWorldToPixels ) = 0;
 	virtual void			DrawBrushModelEx( IClientEntity *baseentity, model_t *model, const Vector& origin, const QAngle& angles, DrawBrushModelMode_t mode ) = 0;
@@ -318,7 +264,7 @@ public:
 // change this when the new version is incompatable with the old
 #define VENGINE_RENDERVIEW_INTERFACE_VERSION	"VEngineRenderView014"
 
-#if defined(_STATIC_LINKED) && defined(CLIENT_DLL)
+#if defined(_STATIC_LINKED)
 namespace Client
 {
 extern IVRenderView *render;
@@ -326,5 +272,3 @@ extern IVRenderView *render;
 #else
 extern IVRenderView *render;
 #endif
-
-#endif // IVRENDERVIEW_H

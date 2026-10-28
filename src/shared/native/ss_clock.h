@@ -8,11 +8,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_CLOCK_H
-#define SOURCESHARP_SS_CLOCK_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <chrono>
 
@@ -26,5 +22,3 @@ inline double SecondsSinceStart()
 }
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_CLOCK_H

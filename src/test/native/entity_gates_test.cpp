@@ -1470,7 +1470,11 @@ TEST( EntityGates, TheBinariesStillCarryATypeinfoTableToWalk )
 		long nAllowed = 0;
 		if ( i == 0 )
 		{
-			const Run_t face = RunAtRoot( "grep -cx 'abstract_class CBaseEntity' src/public/igameentity.h || true" );
+			// The face is spelled CBaseEntity, or SS_GAME_ENTITY where
+			// igameentity_fwd.h names it CBaseEntity on the server.
+			const Run_t face = RunAtRoot( "{ grep -qx 'abstract_class CBaseEntity' src/public/igameentity.h || "
+				"{ grep -qx 'abstract_class SS_GAME_ENTITY' src/public/igameentity.h && "
+				"grep -qx '#define SS_GAME_ENTITY CBaseEntity' src/public/igameentity_fwd.h; }; } && echo 1 || echo 0" );
 			const Run_t members = RunAtRoot( std::string( "nm -C --defined-only '" ) + kSo[ i ] +
 				"' | awk '$2 ~ /^[TWVDBRt]$/' | grep 'CBaseEntity::' "
 				"| grep -cv 'CBaseEntity::CBaseEntity()\\|CBaseEntity::~CBaseEntity()' || true" );

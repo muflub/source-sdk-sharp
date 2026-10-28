@@ -1,21 +1,10 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef PROTECTED_THINGS_H
-#define PROTECTED_THINGS_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 // This header tries to prevent people from using potentially dangerous functions
 // (like the notorious non-null-terminating strncpy) and functions that will break
 // VCR mode (like time, input, registry, etc).
-//
 // This header should be included by ALL of our source code.
 
 // Eventually, ALL of these should be protected, but one man can only accomplish so much in
@@ -129,14 +118,12 @@
 
 #endif
 
-
-#if defined( PROTECTED_THINGS_ENABLE ) && !defined( _X360 ) && !defined(DISABLE_PROTECTED_THINGS)
+#if defined( PROTECTED_THINGS_ENABLE ) && !defined(DISABLE_PROTECTED_THINGS)
 
 	#if defined( GetTickCount )
 		#undef GetTickCount
 	#endif
 	#define GetTickCount		GetTickCount__USE_VCR_MODE
-	
 	
 	#if defined( timeGetTime )
 		#undef timeGetTime
@@ -147,108 +134,90 @@
 	#endif
 	#define time				time__USE_VCR_MODE
 	
-	
 	#if defined( recvfrom )
 		#undef recvfrom
 	#endif
 	#define recvfrom			recvfrom__USE_VCR_MODE
-
 
 	#if defined( GetCursorPos )
 		#undef GetCursorPos
 	#endif
 	#define GetCursorPos		GetCursorPos__USE_VCR_MODE
 	
-	
 	#if defined( ScreenToClient )
 		#undef ScreenToClient
 	#endif
 	#define ScreenToClient		ScreenToClient__USE_VCR_MODE
-	
 	
 	#if defined( GetCommandLine )
 		#undef GetCommandLine
 	#endif
 	#define GetCommandLine		GetCommandLine__USE_VCR_MODE
 	
-	
 	#if defined( RegOpenKeyEx )
 		#undef RegOpenKeyEx
 	#endif
 	#define RegOpenKeyEx		RegOpenKeyEx__USE_VCR_MODE
-	
 	
 	#if defined( RegOpenKey )
 		#undef RegOpenKey
 	#endif
 	#define RegOpenKey			RegOpenKey__USE_VCR_MODE
 	
-	
 	#if defined( RegSetValueEx )
 		#undef RegSetValueEx
 	#endif
 	#define RegSetValueEx		RegSetValueEx__USE_VCR_MODE
-	
 	
 	#if defined( RegSetValue )
 		#undef RegSetValue
 	#endif
 	#define RegSetValue			RegSetValue__USE_VCR_MODE
 	
-	
 	#if defined( RegQueryValueEx )
 		#undef RegQueryValueEx
 	#endif		
 	#define RegQueryValueEx		RegQueryValueEx__USE_VCR_MODE
-	
 	
 	#if defined( RegQueryValue )
 		#undef RegQueryValue
 	#endif		
 	#define RegQueryValue		RegQueryValue__USE_VCR_MODE
 	
-	
 	#if defined( RegCreateKeyEx )
 		#undef RegCreateKeyEx
 	#endif
 	#define RegCreateKeyEx		RegCreateKeyEx__USE_VCR_MODE
-	
 	
 	#if defined( RegCreateKey )
 		#undef RegCreateKey
 	#endif
 	#define RegCreateKey		RegCreateKey__USE_VCR_MODE
 	
-	
 	#if defined( RegCloseKey )
 		#undef RegCloseKey
 	#endif
 	#define RegCloseKey			RegCloseKey__USE_VCR_MODE
-	
 	
 	#if defined( GetNumberOfConsoleInputEvents )
 		#undef GetNumberOfConsoleInputEvents
 	#endif
 	#define GetNumberOfConsoleInputEvents	GetNumberOfConsoleInputEvents__USE_VCR_MODE
 	
-	
 	#if defined( ReadConsoleInput )
 		#undef ReadConsoleInput
 	#endif
 	#define ReadConsoleInput	ReadConsoleInput__USE_VCR_MODE
-
 
 	#if defined( GetAsyncKeyState )
 		#undef GetAsyncKeyState
 	#endif
 	#define GetAsyncKeyState	GetAsyncKeyState__USE_VCR_MODE
 
-	
 	#if defined( GetKeyState )
 		#undef GetKeyState
 	#endif
 	#define GetKeyState			GetKeyState__USE_VCR_MODE
-
 
 	#if defined( CreateThread )
 		#undef CreateThread
@@ -266,6 +235,3 @@
 	#define EnterCriticalSection EnterCriticalSection__USE_VCR_MODE
 
 #endif
-
-
-#endif // PROTECTED_THINGS_H

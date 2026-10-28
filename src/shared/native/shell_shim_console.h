@@ -18,8 +18,6 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_SHIM_CONSOLE_H
-#define SHELL_SHIM_CONSOLE_H
 #pragma once
 
 #include "ishim_console.h"
@@ -51,5 +49,3 @@ CShimConsole &ShimConsole();
 
 // The internal factory's row for SOURCESHARP_SHIM_CONSOLE_VERSION.
 void *ShimConsole_Acquire();
-
-#endif // SHELL_SHIM_CONSOLE_H

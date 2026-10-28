@@ -477,6 +477,25 @@ inline std::vector< CompileEntry > TargetEntries( const std::string &strTarget )
 	return out;
 }
 
+// The pristine clone's src/ ($SOURCESHARP_VALVE_SDK, else valve-sdk.lock.local),
+// or empty when neither names one.
+inline std::string StockSrc()
+{
+	std::string strRoot;
+	if ( const char *pszEnv = getenv( "SOURCESHARP_VALVE_SDK" ) )
+		strRoot = pszEnv;
+	if ( strRoot.empty() )
+	{
+		std::ifstream f( RepoRoot() + "/valve-sdk.lock.local" );
+		f >> strRoot;
+	}
+	if ( strRoot.empty() )
+		return std::string();
+	while ( strRoot.size() > 1 && strRoot[ strRoot.size() - 1 ] == '/' )
+		strRoot.erase( strRoot.size() - 1 );
+	return strRoot + "/src";
+}
+
 inline std::string FarmRelative( const std::string &strAbsolute )
 {
 	const std::string strPrefix = FarmSrc() + "/";
@@ -486,6 +505,10 @@ inline std::string FarmRelative( const std::string &strAbsolute )
 	if ( strAbsolute.compare( 0, strRepo.size(), strRepo ) == 0
 		&& strAbsolute.compare( 0, strRepo.size() + 5, strRepo + "farm/" ) != 0 )
 		return RepoToFarm( strAbsolute.substr( strRepo.size() ) );
+	// The pristine clone's src/: libss_particles, tier1 and mathlib build from it.
+	const std::string strStock = StockSrc();
+	if ( !strStock.empty() && strAbsolute.compare( 0, strStock.size() + 1, strStock + "/" ) == 0 )
+		return strAbsolute.substr( strStock.size() + 1 );
 	throw Error( strAbsolute + " is neither under the farm's src/ (" + strPrefix + ") nor a file of this repo" );
 }
 

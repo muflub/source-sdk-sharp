@@ -23,12 +23,11 @@
 // interpolation amount). Mechanism only: what each value is, is C#'s.
 //=============================================================================//
 
-#include "cbase.h"
-#include "convar.h"
+#include "tier1/strtools.h"
+#include "icvar.h"
 #include "sourcesharp_entrypoints.h"
 #include "shell_convars_client.h"
 
-#include "tier0/memdbgon.h"
 
 namespace
 {

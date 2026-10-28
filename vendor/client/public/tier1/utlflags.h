@@ -1,21 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Simple class to make it easier to deal with flags
-//
-//=============================================================================
 
-#ifndef UTLFLAGS_H
-#define UTLFLAGS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/dbg.h"
 
-
-//-----------------------------------------------------------------------------
 // Simple class to make it easier to deal with flags
-//-----------------------------------------------------------------------------
 template< class T >
 class CUtlFlags
 {
@@ -38,10 +28,7 @@ private:
 	T m_nFlags;
 };
 
-
-//-----------------------------------------------------------------------------
 // Constructor
-//-----------------------------------------------------------------------------
 template< class T >
 CUtlFlags<T>::CUtlFlags( int nInitialFlags )
 {
@@ -51,10 +38,7 @@ CUtlFlags<T>::CUtlFlags( int nInitialFlags )
 	m_nFlags = (T)nInitialFlags;
 }
 
-
-//-----------------------------------------------------------------------------
 // Set flags
-//-----------------------------------------------------------------------------
 template< class T >
 void CUtlFlags<T>::SetFlag( int nFlagMask )
 {
@@ -80,10 +64,7 @@ void CUtlFlags<T>::SetFlag( int nFlagMask, bool bEnable )
 	}
 }
 
-
-//-----------------------------------------------------------------------------
 // Clear flags
-//-----------------------------------------------------------------------------
 template< class T >
 void CUtlFlags<T>::ClearFlag( int nFlagMask )
 {
@@ -98,10 +79,7 @@ void CUtlFlags<T>::ClearAllFlags()
 	m_nFlags = 0;
 }
 
-
-//-----------------------------------------------------------------------------
 // Is a flag set?
-//-----------------------------------------------------------------------------
 template< class T >
 bool CUtlFlags<T>::IsFlagSet( int nFlagMask ) const
 {
@@ -110,15 +88,9 @@ bool CUtlFlags<T>::IsFlagSet( int nFlagMask ) const
 	return ( m_nFlags & nFlagMask ) != 0;
 }
 
-
-//-----------------------------------------------------------------------------
 // Is any flag set?
-//-----------------------------------------------------------------------------
 template< class T >
 bool CUtlFlags<T>::IsAnyFlagSet() const
 {
 	return m_nFlags != 0;
 }
-
-
-#endif // UTLFLAGS_H

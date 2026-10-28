@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef BUTTON_H
-#define BUTTON_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <vgui/VGUI.h>
 #include <vgui/Dar.h>
@@ -21,9 +11,6 @@
 namespace vgui
 {
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 class Button : public Label
 {
 	DECLARE_CLASS_SIMPLE( Button, Label );
@@ -37,29 +24,29 @@ private:
 	void Init();
 public:
 	// Set armed state.
-	virtual void SetArmed(bool state);
+	virtual void unused_SetArmed() = 0;
 	// Check armed state
-	virtual bool IsArmed( void );
+	virtual void unused_IsArmed() = 0;
 
 	// Check depressed state
-	virtual bool IsDepressed();
+	virtual void unused_IsDepressed() = 0;
 	// Set button force depressed state.
-	virtual void ForceDepressed(bool state);
+	virtual void unused_ForceDepressed() = 0;
 	// Set button depressed state with respect to the force depressed state.
-	virtual void RecalculateDepressedState( void );
+	virtual void unused_RecalculateDepressedState() = 0;
 
 	// Set button selected state.
-	virtual void SetSelected(bool state);
+	virtual void unused_SetSelected() = 0;
 	// Check selected state
-	virtual bool IsSelected( void );
+	virtual void unused_IsSelected() = 0;
 
-	virtual void SetBlink(bool state);
-	virtual bool IsBlinking( void );
+	virtual void unused_SetBlink() = 0;
+	virtual void unused_IsBlinking() = 0;
 
 	//Set whether or not the button captures all mouse input when depressed.
-	virtual void SetUseCaptureMouse( bool state );
+	virtual void unused_SetUseCaptureMouse() = 0;
 	// Check if mouse capture is enabled.
-	virtual bool IsUseCaptureMouseEnabled( void );
+	virtual void unused_IsUseCaptureMouseEnabled() = 0;
 
 	// Activate a button click.
 	MESSAGE_FUNC( DoClick, "PressButton" );
@@ -69,9 +56,9 @@ public:
 	}
 
 	// Set button to be mouse clickable or not.
-	virtual void SetMouseClickEnabled( MouseCode code, bool state );
+	virtual void unused_SetMouseClickEnabled() = 0;
 	// Check if button is mouse clickable
-	virtual bool IsMouseClickEnabled( MouseCode code );
+	virtual void unused_IsMouseClickEnabled() = 0;
 	// sets the how this button activates
 	enum ActivationType_t
 	{
@@ -79,16 +66,16 @@ public:
 		ACTIVATE_ONPRESSED,				// menu buttons, toggle buttons
 		ACTIVATE_ONRELEASED,			// menu items
 	};
-	virtual void SetButtonActivationType(ActivationType_t activationType);
+	virtual void unused_SetButtonActivationType() = 0;
 
 	// Message targets that the button has been pressed
-	virtual void FireActionSignal( void );
+	virtual void unused_FireActionSignal() = 0;
 	// Perform graphical layout of button
 	virtual void PerformLayout();
 
 	virtual bool RequestInfo(KeyValues *data);
 
-    virtual bool CanBeDefaultButton(void);
+    virtual void unused_CanBeDefaultButton() = 0;
 
 	// Set this button to be the button that is accessed by default when the user hits ENTER or SPACE
 	MESSAGE_FUNC_INT( SetAsDefaultButton, "SetAsDefaultButton", state );
@@ -101,53 +88,36 @@ public:
 	virtual void OnKillFocus();
 
 	// Set button border attribute enabled, controls display of button.
-	virtual void SetButtonBorderEnabled( bool state );
+	virtual void unused_SetButtonBorderEnabled() = 0;
 
 	// Set default button colors.
-	virtual void SetDefaultColor(Color fgColor, Color bgColor);
+	virtual void unused_SetDefaultColor() = 0;
 	// Set armed button colors
-	virtual void SetArmedColor(Color fgColor, Color bgColor);
+	virtual void unused_SetArmedColor() = 0;
 	// Set selected button colors
-	virtual void SetSelectedColor(Color fgColor, Color bgColor);
+	virtual void unused_SetSelectedColor() = 0;
 	// Set depressed button colors
-	virtual void SetDepressedColor(Color fgColor, Color bgColor);
+	virtual void unused_SetDepressedColor() = 0;
 	// Set blink button color
-	virtual void SetBlinkColor(Color fgColor);
+	virtual void unused_SetBlinkColor() = 0;
 
 	// Get button foreground color
-	virtual Color GetButtonFgColor();
+	virtual void unused_GetButtonFgColor() = 0;
 	// Get button background color
-	virtual Color GetButtonBgColor();
-
-	Color		  GetButtonDefaultFgColor() { return _defaultFgColor; }
-	Color		  GetButtonDefaultBgColor() { return _defaultBgColor; }
-
-	Color		  GetButtonArmedFgColor() { return _armedFgColor; }
-	Color		  GetButtonArmedBgColor() { return _armedBgColor; }
-
-	Color		  GetButtonSelectedFgColor() { return _selectedFgColor; }
-	Color		  GetButtonSelectedBgColor() { return _selectedBgColor; }
-
-	Color		  GetButtonDepressedFgColor() { return _depressedFgColor; }
-	Color		  GetButtonDepressedBgColor() { return _depressedBgColor; }
+	virtual void unused_GetButtonBgColor() = 0;
 
 	// Set default button border attributes.
-	virtual void SetDefaultBorder(IBorder *border);
+	virtual void unused_SetDefaultBorder() = 0;
 	// Set depressed button border attributes.
-	virtual void SetDepressedBorder(IBorder *border);
+	virtual void unused_SetDepressedBorder() = 0;
 	// Set key focused button border attributes.
-	virtual void SetKeyFocusBorder(IBorder *border);
+	virtual void unused_SetKeyFocusBorder() = 0;
 
 	// Set the command to send when the button is pressed
 	// Set the panel to send the command to with AddActionSignalTarget()
 	virtual void SetCommand( const char *command );
 	// Set the message to send when the button is pressed
 	virtual void SetCommand( KeyValues *message );
-
-	// sound handling
-	void SetArmedSound(const char *sound);
-	void SetDepressedSound(const char *sound);
-	void SetReleasedSound(const char *sound);
 
 	/* CUSTOM MESSAGE HANDLING
 		"PressButton"	- makes the button act as if it had just been pressed by the user (just like DoClick())
@@ -158,27 +128,21 @@ public:
 	virtual void OnCursorExited();
 	virtual void SizeToContents();
 
-	virtual KeyValues *GetCommand();
-
-	bool IsDrawingFocusBox();
-	void DrawFocusBox( bool bEnable );
-
-	bool ShouldPaint(){ return _paint; }
-	void SetShouldPaint( bool paint ){ _paint = paint; }
+	virtual void unused_GetCommand() = 0;
 
 	virtual void ApplySettings( KeyValues *inResourceData );
 	virtual void NavigateTo();
 	virtual void NavigateFrom();
 
-	virtual bool IsToggleButton() { return false; }
+	virtual void unused_IsToggleButton() = 0;
 
 protected:
-	virtual void DrawFocusBorder(int tx0, int ty0, int tx1, int ty1);
+	virtual void unused_DrawFocusBorder() = 0;
 
 	// Paint button on screen
 	virtual void Paint(void);
 	// Get button border attributes.
-	virtual IBorder *GetBorder(bool depressed, bool armed, bool selected, bool keyfocus);
+	virtual void unused_GetBorder() = 0;
 
 	virtual void ApplySchemeSettings(IScheme *pScheme);
 	MESSAGE_FUNC_INT( OnSetState, "SetState", state );		
@@ -192,9 +156,6 @@ protected:
 	// Get control settings for editing
 	virtual void GetSettings( KeyValues *outResourceData );
 	virtual const char *GetDescription( void );
-
-	KeyValues *GetActionMessage();
-	void PlayButtonReleasedSound();
 
 protected:
 	enum ButtonFlags_t
@@ -237,5 +198,3 @@ protected:
 };
 
 } // namespace vgui
-
-#endif // BUTTON_H

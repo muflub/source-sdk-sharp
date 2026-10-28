@@ -14,13 +14,14 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include "engine/iserverplugin.h"
+#include "tier0/dbg.h"
+#include "tier1/convar.h"
 #include "shell_effect_ledger.h"
 #include "particles_lib_client.h"
 #include "ss_particles/iparticlelib.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 SourceSharpEffectLedger_t g_SourceSharpEffects = {};
 

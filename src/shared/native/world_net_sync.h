@@ -18,11 +18,7 @@
 // and says so once, rather than reading whatever happens to be at offset zero.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_WORLD_NET_SYNC_H
-#define SOURCESHARP_WORLD_NET_SYNC_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "generic_payload.h"
 #include "mathlib/vector.h"
@@ -166,5 +162,3 @@ const char *SourceSharpWorld_ReadString( const unsigned char *pBlob, int nBlobBy
 //-----------------------------------------------------------------------------
 void SourceSharpWorld_Report( const char *pszSide, const unsigned char *pBlob,
                               int nBlobBytes, const SourceSharpWorldFields_t &fields );
-
-#endif // SOURCESHARP_WORLD_NET_SYNC_H

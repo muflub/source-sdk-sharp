@@ -576,3 +576,6 @@ src/client/managed/TempEnts/LocalTempEntSuppression.cs	ports C_TempEntsSystem::S
 src/client/managed/TempEnts/BulletImpactEffect.cs	ports ImpactCallback (hl2/fx_hl2_impacts.cpp), ParseImpactData, PerformCustomEffects and PlayImpactSound (fx_impact.cpp), GetColorForSurface, FX_DebrisFlecks and FX_DustImpact (c_impact_effects.cpp)
 src/client/managed/TempEnts/DecalSettings.cs	ports the r_decals gates of C_TEBSPDecal, C_TEWorldDecal and C_TEFootprintDecal (c_te_bspdecal.cpp, c_te_worlddecal.cpp, c_te_footprint.cpp) and AddStudioDecal's r_drawmodeldecals gate (c_baseentity.cpp)
 src/client/managed/TempEnts/PlayerSprays.cs	ports C_TEPlayerDecal::PostDataUpdate, TE_PlayerDecal and CreateTempMaterialForPlayerLogo (c_te_playerdecal.cpp)
+src/client/native/client_entity.h	the include environment stock c_baseentity.h gave the client headers (c_baseentity.h), without the entity class
+src/client/native/client_world.h	C_World and its collideable over IClientEntity, from the fork's edited c_world.h (c_world.h)
+cmake/compat/clang-cl/ss_stock_clang_cl.h	settles stock public/tier1/bitbuf.h (RESTRICT) and public/mathlib/ssemath.h (its POSIX arm of SubFloat/SubInt) for clang-cl

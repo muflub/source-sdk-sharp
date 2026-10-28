@@ -38,11 +38,7 @@
 // the ordering of" — does not apply to a hash, because there is no ordering.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_STANDALONE_NETTABLE_H
-#define SOURCESHARP_STANDALONE_NETTABLE_H
-#ifdef _WIN32
 #pragma once
-#endif
 #include "generic_nettable.h"
 
 //-----------------------------------------------------------------------------
@@ -257,5 +253,3 @@ enum
 // assertion says the same thing.
 static_assert( (int)STANDALONE_NET_FIELD_COUNT == (int)SOURCESHARP_TIER_PROPS_STANDALONE,
                "NetTierInfo's real-prop count is this list's length" );
-
-#endif // SOURCESHARP_STANDALONE_NETTABLE_H

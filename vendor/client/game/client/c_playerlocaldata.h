@@ -1,24 +1,14 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Defines the player specific data that is sent only to the player
 //			to whom it belongs.
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef C_PLAYERLOCALDATA_H
-#define C_PLAYERLOCALDATA_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basetypes.h"
 #include "mathlib/vector.h"
 #include "playernet_vars.h"
 
-//-----------------------------------------------------------------------------
 // Purpose: Player specific data ( sent only to local player, too )
-//-----------------------------------------------------------------------------
 class CPlayerLocalData
 {
 public:
@@ -46,7 +36,6 @@ public:
 	
 	float					m_flFOVRate;		// rate at which the FOV changes
 	
-
 	bool					m_bDucked;
 	bool					m_bDucking;
 	bool					m_bInDuckJump;
@@ -84,5 +73,3 @@ public:
 
 	CNetworkString( m_szScriptOverlayMaterial, MAX_PATH );
 };
-
-#endif // C_PLAYERLOCALDATA_H

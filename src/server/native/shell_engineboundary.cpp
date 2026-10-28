@@ -60,9 +60,8 @@
 // spawns can precache a model, link into the partition, trace, or emit.
 //
 // TRANSLITERATED from CServerGameDLL::DLLInit (gameinterface.cpp:659-732), in
-// stock's order, with stock's "return false on the first miss". The X360 arms
-// are dropped -- IsX360() is a compile-time false in this build -- and REPLAY is
-// not defined here.
+// stock's order, with stock's "return false on the first miss". The console
+// arms are dropped (a compile-time false on PC) and REPLAY is not defined here.
 //
 // NOTHING WAS RETYPED, RENAMED OR REORDERED IN EITHER HALF. Both are verbatim
 // carries, with the declarations that only stock's CServerGameDLL used left
@@ -144,13 +143,14 @@ IVModelInfo *modelinfo = NULL;
 IEngineTrace *enginetrace = NULL;
 IGameEventManager2 *gameeventmanager = NULL;
 IVDebugOverlay * debugoverlay = NULL;
-// serverenginetools, xboxsystem and matchmaking are gone: nothing assigned or
+// serverenginetools, the console system and matchmaking are gone: nothing assigned or
 // read them (the globals ledger ruled all three DEAD, dropped by the linker).
 // g_pVoiceServer, enginesound, datacache, soundemitterbase, scenefilecache and
 // sv_cheats went as globals too (plan_server_native_v2 T6): nothing on the
-// server read them outside the acquisition below, which still asks for each and
-// refuses to start without it -- stock's behaviour -- holding the answer in a
-// local.
+// server read them. Of the interfaces, only the sound emitter is still asked
+// for (its Connect below); the voice server, the engine's sound, the data
+// cache and the scene file cache are not acquired at all (2026-10-25), since
+// nothing here calls them -- managed acquires the engine sound it calls itself.
 
 //-----------------------------------------------------------------------------
 // WHAT USED TO STAND HERE, AND WHY THE SPACE IS EMPTY -- plan_shim.md step 5c.
@@ -204,9 +204,7 @@ INetworkStringTable *g_pStringTableServerMapCycleMvM = NULL;
 // Holds global variables shared between engine and game.
 CGlobalVars *gpGlobals;
 
-#if !defined( _XBOX ) // Don't doubly define this symbol.
 CSharedEdictChangeInfo *g_pSharedChangeInfo = NULL;
-#endif
 
 //-----------------------------------------------------------------------------
 // CBaseEdict is declared in public/edict.h and these two are its only
@@ -289,17 +287,11 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
                                           CreateInterfaceFn physicsFactory,
                                           CreateInterfaceFn fileSystemFactory )
 {
-	// Acquired only to refuse a server that lacks it, as stock does; nothing
-	// on the server calls it (plan_server_native_v2 T6).
-	if ( appSystemFactory( INTERFACEVERSION_VOICESERVER, NULL ) == NULL )
-		return false;
 	if ( (networkstringtable = (INetworkStringTableContainer *)appSystemFactory( INTERFACENAME_NETWORKSTRINGTABLESERVER, NULL )) == NULL )
 		return false;
 	if ( (staticpropmgr = (IStaticPropMgrServer *)appSystemFactory( INTERFACEVERSION_STATICPROPMGR_SERVER, NULL )) == NULL )
 		return false;
 	if ( (random_valve = (IUniformRandomStream *)appSystemFactory( VENGINE_SERVER_RANDOM_INTERFACE_VERSION, NULL )) == NULL )
-		return false;
-	if ( appSystemFactory( IENGINESOUND_SERVER_INTERFACE_VERSION, NULL ) == NULL )
 		return false;
 	if ( (::partition = (ISpatialPartition *)appSystemFactory( INTERFACEVERSION_SPATIALPARTITION, NULL )) == NULL )
 		return false;
@@ -310,8 +302,6 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
 	if ( (filesystem = (IFileSystem *)fileSystemFactory( FILESYSTEM_INTERFACE_VERSION, NULL )) == NULL )
 		return false;
 	if ( (gameeventmanager = (IGameEventManager2 *)appSystemFactory( INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL )) == NULL )
-		return false;
-	if ( appSystemFactory( DATACACHE_INTERFACE_VERSION, NULL ) == NULL )
 		return false;
 
 	// TWENTY-FIRST, AND IT WAS MISSING. Phase 6 transliterated stock's
@@ -338,8 +328,6 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
 	// are dropped, nothing read the acquired pointer, and the engine asks this
 	// DLL for no plugin interface (engine-boundary.md §6).
 
-	if ( appSystemFactory( SCENE_FILE_CACHE_INTERFACE_VERSION, NULL ) == NULL )
-		return false;
 
 	// NO VSCRIPT. Stock acquired IScriptManager here (optional, skipped under
 	// -noscripting); nothing in server.so ever called it, and plan_server_novalve

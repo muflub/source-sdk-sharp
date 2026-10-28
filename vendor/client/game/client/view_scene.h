@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef VIEW_SCENE_H
-#define VIEW_SCENE_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "convar.h"
 #include "iviewrender.h"
@@ -18,25 +8,16 @@
 #include "rendertexture.h"
 #include "materialsystem/itexture.h"
 
-
 extern ConVar mat_wireframe;
-extern ConVar building_cubemaps;
-
-
-// Transform into view space (translate and rotate the camera into the origin).
-void ViewTransform( const Vector &worldSpace, Vector &viewSpace );
 
 // Transform a world point into normalized screen space (X and Y from -1 to 1).
 // Returns 0 if the point is behind the viewer.
 int ScreenTransform( const Vector& point, Vector& screen );
-int HudTransform( const Vector& point, Vector& screen );
-
 
 extern ConVar r_updaterefracttexture;
 extern int g_viewscene_refractUpdateFrame;
 extern bool g_bAllowMultipleRefractUpdatesPerScenePerFrame;
 bool DrawingShadowDepthView( void );
-bool DrawingMainView();
 
 inline void UpdateRefractTexture( int x, int y, int w, int h, bool bForceUpdate = false )
 {
@@ -117,9 +98,7 @@ inline void UpdateScreenEffectTexture( int textureIndex, int x, int y, int w, in
 	}
 }
 
-//-----------------------------------------------------------------------------
 // Draws the screen effect
-//-----------------------------------------------------------------------------
 inline void DrawScreenEffectMaterial( IMaterial *pMaterial, int x, int y, int w, int h )
 {
 	Rect_t actualRect;
@@ -133,23 +112,6 @@ inline void DrawScreenEffectMaterial( IMaterial *pMaterial, int x, int y, int w,
 		pTexture->GetActualWidth(), pTexture->GetActualHeight() );
 }
 
-
-//intended for use by dynamic meshes to naively update front buffer textures needed by a material
-inline void UpdateFrontBufferTexturesForMaterial( IMaterial *pMaterial, bool bForce = false )
-{
-	Assert( !DrawingShadowDepthView() );
-
-	if( pMaterial->NeedsPowerOfTwoFrameBufferTexture() )
-	{
-		UpdateRefractTexture( bForce );
-	}
-	else if( pMaterial->NeedsFullFrameBufferTexture() )
-	{
-		const CViewSetup *pView = view->GetViewSetup();
-		UpdateScreenEffectTexture( 0, pView->x, pView->y, pView->width, pView->height );
-	}
-}
-
 inline void UpdateScreenEffectTexture( void )
 {
 	Assert( !DrawingShadowDepthView() );
@@ -158,9 +120,4 @@ inline void UpdateScreenEffectTexture( void )
 	UpdateScreenEffectTexture( 0, pViewSetup->x, pViewSetup->y, pViewSetup->width, pViewSetup->height);
 }
 
-// reset the tonem apping to a constant value, and clear the filter bank
-void ResetToneMapping(float value);
-
 void UpdateFullScreenDepthTexture( void );
-
-#endif // VIEW_SCENE_H

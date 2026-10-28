@@ -79,11 +79,7 @@
 // absent as a whole, with no tree-local witness.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_OVERLAY_LIBRARY_H
-#define SOURCESHARP_OVERLAY_LIBRARY_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 
@@ -163,5 +159,3 @@ enum { OVERLAY_POOL_LINES = 20 };
 void Overlay_AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDepthTest,
                       int r, int g, int b );
 void Overlay_DrawPooledLines();
-
-#endif // SOURCESHARP_OVERLAY_LIBRARY_H

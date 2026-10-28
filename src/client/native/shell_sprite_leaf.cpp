@@ -43,33 +43,56 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
-#include "c_sprite.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "model_types.h"
-#include "iviewrender.h"
 #include "view.h"
 #include "enginesprite.h"
 #include "engine/ivmodelinfo.h"
-#include "util_shared.h"
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/imaterialsystem.h"
 #include "tier1/KeyValues.h"
-#include "view_shared.h"
 #include "viewrender.h"
+#include "tier1/utlmap.h"
+#include "materialsystem/imesh.h"
+#include "mathlib/vector.h"
+#include "particles/particles.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/convar.h"
+#include "tier1/iconvar.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "tier1/utlrbtree.h"
+#include "toolframework/itoolentity.h"
+#include "Sprite.h"
+#include "c_pixel_visibility.h"
+#include "cdll_client_int.h"
+#include "const.h"
+#include "iclientrenderable.h"
+#include "ivrenderview.h"
+#include "texture_group_names.h"
 #include "shell_effect_ledger.h"
 #include "shell_beam_render.h"         // SourceSharp_PlanSprite
 #include "sourcesharp.h"
 #include "managed_runtime_client.h"
 #include "imanaged_areas_client.h"   // IManagedFxClient::SpritePlan
 #include "shell_standalone_client.h"  // SourceSharp_StandaloneDrawBatchBlend
-#include "tier1/utlmap.h"
 #include "ss_bitblock.h"                // the sprite material block
 
 #include <vector>
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 ConVar	r_drawsprites( "r_drawsprites", "1", FCVAR_CHEAT );
 

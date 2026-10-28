@@ -36,21 +36,51 @@
 // file's rewrite; c_rope.cpp goes from the build in its own commit.
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "c_rope.h"
-#include "beam_strip_vertex.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imesh.h"
 #include "tier1/callqueue.h"
 #include "tier1/KeyValues.h"
-#include "shell_effect_ledger.h"
-#include "shell_clientsystem.h"	// plan_cworld_trace.md T4
 #include "view.h"
 #include "materialsystem/imaterialsystemhardwareconfig.h"
+#include "engine/IEngineTrace.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "particles/particles.h"
+#include "tier0/platform.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "tier1/utlvector.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "cdll_util.h"
+#include "gametrace.h"
+#include "particledraw.h"
+#include "texture_group_names.h"
+#include "trace.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "beam_strip_vertex.h"
+#include "shell_effect_ledger.h"
+#include "shell_clientsystem.h"	// plan_cworld_trace.md T4
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 
 // RopeDraw's flags. Kinds, not decisions: managed code chose them.

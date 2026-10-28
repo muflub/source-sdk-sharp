@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef UTLQUEUE_H
-#define UTLQUEUE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "utlmemory.h"
 
@@ -80,10 +71,8 @@ protected:
 #endif
 };
 
-//-----------------------------------------------------------------------------
 // The CUtlQueueFixed class:
 // A queue class with a fixed allocation scheme
-//-----------------------------------------------------------------------------
 template< class T, size_t MAX_SIZE >
 class CUtlQueueFixed : public CUtlQueue< T, CUtlMemoryFixed<T, MAX_SIZE > >
 {
@@ -366,7 +355,6 @@ void CUtlQueue<T, M>::Purge()
 	m_memory.Purge();
 }
 
-
 #ifdef TEST_UTLQUEUE
 
 #include <stdlib.h>
@@ -547,5 +535,3 @@ inline void CUtlQueue_Test()
 }
 
 #endif // TEST_UTLQUEUE
-
-#endif // UTLQUEUE_H

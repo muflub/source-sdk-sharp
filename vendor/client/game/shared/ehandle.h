@@ -1,33 +1,14 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef EHANDLE_H
-#define EHANDLE_H
-#ifdef _WIN32
 #pragma once
-#endif
-
-#if defined( _DEBUG ) && defined( GAME_DLL )
-#include "tier0/dbg.h"
-#include "cbase.h"
-#endif
-
 
 #include "const.h"
 #include "basehandle.h"
 #include "entitylist_base.h"
 
-
 class IHandleEntity;
 
-
-// -------------------------------------------------------------------------------------------------- //
 // Game-code CBaseHandle implementation.
-// -------------------------------------------------------------------------------------------------- //
 
 inline IHandleEntity* CBaseHandle::Get() const
 {
@@ -35,17 +16,12 @@ inline IHandleEntity* CBaseHandle::Get() const
 	return g_pEntityList->LookupEntity( *this );
 }
 
-
-// -------------------------------------------------------------------------------------------------- //
 // CHandle.
-//
 // Only safe to use in cases where you can statically verify that T* can safely be reinterpret-casted
 // to IHandleEntity*; that is, that it's derived from IHandleEntity and IHandleEntity is the
 // first base class.
-//
 // Unfortunately some classes are forward-declared and the compiler can't determine at compile time
 // how to static_cast<> them to IHandleEntity.
-// -------------------------------------------------------------------------------------------------- //
 template< class T >
 class CHandle : public CBaseHandle
 {
@@ -58,7 +34,6 @@ public:
 
 	// NOTE: The following two constructor functions are not type-safe, and can allow creating a
 	// CHandle<T> that doesn't actually point to an object of type T.
-	//
 	// It is your responsibility to ensure that the target of the handle actually points to the
 	// correct type of object before calling these functions.
 
@@ -73,15 +48,12 @@ public:
 	//     UTIL_Remove(someEntity);
 	//     (wait for deletions to happen, usually at end of frame)
 	// h is now a stale pointer to a deleted entity; h.Get() returns nullptr.
-	//
 	// In this case
 	//    h != nullptr           -> false
 	//    h.ChangedFrom(nullptr) -> true
-	//
 	// This is useful when you want to use a handle as a cache of some observed object, and need to tell
 	// when your target has changed.  Using == fails if the target gets destroyed in the same frame that
 	// your target is changed to null (which is actually pretty common!)
-	//
 	// In this case you can use this pattern:
 	//    T* target = GetTargetedThing(); // might return null
 	//    if( m_target.ChangedFrom( target ) )
@@ -105,9 +77,7 @@ public:
 	T*		operator->() const;
 };
 
-// ----------------------------------------------------------------------- //
 // Inlines.
-// ----------------------------------------------------------------------- //
 
 template<class T>
 inline CHandle<T>::CHandle()
@@ -170,7 +140,6 @@ inline T* CHandle<T>::Get() const
 	return (T*)CBaseHandle::Get();
 }
 
-
 template<class T>
 inline CHandle<T>::operator T *() 
 { 
@@ -181,25 +150,6 @@ template<class T>
 inline CHandle<T>::operator T *() const
 { 
 	return Get( ); 
-}
-
-
-template<class T>
-inline bool CHandle<T>::operator !() const
-{
-	return !Get();
-}
-
-template<class T>
-inline bool CHandle<T>::operator==( T *val ) const
-{
-	return Get() == val;
-}
-
-template<class T>
-inline bool CHandle<T>::operator!=( T *val ) const
-{
-	return Get() != val;
 }
 
 template<class T>
@@ -213,23 +163,3 @@ void CHandle<T>::Set( const T* pVal )
 	const IHandleEntity* pValInterface = reinterpret_cast<const IHandleEntity*>( pVal );
 	CBaseHandle::Set( pValInterface );
 }
-
-template<class T>
-inline CHandle<T>& CHandle<T>::operator=( const T *val )
-{
-	Set( val );
-	return *this;
-}
-
-template<class T>
-T* CHandle<T>::operator -> () const
-{
-	return Get();
-}
-
-// specialization of EnsureValidValue for CHandle<T>
-template<typename T>
-FORCEINLINE void EnsureValidValue( CHandle<T> &x ) { x = INVALID_EHANDLE; }
-
-
-#endif // EHANDLE_H

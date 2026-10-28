@@ -46,11 +46,7 @@
 // refactor and not a behaviour change.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_ANIM_EVENT_NAMES_H
-#define SOURCESHARP_ANIM_EVENT_NAMES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // The names. Spelled once, so a typo is a compile error at the call site
@@ -177,5 +173,3 @@ inline bool AnimEventName_IsClient( const char *pszName )
 {
 	return ( AnimEventName_TypeMask( pszName ) & kAnimEventTypeClient ) != 0;
 }
-
-#endif // SOURCESHARP_ANIM_EVENT_NAMES_H

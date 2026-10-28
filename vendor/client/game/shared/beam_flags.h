@@ -1,17 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
 
-#if !defined( BEAM_FLAGS_H )
-#define BEAM_FLAGS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 enum
 {
@@ -34,5 +23,3 @@ enum
 	FBEAM_REVERSED			= 0x00010000,
 	NUM_BEAM_FLAGS = 17	// KEEP THIS UPDATED!
 };
-
-#endif // BEAM_FLAGS_H

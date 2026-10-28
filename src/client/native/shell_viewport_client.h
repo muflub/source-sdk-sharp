@@ -13,12 +13,12 @@
 // that hides "all" on game_newmap as stock's did, and that asks the client mode
 // to lay it out again when the client root resizes.
 //=============================================================================//
-#ifndef SHELL_VIEWPORT_CLIENT_H
-#define SHELL_VIEWPORT_CLIENT_H
+#pragma once
 
 #include "shell_rawpanel_client.h"
 #include "game/client/iviewport.h"
 #include "igameevents.h"
+#include "tier0/platform.h"
 
 class CSourceSharpViewport : public CSourceSharpRawPanel, public IViewPort, public IGameEventListener2
 {
@@ -51,5 +51,3 @@ private:
 	int m_nRootWide;
 	int m_nRootTall;
 };
-
-#endif // SHELL_VIEWPORT_CLIENT_H

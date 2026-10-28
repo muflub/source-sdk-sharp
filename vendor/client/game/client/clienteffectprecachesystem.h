@@ -1,16 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Deals with singleton  
-//
-// $Revision: $
-// $NoKeywords: $
-//=============================================================================//
 
-#if !defined( CLIENTEFFECTPRECACHESYSTEM_H )
-#define CLIENTEFFECTPRECACHESYSTEM_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "igamesystem.h"
 #include "commonmacros.h"
@@ -18,18 +9,14 @@
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterial.h"
 
-//-----------------------------------------------------------------------------
 // Interface to automated system for precaching materials
-//-----------------------------------------------------------------------------
 class IClientEffect
 {
 public:
 	virtual void Cache( bool precache = true )	= 0;
 };
 
-//-----------------------------------------------------------------------------
 // Responsible for managing precaching of particles
-//-----------------------------------------------------------------------------
 
 class CClientEffectPrecacheSystem : public IGameSystem
 {
@@ -67,9 +54,7 @@ protected:
 //Singleton accessor
 extern CClientEffectPrecacheSystem	*ClientEffectPrecacheSystem();
 
-//-----------------------------------------------------------------------------
 // Deals with automated registering and precaching of materials for effects
-//-----------------------------------------------------------------------------
 
 class CClientEffect : public IClientEffect
 {
@@ -81,11 +66,9 @@ public:
 		ClientEffectPrecacheSystem()->Register( this );
 	}
 
-//-----------------------------------------------------------------------------
 // Purpose: Precache a material by artificially incrementing its reference counter
 // Input  : *materialName - name of the material
 //		  : increment - whether to increment or decrement the reference counter
-//-----------------------------------------------------------------------------
 
 	inline void ReferenceMaterial( const char *materialName, bool increment = true )
 	{
@@ -132,19 +115,3 @@ void ClientEffectRegister::Cache( bool precache )			\
 }															\
 ClientEffectRegister	register_ClientEffectRegister;		\
 }
-
-#define	CLIENTEFFECT_REGISTER_END_CONDITIONAL(condition )	};	\
-void ClientEffectRegister::Cache( bool precache )				\
-{																\
-	if ( condition)												\
-	{															\
-		for ( int i = 0; i < ARRAYSIZE( m_pszMaterials ); i++ )	\
-		{														\
-			ReferenceMaterial( m_pszMaterials[i], precache );	\
-		}														\
-	}															\
-}																\
-ClientEffectRegister	register_ClientEffectRegister;			\
-}
-
-#endif	//CLIENTEFFECTPRECACHESYSTEM_H

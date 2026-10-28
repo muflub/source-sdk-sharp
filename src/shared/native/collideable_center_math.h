@@ -46,11 +46,7 @@
 // gtest: sourcesharp/test/collideable_center_test.cpp.
 //
 //=============================================================================//
-#ifndef COLLIDEABLE_CENTER_MATH_H
-#define COLLIDEABLE_CENTER_MATH_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // flMins/flMaxs: OBBMins()/OBBMaxs(). bAnglesAreZero: GetCollisionAngles()
@@ -92,5 +88,3 @@ inline void CollideableCenter_Compute( const float flMins[3], const float flMaxs
 		         + flRow[3];
 	}
 }
-
-#endif // COLLIDEABLE_CENTER_MATH_H

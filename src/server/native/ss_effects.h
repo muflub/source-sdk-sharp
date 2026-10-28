@@ -25,11 +25,7 @@
 // expose left server.so with their last caller (P5 lane SP).
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_EFFECTS_H
-#define SOURCESHARP_SS_EFFECTS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 
@@ -53,5 +49,3 @@ protected:
 IEffects *Effects();
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_EFFECTS_H

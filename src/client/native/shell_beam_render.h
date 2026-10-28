@@ -6,11 +6,7 @@
 // Draw_SetSpriteTexture, with the wireframe choice handed in rather than read.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SHELL_BEAM_RENDER_H
-#define SOURCESHARP_SHELL_BEAM_RENDER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 class CEngineSprite;
 struct model_t;
@@ -45,5 +41,3 @@ int SourceSharp_SpriteDrawBegin( pixelvis_handle_t *pQuery, IClientEntity *entit
 // -2 when nothing is stored for the entity. Clear drops every stored plan.
 int SourceSharp_SpriteExecuteStored( IClientEntity *pEntity, float flBlendNow );
 void SourceSharp_SpriteStoredClear();
-
-#endif // SOURCESHARP_SHELL_BEAM_RENDER_H

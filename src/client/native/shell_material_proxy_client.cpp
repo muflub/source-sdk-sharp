@@ -42,7 +42,15 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "materialsystem/imaterialproxy.h"
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialvar.h"
@@ -51,23 +59,41 @@
 #include "tier1/KeyValues.h"
 #include "tier1/interface.h"
 #include "tier1/utlmap.h"
-#include "shell_particle_mgr.h"	// the particle draw state (C7 particles phase 4)
 #include "view.h"
 #include "iviewrender.h"
-#include "c_world.h"
+#include "client_world.h"
+#include "cl_mat_stub.h"
+#include "materialsystem/imaterialsystemstub.h"
+#include "mathlib/vector.h"
+#include "mathlib/vmatrix.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/strtools.h"
+#include "tier1/utlrbtree.h"
+#include "tier1/utlvector.h"
+#include "toolframework/itoolentity.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "const.h"
+#include "eiface.h"
+#include "globalvars_base.h"
+#include "icliententity.h"
+#include "icliententitylist.h"
+#include "iclientnetworkable.h"
+#include "iclientrenderable.h"
+#include "iclientunknown.h"
+#include "particlemgr.h"
+#include "shell_particle_mgr.h"	// the particle draw state (C7 particles phase 4)
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"
 #include "shell_standalone_client.h"
 #include "slot_table.h"
 #include "shell_diagnostics.h"
-#include "cl_mat_stub.h"
-#include "materialsystem/imaterialsystemstub.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 #define SS_PROXY_NAMES( X ) \
 	X( 0, Abs ) X( 1, Add ) X( 2, Alpha ) X( 3, AnimateSpecificTexture ) X( 4, AnimatedEntityTexture ) \

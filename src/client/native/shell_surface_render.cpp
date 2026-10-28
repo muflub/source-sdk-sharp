@@ -15,16 +15,45 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
+#include "engine/ivmodelinfo.h"
+#include "materialsystem/imesh.h"
+#include "engine/ishadowmgr.h"
+#include "materialsystem/MaterialSystemUtil.h"
+#include "materialsystem/imaterial.h"
+#include "materialsystem/imaterialsystem.h"
+#include "materialsystem/imaterialvar.h"
+#include "materialsystem/itexture.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "mathlib/vector2d.h"
+#include "tier0/basetypes.h"
+#include "tier0/dbg.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "tier1/utlvector.h"
+#include "cdll_client_int.h"
+#include "collisionproperty.h"
+#include "icliententitylist.h"
+#include "ivrenderview.h"
+#include "texture_group_names.h"
 #include "shell_surface_render.h"
 #include "shell_standalone_client.h"
 #include "shell_diagnostics.h"
-#include "engine/ivmodelinfo.h"
-#include "materialsystem/imesh.h"
-#include "model_types.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // The base texture of a material, which is what the detail swap replaces.

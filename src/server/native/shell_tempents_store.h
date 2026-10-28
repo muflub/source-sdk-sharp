@@ -14,11 +14,7 @@
 // (tempent_store_test.cpp) can reach it with dt_send.cpp and nothing else.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_TEMPENTS_STORE_H
-#define SOURCESHARP_SHELL_TEMPENTS_STORE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "sourcesharp.h"
 #include "tempent_table_block.h"
@@ -44,5 +40,3 @@ SendVarProxyFn SourceSharpTe_VarProxy( int32_t nProxy );
 // id that does not fit the row's type or a datatable row with no table.
 bool SourceSharpTe_StoreProp( const SourceSharpSendPropRow_t &row, const char *pName,
                               SendTable *pNested, SendProp *pOut );
-
-#endif // SOURCESHARP_SHELL_TEMPENTS_STORE_H

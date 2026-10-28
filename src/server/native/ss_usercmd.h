@@ -18,11 +18,7 @@
 // (ReadUsercmd/WriteUsercmd; C# decodes), and entitygroundcontact (HL2_DLL
 // only, never defined here).
 //=============================================================================//
-#ifndef SOURCESHARP_SS_USERCMD_H
-#define SOURCESHARP_SS_USERCMD_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"   // QAngle
 
@@ -66,5 +62,3 @@ struct CUserCmd
 };
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_USERCMD_H

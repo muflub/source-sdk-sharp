@@ -23,11 +23,7 @@
 // the list logic.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_RECIPIENT_FILTER_H
-#define SOURCESHARP_SS_RECIPIENT_FILTER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "irecipientfilter.h"
 #include "const.h"
@@ -129,5 +125,3 @@ public:
 
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_RECIPIENT_FILTER_H

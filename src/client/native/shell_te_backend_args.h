@@ -33,11 +33,7 @@
 // C and knows nothing about Source. See sourcesharp/test/te_backend_args_test.cpp.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_TE_BACKEND_ARGS_H
-#define SOURCESHARP_SHELL_TE_BACKEND_ARGS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "sourcesharp.h"
 
@@ -746,5 +742,3 @@ inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenter
 }
 
 } // namespace TeBackendArgs
-
-#endif // SOURCESHARP_SHELL_TE_BACKEND_ARGS_H

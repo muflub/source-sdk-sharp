@@ -26,7 +26,7 @@ CON_COMMAND( cl_reload_localization_files	BOUNDARY	the console command onto ILoc
 [CSourceSharpClientMode] virtual bool ShouldDrawFog(	SLOT	IClientMode: stock's constant
 [CSourceSharpClientMode] virtual bool ShouldDrawViewModel(	SLOT	IClientMode: stock's constant
 [CSourceSharpClientMode] virtual bool ShouldDrawCrosshair(	SLOT	IClientMode: stock's constant
-[CSourceSharpClientMode] virtual bool ShouldDrawLocalPlayer()	SLOT	IClientMode: the camera pass's answer (SourceSharp_ThirdPersonSeesOwner)
+[CSourceSharpClientMode] virtual bool ShouldDrawLocalPlayer(	SLOT	IClientMode: the camera pass's answer (SourceSharp_ThirdPersonSeesOwner)
 [CSourceSharpClientMode] virtual void StartMessageMode(	SLOT	IClientMode: the chat is managed (ChatOpener)
 [CSourceSharpClientMode] virtual vgui::Panel *GetMessagePanel()	SLOT	IClientMode: no message panel
 [CSourceSharpClientMode] virtual void OverrideMouseInput(	SLOT	IClientMode: no weapon overrides the mouse
@@ -75,4 +75,4 @@ IClientMode *GetClientModeNormal()	LIVE-API	the client mode, for shell_clientdll
 void VGUI_CreateClientDLLRootPanel( void )	LIVE-API	the client's root panel under the engine's PANEL_CLIENTDLL, filling the screen; shell_vgui_client.cpp imports it (nm -u)
 void VGUI_DestroyClientDLLRootPanel( void )	LIVE-API	frees the root panel; shell_vgui_client.cpp imports it (nm -u)
 vgui::VPANEL VGui_GetClientDLLRootPanel( void )	LIVE-API	the root panel's VPANEL; shell_vgui_client.cpp imports it (nm -u)
-void SourceSharp_RegisterAmmoType(	LOGIC	dead state, not a binding: the IShimStandaloneClient RegisterAmmoType slot fills a CAmmoDef nothing reads (GetAmmoDef had no importer and is deleted, lane M1-B), deduplicating by name; retire the row, this body and ClientModule's call together in the serialised ABI pass (docs/todo.md)
+void SourceSharp_RegisterAmmoType(	SLOT	the IShimStandaloneClient RegisterAmmoType slot, empty: the CAmmoDef it filled had no reader and went with the client's stock headers (2026-10-25); the serialised ABI pass retires the row (docs/todo.md)

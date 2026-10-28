@@ -21,13 +21,30 @@
 // its own -- which is why this file has no globals and needs no proxy.
 //
 //===========================================================================//
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "voice_status.h"
 #include "igameevents.h"
 #include "game/client/IGameClientExports.h"
+#include "tier1/interface.h"
+#include "vgui_controls/Image.h"
+#include "GameEventListener.h"
+#include "hud.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: interface for gameui to modify voice bans

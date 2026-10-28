@@ -1,26 +1,16 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
 // FIXME: Should we just pass the Particle draw members directly as
 // arguments to IParticleEffect::SimulateAndRender?
 
 // This file defines and implements the ParticleDraw class, which is used
 // by ParticleEffects to render particles. It simply stores render + simulation
 // state
-//
 
-#ifndef PARTICLEDRAW_H
-#define PARTICLEDRAW_H
-
+#pragma once
 
 class IMaterial;
 class CMeshBuilder;
 class CParticleSubTexture;
-
 
 class ParticleDraw
 {
@@ -31,9 +21,6 @@ public:
 					ParticleDraw();
 
 	void			Init( CMeshBuilder *pMeshBuilder, IMaterial *pMaterial, float fTimeDelta );
-
-	// Time delta..
-	float			GetTimeDelta() const;
 
 	// Get the material being used (mostly useful for getting the tcoord padding).
 	//IMaterial*		GetPMaterial();
@@ -49,11 +36,7 @@ private:
 	float			m_fTimeDelta;
 };
 
-
-
-// ------------------------------------------------------------------------- //
 // Inlines
-// ------------------------------------------------------------------------- //
 
 inline ParticleDraw::ParticleDraw()
 {
@@ -67,15 +50,7 @@ inline void ParticleDraw::Init( CMeshBuilder *pMeshBuilder, IMaterial *pMaterial
 	m_fTimeDelta = fTimeDelta;
 }
 
-inline float ParticleDraw::GetTimeDelta() const
-{
-	return m_fTimeDelta;
-}
-
 inline CMeshBuilder* ParticleDraw::GetMeshBuilder()
 {
 	return m_pMeshBuilder;
 }
-
-#endif
-

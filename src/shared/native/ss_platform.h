@@ -13,11 +13,7 @@
 // System headers only, on purpose: vtable_slot_patch.h includes this and is
 // tested on its own, free of Source headers (test/vtable_slot_patch_test.cpp).
 //=============================================================================//
-#ifndef SOURCESHARP_SS_PLATFORM_H
-#define SOURCESHARP_SS_PLATFORM_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -32,13 +28,7 @@
 	#ifndef NOMINMAX
 		#define NOMINMAX
 	#endif
-	// Valve's xboxstubs.h defines INVALID_HANDLE_VALUE, to the value
-	// <windows.h> gives it, when a Valve header that includes it comes first;
-	// C4005 would call the second definition an error under /WX.
-	#pragma warning( push )
-	#pragma warning( disable : 4005 )
 	#include <windows.h>
-	#pragma warning( pop )
 	#include <intrin.h>
 	#include <process.h>
 	#include <direct.h>
@@ -359,5 +349,3 @@ inline char *SS_GetCwd( char *pOut, size_t nOut )
 	return getcwd( pOut, nOut );
 #endif
 }
-
-#endif // SOURCESHARP_SS_PLATFORM_H

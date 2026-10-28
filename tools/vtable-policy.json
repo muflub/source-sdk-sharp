@@ -312,16 +312,6 @@
   ]
  },
  "IVEngineClient": {
-  "GetClientVersion": [
-   "slot 141, and it is PROVABLE and was PROVED: measured live it answers",
-   "2000, which is exactly `ClientVersion=2000` in the mod's own steam.inf",
-   "-- a file System.IO reads with no engine and no index in the route,",
-   "and the engine parses steam.inf to answer it. Refused on",
-   "GetMaxClients' ground -- ZERO compiled call sites. Recorded because a",
-   "bar that only ever excludes the unprovable is not a bar, and this is",
-   "the second thing it excludes that could have passed. Its 2000 is kept",
-   "as corroboration of the resolved numbering instead."
-  ],
   "IsWindowedMode": [
    "slot 139 and 1 call site. Its only other source is the -windowed the",
    "harness itself passed -- GetScreenSize's ground -- and it is already",
@@ -334,11 +324,6 @@
    "slot answers a wall clock and gpGlobals->curtime is the only other",
    "clock in the process; asserting the two are close is a tolerance, and",
    "this file has no tolerances. IVEngineClient::Time's ground."
-  ],
-  "GetServerTime": [
-   "slot 118 and 8 call sites. As Time: the only other clock is",
-   "gpGlobals's, asserting the two are close is a tolerance, and the two",
-   "are each other's problem."
   ],
   "ServerCommand": [
    "slot 36 and 5 call sites. It queues a console command, returns void,",
@@ -388,34 +373,6 @@
    "not declare -- IVEngineClient::GetDXSupportLevel's ground. Bindable",
    "the day there is one; not before."
   ],
-  "GetAppID": [
-   "slot 101 and 1 call site, and it is the client's slot 104 all over",
-   "again: it answers the same app id, from the Steam client, falling",
-   "back to a hard-coded 215 when there is none. A row that passes when Steam happens to be running and fails",
-   "when it is not is reporting the weather."
-  ],
-  "CompareFileTime": [
-   "slot 52, and it WOULD HAVE BEEN PROVABLE -- System.IO measures both",
-   "files' mtimes with no engine in the route, which is the derivation",
-   "IBaseFileSystem::GetFileTime is already bound against. Refused on",
-   "GetMaxClients' ground: ZERO compiled call sites in this server.",
-   "Recorded because a bar that only ever excludes the unprovable is not a",
-   "bar."
-  ],
-  "GetServerVersion": [
-   "slot 117, and steam.inf's ServerVersion= would state its answer. Zero",
-   "compiled call sites. GetClientVersion's ground exactly, on the other",
-   "interface."
-  ],
-  "GetMostRecentlyLoadedFileName": [
-   "slot 94, and GetSaveFileName slot 95. They are GetMapEntitiesString's",
-   "controls, and being a control is NOT why they are refused -- that was",
-   "the mistake recorded against IBaseFileSystem::GetFileTime and lifted.",
-   "They are refused because under this gate no save has been loaded and",
-   "no save file has been named, so each answers an empty string;",
-   "asserting a constant is not holding a slot against a second source.",
-   "GetLocalPlayer's ground."
-  ],
   "IsDecalPrecached": [
    "slot 9, and IsGenericPrecached slot 10. Both are IsModelPrecached's",
    "controls and both are in principle bindable the same way -- against",
@@ -425,30 +382,10 @@
    "Recorded so the next lane knows the route exists rather than re-",
    "deriving it."
   ],
-  "SentenceGroupIndexFromName": [
-   "slot 33 and 4 call sites, with five more sentence methods behind it.",
-   "Their second source is scripts/sentences.txt, which this mod does not",
-   "ship, so there is nothing on disk to hold them against here."
-  ],
   "PvAllocEntPrivateData": [
    "slot 23, with FreeEntPrivateData (24), SaveAllocMemory (25) and",
    "SaveFreeMemory (26). They allocate and free engine memory; the",
    "observable is the effect. SetSeed's ground."
-  ],
-  "FindMap": [
-   "slot 122. It is GetGameDir's control and nothing more: measured live",
-   "it answers \"dm_lockdown\" for an empty buffer, which is the map this",
-   "harness itself asked the engine to load -- so a row would be checking",
-   "the harness against the harness, GetScreenSize's ground. Zero compiled",
-   "call sites besides. Being a control is NOT the reason (that mistake is",
-   "recorded against IBaseFileSystem::GetFileTime and lifted); the reason",
-   "is that its answer comes from the test.slot 124the shipped table is",
-   "125 slots and eiface.h declares 124 methods, so one slot in the",
-   "running table has no declaration anywhere in this tree. It is either a",
-   "method a later interface version appended or a virtual the engine's",
-   "implementation declares itself. Length alone cannot tell those apart",
-   "-- the same thing the engine client's 147th slot could not settle -- so it is refused,",
-   "and DeclaredMethods is the constant that refuses it."
   ],
   "LightStyle": [
    "A SETTER, and this impl is a read-only window on IVEngineServer.",

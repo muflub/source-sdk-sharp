@@ -57,32 +57,59 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "tempent.h"
+#include "c_te_legacytempents.h"
+#include "view.h"
+#include "env_wind_shared.h"
+#include "fx.h"
+#include "iefx.h"
+#include "dlight.h"
+#include "engine/IEngineSound.h"
+#include "model_types.h"
+#include "studio.h"
+#include "datacache/imdlcache.h"
+#include "engine/IClientLeafSystem.h"
+#include "engine/iserverplugin.h"
+#include "engine/ivmodelinfo.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "tier0/basetypes.h"
+#include "tier0/dbg.h"
+#include "tier1/convar.h"
+#include "tier1/iconvar.h"
+#include "tier1/mempool.h"
+#include "tier1/strtools.h"
+#include "basehandle.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "client_entity.h"
+#include "const.h"
+#include "globalvars_base.h"
+#include "icliententity.h"
+#include "icliententitylist.h"
+#include "iclientnetworkable.h"
+#include "iclientrenderable.h"
+#include "vphysics_interface.h"
 
 // plan_entity.md Phase 5a: an entity index or handle resolves through §3.3's
 // slot table, not through cl_entitylist. shell_cliententitylist.h says which of
 // the five resolvers answers which question.
 #include "shell_cliententitylist.h"
-#include "tempent.h"
-#include "c_te_legacytempents.h"
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"   // plan_client_vtables CE6: IManagedTempEntsClient
-#include "view.h"
-#include "movevars_shared.h"
-#include "env_wind_shared.h"
-#include "fx.h"                     // g_Mat_*
-#include "iefx.h"
-#include "dlight.h"
-#include "c_recipientfilter.h"
-#include "engine/IEngineSound.h"
-#include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "model_types.h"
-#include "studio.h"
-#include "datacache/imdlcache.h"
 #include <limits>
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 // Forward-declared because Clear's sweep below uses it, and it is
 // one of the six ABI slots defined at the bottom of this file.
@@ -386,8 +413,9 @@ int32_t SourceSharp_TempEntPoolReadStatics( int32_t nSlot,
 	pOut->nOwnerEntityIndex = pTemp->TempEntOwnerIndex();
 	pOut->nFlickerFrame     = pTemp->m_nFlickerFrame;
 
-	// Row C5's one bit. The NAME deliberately does not cross; see the struct.
-	pOut->bHasImpactEffect  = ( pTemp->m_pszImpactEffect != NULL ) ? 1 : 0;
+	// Row C5's one bit: no code in this build gives a tempent an impact
+	// effect, so it is always clear.
+	pOut->bHasImpactEffect  = 0;
 
 	return 1;
 }

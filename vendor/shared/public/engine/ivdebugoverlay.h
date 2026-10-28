@@ -1,23 +1,9 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
-//
 //  cdll_int.h
-//
 // 4-23-98  
 // JOHN:  client dll interface declarations
-//
 
-#ifndef IVDEBUGOVERLAY_H
-#define IVDEBUGOVERLAY_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 class Vector;
 
@@ -25,7 +11,6 @@ class Vector;
 
 // When used as a duration by a server-side NDebugOverlay:: call, 
 // causes the overlay to persist until the next server update.
-
 
 class OverlayText_t;
 
@@ -55,12 +40,8 @@ public:
 	virtual void unused_AddLineOverlayAlpha() = 0;
 	virtual void unused_AddBoxOverlay2() = 0;
 
-	virtual void AddScreenTextOverlay2(float flXPos, float flYPos, int iLine, float flDuration, int r, int g, int b, int a, const char *text) = 0;
-
+	virtual void unused_AddScreenTextOverlay2() = 0;
 
 private:
 /* catch improper use of bad interface. Needed because '0' duration can be resolved by compiler to NULL format string (i.e., compiles but calls wrong function) */
 };
-
-
-#endif // IVDEBUGOVERLAY_H

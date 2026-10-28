@@ -20,7 +20,7 @@
 11	BOUNDARY	int GetParticleSystemIndex( const char *pParticleSystemName )
 6	BOUNDARY	const char *GetParticleSystemNameFromIndex( int nIndex )
 16	HOOK	CShellClientDLL::CShellClientDLL()
-120	HOOK	int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory, CGlobalVarsBase *pGlobals )
+106	HOOK	int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory, CGlobalVarsBase *pGlobals )
 4	SLOT	bool CShellClientDLL::ReplayInit( CreateInterfaceFn fnReplayFactory )
 4	SLOT	bool CShellClientDLL::ReplayPostInit()
 15	SLOT	void CShellClientDLL::PostInit()
@@ -83,7 +83,7 @@
 4	INSTRUMENT	uint64_t CShellClientDLL::ClientStageCrossings() const
 4	INSTRUMENT	uint64_t CShellClientDLL::FrameStageNotifyCalls() const
 4	INSTRUMENT	uint64_t SourceSharp_FrameStageNotifyCalls()
-59	SLOT	void CShellClientDLL::FrameStageNotify( ClientFrameStage_t curStage )
+52	SLOT	void CShellClientDLL::FrameStageNotify( ClientFrameStage_t curStage )
 14	SLOT	CSaveRestoreData  *CShellClientDLL::SaveInit( int size )
 5	SLOT	void CShellClientDLL::SaveWriteFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *
 5	SLOT	void CShellClientDLL::SaveReadFields( CSaveRestoreData *pSaveData, const char *pname, void *pBaseData, datamap_t *pMap, typedescription_t *p

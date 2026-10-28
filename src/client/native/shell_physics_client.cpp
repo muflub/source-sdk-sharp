@@ -27,18 +27,34 @@
 // steps -- are managed's.
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "client_entity.h"
 #include "vphysics_interface.h"
 #include "physics_shared.h"
-#include "c_recipientfilter.h"
 #include "fx_water.h"
 #include "engine/IEngineTrace.h"
-#include "physics.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "tier0/dbg.h"
+#include "tier1/interface.h"
+#include "tier1/strtools.h"
+#include "cdll_client_int.h"
+#include "collisionproperty.h"
+#include "fx.h"
 #include "shell_clientsystem.h"
 #include "imanaged_areas_client.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 // Held pointers the client's shells read by name (physics_shared.h's
 // declarations): physprops by shell_impact_effects, shell_prediction,

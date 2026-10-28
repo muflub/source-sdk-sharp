@@ -41,11 +41,7 @@
 // rule and for the promise that a relay dies with its callers.
 //
 //=============================================================================//
-#ifndef MOVEMENT_GROUND_H
-#define MOVEMENT_GROUND_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 #if defined( CLIENT_DLL )
@@ -189,5 +185,3 @@ inline bool MovementGroundIsFloating( IHandleEntity *pGround )
 
 	return false;
 }
-
-#endif // MOVEMENT_GROUND_H

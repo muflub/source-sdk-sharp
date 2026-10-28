@@ -16,11 +16,7 @@
 // nothing else.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_TEMPENTS_STORE_CLIENT_H
-#define SOURCESHARP_SHELL_TEMPENTS_STORE_CLIENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "sourcesharp.h"
 #include "tempent_table_block.h"
@@ -46,5 +42,3 @@ RecvVarProxyFn SourceSharpTe_RecvVarProxy( int32_t nProxy );
 // id that does not fit the row's type or a datatable row with no table.
 bool SourceSharpTe_StoreRecvProp( const SourceSharpRecvPropRow_t &row, const char *pName,
                                   RecvTable *pNested, RecvProp *pOut );
-
-#endif // SOURCESHARP_SHELL_TEMPENTS_STORE_CLIENT_H

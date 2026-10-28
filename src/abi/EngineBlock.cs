@@ -203,8 +203,7 @@ public struct EngineBlock
         Line("// what each struct and each field IS travels with the declaration, out of the");
         Line("// [NativeDoc] attributes on the C# side, and is emitted below.");
         Line("");
-        Line("#ifndef SOURCESHARP_ENGINE_BLOCK_GENERATED_H");
-        Line("#define SOURCESHARP_ENGINE_BLOCK_GENERATED_H");
+        Line("#pragma once");
         Line("");
         Line("#include <stddef.h>");
         Line("#include <stdint.h>");
@@ -310,8 +309,6 @@ public struct EngineBlock
             }
         }
 
-        Line("");
-        Line("#endif // SOURCESHARP_ENGINE_BLOCK_GENERATED_H");
 
         return sb.ToString();
     }

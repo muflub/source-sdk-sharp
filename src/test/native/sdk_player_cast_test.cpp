@@ -2566,17 +2566,10 @@ TEST( SdkPlayerCast, TheResolverListIsHonest )
 		  "pServerEntity->GetGameEntity()" },
 		{ "shared/util_shared.h", "GameEntityFromEntityHandle (client arm)",
 		  "pEntity->GetGameEntity() : NULL" },
-		// The client's two. This row used to be exempted on a promise instead:
-		// it asserted that cliententitylist.h still carried a
-		// SOURCESHARP_NO_CLIENT_PARTITION marker, i.e. that the resolver did
-		// NOT ask the partition -- an exemption granted to a function known not
-		// to have earned it, because there was nothing else to do while
-		// IClientUnknown had no GetGameEntity(). Phase 13's revised step 1
-		// removed the excuse and the marker with it.
-		{ "client/c_baseentity.h", "SDKEntityFromUnknown",
-		  "SourceSharp_SDKEntityFromUnknown< SourceSharpClientPartition >" },
-		{ "client/c_baseentity.h", "SDKEntityFromRenderable",
-		  "SDKEntityFromUnknown( pRenderable->GetIClientUnknown() )" },
+		// (The client's two, SDKEntityFromUnknown and SDKEntityFromRenderable,
+		// went with the client's stock headers, 2026-10-25: no client object
+		// answers GetBaseEntity(), and their one caller, the beam endpoint
+		// facts, asked a question whose answer was always NULL.)
 		// client/cliententitylist.cpp's row (CClientEntityList's four) went
 		// when client.so stopped compiling that file and it left the source
 		// tree.
@@ -2629,10 +2622,8 @@ TEST( SdkPlayerCast, TheResolverListIsHonest )
 		   "through now, and TraceEntity, the thing it replaced, answered a "
 		   "constant NULL";
 
-	// And the partition itself still asks the stable arm, on BOTH sides. The
-	// server's asks it with one virtual through a structural cast; the client's
-	// asks GetIClientEntity() first, because its handle table holds objects
-	// that are not entities and a cast would be a lie about them.
+	// And the partition itself still asks the stable arm, on BOTH sides, with
+	// one virtual through a structural cast.
 	const std::string strCross =
 		SlurpCodeFromSourceRoot( "../sourcesharp/game/shared/handle_cross.h" );
 	ASSERT_FALSE( strCross.empty() ) << "handle_cross.h not found";
@@ -2646,49 +2637,13 @@ TEST( SdkPlayerCast, TheResolverListIsHonest )
 		<< "the server's partition no longer reaches GetBaseEntity(), its one "
 		   "accessor since plan_server_native_v2 T1.3";
 
-	EXPECT_NE( std::string::npos, strCross.find( "pObject->GetIClientEntity()" ) )
-		<< "the client's partition no longer asks the object for its entity "
-		   "face; if it casts instead, a static prop or a detail model in the "
-		   "handle table gets a GetGameEntity() call past the end of its vtable";
+	EXPECT_EQ( std::string::npos, strCross.find( "SourceSharpClientPartition" ) )
+		<< "the client has its own partition again; on stock headers it asks "
+		   "IClientUnknown::GetBaseEntity(), the server's question";
 
 	EXPECT_EQ( std::string::npos, strCross.find( "SourceSharpNoPartition" ) )
 		<< "the no-partition tag is back; it means \"this side cannot ask\", "
 		   "and both sides can";
-}
-
-TEST( SdkPlayerCast, TheClientPartitionIsOnTheLeafInterfaceAndNotTheUnknown )
-{
-	// WHERE the client's GetGameEntity() lives is an ABI fact, not a taste.
-	// IClientEntity derives from IClientUnknown, so a method appended to
-	// IClientUnknown lands in the middle of IClientEntity's primary vtable and
-	// pushes Release, GetAbsOrigin, GetAbsAngles, GetMouth and
-	// GetSoundSpatialization down one slot -- measured, 10..14 becoming 11..15 --
-	// and the engine calls all five through indices fixed when IT was compiled.
-	// The engine also IMPLEMENTS IClientUnknown, for static props, so a seventh
-	// slot would be one its own vtables do not have.
-	//
-	// Neither of those failures produces a compile error or a test failure
-	// anywhere else, which is exactly why it is asserted here as a shape.
-	const std::string unknown = SlurpFromSourceRoot( "../public/iclientunknown.h" );
-	const std::string entity  = SlurpFromSourceRoot( "../public/icliententity.h" );
-	ASSERT_FALSE( unknown.empty() ) << "could not read public/iclientunknown.h";
-	ASSERT_FALSE( entity.empty() )  << "could not read public/icliententity.h";
-
-	EXPECT_EQ( std::string::npos, unknown.find( "GetGameEntity" ) )
-		<< "IClientUnknown declares GetGameEntity(). Every IClientEntity method "
-		   "below it has just moved one vtable slot, and the engine calls those "
-		   "through fixed indices -- a positional sound now asks for a mouth.";
-
-	const size_t at = entity.find( "GetGameEntity" );
-	ASSERT_NE( std::string::npos, at )
-		<< "IClientEntity no longer declares GetGameEntity(); the client has no "
-		   "partition and every client resolver is asking a question of nobody";
-
-	// LAST, so that nothing already in the interface moved either.
-	EXPECT_NE( std::string::npos, entity.find( "GetSoundSpatialization" ) );
-	EXPECT_LT( entity.find( "GetSoundSpatialization" ), at )
-		<< "GetGameEntity() was inserted BEFORE an existing method of "
-		   "IClientEntity, which moves that method's vtable index";
 }
 
 TEST( SdkPlayerCast, ToBasePlayerDereferencesNothingAtAllAndTheConversionMovedToOneNamedInline )

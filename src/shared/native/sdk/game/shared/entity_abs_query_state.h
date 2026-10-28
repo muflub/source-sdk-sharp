@@ -74,11 +74,8 @@
 // Shared header: both server.so and client.so compile against it.
 //
 //=============================================================================//
-#ifndef ENTITY_ABS_QUERY_STATE_H
-#define ENTITY_ABS_QUERY_STATE_H
-#ifdef _WIN32
 #pragma once
-#endif
+#define ENTITY_ABS_QUERY_STATE_H
 
 //-----------------------------------------------------------------------------
 // Whether absolute-transform queries may be asked right now.
@@ -160,5 +157,3 @@ void EntityAbs_SetRecomputationsEnabled( bool bEnable );
 bool EntityAbs_AreRecomputationsEnabled();
 
 #endif // CLIENT_DLL
-
-#endif // ENTITY_ABS_QUERY_STATE_H

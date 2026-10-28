@@ -1,21 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef IPROPS_H
-#define IPROPS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "interface.h"
 #include "mathlib/vector.h"
 #include "utlvector.h"
 #include "basehandle.h"
-
 
 struct vcollide_t;
 struct Ray_t;
@@ -26,17 +16,11 @@ class IVPhysicsKeyHandler;
 class IPhysicsEnvironment;
 class ICollideable;
 
-
-//-----------------------------------------------------------------------------
 // Interface versions for static props
-//-----------------------------------------------------------------------------
 #define INTERFACEVERSION_STATICPROPMGR_CLIENT		"StaticPropMgrClient004"
 #define INTERFACEVERSION_STATICPROPMGR_SERVER		"StaticPropMgrServer002"
 
-
-//-----------------------------------------------------------------------------
 // Interface for static props
-//-----------------------------------------------------------------------------
 abstract_class IStaticPropMgr
 {
 public:
@@ -72,11 +56,9 @@ public:
 		int staticPropIndex, Vector& lighting, Vector& matColor ) = 0;
 
 	//Changes made specifically to support the Portal mod (smack Dave Kircher if something breaks) (Added separately to both client and server to not mess with versioning)
-	//===================================================================
 	virtual void GetAllStaticProps( CUtlVector<ICollideable *> *pOutput ) = 0; //testing function that will eventually be removed
 	virtual void unused_GetAllStaticPropsInAABB() = 0; //get all static props that exist wholly or partially in an AABB
 	virtual void unused_GetAllStaticPropsInOBB() = 0; //get all static props that exist wholly or partially in an OBB
-	//===================================================================
 
 	virtual void DrawStaticProps( IClientRenderable **pProps, int count, bool bShadowDepth, bool drawVCollideWireframe ) = 0;
 	virtual void unused_AddColorDecalToStaticProp() = 0;
@@ -86,14 +68,8 @@ class IStaticPropMgrServer : public IStaticPropMgr
 {
 public:
 
-
 	//Changes made specifically to support the Portal mod (smack Dave Kircher if something breaks) (Added separately to both client and server to not mess with versioning)
-	//===================================================================
 	virtual void GetAllStaticProps( CUtlVector<ICollideable *> *pOutput ) = 0; //testing function that will eventually be removed
 	virtual void unused_GetAllStaticPropsInAABB() = 0; //get all static props that exist wholly or partially in an AABB
 	virtual void unused_GetAllStaticPropsInOBB() = 0; //get all static props that exist wholly or partially in an OBB
-	//===================================================================
 };
-
-
-#endif // IPROPS_H

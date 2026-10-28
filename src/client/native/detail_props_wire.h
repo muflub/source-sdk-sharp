@@ -22,8 +22,7 @@
 // No SDK header, so the native tests read the shipped reader
 // (detail_props_wire_test).
 //=============================================================================//
-#ifndef SS_DETAIL_PROPS_WIRE_H
-#define SS_DETAIL_PROPS_WIRE_H
+#pragma once
 
 #include <stdint.h>
 #include <string.h>
@@ -268,5 +267,3 @@ bool RunEmit( const void *p, MESH &mesh )
 }
 
 } // namespace ss_detail
-
-#endif // SS_DETAIL_PROPS_WIRE_H

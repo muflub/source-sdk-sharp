@@ -1,23 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef ICLIENTTHINKABLE_H
-#define ICLIENTTHINKABLE_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "iclientunknown.h"
 
-
 class CClientThinkHandlePtr;
 typedef CClientThinkHandlePtr* ClientThinkHandle_t;
-
 
 // Entities that implement this interface can be put into the client think list.
 abstract_class IClientThinkable
@@ -36,6 +24,3 @@ public:
 	// Called by the client when it deletes the entity.
 	virtual void				Release() = 0;
 };
-
-
-#endif // ICLIENTTHINKABLE_H

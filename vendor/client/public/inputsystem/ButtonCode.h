@@ -1,23 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef BUTTONCODE_H
-#define BUTTONCODE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "inputsystem/InputEnums.h"
 #include "mathlib/mathlib.h"
 
-//-----------------------------------------------------------------------------
 // Button enum. "Buttons" are binary-state input devices (mouse buttons, keyboard keys)
-//-----------------------------------------------------------------------------
 enum
 {
 	JOYSTICK_MAX_BUTTON_COUNT = 32,
@@ -29,13 +17,7 @@ enum
 #define JOYSTICK_POV_BUTTON_INTERNAL( _joystick, _button ) ( JOYSTICK_FIRST_POV_BUTTON + ((_joystick) * JOYSTICK_POV_BUTTON_COUNT) + (_button) )
 #define JOYSTICK_AXIS_BUTTON_INTERNAL( _joystick, _button ) ( JOYSTICK_FIRST_AXIS_BUTTON + ((_joystick) * JOYSTICK_AXIS_BUTTON_COUNT) + (_button) )
 
-#define JOYSTICK_BUTTON( _joystick, _button ) ( (ButtonCode_t)JOYSTICK_BUTTON_INTERNAL( _joystick, _button ) )
-#define JOYSTICK_POV_BUTTON( _joystick, _button ) ( (ButtonCode_t)JOYSTICK_POV_BUTTON_INTERNAL( _joystick, _button ) )
-#define JOYSTICK_AXIS_BUTTON( _joystick, _button ) ( (ButtonCode_t)JOYSTICK_AXIS_BUTTON_INTERNAL( _joystick, _button ) )
-
-//-----------------------------------------------------------------------------
 // Button enum. "Buttons" are binary-state input devices (mouse buttons, keyboard keys)
-//-----------------------------------------------------------------------------
 enum
 {
 	STEAMCONTROLLER_MAX_BUTTON_COUNT = SK_MAX_KEYS - 1,
@@ -44,9 +26,6 @@ enum
 
 #define STEAMCONTROLLER_BUTTON_INTERNAL( _joystick, _button ) ( STEAMCONTROLLER_FIRST_BUTTON + ((_joystick) * STEAMCONTROLLER_MAX_BUTTON_COUNT) + (_button) )
 #define STEAMCONTROLLER_AXIS_BUTTON_INTERNAL( _joystick, _button ) ( STEAMCONTROLLER_FIRST_AXIS_BUTTON + ((_joystick) * STEAMCONTROLLER_AXIS_BUTTON_COUNT) + (_button) )
-
-#define STEAMCONTROLLER_BUTTON( _joystick, _button ) ( (ButtonCode_t)STEAMCONTROLLER_BUTTON_INTERNAL( _joystick, _button ) )
-#define STEAMCONTROLLER_AXIS_BUTTON( _joystick, _button ) ( (ButtonCode_t)STEAMCONTROLLER_AXIS_BUTTON_INTERNAL( _joystick, _button ) )
 
 enum ButtonCode_t
 {
@@ -192,7 +171,6 @@ enum ButtonCode_t
 
 	JOYSTICK_LAST = JOYSTICK_LAST_AXIS_BUTTON,
 
-#if !defined ( _X360 )
 	NOVINT_FIRST = JOYSTICK_LAST + 2, // plus 1 missing key. +1 seems to cause issues on the first button.
 	
 	NOVINT_LOGO_0 = NOVINT_FIRST,
@@ -206,9 +184,6 @@ enum ButtonCode_t
 	
 	NOVINT_LAST = NOVINT_PLUS_1,
 	STEAMCONTROLLER_FIRST = NOVINT_LAST + 1,
-#else
-	STEAMCONTROLLER_FIRST = JOYSTICK_LAST + 1
-#endif
 
 	// Steam Controller
 	STEAMCONTROLLER_FIRST_BUTTON = STEAMCONTROLLER_FIRST,
@@ -220,7 +195,6 @@ enum ButtonCode_t
 	BUTTON_CODE_LAST,
 	BUTTON_CODE_COUNT = BUTTON_CODE_LAST - KEY_FIRST + 1,
 
-	// Helpers for XBox 360
 	KEY_XBUTTON_UP = JOYSTICK_FIRST_POV_BUTTON,	// POV buttons
 	KEY_XBUTTON_RIGHT,
 	KEY_XBUTTON_DOWN,
@@ -293,113 +267,12 @@ enum ButtonCode_t
 	STEAMCONTROLLER_F12,
 };
 
-
-inline bool IsAlphaNumeric( ButtonCode_t code )
-{
-	return ( code >= KEY_0 ) && ( code <= KEY_Z );
-}
-
-inline bool IsSpace( ButtonCode_t code )
-{
-	return ( code == KEY_ENTER ) || ( code == KEY_TAB ) || ( code == KEY_SPACE );
-}
-
-inline bool IsKeypad( ButtonCode_t code )
-{
-	return ( code >= MOUSE_FIRST ) && ( code <= KEY_PAD_DECIMAL );
-}
-
-
-
-
 inline bool IsNovintCode( ButtonCode_t code )
 {
-#if !defined ( _X360 )
 	return ( ( code >= NOVINT_FIRST ) && ( code <= NOVINT_LAST ) );
-#else
-	return false;
-#endif
 }
 
 inline bool IsNovintButtonCode( ButtonCode_t code )
 {
-#if !defined ( _X360 )
 	return IsNovintCode( code );
-#else
-	return false;
-#endif
 }
-
-inline bool IsJoystickCode( ButtonCode_t code )
-{
-	return ( (( code >= JOYSTICK_FIRST ) && ( code <= JOYSTICK_LAST )) || ((code >= STEAMCONTROLLER_FIRST_BUTTON) && (code <= STEAMCONTROLLER_LAST_BUTTON)) );
-}
-
-inline bool IsJoystickButtonCode( ButtonCode_t code )
-{
-	return ( ( ( code >= JOYSTICK_FIRST_BUTTON ) && ( code <= JOYSTICK_LAST_BUTTON ) ) || IsNovintButtonCode( code ) );
-}
-
-inline bool IsJoystickPOVCode( ButtonCode_t code )
-{
-	return ( code >= JOYSTICK_FIRST_POV_BUTTON ) && ( code <= JOYSTICK_LAST_POV_BUTTON );
-}
-
-inline bool IsJoystickAxisCode( ButtonCode_t code )
-{
-	return ( code >= JOYSTICK_FIRST_AXIS_BUTTON ) && ( code <= JOYSTICK_LAST_AXIS_BUTTON );
-}
-
-inline bool IsSteamControllerCode( ButtonCode_t code )
-{
-	return ( ( code >= STEAMCONTROLLER_FIRST ) && ( code <= STEAMCONTROLLER_LAST ) );
-}
-
-inline bool IsSteamControllerButtonCode( ButtonCode_t code )
-{
-	return ( code >= STEAMCONTROLLER_FIRST_BUTTON ) && ( code <= STEAMCONTROLLER_LAST_BUTTON );
-}
-
-inline bool IsSteamControllerAxisCode( ButtonCode_t code )
-{
-	return ( code >= STEAMCONTROLLER_FIRST_AXIS_BUTTON ) && ( code <= STEAMCONTROLLER_LAST_AXIS_BUTTON );
-}
-
-inline ButtonCode_t GetBaseButtonCode( ButtonCode_t code )
-{
-	if ( IsJoystickButtonCode( code ) )
-	{
-		int offset = ( code - JOYSTICK_FIRST_BUTTON ) % JOYSTICK_MAX_BUTTON_COUNT;
-		return (ButtonCode_t)( JOYSTICK_FIRST_BUTTON + offset );
-	}
-
-	if ( IsJoystickPOVCode( code ) )
-	{
-		int offset = ( code - JOYSTICK_FIRST_POV_BUTTON ) % JOYSTICK_POV_BUTTON_COUNT;
-		return (ButtonCode_t)( JOYSTICK_FIRST_POV_BUTTON + offset );
-	}
-
-	if ( IsJoystickAxisCode( code ) )
-	{
-		int offset = ( code - JOYSTICK_FIRST_AXIS_BUTTON ) % JOYSTICK_AXIS_BUTTON_COUNT;
-		return (ButtonCode_t)( JOYSTICK_FIRST_AXIS_BUTTON + offset );
-	}
-
-	if ( IsSteamControllerButtonCode( code ) )
-	{
-		int offset = ( code - STEAMCONTROLLER_FIRST_BUTTON ) % STEAMCONTROLLER_MAX_BUTTON_COUNT;
-		return ( ButtonCode_t )( STEAMCONTROLLER_FIRST_BUTTON + offset );
-	}
-
-	if ( IsSteamControllerAxisCode( code ) )
-	{
-		int offset = ( code - STEAMCONTROLLER_FIRST_AXIS_BUTTON ) % STEAMCONTROLLER_AXIS_BUTTON_COUNT;
-		return ( ButtonCode_t )( STEAMCONTROLLER_FIRST_AXIS_BUTTON + offset );
-	}
-
-	return code;
-}
-
-
-
-#endif // BUTTONCODE_H

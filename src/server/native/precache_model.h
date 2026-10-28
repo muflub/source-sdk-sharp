@@ -28,11 +28,8 @@
 // entity.
 //
 //=============================================================================//
-#ifndef PRECACHE_MODEL_H
-#define PRECACHE_MODEL_H
-#ifdef _WIN32
 #pragma once
-#endif
+#define PRECACHE_MODEL_H
 
 //-----------------------------------------------------------------------------
 // Add a model to the level precache list and return its model index, or -1.
@@ -47,5 +44,3 @@ int Precache_Model( const char *name, bool bPreload = true );
 // to an already-precached studio model. A no-op for a non-studio model.
 //-----------------------------------------------------------------------------
 void Precache_ModelComponents( int nModelIndex );
-
-#endif // PRECACHE_MODEL_H

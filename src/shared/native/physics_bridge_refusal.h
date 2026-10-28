@@ -41,11 +41,7 @@
 // the same reason, as `move_root.h` and `said_once_per_id.h`.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_PHYSICS_BRIDGE_REFUSAL_H
-#define SOURCESHARP_PHYSICS_BRIDGE_REFUSAL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // One refused path. Constructed as a function-local static at the site, so
@@ -111,5 +107,3 @@ private:
 //-----------------------------------------------------------------------------
 #define SOURCESHARP_PHYSICS_REFUSAL_FMT \
 	"SourceSharp: %s is REFUSED in this build (plan_entity.md §7). %s\n"
-
-#endif // SOURCESHARP_PHYSICS_BRIDGE_REFUSAL_H

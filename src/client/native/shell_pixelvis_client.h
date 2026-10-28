@@ -11,8 +11,7 @@
 // view it is handed, and the two plan ops' bodies (shell_pixelvis_client.cpp).
 //=============================================================================//
 
-#ifndef SHELL_PIXELVIS_CLIENT_H
-#define SHELL_PIXELVIS_CLIENT_H
+#pragma once
 
 enum
 {
@@ -25,5 +24,3 @@ enum
 
 void ShellPixelVisEndView();
 void ShellPixelVisEndScene();
-
-#endif // SHELL_PIXELVIS_CLIENT_H

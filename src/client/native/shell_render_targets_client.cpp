@@ -31,14 +31,13 @@
 // No decision is made here: a slot nobody declared answers no texture.
 //=============================================================================//
 
-#include "cbase.h"
+#include "materialsystem/imaterialsystem.h"
+#include "materialsystem/itexture.h"
 #include "render_target_store.h"
-#include "rendertexture.h"
 #include "shell_render_targets.h"
 #include "sourcesharp_entrypoints.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 namespace
 {

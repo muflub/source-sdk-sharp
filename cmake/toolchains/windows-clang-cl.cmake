@@ -26,7 +26,9 @@ set(ss_xwin_includes
     /imsvc "${XWIN_DIR}/sdk/include/ucrt"
     /imsvc "${XWIN_DIR}/sdk/include/um"
     /imsvc "${XWIN_DIR}/sdk/include/shared")
-string(JOIN " " ss_xwin_flags --target=x86_64-pc-windows-msvc -fuse-ld=lld-link ${ss_xwin_includes})
+# -mcx16: MSVC always emits CMPXCHG16B for _InterlockedCompareExchange128
+# (tier0_thread_port.cpp); clang-cl calls libatomic for it without the flag.
+string(JOIN " " ss_xwin_flags --target=x86_64-pc-windows-msvc -fuse-ld=lld-link -mcx16 ${ss_xwin_includes})
 set(CMAKE_C_FLAGS_INIT "${ss_xwin_flags}")
 set(CMAKE_CXX_FLAGS_INIT "${ss_xwin_flags}")
 

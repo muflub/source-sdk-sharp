@@ -16,48 +16,79 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
-#include "c_baseplayer.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "vphysics_interface.h"
+#include "vgui/ILocalize.h"
 #include "hud.h"
 #include "vgui/ISurface.h"
 #include "iclientmode.h"
 #include "GameEventListener.h"
 #include "cam_thirdperson.h"
-#include "particlemgr.h"
 #include "particles/particles.h"
 #include "c_rumble.h"
 #include "engine/IEngineSound.h"
 #include "c_recipientfilter.h"
-#include "client_sound.h"
-#include "vgui/ILocalize.h"
 #include "vgui/IPanel.h"
-#include "shell_viewport_client.h"
-#include "view_facts.h"
 #include "ivmodemanager.h"
 #include "vgui_int.h"
 #include "ienginevgui.h"
-#include "shell_diagnostics.h"
-#include "ammodef.h"          // the client's ammo table, from shell_shared.cpp
-#include "shell_standalone_client.h"
 #include "ivieweffects.h"
 #include "iinput.h"
+#include "vgui_controls/Controls.h"
+#include "ifpspanel.h"
+#include "inetgraphpanel.h"
+#include "filesystem.h"
+#include "engine/iserverplugin.h"
+#include "inputsystem/ButtonCode.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/convar.h"
+#include "tier1/iconvar.h"
+#include "tier1/ilocalize.h"
+#include "tier1/strtools.h"
+#include "tier3/tier3.h"
+#include "toolframework/itoolentity.h"
+#include "vgui/Cursor.h"
+#include "vgui/VGUI.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "client_entity.h"
+#include "client_virtualreality.h"
+#include "const.h"
+#include "fx.h"
+#include "gametrace.h"
+#include "globalvars_base.h"
+#include "icliententitylist.h"
+#include "igameevents.h"
+#include "shareddefs.h"
+#include "trace.h"
+#include "util_shared.h"
+#include "view_shared.h"
+#include "client_sound.h"
+#include "shell_viewport_client.h"
+#include "view_facts.h"
+#include "shell_diagnostics.h"
+#include "shell_standalone_client.h"
 // SourceSharpThirdPersonCamera and the managed-built area it is answered
 // through (plan_client_vtables CE8): where the third-person camera sits is
 // managed policy (plan_entity.md §3.10).
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"
-#include <vgui_controls/Controls.h>   // vgui::surface(), ipanel(): the module's interface accessors
 #include "shell_rawpanel_client.h"
-#include "ifpspanel.h"
-#include "inetgraphpanel.h"
-#include "studio_stats.h"
-#include "filesystem.h"
 #include "sourcesharp_entrypoints.h"
 #include "shell_view_targets.h"   // lane camproto: the second cameras' draw
 #include "shell_particle_systems.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // Prediction moved to shell_prediction.cpp (Phase 9c1): the singleton the
@@ -378,7 +409,7 @@ public:
 
 	virtual void ProcessInput( bool bActive ) OVERRIDE { gHUD.ProcessInput( bActive ); }
 	virtual bool ShouldDrawDetailObjects() OVERRIDE { return true; }
-	virtual bool ShouldDrawEntity( IClientUnknown *pEnt ) OVERRIDE { return true; }
+	virtual bool ShouldDrawEntity( C_BaseEntity *pEnt ) OVERRIDE { return true; }
 	virtual bool ShouldDrawParticles() OVERRIDE { return true; }
 	virtual bool ShouldDrawFog( void ) OVERRIDE { return true; }
 	virtual bool ShouldDrawViewModel( void ) OVERRIDE { return true; }
@@ -386,7 +417,7 @@ public:
 
 	// The camera pass answered it (thirdperson_camera.h): the body draws when the
 	// camera got far enough behind the eye to see it.
-	virtual bool ShouldDrawLocalPlayer() OVERRIDE { return SourceSharp_ThirdPersonSeesOwner(); }
+	virtual bool ShouldDrawLocalPlayer( C_BasePlayer *pPlayer ) OVERRIDE { return SourceSharp_ThirdPersonSeesOwner(); }
 
 	virtual void StartMessageMode( int iMessageModeType ) OVERRIDE {}
 	virtual vgui::Panel *GetMessagePanel() OVERRIDE { return NULL; }
@@ -770,39 +801,12 @@ void StudioStats_FindClosestEntity( CClientRenderablesList * )
 // and never read. Its writer is an IShimStandaloneClient row; retiring the row
 // is the serialised ABI pass's (docs/todo.md), and the slot is ruled LOGIC
 // until then.
-static CAmmoDef g_AmmoDef;
-
 //-----------------------------------------------------------------------------
-// Called by C# once per ammo type.
-//
-// Idempotent by name: C# re-registers on every side load and a hot reload runs
-// it again, but CAmmoDef is native and survives that, so without this a reload
-// would add duplicate types and shift every ammo index.
+// Called by C# once per ammo type. The table it filled had no reader, and it
+// went with the client's stock headers (CAmmoDef is ammodef.cpp's, which
+// client.so does not build); the slot stays for the ABI pass to retire.
 //-----------------------------------------------------------------------------
 void SourceSharp_RegisterAmmoType( const char *pName, int32_t nDamageType, int32_t nMaxCarry,
                                    int32_t nTracerType, float flDamageForce, float flDamage )
 {
-	if ( !pName || !pName[0] )
-		return;
-
-	if ( g_AmmoDef.Index( pName ) != -1 )
-	{
-		if ( SourceSharp_GetVerbosity() > 1 )
-			Msg( "[SourceSharp] ammo type '%s' already registered; kept\n", pName );
-		return;
-	}
-
-	// The damage is per BULLET and it is the ammo's, not the weapon's, which is
-	// how stock does it: FireBullets asks the ammo definition unless the shot
-	// carries an override, and HL2 sets these through the sk_plr_dmg_* convars.
-	// Registering zero — as this did — makes every bullet in the game do nothing,
-	// and nothing complains.
-	g_AmmoDef.AddAmmoType( pName, nDamageType, nTracerType,
-	                       (int)flDamage, (int)flDamage,   // player and NPC damage
-	                       nMaxCarry,
-	                       (int)flDamageForce, 0 );
-
-	if ( SourceSharp_GetVerbosity() > 0 )
-		Msg( "[SourceSharp] ammo type '%s' max=%d damageType=%d\n",
-			pName, nMaxCarry, nDamageType );
 }

@@ -1,17 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//===========================================================================//
 
-#ifndef TEXTURE_GROUP_NAMES_H
-#define TEXTURE_GROUP_NAMES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // These are given to FindMaterial to reference the texture groups that show up on the 
-
 
 #define TEXTURE_GROUP_MODEL							"Model textures"
 
@@ -26,19 +17,3 @@
 
 	// Textures that weren't assigned a texture group.
 //#define TEXTURE_GROUP_STATIC_VERTEX_BUFFER		"Static Vertex"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#endif // TEXTURE_GROUP_NAMES_H

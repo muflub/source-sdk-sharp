@@ -70,12 +70,23 @@
 //
 //=============================================================================
 
-#include "cbase.h"
-#include "shell_clientsystem.h"
 #include "datacache/imdlcache.h"
+#include "detailobjectsystem.h"
+#include "clienteffectprecachesystem.h"
+#include "tier0/commonmacros.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "shell_clientsystem.h"
+#include "igamesystem.h"
+
+// Stock's IGameSystem keys its vtable on this destructor, which stock defined
+// in igamesystem.cpp to take the system off its own list. client.so keeps no
+// such list (the walks below are CClientSystem's), so the body is empty.
+IGameSystem::~IGameSystem() {}
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // The accessors.
@@ -128,22 +139,27 @@ IClientLeafSystem *ClientLeafSystem();
 IDetailObjectSystem *DetailObjectSystem();
 CClientEffectPrecacheSystem *ClientEffectPrecacheSystem( void );
 
-#include "clientleafsystem.h"
-#include "detailobjectsystem.h"
-#include "clienteffectprecachesystem.h"
 
 // The leaf system's row is shell_leaf_system_client.cpp's adapter: the leaf
 // system itself is libss_fwd_client's object, built without RTTI, and the
 // per-frame walks below dynamic_cast (C7 cluster 12 L2).
 CClientSystem *ClientLeafSystemGameSystem();
 static CClientSystem *ClientLeafGameSystem()          { return ClientLeafSystemGameSystem(); }
-static CClientSystem *DetailObjectGameSystem()        { return DetailObjectSystem(); }
+static CClientSystem *DetailObjectGameSystem()
+{
+	static CGameSystemRow< IDetailObjectSystem > s_Row( DetailObjectSystem() );
+	return &s_Row;
+}
 // The shadow manager's row is shell_shadows_client.cpp's adapter: the
 // manager is managed's (C7 cluster 12 S2), and the adapter hands it the
 // stages stock's CClientShadowMgr had bodies for.
 CClientSystem *ClientShadowMgrGameSystem();
 static CClientSystem *ClientShadowGameSystem()        { return ClientShadowMgrGameSystem(); }
-static CClientSystem *ClientEffectPrecacheGameSystem(){ return ClientEffectPrecacheSystem(); }
+static CClientSystem *ClientEffectPrecacheGameSystem()
+{
+	static CGameSystemRow< CClientEffectPrecacheSystem > s_Row( ClientEffectPrecacheSystem() );
+	return &s_Row;
+}
 
 //-----------------------------------------------------------------------------
 // THE ONE ROW THIS FILE DEFINED ITSELF, `C_BaseAnimatingGameSystem`, IS GONE

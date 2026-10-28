@@ -1,31 +1,19 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Revision: $
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef ISPATIALPARTITION_H
-#define ISPATIALPARTITION_H
+#pragma once
 
 #include "interface.h"
 
-//-----------------------------------------------------------------------------
 // forward declarations
-//-----------------------------------------------------------------------------
 
 class Vector;
 struct Ray_t;
 class IHandleEntity;
 
-
 #define INTERFACEVERSION_SPATIALPARTITION	"SpatialPartition001"
 
-//-----------------------------------------------------------------------------
 // These are the various partition lists. Note some are server only, some
 // are client only
-//-----------------------------------------------------------------------------
 
 enum
 {
@@ -47,16 +35,13 @@ enum
 	PARTITION_CLIENT_SOLID_EDICTS			\
 	)
 
-
 // These are the only handles in the spatial partition that the game is controlling (everything but static props)
 // These masks are used to handle updating the dirty spatial partition list in each game DLL
 #define PARTITION_CLIENT_GAME_EDICTS (PARTITION_ALL_CLIENT_EDICTS & ~PARTITION_CLIENT_STATIC_PROPS)
 #define PARTITION_SERVER_GAME_EDICTS (PARTITION_ENGINE_SOLID_EDICTS|PARTITION_ENGINE_TRIGGER_EDICTS|PARTITION_ENGINE_NON_STATIC_EDICTS)
 
-//-----------------------------------------------------------------------------
 // Clients that want to know about all elements within a particular
 // volume must inherit from this
-//-----------------------------------------------------------------------------
 
 enum IterationRetval_t
 {
@@ -64,20 +49,14 @@ enum IterationRetval_t
 	ITERATION_STOP,
 };
 
-
 typedef unsigned short SpatialPartitionHandle_t;
 
 // A combination of the PARTITION_ flags above.
 typedef int SpatialPartitionListMask_t;	
 
-typedef int SpatialTempHandle_t;
-
-
-//-----------------------------------------------------------------------------
 // Any search in the CSpatialPartition must use this to filter out entities it doesn't want.
 // You're forced to use listMasks because it can filter by listMasks really fast. Any other
 // filtering can be done by EnumElement.
-//-----------------------------------------------------------------------------
 
 class IPartitionEnumerator
 {
@@ -88,10 +67,7 @@ public:
 	// virtual ~IPartitionEnumerator(){}
 };
 
-
-//-----------------------------------------------------------------------------
 // Installs a callback to call right before a spatial partition query occurs
-//-----------------------------------------------------------------------------
 class IPartitionQueryCallback
 {
 public:
@@ -100,15 +76,11 @@ public:
 	virtual void OnPostQuery( SpatialPartitionListMask_t listMask ) = 0;
 };
 
-
-//-----------------------------------------------------------------------------
 // This is the spatial partition manager, groups objects into buckets
-//-----------------------------------------------------------------------------
 enum
 {
 	PARTITION_INVALID_HANDLE = (SpatialPartitionHandle_t)~0
 };
-
 
 abstract_class ISpatialPartition
 {
@@ -195,8 +167,3 @@ public:
 
 	virtual void InstallQueryCallback( IPartitionQueryCallback *pCallback ) = 0;
 };
-
-#endif
-
-
-

@@ -21,8 +21,8 @@ CONFIG="${1:-debug}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD="$REPO/farm/$CONFIG/build-windows-cross"
 XWIN="${XWIN_DIR:-$HOME/.xwin}"
-TARGETS=(server_sourcesharp ss_fwd_server sourcesharp ss_particles)
-LOADS=(server.dll=CreateInterface ss_fwd_server.dll=SSFwdServer_Table
+TARGETS=(server_sourcesharp ss_fwd_server client_sourcesharp ss_fwd_client sourcesharp ss_particles)
+LOADS=(server.dll=CreateInterface ss_fwd_server.dll=SSFwdServer_Table client.dll=CreateInterface ss_fwd_client.dll=SSFwdClient_Table
        managed_host.dll=SourceSharp_LoadServer ss_particles.dll=SSParticleLib_Interface)
 
 for tool in clang-cl-22 lld-link-22 wine; do

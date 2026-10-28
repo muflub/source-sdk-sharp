@@ -1,20 +1,11 @@
-#ifndef HAPTICS_INTERFACE_H
-#define HAPTICS_INTERFACE_H
-
-#ifdef GAME_DLL
-#pragma warning("IHaptics.h is only for client ussage");
-#endif
+#pragma once
 
 #include "tier0/platform.h"
 #include "appframework/IAppSystem.h"
 
-#define HAPTICS_INTERFACE_VERSION "HapticsInterface001"
-#define HAPTICS_DLL_NAME "haptics"
-
 // systems forward decl.
 class IVEngineClient;
 class IViewRender;
-class IInputInternal;
 class CGlobalVarsBase;
 class IFileSystem;
 class IEngineVGui;
@@ -68,9 +59,6 @@ public: // Game input handling
 	// Sets the internal navigation class.	
 	virtual void SetNavigationClass(const char *defaultNavigationName) = 0;
 
-	// Turns the internal navigation off. ( clears navigation class )
-	inline  void ClearNavigationClass();
-
 	// Returns the active navigation class ( if none returns NULL ) 
 	virtual const char *GetNavigationClass() = 0;
 
@@ -79,7 +67,6 @@ public: // Game input handling
 
 	// Should be called by the game input class when in a menu
 	virtual void MenuProcess() = 0;
-
 
 public: // Effect methods
 	
@@ -134,11 +121,4 @@ public: // Notify methods
 
 };
 
-inline void IHaptics::ClearNavigationClass( void )
-{
-	 SetNavigationClass(0);
-}
-
 extern IHaptics* haptics;
-	
-#endif// HAPTICS_INTERFACE_H

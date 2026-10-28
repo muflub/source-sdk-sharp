@@ -19,11 +19,7 @@
 // here.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_GAMESTRINGPOOL_H
-#define SOURCESHARP_SS_GAMESTRINGPOOL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "string_t.h"
 
@@ -34,5 +30,3 @@ string_t AllocPooledString( const char *pszValue );
 
 // The pool's server system: it frees every pooled string at level shutdown.
 CServerSystem *GameStringSystem();
-
-#endif // SOURCESHARP_SS_GAMESTRINGPOOL_H

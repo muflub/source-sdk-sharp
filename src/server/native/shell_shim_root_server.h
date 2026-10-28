@@ -34,8 +34,6 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_SHIM_ROOT_SERVER_H
-#define SHELL_SHIM_ROOT_SERVER_H
 #pragma once
 
 #include "ishim_root.h"
@@ -66,5 +64,3 @@ public:
 
 // The game DLL's shim root. Defined beside the root in shell_gamedll.cpp.
 CShimRootServer &ShellGameDll_ShimRoot();
-
-#endif // SHELL_SHIM_ROOT_SERVER_H

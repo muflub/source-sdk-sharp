@@ -60,11 +60,7 @@
 //
 //=============================================================================//
 
-#ifndef ISHIM_FRAME_H
-#define ISHIM_FRAME_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/platform.h"
 
@@ -153,5 +149,3 @@ public:
 
 	// NEW METHODS GO HERE, AT THE END. See the append-only rule above.
 };
-
-#endif // ISHIM_FRAME_H

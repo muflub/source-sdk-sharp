@@ -1,32 +1,17 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: A higher level link library for general use in the game and tools.
-//
-//===========================================================================//
 
-
-#ifndef TIER3_H
-#define TIER3_H
-
-#if defined( _WIN32 )
 #pragma once
-#endif
 
 #include "tier2/tier2.h"
 
-
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 class IStudioRender;
 class IMatSystemSurface;
 class IDataCache;
 class IMDLCache;
-class IVideoServices;
-class IDmeMakefileUtils;
 class IPhysicsCollision;
 class ISoundEmitterSystemBase;
-class IVTex;
 
 namespace vgui
 {
@@ -39,7 +24,6 @@ namespace vgui
 	class ISystem;
 }
 
-
 extern IStudioRender *studiorender;
 extern IMatSystemSurface *g_pMatSystemSurface;
 extern vgui::ISurface *g_pVGuiSurface;
@@ -51,18 +35,12 @@ extern vgui::ISchemeManager *g_pVGuiSchemeManager;
 extern vgui::ISystem *g_pVGuiSystem;
 extern IMDLCache *mdlcache;
 
-
-//-----------------------------------------------------------------------------
 // Call this to connect to/disconnect from all tier 3 libraries.
 // It's up to the caller to check the globals it cares about to see if ones are missing
-//-----------------------------------------------------------------------------
 void ConnectTier3Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount );
 void DisconnectTier3Libraries();
 
-
-//-----------------------------------------------------------------------------
 // Helper empty implementation of an IAppSystem for tier2 libraries
-//-----------------------------------------------------------------------------
 template< class IInterface, int ConVarFlag = 0 > 
 class CTier3AppSystem : public CTier2AppSystem< IInterface, ConVarFlag >
 {
@@ -94,7 +72,3 @@ public:
 		BaseClass::Disconnect();
 	}
 };
-
-
-#endif // TIER3_H
-

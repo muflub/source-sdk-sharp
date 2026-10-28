@@ -27,11 +27,7 @@
 // RecvPropArray3, VectorXY or quaternion props, and no int64 (dt_common.h
 // leaves SUPPORTS_INT64 undefined).
 //=============================================================================//
-#ifndef SOURCESHARP_ENGINEABI_RECV_H
-#define SOURCESHARP_ENGINEABI_RECV_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "dt_recv.h"
 
@@ -68,5 +64,3 @@ void StringToString( const CRecvProxyData *pData, void *pStruct, void *pOut );
 void StaticDataTable( const RecvProp *pProp, void **pOut, void *pData, int objectID );
 } // namespace recv
 } // namespace engineabi
-
-#endif // SOURCESHARP_ENGINEABI_RECV_H

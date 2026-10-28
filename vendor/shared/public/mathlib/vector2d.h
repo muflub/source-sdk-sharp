@@ -1,17 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
 
-#ifndef VECTOR2D_H
-#define VECTOR2D_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <math.h>
 #include <float.h>
@@ -25,9 +14,7 @@
 #include "tier0/dbg.h"
 #include "mathlib/math_pfns.h"
 
-//=========================================================
 // 2D Vector2D
-//=========================================================
 
 class Vector2D					
 {
@@ -73,22 +60,17 @@ public:
 	Vector2D&	operator/=(const Vector2D &v);		
 	Vector2D&	operator/=(float s);					
 
-
 	// Get the Vector2D's magnitude.
 	vec_t	Length() const;
 
 	// Get the Vector2D's magnitude squared.
 	vec_t	LengthSqr(void) const;
 
-
-
-
 	// Get the distance from this Vector2D to the other one.
 	vec_t	DistTo(const Vector2D &vOther) const;
 
 	// Get the distance from this Vector2D to the other one squared.
 	vec_t	DistToSqr(const Vector2D &vOther) const;		
-
 
 	// Multiply, add, and assign to this (ie: *this = a + b * scalar). This
 	// is about 12% faster than the actual Vector2D equation (because it's done per-component
@@ -115,7 +97,6 @@ public:
 	Vector2D	operator*(float fl) const;
 	Vector2D	operator/(float fl) const;			
 	
-
 	// Returns a Vector2D with the min or max in X, Y, and Z.
 	Vector2D	Min(const Vector2D &vOther) const;
 	Vector2D	Max(const Vector2D &vOther) const;
@@ -128,14 +109,7 @@ private:
 #endif
 };
 
-//-----------------------------------------------------------------------------
-
-
-//-----------------------------------------------------------------------------
 // Vector2D related operations
-//-----------------------------------------------------------------------------
-
-
 
 // Vector2D arithmetic
 void Vector2DAdd( const Vector2D& a, const Vector2D& b, Vector2D& result );
@@ -146,9 +120,6 @@ void Vector2DDivide( const Vector2D& a, vec_t b, Vector2D& result );
 void Vector2DDivide( const Vector2D& a, const Vector2D& b, Vector2D& result );
 void Vector2DMA( const Vector2D& start, float s, const Vector2D& dir, Vector2D& result );
 
-
-
-
 // Normalization
 vec_t Vector2DNormalize( Vector2D& v );
 
@@ -158,18 +129,9 @@ vec_t Vector2DLength( const Vector2D& v );
 // Dot Product
 vec_t DotProduct2D(const Vector2D& a, const Vector2D& b);
 
-
-
-//-----------------------------------------------------------------------------
-//
 // Inlined Vector2D methods
-//
-//-----------------------------------------------------------------------------
 
-
-//-----------------------------------------------------------------------------
 // constructors
-//-----------------------------------------------------------------------------
 
 #ifdef _DEBUG
 inline Vector2D::Vector2D(void)									
@@ -192,10 +154,7 @@ inline Vector2D::Vector2D(const float *pFloat)
 	Assert( IsValid() );
 }
 
-
-//-----------------------------------------------------------------------------
 // copy constructor
-//-----------------------------------------------------------------------------
 
 inline Vector2D::Vector2D(const Vector2D &vOther)					
 { 
@@ -203,9 +162,7 @@ inline Vector2D::Vector2D(const Vector2D &vOther)
 	x = vOther.x; y = vOther.y;
 }
 
-//-----------------------------------------------------------------------------
 // initialization
-//-----------------------------------------------------------------------------
 
 inline void Vector2D::Init( vec_t ix, vec_t iy )    
 { 
@@ -219,10 +176,7 @@ inline void Vector2D::Random( float minVal, float maxVal )
 	y = minVal + ((float)rand() / VALVE_RAND_MAX) * (maxVal - minVal);
 }
 
-
-//-----------------------------------------------------------------------------
 // assignment
-//-----------------------------------------------------------------------------
 
 inline Vector2D& Vector2D::operator=(const Vector2D &vOther)	
 {
@@ -231,9 +185,7 @@ inline Vector2D& Vector2D::operator=(const Vector2D &vOther)
 	return *this; 
 }
 
-//-----------------------------------------------------------------------------
 // Array access
-//-----------------------------------------------------------------------------
 
 inline vec_t& Vector2D::operator[](int i)
 {
@@ -247,9 +199,7 @@ inline vec_t Vector2D::operator[](int i) const
 	return ((vec_t*)this)[i];
 }
 
-//-----------------------------------------------------------------------------
 // Base address...
-//-----------------------------------------------------------------------------
 
 inline vec_t* Vector2D::Base()
 {
@@ -261,72 +211,18 @@ inline vec_t const* Vector2D::Base() const
 	return (vec_t const*)this;
 }
 
-//-----------------------------------------------------------------------------
 // IsValid?
-//-----------------------------------------------------------------------------
 
 inline bool Vector2D::IsValid() const
 {
 	return IsFinite(x) && IsFinite(y);
 }
 
-//-----------------------------------------------------------------------------
 // comparison
-//-----------------------------------------------------------------------------
 
-inline bool Vector2D::operator==( const Vector2D& src ) const
-{
-	Assert( src.IsValid() && IsValid() );
-	return (src.x == x) && (src.y == y);
-}
-
-inline bool Vector2D::operator!=( const Vector2D& src ) const
-{
-	Assert( src.IsValid() && IsValid() );
-	return (src.x != x) || (src.y != y);
-}
-
-
-//-----------------------------------------------------------------------------
 // Copy
-//-----------------------------------------------------------------------------
 
-
-
-//-----------------------------------------------------------------------------
 // standard math operations
-//-----------------------------------------------------------------------------
-
-
-inline Vector2D& Vector2D::operator+=(const Vector2D& v)	
-{ 
-	Assert( IsValid() && v.IsValid() );
-	x+=v.x; y+=v.y;	
-	return *this;
-}
-
-inline Vector2D& Vector2D::operator-=(const Vector2D& v)	
-{ 
-	Assert( IsValid() && v.IsValid() );
-	x-=v.x; y-=v.y;	
-	return *this;
-}
-
-inline Vector2D& Vector2D::operator*=(float fl)	
-{
-	x *= fl;
-	y *= fl;
-	Assert( IsValid() );
-	return *this;
-}
-
-inline Vector2D& Vector2D::operator*=(const Vector2D& v)	
-{ 
-	x *= v.x;
-	y *= v.y;
-	Assert( IsValid() );
-	return *this;
-}
 
 inline Vector2D& Vector2D::operator/=(float fl)	
 {
@@ -334,15 +230,6 @@ inline Vector2D& Vector2D::operator/=(float fl)
 	float oofl = 1.0f / fl;
 	x *= oofl;
 	y *= oofl;
-	Assert( IsValid() );
-	return *this;
-}
-
-inline Vector2D& Vector2D::operator/=(const Vector2D& v)	
-{ 
-	Assert( v.x != 0.0f && v.y != 0.0f );
-	x /= v.x;
-	y /= v.y;
 	Assert( IsValid() );
 	return *this;
 }
@@ -374,7 +261,6 @@ inline void Vector2DMultiply( const Vector2D& a, const Vector2D& b, Vector2D& c 
 	c.x = a.x * b.x;
 	c.y = a.y * b.y;
 }
-
 
 inline void Vector2DDivide( const Vector2D& a, vec_t b, Vector2D& c )
 {
@@ -408,10 +294,7 @@ inline void	Vector2D::MulAdd(const Vector2D& a, const Vector2D& b, float scalar)
 	y = a.y + b.y * scalar;
 }
 
-
-//-----------------------------------------------------------------------------
 // dot, cross
-//-----------------------------------------------------------------------------
 inline vec_t DotProduct2D(const Vector2D& a, const Vector2D& b) 
 { 
 	Assert( a.IsValid() && b.IsValid() );
@@ -424,10 +307,7 @@ inline vec_t Vector2D::Dot( const Vector2D& vOther ) const
 	return DotProduct2D( *this, vOther );
 }
 
-
-//-----------------------------------------------------------------------------
 // length
-//-----------------------------------------------------------------------------
 inline vec_t Vector2DLength( const Vector2D& v )
 {
 	Assert( v.IsValid() );
@@ -440,22 +320,12 @@ inline vec_t Vector2D::LengthSqr(void) const
 	return (x*x + y*y);		
 }
 
-
-
-
 inline vec_t Vector2D::Length(void) const	
 {
 	return Vector2DLength( *this );
 }
 
-
-
-
-
-
-//-----------------------------------------------------------------------------
 // Normalization
-//-----------------------------------------------------------------------------
 inline vec_t Vector2DNormalize( Vector2D& v )
 {
 	Assert( v.IsValid() );
@@ -471,10 +341,7 @@ inline vec_t Vector2DNormalize( Vector2D& v )
 	return l;
 }
 
-
-//-----------------------------------------------------------------------------
 // Get the distance from this Vector2D to the other one 
-//-----------------------------------------------------------------------------
 inline vec_t Vector2D::DistTo(const Vector2D &vOther) const
 {
 	Vector2D delta;
@@ -489,21 +356,11 @@ inline vec_t Vector2D::DistToSqr(const Vector2D &vOther) const
 	return delta.LengthSqr();
 }
 
-
-
-
-
-//-----------------------------------------------------------------------------
-//
 // Slow methods
-//
-//-----------------------------------------------------------------------------
 
 #ifndef VECTOR_NO_SLOW_OPERATIONS
 
-//-----------------------------------------------------------------------------
 // Returns a Vector2D with the min or max in X, Y, and Z.
-//-----------------------------------------------------------------------------
 
 inline Vector2D Vector2D::Min(const Vector2D &vOther) const
 {
@@ -517,29 +374,7 @@ inline Vector2D Vector2D::Max(const Vector2D &vOther) const
 		y > vOther.y ? y : vOther.y);
 }
 
-
-//-----------------------------------------------------------------------------
 // arithmetic operations
-//-----------------------------------------------------------------------------
-
-inline Vector2D Vector2D::operator-(void) const
-{ 
-	return Vector2D(-x,-y);				
-}
-
-inline Vector2D Vector2D::operator+(const Vector2D& v) const	
-{ 
-	Vector2D res;
-	Vector2DAdd( *this, v, res );
-	return res;	
-}
-
-inline Vector2D Vector2D::operator-(const Vector2D& v) const	
-{ 
-	Vector2D res;
-	Vector2DSubtract( *this, v, res );
-	return res;	
-}
 
 inline Vector2D Vector2D::operator*(float fl) const	
 { 
@@ -548,33 +383,4 @@ inline Vector2D Vector2D::operator*(float fl) const
 	return res;	
 }
 
-inline Vector2D Vector2D::operator*(const Vector2D& v) const	
-{ 
-	Vector2D res;
-	Vector2DMultiply( *this, v, res );
-	return res;	
-}
-
-inline Vector2D Vector2D::operator/(float fl) const	
-{ 
-	Vector2D res;
-	Vector2DDivide( *this, fl, res );
-	return res;	
-}
-
-inline Vector2D Vector2D::operator/(const Vector2D& v) const	
-{ 
-	Vector2D res;
-	Vector2DDivide( *this, v, res );
-	return res;	
-}
-
-inline Vector2D operator*(float fl, const Vector2D& v)	
-{ 
-	return v * fl; 
-}
-
 #endif //slow
-
-#endif // VECTOR2D_H
-

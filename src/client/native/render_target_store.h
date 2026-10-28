@@ -20,14 +20,15 @@
 // client.so's one instance is shell_render_targets_client.cpp's.
 //=============================================================================//
 
-#ifndef RENDER_TARGET_STORE_H
-#define RENDER_TARGET_STORE_H
+#pragma once
 
 #include <string.h>
 
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/itexture.h"
 #include "materialsystem/MaterialSystemUtil.h"
+// cdll_client_int.h's, which a client TU defines.
+extern IMaterialSystem *materials;
 
 // rendertexture.h's getters, one slot each in the header's order (the frame
 // buffers by index, the teeny textures by which). RenderTargetSlot (C#) is the
@@ -148,5 +149,3 @@ private:
 	MaterialBufferReleaseFunc_t m_pfnRelease;
 	bool m_bReleaseAdded;
 };
-
-#endif // RENDER_TARGET_STORE_H

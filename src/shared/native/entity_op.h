@@ -47,11 +47,7 @@
 // No engine headers on purpose, so entity_op_test.cpp needs no running Source.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_ENTITY_OP_H
-#define SOURCESHARP_ENTITY_OP_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 
@@ -168,5 +164,3 @@ enum EntityOp_t
 // warning names.
 //-----------------------------------------------------------------------------
 #define ENTITY_OP_MASK_ALL 0xFFFFFFFFu
-
-#endif // SOURCESHARP_ENTITY_OP_H

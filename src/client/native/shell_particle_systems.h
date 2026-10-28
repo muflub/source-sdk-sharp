@@ -6,8 +6,7 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_PARTICLE_SYSTEMS_H
-#define SHELL_PARTICLE_SYSTEMS_H
+#pragma once
 
 class CShellNewParticleEffect;
 
@@ -35,5 +34,3 @@ void ShellParticles_Frame( float flFrameTime );
 void ShellParticles_FrameCode();
 void ShellParticles_PostRender();
 void ShellParticles_LevelShutdown();
-
-#endif // SHELL_PARTICLE_SYSTEMS_H

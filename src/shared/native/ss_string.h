@@ -51,11 +51,7 @@
 // it bare.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SS_STRING_H
-#define SOURCESHARP_SS_STRING_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <cmath>
 #include <cstdarg>
@@ -1002,5 +998,3 @@ inline int WideToUTF8( const wchar_t *src, char *dst, int dstSize )
 } // namespace ss
 
 #undef SS_STRING_PRINTF
-
-#endif // SOURCESHARP_SS_STRING_H

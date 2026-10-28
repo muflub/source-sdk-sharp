@@ -1,17 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Client-server neutral sound interface
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef IENGINESOUND_H
-#define IENGINESOUND_H
-
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "basetypes.h"
 #include "interface.h"
@@ -20,9 +10,7 @@
 #include "utlvector.h"
 #include "engine/SndInfo.h"
 
-//-----------------------------------------------------------------------------
 // forward declaration
-//-----------------------------------------------------------------------------
 class Vector;
 
 // Handy defines for EmitSound
@@ -30,53 +18,17 @@ class Vector;
 #define SOUND_FROM_LOCAL_PLAYER		-1
 #define SOUND_FROM_WORLD			0
 
-
-
 // These are used to feed a soundlevel to the sound system and have it use
 // goldsrc-type attenuation. We should use this as little as possible and 
 // phase it out as soon as possible.
 
 // Take a regular sndlevel and convert it to compatibility mode.
 
-
 // Take a compatibility-mode sndlevel and get the REAL sndlevel out of it.
-
 
 // Tells if the given sndlevel is marked as compatibility mode.
 
-
-
-// IAudioOutputStream from source2
-// a separate stream that connects to the main output
-class IAudioOutputStream
-{
-public:
-	virtual ~IAudioOutputStream() {}
-	// queue a set of samples for output.  
-	// NOTE: nSampleCount is the number of samples being written to each channel, not the total # of all channels' samples
-	virtual void unused_WriteAudioData() = 0;
-
-	// change output volume (will be ramped linearly per sample over one mix quantum)
-	virtual void unused_SetVolume() = 0;
-
-	// how many samples are queued to play?
-	virtual void unused_QueuedSampleCount() = 0;
-
-	// how many samples can we write in a WriteAudioData call without truncation in the internal buffer?
-	virtual void unused_MaxWriteSampleCount() = 0;
-
-	// how many samples of latency
-	virtual void unused_LatencySamplesCount() = 0;
-
-	virtual void unused_Pause() = 0;
-	virtual void unused_Resume() = 0;
-};
-
-
-
-//-----------------------------------------------------------------------------
 // Client-server neutral effects interface
-//-----------------------------------------------------------------------------
 #define IENGINESOUND_CLIENT_INTERFACE_VERSION	"IEngineSoundClient003"
 #define IENGINESOUND_SERVER_INTERFACE_VERSION	"IEngineSoundServer003"
 
@@ -126,7 +78,6 @@ public:
 	// only available on the client, assert on server
 	virtual void EmitAmbientSound( const char *pSample, float flVolume, int iPitch = PITCH_NORM, int flags = 0, float soundtime = 0.0f ) = 0;
 
-
 //	virtual EntChannel_t	CreateEntChannel() = 0;
 
 	virtual void unused_GetDistGainFromSoundLevel() = 0;
@@ -154,6 +105,3 @@ public:
 	// Force an extra update.
 	virtual void unused_ExtraUpdate() = 0;
 };
-
-
-#endif // IENGINESOUND_H

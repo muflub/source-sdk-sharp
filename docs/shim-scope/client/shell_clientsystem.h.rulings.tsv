@@ -15,3 +15,12 @@
 [CClientSystemPerFrame] virtual bool IsPerFrame()	HOOK	per-frame
 [CClientSystemPerFrame] virtual void PreRender()	HOOK	a per-frame stage, empty by default
 [CClientSystemPerFrame] virtual void Update(	HOOK	a per-frame stage, empty by default
+[CGameSystemRow] explicit CGameSystemRow( TGameSystem *pSystem ) : m_pSystem( pSystem )	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
+[CGameSystemRow] virtual char const *Name()	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
+[CGameSystemRow] virtual bool Init()	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
+[CGameSystemRow] virtual void PostInit()	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
+[CGameSystemRow] virtual void Shutdown()	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
+[CGameSystemRow] virtual void LevelInitPreEntity()	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
+[CGameSystemRow] virtual void LevelInitPostEntity()	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
+[CGameSystemRow] virtual void LevelShutdownPreEntity()	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object
+[CGameSystemRow] virtual void LevelShutdownPostEntity()	HOOK	a game-system stage the system list drives, forwarded to the row's IGameSystem object

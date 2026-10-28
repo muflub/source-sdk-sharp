@@ -1,18 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef BSPFLAGS_H
-#define BSPFLAGS_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 // contents flags are seperate bits
 // a given brush can contribute multiple content bits
@@ -33,38 +21,23 @@
 #define CONTENTS_OPAQUE			0x80	// things that cannot be seen through (may be non-solid though)
 #define	LAST_VISIBLE_CONTENTS	0x80
 
-
-
-
-	
-
 // unused 
 // NOTE: If it's visible, grab from the top + update LAST_VISIBLE_CONTENTS
 // if not visible, then grab from the bottom.
-
 
 	// per team contents used to differentiate collisions 
 	// between players and objects on different teams
 
 // ignore CONTENTS_OPAQUE on surfaces that have SURF_NODRAW
-#define CONTENTS_IGNORE_NODRAW_OPAQUE	0x2000
 
 // hits entities which are MOVETYPE_PUSH (doors, plats, etc.)
 #define CONTENTS_MOVEABLE		0x4000
 
 // remaining contents are non-visible, and don't eat brushes
 
-
 #define	CONTENTS_PLAYERCLIP		0x10000
-#define	CONTENTS_MONSTERCLIP	0x20000
 
 // currents can be added to any other contents, and may be mixed
-#define	CONTENTS_CURRENT_0		0x40000
-#define	CONTENTS_CURRENT_90		0x80000
-#define	CONTENTS_CURRENT_180	0x100000
-#define	CONTENTS_CURRENT_270	0x200000
-#define	CONTENTS_CURRENT_UP		0x400000
-#define	CONTENTS_CURRENT_DOWN	0x800000
 
 	// removed before bsping an entity
 
@@ -75,7 +48,6 @@
 
 #define CONTENTS_HITBOX			0x40000000	// use accurate hitboxes on trace
 
-
 // NOTE: These are stored in a short in the engine now.  Don't use more than 16 bits
 		// value will hold the light strength
 		// don't draw, indicates we should skylight + draw 2d sky but not draw the 3D skybox
@@ -83,12 +55,11 @@
 		// turbulent water warp
 
 	// the surface can not have a portal placed on it
-	// FIXME: This is an xbox hack to work around elimination of trigger surfaces, which breaks occluders
 #define	SURF_NODRAW		0x0080	// don't bother referencing the texture
 
-#define	SURF_HINT		0x0100	// make a primary bsp splitter
+	// make a primary bsp splitter
 
-#define	SURF_SKIP		0x0200	// completely ignore, allowing non-closed brushes
+	// completely ignore, allowing non-closed brushes
 	// Don't calculate light
 	// calculate three lightmaps for the surface for bumpmapping
 	// Don't receive shadows
@@ -96,11 +67,7 @@
 	// Don't subdivide patches on this surface 
 	// surface is part of a hitbox
 
-
-
-// -----------------------------------------------------
 // spatial content masks - used for spatial queries (traceline,etc.)
-// -----------------------------------------------------
 #define	MASK_ALL					(0xFFFFFFFF)
 // everything that is normally solid
 #define	MASK_SOLID					(CONTENTS_SOLID|CONTENTS_MOVEABLE|CONTENTS_WINDOW|CONTENTS_MONSTER|CONTENTS_GRATE)
@@ -138,12 +105,7 @@
 
 // These are things that can split areaportals
 
-
 // UNDONE: This is untested, any moving water
-
 
 // everything that blocks corpse movement
 // UNDONE: Not used yet / may be deleted
-
-
-#endif // BSPFLAGS_H

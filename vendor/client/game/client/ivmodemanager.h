@@ -1,20 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-//
-//-----------------------------------------------------------------------------
-// $Log: $
-//
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( IVMODEMANAGER_H )
-#define IVMODEMANAGER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 abstract_class IVModeManager
 {
@@ -27,5 +12,3 @@ public:
 };
 
 extern IVModeManager *modemanager;
-
-#endif // IVMODEMANAGER_H

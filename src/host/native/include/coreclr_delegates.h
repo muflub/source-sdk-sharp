@@ -1,8 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-#ifndef HAVE_CORECLR_DELEGATES_H
-#define HAVE_CORECLR_DELEGATES_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -66,5 +65,3 @@ typedef int (CORECLR_DELEGATE_CALLTYPE *load_assembly_bytes_fn)(
 #ifdef __cplusplus
 }
 #endif // __cplusplus
-
-#endif // HAVE_CORECLR_DELEGATES_H

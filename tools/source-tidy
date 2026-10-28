@@ -1,0 +1,549 @@
+#!/usr/bin/env python3
+"""tools/source-tidy -- the shape every vendored file and native header keeps.
+
+    tools/source-tidy             report the files that would change; exit 1 if any
+    tools/source-tidy --write     rewrite them
+    tools/source-tidy --self-test
+    --report lists each file with what changes in it.
+
+WHAT CHANGES (user 2026-10-25):
+
+  * a header's include guard becomes `#pragma once`: the #ifndef/#define
+    and the #endif that closes it go (the #define stays when another file
+    tests the macro), and so does the `#ifdef _WIN32 / #pragma once` block,
+    since clang and gcc honour the pragma too. vendor/ and our native headers.
+  * _X360 is never defined (no build targets the Xbox), and its arms go.
+  * a side guard is settled in a one-side file: vendor/server and
+    src/server/native are GAME_DLL and not CLIENT_DLL, vendor/client and
+    src/client/native the reverse, unless an object that reads the file says
+    otherwise (the dependency logs of the debug, release, windows-cross,
+    probe and oracle trees, each object's -D flags). The #if arms it decides
+    are kept or dropped and the condition loses that term. A shared file
+    keeps its guards.
+  * a conditional block left with nothing in it goes, and so does an empty
+    #else. vendor/ and our native sources.
+  * in vendor/: a comment line with no word in it (`//`, a rule of dashes,
+    `// Purpose:` with nothing after it), and runs of blank lines (one is
+    kept; none at the start or the end of a file).
+
+A condition is only rewritten when it is a chain of defined() terms joined
+by one operator; anything else is left as it is.
+"""
+import os
+import re
+import subprocess
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+VENDOR = os.path.join(REPO, "vendor")
+OURS = [os.path.join(REPO, "src", d, "native") for d in ("client", "server", "shared", "fwd", "host", "engineabi")]
+SIDE_MACROS = ("CLIENT_DLL", "GAME_DLL")
+# Platforms no build of ours targets (user 2026-10-25: no Xbox): false everywhere.
+NEVER_DEFINED = {"_X360": False, "_XBOX": False, "PLATFORM_X360": False, "IN_XBOX_CODELINE": False,
+                 "COMPILER_MSVCX360": False}
+TREES = (("debug", "build"), ("release", "build"), ("debug", "build-windows-cross"),
+         ("release", "build-windows-cross"), ("debug", "build-probes"), ("debug", "build-oracle"))
+SOURCE_EXT = (".h", ".hpp", ".cpp", ".c", ".inl", ".inc")
+
+DIRECTIVE = re.compile(r"^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)$")
+# A comment of rule characters alone: no word, no brace, no code.
+EMPTY_COMMENT = re.compile(r"^\s*//[\s/\-=*_~#.+!]*$")
+LABEL_COMMENT = re.compile(r"^\s*//\s*(Purpose|Input|Output|Note|Notes|\$NoKeywords|\$Workfile|\$Date|"
+                           r"\$Revision|\$Author|\$Header|\$Log|\$Archive|\$Modtime)\s*:?\s*\$?\s*:?\s*$",
+                           re.IGNORECASE)
+WIN_PRAGMA_CONDS = {"defined(_WIN32)", "_WIN32", "defined(_MSC_VER)", "_MSC_VER",
+                    "_MSC_VER>=1020", "_MSC_VER>1000", "_MSC_VER>=1000"}
+
+
+# ---------------------------------------------------------------------------
+# Conditions
+# ---------------------------------------------------------------------------
+
+TERM = re.compile(r"^(!?)\s*(?:defined\s*(?:\(\s*(\w+)\s*\)|(\w+))|(\w+))$")
+
+
+def unparen(text):
+    """The text without parentheses that wrap all of it."""
+    text = text.strip()
+    while text.startswith("(") and text.endswith(")"):
+        depth = 0
+        for i, ch in enumerate(text):
+            depth += ch == "("
+            depth -= ch == ")"
+            if depth == 0 and i < len(text) - 1:
+                return text
+        text = text[1:-1].strip()
+    return text
+
+
+def strip_comment(text):
+    text = re.sub(r"/\*.*?\*/", " ", text)
+    return text.split("//")[0].strip()
+
+
+def condition(kind, rest):
+    """The #if-style condition text of an if/ifdef/ifndef/elif line."""
+    rest = strip_comment(rest)
+    if kind == "ifdef":
+        return "defined( %s )" % rest
+    if kind == "ifndef":
+        return "!defined( %s )" % rest
+    return rest
+
+
+def simplify(cond, known):
+    """(True|False|None, text): the condition with the known macros' terms
+    settled. None and the rewritten text when it still depends on others."""
+    if not known:
+        return None, cond
+    cond = unparen(cond)
+    if cond.startswith("!") and unparen(cond[1:]) != cond[1:].strip():
+        value, text = simplify(unparen(cond[1:]), known)
+        if value is not None:
+            return not value, cond
+        return None, cond if text == unparen(cond[1:]) else "!( %s )" % text
+    for op in ("&&", "||"):
+        other = "||" if op == "&&" else "&&"
+        if other in cond:
+            continue
+        terms = [unparen(t) for t in cond.split(op)]
+        parsed = []
+        for t in terms:
+            m = TERM.match(t)
+            name = m and (m.group(2) or m.group(3) or m.group(4))
+            if m and name in known:
+                v = known[name]
+                parsed.append(v if not m.group(1) else not v)
+            else:
+                if re.search(r"\b(%s)\b" % "|".join(known), t):
+                    return None, cond          # a known macro in a shape not settled here
+                parsed.append(t)
+        if all(isinstance(p, str) for p in parsed):
+            return None, cond
+        if op == "&&":
+            if any(p is False for p in parsed):
+                return False, cond
+            rest = [p for p in parsed if isinstance(p, str)]
+        else:
+            if any(p is True for p in parsed):
+                return True, cond
+            rest = [p for p in parsed if isinstance(p, str)]
+        if not rest:
+            return op == "&&", cond
+        return None, (" %s " % op).join(rest)
+    return None, cond
+
+
+# ---------------------------------------------------------------------------
+# The tree of conditional blocks
+# ---------------------------------------------------------------------------
+
+class Block:
+    def __init__(self):
+        self.arms = []      # [kind, condition, raw line, children]
+        self.end = None     # the #endif line
+
+
+def logical_lines(text):
+    """Lines with a directive's backslash continuations joined."""
+    out, cur = [], None
+    for line in text.split("\n"):
+        if cur is not None:
+            cur += "\n" + line
+            if not line.endswith("\\"):
+                out.append(cur)
+                cur = None
+            continue
+        if DIRECTIVE.match(line) and line.endswith("\\"):
+            cur = line
+            continue
+        out.append(line)
+    if cur is not None:
+        out.append(cur)
+    return out
+
+
+def parse(lines):
+    root = []
+    stack = [root]
+    blocks = []
+    for line in lines:
+        m = DIRECTIVE.match(line.split("\n")[0])
+        if not m:
+            stack[-1].append(line)
+            continue
+        kind, rest = m.group(1), line[m.end(1):].replace("\\\n", " ")
+        if kind in ("if", "ifdef", "ifndef"):
+            b = Block()
+            b.arms.append([kind, condition(kind, rest), line, []])
+            stack[-1].append(b)
+            blocks.append(b)
+            stack.append(b.arms[-1][3])
+        elif kind in ("elif", "else"):
+            if not blocks:
+                raise ValueError("#%s with no #if" % kind)
+            b = blocks[-1]
+            b.arms.append([kind, condition(kind, rest) if kind == "elif" else None, line, []])
+            stack[-1] = b.arms[-1][3]
+        else:
+            if not blocks:
+                raise ValueError("#endif with no #if")
+            b = blocks.pop()
+            b.end = line
+            stack.pop()
+    if blocks:
+        raise ValueError("an #if with no #endif")
+    return root
+
+
+def is_blank(nodes):
+    return all(isinstance(n, str) and not n.strip() for n in nodes)
+
+
+def render(nodes, known, out, notes):
+    for n in nodes:
+        if isinstance(n, str):
+            out.append(n)
+            continue
+        render_block(n, known, out, notes)
+
+
+def render_block(b, known, out, notes):
+    kept = []           # [kind, condition text, children]
+    for kind, cond, raw, children in b.arms:
+        if kind == "else":
+            kept.append(["else", None, children, raw])
+            break
+        value, text = simplify(cond, known)
+        if value is False:
+            notes.add("side guard")
+            continue
+        if value is True:
+            notes.add("side guard")
+            kept.append(["else", None, children, None])
+            break
+        kept.append([kind, text if text != cond else None, children, raw])
+    # An arm settled true with nothing before it: its lines, no directives.
+    if kept and kept[0][0] == "else":
+        render(kept[0][2], known, out, notes)
+        return
+    # Empty trailing #else, and a block left with nothing in it.
+    while kept and kept[-1][0] == "else" and is_blank(kept[-1][2]):
+        kept.pop()
+        notes.add("empty branch")
+    if not kept or all(is_blank(k[2]) for k in kept):
+        notes.add("empty branch")
+        return
+    first = True
+    for kind, text, children, raw in kept:
+        if first:
+            if kind in ("if", "ifdef", "ifndef") and text is None:
+                out.append(raw)
+            else:
+                cond = text if text is not None else condition(kind, DIRECTIVE.match(raw).group(2))
+                out.append("#if %s" % cond)
+            first = False
+        elif kind == "else":
+            out.append(raw if raw is not None else "#else")
+        else:
+            out.append(raw if text is None else "#elif %s" % text)
+        render(children, known, out, notes)
+    out.append(b.end)
+
+
+# ---------------------------------------------------------------------------
+# Include guards
+# ---------------------------------------------------------------------------
+
+def norm(cond):
+    return re.sub(r"\s+", "", cond or "")
+
+
+def guard_of(nodes):
+    """(index of the guard block, macro) when the file is one guarded block
+    with only comments and blank lines around it."""
+    idx = [i for i, n in enumerate(nodes) if not (isinstance(n, str) and (not n.strip() or n.strip().startswith("//")))]
+    if len(idx) != 1 or not isinstance(nodes[idx[0]], Block):
+        return None
+    b = nodes[idx[0]]
+    if len(b.arms) != 1:
+        return None
+    m = re.match(r"^!defined\((\w+)\)$", norm(b.arms[0][1]))
+    if not m:
+        return None
+    macro = m.group(1)
+    for line in b.arms[0][3]:
+        if isinstance(line, str) and not line.strip():
+            continue
+        if isinstance(line, str) and line.strip().startswith("//"):
+            continue
+        if isinstance(line, str) and re.match(r"^\s*#\s*define\s+%s\s*$" % macro, line):
+            return idx[0], macro
+        return None
+    return None
+
+
+def drop_win_pragma(nodes, notes):
+    out = []
+    for n in nodes:
+        if (isinstance(n, Block) and len(n.arms) == 1 and norm(n.arms[0][1]) in WIN_PRAGMA_CONDS
+                and [l.strip() for l in n.arms[0][3] if isinstance(l, str) and l.strip()] == ["#pragma once"]
+                and all(isinstance(l, str) for l in n.arms[0][3])):
+            notes.add("include guard")
+            continue
+        if isinstance(n, str) and re.match(r"^\s*#\s*pragma\s+once\b", n):
+            notes.add("include guard")
+            continue
+        out.append(n)
+    return out
+
+
+def to_pragma_once(nodes, referenced, notes):
+    g = guard_of(nodes)
+    if g is None:
+        return nodes
+    i, macro = g
+    body = nodes[i].arms[0][3]
+    keep_define = macro in referenced
+    inner = []
+    dropped = False
+    for line in body:
+        if not dropped and isinstance(line, str) and re.match(r"^\s*#\s*define\s+%s\s*$" % macro, line):
+            dropped = True
+            if keep_define:
+                inner.append(line)
+            continue
+        inner.append(line)
+    inner = drop_win_pragma(inner, notes)
+    notes.add("include guard")
+    return drop_win_pragma(nodes[:i], notes) + ["#pragma once"] + inner + drop_win_pragma(nodes[i + 1:], notes)
+
+
+# ---------------------------------------------------------------------------
+# One file
+# ---------------------------------------------------------------------------
+
+def tidy_text(text, known, vendored, header, referenced):
+    """(new text, {what changed})."""
+    notes = set()
+    crlf = "\r\n" in text
+    body = text.replace("\r\n", "\n")
+    if body.endswith("\n"):
+        body = body[:-1]
+    lines = logical_lines(body)
+    try:
+        tree = parse(lines)
+    except ValueError:
+        return text, set()
+    if header:
+        tree = to_pragma_once(tree, referenced, notes)
+    out = []
+    render(tree, known, out, notes)
+    result = []
+    in_block = False
+    for line in "\n".join(out).split("\n"):
+        if vendored and not in_block and (EMPTY_COMMENT.match(line) or LABEL_COMMENT.match(line)):
+            notes.add("empty comment")
+            continue
+        if "/*" in line and "*/" not in line.split("/*", 1)[1]:
+            in_block = True
+        elif in_block and "*/" in line:
+            in_block = False
+        result.append(line.rstrip("\r"))
+    while result and not result[-1].strip() and notes:
+        result.pop()
+    if vendored:
+        squeezed = []
+        for line in result:
+            if not line.strip() and (not squeezed or not squeezed[-1].strip()):
+                continue
+            squeezed.append(line)
+        while squeezed and not squeezed[-1].strip():
+            squeezed.pop()
+        if squeezed != result:
+            notes.add("blank lines")
+        result = squeezed
+    new = "\n".join(result) + "\n"
+    if crlf:
+        new = new.replace("\n", "\r\n")
+    if new == text:
+        return text, set()
+    return new, notes or {"whitespace"}
+
+
+# ---------------------------------------------------------------------------
+# What the build says about each file
+# ---------------------------------------------------------------------------
+
+def side_values():
+    """{realpath: {macro: bool}} for the macros every reading object agrees on."""
+    seen = {}       # path -> {macro: set(values)}
+    any_tree = False
+    for cfg, bdir in TREES:
+        tree = os.path.join(REPO, "farm", cfg, bdir)
+        if not os.path.exists(os.path.join(tree, "build.ninja")):
+            continue
+        any_tree = True
+        flags = {}
+        import json
+        db = os.path.join(tree, "compile_commands.json")
+        for e in json.load(open(db)) if os.path.exists(db) else []:
+            out = os.path.normpath(os.path.join(e.get("directory", tree), e["output"]))
+            cmd = e.get("command", "")
+            flags[out] = {m: bool(re.search(r"[-/]D\s*%s(\s|=|$)" % m, cmd)) for m in SIDE_MACROS}
+        r = subprocess.run(["ninja", "-C", tree, "-t", "deps"], capture_output=True, text=True)
+        cur = None
+        for line in r.stdout.split("\n"):
+            if line and not line.startswith(" "):
+                obj = os.path.normpath(os.path.join(tree, line.split(":")[0]))
+                cur = flags.get(obj)
+                continue
+            if cur is None or not line.strip():
+                continue
+            p = os.path.realpath(line.strip())
+            d = seen.setdefault(p, {m: set() for m in SIDE_MACROS})
+            for m in SIDE_MACROS:
+                d[m].add(cur[m])
+    if not any_tree:
+        raise SystemExit("tools/source-tidy: no build tree to read the sides from (make debug)")
+    return {p: {m: next(iter(v)) for m, v in d.items() if len(v) == 1} for p, d in seen.items()}
+
+
+LOCATION_SIDES = (
+    ((os.path.join(VENDOR, "server"), os.path.join(REPO, "src", "server", "native")),
+     {"CLIENT_DLL": False, "GAME_DLL": True}),
+    ((os.path.join(VENDOR, "client"), os.path.join(REPO, "src", "client", "native")),
+     {"CLIENT_DLL": True, "GAME_DLL": False}),
+)
+
+
+def side_of_location(path, evidence):
+    """The side macros a file's location settles (a server-only or a
+    client-only directory), each kept only where no object that reads the
+    file disagrees. A shared file settles none."""
+    for roots, values in LOCATION_SIDES:
+        if any(path.startswith(r + os.sep) for r in roots):
+            return {m: v for m, v in values.items() if evidence.get(m, v) == v}
+    return {}
+
+
+def files():
+    out = []
+    for root in [VENDOR] + OURS:
+        for d, _, names in os.walk(root):
+            for n in names:
+                if n.endswith(SOURCE_EXT):
+                    out.append(os.path.join(d, n))
+    return sorted(out)
+
+
+def guard_references():
+    """Macro names that appear outside their own guard lines, anywhere a
+    source of ours or a vendored file can see them."""
+    counts = {}
+    roots = [VENDOR, os.path.join(REPO, "src"), os.path.join(REPO, "tools", "probes")]
+    word = re.compile(r"\b([A-Z_][A-Z0-9_]*_H(?:PP)?_?|[A-Z_][A-Z0-9_]*_INCLUDED)\b")
+    for root in roots:
+        for d, _, names in os.walk(root):
+            for n in names:
+                if not n.endswith(SOURCE_EXT):
+                    continue
+                try:
+                    text = open(os.path.join(d, n), encoding="latin-1").read()
+                except OSError:
+                    continue
+                for line in text.split("\n"):
+                    s = line.strip()
+                    if re.match(r"^#\s*(ifndef|define)\s+\w+\s*$", s) or re.match(r"^#\s*if\s+!\s*defined", s):
+                        continue        # a guard's own two lines
+                    if re.match(r"^#\s*endif", s):
+                        continue
+                    for w in word.findall(line):
+                        counts[w] = counts.get(w, 0) + 1
+    return {w for w, c in counts.items() if c}
+
+
+def run(write, report):
+    sides = side_values()
+    referenced = guard_references()
+    changed = []
+    for path in files():
+        vendored = path.startswith(VENDOR + os.sep)
+        header = path.endswith((".h", ".hpp"))
+        known = side_of_location(path, sides.get(os.path.realpath(path), {}))
+        known.update(NEVER_DEFINED)
+        text = open(path, encoding="latin-1", newline="").read()
+        new, notes = tidy_text(text, known, vendored, header, referenced)
+        if new != text:
+            changed.append((os.path.relpath(path, REPO), sorted(notes)))
+            if write:
+                with open(path, "w", encoding="latin-1", newline="") as f:
+                    f.write(new)
+    if report or not write:
+        for p, notes in changed:
+            print("  %s: %s" % (p, ", ".join(notes)))
+    print("tools/source-tidy: %d files %s" % (len(changed), "rewritten" if write else "would change"))
+    return 0 if write or not changed else 1
+
+
+# ---------------------------------------------------------------------------
+
+def self_test():
+    checks = 0
+
+    def eq(a, b, what):
+        nonlocal checks
+        checks += 1
+        if a != b:
+            raise AssertionError("%s:\n%r\n!=\n%r" % (what, a, b))
+
+    t = "// x\n#ifndef A_H\n#define A_H\n#ifdef _WIN32\n#pragma once\n#endif\n\nint a;\n\n#endif // A_H\n"
+    eq(tidy_text(t, {}, False, True, set())[0], "// x\n#pragma once\n\nint a;\n",
+       "a guarded header becomes #pragma once, the _WIN32 pragma goes")
+    eq(tidy_text(t, {}, False, True, {"A_H"})[0], "// x\n#pragma once\n#define A_H\n\nint a;\n",
+       "a guard macro another file tests keeps its #define")
+    t = "#if !defined( B_H )\n#define B_H\nint b;\n#endif\nint after;\n"
+    eq(tidy_text(t, {}, False, True, set())[0], t, "code after the guard's #endif: the guard stays")
+    t = "int a;\n#ifdef CLIENT_DLL\nint c;\n#else\nint s;\n#endif\n#ifndef CLIENT_DLL\nint s2;\n#endif\n"
+    eq(tidy_text(t, {"CLIENT_DLL": False}, False, False, set())[0], "int a;\nint s;\nint s2;\n",
+       "a side guard the build settles false keeps only the other arm")
+    eq(tidy_text(t, {"CLIENT_DLL": True}, False, False, set())[0], "int a;\nint c;\n",
+       "and settled true keeps its own")
+    eq(tidy_text(t, {}, False, False, set())[0], t, "a guard the build does not settle stays")
+    t = "#if defined( _DEBUG ) && defined( GAME_DLL )\nint d;\n#endif\n"
+    eq(tidy_text(t, {"GAME_DLL": True}, False, False, set())[0], "#if defined( _DEBUG )\nint d;\n#endif\n",
+       "a settled term leaves the condition")
+    eq(tidy_text(t, {"GAME_DLL": False}, False, False, set())[0], "\n",
+       "and a false one drops the block")
+    t = "int a;\n#if _X360\nint x;\n#endif\n#if ( defined( _X360 ) )\nint y;\n#else\nint z;\n#endif\n"
+    eq(tidy_text(t, {"_X360": False}, False, False, set())[0], "int a;\nint z;\n",
+       "a bare or parenthesised never-defined macro settles false")
+    t = "#if !( defined( _X360 ) && defined( _CERT ) )\nint v;\n#endif\n"
+    eq(tidy_text(t, {"_X360": False}, False, False, set())[0], "int v;\n", "a negated group settles")
+    t = "#if defined( A ) || ( defined( CLIENT_DLL ) && B )\nint x;\n#endif\n"
+    eq(tidy_text(t, {"CLIENT_DLL": True}, False, False, set())[0], t, "a mixed condition is left alone")
+    t = "int a;\n#ifdef X\n\n#endif\n#ifdef Y\nint y;\n#else\n#endif\n"
+    eq(tidy_text(t, {}, False, False, set())[0], "int a;\n#ifdef Y\nint y;\n#endif\n",
+       "an empty block and an empty #else go")
+    t = "//---\n// Purpose: \n//\n// real words\nint a;\n\n\n\nint b;\n\n"
+    eq(tidy_text(t, {}, True, False, set())[0], "// real words\nint a;\n\nint b;\n",
+       "vendor/: empty comments and blank runs go")
+    eq(tidy_text(t, {}, False, False, set())[0], t, "our files keep their comments and blank lines")
+    t = "/// usage:\n///   {\n///   }\nint a;\n"
+    eq(tidy_text(t, {}, True, False, set())[0], t, "a comment line holding a brace is content")
+    t = "/*\n//\n*/\nint a;\n"
+    eq(tidy_text(t, {}, True, False, set())[0], t, "a // line inside a block comment is the comment's")
+    t = "int a;\r\n\r\n\r\nint b;\r\n"
+    eq(tidy_text(t, {}, True, False, set())[0], "int a;\r\n\r\nint b;\r\n", "CRLF files stay CRLF")
+    print("tools/source-tidy --self-test: %d checks passed" % checks)
+    return 0
+
+
+def main(argv):
+    if "--self-test" in argv:
+        return self_test()
+    return run("--write" in argv, "--report" in argv)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

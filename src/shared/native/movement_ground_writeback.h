@@ -46,11 +46,7 @@
 // than a paragraph in it -- the gtest binary is then this header and gtest.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_MOVEMENT_GROUND_WRITEBACK_H
-#define SOURCESHARP_MOVEMENT_GROUND_WRITEBACK_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 enum MovementGroundWrite_t
 {
@@ -76,5 +72,3 @@ inline MovementGroundWrite_t MovementGround_WriteBack( bool bLoopHasGround,
 
 	return bPlayerHoldsTheOneFound ? MOVEMENT_GROUND_LEAVE : MOVEMENT_GROUND_SET;
 }
-
-#endif // SOURCESHARP_MOVEMENT_GROUND_WRITEBACK_H

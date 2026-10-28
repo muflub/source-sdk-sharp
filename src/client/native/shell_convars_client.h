@@ -8,11 +8,7 @@
 //
 // shell_convars_client.cpp says what these are (plan_client_novalve C8).
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_CONVARS_CLIENT_H
-#define SOURCESHARP_SHELL_CONVARS_CLIENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 
@@ -27,5 +23,3 @@ bool SourceSharp_ClientDecidedValue( const char *pName, float *pOut );
 
 // Installs the client's global change callback if no registration has yet.
 void SourceSharp_EnsureConVarChangeCallback();
-
-#endif // SOURCESHARP_SHELL_CONVARS_CLIENT_H

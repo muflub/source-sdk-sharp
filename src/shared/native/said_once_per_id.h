@@ -15,11 +15,7 @@
 // rules are.
 //
 //===========================================================================//
-#ifndef SOURCESHARP_SAID_ONCE_PER_ID_H
-#define SOURCESHARP_SAID_ONCE_PER_ID_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 class CSaidOncePerId
 {
@@ -51,5 +47,3 @@ private:
 	unsigned int m_Ids[ 1024 ];
 	int m_nCount;
 };
-
-#endif // SOURCESHARP_SAID_ONCE_PER_ID_H

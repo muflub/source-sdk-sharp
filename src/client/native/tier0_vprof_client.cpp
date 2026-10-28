@@ -33,6 +33,7 @@
 
 #define g_VProfCurrentProfile ss_VProfDeclaredProfile
 #include "tier0/vprof.h"
+#include "tier0/wchartypes.h"
 #undef g_VProfCurrentProfile
 
 #include "ss_platform.h"	// SS_BIND_IMPORT

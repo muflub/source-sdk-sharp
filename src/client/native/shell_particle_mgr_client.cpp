@@ -18,16 +18,37 @@
 // manager is reached by name (particles_lib_client.cpp).
 //=============================================================================//
 
-#include "cbase.h"
-#include "shell_particle_mgr.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterial.h"
 #include "particles/particles.h"
 #include "particle_parse.h"
 #include "tier1/utldict.h"
+#include "tier0/dbg.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "tier1/utlvector.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "globalvars_base.h"
+#include "particledraw.h"
+#include "particlemgr.h"
+#include "texture_group_names.h"
+#include "shell_particle_mgr.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 extern IParticleSystemQuery *g_pParticleSystemQuery;
 

@@ -1,6 +1,7 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
-# measured at f9964449f
+# measured at 37bab61d0
+# 2026-10-25, M2 (client.so and libss_fwd_client on vendor/): fork-hdr-total 445 -> 0 and fork-hdr-not-allowed 281 -> 0 (docs/client-fork-roots.txt emptied, as the server's); incdir-forbidden 6 -> 0, its TUs 134 -> 0; logic-lines 71 -> 52 (the client's handle partition, the beam creators' BeamInfo_t forward and the SDK-entity resolvers deleted, new headers ruled); native-convar-decls 68 -> 58 (the M1 lanes' commands, measured here for the first time: invnext/invprev/lastinv, slot1-6 and the cs_cl_* diagnostics left native for managed); sdk-links 443 -> 137 (tools/sdk-census --write: what only tests read moved to tests.txt).
 # 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 5934 -> 5905: bullet_glass.h (the 24 LOGIC lines: FireBullets' glass rule) and self_penetration_rule.h, which no compiled TU included, deleted; both rules are C# with their facts (BulletGlass, ClientCollisionSolver.SelfPenetrationSolvedByOwner). Hand-edited.
 # 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 6292 -> 5934: world_adapter_client.cpp: C_World::OnDataChanged's decisions (the create's mode reset, the startdark fade, the renderer's occlusion and fade-range values) became SourceSharp.Client's WorldArrival; the seven getters only it read, and the dead spawn chain (Spawn, Precache, W_Precache and its eight unread sprite indexes, RegisterSharedActivities) deleted; the rest ruled. Hand-edited.
 # 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 6433 -> 6292: the spawn's material-reload window (CMapMaterialReload, map_material_reload.h) became SourceSharp.Client's MapMaterialReloadWindow; shell_map_material_reload.cpp's hooks forward and carry out its plan, ruled SLOT and HOOK. Hand-edited.
@@ -318,8 +319,65 @@
 #   gamebspfile.h, env_detail_controller.h, tier1/heapsort.h and tier0/valve_minmax_off.h: sdk-links 393 -> 388.
 # 2026-10-19, C7 cluster 12 L2, the eviction: clientleafsystem.cpp left client.so (tools/client-novalve-census): fork-hdr-not-allowed 311 -> 309,
 #   fork-hdr-total 475 -> 473, fork-src 8 -> 7, incdir-forbidden-tus 142 -> 141, sdk-links 522 -> 521. Hand-edited.
-fork-hdr-not-allowed	281
-fork-hdr-total	445
+# 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 141 -> 142, a relabel: generic_payload_client.cpp, split out of the shared generic_payload.cpp, is a new client TU that reaches a forbidden include dir (a split, not new reach).
+# 2026-10-18, C7 flashlight (cluster 12), at the rebase onto main e070a68e7: shell_flashlight_client.cpp, the flashlight's executor,
+#   joins client.so with the target's include dirs: incdir-forbidden-tus 141 -> 142 RAISED (the new TU). logic-lines 8362 -> 8298:
+#   SourceSharp_ClientTraceLine ruled SLOT (it grew 64 -> 71 with the flashlight's mask and filter, and is IShimViewClient's slot
+#   as ClientTraceHull is); the new filter and executor are ruled SLOT/SLOT-HELP/LAYOUT/BOUNDARY (tools/shim-scope). Hand-edited.
+# 2026-10-19, C7 cluster 12 L2 (the leaf system's registry to managed): shell_leaf_system_client.cpp, the storage and
+#   ClientLeafSystem002 row of libss_fwd_client's leaf system, joins client.so with the target's include dirs:
+#   incdir-forbidden-tus 141 -> 142 RAISED (the new TU; tools/client-novalve-census). Its functions are ruled
+#   SLOT-HELP/HOOK (tools/shim-scope), so logic-lines stays 8301. Hand-edited.
+# RAISED 2026-10-19, incdir-forbidden-tus 140 -> 141 (the client temp entity landing on main 6c0c02d09), deliberately: the new
+#   TU shell_tempents_store_client.cpp, which stores the managed plan as engine-read RecvTables (dt_recv.h).
+# RAISED 2026-10-19, incdir-forbidden-tus 138 -> 139 (plan_server_native_v2 T5), a relabel: mathlib_port_client.cpp, split out of
+#   the shared mathlib_port.cpp (the members only client.so imports), is a new client TU that reaches a forbidden include dir
+#   with the target's include dirs (a split, not new reach; tools/client-novalve-census).
+# 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
+# 2026-10-19, the server skin on the wire: RAISED 8421 -> 8424. The client's recv builder addresses the new m_nSkin row
+#   (three lines: the offset into the block's Client.Skin). The client compiled no skin receive before; this is new reach the
+#   fix needs, not a relabel.
+# LOWERED 2026-10-19, logic-lines 9010 -> 8990 (-20, tools/shim-scope at the C7 cluster 12 L2 landing on main
+#   832d8cd95): BlendPass, L1's native once-per-frame-and-view ComputeFxBlend check, moved to managed with the registry.
+#   fork-src 8 -> 7 and the fork-hdr rows had already followed clientleafsystem.cpp's eviction in the rebase. Hand-edited.
+# 2026-10-19, plan_server_native_v2 T4b: RAISED 8804 -> 9328 (+524), a relabel: tempent_schema.h moved from
+#   src/shared/native to src/client/native (the server plans its temp entity tables in C# and no longer includes it), so
+#   tools/shim-scope, which walks src/client/native, counts the client's planner and registry for the first time. The
+#   client compiled exactly this text before (its TU preprocesses identically, line markers aside). The client port's to
+#   move; the server's twin is TePropPlanner/TeSchemaRegistry.
+# LOWERED 2026-10-19, logic-lines 9514 -> 8939 (-575, tools/shim-scope at the client sound emitter landing on main
+#   ab8f56ef2): sound_emitter.cpp's client emit path went to managed (the lane measured 8804 -> 8229 on its base). Hand-edited.
+# LOWERED 2026-10-19, logic-lines 8939 -> 8696 (-243) and incdir-forbidden-tus 141 -> 140 (tools/client-novalve-census at
+#   the client save codec landing on main 9d7f49fad): shell_savegame.cpp deleted, its save slots ruled SLOT, and the
+#   forwards in shell_clientdll.cpp (the lane measured 9010 -> 8767 on its base). Hand-edited.
+# LOWERED 2026-10-19, logic-lines 8696 -> 7566 (-1130, tools/shim-scope at the client temp entity landing on main 6c0c02d09):
+#   tempent_schema.h and the native registration path deleted; the store and the receiving shell's husk ruled carrying out
+#   (the lane measured 9514 -> 8384 on its base). Hand-edited.
+# LOWERED 2026-10-20, logic-lines 7457 -> 7435 (tools/shim-scope at the serialised ABI cleanup's landing on main c5c8df3d2):
+#   the dead slots' native bodies went with their rows. Hand-edited.
+# 2026-10-25, lanes M1-D and M1-B landed together on the vendor branch, measured by tools/shim-scope at the landing: logic-lines 3951. Hand-edited.
+# 2026-10-25, lane M1-A landed on the vendor branch after M1-D and M1-B, measured by tools/shim-scope at the landing: logic-lines 3951 -> 1759. Hand-edited.
+# 2026-10-25, lane M1-C landed on the vendor branch after M1-D, M1-B and M1-A, measured by tools/shim-scope at the landing: logic-lines 1759 -> 71, the five functions the lanes ruled LOGIC on purpose (docs/todo.md says what moves each). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 7435 -> 5916 (tools/shim-scope, lane M1-A on main 1f8f3e52d: the standalone shell, the shell renderable, the sprite render and leaf readers, the view facts, the world render state and the render trace ruled function by function, each with its reason; the dead SourceSharp_StandaloneGetRenderables and SourceSharp_ViewerVehicleJoystickResponseCurve deleted). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5916 -> 5862 (tools/shim-scope, lane M1-A: C_StandaloneEntity::ComputeFxBlend's fade rule moved to managed's StandaloneFade and StandaloneFadePass; the slot is empty, the new surrounding-bounds batch ruled BOUNDARY). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5862 -> 5365 (tools/shim-scope, lane M1-A: the surface renderer's blob reads, material choice, solid-run grouping and draw order moved to managed's BreakableSurfaceDraw (ClientBreakableSurf hands materials and a plan over); the renderer's executor, the three new shim bodies and PostDataUpdate ruled). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5365 -> 5302 (tools/shim-scope, lane M1-A: the colour-correction handle table and its op dispatcher moved to managed's ColorLookupTable; four render-context slots ruled BOUNDARY, the ClientColorCorrection slot retired). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5302 -> 5291 (tools/shim-scope, lane M1-A: ShouldDraw's viewer-body rule moved to managed's ClientRenderPolicy (the block's OwnerSeenRule); the slot ruled SLOT). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5291 -> 5255 (tools/shim-scope, lane M1-A: the interpolation filter (WantsInterpolation) and delay (StandaloneInterpolationAmount) moved to managed's InterpolatedSet and InterpolationDelay; the list, the admitted-set slot and the PreRender walk ruled). Hand-edited.
+# LOWERED 2026-10-25, logic-lines 5255 -> 5241 (tools/shim-scope, lane M1-A: SourceSharp_ViewEntityPose ruled BOUNDARY and ViewSubject::ViewEntityOverridesTheEye ruled LOGIC, kept for the native view setup's port, which owns its one caller). Hand-edited.
+# 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).
+# LOWERED 2026-10-19, sdk-links 510 -> 374 (tools/client-novalve-census at the sdk-links reconciliation on main f087134f5):
+#   31 links deleted that no build reads (debug, release, oracle, probe; the Windows arms checked by hand). The other
+#   ~105 are RELABELLING, not porting: sdk-census now counts libss_fwd_server/client and libss_particles as their side's,
+#   so 96 headers libss_fwd_server compiles moved client -> shared, 10 lines client -> tests (read only by tests) and
+#   tier1/stringpool.h client -> libs. Hand-edited.
+# 2026-10-25, vendor/ (server side): RAISED 368 -> 466, a relabel: server.so and libss_fwd_server now read their Valve
+#   headers from vendor/, so the 98 shared.txt headers the client still reads from the fork moved to client.txt (tools/sdk-census --write).
+# LOWERED 2026-10-25, sdk-links 466 -> 450 (tools/sdk-census --write at the M1-D + M1-B landing): the 11 headers lane M1-B's
+#   retirements stopped reading left the lists, the rest moved to tests.txt. Hand-edited.
+# LOWERED 2026-10-25, sdk-links 450 -> 443 (tools/sdk-census --write at the M1-A + M1-C landing). Hand-edited.
+fork-hdr-not-allowed	0
+fork-hdr-total	0
 fork-src	0
 imports:bitmap	0
 imports:bitmap<-dmxloader	0
@@ -351,67 +409,10 @@ imports:vstdlib<-particles	0
 imports:vtf	0
 imports:vtf<-dmxloader	0
 imports:vtf<-particles	0
-incdir-forbidden	6
-# 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 141 -> 142, a relabel: generic_payload_client.cpp, split out of the shared generic_payload.cpp, is a new client TU that reaches a forbidden include dir (a split, not new reach).
-# 2026-10-18, C7 flashlight (cluster 12), at the rebase onto main e070a68e7: shell_flashlight_client.cpp, the flashlight's executor,
-#   joins client.so with the target's include dirs: incdir-forbidden-tus 141 -> 142 RAISED (the new TU). logic-lines 8362 -> 8298:
-#   SourceSharp_ClientTraceLine ruled SLOT (it grew 64 -> 71 with the flashlight's mask and filter, and is IShimViewClient's slot
-#   as ClientTraceHull is); the new filter and executor are ruled SLOT/SLOT-HELP/LAYOUT/BOUNDARY (tools/shim-scope). Hand-edited.
-# 2026-10-19, C7 cluster 12 L2 (the leaf system's registry to managed): shell_leaf_system_client.cpp, the storage and
-#   ClientLeafSystem002 row of libss_fwd_client's leaf system, joins client.so with the target's include dirs:
-#   incdir-forbidden-tus 141 -> 142 RAISED (the new TU; tools/client-novalve-census). Its functions are ruled
-#   SLOT-HELP/HOOK (tools/shim-scope), so logic-lines stays 8301. Hand-edited.
-# RAISED 2026-10-19, incdir-forbidden-tus 140 -> 141 (the client temp entity landing on main 6c0c02d09), deliberately: the new
-#   TU shell_tempents_store_client.cpp, which stores the managed plan as engine-read RecvTables (dt_recv.h).
-# RAISED 2026-10-19, incdir-forbidden-tus 138 -> 139 (plan_server_native_v2 T5), a relabel: mathlib_port_client.cpp, split out of
-#   the shared mathlib_port.cpp (the members only client.so imports), is a new client TU that reaches a forbidden include dir
-#   with the target's include dirs (a split, not new reach; tools/client-novalve-census).
-incdir-forbidden-tus	134
+incdir-forbidden	0
+incdir-forbidden-tus	0
 link-forbidden	1
-# 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 8073 -> 8420, a relabel: the client-only arms moved out of shared TUs (T1.4's three headers, the client-arms lane, Hack_FixEscapeChars): lines the client compiled before and the client scope measures now.
-# 2026-10-19, the server skin on the wire: RAISED 8421 -> 8424. The client's recv builder addresses the new m_nSkin row
-#   (three lines: the offset into the block's Client.Skin). The client compiled no skin receive before; this is new reach the
-#   fix needs, not a relabel.
-# LOWERED 2026-10-19, logic-lines 9010 -> 8990 (-20, tools/shim-scope at the C7 cluster 12 L2 landing on main
-#   832d8cd95): BlendPass, L1's native once-per-frame-and-view ComputeFxBlend check, moved to managed with the registry.
-#   fork-src 8 -> 7 and the fork-hdr rows had already followed clientleafsystem.cpp's eviction in the rebase. Hand-edited.
-# 2026-10-19, plan_server_native_v2 T4b: RAISED 8804 -> 9328 (+524), a relabel: tempent_schema.h moved from
-#   src/shared/native to src/client/native (the server plans its temp entity tables in C# and no longer includes it), so
-#   tools/shim-scope, which walks src/client/native, counts the client's planner and registry for the first time. The
-#   client compiled exactly this text before (its TU preprocesses identically, line markers aside). The client port's to
-#   move; the server's twin is TePropPlanner/TeSchemaRegistry.
-# LOWERED 2026-10-19, logic-lines 9514 -> 8939 (-575, tools/shim-scope at the client sound emitter landing on main
-#   ab8f56ef2): sound_emitter.cpp's client emit path went to managed (the lane measured 8804 -> 8229 on its base). Hand-edited.
-# LOWERED 2026-10-19, logic-lines 8939 -> 8696 (-243) and incdir-forbidden-tus 141 -> 140 (tools/client-novalve-census at
-#   the client save codec landing on main 9d7f49fad): shell_savegame.cpp deleted, its save slots ruled SLOT, and the
-#   forwards in shell_clientdll.cpp (the lane measured 9010 -> 8767 on its base). Hand-edited.
-# LOWERED 2026-10-19, logic-lines 8696 -> 7566 (-1130, tools/shim-scope at the client temp entity landing on main 6c0c02d09):
-#   tempent_schema.h and the native registration path deleted; the store and the receiving shell's husk ruled carrying out
-#   (the lane measured 9514 -> 8384 on its base). Hand-edited.
-# LOWERED 2026-10-20, logic-lines 7457 -> 7435 (tools/shim-scope at the serialised ABI cleanup's landing on main c5c8df3d2):
-#   the dead slots' native bodies went with their rows. Hand-edited.
-# 2026-10-25, lanes M1-D and M1-B landed together on the vendor branch, measured by tools/shim-scope at the landing: logic-lines 3951. Hand-edited.
-# 2026-10-25, lane M1-A landed on the vendor branch after M1-D and M1-B, measured by tools/shim-scope at the landing: logic-lines 3951 -> 1759. Hand-edited.
-# 2026-10-25, lane M1-C landed on the vendor branch after M1-D, M1-B and M1-A, measured by tools/shim-scope at the landing: logic-lines 1759 -> 71, the five functions the lanes ruled LOGIC on purpose (docs/todo.md says what moves each). Hand-edited.
-logic-lines	71
-# LOWERED 2026-10-25, logic-lines 7435 -> 5916 (tools/shim-scope, lane M1-A on main 1f8f3e52d: the standalone shell, the shell renderable, the sprite render and leaf readers, the view facts, the world render state and the render trace ruled function by function, each with its reason; the dead SourceSharp_StandaloneGetRenderables and SourceSharp_ViewerVehicleJoystickResponseCurve deleted). Hand-edited.
-# LOWERED 2026-10-25, logic-lines 5916 -> 5862 (tools/shim-scope, lane M1-A: C_StandaloneEntity::ComputeFxBlend's fade rule moved to managed's StandaloneFade and StandaloneFadePass; the slot is empty, the new surrounding-bounds batch ruled BOUNDARY). Hand-edited.
-# LOWERED 2026-10-25, logic-lines 5862 -> 5365 (tools/shim-scope, lane M1-A: the surface renderer's blob reads, material choice, solid-run grouping and draw order moved to managed's BreakableSurfaceDraw (ClientBreakableSurf hands materials and a plan over); the renderer's executor, the three new shim bodies and PostDataUpdate ruled). Hand-edited.
-# LOWERED 2026-10-25, logic-lines 5365 -> 5302 (tools/shim-scope, lane M1-A: the colour-correction handle table and its op dispatcher moved to managed's ColorLookupTable; four render-context slots ruled BOUNDARY, the ClientColorCorrection slot retired). Hand-edited.
-# LOWERED 2026-10-25, logic-lines 5302 -> 5291 (tools/shim-scope, lane M1-A: ShouldDraw's viewer-body rule moved to managed's ClientRenderPolicy (the block's OwnerSeenRule); the slot ruled SLOT). Hand-edited.
-# LOWERED 2026-10-25, logic-lines 5291 -> 5255 (tools/shim-scope, lane M1-A: the interpolation filter (WantsInterpolation) and delay (StandaloneInterpolationAmount) moved to managed's InterpolatedSet and InterpolationDelay; the list, the admitted-set slot and the PreRender walk ruled). Hand-edited.
-# LOWERED 2026-10-25, logic-lines 5255 -> 5241 (tools/shim-scope, lane M1-A: SourceSharp_ViewEntityPose ruled BOUNDARY and ViewSubject::ViewEntityOverridesTheEye ruled LOGIC, kept for the native view setup's port, which owns its one caller). Hand-edited.
-native-convar-decls	68
+logic-lines	52
+native-convar-decls	58
 needed-forbidden	0
-# 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).
-# LOWERED 2026-10-19, sdk-links 510 -> 374 (tools/client-novalve-census at the sdk-links reconciliation on main f087134f5):
-#   31 links deleted that no build reads (debug, release, oracle, probe; the Windows arms checked by hand). The other
-#   ~105 are RELABELLING, not porting: sdk-census now counts libss_fwd_server/client and libss_particles as their side's,
-#   so 96 headers libss_fwd_server compiles moved client -> shared, 10 lines client -> tests (read only by tests) and
-#   tier1/stringpool.h client -> libs. Hand-edited.
-# 2026-10-25, vendor/ (server side): RAISED 368 -> 466, a relabel: server.so and libss_fwd_server now read their Valve
-#   headers from vendor/, so the 98 shared.txt headers the client still reads from the fork moved to client.txt (tools/sdk-census --write).
-# LOWERED 2026-10-25, sdk-links 466 -> 450 (tools/sdk-census --write at the M1-D + M1-B landing): the 11 headers lane M1-B's
-#   retirements stopped reading left the lists, the rest moved to tests.txt. Hand-edited.
-# LOWERED 2026-10-25, sdk-links 450 -> 443 (tools/sdk-census --write at the M1-A + M1-C landing). Hand-edited.
-sdk-links	443
+sdk-links	137

@@ -12,8 +12,6 @@
 // struct slots are filled with (shell_shim_areas.inc). The shim root holds
 // CShimAreas by value, so the areas add one member to one static.
 
-#ifndef SHELL_SHIM_AREAS_H
-#define SHELL_SHIM_AREAS_H
 #pragma once
 
 #include "ishim_areas.h"
@@ -745,4 +743,3 @@ void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName );
 
 #endif // CLIENT_DLL
 
-#endif // SHELL_SHIM_AREAS_H

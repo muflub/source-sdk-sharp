@@ -50,14 +50,37 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "entity_prediction_seed.h"
 #include "prediction.h"
 #include "ipredictionsystem.h"
-#include "shell_standalone_client.h"
-#include "input.h"
 #include "usercmd.h"
 #include "imovehelper.h"
-#include "vphysics_interface.h"
+#include "engine/iserverplugin.h"
+#include "mathlib/vector.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/convar.h"
+#include "tier1/interface.h"
+#include "basehandle.h"
+#include "client_entity.h"
+#include "collisionproperty.h"
+#include "icliententitylist.h"
+#include "iinput.h"
+#include "iprediction.h"
+#include "networkvar.h"
+#include "shell_standalone_client.h"
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"   // plan_client_vtables CE8: IManagedPredictionClient
 
@@ -67,7 +90,6 @@
 #include "shell_gamemovement.h"   // SourceSharp_MoveManagedReport, for cs_cl_move_managed_report
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // The prediction seed carried by one usercmd, or -1 for "not inside a usercmd"
@@ -117,7 +139,6 @@ CPrediction::CPrediction( void )
 	m_bPreviousAckHadErrors = false;
 	m_bPreviousAckErrorTriggersFullLatchReset = false;
 	m_nIncomingPacketNumber = 0;
-	m_flIdealPitch = 0.0f;
 }
 
 CPrediction::~CPrediction( void )

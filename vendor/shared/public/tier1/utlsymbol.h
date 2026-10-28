@@ -1,33 +1,17 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Defines a symbol table
-//
-// $Header: $
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef UTLSYMBOL_H
-#define UTLSYMBOL_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/threadtools.h"
 #include "tier1/utlrbtree.h"
 #include "tier1/utlvector.h"
 
-
-//-----------------------------------------------------------------------------
 // forward declarations
-//-----------------------------------------------------------------------------
 class CUtlSymbolTable;
 class CUtlSymbolTableMT;
 
-
-//-----------------------------------------------------------------------------
 // This is a symbol, which is a easier way of dealing with strings.
-//-----------------------------------------------------------------------------
 typedef unsigned short UtlSymId_t;
 
 #define UTL_INVAL_SYMBOL  ((UtlSymId_t)~0)
@@ -57,9 +41,6 @@ public:
 	// Gets the string associated with the symbol
 	const char* String( ) const;
 
-	// Modules can choose to disable the static symbol table so to prevent accidental use of them.
-	static void DisableStaticSymbolTable();
-		
 protected:
 	UtlSymId_t   m_Id;
 		
@@ -77,15 +58,12 @@ protected:
 	friend class CCleanupUtlSymbolTable;
 };
 
-
-//-----------------------------------------------------------------------------
 // CUtlSymbolTable:
 // description:
 //    This class defines a symbol table, which allows us to perform mappings
 //    of strings to symbols and back. The symbol class itself contains
 //    a static version of this class for creating global strings, but this
 //    class can also be instanced to create local symbol tables.
-//-----------------------------------------------------------------------------
 
 class CUtlSymbolTable
 {
@@ -144,7 +122,6 @@ protected:
 	public:
 		CLess( int ignored = 0 ) {} // permits default initialization to NULL in CUtlRBTree
 		bool operator!() const { return false; }
-		bool operator()( const CStringPoolIndex &left, const CStringPoolIndex &right ) const;
 	};
 
 	// Stores the symbol lookup
@@ -216,21 +193,16 @@ private:
 #endif
 };
 
-
-
-//-----------------------------------------------------------------------------
 // CUtlFilenameSymbolTable:
 // description:
 //    This class defines a symbol table of individual filenames, stored more
 //	  efficiently than a standard symbol table.  Internally filenames are broken
 //	  up into file and path entries, and a file handle class allows convenient 
 //	  access to these.
-//-----------------------------------------------------------------------------
 
 // The handle is a CUtlSymbol for the dirname and the same for the filename, the accessor
 //  copies them into a static char buffer for return.
 typedef void* FileNameHandle_t;
-
 
 // Symbol table for more efficiently storing filenames by breaking paths and filenames apart.
 // Refactored from BaseFileSystem.h
@@ -269,7 +241,6 @@ class CUtlFilenameSymbolTable
 public:
 	CUtlFilenameSymbolTable();
 	~CUtlFilenameSymbolTable();
-	FileNameHandle_t	FindOrAddFileName( const char *pFileName );
 	FileNameHandle_t	FindFileName( const char *pFileName );
 	bool				String( const FileNameHandle_t& handle, char *buf, int buflen );
 	void				RemoveAll();
@@ -279,6 +250,3 @@ private:
 	HashTable* m_Strings;
 	mutable CThreadSpinRWLock m_lock;
 };
-
-
-#endif // UTLSYMBOL_H

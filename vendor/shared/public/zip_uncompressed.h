@@ -1,22 +1,10 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef ZIP_UNCOMPRESSED_H
-#define ZIP_UNCOMPRESSED_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "datamap.h"
 
-
-
 // compressionMethod field
-
-
 
 #pragma pack(1)
 
@@ -77,18 +65,11 @@ struct ZIP_LocalFileHeader
 	// extra field (variable size) 
 };
 
-//=============================================================================//
 //	Valve Non standard Extension, Preload Section
 //	An optional first file in an aligned zip that can be loaded into ram and
 //	used by the FileSystem to supply header data rather than disk.
 //	Is is an optimization to prevent the large of amount of small I/O performed
 ///	by the map loading process.
-//=============================================================================//
-
-
-
-
-
 
 struct ZIP_PreloadHeader 
 {
@@ -113,5 +94,3 @@ struct ZIP_PreloadRemapTable
 };
 
 #pragma pack()
-
-#endif // ZIP_UNCOMPRESSED_H

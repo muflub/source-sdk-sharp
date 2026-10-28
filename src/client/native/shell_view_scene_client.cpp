@@ -16,19 +16,42 @@
 //     executor carries the same copy as its own op);
 //   * ScreenTransform, c_pixel_visibility.cpp's world-to-screen projection.
 // ViewTransform, HudTransform and FrustumTransform's other callers, and the
-// X360 multiple-refract system, had no importer and went with the TU.
+// console multiple-refract system, had no importer and went with the TU.
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/imaterialsystemhardwareconfig.h"
+#include "materialsystem/imaterial.h"
+#include "materialsystem/itexture.h"
+#include "mathlib/vector.h"
+#include "mathlib/vmatrix.h"
+#include "tier1/convar.h"
+#include "tier1/iconvar.h"
+#include "tier1/refcount.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "client_entity.h"
+#include "collisionproperty.h"
+#include "texture_group_names.h"
 #include "shell_render_targets.h"
-#include "view_scene.h"
 #include "view_frustum_transform.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 ConVar r_updaterefracttexture( "r_updaterefracttexture", "1", FCVAR_CHEAT );
 static ConVar r_depthoverlay( "r_depthoverlay", "0", FCVAR_CHEAT,

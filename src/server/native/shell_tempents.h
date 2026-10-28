@@ -35,11 +35,7 @@
 // difference between a capability that is inert and a capability that is gone.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_TEMPENTS_H
-#define SOURCESHARP_SHELL_TEMPENTS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "irecipientfilter.h"
 #include "mathlib/vector.h"
@@ -115,5 +111,3 @@ void TE_Sparks( IRecipientFilter& filter, float delay,
 
 void TE_WorldDecal( IRecipientFilter& filter, float delay,
 	const Vector* pos, int index );
-
-#endif // SOURCESHARP_SHELL_TEMPENTS_H

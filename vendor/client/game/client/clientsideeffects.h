@@ -1,21 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef CLIENTSIDEEFFECTS_H
-#define CLIENTSIDEEFFECTS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 class	Vector;
 struct	FXQuadData_t;
 struct	FXLineData_t;
-//-----------------------------------------------------------------------------
 // Purpose: Base class for client side effects
-//-----------------------------------------------------------------------------
 abstract_class CClientSideEffect
 {
 public:
@@ -43,9 +33,7 @@ private:
 	bool				m_bActive;
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: Base interface to effects list
-//-----------------------------------------------------------------------------
 abstract_class IEffectsList
 {
 public:
@@ -66,9 +54,6 @@ extern IEffectsList *clienteffects;
 class IMaterialSystem;
 extern IMaterialSystem *materials;
 
-//Actual function references
-void FX_AddCube( const Vector &mins, const Vector &maxs, const Vector &vColor, float life, const char *materialName );
-void FX_AddCenteredCube( const Vector &center, float size, const Vector &vColor, float life, const char *materialName );
 void FX_AddStaticLine( const Vector& start, const Vector& end, float scale, float life, const char *materialName, unsigned char flags );
 void FX_AddDiscreetLine( const Vector& start, const Vector& direction, float velocity, float length, float clipLength, float scale, float life, const char *shader );
 
@@ -94,5 +79,3 @@ void FX_AddQuad( const Vector &origin,
 // For safe addition of client effects
 void SetFXCreationAllowed( bool state );
 bool FXCreationAllowed( void );
-
-#endif // CLIENTSIDEEFFECTS_H

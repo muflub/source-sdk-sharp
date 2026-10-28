@@ -12,11 +12,7 @@
 // set can reach it.
 //=============================================================================//
 
-#ifndef SS_WORLD_H
-#define SS_WORLD_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "basehandle.h"
 #include "edict.h"
@@ -528,7 +524,7 @@ private:
 	// (m_flWaveHeight, m_WorldMins, m_WorldMaxs) and nine DEFINE_KEYFIELD
 	// (chaptertitle, startdark, gametitle, maxoccludeearea, minoccluderarea,
 	// maxpropscreenwidth, minpropscreenwidth, detailmaterial, coldworld -- two
-	// of them behind an #ifdef _X360 this build has no arm for). The
+	// of them for a console this build does not target). The
 	// disposition of every one of the twelve is written out in
 	// world_adapter.cpp where the block used to be; the short version is that
 	// the three DEFINE_FIELDs were save/restore only and this build refuses the
@@ -638,6 +634,3 @@ inline void CWorldNetworkable::Release()
 
 
 CWorld* GetWorldEntity();
-
-
-#endif // SS_WORLD_H

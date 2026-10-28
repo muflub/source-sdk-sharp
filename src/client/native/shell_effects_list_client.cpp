@@ -34,7 +34,21 @@
 //                            precache lists move with clienteffectprecachesystem).
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "clientsideeffects.h"
 #include "fx_line.h"
 #include "fx_quad.h"
@@ -42,15 +56,24 @@
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imesh.h"
 #include "view.h"
-#include "c_recipientfilter.h"
-#include "engine/IEngineSound.h"
-#include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "clienteffectprecachesystem.h"
-#include "fx.h"                          // FX_CacheMaterialHandles
+#include "fx.h"
 #include "smoke_fog_overlay.h"
 #include "particle_parse.h"
-#include "shell_clientsystem.h"
 #include "c_te_legacytempents.h"
+#include "engine/ivmodelinfo.h"
+#include "mathlib/vector.h"
+#include "particles/particles.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "tier1/utlvector.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "cdll_util.h"
+#include "fx_staticline.h"
+#include "iclientrenderable.h"
+#include "texture_group_names.h"
+#include "shell_clientsystem.h"
 
 // The slot table's index resolvers (plan_entity.md Phase 5a).
 #include "shell_cliententitylist.h"
@@ -59,7 +82,6 @@
 #include "imanaged_areas_client.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectsTest )
 CLIENTEFFECT_MATERIAL( "effects/spark" )

@@ -20,11 +20,7 @@
 // shell_globals.cpp defines the two functions and holds the stored copy.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_INIT_FACTORY_H
-#define SOURCESHARP_SS_INIT_FACTORY_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "interface.h"
 
@@ -46,5 +42,3 @@ void FactoryList_Store( const factorylist_t &sourceData );
 void FactoryList_Retrieve( factorylist_t &destData );
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_INIT_FACTORY_H

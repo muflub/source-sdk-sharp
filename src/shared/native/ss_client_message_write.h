@@ -13,8 +13,6 @@
 //
 //=============================================================================//
 
-#ifndef SS_CLIENT_MESSAGE_WRITE_H
-#define SS_CLIENT_MESSAGE_WRITE_H
 #pragma once
 
 #include "ss_client_message.h"
@@ -29,5 +27,3 @@ inline bool SourceSharp_WriteClientMessage( const CSourceSharpClientMessage &msg
 		buffer.WriteBits( msg.Data(), msg.DataLength() * 8 );
 	return !buffer.IsOverflowed();
 }
-
-#endif // SS_CLIENT_MESSAGE_WRITE_H

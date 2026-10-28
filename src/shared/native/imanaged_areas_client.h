@@ -12,8 +12,6 @@
 // declarations are unguarded so native tests compile them; the accessors are the
 // client's.
 
-#ifndef IMANAGED_AREAS_CLIENT_H
-#define IMANAGED_AREAS_CLIENT_H
 #pragma once
 
 #include <stdint.h>
@@ -1358,4 +1356,3 @@ IManagedShadowsClient *ManagedShadowsClient();   // this load's area, or NULL ou
 
 #endif // CLIENT_DLL
 
-#endif // IMANAGED_AREAS_CLIENT_H

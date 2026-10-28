@@ -26,8 +26,7 @@
 // with no entry point, never does). Neither touches anything outside the
 // library, and no forwarder reads either constant.
 //=============================================================================//
-#ifndef SS_FWD_SDK_H
-#define SS_FWD_SDK_H
+#pragma once
 
 #include "tier0/dbg.h"
 
@@ -45,5 +44,3 @@
 // header, so the definition is selectany: one survives the link.
 extern "C" __declspec( selectany ) int _fltused = 0;
 #endif
-
-#endif // SS_FWD_SDK_H

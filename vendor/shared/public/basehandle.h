@@ -1,26 +1,14 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef BASEHANDLE_H
-#define BASEHANDLE_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "const.h"
 #include "tier0/platform.h"
 #include "tier0/dbg.h"
 
-
 class IHandleEntity;
 
-// -------------------------------------------------------------------------------------------------- //
 // CBaseHandle.
-// -------------------------------------------------------------------------------------------------- //
 
 enum INVALID_EHANDLE_tag
 {
@@ -41,7 +29,6 @@ public:
 
 	// NOTE: The following constructor is not type-safe, and can allow creating an
 	//       arbitrary CBaseHandle that doesn't necessarily point to an actual object.
-	//
 	// It is your responsibility to ensure that the target of the handle actually points
 	// to the object you think it does.  Generally, the argument to this function should
 	// have been obtained from CBaseHandle::ToInt() on a valid handle.
@@ -62,8 +49,6 @@ public:
 	bool operator ==( const CBaseHandle &other ) const;
 	bool operator ==( const IHandleEntity* pEnt ) const;
 	bool operator !=( const IHandleEntity* pEnt ) const;
-	bool operator <( const CBaseHandle &other ) const;
-	bool operator <( const IHandleEntity* pEnt ) const;
 
 	// Assign a value to the handle.
 	const CBaseHandle& operator=( const IHandleEntity *pEntity );
@@ -73,16 +58,13 @@ public:
 	// Note: this is implemented in game code (ehandle.h)
 	IHandleEntity* Get() const;
 
-
 protected:
 	// The low NUM_SERIAL_BITS hold the index. If this value is less than MAX_EDICTS, then the entity is networkable.
 	// The high NUM_SERIAL_NUM_BITS bits are the serial number.
 	uint32	m_Index;
 };
 
-
 #include "ihandleentity.h"
-
 
 inline CBaseHandle::CBaseHandle()
 {
@@ -183,17 +165,6 @@ inline bool CBaseHandle::operator !=( const IHandleEntity* pEnt ) const
 	return Get() != pEnt;
 }
 
-inline bool CBaseHandle::operator <( const CBaseHandle &other ) const
-{
-	return m_Index < other.m_Index;
-}
-
-inline bool CBaseHandle::operator <( const IHandleEntity *pEntity ) const
-{
-	uint32 otherIndex = (pEntity) ? pEntity->GetRefEHandle().m_Index : INVALID_EHANDLE_INDEX;
-	return m_Index < otherIndex;
-}
-
 inline const CBaseHandle& CBaseHandle::operator=( const IHandleEntity *pEntity )
 {
 	return Set( pEntity );
@@ -212,6 +183,3 @@ inline const CBaseHandle& CBaseHandle::Set( const IHandleEntity *pEntity )
 	
 	return *this;
 }
-
-
-#endif // BASEHANDLE_H

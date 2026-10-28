@@ -39,12 +39,8 @@
 //
 //===========================================================================//
 
-#ifndef SHELL_BOUNDARY_PROBE_H
-#define SHELL_BOUNDARY_PROBE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
+
 
 #include <stdint.h>
 #include <stdio.h>
@@ -399,5 +395,3 @@ inline CBoundaryProbe &BoundaryProbes()
 
 #define SS_BOUNDARY_HIT_PTR( id, ptr ) \
 	BoundaryProbes().HitPointerResult( ( id ), SS_BOUNDARY_CALLER(), ( ptr ) == NULL )
-
-#endif // SHELL_BOUNDARY_PROBE_H

@@ -15,9 +15,9 @@
 // managed code cannot hold:
 //
 //   * `beams`, the IViewRenderBeams the engine-facing code still names
-//     (view.cpp's init and level clear, fx.cpp's two BeamInfo_t creators,
-//     the frame's UpdateTempEntBeams, a shell's KillDeadBeams). Each call is
-//     forwarded to IManagedBeamsClient; nothing is answered here.
+//     (view.cpp's init and level clear, the frame's UpdateTempEntBeams, a
+//     shell's KillDeadBeams). Each call is forwarded to IManagedBeamsClient;
+//     nothing is answered here.
 //   * the renderables. A beam the leaf system sorts is a pointer it holds, so
 //     the pool of CBeamRenderable lives here; managed code adds, moves and
 //     removes them by a small integer, and their DrawModel calls back into
@@ -38,10 +38,23 @@
 // goes from the build in the same commit (the `beams` symbol is this file's).
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "iviewrender_beams.h"
 #include "enginesprite.h"
-#include "beam_strip_vertex.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialvar.h"
@@ -49,22 +62,42 @@
 #include "engine/ivdebugoverlay.h"
 #include "clientleafsystem.h"
 #include "view.h"
-#include "tier0/icommandline.h"
+#include "engine/ICollideable.h"
+#include "engine/IClientLeafSystem.h"
+#include "engine/ivmodelinfo.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "mathlib/vmatrix.h"
+#include "particles/particles.h"
+#include "tier1/refcount.h"
+#include "tier1/utlvector.h"
+#include "basehandle.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "client_entity.h"
+#include "client_render_handle.h"
+#include "const.h"
+#include "eiface.h"
+#include "globalvars_base.h"
+#include "icliententitylist.h"
+#include "iclientrenderable.h"
+#include "iclientunknown.h"
+#include "ihandleentity.h"
+#include "texture_group_names.h"
+#include "vphysics_interface.h"
+#include "beam_strip_vertex.h"
 #include "shell_cliententitylist.h"
 #include "slot_table.h"
 // c_env_fog_controller.h before the player shell: C_StandalonePlayer's
 // CPlayerLocalData sets a CNetworkHandle< C_FogController >, which needs the
 // class complete (the reason shell_beam_endpoint_client.cpp gave for it).
-#include "c_env_fog_controller.h"
 #include "shell_standalone_client.h"
-#include "engine/ICollideable.h"
 #include "collideable_center.h"
 #include "imanaged_areas_client.h"
 #include "shell_beam_render.h"
 #include "ss_command_line.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 namespace
 {
@@ -153,22 +186,6 @@ CBeamRenderable *RenderableAt( int nIndex )
 	return p->m_bLive ? p : NULL;
 }
 
-//-----------------------------------------------------------------------------
-// The payloads BeamsCreate carries (ClientBeamSystem.cs reads them in this
-// order). BeamInfo_t's fields, with its two IClientEntity pointers as raw
-// handles.
-//-----------------------------------------------------------------------------
-enum BeamCreateKind_t
-{
-	BEAM_CREATE_ENTS = 0,
-	BEAM_CREATE_ENTPOINT,
-	BEAM_CREATE_POINTS,
-	BEAM_CREATE_RING,
-	BEAM_CREATE_RINGPOINT,
-	BEAM_CREATE_CIRCLEPOINTS,
-	BEAM_CREATE_FOLLOW,
-};
-
 enum BeamLifecycle_t
 {
 	BEAM_LIFECYCLE_INIT = 0,
@@ -176,48 +193,12 @@ enum BeamLifecycle_t
 	BEAM_LIFECYCLE_CLEAR,
 };
 
-void ForwardBeamInfo( BeamCreateKind_t eKind, const BeamInfo_t &info )
-{
-	IManagedBeamsClient *pBeams = ManagedBeamsClient();
-	if ( !pBeams )
-		return;
-
-	const int32_t ints[11] =
-	{
-		info.m_nType,
-		(int32_t)RawFromEntity( info.m_pStartEnt ),
-		info.m_nStartAttachment,
-		(int32_t)RawFromEntity( info.m_pEndEnt ),
-		info.m_nEndAttachment,
-		info.m_nModelIndex,
-		info.m_nHaloIndex,
-		info.m_nStartFrame,
-		info.m_bRenderable ? 1 : 0,
-		info.m_nSegments,
-		info.m_nFlags,
-	};
-
-	const float floats[23] =
-	{
-		info.m_vecStart.x, info.m_vecStart.y, info.m_vecStart.z,
-		info.m_vecEnd.x, info.m_vecEnd.y, info.m_vecEnd.z,
-		info.m_vecCenter.x, info.m_vecCenter.y, info.m_vecCenter.z,
-		info.m_flHaloScale, info.m_flLife, info.m_flWidth, info.m_flEndWidth,
-		info.m_flFadeLength, info.m_flAmplitude, info.m_flBrightness, info.m_flSpeed,
-		info.m_flFrameRate, info.m_flRed, info.m_flGreen, info.m_flBlue,
-		info.m_flStartRadius, info.m_flEndRadius,
-	};
-
-	pBeams->BeamsCreate( eKind, ints, floats, info.m_pszModelName, info.m_pszHaloName, gpGlobals->curtime );
-}
-
 //-----------------------------------------------------------------------------
 // `beams`: the interface the engine-facing code names, forwarding to C#.
 //
-// The returned Beam_t pointers are NULL: managed code holds the beam, and the
-// only callers that read one (C_Beam and its kin) are not in this build.
-// The flat creators had one caller, the temp entity backends, which now call
-// the managed beam system directly; they are absences (docs/shim-reasons.md).
+// No code in this build creates a beam through it: the temp entity backends
+// and the effects call the managed beam system directly, so the creators are
+// absences (docs/shim-reasons.md) and answer no Beam_t.
 //-----------------------------------------------------------------------------
 class CSourceSharpBeams : public IViewRenderBeams
 {
@@ -252,22 +233,25 @@ public:
 	}
 
 	void DrawBeam( Beam_t * ) override {}
+	void DrawBeam( C_Beam *, ITraceFilter * ) override {}
 
 	void KillDeadBeams( IGameEntity *pDead ) override {}
 
-	void KillDeadBeams( const CBaseHandle &hDeadEntity ) override
+	// Not IViewRenderBeams': stock's takes the entity, and a shell is not one.
+	// A shell's removal reaches it by handle (SourceSharp_KillDeadBeams).
+	void KillDeadBeams( const CBaseHandle &hDeadEntity )
 	{
 		if ( IManagedBeamsClient *pBeams = ManagedBeamsClient() )
 			pBeams->BeamsKillDead( (uint32_t)hDeadEntity.ToInt(), gpGlobals->curtime );
 	}
 
-	Beam_t *CreateBeamEnts( BeamInfo_t &info ) override { ForwardBeamInfo( BEAM_CREATE_ENTS, info ); return NULL; }
-	Beam_t *CreateBeamEntPoint( BeamInfo_t &info ) override { ForwardBeamInfo( BEAM_CREATE_ENTPOINT, info ); return NULL; }
-	Beam_t *CreateBeamPoints( BeamInfo_t &info ) override { ForwardBeamInfo( BEAM_CREATE_POINTS, info ); return NULL; }
-	Beam_t *CreateBeamRing( BeamInfo_t &info ) override { ForwardBeamInfo( BEAM_CREATE_RING, info ); return NULL; }
-	Beam_t *CreateBeamRingPoint( BeamInfo_t &info ) override { ForwardBeamInfo( BEAM_CREATE_RINGPOINT, info ); return NULL; }
-	Beam_t *CreateBeamCirclePoints( BeamInfo_t &info ) override { ForwardBeamInfo( BEAM_CREATE_CIRCLEPOINTS, info ); return NULL; }
-	Beam_t *CreateBeamFollow( BeamInfo_t &info ) override { ForwardBeamInfo( BEAM_CREATE_FOLLOW, info ); return NULL; }
+	Beam_t *CreateBeamEnts( BeamInfo_t & ) override { return NULL; }
+	Beam_t *CreateBeamEntPoint( BeamInfo_t & ) override { return NULL; }
+	Beam_t *CreateBeamPoints( BeamInfo_t & ) override { return NULL; }
+	Beam_t *CreateBeamRing( BeamInfo_t & ) override { return NULL; }
+	Beam_t *CreateBeamRingPoint( BeamInfo_t & ) override { return NULL; }
+	Beam_t *CreateBeamCirclePoints( BeamInfo_t & ) override { return NULL; }
+	Beam_t *CreateBeamFollow( BeamInfo_t & ) override { return NULL; }
 
 	void FreeBeam( Beam_t * ) override {}
 	void UpdateBeamInfo( Beam_t *, BeamInfo_t & ) override {}
@@ -290,6 +274,11 @@ public:
 CSourceSharpBeams g_SourceSharpBeams;
 
 } // namespace
+
+void SourceSharp_KillDeadBeams( const CBaseHandle &hDeadEntity )
+{
+	g_SourceSharpBeams.KillDeadBeams( hDeadEntity );
+}
 
 IViewRenderBeams *beams = &g_SourceSharpBeams;
 
@@ -358,7 +347,6 @@ int32_t SourceSharp_BeamEntityHasModel( uint32_t hEntity )
 enum BeamEntityFact_t
 {
 	BEAM_FACT_RESOLVED     = 0x01,
-	BEAM_FACT_SDK          = 0x02,
 	BEAM_FACT_RENDERABLE   = 0x04,
 	BEAM_FACT_PLAYER       = 0x08,
 	BEAM_FACT_ATTACHMENT   = 0x10,
@@ -376,8 +364,6 @@ int32_t SourceSharp_BeamEntityFacts( uint32_t hEntity, int32_t nAttachment, int3
 		return 0;
 
 	int32_t nFacts = BEAM_FACT_RESOLVED;
-	if ( SDKEntityFromUnknown( pUnknown ) )
-		return nFacts | BEAM_FACT_SDK;
 
 	IClientRenderable *pRenderable = pUnknown->GetClientRenderable();
 	if ( !pRenderable )

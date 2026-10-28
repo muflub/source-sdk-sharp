@@ -63,12 +63,8 @@
 // shell_clientdll.cpp, a recorder in the test.
 //=============================================================================//
 
-#ifndef SHELL_CLIENTDLL_REFUSALS_H
-#define SHELL_CLIENTDLL_REFUSALS_H
-
-#ifdef _WIN32
 #pragma once
-#endif
+
 
 #include <string.h>
 
@@ -112,7 +108,7 @@ public:
 	// a refused method is that it is unreachable in this build, so the expected
 	// number of lines is zero, and a flood is that claim being wrong in the
 	// loudest available way. None of the client's seven refusals is on a
-	// per-frame path -- two are TF-only chat methods and five are the Xbox-style
+	// per-frame path -- two are TF-only chat methods and five are the console-style
 	// matchmaking and rich presence methods step 7g refused when it deleted
 	// basepresence.cpp -- so a flood is not a thing this can produce without
 	// something being badly wrong, which is what a refusal is for.
@@ -183,5 +179,3 @@ private:
 	const char *m_pMethods[ kMaxMethods ] = {};
 	int m_nCounts[ kMaxMethods ] = {};
 };
-
-#endif // SHELL_CLIENTDLL_REFUSALS_H

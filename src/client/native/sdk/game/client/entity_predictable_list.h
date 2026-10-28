@@ -41,11 +41,7 @@
 // c_baseentity.cpp.
 //
 //=============================================================================//
-#ifndef ENTITY_PREDICTABLE_LIST_H
-#define ENTITY_PREDICTABLE_LIST_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "predictable_entity.h"
 
@@ -83,5 +79,3 @@ private:
 extern CPredictableList g_Predictables;
 
 #endif // !NO_ENTITY_PREDICTION
-
-#endif // ENTITY_PREDICTABLE_LIST_H

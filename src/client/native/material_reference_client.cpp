@@ -17,7 +17,7 @@
 // sequence against upstream's MaterialSystemUtil.cpp over a recording double.
 //
 // Not carried: Init's IsErrorMaterial check, which only prints on OS X; and
-// the two _X360 render-target builders, which are not compiled here either.
+// the two console render-target builders, which are not compiled here either.
 //=============================================================================//
 
 #include "materialsystem/MaterialSystemUtil.h"
@@ -26,6 +26,8 @@
 #include "materialsystem/itexture.h"
 #include "tier2/tier2.h"
 #include "tier0/dbg.h"
+#include "bitmap/imageformat.h"
+#include "vtf/vtf.h"
 
 //-----------------------------------------------------------------------------
 // CMaterialReference

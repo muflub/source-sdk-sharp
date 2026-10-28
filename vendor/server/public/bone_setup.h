@@ -1,55 +1,18 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef BONE_SETUP_H
-#define BONE_SETUP_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "studio.h"
 #include "cmodel.h"
 #include "bitvec.h"
 
-
 class CIKContext;
 class CBoneAccessor;
-class IPoseDebugger;
-
-
-
-
 
 class CBoneBitList : public CBitVec<MAXSTUDIOBONES>
 {
 public:
 };
-
-class CBoneSetup;
-class IBoneSetup
-{
-public:
-	IBoneSetup( const CStudioHdr *pStudioHdr, int boneMask, const float poseParameter[], IPoseDebugger *pPoseDebugger = NULL );
-	~IBoneSetup( void );
-private:
-	CBoneSetup *m_pBoneSetup;
-};
-
-
-
-
-
-
-
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 
 // ik info
 class CIKTarget
@@ -122,7 +85,6 @@ private:
 	friend class CIKContext;
 };
 
-
 struct ikchainresult_t
 {
 	// accumulated offset from ideal footplant location
@@ -131,8 +93,6 @@ struct ikchainresult_t
 	Quaternion	q;
 	float		flWeight;
 };
-
-
 
 struct ikcontextikrule_t
 {
@@ -179,29 +139,17 @@ private:
 	ikcontextikrule_t(const ikcontextikrule_t& vOther);
 };
 
-
-
-
-
-
-
 class CIKContext 
 {
 public:
 	CIKContext( );
 	void Init( const CStudioHdr *pStudioHdr, const QAngle &angles, const Vector &pos, float flTime, int iFramecounter, int boneMask );
 
-
-
-	
-
-
 	CUtlVectorFixed< CIKTarget, 12 >	m_target;
 
 private:
 
 	CStudioHdr const *m_pStudioHdr;
-
 
 	// virtual IK rules, filtered and combined from each sequence
 	CUtlVector< CUtlVector< ikcontextikrule_t > > m_ikChainRule;
@@ -213,23 +161,7 @@ private:
 	int m_boneMask;
 };
 
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
 // void Studio_Movement( const CStudioHdr *pStudioHdr, int iSequence, const float poseParameter[], Vector *pVec );
-
 
 FORWARD_DECLARE_HANDLE( memhandle_t );
 struct bonecacheparams_t
@@ -245,22 +177,18 @@ class CBoneCache
 public:
 
 	// you must implement these static functions for the ResourceManager
-	// -----------------------------------------------------------
 	static CBoneCache *CreateResource( const bonecacheparams_t &params );
 	static unsigned int EstimatedSize( const bonecacheparams_t &params );
-	// -----------------------------------------------------------
 	// member functions that must be present for the ResourceManager
 	void			DestroyResource();
 	CBoneCache		*GetData() { return this; }
 	unsigned int	Size() { return m_size; }
-	// -----------------------------------------------------------
 
 					CBoneCache();
 
 	// was constructor, but placement new is messy wrt memdebug - so cast & init instead
 	void			Init( const bonecacheparams_t &params, unsigned int size, short *pStudioToCached, short *pCachedToStudio, int cachedBoneCount );
 	
-
 	bool			IsValid( float curtime, float dt = 0.1f );
 
 public:
@@ -275,10 +203,3 @@ private:
 	unsigned short	m_cachedToStudioOffset;
 	unsigned short	m_boneOutOffset;
 };
-
-
-
-
-
-
-#endif // BONE_SETUP_H

@@ -70,11 +70,7 @@
 // below to the engine's own.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_GROUND_HANDLE_WIRE_H
-#define SOURCESHARP_GROUND_HANDLE_WIRE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // Stock's numbers, restated so this header needs no engine. const.h:65, :87 and
@@ -132,5 +128,3 @@ inline bool SourceSharpGroundWire_Decode( int nEncoded, int *pEntryIndex )
 
 	return true;
 }
-
-#endif // SOURCESHARP_GROUND_HANDLE_WIRE_H

@@ -13,8 +13,6 @@
 // (1), which native never calls (managed releases the block after Steam has
 // let go), and Run, for both of CCallbackBase's Run overloads.
 
-#ifndef IMANAGED_STEAM_CALLBACK_H
-#define IMANAGED_STEAM_CALLBACK_H
 #pragma once
 
 #include <stdint.h>
@@ -48,4 +46,3 @@ static const uint32_t kIManagedSteamCallbackSlotHashes[] = {
 static const int32_t kIManagedSteamCallbackSlotCount = 3;
 static_assert( sizeof( SSManagedSteamCallbackTable ) == 3 * sizeof( void * ), "SSManagedSteamCallbackTable is one pointer per slot" );
 
-#endif // IMANAGED_STEAM_CALLBACK_H

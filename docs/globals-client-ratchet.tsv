@@ -399,7 +399,14 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 # LOWERED 2026-10-25, 654 -> 635 (lanes M1-D, M1-B and M1-A landed together, make globals-client-ledger): the rows of
 #   the code the three lanes deleted, pruned with their objects' symbols.
 # LOWERED 2026-10-25, 635 -> 620 (lane M1-C landed after the other three, make globals-client-ledger).
-client_globals_link_level	src/game/client	620
+# LOWERED 2026-10-25, 620 -> 610 (M2, client.so on stock headers, tools/globals-census reseed --side client): 13 rows
+#   pruned (takedamageinfo_library.o's 11 with the object: g_MultiDamage, the two datadescs, phys_pushscale; shell_client.o's
+#   g_AmmoDef with the ammo table; CTempEnts::ClientProjectile's s_bSaid, re-keyed by its C_BaseEntity * signature) and 3
+#   joined UNRULED (that re-keyed s_bSaid, and shell_clientsystems.o's two CGameSystemRow statics, DetailObjectGameSystem's
+#   and ClientEffectPrecacheGameSystem's s_Row, the row each stage forwards through to its IGameSystem object).
+# LOWERED 2026-10-25, 610 -> 603: shell_clientdll.o's xboxsystem and matchmaking (the Xbox removal) and the five
+#   interfaces acquired and never read (datacache, scenefilecache, inputsystem, gameuifuncs, gamestatsuploader).
+client_globals_link_level	src/game/client	603
 # LOWERED 2026-10-25, 668 -> 653 (lane M1-C, make globals-client-ledger): shell_impact_effects.o's eight (the native impact chain's effect registration,
 #   its four ConVars, s_RefuseRagdollRay, s_bSaid, g_pImpactSoundRouteFn), shell_te_backends_client.o's three (cl_spraydisable,
 #   r_drawmodeldecals, s_rDecals: the spray and the decal gates are C#'s), generic_payload_client.o's four (the schema
@@ -456,7 +463,9 @@ client_globals_link_level	src/game/client	620
 # LOWERED 2026-10-25, 612 -> 603 (lane M1-D): the same nine, all UNRULED.
 # LOWERED 2026-10-25, 603 -> 586 (the same landing).
 # LOWERED 2026-10-25, 586 -> 571 (the same landing).
-client_globals_unruled	docs/globals-client-ledger.tsv	571
+# LOWERED 2026-10-25, 571 -> 561 (the same change).
+# LOWERED 2026-10-25, 561 -> 556 (the same seven rows; five of them were UNRULED).
+client_globals_unruled	docs/globals-client-ledger.tsv	556
 # LOWERED 2026-10-25, 616 -> 601 (lane M1-C, make globals-client-ledger): shell_impact_effects.o's eight (the native impact chain's effect registration,
 #   its four ConVars, s_RefuseRagdollRay, s_bSaid, g_pImpactSoundRouteFn), shell_te_backends_client.o's three (cl_spraydisable,
 #   r_drawmodeldecals, s_rDecals: the spray and the decal gates are C#'s), generic_payload_client.o's four (the schema

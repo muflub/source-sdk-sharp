@@ -32,7 +32,6 @@ void QueueOverlayRenderView(	SLOT	IViewRender::QueueOverlayRenderView: says it i
 float GetZNear(	SLOT	IViewRender::GetZNear: managed's ViewSetUp answer
 float GetZFar(	SLOT	IViewRender::GetZFar: managed's ViewSetUp answer
 void GetScreenFadeDistances(	SLOT	IViewRender::GetScreenFadeDistances: r_screenfademinsize and r_screenfademaxsize read by name
-IClientUnknown *GetCurrentlyDrawingEntity(	SLOT	IViewRender::GetCurrentlyDrawingEntity: its own currently drawing entity
 void SetCurrentlyDrawingEntity(	SLOT	IViewRender::SetCurrentlyDrawingEntity: its own currently drawing entity
 bool UpdateShadowDepthTexture(	SLOT	IViewRender::UpdateShadowDepthTexture: the plan's shadow-depth view; stock's only with no plan to draw it in
 void FreezeFrame(	SLOT	IViewRender::FreezeFrame: into managed's freeze state
@@ -91,3 +90,4 @@ CON_COMMAND( r_cheapwaterstart	BOUNDARY	the start distance
 CON_COMMAND( r_cheapwaterend	BOUNDARY	the end distance
 CON_COMMAND_F( r_screenoverlay	BOUNDARY	the screen overlay material: set by name, off, or printed
 [CPostProcessingPrecache] void Cache(	BOUNDARY	the post-processing materials referenced for DX9 and up, when the precache registry asks
+[CShellViewRender] IGameEntity *GetCurrentlyDrawingEntity() override	SLOT	IViewRender slot; its one reader, the tool framework's proxy recording, is gone (SFM ruling 2026-10-19)

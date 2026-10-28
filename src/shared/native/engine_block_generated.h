@@ -24,8 +24,7 @@
 // what each struct and each field IS travels with the declaration, out of the
 // [NativeDoc] attributes on the C# side, and is emitted below.
 
-#ifndef SOURCESHARP_ENGINE_BLOCK_GENERATED_H
-#define SOURCESHARP_ENGINE_BLOCK_GENERATED_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -528,5 +527,3 @@ static_assert( offsetof( EngineBlock_t, Server ) == 160,
                "EngineBlock_t::Server is not where EngineBlock.Server is" );
 static_assert( offsetof( EngineBlock_t, Client ) == 280,
                "EngineBlock_t::Client is not where EngineBlock.Client is" );
-
-#endif // SOURCESHARP_ENGINE_BLOCK_GENERATED_H

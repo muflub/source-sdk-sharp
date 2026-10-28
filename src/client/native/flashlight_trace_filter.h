@@ -15,8 +15,7 @@
 //
 //=============================================================================
 
-#ifndef SS_FLASHLIGHT_TRACE_FILTER_H
-#define SS_FLASHLIGHT_TRACE_FILTER_H
+#pragma once
 
 #include "const.h"
 
@@ -26,5 +25,3 @@ inline bool SkipPlayerAndViewModelHits( bool bPlayer, bool bViewModel, int nColl
 		return false;
 	return nCollisionGroup != COLLISION_GROUP_DEBRIS && nCollisionGroup != COLLISION_GROUP_INTERACTIVE_DEBRIS;
 }
-
-#endif // SS_FLASHLIGHT_TRACE_FILTER_H

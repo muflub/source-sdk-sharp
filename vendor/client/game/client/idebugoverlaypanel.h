@@ -1,20 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-//
-//-----------------------------------------------------------------------------
-// $Log: $
-//
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( IDEBUGOVERLAYPANEL_H )
-#define IDEBUGOVERLAYPANEL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <vgui/VGUI.h>
 
@@ -31,5 +16,3 @@ public:
 };
 
 extern IDebugOverlayPanel *debugoverlaypanel;
-
-#endif // IDEBUGOVERLAYPANEL_H

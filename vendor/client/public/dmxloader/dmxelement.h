@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================
 
-#ifndef DMXELEMENT_H
-#define DMXELEMENT_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "datamodel/dmattributetypes.h"
 #include "tier1/utlvector.h"
@@ -19,10 +10,7 @@
 #include "tier1/UtlSortVector.h"
 #include "dmxloader/dmxattribute.h"
 
-
-//-----------------------------------------------------------------------------
 // Sort functor class for attributes 
-//-----------------------------------------------------------------------------
 class CDmxAttributeLess
 {
 public:
@@ -32,11 +20,8 @@ public:
 	}
 };
 
-
-//-----------------------------------------------------------------------------
 // Used to unpack elements into a structure. Does not recurse
 // Also does not work with arrays.
-//-----------------------------------------------------------------------------
 struct DmxElementUnpackStructure_t
 {
 	const char *m_pAttributeName;
@@ -50,41 +35,10 @@ struct DmxElementUnpackStructure_t
 #define DECLARE_DMXELEMENT_UNPACK() \
 	template <typename T> friend DmxElementUnpackStructure_t *DmxElementUnpackInit(T *);
 
-#define BEGIN_DMXELEMENT_UNPACK( _structName )				\
-	template <typename T> DmxElementUnpackStructure_t *DmxElementUnpackInit(T *); \
-	template <> DmxElementUnpackStructure_t *DmxElementUnpackInit<_structName>( _structName * ); \
-	namespace _structName##_UnpackInit \
-	{ \
-		static DmxElementUnpackStructure_t *s_pUnpack = DmxElementUnpackInit( (_structName *)NULL ); \
-	} \
-	\
-	template <> DmxElementUnpackStructure_t *DmxElementUnpackInit<_structName>( _structName * ) \
-	{ \
-		typedef _structName DestStructType_t; \
-		static DmxElementUnpackStructure_t unpack[] = \
-		{ \
-
-
 #define DMXELEMENT_UNPACK_FIELD( _attributeName, _defaultString, _type, _varName )	\
 	{ _attributeName, _defaultString, CDmAttributeInfo<_type>::AttributeType(), (int)offsetof( DestStructType_t, _varName ), sizeof( ((DestStructType_t *)0)->_varName), NULL },
 
-
-
-
-
-
-
-#define END_DMXELEMENT_UNPACK_TEMPLATE( _structName, _varName )			\
-			{ NULL, NULL, AT_UNKNOWN, 0, 0, NULL }				\
-		};														\
-		return unpack;											\
-	}															\
-	 template<> DmxElementUnpackStructure_t *_varName = _structName##_UnpackInit::s_pUnpack;
-
-
-//-----------------------------------------------------------------------------
 // Element used to read dmx files from mod code. Similar to keyvalues.
-//-----------------------------------------------------------------------------
 class CDmxElement
 {
 	DECLARE_DMX_ALLOCATOR( );
@@ -107,29 +61,15 @@ public:
 	template< class T > const T& GetValue( const char *pAttributeName ) const;
 	template< class T > const T& GetValue( const char *pAttributeName, const T& defaultValue ) const;
 
-
-	// Set methods
-	CDmxAttribute* SetValue( const char *pAttributeName, const char *pString );
-	CDmxAttribute* SetValue( const char *pAttributeName, void *pBuffer, int nLen );
-	template< class T > CDmxAttribute* SetValue( const char *pAttributeName, const T& value );
-
-
-
 private:
-	void AddAttributesFromStructure_Internal( const void *pData, size_t byteCount, const DmxElementUnpackStructure_t *pUnpack );
 	typedef CUtlSortVector< CDmxAttribute*, CDmxAttributeLess > AttributeList_t;
 
 	CDmxElement( const char *pType );
 	~CDmxElement();
 
-
-
-
 	// Finds an attribute by name
 	int FindAttribute( const char *pAttributeName ) const;
 	int FindAttribute( CUtlSymbol attributeName ) const;
-
-
 
 	AttributeList_t m_Attributes;
 	DmObjectId_t m_Id;	// We need this strictly because we support serialization
@@ -138,17 +78,11 @@ private:
 	mutable bool m_bResortNeeded : 1;
 	bool m_bIsMarkedForDeletion : 1;
 
-
 	friend class CDmxSerializer;
 	friend class CDmxSerializerKeyValues2;
 };
 
-
-//-----------------------------------------------------------------------------
 // inline methods
-//-----------------------------------------------------------------------------
-
-
 
 template< class T > 
 inline const T& CDmxElement::GetValue( const char *pAttributeName ) const
@@ -171,14 +105,7 @@ inline const T& CDmxElement::GetValue( const char *pAttributeName, const T& defa
 	return defaultValue;
 }
 
-
-
-
-
-
-//-----------------------------------------------------------------------------
 // Helper class to lock elements for changes
-//-----------------------------------------------------------------------------
 class CDmxElementModifyScope
 {
 public:
@@ -201,35 +128,3 @@ public:
 private:
 	CDmxElement *m_pElement;
 };
-
-
-//-----------------------------------------------------------------------------
-// Set methods
-//-----------------------------------------------------------------------------
-inline CDmxAttribute* CDmxElement::SetValue( const char *pAttributeName, const char *pString )
-{
-	CDmxElementModifyScope modify( this );
-	CDmxAttribute *pAttribute = AddAttribute( pAttributeName );
-	pAttribute->SetValue( pString );
-	return pAttribute;
-}
-
-inline CDmxAttribute* CDmxElement::SetValue( const char *pAttributeName, void *pBuffer, int nLen )
-{
-	CDmxElementModifyScope modify( this );
-	CDmxAttribute *pAttribute = AddAttribute( pAttributeName );
-	pAttribute->SetValue( pBuffer, nLen );
-	return pAttribute;
-}
-
-template< class T > 
-inline CDmxAttribute* CDmxElement::SetValue( const char *pAttributeName, const T& value )
-{
-	CDmxElementModifyScope modify( this );
-	CDmxAttribute *pAttribute = AddAttribute( pAttributeName );
-	pAttribute->SetValue( value );
-	return pAttribute;
-}
-
-
-#endif // DMXELEMENT_H

@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef ICLIENTPANEL_H
-#define ICLIENTPANEL_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <vgui/VGUI.h>
 
@@ -24,20 +14,17 @@ namespace vgui
 {
 
 class Panel;
-class SurfaceBase;
 
 enum EInterfaceID
 {
 	ICLIENTPANEL_STANDARD_INTERFACE = 0,
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: Interface from vgui panels -> Client panels
 //			This interface cannot be changed without rebuilding all vgui projects
 //			Primarily this interface handles dispatching messages from core vgui to controls
 //			The additional functions are all their for debugging or optimization reasons
 //			To add to this later, use QueryInterface() to see if they support new interfaces
-//-----------------------------------------------------------------------------
 class IClientPanel
 {
 public:
@@ -89,6 +76,3 @@ public:
 };
 
 } // namespace vgui
-
-
-#endif // ICLIENTPANEL_H

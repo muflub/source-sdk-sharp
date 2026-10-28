@@ -1,18 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef BUMPVECTS_H
-#define BUMPVECTS_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/mathlib.h"
 
@@ -23,7 +11,3 @@
 #define OO_SQRT_2_OVER_3 0.81649661064147949f
 
 #define NUM_BUMP_VECTS 3
-
-
-
-#endif // BUMPVECTS_H

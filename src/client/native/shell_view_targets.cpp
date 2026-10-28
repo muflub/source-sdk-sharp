@@ -45,7 +45,6 @@
 // are all the setup's fields, and the setup is managed's.
 //
 //=============================================================================//
-#include "cbase.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/itexture.h"
 #include "materialsystem/imaterial.h"
@@ -55,13 +54,23 @@
 #include "vgui_controls/Controls.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
 #include "tier3/tier3.h"
-#include "KeyValues.h"
+#include "tier1/KeyValues.h"
+#include "bitmap/imageformat.h"
+#include "mathlib/vector.h"
+#include "tier0/platform.h"
+#include "tier1/convar.h"
+#include "tier1/interface.h"
+#include "tier1/refcount.h"
+#include "tier1/strtools.h"
+#include "tier2/tier2.h"
+#include "vstdlib/IKeyValuesSystem.h"
+#include "vtf/vtf.h"
+#include "cdll_int.h"
 #include "sourcesharp.h"
 #include "sourcesharp_entrypoints.h"
 #include "shell_view_targets.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 // The layout ViewTargetSetup.cs mirrors; ViewTargetSetupLayoutTests pins the
 // same numbers from the managed side.

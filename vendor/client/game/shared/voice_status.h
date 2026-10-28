@@ -1,14 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef VOICE_STATUS_H
-#define VOICE_STATUS_H
 #pragma once
-
 
 #include <vgui_controls/Label.h>
 //#include "vgui_bitmap.h"
@@ -24,30 +16,6 @@ extern ConVar voice_vox;
 
 class CVoiceStatus;
 class IMaterial;
-class BitmapImage;
-
-// Voice Panel
-class CVoicePanel : public vgui::Panel
-{
-public:
-	CVoicePanel( );
-	~CVoicePanel();
-
-	virtual void Paint( void );
-	virtual void setImage( BitmapImage *pImage );
-
-private:
-	BitmapImage *m_pImage;
-};
-
-class CVoiceLabel
-{
-public:
-	vgui::Label			*m_pLabel;
-	vgui::Label			*m_pBackground;
-	CVoicePanel			*m_pIcon;		// Voice icon next to player name.
-	int					m_clientindex;	// Client index of the speaker. -1 if this label isn't being used.
-};
 
 // This is provided by each mod to access data that may not be the same across mods.
 abstract_class IVoiceStatusHelper
@@ -96,56 +64,23 @@ public:
 
 	// Call from the HUD_CreateEntities function so it can add sprites above player heads.
 	void	DrawHeadLabels();
-	void	SetHeadLabelOffset( float offset );
-	float	GetHeadLabelOffset( void ) const;
-	void	SetHeadLabelsDisabled( bool bDisabled ) { m_bHeadLabelsDisabled = bDisabled; }
-
-	// Called when the server registers a change to who this client can hear.
-	void	HandleVoiceMaskMsg(bf_read &msg);
-
-	// The server sends this message initially to tell the client to send their state.
-	void	HandleReqStateMsg(bf_read &msg);
-
 
 // Squelch mode functions.
 public:
 
-	// When you enter squelch mode, pass in 
-	void	StartSquelchMode();
 	void	StopSquelchMode();
-	bool	IsInSquelchMode();
 
 	// returns true if the target client has been banned
 	// playerIndex is of range 1..maxplayers
 	bool	IsPlayerBlocked(int iPlayerIndex);
 
-	// returns false if the player can't hear the other client due to game rules (eg. the other team)
-	bool    IsPlayerAudible(int iPlayerIndex);
-
-	// returns true if the player is currently speaking
-	bool	IsPlayerSpeaking(int iPlayerIndex);
-
-	// returns true if the local player is attempting to speak
-	bool	IsLocalPlayerSpeaking( void );
-
 	// blocks the target client from being heard
 	void	SetPlayerBlockedState(int iPlayerIndex, bool blocked);
 
-	void	SetHeadLabelMaterial( const char *pszMaterial );
-
-	IMaterial *GetHeadLabelMaterial( void ) { return m_pHeadLabelMaterial; }
-
 private:
 
-	void			UpdateServerState(bool bForce);
-
-	// Update the button artwork to reflect the client's current state.
-	void			UpdateBanButton(int iClient);
-
-
 private:
-	float			m_LastUpdateServerState;		// Last time we called this function.
-	int				m_bServerModEnable;				// What we've sent to the server about our "voice_modenable" cvar.
+	alignas( 8 ) unsigned char unused_m_LastUpdateServerState[ 8 ];
 
 	vgui::VPANEL	m_pParentPanel;
 	CPlayerBitVec	m_VoicePlayers;		// Who is currently talking. Indexed by client index.
@@ -188,10 +123,7 @@ private:
 #endif // VOICE_VOX_ENABLE
 };
 
-
 // Get the (global) voice manager. 
 CVoiceStatus* GetClientVoiceMgr();
 void ClientVoiceMgr_Init();
 void ClientVoiceMgr_Shutdown();
-
-#endif // VOICE_STATUS_H

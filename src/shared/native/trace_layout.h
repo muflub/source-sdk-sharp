@@ -17,11 +17,7 @@
 //
 // Columns: field, offset, size. x64 only, as every layout managed mirrors is.
 //=============================================================================//
-#ifndef SOURCESHARP_TRACE_LAYOUT_H
-#define SOURCESHARP_TRACE_LAYOUT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 #include "cmodel.h"
@@ -97,5 +93,3 @@ static_assert( sizeof( CGameTrace ) == SOURCESHARP_GAMETRACE_SIZEOF, "CGameTrace
 
 #undef SS_RAY_ASSERT
 #undef SS_GAMETRACE_ASSERT
-
-#endif // SOURCESHARP_TRACE_LAYOUT_H

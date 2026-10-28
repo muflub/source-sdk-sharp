@@ -46,11 +46,7 @@
 // gtest: sourcesharp/test/standard_filter_shape_test.cpp.
 //
 //=============================================================================//
-#ifndef STANDARD_FILTER_SHAPE_H
-#define STANDARD_FILTER_SHAPE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // bIsBrushModel          modelinfo->GetModelType( model ) == mod_brush
@@ -76,5 +72,3 @@ inline bool StandardFilterShapePasses( bool bIsBrushModel,
 	// SOLID_BBOX (a brush model that is not solid as one).
 	return bMaskWantsEntities;
 }
-
-#endif // STANDARD_FILTER_SHAPE_H

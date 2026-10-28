@@ -1,28 +1,12 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
 
-#ifndef DATATABLE_RECV_H
-#define DATATABLE_RECV_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "dt_common.h"
 #include "tier0/dbg.h"
 
-
-#define ADDRESSPROXY_NONE	-1
-
-
 class RecvTable;
 class RecvProp;
-
 
 // This is passed into RecvProxy functions.
 class CRecvProxyData
@@ -37,21 +21,14 @@ public:
 	int				m_ObjectID;			// The object being referred to.
 };
 
-
-//-----------------------------------------------------------------------------
 // pStruct = the base structure of the datatable this variable is in (like C_BaseEntity)
 // pOut    = the variable that this this proxy represents (like C_BaseEntity::m_SomeValue).
-//
 // Convert the network-standard-type value in m_Value into your own format in pStruct/pOut.
-//-----------------------------------------------------------------------------
 typedef void (*RecvVarProxyFn)( const CRecvProxyData *pData, void *pStruct, void *pOut );
 
-// ------------------------------------------------------------------------ //
 // ArrayLengthRecvProxies are optionally used to get the length of the 
 // incoming array when it changes.
-// ------------------------------------------------------------------------ //
 typedef void (*ArrayLengthRecvProxyFn)( void *pStruct, int objectID, int currentArrayLength );
-
 
 // NOTE: DataTable receive proxies work differently than the other proxies.
 // pData points at the object + the recv table's offset.
@@ -60,7 +37,6 @@ typedef void (*ArrayLengthRecvProxyFn)( void *pStruct, int objectID, int current
 // If the parent object points at the child object, you need to dereference the pointer here.
 // NOTE: don't ever return null from a DataTable receive proxy function. Bad things will happen.
 typedef void (*DataTableRecvVarProxyFn)(const RecvProp *pProp, void **pOut, void *pData, int objectID);
-
 
 // This is used to fork over the standard proxy functions to the engine so it can
 // make some optimizations.
@@ -80,9 +56,7 @@ public:
 };
 extern CStandardRecvProxies g_StandardRecvProxies;
 
-
 class CRecvDecoder;
-
 
 class RecvProp
 {
@@ -95,7 +69,6 @@ public:
 	int						GetNumElements() const;
 	void					SetNumElements( int nElements );
 
-	int						GetElementStride() const;
 	void					SetElementStride( int stride );
 
 	int						GetFlags() const;
@@ -109,31 +82,13 @@ public:
 	RecvVarProxyFn			GetProxyFn() const;
 	void					SetProxyFn( RecvVarProxyFn fn );
 
-	DataTableRecvVarProxyFn	GetDataTableProxyFn() const;
 	void					SetDataTableProxyFn( DataTableRecvVarProxyFn fn );
 
 	int						GetOffset() const;
 	void					SetOffset( int o );
 
 	// Arrays only.
-	RecvProp*				GetArrayProp() const;
-	void					SetArrayProp( RecvProp *pProp );
-
-	// Arrays only.
 	void					SetArrayLengthProxy( ArrayLengthRecvProxyFn proxy );
-	ArrayLengthRecvProxyFn	GetArrayLengthProxy() const;
-
-	bool					IsInsideArray() const;
-	void					SetInsideArray();
-
-	// Some property types bind more data to the prop in here.
-	const void*			GetExtraData() const;
-	void				SetExtraData( const void *pData );
-
-	// If it's one of the numbered "000", "001", etc properties in an array, then
-	// these can be used to get its array property name for debugging.
-	const char*			GetParentArrayPropName();
-	void				SetParentArrayPropName( const char *pArrayPropName );
 
 public:
 
@@ -141,7 +96,6 @@ public:
 	SendPropType			m_RecvType;
 	int						m_Flags;
 	int						m_StringBufferSize;
-
 
 private:
 
@@ -168,12 +122,9 @@ private:
 	const char				*m_pParentArrayPropName;
 };
 
-
 class RecvTable
 {
 public:
-
-	typedef RecvProp	PropType;
 
 				RecvTable();
 				RecvTable( RecvProp *pProps, int nProps, const char *pNetTableName );
@@ -185,15 +136,6 @@ public:
 	RecvProp*	GetProp( int i );
 
 	const char*	GetName();
-
-	// Used by the engine while initializing array props.
-	void		SetInitialized( bool bInitialized );
-	bool		IsInitialized() const;
-
-	// Used by the engine.
-	void		SetInMainList( bool bInList );
-	bool		IsInMainList() const;
-
 
 public:
 
@@ -207,13 +149,11 @@ public:
 
 	const char		*m_pNetTableName;	// The name matched between client and server.
 
-
 private:
 
 	bool			m_bInitialized;
 	bool			m_bInMainList;
 };
-
 
 inline int RecvTable::GetNumProps()
 {
@@ -231,30 +171,7 @@ inline const char* RecvTable::GetName()
 	return m_pNetTableName; 
 }
 
-inline void RecvTable::SetInitialized( bool bInitialized )
-{
-	m_bInitialized = bInitialized;
-}
-
-inline bool RecvTable::IsInitialized() const
-{
-	return m_bInitialized;
-}
-
-inline void RecvTable::SetInMainList( bool bInList )
-{
-	m_bInMainList = bInList;
-}
-
-inline bool RecvTable::IsInMainList() const
-{
-	return m_bInMainList;
-}
-
-
-// ------------------------------------------------------------------------------------------------------ //
 // See notes on BEGIN_SEND_TABLE for a description. These macros work similarly.
-// ------------------------------------------------------------------------------------------------------ //
 #define BEGIN_RECV_TABLE(className, tableName) \
 	BEGIN_RECV_TABLE_NOBASE(className, tableName) \
 		RecvPropDataTable("baseclass", 0, 0, className::BaseClass::m_pClassRecvTable, DataTableRecvProxy_StaticDataTable),
@@ -288,20 +205,11 @@ inline bool RecvTable::IsInMainList() const
 #define _hacky_dtrecv_offsetof(s,m)	( (size_t)&(((s *)0x1000000)->m) - 0x1000000u )
 
 #define RECVINFO(varName)						#varName, _hacky_dtrecv_offsetof(currentRecvDTClass, varName), sizeof(((currentRecvDTClass*)0)->varName)
-#define RECVINFO_NAME(varName, remoteVarName)	#remoteVarName, _hacky_dtrecv_offsetof(currentRecvDTClass, varName), sizeof(((currentRecvDTClass*)0)->varName)
-#define RECVINFO_STRING(varName)				#varName, _hacky_dtrecv_offsetof(currentRecvDTClass, varName), STRINGBUFSIZE(currentRecvDTClass, varName)
-#define RECVINFO_BASECLASS(tableName)			RecvPropDataTable("this", 0, 0, &REFERENCE_RECV_TABLE(tableName))
-#define RECVINFO_ARRAY(varName)					#varName, _hacky_dtrecv_offsetof(currentRecvDTClass, varName), sizeof(((currentRecvDTClass*)0)->varName[0]), sizeof(((currentRecvDTClass*)0)->varName)/sizeof(((currentRecvDTClass*)0)->varName[0])
 
 // Just specify the name and offset. Used for strings and data tables.
-#define RECVINFO_NOSIZE(varName)				#varName, _hacky_dtrecv_offsetof(currentRecvDTClass, varName)
-#define RECVINFO_DT(varName)					RECVINFO_NOSIZE(varName)
-#define RECVINFO_DTNAME(varName,remoteVarName)	#remoteVarName, _hacky_dtrecv_offsetof(currentRecvDTClass, varName)
 
 void RecvProxy_FloatToFloat  ( const CRecvProxyData *pData, void *pStruct, void *pOut );
 void RecvProxy_VectorToVector( const CRecvProxyData *pData, void *pStruct, void *pOut );
-void RecvProxy_VectorXYToVectorXY( const CRecvProxyData *pData, void *pStruct, void *pOut );
-void RecvProxy_QuaternionToQuaternion( const CRecvProxyData *pData, void *pStruct, void *pOut );
 void RecvProxy_Int32ToInt8   ( const CRecvProxyData *pData, void *pStruct, void *pOut );
 void RecvProxy_Int32ToInt16  ( const CRecvProxyData *pData, void *pStruct, void *pOut );
 void RecvProxy_StringToString( const CRecvProxyData *pData, void *pStruct, void *pOut );
@@ -313,10 +221,6 @@ void RecvProxy_Int64ToInt64  ( const CRecvProxyData *pData, void *pStruct, void 
 // StaticDataTable does *pOut = pData.
 void DataTableRecvProxy_StaticDataTable(const RecvProp *pProp, void **pOut, void *pData, int objectID);
 
-// PointerDataTable does *pOut = *((void**)pData)   (ie: pData is a pointer to the object to decode into).
-void DataTableRecvProxy_PointerDataTable(const RecvProp *pProp, void **pOut, void *pData, int objectID);
-
-	
 RecvProp RecvPropFloat(
 	const char *pVarName, 
 	int offset,
@@ -333,16 +237,7 @@ RecvProp RecvPropVector(
 	RecvVarProxyFn varProxy=RecvProxy_VectorToVector
 	);
 
-RecvProp RecvPropVectorXY(
-	const char *pVarName, 
-	int offset, 
-	int sizeofVar=SIZEOF_IGNORE,	// Handled by RECVINFO macro, but set to SIZEOF_IGNORE if you don't want to bother.
-	int flags=0, 
-	RecvVarProxyFn varProxy=RecvProxy_VectorXYToVectorXY
-	);
-
 // This is here so the RecvTable can look more like the SendTable.
-#define RecvPropQAngles RecvPropVector
 
 #if 0 // We can't ship this since it changes the size of DTVariant to be 20 bytes instead of 16 and that breaks MODs!!!
 
@@ -379,15 +274,6 @@ RecvProp RecvPropDataTable(
 	DataTableRecvVarProxyFn varProxy=DataTableRecvProxy_StaticDataTable
 	);
 
-RecvProp RecvPropArray3(
-	const char *pVarName,
-	int offset,
-	int sizeofVar,
-	int elements,
-	RecvProp pArrayProp,
-	DataTableRecvVarProxyFn varProxy=DataTableRecvProxy_StaticDataTable
-	);
-
 // Use the macro to let it automatically generate a table name. You shouldn't 
 // ever need to reference the table name. If you want to exclude this array, then
 // reference the name of the variable in varTemplate.
@@ -398,47 +284,17 @@ RecvProp InternalRecvPropArray(
 	ArrayLengthRecvProxyFn proxy
 	);
 
-
-//
 // Use this if you want to completely manage the way the array data is stored.
 // You'll need to provide a proxy inside varTemplate that looks for 'iElement'
 // to figure out where to store the specified element.
-//
-#define RecvPropVirtualArray( arrayLengthProxy, maxArrayLength, varTemplate, propertyName ) \
-	varTemplate, \
-	InternalRecvPropArray( \
-		maxArrayLength, \
-		0, \
-		#propertyName, \
-		arrayLengthProxy \
-		)
-
 
 // Use this and pass the array name and it will figure out the count and stride automatically.
-#define RecvPropVariableLengthArray( arrayLengthProxy, varTemplate, arrayName )			\
-	varTemplate,										\
-	InternalRecvPropArray(								\
-		sizeof(((currentRecvDTClass*)0)->arrayName) / PROPSIZEOF(currentRecvDTClass, arrayName[0]), \
-		PROPSIZEOF(currentRecvDTClass, arrayName[0]),	\
-		#arrayName,										\
-		arrayLengthProxy								\
-		)
-
 
 // Use this and pass the array name and it will figure out the count and stride automatically.
-#define RecvPropArray( varTemplate, arrayName )			\
-	RecvPropVariableLengthArray( 0, varTemplate, arrayName )
-
 
 // Use this one to specify the element count and stride manually.
-#define RecvPropArray2( arrayLengthProxy, varTemplate, elementCount, elementStride, arrayName )		\
-	varTemplate,																	\
-	InternalRecvPropArray( elementCount, elementStride, #arrayName, arrayLengthProxy )
 
-
-// ---------------------------------------------------------------------------------------- //
 // Inlines.
-// ---------------------------------------------------------------------------------------- //
 
 inline void RecvProp::InitArray( int nElements, int elementStride )
 {
@@ -455,11 +311,6 @@ inline int RecvProp::GetNumElements() const
 inline void RecvProp::SetNumElements( int nElements )
 {
 	m_nElements = nElements;
-}
-
-inline int RecvProp::GetElementStride() const
-{
-	return m_ElementStride;
 }
 
 inline void RecvProp::SetElementStride( int stride )
@@ -502,11 +353,6 @@ inline void RecvProp::SetProxyFn( RecvVarProxyFn fn )
 	m_ProxyFn = fn; 
 }
 
-inline DataTableRecvVarProxyFn RecvProp::GetDataTableProxyFn() const
-{
-	return m_DataTableProxyFn; 
-}
-
 inline void RecvProp::SetDataTableProxyFn( DataTableRecvVarProxyFn fn )
 {
 	m_DataTableProxyFn = fn; 
@@ -522,54 +368,7 @@ inline void RecvProp::SetOffset( int o )
 	m_Offset = o; 
 }
 
-inline RecvProp* RecvProp::GetArrayProp() const
-{
-	return m_pArrayProp;
-}
-
-inline void RecvProp::SetArrayProp( RecvProp *pProp )
-{
-	m_pArrayProp = pProp;
-}
-
 inline void RecvProp::SetArrayLengthProxy( ArrayLengthRecvProxyFn proxy )
 {
 	m_ArrayLengthProxy = proxy;
 }
-
-inline ArrayLengthRecvProxyFn RecvProp::GetArrayLengthProxy() const
-{
-	return m_ArrayLengthProxy;
-}
-
-inline bool RecvProp::IsInsideArray() const
-{
-	return m_bInsideArray;
-}
-
-inline void RecvProp::SetInsideArray()
-{
-	m_bInsideArray = true;
-}
-
-inline const void* RecvProp::GetExtraData() const
-{
-	return m_pExtraData;
-}
-
-inline void RecvProp::SetExtraData( const void *pData )
-{
-	m_pExtraData = pData;
-}
-
-inline const char* RecvProp::GetParentArrayPropName()
-{
-	return m_pParentArrayPropName;
-}
-
-inline void	RecvProp::SetParentArrayPropName( const char *pArrayPropName )
-{
-	m_pParentArrayPropName = pArrayPropName;
-}
-
-#endif // DATATABLE_RECV_H

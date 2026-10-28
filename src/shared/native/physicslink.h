@@ -51,11 +51,8 @@
 //
 //=============================================================================//
 
-#ifndef PHYSICSLINK_H
-#define PHYSICSLINK_H
-#ifdef _WIN32
 #pragma once
-#endif
+#define PHYSICSLINK_H
 
 #include "mathlib/vector.h"
 
@@ -134,5 +131,3 @@ int Physics_ClipVelocity( const Vector &in, const Vector &normal, Vector &out, f
 // have blocked this lift outright.)
 //-----------------------------------------------------------------------------
 const trace_t &Physics_GetTouchTrace( void );
-
-#endif // PHYSICSLINK_H

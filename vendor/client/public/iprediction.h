@@ -1,31 +1,12 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-//
-//-----------------------------------------------------------------------------
-// $Log: $
-//
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( IPREDICTION_H )
-#define IPREDICTION_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "interface.h"
 #include "mathlib/vector.h" // Solely to get at define for QAngle
 
-
 class IMoveHelper;
 
-//-----------------------------------------------------------------------------
 // Purpose: Engine interface into client side prediction system
-//-----------------------------------------------------------------------------
 abstract_class IPrediction
 {
 public:
@@ -60,8 +41,4 @@ public:
 	virtual void	SetLocalViewAngles( QAngle& ang ) = 0;
 };
 
-extern IPrediction *g_pClientSidePrediction;
-
 #define VCLIENT_PREDICTION_INTERFACE_VERSION	"VClientPrediction001"
-
-#endif // IPREDICTION_H

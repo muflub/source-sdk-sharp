@@ -26,7 +26,6 @@
 // imports them.
 //=============================================================================//
 
-#include "tier0/platform.h"
 #include "tier0/threadtools.h"
 #include "ss_platform.h"	// SS_BIND_IMPORT
 #ifdef _MSC_VER

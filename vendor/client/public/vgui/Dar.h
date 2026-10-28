@@ -1,16 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Holds the enumerated list of default cursors
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef DAR_H
-#define DAR_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -22,9 +13,7 @@
 namespace vgui
 {
 
-//-----------------------------------------------------------------------------
 // Purpose: Simple lightweight dynamic array implementation
-//-----------------------------------------------------------------------------
 template<class ELEMTYPE> class Dar : public CUtlVector< ELEMTYPE >
 {
 	typedef CUtlVector< ELEMTYPE > BaseClass;
@@ -130,5 +119,3 @@ public:
 }
 
 #include "tier0/memdbgoff.h"
-
-#endif // DAR_H

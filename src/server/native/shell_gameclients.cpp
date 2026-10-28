@@ -133,8 +133,6 @@ void UTIL_SetCommandClientIndex( int index );                                // 
 // called it. Every caller in the tree is in game/server/, and each of those
 // re-declares it locally.
 
-#ifndef NO_STEAM
-#endif
 
 // The standalone player (Phase 9a): several of the per-client asks below grow a
 // small arm for a player whose edict resolves to no CBaseEntity.

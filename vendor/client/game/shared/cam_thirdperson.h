@@ -1,78 +1,35 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose:
-//
-//=============================================================================//
 
-#ifndef CAM_THIRDPERSON_H
-#define CAM_THIRDPERSON_H
-
-#if defined( _WIN32 )
 #pragma once
-#endif
 
-#ifdef CLIENT_DLL
-	#include "c_baseplayer.h"
-#else
-	#include "baseplayer.h"
-#endif
-
-#define DIST_FORWARD 0
-#define DIST_RIGHT 1
-#define DIST_UP 2
+// step c8-pch-residue: this header opened c_baseplayer.h (baseplayer.h on the
+// server) and names nothing from either -- CThirdPersonManager is Vector,
+// QAngle and floats throughout.  It was residue, and together with usercmd.h's
+// imovehelper.h it was the second of the two edges by which in_mouse.cpp
+// reached the entity layer.  Every .cpp that includes this one and does use the
+// player either sees it through the precompiled header or asks by name -- all
+// twelve includers were rebuilt and every one of them still compiles, and only
+// three objects changed at all (in_camera, in_mouse, in_steamcontroller), each
+// by losing two file-local rodata constants and no global symbol.
 
 //-------------------------------------------------- Constants
 
-#define CAM_MIN_DIST 30.0
-#define CAM_ANGLE_MOVE .5
-#define MAX_ANGLE_DIFF 10.0
-#define PITCH_MAX 90.0
-#define PITCH_MIN 0
-#define YAW_MAX  135.0
-#define YAW_MIN	 -135.0
-#define	DIST	 2
 #define CAM_HULL_OFFSET		14.0    // the size of the bounding hull used for collision checking
-
-#define CAMERA_UP_OFFSET	25.0f
-#define CAMERA_OFFSET_LERP_TIME 0.5f
-#define CAMERA_UP_OFFSET_LERP_TIME 0.25f
 
 class CThirdPersonManager
 {
 public:
 
 	CThirdPersonManager();
-	void	SetCameraOffsetAngles( const Vector& vecOffset ) { m_vecCameraOffset = vecOffset; }
-	const Vector&	GetCameraOffsetAngles( void ) const { return m_vecCameraOffset; }
 	
-	void	SetDesiredCameraOffset( const Vector& vecOffset ) { m_vecDesiredCameraOffset = vecOffset; }
-	const Vector&	GetDesiredCameraOffset( void ) const { return m_vecDesiredCameraOffset; }
-
-	Vector	GetFinalCameraOffset( void );
-
-	void	SetCameraOrigin( const Vector& vecOffset ) { m_vecCameraOrigin = vecOffset; }
-	const Vector&	GetCameraOrigin( void ) const { return m_vecCameraOrigin; }
-
-	void	Update( void );
-
-	void	PositionCamera( CBasePlayer *pPlayer, const QAngle& angles );
-
-	void	UseCameraOffsets( bool bUse ) { m_bUseCameraOffsets = bUse; }
-	bool	UsingCameraOffsets( void ) { return m_bUseCameraOffsets; }
-
-	const QAngle&	GetCameraViewAngles( void ) const { return m_ViewAngles; }
-
-	Vector	GetDistanceFraction( void );
-
-	bool	WantToUseGameThirdPerson( void );
-
-	void	SetOverridingThirdPerson( bool bOverride ) { m_bOverrideThirdPerson = bOverride; }
-	bool	IsOverridingThirdPerson( void ) { return m_bOverrideThirdPerson; }
+	// PositionCamera was here. It swept a hull from the player entity's eye to
+	// the wanted camera spot and wrote m_flTargetFraction / m_flUpFraction from
+	// what it found. Step 7c removed it: its subject was the local player
+	// ENTITY, both callers handed it a NULL, and the sweep it did is now the
+	// shim's -- shell_client.cpp's third-person pass, over the rule in
+	// sourcesharp/game/shared/thirdperson_camera.h. See the .cpp.
 
 	void	Init( void );
-
-	void	SetForcedThirdPerson( bool bForced ) { m_bForced = bForced; }
-	bool	GetForcedThirdPerson() const { return m_bForced; }
 
 private:
 
@@ -104,5 +61,3 @@ private:
 };
 
 extern CThirdPersonManager g_ThirdPersonManager;
-
-#endif // CAM_THIRDPERSON_H

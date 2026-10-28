@@ -43,18 +43,34 @@
 // until 2026-10-25, when it moved to managed code (see the note where it was).
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "tier0/dbg.h"
+#include "tier0/memalloc.h"
+#include "tier0/threadtools.h"
+#include "tier1/convar.h"
+#include "tier1/iconvar.h"
+#include "client_entity.h"
 
 #include "shell_entitystatics.h"
 #include "entity_abs_query_state.h"
 #include "entity_shared_statics.h"
-#include "inetchannelinfo.h"
 // For the evicted vcollide_wireframe change callback below: the standalone
 // registry walk (SourceSharp_StandaloneClientCount / At) and C_StandaloneEntity.
 #include "shell_standalone_client.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //=============================================================================//
 //
@@ -92,7 +108,6 @@
 //
 //=============================================================================//
 
-#include "tier0/memdbgoff.h"
 
 void *EntityMem_Alloc( size_t stAllocateBlock )
 {
@@ -109,7 +124,6 @@ void EntityMem_Free( void *pMem )
 	MemAlloc_Free( pMem );
 }
 
-#include "tier0/memdbgon.h"
 
 //=============================================================================//
 //

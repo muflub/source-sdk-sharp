@@ -14,11 +14,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_LOADED_SYMBOL_H
-#define SOURCESHARP_LOADED_SYMBOL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 namespace ss
 {
@@ -35,5 +31,3 @@ void *FindLoadedSymbol( const char *pszFile, const char *pszSymbol );
 void *RequireLoadedSymbol( const char *pszFile, const char *pszSymbol );
 
 } // namespace ss
-
-#endif // SOURCESHARP_LOADED_SYMBOL_H

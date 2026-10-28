@@ -19,9 +19,21 @@
 // facts VGui_PreRender forwards.
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "vgui_int.h"
-#include "hud.h"
 #include "ienginevgui.h"
 #include "iclientmode.h"
 #include "vguicenterprint.h"
@@ -32,16 +44,20 @@
 #include "idebugoverlaypanel.h"
 #include "materialsystem/imaterialsystem.h"
 #include "tier3/tier3.h"
+#include "vgui/ISurface.h"
+#include "vgui/IVGui.h"
+#include "vgui/IPanel.h"
+#include "vgui/IInputInternal.h"
+#include "vgui/IInput.h"
+#include "tier0/dbg.h"
+#include "tier1/interface.h"
+#include "tier2/tier2.h"
+#include "vgui/VGUI.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
 #include "imanaged_areas_client.h"
-#include "tier0/platform.h"
-#include <vgui/ISurface.h>
-#include <vgui/IVGui.h>
-#include <vgui/IPanel.h>
-#include <vgui/IInputInternal.h>
-#include <vgui/IInput.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 vgui::IInputInternal *g_InputInternal = NULL;
 

@@ -10,11 +10,7 @@
 // leaves client.so). mesh_index_client.cpp holds these and the Valve names
 // over them; meshutils_oracle_test holds them to tier2.a's own object.
 //=============================================================================//
-#ifndef SOURCESHARP_MESH_INDEX_CLIENT_H
-#define SOURCESHARP_MESH_INDEX_CLIENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 namespace ss
 {
@@ -27,5 +23,3 @@ void GenerateLineStrip( unsigned short *pIndices, int nIndexCount, int nFirstVer
 void GenerateLineLoop( unsigned short *pIndices, int nIndexCount, int nFirstVertex );
 } // namespace meshutils
 } // namespace ss
-
-#endif // SOURCESHARP_MESH_INDEX_CLIENT_H

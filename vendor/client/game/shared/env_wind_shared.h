@@ -1,12 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Implements visual effects entities: sprites, beams, bubbles, etc.
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef ENV_WIND_SHARED_H
-#define ENV_WIND_SHARED_H
+#pragma once
 
 #include "utllinkedlist.h"
 #include "vstdlib/random.h"
@@ -14,15 +9,10 @@
 #include "mathlib/vector.h"
 #include <float.h>
 
-
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 class CSoundPatch;
 
-//-----------------------------------------------------------------------------
 // Class used to help store events that occurred over time
-//-----------------------------------------------------------------------------
 template <class T, class I>
 class CTimedEventQueue
 {
@@ -53,10 +43,7 @@ private:
 	CUtlLinkedList< T, I >	m_Queue;
 };
 
-
-//-----------------------------------------------------------------------------
 // The time passed in here represents the amount of time the queue stores
-//-----------------------------------------------------------------------------
 template <class T, class I>
 CTimedEventQueue<T,I>::CTimedEventQueue( float flMaxTime ) : m_flMaxTime(flMaxTime)
 {
@@ -65,10 +52,7 @@ CTimedEventQueue<T,I>::CTimedEventQueue( float flMaxTime ) : m_flMaxTime(flMaxTi
 	m_flQueueHeadTime = -FLT_MAX;
 }
 
-
-//-----------------------------------------------------------------------------
 // Adds an event to the queue, will pop off stale events from the queue
-//-----------------------------------------------------------------------------
 template <class T, class I>
 I CTimedEventQueue<T,I>::PushEvent( float flTime, const T &data )
 {
@@ -93,10 +77,7 @@ I CTimedEventQueue<T,I>::PushEvent( float flTime, const T &data )
 	return idx;
 }
 
-
-//-----------------------------------------------------------------------------
 // Grabs the last event that happened before or at the specified time
-//-----------------------------------------------------------------------------
 template <class T, class I>
 I CTimedEventQueue<T,I>::GetEventIndex( float flTime ) const
 {
@@ -114,10 +95,7 @@ I CTimedEventQueue<T,I>::GetEventIndex( float flTime ) const
 	return i;
 }
 
-
-//-----------------------------------------------------------------------------
 // Gets event information
-//-----------------------------------------------------------------------------
 template <class T, class I>
 inline float CTimedEventQueue<T,I>::GetEventTime( I i )	const
 {
@@ -130,10 +108,7 @@ inline const T &CTimedEventQueue<T,I>::GetEventData( I i ) const
 	return m_Queue[i].m_Data;
 }
 
-
-//-----------------------------------------------------------------------------
 // Implementation of the class that computes windspeed
-//-----------------------------------------------------------------------------
 class CEnvWindShared
 {
 public:
@@ -145,13 +120,6 @@ public:
 
 	void Init( int iEntIndex, int iRandomSeed, float flTime, int iWindDir, float flInitialWindSpeed );
 	void Reset();
-
-	void SetLocation( const Vector &location );
-
-	// Method to update the wind speed
-	// Time passed in here is global time, not delta time
-	// The function returns the time at which it must be called again
-	float WindThink( float flTime );
 
 	// FIXME: These really should be private
 	CNetworkVar( float, m_flStartTime );
@@ -172,22 +140,10 @@ public:
 	CNetworkVar( int, m_iGustDirChange );	// max number of degrees wind dir changes on gusts.
 	CNetworkVector( m_location );			// The location of this wind controller
 
-	int m_iszGustSound;		// name of the wind sound to play for gusts.
-	int m_iWindDir;			// wind direction (yaw)
-	float m_flWindSpeed;	// the wind speed
-
-
-	Vector m_currentWindVector;	// For all the talk of proper prediction, we ended up just storing and returning through a static vector.  Now we can have multiple env_wind, so we need this in here.
-	Vector m_CurrentSwayVector;
-	Vector m_PrevSwayVector;
+	alignas( 8 ) unsigned char unused_m_iszGustSound[ 48 ];
 
 	CNetworkVar( int, m_iInitialWindDir );
 	CNetworkVar( float, m_flInitialWindSpeed );
-
-#ifndef CLIENT_DLL
-	COutputEvent m_OnGustStart;
-	COutputEvent m_OnGustEnd;
-#endif
 
 private:
 	struct WindAveEvent_t
@@ -201,13 +157,6 @@ private:
 		float m_flWindAngleVariation;
 		float m_flWindSpeedVariation;
 	};
-
-	void ComputeWindVariation( float flTime );
-
-	// Updates the wind sound
-	void UpdateWindSound( float flTotalWindSpeed );
-
-	void UpdateTreeSway( float flTime );
 
 	float	m_flVariationTime;
 	float	m_flSwayTime;
@@ -241,29 +190,11 @@ private:
 	CEnvWindShared( const CEnvWindShared & ); // not defined, not accessible
 };
 
-//-----------------------------------------------------------------------------
-inline void CEnvWindShared::SetLocation( const Vector &location )
-{
-	m_location = location;
-}
-
-
-//-----------------------------------------------------------------------------
 // Method to sample the wind speed at a particular location
-//-----------------------------------------------------------------------------
 Vector GetWindspeedAtLocation( const Vector &location );
 
-//-----------------------------------------------------------------------------
 // Method to sample the windspeed at a particular time
-//-----------------------------------------------------------------------------
 void GetWindspeedAtTime( float flTime, Vector &vecVelocity );
 
-
-//-----------------------------------------------------------------------------
 // Method to reset windspeed..
-//-----------------------------------------------------------------------------
 void ResetWindspeed();
-
-
-#endif // ENV_WIND_SHARED_H
-

@@ -39,11 +39,7 @@
 // and neither is in this file.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_STANDALONE_H
-#define SOURCESHARP_SHELL_STANDALONE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "toucher.h"
 #include "igameentity.h"
@@ -1364,5 +1360,3 @@ inline CStandaloneEntity *SourceSharp_ShellOf( IServerNetworkable *pNet )
 // LAST in the file so it cannot be reordered ahead of the class it names.
 //-----------------------------------------------------------------------------
 #include "standalone_handle_ban.h"
-
-#endif // SOURCESHARP_SHELL_STANDALONE_H

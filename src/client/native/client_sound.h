@@ -24,11 +24,7 @@
 //
 // With no managed side (outside a load) nothing plays, as a missing shim's did.
 //=============================================================================//
-#ifndef CLIENT_SOUND_H
-#define CLIENT_SOUND_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 
@@ -36,6 +32,12 @@
 #include "irecipientfilter.h"
 #include "mathlib/vector.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
+#include "engine/IEngineSound.h"
+#include "tier3/tier3.h"
+#include "client_entity.h"
+#include "shareddefs.h"
+#include "soundenvelope.h"
+#include "soundflags.h"
 #include "imanaged_areas_client.h"
 
 extern ISoundEmitterSystemBase *soundemitterbase;
@@ -156,5 +158,3 @@ inline bool GetParameters( const char *pszSoundName, CSoundParameters &params, c
 }
 
 } // namespace ClientSound
-
-#endif // CLIENT_SOUND_H

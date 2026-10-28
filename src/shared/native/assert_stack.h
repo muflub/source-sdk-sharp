@@ -32,11 +32,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_ASSERT_STACK_H
-#define SOURCESHARP_ASSERT_STACK_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 #include <stdio.h>
@@ -466,5 +462,3 @@ inline bool SourceSharp_FatalSpewShouldWriteStack( bool bFatal, bool bAlreadyWri
 		return false;
 	return true;
 }
-
-#endif // SOURCESHARP_ASSERT_STACK_H

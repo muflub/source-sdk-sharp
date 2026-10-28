@@ -12,18 +12,22 @@
 // input messages are the names vgui2's input sends (Panel.h's message map).
 //=============================================================================//
 
-#include "cbase.h"
+#include "vgui/IVGui.h"
+#include "vgui/IPanel.h"
+#include "vgui/ISurface.h"
+#include "vgui/IScheme.h"
+#include "tier1/KeyValues.h"
+#include "vgui_controls/Controls.h"
+#include "tier1/strtools.h"
+#include "tier1/utlvector.h"
+#include "vgui/Cursor.h"
+#include "vgui/KeyCode.h"
+#include "vgui/MouseCode.h"
+#include "vgui/VGUI.h"
+#include "vstdlib/IKeyValuesSystem.h"
 #include "shell_rawpanel_client.h"
-#include <vgui/IVGui.h>
-#include <vgui/IPanel.h>
-#include <vgui/ISurface.h>
-#include <vgui/IScheme.h>
-#include <vgui/IInput.h>
-#include <KeyValues.h>
-#include <vgui_controls/Controls.h>   // vgui::ivgui(), ipanel(), surface(), scheme(): the module's interface accessors
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 CSourceSharpRawPanel::CSourceSharpRawPanel( const char *pszName )
 	: m_pszName( pszName ), m_hCursor( vgui::dc_arrow ), m_bPaint( true ),

@@ -1,17 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose:	All of our code is completely Unicode.  Instead of char, you should
 //			use wchar, uint8, or char8, as explained below.
-//
-// $NoKeywords: $
-//=============================================================================//
 
-
-#ifndef WCHARTYPES_H
-#define WCHARTYPES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #ifdef _INC_TCHAR
 #error ("Must include tier0 type headers before tchar.h")
@@ -24,7 +15,6 @@
 typedef unsigned short wchar_t;
 #define _WCHAR_T_DEFINED
 #endif
-
 
 // uint8
 // uint8 is equivalent to byte (but is preferred over byte for clarity).  Use this
@@ -52,17 +42,7 @@ typedef unsigned char byte;
 #include <tchar.h>
 #else
 
-
-
-
-
-
-
-
- 
-
 #define _vsntprintf _vsnprintf
-
 
 #define _T(s) s
 #endif
@@ -93,8 +73,3 @@ typedef wchar_t uchar32;
 
 // Turn valve defines back on
 #include "tier0/valve_on.h"
-
-
-#endif // WCHARTYPES
-
-

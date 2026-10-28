@@ -11,11 +11,7 @@
 // own calls on the same objects are not in it.
 //
 //=============================================================================//
-#ifndef SHELL_RENDER_TRACE_CLIENT_H
-#define SHELL_RENDER_TRACE_CLIENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 
@@ -48,5 +44,3 @@ namespace RenderTrace
 	// A line too long for Note's buffer: pszPrefix then pszText, verbatim.
 	void NoteLong( const char *pszPrefix, const char *pszText );
 }
-
-#endif // SHELL_RENDER_TRACE_CLIENT_H

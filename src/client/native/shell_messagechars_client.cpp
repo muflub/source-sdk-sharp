@@ -15,11 +15,11 @@
 // calls go through, and the Panel (and its vgui_controls vtable) goes.
 //=============================================================================//
 
-#include "cbase.h"
 #include "imessagechars.h"
+#include "tier0/platform.h"
+#include "vgui/VGUI.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 class CSourceSharpMessageChars : public IMessageChars
 {

@@ -1,19 +1,12 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//===========================================================================//
 
 // light structure definitions.
-#ifndef LIGHTDESC_H
-#define LIGHTDESC_H
+#pragma once
 
 #include <mathlib/ssemath.h>
 #include <mathlib/vector.h>
 
-//-----------------------------------------------------------------------------
 // Light structure
-//-----------------------------------------------------------------------------
 
 enum LightType_t
 {
@@ -83,16 +76,9 @@ public:
 	/// Given 4 points and 4 normals, ADD lighting from this light into "color".
 	void ComputeLightAtPoints( const FourVectors &pos, const FourVectors &normal,
 							   FourVectors &color, bool DoHalfLambert=false ) const;
-	void ComputeNonincidenceLightAtPoints( const FourVectors &pos, FourVectors &color ) const;
 	void ComputeLightAtPointsForDirectional( const FourVectors &pos,
 											 const FourVectors &normal,
 											 FourVectors &color, bool DoHalfLambert=false ) const;
-
-	// warning - modifies color!!! set color first!!
-	void SetupOldStyleAttenuation( float fQuadatricAttn, float fLinearAttn, float fConstantAttn );
-
-	void SetupNewStyleAttenuation( float fFiftyPercentDistance, float fZeroPercentDistance );
-
 
 /// given a direction relative to the light source position, is this ray within the
 	/// light cone (for spotlights..non spots consider all rays to be within their cone)
@@ -103,10 +89,7 @@ public:
 
 };
 
-
-//-----------------------------------------------------------------------------
 // a point light with infinite range
-//-----------------------------------------------------------------------------
 inline void LightDesc_t::InitPoint( const Vector &pos, const Vector &color )
 {
 	m_Type=MATERIAL_LIGHT_POINT;
@@ -119,13 +102,8 @@ inline void LightDesc_t::InitPoint( const Vector &pos, const Vector &color )
 	RecalculateDerivedValues();
 }
 
-
-
-
-//-----------------------------------------------------------------------------
 // a simple light. cone boundaries in radians. you pass a look_at point and the
 // direciton is derived from that.
-//-----------------------------------------------------------------------------
 inline void LightDesc_t::InitSpot(const Vector &pos, const Vector &color, const Vector &point_at,
 	float inner_cone_boundary, float outer_cone_boundary)
 {
@@ -146,7 +124,3 @@ inline void LightDesc_t::InitSpot(const Vector &pos, const Vector &color, const 
 	m_Attenuation2=0;
 	RecalculateDerivedValues();
 }
-
-
-#endif
-

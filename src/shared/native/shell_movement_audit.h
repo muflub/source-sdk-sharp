@@ -7,11 +7,7 @@
 // Purpose: What happened to one of the eight movement ConVars after this mod
 //          set it.
 
-#ifndef SHELL_MOVEMENT_AUDIT_H
-#define SHELL_MOVEMENT_AUDIT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // SOURCESHARP: the instrument plan_shim.md 4a item 16 asks for.
@@ -96,5 +92,3 @@ int SourceSharp_MovementConVarIndex( const char *pszName );
 //-----------------------------------------------------------------------------
 int SourceSharp_MovementConVarCount();
 const char *SourceSharp_MovementConVarName( int nIndex );
-
-#endif // SHELL_MOVEMENT_AUDIT_H

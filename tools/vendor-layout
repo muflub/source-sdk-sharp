@@ -41,9 +41,8 @@ sys.path.insert(0, os.path.join(REPO, "tools"))
 import importlib.machinery  # noqa: E402
 VD = importlib.machinery.SourceFileLoader("vendor_tool", os.path.join(REPO, "tools", "vendor")).load_module()
 
-# What the windows-cross build compiles today (tools/windows-cross); client.dll
-# joins when client.so builds from vendor/.
-WINDOWS_TARGETS = {"server_sourcesharp", "ss_fwd_server", "ss_particles", "tier1", "mathlib"}
+# What the windows-cross build compiles (tools/windows-cross).
+WINDOWS_TARGETS = {"server_sourcesharp", "ss_fwd_server", "client_sourcesharp", "ss_fwd_client", "ss_particles", "tier1", "mathlib"}
 
 VT_HEAD = re.compile(r"^(?:Vtable|VFTable) for '(.+?)'(?: in '(.+?)')? \((\d+) entries\)\.")
 VT_ROW = re.compile(r"^\s*(\d+) \| (.*)$")
@@ -163,7 +162,12 @@ def snapshot(cfg, out):
                 vt.setdefault(k, set()).update(v)
             for k, v in res[1].items():
                 rec.setdefault(k, set()).update(v)
-    if failed:
+    if failed and PRISTINE:
+        # Valve's own headers do not compile some objects under clang (the
+        # fixes vendor/ carries): those are left out of this snapshot, named.
+        print("tools/vendor-layout: %d objects do not compile on the pristine headers, left out: %s"
+              % (len(failed), ", ".join(sorted(os.path.relpath(f, REPO) for f, _ in failed))))
+    elif failed:
         raise SystemExit("tools/vendor-layout: %d objects did not compile, e.g. %s\n%s"
                          % (len(failed), failed[0][0], failed[0][1]))
     with open(out, "w") as f:
@@ -183,6 +187,31 @@ def same_row(a, b):
         return False
     cls, name = m.groups()
     return re.search(r"(^|[\s*&])%s::%s\(" % (re.escape(cls), re.escape(name)), a) is not None
+
+
+def record_fields(text):
+    """{label: value} of one record's simple dump: Size, Alignment, the
+    offset lists."""
+    out = {}
+    for line in text.split("\n"):
+        k, _, v = line.partition(":")
+        out[k.strip()] = v.strip().rstrip(">")
+    return out
+
+
+def same_record(a, b):
+    """The same layout, or one where tools/vendor-fields stubbed a run of
+    fields: same size and alignment, the same bases, and the fields B keeps
+    at offsets A had, in A's order (a stub sits where its run began)."""
+    if a == b:
+        return True
+    fa, fb = record_fields(a), record_fields(b)
+    if any(fa.get(k) != fb.get(k) for k in ("Size", "Alignment", "BaseOffsets", "VBaseOffsets")):
+        return False
+    oa = [x for x in fa.get("FieldOffsets", "").strip("[]").split(",") if x.strip()]
+    ob = [x for x in fb.get("FieldOffsets", "").strip("[]").split(",") if x.strip()]
+    it = iter(oa)
+    return len(ob) < len(oa) and all(any(x.strip() == y.strip() for y in it) for x in ob)
 
 
 def compare_vtable(a_rows, b_rows):
@@ -210,7 +239,7 @@ def compare(a, b):
         b_set = b["records"].get(k)
         if b_set is None:
             continue
-        if not set(a_set) & set(b_set) and a_set:
+        if a_set and not any(same_record(ar, br) for ar in a_set for br in b_set):
             problems.append("record %s: %s -> %s" % (k, a_set[0].replace("\n", " "),
                                                       b_set[0].replace("\n", " ")))
     return problems
@@ -243,6 +272,13 @@ def self_test():
     B = {"vtables": {}, "records": {"itanium|struct S": ["Size:64\nFieldOffsets: [0, 64]"]}}
     eq(len(compare(A, B)), 1, "a moved field is refused")
     eq(compare(A, A), [], "an unchanged snapshot passes")
+    A3 = {"vtables": {}, "records": {"itanium|struct T": ["Size:128\nAlignment:32\nFieldOffsets: [0, 32, 64, 96]"]}}
+    B3 = {"vtables": {}, "records": {"itanium|struct T": ["Size:128\nAlignment:32\nFieldOffsets: [0, 32, 96]"]}}
+    eq(compare(A3, B3), [], "a stubbed run keeps its first offset and the rest of the fields")
+    B4 = {"vtables": {}, "records": {"itanium|struct T": ["Size:128\nAlignment:32\nFieldOffsets: [0, 40, 96]"]}}
+    eq(len(compare(A3, B4)), 1, "a field at an offset A never had is refused")
+    B5 = {"vtables": {}, "records": {"itanium|struct T": ["Size:96\nAlignment:32\nFieldOffsets: [0, 32]"]}}
+    eq(len(compare(A3, B5)), 1, "a smaller record is refused")
     print("tools/vendor-layout --self-test: %d checks passed" % checks)
     return 0
 

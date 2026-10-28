@@ -14,11 +14,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_GAME_EVENT_SUBSCRIPTIONS_H
-#define SOURCESHARP_GAME_EVENT_SUBSCRIPTIONS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <set>
 #include <string>
@@ -54,5 +50,3 @@ public:
 private:
 	std::set< std::string, ss::CaselessLess > m_Names;
 };
-
-#endif // SOURCESHARP_GAME_EVENT_SUBSCRIPTIONS_H

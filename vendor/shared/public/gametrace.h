@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef GAMETRACE_H
-#define GAMETRACE_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "cmodel.h"
 #include "utlvector.h"
@@ -22,17 +13,11 @@
 	class CBaseEntity;
 #endif
 
-
-//-----------------------------------------------------------------------------
 // Purpose: A trace is returned when a box is swept through the world
 // NOTE: eventually more of this class should be moved up into the base class!!
-//-----------------------------------------------------------------------------
 class CGameTrace : public CBaseTrace
 {
 public:
-
-	
-
 
 	// Returns true if there was any kind of impact at all
 	bool DidHit() const;
@@ -43,7 +28,6 @@ public:
 	void SetEdict( edict_t *pEdict );
 	edict_t* GetEdict() const;
 #endif	
-
 
 public:
 
@@ -71,19 +55,13 @@ private:
 	CGameTrace(const CGameTrace& vOther);
 };
 
-
-//-----------------------------------------------------------------------------
 // Returns true if there was any kind of impact at all
-//-----------------------------------------------------------------------------
 inline bool CGameTrace::DidHit() const 
 { 
 	return fraction < 1 || allsolid || startsolid; 
 }
 
-
 typedef CGameTrace trace_t;
-
-//=============================================================================
 
 #define TLD_DEF_LEAF_MAX	256
 #define TLD_DEF_ENTITY_MAX	1024
@@ -123,9 +101,6 @@ public:
 
 	bool	IsEmpty( void ) const			{ return ( m_nLeafCount == 0 && m_nEntityCount == 0 ); }
 
-
-
-
 	// For entities...
 	IterationRetval_t EnumElement( IHandleEntity *pHandleEntity )
 	{
@@ -149,6 +124,3 @@ public:
 	int							m_nEntityCount;
 	CUtlVector<IHandleEntity*>	m_aEntityList;
 };
-
-#endif // GAMETRACE_H
-

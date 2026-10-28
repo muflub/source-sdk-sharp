@@ -1,28 +1,15 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
 
-#ifndef SERVER_CLASS_H
-#define SERVER_CLASS_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/dbg.h"
 #include "dt_send.h"
 #include "networkstringtabledefs.h"
 
-
 class ServerClass;
 class SendTable;
 
 extern ServerClass *g_pServerClassHead;
-
 
 class ServerClass
 {
@@ -67,7 +54,6 @@ public:
 
 	const char*	GetName()		{ return m_pNetworkName; }
 
-
 public:
 	const char					*m_pNetworkName;
 	SendTable					*m_pTable;
@@ -77,7 +63,6 @@ public:
 	// This is an index into the network string table (sv.GetInstanceBaselineTable()).
 	int							m_InstanceBaselineIndex; // INVALID_STRING_INDEX if not initialized yet.
 };
-
 
 class CBaseNetworkable;
 
@@ -92,8 +77,6 @@ class CBaseNetworkable;
 	DECLARE_SERVERCLASS_IMPL( /* override */; )
 // With warnings set to inconsistent-override, marking this properly as override would create warnings in all old files.
 // Instead, as files are converted to use override, just upgrade to this
-#define DECLARE_SERVERCLASS_OVERRIDE() \
-	DECLARE_SERVERCLASS_IMPL( OVERRIDE )
 
 #define DECLARE_SERVERCLASS_NOBASE()							\
 	public:														\
@@ -107,9 +90,6 @@ class CBaseNetworkable;
 #define IMPLEMENT_SERVERCLASS_ST(DLLClassName, sendTable) \
 	IMPLEMENT_SERVERCLASS_INTERNAL( DLLClassName, sendTable )\
 	BEGIN_SEND_TABLE(DLLClassName, sendTable)
-
-
-
 
 #ifdef VALIDATE_DECLARE_CLASS
 	#define CHECK_DECLARE_CLASS( DLLClassName, sendTable ) \
@@ -126,7 +106,6 @@ class CBaseNetworkable;
 	#define CHECK_DECLARE_CLASS( DLLClassName, sendTable )
 #endif
 
-
 #define IMPLEMENT_SERVERCLASS_INTERNAL( DLLClassName, sendTable ) \
 	namespace sendTable \
 	{ \
@@ -142,9 +121,3 @@ class CBaseNetworkable;
 	ServerClass* DLLClassName::GetServerClass() {return &g_##DLLClassName##_ClassReg;} \
 	SendTable *DLLClassName::m_pClassSendTable = &sendTable::g_SendTable;\
 	int DLLClassName::YouForgotToImplementOrDeclareServerClass() {return 0;}
-
-
-#endif
-
-
-

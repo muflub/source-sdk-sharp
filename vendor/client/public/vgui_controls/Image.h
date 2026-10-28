@@ -1,16 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef IMAGE_H
-#define IMAGE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <vgui/VGUI.h>
 #include <Color.h>
@@ -21,9 +11,7 @@ namespace vgui
 
 class Panel;
 
-//-----------------------------------------------------------------------------
 // Purpose: Basic image control
-//-----------------------------------------------------------------------------
 class Image : public IImage
 {
 public:
@@ -33,16 +21,16 @@ public:
 	// Set the position of the image
 	virtual void SetPos( int x, int y );
 	// Get the position of the image
-	virtual void GetPos( int &x, int &y );
+	virtual void unused_GetPos() = 0;
 	// Get the size of the image
 	virtual void GetSize( int &wide, int &tall );
 	virtual void GetContentSize( int &wide, int &tall );
 	// Set the draw color 
 	virtual void SetColor( Color color );
 	// set the background color
-	virtual void SetBkColor( Color color ) { DrawSetColor( color ); }
+	virtual void unused_SetBkColor() = 0;
 	// Get the draw color 
-	virtual Color GetColor();
+	virtual void unused_GetColor() = 0;
 	virtual bool Evict();
 	virtual int GetNumFrames();
 	virtual void SetFrame( int nFrame );
@@ -56,7 +44,7 @@ protected:
 	virtual void DrawFilledRect(int x0, int y0, int x1, int y1);
 	virtual void DrawOutlinedRect(int x0, int y0, int x1, int y1);
 	virtual void DrawLine(int x0,int y0,int x1,int y1);
-	virtual void DrawPolyLine(int *px, int *py, int numPoints);
+	virtual void unused_DrawPolyLine() = 0;
 	virtual void DrawSetTextFont(HFont font);
 	virtual void DrawSetTextColor(Color color);
 	virtual void DrawSetTextColor(int r, int g, int b, int a);
@@ -66,7 +54,7 @@ protected:
 	virtual void DrawPrintChar(wchar_t ch);
 	virtual void DrawPrintChar(int x, int y, wchar_t ch);
 	virtual void DrawSetTexture(int id);
-	virtual void DrawTexturedRect(int x0, int y0, int x1, int y1);
+	virtual void unused_DrawTexturedRect() = 0;
 	virtual void Paint() = 0;
 
 private:
@@ -76,5 +64,3 @@ private:
 };
 
 } // namespace vgui
-
-#endif // IMAGE_H

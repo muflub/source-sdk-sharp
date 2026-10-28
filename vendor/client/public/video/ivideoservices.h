@@ -1,14 +1,10 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // The copyright to the contents herein is the property of Valve, L.L.C.
 // The contents may be used and/or copied only with the written permission of
 // Valve, L.L.C., or in accordance with the terms and conditions stipulated in
 // the agreement/contract under which the contents have been supplied.
-//
-//=============================================================================
 
-#ifndef IVIDEOSERVICES_H
-#define IVIDEOSERVICES_H
+#pragma once
 
 #if defined ( WIN32 )
     #pragma once
@@ -33,97 +29,28 @@
 #define UINT32_MAX   (0xFFFFFFFFu)
 #endif
 
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 class IMaterial;
 
-
-//-----------------------------------------------------------------------------
 // Types used when dealing with video services
-//-----------------------------------------------------------------------------
-
-#define FILE_EXTENSION_ANY_MATCHING_VIDEO		".vid"
 
 //#define ENABLE_EXTERNAL_ENCODER_LOGGING
 
-
-//-----------------------------------------------------------------------------
 // enums used when dealing with video services
-//-----------------------------------------------------------------------------
 
-	// ==============================================
 	// various general video system enumerations
 
-	
 namespace VideoResult
 {
-	enum EVideoResult_t
-	{
-		SUCCESS				= 0,
-		
-		SYSTEM_NOT_AVAILABLE,
-		CODEC_NOT_AVAILABLE,
-		FEATURE_NOT_AVAILABLE,
-		
-		UNKNOWN_OPERATION,
-		ILLEGAL_OPERATION,
-		OPERATION_NOT_SUPPORTED,
-		
-		BAD_INPUT_PARAMETERS,
-		OPERATION_ALREADY_PERFORMED,
-		OPERATION_OUT_OF_SEQUENCE,
-		
-		VIDEO_ERROR_OCCURED,
-		FILE_ERROR_OCCURED,
-		AUDIO_ERROR_OCCURED,
-		SYSTEM_ERROR_OCCURED,
-		INITIALIZATION_ERROR_OCCURED,
-		SHUTDOWN_ERROR_OCCURED,
-		
-		MATERIAL_NOT_FOUND,
-		RECORDER_NOT_FOUND,
-		VIDEO_FILE_NOT_FOUND,
-		VIDEO_SYSTEM_NOT_FOUND,
-	};
 };
-typedef VideoResult::EVideoResult_t VideoResult_t;
 
 namespace VideoSystem
 {
-	enum EVideoSystem_t
-	{
-		ALL_VIDEO_SYSTEMS = -2,
-		DETERMINE_FROM_FILE_EXTENSION = -1,
-		NONE = 0,
-		
-		BINK,
-		AVI,
-		WMV,
-		QUICKTIME,
-		WEBM,
-		SOURCE2_WRAPPER,
-		
-		VIDEO_SYSTEM_COUNT,
-		VIDEO_SYSTEM_FIRST = 1,
-	};
 };
-typedef VideoSystem::EVideoSystem_t VideoSystem_t;
-
 
 namespace VideoSystemStatus
 {
-	enum EVideoSystemStatus_t
-	{
-		OK = 0,
-		NOT_INSTALLED,
-		NOT_CURRENT_VERSION,
-		NOT_INITIALIZED,
-		INITIALIZATION_ERROR,
-	};
 };
-typedef VideoSystemStatus::EVideoSystemStatus_t VideoSystemStatus_t;
-
 
 namespace VideoSystemFeature
 {
@@ -135,7 +62,6 @@ namespace VideoSystemFeature
 		ENCODE_VIDEO_TO_FILE		= 0x00000004,
 		ENCODE_AUDIO_TO_FILE		= 0x00000008,
 		
-		
 		FULL_PLAYBACK				= PLAY_VIDEO_FILE_FULL_SCREEN | PLAY_VIDEO_FILE_IN_MATERIAL,
 		FULL_ENCODE					= ENCODE_VIDEO_TO_FILE | ENCODE_AUDIO_TO_FILE,
 		ALL_VALID_FEATURES			= FULL_PLAYBACK | FULL_ENCODE,
@@ -145,36 +71,16 @@ namespace VideoSystemFeature
 
 	DEFINE_ENUM_BITWISE_OPERATORS( EVideoSystemFeature_t );
 };
-typedef VideoSystemFeature::EVideoSystemFeature_t VideoSystemFeature_t;
-	
 	
 namespace VideoSoundDeviceOperation
 {
-	enum EVideoSoundDeviceOperation_t
-	{
-		SET_DIRECT_SOUND_DEVICE = 0,			// Windows option
-		SET_MILES_SOUND_DEVICE,					// Supported by RAD
-		HOOK_X_AUDIO,							// Xbox Option
-		SET_SOUND_MANAGER_DEVICE,				// OSX Option
-		SET_LIB_AUDIO_DEVICE,					// PS3 Option
-		SET_SDL_SOUND_DEVICE,					// SDL Audio
-		SET_SDL_PARAMS,							// SDL Audio params
-		SDLMIXER_CALLBACK,						// SDLMixer callback
-				
-		OPERATION_COUNT
-	};
 };
-typedef VideoSoundDeviceOperation::EVideoSoundDeviceOperation_t VideoSoundDeviceOperation_t;
 
-
-	// ==============================================
 	// Video Encoding related settings
 
 namespace VideoEncodeCodec
 {
-	//
 	// NOTE: NEW CODECS SHOULD BE ADDED TO THE END OF THIS LIST.
-	//
 	enum EVideoEncodeCodec_t
 	{
 		MPEG2_CODEC,
@@ -188,9 +94,7 @@ namespace VideoEncodeCodec
 		CINEPACK_CODEC,
 		WEBM_CODEC,
 
-		//
 		// NOTE: ADD NEW CODECS HERE.
-		//
 
 		CODEC_COUNT,
 
@@ -199,68 +103,22 @@ namespace VideoEncodeCodec
 };
 typedef VideoEncodeCodec::EVideoEncodeCodec_t VideoEncodeCodec_t;
 
-
 namespace VideoEncodeQuality
 {
-	enum EVideoEncodeQuality_t
-	{
-		MIN_QUALITY = 0,
-		MAX_QUALITY = 100
-	};
 };
-typedef VideoEncodeQuality::EVideoEncodeQuality_t VideoEncodeQuality_t;
-
 
 namespace VideoEncodeSourceFormat
 {
-	enum EVideoEncodeSourceFormat_t				// Image source format for frames to encoded
-	{
-		BGRA_32BIT = 0,
-		BGR_24BIT,
-		RGB_24BIT,
-		RGBA_32BIT,
-		
-		VIDEO_FORMAT_COUNT,
-		VIDEO_FORMAT_FIRST = 0
-	};
 };
-typedef VideoEncodeSourceFormat::EVideoEncodeSourceFormat_t VideoEncodeSourceFormat_t;
-
 
 namespace VideoEncodeGamma
 {
-	enum EVideoEncodeGamma_t
-	{
-		NO_GAMMA_ADJUST = 0,
-		PLATFORM_STANDARD_GAMMA,
-		GAMMA_1_8,
-		GAMMA_2_2,
-		GAMMA_2_5,
-		
-		GAMMA_COUNT
-	};
 };
-typedef VideoEncodeGamma::EVideoEncodeGamma_t VideoEncodeGamma_t;
-
 
 namespace VideoPlaybackGamma
 {
-	enum EVideoPlaybackGamma_t
-	{
-		USE_GAMMA_CONVAR = -1,
-		NO_GAMMA_ADJUST = 0,
-		PLATFORM_DEFAULT_GAMMMA,
-		GAMMA_1_8,
-		GAMMA_2_2,
-		GAMMA_2_5,
-		
-		GAMMA_COUNT
-	};
 };
-typedef VideoPlaybackGamma::EVideoPlaybackGamma_t VideoPlaybackGamma_t;
 
-
-	// ==============================================
 	// Video Playback related settings
 
 namespace VideoPlaybackFlags
@@ -305,8 +163,6 @@ namespace VideoPlaybackFlags
 	
 	DEFINE_ENUM_BITWISE_OPERATORS( EVideoPlaybackFlags_t );
 }
-typedef VideoPlaybackFlags::EVideoPlaybackFlags_t VideoPlaybackFlags_t;
-
 
 namespace AudioEncodeSourceFormat
 {
@@ -319,7 +175,6 @@ namespace AudioEncodeSourceFormat
 	};
 };
 typedef AudioEncodeSourceFormat::EAudioEncodeSourceFormat_t AudioEncodeSourceFormat_t;
-
 
 namespace AudioEncodeOptions
 {
@@ -336,12 +191,8 @@ namespace AudioEncodeOptions
 	};
 	DEFINE_ENUM_BITWISE_OPERATORS( EAudioEncodeOptions_t );
 }
-typedef AudioEncodeOptions::EAudioEncodeOptions_t AudioEncodeOptions_t;
 
-
-//-----------------------------------------------------------------------------
 // Frame Rate Class
-//-----------------------------------------------------------------------------
 class VideoFrameRate_t
 {
 	public:
@@ -353,19 +204,9 @@ class VideoFrameRate_t
 		inline VideoFrameRate_t&	operator=( const VideoFrameRate_t& rhs ) { m_TimeUnitsPerSecond = rhs.m_TimeUnitsPerSecond; m_TimeUnitsPerFrame = rhs.m_TimeUnitsPerFrame; return *this; }
 		inline						VideoFrameRate_t( const VideoFrameRate_t &rhs ) { *this = rhs; };
 
-		inline void					SetRaw( int timeUnitsPerSecond, int TimeUnitsPerFrame )		{ m_TimeUnitsPerSecond = timeUnitsPerSecond; m_TimeUnitsPerFrame = TimeUnitsPerFrame; }
-		
-		inline float				GetFPS() const					{ return (float) m_TimeUnitsPerSecond / (float) m_TimeUnitsPerFrame; }
-		inline int					GetIntFPS() const				{ return (int) ( (float) m_TimeUnitsPerSecond / (float) m_TimeUnitsPerFrame + 0.5f ); }
-		inline bool					IsNTSCRate() const				{ return ( m_TimeUnitsPerFrame == 1001 ); }
-		inline int					GetUnitsPerSecond() const		{ return m_TimeUnitsPerSecond; }
-		inline int					GetUnitsPerFrame() const		{ return m_TimeUnitsPerFrame; }
-
 		inline void					SetFPS( int FPS, bool NTSC )	{ m_TimeUnitsPerSecond = FPS * 1000; m_TimeUnitsPerFrame = 1000 + (uint) NTSC; }
 		inline void					SetFPS( float FPS )				{ m_TimeUnitsPerSecond = (uint) ( FPS * 1000.0f ); m_TimeUnitsPerFrame = 1000; }
 		
-		static inline bool			IsNTSC( float FPS )				{ float diff = ceil(FPS) - FPS; return ( diff > 0.02f && diff < 0.05f); }
-
 		inline void					Clear()							{ m_TimeUnitsPerSecond = 0; m_TimeUnitsPerFrame = 1000; }
 		inline bool					IsValid()						{ return ( m_TimeUnitsPerSecond != 0); }
 
@@ -374,60 +215,54 @@ class VideoFrameRate_t
 		uint32						m_TimeUnitsPerFrame;
 };
 
-
-
-//-----------------------------------------------------------------------------
 // specific interfaces returned and managed by video services
-//-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
 // Video Material interface - manages the playing back of a video to a 
 //     a material / texture combo
-//-----------------------------------------------------------------------------
 class IVideoMaterial : public IBaseInterface
 {
 	public:
 		// Video information functions		
-		virtual const char		   *GetVideoFileName() = 0;								// Gets the file name of the video this material is playing
-		virtual VideoResult_t		GetLastResult() = 0;								// Gets detailed info on the last operation
+		virtual void unused_GetVideoFileName() = 0;								// Gets the file name of the video this material is playing
+		virtual void unused_GetLastResult() = 0;								// Gets detailed info on the last operation
 		
-		virtual VideoFrameRate_t	&GetVideoFrameRate() = 0;							// Returns the frame rate of the associated video in FPS
+		virtual void unused_GetVideoFrameRate() = 0;							// Returns the frame rate of the associated video in FPS
 
 		// Audio Functions
-		virtual bool				HasAudio() = 0;										// Query if the video has an audio track
+		virtual void unused_HasAudio() = 0;										// Query if the video has an audio track
 		
-		virtual bool				SetVolume( float fVolume ) = 0;						// Adjust the playback volume
-		virtual float				GetVolume() = 0;									// Query the current volume
+		virtual void unused_SetVolume() = 0;						// Adjust the playback volume
+		virtual void unused_GetVolume() = 0;									// Query the current volume
 		
-		virtual void				SetMuted( bool bMuteState ) = 0;					// Mute/UnMutes the audio playback
-		virtual bool				IsMuted() = 0;										// Query muted status
+		virtual void unused_SetMuted() = 0;					// Mute/UnMutes the audio playback
+		virtual void unused_IsMuted() = 0;										// Query muted status
 
-		virtual VideoResult_t		SoundDeviceCommand( VideoSoundDeviceOperation_t operation, void *pDevice = nullptr, void *pData = nullptr ) = 0;		// Assign Sound Device for this Video Material
+		virtual void unused_SoundDeviceCommand() = 0;		// Assign Sound Device for this Video Material
 		
 		// Video playback state functions
-		virtual bool				IsVideoReadyToPlay() = 0;							// Queries if the video material was initialized successfully and is ready for playback, but not playing or finished
-		virtual bool				IsVideoPlaying() = 0;								// Is the video currently playing (and needs update calls, etc), or paused while playing?
-		virtual bool				IsNewFrameReady() = 0;								// Do we have a new frame to get & display?
-		virtual bool				IsFinishedPlaying() = 0;							// Have we reached the end of the movie
+		virtual void unused_IsVideoReadyToPlay() = 0;							// Queries if the video material was initialized successfully and is ready for playback, but not playing or finished
+		virtual void unused_IsVideoPlaying() = 0;								// Is the video currently playing (and needs update calls, etc), or paused while playing?
+		virtual void unused_IsNewFrameReady() = 0;								// Do we have a new frame to get & display?
+		virtual void unused_IsFinishedPlaying() = 0;							// Have we reached the end of the movie
 		
-		virtual bool				StartVideo() = 0;									// Starts the video playing
-		virtual bool				StopVideo() = 0;									// Terminates the video playing
+		virtual void unused_StartVideo() = 0;									// Starts the video playing
+		virtual void unused_StopVideo() = 0;									// Terminates the video playing
 		
-		virtual void				SetLooping( bool bLoopVideo ) = 0;					// Sets the video to loop (or not)
-		virtual bool				IsLooping() = 0;									// Queries if the video is looping
+		virtual void unused_SetLooping() = 0;					// Sets the video to loop (or not)
+		virtual void unused_IsLooping() = 0;									// Queries if the video is looping
 		
-		virtual void				SetPaused( bool bPauseState ) = 0;					// Pauses or Unpauses video playback
+		virtual void unused_SetPaused() = 0;					// Pauses or Unpauses video playback
 		virtual bool				IsPaused() = 0;										// Queries if the video is paused
 
 		// Position in playback functions
-		virtual float				GetVideoDuration() = 0;								// Returns the duration of the associated video in seconds
-		virtual int					GetFrameCount() = 0;								// Returns the total number of (unique) frames in the video
+		virtual void unused_GetVideoDuration() = 0;								// Returns the duration of the associated video in seconds
+		virtual void unused_GetFrameCount() = 0;								// Returns the total number of (unique) frames in the video
 		
 		virtual bool				SetFrame( int FrameNum ) = 0;						// Sets the current frame # in the video to play next 
-		virtual int					GetCurrentFrame() = 0;								// Gets the current frame # for the video playback, 0 based
+		virtual void unused_GetCurrentFrame() = 0;								// Gets the current frame # for the video playback, 0 based
 		
-		virtual bool				SetTime( float flTime ) = 0;						// Sets the video playback to specified time (in seconds)
-		virtual float				GetCurrentVideoTime() = 0;							// Gets the current time in the video playback
+		virtual void unused_SetTime() = 0;						// Sets the video playback to specified time (in seconds)
+		virtual void unused_GetCurrentVideoTime() = 0;							// Gets the current time in the video playback
 
 		// Update function
 		virtual bool				Update() = 0;										// Updates the video frame to reflect the time passed, true = new frame available
@@ -435,40 +270,37 @@ class IVideoMaterial : public IBaseInterface
 		// Material / Texture Info functions
 		virtual IMaterial		   *GetMaterial() = 0;									// Gets the IMaterial associated with an video material
 
-		virtual void				GetVideoTexCoordRange( float *pMaxU, float *pMaxV ) = 0;		// Returns the max texture coordinate of the video portion of the material surface ( 0.0, 0.0 to U, V )
-		virtual void				GetVideoImageSize( int *pWidth, int *pHeight ) = 0;				// Returns the frame size of the Video Image Frame in pixels ( the stored in a subrect of the material itself)
+		virtual void unused_GetVideoTexCoordRange() = 0;		// Returns the max texture coordinate of the video portion of the material surface ( 0.0, 0.0 to U, V )
+		virtual void unused_GetVideoImageSize() = 0;				// Returns the frame size of the Video Image Frame in pixels ( the stored in a subrect of the material itself)
 		
 };
 
-
-//-----------------------------------------------------------------------------
 // Video Recorder interface - manages the creation of a new video file
-//-----------------------------------------------------------------------------
 class IVideoRecorder : public IBaseInterface
 {
 	public:
 		virtual bool				EstimateMovieFileSize( size_t *pEstSize, int movieWidth, int movieHeight, VideoFrameRate_t movieFps, float movieDuration, VideoEncodeCodec_t theCodec, int videoQuality,  AudioEncodeSourceFormat_t srcAudioFormat = AudioEncodeSourceFormat::AUDIO_NONE, int audioSampleRate = 0 ) = 0;
 		
-		virtual bool				CreateNewMovieFile( const char *pFilename, bool hasAudioTrack = false ) = 0;
+		virtual void unused_CreateNewMovieFile() = 0;
 		
-		virtual bool				SetMovieVideoParameters( VideoEncodeCodec_t theCodec, int videoQuality, int movieFrameWidth, int movieFrameHeight, VideoFrameRate_t movieFPS, VideoEncodeGamma_t gamma = VideoEncodeGamma::NO_GAMMA_ADJUST ) = 0;
-		virtual bool				SetMovieSourceImageParameters( VideoEncodeSourceFormat_t srcImageFormat, int imgWidth, int imgHeight ) = 0;
-		virtual bool				SetMovieSourceAudioParameters( AudioEncodeSourceFormat_t srcAudioFormat = AudioEncodeSourceFormat::AUDIO_NONE, int audioSampleRate = 0, AudioEncodeOptions_t audioOptions = AudioEncodeOptions::NO_AUDIO_OPTIONS, int audioSampleGroupSize = 0) = 0;
+		virtual void unused_SetMovieVideoParameters() = 0;
+		virtual void unused_SetMovieSourceImageParameters() = 0;
+		virtual void unused_SetMovieSourceAudioParameters() = 0;
 		
-		virtual bool				IsReadyToRecord() = 0;
-		virtual VideoResult_t		GetLastResult() = 0;
+		virtual void unused_IsReadyToRecord() = 0;
+		virtual void unused_GetLastResult() = 0;
 		
-		virtual bool				AppendVideoFrame( void *pFrameBuffer, int nStrideAdjustBytes = 0 ) = 0;
+		virtual void unused_AppendVideoFrame() = 0;
 		virtual bool				AppendAudioSamples( void *pSampleBuffer, size_t sampleSize ) = 0;
 		
-		virtual int					GetFrameCount() = 0;
-		virtual int					GetSampleCount() = 0;
+		virtual void unused_GetFrameCount() = 0;
+		virtual void unused_GetSampleCount() = 0;
 		
-		virtual VideoFrameRate_t	GetFPS() = 0;
-		virtual int					GetSampleRate() = 0;
+		virtual void unused_GetFPS() = 0;
+		virtual void unused_GetSampleRate() = 0;
 		
-		virtual bool				AbortMovie() = 0;
-		virtual bool				FinishMovie( bool SaveMovieToDisk = true ) = 0;
+		virtual void unused_AbortMovie() = 0;
+		virtual void unused_FinishMovie() = 0;
 		
 #ifdef ENABLE_EXTERNAL_ENCODER_LOGGING
  		virtual bool                LogMessage(  const char *msg ) = 0;
@@ -476,71 +308,4 @@ class IVideoRecorder : public IBaseInterface
 		
 };
 
-
-
-
-//-----------------------------------------------------------------------------
 // Main VIDEO_SERVICES interface
-//-----------------------------------------------------------------------------
-#define VIDEO_SERVICES_INTERFACE_VERSION	"IVideoServices002"
-
-
-class IVideoServices : public IAppSystem
-{
-	public:
-		// Query the available video systems
-		virtual int						GetAvailableVideoSystemCount() = 0;
-		virtual VideoSystem_t			GetAvailableVideoSystem( int n ) = 0;
-		
-		virtual bool					IsVideoSystemAvailable( VideoSystem_t videoSystem ) = 0;
-		virtual VideoSystemStatus_t		GetVideoSystemStatus( VideoSystem_t videoSystem ) = 0;
-		virtual VideoSystemFeature_t	GetVideoSystemFeatures( VideoSystem_t videoSystem ) = 0;
-		virtual const char			   *GetVideoSystemName( VideoSystem_t videoSystem ) = 0;
-
-		virtual VideoSystem_t			FindNextSystemWithFeature( VideoSystemFeature_t features, VideoSystem_t startAfter = VideoSystem::NONE ) = 0;
-
-		virtual VideoResult_t			GetLastResult() = 0;
-		
-		// deal with video file extensions and video system mappings
-		virtual	int						GetSupportedFileExtensionCount( VideoSystem_t videoSystem ) = 0;		
-		virtual const char             *GetSupportedFileExtension( VideoSystem_t videoSystem, int extNum = 0 ) = 0;
-		virtual VideoSystemFeature_t    GetSupportedFileExtensionFeatures( VideoSystem_t videoSystem, int extNum = 0 ) = 0;
-		
-		virtual	VideoSystem_t			LocateVideoSystemForPlayingFile( const char *pFileName, VideoSystemFeature_t playMode = VideoSystemFeature::PLAY_VIDEO_FILE_IN_MATERIAL ) = 0;
-		virtual VideoResult_t			LocatePlayableVideoFile( const char *pSearchFileName, const char *pPathID, VideoSystem_t *pPlaybackSystem, char *pPlaybackFileName, int fileNameMaxLen, VideoSystemFeature_t playMode = VideoSystemFeature::FULL_PLAYBACK ) = 0;
-
-		// Create/destroy a video material
-		virtual IVideoMaterial		   *CreateVideoMaterial( const char *pMaterialName, const char *pVideoFileName, const char *pPathID = nullptr, 
-															 VideoPlaybackFlags_t playbackFlags = VideoPlaybackFlags::DEFAULT_MATERIAL_OPTIONS,
-															 VideoSystem_t videoSystem = VideoSystem::DETERMINE_FROM_FILE_EXTENSION, bool PlayAlternateIfNotAvailable = true ) = 0;
-															 
-		virtual VideoResult_t			DestroyVideoMaterial( IVideoMaterial* pVideoMaterial ) = 0;
-		virtual int						GetUniqueMaterialID() = 0;
-
-		// Create/destroy a video encoder		
-		virtual VideoResult_t			IsRecordCodecAvailable( VideoSystem_t videoSystem, VideoEncodeCodec_t codec ) = 0;
-		
-		virtual IVideoRecorder		   *CreateVideoRecorder( VideoSystem_t videoSystem ) = 0;
-		virtual VideoResult_t			DestroyVideoRecorder( IVideoRecorder *pVideoRecorder ) = 0;
-
-		// Plays a given video file until it completes or the user presses ESC, SPACE, or ENTER
-		virtual VideoResult_t			PlayVideoFileFullScreen( const char *pFileName, const char *pPathID, void *mainWindow, int windowWidth, int windowHeight, int desktopWidth, int desktopHeight, bool windowed, float forcedMinTime, 
-																 VideoPlaybackFlags_t playbackFlags = VideoPlaybackFlags::DEFAULT_FULLSCREEN_OPTIONS, 
-																 VideoSystem_t videoSystem = VideoSystem::DETERMINE_FROM_FILE_EXTENSION, bool PlayAlternateIfNotAvailable = true ) = 0;
-
-		// Sets the sound devices that the video will decode to
-		virtual VideoResult_t			SoundDeviceCommand( VideoSoundDeviceOperation_t operation, void *pDevice = nullptr, void *pData = nullptr, VideoSystem_t videoSystem = VideoSystem::ALL_VIDEO_SYSTEMS ) = 0;
-
-		// Get the (localized) name of a codec as a string
-		virtual const wchar_t			*GetCodecName( VideoEncodeCodec_t nCodec ) = 0;
-			
-};
-
-
-
-
-
-
-
-
-#endif // IVIDEOSERVICES_H

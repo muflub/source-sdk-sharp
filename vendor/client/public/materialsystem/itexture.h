@@ -1,17 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//===========================================================================//
 
-#ifndef ITEXTURE_H
-#define ITEXTURE_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/platform.h"
 #include "bitmap/imageformat.h" // ImageFormat defn.
@@ -20,12 +9,10 @@ class IVTFTexture;
 class ITexture;
 struct Rect_t;
 
-//-----------------------------------------------------------------------------
 // This will get called on procedural textures to re-fill the textures
 // with the appropriate bit pattern. Calling Download() will also
 // cause this interface to be called. It will also be called upon
 // mode switch, or on other occasions where the bits are discarded.
-//-----------------------------------------------------------------------------
 abstract_class ITextureRegenerator
 {
 public:
@@ -108,11 +95,6 @@ public:
 
 	virtual void DeleteIfUnreferenced() = 0;
 
-#if defined( _X360 )
-	virtual bool ClearTexture( int r, int g, int b, int a ) = 0;
-	virtual bool CreateRenderTargetSurface( int width, int height, ImageFormat format, bool bSameAsTexture ) = 0;
-#endif
-
 	// swap everything except the name with another texture
 	virtual void unused_SwapContents() = 0;
 
@@ -136,11 +118,7 @@ public:
 	virtual void unused_BDownload() = 0;
 };
 
-
 inline bool IsErrorTexture( ITexture *pTex )
 {
 	return !pTex || pTex->IsError();
 }
-
-
-#endif // ITEXTURE_H

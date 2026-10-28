@@ -8,11 +8,7 @@
 // reads them into ImageEncodePixels( block ) and hands the block over.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SS_IMAGE_ENCODE_H
-#define SOURCESHARP_SS_IMAGE_ENCODE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "imanaged_areas_client.h"
 #include "ss_bitblock.h"
@@ -76,5 +72,3 @@ inline unsigned char *ImageEncode( ImageFileKind_t eKind, int nWidth, int nHeigh
 	return pFile;
 }
 } // namespace ss
-
-#endif // SOURCESHARP_SS_IMAGE_ENCODE_H

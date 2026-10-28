@@ -42,23 +42,26 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
-
-// plan_entity.md Phase 5a: an entity index or handle resolves through §3.3's
-// slot table, not through cl_entitylist. shell_cliententitylist.h says which of
-// the five resolvers answers which question.
-#include "shell_cliententitylist.h"
-
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "IEffects.h"
 #include "iviewrender_beams.h"
-#include "beam_flags.h"
 #include "iefx.h"
 #include "fx.h"
 #include "decals.h"
-// C-Phase 3 lane CX. IStaticPropMgr.h is the static-prop decal's
-// staticpropmgr (IStaticPropMgrClient, declared in cdll_client_int.cpp);
-// util_shared.h is UTIL_IsLowViolence. decals.h above is already here for
-// FDECAL_*, and is also where IDecalEmitterSystem and `decalsystem` live.
 #include "engine/IStaticPropMgr.h"
 #include "util_shared.h"
 #include "c_te_effect_dispatch.h"
@@ -66,11 +69,43 @@
 #include "materialsystem/imaterial.h"
 #include "materialsystem/itexture.h"
 #include "materialsystem/imaterialvar.h"
-#include "filesystem.h"
 #include "clienteffectprecachesystem.h"
 #include "view.h"
+#include "networkstringtable_clientdll.h"
+#include "engine/ivmodelrender.h"
+#include "engine/iserverplugin.h"
+#include "engine/ivmodelinfo.h"
+#include "mathlib/vector.h"
+#include "tier0/basetypes.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/convar.h"
+#include "tier1/iconvar.h"
+#include "tier1/strtools.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "cmodel.h"
+#include "effect_dispatch_data.h"
+#include "eiface.h"
+#include "gametrace.h"
+#include "icliententity.h"
+#include "iclientrenderable.h"
+#include "istudiorender.h"
+#include "networkstringtabledefs.h"
+#include "ragdoll.h"
+#include "texture_group_names.h"
+#include "vphysics_interface.h"
 
-#include "beam_shared.h"
+// plan_entity.md Phase 5a: an entity index or handle resolves through §3.3's
+// slot table, not through cl_entitylist. shell_cliententitylist.h says which of
+// the five resolvers answers which question.
+#include "shell_cliententitylist.h"
+
+// C-Phase 3 lane CX. IStaticPropMgr.h is the static-prop decal's
+// staticpropmgr (IStaticPropMgrClient, declared in cdll_client_int.cpp);
+// util_shared.h is UTIL_IsLowViolence. decals.h above is already here for
+// FDECAL_*, and is also where IDecalEmitterSystem and `decalsystem` live.
+
 
 // (C-Phase 3, lane CP's eight: fx_explosion.h left with CExplosionOverlay, the
 // fireball's flash, which is the managed GlowOverlaySystem's since C7; its two
@@ -82,25 +117,20 @@
 // is declared, and it is what c_te_bloodstream.cpp included for it. Without it `random` resolves to libc's random(), which
 // compiles as far as the arrow and then says the pointer is a function. Every
 // position in the blood stream is drawn from this stream.
-#include "sharedInterface.h"
 
 // networkstringtable_clientdll.h is g_StringTableEffectDispatch, the client's
 // copy of the table EffectDispatchName reads backwards. (The shattered pane's
 // shards left with lane c5-particles: ShardEffects, C#.)
-#include "networkstringtable_clientdll.h"
 
 // C-Phase 3 lane DECALS. The three slots that close behaviour ledger rows C2
 // and C3 reach the model renderer and ask what a model IS, neither of which
 // anything else in this file needed.
-#include "engine/ivmodelrender.h"
-#include "model_types.h"
 
 #include "shell_te_backend_args.h"
 #include "sourcesharp.h"
 
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 // (r_decals, the engine's ConVar, is read by the managed decal callers since
 // lane M1-C: DecalSettings watches it by name.)
@@ -343,7 +373,6 @@ void SourceSharp_ClientDecalShoot( int32_t nDecalIndex, int32_t nEntity,
 // one name precaches it twice. The set below is the same sixty-four names with
 // each appearing once.
 //-----------------------------------------------------------------------------
-#ifndef _XBOX
 CLIENTEFFECT_REGISTER_BEGIN( PrecachePlayerDecal )
 CLIENTEFFECT_MATERIAL( "decals/playerlogo01" )
 CLIENTEFFECT_MATERIAL( "decals/playerlogo02" )
@@ -410,7 +439,6 @@ CLIENTEFFECT_MATERIAL( "decals/playerlogo62" )
 CLIENTEFFECT_MATERIAL( "decals/playerlogo63" )
 CLIENTEFFECT_MATERIAL( "decals/playerlogo64" )
 CLIENTEFFECT_REGISTER_END()
-#endif
 
 //-----------------------------------------------------------------------------
 // A player's spray logo, decided: c_te_playerdecal.cpp's TE_PlayerDecal from the

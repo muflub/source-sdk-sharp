@@ -1,21 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose:
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef SOUNDFLAGS_H
-#define SOUNDFLAGS_H
-
-#if defined( _WIN32 )
 #pragma once
-#endif
 
-
-//-----------------------------------------------------------------------------
 // channels
-//-----------------------------------------------------------------------------
 enum
 {
 	CHAN_REPLACE	= -1,
@@ -31,24 +18,15 @@ enum
 	CHAN_USER_BASE	= (CHAN_VOICE_BASE+128)		// Anything >= this number is allocated to game code.
 };
 
-//-----------------------------------------------------------------------------
 // common volume values
-//-----------------------------------------------------------------------------
 #define VOL_NORM		1.0f
 
-
-//-----------------------------------------------------------------------------
 // common attenuation values
-//-----------------------------------------------------------------------------
 
 #define ATTN_NORM		0.8f
 
- 
-
-
 // HL2 world is 8x bigger now! We want to hear gunfire from farther.
 // Don't change this without consulting Kelly or Wedge (sjb).
-
 
 enum soundlevel_t
 {
@@ -97,21 +75,14 @@ enum soundlevel_t
 	//       256-511 are reserved for sounds using goldsrc compatibility attenuation.
 };
 
-#define MAX_SNDLVL_BITS		9	// Used to encode 0-255 for regular soundlevel_t's and 256-511 for goldsrc-compatible ones.
-
-
-
+	// Used to encode 0-255 for regular soundlevel_t's and 256-511 for goldsrc-compatible ones.
 
 #define ATTN_TO_SNDLVL( a ) (soundlevel_t)(int)((a) ? (50 + 20 / ((float)a)) : 0 )
-
 
 // This is a limit due to network encoding.
 // It encodes attenuation * 64 in 8 bits, so the maximum is (255 / 64)
 
-
-//-----------------------------------------------------------------------------
 // Flags to be or-ed together for the iFlags field
-//-----------------------------------------------------------------------------
 enum SoundFlags_t
 {
 	SND_NOFLAGS			= 0,			// to keep the compiler happy
@@ -131,31 +102,11 @@ enum SoundFlags_t
 	SND_DO_NOT_OVERWRITE_EXISTING_ON_CHANNEL = (1<<10),
 };
 
-
-
-#define MAX_SOUND_INDEX_BITS	14
-
-
-#if !defined( IN_XBOX_CODELINE )
 // +/-4096 msec
-#define MAX_SOUND_DELAY_MSEC_ENCODE_BITS	(13)
-#else
-// +/-65536 msec, 64 seconds
-#define MAX_SOUND_DELAY_MSEC_ENCODE_BITS	(17)
-#endif
 
 // Subtract one to leave room for the sign bit
     // 4096 msec or about 4 seconds
 
-//-----------------------------------------------------------------------------
 // common pitch values
-//-----------------------------------------------------------------------------
 #define	PITCH_NORM		100			// non-pitch shifted
 			// other values are possible - 0-255, where 255 is very high
-
-
-
-
-
-
-#endif // SOUNDFLAGS_H

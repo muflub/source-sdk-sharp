@@ -27,11 +27,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_SHELL_EFFECT_LEDGER_H
-#define SOURCESHARP_SHELL_EFFECT_LEDGER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // One row per effect step 7a names. Plain ints: every increment below is on the
@@ -54,5 +50,3 @@ struct SourceSharpEffectLedger_t
 };
 
 extern SourceSharpEffectLedger_t g_SourceSharpEffects;
-
-#endif // SOURCESHARP_SHELL_EFFECT_LEDGER_H

@@ -13,8 +13,6 @@
 // client.so reaches SizeOf and Construct through the table to build the leaf
 // system it exports; managed calls the batches.
 //=============================================================================//
-#ifndef FWD_LEAF_SYSTEM_H
-#define FWD_LEAF_SYSTEM_H
 #pragma once
 
 #include <stdint.h>
@@ -84,5 +82,3 @@ void SSFwd_LeafSystem_BoxQueries( void *pEngine, const float *pBoxes, const int3
 
 // IDetailObjectSystem::GetDetailModel over ranges (a first and a count each).
 void SSFwd_LeafSystem_DetailModels( void *pDetailSystem, const int32_t *pRanges, int32_t nRanges, void **ppModels );
-
-#endif // FWD_LEAF_SYSTEM_H

@@ -1,17 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Linked list container class 
-//
-// $Revision: $
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef UTLLINKEDLIST_H
-#define UTLLINKEDLIST_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/basetypes.h"
 #include "utlmemory.h"
@@ -26,7 +16,6 @@
 #define FOR_EACH_LL( listName, iteratorName ) \
 	for( intp iteratorName=(listName).Head(); (listName).IsUtlLinkedList && iteratorName != (listName).InvalidIndex(); iteratorName = (listName).Next( iteratorName ) )
 
-//-----------------------------------------------------------------------------
 // class CUtlLinkedList:
 // description:
 //		A lovely index-based linked list! T is the class type, I is the index
@@ -35,7 +24,6 @@
 //		therefore you should not use UtlLinkedListElem_t::I as the type of 
 //		a local variable... ever. PowerPC integer arithmetic must be 32- or 
 //		64-bit only; otherwise performance plummets.
-//-----------------------------------------------------------------------------
 
 template <class T, class I> 
 struct UtlLinkedListElem_t
@@ -49,10 +37,8 @@ private:
 	UtlLinkedListElem_t( const UtlLinkedListElem_t& );
 };
 
-
 // Class S is the storage type; the type you can use to save off indices in 
 // persistent memory. Class I is the iterator type, which is what should be used
-// in local scopes. I defaults to be S, but be aware that on the 360, 16-bit 
 // arithmetic is catastrophically slow. Therefore you should try to save shorts
 // in memory, but always operate on 32's or 64's in local scope.
 // The ideal parameter order would be TSMI (you are more likely to override M than I)
@@ -167,72 +153,6 @@ public:
 		{
 		}
 
-		// Pre-increment operator++. This is the most efficient increment
-		// operator so it should always be used.
-		_CUtlLinkedList_constiterator_t& operator++()
-		{
-			m_index = m_list->Next( m_index );
-			return *this;
-		}
-		// Post-increment operator++. This is less efficient than pre-increment.
-		_CUtlLinkedList_constiterator_t operator++(int)
-		{
-			// Copy ourselves.
-			_CUtlLinkedList_constiterator_t temp = *this;
-			// Increment ourselves.
-			++*this;
-			// Return the copy.
-			return temp;
-		}
-
-		// Pre-decrement operator--. This is the most efficient decrement
-		// operator so it should always be used.
-		_CUtlLinkedList_constiterator_t& operator--()
-		{
-			Assert( m_index != m_list->Head() );
-			if ( m_index == m_list->InvalidIndex() )
-			{
-				m_index = m_list->Tail();
-			}
-			else
-			{
-				m_index = m_list->Previous( m_index );
-			}
-			return *this;
-		}
-		// Post-decrement operator--. This is less efficient than post-decrement.
-		_CUtlLinkedList_constiterator_t operator--(int)
-		{
-			// Copy ourselves.
-			_CUtlLinkedList_constiterator_t temp = *this;
-			// Decrement ourselves.
-			--*this;
-			// Return the copy.
-			return temp;
-		}
-
-		bool operator==( const _CUtlLinkedList_constiterator_t& other) const
-		{
-			Assert( m_list == other.m_list );
-			return m_index == other.m_index;
-		}
-
-		bool operator!=( const _CUtlLinkedList_constiterator_t& other) const
-		{
-			Assert( m_list == other.m_list );
-			return m_index != other.m_index;
-		}
-
-		const ElemType_t& operator*() const
-		{
-			return m_list->Element( m_index );
-		}
-
-		const ElemType_t* operator->() const
-		{
-			return (&**this);
-		}
-
 	protected:
 		// Use a pointer rather than a reference so that we can support
 		// assignment of iterators.
@@ -260,62 +180,6 @@ public:
 		{
 		}
 
-		// Pre-increment operator++. This is the most efficient increment
-		// operator so it should always be used.
-		_CUtlLinkedList_iterator_t& operator++()
-		{
-			Base::m_index = Base::m_list->Next( Base::m_index );
-			return *this;
-		}
-		// Post-increment operator++. This is less efficient than pre-increment.
-		_CUtlLinkedList_iterator_t operator++(int)
-		{
-			// Copy ourselves.
-			_CUtlLinkedList_iterator_t temp = *this;
-			// Increment ourselves.
-			++*this;
-			// Return the copy.
-			return temp;
-		}
-
-		// Pre-decrement operator--. This is the most efficient decrement
-		// operator so it should always be used.
-		_CUtlLinkedList_iterator_t& operator--()
-		{
-			Assert( Base::m_index != Base::m_list->Head() );
-			if ( Base::m_index == Base::m_list->InvalidIndex() )
-			{
-				Base::m_index = Base::m_list->Tail();
-			}
-			else
-			{
-				Base::m_index = Base::m_list->Previous( Base::m_index );
-			}
-			return *this;
-		}
-		// Post-decrement operator--. This is less efficient than post-decrement.
-		_CUtlLinkedList_iterator_t operator--(int)
-		{
-			// Copy ourselves.
-			_CUtlLinkedList_iterator_t temp = *this;
-			// Decrement ourselves.
-			--*this;
-			// Return the copy.
-			return temp;
-		}
-
-		ElemType_t& operator*() const
-		{
-			// Const_cast to allow sharing the implementation with the
-			// base class.
-			List_t* pMutableList = const_cast<List_t*>( Base::m_list );
-			return pMutableList->Element( Base::m_index );
-		}
-
-		ElemType_t* operator->() const
-		{
-			return (&**this);
-		}
 	};
 
 	typedef _CUtlLinkedList_constiterator_t<CUtlLinkedList<T, S, ML, I, M> > const_iterator;
@@ -387,7 +251,6 @@ private:
 	I  PrivateNext( I i ) const;
 };
 
-
 // this is kind of ugly, but until C++ gets templatized typedefs in C++0x, it's our only choice
 template < class T >
 class CUtlFixedLinkedList : public CUtlLinkedList< T, intp, true, intp, CUtlFixedMemory< UtlLinkedListElem_t< T, intp > > >
@@ -430,10 +293,7 @@ protected:
 	void ResetDbgInfo() {}
 };
 
-
-//-----------------------------------------------------------------------------
 // constructor, destructor
-//-----------------------------------------------------------------------------
 
 template <class T, class S, bool ML, class I, class M>
 CUtlLinkedList<T,S,ML,I,M>::CUtlLinkedList( int growSize, int initSize ) :
@@ -464,10 +324,7 @@ void CUtlLinkedList<T,S,ML,I,M>::ConstructList()
 	m_NumAlloced = 0;
 }
 
-
-//-----------------------------------------------------------------------------
 // gets particular elements
-//-----------------------------------------------------------------------------
 
 template <class T, class S, bool ML, class I, class M>
 inline T& CUtlLinkedList<T,S,ML,I,M>::Element( I i )
@@ -493,9 +350,7 @@ inline T const& CUtlLinkedList<T,S,ML,I,M>::operator[]( I i ) const
 	return m_Memory[i].m_Element; 
 }
 
-//-----------------------------------------------------------------------------
 // list statistics
-//-----------------------------------------------------------------------------
 
 template <class T, class S, bool ML, class I, class M>
 inline int CUtlLinkedList<T,S,ML,I,M>::Count() const      
@@ -512,10 +367,7 @@ inline I CUtlLinkedList<T,S,ML,I,M>::MaxElementIndex() const
 	return m_Memory.NumAllocated();
 }
 
-
-//-----------------------------------------------------------------------------
 // Traversing the list
-//-----------------------------------------------------------------------------
 
 template <class T, class S, bool ML, class I, class M>
 inline I  CUtlLinkedList<T,S,ML,I,M>::Head() const  
@@ -549,10 +401,7 @@ inline I  CUtlLinkedList<T,S,ML,I,M>::PrivateNext( I i ) const
 	return InternalElement(i).m_Next; 
 }
 
-
-//-----------------------------------------------------------------------------
 // Are nodes in the list or valid?
-//-----------------------------------------------------------------------------
 
 #pragma warning(push)
 #pragma warning( disable: 4310 ) // Allows "(I)(S)M::INVALID_INDEX" below
@@ -605,9 +454,7 @@ inline bool CUtlFixedLinkedList<T>::IsInList( int i ) const
 }
 */
 
-//-----------------------------------------------------------------------------
 // Makes sure we have enough memory allocated to store a requested # of elements
-//-----------------------------------------------------------------------------
 
 template< class T, class S, bool ML, class I, class M >
 void CUtlLinkedList<T,S,ML,I,M>::EnsureCapacity( int num )
@@ -625,10 +472,7 @@ void CUtlLinkedList<T,S,ML,I,M>::SetGrowSize( int growSize )
 	ResetDbgInfo();
 }
 
-
-//-----------------------------------------------------------------------------
 // Deallocate memory
-//-----------------------------------------------------------------------------
 
 template <class T, class S, bool ML, class I, class M>
 void  CUtlLinkedList<T,S,ML,I,M>::Purge()
@@ -639,12 +483,10 @@ void  CUtlLinkedList<T,S,ML,I,M>::Purge()
 	m_FirstFree = InvalidIndex();
 	m_NumAlloced = 0;
 
-	//Routing "m_LastAlloc = m_Memory.InvalidIterator();" through a local const to sidestep an internal compiler error on 360 builds
 	const typename M::Iterator_t scInvalidIterator = m_Memory.InvalidIterator();
 	m_LastAlloc = scInvalidIterator;
 	ResetDbgInfo();
 }
-
 
 template<class T, class S, bool ML, class I, class M>
 void CUtlLinkedList<T,S,ML,I,M>::PurgeAndDeleteElements()
@@ -659,10 +501,7 @@ void CUtlLinkedList<T,S,ML,I,M>::PurgeAndDeleteElements()
 	Purge();
 }
 
-
-//-----------------------------------------------------------------------------
 // Node allocation/deallocation
-//-----------------------------------------------------------------------------
 template <class T, class S, bool ML, class I, class M>
 I CUtlLinkedList<T,S,ML,I,M>::AllocInternal( bool multilist )
 {
@@ -750,9 +589,7 @@ void  CUtlLinkedList<T,S,ML,I,M>::Free( I elem )
 	m_FirstFree = elem;
 }
 
-//-----------------------------------------------------------------------------
 // Insertion methods; allocates and links (uses default constructor)
-//-----------------------------------------------------------------------------
 
 template <class T, class S, bool ML, class I, class M>
 I CUtlLinkedList<T,S,ML,I,M>::InsertBefore( I before )
@@ -800,10 +637,7 @@ inline I CUtlLinkedList<T,S,ML,I,M>::AddToTail( )
 	return InsertBefore( InvalidIndex() ); 
 }
 
-
-//-----------------------------------------------------------------------------
 // Insertion methods; allocates and links (uses copy constructor)
-//-----------------------------------------------------------------------------
 
 template <class T, class S, bool ML, class I, class M>
 I CUtlLinkedList<T,S,ML,I,M>::InsertBefore( I before, T const& src )
@@ -851,10 +685,7 @@ inline I CUtlLinkedList<T,S,ML,I,M>::AddToTail( T const& src )
 	return InsertBefore( InvalidIndex(), src ); 
 }
 
-
-//-----------------------------------------------------------------------------
 // Removal methods
-//-----------------------------------------------------------------------------
 
 template<class T, class S, bool ML, class I, class M>
 I CUtlLinkedList<T,S,ML,I,M>::Find( const T &src ) const
@@ -868,7 +699,6 @@ I CUtlLinkedList<T,S,ML,I,M>::Find( const T &src ) const
 	}
 	return InvalidIndex();
 }
-
 
 template<class T, class S, bool ML, class I, class M>
 bool CUtlLinkedList<T,S,ML,I,M>::FindAndRemove( const T &src )
@@ -884,7 +714,6 @@ bool CUtlLinkedList<T,S,ML,I,M>::FindAndRemove( const T &src )
 		return true;
 	}
 }
-
 
 template <class T, class S, bool ML, class I, class M>
 void  CUtlLinkedList<T,S,ML,I,M>::Remove( I elem )
@@ -951,10 +780,7 @@ void  CUtlLinkedList<T,S,ML,I,M>::RemoveAll()
 	m_ElementCount = 0;
 }
 
-
-//-----------------------------------------------------------------------------
 // list modification
-//-----------------------------------------------------------------------------
 
 template <class T, class S, bool ML, class I, class M>
 void  CUtlLinkedList<T,S,ML,I,M>::LinkBefore( I before, I elem )
@@ -1089,10 +915,7 @@ inline void CUtlLinkedList<T,S,ML,I,M>::LinkToTail( I elem )
 	LinkBefore( InvalidIndex(), elem ); 
 }
 
-
-//-----------------------------------------------------------------------------
 // Class to drop in to replace a CUtlLinkedList that needs to be more memory agressive
-//-----------------------------------------------------------------------------
 
 DECLARE_POINTER_HANDLE( UtlPtrLinkedListIndex_t ); // to enforce correct usage
 
@@ -1113,16 +936,6 @@ public:
 	}
 
 	typedef UtlPtrLinkedListIndex_t IndexType_t;
-
-	T &operator[]( IndexType_t i )			
-	{ 
-		return (( Node_t * )i)->elem; 
-	}
-
-	const T &operator[]( IndexType_t i ) const
-	{ 
-		return (( Node_t * )i)->elem; 
-	}
 
 	IndexType_t	AddToTail()								
 	{ 
@@ -1291,7 +1104,3 @@ private:
 	Node_t *m_pFirst;
 	unsigned m_nElems;
 };
-
-//-----------------------------------------------------------------------------
-
-#endif // UTLLINKEDLIST_H

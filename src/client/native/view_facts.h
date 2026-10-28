@@ -33,11 +33,7 @@
 //       plausible zero.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_VIEW_FACTS_H
-#define SOURCESHARP_VIEW_FACTS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 class Vector;
 class QAngle;
@@ -296,5 +292,3 @@ bool SourceSharp_ThirdPersonSeesOwner();
 // Removal owner: whoever networks the HL2 autoaim state to the managed player.
 //-----------------------------------------------------------------------------
 bool SourceSharp_ViewerAimIsAssisted();
-
-#endif // SOURCESHARP_VIEW_FACTS_H

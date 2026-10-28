@@ -45,11 +45,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_WORLD_ALIGNED_BOUNDS_H
-#define SOURCESHARP_WORLD_ALIGNED_BOUNDS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 
@@ -69,5 +65,3 @@ inline void SourceSharp_BoundsToWorld( const Vector &vecLocalMins,
 	VectorAdd( vecLocalMins, vecOrigin, *pWorldMins );
 	VectorAdd( vecLocalMaxs, vecOrigin, *pWorldMaxs );
 }
-
-#endif // SOURCESHARP_WORLD_ALIGNED_BOUNDS_H

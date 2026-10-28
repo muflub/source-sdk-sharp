@@ -1,26 +1,12 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Header: $
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef IMATERIALSYSTEMHARDWARECONFIG_H
-#define IMATERIALSYSTEMHARDWARECONFIG_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier0/platform.h"
 #include "tier1/interface.h"
 #include "imaterialsystem.h"
 
-
-//-----------------------------------------------------------------------------
 // Material system interface version
-//-----------------------------------------------------------------------------
 #define MATERIALSYSTEM_HARDWARECONFIG_INTERFACE_VERSION		"MaterialSystemHardwareConfig012"
 
 // For now, vertex compression is simply "on or off" (for the sake of simplicity
@@ -44,32 +30,14 @@ enum VertexCompressionType_t
 	VERTEX_COMPRESSION_ON = 1
 };
 
-
-// use DEFCONFIGMETHOD to define time-critical methods that we want to make just return constants
-// on the 360, so that the checks will happen at compile time. Not all methods are defined this way
-// - just the ones that I perceive as being called often in the frame interval.
-#ifdef _X360
-#define DEFCONFIGMETHOD( ret_type, method, xbox_return_value )		\
-FORCEINLINE ret_type method const 									\
-{																	\
-	return xbox_return_value;										\
-}
-
-
-#else
-#define DEFCONFIGMETHOD( ret_type, method, xbox_return_value )	\
+// DEFCONFIGMETHOD declares a pure virtual; its third argument is unused on PC.
+#define DEFCONFIGMETHOD( ret_type, method, unused_value )	\
 virtual ret_type method const = 0;
-#endif
 
-
-
-//-----------------------------------------------------------------------------
 // Material system configuration
-//-----------------------------------------------------------------------------
 class IMaterialSystemHardwareConfig
 {
 public:
-	// on xbox, some methods are inlined to return constants
 
 	virtual void unused_HasDestAlphaBuffer() = 0;
 	virtual void unused_HasStencilBuffer() = 0;
@@ -187,5 +155,3 @@ public:
 	virtual void unused_CanStretchRectFromTextures() = 0;
 
 };
-
-#endif // IMATERIALSYSTEMHARDWARECONFIG_H

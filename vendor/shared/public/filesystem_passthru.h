@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef FILESYSTEM_PASSTHRU_H
-#define FILESYSTEM_PASSTHRU_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "filesystem.h"
 #include <stdio.h>
@@ -20,12 +11,10 @@
 #undef AsyncReadMutiple
 #endif
 
-//
 // These classes pass all filesystem interface calls through to another filesystem
 // interface. They can be used anytime you want to override a couple things in 
 // a filesystem. VMPI uses this to override the base filesystem calls while 
 // allowing the rest of the filesystem functionality to work on the master.
-//
 
 template<class Base>
 class CInternalFileSystemPassThru : public Base
@@ -60,9 +49,6 @@ public:
 protected:
 	IBaseFileSystem *m_pBaseFileSystemPassThru;
 };
-
-
-
 
 class CFileSystemPassThru : public CInternalFileSystemPassThru<IFileSystem>
 {
@@ -241,12 +227,6 @@ public:
 	virtual void			SetWriteProtectionEnable( bool bEnable ) { m_pFileSystemPassThru->SetWriteProtectionEnable( bEnable ); }
 	virtual bool			GetWriteProtectionEnable() const { return m_pFileSystemPassThru->GetWriteProtectionEnable(); }
 
-
 protected:
 	IFileSystem *m_pFileSystemPassThru;
 };
-
-
-
-
-#endif // FILESYSTEM_PASSTHRU_H

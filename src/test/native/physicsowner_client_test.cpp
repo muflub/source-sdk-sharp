@@ -13,7 +13,7 @@
 // The other arm is held too: a word without the tag is still the SDK pointer
 // it always was, so nothing that was an SDK owner stops being one.
 //
-// Compiled with CLIENT_DLL against a stub c_baseentity.h (the client arm
+// Compiled with CLIENT_DLL against a stub client_entity.h (the client arm
 // includes it and names nothing in it).
 //-----------------------------------------------------------------------------
 

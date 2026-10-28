@@ -1,15 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef EDICT_H
-#define EDICT_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 #include "cmodel.h"
@@ -22,10 +13,7 @@
 
 struct edict_t;
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Defines the ways that a map can be loaded.
-//-----------------------------------------------------------------------------
 enum MapLoadType_t
 {
 	MapLoad_NewGame = 0,
@@ -34,10 +22,7 @@ enum MapLoadType_t
 	MapLoad_Background,
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Global variables shared between the engine and the game .dll
-//-----------------------------------------------------------------------------
 class CGlobalVars : public CGlobalVarsBase
 {	
 public:
@@ -48,17 +33,9 @@ public:
 	
 	// Current map
 	string_t		mapname;
-	int				mapversion;
-	string_t		startspot;
+	alignas( 8 ) unsigned char unused_mapversion[ 16 ];
 	MapLoadType_t	eLoadType;		// How the current map was loaded
-	bool			bMapLoadFailed;	// Map has failed to load, we need to kick back to the main menu
-
-	// game specific flags
-	bool			deathmatch;
-	bool			coop;
-	bool			teamplay;
-	// current maxentities
-	int				maxEntities;
+	alignas( 4 ) unsigned char unused_bMapLoadFailed[ 8 ];
 
 	int				serverCount;
 };
@@ -69,11 +46,9 @@ inline CGlobalVars::CGlobalVars( bool bIsClient ) :
 	serverCount = 0;
 }
 
-
 class CPlayerState;
 class IServerNetworkable;
 class IServerEntity;
-
 
 #define FL_EDICT_CHANGED	(1<<0)	// Game DLL sets this when the entity state changes
 									// Mutually exclusive with FL_EDICT_PARTIAL_CHANGE.
@@ -88,21 +63,17 @@ class IServerEntity;
 
 // Used by local network backdoor.
 
-
 // This is always set at the same time EFL_DIRTY_PVS_INFORMATION is set, but it 
 // gets cleared in a different place.
-
 
 // This is used internally to edict_t to remember that it's carrying a 
 // "full change list" - all its properties might have changed their value.
 #define FL_FULL_EDICT_CHANGED			(1<<8)
 
-
 // Max # of variable changes we'll track in an entity before we treat it
 // like they all changed.
 #define MAX_CHANGE_OFFSETS	19
 #define MAX_EDICT_CHANGE_INFOS	100
-
 
 class CEdictChangeInfo
 {
@@ -158,9 +129,6 @@ private:
 	unsigned short m_iChangeInfoSerialNumber;
 };
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 // NOTE: YOU CAN'T CHANGE THE LAYOUT OR SIZE OF CBASEEDICT AND REMAIN COMPATIBLE WITH HL2_VC6!!!!!
 class CBaseEdict
 {
@@ -175,7 +143,6 @@ public:
 	// Set when initting an entity. If it's only a networkable, this is false.
 	void				SetEdict( IServerUnknown *pUnk, bool bFullEdict );
 	
-	
 	bool				IsFree() const;
 
 	void				StateChanged();
@@ -189,11 +156,7 @@ public:
 
 	// NOTE: this is in the edict instead of being accessed by a virtual because the engine needs fast access to it.
 	// NOTE: YOU CAN'T CHANGE THE LAYOUT OR SIZE OF CBASEEDICT AND REMAIN COMPATIBLE WITH HL2_VC6!!!!!
-#ifdef _XBOX
-	unsigned short m_fStateFlags;	
-#else
 	int	m_fStateFlags;	
-#endif	
 
 	// NOTE: this is in the edict instead of being accessed by a virtual because the engine needs fast access to it.
 	// int m_NetworkSerialNumber;
@@ -218,11 +181,9 @@ public:
 protected:
 	IServerUnknown		*m_pUnk;		
 
-
 public:
 
 	IChangeInfoAccessor *GetChangeAccessor(); // The engine implements this and the game .dll implements as
-	const IChangeInfoAccessor *GetChangeAccessor() const; // The engine implements this and the game .dll implements as
 	// as callback through to the engine!!!
 
 	// NOTE: YOU CAN'T CHANGE THE LAYOUT OR SIZE OF CBASEEDICT AND REMAIN COMPATIBLE WITH HL2_VC6!!!!!
@@ -233,10 +194,7 @@ public:
 
 };
 
-
-//-----------------------------------------------------------------------------
 // CBaseEdict inlines.
-//-----------------------------------------------------------------------------
 inline IServerEntity* CBaseEdict::GetIServerEntity()
 {
 	if ( m_fStateFlags & FL_EDICT_FULL )
@@ -249,10 +207,6 @@ inline bool CBaseEdict::IsFree() const
 {
 	return (m_fStateFlags & FL_EDICT_FREE) != 0;
 }
-
-
-
-
 
 inline void	CBaseEdict::StateChanged()
 {
@@ -315,21 +269,15 @@ inline void	CBaseEdict::StateChanged( unsigned short offset )
 	}
 }
 
-
-
-
-
 inline void	CBaseEdict::ClearTransmitState()
 {
 	m_fStateFlags &= ~(FL_EDICT_ALWAYS|FL_EDICT_PVSCHECK|FL_EDICT_DONTSEND);
 }
 
-
 inline IServerUnknown* CBaseEdict::GetUnknown()
 {
 	return m_pUnk;
 }
-
 
 inline void CBaseEdict::SetEdict( IServerUnknown *pUnk, bool bFullEdict )
 {
@@ -344,21 +292,14 @@ inline void CBaseEdict::SetEdict( IServerUnknown *pUnk, bool bFullEdict )
 	}
 }
 
-
-
-
 inline void CBaseEdict::SetChangeInfoSerialNumber( unsigned short sn )
 {
 	GetChangeAccessor()->SetChangeInfoSerialNumber( sn );
 }
 
-
-
-//-----------------------------------------------------------------------------
 // Purpose: The engine's internal representation of an entity, including some
 //  basic collision and position info and a pointer to the class wrapped on top
 //  of the structure
-//-----------------------------------------------------------------------------
 struct edict_t : public CBaseEdict
 {
 public:
@@ -376,6 +317,3 @@ inline ICollideable *edict_t::GetCollideable()
 	else
 		return NULL;
 }
-
-
-#endif // EDICT_H

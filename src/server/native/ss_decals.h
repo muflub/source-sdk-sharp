@@ -17,11 +17,7 @@
 // the last caller of `decalsystem` has switched.
 //=============================================================================//
 
-#ifndef SOURCESHARP_SS_DECALS_H
-#define SOURCESHARP_SS_DECALS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 namespace ss
 {
@@ -34,5 +30,3 @@ int DecalIndexForName( const char *pszDecalName );
 // cull (2026-10-01): nothing called them.
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_DECALS_H

@@ -19,11 +19,7 @@
 // and nothing outside server.so calls through it.
 //=============================================================================//
 
-#ifndef SS_ENTITYFACTORY_H
-#define SS_ENTITYFACTORY_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 
@@ -56,5 +52,3 @@ public:
 IEntityFactoryDictionary *EntityFactoryDictionary();
 
 } // namespace ss
-
-#endif // SS_ENTITYFACTORY_H

@@ -76,7 +76,7 @@
 //
 // WHAT IS NOT HERE, AND WHY
 //
-//   UpdateChapterRestrictions / UpdateRichPresence -- the chapter and X360 arms
+//   UpdateChapterRestrictions / UpdateRichPresence -- the chapter and console arms
 //   Part 4 drops explicitly.
 //
 //   The loadGame arm in its entirety -- BeginRestoreEntities, LoadGameState,

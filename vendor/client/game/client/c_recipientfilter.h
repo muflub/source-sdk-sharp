@@ -1,28 +1,25 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef C_RECIPIENTFILTER_H
-#define C_RECIPIENTFILTER_H
-#ifdef _WIN32
+//========= SourceSharp's edit of c_recipientfilter.h (vendor/README.md) =====//
+// C_RecipientFilter and the client's PAS, PVS and local-player filters, which
+// shell_recipientfilter_client.cpp implements: moved out of the fork's edited
+// game/client/c_recipientfilter.h (client.so on unmodified Valve headers, user
+// 2026-10-25).
 #pragma once
-#endif
 
 #include "irecipientfilter.h"
 #include "utlvector.h"
-#include "c_baseentity.h"
+// step 7h: `#include "c_baseentity.h"` stood here. Nothing in this header names
+// C_BaseEntity any more -- the one mention left is the comment at the bottom
+// recording that RemoveRecipientsIfNotCloseCaptioning stopped being a static
+// member of it. The include was holding the entity class inside five
+// otherwise entity-free translation units through this file alone.
+#include "icliententity.h"
 #include "soundflags.h"
 #include "bitvec.h"
 
 class C_BasePlayer;
-class C_Team;
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 class C_RecipientFilter : public IRecipientFilter
 {
 public:
@@ -42,28 +39,21 @@ public:
 
 	void			Reset( void );
 
-	void			MakeReliable( void );
-		
 	void			AddAllPlayers( void );
 	void			AddRecipientsByPVS( const Vector& origin );
 	void			AddRecipientsByPAS( const Vector& origin );
-	void			AddRecipient( C_BasePlayer *player );
-	void			RemoveRecipient( C_BasePlayer *player );
-	void			AddRecipientsByTeam( C_Team *team );
-	void			RemoveRecipientsByTeam( C_Team *team );
 
-	void			UsePredictionRules( void );
-	bool			IsUsingPredictionRules( void ) const;
-
-	bool			IgnorePredictionCull( void ) const;
-	void			SetIgnorePredictionCull( bool ignore );
-
-	void			AddPlayersFromBitMask( CBitVec< ABSOLUTE_PLAYER_LIMIT >& playerbits );
+	// The add every other add funnels through. See local_recipient.h: the
+	// filter stores indices and the engine names the viewer BY index, so the
+	// C_BasePlayer in the pointer-shaped adds was only ever a way to ask
+	// "which slot" -- and a way that answers nothing for a viewer on the
+	// parallel hierarchy, which is every viewer in this mod.
+	void			AddRecipientByPlayerIndex( int playerindex );
 
 //private:
 
 	bool				m_bReliable;
-	bool				m_bInitMessage;
+	alignas( 1 ) unsigned char unused_m_bInitMessage[ 7 ];
 	CUtlVector< int >	m_Recipients;
 	// If using prediction rules, the filter itself suppresses local player
 	bool				m_bUsingPredictionRules;
@@ -72,45 +62,7 @@ public:
 	bool				m_bIgnorePredictionCull;
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: Simple class to create a filter for a single player
-//-----------------------------------------------------------------------------
-class CSingleUserRecipientFilter : public C_RecipientFilter
-{
-public:
-	CSingleUserRecipientFilter( C_BasePlayer *player )
-	{
-		AddRecipient( player );
-	}
-};
-
-//-----------------------------------------------------------------------------
-// Purpose: Simple class to create a filter for all players, unreliable
-//-----------------------------------------------------------------------------
-class CBroadcastRecipientFilter : public C_RecipientFilter
-{
-public:
-	CBroadcastRecipientFilter( void )
-	{
-		AddAllPlayers();
-	}
-};
-
-//-----------------------------------------------------------------------------
-// Purpose: Simple class to create a filter for all players, reliable
-//-----------------------------------------------------------------------------
-class CReliableBroadcastRecipientFilter : public CBroadcastRecipientFilter
-{
-public:
-	CReliableBroadcastRecipientFilter( void )
-	{
-		MakeReliable();
-	}
-};
-
-//-----------------------------------------------------------------------------
-// Purpose: Simple class to create a filter for a single player
-//-----------------------------------------------------------------------------
 class CPASFilter : public C_RecipientFilter
 {
 public:
@@ -120,13 +72,10 @@ public:
 	}
 };
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 class CPASAttenuationFilter : public CPASFilter
 {
 public:
-	CPASAttenuationFilter( C_BaseEntity *entity, float attenuation = ATTN_NORM ) :
+	CPASAttenuationFilter( IClientEntity *entity, float attenuation = ATTN_NORM ) :
 		CPASFilter( entity->GetAbsOrigin() )
 	{
 	}
@@ -136,7 +85,7 @@ public:
 	{
 	}
 
-	CPASAttenuationFilter( C_BaseEntity *entity, const char *lookupSound ) :
+	CPASAttenuationFilter( IClientEntity *entity, const char *lookupSound ) :
 		CPASFilter( entity->GetAbsOrigin() )
 	{
 	}
@@ -146,7 +95,7 @@ public:
 	{
 	}
 
-	CPASAttenuationFilter( C_BaseEntity *entity, const char *lookupSound, HSOUNDSCRIPTHANDLE& handle ) :
+	CPASAttenuationFilter( IClientEntity *entity, const char *lookupSound, HSOUNDSCRIPTHANDLE& handle ) :
 		CPASFilter( entity->GetAbsOrigin() )
 	{
 	}
@@ -157,9 +106,7 @@ public:
 	}
 };
 
-//-----------------------------------------------------------------------------
 // Purpose: Simple class to create a filter for a single player
-//-----------------------------------------------------------------------------
 class CPVSFilter : public C_RecipientFilter
 {
 public:
@@ -174,16 +121,3 @@ class CLocalPlayerFilter : public C_RecipientFilter
 public:
 	CLocalPlayerFilter( void );
 };
-
-class CUIFilter : public C_RecipientFilter
-{
-public:
-	CUIFilter( void )
-	{
-		m_Recipients.AddToTail( 1 );
-//		AddRecipient( 0 );
-	}
-};
-
-
-#endif // C_RECIPIENTFILTER_H

@@ -1,20 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
 // A Fixed-allocation class for maintaining a 1d or 2d or 3d array of data in a structure-of-arrays
 // (SOA) sse-friendly manner.
-// =============================================================================//
 
-#ifndef UTLSOACONTAINER_H
-#define UTLSOACONTAINER_H
-
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "tier0/platform.h"
 #include "tier0/dbg.h"
@@ -22,7 +10,6 @@
 #include "tier1/utlmemory.h"
 #include "tier1/utlblockmemory.h"
 #include "mathlib/ssemath.h"
-
 
 // strided pointers. gives you a class that acts like a pointer, but the ++ and += operators do the
 // right thing
@@ -40,30 +27,10 @@ public:
 	}
 
 	FORCEINLINE CStridedPtr( void ) {}
-	T *operator->(void) const
-	{
-		return m_pData;
-	}
-	
-	T & operator*(void) const
-	{
-		return *m_pData;
-	}
 	
 	FORCEINLINE operator T *(void)
 	{
 		return m_pData;
-	}
-
-	FORCEINLINE CStridedPtr<T> & operator++(void)
-	{
-		m_pData += m_nStride;
-		return *this;
-	}
-
-	FORCEINLINE void operator+=( size_t nNumElements )
-	{
-		m_pData += nNumElements * m_nStride;
 	}
 
 };
@@ -83,30 +50,11 @@ public:
 
 	FORCEINLINE CStridedConstPtr( void ) {}
 
-	const T *operator->(void) const
-	{
-		return m_pData;
-	}
-
-	const T & operator*(void) const
-	{
-		return *m_pData;
-	}
-
 	FORCEINLINE operator const T *(void) const
 	{
 		return m_pData;
 	}
 
-	FORCEINLINE CStridedConstPtr<T> &operator++(void)
-	{
-		m_pData += m_nStride;
-		return *this;
-	}
-	FORCEINLINE void operator+=( size_t nNumElements )
-	{
-		m_pData += nNumElements*m_nStride;
-	}
 };
 
 // allowed field data types. if you change these values, you need to change the tables in the .cpp file
@@ -142,8 +90,6 @@ protected:
 	size_t m_nRowStrideInBytes[MAX_SOA_FIELDS];			  // stride from one row datum to another per field
 	size_t m_nSliceStrideInBytes[MAX_SOA_FIELDS];         // stride from one slice datum to another per field
 
-
-
 	uint32 m_nFieldPresentMask;
 
 	FORCEINLINE void Init( void )
@@ -154,7 +100,6 @@ protected:
 		m_nFieldPresentMask = 0;
 	}
 public:
-
 
 	CSOAContainer( void )									// an empoty one with no attributes
 	{
@@ -176,83 +121,16 @@ public:
 
 	size_t ElementSize( void ) const;					// total bytes per element. not super fast.
 
-
-	FORCEINLINE int NumRows( void ) const
-	{
-		return m_nRows;
-	}
-
 	FORCEINLINE int NumCols( void ) const
 	{
 		return m_nColumns;
 	}
-	FORCEINLINE int NumSlices( void ) const
-	{
-		return m_nSlices;
-	}
-
-
-	
-
 
 	FORCEINLINE int Count( void ) const						// for 1d data
 	{
 		return NumCols();
 	}
 
-
-
-	
-	FORCEINLINE void *RowPtr( int nAttributeIdx, int nRowNumber, int nSliceNumber = 0 ) const
-	{
-		Assert( nRowNumber < m_nRows );
-		Assert( nAttributeIdx < MAX_SOA_FIELDS );
-		Assert( m_nDataType[nAttributeIdx] != ATTRDATATYPE_NONE );
-		Assert( m_nFieldPresentMask & ( 1 << nAttributeIdx ) );
-		return m_pAttributePtrs[nAttributeIdx] + 
-			+ nRowNumber * m_nRowStrideInBytes[nAttributeIdx]
-			+ nSliceNumber * m_nSliceStrideInBytes[nAttributeIdx];
-	}
-
-	FORCEINLINE void const *ConstRowPtr( int nAttributeIdx, int nRowNumber, int nSliceNumber = 0 ) const
-	{
-		Assert( nRowNumber < m_nRows );
-		Assert( nAttributeIdx < MAX_SOA_FIELDS );
-		Assert( m_nDataType[nAttributeIdx] != ATTRDATATYPE_NONE );
-		return m_pAttributePtrs[nAttributeIdx] 
-			+ nRowNumber * m_nRowStrideInBytes[nAttributeIdx]
-			+ nSliceNumber * m_nSliceStrideInBytes[nAttributeIdx];
-	}
-
-
-		
-	FORCEINLINE size_t ItemByteStride( int nAttributeIdx ) const
-	{
-		Assert( nAttributeIdx < MAX_SOA_FIELDS );
-		Assert( m_nDataType[nAttributeIdx] != ATTRDATATYPE_NONE );
-		return m_nStrideInBytes[ nAttributeIdx ];
-	}
-
-
-
-	// move all the data from one csoacontainer to another, leaving the source empty.
-	// this is just a pointer copy.
-	FORCEINLINE void MoveDataFrom( CSOAContainer other )
-	{
-		(*this) = other;
-		other.Init();
-	}
-
-
-
-
 	// arithmetic and data filling functions. All SIMD and hopefully fast
 
-
-
 };
-
-
-
-
-#endif

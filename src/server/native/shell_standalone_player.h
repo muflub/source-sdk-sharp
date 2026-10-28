@@ -33,11 +33,7 @@
 // engine-facing arms, not its behaviour.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_STANDALONE_PLAYER_H
-#define SOURCESHARP_SHELL_STANDALONE_PLAYER_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "shell_standalone_class.h"
 #include "imovementplayer.h"
@@ -461,5 +457,3 @@ inline CStandalonePlayer *SourceSharp_PlayerOf( IGameEntity *pEnt )
 {
 	return SourceSharp_PlayerOf( SourceSharp_ShellOf( pEnt ) );
 }
-
-#endif // SOURCESHARP_SHELL_STANDALONE_PLAYER_H

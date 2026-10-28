@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+"""tools/vendor-fields -- a vendored record's unused fields become bytes.
+
+    tools/vendor-fields               report the runs that would be stubbed
+    tools/vendor-fields --write       stub them, proved by the build (below)
+    tools/vendor-fields --self-test
+    --cache FILE: tools/vendor-strip's walk, reused.
+
+A field nothing reads (no reference from our code or from any live vendored
+declaration, tools/vendor-strip's walk) still holds its place: the engine and
+the prebuilt libraries read the record by layout. So a run of them becomes
+one array of the run's size at the run's offset (user 2026-10-25):
+
+    alignas( 8 ) unsigned char unused_m_flFoo[ 24 ];
+
+and the types only those fields named need nothing any more. The offsets come
+from clang's record layout dump of every module object, Itanium and MSVC
+(tools/vendor-layout's jobs): the run starts where its first field was and
+ends where the next kept field begins, in each ABI.
+alignas carries the largest power of two dividing the start, so the array
+lands where the field did. Where the two ABIs disagree on either number
+(MSVC's long is 4 bytes), the stub spells both through platform.h's
+SS_ABI_PICK( msvc, itanium ), and each ABI's layout compare holds it to its
+own dump. Left alone: a run with a bit-field, one that ends
+the record (Itanium reuses a base's tail padding), one with anything but
+fields and comments in its text, a union, an anonymous record, a class
+template, and a file under #pragma pack.
+
+--write stubs the runs through tools/vendor-strip's prove(): waves kept when
+every build passes, each module keeps its defined symbols, and
+tools/vendor-layout compare holds (a stubbed record keeps its size, its
+alignment and the offsets of the fields it keeps).
+"""
+import concurrent.futures
+import importlib.machinery
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+TOOLS = os.path.join(REPO, "tools")
+VS = importlib.machinery.SourceFileLoader("vendor_strip", os.path.join(TOOLS, "vendor-strip")).load_module()
+VL = importlib.machinery.SourceFileLoader("vendor_layout", os.path.join(TOOLS, "vendor-layout")).load_module()
+
+HEADER = re.compile(r"^\s*(\d+) \| (?:struct|class|union) (.+)$")
+FIELD = re.compile(r"^\s*(\d+)(:\d+-\d+)? \|   (\S.*?) (\w+)$")
+
+
+def parse_layouts(text):
+    """{record name: {"fields": {name: offset}, "bitfields": set, "size": n}}
+    from a full -fdump-record-layouts dump, top-level fields only."""
+    out, cur = {}, None
+    for line in text.split("\n"):
+        if line.startswith("*** Dumping AST Record Layout"):
+            cur = None
+            continue
+        if cur is None:
+            m = HEADER.match(line)
+            if m and m.group(1) == "0":
+                cur = out.setdefault(m.group(2).strip(), {"fields": {}, "bitfields": set(), "size": None,
+                                                          "align": None})
+            continue
+        m = re.search(r"\[sizeof=(\d+)(?:, dsize=\d+)?, align=(\d+)", line)
+        if m:
+            cur["size"], cur["align"] = int(m.group(1)), int(m.group(2))
+            cur = None
+            continue
+        m = FIELD.match(line)
+        if m and not m.group(3).startswith("("):
+            cur["fields"].setdefault(m.group(4), int(m.group(1)))
+            if m.group(2):
+                cur["bitfields"].add(m.group(4))
+    return out
+
+
+def dump(job):
+    e, windows = job
+    with tempfile.TemporaryDirectory() as td:
+        raw = VL.command(e, windows, os.path.join(td, "x.o"))
+        cmd, skip = [], False
+        for k, tok in enumerate(raw):
+            if skip:
+                skip = False
+                continue
+            if tok == "-Xclang" and k + 1 < len(raw) and raw[k + 1] in ("-fdump-vtable-layouts",
+                                                                       "-fdump-record-layouts-simple"):
+                skip = True
+                continue
+            cmd.append(tok)
+        i = cmd.index("-w") + 1
+        cmd[i:i] = ["-Xclang", "-fdump-record-layouts"]
+        r = subprocess.run(cmd, cwd=e["directory"], capture_output=True, text=True, errors="replace")
+    return ("msvc" if windows else "itanium"), parse_layouts(r.stdout)
+
+
+def layouts(cfg):
+    """{abi: {record: layout}} over every module object."""
+    out = {"itanium": {}, "msvc": {}}
+    with concurrent.futures.ThreadPoolExecutor(os.cpu_count() or 4) as ex:
+        for abi, recs in ex.map(dump, VL.jobs(cfg)):
+            for name, rec in recs.items():
+                out[abi].setdefault(name, rec)
+    return out
+
+
+def qualified(usr):
+    """vgui::Panel from c:@N@vgui@S@Panel; None for a template or an
+    anonymous record."""
+    parts = re.findall(r"@(N|S|C|U|E)@([^@#]+)", usr)
+    if not parts or "@ST" in usr or "@SP" in usr or "@CT" in usr or "#" in usr:
+        return None
+    return "::".join(p[1] for p in parts)
+
+
+def runs(decls, edges, live, recs):
+    """[(file, start, end, replacement, record, first field)]."""
+    into = {}
+    for a, b in edges:
+        into.setdefault(b, set()).add(a)
+    members, info_of = {}, {}
+    for u, infos in decls.items():
+        for i in infos:
+            info_of.setdefault(u, i)
+            if i[5]:
+                members.setdefault(i[5], []).append((u, i))
+    out = []
+    texts = {}
+    for rec_usr, mems in members.items():
+        rec = info_of.get(rec_usr)
+        if rec is None or rec_usr not in live or rec[3] not in ("StructDecl", "ClassDecl"):
+            continue
+        name = qualified(rec_usr)
+        if not name:
+            continue
+        lay = {abi: recs[abi][name] for abi in ("itanium", "msvc") if name in recs[abi]}
+        if not lay:
+            continue
+        f = rec[0]
+        t = texts.get(f)
+        if t is None:
+            t = texts[f] = VS.read(f)
+        if "#pragma pack" in t:
+            continue
+        ordered = sorted((i[1], i[2], i[3], i[4], u) for u, i in mems if i[0] == f)
+        unused = {u for u, i in mems if i[3] == "FieldDecl"
+                  and not any(a == "" or a in live for a in into.get(u, ()) if a != rec_usr)}
+        run = []
+
+        def flush(next_field):
+            if not run or next_field is None:
+                return
+            # A stub already written is unused too: it may take in fields
+            # beside it that have become unused since, but alone it is done.
+            if all(r[3].startswith("unused_") for r in run):
+                return
+            first, last = run[0], run[-1]
+            per_abi = {}
+            for abi, L in lay.items():
+                if first[3] not in L["fields"] or next_field not in L["fields"]:
+                    return
+                if any(r[3] in L["bitfields"] for r in run) or next_field in L["bitfields"]:
+                    return
+                s0, e0 = L["fields"][first[3]], L["fields"][next_field]
+                if e0 <= s0:
+                    return
+                # The largest power of two the start is a multiple of, never
+                # more than the record's own alignment (a stub must not raise it).
+                rec_align = L["align"] or 1
+                per_abi[abi] = (min(s0 & -s0 if s0 else rec_align, rec_align), e0 - s0)
+
+            def pick(k):
+                vals = {abi: v[k] for abi, v in per_abi.items()}
+                if len(set(vals.values())) == 1:
+                    return "%d" % next(iter(vals.values()))
+                # The ABIs disagree (MSVC's long is 4 bytes, its bases pack
+                # differently): platform.h's SS_ABI_PICK( msvc, itanium ).
+                return "SS_ABI_PICK( %d, %d )" % (vals["msvc"], vals["itanium"])
+            align, size = pick(0), pick(1)
+            ls = t.rfind("\n", 0, first[0]) + 1
+            le = t.find("\n", last[1])
+            le = len(t) if le < 0 else le
+            region = t[ls:le]
+            for line in region.split("\n"):
+                s = line.strip()
+                if s and not s.startswith("//") and not s.startswith("/*") and not s.endswith(";") \
+                        and not re.search(r";\s*//", s):
+                    return
+                if s.startswith("#") or re.match(r"^(public|private|protected)\s*:", s):
+                    return
+            indent = re.match(r"\s*", t[ls:first[0]]).group(0)
+            stem = first[3][len("unused_"):] if first[3].startswith("unused_") else first[3]
+            out.append((f, ls, le, "%salignas( %s ) unsigned char unused_%s[ %s ];" % (indent, align, stem, size),
+                        name, first[3]))
+
+        for item in ordered:
+            s, e, kind, nm, u = item
+            if kind == "FieldDecl" and u in unused:
+                run.append(item)
+                continue
+            if kind == "FieldDecl":
+                flush(nm)
+            run = []
+        run = []
+    return out
+
+
+def self_test():
+    checks = 0
+
+    def eq(a, b, what):
+        nonlocal checks
+        checks += 1
+        if a != b:
+            raise AssertionError("%s: %r != %r" % (what, a, b))
+
+    text = ("*** Dumping AST Record Layout\n         0 | struct vg::P\n         0 |   char[8] buf\n"
+            "         8 |   int * p\n        12:0-2 |   unsigned int f\n        16 |   struct vg::Q q\n"
+            "        16 |     int x\n           | [sizeof=24, dsize=24, align=8,\n")
+    lay = parse_layouts(text)
+    eq(lay["vg::P"]["fields"], {"buf": 0, "p": 8, "f": 12, "q": 16}, "top-level fields and their offsets")
+    eq(lay["vg::P"]["bitfields"], {"f"}, "a bit-field is known as one")
+    eq(lay["vg::P"]["size"], 24, "the record's size")
+    eq(lay["vg::P"]["align"], 8, "and its alignment")
+    eq(qualified("c:@N@vgui@S@Panel"), "vgui::Panel", "a namespaced class")
+    eq(qualified("c:@ST>1#T@CUtlVector"), None, "a class template is left alone")
+    print("tools/vendor-fields --self-test: %d checks passed" % checks)
+    return 0
+
+
+def main(argv):
+    if "--self-test" in argv:
+        return self_test()
+    cache = argv[argv.index("--cache") + 1] if "--cache" in argv else None
+    import pickle
+    if cache and os.path.exists(cache):
+        with open(cache, "rb") as f:
+            decls, edges, macro_defs, macro_uses, bases, overriders, n = pickle.load(f)
+    else:
+        decls, edges, macro_defs, macro_uses, bases, overriders, n = VS.measure("debug")
+    may_go, fixed, goes_with = VS.removability(decls, {"shared", "server", "client"}, VS.macro_body_names())
+    live, _ = VS.liveness(decls, edges, fixed)
+    recs = layouts("debug")
+    cands = runs(decls, edges, live, recs)
+    lines = sum(VS.read(c[0]).count("\n", c[1], c[2]) + 1 for c in cands)
+    print("tools/vendor-fields: %d runs in %d records (%d lines) would become bytes"
+          % (len(cands), len({c[4] for c in cands}), lines))
+    if "--report" in argv:
+        for c in cands:
+            print("  %s: %s.%s -> %s" % (os.path.relpath(c[0], REPO), c[4], c[5], c[3].strip()))
+    if "--write" in argv:
+        kept = VS.prove([c[:4] for c in cands], print)
+        print("tools/vendor-fields: stubbed %d of %d runs" % (kept, len(cands)))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

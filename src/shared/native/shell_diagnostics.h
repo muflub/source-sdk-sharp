@@ -33,11 +33,7 @@
 // wrong choice cost.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_SHELL_DIAGNOSTICS_H
-#define SOURCESHARP_SHELL_DIAGNOSTICS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 int  SourceSharp_GetVerbosity();
 
@@ -153,7 +149,3 @@ void SourceSharp_InstallAssertLogging();
 // SourceSharp_GetAssertsLogged went at the same step: the count of assertions
 // -assertlog demoted had no caller. The counter itself stays and the summary
 // line prints it.
-
-
-
-#endif // SOURCESHARP_SHELL_DIAGNOSTICS_H

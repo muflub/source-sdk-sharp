@@ -690,12 +690,9 @@ TEST( ServerSystemsUnderive, TheServerBaseHasNoConstructorSideEffectAndNoState )
 	EXPECT_EQ( 0, CountOf( base, "OnRestore" ) );
 	EXPECT_EQ( 0, CountOf( base, "SafeRemoveIfDesired" ) );
 
-	// And the client may not reach this header at all. A shared file that
-	// includes it outside a server arm compiles green on the server and takes
-	// the base away from the client's copy, which is this project's recorded
-	// failure mode for a shared file.
-	EXPECT_GT( CountOf( base, "#error" ), 0 )
-		<< "the header does not refuse a client include";
+	// (Its client-include refusal went 2026-10-25: a server-only header carries
+	// no CLIENT_DLL guard, user ruling; src/server/native is on no client
+	// target's include path.)
 }
 
 

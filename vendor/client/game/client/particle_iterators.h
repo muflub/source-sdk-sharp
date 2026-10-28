@@ -1,39 +1,21 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Client side CTFTeam class
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef PARTICLE_ITERATORS_H
-#define PARTICLE_ITERATORS_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "materialsystem/imesh.h"
 #include "particledraw.h"
 
-
 #define NUM_PARTICLES_PER_BATCH 200
-#ifndef _XBOX
 #define MAX_TOTAL_PARTICLES		2048	// Max particles in the world
-#else
-#define MAX_TOTAL_PARTICLES		1024
-#endif
 
-
-//
 // Iterate the particles like this:
-//
 // Particle *pCur = pIterator->GetFirst();
 // while ( pCur )
 // {
 //     ... render the particle here and figure out the sort key and position
 //     pCur = pIterator->GetNext( sortKey, pCur->m_Pos );
 // }
-//
 class CParticleRenderIterator
 {
 friend class CParticleMgr;
@@ -41,26 +23,15 @@ friend class CParticleEffectBinding;
 public:
 	CParticleRenderIterator();
 
-	// The sort key is used to sort the particles incrementally as they're rendered.
-	// They only get sorted in the main rendered view (ie: not in reflections or monitors).
-	// These return const because you should only modify particles during their simulation.
-	const Particle* GetFirst();
 	const Particle* GetNext( float sortKey );
-
-	// Use this to render. This can return NULL, in which case you shouldn't render.
-	// This being NULL is a carryover from when particles rendered and simulated together and
-	// it should GO AWAY SOON!
-	ParticleDraw* GetParticleDraw() const;
-
 
 private:
 
 	void TestFlushBatch();
 
-
 private:
 	// Set by CParticleMgr.
-	CParticleEffectBinding *m_pEffectBinding;
+	alignas( 8 ) unsigned char unused_m_pEffectBinding[ 8 ];
 	CEffectMaterial *m_pMaterial;
 	ParticleDraw *m_pParticleDraw;
 	CMeshBuilder *m_pMeshBuilder;
@@ -79,17 +50,13 @@ private:
 	int m_nParticlesInCurrentBatch;
 };
 
-
-//
 // Iterate the particles like this:
-//
 // Particle *pCur = pIterator->GetFirst();
 // while ( pCur )
 // {
 //     ... simulate here.. call pIterator->RemoveParticle if you want the particle to go away
 //     pCur = pIterator->GetNext();
 // }
-//
 class CParticleSimulateIterator
 {
 friend class CParticleMgr;
@@ -100,10 +67,6 @@ public:
 	// Iterate through the particles, simulate them, and remove them if necessary.
 	Particle* GetFirst();
 	Particle* GetNext();
-	float GetTimeDelta() const;
-
-	void RemoveParticle( Particle *pParticle );
-	void RemoveAllParticles();
 
 private:
 	CParticleEffectBinding *m_pEffectBinding;
@@ -114,10 +77,7 @@ private:
 	Particle *m_pNextParticle;
 };
 
-
-// -------------------------------------------------------------------------------------------------------- //
 // CParticleRenderIterator inlines
-// -------------------------------------------------------------------------------------------------------- //
 
 inline CParticleRenderIterator::CParticleRenderIterator()
 {
@@ -128,19 +88,6 @@ inline CParticleRenderIterator::CParticleRenderIterator()
 	m_MinZ = 1e24;
 	m_MaxZ = -1e24;
 	m_nZCoords = 0;
-}
-
-inline const Particle* CParticleRenderIterator::GetFirst()
-{
-	Assert( !m_bGotFirst );
-	m_bGotFirst = true;
-
-	m_pCur = m_pMaterial->m_Particles.m_pNext;
-	if ( m_pCur == &m_pMaterial->m_Particles )
-		return NULL;
-
-	m_pParticleDraw->m_pSubTexture = m_pCur->m_pSubTexture;
-	return m_pCur;
 }
 
 inline void CParticleRenderIterator::TestFlushBatch()
@@ -194,15 +141,7 @@ inline const Particle* CParticleRenderIterator::GetNext( float sortKey )
 	return m_pCur;
 }
 
-inline ParticleDraw* CParticleRenderIterator::GetParticleDraw() const
-{
-	return m_pParticleDraw;
-}
-
-
-// -------------------------------------------------------------------------------------------------------- //
 // CParticleSimulateIterator inlines
-// -------------------------------------------------------------------------------------------------------- //
 
 inline CParticleSimulateIterator::CParticleSimulateIterator()
 {
@@ -244,27 +183,3 @@ inline Particle* CParticleSimulateIterator::GetNext()
 	m_pNextParticle = pRet->m_pNext;
 	return pRet;
 }
-
-inline void CParticleSimulateIterator::RemoveParticle( Particle *pParticle )
-{
-	m_pEffectBinding->RemoveParticle( pParticle );
-}
-
-inline void CParticleSimulateIterator::RemoveAllParticles()
-{
-	Particle *pParticle = GetFirst();
-	while ( pParticle )
-	{
-		RemoveParticle( pParticle );
-		pParticle = GetNext();
-	}
-}
-
-inline float CParticleSimulateIterator::GetTimeDelta() const
-{
-	return m_flTimeDelta;
-}
-
-
-#endif // PARTICLE_ITERATORS_H
-

@@ -1,16 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
 // Purpose: Memory allocation!
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef TIER0_MEM_H
-#define TIER0_MEM_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 
@@ -30,13 +21,8 @@
 
 #endif // BUILD_AS_DLL
 
-
-
 MEM_INTERFACE void MemAllocOOMError( size_t nSize );
 
 #if defined(_LINUX) && !defined( USE_DXVK )
 MEM_INTERFACE ;
 #endif
-
-
-#endif /* TIER0_MEM_H */

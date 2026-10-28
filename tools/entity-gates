@@ -527,7 +527,9 @@ ENT_RE='CBaseEntity::\|C_BaseEntity::'
 # this gate exists to keep out, and while it was spelled IGameEntity it and the
 # shells deriving it (CStandaloneEntity, CStandalonePlayer) were never counted.
 # So they are not counted now either -- but ONLY while the evidence says it is
-# the face: igameentity.h declares `abstract_class CBaseEntity`, and every
+# the face: igameentity.h declares `abstract_class CBaseEntity` (or
+# `abstract_class SS_GAME_ENTITY`, which igameentity_fwd.h names CBaseEntity on
+# the server), and every
 # CBaseEntity:: symbol server.so defines is that class's implicit constructor
 # or its destructor (an abstract interface emits nothing else). One stock member back and the face
 # reading is refused: every row below counts the whole class again.
@@ -535,7 +537,9 @@ FACE_SYMBOL='CBaseEntity::CBaseEntity()\|CBaseEntity::~CBaseEntity()'
 SRV_FACE=0
 srv_ent_all=$(nm_strict_count "$SERVER_SO" 'CBaseEntity::')
 srv_ent_face=$(nm_strict_count "$SERVER_SO" "$FACE_SYMBOL")
-if grep -qx 'abstract_class CBaseEntity' "$SRC_ABS/public/igameentity.h" 2>/dev/null \
+if { grep -qx 'abstract_class CBaseEntity' "$SRC_ABS/public/igameentity.h" 2>/dev/null \
+     || { grep -qx 'abstract_class SS_GAME_ENTITY' "$SRC_ABS/public/igameentity.h" 2>/dev/null \
+          && grep -qx '#define SS_GAME_ENTITY CBaseEntity' "$SRC_ABS/public/igameentity_fwd.h" 2>/dev/null; }; } \
    && [ "$srv_ent_all" -gt 0 ] && [ "$srv_ent_all" -eq "$srv_ent_face" ]; then
     SRV_FACE=1
 fi

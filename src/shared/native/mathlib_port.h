@@ -28,8 +28,7 @@
 // VectorAngles included): a value that differed in the last bit would move an
 // entity by it, and the stock test would say so.
 //=============================================================================//
-#ifndef SS_MATHLIB_PORT_H
-#define SS_MATHLIB_PORT_H
+#pragma once
 
 #include "mathlib/mathlib.h"
 #include "mathlib/vector.h"
@@ -992,5 +991,3 @@ struct Power2NTable
 inline constexpr Power2NTable kPower2N{};
 
 } // namespace ss_mathlib
-
-#endif // SS_MATHLIB_PORT_H

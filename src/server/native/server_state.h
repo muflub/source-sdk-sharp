@@ -35,8 +35,6 @@
 //
 //=============================================================================//
 
-#ifndef SERVER_STATE_H
-#define SERVER_STATE_H
 #pragma once
 
 #include "entity_slots.h"   // CSourceSharpEntitySlots, the block C# writes through
@@ -192,5 +190,3 @@ public:
 // shell_gamedll.cpp.
 CServerDllState *ShellGameDll_Dll();
 CServerLevelState *ShellGameDll_Level();
-
-#endif // SERVER_STATE_H

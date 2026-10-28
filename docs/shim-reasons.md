@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 33,108 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,380 |
-| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,686 |
-| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,225 |
-| e | a synchronous mid-step answer | 4 | 3 | 1 |  |  |  | 7 | 2,407 |
-| f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,042 |
-| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 |  |  |  | 15 | 5,021 |
-| h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 4,724 |
-| x | NO LETTER FITS | 7 | 1 | 2 |  | 2 |  | 18 | 4,363 |
-|  | **total** | **75** | **33** | **72** | **2** | **2** | **1** | **214** | **80,956** |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 33,906 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,588 |
+| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,767 |
+| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,340 |
+| e | a synchronous mid-step answer | 4 | 3 | 1 |  |  |  | 7 | 2,464 |
+| f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,087 |
+| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 |  |  |  | 15 | 5,164 |
+| h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 4,759 |
+| x | NO LETTER FITS | 7 | 1 | 2 |  | 2 |  | 18 | 4,400 |
+|  | **total** | **75** | **33** | **72** | **2** | **2** | **1** | **214** | **82,475** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -456,7 +456,7 @@ close produces. **This is the number the port exists to drive to zero.**
 |---|--:|---|---|
 | `sourcesharp/game/client/randoverride.cpp` | 30 | nothing of its own. `plan_shim_rulings.tsv` ruled it KEEP with the reason written out as "- (no letter fits)", riding on the leaf-renderer row rather than earning one | the leaf-renderer cluster it rides on |
 | `sourcesharp/common/steamid.cpp` | 741 | nothing of its own — `plan_shim_rulings.tsv` ruled it **DELETE** and the deletion was never executed | its own deletion, with a 0-consumer proof |
-| `sourcesharp/game/server/alloc_check.cpp` | 637 | nothing the engine asks for: it is the `__wrap_` half of the debug build's allocation link hook (plan_server_novalve.md §3.6), proving no block is freed across the engine/mod boundary. It compiles to nothing outside `SS_ALLOC_CHECK` | the release build carries no checker, so none; it leaves only if the no-cross-free rule gets another instrument |
+| `sourcesharp/game/shared/alloc_check.cpp` | 637 | nothing the engine asks for: it is the `__wrap_` half of the debug build's allocation link hook (plan_server_novalve.md §3.6), proving no block is freed across the engine/mod boundary. It compiles to nothing outside `SS_ALLOC_CHECK` | the release build carries no checker, so none; it leaves only if the no-cross-free rule gets another instrument |
 | `sourcesharp/game/server/shell_absent.cpp` | 342 | eleven definitions that an object on the server link line still imports. The file states its own exit condition as zero and does not reach it | the last importer of each of the eleven |
 | `sourcesharp/game/shared/tier0_spew_port.cpp` | 356 | tier0's spew and assert entry points (Msg, Warning, DevMsg, Error, the five functions every Assert expands to, the spew slot), defined in server.so so it links no libtier0 (plan_server_novalve.md P4). Native code calls them through `public/tier0/dbg.h` | P5's header move: no server object calling a `dbg.h` function |
 | `sourcesharp/game/client/tier0_thread_port.cpp` | 120 | the tier0 thread calls fork-header inlines make: `ThreadGetCurrentId` and `CThreadFastMutex::Lock( id, sleep )`, defined in client.so so it links no libtier0 for them (server.so's objects import none since plan_server_native_v2 T5, which also deleted `Plat_IsInDebugSession` and `GetCPUInformation`: no importer on either side). Our own code uses std for these (ss_clock.h) | when no client object includes threadtools.h's `CThreadFastMutex` |

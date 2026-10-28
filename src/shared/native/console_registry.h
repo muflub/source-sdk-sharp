@@ -18,11 +18,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_CONSOLE_REGISTRY_H
-#define SOURCESHARP_CONSOLE_REGISTRY_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <string>
 #include <unordered_map>
@@ -87,5 +83,3 @@ private:
 	NameIndex_t m_IdByName;
 	int         m_nNextId;
 };
-
-#endif // SOURCESHARP_CONSOLE_REGISTRY_H

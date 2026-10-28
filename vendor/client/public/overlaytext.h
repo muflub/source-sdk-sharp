@@ -1,20 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-//
-//-----------------------------------------------------------------------------
-// $Log: $
-//
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( OVERLAYTEXT_H )
-#define OVERLAYTEXT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "mathlib/vector.h"
 
@@ -36,9 +21,6 @@ public:
 		r = g = b = a = 255;
 	}
 
-	bool			IsDead();
-	void			SetEndTime( float duration );
-
 	Vector			origin;
 	bool			bUseOrigin;
 	int				lineOffset;
@@ -54,5 +36,3 @@ public:
 	int				a;
 	OverlayText_t	*nextOverlayText;
 };
-
-#endif // OVERLAYTEXT_H

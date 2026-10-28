@@ -11,8 +11,6 @@
 //
 //=============================================================================//
 
-#ifndef MANAGED_ACCEPT_H
-#define MANAGED_ACCEPT_H
 #pragma once
 
 #include <stdint.h>
@@ -80,5 +78,3 @@ void ManagedRelease( I *&pHolder )
 	if ( pObject )
 		pObject->Release();
 }
-
-#endif // MANAGED_ACCEPT_H

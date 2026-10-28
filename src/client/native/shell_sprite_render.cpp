@@ -57,23 +57,42 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
-#include "shell_standalone_client.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "Sprite.h"
+#include "view.h"
+#include "engine/ivmodelinfo.h"
+#include "engine/IClientLeafSystem.h"
+#include "mathlib/mathlib.h"
+#include "mathlib/vector.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier0/wchartypes.h"
+#include "tier1/utlvector.h"
+#include "cdll_client_int.h"
+#include "const.h"
+#include "globalvars_base.h"
+#include "model_types.h"
+#include "networkvar.h"
+#include "shell_standalone_client.h"
 #include "shell_renderable.h"
 #include "shell_beam_render.h"
-#include "view.h"
-#include "enginesprite.h"
-#include "materialsystem/imaterialsystem.h"
-#include "engine/ivmodelinfo.h"
-#include "igamesystem.h"
 #include "shell_particle_systems.h"
 
 #include "shell_effect_registry.h"
 #include "imanaged_areas_client.h"   // IManagedFxClient: the sprite plan and the trail
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // THE RENDER-MODE BOUNDS CHECK, ONCE. It was written out twice — at DrawSprite
@@ -407,7 +426,7 @@ int32_t SourceSharp_FxSpriteDrawBegin( uint32_t hOwner, const float *pOffsetXYZ,
 class CSourceSharpSpriteTrail : public CShellRenderable
 {
 public:
-	DECLARE_CLASS( CSourceSharpSpriteTrail, CShellRenderable );
+	DECLARE_CLASS_GAMEROOT( CSourceSharpSpriteTrail, CShellRenderable );
 
 	// The block arrived zeroed (SOURCESHARP_ZEROING_ALLOCATOR), so only what a
 	// zero is wrong for is set.

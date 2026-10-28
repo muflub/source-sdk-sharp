@@ -28,14 +28,13 @@
 // m_hWeapon) are where a parallel-hierarchy entity first has to sit in a
 // CBaseEntity-typed slot.
 //
-// THREE CROSSINGS LIVE HERE, and they differ only in where they stop.
-// SourceSharp_CrossHandleToWeapon walks the partition and then a typed virtual,
-// for the SDK's tree. SourceSharp_CrossHandleToGameEntity walks the OTHER arm
-// of the same partition -- GetGameEntity() -- and is what CHandle<IGameEntity>
-// uses, so that Phase 13's typedef never turns a handle into a cast.
-// SourceSharp_CrossHandleToClientGameEntity is that same walk on the client,
-// where the boundary is reached through GetIClientEntity() rather than a cast
-// because the client's handle table holds things that are not entities.
+// TWO CROSSINGS LIVE HERE, and they differ only in where they stop.
+// SourceSharp_SDKEntityFromUnknown walks the partition and answers the SDK's
+// tree, which both sides have emptied, so it answers NULL. SourceSharp_
+// CrossHandleToGameEntity walks the OTHER arm -- the entity face -- and is what
+// the server's variant_t::Entity uses. The client, on stock headers since
+// 2026-10-25, asks GetBaseEntity() exactly as the server does, so one
+// partition serves both sides.
 //
 // Engine-free on purpose, like bone_cache_key.h: the rule is templates and two
 // virtual calls, so it can be compiled by the native test binary against mock
@@ -55,9 +54,7 @@
 //     handle_cross.h in the include closure    102 server / 169 client TUs
 //     SourceSharp_SDKEntityFromUnknown         103 server / 129 client
 //     SourceSharp_CrossHandleToGameEntity      102 server /   0 client
-//     SourceSharp_CrossHandleToClientGameEntity  0 server / 129 client
 //     SourceSharp_SDKEntityFromNetworkable       1 server /   0 client
-//     SourceSharp_CrossHandleToWeapon            0 server /   0 client
 //
 // The ruling was taken with an instrument that asks which OBJECTS import a
 // header's symbols. A header has no object and everything here is an inline
@@ -66,60 +63,25 @@
 // transitively, through `entitylist.h` on the server and `c_baseentity.h` on
 // the client, which is why the count looked like one file.
 //
-// The last row is the one real absence and it is deliberate: the weapon
-// crossing is the mechanism waiting for Phase 13's body for
-// CHandle<CBaseCombatWeapon>::Get(), which both baseentity.h and
-// c_baseentity.h declare and do not define for exactly that reason.
-//
 // handle_cross_test.cpp's HandleCrossConsumers section pins all of this in
 // assertions, at the call sites, so the next reader of that table does not have
 // to take this comment's word for it.
 // =========================================================================
-#ifndef SOURCESHARP_HANDLE_CROSS_H
-#define SOURCESHARP_HANDLE_CROSS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // "IS THIS OBJECT OUTSIDE THE SDK'S TREE?" -- one question, and only one side
 // of the build can ask it.
 //
-// The server asks IServerUnknown::GetBaseEntity(), its one accessor since
-// plan_server_native_v2 T1.3: a standalone answers its entity face, the world
-// answers NULL, and no SDK entity is left to answer anything. (Before T1.3 the
-// server also had the SDK's tree, whose GetBaseEntity() answered itself, so it
-// asked the patch's GetGameEntity() instead; the client still does, below.)
+// IServerUnknown::GetBaseEntity() on the server and IClientUnknown::
+// GetBaseEntity() on the client: a standalone answers its entity face, the
+// world and every client object answer NULL, and no SDK entity is left to
+// answer anything. Everything in either handle table is an I*Unknown, and
+// IHandleEntity -> I*Unknown is one single-inheritance step, so the cast below
+// adjusts nothing and cannot be wrong.
 //
-// THE CLIENT ASKS THE SAME QUESTION, ONE VIRTUAL LATER (Phase 13's revised step
-// 1, landed). IClientEntity::GetGameEntity() now exists and answers exactly as
-// IServerEntity::GetGameEntity() does. What differs is how you REACH it, and
-// the difference is forced rather than stylistic:
-//
-//   the server   everything in the entity list is an IServerEntity, and
-//                IHandleEntity -> IServerUnknown -> IServerEntity is one
-//                single-inheritance chain, so a static_cast adjusts nothing
-//                and cannot be wrong.
-//
-//   the client   the handle table holds IClientUnknowns that are NOT entities:
-//                CDefaultClientRenderable, CDetailModel, C_BaseTempEntity, and
-//                the engine's own static props -- which is what
-//                IStaticPropMgrClient::IsStaticProp( IHandleEntity * ) exists
-//                for. Casting one of those down to IClientEntity would be a lie
-//                about its layout and the call would land past the end of its
-//                primary vtable, which is the exact hazard this file exists to
-//                stop, arriving through this file.
-//
-// So the client asks GetIClientEntity() first. That is a virtual the object
-// performs for ITSELF, it lives on IClientUnknown where every table entry has
-// it, and all four non-entity implementors answer NULL. No cast and no
-// assumption: two questions, both answered by the object.
-//
-// TAGS rather than defaults, so that choosing one is written at the call site
-// and a reader cannot mistake the server's arm for the client's.
+// TPartition is IServerEntity on the server and IClientUnknown on the client.
 //-----------------------------------------------------------------------------
-struct SourceSharpClientPartition {};
-
 template< class TPartition >
 struct SourceSharp_Partition
 {
@@ -131,33 +93,6 @@ struct SourceSharp_Partition
 		// single-inheritance chain, so the cast adjusts nothing. The address
 		// change, if any, happens inside the object on the virtual call.
 		return static_cast< TPartition * >( pObject )->GetBaseEntity();
-	}
-
-	template< class TObject >
-	static bool IsOutsideTheSdk( TObject *pObject )
-	{
-		return GameEntityOf( pObject ) != 0;
-	}
-};
-
-template<>
-struct SourceSharp_Partition< SourceSharpClientPartition >
-{
-	// The client's two questions. NULL from the first is not "I cannot tell" --
-	// it is "I am not an entity at all", which is a definite answer and means
-	// the caller is holding something on NEITHER hierarchy.
-	template< class TObject >
-	static auto GameEntityOf( TObject *pObject )
-		-> decltype( pObject->GetIClientEntity()->GetGameEntity() )
-	{
-		if ( !pObject )
-			return 0;
-
-		auto pEntity = pObject->GetIClientEntity();
-		if ( !pEntity )
-			return 0;
-
-		return pEntity->GetGameEntity();
 	}
 
 	template< class TObject >
@@ -194,11 +129,9 @@ struct SourceSharp_Partition< SourceSharpClientPartition >
 // including the sites nobody has found yet. Callers keep the NULL they have
 // always got for an entity outside the SDK, and keep getting it after step 5.
 //
-// TPartition is IServerEntity on the server and SourceSharpClientPartition on
-// the client. Both arms are live now: Phase 13's revised step 1 added
-// IClientEntity::GetGameEntity(), so the client's resolvers ask the same
-// question the server's do rather than being counted and left. See
-// sdk_player_cast_test.cpp, whose client ratchet became a ban on that commit.
+// TPartition is IServerEntity on the server and IClientUnknown on the client:
+// the same question on both sides. See sdk_player_cast_test.cpp, whose client
+// ratchet became a ban when the client could first ask it.
 //-----------------------------------------------------------------------------
 template< class TPartition, class TUnknown >
 inline auto SourceSharp_SDKEntityFromUnknown( TUnknown *pUnknown ) -> decltype( pUnknown->GetBaseEntity() )
@@ -210,42 +143,6 @@ inline auto SourceSharp_SDKEntityFromUnknown( TUnknown *pUnknown ) -> decltype( 
 		return 0;
 
 	return pUnknown->GetBaseEntity();
-}
-
-//-----------------------------------------------------------------------------
-// From the handle table's IHandleEntity to a combat weapon, or NULL.
-//
-// TUnknown is IServerUnknown on the server and IClientUnknown on the client;
-// THandleEntity is deduced. NULL in means NULL out, a parallel-hierarchy
-// entity comes out NULL at the partition, and an SDK entity that is not a
-// weapon comes out NULL at the typed virtual. The one thing that can never
-// come out is a pointer whose vtable belongs to a different class than its
-// type says.
-//
-// THIS FUNCTION IS ITSELF ON THE STEP-5 LIST -- handle_cross.h:70 is the last
-// entry in nullflip_verbose.txt's server column, and it earned its place: it
-// used to read GetBaseEntity() and NULL-check the answer, so at step 5 a
-// managed weapon in a CHandle<CBaseCombatWeapon> slot would have come back
-// non-NULL and MyCombatWeaponPointer() would have dispatched through the wrong
-// subobject. Which is the exact bug the crossing was written to prevent,
-// arriving through the crossing.
-//-----------------------------------------------------------------------------
-template< class TWeapon, class TPartition, class TUnknown, class THandleEntity >
-inline TWeapon *SourceSharp_CrossHandleToWeapon( THandleEntity *pHandleEntity )
-{
-	if ( !pHandleEntity )
-		return 0;
-
-	TUnknown *pUnknown = static_cast< TUnknown * >( pHandleEntity );
-
-	// The partition. This is the step the (T*) cast skips, and skipping it is
-	// the wrong-vtable bug.
-	decltype( pUnknown->GetBaseEntity() ) pBase =
-		SourceSharp_SDKEntityFromUnknown< TPartition >( pUnknown );
-	if ( !pBase )
-		return 0;
-
-	return pBase->MyCombatWeaponPointer();
 }
 
 //-----------------------------------------------------------------------------
@@ -266,9 +163,8 @@ inline TWeapon *SourceSharp_CrossHandleToWeapon( THandleEntity *pHandleEntity )
 // standalone answers with itself. Both facts come from one virtual
 // call, which is why there is nothing to cast.
 //
-// TServerEntity is IServerEntity. THE SERVER'S FORM ONLY -- the client's is
-// below, and it is a separate function rather than a template parameter because
-// the cast on the next line WOULD BE WRONG over there.
+// TServerEntity is IServerEntity. The server's form only: the client resolves
+// a trace hit to its shell (SourceSharp_CrossHandleToClientShell, below).
 //-----------------------------------------------------------------------------
 template< class TGameEntity, class TServerEntity, class THandleEntity >
 inline TGameEntity *SourceSharp_CrossHandleToGameEntity( THandleEntity *pHandleEntity )
@@ -283,46 +179,6 @@ inline TGameEntity *SourceSharp_CrossHandleToGameEntity( THandleEntity *pHandleE
 	TServerEntity *pServerEntity = static_cast< TServerEntity * >( pHandleEntity );
 
 	return pServerEntity->GetBaseEntity();
-}
-
-//-----------------------------------------------------------------------------
-// The same crossing on the CLIENT, and it needs its own function for the same
-// reason SourceSharp_SDKEntityFromNetworkable does: the cast above would be
-// wrong here.
-//
-// The client's handle table is WIDER THAN ITS ENTITY INTERFACE. Everything in
-// it is an IClientUnknown -- that much the SDK already assumes, in
-// EntityFromEntityHandle's client arm -- but not everything in it is an
-// IClientEntity. CDefaultClientRenderable, CDetailModel and C_BaseTempEntity
-// implement IClientUnknown and stop there, and the engine's static props are in
-// the same table without being game objects at all. static_cast-ing one of
-// those to IClientEntity compiles, adjusts by zero (IClientUnknown is its
-// primary base), and then calls GetGameEntity() at an index that is PAST THE END
-// of that object's primary vtable -- reading whatever follows it as a function
-// pointer. That is not a smaller version of the bug this file prevents; it is
-// the same bug.
-//
-// GetIClientEntity() is the conversion the object performs for itself. Every
-// IClientUnknown has it, at an index no SourceSharp change moves, and every one
-// of the four non-entity implementors answers NULL. So the crossing is two
-// virtual calls and one structural cast, exactly like the server's -- the extra
-// virtual is what buys the safety the server gets from its chain being narrow.
-//
-// TUnknown is IClientUnknown; TGameEntity is IGameEntity, deduced nowhere and
-// written at the call site so a reader sees which boundary is meant.
-//-----------------------------------------------------------------------------
-template< class TGameEntity, class TUnknown, class THandleEntity >
-inline TGameEntity *SourceSharp_CrossHandleToClientGameEntity( THandleEntity *pHandleEntity )
-{
-	if ( !pHandleEntity )
-		return 0;
-
-	// Structural, and the only cast: IHandleEntity -> IClientUnknown is one
-	// single-inheritance step, and everything in the client's handle table is an
-	// IClientUnknown.
-	TUnknown *pUnknown = static_cast< TUnknown * >( pHandleEntity );
-
-	return SourceSharp_Partition< SourceSharpClientPartition >::GameEntityOf( pUnknown );
 }
 
 
@@ -384,5 +240,3 @@ inline TShell *SourceSharp_CrossHandleToClientShell( THandleEntity *pHandleEntit
 
 	return pShell;
 }
-
-#endif // SOURCESHARP_HANDLE_CROSS_H

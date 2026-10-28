@@ -1,11 +1,4 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=====================================================================================//
-
-#ifndef _MATH_PFNS_H_
-#define _MATH_PFNS_H_
 
 #pragma once
 
@@ -18,11 +11,4 @@ inline void SinCos( float radians, float *RESTRICT sine, float *RESTRICT cosine 
 	*cosine = cosf( radians );
 }
 
-#define FastRSqrt( x ) ( 1.0f / ::sqrtf( x ) )
-
-
 #define FastSqrt ::sqrtf
-
-
-
-#endif // _MATH_PFNS_H_

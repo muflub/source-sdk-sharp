@@ -1,23 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//===========================================================================//
 
-#ifndef IVMODELINFO_H
-#define IVMODELINFO_H
-
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "platform.h"
 #include "dbg.h"
 
-//-----------------------------------------------------------------------------
 // Forward declarations
-//-----------------------------------------------------------------------------
 class IMaterial;
 class KeyValues;
 struct vcollide_t;
@@ -36,14 +24,11 @@ typedef unsigned short MDLHandle_t;
 class CUtlBuffer;
 class IClientRenderable;
 
-
-//-----------------------------------------------------------------------------
 // Purpose: a callback class that is notified when a model has finished loading
-//-----------------------------------------------------------------------------
 abstract_class IModelLoadCallback
 {
 public:
-	virtual void OnModelLoadComplete( const model_t* pModel ) = 0;
+	virtual void unused_OnModelLoadComplete() = 0;
 
 protected:
 	// Protected destructor so that nobody tries to delete via this interface.
@@ -51,10 +36,7 @@ protected:
 	~IModelLoadCallback();
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Automate refcount tracking on a model index
-//-----------------------------------------------------------------------------
 class CRefCountedModelIndex
 {
 private:
@@ -64,10 +46,8 @@ public:
 	~CRefCountedModelIndex() { Set( -1 ); }
 
 	CRefCountedModelIndex( const CRefCountedModelIndex& src ) : m_nIndex( -1 ) { Set( src.m_nIndex ); }
-	CRefCountedModelIndex& operator=( const CRefCountedModelIndex& src ) { Set( src.m_nIndex ); return *this; }
 
 	explicit CRefCountedModelIndex( int i ) : m_nIndex( -1 ) { Set( i ); }
-	CRefCountedModelIndex& operator=( int i ) { Set( i ); return *this; }
 
 	int Get() const { return m_nIndex; }
 	void Set( int i );
@@ -76,10 +56,7 @@ public:
 	operator int () const { return m_nIndex; }
 };
 
-
-//-----------------------------------------------------------------------------
 // Model info interface
-//-----------------------------------------------------------------------------
 
 // change this when the new version is incompatable with the old
 #define VMODELINFO_CLIENT_INTERFACE_VERSION		"VModelInfoClient006"
@@ -94,7 +71,6 @@ public:
 //   and has a m_LocalDynamicModels lookup index of (dynamic index)>>1
 // - if the dynamic index is EVEN, then the model is NETWORKED
 //   and has a dynamic model string table index of (dynamic index)>>1
-
 
 abstract_class IVModelInfo
 {
@@ -200,8 +176,6 @@ public:
 	virtual void					UnregisterModelLoadCallback( int modelindex, IModelLoadCallback* pCallback ) = 0;
 };
 
-
-
 abstract_class IVModelInfoClient : public IVModelInfo
 {
 public:
@@ -211,17 +185,13 @@ public:
 	virtual const model_t *FindOrLoadModel( const char *name ) = 0;
 };
 
-
 struct virtualterrainparams_t
 {
 	// UNDONE: Add grouping here, specified in BSP file? (test grouping to see if this is necessary)
 	int index;
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: Force removal from callback list on destruction to avoid crashes.
-//-----------------------------------------------------------------------------
 inline IModelLoadCallback::~IModelLoadCallback()
 {
 #ifdef CLIENT_DLL
@@ -235,11 +205,7 @@ inline IModelLoadCallback::~IModelLoadCallback()
 	}
 }
 
-
-
-//-----------------------------------------------------------------------------
 // Purpose: Automate refcount tracking on a model index
-//-----------------------------------------------------------------------------
 inline void CRefCountedModelIndex::Set( int i )
 {
 #ifdef CLIENT_DLL
@@ -253,6 +219,3 @@ inline void CRefCountedModelIndex::Set( int i )
 	modelinfo->ReleaseDynamicModel( m_nIndex );
 	m_nIndex = i;
 }
-
-
-#endif // IVMODELINFO_H

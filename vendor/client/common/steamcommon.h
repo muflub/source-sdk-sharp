@@ -1,4 +1,3 @@
-
 //========= Copyright Valve Corporation, All rights reserved. ============//
 /*
 ** The copyright to the contents herein is the property of Valve Corporation.
@@ -25,7 +24,6 @@
 #pragma once
 #endif
 
-
 #ifdef __cplusplus
 extern "C"
 {
@@ -37,21 +35,14 @@ extern "C"
 
 #ifdef STEAM_EXPORTS
 #define STEAM_API __declspec(dllexport)
-#else
-#define STEAM_API __declspec(dllimport)
 #endif
-
-#define STEAM_CALL __cdecl
 
 #else
 
-#define STEAM_API /* */
-#define STEAM_CALL /* */
+ /* */
+ /* */
 
 #endif
-
-typedef void (STEAM_CALL  *KeyValueIteratorCallback_t )(const char *Key, const char *Val, void *pvParam);
-
 
 /******************************************************************************
 **
@@ -60,17 +51,12 @@ typedef void (STEAM_CALL  *KeyValueIteratorCallback_t )(const char *Key, const c
 ******************************************************************************/
 
 /* DEPRECATED -- these are ignored now, all API access is granted on SteamStartup */
-#define STEAM_USING_FILESYSTEM							(0x00000001)
-#define STEAM_USING_LOGGING								(0x00000002)
-#define STEAM_USING_USERID								(0x00000004)
-#define STEAM_USING_ACCOUNT								(0x00000008)
-#define STEAM_USING_ALL									(0x0000000f)
+
 /* END DEPRECATED */
 
 #define STEAM_MAX_PATH									(255)
-#define STEAM_QUESTION_MAXLEN							(255)
+
 #define STEAM_SALT_SIZE									(8)
-#define STEAM_PROGRESS_PERCENT_SCALE					(0x00001000)
 
 /* These are maximum significant string lengths, excluding nul-terminator. */
 #define STEAM_CARD_NUMBER_SIZE							(17)
@@ -100,7 +86,6 @@ typedef void (STEAM_CALL  *KeyValueIteratorCallback_t )(const char *Key, const c
 ** Scalar type and enumerated type definitions.
 **
 ******************************************************************************/
-
 
 typedef unsigned int SteamHandle_t;
 
@@ -195,9 +180,7 @@ typedef enum
 	eSteamErrorNetwork												= 200,
 	eSteamErrorOffline												= 201
 
-
 } ESteamError;
-
 
 typedef enum
 {
@@ -215,13 +198,11 @@ typedef enum						/* Filter elements returned by SteamFind{First,Next} */
 	eSteamFindAll					/* do not limit search (duplicates allowed) */
 } ESteamFindFilter;
 
-
 /******************************************************************************
 **
 ** Exported structure and complex type definitions.
 **
 ******************************************************************************/
-
 
 typedef struct
 {
@@ -230,8 +211,6 @@ typedef struct
 	int nDetailedErrorCode;
 	char szDesc[STEAM_MAX_PATH];
 } TSteamError;
-
-
 
 typedef struct
 {
@@ -244,7 +223,6 @@ typedef struct
 	long lCreationTime;				/* Seconds since 1/1/1970 (like time_t) when element was created */
 } TSteamElemInfo;
 
-
 typedef struct
 {
 	unsigned int uNumSubscriptions;
@@ -252,7 +230,6 @@ typedef struct
 	unsigned int uMaxApps;
 
 } TSteamSubscriptionStats;
-
 
 typedef struct
 {
@@ -290,7 +267,6 @@ typedef struct
 	int bIsLongRunningUnattended;
 
 } TSteamAppLaunchOption;
-
 
 typedef struct
 {
@@ -366,13 +342,6 @@ typedef struct
 
 } TSteamDiscountQualifier;
 
-typedef struct TSteamProgress
-{
-	int bValid;                      /* non-zero if call provides progress info */
-	unsigned int uPercentDone;       /* 0 to 100 * STEAM_PROGRESS_PERCENT_SCALE if bValid */
-	char szProgress[STEAM_MAX_PATH]; /* additional progress info */
-} TSteamProgress;
-
 typedef enum
 {
 	eSteamNotifyTicketsWillExpire,
@@ -386,12 +355,6 @@ typedef enum
 	eSteamNotifyCacheNeedsDecryption,
 	eSteamNotifyCacheNeedsRepair
 } ESteamNotificationCallbackEvent;
-
-
-typedef void(*SteamNotificationCallback_t)(ESteamNotificationCallbackEvent eEvent, unsigned int nData);
-
-
-typedef char SteamPersonalQuestion_t[ STEAM_QUESTION_MAXLEN + 1 ];
 
 typedef struct
 {
@@ -574,7 +537,6 @@ typedef enum
 	eSteamAccountDisabled				=	0x00000004
 } ESteamAccountStatusBitFields ;
 
-
 typedef enum
 {
 	eSteamBootstrapperError						= -1,
@@ -628,13 +590,7 @@ typedef enum
 **
 ******************************************************************************/
 
-
 #ifdef __cplusplus
-
-const SteamHandle_t										STEAM_INVALID_HANDLE = 0;
-const SteamCallHandle_t									STEAM_INVALID_CALL_HANDLE = 0;
-const SteamUserIDTicketValidationHandle_t				STEAM_INACTIVE_USERIDTICKET_VALIDATION_HANDLE = 0;
-const unsigned int										STEAM_USE_LATEST_VERSION = 0xFFFFFFFF;
 
 #else
 
@@ -644,7 +600,6 @@ const unsigned int										STEAM_USE_LATEST_VERSION = 0xFFFFFFFF;
 #define STEAM_USE_LATEST_VERSION						(0xFFFFFFFFu);
 
 #endif
-
 
 /******************************************************************************
 ** Each Steam instance (licensed Steam Service Provider) has a unique SteamInstanceID_t.
@@ -656,7 +611,6 @@ const unsigned int										STEAM_USE_LATEST_VERSION = 0xFFFFFFFF;
 ******************************************************************************/
 
 typedef	unsigned short		SteamInstanceID_t;		// MUST be 16 bits
-
 
 #if defined ( _WIN32 )
 typedef	unsigned __int64	SteamLocalUserID_t;		// MUST be 64 bits
@@ -694,10 +648,8 @@ typedef struct
 
 } TSteamGlobalUserID;
 
-
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif

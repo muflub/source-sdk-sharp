@@ -1,21 +1,12 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================//
 
-#ifndef INTERPOLATEDVAR_H
-#define INTERPOLATEDVAR_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier1/utllinkedlist.h"
 #include "rangecheckedvar.h"
 #include "lerp_functions.h"
 #include "animationlayer.h"
 #include "convar.h"
-
 
 #include "tier0/memdbgon.h"
 
@@ -26,17 +17,12 @@
 // is accurate.
 //#define INTERPOLATEDVAR_PARANOID_MEASUREMENT
 
-
 #define LATCH_ANIMATION_VAR  (1<<0)		// use AnimTime as sample basis
 #define LATCH_SIMULATION_VAR (1<<1)		// use SimulationTime as sample basis
 
-#define EXCLUDE_AUTO_LATCH			(1<<2)
 #define EXCLUDE_AUTO_INTERPOLATE	(1<<3)
 
 #define INTERPOLATE_LINEAR_ONLY		(1<<4)	// don't do hermite interpolation
-#define INTERPOLATE_OMIT_UPDATE_LAST_NETWORKED (1<<5)
-
-
 
 #define EXTRA_INTERPOLATION_HISTORY_STORED 0.05f	// It stores this much extra interpolation history,
 													// so you can always call Interpolate() this far
@@ -45,13 +31,6 @@
 
 // this global keeps the last known server packet tick (to avoid calling engine->GetLastTimestamp() all the time)
 extern float g_flLastPacketTimestamp;
-
-inline void Interpolation_SetLastPacketTimeStamp( float timestamp)
-{
-	Assert( timestamp > 0 );
-	g_flLastPacketTimestamp = timestamp;
-}
-
 
 // Before calling Interpolate(), you can use this use this to setup the context if 
 // you want to enable extrapolation.
@@ -82,31 +61,15 @@ public:
 		s_pHead = m_pNext;
 	}
 
-	static void EnableExtrapolation(bool state)
-	{
-		s_bAllowExtrapolation = state;
-	}
-
-	static bool IsThereAContext()
-	{
-		return s_pHead != NULL;
-	}
-
 	static bool IsExtrapolationAllowed()
 	{
 		return s_bAllowExtrapolation;
 	}
 
-	static void SetLastTimeStamp(float timestamp)
-	{
-		s_flLastTimeStamp = timestamp;
-	}
-	
 	static float GetLastTimeStamp()
 	{
 		return s_flLastTimeStamp;
 	}
-
 
 private:
 
@@ -119,9 +82,7 @@ private:
 	static float s_flLastTimeStamp;
 };
 
-
 extern ConVar cl_extrapolate_amount;
-
 
 template< class T >
 inline T ExtrapolateInterpolatedVarType( const T &oldVal, const T &newVal, float divisor, float flExtrapolationAmount )
@@ -144,10 +105,7 @@ inline QAngle ExtrapolateInterpolatedVarType( const QAngle &oldVal, const QAngle
 	return Lerp<QAngle>( 1.0f + flExtrapolationAmount * divisor, oldVal, newVal );
 }
 
-
-// -------------------------------------------------------------------------------------------------------------- //
 // IInterpolatedVar interface.
-// -------------------------------------------------------------------------------------------------------------- //
 
 abstract_class IInterpolatedVar
 {
@@ -200,23 +158,6 @@ struct CInterpolatedVarEntryBase
 		changetime = src.changetime;
 		src.value = 0;
 		src.count = 0;
-	}
-
-	CInterpolatedVarEntryBase& operator=( const CInterpolatedVarEntryBase& src )
-	{
-		delete[] value;
-		value = NULL;
-		count = 0;
-		if ( src.value )
-		{
-			count = src.count;
-			value = new Type[count];
-			for ( int i = 0; i < count; i++ )
-			{
-				value[i] = src.value[i];
-			}
-		}
-		return *this;
 	}
 
 	Type *GetValue() { return value; }
@@ -336,14 +277,6 @@ public:
 		return m_pElements[i];
 	}
 
-	const T& operator[]( int i ) const
-	{ 
-		Assert( IsIdxValid(i) ); 
-		i += m_firstElement;
-		i = WrapRange(i);
-		return m_pElements[i];
-	}
-
 	void EnsureCapacity( int capSize )
 	{
 		if ( capSize > m_maxElement )
@@ -352,13 +285,11 @@ public:
 			T *pNew = new T[newMax];
 			for ( int i = 0; i < m_maxElement; i++ )
 			{
-				// ------------
 				// If you wanted to make this a more generic container you'd probably want this code
 				// instead - since FastTransferFrom() is an optimization dependent on types stored
 				// here defining this operation.
 				//pNew[i] = m_pElements[WrapRange(i+m_firstElement)];
 				pNew[i].FastTransferFrom( m_pElements[WrapRange(i+m_firstElement)] );
-				// ------------
 			}
 			m_firstElement = 0;
 			m_maxElement = newMax;
@@ -428,9 +359,7 @@ private:
 	unsigned short m_growSize;
 };
 
-// -------------------------------------------------------------------------------------------------------------- //
 // CInterpolatedVarArrayBase - the main implementation of IInterpolatedVar.
-// -------------------------------------------------------------------------------------------------------------- //
 
 template< typename Type, bool IS_ARRAY>
 class CInterpolatedVarArrayBase : public IInterpolatedVar
@@ -441,7 +370,6 @@ public:
 	CInterpolatedVarArrayBase( const char *pDebugName="no debug name" );
 	virtual ~CInterpolatedVarArrayBase();
 
-	
 	// IInterpolatedVar overrides.
 public:
 	
@@ -455,7 +383,6 @@ public:
 	virtual void RestoreToLastNetworked();
 	virtual void Copy( IInterpolatedVar *pInSrc );
 	virtual const char *GetDebugName() { return m_pDebugName; }
-
 
 public:
 
@@ -516,7 +443,6 @@ protected:
 		float frac;
 	};
 
-
 protected:
 
 	void RemoveOldEntries( float oldesttime );
@@ -573,7 +499,6 @@ protected:
 	const char *						m_pDebugName;
 	bool								m_bDebug : 1;
 };
-
 
 template< typename Type, bool IS_ARRAY >
 inline CInterpolatedVarArrayBase<Type, IS_ARRAY>::CInterpolatedVarArrayBase( const char *pDebugName )
@@ -670,13 +595,11 @@ inline bool CInterpolatedVarArrayBase<Type, IS_ARRAY>::NoteChanged( float change
 	return bRet;
 }
 
-
 template< typename Type, bool IS_ARRAY >
 inline bool CInterpolatedVarArrayBase<Type, IS_ARRAY>::NoteChanged( float changetime, bool bUpdateLastNetworkedValue )
 {
 	return NoteChanged( changetime, m_InterpolationAmount, bUpdateLastNetworkedValue );
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::RestoreToLastNetworked()
@@ -751,7 +674,6 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::Reset()
 	}
 }
 
-
 template< typename Type, bool IS_ARRAY >
 inline float CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetOldestEntry()
 {
@@ -762,7 +684,6 @@ inline float CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetOldestEntry()
 	}
 	return lastVal;
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::RemoveOldEntries( float oldesttime )
@@ -776,7 +697,6 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::RemoveOldEntries( float o
 	}
 	m_VarHistory.Truncate(newCount);
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::RemoveEntriesPreviousTo( float flTime )
@@ -793,7 +713,6 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::RemoveEntriesPreviousTo( 
 		}
 	}
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline bool CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetInterpolationInfo( 
@@ -881,12 +800,10 @@ inline bool CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetInterpolationInfo(
 		return true;
 	}
 
-
 	// This is the single-element case
 	pInfo->newer = pInfo->older;
 	return (pInfo->older != varHistory.InvalidIndex());
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline bool CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetInterpolationInfo( float currentTime, int *pNewer, int *pOlder, int *pOldest )
@@ -905,7 +822,6 @@ inline bool CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetInterpolationInfo( flo
 
 	return result;
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::DebugInterpolate( Type *pOut, float currentTime )
@@ -936,18 +852,14 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::DebugInterpolate( Type *p
 			CInterpolationContext::GetLastTimeStamp() <= m_LastNetworkedTime )
 		{
 			// At this point, we know we're out of data and we have the ability to get a velocity to extrapolate with.
-			//
 			// However, we only want to extraploate if the server is choking. We don't want to extrapolate if 
 			// the object legimately stopped moving and the server stopped sending updates for it.
-			//
 			// The way we know that the server is choking is if we haven't heard ANYTHING from it for a while.
 			// The server's update interval should be at least as often as our interpolation amount (otherwise,
 			// we wouldn't have the ability to interpolate).
-			//
 			// So right here, if we see that we haven't gotten any server updates since the last interpolation
 			// history update to this entity (and since we're in here, we know that we're out of interpolation data),
 			// then we can assume that the server is choking and decide to extrapolate.
-			//
 			// The End
 
 			// Use the velocity here (extrapolate up to 1/4 of a second).
@@ -973,7 +885,6 @@ inline int CInterpolatedVarArrayBase<Type, IS_ARRAY>::Interpolate( float current
 	if (!GetInterpolationInfo( &info, currentTime, interpolation_amount, &noMoreChanges ))
 		return noMoreChanges;
 
-	
 	CVarHistory &history = m_VarHistory;
 
 	if ( m_bDebug )
@@ -982,7 +893,6 @@ inline int CInterpolatedVarArrayBase<Type, IS_ARRAY>::Interpolate( float current
 		//  value and we can remove this var from the interpolated var list (bit perf optimization)
 		Msg( "%s Interpolate at %f%s\n", GetDebugName(), currentTime, noMoreChanges ? " [value will hold]" : "" );
 	}
-
 
 #ifdef INTERPOLATEDVAR_PARANOID_MEASUREMENT
 	Type *backupValues = (Type*)_alloca( m_nMaxCount * sizeof(Type) );
@@ -1006,18 +916,14 @@ inline int CInterpolatedVarArrayBase<Type, IS_ARRAY>::Interpolate( float current
 			CInterpolationContext::GetLastTimeStamp() <= m_LastNetworkedTime )
 		{
 			// At this point, we know we're out of data and we have the ability to get a velocity to extrapolate with.
-			//
 			// However, we only want to extraploate if the server is choking. We don't want to extrapolate if 
 			// the object legimately stopped moving and the server stopped sending updates for it.
-			//
 			// The way we know that the server is choking is if we haven't heard ANYTHING from it for a while.
 			// The server's update interval should be at least as often as our interpolation amount (otherwise,
 			// we wouldn't have the ability to interpolate).
-			//
 			// So right here, if we see that we haven't gotten any server updates since the last interpolation
 			// history update to this entity (and since we're in here, we know that we're out of interpolation data),
 			// then we can assume that the server is choking and decide to extrapolate.
-			//
 			// The End
 
 			// Use the velocity here (extrapolate up to 1/4 of a second).
@@ -1058,7 +964,6 @@ inline int CInterpolatedVarArrayBase<Type, IS_ARRAY>::Interpolate( float current
 	return noMoreChanges;
 }
 
-
 template< typename Type, bool IS_ARRAY >
 void CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetDerivative( Type *pOut, float currentTime )
 {
@@ -1075,7 +980,6 @@ void CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetDerivative( Type *pOut, float
 		_Derivative_Linear( pOut, &m_VarHistory[info.older], &m_VarHistory[info.newer] );
 	}
 }
-
 
 template< typename Type, bool IS_ARRAY >
 void CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetDerivative_SmoothVelocity( Type *pOut, float currentTime )
@@ -1101,17 +1005,13 @@ void CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetDerivative_SmoothVelocity( Ty
 		if ( IsValidIndex( realOlder ) && history[realOlder].changetime != 0.0 )
 		{
 			// At this point, we know we're out of data and we have the ability to get a velocity to extrapolate with.
-			//
 			// However, we only want to extraploate if the server is choking. We don't want to extrapolate if 
 			// the object legimately stopped moving and the server stopped sending updates for it.
-			//
 			// The way we know that the server is choking is if we haven't heard ANYTHING from it for a while.
 			// The server's update interval should be at least as often as our interpolation amount (otherwise,
 			// we wouldn't have the ability to interpolate).
-			//
 			// So right here, if we see that we haven't gotten any server updates for a whole interpolation 
 			// interval, then we know the server is choking.
-			//
 			// The End
 			if ( m_InterpolationAmount > 0.000001f &&
 				 CInterpolationContext::GetLastTimeStamp() <= (currentTime - m_InterpolationAmount) )
@@ -1145,7 +1045,6 @@ void CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetDerivative_SmoothVelocity( Ty
 	}
 
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline int CInterpolatedVarArrayBase<Type, IS_ARRAY>::Interpolate( float currentTime )
@@ -1298,13 +1197,11 @@ inline void	CInterpolatedVarArrayBase<Type, IS_ARRAY>::SetMaxCount( int newmax )
 	}
 }
 
-
 template< typename Type, bool IS_ARRAY >
 inline int CInterpolatedVarArrayBase<Type, IS_ARRAY>::GetMaxCount() const
 {
 	return m_nMaxCount;
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::_Interpolate( Type *out, float frac, CInterpolatedVarEntry *start, CInterpolatedVarEntry *end )
@@ -1340,7 +1237,6 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::_Interpolate( Type *out, 
 	}
 }
 
-
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::_Extrapolate( 
 	Type *pOut,
@@ -1366,7 +1262,6 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::_Extrapolate(
 		}
 	}
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::TimeFixup2_Hermite( 
@@ -1405,7 +1300,6 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::TimeFixup2_Hermite(
 	}
 }
 
-
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::TimeFixup_Hermite( 
 	typename CInterpolatedVarArrayBase<Type, IS_ARRAY>::CInterpolatedVarEntry &fixup,
@@ -1415,7 +1309,6 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::TimeFixup_Hermite(
 {
 	TimeFixup2_Hermite( fixup, prev, start, end->changetime - start->changetime );
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::_Interpolate_Hermite( 
@@ -1486,7 +1379,6 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::_Derivative_Hermite(
 	}
 }
 
-
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::_Derivative_Hermite_SmoothVelocity( 
 	Type *out, 
@@ -1505,7 +1397,6 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::_Derivative_Hermite_Smoot
 		out[i] = Lerp( frac, prevVel, curVel );
 	}
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::_Derivative_Linear( 
@@ -1529,7 +1420,6 @@ inline void CInterpolatedVarArrayBase<Type, IS_ARRAY>::_Derivative_Linear(
 		}
 	}
 }
-
 
 template< typename Type, bool IS_ARRAY >
 inline bool CInterpolatedVarArrayBase<Type, IS_ARRAY>::ValidOrder()
@@ -1559,21 +1449,7 @@ inline bool CInterpolatedVarArrayBase<Type, IS_ARRAY>::ValidOrder()
 	return true;
 }
 
-template< typename Type, int COUNT >
-class CInterpolatedVarArray : public CInterpolatedVarArrayBase<Type, true >
-{
-public:
-	CInterpolatedVarArray( const char *pDebugName = "no debug name" )
-		: CInterpolatedVarArrayBase<Type, true>( pDebugName )
-	{
-		this->SetMaxCount( COUNT );
-	}
-};
-
-
-// -------------------------------------------------------------------------------------------------------------- //
 // CInterpolatedVar.
-// -------------------------------------------------------------------------------------------------------------- //
 
 template< typename Type >
 class CInterpolatedVar : public CInterpolatedVarArrayBase< Type, false >
@@ -1587,5 +1463,3 @@ public:
 };
 
 #include "tier0/memdbgoff.h"
-
-#endif // INTERPOLATEDVAR_H

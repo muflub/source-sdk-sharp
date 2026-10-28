@@ -38,11 +38,7 @@
 // Engine-free: this is arithmetic over an int.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_PARTICLE_FOLLOW_MASK_H
-#define SOURCESHARP_PARTICLE_FOLLOW_MASK_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 //-----------------------------------------------------------------------------
 // What a system that nobody configured follows: control point 0, and nothing
@@ -87,5 +83,3 @@ inline bool SourceSharpParticleFollow_Wants( int nMask, int nPoint )
 
 	return ( nMask & ( 1 << nPoint ) ) != 0;
 }
-
-#endif // SOURCESHARP_PARTICLE_FOLLOW_MASK_H

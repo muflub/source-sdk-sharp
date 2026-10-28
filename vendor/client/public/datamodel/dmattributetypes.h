@@ -1,14 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-//=============================================================================
 
-#ifndef DMATTRIBUTETYPES_H
-#define DMATTRIBUTETYPES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier1/utlvector.h"
 #include "tier1/utlbinaryblock.h"
@@ -22,25 +14,10 @@
 #include "datamodel/dmelementhandle.h"
 #include "tier1/utlsymbol.h"
 
-
-//-----------------------------------------------------------------------------
 // Object Id
-//-----------------------------------------------------------------------------
 typedef UniqueId_t DmObjectId_t;
 
-
-//-----------------------------------------------------------------------------
-// Necessary for template specialization for AT_UNKNOWN
-//-----------------------------------------------------------------------------
-struct DmUnknownAttribute_t
-{
-	bool operator==( const DmUnknownAttribute_t& src ) const { return true; }
-};
-
-
-//-----------------------------------------------------------------------------
 // Element array
-//-----------------------------------------------------------------------------
 struct DmElementAttribute_t
 {
 	DmElementAttribute_t() : m_ElementType( UTL_INVAL_SYMBOL ) {}
@@ -59,10 +36,7 @@ struct DmElementArray_t : public CUtlVector< DmElementHandle_t >
 	UtlSymId_t m_ElementType;	
 };
 
-
-//-----------------------------------------------------------------------------
 // Attribute chunk type enum
-//-----------------------------------------------------------------------------
 enum DmAttributeType_t
 {
 	AT_UNKNOWN = 0,
@@ -103,36 +77,7 @@ enum DmAttributeType_t
 	AT_TYPE_COUNT,
 };
 
-
-inline bool IsValueType( DmAttributeType_t type )
-{
-	return type >= AT_FIRST_VALUE_TYPE && type < AT_FIRST_ARRAY_TYPE;
-}
-
-inline bool IsArrayType( DmAttributeType_t type )
-{
-	return type >= AT_FIRST_ARRAY_TYPE && type < AT_TYPE_COUNT;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//-----------------------------------------------------------------------------
 // Attribute info... 
-//-----------------------------------------------------------------------------
 template <typename T>
 class CDmAttributeInfo
 {
@@ -156,7 +101,6 @@ public:
 		Assert(0);
 	}
 };
-
 
 #define DECLARE_ATTRIBUTE_TYPE_INTERNAL( _className, _storageType, _attributeType, _attributeName, _defaultSetStatement ) \
 	template< > class CDmAttributeInfo< _className >						\
@@ -216,6 +160,3 @@ DECLARE_ATTRIBUTE_ARRAY_TYPE( CUtlString,		AT_STRING_ARRAY,		"string_array" )
 DECLARE_ATTRIBUTE_ARRAY_TYPE( CUtlBinaryBlock,	AT_VOID_ARRAY,			"binary_array" )
 DECLARE_ATTRIBUTE_ARRAY_TYPE( DmObjectId_t,		AT_OBJECTID_ARRAY,		"elementid_array" )
 DECLARE_ATTRIBUTE_ARRAY_TYPE_INTERNAL( DmElementHandle_t, DmElementArray_t,	AT_ELEMENT_ARRAY, "element_array" )
-
-
-#endif // DMATTRIBUTETYPES_H

@@ -79,11 +79,7 @@
 // coverage already in place.
 //
 //=============================================================================
-#ifndef SOURCESHARP_PHYSICS_GAMEDATA_H
-#define SOURCESHARP_PHYSICS_GAMEDATA_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 #include <stdint.h>
@@ -181,5 +177,3 @@ inline CBaseHandle PhysicsHandleFromGameData( const void *pGameData )
 
 	return CBaseHandle::UnsafeFromIndex( (int)(uint32)word );
 }
-
-#endif // SOURCESHARP_PHYSICS_GAMEDATA_H

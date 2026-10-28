@@ -1,20 +1,5 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-//
-//-----------------------------------------------------------------------------
-// $Log: $
-//
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( IGAMEEVENTS_H )
-#define IGAMEEVENTS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "tier1/interface.h"
 
@@ -22,9 +7,7 @@
 #define INTERFACEVERSION_GAMEEVENTSMANAGER2	"GAMEEVENTSMANAGER002"	// new game event manager,
 
 #include "tier1/bitbuf.h"
-//-----------------------------------------------------------------------------
 // Purpose: Engine interface into global game event management
-//-----------------------------------------------------------------------------
 
 /* 
 
@@ -53,28 +36,12 @@ Valid data types are string, float, long, short, byte & bool. If a
 data field should not be broadcasted to clients, use the type "local".
 */
 
-
 		// max game event name length
-#define MAX_EVENT_BITS			9		// max bits needed for an event index
+		// max bits needed for an event index
 		// max number of events allowed
 	// max size in bytes for a serialized event
 
 class KeyValues;
-class CGameEvent;
-
-// Class for visiting every key of data on an event
-abstract_class IGameEventVisitor2
-{
-public:
-	// return true to keep iterating, false to abort iteration
-	virtual void unused_VisitLocal() = 0;
-	virtual void unused_VisitString() = 0;
-	virtual void unused_VisitFloat() = 0;
-	virtual void unused_VisitInt() = 0;
-	virtual void unused_VisitUint64() = 0;
-	virtual void unused_VisitWString() = 0;
-	virtual void unused_VisitBool() = 0;
-};
 
 abstract_class IGameEvent
 {
@@ -111,7 +78,6 @@ public:
 	// returns true if iteration aborted normally, false if it was aborted by the visitor callback
 	virtual void unused_ForEventData() = 0;
 };
-
 
 abstract_class IGameEventListener2
 {
@@ -214,8 +180,3 @@ public:
 	virtual void unused_SerializeKeyValues() = 0;
 	virtual void unused_UnserializeKeyValue() = 0; // create new KeyValues, must be deleted
 };
-
-
-
-
-#endif // IGAMEEVENTS_H

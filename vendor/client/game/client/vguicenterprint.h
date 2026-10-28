@@ -1,23 +1,9 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//=============================================================================//
-#if !defined( VGUICENTERPRINT_H )
-#define VGUICENTERPRINT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "ivguicenterprint.h"
 #include <vgui/VGUI.h>
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 namespace vgui
 {
 class Panel;
@@ -44,5 +30,3 @@ public:
 };
 
 extern CCenterPrint *internalCenterPrint;
-
-#endif // VGUICENTERPRINT_H

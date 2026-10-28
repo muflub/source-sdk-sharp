@@ -15,8 +15,9 @@
 // creation and destruction still reach this object; it has nothing to do.
 //=============================================================================//
 
-#include "cbase.h"
 #include "iloadingdisc.h"
+#include "tier0/platform.h"
+#include "vgui/VGUI.h"
 
 class CSourceSharpLoadingDisc : public ILoadingDisc
 {

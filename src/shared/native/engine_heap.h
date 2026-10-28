@@ -25,11 +25,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_ENGINE_HEAP_H
-#define SOURCESHARP_ENGINE_HEAP_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <cstddef>
 
@@ -56,5 +52,3 @@ IEngineHeap *EngineHeapSeenBy( const char *pszModuleFile );
 void EngineHeapFree( void *pMem );
 
 } // namespace ss
-
-#endif // SOURCESHARP_ENGINE_HEAP_H

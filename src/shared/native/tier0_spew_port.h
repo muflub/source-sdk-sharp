@@ -11,13 +11,10 @@
 // the client's DevWarning( level ) (tier0_spew_client.cpp) with SPEW_WARNING.
 //=============================================================================//
 
-#ifndef SOURCESHARP_TIER0_SPEW_PORT_H
-#define SOURCESHARP_TIER0_SPEW_PORT_H
+#pragma once
 
 #include "tier0/dbg.h"
 
 #include <stdarg.h>
 
 void Tier0_DevSpewV( int level, SpewType_t type, const tchar *pMsg, va_list args );
-
-#endif // SOURCESHARP_TIER0_SPEW_PORT_H

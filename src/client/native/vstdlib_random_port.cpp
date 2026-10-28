@@ -28,16 +28,15 @@
 // as plain C declarations here, so client.dll exports none of them
 // (game_dll_exports_test); every other file's import binds to these through
 // SS_BIND_IMPORT below.
-#include "vstdlib/vstdlib.h"
 #if defined( _MSC_VER )
 	#undef VSTDLIB_INTERFACE
 	#define VSTDLIB_INTERFACE extern "C"
 #endif
-#include "vstdlib/random.h"
 
 #include <math.h>
 #include <mutex>
 #include "ss_platform.h"	// SS_BIND_IMPORT
+#include "vstdlib/random.h"
 #ifdef _MSC_VER
 // This file defines functions the engine DLLs' headers declare dllimport
 // (C4273); SS_BIND_IMPORT at the end binds this module's calls to them.

@@ -1,20 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $Workfile:     $
-// $Date:         $
-// $NoKeywords: $
-//===========================================================================//
-#if !defined( IVIEWRENDER_H )
-#define IVIEWRENDER_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "ivrenderview.h"
-
 
 // These are set as it draws reflections, refractions, etc, so certain effects can avoid 
 // drawing themselves in reflections.
@@ -49,14 +36,10 @@ enum DrawFlags_t
 	DF_SHADOW_DEPTH_MAP		= 0x100000	// Currently rendering a shadow depth map
 };
 
-
-//-----------------------------------------------------------------------------
 // Purpose: View setup and rendering
-//-----------------------------------------------------------------------------
 class CViewSetup;
 class C_BaseEntity;
 struct vrect_t;
-class C_BaseViewModel;
 struct WriteReplayScreenshotParams_t;
 class IReplayScreenshotSystem;
 
@@ -141,5 +124,3 @@ public:
 };
 
 extern IViewRender *view;
-
-#endif // IVIEWRENDER_H

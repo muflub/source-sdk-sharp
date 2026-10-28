@@ -43,11 +43,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_ENTITY_FACTORY_TABLE_H
-#define SOURCESHARP_ENTITY_FACTORY_TABLE_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <map>
 #include <string>
@@ -214,5 +210,3 @@ private:
 	Map_t                                        m_Factories;
 	std::vector< const typename Map_t::value_type * > m_Order;
 };
-
-#endif // SOURCESHARP_ENTITY_FACTORY_TABLE_H

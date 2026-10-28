@@ -21,10 +21,11 @@
 //=============================================================================//
 
 #include "tier1/convar.h"
+#include "dt_recv.h"
+#include "tier0/dbg.h"
 #include "generic_payload.h"
 #include "generic_nettable.h"
 #include "ss_string.h"
-#include "dt_recv.h"
 #include "imanaged_areas_client.h"
 
 // The live shell's blob base. Declared rather than included, as

@@ -1,20 +1,9 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//=============================================================================//
 
-#ifndef PARTICLESPHERERENDERER_H
-#define PARTICLESPHERERENDERER_H
-#ifdef _WIN32
 #pragma once
-#endif
-
 
 #include "particlemgr.h"
 #include "particle_util.h"
-
 
 class CParticleSphereRenderer
 {
@@ -25,9 +14,6 @@ public:
 	// Initialize and tell it the material you'll be using.
 	void		Init( CParticleMgr *pParticleMgr, IMaterial *pMaterial );
 	
-	// Pass this call through from your particle system too.
-	void		StartRender( VMatrix &effectMatrix );
-
 	// Call this to	render a spherical particle.
 	void		RenderParticle( 
 		ParticleDraw *pDraw, 
@@ -46,18 +32,6 @@ public:
 		const Vector &vToAdd0to1	// Add this to the color (value 0-1)
 		); 
 
-	
-	// Lighting is (base color) + (ambient / dist^2) + bump(directional / dist^2)
-	const Vector& GetBaseColor() const;			// Specified as 0-1
-	void SetBaseColor( const Vector &vColor );
-	
-	const CParticleLightInfo& GetAmbientLight() const;
-	void SetAmbientLight( const CParticleLightInfo &info );
-	
-	const CParticleLightInfo& GetDirectionalLight() const;
-	void SetDirectionalLight( const CParticleLightInfo &info );
-
-
 private:
 
 	void		AddLightColor( 
@@ -69,12 +43,11 @@ private:
 
 	inline void	ClampColor( Vector &vColor );
 
-
 private:
 
 	int m_iLastTickStartRenderCalled;	// Used for debugging.
 	
-	CParticleMgr *m_pParticleMgr;
+	alignas( 8 ) unsigned char unused_m_pParticleMgr[ 8 ];
 	
 	Vector			m_vBaseColor;
 	CParticleLightInfo m_AmbientLight;
@@ -82,10 +55,7 @@ private:
 	bool			m_bUsingPixelShaders;
 };
 
-
-// ------------------------------------------------------------------------ //
 // Inlines.
-// ------------------------------------------------------------------------ //
 
 inline void CParticleSphereRenderer::AddLightColor( 
 	Vector const *pPos,
@@ -107,7 +77,6 @@ inline void CParticleSphereRenderer::AddLightColor(
 	}
 }
 
-
 inline void CParticleSphereRenderer::ClampColor( Vector &vColor )
 {
 	float flMax = MAX( vColor.x, MAX( vColor.y, vColor.z ) );
@@ -119,37 +88,6 @@ inline void CParticleSphereRenderer::ClampColor( Vector &vColor )
 	{
 		vColor *= 255.0;
 	}
-}
-
-
-inline const Vector& CParticleSphereRenderer::GetBaseColor() const
-{
-	return m_vBaseColor;
-}
-
-inline void CParticleSphereRenderer::SetBaseColor( const Vector &vColor )
-{
-	m_vBaseColor = vColor;
-}
-
-inline const CParticleLightInfo& CParticleSphereRenderer::GetAmbientLight() const
-{
-	return m_AmbientLight;
-}
-
-inline void CParticleSphereRenderer::SetAmbientLight( const CParticleLightInfo &info )
-{
-	m_AmbientLight = info;
-}
-
-inline const CParticleLightInfo& CParticleSphereRenderer::GetDirectionalLight() const
-{
-	return m_DirectionalLight;
-}
-
-inline void CParticleSphereRenderer::SetDirectionalLight( const CParticleLightInfo &info )
-{
-	m_DirectionalLight = info;
 }
 
 inline void CParticleSphereRenderer::RenderParticle( 
@@ -224,6 +162,3 @@ inline void CParticleSphereRenderer::RenderParticle_AddColor(
 		flAlpha,		// alpha
 		flParticleSize );
 }
-
-
-#endif // PARTICLESPHERERENDERER_H

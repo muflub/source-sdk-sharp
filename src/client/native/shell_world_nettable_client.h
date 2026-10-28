@@ -26,13 +26,8 @@
 //
 //=============================================================================//
 
-#ifndef SHELL_WORLD_NETTABLE_CLIENT_H
-#define SHELL_WORLD_NETTABLE_CLIENT_H
-#ifdef _WIN32
 #pragma once
-#endif
 
-#include "basetypes.h"
 
 class ClientClass;
 class IClientNetworkable;
@@ -99,5 +94,3 @@ const char *SourceSharp_WorldDetailSpriteMaterial();
 // runtime build takes it from here.
 //-----------------------------------------------------------------------------
 IClientNetworkable *SourceSharp_ClientWorldFactory( int entnum, int serialNum );
-
-#endif // SHELL_WORLD_NETTABLE_CLIENT_H

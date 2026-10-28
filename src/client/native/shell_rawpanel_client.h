@@ -17,14 +17,15 @@
 // IsWithinTraverse did, and hands the input messages vgui2 sends it to virtual
 // hooks by name. Everything else answers as a plain, scheme-less panel.
 //=============================================================================//
-#ifndef SHELL_RAWPANEL_CLIENT_H
-#define SHELL_RAWPANEL_CLIENT_H
+#pragma once
 
 #include "vgui/VGUI.h"
 #include "vgui/IClientPanel.h"
 #include "vgui/MouseCode.h"
 #include "vgui/KeyCode.h"
 #include "vgui/Cursor.h"
+#include "tier0/platform.h"
+#include "vgui/ISurface.h"
 
 class KeyValues;
 
@@ -104,5 +105,3 @@ private:
 	int m_nScreenTall;
 	bool m_bFillScreen;
 };
-
-#endif // SHELL_RAWPANEL_CLIENT_H

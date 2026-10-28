@@ -54,12 +54,29 @@
 // reads (the IRecipientFilter slots) and the four adds the client's callers
 // make: by PVS, by PAS, every player, and the local player's filter.
 //
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "c_recipientfilter.h"
+#include "tier1/utlvector.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "collisionproperty.h"
 #include "local_recipient.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: 
