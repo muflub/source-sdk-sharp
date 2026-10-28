@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+# Build stock hl2mp from a clone of Valve's source-sdk-2013, the way its own
+# src/buildallprojects does (vpc + ninja in the steamrt sniper SDK image), but
+# for /hl2mp alone and without a TTY.
+#
+#   tools/stock-ab/build-stock SDK_DIR [release|debug]
+#
+# SDK_DIR is a clone this tool may write to (tools/stock-ab/stock-ab fetch
+# makes one); never the fork, never the pristine oracle clone.
+#
+set -euo pipefail
+
+SDK="$(readlink -f -- "${1:?usage: $0 SDK_DIR [release|debug]}")"
+MODE="${2:-release}"
+case "$MODE" in debug|release) ;; *) echo "usage: $0 SDK_DIR [release|debug]"; exit 1 ;; esac
+IMAGE="${SS_CI_IMAGE:-registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest}"
+
+if [[ ! -f "$SDK/src/devtools/bin/vpc" ]]; then
+    echo "error: $SDK is not a source-sdk-2013 clone"; exit 1
+fi
+# The render tracer the patch series' ab_render_trace uses is this repo's
+# own (the same instrument as cs_cl_render_trace), copied in rather than
+# carried in the series. Copied only when it changed, so ninja rebuilds it
+# only then.
+REPO="$(cd -- "$(dirname -- "$(readlink -f -- "$0")")/../.." && pwd -P)"
+TRACER="$SDK/src/game/client/ss_ab"
+if [[ ! -f /run/.containerenv && -d "$TRACER" ]]; then
+    for f in client/native/shell_render_trace_client.cpp client/native/shell_render_trace_client.h \
+             shared/native/vtable_slot_patch.h shared/native/vtable_hook.h shared/native/ss_platform.h; do
+        cmp -s "$REPO/src/$f" "$TRACER/$(basename "$f")" || cp "$REPO/src/$f" "$TRACER/"
+    done
+fi
+
+if [[ "${XDG_DATA_HOME:-}" == */snap/* ]]; then
+    export XDG_DATA_HOME="$HOME/.local/share"
+fi
+
+if [[ ! -f /run/.containerenv ]]; then
+    runner="$(command -v podman || command -v docker)"
+    mkdir -p "${CCACHE_DIR:-$HOME/.ccache}"
+    exec "$runner" run --rm --userns=keep-id \
+        --env "CCACHE_DIR=${CCACHE_DIR:-$HOME/.ccache}" \
+        --mount "type=bind,source=${CCACHE_DIR:-$HOME/.ccache},target=${CCACHE_DIR:-$HOME/.ccache}" \
+        --mount "type=bind,source=$SDK,target=/my_mod" \
+        --mount "type=bind,source=$(readlink -f -- "$0"),target=/build-stock,ro" \
+        "$IMAGE" /build-stock /my_mod "$MODE"
+fi
+
+cd "$SDK/src"
+export VPC_NINJA_BUILD_MODE="$MODE"
+out="_vpc_/ninja/sdk_hl2mp_$MODE"
+# Every time: vpc skips the projects whose scripts are unchanged, and the
+# stock-ab hooks add files to client_hl2mp.vpc and server_hl2mp.vpc.
+devtools/bin/vpc /hl2mp /linux64 /ninja /define:SOURCESDK +everything /mksln "$out"
+ninja -f "$out.ninja" -j"$(nproc)"

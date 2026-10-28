@@ -1,0 +1,66 @@
+From 250e2b7f4ecaf930e7758b28bb7c71dbf5630bc1 Mon Sep 17 00:00:00 2001
+From: Mark Chandler <admin@lodle.net>
+Date: Sun, 25 Oct 2026 13:18:27 -0700
+Subject: [PATCH 2/3] stock-ab: compile func_friction and game_player_hurt into
+ hl2mp
+
+ss_sandbox places both. func_friction was HL1_DLL-only; game_player_hurt
+was commented out and needed the Source TakeDamage signature.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/game/server/maprules.cpp | 7 +++----
+ src/game/server/triggers.cpp | 2 +-
+ 2 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/src/game/server/maprules.cpp b/src/game/server/maprules.cpp
+index fd2db950..45347d03 100644
+--- a/src/game/server/maprules.cpp
++++ b/src/game/server/maprules.cpp
+@@ -505,7 +505,7 @@ void CGamePlayerZone::InputCountPlayersInZone( inputdata_t &inputdata )
+ }
+ 
+ 
+-/*
++// SS_AB: stock-ab compiles game_player_hurt into hl2mp (was commented out)
+ // Disable.  Eventually will be replace by new activator filter entities.  (LHL)
+ //
+ // CGamePlayerHurt / game_player_hurt	-- Damages the player who fires it
+@@ -553,11 +553,11 @@ void CGamePlayerHurt::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TY
+ 		}
+ 		else
+ 		{
+-			pActivator->TakeDamage( this, this, m_flDamage, DMG_GENERIC );
++			pActivator->TakeDamage( CTakeDamageInfo( this, this, m_flDamage, DMG_GENERIC ) ); // SS_AB: the Source API
+ 		}
+ 	}
+ 	
+-	SUB_UseTargets( pActivator, useType, value );
++	// SS_AB: no SUB_UseTargets in Source; m_OnUse below is the output
+ 	m_OnUse.FireOutput(pActivator, this); // dvsents2: handle useType and value here - they are passed through
+ 
+ 	if ( RemoveOnFire() )
+@@ -565,7 +565,6 @@ void CGamePlayerHurt::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TY
+ 		UTIL_Remove( this );
+ 	}
+ }
+-*/
+ 
+ //
+ // CGamePlayerEquip / game_playerequip	-- Sets the default player equipment
+diff --git a/src/game/server/triggers.cpp b/src/game/server/triggers.cpp
+index bc50b00d..87a180d9 100644
+--- a/src/game/server/triggers.cpp
++++ b/src/game/server/triggers.cpp
+@@ -4974,7 +4974,7 @@ void CTriggerApplyImpulse::InputApplyImpulse( inputdata_t& )
+ 	}
+ }
+ 
+-#ifdef HL1_DLL
++#if defined( HL1_DLL ) || defined( HL2MP ) // SS_AB: stock-ab compiles func_friction into hl2mp
+ //----------------------------------------------------------------------------------
+ // func_friction
+ //----------------------------------------------------------------------------------
+-- 
+2.53.0
+

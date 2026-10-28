@@ -1,0 +1,225 @@
+From 2d0b2ae6d65aa2570a8d41ee00c8a434a2ce2dcd Mon Sep 17 00:00:00 2001
+From: Mark Chandler <admin@lodle.net>
+Date: Sun, 25 Oct 2026 13:54:47 -0700
+Subject: [PATCH 3/3] stock-ab: ab_cvars, and ab_render_trace with
+ source-sdk-sharp's render tracer
+
+source-sdk-sharp's tools/stock-ab/build-stock copies its
+shell_render_trace_client.cpp and the headers it needs into ss_ab/ before
+each build (ss_fwd.h here is a stub: no forwarder tables), so a stock
+frame is recorded by the same instrument as cs_cl_render_trace.
+View_Render goes through SSAB_View_Render, which traces one frame when
+armed and notes the frame's environment as SourceSharp does.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/game/client/cdll_client_int.cpp |  4 +-
+ src/game/client/client_hl2mp.vpc    |  1 +
+ src/game/client/ss_ab/.gitignore    |  7 +++
+ src/game/client/ss_ab/ss_fwd.h      | 25 ++++++++
+ src/game/client/ss_ab_client.cpp    | 98 +++++++++++++++++++++++++++++
+ 5 files changed, 134 insertions(+), 1 deletion(-)
+ create mode 100644 src/game/client/ss_ab/.gitignore
+ create mode 100644 src/game/client/ss_ab/ss_fwd.h
+
+diff --git a/src/game/client/cdll_client_int.cpp b/src/game/client/cdll_client_int.cpp
+index 7b47d820..dab1746e 100644
+--- a/src/game/client/cdll_client_int.cpp
++++ b/src/game/client/cdll_client_int.cpp
+@@ -1523,6 +1523,8 @@ void CHLClient::DecodeUserCmdFromBuffer( bf_read& buf, int slot )
+ //-----------------------------------------------------------------------------
+ // Purpose: 
+ //-----------------------------------------------------------------------------
++void SSAB_View_Render( vrect_t *rect ); // SS_AB: ss_ab_client.cpp
++
+ void CHLClient::View_Render( vrect_t *rect )
+ {
+ 	VPROF( "View_Render" );
+@@ -1531,7 +1533,7 @@ void CHLClient::View_Render( vrect_t *rect )
+ 	if ( rect->width == 0 || rect->height == 0 )
+ 		return;
+ 
+-	view->Render( rect );
++	SSAB_View_Render( rect ); // SS_AB: view->Render, traced when ab_render_trace armed it
+ 	UpdatePerfStats();
+ }
+ 
+diff --git a/src/game/client/client_hl2mp.vpc b/src/game/client/client_hl2mp.vpc
+index bca2bc5c..2399360b 100644
+--- a/src/game/client/client_hl2mp.vpc
++++ b/src/game/client/client_hl2mp.vpc
+@@ -26,6 +26,7 @@ $Project "Client (HL2MP)"
+ 		-$File	"$SRCDIR\game\shared\weapon_parse_default.cpp"
+ 
+ 		$File	"ss_ab_client.cpp"
++		$File	"ss_ab\shell_render_trace_client.cpp"
+ 		$File	"c_team_objectiveresource.cpp"
+ 		$File	"c_team_objectiveresource.h"
+ 		$File	"c_team_train_watcher.cpp"
+diff --git a/src/game/client/ss_ab/.gitignore b/src/game/client/ss_ab/.gitignore
+new file mode 100644
+index 00000000..3f0f6dfb
+--- /dev/null
++++ b/src/game/client/ss_ab/.gitignore
+@@ -0,0 +1,7 @@
++# Copied in from source-sdk-sharp by its tools/stock-ab/build-stock on every
++# build, so the stock frame is recorded by the current tracer.
++shell_render_trace_client.cpp
++shell_render_trace_client.h
++vtable_slot_patch.h
++vtable_hook.h
++ss_platform.h
+diff --git a/src/game/client/ss_ab/ss_fwd.h b/src/game/client/ss_ab/ss_fwd.h
+new file mode 100644
+index 00000000..fe1a1c35
+--- /dev/null
++++ b/src/game/client/ss_ab/ss_fwd.h
+@@ -0,0 +1,25 @@
++//========= SourceSharp stock A/B hooks (test build only) =====================//
++//
++// The render tracer (shell_render_trace_client.cpp, copied from
++// source-sdk-sharp) asks libss_fwd_client for its shadow table. Stock links no
++// such library: no table, so the tracer leaves the shadow manager's calls
++// unmarked, as SOURCESHARP_RENDER_TRACE_SHADOWS unset already does.
++//
++//=============================================================================//
++#ifndef SS_FWD_H
++#define SS_FWD_H
++
++#include <stdint.h>
++
++struct SSForwarderTable
++{
++	void *const *ppSlots;
++	int32_t nSlots;
++};
++
++inline const SSForwarderTable *SSFwdClient_Table( const char * )
++{
++	return nullptr;
++}
++
++#endif // SS_FWD_H
+diff --git a/src/game/client/ss_ab_client.cpp b/src/game/client/ss_ab_client.cpp
+index 4ed436d6..e1756c26 100644
+--- a/src/game/client/ss_ab_client.cpp
++++ b/src/game/client/ss_ab_client.cpp
+@@ -8,6 +8,9 @@
+ //                     deleted and run as console text once a frame
+ //   ab_ack <token>    writes the token to $SS_AB_DIR/ack once every command
+ //                     queued before it has run
++//   ab_cvars <token> <name>...  writes each convar's value to $SS_AB_DIR/cvars
++//   ab_render_trace <token>  records the next frame's render calls to
++//                     $SS_AB_DIR/trace (see the end of this file)
+ //   ab_view <token>   writes the token, whether a local player exists, and
+ //                     the main view's origin and angles to $SS_AB_DIR/view
+ //
+@@ -17,6 +20,10 @@
+ #include "igamesystem.h"
+ #include "view.h"
+ #include "c_baseplayer.h"
++#include "iviewrender.h"
++#include "materialsystem/itexture.h"
++#include "materialsystem/materialsystem_config.h"
++#include "ss_ab/shell_render_trace_client.h"
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <unistd.h>
+@@ -106,3 +113,94 @@ CON_COMMAND( ab_view, "stock-ab: write the token, the local player and the main
+ 		pPlayer ? pPlayer->GetHealth() : 0 );
+ 	ABWrite( "view", szText );
+ }
++
++CON_COMMAND( ab_cvars, "stock-ab: ab_cvars <token> <name>... writes each convar's value to $SS_AB_DIR/cvars" )
++{
++	CUtlString text;
++	for ( int i = 2; i < args.ArgC(); i++ )
++	{
++		const ConVar *pVar = g_pCVar->FindVar( args[i] );
++		text += args[i];
++		text += "\t";
++		text += pVar ? pVar->GetString() : "<none>";
++		text += "\n";
++	}
++	text += "#end\t";
++	text += args.ArgC() > 1 ? args[1] : "";
++	text += "\n";
++	ABWrite( "cvars", text.Get() );
++}
++
++//-----------------------------------------------------------------------------
++// ab_render_trace <token>: record the next frame's render calls with
++// source-sdk-sharp's render tracer (ss_ab/shell_render_trace_client.cpp, the
++// same instrument as SourceSharp's cs_cl_render_trace) and write them to
++// $SS_AB_DIR/trace, then "#end <token>".
++//-----------------------------------------------------------------------------
++static CUtlString s_TraceToken;
++static bool s_bTraceArmed = false;
++
++CON_COMMAND( ab_render_trace, "stock-ab: record the next frame's render calls to $SS_AB_DIR/trace" )
++{
++	s_TraceToken = args.ArgS();
++	s_bTraceArmed = true;
++}
++
++// The `env` lines of SourceSharp's NoteFrameEnvironment
++// (shell_view_executor_client.cpp), so the two traces compare line for line.
++// Its `cvar` lines are left to ab_cvars.
++extern bool g_bUseCustomAutoExposureMin, g_bUseCustomAutoExposureMax, g_bUseCustomBloomScale;
++extern float g_flCustomAutoExposureMin, g_flCustomAutoExposureMax, g_flCustomBloomScale, g_flCustomBloomScaleMinimum;
++
++static void ABNoteFrameEnvironment()
++{
++	CMatRenderContextPtr pRenderContext( materials );
++	const Vector vScale = pRenderContext->GetToneMappingScaleLinear();
++	int nVx = 0, nVy = 0, nVw = 0, nVh = 0;
++	pRenderContext->GetViewport( nVx, nVy, nVw, nVh );
++	RenderTrace::Note( "env\trealtime\t%.9g", gpGlobals->realtime );
++	RenderTrace::Note( "env\tcurtime\t%.9g", gpGlobals->curtime );
++	RenderTrace::Note( "env\tframetime\t%.9g", gpGlobals->frametime );
++	RenderTrace::Note( "env\thdrtype\t%d", (int)g_pMaterialSystemHardwareConfig->GetHDRType() );
++	RenderTrace::Note( "env\tdxlevel\t%d", engine->GetDXSupportLevel() );
++	RenderTrace::Note( "env\thwdxlevel\t%d", g_pMaterialSystemHardwareConfig->GetDXSupportLevel() );
++	RenderTrace::Note( "env\tmaphashdrlighting\t%d", engine->MapHasHDRLighting() ? 1 : 0 );
++	RenderTrace::Note( "env\tcandosrgbreadfromrts\t%d", g_pMaterialSystemHardwareConfig->CanDoSRGBReadFromRTs() ? 1 : 0 );
++	RenderTrace::Note( "env\tfakesrgbwrite\t%d", g_pMaterialSystemHardwareConfig->FakeSRGBWrite() ? 1 : 0 );
++	RenderTrace::Note( "env\tsupportsps20\t%d", g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_0() ? 1 : 0 );
++	RenderTrace::Note( "env\ttonemapscalelinear\t%.9g,%.9g,%.9g", vScale.x, vScale.y, vScale.z );
++	RenderTrace::Note( "env\tviewport\t%d,%d,%d,%d", nVx, nVy, nVw, nVh );
++	ITexture *pCopy = pRenderContext->GetFrameBufferCopyTexture( 0 );
++	RenderTrace::Note( "env\tfbcopy0\t%s", pCopy ? pCopy->GetName() : "-" );
++	RenderTrace::Note( "env\tvideomodeheight\t%d", g_pMaterialSystem->GetCurrentConfigForVideoCard().m_VideoMode.m_Height );
++	RenderTrace::Note( "env\tgamedirectory\t%s", engine->GetGameDirectory() );
++	RenderTrace::Note( "env\tcustomtonemap\t%d,%d,%d,%.9g,%.9g,%.9g,%.9g", g_bUseCustomAutoExposureMin ? 1 : 0,
++	                   g_bUseCustomAutoExposureMax ? 1 : 0, g_bUseCustomBloomScale ? 1 : 0, g_flCustomAutoExposureMin,
++	                   g_flCustomAutoExposureMax, g_flCustomBloomScale, g_flCustomBloomScaleMinimum );
++}
++
++void SSAB_View_Render( vrect_t *rect )
++{
++	const bool bTrace = s_bTraceArmed && RenderTrace::Begin();
++	s_bTraceArmed = false;
++	if ( bTrace )
++	{
++		RenderTrace::Note( "frame\tpath=0 framecount=%d rect=%d,%d,%d,%d", gpGlobals->framecount, rect->x, rect->y, rect->width, rect->height );
++		ABNoteFrameEnvironment();
++	}
++
++	view->Render( rect );
++
++	if ( bTrace )
++	{
++		RenderTrace::End();
++		int32_t nLength = 0;
++		const char *pText = RenderTrace::Text( &nLength );
++		CUtlString text;
++		text.SetDirect( pText, nLength );
++		text += "#end\t";
++		text += s_TraceToken;
++		text += "\n";
++		ABWrite( "trace", text.Get() );
++	}
++}
+-- 
+2.53.0
+

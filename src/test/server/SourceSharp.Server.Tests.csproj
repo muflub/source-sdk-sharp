@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\debug_api\interfaces\Debug.Api.Server.Interfaces.csproj" />
     <ProjectReference Include="..\..\debug_api\Debug.Api.Server.csproj" />
     <ProjectReference Include="..\..\mapgen\SourceSharp.MapGen.csproj" />
+    <ProjectReference Include="..\..\tools\StockAb\SourceSharp.StockAb.csproj" />
     <ProjectReference Include="..\..\debug_api_shared\Debug.Api.Shared.csproj" />
     <ProjectReference Include="..\..\mods\SourceSharp.Mods.csproj" />
     <ProjectReference Include="..\..\launcher\SourceSharp.Launcher.csproj" />

@@ -1,0 +1,213 @@
+From 69d55546a851a1e79e95d603d148311bfda2aa5b Mon Sep 17 00:00:00 2001
+From: Mark Chandler <admin@lodle.net>
+Date: Sun, 25 Oct 2026 13:18:27 -0700
+Subject: [PATCH 1/3] stock-ab: a command channel and an entity dump for
+ side-by-side runs
+
+SS_AB_DIR/cmd is run as console text once a frame; ab_ack, ab_view and
+ab_dump_ents answer through files beside it. Inert without SS_AB_DIR.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/game/client/client_hl2mp.vpc |   1 +
+ src/game/client/ss_ab_client.cpp | 108 +++++++++++++++++++++++++++++++
+ src/game/server/server_hl2mp.vpc |   1 +
+ src/game/server/ss_ab_server.cpp |  47 ++++++++++++++
+ 4 files changed, 157 insertions(+)
+ create mode 100644 src/game/client/ss_ab_client.cpp
+ create mode 100644 src/game/server/ss_ab_server.cpp
+
+diff --git a/src/game/client/client_hl2mp.vpc b/src/game/client/client_hl2mp.vpc
+index 7fcf892c..bca2bc5c 100644
+--- a/src/game/client/client_hl2mp.vpc
++++ b/src/game/client/client_hl2mp.vpc
+@@ -25,6 +25,7 @@ $Project "Client (HL2MP)"
+ 	{
+ 		-$File	"$SRCDIR\game\shared\weapon_parse_default.cpp"
+ 
++		$File	"ss_ab_client.cpp"
+ 		$File	"c_team_objectiveresource.cpp"
+ 		$File	"c_team_objectiveresource.h"
+ 		$File	"c_team_train_watcher.cpp"
+diff --git a/src/game/client/ss_ab_client.cpp b/src/game/client/ss_ab_client.cpp
+new file mode 100644
+index 00000000..4ed436d6
+--- /dev/null
++++ b/src/game/client/ss_ab_client.cpp
+@@ -0,0 +1,108 @@
++//========= SourceSharp stock A/B hooks (test build only) =====================//
++//
++// Lets a harness drive a stock hl2mp client the way SourceSharp's dev API
++// drives the test mod, so the two can be compared side by side
++// (source-sdk-sharp tools/stock-ab). Inert unless SS_AB_DIR is set.
++//
++//   $SS_AB_DIR/cmd    written by the harness (atomically, by rename); read,
++//                     deleted and run as console text once a frame
++//   ab_ack <token>    writes the token to $SS_AB_DIR/ack once every command
++//                     queued before it has run
++//   ab_view <token>   writes the token, whether a local player exists, and
++//                     the main view's origin and angles to $SS_AB_DIR/view
++//
++//=============================================================================//
++
++#include "cbase.h"
++#include "igamesystem.h"
++#include "view.h"
++#include "c_baseplayer.h"
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++
++// memdbgon must be the last include file in a .cpp file!!!
++#include "tier0/memdbgon.h"
++
++static const char *ABDir()
++{
++	const char *pszDir = getenv( "SS_AB_DIR" );
++	return ( pszDir && *pszDir ) ? pszDir : NULL;
++}
++
++// Write pszText to $SS_AB_DIR/<pszName> through a temporary and a rename, so
++// the harness never reads half a file.
++static void ABWrite( const char *pszName, const char *pszText )
++{
++	const char *pszDir = ABDir();
++	if ( !pszDir )
++		return;
++
++	char szTmp[MAX_PATH], szPath[MAX_PATH];
++	V_snprintf( szTmp, sizeof( szTmp ), "%s/%s.tmp", pszDir, pszName );
++	V_snprintf( szPath, sizeof( szPath ), "%s/%s", pszDir, pszName );
++
++	FILE *pFile = fopen( szTmp, "wb" );
++	if ( !pFile )
++		return;
++	fputs( pszText, pFile );
++	fclose( pFile );
++	rename( szTmp, szPath );
++}
++
++class CABCommandChannel : public CAutoGameSystemPerFrame
++{
++public:
++	CABCommandChannel() : CAutoGameSystemPerFrame( "CABCommandChannel" ) {}
++
++	virtual void Update( float frametime )
++	{
++		const char *pszDir = ABDir();
++		if ( !pszDir )
++			return;
++
++		char szPath[MAX_PATH];
++		V_snprintf( szPath, sizeof( szPath ), "%s/cmd", pszDir );
++
++		FILE *pFile = fopen( szPath, "rb" );
++		if ( !pFile )
++			return;
++
++		char szText[8192];
++		size_t nRead = fread( szText, 1, sizeof( szText ) - 2, pFile );
++		fclose( pFile );
++		unlink( szPath );
++
++		szText[nRead] = 0;
++		if ( nRead && szText[nRead - 1] != '\n' )
++		{
++			szText[nRead] = '\n';
++			szText[nRead + 1] = 0;
++		}
++
++		engine->ClientCmd_Unrestricted( szText );
++	}
++};
++
++static CABCommandChannel g_ABCommandChannel;
++
++CON_COMMAND( ab_ack, "stock-ab: write the token to $SS_AB_DIR/ack" )
++{
++	char szText[512];
++	V_snprintf( szText, sizeof( szText ), "%s\n", args.ArgS() );
++	ABWrite( "ack", szText );
++}
++
++CON_COMMAND( ab_view, "stock-ab: write the token, the local player and the main view to $SS_AB_DIR/view" )
++{
++	const Vector &vecOrigin = MainViewOrigin();
++	const QAngle &angView = MainViewAngles();
++	C_BasePlayer *pPlayer = C_BasePlayer::GetLocalPlayer();
++
++	char szText[512];
++	V_snprintf( szText, sizeof( szText ), "%s\t%d\t%.3f %.3f %.3f\t%.3f %.3f %.3f\t%d\n",
++		args.ArgS(), pPlayer ? 1 : 0,
++		vecOrigin.x, vecOrigin.y, vecOrigin.z, angView.x, angView.y, angView.z,
++		pPlayer ? pPlayer->GetHealth() : 0 );
++	ABWrite( "view", szText );
++}
+diff --git a/src/game/server/server_hl2mp.vpc b/src/game/server/server_hl2mp.vpc
+index 8427634c..ebb1c101 100644
+--- a/src/game/server/server_hl2mp.vpc
++++ b/src/game/server/server_hl2mp.vpc
+@@ -24,6 +24,7 @@ $Project "Server (HL2MP)"
+ {
+ 	$Folder	"Source Files"
+ 	{
++		$File	"ss_ab_server.cpp"
+ 		$File	"ai_relationship.cpp"
+ 		$File	"basegrenade_concussion.cpp"
+ 		$File	"basegrenade_contact.cpp"
+diff --git a/src/game/server/ss_ab_server.cpp b/src/game/server/ss_ab_server.cpp
+new file mode 100644
+index 00000000..32615e4b
+--- /dev/null
++++ b/src/game/server/ss_ab_server.cpp
+@@ -0,0 +1,47 @@
++//========= SourceSharp stock A/B hooks (test build only) =====================//
++//
++// The server half of source-sdk-sharp tools/stock-ab's stock hooks: what the
++// harness reads from SourceSharp's dev API (/entities), written to a file.
++//
++//   ab_dump_ents <token>   every edict-or-not entity in gEntList, one per line,
++//                          to $SS_AB_DIR/ents (tab-separated: index,
++//                          classname, targetname, origin, angles, health,
++//                          model, effects), then the token on a last line
++//
++//=============================================================================//
++
++#include "cbase.h"
++#include <stdio.h>
++#include <stdlib.h>
++
++// memdbgon must be the last include file in a .cpp file!!!
++#include "tier0/memdbgon.h"
++
++CON_COMMAND( ab_dump_ents, "stock-ab: write every entity to $SS_AB_DIR/ents" )
++{
++	const char *pszDir = getenv( "SS_AB_DIR" );
++	if ( !pszDir || !*pszDir )
++		return;
++
++	char szTmp[MAX_PATH], szPath[MAX_PATH];
++	V_snprintf( szTmp, sizeof( szTmp ), "%s/ents.tmp", pszDir );
++	V_snprintf( szPath, sizeof( szPath ), "%s/ents", pszDir );
++
++	FILE *pFile = fopen( szTmp, "wb" );
++	if ( !pFile )
++		return;
++
++	for ( CBaseEntity *pEntity = gEntList.FirstEnt(); pEntity; pEntity = gEntList.NextEnt( pEntity ) )
++	{
++		const Vector &vecOrigin = pEntity->GetAbsOrigin();
++		const QAngle &angAngles = pEntity->GetAbsAngles();
++		fprintf( pFile, "%d\t%s\t%s\t%.3f %.3f %.3f\t%.3f %.3f %.3f\t%d\t%s\t%d\n",
++			pEntity->entindex(), pEntity->GetClassname(), STRING( pEntity->GetEntityName() ),
++			vecOrigin.x, vecOrigin.y, vecOrigin.z, angAngles.x, angAngles.y, angAngles.z,
++			pEntity->GetHealth(), STRING( pEntity->GetModelName() ), pEntity->GetEffects() );
++	}
++
++	fprintf( pFile, "#end\t%s\n", args.ArgS() );
++	fclose( pFile );
++	rename( szTmp, szPath );
++}
+-- 
+2.53.0
+

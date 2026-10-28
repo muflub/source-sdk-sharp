@@ -1,0 +1,654 @@
+#!/usr/bin/env python3
+"""Stock hl2mp and the test mod side by side on ss_sandbox.
+
+    tools/stock-ab/stock-ab fetch [--sdk DIR]     clone stock source-sdk-2013 at
+                                                  valve-sdk.lock's commit and apply
+                                                  tools/stock-ab/patches
+    tools/stock-ab/stock-ab build [--sdk DIR]     build its hl2mp (sniper image)
+    tools/stock-ab/stock-ab run [--sdk DIR] [--config release] [--only a,b]
+                                [--threshold N] [--tolerance P] [--out DIR]
+    tools/stock-ab/stock-ab --self-test
+
+WHAT A RUN DOES. Both games load ss_sandbox at once: stock hl2mp built from
+upstream (plus the patch series' hooks), on a copy of this tree's compiled map
+with the SourceSharp-only classnames renamed (MapGen stockmap), and the test
+mod from bin/<config>. Both run the same engine binary from the Source SDK
+Base 2013 Multiplayer install, at 1280x720, with fresh settings. Then:
+
+  census   each server's entity list once the map has loaded (stock's
+           ab_dump_ents, SourceSharp's /entities), compared by classname and
+           position
+  cameras  one camera per station (MapGen stations) and one over the hall;
+           each game is shot twice a moment apart, and pixels that moved
+           between a game's own two shots are left out of the score
+
+and writes bin/<config>/stock-ab/<stamp>/index.html (the cameras side by
+side with a difference heatmap, and the census). A camera passes when at
+most --tolerance percent of its still pixels differ by more than
+--threshold in any channel. Exit 0 when every camera passes or is
+inconclusive (too much of it moved to judge), 1 when one fails, 2 when the
+run itself failed.
+
+HOW EACH GAME IS DRIVEN. SourceSharp through its dev API (tools/debug-api).
+Stock through the hooks the patch series adds to its client: the harness
+writes console text to $SS_AB_DIR/cmd, the client runs it once a frame, and
+ab_ack / ab_view / ab_cvars / ab_dump_ents answer in files beside it.
+
+The stock clone is a checkout this tool may write to (default ../ss-stock-hl2mp
+beside this repo). It is never the fork and never the pristine oracle clone:
+fetch and run refuse both.
+"""
+
+import argparse
+import json
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+PATCHES = os.path.join(HERE, "patches")
+DEFAULT_SDK = os.path.join(os.path.dirname(ROOT), "ss-stock-hl2mp")
+UPSTREAM_URL = "https://github.com/ValveSoftware/source-sdk-2013"
+DOTNET = os.environ.get("DOTNET", os.path.expanduser("~/.dotnet/dotnet"))
+ENGINE = os.environ.get("SS_AB_ENGINE", os.path.expanduser(
+    "~/.steam/steam/steamapps/common/Source SDK Base 2013 Multiplayer"))
+
+COMMITTER = ["-c", "user.name=SourceSharp stock-ab", "-c", "user.email=stock-ab@invalid"]
+
+WIDTH, HEIGHT = 1280, 720
+
+# Every launch carries what tools/local_launch.py says a local game carries,
+# plus the window size and no HUD-blocking start-up video.
+COMMON_ARGS = ["-novid", "-windowed", "-w", str(WIDTH), "-h", str(HEIGHT),
+               "-condebug", "-nomessagebox", "-nocrashdialog", "-nohltv",
+               "+tv_enable", "0", "+sv_lan", "1", "-hushsteam", "+fps_max", "60"]
+
+# What both games run once joined: cheats for setpos/setang, no HUD, no
+# viewmodel, no crosshair, and no VGUI at all, so the frame is the world
+# alone. r_drawvgui 0 is not optional: stock hl2mp opens its MOTD panel on
+# join, and with no page to show it is a translucent dark sheet over the
+# whole window that halved every stock frame's brightness (measured: mean
+# luma 55 with it, 113 without; SourceSharp 112 either way).
+SETUP = "sv_cheats 1; cl_drawhud 0; r_drawviewmodel 0; crosshair 0; r_drawvgui 0"
+
+# A station's camera: back from its plot centre along -x and -y, looking
+# diagonally across the plot and down at it. Origin, not eye: noclip's eye
+# sits EYE_HEIGHT above the origin setpos places.
+STATION_BACK = 300.0
+STATION_HEIGHT = 120.0
+STATION_PITCH = 22.0
+STATION_YAW = 45.0
+EYE_HEIGHT = 64.0
+
+# How long a camera holds before its first shot (the client must receive the
+# move, and auto-exposure must settle), and between a game's two shots.
+SETTLE_SECONDS = 2.5
+PAIR_GAP_SECONDS = 0.6
+
+
+def log(message):
+    print("stock-ab: " + message, flush=True)
+
+
+class RunError(Exception):
+    pass
+
+
+#-----------------------------------------------------------------------------
+# Pure helpers (--self-test covers these).
+#-----------------------------------------------------------------------------
+
+def parse_stations(text):
+    """MapGen stations: slug, x, y, z, title per line."""
+    stations = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        fields = line.split("\t")
+        if len(fields) < 5:
+            raise RunError("MapGen stations printed a short line: %r" % line)
+        stations.append({"slug": fields[0], "x": float(fields[1]), "y": float(fields[2]),
+                         "z": float(fields[3]), "title": fields[4]})
+    if not stations:
+        raise RunError("MapGen stations printed nothing")
+    return stations
+
+
+def cameras(stations):
+    """One camera per station, then one over the whole hall from its -x -y corner."""
+    out = []
+    for s in stations:
+        out.append({"name": s["slug"], "title": s["title"],
+                    "origin": (s["x"] - STATION_BACK, s["y"] - STATION_BACK, s["z"] + STATION_HEIGHT),
+                    "angles": (STATION_PITCH, STATION_YAW, 0.0)})
+    xs = [s["x"] for s in stations]
+    ys = [s["y"] for s in stations]
+    out.append({"name": "overview", "title": "The hall",
+                "origin": (min(xs) - 200.0, min(ys) - 200.0, 520.0),
+                "angles": (28.0, 45.0, 0.0)})
+    return out
+
+
+def pose_command(camera):
+    x, y, z = camera["origin"]
+    p, yaw, r = camera["angles"]
+    return "setpos %.1f %.1f %.1f; setang %.1f %.1f %.1f" % (x, y, z, p, yaw, r)
+
+
+def parse_view(text):
+    """Stock's ab_view file: token, player, eye x y z, angles p y r, health."""
+    fields = text.strip().split("\t")
+    if len(fields) < 4:
+        raise RunError("ab_view wrote %r" % text)
+    return {"token": fields[0], "player": fields[1] == "1",
+            "eye": tuple(float(v) for v in fields[2].split()),
+            "angles": tuple(float(v) for v in fields[3].split())}
+
+
+def parse_getpos(answer):
+    """SourceSharp's `capture getpos` answer: the eye from its setpos line."""
+    try:
+        lines = json.loads(answer)["captured"]["console"]
+    except (ValueError, KeyError, TypeError):
+        raise RunError("getpos answered %r" % answer[:200])
+    for line in lines:
+        if line.startswith("setpos "):
+            return tuple(float(v) for v in line[len("setpos "):].rstrip(";").split()[:3])
+    raise RunError("getpos printed no setpos line: %r" % lines)
+
+
+def eye_matches(eye, camera, tolerance=2.0):
+    x, y, z = camera["origin"]
+    want = (x, y, z + EYE_HEIGHT)
+    return all(abs(a - b) <= tolerance for a, b in zip(eye, want))
+
+
+def refuse_protected(sdk):
+    """The fork and the pristine oracle clone are never this tool's to write."""
+    real = os.path.realpath(sdk)
+    for lock in ("sdk-root.lock.local", "valve-sdk.lock.local"):
+        path = os.path.join(ROOT, lock)
+        if os.path.exists(path):
+            protected = open(path).read().strip()
+            if protected and os.path.realpath(protected) == real:
+                raise RunError("%s is the checkout %s names; stock-ab never writes to it" % (sdk, lock))
+
+
+#-----------------------------------------------------------------------------
+# fetch and build
+#-----------------------------------------------------------------------------
+
+def git(args, cwd=None, check=True):
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    return subprocess.run(["git"] + args, cwd=cwd, env=env, check=check,
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+
+def fetch(sdk, source):
+    refuse_protected(sdk)
+    pin = open(os.path.join(ROOT, "valve-sdk.lock")).read().strip()
+    patches = sorted(os.path.join(PATCHES, p) for p in os.listdir(PATCHES) if p.endswith(".patch"))
+    if os.path.exists(sdk):
+        raise RunError("%s exists; fetch makes a fresh clone (remove it, or build/run it as it is)" % sdk)
+    log("cloning %s into %s" % (source, sdk))
+    git(["clone", "--no-hardlinks", "-q", source, sdk])
+    git(["checkout", "-q", "-b", "stock-ab-hooks", pin], cwd=sdk)
+    git(["remote", "set-url", "origin", UPSTREAM_URL], cwd=sdk)
+    git(["remote", "set-url", "--push", "origin", "DISABLED"], cwd=sdk)
+    if patches:
+        log("applying %d patch(es)" % len(patches))
+        git(COMMITTER + ["am", "-q", "--committer-date-is-author-date"] + patches, cwd=sdk)
+    log("%s at %s" % (sdk, git(["log", "--oneline", "-1"], cwd=sdk).stdout.strip()))
+
+
+def build(sdk, mode):
+    refuse_protected(sdk)
+    subprocess.run([os.path.join(HERE, "build-stock"), sdk, mode], check=True)
+
+
+#-----------------------------------------------------------------------------
+# The two games
+#-----------------------------------------------------------------------------
+
+def kill_group(popen):
+    if popen is None or popen.poll() is not None:
+        return
+    try:
+        os.killpg(os.getpgid(popen.pid), signal.SIGTERM)
+        popen.wait(timeout=15)
+    except Exception:
+        try:
+            os.killpg(os.getpgid(popen.pid), signal.SIGKILL)
+        except OSError:
+            pass
+
+
+def wait_for(predicate, timeout, what, interval=0.5):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        value = predicate()
+        if value:
+            return value
+        time.sleep(interval)
+    raise RunError("timed out after %ds waiting for %s" % (timeout, what))
+
+
+def wait_for_file(path, size, timeout=15):
+    """A screenshot is done when it exists at its full size."""
+    def done():
+        try:
+            return os.path.getsize(path) >= size
+        except OSError:
+            return False
+    wait_for(done, timeout, path, interval=0.1)
+
+
+# An uncompressed 24-bit TGA of the window: what `screenshot` writes.
+TGA_SIZE = 18 + WIDTH * HEIGHT * 3
+
+
+class StockGame:
+    def __init__(self, sdk, work):
+        self.sdk = sdk
+        self.mod = os.path.join(sdk, "game", "mod_hl2mp")
+        self.channel = os.path.join(work, "stock-ab")
+        self.tmp = os.path.join(work, "stock-tmp")
+        self.log_path = os.path.join(work, "stock.log")
+        self.popen = None
+        self.tokens = 0
+
+    def launch(self):
+        os.makedirs(self.channel)
+        os.makedirs(self.tmp)
+        # Fresh settings each run: config.cfg is what the last run left.
+        for name in ("config.cfg",):
+            path = os.path.join(self.mod, "cfg", name)
+            if os.path.exists(path):
+                os.remove(path)
+        args = ["./hl2_linux64", "-game", self.mod] + COMMON_ARGS + [
+            "+engine_no_focus_sleep", "0", "+map", "ss_sandbox"]
+        quoted = " ".join("'%s'" % a.replace("'", "'\\''") for a in args)
+        line = ". '%s/tools/gpu-offload'; cd '%s' && exec %s" % (ROOT, ENGINE, quoted)
+        env = dict(os.environ, TMPDIR=self.tmp, SS_AB_DIR=self.channel,
+                   SDL_VIDEO_X11_WMCLASS="sourcesharp-bg", __GL_THREADED_OPTIMIZATIONS="1",
+                   LD_LIBRARY_PATH=os.path.join(ENGINE, "bin", "linux64") + ":" + os.environ.get("LD_LIBRARY_PATH", ""))
+        self.popen = subprocess.Popen(["bash", "-c", line], stdout=open(self.log_path, "wb"),
+                                      stderr=subprocess.STDOUT, env=env, start_new_session=True)
+
+    def alive(self):
+        return self.popen is not None and self.popen.poll() is None
+
+    def _send(self, text):
+        tmp = os.path.join(self.channel, "cmd.tmp")
+        with open(tmp, "w") as f:
+            f.write(text + "\n")
+        os.rename(tmp, os.path.join(self.channel, "cmd"))
+
+    def _ask(self, command, answer, timeout=10):
+        """Run console text, then a hook that writes `answer` with a fresh token."""
+        self.tokens += 1
+        token = "t%d" % self.tokens
+        path = os.path.join(self.channel, answer)
+        cmd_path = os.path.join(self.channel, "cmd")
+        # The client consumes one file a frame; wait for the last to go.
+        wait_for(lambda: not os.path.exists(cmd_path), timeout, "stock to take its last command", 0.05)
+        self._send(command.replace("TOKEN", token))
+
+        def answered():
+            if not self.alive():
+                raise RunError("stock hl2mp exited (log %s)" % self.log_path)
+            try:
+                text = open(path).read()
+            except OSError:
+                return None
+            return text if token in text.split() or ("\t" + token + "\n") in text else None
+        return wait_for(answered, timeout, "stock to answer " + command, 0.05)
+
+    def cmd(self, text):
+        self._ask(text + "; ab_ack TOKEN", "ack")
+
+    def view(self):
+        return parse_view(self._ask("ab_view TOKEN", "view"))
+
+    def ready(self):
+        if not self.alive():
+            raise RunError("stock hl2mp exited during start-up (log %s)" % self.log_path)
+        try:
+            return self._ask("ab_view TOKEN", "view", timeout=2) and self.view()["player"]
+        except RunError as error:
+            if "exited" in str(error):
+                raise
+            return False
+
+    def dump_entities(self, to):
+        self._ask("ab_dump_ents TOKEN", "ents", timeout=20)
+        shutil.copyfile(os.path.join(self.channel, "ents"), to)
+
+    def screenshot(self, name):
+        path = os.path.join(self.mod, "screenshots", name + ".tga")
+        if os.path.exists(path):
+            os.remove(path)
+        self.cmd("screenshot " + name)
+        wait_for_file(path, TGA_SIZE)
+        return path
+
+    def stop(self):
+        kill_group(self.popen)
+
+
+class SharpGame:
+    def __init__(self, config, work):
+        self.game_dir = os.path.join(ROOT, "bin", config)
+        self.tmp = os.path.join(work, "sharp-tmp")
+        self.api_dir = os.path.join(work, "api")
+        self.log_path = os.path.join(work, "sharp.log")
+        self.popen = None
+        self.pid = None
+        self.screenshots = None
+
+    def launch(self):
+        os.makedirs(self.tmp)
+        os.makedirs(self.api_dir)
+        args = ["./source#", "-debugapi", "-debugapisocket", "-background", "-instance",
+                "-assertlog"] + COMMON_ARGS + ["+map", "ss_sandbox"]
+        quoted = " ".join("'%s'" % a.replace("'", "'\\''") for a in args)
+        line = ". '%s/tools/gpu-offload'; cd '%s' && exec %s" % (ROOT, self.game_dir, quoted)
+        env = dict(os.environ, TMPDIR=self.tmp, DEBUG_API_DIR=self.api_dir)
+        self.popen = subprocess.Popen(["bash", "-c", line], stdout=open(self.log_path, "wb"),
+                                      stderr=subprocess.STDOUT, env=env, start_new_session=True)
+
+    def alive(self):
+        return self.popen is not None and self.popen.poll() is None
+
+    def api(self, *args, timeout=30):
+        env = dict(os.environ, DEBUG_API_DIR=self.api_dir, DEBUG_API_PID=str(self.pid))
+        done = subprocess.run([os.path.join(ROOT, "tools", "debug-api")] + list(args), env=env,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=timeout)
+        return done.stdout
+
+    def _find_socket(self):
+        if not self.alive():
+            raise RunError("SourceSharp exited during start-up (log %s)" % self.log_path)
+        for name in os.listdir(self.api_dir):
+            if name.endswith(".sock"):
+                return name[:-len(".sock")]
+        return None
+
+    def ready(self):
+        if self.pid is None:
+            self.pid = self._find_socket()
+            if self.pid is None:
+                return False
+        try:
+            parse_getpos(self.api("capture", "getpos"))
+        except (RunError, subprocess.TimeoutExpired):
+            return False
+        if self.screenshots is None:
+            cmdline = open("/proc/%s/cmdline" % self.pid, "rb").read().split(b"\0")
+            game = cmdline[cmdline.index(b"-game") + 1].decode()
+            self.screenshots = os.path.join(game, "screenshots")
+        return True
+
+    def cmd(self, text):
+        answer = self.api("cmd", text)
+        if '"ok":true' not in answer:
+            raise RunError("SourceSharp refused %r: %s" % (text, answer[:200]))
+
+    def eye(self):
+        # A capture now and then holds getpos's setang line without its setpos
+        # line; asking again answers.
+        for attempt in range(5):
+            try:
+                return parse_getpos(self.api("capture", "getpos"))
+            except RunError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.3)
+
+    def dump_entities(self, to):
+        answer = self.api("ents", "*", timeout=60)
+        json.loads(answer)
+        with open(to, "w") as f:
+            f.write(answer)
+
+    def screenshot(self, name):
+        path = os.path.join(self.screenshots, name + ".tga")
+        if os.path.exists(path):
+            os.remove(path)
+        self.cmd("screenshot " + name)
+        wait_for_file(path, TGA_SIZE)
+        return path
+
+    def stop(self):
+        kill_group(self.popen)
+
+
+#-----------------------------------------------------------------------------
+# run
+#-----------------------------------------------------------------------------
+
+def dotnet(args, **kwargs):
+    return subprocess.run([DOTNET] + args, check=True, stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT, text=True, **kwargs)
+
+
+def noclip_on(game, read_eye):
+    """noclip is a toggle: turn it on, then prove the camera hangs in the air."""
+    # A player still spawning ignores it, so keep toggling until it holds.
+    probe = {"origin": (0.0, 0.0, 400.0), "angles": (0.0, 0.0, 0.0)}
+    for _ in range(6):
+        game.cmd(pose_command(probe))
+        time.sleep(1.5)
+        if eye_matches(read_eye(), probe):
+            return
+        game.cmd("noclip")
+        time.sleep(1.0)
+    raise RunError("could not put %s in noclip" % type(game).__name__)
+
+
+def run(opts):
+    sdk = os.path.abspath(opts.sdk)
+    refuse_protected(sdk)
+    config = opts.config
+    bsp = os.path.join(ROOT, "bin", config, "mods", "test", "maps", "ss_sandbox.bsp")
+    for path, why in ((os.path.join(sdk, "game", "mod_hl2mp", "bin", "linux64", "client.so"), "stock-ab build"),
+                      (os.path.join(ROOT, "bin", config, "source#"), "make " + config),
+                      (bsp, "make map MAP=ss_sandbox CONFIG=" + config),
+                      (os.path.join(ENGINE, "hl2_linux64"), "Source SDK Base 2013 Multiplayer installed")):
+        if not os.path.exists(path):
+            raise RunError("%s is missing (needs: %s)" % (path, why))
+
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    out = os.path.abspath(opts.out or os.path.join(ROOT, "bin", config, "stock-ab", stamp))
+    os.makedirs(out, exist_ok=True)
+    # Short, private and ours: the dev API socket path must stay under 108 bytes.
+    work = tempfile.mkdtemp(prefix="sab-", dir="/tmp")
+
+    log("building the image tool")
+    dotnet(["build", "-v", "q", "-nologo", os.path.join(ROOT, "src", "tools", "StockAb", "SourceSharp.StockAb.csproj")])
+    tool = [DOTNET, os.path.join(ROOT, "bin", "debug", "tools", "stock-ab", "SourceSharp.StockAb.dll")]
+
+    log("writing stock's copy of %s" % bsp)
+    mapgen = [DOTNET, "run", "--project", os.path.join(ROOT, "src", "mapgen"), "--"]
+    stock_bsp = os.path.join(sdk, "game", "mod_hl2mp", "maps", "ss_sandbox.bsp")
+    os.makedirs(os.path.dirname(stock_bsp), exist_ok=True)
+    if os.path.islink(stock_bsp):
+        os.remove(stock_bsp)
+    subprocess.run(mapgen + ["stockmap", bsp, stock_bsp], check=True, stdout=subprocess.PIPE)
+    stations = parse_stations(subprocess.run(mapgen + ["stations"], check=True, stdout=subprocess.PIPE, text=True).stdout)
+    views = cameras(stations)
+    if opts.only:
+        wanted = set(opts.only.split(","))
+        views = [v for v in views if v["name"] in wanted]
+        missing = wanted - {v["name"] for v in views}
+        if missing:
+            raise RunError("no camera named %s" % ", ".join(sorted(missing)))
+
+    stock = StockGame(sdk, work)
+    sharp = SharpGame(config, work)
+    failed = False
+    try:
+        log("launching stock hl2mp and SourceSharp (%s)" % config)
+        stock.launch()
+        sharp.launch()
+        wait_for(stock.ready, 240, "stock hl2mp to join ss_sandbox", 1.0)
+        wait_for(sharp.ready, 240, "SourceSharp to join ss_sandbox", 1.0)
+        log("both joined; stock log %s, SourceSharp pid %s" % (stock.log_path, sharp.pid))
+
+        stock.cmd(SETUP)
+        sharp.cmd(SETUP)
+        stock.cmd("noclip")
+        sharp.cmd("noclip")
+        noclip_on(stock, lambda: stock.view()["eye"])
+        noclip_on(sharp, sharp.eye)
+
+        log("entity census")
+        stock_ents = os.path.join(out, "stock-ents.tsv")
+        sharp_ents = os.path.join(out, "sharp-ents.json")
+        stock.dump_entities(stock_ents)
+        sharp.dump_entities(sharp_ents)
+        census = subprocess.run(tool + ["census", stock_ents, sharp_ents, os.path.join(out, "census.json")],
+                                check=True, stdout=subprocess.PIPE, text=True).stdout
+        print(census, end="", flush=True)
+
+        shots_path = os.path.join(out, "shots.jsonl")
+        if os.path.exists(shots_path):
+            os.remove(shots_path)
+        for view in views:
+            command = pose_command(view)
+            stock.cmd(command)
+            sharp.cmd(command)
+            time.sleep(SETTLE_SECONDS)
+            for name, eye in (("stock", stock.view()["eye"]), ("SourceSharp", sharp.eye())):
+                if not eye_matches(eye, view):
+                    raise RunError("%s's camera for %s is at %s, not %s" % (name, view["name"], eye, view["origin"]))
+            files = []
+            for suffix in ("a", "b"):
+                files.append((stock.screenshot("sab_%s_%s" % (view["name"], suffix)),
+                              sharp.screenshot("sab_%s_%s" % (view["name"], suffix))))
+                time.sleep(PAIR_GAP_SECONDS)
+            compare = subprocess.run(tool + [
+                "compare", "--out", out, "--name", view["name"], "--title", view["title"],
+                "--threshold", str(opts.threshold), "--tolerance", str(opts.tolerance),
+                files[0][0], files[1][0], files[0][1], files[1][1]],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            if compare.returncode not in (0, 1):
+                raise RunError("compare failed for %s: %s" % (view["name"], compare.stdout))
+            score = json.loads(compare.stdout)["Score"]
+            failed |= score["Verdict"] == "Fail"
+            log("%-12s %-12s differing %6.2f%%  luma ratio %.3f  still %5.1f%%" % (
+                view["name"], score["Verdict"], score["DifferingPercent"], score["LumaRatio"], score["StillPercent"]))
+            for shot in files:
+                for path in shot:
+                    os.remove(path)
+    finally:
+        stock.stop()
+        sharp.stop()
+        shutil.rmtree(work, ignore_errors=True)
+
+    head = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], stdout=subprocess.PIPE, text=True).stdout.strip()
+    stock_head = git(["log", "--oneline", "-1", "--format=%h"], cwd=sdk).stdout.strip()
+    report = subprocess.run(tool + ["report", out, "sourcesharp=%s (%s)" % (head, config), "stock=%s" % stock_head,
+                                    "threshold=%d" % opts.threshold, "tolerance=%s" % opts.tolerance],
+                            check=True, stdout=subprocess.PIPE, text=True).stdout.strip()
+    log("report: " + report)
+    return 1 if failed else 0
+
+
+#-----------------------------------------------------------------------------
+# self-test
+#-----------------------------------------------------------------------------
+
+def self_test():
+    stations = parse_stations("health\t-960\t-2560\t0\tHEALTH\nammo\t-320\t-2560\t0\tAMMO\n")
+    assert [s["slug"] for s in stations] == ["health", "ammo"], stations
+
+    try:
+        parse_stations("")
+        raise AssertionError("an empty station list was accepted")
+    except RunError:
+        pass
+
+    views = cameras(stations)
+    assert [v["name"] for v in views] == ["health", "ammo", "overview"], views
+    assert views[0]["origin"] == (-1260.0, -2860.0, 120.0), views[0]
+    assert pose_command(views[0]) == "setpos -1260.0 -2860.0 120.0; setang 22.0 45.0 0.0", pose_command(views[0])
+    assert views[2]["origin"][:2] == (-1160.0, -2760.0), views[2]
+
+    view = parse_view("t3\t1\t-1260.000 -2860.000 184.000\t22.000 45.000 0.000\t100\n")
+    assert view["player"] and view["eye"] == (-1260.0, -2860.0, 184.0), view
+    assert eye_matches(view["eye"], views[0])
+    assert not eye_matches((-1260.0, -2860.0, 120.0), views[0]), "an eye at the origin is not the camera"
+    assert not parse_view("t1\t0\t0 0 0\t0 0 0\t0\n")["player"]
+
+    answer = json.dumps({"ok": True, "captured": {"console": [
+        "setpos -1260.000000 -2860.000000 184.000000;", "setang 22 45 0"]}})
+    assert parse_getpos(answer) == (-1260.0, -2860.0, 184.0)
+    for bad in ('{"ok":false}', "not json", json.dumps({"captured": {"console": ["setang 0 0 0"]}})):
+        try:
+            parse_getpos(bad)
+            raise AssertionError("getpos answer accepted: %r" % bad)
+        except RunError:
+            pass
+
+    with tempfile.TemporaryDirectory() as scratch:
+        lock = os.path.join(scratch, "x")
+        os.makedirs(lock)
+        # The real locks name the fork and the oracle clone; neither is a scratch dir.
+        refuse_protected(lock)
+        for name in ("sdk-root.lock.local", "valve-sdk.lock.local"):
+            path = os.path.join(ROOT, name)
+            if os.path.exists(path):
+                named = open(path).read().strip()
+                if named:
+                    try:
+                        refuse_protected(named)
+                        raise AssertionError("%s's checkout was accepted" % name)
+                    except RunError:
+                        pass
+
+    print("stock-ab self-test: ok")
+    return 0
+
+
+def main():
+    if sys.argv[1:] == ["--self-test"]:
+        return self_test()
+
+    parser = argparse.ArgumentParser(prog="stock-ab", description=__doc__.split("\n")[0])
+    sub = parser.add_subparsers(dest="command", required=True)
+    f = sub.add_parser("fetch")
+    f.add_argument("--sdk", default=DEFAULT_SDK)
+    f.add_argument("--from", dest="source", default=UPSTREAM_URL)
+    b = sub.add_parser("build")
+    b.add_argument("--sdk", default=DEFAULT_SDK)
+    b.add_argument("--mode", default="release", choices=["release", "debug"])
+    r = sub.add_parser("run")
+    r.add_argument("--sdk", default=DEFAULT_SDK)
+    r.add_argument("--config", default="release", choices=["release", "debug"])
+    r.add_argument("--only")
+    r.add_argument("--threshold", type=int, default=24)
+    r.add_argument("--tolerance", type=float, default=5.0)
+    r.add_argument("--out")
+    opts = parser.parse_args()
+
+    try:
+        if opts.command == "fetch":
+            fetch(os.path.abspath(opts.sdk), opts.source)
+            return 0
+        if opts.command == "build":
+            build(os.path.abspath(opts.sdk), opts.mode)
+            return 0
+        return run(opts)
+    except (RunError, subprocess.CalledProcessError) as error:
+        log("FAILED: %s" % error)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
