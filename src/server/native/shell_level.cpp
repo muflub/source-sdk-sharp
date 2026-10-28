@@ -34,7 +34,6 @@ CServerSystem *GameStringSystem();
 void SourceSharp_ResetEntitySlots();
 
 extern CGlobalVars *gpGlobals;
-extern IVEngineServer *engine;
 
 // Defined in shell_entityapi.cpp.
 uint32_t SourceSharp_CreateEntity( const char *pClassName );
@@ -136,7 +135,7 @@ public:
 		if ( pMapName == NULL )
 			return 0;
 
-		return engine->LoadGameState( pMapName, bCreatePlayers != 0 ) ? 1 : 0;
+		return ServerEngine()->LoadGameState( pMapName, bCreatePlayers != 0 ) ? 1 : 0;
 	}
 
 	// Open/Size/Close: Size( path ) answers 0 for a missing file.

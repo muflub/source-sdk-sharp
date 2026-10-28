@@ -31,7 +31,6 @@ set(server_sourcesharp_sources
     ${LOCAL}/shell_mapparse.cpp
     ${LOCAL}/shell_nettable.cpp
     ${LOCAL}/shell_physicsobjects.cpp
-    ${LOCAL}/shell_recipientfilter.cpp
     ${LOCAL}/shell_scripted.cpp
     ${LOCAL}/shell_sentences.cpp
     ${LOCAL}/shell_server.cpp

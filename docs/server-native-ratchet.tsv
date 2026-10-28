@@ -20,7 +20,6 @@ src/server/native/shell_globals.cpp	281
 src/server/native/shell_level.cpp	30
 src/server/native/shell_nettable.cpp	5
 src/server/native/shell_nettable_debug.cpp	42
-src/server/native/shell_recipientfilter.cpp	38
 src/server/native/shell_scripted.cpp	34
 src/server/native/shell_sentences.cpp	7
 src/server/native/shell_server.cpp	7
@@ -36,10 +35,10 @@ src/server/native/shell_stringtables.cpp	45
 src/server/native/shell_tempents.cpp	32
 src/server/native/shell_tempents_debug.cpp	144
 src/server/native/shell_transmitsteps.cpp	13
-src/server/native/shell_usermessage_send.cpp	40
+src/server/native/shell_usermessage_send.cpp	37
 src/server/native/shell_world_nettable.cpp	14
 src/server/native/shell_worldquery.cpp	110
-src/server/native/ss_recipient_filter.cpp	17
+src/server/native/ss_recipient_filter.cpp	8
 src/server/native/standalone_relays.cpp	11
 src/server/native/world_adapter.cpp	9
 src/shared/native/alloc_check.cpp	526

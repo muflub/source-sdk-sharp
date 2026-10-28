@@ -12,6 +12,7 @@
 #include "ss_util.h"
 #include "ss_recipient_filter.h"
 #include "server_state.h"
+#include "server_engine.h"
 
 // Called from world spawn; only the first call of the DLL does anything.
 void SENTENCEG_Init()
@@ -19,6 +20,6 @@ void SENTENCEG_Init()
 	if ( ShellGameDll_Dll()->m_bSentencesInit )
 		return;
 
-	engine->PrecacheSentenceFile( "scripts/sentences.txt" );
+	ServerEngine()->PrecacheSentenceFile( "scripts/sentences.txt" );
 	ShellGameDll_Dll()->m_bSentencesInit = true;
 }

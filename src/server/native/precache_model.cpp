@@ -13,8 +13,6 @@
 
 #include "entity_shared_statics.h"
 
-extern IVEngineServer *engine;
-
 #include "imanaged_areas.h"
 #include "ss_string.h"
 
@@ -41,7 +39,7 @@ int Precache_Model( const char *name, bool bPreload )
 	if ( IManagedResources *pArea = ManagedResources() )
 		pArea->ModelPrecacheCheck( name, EntityPrecache_IsAllowed() );
 
-	int idx = engine->PrecacheModel( name, bPreload );
+	int idx = ServerEngine()->PrecacheModel( name, bPreload );
 	if ( idx != -1 )
 	{
 		Precache_ModelComponents( idx );

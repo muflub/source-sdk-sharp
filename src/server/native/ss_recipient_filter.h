@@ -10,13 +10,6 @@
 #pragma once
 
 #include "irecipientfilter.h"
-#include "const.h"
-#include "soundflags.h"
-#include "bitvec.h"
-#include "basehandle.h"
-#include "igameentity.h"
-#include "mathlib/vector.h"
-#include "SoundEmitterSystem/isoundemittersystembase.h"
 
 #include <vector>
 
@@ -27,7 +20,12 @@ namespace ss
 class CRecipientFilter : public IRecipientFilter
 {
 public:
-	CRecipientFilter() = default;
+	// Slots 1..nMaxClients are players; the engine reserves them.
+	explicit CRecipientFilter( int nMaxClients )
+		: m_nMaxClients( nMaxClients )
+	{
+	}
+
 	virtual ~CRecipientFilter() = default;
 
 	virtual bool IsReliable() const { return m_bReliable; }
@@ -44,18 +42,10 @@ public:
 
 	void MakeInitMessage() { m_bInitMessage = true; }
 
-	// Every connected player's slot.
-	void AddAllPlayers();
-	// The players whose PVS / PAS contains the point (everyone on a one-player server).
-	void AddRecipientsByPVS( const Vector &origin );
-	void AddRecipientsByPAS( const Vector &origin );
-
 	// One slot, 1..maxClients; anything else, or a slot already listed, is ignored.
 	void AddRecipientByPlayerIndex( int playerindex );
 
 	void RemoveAllRecipients() { m_Recipients.clear(); }
-
-	void AddPlayersFromBitMask( CBitVec<ABSOLUTE_PLAYER_LIMIT> &playerbits );
 
 	// Prediction rules: carried for the callers that set and read them.
 	void UsePredictionRules() { m_bUsingPredictionRules = true; }
@@ -67,48 +57,12 @@ public:
 	void SetIgnorePredictionCull( bool ignore ) { m_bIgnorePredictionCull = ignore; }
 
 private:
+	int m_nMaxClients;
 	bool m_bReliable = false;
 	bool m_bInitMessage = false;
 	std::vector<int> m_Recipients;
 	bool m_bUsingPredictionRules = false;
 	bool m_bIgnorePredictionCull = false;
-};
-
-// One player, by slot.
-class CSingleUserRecipientFilter : public CRecipientFilter
-{
-public:
-	explicit CSingleUserRecipientFilter( int playerIndex ) { AddRecipientByPlayerIndex( playerIndex ); }
-};
-
-// Everyone connected.
-class CBroadcastRecipientFilter : public CRecipientFilter
-{
-public:
-	CBroadcastRecipientFilter() { AddAllPlayers(); }
-};
-
-// Everyone connected, reliably.
-class CReliableBroadcastRecipientFilter : public CBroadcastRecipientFilter
-{
-public:
-	CReliableBroadcastRecipientFilter() { MakeReliable(); }
-};
-
-// Whoever can hear a point (its potentially audible set).
-class CPASFilter : public CRecipientFilter
-{
-public:
-	CPASFilter() {}
-
-	explicit CPASFilter( const Vector &origin ) { AddRecipientsByPAS( origin ); }
-};
-
-// Whoever can see a point (its potentially visible set).
-class CPVSFilter : public CRecipientFilter
-{
-public:
-	explicit CPVSFilter( const Vector &origin ) { AddRecipientsByPVS( origin ); }
 };
 
 } // namespace ss

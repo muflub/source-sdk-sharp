@@ -250,7 +250,7 @@ void *CStandaloneEntity::operator new( size_t nBytes, int nBlobBytes )
 	if ( nBlobBytes < SourceSharp_StandaloneMinBlobBytes() )
 		nBlobBytes = SourceSharp_StandaloneMinBlobBytes();
 
-	return engine->PvAllocEntPrivateData( SourceSharp_StandaloneBlobOffset() + nBlobBytes );
+	return ServerEngine()->PvAllocEntPrivateData( SourceSharp_StandaloneBlobOffset() + nBlobBytes );
 }
 
 unsigned char *CStandaloneEntity::DataBlob()
@@ -280,13 +280,13 @@ void CStandaloneEntity::MarkBlockChanged( int nBlockOffset )
 
 void CStandaloneEntity::operator delete( void *pMem )
 {
-	engine->FreeEntPrivateData( pMem );
+	ServerEngine()->FreeEntPrivateData( pMem );
 }
 
 // Pairs with the sized new; reached only if a constructor throws.
 void CStandaloneEntity::operator delete( void *pMem, int )
 {
-	engine->FreeEntPrivateData( pMem );
+	ServerEngine()->FreeEntPrivateData( pMem );
 }
 
 int CStandaloneEntity::BlobBytes() const
@@ -439,7 +439,7 @@ CStandaloneEntity::~CStandaloneEntity()
 	}
 
 	// The engine allocated the cluster list; without this every entity leaks it.
-	engine->CleanUpEntityClusterList( BlockPVSInfo() );
+	ServerEngine()->CleanUpEntityClusterList( BlockPVSInfo() );
 
 	if ( m_pEdict )
 	{
@@ -450,7 +450,7 @@ CStandaloneEntity::~CStandaloneEntity()
 
 		// Only an edict this entity created. A player's edict is the engine's.
 		if ( m_bOwnsEdict )
-			engine->RemoveEdict( m_pEdict );
+			ServerEngine()->RemoveEdict( m_pEdict );
 
 		m_pEdict = NULL;
 	}
@@ -500,7 +500,7 @@ const model_t *CStandaloneEntity::GetCollisionModel()
 
 int CStandaloneEntity::EntIndex() const
 {
-	return m_pEdict ? engine->IndexOfEdict( m_pEdict ) : -1;
+	return m_pEdict ? ServerEngine()->IndexOfEdict( m_pEdict ) : -1;
 }
 
 // Applied now rather than at Spawn: managed code sets a model from OnSpawn,
@@ -857,12 +857,12 @@ void CStandaloneEntity::TouchTriggers( const Vector &vecPrevOrigin )
 
 	if ( bIsTrigger )
 	{
-		engine->TriggerMoved( m_pEdict, true );
+		ServerEngine()->TriggerMoved( m_pEdict, true );
 		return;
 	}
 
 	if ( bIsSolid )
-		engine->SolidMoved( m_pEdict, this, &vecPrevOrigin, true );
+		ServerEngine()->SolidMoved( m_pEdict, this, &vecPrevOrigin, true );
 }
 
 // The volume the engine tests trigger overlap against; a point here would make
@@ -1004,7 +1004,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 	m_bOwnsEdict = ( m_pEdict == NULL );
 
 	if ( !m_pEdict )
-		m_pEdict = engine->CreateEdict();
+		m_pEdict = ServerEngine()->CreateEdict();
 
 	if ( !m_pEdict )
 	{
@@ -1013,7 +1013,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 	}
 
 	m_pEdict->SetEdict( this, true );
-	m_pEdict->m_EdictIndex = engine->IndexOfEdict( m_pEdict );
+	m_pEdict->m_EdictIndex = ServerEngine()->IndexOfEdict( m_pEdict );
 
 	// SetEdict stores only m_pUnk. The edict's separate networkable pointer is
 	// read unguarded by GetNetworkable, AreaNum and GetClassName, as
@@ -1022,7 +1022,7 @@ void CStandaloneEntity::PostConstruct( const StandaloneClassDesc_t *pClass )
 
 	// Into the slot table, which makes a handle to it resolve. The entry is the
 	// edict index. SlotIssue, not SlotBind: SetRefEHandle is the single binder.
-	const int nEntry = engine->IndexOfEdict( m_pEdict );
+	const int nEntry = ServerEngine()->IndexOfEdict( m_pEdict );
 	const CBaseHandle hIssued = SourceSharp_SlotIssue( nEntry );
 
 	// An occupied entry is a bug (stock only asserted). Said loudly: an entity
@@ -1071,7 +1071,7 @@ void CStandaloneEntity::Spawn()
 
 		// Which visibility clusters it is in; CServerNetworkProperty does this
 		// for stock entities through RecomputePVSInformation.
-		engine->BuildEntityClusterList( m_pEdict, BlockPVSInfo() );
+		ServerEngine()->BuildEntityClusterList( m_pEdict, BlockPVSInfo() );
 	}
 
 	UpdatePartition();

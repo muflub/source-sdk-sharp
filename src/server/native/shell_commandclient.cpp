@@ -13,9 +13,9 @@
 #include "server_state.h"
 #include "eiface.h"
 
-extern IVEngineServer *engine;
 extern CGlobalVars *gpGlobals;
 #include "shell_standalone_player.h"
+#include "server_engine.h"
 
 // The slot from IServerGameClients::SetCommandClient, held by the DLL tier: 0-based,
 // -1 for the dedicated console. The initial 0 is stock's.
@@ -46,7 +46,7 @@ bool UTIL_IsCommandIssuedByServerAdmin()
 {
 	int issuingPlayerIndex = UTIL_GetCommandClientIndex();
 
-	if ( engine->IsDedicatedServer() && issuingPlayerIndex > 0 )
+	if ( ServerEngine()->IsDedicatedServer() && issuingPlayerIndex > 0 )
 		return false;
 
 	// This mod ships no Replay, so "not slot 1" is the whole question.

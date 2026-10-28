@@ -71,6 +71,8 @@ public:
 			return false;
 		}
 
+		Dll()->m_Engine.m_pEngine = m_pEngine;
+
 		if ( !SourceSharp_AcquireEngineInterfaces( engineFactory, physicsFactory, fileSystemFactory ) )
 		{
 			return false;
@@ -80,7 +82,11 @@ public:
 
 		// CBaseEdict::StateChanged dereferences this unconditionally on every networked
 		// write, so it must be set before anything networks.
-		g_pSharedChangeInfo = m_pEngine->GetSharedEdictChangeInfo();
+		Dll()->m_Engine.m_pChangeInfo = m_pEngine->GetSharedEdictChangeInfo();
+
+		// Before the runtime loads: managed acquires the areas these implement.
+		Dll()->m_pServices = std::make_unique<CServerDllServices>( m_pEngine, pGlobals );
+		BindServiceAreas( Dll()->m_pServices.get() );
 
 		ConVar_Register( FCVAR_GAMEDLL, this );
 
@@ -147,8 +153,8 @@ public:
 		m_pEngine = nullptr;
 		m_pCVar = nullptr;
 
-		// Level tier, then DLL tier, last. g_pSharedChangeInfo is not cleared, as in stock:
-		// it points at engine storage, and NULL would crash an inline on the networking path.
+		// Level tier, then DLL tier, last.
+		BindServiceAreas( nullptr );
 		m_pLevel.End();
 		m_pDll.End();
 	}
@@ -522,6 +528,12 @@ private:
 				 "no-op -- if you are reading this, that argument was wrong for "
 				 "this method. `grep -c REFUSED` over console.log is the tally.\n",
 				 ( pMethod != nullptr ) ? pMethod : "(unnamed)" );
+	}
+
+	// Hands the shim root the areas the services implement; NULL withdraws them.
+	void BindServiceAreas( CServerDllServices *pServices )
+	{
+		m_ShimRoot.m_Areas.m_pUserMessages = pServices ? &pServices->m_UserMessages : nullptr;
 	}
 
 	static const char *Answer( const char *pBuffer, int nSize, int nWritten )

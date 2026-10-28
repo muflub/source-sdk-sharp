@@ -39,6 +39,12 @@ FORWARDS, NOT RENAMES. The bodies stay free SourceSharp_* functions: 969 gtest
 calls and tools/entrypoint-decls depend on them, and the client still fills the
 struct from the same bodies. The class is the vtable managed calls through.
 
+CLASS BODIES (plan_server_native_v2 T6 part 3). A row whose body is
+`CClass::Slot` says the area is implemented by CClass itself: every slot of the
+area (its base's too) must name the same class and a method of the slot's name.
+No forwarding class is generated for it; CShimAreas holds it by pointer, which
+the tier that builds the class sets, and ShimAreas_Acquire answers that pointer.
+
 Method names are the SLOT names, verbatim: greppable from either side, and a
 slot never needs a second name. The Console and Root areas are hand-written
 (A3/A4) and skipped here.
@@ -230,6 +236,26 @@ def model():
     return order, slots, base, concrete
 
 
+def fill_of(rows_fn):
+    return {r['slot']: r['body'] for r in rows_fn()}
+
+
+def owner_class(iface, slots, base, fill):
+    """The class that implements iface itself, when every one of its slots (its
+    base's too) has a body `CClass::Slot` naming one class; None when every body is
+    a free function. A mix is an error: an area is owned by one class or by none.
+    plan_server_native_v2 T6 part 3: the class takes its dependencies by
+    constructor, and the tier that owns it hands the shim areas its address."""
+    named = [(s, fill[s]) for ci in chain(iface, base) for s in slots[ci]]
+    owners = {b.split('::')[0] for _s, b in named if '::' in b}
+    if not owners:
+        return None
+    if len(owners) > 1 or any(b != '%s::%s' % (next(iter(owners)), s) for s, b in named):
+        raise SystemExit('tools/shim-areas: %s: every body must be one class\'s method of the '
+                         'slot\'s name, or none: %s' % (iface, ', '.join(b for _s, b in named)))
+    return next(iter(owners))
+
+
 def short(iface):
     return iface[len('IShim'):]
 
@@ -280,6 +306,9 @@ def generate():
     if missing:
         raise SystemExit('tools/shim-areas: no signature or server fill for: %s' % ', '.join(missing))
 
+    owned = {i: owner_class(i, slots, base, fill) for i in concrete}
+    forwarded = [i for i in concrete if not owned[i]]
+
     # ---- the interfaces ------------------------------------------------------
     h = [valve, '', GENERATED, '//',
          '// plan_engineapi_vtables.md Phase C: every EngineApi slot the server fills,',
@@ -306,10 +335,11 @@ def generate():
          '// The server\'s implementation of each bound interface in ishim_areas.h: one',
          '// class per interface managed binds, whose methods forward to the bodies the',
          '// struct slots are filled with (shell_shim_areas.inc). The shim root holds',
-         '// CShimAreas by value, so the areas add one member to one static.',
+         '// CShimAreas by value, so the areas add one member to one static. An area its',
+         '// own class implements is held by pointer, set by the tier that owns the class.',
          '', '#pragma once', '',
          '#include "ishim_areas.h"', '#include "ishim_areas_client.h"', '', '#ifndef CLIENT_DLL', '']
-    for i in concrete:
+    for i in forwarded:
         c += ['class CShim%s final : public %s' % (short(i), i), '{', 'public:']
         for ci in chain(i, base):
             for s in slots[ci]:
@@ -318,7 +348,10 @@ def generate():
         c += ['};', '']
     c += ['struct CShimAreas', '{']
     for i in concrete:
-        c.append('\tCShim%s m_%s;' % (short(i), short(i)))
+        if owned[i]:
+            c.append('\t%s *m_p%s = nullptr; // %s' % (i, short(i), owned[i]))
+        else:
+            c.append('\tCShim%s m_%s;' % (short(i), short(i)))
     c += ['};', '',
           '// The internal factory\'s rows for every interface above: the area and the',
           '// compiler\'s slot count for it, or NULL and 0. Defined in shell_shim_areas.inc.',
@@ -352,7 +385,7 @@ def generate():
     im = [valve, '', GENERATED, '//',
           '// Included at the end of sourcesharp_gamesystem.cpp, server only, where every',
           '// body the struct is filled with -- the static ones too -- is in scope.', '']
-    for i in concrete:
+    for i in forwarded:
         for ci in chain(i, base):
             for s in slots[ci]:
                 ret, params = sigs[s]
@@ -364,7 +397,8 @@ def generate():
            '\tif ( !pszName )', '\t\treturn NULL;', '']
     for i in concrete:
         im += ['\tif ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_%s_VERSION ) )' % short(i).upper(),
-               '\t\treturn static_cast< %s * >( &areas.m_%s );' % (i, short(i)), '']
+               ('\t\treturn areas.m_p%s;' % short(i)) if owned[i]
+               else '\t\treturn static_cast< %s * >( &areas.m_%s );' % (i, short(i)), '']
     im += ['\treturn NULL;', '}', '']
 
     # ---- the client's forwards (plan_client_vtables CB) ----------------------
@@ -1036,6 +1070,56 @@ def self_test():
                for p in order_problems([read(OUT_IFACE), moved_text])))
     expect('a slot the header names differently is refused',
            any('IShimParticlesClient' in p for p in order_problems([read(OUT_IFACE), swapped])))
+    # T6 part 3: an area its own class implements.
+    def refused(fn):
+        try:
+            fn()
+        except SystemExit:
+            return True
+        return False
+    toy_slots = {'IShimToy': ['Ping', 'Pong']}
+    toy_base = {'IShimToy': None}
+    expect('an area whose bodies are one class\'s methods of the slots\' names is that class\'s',
+           owner_class('IShimToy', toy_slots, toy_base,
+                       {'Ping': 'CToy::Ping', 'Pong': 'CToy::Pong'}) == 'CToy')
+    expect('an area of free bodies has no owning class',
+           owner_class('IShimToy', toy_slots, toy_base,
+                       {'Ping': 'SourceSharp_Ping', 'Pong': 'SourceSharp_Pong'}) is None)
+    expect('an area mixing a class body and a free body is refused',
+           refused(lambda: owner_class('IShimToy', toy_slots, toy_base,
+                                       {'Ping': 'CToy::Ping', 'Pong': 'SourceSharp_Pong'})))
+    expect('a class body named differently from its slot is refused',
+           refused(lambda: owner_class('IShimToy', toy_slots, toy_base,
+                                       {'Ping': 'CToy::Ping', 'Pong': 'CToy::Pang'})))
+    expect('an area split between two classes is refused',
+           refused(lambda: owner_class('IShimToy', toy_slots, toy_base,
+                                       {'Ping': 'CToy::Ping', 'Pong': 'COther::Pong'})))
+    global rows
+    real_rows = rows
+    owned_area = 'IShimUserMessages'
+    owned_slots = [r['slot'] for r in real_rows() if r['interface'] == owned_area]
+
+    def owned_rows():
+        out = []
+        for r in real_rows():
+            if r['interface'] == owned_area:
+                r = dict(r, body='CToyUserMessages::%s' % r['slot'])
+            out.append(r)
+        return out
+    rows = owned_rows
+    try:
+        owned_gen = generate()
+    finally:
+        rows = real_rows
+    owned_now = owner_class(owned_area, slots, base, fill_of(real_rows)) is not None
+    expect('the unmodified table generates the area as it is ruled (the control)',
+           ('class CShimUserMessages ' in gen[OUT_CLASSES]) != owned_now)
+    expect('an owned area has no generated forwarding class and no forwards',
+           owned_slots and 'class CShimUserMessages ' not in owned_gen[OUT_CLASSES]
+           and 'CShimUserMessages::' not in owned_gen[OUT_IMPL])
+    expect('an owned area is held by pointer and acquired through it',
+           '\tIShimUserMessages *m_pUserMessages = nullptr; // CToyUserMessages' in owned_gen[OUT_CLASSES]
+           and '\t\treturn areas.m_pUserMessages;' in owned_gen[OUT_IMPL])
     expect('an interface missing from both headers is refused',
            any('IShimEngine' in p and 'no abstract_class' in p
                for p in order_problems([read(OUT_IFACE).replace('abstract_class IShimEngine', 'class IShimEngineGone'),

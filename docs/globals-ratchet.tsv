@@ -424,7 +424,13 @@ globals_rows_with_no_symbol	docs/globals-ledger.tsv	0
 #   our critical sections pass it to vendor's MDLCACHE_CRITICAL_SECTION_.
 # LOWERED 2026-10-27, 123 -> 120: gameeventmanager, debugoverlay and random_valve join CServerEngineInterfaces; the
 #   shared files read them through server_engine.h in their server arms (the client keeps its globals).
-globals_link_level	src/sourcesharp/game/server	120
+# LOWERED 2026-10-27, 120 -> 119: g_pSharedChangeInfo joins CServerEngineInterfaces; vendor's edict.h reads it through
+#   SharedEdictChangeInfo() (user 2026-10-27: vendor headers may change off the engine barrier).
+# LOWERED 2026-10-27, 119 -> 118: engine joins CServerEngineInterfaces; the server reads it through ServerEngine()
+#   (server_engine.h), and LoadManagedRuntime no longer seeds it a second time.
+# LOWERED 2026-10-27, 118 -> 116: bitvec.h's firstBitLUT and g_StartMask left with
+#   ss::CRecipientFilter::AddPlayersFromBitMask, whose callers (the PVS/PAS filters) had gone (todo, user ruling 2026-10-20).
+globals_link_level	src/sourcesharp/game/server	116
 #
 # ---------------------------------------------------------------------------
 # THE ROWS NOBODY HAS RULED. UNRULED is an admission, not a disposition: the
@@ -518,3 +524,14 @@ globals_objects_with_static_init	src/sourcesharp/game/server	85
 #   python3 tools/globals-census reconcile --config auto
 # ---------------------------------------------------------------------------
 globals_reconcile_unattributed	src/sourcesharp/game/server	0
+#
+# ---------------------------------------------------------------------------
+# THE LOCATOR CALLS (plan_server_native_v2 T6 part 3, user 2026-10-27).
+#
+# State on a tier is not done while code finds it through an accessor rather
+# than being handed it by constructor. tools/globals-census summary counts the
+# code relocations, over the server's link-edge objects, against the closed list
+# LOCATORS (ShellGameDll_Dll/Level/Managed/ShimRoot, the Server*() engine
+# accessors, SharedEdictChangeInfo): one per call site. 181 at its first
+# measure (2026-10-27, debug, lane t6-globals; objdump -dr agreed). Target 0.
+globals_locator_calls	src/sourcesharp/game/server	181

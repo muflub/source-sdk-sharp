@@ -13,9 +13,6 @@
 
 #include <algorithm>
 
-// Only maxClients is read.
-extern CGlobalVars *gpGlobals;
-
 int ss::CRecipientFilter::GetRecipientIndex( int slot ) const
 {
 	if ( slot < 0 || slot >= GetRecipientCount() )
@@ -26,7 +23,7 @@ int ss::CRecipientFilter::GetRecipientIndex( int slot ) const
 
 void ss::CRecipientFilter::AddRecipientByPlayerIndex( int playerindex )
 {
-	if ( playerindex < 1 || playerindex > gpGlobals->maxClients )
+	if ( playerindex < 1 || playerindex > m_nMaxClients )
 		return;
 
 	// Already listed
@@ -34,16 +31,4 @@ void ss::CRecipientFilter::AddRecipientByPlayerIndex( int playerindex )
 		return;
 
 	m_Recipients.push_back( playerindex );
-}
-
-void ss::CRecipientFilter::AddPlayersFromBitMask( CBitVec<ABSOLUTE_PLAYER_LIMIT> &playerbits )
-{
-	int index = playerbits.FindNextSetBit( 0 );
-
-	while ( index > -1 )
-	{
-		AddRecipientByPlayerIndex( index + 1 );
-
-		index = playerbits.FindNextSetBit( index + 1 );
-	}
 }

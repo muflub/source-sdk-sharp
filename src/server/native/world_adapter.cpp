@@ -105,7 +105,7 @@ static void *AllocWorld( size_t nBytes )
 	if ( nBlobBytes < 0 )
 		nBlobBytes = 0;
 
-	return engine->PvAllocEntPrivateData( SourceSharp_WorldBlobOffset() + nBlobBytes );
+	return ServerEngine()->PvAllocEntPrivateData( SourceSharp_WorldBlobOffset() + nBlobBytes );
 }
 
 void *CWorld::operator new( size_t stAllocateBlock )
@@ -117,7 +117,7 @@ void *CWorld::operator new( size_t stAllocateBlock )
 // would reach the global delete.
 void CWorld::operator delete( void *pMem )
 {
-	engine->FreeEntPrivateData( pMem );
+	ServerEngine()->FreeEntPrivateData( pMem );
 }
 
 unsigned char *CWorld::DataBlob()
@@ -244,7 +244,7 @@ CWorld::~CWorld()
 	m_RefEHandle.Term();
 
 	// ~CServerNetworkProperty makes this call too; the world is FL_EDICT_ALWAYS.
-	engine->CleanUpEntityClusterList( m_Networkable.PVSInfo() );
+	ServerEngine()->CleanUpEntityClusterList( m_Networkable.PVSInfo() );
 
 	if ( m_pEdict )
 	{

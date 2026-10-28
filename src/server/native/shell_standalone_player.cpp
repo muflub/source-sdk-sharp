@@ -36,6 +36,7 @@ int UTIL_GetCommandClientIndex();
 #include "native_command_body.h"
 #include "ss_string.h"
 #include "ss_entityfactory.h"
+#include "server_engine.h"
 
 // Stock's player physics-shadow states (player.h VPHYS_*).
 namespace
@@ -101,7 +102,7 @@ CStandalonePlayer *CStandalonePlayer::FromEdict( const edict_t *pEdict )
 	if ( !pEdict )
 		return NULL;
 
-	return FromIndex( engine->IndexOfEdict( const_cast<edict_t *>( pEdict ) ) );
+	return FromIndex( ServerEngine()->IndexOfEdict( const_cast<edict_t *>( pEdict ) ) );
 }
 
 CStandalonePlayer *CStandalonePlayer::FromIndex( int nEntIndex )
@@ -676,7 +677,7 @@ uint32_t SourceSharp_GetCommandClientHandle()
 }
 
 // `use` is ss_use under stock's name. It needs a registration because
-// engine->ServerCommand, which tools drive the game through, only reaches a ConCommand.
+// ServerEngine()->ServerCommand, which tools drive the game through, only reaches a ConCommand.
 static void StandalonePlayer_RouteVerbatim( const CCommand &args )
 {
 	const char *pName = args.ArgC() >= 1 ? args[0] : "command";

@@ -12,9 +12,8 @@
 
 #include "eiface.h"
 
-extern IVEngineServer *engine;
-
 #include "shell_standalone_player.h"
+#include "server_engine.h"
 
 // 1 when this edict is a standalone player, with pOutXYZ written; 0 otherwise,
 // with pOutXYZ untouched, so the caller can tell a miss from the world origin.
@@ -23,7 +22,7 @@ int32_t SourceSharp_ClientsStandalonePlayerEarPosition( int32_t iEdict, float *p
 	if ( pOutXYZ == NULL )
 		return 0;
 
-	edict_t *pEdict = engine->PEntityOfEntIndex( iEdict );
+	edict_t *pEdict = ServerEngine()->PEntityOfEntIndex( iEdict );
 	if ( pEdict == NULL )
 		return 0;
 

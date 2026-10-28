@@ -10,6 +10,7 @@ vtable-layout	routine	cd farm/$SOURCESHARP_CONFIG && tools/vtable-layout --self-
 engine-forwarders	routine	cd farm/$SOURCESHARP_CONFIG && tools/engine-forwarders --self-test && tools/engine-forwarders
 shim-areas	routine	tools/shim-areas --self-test && tools/shim-areas
 shim-vtable-order	routine	tools/shim-areas --vtable-order
+native-fakes	routine	tools/native-fakes --self-test && tools/native-fakes
 managed-areas	routine	tools/managed-areas --self-test && tools/managed-areas
 launcher-name-test	routine	tools/launcher-name-test --self-test && tools/launcher-name-test
 valve-text-audit	routine	tools/valve-text-audit --self-test && tools/valve-text-audit

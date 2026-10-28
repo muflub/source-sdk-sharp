@@ -53,7 +53,7 @@ void SourceSharp_StandaloneSetModelScale( uint32_t hEntity, float flScale );
 int32_t SourceSharp_WorldNetDeclare( int32_t nBlobBytes );
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 117 slots.
+// SERVER ONLY -- 116 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
@@ -187,8 +187,6 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes, Sourc
 int32_t SourceSharp_TemplateSpawnKeyed( const char *pClassNames, const char *pPackedKeys, const int32_t *pPackBytes,
 										const float *pOriginsXYZ, const float *pAnglesPYR, int32_t nCount,
 										uint32_t *pOutHandles, int32_t nMax );
-int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData, int32_t nBytes, int32_t nPlayerIndex,
-									 int32_t bReliable );
 #endif
 
 //---------------------------------------------------------------------------

@@ -265,7 +265,7 @@ ColorLookupRemove	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLo
 ColorLookupResetWeights	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLookupResetWeights	void	
 ClientClipRayToEntities	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientClipRayToEntities	float*, float*, int, int*, int, float*, float*, float*, int*, int*, int*, int*, int	
 ClientTraceHullEntities	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientTraceHullEntities	float*, float*, float*, float*, int, int, int*, int, float*, float*, int*, float*, int	
-UserMessageSend	EngineApi	IShimUserMessages	server		server	-	SourceSharp_UserMessageSend	int, byte*, int, int, int, int	
+UserMessageSend	EngineApi	IShimUserMessages	server		server	-	CServerUserMessages::UserMessageSend	int, byte*, int, int, int, int	
 ClientViewportQuery	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportQuery	byte*, int	
 ClientViewportShow	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportShow	byte*, int, byte*, int, int, void	
 SendServerMessage	EngineApi	IShimNetClient	client		client	-	SourceSharp_SendServerMessage	byte*, byte*, int, int	

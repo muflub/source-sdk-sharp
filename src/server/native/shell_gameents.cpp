@@ -120,7 +120,7 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 	// is consecutive in memory. If either of these things change, then this routine needs to change, but
 	// ideally we won't be calling any virtual from this routine. This speedy routine was added as an
 	// optimization which would be nice to keep.
-	edict_t *pBaseEdict = engine->PEntityOfEntIndex( 0 );
+	edict_t *pBaseEdict = ServerEngine()->PEntityOfEntIndex( 0 );
 
 	// Read only by the Assert below.
 	[[maybe_unused]] IGameEntity *pRecipientEntity = NULL;
@@ -152,7 +152,7 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 	if ( IManagedClients *pApi = ManagedClients() )
 	{
 		const int iAlways = pApi->ServerTransmitAlwaysForClient( nRecipientIndex );
-		if ( iAlways > 0 && iAlways < engine->GetEntityCount() && !pBaseEdict[iAlways].IsFree() )
+		if ( iAlways > 0 && iAlways < ServerEngine()->GetEntityCount() && !pBaseEdict[iAlways].IsFree() )
 			pInfo->m_pTransmitEdict->Set( iAlways );
 	}
 
@@ -162,7 +162,7 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 		int iEdict = pEdictIndices[i];
 
 		edict_t *pEdict = &pBaseEdict[iEdict];
-		Assert( pEdict == engine->PEntityOfEntIndex( iEdict ) );
+		Assert( pEdict == ServerEngine()->PEntityOfEntIndex( iEdict ) );
 		int nFlags =
 			pEdict->m_fStateFlags & ( FL_EDICT_DONTSEND | FL_EDICT_ALWAYS | FL_EDICT_PVSCHECK | FL_EDICT_FULLCHECK );
 
@@ -192,7 +192,7 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 		Vector vecMins, vecMaxs;
 		pCollide->WorldSpaceSurroundingBounds( &vecMins, &vecMaxs );
 
-		if ( engine->CheckBoxInPVS( vecMins, vecMaxs, pInfo->m_PVS, pInfo->m_nPVSSize ) )
+		if ( ServerEngine()->CheckBoxInPVS( vecMins, vecMaxs, pInfo->m_PVS, pInfo->m_nPVSSize ) )
 			pInfo->m_pTransmitEdict->Set( iEdict );
 	}
 

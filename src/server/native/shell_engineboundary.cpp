@@ -30,15 +30,17 @@
 #include "shell_server.h"
 
 // Engine interfaces, assigned only by SourceSharp_AcquireEngineInterfaces.
-IVEngineServer *engine = NULL;
-
 CGlobalVars *gpGlobals;
 
-CSharedEdictChangeInfo *g_pSharedChangeInfo = NULL;
+// edict.h's StateChanged reads the engine's change list through this.
+CSharedEdictChangeInfo *SharedEdictChangeInfo()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pChangeInfo;
+}
 
 IChangeInfoAccessor *CBaseEdict::GetChangeAccessor()
 {
-	return engine->GetChangeAccessor( (const edict_t *)this );
+	return ServerEngine()->GetChangeAccessor( (const edict_t *)this );
 }
 
 // Acquires the engine interfaces and loads the game event files. Returns false on
@@ -112,6 +114,11 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory, Cr
 }
 
 // The DLL tier's engine interfaces (server_engine.h).
+IVEngineServer *ServerEngine()
+{
+	return ShellGameDll_Dll()->m_Engine.m_pEngine;
+}
+
 IFileSystem *ServerFileSystem()
 {
 	return ShellGameDll_Dll()->m_Engine.m_pFileSystem;

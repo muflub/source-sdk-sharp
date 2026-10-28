@@ -285,9 +285,6 @@ void CShimDebugOverlay::AddLineOverlay( const float * pStartXYZ, const float * p
 void CShimDebugOverlay::OverlayCounts( uint32_t * pOutDrawn, uint32_t * pOutClipped, uint32_t * pOutNoViewer, uint32_t * pOutNoOverlay, int32_t * pOutViewerSet )
 	{ return ::SourceSharp_OverlayCounts( pOutDrawn, pOutClipped, pOutNoViewer, pOutNoOverlay, pOutViewerSet ); }
 
-int32_t CShimUserMessages::UserMessageSend( int32_t nMsgId, const unsigned char * pData, int32_t nBytes, int32_t nPlayerIndex, int32_t bReliable )
-	{ return ::SourceSharp_UserMessageSend( nMsgId, pData, nBytes, nPlayerIndex, bReliable ); }
-
 int32_t CShimDiagnostics::PlayerShadowCounts( int32_t * pOut, int32_t nMax )
 	{ return ::SourceSharp_PlayerShadowCounts( pOut, nMax ); }
 int32_t CShimDiagnostics::ExitWatchArm( const char * pRecordPath )
@@ -360,7 +357,7 @@ void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName )
 		return static_cast< IShimDebugOverlay * >( &areas.m_DebugOverlay );
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_USERMESSAGES_VERSION ) )
-		return static_cast< IShimUserMessages * >( &areas.m_UserMessages );
+		return areas.m_pUserMessages;
 
 	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_DIAGNOSTICS_VERSION ) )
 		return static_cast< IShimDiagnostics * >( &areas.m_Diagnostics );

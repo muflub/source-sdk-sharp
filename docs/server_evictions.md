@@ -68,3 +68,4 @@ moved here verbatim with the date the comment was written (git blame). Newest fi
 | 2026-10-26 | shell_entityslots_debug.cpp | The same change: cs_sv_slot_table. |
 | 2026-10-26 | world_adapter_debug.cpp | The same change: cs_sv_world. |
 | 2026-10-27 | shell_decals.cpp | Nothing imported ss::DecalIndexForName any more (nm --undefined-only over the server objects), so the TU, ss_decals.h and IManagedResources' three decal slots went. The decal script itself is managed (DecalEmitter, IServerDecals). |
+| 2026-10-27 | shell_recipientfilter.cpp | Its last body, CRecipientFilter::AddAllPlayers, read the engine through globals; the walk over connected slots is CServerUserMessages's (shell_usermessage_send.cpp), over the engine and globals it is handed by constructor (plan_server_native_v2 T6 part 3). |

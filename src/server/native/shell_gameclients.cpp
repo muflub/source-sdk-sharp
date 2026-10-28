@@ -21,7 +21,6 @@
 #include "physicslink.h"
 #include "datacache/imdlcache.h"
 
-extern IVEngineServer *engine;
 extern CGlobalVars *gpGlobals;
 void ClientActive( edict_t *pEdict, bool bLoadGame );
 void ClientPutInServer( edict_t *pEdict, const char *playername );
@@ -60,7 +59,7 @@ CPlayerState *SourceSharp_PlayerStateForEdict( edict_t *pEdict )
 
 	SS_BOUNDARY_HIT( kBoundaryProbe_GetPlayerState_Null );
 
-	int nIndex = ( pEdict != NULL ) ? engine->IndexOfEdict( pEdict ) : 0;
+	int nIndex = ( pEdict != NULL ) ? ServerEngine()->IndexOfEdict( pEdict ) : 0;
 	if ( nIndex < 0 || nIndex > ABSOLUTE_PLAYER_LIMIT )
 		nIndex = 0;
 	return &s_OrphanPlayerStates[nIndex];
@@ -86,7 +85,7 @@ bool SourceSharp_ClientViewOrigin( edict_t *pClient, Vector *pOut )
 
 		// A miss writes nothing and answers no; a zeroed flEyes is the world
 		// origin, a real position.
-		if ( !SourceSharp_EarPositionForClient( engine->IndexOfEdict( pClient ), flEyes ) )
+		if ( !SourceSharp_EarPositionForClient( ServerEngine()->IndexOfEdict( pClient ), flEyes ) )
 			return false;
 
 		tail.ViewOrigin.Init( flEyes[0], flEyes[1], flEyes[2] );
@@ -158,7 +157,8 @@ bool HandClientMessageToManaged( CSourceSharpClientMessage &msg )
 void RegisterClientMessage( int nEntIndex )
 {
 	// A bot has no channel.
-	INetChannel *pChannel = nEntIndex > 0 ? static_cast<INetChannel *>( engine->GetPlayerNetInfo( nEntIndex ) ) : NULL;
+	INetChannel *pChannel =
+		nEntIndex > 0 ? static_cast<INetChannel *>( ServerEngine()->GetPlayerNetInfo( nEntIndex ) ) : NULL;
 	if ( !pChannel )
 		return;
 
@@ -183,8 +183,8 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 	// here. Not fatal on failure: the map is still standing and playable.
 	if ( ShellSave_LoadGameNeedsPlayer( bLoadGame, CStandalonePlayer::FromEdict( pEdict ) != NULL ) )
 	{
-		const int nIndex = pEdict ? engine->IndexOfEdict( pEdict ) : 0;
-		const char *pszName = nIndex > 0 ? engine->GetClientConVarValue( nIndex, "name" ) : NULL;
+		const int nIndex = pEdict ? ServerEngine()->IndexOfEdict( pEdict ) : 0;
+		const char *pszName = nIndex > 0 ? ServerEngine()->GetClientConVarValue( nIndex, "name" ) : NULL;
 
 		Msg( "[SourceSharp][save] ClientActive( bLoadGame=1 ) -- the engine skipped "
 			 "ClientPutInServer, so no player exists on edict %d. Creating it here.\n",
@@ -201,7 +201,7 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 
 	// Before the managed side hears of the client: from here on it may ask the
 	// client something, and the answer comes back as this message.
-	RegisterClientMessage( pEdict ? engine->IndexOfEdict( pEdict ) : 0 );
+	RegisterClientMessage( pEdict ? ServerEngine()->IndexOfEdict( pEdict ) : 0 );
 
 	::ClientActive( pEdict, bLoadGame );
 
@@ -276,9 +276,9 @@ void CServerGameClients::ClientSettingsChanged( edict_t *pEdict )
 	if ( !pPlayer || !pApi )
 		return;
 
-	const int nIndex = engine->IndexOfEdict( pEdict );
+	const int nIndex = ServerEngine()->IndexOfEdict( pEdict );
 	if ( pApi->OnClientSettingsChanged( nIndex ) )
-		pPlayer->SetPlayerName( engine->GetClientConVarValue( nIndex, "name" ) );
+		pPlayer->SetPlayerName( ServerEngine()->GetClientConVarValue( nIndex, "name" ) );
 }
 
 // Sets up the client's PVS from its view entity and eye position. Do not cache
@@ -293,7 +293,7 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 	Vector org = vec3_origin;
 
 	// Reset the PVS!!!
-	engine->ResetPVS( pvs, pvssize );
+	ServerEngine()->ResetPVS( pvs, pvssize );
 
 	// Find the client's PVS
 	if ( pViewEntity )
@@ -304,7 +304,7 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 		if ( ss::GameEntityFromEntityHandle( pViewEntity->GetUnknown() ) )
 		{
 			org = pViewEntity->GetUnknown()->GetCollideable()->GetCollisionOrigin();
-			engine->AddOriginToPVS( org );
+			ServerEngine()->AddOriginToPVS( org );
 		}
 	}
 
@@ -316,7 +316,7 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 	{
 		// Only when no view entity overrode the view, as CBasePlayer::SetupVisibility.
 		if ( !pViewEntity )
-			engine->AddOriginToPVS( org );
+			ServerEngine()->AddOriginToPVS( org );
 	}
 
 	// The area portal walk is managed; it answers the engine for every portal. A
@@ -420,7 +420,7 @@ void CServerGameClients::ClientEarPosition( edict_t *pEdict, Vector *pEarOrigin 
 		return;
 
 	float flEars[3] = { 0.0f, 0.0f, 0.0f };
-	if ( SourceSharp_EarPositionForClient( pEdict ? engine->IndexOfEdict( pEdict ) : 0, flEars ) )
+	if ( SourceSharp_EarPositionForClient( pEdict ? ServerEngine()->IndexOfEdict( pEdict ) : 0, flEars ) )
 	{
 		pEarOrigin->Init( flEars[0], flEars[1], flEars[2] );
 		return;

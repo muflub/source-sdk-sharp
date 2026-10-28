@@ -93,7 +93,8 @@ public:
 	unsigned short m_nChangeInfos; // How many are in use this frame.
 };
 
-extern CSharedEdictChangeInfo *g_pSharedChangeInfo;
+// The game DLL answers this from its own state; the engine's copy is its own.
+CSharedEdictChangeInfo *SharedEdictChangeInfo();
 
 class IChangeInfoAccessor
 {
@@ -202,11 +203,12 @@ inline void CBaseEdict::StateChanged( unsigned short offset )
 	m_fStateFlags |= FL_EDICT_CHANGED;
 
 	IChangeInfoAccessor *accessor = GetChangeAccessor();
+	CSharedEdictChangeInfo *pShared = SharedEdictChangeInfo();
 
-	if ( accessor->GetChangeInfoSerialNumber() == g_pSharedChangeInfo->m_iSerialNumber )
+	if ( accessor->GetChangeInfoSerialNumber() == pShared->m_iSerialNumber )
 	{
 		// Ok, I still own this one.
-		CEdictChangeInfo *p = &g_pSharedChangeInfo->m_ChangeInfos[accessor->GetChangeInfo()];
+		CEdictChangeInfo *p = &pShared->m_ChangeInfos[accessor->GetChangeInfo()];
 
 		// Now add this offset to our list of changed variables.
 		for ( unsigned short i = 0; i < p->m_nChangeOffsets; i++ )
@@ -226,7 +228,7 @@ inline void CBaseEdict::StateChanged( unsigned short offset )
 	}
 	else
 	{
-		if ( g_pSharedChangeInfo->m_nChangeInfos == MAX_EDICT_CHANGE_INFOS )
+		if ( pShared->m_nChangeInfos == MAX_EDICT_CHANGE_INFOS )
 		{
 			// Shucks.. have to mark the edict as fully changed because we don't have room to remember this change.
 			accessor->SetChangeInfoSerialNumber( 0 );
@@ -235,12 +237,12 @@ inline void CBaseEdict::StateChanged( unsigned short offset )
 		else
 		{
 			// Get a new CEdictChangeInfo and fill it out.
-			accessor->SetChangeInfo( g_pSharedChangeInfo->m_nChangeInfos );
-			g_pSharedChangeInfo->m_nChangeInfos++;
+			accessor->SetChangeInfo( pShared->m_nChangeInfos );
+			pShared->m_nChangeInfos++;
 
-			accessor->SetChangeInfoSerialNumber( g_pSharedChangeInfo->m_iSerialNumber );
+			accessor->SetChangeInfoSerialNumber( pShared->m_iSerialNumber );
 
-			CEdictChangeInfo *p = &g_pSharedChangeInfo->m_ChangeInfos[accessor->GetChangeInfo()];
+			CEdictChangeInfo *p = &pShared->m_ChangeInfos[accessor->GetChangeInfo()];
 			p->m_ChangeOffsets[0] = offset;
 			p->m_nChangeOffsets = 1;
 		}

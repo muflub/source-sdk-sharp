@@ -14,7 +14,6 @@
 
 #include "eiface.h"
 
-extern IVEngineServer *engine;
 #include "shell_tempents.h"
 
 #include "server_class.h"

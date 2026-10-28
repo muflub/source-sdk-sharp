@@ -1407,6 +1407,37 @@ def gate(side, config, mtime_policy, ledger_path=None):
 # summary
 # ---------------------------------------------------------------------------
 
+# plan_server_native_v2 T6 part 3: the accessors through which code finds the root's
+# state instead of being handed it. A closed list, matched whole; each is a free
+# function of no arguments, so its Itanium name is _Z<len><name>v.
+LOCATORS = (
+    "ShellGameDll_Dll", "ShellGameDll_Level", "ShellGameDll_Managed", "ShellGameDll_ShimRoot",
+    "ServerEngine", "ServerFileSystem", "ServerPartition", "ServerGameStats", "ServerStringTables",
+    "ServerModelInfo", "ServerStaticProps", "ServerTrace", "ServerMdlCache", "ServerEvents",
+    "ServerOverlay", "ServerRandom", "SharedEdictChangeInfo",
+)
+LOCATOR_MANGLED = frozenset("_Z%d%sv" % (len(n), n) for n in LOCATORS)
+
+_RELA_HEAD = re.compile(r"^Relocation section '([^']+)'")
+
+
+def locator_calls(readelf_text):
+    """Call sites of the locators in one object: relocations in its code sections
+    (.rela.text*) whose symbol is one of them, matched whole. Debug-info relocations
+    are not calls."""
+    n, in_text = 0, False
+    for line in readelf_text.splitlines():
+        head = _RELA_HEAD.match(line)
+        if head:
+            in_text = head.group(1).startswith(".rela.text")
+            continue
+        if in_text:
+            fields = line.split()
+            if len(fields) >= 5 and fields[4] in LOCATOR_MANGLED:
+                n += 1
+    return n
+
+
 def summary(side, config, mtime_policy):
     rows, objs, archives = take_census(side, config, mtime_policy)
     state = [r for r in rows if is_state(r)]
@@ -1432,6 +1463,9 @@ def summary(side, config, mtime_policy):
     out.append("link_level\t%d" % len(link))
     out.append("object_level_bytes\t%d" % sum(r.size for r in state))
     out.append("objects_with_a_static_initialiser\t%d" % initialisers)
+    if side == "server":
+        out.append("locator_calls\t%d" % sum(locator_calls(sh("readelf", "-rW", os.path.join(SRC, o)))
+                                               for o in objs))
     for s in ("file-or-global", "function-local", "class-or-namespace"):
         out.append("scope_%s\t%d" % (s, sum(1 for r in state if r.scope == s)))
     for c, n in collections.Counter(r.category for r in state).most_common():
@@ -1477,6 +1511,21 @@ def self_test():
     ok(isinstance(MUTABLE_KINDS, frozenset),
        "MUTABLE_KINDS is a SET, so it cannot be used as a substring pattern")
     ok(is_state(_mkrow(kind="bss")), "a .bss symbol is state")
+
+    # plan_server_native_v2 T6 part 3: the locator count.
+    rela = "\n".join([
+        "Relocation section '.rela.text._Z3Foov' at offset 0x10 contains 3 entries:",
+        "    Offset             Info             Type               Symbol's Value  Symbol's Name + Addend",
+        "0000000000000005  0000000900000004 R_X86_64_PLT32         0000000000000000 _Z16ShellGameDll_Dllv - 4",
+        "0000000000000015  0000000a00000004 R_X86_64_PLT32         0000000000000000 _Z12ServerEnginev - 4",
+        "0000000000000025  0000000b00000004 R_X86_64_PLT32         0000000000000000 _Z13ServerEngine2v - 4",
+        "Relocation section '.rela.debug_info' at offset 0x90 contains 1 entry:",
+        "0000000000000005  0000000900000001 R_X86_64_64            0000000000000000 _Z12ServerEnginev + 0",
+    ])
+    ok(locator_calls(rela) == 2,
+       "locator calls count code relocations against the listed names, whole, and not debug info")
+    ok(locator_calls(rela.replace(".rela.text._Z3Foov", ".rela.debug_line")) == 0,
+       "a relocation outside a code section is not a call")
     ok(is_state(_mkrow(kind="data")), "a .data symbol is state")
     ok(is_state(_mkrow(kind="tls")), "a thread-local is state")
     ok(not is_state(_mkrow(kind="rodata")), "a .rodata constant is not state")

@@ -14,7 +14,9 @@ class ISpatialPartition;
 class IStaticPropMgrServer;
 class IUploadGameStats;
 class IVModelInfo;
+class IVEngineServer;
 
+IVEngineServer *ServerEngine();
 IFileSystem *ServerFileSystem();
 ISpatialPartition *ServerPartition();
 IUploadGameStats *ServerGameStats();

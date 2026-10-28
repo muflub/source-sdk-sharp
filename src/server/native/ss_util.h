@@ -18,8 +18,6 @@
 
 class IServerNetworkable;
 
-extern IVEngineServer *engine;
-
 // Defined in our TUs.
 void UTIL_ClearTrace( trace_t &trace );
 bool UTIL_IsCommandIssuedByServerAdmin();
@@ -38,13 +36,13 @@ inline bool FStrEq( const char *sz1, const char *sz2 )
 inline int ENTINDEX( edict_t *pEdict )
 {
 	const int nResult = pEdict ? pEdict->m_EdictIndex : 0;
-	Assert( nResult == engine->IndexOfEdict( pEdict ) );
+	Assert( nResult == ServerEngine()->IndexOfEdict( pEdict ) );
 	return nResult;
 }
 
 inline edict_t *INDEXENT( int iEdictNum )
 {
-	return engine->PEntityOfEntIndex( iEdictNum );
+	return ServerEngine()->PEntityOfEntIndex( iEdictNum );
 }
 
 // A line through the world over the caller's filter, for native diagnostics.

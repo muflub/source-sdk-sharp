@@ -10,7 +10,8 @@
 // The server's implementation of each bound interface in ishim_areas.h: one
 // class per interface managed binds, whose methods forward to the bodies the
 // struct slots are filled with (shell_shim_areas.inc). The shim root holds
-// CShimAreas by value, so the areas add one member to one static.
+// CShimAreas by value, so the areas add one member to one static. An area its
+// own class implements is held by pointer, set by the tier that owns the class.
 
 #pragma once
 
@@ -257,13 +258,6 @@ public:
 						int32_t *pOutViewerSet ) override;
 };
 
-class CShimUserMessages final : public IShimUserMessages
-{
-public:
-	int32_t UserMessageSend( int32_t nMsgId, const unsigned char *pData, int32_t nBytes, int32_t nPlayerIndex,
-							 int32_t bReliable ) override;
-};
-
 class CShimDiagnostics final : public IShimDiagnostics
 {
 public:
@@ -294,7 +288,7 @@ struct CShimAreas
 	CShimPlayers m_Players;
 	CShimEffectsServer m_EffectsServer;
 	CShimDebugOverlay m_DebugOverlay;
-	CShimUserMessages m_UserMessages;
+	IShimUserMessages *m_pUserMessages = nullptr; // CServerUserMessages
 	CShimDiagnostics m_Diagnostics;
 };
 

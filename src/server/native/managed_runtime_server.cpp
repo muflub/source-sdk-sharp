@@ -12,7 +12,6 @@
 
 #include "eiface.h"
 
-extern IVEngineServer *engine;
 extern CGlobalVars *gpGlobals;
 
 #include "managed_runtime_server.h"
@@ -20,22 +19,12 @@ extern CGlobalVars *gpGlobals;
 // Defined in sourcesharp_gamesystem.cpp, which publishes no header.
 bool SourceSharp_LoadManagedSide();
 
-// The server's only path to the CLR, called from the shell's DLLInit. Seeds the two
-// globals the sequence reads, as stock's DLLInit does: engine, and gpGlobals as the
-// pointer the engine writes every frame.
+// The server's only path to the CLR, called from the shell's DLLInit. Seeds gpGlobals,
+// the pointer the engine writes every frame, as stock's DLLInit does.
 IManagedRuntimeServer *LoadManagedRuntime( IManagedRuntimeEnvironment *env )
 {
 	if ( env == NULL )
 		return NULL;
-
-	engine = (IVEngineServer *)env->GetEngineInterface( INTERFACEVERSION_VENGINESERVER, NULL );
-
-	if ( engine == NULL )
-	{
-		Warning( "[SourceSharp] no " INTERFACEVERSION_VENGINESERVER " -- the managed "
-				 "runtime cannot be located without it\n" );
-		return NULL;
-	}
 
 	gpGlobals = &env->GetGlobalVars();
 

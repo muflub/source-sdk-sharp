@@ -20,7 +20,8 @@
 //      gate the phase actually states and keeps the delegate, which is what
 //      makes Phases 5-7 A/B-testable on one binary.
 //
-//   3. THE SHELL ASSIGNS g_pSharedChangeInfo. Stock assigns it inside
+//   3. THE SHELL ASSIGNS the shared change info (once g_pSharedChangeInfo,
+//      now the DLL tier's m_Engine.m_pChangeInfo). Stock assigns it inside
 //      CServerGameDLL::DLLInit. Its reader is CBaseEdict::StateChanged
 //      (public/edict.h:295), an INLINE on the entity-networking path that
 //      dereferences it unconditionally. A shell that owns DLLInit and does not
@@ -125,7 +126,7 @@ TEST( ShellGameDllRegistration, TheDefineIsInTheProjectBesideSOURCESHARP )
 //=============================================================================//
 
 //=============================================================================//
-// Property 3 -- g_pSharedChangeInfo, the crash Phase 4 walks into
+// Property 3 -- the shared change info, the crash Phase 4 walks into
 //=============================================================================//
 
 //=============================================================================//

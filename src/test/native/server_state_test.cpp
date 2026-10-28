@@ -560,6 +560,7 @@ TEST( ServerStateTier, ANewDllTierHoldsNoEngineInterfaceOfTheLastOne )
 	CStateTier<CServerDllState> dll;
 
 	CServerDllState &first = dll.Begin();
+	first.m_Engine.m_pEngine = reinterpret_cast<IVEngineServer *>( 0x1000 );
 	first.m_Engine.m_pFileSystem = reinterpret_cast<IFileSystem *>( 0x1000 );
 	first.m_Engine.m_pPartition = reinterpret_cast<ISpatialPartition *>( 0x1000 );
 	first.m_Engine.m_pGameStats = reinterpret_cast<IUploadGameStats *>( 0x1000 );
@@ -571,9 +572,11 @@ TEST( ServerStateTier, ANewDllTierHoldsNoEngineInterfaceOfTheLastOne )
 	first.m_Engine.m_pEvents = reinterpret_cast<IGameEventManager2 *>( 0x1000 );
 	first.m_Engine.m_pOverlay = reinterpret_cast<IVDebugOverlay *>( 0x1000 );
 	first.m_Engine.m_pRandom = reinterpret_cast<IUniformRandomStream *>( 0x1000 );
+	first.m_Engine.m_pChangeInfo = reinterpret_cast<CSharedEdictChangeInfo *>( 0x1000 );
 	dll.End();
 
 	const CServerEngineInterfaces &engine = dll.Begin().m_Engine;
+	EXPECT_EQ( nullptr, engine.m_pEngine ) << "the engine outlived the DLL that bound it";
 	EXPECT_EQ( nullptr, engine.m_pFileSystem ) << "an engine interface outlived the DLL that acquired it";
 	EXPECT_EQ( nullptr, engine.m_pPartition );
 	EXPECT_EQ( nullptr, engine.m_pGameStats );
@@ -585,5 +588,6 @@ TEST( ServerStateTier, ANewDllTierHoldsNoEngineInterfaceOfTheLastOne )
 	EXPECT_EQ( nullptr, engine.m_pEvents );
 	EXPECT_EQ( nullptr, engine.m_pOverlay );
 	EXPECT_EQ( nullptr, engine.m_pRandom );
+	EXPECT_EQ( nullptr, engine.m_pChangeInfo );
 	dll.End();
 }

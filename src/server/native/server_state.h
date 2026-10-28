@@ -23,11 +23,14 @@
 #include "world_nettable.h"
 #include "standalone_player_sync.h"
 #include "ss_shareddefs.h"
+#include "server_services.h"
 
+#include <memory>
 #include <set>
 #include <vector>
 #include <string>
 
+class CSharedEdictChangeInfo;
 class CStandalonePlayer;
 class CWorld;
 class IEngineTrace;
@@ -38,6 +41,7 @@ class IVDebugOverlay;
 class IMDLCache;
 class IStaticPropMgrServer;
 class IVModelInfo;
+class IVEngineServer;
 class INetworkStringTable;
 class INetworkStringTableContainer;
 class ISpatialPartition;
@@ -175,6 +179,7 @@ public:
 class CServerEngineInterfaces
 {
 public:
+	IVEngineServer *m_pEngine = nullptr;
 	IFileSystem *m_pFileSystem = nullptr;
 	ISpatialPartition *m_pPartition = nullptr;
 	IUploadGameStats *m_pGameStats = nullptr;
@@ -186,6 +191,7 @@ public:
 	IGameEventManager2 *m_pEvents = nullptr;
 	IVDebugOverlay *m_pOverlay = nullptr;
 	IUniformRandomStream *m_pRandom = nullptr;
+	CSharedEdictChangeInfo *m_pChangeInfo = nullptr;
 };
 
 // The length of variant_t::ToString's answer buffer.
@@ -210,6 +216,7 @@ public:
 	CWorldNetTable m_WorldNetTable;
 	CServerPlayersDll m_Players;
 	CServerEngineInterfaces m_Engine;
+	std::unique_ptr<CServerDllServices> m_pServices;
 
 	// The world's handle serial: not reset between maps, so a client cannot resolve
 	// the previous map's world with the new handle.

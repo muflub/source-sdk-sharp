@@ -34,6 +34,7 @@
 
 #include <algorithm>
 #include <vector>
+#include "server_engine.h"
 
 // A using-declaration rather than ss:: at the use: entity_shell_inert_slots_test
 // reads `::` in a slot body as the body reaching something.
@@ -558,11 +559,11 @@ void SourceSharp_SendClientCommand( uint32_t hPlayer, const char *pCommand )
 
 	// A player mid-disconnect still resolves while its edict is unbound, and the
 	// engine dereferences that edict without checking.
-	edict_t *pEdict = engine->PEntityOfEntIndex( pStandalone->EntIndex() );
+	edict_t *pEdict = ServerEngine()->PEntityOfEntIndex( pStandalone->EntIndex() );
 	if ( !pEdict || !pEdict->GetUnknown() )
 		return;
 
-	engine->ClientCommand( pEdict, "%s\n", pCommand );
+	ServerEngine()->ClientCommand( pEdict, "%s\n", pCommand );
 }
 
 // Creates and spawns template instances from parsed key/value pairs. pClassNames

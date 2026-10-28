@@ -19,7 +19,6 @@
 
 #include "ss_util.h"
 #include "vcollide_parse.h"
-extern IVEngineServer *engine;
 
 #include "ss_init_factory.h"
 extern CGlobalVars *gpGlobals;

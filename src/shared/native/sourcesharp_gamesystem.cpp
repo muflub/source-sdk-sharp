@@ -30,7 +30,7 @@
 #include "edict.h"
 #include "eiface.h"
 extern CGlobalVars *gpGlobals;
-extern IVEngineServer *engine;
+#include "server_engine.h"
 float GetCurrentGravity();
 #endif
 #include "tier1/convar.h"
@@ -722,7 +722,7 @@ static bool SourceSharp_GetModBinDir( char *pOut, int nOutSize )
 	ss::Format( pOut, nOutSize, "%s/bin", pGameDir );
 #else
 	char szGameDir[512];
-	engine->GetGameDir( szGameDir, sizeof( szGameDir ) );
+	ServerEngine()->GetGameDir( szGameDir, sizeof( szGameDir ) );
 	if ( !szGameDir[0] )
 		return false;
 	ss::Format( pOut, nOutSize, "%s/bin", szGameDir );

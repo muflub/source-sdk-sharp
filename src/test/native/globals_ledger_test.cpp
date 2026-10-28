@@ -508,6 +508,20 @@ TEST( GlobalsLedger, TheStaticInitialiserCountIsAtOrBelowItsCeiling )
 								   "them runs before DLLInit, in link order, with no engine.";
 }
 
+TEST( GlobalsLedger, TheLocatorCallCountIsAtOrBelowItsCeiling )
+{
+	const long lCeiling = RatchetCeiling( "globals_locator_calls" );
+	ASSERT_GE( lCeiling, 0 ) << "docs/globals-ratchet.tsv has no globals_locator_calls row";
+
+	const Run_t &run = Summary();
+	const long lNow = ReportedNumber( run.m_szOutput, "locator_calls" );
+	ASSERT_GE( lNow, 0 ) << "the summary printed no locator_calls line:\n" << run.m_szOutput;
+	EXPECT_LE( lNow, lCeiling ) << lNow << " calls find the root's state through an accessor, against a ceiling of "
+								<< lCeiling
+								<< ". A subsystem takes what it uses by constructor (plan_server_native_v2 "
+								   "T6 part 3); a new accessor call is the lookup this ceiling retires.";
+}
+
 //=============================================================================
 // The second instrument. One program's three numbers all come from one reader,
 // so a bug in it moves them together and nothing inside the tool notices; the
@@ -596,8 +610,13 @@ TEST( GlobalsLedger, TheLedgerAndTheRatchetAgreeOnHowManyRowsThereAre )
 TEST( GlobalsLedger, EveryRatchetRowNamesASubjectThatStillExists )
 {
 	static const char *kMetrics[] = {
-		"globals_symbols_with_no_row",      "globals_rows_with_no_symbol",    "globals_link_level", "globals_unruled",
-		"globals_objects_with_static_init", "globals_reconcile_unattributed",
+		"globals_symbols_with_no_row",
+		"globals_rows_with_no_symbol",
+		"globals_link_level",
+		"globals_unruled",
+		"globals_objects_with_static_init",
+		"globals_reconcile_unattributed",
+		"globals_locator_calls",
 	};
 	for ( size_t i = 0; i < sizeof( kMetrics ) / sizeof( kMetrics[0] ); i++ )
 	{
