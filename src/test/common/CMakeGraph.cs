@@ -106,9 +106,9 @@ internal static class CMakeGraph
         if (token.StartsWith(farm, StringComparison.Ordinal))
             return token[farm.Length..];
         if (token.StartsWith(here, StringComparison.Ordinal))
-            return RepoToFarm(Path.GetDirectoryName(ListFile(target))! + "/" + token[here.Length..]);
+            return RepoToFarm(ListDirectory(target) + "/" + token[here.Length..]);
         if (token.StartsWith(local, StringComparison.Ordinal))
-            return RepoToFarm(Path.GetDirectoryName(ListFile(target))! + "/" + token[local.Length..]);
+            return RepoToFarm(ListDirectory(target) + "/" + token[local.Length..]);
         if (token.StartsWith(shared, StringComparison.Ordinal))
             return RepoToFarm("src/shared/native/" + token[shared.Length..]);
         if (token.StartsWith(repo, StringComparison.Ordinal))
@@ -117,6 +117,11 @@ internal static class CMakeGraph
             throw new InvalidOperationException($"cmake_graph: {ListFile(target)}: cannot read the source-list entry '{token}'");
         return token;
     }
+
+    // The list file's directory with '/' as the module map spells it:
+    // Path.GetDirectoryName answers with '\\' on Windows.
+    private static string ListDirectory(string target) =>
+        Path.GetDirectoryName(ListFile(target))!.Replace('\\', '/');
 
     /// <summary>This checkout, whose CMakeLists and module map the lists are read from.</summary>
     internal static string RepoOfBuild => RepoLayout.RepoRoot;
