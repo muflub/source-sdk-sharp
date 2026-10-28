@@ -67,7 +67,7 @@ public interface IClientBoneWorld : IBoneModels
     int WriteRagdollBones(uint ragdoll, BoneMatrix3x4[] bones, Span<int> ownedBones);
 
     /// <summary>The bone-merge source at <paramref name="entIndex"/>
-    /// (<c>SourceSharp_ClientNetworkableFromIndex</c> → renderable → model).</summary>
+    /// (the client entity at that index → renderable → model).</summary>
     BoneMergeSourceView ResolveMergeSource(int entIndex);
 
     /// <summary>A <c>model_t</c>'s studio header, or null (see

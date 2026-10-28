@@ -211,6 +211,47 @@ public interface ISteamLaunchCommands
     void ConnectFromSteamLaunch(string connectLine);
 }
 
+/// <summary>
+/// Whether the engine is paused or playing a demo back: the three engine
+/// facts stock's <c>C_BaseEntity::InterpolateServerEntities</c> closes the
+/// interpolation gate on (<c>IsPaused</c>, <c>IsPlayingDemo</c>,
+/// <c>IsPlayingTimeDemo</c>), read through the engine client's forwarders.
+/// </summary>
+public interface IPlaybackState
+{
+    /// <summary>IVEngineClient::IsPaused.</summary>
+    bool IsPaused { get; }
+
+    /// <summary>IVEngineClient::IsPlayingDemo.</summary>
+    bool IsPlayingDemo { get; }
+
+    /// <summary>IVEngineClient::IsPlayingTimeDemo.</summary>
+    bool IsPlayingTimeDemo { get; }
+}
+
+/// <summary>
+/// The level's prediction switch (stock CHLClient::LevelInitPreEntity):
+/// <c>cl_predict 1</c> or <c>cl_predict 0</c> through ClientCmd, a fixed text.
+/// Through the console and not a direct set, as stock: "don't set direct
+/// because of FCVAR_USERINFO" -- the change has to reach the server.
+/// </summary>
+public interface IClientPredictCommand
+{
+    /// <summary>Queues <c>cl_predict 1</c> when <paramref name="predict"/>, else <c>cl_predict 0</c>.</summary>
+    void SetPredict(bool predict);
+}
+
+/// <summary>
+/// A weapon-selection bind's line to the server (invnext, invprev, lastinv,
+/// ss_slot N): through ServerCmd, reliable, as the native forwarders sent it.
+/// The managed Arsenal on the server answers each as a client command.
+/// </summary>
+public interface IWeaponSelectionCommand
+{
+    /// <summary>Sends <paramref name="line"/>, with no trailing newline: the server tokenizes it verbatim.</summary>
+    void SendSelection(string line);
+}
+
 /// <summary>What the scoreboard needs of <c>player_info_t</c>.</summary>
 /// <param name="Guid">player_info_t's guid (the hashed id voice bans key on); empty when the engine has none.</param>
 public readonly record struct ClientPlayerInfo(string Name, int UserId, bool Fake, string Guid = "");

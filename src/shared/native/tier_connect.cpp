@@ -220,23 +220,7 @@ void SourceSharp_DisconnectTier3()
 #endif
 }
 
-#ifdef CLIENT_DLL
-//-----------------------------------------------------------------------------
-// tier3.h's two names, for the one object that still names them: the VR
-// stand-in (shell_clientdll.cpp's g_ClientVirtualReality) derives from
-// CTier3AppSystem, whose inline Connect/Disconnect call them, so its vtable
-// does. The stand-in overrides both and nothing reaches the base's, but the
-// references alone would pull tier3.o (and its duplicate globals) off the
-// archive. They forward to this file's lookups.
-//-----------------------------------------------------------------------------
-void ConnectTier3Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount )
-{
-	for ( int i = 0; i < nFactoryCount; i++ )
-		SourceSharp_ConnectTier3( pFactoryList[ i ] );
-}
-
-void DisconnectTier3Libraries()
-{
-	SourceSharp_DisconnectTier3();
-}
-#endif
+// tier3.h's ConnectTier3Libraries / DisconnectTier3Libraries had a client arm
+// here for the VR stand-in, whose CTier3AppSystem base named them; the stand-in
+// left shell_clientdll.cpp with no importer (lane M1-B, 2026-10-25), and with
+// it the last client reference.

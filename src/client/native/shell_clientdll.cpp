@@ -58,7 +58,6 @@
 #include "sourcesharp_gamesystem.h"
 #include "shell_managed_areas_client.h"   // CManagedHoldersClient: the client DLL object owns them (plan_client_vtables CD)
 #include "shell_view_executor_client.h"   // View_Render's body (C7)
-#include "managed_convar_ref.h"	// r_lightmap_bicubic_set, declared in C#
 #include "shell_clientdll_refusals.h"
 #include "shell_entitystatics.h"
 #include "shell_clientsystem.h"	// plan_cworld_trace.md T4: the walkers
@@ -91,7 +90,6 @@
 #include "engine/ishadowmgr.h"
 #include "engine/IStaticPropMgr.h"
 #include "hud_basechat.h"
-#include "hud_crosshair.h"
 #include "view_shared.h"
 #include "env_wind_shared.h"
 #include "detailobjectsystem.h"
@@ -123,7 +121,6 @@
 #include "c_world.h"
 #include "perfvisualbenchmark.h"	
 #include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "hud_closecaption.h"
 #include "c_vguiscreen.h"
 #include "imessagechars.h"
 #include "game/client/IGameClientExports.h"
@@ -153,8 +150,6 @@ enum { kMaxUserMessageBlockBytes = 512 };
 #include "particle_parse.h"
 #include "renamed_recvtable_compat.h"
 #include "mouthinfo.h"
-#include "sourcevr/isourcevirtualreality.h"
-#include "client_virtualreality.h"
 #include "mumble.h"
 
 // NVNT includes
@@ -170,7 +165,6 @@ extern vgui::IInputInternal *g_InputInternal;
 // [dwenger] Necessary for stats display
 //=============================================================================
 
-#include "achievements_and_stats_interface.h"
 #include "imanaged_areas_client.h"   // lane c6-input: IN_IsKeyDown asks IManagedInputClient
 
 //=============================================================================
@@ -219,16 +213,8 @@ IClientReplayContext *g_pClientReplayContext = NULL;
 
 IHaptics* haptics = NULL;// NVNT haptics system interface singleton
 
-//=============================================================================
-// HPE_BEGIN
-// [dwenger] Necessary for stats display
-//=============================================================================
-
-AchievementsAndStatsInterface* g_pAchievementsAndStatsInterface = NULL;
-
-//=============================================================================
-// HPE_END
-//=============================================================================
+// g_pAchievementsAndStatsInterface stood here: nothing ever set it, and its
+// readers (the achievements panel methods) answer its NULL directly now.
 
 // (SoundEmitterSystem() was declared here, the way stock declared it. Its row
 // is shell_soundemitter_client.cpp's ClientSystem_SoundEmitter now, which
@@ -306,9 +292,6 @@ void DispatchHudText( const char *pszName );
 bool g_bLevelInitialized;
 bool g_bTextMode = false;
 
-
-// host_thread_mode's ConVar* is a member too; IsEngineThreaded, which stock
-// declares in game/client/cdll_client_int.h, is the proxy onto it.
 
 //-----------------------------------------------------------------------------
 // THE THREE CLASSES THAT LEFT THIS FILE, and where they went. plan_entity.md
@@ -567,13 +550,11 @@ public:
 	// (nearly) the same name, which now forwards here.
 	void					RequestCacheMaterials();
 	void					ProcessCacheMaterials();
-	bool					EngineIsThreaded() const;
 	uint64_t				ClientStageCrossings() const;
 	uint64_t				FrameStageNotifyCalls() const;
 
 private:
 	bool					m_bRequestCacheUsedMaterials;
-	ConVar					*m_pcv_ThreadMode;
 	uint64_t				m_nClientStageCrossings;
 	uint64_t				m_nFrameStageNotifyCalls;
 	CMouthInfo				m_ClientUIMouth;
@@ -591,15 +572,6 @@ private:
 	// did at file scope, because the SERVER reads them off the wire by name.
 	ConVar					m_cl_team;
 	ConVar					m_cl_class;
-
-	// r_lightmap_bicubic_set, the once-per-install marker PostInit sets. It is
-	// DECLARED in managed code (SourceSharp.Client/ConVars.cs) and resolved
-	// here by name, so the default, the flags and the archive behaviour are
-	// C#'s and this side only reads and writes the value. Lazily resolved: a
-	// file-scope instance is constructed at DLL load, before managed
-	// registration by construction, and PostInit runs after Init has brought
-	// the runtime up -- so it is resolved by the one place that touches it.
-	CManagedConVarRef		m_r_lightmap_bicubic_set;
 
 	// plan_map_load P6: SDL_PumpEvents from the libSDL2 the launcher already
 	// loaded, or NULL. Called from load steps this DLL owns (PumpWindowDuringLoad)
@@ -779,48 +751,8 @@ void PrecacheMaterial( const char *pMaterialName )
 	g_ShellClientDLL.PrecacheMaterial( pMaterialName );
 }
 
-//-----------------------------------------------------------------------------
-// Converts a previously precached material into an index
-//-----------------------------------------------------------------------------
-int GetMaterialIndex( const char *pMaterialName )
-{
-	if (pMaterialName)
-	{
-		int nIndex = g_pStringTableMaterials->FindStringIndex( pMaterialName );
-		Assert( nIndex >= 0 );
-		if (nIndex >= 0)
-			return nIndex;
-	}
-
-	// This is the invalid string index
-	return 0;
-}
-
-//-----------------------------------------------------------------------------
-// Converts precached material indices into strings
-//-----------------------------------------------------------------------------
-const char *GetMaterialNameFromIndex( int nIndex )
-{
-	if (nIndex != (g_pStringTableMaterials->GetMaxStrings() - 1))
-	{
-		return g_pStringTableMaterials->GetString( nIndex );
-	}
-	else
-	{
-		return NULL;
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Precaches a particle system
-//-----------------------------------------------------------------------------
-void PrecacheParticleSystem( const char *pParticleSystemName )
-{
-	g_pStringTableParticleEffectNames->AddString( false, pParticleSystemName );
-	g_pParticleSystemMgr->PrecacheParticleSystem( pParticleSystemName );
-}
-
+// GetMaterialIndex, GetMaterialNameFromIndex and PrecacheParticleSystem stood
+// here: no object on client.so's link edge imported them (nm -u, lane M1-B).
 
 //-----------------------------------------------------------------------------
 // Converts a previously precached particle system into an index
@@ -849,22 +781,8 @@ const char *GetParticleSystemNameFromIndex( int nIndex )
 	return "error";
 }
 
-//-----------------------------------------------------------------------------
-// Returns true if host_thread_mode is set to non-zero (and engine is running in threaded mode)
-//-----------------------------------------------------------------------------
-bool IsEngineThreaded()
-{
-	return g_ShellClientDLL.EngineIsThreaded();
-}
-
-bool CShellClientDLL::EngineIsThreaded() const
-{
-	if ( m_pcv_ThreadMode )
-	{
-		return m_pcv_ThreadMode->GetBool();
-	}
-	return false;
-}
+// IsEngineThreaded and its host_thread_mode ConVar* stood here: no object on
+// client.so's link edge imported it (nm -u, lane M1-B).
 
 //-----------------------------------------------------------------------------
 // Constructor
@@ -873,7 +791,6 @@ bool CShellClientDLL::EngineIsThreaded() const
 CShellClientDLL::CShellClientDLL()
 	: m_DummyGlobals( true )
 	, m_bRequestCacheUsedMaterials( false )
-	, m_pcv_ThreadMode( NULL )
 	, m_nClientStageCrossings( 0 )
 	, m_nFrameStageNotifyCalls( 0 )
 	, m_CurFrameStage( FRAME_UNDEFINED )
@@ -881,7 +798,6 @@ CShellClientDLL::CShellClientDLL()
 	             "Default team when joining a game" )
 	, m_cl_class( "cl_class", "default", FCVAR_USERINFO|FCVAR_ARCHIVE,
 	              "Default class when joining a game" )
-	, m_r_lightmap_bicubic_set( "r_lightmap_bicubic_set" )
 	, m_pEngineFactory( NULL )
 	, m_pGlobals( NULL )
 	, m_pManagedRuntime( NULL )
@@ -894,39 +810,13 @@ CShellClientDLL::CShellClientDLL()
 
 //-----------------------------------------------------------------------------
 // SteamVR is deleted (plan_client_novalve C1, user ruling 2026-10-04), and so
-// is client_virtualreality.cpp with its ClientVirtualReality001 export: the C0
-// probe saw the engine request it 0 times, and the game ran without it.
-// g_pSourceVR is never set, so isourcevirtualreality.h's inline UseVR() is
-// false in every fork TU that asks. Those TUs (view.cpp, viewrender.cpp,
-// in_main.cpp, view_scene.cpp) still name g_ClientVirtualReality and ten of
-// its members, all behind UseVR() or answering "no VR" at the two
-// ShouldRenderHUDInWorld sites outside it; the definitions below are what
-// they link against. Absence row 9 in docs/absence-client.md; each goes when
-// its last caller leaves.
+// is client_virtualreality.cpp with its ClientVirtualReality001 export. The
+// no-op g_ClientVirtualReality and g_pSourceVR that stood here for the fork
+// view TUs went with the last of those TUs (absence row 9 in
+// docs/absence-client.md; lane M1-B, nm -u: no importer).
 //-----------------------------------------------------------------------------
-ISourceVirtualReality *g_pSourceVR = NULL;
 
-CClientVirtualReality g_ClientVirtualReality;
-
-CClientVirtualReality::CClientVirtualReality() {}
-CClientVirtualReality::~CClientVirtualReality() {}
-bool CClientVirtualReality::Connect( CreateInterfaceFn ) { return false; }
-void CClientVirtualReality::Disconnect() {}
-void *CClientVirtualReality::QueryInterface( const char * ) { return NULL; }
-InitReturnVal_t CClientVirtualReality::Init() { return INIT_FAILED; }
-void CClientVirtualReality::Shutdown() {}
-void CClientVirtualReality::DrawMainMenu() {}
-bool CClientVirtualReality::OverrideView( CViewSetup *, Vector *, QAngle *, HeadtrackMovementMode_t ) { return false; }
-bool CClientVirtualReality::OverrideStereoView( CViewSetup *, CViewSetup *, CViewSetup * ) { return false; }
-bool CClientVirtualReality::OverridePlayerMotion( float, const QAngle &, const QAngle &, const Vector &, QAngle *, Vector * ) { return false; }
-void CClientVirtualReality::RenderHUDQuad( bool, bool ) {}
-bool CClientVirtualReality::ProcessCurrentTrackingState( float ) { return false; }
-const VMatrix &CClientVirtualReality::GetHudProjectionFromWorld() { return m_HudProjectionFromWorld; }
-void CClientVirtualReality::GetTorsoRelativeAim( Vector *, QAngle * ) {}
-bool CClientVirtualReality::ShouldRenderHUDInWorld() { return false; }
-void CClientVirtualReality::PostProcessFrame( StereoEye_t ) {}
-void CClientVirtualReality::OverlayHUDQuadWithUndistort( const CViewSetup &, bool, bool, bool ) {}
-
+//-----------------------------------------------------------------------------
 // Purpose: Called when the DLL is first loaded.
 // Input  : engineFactory - 
 // Output : int
@@ -1038,9 +928,6 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 	if ( ss::CommandLineHas( "-textmode" ) )
 		g_bTextMode = true;
 
-	if ( ss::CommandLineHas( "-makedevshots" ) )
-		g_MakingDevShots = true;
-
 	// Not fatal if the material system stub isn't around.
 	materials_stub = (IMaterialSystemStub*)appSystemFactory( MATERIAL_SYSTEM_STUB_INTERFACE_VERSION, NULL );
 
@@ -1049,8 +936,6 @@ int CShellClientDLL::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn
 
 	// Initialize the console variables.
 	ConVar_Register( FCVAR_CLIENTDLL );
-
-	m_pcv_ThreadMode = g_pCVar->FindVar( "host_thread_mode" );
 
 	// The Initializer registry's walk left with initializer.cpp (C8): no object
 	// on the link line registered an Initializer, so it walked nothing.
@@ -1214,23 +1099,22 @@ void CShellClientDLL::PostInit()
 {
 	SourceSharp_ClientSystemsPostInit();
 
-	// THE ARCHIVED MARKER IS ASKED FOR, NOT ASSUMED. m_r_lightmap_bicubic_set
-	// is declared in managed code now, and IsValid() is what distinguishes
-	// "the marker says this was already done" from "the marker is not there
-	// yet". Without the guard an unresolved ref would answer the declared
-	// zero, the block would run on every launch, and SetValue would go
-	// nowhere -- which is not a crash and not a log line, so it is asked for
-	// out loud instead.
-	if ( m_r_lightmap_bicubic_set.IsValid() &&
-	     !m_r_lightmap_bicubic_set.GetBool() && materials )
+	// The once-per-install r_lightmap_bicubic default is managed's
+	// (LightmapBicubicDefault, lane M1-B): this hands it the one fact only the
+	// material system has, the adapter's maximum DX support level, and -1 with
+	// no material system (stock's `&& materials` skipped the default).
+	IManagedRuntimeClient *pRuntime = ManagedRuntimeClient();
+	if ( !pRuntime )
+		return;
+
+	int nMaxDxLevel = -1;
+	if ( materials )
 	{
 		MaterialAdapterInfo_t info{};
 		materials->GetDisplayAdapterInfo( materials->GetCurrentAdapter(), info );
-
-		ConVarRef r_lightmap_bicubic( "r_lightmap_bicubic" );
-		r_lightmap_bicubic.SetValue( info.m_nMaxDXSupportLevel >= 95 || ( info.m_nMaxDXSupportLevel >= 90 && IsLinux() ) );
-		m_r_lightmap_bicubic_set.SetValue( 1 );
+		nMaxDxLevel = info.m_nMaxDXSupportLevel;
 	}
+	pRuntime->PostInit( nMaxDxLevel );
 }
 
 //-----------------------------------------------------------------------------
@@ -1247,10 +1131,6 @@ void CShellClientDLL::Shutdown( void )
 	// refusal that fired during a session nobody was watching still reaches the
 	// log. See CShellGameDll::DLLShutdown.
 	ShellClientDll_PrintRefusals( m_Refusals );
-    if (g_pAchievementsAndStatsInterface)
-    {
-        g_pAchievementsAndStatsInterface->ReleasePanel();
-    }
 
 	ClientWorldFactoryShutdown();
 
@@ -1741,22 +1621,12 @@ void CShellClientDLL::LevelInitPreEntity( char const* pMapName )
 
 	ResetWindspeed();
 
-	// don't do prediction if single player!
-	// don't set direct because of FCVAR_USERINFO
-	if ( gpGlobals->maxClients > 1 )
-	{
-		if ( !cl_predict->GetInt() )
-		{
-			engine->ClientCmd( "cl_predict 1" );
-		}
-	}
-	else
-	{
-		if ( cl_predict->GetInt() )
-		{
-			engine->ClientCmd( "cl_predict 0" );
-		}
-	}
+	// Stock's "don't do prediction if single player!" stood here: whether this
+	// level predicts, and the cl_predict command that says so, is managed's
+	// (LevelPrediction, lane M1-B). Past the gate above, so once per level, as
+	// stock's was.
+	if ( pRuntime )
+		pRuntime->LevelInitPreEntity();
 
 	// STOCK CHECKED LOW VIOLENCE FOR THIS MAP HERE
 	// (`g_RagdollLVManager.SetLowViolence( pMapName )`, cdll_client_int.cpp:1709)
@@ -1917,13 +1787,14 @@ void CShellClientDLL::LevelShutdown( void )
 // Purpose: Engine received crosshair offset ( autoaim )
 // Input  : angle - 
 //-----------------------------------------------------------------------------
+//
+// No crosshair element exists (CSourceSharpHud is the client's one
+// DECLARE_HUDELEMENT), so stock's GET_HUDELEMENT( CHudCrosshair ) answered NULL
+// here and the autoaim offset went nowhere; the managed HUD draws the
+// crosshair. The slot stays: the engine calls it.
+//-----------------------------------------------------------------------------
 void CShellClientDLL::SetCrosshairAngle( const QAngle& angle )
 {
-	CHudCrosshair *pCrosshair = GET_HUDELEMENT( CHudCrosshair );
-	if ( pCrosshair )
-	{
-		pCrosshair->SetCrosshairAngle( angle );
-	}
 }
 
 //-----------------------------------------------------------------------------
@@ -2136,19 +2007,11 @@ bool CShellClientDLL::DispatchUserMessage( int msg_type, bf_read &msg_data )
 }
 
 
-void SimulateEntities()
-{
-
-	// The think list's walk left with client_thinklist.cpp (plan_client_novalve
-	// C8, lane c6-input): no object on the link line schedules a client think
-	// (ClientC8Evicted.NothingOnTheLinkSchedulesAClientThink), so it ran
-	// nothing. The managed entity's per-frame work is the managed frame's.
-	//
-	// SOURCESHARP: the SDK arm. Simulate() is a C_BaseEntity member and is NOT
-	// one of IGameEntity's six, so armed there is nothing on the iterator's
-	// element type to call -- and nothing left in the list to call it on, since
-	// the walk is over the SDK hierarchy that the alias replaces.
-}
+// SimulateEntities() stood here, empty: the think list's walk left with
+// client_thinklist.cpp (plan_client_novalve C8, lane c6-input) and Simulate()
+// is no IGameEntity member, so it ran nothing. It and its one call in
+// OnRenderStart went in lane M1-B; the managed entity's per-frame work is the
+// managed frame's.
 
 
 
@@ -2236,16 +2099,12 @@ void OnRenderStart()
 
 	// Rope_ResetCounters() was here: it zeroed c_rope.cpp's VPROF tick
 	// counters, which left with the stock rope (the ropes are C#'s).
-	UpdateLocalPlayerVisionFlags();
+	// UpdateLocalPlayerVisionFlags() was here: it read C_BasePlayer's NULL local
+	// player into two counters nothing imported (lane M1-B).
 
-	// ALL THAT IS LEFT OF EntityInterp_InterpolateServerEntities -- CLIENT_FLIP
-	// lane 2. Its two passes walked SDK lists that retire with C_BaseEntity;
-	// its frame-level POLICY did not, and is still computed here, in stock's
-	// own place in the frame. Ruling and evidence: `cs_cl_entitystatics`.
-	{
-		PREDICTION_TRACKVALUECHANGESCOPE( "interpolation" );
-		EntityInterp_UpdateFrameGate();
-	}
+	// EntityInterp_InterpolateServerEntities stood here. Its two passes walked
+	// SDK lists that retired with C_BaseEntity; its frame-level policy is
+	// SourceSharp.Client's InterpolationGate, asked by the managed render pass.
 
 	{
 		// vprof node for this bloc of math
@@ -2294,8 +2153,6 @@ void OnRenderStart()
 	void SourceSharp_ColorCorrectionResetWeights();
 	SourceSharp_ColorCorrectionResetWeights();
 
-	// Simulate all the entities.
-	SimulateEntities();
 	PhysicsSimulate();
 
 	{
@@ -2616,35 +2473,17 @@ void CShellClientDLL::WriteSaveGameScreenshot( const char *pFilename )
 	view->WriteSaveGameScreenshot( pFilename );
 }
 
-// Given a list of "S(wavname) S(wavname2)" tokens, look up the localized text and emit
-//  the appropriate close caption if running with closecaption = 1
+// The engine's two close-caption slots. Stock handed them to the
+// CHudCloseCaption element; no such element is created here (CSourceSharpHud
+// is the one DECLARE_HUDELEMENT), so GET_HUDELEMENT answered NULL and neither
+// body did anything. The captions this client shows are managed's (the
+// client emitter forwards the close caption's facts to C#).
 void CShellClientDLL::EmitSentenceCloseCaption( char const *tokenstream )
 {
-	extern ConVar closecaption;
-	
-	if ( !closecaption.GetBool() )
-		return;
-
-	CHudCloseCaption *hudCloseCaption = GET_HUDELEMENT( CHudCloseCaption );
-	if ( hudCloseCaption )
-	{
-		hudCloseCaption->ProcessSentenceCaptionStream( tokenstream );
-	}
 }
-
 
 void CShellClientDLL::EmitCloseCaption( char const *captionname, float duration )
 {
-	extern ConVar closecaption;
-
-	if ( !closecaption.GetBool() )
-		return;
-
-	CHudCloseCaption *hudCloseCaption = GET_HUDELEMENT( CHudCloseCaption );
-	if ( hudCloseCaption )
-	{
-		hudCloseCaption->ProcessCaption( captionname, duration );
-	}
 }
 
 CStandardRecvProxies* CShellClientDLL::GetStandardRecvProxies()

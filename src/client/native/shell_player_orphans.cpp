@@ -62,20 +62,12 @@
 // the C# one, which is the exact drift §3.10 removes.
 //
 //-----------------------------------------------------------------------------
-// (2) The one static that can genuinely run.
-//
-// LocalPlayerInFirstPersonView stood here and is gone: entity_client_tools.cpp,
-// the tool-framework caller it was written for, is not on the client link line,
-// and nothing else imports it.
+// (2) THE STATICS ARE GONE. LocalPlayerInFirstPersonView went with its
+// tool-framework caller; C_BasePlayer::GetLocalPlayer, which answered NULL
+// (the local player is a C_StandalonePlayer, never a C_BasePlayer), went with
+// its last importer, client_util_library.cpp's vision-flag family (lane M1-B,
+// 2026-10-25: nm -u over client.so's link edge).
 //-----------------------------------------------------------------------------
-
-// The local player is a C_StandalonePlayer, never a C_BasePlayer — NULL is
-// what this answered at runtime since the flip (s_pLocalPlayer was only ever
-// set from C_BasePlayer::OnDataChanged, which nothing reached).
-C_BasePlayer *C_BasePlayer::GetLocalPlayer( void )
-{
-	return NULL;
-}
 
 //-----------------------------------------------------------------------------
 // (2b) THE ONE INSTANCE METHOD AND THE ONE GLOBAL THAT ANYTHING STILL

@@ -131,6 +131,12 @@ public class MapMaterialReloadTests
         public void InvalidateMdlCache() { }
         public bool ParticlesNeedFullReload(int previousMapParticleFiles) => true;
         public string? MapMaterialReloadSet(string nextBsp, string previousBsp) { Asked = (nextBsp, previousBsp); return answer; }
+        public void MapMaterialSearchPath(string? path, string? pathId, bool addToHead) { }
+        public void MapMaterialMapAccess(bool open) { }
+        public string? MapMaterialReloadPlan(string? subString) => null;
+        public int WorldDataChanged(ReadOnlySpan<byte> blob, int updateType, Span<float> plan) => 0;
+        public void LevelInitPreEntity() { }
+        public void PostInit(int adapterMaxDxLevel) { }
     }
 
     private static int Call(Host host, string next, string? previous, int size, out string written)

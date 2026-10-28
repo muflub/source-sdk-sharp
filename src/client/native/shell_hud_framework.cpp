@@ -24,8 +24,6 @@
 //
 //   - the element list, so this mod's C# HUD is created and gets its lifecycle
 //   - lifecycle forwarded to the elements and nothing else
-//   - icons that resolve to nothing, because no element asks for one any more
-//   - render groups that always succeed, because nothing competes for one
 //
 // The behaviour is in C#. What is left here is the shape the SDK expects.
 //
@@ -143,17 +141,8 @@ void CHudElement::SetNeedsRemove( bool needsremove )
 	m_bNeedsRemove = needsremove;
 }
 
-void CHudElement::SetParentedToClientDLLRootPanel( bool parented )
-{
-	m_bIsParentedToClientDLLRootPanel = parented;
-}
-
-// Render groups exist so elements can hide each other. Nothing competes for
-// screen space here — there is one element — so these are all no-ops.
-void CHudElement::RegisterForRenderGroup( const char * ) {}
-void CHudElement::UnregisterForRenderGroup( const char * ) {}
-void CHudElement::HideLowerPriorityHudElementsInGroup( const char * ) {}
-void CHudElement::UnhideLowerPriorityHudElementsInGroup( const char * ) {}
+// SetParentedToClientDLLRootPanel and the four render-group members stood
+// here: no object on client.so's link edge imported them (nm -u, lane M1-B).
 
 //-----------------------------------------------------------------------------
 // CHud.
@@ -177,24 +166,12 @@ void CHud::Init( void )
 	// into existence.
 	CHudElementHelper::CreateAllElements();
 
-	InitColors( NULL );
-
 	for ( int i = 0; i < m_HudList.Count(); i++ )
 		m_HudList[i]->Init();
 }
 
-//-----------------------------------------------------------------------------
-// The three colours the rest of the client still reads.
-//
-// Hardcoded rather than read from ClientScheme.res: the scheme entries exist to
-// let a mod restyle the stock HUD, and there is no stock HUD left to restyle.
-//-----------------------------------------------------------------------------
-void CHud::InitColors( vgui::IScheme * )
-{
-	m_clrNormal   = Color( 255, 208, 64,  255 );
-	m_clrCaution  = Color( 255, 48,  0,   255 );
-	m_clrYellowish = Color( 255, 160, 0,  255 );
-}
+// InitColors stood here: the three colours it set had no reader once the last
+// fork TU left client.so (lane M1-B).
 
 void CHud::VidInit( void )
 {
@@ -229,15 +206,7 @@ void CHud::ResetHUD( void )
 		m_HudList[i]->Reset();
 }
 
-void CHud::OnRestore( void )
-{
-	ResetHUD();
-}
-
-void CHud::Think( void )
-{
-	ProcessInput( true );
-}
+// OnRestore and Think stood here, with no importer (lane M1-B).
 
 void CHud::ProcessInput( bool bActive )
 {
@@ -270,24 +239,9 @@ void CHud::RemoveHudElement( CHudElement *pHudElement )
 	m_HudList.FindAndRemove( pHudElement );
 }
 
-//-----------------------------------------------------------------------------
-// Looks an element up by name.
-//
-// Deliberately silent when it finds nothing. The original asserted, which is
-// correct for a mod that has the elements it asks for and wrong for one that
-// does not: a lookup for a HUD this mod chose to remove is an answer, not a
-// failure, and asserting on it stops a debug build dead.
-//-----------------------------------------------------------------------------
-CHudElement *CHud::FindElement( const char *pName )
-{
-	for ( int i = 0; i < m_HudList.Count(); i++ )
-	{
-		if ( V_stricmp( m_HudList[i]->GetName(), pName ) == 0 )
-			return m_HudList[i];
-	}
-
-	return NULL;
-}
+// FindElement stood here. Its callers were GET_HUDELEMENT lookups for elements
+// this client never creates (CHudCrosshair, CHudCloseCaption), which answered
+// NULL; the engine slots that made them say so directly now (lane M1-B).
 
 bool CHud::IsHidden( int iHudFlags )
 {
@@ -310,126 +264,19 @@ float CHud::GetFOVSensitivityAdjust( void )
 	return m_flFOVSensitivityAdjust;
 }
 
+// THE ICONS, THE RENDER GROUPS, THE PROGRESS BARS AND CHudTexture'S BODIES
+// stood here, every one answering "none" (NULL, -1, false, no draw) for the
+// stock elements that drew through them. No object on client.so's link edge
+// imported any of them, nor LoadHudTextures or FreeHudTextureList (nm -u,
+// lane M1-B).
+
 //-----------------------------------------------------------------------------
-// Icons.
+// Closed captions.
 //
-// The stock icons came from a sprite sheet the removed elements drew from, so
-// there is nothing left to look up and nothing left that looks. Returning NULL
-// is the honest answer; every caller already handles it, because a missing icon
-// was always possible.
+// The caption element left the build with the rest, and its four stub bodies
+// went once their last caller did (IBaseClientDLL's two caption slots, which
+// asked GET_HUDELEMENT for it and got NULL; lane M1-B).
 //-----------------------------------------------------------------------------
-CHudTexture *CHud::GetIcon( const char * )
-{
-	return NULL;
-}
-
-CHudTexture *CHud::AddUnsearchableHudIconToList( CHudTexture & )
-{
-	return NULL;
-}
-
-CHudTexture *CHud::AddSearchableHudIconToList( CHudTexture & )
-{
-	return NULL;
-}
-
-void CHud::RefreshHudTextures( void )
-{
-}
-
-//-----------------------------------------------------------------------------
-// Render groups: which elements hide which others.
-//
-// With one element there is nothing to arbitrate, so a group is never locked
-// and every lock succeeds.
-//-----------------------------------------------------------------------------
-int CHud::LookupRenderGroupIndexByName( const char * )
-{
-	return -1;
-}
-
-int CHud::RegisterForRenderGroup( const char * )
-{
-	return -1;
-}
-
-int CHud::AddHudRenderGroup( const char * )
-{
-	return -1;
-}
-
-bool CHud::DoesRenderGroupExist( int )
-{
-	return false;
-}
-
-bool CHud::LockRenderGroup( int, CHudElement * )
-{
-	return true;
-}
-
-bool CHud::UnlockRenderGroup( int, CHudElement * )
-{
-	return true;
-}
-
-bool CHud::IsRenderGroupLockedFor( CHudElement *, int )
-{
-	return false;
-}
-
-//-----------------------------------------------------------------------------
-// Drawing helpers the stock elements used. Nothing draws through them now.
-//-----------------------------------------------------------------------------
-void CHud::DrawProgressBar( int, int, int, int, float, Color &, unsigned char )
-{
-}
-
-void CHud::DrawIconProgressBar( int, int, CHudTexture *, CHudTexture *, float, Color &, int )
-{
-}
-
-//-----------------------------------------------------------------------------
-// CHudTexture.
-//
-// Icons never resolve, so an icon can never be drawn — but the type is still
-// named by code that holds one, so its methods have to exist.
-//-----------------------------------------------------------------------------
-void CHudTexture::Precache( void )
-{
-}
-
-void CHudTexture::DrawSelf( int, int, const Color & ) const
-{
-}
-
-void CHudTexture::DrawSelf( int, int, int, int, const Color & ) const
-{
-}
-
-void LoadHudTextures( CUtlDict< CHudTexture *, int > &, const char *, const unsigned char * )
-{
-}
-
-void FreeHudTextureList( CUtlDict< CHudTexture *, int > &list )
-{
-	list.PurgeAndDeleteElements();
-}
-
-//-----------------------------------------------------------------------------
-// Closed captions and the prediction dump panel.
-//
-// Both were HUD elements, so both left the build with the rest. Their entry
-// points survive because scene playback, commentary nodes and the prediction
-// code still name them — but every one of those call sites already asks
-// GET_HUDELEMENT for the panel first and gets NULL, so none of these bodies can
-// actually run. They exist to satisfy the linker, not to do anything.
-//
-// Defined here rather than by guarding six call sites across four SDK files:
-// fewer edits to code this mod otherwise leaves alone.
-//-----------------------------------------------------------------------------
-#include "hud_closecaption.h"
-#include "hud_pdump.h"
 
 // Off, and honestly so: there is no caption element left to display anything.
 // Declared here because the elements that owned them are gone and half a dozen
@@ -458,23 +305,6 @@ void FreeHudTextureList( CUtlDict< CHudTexture *, int > &list )
 // The §6 row that covers closecaption is the close-caption and HUD-element
 // registry row.
 ConVar closecaption( "closecaption", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Enable close captioning." );
-
-bool CHudCloseCaption::ProcessCaption( char const *, float, bool, bool )
-{
-	return false;
-}
-
-void CHudCloseCaption::ProcessCaptionDirect( char const *, float, bool )
-{
-}
-
-void CHudCloseCaption::ProcessSentenceCaptionStream( char const * )
-{
-}
-
-void CHudCloseCaption::Lock( void )
-{
-}
 
 // THE PREDICTION DUMP PANEL IS NOT HERE, AND IT WAS. CPDumpPanel::Clear,
 // ::DumpEntity and GetPDumpPanel() were three empty/NULL bodies supplied so

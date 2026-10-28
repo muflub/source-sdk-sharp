@@ -39,8 +39,8 @@
 // WOULD be lost, and therefore what each retired row has to name, is the
 // BEHAVIOUR — and every row below names what performs it now.
 //
-// THE ONE PLACE THAT IS A REAL GAP is the frame gate, and it is refused out
-// loud rather than absorbed. See EntityInterp_UpdateFrameGate.
+// THE ONE PLACE THAT WAS A REAL GAP was the frame gate, refused out loud here
+// until 2026-10-25, when it moved to managed code (see the note where it was).
 //=============================================================================//
 
 #include "cbase.h"
@@ -60,12 +60,12 @@
 //
 // THE RULING TABLE.
 //
-// FIFTEEN ROWS AND NOT THIRTEEN. The lane's brief names thirteen functions; two
-// more — EntityAbs_PushEnableRecomputations and EntityAbs_PopEnableRecomputations
-// — share the eight-deep save stack with EntityAbs_SetRecomputationsEnabled,
-// whose Assert reads it. A ruling that moved four of a six-function group and
-// left two behind would split one piece of state across the flip boundary, so
-// the group is ruled together and the table says so.
+// FIFTEEN ROWS AND NOT THIRTEEN when the lane ruled them: two more --
+// EntityAbs_PushEnableRecomputations and EntityAbs_PopEnableRecomputations --
+// shared the eight-deep save stack with EntityAbs_SetRecomputationsEnabled,
+// whose Assert read it. Push, Pop and the stack left together on 2026-10-25:
+// no object on the client link edge imported either (nm -u), so the stack was
+// never pushed and the Assert could only read zero.
 //
 //=============================================================================//
 
@@ -103,14 +103,6 @@ void *EntityMem_Alloc( size_t stAllocateBlock )
 	return pMem;
 }
 
-void *EntityMem_AllocDbg( size_t stAllocateBlock, const char *pFileName, int nLine )
-{
-	Assert( stAllocateBlock != 0 );
-	void *pMem = MemAlloc_Alloc( stAllocateBlock, pFileName, nLine );
-	memset( pMem, 0, stAllocateBlock );
-	return pMem;
-}
-
 void EntityMem_Free( void *pMem )
 {
 	// get the engine to free the memory
@@ -121,18 +113,13 @@ void EntityMem_Free( void *pMem )
 
 //=============================================================================//
 //
-// THE SIX ABS-QUERY ACCESSORS. MOVED, bodies unchanged.
+// THE FOUR ABS-QUERY ACCESSORS. MOVED, bodies unchanged. (Six until Push and
+// Pop left with their save stack, 2026-10-25: nothing imported them.)
 //
-// Two of the three storages are inline function-local statics shared with the
-// server in game/shared/entity_abs_query_state.h, which the flip does not
-// delete. The third is the eight-deep save stack Push/Pop use, which was a
-// file-static in the dying translation unit and comes here with them: it is read
-// and written by these functions and by nothing else in the build.
+// Their two storages are inline function-local statics shared with the server
+// in game/shared/entity_abs_query_state.h, which the flip does not delete.
 //
-// A FUNCTION-LOCAL STATIC RATHER THAN A FILE-SCOPE ONE, which is the project's
-// rule and also the idiom the shared header already uses for the other two.
-//
-// @MULTICORE: all six are no-ops or answer `true` off the main thread. That rule
+// @MULTICORE: all four are no-ops or answer `true` off the main thread. That rule
 // stays in the bodies rather than in the storage, because the storage is shared
 // with the server and the rule is not — the server's own SetAbsQueriesValid and
 // IsAbsQueriesValid are inline in baseentity.h and have no ThreadInMainThread()
@@ -151,18 +138,6 @@ void EntityMem_Free( void *pMem )
 // transform during a net update for the flag to have to stop.
 //
 //=============================================================================//
-
-static bool *AbsRecomputationStack()
-{
-	static bool s_bStack[ 8 ];
-	return s_bStack;
-}
-
-static unsigned short &AbsRecomputationStackPos()
-{
-	static unsigned short s_iPos = 0;
-	return s_iPos;
-}
 
 void EntityAbs_SetQueriesValid( bool bValid )
 {
@@ -187,45 +162,10 @@ bool EntityAbs_AreQueriesValid()
 	return EntityAbs_QueriesValidRef();
 }
 
-void EntityAbs_PushEnableRecomputations( bool bEnable )
-{
-	if ( !ThreadInMainThread() )
-		return;
-	if ( AbsRecomputationStackPos() < 8 )
-	{
-		AbsRecomputationStack()[ AbsRecomputationStackPos() ] = EntityAbs_RecomputationEnabledRef();
-		++AbsRecomputationStackPos();
-		EntityAbs_RecomputationEnabledRef() = bEnable;
-	}
-	else
-	{
-		Assert( false );
-	}
-}
-
-void EntityAbs_PopEnableRecomputations()
-{
-	if ( !ThreadInMainThread() )
-		return;
-	if ( AbsRecomputationStackPos() > 0 )
-	{
-		--AbsRecomputationStackPos();
-		EntityAbs_RecomputationEnabledRef() = AbsRecomputationStack()[ AbsRecomputationStackPos() ];
-	}
-	else
-	{
-		Assert( false );
-	}
-}
-
 void EntityAbs_SetRecomputationsEnabled( bool bEnable )
 {
 	if ( !ThreadInMainThread() )
 		return;
-	// This should only be called at the frame level. Use PushEnableAbsRecomputations
-	// if you're blocking out a section of code.
-	Assert( AbsRecomputationStackPos() == 0 );
-
 	EntityAbs_RecomputationEnabledRef() = bEnable;
 }
 
@@ -402,102 +342,16 @@ int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll( void )
 
 //=============================================================================//
 //
-// THE FRAME GATE — the live half of EntityInterp_InterpolateServerEntities, and
-// THE ONE DECLARED GAP IN THIS LANE.
-//
-// WHAT IT COMPUTES is a frame-level policy and it is genuinely a policy, not a
-// walk over a dead list: interpolation is off when the player has turned
-// cl_interpolate off, when a timedemo is playing back, when the engine is
-// paused, and — the one that matters in play — when the net channel has heard
-// nothing for half a second, which is what stops a stalled client sliding every
-// entity smoothly into a wall on a guess. It is preserved here, unchanged, and
-// it writes EntityInterp_EnabledRef() in game/shared/entity_abs_query_state.h,
-// which the flip does not delete.
-//
-// WHAT READS IT TODAY: nothing on the managed path. Stock's reader was
-// C_BaseEntity::IsInterpolationEnabled (c_baseentity.h:2409), which dies with
-// the class, and SourceSharp.Client's interpolation has no enable gate of any
-// kind — ClientModule.cs:713,747 raise SamplePass and RenderPass on their two
-// stages unconditionally.
-//
-// SO THIS IS A REFUSAL AND IT IS DECLARED AS ONE. It is not refused per call,
-// because the gate being CLOSED is the normal case and warning once a frame for
-// the whole of a healthy connection would be a flood that means nothing. It is
-// refused when the gate actually CLOSES — the moment the behaviour would have
-// differed — and never more than once per closing edge, because a stall lasts
-// many frames and a stall is one event.
-//
-// THE FIX IS ONE LINE IN A FILE THIS LANE DOES NOT OWN.
-// SourceSharp_ClientInterpBlocks (shell_standalone_client.cpp:3206) is the
-// single call the managed pass makes to fetch the list, and it already answers
-// NULL for "nothing to interpolate", which the managed pass already handles by
-// doing nothing. Returning NULL when !EntityInterp_EnabledRef() would land this
-// behaviour with no ABI slot and no managed change at all.
-// shell_standalone_client.cpp is NOBODY's file in this wave, so the change is
-// written into .claude/entity-port/requests/c8-entitystatics.md for the
-// integrator instead of taken here — and refused, loudly, until it is.
+// THE FRAME GATE WENT TO MANAGED CODE, 2026-10-25. It was the live half of
+// EntityInterp_InterpolateServerEntities: stock's frame-level interpolation
+// policy (cl_interpolate, timedemo, pause, a net channel silent for half a
+// second), computed here into EntityInterp_EnabledRef() and then read by
+// nothing once C_BaseEntity::IsInterpolationEnabled left with the hierarchy.
+// It is SourceSharp.Client's InterpolationGate now, and the managed render pass
+// honours it (Interpolation.RenderPass's `interpolate`); cl_interpolate above
+// stays, because the server reads it back off the wire.
 //
 //=============================================================================//
-
-static bool &EntityInterpGateWasOpen()
-{
-	static bool s_bWasOpen = true;
-	return s_bWasOpen;
-}
-
-void EntityInterp_UpdateFrameGate()
-{
-
-	EntityInterp_EnabledRef() = cl_interpolate.GetBool();
-
-	// Don't interpolate during timedemo playback
-	if ( engine->IsPlayingTimeDemo() || engine->IsPaused() )
-	{
-		EntityInterp_EnabledRef() = false;
-	}
-
-	if ( !engine->IsPlayingDemo() )
-	{
-		// Don't interpolate, either, if we are timing out
-		INetChannelInfo *nci = engine->GetNetChannelInfo();
-		if ( nci && nci->GetTimeSinceLastReceived() > 0.5f )
-		{
-			EntityInterp_EnabledRef() = false;
-		}
-	}
-
-	// THE CLOSING EDGE, and only the edge. See the block above for why this is
-	// not a per-call refusal.
-	const bool bOpen = EntityInterp_EnabledRef();
-
-	if ( EntityInterpGateWasOpen() && !bOpen )
-	{
-		// §7's refusal, with its reason at the site that refuses rather than in
-		// a table indexed from another file. Phase 1c deleted the table; the
-		// strings below are its row, verbatim.
-		//
-		// NOT RATE LIMITED, and deliberately: the claim a retired row makes is
-		// that nothing can reach it in this build, so the expected number of
-		// these lines is zero and a flood is that claim being wrong in the
-		// loudest available way. This one is on the CLOSING EDGE of the gate,
-		// not on a per-call path.
-		Warning( "[SourceSharp] REFUSED: EntityInterp_InterpolateServerEntities "
-		         "was reached. plan_entity.md §7 -- this capability retired with "
-		         "the C_BaseEntity hierarchy. Reason: SPLIT, and the split is the "
-		         "finding. Its two passes walked g_TeleportList and "
-		         "g_InterpolationList, and its third arm iterated "
-		         "C_BaseEntityIterator to push a changed interp amount into "
-		         "per-entity CInterpolatedVar histories -- three registries the "
-		         "flip empties. Its CInterpolationContext is read only by stock "
-		         "CInterpolatedVars, of which the managed hierarchy owns none. "
-		         "Now: SourceSharp.Client/Interpolation.cs -- SamplePass at "
-		         "NetUpdatePostDataUpdateEnd and RenderPass at RenderStart. The "
-		         "LIVE half of this function did not retire: it is "
-		         "EntityInterp_UpdateFrameGate in this file.\n" );
-	}
-
-	EntityInterpGateWasOpen() = bOpen;
-}
 
 // THE TOOL-RECORDING PASS (EntityTool_RecordEntities) is deleted: SFM is dead
 // (user ruling 2026-10-19). Its guard, ToolsEnabled(), is false in every

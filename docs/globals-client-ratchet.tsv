@@ -391,7 +391,12 @@ client_globals_rows_with_no_symbol	docs/globals-client-ledger.tsv	0
 # LOWERED 2026-10-20, 672 -> 668 (C7 cluster 12 S2's deletion, make globals-client-ledger): shell_renderable_facts.o's two
 #   rows (s_ResolveStats, cs_cl_renderable_report's command) and collisionutils.o's two (s_ExtIndices, s_MatIndices) pruned with
 #   their objects; shell_tools_off_client.o had none.
-client_globals_link_level	src/game/client	668
+# LOWERED 2026-10-25, 668 -> 663 (lane M1-D, make globals-client-ledger): shell_entitystatics.o's save stack (two rows),
+#   its interpolation gate's edge and s_bInterpolate (two), and shell_recipientfilter_client.o's
+#   g_RecipientFilterPredictionSystem pruned with the code that held them.
+# LOWERED 2026-10-25, 663 -> 654 (lane M1-D): world_adapter_client.o's eight g_sModelIndex* sprite indexes and
+#   g_pModelNameLaser pruned with W_Precache (no reader on the client link edge).
+client_globals_link_level	src/game/client	654
 # 2026-10-05, c2-sims: the client weather runs on PrecipitationSystem; its native cl: 1435 UNRULED rows against a ceiling of 1434; RAISED with the rows this commit
 #   added unruled (found on the rebase onto main ace0f66a: the commit added them and left the ceiling).
 # 2026-10-05, C2 fx: a managed sprite's draw plans in managed, no crossing back (ren: 1437 UNRULED rows against a ceiling of 1435; RAISED with the rows this commit
@@ -440,7 +445,9 @@ client_globals_link_level	src/game/client	668
 #   five non-flashlight rows, the proxy registrations 47 and 48 and the trace's g_pShadowsBase joined UNRULED (the flashlight table's MEMBER rulings
 #   carried over from shell_flashlight_client.o).
 # LOWERED 2026-10-20, 618 -> 616 (C7 cluster 12 S2's deletion): shell_renderable_facts.o's two UNRULED rows pruned.
-client_globals_unruled	docs/globals-client-ledger.tsv	616
+# LOWERED 2026-10-25, 616 -> 612 (lane M1-D): the same five rows, four of them UNRULED (the stack's s_bStack was DEAD).
+# LOWERED 2026-10-25, 612 -> 603 (lane M1-D): the same nine, all UNRULED.
+client_globals_unruled	docs/globals-client-ledger.tsv	603
 #   2026-10-09, merged todo batch: 36 (+2: the two console_display_forward.o rows above,
 #   ruled FLOOR against the engine display-func list).
 # LOWERED 2026-10-19, 14 -> 13 (C7 screen-space effects, the eviction): CScreenSpaceEffectRegistration::s_pHead's list and

@@ -404,8 +404,7 @@ const size_t kFriendCount = sizeof( kFriends ) / sizeof( kFriends[ 0 ] );
 const char *const kMemHelpers[] =
 {
 	"EntityMem_Alloc",
-	"EntityMem_AllocDbg",
-	"EntityMem_Free",
+	"EntityMem_Free",		// EntityMem_AllocDbg left 2026-10-25: nothing imported it
 };
 const size_t kMemHelperCount = sizeof( kMemHelpers ) / sizeof( kMemHelpers[ 0 ] );
 

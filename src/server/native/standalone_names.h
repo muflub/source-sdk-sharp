@@ -28,9 +28,9 @@
 //
 // Both went with the code that called them and with the assertions that pinned
 // them, in one commit, rather than being left as two tested functions the build
-// does not reach. game/public/bullet_glass.h:39 still names StandaloneNameEquals
-// in a comment explaining why it does NOT share it — that argument is about the
-// stock include path and is unaffected by this header's contents.
+// does not reach. (bullet_glass.h, which named StandaloneNameEquals in a comment
+// about why it did not share it, left 2026-10-25: its rule is
+// SourceSharp.Shared.BulletGlass.)
 //
 //=============================================================================//
 #ifndef SOURCESHARP_STANDALONE_NAMES_H

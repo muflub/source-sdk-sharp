@@ -315,9 +315,10 @@ TEST( Step7eSubjects, TheClientRecipientFilterNamesNoEntityList )
 	// not come back is the SDK resolve: the file addresses players by SLOT.
 	EXPECT_FALSE( Has( code, "C_BaseEntity::Instance" ) );
 	EXPECT_FALSE( Has( code, "ToBasePlayer" ) );
-	EXPECT_TRUE( Has( code, "MvEntIndex()" ) )
-		<< "the IMovementPlayer reroute went; a player's slot is asked through "
-		   "the entity again.";
+	// The player-taking adds that asked MvEntIndex() left 2026-10-25 with no
+	// importer; the slot every add holds is the engine's own.
+	EXPECT_TRUE( Has( code, "engine->GetLocalPlayer()" ) )
+		<< "the filter no longer names the viewer by the engine's slot.";
 }
 
 //=============================================================================

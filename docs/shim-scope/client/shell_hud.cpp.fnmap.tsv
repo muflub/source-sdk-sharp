@@ -20,8 +20,8 @@
 9	SLOT	void SourceSharp_UiFontMetrics( int32_t nFont, int32_t *pOutTall, int32_t *pOutAscent )
 12	SLOT	int32_t SourceSharp_UiFontAdvances( int32_t nFont, int32_t nFirst, int32_t nCount, int32_t *pOutAdvances )
 5	SLOT	void SourceSharp_UiPlaySound( const char *pPath )
-5	UNRULED	int32_t SourceSharp_GetLocalPlayerIndex( void )
-6	UNRULED	int32_t SourceSharp_GetLocalPlayerHealth( void )
+5	BOUNDARY	int32_t SourceSharp_GetLocalPlayerIndex( void )
+6	BOUNDARY	int32_t SourceSharp_GetLocalPlayerHealth( void )
 11	LAYOUT	[CSourceSharpMenuRoot] explicit CSourceSharpMenuRoot( vgui::VPANEL parent )
 5	LAYOUT	[CSourceSharpMenuRoot] virtual ~CSourceSharpMenuRoot()
 11	SLOT	[CSourceSharpMenuRoot] virtual void Paint( void ) OVERRIDE
@@ -41,16 +41,6 @@
 11	SLOT	[CSourceSharpHud] virtual void Paint( void ) OVERRIDE
 7	SLOT	[CSourceSharpHud] virtual void OnScreenSizeChanged( int nOldWide, int nOldTall ) OVERRIDE
 1	SLOT	[CSourceSharpHud] virtual const char *GetName() OVERRIDE
-6	UNRULED	static void SourceSharp_ForwardSelection( const char *pCommand )
-1	UNRULED	CON_COMMAND( invnext, "" )
-1	UNRULED	CON_COMMAND( invprev, "" )
-1	UNRULED	CON_COMMAND( lastinv, "" )
-1	UNRULED	CON_COMMAND( slot1, "" )
-1	UNRULED	CON_COMMAND( slot2, "" )
-1	UNRULED	CON_COMMAND( slot3, "" )
-1	UNRULED	CON_COMMAND( slot4, "" )
-1	UNRULED	CON_COMMAND( slot5, "" )
-1	UNRULED	CON_COMMAND( slot6, "" )
-28	UNRULED	int32_t SourceSharp_HudTextMessageGet( const char *pName, SourceSharpTextMessage *pOut )
-11	UNRULED	void SourceSharp_HudLookupBinding( const char *pBinding, char *pOut, int32_t nOutSize )
-13	UNRULED	void SourceSharp_HudLocalise( const char *pToken, char *pOut, int32_t nOutSize )
+28	LAYOUT	int32_t SourceSharp_HudTextMessageGet( const char *pName, SourceSharpTextMessage *pOut )
+11	BOUNDARY	void SourceSharp_HudLookupBinding( const char *pBinding, char *pOut, int32_t nOutSize )
+13	BOUNDARY	void SourceSharp_HudLocalise( const char *pToken, char *pOut, int32_t nOutSize )

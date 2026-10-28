@@ -230,11 +230,6 @@ void SourceSharp_ClientSystemsLevelShutdownPostEntity( void );
 void SourceSharp_ClientSystemsPreRender( void );
 void SourceSharp_ClientSystemsUpdate( float frametime );
 
-// What the table holds, so a test can read the list the client is actually
-// running rather than a copy of it.
-int         SourceSharp_ClientSystemCount( void );
-const char *SourceSharp_ClientSystemNameAt( int nIndex );
-
 const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes );
 
 #endif // SHELL_CLIENTSYSTEM_H

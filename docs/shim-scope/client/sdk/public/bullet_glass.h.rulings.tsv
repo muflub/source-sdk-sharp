@@ -1,4 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-BulletGlassNameEquals	LOGIC	CBaseEntity::FireBullets glass-penetration rule, ported; read by the fork's client baseentity_shared.cpp (moved here from the shared overlay, T1.4)
-BulletPassesThroughGlass	LOGIC	the same rule's decision

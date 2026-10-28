@@ -1061,53 +1061,20 @@ TEST( WorldRelease, TheClientsWorldHasNoIndexWhenItIsBoundToNoLevel )
 }
 
 //-----------------------------------------------------------------------------
-// AND THE WORLD STILL SPAWNS ITSELF — the second thing C_BaseEntity::PreDataUpdate
-// did for it, and the second thing that went silent when the base went.
-//
-// `C_BaseEntity::PreDataUpdate` (c_baseentity.cpp:2042) is the ONLY caller of
-// the client world's Spawn() — measured over the compiled client, nothing else
-// calls it — and it made the call under stock's own comment: "Need to spawn on
-// client before receiving original network data in case it overrides any values
-// set up in spawn".
-//
-// WHAT STOPS IF IT IS NOT CALLED, and none of it fails loudly:
-// ActivityList_RegisterSharedActivities and EventList_RegisterSharedEvents, so
-// no animation activity or event on this client has a name; W_Precache, so the
-// eight g_sModelIndex* sprite indexes every TE_* dispatch names BY INDEX all
-// stay 0 — blood, smoke, bubbles, both explosions and the laser;
-// CPrecacheRegister::Precache; and the haptics driver's world precache.
+// THE WORLD NO LONGER SPAWNS ITSELF, and that is a deletion with its reasons.
+// C_BaseEntity::PreDataUpdate's Spawn() on the create ran C_World::Precache,
+// and by 2026-10-25 nothing it did had a subject: the activity and event
+// registries left in Phase 2d, the precache-register walk in C8, the eight
+// g_sModelIndex* sprite indexes W_Precache took had no reader on the client
+// link edge (nm -u), and `haptics` is never set. The fact that pinned the
+// chain (TheClientsWorldStillSpawnsItselfOnTheCreate) went with it.
 //-----------------------------------------------------------------------------
-TEST( WorldRelease, TheClientsWorldStillSpawnsItselfOnTheCreate )
+TEST( WorldRelease, TheClientsWorldHasNoDeadSpawnChain )
 {
 	const std::string impl = StripComments( ReadFromSrc( kClientWorldImpl ) );
+	ASSERT_FALSE( impl.empty() ) << kClientWorldImpl << " did not read";
+	ASSERT_TRUE( Has( impl, "void C_World::PreDataUpdate( DataUpdateType_t updateType )" ) );
 
-	const std::string body =
-		BodyAfter( impl, "void C_World::PreDataUpdate( DataUpdateType_t updateType )" );
-	ASSERT_FALSE( body.empty() )
-		<< "C_World::PreDataUpdate has no definition in " << kClientWorldImpl;
-
-	EXPECT_TRUE( Has( body, "updateType == DATA_UPDATE_CREATED" ) )
-		<< "PreDataUpdate no longer distinguishes the create, so either it "
-		   "spawns the world on every update or it never spawns it. Body was: "
-		<< body;
-	EXPECT_TRUE( Has( body, "Spawn();" ) )
-		<< "the client's world is never spawned, so its Precache never runs -- "
-		   "no shared activities, no shared events, and every g_sModelIndex* "
-		   "sprite index left at 0. Body was: " << body;
-
-	// AND THE PRECACHE IS STILL WHAT SPAWN DOES. A Spawn() that had stopped
-	// calling Precache would satisfy the line above and lose everything it is
-	// there for.
-	const std::string spawn = BodyAfter( impl, "void C_World::Spawn( void )" );
-	ASSERT_FALSE( spawn.empty() ) << "C_World::Spawn has no body";
-	EXPECT_TRUE( Has( spawn, "Precache();" ) )
-		<< "C_World::Spawn no longer precaches. Body was: " << spawn;
-
-	const std::string precache = BodyAfter( impl, "void C_World::Precache( void )" );
-	ASSERT_FALSE( precache.empty() ) << "C_World::Precache has no body";
-	EXPECT_TRUE( Has( precache, "RegisterSharedActivities();" ) )
-		<< "Precache no longer registers the shared activity and event lists.";
-	EXPECT_TRUE( Has( precache, "W_Precache();" ) )
-		<< "Precache no longer takes the sprite indexes, so every TE_* that "
-		   "names one by index draws nothing.";
+	EXPECT_FALSE( Has( impl, "W_Precache" ) ) << "W_Precache is back; its sprite indexes have no reader";
+	EXPECT_FALSE( Has( impl, "g_sModelIndex" ) ) << "a g_sModelIndex* global is back with no reader";
 }

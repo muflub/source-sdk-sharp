@@ -262,6 +262,81 @@ public unsafe class ConvertedEntryTests
         }
     }
 
+    // The level's prediction switch (LevelPrediction, lane M1-B): stock's two
+    // fixed texts through ClientCmd, never a direct set (FCVAR_USERINFO).
+    private static string? PredictCommandSent(bool predict)
+    {
+        void* self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
+        s_ClientCmdSaw = null;
+        try
+        {
+            using var root = new FakeShimRoot()
+                .Interface(EngineClient.InterfaceVersion, self)
+                .Forwarders<EngineClientFwd>(out EngineClientFwd* table);
+            ((nint*)table)[ClientCmdSlot] = (nint)(delegate* unmanaged<void*, byte*, void>)&ClientCmdRecords;
+            var side = TestSides.Create(Side.Client);
+            Assert.True(side.Attachment.AttachShims(root.Bind(), out string attachWhy), attachWhy);
+
+            IFwdEngineClient? client = EngineClient.Acquire(side, out string why);
+            Assert.True(client is not null, why);
+            ((IClientPredictCommand)client).SetPredict(predict);
+            return s_ClientCmdSaw;
+        }
+        finally
+        {
+            NativeMemory.Free(self);
+        }
+    }
+
+    // A weapon-selection bind's line (WeaponSelection, lane M1-B): ServerCmd,
+    // reliable, the line verbatim.
+    private static readonly int ServerCmdSlot = ForwarderSlotOf<EngineClientFwd>("ServerCmd");
+    private static string? s_ServerCmdSaw;
+    private static byte s_ServerCmdReliable;
+
+    [UnmanagedCallersOnly]
+    private static void ServerCmdRecords(void* self, byte* command, byte reliable)
+    {
+        s_ServerCmdSaw = Marshal.PtrToStringUTF8((IntPtr)command);
+        s_ServerCmdReliable = reliable;
+    }
+
+    [Fact]
+    public void AWeaponSelectionLineGoesThroughServerCmdReliablyAndVerbatim()
+    {
+        void* self = NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
+        s_ServerCmdSaw = null;
+        s_ServerCmdReliable = 0;
+        try
+        {
+            using var root = new FakeShimRoot()
+                .Interface(EngineClient.InterfaceVersion, self)
+                .Forwarders<EngineClientFwd>(out EngineClientFwd* table);
+            ((nint*)table)[ServerCmdSlot] = (nint)(delegate* unmanaged<void*, byte*, byte, void>)&ServerCmdRecords;
+            var side = TestSides.Create(Side.Client);
+            Assert.True(side.Attachment.AttachShims(root.Bind(), out string attachWhy), attachWhy);
+
+            IFwdEngineClient? client = EngineClient.Acquire(side, out string why);
+            Assert.True(client is not null, why);
+            ((IWeaponSelectionCommand)client).SendSelection("ss_slot 2");
+
+            Assert.Equal("ss_slot 2", s_ServerCmdSaw);
+            Assert.Equal(1, s_ServerCmdReliable);
+        }
+        finally
+        {
+            NativeMemory.Free(self);
+        }
+    }
+
+    [Fact]
+    public void ThePredictionSwitchOnSendsClPredict1ThroughClientCmd()
+        => Assert.Equal("cl_predict 1", PredictCommandSent(true));
+
+    [Fact]
+    public void ThePredictionSwitchOffSendsClPredict0ThroughClientCmd()
+        => Assert.Equal("cl_predict 0", PredictCommandSent(false));
+
     //-------------------------------------------------------------------------
     // IBaseFileSystem: the -1-for-missing rule, which is the row Appendix B
     // calls the instructive one.

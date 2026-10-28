@@ -54,10 +54,19 @@
 #include "cdll_client_int.h"
 #include "datacache/imdlcache.h"
 #include "c_baseentity_statics.h"
+#include "imanaged_runtime_client.h"
+#include "shell_managed_areas_client.h"
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-void SourceSharp_ViewFade( const ScreenFade_t &sf );	// shell_clientdll.cpp
+// WorldArrivalActions (SourceSharp.Client/WorldArrival.cs): what managed's
+// answer to a world update asks this file to do.
+enum
+{
+	kWorldArrival_NormalMode      = 1,
+	kWorldArrival_Occlusion       = 2,
+	kWorldArrival_ScreenFadeRange = 4,
+};
 
 #ifdef CWorld
 #undef CWorld
@@ -295,15 +304,13 @@ bool C_World::ResolveFields()
 }
 
 //-----------------------------------------------------------------------------
-// The ten, as reads of the blob. One body each, through the SAME
-// world_net_sync.cpp the server reads through.
+// The two client.so still reads natively (the bounds, for the precipitation and
+// the WorldDims proxy; the detail sprite material, for the detail props), as
+// reads of the blob through the SAME world_net_sync.cpp the server reads
+// through. The other seven getters left 2026-10-25 with no caller: what the
+// create does with the occlusion areas, the prop widths and startdark is
+// WorldArrival's (SourceSharp.Client), which decodes the blob itself.
 //-----------------------------------------------------------------------------
-float C_World::GetWaveHeight()
-{
-	ResolveFields();
-	return SourceSharpWorld_ReadFloat( DataBlob(), m_Fields.nWaveHeight );
-}
-
 const char *C_World::GetDetailSpriteMaterial()
 {
 	ResolveFields();
@@ -322,43 +329,6 @@ Vector C_World::GetWorldMaxs()
 	ResolveFields();
 	return SourceSharpWorld_ReadVector( DataBlob(), m_Fields.nWorldMaxs );
 }
-
-bool C_World::GetStartDark()
-{
-	ResolveFields();
-	return SourceSharpWorld_ReadFlag( DataBlob(), m_Fields.StartDark );
-}
-
-bool C_World::IsColdWorld()
-{
-	ResolveFields();
-	return SourceSharpWorld_ReadFlag( DataBlob(), m_Fields.ColdWorld );
-}
-
-float C_World::GetMaxOccludeeArea()
-{
-	ResolveFields();
-	return SourceSharpWorld_ReadFloat( DataBlob(), m_Fields.nMaxOccludeeArea );
-}
-
-float C_World::GetMinOccluderArea()
-{
-	ResolveFields();
-	return SourceSharpWorld_ReadFloat( DataBlob(), m_Fields.nMinOccluderArea );
-}
-
-float C_World::GetMinPropScreenSpaceWidth()
-{
-	ResolveFields();
-	return SourceSharpWorld_ReadFloat( DataBlob(), m_Fields.nMinPropScreenSpaceWidth );
-}
-
-float C_World::GetMaxPropScreenSpaceWidth()
-{
-	ResolveFields();
-	return SourceSharpWorld_ReadFloat( DataBlob(), m_Fields.nMaxPropScreenSpaceWidth );
-}
-
 
 #if defined( _MSC_VER )
 // 'this' in the initialiser list below is deliberate. The build disables C4355
@@ -440,33 +410,13 @@ void C_World::PreDataUpdate( DataUpdateType_t updateType )
 		m_DataChangeEventRef = (int)updateType;
 	}
 
-	// AND THE SPAWN, WHICH IS THE OTHER THING THIS BODY INHERITED AND THE OTHER
-	// THING THAT WENT SILENT.
-	//
-	// C_BaseEntity::PreDataUpdate (c_baseentity.cpp:2042) is the ONLY caller of
-	// Spawn() on this side -- nothing else in the client calls the world's --
-	// and it made the call for the same reason stock's own comment gives:
-	// "Need to spawn on client before receiving original network data in case it
-	// overrides any values set up in spawn".
-	//
-	// WHAT WOULD HAVE STOPPED, item by item, because "Precache did not run" is
-	// not a list: ActivityList_RegisterSharedActivities and
-	// EventList_RegisterSharedEvents (every animation activity and event this
-	// client can name), W_Precache (the eight g_sModelIndex* sprite indexes --
-	// blood, smoke, bubbles, the explosions and the laser -- which every TE_*
-	// dispatch names BY INDEX and which would all have stayed 0),
-	// CPrecacheRegister::Precache, and the haptics driver's world precache.
-	// Not one of those fails loudly.
-	//
-	// `!IsClientCreated()` is not carried: that arm is about entities the CLIENT
-	// made, and the world arrives from the server by definition.
-	// `m_flSpawnTime` is not carried either -- it is a C_BaseEntity member with
-	// no reader here.
-	if ( updateType == DATA_UPDATE_CREATED )
-	{
-		MDLCACHE_CRITICAL_SECTION();
-		Spawn();
-	}
+	// THE SPAWN THAT STOOD HERE LEFT 2026-10-25. C_BaseEntity::PreDataUpdate's
+	// `Spawn()` on the create ran C_World::Precache, and nothing it did had a
+	// subject left: the activity and event registries went in Phase 2d, the
+	// precache-register walk in C8, the eight g_sModelIndex* sprite indexes
+	// W_Precache took had no reader on the client link edge (nm -u: the temp
+	// entities that named them are managed), and `haptics` is never set (the
+	// SDK ships no haptics driver).
 }
 
 //-----------------------------------------------------------------------------
@@ -606,65 +556,44 @@ void C_World::Release()
 }
 
 //-----------------------------------------------------------------------------
-// WHAT THE VALUES ARE FOR, ON THE CREATE.
+// WHAT THE VALUES ARE FOR, ON THE CREATE -- managed's decision, carried out.
 //
-// FOUR CALLS AND NOT ONE OF THEM DECIDES ANYTHING, which is why they are still
-// here after the un-derive rather than in C#. Each is a networked number being
-// handed to the renderer's mechanism at the instant it arrives — §6's "the leaf
-// system, shadow manager, view render, client mode ... client-DLL mechanism the
-// engine's callbacks drive". WHAT the map's keys MEAN is decided in
-// WorldNet.ApplyKey and the values are declared in WorldNetState; there is no
-// second reading of them here, only a delivery.
-//
-// THE ONE LINE THAT IS ARGUABLY MORE THAN DELIVERY IS THE startdark FADE, and
-// it is named here rather than glossed: a map key producing a screen effect is
-// a policy the managed client would be the better owner of. Moving it needs a
-// managed-api slot this step did not invent — see .claude/entity-port/status/5e.md.
+// Stock's C_World::OnDataChanged reset the client mode, faded a start-dark map
+// in from black, and handed the renderer the level's occlusion areas and prop
+// fade range, on the create. Which of that happens, and with what values, is
+// SourceSharp.Client's WorldArrival now (it decodes the same blob, and does the
+// fade itself through the view effects); this carries out the three engine
+// calls its answer names. WHAT the map's keys MEAN is WorldNet.ApplyKey's.
 //-----------------------------------------------------------------------------
 void C_World::OnDataChanged( DataUpdateType_t updateType )
 {
-	// Always force reset to normal mode upon receipt of world in new map
-	if ( updateType == DATA_UPDATE_CREATED )
-	{
+	// The plan's four floats, in WorldArrival's order: max occludee area, min
+	// occluder area, min and max prop screen width.
+	float flPlan[ 4 ] = {};
+	IManagedRuntimeClient *pRuntime = ManagedRuntimeClient();
+	const int nActions = pRuntime
+		? pRuntime->WorldDataChanged( DataBlob(), BlobBytes(), (int32_t)updateType, flPlan, 4 )
+		: 0;
+
+	if ( nActions & kWorldArrival_NormalMode )
 		modemanager->SwitchMode( false, true );
 
-		if ( GetStartDark() )
-		{
-			ScreenFade_t sf;
-			memset( &sf, 0, sizeof( sf ) );
-			sf.a = 255;
-			sf.r = 0;
-			sf.g = 0;
-			sf.b = 0;
-			sf.duration = (float)(1<<SCREENFADE_FRACBITS) * 5.0f;
-			sf.holdTime = (float)(1<<SCREENFADE_FRACBITS) * 1.0f;
-			sf.fadeFlags = FFADE_IN | FFADE_PURGE;
-			SourceSharp_ViewFade( sf );
-		}
-
-		// THE FOUR VALUES THE RENDERER TAKES FROM THE WORLD, read out of the
-		// blob the update just filled. This is the moment they arrive: the
-		// engine has decoded DT_World into the bytes past this object, and the
-		// four reads below are what turns them into engine state.
+	if ( nActions & kWorldArrival_Occlusion )
+	{
 		OcclusionParams_t params;
-		params.m_flMaxOccludeeArea = GetMaxOccludeeArea();
-		params.m_flMinOccluderArea = GetMinOccluderArea();
+		params.m_flMaxOccludeeArea = flPlan[ 0 ];
+		params.m_flMinOccluderArea = flPlan[ 1 ];
 		engine->SetOcclusionParameters( params );
-
-		modelinfo->SetLevelScreenFadeRange( GetMinPropScreenSpaceWidth(),
-		                                    GetMaxPropScreenSpaceWidth() );
 	}
+
+	if ( nActions & kWorldArrival_ScreenFadeRange )
+		modelinfo->SetLevelScreenFadeRange( flPlan[ 2 ], flPlan[ 3 ] );
 
 	// WHAT ARRIVED, WHENEVER IT CHANGES, AND IT IS THE ONLY EVIDENCE IT DID.
 	//
 	// IT CANNOT SPAM: ReportIfChanged keeps the bytes it last printed and
 	// compares, and the world's ten values are written by the map parse and by
-	// nothing else in an ordinary session. A world that started changing every
-	// frame would say so, which is a thing worth being told.
-	//
-	// Every one of the ten is read by the renderer and every one fails as a
-	// plausible zero -- nothing crashes, nothing logs, and the symptom is a
-	// rendering difference nobody attributes. The server prints the same ten
+	// nothing else in an ordinary session. The server prints the same ten
 	// through the same formatter, so the two lines are comparable by eye and by
 	// grep.
 	ReportIfChanged();
@@ -751,77 +680,13 @@ void C_World::GetColorModulation( float *color )
 	color[ 0 ] = color[ 1 ] = color[ 2 ] = 1.0f;
 }
 
-void C_World::RegisterSharedActivities( void )
-{
-	// The shared activity and event tables are not registered any more --
-	// there is no registry to register them into. See the note where the
-	// registries used to be opened.
-}
-
-// -----------------------------------------
-//	Sprite Index info
-// -----------------------------------------
-short		g_sModelIndexLaser;			// holds the index for the laser beam
-const char	*g_pModelNameLaser = "sprites/laserbeam.vmt";
-short		g_sModelIndexLaserDot;		// holds the index for the laser beam dot
-short		g_sModelIndexFireball;		// holds the index for the fireball
-short		g_sModelIndexSmoke;			// holds the index for the smoke cloud
-short		g_sModelIndexWExplosion;	// holds the index for the underwater explosion
-short		g_sModelIndexBubbles;		// holds the index for the bubbles model
-short		g_sModelIndexBloodDrop;		// holds the sprite index for the initial blood
-short		g_sModelIndexBloodSpray;	// holds the sprite index for splattered blood
-
-//-----------------------------------------------------------------------------
-// Purpose: Precache global weapon sounds
-//-----------------------------------------------------------------------------
-void W_Precache(void)
-{
-	// THE WEAPON SCRIPT DATABASE IS MANAGED and this call is gone with its
-	// native definition (sourcesharp/game/client/shell_weapon_scripts.cpp).
-	// Nothing is lost: the native body had already stopped parsing --
-	// weapon_parse.cpp, weapon_parse_default.cpp and weapons_resource.cpp left
-	// client_csharp.vpc together and the stub that replaced them only printed
-	// at verbosity. The parse, the manifest walk and the lookups are
-	// SourceSharp.Shared/WeaponScriptDatabase.cs, pinned to the C++ parse's own
-	// answers by sourcesharp/test/weapon_script_oracle_test.cpp.
-
-	g_sModelIndexFireball = modelinfo->GetModelIndex ("sprites/zerogxplode.vmt");// fireball
-	g_sModelIndexWExplosion = modelinfo->GetModelIndex ("sprites/WXplo1.vmt");// underwater fireball
-	g_sModelIndexSmoke = modelinfo->GetModelIndex ("sprites/steam1.vmt");// smoke
-	g_sModelIndexBubbles = modelinfo->GetModelIndex ("sprites/bubble.vmt");//bubbles
-	g_sModelIndexBloodSpray = modelinfo->GetModelIndex ("sprites/bloodspray.vmt"); // initial blood
-	g_sModelIndexBloodDrop = modelinfo->GetModelIndex ("sprites/blood.vmt"); // splattered blood 
-	g_sModelIndexLaser = modelinfo->GetModelIndex( (char *)g_pModelNameLaser );
-	g_sModelIndexLaserDot = modelinfo->GetModelIndex("sprites/laserdot.vmt");
-}
-
-void C_World::Precache( void )
-{
-	// UNDONE: Make most of these things server systems or precache_registers
-	// =================================================
-	//	Activities
-	// =================================================
-	// Nothing to free: the activity and event registries went in Phase 2d.
-	// See the note where they used to be opened.
-
-	RegisterSharedActivities();
-
-	// Get weapon precaches
-	W_Precache();	
-
-	// The registered-precacher walk left with precache_register.cpp (C8): no
-	// object on the link line registered one.
-	// NVNT notify system of precache
-	if (haptics)
-		haptics->WorldPrecache();
-}
 
 #if defined( WIN32 )
 // What stock's ConnectHaptics and DisconnectHaptics (called from
 // shell_clientdll.cpp's Init and Shutdown) come to in this build: stock loads
 // the Novint device library (haptics.dll), which the SDK's bin/x64 does not
 // ship, and without it falls back to a stub that does nothing. haptics stays
-// NULL, as it is on Linux, and the precache above checks for that.
+// NULL, as it is on Linux.
 void ConnectHaptics( CreateInterfaceFn )
 {
 }
@@ -830,12 +695,6 @@ void DisconnectHaptics()
 {
 }
 #endif
-
-void C_World::Spawn( void )
-{
-	Precache();
-}
-
 
 C_World *GetClientWorldEntity()
 {

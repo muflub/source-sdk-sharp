@@ -40,4 +40,19 @@ public struct ThirdPersonCameraBlob
 
     /// <summary>Whether a camera placed with that much of the wish sees the player.</summary>
     public int SeesOwner;
+
+    /// <summary>
+    /// PLACE in (appended, lane M1-B): <c>cam_collision</c>, 1 on, 0 off, -1
+    /// when the convar is not there.
+    /// </summary>
+    public int Collision;
+
+    /// <summary>
+    /// PLACE out: the half extent of the cube the shell sweeps towards the
+    /// wish, or 0 for no sweep (the wish is kept whole).
+    /// </summary>
+    public float HullHalfExtent;
+
+    /// <summary>PLACE out: the sweep's CONTENTS_* mask.</summary>
+    public uint TraceMask;
 }

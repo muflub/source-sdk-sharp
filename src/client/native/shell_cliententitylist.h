@@ -67,8 +67,6 @@ class IClientThinkable;
 // index naming no entity answers NULL, which is every stock caller's guard
 // (`if ( IClientEntity *pClient = ... )`) written once.
 //-----------------------------------------------------------------------------
-IClientUnknown     *SourceSharp_ClientUnknownFromIndex( int nEntry );
-IClientNetworkable *SourceSharp_ClientNetworkableFromIndex( int nEntry );
 IClientEntity      *SourceSharp_ClientEntityFromIndex( int nEntry );
 
 //-----------------------------------------------------------------------------
@@ -78,7 +76,7 @@ IClientEntity      *SourceSharp_ClientEntityFromIndex( int nEntry );
 IClientUnknown     *SourceSharp_ClientUnknownFromHandle( const CBaseHandle &hEnt );
 IClientEntity      *SourceSharp_ClientEntityFromHandle( const CBaseHandle &hEnt );
 
-// The networkable face by HANDLE, the exact twin of the by-index one above.
+// The networkable face by HANDLE.
 // Added by lane `f-list` for CEffectData::entindex(), which held a handle and
 // had to spell `ClientEntityList().GetClientNetworkableFromHandle` for want of
 // this -- and so carried the stock list's symbol into a TU that stays compiled.
@@ -86,7 +84,8 @@ IClientEntity      *SourceSharp_ClientEntityFromHandle( const CBaseHandle &hEnt 
 IClientNetworkable *SourceSharp_ClientNetworkableFromHandle( const CBaseHandle &hEnt );
 
 //-----------------------------------------------------------------------------
-// THE OTHER TWO ENGINE FACES OF THE SAME OBJECT, by handle.
+// THE RENDERABLE FACE OF THE SAME OBJECT, by handle. (Its thinkable twin left
+// 2026-10-25 with no caller: client_thinklist.cpp, its one reader, left in C8.)
 //
 // Added by step p7-exit for the STOCK client TUs that stay compiled -- the beam
 // list, the tempent list, the think list, the particle systems -- which asked
@@ -100,7 +99,6 @@ IClientNetworkable *SourceSharp_ClientNetworkableFromHandle( const CBaseHandle &
 // have to be found again when cliententitylist.cpp goes.
 //-----------------------------------------------------------------------------
 IClientRenderable  *SourceSharp_ClientRenderableFromHandle( const CBaseHandle &hEnt );
-IClientThinkable   *SourceSharp_ClientThinkableFromHandle( const CBaseHandle &hEnt );
 
 //-----------------------------------------------------------------------------
 // INDEX TO HANDLE. The inverse of the above, for a caller that must hold on to

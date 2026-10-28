@@ -34,7 +34,7 @@
 // filter has only ever STORED indices — so the C_BasePlayer in the middle was
 // never carrying information, only a type.
 //
-// Engine-free on purpose: the rule is three comparisons and is tested without a
+// Engine-free on purpose: the rule is two comparisons and is tested without a
 // running client (sourcesharp/test/local_recipient_test.cpp).
 //
 //=============================================================================//
@@ -51,26 +51,17 @@
 // when there is no viewer yet — a state a filter must hold nobody in, and the
 // state every filter built before the first entity decodes is in.
 //
-// bUsingPredictionRules / bCanPredict are stock's suppression: the local
-// player is added the FIRST time an effect is predicted and not on the repeats,
-// which is what stops one shot playing its own tracer once per re-simulation.
+// Stock's other arm, the re-prediction suppression (m_bUsingPredictionRules
+// and IPredictionSystem::CanPredict), has no subject here: nothing on the
+// client link edge calls UsePredictionRules, so it left with that member
+// (2026-10-25); the managed prediction decides what a replay emits.
 //-----------------------------------------------------------------------------
-inline bool LocalRecipient_ShouldHold( int nSlot, int nLocalSlot,
-                                       bool bUsingPredictionRules, bool bCanPredict )
+inline bool LocalRecipient_ShouldHold( int nSlot, int nLocalSlot )
 {
 	if ( nSlot < 1 || nLocalSlot < 1 )
 		return false;
 
-	// A client filter reaches one person. Stock spelled this
-	// player->IsLocalPlayer(); the slot says the same thing about a viewer
-	// whose entity is not a C_BasePlayer.
-	if ( nSlot != nLocalSlot )
-		return false;
-
-	if ( bUsingPredictionRules && !bCanPredict )
-		return false;
-
-	return true;
+	return nSlot == nLocalSlot;
 }
 
 #endif // LOCAL_RECIPIENT_H

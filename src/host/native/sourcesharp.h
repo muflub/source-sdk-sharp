@@ -1989,6 +1989,17 @@ typedef struct
 	// model draws.
 	float    flSurvivingFraction;
 	int32_t  bSeesOwner;
+
+	// --- PLACE: in, appended (lane M1-B) ---
+	// cam_collision's value: 1 on, 0 off, -1 when the convar is not there.
+	int32_t  nCollision;
+
+	// --- PLACE: out, appended ---
+	// The sweep the camera wants towards its wish: a cube of this half extent
+	// under nTraceMask (CONTENTS_* bits), or no sweep at all at 0, when the
+	// wish is kept whole. Stock's CAM_HULL_OFFSET and mask are managed's.
+	float    flHullHalfExtent;
+	uint32_t nTraceMask;
 } SourceSharpThirdPersonCamera;
 
 // SourceSharpPlayerShadowState and SourceSharpPlayerShadowPlan stood here: the

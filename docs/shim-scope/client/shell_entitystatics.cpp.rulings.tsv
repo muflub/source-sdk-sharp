@@ -1,2 +1,9 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+void *EntityMem_Alloc( size_t stAllocateBlock )	LIVE-API	imported by world_adapter_client.o (nm -u, 2026-10-25): stock's entity allocator, MemAlloc_Alloc zeroed
+void EntityMem_Free( void *pMem )	LIVE-API	imported by world_adapter_client.o (nm -u, 2026-10-25): MemAlloc_Free
+void EntityAbs_SetQueriesValid( bool bValid )	LIVE-API	imported by shell_clientdll.o (nm -u, 2026-10-25): stock's frame-stage abs-query flag, set where stock sets it; its only readers are shell_clientdll.cpp's Asserts
+bool EntityAbs_AreQueriesValid()	LIVE-API	imported by shell_clientdll.o (nm -u, 2026-10-25): the flag read, for shell_clientdll.cpp's Asserts; true off the main thread as stock
+void EntityAbs_SetRecomputationsEnabled( bool bEnable )	LIVE-API	imported by shell_clientdll.o (nm -u, 2026-10-25): stock's frame-stage recomputation flag, set where stock sets it; its only readers are shell_clientdll.cpp's Asserts
+bool EntityAbs_AreRecomputationsEnabled()	LIVE-API	imported by shell_clientdll.o (nm -u, 2026-10-25): the flag read, for shell_clientdll.cpp's Asserts; true off the main thread as stock
+int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll( void )	SLOT	IShimViewClient: carries out managed's vcollide_wireframe change (VCollideWireframeConVar), UpdateVisibility on every client shell; the count answered

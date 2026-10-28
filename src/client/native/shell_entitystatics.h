@@ -68,21 +68,12 @@
 // is a paragraph, not a declaration. Those thirteen have nothing left to
 // declare at runtime and are documentation of a completed migration.
 //
-// ONE ROW CAN STILL FIRE, and §7 -- "a behaviour that is refused is a
-// ContractBaseline entry with a reason, never a silent no-op" -- is about
-// exactly that one. The reason and successor strings that used to sit in the
-// table are now at the refusal site itself, in EntityInterp_UpdateFrameGate in
-// shell_entitystatics.cpp, where the code that refuses is:
-//
-//   EntityInterp_InterpolateServerEntities -- refused on the CLOSING EDGE of
-//     the interpolation gate, once per close, not per call.
-//
-// The other, EntityTool_RecordEntities (refused when a tool was recording), is
+// NO ROW CAN FIRE NOW. The last, EntityInterp_InterpolateServerEntities's
+// frame gate, was refused on its closing edge until 2026-10-25, when the gate
+// moved to managed code (SourceSharp.Client's InterpolationGate) and the
+// render pass began to honour it. The other, EntityTool_RecordEntities, is
 // deleted with the tool framework: SFM is dead (user ruling 2026-10-19).
 //
-// SO THE THING §7 ASKS FOR IS STRICTLY CLOSER TO THE CODE than it was: a
-// reader who reaches a refusal message now finds the reason in the function
-// that printed it, rather than in a table indexed by an enum in another file.
 // What is gone is the READOUT over rulings nothing can exercise --
 // `cs_cl_entitystatics`, which nothing under tools/, in managed code or in the
 // other DLL ever drove.
@@ -101,26 +92,8 @@
 // MEM_ALLOC_CREDIT() credits __FILE__ and the file is now this one.
 //-----------------------------------------------------------------------------
 void *EntityMem_Alloc( size_t stAllocateBlock );
-void *EntityMem_AllocDbg( size_t stAllocateBlock, const char *pFileName, int nLine );
 void  EntityMem_Free( void *pMem );
 
-//-----------------------------------------------------------------------------
-// THE FRAME GATE, which is the live half of what was
-// EntityInterp_InterpolateServerEntities.
-//
-// Stock's function did two things in one body: it computed WHETHER
-// interpolation runs this frame, and it then ran it over two SDK lists. The
-// second half retires with those lists; the first half is a real, frame-level
-// policy — cl_interpolate, a paused engine, timedemo playback, and a net
-// channel that has heard nothing for half a second — and it does NOT retire.
-// It writes EntityInterp_EnabledRef() in game/shared/entity_abs_query_state.h,
-// which the flip does not delete.
-//
-// SEE THE REFUSAL AT ITS DEFINITION: the value is computed and correct, and
-// nothing on the managed interpolation path reads it yet. That is a declared
-// gap with an owner, not a quiet one.
-//-----------------------------------------------------------------------------
-void EntityInterp_UpdateFrameGate();
 
 // EntityTool_RecordEntities, the tool-recording pass, is deleted: SFM is dead
 // (user ruling 2026-10-19).

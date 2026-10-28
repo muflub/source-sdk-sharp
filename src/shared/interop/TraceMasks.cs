@@ -49,6 +49,12 @@ internal static class TraceMasks
     /// <summary><c>CONTENTS_SOLID</c> alone: a glow overlay's line at the sky (C7 glow overlays).</summary>
     public const int SolidOnly = ContentsSolid;
 
+    /// <summary>
+    /// <c>MASK_SOLID &amp; ~CONTENTS_MONSTER</c>: what stops a third-person
+    /// camera's sweep (stock CInput::CAM_Think), the world and not a player.
+    /// </summary>
+    public const int CameraSweep = Solid & ~ContentsMonster;
+
     /// <summary><c>MASK_ALL</c>.</summary>
     public const int All = unchecked((int)0xFFFFFFFF);
 

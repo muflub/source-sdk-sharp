@@ -6,7 +6,8 @@ namespace SourceSharp.Abi;
 /// <see cref="Client.Input.IClientInputEngine"/>, implemented explicitly so the
 /// class offers game code exactly its interface.
 /// </summary>
-public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine
+public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine,
+                                          IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand
 {
     /// <summary>
     /// <c>VENGINE_CLIENT_INTERFACE_VERSION</c>, from <c>cdll_int.h:188</c>.
@@ -123,6 +124,14 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
     }
 
     /// <inheritdoc/>
+    void IClientPredictCommand.SetPredict(bool predict)
+    {
+        ReadOnlySpan<byte> text = predict ? "cl_predict 1\0"u8 : "cl_predict 0\0"u8;
+        fixed (byte* p = text)
+            _fwd->ClientCmd(_self, p);
+    }
+
+    /// <inheritdoc/>
     public void SpectatorCommand(SpectatorKeyCommand command)
     {
         ReadOnlySpan<byte> text = command switch
@@ -147,6 +156,16 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
 
     /// <inheritdoc/>
     public void SpectatorServerCommand(string line)
+    {
+        if (string.IsNullOrEmpty(line))
+            return;
+        byte[] bytes = Vtable.Utf8(line);
+        fixed (byte* p = bytes)
+            _fwd->ServerCmd(_self, p, 1);
+    }
+
+    /// <inheritdoc/>
+    void IWeaponSelectionCommand.SendSelection(string line)
     {
         if (string.IsNullOrEmpty(line))
             return;
@@ -227,6 +246,15 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
 
     /// <inheritdoc/>
     bool Client.Input.IClientInputEngine.IsPaused => _fwd->IsPaused(_self) != 0;
+
+    /// <inheritdoc/>
+    bool IPlaybackState.IsPaused => _fwd->IsPaused(_self) != 0;
+
+    /// <inheritdoc/>
+    bool IPlaybackState.IsPlayingDemo => _fwd->IsPlayingDemo(_self) != 0;
+
+    /// <inheritdoc/>
+    bool IPlaybackState.IsPlayingTimeDemo => _fwd->IsPlayingTimeDemo(_self) != 0;
 
     /// <inheritdoc/>
     void Client.Input.IClientInputEngine.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta)

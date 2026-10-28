@@ -572,7 +572,7 @@ TEST( ServerWave1, TheClientListAnswersForTheSharedFilesToo )
 		<< "SourceSharp.Shared/WeaponScriptDatabase.cs.";
 
 	const std::string worldAdapter =
-		Tight( "sourcesharp/game/client/world_adapter_client.cpp", "void W_Precache(void)" );
+		Tight( "sourcesharp/game/client/world_adapter_client.cpp", "bool C_World::Init( int entnum, int iSerialNum )" );
 
 	EXPECT_EQ( worldAdapter.find( "PrecacheFileWeaponInfoDatabase" ), std::string::npos )
 		<< "world_adapter_client.cpp calls PrecacheFileWeaponInfoDatabase "

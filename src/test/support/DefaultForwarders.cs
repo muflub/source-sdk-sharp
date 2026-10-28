@@ -261,8 +261,14 @@ internal static class DefaultForwarders
     }
 #else
     /// <summary>An engine client in no game answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
-    internal sealed unsafe class NoEngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine
+    internal sealed unsafe class NoEngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine,
+                                                  IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand
     {
+        // No engine: the cl_predict switch and a selection line go nowhere.
+        public void SetPredict(bool predict) { }
+
+        public void SendSelection(string line) { }
+
         // No allocator: a save is refused, said by the save session.
         public void* SaveAlloc(nuint count, nuint size) => null;
 
@@ -277,6 +283,13 @@ internal static class DefaultForwarders
         void Client.Input.IClientInputEngine.GetScreenSize(out int width, out int height) => (width, height) = (0, 0);
 
         bool Client.Input.IClientInputEngine.IsPaused => false;
+
+        // Never paused, no demo playing.
+        bool IPlaybackState.IsPaused => false;
+
+        bool IPlaybackState.IsPlayingDemo => false;
+
+        bool IPlaybackState.IsPlayingTimeDemo => false;
 
         void Client.Input.IClientInputEngine.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta) => (x, y) = (0, 0);
 

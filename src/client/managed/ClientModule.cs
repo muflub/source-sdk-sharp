@@ -790,7 +790,22 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance<IProcessEnvironment>(new ProcessEnvironment());
         _services.AddInstance<IModInfo>(new ModInfo());
         _services.AddInstance(new ParticleReloadPolicy());
+        // CHLClient::LevelInitPreEntity's cl_predict arm and PostInit's bicubic
+        // lightmap default, both decided here since lane M1-B.
+        _services.AddFactory(locator =>
+        {
+            IEngineEnvironment environment = locator.Require<IEngineEnvironment>();
+            return new LevelPrediction(() => environment.Globals.IsAvailable ? environment.Globals.MaxClients : 1,
+                                       locator.Require<IEngineConsole>().FindConVarValue,
+                                       locator.Require<IClientPredictCommand>());
+        });
+        _services.AddFactory(locator => new LightmapBicubicDefault(locator.Require<IEngineConsole>(), OperatingSystem.IsLinux()));
         _services.AddInstance(new ClientMapMaterials(log));
+        _services.AddInstance(new MapMaterialReloadWindow(_services.Require<ClientMapMaterials>().ReloadSet));
+        // worldspawn's arrival (stock's C_World::OnDataChanged): the start-dark
+        // fade goes where the engine's View_Fade goes, the view effects.
+        _services.AddInstance(WorldArrival.Over((duration, hold, flags) =>
+            _services.Require<Render.ViewEffectsHost>().Fade(duration, hold, flags, 0, 0, 0, 255, _clock.Now)));
         // decals.cpp's tables (lane c2-sims); an IReloadParticipant, so its
         // parse and indices cross cs_cl_reload.
         _services.Add<IClientDecals, ClientDecals>();
@@ -1069,6 +1084,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // (plan_entity.md step 6a). Both are read twice a frame from OnStage,
         // which is a stage notification and not a place to resolve a service.
         _interpolationBlocks = _services.Require<IEngineEntities>().InterpolationBlocks;
+
+        // AND THE GATE THE RENDER PASS OPENS ON (stock's InterpolateServerEntities
+        // policy, which was native and read by nothing): its engine reads are
+        // asked once a frame, at RenderStart.
+        _interpolationGate = new InterpolationGate(_services.Require<IPlaybackState>(), _services.Require<IClientNetChannel>(),
+                                                   _services.Require<IEngineConsole>().FindConVarValue);
 
         // AND THE RENDER-POLICY LIST (step 6b), for the same reason and out of
         // the same area.
@@ -2298,7 +2319,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                 break;
 
             case ClientFrameStage.RenderStart:
-                _interpolation.RenderPass(_interpolationBlocks, _clock.Now);
+                // The frame's gate first, in stock's place: the top of
+                // InterpolateServerEntities, before any entity interpolates.
+                _interpolation.RenderPass(_interpolationBlocks, _clock.Now, _interpolationGate?.Open() ?? true);
 
                 // The local player's flashlight, where stock's
                 // C_BasePlayer::Simulate ran it (OnRenderStart's SimulateEntities,
@@ -2338,6 +2361,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Render.PixelVisibility.BuildingCubemapsWatch? _buildingCubemaps;
 
     private IInterpolationBlocks _interpolationBlocks = NoInterpolationBlocks.Instance;
+
+    // Null until the composition builds it, as the lists above are their null
+    // objects: a stage before then interpolates, as stock's first frame does.
+    private InterpolationGate? _interpolationGate;
 
     /// <summary>
     /// The engine's render-policy list, held rather than fetched, for the reason
@@ -2988,8 +3015,36 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         => _services.Require<ClientMapMaterials>().ReloadSet(nextBsp, previousBsp);
 
     /// <inheritdoc/>
+    public void MapMaterialSearchPath(string? path, string? pathId, bool addToHead)
+        => _services.Require<MapMaterialReloadWindow>().OnAddSearchPath(path, pathId, addToHead);
+
+    /// <inheritdoc/>
+    public void MapMaterialMapAccess(bool open)
+    {
+        MapMaterialReloadWindow window = _services.Require<MapMaterialReloadWindow>();
+        if (open)
+            window.OnBeginMapAccess();
+        else
+            window.OnEndMapAccess();
+    }
+
+    /// <inheritdoc/>
+    public string? MapMaterialReloadPlan(string? subString)
+        => _services.Require<MapMaterialReloadWindow>().Plan(subString);
+
+    /// <inheritdoc/>
+    public int WorldDataChanged(ReadOnlySpan<byte> blob, int updateType, Span<float> plan)
+        => (int)_services.Require<WorldArrival>().OnDataChanged(blob, (DataUpdateType)updateType, plan);
+
+    /// <inheritdoc/>
     public bool ParticlesNeedFullReload(int previousMapParticleFiles)
         => _services.Require<ParticleReloadPolicy>().NeedsFullReload(previousMapParticleFiles);
+
+    /// <inheritdoc/>
+    public void LevelInitPreEntity() => _services.Require<LevelPrediction>().LevelInitPreEntity();
+
+    /// <inheritdoc/>
+    public void PostInit(int adapterMaxDxLevel) => _services.Require<LightmapBicubicDefault>().PostInit(adapterMaxDxLevel);
 
     /// <inheritdoc/>
     public void InvalidateMdlCache()

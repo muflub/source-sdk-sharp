@@ -1,2 +1,42 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+CSourceSharpSlotTable &SourceSharp_ClientSlotTable( void )	SLOT-HELP	the client's handle table the IClientEntityList slots resolve from (a function-local static, handed out); stores and answers, decides nothing
+bool SourceSharp_ClientSlotBindAt(	SLOT-HELP	SourceSharp_ClientEntityBind's store into the handle table at the server's own entry and serial; the table refuses an occupied entry
+void SourceSharp_ClientSlotUnbind( int nEntry )	SLOT-HELP	SourceSharp_ClientEntityUnbind's release of one entry of the handle table
+C_StandaloneEntity *SourceSharp_ClientShellFromHandle(	LIVE-API	imported by shell_new_particles_client.o and shell_shadows_client.o (nm -u over the client link edge, 2026-10-25): the table's serial-checked resolve, one cast (tools/entity-gates-allowlist)
+C_StandaloneEntity *SourceSharp_ClientShellFromIndex(	LIVE-API	imported by shell_standalone_client.o (nm -u, 2026-10-25): the index route through the same resolve
+C_StandaloneEntity *SourceSharp_ClientShellFromHandleEntity(	LIVE-API	imported by shell_beam_render.o and shell_material_proxy_client.o (nm -u, 2026-10-25): the object's own handle, resolved
+C_StandaloneEntity *SourceSharp_ClientShellFromTraceHit(	LIVE-API	imported by shell_movement.o and shell_impact_effects.o (nm -u, 2026-10-25): handle_cross.h's crossing, the static-prop ask first as util_shared.h does
+static IClientUnknown *ClientUnknownFromIndex( int nEntry )	SLOT-HELP	the by-index primitive the IClientEntityList slots answer through: the table, then the world at entry 0, then the absent stock list; an array read each
+static IClientUnknown *ClientUnknownFromHandle( const CBaseHandle &hEnt )	SLOT-HELP	the by-handle primitive of the same three arms, the serial compared inside each
+int32_t SourceSharp_ClientEntityIsValid( uint32_t hEntity )	LIVE-API	imported by sourcesharp_gamesystem.o (nm -u, 2026-10-25): stock CHandle::Get() != NULL over the by-handle primitive, for managed's handle checks
+[CSourceSharpClientEntityList] : m_Counts( SourceSharp_ClientSlotTable() ), m_bWarnedUnresolved( false )	SLOT-HELP	the VClientEntityList003 object's constructor: binds its counters to the table
+GetClientNetworkable( int entnum ) OVERRIDE	SLOT	IClientEntityList +0x00, the engine's busiest call: the by-index primitive's networkable face
+GetClientNetworkableFromHandle( CBaseHandle hEnt ) OVERRIDE	SLOT	IClientEntityList +0x08: the by-handle primitive's networkable face
+GetClientUnknownFromHandle( CBaseHandle hEnt ) OVERRIDE	SLOT	IClientEntityList +0x10: the by-handle primitive, and a once-per-session warning when a valid handle resolves to nothing (the engine dereferences it untested)
+GetClientEntity( int entnum ) OVERRIDE	SLOT	IClientEntityList +0x18: the by-index primitive's entity face
+GetClientEntityFromHandle( CBaseHandle hEnt ) OVERRIDE	SLOT	IClientEntityList +0x20: the by-handle primitive's entity face
+NumberOfEntities( bool bIncludeNonNetworkable ) OVERRIDE	SLOT	IClientEntityList +0x28: the table's bound count plus the world
+GetHighestEntityIndex( void ) OVERRIDE	SLOT	IClientEntityList +0x30, the engine's loop bound: the table's highest bound edict entry, raised to the world's
+SetMaxEntities( int maxents ) OVERRIDE	SLOT	IClientEntityList +0x38: stores the engine's number, as stock did
+GetMaxEntities( void ) OVERRIDE	SLOT	IClientEntityList +0x40: hands the stored number back, as stock did
+[CSourceSharpClientEntityList] void OnBound( int nEntry )	SLOT-HELP	the counters' half of a bind the table accepted (CClientEntityCounts), read by the count slots
+[CSourceSharpClientEntityList] void OnUnbound( int nEntry )	SLOT-HELP	the counters' half of an unbind
+static CSourceSharpClientEntityList &SourceSharpClientEntityList( void )	HOOK	the one VClientEntityList003 object, a function-local static the factory hands out
+static void *CreateSourceSharpClientEntityList( void )	HOOK	the InterfaceReg factory the engine resolves VClientEntityList003 by name through
+IClientEntity *SourceSharp_ClientEntityFromIndex( int nEntry )	LIVE-API	imported by shell_beam_render.o, shell_impact_effects.o, shell_te_backends_client.o, shell_te_pool_client.o, shell_view_facts.o, shell_worldquery_client.o (nm -u, 2026-10-25): the by-index primitive's entity face
+IClientUnknown *SourceSharp_ClientUnknownFromHandle( const CBaseHandle &hEnt )	LIVE-API	imported by shell_beam_render.o and shell_te_pool_client.o (nm -u, 2026-10-25): the by-handle primitive
+IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle )	LIVE-API	imported by shell_movement.o and takedamageinfo_library.o (nm -u, 2026-10-25): ehandle.h's CBaseHandle::Get() on the client, the by-handle primitive
+IClientNetworkable *SourceSharp_ClientNetworkableFromHandle( const CBaseHandle &hEnt )	LIVE-API	imported by shell_effect_dispatch_client.o and shell_worldquery_client.o (nm -u, 2026-10-25): the by-handle primitive's networkable face
+IClientEntity *SourceSharp_ClientEntityFromHandle( const CBaseHandle &hEnt )	LIVE-API	imported by shell_beam_render.o and shell_te_pool_client.o (nm -u, 2026-10-25): the by-handle primitive's entity face
+IClientRenderable *SourceSharp_ClientRenderableFromHandle( const CBaseHandle &hEnt )	LIVE-API	imported by shell_effect_dispatch_client.o, shell_effects_list_client.o, shell_managed_particles.o, shell_te_pool_client.o (nm -u, 2026-10-25): the by-handle primitive's renderable face
+CBaseHandle SourceSharp_ClientHandleFromIndex( int nEntry )	LIVE-API	imported by util_shared_library.o, shell_effect_dispatch_client.o, shell_effects_list_client.o, shell_te_pool_client.o (nm -u, 2026-10-25): stock EntIndexToHandle over the table, the world and the absent stock list
+void SourceSharp_ClientEntityBind(	LIVE-API	imported by shell_standalone_client.o (nm -u, 2026-10-25): the engine's create path carried out: the server's handle written onto the shell, stored in the table, counted
+void SourceSharp_ClientEntityUnbind(	LIVE-API	imported by shell_standalone_client.o (nm -u, 2026-10-25): the same three undone, only by the shell that owns the entry
+CON_COMMAND( cs_cl_slot_table, "" )	INSTRUMENT	prints the table's counters
+CON_COMMAND( ss_cl_boundary_probe_report,	INSTRUMENT	prints the engine-boundary probe counters
+CON_COMMAND( ss_cl_boundary_probe_reset,	INSTRUMENT	zeroes the engine-boundary probe counters
+CBaseHandle SourceSharp_LegacyListBind(	LIVE-API	imported by world_adapter_client.o (nm -u, 2026-10-25): SetRefEHandle with the server's entry and serial, the one place a client handle is issued
+void SourceSharp_LegacyListUnbind( const CBaseHandle &hEnt )	LIVE-API	imported by world_adapter_client.o (nm -u, 2026-10-25): an empty body; both callers term their own handle
+IClientUnknown *SourceSharp_LegacyListUnknownFromIndex( int nEntry )	SLOT-HELP	the by-index primitive's third arm: the stock list it stood for is gone, so it answers NULL
+IClientUnknown *SourceSharp_LegacyListUnknownFromHandle( const CBaseHandle &hEnt )	LIVE-API	imported by shell_shadows_client.o (nm -u, 2026-10-25): answers NULL, the stock list being gone

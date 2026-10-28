@@ -45,16 +45,21 @@
 // Nothing here constructs, owns, resolves or casts an entity. `tools/entity-census`
 // reads a shim file's TEXT, so this is stated rather than left to be rediscovered.
 //
+// WHAT IS LEFT, 2026-10-25. The members no object on the client link edge
+// imports left with no reader (nm -u): CopyFrom, MakeReliable, AddRecipient,
+// RemoveRecipient, the two team adds, AddPlayersFromBitMask, the prediction
+// rules (UsePredictionRules and its three accessors) and
+// RecipientFilter_RemoveIfNotCloseCaptioning. Their callers -- sound_emitter.o
+// and the stock TUs above -- went before them. What stays is what the engine
+// reads (the IRecipientFilter slots) and the four adds the client's callers
+// make: by PVS, by PAS, every player, and the local player's filter.
+//
 #include "cbase.h"
-#include "ipredictionsystem.h"
 #include "c_recipientfilter.h"
-#include "prediction.h"
 #include "local_recipient.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-
-static IPredictionSystem g_RecipientFilterPredictionSystem;
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -70,25 +75,6 @@ C_RecipientFilter::~C_RecipientFilter()
 
 //-----------------------------------------------------------------------------
 // Purpose: 
-// Input  : src - 
-//-----------------------------------------------------------------------------
-void C_RecipientFilter::CopyFrom( const C_RecipientFilter& src )
-{
-	m_bReliable = src.IsReliable();
-	m_bInitMessage = src.IsInitMessage();
-
-	m_bUsingPredictionRules = src.IsUsingPredictionRules();
-	m_bIgnorePredictionCull = src.IgnorePredictionCull();
-
-	int c = src.GetRecipientCount();
-	for ( int i = 0; i < c; ++i )
-	{
-		m_Recipients.AddToTail( src.GetRecipientIndex( i ) );
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
 //-----------------------------------------------------------------------------
 void C_RecipientFilter::Reset( void )
 {
@@ -96,11 +82,6 @@ void C_RecipientFilter::Reset( void )
 	m_Recipients.RemoveAll();
 	m_bUsingPredictionRules = false;
 	m_bIgnorePredictionCull = false;
-}
-
-void C_RecipientFilter::MakeReliable( void )
-{
-	m_bReliable = true;
 }
 
 bool C_RecipientFilter::IsReliable( void ) const
@@ -113,7 +94,7 @@ int C_RecipientFilter::GetRecipientCount( void ) const
 	return m_Recipients.Size();
 }
 
-int	C_RecipientFilter::GetRecipientIndex( int slot ) const
+int C_RecipientFilter::GetRecipientIndex( int slot ) const
 {
 	if ( slot < 0 || slot >= GetRecipientCount() )
 		return -1;
@@ -138,77 +119,23 @@ void C_RecipientFilter::AddAllPlayers( void )
 	AddRecipientByPlayerIndex( LocalPlayerSlot() );
 }
 
-void C_RecipientFilter::AddRecipient( C_BasePlayer *player )
-{
-	Assert( player );
-
-	if ( !player )
-		return;
-
-	// Which slot, asked through IMovementPlayer rather than through the entity
-	// — the same rewrite CRecipientFilter::AddRecipient carries on the server.
-	AddRecipientByPlayerIndex( player->MvEntIndex() );
-}
-
 //-----------------------------------------------------------------------------
 // The add every other add funnels through.
 //
-// The rule -- one viewer, named by slot, suppressed on a re-prediction -- is in
-// local_recipient.h so it can be tested off the client. What is left here is
-// the duplicate check, which is about this filter's storage and nothing else.
+// The rule -- one viewer, named by slot -- is in local_recipient.h so it can be
+// tested off the client. What is left here is the duplicate check, which is
+// about this filter's storage and nothing else.
 //-----------------------------------------------------------------------------
 void C_RecipientFilter::AddRecipientByPlayerIndex( int playerindex )
 {
-	if ( !LocalRecipient_ShouldHold( playerindex, LocalPlayerSlot(),
-	                                 m_bUsingPredictionRules,
-	                                 g_RecipientFilterPredictionSystem.CanPredict() ) )
-	{
+	if ( !LocalRecipient_ShouldHold( playerindex, LocalPlayerSlot() ) )
 		return;
-	}
 
 	// Already in list
 	if ( m_Recipients.Find( playerindex ) != m_Recipients.InvalidIndex() )
 		return;
 
 	m_Recipients.AddToTail( playerindex );
-}
-
-void C_RecipientFilter::RemoveRecipient( C_BasePlayer *player )
-{
-	if ( !player )
-		return;
-
-	int index = player->MvEntIndex();
-
-	// Remove it if it's in the list
-	m_Recipients.FindAndRemove( index );
-}
-
-void C_RecipientFilter::AddRecipientsByTeam( C_Team *team )
-{
-	AddAllPlayers();
-}
-
-void C_RecipientFilter::RemoveRecipientsByTeam( C_Team *team )
-{
-	Assert ( 0 );
-}
-
-void C_RecipientFilter::AddPlayersFromBitMask( CBitVec< ABSOLUTE_PLAYER_LIMIT >& playerbits )
-{
-	// The engine set these bits, and it set them for CLIENTS -- resolving the
-	// viewer back to a C_BasePlayer only re-asked a question the engine had
-	// already answered, and answered "nobody" for a standalone viewer.
-	const int nLocal = LocalPlayerSlot();
-
-	if ( nLocal < 1 || nLocal >= ABSOLUTE_PLAYER_LIMIT )
-		return;
-
-	// only add the local player on client side
-	if ( !playerbits[ nLocal ] )
-		return;
-
-	AddRecipientByPlayerIndex( nLocal );
 }
 
 void C_RecipientFilter::AddRecipientsByPVS( const Vector& origin )
@@ -221,66 +148,8 @@ void C_RecipientFilter::AddRecipientsByPAS( const Vector& origin )
 	AddAllPlayers();
 }
 
-void C_RecipientFilter::UsePredictionRules( void )
-{
-	if ( m_bUsingPredictionRules )
-		return;
-
-	if ( !prediction->InPrediction() )
-	{
-		Assert( 0 );
-		return;
-	}
-
-	const int nLocal = LocalPlayerSlot();
-	if ( nLocal < 1 )
-	{
-		Assert( 0 );
-		return;
-	}
-
-	m_bUsingPredictionRules = true;
-
-	// Cull list now, if needed
-	int c = GetRecipientCount();
-	if ( c == 0 )
-		return;
-
-	if ( !g_RecipientFilterPredictionSystem.CanPredict() )
-	{
-		m_Recipients.FindAndRemove( nLocal );
-	}
-}
-
-bool C_RecipientFilter::IsUsingPredictionRules( void ) const
-{
-	return m_bUsingPredictionRules;
-}
-
-bool C_RecipientFilter::IgnorePredictionCull( void ) const
-{
-	return m_bIgnorePredictionCull;
-}
-
-void C_RecipientFilter::SetIgnorePredictionCull( bool ignore )
-{
-	m_bIgnorePredictionCull = ignore;
-}
-
 CLocalPlayerFilter::CLocalPlayerFilter()
 {
 	AddRecipientByPlayerIndex( LocalPlayerSlot() );
 }
 
-//-----------------------------------------------------------------------------
-// plan_baseentity.md Phase 13 precondition (e): moved here from
-// C_BaseEntity::RemoveRecipientsIfNotCloseCaptioning. See the header.
-//-----------------------------------------------------------------------------
-void RecipientFilter_RemoveIfNotCloseCaptioning( C_RecipientFilter& filter )
-{
-	extern ConVar closecaption;
-	if ( !closecaption.GetBool() )
-	{
-		filter.Reset();
-	}
-}

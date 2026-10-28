@@ -1,3 +1,7 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
 inline int SourceSharp_ClientIndexOfHit( const CBaseHandle &hHit, bool bResolves )	SLOT-HELP	TraceHitIndex (the trace slot helper) is its only caller: an entry-range read of a handle, pinned by the ClientWorldArm facts
+inline bool SourceSharp_ClientWorldAnswersForIndex(	SLOT-HELP	whether the bound world is entry n: the world arm of the by-index primitive and of SourceSharp_ClientHandleFromIndex (client_world_arm_test)
+inline bool SourceSharp_ClientWorldAnswersForHandle(	SLOT-HELP	whether the bound world is this handle, serial and all: the world arm of the by-handle primitive (client_world_arm_test)
+inline int SourceSharp_ClientHighestWithWorld(	SLOT-HELP	GetHighestEntityIndex (IClientEntityList slot): the table's highest raised to the world's entry (client_world_arm_test)
+inline int SourceSharp_ClientCountWithWorld(	SLOT-HELP	NumberOfEntities (IClientEntityList slot): the table's count plus the bound world (client_world_arm_test)

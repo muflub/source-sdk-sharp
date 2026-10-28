@@ -434,11 +434,13 @@ TEST( TraceFilterLibrary, TheTracerStartHelperTakesNoShooter )
 		"void EntityTracer_ComputeStartPosition( const Vector &vecShotSrc, Vector *pVecTracerStart );" ) )
 		<< "the declared shape changed";
 
-	// The definition is the client's (plan_server_native_v2 T2, 2026-10-18): it
-	// was #ifdef CLIENT_DLL in the shared entity_shared_statics.cpp.
-	EXPECT_EQ( 1u, CountOf( ReadFile( "sourcesharp/game/client/client_util_library.cpp" ),
-		"void EntityTracer_ComputeStartPosition( const Vector &vecShotSrc, Vector *pVecTracerStart )" ) )
-		<< "the definition and the declaration disagree, or the definition moved";
+	// The client's definition (plan_server_native_v2 T2, 2026-10-18, from
+	// #ifdef CLIENT_DLL in the shared entity_shared_statics.cpp) is deleted:
+	// nothing on client.so's link edge imported it (lane M1-B, 2026-10-25).
+	const std::string lib = ReadFile( "sourcesharp/game/client/client_util_library.cpp" );
+	ASSERT_FALSE( lib.empty() );
+	EXPECT_EQ( 0u, CountOf( lib, "void EntityTracer_ComputeStartPosition(" ) )
+		<< "the client's tracer helper is back with no importer";
 	EXPECT_EQ( 0u, CountOf( ReadFile( kStatics ),
 		"void EntityTracer_ComputeStartPosition(" ) )
 		<< "the shared entity_shared_statics.cpp defines the client's tracer helper again";

@@ -543,110 +543,13 @@ public:
 DECLARE_HUDELEMENT( CSourceSharpHud );
 
 //-----------------------------------------------------------------------------
-// Weapon switching.
-//
-// client_base's weapon_selection.cpp is EXCLUDED from this mod's client (see
-// client_csharp.vpc). It registers invnext / invprev / slot1..slot10 as console
-// commands at static init, unconditionally, and every one of them dereferences
-// CBaseHudWeaponSelection::GetInstance():
-//
-//     #1 CBaseHudWeaponSelection::UserCmd_NextWeapon (this=0x0)
-//     #2 __CmdFunc_NextWeapon ()                       weapon_selection.cpp:41
-//
-// The element those commands need lives in an HL2/HL2MP file this mod does not
-// compile, so the singleton is null and a mouse-wheel scroll faults. Supplying a
-// subclass did not help: CHud::Init dynamic_casts every element to vgui::Panel
-// and drops the ones that fail, and even once that was fixed the singleton was
-// still null by the time a command ran.
-//
-// Removing the file removes both halves of the problem. The commands below
-// replace it, and switch directly — there is no selection UI to drive, because
-// SourceSharp draws its own weapon list in C#.
+// WEAPON SWITCHING IS MANAGED (lane M1-B, 2026-10-25). The stock binds' nine
+// commands (invnext, invprev, lastinv, slot1..slot6) stood here as native
+// CON_COMMANDs forwarding a fixed line to the server's Arsenal; they are
+// SourceSharp.Client's WeaponSelection commands now, sending the same lines
+// through ServerCmd. weapon_selection.cpp, which registered the crashing stock
+// versions, stays out of the build.
 //-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-// Symbols the excluded weapon_selection.cpp used to provide.
-//
-// client_base still references all three, so removing the file leaves them
-// undefined at link. They are supplied here rather than by keeping the file,
-// because the file is what registered the crashing commands.
-//
-// GetHudWeaponSelection returning NULL is safe: every caller in client_base
-// null-checks it — c_basecombatweapon.cpp:147 is guarded, and it is the only
-// use. There is no selection UI to notify, since SourceSharp draws its own.
-//-----------------------------------------------------------------------------
-// hud_drawhistory_time is declared in managed code now; nothing in this DLL reads it.
-//
-// AND SO IS hud_fastswitch, AS OF LANE 4c-render. It was held native because
-// game/shared/weapon_parse.cpp holds `extern ConVar hud_fastswitch;` and reads
-// it, so a managed declaration failed the link with
-// `weapon_parse.o: undefined reference to hud_fastswitch`. THAT TRANSLATION
-// UNIT IS NO LONGER COMPILED:
-//
-//   grep -c weapon_parse src/_vpc_/ninja/sdk_csharp_debug.ninja   -> 0
-//   ./4c-sym.sh hud_fastswitch  -> 1 definer (shell_hud.o), 0 importers,
-//                                  both link lines
-//
-// so the one stock read that kept it here is gone and the registration moved to
-// SourceSharp.Client/ConVars.cs with the rest of the policy knobs. Nothing in
-// the shim ever acted on it -- weapon switching is always immediate here.
-// See .claude/entity-port/requests/policy-knobs.md.
-//
-// GetHudWeaponSelection IS GONE TOO, for the plainer reason: it returned NULL
-// and had ZERO importers on both link lines. It was supplied because
-// client_base referenced it once weapon_selection.cpp was excluded, from
-// c_basecombatweapon.cpp:147 -- and that file is not on this link line either
-// (`grep -c '/c_basecombatweapon\.o$'` over the client.so link line reads 0).
-
-//-----------------------------------------------------------------------------
-// 13c: these used to walk the C_BasePlayer inventory, which retired with the
-// class — they had been walking an empty list since the standalone player
-// became the local player, so the stock binds (mouse wheel, number keys) did
-// nothing. The managed Arsenal on the server already answers ss_slot and
-// lastinv as client commands (ServerModule.OnClientCommand), so the binds
-// forward there: the selection DECISION stays managed, and the commands stay
-// registered so the stock binds keep landing somewhere real.
-//-----------------------------------------------------------------------------
-static void SourceSharp_ForwardSelection( const char *pCommand )
-{
-	// NO trailing newline: ServerCmd sends a network stringcmd, not a console
-	// buffer, and the server tokenizes what arrives verbatim — an appended
-	// "\n" rode into the last argument and made managed code's
-	// Equals("lastinv") miss while ss_slot survived only because int.TryParse
-	// forgives trailing whitespace. Measured, not reasoned: the deploy log
-	// went green the moment the newline left.
-	if ( SourceSharp_GetVerbosity() > 0 )
-		Msg( "[SourceSharp] forwarding selection: %s\n", pCommand );
-
-	engine->ServerCmd( pCommand );
-}
-
-//
-// Each command forwards its OWN name, which is worth saying because for a while
-// none of them did: invnext and invprev both sent "lastinv", and the managed
-// side answered every one of the three by stepping forward one slot. With two
-// weapons that is indistinguishable from working — forward and back are the
-// same move — so it read as "switching is flaky in some states" rather than as
-// what it was, which is that the mod had one switch verb wearing three names.
-//
-// The state that made it look conditional is the SIZE of the inventory, not
-// anything in the dispatch: a player who has picked up a third weapon starts
-// getting the wrong one, and a player who has just respawned with two does not.
-//
-CON_COMMAND( invnext, "Select the next weapon" )     { SourceSharp_ForwardSelection( "invnext" ); }
-CON_COMMAND( invprev, "Select the previous weapon" ) { SourceSharp_ForwardSelection( "invprev" ); }
-
-// The stock bind (q, in cfg/config.cfg) and the name's actual meaning: back to
-// whatever was in the hands before this. Registered here for the same reason
-// the two above are — weapon_selection.cpp, which used to register it, is out
-// of this build.
-CON_COMMAND( lastinv, "Select the previously held weapon" ) { SourceSharp_ForwardSelection( "lastinv" ); }
-
-CON_COMMAND( slot1, "Select slot 1" ) { SourceSharp_ForwardSelection( "ss_slot 0" ); }
-CON_COMMAND( slot2, "Select slot 2" ) { SourceSharp_ForwardSelection( "ss_slot 1" ); }
-CON_COMMAND( slot3, "Select slot 3" ) { SourceSharp_ForwardSelection( "ss_slot 2" ); }
-CON_COMMAND( slot4, "Select slot 4" ) { SourceSharp_ForwardSelection( "ss_slot 3" ); }
-CON_COMMAND( slot5, "Select slot 5" ) { SourceSharp_ForwardSelection( "ss_slot 4" ); }
-CON_COMMAND( slot6, "Select slot 6" ) { SourceSharp_ForwardSelection( "ss_slot 5" ); }
 
 //-----------------------------------------------------------------------------
 // titles.txt, which is what env_message names.
@@ -666,9 +569,9 @@ int32_t SourceSharp_HudTextMessageGet( const char *pName, SourceSharpTextMessage
 	if ( !pName || !pName[0] || !pOut )
 		return 0;
 
-	// A leading '#' is how a map spells "this is a lookup". Both spellings reach
-	// the same entry, which is stock's own rule in CHudMessage::MessageAdd.
-	client_textmessage_t *pMessage = TextMessageGet( pName[0] == '#' ? pName + 1 : pName );
+	// Exactly the name handed over: stock's leading-'#' rule
+	// (CHudMessage::MessageAdd) is HudMessages.TitleName's (lane M1-B).
+	client_textmessage_t *pMessage = TextMessageGet( pName );
 
 	if ( !pMessage || !pMessage->pMessage )
 		return 0;

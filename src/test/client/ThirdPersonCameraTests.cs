@@ -307,4 +307,70 @@ public class ThirdPersonCameraTests
 
         Assert.Equal(0, ThirdPersonCamera.Answer(ref io));
     }
+
+    // ---- the sweep (lane M1-B: the hull and the mask moved out of the shell) ----
+
+    private static ThirdPersonCameraBlob Placed(int collision)
+    {
+        var io = new ThirdPersonCameraBlob
+        {
+            Phase = ThirdPersonCamera.Place,
+            ViewAngles = Vector.Zero,
+            IdealDist = 150f,
+            Collision = collision,
+        };
+        Assert.Equal(1, ThirdPersonCamera.Answer(ref io));
+        return io;
+    }
+
+    /// <summary>
+    /// cam_collision on: stock CInput::CAM_Think's sweep, a cube of
+    /// CAM_HULL_OFFSET (14) towards the wish.
+    /// </summary>
+    [Fact]
+    public void WithCollisionOnTheCameraSweepsStocksHull()
+        => Assert.Equal(14.0f, Placed(1).HullHalfExtent);
+
+    /// <summary>
+    /// ...under MASK_SOLID without CONTENTS_MONSTER, so a camera is stopped by
+    /// the world and not by another player.
+    /// </summary>
+    [Fact]
+    public void TheSweepIsSolidButNotMonsters()
+        => Assert.Equal(0x1u | 0x2u | 0x8u | 0x4000u, Placed(1).TraceMask);
+
+    /// <summary>cam_collision off: no sweep, so the camera keeps its whole wish.</summary>
+    [Fact]
+    public void WithCollisionOffTheCameraDoesNotSweep()
+        => Assert.Equal(0f, Placed(0).HullHalfExtent);
+
+    /// <summary>
+    /// No cam_collision to read (-1): the camera sweeps, as the shell did when
+    /// its ConVarRef did not resolve.
+    /// </summary>
+    [Fact]
+    public void WithNoCollisionConVarTheCameraSweeps()
+        => Assert.Equal(14.0f, Placed(-1).HullHalfExtent);
+
+    /// <summary>
+    /// The shell sweeps what PLACE answered and holds no hull size or mask of
+    /// its own: what blocks the camera is decided here.
+    /// </summary>
+    [Fact]
+    public void TheShellSweepsTheAnsweredHullAndDecidesNoneOfIt()
+    {
+        string path = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "client", "shell_client.cpp");
+        Assert.True(File.Exists(path), $"{path} was not found; a scan that read nothing would pass");
+        string text = File.ReadAllText(path);
+        int at = text.IndexOf("static void SourceSharp_ApplyThirdPersonCamera(", StringComparison.Ordinal);
+        Assert.True(at >= 0, "shell_client.cpp has no SourceSharp_ApplyThirdPersonCamera");
+        int end = text.IndexOf("\n}\n", at, StringComparison.Ordinal);
+        string body = System.Text.RegularExpressions.Regex.Replace(text[at..end], @"//[^\n]*", "");
+
+        Assert.Contains("io.flHullHalfExtent", body);
+        Assert.Contains("io.nTraceMask", body);
+        Assert.DoesNotContain("14.0f", body);
+        Assert.DoesNotContain("MASK_SOLID", body);
+        Assert.DoesNotContain("CONTENTS_MONSTER", body);
+    }
 }

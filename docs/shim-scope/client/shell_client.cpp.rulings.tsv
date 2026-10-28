@@ -5,8 +5,6 @@
 [CAbsentNetGraphPanel] void Create	SLOT	INetGraphPanel slot vgui_int.cpp (fork) calls; the net-graph panel is deleted by ruling (C1), so it does nothing
 [CAbsentNetGraphPanel] void Destroy	SLOT	INetGraphPanel slot vgui_int.cpp (fork) calls; the net-graph panel is deleted by ruling (C1), so it does nothing
 void StudioStats_FindClosestEntity(	LIVE-API	no-op for a deleted tool (studio_stats.cpp, C1): viewrender.cpp (fork) imports it (nm -u); absence row 10
-int32_t SourceSharp_ClientFilesGameFileSize(	BOUNDARY	IShimEngine::FilesGameFileSize, client body: filesystem->Open/Size/Close on GAME (c2-sims; managed decides which script)
-int32_t SourceSharp_ClientFilesReadGameFile(	BOUNDARY	IShimEngine::FilesReadGameFile, client body: filesystem->Read into the caller's buffer, refusing an overflow (c2-sims)
 [CSourceSharpClientMode] virtual int KeyInput(	SLOT	IClientMode::KeyInput CInput::KeyEvent calls: the decision is managed's (IManagedUiClient::KeyInput); the HUD elements when it makes none
 CON_COMMAND( cl_reload_localization_files	BOUNDARY	the console command onto ILocalize::ReloadLocalizationFiles (stock clientmode_shared.cpp)
 [CSourceSharpClientMode] CSourceSharpClientMode() : m_pViewport	HOOK	the client mode object the engine reaches through g_pClientMode
@@ -66,3 +64,15 @@ void SourceSharp_ViewOverrideSet(	SLOT	IShimViewClient::ViewOverrideSet: keeps t
 static bool ApplyViewOverride(	SLOT-HELP	carries out managed's observer view in OverrideView: the view, the engine angles when asked, stock's shake
 static void ApplyManagedShake(	BOUNDARY	CViewEffects::CalcShake and ApplyShake carried out: managed's offset and roll added to the view at factor 1
 void SourceSharp_ClientModeLayout( void )	BOUNDARY	IShimUiClient::ClientModeLayout: g_pClientMode->Layout(), when managed's ViewportClientSystem asks (C7)
+static void SourceSharp_ApplyThirdPersonCamera(	SLOT-HELP	OverrideView's third-person pass, carrying out managed's camera (ThirdPersonCamera, both phases): hands PLACE the view angles and the cam_* values (managed's own convars, read by name), sweeps the hull PLACE answered (size and mask managed's, none when it says 0), hands RESOLVE the fraction, writes the answered origin and angles into CViewSetup and publishes the answered SeesOwner; the leaf-system UpdateVisibility on every mode change. No number of the camera is native's (lane M1-B)
+bool SourceSharp_ThirdPersonSeesOwner()	LIVE-API	the camera pass's published SeesOwner (managed's answer), read by shell_standalone_client.cpp and shell_view_executor_client.cpp (nm -u)
+[CSourceSharpClientMode] virtual void OverrideView(	SLOT	IClientMode::OverrideView, which view.cpp's SetUpViews calls every frame: managed's observer view when one is set, else stock CalcPlayerView's order carried out over managed values (the eye, the predicted punch added to the engine's angles, managed's shake, the viewmodel pinned to that eye, then managed's third-person camera); with no viewer, ::input's orthographic size (managed's) written into CViewSetup's four edges. No number is native's
+IClientMode *GetClientModeNormal()	LIVE-API	the client mode, for shell_clientdll.cpp, shell_usermessages_client.cpp and shell_view_executor_client.cpp (nm -u)
+[CSourceSharpModeManager] virtual void Init()	SLOT	IVModeManager::Init: nothing
+[CSourceSharpModeManager] virtual void SwitchMode(	SLOT	IVModeManager::SwitchMode: nothing (one mode)
+[CSourceSharpModeManager] virtual void LevelInit(	SLOT	IVModeManager::LevelInit onto the client mode
+[CSourceSharpModeManager] virtual void LevelShutdown(	SLOT	IVModeManager::LevelShutdown onto the client mode
+void VGUI_CreateClientDLLRootPanel( void )	LIVE-API	the client's root panel under the engine's PANEL_CLIENTDLL, filling the screen; shell_vgui_client.cpp imports it (nm -u)
+void VGUI_DestroyClientDLLRootPanel( void )	LIVE-API	frees the root panel; shell_vgui_client.cpp imports it (nm -u)
+vgui::VPANEL VGui_GetClientDLLRootPanel( void )	LIVE-API	the root panel's VPANEL; shell_vgui_client.cpp imports it (nm -u)
+void SourceSharp_RegisterAmmoType(	LOGIC	dead state, not a binding: the IShimStandaloneClient RegisterAmmoType slot fills a CAmmoDef nothing reads (GetAmmoDef had no importer and is deleted, lane M1-B), deduplicating by name; retire the row, this body and ClientModule's call together in the serialised ABI pass (docs/todo.md)

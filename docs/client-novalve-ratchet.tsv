@@ -1,6 +1,23 @@
 # docs/client-novalve-ratchet.tsv: tools/client-novalve-census's rows.
 # A row may only fall. Regenerate with --write and review the diff.
 # measured at f9964449f
+# 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 5934 -> 5905: bullet_glass.h (the 24 LOGIC lines: FireBullets' glass rule) and self_penetration_rule.h, which no compiled TU included, deleted; both rules are C# with their facts (BulletGlass, ClientCollisionSolver.SelfPenetrationSolvedByOwner). Hand-edited.
+# 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 6292 -> 5934: world_adapter_client.cpp: C_World::OnDataChanged's decisions (the create's mode reset, the startdark fade, the renderer's occlusion and fade-range values) became SourceSharp.Client's WorldArrival; the seven getters only it read, and the dead spawn chain (Spawn, Precache, W_Precache and its eight unread sprite indexes, RegisterSharedActivities) deleted; the rest ruled. Hand-edited.
+# 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 6433 -> 6292: the spawn's material-reload window (CMapMaterialReload, map_material_reload.h) became SourceSharp.Client's MapMaterialReloadWindow; shell_map_material_reload.cpp's hooks forward and carry out its plan, ruled SLOT and HOOK. Hand-edited.
+# 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 6476 -> 6433: EntityInterp_UpdateFrameGate (stock InterpolateServerEntities' frame gate, computed into a flag nothing read) became SourceSharp.Client's InterpolationGate, which the managed render pass now honours. Hand-edited.
+# 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 6580 -> 6476: shell_entitystatics.cpp: EntityAbs_Push/PopEnableRecomputations with their save stack and EntityMem_AllocDbg, which no object imported, deleted; the allocator, the four abs flags and the visibility sweep ruled. Hand-edited.
+# 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 6743 -> 6580: shell_recipientfilter_client.cpp's twelve members no object imported (CopyFrom, MakeReliable, AddRecipient, RemoveRecipient, the team adds, AddPlayersFromBitMask, the prediction rules, RecipientFilter_RemoveIfNotCloseCaptioning) deleted and the rest ruled; local_recipient.h's dead re-prediction arm gone. Hand-edited.
+# 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 7078 -> 6743: shell_prediction.cpp (the IPrediction and IMoveHelper slots and the IShimPredictionClient bodies), shell_recvtable.cpp's two IShimNetwork bodies and shell_world_nettable_client.cpp (DT_World's RecvTable and ClientClass, LAYOUT) ruled. Hand-edited.
+# 2026-10-25, lane M1-D, measured by tools/shim-scope: logic-lines 7435 -> 7078: shell_cliententitylist.cpp/.h and client_entity_counts.h ruled (the IClientEntityList slots SLOT, their primitives and counters SLOT-HELP, the imported resolvers LIVE-API by nm -u), and the three resolvers no object imported deleted (SourceSharp_ClientUnknownFromIndex, ...NetworkableFromIndex, ...ThinkableFromHandle). Hand-edited.
+# 2026-10-25, lane M1-B, measured by tools/shim-scope on the lane: logic-lines 6967 -> 5477, every remaining function in the lane's files (shell_clientdll*.cpp/.h, shell_client.cpp, shell_clientsystem*.cpp/.h, client_util_library.cpp, shell_hud*.cpp, managed_runtime_client.*, shell_usermessages_client.cpp, shell_*_orphans.cpp) ruled; 55 lines left LOGIC in three named rows (docs/todo.md). Hand-edited.
+# 2026-10-25, lane M1-B, measured by tools/shim-scope on the lane: logic-lines 6981 -> 6967, shell_clientdll.cpp's empty SimulateEntities and shell_clientsystems.cpp's unread SourceSharp_ClientSystemCount / SourceSharp_ClientSystemNameAt deleted. Hand-edited.
+# 2026-10-25, lane M1-B, measured by tools/shim-scope on the lane: logic-lines 6985 -> 6981, shell_client.cpp's GetAmmoDef deleted (no importer) and the titles.txt '#' rule moved from shell_hud.cpp's HudTextMessageGet to HudMessages.TitleName. Hand-edited.
+# 2026-10-25, lane M1-B, measured by tools/client-novalve-census on the lane: logic-lines 7000 -> 6985 and native-convar-decls 68 -> 59, shell_hud.cpp's nine weapon-selection CON_COMMANDs (and SourceSharp_ForwardSelection) moved to managed's WeaponSelection commands. Hand-edited.
+# 2026-10-25, lane M1-B, measured by tools/shim-scope on the lane: logic-lines 7066 -> 7000, shell_client.cpp's SourceSharp_ApplyThirdPersonCamera: the sweep's hull, mask and the cam_collision gate moved to managed's ThirdPersonCamera, the function ruled SLOT-HELP. Hand-edited.
+# 2026-10-25, lane M1-B, measured by tools/shim-scope on the lane: logic-lines 7092 -> 7066, shell_clientdll.cpp's cl_predict switch (LevelInitPreEntity) and r_lightmap_bicubic default (PostInit) moved to managed's LevelPrediction and LightmapBicubicDefault, PostInit ruled SLOT. Hand-edited.
+# 2026-10-25, lane M1-B second pass, measured by tools/client-novalve-census on the lane: the fork headers only the deleted stand-ins read left client.txt (hud_closecaption.h, hud_crosshair.h, hud_pdump.h, achievements_and_stats_interface.h, isourcevirtualreality.h and the six they alone included: make sdk-census): fork-hdr-not-allowed 292 -> 281, fork-hdr-total 456 -> 445, sdk-links 368 -> 357. Hand-edited.
+# 2026-10-25, lane M1-B second pass, measured by tools/shim-scope on the lane: logic-lines 7307 -> 7092, the stand-ins and dead branches whose importers had gone (shell_hud_framework.cpp's icon/render-group/caption stubs, shell_clientdll.cpp's VR stand-in and the GET_HUDELEMENT lookups for elements never created, the achievements forwards). Hand-edited.
+# 2026-10-25, lane M1-B (client.so's decisions to managed), measured by tools/shim-scope on the lane at 1f8f3e52d + the deletion: logic-lines 7435 -> 7307, client_util_library.cpp's and shell_player_orphans.cpp's functions with no importer on client.so's link edge (nm -u), deleted. Hand-edited.
 # 2026-10-20, C7 cluster 12 S2's deletion, measured by tools/client-novalve-census on the lane at f6c3f0b33 + the deletion: shell_renderable_facts.cpp, shell_tools_off_client.cpp and collisionutils.cpp left client.so with clientshadowmgr.cpp, their last importer, and the fork headers only they read left client.txt (toolframework_client.h; collisionutils.h to tests.txt, for the precipitation oracle): fork-hdr-not-allowed 294 -> 292, fork-hdr-total 458 -> 456, incdir-forbidden-tus 138 -> 135, logic-lines 7505 -> 7457, native-convar-decls 69 -> 68 (cs_cl_renderable_report), sdk-links 370 -> 368. Hand-edited.
 # 2026-10-19, C7 cluster 12 S2 (the client shadow manager to C#), measured by tools/client-novalve-census on the lane at main cd01c2887 + the switch: clientshadowmgr.cpp, the client's last fork TU, left client.so (the manager is SourceSharp.Client's Render/Shadows over libss_fwd_client's ShadowNative; shell_shadows_client.cpp is its native residue, shell_flashlight_client.cpp folded into it): fork-src 1 -> 0, fork-hdr-not-allowed 298 -> 294, fork-hdr-total 462 -> 458, incdir-forbidden-tus 139 -> 138, sdk-links 374 -> 370 (the .cpp and bonetoworldarray.h, utlmultilist.h and jobthread.h, which only it read: make sdk-census), logic-lines 7515 -> 7505 (the shells' shadow calls became queue entries; the new shell's functions ruled SLOT, SLOT-HELP, HOOK and BOUNDARY), native-convar-decls 69 unchanged (the ten ConVars and seven commands were the fork TU's, which this census does not count; they are managed declarations now). Hand-edited.
 # 2026-10-19, C7 glow overlays and pixel visibility (glow_overlay.cpp's and c_pixel_visibility.cpp's eviction, one commit: each links a symbol of the other), measured by tools/client-novalve-census on the lane at main a001d7a31: both left client.so (the overlays are GlowOverlaySystem's, the pixel visibility PixelVisibilitySystem's): fork-src 3 -> 1, fork-hdr-not-allowed 303 -> 298, fork-hdr-total 467 -> 462, incdir-forbidden-tus 140 -> 138, sdk-links 515 -> 510 (the two .cpp and glow_overlay.h, c_sun.h and sun_shared.h, which only glow_overlay.cpp read: make sdk-census), logic-lines 7515 unchanged (the four retired shim bodies were ruled BOUNDARY). Hand-edited.
@@ -290,8 +307,8 @@
 #   gamebspfile.h, env_detail_controller.h, tier1/heapsort.h and tier0/valve_minmax_off.h: sdk-links 393 -> 388.
 # 2026-10-19, C7 cluster 12 L2, the eviction: clientleafsystem.cpp left client.so (tools/client-novalve-census): fork-hdr-not-allowed 311 -> 309,
 #   fork-hdr-total 475 -> 473, fork-src 8 -> 7, incdir-forbidden-tus 142 -> 141, sdk-links 522 -> 521. Hand-edited.
-fork-hdr-not-allowed	292
-fork-hdr-total	456
+fork-hdr-not-allowed	281
+fork-hdr-total	445
 fork-src	0
 imports:bitmap	0
 imports:bitmap<-dmxloader	0
@@ -362,7 +379,8 @@ link-forbidden	1
 #   (the lane measured 9514 -> 8384 on its base). Hand-edited.
 # LOWERED 2026-10-20, logic-lines 7457 -> 7435 (tools/shim-scope at the serialised ABI cleanup's landing on main c5c8df3d2):
 #   the dead slots' native bodies went with their rows. Hand-edited.
-logic-lines	7435
+# 2026-10-25, lanes M1-D and M1-B landed together on the vendor branch, measured by tools/shim-scope at the landing: logic-lines 3951. Hand-edited.
+logic-lines	3951
 native-convar-decls	68
 needed-forbidden	0
 # 2026-10-18, plan_server_native_v2 at the rebase onto the forwarders main: RAISED 388 -> 531, a relabel: D3 moved the shared list's 143 headers the client still reads to client.txt (the server reads the pristine clone).
@@ -373,4 +391,6 @@ needed-forbidden	0
 #   tier1/stringpool.h client -> libs. Hand-edited.
 # 2026-10-25, vendor/ (server side): RAISED 368 -> 466, a relabel: server.so and libss_fwd_server now read their Valve
 #   headers from vendor/, so the 98 shared.txt headers the client still reads from the fork moved to client.txt (tools/sdk-census --write).
-sdk-links	466
+# LOWERED 2026-10-25, sdk-links 466 -> 450 (tools/sdk-census --write at the M1-D + M1-B landing): the 11 headers lane M1-B's
+#   retirements stopped reading left the lists, the rest moved to tests.txt. Hand-edited.
+sdk-links	450

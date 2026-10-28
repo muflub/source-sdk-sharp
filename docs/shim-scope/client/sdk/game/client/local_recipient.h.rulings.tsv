@@ -1,2 +1,3 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+inline bool LocalRecipient_ShouldHold( int nSlot, int nLocalSlot )	SLOT-HELP	what an IRecipientFilter the engine reads may store on the client: only the viewer's own slot, as stock's `if ( !player->IsLocalPlayer() ) return;` (local_recipient_test)

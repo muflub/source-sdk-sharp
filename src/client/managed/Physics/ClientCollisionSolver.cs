@@ -110,8 +110,27 @@ public sealed class ClientCollisionSolver(IClientCollisionFacts facts) : IClient
         return 1;
     }
 
-    /// <summary>Stock's body is an empty <c>if</c> and a <c>return true</c>.</summary>
+    /// <summary>
+    /// Every pair goes to the default solver. Stock's client
+    /// <c>CCollisionEvent::ShouldSolvePenetration</c> first hands a ragdoll
+    /// overlapping itself to its own constraint group
+    /// (<c>IPhysicsConstraintGroup::SolvePenetration</c>) and answers 0; that
+    /// arm is not carried yet (docs/todo.md), and
+    /// <see cref="SelfPenetrationSolvedByOwner"/> is its rule.
+    /// </summary>
     public int ShouldSolvePenetration(nint obj0, nint obj1, nint gameData0, nint gameData1, float dt) => 1;
+
+    /// <summary>
+    /// Whether a penetrating pair is a ragdoll overlapping ITSELF, which stock
+    /// has the ragdoll's constraint group solve: both objects one owner's,
+    /// and the first a ragdoll part. A pair with no game data is NOT one
+    /// owner's, though two nulls compare equal: a standalone ragdoll's objects
+    /// once carried none, and stock's <c>pGameData0 == pGameData1</c> then
+    /// dereferenced a null owner (the native rule this ports,
+    /// self_penetration_rule.h, held that guard).
+    /// </summary>
+    public static bool SelfPenetrationSolvedByOwner(bool hasGameData, bool sameGameData, bool partOfRagdoll)
+        => hasGameData && sameGameData && partOfRagdoll;
 
     public bool ShouldFreezeObject(nint obj) => true;
 

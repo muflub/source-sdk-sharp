@@ -574,17 +574,6 @@ static InterfaceReg g_CreateSourceSharpClientEntityList(
 // WHAT THE SHIM ASKS -- shell_cliententitylist.h's declarations
 //=============================================================================
 
-IClientUnknown *SourceSharp_ClientUnknownFromIndex( int nEntry )
-{
-	return ClientUnknownFromIndex( nEntry );
-}
-
-IClientNetworkable *SourceSharp_ClientNetworkableFromIndex( int nEntry )
-{
-	IClientUnknown *pUnknown = ClientUnknownFromIndex( nEntry );
-	return pUnknown ? pUnknown->GetClientNetworkable() : NULL;
-}
-
 IClientEntity *SourceSharp_ClientEntityFromIndex( int nEntry )
 {
 	IClientUnknown *pUnknown = ClientUnknownFromIndex( nEntry );
@@ -631,24 +620,18 @@ IClientEntity *SourceSharp_ClientEntityFromHandle( const CBaseHandle &hEnt )
 }
 
 //-----------------------------------------------------------------------------
-// The renderable and the thinkable, by handle -- step p7-exit.
+// The renderable, by handle -- step p7-exit.
 //
 // Built out of the SAME ClientUnknownFromHandle primitive as the two above, so
 // there is one place that knows there are two sets of client entities and it is
 // still that function. Stock's CClientEntityList::GetClientRenderableFromHandle
-// and GetClientThinkableFromHandle are `GetClientUnknownFromHandle` followed by
-// the matching virtual (cliententitylist.h), which is exactly this.
+// is `GetClientUnknownFromHandle` followed by the matching virtual
+// (cliententitylist.h), which is exactly this.
 //-----------------------------------------------------------------------------
 IClientRenderable *SourceSharp_ClientRenderableFromHandle( const CBaseHandle &hEnt )
 {
 	IClientUnknown *pUnknown = ClientUnknownFromHandle( hEnt );
 	return pUnknown ? pUnknown->GetClientRenderable() : NULL;
-}
-
-IClientThinkable *SourceSharp_ClientThinkableFromHandle( const CBaseHandle &hEnt )
-{
-	IClientUnknown *pUnknown = ClientUnknownFromHandle( hEnt );
-	return pUnknown ? pUnknown->GetClientThinkable() : NULL;
 }
 
 //-----------------------------------------------------------------------------

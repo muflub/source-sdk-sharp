@@ -80,14 +80,7 @@ home	mangled	name	tu	bind	kind	scope	size	disposition	owner	reason
 steamid.o	_ZZNK8CSteamID6RenderEvE4nBuf	CSteamID::Render() const::nBuf	sourcesharp/common/steamid.cpp	LOCAL	bss	function-local	4	DEAD		the linker drops it: nothing in the shipped .so reads it
 steamid.o	_ZZNK8CSteamID6RenderEvE7rgchBuf	CSteamID::Render() const::rgchBuf	sourcesharp/common/steamid.cpp	LOCAL	bss	function-local	148	DEAD		the linker drops it: nothing in the shipped .so reads it
 client_util_library.o	_ZZ7VarArgsPKczE6string	VarArgs(char const*, ...)::string	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	function-local	1024	UNRULED		
-	g_MakingDevShots	g_MakingDevShots	sourcesharp/game/client/client_util_library.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
-client_util_library.o	_ZL25g_nLocalPlayerVisionFlags	g_nLocalPlayerVisionFlags	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	4	UNRULED		
-client_util_library.o	_ZL37g_nLocalPlayerVisionFlagsWeaponsCheck	g_nLocalPlayerVisionFlagsWeaponsCheck	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	4	UNRULED		
-	k_flMaxEntitySpeed	k_flMaxEntitySpeed	sourcesharp/game/client/client_util_library.cpp	GLOBAL	data	file-or-global	4	DEAD		the linker drops it: nothing in the shipped .so reads it
 	localplayer_visionflags	localplayer_visionflags	sourcesharp/game/client/client_util_library.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
-client_util_library.o	_ZL30s_LastEntityReasonableEmitTime	s_LastEntityReasonableEmitTime	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
-	s_nPredictionRandomSeed	s_nPredictionRandomSeed	sourcesharp/game/client/client_util_library.cpp	WEAK	data	file-or-global	4	UNRULED		
-	_ZZN2ss17SecondsSinceStartEvE7s_Start	ss::SecondsSinceStart()::s_Start	sourcesharp/game/client/client_util_library.cpp	WEAK	bss	function-local	8	UNRULED		
 client_util_library.o	_ZL15violence_ablood	violence_ablood	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 client_util_library.o	_ZL14violence_agibs	violence_agibs	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 client_util_library.o	_ZL15violence_hblood	violence_hblood	sourcesharp/game/client/client_util_library.cpp	LOCAL	bss	file-or-global	32	UNRULED		
@@ -153,15 +146,12 @@ shell_clientdll.o	_ZL22cs_cl_refusals_command	cs_cl_refusals_command	sourcesharp
 	enginetrace	enginetrace	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	enginevgui	enginevgui	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	filesystem	filesystem	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	g_ClientVirtualReality	g_ClientVirtualReality	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	536	UNRULED		
-	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1176	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
+	g_ShellClientDLL	g_ShellClientDLL	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1128	FLOOR		engine.so resolves VClient017 and CreateInterface returns this object's address; the DLL's first entry point, so nothing it controls runs earlier
 	g_StringTableEffectDispatch	g_StringTableEffectDispatch	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_StringTableVguiScreen	g_StringTableVguiScreen	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_bLevelInitialized	g_bLevelInitialized	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
 	g_bTextMode	g_bTextMode	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	1	UNRULED		
-	g_pAchievementsAndStatsInterface	g_pAchievementsAndStatsInterface	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_pClientReplayContext	g_pClientReplayContext	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	DEAD		the linker drops it: nothing in the shipped .so reads it
-	g_pSourceVR	g_pSourceVR	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_pStringTableClientSideChoreoScenes	g_pStringTableClientSideChoreoScenes	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_pStringTableInfoPanel	g_pStringTableInfoPanel	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 	g_pStringTableMaterials	g_pStringTableMaterials	sourcesharp/game/client/shell_clientdll.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
@@ -233,13 +223,9 @@ shell_effects_list_client.o	_ZL12s_pMaterials	s_pMaterials	sourcesharp/game/clie
 shell_effects_sim.o	_ZL25cs_cl_wind_report_command	cs_cl_wind_report_command	sourcesharp/game/client/shell_effects_sim.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 shell_effects_sim.o	_ZL17s_nPublishedWinds	s_nPublishedWinds	sourcesharp/game/client/shell_effects_sim.cpp	LOCAL	bss	file-or-global	4	UNRULED		
 shell_effects_sim.o	_ZL18s_vecPublishedWind	s_vecPublishedWind	sourcesharp/game/client/shell_effects_sim.cpp	LOCAL	bss	file-or-global	12	UNRULED		
-shell_entitystatics.o	_ZZL21AbsRecomputationStackvE8s_bStack	AbsRecomputationStack()::s_bStack	sourcesharp/game/client/shell_entitystatics.cpp	LOCAL	bss	function-local	8	DEAD		the linker drops it: nothing in the shipped .so reads it
-shell_entitystatics.o	_ZZL24AbsRecomputationStackPosvE6s_iPos	AbsRecomputationStackPos()::s_iPos	sourcesharp/game/client/shell_entitystatics.cpp	LOCAL	bss	function-local	2	UNRULED		
-shell_entitystatics.o	_ZZL23EntityInterpGateWasOpenvE10s_bWasOpen	EntityInterpGateWasOpen()::s_bWasOpen	sourcesharp/game/client/shell_entitystatics.cpp	LOCAL	data	function-local	1	UNRULED		
 shell_entitystatics.o	_ZL14cl_interpolate	cl_interpolate	sourcesharp/game/client/shell_entitystatics.cpp	LOCAL	bss	file-or-global	144	UNRULED		
 	s_bAbsQueriesValid	s_bAbsQueriesValid	sourcesharp/game/client/shell_entitystatics.cpp	WEAK	data	file-or-global	1	UNRULED		
 	s_bAbsRecomputationEnabled	s_bAbsRecomputationEnabled	sourcesharp/game/client/shell_entitystatics.cpp	WEAK	data	file-or-global	1	UNRULED		
-	s_bInterpolate	s_bInterpolate	sourcesharp/game/client/shell_entitystatics.cpp	WEAK	data	file-or-global	1	UNRULED		
 	_ZN12InterfaceReg16s_pInterfaceRegsE	InterfaceReg::s_pInterfaceRegs	sourcesharp/game/client/shell_factory_client.cpp	GLOBAL	bss	class-or-namespace	8	FLOOR		tier1 interface.cpp's registry head (shell_factory_client.cpp): the EXPOSE macros' static-init rows chain here, and CreateInterface, which the engine resolves by name, walks it. It lives as long as client.so's exported factory (C9)
 shell_factory_client.o	_ZL11s_Factories	s_Factories	sourcesharp/game/client/shell_factory_client.cpp	LOCAL	bss	file-or-global	16	UNRULED		
 shell_glow_client.o	_ZZN12_GLOBAL__N_17ExecuteEPKiiE19nHDRColorScaleCache	(anonymous namespace)::Execute(int const*, int)::nHDRColorScaleCache	sourcesharp/game/client/shell_glow_client.cpp	LOCAL	bss	function-local	4	UNRULED		
@@ -439,7 +425,7 @@ shell_prediction.o	_ZL12g_Prediction	g_Prediction	sourcesharp/game/client/shell_
 shell_prediction.o	_ZL21g_bWorldUpdateArrived	g_bWorldUpdateArrived	sourcesharp/game/client/shell_prediction.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 	prediction	prediction	sourcesharp/game/client/shell_prediction.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 shell_prediction.o	_ZL18s_ClientMoveHelper	s_ClientMoveHelper	sourcesharp/game/client/shell_prediction.cpp	LOCAL	bss	file-or-global	24	UNRULED		
-shell_recipientfilter_client.o	_ZL33g_RecipientFilterPredictionSystem	g_RecipientFilterPredictionSystem	sourcesharp/game/client/shell_recipientfilter_client.cpp	LOCAL	bss	file-or-global	40	UNRULED		
+	s_nPredictionRandomSeed	s_nPredictionRandomSeed	sourcesharp/game/client/shell_prediction.cpp	WEAK	data	file-or-global	4	UNRULED		
 shell_render_targets_client.o	_ZN12_GLOBAL__N_115g_RenderTargetsE	(anonymous namespace)::g_RenderTargets	sourcesharp/game/client/shell_render_targets_client.cpp	LOCAL	bss	function-local	2536	MEMBER	RenderTargets:DLL	reset_today=n/a: the references live while the material system's release function has not dropped them, for the DLL's life. client.so's render-target store: the CTextureReference per named render target rendertexture.cpp's getters held, and the rows managed's RenderTargetCatalog declared (IShimViewClient::RenderTargetDeclare). The material system holds the release function's pointer. Carries out the catalog's rows, decides nothing (C7 render textures)
 shell_render_trace_client.o	_ZN12_GLOBAL__N_111g_MeshHooksE	(anonymous namespace)::g_MeshHooks	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	128	UNRULED		
 shell_render_trace_client.o	_ZN12_GLOBAL__N_111g_OriginalsE	(anonymous namespace)::g_Originals	sourcesharp/game/client/shell_render_trace_client.cpp	LOCAL	bss	function-local	928	UNRULED		
@@ -529,6 +515,7 @@ shell_vgui_client.o	_ZL16s_nPausedSeconds	s_nPausedSeconds	sourcesharp/game/clie
 shell_vgui_client.o	_ZL14s_nPlaqueFacts	s_nPlaqueFacts	sourcesharp/game/client/shell_vgui_client.cpp	LOCAL	data	file-or-global	4	UNRULED		
 shell_view_executor_client.o	_ZN12_GLOBAL__N_111g_pExecutorE	(anonymous namespace)::g_pExecutor	sourcesharp/game/client/shell_view_executor_client.cpp	LOCAL	bss	function-local	8	UNRULED		
 shell_view_executor_client.o	_ZZ22SourceSharp_ViewRenderP7vrect_tE7s_bSaid	SourceSharp_ViewRender(vrect_t*)::s_bSaid	sourcesharp/game/client/shell_view_executor_client.cpp	LOCAL	bss	function-local	1	UNRULED		
+	_ZZN2ss17SecondsSinceStartEvE7s_Start	ss::SecondsSinceStart()::s_Start	sourcesharp/game/client/shell_view_executor_client.cpp	WEAK	bss	function-local	8	UNRULED		
 shell_view_facts.o	_ZL11g_ViewerFog	g_ViewerFog	sourcesharp/game/client/shell_view_facts.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 shell_view_facts.o	_ZL14g_ViewerSkybox	g_ViewerSkybox	sourcesharp/game/client/shell_view_facts.cpp	LOCAL	bss	file-or-global	104	UNRULED		
 shell_view_facts.o	_ZL16g_bHaveViewerFog	g_bHaveViewerFog	sourcesharp/game/client/shell_view_facts.cpp	LOCAL	bss	file-or-global	1	UNRULED		
@@ -594,15 +581,6 @@ tier_bindings_client.o	_ZZ20SS_DestroyThreadPoolPvE3pfn	SS_DestroyThreadPool(voi
 vstdlib_random_port.o	_ZN12_GLOBAL__N_18s_StreamE	(anonymous namespace)::s_Stream	sourcesharp/game/client/vstdlib_random_port.cpp	LOCAL	bss	function-local	176	UNRULED		
 world_adapter_client.o	_ZL14g_pClientWorld	g_pClientWorld	sourcesharp/game/client/world_adapter_client.cpp	LOCAL	bss	file-or-global	8	UNRULED		
 	g_pGameRules	g_pGameRules	sourcesharp/game/client/world_adapter_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-	g_pModelNameLaser	g_pModelNameLaser	sourcesharp/game/client/world_adapter_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
-	g_sModelIndexBloodDrop	g_sModelIndexBloodDrop	sourcesharp/game/client/world_adapter_client.cpp	GLOBAL	bss	file-or-global	2	UNRULED		
-	g_sModelIndexBloodSpray	g_sModelIndexBloodSpray	sourcesharp/game/client/world_adapter_client.cpp	GLOBAL	bss	file-or-global	2	UNRULED		
-	g_sModelIndexBubbles	g_sModelIndexBubbles	sourcesharp/game/client/world_adapter_client.cpp	GLOBAL	bss	file-or-global	2	UNRULED		
-	g_sModelIndexFireball	g_sModelIndexFireball	sourcesharp/game/client/world_adapter_client.cpp	GLOBAL	bss	file-or-global	2	UNRULED		
-	g_sModelIndexLaser	g_sModelIndexLaser	sourcesharp/game/client/world_adapter_client.cpp	GLOBAL	bss	file-or-global	2	UNRULED		
-	g_sModelIndexLaserDot	g_sModelIndexLaserDot	sourcesharp/game/client/world_adapter_client.cpp	GLOBAL	bss	file-or-global	2	UNRULED		
-	g_sModelIndexSmoke	g_sModelIndexSmoke	sourcesharp/game/client/world_adapter_client.cpp	GLOBAL	bss	file-or-global	2	UNRULED		
-	g_sModelIndexWExplosion	g_sModelIndexWExplosion	sourcesharp/game/client/world_adapter_client.cpp	GLOBAL	bss	file-or-global	2	UNRULED		
 world_adapter_client.o	_ZL16s_angWorldAngles	s_angWorldAngles	sourcesharp/game/client/world_adapter_client.cpp	LOCAL	bss	file-or-global	12	UNRULED		
 world_adapter_client.o	_ZL22s_bWorldTransformBuilt	s_bWorldTransformBuilt	sourcesharp/game/client/world_adapter_client.cpp	LOCAL	bss	file-or-global	1	UNRULED		
 world_adapter_client.o	_ZL19s_matWorldTransform	s_matWorldTransform	sourcesharp/game/client/world_adapter_client.cpp	LOCAL	bss	file-or-global	48	UNRULED		

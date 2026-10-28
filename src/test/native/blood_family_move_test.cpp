@@ -116,10 +116,10 @@ const char *const kLibrary   = "sourcesharp/game/shared/util_shared_library.cpp"
 const char *const kStockCpp  = "game/shared/util_shared.cpp";
 const char *const kStockHdr  = "game/shared/util_shared.h";
 
-// UTIL_ParticleTracer CAME WITH THE FAMILY and has since gone on to the client:
-// it was #ifdef CLIENT_DLL here, so plan_server_native_v2 T2 (2026-10-18) moved
-// it to the client's utility library (a shared TU keeps only what both DLLs
-// import). Its member of the family is asserted there, and absent here.
+// UTIL_ParticleTracer CAME WITH THE FAMILY and has since gone: it was #ifdef
+// CLIENT_DLL here, plan_server_native_v2 T2 (2026-10-18) moved it to the
+// client's utility library, and lane M1-B (2026-10-25) deleted it there with no
+// importer on client.so's link edge. It is asserted absent from both.
 const char *const kClientHome     = "sourcesharp/game/client/client_util_library.cpp";
 const char *const kClientOnlyMember =
 	"void UTIL_ParticleTracer( const char *pszTracerEffectName, const Vector &vecStart, const Vector &vecEnd, ";
@@ -162,8 +162,9 @@ TEST( BloodFamilyMove, EveryMovedMemberIsInTheSharedLibrary )
 		<< " again; it is the client's";
 	const std::string client = StripComments( ReadFile( kClientHome ) );
 	ASSERT_FALSE( client.empty() ) << kClientHome << " did not load";
-	EXPECT_EQ( 1u, CountOf( client, kClientOnlyMember ) )
-		<< kClientOnlyMember << " is not defined exactly once in " << kClientHome;
+	EXPECT_EQ( 0u, CountOf( client, kClientOnlyMember ) )
+		<< kClientOnlyMember << " is back in " << kClientHome << "; nothing on "
+		<< "client.so's link edge imports it";
 }
 
 // game/shared/util_shared.cpp DOES NOT EXIST. plan_shim.md Phase 2c, lane
@@ -192,11 +193,6 @@ TEST( BloodFamilyMove, TheStockFileIsGoneAndTheLibraryHasTheFamily )
 			<< kMoved[ i ] << " is not in " << kLibrary << " either. The family "
 			<< "did not move, it evaporated.";
 	}
-	const std::string client = StripComments( ReadFile( kClientHome ) );
-	ASSERT_FALSE( client.empty() ) << kClientHome << " did not load";
-	EXPECT_EQ( 1u, CountOf( client, kClientOnlyMember ) )
-		<< kClientOnlyMember << " is not in " << kClientHome << " either. The "
-		<< "family did not move, it evaporated.";
 }
 
 TEST( BloodFamilyMove, UtilBloodImpactCameEvenThoughNoShimTuNamesIt )

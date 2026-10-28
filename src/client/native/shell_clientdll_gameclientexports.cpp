@@ -14,7 +14,7 @@
 // with the rest of stock's cdll_client_int.cpp, which put ten classes in one
 // 3,118-line translation unit. It is the gameui's channel into the client:
 // voice bans, the two gameui_activated / gameui_hidden events, and the
-// achievements panel. Nothing in it is about IBaseClientDLL, so nothing in it
+// achievements panel (which this client does not have). Nothing in it is about IBaseClientDLL, so nothing in it
 // belongs beside IBaseClientDLL.
 //
 // It has NO state of its own -- every method forwards to a system that owns
@@ -25,7 +25,6 @@
 #include "voice_status.h"
 #include "igameevents.h"
 #include "game/client/IGameClientExports.h"
-#include "achievements_and_stats_interface.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -70,58 +69,17 @@ public:
 		}
 	}
 
-    //=============================================================================
-    // HPE_BEGIN
-    // [dwenger] Necessary for stats display
-    //=============================================================================
-
-    void CreateAchievementsPanel( vgui::Panel* pParent )
-    {
-        if (g_pAchievementsAndStatsInterface)
-        {
-            g_pAchievementsAndStatsInterface->CreatePanel( pParent );
-        }
-    }
-
-    void DisplayAchievementPanel()
-    {
-        if (g_pAchievementsAndStatsInterface)
-        {
-            g_pAchievementsAndStatsInterface->DisplayPanel();
-        }
-    }
-
-    void ShutdownAchievementPanel()
-    {
-        if (g_pAchievementsAndStatsInterface)
-        {
-            g_pAchievementsAndStatsInterface->ReleasePanel();
-        }
-    }
-
-	int GetAchievementsPanelMinWidth( void ) const
-	{
-        if ( g_pAchievementsAndStatsInterface )
-        {
-            return g_pAchievementsAndStatsInterface->GetAchievementsPanelMinWidth();
-        }
-
-		return 0;
-	}
-
-    //=============================================================================
-    // HPE_END
-    //=============================================================================
-
-	const char *GetHolidayString()
-	{
-		return UTIL_GetActiveHolidayString();
-	}
-
-	const char *GetOperationString()
-	{
-		return UTIL_GetActiveOperationString();
-	}
+	// THE ACHIEVEMENTS PANEL AND THE ECON STRINGS, ANSWERED. Stock forwarded the
+	// first four to g_pAchievementsAndStatsInterface, which nothing in this
+	// client ever sets (it was NULL from load to exit), and the last two to
+	// UTIL_GetActiveHolidayString / UTIL_GetActiveOperationString, which answer
+	// NULL without econ items. These are those answers, stated (lane M1-B).
+	void CreateAchievementsPanel( vgui::Panel *pParent ) {}
+	void DisplayAchievementPanel() {}
+	void ShutdownAchievementPanel() {}
+	int GetAchievementsPanelMinWidth( void ) const { return 0; }
+	const char *GetHolidayString() { return NULL; }
+	const char *GetOperationString() { return NULL; }
 };
 
 EXPOSE_SINGLE_INTERFACE( CGameClientExports, IGameClientExports, GAMECLIENTEXPORTS_INTERFACE_VERSION );

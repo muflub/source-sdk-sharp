@@ -481,7 +481,7 @@ TEST( BaseEntityStatics, TheServerEntityHeaderIsOutOfTheFarm )
 // THE STORAGE EXISTS, AND IS WHERE THE COMMITS SAY IT IS.
 //=============================================================================
 
-TEST( BaseEntityStatics, TheAbsStateHeaderCarriesTheThreeStorages )
+TEST( BaseEntityStatics, TheAbsStateHeaderCarriesTheTwoStorages )
 {
 	const std::string strCode = StripComments( AbsStateHeader() );
 
@@ -491,8 +491,12 @@ TEST( BaseEntityStatics, TheAbsStateHeaderCarriesTheThreeStorages )
 		<< "scope accessors.";
 	EXPECT_TRUE( Contains( strCode, "inline bool s_bAbsRecomputationEnabled = true;" ) )
 		<< "entity_abs_query_state.h no longer holds the abs-recomputation flag.";
-	EXPECT_TRUE( Contains( strCode, "inline bool s_bInterpolate = true;" ) )
-		<< "entity_abs_query_state.h no longer holds the interpolation flag.";
+	// The third, s_bInterpolate, left 2026-10-25: the interpolation gate it
+	// held is SourceSharp.Client's InterpolationGate, and nothing native read it.
+	EXPECT_FALSE( Contains( strCode, "s_bInterpolate" ) )
+		<< "entity_abs_query_state.h holds an interpolation flag again; the gate "
+		<< "is managed (InterpolationGate), and a native copy would be read by "
+		<< "nothing.";
 
 	// All three were `true` in the class. A storage that starts false would
 	// silently disable interpolation on the first frame and fire the abs-query
@@ -587,36 +591,26 @@ TEST( BaseEntityStatics, ThePredictionPlayerAccessorsAreForwarders )
 		<< "base-subobject adjustment can creep in between them.";
 }
 
-TEST( BaseEntityStatics, TheClientInterpolationAccessorWentWithTheClassAndTheStorageIsWhatIsLeft )
+TEST( BaseEntityStatics, TheClientInterpolationGateIsManagedAndNothingNativeHoldsIt )
 {
-	// READ THE ASSERTIONS, NOT THE NAME -- the same move as the server's abs
-	// pair above. C_BaseEntity::IsInterpolationEnabled was a one-line forwarder
-	// onto EntityInterp_EnabledRef() in c_baseentity.h; `class C_BaseEntity` was
-	// that header's `#ifndef SS_CBASEENTITY_ALIAS` arm, the alias retired, and
-	// the forwarder went with the class body.
-	//
-	// The flag did not go anywhere, and it is still written once a frame -- by
-	// the shim, not by the class -- so the absence is asserted with the writer.
+	// C_BaseEntity::IsInterpolationEnabled was a one-line forwarder onto
+	// EntityInterp_EnabledRef() in c_baseentity.h; the forwarder went with the
+	// class body, and on 2026-10-25 the flag and its writer
+	// (EntityInterp_UpdateFrameGate) went too: the frame's gate is
+	// SourceSharp.Client's InterpolationGate, read by the managed render pass.
 	EXPECT_EQ( "", FunctionBody( ClientHeader(), "C_BaseEntity::IsInterpolationEnabled" ) )
-		<< "a class-scope IsInterpolationEnabled body is back in c_baseentity.h. "
-		<< "EntityInterp_EnabledRef() is the flag; a second reader of it that "
-		<< "can grow a body is two implementations of one gate.";
+		<< "a class-scope IsInterpolationEnabled body is back in c_baseentity.h.";
 
 	const std::string strAbs = StripComments( AbsStateHeader() );
 	ASSERT_FALSE( strAbs.empty() );
-	EXPECT_NE( std::string::npos, strAbs.find( "inline bool &EntityInterp_EnabledRef()" ) )
-		<< "EntityInterp_EnabledRef() is gone -- it is the storage the accessor "
-		<< "read, and after the class body went it is the whole of this gate.";
-	EXPECT_NE( std::string::npos, strAbs.find( "inline bool s_bInterpolate = true;" ) )
-		<< "the interpolation flag no longer starts true, so the very first "
-		<< "frame -- before anything has recomputed it -- behaves differently.";
+	EXPECT_EQ( std::string::npos, strAbs.find( "EntityInterp_EnabledRef" ) )
+		<< "EntityInterp_EnabledRef() is back; the gate is managed now.";
 
-	// LIVE: the one writer. The flag is recomputed from cl_interpolate at the
-	// top of the client's frame, and that write is in the shim now.
-	EXPECT_NE( std::string::npos,
-	           StripComments( ClientEntityStaticsShim() ).find( "EntityInterp_EnabledRef() = cl_interpolate.GetBool();" ) )
-		<< "nothing recomputes the interpolation flag from cl_interpolate any "
-		<< "more, so it would sit at its rest value for the whole session.";
+	const std::string strShim = StripComments( ClientEntityStaticsShim() );
+	ASSERT_FALSE( strShim.empty() );
+	EXPECT_EQ( std::string::npos, strShim.find( "EntityInterp_UpdateFrameGate" ) )
+		<< "the native frame gate is back in shell_entitystatics.cpp; it is "
+		<< "InterpolationGate's (SourceSharp.Client).";
 }
 
 //=============================================================================
@@ -810,8 +804,8 @@ const Lifted kLifted[] =
 {
 	{ "SetAbsQueriesValid",           "EntityAbs_SetQueriesValid" },
 	{ "IsAbsQueriesValid",            "EntityAbs_AreQueriesValid" },
-	{ "PushEnableAbsRecomputations",  "EntityAbs_PushEnableRecomputations" },
-	{ "PopEnableAbsRecomputations",   "EntityAbs_PopEnableRecomputations" },
+	// PushEnableAbsRecomputations / PopEnableAbsRecomputations left
+	// 2026-10-25 with their save stack: nothing imported either.
 	{ "EnableAbsRecomputations",      "EntityAbs_SetRecomputationsEnabled" },
 	{ "IsAbsRecomputationsEnabled",   "EntityAbs_AreRecomputationsEnabled" },
 };
@@ -826,7 +820,7 @@ const size_t kNumLifted = sizeof( kLifted ) / sizeof( kLifted[ 0 ] );
 // call these by their free names, so a missing body is an undefined symbol at
 // link time with no compile symptom anywhere. The absence halves that read the
 // two dead files were culled with them.
-TEST( BaseEntityStatics, TheSixFreeFunctionsAreDefinedInTheShim )
+TEST( BaseEntityStatics, TheLiftedFreeFunctionsAreDefinedInTheShim )
 {
 	const std::string strNew     = StripComments( ClientEntityStaticsShim() );
 
@@ -847,7 +841,7 @@ TEST( BaseEntityStatics, TheSixFreeFunctionsAreDefinedInTheShim )
 	}
 }
 
-TEST( BaseEntityStatics, TheSixClassScopeNamesWentWithTheClassBodyAndTheFreeSixRemain )
+TEST( BaseEntityStatics, TheLiftedClassScopeNamesWentWithTheClassBodyAndTheFreeOnesRemain )
 {
 	// READ THE ASSERTIONS, NOT THE NAME. This was
 	// TheSixClassScopeNamesAreOneLineForwarders: each of the six lifted statics
@@ -896,7 +890,7 @@ TEST( BaseEntityStatics, TheSixClassScopeNamesWentWithTheClassBodyAndTheFreeSixR
 	}
 }
 
-TEST( BaseEntityStatics, TheSixAreDeclaredBehindClientDll )
+TEST( BaseEntityStatics, TheLiftedAreDeclaredBehindClientDll )
 {
 	const std::string strCode = StripComments( AbsStateHeader() );
 

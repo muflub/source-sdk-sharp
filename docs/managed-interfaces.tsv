@@ -89,6 +89,12 @@ IManagedRuntimeClient	LevelShutdown	void	void
 IManagedRuntimeClient	ClientInvalidateMdlCache	void	void
 IManagedRuntimeClient	ParticlesNeedFullReload	int32_t	int32_t nPreviousMapParticleFiles
 IManagedRuntimeClient	MapMaterialReload	int32_t	const char *pszNextBsp, const char *pszPreviousBsp, char *pOut, int32_t nOutSize
+IManagedRuntimeClient	MapMaterialSearchPath	void	const char *pszPath, const char *pszPathID, int32_t bAddToHead
+IManagedRuntimeClient	MapMaterialMapAccess	void	int32_t bOpen
+IManagedRuntimeClient	MapMaterialReloadPlan	int32_t	const char *pszSubString, char *pOut, int32_t nOutSize
+IManagedRuntimeClient	WorldDataChanged	int32_t	const unsigned char *pBlob, int32_t nBytes, int32_t nUpdateType, float *pOut, int32_t nOut
+IManagedRuntimeClient	LevelInitPreEntity	void	void
+IManagedRuntimeClient	PostInit	void	int32_t nAdapterMaxDxLevel
 IManagedCommandsClient	ConCommandDispatch	void	int32_t nCommandId, const char *pArgs
 IManagedCommandsClient	ConVarChanged	void	int32_t nConVarId, const char *pNewValue, const char *pOldValue
 IManagedEventsClient	OnGameEvent	void	const char *pEventName, void *hEvent

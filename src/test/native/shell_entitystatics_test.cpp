@@ -101,49 +101,11 @@ int CountCalls( const std::string &strSource, const std::string &strName )
 
 const char *const kStaticsSource = "sourcesharp/game/client/shell_entitystatics.cpp";
 
-// The function in shell_entitystatics.cpp that can still refuse at runtime,
-// and the §7 refusal it prints. Phase 1c deleted the ruling table these used
-// to be reached through; the strings are at the refusal site now, so the check
-// is over the SITE. (EntityTool_RecordEntities was the second; it is deleted:
-// SFM is dead, user ruling 2026-10-19.)
-const char *const kRefusalSites[] = {
-	"void EntityInterp_UpdateFrameGate()",
-};
-
-const char *const kRefusalSubjects[] = {
-	"EntityInterp_InterpolateServerEntities",
-};
-
-const size_t kRefusalCount =
-	sizeof( kRefusalSites ) / sizeof( kRefusalSites[ 0 ] );
-
-// The body of one function in a source file, from its signature to the closing
-// brace at the depth the opening one was at.
-std::string BodyOf( const std::string &strSource, const std::string &strSignature )
-{
-	const size_t at = strSource.find( strSignature );
-	if ( at == std::string::npos )
-		return std::string();
-
-	const size_t open = strSource.find( '{', at );
-	if ( open == std::string::npos )
-		return std::string();
-
-	int nDepth = 0;
-	for ( size_t i = open; i < strSource.size(); i++ )
-	{
-		if ( strSource[ i ] == '{' )
-			nDepth++;
-		else if ( strSource[ i ] == '}' )
-		{
-			nDepth--;
-			if ( nDepth == 0 )
-				return strSource.substr( open, i - open + 1 );
-		}
-	}
-
-	return std::string();
-}
+// No function in shell_entitystatics.cpp refuses at runtime any more: the last
+// refusal site, EntityInterp_UpdateFrameGate, went to managed code on
+// 2026-10-25 as InterpolationGate (SourceSharp.Client), with the two facts
+// that read it (BothSurvivingRefusalsSayWhoRefusedAndWhy and
+// TheInterpolationRefusalIsOnTheClosingEdgeAndNotEveryFrame).
 
 } // namespace
 
@@ -179,90 +141,11 @@ std::string BodyOf( const std::string &strSource, const std::string &strSignatur
 // the only thing that ever read a count, is gone; nothing under tools/, in
 // managed code or in the other DLL ever drove it.
 //
-// WHAT §7 ACTUALLY ASKS FOR IS THE REFUSAL, and ONE row can still fire (a
-// second, EntityTool_RecordEntities, is deleted: SFM is dead, 2026-10-19). §7
-// is "a behaviour that is refused is a ContractBaseline entry with a reason,
-// never a silent no-op" -- so the successor facts below are that the site
-// STILL REFUSES, still names the function, and still carries a reason and a
-// successor. They are asked of shell_entitystatics.cpp, where the refusal is,
-// rather than of a table indexed by an enum in another file: strictly closer to
-// the code than the retired twelve were.
+// WHAT §7 ACTUALLY ASKS FOR IS THE REFUSAL, and no row can fire now: the last,
+// the interpolation frame gate, became managed code on 2026-10-25
+// (InterpolationGate) and its two refusal facts went with it;
+// EntityTool_RecordEntities is deleted (SFM is dead, 2026-10-19).
 //=============================================================================//
-
-//-----------------------------------------------------------------------------
-// §7's whole demand in one fact, asked at the site that can still fail it.
-// A refusal that prints nothing, or prints without saying WHY, is the silent
-// no-op the section forbids -- not a lesser version of it.
-//-----------------------------------------------------------------------------
-TEST( ShellEntityStatics, BothSurvivingRefusalsSayWhoRefusedAndWhy )
-{
-	const std::string strNew = ReadSource( kStaticsSource );
-	ASSERT_FALSE( strNew.empty() );
-
-	for ( size_t i = 0; i < kRefusalCount; i++ )
-	{
-		const std::string body = BodyOf( strNew, kRefusalSites[ i ] );
-
-		ASSERT_FALSE( body.empty() )
-			<< kRefusalSites[ i ] << " has no body in " << kStaticsSource
-			<< " -- every assertion below would pass vacuously.";
-
-		EXPECT_NE( body.find( "Warning(" ), std::string::npos )
-			<< kRefusalSites[ i ] << " no longer WARNS when it refuses. A "
-			   "capability that retires and says nothing is the silent no-op "
-			   "plan_entity.md §7 forbids; a deleted call site is not a record.";
-
-		EXPECT_NE( body.find( "REFUSED:" ), std::string::npos )
-			<< kRefusalSites[ i ] << "'s message no longer says REFUSED, which "
-			   "is the word a reader greps console.log for.";
-
-		EXPECT_NE( body.find( kRefusalSubjects[ i ] ), std::string::npos )
-			<< kRefusalSites[ i ] << " no longer names " << kRefusalSubjects[ i ]
-			<< " in its refusal. The point of a refusal is that it is BY NAME: "
-			   "an anonymous one cannot be traced back to a capability.";
-
-		EXPECT_NE( body.find( "Reason:" ), std::string::npos )
-			<< kRefusalSites[ i ] << " refuses without a reason. §7 asks for the "
-			   "reason and the successor, not for the refusal alone.";
-
-		EXPECT_NE( body.find( "Now:" ), std::string::npos )
-			<< kRefusalSites[ i ] << " does not say what does the thing now. "
-			   "\"NOTHING DOES\" is an acceptable answer and a declared gap; "
-			   "no answer at all is not.";
-	}
-}
-
-//-----------------------------------------------------------------------------
-// AND THE REFUSAL IS NOT ON AN UNCONDITIONAL PER-FRAME PATH.
-//
-// NOT RATE LIMITED, deliberately: the claim a retired capability makes is that
-// nothing can reach it in this build, so the expected number of these lines is
-// zero and a flood is that claim being wrong in the loudest available way. That
-// only holds if the site cannot fire every frame -- it is on the CLOSING EDGE
-// of the interpolation gate. A refusal moved out from behind it would turn a
-// console into scrollback.
-//-----------------------------------------------------------------------------
-TEST( ShellEntityStatics, TheInterpolationRefusalIsOnTheClosingEdgeAndNotEveryFrame )
-{
-	const std::string body =
-		BodyOf( ReadSource( kStaticsSource ), "void EntityInterp_UpdateFrameGate()" );
-	ASSERT_FALSE( body.empty() );
-
-	const size_t edge    = body.find( "if ( EntityInterpGateWasOpen() && !bOpen )" );
-	const size_t refusal = body.find( "REFUSED:" );
-
-	ASSERT_NE( edge, std::string::npos )
-		<< "the closing-edge test is gone from the frame gate.";
-	ASSERT_NE( refusal, std::string::npos );
-	EXPECT_LT( edge, refusal )
-		<< "the refusal is no longer inside the closing-edge test, so it fires "
-		   "on every frame the gate is shut rather than once when it shuts.";
-
-	// AND THE EDGE IS REMEMBERED, which is what makes it an edge at all.
-	EXPECT_NE( body.find( "EntityInterpGateWasOpen() = bOpen;" ), std::string::npos )
-		<< "the gate's previous state is no longer stored, so every frame looks "
-		   "like a transition.";
-}
 
 //=============================================================================//
 // THE ARRANGEMENT, SOURCE-READ.
@@ -278,10 +161,9 @@ TEST( ShellEntityStatics, TheClientDllCallsTheTwoSurvivorsAndNeitherOfTheFour )
 	const std::string strDll = ReadSource( "sourcesharp/game/client/shell_clientdll.cpp" );
 	ASSERT_FALSE( strDll.empty() );
 
-	EXPECT_EQ( 1, CountCalls( strDll, "EntityInterp_UpdateFrameGate" ) )
-		<< "the live half of InterpolateServerEntities runs in stock's own place "
-		   "in OnRenderStart. Losing this call loses the frame-level "
-		   "interpolation policy silently.";
+	EXPECT_EQ( 0, CountCalls( strDll, "EntityInterp_UpdateFrameGate" ) )
+		<< "shell_clientdll.cpp calls the native frame gate again; the policy "
+		   "is SourceSharp.Client's InterpolationGate (2026-10-25).";
 	// SFM is dead (user ruling 2026-10-19): the tool-recording pass is
 	// deleted, call and definition both.
 	EXPECT_EQ( 0, CountCalls( strDll, "EntityTool_RecordEntities" ) )
@@ -289,7 +171,7 @@ TEST( ShellEntityStatics, TheClientDllCallsTheTwoSurvivorsAndNeitherOfTheFour )
 		   "framework it posted to is deleted.";
 	EXPECT_EQ( 0, CountCalls( ReadSource( kStaticsSource ), "EntityTool_RecordEntities" ) )
 		<< "shell_entitystatics.cpp defines EntityTool_RecordEntities again.";
-	EXPECT_NE( ReadSource( kStaticsSource ).find( "void EntityInterp_UpdateFrameGate()" ),
+	EXPECT_NE( ReadSource( kStaticsSource ).find( "int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll( void )" ),
 	           std::string::npos )
 		<< "the statics file did not read, so the zero above is not evidence.";
 

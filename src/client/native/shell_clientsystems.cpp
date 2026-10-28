@@ -370,18 +370,9 @@ static const ClientSystemRow_t kClientSystems[] =
 
 static const int kClientSystemCount = ARRAYSIZE( kClientSystems );
 
-int SourceSharp_ClientSystemCount( void )
-{
-	return kClientSystemCount;
-}
-
-const char *SourceSharp_ClientSystemNameAt( int nIndex )
-{
-	if ( nIndex < 0 || nIndex >= kClientSystemCount )
-		return NULL;
-
-	return kClientSystems[ nIndex ].m_pszName;
-}
+// SourceSharp_ClientSystemCount and SourceSharp_ClientSystemNameAt stood here,
+// "so a test can read the list": no test and no object on client.so's link
+// edge read them (nm -u, lane M1-B).
 
 //-----------------------------------------------------------------------------
 // Every stage, forwards and backwards.

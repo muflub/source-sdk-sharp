@@ -288,9 +288,13 @@ TEST( CTeamEvicted, TheRecipientFilterKeepsItsForwardDeclaredTeamParameter )
 
 	const std::string cpp =
 	    ReadStripped( "sourcesharp/game/client/shell_recipientfilter_client.cpp" );
-	EXPECT_TRUE( Has( cpp, "AddRecipientsByTeam( C_Team *team )" ) )
-	    << "AddRecipientsByTeam has changed shape; it is a stock signature the "
-	       "shared recipient-filter headers name.";
+	ASSERT_FALSE( cpp.empty() ) << "cannot read shell_recipientfilter_client.cpp";
+	// The definition left 2026-10-25 with no importer on the client link edge
+	// (nm -u); the header's declaration, and so the forward declaration
+	// above, stays.
+	EXPECT_FALSE( Has( cpp, "AddRecipientsByTeam(" ) )
+	    << "AddRecipientsByTeam is defined again; nothing on the client link "
+	       "edge calls it.";
 	EXPECT_FALSE( Has( cpp, "\"c_team.h\"" ) )
 	    << "shell_recipientfilter_client.cpp includes c_team.h, which is out of "
 	       "the build.";

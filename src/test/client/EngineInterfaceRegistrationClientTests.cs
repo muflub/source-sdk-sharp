@@ -37,6 +37,7 @@ public class EngineInterfaceRegistrationClientTests
         Assert.Same(client, services.Require<ISteamLaunchCommands>());
         Assert.Same(client, services.Require<ISaveMemory>());
         Assert.Same(client, services.Require<SourceSharp.Client.Input.IClientInputEngine>());
+        Assert.Same(client, services.Require<IPlaybackState>());
     }
 
     [Fact]

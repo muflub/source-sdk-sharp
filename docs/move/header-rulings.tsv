@@ -3,7 +3,6 @@
 src/game/client/c_baseentity_statics.h	no	lifted declarations only, bodies stay in c_baseentity.cpp, no algorithm here
 src/game/client/client_csharp.vpc	no	build/project file (.vpc), no logic
 src/game/client/local_recipient.h	yes	ports C_RecipientFilter's local-player suppression rule (c_te.cpp SuppressTE)
-src/game/client/self_penetration_rule.h	yes	ports/fixes CCollisionEvent::ShouldSolvePenetration (game/client/physics.cpp)
 src/game/server/server_csharp.vpc	no	build/project file (.vpc), no logic
 src/game/shared/blast_blocking.h	yes	ports CGameRules::RadiusDamage's blast-blocking rule (gamerules.cpp)
 src/game/shared/collideable_center_math.h	yes	ports CCollisionProperty::WorldSpaceCenter/OBBCenter math (collisionproperty.cpp)
@@ -1373,7 +1372,6 @@ src/sourcesharp/test/server_wave1_shadowed_test.cpp	no	vpc eviction wave verific
 src/sourcesharp/test/server_wave2_lifts_test.cpp	no	vpc lift/fold verification test
 src/sourcesharp/test/server_wave3_interfaces_test.cpp	no	nm/interface eviction verification test
 src/sourcesharp/test/shadow_ctrl_probe_test.cpp	no	tests own NaN-probe header, original arithmetic
-src/sourcesharp/test/shared_random_move_test.cpp	no	source-scan verifying functions relocated correctly
 src/sourcesharp/test/shell_clientdll_refusals_test.cpp	no	runs own shipped refusal-counter header, no algorithm port
 src/sourcesharp/test/shell_clientdll_test.cpp	no	source-read of IBaseClientDLL arrangement, no algorithm port
 src/sourcesharp/test/shell_clientsteps_test.cpp	no	source-read verifying crossing arrangement

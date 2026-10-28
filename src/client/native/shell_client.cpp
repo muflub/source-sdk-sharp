@@ -184,6 +184,7 @@ static void SourceSharp_ApplyThirdPersonCamera( C_StandaloneEntity *pPlayer,
 	io.flIdealDist       = s_IdealDist.GetFloat();
 	io.flIdealDistRight  = s_IdealDistRight.IsValid() ? s_IdealDistRight.GetFloat() : 0.0f;
 	io.flIdealDistUp     = s_IdealDistUp.IsValid() ? s_IdealDistUp.GetFloat() : 0.0f;
+	io.nCollision        = s_Collision.IsValid() ? ( s_Collision.GetBool() ? 1 : 0 ) : -1;
 
 	if ( !pPrediction->ThirdPersonCamera( &io ) )
 		return;
@@ -193,20 +194,20 @@ static void SourceSharp_ApplyThirdPersonCamera( C_StandaloneEntity *pPlayer,
 	const Vector vecWish( io.vecWish[0], io.vecWish[1], io.vecWish[2] );
 	const float flWishLength = io.flWishLength;
 
-	// What the camera can actually have of it. A hull rather than a line,
-	// because a camera is not a point: a line sweep clears a doorframe the
-	// near plane then cuts through. CAM_HULL_OFFSET is stock's size for it.
+	// What the camera can actually have of it: the sweep PLACE asked for, a
+	// cube of its half extent under its mask, or none at 0 (cam_collision off).
+	// The hull's size and what stops it are managed's (lane M1-B).
 	float flTraceFraction = 1.0f;
 
-	if ( !s_Collision.IsValid() || s_Collision.GetBool() )
+	if ( io.flHullHalfExtent > 0.0f )
 	{
-		const float flHull = 14.0f;   // stock's CAM_HULL_OFFSET
+		const float flHull = io.flHullHalfExtent;
 		trace_t trace;
 
 		UTIL_TraceHull( vecEye, vecEye + vecWish,
 		                Vector( -flHull, -flHull, -flHull ),
 		                Vector(  flHull,  flHull,  flHull ),
-		                MASK_SOLID & ~CONTENTS_MONSTER, pPlayer, COLLISION_GROUP_NONE, &trace );
+		                io.nTraceMask, pPlayer, COLLISION_GROUP_NONE, &trace );
 
 		flTraceFraction = trace.fraction;
 	}
@@ -745,70 +746,6 @@ void StudioStats_FindClosestEntity( CClientRenderablesList * )
 }
 
 //=============================================================================//
-// READING A GAME SCRIPT FOR C# (lane c2-sims, plan_client_novalve C2).
-//
-// The client's bodies of IShimEngine's FilesGameFileSize / FilesReadGameFile
-// (docs/engineapi-areas.tsv, client_body), which were server-only slots: the
-// client's decal table (decals.cpp, cluster 18) and its soundscape scripts are
-// managed now, and both begin by reading a KeyValues script off the GAME path,
-// which only the engine's filesystem can do. The same answers as the server's
-// bodies (shell_engineservices.cpp). Here and not in a TU of their own: a new
-// client TU is one more R5 incdir-forbidden-tus row, for two pass-throughs.
-//=============================================================================//
-
-//-----------------------------------------------------------------------------
-// filesystem->Size on the GAME path id, or -1 when the file is not there (Size
-// answers 0 for both an empty file and a missing one, so Open decides).
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_ClientFilesGameFileSize( const char *pszPath )
-{
-	if ( pszPath == NULL || pszPath[ 0 ] == '\0' || filesystem == NULL )
-		return -1;
-
-	FileHandle_t hFile = filesystem->Open( pszPath, "rb", "GAME" );
-
-	if ( hFile == FILESYSTEM_INVALID_HANDLE )
-		return -1;
-
-	unsigned int nSize = filesystem->Size( hFile );
-	filesystem->Close( hFile );
-
-	return (int32_t)nSize;
-}
-
-//-----------------------------------------------------------------------------
-// filesystem->Read into the caller's buffer: the byte count, or -1. Not
-// NUL-terminated (the caller is handed a length). A file larger than the
-// buffer is refused, never truncated: half a KeyValues document parses into a
-// table missing its tail.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_ClientFilesReadGameFile( const char *pszPath, char *pOut, int32_t nOutSize )
-{
-	if ( pszPath == NULL || pszPath[ 0 ] == '\0' || pOut == NULL || nOutSize <= 0 || filesystem == NULL )
-		return -1;
-
-	FileHandle_t hFile = filesystem->Open( pszPath, "rb", "GAME" );
-
-	if ( hFile == FILESYSTEM_INVALID_HANDLE )
-		return -1;
-
-	unsigned int nSize = filesystem->Size( hFile );
-
-	if ( (int32_t)nSize > nOutSize )
-	{
-		filesystem->Close( hFile );
-		Warning( "[SourceSharp] game file '%s' is %u byte(s) and the buffer offered is %d; "
-		         "refused rather than truncated\n", pszPath, nSize, nOutSize );
-		return -1;
-	}
-
-	int nRead = filesystem->Read( pOut, (int)nSize, hFile );
-	filesystem->Close( hFile );
-
-	return (int32_t)nRead;
-}
-
-//=============================================================================//
 // FROM shell_shared.cpp, WHERE THEY WERE #ifdef CLIENT_DLL (plan_server_native_v2
 // T2, 2026-10-18): a shared TU keeps only what both DLLs import. Moved verbatim.
 //=============================================================================//
@@ -827,12 +764,13 @@ int32_t SourceSharp_ClientFilesReadGameFile( const char *pszPath, char *pOut, in
 // cull deleted CalculateBulletDamageForce, so it is gone: the server's managed
 // side no longer registers, and the server's slot (shell_shared.cpp) refuses.
 //-----------------------------------------------------------------------------
+//
+// NOTHING READS IT (lane M1-B, 2026-10-25): GetAmmoDef had no importer on
+// client.so's link edge (nm -u) and is deleted, so the table below is written
+// and never read. Its writer is an IShimStandaloneClient row; retiring the row
+// is the serialised ABI pass's (docs/todo.md), and the slot is ruled LOGIC
+// until then.
 static CAmmoDef g_AmmoDef;
-
-CAmmoDef *GetAmmoDef()
-{
-	return &g_AmmoDef;
-}
 
 //-----------------------------------------------------------------------------
 // Called by C# once per ammo type.

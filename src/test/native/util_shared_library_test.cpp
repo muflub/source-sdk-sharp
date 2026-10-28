@@ -114,8 +114,9 @@ const size_t kNumMoved = sizeof( kMovedDefinitions ) / sizeof( kMovedDefinitions
 const char *const kClientHome = "sourcesharp/game/client/client_util_library.cpp";
 const char *const kClientMovedDefinitions[] = {
 	"bool UTIL_IsLowViolence( void )",
-	"const char* UTIL_GetActiveHolidayString()",
-	"const char* UTIL_GetActiveOperationString()",
+	// UTIL_GetActiveHolidayString and UTIL_GetActiveOperationString moved here
+	// too and are deleted: they answered NULL, and their one caller,
+	// CGameClientExports, answers its NULL directly (lane M1-B, 2026-10-25).
 };
 const size_t kNumClientMoved = sizeof( kClientMovedDefinitions ) / sizeof( kClientMovedDefinitions[ 0 ] );
 

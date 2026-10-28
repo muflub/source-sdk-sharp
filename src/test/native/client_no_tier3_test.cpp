@@ -119,9 +119,10 @@ TEST( ClientNoTier3, EveryTier3NameInClientSoIsOneOfOurObjects )
 		EXPECT_TRUE( ours.count( name ) ) << name << " is in client.so and only tier3.a defines it";
 	}
 	// The stimulus reached the subject: the names ours took over are there
-	// (the tier3 connect pair and the interface globals it fills).
-	EXPECT_GE( nShared, 10 );
-	const char *kConnect = "_Z21ConnectTier3LibrariesPPFPvPKcPiEi";
-	EXPECT_TRUE( so.count( kConnect ) );
-	EXPECT_TRUE( ours.count( kConnect ) );
+	// (the interface globals tier_connect.cpp fills; the connect pair left
+	// with the VR stand-in, its last client reference, lane M1-B).
+	EXPECT_GE( nShared, 8 );
+	const char *kLocalize = "g_pVGuiLocalize";
+	EXPECT_TRUE( so.count( kLocalize ) );
+	EXPECT_TRUE( ours.count( kLocalize ) );
 }

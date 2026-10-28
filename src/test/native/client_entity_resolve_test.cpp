@@ -612,19 +612,6 @@ TEST( ClientEntityResolve, TheRenderableResolverGoesThroughTheTableFirstPrimitiv
 	       "makes every migrated call site a rename instead of a fix.";
 }
 
-TEST( ClientEntityResolve, TheThinkableResolverGoesThroughTheTableFirstPrimitive )
-{
-	const std::string body = NoWhitespace( BodyOf( StripComments( ReadRaw( kResolvers ) ),
-	    "IClientThinkable *SourceSharp_ClientThinkableFromHandle( const CBaseHandle &hEnt )" ) );
-
-	EXPECT_NE( body.find( "ClientUnknownFromHandle(hEnt)" ), std::string::npos )
-	    << "SourceSharp_ClientThinkableFromHandle no longer asks "
-	       "ClientUnknownFromHandle, the one primitive both hierarchies resolve "
-	       "through (client_thinklist.cpp, its first caller, left in C8).";
-	EXPECT_EQ( body.find( "cl_entitylist" ), std::string::npos )
-	    << "the thinkable resolver reaches for the stock list directly.";
-}
-
 // The SDK-only arms (SourceSharp_ClientSdkEntityFromIndex / ...FromHandle) left
 // 2026-10-18 with C_StandaloneEntity's IGameEntity base: they answered NULL for
 // every entity on this side (every client GetBaseEntity() answers NULL), so

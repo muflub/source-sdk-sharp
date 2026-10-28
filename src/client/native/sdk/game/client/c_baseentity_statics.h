@@ -207,7 +207,6 @@ void EntityInterp_CheckCLInterpChanged();
 // redefinition of new and delete is in force while they are compiled.
 //-----------------------------------------------------------------------------
 void *EntityMem_Alloc( size_t stAllocateBlock );
-void *EntityMem_AllocDbg( size_t stAllocateBlock, const char *pFileName, int nLine );
 void EntityMem_Free( void *pMem );
 
 //-----------------------------------------------------------------------------

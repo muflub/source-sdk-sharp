@@ -197,6 +197,11 @@ Nothing calls through its vtable: no interface is exposed.
 Owner: **the phases that retire those four TUs** (the renderer and C6, input).
 Waits for: each caller; the stub goes with the last.
 
+**The stub went** (lane M1-B, 2026-10-25): all four TUs have left client.so,
+and `nm -u` over its link edge found no importer of `g_ClientVirtualReality`,
+`g_pSourceVR` or any member, so the definitions in `shell_clientdll.cpp` were
+deleted. Nothing of row 9 is left in the build.
+
 ## 10. No-op studio-stats names for `viewrender.cpp`
 
 `studio_stats.cpp` is deleted (plan_client_novalve §2.1,

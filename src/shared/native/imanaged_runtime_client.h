@@ -34,6 +34,12 @@ struct SSManagedRuntimeClientTable
 	void ( *ClientInvalidateMdlCache )( IManagedRuntimeClient *self );
 	int32_t ( *ParticlesNeedFullReload )( IManagedRuntimeClient *self, int32_t nPreviousMapParticleFiles );
 	int32_t ( *MapMaterialReload )( IManagedRuntimeClient *self, const char *pszNextBsp, const char *pszPreviousBsp, char *pOut, int32_t nOutSize );
+	void ( *MapMaterialSearchPath )( IManagedRuntimeClient *self, const char *pszPath, const char *pszPathID, int32_t bAddToHead );
+	void ( *MapMaterialMapAccess )( IManagedRuntimeClient *self, int32_t bOpen );
+	int32_t ( *MapMaterialReloadPlan )( IManagedRuntimeClient *self, const char *pszSubString, char *pOut, int32_t nOutSize );
+	int32_t ( *WorldDataChanged )( IManagedRuntimeClient *self, const unsigned char *pBlob, int32_t nBytes, int32_t nUpdateType, float *pOut, int32_t nOut );
+	void ( *LevelInitPreEntity )( IManagedRuntimeClient *self );
+	void ( *PostInit )( IManagedRuntimeClient *self, int32_t nAdapterMaxDxLevel );
 };
 
 class IManagedRuntimeClient : public IManagedObject
@@ -48,6 +54,12 @@ public:
 	void ClientInvalidateMdlCache() { Table()->ClientInvalidateMdlCache( this ); }
 	int32_t ParticlesNeedFullReload( int32_t nPreviousMapParticleFiles ) { return Table()->ParticlesNeedFullReload( this, nPreviousMapParticleFiles ); }
 	int32_t MapMaterialReload( const char *pszNextBsp, const char *pszPreviousBsp, char *pOut, int32_t nOutSize ) { return Table()->MapMaterialReload( this, pszNextBsp, pszPreviousBsp, pOut, nOutSize ); }
+	void MapMaterialSearchPath( const char *pszPath, const char *pszPathID, int32_t bAddToHead ) { Table()->MapMaterialSearchPath( this, pszPath, pszPathID, bAddToHead ); }
+	void MapMaterialMapAccess( int32_t bOpen ) { Table()->MapMaterialMapAccess( this, bOpen ); }
+	int32_t MapMaterialReloadPlan( const char *pszSubString, char *pOut, int32_t nOutSize ) { return Table()->MapMaterialReloadPlan( this, pszSubString, pOut, nOutSize ); }
+	int32_t WorldDataChanged( const unsigned char *pBlob, int32_t nBytes, int32_t nUpdateType, float *pOut, int32_t nOut ) { return Table()->WorldDataChanged( this, pBlob, nBytes, nUpdateType, pOut, nOut ); }
+	void LevelInitPreEntity() { Table()->LevelInitPreEntity( this ); }
+	void PostInit( int32_t nAdapterMaxDxLevel ) { Table()->PostInit( this, nAdapterMaxDxLevel ); }
 
 private:
 	const SSManagedRuntimeClientTable *Table() const { return static_cast< const SSManagedRuntimeClientTable * >( m_pTable ); }
@@ -55,9 +67,9 @@ private:
 
 static const uint32_t kIManagedRuntimeClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xb86ff9be, 0xc83e311d, 0x3aa7ebf0, 0x07e0f4c4, 0x07e0f4c4, 0xa45f061a,
-	0x994fbbfe,
+	0x994fbbfe, 0x21cbcf2d, 0xc83e311d, 0xfcfc634a, 0x0fd0a53e, 0x07e0f4c4, 0xc83e311d,
 };
-static const int32_t kIManagedRuntimeClientSlotCount = 9;
-static_assert( sizeof( SSManagedRuntimeClientTable ) == 9 * sizeof( void * ), "SSManagedRuntimeClientTable is one pointer per slot" );
+static const int32_t kIManagedRuntimeClientSlotCount = 15;
+static_assert( sizeof( SSManagedRuntimeClientTable ) == 15 * sizeof( void * ), "SSManagedRuntimeClientTable is one pointer per slot" );
 
 #endif // IMANAGED_RUNTIME_CLIENT_H

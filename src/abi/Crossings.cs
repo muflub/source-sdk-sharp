@@ -938,6 +938,18 @@ public enum CrossingOp
     ClientShadowsRenderShadowTexture = 378,
     /// <summary>IManagedShadowsClient::Pending: the shells' queue handed over before another call, or when full (C7 cluster 12 S2). CLIENT ONLY.</summary>
     ClientShadowsPending = 379,
+    /// <summary>IManagedRuntimeClient::MapMaterialSearchPath: one IFileSystem::AddSearchPath, for the spawn's material-reload window (plan_map_load P1). CLIENT ONLY.</summary>
+    ClientMapMaterialSearchPath = 380,
+    /// <summary>IManagedRuntimeClient::MapMaterialMapAccess: IFileSystem::BeginMapAccess / EndMapAccess, the window's edges (plan_map_load P1). CLIENT ONLY.</summary>
+    ClientMapMaterialMapAccess = 381,
+    /// <summary>IManagedRuntimeClient::MapMaterialReloadPlan: one IMaterialSystem::ReloadMaterials, planned (plan_map_load P1). CLIENT ONLY.</summary>
+    ClientMapMaterialReloadPlan = 382,
+    /// <summary>IManagedRuntimeClient::WorldDataChanged: worldspawn's update, once per change; what its arrival does (WorldArrival). CLIENT ONLY.</summary>
+    ClientWorldDataChanged = 383,
+    /// <summary>IManagedRuntimeClient::LevelInitPreEntity: the level's prediction switch, once per level (lane M1-B). CLIENT ONLY.</summary>
+    ClientLevelInitPreEntity = 384,
+    /// <summary>IManagedRuntimeClient::PostInit: the bicubic lightmap default, once per process (lane M1-B). CLIENT ONLY.</summary>
+    ClientPostInit = 385,
 }
 
 /// <summary>

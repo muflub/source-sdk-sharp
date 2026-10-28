@@ -7,13 +7,19 @@
 //========= SourceSharp — the spawn's material reload, wired in =============//
 // SS_REASON a  a vtable the engine calls through
 //
-// plan_map_load P1. map_material_reload.h says what and why; this installs it.
+// plan_map_load P1. SourceSharp.Client's MapMaterialReloadWindow says what and
+// why, and decides; this installs the hooks that feed it and carry its plan out.
 // Four slots of two engine singletons are pointed at the functions below:
 // IFileSystem's AddSearchPath, BeginMapAccess and EndMapAccess, and
 // IMaterialSystem's ReloadMaterials. Each slot is the one the SDK header the
 // mod compiled against names (VTableHook::MemberOf, adjust 0, all four are
 // declared by the interface itself), and each original is called first or
 // instead, so with no managed answer every call behaves exactly as stock.
+//
+// THE STATE MACHINE IS MANAGED (2026-10-25). The three filesystem hooks hand
+// their call to IManagedRuntimeClient after the engine's own; the material
+// hook asks it for a plan -- make the call unchanged, or reload these names one
+// by one -- and does that.
 //
 // CLIENT SIDE. The material system is the renderer's, and client.so is loaded
 // exactly where there is one: a listen server's process and a client's, never
@@ -34,7 +40,6 @@
 #include "imanaged_runtime_client.h"
 #include "shell_managed_areas_client.h"
 #include "vtable_hook.h"
-#include "map_material_reload.h"
 #include "ss_platform.h"
 
 namespace
@@ -43,15 +48,16 @@ namespace
 // reach their state. One per process; set by Install, cleared by Uninstall.
 struct MapMaterialReloadHooks
 {
-	CMapMaterialReload core;
 	void **pFileSystemVtbl = nullptr;
 	void **pMaterialsVtbl = nullptr;
 	int nAddSearchPath = -1, nBeginMapAccess = -1, nEndMapAccess = -1, nReloadMaterials = -1;
 	void *pAddSearchPath = nullptr, *pBeginMapAccess = nullptr, *pEndMapAccess = nullptr, *pReloadMaterials = nullptr;
-	// Managed's answer, newline-joined names. Here rather than on the stack
+
+	// Managed's plan, newline-joined names. Here rather than on the stack
 	// (the names of two paks) or as a static (one more global for nothing).
 	char szNames[ 256 * 1024 ];
 };
+
 MapMaterialReloadHooks *s_pHooks = nullptr;
 
 typedef void ( *AddSearchPathFn )( IFileSystem *, const char *, const char *, SearchPathAdd_t );
@@ -61,38 +67,62 @@ typedef void ( *ReloadMaterialsFn )( IMaterialSystem *, const char * );
 void HookAddSearchPath( IFileSystem *pThis, const char *pPath, const char *pPathID, SearchPathAdd_t addType )
 {
 	( (AddSearchPathFn)s_pHooks->pAddSearchPath )( pThis, pPath, pPathID, addType );
-	char szFull[ CMapMaterialReload::kPathMax ];
-	const char *pFull = ( pPath && pPathID && !V_stricmp( pPathID, "GAME" ) &&
-	                      pThis->RelativePathToFullPath( pPath, "GAME", szFull, sizeof( szFull ) ) ) ? szFull : pPath;
-	s_pHooks->core.OnAddSearchPath( pFull, pPathID, addType == PATH_ADD_TO_HEAD );
+
+	// The path as a file on disk where the filesystem resolves one: the client
+	// has no read slot on the engine filesystem, so managed reads the pak.
+	char szFull[ MAX_PATH ];
+	const char *pFull = ( pPath && pPathID &&
+	                      pThis->RelativePathToFullPath( pPath, pPathID, szFull, sizeof( szFull ) ) ) ? szFull : pPath;
+
+	if ( IManagedRuntimeClient *pRuntime = ManagedRuntimeClient() )
+		pRuntime->MapMaterialSearchPath( pFull, pPathID, addType == PATH_ADD_TO_HEAD ? 1 : 0 );
 }
 
 void HookBeginMapAccess( IFileSystem *pThis )
 {
 	( (MapAccessFn)s_pHooks->pBeginMapAccess )( pThis );
-	s_pHooks->core.OnBeginMapAccess();
+
+	if ( IManagedRuntimeClient *pRuntime = ManagedRuntimeClient() )
+		pRuntime->MapMaterialMapAccess( 1 );
 }
 
 void HookEndMapAccess( IFileSystem *pThis )
 {
 	( (MapAccessFn)s_pHooks->pEndMapAccess )( pThis );
-	s_pHooks->core.OnEndMapAccess();
+
+	if ( IManagedRuntimeClient *pRuntime = ManagedRuntimeClient() )
+		pRuntime->MapMaterialMapAccess( 0 );
 }
 
+// Managed's plan carried out: -1 (or no managed side) is the call unchanged;
+// otherwise each newline-separated name is reloaded alone.
 void HookReloadMaterials( IMaterialSystem *pThis, const char *pSubString )
 {
 	ReloadMaterialsFn pOriginal = (ReloadMaterialsFn)s_pHooks->pReloadMaterials;
-	const int nResult = s_pHooks->core.OnReloadMaterials(
-		pSubString,
-		[ pThis, pOriginal ]( const char *pName ) { pOriginal( pThis, pName ); },
-		[]( const char *pNext, const char *pPrevious, char *pOut, int nOut ) -> int
-		{
-			IManagedRuntimeClient *pRuntime = ManagedRuntimeClient();
-			return pRuntime ? pRuntime->MapMaterialReload( pNext, pPrevious, pOut, nOut ) : -1;
-		},
-		s_pHooks->szNames, sizeof( s_pHooks->szNames ) );
-	if ( pSubString == NULL && nResult >= 0 )
-		Msg( "[SourceSharp] map materials: %d targeted reload(s) instead of ReloadMaterials( NULL )\n", nResult );
+
+	IManagedRuntimeClient *pRuntime = ManagedRuntimeClient();
+	const int nWritten = pRuntime
+		? pRuntime->MapMaterialReloadPlan( pSubString, s_pHooks->szNames, sizeof( s_pHooks->szNames ) )
+		: -1;
+
+	if ( nWritten < 0 || nWritten >= (int)sizeof( s_pHooks->szNames ) )
+	{
+		pOriginal( pThis, pSubString );
+		return;
+	}
+
+	s_pHooks->szNames[ nWritten ] = '\0';
+	for ( char *p = s_pHooks->szNames; *p; )
+	{
+		char *pEnd = strchr( p, '\n' );
+		if ( pEnd )
+			*pEnd = '\0';
+		if ( *p )
+			pOriginal( pThis, p );
+		if ( !pEnd )
+			break;
+		p = pEnd + 1;
+	}
 }
 
 bool Patch( void **pVtbl, int nSlot, void *pNew, void **ppOld )

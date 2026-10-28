@@ -60,8 +60,10 @@ TEST( ClientC8Evicted, TheEmptyPrecacheRegistryLeft )
 	ASSERT_FALSE( world.empty() );
 	EXPECT_TRUE( Read( "game/shared/precache_register.cpp" ).empty() ) << "precache_register.cpp is back in the farm";
 	EXPECT_EQ( std::string::npos, world.find( "CPrecacheRegister::Precache()" ) );
-	// Retention: the precaches that did run still do.
-	EXPECT_NE( std::string::npos, world.find( "W_Precache();" ) );
+	// Retention: the file this reads is the world adapter. (Its W_Precache, the
+	// last precache that ran, left 2026-10-25: the sprite indexes it took had
+	// no reader.)
+	EXPECT_NE( std::string::npos, world.find( "bool C_World::Init( int entnum, int iSerialNum )" ) );
 }
 
 // cdll_util.cpp: no object on the link line imported any of its 54 strong

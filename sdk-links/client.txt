@@ -4,10 +4,10 @@
 # fully ported file's line is deleted. tools/sdk-census decides which list a
 # file belongs in; `make sdk-census` fails on a line nothing uses or a line in
 # the wrong list, and `tools/sdk-census --write` regenerates every list.
-# 461 links here; 539 in all lists (were 539)
+# 450 links here; 539 in all lists (were 539)
 #       3 src/common
-#     177 src/game
-#     281 src/public
+#     173 src/game
+#     274 src/public
 src/common/replay/ireplayscreenshotsystem.h
 src/common/steamcommon.h
 src/common/xbox/xboxstubs.h
@@ -63,11 +63,8 @@ src/game/client/fx_staticline.h
 src/game/client/fx_water.h
 src/game/client/hud.h
 src/game/client/hud_basechat.h
-src/game/client/hud_closecaption.h
-src/game/client/hud_crosshair.h
 src/game/client/hud_element_helper.h
 src/game/client/hud_macros.h
-src/game/client/hud_pdump.h
 src/game/client/hudelement.h
 src/game/client/hudtexturehandle.h
 src/game/client/iclassmap.h
@@ -124,7 +121,6 @@ src/game/client/weapons_resource.h
 src/game/shared/GameEventListener.h
 src/game/shared/IEffects.h
 src/game/shared/Sprite.h
-src/game/shared/achievements_and_stats_interface.h
 src/game/shared/activitylist.h
 src/game/shared/ai_activity.h
 src/game/shared/ammodef.h
@@ -203,7 +199,6 @@ src/public/bone_accessor.h
 src/public/bspfile.h
 src/public/bspflags.h
 src/public/bsptreedata.h
-src/public/captioncompiler.h
 src/public/cdll_int.h
 src/public/client_class.h
 src/public/client_render_handle.h
@@ -323,7 +318,6 @@ src/public/shattersurfacetypes.h
 src/public/simple_physics.h
 src/public/soundchars.h
 src/public/soundflags.h
-src/public/sourcevr/isourcevirtualreality.h
 src/public/steam/isteamcontroller.h
 src/public/steam/isteaminput.h
 src/public/steam/steam_api_common.h
@@ -431,7 +425,6 @@ src/public/vgui/IVguiMatInfoVar.h
 src/public/vgui/KeyCode.h
 src/public/vgui/MouseCode.h
 src/public/vgui/VGUI.h
-src/public/vgui_controls/AnimatingImagePanel.h
 src/public/vgui_controls/BuildGroup.h
 src/public/vgui_controls/Button.h
 src/public/vgui_controls/CheckButton.h
@@ -440,13 +433,9 @@ src/public/vgui_controls/EditablePanel.h
 src/public/vgui_controls/FocusNavGroup.h
 src/public/vgui_controls/Frame.h
 src/public/vgui_controls/Image.h
-src/public/vgui_controls/ImagePanel.h
 src/public/vgui_controls/KeyBindingMap.h
 src/public/vgui_controls/Label.h
 src/public/vgui_controls/ListPanel.h
-src/public/vgui_controls/Menu.h
-src/public/vgui_controls/MenuItem.h
-src/public/vgui_controls/MessageDialog.h
 src/public/vgui_controls/MessageMap.h
 src/public/vgui_controls/PHandle.h
 src/public/vgui_controls/Panel.h

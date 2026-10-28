@@ -1451,7 +1451,16 @@ public sealed class Interpolation
     /// both because for an interpolated entity the two poses are the same value.
     /// </para>
     /// </summary>
-    public int RenderPass(IInterpolationBlocks blocks, float currentTime)
+    /// <param name="blocks">The engine's interpolation list.</param>
+    /// <param name="currentTime">The time to draw at.</param>
+    /// <param name="interpolate">
+    /// <see cref="InterpolationGate"/>'s answer for the frame. When it is
+    /// closed every field is drawn at its newest sample, the value the server
+    /// last sent: stock's <c>BaseInterpolatePart1</c>, which on
+    /// <c>!IsInterpolationEnabled()</c> calls <c>MoveToLastReceivedPosition</c>
+    /// and stops.
+    /// </param>
+    public int RenderPass(IInterpolationBlocks blocks, float currentTime, bool interpolate = true)
     {
         RenderPasses++;
 
@@ -1479,6 +1488,14 @@ public sealed class Interpolation
 
             for (int f = 0; f < InterpolatedFields.Count; f++)
             {
+                if (!interpolate)
+                {
+                    // MoveToLastReceivedPosition: the newest sample, as filed.
+                    if (PeekRing(index, f) is { Count: > 0 } ring)
+                        Write(block, f, ring[0]);
+                    continue;
+                }
+
                 if (!Interpolate(index, f, currentTime, interpolationAmount, out InterpolationSample drawn))
                     continue;
 

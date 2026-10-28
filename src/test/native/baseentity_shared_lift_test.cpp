@@ -852,8 +852,9 @@ TEST( BaseEntitySharedLift, TheCallersNameTheFreeFunctions )
 		// (the client's emit path is C#'s, SourceSharp.Client.Sounds).
 		// The DEFINITION step 4e moved from baseentity_shared.cpp into
 		// entity_shared_statics.cpp, and plan_server_native_v2 T2 on into the
-		// client's utility library (it was #ifdef CLIENT_DLL there).
-		{ "game/client/client_util_library.cpp", "EntityTracer_ComputeStartPosition", 1, true },
+		// client's utility library (it was #ifdef CLIENT_DLL there); 0 since lane
+		// M1-B deleted it there with no importer (2026-10-25).
+		{ "game/client/client_util_library.cpp", "EntityTracer_ComputeStartPosition", 0, true },
 		// The SAME QUESTION c_baseentity.cpp's interpolation walk used to ask
 		// is still asked on the client's live path, by
 		// StandaloneInterpolationAmount() in shell_standalone_client.cpp, which
@@ -1000,10 +1001,12 @@ TEST( BaseEntitySharedLift, EachFreeFunctionIsDefinedWhereItWasSaidToBe )
 
 		if ( kLifted[ i ].eHome == Lifted_t::kInClientUtilLibrary )
 		{
-			EXPECT_TRUE( DefinedFree( ClientUtilLibrarySource(), kLifted[ i ].pszFree ) )
-				<< kLifted[ i ].pszFree << " is not defined at namespace scope in "
-				<< "game/client/client_util_library.cpp, where plan_server_native_v2 "
-				<< "T2 moved it out of the shared entity_shared_statics.cpp.";
+			// Moved there by plan_server_native_v2 T2 and deleted there by lane
+			// M1-B (2026-10-25): no object on client.so's link edge imported it.
+			ASSERT_FALSE( ClientUtilLibrarySource().empty() );
+			EXPECT_FALSE( DefinedFree( ClientUtilLibrarySource(), kLifted[ i ].pszFree ) )
+				<< kLifted[ i ].pszFree << " is defined in "
+				<< "game/client/client_util_library.cpp again, with no importer.";
 			EXPECT_FALSE( DefinedFree( StaticsSource(), kLifted[ i ].pszFree ) )
 				<< kLifted[ i ].pszFree << " is defined in the shared "
 				<< "entity_shared_statics.cpp again, which server.so compiles too.";

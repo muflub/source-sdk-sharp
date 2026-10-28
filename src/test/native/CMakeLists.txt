@@ -449,15 +449,6 @@ ss_cpptest(entity_slots_test
     INCLUDES sourcesharp/host
     SOURCES sourcesharp/test/entity_slots_test.cpp)
 
-# When a bullet carries on through glass. Header-only, and here because the
-# inline version of this rule was a remote-triggerable segfault: it guarded on
-# one expression and dereferenced another, and shooting the skylight on
-# dm_lockdown killed the server every time. The rule now takes a CLASSNAME, so
-# "nothing could name what was hit" is a value with an answer rather than a
-# pointer nobody checked.
-ss_cpptest(bullet_glass_test
-    SOURCES sourcesharp/test/bullet_glass_test.cpp)
-
 # One spelling of "is this solid" in the shooting path's trigger sweep
 # (shot_path_solidity_test.cpp). shell_ai_orphans.cpp's CTriggerTraceEnum asked
 # CBaseEntity::IsSolid() for an SDK entity and ::IsSolid( collideable ) for
@@ -789,10 +780,6 @@ ss_cpptest(standalone_collision_rules_test
 # PlayerShadowStress since plan_physics_bones_native_zero 2.3, and
 # PhysicsObjectStressTests carries all fourteen of the gtest's cases.
 
-# plan_map_load P1: the spawn's targeted material reload, engine-free.
-ss_cpptest(map_material_reload_test
-    SOURCES sourcesharp/test/map_material_reload_test.cpp)
-
 # AND THE WALK WAS NEVER INSTANTIATED -- plan_shim.md §5 3f, lane 3f.
 # `collision_rules_recheck.h` is gone. Two live TUs INCLUDED it and neither ever
 # called it: physics_shared.cpp writes the loop out by hand at
@@ -924,7 +911,7 @@ ss_cpptest(physics_bridge_refusal_test
 # empty, so every predicted muzzle flash, tracer, impact and decal was thrown
 # away before its effect function ran. The server's copy arrives a round trip
 # later, which is why it looked like latency rather than a bug. The rule is
-# three comparisons over slot numbers; header-only, no engine.
+# two comparisons over slot numbers; header-only, no engine.
 ss_cpptest(local_recipient_test
     SOURCES sourcesharp/test/local_recipient_test.cpp)
 
@@ -1199,22 +1186,6 @@ ss_cpptest(jet_lifetime_test
 # Header-only and engine-free: arithmetic over an int.
 ss_cpptest(particle_follow_mask_test
     SOURCES sourcesharp/test/particle_follow_mask_test.cpp)
-
-# Whether a penetrating pair's OWNER may solve it (self_penetration_rule.h).
-# CCollisionEvent::ShouldSolvePenetration decided with `if ( pGameData0 ==
-# pGameData1 )` -- "two parts of one entity" -- and then reinterpret_cast that
-# pointer to a C_BaseEntity and made a virtual call on it. Right for every
-# object stock ever put in the world and wrong the moment something has NO
-# owner, because TWO NULLS COMPARE EQUAL. A standalone ragdoll's objects carry
-# no game data and cannot, and RagdollActivate flags every one of them as part
-# of a ragdoll, so the first one to overlap itself was a SIGSEGV out of
-# PhysicsSimulate. What is pinned is the case a test written from the fixed
-# code would not think to write -- a pair belonging to nothing -- plus the
-# exhaustive walk, because the claim is that exactly ONE of the eight inputs
-# answers true and an `||` for an `&&` keeps every corner case green.
-# Header-only and engine-free: three booleans in, one out.
-ss_cpptest(self_penetration_rule_test
-    SOURCES sourcesharp/test/self_penetration_rule_test.cpp)
 
 # WHERE A THIRD-PERSON CAMERA SITS IS MANAGED, and its 18 gtests moved with it.
 #
@@ -4217,16 +4188,14 @@ ss_cpptest(server_tus_evicted_test
 # plan_entity.md Phase 4 EXIT. The exit's unit of work is the CYCLE in the stock
 # link graph -- the set of stock TUs that must leave server_csharp.vpc in one
 # commit because each of them needs a symbol another of them defines. Two
-# relocations made that cycle smaller (31 TUs / 49,118 lines -> 27 / 47,191),
-# and these two files pin them. TEXT ONLY: the subject is which file holds which
-# definition and which vpcs compile it, so there is nothing here to link.
+# relocations made that cycle smaller (31 TUs / 49,118 lines -> 27 / 47,191).
+# The second, the shared-random family, was deleted with no importer (lane
+# M1-B, 2026-10-25) and its test with it. TEXT ONLY: the subject is which file
+# holds which definition and which vpcs compile it, so there is nothing here to
+# link.
 ss_cpptest(admin_command_move_test
     LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
     SOURCES sourcesharp/test/admin_command_move_test.cpp)
-
-ss_cpptest(shared_random_move_test
-    LINUX_ONLY "reads the Linux build's graph (cmake_graph.h: compile_commands.json and build.ninja of the gcc/clang build) and asserts on its command lines"
-    SOURCES sourcesharp/test/shared_random_move_test.cpp)
 
 # (entity_base_cluster_test.cpp): SCC 11 cluster A -- the entity base itself,
 # and the standing rule that every removal here names what the base was DOING.

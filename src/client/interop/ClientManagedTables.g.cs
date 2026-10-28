@@ -53,6 +53,30 @@ public unsafe struct ManagedRuntimeClientTable
     // 8: int32_t MapMaterialReload( const char *pszNextBsp, const char *pszPreviousBsp, char *pOut, int32_t nOutSize )
     [SlotHash(0x994fbbfe)]
     public delegate* unmanaged<void*, byte*, byte*, byte*, int, int> MapMaterialReload;
+
+    // 9: void MapMaterialSearchPath( const char *pszPath, const char *pszPathID, int32_t bAddToHead )
+    [SlotHash(0x21cbcf2d)]
+    public delegate* unmanaged<void*, byte*, byte*, int, void> MapMaterialSearchPath;
+
+    // 10: void MapMaterialMapAccess( int32_t bOpen )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> MapMaterialMapAccess;
+
+    // 11: int32_t MapMaterialReloadPlan( const char *pszSubString, char *pOut, int32_t nOutSize )
+    [SlotHash(0xfcfc634a)]
+    public delegate* unmanaged<void*, byte*, byte*, int, int> MapMaterialReloadPlan;
+
+    // 12: int32_t WorldDataChanged( const unsigned char *pBlob, int32_t nBytes, int32_t nUpdateType, float *pOut, int32_t nOut )
+    [SlotHash(0x0fd0a53e)]
+    public delegate* unmanaged<void*, byte*, int, int, void*, int, int> WorldDataChanged;
+
+    // 13: void LevelInitPreEntity( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> LevelInitPreEntity;
+
+    // 14: void PostInit( int32_t nAdapterMaxDxLevel )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> PostInit;
 }
 
 /// <summary>The table managed writes for <c>IManagedCommandsClient</c> (<c>SSManagedCommandsClientTable</c> native-side).</summary>

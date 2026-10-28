@@ -1,2 +1,10 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+explicit CClientEntityCounts( const CSourceSharpSlotTable &table )	SLOT-HELP	the counters' constructor: zeros and the table they read
+[CClientEntityCounts] void OnBound( int nEntry )	SLOT-HELP	stock CClientEntityList::OnAddEntity's bookkeeping (m_iNumServerEnts, m_iMaxUsedServerIndex) for a bind the table accepted; the count slots answer it (client_slot_table_test)
+[CClientEntityCounts] void OnUnbound( int nEntry )	SLOT-HELP	stock OnRemoveEntity's bookkeeping, the highest entry re-read from the table when it was the one released (client_slot_table_test)
+[CClientEntityCounts] int HighestEntityIndex( void ) const	SLOT-HELP	GetHighestEntityIndex's stored number
+[CClientEntityCounts] int NumberOfEntities( bool bIncludeNonNetworkable ) const	SLOT-HELP	NumberOfEntities' stored counts, split as the engine's argument asks
+[CClientEntityCounts] void SetMaxEntities( int nMaxEnts )	SLOT-HELP	SetMaxEntities' store
+[CClientEntityCounts] int  MaxEntities( void ) const	SLOT-HELP	GetMaxEntities' stored number
+[CClientEntityCounts] void RecomputeHighest( void )	SLOT-HELP	stock CClientEntityList::RecomputeHighestEntityUsed: the walk back from MAX_EDICTS to the first bound entry, over the table

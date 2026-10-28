@@ -26,14 +26,14 @@ Every count below was produced by walking the tree.
 
 | | reason | example in the tree |
 |---|---|---|
-| a | a vtable the engine or VPhysics calls through | `CStandaloneEntity`, `CCollisionEvent`, `IPartitionEnumerator` |
-| b | an interface resolved by name at load | `ServerGameDLL012`, `ServerGameClients004`, `PlayerInfoManager002` |
+| a | a vtable the engine or VPhysics calls through | 33,989 |
+| b | an interface resolved by name at load | 15,545 |
 | c | static-init registration | `EXPOSE_INTERFACE`, `DECLARE_HUDELEMENT`, `CON_COMMAND`, `IGameSystem` |
-| d | a layout the engine reads at fixed offsets | the engine block, `SourceSharpEntitySlot_t`, `CPlayerState` |
+| d | a layout the engine reads at fixed offsets | 9,462 |
 | e | a synchronous mid-step answer | `ShouldCollide`, `ShouldSolvePenetration`, `IMotionEvent::Simulate` |
 | f | a bit-level wire codec | SendTable proxies, the user-message writes, the client's bitbuf members |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | `bone_setup.cpp`, `collisionutils.cpp`, the sprite/rope mesh builders |
-| h | the CoreCLR host and bootstrap dispatch | `host/sourcesharp.cpp` |
+| h | the CoreCLR host and bootstrap dispatch | 4,724 |
 | **x** | **no letter fits** — native only until a named native caller goes | the nine below |
 
 "It was convenient", "it runs every frame" and "it would be slow in C#" are not
@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 34,256 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,830 |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 33,888 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,377 |
 | c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,686 |
-| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,470 |
+| d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,321 |
 | e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 2,449 |
 | f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,160 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 |  |  |  | 15 | 5,889 |
-| h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 5,009 |
+| h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 4,724 |
 | x | NO LETTER FITS | 7 | 1 | 2 |  | 2 |  | 18 | 4,363 |
-|  | **total** | **75** | **33** | **73** | **2** | **2** | **1** | **215** | **84,112** |
+|  | **total** | **75** | **33** | **73** | **2** | **2** | **1** | **215** | **82,857** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -226,6 +226,23 @@ Then clientshadowmgr.cpp, the last Valve TU, left client.so (C7 shadow manager S
 Then the standalone teleport stopped sweeping triggers (2026-10-20, the walk at 44b552294): (a) 34,533 -> 34,546 (CStandaloneEntity::TeleportTo and the funnel's flag in shell_standalone_base.cpp/shell_standalone.h) and (d) 9,496 -> 9,487 (SourceSharp_EntityTeleport's two setter calls and their comment, in shell_entityapi.cpp).
 
 Then the serialised ABI cleanup ran (2026-10-20, measured by the walk at the landing on main c5c8df3d2): the dead slots' shim bodies and hand-kept virtuals went, (a) 34,546 -> 34,256, (b) 15,845 -> 15,830, (c) 3,694 -> 3,686, (d) 9,487 -> 9,469; no file left or changed its letter; 84,111 lines in the table.
+
+Then lane M1-D moved the client's remaining decisions in its files to C# and deleted what no object imported (2026-10-25, measured by the walk on its lane): (a) 34,256 -> 34,155, (b) 15,830 -> 15,662, (d) 9,470 -> 9,329; no file changed its letter; 83,702 lines in the table.
+Then lane M1-B deleted the client code nothing imported (2026-10-25, nm -u over client.so's link edge): (h) 5,009 -> 4,745 is client_util_library.cpp's vision-flag family, shared-random family, CheckEntityVelocity, CheckEmitReasonablePhysicsSpew, EntityTracer_ComputeStartPosition, UTIL_ParticleTracer and g_MakingDevShots (-264); (d) 9,470 -> 9,462 is shell_player_orphans.cpp's C_BasePlayer::GetLocalPlayer; (b) 15,830 -> 15,828 is shell_clientdll.cpp's two calls into them; no file left or changed its letter; 83,838 lines in the table.
+
+Then lane M1-B's second pass (2026-10-25): the stand-ins and dead branches whose importers had gone. (a) 34,256 -> 34,086 is shell_hud_framework.cpp's icons, render groups, progress bars, CHudTexture and caption stubs, FindElement, OnRestore, Think and InitColors; (b) 15,828 -> 15,584 is shell_clientdll.cpp's VR stand-in (absence row 9), GetMaterialIndex, GetMaterialNameFromIndex, PrecacheParticleSystem, IsEngineThreaded and the crosshair and caption lookups for elements never created, shell_client.cpp's two game-file reads (their slots left in the ABI cleanup), shell_clientdll_gameclientexports.cpp's achievements forwards to a pointer nothing set, and tier_connect.cpp's client ConnectTier3Libraries pair, which only the VR stand-in named; (h) 4,745 -> 4,724 is client_util_library.cpp's two econ strings; no file left or changed its letter; 83,403 lines in the table.
+
+Then lane M1-B moved two decisions out of shell_clientdll.cpp (2026-10-25): the level's cl_predict switch (LevelPrediction) and the bicubic lightmap default (LightmapBicubicDefault) are managed's, reached through two appended IManagedRuntimeClient rows; (b) 15,584 -> 15,562; 83,381 lines in the table.
+
+Then lane M1-B moved the third-person camera's sweep out of shell_client.cpp (2026-10-25): the hull size, the mask and whether to sweep (cam_collision) are ThirdPersonCamera's PLACE answer, three fields appended to SourceSharpThirdPersonCamera; (b) 15,562 -> 15,563 (the collision value handed over, the constants gone); 83,382 lines in the table.
+
+Then lane M1-B moved the weapon-selection binds out of shell_hud.cpp (2026-10-25): invnext, invprev, lastinv and slot1..slot6 are SourceSharp.Client's WeaponSelection [ConCommand]s over an IWeaponSelectionCommand slice of the engine client; (a) 34,086 -> 33,989; 83,285 lines in the table.
+
+Then lane M1-B moved the titles.txt '#' rule out of shell_hud.cpp into HudMessages.TitleName and deleted shell_client.cpp's GetAmmoDef, which nothing imported (2026-10-25): (b) 15,563 -> 15,564 (the note on the write-only ammo table); 83,286 lines in the table.
+
+Then lane M1-B deleted shell_clientdll.cpp's empty SimulateEntities and its call, and shell_clientsystems.cpp's SourceSharp_ClientSystemCount and SourceSharp_ClientSystemNameAt, which nothing read (2026-10-25): (b) 15,564 -> 15,545; 83,267 lines in the table.
+
+Then lanes M1-D and M1-B landed together (2026-10-25, measured by the walk at the landing on the vendor branch): (a) 34,155 -> 33,888, (b) 15,662 -> 15,377, (d) 9,329 -> 9,321; 82,857 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

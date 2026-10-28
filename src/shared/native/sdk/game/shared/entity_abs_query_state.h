@@ -97,29 +97,13 @@ inline bool &EntityAbs_QueriesValidRef()
 //-----------------------------------------------------------------------------
 // Whether CalcAbsolutePosition may recompute a coordinate frame right now.
 //
-// Client only. true at rest; PushEnableAbsRecomputations / Pop bracket a block
-// with it, and the eight-deep save stack that Push/Pop use is a file-static in
-// c_baseentity.cpp -- it is not a class member and it does not move.
+// Client only. true at rest; the frame stages set it (stock's Push/Pop
+// bracket has no caller here and left).
 //-----------------------------------------------------------------------------
 inline bool s_bAbsRecomputationEnabled = true;
 inline bool &EntityAbs_RecomputationEnabledRef()
 {
 	return s_bAbsRecomputationEnabled;
-}
-
-//-----------------------------------------------------------------------------
-// Whether entity interpolation runs this frame.
-//
-// Client only. Recomputed at the top of every
-// C_BaseEntity::InterpolateServerEntities from cl_interpolate, then forced
-// false for timedemo playback, for a paused engine, and when the net channel
-// has heard nothing for half a second. true at rest so that the very first
-// frame, before that function has ever run, behaves as it did.
-//-----------------------------------------------------------------------------
-inline bool s_bInterpolate = true;
-inline bool &EntityInterp_EnabledRef()
-{
-	return s_bInterpolate;
 }
 
 //-----------------------------------------------------------------------------
@@ -169,13 +153,9 @@ inline bool &EntityInterp_EnabledRef()
 void EntityAbs_SetQueriesValid( bool bValid );
 bool EntityAbs_AreQueriesValid();
 
-// Push/Pop bracket a block of code; the eight-deep save stack they use is a
-// file-static in c_baseentity.cpp and does not move. Overflow and underflow
-// both Assert and change nothing, which is what they did as members.
-void EntityAbs_PushEnableRecomputations( bool bEnable );
-void EntityAbs_PopEnableRecomputations();
-
-// Frame-level only -- Asserts that no Push is outstanding.
+// Stock's Push/Pop bracket left 2026-10-25 with its eight-deep save stack:
+// nothing on the client link edge imported either.
+// Frame-level.
 void EntityAbs_SetRecomputationsEnabled( bool bEnable );
 bool EntityAbs_AreRecomputationsEnabled();
 

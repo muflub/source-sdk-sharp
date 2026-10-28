@@ -125,7 +125,7 @@ static void *const s_BaseFileSystemSlots[] = {
 static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 7 };
 
 //-----------------------------------------------------------------------------
-// EngineClient: 25 forwarder(s) over IVEngineClient.
+// EngineClient: 27 forwarder(s) over IVEngineClient.
 //-----------------------------------------------------------------------------
 // void IVEngineClient013::GetScreenSize( int &, int & )
 static void SSFwd_EngineClient_GetScreenSize( IVEngineClient *self, int & a0, int & a1 ) { self->GetScreenSize( a0, a1 ); }
@@ -179,6 +179,10 @@ static int SSFwd_EngineClient_GetLocalPlayer( IVEngineClient *self ) { return se
 static void * SSFwd_EngineClient_SaveAllocMemory( IVEngineClient *self, size_t a0, size_t a1 ) { return self->SaveAllocMemory( a0, a1 ); }
 // void IVEngineClient013::SaveFreeMemory( void * )
 static void SSFwd_EngineClient_SaveFreeMemory( IVEngineClient *self, void * a0 ) { self->SaveFreeMemory( a0 ); }
+// bool IVEngineClient013::IsPlayingDemo( void )
+static bool SSFwd_EngineClient_IsPlayingDemo( IVEngineClient *self ) { return self->IsPlayingDemo(); }
+// bool IVEngineClient013::IsPlayingTimeDemo( void )
+static bool SSFwd_EngineClient_IsPlayingTimeDemo( IVEngineClient *self ) { return self->IsPlayingTimeDemo(); }
 
 static void *const s_EngineClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineClient_GetScreenSize ),
@@ -210,9 +214,11 @@ static void *const s_EngineClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineClient_GetLocalPlayer ),
 	reinterpret_cast< void * >( &SSFwd_EngineClient_SaveAllocMemory ),
 	reinterpret_cast< void * >( &SSFwd_EngineClient_SaveFreeMemory ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_IsPlayingDemo ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_IsPlayingTimeDemo ),
 };
 
-static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 25 };
+static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 27 };
 
 //-----------------------------------------------------------------------------
 // UniformRandomStream: 2 forwarder(s) over IUniformRandomStream.

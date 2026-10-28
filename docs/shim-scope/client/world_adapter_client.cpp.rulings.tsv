@@ -3,3 +3,48 @@
 bool SourceSharp_IsTheWorld( const IHandleEntity *pHandleEntity )	LIVE-API	imported by shell_impact_effects.o and shell_movement.o (nm -u over client.so objects, 2026-10-11, C6): the shared rule (world_subject.h) applied to the bound world, a pointer compare
 void ConnectHaptics( CreateInterfaceFn )	SLOT-HELP	Windows only: what CShellClientDLL::Init's (IBaseClientDLL slot) stock haptics connect comes to without the Novint library the SDK does not ship; empty, so haptics stays NULL as on Linux
 void DisconnectHaptics()	SLOT-HELP	Windows only: CShellClientDLL::Shutdown's (IBaseClientDLL slot) matching disconnect; nothing was connected
+CWorldClientCollideable::CWorldClientCollideable( C_World *pOuter )	LAYOUT	the world's ICollideable the engine's trace reads: origin, identity transform, SOLID_BSP (a debug engine asserts the world unrotated)
+IHandleEntity *CWorldClientCollideable::GetEntityHandle()	SLOT	ICollideable slot the engine's trace calls: the owner, whose IClientUnknown lands in trace_t::m_pEnt
+IClientUnknown *CWorldClientCollideable::GetIClientUnknown()	SLOT	ICollideable slot: the owner
+int CWorldClientCollideable::GetCollisionModelIndex()	SLOT	ICollideable slot: brush model 1, the level
+const model_t *CWorldClientCollideable::GetCollisionModel()	SLOT	ICollideable slot: modelinfo's model for that index
+void ClientWorldFactoryInit()	LIVE-API	imported by shell_clientdll.o (nm -u, 2026-10-25): the process-lifetime world object, made at DLL init as stock's
+void ClientWorldFactoryShutdown()	LIVE-API	imported by shell_clientdll.o (nm -u, 2026-10-25): the world object freed at DLL shutdown
+IClientNetworkable *SourceSharp_ClientWorldFactory( int entnum, int serialNum )	LIVE-API	imported by shell_world_nettable_client.o (nm -u, 2026-10-25): the 'CWorld' ClientClass's create function the engine calls for entity 0; the singleton bound to the level
+ClientClass *C_World::GetClientClass()	SLOT	IClientNetworkable slot: the ClientClass built from managed's declaration
+int SourceSharp_WorldBlobOffset()	LIVE-API	imported by shell_world_nettable_client.o (nm -u, 2026-10-25): where the blob sits in a C_World, sizeof rounded to 16 (the RecvProps' base)
+static void *AllocClientWorld( size_t nBytes )	LAYOUT	the world's allocation: the object and the declared blob past it, zeroed
+void *C_World::operator new( size_t stAllocateBlock )	LAYOUT	the allocation the blob layout needs
+void *C_World::operator new( size_t stAllocateBlock, int nBlockUse,	LAYOUT	the debug form of the same allocation
+void C_World::operator delete( void *pMem )	LAYOUT	its matching free
+void C_World::operator delete( void *pMem, int nBlockUse, const char *pFileName, int nLine )	LAYOUT	the placement form's matching free
+unsigned char *C_World::DataBlob()	LAYOUT	the blob the engine's RecvProps decode into
+int C_World::BlobBytes() const	LAYOUT	its declared size
+bool C_World::ResolveFields()	BOUNDARY	the field offsets asked of managed once (and again after a managed reload), through world_net_sync.cpp
+const char *C_World::GetDetailSpriteMaterial()	BOUNDARY	a read of the blob's detail-sprite string at managed's offset, for SourceSharp_WorldDetailSpriteMaterial
+Vector C_World::GetWorldMins()	LIVE-API	imported by shell_material_proxy_client.o and shell_precipitation_client.o (nm -u, 2026-10-25): a read of the blob's world_mins
+Vector C_World::GetWorldMaxs()	LIVE-API	imported by shell_material_proxy_client.o and shell_precipitation_client.o (nm -u, 2026-10-25): a read of the blob's world_maxs
+C_World::C_World( void )	SLOT-HELP	the world's constructor: an invalid handle until a level binds one, the collideable's owner set
+C_World::~C_World( void )	SLOT	IClientNetworkable's destructor: the binding a DLL shutdown with a level loaded never released
+void C_World::PreDataUpdate( DataUpdateType_t updateType )	SLOT	IClientNetworkable slot: stock's one-entry OnDataChanged deferral (C_BaseEntity::PreDataUpdate's AddDataChangeEvent), OnPreDataChanged once per deferral, a create overriding a datatable change
+void C_World::DeliverPendingDataChanged()	LIVE-API	imported by shell_clientdll.o (nm -u, 2026-10-25): the owed OnDataChanged delivered once a frame after the net update, the ref cleared first as stock's queue did
+bool C_World::Init( int entnum, int iSerialNum )	SLOT-HELP	the factory's bind: refuses a second level's create while one is bound, writes the server's handle, takes the collideable's box from the level model
+void C_World::Release()	SLOT	IClientNetworkable::Release: the level's handle unbound and the deferral forgotten; the singleton is not freed (stock's C_World::Release)
+void C_World::OnDataChanged( DataUpdateType_t updateType )	SLOT	IClientNetworkable slot: the blob handed to IManagedRuntimeClient (WorldArrival decides), its actions carried out (SwitchMode, SetOcclusionParameters, SetLevelScreenFadeRange), then the report
+void C_World::ReportIfChanged()	INSTRUMENT	prints the ten values when the blob's bytes differ from the last print
+const Vector &C_World::GetAbsOrigin( void ) const	SLOT	IClientEntity slot: the origin
+const QAngle &C_World::GetAbsAngles( void ) const	SLOT	IClientEntity slot: zero angles
+const Vector &C_World::GetRenderOrigin( void )	SLOT	IClientRenderable slot: the origin
+const QAngle &C_World::GetRenderAngles( void )	SLOT	IClientRenderable slot: zero angles
+const matrix3x4_t &C_World::RenderableToWorldTransform()	SLOT	IClientRenderable slot: the identity
+void C_World::GetRenderBounds( Vector &mins, Vector &maxs )	SLOT	IClientRenderable slot: the level model's box
+void C_World::GetRenderBoundsWorldspace( Vector &mins, Vector &maxs )	SLOT	IClientRenderable slot: the same box, the world's frame being the level's
+void C_World::GetShadowRenderBounds( Vector &mins, Vector &maxs, ShadowType_t shadowType )	SLOT	IClientRenderable slot: the same box
+void C_World::GetColorModulation( float *color )	SLOT	IClientRenderable slot: white
+C_World *GetClientWorldEntity()	LIVE-API	imported by shell_clientdll.o, shell_material_proxy_client.o, shell_precipitation_client.o (nm -u, 2026-10-25): the world object
+bool SourceSharp_ClientWorldLevelShutdown( void )	LIVE-API	imported by shell_clientdll.o (nm -u, 2026-10-25): the world's per-level Release, once, when bound
+CBaseHandle SourceSharp_ClientWorldHandle( void )	LIVE-API	imported by shell_cliententitylist.o (nm -u, 2026-10-25): the bound world's handle, invalid between levels
+IClientUnknown *SourceSharp_ClientWorldFromIndex( int nEntry )	LIVE-API	imported by shell_cliententitylist.o (nm -u, 2026-10-25): the entity list's world arm by index
+IClientUnknown *SourceSharp_ClientWorldFromHandle( const CBaseHandle &hEnt )	LIVE-API	imported by shell_cliententitylist.o (nm -u, 2026-10-25): the entity list's world arm by handle, serial compared
+const char *SourceSharp_WorldDetailSpriteMaterial()	LIVE-API	imported by shell_detail_props.o (nm -u, 2026-10-25): the blob's detail-sprite material, NULL for no world or an empty string
+void *GetClientWorldRenderable()	LIVE-API	imported by shell_view_executor_client.o (nm -u, 2026-10-25): the world's renderable, the token screen-space materials bind proxies to

@@ -4,12 +4,12 @@
 # fully ported file's line is deleted. tools/sdk-census decides which list a
 # file belongs in; `make sdk-census` fails on a line nothing uses or a line in
 # the wrong list, and `tools/sdk-census --write` regenerates every list.
-# 68 links here; 539 in all lists (were 539)
+# 79 links here; 539 in all lists (were 539)
 #       1 src/common
-#       5 src/game
+#       9 src/game
 #       8 src/lib
 #      12 src/mathlib
-#      25 src/public
+#      32 src/public
 #      17 src/tier1
 ## src/lib/public/linux64/bitmap.a: client_no_bitmap_vtf_test runs nm over it (NoNameEitherArchiveDefinesIsInClientSo)
 ## src/lib/public/linux64/tier2.a: client_no_tier2_test runs nm over it (EveryTier2NameInEachLibraryIsOneOfOurObjects)
@@ -21,6 +21,10 @@
 ## src/public/vphysics/object_hash.h: tools/client-novalve-census compiles it: a root in docs/client-fork-roots.txt
 src/common/qlimits.h
 src/game/client/c_te_legacytempents.cpp
+src/game/client/hud_closecaption.h
+src/game/client/hud_crosshair.h
+src/game/client/hud_pdump.h
+src/game/shared/achievements_and_stats_interface.h
 src/game/shared/effect_dispatch_data.cpp
 src/game/shared/entitydatainstantiator.h
 src/game/shared/interval.h
@@ -46,6 +50,7 @@ src/mathlib/sseconst.cpp
 src/mathlib/ssenoise.cpp
 src/mathlib/vmatrix.cpp
 src/public/bone_setup.h
+src/public/captioncompiler.h
 src/public/collisionutils.h
 src/public/dt_send.h
 src/public/game/server/iplayerinfo.h
@@ -53,6 +58,7 @@ src/public/ivoiceserver.h
 src/public/mathlib/amd3dx.h
 src/public/mathlib/ssequaternion.h
 src/public/server_class.h
+src/public/sourcevr/isourcevirtualreality.h
 src/public/steam/isteamapps.h
 src/public/steam/isteamfriends.h
 src/public/steam/isteamuser.h
@@ -67,6 +73,11 @@ src/public/tier1/utlhashtable.h
 src/public/tier1/utlmultilist.h
 src/public/tier2/beamsegdraw.h
 src/public/toolframework/iserverenginetools.h
+src/public/vgui_controls/AnimatingImagePanel.h
+src/public/vgui_controls/ImagePanel.h
+src/public/vgui_controls/Menu.h
+src/public/vgui_controls/MenuItem.h
+src/public/vgui_controls/MessageDialog.h
 src/public/vphysics/object_hash.h
 src/public/vphysics/vehicles.h
 src/public/vstdlib/iprocessutils.h

@@ -1,2 +1,5 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+static void SourceSharp_FatalClientInitFailure(	HOST	a failed load reported through managed_init_failure.h's format and made fatal (Error), since a false Init is a stack overflow on this engine
+IClientRuntimeAdapter *LoadManagedRuntime(	HOST	brings the CLR up through the shared load sequence and hands back the adapter
+void UnloadManagedRuntime(	HOST	releases the loader's adapter

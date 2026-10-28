@@ -255,8 +255,8 @@ const std::string &TraceRulesCs() { static std::string s = CodeOnly( Read( "../s
 // because a move that leaves a copy behind passes a repointed read and links
 // to the copy.
 const std::string &UtilSharedLib()   { static std::string s = CodeOnly( Read( "../sourcesharp/game/shared/util_shared_library.cpp" ) ); return s; }
-// The shared-random family's home since plan_server_native_v2 T2 (2026-10-18):
-// it was #ifdef CLIENT_DLL in util_shared_library.cpp.
+// The shared-random family's last home (plan_server_native_v2 T2, 2026-10-18),
+// where lane M1-B deleted it with no importer (2026-10-25).
 const std::string &ClientUtilLib()   { static std::string s = CodeOnly( Read( "../sourcesharp/game/client/client_util_library.cpp" ) ); return s; }
 const std::string &BaseEntSharedH() { static std::string s = CodeOnly( Read( "shared/baseentity_shared.h" ) ); return s; }
 // plan_entity.md step 4e: EntityPrediction_SetSeedFromCommand's BODY left
@@ -729,48 +729,28 @@ TEST( PredictionSeed, TheSeedHasExactlyOneWayIn )
 		<< "the client player reaches the class-scope setter again.";
 }
 
-TEST( PredictionSeed, TheSharedRandomFunctionsAskTheHeaderAndNotTheClass )
+TEST( PredictionSeed, TheSharedRandomFamilyLeftWithNoImporter )
 {
-	// REPOINTED, NOT RELAXED. The four SharedRandom* bodies and the file-static
-	// hash they share moved to sourcesharp/game/shared/util_shared_library.cpp
-	// at the Phase 4 exit; what this fact asserts about them is unchanged, and
-	// it gained the assertion a repoint would otherwise have lost -- that the
-	// bodies are not ALSO still at the old address.
-	//
-	// REPOINTED AGAIN by plan_server_native_v2 T2 (2026-10-18): the bodies were
-	// #ifdef CLIENT_DLL there and moved on to the client's utility library. The
-	// address they left is asserted empty of them below the counts.
+	// The four SharedRandom* bodies and the file-static hash they shared moved
+	// from util_shared.cpp to util_shared_library.cpp (Phase 4 exit), then to
+	// the client's utility library (plan_server_native_v2 T2), and were DELETED
+	// from there by lane M1-B (2026-10-25): nm -u over client.so's link edge
+	// found no importer of any of the four. A body that comes back is a second
+	// seed hash nothing pins against stock; this fact refuses it at all three
+	// addresses. The library is proved non-empty first, so an absence below is
+	// not a read of nothing.
 	const std::string &strLib = ClientUtilLib();
 	ASSERT_FALSE( strLib.empty() );
 	ASSERT_FALSE( UtilSharedLib().empty() );
+	EXPECT_NE( CountOf( strLib, "char *VarArgs(" ), 0 )
+		<< "the client utility library is not the file this fact reads";
+	EXPECT_EQ( CountOf( strLib, "EntityPrediction_Seed()" ), 0 )
+		<< "the shared-random family is back in the client utility library";
 	EXPECT_EQ( CountOf( UtilSharedLib(), "EntityPrediction_Seed()" ), 0 )
-		<< "the shared util_shared_library.cpp asks the prediction seed again; "
-		   "the shared-random family is the client's";
-
-	// Four functions, two asks each: the assert and the hash.
-	EXPECT_EQ( CountOf( strLib, "EntityPrediction_Seed()" ), 8 );
-	EXPECT_EQ( CountOf( strLib, "CBaseEntity::GetPredictionRandomSeed" ), 0 )
-		<< "the shared-random family is reading the seed through the class "
-		   "again, which is a static member of a name that is about to be an "
-		   "alias";
-
-	// THE OLD ADDRESS IS GONE, which is the strongest form this half can take.
-	// plan_shim.md Phase 2c, lane 2-utilshared, deleted
-	// game/shared/util_shared.cpp: 1,031 of its lines had zero importers on
-	// either link line, and the two definitions that did -- `hl2_episodic` and
-	// `UTIL_BloodDrips` -- moved into util_shared_library.cpp, the same file
-	// this fact reads above. Both vpc rows went with it.
-	//
-	// The claim is unchanged ("the bodies are not ALSO still at the old
-	// address") and it is now unconditional: there is no old address. Read()
-	// answers empty for a path that is not there, and `strLib` above is proved
-	// non-empty in the same fact, so this cannot pass by reading nothing twice.
+		<< "the shared util_shared_library.cpp asks the prediction seed again";
 	EXPECT_TRUE( UtilShared().empty() )
 		<< "game/shared/util_shared.cpp is back. It is where SeedFileLineHash "
-		   "and the four SharedRandom* bodies were, and a second copy of them "
-		   "is a second seed hash: the linker answers stock's callers with "
-		   "whichever it picked and the two sides of prediction disagree "
-		   "without anything failing to build.";
+		   "and the four SharedRandom* bodies were.";
 }
 
 TEST( SharedTraceFilters, TheBodyExtractorsReallyExtract )
