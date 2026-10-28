@@ -11,7 +11,9 @@
 // warms the table up again.
 
 // Declared as plain C here so client.dll exports none of these; other files'
-// imports bind to them through SS_BIND_IMPORT below.
+// imports bind to them through SS_BIND_IMPORT below. vstdlib.h defines the
+// macro, so it comes first: included after the #define, it redefines it.
+#include "vstdlib/vstdlib.h"
 #if defined( _MSC_VER )
 #undef VSTDLIB_INTERFACE
 #define VSTDLIB_INTERFACE extern "C"
