@@ -46,6 +46,7 @@ public sealed class WeaponPickup : PickupItem
     private readonly WeaponCatalog _weapons;
 
     public WeaponPickup(Arsenal arsenal, IEngineWorldQuery world, WeaponCatalog? weapons = null)
+        : base(world)
     {
         _arsenal = arsenal;
         _world = world;
@@ -61,6 +62,24 @@ public sealed class WeaponPickup : PickupItem
     /// where the guns stay gone is a deathmatch decided by spawn order.
     /// </summary>
     protected override float RespawnDelay => 20f;
+
+    /// <summary>CBaseCombatWeapon::Spawn: UseTriggerBounds( true, 36 ).</summary>
+    protected override float TriggerBloat => 36f;
+
+    /// <summary>DefaultTouch gives a weapon it cannot see; only the output waits on the sight line.</summary>
+    protected override bool SightGatesPickup => false;
+
+    /// <summary>
+    /// CWeaponHL2MPBase::Materialize: VPhysicsInitNormal( SOLID_BBOX, flags |
+    /// FSOLID_TRIGGER ), so traces meet its box, not its hull; nothing marks it
+    /// not-standable but CWeaponStunStick::Spawn.
+    /// </summary>
+    protected override (SolidType Type, SolidFlags Flags) PhysicalSolidity
+        => (SolidType.BoundingBox,
+            SolidFlags.Trigger | (ClassName == EntityNames.WeaponStunstick ? SolidFlags.NotStandable : SolidFlags.None));
+
+    /// <summary>A weapon has no CItem physgun reach.</summary>
+    protected override bool CannonWidensReach => false;
 
     /// <summary>
     /// CWeaponHL2MPBase::ObjectCaps (weapon_hl2mpbase.cpp): HL2MP takes the

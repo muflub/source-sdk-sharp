@@ -123,7 +123,12 @@ public sealed class FuncConveyor : ScriptedEntity
         if (Vars.Speed == 0f)
             Vars.Speed = 100f;
 
-        SetSolidity(Flags.HasFlag(SpawnFlag.NotSolid) ? BrushSolidity.None : BrushSolidity.Solid);
+        // CFuncWall's Spawn first: solid, with a static object props land on;
+        // the not-solid flag comes after it, as stock's HACKHACK does.
+        SetSolidity(BrushSolidity.Solid);
+        InitStaticPhysics();
+        if (Flags.HasFlag(SpawnFlag.NotSolid))
+            SetSolidity(BrushSolidity.None);
         SetVisible(true);
 
         if (!Flags.HasFlag(SpawnFlag.VisualOnly))

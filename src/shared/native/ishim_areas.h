@@ -322,6 +322,8 @@ public:
 
 	virtual int32_t EntityOverlapReport( uint32_t * pOutPairs, int32_t nMaxPairs ) = 0;
 
+	virtual void EntitySetTriggerBloat( uint32_t hEntity, int32_t nBloat, int32_t bUniform ) = 0;
+
 };
 
 abstract_class IShimEffectsServer

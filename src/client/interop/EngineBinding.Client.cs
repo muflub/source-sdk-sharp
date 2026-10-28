@@ -1004,6 +1004,7 @@ internal sealed unsafe partial class EngineEntities
     public SolidFlags GetSolidFlags(EntityHandle entity) => SolidFlags.None;
     public SolidType GetSolidType(EntityHandle entity) => SolidType.None;
     public void SetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags) { }
+    public void UseTriggerBounds(EntityHandle entity, bool enable, float bloat, bool uniform = false) { }
     public void SetBounds(EntityHandle entity, Vector mins, Vector maxs) { }
     public void SetSpawnFlags(EntityHandle entity, int spawnFlags) { }
     public void PositionChanged(EntityHandle entity, Vector previousOrigin) { }
@@ -1039,6 +1040,9 @@ internal sealed unsafe partial class EngineEntityPhysics
     public void AddGameFlags(EntityHandle entity, uint flags) { }
     public float GetMass(EntityHandle entity) => 0f;
     public bool InitPhysics(EntityHandle entity, bool asleep = false, bool debris = false) => false;
+    public bool InitSpherePhysics(EntityHandle entity, float radius) => false;
+    public bool InitStaticPhysics(EntityHandle entity) => false;
+    public void EnableCollisions(EntityHandle entity, bool enable) { }
     public void SetBounce(EntityHandle h, int bounces) { }
     public void SetBrushSolidity(EntityHandle entity, BrushSolidity solidity) { }
     public CollisionGroup GetCollisionGroup(EntityHandle entity) => CollisionGroup.None;

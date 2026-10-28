@@ -214,8 +214,10 @@ public partial class EngineApiCensusTests
     // player's base velocity is the managed record's and nothing else has the
     // channel (121 - 1 = 120). The serialised ABI pass (2026-10-20):
     // EventSetFloat, OverlayResetCounts and EntityMarkStateChanged, which only
-    // tests called (120 - 3 = 117).
-    private const int ServerOnly = 117;
+    // tests called (120 - 3 = 117). IShimCollisionServer.EntitySetTriggerBloat
+    // joined, stock's m_triggerBloat on the shell (stock-ab, 2026-10-26;
+    // 117 + 1 = 118).
+    private const int ServerOnly = 118;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.

@@ -403,6 +403,8 @@ FORWARD = [
             'DebugCheckContacts',
             # The client's level setup and teardown (ClientPhysicsSystem).
             'SetGravity', 'SetSimulationTimestep', 'SetQuickDelete',
+            # prop_sphere's twelve-unit ball (CPhysSphere::CreateVPhysics).
+            'CreateSphereObject',
         ],
     ),
     dict(

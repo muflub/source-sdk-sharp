@@ -32,7 +32,11 @@ public class PickupUserMessageTests
               .Returns("Entities.GetHealth", health)
               .Returns("Entities.GetClassName", EntityNames.SsPlayer)
               .Returns("Players.IsAlive", true)
-              .Returns("Clock.Now", 10f);
+              .Returns("Clock.Now", 10f)
+              .Returns("Entities.IsPlayer", true)
+              .Returns("WorldQuery.EntityTraceHull", new EntityHullTrace(Vector.Zero, false, false, Fraction: 1f))
+              .Ignores("Entities.GetSolidType", "Entities.GetWorldSpaceCenter", "Entities.GetEyePosition",
+                       "Entities.UseTriggerBounds");
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
         registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");

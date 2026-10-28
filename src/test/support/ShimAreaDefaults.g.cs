@@ -232,6 +232,7 @@ internal sealed unsafe class DefaultCollisionServerArea : DefaultCollisionArea, 
     public int EntityGetCollisionGroup(uint a0) => default;
     public void EntitySetCollisionGroup(uint a0, int a1) { }
     public int EntityOverlapReport(uint* a0, int a1) => default;
+    public void EntitySetTriggerBloat(uint a0, int a1, int a2) { }
 }
 
 /// <summary><see cref="IPhysicsArea"/> for a test with no engine: every call answers its default.</summary>

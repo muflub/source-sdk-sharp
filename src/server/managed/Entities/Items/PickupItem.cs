@@ -14,9 +14,46 @@ namespace SourceSharp.Server;
 /// what happens when it is taken. A kind is then a handful of lines saying what
 /// it looks like and what it gives.
 /// </summary>
-public abstract class PickupItem : ScriptedEntity
+public abstract class PickupItem : ScriptedEntity, IPhysGunTarget
 {
+    protected PickupItem(IEngineWorldQuery world)
+    {
+        PickupWorld = world;
+    }
+
+    /// <summary>What the line of sight to a toucher is traced through (UTIL_ItemCanBeTouchedByPlayer).</summary>
+    private readonly IEngineWorldQuery PickupWorld;
+
     public readonly Output OnPlayerTouch = new();
+
+    /// <summary>A player reached it, whether or not it had anything to give (CItem's m_OnCacheInteraction).</summary>
+    public readonly Output OnCacheInteraction = new();
+
+    /// <summary><c>MASK_SOLID</c>: CONTENTS_SOLID | MOVEABLE | WINDOW | MONSTER | GRATE.</summary>
+    private const uint MaskSolid = GameMovement.ContentsSolid | GameMovement.ContentsMoveable | GameMovement.ContentsWindow
+                                   | GameMovement.ContentsMonster | GameMovement.ContentsGrate;
+
+    /// <summary>ITEM_PICKUP_BOX_BLOAT: how far past its box a player reaches it.</summary>
+    public const float PickupBoxBloat = 24f;
+
+    /// <summary>How far past its box a player reaches it; a weapon's is 36.</summary>
+    protected virtual float TriggerBloat => PickupBoxBloat;
+
+    /// <summary>
+    /// Whether a player who cannot see it is refused (CItem::ItemTouch). A
+    /// weapon's DefaultTouch only withholds the output and gives anyway.
+    /// </summary>
+    protected virtual bool SightGatesPickup => true;
+
+    /// <summary>
+    /// What it falls as: CItem's SOLID_VPHYSICS trigger nothing stands on
+    /// (CreateItemVPhysicsObject). A weapon is a box (Materialize).
+    /// </summary>
+    protected virtual (SolidType Type, SolidFlags Flags) PhysicalSolidity
+        => (SolidType.VPhysics, SolidFlags.Trigger | SolidFlags.NotStandable);
+
+    /// <summary>Whether the gravity gun's carry widens the reach (CItem's, not a weapon's).</summary>
+    protected virtual bool CannonWidensReach => true;
 
     /// <summary>Model the item wears. Applied during spawn, so it is precached.</summary>
     protected abstract string Model { get; }
@@ -91,14 +128,55 @@ public abstract class PickupItem : ScriptedEntity
     /// </summary>
     private void BecomePhysical()
     {
-        if (!ReadyToFall())
+        if (ReadyToFall())
+        {
+            SetCollisionGroup(CollisionGroup.Weapon);
+            (SolidType solid, SolidFlags flags) = PhysicalSolidity;
+            Entities.SetSolidity(Handle, solid, flags);
+
+            if (!InitPhysics())
+                MakePickup(SizeX, SizeY, SizeZ);
+            else if (solid != SolidType.VPhysics)
+                // VPhysicsInitNormal( SOLID_BBOX, ... ) keeps the box it was
+                // given; the object's create here writes SOLID_VPHYSICS.
+                Entities.SetSolidity(Handle, solid, flags);
+        }
+
+        // CItem::Spawn: the pickup box bloated, so a player takes it before
+        // reaching its own box. After the solidity, which writes the flags.
+        UseTriggerBounds(true, TriggerBloat);
+    }
+
+    /// <summary>CItem::OnPhysGunPickup: the gravity gun's carry doubles the reach, and says so.</summary>
+    void IPhysGunTarget.OnPhysGunPickup(EntityHandle player, PhysGunPickup reason)
+    {
+        if (!CannonWidensReach)
             return;
 
-        SetCollisionGroup(CollisionGroup.Weapon);
-        Entities.SetSolidity(Handle, SolidType.VPhysics, SolidFlags.Trigger | SolidFlags.NotStandable);
+        OnCacheInteraction.Fire(player);
 
-        if (!InitPhysics())
-            MakePickup(SizeX, SizeY, SizeZ);
+        if (reason == PhysGunPickup.PickedUpByCannon)
+            UseTriggerBounds(true, TriggerBloat * 2f);
+    }
+
+    /// <summary>CItem::OnPhysGunDrop: the reach back to the item's own.</summary>
+    void IPhysGunTarget.OnPhysGunDrop(EntityHandle player, PhysGunDrop reason)
+    {
+        if (CannonWidensReach)
+            UseTriggerBounds(true, TriggerBloat);
+    }
+
+    /// <summary>
+    /// UTIL_ItemCanBeTouchedByPlayer: nothing solid between the item's centre
+    /// and the player's eye, traced as the player moves (so other items do not
+    /// count). The bloated box reaches through thin walls without it.
+    /// </summary>
+    private bool CanBeTouchedBy(EntityHandle player)
+    {
+        Vector from = Entities.GetSolidType(Handle) == SolidType.VPhysics ? Origin : Entities.GetWorldSpaceCenter(Handle);
+        EntityHullTrace tr = PickupWorld.EntityTraceHull(Handle, from, Entities.GetEyePosition(player), Vector.Zero, Vector.Zero,
+                                                         MaskSolid, GameMovement.CollisionGroupPlayerMovement);
+        return tr.Fraction >= 1f || tr.Entity == player;
     }
 
     //-------------------------------------------------------------------------
@@ -115,7 +193,17 @@ public abstract class PickupItem : ScriptedEntity
         if (Entities.GetHealth(toucher) <= 0)
             return;
 
-        if (_taken || !TryGive(toucher))
+        // CItem::ItemTouch: a player only, with nothing in the way, and the
+        // interaction said before whether there was anything to give.
+        if (_taken || !Entities.IsPlayer(toucher))
+            return;
+
+        if (CanBeTouchedBy(toucher))
+            OnCacheInteraction.Fire(toucher);
+        else if (SightGatesPickup)
+            return;
+
+        if (!TryGive(toucher))
             return;
 
         _taken = true;

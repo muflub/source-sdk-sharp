@@ -111,10 +111,10 @@ TEST( FwdShimAreas, ShimHierarchyIs7Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimCollisionServerIs10Slots )
+TEST( FwdShimAreas, ShimCollisionServerIs11Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimCollisionServer::EntityOverlapReport ).slot + 1;
-	EXPECT_EQ( 10, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimCollisionServer::EntitySetTriggerBloat ).slot + 1;
+	EXPECT_EQ( 11, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimCollisionServer" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

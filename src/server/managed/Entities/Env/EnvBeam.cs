@@ -23,13 +23,17 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.EnvBeam)]
 public sealed class EnvBeam : ScriptedEntity
 {
-    public EnvBeam(IEnginePrecache precache)
+    public EnvBeam(IEnginePrecache precache, IEngineEntityRender render)
     {
         Precache = precache;
+        Render = render;
     }
 
     /// <summary>asking for what this entity will need before the level runs.</summary>
     private readonly IEnginePrecache Precache;
+
+    /// <summary>Whether an endpoint has a model (IsStaticPointEntity).</summary>
+    private readonly IEngineEntityRender Render;
     /// <summary>This entity's own spawnflags, as their own type.</summary>
     private SpawnFlag Flags => (SpawnFlag)SpawnFlags;
 
@@ -138,8 +142,14 @@ public sealed class EnvBeam : ScriptedEntity
 
         if (Entities.IsValid(start) && Entities.IsValid(end))
         {
-            _managedBeam.SetPoints(Entities.GetOrigin(start), Entities.GetOrigin(end));
+            Vector from = Entities.GetOrigin(start);
+            _managedBeam.SetPoints(from, Entities.GetOrigin(end));
             _managedBeam.Visible = true;
+
+            // BeamUpdateVars: stock's env_beam IS its beam, and SetAbsStartPos
+            // on a static point start moves the entity's own origin there.
+            if (IsStaticPoint(start) && !Origin.Equals(from))
+                Origin = from;
         }
         else
         {
@@ -149,6 +159,22 @@ public sealed class EnvBeam : ScriptedEntity
         }
 
         SetNextThink(0f);
+    }
+
+    /// <summary>
+    /// IsStaticPointEntity (beam_shared.cpp): unparented, and with no model or
+    /// one of the point classes a mapper aims beams at.
+    /// </summary>
+    private bool IsStaticPoint(EntityHandle entity)
+    {
+        if (Entities.IsValid(Entities.GetParent(entity)))
+            return false;
+
+        if (Render.GetModelName(entity).Length == 0)
+            return true;
+
+        string className = Entities.GetClassName(entity);
+        return className is EntityNames.InfoTarget or EntityNames.InfoLandmark or EntityNames.PathCorner;
     }
 
     private void TurnOn()

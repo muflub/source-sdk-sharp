@@ -192,6 +192,7 @@ public:
 	int32_t EntityGetCollisionGroup( uint32_t hEntity ) override;
 	void EntitySetCollisionGroup( uint32_t hEntity, int32_t nGroup ) override;
 	int32_t EntityOverlapReport( uint32_t * pOutPairs, int32_t nMaxPairs ) override;
+	void EntitySetTriggerBloat( uint32_t hEntity, int32_t nBloat, int32_t bUniform ) override;
 };
 
 class CShimPhysics final : public IShimPhysics

@@ -13,7 +13,7 @@ namespace SourceSharp.Tests;
 /// behaviour rather than any particular item's contents.
 /// </summary>
 [ScriptedEntity("test_item", ScriptedEntityKind.Item)]
-public sealed class TestItem : PickupItem
+public sealed class TestItem(IEngineWorldQuery world) : PickupItem(world)
 {
     protected override string Model => "models/test.mdl";
     protected override float RespawnDelay => Delay;
@@ -45,7 +45,7 @@ public class ItemTests
     private static readonly EntityHandle Item = new(0x0007_0007u);
     private static readonly EntityHandle Player = new(0x0008_0008u);
 
-    private static (ScriptedEntityRegistry, TestItem) Fresh(int toucherHealth = 100)
+    private static (ScriptedEntityRegistry, TestItem) Fresh(int toucherHealth = 100, bool seen = true)
     {
         TestItem.Reset();
 
@@ -56,6 +56,15 @@ public class ItemTests
         // Items refuse dead touchers, so every touch asks the toucher's
         // health first; the default here is a living player.
         engine.Returns("Entities.GetHealth", toucherHealth);
+
+        // CItem::ItemTouch asks for a player with a clear line to it
+        // (UTIL_ItemCanBeTouchedByPlayer); the default here has one.
+        engine.Returns("Entities.IsPlayer", true)
+              .Returns("WorldQuery.EntityTraceHull", seen
+                  ? new EntityHullTrace(Vector.Zero, false, false, Fraction: 1f)
+                  : new EntityHullTrace(Vector.Zero, false, false, new EntityHandle(0x0002_0099u), 0.4f))
+              .Ignores("Entities.GetSolidType", "Entities.GetWorldSpaceCenter", "Entities.GetEyePosition",
+                       "Entities.UseTriggerBounds");
 
         // A taken item goes back where the map put it (CItem::Respawn).
         engine.Ignores("Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "EntityPhysics.InitPhysics");
@@ -87,6 +96,18 @@ public class ItemTests
         Assert.True(!PickupItem.TopUpForTest(100, 25, 100, v => applied = v) && applied == -1, "a full player is given nothing");
 
         Assert.True(!PickupItem.TopUpForTest(150, 25, 100, _ => { }), "over the cap also gives nothing");
+    }
+
+    [Fact]
+    public void An_item_behind_a_wall_is_not_offered_to_the_player()
+    {
+        // UTIL_ItemCanBeTouchedByPlayer: the bloated reach goes through thin
+        // walls, and the sight line is what stops it.
+        var (registry, item) = Fresh(seen: false);
+
+        registry.Touch(Item, Player);
+
+        Assert.Equal((0, 0), (TestItem.GiveAttempts, item.OnPlayerTouch.FireCount));
     }
 
     [Fact]

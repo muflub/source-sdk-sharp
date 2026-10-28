@@ -34,6 +34,13 @@ public interface IVPhysicsEntityCalls
     nint CreatePolyObject(nint environment, nint collide, int surfaceIndex, Vector origin, QAngle angles,
                           in ObjectParams objectParams, bool isStatic);
 
+    /// <summary>
+    /// <c>physenv-&gt;CreateSphereObject</c>: a perfect sphere of
+    /// <paramref name="radius"/>, at the pose given; 0 when vphysics makes none.
+    /// </summary>
+    nint CreateSphereObject(nint environment, float radius, int materialIndex, Vector origin, QAngle angles,
+                            in ObjectParams objectParams, bool isStatic);
+
     /// <summary><c>physenv-&gt;DestroyObject</c>, its game data cleared first (native's DestroyPhysics).</summary>
     void DestroyObject(nint environment, nint physicsObject);
 
@@ -68,6 +75,9 @@ public interface IVPhysicsEntityCalls
 
     /// <summary><c>IPhysicsObject::RecheckCollisionFilter</c>.</summary>
     void RecheckCollisionFilter(nint physicsObject);
+
+    /// <summary><c>IPhysicsObject::EnableCollisions</c>.</summary>
+    void EnableCollisions(nint physicsObject, bool enable);
 }
 
 /// <summary>The real vphysics. Holds one scratch <c>solid_t</c>, freed on dispose.</summary>
@@ -110,6 +120,17 @@ public sealed unsafe class VPhysicsEntityCalls : IVPhysicsEntityCalls, IDisposab
                                                              &origin, &angles, &p)
             : (nint)Env(environment)->CreatePolyObject((void*)environment, (void*)collide, surfaceIndex,
                                                        &origin, &angles, &p);
+    }
+
+    public nint CreateSphereObject(nint environment, float radius, int materialIndex, Vector origin, QAngle angles,
+                                   in ObjectParams objectParams, bool isStatic)
+    {
+        if (environment == 0)
+            return 0;
+
+        ObjectParams p = objectParams;
+        return (nint)Env(environment)->CreateSphereObject((void*)environment, radius, materialIndex, &origin, &angles,
+                                                          &p, isStatic ? (byte)1 : (byte)0);
     }
 
     public void DestroyObject(nint environment, nint physicsObject)
@@ -171,6 +192,12 @@ public sealed unsafe class VPhysicsEntityCalls : IVPhysicsEntityCalls, IDisposab
     {
         if (o != 0)
             Obj(o)->RecheckCollisionFilter((void*)o);
+    }
+
+    public void EnableCollisions(nint o, bool enable)
+    {
+        if (o != 0)
+            Obj(o)->EnableCollisions((void*)o, enable ? (byte)1 : (byte)0);
     }
 
     public void Dispose()

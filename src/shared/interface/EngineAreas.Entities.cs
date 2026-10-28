@@ -313,6 +313,14 @@ public interface IEngineEntities
     /// <inheritdoc cref="EngineSide.EntitySetSolidity"/>
     void SetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags);
 
+    /// <summary>
+    /// Stock's <c>CCollisionProperty::UseTriggerBounds</c>: triggers touch the
+    /// entity through its box bloated by <paramref name="bloat"/> units (the
+    /// sides, and half that on top; every side when
+    /// <paramref name="uniform"/>), or through its own box again.
+    /// </summary>
+    void UseTriggerBounds(EntityHandle entity, bool enable, float bloat, bool uniform = false);
+
     /// <inheritdoc cref="EngineSide.EntitySetBounds"/>
     void SetBounds(EntityHandle entity, Vector mins, Vector maxs);
 
@@ -374,6 +382,25 @@ public interface IEngineEntityPhysics
 
     /// <inheritdoc cref="EngineSide.EntityInitPhysics"/>
     bool InitPhysics(EntityHandle entity, bool asleep = false, bool debris = false);
+
+    /// <summary>
+    /// The entity simulated as a perfect sphere of <paramref name="radius"/>,
+    /// a SOLID_BBOX mover with no model collide (CPhysSphere::CreateVPhysics).
+    /// </summary>
+    bool InitSpherePhysics(EntityHandle entity, float radius);
+
+    /// <summary>
+    /// VPhysicsInitStatic as a brush calls it: a static object the solver
+    /// collides with, the entity's own solidity (SOLID_BSP) and movetype kept.
+    /// </summary>
+    bool InitStaticPhysics(EntityHandle entity);
+
+    /// <summary>
+    /// Whether the entity's physics object collides at all
+    /// (<c>IPhysicsObject::EnableCollisions</c>): a func_wall_toggle switched
+    /// off stops blocking props as well as traces. Nothing when it has none.
+    /// </summary>
+    void EnableCollisions(EntityHandle entity, bool enable);
 
     /// <inheritdoc cref="EngineSide.EntitySetBounce"/>
     void SetBounce(EntityHandle h, int bounces);

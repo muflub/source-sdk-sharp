@@ -706,6 +706,7 @@ internal unsafe interface ICollisionServerArea : ICollisionArea
     int EntityGetCollisionGroup(uint a0);
     void EntitySetCollisionGroup(uint a0, int a1);
     int EntityOverlapReport(uint* a0, int a1);
+    void EntitySetTriggerBloat(uint a0, int a1, int a2);
 }
 
 /// <summary>
@@ -730,6 +731,7 @@ internal sealed unsafe class CollisionServerArea : CollisionArea, ICollisionServ
     public int EntityGetCollisionGroup(uint a0) { return _shim.Table->EntityGetCollisionGroup(_shim.Self, a0); }
     public void EntitySetCollisionGroup(uint a0, int a1) { _shim.Table->EntitySetCollisionGroup(_shim.Self, a0, a1); }
     public int EntityOverlapReport(uint* a0, int a1) { return _shim.Table->EntityOverlapReport(_shim.Self, a0, a1); }
+    public void EntitySetTriggerBloat(uint a0, int a1, int a2) { _shim.Table->EntitySetTriggerBloat(_shim.Self, a0, a1, a2); }
 }
 
 /// <summary>

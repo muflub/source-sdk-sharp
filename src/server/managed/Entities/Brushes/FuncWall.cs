@@ -13,6 +13,8 @@ public sealed class FuncWall : ScriptedEntity
     public override void OnSpawn()
     {
         SetSolidity(BrushSolidity.Solid);
+        // CFuncWall::CreateVPhysics: a static object, so props land on it.
+        InitStaticPhysics();
         SetVisible(true);
     }
 }

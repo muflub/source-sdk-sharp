@@ -41,6 +41,8 @@ public sealed class FuncBreakable : ScriptedEntity
     public override void OnSpawn()
     {
         SetSolidity(BrushSolidity.Solid);
+        // CBreakable::CreateVPhysics: a static object, so props land on it.
+        InitStaticPhysics();
         SetVisible(true);
 
         if (Vars.Health <= 0)

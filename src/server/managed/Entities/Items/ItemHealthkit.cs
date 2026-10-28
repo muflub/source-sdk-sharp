@@ -8,7 +8,7 @@ namespace SourceSharp.Server;
 //-----------------------------------------------------------------------------
 
 [ScriptedEntity(EntityNames.ItemHealthkit, ScriptedEntityKind.Item)]
-public sealed class ItemHealthkit(IUserMessageSender messages) : PickupItem
+public sealed class ItemHealthkit(IUserMessageSender messages, IEngineWorldQuery world) : PickupItem(world)
 {
     protected override string Model => "models/items/healthkit.mdl";
     protected override string Describe() => "a medkit";

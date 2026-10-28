@@ -1073,6 +1073,18 @@ internal sealed unsafe partial class EngineEntities
         _collisionServerArea.EntitySetSolidity(entity.Value, (int)solidType, (int)solidFlags);
     }
 
+    /// <inheritdoc/>
+    /// <remarks>The bloat before the flag, so the partition is refiled once with both.</remarks>
+    public void UseTriggerBounds(EntityHandle entity, bool enable, float bloat, bool uniform = false)
+    {
+        // Stock keeps it in a char: m_triggerBloat = (char)flBloat.
+        _collisionServerArea.EntitySetTriggerBloat(entity.Value, (sbyte)bloat, uniform ? 1 : 0);
+
+        var flags = (SolidFlags)_collisionServerArea.EntityGetSolidFlags(entity.Value);
+        flags = enable ? flags | SolidFlags.UseTriggerBounds : flags & ~SolidFlags.UseTriggerBounds;
+        _collisionServerArea.EntitySetSolidity(entity.Value, _collisionServerArea.EntityGetSolidType(entity.Value), (int)flags);
+    }
+
     //-------------------------------------------------------------------------
     // THE SIX MISSING DIRECTIONS, for the native half of a savegame.
     //
@@ -1203,9 +1215,11 @@ internal sealed unsafe partial class EngineEntityPhysics
     public EngineEntityPhysics(EngineSide side,
                                ICollisionServerArea collisionServerArea,
                                IPhysicsArea physicsArea,
-                               ITransformArea transformArea)
+                               ITransformArea transformArea,
+                               SideRoute<IEntityPhysicsRoute> physicsInit)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
+        _physicsInit = physicsInit ?? throw new ArgumentNullException(nameof(physicsInit));
         _collisionServerArea = collisionServerArea ?? throw new ArgumentNullException(nameof(collisionServerArea));
         _physicsArea = physicsArea ?? throw new ArgumentNullException(nameof(physicsArea));
         _transformArea = transformArea ?? throw new ArgumentNullException(nameof(transformArea));
@@ -1230,6 +1244,19 @@ internal sealed unsafe partial class EngineEntityPhysics
     public float GetMass(EntityHandle entity) => E.EntityGetMass(entity);
 
     public bool InitPhysics(EntityHandle entity, bool asleep = false, bool debris = false) => E.EntityInitPhysics(entity, asleep, debris);
+
+    private readonly SideRoute<IEntityPhysicsRoute> _physicsInit;
+
+    /// <inheritdoc/>
+    public bool InitSpherePhysics(EntityHandle entity, float radius)
+        => _physicsInit.Target?.CreateSphere(entity, radius) == true;
+
+    /// <inheritdoc/>
+    public bool InitStaticPhysics(EntityHandle entity) => _physicsInit.Target?.CreateStatic(entity) == true;
+
+    /// <inheritdoc/>
+    public void EnableCollisions(EntityHandle entity, bool enable) => _physicsInit.Target?.EnableCollisions(entity, enable);
+
     /// <summary>
     /// How many times a projectile reflects off what it hits before its flight
     /// ends. Zero — the default — stops it at the first thing it touches.

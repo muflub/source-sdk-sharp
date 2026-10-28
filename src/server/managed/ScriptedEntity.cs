@@ -1410,6 +1410,14 @@ public abstract class ScriptedEntity
     public virtual void OnPhysicsCreated() { }
 
     /// <summary>
+    /// Whether the registry gives this entity a simulated object after its
+    /// spawn when it made none (a Prop kind's VPhysicsInitNormal). False for a
+    /// class whose spawn decides its own object or none, as CDynamicProp's
+    /// CreateVPhysics does from its solid type.
+    /// </summary>
+    public virtual bool SpawnsPhysics => true;
+
+    /// <summary>
     /// Once per physics frame while the solver is moving this entity's object:
     /// stock's VPhysicsUpdate, called for each object on the active list.
     /// Delivered with the next drain.
@@ -1714,6 +1722,21 @@ public abstract class ScriptedEntity
     /// False when the model has none.
     /// </summary>
     protected bool InitPhysics(bool asleep = false) => Physics.InitPhysics(Handle, asleep);
+
+    /// <summary>
+    /// Stock's <c>VPhysicsInitStatic</c> as a brush calls it: an object the
+    /// solver collides with, this brush's SOLID_BSP and movetype kept.
+    /// </summary>
+    protected bool InitStaticPhysics() => Physics.InitStaticPhysics(Handle);
+
+    /// <summary>This entity's solid type and flags, as its spawn decides them.</summary>
+    protected void SetSolidity(SolidType solidType, SolidFlags solidFlags) => Entities.SetSolidity(Handle, solidType, solidFlags);
+
+    /// <summary>Stock's <c>CollisionProp()->UseTriggerBounds</c> on this entity.</summary>
+    protected void UseTriggerBounds(bool enable, float bloat, bool uniform = false) => Entities.UseTriggerBounds(Handle, enable, bloat, uniform);
+
+    /// <summary>Whether this entity's physics object collides at all.</summary>
+    protected void EnablePhysicsCollisions(bool enable) => Physics.EnableCollisions(Handle, enable);
 
     /// <summary>Which collision group this entity is in: what it collides with and what passes through it.</summary>
     protected void SetCollisionGroup(CollisionGroup group) => Physics.SetCollisionGroup(Handle, group);
@@ -2668,13 +2691,15 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// </summary>
     public void Spawn(EntityHandle handle, string className)
     {
-        EnsureInstance(handle, className)?.OnSpawn();
+        var instance = EnsureInstance(handle, className);
+        instance?.OnSpawn();
 
         // AFTER the class's own spawn, which is what sets the model and may
         // already have made an object (or a static one): a class whose kind
         // the solver moves gets an object now. The class is the registered
         // one even when its instance failed to build, as the shell's was.
-        if (SpawnPhysics is { } physics && _byClassName.TryGetValue(className, out var reg))
+        if (SpawnPhysics is { } physics && instance?.SpawnsPhysics != false
+            && _byClassName.TryGetValue(className, out var reg))
             physics.Spawned(handle, reg.Kind);
     }
 

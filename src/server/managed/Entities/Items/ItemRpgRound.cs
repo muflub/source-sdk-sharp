@@ -6,8 +6,8 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.ItemRpgRound, ScriptedEntityKind.Item)]
 public sealed class ItemRpgRound : AmmoItem
 {
-    public ItemRpgRound(IEnginePlayers players)
-        : base(players)
+    public ItemRpgRound(IEnginePlayers players, IEngineWorldQuery world)
+        : base(players, world)
     {
     }
 

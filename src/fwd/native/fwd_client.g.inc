@@ -518,7 +518,7 @@ static void *const s_PhysicsSurfacePropsSlots[] = {
 static const SSForwarderTable s_PhysicsSurfacePropsTable = { s_PhysicsSurfacePropsSlots, 8 };
 
 //-----------------------------------------------------------------------------
-// PhysicsEnvironment: 37 forwarder(s) over IPhysicsEnvironment.
+// PhysicsEnvironment: 38 forwarder(s) over IPhysicsEnvironment.
 //-----------------------------------------------------------------------------
 // void IPhysicsEnvironment::GetGravity( Vector * )
 static void SSFwd_PhysicsEnvironment_GetGravity( IPhysicsEnvironment *self, Vector * a0 ) { self->GetGravity( a0 ); }
@@ -594,6 +594,8 @@ static void SSFwd_PhysicsEnvironment_SetGravity( IPhysicsEnvironment *self, cons
 static void SSFwd_PhysicsEnvironment_SetSimulationTimestep( IPhysicsEnvironment *self, float a0 ) { self->SetSimulationTimestep( a0 ); }
 // void IPhysicsEnvironment::SetQuickDelete( bool )
 static void SSFwd_PhysicsEnvironment_SetQuickDelete( IPhysicsEnvironment *self, bool a0 ) { self->SetQuickDelete( a0 ); }
+// IPhysicsObject * IPhysicsEnvironment::CreateSphereObject( float, int, const Vector &, const QAngle &, objectparams_t *, bool )
+static IPhysicsObject * SSFwd_PhysicsEnvironment_CreateSphereObject( IPhysicsEnvironment *self, float a0, int a1, const Vector & a2, const QAngle & a3, objectparams_t * a4, bool a5 ) { return self->CreateSphereObject( a0, a1, a2, a3, a4, a5 ); }
 
 static void *const s_PhysicsEnvironmentSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_GetGravity ),
@@ -633,9 +635,10 @@ static void *const s_PhysicsEnvironmentSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_SetGravity ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_SetSimulationTimestep ),
 	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_SetQuickDelete ),
+	reinterpret_cast< void * >( &SSFwd_PhysicsEnvironment_CreateSphereObject ),
 };
 
-static const SSForwarderTable s_PhysicsEnvironmentTable = { s_PhysicsEnvironmentSlots, 37 };
+static const SSForwarderTable s_PhysicsEnvironmentTable = { s_PhysicsEnvironmentSlots, 38 };
 
 //-----------------------------------------------------------------------------
 // PhysicsObject: 59 forwarder(s) over IPhysicsObject.
@@ -1730,7 +1733,7 @@ static void *const s_ShimHierarchySlots[] = {
 static const SSForwarderTable s_ShimHierarchyTable = { s_ShimHierarchySlots, 7 };
 
 //-----------------------------------------------------------------------------
-// ShimCollisionServer: 10 forwarder(s) over IShimCollisionServer.
+// ShimCollisionServer: 11 forwarder(s) over IShimCollisionServer.
 //-----------------------------------------------------------------------------
 // void IShimCollision::RegisterCollisionRules( const SourceSharpCollisionRules * )
 static void SSFwd_ShimCollisionServer_RegisterCollisionRules( IShimCollisionServer *self, const SourceSharpCollisionRules * a0 ) { self->RegisterCollisionRules( a0 ); }
@@ -1752,6 +1755,8 @@ static int32_t SSFwd_ShimCollisionServer_EntityGetCollisionGroup( IShimCollision
 static void SSFwd_ShimCollisionServer_EntitySetCollisionGroup( IShimCollisionServer *self, uint32_t a0, int32_t a1 ) { self->EntitySetCollisionGroup( a0, a1 ); }
 // int32_t IShimCollisionServer::EntityOverlapReport( uint32_t *, int32_t )
 static int32_t SSFwd_ShimCollisionServer_EntityOverlapReport( IShimCollisionServer *self, uint32_t * a0, int32_t a1 ) { return self->EntityOverlapReport( a0, a1 ); }
+// void IShimCollisionServer::EntitySetTriggerBloat( uint32_t, int32_t, int32_t )
+static void SSFwd_ShimCollisionServer_EntitySetTriggerBloat( IShimCollisionServer *self, uint32_t a0, int32_t a1, int32_t a2 ) { self->EntitySetTriggerBloat( a0, a1, a2 ); }
 
 static void *const s_ShimCollisionServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_RegisterCollisionRules ),
@@ -1764,9 +1769,10 @@ static void *const s_ShimCollisionServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityGetCollisionGroup ),
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetCollisionGroup ),
 	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntityOverlapReport ),
+	reinterpret_cast< void * >( &SSFwd_ShimCollisionServer_EntitySetTriggerBloat ),
 };
 
-static const SSForwarderTable s_ShimCollisionServerTable = { s_ShimCollisionServerSlots, 10 };
+static const SSForwarderTable s_ShimCollisionServerTable = { s_ShimCollisionServerSlots, 11 };
 
 //-----------------------------------------------------------------------------
 // ShimPhysics: 6 forwarder(s) over IShimPhysics.

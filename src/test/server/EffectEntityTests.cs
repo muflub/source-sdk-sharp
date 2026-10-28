@@ -32,7 +32,7 @@ public class EffectEntityTests
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncConveyor).Assembly);
-        registry.Services = Ignoring("Entities.GetBoundsSize");
+        registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitStaticPhysics");
 
         // Keys before spawn, which is the order Source uses.
         foreach (var (key, value) in keys)

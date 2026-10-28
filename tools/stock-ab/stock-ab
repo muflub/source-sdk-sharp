@@ -428,6 +428,11 @@ class StockGame:
         self._ask("ab_dump_ents TOKEN", "ents", timeout=20)
         shutil.copyfile(os.path.join(self.channel, "ents"), to)
 
+    def dump_solidity(self, to):
+        """ab_movetypes' rows, as the solidity census reads them."""
+        self._ask("ab_movetypes TOKEN", "movetypes", timeout=20)
+        shutil.copyfile(os.path.join(self.channel, "movetypes"), to)
+
     def screenshot(self, name):
         path = os.path.join(self.mod, "screenshots", name + ".tga")
         if os.path.exists(path):
@@ -776,6 +781,13 @@ def run(opts):
         census = subprocess.run(tool + ["census", stock_ents, sharp_ents, os.path.join(out, "census.json")],
                                 check=True, stdout=subprocess.PIPE, text=True).stdout
         print(census, end="", flush=True)
+
+        log("solidity census")
+        stock_solid = os.path.join(out, "stock-solidity.tsv")
+        stock.dump_solidity(stock_solid)
+        solidity = subprocess.run(tool + ["solidity", stock_solid, sharp_ents, os.path.join(out, "solidity.json")],
+                                  check=True, stdout=subprocess.PIPE, text=True).stdout
+        print(solidity, end="", flush=True)
 
         if opts.weapons:
             wanted = WEAPONS if opts.weapons == "all" else opts.weapons.split(",")

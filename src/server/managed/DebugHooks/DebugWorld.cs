@@ -68,6 +68,10 @@ public sealed class DebugWorld(
 
     public string GetName(uint entity) => _entities.GetName(H(entity));
 
+    public int GetSolidType(uint entity) => (int)_entities.GetSolidType(H(entity));
+
+    public int GetSolidFlags(uint entity) => (int)_entities.GetSolidFlags(H(entity));
+
     public bool? IsAsleep(uint entity) => asleep?.Invoke(H(entity));
 
     public int? GroundIndex(uint entity) => groundIndex?.Invoke(H(entity));

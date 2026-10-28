@@ -330,6 +330,8 @@ CStandaloneEntity::CStandaloneEntity()
 	      reinterpret_cast< unsigned char * >( this ) + BlockBase() ) ),
 	  m_nSpawnFlags( 0 ),
 	  m_iHealth( 0 ),
+	  m_nTriggerBloat( 0 ),
+	  m_bUniformTriggerBloat( false ),
 	  m_vecSpawnOrigin( vec3_origin ),
 	  m_angSpawnRotation( 0, 0, 0 ),
 	  m_pPhysics( NULL ),
@@ -909,11 +911,20 @@ void CStandaloneEntity::TouchTriggers( const Vector &vecPrevOrigin )
 void CStandaloneEntity::WorldSpaceTriggerBounds( Vector *pMins, Vector *pMaxs ) const
 {
 	WorldCollisionBounds( pMins, pMaxs );
+	SourceSharp_TriggerBounds( Block().Head.SolidFlags, m_nTriggerBloat, m_bUniformTriggerBloat, pMins, pMaxs );
 }
 
 void CStandaloneEntity::WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs )
 {
 	WorldCollisionBounds( pMins, pMaxs );
+	SourceSharp_SurroundingBounds( Block().Head.SolidFlags, m_nTriggerBloat, m_bUniformTriggerBloat, pMins, pMaxs );
+}
+
+void CStandaloneEntity::SetTriggerBloat( int nBloat, bool bUniform )
+{
+	m_nTriggerBloat = nBloat;
+	m_bUniformTriggerBloat = bUniform;
+	UpdatePartition();
 }
 
 // The box the world sees: turned with the entity unless it is world-aligned
@@ -930,8 +941,10 @@ void CStandaloneEntity::WorldCollisionBounds( Vector *pMins, Vector *pMaxs ) con
 
 void CStandaloneEntity::MovePartitionElement()
 {
+	// The surrounding box, as CCollisionProperty::UpdatePartition files it.
 	Vector vecMins, vecMaxs;
 	WorldCollisionBounds( &vecMins, &vecMaxs );
+	SourceSharp_SurroundingBounds( Block().Head.SolidFlags, m_nTriggerBloat, m_bUniformTriggerBloat, &vecMins, &vecMaxs );
 	::partition->ElementMoved( m_Partition, vecMins, vecMaxs );
 }
 

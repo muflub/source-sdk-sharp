@@ -31,6 +31,8 @@ public sealed class FuncWallToggle : ScriptedEntity
     public override void OnSpawn()
     {
         _on = (SpawnFlags & StartInvisible) == 0;
+        SetSolidity(BrushSolidity.Solid);
+        InitStaticPhysics();
         Apply();
     }
 
@@ -42,5 +44,7 @@ public sealed class FuncWallToggle : ScriptedEntity
     {
         SetVisible(_on);
         SetSolidity(_on ? BrushSolidity.Solid : BrushSolidity.None);
+        // TurnOn and TurnOff: props pass through a wall that is off, too.
+        EnablePhysicsCollisions(_on);
     }
 }

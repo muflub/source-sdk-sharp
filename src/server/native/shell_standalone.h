@@ -183,6 +183,9 @@ public:
 
 	void SetSpawnFlags( int nFlags ) { m_nSpawnFlags = nFlags; }
 
+	// Stock's m_triggerBloat and m_bUniformTriggerBloat, as managed code sets them.
+	void SetTriggerBloat( int nBloat, bool bUniform );
+
 	virtual void Touch( const Toucher_t &toucher ) OVERRIDE;
 
 	virtual void StartTouch( const Toucher_t &toucher ) OVERRIDE;
@@ -335,6 +338,10 @@ public:
 private:
 	int          m_nSpawnFlags;
 	int          m_iHealth;
+
+	// Not in the block: eight more head bytes move nine classes to the next network tier.
+	int          m_nTriggerBloat;
+	bool         m_bUniformTriggerBloat;
 
 	Vector       m_vecSpawnOrigin;
 	QAngle       m_angSpawnRotation;

@@ -869,6 +869,13 @@ void SourceSharp_EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_
 		pStandalone->SetSolidity( (SolidType_t)nSolidType, nSolidFlags );
 }
 
+// The bloat half of CCollisionProperty::UseTriggerBounds; the flag goes through EntitySetSolidity.
+void SourceSharp_EntitySetTriggerBloat( uint32_t hEntity, int32_t nBloat, int32_t bUniform )
+{
+	if ( CStandaloneEntity *pStandalone = SourceSharp_ResolveStandalone( hEntity ) )
+		pStandalone->SetTriggerBloat( nBloat, bUniform != 0 );
+}
+
 // Wholesale, for a restore putting back a value it read.
 void SourceSharp_EntitySetSpawnFlags( uint32_t hEntity, int32_t nSpawnFlags )
 {

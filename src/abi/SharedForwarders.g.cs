@@ -322,7 +322,7 @@ internal unsafe struct PhysicsSurfacePropsFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IPhysicsEnvironment</c> through its forwarders (SSFwd_PhysicsEnvironment): 37 slot(s).
+/// <c>IPhysicsEnvironment</c> through its forwarders (SSFwd_PhysicsEnvironment): 38 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsEnvironmentFwd : IForwarderTable
@@ -440,6 +440,9 @@ internal unsafe struct PhysicsEnvironmentFwd : IForwarderTable
 
     // void IPhysicsEnvironment::SetQuickDelete( bool )
     public delegate* unmanaged<void*, byte, void> SetQuickDelete;
+
+    // IPhysicsObject * IPhysicsEnvironment::CreateSphereObject( float, int, const Vector &, const QAngle &, objectparams_t *, bool )
+    public delegate* unmanaged<void*, float, int, void*, void*, void*, byte, void*> CreateSphereObject;
 }
 
 /// <summary>
@@ -1529,7 +1532,7 @@ internal unsafe struct ShimHierarchyFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimCollisionServer</c> through its forwarders (SSFwd_ShimCollisionServer): 10 slot(s).
+/// <c>IShimCollisionServer</c> through its forwarders (SSFwd_ShimCollisionServer): 11 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimCollisionServerFwd : IForwarderTable
@@ -1566,6 +1569,9 @@ internal unsafe struct ShimCollisionServerFwd : IForwarderTable
 
     // int32_t IShimCollisionServer::EntityOverlapReport( uint32_t *, int32_t )
     public delegate* unmanaged<void*, void*, int, int> EntityOverlapReport;
+
+    // void IShimCollisionServer::EntitySetTriggerBloat( uint32_t, int32_t, int32_t )
+    public delegate* unmanaged<void*, uint, int, int, void> EntitySetTriggerBloat;
 }
 
 /// <summary>

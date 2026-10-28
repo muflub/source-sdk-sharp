@@ -242,6 +242,8 @@ void CShimCollisionServer::EntitySetCollisionGroup( uint32_t hEntity, int32_t nG
 	{ return ::SourceSharp_EntitySetCollisionGroup( hEntity, nGroup ); }
 int32_t CShimCollisionServer::EntityOverlapReport( uint32_t * pOutPairs, int32_t nMaxPairs )
 	{ return ::SourceSharp_EntityOverlapReport( pOutPairs, nMaxPairs ); }
+void CShimCollisionServer::EntitySetTriggerBloat( uint32_t hEntity, int32_t nBloat, int32_t bUniform )
+	{ return ::SourceSharp_EntitySetTriggerBloat( hEntity, nBloat, bUniform ); }
 
 void CShimPhysics::EntityDestroyPhysics( uint32_t hEntity )
 	{ return ::SourceSharp_EntityDestroyPhysics( hEntity ); }

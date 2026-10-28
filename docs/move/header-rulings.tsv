@@ -553,7 +553,7 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PhysSpring.cs	yes	Po
 src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PhysThruster.cs	yes	Ports phys_thruster's force/torque application and flags from physics.cpp SF_THRUST_*.
 src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PhysTorque.cs	yes	Ports phys_torque's constant-force/timed-shutoff pattern mirroring stock's phys_torque entity.
 src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PointPush.cs	yes	Ports point_push's falloff/impulse formulas and filters, though its time-scaling deliberately diverges from stock.
-src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PropSphere.cs	no	Trivial SetModel passthrough; comment states the actual stock sphere-physics logic does not come over.
+src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PropSphere.cs	yes	ports CPhysSphere::CreateVPhysics (props.cpp) since 2026-10-26: the twelve-unit sphere in a SOLID_BBOX of twelve
 src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/SimplePhysicsBrush.cs	no	Plumbing: sets solidity and calls InitPhysics; no ported Valve algorithm.
 src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/SimplePhysicsProp.cs	no	Trivial: only assigns the model string; no ported logic.
 src/sourcesharp/managed/SourceSharp.Server/Entities/PlayerResource.cs	yes	Ports CPlayerResource's think/update loop and slot walk from player_resource.cpp, cites UpdateConnectedPlayer.

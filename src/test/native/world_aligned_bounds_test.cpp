@@ -259,3 +259,48 @@ TEST( CollisionBoundsToWorld, OnlyBBoxNoneAndForcedAlignedAreWorldSpace )
 }
 
 }  // namespace
+
+//-----------------------------------------------------------------------------
+// The trigger bloat (CCollisionProperty::WorldSpaceTriggerBounds and the tail
+// of ComputeSurroundingBox). Found by stock-ab's solidity census (2026-10-26):
+// stock's items and weapons carry FSOLID_USE_TRIGGER_BOUNDS, and a player
+// picks one up 24 (36) units before reaching its box.
+//-----------------------------------------------------------------------------
+
+TEST( TriggerBounds, WithoutTheFlagTheBoxIsUntouched )
+{
+	Vector vecMins( -10, -10, 0 ), vecMaxs( 10, 10, 20 );
+	SourceSharp_TriggerBounds( FSOLID_TRIGGER, 24, false, &vecMins, &vecMaxs );
+	EXPECT_EQ( Vector( -10, -10, 0 ), vecMins );
+	EXPECT_EQ( Vector( 10, 10, 20 ), vecMaxs );
+}
+
+TEST( TriggerBounds, TheDefaultBloatsTheSidesAndHalfTheTopButNotTheBottom )
+{
+	Vector vecMins( -10, -10, 0 ), vecMaxs( 10, 10, 20 );
+	SourceSharp_TriggerBounds( FSOLID_TRIGGER | FSOLID_USE_TRIGGER_BOUNDS, 24, false, &vecMins, &vecMaxs );
+	EXPECT_EQ( Vector( -34, -34, 0 ), vecMins );
+	EXPECT_EQ( Vector( 34, 34, 32 ), vecMaxs );
+}
+
+TEST( TriggerBounds, UniformBloatGrowsEverySide )
+{
+	Vector vecMins( -10, -10, 0 ), vecMaxs( 10, 10, 20 );
+	SourceSharp_TriggerBounds( FSOLID_USE_TRIGGER_BOUNDS, 36, true, &vecMins, &vecMaxs );
+	EXPECT_EQ( Vector( -46, -46, -36 ), vecMins );
+	EXPECT_EQ( Vector( 46, 46, 56 ), vecMaxs );
+}
+
+TEST( TriggerBounds, TheSurroundingBoxTakesInTheTriggerBox )
+{
+	Vector vecMins( -10, -10, 0 ), vecMaxs( 10, 10, 20 );
+	SourceSharp_SurroundingBounds( FSOLID_USE_TRIGGER_BOUNDS, 24, false, &vecMins, &vecMaxs );
+	EXPECT_EQ( Vector( -34, -34, 0 ), vecMins );
+	EXPECT_EQ( Vector( 34, 34, 32 ), vecMaxs );
+
+	Vector vecPlainMins( -10, -10, 0 ), vecPlainMaxs( 10, 10, 20 );
+	SourceSharp_SurroundingBounds( 0, 24, false, &vecPlainMins, &vecPlainMaxs );
+	EXPECT_EQ( Vector( -10, -10, 0 ), vecPlainMins );
+	EXPECT_EQ( Vector( 10, 10, 20 ), vecPlainMaxs );
+}
+

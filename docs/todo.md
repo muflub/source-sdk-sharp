@@ -1029,6 +1029,15 @@ the stock-ab branch's base 9074634e7 and still open after its fixes:
   constraint. dm_lockdown's fan hinge (spawnflags 9) is one. IPhysicsObject's
   `BecomeHinged` and `IsHinged` have no forwarder rows yet (CanPickupObject's
   hinge test waits on the second). Owner: the physics lane.
+- **stock-ab's crossbow ammo check races the reload.** `--weapons all`
+  compares the ammo after +attack; the crossbow's reload lands either side of
+  the snapshot, so the check flips direction from run to run (2026-10-26:
+  matched 1 of 3 runs, and the two misses were opposite ways). Next: take
+  the snapshot after the weapon's next idle, not at a fixed delay.
+- **prop_dynamic may be SOLID_BSP.** PropDynamic.Apply calls the brush
+  SetSolidity after MakePhysicsStatic, which sets SOLID_BSP: the same call
+  left the wall chargers untraceable until de7b2bbd0. Next: compare stock's
+  ab_movetypes solidity for ss_sandbox's propsdyn_dyn, and drop the call if so.
 - **A wall charger shows only full and empty.** Stock holds the charger's
   "idle" cycle at 1 - juice/max (CNewWallHealth::StudioFrameAdvance,
   playback rate 0), so the tube drains as it is used; here a sequence's cycle

@@ -14,6 +14,9 @@ using SourceSharp.StockAb;
 //   census STOCK.tsv SHARP.json OUT.json
 //                     the entity census, SourceSharp's classnames renamed as
 //                     MapGen's StockMap renamed them for stock
+//   solidity STOCK_MOVETYPES SHARP.json OUT.json
+//                     each name both games hold once, and the ones whose
+//                     solid type or flags differ
 //   report DIR [key=value...]
 //                     DIR/index.html from shots.jsonl and census.json; the
 //                     pairs head the page, except threshold= and tolerance=,
@@ -27,6 +30,7 @@ try
     {
         "compare" => Compare(args[1..]),
         "census" => Census(args[1..]),
+        "solidity" => Solidity(args[1..]),
         "report" => WriteReport(args[1..]),
         _ => Usage(),
     };
@@ -92,6 +96,23 @@ static int Census(string[] args)
     return 0;
 }
 
+static int Solidity(string[] args)
+{
+    if (args.Length != 3)
+        return Usage();
+
+    var report = SolidityCensus.Compare(SolidityCensus.ReadStock(File.ReadAllText(args[0])),
+                                        SolidityCensus.ReadSharp(File.ReadAllText(args[1])));
+    File.WriteAllText(args[2], JsonSerializer.Serialize(report, Report.Json));
+
+    Console.WriteLine($"solidity: {report.Paired} names paired ({report.StockOnly} stock only, "
+                      + $"{report.SharpOnly} SourceSharp only); {report.Differ.Count} differ");
+    foreach (var d in report.Differ)
+        Console.WriteLine($"  {d.Name} ({d.StockClass}/{d.SharpClass}): solid stock {d.StockSolid} SourceSharp {d.SharpSolid}, "
+                          + $"flags stock 0x{d.StockFlags:x} SourceSharp 0x{d.SharpFlags:x}");
+    return 0;
+}
+
 static int WriteReport(string[] args)
 {
     if (args.Length < 1)
@@ -129,6 +150,7 @@ static int Usage()
 {
     Console.Error.WriteLine("usage: SourceSharp.StockAb compare --out DIR --name NAME [--title T] [--threshold N] [--tolerance P] STOCK_A STOCK_B SHARP_A SHARP_B");
     Console.Error.WriteLine("       SourceSharp.StockAb census STOCK.tsv SHARP.json OUT.json");
+    Console.Error.WriteLine("       SourceSharp.StockAb solidity STOCK_MOVETYPES SHARP.json OUT.json");
     Console.Error.WriteLine("       SourceSharp.StockAb report DIR [key=value...]");
     return 2;
 }

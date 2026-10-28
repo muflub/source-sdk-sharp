@@ -53,3 +53,45 @@ inline void SourceSharp_CollisionBoundsToWorld( int nSolidType, int nSolidFlags,
 	ss_mathlib::AngleMatrix( angAngles, vecOrigin, matCollisionToWorld );
 	ss_mathlib::TransformAABB( matCollisionToWorld, vecLocalMins, vecLocalMaxs, *pWorldMins, *pWorldMaxs );
 }
+
+// CCollisionProperty::WorldSpaceTriggerBounds, in place: with FSOLID_USE_TRIGGER_BOUNDS the
+// sides grow by the bloat and the top by half, or every side when uniform.
+inline void SourceSharp_TriggerBounds( int nSolidFlags, int nBloat, bool bUniform,
+                                       Vector *pWorldMins, Vector *pWorldMaxs )
+{
+	if ( ( nSolidFlags & FSOLID_USE_TRIGGER_BOUNDS ) == 0 )
+		return;
+
+	const float flBloat = (float)nBloat;
+	pWorldMins->x -= flBloat;
+	pWorldMins->y -= flBloat;
+	pWorldMaxs->x += flBloat;
+	pWorldMaxs->y += flBloat;
+
+	if ( bUniform )
+	{
+		pWorldMins->z -= flBloat;
+		pWorldMaxs->z += flBloat;
+	}
+	else
+	{
+		pWorldMaxs->z += flBloat * 0.5f;
+	}
+}
+
+// The tail of CCollisionProperty::ComputeSurroundingBox, in place: the surrounding box takes
+// in the trigger box.
+inline void SourceSharp_SurroundingBounds( int nSolidFlags, int nBloat, bool bUniform,
+                                           Vector *pWorldMins, Vector *pWorldMaxs )
+{
+	if ( ( nSolidFlags & FSOLID_USE_TRIGGER_BOUNDS ) == 0 )
+		return;
+
+	Vector vecTriggerMins = *pWorldMins, vecTriggerMaxs = *pWorldMaxs;
+	SourceSharp_TriggerBounds( nSolidFlags, nBloat, bUniform, &vecTriggerMins, &vecTriggerMaxs );
+	for ( int i = 0; i < 3; ++i )
+	{
+		( *pWorldMins )[i] = vecTriggerMins[i] < ( *pWorldMins )[i] ? vecTriggerMins[i] : ( *pWorldMins )[i];
+		( *pWorldMaxs )[i] = vecTriggerMaxs[i] > ( *pWorldMaxs )[i] ? vecTriggerMaxs[i] : ( *pWorldMaxs )[i];
+	}
+}

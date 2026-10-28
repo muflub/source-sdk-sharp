@@ -167,4 +167,144 @@ public class PickupItemPhysicsTests
         Assert.True(engine.Called("EntityPhysics.InitPhysics"), "the control: it became physical");
         Assert.False(engine.Called("WorldQuery.EntityTraceHull"), "FallInit's SF_NORESPAWN arm is VPhysicsInitNormal");
     }
+
+    //-------------------------------------------------------------------------
+    // The reach (CCollisionProperty::UseTriggerBounds) and the sight line
+    // (UTIL_ItemCanBeTouchedByPlayer). Found by stock-ab's solidity census
+    // (2026-10-26): stock's items and weapons carry FSOLID_USE_TRIGGER_BOUNDS,
+    // so a player takes one 24 (a weapon 36) units before reaching its box.
+    //-------------------------------------------------------------------------
+
+    private static readonly EntityHandle Toucher = new(0x0001_0001u);
+
+    private static (float Bloat, bool Uniform)[] Reach(RecordingEngine engine)
+        => engine.AllOf("Entities.UseTriggerBounds").Where(c => c.ArgAs<bool>(1))
+                 .Select(c => (c.ArgAs<float>(2), c.ArgAs<bool>(3))).ToArray();
+
+    [Theory]
+    [InlineData(EntityNames.ItemBattery, 24f)]
+    [InlineData(EntityNames.ItemAmmoPistol, 24f)]
+    [InlineData(EntityNames.WeaponPistol, 36f)]
+    public void Its_trigger_reaches_past_its_box_by_stocks_bloat(string className, float bloat)
+    {
+        var (_, engine) = Spawned(className);
+
+        Assert.Equal([(bloat, false)], Reach(engine));
+    }
+
+    [Fact]
+    public void The_reach_is_kept_when_it_has_no_physics_and_stays_a_box()
+    {
+        var (_, engine) = Spawned(EntityNames.ItemBattery, physics: false);
+
+        Assert.Equal([(24f, false)], Reach(engine));
+    }
+
+    [Fact]
+    public void The_gravity_guns_carry_doubles_an_items_reach_and_the_drop_restores_it()
+    {
+        var (registry, engine) = Spawned(EntityNames.ItemBattery);
+        var item = (PickupItem)registry.Get(Item)!;
+        engine.Clear();
+
+        ((IPhysGunTarget)item).OnPhysGunPickup(Toucher, PhysGunPickup.PickedUpByCannon);
+        ((IPhysGunTarget)item).OnPhysGunDrop(Toucher, PhysGunDrop.DroppedByCannon);
+
+        Assert.Equal([(48f, false), (24f, false)], Reach(engine));
+        Assert.Equal(1, item.OnCacheInteraction.FireCount);
+    }
+
+    [Fact]
+    public void A_weapons_reach_is_not_the_gravity_guns_business()
+    {
+        var (registry, engine) = Spawned(EntityNames.WeaponPistol);
+        engine.Clear();
+
+        ((IPhysGunTarget)registry.Get(Item)!).OnPhysGunPickup(Toucher, PhysGunPickup.PickedUpByCannon);
+
+        Assert.Empty(Reach(engine));
+    }
+
+    private static (PickupItem Item, RecordingEngine Engine) Touched(string className, bool seen)
+    {
+        var (registry, engine) = Spawned(className, arrange: e =>
+            e.Returns("Entities.IsPlayer", true)
+             .Returns("Entities.GetHealth", 100)
+             .Returns("Entities.IsValid", true)
+             .Returns("WorldQuery.EntityTraceHull",
+                      new EntityHullTrace(Vector.Zero, false, false, seen ? EntityHandle.None : new EntityHandle(0x0002_0099u),
+                                          seen ? 1f : 0.4f)));
+        var item = (PickupItem)registry.Get(Item)!;
+        item.OnTouch(Toucher);
+        return (item, engine);
+    }
+
+    [Fact]
+    public void An_item_behind_a_wall_is_not_taken_and_says_nothing()
+    {
+        var (item, _) = Touched(EntityNames.ItemBattery, seen: false);
+
+        Assert.Equal((0, 0), (item.OnCacheInteraction.FireCount, item.OnPlayerTouch.FireCount));
+    }
+
+    [Fact]
+    public void An_item_in_sight_says_it_was_reached_even_with_nothing_to_give()
+    {
+        var (item, engine) = Touched(EntityNames.ItemBattery, seen: true);
+
+        Assert.Equal(1, item.OnCacheInteraction.FireCount);
+        var trace = Assert.Single(engine.AllOf("WorldQuery.EntityTraceHull"));
+        Assert.Equal(GameMovement.CollisionGroupPlayerMovement, trace.ArgAs<int>(6));
+    }
+
+    [Fact]
+    public void A_weapon_behind_a_wall_says_nothing_but_is_still_offered()
+    {
+        var (item, _) = Touched(EntityNames.WeaponPistol, seen: false);
+
+        Assert.Equal(0, item.OnCacheInteraction.FireCount);
+        // DefaultTouch's BumpWeapon runs whatever the sight line said.
+        bool gates = (bool)typeof(WeaponPickup).GetProperty("SightGatesPickup",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(item)!;
+        Assert.False(gates);
+    }
+
+    //-------------------------------------------------------------------------
+    // A weapon's solidity (CWeaponHL2MPBase::Materialize): a box with a
+    // physics object, a trigger, and not-standable only for the stunstick.
+    // Found by stock-ab's solidity census (2026-10-26): here weapons were
+    // SOLID_VPHYSICS hulls, all marked not-standable.
+    //-------------------------------------------------------------------------
+
+    private static (SolidType, SolidFlags) Settled(RecordingEngine engine)
+    {
+        var call = engine.Last("Entities.SetSolidity")!.Value;
+        return ((SolidType)call.Args[1]!, (SolidFlags)call.Args[2]!);
+    }
+
+    [Fact]
+    public void A_weapon_ends_as_a_box_trigger_after_its_object_is_made()
+    {
+        var (_, engine) = Spawned(EntityNames.WeaponPistol);
+
+        Assert.Equal((SolidType.BoundingBox, SolidFlags.Trigger), Settled(engine));
+        int made = engine.Calls.ToList().FindLastIndex(c => c.Member == "EntityPhysics.InitPhysics");
+        int boxed = engine.Calls.ToList().FindLastIndex(c => c.Member == "Entities.SetSolidity");
+        Assert.True(made >= 0 && boxed > made, $"the box ({boxed}) after the object ({made})");
+    }
+
+    [Fact]
+    public void Only_the_stunstick_is_not_standable()
+        => Assert.Equal((SolidType.BoundingBox, SolidFlags.Trigger | SolidFlags.NotStandable),
+                        Settled(Spawned(EntityNames.WeaponStunstick).Engine));
+
+    [Fact]
+    public void An_item_stays_a_physics_hull_and_is_set_once()
+    {
+        var (_, engine) = Spawned(EntityNames.ItemBattery);
+
+        Assert.Single(engine.AllOf("Entities.SetSolidity"));
+        Assert.Equal((SolidType.VPhysics, SolidFlags.Trigger | SolidFlags.NotStandable), Settled(engine));
+    }
 }
+

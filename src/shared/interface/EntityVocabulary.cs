@@ -48,6 +48,12 @@ public enum SolidFlags
 
     /// <summary>Volumetric contents, the way water is. Also a volume to fly through.</summary>
     VolumeContents = 0x0020,
+
+    /// <summary>
+    /// Touched by triggers through a box bloated past its own (an item's 24
+    /// units, a weapon's 36): see <c>IEngineEntities.UseTriggerBounds</c>.
+    /// </summary>
+    UseTriggerBounds = 0x0080,
 }
 
 /// <summary>

@@ -6,8 +6,8 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.ItemBoxBuckshot, ScriptedEntityKind.Item)]
 public sealed class ItemBoxBuckshot : AmmoItem
 {
-    public ItemBoxBuckshot(IEnginePlayers players)
-        : base(players)
+    public ItemBoxBuckshot(IEnginePlayers players, IEngineWorldQuery world)
+        : base(players, world)
     {
     }
 

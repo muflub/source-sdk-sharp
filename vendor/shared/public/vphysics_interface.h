@@ -454,7 +454,7 @@ public:
 	// same as above, but this one cannot move or rotate (infinite mass/inertia)
 	virtual IPhysicsObject	*CreatePolyObjectStatic( const CPhysCollide *pCollisionModel, int materialIndex, const Vector &position, const QAngle &angles, objectparams_t *pParams ) = 0;
 	// Create a perfectly spherical object
-	virtual void unused_CreateSphereObject() = 0;
+	virtual IPhysicsObject *CreateSphereObject( float radius, int materialIndex, const Vector &position, const QAngle &angles, objectparams_t *pParams, bool isStatic ) = 0;
 	// destroy an object created with CreatePolyObject() or CreatePolyObjectStatic()
 	virtual void DestroyObject( IPhysicsObject * ) = 0;
 

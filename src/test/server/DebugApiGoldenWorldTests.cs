@@ -40,7 +40,7 @@ public partial class DebugApiGoldenWorldTests
     {
         ["entities"] =
             """
-            {"class":"prop_golden","entities":[{"handle":262177,"index":33,"classname":"prop_golden","health":75,"origin":[1.50,-2.00,3.25],"angles":[0.00,90.00,0.00]},{"handle":327714,"index":33,"classname":"prop_golden","health":75,"origin":[1.50,-2.00,3.25],"angles":[0.00,90.00,0.00]}],"count":2}
+            {"class":"prop_golden","entities":[{"handle":262177,"index":33,"classname":"prop_golden","name":"golden","health":75,"solid":6,"solidflags":4,"origin":[1.50,-2.00,3.25],"angles":[0.00,90.00,0.00]},{"handle":327714,"index":33,"classname":"prop_golden","name":"golden","health":75,"solid":6,"solidflags":4,"origin":[1.50,-2.00,3.25],"angles":[0.00,90.00,0.00]}],"count":2}
             """,
         ["input"] =
             """
@@ -83,7 +83,7 @@ public partial class DebugApiGoldenWorldTests
     /// <summary>The engine calls each route makes, the clock and the mod directory left out (sampling reads them on its own schedule).</summary>
     internal static readonly IReadOnlyDictionary<string, string[]> ExpectedCalls = new Dictionary<string, string[]>
     {
-        ["entities"] = ["Entities.FindAllByClassname(prop_golden)", "Entities.GetOrigin(#33)", "Entities.GetAngles(#33)", "Entities.GetIndex(#33)", "Entities.GetClassName(#33)", "Entities.GetHealth(#33)", "Entities.GetOrigin(#34)", "Entities.GetAngles(#34)", "Entities.GetIndex(#34)", "Entities.GetClassName(#34)", "Entities.GetHealth(#34)"],
+        ["entities"] = ["Entities.FindAllByClassname(prop_golden)", "Entities.GetOrigin(#33)", "Entities.GetAngles(#33)", "Entities.GetIndex(#33)", "Entities.GetClassName(#33)", "Entities.GetName(#33)", "Entities.GetHealth(#33)", "Entities.GetSolidType(#33)", "Entities.GetSolidFlags(#33)", "Entities.GetOrigin(#34)", "Entities.GetAngles(#34)", "Entities.GetIndex(#34)", "Entities.GetClassName(#34)", "Entities.GetName(#34)", "Entities.GetHealth(#34)", "Entities.GetSolidType(#34)", "Entities.GetSolidFlags(#34)"],
         ["input"] = ["Entities.FindAllByName(door, 512)", "Entities.FireInput(#33, Open, x y, (invalid handle))"],
         ["input-activator"] = ["Entities.FindAllByName(door, 512)", "Players.GetHandle(1)", "Entities.IsValid(#1)", "Entities.FireInput(#33, Open, null, #1)"],
         ["damage"] = ["Entities.FindAllByClassname(prop_golden)", "Entities.GetHealth(#33)", "Damage.Apply(#33, (invalid handle), 10, Bullet)", "Entities.IsValid(#33)", "Entities.GetHealth(#33)", "Entities.GetClassName(#33)", "Entities.GetHealth(#34)", "Damage.Apply(#34, (invalid handle), 10, Bullet)", "Entities.IsValid(#34)", "Entities.GetHealth(#34)", "Entities.GetClassName(#34)"],

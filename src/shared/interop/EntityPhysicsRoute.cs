@@ -12,4 +12,13 @@ public interface IEntityPhysicsRoute
 
     /// <summary>The held object destroyed and the entity made again, static or not.</summary>
     bool SetStatic(EntityHandle entity, bool isStatic);
+
+    /// <summary>A static object for the entity, its solidity and movetype kept (a brush's VPhysicsInitStatic).</summary>
+    bool CreateStatic(EntityHandle entity);
+
+    /// <summary>Whether the entity's object collides (<c>IPhysicsObject::EnableCollisions</c>); nothing when it has none.</summary>
+    void EnableCollisions(EntityHandle entity, bool enable);
+
+    /// <summary>The entity simulated as a perfect sphere of <paramref name="radius"/> (prop_sphere).</summary>
+    bool CreateSphere(EntityHandle entity, float radius);
 }

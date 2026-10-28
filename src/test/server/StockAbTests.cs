@@ -260,4 +260,76 @@ public class StockAbTests
 
         Assert.Equal(1, Assert.Single(census).Moved);
     }
+
+    //-------------------------------------------------------------------------
+    // The solidity census: stock's ab_movetypes rows against /entities, by name.
+    //-------------------------------------------------------------------------
+
+    private const string StockMovetypes =
+        "0\tworldspawn\t\t0\t6\t0\n"
+        + "105\tprop_dynamic\tpropsdyn_dyn\t7\t3\t4\n"
+        + "106\tfunc_wall\tbrushes_wall\t7\t1\t0\n"
+        + "107\tinfo_target\ttwice\t0\t0\t0\n"
+        + "108\tinfo_target\ttwice\t0\t0\t0\n"
+        + "109\tlight\tstock_lamp\t0\t0\t4\n"
+        + "#end\tt1\n";
+
+    private static string SharpSolidity(int dynSolid, int dynFlags)
+        => "{\"class\":\"*\",\"entities\":["
+           + "{\"handle\":1,\"index\":0,\"classname\":\"worldspawn\",\"name\":\"\",\"health\":0,\"solid\":6,\"solidflags\":0,\"origin\":[0,0,0],\"angles\":[0,0,0]},"
+           + $"{{\"handle\":2,\"index\":105,\"classname\":\"prop_dynamic\",\"name\":\"propsdyn_dyn\",\"health\":0,\"solid\":{dynSolid},\"solidflags\":{dynFlags},\"origin\":[0,0,0],\"angles\":[0,0,0]}},"
+           + "{\"handle\":3,\"index\":106,\"classname\":\"func_wall\",\"name\":\"brushes_wall\",\"health\":0,\"solid\":1,\"solidflags\":0,\"origin\":[0,0,0],\"angles\":[0,0,0]},"
+           + "{\"handle\":4,\"index\":110,\"classname\":\"info_target\",\"name\":\"twice\",\"health\":0,\"solid\":0,\"solidflags\":0,\"origin\":[0,0,0],\"angles\":[0,0,0]},"
+           + "{\"handle\":5,\"index\":111,\"classname\":\"ss_te_tester\",\"name\":\"sharp_only\",\"health\":0,\"solid\":0,\"solidflags\":0,\"origin\":[0,0,0],\"angles\":[0,0,0]}"
+           + "],\"count\":5}";
+
+    [Fact]
+    public void Matching_solidity_pairs_each_unique_name_and_finds_nothing()
+    {
+        var report = SolidityCensus.Compare(SolidityCensus.ReadStock(StockMovetypes),
+                                            SolidityCensus.ReadSharp(SharpSolidity(3, 4)));
+
+        // propsdyn_dyn and brushes_wall; "twice" is held twice by stock, so neither side's.
+        Assert.Equal((2, 1, 1), (report.Paired, report.StockOnly, report.SharpOnly));
+        Assert.Empty(report.Differ);
+    }
+
+    [Fact]
+    public void A_different_solid_type_is_a_difference()
+    {
+        var report = SolidityCensus.Compare(SolidityCensus.ReadStock(StockMovetypes),
+                                            SolidityCensus.ReadSharp(SharpSolidity(1, 4)));
+
+        var d = Assert.Single(report.Differ);
+        Assert.Equal(("propsdyn_dyn", 3, 1), (d.Name, d.StockSolid, d.SharpSolid));
+    }
+
+    [Fact]
+    public void A_different_flag_is_a_difference()
+    {
+        var report = SolidityCensus.Compare(SolidityCensus.ReadStock(StockMovetypes),
+                                            SolidityCensus.ReadSharp(SharpSolidity(3, 0)));
+
+        var d = Assert.Single(report.Differ);
+        Assert.Equal((4, 0), (d.StockFlags, d.SharpFlags));
+    }
+
+    [Fact]
+    public void A_name_SourceSharp_holds_twice_is_neither_paired_nor_stocks_alone()
+    {
+        var stock = new List<NamedSolidity> { new("info_target", "dup", 0, 0) };
+        var sharp = new List<NamedSolidity> { new("info_target", "dup", 0, 0), new("info_target", "dup", 2, 0) };
+
+        var report = SolidityCensus.Compare(stock, sharp);
+
+        Assert.Equal((0, 0, 0), (report.Paired, report.StockOnly, report.SharpOnly));
+    }
+
+    [Fact]
+    public void A_movetype_dump_without_its_end_line_is_refused()
+        => Assert.Throws<InvalidDataException>(() => SolidityCensus.ReadStock(StockMovetypes.Replace("#end\tt1\n", "")));
+
+    [Fact]
+    public void A_dev_api_answer_without_solidity_is_refused_not_read_as_none()
+        => Assert.Throws<InvalidDataException>(() => SolidityCensus.ReadSharp(SharpAnswer));
 }

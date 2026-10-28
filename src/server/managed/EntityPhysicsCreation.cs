@@ -99,6 +99,28 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
     /// solver would step it forever.
     /// </summary>
     public bool Create(EntityHandle entity, bool isStatic, bool asleep, bool debris)
+        => Make(entity, isStatic, asleep, debris, ownSolidity: false);
+
+    /// <summary>
+    /// VPhysicsInitStatic as a brush calls it (CFuncWall::CreateVPhysics,
+    /// CBreakable::CreateVPhysics): a static object, and the entity's own
+    /// solidity and movetype kept. A brush stays SOLID_BSP, so a trace still
+    /// meets its faces and their materials; the solver meets the object.
+    /// </summary>
+    public bool CreateStatic(EntityHandle entity) => Make(entity, isStatic: true, asleep: false, debris: false, ownSolidity: true);
+
+    /// <summary>
+    /// CFuncWallToggle's TurnOn and TurnOff: the object kept, its collisions
+    /// switched. Nothing when the entity has none.
+    /// </summary>
+    public void EnableCollisions(EntityHandle entity, bool enable)
+    {
+        nint made = _host.PhysicsObject(entity);
+        if (made != 0)
+            _v.EnableCollisions(made, enable);
+    }
+
+    private bool Make(EntityHandle entity, bool isStatic, bool asleep, bool debris, bool ownSolidity)
     {
         if (_host.PhysicsObject(entity) != 0)
             return true;
@@ -150,7 +172,7 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
         // once, so both arms write the same value.
         SolidFlags flags = f.SolidFlags & ~SolidFlags.NotSolid;
         bool solidityFirst = _host.SolidityBeforePhysics;
-        if (solidityFirst)
+        if (solidityFirst && !ownSolidity)
             _host.SetSolidity(entity, SolidType.VPhysics, flags);
 
         nint made = _v.CreatePolyObject(environment, _world.CollideSolid(collide, solid.Index), surface,
@@ -178,14 +200,15 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
         else
             _v.Wake(made);
 
-        if (!solidityFirst)
+        if (!solidityFirst && !ownSolidity)
             _host.SetSolidity(entity, SolidType.VPhysics, flags);
 
         // Stock's movetypes: VPhysicsInitNormal sets MOVETYPE_VPHYSICS, while
         // VPhysicsInitStatic leaves the entity's own (a prop_dynamic's NONE).
         // Native reports this word for an entity holding an object, so a solid
         // prop_dynamic no longer reads as simulated.
-        _host.SetMoveType(entity, isStatic ? MoveType.None : MoveType.VPhysics);
+        if (!ownSolidity)
+            _host.SetMoveType(entity, isStatic ? MoveType.None : MoveType.VPhysics);
 
         Created++;
 
@@ -204,6 +227,52 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
         _host.DestroyPhysics(entity);
         return Create(entity, isStatic, asleep: false, debris: false);
     }
+
+    /// <summary>
+    /// CPhysSphere::CreateVPhysics (props.cpp): SOLID_BBOX, a sphere of
+    /// <paramref name="radius"/> from <c>g_PhysDefaultObjectParams</c> (no
+    /// model, no surface: material 0), simulated and awake.
+    /// </summary>
+    public bool CreateSphere(EntityHandle entity, float radius)
+    {
+        if (_host.PhysicsObject(entity) != 0)
+            return true;
+
+        if (!_host.TryFacts(entity, out EntityPhysicsFacts f))
+            return false;
+
+        nint environment = _world.Environment();
+        if (environment == 0)
+            return false;
+
+        _host.SetSolidity(entity, SolidType.BoundingBox, f.SolidFlags & ~SolidFlags.NotSolid);
+
+        ObjectParams p = ObjectParams.Defaults(_world.NativeText(DefaultObjectName));
+        p.GameData = PhysicsGameData.FromHandle(f.Handle);
+
+        nint made = _v.CreateSphereObject(environment, radius, 0, f.Origin, f.Angles, in p, isStatic: false);
+        if (made == 0)
+            return false;
+
+        if (!_host.Swap(entity, made, out nint previous))
+        {
+            _v.DestroyObject(environment, made);
+            return false;
+        }
+
+        if (previous != 0)
+            _v.DestroyObject(environment, previous);
+
+        _host.SetMoveType(entity, MoveType.VPhysics);
+        _v.Wake(made);
+
+        Created++;
+        _host.Created(entity);
+        return true;
+    }
+
+    /// <summary><c>g_PhysDefaultObjectParams</c>' name.</summary>
+    public const string DefaultObjectName = "DEFAULT";
 
     /// <summary>
     /// After the managed spawn: a class whose kind the solver moves

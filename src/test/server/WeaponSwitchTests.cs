@@ -159,6 +159,7 @@ public class WeaponSwitchTests
         public SolidFlags GetSolidFlags(EntityHandle entity) => _engine.GetSolidFlags(entity);
         public SolidType GetSolidType(EntityHandle entity) => _engine.GetSolidType(entity);
         public void SetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags) => _engine.SetSolidity(entity, solidType, solidFlags);
+        public void UseTriggerBounds(EntityHandle entity, bool enable, float bloat, bool uniform = false) => _engine.UseTriggerBounds(entity, enable, bloat, uniform);
         public void SetBounds(EntityHandle entity, Vector mins, Vector maxs) => _engine.SetBounds(entity, mins, maxs);
         public void SetSpawnFlags(EntityHandle entity, int spawnFlags) => _engine.SetSpawnFlags(entity, spawnFlags);
     }

@@ -122,6 +122,7 @@ EntityGetSolidFlags	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	S
 EntityGetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityGetCollisionGroup	uint, int	
 EntitySetCollisionGroup	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetCollisionGroup	uint, int, void	
 EntityOverlapReport	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntityOverlapReport	uint*, int, int	
+EntitySetTriggerBloat	EngineApi	IShimCollisionServer	ext	IShimCollision	server	-	SourceSharp_EntitySetTriggerBloat	uint, int, int, void	
 EntityDestroyPhysics	EngineApi	IShimPhysics	server		server	-	SourceSharp_EntityDestroyPhysics	uint, void	
 EntityPhysicsObject	EngineApi	IShimPhysics	server		server	S	SourceSharp_EntityPhysicsObject	uint, nint	
 PhysicsEnvironmentPointer	EngineApi	IShimPhysics	server		server	S	SourceSharp_PhysicsEnvironmentPointer	nint	

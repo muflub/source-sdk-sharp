@@ -43,6 +43,18 @@ public sealed class PropDynamic : ScriptedEntity
 
     private bool _visible = true;
 
+    /// <summary>SF_DYNAMICPROP_NO_VPHYSICS.</summary>
+    private const int NoVPhysicsFlag = 128;
+
+    /// <summary>SF_DYNAMICPROP_DISABLE_COLLISION.</summary>
+    private const int DisableCollisionFlag = 256;
+
+    /// <summary>CBaseProp's MOVETYPE_PUSH (stock's ss_sandbox census measures 7).</summary>
+    public override bool MovesAsPusher => true;
+
+    /// <summary>CreateVPhysics makes a static object or none; never a simulated one.</summary>
+    public override bool SpawnsPhysics => false;
+
     public override void OnSpawn()
     {
         if (DynamicPropSpawn.Refusal(ClassName, Vars.Model, Precache, Render, PropDataTable) is { } refusal)
@@ -54,9 +66,31 @@ public sealed class PropDynamic : ScriptedEntity
 
         SetModel(Vars.Model);
 
-        // Solid but never simulated. Chosen here because the shell reads it when
-        // it creates the physics object, moments later.
-        MakePhysicsStatic();
+        // The map's solid key (SOLID_NONE when it writes none). A prop_dynamic
+        // left without one is an oriented box nothing collides with, "so the
+        // bounding box surrounds the prop as it rotates"; the override and the
+        // classes derived from it keep SOLID_NONE (CDynamicProp::Spawn).
+        SolidType solid = (SolidType)Vars.Solid;
+        SolidFlags flags = SolidFlags.None;
+        if (solid == SolidType.None && ClassName is EntityNames.PropDynamic or EntityNames.DynamicProp)
+        {
+            solid = SolidType.OrientedBox;
+            flags = SolidFlags.NotSolid;
+        }
+
+        // CreateVPhysics: a static object (VPhysicsInitStatic) unless it is
+        // SOLID_NONE, or not solid and asked for none. The object keeps the
+        // solid type: a brush's SetSolidity would make it SOLID_BSP, which a
+        // studio model is not traced as. The collision spawnflag comes after.
+        bool noObject = (flags & SolidFlags.NotSolid) != 0 && (SpawnFlags & NoVPhysicsFlag) != 0;
+
+        if ((SpawnFlags & DisableCollisionFlag) != 0)
+            flags |= SolidFlags.NotSolid;
+
+        SetSolidity(solid, flags);
+
+        if (solid != SolidType.None && !noObject)
+            InitStaticPhysics();
 
         _visible = !Vars.StartDisabled;
         Apply();
@@ -69,6 +103,9 @@ public sealed class PropDynamic : ScriptedEntity
     [ScriptedEvent] private void OnTurnOff() { _visible = false; Apply(); }
     [ScriptedEvent] private void OnEnable() { _visible = true; Apply(); }
     [ScriptedEvent] private void OnDisable() { _visible = false; Apply(); }
+
+    [ScriptedEvent] private void OnEnableCollision() => SetNotSolid(false);
+    [ScriptedEvent] private void OnDisableCollision() => SetNotSolid(true);
 
     [ScriptedEvent] private void OnSetAnimation(string animation) => Play(animation);
 
@@ -93,14 +130,11 @@ public sealed class PropDynamic : ScriptedEntity
         Log.Warning($"[SourceSharp] {ClassName} '{Name}': model has no animation '{animation}'\n");
     }
 
-    private void Apply()
-    {
-        SetVisible(_visible);
-
-        // Hidden scenery should not be collided with either — a player walking
-        // into an invisible wall is the classic symptom of forgetting this.
-        SetSolidity(_visible ? BrushSolidity.Solid : BrushSolidity.None);
-    }
+    /// <summary>
+    /// TurnOn and TurnOff: EF_NODRAW alone. Stock's hidden prop_dynamic is
+    /// still solid; DisableCollision is the input that lets things through.
+    /// </summary>
+    private void Apply() => SetVisible(_visible);
 }
 
 /// <summary>
@@ -115,4 +149,7 @@ public partial class PropDynamicVars
     public string DefaultAnim { get; set; } = string.Empty;
 
     public bool StartDisabled { get; set; }
+
+    /// <summary>The map's solid type: 0 none (the default), 2 a box, 6 the model's collision.</summary>
+    public int Solid { get; set; }
 }

@@ -26,7 +26,9 @@ public class BrushTests
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPushable).Assembly);
-        registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitPhysics", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles");
+        registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitPhysics", "EntityPhysics.InitSpherePhysics",
+                                     "EntityPhysics.InitStaticPhysics", "EntityPhysics.EnableCollisions",
+                                     "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles");
 
         var handle = new EntityHandle(index);
 
@@ -289,7 +291,9 @@ public class BrushTests
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPushable).Assembly);
-        registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitPhysics", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles");
+        registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitPhysics", "EntityPhysics.InitSpherePhysics",
+                                     "EntityPhysics.InitStaticPhysics", "EntityPhysics.EnableCollisions",
+                                     "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles");
 
         Assert.True(registry.IsRegistered(EntityNames.FuncPushable), "func_pushable is claimed by C#");
         Assert.True(registry.IsRegistered(EntityNames.FuncWater), "func_water is claimed by C#");

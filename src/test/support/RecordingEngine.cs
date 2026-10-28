@@ -746,6 +746,7 @@ public sealed class RecordingEngine :
     SolidFlags IEngineEntities.GetSolidFlags(EntityHandle entity) => Record<SolidFlags>("Entities.GetSolidFlags", entity);
     SolidType IEngineEntities.GetSolidType(EntityHandle entity) => Record<SolidType>("Entities.GetSolidType", entity);
     void IEngineEntities.SetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags) => RecordVoid("Entities.SetSolidity", entity, solidType, solidFlags);
+    void IEngineEntities.UseTriggerBounds(EntityHandle entity, bool enable, float bloat, bool uniform) => RecordVoid("Entities.UseTriggerBounds", entity, enable, bloat, uniform);
     void IEngineEntities.SetBounds(EntityHandle entity, Vector mins, Vector maxs) => RecordVoid("Entities.SetBounds", entity, mins, maxs);
     void IEngineEntities.SetSpawnFlags(EntityHandle entity, int spawnFlags) => RecordVoid("Entities.SetSpawnFlags", entity, spawnFlags);
 
@@ -760,6 +761,9 @@ public sealed class RecordingEngine :
     void IEngineEntityPhysics.AddGameFlags(EntityHandle entity, uint flags) => RecordVoid("EntityPhysics.AddGameFlags", entity, flags);
     float IEngineEntityPhysics.GetMass(EntityHandle entity) => Record<float>("EntityPhysics.GetMass", entity);
     bool IEngineEntityPhysics.InitPhysics(EntityHandle entity, bool asleep, bool debris) => Record<bool>("EntityPhysics.InitPhysics", entity, asleep, debris);
+    bool IEngineEntityPhysics.InitSpherePhysics(EntityHandle entity, float radius) => Record<bool>("EntityPhysics.InitSpherePhysics", entity, radius);
+    bool IEngineEntityPhysics.InitStaticPhysics(EntityHandle entity) => Record<bool>("EntityPhysics.InitStaticPhysics", entity);
+    void IEngineEntityPhysics.EnableCollisions(EntityHandle entity, bool enable) => RecordVoid("EntityPhysics.EnableCollisions", entity, enable);
     void IEngineEntityPhysics.SetBounce(EntityHandle h, int bounces) => RecordVoid("EntityPhysics.SetBounce", h, bounces);
     void IEngineEntityPhysics.SetBrushSolidity(EntityHandle entity, BrushSolidity solidity) => RecordVoid("EntityPhysics.SetBrushSolidity", entity, solidity);
     CollisionGroup IEngineEntityPhysics.GetCollisionGroup(EntityHandle entity) => Record<CollisionGroup>("EntityPhysics.GetCollisionGroup", entity);

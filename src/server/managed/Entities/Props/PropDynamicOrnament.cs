@@ -145,6 +145,12 @@ public sealed class PropDynamicOrnament : ScriptedEntity
             return;
         }
 
+        // FollowEntity: on the parent's own origin and facing, where the map's
+        // placement is only where the ornament waited to be attached. Stock's
+        // stands at the owner's origin; this one stood 48 units above it on
+        // ss_sandbox's door (2026-10-26).
+        Entities.SetLocalTransform(Handle, Vector.Zero, Vector.Zero);
+
         // Visible only once it is actually riding something, which is the whole
         // of stock's RemoveEffects(EF_NODRAW) in AttachTo — and it is on this
         // side of the SetParent for a reason: an ornament made visible before a

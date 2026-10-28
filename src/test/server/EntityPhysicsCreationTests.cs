@@ -117,6 +117,16 @@ public class EntityPhysicsCreationTests
             return made;
         }
 
+        public List<(float Radius, int Material, Vector Origin, ObjectParams Params)> Spheres { get; } = new();
+
+        public nint CreateSphereObject(nint environment, float radius, int materialIndex, Vector origin, QAngle angles,
+                                       in ObjectParams objectParams, bool isStatic)
+        {
+            Spheres.Add((radius, materialIndex, origin, objectParams));
+            Calls.Add("create sphere");
+            return NextObject;
+        }
+
         public void DestroyObject(nint environment, nint physicsObject) => Calls.Add($"destroy {physicsObject:x}");
 
         public ushort GameFlags(nint physicsObject) => Flags.TryGetValue(physicsObject, out ushort f) ? f : (ushort)0;
@@ -144,6 +154,8 @@ public class EntityPhysicsCreationTests
         public void EnableGravity(nint physicsObject, bool enable) => Calls.Add($"gravity {enable}");
 
         public void RecheckCollisionFilter(nint physicsObject) => Calls.Add("recheck");
+
+        public void EnableCollisions(nint physicsObject, bool enable) => Calls.Add($"collisions {physicsObject:x} {enable}");
     }
 
     /// <summary>The shell and its managed class as a test sets them.</summary>
@@ -203,6 +215,70 @@ public class EntityPhysicsCreationTests
         var v = new FakeVPhysics();
         var host = new FakeHost(v);
         return (new EntityPhysicsCreation(v, v, host), v, host);
+    }
+
+    // prop_sphere: CPhysSphere::CreateVPhysics (props.cpp) builds a real
+    // twelve-unit sphere, SOLID_BBOX, from g_PhysDefaultObjectParams. Here it
+    // used the model's hull, and ss_sandbox's ball rested 10.4 below stock's.
+    [Fact]
+    public void A_sphere_is_a_ball_of_its_radius_at_the_entitys_pose()
+    {
+        var (c, v, host) = Make();
+
+        Assert.True(c.CreateSphere(Crate, 12f));
+
+        var made = Assert.Single(v.Spheres);
+        Assert.Equal((12f, 0, new Vector(1, 2, 3)), (made.Radius, made.Material, made.Origin));
+        Assert.Equal(ObjectParams.Defaults(0).Mass, made.Params.Mass);
+        Assert.Equal(PhysicsGameData.FromHandle(Crate), made.Params.GameData);
+        Assert.Equal([MoveType.VPhysics], host.MoveTypes);
+
+        int solidity = v.Calls.IndexOf(v.Calls.First(l => l.StartsWith("solidity BoundingBox")));
+        Assert.True(solidity >= 0 && solidity < v.Calls.IndexOf("create sphere"),
+                    $"SOLID_BBOX before the object: {string.Join(", ", v.Calls)}");
+        Assert.Contains("created", v.Calls);
+    }
+
+    [Fact]
+    public void An_entity_that_already_has_an_object_is_given_no_sphere()
+    {
+        var (c, v, host) = Make();
+        host.Held = 0x55;
+
+        Assert.True(c.CreateSphere(Crate, 12f));
+        Assert.Empty(v.Spheres);
+    }
+
+    // A brush's VPhysicsInitStatic (CFuncWall::CreateVPhysics): the object is
+    // static and the brush stays SOLID_BSP with its MOVETYPE_PUSH. Here the
+    // static brushes had no object, and ss_sandbox's belt cans sank into the
+    // conveyor they stand on (z 10.1 against stock's 19.4).
+    [Fact]
+    public void A_brush_static_object_keeps_the_brushs_solidity_and_movetype()
+    {
+        var (c, v, host) = Make();
+
+        Assert.True(c.CreateStatic(Crate));
+
+        var made = Assert.Single(v.Made);
+        Assert.True(made.IsStatic);
+        Assert.DoesNotContain(v.Calls, l => l.StartsWith("solidity"));
+        Assert.Empty(host.MoveTypes);
+        Assert.Contains("created", v.Calls);
+    }
+
+    [Fact]
+    public void Collisions_switch_on_the_held_object_and_nothing_without_one()
+    {
+        var (c, v, host) = Make();
+
+        c.EnableCollisions(Crate, false);
+        Assert.DoesNotContain(v.Calls, l => l.StartsWith("collisions"));
+
+        host.Held = 0x55;
+        c.EnableCollisions(Crate, false);
+        c.EnableCollisions(Crate, true);
+        Assert.Equal(["collisions 55 False", "collisions 55 True"], v.Calls.Where(l => l.StartsWith("collisions")));
     }
 
     [Fact]
@@ -480,6 +556,27 @@ public class EntityPhysicsCreationTests
         registry.Spawn(Crate, EntityNames.SimplePhysicsProp);
 
         Assert.False(Assert.Single(v.Made).IsStatic);
+    }
+
+    // CDynamicProp::CreateVPhysics makes a static object or none, never a
+    // simulated one: a SOLID_NONE prop_dynamic_override has no object at all.
+    [Fact]
+    public void TheRegistrysSpawnAsksNothingForAPropWhoseSpawnDecidesItsOwn()
+    {
+        var (c, v, _) = Make();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PropDynamic).Assembly);
+        registry.Services = TestServices.Services(out var engine);
+        engine.Strict = false;
+        engine.Returns("Precache.PrecacheModel", 3)
+              .Returns("EntityRender.GetModelKeyValueText", null);
+        registry.SpawnPhysics = c;
+
+        registry.KeyValue(Crate, EntityNames.PropDynamicOverride, "model", "models/props_c17/chair.mdl");
+        registry.Spawn(Crate, EntityNames.PropDynamicOverride);
+
+        Assert.Empty(v.Made);
+        Assert.False(engine.Called("EntityPhysics.InitStaticPhysics"));
     }
 
     [Fact]
