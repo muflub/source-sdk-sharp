@@ -53,12 +53,17 @@
 // the right one. This file is what stops the wiring being undone by an edit
 // that still compiles.
 //
-// PROVEN RED, each independently. Delete the DECLARE_CLIENT_EFFECT line and
-// SomethingClaimsTheImpactName fails. Spell the callback's resolve back to
-// `C_BaseEntity *pEntity = ParseImpactData(...)` and both
-// TheCallbackResolvesTheEntityWidely and TheNarrowResolveIsBanned fail. Drop
-// the ImpactEffect call from FireBullets and TheShotDispatchesAnImpact fails.
-// Move that call inside the `_entities.IsValid(trace.Entity)` block and
+// THE CLIENT HALF IS C# SINCE LANE M1-C (2026-10-25): the "Impact" client
+// effect is SourceSharp.Client.TempEnts.BulletImpactEffect, whose decisions
+// BulletImpactEffectTests holds one behaviour a fact. What is checked here is
+// the wiring a source scan can see: the managed handler claims the name, the
+// client's list registers it, nothing native claims it again, it resolves its
+// entity by index, and the shim it calls decides nothing.
+//
+// PROVEN RED, each independently. Drop `BulletImpact(),` from ClientModule's
+// handler list and SomethingClaimsTheImpactName fails. Drop the ImpactEffect
+// call from FireBullets and TheShotDispatchesAnImpact fails. Move that call
+// inside the `_entities.IsValid(trace.Entity)` block and
 // TheImpactIsNotGatedOnNamingWhatWasHit fails while every other test here stays
 // green -- which is the point of it being separate: that edit leaves every shot
 // into a WALL silent again, and a wall is the common case.
@@ -185,6 +190,8 @@ std::vector< std::string > BodyOf( const std::vector< std::string > &lines,
 }
 
 const char *kCallback = "game/client/shell_impact_effects.cpp";
+const char *kHandler  = "managed/SourceSharp.Client/TempEnts/BulletImpactEffect.cs";
+const char *kModule   = "managed/SourceSharp.Client/ClientModule.cs";
 const char *kArsenal  = "managed/SourceSharp.Server/Arsenal.cs";
 const char *kAbi      = "host/sourcesharp.h";
 const char *kTrace    = "game/server/shell_worldquery.cpp";
@@ -192,11 +199,11 @@ const char *kTrace    = "game/server/shell_worldquery.cpp";
 //-----------------------------------------------------------------------------
 // THE CHECK THAT WOULD OTHERWISE NOT BE ABLE TO FAIL.
 //
-// Two of the tests below assert that something is ABSENT, and a file that could
-// not be read is absent in the same way -- so a rename, a move, or a working
-// directory nobody expected would turn them green and mean nothing. Every file
-// is asserted readable first, and every ban's ANCHOR is asserted present, so
-// "no hits" means "not spelled" rather than "looking at nothing".
+// Several of the tests below assert that something is ABSENT, and a file that
+// could not be read is absent in the same way -- so a rename, a move, or a
+// working directory nobody expected would turn them green and mean nothing.
+// Every file is asserted readable first, and every ban's ANCHOR is asserted
+// present, so "no hits" means "not spelled" rather than "looking at nothing".
 //-----------------------------------------------------------------------------
 TEST( ImpactDispatch, TheFilesTheseTestsAreAboutWereActuallyRead )
 {
@@ -204,13 +211,18 @@ TEST( ImpactDispatch, TheFilesTheseTestsAreAboutWereActuallyRead )
 		<< "no src/sourcesharp/ from here, so every scan below is vacuous";
 
 	ASSERT_FALSE( CodeLines( kCallback ).empty() ) << kCallback;
+	ASSERT_FALSE( CodeLines( kHandler ).empty() )  << kHandler;
+	ASSERT_FALSE( CodeLines( kModule ).empty() )   << kModule;
 	ASSERT_FALSE( CodeLines( kArsenal ).empty() )  << kArsenal;
 	ASSERT_FALSE( CodeLines( kAbi ).empty() )      << kAbi;
 	ASSERT_FALSE( CodeLines( kTrace ).empty() )    << kTrace;
 
-	EXPECT_NE( -1, FirstNaming( CodeLines( kCallback ), "SourceSharp_ImpactCallback" ) )
-		<< kCallback << " no longer has a callback at all, so the bans on how "
-		   "it resolves its entity are looking at nothing";
+	EXPECT_NE( -1, FirstNaming( CodeLines( kHandler ), "public void Dispatch(in EffectData data)" ) )
+		<< kHandler << " no longer has a dispatch at all, so the claims about "
+		   "how it resolves its entity are looking at nothing";
+	EXPECT_NE( -1, FirstNaming( CodeLines( kCallback ), "SourceSharp_ClientShotTrace" ) )
+		<< kCallback << " no longer carries the impact's trace, so the bans on "
+		   "what it decides are looking at nothing";
 	EXPECT_NE( -1, FirstNaming( CodeLines( kArsenal ), "public void FireBullets" ) )
 		<< kArsenal << " no longer defines FireBullets, so the shot-path "
 		   "assertions are looking at nothing";
@@ -222,51 +234,47 @@ TEST( ImpactDispatch, TheFilesTheseTestsAreAboutWereActuallyRead )
 // The name itself is not negotiable and is checked as a literal: the row's own
 // rule is that it "may be closed only by making the capability real -- never by
 // substituting a name that resolves", so a registration under any other
-// spelling would close it by hiding it.
+// spelling would close it by hiding it. Since lane M1-C it is the managed
+// BulletImpactEffect, registered in the client's effect handler list, which the
+// dispatch asks before the native registry.
 //-----------------------------------------------------------------------------
 TEST( ImpactDispatch, SomethingClaimsTheImpactName )
 {
-	const std::vector< std::string > lines = CodeLines( kCallback );
-
-	EXPECT_EQ( 1, CountNaming( lines, "DECLARE_CLIENT_EFFECT( \"Impact\"," ) )
-		<< "exactly one registration of the dispatch name \"Impact\" in "
-		<< kCallback << ". Without it DispatchEffectToCallback walks a registry "
-		   "with no such entry and prints \"effect 'Impact' not found on "
-		   "client\" -- which is what this build did for its whole life.";
+	EXPECT_EQ( 1, CountNaming( CodeLines( kHandler ), "public string EffectName => \"Impact\";" ) )
+		<< kHandler << " answers to the dispatch name \"Impact\" exactly once";
+	EXPECT_EQ( 1, CountNaming( CodeLines( kModule ), "BulletImpact()," ) )
+		<< kModule << " puts the handler in the client's effect handler list. "
+		   "Without it the dispatch finds no \"Impact\" and prints \"effect "
+		   "'Impact' not found on client\" -- which is what this build did for "
+		   "its whole life.";
 }
 
 //-----------------------------------------------------------------------------
-// AND IT RESOLVES THE ENTITY THE WAY THIS CLIENT CAN ANSWER.
+// AND NOTHING NATIVE CLAIMS IT AS WELL: two owners of one name is a dispatch
+// that answers whichever was asked first, and a native one would be a second
+// set of decisions about every bullet.
 //-----------------------------------------------------------------------------
-TEST( ImpactDispatch, TheCallbackResolvesTheEntityWidely )
+TEST( ImpactDispatch, NoNativeRegistrationClaimsTheImpactName )
 {
-	const std::vector< std::string > lines = CodeLines( kCallback );
-
-	EXPECT_NE( -1, FirstNaming( lines, "data.entindex()" ) )
-		<< "the callback must take the entity from CEffectData::entindex(), "
-		   "which goes through IClientNetworkable and answers for BOTH "
-		   "hierarchies";
-	EXPECT_NE( -1, FirstNaming( lines, "SourceSharp_ClientEntityFromIndex" ) )
-		<< "and resolve that index through the lookup that answers for both, "
-		   "which hands back an IClientEntity rather than a C_BaseEntity";
+	EXPECT_EQ( 0, CountNaming( CodeLines( kCallback ), "DECLARE_CLIENT_EFFECT( \"Impact\"," ) )
+		<< kCallback << " registers \"Impact\" again; the managed BulletImpactEffect owns it";
 }
 
 //-----------------------------------------------------------------------------
-// THE NARROW RESOLVE IS BANNED, and it is banned by the spelling stock uses --
-// because stock's spelling is exactly the one that was measured answering NULL
-// for worldspawn on this client. A callback that took it would compile, run,
-// play a sound, and draw nothing, for every shot.
+// AND IT RESOLVES THE ENTITY THE WAY THIS CLIENT CAN ANSWER: the effect's
+// INDEX, clipped through the slot that resolves it for both hierarchies
+// (CEffectData::GetEntity() filters to C_BaseEntity and is NULL for every
+// entity here, worldspawn included -- measured, and why the impact was silent).
 //-----------------------------------------------------------------------------
-TEST( ImpactDispatch, TheNarrowResolveIsBanned )
+TEST( ImpactDispatch, TheHandlerResolvesTheEntityByIndex )
 {
-	const std::vector< std::string > lines = CodeLines( kCallback );
+	const std::vector< std::string > lines = CodeLines( kHandler );
 
-	EXPECT_EQ( 0, CountNaming( lines, "C_BaseEntity *pEntity = ParseImpactData" ) )
-		<< "ParseImpactData's return value is GetEntity(), which filters to "
-		   "GetGameEntity() != NULL and is NULL for every entity on this "
-		   "client. Binding it is the shape that makes the callback silent.";
-	EXPECT_EQ( 0, CountNaming( lines, "data.GetEntity()" ) )
-		<< "and the same ask spelled directly";
+	EXPECT_NE( -1, FirstNaming( lines, "engine.ClipToEntity(start, traceExt, data.EntIndex)" ) )
+		<< "the handler clips the shot to the entity the effect's index names";
+	EXPECT_NE( -1, FirstNaming( CodeLines( kCallback ), "SourceSharp_ClientEntityFromIndex( nEntity )" ) )
+		<< "and the slot resolves that index through the lookup that answers for "
+		   "both hierarchies";
 }
 
 //-----------------------------------------------------------------------------
@@ -354,191 +362,65 @@ TEST( ImpactDispatch, TheShotAsksForTheSurfaceAndNotTheNarrowTrace )
 //-----------------------------------------------------------------------------
 
 //=============================================================================
-// AND THE CHOICE ABOVE IT IS MANAGED (plan_shim.md §6, lane 4b-effects).
+// AND THE CHOICE ABOVE IT IS MANAGED (plan_shim.md §6, lane 4b-effects; the
+// whole impact since lane M1-C).
 //
 // Everything above is about an impact HAPPENING. These are about who decides
 // what it looks like: which effect family the surface gets, which particle
 // system the new-effects table names for it, whether flecks are drawn, and
 // which decal is left. All four were literals in shell_impact_effects.cpp --
 // a `switch`, a twenty-six row array, a two-line boolean written twice, and a
-// string -- and all four are in SourceSharp.Client/TempEnts/ImpactChoice.cs.
-//
-// A SOURCE SCAN FOR THE SAME REASON AS EVERY TEST ABOVE: this is a shape at a
-// call site, in code that cannot run without a particle manager and a decal
-// system. What the DECISION answers is asked from managed code instead --
-// ImpactChoiceTests has thirty-nine facts on it, each mutation-verified -- and
-// what the LIVE half does is tools/fx-impact-gate's. These are what stop the
-// seam being undone by an edit that still compiles.
-//
-// PROVEN RED, each independently, by putting a piece back:
-//   * a second SourceSharp_ImpactChoice call in the callback fails
-//     TheCallbackAsksManagedOncePerImpact;
-//   * `iMaterial == CHAR_TEX_CONCRETE` anywhere in the file fails
-//     TheMaterialChainIsGoneFromTheShim;
-//   * the literal "impact_concrete" fails TheParticleNameTableIsGoneFromTheShim;
-//   * the literal "Impact.Concrete" fails TheDecalNameIsGoneFromTheShim;
-//   * dropping `bChose &&` from the callback's guard fails
-//     ARefusedChoiceDrawsNothing.
+// string -- and all four are in SourceSharp.Client/TempEnts/ImpactChoice.cs,
+// asked by BulletImpactEffect. What the decisions answer is
+// ImpactChoiceTests' and BulletImpactEffectTests'; these stop a piece of one
+// coming back to the shim in an edit that still compiles.
 //=============================================================================
 
 const char *kChoice = "managed/SourceSharp.Client/TempEnts/ImpactChoice.cs";
 
 //-----------------------------------------------------------------------------
-// THE CHECK THAT WOULD OTHERWISE NOT BE ABLE TO FAIL, again: four of the five
-// below assert an ABSENCE, and an unreadable file is absent the same way.
+// THE SHIM DECIDES NOTHING ABOUT AN IMPACT. One needle per piece that left: the
+// material chain, the particle table (a plain row, a no-flecks row and the warp
+// shield), the decal name and the fleck suppression's two spellings.
 //-----------------------------------------------------------------------------
-TEST( ImpactChoiceSeam, TheFilesTheseTestsAreAboutWereActuallyRead )
+TEST( ImpactChoiceSeam, TheShimDecidesNothingAboutAnImpact )
 {
-	ASSERT_TRUE( SourceRoot() != NULL );
-	ASSERT_FALSE( CodeLines( kCallback ).empty() ) << kCallback;
-	ASSERT_FALSE( CodeLines( kChoice ).empty() )   << kChoice;
+	const std::vector< std::string > lines = CodeLines( kCallback );
 
-	// The ANCHOR for every ban: the seam itself. If this is gone the file has
-	// stopped asking at all, and "the literals are absent" would be true of a
-	// build that simply does not draw impacts.
-	EXPECT_NE( -1, FirstNaming( CodeLines( kCallback ), "SourceSharp_ImpactChoice" ) )
-		<< kCallback << " no longer asks managed code anything about an impact, "
-		   "so every ban below is satisfied by a file that does nothing";
+	ASSERT_NE( -1, FirstNaming( lines, "SourceSharp_ClientShotTrace" ) )
+		<< kCallback << " is not the file these bans are about";
 
-	// And the POSITIVE control on the other end: the answers exist somewhere.
+	EXPECT_EQ( 0, CountNaming( lines, "CHAR_TEX_" ) );
+	EXPECT_EQ( 0, CountNaming( lines, "impact_concrete" ) );
+	EXPECT_EQ( 0, CountNaming( lines, "warp_shield_impact" ) );
+	EXPECT_EQ( 0, CountNaming( lines, "\"Impact.Concrete\"" ) );
+	EXPECT_EQ( 0, CountNaming( lines, "bool bNoFlecks =" ) );
+	EXPECT_EQ( 0, CountNaming( lines, "FLAGS_CUSTIOM_EFFECTS_NOFLECKS" ) )
+		<< kCallback << " decides something about an impact again; the decision "
+		   "is " << kChoice << "'s and " << kHandler << "'s";
+
+	// The positive control on the other end: the answers exist somewhere.
 	EXPECT_NE( -1, FirstNaming( CodeLines( kChoice ), "impact_concrete" ) )
 		<< kChoice << " does not name the concrete particle system, so the "
 		   "table did not move -- it was deleted";
-}
-
-//-----------------------------------------------------------------------------
-// ONE IMPACT IS ONE CROSSING.
-//
-// The callback wants the decal name AND the effect family, both answers to the
-// same six inputs. Asking twice would be two crossings per bullet for one
-// decision, which is the shape SS_CHOICE_IN_* exists to avoid.
-//-----------------------------------------------------------------------------
-TEST( ImpactChoiceSeam, TheCallbackAsksManagedOncePerImpact )
-{
-	const std::vector< std::string > body =
-		BodyOf( CodeLines( kCallback ), "void SourceSharp_ImpactCallback(" );
-
-	ASSERT_FALSE( body.empty() ) << "SourceSharp_ImpactCallback's body was not found";
-
-	EXPECT_EQ( 1, CountNaming( body, "SourceSharp_ImpactChoice(" ) )
-		<< "the callback asks managed code for the impact's choice exactly "
-		   "once. Two calls is two crossings per bullet for one decision made "
-		   "from one set of numbers.";
-
-	EXPECT_EQ( 0, CountNaming( body, "GetImpactDecal(" ) )
-		<< "the callback reaches the decal through the choice it already has. "
-		   "GetImpactDecal asks for itself, so calling it here is the second "
-		   "crossing this test exists to prevent.";
-}
-
-//-----------------------------------------------------------------------------
-// AND WHAT IT DOES WITH A REFUSAL IS STOCK'S FALL-THROUGH.
-//-----------------------------------------------------------------------------
-TEST( ImpactChoiceSeam, ARefusedChoiceDrawsNothing )
-{
-	const std::vector< std::string > body =
-		BodyOf( CodeLines( kCallback ), "void SourceSharp_ImpactCallback(" );
-
-	ASSERT_FALSE( body.empty() );
-
-	EXPECT_NE( -1, FirstNaming( body, "if ( bChose && tr.DidHit() )" ) )
-		<< "the custom effect must be gated on the choice having been ANSWERED "
-		   "as well as on the trace having hit: an unanswered choice carries "
-		   "action NOTHING, and acting on it would be acting on a default "
-		   "rather than on a decision.";
-}
-
-//-----------------------------------------------------------------------------
-// THE CHAIN IS GONE FROM C++.
-//
-// Not "mostly gone": the material comparison is the decision, and one arm left
-// behind is one surface whose effect two languages disagree about.
-//-----------------------------------------------------------------------------
-TEST( ImpactChoiceSeam, TheMaterialChainIsGoneFromTheShim )
-{
-	const std::vector< std::string > lines = CodeLines( kCallback );
-
-	EXPECT_EQ( 0, CountNaming( lines, "CHAR_TEX_" ) )
-		<< kCallback << " still compares a surface material against a "
-		   "CHAR_TEX_* name. That comparison IS the choice this move took to "
-		   "managed code, and an arm left here is a surface the two sides "
-		   "answer differently for.";
-}
-
-//-----------------------------------------------------------------------------
-// SO IS THE TWENTY-SIX ROW TABLE.
-//-----------------------------------------------------------------------------
-TEST( ImpactChoiceSeam, TheParticleNameTableIsGoneFromTheShim )
-{
-	const std::vector< std::string > lines = CodeLines( kCallback );
-
-	// One name per shape of row: a plain one, a no-flecks variant, and the
-	// warp shield, which is the only name the CHAIN also carried.
-	EXPECT_EQ( 0, CountNaming( lines, "impact_concrete" ) );
-	EXPECT_EQ( 0, CountNaming( lines, "impact_concrete_noflecks" ) );
-	EXPECT_EQ( 0, CountNaming( lines, "warp_shield_impact" ) )
-		<< kCallback << " still names a particle system for a surface. The "
-		   "table moved to " << kChoice << "; a name left here is a row the "
-		   "two sides can disagree about.";
-}
-
-//-----------------------------------------------------------------------------
-// AND SO IS THE DECAL NAME.
-//-----------------------------------------------------------------------------
-TEST( ImpactChoiceSeam, TheDecalNameIsGoneFromTheShim )
-{
-	const std::vector< std::string > lines = CodeLines( kCallback );
-
-	EXPECT_EQ( 0, CountNaming( lines, "\"Impact.Concrete\"" ) )
-		<< kCallback << " still spells the decal name. It is "
-		   "ImpactChoicePolicy.DefaultDecal now, and a copy here would be a "
-		   "second answer nothing chooses between.";
-
 	EXPECT_NE( -1, FirstNaming( CodeLines( kChoice ), "\"Impact.Concrete\"" ) )
 		<< kChoice << " does not hold the decal name, so the name was deleted "
 		   "rather than moved and every impact leaves no mark";
 }
 
 //-----------------------------------------------------------------------------
-// THE FLECK SUPPRESSION IS DECIDED ONCE.
-//
-// Stock computed `bNoFlecks` in BOTH PerformCustomEffects and
-// PerformNewCustomEffects, from the same two inputs, in the same four lines.
-// Two copies of one rule is a rule that can be half-changed.
+// ONE IMPACT IS ONE CHOICE: the decal name and the effect family are answers
+// to the same six inputs, so the handler asks the policy once.
 //-----------------------------------------------------------------------------
-TEST( ImpactChoiceSeam, TheFleckSuppressionIsNotRecomputedNatively )
+TEST( ImpactChoiceSeam, TheHandlerAsksThePolicyOncePerImpact )
 {
-	const std::vector< std::string > lines = CodeLines( kCallback );
+	const std::vector< std::string > body =
+		BodyOf( CodeLines( kHandler ), "public void Dispatch(in EffectData data)" );
 
-	// The needle is the COMPUTATION, not the word: `bNoFlecks` is still a
-	// parameter name on FX_DebrisFlecks and a field on the choice struct, and
-	// banning the identifier would ban carrying the answer as well as making
-	// it. Stock's two copies were each
-	//     bool bNoFlecks = !r_drawflecks.GetBool();
-	//     if ( !bNoFlecks ) bNoFlecks = ( nFlags & FLAGS_CUSTIOM_EFFECTS_NOFLECKS ) != 0;
-	// so those are the two spellings that may not come back.
-	EXPECT_EQ( 0, CountNaming( lines, "bool bNoFlecks =" ) )
-		<< kCallback << " still computes the fleck suppression. Managed code "
-		   "answers it in SS_CHOICE_OUT_NOFLECKS, and a native copy beside the "
-		   "managed one is exactly the divergence this move removes.";
+	ASSERT_FALSE( body.empty() ) << "BulletImpactEffect.Dispatch's body was not found";
 
-	EXPECT_EQ( 0, CountNaming( lines, "FLAGS_CUSTIOM_EFFECTS_NOFLECKS" ) )
-		<< kCallback << " still tests the caller's no-flecks flag. That test is "
-		   "half of the suppression rule, and half a rule in each language is "
-		   "worse than the whole of it in one.";
-
-	// AND THE ANSWER IS STILL CARRIED, which the two bans above cannot show:
-	// a file that stopped passing the flag to the emitter would satisfy both.
-	EXPECT_NE( -1, FirstNaming( lines, "choice.bNoFlecks" ) )
-		<< kCallback << " never passes the managed answer to an emitter, so "
-		   "the suppression was deleted rather than moved";
-
-	// r_drawflecks is still READ here -- it is one of the six inputs, and that
-	// read is a load into the engine's own ConVar rather than a decision.
-	EXPECT_NE( -1, FirstNaming( lines, "r_drawflecks.GetInt()" ) )
-		<< "r_drawflecks must still be read natively and handed up as an "
-		   "input: a managed read of it would be a second crossing per impact "
-		   "for a value this side already has";
+	EXPECT_EQ( 1, CountNaming( body, "ImpactChoicePolicy.Choose(" ) )
+		<< "the handler asks the policy for the impact's choice exactly once";
 }
 
 } // namespace

@@ -108,6 +108,10 @@ IManagedStandaloneClient	OnStandaloneDormancyChanged	void	uint32_t hEntity, int3
 IManagedStandaloneClient	NetStateFieldOffset	int32_t	const char *pClassName, const char *pFieldName
 IManagedStandaloneClient	NetStateFieldBits	int32_t	const char *pClassName, const char *pFieldName
 IManagedStandaloneClient	OnStandaloneDrawBatch	void	const uint32_t *pHandles, int32_t nCount, int32_t *pResults
+# Lane M1-C: the payload decoder's schema gate (generic_payload_client.cpp's SourceSharpSchema_Accept):
+# native hands over what its type table holds for the type (published or not, the hash it published) and the
+# hash the update arrived with; managed decides and keeps the refusals. 1 decodes the payload.
+IManagedStandaloneClient	SchemaAccept	int32_t	uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex, const char *pClassName
 IManagedPredictionClient	MoveProcessMovement	int32_t	SourceSharpMoveState *pState
 IManagedPredictionClient	ClientPredictionUpdate	void	int32_t nStartFrame, int32_t bValidFrame, int32_t nIncomingAcknowledged, int32_t nOutgoingCommand, int32_t bWorldUpdateArrived
 IManagedPredictionClient	ThirdPersonCamera	int32_t	SourceSharpThirdPersonCamera *pIo
@@ -116,6 +120,9 @@ IManagedTempEntsClient	OnNativeTempEntity	int32_t	int32_t nId, const float *pFlo
 IManagedTempEntsClient	OnTempEntPoolUpdate	void	float flFrameTime
 IManagedTempEntsClient	OnTempEntPoolClear	void	void
 IManagedTempEntsClient	OnImpactChoice	int32_t	const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax
+# Lane M1-C: c_te.cpp's C_TempEntsSystem::SuppressTE, the client's own temp entity's prediction filter
+# (shell_te_forwards_client.cpp hands over CanPredict() and the filter's recipient count). 1 suppresses the effect.
+IManagedTempEntsClient	SuppressLocalTempEnt	int32_t	int32_t bCanPredict, int32_t nRecipients
 IManagedSaveRestoreClient	ReloadSave	int32_t	void
 IManagedSaveRestoreClient	ReloadRestore	int32_t	void
 IManagedSaveRestoreClient	SaveInit	void *	int32_t nSize, float flCurTime

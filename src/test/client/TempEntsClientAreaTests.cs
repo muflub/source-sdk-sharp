@@ -15,7 +15,7 @@ public class TempEntsClientAreaTests
     private static readonly string[] Slots =
     [
         "OnTempEntity", "OnNativeTempEntity", "OnImpactChoice",
-        "OnTempEntPoolUpdate", "OnTempEntPoolClear",
+        "OnTempEntPoolUpdate", "OnTempEntPoolClear", "SuppressLocalTempEnt",
     ];
 
     // Each native caller and the calls it makes on the area, with their counts.
@@ -27,11 +27,13 @@ public class TempEntsClientAreaTests
         ("shell_tempents_client.cpp", "OnNativeTempEntity", 1),
         ("shell_te_pool_client.cpp", "OnTempEntPoolUpdate", 1),
         ("shell_te_pool_client.cpp", "OnTempEntPoolClear", 1),
-        ("shell_impact_effects.cpp", "OnImpactChoice", 1),
+        // te->DispatchEffect's prediction filter (lane M1-C). OnImpactChoice has
+        // no native caller since the impact is C# (BulletImpactEffect).
+        ("shell_te_forwards_client.cpp", "SuppressLocalTempEnt", 1),
     ];
 
     private static readonly string[] Callers =
-        ["shell_tempents_client.cpp", "shell_te_pool_client.cpp", "shell_impact_effects.cpp"];
+        ["shell_tempents_client.cpp", "shell_te_pool_client.cpp", "shell_te_forwards_client.cpp"];
 
     private static string Code(params string[] path)
     {

@@ -52,11 +52,6 @@ void MatrixCopy( const matrix3x4_t &in, matrix3x4_t &out )
 	ss_mathlib::MatrixCopy( in, out );
 }
 
-void VectorVectors( const Vector &forward, Vector &right, Vector &up )
-{
-	ss_mathlib::VectorVectors( forward, right, up );
-}
-
 void ClearBounds( Vector &mins, Vector &maxs )
 {
 	ss_mathlib::ClearBounds( mins, maxs );

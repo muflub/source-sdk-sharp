@@ -121,8 +121,8 @@ void CShimTempEntBackendsClient::ClientDecalShoot( int32_t nDecalIndex, int32_t 
 	{ return ::SourceSharp_ClientDecalShoot( nDecalIndex, nEntity, pPositionXYZ, pSAxisXYZ, nFlags ); }
 void CShimTempEntBackendsClient::ClientDecalStaticProp( const float * pStartXYZ, const float * pEndXYZ, int32_t nStaticPropIndex, int32_t nDecalIndex )
 	{ return ::SourceSharp_ClientDecalStaticProp( pStartXYZ, pEndXYZ, nStaticPropIndex, nDecalIndex ); }
-void CShimTempEntBackendsClient::ClientDecalStudioModel( int32_t nEntity, const float * pRayStartXYZ, const float * pRayEndXYZ, int32_t nDecalIndex )
-	{ return ::SourceSharp_ClientDecalStudioModel( nEntity, pRayStartXYZ, pRayEndXYZ, nDecalIndex ); }
+void CShimTempEntBackendsClient::ClientDecalStudioModel( int32_t nEntity, const float * pRayStartXYZ, const float * pRayDeltaXYZ, int32_t nDecalIndex )
+	{ return ::SourceSharp_ClientDecalStudioModel( nEntity, pRayStartXYZ, pRayDeltaXYZ, nDecalIndex ); }
 void CShimTempEntBackendsClient::ClientEnergySplash( const float * pPosXYZ, const float * pDirXYZ, int32_t bExplosive )
 	{ return ::SourceSharp_ClientEnergySplash( pPosXYZ, pDirXYZ, bExplosive ); }
 int32_t CShimTempEntBackendsClient::ClientEntityModelType( int32_t nEntity )
@@ -145,6 +145,16 @@ void CShimTempEntBackendsClient::EffectDispatchName( int32_t nIndex, char * pOut
 	{ return ::SourceSharp_EffectDispatchName( nIndex, pOut, nOutBytes ); }
 int32_t CShimTempEntBackendsClient::TempEntBuildClient( const void * pBlock, int32_t nBlockBytes, int32_t nBlobBytes, SourceSharpTeRecvBuilt_t * pOut )
 	{ return ::SourceSharp_TempEntBuildClient( pBlock, nBlockBytes, nBlobBytes, pOut ); }
+int32_t CShimTempEntBackendsClient::ClientShotTrace( const float * pStartXYZ, const float * pEndXYZ, int32_t nEntity, float * pOutFloats, int32_t nOutFloats, int32_t * pOutInts, int32_t nOutInts )
+	{ return ::SourceSharp_ClientShotTrace( pStartXYZ, pEndXYZ, nEntity, pOutFloats, nOutFloats, pOutInts, nOutInts ); }
+void CShimTempEntBackendsClient::ClientWorldLighting( const float * pStartXYZ, const float * pEndXYZ, float * pOut6 )
+	{ return ::SourceSharp_ClientWorldLighting( pStartXYZ, pEndXYZ, pOut6 ); }
+void CShimTempEntBackendsClient::ClientStaticPropLighting( const float * pStartXYZ, const float * pEndXYZ, const float * pNormalXYZ, int32_t nStaticProp, float * pOut6 )
+	{ return ::SourceSharp_ClientStaticPropLighting( pStartXYZ, pEndXYZ, pNormalXYZ, nStaticProp, pOut6 ); }
+void CShimTempEntBackendsClient::ClientImpactLedger( int32_t nFlecks, int32_t nDust )
+	{ return ::SourceSharp_ClientImpactLedger( nFlecks, nDust ); }
+void CShimTempEntBackendsClient::ClientPlayerLogoDecal( const float * pPositionXYZ, int32_t nPlayer, int32_t nEntity, const char * pszMaterial, const char * pszTexture )
+	{ return ::SourceSharp_ClientPlayerLogoDecal( pPositionXYZ, nPlayer, nEntity, pszMaterial, pszTexture ); }
 
 int32_t CShimEffectsRenderClient::DrawSprite( uint32_t hOwner, int32_t nModelIndex, float flFrame, int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize )
 	{ return ::SourceSharp_DrawSprite( hOwner, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a, flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize ); }
@@ -409,6 +419,8 @@ int32_t CShimParticlesClient::ParticlesSetSpace( uint32_t hOwner, int32_t nChann
 	{ return ::SourceSharp_ParticlesSetSpace( hOwner, nChannel, hEntity, nAttachment, nFlags, pFollow ); }
 int32_t CShimParticlesClient::ParticlesBrushPointContents( uint32_t hOwner, const float * pPointXYZ )
 	{ return ::SourceSharp_ParticlesBrushPointContents( hOwner, pPointXYZ ); }
+int32_t CShimParticlesClient::ParticleSystemImpact( const char * pszName, const float * pPoints, int32_t nEntity, float flScale, const float * pColorXYZ )
+	{ return ::SourceSharp_ParticleSystemImpact( pszName, pPoints, nEntity, flScale, pColorXYZ ); }
 
 int32_t CShimFxClient::EffectRegistrationCount()
 	{ return ::SourceSharp_EffectRegistrationCount(); }

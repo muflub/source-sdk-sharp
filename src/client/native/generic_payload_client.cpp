@@ -9,8 +9,8 @@
 // SS_REASON f  a bit-level wire codec
 //
 // What generic_payload.cpp compiled only under CLIENT_DLL: the schema-hash
-// refusal path both client shells ask (SourceSharpSchema_*, cs_cl_schema_status)
-// and the receiving half of the payload props (SourceSharpPayload_BuildRecvProps
+// gate's carry-out (SourceSharpSchema_Accept; the gate is managed's since lane
+// M1-C) and the receiving half of the payload props (SourceSharpPayload_BuildRecvProps
 // and the proxy probes behind cs_cl_dump_payload). Moved here verbatim by
 // plan_server_native_v2 T2 (2026-10-18): a shared TU keeps only what both DLLs
 // import (user ruling 2026-10-12), and server.so never compiled any of it. The
@@ -25,6 +25,7 @@
 #include "generic_nettable.h"
 #include "ss_string.h"
 #include "dt_recv.h"
+#include "imanaged_areas_client.h"
 
 // The live shell's blob base. Declared rather than included, as
 // generic_payload.cpp does: shell_standalone_client.h is a long header.
@@ -34,31 +35,12 @@ int SourceSharp_StandaloneBlobOffset();
 //=============================================================================//
 // The schema-hash rejection path (Part 4 and Part 14 Step 6).
 //
-// One implementation for both client shells. The runtime-networked entity and
-// the parallel hierarchy ask the same question about the same two numbers, and
-// two copies of the answer would be two places for the refusal to stop being a
-// refusal.
+// Managed decides (ClientSchemaGate): this hands it what this side's type
+// table holds for the type, published or not and the hash it published, with
+// the hash the update arrived with, and carries out the answer. The refusals,
+// their warning and cs_cl_schema_status are the gate's. With no managed side
+// nothing is decoded, which is the safe answer for bytes nobody vouched for.
 //=============================================================================//
-namespace
-{
-	struct SchemaRefusal_t
-	{
-		unsigned int nTypeId;
-		unsigned int nExpected;
-		unsigned int nSeen;
-		int          nCount;
-	};
-
-	// Small and fixed. A build mismatch is a property of the BUILD, so the
-	// number of distinct types it can affect is the number of types there are —
-	// and if that overflows this, the first sixteen have already made the point.
-	enum { SCHEMA_REFUSALS_MAX = 16 };
-
-	SchemaRefusal_t g_Refusals[ SCHEMA_REFUSALS_MAX ];
-	int g_nRefusalTypes   = 0;
-	int g_nRefusalUpdates = 0;
-}
-
 bool SourceSharpSchema_Accept( unsigned int nTypeId, unsigned int nSchemaHash,
                                int nEntIndex, const char **ppOutClassName )
 {
@@ -67,100 +49,13 @@ bool SourceSharpSchema_Accept( unsigned int nTypeId, unsigned int nSchemaHash,
 	if ( ppOutClassName )
 		*ppOutClassName = pType ? pType->szClass : NULL;
 
-	// A type this side never published. Not a schema mismatch and not an error:
-	// a class may exist on the server with no client half at all, and those
-	// have always drawn nothing and decoded nothing. Refused for decoding, not
-	// counted as a refusal.
-	if ( !pType )
+	IManagedStandaloneClient *pStandalone = ManagedStandaloneClient();
+
+	if ( !pStandalone )
 		return false;
 
-	if ( pType->nSchemaHash == nSchemaHash )
-		return true;
-
-	g_nRefusalUpdates++;
-
-	for ( int i = 0; i < g_nRefusalTypes; i++ )
-	{
-		if ( g_Refusals[i].nTypeId != nTypeId )
-			continue;
-
-		g_Refusals[i].nCount++;
-
-		// Said once per type rather than once per update. The second line adds
-		// nothing and the ten-thousandth buries everything else.
-		return false;
-	}
-
-	if ( g_nRefusalTypes < SCHEMA_REFUSALS_MAX )
-	{
-		SchemaRefusal_t &r = g_Refusals[ g_nRefusalTypes++ ];
-		r.nTypeId   = nTypeId;
-		r.nExpected = pType->nSchemaHash;
-		r.nSeen     = nSchemaHash;
-		r.nCount    = 1;
-	}
-
-	Warning( "[SourceSharp/Client] SCHEMA MISMATCH on entity %d: '%s' (type 0x%08x) arrived "
-	         "with layout fingerprint 0x%08x and this build's registry says 0x%08x. "
-	         "THE PAYLOAD WAS NOT DECODED — the two builds' C# does not agree about where "
-	         "this type's fields live, and decoding anyway would put plausible values in "
-	         "the wrong fields with nothing reporting it. Rebuild both sides from the same "
-	         "SourceSharp.Shared. (cs_cl_schema_status)\n",
-		nEntIndex, pType->szClass, nTypeId, nSchemaHash, pType->nSchemaHash );
-
-	return false;
-}
-
-int SourceSharpSchema_RefusedUpdates( void ) { return g_nRefusalUpdates; }
-int SourceSharpSchema_RefusedTypes( void )   { return g_nRefusalTypes; }
-
-int SourceSharpSchema_Refusal( int iIndex, unsigned int *pOutTypeId,
-                               unsigned int *pOutExpected, unsigned int *pOutSeen,
-                               const char **ppOutClassName, int *pOutCount )
-{
-	if ( iIndex < 0 || iIndex >= g_nRefusalTypes )
-		return 0;
-
-	const SchemaRefusal_t &r = g_Refusals[ iIndex ];
-	const SourceSharpNetType_t *pType = SourceSharp_NetTypes().ById( r.nTypeId );
-
-	if ( pOutTypeId )
-		*pOutTypeId = r.nTypeId;
-	if ( pOutExpected )
-		*pOutExpected = r.nExpected;
-	if ( pOutSeen )
-		*pOutSeen = r.nSeen;
-	if ( ppOutClassName )
-		*ppOutClassName = pType ? pType->szClass : "";
-	if ( pOutCount )
-		*pOutCount = r.nCount;
-
-	return 1;
-}
-
-//-----------------------------------------------------------------------------
-// The banner, on demand and in the console. Part 13 wants this in the dev UI as
-// well, and it is there — but the dev API is served by the SERVER module and
-// this fact belongs to the client, so the console is the place it can always be
-// read from. See the note in docs/divergences.md.
-//-----------------------------------------------------------------------------
-CON_COMMAND( cs_cl_schema_status,
-	"Which types this client has refused updates for, and what the two builds disagree about" )
-{
-	Msg( "[SourceSharp] schema: %d type(s) published here, %d refusal(s) over %d type(s)\n",
-		SourceSharp_NetTypes().Count(), g_nRefusalUpdates, g_nRefusalTypes );
-
-	for ( int i = 0; i < g_nRefusalTypes; i++ )
-	{
-		const SourceSharpNetType_t *pType = SourceSharp_NetTypes().ById( g_Refusals[i].nTypeId );
-
-		Warning( "[SourceSharp]   '%s' (0x%08x): expected 0x%08x, saw 0x%08x, %d update(s) refused\n",
-			pType ? pType->szClass : "?", g_Refusals[i].nTypeId,
-			g_Refusals[i].nExpected, g_Refusals[i].nSeen, g_Refusals[i].nCount );
-	}
-
-	if ( g_nRefusalTypes == 0 )
-		Msg( "[SourceSharp]   nothing has been refused\n" );
+	return pStandalone->SchemaAccept( nTypeId, pType ? 1 : 0, pType ? pType->nSchemaHash : 0u, nSchemaHash,
+	                                  nEntIndex, pType ? pType->szClass : "" ) != 0;
 }
 
 //-----------------------------------------------------------------------------

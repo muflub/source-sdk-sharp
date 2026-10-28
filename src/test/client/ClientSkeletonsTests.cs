@@ -88,6 +88,7 @@ public unsafe class ClientSkeletonsTests
         public int GameMaterial(int surfaceProps) => 0;
         public MoveSurface Surface(int surfaceProps) => default;
         public string? ScrapeSound(int surfaceProps, bool smooth) => null;
+        public string? BulletImpactSound(int surfaceProps) => null;
         public int SurfaceIndex(string name) => 42;
     }
 

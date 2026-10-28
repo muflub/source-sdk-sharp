@@ -232,7 +232,7 @@ int32_t SourceSharp_UserMessageSend( int32_t nMsgId, const unsigned char *pData,
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 251 slots.
+// CLIENT ONLY -- 257 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -274,7 +274,7 @@ void SourceSharp_ClientDecalShoot( int32_t nDecalIndex, int32_t nEntity,
 void SourceSharp_ClientDecalStaticProp( const float *pStartXYZ, const float *pEndXYZ,
                                         int32_t nStaticPropIndex, int32_t nDecalIndex );
 void SourceSharp_ClientDecalStudioModel( int32_t nEntity, const float *pRayStartXYZ,
-                                         const float *pRayEndXYZ, int32_t nDecalIndex );
+                                         const float *pRayDeltaXYZ, int32_t nDecalIndex );
 void SourceSharp_ClientEndMoveCommand( int32_t bRan, int32_t *pOutGroundIndex );
 void SourceSharp_ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ,
                                      int32_t bExplosive );
@@ -292,6 +292,7 @@ int32_t SourceSharp_ClientEntityOrigin( int32_t nEntityIndex, float *pOutXYZ );
 int32_t SourceSharp_ClientEntityRenderPose( int32_t nEntityIndex, float *pOutOriginXYZ,
                                             float *pOutAngles );
 int32_t SourceSharp_ClientGetUserCmd( int32_t nCommandNumber, SourceSharpUserCmd *pOut );
+void SourceSharp_ClientImpactLedger( int32_t nFlecks, int32_t nDust );
 void SourceSharp_ClientInterpAdmitted( const uint32_t *pHandles, int32_t nCount );
 void **SourceSharp_ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmount );
 int32_t SourceSharp_ClientIsLowViolence( void );
@@ -307,6 +308,9 @@ int32_t SourceSharp_ClientNotShipped( int32_t iIndex, char *pOutName, int32_t nN
                                       int32_t *pOutCount, int32_t *pOutTotal );
 void SourceSharp_ClientPlayerDecalShoot( const float *pPositionXYZ, int32_t nPlayer,
                                          int32_t nEntity );
+void SourceSharp_ClientPlayerLogoDecal( const float *pPositionXYZ, int32_t nPlayer,
+                                        int32_t nEntity, const char *pszMaterial,
+                                        const char *pszTexture );
 void SourceSharp_ClientPlayerPredictionDrive( uint32_t hEntity,
                                               const SourceSharpClientPlayerView *pView );
 void **SourceSharp_ClientPolicyBlocks( int32_t *pOutCount );
@@ -323,6 +327,9 @@ int32_t SourceSharp_ClientSchemaRefusal( int32_t iIndex, uint32_t *pOutTypeId,
                                          int32_t nClassBytes, int32_t *pOutRefusedUpdates );
 void SourceSharp_ClientSetWorldRenderState( int32_t nWhich, const float *pValues,
                                             int32_t nCount );
+int32_t SourceSharp_ClientShotTrace( const float *pStartXYZ, const float *pEndXYZ,
+                                     int32_t nEntity, float *pOutFloats, int32_t nOutFloats,
+                                     int32_t *pOutInts, int32_t nOutInts );
 void SourceSharp_ClientSmoke( const float *pOriginXYZ, int32_t nModelIndex, float flScale,
                               float flFrameRate );
 int32_t SourceSharp_ClientSoundPatchCreate( uint32_t hEntity, int32_t nChannel,
@@ -336,6 +343,9 @@ void SourceSharp_ClientSoundPatchState( int32_t hPatch, int32_t *pnEntIndex,
 void SourceSharp_ClientSoundPatchStop( int32_t hPatch );
 void SourceSharp_ClientSparks( const float *pPositionXYZ, int32_t nMagnitude,
                                int32_t nTrailLength, const float *pDirectionXYZ );
+void SourceSharp_ClientStaticPropLighting( const float *pStartXYZ, const float *pEndXYZ,
+                                           const float *pNormalXYZ, int32_t nStaticProp,
+                                           float *pOut6 );
 int32_t SourceSharp_ClientTraceHull( const float *pStartXYZ, const float *pEndXYZ,
                                      const float *pMinsXYZ, const float *pMaxsXYZ,
                                      int32_t nMask, int32_t nFilter, int32_t nPassEntityIndex,
@@ -359,6 +369,8 @@ void SourceSharp_ClientViewportShow( const char *pPanel, int32_t bShow,
                                      const unsigned char *pPairs, int32_t nPairBytes,
                                      int32_t nFlags );
 void SourceSharp_ClientWindSpeed( float flTime, float *pOutXYZ );
+void SourceSharp_ClientWorldLighting( const float *pStartXYZ, const float *pEndXYZ,
+                                      float *pOut6 );
 void *SourceSharp_ColorLookupAdd( const char *pLookupFile );
 void SourceSharp_ColorLookupRemove( void *hLookup );
 void SourceSharp_ColorLookupResetWeights( void );
@@ -457,6 +469,9 @@ void SourceSharp_InputViewerCameraModeChanged( void );
 int32_t SourceSharp_ParticleDefinitionReads( void );
 int32_t SourceSharp_ParticleQueryUnanswered( int32_t *pOut, int32_t nMax );
 int32_t SourceSharp_ParticleSystemFollowPoints( uint32_t hOwner, int32_t nPointMask );
+int32_t SourceSharp_ParticleSystemImpact( const char *pszName, const float *pPoints,
+                                          int32_t nEntity, float flScale,
+                                          const float *pColorXYZ );
 int32_t SourceSharp_ParticleSystemNameFromIndex( int32_t nIndex, char *pszOut,
                                                  int32_t nOutMax );
 int32_t SourceSharp_ParticleSystemOneShot( const char *pszName, const float *pSortOriginXYZ,

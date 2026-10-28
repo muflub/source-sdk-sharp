@@ -950,6 +950,10 @@ public enum CrossingOp
     ClientLevelInitPreEntity = 384,
     /// <summary>IManagedRuntimeClient::PostInit: the bicubic lightmap default, once per process (lane M1-B). CLIENT ONLY.</summary>
     ClientPostInit = 385,
+    /// <summary>IManagedTempEntsClient::SuppressLocalTempEnt: a temp entity the client makes for itself asks whether prediction suppresses it (lane M1-C, c_te.cpp's SuppressTE). CLIENT ONLY.</summary>
+    ClientSuppressLocalTempEnt = 386,
+    /// <summary>IManagedStandaloneClient::SchemaAccept: a standalone entity's update asks whether its payload's schema hash is this build's (lane M1-C, generic_payload_client.cpp's SourceSharpSchema_Accept). CLIENT ONLY.</summary>
+    ClientSchemaAccept = 387,
 }
 
 /// <summary>

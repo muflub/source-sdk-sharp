@@ -372,6 +372,8 @@ TEST( SurfaceDataLayout, TheSoundFieldsTheManagedBatchReads )
 	EXPECT_EQ( 32u, offsetof( surfacedata_t, audio ) + offsetof( surfaceaudioparams_t, roughThreshold ) );
 	EXPECT_EQ( 52u, offsetof( surfacedata_t, sounds ) + offsetof( surfacesoundnames_t, scrapeSmooth ) );
 	EXPECT_EQ( 54u, offsetof( surfacedata_t, sounds ) + offsetof( surfacesoundnames_t, scrapeRough ) );
+	// What the managed bullet impact's sound reads (lane M1-C, 2026-10-25).
+	EXPECT_EQ( 56u, offsetof( surfacedata_t, sounds ) + offsetof( surfacesoundnames_t, bulletImpact ) );
 	EXPECT_EQ( 64u, offsetof( surfacedata_t, game ) + offsetof( surfacegameprops_t, maxSpeedFactor ) );
 	EXPECT_EQ( 68u, offsetof( surfacedata_t, game ) + offsetof( surfacegameprops_t, jumpFactor ) );
 	EXPECT_EQ( 74u, offsetof( surfacedata_t, game ) + offsetof( surfacegameprops_t, climbable ) );

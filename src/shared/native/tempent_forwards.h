@@ -50,8 +50,10 @@
 // had already replaced. And two in T4f -- TE_BSPDecal and TE_ProjectDecal,
 // whose only callers were the PaintDecal slot; EffectsOverTempEnts sends those
 // temp entities itself now. The server's TE_Bubbles went with the BubbleEffect
-// slot too, and its id stays live: the client's shell_te_forwards_client.cpp
-// still forwards one.
+// slot too, and its id stayed live while the client's shell_te_forwards_client.cpp
+// still forwarded one; that forward had no caller (no `te->Bubbles` on the
+// client link line since C8) and left in lane M1-C (2026-10-25), so TE_Bubbles
+// is RESERVED as well.
 //
 //===========================================================================//
 
@@ -68,7 +70,7 @@ enum SourceSharpTeForward_t
 	SOURCESHARP_TE_FWD_BEAM_POINTS                 =  2,   // TE_BeamPoints -> BeamPoints   RESERVED
 	SOURCESHARP_TE_FWD_BLOOD_STREAM                =  3,   // TE_BloodStream -> BloodStream
 	SOURCESHARP_TE_FWD_BUBBLE_TRAIL                =  4,   // TE_BubbleTrail -> BubbleTrail   RESERVED
-	SOURCESHARP_TE_FWD_BUBBLES                     =  5,   // TE_Bubbles -> Bubbles
+	SOURCESHARP_TE_FWD_BUBBLES                     =  5,   // TE_Bubbles -> Bubbles   RESERVED
 	SOURCESHARP_TE_FWD_DECAL                       =  6,   // TE_Decal -> Decal
 	SOURCESHARP_TE_FWD_TE_DISPATCH_EFFECT          =  7,   // TE_DispatchEffect -> TeDispatchEffect
 	SOURCESHARP_TE_FWD_DUST                        =  8,   // TE_Dust -> Dust   RESERVED

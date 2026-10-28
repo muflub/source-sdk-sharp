@@ -75,16 +75,22 @@ public sealed class ClientTeBspDecal : ClientTempEnt<TeBspDecal>
     private const int FDecalPermanent = 0x01;
 
     private readonly IEngineEffects _effects;
+    private readonly IDecalSettings _settings;
 
-    public ClientTeBspDecal(IEngineEffects effects)
+    public ClientTeBspDecal(IEngineEffects effects, IDecalSettings settings)
     {
         _effects = effects;
+        _settings = settings;
     }
 
     public override void Play(TeBspDecal te)
     {
         // Both UNSIGNED on the wire (SPROP_UNSIGNED), so read unsigned: an
         // entity index and a decal index are counts, never quantities.
+
+        // c_te_bspdecal.cpp's `if ( r_decals.GetInt() )` around its DecalShoot.
+        if (!_settings.Decals)
+            return;
 
         _effects.ClientDecalShoot(te.Index, te.Entity, te.Origin, sAxis: null, flags: FDecalPermanent);
     }

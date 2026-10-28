@@ -233,6 +233,20 @@ public class ShimAreaTypedCallsTests
         Assert.Contains("GetCurrentTime", callers);
 
         var dead = typed.Where(t => !callers.Contains(t)).ToList();
-        Assert.Empty(dead);   // names each dead typed call; the list must stay empty
+        Assert.Empty(dead.Except(AwaitingRetirement.Keys));   // names each dead typed call; the list must stay empty
+
+        // A waived slot must still be a typed call and still be dead: once the
+        // serialised ABI pass retires its row, or a caller returns, its waiver goes.
+        Assert.Empty(AwaitingRetirement.Keys.Except(dead));
     }
+
+    /// <summary>
+    /// Typed calls whose last product caller left in a lane that may only
+    /// append to the shim tables: dead, and kept until the serialised ABI pass
+    /// retires the row (docs/todo.md). Each names why it died.
+    /// </summary>
+    private static readonly Dictionary<string, string> AwaitingRetirement = new()
+    {
+        ["ClientSchemaRefusal"] = "lane M1-C: the schema refusals are ClientSchemaGate's; the dev API reads them there",
+    };
 }

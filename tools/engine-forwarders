@@ -222,6 +222,9 @@ FORWARD = [
             # The interpolation gate (InterpolationGate, stock's
             # InterpolateServerEntities): demo and timedemo playback.
             'IsPlayingDemo', 'IsPlayingTimeDemo',
+            # Lane M1-C: a player's spray, copied out of the download folder
+            # into materials/temp where the material system can read it.
+            'CopyLocalFile',
         ],
     ),
     dict(

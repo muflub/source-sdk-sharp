@@ -24,6 +24,7 @@
 1	SLOT-HELP	[CSourceSharpClientEntityList] void OnUnbound( int nEntry )
 5	HOOK	static CSourceSharpClientEntityList &SourceSharpClientEntityList( void )
 4	HOOK	static void *CreateSourceSharpClientEntityList( void )
+4	LIVE-API	IClientUnknown *SourceSharp_ClientUnknownFromIndex( int nEntry )
 5	LIVE-API	IClientEntity *SourceSharp_ClientEntityFromIndex( int nEntry )
 4	LIVE-API	IClientUnknown *SourceSharp_ClientUnknownFromHandle( const CBaseHandle &hEnt )
 6	LIVE-API	IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle )

@@ -91,8 +91,17 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
         }
         info = new ClientPlayerInfo(Vtable.TextOf(raw.NameBuffer, PlayerInfoT.NameBytes) ?? string.Empty,
                                     raw.UserId, raw.FakePlayer != 0,
-                                    Vtable.TextOf(raw.GuidBuffer, PlayerInfoT.GuidBytes) ?? string.Empty);
+                                    Vtable.TextOf(raw.GuidBuffer, PlayerInfoT.GuidBytes) ?? string.Empty,
+                                    raw.CustomFile0);
         return true;
+    }
+
+    /// <inheritdoc/>
+    public bool CopyLocalFile(string source, string destination)
+    {
+        fixed (byte* s = Vtable.Utf8(source))
+        fixed (byte* d = Vtable.Utf8(destination))
+            return _fwd->CopyLocalFile(_self, s, d) != 0;
     }
 
     /// <inheritdoc/>
@@ -279,7 +288,8 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
 
 /// <summary>
 /// <c>player_info_t</c> (public/cdll_int.h): 132 bytes, name at 0, userID at
-/// 32, guid at 36, fakeplayer at 108 (shell_hud.cpp asserts the same four of the C++).
+/// 32, guid at 36, fakeplayer at 108 (shell_hud.cpp asserts the same four of the
+/// C++), and customFiles at 112 (shell_te_backends_client.cpp asserts that one).
 /// </summary>
 [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit, Size = 132)]
 internal unsafe struct PlayerInfoT
@@ -293,6 +303,9 @@ internal unsafe struct PlayerInfoT
     [System.Runtime.InteropServices.FieldOffset(32)] public int UserId;
     [System.Runtime.InteropServices.FieldOffset(36)] public fixed byte GuidBuffer[GuidBytes];
     [System.Runtime.InteropServices.FieldOffset(108)] public byte FakePlayer;
+
+    /// <summary><c>customFiles[0]</c>: the spray logo's CRC32, 0 for none.</summary>
+    [System.Runtime.InteropServices.FieldOffset(112)] public uint CustomFile0;
 }
 
 /// <summary>

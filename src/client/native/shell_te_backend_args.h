@@ -314,46 +314,6 @@ inline DecalRequest DecalShoot( int nDecalIndex, int nEntity,
 	return req;
 }
 
-//-----------------------------------------------------------------------------
-// A player's spray logo. c_te_playerdecal.cpp.
-//
-// The decal index field is unused -- a spray's material is built from the
-// player's own custom file, not looked up in the decal table -- and nPlayer
-// rides in its place would be a lie. It is a separate argument.
-//-----------------------------------------------------------------------------
-struct PlayerDecalRequest
-{
-	bool bDraw;
-	Vec3 vecPosition;
-	int  nPlayer;
-	int  nEntity;
-};
-
-inline PlayerDecalRequest PlayerDecalShoot( const float *pPositionXYZ,
-                                            int nPlayer, int nEntity )
-{
-	PlayerDecalRequest req;
-
-	req.bDraw       = false;
-	req.vecPosition = VecZero();
-	req.nPlayer     = 0;
-	req.nEntity     = 0;
-
-	// A spray is ALWAYS someone's: player 0 is not a player, and
-	// engine->GetPlayerInfo on it answers a blank record whose customFiles[0]
-	// is zero, which CreateTempMaterialForPlayerLogo then refuses one call
-	// deeper. Refused here instead so the refusal has a name.
-	if ( !pPositionXYZ || nPlayer <= 0 || nEntity < 0 )
-		return req;
-
-	req.bDraw       = true;
-	req.vecPosition = VecFrom( pPositionXYZ );
-	req.nPlayer     = nPlayer;
-	req.nEntity     = nEntity;
-
-	return req;
-}
-
 //=============================================================================//
 // THE PARTICLE-SYSTEM TEMP ENTITIES (C-Phase 3, lane CP).
 //
@@ -391,39 +351,8 @@ inline PlayerDecalRequest PlayerDecalShoot( const float *pPositionXYZ,
 // thousands of particles at 30 seconds each.
 //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// The dust puff and the gauss discharge, which are one shape: a point, a
-// direction, and one scalar pair or one kind.
-//
-// TWO SLOTS RATHER THAN ONE, again for the Ricochet/MetalSparks reason: FX_Dust
-// and FX_GaussExplosion are unrelated bodies in unrelated files and only their
-// argument lists rhyme. (The gauss slot left with lane c5-particles: its body is
-// C#, SparkEffects.GaussExplosion.)
-//-----------------------------------------------------------------------------
-struct PuffRequest
-{
-	bool  bDraw;
-	Vec3  vecOrigin;
-	Vec3  vecDirection;
-
-	// Dust: the sprite size and the speed it is thrown at.
-	float flSize;
-	float flSpeed;
-
-};
-
-inline PuffRequest PuffRequestZero( void )
-{
-	PuffRequest req;
-
-	req.bDraw        = false;
-	req.vecOrigin    = VecZero();
-	req.vecDirection = VecZero();
-	req.flSize       = 0.0f;
-	req.flSpeed      = 0.0f;
-
-	return req;
-}
+// (The dust puff's and the gauss discharge's requests left with their slots:
+// FX_Dust is C#'s DustPuff, FX_GaussExplosion SparkEffects.GaussExplosion.)
 
 
 
@@ -701,9 +630,10 @@ inline int CopyName( const char *pName, char *pOut, int nOutSize )
 //     which is exactly the state these rows were opened for. Negative is
 //     refused; zero is not.
 //   * THE BLOAT IS A MULTIPLY ON A DELTA, not on an endpoint, and doing it the
-//     other way moves the decal. BloatedRayDelta below is that one line, out
-//     where a test can read it.
-//   * The studio arm takes the SEGMENT and the brush arm takes the CENTER, and
+//     other way moves the decal. It is managed's since lane M1-C
+//     (ClientEntityDecal.StudioRayDelta), so the studio arm takes the ray's
+//     start and its DELTA rather than two points.
+//   * The studio arm takes the RAY and the brush arm takes the CENTER, and
 //     at c_te_decal.cpp's call site the center is the same vector as the
 //     segment's END while at c_te_projecteddecal.cpp's it is not. A helper that
 //     took one vector for both would agree with the first file and be wrong in
@@ -720,7 +650,7 @@ struct StudioDecalRequest
 	int  nEntity;
 
 	Vec3 vecStart;
-	Vec3 vecEnd;
+	Vec3 vecDelta;
 
 	int  nDecalIndex;
 };
@@ -732,14 +662,14 @@ inline StudioDecalRequest StudioDecalRequestZero( void )
 	req.bDraw       = false;
 	req.nEntity     = -1;
 	req.vecStart    = VecZero();
-	req.vecEnd      = VecZero();
+	req.vecDelta    = VecZero();
 	req.nDecalIndex = -1;
 
 	return req;
 }
 
 inline StudioDecalRequest DecalStudioModel( int nEntity,
-                                            const float *pRayStartXYZ, const float *pRayEndXYZ,
+                                            const float *pRayStartXYZ, const float *pRayDeltaXYZ,
                                             int nDecalIndex )
 {
 	StudioDecalRequest req = StudioDecalRequestZero();
@@ -753,45 +683,18 @@ inline StudioDecalRequest DecalStudioModel( int nEntity,
 	// BRUSH arm rather than this one -- but which arm it reaches is
 	// ClientEntityModelType's answer and not this function's guess, and a
 	// refusal written here would be a second, disagreeing copy of that rule.
-	if ( !pRayStartXYZ || !pRayEndXYZ || nEntity < 0 || nDecalIndex < 0 )
+	if ( !pRayStartXYZ || !pRayDeltaXYZ || nEntity < 0 || nDecalIndex < 0 )
 		return req;
 
 	req.bDraw       = true;
 	req.nEntity     = nEntity;
 	req.vecStart    = VecFrom( pRayStartXYZ );
-	req.vecEnd      = VecFrom( pRayEndXYZ );
+	req.vecDelta    = VecFrom( pRayDeltaXYZ );
 	req.nDecalIndex = nDecalIndex;
 
 	return req;
 }
 
-//-----------------------------------------------------------------------------
-// Stock's bloat, on the RAY'S DELTA. c_baseentity.cpp:3450 --
-//
-//     ray.Init( rayStart, rayEnd );
-//     // FIXME: Better bloat?
-//     // Bloat a little bit so we get the intersection
-//     ray.m_Delta *= 1.1f;
-//
-// Ray_t::Init sets m_Delta to end - start, so computing (end - start) * 1.1f
-// here is that pair of lines exactly, and not merely closely: the alternative
-// -- moving the ENDPOINT out by a tenth and letting Ray_t::Init subtract --
-// hands the engine ( start + d * 1.1f ) - start, which in floating point is not
-// d * 1.1f. The difference is a rounding, and a rounding on a decal is a decal
-// on the other side of a corner.
-//
-// The start is untouched: stock bloats one end of the segment, not both.
-//-----------------------------------------------------------------------------
-inline Vec3 BloatedRayDelta( const Vec3 &vecStart, const Vec3 &vecEnd )
-{
-	Vec3 d;
-
-	d.x = ( vecEnd.x - vecStart.x ) * 1.1f;
-	d.y = ( vecEnd.y - vecStart.y ) * 1.1f;
-	d.z = ( vecEnd.z - vecStart.z ) * 1.1f;
-
-	return d;
-}
 
 //-----------------------------------------------------------------------------
 // A decal on a brush model, the world included: what goes in.

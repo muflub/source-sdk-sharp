@@ -89,11 +89,7 @@ client_util_library.o	_ZL14violence_hgibs	violence_hgibs	sourcesharp/game/client
 	g_bUseNetworkVars	g_bUseNetworkVars	sourcesharp/game/client/engineabi_recv_names.cpp	GLOBAL	data	file-or-global	1	UNRULED		
 	g_pClientClassHead	g_pClientClassHead	sourcesharp/game/client/engineabi_recv_names.cpp	GLOBAL	bss	file-or-global	8	FLOOR		the ClientClass list; shell_clientdll.cpp's GetAllClasses hands its head to the engine and shell_tempents_client.cpp walks it
 	g_pRenamedRecvTableInfoHead	g_pRenamedRecvTableInfoHead	sourcesharp/game/client/engineabi_recv_names.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-generic_payload_client.o	_ZN12_GLOBAL__N_110g_RefusalsE	(anonymous namespace)::g_Refusals	sourcesharp/game/client/generic_payload_client.cpp	LOCAL	bss	function-local	256	UNRULED		
-generic_payload_client.o	_ZN12_GLOBAL__N_115g_nRefusalTypesE	(anonymous namespace)::g_nRefusalTypes	sourcesharp/game/client/generic_payload_client.cpp	LOCAL	bss	function-local	4	UNRULED		
-generic_payload_client.o	_ZN12_GLOBAL__N_117g_nRefusalUpdatesE	(anonymous namespace)::g_nRefusalUpdates	sourcesharp/game/client/generic_payload_client.cpp	LOCAL	bss	function-local	4	UNRULED		
 generic_payload_client.o	_ZL26cs_cl_dump_payload_command	cs_cl_dump_payload_command	sourcesharp/game/client/generic_payload_client.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-generic_payload_client.o	_ZL27cs_cl_schema_status_command	cs_cl_schema_status_command	sourcesharp/game/client/generic_payload_client.cpp	LOCAL	bss	file-or-global	72	UNRULED		
 	g_pParticleSystemMgr	g_pParticleSystemMgr	sourcesharp/game/client/particles_lib_client.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
 shell_beam_render.o	_ZN12_GLOBAL__N_117g_BeamRenderablesE	(anonymous namespace)::g_BeamRenderables	sourcesharp/game/client/shell_beam_render.cpp	LOCAL	bss	function-local	32	UNRULED		
 shell_beam_render.o	_ZN12_GLOBAL__N_121g_FreeBeamRenderablesE	(anonymous namespace)::g_FreeBeamRenderables	sourcesharp/game/client/shell_beam_render.cpp	LOCAL	bss	function-local	32	UNRULED		
@@ -239,14 +235,8 @@ shell_hud.o	_ZL24g_CSourceSharpHud_Helper	g_CSourceSharpHud_Helper	sourcesharp/g
 	_ZN17CHudElementHelper10m_sHelpersE	CHudElementHelper::m_sHelpers	sourcesharp/game/client/shell_hud_framework.cpp	GLOBAL	bss	class-or-namespace	8	FLOOR		the DECLARE_HUDELEMENT list, walked in shell_hud_framework.cpp
 	closecaption	closecaption	sourcesharp/game/client/shell_hud_framework.cpp	GLOBAL	bss	file-or-global	144	UNRULED		
 	gHUD	gHUD	sourcesharp/game/client/shell_hud_framework.cpp	GLOBAL	bss	file-or-global	200	UNRULED		
-shell_impact_effects.o	_ZL42ClientEffectReg_SourceSharp_ImpactCallback	ClientEffectReg_SourceSharp_ImpactCallback	sourcesharp/game/client/shell_impact_effects.cpp	LOCAL	bss	file-or-global	24	UNRULED		
-shell_impact_effects.o	_ZZ17FX_AffectRagdolls6VectorS_iE18s_RefuseRagdollRay	FX_AffectRagdolls(Vector, Vector, int)::s_RefuseRagdollRay	sourcesharp/game/client/shell_impact_effects.cpp	LOCAL	bss	function-local	24	UNRULED		
 	_ZN21PrecacheEffectImpacts20ClientEffectRegister14m_pszMaterialsE	PrecacheEffectImpacts::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_impact_effects.cpp	GLOBAL	data	class-or-namespace	80	UNRULED		
 	_ZN21PrecacheEffectImpacts29register_ClientEffectRegisterE	PrecacheEffectImpacts::register_ClientEffectRegister	sourcesharp/game/client/shell_impact_effects.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
-shell_impact_effects.o	_ZZL24SourceSharp_ImpactChoiceiiiiP14ImpactChoice_tE7s_bSaid	SourceSharp_ImpactChoice(int, int, int, int, ImpactChoice_t*)::s_bSaid	sourcesharp/game/client/shell_impact_effects.cpp	LOCAL	bss	function-local	1	UNRULED		
-shell_impact_effects.o	_ZL21cl_new_impact_effects	cl_new_impact_effects	sourcesharp/game/client/shell_impact_effects.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-shell_impact_effects.o	_ZL19fx_drawimpactdebris	fx_drawimpactdebris	sourcesharp/game/client/shell_impact_effects.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-shell_impact_effects.o	_ZL17fx_drawimpactdust	fx_drawimpactdust	sourcesharp/game/client/shell_impact_effects.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 	g_Mat_BloodPuff	g_Mat_BloodPuff	sourcesharp/game/client/shell_impact_effects.cpp	GLOBAL	bss	file-or-global	16	UNRULED		
 	g_Mat_Combine_Muzzleflash	g_Mat_Combine_Muzzleflash	sourcesharp/game/client/shell_impact_effects.cpp	GLOBAL	bss	file-or-global	24	UNRULED		
 	g_Mat_DustPuff	g_Mat_DustPuff	sourcesharp/game/client/shell_impact_effects.cpp	GLOBAL	bss	file-or-global	16	UNRULED		
@@ -256,8 +246,6 @@ shell_impact_effects.o	_ZL17fx_drawimpactdust	fx_drawimpactdust	sourcesharp/game
 	g_Mat_Fleck_Tile	g_Mat_Fleck_Tile	sourcesharp/game/client/shell_impact_effects.cpp	GLOBAL	bss	file-or-global	16	UNRULED		
 	g_Mat_Fleck_Wood	g_Mat_Fleck_Wood	sourcesharp/game/client/shell_impact_effects.cpp	GLOBAL	bss	file-or-global	16	UNRULED		
 	g_Mat_SMG_Muzzleflash	g_Mat_SMG_Muzzleflash	sourcesharp/game/client/shell_impact_effects.cpp	GLOBAL	bss	file-or-global	32	UNRULED		
-	g_pImpactSoundRouteFn	g_pImpactSoundRouteFn	sourcesharp/game/client/shell_impact_effects.cpp	GLOBAL	bss	file-or-global	8	UNRULED		
-shell_impact_effects.o	_ZL12r_drawflecks	r_drawflecks	sourcesharp/game/client/shell_impact_effects.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_input.o	_ZL7g_Input	g_Input	sourcesharp/game/client/shell_input.cpp	LOCAL	bss	file-or-global	64	UNRULED		
 	g_ThirdPersonManager	g_ThirdPersonManager	sourcesharp/game/client/shell_input.cpp	GLOBAL	bss	file-or-global	84	UNRULED		
 	in_back	in_back	sourcesharp/game/client/shell_input.cpp	GLOBAL	bss	file-or-global	12	UNRULED		
@@ -481,10 +469,7 @@ shell_surface_render.o	_ZZN27CSourceSharpSurfaceRenderer8DrawQuadEP13IBrushSurfa
 	_ZN26PrecacheEffectGlassShatter29register_ClientEffectRegisterE	PrecacheEffectGlassShatter::register_ClientEffectRegister	sourcesharp/game/client/shell_te_backends_client.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
 	_ZN19PrecachePlayerDecal20ClientEffectRegister14m_pszMaterialsE	PrecachePlayerDecal::ClientEffectRegister::m_pszMaterials	sourcesharp/game/client/shell_te_backends_client.cpp	GLOBAL	data	class-or-namespace	512	UNRULED		
 	_ZN19PrecachePlayerDecal29register_ClientEffectRegisterE	PrecachePlayerDecal::register_ClientEffectRegister	sourcesharp/game/client/shell_te_backends_client.cpp	GLOBAL	bss	class-or-namespace	8	UNRULED		
-shell_te_backends_client.o	_ZL15cl_spraydisable	cl_spraydisable	sourcesharp/game/client/shell_te_backends_client.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_te_backends_client.o	_ZL24cs_cl_te_backend_command	cs_cl_te_backend_command	sourcesharp/game/client/shell_te_backends_client.cpp	LOCAL	bss	file-or-global	72	UNRULED		
-shell_te_backends_client.o	_ZL17r_drawmodeldecals	r_drawmodeldecals	sourcesharp/game/client/shell_te_backends_client.cpp	LOCAL	bss	file-or-global	32	UNRULED		
-shell_te_backends_client.o	_ZL9s_rDecals	s_rDecals	sourcesharp/game/client/shell_te_backends_client.cpp	LOCAL	bss	file-or-global	32	UNRULED		
 shell_te_forwards_client.o	_ZL10g_TESystem	g_TESystem	sourcesharp/game/client/shell_te_forwards_client.cpp	LOCAL	bss	file-or-global	40	UNRULED		
 	te	te	sourcesharp/game/client/shell_te_forwards_client.cpp	GLOBAL	data	file-or-global	8	UNRULED		
 shell_te_pool_client.o	_ZZL16TempEntPoolBonesvE7s_Bones	TempEntPoolBones()::s_Bones	sourcesharp/game/client/shell_te_pool_client.cpp	LOCAL	bss	function-local	6144	UNRULED		

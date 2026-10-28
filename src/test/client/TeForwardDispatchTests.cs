@@ -25,44 +25,42 @@ namespace SourceSharp.Tests;
 public class TeForwardDispatchTests
 {
     /// <summary>
-    /// <c>TE_Bubbles( filter, delay, mins, maxs, height, modelindex, count,
-    /// speed )</c>, with every number different so a transposition cannot pass.
+    /// <c>TE_BloodStream( filter, delay, org, dir, r, g, b, a, amount )</c>,
+    /// with every number different so a transposition cannot pass.
     ///
     /// <para>
-    /// IT WAS TE_Explosion UNTIL plan_server_native_v2 T4d, and TE_DynamicLight
-    /// before plan_shim.md phase 1f: each time the id went with its last native
-    /// sender, so the subject moved to one that survives. This one has the
-    /// shapes the fact was written to catch: a Vector at the head of the floats,
-    /// a second Vector straight after it (so a float index off by one is
-    /// visible), and floats and ints that interleave in the signature but not
-    /// in the arrays.
+    /// IT WAS TE_Bubbles UNTIL lane M1-C, TE_Explosion until plan_server_native_v2
+    /// T4d, and TE_DynamicLight before plan_shim.md phase 1f: each time the id
+    /// went with its last native sender, so the subject moved to one that
+    /// survives (the server's shell_te_forwards.cpp sends this one). It has the
+    /// shapes the fact was written to catch: a Vector at the head of the floats
+    /// and a second straight after it (so a float index off by one is visible),
+    /// and five ints whose order is the colour's.
     /// </para>
     /// </summary>
     [Fact]
-    public void BubblesArgumentsLandOnTheFieldsItsSignatureNames()
+    public void BloodStreamArgumentsLandOnTheFieldsItsSignatureNames()
     {
-        float[] f = [11f, 22f, 33f, 44f, 55f, 66f, /* height */ 77f, /* speed */ 88f];
-        int[]   i = [/* modelindex */ 101, /* count */ 102];
+        float[] f = [11f, 22f, 33f, 44f, 55f, 66f];
+        int[]   i = [/* r */ 101, /* g */ 102, /* b */ 103, /* a */ 104, /* amount */ 105];
 
-        var state = TeForwardDispatch.Build(TeForward.Bubbles, f, i) as TeBubbles;
+        var state = TeForwardDispatch.Build(TeForward.BloodStream, f, i) as TeBloodStream;
 
         Assert.True(state is not null,
-            "TeForward.Bubbles builds a TeBubbles; a null here is a forward that "
+            "TeForward.BloodStream builds a TeBloodStream; a null here is a forward that "
           + "reached C# and produced nothing");
 
-        Assert.True(state!.Mins.X == 11f && state.Mins.Y == 22f && state.Mins.Z == 33f,
-            $"the first three floats are the mins, in order; they came out {state.Mins}");
+        Assert.True(state!.Origin.X == 11f && state.Origin.Y == 22f && state.Origin.Z == 33f,
+            $"the first three floats are the origin, in order; they came out {state.Origin}");
 
-        Assert.True(state.Maxs.X == 44f && state.Maxs.Y == 55f && state.Maxs.Z == 66f,
-            $"then the maxs, which is the read that a float index off by one moves; it "
-          + $"came out {state.Maxs}");
+        Assert.True(state.Direction.X == 44f && state.Direction.Y == 55f && state.Direction.Z == 66f,
+            $"then the direction, which is the read that a float index off by one moves; it "
+          + $"came out {state.Direction}");
 
-        Assert.True(state.Height == 77f && state.Speed == 88f,
-            $"then height and speed, the two floats the ints sit between in the "
-          + $"signature; they came out [{state.Height}, {state.Speed}]");
+        Assert.True(state.Color == new Color32(101, 102, 103, 104),
+            $"the first four ints are r, g, b and a, not {state.Color}");
 
-        Assert.True(state.ModelIndex == 101 && state.Count == 102,
-            $"the ints are modelindex then count, not [{state.ModelIndex}, {state.Count}]");
+        Assert.True(state.Amount == 105, $"the fifth int is the amount, not {state.Amount}");
     }
 
     /// <summary>
@@ -87,12 +85,12 @@ public class TeForwardDispatchTests
     [Fact]
     public void TooFewArgumentsAreRefusedRatherThanReadPastTheEnd()
     {
-        Assert.True(TeForwardDispatch.Build(TeForward.Bubbles, [1f, 2f], [1, 2]) is null,
-            "two floats where eight are wanted builds nothing");
+        Assert.True(TeForwardDispatch.Build(TeForward.BloodStream, [1f, 2f], [1, 2, 3, 4, 5]) is null,
+            "two floats where six are wanted builds nothing");
 
-        Assert.True(TeForwardDispatch.Build(TeForward.Bubbles,
-                                            [1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f], [1]) is null,
-            "and one int where two are wanted");
+        Assert.True(TeForwardDispatch.Build(TeForward.BloodStream,
+                                            [1f, 2f, 3f, 4f, 5f, 6f], [1, 2, 3, 4]) is null,
+            "and four ints where five are wanted");
     }
 
     /// <summary>
@@ -103,11 +101,11 @@ public class TeForwardDispatchTests
     [Fact]
     public void TheStateResolvesToTheWireClassTheForwardMeant()
     {
-        var state = TeForwardDispatch.Build(TeForward.Bubbles,
-                                            [0f, 0f, 0f, 1f, 1f, 1f, 1f, 1f], [1, 1])!;
+        var state = TeForwardDispatch.Build(TeForward.BloodStream,
+                                            [0f, 0f, 0f, 1f, 1f, 1f], [1, 1, 1, 1, 1])!;
 
-        Assert.True(TempEntityAttribute.ClassNameOf(state.GetType()) == "CTEBubbles",
-            "TE_Bubbles forwards CTEBubbles, which is the name both sides pair on and "
+        Assert.True(TempEntityAttribute.ClassNameOf(state.GetType()) == "CTEBloodStream",
+            "TE_BloodStream forwards CTEBloodStream, which is the name both sides pair on and "
           + "the one ClientTempEnts.PlayLocally looks the player up by");
     }
 
@@ -124,5 +122,16 @@ public class TeForwardDispatchTests
 
         Assert.Null(TeForwardDispatch.Build(TeForward.BSPDecal, f, i));
         Assert.Null(TeForwardDispatch.Build(TeForward.ProjectDecal, f, i));
+    }
+
+    /// <summary>
+    /// TE_Bubbles is RESERVED since lane M1-C: the client's forward was its last
+    /// native sender and nothing on the client link line called it, so the arm
+    /// went with it and the id builds nothing.
+    /// </summary>
+    [Fact]
+    public void TheBubblesIdBuildsNothing()
+    {
+        Assert.Null(TeForwardDispatch.Build(TeForward.Bubbles, [1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f], [1, 2]));
     }
 }

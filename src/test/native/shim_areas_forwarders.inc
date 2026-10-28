@@ -282,10 +282,10 @@ TEST( FwdShimAreas, ShimTempEntPoolClientIs13Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimTempEntBackendsClientIs17Slots )
+TEST( FwdShimAreas, ShimTempEntBackendsClientIs22Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimTempEntBackendsClient::TempEntBuildClient ).slot + 1;
-	EXPECT_EQ( 17, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimTempEntBackendsClient::ClientPlayerLogoDecal ).slot + 1;
+	EXPECT_EQ( 22, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimTempEntBackendsClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -354,10 +354,10 @@ TEST( FwdShimAreas, ShimUiClientIs21Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimParticlesClientIs19Slots )
+TEST( FwdShimAreas, ShimParticlesClientIs20Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimParticlesClient::ParticlesBrushPointContents ).slot + 1;
-	EXPECT_EQ( 19, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimParticlesClient::ParticleSystemImpact ).slot + 1;
+	EXPECT_EQ( 20, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimParticlesClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

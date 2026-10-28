@@ -44,7 +44,10 @@ const Split_t kSplits[] = {
 	// CalculateAABBFromProjectionMatrix, R_CullBox, VMatrix::Transpose): client.so defines none of them now
 	// (nm), so their rows went; the managed shadow manager ports what it needs (ShadowMath.cs).
 	{ "_Z13TransformAABBRK11matrix3x4_tRK6VectorS4_RS2_S5_", "sourcesharp/game/client/mathlib_port_client.cpp" },
-	{ "_Z13VectorVectorsRK6VectorRS_S2_", "sourcesharp/game/client/mathlib_port_client.cpp" },
+	// 2026-10-25, lane M1-C: VectorVectors' last client importer was
+	// shell_impact_effects.cpp's SetImpactControlPoint, which left with the
+	// impact chain (the orientation is BulletImpactEffect's, FxMath.VectorVectors);
+	// client.so defines it no more (nm), so its row and its forward went.
 	{ "_Z14MatrixMultiplyRK7VMatrixS1_RS_", "sourcesharp/game/client/mathlib_port_client.cpp" },
 	{ "_Z15MatrixSetColumnRK6VectoriR11matrix3x4_t", "sourcesharp/game/client/mathlib_port_client.cpp" },
 	{ "_Z15VectorTransformPKfRK11matrix3x4_tPf", "sourcesharp/game/client/mathlib_port_client.cpp" },

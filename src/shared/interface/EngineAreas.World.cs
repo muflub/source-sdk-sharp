@@ -276,8 +276,13 @@ public interface IEngineEffects
     // IEngineWorldQuery: what an entity's model IS is a question, and the
     // switch it feeds is C#'s.
 
-    /// <inheritdoc cref="EngineSide.ClientDecalStudioModel"/>
-    void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayEnd, int decalIndex);
+    /// <summary>
+    /// A decal on a studio model, along the ray from <paramref name="rayStart"/>
+    /// by <paramref name="rayDelta"/>: the RAY as stock aims it (its delta
+    /// already lengthened, <c>ray.m_Delta *= 1.1f</c>), so that the engine is
+    /// handed the delta itself and not <c>( start + delta ) - start</c>.
+    /// </summary>
+    void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayDelta, int decalIndex);
 
     /// <inheritdoc cref="EngineSide.ClientDecalBrushModel"/>
     void ClientDecalBrushModel(int entIndex, Vector decalCenter, int decalIndex);

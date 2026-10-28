@@ -1943,7 +1943,7 @@ internal unsafe struct ShimTempEntPoolClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimTempEntBackendsClient</c> through its forwarders (SSFwd_ShimTempEntBackendsClient): 17 slot(s).
+/// <c>IShimTempEntBackendsClient</c> through its forwarders (SSFwd_ShimTempEntBackendsClient): 22 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
@@ -2001,6 +2001,21 @@ internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
 
     // int32_t IShimTempEntBackendsClient::TempEntBuildClient( const void *, int32_t, int32_t, SourceSharpTeRecvBuilt_t * )
     public delegate* unmanaged<void*, void*, int, int, void*, int> TempEntBuildClient;
+
+    // int32_t IShimTempEntBackendsClient::ClientShotTrace( const float *, const float *, int32_t, float *, int32_t, int32_t *, int32_t )
+    public delegate* unmanaged<void*, void*, void*, int, void*, int, void*, int, int> ClientShotTrace;
+
+    // void IShimTempEntBackendsClient::ClientWorldLighting( const float *, const float *, float * )
+    public delegate* unmanaged<void*, void*, void*, void*, void> ClientWorldLighting;
+
+    // void IShimTempEntBackendsClient::ClientStaticPropLighting( const float *, const float *, const float *, int32_t, float * )
+    public delegate* unmanaged<void*, void*, void*, void*, int, void*, void> ClientStaticPropLighting;
+
+    // void IShimTempEntBackendsClient::ClientImpactLedger( int32_t, int32_t )
+    public delegate* unmanaged<void*, int, int, void> ClientImpactLedger;
+
+    // void IShimTempEntBackendsClient::ClientPlayerLogoDecal( const float *, int32_t, int32_t, const char *, const char * )
+    public delegate* unmanaged<void*, void*, int, int, byte*, byte*, void> ClientPlayerLogoDecal;
 }
 
 /// <summary>
@@ -2401,7 +2416,7 @@ internal unsafe struct ShimUiClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimParticlesClient</c> through its forwarders (SSFwd_ShimParticlesClient): 19 slot(s).
+/// <c>IShimParticlesClient</c> through its forwarders (SSFwd_ShimParticlesClient): 20 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimParticlesClientFwd : IForwarderTable
@@ -2465,6 +2480,9 @@ internal unsafe struct ShimParticlesClientFwd : IForwarderTable
 
     // int32_t IShimParticlesClient::ParticlesBrushPointContents( uint32_t, const float * )
     public delegate* unmanaged<void*, uint, void*, int> ParticlesBrushPointContents;
+
+    // int32_t IShimParticlesClient::ParticleSystemImpact( const char *, const float *, int32_t, float, const float * )
+    public delegate* unmanaged<void*, byte*, void*, int, float, void*, int> ParticleSystemImpact;
 }
 
 /// <summary>

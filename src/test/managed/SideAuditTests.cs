@@ -322,6 +322,13 @@ public class SideAuditTests
         "ClientInterpAdmitted",
         // The glow overlays' material find (C7, glow_overlay.cpp): client.so's materials.
         "GlowMaterialFind",
+        // The managed bullet impact's engine calls (lane M1-C, fx_impact.cpp's
+        // chain): the client trace, its lighting reads, the client's effect
+        // ledger and its particle systems.
+        "ClientShotTrace", "ClientWorldLighting", "ClientStaticPropLighting", "ClientImpactLedger",
+        "ParticleSystemImpact",
+        // A player's spray, carried out (lane M1-C, c_te_playerdecal.cpp).
+        "ClientPlayerLogoDecal",
         "InputMailbox",
         "SpriteTrailDestroy", "SpriteTrailUpdate",
         "StandaloneSetBlending",

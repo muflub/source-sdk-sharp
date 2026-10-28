@@ -498,23 +498,12 @@ const char *SourceSharpPayload_SendProxyName( const SendProp *pProp );
 // replaced the replicated m_szClassname: four bytes on the wire and a lookup
 // here instead of sixty-four bytes per entity.
 //
-// Rate-limited in its logging and NOT in its refusal: an entity replicating
-// every tick would otherwise put a line in the console every tick, and the
-// answer never changes while the two builds differ. The count is what the
-// inspector reads.
+// The decision and the refusals it keeps are managed's (ClientSchemaGate,
+// through IManagedStandaloneClient::SchemaAccept): this hands it what the type
+// table holds and carries out the answer. No managed side refuses.
 //-----------------------------------------------------------------------------
 bool SourceSharpSchema_Accept( unsigned int nTypeId, unsigned int nSchemaHash,
                                int nEntIndex, const char **ppOutClassName );
-
-// How many updates have been refused, and how many types they were spread over.
-int SourceSharpSchema_RefusedUpdates( void );
-int SourceSharpSchema_RefusedTypes( void );
-
-// One refused type, for the inspector: the id, what this side expected, and
-// what arrived. Returns 0 past the end.
-int SourceSharpSchema_Refusal( int iIndex, unsigned int *pOutTypeId,
-                               unsigned int *pOutExpected, unsigned int *pOutSeen,
-                               const char **ppOutClassName, int *pOutCount );
 
 int SourceSharpPayload_BuildRecvProps( RecvProp *pProps, int nWords, int nBlobBase );
 

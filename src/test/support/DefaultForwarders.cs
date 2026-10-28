@@ -79,6 +79,7 @@ internal static class DefaultForwarders
         public MoveSurface Surface(int surfaceProps) => default;
 
         public string? ScrapeSound(int surfaceProps, bool smooth) => null;
+        public string? BulletImpactSound(int surfaceProps) => null;
     }
 
     /// <summary>No sound scripts answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
@@ -132,7 +133,7 @@ internal static class DefaultForwarders
 
         public long FileTime(string fileName, string pathId) => default;
 
-        public bool FileExists(string fileName, string pathId) => false;
+        public bool FileExists(string fileName, string? pathId) => false;
 
         public nint Open(string fileName, string options, string pathId) => default;
 
@@ -300,6 +301,7 @@ internal static class DefaultForwarders
         public string? GameDirectory() => null;
 
         public uint ProtocolVersion() => default;
+        public bool CopyLocalFile(string source, string destination) => false;
 
         public void Reconnect() { }
 

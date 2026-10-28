@@ -201,33 +201,20 @@ int32_t SourceSharp_ClientRecvProp( int32_t iIndex, char *pOutClass, int32_t nCl
 }
 
 //-----------------------------------------------------------------------------
-// The schema-hash refusals this client has made (SourceSharpSchema_Accept):
-// the send/recv agreement as the payload decoder judged it. Returns how many
-// types were refused; fills one when iIndex is in range, and the refused
-// update count always.
+// The schema refusals' old reader: no managed caller since lane M1-C, when the
+// refusals became the managed gate's (ClientSchemaGate) and the dev API reads
+// them there. Kept because the shim tables only append; it answers none, and
+// the serialised ABI pass retires the row.
 //-----------------------------------------------------------------------------
 int32_t SourceSharp_ClientSchemaRefusal( int32_t iIndex, uint32_t *pOutTypeId, uint32_t *pOutExpected,
                                          uint32_t *pOutSeen, int32_t *pOutCount, char *pOutClass,
                                          int32_t nClassBytes, int32_t *pOutRefusedUpdates )
 {
+	(void)iIndex; (void)pOutTypeId; (void)pOutExpected; (void)pOutSeen; (void)pOutCount;
+	(void)pOutClass; (void)nClassBytes;
+
 	if ( pOutRefusedUpdates )
-		*pOutRefusedUpdates = SourceSharpSchema_RefusedUpdates();
+		*pOutRefusedUpdates = 0;
 
-	int nTypes = SourceSharpSchema_RefusedTypes();
-	if ( iIndex >= 0 && iIndex < nTypes )
-	{
-		unsigned int nTypeId = 0, nExpected = 0, nSeen = 0;
-		const char *pClassName = NULL;
-		int nCount = 0;
-		if ( SourceSharpSchema_Refusal( iIndex, &nTypeId, &nExpected, &nSeen, &pClassName, &nCount ) )
-		{
-			if ( pOutTypeId )   *pOutTypeId = nTypeId;
-			if ( pOutExpected ) *pOutExpected = nExpected;
-			if ( pOutSeen )     *pOutSeen = nSeen;
-			if ( pOutCount )    *pOutCount = nCount;
-			CopyName( pOutClass, nClassBytes, pClassName );
-		}
-	}
-
-	return nTypes;
+	return 0;
 }

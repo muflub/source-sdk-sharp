@@ -224,6 +224,8 @@ public unsafe class TempEntPoolRetirementTests
         { Ran_(nameof(ImpactEffectParams)); return 0; }
         public int ImpactChoice(ReadOnlySpan<int> input, Span<int> output, Span<byte> particleName, Span<byte> decalName)
         { Ran_(nameof(ImpactChoice)); return 0; }
+        public bool SuppressLocalTempEnt(bool canPredict, int recipientCount) => throw new NotSupportedException();
+        public bool SchemaAccept(uint typeId, bool published, uint expected, uint seen, int entIndex, string className) => throw new NotSupportedException();
 
         public void DispatchUserMessage(int index, ReadOnlySpan<byte> payload) => throw new NotSupportedException();
         public float GetJumpScale(in JumpRequest request) => throw new NotSupportedException();

@@ -303,7 +303,7 @@ internal sealed unsafe partial class EngineEffects
     public void ClientDecalStaticProp(Vector start, Vector end, int staticPropIndex, int decalIndex) { }
     public bool ClientIsLowViolence() => false;
     public string ClientDecalNameFromIndex(int decalIndex) => string.Empty;
-    public void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayEnd, int decalIndex) { }
+    public void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayDelta, int decalIndex) { }
     public void ClientDecalBrushModel(int entIndex, Vector decalCenter, int decalIndex) { }
     public bool TempEntPoolReadStatics(int slot, out TempEntStatics statics)
     {

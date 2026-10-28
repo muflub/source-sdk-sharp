@@ -36,6 +36,10 @@ public unsafe class TempEntsClientBindingTests
         public void TempEntPoolClear() => Reached(nameof(TempEntPoolClear));
         public int ImpactChoice(ReadOnlySpan<int> input, Span<int> output, Span<byte> particleName, Span<byte> decalName)
         { Reached(nameof(ImpactChoice)); return 0; }
+        public (bool CanPredict, int Recipients) SuppressAsked;
+        public bool SuppressLocalTempEnt(bool canPredict, int recipientCount)
+        { Reached(nameof(SuppressLocalTempEnt)); SuppressAsked = (canPredict, recipientCount); return BoolAnswer; }
+        public bool SchemaAccept(uint typeId, bool published, uint expected, uint seen, int entIndex, string className) => throw new NotSupportedException();
 
         // Not this binding's: a call here is a wiring fault, never a default answer.
         public void DispatchUserMessage(int index, ReadOnlySpan<byte> payload) => throw new NotSupportedException();
@@ -102,5 +106,22 @@ public unsafe class TempEntsClientBindingTests
     {
         Binding.OnTempEntPoolClear();
         Assert.Equal(["TempEntPoolClear"], _client.Calls);
+    }
+
+    [Fact]
+    public void TheSuppressionQuestionReachesTheModuleWithBothFacts()
+    {
+        _client.BoolAnswer = true;
+        Assert.Equal(1, Binding.SuppressLocalTempEnt(0, 3));
+        Assert.Equal(["SuppressLocalTempEnt"], _client.Calls);
+        Assert.Equal((false, 3), _client.SuppressAsked);
+    }
+
+    [Fact]
+    public void AnEffectTheModuleLetsThroughAnswersZero()
+    {
+        _client.BoolAnswer = false;
+        Assert.Equal(0, Binding.SuppressLocalTempEnt(1, 1));
+        Assert.Equal((true, 1), _client.SuppressAsked);
     }
  }

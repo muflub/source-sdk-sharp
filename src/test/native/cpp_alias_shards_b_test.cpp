@@ -309,10 +309,11 @@ TEST( CppAliasShardsB, TheCloseWaveTookTheShimsDeadArmsWhole )
 		// GetColorForSurface's collideable read. DECLARED: the `!pEnt` arm was
 		// already the whole branch, and it is this function's own stated
 		// fallback -- white, with a printed line -- rather than a value
-		// invented to fill the hole.
-		{ "sourcesharp/game/client/shell_impact_effects.cpp",
+		// invented to fill the hole. C# since lane M1-C (BulletImpactEffect's
+		// ColorForSurface), with the same answer.
+		{ "sourcesharp/managed/SourceSharp.Client/TempEnts/BulletImpactEffect.cs",
 		  "pCollide->GetCollisionModelIndex()",
-		  "color->z = 255;" },
+		  "return new Vector(255f, 255f, 255f);" },
 
 		// FX_AntlionImpact's bounding radius. DECLARED AND OWED: IGameEntity has
 		// no bound among its members, so this is an ABI slot the close names as
@@ -333,19 +334,21 @@ TEST( CppAliasShardsB, TheCloseWaveTookTheShimsDeadArmsWhole )
 		// plan_shim.md §6 (lane 4b-effects): the NAME is a managed constant
 		// (ImpactChoicePolicy.DefaultDecal) and arrives on the choice struct,
 		// and the TRANSLATION -- which is the part that answers the deleted
-		// arm's question -- is still made here, where the decal system is.
-		{ "sourcesharp/game/client/shell_impact_effects.cpp",
+		// arm's question -- is made where the impact is decided, which since
+		// lane M1-C is BulletImpactEffect over the managed decal system.
+		{ "sourcesharp/managed/SourceSharp.Client/TempEnts/BulletImpactEffect.cs",
 		  "pEntity->DamageDecal( iDamageType, iMaterial )",
-		  "return decalsystem->TranslateDecalForGameMaterial( choice.szDecal, iMaterial );" },
+		  "string translated = decals.TranslateForGameMaterial(name, material & 0xFF) ?? name;" },
 
 		// PlayImpactSound's identity half. NARROWED: the test needed pEntity and
 		// tr.m_pEnt to share a base and armed they do not, so what is left is
 		// the half that is answerable -- the server named no surfaceprop. That
 		// is a WEAKER condition, so the client trace is used at least as often
-		// as before and never less.
-		{ "sourcesharp/game/client/shell_impact_effects.cpp",
+		// as before and never less. C# since lane M1-C (BulletImpactEffect's
+		// PlayImpactSound), with the same condition.
+		{ "sourcesharp/managed/SourceSharp.Client/TempEnts/BulletImpactEffect.cs",
 		  "pEntity != tr.m_pEnt",
-		  "if ( tr.DidHit() && nServerSurfaceProp == 0 )" },
+		  "if (tr.Hit && serverSurfaceProp == 0)" },
 	};
 	const size_t kNumClosed = sizeof( kClosed ) / sizeof( kClosed[ 0 ] );
 
@@ -379,7 +382,8 @@ TEST( CppAliasShardsB, TheCloseWaveTookTheShimsDeadArmsWhole )
 	}
 
 	// FIVE ROWS, WHICH IS THE FALL kShardsBFiles RECORDS -- four from
-	// shell_impact_effects.cpp and one from shell_sprite_leaf.cpp. Pinned so
+	// shell_impact_effects.cpp (three of them C# since lane M1-C, read in
+	// BulletImpactEffect.cs) and one from shell_sprite_leaf.cpp. Pinned so
 	// that a row dropped from here is a failure rather than a shorter loop, in
 	// the way the two counts above would not notice.
 	EXPECT_EQ( (size_t)5, kNumClosed );
@@ -400,7 +404,7 @@ TEST( CppAliasShardsB, TheCloseWaveTookTheShimsDeadArmsWhole )
 	// does not write.
 	{
 		const std::vector< std::string > lines =
-			ReadLines( "sourcesharp/game/client/shell_impact_effects.cpp" );
+			ReadLines( "sourcesharp/managed/SourceSharp.Client/TempEnts/BulletImpactEffect.cs" );
 		ASSERT_GT( lines.size(), (size_t)10 );
 
 		std::string raw;
@@ -408,7 +412,7 @@ TEST( CppAliasShardsB, TheCloseWaveTookTheShimsDeadArmsWhole )
 			raw += lines[ i ] + "\n";
 
 		EXPECT_FALSE( Contains( raw, "decalName = \"Impact.Concrete\";" ) )
-			<< "shell_impact_effects.cpp spells the decal name again. It is "
+			<< "BulletImpactEffect.cs spells the decal name again. It is "
 			<< "ImpactChoicePolicy.DefaultDecal since plan_shim.md §6, and a "
 			<< "copy here would be a second answer with nothing choosing "
 			<< "between them.";

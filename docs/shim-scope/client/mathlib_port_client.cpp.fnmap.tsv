@@ -5,7 +5,6 @@
 4	HOST	float CalcSqrDistanceToAABB( const Vector &mins, const Vector &maxs, const Vector &point )
 4	HOST	void MatrixSetColumn( const Vector &in, int column, matrix3x4_t &out )
 4	HOST	void MatrixCopy( const matrix3x4_t &in, matrix3x4_t &out )
-4	HOST	void VectorVectors( const Vector &forward, Vector &right, Vector &up )
 4	HOST	void ClearBounds( Vector &mins, Vector &maxs )
 4	HOST	void AddPointToBounds( const Vector &v, Vector &mins, Vector &maxs )
 4	HOST	void TransformAABB( const matrix3x4_t &transform, const Vector &vecMinsIn, const Vector &vecMaxsIn, Vector &vecMinsOut, Vector &vecMaxsOut )

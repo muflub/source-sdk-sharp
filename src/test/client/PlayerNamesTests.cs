@@ -31,6 +31,7 @@ public class PlayerNamesTests
         public string? LevelName() => null;
         public string? GameDirectory() => null;
         public uint ProtocolVersion() => 0;
+        public bool CopyLocalFile(string source, string destination) => false;
         public void JoinTeam(int team) { }
         public void ConnectFromSteamLaunch(string connectLine) { }
         public void Reconnect() { }
@@ -188,6 +189,7 @@ public class PlayerNameSourceCensusTests
         "src/client/managed/Voice/VoiceEngine",  // the guid, not a name
         "src/client/interop/EngineClient",       // the engine read itself
         "src/client/interface/EngineClient",     // the seam that declares that read
+        "src/client/managed/TempEnts/PlayerSprays", // the spray logo's CRC (customFiles[0]), not a name
     ];
 
     [Fact]

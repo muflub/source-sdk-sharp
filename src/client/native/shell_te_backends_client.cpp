@@ -98,18 +98,12 @@
 #include "shell_te_backend_args.h"
 #include "sourcesharp.h"
 
-#include "managed_convar_ref.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-// r_decals, read by name (managed_convar_ref.h; lane c2-fx). It is the ENGINE's
-// convar: stock's EffectsClient.cpp declared a second one under the same name,
-// which tier1 parents onto the engine's (one value), and it left with IEffects'
-// port. A managed declaration is refused for the same reason (ConVarRegistry:
-// "managed code declares convars the engine defines"). Not named `r_decals`:
-// fx.h still declares an extern ConVar of that name.
-static CManagedConVarRef s_rDecals( "r_decals" );
+// (r_decals, the engine's ConVar, is read by the managed decal callers since
+// lane M1-C: DecalSettings watches it by name.)
 
 using namespace TeBackendArgs;
 
@@ -272,8 +266,9 @@ void SourceSharp_ClientMuzzleFlash( const float *pOriginXYZ, const float *pAngle
 // hands back an IClientEntity rather than a C_BaseEntity — so a managed entity
 // resolves here as readily as a stock one. Entity 0 is the world.
 //
-// r_decals is checked HERE, once, because it is a renderer setting and all
-// three of stock's callers check it immediately before this same call.
+// r_decals IS THE CALLERS' since lane M1-C, as it is stock's: each managed
+// player that ends here tests it first (DecalSettings, the engine's ConVar
+// watched by name), so this carries the decal out and decides nothing.
 //
 // LEDGER ROWS C2 AND C3 ARE UNTOUCHED BY THIS SLOT. Those are decals on
 // ENTITIES (C_BaseEntity::AddDecal, which this hierarchy has no version of) and
@@ -289,9 +284,6 @@ void SourceSharp_ClientDecalShoot( int32_t nDecalIndex, int32_t nEntity,
 	const DecalRequest req = DecalShoot( nDecalIndex, nEntity, pPositionXYZ, pSAxisXYZ, nFlags );
 
 	if ( !req.bDraw || !effects )
-		return;
-
-	if ( !s_rDecals.GetInt() )
 		return;
 
 	IClientEntity *pEntity = SourceSharp_ClientEntityFromIndex( req.nEntity );
@@ -325,20 +317,12 @@ void SourceSharp_ClientDecalShoot( int32_t nDecalIndex, int32_t nEntity,
 // wrong home: Part 7 deletes every forward file with c_te.cpp, and these two
 // have to survive that.
 //
-// cl_spraydisable was read here through a ConVarRef, then declared here as a
-// native ConVar when c_te_playerdecal.cpp -- which owned it as a file-static --
-// left the project. It is a MANAGED declaration now
-// (SourceSharp.Client/ConVars.cs) and a by-name ref here, which is the same
-// three-line shape the thirty-six precipitation knobs took: a user setting's
-// name, default, flags and help text are the setting, and while they sit in C++
-// no managed code can read them or list them.
-//
-// FCVAR_ARCHIVE is stock's and is carried: it is a user setting and it has to
-// persist. The default is stock's own #else branch -- TF_CLIENT_DLL is
-// undefined in this build (plan 2G is the same finding for HL2_DLL and TF_DLL),
-// so sprays are ENABLED by default here, as they were before the eviction.
+// cl_spraydisable is a MANAGED declaration (SourceSharp.Client/ConVars.cs)
+// and, since lane M1-C, a managed read too: PlayerSprays tests it, with
+// r_decals, before anything is asked of the engine. FCVAR_ARCHIVE is stock's and
+// is carried; the default is stock's own #else branch -- TF_CLIENT_DLL is
+// undefined in this build -- so sprays are ENABLED by default.
 //=============================================================================//
-static CManagedConVarRef cl_spraydisable( "cl_spraydisable" );
 
 //-----------------------------------------------------------------------------
 // The sixty-four spray logo materials, precached.
@@ -429,104 +413,43 @@ CLIENTEFFECT_REGISTER_END()
 #endif
 
 //-----------------------------------------------------------------------------
-// The material for one player's spray, or NULL if there is not one yet.
-//
-// c_te_playerdecal.cpp's CreateTempMaterialForPlayerLogo, kept here rather than
-// called there, and the reason is the same one shell_te_fwd_c1.cpp gives for
-// going the other way: C-Phase 3 EVICTS c_te_playerdecal.cpp, and a backend that
-// called into it would stop existing at exactly the moment its managed caller
-// arrived. What a backend must not do is depend on the file it replaces.
-//
-// Everything in it is a pointer type that cannot cross the ABI — a player_info_t
-// out of the engine, a custom-file hash, a download check against the
-// filesystem, a FindMaterial and a texture-variable swap — which is why the
-// managed half of a player decal is three numbers and this is the rest.
+// A player's spray logo, decided: c_te_playerdecal.cpp's TE_PlayerDecal from the
+// logo material down. Which material (decals/playerlogoNN), which texture
+// (temp/<the logo CRC's hex>) and whether the download has been copied under
+// materials/temp are the managed PlayerSprays' (lane M1-C), along with the
+// r_decals and cl_spraydisable gates and the target and player checks. What is
+// left is what only this side can do: find both by name -- a name that does not
+// resolve draws nothing, stock's two early-outs -- point the logo material at
+// the player's texture if it is not already, and shoot the decal on the entity.
 //-----------------------------------------------------------------------------
-static IMaterial *SourceSharpTe_PlayerLogoMaterial( int iPlayerIndex, player_info_t *pInfo,
-                                                    char *pTexName, int nChars )
+
+// The logo CRC managed reads off player_info_t through IVEngineClient's
+// GetPlayerInfo forwarder (PlayerInfoT.CustomFile0, SourceSharp.Client.Interop):
+// customFiles is at 112, and this is where the build says so.
+COMPILE_TIME_ASSERT( offsetof( player_info_t, customFiles ) == 112 );
+
+void SourceSharp_ClientPlayerLogoDecal( const float *pPositionXYZ, int32_t nPlayer, int32_t nEntity,
+                                        const char *pszMaterial, const char *pszTexture )
 {
-	if ( !pInfo->customFiles[0] )
-		return NULL;
-
-	IMaterial *pLogo = materials->FindMaterial( VarArgs( "decals/playerlogo%2.2d", iPlayerIndex ),
-	                                            TEXTURE_GROUP_DECAL );
-
-	if ( IsErrorMaterial( pLogo ) )
-		return NULL;
-
-	char szLogoHex[ 16 ];
-	Q_binarytohex( (byte *)&pInfo->customFiles[0], sizeof( pInfo->customFiles[0] ),
-	               szLogoHex, sizeof( szLogoHex ) );
-
-	// Downloaded yet?
-	Q_snprintf( pTexName, nChars, "temp/%s", szLogoHex );
-
-	char szFullTexName[ 512 ];
-	Q_snprintf( szFullTexName, sizeof( szFullTexName ), "materials/temp/%s.vtf", szLogoHex );
-
-	if ( !filesystem->FileExists( szFullTexName ) )
-	{
-		char szCustomName[ 512 ];
-		Q_snprintf( szCustomName, sizeof( szCustomName ),
-		            "download/user_custom/%c%c/%s.dat", szLogoHex[0], szLogoHex[1], szLogoHex );
-
-		if ( !filesystem->FileExists( szCustomName ) )
-			return NULL;   // not downloaded yet
-
-		// The material system can only reach materials/*.vtf, so it is copied
-		// out of the download folder rather than read where it landed.
-		if ( !engine->CopyLocalFile( szCustomName, szFullTexName ) )
-			return NULL;
-	}
-
-	return pLogo;
-}
-
-//-----------------------------------------------------------------------------
-// A player's spray logo. c_te_playerdecal.cpp.
-//
-// cl_spraydisable is a by-name ref a few hundred lines above, into a
-// declaration managed code owns. It was a file-static inside
-// c_te_playerdecal.cpp, which C-Phase 3 evicts; see the block that refs it for
-// where the declaration went and why it did not land in a forward file.
-//-----------------------------------------------------------------------------
-void SourceSharp_ClientPlayerDecalShoot( const float *pPositionXYZ,
-                                         int32_t nPlayer, int32_t nEntity )
-{
-	const PlayerDecalRequest req = PlayerDecalShoot( pPositionXYZ, nPlayer, nEntity );
-
-	if ( !req.bDraw || !effects )
+	if ( !pPositionXYZ || !pszMaterial || !pszTexture || !effects || !materials )
 		return;
 
-	if ( !s_rDecals.GetInt() )
-		return;
-
-	if ( cl_spraydisable.GetBool() )
-		return;
-
-	IClientEntity *pEntity = SourceSharp_ClientEntityFromIndex( req.nEntity );
+	IClientEntity *pEntity = SourceSharp_ClientEntityFromIndex( nEntity );
 
 	if ( !pEntity )
 		return;
 
-	player_info_t info;
+	IMaterial *pLogo = materials->FindMaterial( pszMaterial, TEXTURE_GROUP_DECAL );
 
-	if ( !engine->GetPlayerInfo( req.nPlayer, &info ) )
+	if ( IsErrorMaterial( pLogo ) )
 		return;
 
-	char szTexName[ 512 ];
-	IMaterial *pLogo = SourceSharpTe_PlayerLogoMaterial( req.nPlayer, &info,
-	                                                     szTexName, sizeof( szTexName ) );
-
-	if ( !pLogo )
-		return;
-
-	ITexture *pTexture = materials->FindTexture( szTexName, TEXTURE_GROUP_DECAL );
+	ITexture *pTexture = materials->FindTexture( pszTexture, TEXTURE_GROUP_DECAL );
 
 	if ( IsErrorTexture( pTexture ) )
 		return;
 
-	// Point the material at this player's texture, if it is not already.
+	// Update the texture used by the material if need be.
 	bool bFound = false;
 	IMaterialVar *pMatVar = pLogo->FindVar( "$basetexture", &bFound );
 
@@ -539,15 +462,25 @@ void SourceSharp_ClientPlayerDecalShoot( const float *pPositionXYZ,
 	const color32 rgbaColour = { 255, 255, 255, 255 };
 
 	effects->PlayerDecalShoot( pLogo,
-	                           (void *)(intp)req.nPlayer,
-	                           req.nEntity,
+	                           (void *)(intp)nPlayer,
+	                           nEntity,
 	                           pEntity->GetModel(),
 	                           pEntity->GetAbsOrigin(),
 	                           pEntity->GetAbsAngles(),
-	                           Vector( req.vecPosition.x, req.vecPosition.y, req.vecPosition.z ),
+	                           Vector( pPositionXYZ[0], pPositionXYZ[1], pPositionXYZ[2] ),
 	                           0,
 	                           0,
 	                           rgbaColour );
+}
+
+//-----------------------------------------------------------------------------
+// The spray's slot before lane M1-C, which decided the spray here. Nothing
+// calls it: ClientTePlayerDecal asks the managed PlayerSprays, which ends in
+// ClientPlayerLogoDecal above. Left empty rather than deleted because the
+// shim tables only append; the serialised ABI pass retires the row.
+//-----------------------------------------------------------------------------
+void SourceSharp_ClientPlayerDecalShoot( const float *, int32_t, int32_t )
+{
 }
 
 //-----------------------------------------------------------------------------
@@ -718,30 +651,9 @@ int32_t SourceSharp_ClientEntityModelType( int32_t nEntity )
 //-----------------------------------------------------------------------------
 // A decal on a STUDIO model. C_BaseEntity::AddStudioDecal, doTrace false.
 //
-// r_drawmodeldecals is referenced rather than redeclared, and a second ConVar of
-// the same name here would be a duplicate registration. WHAT IT IS A REFERENCE
-// TO HAS CHANGED TWICE. It was c_baseentity.cpp's own ConVar; the flip moved
-// that file out, so lane `f-block` moved the DEFINITION to
-// shell_entitystatics.cpp and this bound there through an `extern ConVar`.
-//
-// PHASE 1c FOUND THAT BOTH OF THOSE WERE DUPLICATES. The ENGINE declares this
-// name itself (`strings -a` finds it in engine.so) and reads it for static
-// props -- and the engine's
-// constructor runs before the client DLL's, so the engine's object is the one
-// the console and every ConVarRef have always bound to. The game DLL's copy
-// was never the toggle anybody was setting. It is deleted, and this reader
-// resolves the engine's BY NAME.
-//
-// LAZILY, and that is the reason for CManagedConVarRef rather than a plain
-// file-scope ConVarRef: a file-scope ConVarRef resolves in its constructor, at
-// DLL load, and this class re-tries until the name is there. The engine's is
-// there from the start, so the re-try never fires -- but a ref that caches a
-// miss is a silent permanent zero, and that is not a failure mode worth
-// leaving available in a decal path.
-//
-// It is stock's gate on this arm and it is not r_decals: this path tests one
-// and never the other, which is the mirror of the asymmetry
-// SourceSharp_ClientDecalStaticProp records above.
+// THE GATE AND THE RAY ARE MANAGED'S since lane M1-C: r_drawmodeldecals is
+// tested and the ray lengthened a tenth (stock's `ray.m_Delta *= 1.1f`) by
+// ClientEntityDecal.AddStudioDecal, so the ray arrives as stock aims it.
 //
 // CreateModelInstance() then GetModelInstance(), both off IClientRenderable,
 // which is what lets this reach the managed hierarchy: C_StandaloneEntity
@@ -753,13 +665,11 @@ int32_t SourceSharp_ClientEntityModelType( int32_t nEntity )
 // m_nBody from both -- and only the first is on the interface an entity from
 // either hierarchy is reached through.
 //-----------------------------------------------------------------------------
-static CManagedConVarRef r_drawmodeldecals( "r_drawmodeldecals" );
-
 void SourceSharp_ClientDecalStudioModel( int32_t nEntity,
-                                         const float *pRayStartXYZ, const float *pRayEndXYZ,
+                                         const float *pRayStartXYZ, const float *pRayDeltaXYZ,
                                          int32_t nDecalIndex )
 {
-	const StudioDecalRequest req = DecalStudioModel( nEntity, pRayStartXYZ, pRayEndXYZ,
+	const StudioDecalRequest req = DecalStudioModel( nEntity, pRayStartXYZ, pRayDeltaXYZ,
 	                                                 nDecalIndex );
 
 	if ( !req.bDraw || !modelrender )
@@ -770,26 +680,17 @@ void SourceSharp_ClientDecalStudioModel( int32_t nEntity,
 	if ( !pEntity )
 		return;
 
-	// Stock's own order: the trace first (there is none here), then this test,
-	// then the instance. The comment on it is "Exit out after doing the trace
-	// so any other effects that want to happen can happen".
-	if ( !r_drawmodeldecals.GetBool() )
-		return;
-
 	pEntity->CreateModelInstance();
 
-	const Vec3 vecDelta = BloatedRayDelta( req.vecStart, req.vecEnd );
+	const Vector vecStart( req.vecStart.x, req.vecStart.y, req.vecStart.z );
+	const Vector vecDelta( req.vecDelta.x, req.vecDelta.y, req.vecDelta.z );
 
 	Ray_t ray;
-	ray.Init( Vector( req.vecStart.x, req.vecStart.y, req.vecStart.z ),
-	          Vector( req.vecEnd.x,   req.vecEnd.y,   req.vecEnd.z   ) );
+	ray.Init( vecStart, vecStart + vecDelta );
 
-	// `ray.m_Delta *= 1.1f`, computed where a test can read it. Assigned rather
-	// than multiplied here so that the live path and te_backend_args_test.cpp
-	// are running the same arithmetic and not two spellings of it.
-	ray.m_Delta.x = vecDelta.x;
-	ray.m_Delta.y = vecDelta.y;
-	ray.m_Delta.z = vecDelta.z;
+	// The delta as managed aimed it, assigned and not recomputed from an end:
+	// ( start + d ) - start is not d in floating point.
+	ray.m_Delta = vecDelta;
 
 	// FIXME: Pass in decal up? -- stock's own comment, kept because the
 	// question is still open in stock.

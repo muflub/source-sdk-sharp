@@ -1,2 +1,9 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+int32_t SourceSharp_ClientShotTrace(	BOUNDARY	IShimTempEntBackendsClient: one MASK_SHOT trace as BulletImpactEffect (C#) asks, ClipRayToEntity for an entity index or UTIL_TraceLine for -1, the trace_t written out field for field (the hit's index by the slot table's rule); which trace and in what order is managed's
+void SourceSharp_ClientWorldLighting(	BOUNDARY	IShimTempEntBackendsClient: engine->TraceLineMaterialAndLighting over the points BulletImpactEffect computed (GetColorForSurface's world arm)
+void SourceSharp_ClientStaticPropLighting(	BOUNDARY	IShimTempEntBackendsClient: staticpropmgr->GetStaticPropMaterialColorAndLighting over a trace_t of the start, end and normal managed passed (GetColorForSurface's static prop arm)
+void SourceSharp_ClientImpactLedger(	INSTRUMENT	the effect ledger's impact flecks and dust rows (cs_cl_effects_report; tools/fx-impact-gate reads them), added from the counts the managed impact's sprays answered
+int32_t SourceSharp_ParticleSystemImpact(	BOUNDARY	IShimParticlesClient: CShellNewParticleEffect::Create and the control points BulletImpactEffect computed, set as given (CP4 the colour only when the definition reads it, the system's own fact), watched as a one-shot
+PMaterialHandle g_Mat_Fleck_Wood[2] =	LAYOUT	not code: the first of the nine PMaterialHandle arrays FX_CacheMaterialHandles fills (shim-scope reads its brace initialiser as a head); the native muzzle flash emitters read g_Mat_SMG_Muzzleflash and g_Mat_Combine_Muzzleflash out of the table
+void FX_CacheMaterialHandles( void )	HOOK	what managed asks through IShimFxClient's FxCacheMaterialHandles (shell_effects_list_client.cpp, stock's level-init cache): finds and holds a fixed list of PMaterials through ShellParticleMaterial_Find, which AddRefs each; nothing is chosen

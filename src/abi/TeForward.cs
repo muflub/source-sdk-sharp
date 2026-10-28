@@ -49,6 +49,7 @@ public enum TeForward
     BloodStream              = 3,
     /// <summary>RESERVED: no native forwarder since the server gc cull; kept so no id moves.</summary>
     BubbleTrail              = 4,
+    /// <summary>RESERVED: no native forwarder since lane M1-C (2026-10-25, the client's had no caller); kept so no id moves.</summary>
     Bubbles                  = 5,
     Decal                    = 6,
     TeDispatchEffect         = 7,

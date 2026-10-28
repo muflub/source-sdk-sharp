@@ -155,6 +155,7 @@ public class ChatFeedTests
         public string? LevelName() => null;
         public string? GameDirectory() => null;
         public uint ProtocolVersion() => 0;
+        public bool CopyLocalFile(string source, string destination) => false;
         public bool TryGetPlayerInfo(int entIndex, out ClientPlayerInfo info) { info = default; return false; }
         public void JoinTeam(int team) { }
         public void ConnectFromSteamLaunch(string connectLine) { }

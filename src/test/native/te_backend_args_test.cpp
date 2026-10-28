@@ -243,29 +243,9 @@ TEST( TeBackendDecalShoot, RefusesAnUnknownDecalIndex )
 	EXPECT_FALSE( DecalShoot(  5, 0, NULL, NULL, 0 ).bDraw );
 }
 
-TEST( TeBackendPlayerDecal, CarriesPositionPlayerAndEntity )
-{
-	const PlayerDecalRequest req = PlayerDecalShoot( g_Start, /*player*/ 2, /*entity*/ 0 );
+// (The spray's arguments are the managed PlayerSprays' since lane M1-C;
+// PlayerSpraysTests holds player 0 and a negative entity refused.)
 
-	EXPECT_TRUE( req.bDraw );
-	ExpectVec( req.vecPosition, 11.0f, 12.0f, 13.0f );
-	EXPECT_EQ( 2, req.nPlayer );
-	EXPECT_EQ( 0, req.nEntity );
-}
-
-//-----------------------------------------------------------------------------
-// A spray is always somebody's. Player indices are one-based, and
-// engine->GetPlayerInfo( 0 ) answers a blank record whose customFiles[0] is
-// zero -- which CreateTempMaterialForPlayerLogo then refuses one call deeper,
-// silently. Refused here so the refusal has a name.
-//-----------------------------------------------------------------------------
-TEST( TeBackendPlayerDecal, RefusesPlayerZeroAndBelow )
-{
-	EXPECT_FALSE( PlayerDecalShoot( g_Start,  0, 0 ).bDraw );
-	EXPECT_FALSE( PlayerDecalShoot( g_Start, -1, 0 ).bDraw );
-	EXPECT_FALSE( PlayerDecalShoot( NULL,     1, 0 ).bDraw );
-	EXPECT_FALSE( PlayerDecalShoot( g_Start,  1, -1 ).bDraw );
-}
 
 //=============================================================================//
 // THE DISPATCH.
@@ -580,15 +560,18 @@ TEST( TeBackendDecalName, RefusesNoBufferAtAll )
 //     case entirely and leaves the static prop arm working, which looks like a
 //     port that landed.
 //   * THE BLOAT APPLIED TO THE ENDPOINT rather than to the delta, or applied
-//     to both ends, or not applied at all. All three still produce a segment
-//     through roughly the right place.
+//     to both ends, or not applied at all (managed's since lane M1-C, which
+//     hands the delta over). All three still produce a segment through roughly
+//     the right place.
 //   * THE CENTRE AND THE SEGMENT'S END CROSSED. They are the same vector at
 //     c_te_decal.cpp's call site and different vectors at
 //     c_te_projecteddecal.cpp's, so a test written against the first alone
 //     cannot see it. g_Centre is distinct from both here.
 //=============================================================================//
 
-TEST( TeBackendStudioDecal, CarriesTheEntityBothPointsAndTheDecal )
+// Since lane M1-C the third argument is the ray's DELTA, already lengthened by
+// managed (ClientEntityDecal.StudioRayDelta); g_End stands in for one here.
+TEST( TeBackendStudioDecal, CarriesTheEntityTheStartTheDeltaAndTheDecal )
 {
 	const StudioDecalRequest req = DecalStudioModel( /*entity*/ 17, g_Start, g_End,
 	                                                 /*decal*/ 7 );
@@ -596,23 +579,23 @@ TEST( TeBackendStudioDecal, CarriesTheEntityBothPointsAndTheDecal )
 	EXPECT_TRUE( req.bDraw );
 	EXPECT_EQ( 17, req.nEntity );
 	ExpectVec( req.vecStart, 11.0f, 12.0f, 13.0f );
-	ExpectVec( req.vecEnd,   21.0f, 22.0f, 23.0f );
+	ExpectVec( req.vecDelta, 21.0f, 22.0f, 23.0f );
 	EXPECT_EQ( 7, req.nDecalIndex );
 }
 
 //-----------------------------------------------------------------------------
-// START AND END ARE NOT INTERCHANGEABLE, for the static prop arm's reason: the
-// decal is projected along the ray, so a swapped request lands on the far face.
+// THE START AND THE DELTA ARE NOT INTERCHANGEABLE: the decal is projected from
+// the start along the delta, so a swapped request is a different ray.
 //-----------------------------------------------------------------------------
-TEST( TeBackendStudioDecal, DoesNotSwapTheRayEnds )
+TEST( TeBackendStudioDecal, DoesNotSwapTheStartAndTheDelta )
 {
 	const StudioDecalRequest forwards  = DecalStudioModel( 1, g_Start, g_End, 0 );
 	const StudioDecalRequest backwards = DecalStudioModel( 1, g_End, g_Start, 0 );
 
 	EXPECT_FLOAT_EQ( 11.0f, forwards.vecStart.x );
-	EXPECT_FLOAT_EQ( 21.0f, forwards.vecEnd.x );
+	EXPECT_FLOAT_EQ( 21.0f, forwards.vecDelta.x );
 	EXPECT_FLOAT_EQ( 21.0f, backwards.vecStart.x );
-	EXPECT_FLOAT_EQ( 11.0f, backwards.vecEnd.x );
+	EXPECT_FLOAT_EQ( 11.0f, backwards.vecDelta.x );
 }
 
 //-----------------------------------------------------------------------------
@@ -653,27 +636,7 @@ TEST( TeBackendBrushDecal, RefusesNegativesAndDrawsTheWorld )
 }
 
 //-----------------------------------------------------------------------------
-// THE BLOAT IS ON THE DELTA AND ONLY THE FAR END MOVES.
-//
-// Stock is `ray.Init( start, end ); ray.m_Delta *= 1.1f;`. The three ways to
-// get it wrong all produce a segment through approximately the right place:
-// scaling the ENDPOINT about the origin (which moves the start too), scaling
-// the whole segment about its midpoint, or forgetting it. The numbers below
-// separate all three -- the delta is (10, 10, 10) before the bloat, so a
-// correct answer is exactly (11, 11, 11) and none of the wrong ones is.
+// THE BLOAT ON THE DELTA is managed's since lane M1-C: ClientEntityDecalTests'
+// AddStudioDecal facts hold the (10,10,10) -> (11,11,11) arithmetic, the
+// zero-length segment and the sign.
 //-----------------------------------------------------------------------------
-TEST( TeBackendStudioDecal, BloatsTheDeltaByATenthAndLeavesTheStartAlone )
-{
-	const Vec3 d = BloatedRayDelta( VecFrom( g_Start ), VecFrom( g_End ) );
-
-	ExpectVec( d, 11.0f, 11.0f, 11.0f );
-
-	// A zero-length segment stays zero-length: 1.1 times nothing is nothing,
-	// and Ray_t::Init's m_IsSwept test reads the same delta either way.
-	ExpectVec( BloatedRayDelta( VecFrom( g_Start ), VecFrom( g_Start ) ), 0.0f, 0.0f, 0.0f );
-
-	// And it is SIGNED: a segment aimed the other way bloats the other way,
-	// rather than growing in length only.
-	ExpectVec( BloatedRayDelta( VecFrom( g_End ), VecFrom( g_Start ) ),
-	           -11.0f, -11.0f, -11.0f );
-}

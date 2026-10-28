@@ -74,6 +74,12 @@ public interface IFwdEngineClient
     uint ProtocolVersion();
 
     /// <summary>
+    /// <c>IVEngineClient::CopyLocalFile( source, destination )</c>: a file
+    /// copied between two paths of the game's own tree. False when it failed.
+    /// </summary>
+    bool CopyLocalFile(string source, string destination);
+
+    /// <summary>
     /// Reconnects this client to the server it is on, as the console's
     /// <c>retry</c> does: what a hosting service needs once it has re-routed the
     /// player (plan_host_sdk §2.3, the user's ruling of 2026-09-30). The text is
@@ -254,7 +260,8 @@ public interface IWeaponSelectionCommand
 
 /// <summary>What the scoreboard needs of <c>player_info_t</c>.</summary>
 /// <param name="Guid">player_info_t's guid (the hashed id voice bans key on); empty when the engine has none.</param>
-public readonly record struct ClientPlayerInfo(string Name, int UserId, bool Fake, string Guid = "");
+/// <param name="LogoFile"><c>customFiles[0]</c>: the CRC of the player's spray logo, 0 for none.</param>
+public readonly record struct ClientPlayerInfo(string Name, int UserId, bool Fake, string Guid = "", uint LogoFile = 0);
 
 /// <summary>The three commands a spectator's keys run (stock HandleSpectatorKeyInput).</summary>
 public enum SpectatorKeyCommand

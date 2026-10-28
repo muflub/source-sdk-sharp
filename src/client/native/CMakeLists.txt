@@ -44,7 +44,6 @@ set(client_sourcesharp_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_hud.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_hud_framework.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_impact_effects.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/md5_pseudorandom.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_input.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_managed_particles.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell_map_material_reload.cpp

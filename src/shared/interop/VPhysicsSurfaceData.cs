@@ -43,6 +43,9 @@ public struct VPhysicsSurfaceData
     /// <summary><c>sounds.scrapeRough</c>: a string index, 0 for none.</summary>
     [FieldOffset(54)] public ushort ScrapeRough;
 
+    /// <summary><c>sounds.bulletImpact</c>: a string index, 0 for none (a bullet impact's sound).</summary>
+    [FieldOffset(56)] public ushort BulletImpact;
+
     /// <summary><c>sounds.breakSound</c>: a string index, 0 for none.</summary>
     [FieldOffset(60)] public ushort BreakSound;
 

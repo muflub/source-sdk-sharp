@@ -128,8 +128,8 @@ const char *kEvicted[] =
 	// definitions were still the only ones in the tree, and the client link said
 	// so with five undefined symbols. plan_entity.md §6's LEAVE row closed that:
 	// ParseImpactData, PerformCustomEffects, GetImpactDecal and PlayImpactSound
-	// are in shell_impact_effects.cpp now and FX_AffectRagdolls is a §7 refusal
-	// there. It joins this list at that point and not before, because only now
+	// moved to shell_impact_effects.cpp and FX_AffectRagdolls was a §7 refusal
+	// there (all five are C#'s BulletImpactEffect since lane M1-C). It joins this list at that point and not before, because only now
 	// is "out of the build AND defining nothing this build wanted" true of it.
 	"game/client/fx_impact.cpp",
 };

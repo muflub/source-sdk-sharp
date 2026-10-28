@@ -492,6 +492,84 @@ public unsafe class ClientAdapterRegistrationTests
                                                   s => s.TextureCreate()));
     }
 
+    private const string TempEntBackends = "SourceSharpTempEntBackendsClient001";
+
+    [UnmanagedCallersOnly]
+    private static int ShotOnTheWorld(void* self, float* start, float* end, int entity, float* floats, int nFloats,
+                                      int* ints, int nInts)
+    {
+        for (int k = 0; k < nFloats; k++)
+            floats[k] = 0;
+        for (int k = 0; k < nInts; k++)
+            ints[k] = 0;
+        floats[0] = 0.5f;
+        floats[1] = end[0];
+        ints[0] = 1;
+        ints[2] = entity;
+        ints[5] = 1;
+        return 1;
+    }
+
+    [UnmanagedCallersOnly]
+    private static int NoSuchEntity(void* self, float* start, float* end, int entity, float* floats, int nFloats,
+                                    int* ints, int nInts) => -1;
+
+    [UnmanagedCallersOnly]
+    private static int SeeImpactParticle(void* self, byte* name, float* points, int entity, float scale, float* color)
+    {
+        t_seen = [entity, scale, points[0], points[3], points[35], color[2]];
+        return 1;
+    }
+
+    [Fact]
+    public void TheRegisteredImpactEngineClipsThroughTheBackendsArea()
+    {
+        ShotTrace? trace = Through<IClientImpactEngine, ShotTrace?>(TempEntBackends, nameof(ShimTempEntBackendsClientFwd.ClientShotTrace),
+            (nint)(delegate* unmanaged<void*, float*, float*, int, float*, int, int*, int, int>)&ShotOnTheWorld,
+            e => e.ClipToEntity(new Vector(1, 2, 3), new Vector(40, 5, 6), 9));
+
+        Assert.NotNull(trace);
+        Assert.Equal((true, 0.5f, 40f, 9, true),
+                     (trace!.Value.Hit, trace.Value.Fraction, trace.Value.EndPos.X, trace.Value.EntityIndex, trace.Value.HitWorld));
+    }
+
+    [Fact]
+    public void AClipTheBackendsAreaRefusesIsNoEntity()
+        => Assert.Null(Through<IClientImpactEngine, ShotTrace?>(TempEntBackends, nameof(ShimTempEntBackendsClientFwd.ClientShotTrace),
+            (nint)(delegate* unmanaged<void*, float*, float*, int, float*, int, int*, int, int>)&NoSuchEntity,
+            e => e.ClipToEntity(new Vector(1, 2, 3), new Vector(40, 5, 6), 9)));
+
+    [UnmanagedCallersOnly]
+    private static void SeeLogoDecal(void* self, float* position, int player, int entity, byte* material, byte* texture)
+        => t_seen = [position[2], player, entity, material[17], texture[5]];
+
+    [Fact]
+    public void TheRegisteredSprayEngineShootsThroughTheBackendsArea()
+    {
+        Through<IClientSprayEngine, int>(TempEntBackends, nameof(ShimTempEntBackendsClientFwd.ClientPlayerLogoDecal),
+            (nint)(delegate* unmanaged<void*, float*, int, int, byte*, byte*, void>)&SeeLogoDecal,
+            s => { s.PlayerLogoDecal(new Vector(1, 2, 3), 5, 21, "decals/playerlogo05", "temp/44332211"); return 0; });
+
+        // material[17] is '0' of "05", texture[5] the first hex digit.
+        Assert.Equal(new float[] { 3, 5, 21, '0', '4' }, t_seen);
+    }
+
+    [Fact]
+    public void TheRegisteredImpactEngineMakesItsParticleThroughTheParticlesArea()
+    {
+        var points = new[]
+        {
+            new ImpactControlPoint(new Vector(7, 0, 0), new Vector(8, 0, 0), default, default),
+            new ImpactControlPoint(default, default, default, default),
+            new ImpactControlPoint(default, default, default, new Vector(0, 0, 11)),
+        };
+        Assert.True(Through<IClientImpactEngine, bool>(Particles, nameof(ShimParticlesClientFwd.ParticleSystemImpact),
+            (nint)(delegate* unmanaged<void*, byte*, float*, int, float, float*, int>)&SeeImpactParticle,
+            e => e.ImpactParticle("impact_concrete", points, 4, 2f, new Vector(0, 0, 0.75f))));
+
+        Assert.Equal(new float[] { 4, 2, 7, 8, 11, 0.75f }, t_seen);
+    }
+
     /// <summary>
     /// Nothing asks whether the engine attached (plan_shim_areas_split phase 11
     /// review): over a side as its load makes it, before the attach, the

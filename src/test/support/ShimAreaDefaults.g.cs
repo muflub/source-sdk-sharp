@@ -361,6 +361,11 @@ internal sealed unsafe class DefaultTempEntBackendsClientArea : ITempEntBackends
     public void ClientSparks(float* a0, int a1, int a2, float* a3) { }
     public void EffectDispatchName(int a0, byte* a1, int a2) { }
     public int TempEntBuildClient(void* a0, int a1, int a2, TeRecvBuilt* a3) => default;
+    public int ClientShotTrace(float* a0, float* a1, int a2, float* a3, int a4, int* a5, int a6) => default;
+    public void ClientWorldLighting(float* a0, float* a1, float* a2) { }
+    public void ClientStaticPropLighting(float* a0, float* a1, float* a2, int a3, float* a4) { }
+    public void ClientImpactLedger(int a0, int a1) { }
+    public void ClientPlayerLogoDecal(float* a0, int a1, int a2, byte* a3, byte* a4) { }
 }
 
 /// <summary><see cref="IEffectsRenderClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -529,6 +534,7 @@ internal sealed unsafe class DefaultParticlesClientArea : IParticlesClientArea
     public int ParticlesTraceMask(float* a0, float* a1, uint a2, float* a3, int a4) => default;
     public int ParticlesSetSpace(uint a0, int a1, uint a2, int a3, int a4, ParticleFollow* a5) => default;
     public int ParticlesBrushPointContents(uint a0, float* a1) => default;
+    public int ParticleSystemImpact(byte* a0, float* a1, int a2, float a3, float* a4) => default;
 }
 
 /// <summary><see cref="IFxClientArea"/> for a test with no engine: every call answers its default.</summary>

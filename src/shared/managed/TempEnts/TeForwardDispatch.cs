@@ -43,7 +43,7 @@ public static class TeForwardDispatch
     /// <summary>
     /// The declaration a forward meant, or null if the id is one nothing has
     /// been written for yet — or a RESERVED one (ArmorRicochet, BeamPoints,
-    /// BubbleTrail, EnergySplash), whose native forwarder the server gc cull
+    /// BubbleTrail, EnergySplash, Bubbles, ...), whose native forwarder was
     /// deleted, so no native code sends it.
     ///
     /// <para>
@@ -56,7 +56,6 @@ public static class TeForwardDispatch
         => id switch
         {
             TeForward.BloodStream              => BloodStream(f, i),
-            TeForward.Bubbles                  => Bubbles(f, i),
             TeForward.Decal                    => Decal(f, i),
             TeForward.Smoke                    => Smoke(f, i),
             TeForward.Sparks                   => Sparks(f, i),
@@ -76,22 +75,6 @@ public static class TeForwardDispatch
             Direction = new Vector(f[3], f[4], f[5]),
             Color     = new Color32(i[0], i[1], i[2], i[3]),
             Amount    = i[4],
-        };
-    }
-
-    private static TempEntState? Bubbles(ReadOnlySpan<float> f, ReadOnlySpan<int> i)
-    {
-        if (f.Length < 8 || i.Length < 2)
-            return null;
-
-        return new TeBubbles
-        {
-            Mins       = new Vector(f[0], f[1], f[2]),
-            Maxs       = new Vector(f[3], f[4], f[5]),
-            ModelIndex = i[0],
-            Height     = f[6],
-            Count      = i[1],
-            Speed      = f[7],
         };
     }
 

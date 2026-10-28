@@ -559,10 +559,20 @@ TEST( ClientFamily9ConVars, TheEngineOwnedToggleIsDeclaredByNoClientTranslationU
 	EXPECT_EQ( std::string::npos, strDecals.find( "extern ConVar r_drawmodeldecals" ) )
 		<< "the decal arm declares r_drawmodeldecals with an extern again. An "
 		   "extern needs a definition on this link line and there is none.";
-	EXPECT_NE( strDecals.find( "CManagedConVarRef r_drawmodeldecals( \"r_drawmodeldecals\" )" ),
+	// The reader is managed since lane M1-C: DecalConVarsWatch watches the
+	// engine's ConVar BY NAME (IShimConVarsClient), and the studio arm reads it.
+	std::string strWatch;
+	{
+		std::ifstream watch( ( cmake_graph::RepoRoot() + "/src/client/managed/TempEnts/DecalSettings.cs" ).c_str() );
+		std::stringstream text;
+		text << watch.rdbuf();
+		strWatch = text.str();
+	}
+	ASSERT_FALSE( strWatch.empty() ) << "DecalSettings.cs did not read";
+	EXPECT_NE( strWatch.find( "public const string ModelDecalsName = \"r_drawmodeldecals\";" ),
 	           std::string::npos )
-		<< "the decal arm no longer resolves r_drawmodeldecals by name out of "
-		   "the engine's registry, so it is reading something else or nothing.";
+		<< "the decal settings no longer resolve r_drawmodeldecals by name out of "
+		   "the engine's registry, so they are reading something else or nothing.";
 }
 
 //-----------------------------------------------------------------------------
@@ -631,15 +641,21 @@ TEST( ClientFamily9ConVars, EachToggleStillHasTheStayingReaderItWasKeptFor )
 	EXPECT_FALSE( std::ifstream( "game/client/viewrender.cpp" ).good() )
 		<< "game/client/viewrender.cpp is in the farm again; it read vcollide_wireframe itself";
 
-	// r_drawmodeldecals: the staying reader is the port's own studio-decal arm.
-	const std::string strDecals =
-		ReadSource( "sourcesharp/game/client/shell_te_backends_client.cpp" );
-
-	// Still exactly one read, and it is the ENGINE's convar now -- see
+	// r_drawmodeldecals: the staying reader is the port's own studio-decal arm,
+	// managed since lane M1-C (ClientEntityDecal.AddStudioDecal over
+	// DecalSettings, the ENGINE's convar watched by name -- see
 	// TheEngineOwnedToggleIsDeclaredByNoClientTranslationUnit for why the
-	// definition this used to bind to was never the one anybody was setting.
-	EXPECT_EQ( 1, CountCalls( strDecals, "r_drawmodeldecals.GetBool" ) )
-		<< "SourceSharp_ClientDecalStudioModel no longer gates on "
-		   "r_drawmodeldecals; stock's own AddStudioDecal does, so dropping it "
-		   "would paint decals a player had turned off.";
+	// definition this used to bind to was never the one anybody was setting).
+	std::string strArm;
+	{
+		std::ifstream arm( ( cmake_graph::RepoRoot() + "/src/client/managed/TempEnts/ClientEntityDecal.cs" ).c_str() );
+		std::stringstream text;
+		text << arm.rdbuf();
+		strArm = text.str();
+	}
+	ASSERT_FALSE( strArm.empty() ) << "ClientEntityDecal.cs did not read";
+	EXPECT_NE( std::string::npos, strArm.find( "if (!settings.ModelDecals)" ) )
+		<< "AddStudioDecal no longer gates on r_drawmodeldecals; stock's own "
+		   "AddStudioDecal does, so dropping it would paint decals a player had "
+		   "turned off.";
 }

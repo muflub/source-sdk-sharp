@@ -185,6 +185,10 @@ public unsafe struct ManagedStandaloneClientTable
     // 10: void OnStandaloneDrawBatch( const uint32_t *pHandles, int32_t nCount, int32_t *pResults )
     [SlotHash(0xd26c0bc9)]
     public delegate* unmanaged<void*, void*, int, void*, void> OnStandaloneDrawBatch;
+
+    // 11: int32_t SchemaAccept( uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex, const char *pClassName )
+    [SlotHash(0x87f5efbd)]
+    public delegate* unmanaged<void*, uint, int, uint, uint, int, byte*, int> SchemaAccept;
 }
 
 /// <summary>The table managed writes for <c>IManagedPredictionClient</c> (<c>SSManagedPredictionClientTable</c> native-side).</summary>
@@ -245,6 +249,10 @@ public unsafe struct ManagedTempEntsClientTable
     // 6: int32_t OnImpactChoice( const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax )
     [SlotHash(0x055e06f1)]
     public delegate* unmanaged<void*, void*, int, void*, int, byte*, int, byte*, int, int> OnImpactChoice;
+
+    // 7: int32_t SuppressLocalTempEnt( int32_t bCanPredict, int32_t nRecipients )
+    [SlotHash(0xecb3ae59)]
+    public delegate* unmanaged<void*, int, int, int> SuppressLocalTempEnt;
 }
 
 /// <summary>The table managed writes for <c>IManagedSaveRestoreClient</c> (<c>SSManagedSaveRestoreClientTable</c> native-side).</summary>

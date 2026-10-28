@@ -581,6 +581,30 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// off this module and answers the same before the level has loaded as
     /// after it.
     /// </summary>
+    /// <summary>
+    /// The managed "Impact" client effect over its engine calls, the decal
+    /// and spark slots, the impact sprays and the four knobs it reads.
+    /// </summary>
+    private TempEnts.BulletImpactEffect BulletImpact()
+    {
+        var debris = _convars.Get<FxDrawimpactdebrisConVar>() ?? throw new InvalidOperationException("fx_drawimpactdebris is not registered");
+        var dust = _convars.Get<FxDrawimpactdustConVar>() ?? throw new InvalidOperationException("fx_drawimpactdust is not registered");
+        var flecks = _convars.Get<RDrawflecksConVar>() ?? throw new InvalidOperationException("r_drawflecks is not registered");
+        var newEffects = _convars.Get<ClNewImpactEffectsConVar>() ?? throw new InvalidOperationException("cl_new_impact_effects is not registered");
+        var settings = new TempEnts.BulletImpactSettings(() => debris.Value, () => dust.Value, () => flecks.Value,
+                                                         () => newEffects.Value != 0);
+        return new TempEnts.BulletImpactEffect(_services.Require<IClientImpactEngine>(), _services.Require<IEngineWorldQuery>(),
+                                               _services.Require<IEngineEffects>(), _services.Require<IClientDecals>(),
+                                               _services.Require<IClientImpactSprays>(), _services.Require<IClientImpactSparks>(),
+                                               _services.Require<IParticleThrottle>(), _services.Require<IClientParticleOneShots>(),
+                                               _services.Require<IFwdPhysicsSurfaceProps>(), _services.Require<Sounds.IClientEntitySounds>(),
+                                               settings, _services.Require<TempEnts.IDecalSettings>(), Log);
+    }
+
+    /// <inheritdoc/>
+    public bool SuppressLocalTempEnt(bool canPredict, int recipientCount)
+        => LocalTempEntSuppression.Suppress(canPredict, recipientCount);
+
     public int ImpactChoice(ReadOnlySpan<int> input, Span<int> output,
                             Span<byte> particleName, Span<byte> decalName)
     {
@@ -864,6 +888,27 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // in C# since that file left, and building_cubemaps the engine's,
         // watched. The flashes last a tenth of a second, so a managed reload
         // drops the few in flight rather than carry them.
+        // r_decals and r_drawmodeldecals, the engine's, watched: the client's
+        // decal gates (lane M1-C; the temp entity players, AddStudioDecal and
+        // the bullet impact read them).
+        _services.AddFactory<TempEnts.IDecalSettings>(locator =>
+        {
+            var watch = new TempEnts.DecalConVarsWatch(
+                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
+            watch.Start();
+            _decalConVars = watch;
+            return watch;
+        });
+        // A player's spray (lane M1-C): c_te_playerdecal.cpp's decisions over
+        // the engine client, the file system and the carry-out slot.
+        _services.AddFactory<TempEnts.IPlayerSprays>(locator =>
+        {
+            var sprayDisable = _convars.Get<ClSpraydisableConVar>()
+                               ?? throw new InvalidOperationException("cl_spraydisable is not registered");
+            return new TempEnts.PlayerSprays(locator.Require<TempEnts.IDecalSettings>(), () => sprayDisable.Value,
+                                             locator.Require<IFwdEngineClient>(), locator.Require<IFwdBaseFileSystem>(),
+                                             locator.Require<IEngineEffects>(), locator.Require<IClientSprayEngine>());
+        });
         _services.AddFactory<Render.PixelVisibility.BuildingCubemapsWatch>(locator =>
         {
             var watch = new Render.PixelVisibility.BuildingCubemapsWatch(
@@ -1161,6 +1206,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.Add<IDebugClientEntities, ClientDebugEntities>();
         _services.AddInstance(new ClientNetSchemaTypes(_services.Require<INetTiers>(),
                                                        () => StandaloneNetStates.Discover(Game, Log)));
+        _services.Add<IClientSchemaGate, ClientSchemaGate>();
         _services.Add<IDebugClientNetTables, ClientDebugNetTables>();
         _services.Add<IDebugClientHooks, DebugClientHooks>();
 
@@ -1651,6 +1697,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             new Effects.GlassImpactEffect(shards),
             // fx_sparks.cpp's ManhackSparks (lane c5-particles: SparkEffects.SparkFan).
             new Effects.ManhackSparksEffect(_sparks),
+            // hl2/fx_hl2_impacts.cpp's Impact, the bullet's mark (lane M1-C; it was
+            // shell_impact_effects.cpp's SourceSharp_ImpactCallback).
+            BulletImpact(),
         ]);
         _services.AddInstance<IClientEffectHandlers>(effectHandlers);
 
@@ -1825,6 +1874,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             scrapingProps.HitSurfaces = new TempEnts.ClientPropHitSurfaces(
                 _services.Require<IEngineEntityRender>().GetModelKeyValueText, _services.Require<IClientDecals>(),
                 _services.Require<IEngineWorldQuery>(), _services.Require<IEngineEffects>(),
+                _services.Require<TempEnts.IDecalSettings>(),
                 () => !int.TryParse(bloodConsole.FindConVarValue("violence_hblood"), out int hblood) || hblood != 0);
             _contactTouches = new Physics.ClientContactTouches(
                 new Physics.VPhysicsTouchWorld(new VPhysicsObjects(_engine.VPhysics)), scrapingProps);
@@ -2388,6 +2438,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Render.LeafSystem.LeafListConVars? _leafConVars;
     private Render.Shadows.ShadowConVars? _shadowConVars;
     private Render.PixelVisibility.BuildingCubemapsWatch? _buildingCubemaps;
+    private TempEnts.DecalConVarsWatch? _decalConVars;
+    private IClientSchemaGate? _schemaGate;
 
     private IInterpolationBlocks _interpolationBlocks = NoInterpolationBlocks.Instance;
 
@@ -2643,6 +2695,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // building_cubemaps, the engine's, which the pixel visibility and the glow overlays read (C7).
         if (_buildingCubemaps is { } buildingCubemaps && buildingCubemaps.OnChanged(id, newValue))
+            return;
+
+        // r_decals and r_drawmodeldecals, the engine's, which the client's decals read (lane M1-C).
+        if (_decalConVars is { } decalConVars && decalConVars.OnChanged(id, newValue))
             return;
 
         if (!_convars.NotifyChanged(id, newValue, oldValue))
@@ -3176,6 +3232,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     public bool StandaloneCreate(EntityHandle entity, string className)
         => _standalones.Create(entity, className);
+
+    /// <inheritdoc/>
+    public bool SchemaAccept(uint typeId, bool published, uint expected, uint seen, int entIndex, string className)
+        => (_schemaGate ??= _services.Require<IClientSchemaGate>()).Accept(typeId, published, expected, seen, entIndex, className);
 
     public void StandaloneSpawn(EntityHandle entity) => _standalones.Get(entity)?.OnSpawn();
 

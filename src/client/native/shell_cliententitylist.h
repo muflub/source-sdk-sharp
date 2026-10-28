@@ -67,6 +67,7 @@ class IClientThinkable;
 // index naming no entity answers NULL, which is every stock caller's guard
 // (`if ( IClientEntity *pClient = ... )`) written once.
 //-----------------------------------------------------------------------------
+IClientUnknown     *SourceSharp_ClientUnknownFromIndex( int nEntry );
 IClientEntity      *SourceSharp_ClientEntityFromIndex( int nEntry );
 
 //-----------------------------------------------------------------------------

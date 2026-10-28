@@ -1,2 +1,22 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
+inline Vec3 VecZero( void )	SLOT-HELP	the zero vector the requests below start from
+inline Vec3 VecFrom( const float *p )	SLOT-HELP	three floats of a slot's argument into a vector (a null pointer the zero vector)
+inline EffectRequest EffectRequestZero( void )	SLOT-HELP	the IEffects request's empty value, before a slot's arguments are copied in
+inline EffectRequest Sparks( const float *pPositionXYZ,	SLOT-HELP	SourceSharp_ClientSparks' arguments unpacked: copied as given, a null position refused, a null direction kept as no direction (the engine call takes a pointer); the spark is the managed player's
+inline EffectRequest PositionAndDirection( const float *pPositionXYZ,	SLOT-HELP	SourceSharp_ClientRicochet's and ClientMetalSparks' arguments unpacked: copied as given, a null pointer refused
+inline EffectRequest Smoke( const float *pOriginXYZ, int nModelIndex,	SLOT-HELP	SourceSharp_ClientSmoke's arguments unpacked: copied as given (the scale already multiplied by the managed decode), a null origin refused
+inline EffectRequest MuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR,	SLOT-HELP	SourceSharp_ClientMuzzleFlash's arguments unpacked: copied as given, a null pointer refused
+inline DecalRequest DecalRequestZero( void )	SLOT-HELP	the decal request's empty value
+inline DecalRequest DecalShoot( int nDecalIndex, int nEntity,	SLOT-HELP	SourceSharp_ClientDecalShoot's arguments unpacked: copied as given, a null position or a negative index refused before the engine call it would index with, a null S axis kept as none
+inline StaticPropDecalRequest StaticPropDecalRequestZero( void )	SLOT-HELP	the static prop decal request's empty value
+inline StaticPropDecalRequest DecalStaticProp( const float *pStartXYZ, const float *pEndXYZ,	SLOT-HELP	SourceSharp_ClientDecalStaticProp's arguments unpacked: copied as given, a null point or a negative index refused before the engine call it would index with
+inline TraceLineRequest TraceLineRequestZero( void )	SLOT-HELP	the client trace request's empty value
+inline TraceLineRequest TraceLineArgs( const float *pStartXYZ, const float *pEndXYZ, int nMask )	SLOT-HELP	SourceSharp_ClientTraceLine's arguments unpacked (shell_worldquery_client.cpp): copied as given, a null point refused
+inline TraceAnswer TraceAnswerMiss( const Vec3 &vecEnd )	SLOT-HELP	the answer a refused client trace writes: a miss with stock's no-entity and no-surface values
+inline int WriteTraceOuts( const TraceAnswer &ans,	SLOT-HELP	a client trace's answer into the slot's out pointers, each optional, and its hit as the return
+inline int CopyName( const char *pName, char *pOut, int nOutSize )	SLOT-HELP	a name into a slot's out buffer, truncated and terminated, its length the return (an absent name a length of 0)
+inline StudioDecalRequest StudioDecalRequestZero( void )	SLOT-HELP	the studio decal request's empty value
+inline StudioDecalRequest DecalStudioModel( int nEntity,	SLOT-HELP	SourceSharp_ClientDecalStudioModel's arguments unpacked: the ray's start and its delta (managed lengthened it) copied as given, a null pointer or a negative index refused
+inline BrushDecalRequest BrushDecalRequestZero( void )	SLOT-HELP	the brush decal request's empty value
+inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenterXYZ,	SLOT-HELP	SourceSharp_ClientDecalBrushModel's arguments unpacked: copied as given, a null centre or a negative index refused

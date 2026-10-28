@@ -18,7 +18,6 @@ src/public/bullet_glass.h	yes	ports CBaseEntity::FireBullets' glass-penetration 
 src/public/chain_state_notify.h	no	retypes a network-var chain holder for interop, no logic reproduced
 src/public/entity_funcslot.h	no	pointer-to-member cast-safety mechanism, not porting logic
 src/sourcesharp/game/client/client_entity_counts.h	yes	rule 3: includes slot_table.h which includes basehandle.h (public)
-src/sourcesharp/game/client/impact_effects.h	no	parameter-block layout only, no algorithm
 src/sourcesharp/game/client/managed_runtime_client.h	no	pure interop adapter, no logic
 src/sourcesharp/game/client/shell_clientdll_refusals.h	no	own refusal-counter infrastructure
 src/sourcesharp/game/client/shell_clientdll_voicehelper.h	yes	rule 3: includes voice_status.h (Valve SDK header, game/shared)

@@ -18,8 +18,9 @@
 //
 // This is the base the port's client-side particle effects get INSTEAD of
 // C_BaseParticleEntity. It is that class with the entity taken out: a place,
-// an orientation, a velocity and a render colour — which between them are the whole of what the
-// families that sit on it ever asked an entity for.
+// and an orientation, which is the whole of what the executor that sits on it
+// asks an entity for (lane M1-C took out the velocity and the render colour,
+// which nothing read).
 //
 // WHO SITS ON IT: shell_managed_particles.cpp's CManagedParticleEffect, the
 // executor every managed particle sim draws through (the trails, the steam
@@ -59,9 +60,8 @@
 #include "trail_lifetime.h"
 
 //-----------------------------------------------------------------------------
-// A particle effect with a place, an orientation, a velocity and a render
-// colour — the whole of what the de-entified families ever asked C_BaseEntity
-// for.
+// A particle effect with a place and an orientation: the whole of what the
+// managed particle executor asks C_BaseEntity for.
 //-----------------------------------------------------------------------------
 class CShellParticleEffect : public CDefaultClientRenderable
 {
@@ -91,19 +91,9 @@ public:
 
 	CShellParticleEffect()
 	{
-		// Everything else arrived zeroed and is meant to stay that way; these
-		// four are the ones a zero is not the right answer for.
+		// Everything else arrived zeroed and is meant to stay that way.
 		m_vecOrigin.Init();
 		m_angAngles.Init();
-		m_vecVelocity.Init();
-
-		// C_BaseEntity's own default, from its constructor: opaque white. The
-		// families that read it set their own in theirs -- a smokestack's is
-		// black -- but one that does not must not start out invisible.
-		m_clrRender.r = 255;
-		m_clrRender.g = 255;
-		m_clrRender.b = 255;
-		m_clrRender.a = 255;
 	}
 
 	virtual ~CShellParticleEffect()
@@ -121,53 +111,9 @@ public:
 	//-------------------------------------------------------------------------
 	const Vector &GetAbsOrigin() const   { return m_vecOrigin; }
 	const QAngle &GetAbsAngles() const   { return m_angAngles; }
-	const Vector &GetAbsVelocity() const { return m_vecVelocity; }
 
 	void SetAbsOrigin( const Vector &vecOrigin )   { m_vecOrigin  = vecOrigin; }
 	void SetAbsAngles( const QAngle &angAngles )   { m_angAngles  = angAngles; }
-	void SetAbsVelocity( const Vector &vecVel )    { m_vecVelocity = vecVel; }
-
-	//-------------------------------------------------------------------------
-	// C_BaseEntity::GetVectors, which reads the columns of the entity-to-world
-	// transform and negates the second. AngleVectors builds the same three from
-	// the same angles; CTrailEffectVectorsTest asserts the agreement against a
-	// matrix rather than trusting the claim.
-	//-------------------------------------------------------------------------
-	void GetVectors( Vector *pForward, Vector *pRight, Vector *pUp ) const
-	{
-		AngleVectors( m_angAngles, pForward, pRight, pUp );
-	}
-
-	//-------------------------------------------------------------------------
-	// The render colour, which on the entity was the networked m_clrRender and
-	// here is a plain member.
-	//
-	// C_BaseEntity's three-argument SetRenderColor leaves alpha alone and the
-	// four-argument one writes it; both spellings are in the code that moved
-	// here, so both are kept with those meanings rather than being collapsed.
-	// The read sites say `m_clrRender.r` where the entity's said
-	// `m_clrRender->r`, because CNetworkColor32's arrow was the network-var
-	// wrapper and there is no wrapper any more.
-	//-------------------------------------------------------------------------
-	void SetRenderColor( byte r, byte g, byte b )
-	{
-		m_clrRender.r = r;
-		m_clrRender.g = g;
-		m_clrRender.b = b;
-	}
-
-	void SetRenderColor( byte r, byte g, byte b, byte a )
-	{
-		SetRenderColor( r, g, b );
-		m_clrRender.a = a;
-	}
-
-	void SetRenderColorR( byte r ) { m_clrRender.r = r; }
-	void SetRenderColorG( byte g ) { m_clrRender.g = g; }
-	void SetRenderColorB( byte b ) { m_clrRender.b = b; }
-	void SetRenderColorA( byte a ) { m_clrRender.a = a; }
-
-	const color32 &GetRenderColor() const { return m_clrRender; }
 
 	//-------------------------------------------------------------------------
 	// The shell's destroy path. C_BaseEntity::Release() destroyed a client-only
@@ -182,8 +128,6 @@ public:
 protected:
 	Vector	m_vecOrigin;
 	QAngle	m_angAngles;
-	Vector	m_vecVelocity;
-	color32	m_clrRender;
 
 	// Claimed by the first of the destroy routes to arrive; every one after is
 	// a no-op. Carries the registry's "it has gone" callback too, since the two

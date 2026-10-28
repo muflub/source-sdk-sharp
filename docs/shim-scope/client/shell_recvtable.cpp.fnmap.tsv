@@ -4,4 +4,4 @@
 34	LAYOUT	int32_t SourceSharp_NetPublishType( const char *pClassName, int32_t nShell,
 5	SLOT-HELP	static void CopyName( char *pOut, int32_t nBytes, const char *pName )
 47	INSTRUMENT	int32_t SourceSharp_ClientRecvProp( int32_t iIndex, char *pOutClass, int32_t nClassBytes,
-23	INSTRUMENT	int32_t SourceSharp_ClientSchemaRefusal( int32_t iIndex, uint32_t *pOutTypeId, uint32_t *pOutExpected,
+10	SLOT	int32_t SourceSharp_ClientSchemaRefusal( int32_t iIndex, uint32_t *pOutTypeId, uint32_t *pOutExpected,

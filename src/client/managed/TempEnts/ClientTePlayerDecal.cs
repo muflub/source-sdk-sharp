@@ -68,11 +68,11 @@ namespace SourceSharp.Client.TempEnts;
 [ClientTempEnt("CTEPlayerDecal")]
 public sealed class ClientTePlayerDecal : ClientTempEnt<TePlayerDecal>
 {
-    private readonly IEngineEffects _effects;
+    private readonly IPlayerSprays _sprays;
 
-    public ClientTePlayerDecal(IEngineEffects effects)
+    public ClientTePlayerDecal(IPlayerSprays sprays)
     {
-        _effects = effects;
+        _sprays = sprays;
     }
 
     public override void Play(TePlayerDecal te)
@@ -81,6 +81,7 @@ public sealed class ClientTePlayerDecal : ClientTempEnt<TePlayerDecal>
         // width for its own reason (see TePlayerDecal.cs). Unsigned, as both
         // props are declared.
 
-        _effects.ClientPlayerDecalShoot(te.Origin, te.Player, te.Entity);
+        // C_TEPlayerDecal::PostDataUpdate and TE_PlayerDecal: PlayerSprays.
+        _sprays.Spray(te.Origin, te.Player, te.Entity);
     }
 }

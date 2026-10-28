@@ -27,6 +27,7 @@ public unsafe class VtableClientCommandTests
         public string? LevelName() => "maps/ss_sandbox.bsp";
         public string? GameDirectory() => "mod_test";
         public uint ProtocolVersion() => 24;
+        public bool CopyLocalFile(string source, string destination) => false;
         public bool TryGetPlayerInfo(int entIndex, out ClientPlayerInfo info) { info = default; return false; }
         public void JoinTeam(int team) { }
         public void ConnectFromSteamLaunch(string connectLine) { }

@@ -97,15 +97,22 @@ namespace SourceSharp.Client.TempEnts;
 public sealed class ClientTeWorldDecal : ClientTempEnt<TeWorldDecal>
 {
     private readonly IEngineEffects _effects;
+    private readonly IDecalSettings _settings;
 
-    public ClientTeWorldDecal(IEngineEffects effects)
+    public ClientTeWorldDecal(IEngineEffects effects, IDecalSettings settings)
     {
         _effects = effects;
+        _settings = settings;
     }
 
     public override void Play(TeWorldDecal te)
     {
         // UNSIGNED on the wire (SPROP_UNSIGNED), nine bits.
+
+        // c_te_worlddecal.cpp's `if ( r_decals.GetInt() )`, before anything
+        // else is asked.
+        if (!_settings.Decals)
+            return;
 
         // THE ORDER IS STOCK'S AND MATTERS. The name is looked up only when
         // violence is turned down, so an ordinary client never asks the decal

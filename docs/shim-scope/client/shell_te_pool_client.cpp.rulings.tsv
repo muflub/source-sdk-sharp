@@ -17,3 +17,27 @@ static bool MatrixIsUnwritten(	INSTRUMENT	cs_cl_te_live bones: is this bone matr
 static void TempEntPoolBones(	INSTRUMENT	cs_cl_te_live bones: counts the bone matrices a studio tempent leaves unwritten
 static void TempEntPoolLive_f(	INSTRUMENT	cs_cl_te_live: prints each live tempent's place, client and owner (and, with bones, the unwritten-bone count)
 SourceSharp_FxModelFrameCount	BOUNDARY	answers the frame count of a model loaded by name (RocketFlare's)
+static inline CTempEnts *ThePool()	SLOT-HELP	tempents downcast to the one CTempEnts linked in, so the slots below reach its pool members
+static inline bool ValidSlot( int nSlot )	SLOT-HELP	the slot index range check every slot below refuses a bad index with, before it indexes the table
+void CTempEnts::PoolFreeObject(	SLOT-HELP	m_TempEntsPool.Free, made reachable from outside the class (the member is private)
+int CTempEnts::PoolAddVisible(	SLOT-HELP	the private AddVisibleTempEntity made reachable for SourceSharp_TempEntPoolAddVisible
+void SourceSharpTePool_Update(	HOOK	CTempEnts::Update's body: hands the frame to the managed pool (IManagedTempEntsClient::OnTempEntPoolUpdate), which decides expiry, eviction and visibility
+void SourceSharpTePool_Clear(	HOOK	CTempEnts::Clear's body: the managed pool clears (OnTempEntPoolClear), then every still-bound slot is torn down with the same Destroy managed uses, because Clear runs where managed may be down (reload, after ClientShutdown) and a bound slot would leak a pool object across the level
+C_LocalTempEntity *SourceSharpTePool_Find(	LOGIC	CTempEnts::FindTempEntByID's search (skin and hitSound as ID and sub-ID) over the slot table. Left native: no caller in this build (stock's one caller is TF's tf_fx_christmaslights.cpp), so a managed port has no consumer to test against; it answers a native pointer, and managed holds neither field. Ported with the TF stage that brings the caller (docs/todo.md)
+int32_t SourceSharp_TempEntPoolCapacity(	BOUNDARY	IShimTempEntsClient: CTempEnts::MAX_TEMP_ENTITIES, the size of the native memory pool managed's free list mirrors
+void SourceSharp_TempEntPoolDestroy(	BOUNDARY	IShimTempEntsClient: TempEntFree's teardown of a slot managed freed: the slot emptied, RemoveFromLeafSystem, OnRemoveTempEntity, the memory back to the pool (a bad or empty slot does nothing)
+int32_t SourceSharp_TempEntPoolReadLife(	BOUNDARY	IShimTempEntsClient: the tempent's lifetime fields copied out for the managed pool's expiry and fade
+int32_t SourceSharp_TempEntPoolWriteLife(	BOUNDARY	IShimTempEntsClient: the managed pool's lifetime fields copied back onto the tempent (render mode and alpha through their setters)
+static void VecOut(	SLOT-HELP	a Vector into a slot's three-float out pointer
+static void AngOut(	SLOT-HELP	a QAngle into a slot's three-float out pointer
+int32_t SourceSharp_TempEntPoolReadTransform(	BOUNDARY	IShimTempEntsClient: the tempent's motion fields copied out for the managed physics step
+int32_t SourceSharp_TempEntPoolWriteTransform(	BOUNDARY	IShimTempEntsClient: the managed physics step's motion fields copied back onto the tempent through its setters
+int32_t SourceSharp_TempEntPoolReadStatics(	BOUNDARY	IShimTempEntsClient: the tempent's spawn-time fields copied out (an impact effect name as present or not: a char* does not cross)
+void SourceSharp_ClientWindSpeed(	BOUNDARY	IShimTempEntsClient: GetWindspeedAtTime (env_wind's client table) for the managed FTENT_WINDBLOWN step
+int32_t SourceSharp_ClientEntityOrigin(	BOUNDARY	IShimTempEntsClient: the indexed client entity's GetAbsOrigin, 0 for no entity
+int32_t SourceSharp_ClientEntityModelBounds(	BOUNDARY	IShimTempEntsClient: modelinfo->GetModelBounds of the indexed entity's model and its render angles, each out pointer optional, 0 for no entity or no model (a model_t* does not cross)
+int32_t SourceSharp_TempEntPoolAddVisible(	BOUNDARY	IShimTempEntsClient: AddVisibleTempEntity on the slot the managed visibility pass chose, its answer returned
+static void TempEntPoolShell_f(	INSTRUMENT	cs_cl_te_pool_shell (cheat): ejects brass from the view through tempents->EjectBrass, to exercise the pool end to end
+static void TempEntPoolAttach_f(	INSTRUMENT	cs_cl_te_pool_attach (cheat): AttachTentToPlayer with a precached sprite, the high-priority player-attached shape no caller in this build reaches
+C_LocalTempEntity *CTempEnts::PoolCreateObject()	SLOT-HELP	the private TempEntAlloc() made reachable for the slot create
+int32_t SourceSharp_TempEntPoolCreate(	BOUNDARY	IShimTempEntsClient: the model index resolved to its model_t (index 0 none), then SourceSharpTePool_CreateWithModel

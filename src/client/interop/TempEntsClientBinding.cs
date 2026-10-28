@@ -100,4 +100,15 @@ public sealed unsafe class TempEntsClientBinding(Crossings crossings, ILog log, 
             return -1;
         }
     }
+
+    /// <summary>
+    /// Whether a temp entity the client makes for itself is dropped (c_te.cpp's
+    /// SuppressTE). The thunk's catch answers 0, which lets the effect through,
+    /// as stock does whenever it can predict and has a recipient.
+    /// </summary>
+    public int SuppressLocalTempEnt(int a0, int a1)
+    {
+        crossings.Count(CrossingOp.ClientSuppressLocalTempEnt);
+        return client.SuppressLocalTempEnt(a0 != 0, a1) ? 1 : 0;
+    }
 }

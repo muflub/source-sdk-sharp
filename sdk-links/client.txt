@@ -4,9 +4,9 @@
 # fully ported file's line is deleted. tools/sdk-census decides which list a
 # file belongs in; `make sdk-census` fails on a line nothing uses or a line in
 # the wrong list, and `tools/sdk-census --write` regenerates every list.
-# 450 links here; 539 in all lists (were 539)
+# 443 links here; 532 in all lists (were 539)
 #       3 src/common
-#     173 src/game
+#     166 src/game
 #     274 src/public
 src/common/replay/ireplayscreenshotsystem.h
 src/common/steamcommon.h
@@ -20,11 +20,9 @@ src/game/client/c_basecombatweapon.h
 src/game/client/c_baseentity.h
 src/game/client/c_baseflex.h
 src/game/client/c_baseplayer.h
-src/game/client/c_basetempentity.h
 src/game/client/c_effects.h
 src/game/client/c_env_fog_controller.h
 src/game/client/c_func_reflective_glass.h
-src/game/client/c_impact_effects.h
 src/game/client/c_pixel_visibility.h
 src/game/client/c_playerlocaldata.h
 src/game/client/c_recipientfilter.h
@@ -34,7 +32,6 @@ src/game/client/c_soundscape.h
 src/game/client/c_sprite.h
 src/game/client/c_te_effect_dispatch.h
 src/game/client/c_te_legacytempents.h
-src/game/client/c_te_particlesystem.h
 src/game/client/c_vguiscreen.h
 src/game/client/c_world.h
 src/game/client/cbase.h
@@ -54,11 +51,8 @@ src/game/client/detailobjectsystem.h
 src/game/client/enginesprite.h
 src/game/client/fontabc.h
 src/game/client/fx.h
-src/game/client/fx_fleck.h
-src/game/client/fx_impact.h
 src/game/client/fx_line.h
 src/game/client/fx_quad.h
-src/game/client/fx_sparks.h
 src/game/client/fx_staticline.h
 src/game/client/fx_water.h
 src/game/client/hud.h
@@ -90,7 +84,6 @@ src/game/client/lerp_functions.h
 src/game/client/mumble.h
 src/game/client/networkstringtable_clientdll.h
 src/game/client/panelmetaclassmgr.h
-src/game/client/particle_collision.h
 src/game/client/particle_iterators.h
 src/game/client/particle_litsmokeemitter.h
 src/game/client/particle_util.h

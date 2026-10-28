@@ -478,10 +478,15 @@ TEST( TempEntEvicted, TheStockParticleEmitterIsGoneFromDisk )
 		<< "the whole of what this build compiled in that TU moved to the shim, so "
 		   "leaving the file on disk would be two definitions of one body in two builds";
 
-	EXPECT_TRUE( Exists( "game/client/c_te_particlesystem.h" ) )
-		<< "the HEADER stays: four compiled TUs include it and three of them belong to "
-		   "step 7a. Stock headers outlive their .cpp across this phase (7g's precedent: "
-		   "gamestats.cpp went, gamestats.h stayed)";
+	// The HEADER outlived its .cpp while compiled TUs still included it (7g's
+	// precedent: gamestats.cpp went, gamestats.h stayed). Its last includer,
+	// shell_impact_effects.cpp, dropped it in lane M1-C (2026-10-25), so it left
+	// sdk-links/client.txt and the farm too.
+	EXPECT_FALSE( Exists( "game/client/c_te_particlesystem.h" ) )
+		<< "c_te_particlesystem.h is in the farm again, so something includes it; "
+		   "its emitter is C#'s (TeParticles)";
+	// Positive control of the same probe: a stock client header the build still reads.
+	EXPECT_TRUE( Exists( "game/client/c_te_effect_dispatch.h" ) );
 }
 
 TEST( TempEntEvicted, TheParticleEmitterIsCSharpAndItsShimIsGone )
@@ -555,7 +560,7 @@ TEST( TempEntEvicted, TheExplosionOverlayIsCSharpAndNoCompiledTuDefinesIt )
 // AND IT IS THE FACT MOST LIKELY TO GO STALE SILENTLY. The 38 empty overrides
 // compile, link and run. A `te->Explosion(...)` added tomorrow would build
 // clean, do nothing, and say nothing;
-// TheOnlyTeArrowCallsLeftAreTheThreeThatForward below is the only thing in the
+// TheOnlyTeArrowCallsLeftAreTheOnesThatForward below is the only thing in the
 // tree that would notice.
 //=============================================================================//
 
@@ -588,7 +593,9 @@ const char *kPerLaneForwarders[] =
 // c5eab9deb; lane C2's analysis had the COUNT right and the SET wrong -- it
 // named Decal, whose only cited caller, baseentity_shared.cpp, is a server
 // object and is not on the client link line at all.
-const char *kForwardedTeCalls[] = { "Bubbles", "Smoke", "DispatchEffect" };
+// Bubbles and Smoke left the set in lane M1-C (2026-10-25): their call sites
+// went with cdll_util.cpp in C8, so their forwards had no caller.
+const char *kForwardedTeCalls[] = { "DispatchEffect" };
 
 bool IsIdentChar( char c )
 {
@@ -682,7 +689,7 @@ TEST( TempEntForwardersCollapsed, StockCTeIsOutOfTheClientBuildAndTheShimDefines
 		   "objects that import it still link";
 }
 
-TEST( TempEntForwardersCollapsed, TheOnlyTeArrowCallsLeftAreTheThreeThatForward )
+TEST( TempEntForwardersCollapsed, TheOnlyTeArrowCallsLeftAreTheOnesThatForward )
 {
 	// THIS IS THE FACT THE WHOLE CLIENT DELETION RESTS ON. 38 of the 41
 	// ITempEntsSystem overrides have empty bodies because nothing calls them. A
@@ -824,8 +831,9 @@ TEST( TempEntForwardersCollapsed, TheForwardIdTableCoversEveryIdTheTwoForwarders
 	// BSP_DECAL, PROJECT_DECAL (their caller was the PaintDecal slot, which
 	// EffectsOverTempEnts answers itself now). Moves only with a deliberate
 	// change.
-	EXPECT_EQ( nReserved, 11 )
-		<< "tempent_forwards.h marks eleven ids RESERVED since plan_server_native_v2 T4f";
+	// And TE_Bubbles in lane M1-C (2026-10-25): the client's forward had no caller.
+	EXPECT_EQ( nReserved, 12 )
+		<< "tempent_forwards.h marks twelve ids RESERVED since lane M1-C";
 
 	std::string strList;
 	for ( size_t i = 0; i < unused.size(); i++ )

@@ -4729,18 +4729,6 @@ ss_cpptest_mathlib(mathlib_port_stock_test
     SOURCES sourcesharp/test/mathlib_port_stock_test.cpp)
 
 # ---------------------------------------------------------------------------
-# The client's MD5_PseudoRandom answers from C# (IManagedDiagnosticsClient);
-# tier1's checksum_md5.cpp is out of the build. Links tier0 for Error().
-# ---------------------------------------------------------------------------
-ss_cpptest_tier1(md5_pseudorandom_test
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC CLIENT_DLL
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
-    INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/host/native
-             ${PROJECT_SOURCE_DIR}/src/shared/native ${PROJECT_SOURCE_DIR}/src/client/native
-    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/md5_pseudorandom_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/client/native/md5_pseudorandom.cpp)
-
-# ---------------------------------------------------------------------------
 # server.so's interface factory: one CreateInterface over a fixed table
 # (shell_factory.cpp), in place of tier1's registry and the EXPOSE_ macros.
 # ---------------------------------------------------------------------------

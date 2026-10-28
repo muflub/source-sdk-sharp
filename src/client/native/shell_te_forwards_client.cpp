@@ -42,6 +42,12 @@
 //   sourcesharp/game/client/shell_steamjet_sim.cpp:601 te->Fizz     comment
 //   sourcesharp/game/client/shell_te_fwd_c4.cpp:74 te->KillPlayerAttachments comment
 //
+// ONE SINCE C8 (lane c6-input) took cdll_util.cpp's two with it: te->DispatchEffect
+// (shell_effect_dispatch_client.cpp) is the only `te->` call on the client link
+// line (tempent_evicted_test's TheOnlyTeArrowCallsLeftAreTheOnesThatForward
+// counts it), so Bubbles and Smoke joined the empty overrides and TE_Bubbles
+// and TE_Smoke, which only they called, are gone (lane M1-C, 2026-10-25).
+//
 // THREE, BUT NOT THE THREE THE ANALYSIS LANE NAMED. Lane C2 read
 // `te->Decal/Bubbles/Smoke` and cited `baseentity_shared.cpp` for the Decal.
 // baseentity_shared.cpp is not on the CLIENT link line at all — it is a server
@@ -49,7 +55,7 @@
 // The count agreed and the set did not, which is the shape that would have kept
 // a dead body and dropped a live one.
 //
-// THE OTHER 38 OVERRIDES ARE EMPTY, NOT DELETED. ITempEntsSystem declares 41
+// THE OTHER 39 OVERRIDES ARE EMPTY, NOT DELETED. ITempEntsSystem declares 41
 // pure virtuals; a class that does not override one does not compile. An empty
 // override is therefore the smallest thing this build can say, and it says the
 // true thing: nothing calls it. It is not the same as dropping the virtual,
@@ -57,9 +63,11 @@
 //
 // THE SUPPRESSION IS CARRIED, not dropped with the class. CTempEntsSystem::
 // SuppressTE is the prediction filter — when a player predicts an entity
-// locally the server must not also send that player its effects — and it is
-// reproduced below verbatim so that a rewiring which quietly stopped culling
-// would be a behaviour change with a cause rather than one with none.
+// locally the server must not also send that player its effects. It is C#'s
+// since lane M1-C (LocalTempEntSuppression, through IManagedTempEntsClient::
+// SuppressLocalTempEnt): DispatchEffect hands over the two facts this side
+// holds, CanPredict() and the filter's recipient count, and carries out the
+// answer. With no managed side there is nothing to decide, and nothing plays.
 //
 // NOTHING HERE IS REGISTERED BY NAME. There is no DECLARE_CLIENT_EFFECT,
 // DECLARE_TEMPENT or REGISTER_EFFECT in this file or in the nine it replaces,
@@ -73,152 +81,45 @@
 #include "cbase.h"
 #include "irecipientfilter.h"
 #include "c_recipientfilter.h"
-#include "tempent_forwards.h"
 #include "itempents.h"
 #include "effect_dispatch_data.h"
 #include "tier1/KeyValues.h"
+#include "imanaged_areas_client.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-
-// The generic writer, from shell_tempents_client.cpp. No per-TE knowledge on
-// either side of this boundary: a handle, some named fields, and a play.
-bool SourceSharpTe_Forward( int nId, const float *pFloats, int nFloats,
-                            const int *pInts, int nInts );
 
 // te_effect_dispatch.cpp's, in stock game/client/c_te_effect_dispatch.cpp,
 // which stays: it owns the RecvTable a dispatched effect arrives on.
 void TE_DispatchEffect( IRecipientFilter& filter, float delay,
 	const Vector &pos, const char *pName, const CEffectData &data );
 
-//-----------------------------------------------------------------------------
-// c_te_bubbles.cpp's TE_Bubbles, over the managed DT_TEBubbles.
-//
-// (moved verbatim from shell_te_fwd_pool2.cpp; the per-body "MARSHALLING, AND
-// NOTHING ELSE" comment it carried is stated once, above, instead.)
-//-----------------------------------------------------------------------------
-void TE_Bubbles( IRecipientFilter& filter, float delay,
-	const Vector* mins, const Vector* maxs, float height, int modelindex, int count, float speed )
-{
-	const float f[] =
-	{
-		mins ? mins->x : 0.0f,
-		mins ? mins->y : 0.0f,
-		mins ? mins->z : 0.0f,
-		maxs ? maxs->x : 0.0f,
-		maxs ? maxs->y : 0.0f,
-		maxs ? maxs->z : 0.0f,
-		height,
-		speed,
-	};
-
-	const int i[] =
-	{
-		modelindex,
-		count,
-	};
-
-	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_BUBBLES, f, ARRAYSIZE( f ), i, ARRAYSIZE( i ) );
-}
-
-//-----------------------------------------------------------------------------
-// c_te_smoke.cpp's TE_Smoke, over the managed DT_TESmoke.
-//
-// THE TIMES TEN IS NOT DONE HERE, and that is the whole reason this goes
-// through the play path rather than calling the backend. Stock's client-side
-// TE_Smoke multiplies the scale by ten before drawing, under Valve's own "the
-// number passed down is 10 times smaller" — and so does its PostDataUpdate,
-// separately. The blob carries the UNMULTIPLIED value, exactly as the wire
-// does, and ClientTeSmoke.Play does the multiply once for both paths.
-//
-// (moved verbatim from shell_te_fwd_ce.cpp.)
-//-----------------------------------------------------------------------------
-void TE_Smoke( IRecipientFilter& filter, float delay,
-	const Vector* pos, int modelindex, float scale, int framerate )
-{
-	const float f[] =
-	{
-		pos ? pos->x : 0.0f,
-		pos ? pos->y : 0.0f,
-		pos ? pos->z : 0.0f,
-		scale,
-	};
-
-	const int i[] =
-	{
-		modelindex,
-		framerate,
-	};
-
-	SourceSharpTe_Forward( SOURCESHARP_TE_FWD_SMOKE, f, ARRAYSIZE( f ), i, ARRAYSIZE( i ) );
-}
-
 //=============================================================================//
 // The client's ITempEntsSystem, which was c_te.cpp's C_TempEntsSystem.
 //
-// Three overrides forward; the rest are empty because nothing on this build's
+// One override forwards; the rest are empty because nothing on this build's
 // link line calls them. The class still derives from ITempEntsSystem, and so
 // from IPredictionSystem, so `te` is still on the list SuppressHostEvents walks
-// and still carries a suppress host — that is what SuppressTE below reads.
+// and still carries a suppress host — that is what CanPredict() below reads.
 //=============================================================================//
 class C_TempEntsSystem : public ITempEntsSystem
 {
-private:
-	//-----------------------------------------------------------------------------
-	// Purpose: Returning true means don't even call TE func
-	// (verbatim from game/client/c_te.cpp)
-	//-----------------------------------------------------------------------------
-	bool SuppressTE( IRecipientFilter& filter )
-	{
-		if ( !CanPredict() )
-			return true;
-
-		C_RecipientFilter& _filter = (( C_RecipientFilter & )filter);
-
-		if ( !_filter.GetRecipientCount() )
-		{
-			// Suppress it
-			return true;
-		}
-
-		// There's at least one recipient
-		return false;
-	}
-
 public:
 	//-------------------------------------------------------------------------
-	// THE THREE WITH A CALLER.
+	// THE ONE WITH A CALLER.
 	//-------------------------------------------------------------------------
-	virtual void Bubbles( IRecipientFilter& filter, float delay,
-		const Vector* mins, const Vector* maxs, float height, int modelindex, int count, float speed )
-	{
-		if ( !SuppressTE( filter ) )
-		{
-			TE_Bubbles( filter, delay, mins, maxs, height, modelindex, count, speed );
-		}
-	}
-
-	virtual void Smoke( IRecipientFilter& filter, float delay,
-		const Vector* pos, int modelindex, float scale, int framerate )
-	{
-		if ( !SuppressTE( filter ) )
-		{
-			TE_Smoke( filter, delay,
-				pos, modelindex, scale, framerate );
-		}
-	}
-
 	virtual void DispatchEffect( IRecipientFilter& filter, float delay,
 				const Vector &pos, const char *pName, const CEffectData &data )
 	{
-		if ( !SuppressTE( filter ) )
-		{
-			TE_DispatchEffect( filter, delay, pos, pName, data );
-		}
+		IManagedTempEntsClient *pTempEnts = ManagedTempEntsClient();
+		if ( !pTempEnts || pTempEnts->SuppressLocalTempEnt( CanPredict() ? 1 : 0, filter.GetRecipientCount() ) )
+			return;
+
+		TE_DispatchEffect( filter, delay, pos, pName, data );
 	}
 
 	//-------------------------------------------------------------------------
-	// THE THIRTY-EIGHT WITH NONE.
+	// THE THIRTY-NINE WITH NONE.
 	//
 	// Every signature is ITempEntsSystem's, unchanged. A body here would be a
 	// second description of an effect this client cannot ask for — the managed
@@ -266,6 +167,10 @@ public:
 		const Vector*, int, int ) {}
 	virtual void ProjectDecal( IRecipientFilter&, float,
 		const Vector*, const QAngle *, float, int ) {}
+	virtual void Bubbles( IRecipientFilter&, float,
+		const Vector*, const Vector*, float, int, int, float ) {}
+	virtual void Smoke( IRecipientFilter&, float,
+		const Vector*, int, float, int ) {}
 	virtual void BubbleTrail( IRecipientFilter&, float,
 		const Vector*, const Vector*, float, int, int, float ) {}
 	virtual void Decal( IRecipientFilter&, float,

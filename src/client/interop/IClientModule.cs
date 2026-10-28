@@ -194,4 +194,20 @@ public interface IClientModule
     /// </summary>
     int ImpactChoice(ReadOnlySpan<int> input, Span<int> output,
                      Span<byte> particleName, Span<byte> decalName);
+
+    /// <summary>
+    /// Whether a temp entity the client makes for itself is dropped: stock
+    /// c_te.cpp's <c>C_TempEntsSystem::SuppressTE</c>, asked by
+    /// <c>te-&gt;DispatchEffect</c> with the prediction system's
+    /// <c>CanPredict()</c> and the filter's recipient count.
+    /// </summary>
+    bool SuppressLocalTempEnt(bool canPredict, int recipientCount);
+
+    /// <summary>
+    /// Whether a standalone entity's update is decoded: the schema gate, asked
+    /// once per update with what this side's type table holds for the type and
+    /// the hash the update arrived with. Refusals are kept and warned once per
+    /// type.
+    /// </summary>
+    bool SchemaAccept(uint typeId, bool published, uint expected, uint seen, int entIndex, string className);
 }

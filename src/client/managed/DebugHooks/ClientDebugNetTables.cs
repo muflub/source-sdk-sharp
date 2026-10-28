@@ -6,11 +6,12 @@ namespace SourceSharp.Client;
 
 /// <summary>
 /// <see cref="IDebugClientNetTables"/> over the engine's recv tables, this
-/// side's declared types and tiers, and the payload decoder's schema refusals
+/// side's declared types and tiers, and the schema gate's refusals
 /// (plan_client_novalve §4.4). The agreement is decided here: a tier agrees
 /// when the engine's table holds the props the tier says it carries.
 /// </summary>
-public sealed class ClientDebugNetTables(IClientRecvTables recv, INetTiers tiers, ClientNetSchemaTypes types)
+public sealed class ClientDebugNetTables(IClientRecvTables recv, INetTiers tiers, ClientNetSchemaTypes types,
+                                         IClientSchemaGate schemaGate)
     : IDebugClientNetTables
 {
     /// <summary>The engine's SendPropType names, by number (dt_common.h).</summary>
@@ -43,7 +44,7 @@ public sealed class ClientDebugNetTables(IClientRecvTables recv, INetTiers tiers
                                                             f.Bytes, f.Bits, f.BitShift)).ToArray()))
             .ToArray();
 
-        var (updates, refused) = recv.Refusals();
+        var (updates, refused) = schemaGate.Refusals();
         var refusals = refused.Select(r => new DebugClientSchemaRefusal(r.ClassName, r.TypeId, r.Expected, r.Seen, r.Count))
                               .ToArray();
 

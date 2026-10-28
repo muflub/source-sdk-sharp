@@ -2067,7 +2067,7 @@ static void *const s_ShimTempEntPoolClientSlots[] = {
 static const SSForwarderTable s_ShimTempEntPoolClientTable = { s_ShimTempEntPoolClientSlots, 13 };
 
 //-----------------------------------------------------------------------------
-// ShimTempEntBackendsClient: 17 forwarder(s) over IShimTempEntBackendsClient.
+// ShimTempEntBackendsClient: 22 forwarder(s) over IShimTempEntBackendsClient.
 //-----------------------------------------------------------------------------
 // void IShimTempEntBackendsClient::ClientDecalBrushModel( int32_t, const float *, int32_t )
 static void SSFwd_ShimTempEntBackendsClient_ClientDecalBrushModel( IShimTempEntBackendsClient *self, int32_t a0, const float * a1, int32_t a2 ) { self->ClientDecalBrushModel( a0, a1, a2 ); }
@@ -2103,6 +2103,16 @@ static void SSFwd_ShimTempEntBackendsClient_ClientSparks( IShimTempEntBackendsCl
 static void SSFwd_ShimTempEntBackendsClient_EffectDispatchName( IShimTempEntBackendsClient *self, int32_t a0, char * a1, int32_t a2 ) { self->EffectDispatchName( a0, a1, a2 ); }
 // int32_t IShimTempEntBackendsClient::TempEntBuildClient( const void *, int32_t, int32_t, SourceSharpTeRecvBuilt_t * )
 static int32_t SSFwd_ShimTempEntBackendsClient_TempEntBuildClient( IShimTempEntBackendsClient *self, const void * a0, int32_t a1, int32_t a2, SourceSharpTeRecvBuilt_t * a3 ) { return self->TempEntBuildClient( a0, a1, a2, a3 ); }
+// int32_t IShimTempEntBackendsClient::ClientShotTrace( const float *, const float *, int32_t, float *, int32_t, int32_t *, int32_t )
+static int32_t SSFwd_ShimTempEntBackendsClient_ClientShotTrace( IShimTempEntBackendsClient *self, const float * a0, const float * a1, int32_t a2, float * a3, int32_t a4, int32_t * a5, int32_t a6 ) { return self->ClientShotTrace( a0, a1, a2, a3, a4, a5, a6 ); }
+// void IShimTempEntBackendsClient::ClientWorldLighting( const float *, const float *, float * )
+static void SSFwd_ShimTempEntBackendsClient_ClientWorldLighting( IShimTempEntBackendsClient *self, const float * a0, const float * a1, float * a2 ) { self->ClientWorldLighting( a0, a1, a2 ); }
+// void IShimTempEntBackendsClient::ClientStaticPropLighting( const float *, const float *, const float *, int32_t, float * )
+static void SSFwd_ShimTempEntBackendsClient_ClientStaticPropLighting( IShimTempEntBackendsClient *self, const float * a0, const float * a1, const float * a2, int32_t a3, float * a4 ) { self->ClientStaticPropLighting( a0, a1, a2, a3, a4 ); }
+// void IShimTempEntBackendsClient::ClientImpactLedger( int32_t, int32_t )
+static void SSFwd_ShimTempEntBackendsClient_ClientImpactLedger( IShimTempEntBackendsClient *self, int32_t a0, int32_t a1 ) { self->ClientImpactLedger( a0, a1 ); }
+// void IShimTempEntBackendsClient::ClientPlayerLogoDecal( const float *, int32_t, int32_t, const char *, const char * )
+static void SSFwd_ShimTempEntBackendsClient_ClientPlayerLogoDecal( IShimTempEntBackendsClient *self, const float * a0, int32_t a1, int32_t a2, const char * a3, const char * a4 ) { self->ClientPlayerLogoDecal( a0, a1, a2, a3, a4 ); }
 
 static void *const s_ShimTempEntBackendsClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientDecalBrushModel ),
@@ -2122,9 +2132,14 @@ static void *const s_ShimTempEntBackendsClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientSparks ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_EffectDispatchName ),
 	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_TempEntBuildClient ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientShotTrace ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientWorldLighting ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientStaticPropLighting ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientImpactLedger ),
+	reinterpret_cast< void * >( &SSFwd_ShimTempEntBackendsClient_ClientPlayerLogoDecal ),
 };
 
-static const SSForwarderTable s_ShimTempEntBackendsClientTable = { s_ShimTempEntBackendsClientSlots, 17 };
+static const SSForwarderTable s_ShimTempEntBackendsClientTable = { s_ShimTempEntBackendsClientSlots, 22 };
 
 //-----------------------------------------------------------------------------
 // ShimEffectsRenderClient: 29 forwarder(s) over IShimEffectsRenderClient.
@@ -2517,7 +2532,7 @@ static void *const s_ShimUiClientSlots[] = {
 static const SSForwarderTable s_ShimUiClientTable = { s_ShimUiClientSlots, 21 };
 
 //-----------------------------------------------------------------------------
-// ShimParticlesClient: 19 forwarder(s) over IShimParticlesClient.
+// ShimParticlesClient: 20 forwarder(s) over IShimParticlesClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimParticlesClient::ParticlesCreate( uint32_t, int32_t, const char *, float, int32_t )
 static int32_t SSFwd_ShimParticlesClient_ParticlesCreate( IShimParticlesClient *self, uint32_t a0, int32_t a1, const char * a2, float a3, int32_t a4 ) { return self->ParticlesCreate( a0, a1, a2, a3, a4 ); }
@@ -2557,6 +2572,8 @@ static int32_t SSFwd_ShimParticlesClient_ParticlesTraceMask( IShimParticlesClien
 static int32_t SSFwd_ShimParticlesClient_ParticlesSetSpace( IShimParticlesClient *self, uint32_t a0, int32_t a1, uint32_t a2, int32_t a3, int32_t a4, SourceSharpParticleFollow_t * a5 ) { return self->ParticlesSetSpace( a0, a1, a2, a3, a4, a5 ); }
 // int32_t IShimParticlesClient::ParticlesBrushPointContents( uint32_t, const float * )
 static int32_t SSFwd_ShimParticlesClient_ParticlesBrushPointContents( IShimParticlesClient *self, uint32_t a0, const float * a1 ) { return self->ParticlesBrushPointContents( a0, a1 ); }
+// int32_t IShimParticlesClient::ParticleSystemImpact( const char *, const float *, int32_t, float, const float * )
+static int32_t SSFwd_ShimParticlesClient_ParticleSystemImpact( IShimParticlesClient *self, const char * a0, const float * a1, int32_t a2, float a3, const float * a4 ) { return self->ParticleSystemImpact( a0, a1, a2, a3, a4 ); }
 
 static void *const s_ShimParticlesClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesCreate ),
@@ -2578,9 +2595,10 @@ static void *const s_ShimParticlesClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesTraceMask ),
 	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesSetSpace ),
 	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticlesBrushPointContents ),
+	reinterpret_cast< void * >( &SSFwd_ShimParticlesClient_ParticleSystemImpact ),
 };
 
-static const SSForwarderTable s_ShimParticlesClientTable = { s_ShimParticlesClientSlots, 19 };
+static const SSForwarderTable s_ShimParticlesClientTable = { s_ShimParticlesClientSlots, 20 };
 
 //-----------------------------------------------------------------------------
 // ShimFxClient: 33 forwarder(s) over IShimFxClient.

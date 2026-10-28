@@ -148,6 +148,11 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         // adapters (EngineServices.AddForwarders): built on first resolve.
         services.AddFactory<IClientModelNames>(s => new ClientModelNames(s.Require<IFwdModelInfo>()));
         services.AddInstance<IClientPlaneTrace>(new ClientPlaneTrace(areas.Require<IParticlesClientArea>()));
+        // A player's spray, carried out (lane M1-C, shell_te_backends_client.cpp).
+        services.AddInstance<IClientSprayEngine>(new ClientSpraySlots(areas.Require<ITempEntBackendsClientArea>()));
+        // The managed bullet impact's engine calls (lane M1-C, shell_impact_effects.cpp).
+        services.AddInstance<IClientImpactEngine>(new ClientImpactSlots(areas.Require<ITempEntBackendsClientArea>(),
+                                                                        areas.Require<IParticlesClientArea>()));
         // point_worldtext's native text renderer (lane c2-sims): its lifetime.
         services.AddInstance<IClientWorldTextMeshes>(new ClientWorldTextMeshes(areas.Require<IParticlesClientArea>()));
         // The client wind's publication (lane c2-sims).

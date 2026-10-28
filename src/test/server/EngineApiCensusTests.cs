@@ -396,7 +396,10 @@ public partial class EngineApiCensusTests
     // (242 + 4 - 1 = 245); ClientInterpAdmitted, the interpolation pass's
     // admitted set for the shell's PreRender walk (245 + 1 = 246); SurfaceSetEdges
     // retired, the edges riding SurfaceSetPlan (246 - 1 = 245).
-    private const int ClientOnly = 245;
+    // Lane M1-C: the managed bullet impact's ClientShotTrace, ClientWorldLighting,
+    // ClientStaticPropLighting, ClientImpactLedger and ParticleSystemImpact (245 + 5 = 250, landed after M1-A),
+    // and the spray's ClientPlayerLogoDecal (250 + 1 = 251).
+    private const int ClientOnly = 251;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

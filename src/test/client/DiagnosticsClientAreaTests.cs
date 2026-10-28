@@ -23,7 +23,6 @@ public class DiagnosticsClientAreaTests
     }
 
     private static string Diagnostics() => Code("src", "shared", "native", "shell_diagnostics.cpp");
-    private static string Md5() => Code("src", "client", "native", "md5_pseudorandom.cpp");
     private static string ClientDll() => Code("src", "client", "native", "shell_clientdll.cpp");
 
     [Fact]
@@ -33,15 +32,6 @@ public class DiagnosticsClientAreaTests
 
         Assert.Single(Regex.Matches(text, @"IManagedDiagnosticsClient \*pDiagnostics = ManagedDiagnosticsClient\(\);"));
         Assert.Single(Regex.Matches(text, @"SourceSharpCrossingsReportFn pFn = ManagedDiagnosticsClient\(\) \? &SourceSharp_ClientCrossingsReport : NULL;"));
-    }
-
-    [Fact]
-    public void TheMd5PseudoRandomCallSiteTakesTheClientsArea()
-    {
-        string text = Md5();
-
-        Assert.Single(Regex.Matches(text, @"IManagedDiagnosticsClient \*pDiagnostics = ManagedDiagnosticsClient\(\);"));
-        Assert.Single(Regex.Matches(text, @"return pDiagnostics->Md5PseudoRandom\( nSeed \);"));
     }
 
     [Fact]
@@ -59,12 +49,11 @@ public class DiagnosticsClientAreaTests
     [Fact]
     public void NoNativeCodeReadsTheThreeTableSlots()
     {
-        string diagnostics = Diagnostics(), md5 = Md5(), clientDll = ClientDll();
+        string diagnostics = Diagnostics(), clientDll = ClientDll();
 
         Assert.Contains("ManagedDiagnosticsClient()", diagnostics);
-        Assert.Contains("ManagedDiagnosticsClient()", md5);
         Assert.Contains("ManagedRuntimeClient()", clientDll);
-        foreach (string text in new[] { diagnostics, md5, clientDll })
+        foreach (string text in new[] { diagnostics, clientDll })
         {
             Assert.DoesNotMatch(new Regex(@"(->|\.)CrossingsReport\b(?!\()"), text);
             Assert.DoesNotContain("pApi->Md5PseudoRandom", text);

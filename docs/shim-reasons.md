@@ -67,16 +67,16 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 33,302 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,375 |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 33,108 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 15,380 |
 | c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 3,686 |
 | d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 9,225 |
-| e | a synchronous mid-step answer | 4 | 3 | 2 |  |  |  | 8 | 2,449 |
-| f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,160 |
-| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 |  |  |  | 15 | 5,889 |
+| e | a synchronous mid-step answer | 4 | 3 | 1 |  |  |  | 7 | 2,407 |
+| f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 3,042 |
+| g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 |  |  |  | 15 | 5,021 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 4,724 |
 | x | NO LETTER FITS | 7 | 1 | 2 |  | 2 |  | 18 | 4,363 |
-|  | **total** | **75** | **33** | **73** | **2** | **2** | **1** | **215** | **82,173** |
+|  | **total** | **75** | **33** | **72** | **2** | **2** | **1** | **214** | **80,956** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
@@ -246,6 +246,15 @@ Then lanes M1-D and M1-B landed together (2026-10-25, measured by the walk at th
 
 Then lane M1-A landed on the vendor branch after M1-D and M1-B (2026-10-25, measured by the walk at the landing): (a) 33,888 -> 33,302, (b) 15,377 -> 15,375, (d) 9,321 -> 9,225; 82,173 lines in the table.
 Then the client's standalone shell lost its last decisions to managed (lane M1-A, 2026-10-25, measured by the walk on the lane's tip): (a) 34,256 -> 33,670 is shell_standalone_client.cpp (the distance fade, ShouldDraw's viewer arm, the interpolation filter and delay, the surface renderer's classname choice and field lookups, two dead seams) and shell_surface_render.cpp (the blob reads, the material choice and the run grouping, now BreakableSurfaceDraw's plan); (b) 15,830 -> 15,828 is shell_clientdll.cpp's OnRenderStart losing the colour-correction reset; (d) 9,470 -> 9,374 is shell_worldrender.cpp's colour-correction table and op dispatcher, now ColorLookupTable; no file left or changed its letter; 83,428 lines in the table.
+Then lane M1-C moved client.so's remaining impact and temp entity decisions to C# (2026-10-25, measured by the walk on the lane at 1f8f3e52d + its commits): md5_pseudorandom.cpp (e) left client.so with no importer (-42, one file); shell_te_forwards_client.cpp (a) lost its uncalled TE_Bubbles and TE_Smoke forwards and SuppressTE (-95); shell_impact_effects.cpp (g) lost the bullet impact's chain, which is BulletImpactEffect (C#) now, and kept its precache list, material handles and the engine calls the managed impact asks for, and mathlib_port_client.cpp (g) its VectorVectors forward, whose last importer that chain was (-868 together). (a) 34,256 -> 34,161, (e) 2,449 -> 2,407, (g) 5,889 -> 5,021; 214 files, 83,107 lines in the table.
+
+Then lane M1-C moved the client decal gates to C# (2026-10-25, measured by the walk): shell_te_backends_client.cpp (a) lost SourceSharp_ClientDecalShoot's r_decals test and SourceSharp_ClientDecalStudioModel's r_drawmodeldecals test and ray bloat, which are DecalSettings' and ClientEntityDecal.AddStudioDecal's (-34). (a) 34,161 -> 34,127; 83,073 lines in the table.
+
+Then lane M1-C moved a player's spray to C# (2026-10-25, measured by the walk): shell_te_backends_client.cpp (a) lost SourceSharpTe_PlayerLogoMaterial and SourceSharp_ClientPlayerDecalShoot's decisions (the gates, the logo's names and the download copy are PlayerSprays') and gained SourceSharp_ClientPlayerLogoDecal, the carry-out (-65). (a) 34,127 -> 34,062; 83,008 lines in the table.
+
+Then lane M1-C moved the client's schema gate to C# (2026-10-25, measured by the walk): generic_payload_client.cpp (f) lost SourceSharpSchema_Accept's hash compare, the refusal table, its three readers and cs_cl_schema_status (ClientSchemaGate and ClientSchemaStatusCommand's now), keeping the carry-out to IManagedStandaloneClient::SchemaAccept; shell_recvtable.cpp (f) lost SourceSharp_ClientSchemaRefusal's copy-out, left an empty slot until the ABI pass retires it (-118).
+
+Then lane M1-C landed after the other three (2026-10-25, measured by the walk at the landing): (a) 33,302 -> 33,108, (b) 15,375 -> 15,380, (e) 2,449 -> 2,407, (f) 3,160 -> 3,042, (g) 5,889 -> 5,021; the client's (e) file count 2 -> 1 with md5_pseudorandom.cpp; 80,956 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 

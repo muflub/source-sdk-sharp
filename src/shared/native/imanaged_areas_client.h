@@ -120,6 +120,7 @@ struct SSManagedStandaloneClientTable
 	int32_t ( *NetStateFieldOffset )( IManagedStandaloneClient *self, const char *pClassName, const char *pFieldName );
 	int32_t ( *NetStateFieldBits )( IManagedStandaloneClient *self, const char *pClassName, const char *pFieldName );
 	void ( *OnStandaloneDrawBatch )( IManagedStandaloneClient *self, const uint32_t *pHandles, int32_t nCount, int32_t *pResults );
+	int32_t ( *SchemaAccept )( IManagedStandaloneClient *self, uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex, const char *pClassName );
 };
 
 class IManagedStandaloneClient : public IManagedObject
@@ -136,6 +137,7 @@ public:
 	int32_t NetStateFieldOffset( const char *pClassName, const char *pFieldName ) { return Table()->NetStateFieldOffset( this, pClassName, pFieldName ); }
 	int32_t NetStateFieldBits( const char *pClassName, const char *pFieldName ) { return Table()->NetStateFieldBits( this, pClassName, pFieldName ); }
 	void OnStandaloneDrawBatch( const uint32_t *pHandles, int32_t nCount, int32_t *pResults ) { Table()->OnStandaloneDrawBatch( this, pHandles, nCount, pResults ); }
+	int32_t SchemaAccept( uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex, const char *pClassName ) { return Table()->SchemaAccept( this, nTypeId, bPublished, nExpected, nSeen, nEntIndex, pClassName ); }
 
 private:
 	const SSManagedStandaloneClientTable *Table() const { return static_cast< const SSManagedStandaloneClientTable * >( m_pTable ); }
@@ -143,10 +145,10 @@ private:
 
 static const uint32_t kIManagedStandaloneClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xff2dadb5, 0x8a6f1a50, 0x8a6f1a50, 0xb649cac8, 0xe0e1e121, 0x8d177001,
-	0xbddf45d5, 0xbddf45d5, 0xd26c0bc9,
+	0xbddf45d5, 0xbddf45d5, 0xd26c0bc9, 0x87f5efbd,
 };
-static const int32_t kIManagedStandaloneClientSlotCount = 11;
-static_assert( sizeof( SSManagedStandaloneClientTable ) == 11 * sizeof( void * ), "SSManagedStandaloneClientTable is one pointer per slot" );
+static const int32_t kIManagedStandaloneClientSlotCount = 12;
+static_assert( sizeof( SSManagedStandaloneClientTable ) == 12 * sizeof( void * ), "SSManagedStandaloneClientTable is one pointer per slot" );
 
 class IManagedPredictionClient;
 
@@ -191,6 +193,7 @@ struct SSManagedTempEntsClientTable
 	void ( *OnTempEntPoolUpdate )( IManagedTempEntsClient *self, float flFrameTime );
 	void ( *OnTempEntPoolClear )( IManagedTempEntsClient *self );
 	int32_t ( *OnImpactChoice )( IManagedTempEntsClient *self, const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax );
+	int32_t ( *SuppressLocalTempEnt )( IManagedTempEntsClient *self, int32_t bCanPredict, int32_t nRecipients );
 };
 
 class IManagedTempEntsClient : public IManagedObject
@@ -203,16 +206,17 @@ public:
 	void OnTempEntPoolUpdate( float flFrameTime ) { Table()->OnTempEntPoolUpdate( this, flFrameTime ); }
 	void OnTempEntPoolClear() { Table()->OnTempEntPoolClear( this ); }
 	int32_t OnImpactChoice( const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax ) { return Table()->OnImpactChoice( this, pIn, nIn, pOut, nOutMax, pParticleNameOut, nParticleNameMax, pDecalNameOut, nDecalNameMax ); }
+	int32_t SuppressLocalTempEnt( int32_t bCanPredict, int32_t nRecipients ) { return Table()->SuppressLocalTempEnt( this, bCanPredict, nRecipients ); }
 
 private:
 	const SSManagedTempEntsClientTable *Table() const { return static_cast< const SSManagedTempEntsClientTable * >( m_pTable ); }
 };
 
 static const uint32_t kIManagedTempEntsClientSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xdec81a24, 0x4febfaf5, 0xb86ff9be, 0x07e0f4c4, 0x055e06f1,
+	0x07e0f4c4, 0x0d54c15e, 0xdec81a24, 0x4febfaf5, 0xb86ff9be, 0x07e0f4c4, 0x055e06f1, 0xecb3ae59,
 };
-static const int32_t kIManagedTempEntsClientSlotCount = 7;
-static_assert( sizeof( SSManagedTempEntsClientTable ) == 7 * sizeof( void * ), "SSManagedTempEntsClientTable is one pointer per slot" );
+static const int32_t kIManagedTempEntsClientSlotCount = 8;
+static_assert( sizeof( SSManagedTempEntsClientTable ) == 8 * sizeof( void * ), "SSManagedTempEntsClientTable is one pointer per slot" );
 
 class IManagedSaveRestoreClient;
 

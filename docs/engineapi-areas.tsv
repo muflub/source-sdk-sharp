@@ -186,6 +186,11 @@ ClientSmoke	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_Cl
 ClientSparks	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientSparks	float*, int, int, float*, void	
 EffectDispatchName	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_EffectDispatchName	int, byte*, int, void	
 TempEntBuildClient	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_TempEntBuildClient	void*, int, int, TeRecvBuilt*, int	
+ClientShotTrace	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientShotTrace	float*, float*, int, float*, int, int*, int, int	
+ClientWorldLighting	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientWorldLighting	float*, float*, float*, void	
+ClientStaticPropLighting	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientStaticPropLighting	float*, float*, float*, int, float*, void	
+ClientImpactLedger	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientImpactLedger	int, int, void	
+ClientPlayerLogoDecal	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientPlayerLogoDecal	float*, int, int, byte*, byte*, void	
 DrawSprite	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_DrawSprite	uint, int, float, int, int, int, int, int, int, float, int, float, float, int	
 DrawSpriteOffset	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_DrawSpriteOffset	uint, float*, int, float, int, int, int, int, int, int, float, int, float, float, int	
 ParticleSystemFollowPoints	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemFollowPoints	uint, int, int	
@@ -314,6 +319,7 @@ ParticlesView	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_Partic
 ParticlesTraceMask	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesTraceMask	float*, float*, uint, float*, int, int	
 ParticlesSetSpace	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesSetSpace	uint, int, uint, int, int, ParticleFollow*, int	
 ParticlesBrushPointContents	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesBrushPointContents	uint, float*, int	
+ParticleSystemImpact	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleSystemImpact	byte*, float*, int, float, float*, int	
 EffectRegistrationCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_EffectRegistrationCount	int	
 EffectRegistrationName	EngineApi	IShimFxClient	client		client	-	SourceSharp_EffectRegistrationName	int, byte*, int, int	
 EffectRegistrationRun	EngineApi	IShimFxClient	client		client	-	SourceSharp_EffectRegistrationRun	int, EffectData*, void	

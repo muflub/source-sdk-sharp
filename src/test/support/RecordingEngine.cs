@@ -1196,7 +1196,7 @@ public sealed class RecordingEngine :
     // C-Phase 3 lane DECALS's two drawing arms. The third slot of that lane,
     // ClientEntityModelType, is recorded with the world queries above -- what
     // an entity's model IS is a question, not an effect.
-    void IEngineEffects.ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayEnd, int decalIndex) => RecordVoid("Effects.ClientDecalStudioModel", entIndex, rayStart, rayEnd, decalIndex);
+    void IEngineEffects.ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayDelta, int decalIndex) => RecordVoid("Effects.ClientDecalStudioModel", entIndex, rayStart, rayDelta, decalIndex);
     void IEngineEffects.ClientDecalBrushModel(int entIndex, Vector decalCenter, int decalIndex) => RecordVoid("Effects.ClientDecalBrushModel", entIndex, decalCenter, decalIndex);
 
     // C-Phase 6 lane FRAME's two. The statics record comes back through a

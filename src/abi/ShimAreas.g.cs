@@ -1068,6 +1068,11 @@ internal unsafe interface ITempEntBackendsClientArea
     void ClientSparks(float* a0, int a1, int a2, float* a3);
     void EffectDispatchName(int a0, byte* a1, int a2);
     int TempEntBuildClient(void* a0, int a1, int a2, TeRecvBuilt* a3);
+    int ClientShotTrace(float* a0, float* a1, int a2, float* a3, int a4, int* a5, int a6);
+    void ClientWorldLighting(float* a0, float* a1, float* a2);
+    void ClientStaticPropLighting(float* a0, float* a1, float* a2, int a3, float* a4);
+    void ClientImpactLedger(int a0, int a1);
+    void ClientPlayerLogoDecal(float* a0, int a1, int a2, byte* a3, byte* a4);
 }
 
 /// <summary>
@@ -1096,6 +1101,11 @@ internal sealed unsafe class TempEntBackendsClientArea : ITempEntBackendsClientA
     public void ClientSparks(float* a0, int a1, int a2, float* a3) { _shim.Table->ClientSparks(_shim.Self, a0, a1, a2, a3); }
     public void EffectDispatchName(int a0, byte* a1, int a2) { _shim.Table->EffectDispatchName(_shim.Self, a0, a1, a2); }
     public int TempEntBuildClient(void* a0, int a1, int a2, TeRecvBuilt* a3) { return _shim.Table->TempEntBuildClient(_shim.Self, a0, a1, a2, a3); }
+    public int ClientShotTrace(float* a0, float* a1, int a2, float* a3, int a4, int* a5, int a6) { return _shim.Table->ClientShotTrace(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
+    public void ClientWorldLighting(float* a0, float* a1, float* a2) { _shim.Table->ClientWorldLighting(_shim.Self, a0, a1, a2); }
+    public void ClientStaticPropLighting(float* a0, float* a1, float* a2, int a3, float* a4) { _shim.Table->ClientStaticPropLighting(_shim.Self, a0, a1, a2, a3, a4); }
+    public void ClientImpactLedger(int a0, int a1) { _shim.Table->ClientImpactLedger(_shim.Self, a0, a1); }
+    public void ClientPlayerLogoDecal(float* a0, int a1, int a2, byte* a3, byte* a4) { _shim.Table->ClientPlayerLogoDecal(_shim.Self, a0, a1, a2, a3, a4); }
 }
 
 /// <summary>
@@ -1474,6 +1484,7 @@ internal unsafe interface IParticlesClientArea
     int ParticlesTraceMask(float* a0, float* a1, uint a2, float* a3, int a4);
     int ParticlesSetSpace(uint a0, int a1, uint a2, int a3, int a4, ParticleFollow* a5);
     int ParticlesBrushPointContents(uint a0, float* a1);
+    int ParticleSystemImpact(byte* a0, float* a1, int a2, float a3, float* a4);
 }
 
 /// <summary>
@@ -1504,6 +1515,7 @@ internal sealed unsafe class ParticlesClientArea : IParticlesClientArea
     public int ParticlesTraceMask(float* a0, float* a1, uint a2, float* a3, int a4) { return _shim.Table->ParticlesTraceMask(_shim.Self, a0, a1, a2, a3, a4); }
     public int ParticlesSetSpace(uint a0, int a1, uint a2, int a3, int a4, ParticleFollow* a5) { return _shim.Table->ParticlesSetSpace(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public int ParticlesBrushPointContents(uint a0, float* a1) { return _shim.Table->ParticlesBrushPointContents(_shim.Self, a0, a1); }
+    public int ParticleSystemImpact(byte* a0, float* a1, int a2, float a3, float* a4) { return _shim.Table->ParticleSystemImpact(_shim.Self, a0, a1, a2, a3, a4); }
 }
 
 /// <summary>

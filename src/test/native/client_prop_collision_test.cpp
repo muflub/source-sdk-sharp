@@ -2,9 +2,9 @@
 //
 // The client's bullet-impact effect asks the ENTITY the server named — it clips
 // the impact ray against the client shell of the managed prop (the IMPACT_NODECAL
-// arm, shell_impact_effects.cpp's ClipRayToEntity at the MASK_SHOT line) and the
+// arm, shell_impact_effects.cpp's SourceSharp_ClientShotTrace: ClipRayToEntity at MASK_SHOT) and the
 // custom metal-spark effect is gated on that trace hitting
-// (ApplyImpactChoice behind tr.DidHit()). A clip asks an ICollideable four
+// (BulletImpactEffect.Perform behind tr.Hit, C# since lane M1-C). A clip asks an ICollideable four
 // questions — GetSolid, GetSolidFlags, and for a custom test TestCollision /
 // TestHitboxes — and the standalone client shell answered all four by hardcoded
 // inertness: SOLID_NONE, FSOLID_NOT_SOLID, and two `return false;` stubs. The

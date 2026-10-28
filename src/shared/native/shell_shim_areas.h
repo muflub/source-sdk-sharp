@@ -403,7 +403,7 @@ public:
 	int32_t ClientDecalNameFromIndex( int32_t nDecalIndex, char * pOut, int32_t nOutSize ) override;
 	void ClientDecalShoot( int32_t nDecalIndex, int32_t nEntity, const float * pPositionXYZ, const float * pSAxisXYZ, int32_t nFlags ) override;
 	void ClientDecalStaticProp( const float * pStartXYZ, const float * pEndXYZ, int32_t nStaticPropIndex, int32_t nDecalIndex ) override;
-	void ClientDecalStudioModel( int32_t nEntity, const float * pRayStartXYZ, const float * pRayEndXYZ, int32_t nDecalIndex ) override;
+	void ClientDecalStudioModel( int32_t nEntity, const float * pRayStartXYZ, const float * pRayDeltaXYZ, int32_t nDecalIndex ) override;
 	void ClientEnergySplash( const float * pPosXYZ, const float * pDirXYZ, int32_t bExplosive ) override;
 	int32_t ClientEntityModelType( int32_t nEntity ) override;
 	int32_t ClientIsLowViolence() override;
@@ -415,6 +415,11 @@ public:
 	void ClientSparks( const float * pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength, const float * pDirectionXYZ ) override;
 	void EffectDispatchName( int32_t nIndex, char * pOut, int32_t nOutBytes ) override;
 	int32_t TempEntBuildClient( const void * pBlock, int32_t nBlockBytes, int32_t nBlobBytes, SourceSharpTeRecvBuilt_t * pOut ) override;
+	int32_t ClientShotTrace( const float * pStartXYZ, const float * pEndXYZ, int32_t nEntity, float * pOutFloats, int32_t nOutFloats, int32_t * pOutInts, int32_t nOutInts ) override;
+	void ClientWorldLighting( const float * pStartXYZ, const float * pEndXYZ, float * pOut6 ) override;
+	void ClientStaticPropLighting( const float * pStartXYZ, const float * pEndXYZ, const float * pNormalXYZ, int32_t nStaticProp, float * pOut6 ) override;
+	void ClientImpactLedger( int32_t nFlecks, int32_t nDust ) override;
+	void ClientPlayerLogoDecal( const float * pPositionXYZ, int32_t nPlayer, int32_t nEntity, const char * pszMaterial, const char * pszTexture ) override;
 };
 
 class CShimEffectsRenderClient final : public IShimEffectsRenderClient
@@ -583,6 +588,7 @@ public:
 	int32_t ParticlesTraceMask( const float * pStartXYZ, const float * pEndXYZ, uint32_t nMask, float * pOut, int32_t nOut ) override;
 	int32_t ParticlesSetSpace( uint32_t hOwner, int32_t nChannel, uint32_t hEntity, int32_t nAttachment, int32_t nFlags, SourceSharpParticleFollow_t * pFollow ) override;
 	int32_t ParticlesBrushPointContents( uint32_t hOwner, const float * pPointXYZ ) override;
+	int32_t ParticleSystemImpact( const char * pszName, const float * pPoints, int32_t nEntity, float flScale, const float * pColorXYZ ) override;
 };
 
 class CShimFxClient final : public IShimFxClient

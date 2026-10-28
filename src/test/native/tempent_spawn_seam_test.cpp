@@ -808,7 +808,7 @@ TEST( TempEntSpawnSeam, TheSpawnSlotsAreImplementedHereAndWiredThere )
 // say "no forward", which is a claim that fails the moment somebody adds one --
 // and adding one without a caller is exactly the dead code this section exists
 // to keep out. The complementary half, that no CALLER appears either, is
-// TempEntForwardersCollapsed.TheOnlyTeArrowCallsLeftAreTheThreeThatForward in
+// TempEntForwardersCollapsed.TheOnlyTeArrowCallsLeftAreTheOnesThatForward in
 // tempent_evicted_test.cpp; between them a forward and its caller can only be
 // added together.
 //-----------------------------------------------------------------------------
@@ -887,7 +887,9 @@ TEST( TempEntSpawnSeam, EveryEvictedClassHasAForwardThroughTheManagedPlayPath )
 		{ "c_te_glowsprite.cpp",        "CTEGlowSprite",       false },
 		{ "c_te_spritespray.cpp",       "CTESpriteSpray",      false },
 		{ "c_te_bloodsprite.cpp",       "CTEBloodSprite",      false },
-		{ "c_te_bubbles.cpp",           "CTEBubbles",          true  },
+		// false since lane M1-C (2026-10-25): te->Bubbles left with cdll_util.cpp in
+		// C8, and the forward with no caller went after it.
+		{ "c_te_bubbles.cpp",           "CTEBubbles",          false },
 		{ "c_te_bubbletrail.cpp",       "CTEBubbleTrail",      false },
 		{ "c_te_breakmodel.cpp",        "CTEBreakModel",       false },
 		{ "c_te_clientprojectile.cpp",  "CTEClientProjectile", false },

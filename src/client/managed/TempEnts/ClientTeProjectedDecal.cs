@@ -96,11 +96,13 @@ public sealed class ClientTeProjectedDecal : ClientTempEnt<TeProjectedDecal>
 {
     private readonly IEngineEffects _effects;
     private readonly IEngineWorldQuery _world;
+    private readonly IDecalSettings _settings;
 
-    public ClientTeProjectedDecal(IEngineEffects effects, IEngineWorldQuery world)
+    public ClientTeProjectedDecal(IEngineEffects effects, IEngineWorldQuery world, IDecalSettings settings)
     {
         _effects = effects;
         _world = world;
+        _settings = settings;
     }
 
     public override void Play(TeProjectedDecal te)
@@ -141,7 +143,7 @@ public sealed class ClientTeProjectedDecal : ClientTempEnt<TeProjectedDecal>
         // segment, `*pos, endpos, endpos`, rather than the part of it the trace
         // traversed -- the same measurement the static prop arm above makes,
         // and the reason AddDecal's third argument exists at all.
-        ClientEntityDecal.AddDecal(_world, _effects, tr.EntityIndex,
+        ClientEntityDecal.AddDecal(_world, _effects, _settings, tr.EntityIndex,
                                    rayStart: te.Origin, rayEnd: endpos,
                                    decalCenter: endpos, decalIndex: te.Index);
     }

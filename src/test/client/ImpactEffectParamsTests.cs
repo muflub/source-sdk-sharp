@@ -1,12 +1,11 @@
-using System.Text.RegularExpressions;
 using SourceSharp.Client.TempEnts;
 using Xunit;
 
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// The impact effect parameter block is ONE layout declared on two sides, and
-/// this is what stops them drifting (plan_entity.md §3.9, SHIM_WAVE Lane 3).
+/// The impact effect parameter block (plan_entity.md §3.9, SHIM_WAVE Lane 3),
+/// declared on two sides until lane M1-C deleted the native one.
 ///
 /// <para>
 /// THESE ARE ARRAY INDICES IN ALL BUT NAME. A value inserted in the middle of
@@ -24,81 +23,9 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class ImpactEffectParamsTests
 {
-    private const string Header = "src/sourcesharp/game/client/impact_effects.h";
-
-    private static string HeaderText()
-    {
-        string path = RepoLayout.Sdk(Header.Replace('/', Path.DirectorySeparatorChar));
-        Assert.True(File.Exists(path), $"{Header} was not found in {RepoLayout.SdkTree}");
-        return File.ReadAllText(path);
-    }
-
-    // ------------------------------------------------------------------
-    // The two declarations are one declaration.
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void TheManagedEffectIdsAreTheOnesTheHeaderDeclares()
-    {
-        // SOURCESHARP_IMPACT_GLASS = 1,   // FX_GlassImpact -> Glass
-        var native = new Dictionary<int, string>();
-
-        foreach (Match m in Regex.Matches(HeaderText(),
-                     @"SOURCESHARP_IMPACT_(\w+)\s*=\s*(\d+),\s*//\s*(\w+)\s*->\s*(\w+)"))
-        {
-            native[int.Parse(m.Groups[2].Value)] = m.Groups[4].Value;
-        }
-
-        Assert.Equal(7, native.Count);
-
-        foreach ((int id, string managed) in native)
-        {
-            Assert.True(Enum.IsDefined(typeof(ImpactEffect), id),
-                $"the header declares effect id {id} ({managed}) and the managed enum has no such value");
-            Assert.Equal(managed, ((ImpactEffect)id).ToString());
-        }
-
-        // AND NO MANAGED VALUE THE HEADER DOES NOT DECLARE, which the loop above
-        // cannot see: it walks the header, so a managed value added alone would
-        // pass it.
-        foreach (ImpactEffect e in Enum.GetValues<ImpactEffect>())
-            Assert.True(native.ContainsKey((int)e), $"{e} is managed-only; the header does not declare it");
-    }
-
-    [Fact]
-    public void TheBurstFieldNamesAndOrderAreTheOnesTheHeaderDeclares()
-    {
-        var native = new List<(int Value, string Name)>();
-
-        foreach (Match m in Regex.Matches(HeaderText(), @"SS_BURST_(\w+)\s*=\s*(\d+),"))
-            native.Add((int.Parse(m.Groups[2].Value), m.Groups[1].Value));
-
-        Assert.Equal(27, native.Count);
-
-        // SS_BURST_COUNT_MIN -> CountMin. The two spellings are one word list.
-        foreach ((int value, string name) in native)
-        {
-            string managed = string.Concat(name.Split('_')
-                .Select(w => char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
-
-            Assert.True(Enum.IsDefined(typeof(ImpactBurst), value),
-                $"SS_BURST_{name} = {value} has no managed ImpactBurst value");
-            Assert.Equal(managed, ((ImpactBurst)value).ToString());
-        }
-    }
-
-    [Fact]
-    public void TheBlockWidthsAgreeWithTheHeader()
-    {
-        string text = HeaderText();
-
-        Assert.Equal(ImpactEffectPolicy.HeaderFloats,
-            int.Parse(Regex.Match(text, @"SS_IMPACT_HEADER_COUNT\s*=\s*(\d+)").Groups[1].Value));
-        Assert.Equal(ImpactEffectPolicy.BurstFloats,
-            int.Parse(Regex.Match(text, @"SS_IMPACT_BURST_FIELDS\s*=\s*(\d+)").Groups[1].Value));
-        Assert.Equal(ImpactEffectPolicy.MaxBursts,
-            int.Parse(Regex.Match(text, @"#define SS_IMPACT_MAX_BURSTS\s+(\d+)").Groups[1].Value));
-    }
+    // THE HEADER THESE ENUMS ONCE MATCHED (impact_effects.h) LEFT WITH ITS LAST
+    // NATIVE READER in lane M1-C: the effects are C# (lane c5-particles) and the
+    // block crosses nothing now, so its parity facts went with it.
 
     // ------------------------------------------------------------------
     // The decisions themselves.

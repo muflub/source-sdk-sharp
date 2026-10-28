@@ -1297,12 +1297,17 @@ static size_t CountNeedle( const std::string &hay, const std::string &needle )
 TEST( ClientEntityResolve, TheImpactControlPointsBindTheShellTheTraceHit )
 {
 	const std::string impact = NoWhitespace( LiveText( "sourcesharp/game/client/shell_impact_effects.cpp" ) );
-	ASSERT_GT( impact.size(), 1000u ) << "shell_impact_effects.cpp did not read";
+	ASSERT_GT( impact.size(), 500u ) << "shell_impact_effects.cpp did not read";
 
-	EXPECT_EQ( 3u, CountNeedle( impact, "SourceSharp_ClientShellFromTraceHit(ss::TraceHit(tr)));" ) )
-	    << "the three SetImpactControlPoint calls no longer hand it the shell the "
-	       "trace hit. TraceGameEntity answers NULL for every client object, so "
-	       "an impact on a managed entity would bind no object to its points.";
+	// Since lane M1-C the points and their orientations are the managed
+	// BulletImpactEffect's, and SourceSharp_ParticleSystemImpact binds each of
+	// the three to the shell of the entity the trace hit, resolved once.
+	EXPECT_EQ( 1u, CountNeedle( impact, "C_StandaloneEntity*pShell=pHit?SourceSharp_ClientShellFromTraceHit(pHit):NULL;" ) )
+	    << "the impact particle no longer resolves the shell the trace hit. "
+	       "TraceGameEntity answers NULL for every client object, so an impact on "
+	       "a managed entity would bind no object to its points.";
+	EXPECT_EQ( 1u, CountNeedle( impact, "pEffect->SetControlPointEntity(nPoint,pShell);" ) )
+	    << "and hands that shell to each control point it sets";
 	EXPECT_EQ( std::string::npos, impact.find( "TraceGameEntity(" ) )
 	    << "the impact effects ask TraceGameEntity again, which answers NULL on "
 	       "this side.";

@@ -574,6 +574,11 @@ static InterfaceReg g_CreateSourceSharpClientEntityList(
 // WHAT THE SHIM ASKS -- shell_cliententitylist.h's declarations
 //=============================================================================
 
+IClientUnknown *SourceSharp_ClientUnknownFromIndex( int nEntry )
+{
+	return ClientUnknownFromIndex( nEntry );
+}
+
 IClientEntity *SourceSharp_ClientEntityFromIndex( int nEntry )
 {
 	IClientUnknown *pUnknown = ClientUnknownFromIndex( nEntry );

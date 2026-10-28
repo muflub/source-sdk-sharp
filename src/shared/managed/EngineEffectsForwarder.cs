@@ -118,7 +118,7 @@ public abstract class EngineEffectsForwarder : IEngineEffects
     public virtual string ClientDecalNameFromIndex(int decalIndex) => Inner.ClientDecalNameFromIndex(decalIndex);
     // C-Phase 3 lane DECALS's two drawing arms, closing behaviour ledger rows
     // C2 and C3. Here for the block above's reason.
-    public virtual void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayEnd, int decalIndex) => Inner.ClientDecalStudioModel(entIndex, rayStart, rayEnd, decalIndex);
+    public virtual void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayDelta, int decalIndex) => Inner.ClientDecalStudioModel(entIndex, rayStart, rayDelta, decalIndex);
     public virtual void ClientDecalBrushModel(int entIndex, Vector decalCenter, int decalIndex) => Inner.ClientDecalBrushModel(entIndex, decalCenter, decalIndex);
 
     // C-Phase 6 lane FRAME's two.

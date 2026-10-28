@@ -87,7 +87,7 @@ public:
 	virtual int32_t ClientDecalNameFromIndex( int32_t nDecalIndex, char *pOut, int32_t nOutSize ) = 0;
 	virtual void ClientDecalShoot( int32_t nDecalIndex, int32_t nEntity, const float *pPositionXYZ, const float *pSAxisXYZ, int32_t nFlags ) = 0;
 	virtual void ClientDecalStaticProp( const float *pStartXYZ, const float *pEndXYZ, int32_t nStaticPropIndex, int32_t nDecalIndex ) = 0;
-	virtual void ClientDecalStudioModel( int32_t nEntity, const float *pRayStartXYZ, const float *pRayEndXYZ, int32_t nDecalIndex ) = 0;
+	virtual void ClientDecalStudioModel( int32_t nEntity, const float *pRayStartXYZ, const float *pRayDeltaXYZ, int32_t nDecalIndex ) = 0;
 	virtual void ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ, int32_t bExplosive ) = 0;
 	virtual int32_t ClientEntityModelType( int32_t nEntity ) = 0;
 	virtual int32_t ClientIsLowViolence() = 0;
@@ -102,6 +102,16 @@ public:
 	// stored by native: one length-prefixed block per table, and the size of the
 	// blob its receiving shell decodes into.
 	virtual int32_t TempEntBuildClient( const void * pBlock, int32_t nBlockBytes, int32_t nBlobBytes, SourceSharpTeRecvBuilt_t * pOut ) = 0;
+	// Lane M1-C: what the managed bullet impact (BulletImpactEffect) asks the
+	// engine and carries out: a MASK_SHOT trace, the two surface lighting
+	// reads behind GetColorForSurface, and the effect ledger's two rows.
+	virtual int32_t ClientShotTrace( const float *pStartXYZ, const float *pEndXYZ, int32_t nEntity, float *pOutFloats, int32_t nOutFloats, int32_t *pOutInts, int32_t nOutInts ) = 0;
+	virtual void ClientWorldLighting( const float *pStartXYZ, const float *pEndXYZ, float *pOut6 ) = 0;
+	virtual void ClientStaticPropLighting( const float *pStartXYZ, const float *pEndXYZ, const float *pNormalXYZ, int32_t nStaticProp, float *pOut6 ) = 0;
+	virtual void ClientImpactLedger( int32_t nFlecks, int32_t nDust ) = 0;
+	// Lane M1-C: a player's spray, as the managed PlayerSprays decided it: the
+	// logo material and the downloaded texture it is pointed at, by name.
+	virtual void ClientPlayerLogoDecal( const float *pPositionXYZ, int32_t nPlayer, int32_t nEntity, const char *pszMaterial, const char *pszTexture ) = 0;
 };
 
 abstract_class IShimEffectsRenderClient
@@ -330,6 +340,9 @@ public:
 	// The contents at a point inside a managed brush entity's own brush (lane c5-particles: the dust motes'
 	// spawn test, enginetrace->GetPointContents_Collideable over the owner as stock's SOLID_BSP dust volume).
 	virtual int32_t ParticlesBrushPointContents( uint32_t hOwner, const float *pPointXYZ ) = 0;
+	// Lane M1-C: a bullet impact's new-style particle system, its three
+	// oriented control points, the scale and the surface colour managed chose.
+	virtual int32_t ParticleSystemImpact( const char *pszName, const float *pPoints, int32_t nEntity, float flScale, const float *pColorXYZ ) = 0;
 };
 
 // The client's effects (plan_client_novalve §2 clusters 3 and 4): the effect

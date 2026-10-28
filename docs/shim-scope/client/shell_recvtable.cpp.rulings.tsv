@@ -2,6 +2,6 @@
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
 static void CopyName(	SLOT-HELP	copies a name into a caller buffer for the two dev API slots below; decides nothing
 SourceSharp_ClientRecvProp(	INSTRUMENT	the dev API nettables route: reports the recv tables the engine holds, each once; managed decides agreement (plan_client_novalve 4.4)
-SourceSharp_ClientSchemaRefusal(	INSTRUMENT	the dev API nettables route: forwards the payload decoder schema-refusal counters to managed (plan_client_novalve 4.4)
+SourceSharp_ClientSchemaRefusal(	SLOT	the schema refusals' old reader, empty: no managed caller since lane M1-C, when the refusals became ClientSchemaGate's and the dev API reads them there; kept because the shim tables only append, and the serialised ABI pass retires the row
 int32_t SourceSharp_NetTierInfo(	SLOT	IShimNetwork (sourcesharp_gamesystem.o): the facts of one registered recv-table tier (its table name, byte and word counts, prop count, whether a live entity uses it) read back for managed's schema checks
 int32_t SourceSharp_NetPublishType(	LAYOUT	IShimNetwork (sourcesharp_gamesystem.o): records managed's type in the native type table the ClientClass pairing reads, at the smallest registered tier its layout fits (SourceSharp_TierForSize); refusals said once each

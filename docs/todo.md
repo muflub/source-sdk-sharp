@@ -435,6 +435,30 @@ exit, as written.
 **Owner:** the client port. **Next:** not chosen; the cheapest is the
 index-addressed model-name read for the speaker gender.
 
+## Client temp entities, impacts and the schema gate in C# (lane M1-C, 2026-10-25): follow-ups
+
+- **Dead slots for the serialised ABI pass.** Lane M1-C could only append, so
+  these stay until the pass retires them: `IManagedDiagnosticsClient::Md5PseudoRandom`
+  (md5_pseudorandom.cpp left client.so), `IManagedTempEntsClient::OnImpactChoice`
+  with `ImpactChoicePolicy.Choose(span)` (the native impact chain is gone;
+  `BulletImpactEffect` decides), `IShimTempEntBackendsClient::ClientPlayerDecalShoot`
+  (empty; `PlayerSprays` decides, through `ClientPlayerLogoDecal`) with
+  `IEngineEffects.ClientPlayerDecalShoot`, and `IShimStandaloneClient::ClientSchemaRefusal`
+  (empty; the refusals are `ClientSchemaGate`'s, and `ShimAreaTypedCallsTests`
+  waives it by name until it goes). The client `SourceSharpTe_Forward`
+  (shell_tempents_client.cpp) has no caller since TE_Bubbles and TE_Smoke left.
+- **FindTempEntByID's search is still native** (`SourceSharpTePool_Find`,
+  ruled LOGIC): its only stock caller is TF's tf_fx_christmaslights.cpp, so
+  nothing in this build reaches it, and the managed pool holds neither field
+  it matches (skin and hitSound). It moves with the TF stage that brings the
+  caller.
+- **Divergences recorded by the lane:** the warp-shield impact particle is
+  dispatched by name; an impact's control-point entity resolves from the hit's
+  index; a spray checks its files before the logo material;
+  `cs_cl_schema_status` counts the declared types, not the published ones.
+
+**Owner:** the client port. **Next:** the serialised ABI pass for the slots.
+
 ## The TF2 stage-0 plan's class-script fixture does not exist
 
 Added 2026-10-12 at stage0-core-seams 724e7547e (phase 0.2's gate).

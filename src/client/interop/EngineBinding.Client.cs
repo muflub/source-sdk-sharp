@@ -390,30 +390,31 @@ internal sealed unsafe partial class EngineEffects
     /// BEHAVIOUR LEDGER ROWS C2 AND C3's studio arm.
     ///
     /// <para>
-    /// THE TWO POINTS AND NOT A RAY. Stock builds the <c>Ray_t</c> inside
+    /// A START AND A DELTA, NOT TWO POINTS. Stock builds the <c>Ray_t</c> inside
     /// <c>AddDecal</c> and then widens its DELTA by a tenth
-    /// (<c>ray.m_Delta *= 1.1f</c>, under its own "bloat a little bit so we get
-    /// the intersection"). Both stay native: bloating the endpoint here and
-    /// letting <c>Ray_t::Init</c> subtract would hand the engine
-    /// <c>(start + d * 1.1f) - start</c>, which is not <c>d * 1.1f</c>.
+    /// (<c>ray.m_Delta *= 1.1f</c>); managed does that multiply
+    /// (ClientEntityDecal.AddStudioDecal, lane M1-C) and hands the delta over,
+    /// because handing the lengthened ENDPOINT and letting <c>Ray_t::Init</c>
+    /// subtract would give the engine <c>(start + d * 1.1f) - start</c>, which
+    /// is not <c>d * 1.1f</c>.
     /// </para>
     ///
     /// <para>
     /// No hitbox: <c>AddStudioDecal</c> takes one and never reads it. No LOD
     /// limit: both of stock's call sites take <c>ADDDECAL_TO_ALL_LODS</c> by
-    /// default. <c>r_drawmodeldecals</c> is checked natively, because that is
-    /// where stock checks it and it is a renderer setting.
+    /// default. <c>r_drawmodeldecals</c> is managed's to test before this
+    /// (DecalSettings).
     /// </para>
     /// </summary>
-    public void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayEnd, int decalIndex)
+    public void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayDelta, int decalIndex)
     {
         float* pStart = stackalloc float[3];
         pStart[0] = rayStart.X; pStart[1] = rayStart.Y; pStart[2] = rayStart.Z;
 
-        float* pEnd = stackalloc float[3];
-        pEnd[0] = rayEnd.X; pEnd[1] = rayEnd.Y; pEnd[2] = rayEnd.Z;
+        float* pDelta = stackalloc float[3];
+        pDelta[0] = rayDelta.X; pDelta[1] = rayDelta.Y; pDelta[2] = rayDelta.Z;
 
-        _tempEntBackendsClientArea.ClientDecalStudioModel(entIndex, pStart, pEnd, decalIndex);
+        _tempEntBackendsClientArea.ClientDecalStudioModel(entIndex, pStart, pDelta, decalIndex);
     }
 
     /// <summary>

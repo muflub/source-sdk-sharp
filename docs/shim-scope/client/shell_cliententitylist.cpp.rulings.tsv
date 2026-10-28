@@ -40,3 +40,4 @@ CBaseHandle SourceSharp_LegacyListBind(	LIVE-API	imported by world_adapter_clien
 void SourceSharp_LegacyListUnbind( const CBaseHandle &hEnt )	LIVE-API	imported by world_adapter_client.o (nm -u, 2026-10-25): an empty body; both callers term their own handle
 IClientUnknown *SourceSharp_LegacyListUnknownFromIndex( int nEntry )	SLOT-HELP	the by-index primitive's third arm: the stock list it stood for is gone, so it answers NULL
 IClientUnknown *SourceSharp_LegacyListUnknownFromHandle( const CBaseHandle &hEnt )	LIVE-API	imported by shell_shadows_client.o (nm -u, 2026-10-25): answers NULL, the stock list being gone
+IClientUnknown *SourceSharp_ClientUnknownFromIndex(	LIVE-API	shell_impact_effects.o imports it (nm -u, 2026-10-25): the managed impact's control-point entity, from the hit's slot index (restored at the M1-C landing; lane M1-D had deleted it when nothing imported it)

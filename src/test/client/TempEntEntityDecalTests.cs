@@ -43,7 +43,7 @@ public class TempEntEntityDecalTests
 
     private static EntityDecalArm Stamp(RecordingEngine engine, int entIndex = 17,
                                         int decalIndex = 7)
-        => ClientEntityDecal.AddDecal(engine, engine, entIndex,
+        => ClientEntityDecal.AddDecal(engine, engine, DecalSettings.On(), entIndex,
                                       RayStart, RayEnd, Centre, decalIndex);
 
     // =====================================================================
@@ -70,9 +70,9 @@ public class TempEntEntityDecalTests
 
         Assert.True(call.ArgAs<int>(0) == 17, "on the entity it was aimed at");
         Assert.True(Same(call.ArgAs<Vector>(1), RayStart), "from rayStart");
-        Assert.True(Same(call.ArgAs<Vector>(2), RayEnd),
-            "to rayEnd -- and NOT to decalCenter, which is a third vector this arm "
-          + "does not read");
+        Assert.True(Same(call.ArgAs<Vector>(2), ClientEntityDecal.StudioRayDelta(RayStart, RayEnd)),
+            "along the segment to rayEnd lengthened a tenth (the delta, as stock's ray holds it) -- "
+          + "and NOT to decalCenter, which is a third vector this arm does not read");
         Assert.True(call.ArgAs<int>(3) == 7, "with the decal index it was given");
     }
 
@@ -212,7 +212,7 @@ public class TempEntEntityDecalTests
         var engine = Fake().Returns("WorldQuery.ClientEntityModelType", ModelType.Brush);
 
         // The projected decal's shape: centre equal to the end.
-        ClientEntityDecal.AddDecal(engine, engine, 0,
+        ClientEntityDecal.AddDecal(engine, engine, DecalSettings.On(), 0,
                                    rayStart: new Vector(100f, 200f, 300f),
                                    rayEnd: new Vector(612f, 200f, 300f),
                                    decalCenter: new Vector(612f, 200f, 300f),
@@ -224,7 +224,7 @@ public class TempEntEntityDecalTests
 
         // And a caller whose centre is NOT the end gets its own centre, rather
         // than the end it did not ask for.
-        ClientEntityDecal.AddDecal(engine, engine, 0,
+        ClientEntityDecal.AddDecal(engine, engine, DecalSettings.On(), 0,
                                    rayStart: new Vector(100f, 200f, 300f),
                                    rayEnd: new Vector(612f, 200f, 300f),
                                    decalCenter: new Vector(-7f, -8f, -9f),
@@ -252,7 +252,7 @@ public class TempEntEntityDecalTests
         var engine = Fake().Returns("WorldQuery.ClientEntityModelType", ModelType.Studio);
 
         // CTEDecal: rayStart is m_vecStart, rayEnd is m_vecOrigin.
-        new ClientTeDecal(engine, engine).Play(new TeDecal
+        new ClientTeDecal(engine, engine, DecalSettings.On()).Play(new TeDecal
         {
             Start = new Vector(1f, 2f, 3f),
             Origin = new Vector(4f, 5f, 6f),
@@ -266,8 +266,9 @@ public class TempEntEntityDecalTests
         Assert.True(decal.ArgAs<int>(0) == 12, "the bullet hole is aimed at the wire's entity");
         Assert.True(Same(decal.ArgAs<Vector>(1), new Vector(1f, 2f, 3f)),
             "from m_vecStart, which is stock's *start");
-        Assert.True(Same(decal.ArgAs<Vector>(2), new Vector(4f, 5f, 6f)),
-            "to m_vecOrigin, which is stock's *pos");
+        Assert.True(Same(decal.ArgAs<Vector>(2),
+                         ClientEntityDecal.StudioRayDelta(new Vector(1f, 2f, 3f), new Vector(4f, 5f, 6f))),
+            "to m_vecOrigin, which is stock's *pos (handed over as the ray's lengthened delta)");
 
         // CTEProjectedDecal: rayStart is m_vecOrigin, rayEnd is the projection's
         // far end -- origin + forward * distance, with angles of zero facing +X.
@@ -276,7 +277,7 @@ public class TempEntEntityDecalTests
                                    new ClientTraceResult(true, 0.5f, new Vector(50f, 0f, 0f),
                                                          Vector.Zero, 0, 12, 0, 0));
 
-        new ClientTeProjectedDecal(world, world).Play(new TeProjectedDecal
+        new ClientTeProjectedDecal(world, world, DecalSettings.On()).Play(new TeProjectedDecal
         {
             Origin = new Vector(100f, 200f, 300f),
             Rotation = Vector.Zero,
@@ -291,8 +292,55 @@ public class TempEntEntityDecalTests
           + "-- this table carries no entity");
         Assert.True(Same(projected.ArgAs<Vector>(1), new Vector(100f, 200f, 300f)),
             "from its own origin, which is stock's *pos");
-        Assert.True(Same(projected.ArgAs<Vector>(2), new Vector(612f, 200f, 300f)),
-            "to origin + forward * distance, which is stock's endpos -- and NOT to "
-          + "tr.endpos (50, 0, 0), which is where the trace stopped");
+        Assert.True(Same(projected.ArgAs<Vector>(2),
+                         ClientEntityDecal.StudioRayDelta(new Vector(100f, 200f, 300f), new Vector(612f, 200f, 300f))),
+            "to origin + forward * distance, which is stock's endpos (the ray's lengthened delta) -- "
+          + "and NOT to tr.endpos (50, 0, 0), which is where the trace stopped");
+    }
+
+    // =====================================================================
+    // AddStudioDecal: C_BaseEntity::AddStudioDecal's gate and its ray (lane M1-C).
+    // =====================================================================
+
+    /// <summary>
+    /// <c>ray.Init( start, end ); ray.m_Delta *= 1.1f;</c> -- the bloat is on the
+    /// DELTA and only the far end moves. (10, 10, 10) is exactly (11, 11, 11);
+    /// scaling the endpoint about the origin, or the segment about its middle,
+    /// gives neither.
+    /// </summary>
+    [Fact]
+    public void TheStudioRayIsTheSegmentLengthenedATenthFromItsStart()
+    {
+        var engine = Fake();
+
+        Assert.True(ClientEntityDecal.AddStudioDecal(engine, DecalSettings.On(), 17, RayStart, RayEnd, 7));
+
+        var call = engine.Last("Effects.ClientDecalStudioModel")!.Value;
+        Assert.True(Same(call.ArgAs<Vector>(1), RayStart), "the start is not moved");
+        Assert.True(Same(call.ArgAs<Vector>(2), new Vector(11f, 11f, 11f)),
+            $"the delta is (end - start) * 1.1, not {call.ArgAs<Vector>(2)}");
+    }
+
+    [Fact]
+    public void AZeroLengthStudioRayStaysZeroLength()
+        => Assert.True(Same(ClientEntityDecal.StudioRayDelta(RayStart, RayStart), new Vector(0f, 0f, 0f)));
+
+    [Fact]
+    public void AStudioRayAimedBackwardsLengthensBackwards()
+        => Assert.True(Same(ClientEntityDecal.StudioRayDelta(RayEnd, RayStart), new Vector(-11f, -11f, -11f)));
+
+    /// <summary>
+    /// <c>r_drawmodeldecals 0</c>: stock's AddStudioDecal returns before the
+    /// instance is made, so nothing reaches the model renderer.
+    /// </summary>
+    [Fact]
+    public void RDrawModelDecalsOffPutsNoDecalOnAModel()
+    {
+        var engine = Fake().Returns("WorldQuery.ClientEntityModelType", ModelType.Studio);
+
+        ClientEntityDecal.AddDecal(engine, engine, new DecalSettings(() => true, () => false), 17,
+                                   RayStart, RayEnd, Centre, 7);
+
+        Assert.True(engine.CountOf("Effects.ClientDecalStudioModel") == 0, "no studio decal with the toggle off");
     }
 }
