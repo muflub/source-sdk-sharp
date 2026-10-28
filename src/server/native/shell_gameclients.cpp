@@ -363,7 +363,7 @@ float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int nu
 	return gpGlobals->interval_per_tick;
 }
 
-void CServerGameClients::PostClientMessagesSent_DEPRECIATED( void )
+void CServerGameClients::PostClientMessagesSent_DEPRECIATED()
 {
 	SS_BOUNDARY_HIT( kBoundaryProbe_Clients_PostClientMessagesSent );
 }

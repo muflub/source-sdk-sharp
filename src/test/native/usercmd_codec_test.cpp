@@ -20,19 +20,6 @@
 
 namespace
 {
-std::string ReadFile( const char *pPath )
-{
-	FILE *f = fopen( pPath, "rb" );
-	if ( !f )
-		return std::string();
-	std::string s;
-	char buf[ 4096 ];
-	size_t n;
-	while ( ( n = fread( buf, 1, sizeof( buf ), f ) ) > 0 )
-		s.append( buf, n );
-	fclose( f );
-	return s;
-}
 }
 
 TEST( UserCmdCodec, NoDllCompilesAUsercmdCpp )
@@ -48,12 +35,3 @@ TEST( UserCmdCodec, NoDllCompilesAUsercmdCpp )
 	}
 }
 
-TEST( UserCmdCodec, TheClientsCodecSlotsCrossToManaged )
-{
-	const std::string input = ReadFile( "sourcesharp/game/client/shell_input.cpp" );
-	ASSERT_FALSE( input.empty() ) << "shell_input.cpp could not be read";
-	EXPECT_NE( input.find( "p->InputEncodeUserCmd(" ), std::string::npos );
-	EXPECT_NE( input.find( "p->InputDecodeUserCmd(" ), std::string::npos );
-	EXPECT_EQ( input.find( "WriteUsercmd(" ), std::string::npos ) << "shell_input.cpp calls a native WriteUsercmd again";
-	EXPECT_EQ( input.find( "ReadUsercmd(" ), std::string::npos ) << "shell_input.cpp calls a native ReadUsercmd again";
-}

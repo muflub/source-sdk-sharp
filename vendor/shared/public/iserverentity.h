@@ -20,8 +20,8 @@ public:
 	virtual					~IServerEntity() {}
 
 // Previously in pev
-	virtual int				GetModelIndex( void ) const = 0;
- 	virtual string_t		GetModelName( void ) const = 0;
+	virtual int				GetModelIndex() const = 0;
+ 	virtual string_t		GetModelName() const = 0;
 
 	virtual void			SetModelIndex( int index ) = 0;
 };

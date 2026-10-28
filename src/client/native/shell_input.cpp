@@ -184,7 +184,7 @@ public:
 		return nBits == m_Mailbox.nShakeBits;
 	}
 
-	virtual void Init_All( void ) OVERRIDE
+	virtual void Init_All() OVERRIDE
 	{
 		Assert( !m_pCommands );
 		m_pCommands = new CUserCmd[ MULTIPLAYER_BACKUP ];
@@ -194,7 +194,7 @@ public:
 			p->InputInit( ss::CommandLineHas( "-nomouse" ) ? 1 : 0 );
 	}
 
-	virtual void Shutdown_All( void ) OVERRIDE
+	virtual void Shutdown_All() OVERRIDE
 	{
 		if ( IManagedInputClient *p = ManagedInputClient() )
 			p->InputShutdown();
@@ -341,9 +341,9 @@ public:
 		return NULL;
 	}
 
-	virtual void ControllerCommands( void ) OVERRIDE {}
+	virtual void ControllerCommands() OVERRIDE {}
 
-	virtual void Joystick_Advanced( void ) OVERRIDE
+	virtual void Joystick_Advanced() OVERRIDE
 	{
 		if ( IManagedInputClient *p = ManagedInputClient() )
 			p->InputJoystickAdvanced();
@@ -362,7 +362,7 @@ public:
 		m_Mailbox.nKeyboardSampleSeq++;
 	}
 
-	virtual void AccumulateMouse( void ) OVERRIDE
+	virtual void AccumulateMouse() OVERRIDE
 	{
 		if ( IManagedInputClient *p = ManagedInputClient() )
 			p->InputAccumulateMouse();
@@ -370,7 +370,7 @@ public:
 
 	// The engine asks these every frame its window gains or lacks focus;
 	// managed publishes when one would change nothing.
-	virtual void ActivateMouse( void ) OVERRIDE
+	virtual void ActivateMouse() OVERRIDE
 	{
 		if ( Published( INPUT_PUBLISHED_ACTIVATE_NOOP ) )
 			return;
@@ -378,7 +378,7 @@ public:
 			p->InputActivateMouse();
 	}
 
-	virtual void DeactivateMouse( void ) OVERRIDE
+	virtual void DeactivateMouse() OVERRIDE
 	{
 		if ( Published( INPUT_PUBLISHED_DEACTIVATE_NOOP ) )
 			return;
@@ -386,13 +386,13 @@ public:
 			p->InputDeactivateMouse();
 	}
 
-	virtual void ClearStates( void ) OVERRIDE
+	virtual void ClearStates() OVERRIDE
 	{
 		if ( IManagedInputClient *p = ManagedInputClient() )
 			p->InputClearStates();
 	}
 
-	virtual float GetLookSpring( void ) OVERRIDE
+	virtual float GetLookSpring() OVERRIDE
 	{
 		IManagedInputClient *p = ManagedInputClient();
 		return p ? p->InputGetLookSpring() : 0.0f;
@@ -419,24 +419,24 @@ public:
 			p->InputSetFullscreenMousePos( mx, my );
 	}
 
-	virtual void ResetMouse( void ) OVERRIDE
+	virtual void ResetMouse() OVERRIDE
 	{
 		if ( IManagedInputClient *p = ManagedInputClient() )
 			p->InputResetMouse();
 	}
 
-	virtual float GetLastForwardMove( void ) OVERRIDE
+	virtual float GetLastForwardMove() OVERRIDE
 	{
 		IManagedInputClient *p = ManagedInputClient();
 		return p ? p->InputGetLastForwardMove() : 0.0f;
 	}
 
-	virtual float Joystick_GetForward( void ) OVERRIDE { return JoystickAxis( 0 ); }
-	virtual float Joystick_GetSide( void ) OVERRIDE { return JoystickAxis( 1 ); }
-	virtual float Joystick_GetPitch( void ) OVERRIDE { return JoystickAxis( 2 ); }
-	virtual float Joystick_GetYaw( void ) OVERRIDE { return JoystickAxis( 3 ); }
+	virtual float Joystick_GetForward() OVERRIDE { return JoystickAxis( 0 ); }
+	virtual float Joystick_GetSide() OVERRIDE { return JoystickAxis( 1 ); }
+	virtual float Joystick_GetPitch() OVERRIDE { return JoystickAxis( 2 ); }
+	virtual float Joystick_GetYaw() OVERRIDE { return JoystickAxis( 3 ); }
 
-	virtual void CAM_Think( void ) OVERRIDE
+	virtual void CAM_Think() OVERRIDE
 	{
 		IManagedInputClient *p = ManagedInputClient();
 		if ( !p )
@@ -454,19 +454,19 @@ public:
 	}
 
 	// The view asks this every frame: managed publishes the answer.
-	virtual int CAM_IsThirdPerson( void ) OVERRIDE
+	virtual int CAM_IsThirdPerson() OVERRIDE
 	{
 		if ( m_Mailbox.nPublished & INPUT_PUBLISHED_VALID )
 			return Published( INPUT_PUBLISHED_THIRD_PERSON ) ? 1 : 0;
 		return CamOp( CAMOP_IS_THIRD_PERSON );
 	}
-	virtual void CAM_ToThirdPerson( void ) OVERRIDE { CamOp( CAMOP_TO_THIRD_PERSON ); }
-	virtual void CAM_ToFirstPerson( void ) OVERRIDE { CamOp( CAMOP_TO_FIRST_PERSON ); }
-	virtual void CAM_StartMouseMove( void ) OVERRIDE { CamOp( CAMOP_START_MOUSE_MOVE ); }
-	virtual void CAM_EndMouseMove( void ) OVERRIDE { CamOp( CAMOP_END_MOUSE_MOVE ); }
-	virtual void CAM_StartDistance( void ) OVERRIDE { CamOp( CAMOP_START_DISTANCE ); }
-	virtual void CAM_EndDistance( void ) OVERRIDE { CamOp( CAMOP_END_DISTANCE ); }
-	virtual int CAM_InterceptingMouse( void ) OVERRIDE { return CamOp( CAMOP_INTERCEPTING_MOUSE ); }
+	virtual void CAM_ToThirdPerson() OVERRIDE { CamOp( CAMOP_TO_THIRD_PERSON ); }
+	virtual void CAM_ToFirstPerson() OVERRIDE { CamOp( CAMOP_TO_FIRST_PERSON ); }
+	virtual void CAM_StartMouseMove() OVERRIDE { CamOp( CAMOP_START_MOUSE_MOVE ); }
+	virtual void CAM_EndMouseMove() OVERRIDE { CamOp( CAMOP_END_MOUSE_MOVE ); }
+	virtual void CAM_StartDistance() OVERRIDE { CamOp( CAMOP_START_DISTANCE ); }
+	virtual void CAM_EndDistance() OVERRIDE { CamOp( CAMOP_END_DISTANCE ); }
+	virtual int CAM_InterceptingMouse() OVERRIDE { return CamOp( CAMOP_INTERCEPTING_MOUSE ); }
 	virtual void CAM_ToOrthographic() OVERRIDE { CamOp( CAMOP_TO_ORTHOGRAPHIC ); }
 	virtual bool CAM_IsOrthographic() const OVERRIDE { return CamOp( CAMOP_IS_ORTHOGRAPHIC ) != 0; }
 
@@ -498,7 +498,7 @@ public:
 			p->InputSetGameActionSetFlags( (int32_t)action_set_flags );
 	}
 
-	virtual void LevelInit( void ) OVERRIDE
+	virtual void LevelInit() OVERRIDE
 	{
 		if ( IManagedInputClient *p = ManagedInputClient() )
 			p->InputLevelInit();
@@ -528,7 +528,7 @@ public:
 		}
 	}
 
-	virtual void CAM_CameraThirdThink( void ) OVERRIDE { CamOp( CAMOP_CAMERA_THIRD_THINK ); }
+	virtual void CAM_CameraThirdThink() OVERRIDE { CamOp( CAMOP_CAMERA_THIRD_THINK ); }
 
 	virtual bool EnableJoystickMode() OVERRIDE
 	{
@@ -656,11 +656,11 @@ static CSourceSharpInput g_Input;
 
 // g_ThirdPersonManager: clientmode_shared.cpp resets it at level shutdown. The
 // manager is managed's; this object is the name.
-CThirdPersonManager::CThirdPersonManager( void )
+CThirdPersonManager::CThirdPersonManager()
 {
 }
 
-void CThirdPersonManager::Init( void )
+void CThirdPersonManager::Init()
 {
 	if ( IManagedInputClient *p = ManagedInputClient() )
 		p->InputThirdPersonInit();
@@ -685,7 +685,7 @@ void UpdateScreenShakeRumble( float shake, float balance )
 }
 
 // The client DLL's level shutdown.
-void StopAllRumbleEffects( void )
+void StopAllRumbleEffects()
 {
 	if ( IManagedInputClient *p = ManagedInputClient() )
 		p->InputRumbleStopAll();
@@ -716,7 +716,7 @@ void SourceSharp_InputSetCursorPos( int32_t x, int32_t y )
 	SetVGUICursorPos( x, y );
 }
 
-void SourceSharp_InputSetCursorArrow( void )
+void SourceSharp_InputSetCursorArrow()
 {
 	if ( vgui::surface() )
 		vgui::surface()->SetCursor( vgui::dc_arrow );
@@ -743,7 +743,7 @@ void SourceSharp_InputHudFacts( float *pSensitivity, int32_t *pKeyBits, float *p
 		*pFovAdjust = gHUD.GetFOVSensitivityAdjust();
 }
 
-void SourceSharp_InputStopPitchDrift( void )
+void SourceSharp_InputStopPitchDrift()
 {
 	if ( view )
 		view->StopPitchDrift();
@@ -757,17 +757,17 @@ void SourceSharp_InputSetLocalViewAngles( const float *pAngles )
 	prediction->SetLocalViewAngles( angles );
 }
 
-void SourceSharp_InputViewerCameraModeChanged( void )
+void SourceSharp_InputViewerCameraModeChanged()
 {
 	SourceSharp_ViewerCameraModeChanged();
 }
 
-int32_t SourceSharp_InputViewerAimIsAssisted( void )
+int32_t SourceSharp_InputViewerAimIsAssisted()
 {
 	return SourceSharp_ViewerAimIsAssisted() ? 1 : 0;
 }
 
-void *SourceSharp_InputMailbox( void )
+void *SourceSharp_InputMailbox()
 {
 	return g_Input.Mailbox();
 }

@@ -137,7 +137,7 @@ public:
 	ModelHitBoxInfo_t *m_pHitBoxes;
 	ModelHitBoxInfo_t *m_pPrevBoxes;
 
-	CModelHitBoxesInfo( void )
+	CModelHitBoxesInfo()
 	{
 		m_flLastUpdateTime = -1;
 		m_nNumHitBoxes = 0;
@@ -146,7 +146,7 @@ public:
 		m_pPrevBoxes = NULL;
 	}
 
-	~CModelHitBoxesInfo( void )
+	~CModelHitBoxesInfo()
 	{
 		if ( m_pHitBoxes )
 			delete[] m_pHitBoxes;
@@ -214,7 +214,7 @@ public:
 		return 0;
 	}
 
-	virtual Vector GetLocalPlayerPos( void )
+	virtual Vector GetLocalPlayerPos()
 	{
 		return vec3_origin;
 	}
@@ -250,8 +250,8 @@ public:
 
 	// methods to add builtin operators. If you don't call these at startup, you won't be able to sim or draw. These are done separately from Init, so that
 	// the server can omit the code needed for rendering/simulation, if desired.
-	void AddBuiltinSimulationOperators( void );
-	void AddBuiltinRenderingOperators( void );
+	void AddBuiltinSimulationOperators();
+	void AddBuiltinRenderingOperators();
 
 	// Read a particle config file, add it to the list of particle configs
 	bool ReadParticleConfigFile( const char *pFileName, bool bPrecache, bool bDecommitTempMemory = true );
@@ -261,13 +261,13 @@ public:
 	const char *GetParticleSystemNameFromIndex( ParticleSystemHandle_t iIndex );
 
 	// Return the number of particle systems in our dictionary
-	int GetParticleSystemCount( void );
+	int GetParticleSystemCount();
 
 	// Particle sheet management
 	void ShouldLoadSheets( bool bLoadSheets );
 
 	// Render cache used to render opaque particle collections
-	void ResetRenderCache( void );
+	void ResetRenderCache();
 	void AddToRenderCache( CParticleCollection *pParticles );
 	void DrawRenderCache( bool bShadowDepth );
 
@@ -283,7 +283,7 @@ public:
 															// profile data for slow frames if
 															// desired.
 
-	void DumpProfileInformation( void );					// write particle_profile.csv
+	void DumpProfileInformation();					// write particle_profile.csv
 
 	// Cache/uncache materials used by particle systems
 	void PrecacheParticleSystem( const char *pName );
@@ -401,12 +401,12 @@ public:
 		m_flMaxExecutionTime = MAX( m_flMaxExecutionTime, flETime );
 	}
 
-	FORCEINLINE float TotalRecordedExecutionTime( void ) const
+	FORCEINLINE float TotalRecordedExecutionTime() const
 	{
 		return m_flTotalExecutionTime;
 	}
 
-	FORCEINLINE float MaximumRecordedExecutionTime( void ) const
+	FORCEINLINE float MaximumRecordedExecutionTime() const
 	{
 		return m_flMaxExecutionTime;
 	}
@@ -532,7 +532,7 @@ public:
 	float m_flOpEndFadeOutTime;
 	float m_flOpFadeOscillatePeriod;
 
-	virtual ~CParticleOperatorInstance( void )
+	virtual ~CParticleOperatorInstance()
 	{
 		// so that sheet references, etc can be cleaned up
 	}
@@ -674,7 +674,7 @@ struct CParticleControlPoint
 class CParticleCollection
 {
 public:
-	~CParticleCollection( void );
+	~CParticleCollection();
 
 	void SetControlPoint( int nWhichPoint, const Vector &v );
 	void SetControlPointObject( int nWhichPoint, void *pObject );
@@ -690,11 +690,11 @@ public:
 	// the camera objetc may be compared for equality against control point objects
 	void Render( IMatRenderContext *pRenderContext, bool bTranslucentOnly = false, void *pCameraObject = NULL );
 
-	bool IsValid( void ) const;
+	bool IsValid() const;
 	const char *GetName() const;
 
 	// IsFinished returns true when a system has no particles and won't be creating any more
-	bool IsFinished( void );
+	bool IsFinished();
 
 	void StopEmission( bool bInfiniteOnly = false, bool bRemoveAllParticles = false, bool bWakeOnStop = false );
 	void SetDormant( bool bDormant );
@@ -703,7 +703,7 @@ public:
 	void GetControlPointOrientationAtCurrentTime( int nControlPoint, Vector *pForward, Vector *pRight, Vector *pUp ) const;
 	int GetControlPointParent( int nControlPoint ) const;
 
-	int GetHighestControlPoint( void ) const;
+	int GetHighestControlPoint() const;
 
 	// Has this particle moved recently (since the last simulation?)
 	bool HasMoved() const;
@@ -855,7 +855,7 @@ private:
 class CM128AttributeWriteIterator : public CStridedPtr<fltx4>
 {
 public:
-	FORCEINLINE CM128AttributeWriteIterator( void )
+	FORCEINLINE CM128AttributeWriteIterator()
 	{
 	}
 	FORCEINLINE void Init ( int nAttribute, CParticleCollection *pParticles )
@@ -1006,8 +1006,8 @@ class CParticleSystemDefinition
 	DECLARE_REFERENCED_CLASS( CParticleSystemDefinition );
 
 public:
-	CParticleSystemDefinition( void );
-	~CParticleSystemDefinition( void );
+	CParticleSystemDefinition();
+	~CParticleSystemDefinition();
 
 	// Serialization, unserialization
 	void Read( CDmxElement *pElement );
@@ -1102,7 +1102,7 @@ public:
 };
 
 // Inline methods
-inline CParticleSystemDefinition::CParticleSystemDefinition( void )
+inline CParticleSystemDefinition::CParticleSystemDefinition()
 {
 	m_nControlPointReadMask = 0;
 	m_nInitialAttributeReadMask = 0;
@@ -1122,7 +1122,7 @@ inline CParticleSystemDefinition::CParticleSystemDefinition( void )
 	m_nRetireCheckFrame = 0;
 }
 
-inline CParticleSystemDefinition::~CParticleSystemDefinition( void )
+inline CParticleSystemDefinition::~CParticleSystemDefinition()
 {
 	UnlinkAllCollections();
 	m_Operators.PurgeAndDeleteElements();
@@ -1199,7 +1199,7 @@ FORCEINLINE int CParticleCollection::GetControlPointParent( int nControlPoint ) 
 	return m_ControlPoints[nControlPoint].m_nParent;
 }
 
-FORCEINLINE bool CParticleCollection::IsValid( void ) const 
+FORCEINLINE bool CParticleCollection::IsValid() const 
 { 
 	return ( m_pDef != NULL && m_pDef->GetMaterial() );  
 }

@@ -75,7 +75,7 @@ public:
 abstract_class IVModelInfo
 {
 public:
-	virtual							~IVModelInfo( void ) { }
+	virtual							~IVModelInfo() { }
 
 	// Returns model_t* pointer for a model given a precached or dynamic model index.
 	virtual const model_t			*GetModel( int modelindex ) = 0;

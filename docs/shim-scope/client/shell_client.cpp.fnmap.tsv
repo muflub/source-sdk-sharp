@@ -24,23 +24,23 @@
 1	SLOT	[CSourceSharpClientMode] virtual bool ShouldDrawDetailObjects() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual bool ShouldDrawEntity( C_BaseEntity *pEnt ) OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual bool ShouldDrawParticles() OVERRIDE
-1	SLOT	[CSourceSharpClientMode] virtual bool ShouldDrawFog( void ) OVERRIDE
-1	SLOT	[CSourceSharpClientMode] virtual bool ShouldDrawViewModel( void ) OVERRIDE
-1	SLOT	[CSourceSharpClientMode] virtual bool ShouldDrawCrosshair( void ) OVERRIDE
+1	SLOT	[CSourceSharpClientMode] virtual bool ShouldDrawFog() OVERRIDE
+1	SLOT	[CSourceSharpClientMode] virtual bool ShouldDrawViewModel() OVERRIDE
+1	SLOT	[CSourceSharpClientMode] virtual bool ShouldDrawCrosshair() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual bool ShouldDrawLocalPlayer( C_BasePlayer *pPlayer ) OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void StartMessageMode( int iMessageModeType ) OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual vgui::Panel *GetMessagePanel() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void OverrideMouseInput( float *x, float *y ) OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual bool CreateMove( float flInputSampleTime, CUserCmd *cmd ) OVERRIDE
 10	SLOT	[CSourceSharpClientMode] virtual void LevelInit( const char *newmap ) OVERRIDE
-6	SLOT	[CSourceSharpClientMode] virtual void LevelShutdown( void ) OVERRIDE
+6	SLOT	[CSourceSharpClientMode] virtual void LevelShutdown() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void AdjustEngineViewport( int &x, int &y, int &width, int &height ) OVERRIDE
 1	HOOK	[CSourceSharpClientMode] virtual void PreRender( CViewSetup *pSetup ) OVERRIDE
-4	SLOT	[CSourceSharpClientMode] virtual void PostRender( void ) OVERRIDE
+4	SLOT	[CSourceSharpClientMode] virtual void PostRender() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void PostRenderVGui() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void ActivateInGameVGuiContext( vgui::Panel *pPanel ) OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void DeactivateInGameVGuiContext() OVERRIDE
-5	SLOT	[CSourceSharpClientMode] virtual float GetViewModelFOV( void ) OVERRIDE
+5	SLOT	[CSourceSharpClientMode] virtual float GetViewModelFOV() OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual bool CanRecordDemo( char *errorMsg, int length ) const OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual void ComputeVguiResConditions( KeyValues *pkvConditions ) OVERRIDE
 1	SLOT	[CSourceSharpClientMode] virtual wchar_t *GetServerName() OVERRIDE
@@ -61,18 +61,18 @@
 9	SLOT	[CSourceSharpClientMode] virtual int KeyInput( int down, ButtonCode_t keynum, const char *pszCurrentBinding ) OVERRIDE
 25	SLOT	[CSourceSharpClientMode] virtual void OverrideView( CViewSetup *pSetup ) OVERRIDE
 4	SLOT-HELP	vgui::VPANEL SourceSharp_ClientViewportPanel()
-4	BOUNDARY	void SourceSharp_ClientModeLayout( void )
+4	BOUNDARY	void SourceSharp_ClientModeLayout()
 5	LIVE-API	IClientMode *GetClientModeNormal()
 1	SLOT	[CSourceSharpModeManager] virtual void Init() OVERRIDE
 1	SLOT	[CSourceSharpModeManager] virtual void SwitchMode( bool commander, bool force ) OVERRIDE
 5	SLOT	[CSourceSharpModeManager] virtual void LevelInit( const char *newmap ) OVERRIDE
-5	SLOT	[CSourceSharpModeManager] virtual void LevelShutdown( void ) OVERRIDE
-16	LIVE-API	void VGUI_CreateClientDLLRootPanel( void )
-6	LIVE-API	void VGUI_DestroyClientDLLRootPanel( void )
-5	LIVE-API	vgui::VPANEL VGui_GetClientDLLRootPanel( void )
+5	SLOT	[CSourceSharpModeManager] virtual void LevelShutdown() OVERRIDE
+16	LIVE-API	void VGUI_CreateClientDLLRootPanel()
+6	LIVE-API	void VGUI_DestroyClientDLLRootPanel()
+5	LIVE-API	vgui::VPANEL VGui_GetClientDLLRootPanel()
 1	SLOT	[CAbsentFPSPanel] void Create( vgui::VPANEL ) override
-1	SLOT	[CAbsentFPSPanel] void Destroy( void ) override
+1	SLOT	[CAbsentFPSPanel] void Destroy() override
 1	SLOT	[CAbsentNetGraphPanel] void Create( vgui::VPANEL ) override
-1	SLOT	[CAbsentNetGraphPanel] void Destroy( void ) override
+1	SLOT	[CAbsentNetGraphPanel] void Destroy() override
 3	LIVE-API	void StudioStats_FindClosestEntity( CClientRenderablesList * )
 4	SLOT	void SourceSharp_RegisterAmmoType( const char *pName, int32_t nDamageType, int32_t nMaxCarry,

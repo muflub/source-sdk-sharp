@@ -7,7 +7,7 @@
 // The managed client's convar watch and decided values.
 #pragma once
 
-#include <stdint.h>
+
 
 // Watched convars' ids start here, clear of the managed registry's own ids.
 #define SOURCESHARP_CONVAR_WATCH_ID_BASE 0x10000

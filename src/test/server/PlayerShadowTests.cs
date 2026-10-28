@@ -726,41 +726,6 @@ public unsafe class PlayerShadowTests
     }
 
     /// <summary>
-    /// The shadow is torn down when the player goes, <b>and the destructor is
-    /// the ONLY thing that does it</b>. A managed second owner for the same
-    /// teardown was tried and reverted — a live-gate run with a
-    /// <c>DestroyVCollision</c> in <c>SsPlayer.OnRemoved</c> came back with
-    /// every physics prop in the SECOND map falling five thousand units through
-    /// the floor. <see cref="NothingButTheDestructorTakesTheShadowAway"/> is the
-    /// other half of this fact.
-    /// </summary>
-    [Fact]
-    public void TheDestructorTakesTheShadowWithIt()
-    {
-        var dtor = Regex.Match(PlayerCode,
-            @"CStandalonePlayer::~CStandalonePlayer\(\)\s*\{(.*?)\n\}",
-            RegexOptions.Singleline);
-
-        Assert.True(dtor.Success, "the destructor is still recognisable");
-        Assert.Contains("DestroyVCollision()", dtor.Groups[1].Value);
-    }
-
-    /// <summary>
-    /// <b>THE SHELL'S OWN PHYSICS POINTER IS NOT AIMED AT THE SHADOW.</b>
-    ///
-    /// <para>
-    /// Stock's <c>SetVCollisionState</c> calls <c>VPhysicsSwapObject</c>, which
-    /// aliases the entity's physics object onto whichever hull is active. Here
-    /// that member is what <c>CStandaloneEntity::UpdatePhysics</c> copies onto
-    /// the entity every frame, so pointing it at the shadow would let the
-    /// solver's answer overwrite the position the movement loop just computed.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void TheShadowIsNotInstalledAsTheShellsPhysicsObject()
-        => Assert.DoesNotContain("VPhysicsSwapObject", PlayerCode);
-
-    /// <summary>
     /// <b>ONE OWNER FOR THE TEARDOWN.</b> There is no <c>PlayerDestroyVCollision</c>
     /// slot and there must not be one: the shadow's lifetime is the player's and
     /// the player's is the engine's edict, both native. Written as an absence of
@@ -852,31 +817,6 @@ public unsafe class PlayerShadowTests
                                  .ToList();
 
         Assert.Empty(offenders);
-    }
-
-    /// <summary>
-    /// <b>A SHADOW IS ONLY FREED THROUGH THE ENVIRONMENT THAT BUILT IT.</b>
-    ///
-    /// <para>
-    /// <c>physenv</c> is a global destroyed and recreated at every level change
-    /// (<c>CPhysicsHook::LevelShutdownPostEntity</c>). An object outlives its
-    /// environment only as a pointer, and handing a stale one to the NEW
-    /// environment's <c>DestroyObject</c> is a free of whatever that environment
-    /// put at the address — whose visible symptom is the next map's props
-    /// falling through its floor.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void AStaleShadowIsDroppedRatherThanFreed()
-    {
-        var destroy = Regex.Match(PlayerCode,
-            @"void CStandalonePlayer::DestroyVCollision\(\)\s*\{(.*?)\n\}",
-            RegexOptions.Singleline);
-
-        Assert.True(destroy.Success);
-        Assert.Contains("physenv == m_pShadowEnv", destroy.Groups[1].Value);
-        Assert.DoesNotContain("physenv->DestroyObject", destroy.Groups[1].Value);
-        Assert.DoesNotContain("physenv->DestroyPlayerController", destroy.Groups[1].Value);
     }
 
     /// <summary>

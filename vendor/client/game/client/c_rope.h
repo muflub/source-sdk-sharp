@@ -256,13 +256,13 @@ abstract_class IRopeManager
 {
 public:
 	virtual						~IRopeManager() {}
-	virtual void				ResetRenderCache( void ) = 0;
+	virtual void				ResetRenderCache() = 0;
 	virtual void				AddToRenderCache( C_RopeKeyframe *pRope ) = 0;
 	virtual void				DrawRenderCache( bool bShadowDepth ) = 0;
-	virtual void				OnRenderStart( void ) = 0;
+	virtual void				OnRenderStart() = 0;
 	virtual void				SetHolidayLightMode( bool bHoliday ) = 0;
-	virtual bool				IsHolidayLightMode( void ) = 0;
-	virtual int					GetHolidayLightStyle( void ) = 0;
+	virtual bool				IsHolidayLightMode() = 0;
+	virtual int					GetHolidayLightStyle() = 0;
 };
 
 IRopeManager *RopeManager();

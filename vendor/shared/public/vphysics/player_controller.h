@@ -5,11 +5,11 @@
 class IPhysicsPlayerController
 {
 public:
-	virtual ~IPhysicsPlayerController( void ) {}
+	virtual ~IPhysicsPlayerController() {}
 
 	virtual void Update( const Vector &position, const Vector &velocity, float secondsToArrival, bool onground, IPhysicsObject *ground ) = 0;
 	virtual void unused_SetEventHandler() = 0;
-	virtual bool IsInContact( void ) = 0;
+	virtual bool IsInContact() = 0;
 	virtual void unused_MaxSpeed() = 0;
 
 	// allows game code to change collision models

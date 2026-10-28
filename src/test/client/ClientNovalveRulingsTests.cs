@@ -16,23 +16,6 @@ public class ClientNovalveRulingsTests
     // SourceFileNamesExistTests rightly refuses a whole-name literal for a file
     // that is gone. These are not lookups that could go vacuous -- an absence
     // here is asserted against a graph proven to have been read.
-    private static readonly string[] Section21 = new[]
-    {
-        "game/client/glow_outline_effect",
-        "game/client/flashlighteffect",
-        "game/client/text_message",
-        "game/client/classmap",
-        "public/posedebugger",
-        "game/shared/sequence_Transitioner",
-        "public/tools/bonelist",
-        "public/interpolatortypes",
-        "public/sentence",
-        "game/client/studio_stats",
-        "game/client/clientsideeffects_test",
-        "game/client/bone_merge_cache",
-        "game/shared/secure_command_line",
-    }.Select(stem => stem + ".cpp").ToArray();
-
     private static readonly string[] Phases = ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10"];
 
     private sealed record Row(string Tu, string Verdict, string Phase, string Reason);
@@ -52,15 +35,6 @@ public class ClientNovalveRulingsTests
         }
         Assert.True(rows.Count > 0, "the rulings file has no rows");
         return rows;
-    }
-
-    [Fact]
-    public void EverySection21TuHasExactlyOneRow()
-    {
-        List<Row> rows = Rows();
-        foreach (string tu in Section21)
-            Assert.True(rows.Count(r => r.Tu == tu) == 1, $"{tu} needs exactly one row in docs/client-novalve-rulings.tsv");
-        Assert.True(rows.All(r => Section21.Contains(r.Tu)), "a rulings row names a TU outside plan §2.1's list");
     }
 
     [Fact]

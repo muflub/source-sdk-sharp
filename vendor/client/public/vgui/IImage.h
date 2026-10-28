@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include <vgui/VGUI.h>
-
 class Color;
 
 namespace vgui

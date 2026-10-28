@@ -273,8 +273,8 @@ void SourceSharp_MovementRequireManaged()
 class CShellGameMovement : public IGameMovement
 {
 public:
-	CShellGameMovement( void );
-	virtual ~CShellGameMovement( void );
+	CShellGameMovement();
+	virtual ~CShellGameMovement();
 
 	// Stock's signatures; nothing calls them, the interface is published by name.
 	virtual void	ProcessMovement( CBasePlayer *pPlayer, CMoveData *pMove ) OVERRIDE;
@@ -288,7 +288,7 @@ public:
 	virtual Vector	GetPlayerViewOffset( bool ducked ) const OVERRIDE;
 #endif
 
-	bool			RunManagedCommand( void );
+	bool			RunManagedCommand();
 #ifdef CLIENT_DLL
 	void			FillConstants( struct SourceSharpMoveState *pState );
 #endif
@@ -300,12 +300,12 @@ public:
 
 	// The client replay never calls ProcessMovement, so it sets the move data here.
 	void			SetMoveData( CMoveData *pMove ) { mv = pMove; }
-	IHandleEntity  *LastGround( void ) const { return m_pLastGround; }
+	IHandleEntity  *LastGround() const { return m_pLastGround; }
 
 	IMovementPlayer *player;
 
 private:
-	void			ResetDuckLatched( void );
+	void			ResetDuckLatched();
 
 	CMoveData		*mv;
 
@@ -329,7 +329,7 @@ EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellGameMovement, IGameMovement,
 #endif // CLIENT_DLL
 
 // Commands that could not be run, counted by reason.
-static unsigned int *MovementRefusals( void )
+static unsigned int *MovementRefusals()
 {
 	static unsigned int s_nRefusals[ kMovementFatal_Count ] = { 0, 0, 0 };
 	return s_nRefusals;
@@ -461,7 +461,7 @@ void CShellGameMovement::FillConstants( SourceSharpMoveState *pState )
 #endif // CLIENT_DLL
 
 #ifdef CLIENT_DLL
-bool CShellGameMovement::RunManagedCommand( void )
+bool CShellGameMovement::RunManagedCommand()
 {
 	SourceSharpMoveState state;
 	memset( &state, 0, sizeof( state ) );
@@ -877,7 +877,7 @@ void SourceSharp_MoveEndClientCommand( int32_t bRan, int32_t *pOutGroundIndex )
 #endif // CLIENT_DLL
 
 #ifdef CLIENT_DLL
-CShellGameMovement::CShellGameMovement( void )
+CShellGameMovement::CShellGameMovement()
 {
 	player           = NULL;
 	mv               = NULL;
@@ -890,7 +890,7 @@ CShellGameMovement::CShellGameMovement( void )
 
 }
 
-CShellGameMovement::~CShellGameMovement( void )
+CShellGameMovement::~CShellGameMovement()
 {
 }
 

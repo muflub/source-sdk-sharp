@@ -43,7 +43,7 @@ ITexture *ShellRenderTarget( int nSlot )
 
 // The two rendertexture.h names view_scene.h's inlines still call. An index
 // past the four frame buffers is no texture (stock indexed past its array).
-ITexture *GetPowerOfTwoFrameBufferTexture( void )
+ITexture *GetPowerOfTwoFrameBufferTexture()
 {
 	return g_RenderTargets.Get( SS_RT_PowerOfTwoFrameBuffer );
 }

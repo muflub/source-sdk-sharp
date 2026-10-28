@@ -96,7 +96,7 @@ static ConVar cl_interpolate( "cl_interpolate", "1.0f", FCVAR_USERINFO | FCVAR_D
 
 // Calls UpdateVisibility() on every standalone client shell; answers how many
 // it swept, since the effect is only visible next frame.
-int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll( void )
+int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll()
 {
 	const int nCount = SourceSharp_StandaloneClientCount();
 	int32_t nSwept = 0;

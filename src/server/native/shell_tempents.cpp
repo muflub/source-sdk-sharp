@@ -53,13 +53,13 @@ ServerClass *SourceSharpTe_BuiltClass( int i )
 	return ( pTe && i >= 0 && i < pTe->m_nBuilt ) ? pTe->m_Built[ i ].pClass : NULL;
 }
 
-int SourceSharpTe_BuiltCount( void )
+int SourceSharpTe_BuiltCount()
 {
 	CServerTempEnts *pTe = TempEnts();
 	return pTe ? pTe->m_nBuilt : 0;
 }
 
-bool SourceSharpTe_RegistrationClosed( void )
+bool SourceSharpTe_RegistrationClosed()
 {
 	CServerTempEnts *pTe = TempEnts();
 	return pTe ? pTe->m_bClosed : false;
@@ -129,7 +129,7 @@ int32_t SourceSharp_TempEntBuild( const void *pBlock, int32_t nBlockBytes,
 }
 
 // Closes the window, once managed has pushed its tables.
-void SourceSharp_TempEntCloseRegistration( void )
+void SourceSharp_TempEntCloseRegistration()
 {
 	CServerTempEnts *pTe = TempEnts();
 	if ( !pTe || pTe->m_bClosed )

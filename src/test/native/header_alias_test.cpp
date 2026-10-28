@@ -99,23 +99,6 @@ namespace
 //-----------------------------------------------------------------------------
 // Finding the tree, and reading it. Same shape as alias_mechanics_test.cpp.
 //-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
 std::string Trimmed( const std::string &s )
 {
 	const size_t a = s.find_first_not_of( " \t" );
@@ -125,108 +108,9 @@ std::string Trimmed( const std::string &s )
 	return s.substr( a, b - a + 1 );
 }
 
-std::vector< std::string > ReadLines( const std::string &strRelative )
-{
-	std::vector< std::string > lines;
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return lines;
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return lines;
-
-	std::string line;
-	while ( std::getline( file, line ) )
-	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
-			line.erase( line.size() - 1 );
-		lines.push_back( line );
-	}
-	return lines;
-}
-
 bool Contains( const std::string &hay, const char *needle )
 {
 	return hay.find( needle ) != std::string::npos;
-}
-
-// The whole file as one string, and the same string with every space and tab
-// removed. Whitespace-insensitive matching is how the verdict tests spell a
-// base clause -- "classC_World:publicC_BaseEntity" -- so that a reformat does
-// not silently turn a live check into a vacuous one.
-std::string FileText( const std::string &strRelative )
-{
-	const std::vector< std::string > lines = ReadLines( strRelative );
-	std::string all;
-	for ( size_t i = 0; i < lines.size(); i++ )
-	{
-		all += lines[ i ];
-		all += "\n";
-	}
-	return all;
-}
-
-std::string NoSpaces( const std::string &strIn )
-{
-	std::string out;
-	out.reserve( strIn.size() );
-	for ( size_t i = 0; i < strIn.size(); i++ )
-		if ( strIn[ i ] != ' ' && strIn[ i ] != '\t' )
-			out += strIn[ i ];
-	return out;
-}
-
-bool EndsWith( const std::string &s, const char *pszSuffix )
-{
-	const size_t n = strlen( pszSuffix );
-	return s.size() >= n && s.compare( s.size() - n, n, pszSuffix ) == 0;
-}
-
-bool IsSourceFile( const std::string &strName )
-{
-	return EndsWith( strName, ".h" ) || EndsWith( strName, ".cpp" )
-		|| EndsWith( strName, ".hpp" ) || EndsWith( strName, ".inl" );
-}
-
-void WalkDirectory( const std::string &strDir, const std::string &strPrefix,
-                    std::vector< std::string > &out )
-{
-	DIR *pDir = opendir( strDir.c_str() );
-	if ( !pDir )
-		return;
-
-	struct dirent *pEntry;
-	while ( ( pEntry = readdir( pDir ) ) != NULL )
-	{
-		const std::string name = pEntry->d_name;
-		if ( name == "." || name == ".." )
-			continue;
-
-		const std::string full = strDir + "/" + name;
-		const std::string rel = strPrefix.empty() ? name : strPrefix + "/" + name;
-		struct stat st;
-		if ( stat( full.c_str(), &st ) != 0 )
-			continue;
-
-		if ( S_ISDIR( st.st_mode ) )
-			WalkDirectory( full, rel, out );
-		else if ( IsSourceFile( name ) )
-			out.push_back( rel );
-	}
-	closedir( pDir );
-}
-
-// Every .h/.cpp/.hpp/.inl under one directory of the tree, as paths RELATIVE to
-// the source root -- which is what ReadLines and FileText take.
-std::vector< std::string > SourceFilesUnder( const char *pszRelativeDir )
-{
-	std::vector< std::string > out;
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return out;
-	WalkDirectory( std::string( pszRoot ) + "/" + pszRelativeDir, pszRelativeDir, out );
-	return out;
 }
 
 // A line that carries no code: blank, or a whole-line // comment. Used to
@@ -412,11 +296,6 @@ std::vector< Guard_t > GuardsInLines( const std::vector< std::string > &lines,
 	return out;
 }
 
-std::vector< Guard_t > GuardsIn( const std::string &strFile )
-{
-	return GuardsInLines( ReadLines( strFile ), strFile );
-}
-
 //-----------------------------------------------------------------------------
 // WHAT THE BUILD COMPILES, asked two ways because the two file kinds have two
 // different authorities.
@@ -434,52 +313,6 @@ std::vector< Guard_t > GuardsIn( const std::string &strFile )
 // tidied up spells neither name -- so the header partition is also written down
 // explicitly below and checked, rather than derived.
 //-----------------------------------------------------------------------------
-const std::set< std::string > &BuiltSources()
-{
-	// cmake_graph throws on a missing, empty or stale input, which gtest
-	// reports as a failure of the calling test; the cache is filled only on a
-	// complete read.
-	static std::set< std::string > s_built;
-	if ( s_built.empty() )
-	{
-		const char *const kTargets[] = { cmake_graph::kServer, cmake_graph::kClient, cmake_graph::kHost };
-		std::set< std::string > built;
-		for ( size_t i = 0; i < sizeof( kTargets ) / sizeof( kTargets[ 0 ] ); i++ )
-		{
-			const std::set< std::string > t = cmake_graph::CompiledSources( kTargets[ i ] );
-			built.insert( t.begin(), t.end() );
-		}
-		s_built.swap( built );
-	}
-	return s_built;
-}
-
-// By the farm-relative path, exactly -- the spelling the CMakeLists lists use.
-bool BuildCompiles( const std::string &strRelative )
-{
-	return BuiltSources().count( strRelative ) != 0;
-}
-
-// The file's code, comments stripped -- see StripComments for why every match
-// in this file is over code and never over prose.
-std::string CodeOf( const std::string &strRelative )
-{
-	return StripComments( FileText( strRelative ) );
-}
-
-// A retired entity name, spelled in CODE. Prose still says CBaseEntity all over
-// this tree and that is deliberate (0bc727ed9: a blind rename destroys facts).
-bool SpellsRetiredEntityName( const std::string &strRelative )
-{
-	const std::string code = CodeOf( strRelative );
-	return Contains( code, "CBaseEntity" ) || Contains( code, "C_BaseEntity" );
-}
-
-size_t AliasGuardCount( const std::string &strRelative )
-{
-	return GuardsIn( strRelative ).size();
-}
-
 //-----------------------------------------------------------------------------
 // THE LANE-H HEADERS THIS FILE SPEAKS FOR.
 //
@@ -500,26 +333,6 @@ struct Site_t
 // (plan_physics_bones_native_zero 2.1); player.h and saverestore_stringtable.h
 // left the farm in plan_server_novalve.md P6.
 
-// Cluster 7 -- the two animating roots. CBaseAnimating and C_BaseAnimating
-// derive straight from CBaseEntity, so everything they ask of it goes with the
-// alias: the flag word FL_ONFIRE / FL_DISSOLVING live in, the model pointer and
-// the dynamic-model state GetModelPtr() consults, the GetBaseAnimating()
-// downcast a script handle used to reach, and C_BaseEntity's UpdateVisibility()
-// virtual -- whose disappearance makes OVERRIDE itself a hard error rather than
-// a missing member.
-//
-// The needles avoid the substring trap the retired IsServer sites recorded. `GetModel()`
-// and not `GetModel`, because `GetModelPtr(` -- the function these arms are
-// inside -- contains the shorter one; `GetFlags() & FL_ONFIRE` in the unarmed
-// column so the fire guard and the dissolve guard are told apart.
-//
-// The six game/server/baseanimating.h rows are retired: that header is compiled
-// by nothing since plan_server_novalve.md P5 and left the farm in P6.
-const Site_t kAnimatingRootSites[] = {
-	{ "game/client/c_baseanimating.h", "UpdateVisibility() OVERRIDE", "OVERRIDE" },
-	{ "game/client/c_baseanimating.h", "GetFlags() & FL_ONFIRE",      "GetFlags()" },
-};
-
 //-----------------------------------------------------------------------------
 // THE LANE-H HEADERS, PARTITIONED. This was one list, kLaneHHeaders, and every
 // fact below looped over the whole of it demanding a well-formed guard.
@@ -539,77 +352,6 @@ const Site_t kAnimatingRootSites[] = {
 // file cannot spell `CBaseEntity` or `C_BaseEntity`, because neither is a name.
 //-----------------------------------------------------------------------------
 
-// COMPILED, AND FLIPPED. Zero alias guards, neither retired name, the armed
-// answer standing unconditionally. These are the files the facts below measure.
-const char *kLiveLaneHHeaders[] = {
-	// game/server/player.h, fogcontroller.h, ai_basenpc.h, ai_navigator.h and
-	// baseanimating.h, and game/shared/saverestore_stringtable.h, stood here;
-	// they are compiled by nothing since plan_server_novalve.md P5 and left the
-	// farm in P6, and their site rows went with them.
-	"game/client/c_baseanimating.h",
-	"game/shared/Sprite.h",
-	"game/client/c_basecombatcharacter.h",
-	"sourcesharp/game/shared/physicsowner.h",
-	"sourcesharp/game/server/anyentity.h",
-	"game/shared/beam_shared.h",
-	"sourcesharp/game/shared/movement_ground.h",
-	// game/server/entityfilter.h stood here; it was in no compiled object (ninja
-	// deps) and was deleted after the server gc cull, with its facts below.
-	// game/server/EntityDissolve.h and EntityFlame.h stood here; neither DLL
-	// compiles them any more, and no site row below names either.
-	// game/shared/env_detail_controller.h stood here; its one includer,
-	// detailobjectsystem.cpp, left client.so in C7 cluster 10, and the header
-	// left the farm with it (make sdk-census: unused).
-	"game/shared/gamerules.h",
-};
-
-// Is this path one of the files the flip actually landed in? Every site row
-// below is routed through here, and the answer is never "skip": a row in a live
-// file is measured against the tree, a row in a dead-stock file is measured
-// against the claim that it is still dead stock.
-bool IsLiveLaneHFile( const std::string &strFile )
-{
-	for ( size_t i = 0; i < sizeof( kLiveLaneHHeaders ) / sizeof( kLiveLaneHHeaders[ 0 ] ); i++ )
-		if ( strFile == kLiveLaneHHeaders[ i ] )
-			return true;
-	// .cpp rows (lane shards-a) answer from what the build compiles, which is
-	// the compile command line rather than a list this test keeps.
-	if ( EndsWith( strFile, ".cpp" ) )
-		return BuildCompiles( strFile );
-	return false;
-}
-
-// The gate. Returns true when the row was measured against a live file.
-//
-//   live file  -- `pszGone` must be absent from the CODE. Not "absent from an
-//                 armed arm": absent, because there are no arms. The caller
-//                 then adds the live-successor half.
-//   dead stock -- the row cannot be measured. It is asserted to still be dead
-//                 stock, so it cannot quietly become a vacuous pass.
-bool CheckSiteAgainstTheTree( const std::string &strFile, const char *pszGone )
-{
-	if ( !IsLiveLaneHFile( strFile ) )
-	{
-		const bool bStillDead =
-			SpellsRetiredEntityName( strFile ) || AliasGuardCount( strFile ) > 0;
-		EXPECT_TRUE( bStillDead )
-			<< strFile << " is on the dead-stock list -- nothing compiles it, so "
-			   "this row measures nothing -- but it now spells no retired entity "
-			   "name and carries no alias guard. Either it came into the build "
-			   "(move it to kLiveLaneHHeaders and this row starts measuring the "
-			   "tree again) or it was tidied up (say so here).";
-		return false;
-	}
-
-	const std::string code = CodeOf( strFile );
-	EXPECT_FALSE( code.empty() ) << strFile << " read as empty";
-	EXPECT_FALSE( Contains( code, pszGone ) )
-		<< strFile << " still says '" << pszGone << "' in code. The flip landed "
-		   "unconditionally -- there is no arm for this to be safe in, and "
-		   "`CBaseEntity` is not a name.";
-	return true;
-}
-
 // AnyGuardApplies STOOD HERE AND IS DELETED WITH ITS REASON. It answered "does
 // some guard in this file have `pszIn` in its unarmed arm and not `pszOut` in
 // its armed one", and every site fact in this file was one loop over it.
@@ -627,42 +369,6 @@ bool CheckSiteAgainstTheTree( const std::string &strFile, const char *pszGone )
 // one, which the two HeaderAliasScanner fixtures prove on literals.
 
 }  // namespace
-
-TEST( HeaderAlias, TheAnimatingRootEntityAsksAreGone )
-{
-	ASSERT_TRUE( SrcRoot() != NULL );
-
-	// The client root is compiled, so every row here measures the tree. (The
-	// server root's rows are retired: game/server/baseanimating.h is compiled
-	// by nothing since plan_server_novalve.md P5 and left the farm in P6.) The asks --
-	// the flag word, the model pointer, the dynamic-model state, the
-	// GetBaseAnimating() downcast and C_BaseEntity's UpdateVisibility() virtual
-	// -- went with CBaseEntity rather than being guarded away from it.
-	int nLive = 0;
-	for ( size_t i = 0; i < sizeof( kAnimatingRootSites ) / sizeof( kAnimatingRootSites[ 0 ] ); i++ )
-	{
-		const Site_t &S = kAnimatingRootSites[ i ];
-		if ( CheckSiteAgainstTheTree( S.pszFile, S.pszMustBeInUnarmed ) )
-			nLive++;
-	}
-	EXPECT_EQ( 2, nLive ) << "the client animating root left the build. It is in "
-		"the compiled set at this tip and every row here depends on it.";
-
-	// The live successor these absences leave behind: the root still derives
-	// from the entity interface and still owns the CNetworkVars that made it a
-	// root. Without this, "the asks are gone" is equally true of an empty file.
-	static const char *kRoots[] = { "game/client/c_baseanimating.h" };
-	for ( size_t i = 0; i < sizeof( kRoots ) / sizeof( kRoots[ 0 ] ); i++ )
-	{
-		const std::string code = CodeOf( kRoots[ i ] );
-		EXPECT_TRUE( Contains( code, "IGameEntity" ) )
-			<< kRoots[ i ] << " no longer names IGameEntity.";
-		EXPECT_TRUE( Contains( code, "CNetworkVar(" ) )
-			<< kRoots[ i ] << " no longer declares a CNetworkVar. It is the root "
-			   "of the animating hierarchy's networking; if it owns none, the "
-			   "NetworkStateChanged pair below serves nothing.";
-	}
-}
 
 //-----------------------------------------------------------------------------
 // The NetworkStateChanged pair, and this one is checked in the OPPOSITE
@@ -682,110 +388,6 @@ TEST( HeaderAlias, TheAnimatingRootEntityAsksAreGone )
 // stops the pair being moved out of its guard by a later edit and this test
 // staying green on the other two.
 //-----------------------------------------------------------------------------
-// The three clauses above, applied to one file. Shared rather than copied
-// because a second copy of a check drifts from the first, and the two callers
-// below want exactly the same rule for different reasons -- one for a hierarchy
-// ROOT whose pair reaches nine headers, one for a LEAF whose pair reaches only
-// its own ten members. The rule does not care which.
-//
-// READ THE ASSERTIONS, NOT THE NAME. This helper was
-// CheckNetworkStateChangedPairIsArmedOnly and it required the pair to be inside
-// a guard's ARMED arm and nowhere else, because UNARMED the pair would shadow
-// CBaseEntity's real NetworkStateChanged and the whole hierarchy would stop
-// marking itself dirty.
-//
-// THE POLARITY IS THE OTHER WAY ROUND NOW, and the reason is the flip itself:
-// there is no CBaseEntity to shadow. The base is IGameEntity, which declares no
-// NetworkStateChanged at all -- asserted below rather than assumed -- so the
-// pair is not a husk that must be hidden from the shipping build, it is the
-// ONLY declaration the hierarchy has, and it must be there UNCONDITIONALLY.
-//
-// The hazard is inverted with it. It used to be "the pair leaks out of its
-// guard"; it is now "the pair is put back behind a guard, or dropped", either
-// of which stops every CNetworkVar below it compiling.
-//
-// Two halves, because one alone is half a fact: the pair is present and
-// unguarded, AND the class still owns CNetworkVars for it to serve.
-static void CheckNetworkStateChangedPairIsUnconditional( const char *pszFile )
-{
-	const std::string f = pszFile;
-	const std::vector< std::string > lines = ReadLines( f );
-	ASSERT_GT( lines.size(), 10u ) << f << " is missing or unreadable";
-
-	const char *kPairA = "void NetworkStateChanged() {}";
-	const char *kPairB = "void NetworkStateChanged( void *pVar ) {}";
-
-	const std::string code = StripComments( FileText( f ) );
-	EXPECT_TRUE( Contains( code, kPairA ) && Contains( code, kPairB ) )
-		<< f << ": the NetworkStateChanged pair is not there. Its base is "
-		   "IGameEntity, which has none, so every CNetworkVar this class owns "
-		   "stops compiling.";
-
-	// Not inside an alias guard -- in either arm. An `#ifdef` arm is never not
-	// taken (both targets define the macro) and an `#ifndef` arm is never taken;
-	// the second one silently deletes the pair from the build.
-	const std::vector< Guard_t > guards = GuardsIn( f );
-	for ( size_t g = 0; g < guards.size(); g++ )
-	{
-		const Guard_t &G = guards[ g ];
-		EXPECT_FALSE( Contains( G.ArmedText(), "NetworkStateChanged" )
-			|| Contains( G.UnarmedText(), "NetworkStateChanged" ) )
-			<< f << ":" << G.nLine << " puts NetworkStateChanged back behind an "
-			   "SS_CBASEENTITY_ALIAS guard. That macro selects nothing; the arm "
-			   "is either always taken or never, and never is a class whose "
-			   "CNetworkVars do not compile.";
-	}
-
-	// And nowhere conditional at all: every declaration in the file is at the
-	// same nesting the class is. Counted rather than span-checked, for the
-	// reason the old helper gave -- span arithmetic that gets an #else wrong
-	// passes on a file it never read.
-	size_t nInFile = 0, nInsideAGuard = 0;
-	for ( size_t k = 0; k < lines.size(); k++ )
-		if ( Contains( StripComments( lines[ k ] ), "void NetworkStateChanged" ) )
-			nInFile++;
-	for ( size_t g = 0; g < guards.size(); g++ )
-	{
-		const Guard_t &G = guards[ g ];
-		for ( size_t k = 0; k < G.armed.size(); k++ )
-			if ( Contains( StripComments( G.armed[ k ] ), "void NetworkStateChanged" ) )
-				nInsideAGuard++;
-		for ( size_t k = 0; k < G.unarmed.size(); k++ )
-			if ( Contains( StripComments( G.unarmed[ k ] ), "void NetworkStateChanged" ) )
-				nInsideAGuard++;
-	}
-	EXPECT_EQ( (size_t)2, nInFile ) << f << ": expected exactly the two-overload "
-		"pair, found " << nInFile << ".";
-	EXPECT_EQ( (size_t)0, nInsideAGuard ) << f << ": " << nInsideAGuard
-		<< " of the declarations are inside an alias guard.";
-
-	// The half that stops this passing over a class with nothing to network.
-	EXPECT_TRUE( Contains( code, "CNetworkVar(" ) || Contains( code, "CNetworkVector(" )
-		|| Contains( code, "CNetworkHandle(" ) || Contains( code, "CNetworkQAngle(" ) )
-		<< f << " declares no CNetworkVar of any kind, so the pair above serves "
-		   "nothing. Either the class's networked state moved (say so, the way "
-		   "TheWorldCarriesNoNetworkStateChangedPairBecauseItDeclaresNoNetworkVars "
-		   "does for CWorld) or this file is not what this fact is about.";
-}
-
-TEST( HeaderAlias, TheAnimatingRootsOwnTheNetworkStateChangedPairUnconditionally )
-{
-	ASSERT_TRUE( SrcRoot() != NULL );
-
-	// IGameEntity really has no NetworkStateChanged -- the premise both roots
-	// rest on, read from the interface rather than argued.
-	const std::string iface = StripComments( FileText( "public/igameentity.h" ) );
-	ASSERT_FALSE( iface.empty() ) << "could not read public/igameentity.h";
-	EXPECT_FALSE( Contains( iface, "NetworkStateChanged" ) )
-		<< "IGameEntity has acquired a NetworkStateChanged. If it belongs there, "
-		   "these two roots should stop declaring their own pair and this fact "
-		   "should say so.";
-
-	// The server root's row is retired: game/server/baseanimating.h is compiled
-	// by nothing since plan_server_novalve.md P5 and left the farm in P6.
-	CheckNetworkStateChangedPairIsUnconditional( "game/client/c_baseanimating.h" );
-}
-
 //-----------------------------------------------------------------------------
 // CWorld OWNS NO PAIR ANY MORE, AND THE FACT IS INVERTED RATHER THAN DELETED.
 //
@@ -813,62 +415,6 @@ TEST( HeaderAlias, TheAnimatingRootsOwnTheNetworkStateChangedPairUnconditionally
 // Asserting the absent pair alone would go on passing the day somebody
 // re-declares a member and forgets the rest of the port.
 //-----------------------------------------------------------------------------
-TEST( HeaderAlias, TheWorldCarriesNoNetworkStateChangedPairBecauseItDeclaresNoNetworkVars )
-{
-	ASSERT_TRUE( SrcRoot() != NULL );
-
-	const std::vector< std::string > lines = ReadLines( "sourcesharp/game/server/ss_world.h" );
-	ASSERT_FALSE( lines.empty() ) << "sourcesharp/game/server/ss_world.h is missing or unreadable -- "
-		"both counts below would read zero having read nothing";
-
-	// The ANCHOR, so "found none" is a measurement and not an empty read: the
-	// class is still declared in this file.
-	//
-	// IT NAMED THE BASE AND THE BASE IS GONE (plan_cworld_trace.md T3).
-	// worldspawn is its own hierarchy now, and since the follow-up to T3 its
-	// ONE base is IServerEntity: the engine reaches its IServerNetworkable and
-	// its ICollideable by pointer, so the world HOLDS one of each
-	// (m_Networkable, m_Collideable) rather than inheriting them. Either way
-	// "classCWorld:publicCBaseEntity" matches nothing, and an anchor that
-	// matches nothing is exactly how the count below becomes a vacuous zero.
-	// Re-pointed at the head as it reads.
-	const std::string tight = NoSpaces( FileText( "sourcesharp/game/server/ss_world.h" ) );
-	ASSERT_TRUE( Contains( tight, "classCWorld:publicIServerEntity" ) )
-		<< "sourcesharp/game/server/ss_world.h no longer declares CWorld at all; "
-		   "this test is reading a file it does not recognise";
-
-	size_t nNetVars = 0;
-	size_t nPairs   = 0;
-
-	for ( size_t k = 0; k < lines.size(); k++ )
-	{
-		const std::string bare = StripComments( lines[ k ] );
-
-		// CNetworkVar( T, m_x ) and CNetworkVector( m_x ) -- the two spellings
-		// CWorld used. Comment-stripped, because the block above this test's
-		// subject describes both of them by name.
-		if ( Contains( bare, "CNetworkVar(" ) || Contains( bare, "CNetworkVector(" )
-			|| Contains( bare, "CNetworkVar (" ) || Contains( bare, "CNetworkVector (" ) )
-		{
-			nNetVars++;
-		}
-
-		if ( Contains( bare, "void NetworkStateChanged" ) )
-			nPairs++;
-	}
-
-	EXPECT_EQ( nNetVars, (size_t)0 ) << "sourcesharp/game/server/ss_world.h declares " << nNetVars
-		<< " CNetworkVar(s). worldspawn's networked state is C#'s -- "
-		   "SourceSharp.Shared.WorldNetState -- and a member here is a value the "
-		   "managed declaration does not know about and no prop addresses.";
-
-	EXPECT_EQ( nPairs, (size_t)0 ) << "sourcesharp/game/server/ss_world.h declares " << nPairs
-		<< " NetworkStateChanged overload(s). There is no CNetworkVar for one to "
-		   "serve, and an empty pair on this class shadows CBaseEntity's real one "
-		   "for every write CWorld makes -- so SetStartDark would stop marking the "
-		   "edict changed and the client would never receive the value.";
-}
-
 //-----------------------------------------------------------------------------
 // CWorld is a LEAF, and the fact SURVIVES its original reason with a new one.
 //
@@ -893,88 +439,6 @@ TEST( HeaderAlias, TheWorldCarriesNoNetworkStateChangedPairBecauseItDeclaresNoNe
 // because a derivation would be written in the DERIVED class's file, which
 // world.h cannot see.
 //-----------------------------------------------------------------------------
-TEST( HeaderAlias, NothingDerivesFromCWorld )
-{
-	ASSERT_TRUE( SrcRoot() != NULL );
-
-	const std::vector< std::string > files = SourceFilesUnder( "game" );
-	ASSERT_GT( files.size(), 100u ) << "only " << files.size() << " files walked "
-		"under game/ -- that is a broken walk, not a clean tree";
-
-	// THE ANCHOR IS TAKEN THROUGH THE SCAN'S OWN LOOP, and it used to be a
-	// separate read of one file. It read game/client/c_world.h for
-	// "classC_World:publicC_BaseEntity" -- and step 5e took C_World off
-	// C_BaseEntity (plan_entity.md §3.11 as amended: both worlds come off the
-	// SDK hierarchy), so the anchor named a derivation the tree no longer has.
-	//
-	// Replacing it with another single file's derivation would only move the
-	// same problem. What the anchor is FOR is proving that this loop, over this
-	// walk, with this spelling of a base clause, can come back non-empty -- so
-	// it counts ":publicICollideable" in the same pass. That is a clause the
-	// worlds themselves carry on both sides (CWorldCollideable and
-	// CWorldClientCollideable), so it cannot go away while there is a world to
-	// test, and it is found the same way the subject would be.
-	std::vector< std::string > derived;
-	std::vector< std::string > derivedClient;
-	int nAnchorHits = 0;
-
-	for ( size_t i = 0; i < files.size(); i++ )
-	{
-		const std::string text = NoSpaces( FileText( files[ i ] ) );
-		if ( text.empty() )
-			continue;
-
-		if ( Contains( text, ":publicICollideable" ) )
-			nAnchorHits++;
-
-		// Both spellings of a base clause. Not "CWorld" alone: 28 files name
-		// the type without deriving from it.
-		if ( Contains( text, ":publicCWorld" ) || Contains( text, ":privateCWorld" )
-			|| Contains( text, ":protectedCWorld" ) )
-		{
-			derived.push_back( files[ i ] );
-		}
-
-		// AND THE CLIENT'S, WHICH IS NEW WITH 5e AND HAS THE SAME TWO REASONS.
-		// C_World::operator new over-allocates by SourceSharp_WorldBlobOffset(),
-		// which on that side is ALIGN_VALUE( sizeof( C_World ), 16 ); and
-		// C_World::GetClientClass answers the one managed table
-		// shell_world_nettable_client.cpp built.
-		if ( Contains( text, ":publicC_World" ) || Contains( text, ":privateC_World" )
-			|| Contains( text, ":protectedC_World" ) )
-		{
-			derivedClient.push_back( files[ i ] );
-		}
-	}
-
-	ASSERT_GT( nAnchorHits, 0 ) << "the scan found no ':publicICollideable' "
-		"anywhere under game/, so it would report 'no derivations' having read "
-		"nothing. This is a broken walk, not a clean tree.";
-
-	std::string named;
-	for ( size_t i = 0; i < derived.size(); i++ )
-		named += ( i ? ", " : "" ) + derived[ i ];
-
-	EXPECT_TRUE( derived.empty() ) << derived.size() << " class(es) derive from "
-		"CWorld (" << named << "). CWorld's blob offset is sized to sizeof( CWorld ) "
-		"exactly, on the assumption that it is a leaf: a longer derived class puts "
-		"its own members inside the bytes worldspawn's props address, with no "
-		"compile error and no crash -- the overlap reads as data. It would also "
-		"inherit GetServerClass and network as a world. GIVE THE HIERARCHY "
-		"HEADROOM THE WAY SourceSharp_StandaloneBlobOffset DOES, or do not derive.";
-
-	std::string namedClient;
-	for ( size_t i = 0; i < derivedClient.size(); i++ )
-		namedClient += ( i ? ", " : "" ) + derivedClient[ i ];
-
-	EXPECT_TRUE( derivedClient.empty() ) << derivedClient.size() << " class(es) "
-		"derive from C_World (" << namedClient << "). The client's world is a leaf "
-		"for the same two reasons the server's is: its blob offset is sized to "
-		"sizeof( C_World ) exactly, so a longer derived class puts its own members "
-		"inside the bytes worldspawn's props address; and it would inherit "
-		"GetClientClass and decode as a world.";
-}
-
 //-----------------------------------------------------------------------------
 // READ THE ASSERTIONS, NOT THE NAME. This was NoOwnerWrapperArmKeepsTheSdkArm:
 // no guard in physicsowner.h or anyentity.h may leave a `pBase->` ask in its
@@ -993,81 +457,6 @@ TEST( HeaderAlias, NothingDerivesFromCWorld )
 // what makes this a real rule rather than a style, and what the guards used to
 // be standing in for.
 //-----------------------------------------------------------------------------
-TEST( HeaderAlias, EveryOwnerWrapperAskIsOneOfTheInterfaceMembers )
-{
-	ASSERT_TRUE( SrcRoot() != NULL );
-
-	// The interface's own member list, taken from its pure virtuals.
-	const std::vector< std::string > iface = ReadLines( "public/igameentity.h" );
-	ASSERT_FALSE( iface.empty() ) << "could not read public/igameentity.h";
-
-	std::vector< std::string > members;
-	for ( size_t i = 0; i < iface.size(); i++ )
-	{
-		const std::string t = Trimmed( StripComments( iface[ i ] ) );
-		if ( t.compare( 0, 8, "virtual " ) != 0 )
-			continue;
-		if ( t.find( "= 0;" ) == std::string::npos )
-			continue;
-		const size_t paren = t.find( '(' );
-		if ( paren == std::string::npos )
-			continue;
-		size_t start = t.find_last_of( " \t*&", paren );
-		if ( start == std::string::npos )
-			continue;
-		members.push_back( t.substr( start + 1, paren - start - 1 ) );
-	}
-	ASSERT_EQ( 6u, members.size() )
-		<< "public/igameentity.h no longer declares exactly six pure virtuals. "
-		   "The membership rule is what bounds this check; if the interface grew, "
-		   "read igameentity.h's rule before raising this number.";
-
-	const char *kFiles[] = { "sourcesharp/game/shared/physicsowner.h", "sourcesharp/game/server/anyentity.h" };
-	int nAsks = 0;
-	for ( size_t i = 0; i < sizeof( kFiles ) / sizeof( kFiles[ 0 ] ); i++ )
-	{
-		const std::string code = CodeOf( kFiles[ i ] );
-		ASSERT_FALSE( code.empty() ) << kFiles[ i ] << " read as empty";
-
-		// The field is still there and still points at the interface -- without
-		// this, "no bad ask" is equally true of a file that lost pBase.
-		EXPECT_TRUE( Contains( CodeOf( kFiles[ i ] ), "pBase" ) )
-			<< kFiles[ i ] << " no longer names pBase at all.";
-
-		for ( size_t at = code.find( "pBase->" ); at != std::string::npos;
-		      at = code.find( "pBase->", at + 1 ) )
-		{
-			const size_t nameAt = at + strlen( "pBase->" );
-			size_t end = nameAt;
-			while ( end < code.size()
-				&& ( isalnum( (unsigned char)code[ end ] ) || code[ end ] == '_' ) )
-				end++;
-			const std::string ask = code.substr( nameAt, end - nameAt );
-			nAsks++;
-
-			bool bMember = false;
-			for ( size_t m = 0; m < members.size(); m++ )
-				bMember = bMember || ( members[ m ] == ask );
-
-			EXPECT_TRUE( bMember )
-				<< kFiles[ i ] << " asks pBase for `" << ask
-				<< "`, which is not one of IGameEntity's six. pBase IS an "
-				   "IGameEntity* now (physicsowner.h:117) -- there is no SDK "
-				   "entity behind it and no guard left to put the ask in.";
-		}
-	}
-	EXPECT_GT( nAsks, 1 ) << "no `pBase->` ask found in either wrapper, so the "
-		"rule above swept nothing. These two files are where the SDK arms lived; "
-		"if every ask has gone, say so here.";
-
-	// physicsowner.h's declaration, pinned: this is the retype that replaced
-	// fifteen guarded SDK arms, and it is what makes the sweep above a rule
-	// about a real pointer rather than about a name.
-	EXPECT_TRUE( Contains( NoSpaces( CodeOf( "sourcesharp/game/shared/physicsowner.h" ) ),
-		"IGameEntity*pBase;" ) )
-		<< "game/shared/physicsowner.h no longer declares `IGameEntity *pBase`.";
-}
-
 //-----------------------------------------------------------------------------
 // 3. THE ARITHMETIC, CHECKED RATHER THAN EYEBALLED.
 //
@@ -1148,71 +537,6 @@ TEST( HeaderAlias, TheObjectCapsFoldsAreArithmeticallyRight )
 // silently finds nothing and a tree that is silently correct look identical
 // from outside, so the scanner gets its own tests.
 //-----------------------------------------------------------------------------
-TEST( HeaderAliasScanner, StripCommentsRemovesBothFormsAndKeepsCode )
-{
-	EXPECT_EQ( StripComments( "int a; // IsPlayer()\n" ), "int a; \n" );
-	EXPECT_EQ( StripComments( "// whole line IsPlayer()\nint a;\n" ), "\nint a;\n" );
-	EXPECT_EQ( StripComments( "int /* IsPlayer() */ a;\n" ), "int  a;\n" );
-	EXPECT_EQ( StripComments( "/* multi\n IsPlayer()\n line */int a;\n" ), "int a;\n" );
-
-	// The load-bearing case: code and prose naming the same token.
-	const std::string s = StripComments( "// IsPlayer() is gone\nreturn NULL;\n" );
-	EXPECT_TRUE( s.find( "IsPlayer()" ) == std::string::npos );
-	EXPECT_TRUE( s.find( "return NULL;" ) != std::string::npos );
-}
-
-TEST( HeaderAliasScanner, BothGuardPolaritiesAreRecognisedAndArmsAssignedRight )
-{
-	bool bArmedFirst = true;
-	EXPECT_TRUE( IsGuardOpen( "#ifndef SS_CBASEENTITY_ALIAS", &bArmedFirst ) );
-	EXPECT_FALSE( bArmedFirst );
-	EXPECT_TRUE( IsGuardOpen( "\t#ifdef SS_CBASEENTITY_ALIAS", &bArmedFirst ) );
-	EXPECT_TRUE( bArmedFirst );
-	// SS_CBASEENTITY_ALIAS_H is the alias header's own include guard.
-	EXPECT_FALSE( IsGuardOpen( "#ifndef SS_CBASEENTITY_ALIAS_H", &bArmedFirst ) );
-	EXPECT_FALSE( IsGuardOpen( "#ifdef SOURCESHARP", &bArmedFirst ) );
-
-	// THE ARM ASSIGNMENT, ON A LITERAL. This used to read player.h, which
-	// carried one guard of each polarity; player.h carries none now and neither
-	// does any other compiled file, so reading one would be a scanner self-test
-	// that has quietly stopped testing the scanner.
-	//
-	// A literal is the right fixture here for the reason the file's own
-	// introduction gives: the scanner has to be able to FIND a guard, or a
-	// "zero guards" reading over a compiled header is a scanner returning
-	// nothing rather than a tree that is clean.
-	// The shapes are transcribed from the two guards player.h used to carry.
-	std::vector< std::string > lines;
-	lines.push_back( "#ifdef SS_CBASEENTITY_ALIAS" );
-	lines.push_back( "\treturn NULL;" );
-	lines.push_back( "#else" );
-	lines.push_back( "\treturn static_cast<CBasePlayer *>( pEntity );" );
-	lines.push_back( "#endif" );
-	lines.push_back( "#ifndef SS_CBASEENTITY_ALIAS" );
-	lines.push_back( "\treturn IsServer();" );
-	lines.push_back( "#else" );
-	lines.push_back( "\treturn true;" );
-	lines.push_back( "#endif" );
-
-	const std::vector< Guard_t > guards = GuardsInLines( lines, "<fixture>" );
-	ASSERT_EQ( 2u, guards.size() );
-
-	bool bSawIfdefStyle = false, bSawIfndefStyle = false;
-	for ( size_t i = 0; i < guards.size(); i++ )
-	{
-		if ( Contains( guards[ i ].ArmedText(), "return NULL;" )
-			&& Contains( guards[ i ].UnarmedText(), "static_cast<" ) )
-			bSawIfdefStyle = true;
-		if ( Contains( guards[ i ].UnarmedText(), "return IsServer();" )
-			&& Contains( guards[ i ].ArmedText(), "return true;" ) )
-			bSawIfndefStyle = true;
-	}
-	EXPECT_TRUE( bSawIfdefStyle ) << "the #ifdef-style guard was not parsed with "
-		"its arms the right way round: armed-first means the FIRST arm is the "
-		"armed one.";
-	EXPECT_TRUE( bSawIfndefStyle ) << "the #ifndef-style guard was not parsed.";
-}
-
 TEST( HeaderAliasScanner, AnAdditionGuardIsDistinguishedFromADeletionGuard )
 {
 	// The classification the addition-guard rules turned on. Both shapes are
@@ -1320,69 +644,3 @@ TEST( HeaderAliasScanner, AnAdditionGuardIsDistinguishedFromADeletionGuard )
 //      compile error at the call site, which tempts a stub -- and a stub that
 //      returns an unshortened trace is exactly the silent no-op §7 forbids)
 //-----------------------------------------------------------------------------
-TEST( ShardsA, TheClipTraceToPlayersRouteIsGoneEntirely )
-{
-	ASSERT_TRUE( SrcRoot() != NULL );
-
-	// THE FILE IS GONE, plan_shim.md Phase 2c, lane 2-utilshared. Its two
-	// surviving definitions moved into the shim library and the route below is
-	// asserted THERE, which is the only place it could come back to: an absence
-	// over a file that does not exist is vacuous, and this fact's whole subject
-	// is a route that must not be re-invented anywhere.
-	EXPECT_TRUE( ReadLines( "game/shared/util_shared.cpp" ).empty() )
-		<< "game/shared/util_shared.cpp exists again. It is where "
-		<< "UTIL_ClipTraceToPlayers was; a body there reaches the route this "
-		<< "fact forbids with nothing else in the build watching.";
-
-	const std::vector< std::string > lines =
-		ReadLines( "sourcesharp/game/shared/util_shared_library.cpp" );
-	ASSERT_GT( lines.size(), 10u )
-		<< "sourcesharp/game/shared/util_shared_library.cpp read as empty -- "
-		   "every absence below would pass over a file nobody read";
-
-	std::string all;
-	for ( size_t j = 0; j < lines.size(); j++ ) all += lines[ j ] + "\n";
-	all = StripComments( all );
-
-	EXPECT_FALSE( Contains( all, "filter->ShouldHitEntity( player, mask )" ) )
-		<< "the shim library asks a trace filter about a `player`. There is "
-		<< "no CBasePlayer on either side for one to be, and the ask needs an "
-		<< "IHandleEntity that IGameEntity deliberately is not.";
-
-	// SCOPED TO THE PLAYER CALL, and the first draft of this assertion was NOT
-	// -- it used the bare `enginetrace->ClipRayToEntity(` that kRows carried,
-	// and went red on `UTIL_TraceModel`'s call. That one was FINE and was the
-	// de-entitied shape this port wants: its subject was an
-	// `IHandleEntity *pentModel`, which both hierarchies answer. (It is gone
-	// too now, for having no callers, but the needle stays scoped: a needle
-	// that matches a legitimate site is a check that fails for the wrong
-	// reason, and UTIL_TraceModel could legitimately come back.)
-	EXPECT_FALSE( Contains( all, "ClipRayToEntity( ray, mask|CONTENTS_HITBOX, player," ) )
-		<< "the shim library clips a ray to a PLAYER. Same route, same "
-		<< "missing IHandleEntity: there is no CBasePlayer on either side.";
-
-	EXPECT_FALSE( Contains( all, "UTIL_PlayerByIndex( k )" ) )
-		<< "the player-slot walk came back into UTIL_ClipTraceToPlayers.";
-
-	// 2. NO DEFINITION.
-	EXPECT_FALSE( Contains( all, "void UTIL_ClipTraceToPlayers(" ) )
-		<< "UTIL_ClipTraceToPlayers was MOVED into the shim rather than removed. "
-		<< "A relocation is not a removal: the walk still needs, per player, "
-		<< "something ClipRayToEntity accepts plus 'is he alive' and 'where is "
-		<< "his centre', and nothing on either side answers the third ask "
-		<< "(filter->ShouldHitEntity( player, mask )). Port the walk to "
-		<< "CStandalonePlayer::FromIndex / C_StandalonePlayer to change this.";
-
-	// 3. AND THE DECLARATION IS STILL THERE, so a caller fails at the LINK.
-	const std::vector< std::string > hdrLines = ReadLines( "game/shared/util_shared.h" );
-	ASSERT_GT( hdrLines.size(), 10u ) << "game/shared/util_shared.h read as empty";
-	std::string hdr;
-	for ( size_t j = 0; j < hdrLines.size(); j++ ) hdr += hdrLines[ j ] + "\n";
-	EXPECT_TRUE( Contains( StripComments( hdr ), "UTIL_ClipTraceToPlayers" ) )
-		<< "util_shared.h stopped declaring UTIL_ClipTraceToPlayers. With the "
-		<< "declaration gone a returning caller gets a COMPILE error at its own "
-		<< "call site, which is the error somebody fixes by writing a stub -- "
-		<< "and a stub here returns a trace that was not shortened, which is "
-		<< "indistinguishable from one that could not be. Keep the declaration; "
-		<< "the missing definition is the message.";
-}

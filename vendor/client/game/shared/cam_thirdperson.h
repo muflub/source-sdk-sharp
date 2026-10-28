@@ -29,7 +29,7 @@ public:
 	// shim's -- shell_client.cpp's third-person pass, over the rule in
 	// sourcesharp/game/shared/thirdperson_camera.h. See the .cpp.
 
-	void	Init( void );
+	void	Init();
 
 private:
 

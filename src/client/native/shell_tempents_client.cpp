@@ -275,7 +275,7 @@ int32_t SourceSharp_TempEntBuildClient( const void *pBlock, int32_t nBlockBytes,
 
 // Closes registration and reports what got a ClientClass. Called once, after managed has
 // pushed its tables.
-void SourceSharp_TempEntClientCloseRegistration( void )
+void SourceSharp_TempEntClientCloseRegistration()
 {
 	if ( g_bTeClosed )
 		return;

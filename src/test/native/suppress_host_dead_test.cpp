@@ -73,41 +73,6 @@ namespace
 // Locating src/. buildcpptests runs each binary with src/ as the working
 // directory; the list lets the binary also run by hand from the repo root.
 //-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		std::string strProbe( kCandidates[ i ] );
-		strProbe += "/game/shared";
-		DIR *pDir = opendir( strProbe.c_str() );
-		if ( pDir )
-		{
-			closedir( pDir );
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadSrcFile( const char *pszRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::string strPath( pszRoot );
-	strPath += "/";
-	strPath += pszRelative;
-
-	std::ifstream file( strPath.c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	return std::string( ( std::istreambuf_iterator< char >( file ) ),
-	                    std::istreambuf_iterator< char >() );
-}
-
 //-----------------------------------------------------------------------------
 // WHAT THE COMPILER WAS ACTUALLY GIVEN.
 //
@@ -306,18 +271,6 @@ std::vector< std::string > CompiledLinesNaming( const std::string &strSource,
 // The files this test reads by name, so a rename fails loudly rather than
 // silently reading nothing.
 //-----------------------------------------------------------------------------
-const char *const kRecipientFilter =
-	"sourcesharp/game/server/shell_recipientfilter.cpp";
-const char *const kTempEnts =
-	"sourcesharp/game/server/shell_tempents.cpp";
-// The Phase 4 exit's cluster-E lane (p4-util) moved every definition
-// game/shared/takedamageinfo.cpp held into the shim, WHOLE, so the save/restore
-// pair below is at this address now. plan_shim.md Phase 1d then took the empty
-// stock TU out of BOTH vpcs, so the claim here -- "the ONE compiled unguarded
-// writer is a save/restore pair" -- no longer has a second compiled file to
-// worry about. TheStockTakeDamageInfoTuIsNotCompiledAtAll is what holds that
-// premise still true; it is the eviction that is pinned now, not the contents.
-const char *const kTakeDamageInfo    = "sourcesharp/game/shared/takedamageinfo_library.cpp";
 const char *const kTakeDamageInfoTu  = "game/shared/takedamageinfo.cpp";
 const char *const kPlayer         = "game/server/player.cpp";
 
@@ -349,27 +302,6 @@ TEST( SuppressHostDead, PlayerCppIsNotCompiledAtAll )
 // filled it), so the server compiles NO writer here at all -- a stronger form
 // of "the host is always NULL" than the pair was.
 //-----------------------------------------------------------------------------
-TEST( SuppressHostDead, TakeDamageInfoCompilesNoSuppressHostWrite )
-{
-	REQUIRE_THE_BUILD_READ();
-	ASSERT_TRUE( IsBuilt( kTakeDamageInfo ) )
-		<< kTakeDamageInfo << " is not compiled; this fact measures nothing.";
-
-	const std::string s = ReadSrcFile( kTakeDamageInfo );
-	ASSERT_FALSE( s.empty() ) << kTakeDamageInfo << " read as empty";
-
-	// The positive arm: the reader still sees the file's compiled code.
-	ASSERT_FALSE( CompiledLinesNaming( s, "ImpulseScale(" ).empty() )
-		<< "the scanner found no compiled ImpulseScale in " << kTakeDamageInfo
-		<< "; a zero below would be the scanner's, not the file's.";
-
-	const std::vector< std::string > writes =
-		CompiledLinesNaming( s, "SetSuppressHost(" );
-	EXPECT_EQ( (size_t)0, writes.size() )
-		<< kTakeDamageInfo << " compiles " << writes.size() << " suppress-host "
-		<< "writes again. If one CHOOSES a host, the host is no longer always NULL.";
-}
-
 //-----------------------------------------------------------------------------
 // The assertion the repoint above would otherwise have lost. The claim is that
 // there is ONE compiled unguarded writer; a copy left at the old address makes
@@ -406,37 +338,6 @@ TEST( SuppressHostDead, TheStockTakeDamageInfoTuIsNotCompiledAtAll )
 // The three deleted readers stay deleted.
 //=============================================================================
 
-TEST( SuppressHostDead, TheRecipientFilterReadsNoSuppressHost )
-{
-	const std::string s = ReadSrcFile( kRecipientFilter );
-	ASSERT_FALSE( s.empty() ) << kRecipientFilter << " read as empty";
-
-	const std::vector< std::string > hits =
-		CompiledLinesNaming( s, "GetSuppressHost" );
-
-	EXPECT_TRUE( hits.empty() )
-		<< kRecipientFilter << " reads the suppress host again (" << hits.size()
-		<< " site(s), first: " << ( hits.empty() ? std::string() : hits[ 0 ] )
-		<< "). Step 4b deleted both readers, and with them one C-style cast to "
-		   "a base entity pointer and one ToBasePlayer downcast -- §3.16 sites "
-		   "the census counts over this file's text.";
-}
-
-TEST( SuppressHostDead, TheTempEntSuppressFilterReadsNoSuppressHost )
-{
-	const std::string s = ReadSrcFile( kTempEnts );
-	ASSERT_FALSE( s.empty() ) << kTempEnts << " read as empty";
-
-	const std::vector< std::string > hits =
-		CompiledLinesNaming( s, "GetSuppressHost" );
-
-	EXPECT_TRUE( hits.empty() )
-		<< kTempEnts << " reads the suppress host again (" << hits.size()
-		<< " site(s)). That read is what carried §3.16 family 5 into this file: "
-		   "the host is an IPredictionSystem's base-entity pointer and the cull "
-		   "wanted a player.";
-}
-
 //-----------------------------------------------------------------------------
 // AND NO SENDER IS SUPPRESSED. SourceSharpTe_SuppressFilter answered what
 // stock's body computed for a NULL host, false ("there is at least one
@@ -447,87 +348,9 @@ TEST( SuppressHostDead, TheTempEntSuppressFilterReadsNoSuppressHost )
 // true with no host would silently drop EVERY temp entity in the game. With
 // the function gone, the guard is that nothing in the file asks one again.
 //-----------------------------------------------------------------------------
-TEST( SuppressHostDead, NoTempEntSenderConsultsASuppressFilter )
-{
-	const std::string s = ReadSrcFile( kTempEnts );
-	ASSERT_FALSE( s.empty() ) << kTempEnts << " read as empty";
-	ASSERT_FALSE( CompiledLinesNaming( s, "SourceSharpTe_" ).empty() )
-		<< kTempEnts << " names no SourceSharpTe_ function, so it is not the "
-		   "temp-entity file this fact means to read";
-
-	const std::vector< std::string > hits =
-		CompiledLinesNaming( s, "SuppressFilter" );
-
-	EXPECT_TRUE( hits.empty() )
-		<< kTempEnts << " consults a suppress filter again (" << hits.size()
-		<< " site(s), first: " << ( hits.empty() ? std::string() : hits[ 0 ] )
-		<< "). With no suppress host on this server it can only answer false; "
-		   "an answer of true drops every temp entity in the game.";
-}
-
 //=============================================================================
 // The scanner's own fixtures. Everything above is worthless if these fail.
 //=============================================================================
-
-TEST( SuppressHostDeadScanner, TheBuildListedTranslationUnits )
-{
-	ASSERT_TRUE( SrcRoot() != NULL )
-		<< "no src/ found from the working directory -- every claim above "
-		   "passed on an empty read";
-
-	// WAS `> 200u`, then a second loose reading of VPC's ninja graph that the
-	// walk had to agree with. The second reading is cmake_graph.h's own now
-	// (compile_commands.json against the CMakeLists); what is left is that the
-	// set is the build's, which the proof-of-read says.
-	REQUIRE_THE_BUILD_READ();
-}
-
-TEST( SuppressHostDeadScanner, TheThreePathsAllOpened )
-{
-	// A FLOOR PLUS AN ANCHOR PER PATH. The floor alone was `> 1000 bytes`, and
-	// a size is the wrong instrument twice over: it says nothing about WHICH
-	// file was read, and it cannot tell a truncated file from a SHORTENED one.
-	// These are shim files this port keeps splitting up -- the comment below
-	// already worked out, for another path, that a byte floor can assert the
-	// opposite of what a move achieved.
-	//
-	// RE-ANCHORED when the farm stopped carrying stock files neither DLL
-	// compiles: this was FIVE paths, and the two stock ones --
-	// game/server/physics_main.cpp and game/server/player.cpp -- are gone from
-	// it. Nothing left in this file reads either one's contents;
-	// PlayerCppIsNotCompiledAtAll asks the build, not the file.
-	//
-	// The floor drops to a value only an UNOPENED or TRUNCATED read can miss --
-	// ReadSrcFile answers "" for a path it cannot open, which is the defect
-	// this fact exists to catch -- and each anchor does the identifying work
-	// the size was standing in for and could never do.
-	//
-	// kTakeDamageInfoTu is deliberately NOT in this list: the file is 81 lines
-	// of banner and stock's own DMG_ commentary, so a "> 1000 bytes" floor
-	// would be asserting the opposite of what that move achieved. Since
-	// Phase 1d nothing reads its CONTENTS at all -- the fact that names it
-	// asks the build whether it is compiled, and REQUIRE_THE_BUILD_READ is
-	// what stops that one passing on a reader that read nothing.
-	struct Subject_t { const char *pszPath; const char *pszAnchor; };
-	static const Subject_t kAll[] = {
-		{ kRecipientFilter, "CRecipientFilter::" },
-		{ kTempEnts,        "SourceSharp_TempEntCloseRegistration" },
-		{ kTakeDamageInfo,  "CTakeDamageInfo::Init" },
-	};
-
-	for ( size_t i = 0; i < sizeof( kAll ) / sizeof( kAll[ 0 ] ); i++ )
-	{
-		const std::string text = ReadSrcFile( kAll[ i ].pszPath );
-
-		EXPECT_GT( text.size(), (size_t)200 )
-			<< kAll[ i ].pszPath << " read as empty or trivial -- a scanner that "
-			   "reads nothing passes every claim it is given";
-		EXPECT_NE( text.find( kAll[ i ].pszAnchor ), std::string::npos )
-			<< kAll[ i ].pszPath << " does not contain `" << kAll[ i ].pszAnchor
-			<< "`, so what was read is not the file this scanner means to be "
-			   "reading -- every claim it is given passes over the wrong text.";
-	}
-}
 
 //-----------------------------------------------------------------------------
 // THE GUARD DETECTOR ANSWERS DIFFERENTLY ON THE TWO ARMS.

@@ -39,9 +39,9 @@ namespace
 	public:
 		explicit SSRecipientFilter( IManagedRecipientFilter *pTarget ) : m_pTarget( pTarget ) {}
 
-		bool IsReliable( void ) const override { return m_pTarget->IsReliable() != 0; }
-		bool IsInitMessage( void ) const override { return m_pTarget->IsInitMessage() != 0; }
-		int GetRecipientCount( void ) const override { return m_pTarget->GetRecipientCount(); }
+		bool IsReliable() const override { return m_pTarget->IsReliable() != 0; }
+		bool IsInitMessage() const override { return m_pTarget->IsInitMessage() != 0; }
+		int GetRecipientCount() const override { return m_pTarget->GetRecipientCount(); }
 		int GetRecipientIndex( int slot ) const override { return m_pTarget->GetRecipientIndex( slot ); }
 
 		static void operator delete( void *, size_t ) {}

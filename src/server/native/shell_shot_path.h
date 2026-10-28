@@ -10,14 +10,14 @@
 #pragma once
 #define SHELL_SHOT_PATH_H
 
-#include "mathlib/vector.h"
+
 
 namespace ss { class CTakeDamageInfo; }
 class CGameTrace;
 typedef CGameTrace trace_t;
 
 // Included, not forward-declared: a forward declaration cannot coexist with `using CBaseEntity = IGameEntity`.
-#include "igameentity.h"
+
 
 // Tells every trigger volume along a shot's path that it was shot through.
 void EntityShot_TraceAttackToTriggers( const ss::CTakeDamageInfo &info, const Vector &start,

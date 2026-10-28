@@ -130,10 +130,10 @@ public:
 	virtual ClientThinkHandle_t GetThinkHandle() OVERRIDE { return m_hThink; }
 	virtual void SetThinkHandle( ClientThinkHandle_t hThink ) OVERRIDE { m_hThink = hThink; }
 
-	virtual const Vector &GetAbsOrigin( void ) const OVERRIDE { return Block().Head.Origin; }
-	virtual const QAngle &GetAbsAngles( void ) const OVERRIDE { return Block().Head.Angles; }
+	virtual const Vector &GetAbsOrigin() const OVERRIDE { return Block().Head.Origin; }
+	virtual const QAngle &GetAbsAngles() const OVERRIDE { return Block().Head.Angles; }
 
-	virtual CMouthInfo *GetMouth( void ) OVERRIDE { return NULL; }
+	virtual CMouthInfo *GetMouth() OVERRIDE { return NULL; }
 	virtual bool GetSoundSpatialization( SpatializationInfo_t & ) OVERRIDE { return false; }
 
 	virtual IGameEntity *GetBaseEntity() OVERRIDE { return NULL; }
@@ -148,50 +148,50 @@ public:
 	virtual void PostDataUpdate( DataUpdateType_t updateType ) OVERRIDE;
 
 	bool EnsureManagedHalf();
-	virtual bool IsDormant( void ) OVERRIDE { return Block().Client.Dormant != 0; }
+	virtual bool IsDormant() OVERRIDE { return Block().Client.Dormant != 0; }
 
-	void PushDormancy( void );
+	void PushDormancy();
 
-	bool IsPlayerShell( void ) const { return m_bPlayerShell; }
+	bool IsPlayerShell() const { return m_bPlayerShell; }
 
 	void SetPlayerShell( bool bIsPlayer ) { m_bPlayerShell = bIsPlayer; }
 
-	bool IsLocalPlayerShell( void ) const { return m_bLocalPlayer; }
+	bool IsLocalPlayerShell() const { return m_bLocalPlayer; }
 
 	void PredictionDrive( const struct SourceSharpClientPlayerView &view );
 
-	Vector EyePosition( void ) const { return GetAbsOrigin() + m_vecViewOffset; }
+	Vector EyePosition() const { return GetAbsOrigin() + m_vecViewOffset; }
 
-	const Vector &PredictedViewOffset( void ) const { return m_vecViewOffset; }
+	const Vector &PredictedViewOffset() const { return m_vecViewOffset; }
 
 	// -1 before the first prediction frame.
-	int PredictedHealth( void ) const { return m_nPredictedHealth; }
-	const QAngle &PredictedPunchAngle( void ) const { return m_angPunch; }
-	const QAngle &PredictedPunchAngleVel( void ) const { return m_angPunchVel; }
-	virtual int  entindex( void ) const OVERRIDE { return m_nEntIndex; }
+	int PredictedHealth() const { return m_nPredictedHealth; }
+	const QAngle &PredictedPunchAngle() const { return m_angPunch; }
+	const QAngle &PredictedPunchAngleVel() const { return m_angPunchVel; }
+	virtual int  entindex() const OVERRIDE { return m_nEntIndex; }
 	virtual void ReceiveMessage( int, bf_read & ) OVERRIDE {}
-	virtual void SetDestroyedOnRecreateEntities( void ) OVERRIDE {}
+	virtual void SetDestroyedOnRecreateEntities() OVERRIDE {}
 	virtual void OnDataUnchangedInPVS() OVERRIDE {}
 
 	virtual void *GetDataTableBasePtr() OVERRIDE { return this; }
 
 	// The physics step writes a ragdoll's pose into RenderOrigin, so it is drawn and
 	// culled where the solver has it, not where it was thrown from.
-	virtual const Vector &GetRenderOrigin( void ) OVERRIDE
+	virtual const Vector &GetRenderOrigin() OVERRIDE
 	{
 		return Block().Client.RenderOrigin;
 	}
-	virtual const QAngle &GetRenderAngles( void ) OVERRIDE { return Block().Client.RenderAngles; }
+	virtual const QAngle &GetRenderAngles() OVERRIDE { return Block().Client.RenderAngles; }
 	virtual const matrix3x4_t &RenderableToWorldTransform() OVERRIDE { return Block().Client.RenderTransform; }
-	virtual bool ShouldDraw( void ) OVERRIDE;
+	virtual bool ShouldDraw() OVERRIDE;
 
 	// The leaf system never re-asks ShouldDraw (only the viewmodel list does), so
 	// without this an entity that stops drawing keeps drawing.
 	void UpdateVisibility();
 	// A brush drawn in the opaque pass below full alpha writes depth for pixels it
 	// did not paint.
-	virtual bool IsTransparent( void ) OVERRIDE { return Block().Client.Transparent != 0; }
-	virtual const model_t *GetModel( void ) const OVERRIDE;
+	virtual bool IsTransparent() OVERRIDE { return Block().Client.Transparent != 0; }
+	virtual const model_t *GetModel() const OVERRIDE;
 	virtual int  DrawModel( int flags ) OVERRIDE;
 	int DrawExtras( int flags, bool bAfterModel );
 	virtual void GetRenderBounds( Vector &mins, Vector &maxs ) OVERRIDE;
@@ -201,21 +201,21 @@ public:
 
 	virtual ShadowType_t ShadowCastType() OVERRIDE;
 
-	virtual bool IsTwoPass( void ) OVERRIDE { return false; }
+	virtual bool IsTwoPass() OVERRIDE { return false; }
 	virtual void OnThreadedDrawSetup() OVERRIDE {}
-	virtual bool UsesPowerOfTwoFrameBufferTexture( void ) OVERRIDE { return false; }
-	virtual bool UsesFullFrameBufferTexture( void ) OVERRIDE { return false; }
+	virtual bool UsesPowerOfTwoFrameBufferTexture() OVERRIDE { return false; }
+	virtual bool UsesFullFrameBufferTexture() OVERRIDE { return false; }
 	virtual ClientShadowHandle_t GetShadowHandle() const OVERRIDE { return CLIENTSHADOW_INVALID_HANDLE; }
 	virtual ClientRenderHandle_t &RenderHandle() OVERRIDE { return m_hRenderHandle; }
 	virtual int  GetBody() OVERRIDE { return Block().Client.Body; }
 	virtual int  GetSkin() OVERRIDE { return Block().Client.Skin; }
 	virtual bool UsesFlexDelayedWeights() OVERRIDE { return false; }
 	// Managed code writes FxBlend before the leaf system's blend batch.
-	virtual void ComputeFxBlend( void ) OVERRIDE {}
-	virtual int  GetFxBlend( void ) OVERRIDE { return Block().Client.FxBlend; }
+	virtual void ComputeFxBlend() OVERRIDE {}
+	virtual int  GetFxBlend() OVERRIDE { return Block().Client.FxBlend; }
 	virtual bool LODTest() OVERRIDE { return true; }
 	virtual void SetupWeights( const matrix3x4_t *, int, float *, float * ) OVERRIDE {}
-	virtual void DoAnimationEvents( void ) OVERRIDE {}
+	virtual void DoAnimationEvents() OVERRIDE {}
 	virtual IPVSNotify *GetPVSNotifyInterface() OVERRIDE { return NULL; }
 	virtual void GetRenderBoundsWorldspace( Vector &absMins, Vector &absMaxs ) OVERRIDE
 	{
@@ -236,7 +236,7 @@ public:
 	{
 		GetRenderBounds( mins, maxs );
 	}
-	virtual bool IsShadowDirty( void ) OVERRIDE { return false; }
+	virtual bool IsShadowDirty() OVERRIDE { return false; }
 	virtual void MarkShadowDirty( bool ) OVERRIDE {}
 	virtual IClientRenderable *GetShadowParent() OVERRIDE { return NULL; }
 	virtual IClientRenderable *FirstShadowChild() OVERRIDE { return NULL; }
@@ -245,9 +245,9 @@ public:
 	virtual int  LookupAttachment( const char *pAttachmentName ) OVERRIDE;
 	virtual bool GetAttachment( int number, Vector &origin, QAngle &angles ) OVERRIDE;
 	virtual bool GetAttachment( int number, matrix3x4_t &matrix ) OVERRIDE;
-	virtual float *GetRenderClipPlane( void ) OVERRIDE { return NULL; }
+	virtual float *GetRenderClipPlane() OVERRIDE { return NULL; }
 	virtual void RecordToolMessage() OVERRIDE {}
-	virtual bool IgnoresZBuffer( void ) const OVERRIDE { return m_bIgnoreZ; }
+	virtual bool IgnoresZBuffer() const OVERRIDE { return m_bIgnoreZ; }
 
 	// A NULL pBoneToWorldOut asks only whether there are bones.
 	virtual bool SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask,

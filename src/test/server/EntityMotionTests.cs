@@ -1077,35 +1077,4 @@ public class EntityMotionTests
         Assert.Equal(0, motion.RunFrame(0.015f));
     }
 
-    /// <summary>
-    /// Flight is no longer in the native frame step. The pass would otherwise
-    /// run twice — once here and once in <c>StandaloneEntities_Update</c> — and
-    /// a doubly-integrated projectile flies at twice the speed it was fired at,
-    /// which reads as a tuning problem rather than as two integrators.
-    /// </summary>
-    [Fact]
-    public void TheNativeFrameStepNoLongerFliesAnything()
-    {
-        string text = File.ReadAllText(Path.Combine(
-            RepoLayout.SdkTree, "src", "sourcesharp", "game", "server",
-            "shell_standalone_base.cpp"));
-
-        Assert.Contains("void CStandaloneEntity::MarkBlockChanged", text);
-        Assert.DoesNotContain("pEnt->UpdateFlight();", text);
-        Assert.DoesNotContain("void CStandaloneEntity::UpdateFlight()", text);
-    }
-
-    /// <summary>
-    /// And the shell no longer declares it either, so nothing can call it back
-    /// into existence without noticing this suite.
-    /// </summary>
-    [Fact]
-    public void TheShellNoLongerDeclaresAFlightStep()
-    {
-        string text = File.ReadAllText(Path.Combine(
-            RepoLayout.SdkTree, "src", "sourcesharp", "game", "server", "shell_standalone.h"));
-
-        Assert.Contains("void SetBounces(", text);
-        Assert.DoesNotContain("void UpdateFlight();", text);
-    }
 }

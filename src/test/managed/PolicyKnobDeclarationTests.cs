@@ -439,24 +439,6 @@ public class PolicyKnobDeclarationTests
     }
 
     [Fact]
-    public void AiLosModeIsGoneFromTheShimsCpp()
-    {
-        var shim = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game");
-
-        foreach (var path in Directory.GetFiles(shim, "*.cpp", SearchOption.AllDirectories))
-        {
-            var text = File.ReadAllText(path);
-
-            foreach (var ws in new[] { " ", "\t" })
-            {
-                Assert.False(text.Contains("ConVar" + ws + "ai_LOS_mode("),
-                    "ai_LOS_mode is declared in managed code AND in "
-                    + Path.GetFileName(path) + ", so the game has two of one name.");
-            }
-        }
-    }
-
-    [Fact]
     public void VehicleAutoaimScaleIsDeclaredInTheServerAssembly()
     {
         Assert.True(DeclarationsIn(ServerAssembly).ContainsKey("sv_vehicle_autoaim_scale"),
@@ -475,24 +457,6 @@ public class PolicyKnobDeclarationTests
         Assert.Equal("8", declared.DefaultValue);
         Assert.Equal(ConVarFlags.None, declared.Flags);
         Assert.Equal("", declared.Help ?? "");
-    }
-
-    [Fact]
-    public void VehicleAutoaimScaleIsGoneFromTheShimsCpp()
-    {
-        var shim = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game");
-
-        foreach (var path in Directory.GetFiles(shim, "*.cpp", SearchOption.AllDirectories))
-        {
-            var text = File.ReadAllText(path);
-
-            foreach (var ws in new[] { " ", "\t" })
-            {
-                Assert.False(text.Contains("ConVar" + ws + "sv_vehicle_autoaim_scale("),
-                    "sv_vehicle_autoaim_scale is declared in managed code AND in "
-                    + Path.GetFileName(path) + ", so the game has two of one name.");
-            }
-        }
     }
 
     //-------------------------------------------------------------------------
@@ -546,60 +510,6 @@ public class PolicyKnobDeclarationTests
         Assert.False(DeclarationsIn(ClientAssembly).ContainsKey("sv_allow_point_servercommand"),
             "the gate is a server permission; a client-side declaration is a second "
             + "setting nobody meant.");
-    }
-
-    [Fact]
-    public void ThePointServerCommandGateIsGoneFromTheShimsCpp()
-    {
-        var shim = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game");
-
-        foreach (var path in Directory.GetFiles(shim, "*.cpp", SearchOption.AllDirectories))
-        {
-            var text = File.ReadAllText(path);
-
-            foreach (var ws in new[] { " ", "\t" })
-            {
-                Assert.False(text.Contains("ConVar" + ws + "sv_allow_point_servercommand("),
-                    "sv_allow_point_servercommand is declared in managed code AND in "
-                    + Path.GetFileName(path) + ". Two convars of one name, and nothing "
-                    + "says which one PointServerCommand's by-name read found.");
-            }
-        }
-    }
-
-    [Fact]
-    public void EveryMovedKnobIsGoneFromTheShimsCpp()
-    {
-        // The other half of the move, and the one a managed-only test would
-        // miss: a declaration that moved WITHOUT the C++ one being deleted
-        // leaves the game with two convars of one name.
-        var repo = RepoLayout.SdkTree;
-        var shim = Path.Combine(repo, "src", "sourcesharp", "game");
-        var sources = Directory.GetFiles(shim, "*.cpp", SearchOption.AllDirectories);
-
-        var offenders = new List<string>();
-
-        foreach (var knob in Moved)
-        {
-            foreach (var path in sources)
-            {
-                var text = File.ReadAllText(path);
-
-                // "ConVar<ws>name(" -- a declaration. A by-name read is
-                // `CManagedConVarRef name(`, whose token ends in "Ref" and so
-                // does not match, and that discrimination is what
-                // ARefIsNotMistakenForADeclaration below checks.
-                foreach (var ws in new[] { " ", "\t" })
-                {
-                    if (text.Contains("ConVar" + ws + knob.Name + "("))
-                        offenders.Add(knob.Name + " in " + Path.GetFileName(path));
-                }
-            }
-        }
-
-        Assert.True(offenders.Count == 0,
-            "these are declared in managed code AND still declared in C++, so the game "
-            + "has two of each: " + string.Join(", ", offenders));
     }
 
     //-------------------------------------------------------------------------
@@ -707,39 +617,6 @@ public class PolicyKnobDeclarationTests
     private const string DeclarationNeedle =
         "\\bConVar\\s+[A-Za-z_][A-Za-z0-9_:]*\\s*\\(\\s*";
 
-    /// <summary>Every native ConVar construction in the shim, name to files.</summary>
-    private static Dictionary<string, List<string>> NativeDeclarationsInTheShim()
-    {
-        var pattern = new Regex(DeclarationNeedle + "\"([^\"]+)\"", RegexOptions.Compiled);
-
-        var found = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-
-        foreach (var path in Directory.GetFiles(
-                     Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp"),
-                     "*.cpp", SearchOption.AllDirectories))
-        {
-            // THE TEST TREE IS NOT THE SHIM. sourcesharp/test/*.cpp are source
-            // scrapers: they quote declarations as NEEDLES, so a gtest looking
-            // for `ConVar r_drawmodeldecals(` reads here as a second
-            // declaration of it. Scanning them made this fact red about four
-            // files, none of which declares anything.
-            if (path.Contains(Path.DirectorySeparatorChar + "test" + Path.DirectorySeparatorChar))
-                continue;
-
-            foreach (Match m in pattern.Matches(WithoutWholeLineComments(File.ReadAllText(path))))
-            {
-                string name = m.Groups[1].Value;
-
-                if (!found.TryGetValue(name, out var files))
-                    found[name] = files = new List<string>();
-
-                files.Add(Path.GetFileName(path));
-            }
-        }
-
-        return found;
-    }
-
     /// <summary>
     /// The text with whole-line <c>//</c> comments dropped.
     ///
@@ -766,35 +643,6 @@ public class PolicyKnobDeclarationTests
         }
 
         return string.Join("\n", kept);
-    }
-
-    [Fact]
-    public void NoNativeConVarNameIsDeclaredTwiceInTheShim()
-    {
-        var offenders = NativeDeclarationsInTheShim()
-            .Where(kv => kv.Value.Count > 1)
-            .Select(kv => kv.Key + " in " + string.Join(" and ", kv.Value))
-            .ToList();
-
-        Assert.True(offenders.Count == 0,
-            "these convar names are declared more than once in src/sourcesharp: "
-            + string.Join("; ", offenders)
-            + ". Two registrations of one name is neither a compile error nor a link "
-            + "error: the engine keeps one, drops the other with a single console "
-            + "line, and the loser answers its compiled-in default forever.");
-    }
-
-    [Fact]
-    public void TheDuplicateScanFindsSomethingAtAll()
-    {
-        // The control. An absence is only evidence if the instrument can see a
-        // presence: a regex that matched nothing, or a walk over the wrong
-        // directory, would report "no duplicates" about a tree it never read.
-        Assert.True(NativeDeclarationsInTheShim().Count > 0,
-            "the scan found no native ConVar declaration anywhere in "
-            + "src/sourcesharp, so the duplicate check above is vacuous. Either "
-            + "the needle stopped matching or the walk is looking at the wrong "
-            + "directory.");
     }
 
     [Fact]

@@ -12,8 +12,8 @@
 template < typename ROOT, typename SLOT, typename OWNER, typename FUNC >
 inline SLOT EntityFuncSlot( FUNC pfn )
 {
-	typedef void (ROOT::*RootProbe_t)( void );
-	typedef void (OWNER::*OwnerProbe_t)( void );
+	typedef void (ROOT::*RootProbe_t)();
+	typedef void (OWNER::*OwnerProbe_t)();
 
 	// The class half, checked: the same conversion on a null member pointer fails
 	// when OWNER is not unambiguously, accessibly and non-virtually derived from ROOT.

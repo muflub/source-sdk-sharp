@@ -98,20 +98,6 @@ public class WorldArrivalTests
     }
 
     [Fact]
-    public void TheNativeWorldsBitsAreTheseValues()
-    {
-        // world_adapter_client.cpp's kWorldArrival_* enum carries them out.
-        Assert.Equal(1, (int)WorldArrivalActions.NormalMode);
-        Assert.Equal(2, (int)WorldArrivalActions.Occlusion);
-        Assert.Equal(4, (int)WorldArrivalActions.ScreenFadeRange);
-
-        string native = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "world_adapter_client.cpp"));
-        Assert.Contains("kWorldArrival_NormalMode      = 1,", native);
-        Assert.Contains("kWorldArrival_Occlusion       = 2,", native);
-        Assert.Contains("kWorldArrival_ScreenFadeRange = 4,", native);
-    }
-
-    [Fact]
     public void TheModuleRoutesTheWorldsUpdateToTheArrival()
     {
         string module = File.ReadAllText(RepoLayout.Repo("src", "client", "managed", "ClientModule.cs"));

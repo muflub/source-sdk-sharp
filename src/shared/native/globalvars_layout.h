@@ -10,7 +10,7 @@
 // and a wrong offset silently reads a neighbouring field.
 #pragma once
 
-#include <stddef.h>
+
 #include "edict.h"
 
 // F( name, offset, size, reach ): the whole struct in declaration order, base first.

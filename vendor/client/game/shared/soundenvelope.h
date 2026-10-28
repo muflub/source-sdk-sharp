@@ -33,8 +33,8 @@ class IRecipientFilter;
 abstract_class CSoundEnvelopeController
 {
 public:
-	virtual void		SystemReset( void ) = 0;
-	virtual void		SystemUpdate( void ) = 0;
+	virtual void		SystemReset() = 0;
+	virtual void		SystemUpdate() = 0;
 	virtual void		Play( CSoundPatch *pSound, float volume, float pitch, float flStartTime = 0 ) = 0;
 	virtual void		CommandAdd( CSoundPatch *pSound, float executeDeltaTime, soundcommands_t command, float commandTime, float value ) = 0;
 	virtual void		CommandClear( CSoundPatch *pSound ) = 0;
@@ -59,7 +59,7 @@ public:
 	virtual void		CheckLoopingSoundsForPlayer( CBasePlayer *pPlayer ) = 0;
 
 	virtual string_t	SoundGetName( CSoundPatch *pSound ) = 0;
-	static	CSoundEnvelopeController &GetController( void );
+	static	CSoundEnvelopeController &GetController();
 
 	virtual void		SoundSetCloseCaptionDuration( CSoundPatch *pSound, float flDuration ) = 0;
 };

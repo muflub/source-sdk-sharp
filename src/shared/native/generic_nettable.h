@@ -69,7 +69,7 @@ inline const SourceSharpTier_t *SourceSharp_Tiers( int *pOutCount )
 	return s_Tiers;
 }
 
-inline int SourceSharp_TierCount( void )
+inline int SourceSharp_TierCount()
 {
 	int nCount = 0;
 	SourceSharp_Tiers( &nCount );
@@ -265,15 +265,15 @@ public:
 		return 0;
 	}
 
-	int Count( void ) const { return m_nCount; }
-	int Collisions( void ) const { return m_nCollisions; }
+	int Count() const { return m_nCount; }
+	int Collisions() const { return m_nCollisions; }
 
 	const SourceSharpNetType_t *At( int i ) const
 	{
 		return ( i >= 0 && i < m_nCount ) ? m_Types + i : 0;
 	}
 
-	void Reset( void ) { m_nCount = 0; m_nCollisions = 0; }
+	void Reset() { m_nCount = 0; m_nCollisions = 0; }
 
 private:
 	// Case-sensitive, because the id hashes the exact bytes.
@@ -316,4 +316,4 @@ inline bool SourceSharp_SchemaNeedsRestamp( const CSourceSharpTypeTable &types,
 }
 
 // This module's table.
-CSourceSharpTypeTable &SourceSharp_NetTypes( void );
+CSourceSharpTypeTable &SourceSharp_NetTypes();

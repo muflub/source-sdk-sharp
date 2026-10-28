@@ -19,7 +19,7 @@ public:
 	};
 	
 	virtual	void		Create( vgui::VPANEL parent ) = 0;
-	virtual void		Destroy( void ) = 0;
+	virtual void		Destroy() = 0;
 
 	// messageID can be MESSAGESTRINGID_NONE or MESSAGESTRINGID_BASE plus some offset. You can refer to the message by
 	// its ID later.
@@ -34,7 +34,7 @@ public:
 
 	virtual void		GetStringLength( vgui::HFont pCustomFont, int *width, int *height, PRINTF_FORMAT_STRING const char *fmt, ... ) = 0;
 
-	virtual void		Clear( void ) = 0;
+	virtual void		Clear() = 0;
 };
 
 extern IMessageChars *messagechars;

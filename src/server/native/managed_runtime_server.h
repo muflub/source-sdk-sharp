@@ -3,10 +3,10 @@
 #pragma once
 
 #include "sourcesharp_gamesystem.h"
-#include "sourcesharp.h"
+
 
 // The counterpart of LoadManagedRuntime, shared by both sides.
-void SourceSharp_UnloadManagedSide( void );
+void SourceSharp_UnloadManagedSide();
 
 // IManagedRuntimeServer is managed-built; reach it through ManagedRuntimeServer(), which
 // every load and reload acquires again. Never keep the pointer.

@@ -5,8 +5,8 @@
 1	LAYOUT	[CSourceSharpInput] SourceSharpInputMailbox *Mailbox()
 4	SLOT-HELP	[CSourceSharpInput] bool Published( uint32_t nBit ) const
 10	SLOT-HELP	[CSourceSharpInput] bool ShakeIsNoop( float shake ) const
-8	SLOT	[CSourceSharpInput] virtual void Init_All( void ) OVERRIDE
-9	SLOT	[CSourceSharpInput] virtual void Shutdown_All( void ) OVERRIDE
+8	SLOT	[CSourceSharpInput] virtual void Init_All() OVERRIDE
+9	SLOT	[CSourceSharpInput] virtual void Shutdown_All() OVERRIDE
 5	SLOT	[CSourceSharpInput] virtual int GetButtonBits( int bResetState ) OVERRIDE
 20	SLOT	[CSourceSharpInput] virtual void CreateMove( int sequence_number, float input_sample_frametime, bool active ) OVERRIDE
 5	SLOT	[CSourceSharpInput] virtual void ExtraMouseSample( float frametime, bool active ) OVERRIDE
@@ -18,42 +18,42 @@
 6	SLOT	[CSourceSharpInput] virtual float KeyState( kbutton_t *key ) OVERRIDE
 10	SLOT	[CSourceSharpInput] virtual int KeyEvent( int down, ButtonCode_t keynum, const char *pszCurrentBinding ) OVERRIDE
 8	SLOT	[CSourceSharpInput] virtual kbutton_t *FindKey( const char *name ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual void ControllerCommands( void ) OVERRIDE
-5	SLOT	[CSourceSharpInput] virtual void Joystick_Advanced( void ) OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual void ControllerCommands() OVERRIDE
+5	SLOT	[CSourceSharpInput] virtual void Joystick_Advanced() OVERRIDE
 5	SLOT	[CSourceSharpInput] virtual void Joystick_SetSampleTime( float frametime ) OVERRIDE
 5	SLOT	[CSourceSharpInput] virtual void IN_SetSampleTime( float frametime ) OVERRIDE
-5	SLOT	[CSourceSharpInput] virtual void AccumulateMouse( void ) OVERRIDE
-7	SLOT	[CSourceSharpInput] virtual void ActivateMouse( void ) OVERRIDE
-7	SLOT	[CSourceSharpInput] virtual void DeactivateMouse( void ) OVERRIDE
-5	SLOT	[CSourceSharpInput] virtual void ClearStates( void ) OVERRIDE
-5	SLOT	[CSourceSharpInput] virtual float GetLookSpring( void ) OVERRIDE
+5	SLOT	[CSourceSharpInput] virtual void AccumulateMouse() OVERRIDE
+7	SLOT	[CSourceSharpInput] virtual void ActivateMouse() OVERRIDE
+7	SLOT	[CSourceSharpInput] virtual void DeactivateMouse() OVERRIDE
+5	SLOT	[CSourceSharpInput] virtual void ClearStates() OVERRIDE
+5	SLOT	[CSourceSharpInput] virtual float GetLookSpring() OVERRIDE
 14	SLOT	[CSourceSharpInput] virtual void GetFullscreenMousePos( int *mx, int *my, int *unclampedx, int *unclampedy ) OVERRIDE
 5	SLOT	[CSourceSharpInput] virtual void SetFullscreenMousePos( int mx, int my ) OVERRIDE
-5	SLOT	[CSourceSharpInput] virtual void ResetMouse( void ) OVERRIDE
-5	SLOT	[CSourceSharpInput] virtual float GetLastForwardMove( void ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual float Joystick_GetForward( void ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual float Joystick_GetSide( void ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual float Joystick_GetPitch( void ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual float Joystick_GetYaw( void ) OVERRIDE
-13	SLOT	[CSourceSharpInput] virtual void CAM_Think( void ) OVERRIDE
-6	SLOT	[CSourceSharpInput] virtual int CAM_IsThirdPerson( void ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual void CAM_ToThirdPerson( void ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual void CAM_ToFirstPerson( void ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual void CAM_StartMouseMove( void ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual void CAM_EndMouseMove( void ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual void CAM_StartDistance( void ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual void CAM_EndDistance( void ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual int CAM_InterceptingMouse( void ) OVERRIDE
+5	SLOT	[CSourceSharpInput] virtual void ResetMouse() OVERRIDE
+5	SLOT	[CSourceSharpInput] virtual float GetLastForwardMove() OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual float Joystick_GetForward() OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual float Joystick_GetSide() OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual float Joystick_GetPitch() OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual float Joystick_GetYaw() OVERRIDE
+13	SLOT	[CSourceSharpInput] virtual void CAM_Think() OVERRIDE
+6	SLOT	[CSourceSharpInput] virtual int CAM_IsThirdPerson() OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual void CAM_ToThirdPerson() OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual void CAM_ToFirstPerson() OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual void CAM_StartMouseMove() OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual void CAM_EndMouseMove() OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual void CAM_StartDistance() OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual void CAM_EndDistance() OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual int CAM_InterceptingMouse() OVERRIDE
 1	SLOT	[CSourceSharpInput] virtual void CAM_ToOrthographic() OVERRIDE
 1	SLOT	[CSourceSharpInput] virtual bool CAM_IsOrthographic() const OVERRIDE
 9	SLOT	[CSourceSharpInput] virtual void CAM_OrthographicSize( float &w, float &h ) const OVERRIDE
 5	SLOT	[CSourceSharpInput] virtual void SetPreferredGameActionSet( GameActionSet_t action_set ) OVERRIDE
 5	SLOT	[CSourceSharpInput] virtual GameActionSet_t GetPreferredGameActionSet() OVERRIDE
 5	SLOT	[CSourceSharpInput] virtual void SetGameActionSetFlags( GameActionSetFlags_t action_set_flags ) OVERRIDE
-5	SLOT	[CSourceSharpInput] virtual void LevelInit( void ) OVERRIDE
+5	SLOT	[CSourceSharpInput] virtual void LevelInit() OVERRIDE
 5	SLOT	[CSourceSharpInput] virtual void ClearInputButton( int bits ) OVERRIDE
 17	SLOT	[CSourceSharpInput] virtual void CAM_SetCameraThirdData( CameraThirdData_t *pCameraData, const QAngle &vecCameraOffset ) OVERRIDE
-1	SLOT	[CSourceSharpInput] virtual void CAM_CameraThirdThink( void ) OVERRIDE
+1	SLOT	[CSourceSharpInput] virtual void CAM_CameraThirdThink() OVERRIDE
 5	SLOT	[CSourceSharpInput] virtual bool EnableJoystickMode() OVERRIDE
 5	SLOT	[CSourceSharpInput] virtual bool IsSteamControllerActive() OVERRIDE
 16	LAYOUT	[CSourceSharpInput] static void FromFlat( const SourceSharpDecodedUserCmd &flat, CUserCmd *cmd )
@@ -62,20 +62,20 @@
 10	SLOT-HELP	[CSourceSharpInput] CUserCmd *Verified( int sequence_number, CUserCmd &fallback )
 8	SLOT-HELP	[CSourceSharpInput] float JoystickAxis( int nAxis )
 5	SLOT-HELP	[CSourceSharpInput] int CamOp( int nOp ) const
-3	LAYOUT	CThirdPersonManager::CThirdPersonManager( void )
-5	HOOK	void CThirdPersonManager::Init( void )
+3	LAYOUT	CThirdPersonManager::CThirdPersonManager()
+5	HOOK	void CThirdPersonManager::Init()
 3	HOOK	void UpdateRumbleEffects()
 7	BOUNDARY	void UpdateScreenShakeRumble( float shake, float balance )
-5	BOUNDARY	void StopAllRumbleEffects( void )
+5	BOUNDARY	void StopAllRumbleEffects()
 8	BOUNDARY	void SourceSharp_InputCursorState( int32_t *pVisible, int32_t *pLocked )
 9	BOUNDARY	void SourceSharp_InputGetCursorPos( int32_t *pX, int32_t *pY )
 4	BOUNDARY	void SourceSharp_InputSetCursorPos( int32_t x, int32_t y )
-5	BOUNDARY	void SourceSharp_InputSetCursorArrow( void )
+5	BOUNDARY	void SourceSharp_InputSetCursorArrow()
 10	BOUNDARY	void SourceSharp_InputVguiScreenSize( int32_t *pWide, int32_t *pTall )
 9	BOUNDARY	void SourceSharp_InputHudFacts( float *pSensitivity, int32_t *pKeyBits, float *pFovAdjust )
-5	BOUNDARY	void SourceSharp_InputStopPitchDrift( void )
+5	BOUNDARY	void SourceSharp_InputStopPitchDrift()
 7	BOUNDARY	void SourceSharp_InputSetLocalViewAngles( const float *pAngles )
-4	BOUNDARY	void SourceSharp_InputViewerCameraModeChanged( void )
-4	BOUNDARY	int32_t SourceSharp_InputViewerAimIsAssisted( void )
-4	BOUNDARY	void *SourceSharp_InputMailbox( void )
+4	BOUNDARY	void SourceSharp_InputViewerCameraModeChanged()
+4	BOUNDARY	int32_t SourceSharp_InputViewerAimIsAssisted()
+4	BOUNDARY	void *SourceSharp_InputMailbox()
 8	BOUNDARY	void SourceSharp_InputShowScoreboard( int32_t bShow )

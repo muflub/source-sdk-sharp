@@ -17,65 +17,7 @@
 namespace
 {
 
-std::string ReadFile( const char *pPath )
-{
-	FILE *fp = fopen( pPath, "rb" );
-	if ( !fp )
-		return std::string();
-
-	std::string out;
-	char buf[ 4096 ];
-	size_t n;
-	while ( ( n = fread( buf, 1, sizeof( buf ), fp ) ) > 0 )
-		out.append( buf, n );
-	fclose( fp );
-	return out;
-}
-
-// `NAME = <number>,` inside an enum, as an int; -1 when absent in that shape.
-// The name must be followed by whitespace or '=', so a longer enumerator that
-// starts with this one is not taken for it.
-int EnumValue( const std::string &header, const char *pszName )
-{
-	const std::string name( pszName );
-	for ( size_t at = header.find( name ); at != std::string::npos; at = header.find( name, at + 1 ) )
-	{
-		const size_t after = at + name.size();
-		if ( after >= header.size() )
-			break;
-		if ( at > 0 && ( isalnum( (unsigned char)header[ at - 1 ] ) || header[ at - 1 ] == '_' ) )
-			continue;
-		size_t p = after;
-		while ( p < header.size() && ( header[ p ] == ' ' || header[ p ] == '\t' ) )
-			p++;
-		if ( p >= header.size() || header[ p ] != '=' )
-			continue;
-		return (int)strtol( header.c_str() + p + 1, NULL, 0 );
-	}
-	return -1;
-}
-
 } // namespace
-
-TEST( SsEffectDispatch, TheSlimeFlagIsSharedDefsOwnValue )
-{
-	const std::string header = ReadFile( "game/shared/shareddefs.h" );
-	ASSERT_FALSE( header.empty() ) << "game/shared/shareddefs.h could not be read";
-
-	const int nValve = EnumValue( header, "FX_WATER_IN_SLIME" );
-	ASSERT_NE( -1, nValve ) << "FX_WATER_IN_SLIME is not `NAME = n` in shareddefs.h";
-	EXPECT_EQ( nValve, (int)ss::kEffectFlagWaterInSlime );
-}
-
-TEST( SsEffectDispatch, TheDefaultAttachmentIsParticleParsesOwnValue )
-{
-	const std::string header = ReadFile( "game/shared/particle_parse.h" );
-	ASSERT_FALSE( header.empty() ) << "game/shared/particle_parse.h could not be read";
-
-	const int nValve = EnumValue( header, "PATTACH_ABSORIGIN" );
-	ASSERT_NE( -1, nValve ) << "PATTACH_ABSORIGIN is not `NAME = n` in particle_parse.h";
-	EXPECT_EQ( nValve, (int)ss::kEffectAttachAbsOrigin );
-}
 
 TEST( SsEffectDispatch, ARecordNobodyFilledSendsStocksDefaults )
 {

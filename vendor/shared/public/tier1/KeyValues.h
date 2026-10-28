@@ -56,7 +56,7 @@ public:
 	public:
 		explicit inline AutoDelete( KeyValues *pKeyValues ) : m_pKeyValues( pKeyValues ) {}
 		explicit inline AutoDelete( const char *pchKVName ) : m_pKeyValues( new KeyValues( pchKVName ) ) {}
-		inline ~AutoDelete( void ) { if( m_pKeyValues ) m_pKeyValues->deleteThis(); }
+		inline ~AutoDelete() { if( m_pKeyValues ) m_pKeyValues->deleteThis(); }
 		operator KeyValues *()	{ return m_pKeyValues; }
 	private:
 		AutoDelete( AutoDelete const &x ); // forbid
@@ -155,13 +155,13 @@ public:
 	bool ReadAsBinary( CUtlBuffer &buffer, int nStackDepth = 0 );
 
 	// Allocate & create a new copy of the keys
-	KeyValues *MakeCopy( void ) const;
+	KeyValues *MakeCopy() const;
 
 	// Make a new copy of all subkeys, add them all to the passed-in keyvalues
 	void CopySubkeys( KeyValues *pParent ) const;
 
 	// Clear out all subkeys, and the current value
-	void Clear( void );
+	void Clear();
 
 	// Data type
 	enum types_t

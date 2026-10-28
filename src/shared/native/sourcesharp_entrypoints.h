@@ -82,16 +82,16 @@ int32_t SourceSharp_DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const ch
                                        int32_t a );
 int32_t SourceSharp_EntitiesInSphere( const float *pCenterXYZ, float flRadius,
                                       uint32_t *pOutHandles, int32_t nMax );
-int32_t SourceSharp_EntitiesInvalidateMdlCacheAll( void );
+int32_t SourceSharp_EntitiesInvalidateMdlCacheAll();
 int32_t SourceSharp_EntitiesStandalonePlayerSkyboxArea( int32_t iEdict, int32_t *pOutArea );
 void *SourceSharp_EntityBindBlob( uint32_t hEntity, int32_t *pOutSize,
                                   SourceSharpEntitySlot_t **pOutSlot, uint32_t *pOutSerial );
 void SourceSharp_EntityDestroyPhysics( uint32_t hEntity );
 int32_t SourceSharp_EntityDispatch( uint32_t hEntity, int32_t nOp,
                                     const SourceSharpOpArgs *pArgs );
-int32_t SourceSharp_EntityFactoryCount( void );
+int32_t SourceSharp_EntityFactoryCount();
 const char *SourceSharp_EntityFactoryNameAt( int32_t index );
-int32_t SourceSharp_EntityFactoryRefusalCount( void );
+int32_t SourceSharp_EntityFactoryRefusalCount();
 const char *SourceSharp_EntityFactoryRefusalNameAt( int32_t index );
 int32_t SourceSharp_EntityFactoryRefusalTimesAt( int32_t index );
 void SourceSharp_EntityGetAngles( uint32_t hEntity, float *pOutPYR );
@@ -167,13 +167,13 @@ void SourceSharp_EventSetBool( void *hEvent, const char *pKey, int32_t bValue );
 void SourceSharp_EventSetInt( void *hEvent, const char *pKey, int32_t nValue );
 void SourceSharp_EventSetString( void *hEvent, const char *pKey, const char *pValue );
 int32_t SourceSharp_ExitWatchArm( const char *pRecordPath );
-int32_t SourceSharp_ExitWatchDisarm( void );
+int32_t SourceSharp_ExitWatchDisarm();
 int32_t SourceSharp_ExitWatchRead( int32_t *pOut, int32_t nMax );
 uint32_t SourceSharp_FindEntityByClassname( uint32_t hStartAfter, const char *pClassName );
-uint32_t SourceSharp_GetCommandClientHandle( void );
+uint32_t SourceSharp_GetCommandClientHandle();
 uint32_t SourceSharp_GetPlayerHandle( int32_t nPlayerIndex );
 int32_t SourceSharp_GetPlayerTeam( uint32_t hPlayer );
-int32_t SourceSharp_InvisibleRangeReach( void );
+int32_t SourceSharp_InvisibleRangeReach();
 uint32_t SourceSharp_MapSpawnCreate( const char *pClassName, const char *pPackedKeys,
                                      int32_t nBytes );
 void SourceSharp_MoveTraceServer( const float *pStartXYZ, const float *pEndXYZ,
@@ -183,10 +183,10 @@ void SourceSharp_MoveTraceServer( const float *pStartXYZ, const float *pEndXYZ,
 void SourceSharp_OverlayCounts( uint32_t *pOutDrawn, uint32_t *pOutClipped,
                                 uint32_t *pOutNoViewer, uint32_t *pOutNoOverlay,
                                 int32_t *pOutViewerSet );
-void *SourceSharp_PhysicsEnvironmentPointer( void );
+void *SourceSharp_PhysicsEnvironmentPointer();
 int32_t SourceSharp_PhysicsUpdateOwners( void **ppObjects, float *pVelocities, int32_t nCount,
                                          uint32_t *pOutOwners );
-void *SourceSharp_PhysicsWorldObject( void );
+void *SourceSharp_PhysicsWorldObject();
 int32_t SourceSharp_PlayerCommandBegin( uint32_t hPlayer,
                                         SourceSharpPlayerCommandFacts *pFacts );
 void SourceSharp_PlayerCommandFinish( uint32_t hPlayer,
@@ -281,8 +281,8 @@ void SourceSharp_ClientDecalStudioModel( int32_t nEntity, const float *pRayStart
 void SourceSharp_ClientEndMoveCommand( int32_t bRan, int32_t *pOutGroundIndex );
 void SourceSharp_ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ,
                                      int32_t bExplosive );
-int32_t SourceSharp_ClientEntitiesInvalidateMdlCacheAll( void );
-int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll( void );
+int32_t SourceSharp_ClientEntitiesInvalidateMdlCacheAll();
+int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll();
 void SourceSharp_ClientEntityGetAngles( uint32_t hEntity, float *pOutPYR );
 int32_t SourceSharp_ClientEntityGetIndex( uint32_t hEntity );
 void SourceSharp_ClientEntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize );
@@ -298,9 +298,9 @@ int32_t SourceSharp_ClientGetUserCmd( int32_t nCommandNumber, SourceSharpUserCmd
 void SourceSharp_ClientImpactLedger( int32_t nFlecks, int32_t nDust );
 void SourceSharp_ClientInterpAdmitted( const uint32_t *pHandles, int32_t nCount );
 void **SourceSharp_ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmount );
-int32_t SourceSharp_ClientIsLowViolence( void );
+int32_t SourceSharp_ClientIsLowViolence();
 void SourceSharp_ClientMetalSparks( const float *pPositionXYZ, const float *pDirectionXYZ );
-void SourceSharp_ClientModeLayout( void );
+void SourceSharp_ClientModeLayout();
 void SourceSharp_ClientMuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR,
                                     float flScale, int32_t nType );
 int32_t SourceSharp_ClientNetChannel( float *pOut, int32_t nOut );
@@ -383,7 +383,7 @@ void SourceSharp_ClientWorldLighting( const float *pStartXYZ, const float *pEndX
                                       float *pOut6 );
 void *SourceSharp_ColorLookupAdd( const char *pLookupFile );
 void SourceSharp_ColorLookupRemove( void *hLookup );
-void SourceSharp_ColorLookupResetWeights( void );
+void SourceSharp_ColorLookupResetWeights();
 void SourceSharp_ColorLookupSetWeight( void *hLookup, float flWeight );
 void SourceSharp_ConNPrintf( void *pEngineClient, int32_t nPos, const char *pszText );
 void SourceSharp_ConNXPrintf( void *pEngineClient, int32_t nIndex, float flTimeToLive,
@@ -403,15 +403,15 @@ int32_t SourceSharp_DrawSpriteOffset( uint32_t hOwner, const float *pOffsetXYZ,
 void SourceSharp_DynamicLightRelease( int32_t nKey );
 void SourceSharp_DynamicLightUpdate( const SourceSharpDynamicLight *pLight );
 void SourceSharp_EffectDispatchName( int32_t nIndex, char *pOut, int32_t nOutBytes );
-int32_t SourceSharp_EffectRegistrationCount( void );
+int32_t SourceSharp_EffectRegistrationCount();
 int32_t SourceSharp_EffectRegistrationName( int32_t iIndex, char *pOut, int32_t nOutSize );
 void SourceSharp_EffectRegistrationRun( int32_t iIndex, const SourceSharpEffectData_t *pData );
 void SourceSharp_EntitySetSkin( uint32_t hEntity, int32_t nSkin );
-int32_t SourceSharp_FlashlightSupportsBorderColor( void );
+int32_t SourceSharp_FlashlightSupportsBorderColor();
 int32_t SourceSharp_FlashlightTexture( const char *pszName );
-void SourceSharp_FxCacheMaterialHandles( void );
-void SourceSharp_FxCacheUsedMaterials( void );
-int32_t SourceSharp_FxCanPredict( void );
+void SourceSharp_FxCacheMaterialHandles();
+void SourceSharp_FxCacheUsedMaterials();
+int32_t SourceSharp_FxCanPredict();
 void SourceSharp_FxDispatchParticleEffect( int32_t nSystem, const float *pStartXYZ,
                                            const float *pEndXYZ, const float *pAnglesPYR,
                                            int32_t nEntIndex );
@@ -427,16 +427,16 @@ int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, 
 int32_t SourceSharp_FxEntityRenderAngles( int32_t nEntIndex, float *pOutPYR );
 int32_t SourceSharp_FxHandleEntityIndex( uint32_t hEntity );
 void SourceSharp_FxLoadModel( const char *pModel );
-int32_t SourceSharp_FxLocalPlayer( void );
+int32_t SourceSharp_FxLocalPlayer();
 void SourceSharp_FxMainViewOrigin( float *pOutXYZ );
 void SourceSharp_FxMaterialAddRef( int32_t nMaterial );
 int32_t SourceSharp_FxMaterialFind( const char *pName );
 int32_t SourceSharp_FxMaterialName( int32_t nMaterial, char *pOut, int32_t nOutSize );
 void SourceSharp_FxMaterialRelease( int32_t nMaterial );
-int32_t SourceSharp_FxMaterialsCached( void );
+int32_t SourceSharp_FxMaterialsCached();
 int32_t SourceSharp_FxModelFrameCount( const char *pModel );
 void SourceSharp_FxPrecacheCache( int32_t nIndex, int32_t bPrecache );
-int32_t SourceSharp_FxPrecacheCount( void );
+int32_t SourceSharp_FxPrecacheCount();
 int32_t SourceSharp_FxRecipientCount( const float *pOriginXYZ );
 int32_t SourceSharp_FxRenderableAttachment( uint32_t hEntity, int32_t nAttachment,
                                             float *pOut6 );
@@ -457,8 +457,8 @@ void SourceSharp_GetLightForPoint( void *pEngineClient, const float *pPosXYZ, in
                                    float *pOutXYZ );
 void SourceSharp_GetLightForPointFast( void *pEngineClient, const float *pPosXYZ,
                                        int32_t bClamp, float *pOutXYZ );
-int32_t SourceSharp_GetLocalPlayerHealth( void );
-int32_t SourceSharp_GetLocalPlayerIndex( void );
+int32_t SourceSharp_GetLocalPlayerHealth();
+int32_t SourceSharp_GetLocalPlayerIndex();
 int32_t SourceSharp_GetLocalPlayerOrigin( float *pOutXYZ );
 int32_t SourceSharp_GlowMaterialFind( const char *pszName, const char *pszGroup );
 void SourceSharp_HudLocalise( const char *pToken, char *pOut, int32_t nOutSize );
@@ -467,16 +467,16 @@ int32_t SourceSharp_HudTextMessageGet( const char *pName, SourceSharpTextMessage
 void SourceSharp_InputCursorState( int32_t *pVisible, int32_t *pLocked );
 void SourceSharp_InputGetCursorPos( int32_t *pX, int32_t *pY );
 void SourceSharp_InputHudFacts( float *pSensitivity, int32_t *pKeyBits, float *pFovAdjust );
-void *SourceSharp_InputMailbox( void );
-void SourceSharp_InputSetCursorArrow( void );
+void *SourceSharp_InputMailbox();
+void SourceSharp_InputSetCursorArrow();
 void SourceSharp_InputSetCursorPos( int32_t x, int32_t y );
 void SourceSharp_InputSetLocalViewAngles( const float *pAngles );
 void SourceSharp_InputShowScoreboard( int32_t bShow );
-void SourceSharp_InputStopPitchDrift( void );
+void SourceSharp_InputStopPitchDrift();
 void SourceSharp_InputVguiScreenSize( int32_t *pWide, int32_t *pTall );
-int32_t SourceSharp_InputViewerAimIsAssisted( void );
-void SourceSharp_InputViewerCameraModeChanged( void );
-int32_t SourceSharp_ParticleDefinitionReads( void );
+int32_t SourceSharp_InputViewerAimIsAssisted();
+void SourceSharp_InputViewerCameraModeChanged();
+int32_t SourceSharp_ParticleDefinitionReads();
 int32_t SourceSharp_ParticleQueryUnanswered( int32_t *pOut, int32_t nMax );
 int32_t SourceSharp_ParticleSystemFollowPoints( uint32_t hOwner, int32_t nPointMask );
 int32_t SourceSharp_ParticleSystemImpact( const char *pszName, const float *pPoints,
@@ -526,7 +526,7 @@ int32_t SourceSharp_PhysicsClientSurfaceAudio( int32_t nSurfaceProps, char *pHar
                                                int32_t nHard, char *pSoft, int32_t nSoft,
                                                float *pOut3 );
 void SourceSharp_PixelVisDiameters( const float *pSpheres, int32_t nSpheres, float *pOut );
-int32_t SourceSharp_PixelVisQueryCreate( void );
+int32_t SourceSharp_PixelVisQueryCreate();
 void SourceSharp_PixelVisQueryDestroy( int32_t nQuery );
 void SourceSharp_PixelVisQueryPixels( int32_t nVisible, int32_t nCount, int32_t *pOut );
 void SourceSharp_PixelVisQueryReset( int32_t nQuery );
@@ -534,7 +534,7 @@ int32_t SourceSharp_PixelVisView( float *pOut, int32_t nFloats );
 int32_t SourceSharp_PrecipitationInPvs( uint32_t hOwner );
 int32_t SourceSharp_PrecipitationPlayer( float *pOut );
 int32_t SourceSharp_PrecipitationPointContents( const float *pXYZ );
-int32_t SourceSharp_PrecipitationScreenWidth( void );
+int32_t SourceSharp_PrecipitationScreenWidth();
 int32_t SourceSharp_PrecipitationTraceLine( const float *pStartXYZ, const float *pEndXYZ,
                                             int32_t nMask, int32_t bIgnorePlayer, float *pOut );
 int32_t SourceSharp_PrecipitationTraceVolume( uint32_t hOwner, const float *pStartXYZ,
@@ -566,7 +566,7 @@ int32_t SourceSharp_SendServerMessage( const char *pKey, const uint8_t *pData, i
 void SourceSharp_SetViewerFogParams( const SourceSharpFogParams *pParams );
 void SourceSharp_SetViewerSkyboxParams( const SourceSharpSkyboxParams *pParams );
 void SourceSharp_SoundscapeMainView( float *pOut9 );
-int32_t SourceSharp_SoundscapeMakingResLists( void );
+int32_t SourceSharp_SoundscapeMakingResLists();
 void SourceSharp_SoundscapeSetPlayerDsp( int32_t nDspType );
 void SourceSharp_SoundscapeSetRoomType( int32_t nRoomType );
 void SourceSharp_SoundscapeTouchSoundFile( const char *pszWave );
@@ -598,7 +598,7 @@ void SourceSharp_SurfaceSetPlan( uint32_t hEntity, const int32_t *pWords, int32_
 int32_t SourceSharp_TempEntBuildClient( const void *pBlock, int32_t nBlockBytes,
                                         int32_t nBlobBytes, SourceSharpTeRecvBuilt_t *pOut );
 int32_t SourceSharp_TempEntPoolAddVisible( int32_t nSlot );
-int32_t SourceSharp_TempEntPoolCapacity( void );
+int32_t SourceSharp_TempEntPoolCapacity();
 int32_t SourceSharp_TempEntPoolCreate( int32_t nSlot, const float *pOriginXYZ,
                                        int32_t nModelIndex, int32_t nPriority );
 void SourceSharp_TempEntPoolDestroy( int32_t nSlot );
@@ -612,7 +612,7 @@ int32_t SourceSharp_TempEntPoolWriteSpawn( int32_t nSlot,
                                            const SourceSharpTempEntSpawn_t *pSpawn );
 int32_t SourceSharp_TempEntPoolWriteTransform( int32_t nSlot,
                                                const SourceSharpTempEntTransform_t *pTransform );
-void SourceSharp_UiDebugOverlayClearDead( void );
+void SourceSharp_UiDebugOverlayClearDead();
 int32_t SourceSharp_UiDebugOverlayText( int32_t nIndex, float *pOutX, float *pOutY,
                                         int32_t *pOutLine, uint32_t *pOutRgba, uint8_t *pText,
                                         int32_t nTextBytes );
@@ -643,7 +643,7 @@ void SourceSharp_UiPlaySound( const char *pPath );
 void SourceSharp_UiSetClip( int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1, int32_t y1 );
 void SourceSharp_UiSetCursor( int32_t nShape );
 void SourceSharp_UiSetMenuInput( int32_t bMouse, int32_t bKeyboard );
-int32_t SourceSharp_UiTextureCreate( void );
+int32_t SourceSharp_UiTextureCreate();
 void SourceSharp_UiTextureUpload( int32_t nTexture, const uint8_t *pRgba, int32_t nWide,
                                   int32_t nTall );
 void SourceSharp_ViewOverrideSet( int32_t nActive, const float *pOriginXYZ,

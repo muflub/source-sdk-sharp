@@ -82,7 +82,7 @@ public:
 abstract_class IGameEventListener2
 {
 public:
-	virtual	~IGameEventListener2( void ) {};
+	virtual	~IGameEventListener2() {};
 
 	// FireEvent is called by EventManager if event just occurred
 	// KeyValue memory will be freed by manager if not needed anymore
@@ -92,7 +92,7 @@ public:
 abstract_class IGameEventManager2 : public IBaseInterface
 {
 public:
-	virtual	~IGameEventManager2( void ) {};
+	virtual	~IGameEventManager2() {};
 
 	// load game event descriptions from a file eg "resource\gameevents.res"
 	virtual int LoadEventsFromFile( const char *filename ) = 0;
@@ -135,7 +135,7 @@ public:
 abstract_class IGameEventListener
 {
 public:
-	virtual	~IGameEventListener( void ) {};
+	virtual	~IGameEventListener() {};
 
 	// FireEvent is called by EventManager if event just occurred
 	// KeyValue memory will be freed by manager if not needed anymore
@@ -145,7 +145,7 @@ public:
 abstract_class IGameEventManager : public IBaseInterface
 {
 public:
-	virtual	~IGameEventManager( void ) {};
+	virtual	~IGameEventManager() {};
 	
 	// load game event descriptions from a file eg "resource\gameevents.res"
 	virtual int LoadEventsFromFile( const char * filename ) = 0;

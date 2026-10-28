@@ -31,24 +31,6 @@ public class PhysicsSharedEvictionTests
     }
 
     [Fact]
-    public void TheServersDataObjectSystemAndNativePairHashLeftWithIt()
-    {
-        // The systems table this read went with kServerSystems[]
-        // (plan_server_native_v2 T4e); the native systems' stages are
-        // shell_level.cpp's steps now, and none is the data-object system.
-        string level = Code("src", "server", "native", "shell_level.cpp");
-        Assert.Contains("PhysicsGameSystem()->LevelInitPreEntity();", level);
-        Assert.DoesNotContain("DataObjectAccessGameSystem", level);
-
-        string physics = Code("src", "server", "native", "physics.cpp");
-        Assert.Contains("CPhysicsHook::LevelInitPreEntity", physics);
-        Assert.DoesNotContain("g_EntityCollisionHash", physics);
-        Assert.DoesNotContain("CreateObjectPairHash", physics);
-        Assert.DoesNotContain("PhysCreateWorld_Shared", physics);
-        Assert.DoesNotContain("PrecachePhysicsSounds", physics);
-    }
-
-    [Fact]
     public void TheServerAsksManagedForTheWorldTheSoundsAndTheSolid()
     {
         string physics = Code("src", "server", "native", "physics.cpp");

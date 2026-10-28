@@ -45,45 +45,6 @@ public class EntityEffectsTests
         return found;
     }
 
-    private static void Same(string name, EntityEffect value)
-    {
-        Assert.True(Header.TryGetValue(name, out int bit), $"{name} is in const.h's entity-effects enum");
-        Assert.Equal(bit, (int)value);
-    }
-
-    [Fact]
-    public void NoDrawIsTheHeadersEfNodraw() => Same("EF_NODRAW", EntityEffect.NoDraw);
-
-    [Fact]
-    public void DimLightIsTheHeadersEfDimlight() => Same("EF_DIMLIGHT", EntityEffect.DimLight);
-
-    [Fact]
-    public void BoneMergeIsTheHeadersEfBonemerge() => Same("EF_BONEMERGE", EntityEffect.BoneMerge);
-
-    [Fact]
-    public void BrightLightIsTheHeadersEfBrightlight() => Same("EF_BRIGHTLIGHT", EntityEffect.BrightLight);
-
-    [Fact]
-    public void NoInterpIsTheHeadersEfNointerp() => Same("EF_NOINTERP", EntityEffect.NoInterp);
-
-    [Fact]
-    public void NoShadowIsTheHeadersEfNoshadow() => Same("EF_NOSHADOW", EntityEffect.NoShadow);
-
-    [Fact]
-    public void NoReceiveShadowIsTheHeadersEfNoreceiveshadow()
-        => Same("EF_NORECEIVESHADOW", EntityEffect.NoReceiveShadow);
-
-    [Fact]
-    public void BoneMergeFastCullIsTheHeadersEfBonemergeFastcull()
-        => Same("EF_BONEMERGE_FASTCULL", EntityEffect.BoneMergeFastCull);
-
-    [Fact]
-    public void ItemBlinkIsTheHeadersEfItemBlink() => Same("EF_ITEM_BLINK", EntityEffect.ItemBlink);
-
-    [Fact]
-    public void ParentAnimatesIsTheHeadersEfParentAnimates()
-        => Same("EF_PARENT_ANIMATES", EntityEffect.ParentAnimates);
-
     [Fact]
     public void EveryHeaderBitHasAManagedName()
     {

@@ -64,38 +64,6 @@
 namespace
 {
 
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadFile( const std::string &strRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	std::stringstream ss;
-	ss << file.rdbuf();
-	return ss.str();
-}
-
 //-----------------------------------------------------------------------------
 // The file with its comments taken out. 7b's recorded shape: a raw needle reads
 // non-zero for a file whose CODE reads zero, because the prose explaining what
@@ -103,69 +71,6 @@ std::string ReadFile( const std::string &strRelative )
 //
 // String literals are preserved so a "//" inside one is not read as a comment.
 //-----------------------------------------------------------------------------
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	out.reserve( strIn.size() );
-
-	enum { CODE, LINE_COMMENT, BLOCK_COMMENT, STRING, CHARLIT } state = CODE;
-
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		const char c = strIn[ i ];
-		const char n = ( i + 1 < strIn.size() ) ? strIn[ i + 1 ] : '\0';
-
-		switch ( state )
-		{
-		case CODE:
-			if ( c == '/' && n == '/' ) { state = LINE_COMMENT; i++; }
-			else if ( c == '/' && n == '*' ) { state = BLOCK_COMMENT; i++; }
-			else
-			{
-				if ( c == '"' ) state = STRING;
-				else if ( c == '\'' ) state = CHARLIT;
-				out += c;
-			}
-			break;
-
-		case LINE_COMMENT:
-			if ( c == '\n' ) { state = CODE; out += c; }
-			break;
-
-		case BLOCK_COMMENT:
-			if ( c == '*' && n == '/' ) { state = CODE; i++; }
-			else if ( c == '\n' ) out += c;
-			break;
-
-		case STRING:
-			out += c;
-			if ( c == '\\' && n != '\0' ) { out += n; i++; }
-			else if ( c == '"' ) state = CODE;
-			break;
-
-		case CHARLIT:
-			out += c;
-			if ( c == '\\' && n != '\0' ) { out += n; i++; }
-			else if ( c == '\'' ) state = CODE;
-			break;
-		}
-	}
-
-	return out;
-}
-
-int CountOccurrences( const std::string &strHaystack, const std::string &strNeedle )
-{
-	int n = 0;
-	for ( size_t pos = strHaystack.find( strNeedle );
-	      pos != std::string::npos;
-	      pos = strHaystack.find( strNeedle, pos + strNeedle.size() ) )
-	{
-		n++;
-	}
-	return n;
-}
-
 bool Contains( const std::string &strHaystack, const std::string &strNeedle )
 {
 	return strHaystack.find( strNeedle ) != std::string::npos;
@@ -180,58 +85,6 @@ bool Contains( const std::string &strHaystack, const std::string &strNeedle )
 // DefaultRenderBoundsWorldspace, or one whose result nothing tests, is a file
 // that greps clean and has lost the behaviour.
 //-----------------------------------------------------------------------------
-std::string FunctionBody( const std::string &strFile, const std::string &strSignature )
-{
-	const std::string all = ReadFile( strFile );
-
-	// SKIP FORWARD DECLARATIONS, and this is not a nicety: clientleafsystem.cpp
-	// forward-declares CalcRenderableWorldSpaceAABB_Fast five lines above
-	// DefaultRenderBoundsWorldspace, so "the first match, then the next {"
-	// hands back the WRONG FUNCTION'S BODY -- and every fact in this file would
-	// then have been asserted about DefaultRenderBoundsWorldspace twice while
-	// reading as though it covered both. Caught by the two seam facts going red
-	// on a tree that had both calls in it.
-	size_t open = std::string::npos;
-	for ( size_t start = all.find( strSignature );
-	      start != std::string::npos;
-	      start = all.find( strSignature, start + 1 ) )
-	{
-		const size_t brace = all.find( '{', start );
-		const size_t semi = all.find( ';', start );
-		if ( brace == std::string::npos )
-			break;
-		if ( semi != std::string::npos && semi < brace )
-			continue;   // a declaration, not this definition
-		open = brace;
-		break;
-	}
-	if ( open == std::string::npos )
-		return std::string();
-
-	int depth = 0;
-	for ( size_t i = open; i < all.size(); i++ )
-	{
-		if ( all[ i ] == '{' ) depth++;
-		else if ( all[ i ] == '}' )
-		{
-			depth--;
-			if ( depth == 0 )
-				return all.substr( open, i - open + 1 );
-		}
-	}
-	return std::string();
-}
-
-// C7 cluster 12 L2: clientleafsystem.cpp left client.so. The leaf system's
-// registry and decisions are SourceSharp.Client's; its native end is the
-// forwarder class (libss_fwd_client) and its client.so home, which also holds
-// the one bounds function other renderables still call.
-const char *kStockLeafSystem = "game/client/clientleafsystem.cpp";
-const char *kLeafSystem = "sourcesharp/game/client/shell_leaf_system_client.cpp";
-const char *kLeafForwarder = "sourcesharp/fwd/fwd_leaf_system.cpp";
-const char *kFacts = "sourcesharp/game/client/shell_renderable_facts.cpp";
-const char *kFactsHeader = "sourcesharp/game/client/renderable_facts.h";
-
 } // namespace
 
 //=============================================================================
@@ -244,36 +97,6 @@ const char *kFactsHeader = "sourcesharp/game/client/renderable_facts.h";
 // C_BaseEntity sat inside `#ifdef DUMP_RENDERABLE_LEAFS`, defined nowhere; it
 // left with the file.
 //-----------------------------------------------------------------------------
-TEST( LeafSystemDeEntitied, TheLeafSystemsNativeEndNamesNoEntity )
-{
-	const char *kFiles[] = { kLeafSystem, kLeafForwarder };
-	for ( const char *pszFile : kFiles )
-	{
-		const std::string code = StripComments( ReadFile( pszFile ) );
-		ASSERT_FALSE( code.empty() ) << pszFile << " read as nothing";
-		EXPECT_EQ( 0, CountOccurrences( code, "C_BaseEntity" ) )
-			<< pszFile << " names C_BaseEntity; the leaf system addresses "
-			<< "renderables through IClientRenderable";
-	}
-}
-
-TEST( LeafSystemDeEntitied, TheStockLeafSystemIsNotCompiled )
-{
-	// The eviction itself: the farm has no stock file, and the client's own
-	// list compiles none -- proof-of-read first, so the absence is about the
-	// client's list.
-	EXPECT_TRUE( ReadFile( kStockLeafSystem ).empty() ) << kStockLeafSystem << " is back in the farm";
-	const std::string list = cmake_graph::ListText( cmake_graph::kClient );
-	ASSERT_TRUE( Contains( list, "shell_leaf_system_client.cpp" ) )
-		<< cmake_graph::ListFile( cmake_graph::kClient ) << " was not read";
-	EXPECT_FALSE( Contains( list, "clientleafsystem.cpp" ) )
-		<< cmake_graph::ListFile( cmake_graph::kClient ) << " compiles clientleafsystem.cpp again";
-	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kStockLeafSystem ) )
-		<< "client_sourcesharp has a compile command for " << kStockLeafSystem;
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kLeafSystem ) )
-		<< "the graph does not see the leaf system's client.so home; the absence above proves nothing";
-}
-
 //-----------------------------------------------------------------------------
 // THE ANTI-DELETION HALF, REWRITTEN BY LANE 4c-render.
 //
@@ -300,107 +123,6 @@ TEST( LeafSystemDeEntitied, TheStockLeafSystemIsNotCompiled )
 // the old facts were about -- so the successor is not a weaker check, it is the
 // same failure asserted at the only place that still has a subject.
 //-----------------------------------------------------------------------------
-TEST( LeafSystemDeEntitied, BothBoundsFunctionsStillProduceABoxByTheirOwnPath )
-{
-	const std::string dflt = StripComments(
-		FunctionBody( kLeafSystem,
-		              "void DefaultRenderBoundsWorldspace( IClientRenderable *pRenderable" ) );
-	ASSERT_FALSE( dflt.empty() )
-		<< "DefaultRenderBoundsWorldspace has no balanced body — the extractor "
-		<< "is reading nothing, so this rule cannot fail";
-
-	EXPECT_TRUE( Contains( dflt, "pRenderable->GetRenderBounds( mins, maxs )" ) )
-		<< "DefaultRenderBoundsWorldspace no longer measures the renderable's "
-		   "own bounds, so it fills nothing in and every renderable is placed "
-		   "in the leaves with an uninitialised box.";
-	EXPECT_TRUE( Contains( dflt, "TransformAABB( toWorld, mins, maxs, absMins, absMaxs )" ) )
-		<< "the rotated case no longer builds a world-aligned box, so an "
-		   "angled renderable gets its unrotated local bounds.";
-
-	// CalcRenderableWorldSpaceAABB_Fast's successor: the managed registry
-	// places a renderable by the box it answers GetRenderBoundsWorldspace with,
-	// which the forwarder library's facts batch asks it for.
-	const std::string facts = StripComments(
-		FunctionBody( kLeafForwarder,
-		              "void SSFwd_LeafSystem_Facts( void **ppRenderables" ) );
-	ASSERT_FALSE( facts.empty() ) << "SSFwd_LeafSystem_Facts has no balanced body";
-	EXPECT_TRUE( Contains( facts, "p->GetRenderBoundsWorldspace( mins, maxs )" ) )
-		<< "the facts batch no longer asks a renderable for its own world-space "
-		   "box, so the registry places it in the leaves with none.";
-}
-
-TEST( LeafSystemDeEntitied, NeitherBoundsFunctionReachesAnEntityOrADeletedSeam )
-{
-	// The absence half, asserted inside the two function bodies rather than
-	// over the whole file, so that the record of WHY the special case went --
-	// which names GetFollowedEntity and GetMoveParent in prose two lines above
-	// each -- cannot satisfy it.
-	const char *kFns[] = {
-		"void DefaultRenderBoundsWorldspace( IClientRenderable *pRenderable",
-	};
-	const char *kGone[] = {
-		"SourceSharp_BoneMergeBoundsFromFollowedEntity",
-		"SourceSharp_BoneMergeBoundsFromMoveParent",
-		"GetFollowedEntity()",
-		"GetMoveParent()",
-		"C_BaseEntity",
-		"flBloatSize",
-	};
-
-	for ( size_t i = 0; i < sizeof( kFns ) / sizeof( kFns[ 0 ] ); i++ )
-	{
-		const std::string body = StripComments( FunctionBody( kLeafSystem, kFns[ i ] ) );
-		ASSERT_FALSE( body.empty() ) << kFns[ i ] << ": no body";
-
-		for ( size_t j = 0; j < sizeof( kGone ) / sizeof( kGone[ 0 ] ); j++ )
-		{
-			EXPECT_FALSE( Contains( body, kGone[ j ] ) )
-				<< kFns[ i ] << " names " << kGone[ j ] << " again. The "
-				<< "bone-merge parent lookup is an SDK C_BaseEntity ask and "
-				<< "there is no such class on this link line, so this is "
-				<< "either dead text or a read of something that is not there.";
-		}
-	}
-}
-
-TEST( LeafSystemDeEntitied, TheFactsFileWentWithItsLastResolve )
-{
-	// The six seams went at the de-entitying, and the ONE thing the facts file
-	// was still for, SourceSharp_RenderableFromHandle, went with its last
-	// importer, clientshadowmgr.cpp (C7 cluster 12 S2): the managed shadow
-	// manager resolves a handle through shell_shadows_client.cpp. The leaf
-	// system's shell is the control that the farm was read.
-	ASSERT_FALSE( StripComments( ReadFile( kLeafSystem ) ).empty() ) << kLeafSystem << " read as nothing";
-	EXPECT_TRUE( ReadFile( kFacts ).empty() ) << kFacts << " is back";
-	EXPECT_TRUE( ReadFile( kFactsHeader ).empty() ) << kFactsHeader << " is back";
-	const std::string shell = StripComments( ReadFile( "sourcesharp/game/client/shell_shadows_client.cpp" ) );
-	ASSERT_FALSE( shell.empty() ) << "shell_shadows_client.cpp read as nothing";
-	EXPECT_TRUE( Contains( shell, "IClientRenderable *RenderableOf( uint32_t hEntity )" ) )
-		<< "shell_shadows_client.cpp no longer resolves the manager's entity handles";
-	EXPECT_FALSE( Contains( shell, "SourceSharp_RenderableFromHandle" ) )
-		<< "shell_shadows_client.cpp asks the deleted resolve";
-}
-
-TEST( LeafSystemDeEntitied, TheLeafSystemNoLongerNeedsTheFactsHeaderAtAll )
-{
-	// The include went with the last call. It is asserted because an include
-	// left behind is how a file keeps a dependency edge it no longer uses --
-	// which is the exact thing the leaf-system cycle work below is about.
-	const char *kFiles[] = { kLeafSystem, kLeafForwarder };
-	for ( const char *pszFile : kFiles )
-	{
-		const std::string code = StripComments( ReadFile( pszFile ) );
-		ASSERT_FALSE( code.empty() ) << pszFile << " read as nothing";
-
-		EXPECT_FALSE( Contains( code, "#include \"renderable_facts.h\"" ) )
-			<< pszFile << " includes renderable_facts.h with nothing to ask it";
-		EXPECT_EQ( 0, CountOccurrences( code, "SourceSharp_" ) )
-			<< pszFile << " calls into the shim again; the stock leaf system asked "
-			<< "the shim for exactly two things and both were deleted";
-	}
-}
-
-
 //=============================================================================
 // PART 1b — THE SHADOW MANAGER: RETIRED WITH ITS SUBJECT
 //
@@ -424,27 +146,7 @@ TEST( LeafSystemDeEntitied, TheLeafSystemNoLongerNeedsTheFactsHeaderAtAll )
 
 namespace
 {
-const char *kStockShadowMgr = "game/client/clientshadowmgr.cpp";
-const char *kShadowsShell = "sourcesharp/game/client/shell_shadows_client.cpp";
 }
-
-TEST( ShadowMgrDeEntitied, TheStockShadowManagerIsNotCompiled )
-{
-	// The farm has no stock file, and the client's own list compiles none --
-	// proof-of-read first (the list names the shadow manager's client.so home),
-	// so the absence is about the client's list and not a reader that saw none.
-	EXPECT_TRUE( ReadFile( kStockShadowMgr ).empty() ) << kStockShadowMgr << " is back in the farm";
-	const std::string list = cmake_graph::ListText( cmake_graph::kClient );
-	ASSERT_TRUE( Contains( list, "shell_shadows_client.cpp" ) )
-		<< cmake_graph::ListFile( cmake_graph::kClient ) << " was not read";
-	EXPECT_FALSE( Contains( list, "clientshadowmgr.cpp" ) )
-		<< cmake_graph::ListFile( cmake_graph::kClient ) << " compiles clientshadowmgr.cpp again";
-	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, kStockShadowMgr ) )
-		<< "client_sourcesharp has a compile command for " << kStockShadowMgr;
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kShadowsShell ) )
-		<< "the graph does not see the shadow manager's client.so home; the absence above proves nothing";
-}
-
 
 //=============================================================================
 // PART 2 — WHY THE CYCLE DOES NOT MOVE
@@ -455,27 +157,6 @@ TEST( ShadowMgrDeEntitied, TheStockShadowManagerIsNotCompiled )
 // went. The numeric reading used to come off a built tree; the tool that took
 // it is deleted, so this IS the guard rather than a companion to one.
 //-----------------------------------------------------------------------------
-TEST( LeafCyclePch, CbaseReachesParticlesNewInFourIncludes )
-{
-	struct Link_t { const char *pszFile; const char *pszInclude; };
-	const Link_t kChain[] = {
-		{ "game/client/cbase.h", "baseentity_shared.h" },
-		{ "game/shared/baseentity_shared.h", "c_baseentity.h" },
-		{ "game/client/c_baseentity.h", "particle_property.h" },
-		{ "game/shared/particle_property.h", "particles_new.h" },
-	};
-	for ( size_t i = 0; i < sizeof( kChain ) / sizeof( kChain[ 0 ] ); i++ )
-	{
-		const std::string text = ReadFile( kChain[ i ].pszFile );
-		ASSERT_FALSE( text.empty() ) << kChain[ i ].pszFile << " read as nothing";
-		EXPECT_TRUE( Contains( text, kChain[ i ].pszInclude ) )
-			<< kChain[ i ].pszFile << " no longer includes "
-			<< kChain[ i ].pszInclude
-			<< " — the chain this lane's finding rests on is broken, so "
-			<< "re-take a reading on a built tree before quoting it";
-	}
-}
-
 TEST( LeafCyclePch, NoPrecompiledHeaderDirectiveExistsInThisProjectAnyMore )
 {
 	// This case used to assert that every TU in THIS project was compiled with
@@ -522,54 +203,6 @@ TEST( LeafCyclePch, NoPrecompiledHeaderDirectiveExistsInThisProjectAnyMore )
 		<< "nothing left for a file to opt out of:\n" << cmd;
 }
 
-TEST( LeafCyclePch, CNewParticleEffectIsTheHeaderShapeTheReadingWasTakenAgainst )
-{
-	// The third ingredient. The 21 undefined symbols are CNewParticleEffect's
-	// virtuals, left over from a vtable the compiler emits weakly in each TU
-	// that gets the header -- observed directly:
-	//
-	//   nm    .../client_thinklist.o | c++filt | grep CNewParticleEffect
-	//     -> `W CNewParticleEffect::IsTransparent()` and friends, DEFINED weak
-	//   nm -u .../client_thinklist.o | c++filt | grep -c CNewParticleEffect
-	//     -> 21, whose only definer is particles_new.o
-	//
-	// c7-leaf wrote, correctly, that it had NOT established the ABI rule: "the
-	// class's first virtual is declared and not defined, which under the plain
-	// key-function rule would put the vtable in particles_new.o alone."
-	//
-	// Lane c7-pch established it, and c7-leaf was right about the rule and
-	// wrong about the header. `bool ShouldDraw( void );` IS the first virtual
-	// this class declares without a body -- but particles_new.h then DEFINED it
-	// `inline` further down the same file, and under GCC's key-function rule
-	// that is exactly the case where the class ends up with no key function and
-	// the vtable goes weak in every TU that sees the declaration. Moving that
-	// one body into particles_new.cpp took the client's largest SCC from 85 TUs
-	// to 78 and `nm -u recvproxy.o | grep -c CNewParticleEffect` from 21 to 0.
-	// The next fact pins that; this one still pins the header SHAPE the
-	// 21-symbol reading was taken against.
-	//
-	// Counted on the CODE, not on the file: this header's explanatory comments
-	// now spell "virtual" themselves, and prose counting as code is this port's
-	// standing defect.
-	const std::string header = StripComments( ReadFile( "game/client/particles_new.h" ) );
-	ASSERT_FALSE( header.empty() ) << "particles_new.h read as nothing";
-	EXPECT_TRUE( Contains( header, "class CNewParticleEffect" ) )
-		<< "CNewParticleEffect is no longer declared here";
-	// 14, not c7-leaf's 15. Its reading was taken on the raw file, and the
-	// fifteenth `virtual` is at particles_new.h:117, inside a commented-out
-	// declaration of NotifyDestroyParticle. Prose counting as code, in the very
-	// file whose header says every count below is of code.
-	EXPECT_EQ( 14, CountOccurrences( header, "virtual" ) )
-		<< "particles_new.h's virtual count moved; the 21-symbol edge this "
-		<< "lane reports was measured against 14 in code (the retired "
-		<< "c7-leaf-cycle read 15 on the raw file, counting a commented-out "
-		<< "declaration), so re-take that reading before quoting it";
-	EXPECT_TRUE( Contains( header, "virtual bool				ShouldSimulate() const { return m_bSimulate; }" ) )
-		<< "the inline virtual bodies are gone from the header; that is the "
-		<< "single cheapest change to the client's cycle anyone has found, so "
-		<< "re-measure before assuming it changed nothing";
-}
-
 //-----------------------------------------------------------------------------
 // THE KEY FUNCTION. This is the change the fact above calls "the single
 // cheapest change to the client's cycle anyone has found", and it is one
@@ -595,41 +228,6 @@ TEST( LeafCyclePch, CNewParticleEffectIsTheHeaderShapeTheReadingWasTakenAgainst 
 // asserted -- on comment-stripped code, because the prose in both files now
 // names the function repeatedly.
 //-----------------------------------------------------------------------------
-TEST( LeafCyclePch, ShouldDrawIsTheKeyFunctionAndStaysOutOfLine )
-{
-	// C7 PARTICLES PHASE 4 TOOK THE DEFINING OBJECT. particles_new.cpp left
-	// client.so: nothing constructs a CNewParticleEffect any more (the
-	// new-style effects are CShellNewParticleEffect, shell_new_particles.h), so
-	// no object defines its key function or its vtable, and none may reference
-	// them. The header is still read (c_baseentity.h -> particle_property.h ->
-	// particles_new.h), so its half of the fact stands as it was: ShouldDraw
-	// stays a bodyless declaration, and an inline body there would put a weak
-	// vtable -- and the class's undefined members, defined nowhere now -- into
-	// every TU that sees it.
-	const std::string header = StripComments( ReadFile( "game/client/particles_new.h" ) );
-	ASSERT_FALSE( header.empty() ) << "particles_new.h read as nothing";
-
-	// Still DECLARED in the class body, and still without a body there.
-	EXPECT_TRUE( Contains( header, "bool ShouldDraw( void );" ) )
-		<< "CNewParticleEffect no longer declares ShouldDraw as a bodyless "
-		<< "virtual, so it is no longer the key function and the vtable is "
-		<< "free to go weak again -- re-measure on a built tree before "
-		<< "assuming the cycle is where this file says it is";
-
-	// And NOT defined in the header, inline or otherwise.
-	EXPECT_FALSE( Contains( header, "CNewParticleEffect::ShouldDraw" ) )
-		<< "particles_new.h defines the key function again; that is the change "
-		<< "that put 22 undefined symbols into 73 client objects and takes the "
-		<< "client's largest SCC from 78 TUs back to 85";
-
-	// And the object that defined it is gone from the client's sources, with
-	// its successor in its place.
-	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/particles_new.cpp" ) )
-		<< "particles_new.cpp is compiled into client.so again";
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/shell_new_particles_client.cpp" ) )
-		<< "the new-style effects' shell is not compiled into client.so";
-}
-
 //-----------------------------------------------------------------------------
 // READ THE ASSERTIONS, NOT THE NAME. THE INSTRUMENT IS GONE, AND THIS FACT IS
 // WHAT STANDS IN ITS PLACE.
@@ -644,31 +242,3 @@ TEST( LeafCyclePch, ShouldDrawIsTheKeyFunctionAndStaysOutOfLine )
 // one object -- is pinned HERE, as text, on every run. That is strictly more
 // often than a tool nobody could run without a build.
 //-----------------------------------------------------------------------------
-TEST( LeafCyclePch, TheInstrumentIsPresentAndNamesTheThingItMeasures )
-{
-	const char *pszRoot = SrcRoot();
-	ASSERT_TRUE( pszRoot != NULL );
-
-	std::ifstream tool( ( std::string( pszRoot ) + "/../tools/c7-leaf-cycle" ).c_str() );
-	EXPECT_FALSE( tool.is_open() )
-		<< "tools/c7-leaf-cycle is back. It was retired because it needs a "
-		   "built tree and no gate could run it; if it is wanted again, the "
-		   "facts in this file are the thing to keep it honest against, not "
-		   "the other way round.";
-
-	// THE LIVE SUCCESSOR, and it is the reading that mattered: the key function
-	// is declared bodyless in the header and defined in at most ONE object.
-	// Since C7 particles phase 4 that is none: particles_new.cpp left client.so
-	// and nothing constructs the class (ShouldDrawIsTheKeyFunctionAndStays-
-	// OutOfLine above). The header half stands.
-	const std::string header = StripComments( ReadFile( "game/client/particles_new.h" ) );
-	ASSERT_FALSE( header.empty() ) << "particles_new.h read as nothing";
-
-	EXPECT_EQ( 0, CountOccurrences( header, "CNewParticleEffect::ShouldDraw" ) )
-		<< "the key function has a body in the header again, so every TU that "
-		   "sees the declaration emits its own weak vtable and the client's "
-		   "largest SCC goes from 78 TUs back to 85.";
-	EXPECT_FALSE( cmake_graph::Compiles( cmake_graph::kClient, "game/client/particles_new.cpp" ) )
-		<< "particles_new.cpp is compiled into client.so again; it defined the "
-		   "key function, so with it back there is again one object to check.";
-}

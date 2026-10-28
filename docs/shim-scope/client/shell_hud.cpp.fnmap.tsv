@@ -13,18 +13,18 @@
 14	SLOT	void SourceSharp_UiDrawText( int32_t nFont, int32_t x, int32_t y, const uint16_t *pText, int32_t nLength,
 15	SLOT	void SourceSharp_UiMeasureText( int32_t nFont, const uint16_t *pText, int32_t nLength, int32_t *pOutWidth,
 13	SLOT	void SourceSharp_UiSetClip( int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1, int32_t y1 )
-4	SLOT	int32_t SourceSharp_UiTextureCreate( void )
+4	SLOT	int32_t SourceSharp_UiTextureCreate()
 6	SLOT	void SourceSharp_UiTextureUpload( int32_t nTexture, const uint8_t *pRgba, int32_t nWide, int32_t nTall )
 6	SLOT	int32_t SourceSharp_UiFontAddFile( const char *pPath )
 11	SLOT	int32_t SourceSharp_UiFontCreate( const char *pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags )
 9	SLOT	void SourceSharp_UiFontMetrics( int32_t nFont, int32_t *pOutTall, int32_t *pOutAscent )
 12	SLOT	int32_t SourceSharp_UiFontAdvances( int32_t nFont, int32_t nFirst, int32_t nCount, int32_t *pOutAdvances )
 5	SLOT	void SourceSharp_UiPlaySound( const char *pPath )
-5	BOUNDARY	int32_t SourceSharp_GetLocalPlayerIndex( void )
-6	BOUNDARY	int32_t SourceSharp_GetLocalPlayerHealth( void )
+5	BOUNDARY	int32_t SourceSharp_GetLocalPlayerIndex()
+6	BOUNDARY	int32_t SourceSharp_GetLocalPlayerHealth()
 11	LAYOUT	[CSourceSharpMenuRoot] explicit CSourceSharpMenuRoot( vgui::VPANEL parent )
 5	LAYOUT	[CSourceSharpMenuRoot] virtual ~CSourceSharpMenuRoot()
-11	SLOT	[CSourceSharpMenuRoot] virtual void Paint( void ) OVERRIDE
+11	SLOT	[CSourceSharpMenuRoot] virtual void Paint() OVERRIDE
 1	SLOT	[CSourceSharpMenuRoot] virtual void OnCursorMoved( int x, int y ) OVERRIDE
 1	SLOT	[CSourceSharpMenuRoot] virtual void OnMousePressed( vgui::MouseCode code ) OVERRIDE
 1	SLOT	[CSourceSharpMenuRoot] virtual void OnMouseDoublePressed( vgui::MouseCode code ) OVERRIDE
@@ -38,7 +38,7 @@
 10	SLOT	void SourceSharp_UiSetMenuInput( int32_t bMouse, int32_t bKeyboard )
 9	SLOT	void SourceSharp_UiSetCursor( int32_t nShape )
 11	LAYOUT	[CSourceSharpHud] : CHudElement( pElementName ), CSourceSharpRawPanel( "" )
-11	SLOT	[CSourceSharpHud] virtual void Paint( void ) OVERRIDE
+11	SLOT	[CSourceSharpHud] virtual void Paint() OVERRIDE
 7	SLOT	[CSourceSharpHud] virtual void OnScreenSizeChanged( int nOldWide, int nOldTall ) OVERRIDE
 1	SLOT	[CSourceSharpHud] virtual const char *GetName() OVERRIDE
 28	LAYOUT	int32_t SourceSharp_HudTextMessageGet( const char *pName, SourceSharpTextMessage *pOut )

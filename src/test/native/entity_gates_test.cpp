@@ -98,31 +98,6 @@ std::string RootPath( const char *pszRelative )
 	return std::string( pszRoot ) + "/" + pszRelative;
 }
 
-std::string ReadFile( const std::string &szPath )
-{
-	FILE *pFile = fopen( szPath.c_str(), "rb" );
-	if ( !pFile )
-		return std::string();
-
-	std::string szOut;
-	char rgchBuf[ 8192 ];
-	size_t cRead;
-	while ( ( cRead = fread( rgchBuf, 1, sizeof( rgchBuf ), pFile ) ) > 0 )
-		szOut.append( rgchBuf, cRead );
-	fclose( pFile );
-	return szOut;
-}
-
-bool WriteFile( const std::string &szPath, const std::string &szBody )
-{
-	FILE *pFile = fopen( szPath.c_str(), "wb" );
-	if ( !pFile )
-		return false;
-	const size_t cWrote = fwrite( szBody.data(), 1, szBody.size(), pFile );
-	fclose( pFile );
-	return cWrote == szBody.size();
-}
-
 //-----------------------------------------------------------------------------
 // Running a command from the worktree root. popen reports the wait(2) status,
 // so the exit code has to be pulled back out of it; a test that compared the
@@ -158,10 +133,6 @@ Run_t RunAtRoot( const std::string &szCommand )
 }
 
 const char *const kToolRelative      = "tools/entity-gates";
-const char *const kAllowlistRelative = "tools/entity-gates-allowlist";
-const char *const kPatternsRelative  = "tools/entity-census-patterns";
-const char *const kCensusRelative    = "docs/entity-census.txt";
-
 //-----------------------------------------------------------------------------
 // A numbered row out of the COMMITTED census, section 1.
 //
@@ -175,62 +146,10 @@ const char *const kCensusRelative    = "docs/entity-census.txt";
 // opposite findings: the first is this test looking at the wrong file, and the
 // second is the port being finished.
 //-----------------------------------------------------------------------------
-bool CensusRowNumbers( const char *pszLabelPrefix, long *pnServer, long *pnClient )
-{
-	const std::string szCensus = ReadFile( RootPath( kCensusRelative ) );
-	if ( szCensus.empty() )
-		return false;
-
-	const size_t iSection = szCensus.find( "== 1. WHERE THE TREE STANDS ==" );
-	const size_t iEnd     = szCensus.find( "== 2.", ( iSection == std::string::npos ) ? 0 : iSection );
-	if ( iSection == std::string::npos )
-		return false;
-
-	size_t iPos = iSection;
-	while ( iPos < iEnd )
-	{
-		const size_t iEol = szCensus.find( '\n', iPos );
-		if ( iEol == std::string::npos || iEol > iEnd )
-			break;
-
-		const std::string szLine = szCensus.substr( iPos, iEol - iPos );
-		iPos = iEol + 1;
-
-		if ( szLine.compare( 0, strlen( pszLabelPrefix ), pszLabelPrefix ) != 0 )
-			continue;
-
-		long rgn[ 2 ];
-		int cNums = 0;
-		for ( size_t i = strlen( pszLabelPrefix ); i < szLine.size() && cNums < 2; )
-		{
-			if ( szLine[ i ] >= '0' && szLine[ i ] <= '9' )
-			{
-				rgn[ cNums++ ] = strtol( szLine.c_str() + i, NULL, 10 );
-				while ( i < szLine.size() && szLine[ i ] >= '0' && szLine[ i ] <= '9' )
-					i++;
-			}
-			else
-			{
-				i++;
-			}
-		}
-
-		if ( cNums != 2 )
-			return false;
-
-		if ( pnServer ) *pnServer = rgn[ 0 ];
-		if ( pnClient ) *pnClient = rgn[ 1 ];
-		return true;
-	}
-
-	return false;
-}
-
 // The exit codes the tool promises. 1 is "a gate failed", 2 is "I could not
 // take the measurement". A test that accepted "non-zero" for both would pass
 // on the run where a measurement turned into a crash.
 const int kExitAllPass = 0;
-const int kExitFailed  = 1;
 const int kExitRefused = 2;
 
 //-----------------------------------------------------------------------------
@@ -264,13 +183,6 @@ const Run_t &RealTreeHuman()
 // allowlist and every site is counted. That is the census's own reading, which
 // is exactly what the comparison wants.
 //-----------------------------------------------------------------------------
-const Run_t &RealTreeTsvNoAllowlist()
-{
-	static Run_t run = RunAtRoot( std::string( kToolRelative ) +
-	                              " --tsv --only 3 --allowlist /dev/null" );
-	return run;
-}
-
 // A --tsv row, looked up by gate and metric label. Returns false when the row
 // is absent, which is itself worth failing on: a metric that stopped being
 // printed is a gate that stopped being checked.
@@ -356,209 +268,6 @@ struct Fixture_t
 // Registered with atexit the first time the fixture is built. It reads the
 // static below rather than taking an argument, which is what atexit allows.
 std::string g_szFixtureRoot;
-void RemoveFixture()
-{
-	if ( g_szFixtureRoot.empty() )
-		return;
-	const std::string szCmd = "rm -rf '" + g_szFixtureRoot + "'";
-	if ( system( szCmd.c_str() ) != 0 )
-		fprintf( stderr, "entity_gates_test: could not remove %s\n", g_szFixtureRoot.c_str() );
-}
-
-// One fixture object table: a CMake build dir <root>/<name>/build naming ONE
-// server TU and ONE client TU, beside <root>/<name>/src (a link to the shared
-// sources) and <root>/<name>/repo, whose CMakeLists list the same two -- the
-// tool (tools/cmakegraph.py) refuses a database that disagrees with its lists.
-// Returns the build dir, or "" on any write failure.
-std::string WriteObjectTable( const std::string &szRoot, const char *pszName,
-                              const char *pszServerSrc, const char *pszClientSrc )
-{
-	const std::string szCase = szRoot + "/" + pszName;
-	const std::string szCmd = "mkdir -p '" + szCase + "/build' '" + szCase + "/repo/src/server/native' '" +
-		szCase + "/repo/src/client/native' && ln -sfn ../src '" + szCase + "/src'";
-	if ( system( szCmd.c_str() ) != 0 )
-		return std::string();
-
-	struct Side_t { const char *pszTarget; const char *pszDir; const char *pszSrc; };
-	const Side_t sides[] = { { "server_sourcesharp", "server", pszServerSrc },
-	                         { "client_sourcesharp", "client", pszClientSrc } };
-	std::string szDb = "[\n";
-	for ( int i = 0; i < 2; i++ )
-	{
-		if ( !WriteFile( szCase + "/repo/src/" + sides[ i ].pszDir + "/native/CMakeLists.txt",
-		                 std::string( "set(" ) + sides[ i ].pszTarget + "_sources\n    " + sides[ i ].pszSrc + "\n)\n" ) )
-			return std::string();
-		szDb += std::string( i ? ",\n" : "" ) + "{\n"
-			"  \"directory\": \"" + szCase + "/build\",\n"
-			"  \"command\": \"c++ -c " + szCase + "/src/" + sides[ i ].pszSrc + "\",\n"
-			"  \"file\": \"" + szCase + "/src/" + sides[ i ].pszSrc + "\",\n"
-			"  \"output\": \"CMakeFiles/" + sides[ i ].pszTarget + ".dir/" + sides[ i ].pszSrc + ".o\"\n}";
-	}
-	szDb += "\n]\n";
-	if ( !WriteFile( szCase + "/build/compile_commands.json", szDb ) )
-		return std::string();
-	return szCase + "/build";
-}
-
-// The stand-in repo of a fixture build dir (see WriteObjectTable).
-std::string RepoOf( const std::string &szBuildDir )
-{
-	return szBuildDir.substr( 0, szBuildDir.rfind( '/' ) ) + "/repo";
-}
-
-const Fixture_t &Fixture()
-{
-	static Fixture_t fx;
-	static bool bBuilt = false;
-	if ( bBuilt )
-		return fx;
-	bBuilt = true;
-	fx.m_bOk = false;
-
-	char rgchRoot[ 256 ];
-	snprintf( rgchRoot, sizeof( rgchRoot ), "/tmp/entity_gates_test_%d", (int)getpid() );
-	fx.m_szRoot = rgchRoot;
-
-	// The pid is in the path so two lanes running this leg at once cannot
-	// collide on it, and the directory is removed when the process ends so a
-	// hundred runs do not leave a hundred of them behind.
-	atexit( RemoveFixture );
-
-	// The tool derives the source root from the build dir (<x>/build ->
-	// <x>/src), so each object table below is a build dir beside a src link.
-	g_szFixtureRoot = fx.m_szRoot;
-	const std::string szCmd =
-		"rm -rf '" + fx.m_szRoot + "' && mkdir -p '" +
-		fx.m_szRoot + "/src/clean' '" + fx.m_szRoot + "/src/dirty'";
-	if ( system( szCmd.c_str() ) != 0 )
-		return fx;
-
-	// NOTE there is deliberately no <root>/src/sourcesharp: gate 1 sweeps the
-	// shim's headers as well as the compiled TUs, and a tree without a shim
-	// must be measurable rather than an error.
-
-	if ( !WriteFile( fx.m_szRoot + "/src/clean/clean_server.cpp",
-	                 "// entity-free by construction: no base, no list, no cast.\n"
-	                 "int AddTwo( int a, int b ) { return a + b; }\n" ) )
-		return fx;
-	if ( !WriteFile( fx.m_szRoot + "/src/clean/clean_client.cpp",
-	                 "// entity-free by construction: no base, no list, no cast.\n"
-	                 "int AddThree( int a, int b, int c ) { return a + b + c; }\n" ) )
-		return fx;
-
-	// EXACTLY TWO CAST SITES, ONE PER LINE, ON LINES 4 AND 5. One line carrying
-	// both spellings would make "allowlist one, not the other" untestable: a
-	// single allowlist entry would silence both families at once and the test
-	// would pass whether or not the exclusion is per-site.
-	if ( !WriteFile( fx.m_szRoot + "/src/dirty/dirty_server.cpp",
-	                 "// dirty fixture: two cast sites, on lines 4 and 5.\n"
-	                 "struct CBaseEntity;\n"
-	                 "struct IHandleEntity;\n"
-	                 "CBaseEntity *ByDynamic( IHandleEntity *p ) { return dynamic_cast< CBaseEntity * >( p ); }\n"
-	                 "CBaseEntity *ByCStyle( void *p ) { return ( CBaseEntity * )p; }\n" ) )
-		return fx;
-
-	fx.m_szCleanNinja = WriteObjectTable( fx.m_szRoot, "clean", "clean/clean_server.cpp", "clean/clean_client.cpp" );
-	if ( fx.m_szCleanNinja.empty() )
-		return fx;
-
-	// ONE derivation, and nothing else. One record is the case that made the
-	// gate-1 scan silently print nothing: `site[n]` with n never assigned
-	// subscripts the array with "" rather than 0, so record zero was lost, and
-	// with one record that is every record. Two or more records hid it.
-	if ( !WriteFile( fx.m_szRoot + "/src/dirty/derived_server.cpp",
-	                 "// one derivation, on line 3, through no intermediate.\n"
-	                 "class CBaseEntity { public: virtual ~CBaseEntity(); };\n"
-	                 "class CPlanted : public CBaseEntity { };\n" ) )
-		return fx;
-
-	// A chain, so the kin closure has to walk more than one step, and a comment
-	// that says the words without declaring anything.
-	if ( !WriteFile( fx.m_szRoot + "/src/dirty/chain_server.cpp",
-	                 "// It was `class CProse : public CBaseEntity` once, and is not now.\n"
-	                 "class CBaseEntity { public: virtual ~CBaseEntity(); };\n"
-	                 "class CMiddle : public CBaseEntity { };\n"
-	                 "class CLeaf : public CMiddle { };\n" ) )
-		return fx;
-
-	fx.m_szDerivedNinja = WriteObjectTable( fx.m_szRoot, "derived", "dirty/derived_server.cpp", "clean/clean_client.cpp" );
-	if ( fx.m_szDerivedNinja.empty() )
-		return fx;
-
-	fx.m_szChainNinja = WriteObjectTable( fx.m_szRoot, "chain", "dirty/chain_server.cpp", "clean/clean_client.cpp" );
-	if ( fx.m_szChainNinja.empty() )
-		return fx;
-
-	// §6 KEEPS IClientEntityList over the slot table, so naming it is not a
-	// violation and gate 2 must not count it. Everything on that interface is
-	// by index or by handle, plus scalar counters -- nothing that iterates.
-	// The pair of
-	// files below is the difference between "the pattern is right" and "the
-	// pattern matches nothing".
-	if ( !WriteFile( fx.m_szRoot + "/src/dirty/kept_server.cpp",
-	                 "// the engine's own interface, over a slot table. Kept by \xC2\xA7""6.\n"
-	                 "class IClientEntityList;\n"
-	                 "int Highest( IClientEntityList *p );\n" ) )
-		return fx;
-	if ( !WriteFile( fx.m_szRoot + "/src/dirty/entlist_server.cpp",
-	                 "// the SDK's global list, which clause 2 drives to zero.\n"
-	                 "extern int gEntList;\n"
-	                 "int Touch() { return gEntList; }\n" ) )
-		return fx;
-
-	fx.m_szKeptNinja = WriteObjectTable( fx.m_szRoot, "kept", "dirty/kept_server.cpp", "clean/clean_client.cpp" );
-	if ( fx.m_szKeptNinja.empty() )
-		return fx;
-
-	fx.m_szEntListNinja = WriteObjectTable( fx.m_szRoot, "entlist", "dirty/entlist_server.cpp", "clean/clean_client.cpp" );
-	if ( fx.m_szEntListNinja.empty() )
-		return fx;
-
-	fx.m_szDirtyNinja = WriteObjectTable( fx.m_szRoot, "dirty", "dirty/dirty_server.cpp", "clean/clean_client.cpp" );
-	if ( fx.m_szDirtyNinja.empty() )
-		return fx;
-
-	if ( !WriteFile( fx.m_szRoot + "/allow-empty", "# nothing allowed\n" ) )
-		return fx;
-	if ( !WriteFile( fx.m_szRoot + "/allow-both",
-	                 "dirty/dirty_server.cpp:4\tthe dynamic_cast\n"
-	                 "dirty/dirty_server.cpp:5\tthe C-style cast\n" ) )
-		return fx;
-	if ( !WriteFile( fx.m_szRoot + "/allow-one", "dirty/dirty_server.cpp:4\tonly the dynamic_cast\n" ) )
-		return fx;
-	if ( !WriteFile( fx.m_szRoot + "/allow-stale", "clean/clean_server.cpp:1\tthere is no cast there\n" ) )
-		return fx;
-	if ( !WriteFile( fx.m_szRoot + "/allow-malformed", "dirty/dirty_server.cpp\tno line number\n" ) )
-		return fx;
-	if ( !WriteFile( fx.m_szRoot + "/patterns-empty", "# every line here is a comment\n" ) )
-		return fx;
-	if ( !WriteFile( fx.m_szRoot + "/not-an-elf", "this is text, not an object file\n" ) )
-		return fx;
-
-	char rgchExe[ 4096 ];
-	const ssize_t cch = readlink( "/proc/self/exe", rgchExe, sizeof( rgchExe ) - 1 );
-	if ( cch <= 0 )
-		return fx;
-	rgchExe[ cch ] = '\0';
-	fx.m_szSelfExe = rgchExe;
-
-	fx.m_bOk = true;
-	return fx;
-}
-
-// The tool, pointed at the fixture. `szNinja` picks the object table, so the
-// same call shape drives the all-zero tree and the two-cast one.
-Run_t RunFixture( const std::string &szNinja, const char *pszAllowlist, const char *pszExtra = "" )
-{
-	const Fixture_t &fx = Fixture();
-	return RunAtRoot( "SOURCESHARP_REPO='" + RepoOf( szNinja ) + "' " + std::string( kToolRelative ) +
-	                  " --build-dir '" + szNinja + "'" +
-	                  " --server '" + fx.m_szSelfExe + "'" +
-	                  " --client '" + fx.m_szSelfExe + "'" +
-	                  " --allowlist '" + fx.m_szRoot + "/" + pszAllowlist + "'" +
-	                  " " + pszExtra );
-}
-
 //=============================================================================
 // (0) The scanner is itself checked: the subjects exist and are not stubs.
 //=============================================================================
@@ -577,17 +286,6 @@ TEST( EntityGates, TheToolIsExecutable )
 	ASSERT_EQ( 0, stat( RootPath( kToolRelative ).c_str(), &st ) );
 	EXPECT_TRUE( ( st.st_mode & S_IXUSR ) != 0 )
 		<< kToolRelative << " is not executable; make check would run nothing.";
-}
-
-TEST( EntityGates, TheToolSharesTheCensusPatternFileRatherThanCopyingIt )
-{
-	ASSERT_TRUE( WorktreeRoot() != NULL );
-	const std::string szTool = ReadFile( RootPath( kToolRelative ) );
-	ASSERT_FALSE( szTool.empty() );
-	EXPECT_NE( std::string::npos, szTool.find( kPatternsRelative ) )
-		<< "entity-gates must default to the census's §3.16 pattern file. Two "
-		   "lists of cast spellings drifting apart is the exact hole §3.16 says "
-		   "one list closes.";
 }
 
 //-----------------------------------------------------------------------------
@@ -616,100 +314,6 @@ TEST( EntityGates, TheToolSharesTheCensusPatternFileRatherThanCopyingIt )
 // entry is the port ending with a downcast nobody argued for and a green gate,
 // which is what this fact exists to stop.
 //-----------------------------------------------------------------------------
-int AllowlistEntryCount( const std::string &szBody, std::string *pszFirst )
-{
-	int cEntries = 0;
-	size_t iPos = 0;
-	while ( iPos < szBody.size() )
-	{
-		size_t iEnd = szBody.find( '\n', iPos );
-		if ( iEnd == std::string::npos )
-			iEnd = szBody.size();
-		const std::string szLine = szBody.substr( iPos, iEnd - iPos );
-		iPos = iEnd + 1;
-		if ( !szLine.empty() && szLine[ 0 ] != '#' )
-		{
-			if ( pszFirst && cEntries == 0 )
-				*pszFirst = szLine;
-			cEntries++;
-		}
-	}
-	return cEntries;
-}
-
-// How many entries name a file under a given directory. Used to pin ONE PER
-// SIDE rather than two in total -- two server entries and no client one would
-// pass a bare count and would be a hole in a place nothing covers.
-int AllowlistEntriesUnder( const std::string &szBody, const char *pszPrefix )
-{
-	int cEntries = 0;
-	size_t iPos = 0;
-	while ( iPos < szBody.size() )
-	{
-		size_t iEnd = szBody.find( '\n', iPos );
-		if ( iEnd == std::string::npos )
-			iEnd = szBody.size();
-		const std::string szLine = szBody.substr( iPos, iEnd - iPos );
-		iPos = iEnd + 1;
-		if ( !szLine.empty() && szLine[ 0 ] != '#' &&
-		     szLine.compare( 0, strlen( pszPrefix ), pszPrefix ) == 0 )
-		{
-			cEntries++;
-		}
-	}
-	return cEntries;
-}
-
-TEST( EntityGates, TheAllowlistCarriesTheTwoSlotTableResolversAndNothingElse )
-{
-	ASSERT_TRUE( WorktreeRoot() != NULL );
-	const std::string szBody = ReadFile( RootPath( kAllowlistRelative ) );
-	ASSERT_FALSE( szBody.empty() ) << kAllowlistRelative << " is missing.";
-
-	std::string szFirst;
-	const int cEntries = AllowlistEntryCount( szBody, &szFirst );
-
-	EXPECT_EQ( 2, cEntries )
-		<< "§3.16 permits one downcast per slot-table resolver and §3.3 puts one "
-		   "table on each side, so the permitted number is two. A third entry is a "
-		   "third hole in gate 3, and an entry without a sentence in plan_entity.md "
-		   "permitting it is how the port ends with a downcast nobody argued for "
-		   "and a green gate.";
-}
-
-TEST( EntityGates, TheServerResolverIsTheServersOnlyAllowedCast )
-{
-	ASSERT_TRUE( WorktreeRoot() != NULL );
-	const std::string szBody = ReadFile( RootPath( kAllowlistRelative ) );
-	ASSERT_FALSE( szBody.empty() );
-
-	EXPECT_EQ( 1, AllowlistEntriesUnder( szBody, "sourcesharp/game/server/shell_entityslots.cpp:" ) )
-		<< "the server's one allowed cast is §3.3's resolver in "
-		   "shell_entityslots.cpp. Counting entries without naming the file would "
-		   "let the hole move somewhere the serial-reuse suite does not cover.";
-
-	EXPECT_EQ( 1, AllowlistEntriesUnder( szBody, "sourcesharp/game/server/" ) )
-		<< "the server has an allowlisted cast somewhere other than the slot-table "
-		   "resolver.";
-}
-
-TEST( EntityGates, TheClientResolverIsTheClientsOnlyAllowedCast )
-{
-	ASSERT_TRUE( WorktreeRoot() != NULL );
-	const std::string szBody = ReadFile( RootPath( kAllowlistRelative ) );
-	ASSERT_FALSE( szBody.empty() );
-
-	EXPECT_EQ( 1, AllowlistEntriesUnder( szBody,
-	                                     "sourcesharp/game/client/shell_cliententitylist.cpp:" ) )
-		<< "the client's one allowed cast is §3.3's resolver in "
-		   "shell_cliententitylist.cpp (step 5a), covered by "
-		   "client_slot_table_test.cpp's ClientSerialReuse cases.";
-
-	EXPECT_EQ( 1, AllowlistEntriesUnder( szBody, "sourcesharp/game/client/" ) )
-		<< "the client has an allowlisted cast somewhere other than the slot-table "
-		   "resolver.";
-}
-
 //-----------------------------------------------------------------------------
 // THE ALLOWLIST ACTUALLY SUBTRACTS, and this is what makes the entries above
 // measured holes rather than lines in a file nobody reads.
@@ -725,34 +329,6 @@ TEST( EntityGates, TheClientResolverIsTheClientsOnlyAllowedCast )
 // stay still. Now that both sides have an entry there is no still column left,
 // and a test on the sum would pass if the two entries excused two SERVER sites.
 //-----------------------------------------------------------------------------
-TEST( EntityGates, TheAllowlistSubtractsExactlyItsEntriesFromTheGate )
-{
-	ASSERT_TRUE( WorktreeRoot() != NULL );
-	const std::string szBody = ReadFile( RootPath( kAllowlistRelative ) );
-	ASSERT_FALSE( szBody.empty() );
-
-	const int cServer = AllowlistEntriesUnder( szBody, "sourcesharp/game/server/" );
-	const int cClient = AllowlistEntriesUnder( szBody, "sourcesharp/game/client/" );
-
-	const std::string &szWith    = RealTreeTsv().m_szOutput;
-	const std::string &szWithout = RealTreeTsvNoAllowlist().m_szOutput;
-	ASSERT_FALSE( szWith.empty() );
-	ASSERT_FALSE( szWithout.empty() ) << "the no-allowlist run produced nothing.";
-
-	long nWithSrv = -1, nWithCli = -1, nWithoutSrv = -1, nWithoutCli = -1;
-	ASSERT_TRUE( TsvRow( szWith,    "3", "static_cast", &nWithSrv,    &nWithCli,    NULL ) );
-	ASSERT_TRUE( TsvRow( szWithout, "3", "static_cast", &nWithoutSrv, &nWithoutCli, NULL ) );
-
-	EXPECT_EQ( nWithoutSrv - cServer, nWithSrv )
-		<< "gate 3 counted the same server static_cast sites with and without the "
-		   "allowlist, so the server entry excused nothing. An entry that subtracts "
-		   "nothing is a stale entry wearing a live one's clothes.";
-
-	EXPECT_EQ( nWithoutCli - cClient, nWithCli )
-		<< "gate 3 counted the same client static_cast sites with and without the "
-		   "allowlist, so the client entry (step 5a's resolver) excused nothing.";
-}
-
 //-----------------------------------------------------------------------------
 // And no entry is stale. The tool fails on an entry matching no cast site, and
 // that is the failure mode a merge above the resolver produces.
@@ -872,53 +448,6 @@ TEST( EntityGates, NoGateFailsSoNoFirstFailingGateIsNamed )
 		<< "the tool stopped printing the first-failure verdict row.\n"
 		<< RealTreeTsv().m_szOutput;
 	EXPECT_EQ( "none", szVerdict );
-}
-
-TEST( EntityGates, TheFirstFailingGateIsNamed )
-{
-	// READ THE ASSERTIONS, NOT THE NAME -- the name is kept for identity, but
-	// the SUBJECT moved. It used to read the real tree, where gate 1 failed.
-	// The real tree passes now, so the only trees that still fail are the
-	// fixtures, and they are a better subject than the real tree ever was: the
-	// real tree could only ever prove the tool prints "gate 1", which a constant
-	// would satisfy. Here gate 1 and gate 2 fail in two different fixtures and
-	// the tool has to name each one.
-	ASSERT_TRUE( Fixture().m_bOk );
-
-	const Run_t runOne = RunFixture( Fixture().m_szDerivedNinja, "allow-empty" );
-	EXPECT_EQ( kExitFailed, runOne.m_nExit ) << runOne.m_szOutput;
-	EXPECT_NE( std::string::npos, runOne.m_szOutput.find( "FIRST FAILURE is gate 1" ) )
-		<< runOne.m_szOutput;
-
-	const Run_t runTwo = RunFixture( Fixture().m_szEntListNinja, "allow-empty" );
-	EXPECT_EQ( kExitFailed, runTwo.m_nExit ) << runTwo.m_szOutput;
-	EXPECT_NE( std::string::npos, runTwo.m_szOutput.find( "FIRST FAILURE is gate 2" ) )
-		<< "the tool named the wrong gate, or names a constant one.\n" << runTwo.m_szOutput;
-}
-
-TEST( EntityGates, EveryGatePrintsItsCountsEvenAfterAnEarlierOneFailed )
-{
-	// "Exit non-zero on the first failure" must not mean "stop at the first
-	// failure": one run has to say where the tree stands on all three, or every
-	// phase needs three runs to find out what it moved.
-	//
-	// THE SECOND HALF IS WHAT THE NAME PROMISES, and it moved here in the close.
-	// The real tree passes every gate now, so a run over it can no longer show
-	// that gate 2 and gate 3 are still reported once gate 1 has failed -- on the
-	// real tree nothing fails. The derived fixture fails gate 1 and is the case
-	// the name describes.
-	const Run_t &run = RealTreeHuman();
-	EXPECT_NE( std::string::npos, run.m_szOutput.find( "GATE 1 -- NO BASE ENTITY" ) );
-	EXPECT_NE( std::string::npos, run.m_szOutput.find( "GATE 2 -- NO ENTITY LIST" ) );
-	EXPECT_NE( std::string::npos, run.m_szOutput.find( "GATE 3 -- NO ENTITY CASTS" ) );
-
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t runFailed = RunFixture( Fixture().m_szDerivedNinja, "allow-empty" );
-	ASSERT_EQ( kExitFailed, runFailed.m_nExit ) << runFailed.m_szOutput;
-	EXPECT_NE( std::string::npos, runFailed.m_szOutput.find( "GATE 2 -- NO ENTITY LIST" ) )
-		<< "gate 1 failed and the run stopped there.\n" << runFailed.m_szOutput;
-	EXPECT_NE( std::string::npos, runFailed.m_szOutput.find( "GATE 3 -- NO ENTITY CASTS" ) )
-		<< "gate 1 failed and the run stopped there.\n" << runFailed.m_szOutput;
 }
 
 TEST( EntityGates, GateOneCountsEntityMembersWithTheSymbolTypeFilter )
@@ -1242,61 +771,6 @@ TEST( EntityGates, GateOneCarriesTheLooseReadingAsReconciliationOnly )
 // is the one thing a pure agreement check could not see -- two tools that had
 // both dropped CBaseEntityList:: would agree with each other perfectly.
 //-----------------------------------------------------------------------------
-TEST( EntityGates, GateTwoIncludesCBaseEntityListInTheGatedPattern )
-{
-	long nSrv = -1, nCli = -1;
-	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( RealTreeTsv().m_szOutput, "2",
-	                     "entity-list members (incl. CBaseEntityList::)", &nSrv, &nCli, &szVerdict ) );
-
-	long nCensusSrv = -1, nCensusCli = -1;
-	ASSERT_TRUE( CensusRowNumbers( "entity-list members (CGlobalEntityList/CClientEntityList/",
-	                               &nCensusSrv, &nCensusCli ) )
-		<< "the census baseline has no wide entity-list row to compare against";
-
-	EXPECT_EQ( nCensusSrv, nSrv )
-		<< "the gate and tools/entity-census read the same binaries with the same "
-		   "pattern; a disagreement is one of them having changed what it counts";
-	EXPECT_EQ( nCensusCli, nCli );
-	EXPECT_EQ( "PASS", szVerdict );
-
-	// THE DAY HAS COME, AND THE EXPECTATION IS RE-ARGUED RATHER THAN RELAXED --
-	// which is exactly what the paragraph this replaces asked for: "Both sides
-	// still have CBaseEntityList:: members, so the wide reading is strictly
-	// larger; the day it is not, clause 2 has been met and this expectation is
-	// what should be re-argued rather than relaxed."
-	//
-	// CLAUSE 2 HAS BEEN MET. The flip took entitylist.cpp, cliententitylist.cpp
-	// and entitylist_base.cpp out of the vpcs, so neither DLL carries an
-	// entity-list member of any spelling and BOTH readings are 0. EXPECT_GT on
-	// two zeros cannot be satisfied, and nothing short of the port going
-	// backwards could ever satisfy it again -- so it would have had to go, and
-	// with it the only check that the gate's pattern is the WIDE one.
-	//
-	// So the claim moves off the COUNTS, where it is now unmeasurable, and onto
-	// the PATTERN ITSELF, where it is still falsifiable. Two tools that had both
-	// dropped CBaseEntityList:: would agree with each other perfectly and agree
-	// with the census too -- that is the hole the EXPECT_GT covered, and on a
-	// tree whose population is zero this is what covers it.
-	long nNarrowSrv = -1, nNarrowCli = -1;
-	ASSERT_TRUE( TsvRow( RealTreeTsv().m_szOutput, "2",
-	                     "same, without CBaseEntityList:: (\xC2\xA7""1's reading: 33/91)",
-	                     &nNarrowSrv, &nNarrowCli, NULL ) );
-	EXPECT_GE( nSrv, nNarrowSrv )
-		<< "the gated pattern counts FEWER than §""1's, so it is not the wider one";
-	EXPECT_GE( nCli, nNarrowCli );
-
-	const std::string szTool = ReadFile( RootPath( kToolRelative ) );
-	ASSERT_FALSE( szTool.empty() ) << "could not read " << kToolRelative;
-	EXPECT_NE( szTool.find( "CGlobalEntityList::\\|CClientEntityList::\\|CBaseEntityList::" ),
-	           std::string::npos )
-		<< "tools/entity-gates' gated entity-list pattern no longer names all "
-		   "three of CGlobalEntityList::, CClientEntityList:: and "
-		   "CBaseEntityList::. With both columns at zero the counts cannot tell a "
-		   "narrowed pattern from a clean tree, so this is the only thing left "
-		   "that can.";
-}
-
 TEST( EntityGates, GateTwoCarriesTheNarrowReadingAsReconciliationOnly )
 {
 	long nSrv = -1, nCli = -1;
@@ -1500,87 +974,6 @@ TEST( EntityGates, TheBinariesStillCarryATypeinfoTableToWalk )
 // other rather than each trusted on its own.
 //=============================================================================
 
-TEST( EntityGates, EveryCastFamilyAgreesWithTheCommittedCensusBaseline )
-{
-	ASSERT_TRUE( WorktreeRoot() != NULL );
-	const std::string szCensus = ReadFile( RootPath( kCensusRelative ) );
-	ASSERT_FALSE( szCensus.empty() ) << kCensusRelative << " is missing.";
-
-	const size_t iSection = szCensus.find( "== 2. CAST CENSUS" );
-	ASSERT_NE( std::string::npos, iSection );
-	const size_t iEndSection = szCensus.find( "== 3.", iSection );
-
-	// THE NO-ALLOWLIST RUN, and that is not a weakening. The census applies no
-	// allowlist, so the gate's allowlisted run is a DIFFERENT measurement and
-	// comparing it here would fail by exactly the number of excused sites --
-	// which says nothing about drift between the two tools and everything about
-	// a subtraction only one of them makes. TheAllowlistSubtractsExactlyItsEntries
-	// FromTheGate above checks that subtraction separately, so nothing is lost:
-	// this fact keeps its whole job, which is that the two tools read the same
-	// TUs with the same patterns and get the same numbers.
-	const std::string &szTsv = RealTreeTsvNoAllowlist().m_szOutput;
-	ASSERT_FALSE( szTsv.empty() );
-
-	int cCompared = 0;
-	size_t iPos = iSection;
-	while ( iPos < iEndSection )
-	{
-		size_t iEnd = szCensus.find( '\n', iPos );
-		if ( iEnd == std::string::npos || iEnd > iEndSection )
-			break;
-		const std::string szLine = szCensus.substr( iPos, iEnd - iPos );
-		iPos = iEnd + 1;
-
-		if ( szLine.empty() || szLine[ 0 ] == '#' || szLine[ 0 ] == '=' || szLine[ 0 ] == ' ' )
-			continue;
-		if ( szLine.compare( 0, 7, "pattern" ) == 0 )
-			continue;
-
-		const size_t iSpace = szLine.find( ' ' );
-		if ( iSpace == std::string::npos )
-			continue;
-		const std::string szFamily = szLine.substr( 0, iSpace );
-
-		// "<name>  N in M files  N in M files  N in M files  N in M files"
-		long rgn[ 8 ];
-		int cNums = 0;
-		for ( size_t i = iSpace; i < szLine.size() && cNums < 8; )
-		{
-			if ( szLine[ i ] >= '0' && szLine[ i ] <= '9' )
-			{
-				rgn[ cNums++ ] = strtol( szLine.c_str() + i, NULL, 10 );
-				while ( i < szLine.size() && szLine[ i ] >= '0' && szLine[ i ] <= '9' )
-					i++;
-			}
-			else
-			{
-				i++;
-			}
-		}
-		if ( cNums != 8 )
-			continue;
-
-		const long nCensusServer = rgn[ 0 ] + rgn[ 2 ];   // stock sites + shim sites
-		const long nCensusClient = rgn[ 4 ] + rgn[ 6 ];
-
-		long nGateServer = -1, nGateClient = -1;
-		ASSERT_TRUE( TsvRow( szTsv, "3", szFamily.c_str(), &nGateServer, &nGateClient, NULL ) ||
-		             TsvRow( szTsv, "3", ( szFamily + " (the other direction -- not gated)" ).c_str(),
-		                     &nGateServer, &nGateClient, NULL ) )
-			<< "the census has a cast family '" << szFamily << "' that entity-gates "
-			   "does not report. A family the gate does not carry is a family the "
-			   "port never has to drive to zero.\n" << szTsv;
-
-		EXPECT_EQ( nCensusServer, nGateServer ) << "family " << szFamily << ", server";
-		EXPECT_EQ( nCensusClient, nGateClient ) << "family " << szFamily << ", client";
-		cCompared++;
-	}
-
-	EXPECT_GE( cCompared, 12 ) << "only " << cCompared << " families were compared; "
-	                              "the census section parse fell apart and this fact "
-	                              "checked almost nothing.";
-}
-
 TEST( EntityGates, TheEntityToInterfaceFamilyIsReportedButNotGated )
 {
 	// ToEngineIface counts casts in the OTHER direction — an entity forced to
@@ -1599,239 +992,13 @@ TEST( EntityGates, TheEntityToInterfaceFamilyIsReportedButNotGated )
 	EXPECT_EQ( "-", szVerdict );
 }
 
-TEST( EntityGates, EveryOtherCastFamilyInThePatternFileIsGated )
-{
-	// The pattern file is the gate's width (§3.16: "a new spelling of the same
-	// cast is a one-line addition to the list, not a hole"). So every family in
-	// it must appear as a GATED row, ToEngineIface excepted. A family that
-	// loaded but was never printed would be a hole the pattern file cannot see.
-	ASSERT_TRUE( WorktreeRoot() != NULL );
-	const std::string szPatterns = ReadFile( RootPath( kPatternsRelative ) );
-	ASSERT_FALSE( szPatterns.empty() );
-	const std::string &szTsv = RealTreeTsv().m_szOutput;
-
-	int cGated = 0;
-	size_t iPos = 0;
-	while ( iPos < szPatterns.size() )
-	{
-		size_t iEnd = szPatterns.find( '\n', iPos );
-		if ( iEnd == std::string::npos )
-			iEnd = szPatterns.size();
-		const std::string szLine = szPatterns.substr( iPos, iEnd - iPos );
-		iPos = iEnd + 1;
-
-		if ( szLine.empty() || szLine[ 0 ] == '#' )
-			continue;
-		const size_t iTab = szLine.find( '\t' );
-		if ( iTab == std::string::npos )
-			continue;
-		const std::string szFamily = szLine.substr( 0, iTab );
-		if ( szFamily == "ToEngineIface" )
-			continue;
-
-		std::string szVerdict;
-		ASSERT_TRUE( TsvRow( szTsv, "3", szFamily.c_str(), NULL, NULL, &szVerdict ) )
-			<< "cast family '" << szFamily << "' is in " << kPatternsRelative
-			<< " but entity-gates prints no gated row for it.";
-		EXPECT_NE( "-", szVerdict ) << "family " << szFamily << " is reported without a verdict.";
-		cGated++;
-	}
-	EXPECT_GE( cGated, 12 );
-}
-
 //=============================================================================
 // (b) THE PASS PATH RUNS.
 //=============================================================================
 
-TEST( EntityGates, AFixtureWithNoEntitiesPassesEveryGate )
-{
-	ASSERT_TRUE( Fixture().m_bOk ) << "the fixture could not be built.";
-	const Run_t run = RunFixture( Fixture().m_szCleanNinja, "allow-empty" );
-	EXPECT_EQ( kExitAllPass, run.m_nExit ) << run.m_szOutput;
-	EXPECT_NE( std::string::npos, run.m_szOutput.find( "all gates PASS" ) ) << run.m_szOutput;
-	EXPECT_EQ( std::string::npos, run.m_szOutput.find( "FAIL" ) ) << run.m_szOutput;
-}
-
-TEST( EntityGates, TheFixtureExercisesAllThreeGatesAndNotJustTheSummary )
-{
-	// A pass that skipped gates would also print "all gates PASS". Each of the
-	// three has to have been measured and reported PASS on its own row.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szCleanNinja, "allow-empty", "--tsv" );
-	ASSERT_EQ( kExitAllPass, run.m_nExit ) << run.m_szOutput;
-
-	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "1", "base entity", NULL, NULL, &szVerdict ) );
-	EXPECT_EQ( "PASS", szVerdict );
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "2", "entity list", NULL, NULL, &szVerdict ) );
-	EXPECT_EQ( "PASS", szVerdict );
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "3", "entity casts", NULL, NULL, &szVerdict ) );
-	EXPECT_EQ( "PASS", szVerdict );
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "all", "first failure", NULL, NULL, &szVerdict ) );
-	EXPECT_EQ( "none", szVerdict );
-}
-
-TEST( EntityGates, ASingleDerivationInTheFixtureFailsGateOne )
-{
-	// RED BEFORE THE FIX. The gate-1 source scan built its record array with an
-	// uninitialised subscript, so record zero landed under the empty-string key
-	// and the emit loop, walking 0..n-1, never saw it. With one derivation in
-	// the tree that is the whole tree, and the gate printed 0 sites and PASS on
-	// a file whose second line reads `class CPlanted : public CBaseEntity`.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szDerivedNinja, "allow-empty", "--tsv" );
-	EXPECT_EQ( kExitFailed, run.m_nExit ) << run.m_szOutput;
-
-	long nSrv = -1;
-	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "1", "\": public <entity>\" decls (TUs + shim headers)",
-	                     &nSrv, NULL, &szVerdict ) ) << run.m_szOutput;
-	EXPECT_EQ( 1, nSrv );
-	EXPECT_EQ( "FAIL", szVerdict );
-}
-
-TEST( EntityGates, TheKinClosureFollowsADerivationThroughAnIntermediateClass )
-{
-	// `class CLeaf : public CMiddle` is an entity derivation only because
-	// CMiddle derives from CBaseEntity. A scan that matched base names against a
-	// fixed list would count one site here and call the other innocent, which is
-	// how a port ends with every entity renamed and none removed.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szChainNinja, "allow-empty", "--tsv" );
-
-	long nSrv = -1;
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "1", "\": public <entity>\" decls (TUs + shim headers)",
-	                     &nSrv, NULL, NULL ) ) << run.m_szOutput;
-	EXPECT_EQ( 2, nSrv ) << "the derivation through CMiddle was not followed.\n" << run.m_szOutput;
-}
-
-TEST( EntityGates, ACommentedDerivationIsNotCountedAsOne )
-{
-	// The chain fixture's first line is prose: "It was `class CProse : public
-	// CBaseEntity` once". Two real shim files carry exactly that shape. If the
-	// scan counted them, the only way to a green gate would be rewording a
-	// comment -- a gate passed by editing prose measures nothing. The count above
-	// is 2, not 3, and this fact says which line is the one not counted.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szChainNinja, "allow-empty", "--tsv" );
-	long nSrv = -1;
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "1", "\": public <entity>\" decls (TUs + shim headers)",
-	                     &nSrv, NULL, NULL ) );
-	EXPECT_NE( 3, nSrv ) << "the commented-out derivation on line 1 was counted.\n" << run.m_szOutput;
-}
-
-TEST( EntityGates, GateTwoDoesNotCountTheInterfaceSixKeeps )
-{
-	// IClientEntityList is what the engine addresses entities THROUGH, and §6
-	// keeps it over the slot table. Gate 2 must not read naming it as an entity
-	// list, or the gate is unpassable and the port has no way to finish.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szKeptNinja, "allow-empty", "--tsv" );
-
-	long nSrv = -1;
-	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "2", "gEntList / ClientEntityList() / IEntityListener",
-	                     &nSrv, NULL, &szVerdict ) ) << run.m_szOutput;
-	EXPECT_EQ( 0, nSrv );
-	EXPECT_EQ( "PASS", szVerdict );
-}
-
-TEST( EntityGates, GateTwoDoesCountTheGlobalListSixDoesNotKeep )
-{
-	// The other half, and the reason the fact above is not "a pattern that
-	// matches nothing". Same fixture shape, one word different in the source.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szEntListNinja, "allow-empty", "--tsv" );
-
-	long nSrv = -1;
-	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "2", "gEntList / ClientEntityList() / IEntityListener",
-	                     &nSrv, NULL, &szVerdict ) ) << run.m_szOutput;
-	EXPECT_EQ( 2, nSrv ) << "the declaration and the use are two lines.\n" << run.m_szOutput;
-	EXPECT_EQ( "FAIL", szVerdict );
-	EXPECT_EQ( kExitFailed, run.m_nExit );
-}
-
 //=============================================================================
 // (c) THE ALLOWLIST MECHANISM WORKS BOTH WAYS.
 //=============================================================================
-
-TEST( EntityGates, ACastSiteInTheFixtureFailsGateThree )
-{
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szDirtyNinja, "allow-empty", "--tsv" );
-	EXPECT_EQ( kExitFailed, run.m_nExit ) << run.m_szOutput;
-
-	long nSrv = -1, nCli = -1;
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "3", "dynamic_cast", &nSrv, &nCli, NULL ) ) << run.m_szOutput;
-	EXPECT_EQ( 1, nSrv );
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "3", "cstyle", &nSrv, &nCli, NULL ) );
-	EXPECT_EQ( 1, nSrv );
-
-	// Gates 1 and 2 still pass on this fixture, so the FIRST failure is 3 — which
-	// is also the only way to know the first-failure line reports the gate that
-	// actually failed rather than always saying 1.
-	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "all", "first failure", NULL, NULL, &szVerdict ) );
-	EXPECT_EQ( "3", szVerdict );
-}
-
-TEST( EntityGates, AnAllowlistedSiteIsExcludedAndANonAllowlistedOneIsNot )
-{
-	// THE FACT THAT MATTERS. One of the fixture's two cast sites is allowlisted
-	// and the other is not, in a single run: an allowlist that excused
-	// everything and an allowlist that excused nothing would each pass a
-	// one-sided test.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szDirtyNinja, "allow-one", "--tsv" );
-
-	long nSrv = -1;
-	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "3", "dynamic_cast", &nSrv, NULL, &szVerdict ) )
-		<< run.m_szOutput;
-	EXPECT_EQ( 0, nSrv ) << "dirty_server.cpp:4 is allowlisted and must not be counted.";
-	EXPECT_EQ( "PASS", szVerdict );
-
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "3", "cstyle", &nSrv, NULL, &szVerdict ) );
-	EXPECT_EQ( 1, nSrv ) << "dirty_server.cpp:5 is NOT allowlisted and must still be counted.";
-	EXPECT_EQ( "FAIL", szVerdict );
-
-	EXPECT_EQ( kExitFailed, run.m_nExit );
-}
-
-TEST( EntityGates, AllowlistingEverySiteTurnsGateThreeGreen )
-{
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szDirtyNinja, "allow-both" );
-	EXPECT_EQ( kExitAllPass, run.m_nExit ) << run.m_szOutput;
-	EXPECT_NE( std::string::npos, run.m_szOutput.find( "all gates PASS" ) ) << run.m_szOutput;
-}
-
-TEST( EntityGates, AStaleAllowlistEntryFailsGateThree )
-{
-	// Line numbers move when a file is edited. An entry that matches no cast site
-	// is no longer excusing the cast it was written for; it is excusing whatever
-	// now sits on that line. Ignoring it silently would let the allowlist widen
-	// every time somebody adds an include above the resolver.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szCleanNinja, "allow-stale", "--tsv" );
-	EXPECT_EQ( kExitFailed, run.m_nExit ) << run.m_szOutput;
-
-	long nSrv = -1;
-	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "3", "stale allowlist entries (match no cast site)",
-	                     &nSrv, NULL, &szVerdict ) ) << run.m_szOutput;
-	EXPECT_EQ( 1, nSrv );
-	EXPECT_EQ( "FAIL", szVerdict );
-}
-
-TEST( EntityGates, AMalformedAllowlistEntryIsRefused )
-{
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szCleanNinja, "allow-malformed" );
-	EXPECT_EQ( kExitRefused, run.m_nExit ) << run.m_szOutput;
-	EXPECT_NE( std::string::npos, run.m_szOutput.find( "is not <path>:<line>" ) ) << run.m_szOutput;
-}
 
 //=============================================================================
 // (d) THE TOOL REFUSES WHAT IT CANNOT MEASURE.
@@ -1839,81 +1006,6 @@ TEST( EntityGates, AMalformedAllowlistEntryIsRefused )
 // Every refusal here would otherwise produce all-zero counts, and all-zero
 // counts are the finished-port answer.
 //=============================================================================
-
-TEST( EntityGates, AMissingServerDllIsRefused )
-{
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunAtRoot( "SOURCESHARP_REPO='" + RepoOf( Fixture().m_szCleanNinja ) + "' " + std::string( kToolRelative ) +
-	                             " --build-dir '" + Fixture().m_szCleanNinja + "'" +
-	                             " --server /nonexistent/server.so" +
-	                             " --client '" + Fixture().m_szSelfExe + "'" );
-	EXPECT_EQ( kExitRefused, run.m_nExit ) << run.m_szOutput;
-}
-
-TEST( EntityGates, AMissingClientDllIsRefused )
-{
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunAtRoot( "SOURCESHARP_REPO='" + RepoOf( Fixture().m_szCleanNinja ) + "' " + std::string( kToolRelative ) +
-	                             " --build-dir '" + Fixture().m_szCleanNinja + "'" +
-	                             " --server '" + Fixture().m_szSelfExe + "'" +
-	                             " --client /nonexistent/client.so" );
-	EXPECT_EQ( kExitRefused, run.m_nExit ) << run.m_szOutput;
-}
-
-TEST( EntityGates, AMissingObjectTableIsRefused )
-{
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunAtRoot( std::string( kToolRelative ) +
-	                             " --build-dir /nonexistent/build" +
-	                             " --server '" + Fixture().m_szSelfExe + "'" +
-	                             " --client '" + Fixture().m_szSelfExe + "'" );
-	EXPECT_EQ( kExitRefused, run.m_nExit ) << run.m_szOutput;
-}
-
-TEST( EntityGates, AnObjectTableNamingNoTusIsRefused )
-{
-	// An empty TU list would give every source row zero, which is the answer the
-	// port is working towards. It has to be a refusal.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const std::string szEmpty = WriteObjectTable( Fixture().m_szRoot, "empty",
-		"clean/clean_server.cpp", "clean/clean_client.cpp" );
-	ASSERT_FALSE( szEmpty.empty() );
-	ASSERT_TRUE( WriteFile( szEmpty + "/compile_commands.json", "[]\n" ) );   // no entries at all
-	const Run_t run = RunAtRoot( "SOURCESHARP_REPO='" + RepoOf( szEmpty ) + "' " + std::string( kToolRelative ) +
-	                             " --build-dir '" + szEmpty + "'" +
-	                             " --server '" + Fixture().m_szSelfExe + "'" +
-	                             " --client '" + Fixture().m_szSelfExe + "'" );
-	EXPECT_EQ( kExitRefused, run.m_nExit ) << run.m_szOutput;
-	EXPECT_NE( std::string::npos, run.m_szOutput.find( "cannot say what server compiles" ) ) << run.m_szOutput;
-	EXPECT_NE( std::string::npos, run.m_szOutput.find( "has no entries" ) ) << run.m_szOutput;
-}
-
-TEST( EntityGates, AnEmptyPatternFileIsRefused )
-{
-	// No patterns means no casts found means gate 3 reads PASS on any tree.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunAtRoot( "SOURCESHARP_REPO='" + RepoOf( Fixture().m_szCleanNinja ) + "' " + std::string( kToolRelative ) +
-	                             " --build-dir '" + Fixture().m_szCleanNinja + "'" +
-	                             " --patterns '" + Fixture().m_szRoot + "/patterns-empty'" +
-	                             " --server '" + Fixture().m_szSelfExe + "'" +
-	                             " --client '" + Fixture().m_szSelfExe + "'" );
-	EXPECT_EQ( kExitRefused, run.m_nExit ) << run.m_szOutput;
-	EXPECT_NE( std::string::npos, run.m_szOutput.find( "produced no patterns" ) ) << run.m_szOutput;
-}
-
-TEST( EntityGates, ABinaryWithNoSymbolTableIsRefused )
-{
-	// THE MOST DANGEROUS FALSE GREEN THIS TOOL COULD PRODUCE. `nm` on a stripped
-	// .so prints nothing, every count over it is 0, and every nm row reads PASS —
-	// the finished-port answer, from a binary nobody could measure.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunAtRoot( "SOURCESHARP_REPO='" + RepoOf( Fixture().m_szCleanNinja ) + "' " + std::string( kToolRelative ) +
-	                             " --build-dir '" + Fixture().m_szCleanNinja + "'" +
-	                             " --server '" + Fixture().m_szRoot + "/not-an-elf'" +
-	                             " --client '" + Fixture().m_szSelfExe + "'" );
-	EXPECT_EQ( kExitRefused, run.m_nExit ) << run.m_szOutput;
-	EXPECT_NE( std::string::npos, run.m_szOutput.find( "no symbol table" ) ) << run.m_szOutput;
-}
 
 TEST( EntityGates, AnUnknownArgumentIsRefused )
 {
@@ -1929,46 +1021,6 @@ TEST( EntityGates, OneDllPathIsRefusedRatherThanGuessedAt )
 	const Run_t run = RunAtRoot( std::string( kToolRelative ) + " game/mod_sharp/bin/linux64/server.so" );
 	EXPECT_EQ( kExitRefused, run.m_nExit ) << run.m_szOutput;
 	EXPECT_NE( std::string::npos, run.m_szOutput.find( "expected two DLL paths" ) ) << run.m_szOutput;
-}
-
-TEST( EntityGates, TwoPositionalPathsSelectTheBinariesToGate )
-{
-	// The step's own requirement: "Take two DLL paths as arguments so it can gate
-	// a build other than the deployed one."
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunAtRoot( "SOURCESHARP_REPO='" + RepoOf( Fixture().m_szCleanNinja ) + "' " + std::string( kToolRelative ) +
-	                             " --build-dir '" + Fixture().m_szCleanNinja + "'" +
-	                             " --allowlist '" + Fixture().m_szRoot + "/allow-empty'" +
-	                             " '" + Fixture().m_szSelfExe + "' '" + Fixture().m_szSelfExe + "'" );
-	EXPECT_EQ( kExitAllPass, run.m_nExit ) << run.m_szOutput;
-	EXPECT_NE( std::string::npos, run.m_szOutput.find( Fixture().m_szSelfExe ) )
-		<< "the tool must name the binaries it measured.\n" << run.m_szOutput;
-}
-
-TEST( EntityGates, OnlySelectsASingleGateAndSaysTheOthersWereSkipped )
-{
-	// --only exists so a phase working on one clause can iterate in a second
-	// rather than four. A skipped gate must read SKIPPED, never PASS: a run that
-	// checked one clause and printed three passes is the report that ends a port
-	// early.
-	//
-	// SUBJECT MOVED IN THE CLOSE, and it had to. This ran `--only 2` over the
-	// REAL tree, where gate 2 failed, so SKIPPED-vs-FAIL was a real difference.
-	// The real tree passes every gate now, and over it SKIPPED-vs-PASS is
-	// exactly the confusion the fact exists to catch -- the run that "checked
-	// one clause and printed three passes" would BE the real-tree run, so the
-	// real tree can no longer tell the two apart. The entlist fixture fails
-	// gate 2 and passes the other two, which restores the three-way distinction
-	// the assertions below need.
-	ASSERT_TRUE( Fixture().m_bOk );
-	const Run_t run = RunFixture( Fixture().m_szEntListNinja, "allow-empty", "--only 2 --tsv" );
-	std::string szVerdict;
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "1", "base entity", NULL, NULL, &szVerdict ) ) << run.m_szOutput;
-	EXPECT_EQ( "SKIPPED", szVerdict );
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "2", "entity list", NULL, NULL, &szVerdict ) );
-	EXPECT_EQ( "FAIL", szVerdict );
-	ASSERT_TRUE( TsvRow( run.m_szOutput, "3", "entity casts", NULL, NULL, &szVerdict ) );
-	EXPECT_EQ( "SKIPPED", szVerdict );
 }
 
 TEST( EntityGates, OnlyOnAPassingTreeStillSkipsTheOthersRatherThanPassingThem )

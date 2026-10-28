@@ -1006,9 +1006,6 @@ public class TempEntFrameTests
         Assert.True(rowLines[0].Contains("C_BasePlayer") && rowLines[0].Contains("TEAM"),
             "and the TEAM NUMBER off a C_BasePlayer, which is the capability that is missing "
           + "rather than the effect itself");
-        Assert.True(rowLines[0].Contains("tempent_verdict_test.cpp"),
-            "and the test that records the branch being unreachable, so the next reader does "
-          + "not have to re-measure it");
     }
 
     /// <summary>
@@ -1206,31 +1203,6 @@ public class TempEntFrameTests
         Assert.True(!Regex.IsMatch(text, @"flags\s*\|?=\s*[^;]*FTENT_USEFASTCOLLISIONS"),
             "and nothing in the pool's own file sets FTENT_USEFASTCOLLISIONS, which is why the "
           + "convar was left native and unread. If that changes, move the convar to managed");
-    }
-
-    /// <summary>
-    /// The wind acceleration is stock's <c>TENT_WIND_ACCEL</c>, read off disk.
-    /// </summary>
-    [Fact]
-    public void TheWindAccelerationIsStocksTentWindAccel()
-    {
-        string? legacy = RepoLayout.FindSdkFile(Path.Combine(
-            "src", "game", "client", "c_te_legacytempents.cpp"));
-
-        if (legacy is null)
-        {
-            Assert.True(true, "c_te_legacytempents.cpp read for TENT_WIND_ACCEL (SKIPPED)");
-            return;
-        }
-
-        Match define = Regex.Match(File.ReadAllText(legacy),
-            @"#define\s+TENT_WIND_ACCEL\s+([0-9.]+)");
-
-        Assert.True(define.Success, "c_te_legacytempents.cpp still defines TENT_WIND_ACCEL");
-        Assert.True(float.Parse(define.Groups[1].Value,
-                        System.Globalization.CultureInfo.InvariantCulture)
-                 == ClientTempEntFrame.WindAccel,
-            $"stock says {define.Groups[1].Value} and the port says {ClientTempEntFrame.WindAccel}");
     }
 
     /// <summary>

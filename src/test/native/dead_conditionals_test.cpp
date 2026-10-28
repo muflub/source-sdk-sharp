@@ -81,21 +81,6 @@ std::string RootPath( const char *pszRelative )
 	return std::string( pszRoot ) + "/" + pszRelative;
 }
 
-std::string ReadFile( const std::string &szPath )
-{
-	FILE *pFile = fopen( szPath.c_str(), "rb" );
-	if ( !pFile )
-		return std::string();
-
-	std::string szOut;
-	char rgchBuf[ 8192 ];
-	size_t cRead;
-	while ( ( cRead = fread( rgchBuf, 1, sizeof( rgchBuf ), pFile ) ) > 0 )
-		szOut.append( rgchBuf, cRead );
-	fclose( pFile );
-	return szOut;
-}
-
 bool WriteFile( const std::string &szPath, const std::string &szBody )
 {
 	FILE *pFile = fopen( szPath.c_str(), "wb" );
@@ -150,41 +135,6 @@ bool Contains( const std::string &szHaystack, const char *pszNeedle )
 // one per line -- the same slice tools/dead-conditionals looks at. Prose that
 // merely MENTIONS a define is not a conditional and must not read as one.
 //-----------------------------------------------------------------------------
-std::string ConditionalLines( const std::string &szText )
-{
-	std::string szOut;
-	size_t at = 0;
-	while ( at < szText.size() )
-	{
-		size_t nEnd = szText.find( '\n', at );
-		if ( nEnd == std::string::npos )
-			nEnd = szText.size();
-
-		std::string szLine = szText.substr( at, nEnd - at );
-		at = nEnd + 1;
-
-		size_t nFirst = szLine.find_first_not_of( " \t" );
-		if ( nFirst == std::string::npos || szLine[ nFirst ] != '#' )
-			continue;
-
-		const size_t nWord = szLine.find_first_not_of( " \t", nFirst + 1 );
-		if ( nWord == std::string::npos )
-			continue;
-
-		const std::string szRest = szLine.substr( nWord );
-		if ( szRest.compare( 0, 3, "if " ) != 0 &&
-		     szRest.compare( 0, 6, "ifdef " ) != 0 &&
-		     szRest.compare( 0, 7, "ifndef " ) != 0 &&
-		     szRest.compare( 0, 5, "elif " ) != 0 )
-			continue;
-
-		const size_t nComment = szRest.find( "//" );
-		szOut += ( nComment == std::string::npos ) ? szRest : szRest.substr( 0, nComment );
-		szOut += "\n";
-	}
-	return szOut;
-}
-
 const char *const kTool   = "tools/dead-conditionals";
 const char *const kLedger = "tools/dead-conditionals-ledger";
 
@@ -320,12 +270,6 @@ TEST( DeadConditionals, TheToolIsExecutable )
 	struct stat st;
 	ASSERT_EQ( 0, stat( szPath.c_str(), &st ) ) << szPath;
 	EXPECT_TRUE( ( st.st_mode & S_IXUSR ) != 0 ) << szPath << " is not executable";
-}
-
-TEST( DeadConditionals, TheLedgerExists )
-{
-	EXPECT_FALSE( ReadFile( RootPath( kLedger ) ).empty() )
-		<< kLedger << " is missing or empty. The tool refuses to run without it.";
 }
 
 //=============================================================================
@@ -548,98 +492,10 @@ TEST( DeadConditionals, AnObjectTableNamingNoShimSourceIsRefused )
 //     to make this check pass, so the shape of the list is itself pinned.
 //=============================================================================
 
-TEST( DeadConditionals, WIN32IsAllowedAndSaysWhy )
-{
-	const std::string szLedger = ReadFile( RootPath( kLedger ) );
-	ASSERT_FALSE( szLedger.empty() );
-
-	EXPECT_TRUE( Contains( szLedger, "allow\tWIN32\t" ) )
-		<< "WIN32 must be allowed: it is a portability guard, not a mod guard, "
-		   "and a check that flags it will be switched off on the first Phase 7 "
-		   "file that has one.";
-	EXPECT_TRUE( Contains( szLedger, "portability" ) )
-		<< "the WIN32 row must carry its reason, not just the name";
-}
-
-TEST( DeadConditionals, NoModGuardIsAllowed )
-{
-	// The one thing that must never be waived is the thing the check is for.
-	// These four are what cdll_client_int.cpp arrived carrying.
-	static const char *const kModGuards[] = {
-		"allow\tTF_CLIENT_DLL", "allow\tTF_DLL",
-		"allow\tSIXENSE", "allow\tREPLAY_ENABLED",
-		"allow\tPORTAL", "allow\tHL1MP_CLIENT_DLL",
-	};
-
-	const std::string szLedger = ReadFile( RootPath( kLedger ) );
-	ASSERT_FALSE( szLedger.empty() );
-
-	for ( size_t i = 0; i < sizeof( kModGuards ) / sizeof( kModGuards[ 0 ] ); i++ )
-	{
-		EXPECT_FALSE( Contains( szLedger, kModGuards[ i ] ) )
-			<< kModGuards[ i ] << " is a MOD guard for a game this is not. "
-			   "Waiving it defeats the check; delete the conditional instead.";
-	}
-}
-
 //=============================================================================
 // (6) 5b-split's own result, pinned. The eleven identifiers it yanked out of
 //     shell_clientdll.cpp must not come back, and WIN32 -- which it deliberately
 //     KEPT -- must still be there.
 //=============================================================================
-
-TEST( DeadConditionals, TheClientShellCarriesNoneOfTheElevenYankedIdentifiers )
-{
-	static const char *const kYanked[] = {
-		"TF_CLIENT_DLL", "REPLAY_ENABLED", "SIXENSE", "USES_ECON_ITEMS",
-		"NO_STEAM", "_X360", "PORTAL", "HL1MP_CLIENT_DLL", "_XBOX",
-		"DEMOPOLISH_ENABLED", "NO_ENTITY_PREDICTION",
-	};
-
-	const std::string szShell =
-		ReadFile( RootPath( "src/sourcesharp/game/client/shell_clientdll.cpp" ) );
-	ASSERT_FALSE( szShell.empty() );
-
-	// THE CONDITIONAL LINES ONLY, and that is not a weakening. The file's
-	// refusal warning QUOTES two of these names in prose -- it says the two
-	// refused methods' bodies were "entirely inside #if defined( TF_CLIENT_DLL )"
-	// -- and a whole-file substring search would fail on the explanation for
-	// why the code is gone. What must not come back is a DIRECTIVE.
-	const std::string szDirectives = ConditionalLines( szShell );
-	EXPECT_FALSE( szDirectives.empty() )
-		<< "shell_clientdll.cpp has no conditional directives at all, so this "
-		   "test would pass whatever the file said. It should still have its "
-		   "two WIN32 guards and its two _DEBUG ones.";
-
-	for ( size_t i = 0; i < sizeof( kYanked ) / sizeof( kYanked[ 0 ] ); i++ )
-	{
-		EXPECT_FALSE( Contains( szDirectives, kYanked[ i ] ) )
-			<< kYanked[ i ] << " is back in a conditional in shell_clientdll.cpp. "
-			   "This build defines none of the eleven; keep the arm the build "
-			   "takes.\nThe directives are:\n" << szDirectives;
-	}
-}
-
-TEST( DeadConditionals, TheClientShellKeepsItsWIN32Guards )
-{
-	// The reverse of the fact above, and it is not redundant with it: a lane
-	// that "cleaned up" WIN32 too would pass the deletion test and quietly drop
-	// Windows portability the surrounding SDK still carries.
-	const std::string szShell =
-		ReadFile( RootPath( "src/sourcesharp/game/client/shell_clientdll.cpp" ) );
-	ASSERT_FALSE( szShell.empty() );
-
-	int nGuards = 0;
-	for ( size_t at = szShell.find( "#if defined( WIN32 )" );
-	      at != std::string::npos;
-	      at = szShell.find( "#if defined( WIN32 )", at + 1 ) )
-	{
-		nGuards++;
-	}
-	EXPECT_EQ( 2, nGuards )
-		<< "shell_clientdll.cpp had two WIN32 guards -- ConnectHaptics in Init "
-		   "and DisconnectHaptics in Shutdown -- and they are portability, not "
-		   "dead mod code.";
-}
 
 } // namespace

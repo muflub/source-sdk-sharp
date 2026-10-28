@@ -131,7 +131,7 @@ void SourceSharp_EntitySlotClosed( uint32_t hEntity )
 // Once per frame: turns the frame's stores into NetworkStateChanged calls and closes
 // slots whose entity died without closing them. Walks backwards because Close swaps the
 // tail entry into the freed position.
-int SourceSharp_DrainEntitySlots( void )
+int SourceSharp_DrainEntitySlots()
 {
 
 	int nMarked = 0;
@@ -170,14 +170,14 @@ int SourceSharp_DrainEntitySlots( void )
 
 // A managed reload is about to happen: void every serial handed out so far. Called
 // between unload and load, the only window with no managed code running.
-int SourceSharp_RetireEntitySlots( void )
+int SourceSharp_RetireEntitySlots()
 {
 	CSourceSharpEntitySlots *pSlots = EntitySlots();
 	return pSlots ? pSlots->Retire() : 0;
 }
 
 // Level shutdown: a slot that outlived the map would be handed to the next occupant.
-void SourceSharp_ResetEntitySlots( void )
+void SourceSharp_ResetEntitySlots()
 {
 	CSourceSharpEntitySlots *pSlots = EntitySlots();
 	CSourceSharpSlotTable *pTable = SlotTable();
@@ -196,7 +196,7 @@ void SourceSharp_ResetEntitySlots( void )
 // above because they share a lifetime.
 
 // For the debug readout; console commands run inside the DLL tier's lifetime.
-CSourceSharpSlotTable &SourceSharp_SlotTable( void )
+CSourceSharpSlotTable &SourceSharp_SlotTable()
 {
 	CSourceSharpSlotTable *pTable = SlotTable();
 	AssertMsg( pTable, "the slot table was asked for outside DLLInit..DLLShutdown" );

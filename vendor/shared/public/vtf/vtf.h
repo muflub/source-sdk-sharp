@@ -3,7 +3,6 @@
 #pragma once
 
 #include "bitmap/imageformat.h"
-#include "tier0/platform.h"
 
 // #define VTF_FILE_FORMAT_ONLY to just include the vtf header and none of the code declaration
 
@@ -291,8 +290,6 @@ public:
 	// streaming textures.
 	virtual void unused_GetMipmapRange() = 0;
 };
-
-#include "mathlib/vector.h"
 
 // Disk format for VTF files ver. 7.2 and earlier
 // NOTE: After the header is the low-res image data

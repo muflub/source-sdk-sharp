@@ -356,7 +356,7 @@ void SourceSharp_ClientDecalStaticProp( const float *pStartXYZ, const float *pEn
 
 // Whether this client runs with gore turned down. UTIL_IsLowViolence asks
 // engine->IsLowViolence(), which managed code cannot reach.
-int32_t SourceSharp_ClientIsLowViolence( void )
+int32_t SourceSharp_ClientIsLowViolence()
 {
 	return UTIL_IsLowViolence() ? 1 : 0;
 }

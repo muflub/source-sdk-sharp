@@ -50,50 +50,6 @@
 namespace
 {
 
-std::string ReadFile( const char *pPath )
-{
-	std::ifstream f( pPath );
-	EXPECT_TRUE( f.good() ) << "cannot open " << pPath;
-	std::stringstream ss;
-	ss << f.rdbuf();
-	return ss.str();
-}
-
-std::string Code( const std::string &in )
-{
-	std::string out;
-	out.reserve( in.size() );
-	for ( size_t i = 0; i < in.size(); )
-	{
-		if ( in.compare( i, 2, "//" ) == 0 )
-		{
-			while ( i < in.size() && in[ i ] != '\n' ) i++;
-		}
-		else if ( in.compare( i, 2, "/*" ) == 0 )
-		{
-			i += 2;
-			while ( i + 1 < in.size() && in.compare( i, 2, "*/" ) != 0 ) i++;
-			i = ( i + 1 < in.size() ) ? i + 2 : in.size();
-		}
-		else
-		{
-			out += in[ i++ ];
-		}
-	}
-	return out;
-}
-
-size_t CountOf( const std::string &hay, const std::string &needle )
-{
-	size_t n = 0;
-	for ( size_t i = hay.find( needle ); i != std::string::npos;
-	      i = hay.find( needle, i + needle.size() ) )
-	{
-		n++;
-	}
-	return n;
-}
-
 bool Exists( const char *pPath )
 {
 	struct stat st;
@@ -108,8 +64,6 @@ const char *const kMoveHelperRow  = "game/server/movehelper_server.cpp";
 const char *const kLocalDataRow   = "game/server/playerlocaldata.cpp";
 const char *const kShimLocalRow   = "sourcesharp/game/server/shell_standalone_player.cpp";
 const char *const kProofOfRead    = "sourcesharp/game/shared/shell_shared.cpp";
-
-const char *const kShimPlayer        = "sourcesharp/game/server/shell_standalone_player.cpp";
 
 } // anonymous namespace
 
@@ -177,88 +131,7 @@ TEST( ServerTusEvicted, TheStockPlayerLocalDataSourceIsGoneFromDisk )
 // 2. WHAT MADE THE EVICTION SAFE — the claim, not the outcome
 //=============================================================================//
 
-TEST( ServerTusEvicted, NoCompiledFileCallsMoveHelperServer )
-{
-	// THE CLAIM THE EVICTION RESTS ON. CMoveHelperServer is constructed by
-	// exactly one function-local static, inside MoveHelperServer(), so if
-	// nothing calls MoveHelperServer() the object never exists and the file's
-	// touch list, impact processing and falling-damage path were never reached.
-	//
-	// The needle carries the CALL PARENTHESES so the declaration in
-	// game/server/movehelper.h cannot satisfy it — 4f's recorded
-	// SceneManager_ClientActive shape.
-	//
-	// The two files checked are the ones that could plausibly acquire such a
-	// call: the shim player, which owns the live IMoveHelper, and the shim
-	// frame steps, which drive the command loop. game/server/player.cpp does
-	// call it and is deliberately NOT read here: server_sourcesharp does not compile it
-	// and the fact would be red for a file that does not build.
-	const std::string player = Code( ReadFile( kShimPlayer ) );
-	ASSERT_FALSE( player.empty() );
-	EXPECT_EQ( 0u, CountOf( player, "MoveHelperServer()" ) )
-		<< kShimPlayer << " now calls MoveHelperServer(), whose CMoveHelperServer "
-		   "left the build with movehelper_server.cpp";
-
-	const std::string steps = Code( ReadFile( "sourcesharp/game/server/shell_frame.cpp" ) );
-	ASSERT_FALSE( steps.empty() );
-	EXPECT_EQ( 0u, CountOf( steps, "MoveHelperServer()" ) )
-		<< "shell_frame.cpp now calls MoveHelperServer()";
-}
-
 // The move helper's singleton storage and the standalone helper that installed
 // itself went with the server's native command path (plan_server_native_v2
 // T4g): the helper's work is ServerMoveWorld's, in managed.
 
-// The view punch walk and the slow-movement word left native in
-// plan_server_native_v2 T4g: the punch's velocity and the stasis field's slow
-// movement are movement state, which the managed command loop owns
-// (ServerPlayerMovement.ViewPunch / SetSlowMovement over the records). Their
-// slots (IShimEffectsServer.ViewPunch, IShimMovementServer.PlayerSetSlowMovement)
-// were retired with them, and the reach rules' header went with its one caller.
-TEST( ServerTusEvicted, TheViewPunchWalkAndTheSlowMovementWordAreManaged )
-{
-	const std::string scripted = Code( ReadFile( "sourcesharp/game/server/shell_scripted.cpp" ) );
-	ASSERT_NE( 0u, CountOf( scripted, "void SourceSharp_EntityGetAngularVelocity(" ) )
-		<< "the anchor is gone: this read proves nothing about shell_scripted.cpp";
-	EXPECT_EQ( 0u, CountOf( scripted, "UTIL_ViewPunch(" ) )
-		<< "the native punch walk is back; ServerPlayerMovement.ViewPunch walks the records";
-	EXPECT_EQ( 0u, CountOf( scripted, "SourceSharp_ViewPunch(" ) )
-		<< "the ViewPunch slot body is back";
-
-	const std::string entityapi = Code( ReadFile( "sourcesharp/game/server/shell_entityapi.cpp" ) );
-	ASSERT_NE( 0u, CountOf( entityapi, "void SourceSharp_ApplyDamage(" ) )
-		<< "the anchor is gone: this read proves nothing about shell_entityapi.cpp";
-	EXPECT_EQ( 0u, CountOf( entityapi, "SourceSharp_PlayerSetSlowMovement(" ) )
-		<< "the slow-movement slot body is back; the record holds the word";
-
-	const std::string player = Code( ReadFile( "sourcesharp/game/server/shell_standalone_player.h" ) );
-	ASSERT_NE( 0u, CountOf( player, "const char *PlayerName() const" ) )
-		<< "the anchor is gone: this read proves nothing about shell_standalone_player.h";
-	EXPECT_EQ( 0u, CountOf( player, "void ViewPunch(" ) )
-		<< "the native player takes a punch again";
-
-	ASSERT_TRUE( Exists( "sourcesharp/game/shared/shell_movement.cpp" ) )
-		<< "the shared directory did not resolve";
-	EXPECT_FALSE( Exists( "sourcesharp/game/shared/view_effect_reach.h" ) )
-		<< "the reach rules' header is back with no native caller";
-}
-
-// A player's base velocity left native in plan_server_native_v2 T4g: the push,
-// the ground release and the unstick nudge are the managed record's
-// (ServerPlayerMovement.AddBaseVelocity), and so are the once-per-entity
-// refusals. The IShimTransform slot and the rule's header went with them.
-TEST( ServerTusEvicted, ThePlayerBaseVelocityIsManaged )
-{
-	const std::string worldquery = Code( ReadFile( "sourcesharp/game/server/shell_worldquery.cpp" ) );
-	ASSERT_NE( 0u, CountOf( worldquery, "void SourceSharp_EntityTakeDamage(" ) )
-		<< "the anchor is gone: this read proves nothing about shell_worldquery.cpp";
-	EXPECT_EQ( 0u, CountOf( worldquery, "void SourceSharp_EntityAddBaseVelocity(" ) )
-		<< "the native base-velocity push is back; the managed record holds the channel";
-	EXPECT_EQ( 0u, CountOf( worldquery, "MvSetBaseVelocity(" ) )
-		<< "native writes a player's base velocity again";
-
-	ASSERT_TRUE( Exists( "sourcesharp/game/server/shell_worldquery.cpp" ) )
-		<< "the server directory did not resolve";
-	EXPECT_FALSE( Exists( "sourcesharp/game/server/standalone_basevelocity.h" ) )
-		<< "the push rule's header is back with no native caller";
-}

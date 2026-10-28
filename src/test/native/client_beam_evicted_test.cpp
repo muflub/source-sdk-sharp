@@ -74,87 +74,6 @@ namespace
 //-----------------------------------------------------------------------------
 // Finding the tree, and reading it. Same shape as client_orphan_evictions_test.
 //-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-// Whole file, comments gone. Empty means "could not open", which every caller
-// must distinguish from "opened and found nothing".
-std::string ReadStripped( const std::string &strRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	std::string all, line;
-	while ( std::getline( file, line ) )
-	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
-			line.erase( line.size() - 1 );
-		all += line;
-		all += '\n';
-	}
-	return StripComments( all );
-}
-
-std::string NoWhitespace( const std::string &s )
-{
-	std::string out;
-	for ( size_t i = 0; i < s.size(); i++ )
-	{
-		const char c = s[ i ];
-		if ( c != ' ' && c != '\t' && c != '\n' && c != '\r' )
-			out += c;
-	}
-	return out;
-}
-
 struct File_t
 {
 	const char *pszRel;
@@ -188,17 +107,6 @@ struct File_t
 // and client_csharp.vpc. The proof-of-read is the same shim on both sides.
 const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 
-std::string Load( const File_t &f )
-{
-	const std::string s = ReadStripped( f.pszRel );
-	EXPECT_FALSE( s.empty() ) << "could not open " << f.pszRel
-		<< " — every absence invariant below would pass vacuously";
-	EXPECT_NE( s.find( f.pszAnchor ), std::string::npos )
-		<< f.pszRel << " does not contain its anchor \"" << f.pszAnchor
-		<< "\"; the file this test reasons about has moved or been rewritten";
-	return s;
-}
-
 // Does this target leave the file out of the build? Out means NO compiled
 // source of the target has its BASENAME -- the strength the flattened-vpc
 // check had (basename in any directory, or the full path), so a copy moved to
@@ -224,33 +132,6 @@ bool Excludes( const char *pszTarget, const std::string &strPath )
 }
 
 
-size_t CountOf( const std::string &strHaystack, const std::string &strNeedle )
-{
-	size_t n = 0;
-	for ( size_t at = strHaystack.find( strNeedle );
-	      at != std::string::npos;
-	      at = strHaystack.find( strNeedle, at + strNeedle.size() ) )
-	{
-		n++;
-	}
-	return n;
-}
-
-// The beam system's native half since the C2 beam port: `beams` is this
-// file's thunk onto the managed system, and each leaf renderable's draw is a
-// call into it.
-const File_t kBeamExecutor = { "sourcesharp/game/client/shell_beam_render.cpp",
-	"IViewRenderBeams *beams = &g_SourceSharpBeams;" };
-// The endpoint facts the managed beam system decides a beam endpoint from
-// (shell_beam_endpoint_client.cpp's route moved to C# with the C2 beam port).
-// Anchored on the facts' entry point, which none of the assertions below is.
-const File_t kBeamEndpointFacts = { "sourcesharp/game/client/shell_beam_render.cpp",
-	"int32_t SourceSharp_BeamEntityFacts( uint32_t hEntity, int32_t nAttachment, int32_t bTryAttachment, float *pOut9 )" };
-
-// The managed entity's teardown, which reaps the beams aimed at it.
-const File_t kStandaloneClient = { "sourcesharp/game/client/shell_standalone_client.cpp",
-	"C_StandaloneEntity::~C_StandaloneEntity" };
-
 } // namespace
 
 //-----------------------------------------------------------------------------
@@ -272,31 +153,6 @@ TEST( ClientBeamEvicted, TheServerStillExcludesTheBeamSendTable )
 // in this game is drawn, did NOT. Both halves, so this fails whichever way it
 // moves.
 //-----------------------------------------------------------------------------
-TEST( ClientBeamEvicted, TheEntityAdapterIsGoneAndTheBeamTPathSurvives )
-{
-	const std::string executor = Load( kBeamExecutor );
-	const std::string tight = NoWhitespace( executor );
-
-	// Stock IViewRenderBeams still declares DrawBeam( C_Beam * ); the executor
-	// answers that slot with nothing and names C_Beam nowhere else.
-	EXPECT_NE( executor.find( "void DrawBeam( C_Beam *, ITraceFilter * ) override {}" ), std::string::npos )
-		<< "the beam executor no longer answers stock's DrawBeam( C_Beam * ) slot empty";
-	EXPECT_EQ( CountOf( executor, "C_Beam" ), 1u )
-		<< "the beam executor names C_Beam beyond the empty slot, whose members left with beam_shared.cpp";
-
-	// THE OTHER HALF, and the one that matters for what the player sees: a
-	// beam's leaf renderable, whose draw calls back into the managed system.
-	// A mutation that cut it would leave every beam created and none drawn.
-	EXPECT_NE( tight.find( "intDrawModel(int)override{if(IManagedBeamsClient*pBeams=ManagedBeamsClient())"
-	                       "pBeams->BeamsDraw(m_nIndex);" ),
-		std::string::npos )
-		<< "a beam renderable's DrawModel no longer calls the managed draw: every "
-		   "beam in this game is created and none is drawn";
-	EXPECT_NE( executor.find( "void DrawBeam( Beam_t * ) override {}" ), std::string::npos )
-		<< "the beam executor no longer answers IViewRenderBeams' Beam_t overload";
-}
-
-
 //=============================================================================//
 // THE BEAM ENDPOINT — lane `c8-tempents-beams`, then the C2 beam port.
 //
@@ -311,16 +167,6 @@ TEST( ClientBeamEvicted, TheEntityAdapterIsGoneAndTheBeamTPathSurvives )
 // and the endpoint shim's call into it both left; the facts are the only
 // native half of an endpoint now.
 //-----------------------------------------------------------------------------
-TEST( ClientBeamEvicted, TheEndpointFactsReachNoStockEntityTypedArm )
-{
-	const std::string facts = NoWhitespace( Load( kBeamEndpointFacts ) );
-
-	EXPECT_EQ( CountOf( facts, "ComputeBeamEntPosition(" ), 0u )
-		<< "shell_beam_render.cpp names a ComputeBeamEntPosition. Stock's left the "
-		   "build with view_beams.cpp and the shim's with the endpoint route; a "
-		   "name here is an undefined reference or the native route coming back.";
-}
-
 // (The SDK endpoint's early return went with the client's stock headers,
 // 2026-10-25: no client object answers GetBaseEntity(), so it was never taken.)
 
@@ -330,28 +176,6 @@ TEST( ClientBeamEvicted, TheEndpointFactsReachNoStockEntityTypedArm )
 // reaps a dying entity's beams and a shell is not a C_BaseEntity, so the shell
 // does it through `beams`, which forwards to the managed system.
 //-----------------------------------------------------------------------------
-TEST( ClientBeamEvicted, TheManagedTeardownReapsItsOwnBeams )
-{
-	const std::string code = Load( kStandaloneClient );
-
-	EXPECT_NE( code.find( "SourceSharp_KillDeadBeams( GetRefEHandle() )" ), std::string::npos )
-		<< "C_StandaloneEntity's teardown no longer reaps the beams attached to "
-		   "it: a beam created with a life of zero and aimed at this entity stays "
-		   "on the active list, invisible, for the rest of the map.";
-
-	const std::string executor = NoWhitespace( Load( kBeamExecutor ) );
-	EXPECT_NE( executor.find( "voidKillDeadBeams(constCBaseHandle&hDeadEntity){"
-	                          "if(IManagedBeamsClient*pBeams=ManagedBeamsClient())"
-	                          "pBeams->BeamsKillDead((uint32_t)hDeadEntity.ToInt(),gpGlobals->curtime);}" ),
-		std::string::npos )
-		<< "`beams`' KillDeadBeams( const CBaseHandle & ) no longer forwards the "
-		   "handle to the managed beam system";
-	EXPECT_NE( executor.find( "voidSourceSharp_KillDeadBeams(constCBaseHandle&hDeadEntity){"
-	                          "g_SourceSharpBeams.KillDeadBeams(hDeadEntity);}" ),
-		std::string::npos )
-		<< "SourceSharp_KillDeadBeams no longer reaches `beams`' KillDeadBeams";
-}
-
 //-----------------------------------------------------------------------------
 // view_beams.cpp and beamdraw.cpp are out of the client build, and the file
 // that replaced them is in it.

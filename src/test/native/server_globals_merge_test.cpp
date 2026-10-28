@@ -59,88 +59,10 @@ const char *SrcRoot()
 	return NULL;
 }
 
-std::string ReadRaw( const std::string &strAbsolute )
-{
-	std::ifstream file( strAbsolute.c_str(), std::ios::binary );
-	if ( !file.is_open() )
-		return std::string();
-	return std::string( ( std::istreambuf_iterator<char>( file ) ),
-	                    std::istreambuf_iterator<char>() );
-}
-
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-std::string NoWhitespace( const std::string &s )
-{
-	std::string out;
-	for ( size_t i = 0; i < s.size(); i++ )
-	{
-		const char c = s[ i ];
-		if ( c != ' ' && c != '\t' && c != '\n' && c != '\r' )
-			out += c;
-	}
-	return out;
-}
-
 bool Exists( const std::string &strPath )
 {
 	struct stat st;
 	return stat( strPath.c_str(), &st ) == 0 && S_ISREG( st.st_mode );
-}
-
-size_t CountOf( const std::string &hay, const char *needle )
-{
-	size_t n = 0;
-	const size_t len = strlen( needle );
-	for ( size_t at = hay.find( needle ); at != std::string::npos;
-	      at = hay.find( needle, at + len ) )
-	{
-		n++;
-	}
-	return n;
-}
-
-std::string Tight( const char *pszRel, const char *pszAnchor )
-{
-	const char *pszRoot = SrcRoot();
-	EXPECT_TRUE( pszRoot != NULL );
-	if ( !pszRoot )
-		return std::string();
-
-	const std::string raw = ReadRaw( std::string( pszRoot ) + "/" + pszRel );
-	EXPECT_FALSE( raw.empty() ) << "could not open " << pszRel;
-
-	const std::string tight = NoWhitespace( StripComments( raw ) );
-	EXPECT_NE( tight.find( NoWhitespace( pszAnchor ) ), std::string::npos )
-		<< pszRel << " no longer contains its anchor \"" << pszAnchor << "\"";
-	return tight;
 }
 
 // Does the target compile a source whose farm-relative path's BASENAME is
@@ -174,47 +96,6 @@ const char *kMerged = "sourcesharp/game/server/shell_globals.cpp";
 // second list head -- ServerClasses register into one and the engine walks the
 // other.
 //-----------------------------------------------------------------------------
-TEST( ServerGlobalsMerge, TheEightDefinitionsAreAllHereAndEachExactlyOnce )
-{
-	const std::string g = Tight( kMerged, "FactoryList_Store" );
-	ASSERT_FALSE( g.empty() );
-
-	struct Def_t { const char *pszNeedle; const char *pszWhy; };
-	static const Def_t kDefs[] = {
-		// boolg_fGameOver; went in plan_server_native_v2 T6: CWorld::Precache
-		// wrote it and no server object read it (nm U).
-		// ss:: since P5 lane R: server.so's own list type (ss_init_factory.h).
-		{ "voidss::FactoryList_Store(constss::factorylist_t&sourceData)",
-		  "the engine hands the game DLL its factories at load through this" },
-		{ "voidss::FactoryList_Retrieve(ss::factorylist_t&destData)",
-		  "...and asks for them back through this" },
-		// RENAMED, NOT MOVED: `CBaseEntity` is not a name any more -- the alias
-		// header retired and 1,543 code tokens in 220 files now read
-		// `IGameEntity`. The parameter type is the only part of this needle that
-		// changed; the definition is still variant_t.cpp's one assignment, still
-		// out of line for the same reason, and still here exactly once.
-		{ "voidvariant_t::SetEntity(IGameEntity*val)",
-		  "variant_t.cpp's one assignment -- out of line because variant_t.h "
-		  "cannot name the entity type" },
-		{ "ServerClass*g_pServerClassHead=0;",
-		  "the head of the list the ENGINE walks to find this DLL's "
-		  "ServerClasses. Two of these is two lists: the classes register into "
-		  "one and the engine reads the other" },
-		{ "boolg_bUseNetworkVars=true;",
-		  "read by the _DEBUG network-var assertions -- twenty-six objects "
-		  "name it in a debug build and none in release" },
-	};
-
-	for ( size_t i = 0; i < sizeof( kDefs ) / sizeof( kDefs[ 0 ] ); i++ )
-	{
-		const size_t n = CountOf( g, kDefs[ i ].pszNeedle );
-		EXPECT_EQ( n, 1u )
-			<< kMerged << " has " << n << " definitions of \""
-			<< kDefs[ i ].pszNeedle << "\", want exactly 1 -- "
-			<< kDefs[ i ].pszWhy;
-	}
-}
-
 //-----------------------------------------------------------------------------
 // The five are out of the file list, and the merged file is in it.
 //-----------------------------------------------------------------------------

@@ -12,12 +12,12 @@ int CHudElement::GetRenderGroupPriority(	SLOT	CHudElement's virtual: no render g
 void CHudElement::SetNeedsRemove(	HOOK	the element list membership flag
 CHud::CHud()	HOOK	gHUD, the object the client DLL and the input call for lifecycle and sensitivity
 CHud::~CHud()	HOOK	nothing to free: the list holds borrowed pointers
-void CHud::Init( void )	HOOK	IBaseClientDLL::Init's HUD step: the registered elements built, then each one's Init
-void CHud::VidInit( void )	HOOK	each element's VidInit, then the reset
-void CHud::Shutdown( void )	HOOK	the element list cleared
-void CHud::LevelInit( void )	HOOK	each element's LevelInit
-void CHud::LevelShutdown( void )	HOOK	each element's LevelShutdown
-void CHud::ResetHUD( void )	HOOK	each element's Reset
+void CHud::Init()	HOOK	IBaseClientDLL::Init's HUD step: the registered elements built, then each one's Init
+void CHud::VidInit()	HOOK	each element's VidInit, then the reset
+void CHud::Shutdown()	HOOK	the element list cleared
+void CHud::LevelInit()	HOOK	each element's LevelInit
+void CHud::LevelShutdown()	HOOK	each element's LevelShutdown
+void CHud::ResetHUD()	HOOK	each element's Reset
 void CHud::ProcessInput( bool bActive )	HOOK	each active element's ProcessInput while the client is active (stock's walk)
 void CHud::UpdateHud( bool bActive )	HOOK	onto ProcessInput
 void CHud::AddHudElement(	HOOK	an element joins the list

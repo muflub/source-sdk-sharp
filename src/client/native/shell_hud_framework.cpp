@@ -36,7 +36,7 @@ CHud gHUD;
 // The DECLARE_HUDELEMENT registration list, built at load and walked by CHud::Init.
 CHudElementHelper *CHudElementHelper::m_sHelpers = NULL;
 
-CHudElementHelper::CHudElementHelper( CHudElement *( *pfnCreate )( void ), int depth )
+CHudElementHelper::CHudElementHelper( CHudElement *( *pfnCreate )(), int depth )
 {
 	m_pfnCreate = pfnCreate;
 	m_iDepth = depth;
@@ -50,12 +50,12 @@ CHudElementHelper::CHudElementHelper( CHudElement *( *pfnCreate )( void ), int d
 	*ppList = this;
 }
 
-CHudElementHelper *CHudElementHelper::GetNext( void )
+CHudElementHelper *CHudElementHelper::GetNext()
 {
 	return m_pNext;
 }
 
-void CHudElementHelper::CreateAllElements( void )
+void CHudElementHelper::CreateAllElements()
 {
 	for ( CHudElementHelper *p = m_sHelpers; p; p = p->GetNext() )
 	{
@@ -93,12 +93,12 @@ void CHudElement::SetHiddenBits( int iBits )
 }
 
 // The game hides the HUD wholesale during intermissions and scoreboards.
-bool CHudElement::ShouldDraw( void )
+bool CHudElement::ShouldDraw()
 {
 	return !gHUD.IsHidden( m_iHiddenBits );
 }
 
-int CHudElement::GetRenderGroupPriority( void )
+int CHudElement::GetRenderGroupPriority()
 {
 	return 0;
 }
@@ -121,7 +121,7 @@ CHud::~CHud()
 {
 }
 
-void CHud::Init( void )
+void CHud::Init()
 {
 	// Builds every declared element, which creates the managed HUD host.
 	CHudElementHelper::CreateAllElements();
@@ -130,7 +130,7 @@ void CHud::Init( void )
 		m_HudList[i]->Init();
 }
 
-void CHud::VidInit( void )
+void CHud::VidInit()
 {
 	for ( int i = 0; i < m_HudList.Count(); i++ )
 		m_HudList[i]->VidInit();
@@ -138,25 +138,25 @@ void CHud::VidInit( void )
 	ResetHUD();
 }
 
-void CHud::Shutdown( void )
+void CHud::Shutdown()
 {
 	// Elements own their VGUI panels; the list only borrows them.
 	m_HudList.RemoveAll();
 }
 
-void CHud::LevelInit( void )
+void CHud::LevelInit()
 {
 	for ( int i = 0; i < m_HudList.Count(); i++ )
 		m_HudList[i]->LevelInit();
 }
 
-void CHud::LevelShutdown( void )
+void CHud::LevelShutdown()
 {
 	for ( int i = 0; i < m_HudList.Count(); i++ )
 		m_HudList[i]->LevelShutdown();
 }
 
-void CHud::ResetHUD( void )
+void CHud::ResetHUD()
 {
 	for ( int i = 0; i < m_HudList.Count(); i++ )
 		m_HudList[i]->Reset();
@@ -199,12 +199,12 @@ bool CHud::IsHidden( int iHudFlags )
 	return true;
 }
 
-float CHud::GetSensitivity( void )
+float CHud::GetSensitivity()
 {
 	return m_flMouseSensitivity;
 }
 
-float CHud::GetFOVSensitivityAdjust( void )
+float CHud::GetFOVSensitivityAdjust()
 {
 	return m_flFOVSensitivityAdjust;
 }

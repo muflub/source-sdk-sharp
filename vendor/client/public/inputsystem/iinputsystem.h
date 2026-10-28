@@ -2,11 +2,6 @@
 
 #pragma once
 
-#include "tier0/platform.h"
-#include "appframework/IAppSystem.h"
-
-#include "inputsystem/InputEnums.h"
-#include "inputsystem/ButtonCode.h"
 #include "inputsystem/AnalogCode.h"
 
 #include "steam/isteamcontroller.h"
@@ -72,7 +67,7 @@ public:
 	virtual void unused_SampleDevices() = 0;
 
 	virtual void SetRumble( float fLeftMotor, float fRightMotor, int userId = INVALID_USER_ID ) = 0;
-	virtual void StopRumble( void ) = 0;
+	virtual void StopRumble() = 0;
 
 	// Resets the input state
 	virtual void unused_ResetInputState() = 0;

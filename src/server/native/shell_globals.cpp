@@ -306,7 +306,7 @@ bool variant_t::Convert( fieldtype_t newType )
 
 // All types must be able to display as strings for debugging purposes. The returned
 // pointer is a static buffer overwritten by the next call.
-const char *variant_t::ToString( void ) const
+const char *variant_t::ToString() const
 {
 	static char szBuf[512];
 

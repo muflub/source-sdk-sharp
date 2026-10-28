@@ -76,7 +76,7 @@ public:
 	// INetMessage
 	virtual void SetNetChannel( INetChannel *netchan ) OVERRIDE { m_pChannel = netchan; }
 	virtual void SetReliable( bool state ) OVERRIDE { m_bReliable = state; }
-	virtual bool Process( void ) OVERRIDE { return m_pHandler ? m_pHandler( *this ) : true; }
+	virtual bool Process() OVERRIDE { return m_pHandler ? m_pHandler( *this ) : true; }
 
 	virtual bool ReadFromBuffer( bf_read &buffer ) OVERRIDE
 	{
@@ -137,12 +137,12 @@ public:
 		return m_nKey > 0 && m_pWriter && m_pWriter( *this, buffer );
 	}
 
-	virtual bool IsReliable( void ) const OVERRIDE { return m_bReliable; }
-	virtual int GetType( void ) const OVERRIDE { return SOURCESHARP_NETMSG_CLIENT_MESSAGE; }
-	virtual int GetGroup( void ) const OVERRIDE { return INetChannelInfo::GENERIC; }
-	virtual const char *GetName( void ) const OVERRIDE { return "ss_ClientMessage"; }
-	virtual INetChannel *GetNetChannel( void ) const OVERRIDE { return m_pChannel; }
-	virtual const char *ToString( void ) const OVERRIDE { return m_szKey; }
+	virtual bool IsReliable() const OVERRIDE { return m_bReliable; }
+	virtual int GetType() const OVERRIDE { return SOURCESHARP_NETMSG_CLIENT_MESSAGE; }
+	virtual int GetGroup() const OVERRIDE { return INetChannelInfo::GENERIC; }
+	virtual const char *GetName() const OVERRIDE { return "ss_ClientMessage"; }
+	virtual INetChannel *GetNetChannel() const OVERRIDE { return m_pChannel; }
+	virtual const char *ToString() const OVERRIDE { return m_szKey; }
 	virtual bool BIncomingMessageForProcessing( double dblNetTime, int numBytes ) OVERRIDE
 	{
 		(void)dblNetTime;

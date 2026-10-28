@@ -1,6 +1,6 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-CCenterPrint::CCenterPrint( void )	SLOT	the ICenterPrint object the engine asks for by name (VCENTERPRINT002)
+CCenterPrint::CCenterPrint()	SLOT	the ICenterPrint object the engine asks for by name (VCENTERPRINT002)
 CCenterPrint::Create(	SLOT	vgui_int.cpp's call: the label it parented is the UI's now, nothing to make
 CCenterPrint::Destroy(	SLOT	vgui_int.cpp's call: nothing to unmake
 CCenterPrint::SetTextColor(	SLOT	ICenterPrint's slot; stock's Print paints white regardless, so it carries nothing

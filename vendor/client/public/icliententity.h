@@ -17,13 +17,13 @@ abstract_class IClientEntity : public IClientUnknown, public IClientRenderable, 
 {
 public:
 	// Delete yourself.
-	virtual void			Release( void ) = 0;
+	virtual void			Release() = 0;
 	
 	// Network origin + angles
-	virtual const Vector&	GetAbsOrigin( void ) const = 0;
-	virtual const QAngle&	GetAbsAngles( void ) const = 0;
+	virtual const Vector&	GetAbsOrigin() const = 0;
+	virtual const QAngle&	GetAbsAngles() const = 0;
 
-	virtual CMouthInfo		*GetMouth( void ) = 0;
+	virtual CMouthInfo		*GetMouth() = 0;
 
 	// Retrieve sound spatialization info for the specified sound on this entity
 	// Return false to indicate sound is not audible

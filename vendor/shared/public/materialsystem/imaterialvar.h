@@ -44,9 +44,9 @@ protected:
 
 public:
 
-	virtual ITexture		*GetTextureValue( void ) = 0;
+	virtual ITexture		*GetTextureValue() = 0;
 
-	virtual char const *	GetName( void ) const = 0;
+	virtual char const *	GetName() const = 0;
 	virtual void unused_GetNameAsSymbol() = 0;
 
 	virtual void			SetFloatValue( float val ) = 0;
@@ -54,7 +54,7 @@ public:
 	virtual void			SetIntValue( int val ) = 0;
 	
 	virtual void			SetStringValue( char const *val ) = 0;
-	virtual char const *	GetStringValue( void ) const = 0;
+	virtual char const *	GetStringValue() const = 0;
 
 	// Use FourCC values to pass app-defined data structures between
 	// the proxy and the shader. The shader should ignore the data if
@@ -94,14 +94,14 @@ public:
 	virtual void			SetVecComponentValue( float fVal, int nComponent ) = 0;
 
 protected:
-	virtual int				GetIntValueInternal( void ) const = 0;
-	virtual float			GetFloatValueInternal( void ) const = 0;
+	virtual int				GetIntValueInternal() const = 0;
+	virtual float			GetFloatValueInternal() const = 0;
 	virtual float const*	GetVecValueInternal( ) const = 0;
 	virtual void			GetVecValueInternal( float *val, int numcomps ) const = 0;
 	virtual int				VectorSizeInternal() const = 0;
 
 public:
-	FORCEINLINE MaterialVarType_t GetType( void ) const
+	FORCEINLINE MaterialVarType_t GetType() const
 	{
 		return ( MaterialVarType_t )m_Type;
 	}
@@ -112,18 +112,18 @@ public:
 	}
 
 	// NOTE: Fast methods should only be called in thread-safe situations
-	FORCEINLINE int GetIntValueFast( void ) const
+	FORCEINLINE int GetIntValueFast() const
 	{
 		// Set methods for float and vector update this
 		return m_intVal;
 	}
 
-	FORCEINLINE int GetIntValue( void ) const
+	FORCEINLINE int GetIntValue() const
 	{
 		return GetIntValueInternal();
 	}
 
-	FORCEINLINE float GetFloatValue( void ) const
+	FORCEINLINE float GetFloatValue() const
 	{
 		return GetFloatValueInternal();
 	}

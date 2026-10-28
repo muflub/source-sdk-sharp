@@ -115,7 +115,7 @@ void *ShellScripted_InvisibleReachSite( int i )
 	return ( i >= 0 && i < g_nInvisibleReachSites ) ? g_InvisibleReachSites[i].pImmediate : NULL;
 }
 
-int32_t SourceSharp_InvisibleRangeReach( void )
+int32_t SourceSharp_InvisibleRangeReach()
 {
 	return g_nInvisibleRangeReach;
 }

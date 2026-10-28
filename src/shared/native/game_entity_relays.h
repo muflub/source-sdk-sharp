@@ -9,9 +9,9 @@
 // side beside its shell.
 #pragma once
 
-#include "basehandle.h"
 
-#include "igameentity_fwd.h"
+
+
 
 // The entity's own handle, by value.
 CBaseHandle GameEntity_RefHandle( const IGameEntity *pEnt );

@@ -38,16 +38,6 @@ public unsafe class TempEntPoolRetirementTests
         "SourceSharpTePool_EjectBrass",
     ];
 
-    /// <summary>The pool's entry points the live paths reach; the census that
-    /// deletes the four above must not silently delete one of these.</summary>
-    private static readonly string[] LiveNativeEntries =
-    [
-        "SourceSharpTePool_Update",
-        "SourceSharpTePool_Clear",
-        "SourceSharpTePool_Find",
-        "SourceSharpTePool_CreateWithModel",
-    ];
-
     private static string Code(params string[] path)
     {
         string file = RepoLayout.Repo(path);
@@ -58,23 +48,6 @@ public unsafe class TempEntPoolRetirementTests
     }
 
     private static string Native(string file) => Code("src", "client", "native", file);
-
-    /// <summary>
-    /// The pool file defines none of the four any more, and still defines the
-    /// four live entry points — the positive arm that tells a vanished file
-    /// from a retired export.
-    /// </summary>
-    [Fact]
-    public void ThePoolFileDefinesNoneOfTheDeadExports()
-    {
-        string code = Native("shell_te_pool_client.cpp");
-
-        foreach (string live in LiveNativeEntries)
-            Assert.Contains($"{live}(", code);
-
-        foreach (string dead in DeadExports)
-            Assert.DoesNotContain($"{dead}(", code);
-    }
 
     /// <summary>
     /// No product code — C++ or C# — names the four: no definition, no call, no

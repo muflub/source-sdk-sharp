@@ -11,8 +11,7 @@ namespace SourceSharp.Abi;
 /// plan_tmp.md Part 5 moves the POOL to C#: the allocation, the free list, the
 /// priority classes, the expiry and the update loop. What stays native is the
 /// OBJECT, because a <c>C_LocalTempEntity</c> is already the draw shell —
-/// de-entified onto <c>CShellRenderable</c>, which
-/// <c>src/sourcesharp/test/tempent_verdict_test.cpp</c> records the verdict for.
+/// de-entified onto <c>CShellRenderable</c>.
 /// </para>
 ///
 /// <para>

@@ -15,11 +15,11 @@ class CPointEntity : public IGameEntity
 public:
 	DECLARE_CLASS( CPointEntity, IGameEntity );
 
-	void	Spawn( void );
+	void	Spawn();
 
 	// 0: CBaseEntity::ObjectCaps can only be non-zero for a parented entity, and this
 	// hierarchy has no parent to forward from.
-	virtual int	ObjectCaps( void ) { return 0; }
+	virtual int	ObjectCaps() { return 0; }
 	virtual bool KeyValue( const char *szKeyName, const char *szValue );
 private:
 };
@@ -32,7 +32,7 @@ public:
 	// CBaseEntity's bServerOnly only set EFL_SERVER_ONLY, which this hierarchy has no use for.
 	CServerOnlyEntity() {}
 
-	virtual int ObjectCaps( void ) { return 0; }
+	virtual int ObjectCaps() { return 0; }
 };
 
 // Has only a position, no size

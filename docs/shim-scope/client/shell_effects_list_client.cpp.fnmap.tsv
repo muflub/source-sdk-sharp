@@ -7,12 +7,12 @@
 3	SLOT	[CEffectsListThunk] void AddEffect( CClientSideEffect *effect ) override
 3	SLOT	[CEffectsListThunk] void RemoveEffect( CClientSideEffect *effect ) override
 5	SLOT	[CEffectsListThunk] void DrawEffects( double frametime ) override
-5	SLOT	[CEffectsListThunk] void Flush( void ) override
+5	SLOT	[CEffectsListThunk] void Flush() override
 1	HOOK	[CBulletWhizTimer] CBulletWhizTimer( char const *name ) : CClientSystem( name )
 5	HOOK	[CBulletWhizTimer] void LevelInitPreEntity() override
 1	LIVE-API	CClientSystem *ClientSystem_BulletWhizTimer()
 4	LIVE-API	void SetFXCreationAllowed( bool state )
-4	LIVE-API	bool FXCreationAllowed( void )
+4	LIVE-API	bool FXCreationAllowed()
 15	LIVE-API	void FX_AddLine( const FXLineData_t &data )
 5	LIVE-API	void FX_AddStaticLine( const Vector& start, const Vector& end, float scale, float life, const char *materialName, unsigned char flags )
 5	LIVE-API	void FX_AddDiscreetLine( const Vector& start, const Vector& direction, float velocity, float length, float clipLength, float scale, float li
@@ -26,7 +26,7 @@
 24	BOUNDARY	void SourceSharp_FxDrawQuads( int32_t nMaterial, int32_t nVertices, const float *pVertices, int32_t bByteColor )
 8	BOUNDARY	void SourceSharp_FxView( float *pOut )
 5	BOUNDARY	void SourceSharp_FxMainViewOrigin( float *pOutXYZ )
-4	BOUNDARY	int32_t SourceSharp_FxLocalPlayer( void )
+4	BOUNDARY	int32_t SourceSharp_FxLocalPlayer()
 7	BOUNDARY	void SourceSharp_FxViewAngles( float *pOutPYR )
 21	BOUNDARY	int32_t SourceSharp_FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float *pOutXYZ, char *pModelOut, int32_t nModelSize )
 8	BOUNDARY	void SourceSharp_FxDispatchParticleEffect( int32_t nSystem, const float *pStartXYZ, const float *pEndXYZ,
@@ -35,16 +35,16 @@
 1	SLOT-HELP	[CSourceSharpEffectPrecacheSystem] int Count() const
 1	SLOT-HELP	[CSourceSharpEffectPrecacheSystem] void CacheAt( int i, bool bPrecache )
 5	SLOT-HELP	static CSourceSharpEffectPrecacheSystem *EffectPrecache()
-4	LAYOUT	CClientEffectPrecacheSystem *ClientEffectPrecacheSystem( void )
-5	HOOK	void CClientEffectPrecacheSystem::LevelInitPreEntity( void )
-3	HOOK	void CClientEffectPrecacheSystem::LevelShutdownPreEntity( void )
-5	HOOK	void CClientEffectPrecacheSystem::LevelShutdownPostEntity( void )
-4	HOOK	void CClientEffectPrecacheSystem::Shutdown( void )
+4	LAYOUT	CClientEffectPrecacheSystem *ClientEffectPrecacheSystem()
+5	HOOK	void CClientEffectPrecacheSystem::LevelInitPreEntity()
+3	HOOK	void CClientEffectPrecacheSystem::LevelShutdownPreEntity()
+5	HOOK	void CClientEffectPrecacheSystem::LevelShutdownPostEntity()
+4	HOOK	void CClientEffectPrecacheSystem::Shutdown()
 4	LAYOUT	void CClientEffectPrecacheSystem::Register( IClientEffect *effect )
-4	BOUNDARY	int32_t SourceSharp_FxPrecacheCount( void )
+4	BOUNDARY	int32_t SourceSharp_FxPrecacheCount()
 4	BOUNDARY	void SourceSharp_FxPrecacheCache( int32_t nIndex, int32_t bPrecache )
-4	BOUNDARY	void SourceSharp_FxCacheUsedMaterials( void )
-4	BOUNDARY	void SourceSharp_FxCacheMaterialHandles( void )
+4	BOUNDARY	void SourceSharp_FxCacheUsedMaterials()
+4	BOUNDARY	void SourceSharp_FxCacheMaterialHandles()
 11	HOOK	void InitSmokeFogOverlay()
 8	HOOK	void TermSmokeFogOverlay()
 33	BOUNDARY	void DrawSmokeFogOverlay()

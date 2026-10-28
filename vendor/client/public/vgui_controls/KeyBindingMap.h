@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "tier1/utlvector.h"
-
 // more flexible than default pointers to members code required for casting member function pointers
 //#pragma pointers_to_members( full_generality, virtual_inheritance )
 
@@ -83,7 +81,7 @@ struct KeyBindingMap_t
 		map->boundkeys.AddToTail( kb );													\
 	}																					\
 																						\
-	static void KB_ChainToMap( void )													\
+	static void KB_ChainToMap()													\
 	{																					\
 		static bool chained = false;													\
 		if ( chained )																	\
@@ -149,7 +147,7 @@ struct PanelKeyBindingMap
 	PanelKeyBindingMap *baseMap;
 	CUtlVector< BoundKey_t > defaultkeys;
 	CUtlVector< BoundKey_t > boundkeys;
-	char const *(*pfnClassName)( void );
+	char const *(*pfnClassName)();
 };
 
 PanelKeyBindingMap *FindOrAddPanelKeyBindingMap( char const *className );

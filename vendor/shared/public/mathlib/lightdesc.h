@@ -4,7 +4,6 @@
 #pragma once
 
 #include <mathlib/ssemath.h>
-#include <mathlib/vector.h>
 
 // Light structure
 
@@ -49,7 +48,7 @@ protected:
 	float m_RangeSquared;
 public:
 
-	void RecalculateDerivedValues(void);			 // calculate m_xxDot, m_Type for changed parms
+	void RecalculateDerivedValues();			 // calculate m_xxDot, m_Type for changed parms
 
 	LightDesc_t() = default;
 

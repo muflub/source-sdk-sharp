@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include "steam_api_common.h"
 #include "isteaminput.h"
 
 #define STEAM_CONTROLLER_MAX_COUNT 16

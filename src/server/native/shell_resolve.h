@@ -76,7 +76,7 @@ SourceSharpEntity_t SourceSharp_ResolveEntity( uint32_t hEntity );
 // Counts reaches into the engine-invisible index range that the engine's entity
 // list does not resolve (defined in shell_scripted.cpp).
 void    SourceSharp_NoteInvisibleRangeReach( void *pReturnAddress );
-int32_t SourceSharp_InvisibleRangeReach( void );
+int32_t SourceSharp_InvisibleRangeReach();
 
 // The standalone arm alone, for calls only that side can answer.
 CStandaloneEntity *SourceSharp_ResolveStandalone( uint32_t hEntity );

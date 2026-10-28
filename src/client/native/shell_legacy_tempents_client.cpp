@@ -55,7 +55,7 @@
 
 // The pool's seam (shell_te_pool_client.cpp).
 void SourceSharpTePool_Update( float flFrameTime );
-void SourceSharpTePool_Clear( void );
+void SourceSharpTePool_Clear();
 C_LocalTempEntity *SourceSharpTePool_Find( int nID, int nSubID );
 int SourceSharpTePool_SlotOf( const C_LocalTempEntity *pTemp );
 C_LocalTempEntity *SourceSharpTePool_AtSlot( int nSlot );
@@ -125,7 +125,7 @@ void C_LocalTempEntity::SetAcceleration( const Vector &vecVelocity )
 }
 
 // Kept for the vtable; the managed pool owns lifetime and frame.
-bool C_LocalTempEntity::IsActive( void )
+bool C_LocalTempEntity::IsActive()
 {
 	return true;
 }
@@ -140,7 +140,7 @@ void C_LocalTempEntity::OnRemoveTempEntity()
 {
 }
 
-bool C_LocalTempEntity::IsTransparent( void )
+bool C_LocalTempEntity::IsTransparent()
 {
 	IManagedFxClient *pFx = ManagedFxClient();
 	const int bTranslucent = modelinfo->IsTranslucent( GetModel() ) ? 1 : 0;
@@ -188,7 +188,7 @@ RenderGroup_t C_LocalTempEntity::GetRenderGroup()
 	return (RenderGroup_t)pFx->TempEntRenderGroup( m_nRenderMode, nBlend, bTranslucent, bTwoPass );
 }
 
-void C_LocalTempEntity::ComputeFxBlend( void )
+void C_LocalTempEntity::ComputeFxBlend()
 {
 	// Don't recompute if we've already computed this frame
 	if ( m_nFXComputeFrame == gpGlobals->framecount )
@@ -334,18 +334,18 @@ void SourceSharpTePool_JoinBreakGroup( C_LocalTempEntity *pTemp, bool bSlave )
 		pTemp->SetDrawHelper( BreakModelDrawHelper );
 }
 
-CTempEnts::CTempEnts( void ) :
+CTempEnts::CTempEnts() :
 	m_TempEntsPool( ( MAX_TEMP_ENTITIES / 20 ), CUtlMemoryPool::GROW_SLOW )
 {
 }
 
-CTempEnts::~CTempEnts( void )
+CTempEnts::~CTempEnts()
 {
 	m_TempEntsPool.Clear();
 	m_TempEnts.RemoveAll();
 }
 
-void CTempEnts::Init( void )
+void CTempEnts::Init()
 {
 	Clear();
 }
@@ -366,7 +366,7 @@ void CTempEnts::LevelShutdown()
 	Clear();
 }
 
-void CTempEnts::Update( void )
+void CTempEnts::Update()
 {
 
 	if ( !engine->IsInGame() )
@@ -375,7 +375,7 @@ void CTempEnts::Update( void )
 	SourceSharpTePool_Update( gpGlobals->frametime );
 }
 
-void CTempEnts::Clear( void )
+void CTempEnts::Clear()
 {
 	SourceSharpTePool_Clear();
 }

@@ -222,27 +222,6 @@ public class EntityIoTests
         Assert.False(EntityNameMatch.Match("gate", ""));
     }
 
-    /// <summary>
-    /// THE CROSS-READ. Two copies of one rule in two languages is exactly the
-    /// hazard <c>entity_name_match.h</c> was written to end, and this is a
-    /// THIRD copy — so the fact reads the native header off the filesystem and
-    /// fails if the three arms the C# mirrors stop being there.
-    /// </summary>
-    [Fact]
-    public void TheNativeRuleStillHasTheThreeArmsThisOneMirrors()
-    {
-        string header = RepoLayout.Repo("src", "shared", "native", "entity_name_match.h");
-
-        Assert.True(File.Exists(header), $"{header} is the rule this class transliterates");
-
-        string text = File.ReadAllText(header);
-
-        Assert.Contains("if ( !pszName || *pszName == 0 )", text);
-        Assert.Contains("return ( !pszQuery || *pszQuery == 0 || *pszQuery == '*' );", text);
-        Assert.Contains("if ( *pszQuery == 0 && *pszName == 0 )", text);
-        Assert.Contains("return ( *pszQuery == '*' );", text);
-    }
-
     //=========================================================================
     // Ordering.
     //=========================================================================

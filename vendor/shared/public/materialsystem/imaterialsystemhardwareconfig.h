@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "tier0/platform.h"
-#include "tier1/interface.h"
 #include "imaterialsystem.h"
 
 // Material system interface version
@@ -150,7 +148,7 @@ public:
 	virtual void unused_GetHDREnabled() = 0;
 	virtual void unused_SetHDREnabled() = 0;
 
-	virtual bool SupportsBorderColor( void ) const = 0;
+	virtual bool SupportsBorderColor() const = 0;
 	virtual void unused_SupportsFetch4() = 0;
 	virtual void unused_CanStretchRectFromTextures() = 0;
 

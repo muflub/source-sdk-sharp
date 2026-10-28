@@ -19,7 +19,7 @@ extern CGlobalVars *gpGlobals;
 #include "managed_runtime_server.h"
 
 // Defined in sourcesharp_gamesystem.cpp, which publishes no header.
-bool SourceSharp_LoadManagedSide( void );
+bool SourceSharp_LoadManagedSide();
 
 // The server's only path to the CLR, called from the shell's DLLInit. Seeds the two
 // globals the sequence reads, as stock's DLLInit does: engine, and gpGlobals as the

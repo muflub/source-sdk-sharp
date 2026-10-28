@@ -1,8 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #pragma once
 
-#include "vstdlib/vstdlib.h"
-
 // handle to a KeyValues key name symbol
 typedef int HKeySymbol;
 #define INVALID_KEY_SYMBOL (-1)

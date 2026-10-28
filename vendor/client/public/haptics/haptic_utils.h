@@ -1,7 +1,5 @@
 #pragma once
 
-#include "haptics/ihaptics.h"
-
 // forward decl.
 class C_BaseEntity;
 class C_BaseCombatCharacter;

@@ -283,7 +283,7 @@ public:
 #endif
 	}
 
-	size_t AllocSize( void ) const
+	size_t AllocSize() const
 	{
 #ifdef REMEMBER_ALLOC_SIZE_FOR_VALGRIND
 		return m_nCurAllocSize;

@@ -99,7 +99,7 @@ abstract_class IClientRenderTargets
 {
 public:
 	virtual void InitClientRenderTargets( IMaterialSystem *pMaterialSystem, IMaterialSystemHardwareConfig *pHardwareConfig ) = 0;
-	virtual void ShutdownClientRenderTargets( void ) = 0;
+	virtual void ShutdownClientRenderTargets() = 0;
 };
 
 #define CLIENTRENDERTARGETS_INTERFACE_VERSION "ClientRenderTargets001"

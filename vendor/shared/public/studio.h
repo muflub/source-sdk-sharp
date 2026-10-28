@@ -226,7 +226,7 @@ struct mstudiobone_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	int					sznameindex;
-	inline char * const pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const pszName() const { return ((char *)this) + sznameindex; }
 	int		 			parent;		// parent bone
 	int					bonecontroller[6];	// bone controller index, -1 == none
 
@@ -381,7 +381,7 @@ struct mstudiomodelgroup_t
 	DECLARE_BYTESWAP_DATADESC();
 	int					szlabelindex;	// textual name
 	int					sznameindex;	// file name
-	inline char * const pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const pszName() const { return ((char *)this) + sznameindex; }
 };
 
 // events
@@ -401,7 +401,7 @@ struct mstudioattachment_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	int					sznameindex;
-	inline char * const pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const pszName() const { return ((char *)this) + sznameindex; }
 	unsigned int		flags;
 	int					localbone;
 	matrix3x4_t			local; // attachment point
@@ -544,10 +544,10 @@ struct mstudioanim_t
 	byte				flags;		// weighing options
 
 	// valid for animating data only
-	inline byte				*pData( void ) const { return (((byte *)this) + sizeof( struct mstudioanim_t )); };
+	inline byte				*pData() const { return (((byte *)this) + sizeof( struct mstudioanim_t )); };
 
 	short				nextoffset;
-	inline mstudioanim_t	*pNext( void ) const { if (nextoffset != 0) return  (mstudioanim_t *)(((byte *)this) + nextoffset); else return NULL; };
+	inline mstudioanim_t	*pNext() const { if (nextoffset != 0) return  (mstudioanim_t *)(((byte *)this) + nextoffset); else return NULL; };
 };
 
 struct mstudiomovement_t
@@ -590,7 +590,7 @@ struct mstudioanimdesc_t
 	int					baseptr;
 
 	int					sznameindex;
-	inline char * const pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const pszName() const { return ((char *)this) + sznameindex; }
 
 	float				fps;		// frames per second	
 	int					flags;		// looping/non-looping flags
@@ -735,7 +735,7 @@ struct mstudioposeparamdesc_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	int					sznameindex;
-	inline char * const pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const pszName() const { return ((char *)this) + sznameindex; }
 	int					flags;	// ????
 	float				start;	// starting value
 	float				end;	// ending value
@@ -753,7 +753,7 @@ struct mstudioflexcontroller_t
 	DECLARE_BYTESWAP_DATADESC();
 	int					sztypeindex;
 	int					sznameindex;
-	inline char * const pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const pszName() const { return ((char *)this) + sznameindex; }
 	mutable int			localToGlobal;	// remapped at load time to master list
 	float				min;
 	float				max;
@@ -772,7 +772,7 @@ struct mstudioflexcontrollerui_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	int					sznameindex;
-	inline char * const pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const pszName() const { return ((char *)this) + sznameindex; }
 
 	// These are used like a union to save space
 	// Here are the possible configurations for a UI controller
@@ -910,7 +910,7 @@ struct mstudiotexture_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	int						sznameindex;
-	inline char * const		pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const		pszName() const { return ((char *)this) + sznameindex; }
 	int						flags;
 	int						used;
     int						unused1;
@@ -930,7 +930,7 @@ struct mstudioeyeball_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	int					sznameindex;
-	inline char * const pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const pszName() const { return ((char *)this) + sznameindex; }
 	int		bone;
 	Vector	org;
 	float	zoffset;
@@ -979,7 +979,7 @@ struct mstudioikchain_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	int				sznameindex;
-	inline char * const pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const pszName() const { return ((char *)this) + sznameindex; }
 	int				linktype;
 	int				numlinks;
 	int				linkindex;
@@ -1072,7 +1072,7 @@ private:
 struct mstudiomodel_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	inline const char * pszName( void ) const { return name; }
+	inline const char * pszName() const { return name; }
 	char				name[64];
 
 	int					type;
@@ -1192,7 +1192,7 @@ struct mstudiobodyparts_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	int					sznameindex;
-	inline char * const pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const pszName() const { return ((char *)this) + sznameindex; }
 	int					nummodels;
 	int					base;
 	int					modelindex; // index into models array
@@ -1215,7 +1215,7 @@ struct mstudiohitboxset_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 	int					sznameindex;
-	inline char * const	pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline char * const	pszName() const { return ((char *)this) + sznameindex; }
 	int					numhitboxes;
 	int					hitboxindex;
 };
@@ -1227,7 +1227,7 @@ struct mstudiosrcbonetransform_t
 	DECLARE_BYTESWAP_DATADESC();
 
 	int			sznameindex;
-	inline const char *pszName( void ) const { return ((char *)this) + sznameindex; }
+	inline const char *pszName() const { return ((char *)this) + sznameindex; }
 	matrix3x4_t	pretransform;	
 	matrix3x4_t	posttransform;	
 };
@@ -1237,7 +1237,7 @@ struct mstudiosrcbonetransform_t
 class virtualgroup_t 
 {
 public:
-	virtualgroup_t( void ) { cache = NULL; };
+	virtualgroup_t() { cache = NULL; };
 	// tool dependant.  In engine this is a model_t, in tool it's a direct pointer
 	void *cache;
 
@@ -1434,7 +1434,7 @@ struct studiohdr_t
 
 	int					checksum;		// this has to be the same in the phy and vtx files to load!
 
-	inline const char *	pszName( void ) const { if (studiohdr2index && pStudioHdr2()->pszName()) return pStudioHdr2()->pszName(); else return name; }
+	inline const char *	pszName() const { if (studiohdr2index && pStudioHdr2()->pszName()) return pStudioHdr2()->pszName(); else return name; }
 	char				name[64];
 	int					length;
 
@@ -1629,7 +1629,7 @@ class IMDLCache;
 class CStudioHdr
 {
 public:
-	CStudioHdr( void );
+	CStudioHdr();
 	CStudioHdr( const studiohdr_t *pStudioHdr, IMDLCache *mdlcache = NULL );
 	~CStudioHdr() { Term(); }
 
@@ -1637,7 +1637,7 @@ public:
 	void Term();
 
 public:
-	inline bool IsValid( void ) { return (m_pStudioHdr != NULL); };
+	inline bool IsValid() { return (m_pStudioHdr != NULL); };
 
 private:
 	mutable const studiohdr_t		*m_pStudioHdr;
@@ -1728,7 +1728,7 @@ public:
 		// These must be here because IFM does not compile/link studio.cpp (?!?)
 
 		// ctor
-		CActivityToSequenceMapping( void ) 
+		CActivityToSequenceMapping() 
 			: m_pSequenceTuples(NULL), m_iSequenceTuplesCount(0), m_ActToSeqHash(8,0,0), m_expectedPStudioHdr(NULL), m_expectedVModel(NULL) 
 #if STUDIO_SEQUENCE_ACTIVITY_LAZY_INITIALIZE
 			, m_bIsInitialized(false) 
@@ -1752,7 +1752,7 @@ public:
 		int NumSequencesForActivity( int forActivity );
 
 #if STUDIO_SEQUENCE_ACTIVITY_LAZY_INITIALIZE
-		inline bool IsInitialized( void ) { return m_bIsInitialized; }
+		inline bool IsInitialized() { return m_bIsInitialized; }
 #endif
 
 	private:
@@ -1879,7 +1879,7 @@ struct flexsetting_t
 	DECLARE_BYTESWAP_DATADESC();
 	int					nameindex;
 
-	inline char *pszName( void ) const
+	inline char *pszName() const
 	{ 
 		return (char *)(((byte *)this) + nameindex); 
 	}
@@ -1905,7 +1905,7 @@ struct flexsettinghdr_t
 	int					id;
 	int					version;
 
-	inline const char * pszName( void ) const { return name; }
+	inline const char * pszName() const { return name; }
 	char				name[64];
 	int					length;
 

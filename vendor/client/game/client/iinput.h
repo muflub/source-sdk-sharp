@@ -21,8 +21,8 @@ abstract_class IInput
 {
 public:
 	// Initialization/shutdown of the subsystem
-	virtual	void		Init_All( void ) = 0;
-	virtual void		Shutdown_All( void ) = 0;
+	virtual	void		Init_All() = 0;
+	virtual void		Shutdown_All() = 0;
 	// Latching button states
 	virtual int			GetButtonBits( int ) = 0;
 	// Create movement command
@@ -44,43 +44,43 @@ public:
 	virtual kbutton_t	*FindKey( const char *name ) = 0;
 
 	// Issue commands from controllers
-	virtual void		ControllerCommands( void ) = 0;
+	virtual void		ControllerCommands() = 0;
 	// Extra initialization for some joysticks
-	virtual void		Joystick_Advanced( void ) = 0;
+	virtual void		Joystick_Advanced() = 0;
 	virtual void		Joystick_SetSampleTime( float frametime ) = 0;
 	virtual void		IN_SetSampleTime( float frametime ) = 0;
 
 	// Accumulate mouse delta
-	virtual void		AccumulateMouse( void ) = 0;
+	virtual void		AccumulateMouse() = 0;
 	// Activate/deactivate mouse
-	virtual void		ActivateMouse( void ) = 0;
-	virtual void		DeactivateMouse( void ) = 0;
+	virtual void		ActivateMouse() = 0;
+	virtual void		DeactivateMouse() = 0;
 
 	// Clear mouse state data
-	virtual void		ClearStates( void ) = 0;
+	virtual void		ClearStates() = 0;
 	// Retrieve lookspring setting
-	virtual float		GetLookSpring( void ) = 0;
+	virtual float		GetLookSpring() = 0;
 
 	// Retrieve mouse position
 	virtual void		GetFullscreenMousePos( int *mx, int *my, int *unclampedx = 0, int *unclampedy = 0 ) = 0;
 	virtual void		SetFullscreenMousePos( int mx, int my ) = 0;
-	virtual void		ResetMouse( void ) = 0;
-	virtual	float		GetLastForwardMove( void ) = 0;
-	virtual	float		Joystick_GetForward( void ) = 0;
-	virtual	float		Joystick_GetSide( void ) = 0;
-	virtual	float		Joystick_GetPitch( void ) = 0;
-	virtual	float		Joystick_GetYaw( void ) = 0;
+	virtual void		ResetMouse() = 0;
+	virtual	float		GetLastForwardMove() = 0;
+	virtual	float		Joystick_GetForward() = 0;
+	virtual	float		Joystick_GetSide() = 0;
+	virtual	float		Joystick_GetPitch() = 0;
+	virtual	float		Joystick_GetYaw() = 0;
 
 	// Third Person camera ( TODO/FIXME:  Move this to a separate interface? )
-	virtual void		CAM_Think( void ) = 0;
-	virtual int			CAM_IsThirdPerson( void ) = 0;
-	virtual void		CAM_ToThirdPerson(void) = 0;
-	virtual void		CAM_ToFirstPerson(void) = 0;
-	virtual void		CAM_StartMouseMove(void) = 0;
-	virtual void		CAM_EndMouseMove(void) = 0;
-	virtual void		CAM_StartDistance(void) = 0;
-	virtual void		CAM_EndDistance(void) = 0;
-	virtual int			CAM_InterceptingMouse( void ) = 0;
+	virtual void		CAM_Think() = 0;
+	virtual int			CAM_IsThirdPerson() = 0;
+	virtual void		CAM_ToThirdPerson() = 0;
+	virtual void		CAM_ToFirstPerson() = 0;
+	virtual void		CAM_StartMouseMove() = 0;
+	virtual void		CAM_EndMouseMove() = 0;
+	virtual void		CAM_StartDistance() = 0;
+	virtual void		CAM_EndDistance() = 0;
+	virtual int			CAM_InterceptingMouse() = 0;
 
 	// orthographic camera info	( TODO/FIXME:  Move this to a separate interface? )
 	virtual void		CAM_ToOrthographic() = 0;
@@ -91,13 +91,13 @@ public:
 	virtual GameActionSet_t GetPreferredGameActionSet() = 0;
 	virtual void		SetGameActionSetFlags( GameActionSetFlags_t action_set_flags ) = 0;
 
-	virtual void		LevelInit( void ) = 0;
+	virtual void		LevelInit() = 0;
 
 	// Causes an input to have to be re-pressed to become active
 	virtual void		ClearInputButton( int bits ) = 0;
 
 	virtual	void		CAM_SetCameraThirdData( CameraThirdData_t *pCameraData, const QAngle &vecCameraOffset ) = 0;
-	virtual void		CAM_CameraThirdThink( void ) = 0;
+	virtual void		CAM_CameraThirdThink() = 0;
 
 	virtual	bool		EnableJoystickMode() = 0;
 

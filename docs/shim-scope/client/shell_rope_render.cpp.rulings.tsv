@@ -5,13 +5,13 @@ static void RopeMaterials_Release()	SLOT-HELP	releases the material references a
 [RopeCache_t] void Clear()	SLOT-HELP	empties a view's strip cache; called from the IRopeManager slots
 CSourceSharpRopeExecutor() : m_iQueued	SLOT-HELP	the executor's constructor
 [CSourceSharpRopeExecutor] void Add(	SLOT-HELP	copies a managed strip into the view's cache; its only caller is the RopeDraw slot body
-virtual void ResetRenderCache( void ) OVERRIDE	SLOT	IRopeManager, called by viewrender before a view's opaque entities draw
+virtual void ResetRenderCache() OVERRIDE	SLOT	IRopeManager, called by viewrender before a view's opaque entities draw
 virtual void AddToRenderCache( C_RopeKeyframe * ) OVERRIDE	SLOT	IRopeManager's stock entry; nothing reaches it now (the strips come through RopeDraw)
 virtual void DrawRenderCache( bool bShadowDepth ) OVERRIDE	SLOT	IRopeManager, called by viewrender after a view's opaque entities; draws now or queues the copy on the material system's call queue
-virtual void OnRenderStart( void ) OVERRIDE	SLOT	IRopeManager, called once a frame from OnRenderStart; switches the queued-frame buffers
+virtual void OnRenderStart() OVERRIDE	SLOT	IRopeManager, called once a frame from OnRenderStart; switches the queued-frame buffers
 virtual void SetHolidayLightMode( bool ) OVERRIDE	SLOT	IRopeManager; TF's holiday lights are compiled out of stock here too
-virtual bool IsHolidayLightMode( void ) OVERRIDE	SLOT	IRopeManager; TF's holiday lights are compiled out of stock here too
-virtual int  GetHolidayLightStyle( void ) OVERRIDE	SLOT	IRopeManager; TF's holiday lights are compiled out of stock here too
+virtual bool IsHolidayLightMode() OVERRIDE	SLOT	IRopeManager; TF's holiday lights are compiled out of stock here too
+virtual int  GetHolidayLightStyle() OVERRIDE	SLOT	IRopeManager; TF's holiday lights are compiled out of stock here too
 [CSourceSharpRopeExecutor] void LevelShutdown()	SLOT-HELP	drops the caches at level shutdown; its only caller is the HOOK below
 void Draw( bool bShadowDepth, RopeCache_t *pCache )	SLOT-HELP	the mesh pass: one batch per material, a kind switch on the flags managed code chose and on viewrender's shadow-depth argument
 static void DrawPass(	SLOT-HELP	one dynamic mesh of camera-facing strips through tier2's CBeamSegDraw; counts the back-pass strips for cs_cl_effects_report

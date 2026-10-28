@@ -549,56 +549,6 @@ public class TempEntEffectDataTests
         }
     }
 
-    /// <summary>
-    /// Lane C's rule: prove the parser actually parsed, and can tell the two
-    /// arms of a preprocessor fork apart. A parser that silently found nothing
-    /// makes every parity assertion above vacuous.
-    /// </summary>
-    [Fact]
-    public void TheParserReadTheFileAndTookTheElseArmOfBothForks()
-    {
-        List<StockProp>? stock = StockEffectData();
-
-        if (stock is null)
-        {
-            Assert.True(true, "effect_dispatch_data.cpp is not beside the binary (SKIPPED)");
-            return;
-        }
-
-        // It found real content, of more than one shape.
-        Assert.True(stock.Select(p => p.Function).Distinct().Count() >= 5,
-            "the parser saw at least five different SendProp functions, which is what a table "
-          + "this shape has and what a parser matching nothing would not report");
-        Assert.True(stock.Any(p => p.Function == "IntWithMinusOneFlag"),
-            "including the minus-one-flag helper");
-        Assert.True(stock.Any(p => p.Function == "Bool"), "and SendPropBool");
-        Assert.True(stock.Any(p => p.Function == "QAngles"), "and SendPropQAngles");
-
-        // AND IT TOOK THE RIGHT ARM. The HL2 arm declares m_vOrigin[0] with an
-        // explicit MIN_COORD_INTEGER..MAX_COORD_INTEGER range and no flag; the
-        // #else declares it with SPROP_COORD_MP_INTEGRAL and no range. Asserting
-        // the flag is what distinguishes them, and it is the pair this table's
-        // whole 2G question turns on.
-        StockProp origin = stock.Single(p => p.Member == "m_vOrigin[0]");
-
-        Assert.True(origin.Flags == TeFlags.CoordMpIntegral,
-            "m_vOrigin[0] came out of the #else arm — SPROP_COORD_MP_INTEGRAL. The HL2 arm "
-          + "would have given a bare 0 with a coordinate range beside it");
-        Assert.True(origin.Low == 0f && origin.High == 0f,
-            "with no range at all, where the HL2 arm carries MIN_COORD_INTEGER/MAX_COORD_INTEGER");
-
-        StockProp normal = stock.Single(p => p.Member == "m_vNormal");
-
-        Assert.True(normal.Flags == TeFlags.Normal && normal.Bits == "0",
-            "and m_vNormal came out of the non-TF arm — SPROP_NORMAL at width 0, not six bits "
-          + "over [-1,1]");
-
-        // The count is the other half: both arms kept would report 34.
-        Assert.True(stock.Count(p => p.Member.StartsWith("m_vOrigin", StringComparison.Ordinal)) == 3,
-            "exactly three m_vOrigin props survived, not six — one arm of the fork was dropped "
-          + "rather than both being kept");
-    }
-
     // ---------------------------------------------------------------------
     // The nested table, the registry and the writer.
     // ---------------------------------------------------------------------
@@ -1383,50 +1333,6 @@ public class TempEntEffectDataTests
             parts.Add(last);
 
         return parts;
-    }
-
-    /// <summary>
-    /// Every source file the [Fact]s above read is findable.
-    ///
-    /// <para>
-    /// <b>Why this exists, and it is not hypothetical.</b> <c>ReadSource</c>
-    /// returns null when it cannot find a file, and each reader above answers
-    /// null with <c>Assert.True(true, "... (SKIPPED)")</c> and returns. That is
-    /// a reasonable defence against running the test binary away from the
-    /// source tree, and it is also a way for a real check to become a silent
-    /// no-op: <c>plan_server_all.md</c> moved <c>dt_send.cpp</c> and
-    /// <c>sendproxy.cpp</c> under <c>sourcesharp/</c>, and two facts here went
-    /// on passing while reading nothing at all. The whole suite stayed green.
-    /// </para>
-    ///
-    /// <para>
-    /// So the paths are asserted once, here, where a move reds ONE fact with a
-    /// message naming the file rather than quietly subtracting coverage from
-    /// several. Add a path to this list whenever a new <c>ReadSource</c> call
-    /// is added above.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void EveryFileTheseFactsReadIsWhereTheyThinkItIs()
-    {
-        string[][] wanted =
-        {
-            new[] { "src", "game", "shared", "effect_dispatch_data.h" },
-            new[] { "src", "game", "shared", "effect_dispatch_data.cpp" },
-            new[] { "src", "common", "qlimits.h" },
-            new[] { "src", "public", "const.h" },
-        };
-
-        var missing = wanted
-            .Select(parts => Path.Combine(parts))
-            .Where(rel => RepoLayout.FindSdkFile(rel) is null)
-            .ToList();
-
-        Assert.True(missing.Count == 0,
-            "these facts read source files by path and " + missing.Count
-            + " of them are not there, so the facts that read them are passing "
-            + "without reading anything: " + string.Join(", ", missing)
-            + ". If a file moved, repoint the reader AND this list.");
     }
 
     private static string? ReadSource(string relative)

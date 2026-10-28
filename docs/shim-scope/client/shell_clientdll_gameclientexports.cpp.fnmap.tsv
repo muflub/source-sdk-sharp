@@ -3,11 +3,11 @@
 4	SLOT	[CGameClientExports] bool IsPlayerGameVoiceMuted(int playerIndex)
 4	SLOT	[CGameClientExports] void MutePlayerGameVoice(int playerIndex)
 4	SLOT	[CGameClientExports] void UnmutePlayerGameVoice(int playerIndex)
-8	SLOT	[CGameClientExports] void OnGameUIActivated( void )
-8	SLOT	[CGameClientExports] void OnGameUIHidden( void )
+8	SLOT	[CGameClientExports] void OnGameUIActivated()
+8	SLOT	[CGameClientExports] void OnGameUIHidden()
 1	SLOT	[CGameClientExports] void CreateAchievementsPanel( vgui::Panel *pParent )
 1	SLOT	[CGameClientExports] void DisplayAchievementPanel()
 1	SLOT	[CGameClientExports] void ShutdownAchievementPanel()
-1	SLOT	[CGameClientExports] int GetAchievementsPanelMinWidth( void ) const
+1	SLOT	[CGameClientExports] int GetAchievementsPanelMinWidth() const
 1	SLOT	[CGameClientExports] const char *GetHolidayString()
 1	SLOT	[CGameClientExports] const char *GetOperationString()

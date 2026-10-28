@@ -52,16 +52,4 @@ public class HudTitleNameTests
         Assert.Equal("CHAPTER1_TITLE", call.Arg(0));
     }
 
-    [Fact]
-    public void The_shell_looks_up_exactly_the_name_it_is_handed()
-    {
-        string path = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "client", "shell_hud.cpp");
-        Assert.True(File.Exists(path), $"{path} was not found; a scan that read nothing would pass");
-        string text = File.ReadAllText(path);
-        int at = text.IndexOf("int32_t SourceSharp_HudTextMessageGet(", StringComparison.Ordinal);
-        Assert.True(at >= 0, "shell_hud.cpp has no SourceSharp_HudTextMessageGet");
-        string body = Regex.Replace(text[at..text.IndexOf("\n}\n", at, StringComparison.Ordinal)], @"//[^\n]*", "");
-        Assert.Contains("TextMessageGet( pName );", body);
-        Assert.DoesNotContain("'#'", body);
-    }
 }

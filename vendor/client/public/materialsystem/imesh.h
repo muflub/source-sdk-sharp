@@ -354,8 +354,8 @@ public:
 	void SelectVertex( int idx );
 
 	// Advances the current vertex and index by one
-	void AdvanceVertex( void );
-	template<int nFlags, int nNumTexCoords> void AdvanceVertexF( void );
+	void AdvanceVertex();
+	template<int nFlags, int nNumTexCoords> void AdvanceVertexF();
 	void AdvanceVertices( int nVerts );
 
 	const float *Normal() const;

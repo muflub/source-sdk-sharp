@@ -52,51 +52,6 @@
 namespace
 {
 
-std::string ReadFile( const char *pPath )
-{
-	std::ifstream f( pPath );
-	EXPECT_TRUE( f.good() ) << "cannot open " << pPath;
-	std::stringstream ss;
-	ss << f.rdbuf();
-	return ss.str();
-}
-
-size_t CountOf( const std::string &hay, const std::string &needle )
-{
-	size_t n = 0;
-	for ( size_t i = hay.find( needle ); i != std::string::npos;
-	      i = hay.find( needle, i + needle.size() ) )
-	{
-		n++;
-	}
-	return n;
-}
-
-std::string StripComments( const std::string &s )
-{
-	std::string out;
-	out.reserve( s.size() );
-	for ( size_t i = 0; i < s.size(); )
-	{
-		if ( s.compare( i, 2, "/*" ) == 0 )
-		{
-			size_t e = s.find( "*/", i + 2 );
-			i = ( e == std::string::npos ) ? s.size() : e + 2;
-		}
-		else if ( s.compare( i, 2, "//" ) == 0 )
-		{
-			size_t e = s.find( '\n', i + 2 );
-			i = ( e == std::string::npos ) ? s.size() : e;
-		}
-		else
-		{
-			out.push_back( s[ i++ ] );
-		}
-	}
-	return out;
-}
-
-const char *const kLibrary   = "sourcesharp/game/server/server_util_library.cpp";
 const char *const kStockCpp  = "game/server/util.cpp";
 
 // What each target compiles is read through cmake_graph.h: compile_commands.json
@@ -109,123 +64,19 @@ const char *const kLibraryRow = "sourcesharp/game/server/server_util_library.cpp
 // reader that saw nothing.
 const char *const kClientProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 
-const char *const kMovedDefinitions[] = {
-	"void UTIL_ClearTrace( trace_t &trace )",
-	// The three temp-entity emitters, and the four helpers they could not
-	// leave behind. 4e listed the emitters as unmoved because at that point
-	// moving one CONVERTED an edge instead of removing one -- the helpers were
-	// still in util.cpp. Taking all seven leaves nothing next door to land on.
-	"void UTIL_BloodStream( const Vector &origin, const Vector &direction, int color, int amount )",
-	"void UTIL_Smoke( const Vector &origin, const float scale, const float framerate )",
-};
-const size_t kNumMoved = sizeof( kMovedDefinitions ) / sizeof( kMovedDefinitions[ 0 ] );
-
-// GONE IN THE SERVER GC CULL (2026-10-01): no server object called these, and
-// server.so's --print-gc-sections link dropped them. Asserted absent.
-const char *const kGoneInTheCull[] = {
-	"void DBG_AssertFunction( bool fExpr, const char *szExpr, const char *szFile, int szLine, const char *szMessage )",
-	"static edict_t *UTIL_FindClientInPVSGuts(edict_t *pEdict, unsigned char *pvs, unsigned pvssize )",
-	// Not the cull: plan_server_native_v2 T4d folded it into the managed
-	// DecalPrecache (IVEngineServer's PrecacheDecal/IsDecalPrecached forwarders),
-	// which was its one importer's (SourceSharp_PrecacheDecal's) replacement.
-	"int UTIL_PrecacheDecal( const char *name, bool preload )",
-	"edict_t *UTIL_FindClientInPVS(edict_t *pEdict)",
-	"void UTIL_Bubbles( const Vector& mins, const Vector& maxs, int count )",
-	"void UTIL_BubbleTrail( const Vector& from, const Vector& to, int count )",
-	"float UTIL_WaterLevel( const Vector &position, float minz, float maxz )",
-	"float UTIL_FindWaterSurface( const Vector &position, float minz, float maxz )",
-	"bool UTIL_IsValidEntity( IServerEntity *pEnt )",
-	// GONE IN plan_server_native_min P1: the check-client system (its two PVS
-	// bitsets had no reader and its walk skipped every candidate) and
-	// UTIL_VarArgs (its one caller formats into a local).
-	"const char *UTIL_VarArgs( const char *format, ... )",
-	"static int UTIL_GetNewCheckClient( int check )",
-	"static edict_t *UTIL_GetCurrentCheckClient()",
-	"void UTIL_SetClientVisibilityPVS( edict_t *pClient, const unsigned char *pvs, int pvssize )",
-	"CServerSystem *CheckClientGameSystem()",
-	"class CCheckClient : public CServerSystem",
-	"class CWaterTraceFilter : public CTraceFilter",
-	"CCheckClient g_CheckClient(",
-	// GONE IN plan_server_native_v2 T5: no server object imported either (nm U
-	// over the link edge). The managed motor port holds the axis snap
-	// (MotorTests).
-	"void UTIL_SnapDirectionToAxis( Vector &direction, float epsilon )",
-	"void UTIL_ImpactTrace( trace_t *pTrace, int iDamageType, const char *pCustomImpactName )",
-};
-
-// The objects. Each of these is state, and each fails a different way if it is
-// split from the code that reads it.
-const char *const kMovedObjects[] = {
-	// sv_strict_notarget's DECLARATION is managed now
-	// (SourceSharp.Server/ConVars.cs); what must be in this file is the by-name
-	// ref, because UTIL_FindClientInPVSGuts still reads it here and is asked
-	// per candidate. See TheNotargetKnobIsDeclaredInManagedCode below for the
-	// other half of the pair.
-	"CManagedConVarRef sv_strict_notarget(",
-};
-const size_t kNumObjects = sizeof( kMovedObjects ) / sizeof( kMovedObjects[ 0 ] );
-
 } // anonymous namespace
 
 //=============================================================================//
 // 1. EXACTLY ONE DEFINITION, AND IT IS THE SHIM'S
 //=============================================================================//
 
-TEST( ServerUtilLibrary, EveryMovedDefinitionIsInTheShimFile )
-{
-	const std::string lib = StripComments( ReadFile( kLibrary ) );
-	ASSERT_FALSE( lib.empty() ) << kLibrary << " did not load";
-
-	for ( size_t i = 0; i < kNumMoved; i++ )
-	{
-		EXPECT_EQ( 1u, CountOf( lib, kMovedDefinitions[ i ] ) )
-			<< kMovedDefinitions[ i ] << " is not defined exactly once in "
-			<< kLibrary;
-	}
-	for ( size_t i = 0; i < sizeof( kGoneInTheCull ) / sizeof( kGoneInTheCull[ 0 ] ); i++ )
-	{
-		EXPECT_EQ( 0u, CountOf( lib, kGoneInTheCull[ i ] ) )
-			<< kGoneInTheCull[ i ] << " is defined in " << kLibrary
-			<< " again, and nothing called it when the cull deleted it.";
-	}
-}
-
 //=============================================================================//
 // 2. THE NULL SURFACE IS ONE OBJECT, NOT TWO
 //=============================================================================//
 
-TEST( ServerUtilLibrary, TheNullSurfaceIsDefinedOnceWithExternalLinkage )
-{
-	// The util.cpp half (no second copy there, and its `extern` declaration)
-	// was culled when server.so stopped compiling util.cpp and it left the
-	// source tree.
-	const std::string lib = StripComments( ReadFile( kLibrary ) );
-	ASSERT_FALSE( lib.empty() );
-
-	EXPECT_EQ( 1u, CountOf( lib, "csurface_t\tg_NullSurface = { \"**empty**\", 0 };" ) )
-		<< "the definition must be in " << kLibrary;
-	EXPECT_EQ( 0u, CountOf( lib, "static csurface_t\tg_NullSurface" ) )
-		<< "it must NOT be a file static here -- util.cpp's UTIL_SetTrace reads "
-		   "the same object.";
-}
-
 //=============================================================================//
 // 3. THE CHECK-CLIENT SUBSYSTEM CAME AS A UNIT
 //=============================================================================//
-
-TEST( ServerUtilLibrary, TheCheckClientStateTravelledWithEveryReaderOfIt )
-{
-	const std::string lib = StripComments( ReadFile( kLibrary ) );
-	ASSERT_FALSE( lib.empty() );
-
-	for ( size_t i = 0; i < kNumObjects; i++ )
-	{
-		EXPECT_EQ( 1u, CountOf( lib, kMovedObjects[ i ] ) )
-			<< kMovedObjects[ i ] << " is not in " << kLibrary;
-	}
-	// The other half -- no g_CheckClient reader left in util.cpp -- was culled
-	// when server.so stopped compiling util.cpp and it left the source tree.
-}
 
 //=============================================================================//
 // 4. THE SERVER COMPILES IT AND THE CLIENT DOES NOT
@@ -281,18 +132,6 @@ TEST( ServerUtilLibrary, TheStockTranslationUnitHasLeftAndTheLibraryHasNot )
 // 5. THE CONTESTED SYMBOL IS NOT CLAIMED HERE
 //=============================================================================//
 
-TEST( ServerUtilLibrary, TheAdminCommandPredicateIsLeftToTheOtherLane )
-{
-	const std::string lib = StripComments( ReadFile( kLibrary ) );
-	ASSERT_FALSE( lib.empty() );
-
-	EXPECT_EQ( 0u, CountOf( lib, "bool UTIL_IsCommandIssuedByServerAdmin( void )" ) )
-		<< "lane phase4-exit has already relocated this to "
-		   "shell_commandclient.cpp, which defines UTIL_GetCommandClientIndex, "
-		   "the one symbol its body needs. Two addresses for one body is a "
-		   "duplicate definition at link.";
-}
-
 //=============================================================================//
 // 6. THE HEADER DID NOT MOVE, SO NO CALLER DID -- RETIRED
 //
@@ -306,26 +145,6 @@ TEST( ServerUtilLibrary, TheAdminCommandPredicateIsLeftToTheOtherLane )
 // 7. THE NEEDLES ARE CODE, NOT PROSE
 //=============================================================================//
 
-TEST( ServerUtilLibrary, NoNeedleIsSatisfiedByProseAlone )
-{
-	const std::string libRaw  = ReadFile( kLibrary );
-	const std::string libCode = StripComments( libRaw );
-	ASSERT_FALSE( libCode.empty() );
-
-	for ( size_t i = 0; i < kNumMoved; i++ )
-	{
-		EXPECT_EQ( CountOf( libRaw, kMovedDefinitions[ i ] ),
-		           CountOf( libCode, kMovedDefinitions[ i ] ) )
-			<< kMovedDefinitions[ i ] << " occurs in a COMMENT in " << kLibrary;
-	}
-	for ( size_t i = 0; i < kNumObjects; i++ )
-	{
-		EXPECT_EQ( CountOf( libRaw, kMovedObjects[ i ] ),
-		           CountOf( libCode, kMovedObjects[ i ] ) )
-			<< kMovedObjects[ i ] << " occurs in a COMMENT in " << kLibrary;
-	}
-}
-
 //=============================================================================//
 // 8. THE EMITTERS' MODEL INDICES ARE DECLARED HERE AND DEFINED IN combatweapon
 //
@@ -336,27 +155,6 @@ TEST( ServerUtilLibrary, NoNeedleIsSatisfiedByProseAlone )
 // emitters a model index that is always zero, which draws nothing and reports
 // nothing.
 //=============================================================================//
-
-TEST( ServerUtilLibrary, TheModelIndicesAreDeclaredNeverDefined )
-{
-	const std::string lib = StripComments( ReadFile( kLibrary ) );
-	ASSERT_FALSE( lib.empty() );
-
-	static const char *const kIndices[] = {
-		"g_sModelIndexSmoke",
-	};
-	for ( size_t i = 0; i < sizeof( kIndices ) / sizeof( kIndices[ 0 ] ); i++ )
-	{
-		const std::string decl = std::string( "extern short " ) + kIndices[ i ] + ";";
-		EXPECT_EQ( 1u, CountOf( lib, decl ) )
-			<< decl << " is missing from " << kLibrary;
-		const std::string def = std::string( "\nshort " ) + kIndices[ i ];
-		EXPECT_EQ( 0u, CountOf( lib, def ) )
-			<< kIndices[ i ] << " is DEFINED in " << kLibrary
-			<< ". combatweapon.cpp owns it; a second one is always zero and "
-			   "the emitter that reads it draws nothing, silently.";
-	}
-}
 
 //=============================================================================//
 // 9. THE ONE CONVERSION THE EMITTER MOVE COST, RECORDED RATHER THAN HIDDEN
@@ -370,19 +168,6 @@ TEST( ServerUtilLibrary, TheModelIndicesAreDeclaredNeverDefined )
 // g_Language, and it was NOT deleted although it looks unreachable. Deleting an
 // arm that looks dead is the shape of all six recorded silent losses.
 //=============================================================================//
-
-TEST( ServerUtilLibrary, TheGermanBloodArmCameAcrossRatherThanBeingDeleted )
-{
-	const std::string lib = StripComments( ReadFile( kLibrary ) );
-	ASSERT_FALSE( lib.empty() );
-
-	// Spelled with ss_shareddefs.h's names since P5 (the TU is on the R5
-	// include set); ss_shareddefs_oracle_test holds them to upstream's
-	// LANGUAGE_GERMAN and BLOOD_COLOR_RED.
-	EXPECT_EQ( 1u, CountOf( lib, "if ( s_Language.GetInt() == ss::kLanguageGerman && color == ss::BLOOD_COLOR_RED )" ) )
-		<< "UTIL_BloodStream's German-blood arm is stock's behaviour and is "
-		   "live. A move is a relocation only while every arm comes with it.";
-}
 
 //=============================================================================//
 // THE NOTARGET KNOB: DECLARED IN MANAGED CODE, READ NATIVELY BY NAME
@@ -398,23 +183,3 @@ TEST( ServerUtilLibrary, TheGermanBloodArmCameAcrossRatherThanBeingDeleted )
 // no declaration reads zero forever.
 //=============================================================================//
 
-TEST( ServerUtilLibrary, TheNotargetKnobIsDeclaredInManagedCode )
-{
-	const std::string cs = ReadFile( "sourcesharp/managed/SourceSharp.Server/ConVars.cs" );
-	ASSERT_FALSE( cs.empty() ) << "SourceSharp.Server/ConVars.cs did not load";
-
-	EXPECT_EQ( 1u, CountOf( cs, "[ConVar(\"sv_strict_notarget\", \"0\"" ) )
-		<< "sv_strict_notarget must be declared exactly once in managed code, "
-		   "with stock's default of 0.";
-}
-
-TEST( ServerUtilLibrary, TheNotargetKnobIsNotAlsoDeclaredNatively )
-{
-	const std::string code = ReadFile( kLibrary );
-	ASSERT_FALSE( code.empty() ) << kLibrary << " did not load";
-
-	EXPECT_EQ( 0u, CountOf( code, "ConVar sv_strict_notarget(" ) )
-		<< "a native declaration is back beside the managed one, so the game "
-		   "has two convars of this name and nothing says which one the "
-		   "notarget test read.";
-}

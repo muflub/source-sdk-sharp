@@ -92,7 +92,7 @@ void GameStringPool_Visit( GameStringPoolVisitFn pfnVisit, void *pContext )
 	g_GameStringPool.Visit( pfnVisit, pContext );
 }
 
-int GameStringPool_Count( void )
+int GameStringPool_Count()
 {
 	return g_GameStringPool.Count();
 }

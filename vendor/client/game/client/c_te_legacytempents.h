@@ -35,13 +35,13 @@ abstract_class ITempEnts
 public:
 	virtual						~ITempEnts() {}
 
-	virtual void				Init( void ) = 0;
-	virtual void				Shutdown( void ) = 0;
+	virtual void				Init() = 0;
+	virtual void				Shutdown() = 0;
 	virtual void				LevelInit() = 0;
 	virtual void				LevelShutdown() = 0;
 
-	virtual void				Update( void ) = 0;
-	virtual void				Clear( void ) = 0;
+	virtual void				Update() = 0;
+	virtual void				Clear() = 0;
 
 	virtual C_LocalTempEntity	*FindTempEntByID( int nID, int nSubID ) = 0;
 
@@ -78,19 +78,19 @@ class CTempEnts : public ITempEnts
 {
 // Construction
 public:
-							CTempEnts( void );
-	virtual					~CTempEnts( void );
+							CTempEnts();
+	virtual					~CTempEnts();
 // Exposed interface
 public:
-	virtual void			Init( void );
-	virtual void			Shutdown( void );
+	virtual void			Init();
+	virtual void			Shutdown();
 
 	virtual void			LevelInit();
 
 	virtual void			LevelShutdown();
 
-	virtual void			Update( void );
-	virtual void			Clear( void );
+	virtual void			Update();
+	virtual void			Clear();
 
 	virtual C_LocalTempEntity	*FindTempEntByID( int nID, int nSubID );
 

@@ -26,20 +26,20 @@ public:
 					C_RecipientFilter();
 	virtual			~C_RecipientFilter();
 
-	virtual bool	IsReliable( void ) const;
+	virtual bool	IsReliable() const;
 
-	virtual int		GetRecipientCount( void ) const;
+	virtual int		GetRecipientCount() const;
 	virtual int		GetRecipientIndex( int slot ) const;
 
-	virtual bool	IsInitMessage( void ) const { return false; };
+	virtual bool	IsInitMessage() const { return false; };
 
 public:
 
 	void			CopyFrom( const C_RecipientFilter& src );
 
-	void			Reset( void );
+	void			Reset();
 
-	void			AddAllPlayers( void );
+	void			AddAllPlayers();
 	void			AddRecipientsByPVS( const Vector& origin );
 	void			AddRecipientsByPAS( const Vector& origin );
 
@@ -119,5 +119,5 @@ public:
 class CLocalPlayerFilter : public C_RecipientFilter
 {
 public:
-	CLocalPlayerFilter( void );
+	CLocalPlayerFilter();
 };

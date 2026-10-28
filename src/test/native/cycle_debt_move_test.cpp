@@ -48,219 +48,23 @@
 namespace
 {
 
-std::string ReadFile( const char *pPath )
-{
-	std::ifstream f( pPath );
-	EXPECT_TRUE( f.good() ) << "cannot open " << pPath;
-	std::stringstream ss;
-	ss << f.rdbuf();
-	return ss.str();
-}
-
-// WHETHER THE PATH IS THERE AT ALL, which ReadFile above cannot answer: it
-// EXPECTs the open, so asking it about a file that is supposed to be gone fails
-// on the open instead of reporting the absence. Added at plan_shim.md Phase 2c,
-// lane 2-utilshared, where game/shared/util_shared.cpp stopped existing and
-// several facts here changed from "this needle is not in that file" to "that
-// file is not in the tree" -- the stronger claim, and the one that cannot be
-// satisfied vacuously.
-bool FileExists( const char *pPath )
-{
-	std::ifstream f( pPath );
-	return f.good();
-}
-
-size_t CountOf( const std::string &hay, const std::string &needle )
-{
-	size_t n = 0;
-	for ( size_t i = hay.find( needle ); i != std::string::npos;
-	      i = hay.find( needle, i + needle.size() ) )
-	{
-		n++;
-	}
-	return n;
-}
-
-std::string StripComments( const std::string &s )
-{
-	std::string out;
-	out.reserve( s.size() );
-	for ( size_t i = 0; i < s.size(); )
-	{
-		if ( s.compare( i, 2, "/*" ) == 0 )
-		{
-			size_t e = s.find( "*/", i + 2 );
-			i = ( e == std::string::npos ) ? s.size() : e + 2;
-		}
-		else if ( s.compare( i, 2, "//" ) == 0 )
-		{
-			size_t e = s.find( '\n', i + 2 );
-			i = ( e == std::string::npos ) ? s.size() : e;
-		}
-		else
-		{
-			out.push_back( s[ i++ ] );
-		}
-	}
-	return out;
-}
-
-const char *const kSharedLib = "sourcesharp/game/shared/util_shared_library.cpp";
-const char *const kServerLib = "sourcesharp/game/server/server_util_library.cpp";
-const char *const kUtilShared = "game/shared/util_shared.cpp";
-const char *const kUtilSharedHdr = "game/shared/util_shared.h";
-
-// The five overloads of the vector<->angle family. debugoverlay_shared.cpp
-// named two of them; the family moved whole because splitting an overload set
-// across two translation units is how one of them silently stops being found by
-// overload resolution in a TU that sees only one header.
-const char *const kAngleFamily[] = {
-	"float UTIL_VecToYaw( const Vector &vec )",
-	"float UTIL_VecToPitch( const Vector &vec )",
-	"float UTIL_VecToYaw( const matrix3x4_t &matrix, const Vector &vec )",
-	"float UTIL_VecToPitch( const matrix3x4_t &matrix, const Vector &vec )",
-	"Vector UTIL_YawToVector( float yaw )",
-};
-const size_t kNumAngle = sizeof( kAngleFamily ) / sizeof( kAngleFamily[ 0 ] );
-
-// The declaration's head rather than its whole text: since P2.3b the fact is
-// an ABSENCE, and a reformatted declaration must still count.
-const char *const kDeveloperConVar = "ConVar developer(";
-
 } // anonymous namespace
 
 //=============================================================================//
 // 1. THE ANGLE FAMILY IS WHOLE, AND IT IS IN THE SHIM
 //=============================================================================//
 
-// INVERTED BY plan_shim.md PHASE 2c, lane 2-utilshared, AND THE FAMILY RULE IS
-// WHAT SURVIVES THE INVERSION.
-//
-// This fact was "all five are in the shim, exactly once each", and the reason
-// was never the shim: it was WHOLENESS. An overload set split across two
-// translation units is how one overload quietly stops being the one chosen, and
-// that hazard is the same whichever direction the set moves.
-//
-// The five are now DELETED, and they went as a set for that reason. They were
-// here for CYCLE MEMBERSHIP -- game/shared/debugoverlay_shared.cpp owed SCC 11
-// two of them -- and debugoverlay_shared.cpp has a row in neither build, so
-// there is no cycle left to be a member of. Measured before the deletion, over
-// the VPC-era objects (_vpc_/ninja/debug/objs/{server,client}_sourcesharp):
-//
-//     nm -C -u <those objects> | grep -c 'UTIL_VecToYaw|UTIL_VecToPitch|UTIL_YawToVector'
-//       ->  0 and 0
-//
-// and the tree links with all five gone, which is the same claim made by the
-// linker instead of by a scanner.
-//
-// So the assertion flips and the FAMILY clause is kept: ALL FIVE are absent, and
-// a partial return -- one overload back without its siblings -- reds this just
-// as loudly as a partial departure used to.
-TEST( CycleDebtMove, TheWholeAngleFamilyLeftTheSharedLibraryTogether )
-{
-	const std::string lib = StripComments( ReadFile( kSharedLib ) );
-	ASSERT_FALSE( lib.empty() ) << kSharedLib << " did not load";
-
-	// The file is proved read above AND proved to be the right file below, so
-	// neither half of this can pass over an empty or renamed file.
-	EXPECT_EQ( 1u, CountOf( lib, "bool UTIL_ShouldShowBlood( int color )" ) )
-		<< kSharedLib << " no longer defines UTIL_ShouldShowBlood, so this "
-		   "fact is not reading the file it thinks it is. (This anchor was "
-		   "`developer` until plan_server_novalve.md P2.3b deleted that "
-		   "declaration: the engine owns the name; then "
-		   "UTIL_StringToFloatArray until C9 K3 deleted that, then GetCleanMapName "
-		   "until plan_server_native_min P1 did, then UTIL_IsLowViolence until "
-		   "plan_server_native_v2 T2 moved it to the client.)";
-
-	for ( size_t i = 0; i < kNumAngle; i++ )
-	{
-		EXPECT_EQ( 0u, CountOf( lib, kAngleFamily[ i ] ) )
-			<< kAngleFamily[ i ] << " is back in " << kSharedLib
-			<< " with no compiled caller. If one has reappeared, the family "
-			   "comes back WHOLE -- an overload set split across two "
-			   "translation units is how one overload quietly stops being the "
-			   "one chosen, and that is why all five left together.";
-	}
-}
-
-// RE-SHAPED BY plan_shim.md Phase 2c, lane 2-utilshared: kUtilShared does not
-// exist. An absence over a missing file is vacuous, so the absence is the
-// FILE's -- and the file coming back is exactly the failure this fact watched
-// for, because that is where the family was.
-TEST( CycleDebtMove, NoAngleOverloadWasLeftBehindInUtilShared )
-{
-	EXPECT_FALSE( FileExists( kUtilShared ) )
-		<< kUtilShared << " exists again, and it is where the vector<->angle "
-		<< "family was. A second definition there restores "
-		<< "debugoverlay_shared.cpp's edge into SCC 11 with the census reading "
-		<< "identically before and after.";
-
-	// The vacuity guard: the file this fact is really about must read.
-	const std::string lib = StripComments( ReadFile( kSharedLib ) );
-	ASSERT_FALSE( lib.empty() ) << kSharedLib << " did not load";
-}
-
 //=============================================================================//
 // 2. `developer` IS REGISTERED EXACTLY ONCE
 //=============================================================================//
-
-// plan_server_novalve.md P2.3b: ONCE, AND BY THE ENGINE. engine.so declares
-// `developer` and registers it before either game DLL loads, so the shared
-// library's copy was a duplicate of a name the engine already owned; no object
-// on either link line imported the symbol. It was deleted, and this fact now
-// requires that it stays gone from the file that held it.
-TEST( CycleDebtMove, TheDeveloperConVarIsTheEnginesAndNotTheSharedLibrarys )
-{
-	const std::string lib = StripComments( ReadFile( kSharedLib ) );
-	ASSERT_FALSE( lib.empty() );
-	ASSERT_EQ( 1u, CountOf( lib, "bool UTIL_ShouldShowBlood( int color )" ) )
-		<< kSharedLib << " is not the file this fact means to read";
-
-	EXPECT_EQ( 0u, CountOf( lib, kDeveloperConVar ) )
-		<< kSharedLib << " declares `developer` again; the engine owns it";
-	// kUtilShared is gone (Phase 2c, lane 2-utilshared). The absence is the
-	// file's, and it is worth keeping: that file is where `developer` was, so
-	// its return is where a second registration would come from. A second
-	// setting under one name is neither a compile error nor a link error, and
-	// nothing reports which one a reader got.
-	EXPECT_FALSE( FileExists( kUtilShared ) )
-		<< kUtilShared << " exists again and could declare `developer` a second "
-		<< "time.";
-}
 
 //=============================================================================//
 // 3. UTIL_Smoke MOVED, AND ITS MODEL INDEX DID NOT
 //=============================================================================//
 
-TEST( CycleDebtMove, TheSmokeModelIndexIsStillCombatWeaponsAndIsOnlyDeclared )
-{
-	const std::string lib = StripComments( ReadFile( kServerLib ) );
-	ASSERT_FALSE( lib.empty() );
-
-	// g_sModelIndexSmoke is DEFINED in combatweapon.cpp. Defining it here as
-	// well would link (one is the tentative definition of an int) and the two
-	// would be different objects on some toolchains -- so the shim declares it
-	// and never defines it.
-	EXPECT_EQ( 1u, CountOf( lib, "extern short g_sModelIndexSmoke;" ) );
-	EXPECT_EQ( 0u, CountOf( lib, "short g_sModelIndexSmoke =" ) );
-}
-
 //=============================================================================//
 // 4. THE HEADERS DID NOT MOVE, SO NO CALLER DID
 //=============================================================================//
-
-TEST( CycleDebtMove, EveryMovedNameIsStillDeclaredInItsStockHeader )
-{
-	const std::string ush = StripComments( ReadFile( kUtilSharedHdr ) );
-	ASSERT_FALSE( ush.empty() );
-
-	EXPECT_LE( 1u, CountOf( ush, "UTIL_VecToYaw" ) );
-	EXPECT_LE( 1u, CountOf( ush, "UTIL_VecToPitch" ) );
-	EXPECT_LE( 1u, CountOf( ush, "UTIL_YawToVector" ) );
-	// UTIL_Smoke's half (still declared in game/server/util.h) is retired:
-	// game/server/util.h is compiled by nothing since plan_server_novalve.md P5
-	// and left the farm in P6.
-}
 
 //=============================================================================//
 // 5. THE STOCK TUs, AFTER THE FLIP

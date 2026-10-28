@@ -5,8 +5,6 @@
 
 #pragma once
 
-#include "isaverestore.h"
-#include "utlvector.h"
 #include "filesystem.h"
 
 class CSaveRestoreData;
@@ -27,7 +25,7 @@ public:
 	
 	// Logging
 	void			StartLogging( const char *pszLogName );
-	void			EndLogging( void );
+	void			EndLogging();
 
 	bool			IsAsync();
 
@@ -145,10 +143,10 @@ public:
 
 	// Primitive types
 	
-	short			ReadShort( void );
+	short			ReadShort();
 	int				ReadShort( short *pValue, int count = 1, int nBytesAvailable = 0);
 	int				ReadInt( int *pValue, int count = 1, int nBytesAvailable = 0);
-	int				ReadInt( void );
+	int				ReadInt();
 	int 			ReadBool( bool *pValue, int count = 1, int nBytesAvailable = 0);
 	int				ReadFloat( float *pValue, int count = 1, int nBytesAvailable = 0);
 	int				ReadData( char *pData, int size, int nBytesAvailable );
@@ -174,7 +172,7 @@ public:
 	int				ReadVMatrixWorldspace( VMatrix *pValue, int count = 1, int nBytesAvailable = 0);
 	int				ReadMatrix3x4Worldspace( matrix3x4_t *pValue, int nElems = 1, int nBytesAvailable = 0 );
 	
-	bool			GetPrecacheMode( void ) { return m_precache; }
+	bool			GetPrecacheMode() { return m_precache; }
 
 	CGameSaveRestoreInfo *GetGameSaveRestoreInfo()	{ return m_pGameInfo; }
 

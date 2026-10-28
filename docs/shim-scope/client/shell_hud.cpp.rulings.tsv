@@ -39,8 +39,8 @@ void SourceSharp_UiSetMenuInput(	SLOT	IShimUiClient: the menu root's mouse and k
 void SourceSharp_UiSetCursor(	SLOT	IShimUiClient: the menu root's cursor, a UiCursor as vgui's
 [CSourceSharpHud] : CHudElement(	LAYOUT	the HUD panel on the viewport, and the menu root beside it, made once
 [CSourceSharpHud] virtual const char *GetName()	SLOT	IClientPanel::GetName: the HUD element's name
-int32_t SourceSharp_GetLocalPlayerIndex( void )	BOUNDARY	IVEngineClient::GetLocalPlayer, 0 for none
-int32_t SourceSharp_GetLocalPlayerHealth( void )	BOUNDARY	the health the managed player publishes on the local shell, -1 with no local player
+int32_t SourceSharp_GetLocalPlayerIndex()	BOUNDARY	IVEngineClient::GetLocalPlayer, 0 for none
+int32_t SourceSharp_GetLocalPlayerHealth()	BOUNDARY	the health the managed player publishes on the local shell, -1 with no local player
 int32_t SourceSharp_HudTextMessageGet(	LAYOUT	fills SourceSharpTextMessage from the engine's titles.txt entry for exactly the name handed over (copied: the engine reallocates its buffer on a level change); the '#' rule is HudMessages.TitleName's (lane M1-B)
 void SourceSharp_HudLookupBinding(	BOUNDARY	IVEngineClient::Key_LookupBinding into the caller's buffer, empty when unbound
 void SourceSharp_HudLocalise(	BOUNDARY	ILocalize::Find and ConvertUnicodeToANSI into the caller's buffer, the token back when the tables have no entry (the localiser's own miss)

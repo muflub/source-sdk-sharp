@@ -162,10 +162,10 @@ public:
 	unsigned char *DataBlob();
 	int            BlobBytes() const;
 
-	virtual int RequiredEdictIndex( void ) { return 0; }
+	virtual int RequiredEdictIndex() { return 0; }
 
-	virtual void Spawn( void );
-	virtual void Precache( void );
+	virtual void Spawn();
+	virtual void Precache();
 	virtual bool KeyValue( const char *szKeyName, const char *szValue );
 	virtual void DecalTrace( trace_t *pTrace, char const *decalName );
 	virtual void VPhysicsCollision( int index, ss::gamevcollisionevent_t *pEvent ) {}
@@ -198,8 +198,8 @@ public:
 	virtual IGameEntity *GetBaseEntity() OVERRIDE { return NULL; }
 
 	// IServerEntity
-	virtual int      GetModelIndex( void ) const OVERRIDE { return m_nModelIndex; }
-	virtual string_t GetModelName( void ) const OVERRIDE { return m_iszModelName; }
+	virtual int      GetModelIndex() const OVERRIDE { return m_nModelIndex; }
+	virtual string_t GetModelName() const OVERRIDE { return m_iszModelName; }
 	virtual void     SetModelIndex( int index ) OVERRIDE { m_nModelIndex = index; }
 
 	edict_t *GetEdict() const { return m_pEdict; }

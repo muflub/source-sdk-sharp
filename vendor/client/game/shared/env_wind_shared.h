@@ -3,12 +3,6 @@
 
 #pragma once
 
-#include "utllinkedlist.h"
-#include "vstdlib/random.h"
-#include "tier0/dbg.h"
-#include "mathlib/vector.h"
-#include <float.h>
-
 // Forward declarations
 class CSoundPatch;
 

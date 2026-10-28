@@ -81,7 +81,7 @@ static unsigned int TeWireFloatBits( float f )
 	return u;
 }
 
-static void DumpBuiltWire( void )
+static void DumpBuiltWire()
 {
 	for ( int i = 0; i < SourceSharpTe_BuiltCount(); i++ )
 	{

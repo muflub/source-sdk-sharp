@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "convar_serverbounded.h"
+class ConVar_ServerBounded;
 
 extern ConVar_ServerBounded *cl_predict;
 extern ConVar_ServerBounded *cl_interp;

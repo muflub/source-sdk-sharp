@@ -10,9 +10,9 @@ abstract_class IViewEffects
 {
 public:
 	// Initialize subsystem
-	virtual void	Init( void ) = 0;
+	virtual void	Init() = 0;
 	// Initialize after each level change
-	virtual void	LevelInit( void ) = 0;
+	virtual void	LevelInit() = 0;
 	// Called each frame to determine the current view fade parameters ( color and alpha )
 	virtual void unused_GetFadeParams() = 0;
 	// Apply directscreen shake

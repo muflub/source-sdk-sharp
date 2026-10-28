@@ -1,8 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #pragma once
 
-#include "tier0/platform.h"
-
 // commonmacros.h
 // This should contain ONLY general purpose macros that are 
 // appropriate for use in engine/launcher/all tools

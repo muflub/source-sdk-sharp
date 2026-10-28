@@ -1277,13 +1277,13 @@ template<class T> class CMessageQueue
 	MsgNode *Tail;
 
 public:
-	CMessageQueue( void )
+	CMessageQueue()
 	{
 		Head = Tail = NULL;
 	}
 
 	// check for a message. not 100% reliable - someone could grab the message first
-	bool MessageWaiting( void ) 
+	bool MessageWaiting() 
 	{
 		return ( Head != NULL );
 	}

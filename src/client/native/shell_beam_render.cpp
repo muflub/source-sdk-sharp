@@ -105,8 +105,8 @@ public:
 		m_vecMaxs.Init( p9[6], p9[7], p9[8] );
 	}
 
-	const Vector &GetRenderOrigin( void ) override { return m_vecOrigin; }
-	const QAngle &GetRenderAngles( void ) override { return vec3_angle; }
+	const Vector &GetRenderOrigin() override { return m_vecOrigin; }
+	const QAngle &GetRenderAngles() override { return vec3_angle; }
 
 	const matrix3x4_t &RenderableToWorldTransform() override
 	{
@@ -121,8 +121,8 @@ public:
 		maxs = m_vecMaxs;
 	}
 
-	bool ShouldDraw( void ) override { return true; }
-	bool IsTransparent( void ) override { return true; }
+	bool ShouldDraw() override { return true; }
+	bool IsTransparent() override { return true; }
 	void ComputeFxBlend() override {}
 	int GetFxBlend() override { return 255; }
 
@@ -166,7 +166,7 @@ enum BeamLifecycle_t
 class CSourceSharpBeams : public IViewRenderBeams
 {
 public:
-	void InitBeams( void ) override
+	void InitBeams() override
 	{
 		if ( IManagedBeamsClient *pBeams = ManagedBeamsClient() )
 		{
@@ -177,13 +177,13 @@ public:
 		}
 	}
 
-	void ShutdownBeams( void ) override
+	void ShutdownBeams() override
 	{
 		if ( IManagedBeamsClient *pBeams = ManagedBeamsClient() )
 			pBeams->BeamsLifecycle( BEAM_LIFECYCLE_SHUTDOWN, 0 );
 	}
 
-	void ClearBeams( void ) override
+	void ClearBeams() override
 	{
 		if ( IManagedBeamsClient *pBeams = ManagedBeamsClient() )
 			pBeams->BeamsLifecycle( BEAM_LIFECYCLE_CLEAR, 0 );

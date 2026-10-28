@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "datamap.h"
-
 #define VEHICLE_MAX_AXLE_COUNT	4
 #define VEHICLE_MAX_GEAR_COUNT	6
 

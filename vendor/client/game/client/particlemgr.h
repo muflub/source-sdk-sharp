@@ -310,12 +310,12 @@ private:
 // IClientRenderable overrides.
 public:		
 
-	virtual const Vector&			GetRenderOrigin( void );
-	virtual const QAngle&			GetRenderAngles( void );
+	virtual const Vector&			GetRenderOrigin();
+	virtual const QAngle&			GetRenderAngles();
 	virtual const matrix3x4_t &		RenderableToWorldTransform();
 	virtual void					GetRenderBounds( Vector& mins, Vector& maxs );
-	virtual bool					ShouldDraw( void );
-	virtual bool					IsTransparent( void );
+	virtual bool					ShouldDraw();
+	virtual bool					IsTransparent();
 	virtual int						DrawModel( int flags );
 
 private:

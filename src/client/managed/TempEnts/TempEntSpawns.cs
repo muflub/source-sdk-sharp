@@ -621,9 +621,7 @@ public sealed class TempEntSpawns
     /// <para>
     /// <b>THE IMPACT EFFECT AND THE PARTICLE EFFECT ARE BOTH GONE ALREADY,</b>
     /// and not by this lane: stock's last two parameters default to NULL, both
-    /// live callers pass six arguments, and
-    /// <c>src/sourcesharp/test/tempent_verdict_test.cpp</c> asserts exactly
-    /// that. The particle branch was removed from the native body before this
+    /// live callers pass six arguments. The particle branch was removed from the native body before this
     /// port reached here; <c>m_pszImpactEffect</c> is still a member and is
     /// still NULL, which is what keeps <see cref="ClientTempEntPool"/>'s
     /// re-entrancy note true.

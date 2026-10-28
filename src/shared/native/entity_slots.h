@@ -28,7 +28,7 @@ public:
 	CSourceSharpEntitySlots() { Reset(); }
 
 	// Everything back to closed, and the serial counter with it. Never between frames.
-	void Reset( void )
+	void Reset()
 	{
 		memset( m_Slots, 0, sizeof( m_Slots ) );
 		memset( m_Handles, 0, sizeof( m_Handles ) );
@@ -40,8 +40,8 @@ public:
 		m_nCloses     = 0;
 	}
 
-	SourceSharpEntitySlot_t *Slots( void ) { return m_Slots; }
-	int Count( void ) const { return SOURCESHARP_MAX_ENTITY_SLOTS; }
+	SourceSharpEntitySlot_t *Slots() { return m_Slots; }
+	int Count() const { return SOURCESHARP_MAX_ENTITY_SLOTS; }
 
 	static bool IsEntry( int nEntry )
 	{
@@ -113,7 +113,7 @@ public:
 	// After a managed reload: gives every open slot a new serial so pointers from the
 	// old assembly compare stale. Slots stay open and nDirty is kept, so the last
 	// write the old assembly made is still drained.
-	int Retire( void )
+	int Retire()
 	{
 		for ( int i = 0; i < m_nActive; ++i )
 			m_Slots[ m_Active[i] ].nSerial = NextSerial();
@@ -146,7 +146,7 @@ public:
 	}
 
 	// The open entries, for the drain. Order changes on close.
-	int ActiveCount( void ) const { return m_nActive; }
+	int ActiveCount() const { return m_nActive; }
 	int ActiveAt( int i ) const { return ( i >= 0 && i < m_nActive ) ? m_Active[i] : -1; }
 
 	// Reads and clears the dirty word in one step, so a drain cannot forget to clear it.
@@ -159,12 +159,12 @@ public:
 		return true;
 	}
 
-	int Opens( void ) const { return m_nOpens; }
-	int Closes( void ) const { return m_nCloses; }
+	int Opens() const { return m_nOpens; }
+	int Closes() const { return m_nCloses; }
 
 private:
 	// Monotonic across the session, skipping the sentinel on wrap.
-	uint32_t NextSerial( void )
+	uint32_t NextSerial()
 	{
 		++m_nNextSerial;
 

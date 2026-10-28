@@ -24,7 +24,7 @@
 static char g_PayloadPropNames[ SOURCESHARP_PAYLOAD_MAX_WORDS ][ SOURCESHARP_PAYLOAD_NAME_BYTES ];
 static bool g_bPayloadPropNamesBuilt = false;
 
-static void SourceSharpPayload_BuildPropNames( void )
+static void SourceSharpPayload_BuildPropNames()
 {
 	if ( g_bPayloadPropNamesBuilt )
 		return;
@@ -40,14 +40,14 @@ static void SourceSharpPayload_BuildPropNames( void )
 // The published type table. Both shells must share one, so the answer does not depend on
 // which shell looks a type up.
 #ifdef CLIENT_DLL
-CSourceSharpTypeTable &SourceSharp_NetTypes( void )
+CSourceSharpTypeTable &SourceSharp_NetTypes()
 {
 	static CSourceSharpTypeTable s_Types;
 	return s_Types;
 }
 #else
 // The server's lives on CServerDllState, valid between DLLInit and DLLShutdown.
-CSourceSharpTypeTable &SourceSharp_NetTypes( void )
+CSourceSharpTypeTable &SourceSharp_NetTypes()
 {
 	AssertMsg( ShellGameDll_Dll(), "the net type table was asked for outside DLLInit..DLLShutdown" );
 	return ShellGameDll_Dll()->m_NetTypes;

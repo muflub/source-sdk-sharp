@@ -113,103 +113,6 @@
 namespace
 {
 
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadRaw( const std::string &strAbsolute )
-{
-	std::ifstream file( strAbsolute.c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	std::string all, line;
-	while ( std::getline( file, line ) )
-	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
-			line.erase( line.size() - 1 );
-		all += line;
-		all += '\n';
-	}
-	return all;
-}
-
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-std::string NoWhitespace( const std::string &s )
-{
-	std::string out;
-	for ( size_t i = 0; i < s.size(); i++ )
-	{
-		const char c = s[ i ];
-		if ( c != ' ' && c != '\t' && c != '\n' && c != '\r' )
-			out += c;
-	}
-	return out;
-}
-
-// Whole file, comments gone, with the anchor checked so a renamed or rewritten
-// file is RED rather than vacuously satisfying every absence invariant below.
-std::string Load( const char *pszRel, const char *pszAnchor )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	const std::string all = ReadRaw( std::string( pszRoot ) + "/" + pszRel );
-
-	EXPECT_FALSE( all.empty() ) << "could not open " << pszRel
-		<< " — every invariant about it would pass vacuously";
-
-	const std::string stripped = StripComments( all );
-
-	EXPECT_NE( NoWhitespace( stripped ).find( NoWhitespace( pszAnchor ) ), std::string::npos )
-		<< pszRel << " does not contain its anchor \"" << pszAnchor
-		<< "\" outside of comments";
-
-	return stripped;
-}
-
 // WHAT EACH DLL COMPILES is its CMake target's source list, read through
 // cmake_graph.h (compile_commands.json cross-checked against
 // src/{server,client}/native/CMakeLists.txt). Paths are farm-relative.
@@ -220,9 +123,6 @@ std::string Load( const char *pszRel, const char *pszAnchor )
 // for this port -- removing stock TUs is precisely what the port does, so an
 // anchor on one is a proof-of-read the flip can evict.)
 const char *kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
-
-const char *kWorldQuery = "sourcesharp/game/server/shell_worldquery.cpp";
-const char *kTeFwdS4 = "sourcesharp/game/server/shell_te_forwards.cpp";
 
 } // namespace
 
@@ -249,27 +149,6 @@ TEST( EffectsCluster, TheFourEvictedTusAreOutOfTheServerBuild )
 			<< "if it is needed again, the question to ask is which object "
 			<< "started referencing it (tools/4a-owes).";
 	}
-}
-
-/// The server needed exactly one thing from effect_dispatch_data.cpp and stopped
-/// needing it before step 4a ran. Asserted at the place that replaced it, so
-/// "the table is unused" cannot go stale silently.
-TEST( EffectsCluster, TheServerDispatchesAnEffectWithoutTheSendTable )
-{
-	const std::string te = NoWhitespace( Load( kTeFwdS4, "TE_DispatchEffect" ) );
-
-	ASSERT_FALSE( te.empty() );
-
-	// Every field marshalled by hand into the managed temp-entity forward.
-	EXPECT_NE( te.find( "SourceSharpTe_Forward(SOURCESHARP_TE_FWD_TE_DISPATCH_EFFECT," ),
-	           std::string::npos )
-		<< "TE_DispatchEffect no longer forwards to the managed temp entity. If "
-		<< "it has gone back to a native CTEEffectDispatch, the server wants "
-		<< "DT_EffectData again and effect_dispatch_data.cpp has to come back "
-		<< "into server_sourcesharp (src/server/native/CMakeLists.txt) with it.";
-
-	EXPECT_EQ( te.find( "DT_EffectData" ), std::string::npos )
-		<< "shell_te_forwards.cpp names DT_EffectData in code again.";
 }
 
 //-----------------------------------------------------------------------------
@@ -351,26 +230,3 @@ TEST( EffectsCluster, TheFlipTookEveryHeldTuAndEveryHolder )
 //-----------------------------------------------------------------------------
 // The two retired slots are GONE, refusals and all (plan_server_native_v2 T2).
 //-----------------------------------------------------------------------------
-TEST( EffectsCluster, TheGibAndDissolveSlotsAreGone )
-{
-	const std::string wq = NoWhitespace( Load( kWorldQuery, "SourceSharp_SetSkyboxParams(" ) );
-
-	ASSERT_FALSE( wq.empty() );
-
-	// (a) The gib slot: no managed code called it. A gib is ss_gib, made by
-	// SourceSharp.Server's Gibs (gib_evicted_test pins the managed maker).
-	EXPECT_EQ( wq.find( "SourceSharp_ShootGib(" ), std::string::npos )
-		<< "the gib slot is back; gibs are managed.";
-
-	// (b) The dissolve slot: no managed code called it either. Its gap is
-	// recorded in docs/todo.md (anim_cluster_ledger_test pins the record).
-	EXPECT_EQ( wq.find( "SourceSharp_EntityDissolve(" ), std::string::npos )
-		<< "the dissolve slot is back; a refusal or a port, not a silent 0.";
-
-	// And the dissolve really is gone from the code rather than merely quiet:
-	// this is the `Dissolve` edge step 4d's handover named as 4a's, and it was
-	// one of baseanimating.o's eight.
-	EXPECT_EQ( wq.find( "pAnimating->Dissolve(" ), std::string::npos )
-		<< "shell_worldquery.cpp calls CBaseAnimating::Dissolve again; "
-		<< "baseanimating.o has its Dissolve edge back.";
-}

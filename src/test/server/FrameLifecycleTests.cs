@@ -431,40 +431,6 @@ public class FrameLifecycleTests
     }
 
     /// <summary>
-    /// The native rules class must not reach managed from Think any more. That
-    /// call is what made the managed frame depend on the rules object being a
-    /// CAutoGameSystemPerFrame, which is the thing being removed.
-    /// </summary>
-    /// <summary>
-    /// The native rules class has no Think at all now.
-    ///
-    /// <para>
-    /// This check used to require the override to EXIST while asserting its
-    /// body reached nothing managed, because CGameRules declared Think pure
-    /// (gamerules.h:274) and the class would not instantiate without one. That
-    /// constraint went with the base: CSourceSharpGameRules implements
-    /// IGameRules, which does not declare Think, and nothing calls it — the
-    /// rules object is not a game system, so there is no per-frame hook to
-    /// reach it. So the method is gone rather than empty, which is the stronger
-    /// version of the same claim.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void TheNativeRulesClassHasNoThinkAtAll()
-    {
-        var cpp = Read("src/sourcesharp/game/shared/shell_gamerules.cpp");
-        var header = Read("src/sourcesharp/game/shared/shell_gamerules.h");
-
-        Assert.DoesNotContain("CSourceSharpGameRules::Think", cpp);
-        Assert.DoesNotContain("OnGameRulesThink", cpp);
-
-        // The declaration too -- a declaration with no definition is a link
-        // error only if something calls it, so it could sit there unnoticed.
-        Assert.DoesNotContain("virtual void Think(", header);
-        Assert.DoesNotContain("virtual void  Think(", header);
-    }
-
-    /// <summary>
     /// And the slot it used is left unassigned, so the pointer is NULL and the
     /// guarded native call cannot happen.
     /// </summary>

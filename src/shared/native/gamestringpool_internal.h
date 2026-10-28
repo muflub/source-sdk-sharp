@@ -8,4 +8,4 @@ typedef void ( *GameStringPoolVisitFn )( const char *pszString, void *pContext )
 void GameStringPool_Visit( GameStringPoolVisitFn pfnVisit, void *pContext );
 
 // How many strings the pool holds.
-int GameStringPool_Count( void );
+int GameStringPool_Count();

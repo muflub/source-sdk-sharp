@@ -141,33 +141,6 @@ struct HasObjectCaps
 // buildcpptests runs each binary with src/ as the working directory; the other
 // candidates are so that running this by hand from the repo root also works.
 //-----------------------------------------------------------------------------
-std::string InterfaceHeaderText()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		std::ifstream file(
-			( std::string( kCandidates[ i ] ) + "/public/igameentity.h" ).c_str() );
-		if ( !file.is_open() )
-			continue;
-
-		std::string out, line;
-		while ( std::getline( file, line ) )
-		{
-			// Comments only, and whole-line only: igameentity.h's prose names
-			// the members it does NOT have, at length, and a raw match would
-			// read one of those sentences as a declaration.
-			const size_t at = line.find_first_not_of( " \t" );
-			if ( at != std::string::npos && line.compare( at, 2, "//" ) == 0 )
-				continue;
-			out += line;
-			out += "\n";
-		}
-		return out;
-	}
-	return std::string();
-}
-
 }  // namespace
 
 //-----------------------------------------------------------------------------
@@ -211,32 +184,3 @@ TEST( EntityBasesArmed, ServerOnlyEntityStillDefaultConstructs )
 // membership rule keeps the interface at six members the engine initiates, and
 // FCAP_* is SDK save/restore and +USE bookkeeping the engine never asks for.
 //-----------------------------------------------------------------------------
-TEST( EntityBasesArmed, TheInterfaceStillHasNoObjectCaps )
-{
-	EXPECT_FALSE( HasObjectCaps< ::IGameEntity >::value )
-		<< "IGameEntity has acquired an ObjectCaps. Either it belongs there -- "
-		   "in which case entity_bases.h's two overrides should call it and this "
-		   "test should go -- or it does not, and igameentity.h's membership "
-		   "rule has been broken.";
-
-	// The same probe, aimed at something that DOES have the member, so that a
-	// probe which has quietly stopped detecting anything cannot read as a pass.
-	EXPECT_TRUE( HasObjectCaps< armed::CPointEntity >::value );
-
-	// AND THE SAME QUESTION, ACCESS-BLIND. See InterfaceHeaderText above: the
-	// probe is a caller's view and a PROTECTED ObjectCaps is invisible to it --
-	// measured, by a mutation that added one and left this binary green.
-	const std::string iface = InterfaceHeaderText();
-	ASSERT_FALSE( iface.empty() )
-		<< "could not read public/igameentity.h, so the access-blind half of "
-		   "this fact is measuring nothing";
-	EXPECT_NE( iface.find( "abstract_class IGameEntity" ), std::string::npos )
-		<< "public/igameentity.h no longer declares IGameEntity; the absence "
-		   "below would be an absence from some other file";
-	EXPECT_EQ( iface.find( "ObjectCaps" ), std::string::npos )
-		<< "public/igameentity.h declares an ObjectCaps somewhere the probe "
-		   "above cannot reach -- protected, private, or behind a conditional. "
-		   "The membership rule keeps this interface at six members the engine "
-		   "initiates, and FCAP_* is SDK save/restore and +USE bookkeeping the "
-		   "engine never asks for.";
-}

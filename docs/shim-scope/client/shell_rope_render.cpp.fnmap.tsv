@@ -5,13 +5,13 @@
 5	SLOT-HELP	[RopeCache_t] void Clear()
 1	SLOT-HELP	[CSourceSharpRopeExecutor] CSourceSharpRopeExecutor() : m_iQueued( 0 ), m_pDepthWrite( NULL )
 14	SLOT-HELP	[CSourceSharpRopeExecutor] void Add( int nMaterial, const float *pVerts, int nVerts, const float *pSolid, int nSolid, int nFlags )
-1	SLOT	[CSourceSharpRopeExecutor] virtual void ResetRenderCache( void ) OVERRIDE
+1	SLOT	[CSourceSharpRopeExecutor] virtual void ResetRenderCache() OVERRIDE
 1	SLOT	[CSourceSharpRopeExecutor] virtual void AddToRenderCache( C_RopeKeyframe * ) OVERRIDE
 17	SLOT	[CSourceSharpRopeExecutor] virtual void DrawRenderCache( bool bShadowDepth ) OVERRIDE
-5	SLOT	[CSourceSharpRopeExecutor] virtual void OnRenderStart( void ) OVERRIDE
+5	SLOT	[CSourceSharpRopeExecutor] virtual void OnRenderStart() OVERRIDE
 1	SLOT	[CSourceSharpRopeExecutor] virtual void SetHolidayLightMode( bool ) OVERRIDE
-1	SLOT	[CSourceSharpRopeExecutor] virtual bool IsHolidayLightMode( void ) OVERRIDE
-1	SLOT	[CSourceSharpRopeExecutor] virtual int  GetHolidayLightStyle( void ) OVERRIDE
+1	SLOT	[CSourceSharpRopeExecutor] virtual bool IsHolidayLightMode() OVERRIDE
+1	SLOT	[CSourceSharpRopeExecutor] virtual int  GetHolidayLightStyle() OVERRIDE
 6	SLOT-HELP	[CSourceSharpRopeExecutor] void LevelShutdown()
 40	SLOT-HELP	[CSourceSharpRopeExecutor] void Draw( bool bShadowDepth, RopeCache_t *pCache )
 26	SLOT-HELP	[CSourceSharpRopeExecutor] static void DrawPass( IMatRenderContext *pRenderContext, RopeCache_t *pCache, int iMat, IMaterial *pMaterial,

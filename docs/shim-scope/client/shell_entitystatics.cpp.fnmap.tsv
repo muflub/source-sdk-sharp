@@ -6,4 +6,4 @@
 6	LIVE-API	bool EntityAbs_AreQueriesValid()
 6	LIVE-API	void EntityAbs_SetRecomputationsEnabled( bool bEnable )
 6	LIVE-API	bool EntityAbs_AreRecomputationsEnabled()
-14	SLOT	int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll( void )
+14	SLOT	int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll()

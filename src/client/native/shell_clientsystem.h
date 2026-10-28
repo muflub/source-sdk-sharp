@@ -47,16 +47,16 @@ public:
 };
 
 // The walkers over kClientSystems[], defined in shell_clientsystems.cpp.
-bool SourceSharp_ClientSystemsInit( void );
-void SourceSharp_ClientSystemsPostInit( void );
-void SourceSharp_ClientSystemsShutdown( void );
+bool SourceSharp_ClientSystemsInit();
+void SourceSharp_ClientSystemsPostInit();
+void SourceSharp_ClientSystemsShutdown();
 
-void SourceSharp_ClientSystemsLevelInitPreEntity( void );
-void SourceSharp_ClientSystemsLevelInitPostEntity( void );
-void SourceSharp_ClientSystemsLevelShutdownPreEntity( void );
-void SourceSharp_ClientSystemsLevelShutdownPostEntity( void );
+void SourceSharp_ClientSystemsLevelInitPreEntity();
+void SourceSharp_ClientSystemsLevelInitPostEntity();
+void SourceSharp_ClientSystemsLevelShutdownPreEntity();
+void SourceSharp_ClientSystemsLevelShutdownPostEntity();
 
-void SourceSharp_ClientSystemsPreRender( void );
+void SourceSharp_ClientSystemsPreRender();
 void SourceSharp_ClientSystemsUpdate( float frametime );
 
 // The current map's bare name ("dm_lockdown", not "maps/dm_lockdown.bsp") into

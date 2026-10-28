@@ -42,4 +42,4 @@
 5	BOUNDARY	void ShellShadows_RenderShadowTexture( int w, int h )
 4	HOOK	CClientSystem *ClientShadowMgrGameSystem()
 17	SLOT	int32_t SourceSharp_FlashlightTexture( const char *pszName )
-4	SLOT	int32_t SourceSharp_FlashlightSupportsBorderColor( void )
+4	SLOT	int32_t SourceSharp_FlashlightSupportsBorderColor()

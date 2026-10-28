@@ -3,7 +3,6 @@
 #pragma once
 
 #include "inputsystem/InputEnums.h"
-#include "mathlib/mathlib.h"
 
 // Button enum. "Buttons" are binary-state input devices (mouse buttons, keyboard keys)
 enum

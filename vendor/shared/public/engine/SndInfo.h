@@ -3,4 +3,3 @@
 #pragma once
 
 class Vector;
-#include "utlsymbol.h"

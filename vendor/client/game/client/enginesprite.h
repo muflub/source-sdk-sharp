@@ -20,10 +20,10 @@ public:
 	IMaterial *GetMaterial( RenderMode_t nRenderMode, int nFrame );
 	void SetFrame( RenderMode_t nRenderMode, int nFrame );
 	bool Init( const char *name );
-	void Shutdown( void );
+	void Shutdown();
 	void UnloadMaterial();
 	void SetColor( float r, float g, float b );
-	int GetOrientation( void );
+	int GetOrientation();
 	float GetUp() { return up; }
 	float GetDown() { return down; }
 	float GetLeft() { return left; }

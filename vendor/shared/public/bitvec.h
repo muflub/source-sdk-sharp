@@ -190,8 +190,8 @@ public:
 	void	Copy( const CBitVecT<BASE_OPS> &other, int nBits=-1 );
 	bool	Compare( const CBitVecT<BASE_OPS> &other, int nBits=-1 ) const;
 
-	bool	IsAllClear(void) const;		// Are all bits zero?
-	bool	IsAllSet(void) const;		// Are all bits one?
+	bool	IsAllClear() const;		// Are all bits zero?
+	bool	IsAllSet() const;		// Are all bits one?
 
 	uint32	Get( uint32 bitNum ) const;
 	bool 	IsBitSet( int bitNum ) const;
@@ -205,8 +205,8 @@ public:
 	void 	Clear( uint32 offset, uint32 mask );
 	uint32	Get( uint32 offset, uint32 mask );
 
-	void	SetAll(void);			// Sets all bits
-	void	ClearAll(void);			// Clears all bits
+	void	SetAll();			// Sets all bits
+	void	ClearAll();			// Clears all bits
 
 	uint32	GetDWord(int i) const;
 	void	SetDWord(int i, uint32 val);
@@ -223,7 +223,7 @@ class CVarBitVecBase
 {
 public:
 	bool	IsFixedSize() const			{ return false; }
-	int		GetNumBits(void) const		{ return m_numBits; }
+	int		GetNumBits() const		{ return m_numBits; }
 	void	Resize( int numBits, bool bClearAll = false );		// resizes bit array
 	
 	int 	GetNumDWords() const		{ return m_numInts; }
@@ -239,7 +239,7 @@ protected:
 	CVarBitVecBase();
 	CVarBitVecBase(int numBits);
 	CVarBitVecBase( const CVarBitVecBase<BITCOUNTTYPE> &from );
-	~CVarBitVecBase(void);
+	~CVarBitVecBase();
 	
 	void 		ValidateOperand( const CVarBitVecBase<BITCOUNTTYPE> &operand ) const	{ Assert(GetNumBits() == operand.GetNumBits()); }
 
@@ -254,7 +254,7 @@ private:
 
 	void	AllocInts( int numInts );	// Free the allocated bits
 	void	ReallocInts( int numInts );
-	void	FreeInts( void );			// Free the allocated bits
+	void	FreeInts();			// Free the allocated bits
 };
 
 // class CFixedBitVecBase
@@ -299,7 +299,7 @@ class CFixedBitVecBase
 {
 public:
 	bool	IsFixedSize() const								{ return true; }
-	int		GetNumBits(void) const							{ return NUM_BITS; }
+	int		GetNumBits() const							{ return NUM_BITS; }
 	void	Resize( int numBits, bool bClearAll = false )	{ Assert(numBits == NUM_BITS); if ( bClearAll ) Plat_FastMemset( m_Ints, 0, NUM_INTS * sizeof(uint32) ); }// for syntatic consistency (for when using templates)
 	
 	int 			GetNumDWords() const					{ return NUM_INTS; }
@@ -378,7 +378,7 @@ inline CVarBitVecBase<BITCOUNTTYPE>::CVarBitVecBase( const CVarBitVecBase<BITCOU
 // Purpose: Destructor
 
 template <typename BITCOUNTTYPE>
-inline CVarBitVecBase<BITCOUNTTYPE>::~CVarBitVecBase(void)
+inline CVarBitVecBase<BITCOUNTTYPE>::~CVarBitVecBase()
 {
 	FreeInts();
 }
@@ -609,7 +609,7 @@ inline void CBitVecT<BASE_OPS>::CopyTo(CBitVecT *out) const
 
 // Purpose: Are all bits zero?
 template <class BASE_OPS>
-inline bool CBitVecT<BASE_OPS>::IsAllClear(void) const
+inline bool CBitVecT<BASE_OPS>::IsAllClear() const
 {
 	// Number of available bits may be more than the number
 	// actually used, so make sure to mask out unused bits
@@ -628,7 +628,7 @@ inline bool CBitVecT<BASE_OPS>::IsAllClear(void) const
 
 // Purpose: Are all bits set?
 template <class BASE_OPS>
-inline bool CBitVecT<BASE_OPS>::IsAllSet(void) const
+inline bool CBitVecT<BASE_OPS>::IsAllSet() const
 {
 	// Number of available bits may be more than the number
 	// actually used, so make sure to mask out unused bits
@@ -647,7 +647,7 @@ inline bool CBitVecT<BASE_OPS>::IsAllSet(void) const
 
 // Purpose: Sets all bits
 template <class BASE_OPS>
-inline void CBitVecT<BASE_OPS>::SetAll(void)		
+inline void CBitVecT<BASE_OPS>::SetAll()		
 {
 	if ( this->Base() )
 		Plat_FastMemset( this->Base(), 0xff, this->GetNumDWords() * sizeof(int) );
@@ -655,7 +655,7 @@ inline void CBitVecT<BASE_OPS>::SetAll(void)
 
 // Purpose: Clears all bits
 template <class BASE_OPS>
-inline void CBitVecT<BASE_OPS>::ClearAll(void)		
+inline void CBitVecT<BASE_OPS>::ClearAll()		
 {
 	if ( this->Base() )
 		Plat_FastMemset( this->Base(), 0, this->GetNumDWords() * sizeof(int) );
@@ -899,7 +899,7 @@ FORCEINLINE_TEMPLATE void CBitVecT< CFixedBitVecBase<256> >::And(const CBitVecT 
 }
 
 template<> 
-FORCEINLINE_TEMPLATE  bool CBitVecT< CFixedBitVecBase<256> >::IsAllClear(void) const
+FORCEINLINE_TEMPLATE  bool CBitVecT< CFixedBitVecBase<256> >::IsAllClear() const
 {
 	const uint32 *pInts = Base();
 	return ( pInts[0] == 0 && pInts[1] == 0 && pInts[2] == 0 && pInts[3] == 0 && pInts[4] == 0 && pInts[5] == 0 && pInts[6] == 0 && pInts[7] == 0 );
@@ -935,7 +935,7 @@ FORCEINLINE_TEMPLATE  void CBitVecT< CFixedBitVecBase<128> >::And(const CBitVecT
 }
 
 template<> 
-FORCEINLINE_TEMPLATE  bool CBitVecT< CFixedBitVecBase<128> >::IsAllClear(void) const
+FORCEINLINE_TEMPLATE  bool CBitVecT< CFixedBitVecBase<128> >::IsAllClear() const
 {
 	const uint32 *pInts = Base();
 	return ( pInts[0] == 0 && pInts[1] == 0 && pInts[2] == 0 && pInts[3] == 0 );
@@ -966,7 +966,7 @@ inline void CBitVecT< CFixedBitVecBase<96> >::And(const CBitVecT &addStr, CBitVe
 }
 
 template<> 
-inline bool CBitVecT< CFixedBitVecBase<96> >::IsAllClear(void) const
+inline bool CBitVecT< CFixedBitVecBase<96> >::IsAllClear() const
 {
 	const uint32 *pInts = Base();
 	return ( pInts[0] == 0 && pInts[1] == 0 && pInts[2] == 0 );
@@ -995,7 +995,7 @@ inline void CBitVecT< CFixedBitVecBase<64> >::And(const CBitVecT &addStr, CBitVe
 }
 
 template<> 
-inline bool CBitVecT< CFixedBitVecBase<64> >::IsAllClear(void) const
+inline bool CBitVecT< CFixedBitVecBase<64> >::IsAllClear() const
 {
 	const uint32 *pInts = Base();
 	return ( pInts[0] == 0 && pInts[1] == 0 );
@@ -1022,7 +1022,7 @@ inline void CBitVecT< CFixedBitVecBase<32> >::And(const CBitVecT &addStr, CBitVe
 }
 
 template<> 
-inline bool CBitVecT< CFixedBitVecBase<32> >::IsAllClear(void) const
+inline bool CBitVecT< CFixedBitVecBase<32> >::IsAllClear() const
 {
 	const uint32 *pInts = Base();
 
@@ -1176,7 +1176,7 @@ inline void CVarBitVecBase<BITCOUNTTYPE>::ReallocInts( int numInts )
 
 // Purpose: Free storage allocated with AllocInts
 template <typename BITCOUNTTYPE>
-inline void CVarBitVecBase<BITCOUNTTYPE>::FreeInts( void )
+inline void CVarBitVecBase<BITCOUNTTYPE>::FreeInts()
 {
 	if ( m_numInts > 1 )
 	{

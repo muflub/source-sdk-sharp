@@ -128,7 +128,7 @@ typedef SpewRetval_t (*SpewOutputFunc_t)( SpewType_t spewType, const tchar *pMsg
 DBG_INTERFACE void   SpewOutputFunc( SpewOutputFunc_t func );
 
 /* Used to get the current spew output function */
-DBG_INTERFACE SpewOutputFunc_t GetSpewOutputFunc( void );
+DBG_INTERFACE SpewOutputFunc_t GetSpewOutputFunc();
 
 DBG_INTERFACE bool   IsSpewActive( const tchar* pGroupName, int level );
 

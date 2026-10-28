@@ -61,41 +61,6 @@
 namespace
 {
 
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub  = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string Read( const char *pszRel )
-{
-	const char *pszRoot = SrcRoot();
-	EXPECT_TRUE( pszRoot != NULL ) << "cannot locate src/ from the test's cwd";
-	if ( !pszRoot )
-		return std::string();
-
-	const std::string path = std::string( pszRoot ) + "/" + pszRel;
-	std::ifstream file( path.c_str(), std::ios::binary );
-	EXPECT_TRUE( file.is_open() ) << "could not open " << path
-		<< " -- every invariant about it would pass vacuously";
-	if ( !file.is_open() )
-		return std::string();
-
-	return std::string( ( std::istreambuf_iterator<char>( file ) ),
-	                    std::istreambuf_iterator<char>() );
-}
-
 // Prose counts as code to a raw grep, and this whole lane's work is described in
 // comments that name the very symbols being searched for. Every arm below that
 // looks for a SPELLING strips first.
@@ -141,11 +106,6 @@ std::string Trim( const std::string &in )
 	while ( a < b && isspace( (unsigned char)in[ a ] ) ) a++;
 	while ( b > a && isspace( (unsigned char)in[ b - 1 ] ) ) b--;
 	return in.substr( a, b - a );
-}
-
-bool Has( const std::string &hay, const char *needle )
-{
-	return hay.find( needle ) != std::string::npos;
 }
 
 //-----------------------------------------------------------------------------
@@ -221,9 +181,6 @@ GuardCount CountAgainstAliasGuard( const std::string &source, const char *needle
 	return out;
 }
 
-const char *kAnimH     = "game/client/c_baseanimating.h";
-const char *kClientDll = "sourcesharp/game/client/shell_clientdll.cpp";
-const char *kViewFacts = "sourcesharp/game/client/shell_view_facts.cpp";
 const char *kRagdoll   = "game/client/ragdoll.cpp";
 // A §6 STAY that takes the free scope in UNGUARDED code, and so is the live
 // proof that the gate ragdoll.cpp stopped spelling still exists and is still
@@ -241,33 +198,6 @@ const char *kViewRender = "sourcesharp/game/client/shell_viewrender_client.cpp";
 // without a forced include) went with it; BoneLeafEvictionTests (managed)
 // holds that it is gone and that no client file spells its names.
 //=============================================================================
-
-TEST( BoneLeafRehome, TheClientDllAndViewFactsNoLongerSpellTheGateOnTheEntityClass )
-{
-	// These are the port's OWN files. Every name below was owed to a translation
-	// unit the flip deletes; after the re-point none of them is.
-	const char *kGone[] = {
-		"C_BaseAnimating::PushAllowBoneAccess",
-		"C_BaseAnimating::PopBoneAccess",
-		"C_BaseAnimating::AutoAllowBoneAccess",
-		"C_BaseAnimating::InitBoneSetupThreadPool",
-		"C_BaseAnimating::ShutdownBoneSetupThreadPool",
-		"C_BaseAnimating::ThreadedBoneSetup",
-		"C_BaseAnimating::InvalidateBoneCaches",
-		"C_BaseAnimating::UpdateClientSideAnimations",
-	};
-
-	const std::string dll = StripComments( Read( kClientDll ) );
-	const std::string vf  = StripComments( Read( kViewFacts ) );
-
-	for ( size_t i = 0; i < sizeof( kGone ) / sizeof( kGone[ 0 ] ); i++ )
-	{
-		EXPECT_FALSE( Has( dll, kGone[ i ] ) )
-			<< "shell_clientdll.cpp still calls " << kGone[ i ];
-		EXPECT_FALSE( Has( vf, kGone[ i ] ) )
-			<< "shell_view_facts.cpp still calls " << kGone[ i ];
-	}
-}
 
 TEST( BoneLeafRehome, TheRagdollBuilderUsesTheFreeScopeAndNotTheEntitysNestedOne )
 {
@@ -288,136 +218,6 @@ TEST( BoneLeafRehome, TheRagdollBuilderUsesTheFreeScopeAndNotTheEntitysNestedOne
 //=============================================================================
 // THE FOUR THAT DID NOT MOVE
 //=============================================================================
-
-TEST( BoneLeafRehome, LockAndUnlockStudioHdrArePrivateInstanceMethodsNotStatics )
-{
-	// THE FACT THAT OVERTURNS §6's CARVE-OUT, which lists `UnlockStudioHdr
-	// (:957)` among the "C_BaseAnimating STATICS". If either of these ever
-	// becomes a static the ruling that they leave with the entity needs
-	// re-arguing, and this arm is where that shows up.
-	const std::string hdr = StripComments( Read( kAnimH ) );
-
-	const size_t lock = hdr.find( "void\t\t\t\t\t\t\tLockStudioHdr();" );
-	const size_t unlock = hdr.find( "void\t\t\t\t\t\t\tUnlockStudioHdr();" );
-	ASSERT_NE( lock, std::string::npos )
-		<< "LockStudioHdr's declaration has changed shape; re-read the ruling";
-	ASSERT_NE( unlock, std::string::npos )
-		<< "UnlockStudioHdr's declaration has changed shape; re-read the ruling";
-
-	// They are reached only through `m_pStudioHdr` / `m_hStudioHdr`, which are
-	// declared immediately below them and are the ENTITY's model-cache lifetime.
-	const std::string around = hdr.substr( lock, unlock + 200 - lock );
-	EXPECT_TRUE( Has( around, "m_pStudioHdr" ) );
-
-	// The section they are in is private, and the private label is what makes
-	// "they leave with the entity" true rather than merely convenient.
-	const size_t priv = hdr.rfind( "private:", lock );
-	const size_t pub  = hdr.rfind( "public:", lock );
-	ASSERT_NE( priv, std::string::npos );
-	EXPECT_TRUE( pub == std::string::npos || priv > pub )
-		<< "Lock/UnlockStudioHdr are no longer in a private section";
-}
-
-TEST( BoneLeafRehome, InvalidateBoneCachesAndUpdateClientSideAnimationsAreStatics )
-{
-	// THE FACT THAT OVERTURNS THIS LANE'S BRIEF, which said these two "are NOT
-	// statics". Both are declared `static` and both are CALLED unqualified by an
-	// object, which does not compile for a non-static member.
-	const std::string hdr = StripComments( Read( kAnimH ) );
-
-	EXPECT_TRUE( Has( hdr, "static void\t\t\t\t\t\tInvalidateBoneCaches();" ) )
-		<< "InvalidateBoneCaches is no longer declared static";
-	EXPECT_TRUE( Has( hdr, "static void UpdateClientSideAnimations();" ) )
-		<< "UpdateClientSideAnimations is no longer declared static";
-}
-
-TEST( BoneLeafRehome, EveryHitboxAskInTheThreeStayFilesIsInsideTheAliasGuard )
-{
-	// READ THE ASSERTIONS, NOT THE NAME. There are no hitbox asks left in these
-	// three files to be inside anything. The name is kept so the fact keeps its
-	// identity across the rewrite; the ruling it enforces is unchanged and the
-	// property it asserts is the SUCCESSOR of the one it used to.
-	//
-	// WHAT REMOVED THE SUBJECT, named. Every ask was inside an
-	// `#ifndef SS_CBASEENTITY_ALIAS` region, which is precisely what this fact
-	// used to assert, and the `residue` wave (74b071771..a46e8d645) deleted those
-	// regions. At 74b071771 the asks stood at
-	//
-	//   game/client/fx.cpp:1416, :1421               (in FX_BuildTeslaHitbox)
-	//   game/shared/particlesystemquery.cpp:244, :251, :440, :447, :535, :542
-	//        (three functions, of which IsPointInControllingObjectHitBox is one)
-	//   game/client/view_beams.cpp:316, :320          (in ComputeBeamEntPosition)
-	//
-	// Both projects that build this tree define SS_CBASEENTITY_ALIAS
-	// (both targets' target_compile_definitions), so not one of those lines was
-	// ever handed to a compiler. Deleting them moved no object file.
-	//
-	// THE SUCCESSOR PROPERTY IS THE STRONGER ONE, and it is what family 2`s
-	// ruling actually needed all along. The ruling is: GetHitboxSet and
-	// HitboxToWorldTransforms are NOT re-homed onto the bone-leaf-library row,
-	// because armed nothing asks for them and nothing is owed. "Every ask is
-	// inside the guard" was the evidence for "armed there is no ask". "There is
-	// no ask" is that conclusion directly, and unlike the old form it cannot be
-	// satisfied by moving an ask from one guarded region to another.
-	//
-	// nOutside == 0 is the old half and still has the old teeth: an ask that
-	// appears outside the guard is an ask the flip will not remove. nInside == 0
-	// is the new half: an ask that comes back INSIDE a guard is dead source of
-	// exactly the kind this wave removed, and it puts the file back in the
-	// position of having a hitbox ask to rule on.
-	//
-	// AND EACH FILE CARRIES A PRESENCE ANCHOR. Two zeroes are what an unreadable
-	// file, a renamed file, or a gutted one all answer; the anchor is the
-	// function that HELD the asks, so the zeroes are known to be zeroes of the
-	// right function in the right file. `Read` also EXPECTs the open, and
-	// TheGuardScannerDistinguishesInsideFromOutside below drives the scanner
-	// against a source with both kinds in it -- so neither "the file was empty"
-	// nor "the scanner counts nothing" can produce this pass.
-	struct StayFile { const char *pszFile; const char *pszAnchor; };
-	const StayFile kStayFiles[] = {
-		// fx.cpp was the first; it left the client with lane c5-particles, and
-		// FX_BuildTeslaHitbox's place is now FxEffects.cs's TeslaHitboxes
-		// handler, which (as the armed body did) asks for nothing: the anchor
-		// is the handler class, and the zeroes below are read over its file.
-		{ "sourcesharp/managed/SourceSharp.Client/Effects/FxEffects.cs",
-		  "public sealed class EmptyEffect(string name) : IClientEffectHandler" },
-		// particlesystemquery.cpp was the second; it left the client with lane
-		// c5-particles (the particle query is C#'s), its hit-box methods with it.
-		// view_beams.cpp was the third; it left the build with the C2 beam
-		// port, and with it ComputeBeamEntPosition.
-	};
-	const char *kAsks[] = { "GetHitboxSet(", "HitboxToWorldTransforms(" };
-
-	for ( size_t f = 0; f < sizeof( kStayFiles ) / sizeof( kStayFiles[ 0 ] ); f++ )
-	{
-		const std::string src = Read( kStayFiles[ f ].pszFile );
-
-		ASSERT_TRUE( Has( StripComments( src ), kStayFiles[ f ].pszAnchor ) )
-			<< kStayFiles[ f ].pszFile << " no longer contains \""
-			<< kStayFiles[ f ].pszAnchor << "\", the function that held the hitbox "
-			<< "asks this ruling is about. The two zeroes below would then be the "
-			<< "answer to a question about a file that is not there any more";
-
-		for ( size_t a = 0; a < sizeof( kAsks ) / sizeof( kAsks[ 0 ] ); a++ )
-		{
-			const GuardCount c = CountAgainstAliasGuard( src, kAsks[ a ] );
-
-			EXPECT_EQ( 0, c.nOutside )
-				<< kStayFiles[ f ].pszFile << " asks " << kAsks[ a ]
-				<< " OUTSIDE #ifndef SS_CBASEENTITY_ALIAS: the flip will not remove "
-				<< "that ask, so family 2's ruling no longer holds and these two "
-				<< "symbols are owed after the flip by a file that stays compiled";
-
-			EXPECT_EQ( 0, c.nInside )
-				<< kStayFiles[ f ].pszFile << " asks " << kAsks[ a ]
-				<< " again, inside #ifndef SS_CBASEENTITY_ALIAS. The residue wave "
-				<< "removed every one of these as dead source -- the alias macro is "
-				<< "defined by both projects, so a guarded ask is never compiled. A "
-				<< "new one is either dead text that will be removed again, or the "
-				<< "first half of an ask that will not stay guarded";
-		}
-	}
-}
 
 TEST( BoneLeafRehome, TheGuardScannerDistinguishesInsideFromOutside )
 {

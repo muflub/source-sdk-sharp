@@ -261,8 +261,8 @@ public:
 	virtual void UiSetMenuInput( int32_t bMouse, int32_t bKeyboard ) = 0;
 	virtual void UiSetCursor( int32_t nShape ) = 0;
 	virtual int32_t UiDebugOverlayText( int32_t nIndex, float *pOutX, float *pOutY, int32_t *pOutLine, uint32_t *pOutRgba, uint8_t *pText, int32_t nTextBytes ) = 0;
-	virtual void UiDebugOverlayClearDead( void ) = 0;
-	virtual void ClientModeLayout( void ) = 0;
+	virtual void UiDebugOverlayClearDead() = 0;
+	virtual void ClientModeLayout() = 0;
 };
 
 // The executor for managed particle sims, one per (owner, channel), registered with

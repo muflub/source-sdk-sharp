@@ -2,7 +2,7 @@
 // render interfaces, one line each. Off unless managed code asks for a frame.
 #pragma once
 
-#include <stdint.h>
+
 
 namespace RenderTrace
 {

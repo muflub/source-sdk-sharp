@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "mathlib/mathlib.h"
-
 struct CompressedLightCube
 {
 	DECLARE_BYTESWAP_DATADESC();

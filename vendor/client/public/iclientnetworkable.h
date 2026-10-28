@@ -63,11 +63,11 @@ public:
 	virtual void			PostDataUpdate( DataUpdateType_t updateType ) = 0;
 
 	// Objects become dormant on the client if they leave the PVS on the server.
-	virtual bool			IsDormant( void ) = 0;
+	virtual bool			IsDormant() = 0;
 
 	// Ent Index is the server handle used to reference this entity.
 	// If the index is < 0, that indicates the entity is not known to the server
-	virtual int				entindex( void ) const = 0;
+	virtual int				entindex() const = 0;
 
 	// Server to client entity message received
 	virtual void			ReceiveMessage( int classID, bf_read &msg ) = 0;
@@ -78,7 +78,7 @@ public:
 
 	// Tells the entity that it's about to be destroyed due to the client receiving
 	// an uncompressed update that's caused it to destroy all entities & recreate them.
-	virtual void			SetDestroyedOnRecreateEntities( void ) = 0;
+	virtual void			SetDestroyedOnRecreateEntities() = 0;
 
 	virtual void			OnDataUnchangedInPVS() = 0;
 };

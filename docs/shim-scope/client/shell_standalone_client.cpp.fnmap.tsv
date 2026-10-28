@@ -7,7 +7,7 @@
 37	SLOT	void C_StandaloneEntity::PostDataUpdate( DataUpdateType_t updateType )
 14	SLOT	void C_StandaloneEntity::NotifyShouldTransmit( ShouldTransmitState_t state )
 8	SLOT-HELP	void C_StandaloneEntity::SetDormant( bool bDormant )
-9	BOUNDARY	void C_StandaloneEntity::PushDormancy( void )
+9	BOUNDARY	void C_StandaloneEntity::PushDormancy()
 4	BOUNDARY	void C_StandaloneEntity::NoteNetworkedPosition()
 5	SLOT-HELP	void C_StandaloneEntity::PostInterpolate( float flCurrentTime )
 8	SLOT-HELP	void C_StandaloneEntity::PublishRenderPose()
@@ -15,8 +15,8 @@
 19	BOUNDARY	void C_StandaloneEntity::AddToLeafSystem()
 11	BOUNDARY	void C_StandaloneEntity::UpdateVisibility()
 8	BOUNDARY	void C_StandaloneEntity::RemoveFromLeafSystem()
-4	SLOT	const model_t *C_StandaloneEntity::GetModel( void ) const
-15	SLOT	bool C_StandaloneEntity::ShouldDraw( void )
+4	SLOT	const model_t *C_StandaloneEntity::GetModel() const
+15	SLOT	bool C_StandaloneEntity::ShouldDraw()
 12	BOUNDARY	void C_StandaloneEntity::PredictionDrive( const SourceSharpClientPlayerView &view )
 24	SLOT	void C_StandaloneEntity::GetRenderBounds( Vector &mins, Vector &maxs )
 5	BOUNDARY	void C_StandaloneEntity::CreateModelInstance()
@@ -96,7 +96,7 @@
 4	SLOT-HELP	int SourceSharp_StandaloneClientCount()
 6	SLOT-HELP	C_StandaloneEntity *SourceSharp_StandaloneClientAt( int nIndex )
 13	HOOK	int SourceSharp_StandaloneClientsLevelShutdown()
-4	SLOT-HELP	int32_t SourceSharp_StandaloneClientsInvalidateBoneCaches( void )
+4	SLOT-HELP	int32_t SourceSharp_StandaloneClientsInvalidateBoneCaches()
 6	BOUNDARY	void SourceSharp_ActivateOccluder( int32_t nOccluderIndex, int32_t bActive )
 7	BOUNDARY	void C_StandaloneEntity::SetCustomDraw( const Vector &mins, const Vector &maxs )
 7	BOUNDARY	void C_StandaloneEntity::SetBlending( bool bTranslucent, bool bIgnoreZ, int nAlpha )

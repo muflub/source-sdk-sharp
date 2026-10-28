@@ -1,9 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #pragma once
 
-#include "mathlib/vector.h"
 #include "particles_simple.h"
-#include "c_pixel_visibility.h"
 
 class Vector;
 class CGameTrace;
@@ -29,7 +27,7 @@ void FX_TracerSound( const Vector &start, const Vector &end, int iTracerType );
 // Lighting information utility
 void UTIL_GetNormalizedColorTintAndLuminosity( const Vector &color, Vector *tint = NULL, float *luminosity = NULL );
 
-extern void FX_CacheMaterialHandles( void );
+extern void FX_CacheMaterialHandles();
 
 extern PMaterialHandle g_Mat_Fleck_Wood[2];
 extern PMaterialHandle g_Mat_Fleck_Cement[2];

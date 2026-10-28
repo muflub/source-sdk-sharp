@@ -10,10 +10,10 @@
 // standalone_relays.cpp.
 #pragma once
 
-#include <stdint.h>
-#include "mathlib/vector.h"
 
-#include "igameentity_fwd.h"
+
+
+
 #include "igameentity.h"
 namespace ss { class CTakeDamageInfo; }
 class IHandleEntity;

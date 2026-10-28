@@ -51,10 +51,10 @@ public:
 	virtual IClientUnknown*	GetIClientUnknown() = 0;
 
 	// Data accessors
-	virtual Vector const&			GetRenderOrigin( void ) = 0;
-	virtual QAngle const&			GetRenderAngles( void ) = 0;
-	virtual bool					ShouldDraw( void ) = 0;
-	virtual bool					IsTransparent( void ) = 0;
+	virtual Vector const&			GetRenderOrigin() = 0;
+	virtual QAngle const&			GetRenderAngles() = 0;
+	virtual bool					ShouldDraw() = 0;
+	virtual bool					IsTransparent() = 0;
 	virtual bool					UsesPowerOfTwoFrameBufferTexture() = 0;
 	virtual bool					UsesFullFrameBufferTexture() = 0;
 
@@ -72,7 +72,7 @@ public:
 
 	// Determine alpha and blend amount for transparent objects based on render state info
 	virtual void	ComputeFxBlend( ) = 0;
-	virtual int		GetFxBlend( void ) = 0;
+	virtual int		GetFxBlend() = 0;
 
 	// Determine the color modulation amount
 	virtual void	GetColorModulation( float* color ) = 0;
@@ -88,7 +88,7 @@ public:
 	virtual bool	SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime ) = 0;
 
 	virtual void	SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount, float *pFlexWeights, float *pFlexDelayedWeights ) = 0;
-	virtual void	DoAnimationEvents( void ) = 0;
+	virtual void	DoAnimationEvents() = 0;
 	
 	// Return this if you want PVS notifications. See IPVSNotify for more info.	
 	// Note: you must always return the same value from this function. If you don't,
@@ -136,13 +136,13 @@ public:
 	virtual bool GetAttachment( int number, matrix3x4_t &matrix ) = 0;
 
 	// Rendering clip plane, should be 4 floats, return value of NULL indicates a disabled render clip plane
-	virtual float *GetRenderClipPlane( void ) = 0;
+	virtual float *GetRenderClipPlane() = 0;
 
 	// Get the skin parameter
 	virtual int		GetSkin() = 0;
 
 	// Is this a two-pass renderable?
-	virtual bool	IsTwoPass( void ) = 0;
+	virtual bool	IsTwoPass() = 0;
 
 	virtual void	OnThreadedDrawSetup() = 0;
 
@@ -150,7 +150,7 @@ public:
 
 	virtual void	RecordToolMessage() = 0;
 
-	virtual bool	IgnoresZBuffer( void ) const = 0;
+	virtual bool	IgnoresZBuffer() const = 0;
 };
 
 // This class can be used to implement default versions of some of the 
@@ -163,15 +163,15 @@ public:
 		m_hRenderHandle = INVALID_CLIENT_RENDER_HANDLE;
 	}
 
-	virtual const Vector &			GetRenderOrigin( void ) = 0;
-	virtual const QAngle &			GetRenderAngles( void ) = 0;
+	virtual const Vector &			GetRenderOrigin() = 0;
+	virtual const QAngle &			GetRenderAngles() = 0;
 	virtual const matrix3x4_t &		RenderableToWorldTransform() = 0;
-	virtual bool					ShouldDraw( void ) = 0;
-	virtual bool					IsTransparent( void ) = 0;
-	virtual bool					IsTwoPass( void ) { return false; }
+	virtual bool					ShouldDraw() = 0;
+	virtual bool					IsTransparent() = 0;
+	virtual bool					IsTwoPass() { return false; }
 	virtual void					OnThreadedDrawSetup() {}
-	virtual bool					UsesPowerOfTwoFrameBufferTexture( void ) { return false; }
-	virtual bool					UsesFullFrameBufferTexture( void ) { return false; }
+	virtual bool					UsesPowerOfTwoFrameBufferTexture() { return false; }
+	virtual bool					UsesFullFrameBufferTexture() { return false; }
 
 	virtual ClientShadowHandle_t	GetShadowHandle() const
 	{
@@ -194,7 +194,7 @@ public:
 	virtual bool					LODTest()				{ return true; }
 	virtual bool					SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime )	{ return true; }
 	virtual void					SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount, float *pFlexWeights, float *pFlexDelayedWeights ) {}
-	virtual void					DoAnimationEvents( void )						{}
+	virtual void					DoAnimationEvents()						{}
 	virtual IPVSNotify*				GetPVSNotifyInterface() { return NULL; }
 	virtual void					GetRenderBoundsWorldspace( Vector& absMins, Vector& absMaxs ) { DefaultRenderBoundsWorldspace( this, absMins, absMaxs ); }
 
@@ -238,7 +238,7 @@ public:
 	virtual float *GetRenderClipPlane() { return NULL; }
 
 	virtual void RecordToolMessage() {}
-	virtual bool IgnoresZBuffer( void ) const { return false; }
+	virtual bool IgnoresZBuffer() const { return false; }
 
 // IClientUnknown implementation.
 public:

@@ -21,13 +21,13 @@ class INetworkStringTable
 {
 public:
 
-	virtual					~INetworkStringTable( void ) {};
+	virtual					~INetworkStringTable() {};
 		
 	// Table Info
-	virtual const char		*GetTableName( void ) const = 0;
-	virtual TABLEID			GetTableId( void ) const = 0;
-	virtual int				GetNumStrings( void ) const = 0;
-	virtual int				GetMaxStrings( void ) const = 0;
+	virtual const char		*GetTableName() const = 0;
+	virtual TABLEID			GetTableId() const = 0;
+	virtual int				GetNumStrings() const = 0;
+	virtual int				GetMaxStrings() const = 0;
 	virtual void unused_GetEntryBits() = 0;
 
 	// Networking
@@ -50,7 +50,7 @@ class INetworkStringTableContainer
 {
 public:
 	
-	virtual					~INetworkStringTableContainer( void ) {};
+	virtual					~INetworkStringTableContainer() {};
 	
 	// table creation/destruction
 	virtual INetworkStringTable	*CreateStringTable( const char *tableName, int maxentries, int userdatafixedsize = 0, int userdatanetworkbits = 0 ) = 0;

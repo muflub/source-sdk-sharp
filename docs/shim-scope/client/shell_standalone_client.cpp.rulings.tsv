@@ -82,7 +82,7 @@ void SourceSharp_StandaloneViewModelToEye(	BOUNDARY	the eye pose managed's view 
 C_StandaloneEntity *SourceSharp_LocalPlayerShell()	SLOT-HELP	accessor of the local-player latch
 ClientClass *C_StandaloneEntity::GetClientClass()	SLOT	IClientNetworkable: the tier's ClientClass
 bool C_StandaloneEntity::IsRagdoll() const	SLOT-HELP	accessor of managed's ragdoll flag
-const model_t *C_StandaloneEntity::GetModel( void ) const	SLOT	IClientRenderable: the networked model index through the engine's model info
+const model_t *C_StandaloneEntity::GetModel() const	SLOT	IClientRenderable: the networked model index through the engine's model info
 int C_StandaloneEntity::BlobBytes() const	SLOT-HELP	the tier's byte length (the tier table)
 int SourceSharp_StandaloneBlobOffset()	LAYOUT	the blob's offset in the shell, which the payload props address
 int SourceSharp_StandaloneClientCount()	SLOT-HELP	accessor: the hierarchy list's length, for shell_entitystatics.cpp's walk
@@ -108,7 +108,7 @@ int32_t SourceSharp_StandaloneSurroundingBounds(	BOUNDARY	IShimStandaloneClient:
 static void StandaloneClients_ApplyRenderPolicy()	SLOT-HELP	the PreRender walk: every shell carries out managed's policy (ApplyRenderPolicy)
 CSourceSharpSurfaceRenderer *C_StandaloneEntity::SurfaceRenderer(	SLOT-HELP	the shell's surface renderer, made on managed's first ask
 void C_StandaloneEntity::PostDataUpdate(	SLOT	IClientNetworkable::PostDataUpdate: the packet's time and the re-transform; the managed half made (EnsureManagedHalf), its spawn, dormancy and data handed over behind the schema gate; the local-player latch from the engine's own index; leaf entry on create; the model index and effects word published when they moved (the edges managed's policy serial keys on)
-bool C_StandaloneEntity::ShouldDraw( void )	SLOT	IClientRenderable::ShouldDraw: managed's Drawn and the engine's dormancy, then the OwnerSeenRule managed wrote applied to the live SourceSharp_ThirdPersonSeesOwner (the one term no pass can precompute)
+bool C_StandaloneEntity::ShouldDraw()	SLOT	IClientRenderable::ShouldDraw: managed's Drawn and the engine's dormancy, then the OwnerSeenRule managed wrote applied to the live SourceSharp_ThirdPersonSeesOwner (the one term no pass can precompute)
 void **SourceSharp_ClientInterpBlocks(	BOUNDARY	IShimStandaloneClient::ClientInterpBlocks: every shell's block and the client's interp amount (GetClientInterpAmount, managed's BoundedConVars value) in one crossing; which to write and the delay are managed's InterpolatedSet / InterpolationDelay
 void SourceSharp_ClientInterpAdmitted(	BOUNDARY	IShimStandaloneClient::ClientInterpAdmitted: keeps the handles managed's interpolation admitted, for PreRender's walk
 static void StandaloneClients_PostInterpolate()	SLOT-HELP	the PreRender walk over the set managed admitted: each handle still naming its shell is re-transformed (PostInterpolate)

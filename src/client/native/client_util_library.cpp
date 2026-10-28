@@ -57,14 +57,14 @@ client_textmessage_t *TextMessageGet( const char *pName )
 	return engine->TextMessageGet( pName );
 }
 
-int ScreenHeight( void )
+int ScreenHeight()
 {
 	int w, h;
 	GetHudSize( w, h );
 	return h;
 }
 
-int ScreenWidth( void )
+int ScreenWidth()
 {
 	int w, h;
 	GetHudSize( w, h );
@@ -76,7 +76,7 @@ static CManagedConVarRef	violence_hgibs( "violence_hgibs" );
 static CManagedConVarRef	violence_ablood( "violence_ablood" );
 static CManagedConVarRef	violence_agibs( "violence_agibs" );
 
-bool UTIL_IsLowViolence( void )
+bool UTIL_IsLowViolence()
 {
 	// These convars are kept for legacy support and for testing low violence when the
 	// engine is in normal violence mode; the engine is the final arbiter.

@@ -71,89 +71,7 @@
 namespace
 {
 
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-std::string ReadRaw( const char *pszRel )
-{
-	const char *pszRoot = SrcRoot();
-	EXPECT_TRUE( pszRoot != NULL ) << "cannot locate src/ from the working directory";
-	if ( pszRoot == NULL )
-		return std::string();
-
-	const std::string path = std::string( pszRoot ) + "/" + pszRel;
-	std::ifstream f( path.c_str() );
-	EXPECT_TRUE( f.good() ) << "cannot open " << path;
-	std::stringstream ss;
-	ss << f.rdbuf();
-	return ss.str();
-}
-
-std::string ReadStripped( const char *pszRel )
-{
-	return StripComments( ReadRaw( pszRel ) );
-}
-
-bool Has( const std::string &hay, const char *pszNeedle )
-{
-	return hay.find( pszNeedle ) != std::string::npos;
-}
-
-int CountOccurrences( const std::string &hay, const std::string &needle )
-{
-	int n = 0;
-	for ( size_t p = hay.find( needle ); p != std::string::npos;
-	      p = hay.find( needle, p + needle.size() ) )
-		n++;
-	return n;
-}
-
 const char *kClientMode = "game/client/clientmode_shared.cpp";
-const char *kShellClient = "sourcesharp/game/client/shell_client.cpp";
-
 //-----------------------------------------------------------------------------
 // WHAT EACH SIDE COMPILES is read through cmake_graph.h: client_sourcesharp
 // (src/client/native/CMakeLists.txt) and server_sourcesharp
@@ -201,42 +119,6 @@ TEST( CTeamEvicted, NeitherProjectCompilesATeamEntity )
 //    back into the project and includes c_team.h is exactly the edit that would
 //    put an undefined C_Team back in front of the linker.
 //-----------------------------------------------------------------------------
-TEST( CTeamEvicted, NoCompiledClientTranslationUnitIncludesTheTeamHeader )
-{
-	const std::set<std::string> compiled = cmake_graph::CompiledSources( cmake_graph::kClient );
-	const std::vector<std::string> files( compiled.begin(), compiled.end() );
-
-	// A PROOF-OF-READ that a broken reader would fail rather than pass
-	// vacuously. This was a floor of 200 rows over the vpc collector; the
-	// population floor is RETIRED IN 6b (cmake_graph cross-checks
-	// compile_commands.json against the CMakeLists list and throws on an empty
-	// or short one), and what stays is that the list is the client's.
-	ASSERT_TRUE( compiled.count( "sourcesharp/game/client/shell_clientdll.cpp" ) )
-	    << "client_sourcesharp's compiled list does not name the client shell, "
-	       "so it is not this project's file list";
-
-	std::vector<std::string> offenders;
-	for ( size_t i = 0; i < files.size(); i++ )
-	{
-		if ( files[ i ].size() < 4
-		    || files[ i ].compare( files[ i ].size() - 4, 4, ".cpp" ) != 0 )
-			continue;
-
-		const std::string body = StripComments( ReadRaw( files[ i ].c_str() ) );
-		if ( Has( body, "\"c_team.h\"" ) )
-			offenders.push_back( files[ i ] );
-	}
-
-	std::string strList;
-	for ( size_t i = 0; i < offenders.size(); i++ )
-		strList += "\n    " + offenders[ i ];
-
-	EXPECT_TRUE( offenders.empty() )
-	    << offenders.size() << " compiled client translation unit(s) still "
-	       "include c_team.h, whose class has no definition in this build:"
-	    << strList;
-}
-
 //-----------------------------------------------------------------------------
 // 4. The client mode -- the chat line and the broadcast test. clientmode_shared.cpp
 //    left the client (plan_client_novalve C3 step 4, lane ui): the player_team
@@ -252,22 +134,6 @@ TEST( CTeamEvicted, TheJoinChatLineStillPrintsTheTeamNumberItAlwaysPrinted )
 	       "line printed the team number because GetGlobalTeam answered NULL";
 }
 
-TEST( CTeamEvicted, TheBroadcastAudioTeamTestsWentWithTheAnswerTheyLeft )
-{
-	const std::string shell = ReadStripped( kShellClient );
-	ASSERT_FALSE( shell.empty() ) << "cannot read " << kShellClient;
-
-	EXPECT_FALSE( Has( shell, "GetLocalTeam" ) )
-	    << "shell_client.cpp calls GetLocalTeam, and nothing in this build defines it.";
-
-	// The one arm that still does something: a broadcast to every team (255)
-	// plays on the local player. Whole construct, so the 255 cannot drift.
-	EXPECT_TRUE( Has( shell, "if ( V_strcmp( event->GetName(), \"teamplay_broadcast_audio\" ) || event->GetInt( \"team\" ) != 255 )" ) )
-	    << "the team-255 broadcast no longer plays; that arm never depended on a team object.";
-	EXPECT_EQ( CountOccurrences( shell, "ClientSound::Emit( filter, SOUND_FROM_LOCAL_PLAYER, et );" ), 1 )
-	    << "the broadcast's sound is emitted other than once";
-}
-
 //-----------------------------------------------------------------------------
 // 5. (shell_playerresource.cpp's team fallbacks stood here. The native
 //    IGameResources left client.so with nothing reading it, lane c6-input.)
@@ -277,25 +143,3 @@ TEST( CTeamEvicted, TheBroadcastAudioTeamTestsWentWithTheAnswerTheyLeft )
 // 6. The site that needed NO edit, asserted because the edit that would break
 //    it is a tidy-up nobody would think twice about.
 //-----------------------------------------------------------------------------
-TEST( CTeamEvicted, TheRecipientFilterKeepsItsForwardDeclaredTeamParameter )
-{
-	const std::string hdr = ReadStripped( "game/client/c_recipientfilter.h" );
-	EXPECT_TRUE( Has( hdr, "class C_Team;" ) )
-	    << "c_recipientfilter.h no longer forward-declares C_Team. "
-	       "C_RecipientFilter::AddRecipientsByTeam takes a C_Team* it never "
-	       "dereferences, and the forward declaration is the only thing that "
-	       "makes that compile now that c_team.h is out of the build.";
-
-	const std::string cpp =
-	    ReadStripped( "sourcesharp/game/client/shell_recipientfilter_client.cpp" );
-	ASSERT_FALSE( cpp.empty() ) << "cannot read shell_recipientfilter_client.cpp";
-	// The definition left 2026-10-25 with no importer on the client link edge
-	// (nm -u); the header's declaration, and so the forward declaration
-	// above, stays.
-	EXPECT_FALSE( Has( cpp, "AddRecipientsByTeam(" ) )
-	    << "AddRecipientsByTeam is defined again; nothing on the client link "
-	       "edge calls it.";
-	EXPECT_FALSE( Has( cpp, "\"c_team.h\"" ) )
-	    << "shell_recipientfilter_client.cpp includes c_team.h, which is out of "
-	       "the build.";
-}

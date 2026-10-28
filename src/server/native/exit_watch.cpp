@@ -436,7 +436,7 @@ int32_t SourceSharp_ExitWatchRead( int32_t *pOut, int32_t nMax )
 	return ExitWatch_Read( pOut, nMax );
 }
 
-int32_t SourceSharp_ExitWatchDisarm( void )
+int32_t SourceSharp_ExitWatchDisarm()
 {
 	return ExitWatch_Disarm();
 }

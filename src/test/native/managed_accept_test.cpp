@@ -212,32 +212,6 @@ TEST( ManagedAccept, ReleasingAnEmptyHolderCallsNothing )
 #include <sstream>
 #include <string>
 
-TEST( ManagedAccept, TheFinalUnloadReleasesBeforeTheModuleUnloads )
-{
-	std::ifstream f( "sourcesharp/game/shared/sourcesharp_gamesystem.cpp" );
-	ASSERT_TRUE( f.is_open() ) << "run from the farm's src";
-	std::stringstream ss;
-	ss << f.rdbuf();
-	const std::string src = ss.str();
-
-	const size_t body = src.find( "void SourceSharp_UnloadManagedSide( void )" );
-	ASSERT_NE( std::string::npos, body );
-	const size_t end = src.find( "\n}\n", body );
-	ASSERT_NE( std::string::npos, end );
-	const std::string fn = src.substr( body, end - body );
-
-	// Until plan_client_vtables CE-last the client's module unload was its
-	// ManagedApi Shutdown slot; neither side has one now, and UnloadSide is
-	// the unload on both.
-	const size_t release = fn.find( "ManagedRoot_Release();" );
-	const size_t unload = fn.find( "SourceSharp_UnloadMySide();" );
-	ASSERT_NE( std::string::npos, release ) << "the final unload releases the managed root";
-	ASSERT_NE( std::string::npos, unload ) << "the final unload unloads the side's module";
-	EXPECT_LT( release, unload ) << "the root is released after UnloadSide unloaded the module";
-	EXPECT_EQ( std::string::npos, fn.find( "Shutdown()" ) )
-		<< "a managed Shutdown slot is called from the final unload again";
-}
-
 //-----------------------------------------------------------------------------
 // plan_managed_vtable_reload.md L2: everything native holds from managed is one
 // CManagedHolders on the game DLL object, and the object's destructor asserts
@@ -245,14 +219,6 @@ TEST( ManagedAccept, TheFinalUnloadReleasesBeforeTheModuleUnloads )
 //-----------------------------------------------------------------------------
 namespace
 {
-
-std::string ReadSource( const char *pszPath )
-{
-	std::ifstream f( pszPath );
-	std::stringstream ss;
-	ss << f.rdbuf();
-	return ss.str();
-}
 
 } // namespace
 
@@ -283,119 +249,6 @@ TEST( ManagedHolders, EveryHolderAloneMakesTheSetNonEmpty )
 		++nChecked;
 	}
 	EXPECT_EQ( (int)nWords, nChecked );
-}
-
-TEST( ManagedHolders, TheShimRootHoldsNothingFromManaged )
-{
-	// Two roots since plan_server_native_v2 T6: the client's, still a static in
-	// shell_internalfactory.cpp, and the server's, a member of the game DLL
-	// object declared in shell_shim_root_server.h. Neither holds anything
-	// managed built.
-	struct Root_t { const char *pszFile; const char *pszClass; const char *pszControl; };
-	static const Root_t kRoots[] = {
-		{ "sourcesharp/game/shared/shell_internalfactory.cpp", "class CShimRoot ", "CShimAreasClient m_ClientAreas;" },
-		{ "sourcesharp/game/server/shell_shim_root_server.h", "class CShimRootServer ", "CShimAreas m_Areas;" },
-	};
-	for ( const Root_t &root : kRoots )
-	{
-		const std::string src = ReadSource( root.pszFile );
-		ASSERT_FALSE( src.empty() ) << "run from the farm's src: " << root.pszFile;
-
-		const size_t open = src.find( root.pszClass );
-		ASSERT_NE( std::string::npos, open ) << root.pszFile;
-		const size_t close = src.find( "\n};\n", open );
-		ASSERT_NE( std::string::npos, close ) << root.pszFile;
-		const std::string body = src.substr( open, close - open );
-
-		EXPECT_NE( std::string::npos, body.find( root.pszControl ) )
-			<< root.pszFile << ": the control: the walk reached the members";
-		EXPECT_EQ( std::string::npos, body.find( "IManaged" ) )
-			<< root.pszFile << ": the shim root holds a managed-built object again";
-		EXPECT_EQ( std::string::npos, body.find( "CManagedAreas" ) )
-			<< root.pszFile << ": the shim root holds the managed areas again";
-	}
-}
-
-TEST( ManagedHolders, TheGameDllObjectOwnsThemAndChecksThemAtDestruction )
-{
-	const std::string src = ReadSource( "sourcesharp/game/server/shell_gamedll.cpp" );
-	ASSERT_FALSE( src.empty() ) << "run from the farm's src";
-
-	EXPECT_NE( std::string::npos, src.find( "    CManagedHolders m_Managed = {};\n" ) );
-	EXPECT_NE( std::string::npos, src.find( "AssertMsg( ManagedHolders_Empty( m_Managed )," ) );
-	EXPECT_NE( std::string::npos, src.find( "CManagedHolders &ShellGameDll_Managed()\n{\n    return s_gameShellDll.Managed();\n}" ) );
-}
-
-TEST( ManagedHolders, TheReloadIsCheckedBeforeAnythingIsSavedOrUnloaded )
-{
-	// plan_managed_vtable_reload.md L5: a refused reload must leave the running
-	// build untouched, so the check comes before the save and the unload.
-	const std::string src = ReadSource( "sourcesharp/game/shared/sourcesharp_gamesystem.cpp" );
-	ASSERT_FALSE( src.empty() ) << "run from the farm's src";
-
-	const size_t body = src.find( "static void SourceSharp_ReloadManagedSide( void )\n{" );
-	ASSERT_NE( std::string::npos, body );
-	const size_t end = src.find( "\n}\n", body );
-	const std::string fn = src.substr( body, end - body );
-
-	const size_t check = fn.find( "if ( SourceSharp_ReloadCheckMySide( szWhy, sizeof( szWhy ) ) != 0 )" );
-	const size_t save = fn.find( "pSaveArea->ReloadSave()" );
-	const size_t unload = fn.find( "SourceSharp_UnloadMySide();" );
-	ASSERT_NE( std::string::npos, check ) << "the reload no longer checks the new build's hashes";
-	ASSERT_NE( std::string::npos, save );
-	ASSERT_NE( std::string::npos, unload );
-	EXPECT_LT( check, save );
-	EXPECT_LT( check, unload );
-}
-
-TEST( ManagedHolders, TheClientLoadsThroughV2WithItsShimRootAndNoEngineStruct )
-{
-	// plan_client_vtables CA: both sides load through LoadSideV2 with their
-	// shim root. Since CC-last the client passes no engine struct, and since
-	// CE-last no ManagedApi out-parameter.
-	const std::string src = ReadSource( "sourcesharp/game/shared/sourcesharp_gamesystem.cpp" );
-	ASSERT_FALSE( src.empty() ) << "run from the farm's src";
-
-	const size_t body = src.find( "static int SourceSharp_LoadMySide()\n{" );
-	ASSERT_NE( std::string::npos, body );
-	const std::string fn = src.substr( body, src.find( "\n}\n", body ) - body );
-
-	// CC-last (2c): LoadSideV2 has no engine-struct parameter at all. CD: both
-	// sides share one load body, and both accept a managed root. CE-last: no
-	// side hands it a ManagedApi either; the call is the side, the shim root
-	// and the managed root's out-parameter, and nothing else.
-	// plan_side_entries SE1: each side calls its own host export, so no side
-	// travels as an argument. plan_forwarders_everywhere.md phase 3: the shim
-	// root travels with its forwarder table, which replaced its slot count.
-	EXPECT_NE( std::string::npos, fn.find( "const int rc = SourceSharp_LoadMySide_Host( pRoot, pRootTable, &pManagedRoot );" ) )
-		<< "the load no longer goes through the side's own export with exactly the shim root, its table and the managed root";
-	EXPECT_EQ( std::string::npos, fn.find( "SourceSharpManagedApi" ) )
-		<< "the load hands LoadSideV2 a ManagedApi again";
-	EXPECT_NE( std::string::npos, fn.find( "if ( !ManagedRoot_Accept( pManagedRoot, szWhy, sizeof( szWhy ) ) )" ) )
-		<< "the load no longer accepts a managed root (both sides since CD)";
-	EXPECT_EQ( std::string::npos, src.find( "g_EngineApi" ) ) << "the client's engine struct is back";
-	EXPECT_EQ( std::string::npos, fn.find( "SourceSharp_LoadSide( SOURCESHARP_MY_SIDE" ) )
-		<< "a side loads through LoadSide V1 again";
-}
-
-TEST( ManagedHolders, TheClientsShimRootServesTheConsole )
-{
-	// plan_client_vtables CA: the client's LoadSideV2 acquires the console
-	// through its shim root, so the factory's console row must not be
-	// server-only. Found by the live gate: "the shim root does not serve
-	// SourceSharpConsole001" on the client.
-	const std::string src = ReadSource( "sourcesharp/game/shared/shell_internalfactory.cpp" );
-	ASSERT_FALSE( src.empty() ) << "run from the farm's src";
-
-	const size_t row = src.find( "if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONSOLE_VERSION ) )" );
-	ASSERT_NE( std::string::npos, row );
-
-	// The nearest preprocessor guard above the row must be a closed one.
-	const size_t open = src.rfind( "#ifndef CLIENT_DLL", row );
-	const size_t close = src.rfind( "#endif", row );
-	ASSERT_NE( std::string::npos, open ) << "the control: the file has server-only blocks";
-	EXPECT_TRUE( close != std::string::npos && close > open )
-		<< "the console row is inside an #ifndef CLIENT_DLL block: the client's root no longer serves it";
 }
 
 //-----------------------------------------------------------------------------

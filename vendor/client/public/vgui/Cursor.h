@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <vgui/VGUI.h>
-
 namespace vgui
 {
 

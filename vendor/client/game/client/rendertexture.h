@@ -3,5 +3,5 @@
 
 #pragma once
 
-ITexture *GetPowerOfTwoFrameBufferTexture( void );
+ITexture *GetPowerOfTwoFrameBufferTexture();
 ITexture *GetFullFrameFrameBufferTexture( int textureIndex );

@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "utlvector.h"
-#include "utlstring.h"
 #include "ifilelist.h"
 
 // Particle attachment methods

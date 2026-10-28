@@ -894,11 +894,6 @@ inline int CInterpolatedVarArrayBase<Type, IS_ARRAY>::Interpolate( float current
 		Msg( "%s Interpolate at %f%s\n", GetDebugName(), currentTime, noMoreChanges ? " [value will hold]" : "" );
 	}
 
-#ifdef INTERPOLATEDVAR_PARANOID_MEASUREMENT
-	Type *backupValues = (Type*)_alloca( m_nMaxCount * sizeof(Type) );
-	memcpy( backupValues, m_pValue, sizeof( Type ) * m_nMaxCount );
-#endif
-
 	if ( info.m_bHermite )
 	{
 		// base cast, we have 3 valid sample point
@@ -938,24 +933,6 @@ inline int CInterpolatedVarArrayBase<Type, IS_ARRAY>::Interpolate( float current
 	{
 		_Interpolate( m_pValue, info.frac, &history[info.older], &history[info.newer] );
 	}
-
-#ifdef INTERPOLATEDVAR_PARANOID_MEASUREMENT
-	if ( memcmp( backupValues, m_pValue, sizeof( Type ) * m_nMaxCount ) != 0 )
-	{
-		extern int g_nInterpolatedVarsChanged;
-		extern bool g_bRestoreInterpolatedVarValues;
-		
-		++g_nInterpolatedVarsChanged;
-
-		// This undoes the work that we do in here so if someone is in the debugger, they
-		// can find out which variable changed.
-		if ( g_bRestoreInterpolatedVarValues )
-		{
-			memcpy( m_pValue, backupValues, sizeof( Type ) * m_nMaxCount );
-			return noMoreChanges;
-		}
-	}
-#endif
 
 	// Clear out all entries before the oldest since we should never access them again.
 	// Usually, Interpolate() calls never go backwards in time, but C_BaseAnimating::BecomeRagdollOnClient for one

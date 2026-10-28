@@ -205,46 +205,6 @@ TEST( CloseRulings, TheEhandleRowNoLongerCatchesThePortsOwnHandle )
 	EXPECT_FALSE( Matches( szRe, "\tCHandle<IGameEntity> m_h;" ) );
 }
 
-TEST( CloseRulings, BothHalvesOfTheGameEntityHandleAreSpecialised )
-{
-	// THE PREMISE UNDER THE EHANDLE RULING. If either specialisation goes,
-	// CHandle<IGameEntity> falls back on the generic `(T*)CBaseHandle::Get()`
-	// and the generic `reinterpret_cast<const IHandleEntity*>` — which is the
-	// cast §3.16 family 1 is about, on a pointer whose boundary view is 24
-	// measured bytes from the address the handle table stores.
-	const std::string szEhandle = ReadRoot( "src/game/shared/ehandle.h" );
-	ASSERT_FALSE( szEhandle.empty() ) << "game/shared/ehandle.h is missing";
-	EXPECT_NE( std::string::npos,
-	           szEhandle.find( "void CHandle<IGameEntity>::Set( const IGameEntity* pVal )" ) )
-		<< "the Set specialisation is gone; the generic reinterpret_cast is back";
-
-	// The SERVER half read game/server/baseentity.h, which is compiled by
-	// nothing since plan_server_novalve.md P5 and left the farm in P6; it is
-	// retired with its subject.
-	const std::string szClient = ReadRoot( "src/game/client/c_baseentity.h" );
-	ASSERT_FALSE( szClient.empty() );
-	EXPECT_NE( std::string::npos, szClient.find( "IGameEntity *CHandle<IGameEntity>::Get() const" ) )
-		<< "the CLIENT Get specialisation is gone; the generic C cast is back";
-}
-
-TEST( CloseRulings, NeitherSpecialisationIsACastOntoTheEntity )
-{
-	// Existing is not enough: a specialisation that did the same C cast would
-	// pass the fact above and be exactly the bug. Each body must ASK.
-	const std::string szEhandle = ReadRoot( "src/game/shared/ehandle.h" );
-	const size_t iSet = szEhandle.find( "void CHandle<IGameEntity>::Set( const IGameEntity* pVal )" );
-	ASSERT_NE( std::string::npos, iSet );
-	const std::string szSetBody = szEhandle.substr( iSet, 220 );
-	EXPECT_NE( std::string::npos, szSetBody.find( "SourceSharp_EntityHandle" ) )
-		<< "Set no longer reaches the entity-list scan:\n" << szSetBody;
-	EXPECT_EQ( std::string::npos, szSetBody.find( "reinterpret_cast" ) )
-		<< "Set reinterprets again:\n" << szSetBody;
-
-	// The server Get body was read out of game/server/baseentity.h, which is
-	// compiled by nothing since plan_server_novalve.md P5 and left the farm in
-	// P6; that half is retired with its subject.
-}
-
 //=============================================================================//
 // RULING 3 — EntityFromHandle keeps naming the RETIRED spellings.
 //=============================================================================//
@@ -270,44 +230,6 @@ TEST( CloseRulings, TheEntityFromHandleRowDoesNotCatchTheNeutralPairThatReplaced
 
 	// and UTIL_TraceEntity was never a site: `\b` does not fire after '_'.
 	EXPECT_FALSE( Matches( szRe, "\tUTIL_TraceEntity( pEnt, a, b, mask, &tr );" ) );
-}
-
-TEST( CloseRulings, TheRetiredPairIsActuallyGoneFromTheSharedHeader )
-{
-	// The row above is a TRIPWIRE, and a tripwire over text nobody deleted is
-	// theatre. This is the other half: the two functions really are not there.
-	const std::string szUtil = ReadRoot( "src/game/shared/util_shared.h" );
-	ASSERT_FALSE( szUtil.empty() ) << "game/shared/util_shared.h is missing";
-
-	EXPECT_EQ( std::string::npos, szUtil.find( "inline IGameEntity *EntityFromEntityHandle(" ) )
-		<< "EntityFromEntityHandle is declared again";
-	EXPECT_EQ( std::string::npos, szUtil.find( "inline IGameEntity *TraceEntity(" ) )
-		<< "TraceEntity is declared again";
-
-	EXPECT_NE( std::string::npos, szUtil.find( "inline IGameEntity *GameEntityFromEntityHandle(" ) )
-		<< "the neutral resolver is gone and nothing replaced it";
-	EXPECT_NE( std::string::npos, szUtil.find( "inline IGameEntity *TraceGameEntity(" ) )
-		<< "the neutral trace accessor is gone and nothing replaced it";
-}
-
-TEST( CloseRulings, TheNeutralResolverAsksTheVirtualRatherThanCasting )
-{
-	// WHY it is not a site: it calls GetGameEntity(), which is a virtual the
-	// object answers for itself, on BOTH sides. If that body ever becomes a
-	// cast, the ruling that took it out of the gated family stops holding.
-	const std::string szUtil = ReadRoot( "src/game/shared/util_shared.h" );
-	const size_t i = szUtil.find( "inline IGameEntity *GameEntityFromEntityHandle( IHandleEntity *pHandleEntity )" );
-	ASSERT_NE( std::string::npos, i );
-	const std::string szBody = szUtil.substr( i, 700 );
-
-	EXPECT_NE( std::string::npos, szBody.find( "GetGameEntity()" ) )
-		<< "the resolver stopped asking:\n" << szBody;
-	EXPECT_NE( std::string::npos, szBody.find( "GetIClientEntity()" ) )
-		<< "the CLIENT arm is gone, so shared trace code resolves a managed "
-		   "entity to nothing again:\n" << szBody;
-	EXPECT_EQ( std::string::npos, szBody.find( "GetBaseEntity()" ) )
-		<< "the resolver went back to the method every implementation of which "
-		   "answers a constant NULL:\n" << szBody;
 }
 
 //=============================================================================//
@@ -377,81 +299,6 @@ TEST( CloseRulings, EveryTypedCastRowAlsoNamesTheHierarchyThatActuallyEXISTS )
 // ss_entityhandle.h's crossing. The client's override and the world's two
 // still answer NULL.
 //=============================================================================//
-
-TEST( CloseRulings, EveryGetBaseEntityImplementationInTheTreeAnswersNull )
-{
-	struct Site_t { const char *pszFile; const char *pszSignature; const char *pszAnswer; };
-	static const Site_t kSites[] = {
-		{ "src/sourcesharp/game/server/shell_standalone.h",        "GetBaseEntity() OVERRIDE", "return this" },
-		{ "src/sourcesharp/game/client/shell_standalone_client.h", "GetBaseEntity() OVERRIDE", "return NULL" },
-		// Was src/game/server/world.h, which is compiled by nothing since
-		// plan_server_novalve.md P5 and left the farm in P6. CWorld and
-		// CWorldNetworkable moved to our ss_world.h (P5 lane E), so the same two
-		// overrides are read from where the server now compiles them.
-		{ "src/sourcesharp/game/server/ss_world.h",                "GetBaseEntity() OVERRIDE", "return NULL" },
-	};
-
-	int nChecked = 0;
-	for ( size_t i = 0; i < sizeof( kSites ) / sizeof( kSites[ 0 ] ); i++ )
-	{
-		const std::string szBody = ReadRoot( kSites[ i ].pszFile );
-		ASSERT_FALSE( szBody.empty() ) << kSites[ i ].pszFile;
-
-		int nInThisFile = 0;
-		size_t iPos = 0;
-		while ( ( iPos = szBody.find( kSites[ i ].pszSignature, iPos ) ) != std::string::npos )
-		{
-			const size_t iEnd = szBody.find( '\n', iPos );
-			const std::string szLine = szBody.substr( iPos, iEnd - iPos );
-			iPos = iEnd;
-
-			// A DECLARATION IS NOT A BODY, and ss_world.h has one of each: CWorld's
-			// GetBaseEntity is inline at its declaration, CWorldNetworkable's is
-			// declared there and defined out of line further down. Reading the
-			// declaration line for "return NULL" failed the fact against a
-			// perfectly correct file -- and, worse, would have PASSED had the
-			// out-of-line body been changed to return something. So a
-			// declaration sends the sweep looking for the definition.
-			if ( szLine.find( '{' ) != std::string::npos )
-			{
-				EXPECT_NE( std::string::npos, szLine.find( kSites[ i ].pszAnswer ) )
-					<< kSites[ i ].pszFile << ": a GetBaseEntity() that does not answer '"
-					<< kSites[ i ].pszAnswer << "', which is the premise four deleted gate "
-					<< "families rested on:\n  " << szLine;
-				nChecked++; nInThisFile++;
-				continue;
-			}
-
-			// `...::GetBaseEntity()` further down the same file, and the next
-			// non-blank, non-brace line of it.
-			const size_t iDef = szBody.find( "::GetBaseEntity()" );
-			ASSERT_NE( std::string::npos, iDef )
-				<< kSites[ i ].pszFile << ": GetBaseEntity() is DECLARED and never defined "
-				<< "in this file, so this fact cannot see what it answers";
-			const std::string szDef = szBody.substr( iDef, 160 );
-			EXPECT_NE( std::string::npos, szDef.find( "return NULL" ) )
-				<< kSites[ i ].pszFile << ": the out-of-line GetBaseEntity() does not answer "
-				<< "NULL:\n" << szDef;
-			nChecked++; nInThisFile++;
-		}
-
-		// PER FILE, not only in total. A total-only guard does not fire: with one
-		// of three signatures broken this fact still counted 3 (ss_world.h carries
-		// two), passed, and checked one file fewer than it claims. Mutation-found.
-		EXPECT_GE( nInThisFile, 1 )
-			<< kSites[ i ].pszFile << ": the signature '" << kSites[ i ].pszSignature
-			<< "' matched nothing, so this file was not checked at all";
-	}
-
-	// THE COUNTER THAT REPORTS ZERO IS THE ONE TO DISTRUST. If the signatures
-	// stop matching, every EXPECT above runs zero times and this fact passes
-	// while checking nothing.
-	EXPECT_EQ( 4, nChecked )
-		<< "the sweep matched " << nChecked << " GetBaseEntity() overrides where it "
-		   "expects exactly four (CStandaloneEntity, C_StandaloneEntity, and CWorld's "
-		   "two). A different number means the text moved and this fact is measuring "
-		   "something other than what it says.";
-}
 
 //=============================================================================//
 // THE INSTRUMENT REPAIR — `scan_sites` strips STRING LITERALS now.

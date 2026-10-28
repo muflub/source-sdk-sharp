@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "tier0/platform.h"
+
 
 #define SOURCESHARP_SHIM_LEVEL_VERSION "SourceSharpLevel001"
 

@@ -11,7 +11,7 @@
 #pragma once
 #define PHYSICSLINK_H
 
-#include "mathlib/vector.h"
+
 
 struct touchlink_t;
 struct groundlink_t;
@@ -21,7 +21,7 @@ class CGameTrace;
 typedef CGameTrace trace_t;
 
 // Not a forward declaration: `class CBaseEntity;` cannot coexist with the alias.
-#include "igameentity.h"
+
 
 // Touch links. Each reaches its entities only through its arguments.
 void PhysicsLink_RemoveTouchedList( IGameEntity *ent );
@@ -38,4 +38,4 @@ void PhysicsLink_RemoveGroundList( IGameEntity *ent );
 int Physics_ClipVelocity( const Vector &in, const Vector &normal, Vector &out, float overbounce );
 
 // The last touch trace, stored in physics_main_shared.cpp.
-const trace_t &Physics_GetTouchTrace( void );
+const trace_t &Physics_GetTouchTrace();

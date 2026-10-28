@@ -230,7 +230,7 @@ FOOTER = ""
 def declaration(ret, name, args):
     """One prototype, wrapped the way the tree wraps them."""
     head = "%s%s%s(" % (ret, " " if not ret.endswith("*") else "", name)
-    one = "%s %s );" % (head, args) if args else "%s void );" % head
+    one = "%s %s );" % (head, args) if args and args.strip() != "void" else "%s);" % head
     one = re.sub(r"\(\s+", "( ", one)
     if len(one) <= 96:
         return [one]
@@ -428,7 +428,7 @@ def self_test():
     check("declaration unwraps a simple field",
           declaration("void", "SourceSharp_X", "uint32_t h") == ["void SourceSharp_X( uint32_t h );"])
     check("declaration handles an empty argument list",
-          declaration("int32_t", "SourceSharp_X", "void") == ["int32_t SourceSharp_X( void );"])
+          declaration("int32_t", "SourceSharp_X", "void") == ["int32_t SourceSharp_X();"])
     check("a pointer return type keeps its star tight",
           declaration("void *", "SourceSharp_X", "void")[0].startswith("void *SourceSharp_X("))
 

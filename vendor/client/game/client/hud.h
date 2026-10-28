@@ -30,7 +30,7 @@ public:
 	virtual ~CHudTexture();
 
 	// causes the font manager to generate the glyph, prevents run time hitches on platforms that have slow font managers
-	void Precache( void );
+	void Precache();
 
 	char		szShortName[ 64 ];
 	char		szTextureFile[ 64 ];
@@ -64,17 +64,17 @@ public:
 								~CHud();
 
 	// Init's called when the HUD's created at DLL load
-	void						Init( void );
+	void						Init();
 	// VidInit's called when the video mode's changed
-	void						VidInit( void );
+	void						VidInit();
 	// Shutdown's called when the engine's shutting down
-	void						Shutdown( void );
+	void						Shutdown();
 	// LevelInit's called whenever a new level is starting
-	void						LevelInit( void );
+	void						LevelInit();
 	// LevelShutdown's called whenever a level is finishing
-	void						LevelShutdown( void );
+	void						LevelShutdown();
 	
-	void						ResetHUD( void );
+	void						ResetHUD();
 
 	void						ProcessInput( bool bActive );
 	void						UpdateHud( bool bActive );

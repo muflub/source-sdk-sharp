@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "mathlib/vector.h"
+
 
 class IHandleEntity;
 struct edict_t;

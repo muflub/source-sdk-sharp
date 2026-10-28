@@ -51,7 +51,7 @@ void SENTENCEG_Init();
 short		g_sModelIndexSmoke;			// holds the index for the smoke cloud
 
 // Only the smoke index has a native reader; the rest are precached but not stored.
-static void W_Precache(void)
+static void W_Precache()
 {
 	g_sModelIndexSmoke = Precache_Model("sprites/steam1.vmt");// smoke
 	Precache_Model("sprites/bubble.vmt");//bubbles
@@ -337,7 +337,7 @@ const model_t *CWorldCollideable::GetCollisionModel()
 	return modelinfo->GetModel( GetCollisionModelIndex() );
 }
 
-void CWorld::Spawn( void )
+void CWorld::Spawn()
 {
 	// NOTE:  SHOULD NEVER BE ANYTHING OTHER THAN 1!!!
 	SetModelIndex( 1 );
@@ -367,7 +367,7 @@ void CWorld::ReportNetState()
 	SourceSharpWorld_Report( "Server", DataBlob(), BlobBytes(), m_Fields );
 }
 
-void CWorld::Precache( void )
+void CWorld::Precache()
 {
 	// Set up game rules.
 	Assert( !g_pGameRules );

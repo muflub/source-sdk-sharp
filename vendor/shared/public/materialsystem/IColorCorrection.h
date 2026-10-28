@@ -2,9 +2,6 @@
 
 #pragma once
 
-#include "tier1/interface.h"
-#include "bitmap/imageformat.h"
-
 typedef uintp ColorCorrectionHandle_t;
 struct ShaderColorCorrectionInfo_t;
 

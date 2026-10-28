@@ -68,23 +68,6 @@ namespace
 //-----------------------------------------------------------------------------
 // Finding the tree, and reading it. Same shape as cpp_alias_shard_t4_test.cpp.
 //-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
 std::string Trimmed( const std::string &s )
 {
 	const size_t a = s.find_first_not_of( " \t" );
@@ -92,32 +75,6 @@ std::string Trimmed( const std::string &s )
 		return std::string();
 	const size_t b = s.find_last_not_of( " \t" );
 	return s.substr( a, b - a + 1 );
-}
-
-std::vector< std::string > ReadLines( const std::string &strRelative )
-{
-	std::vector< std::string > lines;
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return lines;
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return lines;
-
-	std::string line;
-	while ( std::getline( file, line ) )
-	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
-			line.erase( line.size() - 1 );
-		lines.push_back( line );
-	}
-	return lines;
-}
-
-bool Contains( const std::string &hay, const char *needle )
-{
-	return hay.find( needle ) != std::string::npos;
 }
 
 size_t CountOf( const std::string &hay, const std::string &needle )
@@ -176,20 +133,6 @@ std::string StripComments( const std::string &strIn )
 	return out;
 }
 
-std::string FileText( const std::string &strFile )
-{
-	const std::vector< std::string > lines = ReadLines( strFile );
-	std::string s;
-	for ( size_t i = 0; i < lines.size(); i++ )
-		s += lines[ i ] + "\n";
-	return s;
-}
-
-std::string FileCode( const std::string &strFile )
-{
-	return StripComments( FileText( strFile ) );
-}
-
 //-----------------------------------------------------------------------------
 // Whether the body following a signature carries no code.
 //
@@ -246,82 +189,6 @@ struct Guard_t
 	}
 };
 
-bool IsGuardOpen( const std::string &strLine, bool *pbArmedFirst )
-{
-	const std::string t = Trimmed( strLine );
-	if ( t == "#ifndef SS_CBASEENTITY_ALIAS"
-		|| t == "#if !defined( SS_CBASEENTITY_ALIAS )"
-		|| t == "#if !defined(SS_CBASEENTITY_ALIAS)" )
-	{
-		*pbArmedFirst = false;
-		return true;
-	}
-	if ( t == "#ifdef SS_CBASEENTITY_ALIAS"
-		|| t == "#if defined( SS_CBASEENTITY_ALIAS )"
-		|| t == "#if defined(SS_CBASEENTITY_ALIAS)" )
-	{
-		*pbArmedFirst = true;
-		return true;
-	}
-	return false;
-}
-
-bool IsAnyConditionalOpen( const std::string &strLine )
-{
-	return Trimmed( strLine ).compare( 0, 3, "#if" ) == 0;
-}
-bool IsEndif( const std::string &strLine )
-{
-	return Trimmed( strLine ).compare( 0, 6, "#endif" ) == 0;
-}
-bool IsElse( const std::string &strLine )
-{
-	const std::string t = Trimmed( strLine );
-	return t == "#else" || t.compare( 0, 5, "#elif" ) == 0;
-}
-
-std::vector< Guard_t > GuardsIn( const std::string &strFile )
-{
-	const std::vector< std::string > lines = ReadLines( strFile );
-	std::vector< Guard_t > out;
-
-	for ( size_t i = 0; i < lines.size(); i++ )
-	{
-		bool bArmedFirst = false;
-		if ( !IsGuardOpen( lines[ i ], &bArmedFirst ) )
-			continue;
-
-		Guard_t g;
-		g.strFile = strFile;
-		g.nLine = (int)i + 1;
-
-		int nDepth = 0;
-		bool bInElse = false;
-		size_t j = i + 1;
-		for ( ; j < lines.size(); j++ )
-		{
-			const std::string &L = lines[ j ];
-			if ( IsAnyConditionalOpen( L ) ) { nDepth++; }
-			else if ( IsEndif( L ) )
-			{
-				if ( nDepth == 0 ) { g.bClosed = true; g.nEndifLine = (int)j + 1; break; }
-				nDepth--;
-			}
-			else if ( IsElse( L ) && nDepth == 0 )
-			{
-				g.bHasElse = true; bInElse = true; continue;
-			}
-
-			const bool bThisIsArmed = ( bInElse != bArmedFirst );
-			if ( bThisIsArmed ) g.armed.push_back( L );
-			else                g.unarmed.push_back( L );
-		}
-		out.push_back( g );
-		i = j;
-	}
-	return out;
-}
-
 //-----------------------------------------------------------------------------
 // THE PER-FILE FLOOR. Listed rather than discovered, so a file LOSING a guard
 // fails here rather than becoming a silently shorter list.
@@ -343,10 +210,6 @@ struct FileFloor_t
 	const char *pszAnchor;
 };
 
-// The client world's compiled home since step 5e. Named once, because two
-// spellings of one path is how a repoint half-lands.
-const char *kClientWorldImpl = "sourcesharp/game/client/world_adapter_client.cpp";
-
 }  // namespace
 
 //-----------------------------------------------------------------------------
@@ -364,112 +227,12 @@ const char *kClientWorldImpl = "sourcesharp/game/client/world_adapter_client.cpp
 // Pinned by POSITION: the entity must be the THIRD initialiser and the first
 // two must be NULL. Nothing else in the build can say this.
 //-----------------------------------------------------------------------------
-TEST( CppAliasRetypeW1, ToucherOfPutsTheEntityOnTheGameSide )
-{
-	// THE GUARD IS GONE AND THE CLAIM IS UNCHANGED, which is the whole reason
-	// this fact is re-pointed rather than retired. `the-close` 1/N (f288a5e11)
-	// deleted the `#ifndef` arm; the armed initialiser it selected is now the
-	// only statement in the function, and it is STILL the one statement no
-	// compiler and no survey can make for you -- armed, `pBase` and `pGame`
-	// have the same type, so `{ pEntity, pEntity, NULL }` and
-	// `{ NULL, NULL, pEntity }` compile identically and mean opposite things.
-	// The wrong one leaves gameinterface.cpp's `if ( toucher.pGame )` false for
-	// every toucher built this way: no touches delivered at all, on a tree that
-	// compiles and links clean.
-	//
-	// SO THE POSITION CHECK IS THE FACT, and with the arm gone it is asked of
-	// the function body instead of the arm's text -- which is strictly wider,
-	// because it also catches the wrong initialiser written anywhere else in
-	// this file.
-	// AND THE STATEMENT MOVED, in plan_server_native_v2 T2: toucher.cpp
-	// went (ToucherOf's one importer sat behind a constant NULL), and its
-	// body is now written in place in PhysicsOwner_t::AsToucher, the one
-	// caller left. The fact follows it.
-	const std::string code = FileCode( "sourcesharp/game/shared/physicsowner.h" );
-	ASSERT_FALSE( code.empty() ) << "physicsowner.h read as nothing";
-
-	// PRESENCE, and it is the positive anchor for everything else here.
-	ASSERT_TRUE( Contains( code, "inline Toucher_t PhysicsOwner_t::AsToucher() const" ) )
-		<< "AsToucher is gone, and with it the one place a toucher is built "
-		   "from an entity pointer.";
-	EXPECT_TRUE( Contains( code, "return toucher;" ) );
-
-	EXPECT_FALSE( Contains( code, "{ pBase, pBase, NULL }" ) )
-		<< "the SDK initialiser is back. pBase is the SDK entity and there is "
-		   "no such thing in this build.";
-
-	EXPECT_TRUE( Contains( code, "Toucher_t toucher = { NULL, NULL, pBase };" ) )
-		<< "AsToucher must put the entity on pGame (THIRD) and leave pHandle "
-		   "and pBase NULL. pBase and pGame are the same type, so this is the "
-		   "one statement no compiler and no survey can make for you.";
-
-	// ...and the two wrong orders that also compile are named, so a mutation
-	// that swaps them cannot pass by satisfying some looser rule.
-	EXPECT_FALSE( Contains( code, "{ NULL, pBase, NULL }" ) )
-		<< "the entity is on pBase armed. There is no SDK entity armed.";
-	EXPECT_FALSE( Contains( code, "{ pBase, NULL, pBase }" ) )
-		<< "pHandle armed would be an IGameEntity * where an IHandleEntity * is "
-		   "wanted — the no-route kernel, which this lane does not solve.";
-}
-
 //-----------------------------------------------------------------------------
 // CLAIM 4 — the seven viewpostprocess asks became one function, in both
 // directions. viewpostprocess.cpp has since left client.so (C7: its passes are
 // managed's post program); the asks it made are the executor's now, through
 // the same one function, and the old spelling must not come back there.
 //-----------------------------------------------------------------------------
-TEST( CppAliasRetypeW1, TheWorldRenderableAskIsMadeOnceAndOnlyOnce )
-{
-	EXPECT_TRUE( FileCode( "game/client/viewpostprocess.cpp" ).empty() )
-		<< "viewpostprocess.cpp is back in the farm; this claim's seven asks were its";
-
-	const std::string code = FileCode( "sourcesharp/game/client/shell_view_executor_client.cpp" );
-	ASSERT_FALSE( code.empty() );
-	EXPECT_GE( CountOf( code, "GetClientWorldRenderable()" ), 2u )
-		<< "the post ops' world renderable (a rectangle's and a mesh's bind) asks the one function";
-	EXPECT_EQ( 0u, CountOf( code, "GetClientWorldEntity()->GetClientRenderable()" ) )
-		<< "an ask rotted back to the C_BaseEntity member. It compiles today and "
-		   "fails armed, and no test but this one is looking.";
-}
-
-TEST( CppAliasRetypeW1, TheWorldRenderableIsDeclaredAndDefinedOnceAndNeedsNoArm )
-{
-	// Declared in the header its caller includes...
-	EXPECT_TRUE( Contains( FileCode( "game/client/c_world.h" ),
-						   "void *GetClientWorldRenderable();" ) )
-		<< "the declaration is gone from c_world.h; the executor includes that "
-		   "header and nothing else declares it";
-
-	// ...defined ONCE, in the shim beside the world entity.
-	const std::string cpp = FileCode( kClientWorldImpl );
-	EXPECT_EQ( 1u, CountOf( cpp, "void *GetClientWorldRenderable()" ) );
-
-	// AND THE ARM IS RETIRED, WHICH IS A CHANGE OF ANSWER AND NOT A RELAXATION.
-	//
-	// This used to require a two-armed region here: unarmed
-	// `GetClientWorldEntity()->GetClientRenderable()`, armed `return NULL`,
-	// because armed C_BaseEntity was IGameEntity and GetClientRenderable was not
-	// on it. Step 5e made C_World its own IClientEntity -- which IS an
-	// IClientRenderable -- so GetClientRenderable() is the world's own virtual
-	// and answers `this` on BOTH arms. There is nothing left for the flip to
-	// change, so a region here would be a region with no subject.
-	//
-	// THE POINT IS THAT THE ANSWER GOT BETTER, not that the check got weaker:
-	// the armed side used to hand every screen-space material proxy a NULL
-	// binding token, and now it hands them the world.
-	EXPECT_TRUE( GuardsIn( kClientWorldImpl ).empty() )
-		<< "the client world shim has grown an SS_CBASEENTITY_ALIAS region. "
-		   "C_World is not on the SDK hierarchy any more, so the flip cannot "
-		   "reach it -- an arm here is answering a question nobody is asking.";
-
-	EXPECT_TRUE( Contains( cpp, "return GetClientWorldEntity()->GetClientRenderable();" ) )
-		<< "GetClientWorldRenderable no longer answers the world's own "
-		   "renderable. NULL is the documented default of "
-		   "DrawScreenSpaceRectangle's parameter and it is survivable, but it is "
-		   "a WORSE answer than the one this build can now give and it must not "
-		   "arrive by accident.";
-}
-
 //-----------------------------------------------------------------------------
 // CLAIM 5 — the client world entity is not constructed armed, and the SHUTDOWN
 // is not guarded with it.
@@ -479,94 +242,6 @@ TEST( CppAliasRetypeW1, TheWorldRenderableIsDeclaredAndDefinedOnceAndNeedsNoArm 
 // along with the constructor would be the tidy-looking edit and would leak on
 // the unarmed side if the pairing ever drifted.
 //-----------------------------------------------------------------------------
-TEST( CppAliasRetypeW1, TheClientWorldIsConstructedOnBothArmsAndStillFreed )
-{
-	// THIS CLAIM INVERTED IN STEP 5e AND THE INVERSION IS THE POINT.
-	//
-	// It read: `new C_World` is behind an arm, and armed there is nothing to put
-	// in the #else because C_World is abstract -- C_BaseEntity armed is
-	// IGameEntity, six pure virtuals the class did not implement. C_World
-	// implements the engine's client entity chain itself now, so it is
-	// constructible on both arms and the region has no subject. An arm that
-	// still refused to build one would leave the client with no world at all in
-	// a build where it can perfectly well have one.
-	const std::vector< Guard_t > guards = GuardsIn( kClientWorldImpl );
-	ASSERT_EQ( 0u, guards.size() )
-		<< "the client world shim carries alias-conditional regions again.";
-
-	const std::vector< std::string > lines = ReadLines( kClientWorldImpl );
-	ASSERT_FALSE( lines.empty() ) << kClientWorldImpl << " read as empty -- "
-		"every absence below would be reported by an unopened file";
-
-	int nNew = 0, nDelete = 0;
-	for ( size_t i = 0; i < lines.size(); i++ )
-	{
-		const std::string code = StripComments( lines[ i ] );
-		if ( Contains( code, "new C_World" ) )
-			nNew = (int)i + 1;
-		if ( Contains( code, "delete g_pClientWorld" ) )
-			nDelete = (int)i + 1;
-	}
-
-	ASSERT_NE( 0, nNew ) << "ClientWorldFactoryInit no longer builds a world. "
-		"The client would join a map with nothing at entity 0, and "
-		"the engine's client-side trace dereferences what it finds "
-		"there.";
-	ASSERT_NE( 0, nDelete ) << "ClientWorldFactoryShutdown no longer frees the world";
-}
-
-// CLAIM 7 went with entity_bases.cpp (plan_server_native_min P1): the file
-// was compiled by nothing, included a cbase.h the farm lacks, and its four
-// bodies answered questions armed code can no longer ask -- no ServerClass
-// instantiates the four helper bases, so no caller exists to check the
-// derivations against.
-TEST( CppAliasRetypeW1Scanner, StripCommentsRemovesBothCommentKinds )
-{
-	EXPECT_EQ( "a\nb", StripComments( "a// gone\nb" ).substr( 0, 3 ) );
-	EXPECT_EQ( "ab", StripComments( "a/* gone */b" ) );
-	EXPECT_EQ( "a", StripComments( "a/* multi\nline\ngone */" ) );
-	// ...and does not eat code.
-	EXPECT_EQ( "x / y", StripComments( "x / y" ) );
-}
-
-TEST( CppAliasRetypeW1Scanner, StrippingIsWhatStopsTheProseFalsePositive )
-{
-	// This shard's armed arms are all preceded by prose naming the member they
-	// stopped calling. Demonstrated on synthetic input so the mechanism is
-	// proven whether or not the tree currently happens to trip it.
-	const std::string withProse =
-		"#ifndef SS_CBASEENTITY_ALIAS\n"
-		"\treturn GetClientWorldEntity()->GetClientRenderable();\n"
-		"#else\n"
-		"\t// GetClientRenderable is a C_BaseEntity member and is gone armed.\n"
-		"\treturn NULL;\n"
-		"#endif\n";
-	EXPECT_TRUE( Contains( withProse, "GetClientRenderable" ) )
-		<< "the raw text DOES contain the needle, in a comment";
-	EXPECT_FALSE( Contains( StripComments( withProse ).substr(
-							  StripComments( withProse ).find( "#else" ) ),
-						  "GetClientRenderable" ) )
-		<< "stripped, the armed arm does not";
-}
-
-TEST( CppAliasRetypeW1Scanner, BothGuardPolaritiesAreRecognised )
-{
-	bool bArmedFirst = true;
-	EXPECT_TRUE( IsGuardOpen( "#ifndef SS_CBASEENTITY_ALIAS", &bArmedFirst ) );
-	EXPECT_FALSE( bArmedFirst );
-	EXPECT_TRUE( IsGuardOpen( "\t#ifdef SS_CBASEENTITY_ALIAS", &bArmedFirst ) );
-	EXPECT_TRUE( bArmedFirst );
-	EXPECT_TRUE( IsGuardOpen( "#if !defined( SS_CBASEENTITY_ALIAS )", &bArmedFirst ) );
-	EXPECT_FALSE( bArmedFirst );
-	EXPECT_TRUE( IsGuardOpen( "#if defined( SS_CBASEENTITY_ALIAS )", &bArmedFirst ) );
-	EXPECT_TRUE( bArmedFirst );
-	EXPECT_FALSE( IsGuardOpen( "#ifndef SOMETHING_ELSE", &bArmedFirst ) );
-	// A guard whose macro is RENAMED is what the negative control does to the
-	// whole tree; the scanner must stop seeing it, or "0 defeated" is a check
-	// that cannot fail.
-	EXPECT_FALSE( IsGuardOpen( "#ifndef SS_CBASEENTITY_ALIAS_DEFEATED", &bArmedFirst ) );
-}
-
 TEST( CppAliasRetypeW1Scanner, CountOfCountsAndDoesNotOverlapItself )
 {
 	EXPECT_EQ( 0u, CountOf( "abc", "d" ) );

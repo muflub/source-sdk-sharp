@@ -9,7 +9,7 @@
 #pragma once
 
 #include "eiface.h"
-#include "convar.h"
+
 
 struct edict_t;
 
@@ -27,7 +27,7 @@ public:
 	virtual float			ProcessUsercmds( edict_t *player, bf_read *buf, int numcmds, int totalcmds,
 								int dropped_packets, bool ignore, bool paused ) OVERRIDE;
 	// Player is running a command
-	virtual void			PostClientMessagesSent_DEPRECIATED( void ) OVERRIDE;
+	virtual void			PostClientMessagesSent_DEPRECIATED() OVERRIDE;
 	virtual void			SetCommandClient( int index ) OVERRIDE;
 	virtual CPlayerState	*GetPlayerState( edict_t *player ) OVERRIDE;
 	virtual void			ClientEarPosition( edict_t *pEntity, Vector *pEarOrigin ) OVERRIDE;

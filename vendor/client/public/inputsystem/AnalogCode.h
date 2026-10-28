@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "inputsystem/InputEnums.h"
-
 // Macro to get at joystick codes
 #define JOYSTICK_AXIS_INTERNAL( _joystick, _axis ) ( JOYSTICK_FIRST_AXIS + ((_joystick) * MAX_JOYSTICK_AXES) + (_axis) )
 

@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <vgui/VGUI.h>
 #include "vgui/ISurface.h"
 
 // Forward declarations

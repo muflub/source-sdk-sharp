@@ -126,7 +126,7 @@ public:
 			pFx->DrawEffects( (float)frametime );
 	}
 
-	void Flush( void ) override
+	void Flush() override
 	{
 		if ( IManagedFxClient *pFx = ManagedFxClient() )
 			pFx->FlushEffects();
@@ -160,7 +160,7 @@ void SetFXCreationAllowed( bool state )
 	g_FXCreationAllowed = state;
 }
 
-bool FXCreationAllowed( void )
+bool FXCreationAllowed()
 {
 	return g_FXCreationAllowed;
 }
@@ -311,7 +311,7 @@ void SourceSharp_FxMainViewOrigin( float *pOutXYZ )
 	pOutXYZ[0] = origin.x; pOutXYZ[1] = origin.y; pOutXYZ[2] = origin.z;
 }
 
-int32_t SourceSharp_FxLocalPlayer( void )
+int32_t SourceSharp_FxLocalPlayer()
 {
 	return engine ? engine->GetLocalPlayer() : 0;
 }
@@ -397,29 +397,29 @@ static CSourceSharpEffectPrecacheSystem *EffectPrecache()
 	return &s_ClientEffectPrecacheSystem;
 }
 
-CClientEffectPrecacheSystem *ClientEffectPrecacheSystem( void )
+CClientEffectPrecacheSystem *ClientEffectPrecacheSystem()
 {
 	return EffectPrecache();
 }
 
-void CClientEffectPrecacheSystem::LevelInitPreEntity( void )
+void CClientEffectPrecacheSystem::LevelInitPreEntity()
 {
 	if ( IManagedFxClient *pFx = ManagedFxClient() )
 		pFx->EffectsPrecache( 0 );
 }
 
-void CClientEffectPrecacheSystem::LevelShutdownPreEntity( void )
+void CClientEffectPrecacheSystem::LevelShutdownPreEntity()
 {
 }
 
-void CClientEffectPrecacheSystem::LevelShutdownPostEntity( void )
+void CClientEffectPrecacheSystem::LevelShutdownPostEntity()
 {
 	if ( IManagedFxClient *pFx = ManagedFxClient() )
 		pFx->EffectsPrecache( 1 );
 }
 
 // The registry's own memory, at the DLL's shutdown.
-void CClientEffectPrecacheSystem::Shutdown( void )
+void CClientEffectPrecacheSystem::Shutdown()
 {
 	m_Effects.Purge();
 }
@@ -429,7 +429,7 @@ void CClientEffectPrecacheSystem::Register( IClientEffect *effect )
 	m_Effects.AddToTail( effect );
 }
 
-int32_t SourceSharp_FxPrecacheCount( void )
+int32_t SourceSharp_FxPrecacheCount()
 {
 	return EffectPrecache()->Count();
 }
@@ -439,12 +439,12 @@ void SourceSharp_FxPrecacheCache( int32_t nIndex, int32_t bPrecache )
 	EffectPrecache()->CacheAt( nIndex, bPrecache != 0 );
 }
 
-void SourceSharp_FxCacheUsedMaterials( void )
+void SourceSharp_FxCacheUsedMaterials()
 {
 	materials->CacheUsedMaterials();
 }
 
-void SourceSharp_FxCacheMaterialHandles( void )
+void SourceSharp_FxCacheMaterialHandles()
 {
 	FX_CacheMaterialHandles();
 }

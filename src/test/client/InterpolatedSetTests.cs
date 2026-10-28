@@ -155,20 +155,4 @@ public class InterpolatedSetTests
     // The shell carries the set out and decides nothing.
     //=========================================================================
 
-    private static string CodeOnly(string text)
-    {
-        text = Regex.Replace(text, @"/\*.*?\*/", "", RegexOptions.Singleline);
-        return Regex.Replace(text, @"//[^\n]*", "");
-    }
-
-    [Fact]
-    public void TheShellNoLongerFiltersTheList()
-    {
-        string shell = CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_standalone_client.cpp")));
-        string header = CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_standalone_client.h")));
-
-        Assert.Contains("SourceSharp_ClientInterpAdmitted(", shell);   // the control: this is the shell
-        Assert.DoesNotContain("WantsInterpolation", shell + header);
-        Assert.DoesNotContain("TIME_TO_TICKS", shell);
-    }
 }

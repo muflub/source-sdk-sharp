@@ -4,7 +4,7 @@
 #pragma once
 
 #include "vstdlib/vstdlib.h"
-#include "tier0/basetypes.h"
+
 #include "tier0/threadtools.h"
 #include "tier1/interface.h"
 

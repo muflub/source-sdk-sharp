@@ -333,9 +333,9 @@ public:
 	virtual bool ShouldDrawDetailObjects() OVERRIDE { return true; }
 	virtual bool ShouldDrawEntity( C_BaseEntity *pEnt ) OVERRIDE { return true; }
 	virtual bool ShouldDrawParticles() OVERRIDE { return true; }
-	virtual bool ShouldDrawFog( void ) OVERRIDE { return true; }
-	virtual bool ShouldDrawViewModel( void ) OVERRIDE { return true; }
-	virtual bool ShouldDrawCrosshair( void ) OVERRIDE { return true; }
+	virtual bool ShouldDrawFog() OVERRIDE { return true; }
+	virtual bool ShouldDrawViewModel() OVERRIDE { return true; }
+	virtual bool ShouldDrawCrosshair() OVERRIDE { return true; }
 
 	// The body draws when the camera got far enough behind the eye to see it.
 	virtual bool ShouldDrawLocalPlayer( C_BasePlayer *pPlayer ) OVERRIDE { return SourceSharp_ThirdPersonSeesOwner(); }
@@ -358,7 +358,7 @@ public:
 		enginesound->SetPlayerDSP( filter, 0, true );
 	}
 
-	virtual void LevelShutdown( void ) OVERRIDE
+	virtual void LevelShutdown() OVERRIDE
 	{
 		g_ThirdPersonManager.Init();
 		CLocalPlayerFilter filter;
@@ -368,7 +368,7 @@ public:
 	virtual void AdjustEngineViewport( int &x, int &y, int &width, int &height ) OVERRIDE {}
 	// Before the main view, where stock's DrawMonitors draws point_cameras.
 	virtual void PreRender( CViewSetup *pSetup ) OVERRIDE { ShellViewTargets_RenderQueued(); }
-	virtual void PostRender( void ) OVERRIDE
+	virtual void PostRender() OVERRIDE
 	{
 		ShellParticles_PostRender();	// the old-style effects, managed's
 	}
@@ -378,7 +378,7 @@ public:
 	virtual void ActivateInGameVGuiContext( vgui::Panel *pPanel ) OVERRIDE {}
 	virtual void DeactivateInGameVGuiContext() OVERRIDE {}
 
-	virtual float GetViewModelFOV( void ) OVERRIDE
+	virtual float GetViewModelFOV() OVERRIDE
 	{
 		ConVarRef viewmodelFov( "viewmodel_fov", true );
 		return viewmodelFov.IsValid() ? viewmodelFov.GetFloat() : 54.0f;
@@ -500,7 +500,7 @@ vgui::VPANEL SourceSharp_ClientViewportPanel()
 }
 
 // The client mode's Layout, when managed asks.
-void SourceSharp_ClientModeLayout( void )
+void SourceSharp_ClientModeLayout()
 {
 	g_pClientMode->Layout();
 }
@@ -522,7 +522,7 @@ public:
 		SOURCESHARP_TRACE_MSG( newmap );
 		g_pClientMode->LevelInit( newmap );
 	}
-	virtual void LevelShutdown( void ) OVERRIDE
+	virtual void LevelShutdown() OVERRIDE
 	{
 		SOURCESHARP_TRACE();
 		g_pClientMode->LevelShutdown();
@@ -537,7 +537,7 @@ static CSourceSharpRawPanel *g_pRootPanel = NULL;
 
 // VGUI clips a child to its parent, so the root must fill the screen, from creation and
 // again whenever the screen size changes.
-void VGUI_CreateClientDLLRootPanel( void )
+void VGUI_CreateClientDLLRootPanel()
 {
 	SOURCESHARP_TRACE();
 	g_pRootPanel = new CSourceSharpRawPanel( "SourceSharp Root Panel" );
@@ -556,14 +556,14 @@ void VGUI_CreateClientDLLRootPanel( void )
 	Msg( "[SourceSharp] VGUI root panel sized %dx%d\n", nScreenW, nScreenH );
 }
 
-void VGUI_DestroyClientDLLRootPanel( void )
+void VGUI_DestroyClientDLLRootPanel()
 {
 	SOURCESHARP_TRACE();
 	delete g_pRootPanel;
 	g_pRootPanel = NULL;
 }
 
-vgui::VPANEL VGui_GetClientDLLRootPanel( void )
+vgui::VPANEL VGui_GetClientDLLRootPanel()
 {
 	SOURCESHARP_TRACE_HOT();
 
@@ -577,7 +577,7 @@ class CAbsentFPSPanel final : public IFPSPanel
 {
 public:
 	void Create( vgui::VPANEL ) override {}
-	void Destroy( void ) override {}
+	void Destroy() override {}
 };
 CAbsentFPSPanel s_AbsentFPSPanel;
 }
@@ -590,7 +590,7 @@ class CAbsentNetGraphPanel final : public INetGraphPanel
 {
 public:
 	void Create( vgui::VPANEL ) override {}
-	void Destroy( void ) override {}
+	void Destroy() override {}
 };
 CAbsentNetGraphPanel s_AbsentNetGraphPanel;
 }

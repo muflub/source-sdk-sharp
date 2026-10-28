@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include "tier0/dbg.h"
-
 // Simple class to make it easier to deal with flags
 template< class T >
 class CUtlFlags

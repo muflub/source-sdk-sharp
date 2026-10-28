@@ -63,7 +63,7 @@ void ShellClient_ViewerSeenEnd(	SLOT-HELP	restores SeesOwner and the body's leaf
 void SourceSharp_ViewOverrideSet(	SLOT	IShimViewClient::ViewOverrideSet: keeps the view managed's ObserverCamera decided for OverrideView
 static bool ApplyViewOverride(	SLOT-HELP	carries out managed's observer view in OverrideView: the view, the engine angles when asked, stock's shake
 static void ApplyManagedShake(	BOUNDARY	CViewEffects::CalcShake and ApplyShake carried out: managed's offset and roll added to the view at factor 1
-void SourceSharp_ClientModeLayout( void )	BOUNDARY	IShimUiClient::ClientModeLayout: g_pClientMode->Layout(), when managed's ViewportClientSystem asks (C7)
+void SourceSharp_ClientModeLayout()	BOUNDARY	IShimUiClient::ClientModeLayout: g_pClientMode->Layout(), when managed's ViewportClientSystem asks (C7)
 static void SourceSharp_ApplyThirdPersonCamera(	SLOT-HELP	OverrideView's third-person pass, carrying out managed's camera (ThirdPersonCamera, both phases): hands PLACE the view angles and the cam_* values (managed's own convars, read by name), sweeps the hull PLACE answered (size and mask managed's, none when it says 0), hands RESOLVE the fraction, writes the answered origin and angles into CViewSetup and publishes the answered SeesOwner; the leaf-system UpdateVisibility on every mode change. No number of the camera is native's (lane M1-B)
 bool SourceSharp_ThirdPersonSeesOwner()	LIVE-API	the camera pass's published SeesOwner (managed's answer), read by shell_standalone_client.cpp and shell_view_executor_client.cpp (nm -u)
 [CSourceSharpClientMode] virtual void OverrideView(	SLOT	IClientMode::OverrideView, which view.cpp's SetUpViews calls every frame: managed's observer view when one is set, else stock CalcPlayerView's order carried out over managed values (the eye, the predicted punch added to the engine's angles, managed's shake, the viewmodel pinned to that eye, then managed's third-person camera); with no viewer, ::input's orthographic size (managed's) written into CViewSetup's four edges. No number is native's
@@ -72,7 +72,7 @@ IClientMode *GetClientModeNormal()	LIVE-API	the client mode, for shell_clientdll
 [CSourceSharpModeManager] virtual void SwitchMode(	SLOT	IVModeManager::SwitchMode: nothing (one mode)
 [CSourceSharpModeManager] virtual void LevelInit(	SLOT	IVModeManager::LevelInit onto the client mode
 [CSourceSharpModeManager] virtual void LevelShutdown(	SLOT	IVModeManager::LevelShutdown onto the client mode
-void VGUI_CreateClientDLLRootPanel( void )	LIVE-API	the client's root panel under the engine's PANEL_CLIENTDLL, filling the screen; shell_vgui_client.cpp imports it (nm -u)
-void VGUI_DestroyClientDLLRootPanel( void )	LIVE-API	frees the root panel; shell_vgui_client.cpp imports it (nm -u)
-vgui::VPANEL VGui_GetClientDLLRootPanel( void )	LIVE-API	the root panel's VPANEL; shell_vgui_client.cpp imports it (nm -u)
+void VGUI_CreateClientDLLRootPanel()	LIVE-API	the client's root panel under the engine's PANEL_CLIENTDLL, filling the screen; shell_vgui_client.cpp imports it (nm -u)
+void VGUI_DestroyClientDLLRootPanel()	LIVE-API	frees the root panel; shell_vgui_client.cpp imports it (nm -u)
+vgui::VPANEL VGui_GetClientDLLRootPanel()	LIVE-API	the root panel's VPANEL; shell_vgui_client.cpp imports it (nm -u)
 void SourceSharp_RegisterAmmoType(	SLOT	the IShimStandaloneClient RegisterAmmoType slot, empty: the CAmmoDef it filled had no reader and went with the client's stock headers (2026-10-25); the serialised ABI pass retires the row (docs/todo.md)

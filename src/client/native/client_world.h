@@ -103,8 +103,8 @@ private:
 class C_World : public IClientEntity
 {
 public:
-	C_World( void );
-	virtual ~C_World( void );
+	C_World();
+	virtual ~C_World();
 
 	// The blob: allocation over-allocates by what C# declared and is zeroed.
 	// Both new forms, because tier0/memdbgon.h rewrites `new` to the four-argument one.
@@ -173,15 +173,15 @@ public:
 	void                 DeliverPendingDataChanged();
 
 	virtual void         PostDataUpdate( DataUpdateType_t updateType ) OVERRIDE {}
-	virtual bool         IsDormant( void ) OVERRIDE { return false; }
+	virtual bool         IsDormant() OVERRIDE { return false; }
 	// -1 when no level is loaded: an invalid handle's GetEntryIndex answers
 	// NUM_ENT_ENTRIES-1.
-	virtual int          entindex( void ) const OVERRIDE
+	virtual int          entindex() const OVERRIDE
 	{
 		return m_RefEHandle.IsValid() ? m_RefEHandle.GetEntryIndex() : -1;
 	}
 	virtual void         ReceiveMessage( int classID, bf_read &msg ) OVERRIDE {}
-	virtual void         SetDestroyedOnRecreateEntities( void ) OVERRIDE {}
+	virtual void         SetDestroyedOnRecreateEntities() OVERRIDE {}
 	virtual void         OnDataUnchangedInPVS() OVERRIDE {}
 
 	// The engine's decoder writes the blob relative to this pointer
@@ -194,19 +194,19 @@ public:
 	virtual void                SetThinkHandle( ClientThinkHandle_t hThink ) OVERRIDE { m_hThink = hThink; }
 
 	// IClientEntity
-	virtual const Vector &GetAbsOrigin( void ) const OVERRIDE;
-	virtual const QAngle &GetAbsAngles( void ) const OVERRIDE;
-	virtual CMouthInfo   *GetMouth( void ) OVERRIDE { return NULL; }
+	virtual const Vector &GetAbsOrigin() const OVERRIDE;
+	virtual const QAngle &GetAbsAngles() const OVERRIDE;
+	virtual CMouthInfo   *GetMouth() OVERRIDE { return NULL; }
 	virtual bool          GetSoundSpatialization( SpatializationInfo_t &info ) OVERRIDE { return false; }
 
 	// IClientRenderable. The world is never added to the leaf system, so none
 	// of these draw; they are CDefaultClientRenderable's answers.
-	virtual const Vector     &GetRenderOrigin( void ) OVERRIDE;
-	virtual const QAngle     &GetRenderAngles( void ) OVERRIDE;
+	virtual const Vector     &GetRenderOrigin() OVERRIDE;
+	virtual const QAngle     &GetRenderAngles() OVERRIDE;
 	virtual const matrix3x4_t &RenderableToWorldTransform() OVERRIDE;
-	virtual bool              ShouldDraw( void ) OVERRIDE { return false; }
-	virtual bool              IsTransparent( void ) OVERRIDE { return false; }
-	virtual bool              IsTwoPass( void ) OVERRIDE { return false; }
+	virtual bool              ShouldDraw() OVERRIDE { return false; }
+	virtual bool              IsTransparent() OVERRIDE { return false; }
+	virtual bool              IsTwoPass() OVERRIDE { return false; }
 	virtual void              OnThreadedDrawSetup() OVERRIDE {}
 	virtual bool              UsesPowerOfTwoFrameBufferTexture() OVERRIDE { return false; }
 	virtual bool              UsesFullFrameBufferTexture() OVERRIDE { return false; }
@@ -227,7 +227,7 @@ public:
 	                                      int boneMask, float currentTime ) OVERRIDE { return true; }
 	virtual void              SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount,
 	                                        float *pFlexWeights, float *pFlexDelayedWeights ) OVERRIDE {}
-	virtual void              DoAnimationEvents( void ) OVERRIDE {}
+	virtual void              DoAnimationEvents() OVERRIDE {}
 	virtual IPVSNotify       *GetPVSNotifyInterface() OVERRIDE { return NULL; }
 	virtual void              GetRenderBounds( Vector &mins, Vector &maxs ) OVERRIDE;
 	virtual void              GetRenderBoundsWorldspace( Vector &mins, Vector &maxs ) OVERRIDE;
@@ -248,12 +248,12 @@ public:
 	virtual int               LookupAttachment( const char *pAttachmentName ) OVERRIDE { return -1; }
 	virtual bool              GetAttachment( int number, Vector &origin, QAngle &angles ) OVERRIDE { return false; }
 	virtual bool              GetAttachment( int number, matrix3x4_t &matrix ) OVERRIDE { return false; }
-	virtual float            *GetRenderClipPlane( void ) OVERRIDE { return NULL; }
+	virtual float            *GetRenderClipPlane() OVERRIDE { return NULL; }
 	virtual void              RecordToolMessage() OVERRIDE {}
-	virtual bool              IgnoresZBuffer( void ) const OVERRIDE { return false; }
+	virtual bool              IgnoresZBuffer() const OVERRIDE { return false; }
 
 private:
-	void RegisterSharedActivities( void );
+	void RegisterSharedActivities();
 
 	// Asks C# where its ten fields are, again after a managed reload moves them.
 	bool ResolveFields();

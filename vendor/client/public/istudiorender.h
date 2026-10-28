@@ -2,14 +2,10 @@
 
 #pragma once
 
-#include "tier1/interface.h"
-#include "mathlib/vector.h"
-#include "mathlib/vector4d.h"
 #include "tier1/utlbuffer.h"
-#include "tier1/utlvector.h"
+
 #include "materialsystem/imaterial.h"
-#include "materialsystem/imaterialsystem.h"
-#include "appframework/IAppSystem.h"
+
 #include "datacache/imdlcache.h"
 #include "studio.h"
 

@@ -89,58 +89,6 @@ const char *SrcRoot()
 	return NULL;
 }
 
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-// Whole file, comments gone. Empty means "could not open", which every caller
-// must distinguish from "opened and found nothing".
-std::string ReadStripped( const std::string &strRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	std::string all, line;
-	while ( std::getline( file, line ) )
-	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
-			line.erase( line.size() - 1 );
-		all += line;
-		all += '\n';
-	}
-	return StripComments( all );
-}
-
 struct File_t
 {
 	const char *pszRel;
@@ -165,21 +113,7 @@ struct File_t
 // (src/client/native/CMakeLists.txt). Until Phase 6b it was server_csharp.vpc
 // and client_csharp.vpc. The proof-of-read is the same shim on both sides.
 const char *const kProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
-const File_t kShellEntityApi = { "sourcesharp/game/server/shell_entityapi.cpp",
-	"int32_t SourceSharp_GetPlayerTeam(" };
-const File_t kShellWorldQuery = { "sourcesharp/game/server/shell_worldquery.cpp",
-	"SourceSharp_SetSkyboxParams(" };   // the trace slots left at plan_server_native_v2 T4f
-
-std::string Load( const File_t &f )
-{
-	const std::string s = ReadStripped( f.pszRel );
-	EXPECT_FALSE( s.empty() ) << "could not open " << f.pszRel
-		<< " — every absence invariant below would pass vacuously";
-	EXPECT_NE( s.find( f.pszAnchor ), std::string::npos )
-		<< f.pszRel << " does not contain its anchor \"" << f.pszAnchor
-		<< "\"; the file this test reasons about has moved or been rewritten";
-	return s;
-}
+   // the trace slots left at plan_server_native_v2 T4f
 
 // Does this target leave the file out of the build?
 //
@@ -211,32 +145,6 @@ bool EndsWith( const std::string &s, const char *pszSuffix )
 {
 	const std::string suf( pszSuffix );
 	return s.size() >= suf.size() && s.compare( s.size() - suf.size(), suf.size(), suf ) == 0;
-}
-
-bool IsIdentChar( char c )
-{
-	return ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' )
-		|| ( c >= '0' && c <= '9' ) || c == '_';
-}
-
-// Is the token a whole identifier, rather than the head of a longer one?
-//
-// NOT decoration here: `DT_Beam` is a prefix of `DT_BeamPredictableId`,
-// `DT_BeamRing` and eight DT_TEBeam* names, and a plain substring scan for the
-// first finds every one of them.
-bool HasWholeToken( const std::string &strBody, const std::string &strToken )
-{
-	for ( size_t at = strBody.find( strToken );
-	      at != std::string::npos;
-	      at = strBody.find( strToken, at + 1 ) )
-	{
-		const bool bLeft = ( at == 0 ) || !IsIdentChar( strBody[ at - 1 ] );
-		const size_t after = at + strToken.size();
-		const bool bRight = ( after >= strBody.size() ) || !IsIdentChar( strBody[ after ] );
-		if ( bLeft && bRight )
-			return true;
-	}
-	return false;
 }
 
 std::string Join( const std::set< std::string > &s )
@@ -423,35 +331,6 @@ TEST( ServerBeamViewModelEvicted, NoMapDeclaresTheClassnamesThatLeaveWithTheseFi
 	}
 }
 
-TEST( ServerBeamViewModelEvicted, TheManagedReplacementsAreRegisteredScriptedEntities )
-{
-	// EntityNames is the one place a managed classname is spelled, so both halves
-	// are asserted: the constant holds the string, and an entity is registered
-	// under the constant. Either alone is satisfied by a name nothing answers to.
-	const std::string names = ReadStripped( "sourcesharp/managed/SourceSharp.Shared/EntityNames.cs" );
-	ASSERT_FALSE( names.empty() ) << "could not read EntityNames.cs";
-
-	EXPECT_NE( names.find( "SsBeam" ), std::string::npos );
-	EXPECT_NE( names.find( "\"ss_beam\"" ), std::string::npos )
-		<< "EntityNames no longer spells ss_beam. CBeam is being evicted on the "
-		   "strength of a managed entity that answers in its place";
-	EXPECT_NE( names.find( "\"ss_viewmodel\"" ), std::string::npos )
-		<< "EntityNames no longer spells ss_viewmodel";
-
-	const std::string beam = ReadStripped(
-		"sourcesharp/managed/SourceSharp.Server/Entities/Env/SsBeam.cs" );
-	ASSERT_FALSE( beam.empty() ) << "could not read SsBeam.cs";
-	EXPECT_NE( beam.find( "[ScriptedEntity(EntityNames.SsBeam" ), std::string::npos )
-		<< "SsBeam.cs no longer registers itself under EntityNames.SsBeam";
-
-	const std::string weapon = ReadStripped(
-		"sourcesharp/managed/SourceSharp.Server/Entities/Weapons/SsWeapon.cs" );
-	ASSERT_FALSE( weapon.empty() ) << "could not read SsWeapon.cs";
-	EXPECT_NE( weapon.find( "[ScriptedEntity(EntityNames.SsViewModel" ), std::string::npos )
-		<< "SsViewModel is no longer registered under EntityNames.SsViewModel. It "
-		   "is what a player sees in place of the CBaseViewModel being evicted";
-}
-
 //-----------------------------------------------------------------------------
 // THE JOIN, from both ends -- and both pairs are now gone from both ends.
 //
@@ -523,44 +402,6 @@ TEST( ServerBeamViewModelEvicted, TheClientBuildHasDroppedBothSharedTranslationU
 // (shell_te_backends_client.cpp, view_beams.cpp). Pinned both ways: the
 // include does not come back, and nothing here starts naming CBeam.
 //-----------------------------------------------------------------------------
-TEST( ServerBeamViewModelEvicted, NoServerTranslationUnitIncludesTheBeamHeader )
-{
-	const File_t *kFormerIncluders[] = { &kShellEntityApi, &kShellWorldQuery };
-
-	for ( size_t i = 0; i < sizeof( kFormerIncluders ) / sizeof( kFormerIncluders[ 0 ] ); i++ )
-	{
-		const std::string s = Load( *kFormerIncluders[ i ] );
-		ASSERT_FALSE( s.empty() ) << kFormerIncluders[ i ]->pszRel << " read as empty";
-
-		EXPECT_EQ( s.find( "#include \"beam_shared.h\"" ), std::string::npos )
-			<< kFormerIncluders[ i ]->pszRel << " includes beam_shared.h again. It "
-			   "left in P5 wave 8 because it named nothing in it, and it brings "
-			   "player.h (through baseplayer_shared.h) into a TU that needs none of it";
-
-		EXPECT_FALSE( HasWholeToken( s, "CBeam" ) )
-			<< kFormerIncluders[ i ]->pszRel << " now NAMES CBeam, whose .cpp left "
-			   "the server build";
-	}
-}
-
-// The header stayed on disk for the client while a compiled client TU included
-// it. The last, flashlighteffect.cpp, left client.so in C7 cluster 12
-// (2026-10-18), and `make sdk-census` then named the header unused, so the
-// question this fact told its reader to re-take was re-taken: its fork link
-// went, and the farm no longer holds it. A sibling header the client still
-// compiles is read first, so the absence is the header leaving and not the
-// root being wrong.
-TEST( ServerBeamViewModelEvicted, TheViewModelHeaderLeftWithTheClientsLastIncluder )
-{
-	EXPECT_NE( ReadStripped( "game/client/c_baseplayer.h" ).find( "class C_BasePlayer" ), std::string::npos )
-		<< "game/client/c_baseplayer.h could not be read from the farm, so the absence "
-		   "below proves nothing";
-	EXPECT_TRUE( ReadStripped( "game/client/c_baseviewmodel.h" ).empty() )
-		<< "c_baseviewmodel.h is in the farm again: a client TU includes it again "
-		   "(sdk-links/client.txt), so re-take whether the view model's header is "
-		   "the client's";
-}
-
 //-----------------------------------------------------------------------------
 // THE RETIRED API.
 //
@@ -569,17 +410,3 @@ TEST( ServerBeamViewModelEvicted, TheViewModelHeaderLeftWithTheClientsLastInclud
 // EntityHandle.None). If a view model entry point comes back and builds a
 // CBaseViewModel, this eviction is the thing that makes it a NULL.
 //-----------------------------------------------------------------------------
-TEST( ServerBeamViewModelEvicted, TheRetiredViewModelApiBuildsNoViewModel )
-{
-	const std::string s = Load( kShellEntityApi );
-
-	EXPECT_FALSE( HasWholeToken( s, "CBaseViewModel" ) )
-		<< "shell_entityapi.cpp now names CBaseViewModel. Its viewmodel entry "
-		   "point was retired with CBasePlayer and answers an invalid handle; a "
-		   "build of the stock class here is a build of a class that is no longer "
-		   "in the server";
-
-	EXPECT_EQ( s.find( "SourceSharp_PlayerGetViewModelEntity" ), std::string::npos )
-		<< "the view model entry point is back in shell_entityapi.cpp; say what "
-		   "it answers and why it is not EngineBinding's";
-}

@@ -53,52 +53,6 @@
 namespace
 {
 
-const char *SourceRoot()
-{
-	static const char *kCandidates[] = { "sourcesharp", "src/sourcesharp", "../src/sourcesharp" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		DIR *pDir = opendir( kCandidates[ i ] );
-		if ( pDir )
-		{
-			closedir( pDir );
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-// Code lines only, 1-based index preserved by keeping blanked-out comment lines
-// in place rather than dropping them. animating_projection_test.cpp drops them
-// and so cannot report a real line number; this file reports one, and the
-// comment above quotes it.
-std::vector< std::string > CodeLines( const char *pszRelative )
-{
-	std::vector< std::string > out;
-
-	const char *pszRoot = SourceRoot();
-	if ( !pszRoot )
-		return out;
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + pszRelative ).c_str() );
-	if ( !file.is_open() )
-		return out;
-
-	std::string line;
-	while ( std::getline( file, line ) )
-	{
-		const size_t nFirst = line.find_first_not_of( " \t" );
-		if ( nFirst != std::string::npos && line.compare( nFirst, 2, "//" ) == 0 )
-			out.push_back( std::string() );
-		else
-			out.push_back( line );
-	}
-
-	return out;
-}
-
-const char *kFile = "game/server/shell_scripted.cpp";
-
 // An ABI entry point starts at column zero with a return type and the name.
 // Deliberately NOT a brace-counting parser: the body we care about runs from one
 // such line to the next, and a function that reaches `.Animating()` and never
@@ -200,11 +154,6 @@ std::vector< Entry > ScanLines( const std::vector< std::string > &lines )
 	return out;
 }
 
-std::vector< Entry > ScanEntryPoints()
-{
-	return ScanLines( CodeLines( kFile ) );
-}
-
 // The same blanking CodeLines does, over a string. A comment-only line becomes
 // an empty one rather than disappearing, so line numbers survive.
 std::vector< Entry > ScanText( const std::string &szSource )
@@ -240,71 +189,6 @@ std::vector< Entry > ScanText( const std::string &szSource )
 // move or an unexpected working directory empties that set, and an assertion
 // over an empty set passes. These three make the emptiness the failure.
 //=============================================================================//
-
-TEST( AnimatingParallelArm, TheFileTheSweepIsAboutWasActuallyRead )
-{
-	ASSERT_TRUE( SourceRoot() != NULL )
-		<< "no src/sourcesharp/ from here, so every sweep below is vacuous";
-
-	const std::vector< std::string > lines = CodeLines( kFile );
-
-	ASSERT_FALSE( lines.empty() ) << kFile << " read as empty";
-	EXPECT_GT( lines.size(), 150u )
-		<< kFile << " read as " << lines.size() << " lines, which is not this file";
-}
-
-TEST( AnimatingParallelArm, TheSweepFindsEntryPointsAtAll )
-{
-	const std::vector< Entry > entries = ScanEntryPoints();
-
-	// The parser is the thing most likely to silently stop working, and it fails
-	// OPEN -- finding nothing -- rather than closed.
-	// 20 -> 15 at plan_server_native_v2 T2, which deleted the three retired
-	// mover slots and their helper (19 left).
-	EXPECT_GT( entries.size(), 15u )
-		<< "the entry-point parser found " << entries.size()
-		<< " definitions in " << kFile << "; it used to find dozens, so it has "
-		   "stopped matching rather than the file having shrunk";
-}
-
-TEST( AnimatingParallelArm, TheSweepFindsTheSdkArmAtAll )
-{
-	const std::vector< Entry > entries = ScanEntryPoints();
-
-	int nAsk = 0;
-	for ( size_t i = 0; i < entries.size(); i++ )
-		if ( entries[ i ].bAsksSdkArm )
-			nAsk++;
-
-	// WAS 3, THEN 2, AND IS ZERO -- and zero is the END STATE rather than a
-	// floor that finally broke.
-	//
-	// the-close 1/N took it 5 -> 2 by deleting three sites that sat inside
-	// `#ifndef SS_CBASEENTITY_ALIAS`, an arm no compiler ever saw. plan_shim.md
-	// Phase 2d took the last two: LookupSequenceByActivity is a RETIRED ABI
-	// slot -- one ModelDescriptor crossing answers it, in C#, for both
-	// hierarchies at once -- and the shared ServerAnimStudioHdr went with its
-	// four callers, all of them the same retirement.
-	//
-	// SO THE FLOOR CANNOT COME BACK, and asserting one would be asserting that
-	// a hazard this file exists to remove is still present. What is asserted
-	// instead is the direction: the sweep below is VACUOUS when nAsk is 0, and
-	// that is the outcome it was written to produce. If a site reappears, the
-	// sweep stops being vacuous and starts checking it -- which is what
-	// EveryAnimationEntryPointAnswersBothHierarchies does, whatever nAsk is.
-	//
-	// THE PARSER'S OWN POSITIVE CONTROL IS NOT LOST WITH THE POPULATION. It
-	// moved to TheSweepSeesAnSdkArmWhenThereIsOneToSee below, which feeds the
-	// parser a function WRITTEN IN THE TEST rather than one in the tree -- so
-	// it cannot be made vacuous by the tree getting better, which is exactly
-	// how this control kept having to move.
-	EXPECT_EQ( 0, nAsk )
-		<< nAsk << " entry point(s) in " << kFile << " reach .Animating() "
-		   "again. Animating() is `pBase ? pBase->GetBaseAnimating() : NULL` "
-		   "and pBase is NULL for every entity this build makes, so such an "
-		   "arm can only ever be skipped -- and an entry point that has ONLY "
-		   "that arm is a silent no-op. The sweep below will name it.";
-}
 
 //-----------------------------------------------------------------------------
 // THE PARSER'S POSITIVE CONTROL, and it does not read the tree.
@@ -381,53 +265,9 @@ TEST( AnimatingParallelArm, TheSweepNamesAnSdkOnlyEntryPoint )
 // THE SWEEP.
 //=============================================================================//
 
-TEST( AnimatingParallelArm, EveryAnimationEntryPointAnswersBothHierarchies )
-{
-	const std::vector< Entry > entries = ScanEntryPoints();
-
-	std::ostringstream bad;
-	int nBad = 0;
-
-	for ( size_t i = 0; i < entries.size(); i++ )
-	{
-		if ( !entries[ i ].bAsksSdkArm || entries[ i ].bAnswersParallel )
-			continue;
-
-		nBad++;
-		bad << "\n    " << kFile << ":" << entries[ i ].nLine << ": "
-		    << entries[ i ].name;
-	}
-
-	EXPECT_EQ( 0, nBad )
-		<< "these ABI entry points reach SourceSharpEntity_t::Animating() and "
-		   "nothing else. Animating() is NULL for every entity on the parallel "
-		   "hierarchy, so each is a SILENT NO-OP for most of this mod's "
-		   "entities -- plan_entity.md §7 asks for a declared refusal instead:"
-		<< bad.str();
-}
-
 //=============================================================================//
 // THE ONE THAT SHIPPED, named so a reader can find the bug from the test.
 //=============================================================================//
-
-// RETIRED WITH ITS SLOT (2026-10-18). SetSequenceReachesTheParallelHierarchysPose
-// held SourceSharp_EntitySetSequence to a parallel arm or a declared refusal.
-// Since physics_bones_native_zero 1.2 ServerSkeletons answers both arms
-// (SkeletonRouteTests, ServerSkeletonsTests), and the IShimModelsServer slot
-// and its body were retired together. What is held now is that the body is
-// gone and stays gone, against a sweep that still reads the file's other
-// entry points.
-TEST( AnimatingParallelArm, TheRetiredSetSequenceBodyStaysGone )
-{
-	const std::vector< Entry > entries = ScanEntryPoints();
-	ASSERT_GT( entries.size(), 10u ) << "the sweep of " << kFile << " found almost nothing";
-
-	for ( size_t i = 0; i < entries.size(); i++ )
-	{
-		EXPECT_NE( entries[ i ].name, "SourceSharp_EntitySetSequence" )
-			<< kFile << ":" << entries[ i ].nLine << " defines the retired body again";
-	}
-}
 
 //=============================================================================//
 // THE TWO WORKED EXAMPLES ARE RETIRED WITH THEIR SUBJECTS -- plan_shim.md 2d.

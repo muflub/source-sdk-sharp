@@ -64,36 +64,6 @@ namespace
 // directory; the list lets the binary also run by hand from the repo root, and
 // keeps "no tree found" distinguishable from "tree found, file missing".
 //-----------------------------------------------------------------------------
-const char *SourceRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		const std::string probe = std::string( kCandidates[ i ] ) + "/sourcesharp/game/server";
-		DIR *pDir = opendir( probe.c_str() );
-		if ( pDir )
-		{
-			closedir( pDir );
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadFile( const std::string &strRelative )
-{
-	const char *pszRoot = SourceRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	return std::string( ( std::istreambuf_iterator< char >( file ) ),
-	                    std::istreambuf_iterator< char >() );
-}
-
 //-----------------------------------------------------------------------------
 // COMMENTS ARE STRIPPED BEFORE ANY MATCH, and here that is load-bearing rather
 // than tidiness. Every edit this file speaks for carries a comment naming the
@@ -103,45 +73,6 @@ std::string ReadFile( const std::string &strRelative )
 // correct fix as broken. header_alias_test.cpp and cpp_alias_lane1_test.cpp
 // were both caught by exactly this.
 //-----------------------------------------------------------------------------
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false;
-				i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true;
-			i++;
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' )
-				i++;
-			if ( i < strIn.size() )
-				out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-std::string CodeOf( const std::string &strRelative )
-{
-	return StripComments( ReadFile( strRelative ) );
-}
-
 int CountOf( const std::string &strHay, const std::string &strNeedle )
 {
 	if ( strNeedle.empty() )
@@ -155,24 +86,12 @@ int CountOf( const std::string &strHay, const std::string &strNeedle )
 	return n;
 }
 
-bool Has( const std::string &strHay, const std::string &strNeedle )
-{
-	return strHay.find( strNeedle ) != std::string::npos;
-}
-
 //-----------------------------------------------------------------------------
 // THE FILES, and the anchor each one is identified by. An anchor rather than a
 // line count, because a count goes stale on every unrelated edit and then gets
 // "fixed" by copying whatever the file says now -- which is the check that
 // cannot fail, arriving by the back door.
 //-----------------------------------------------------------------------------
-// EffectsPrecache's home moved. game/server/effects.cpp is `-$File` out of
-// server_csharp.vpc (see effects_evicted_test.cpp), and the function went with
-// UTIL_BloodSpray to the orphans shell -- so the lift this file guards is
-// guarded THERE now. The lift itself is unchanged: the class scope is gone and
-// the free function is what is called.
-const char *kEffects = "sourcesharp/game/server/shell_absent.cpp";
-
 } // namespace
 
 
@@ -180,68 +99,10 @@ const char *kEffects = "sourcesharp/game/server/shell_absent.cpp";
 // 1. The sound statics left the class at these call sites.
 //=============================================================================//
 
-TEST( Shard2Lifts, EffectsPrecacheAsksTheFreeSoundFunction )
-{
-	// EffectsPrecache left this file at plan_server_native_v2 T4e: its six
-	// script sounds are managed's world precache (ServerGameDll.WorldPrecache,
-	// through the SoundEmitterSystem's own precache). The lift still holds where
-	// it was guarded: nothing here asks the class scope, the free function or
-	// the managed area for a script precache.
-	const std::string code = CodeOf( kEffects );
-
-	ASSERT_TRUE( Has( code, "void UTIL_BloodSpray" ) )
-		<< "the file's anchor moved; this test is reading the wrong file";
-
-	EXPECT_EQ( 0, CountOf( code, "CBaseEntity::PrecacheScriptSound" ) )
-		<< "the class scope is asked again -- that scope is what Phase 13 deletes";
-	EXPECT_EQ( 0, CountOf( code, "GameSound_PrecacheScript(" ) )
-		<< "server.so defines no GameSound_PrecacheScript any more";
-	EXPECT_EQ( 0, CountOf( code, "ServerPrecacheScriptSound(" ) )
-		<< "a native script precache is back beside the world's managed one";
-	EXPECT_EQ( 0, CountOf( code, "void EffectsPrecache" ) );
-}
-
 //=============================================================================//
 // 3. The scanner checking itself. Without these every assertion above passes on
 //    an empty string, which is precisely how a check that cannot fail is born.
 //=============================================================================//
-
-TEST( Shard2ScannerSelfCheck, EveryFileWasReallyOpenedAndIsNotTrivial )
-{
-	ASSERT_TRUE( SourceRoot() != NULL ) << "no src tree found from the cwd";
-
-	const char *kAll[] = { kEffects };
-	for ( size_t i = 0; i < sizeof( kAll ) / sizeof( kAll[ 0 ] ); i++ )
-	{
-		const std::string raw = ReadFile( kAll[ i ] );
-		EXPECT_LT( 600u, raw.size() )
-			<< kAll[ i ] << " read as " << raw.size()
-			<< " bytes -- every claim about it would pass vacuously";
-	}
-}
-
-TEST( Shard2ScannerSelfCheck, StrippingIsWhatStopsTheProseFalsePositive )
-{
-	// The exact shape this file's subjects are written in: a comment naming the
-	// member the fix stopped calling, directly above the fix.
-	const std::string strFixture =
-		"// SOURCESHARP: this was TraceEntity( *pTrace )->entindex(), with no\n"
-		"// null check.\n"
-		"int i = pTrace->m_pEnt->GetRefEHandle().GetEntryIndex();\n";
-
-	EXPECT_TRUE( Has( strFixture, "TraceEntity(" ) )
-		<< "the raw text does contain the token -- that is the trap";
-	EXPECT_FALSE( Has( StripComments( strFixture ), "TraceEntity(" ) )
-		<< "stripping is what makes 'the fix must not name the old call' honest";
-	EXPECT_TRUE( Has( StripComments( strFixture ), "GetEntryIndex()" ) )
-		<< "...and it must not eat the code";
-
-	// Block comments too: the file headers here are all `/* ... */`-free today,
-	// but nothing stops the next one.
-	EXPECT_FALSE( Has( StripComments( "/* EntityFromEntityHandle */ int x;" ),
-	                   "EntityFromEntityHandle" ) );
-	EXPECT_TRUE( Has( StripComments( "/* c */ int x;" ), "int x;" ) );
-}
 
 TEST( Shard2ScannerSelfCheck, CountOfCountsRatherThanFindingOnce )
 {

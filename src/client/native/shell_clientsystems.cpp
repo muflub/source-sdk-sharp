@@ -54,7 +54,7 @@ class CClientEffectPrecacheSystem;
 
 IClientLeafSystem *ClientLeafSystem();
 IDetailObjectSystem *DetailObjectSystem();
-CClientEffectPrecacheSystem *ClientEffectPrecacheSystem( void );
+CClientEffectPrecacheSystem *ClientEffectPrecacheSystem();
 
 // The leaf system is libss_fwd_client's object, built without RTTI, so its row
 // is an adapter the per-frame walks can dynamic_cast.
@@ -205,7 +205,7 @@ static void WalkForwardPerFrame( ClientSystemFrameStage_t fn )
 }
 
 // Init in the table's order, stopping on the first refusal, as stock did.
-bool SourceSharp_ClientSystemsInit( void )
+bool SourceSharp_ClientSystemsInit()
 {
 	for ( int i = 0; i < kClientSystemCount; i++ )
 	{
@@ -224,37 +224,37 @@ bool SourceSharp_ClientSystemsInit( void )
 	return true;
 }
 
-void SourceSharp_ClientSystemsPostInit( void )
+void SourceSharp_ClientSystemsPostInit()
 {
 	WalkForward( &CClientSystem::PostInit );
 }
 
-void SourceSharp_ClientSystemsShutdown( void )
+void SourceSharp_ClientSystemsShutdown()
 {
 	WalkBackward( &CClientSystem::Shutdown );
 }
 
-void SourceSharp_ClientSystemsLevelInitPreEntity( void )
+void SourceSharp_ClientSystemsLevelInitPreEntity()
 {
 	WalkForward( &CClientSystem::LevelInitPreEntity );
 }
 
-void SourceSharp_ClientSystemsLevelInitPostEntity( void )
+void SourceSharp_ClientSystemsLevelInitPostEntity()
 {
 	WalkForward( &CClientSystem::LevelInitPostEntity );
 }
 
-void SourceSharp_ClientSystemsLevelShutdownPreEntity( void )
+void SourceSharp_ClientSystemsLevelShutdownPreEntity()
 {
 	WalkBackward( &CClientSystem::LevelShutdownPreEntity );
 }
 
-void SourceSharp_ClientSystemsLevelShutdownPostEntity( void )
+void SourceSharp_ClientSystemsLevelShutdownPostEntity()
 {
 	WalkBackward( &CClientSystem::LevelShutdownPostEntity );
 }
 
-void SourceSharp_ClientSystemsPreRender( void )
+void SourceSharp_ClientSystemsPreRender()
 {
 	WalkForwardPerFrame( &CClientSystemPerFrame::PreRender );
 }

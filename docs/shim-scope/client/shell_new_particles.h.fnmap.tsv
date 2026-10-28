@@ -6,10 +6,10 @@
 1	LAYOUT	[CShellNewParticleEffect] uint32_t Id() const
 1	LAYOUT	[CShellNewParticleEffect] void SetSortOrigin( const Vector &vSortOrigin )
 1	LAYOUT	[CShellNewParticleEffect] const Vector &GetSortOrigin() const
-1	SLOT	[CShellNewParticleEffect] virtual const Vector &GetRenderOrigin( void ) OVERRIDE
-1	SLOT	[CShellNewParticleEffect] virtual const QAngle &GetRenderAngles( void ) OVERRIDE
+1	SLOT	[CShellNewParticleEffect] virtual const Vector &GetRenderOrigin() OVERRIDE
+1	SLOT	[CShellNewParticleEffect] virtual const QAngle &GetRenderAngles() OVERRIDE
 1	LAYOUT	[CShellNewParticleEffect] const char *GetDebugName() const
-1	SLOT	[CShellNewParticleEffect] virtual bool ShouldDraw( void ) OVERRIDE
+1	SLOT	[CShellNewParticleEffect] virtual bool ShouldDraw() OVERRIDE
 1	LAYOUT	[CShellNewParticleEffect] bool IsReleasedSinceFrame() const
 1	LAYOUT	[CShellNewParticleEffect] bool IsAddedSinceFrame() const
 1	LAYOUT	[CShellNewParticleEffect] void ClearFrameFlags()

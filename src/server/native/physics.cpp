@@ -30,7 +30,7 @@ extern IVModelInfo *modelinfo;
 extern class IStaticPropMgrServer *staticpropmgr;
 #include "engine/IEngineSound.h"
 #include "ss_world.h"
-float GetCurrentGravity( void );
+float GetCurrentGravity();
 #include "vphysics/vehicles.h"
 using ss::gamevcollisionevent_t;
 #include "entity_shared_statics.h"
@@ -96,7 +96,7 @@ CServerSystem* PhysicsGameSystem()
 	return &g_PhysicsHook;
 }
 
-bool CPhysicsHook::Init( void )
+bool CPhysicsHook::Init()
 {
 	ss::factorylist_t factories;
 	

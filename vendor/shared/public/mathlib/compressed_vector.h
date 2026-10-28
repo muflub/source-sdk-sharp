@@ -2,19 +2,9 @@
 
 #pragma once
 
-#include <math.h>
-#include <float.h>
-
 // For vec_t, put this somewhere else?
-#include "basetypes.h"
 
 // For rand(). We really need a library!
-#include <stdlib.h>
-
-#include "tier0/dbg.h"
-#include "mathlib/vector.h"
-
-#include "mathlib/mathlib.h"
 
 // fit a 3D vector into 32 bits
 
@@ -22,7 +12,7 @@ class Vector32
 {
 public:
 	// Construction/destruction:
-	Vector32(void); 
+	Vector32(); 
 	Vector32(vec_t X, vec_t Y, vec_t Z);
 
 	operator Vector ();
@@ -54,7 +44,7 @@ class Normal32
 {
 public:
 	// Construction/destruction:
-	Normal32(void); 
+	Normal32(); 
 	Normal32(vec_t X, vec_t Y, vec_t Z);
 
 	operator Vector ();
@@ -83,7 +73,7 @@ class Quaternion64
 {
 public:
 	// Construction/destruction:
-	Quaternion64(void); 
+	Quaternion64(); 
 	Quaternion64(vec_t X, vec_t Y, vec_t Z);
 
 	operator Quaternion ();
@@ -114,7 +104,7 @@ class Quaternion48
 {
 public:
 	// Construction/destruction:
-	Quaternion48(void); 
+	Quaternion48(); 
 	Quaternion48(vec_t X, vec_t Y, vec_t Z);
 
 	operator Quaternion ();
@@ -144,7 +134,7 @@ class Quaternion32
 {
 public:
 	// Construction/destruction:
-	Quaternion32(void); 
+	Quaternion32(); 
 	Quaternion32(vec_t X, vec_t Y, vec_t Z);
 
 	operator Quaternion ();
@@ -402,7 +392,7 @@ class Vector2d32
 {
 public:
 	// Construction/destruction:
-	Vector2d32(void) {}
+	Vector2d32() {}
 	Vector2d32(vec_t X, vec_t Y) { x.SetFloat( X ); y.SetFloat( Y ); }
 
 	operator Vector2D ();

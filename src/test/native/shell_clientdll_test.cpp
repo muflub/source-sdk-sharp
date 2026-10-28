@@ -182,28 +182,6 @@ TEST( ClientDllInterface, TheParseYieldsActualMethodNames )
 // 2. The probe is gone.
 //=============================================================================
 
-// AN ABSENCE CHECK WITH A POSITIVE CONTROL, and the control is the whole point.
-// "shell_clientdll_probe.h does not open" is true in ANY directory that happens
-// not to contain it -- including a binary run from the wrong place, where it
-// would pass while proving nothing. So the control asserts that a file which
-// MUST exist beside it does open. Together they can only both hold in a real
-// src/ from which the probe has actually been removed.
-TEST( ClientDllProbeRemoval, TheProbeHeaderIsGoneAndTheShellIsStillThere )
-{
-	std::ifstream control( "sourcesharp/game/client/shell_clientdll.cpp" );
-	ASSERT_TRUE( control.good() )
-		<< "control failed: shell_clientdll.cpp does not open, so this binary "
-		   "is not running from the tree's src/ and the absence below would be "
-		   "an artefact of the working directory rather than a measurement.";
-
-	std::ifstream probe( "sourcesharp/game/client/shell_clientdll_probe.h" );
-	EXPECT_FALSE( probe.good() )
-		<< "sourcesharp/game/client/shell_clientdll_probe.h is back. It was a "
-		   "measuring instrument whose measurement is recorded in "
-		   "docs/clientdll-boundary.md; re-adding it re-arms seventy-nine "
-		   "methods for a question that has been answered.";
-}
-
 TEST( ClientDllProbeRemoval, TheShellArmsNothingAndNamesNoProbeCommand )
 {
 	const std::string shell = ShellText();

@@ -38,7 +38,7 @@ public:
 	{
 	}
 
-	virtual void Destroy( void ) OVERRIDE
+	virtual void Destroy() OVERRIDE
 	{
 	}
 };
@@ -82,7 +82,7 @@ int32_t SourceSharp_UiDebugOverlayText( int32_t nIndex, float *pOutX, float *pOu
 	return 1;
 }
 
-void SourceSharp_UiDebugOverlayClearDead( void )
+void SourceSharp_UiDebugOverlayClearDead()
 {
 	if ( debugoverlay )
 		debugoverlay->ClearDeadOverlays();

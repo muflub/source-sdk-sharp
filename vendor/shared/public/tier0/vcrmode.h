@@ -10,8 +10,6 @@
 #include <process.h>
 #endif
 
-#include "tier0/platform.h"
-#include "tier0/vcr_shared.h"
 #include "tier0/dbg.h"
 
 #ifdef POSIX

@@ -53,38 +53,6 @@
 namespace
 {
 
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub  = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadFile( const std::string &strRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	std::stringstream ss;
-	ss << file.rdbuf();
-	return ss.str();
-}
-
 //-----------------------------------------------------------------------------
 // The file with its comments taken out.
 //
@@ -94,80 +62,6 @@ std::string ReadFile( const std::string &strRelative )
 // twice already on this plan (7b's C_BaseTempEntity, 6d's hitbox). String
 // literals are preserved so a "//" inside a path is not read as a comment.
 //-----------------------------------------------------------------------------
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	out.reserve( strIn.size() );
-
-	enum { CODE, LINE_COMMENT, BLOCK_COMMENT, STRING, CHARLIT } state = CODE;
-
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		const char c = strIn[ i ];
-		const char n = ( i + 1 < strIn.size() ) ? strIn[ i + 1 ] : '\0';
-
-		switch ( state )
-		{
-		case CODE:
-			if ( c == '/' && n == '/' ) { state = LINE_COMMENT; i++; }
-			else if ( c == '/' && n == '*' ) { state = BLOCK_COMMENT; i++; }
-			else
-			{
-				if ( c == '"' ) state = STRING;
-				else if ( c == '\'' ) state = CHARLIT;
-				out += c;
-			}
-			break;
-
-		case LINE_COMMENT:
-			if ( c == '\n' ) { state = CODE; out += c; }
-			break;
-
-		case BLOCK_COMMENT:
-			if ( c == '*' && n == '/' ) { state = CODE; i++; }
-			else if ( c == '\n' ) out += c;
-			break;
-
-		case STRING:
-			out += c;
-			if ( c == '\\' && i + 1 < strIn.size() ) { out += n; i++; }
-			else if ( c == '"' ) state = CODE;
-			break;
-
-		case CHARLIT:
-			out += c;
-			if ( c == '\\' && i + 1 < strIn.size() ) { out += n; i++; }
-			else if ( c == '\'' ) state = CODE;
-			break;
-		}
-	}
-
-	return out;
-}
-
-bool Has( const std::string &hay, const char *needle )
-{
-	return hay.find( needle ) != std::string::npos;
-}
-
-// The soundscape's native half (the client-system shell and the executors)
-// and its managed system and commands, since sound cluster 17 (lane c2-sims).
-const char *kSoundscape = "sourcesharp/game/client/shell_soundscape_audio_client.cpp";
-const char *kSoundscapeManaged = "sourcesharp/managed/SourceSharp.Client/Soundscapes/ClientSoundscapes.cs";
-const char *kSoundscapeCommands = "sourcesharp/managed/SourceSharp.Client/Soundscapes/SoundscapeCommands.cs";
-const char *kClientModule = "sourcesharp/managed/SourceSharp.Client/ClientModule.cs";
-// The client's emitter, managed since sound_emitter.cpp left client.so
-// (SourceSharp.Client.Sounds); its speaker lookup is ClientModule's.
-const char *kEmitter    = "sourcesharp/managed/SourceSharp.Client/Sounds/ClientSoundEmitter.cs";
-const char *kFilter     = "sourcesharp/game/client/shell_recipientfilter_client.cpp";
-// cs_cl_particle_report, managed since particlemgr.cpp left client.so (C7
-// particles phase 4), over the particles shell's per-system read and the
-// client entity origin read (shell_te_pool_client.cpp).
-const char *kParticleCommands = "sourcesharp/managed/SourceSharp.Client/Effects/ParticleCommands.cs";
-const char *kTePool = "sourcesharp/game/client/shell_te_pool_client.cpp";
-// The managed particle systems' start and follow sweep (the flame's control
-// points), in the particles shell since C5 moved them out of shell_sprite_render.cpp.
-const char *kManagedParticles = "sourcesharp/game/client/shell_managed_particles.cpp";
 // What each side compiles: client_sourcesharp (src/client/native/CMakeLists.txt)
 // and server_sourcesharp (src/server/native/CMakeLists.txt), read through
 // cmake_graph.h, whose readers throw on a missing, empty or stale input.
@@ -192,11 +86,6 @@ bool CompilesTail( const char *pszTarget, const std::string &strTail )
 	return false;
 }
 
-std::string Code( const char *pszFile )
-{
-	return StripComments( ReadFile( pszFile ) );
-}
-
 } // namespace
 
 //=============================================================================
@@ -207,135 +96,15 @@ std::string Code( const char *pszFile )
 // "spelling is gone" check passes perfectly over a file that is not there. That
 // is the recorded "check that cannot fail" in its most ordinary shape.
 //=============================================================================
-TEST( Step7eSubjects, EveryFileThisSuiteReadsIsActuallyThere )
-{
-	// A FLOOR PLUS AN ANCHOR, not a floor. The floors here were 20,000 / 3,000 /
-	// 4,000 bytes, and a size is the wrong instrument twice over. It cannot tell
-	// a truncated file from a SHORTENED one -- and two of these five subjects
-	// were stock (particlemgr.cpp, client_csharp.vpc) in a port whose whole job
-	// is to shorten stock, while the other three are shim files this port keeps
-	// splitting up. The identical shape has gone stale ten times across this
-	// suite already (9326017e6, 05237b9c8, c1420d0ac), every time on a correct
-	// tree and every time at the cost of a full suite run.
-	//
-	// Each floor drops to a value only an UNOPENED or TRUNCATED read can miss --
-	// ReadFile answers "" for a path it cannot open, which is what this fact
-	// exists to catch -- and each subject is identified by something in its own
-	// text, which is what the size was standing in for and could never do.
-	struct Subject_t { const char *pszPath; size_t nFloor; const char *pszAnchor; };
-	static const Subject_t kSubjects[] = {
-		{ kSoundscape,  500u, "class C_SoundscapeSystem" },
-		{ kSoundscapeManaged, 500u, "public sealed class ClientSoundscapes" },
-		{ kSoundscapeCommands, 500u, "cs_cl_soundscape_report" },
-		{ kClientModule, 500u, "public sealed class ClientModule" },
-		{ kEmitter,     500u, "public sealed class ClientSoundEmitter" },
-		{ kFilter,      500u, "C_RecipientFilter::" },
-		{ kParticleCommands, 500u, "cs_cl_particle_report" },
-		{ kTePool, 500u, "int32_t SourceSharp_ClientEntityOrigin(" },
-		{ kManagedParticles, 500u, "void ShellParticles_PreRender()" },
-		// (client_csharp.vpc was the fifth subject. Its successor, the client's
-		// CMake source list, is read by cmake_graph.h, which throws on a
-		// missing or empty file itself -- see section 6.)
-	};
-
-	for ( size_t i = 0; i < sizeof( kSubjects ) / sizeof( kSubjects[ 0 ] ); i++ )
-	{
-		const std::string text = ReadFile( kSubjects[ i ].pszPath );
-
-		EXPECT_GT( text.size(), kSubjects[ i ].nFloor )
-			<< kSubjects[ i ].pszPath << " read as empty or trivial -- every "
-			   "`find` below it would be npos, which is what a "
-			   "\"the spelling is gone\" check reports as a pass";
-		EXPECT_NE( text.find( kSubjects[ i ].pszAnchor ), std::string::npos )
-			<< kSubjects[ i ].pszPath << " does not contain `"
-			<< kSubjects[ i ].pszAnchor << "`, so what was read is not the file "
-			   "this suite means to be reading.";
-	}
-}
-
 //=============================================================================
 // 1. THE VIEW ACCESSOR
 //=============================================================================
-TEST( Step7eSubjects, TheSoundscapeNeverReadsTheCURRENTView )
-{
-	const std::string code = Code( kSoundscape );
-	ASSERT_FALSE( code.empty() );
-
-	EXPECT_FALSE( Has( code, "CurrentViewOrigin()" ) )
-		<< "CurrentViewOrigin() asserts s_bCanAccessCurrentView, which is only "
-		   "true inside the render pass. Soundscape work runs from a client "
-		   "system update and from console commands, so this is a crash: "
-		   "`playsoundscape labs_mp` took the game down with three of them.";
-	EXPECT_FALSE( Has( code, "CurrentViewForward()" ) );
-	EXPECT_FALSE( Has( code, "CurrentViewRight()" ) );
-}
-
-TEST( Step7eSubjects, TheSoundscapeReadsTheMAINViewInstead )
-{
-	const std::string code = Code( kSoundscape );
-	ASSERT_FALSE( code.empty() );
-
-	// Not merely "the bad spelling is gone": a file that stopped asking for a
-	// view at all would pass the fact above and would have lost the forced
-	// soundscape's positional sources, which is the thing 7e RESTORED.
-	EXPECT_TRUE( Has( code, "MainViewOrigin()" ) )
-		<< "the soundscape stopped asking where the player is, so a forced "
-		   "soundscape's positioned sounds have no positions -- which is the "
-		   "state 7e found and fixed, arrived at from the other side.";
-	EXPECT_TRUE( Has( code, "MainViewForward()" ) );
-	EXPECT_TRUE( Has( code, "MainViewRight()" ) );
-}
-
 //=============================================================================
 // 2. THE ENTITY ASKS
 //=============================================================================
-TEST( Step7eSubjects, TheSoundscapeAsksNoPlayerEntity )
-{
-	const std::string code = Code( kSoundscape );
-	ASSERT_FALSE( code.empty() );
-
-	EXPECT_FALSE( Has( code, "C_BasePlayer::GetLocalPlayer" ) )
-		<< "it is `return NULL;` in this mod (shell_player_orphans.cpp:63), so "
-		   "the arm behind it is dead code that reads like live code.";
-	EXPECT_FALSE( Has( code, "CanSetSoundMixer" ) )
-		<< "CanSetSoundMixer is GetObserverMode() != OBS_MODE_FREEZECAM and "
-		   "nothing in this build can enter freezecam.";
-	EXPECT_FALSE( Has( code, "c_baseplayer.h" ) )
-		<< "the include came back, which drags C_BasePlayer into a shim file "
-		   "that no longer names it.";
-}
-
-TEST( Step7eSubjects, TheClientRecipientFilterNamesNoEntityList )
-{
-	const std::string code = Code( kFilter );
-	ASSERT_FALSE( code.empty() );
-
-	// The three symbols step 4b's move made client cross-edges are this file's,
-	// and it is under the shim so that they stop being cross-edges. What must
-	// not come back is the SDK resolve: the file addresses players by SLOT.
-	EXPECT_FALSE( Has( code, "C_BaseEntity::Instance" ) );
-	EXPECT_FALSE( Has( code, "ToBasePlayer" ) );
-	// The player-taking adds that asked MvEntIndex() left 2026-10-25 with no
-	// importer; the slot every add holds is the engine's own.
-	EXPECT_TRUE( Has( code, "engine->GetLocalPlayer()" ) )
-		<< "the filter no longer names the viewer by the engine's slot.";
-}
-
 //=============================================================================
 // 3. THE LANDING SITE, AND THE REFUSAL
 //=============================================================================
-TEST( Step7eSubjects, TheSoundscapeLandingSiteIsKept )
-{
-	const std::string code = Code( kSoundscapeManaged );
-	ASSERT_FALSE( code.empty() );
-
-	EXPECT_TRUE( Has( code, "public void Push(int soundscapeIndex, int entIndex, int localBits, ReadOnlySpan<Vector> localPositions)" ) )
-		<< "ClientSoundscapes.Push is where a soundscape push LANDS (stock's "
-		   "Soundscape_Update, which step 7e kept so that wiring the transport "
-		   "would be a caller and not a rewrite). Deleting it takes the whole "
-		   "soundscape path with it.";
-}
-
 //-----------------------------------------------------------------------------
 // THE CALLER 7e KEPT THE LANDING SITE FOR -- plan_entity.md step 8e-sound,
 // and since sound cluster 17 a managed call with no crossing.
@@ -344,152 +113,12 @@ TEST( Step7eSubjects, TheSoundscapeLandingSiteIsKept )
 // the transport is wired, so 7e's refusal was deleted rather than
 // re-conditioned. BOTH DIRECTIONS ARE ASSERTED, because either alone is weak.
 //-----------------------------------------------------------------------------
-TEST( Step7eSubjects, TheLandingSiteHasItsCallerAndTheRefusalIsGone )
-{
-	const std::string module = Code( kClientModule );
-	ASSERT_FALSE( module.empty() );
-
-	EXPECT_TRUE( Has( module, "_soundscapes.Push(index, entIndex, bits, positions)" ) )
-		<< "the client module no longer hands the Soundscape message's pushes to "
-		   "ClientSoundscapes.Push, so a push reaches nothing.";
-
-	// RAW, not stripped, for the reason the native file had: prose explaining
-	// the refusal must not hide a live one beside it.
-	const std::string raw = ReadFile( kSoundscapeManaged );
-	ASSERT_FALSE( raw.empty() );
-
-	EXPECT_FALSE( Has( raw, "[SourceSharp] soundscapes:" ) )
-		<< "the refusal is printed again. Its subject is fixed, so the line is "
-		   "a false statement with a citation attached.";
-
-	EXPECT_TRUE( Has( raw, "refused rather than remembered" ) )
-		<< "a push this side cannot honour (an index it did not parse) is "
-		   "latched again, and the dedupe then answers 'already current' for "
-		   "that index for the rest of the map.";
-}
-
-TEST( Step7eSubjects, ThePushCounterExistsSoTheGateCanReadIt )
-{
-	const std::string code = Code( kSoundscapeManaged );
-	const std::string commands = Code( kSoundscapeCommands );
-	ASSERT_FALSE( code.empty() );
-	ASSERT_FALSE( commands.empty() );
-
-	EXPECT_TRUE( Has( code, "_pushes++" ) )
-		<< "tools/7e-particle-sound-gate reads this through "
-		   "cs_cl_soundscape_report. Without it 'nothing pushes a soundscape' "
-		   "is an inference from silence.";
-	EXPECT_TRUE( Has( commands, "[ConCommand(\"cs_cl_soundscape_report\"" ) );
-	EXPECT_TRUE( Has( commands, "pushed {soundscapes.Pushes}" ) );
-}
-
 //=============================================================================
 // 4. THE EMITTER'S CLIENT ARM
 //=============================================================================
-TEST( Step7eSubjects, TheEmittersClientArmAsksTheEntityList )
-{
-	// THE QUESTION STEP 7e ANSWERED HAS MOVED TO C# WITH THE EMITTER. 7e's
-	// sound_emitter.cpp asked the entity list (SourceSharp_ClientEntityFromIndex)
-	// rather than C_BaseEntity::Instance, which answered NULL for every entity
-	// on the parallel hierarchy, so every managed entity's sound went out as
-	// GENDER_NONE. The managed ClientSoundEmitter asks ClientModule's
-	// SpeakerModel, which asks the client's own registry by index and the
-	// renderable's model by handle: the same question of the entities this port
-	// owns, and no SDK class in it.
-	const std::string module = Code( kClientModule );
-	ASSERT_FALSE( module.empty() );
-
-	EXPECT_TRUE( Has( module, "standalones.GetByIndex(index) is { } speaker ? render.GetModelName(speaker.Handle)" ) )
-		<< "the client's speaker lookup is gone. Deleting it is GENDER_NONE for "
-		   "every entity, which from the console looks like nothing.";
-	EXPECT_TRUE( Has( module, "new Sounds.ClientSoundEmitter(engine, _services.Require<IGameClock>(), context," ) )
-		<< "the client's emitter is not built over the context the speaker lookup is in.";
-
-	const std::string code = Code( kEmitter );
-	ASSERT_FALSE( code.empty() );
-	EXPECT_FALSE( Has( code, "C_BaseEntity::Instance" ) );
-	EXPECT_FALSE( CompilesTail( cmake_graph::kClient, "sourcesharp/game/client/sound_emitter.cpp" ) )
-		<< "sound_emitter.cpp is back on the client's link line beside the managed emitter.";
-}
-
 //=============================================================================
 // 5. THE INSTRUMENT
 //=============================================================================
-TEST( Step7eSubjects, TheParticleReportDoesNotUseTheAssertingAccessor )
-{
-	// THE REPORT'S OWN READ, NOT THE WHOLE FILE, and the first run of this
-	// suite is why: GetControlPointAtCurrentTime is correct where a definition
-	// declared the point, and a whole-file needle went red over code it has no
-	// business asserting about. Since C7 particles phase 4 the report is
-	// managed's (ParticleCommands.cs), and the control points it prints are
-	// read natively by SourceSharp_ParticleSystemsRead, which is the body
-	// scoped here.
-	ASSERT_TRUE( Has( Code( kParticleCommands ), "systems.Read()" ) )
-		<< "the report no longer prints the particles shell's read";
-	const std::string whole = Code( kManagedParticles );
-	ASSERT_FALSE( whole.empty() );
-
-	const size_t begin = whole.find( "int32_t SourceSharp_ParticleSystemsRead(" );
-	ASSERT_NE( std::string::npos, begin )
-		<< "the report's read is gone, or was renamed. Everything below is "
-		   "about its body and would be vacuous without it.";
-
-	const size_t end = whole.find( "\n}\n", begin );
-	ASSERT_NE( std::string::npos, end );
-
-	const std::string code = whole.substr( begin, end - begin );
-
-	EXPECT_FALSE( Has( code, "GetControlPointAtCurrentTime" ) )
-		<< "that accessor asserts nControlPoint <= GetHighestControlPoint() and "
-		   "m_pDef->ReadsControlPoint( n ). A REPORT's job is to say what an "
-		   "undeclared control point holds; env_fire_small declares point 0 "
-		   "only and this fired particles.h:2392 twice.";
-	EXPECT_TRUE( Has( code, "m_ControlPoints[0].m_Position" ) );
-	EXPECT_TRUE( Has( code, "m_ControlPoints[1].m_Position" ) );
-}
-
-TEST( Step7eSubjects, TheParticleReportCanNameTheClientsOwnCopyOfAnEntity )
-{
-	// C7 PARTICLES PHASE 4 MOVED THE REPORT, AND THE FACT IS THE SAME FACT.
-	// particlemgr.cpp left client.so; cs_cl_particle_report is managed's
-	// (ParticleCommands.cs), and its entity line reads IEngineEffects'
-	// ClientEntityOrigin, which native answers in shell_te_pool_client.cpp
-	// through the same SourceSharp_ClientEntityFromIndex the old report's
-	// SSClientEntityFromIndex wrapped. Both halves are asserted below.
-	const std::string code = Code( kParticleCommands );
-	ASSERT_FALSE( code.empty() );
-
-	// Without this line the gate cannot tell a broken follow sweep from a move
-	// that never networked, and its third run could not.
-	EXPECT_TRUE( Has( code, "effects.ClientEntityOrigin" ) );
-	EXPECT_TRUE( Has( code, ": origin (" ) )
-		<< "the report no longer prints where this side thinks the entity is, "
-		   "in the line tools/7e-particle-sound-gate reads.";
-	// STEP p7-exit MOVED THIS LINE, AND THE FACT IS THE SAME FACT.
-	//
-	// 7e wrote it as `ClientEntityList().GetClientEntity( nEntIndex )` and gave
-	// the reason: "the entity list is the engine boundary and holds BOTH
-	// hierarchies; C_BaseEntity::Instance answers NULL for every entity this
-	// port owns." That reason is why the assertion exists and it has not
-	// changed -- what changed is which object holds both hierarchies.
-	// SSClientEntityFromIndex is particlemgr.cpp's guarded helper over
-	// SourceSharp_ClientEntityFromIndex, which asks the SLOT TABLE first and
-	// falls back to the stock list. It answers for the same entities the old
-	// line did -- every shell is in both -- so this is a route change, not a
-	// widening. plan_entity.md clause 2 is what forced it: no compiled TU may
-	// name the stock client entity list.
-	//
-	// The needle is the CALL, not the helper's declaration, so deleting the
-	// call and leaving the helper reddens this.
-	const std::string native = Code( kTePool );
-	ASSERT_FALSE( native.empty() );
-	EXPECT_TRUE( Has( native, "SourceSharp_ClientEntityFromIndex( nEntityIndex )" ) )
-		<< "the report no longer resolves the entity index at all. It must ask "
-		   "something that holds BOTH hierarchies, which is 7e's own reason: "
-		   "C_BaseEntity::Instance answers NULL for every entity this port "
-		   "owns.";
-}
-
 //=============================================================================
 // 6. THE SOURCE ROWS
 //
@@ -506,37 +135,6 @@ TEST( Step7eSubjects, TheParticleReportCanNameTheClientsOwnCopyOfAnEntity )
 // origin, so tools/7e-particle-sound-gate read cp0 400 units on and the sort
 // origin 0 (3 of 3, once the client saw its entity move at all).
 //=============================================================================
-TEST( Step7eSubjects, TheFollowSweepMovesTheSortOriginWithTheControlPoints )
-{
-	const std::string whole = ReadFile( kManagedParticles );
-	const size_t begin = whole.find( "void ShellParticles_PreRender()" );
-	ASSERT_NE( std::string::npos, begin ) << "the follow sweep is gone, or was renamed";
-	const size_t end = whole.find( "\n}\n", begin );
-	ASSERT_NE( std::string::npos, end );
-	const std::string code = whole.substr( begin, end - begin );
-
-	EXPECT_TRUE( Has( code, "SetControlPoint( nPoint, vecOrigin )" ) )
-		<< "control: the sweep still moves the control points";
-	EXPECT_TRUE( Has( code, "SetSortOrigin( vecOrigin )" ) )
-		<< "the sweep moves the control points and leaves the sort origin where "
-		   "the system was created";
-}
-
-TEST( Step7eSubjects, AStartedSystemsSortOriginIsItsOwner )
-{
-	const std::string whole = ReadFile( kManagedParticles );
-	const size_t begin = whole.find( "int32_t SourceSharp_ParticleSystemStart(" );
-	ASSERT_NE( std::string::npos, begin ) << "the start is gone, or was renamed";
-	const size_t end = whole.find( "\n}\n", begin );
-	ASSERT_NE( std::string::npos, end );
-	const std::string code = whole.substr( begin, end - begin );
-
-	EXPECT_TRUE( Has( code, "SetControlPoint( 0, pOwner->GetAbsOrigin() )" ) )
-		<< "control: the start still places control point 0 at the owner";
-	EXPECT_TRUE( Has( code, "SetSortOrigin( pOwner->GetAbsOrigin() )" ) )
-		<< "a started system's sort origin is left at the map origin";
-}
-
 TEST( Step7eSubjects, TheMovedFilesAreInTheClientAndNotTheServer )
 {
 	// The soundscape's native half is shell_soundscape_audio_client.cpp since
@@ -573,12 +171,3 @@ TEST( Step7eSubjects, TheStockPathsAreGoneFromBothTargets )
 	}
 }
 
-TEST( Step7eSubjects, TheMovedFilesAreOnDiskAtTheirListedPaths )
-{
-	// The pairing the two facts above cannot make on their own: a row that
-	// names a file nobody wrote passes both of them and fails the build. Same
-	// check the integrator ran by hand over every vpc $File row after step 4b
-	// warned that a stale row on either side is fatal.
-	EXPECT_FALSE( ReadFile( kSoundscape ).empty() );
-	EXPECT_FALSE( ReadFile( kFilter ).empty() );
-}

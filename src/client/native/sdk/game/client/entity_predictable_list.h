@@ -15,7 +15,7 @@ class CPredictableList : public IPredictableList
 {
 public:
 	virtual C_BaseEntity *GetPredictable( int slot );
-	virtual int GetPredictableCount( void );
+	virtual int GetPredictableCount();
 
 protected:
 	void	AddToPredictableList( ClientEntityHandle_t add );

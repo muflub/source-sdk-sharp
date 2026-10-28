@@ -29,7 +29,7 @@ extern IEngineTrace   *enginetrace;
 
 // Defined in our TUs.
 void UTIL_ClearTrace( trace_t &trace );
-bool UTIL_IsCommandIssuedByServerAdmin( void );
+bool UTIL_IsCommandIssuedByServerAdmin();
 bool UTIL_ShouldShowBlood( int bloodColor );
 
 namespace ss

@@ -309,7 +309,7 @@ protected:
 
 	Node_t* m_pElements;
 
-	FORCEINLINE M const &Elements( void ) const
+	FORCEINLINE M const &Elements() const
 	{
 		return m_Elements;
 	}

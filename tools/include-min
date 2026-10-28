@@ -210,19 +210,32 @@ def candidates(tus, scope, keep_lines=frozenset()):
     cands = sorted({(f, g) for _, e, _ in per_tu for f, gs in e.items() for g in gs
                     if in_scope(f, scope)})
 
-    def holds(trial, sat):
-        for main, edges_of, needs in per_tu:
-            files = reach(main, edges_of, trial)
-            for h in files:
-                if not (needs.get(h, set()) - sat.get(h, set())) <= files:
-                    return False
+    def missing(k, trial, sat):
+        main, edges_of, needs = per_tu[k]
+        files = reach(main, edges_of, trial)
+        return {(h, g) for h in files for g in needs.get(h, set()) - sat.get(h, set()) if g not in files}
+
+    # What a unit already lacks before any change (a precompiled header's
+    # contents, a forced include: what its include tree does not show) is
+    # not a removal's doing; only a need a removal leaves unmet refuses it.
+    baseline = [missing(k, set(), {}) for k in range(len(per_tu))]
+    tus_with = {}
+    for k, (_, edges_of, _) in enumerate(per_tu):
+        for f, gs in edges_of.items():
+            for g in gs:
+                tus_with.setdefault((f, g), []).append(k)
+
+    def holds(trial, sat, edge):
+        for k in tus_with.get(edge, ()):
+            if not missing(k, trial, sat) <= baseline[k]:
+                return False
         return True
 
     for f, g in cands:
         if any((f, ln) in keep_lines for ln in lines[(f, g)]):
             continue
         trial = removed | {(f, g)}
-        if holds(trial, satisfied):
+        if holds(trial, satisfied, (f, g)):
             removed = trial
             for ln in sorted(lines[(f, g)]):
                 out.append((f, ln, g, None))
@@ -236,7 +249,7 @@ def candidates(tus, scope, keep_lines=frozenset()):
         trial = removed | {(f, g)}
         sat = dict(satisfied)
         sat[f] = sat.get(f, set()) | {g}
-        if holds(trial, sat):
+        if holds(trial, sat, (f, g)):
             removed, satisfied = trial, sat
             out.append((f, min(lines[(f, g)]), g, " ".join(sorted(fwd_all[(f, g)]))))
     return out
@@ -248,7 +261,7 @@ def candidates(tus, scope, keep_lines=frozenset()):
 
 # (config, build tree, the targets whose objects are fingerprinted, what is
 # built: None is the tree's default, every module and every test.)
-BUILDS = (("debug", "build", MODULE_TARGETS, None), ("release", "build", MODULE_TARGETS, MODULE_TARGETS),
+BUILDS = (("debug", "build", (), MODULE_TARGETS), ("debug", "build", MODULE_TARGETS, None), ("release", "build", MODULE_TARGETS, MODULE_TARGETS),
           ("debug", "build-windows-cross", WINDOWS_TARGETS, WINDOWS_TARGETS),
           ("debug", "build-probes", (), ("client_sourcesharp",)))
 
@@ -265,24 +278,46 @@ def objects():
     return out
 
 
+def code_lines(dump):
+    """An objdump listing without its debug information: the .debug sections'
+    own lines, and the COFF AUX record after a .debug$ symbol, whose checksum
+    follows the CodeView text (a `( void )` spelled `()` changes it)."""
+    out, aux = [], False
+    for line in dump.splitlines():
+        if aux and line.startswith("AUX"):
+            aux = False
+            continue
+        aux = ".debug$" in line
+        if "file format" not in line and ".debug" not in line:
+            out.append(line)
+    return out
+
+
 def fingerprint(obj):
     h = hashlib.sha256()
     for args in (["-d", "-r", "--no-show-raw-insn"], ["-s", "--section=.rodata", "--section=.data",
                                                       "--section=.init_array", "--section=.rdata"],
                  ["-t"]):
         r = subprocess.run([OBJDUMP, *args, obj], capture_output=True, text=True, errors="replace")
-        text = "\n".join(l for l in r.stdout.splitlines() if "file format" not in l and
-                         ".debug" not in l)
-        h.update(text.encode())
+        h.update("\n".join(code_lines(r.stdout)).encode())
     return h.hexdigest()
 
 
+LAST_ERRORS = [set()]
+ERROR_AT = re.compile(r"^(/[^:\s(]+?)(?::\d+:\d+:|\(\d+,\d+\):) (?:fatal )?error")
+
+
 def build():
+    """True when every tree builds; else False, and the files the compile
+    errors point at in LAST_ERRORS."""
     for cfg, bdir, _targets, built in BUILDS:
-        r = subprocess.run(["ninja", "-C", os.path.join(REPO, "farm", cfg, bdir), *(built or ())],
+        r = subprocess.run(["ninja", "-C", os.path.join(REPO, "farm", cfg, bdir), "-k", "0", *(built or ())],
                            capture_output=True, text=True)
         if r.returncode != 0:
+            LAST_ERRORS[0] = {os.path.realpath(m.group(1)) for m in
+                              (ERROR_AT.match(l) for l in (r.stdout + r.stderr).split("\n")) if m}
             return False
+    LAST_ERRORS[0] = set()
     return True
 
 
@@ -331,9 +366,17 @@ def settle(cands, base, log):
     halving a failed wave."""
     if not cands:
         return []
-    if verify(cands, base):
-        log("  %d removals hold" % len(cands))
-        return cands
+    while True:
+        if verify(cands, base):
+            log("  %d removals hold" % len(cands))
+            return cands
+        # A compile error points at the file that lost what it used: that
+        # file's removals go back and the rest is tried again before halving.
+        back = [c for c in cands if c[0] in LAST_ERRORS[0]]
+        if not back or len(back) == len(cands):
+            break
+        log("  %d removals in %d files the build names go back" % (len(back), len({c[0] for c in back})))
+        cands = [c for c in cands if c not in back]
     if len(cands) == 1:
         log("  kept: %s:%d (%s)%s" % (os.path.relpath(cands[0][0], REPO), cands[0][1],
                                       os.path.relpath(cands[0][2], REPO),
@@ -354,6 +397,11 @@ def self_test():
         checks += 1
         if a != b:
             raise AssertionError("%s: %r != %r" % (what, a, b))
+
+    dump = ("x.obj: file format coff\n[1](sec 4) .text\nAUX scnlen 0x10 checksum 0x1\n"
+            "[2](sec 5) .debug$S\nAUX scnlen 0x20 checksum 0x2\n")
+    eq(code_lines(dump), ["[1](sec 4) .text", "AUX scnlen 0x10 checksum 0x1"],
+       "a .debug$ section's symbol and its AUX record are not code; .text's are")
 
     r = REPO_REAL
     m, a, b, c = r + "/src/server/native/m.cpp", r + "/vendor/shared/a.h", r + "/vendor/shared/b.h", \

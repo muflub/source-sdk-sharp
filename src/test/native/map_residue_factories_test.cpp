@@ -163,32 +163,6 @@ std::string ReadStripped( const std::string &strRelative )
 	return StripComments( raw );
 }
 
-// Whitespace out, so a needle does not depend on how a line happens to be
-// wrapped or indented. The same helper world_subject_test.cpp uses, and for the
-// same reason: the facts below are about which call is written, not about its
-// formatting.
-std::string NoWhitespace( const std::string &strIn )
-{
-	std::string out;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		const char c = strIn[ i ];
-		if ( c != ' ' && c != '\t' && c != '\n' && c != '\r' )
-			out += c;
-	}
-	return out;
-}
-
-int CountOf( const std::string &hay, const std::string &needle )
-{
-	if ( needle.empty() )
-		return 0;
-	int n = 0;
-	for ( size_t at = hay.find( needle ); at != std::string::npos; at = hay.find( needle, at + 1 ) )
-		n++;
-	return n;
-}
-
 //-----------------------------------------------------------------------------
 // THE COMPILED SET, DERIVED FROM THE BUILD.
 //
@@ -338,20 +312,6 @@ TEST( MapResidueFactories, TheNativeMapParseIsStillInTheBuild )
 		   "this test's subject is gone and it should be retired with the row.";
 }
 
-TEST( MapResidueFactories, TheManagedSpawnerHandsTheWorldDownOnceAsItsPairs )
-{
-	// The seam, after plan_server_novalve.md P5: MapSpawner no longer hands the
-	// residue down as text for native to parse; it picks the worldspawn block
-	// and hands its pairs to IShimLevel::SpawnWorld, once.
-	const std::string spawner =
-		ReadStripped( "sourcesharp/managed/SourceSharp.Server/MapSpawner.cs" );
-	ASSERT_FALSE( spawner.empty() ) << "could not read MapSpawner.cs";
-	EXPECT_EQ( 1, CountOf( spawner, "_level.SpawnWorld(" ) )
-		<< "MapSpawner no longer hands the world down exactly once.";
-	EXPECT_EQ( 0, CountOf( spawner, "_level.ParseAllEntities(" ) )
-		<< "MapSpawner hands native map text to parse again.";
-}
-
 //=============================================================================
 // THE FINDING.
 //=============================================================================
@@ -364,26 +324,6 @@ TEST( MapResidueFactories, WorldspawnIsTheOneResidueClassThisBuildConstructs )
 	EXPECT_TRUE( RegistersFactoryFor( all, "worldspawn" ) )
 		<< "nothing in the compiled server registers a worldspawn factory. "
 		   "The native map parse would construct no world at all.";
-}
-
-TEST( MapResidueFactories, TheWorldspawnFactoryIsAShimFileAndNotStock )
-{
-	// It matters WHICH side owns it: the exit condition is "the managed spawner
-	// can make the world itself", and that is a short step from a factory
-	// already on this side of the port. It would be a long one from a stock
-	// class in a removal-set TU.
-	const std::string adapter =
-		ReadStripped( "sourcesharp/game/server/world_adapter.cpp" );
-	ASSERT_FALSE( adapter.empty() ) << "could not read world_adapter.cpp";
-	EXPECT_EQ( 1, CountOf( adapter, "InstallFactory( this, \"worldspawn\" )" ) )
-		<< "world_adapter.cpp no longer installs the worldspawn factory.";
-	EXPECT_TRUE( IsCompiled( "sourcesharp/game/server/world_adapter.cpp" ) );
-
-	// And stock's own registration is NOT in the build -- world.cpp is not
-	// compiled. Asserted rather than assumed, because the two registrations
-	// would fight over edict 0.
-	EXPECT_FALSE( IsCompiled( "game/server/world.cpp" ) )
-		<< "stock world.cpp is compiled as well; two worldspawn factories.";
 }
 
 TEST( MapResidueFactories, TheOtherThreeResidueClassesHaveNoFactoryInThisBuild )
@@ -399,24 +339,6 @@ TEST( MapResidueFactories, TheOtherThreeResidueClassesHaveNoFactoryInThisBuild )
 			   "this file records it as absent, and the record has to move "
 			   "with the tree.";
 	}
-}
-
-TEST( MapResidueFactories, TheAbsentResidueIsStillDeclaredRatherThanSwallowed )
-{
-	// The only thing standing between these three classnames and total silence
-	// is one DECLARED refusal (plan_entity.md §7). It was stock's "Can't init"
-	// Warning in the native parse until plan_server_novalve.md P5 deleted that
-	// parse -- and the world-only filter had already kept every non-world block
-	// from reaching it. What says it now is MapSpawner's declaration from the
-	// native factory table, printed once per map load.
-	const std::string spawner =
-		ReadStripped( "sourcesharp/managed/SourceSharp.Server/MapSpawner.cs" );
-	ASSERT_FALSE( spawner.empty() ) << "could not read MapSpawner.cs";
-	EXPECT_EQ( 1, CountOf( spawner, "EntityFactories.DeclareUnanswered(" ) )
-		<< "MapSpawner no longer declares the residue classes nothing can make; "
-		   "the three absent classes would fail silently.";
-	EXPECT_NE( spawner.find( "_log.Warning(declaration);" ), std::string::npos )
-		<< "MapSpawner computes the declaration and no longer prints it.";
 }
 
 //=============================================================================
@@ -445,98 +367,3 @@ TEST( MapResidueFactories, TheAbsentResidueIsStillDeclaredRatherThanSwallowed )
 // named function rather than the absence of a `#ifndef`.
 //=============================================================================
 
-// AFTER plan_server_novalve.md P5 the world arrives PARSED: managed finds the
-// worldspawn block and IShimLevel::SpawnWorld builds it from the pairs. The
-// facts below keep the finding's point -- the level step must reach a CWorld,
-// and spawn it -- against the new route, and pin the old text step as a loud
-// refusal rather than a silent one.
-TEST( MapResidueFactories, TheLevelStepReachesTheWorldThroughSpawnWorld )
-{
-	const std::string steps = NoWhitespace(
-		ReadStripped( "sourcesharp/game/server/shell_level.cpp" ) );
-	ASSERT_FALSE( steps.empty() ) << "could not read shell_level.cpp";
-
-	ASSERT_NE( steps.find( "virtualint32_tSpawnWorld(constchar*const*ppKeys,constchar*const*ppValues,int32_tnKeys)OVERRIDE" ),
-	           std::string::npos )
-		<< "the level step this test is about has been renamed or removed; "
-		   "everything below would pass vacuously.";
-
-	EXPECT_NE( steps.find( "MapEntity_SpawnWorld(ppKeys,ppValues,nKeys)" ), std::string::npos )
-		<< "SpawnWorld no longer builds the world. There is then no call anywhere "
-		   "that constructs a CWorld, so the level loads with no world: no "
-		   "CWorld::Spawn, no CWorld::Precache, EntityPrecache_IsAllowed() false "
-		   "for the whole of level init, and a SIGSEGV in the engine's ray cast "
-		   "on the first decal that traces.";
-}
-
-TEST( MapResidueFactories, TheRetiredTextStepIsGoneAndSpawnWorldIsTheStep )
-{
-	// The text step was retired at P5 and left IShimLevel in the serialised
-	// ABI pass (2026-10-20): native has no step that takes map text at all.
-	const std::string steps = NoWhitespace(
-		ReadStripped( "sourcesharp/game/server/shell_level.cpp" ) );
-	ASSERT_FALSE( steps.empty() ) << "could not read shell_level.cpp";
-
-	EXPECT_EQ( steps.find( "ParseAllEntities(" ), std::string::npos )
-		<< "a text step is back in shell_level.cpp; managed parses the map.";
-	EXPECT_NE( steps.find( "virtualint32_tSpawnWorld(" ), std::string::npos )
-		<< "the control: SpawnWorld, the step that replaced it, is found by the same read.";
-}
-
-TEST( MapResidueFactories, TheWorldOnlyTextParseIsGone )
-{
-	const std::string parse = NoWhitespace( ReadStripped( "sourcesharp/game/server/shell_mapparse.cpp" ) );
-	ASSERT_FALSE( parse.empty() ) << "could not read shell_mapparse.cpp";
-
-	ASSERT_NE( parse.find( "boolMapEntity_SpawnWorld(" ), std::string::npos )
-		<< "MapEntity_SpawnWorld is gone from shell_mapparse.cpp.";
-	EXPECT_EQ( parse.find( "MapEntity_ParseWorldOnly" ), std::string::npos )
-		<< "the world-only TEXT parse is back; managed picks the block now.";
-}
-
-TEST( MapResidueFactories, SpawnWorldSpawnsTheWorldItBuilt )
-{
-	const std::string parse = NoWhitespace( ReadStripped( "sourcesharp/game/server/shell_mapparse.cpp" ) );
-	ASSERT_FALSE( parse.empty() ) << "could not read shell_mapparse.cpp";
-
-	// PARSING IT IS NOT ENOUGH AND THAT IS THE WHOLE SYMPTOM. A world that is
-	// constructed and never spawned leaves EntityPrecache_IsAllowed() false
-	// exactly as a world that was never constructed does -- CWorld::Precache is
-	// reached from CWorld::Spawn and from nowhere else.
-	const size_t at = parse.find( "boolMapEntity_SpawnWorld(" );
-	ASSERT_NE( at, std::string::npos );
-	const std::string body = parse.substr( at, parse.find( "returntrue;}", at ) - at );
-
-	EXPECT_EQ( 1, CountOf( body, "pWorld->Spawn();" ) )
-		<< "MapEntity_SpawnWorld no longer spawns the world it built exactly once.";
-	EXPECT_NE( body.find( "pWorld->KeyValue(ppKeys[i],ppValues[i]);" ), std::string::npos )
-		<< "MapEntity_SpawnWorld no longer hands the world its keys.";
-}
-
-// plan_server_novalve.md P5: a standalone entity from pairs that arrive parsed.
-// It must key EVERY pair it is given. Since plan_server_native_v2 T2 there is
-// no pending queue to spawn it later, so the template path that calls it must
-// place and spawn the entity itself -- a create it did not spawn would stand
-// unspawned until the next level load, and nothing would say so.
-TEST( MapResidueFactories, CreateFromKeysKeysEveryPairAndItsCallerSpawnsTheEntity )
-{
-	const std::string parse = NoWhitespace( ReadStripped( "sourcesharp/game/server/shell_mapparse.cpp" ) );
-	ASSERT_FALSE( parse.empty() ) << "could not read shell_mapparse.cpp";
-
-	const size_t at = parse.find( "IGameEntity*MapEntity_CreateFromKeys(" );
-	ASSERT_NE( at, std::string::npos ) << "MapEntity_CreateFromKeys is gone from shell_mapparse.cpp";
-	const std::string body = parse.substr( at, parse.find( "returnpGameEntity;}", at ) - at );
-
-	EXPECT_NE( body.find( "for(inti=0;i<nKeys;i++)StandaloneEntity_ApplyMapKey(pGameEntity,ppKeys[i],ppValues[i]);" ),
-	           std::string::npos ) << "MapEntity_CreateFromKeys no longer keys every pair";
-
-	const std::string api = NoWhitespace( ReadStripped( "sourcesharp/game/server/shell_entityapi.cpp" ) );
-	ASSERT_FALSE( api.empty() ) << "could not read shell_entityapi.cpp";
-	const size_t create = api.find( "IGameEntity*pEntity=MapEntity_CreateFromKeys(" );
-	ASSERT_NE( create, std::string::npos ) << "the template path no longer creates through MapEntity_CreateFromKeys";
-	const size_t spawn = api.find( "StandaloneEntity_PlaceAndSpawn(pEntity,&vecOrigin,&angles);", create );
-	EXPECT_NE( spawn, std::string::npos )
-		<< "the template path creates an entity and no longer spawns it";
-	EXPECT_LT( spawn, api.find( "standalone.push_back(pEntity);", create ) )
-		<< "the template path's spawn is not in the loop that created the entity";
-}

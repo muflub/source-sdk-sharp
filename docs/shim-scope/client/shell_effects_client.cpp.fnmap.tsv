@@ -12,5 +12,5 @@
 4	SLOT	[CEffectsThunk] bool IsServer() override
 5	SLOT	[CEffectsThunk] void SuppressEffectsSounds( bool bSuppress ) override
 4	SLOT-HELP	Vector V( const float *p )
-4	BOUNDARY	int32_t SourceSharp_FxCanPredict( void )
+4	BOUNDARY	int32_t SourceSharp_FxCanPredict()
 5	BOUNDARY	int32_t SourceSharp_FxRecipientCount( const float *pOriginXYZ )

@@ -19,7 +19,7 @@
 
 // Counts the standalone entities a model cache flush reached; the managed flush
 // invalidates their skeletons and prints the count.
-int32_t SourceSharp_EntitiesInvalidateMdlCacheAll( void )
+int32_t SourceSharp_EntitiesInvalidateMdlCacheAll()
 {
 	int32_t nInvalidated = 0;
 

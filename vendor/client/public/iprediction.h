@@ -10,10 +10,10 @@ class IMoveHelper;
 abstract_class IPrediction
 {
 public:
-	virtual			~IPrediction( void ) {};
+	virtual			~IPrediction() {};
 
-	virtual void	Init( void ) = 0;
-	virtual void	Shutdown( void ) = 0;
+	virtual void	Init() = 0;
+	virtual void	Shutdown() = 0;
 
 	// Run prediction
 	virtual void	Update
@@ -27,10 +27,10 @@ public:
 	// We are about to get a network update from the server.  We know the update #, so we can pull any
 	//  data purely predicted on the client side and transfer it to the new from data state.
 	virtual void	PreEntityPacketReceived( int commands_acknowledged, int current_world_update_packet ) = 0;
-	virtual void	PostEntityPacketReceived( void ) = 0;
+	virtual void	PostEntityPacketReceived() = 0;
 	virtual void	PostNetworkDataReceived( int commands_acknowledged ) = 0;
 
-	virtual void	OnReceivedUncompressedPacket( void ) = 0;
+	virtual void	OnReceivedUncompressedPacket() = 0;
 
 	// The engine needs to be able to access a few predicted values
 	virtual void	GetViewOrigin( Vector& org ) = 0;

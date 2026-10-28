@@ -336,10 +336,10 @@ public:
 	virtual int				GetNumAnimationFrames( ) = 0;
 
 	// For material subrects (material pages).  Offset(u,v) and scale(u,v) are normalized to texture.
-	virtual bool			InMaterialPage( void ) = 0;
+	virtual bool			InMaterialPage() = 0;
 	virtual	void			GetMaterialOffset( float *pOffset ) = 0;
 	virtual void			GetMaterialScale( float *pScale ) = 0;
-	virtual IMaterial		*GetMaterialPage( void ) = 0;
+	virtual IMaterial		*GetMaterialPage() = 0;
 
 	// find a vmt variable.
 	// This is how game code affects how a material is rendered.
@@ -350,8 +350,8 @@ public:
 	// The user never allocates or deallocates materials.  Reference counting is
 	// used instead.  Garbage collection is done upon a call to 
 	// IMaterialSystem::UncacheUnusedMaterials.
-	virtual void			IncrementReferenceCount( void ) = 0;
-	virtual void			DecrementReferenceCount( void ) = 0;
+	virtual void			IncrementReferenceCount() = 0;
+	virtual void			DecrementReferenceCount() = 0;
 
 	inline void AddRef() { IncrementReferenceCount(); }
 	inline void Release() { DecrementReferenceCount(); }
@@ -430,7 +430,7 @@ public:
 
 	// Gets at the shader parameters
 	virtual int				ShaderParamCount() const = 0;
-	virtual IMaterialVar	**GetShaderParams( void ) = 0;
+	virtual IMaterialVar	**GetShaderParams() = 0;
 
 	// Returns true if this is the error material you get back from IMaterialSystem::FindMaterial if
 	// the material can't be found.

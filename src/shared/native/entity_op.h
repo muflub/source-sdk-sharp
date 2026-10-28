@@ -4,7 +4,7 @@
 // must match SourceSharp.Abi/EntityOp.cs. No engine headers, for the tests.
 #pragma once
 
-#include <stdint.h>
+
 
 enum EntityOp_t
 {

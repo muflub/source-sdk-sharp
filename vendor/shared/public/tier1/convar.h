@@ -36,7 +36,7 @@ public:
 // Helper method for console development
 
 // Called when a ConCommand needs to execute
-typedef void ( *FnCommandCallbackVoid_t )( void );
+typedef void ( *FnCommandCallbackVoid_t )();
 typedef void ( *FnCommandCallback_t )( const CCommand &command );
 
 #define COMMAND_COMPLETION_MAXITEMS		64
@@ -70,13 +70,13 @@ class ConCommandBase
 	friend class CDefaultCvar;
 
 public:
-								ConCommandBase( void );
+								ConCommandBase();
 								ConCommandBase( const char *pName, const char *pHelpString = 0, 
 									int flags = 0 );
 
-	virtual						~ConCommandBase( void );
+	virtual						~ConCommandBase();
 
-	virtual	bool				IsCommand( void ) const;
+	virtual	bool				IsCommand() const;
 
 	// Check flag
 	virtual bool				IsFlagSet( int flag ) const;
@@ -84,16 +84,16 @@ public:
 	virtual void				AddFlags( int flags );
 
 	// Return name of cvar
-	virtual const char			*GetName( void ) const;
+	virtual const char			*GetName() const;
 
 	// Return help text for cvar
-	virtual const char			*GetHelpText( void ) const;
+	virtual const char			*GetHelpText() const;
 
 	// Deal with next pointer
-	const ConCommandBase		*GetNext( void ) const;
-	ConCommandBase				*GetNext( void );
+	const ConCommandBase		*GetNext() const;
+	ConCommandBase				*GetNext();
 	
-	virtual bool				IsRegistered( void ) const;
+	virtual bool				IsRegistered() const;
 
 	// Returns the DLL identifier
 	virtual CVarDLLIdentifier_t	GetDLLIdentifier() const;
@@ -209,13 +209,13 @@ public:
 	ConCommand( const char *pName, ICommandCallback *pCallback, 
 		const char *pHelpString = 0, int flags = 0, ICommandCompletionCallback *pCommandCompletionCallback = 0 );
 
-	virtual ~ConCommand( void );
+	virtual ~ConCommand();
 
-	virtual	bool IsCommand( void ) const;
+	virtual	bool IsCommand() const;
 
 	virtual int AutoCompleteSuggest( const char *partial, CUtlVector< CUtlString > &commands );
 
-	virtual bool CanAutoComplete( void );
+	virtual bool CanAutoComplete();
 
 	// Invoke the function
 	virtual void Dispatch( const CCommand &command );
@@ -273,20 +273,20 @@ public:
 									bool bCompMin, float fCompMin, bool bCompMax, float fCompMax,
 									FnChangeCallback_t callback );
 
-	virtual						~ConVar( void );
+	virtual						~ConVar();
 
 	virtual bool				IsFlagSet( int flag ) const;
-	virtual const char*			GetHelpText( void ) const;
-	virtual bool				IsRegistered( void ) const;
-	virtual const char			*GetName( void ) const;
+	virtual const char*			GetHelpText() const;
+	virtual bool				IsRegistered() const;
+	virtual const char			*GetName() const;
 	virtual void				AddFlags( int flags );
-	virtual	bool				IsCommand( void ) const;
+	virtual	bool				IsCommand() const;
 
 	// Retrieve value
-	FORCEINLINE_CVAR float			GetFloat( void ) const;
-	FORCEINLINE_CVAR int			GetInt( void ) const;
+	FORCEINLINE_CVAR float			GetFloat() const;
+	FORCEINLINE_CVAR int			GetInt() const;
 	FORCEINLINE_CVAR bool			GetBool() const {  return !!GetInt(); }
-	FORCEINLINE_CVAR char const	   *GetString( void ) const;
+	FORCEINLINE_CVAR char const	   *GetString() const;
 
 	// Any function that allocates/frees memory needs to be virtual or else you'll have crashes
 	//  from alloc/free across dll/exe boundaries.
@@ -299,7 +299,7 @@ public:
 	// True if it has a min/max setting
 	bool						GetMin( float& minVal ) const;
 	bool						GetMax( float& maxVal ) const;
-	const char					*GetDefault( void ) const;
+	const char					*GetDefault() const;
 	void						SetDefault( const char *pszDefault );
 
 	FORCEINLINE_CVAR bool		IsCompetitiveRestricted() const;
@@ -372,21 +372,21 @@ private:
 
 // Purpose: Return ConVar value as a float
 // Output : float
-FORCEINLINE_CVAR float ConVar::GetFloat( void ) const
+FORCEINLINE_CVAR float ConVar::GetFloat() const
 {
 	return m_pParent->m_fValue;
 }
 
 // Purpose: Return ConVar value as an int
 // Output : int
-FORCEINLINE_CVAR int ConVar::GetInt( void ) const 
+FORCEINLINE_CVAR int ConVar::GetInt() const 
 {
 	return m_pParent->m_nValue;
 }
 
 // Purpose: Return ConVar value as a string, return "" for bogus string pointer, etc.
 // Output : const char *
-FORCEINLINE_CVAR const char *ConVar::GetString( void ) const 
+FORCEINLINE_CVAR const char *ConVar::GetString() const 
 {
 	if ( m_nFlags & FCVAR_NEVER_AS_STRING )
 		return "FCVAR_NEVER_AS_STRING";
@@ -420,10 +420,10 @@ public:
 	bool IsFlagSet( int nFlags ) const;
 
 	// Get/Set value
-	float GetFloat( void ) const;
-	int GetInt( void ) const;
+	float GetFloat() const;
+	int GetInt() const;
 	bool GetBool() const { return !!GetInt(); }
-	const char *GetString( void ) const;
+	const char *GetString() const;
 
 	void SetValue( const char *pValue );
 	void SetValue( float flValue );
@@ -449,19 +449,19 @@ FORCEINLINE_CVAR const char *ConVarRef::GetName() const
 }
 
 // Purpose: Return ConVar value as a float
-FORCEINLINE_CVAR float ConVarRef::GetFloat( void ) const
+FORCEINLINE_CVAR float ConVarRef::GetFloat() const
 {
 	return m_pConVarState->m_fValue;
 }
 
 // Purpose: Return ConVar value as an int
-FORCEINLINE_CVAR int ConVarRef::GetInt( void ) const 
+FORCEINLINE_CVAR int ConVarRef::GetInt() const 
 {
 	return m_pConVarState->m_nValue;
 }
 
 // Purpose: Return ConVar value as a string, return "" for bogus string pointer, etc.
-FORCEINLINE_CVAR const char *ConVarRef::GetString( void ) const 
+FORCEINLINE_CVAR const char *ConVarRef::GetString() const 
 {
 	Assert( !IsFlagSet( FCVAR_NEVER_AS_STRING ) );
 	return m_pConVarState->m_pszString;

@@ -7,7 +7,7 @@ class CAudioSource;
 class CVoiceData
 {
 public:
-	CVoiceData( void )
+	CVoiceData()
 	{
 		m_flElapsed = 0.0f;
 		m_pAudioSource = NULL;
@@ -32,14 +32,14 @@ public:
 	int						sndavg;			
 
 public:
-							CMouthInfo( void ) { m_nVoiceSources = 0; m_needsEnvelope = false; }
-	virtual					~CMouthInfo( void ) { ClearVoiceSources(); }
+							CMouthInfo() { m_nVoiceSources = 0; m_needsEnvelope = false; }
+	virtual					~CMouthInfo() { ClearVoiceSources(); }
 
-	int						GetNumVoiceSources( void );
+	int						GetNumVoiceSources();
 
-	void					ClearVoiceSources( void );
+	void					ClearVoiceSources();
 
-	bool					IsActive( void );
+	bool					IsActive();
 
 private:
 	enum
@@ -53,17 +53,17 @@ private:
 };
 #pragma pack(pop)
 
-inline bool CMouthInfo::IsActive( void )
+inline bool CMouthInfo::IsActive()
 {
 	return ( GetNumVoiceSources() > 0 ) ? true : false;
 }
 
-inline int CMouthInfo::GetNumVoiceSources( void )
+inline int CMouthInfo::GetNumVoiceSources()
 {
 	return m_nVoiceSources;
 }
 
-inline void CMouthInfo::ClearVoiceSources( void )
+inline void CMouthInfo::ClearVoiceSources()
 {
 	m_nVoiceSources = 0;
 }

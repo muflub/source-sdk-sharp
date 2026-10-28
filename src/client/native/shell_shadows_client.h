@@ -8,9 +8,9 @@
 // and the queue the entity shells write.
 #pragma once
 
-#include <stdint.h>
 
-#include "ivrenderview.h"
+
+
 
 class CViewSetup;
 class CClientSystem;

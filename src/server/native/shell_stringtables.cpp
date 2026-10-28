@@ -68,7 +68,7 @@ int GetParticleSystemIndex( const char *pParticleSystemName )
 }
 
 // Stock's CServerGameDLL::CreateNetworkStringTables, without the econ/TF arms.
-void SourceSharp_CreateNetworkStringTables( void )
+void SourceSharp_CreateNetworkStringTables()
 {
 	g_pStringTableParticleEffectNames     = networkstringtable->CreateStringTable( "ParticleEffectNames", kMaxParticleSystemStrings );
 	g_pStringTableEffectDispatch          = networkstringtable->CreateStringTable( "EffectDispatch", kMaxEffectDispatchStrings );

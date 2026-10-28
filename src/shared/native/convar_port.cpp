@@ -98,16 +98,16 @@ void ConVar_Unregister()
 	s_bRegistered = false;
 }
 
-ConCommandBase::ConCommandBase( void )
+ConCommandBase::ConCommandBase()
 	: m_pNext( NULL ), m_bRegistered( false ), m_pszName( NULL ), m_pszHelpString( NULL ), m_nFlags( 0 )
 {
 }
 
-ConCommandBase::~ConCommandBase( void )
+ConCommandBase::~ConCommandBase()
 {
 }
 
-bool ConCommandBase::IsCommand( void ) const
+bool ConCommandBase::IsCommand() const
 {
 	return true;
 }
@@ -147,7 +147,7 @@ void ConCommandBase::Init()
 		s_pAccessor->RegisterConCommandBase( this );
 }
 
-const char *ConCommandBase::GetName( void ) const
+const char *ConCommandBase::GetName() const
 {
 	return m_pszName;
 }
@@ -162,12 +162,12 @@ void ConCommandBase::AddFlags( int flags )
 	m_nFlags = StripDevelopmentOnly( m_nFlags | flags );
 }
 
-const char *ConCommandBase::GetHelpText( void ) const
+const char *ConCommandBase::GetHelpText() const
 {
 	return m_pszHelpString;
 }
 
-bool ConCommandBase::IsRegistered( void ) const
+bool ConCommandBase::IsRegistered() const
 {
 	return m_bRegistered;
 }
@@ -182,11 +182,11 @@ ConCommand::ConCommand( const char *pName, ICommandCallback *pCallback, const ch
 	BaseClass::CreateBase( pName, pHelpString, flags );
 }
 
-ConCommand::~ConCommand( void )
+ConCommand::~ConCommand()
 {
 }
 
-bool ConCommand::IsCommand( void ) const
+bool ConCommand::IsCommand() const
 {
 	return true;
 }
@@ -236,7 +236,7 @@ int ConCommand::AutoCompleteSuggest( const char *partial, CUtlVector< CUtlString
 	return nCount;
 }
 
-bool ConCommand::CanAutoComplete( void )
+bool ConCommand::CanAutoComplete()
 {
 	return m_bHasCompletionCallback;
 }
@@ -252,7 +252,7 @@ ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags, const c
 	Create( pName, pDefaultValue, flags, pHelpString, bMin, fMin, bMax, fMax );
 }
 
-ConVar::~ConVar( void )
+ConVar::~ConVar()
 {
 	delete[] m_pszString;
 	m_pszString = NULL;
@@ -263,7 +263,7 @@ bool ConVar::IsFlagSet( int flag ) const
 	return ( m_pParent->m_nFlags & flag ) != 0;
 }
 
-const char *ConVar::GetHelpText( void ) const
+const char *ConVar::GetHelpText() const
 {
 	return m_pParent->m_pszHelpString;
 }
@@ -273,17 +273,17 @@ void ConVar::AddFlags( int flags )
 	m_pParent->m_nFlags = StripDevelopmentOnly( m_pParent->m_nFlags | flags );
 }
 
-bool ConVar::IsRegistered( void ) const
+bool ConVar::IsRegistered() const
 {
 	return m_pParent->m_bRegistered;
 }
 
-const char *ConVar::GetName( void ) const
+const char *ConVar::GetName() const
 {
 	return m_pParent->m_pszName;
 }
 
-bool ConVar::IsCommand( void ) const
+bool ConVar::IsCommand() const
 {
 	return false;
 }
@@ -534,7 +534,7 @@ bool ConVar::GetMax( float &maxVal ) const
 	return m_pParent->m_bHasMax;
 }
 
-const char *ConVar::GetDefault( void ) const
+const char *ConVar::GetDefault() const
 {
 	return m_pParent->m_pszDefaultValue;
 }
@@ -556,7 +556,7 @@ public:
 	virtual void SetValue( const char * ) {}
 	virtual void SetValue( float ) {}
 	virtual void SetValue( int ) {}
-	virtual const char *GetName( void ) const { return ""; }
+	virtual const char *GetName() const { return ""; }
 	virtual bool IsFlagSet( int ) const { return false; }
 };
 

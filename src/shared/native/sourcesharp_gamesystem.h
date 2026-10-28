@@ -89,15 +89,15 @@ IManagedRuntimeServer *LoadManagedRuntime(IManagedRuntimeEnvironment *env);
 IManagedRuntimeServer *ManagedRuntimeServer();
 
 // Unloads the managed side; the runtime and the root are released first.
-void SourceSharp_UnloadManagedSide( void );
+void SourceSharp_UnloadManagedSide();
 
 // Services a cs_sv_reload request. Called at the top of GameFrame, so no other
 // engine call can arrive while the managed side is unloaded.
-void SourceSharp_ServiceReloadRequest(void);
+void SourceSharp_ServiceReloadRequest();
 
 // Deletes the C#-declared ConCommands and ConVars and their names. Only after
 // the engine has unregistered this DLL's commands (ConVar_Unregister in
 // DLLShutdown): until then its ICvar points at them.
-void SourceSharp_ReleaseConsoleObjects(void);
+void SourceSharp_ReleaseConsoleObjects();
 
 #endif

@@ -3,13 +3,6 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <string.h>
-#include <vgui/VGUI.h>
-#include "tier1/utlvector.h"
-
-#include "tier0/memdbgon.h"
-
 namespace vgui
 {
 
@@ -117,5 +110,3 @@ public:
 };
 
 }
-
-#include "tier0/memdbgoff.h"

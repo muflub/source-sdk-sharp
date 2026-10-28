@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "interface.h"
 #include "appframework/IAppSystem.h"
 
 #define SCENE_FILE_CACHE_INTERFACE_VERSION "SceneFileCache002"

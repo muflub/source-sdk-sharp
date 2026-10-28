@@ -568,7 +568,7 @@ bool CEngineSprite::Init( const char *pName )
 	return true;
 }
 
-void CEngineSprite::Shutdown( void )
+void CEngineSprite::Shutdown()
 {
 	UnloadMaterial();
 }
@@ -604,12 +604,12 @@ IMaterial *CEngineSprite::GetMaterial( RenderMode_t nRenderMode, int nFrame )
 	return m_material[nRenderMode];
 }
 
-int CEngineSprite::GetOrientation( void )
+int CEngineSprite::GetOrientation()
 {
 	return m_orientation;
 }
 
-void CEngineSprite::UnloadMaterial( void )
+void CEngineSprite::UnloadMaterial()
 {
 	for ( int nMode = 0; nMode < kRenderModeCount; nMode++ )
 	{

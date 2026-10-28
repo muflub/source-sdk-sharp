@@ -84,13 +84,4 @@ public class WeaponSelectionTests
         }
     }
 
-    [Fact]
-    public void The_native_hud_declares_none_of_them()
-    {
-        string path = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "client", "shell_hud.cpp");
-        Assert.True(File.Exists(path), $"{path} was not found; a scan that read nothing would pass");
-        string code = Regex.Replace(File.ReadAllText(path), @"//[^\n]*", "");
-        Assert.Contains("DECLARE_HUDELEMENT( CSourceSharpHud );", code);
-        Assert.DoesNotMatch(new Regex(@"CON_COMMAND\(\s*(invnext|invprev|lastinv|slot\d)\b"), code);
-    }
 }

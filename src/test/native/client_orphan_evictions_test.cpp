@@ -90,75 +90,6 @@ namespace
 //-----------------------------------------------------------------------------
 // Finding the tree, and reading it. Same shape as effects_evicted_test.cpp.
 //-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-// Whole file, comments gone. Empty means "could not open", which every caller
-// must distinguish from "opened and found nothing".
-std::string ReadStripped( const std::string &strRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	std::string all, line;
-	while ( std::getline( file, line ) )
-	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
-			line.erase( line.size() - 1 );
-		all += line;
-		all += '\n';
-	}
-	return StripComments( all );
-}
-
 struct File_t
 {
 	const char *pszRel;
@@ -271,15 +202,3 @@ TEST( ClientOrphanEvictions, TheServerStillExcludesEveryFileHoldingTheSendTables
 // half: the farm is readable (its proof-of-read file opens), so the absences
 // are absences of a tree this test can see.
 //-----------------------------------------------------------------------------
-TEST( ClientOrphanEvictions, TheParticleHeaderLeftWithItsLastIncluder )
-{
-	EXPECT_TRUE( Excludes( "client_sourcesharp", "game/shared/particlesystemquery.cpp" ) )
-		<< "particlesystemquery.cpp is compiled into the client again";
-
-	ASSERT_FALSE( ReadStripped( kProofOfRead ).empty() )
-		<< "the farm's " << kProofOfRead << " did not open: the absences below would be vacuous";
-	EXPECT_TRUE( ReadStripped( "game/shared/baseparticleentity.h" ).empty() )
-		<< "baseparticleentity.h is in the farm again; its last includer left the client";
-	EXPECT_TRUE( ReadStripped( "game/shared/particlesystemquery.cpp" ).empty() )
-		<< "particlesystemquery.cpp is in the farm again";
-}

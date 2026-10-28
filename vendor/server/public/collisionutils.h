@@ -3,10 +3,6 @@
 
 #pragma once
 
-#include "tier0/platform.h"
-
-#include "mathlib/ssemath.h"
-
 // forward declarations
 struct Ray_t;
 class Vector;

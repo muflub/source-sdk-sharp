@@ -1,8 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #pragma once
 
-#include "mathlib/vector.h"
-
 // Dynamic light structure
 
 enum

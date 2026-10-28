@@ -16,7 +16,7 @@ class CSourceSharpMessageChars : public IMessageChars
 {
 public:
 	virtual void Create( vgui::VPANEL parent ) OVERRIDE {}
-	virtual void Destroy( void ) OVERRIDE {}
+	virtual void Destroy() OVERRIDE {}
 
 	virtual int DrawString( vgui::HFont, int, int, int, int, int, int, const char *, int, ... ) OVERRIDE { return 0; }
 	virtual int DrawString( vgui::HFont, int, int, const char *, int, ... ) OVERRIDE { return 0; }
@@ -32,7 +32,7 @@ public:
 			*height = 0;
 	}
 
-	virtual void Clear( void ) OVERRIDE {}
+	virtual void Clear() OVERRIDE {}
 };
 
 static CSourceSharpMessageChars g_MessageChars;

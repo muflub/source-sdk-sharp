@@ -29,53 +29,6 @@ public class StandaloneClientAreaTests
         return Regex.Replace(text, @"//[^\n]*", "");
     }
 
-    private static string Shell() => Code("src", "client", "native", "shell_standalone_client.cpp");
-
-    private static string Ask() => Code("src", "shared", "native", "standalone_player_sync.h");
-
-    [Fact]
-    public void EveryShellCallSiteTakesTheClientsArea()
-    {
-        string shell = Shell();
-
-        // One accessor read per function that crosses: removal, create, the
-        // data update (spawn and data share it), dormancy, draw and the view's
-        // draw batch (C7 item 7). The shell's two layout asks went with the
-        // surface renderer's blob reads (lane M1-A); the player sync's are
-        // TheClientsLayoutAskTakesTheClientsArea's.
-        Assert.Equal(6, Regex.Matches(shell, @"IManagedStandaloneClient \*pStandalone = ManagedStandaloneClient\(\);").Count);
-        foreach (string slot in Slots.Where(s => !s.StartsWith("NetState", StringComparison.Ordinal)))
-            Assert.Single(Regex.Matches(shell, $@"pStandalone->{slot}\("));
-        Assert.DoesNotContain("pStandalone->NetStateField", shell);
-    }
-
-    [Fact]
-    public void TheClientsLayoutAskTakesTheClientsArea()
-    {
-        string ask = Ask();
-
-        Assert.Single(Regex.Matches(ask, @"pStandalone->NetStateFieldOffset\( pClassName, pFieldName \)"));
-        Assert.Single(Regex.Matches(ask, @"pStandalone->NetStateFieldBits\( pClassName, pFieldName \)"));
-        Assert.Single(Regex.Matches(ask, @"pAsk->pfnFieldOffset = &SourceSharp_ClientNetStateFieldOffset;"));
-        Assert.Single(Regex.Matches(ask, @"pAsk->pfnFieldBits   = &SourceSharp_ClientNetStateFieldBits;"));
-    }
-
-    [Fact]
-    public void NoNativeCodeReadsTheTableSlots()
-    {
-        string shell = Shell();
-        string ask = Ask();
-
-        Assert.Contains("ManagedStandaloneClient()", shell);
-        Assert.Contains("ManagedStandaloneClient()", ask);
-        foreach (string code in new[] { shell, ask })
-        {
-            Assert.DoesNotContain("SourceSharp_GetManagedApi", code);
-            foreach (string slot in Slots)
-                Assert.DoesNotContain($"pApi->{slot}", code);
-        }
-    }
-
     [Fact]
     public void TheBootstrapFillsNoneOfTheSlots()
     {

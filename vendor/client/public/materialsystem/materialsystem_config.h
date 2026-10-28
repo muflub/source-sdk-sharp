@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "materialsystem/imaterialsystem.h"
-
 enum MaterialSystem_Config_Flags_t
 {
 	MATSYS_VIDCFG_FLAGS_WINDOWED					= ( 1 << 0 ),

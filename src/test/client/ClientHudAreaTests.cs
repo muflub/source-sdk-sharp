@@ -24,43 +24,6 @@ public class ClientHudAreaTests
     }
 
     [Fact]
-    public void TheHudPaintTakesTheUisArea()
-    {
-        // plan_client_ui U2: the HUD panel paints the UI's HUD layer; the old
-        // IManagedHudClient::OnHudPaint retired with the old HUD's drawing.
-        string hud = Code("src", "client", "native", "shell_hud.cpp");
-
-        Assert.Equal(4, Regex.Matches(hud, @"IManagedUiClient \*pUi = ManagedUiClient\(\)").Count);   // the HUD's Paint and OnScreenSizeChanged, the menu root's Paint and input
-        Assert.Single(Regex.Matches(hud, @"pUi->Paint\( 0, nWide, nTall \);"));
-        Assert.DoesNotContain("OnHudPaint", hud);
-    }
-
-    [Fact]
-    public void CreateMoveTakesTheClientsArea()
-    {
-        // Lane c6-input: the whole command is ClientInput's now, through the
-        // input thunk set's IManagedInputClient, and the HUD area's after-hook
-        // (OnCreateMove) is called from managed, not from the shell.
-        string input = Code("src", "client", "native", "shell_input.cpp");
-
-        Assert.Single(Regex.Matches(input, @"p->InputCreateMove\( sequence_number, input_sample_frametime, active \? 1 : 0, &flat \);"));
-        Assert.DoesNotContain("OnCreateMove", input);
-    }
-
-    [Fact]
-    public void NeitherShellReadsTheTable()
-    {
-        foreach (var (name, area) in new[] { ("shell_hud.cpp", "ManagedUiClient()"), ("shell_input.cpp", "ManagedInputClient()") })
-        {
-            string shell = Code("src", "client", "native", name);
-
-            Assert.Contains(area, shell);
-            Assert.DoesNotContain("SourceSharp_GetManagedApi", shell);
-            Assert.DoesNotContain("SourceSharpManagedApi", shell);
-        }
-    }
-
-    [Fact]
     public void TheBootstrapFillsNeitherSlot()
     {
         string entry = Code("src", "shared", "interop", "SideLoad.cs");

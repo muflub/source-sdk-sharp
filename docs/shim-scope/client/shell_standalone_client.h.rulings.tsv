@@ -6,17 +6,17 @@
 [C_StandaloneEntity] const EngineBlock_t &Block() const	SLOT-HELP	accessor: the engine block member every slot answers from
 [C_StandaloneEntity] CBaseHandle &BlockHandle()	SLOT-HELP	accessor: the block head's handle word viewed as the CBaseHandle it overlays
 [C_StandaloneEntity] const CBaseHandle &BlockHandle() const	SLOT-HELP	accessor: the block head's handle word viewed as the CBaseHandle it overlays
-[C_StandaloneEntity] Vector EyePosition( void ) const	SLOT-HELP	accessor: the drawn origin plus the eye offset managed's PredictionDrive published
+[C_StandaloneEntity] Vector EyePosition() const	SLOT-HELP	accessor: the drawn origin plus the eye offset managed's PredictionDrive published
 [C_StandaloneEntity] bool IsInLeafSystem() const	SLOT-HELP	accessor: whether the leaf system holds a render handle
-[C_StandaloneEntity] bool IsLocalPlayerShell( void ) const	SLOT-HELP	accessor of the local-player latch PostDataUpdate sets from the engine's own index
-[C_StandaloneEntity] bool IsPlayerShell( void ) const	SLOT-HELP	accessor of the player-slot bit the create function sets
-[C_StandaloneEntity] const QAngle &PredictedPunchAngle( void ) const	SLOT-HELP	accessor of what managed's PredictionDrive published
-[C_StandaloneEntity] const QAngle &PredictedPunchAngleVel( void ) const	SLOT-HELP	accessor of what managed's PredictionDrive published
-[C_StandaloneEntity] const Vector &PredictedViewOffset( void ) const	SLOT-HELP	accessor of what managed's PredictionDrive published
+[C_StandaloneEntity] bool IsLocalPlayerShell() const	SLOT-HELP	accessor of the local-player latch PostDataUpdate sets from the engine's own index
+[C_StandaloneEntity] bool IsPlayerShell() const	SLOT-HELP	accessor of the player-slot bit the create function sets
+[C_StandaloneEntity] const QAngle &PredictedPunchAngle() const	SLOT-HELP	accessor of what managed's PredictionDrive published
+[C_StandaloneEntity] const QAngle &PredictedPunchAngleVel() const	SLOT-HELP	accessor of what managed's PredictionDrive published
+[C_StandaloneEntity] const Vector &PredictedViewOffset() const	SLOT-HELP	accessor of what managed's PredictionDrive published
 [C_StandaloneEntity] float GetModelScale() const	SLOT-HELP	accessor of the scale managed pushed (StandaloneSetModelScale)
 [C_StandaloneEntity] int  ShadowCastChoice() const	SLOT-HELP	accessor of the block's ShadowChoice
 [C_StandaloneEntity] int NetworkedModelIndex() const	SLOT-HELP	accessor of the block head's networked model index
-[C_StandaloneEntity] int PredictedHealth( void ) const	SLOT-HELP	accessor of what managed's PredictionDrive published
+[C_StandaloneEntity] int PredictedHealth() const	SLOT-HELP	accessor of what managed's PredictionDrive published
 [C_StandaloneEntity] int Tier() const	SLOT-HELP	accessor of the tier the create function was made through
 [C_StandaloneEntity] void BumpPolicyInputs()	SLOT-HELP	the input serial managed's ClientRenderPolicy pass keys its re-decision on; a counter, no choice
 [C_StandaloneEntity] void SetOverlayModel(	SLOT-HELP	stores the second model managed chose (StandaloneSetOverlayModel)

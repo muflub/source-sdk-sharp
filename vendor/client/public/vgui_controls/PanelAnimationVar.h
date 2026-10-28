@@ -2,9 +2,6 @@
 
 #pragma once
 
-#include "tier1/utlvector.h"
-#include <vgui_controls/Panel.h>
-
 #define DECLARE_PANELANIMATION( className )												\
 	static void AddToAnimationMap( char const *scriptname, char const *type, char const *var,	\
 		char const *defaultvalue, bool array, PANELLOOKUPFUNC func )					\
@@ -22,7 +19,7 @@
 		map->entries.AddToTail( entry );												\
 	}																					\
 																						\
-	static void ChainToAnimationMap( void )														\
+	static void ChainToAnimationMap()														\
 	{																					\
 		static bool chained = false;													\
 		if ( chained )																	\
@@ -113,7 +110,7 @@ struct PanelAnimationMap
 
 	CUtlVector< PanelAnimationMapEntry > entries;
 	PanelAnimationMap *baseMap;
-	char const *(*pfnClassName)( void );
+	char const *(*pfnClassName)();
 };
 
 PanelAnimationMap *FindOrAddPanelAnimationMap( char const *className );

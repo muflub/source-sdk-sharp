@@ -2,12 +2,6 @@
 
 #pragma once
 
-#include "igamesystem.h"
-#include "utllinkedlist.h"
-#include "cliententitylist.h"
-#include "iclientthinkable.h"
-#include "utlrbtree.h"
-
 #define CLIENT_THINK_ALWAYS	-1293
 
 #define INVALID_THINK_HANDLE ClientThinkList()->GetInvalidThinkHandle()

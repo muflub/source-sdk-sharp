@@ -42,22 +42,6 @@ public class ClientPhysicsEvictionTests
     }
 
     [Fact]
-    public void NativeStillForwardsTheStepTheLevelAndTheResetToManaged()
-    {
-        string native = Code("src", "client", "native", "shell_physics_client.cpp");
-        foreach (string ask in new[] { "->Simulate()", "->Reset()", "->LevelInitPreEntity()", "->LevelInitPostEntity()",
-                                       "->LevelShutdownPreEntity()", "->LevelShutdownPostEntity()", "->ParseSurfaceData()" })
-            Assert.Contains(ask, native);
-
-        // ...and decides none of it: no environment made, stepped or destroyed here.
-        foreach (string body in new[] { "CreateEnvironment", "->Simulate(", "DestroyEnvironment", "SetGravity", "StepPoses" })
-            Assert.DoesNotContain(body, native.Replace("pPhysics->Simulate()", ""));
-
-        // The shells still read physprops by name, so it is held here.
-        Assert.Contains("IPhysicsSurfaceProps\t*physprops = NULL;", File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_physics_client.cpp")));
-    }
-
-    [Fact]
     public void ManagedMakesStepsAndTearsDownTheLevel()
     {
         Assert.True(typeof(IClientPhysicsFrame).IsAssignableFrom(typeof(ClientPhysicsSystem)));

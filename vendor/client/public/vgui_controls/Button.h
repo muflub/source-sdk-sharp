@@ -2,11 +2,7 @@
 
 #pragma once
 
-#include <vgui/VGUI.h>
-#include <vgui/Dar.h>
-#include <Color.h>
 #include <vgui_controls/Label.h>
-#include "vgui/MouseCode.h"
 
 namespace vgui
 {
@@ -140,7 +136,7 @@ protected:
 	virtual void unused_DrawFocusBorder() = 0;
 
 	// Paint button on screen
-	virtual void Paint(void);
+	virtual void Paint();
 	// Get button border attributes.
 	virtual void unused_GetBorder() = 0;
 
@@ -155,7 +151,7 @@ protected:
 
 	// Get control settings for editing
 	virtual void GetSettings( KeyValues *outResourceData );
-	virtual const char *GetDescription( void );
+	virtual const char *GetDescription();
 
 protected:
 	enum ButtonFlags_t

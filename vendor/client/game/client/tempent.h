@@ -138,7 +138,7 @@ public:
 
 	virtual void					Prepare( const model_t *pmodel, float time );
 
-	virtual bool					IsActive( void );
+	virtual bool					IsActive();
 	virtual bool					Frame( float frametime, int framenumber );
 
 	virtual int						DrawModel( int flags ) OVERRIDE;
@@ -173,7 +173,7 @@ public:
 
 	// THE MODEL. One pointer, which is all GetModel() ever was on this path:
 	// nothing here has a model INDEX and nothing here precaches.
-	virtual const model_t *GetModel( void ) const OVERRIDE { return m_pModel; }
+	virtual const model_t *GetModel() const OVERRIDE { return m_pModel; }
 	void SetModelPointer( const model_t *pModel )          { m_pModel = pModel; }
 
 	// RENDER STATE. Stock's setters, over plain members.
@@ -221,7 +221,7 @@ public:
 	// IClientRenderable. CDefaultClientRenderable leaves ShouldDraw,
 	// IsTransparent and GetRenderBounds pure; IgnoresZBuffer and GetFxBlend
 	// below have defaults that are WRONG for this class rather than absent.
-	virtual bool ShouldDraw( void ) OVERRIDE
+	virtual bool ShouldDraw() OVERRIDE
 	{
 		// Stock C_BaseEntity::ShouldDraw, with the entity terms resolved: a
 		// tempent's index is -1 by construction (never 0), and it has no
@@ -232,7 +232,7 @@ public:
 		return m_pModel != NULL;
 	}
 
-	virtual bool IsTransparent( void ) OVERRIDE;
+	virtual bool IsTransparent() OVERRIDE;
 
 	virtual void GetRenderBounds( Vector &theMins, Vector &theMaxs ) OVERRIDE;
 
@@ -253,7 +253,7 @@ public:
 	using CShellRenderable::AddToLeafSystem;
 	void AddToLeafSystem() { AddToLeafSystem( GetRenderGroup() ); }
 
-	virtual bool IgnoresZBuffer( void ) const OVERRIDE
+	virtual bool IgnoresZBuffer() const OVERRIDE
 	{
 		// Stock C_BaseEntity::IgnoresZBuffer, unchanged. Not defaultable:
 		// DrawTranslucentRenderable SKIPS a renderable whose answer does not
@@ -267,8 +267,8 @@ public:
 	// that is not a missing feature here -- it is a wrong answer. FTENT_FADEOUT
 	// ramps m_clrRender.a down and expects the model to fade with it; against a
 	// constant 255 it would stay solid and then disappear at once.
-	virtual void ComputeFxBlend( void ) OVERRIDE;
-	virtual int  GetFxBlend( void ) OVERRIDE { return m_nRenderFXBlend; }
+	virtual void ComputeFxBlend() OVERRIDE;
+	virtual int  GetFxBlend() OVERRIDE { return m_nRenderFXBlend; }
 
 protected:
 

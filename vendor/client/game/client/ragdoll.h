@@ -23,7 +23,7 @@ public:
 	virtual void GetRagdollBounds( Vector &mins, Vector &maxs ) = 0;
 	virtual int RagdollBoneCount() const = 0;
 	virtual IPhysicsObject *GetElement( int elementNum ) = 0;
-	virtual void DrawWireframe( void ) = 0;
+	virtual void DrawWireframe() = 0;
 	virtual void VPhysicsUpdate( IPhysicsObject *pObject ) = 0;
 	virtual bool TransformVectorToWorld(int boneIndex, const Vector *vTemp, Vector *vOut) = 0;
 };
@@ -32,7 +32,7 @@ class CRagdoll : public IRagdoll
 {
 public:
 	CRagdoll();
-	~CRagdoll( void );
+	~CRagdoll();
 
 	DECLARE_SIMPLE_DATADESC();
 	

@@ -1,9 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #pragma once
 
-#include "mathlib/vector.h"
 // common to server, too
-#include "beam_flags.h"
+
 #include "tempentity.h"
 
 // beam flags
@@ -66,9 +65,9 @@ struct BeamInfo_t
 abstract_class IViewRenderBeams
 {
 public:
-	virtual void	InitBeams( void ) = 0;
-	virtual void	ShutdownBeams( void ) = 0;
-	virtual void	ClearBeams( void ) = 0;
+	virtual void	InitBeams() = 0;
+	virtual void	ShutdownBeams() = 0;
+	virtual void	ClearBeams() = 0;
 
 	// Updates the state of the temp ent beams
 	virtual void	UpdateTempEntBeams() = 0;

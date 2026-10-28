@@ -12,7 +12,7 @@ void KeyValues::Init(	LAYOUT	tier1's KeyValues member over its layout, which the
 KeyValues::~KeyValues(	LAYOUT	tier1's KeyValues member over its layout, which the engine and material system read; held to pristine KeyValues.cpp by keyvalues_client_test (C9 K5)
 void KeyValues::RemoveEverything(	LAYOUT	tier1's KeyValues member over its layout, which the engine and material system read; held to pristine KeyValues.cpp by keyvalues_client_test (C9 K5)
 void KeyValues::deleteThis(	LAYOUT	tier1's KeyValues member over its layout, which the engine and material system read; held to pristine KeyValues.cpp by keyvalues_client_test (C9 K5)
-const char *KeyValues::GetName( void ) const	LAYOUT	tier1's KeyValues member over its layout, which the engine and material system read; held to pristine KeyValues.cpp by keyvalues_client_test (C9 K5)
+const char *KeyValues::GetName() const	LAYOUT	tier1's KeyValues member over its layout, which the engine and material system read; held to pristine KeyValues.cpp by keyvalues_client_test (C9 K5)
 void KeyValues::SetName( const char *setName 	LAYOUT	tier1's KeyValues member over its layout, which the engine and material system read; held to pristine KeyValues.cpp by keyvalues_client_test (C9 K5)
 void KeyValues::UsesEscapeSequences( bool state 	LAYOUT	tier1's KeyValues member over its layout, which the engine and material system read; held to pristine KeyValues.cpp by keyvalues_client_test (C9 K5)
 void KeyValues::UsesConditionals( bool state 	LAYOUT	tier1's KeyValues member over its layout, which the engine and material system read; held to pristine KeyValues.cpp by keyvalues_client_test (C9 K5)

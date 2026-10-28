@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include "utlvector.h"
-
 // class CUtlSortVector:
 // description:
 //   This in an sorted order-preserving vector. Items may be inserted or removed

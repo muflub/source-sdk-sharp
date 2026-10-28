@@ -22,7 +22,7 @@ struct Vec3
 	float z;
 };
 
-inline Vec3 VecZero( void )
+inline Vec3 VecZero()
 {
 	Vec3 v;
 	v.x = 0.0f;
@@ -72,7 +72,7 @@ struct EffectRequest
 	int   nType;
 };
 
-inline EffectRequest EffectRequestZero( void )
+inline EffectRequest EffectRequestZero()
 {
 	EffectRequest req;
 
@@ -183,7 +183,7 @@ struct DecalRequest
 	int   nFlags;
 };
 
-inline DecalRequest DecalRequestZero( void )
+inline DecalRequest DecalRequestZero()
 {
 	DecalRequest req;
 
@@ -234,7 +234,7 @@ struct StaticPropDecalRequest
 	int  nDecalIndex;
 };
 
-inline StaticPropDecalRequest StaticPropDecalRequestZero( void )
+inline StaticPropDecalRequest StaticPropDecalRequestZero()
 {
 	StaticPropDecalRequest req;
 
@@ -276,7 +276,7 @@ struct TraceLineRequest
 	int  nMask;
 };
 
-inline TraceLineRequest TraceLineRequestZero( void )
+inline TraceLineRequest TraceLineRequestZero()
 {
 	TraceLineRequest req;
 
@@ -420,7 +420,7 @@ struct StudioDecalRequest
 	int  nDecalIndex;
 };
 
-inline StudioDecalRequest StudioDecalRequestZero( void )
+inline StudioDecalRequest StudioDecalRequestZero()
 {
 	StudioDecalRequest req;
 
@@ -465,7 +465,7 @@ struct BrushDecalRequest
 	int  nDecalIndex;
 };
 
-inline BrushDecalRequest BrushDecalRequestZero( void )
+inline BrushDecalRequest BrushDecalRequestZero()
 {
 	BrushDecalRequest req;
 

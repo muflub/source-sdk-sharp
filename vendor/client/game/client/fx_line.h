@@ -26,11 +26,11 @@ public:
 
 	CFXLine( const char *name, const FXLineData_t &data );
 	
-	~CFXLine( void );
+	~CFXLine();
 
 	virtual void	Draw( double frametime );
-	virtual bool	IsActive( void );
-	virtual void	Destroy( void );
+	virtual bool	IsActive();
+	virtual void	Destroy();
 	virtual	void	Update( double frametime );
 
 protected:

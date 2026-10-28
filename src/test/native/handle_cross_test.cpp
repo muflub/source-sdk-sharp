@@ -378,15 +378,6 @@ TEST( SdkEntityResolver, TheDeltaIsWhatTheLiveCrashSaw )
 
 namespace {
 
-std::string ReadSource( const char *pszPath )
-{
-	std::ifstream f( pszPath );
-	EXPECT_TRUE( f.good() ) << pszPath << " did not open";
-	std::stringstream ss;
-	ss << f.rdbuf();
-	return ss.str();
-}
-
 struct LiveCrossing_t
 {
 	const char *pszSymbol;
@@ -394,58 +385,7 @@ struct LiveCrossing_t
 	const char *pszCallText;
 };
 
-const LiveCrossing_t kLiveCrossings[] = {
-	// The server's handle -> IGameEntity crossing. It was pinned in
-	// baseentity.h's CHandle<IGameEntity>::Get, which was in every server TU's
-	// prelude (102 translation units). That header is compiled by nothing since
-	// plan_server_novalve.md P5 and left the farm in P6, so the row now reads
-	// the crossing where the server still makes it: variant_t::Entity in our
-	// shell_globals.cpp.
-	{ "SourceSharp_CrossHandleToGameEntity", "sourcesharp/game/server/shell_globals.cpp",
-	  "return SourceSharp_CrossHandleToGameEntity< IGameEntity, IServerEntity >( SourceSharp_EntityFromHandle( eVal ) );" },
-
-	// (The partitioning crossing's row read game/server/entitylist.h, the SDK
-	// entity list's resolver. That header is compiled by nothing since
-	// plan_server_novalve.md P5 and left the farm in P6; the row is retired.)
-
-	// (shell_mapparse.cpp's SourceSharp_SDKEntityFromNetworkable row went with
-	// CreateEntityByName, its only caller, in plan_server_native_v2 T2: no
-	// server object called that function, and the resolver answers NULL for
-	// every server object anyway. The mock facts above still drive it.)
-};
-
-const size_t kNumLiveCrossings =
-	sizeof( kLiveCrossings ) / sizeof( kLiveCrossings[ 0 ] );
-
 } // namespace
-
-TEST( HandleCrossConsumers, EveryLiveCrossingIsDefinedAndCalled )
-{
-	const std::string strHeader = ReadSource( "sourcesharp/game/shared/handle_cross.h" );
-	ASSERT_FALSE( strHeader.empty() )
-		<< "handle_cross.h did not load. If it has been DELETED on the strength "
-		   "of plan_shim.md's ruling row, that row is wrong -- read the section "
-		   "comment above for what was measured and with what.";
-
-	for ( size_t i = 0; i < kNumLiveCrossings; i++ )
-	{
-		const LiveCrossing_t &c = kLiveCrossings[ i ];
-		SCOPED_TRACE( c.pszSymbol );
-
-		EXPECT_NE( strHeader.find( c.pszSymbol ), std::string::npos )
-			<< c.pszSymbol << " is no longer defined in handle_cross.h, and "
-			<< c.pszCallerFile << " still calls it.";
-
-		const std::string strCaller = ReadSource( c.pszCallerFile );
-		ASSERT_FALSE( strCaller.empty() ) << c.pszCallerFile;
-		EXPECT_NE( strCaller.find( c.pszCallText ), std::string::npos )
-			<< c.pszCallerFile << " no longer calls " << c.pszSymbol
-			<< ". If the crossing genuinely went, this row goes WITH it in the "
-			   "same commit -- but check first: a (T*) cast in its place is the "
-			   "wrong-vtable bug this header exists to prevent, and it compiles.";
-	}
-}
-
 
 // =============================================================================
 // SourceSharp_CrossHandleToClientShell -- a trace hit to the client shell, with

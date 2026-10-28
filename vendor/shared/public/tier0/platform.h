@@ -1326,12 +1326,12 @@ private:
 };
 #endif
 
-typedef void (*Plat_WatchDogHandlerFunction_t)(void);
+typedef void (*Plat_WatchDogHandlerFunction_t)();
 
 // Use ValidateAlignment to sanity-check alignment usage when allocating arrays of an aligned type
 #define ALIGN_ASSERT( pred ) { COMPILE_TIME_ASSERT( pred ); }
 template< class T, int ALIGN >
-inline void ValidateAlignmentExplicit(void)
+inline void ValidateAlignmentExplicit()
 {
 	// Alignment must be a power of two
 	ALIGN_ASSERT((ALIGN & (ALIGN - 1)) == 0);
@@ -1358,8 +1358,8 @@ template < size_t NUM, class T > struct AlignedByteArray_t : public AlignedByteA
 	{ \
 		/* NOTE: verify alignment in the constructor (which may be wrong if this is heap-allocated, for ALIGN > MEMALLOC_MAX_AUTO_ALIGN) */ \
 		AlignedByteArrayExplicit_t()	{ if ( (ALIGN-1) & (size_t)this ) DebuggerBreakIfDebugging(); } \
-		T *			Base( void )		{ ValidateAlignmentExplicit<T,ALIGN>(); return (T *)&m_Data; } \
-		const T *	Base( void ) const	{ ValidateAlignmentExplicit<T,ALIGN>(); return (const T *)&m_Data; } \
+		T *			Base()		{ ValidateAlignmentExplicit<T,ALIGN>(); return (T *)&m_Data; } \
+		const T *	Base() const	{ ValidateAlignmentExplicit<T,ALIGN>(); return (const T *)&m_Data; } \
 	private: \
 		byte m_Data[ NUM*sizeof( T ) ]; \
 	} ALIGN_N_POST( ALIGN );

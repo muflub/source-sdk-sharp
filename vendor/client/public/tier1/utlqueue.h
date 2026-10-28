@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "utlmemory.h"
-
 //#define TEST_UTLQUEUE
 
 enum QueueIter_t { QUEUE_ITERATOR_INVALID = 0xffffffff };

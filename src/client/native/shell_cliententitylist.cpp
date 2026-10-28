@@ -54,7 +54,7 @@
 
 // The client's slot table. Not reset at level shutdown: every binding is
 // removed by its shell's destructor, so a non-zero count between maps is a leak.
-CSourceSharpSlotTable &SourceSharp_ClientSlotTable( void )
+CSourceSharpSlotTable &SourceSharp_ClientSlotTable()
 {
 	static CSourceSharpSlotTable s_SlotTable;
 	return s_SlotTable;
@@ -149,7 +149,7 @@ int32_t SourceSharp_ClientEntityIsValid( uint32_t hEntity )
 class CSourceSharpClientEntityList : public IClientEntityList
 {
 public:
-	CSourceSharpClientEntityList( void )
+	CSourceSharpClientEntityList()
 		: m_Counts( SourceSharp_ClientSlotTable() ), m_bWarnedUnresolved( false )
 	{
 	}
@@ -229,7 +229,7 @@ public:
 
 	// A loop bound for the engine's own tables: too small and entities stop
 	// drawing. Maintained by Bind and Unbind.
-	virtual int GetHighestEntityIndex( void ) OVERRIDE
+	virtual int GetHighestEntityIndex() OVERRIDE
 	{
 		SS_BOUNDARY_HIT( kBoundaryProbe_ClientList_GetHighestEntityIndex );
 
@@ -249,7 +249,7 @@ public:
 		m_Counts.SetMaxEntities( maxents );
 	}
 
-	virtual int GetMaxEntities( void ) OVERRIDE
+	virtual int GetMaxEntities() OVERRIDE
 	{
 		SS_BOUNDARY_HIT( kBoundaryProbe_ClientList_GetMaxEntities );
 
@@ -266,7 +266,7 @@ private:
 	bool                m_bWarnedUnresolved;
 };
 
-static CSourceSharpClientEntityList &SourceSharpClientEntityList( void )
+static CSourceSharpClientEntityList &SourceSharpClientEntityList()
 {
 	static CSourceSharpClientEntityList s_List;
 	return s_List;
@@ -274,7 +274,7 @@ static CSourceSharpClientEntityList &SourceSharpClientEntityList( void )
 
 // VClientEntityList003, registered through a factory so the object is built on
 // the first CreateInterface rather than during static init.
-static void *CreateSourceSharpClientEntityList( void )
+static void *CreateSourceSharpClientEntityList()
 {
 	return static_cast< IClientEntityList * >( &SourceSharpClientEntityList() );
 }

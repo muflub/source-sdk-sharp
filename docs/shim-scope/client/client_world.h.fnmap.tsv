@@ -30,20 +30,20 @@
 1	SLOT	[C_World] virtual void         NotifyShouldTransmit( ShouldTransmitState_t state ) OVERRIDE
 1	SLOT	[C_World] virtual void         OnPreDataChanged( DataUpdateType_t updateType ) OVERRIDE
 1	SLOT	[C_World] virtual void         PostDataUpdate( DataUpdateType_t updateType ) OVERRIDE
-1	SLOT	[C_World] virtual bool         IsDormant( void ) OVERRIDE
-4	SLOT	[C_World] virtual int          entindex( void ) const OVERRIDE
+1	SLOT	[C_World] virtual bool         IsDormant() OVERRIDE
+4	SLOT	[C_World] virtual int          entindex() const OVERRIDE
 1	SLOT	[C_World] virtual void         ReceiveMessage( int classID, bf_read &msg ) OVERRIDE
-1	SLOT	[C_World] virtual void         SetDestroyedOnRecreateEntities( void ) OVERRIDE
+1	SLOT	[C_World] virtual void         SetDestroyedOnRecreateEntities() OVERRIDE
 1	SLOT	[C_World] virtual void         OnDataUnchangedInPVS() OVERRIDE
 1	SLOT	[C_World] virtual void *GetDataTableBasePtr() OVERRIDE
 1	SLOT	[C_World] virtual void                ClientThink() OVERRIDE
 1	SLOT	[C_World] virtual ClientThinkHandle_t GetThinkHandle() OVERRIDE
 1	SLOT	[C_World] virtual void                SetThinkHandle( ClientThinkHandle_t hThink ) OVERRIDE
-1	SLOT	[C_World] virtual CMouthInfo   *GetMouth( void ) OVERRIDE
+1	SLOT	[C_World] virtual CMouthInfo   *GetMouth() OVERRIDE
 1	SLOT	[C_World] virtual bool          GetSoundSpatialization( SpatializationInfo_t &info ) OVERRIDE
-1	SLOT	[C_World] virtual bool              ShouldDraw( void ) OVERRIDE
-1	SLOT	[C_World] virtual bool              IsTransparent( void ) OVERRIDE
-1	SLOT	[C_World] virtual bool              IsTwoPass( void ) OVERRIDE
+1	SLOT	[C_World] virtual bool              ShouldDraw() OVERRIDE
+1	SLOT	[C_World] virtual bool              IsTransparent() OVERRIDE
+1	SLOT	[C_World] virtual bool              IsTwoPass() OVERRIDE
 1	SLOT	[C_World] virtual void              OnThreadedDrawSetup() OVERRIDE
 1	SLOT	[C_World] virtual bool              UsesPowerOfTwoFrameBufferTexture() OVERRIDE
 1	SLOT	[C_World] virtual bool              UsesFullFrameBufferTexture() OVERRIDE
@@ -59,7 +59,7 @@
 1	SLOT	[C_World] virtual bool              LODTest() OVERRIDE
 2	SLOT	[C_World] virtual bool              SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones,
 2	SLOT	[C_World] virtual void              SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount,
-1	SLOT	[C_World] virtual void              DoAnimationEvents( void ) OVERRIDE
+1	SLOT	[C_World] virtual void              DoAnimationEvents() OVERRIDE
 1	SLOT	[C_World] virtual IPVSNotify       *GetPVSNotifyInterface() OVERRIDE
 1	SLOT	[C_World] virtual bool              ShouldReceiveProjectedTextures( int flags ) OVERRIDE
 1	SLOT	[C_World] virtual bool              GetShadowCastDistance( float *pDist, ShadowType_t shadowType ) const OVERRIDE
@@ -75,6 +75,6 @@
 1	SLOT	[C_World] virtual int               LookupAttachment( const char *pAttachmentName ) OVERRIDE
 1	SLOT	[C_World] virtual bool              GetAttachment( int number, Vector &origin, QAngle &angles ) OVERRIDE
 1	SLOT	[C_World] virtual bool              GetAttachment( int number, matrix3x4_t &matrix ) OVERRIDE
-1	SLOT	[C_World] virtual float            *GetRenderClipPlane( void ) OVERRIDE
+1	SLOT	[C_World] virtual float            *GetRenderClipPlane() OVERRIDE
 1	SLOT	[C_World] virtual void              RecordToolMessage() OVERRIDE
-1	SLOT	[C_World] virtual bool              IgnoresZBuffer( void ) const OVERRIDE
+1	SLOT	[C_World] virtual bool              IgnoresZBuffer() const OVERRIDE

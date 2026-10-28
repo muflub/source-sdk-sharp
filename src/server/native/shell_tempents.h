@@ -10,7 +10,7 @@
 #pragma once
 
 #include "irecipientfilter.h"
-#include "mathlib/vector.h"
+
 
 namespace ss { struct CEffectData; }
 

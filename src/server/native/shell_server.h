@@ -8,7 +8,7 @@
 // Server-side hooks that route mod decisions into C#.
 #pragma once
 
-#include <stdint.h>
+
 
 #include "igameentity.h"
 struct edict_t;
@@ -30,7 +30,7 @@ class ServerClass;
 bool SourceSharp_IsManagedServerClass( const ServerClass *pClass );
 
 // The seven shared network string tables, created before managed's are.
-void SourceSharp_CreateNetworkStringTables( void );
+void SourceSharp_CreateNetworkStringTables();
 
 // Acquires every engine interface this binary reaches by global. False on the
 // first miss, as stock's DLLInit.
@@ -39,7 +39,7 @@ bool SourceSharp_AcquireEngineInterfaces( CreateInterfaceFn appSystemFactory,
                                           CreateInterfaceFn physicsFactory,
                                           CreateInterfaceFn fileSystemFactory );
 
-int32_t SourceSharp_EntitiesInvalidateMdlCacheAll( void );
+int32_t SourceSharp_EntitiesInvalidateMdlCacheAll();
 
 // The managed pre-entity level init, reached from the world's precache.
 void SourceSharp_ManagedLevelInitPreEntity( const char *pszMapName );

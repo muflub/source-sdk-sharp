@@ -17,7 +17,7 @@
 #endif
 
 #if defined( SS_COVERAGE )
-extern "C" void __gcov_dump( void );
+extern "C" void __gcov_dump();
 #endif
 
 // Deep enough for the frame loop plus a render path plus the leaf.

@@ -73,7 +73,7 @@ void EntityPrediction_SetSeedFromCommand( const EntityPredictionCmd_t *cmd )
 // The TE_* dispatch chain still hangs off IPredictionSystem.
 IPredictionSystem *IPredictionSystem::g_pPredictionSystems = NULL;
 
-CPrediction::CPrediction( void )
+CPrediction::CPrediction()
 {
 	m_bInPrediction = false;
 	m_bFirstTimePredicted = false;
@@ -87,15 +87,15 @@ CPrediction::CPrediction( void )
 	m_nIncomingPacketNumber = 0;
 }
 
-CPrediction::~CPrediction( void )
+CPrediction::~CPrediction()
 {
 }
 
-void CPrediction::Init( void )
+void CPrediction::Init()
 {
 }
 
-void CPrediction::Shutdown( void )
+void CPrediction::Shutdown()
 {
 }
 
@@ -105,7 +105,7 @@ void CPrediction::Update( int /*startframe*/, bool /*validframe*/,
 {
 }
 
-void CPrediction::OnReceivedUncompressedPacket( void )
+void CPrediction::OnReceivedUncompressedPacket()
 {
 	m_nCommandsPredicted = 0;
 	m_nServerCommandsAcknowledged = 0;
@@ -119,7 +119,7 @@ void CPrediction::PreEntityPacketReceived( int /*commands_acknowledged*/,
 	m_nIncomingPacketNumber = current_world_update_packet;
 }
 
-void CPrediction::PostEntityPacketReceived( void )
+void CPrediction::PostEntityPacketReceived()
 {
 }
 
@@ -128,17 +128,17 @@ void CPrediction::PostNetworkDataReceived( int commands_acknowledged )
 	m_nServerCommandsAcknowledged += commands_acknowledged;
 }
 
-bool CPrediction::InPrediction( void ) const
+bool CPrediction::InPrediction() const
 {
 	return m_bInPrediction;
 }
 
-bool CPrediction::IsFirstTimePredicted( void ) const
+bool CPrediction::IsFirstTimePredicted() const
 {
 	return m_bFirstTimePredicted;
 }
 
-int CPrediction::GetIncomingPacketNumber( void ) const
+int CPrediction::GetIncomingPacketNumber() const
 {
 	return m_nIncomingPacketNumber;
 }
@@ -276,9 +276,9 @@ public:
 	}
 
 	virtual char const *GetName( EntityHandle_t handle ) const OVERRIDE { return "standaloneplayer_cl"; }
-	virtual void ResetTouchList( void ) OVERRIDE {}
+	virtual void ResetTouchList() OVERRIDE {}
 	virtual bool AddToTouched( const CGameTrace &tr, const Vector &impactvelocity ) OVERRIDE { return false; }
-	virtual void ProcessImpacts( void ) OVERRIDE {}
+	virtual void ProcessImpacts() OVERRIDE {}
 
 	virtual void Con_NPrintf( int idx, char const *fmt, ... ) OVERRIDE {}
 
@@ -290,10 +290,10 @@ public:
 	                                float fparam1, float fparam2, int iparam1, int iparam2,
 	                                int bparam1, int bparam2 ) OVERRIDE {}
 
-	virtual bool PlayerFallingDamage( void ) OVERRIDE { return true; }
+	virtual bool PlayerFallingDamage() OVERRIDE { return true; }
 	virtual void PlayerSetAnimation( PLAYER_ANIM playerAnim ) OVERRIDE {}
 
-	virtual IPhysicsSurfaceProps *GetSurfaceProps( void ) OVERRIDE
+	virtual IPhysicsSurfaceProps *GetSurfaceProps() OVERRIDE
 	{
 		extern IPhysicsSurfaceProps *physprops;
 		return physprops;

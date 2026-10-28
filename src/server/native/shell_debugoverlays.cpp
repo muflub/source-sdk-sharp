@@ -101,7 +101,7 @@ void SourceSharp_OverlayCounts( uint32_t *pOutDrawn, uint32_t *pOutClipped,
 
 // Stock's DrawAllDebugOverlays without the AI node editor and the gEntList walks.
 // Not behind _DEBUG, as stock's ("allow this in release for now").
-void DrawAllDebugOverlays( void )
+void DrawAllDebugOverlays()
 {
 	// First, so a frame with nobody looking is told apart from one that drew nothing.
 	SourceSharp_EstablishOverlayViewer();

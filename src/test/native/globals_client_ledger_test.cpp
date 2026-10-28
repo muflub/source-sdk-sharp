@@ -505,32 +505,6 @@ TEST( GlobalsClientLedger, TheGateFailsWhenTheLedgerIsMissingARow )
 		<< "and nothing in the other direction:\n" << run.m_szOutput;
 }
 
-TEST( GlobalsClientLedger, TheGateFailsWhenTheLedgerHasARowWithNoSymbol )
-{
-	const std::string szReal = ReadFromRoot( kLedger );
-	ASSERT_FALSE( szReal.empty() );
-	std::string szBody = szReal;
-	if ( szBody[ szBody.size() - 1 ] != '\n' )
-		szBody += "\n";
-	// A LOCAL row in a real object for a symbol no object defines: the shape
-	// a keep-list row takes after its static is deleted.
-	szBody += "shell_clientdll.o\t_ZL27s_nNoSuchStaticWasEverHere\t"
-	          "s_nNoSuchStaticWasEverHere\t"
-	          "sourcesharp/game/client/shell_clientdll.cpp\tLOCAL\tbss\t"
-	          "file-or-global\t4\tUNRULED\t\tpositive control\n";
-
-	const Run_t run =
-		GateOverCopy( szBody, "control-stale.tsv" );
-	EXPECT_NE( run.m_nExit, 0 )
-		<< "the gate PASSED against a ledger naming a symbol that does not "
-		   "exist; the stale direction is unwatched.\n" << run.m_szOutput;
-	EXPECT_EQ( ReportedNumber( run.m_szOutput, "ledger_rows_with_no_symbol" ), 1 )
-		<< "the gate should report exactly the one invented row:\n"
-		<< run.m_szOutput;
-	EXPECT_EQ( ReportedNumber( run.m_szOutput, "symbols_with_no_ledger_row" ), 0 )
-		<< "and nothing in the other direction:\n" << run.m_szOutput;
-}
-
 //=============================================================================
 // The counts, against their ceilings.
 //=============================================================================

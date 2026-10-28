@@ -166,7 +166,7 @@ inline void UTIL_TraceRay( const Ray_t &ray, unsigned int mask,
 // Old style, non-particle system, tracers
 void		UTIL_Tracer( const Vector &vecStart, const Vector &vecEnd, int iEntIndex = 0, int iAttachment = TRACER_DONT_USE_ATTACHMENT, float flVelocity = 0, bool bWhiz = false, const char *pCustomTracerName = NULL, int iParticleID = 0 );
 
-bool		UTIL_IsLowViolence( void );
+bool		UTIL_IsLowViolence();
 bool		UTIL_ShouldShowBlood( int bloodColor );
 void		UTIL_BloodDrips( const Vector &origin, const Vector &direction, int color, int amount );
 
@@ -194,19 +194,19 @@ void		UTIL_BloodImpact( const Vector &pos, const Vector &dir, int color, int amo
 class IntervalTimer
 {
 public:
-	IntervalTimer( void )
+	IntervalTimer()
 	{
 		m_timestamp = -1.0f;
 	}
 
-	void Reset( void )
+	void Reset()
 	{
 		m_timestamp = Now();
 	}		
 
 private:
 	float m_timestamp;
-	float Now( void ) const;		// work-around since client header doesn't like inlined gpGlobals->curtime
+	float Now() const;		// work-around since client header doesn't like inlined gpGlobals->curtime
 };
 
 /**
@@ -216,13 +216,13 @@ private:
 class CountdownTimer
 {
 public:
-	CountdownTimer( void )
+	CountdownTimer()
 	{
 		m_timestamp = -1.0f;
 		m_duration = 0.0f;
 	}
 
-	void Reset( void )
+	void Reset()
 	{
 		m_timestamp = Now() + m_duration;
 	}		
@@ -230,12 +230,12 @@ public:
 private:
 	float m_duration;
 	float m_timestamp;
-	virtual float Now( void ) const;		// work-around since client header doesn't like inlined gpGlobals->curtime
+	virtual float Now() const;		// work-around since client header doesn't like inlined gpGlobals->curtime
 };
 
 class RealTimeCountdownTimer : public CountdownTimer
 {
-	virtual float Now( void ) const OVERRIDE
+	virtual float Now() const OVERRIDE
 	{
 		return Plat_FloatTime();
 	}

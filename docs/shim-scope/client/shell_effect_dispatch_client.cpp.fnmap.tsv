@@ -7,7 +7,7 @@
 4	LIVE-API	IClientRenderable *CEffectData::GetRenderable() const
 4	LIVE-API	IGameEntity *CEffectData::GetEntity() const
 5	LIVE-API	int CEffectData::entindex() const
-7	HOOK	int32_t SourceSharp_EffectRegistrationCount( void )
+7	HOOK	int32_t SourceSharp_EffectRegistrationCount()
 9	HOOK	int32_t SourceSharp_EffectRegistrationName( int32_t iIndex, char *pOut, int32_t nOutSize )
 9	BOUNDARY	void SourceSharp_EffectRegistrationRun( int32_t iIndex, const SourceSharpEffectData_t *pData )
 9	BOUNDARY	void DispatchEffectToCallback( const char *pEffectName, const CEffectData &data )

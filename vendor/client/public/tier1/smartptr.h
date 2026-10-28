@@ -49,21 +49,21 @@ class CPlainAutoPtr
 {
 public:
 	explicit CPlainAutoPtr( T *p = NULL )		: m_p( p ) {}
-	~CPlainAutoPtr( void )						{ Delete(); }
+	~CPlainAutoPtr()						{ Delete(); }
 
 public:
-	void Delete( void )							{ delete Detach(); }
+	void Delete()							{ delete Detach(); }
 
 private:	// Disallow copying, use Detach() instead to avoid ambiguity
 	CPlainAutoPtr( CPlainAutoPtr const &x );
 
 public:
 	void Attach( T *p )							{ m_p = p; }
-	T * Detach( void )							{ T * p( m_p ); m_p = NULL; return p; }
+	T * Detach()							{ T * p( m_p ); m_p = NULL; return p; }
 
 public:
-	bool IsValid( void ) const					{ return m_p != NULL; }
-	T * Get( void ) const						{ return m_p; }
+	bool IsValid() const					{ return m_p != NULL; }
+	T * Get() const						{ return m_p; }
 
 private:
 	T * m_p;
@@ -82,10 +82,10 @@ class CArrayAutoPtr : public CPlainAutoPtr < T > // Warning: no polymorphic dest
 {
 public:
 	explicit CArrayAutoPtr( T *p = NULL )		{ this->Attach( p ); }
-	~CArrayAutoPtr( void )						{ this->Delete(); }
+	~CArrayAutoPtr()						{ this->Delete(); }
 
 public:
-	void Delete( void )							{ delete [] CPlainAutoPtr < T >::Detach(); }
+	void Delete()							{ delete [] CPlainAutoPtr < T >::Detach(); }
 
 public:
 };

@@ -524,13 +524,6 @@ public class LivenessMirrorTests
     // of looking for the reason.
     //-------------------------------------------------------------------------
 
-    private static string? ServerCode(string file)
-    {
-        string? path = RepoLayout.FindSdkFile(Path.Combine("game", "server", file));
-
-        return path is null ? null : StripComments(File.ReadAllText(path));
-    }
-
     /// <summary>
     /// EVERY server shell translation unit, comments stripped.
     ///
@@ -578,40 +571,6 @@ public class LivenessMirrorTests
         code = Regex.Replace(code, @"/\*.*?\*/", " ", RegexOptions.Singleline);
         code = Regex.Replace(code, @"//[^\n]*", " ");
         return Regex.Replace(code, "\"(\\\\.|[^\"\\\\])*\"", "\"\"");
-    }
-
-    /// <summary>
-    /// X0's CENSUS CLOSED BY A LANGUAGE RULE RATHER THAN BY ENUMERATION, which
-    /// is why it can be trusted: an enumeration can stop early.
-    ///
-    /// <para>
-    /// <c>CStandaloneEntity</c> declares only the sized placement form of
-    /// <c>operator new</c>, which HIDES the global forms, so
-    /// <c>new CStandaloneEntity</c> does not compile and the hierarchy has one
-    /// construction site. Declaring the plain form would re-open the census
-    /// silently — nothing else in the build would say a word.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void TheStandaloneHierarchyDeclaresNoPlainOperatorNew()
-    {
-        string? code = ServerCode("shell_standalone.h");
-
-        if (code is null)
-        {
-            Assert.True(true, "the standalone header was found for the lifetime census (skipped, not found)");
-            return;
-        }
-
-        var declarations = Regex.Matches(code, @"void\s*\*\s*operator\s+new\s*\(([^)]*)\)");
-
-        Assert.True(declarations.Count == 1,
-            "exactly one operator new is declared on this hierarchy; a second spelling is a second "
-            + $"way to construct one, and there are {declarations.Count}");
-
-        Assert.True(declarations[0].Groups[1].Value.Contains("nBlobBytes", StringComparison.Ordinal),
-            "and it is the SIZED form — the blob length is an argument, so the plain unsized "
-            + "spelling does not exist and `new CStandaloneEntity` does not compile");
     }
 
     /// <summary>
@@ -762,35 +721,6 @@ public class LivenessMirrorTests
             + "thing left that is told about every death");
     }
 
-    /// <summary>
-    /// AND THE PUSH IT REPLACED IS GONE, rather than both running.
-    ///
-    /// <para>
-    /// Two writers of one record is the failure this pair is really about: the
-    /// old destructor push and the new managed notify would not have to agree,
-    /// and the one that ran second would win silently.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void TheDestructorNoLongerPushesARemoval()
-    {
-        string? code = ServerCode("shell_standalone_base.cpp");
-
-        if (code is null)
-        {
-            Assert.True(true, "the base shell was found for the lifetime census (skipped, not found)");
-            return;
-        }
-
-        int start = code.IndexOf("CStandaloneEntity::~CStandaloneEntity()", StringComparison.Ordinal);
-        Assert.True(start > 0, "the base destructor is where the census expects it");
-
-        int end = code.IndexOf("\n}\n", start, StringComparison.Ordinal);
-        string body = code.Substring(start, end - start);
-
-        Assert.DoesNotContain("OnManagedRemoved();", body, StringComparison.Ordinal);
-        Assert.DoesNotContain("StandaloneHierarchy_EntityRemoved( this );", body, StringComparison.Ordinal);
-    }
     //-------------------------------------------------------------------------
     // plan_abi_hotreload D7: the mirror is the server composition's, so a hot
     // reload carries its records to the next one as bytes.

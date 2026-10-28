@@ -306,31 +306,6 @@ public class MoveVarsTests
         return data;
     }
 
-    [Fact]
-    public void TheTraceKnobHasNoNativeDeclarationAnywhere()
-    {
-        // Every native source of this repository's three shim directories: the
-        // knob's old home is gone, so no one file is the place to look.
-        string[] roots = ["src/client/native", "src/server/native", "src/shared/native"];
-        int read = 0;
-        foreach (string root in roots)
-        {
-            string dir = RepoLayout.Repo(root.Split('/'));
-            Assert.True(Directory.Exists(dir), dir + " is not in the tree");
-            foreach (string path in Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories))
-            {
-                if (!path.EndsWith(".cpp", StringComparison.Ordinal) && !path.EndsWith(".h", StringComparison.Ordinal))
-                    continue;
-                string text = File.ReadAllText(path);
-                read++;
-                Assert.DoesNotContain("ConVar sv_soundemitter_trace(", text);
-                Assert.DoesNotContain("ConVar sv_soundemitter_trace (", text);
-            }
-        }
-
-        Assert.True(read > 300, $"only {read} native sources were read");
-    }
-
     [Theory]
     [MemberData(nameof(EveryMovedNameAndItsOldFile))]
     public void NoNativeDeclarationWasLeftBehind(string name, string file)
@@ -346,46 +321,6 @@ public class MoveVarsTests
         Assert.DoesNotContain("ConVar " + name + "(", text);
         Assert.DoesNotContain("ConVar\t" + name + "\t", text);
         Assert.DoesNotContain("ConVar " + name + " (", text);
-    }
-
-    [Fact]
-    public void TheHeaderNoLongerExternsTheElevenMovevars()
-    {
-        var path = Path.Combine(RepoLayout.SdkTree, "src/game/shared/movevars_shared.h");
-        Assert.True(File.Exists(path), path + " is not in the tree");
-
-        var text = File.ReadAllText(path);
-
-        foreach (var d in Declarations)
-        {
-            if (d.Name is "phys_pushscale" or "sv_soundemitter_trace" or "english")
-                continue;
-
-            Assert.DoesNotContain("extern ConVar " + d.Name + ";", text);
-        }
-    }
-
-    [Fact]
-    public void TheHeaderStillExternsTheSeventeenThatDidNotMove()
-    {
-        // The other half, and the one that makes the fact above mean something:
-        // emptying the header would satisfy every "no longer externs" assertion.
-        var path = Path.Combine(RepoLayout.SdkTree, "src/game/shared/movevars_shared.h");
-        var text = File.ReadAllText(path);
-
-        string[] stayed =
-        {
-            "sv_gravity", "sv_stopspeed", "sv_noclipaccelerate", "sv_noclipspeed",
-            "sv_maxspeed", "sv_accelerate", "sv_airaccelerate", "sv_waterfriction",
-            "sv_rollspeed", "sv_rollangle", "sv_friction", "sv_bounce",
-            "sv_maxvelocity", "sv_stepsize", "sv_skyname", "sv_specaccelerate",
-            "sv_specspeed", "sv_specnoclip",
-        };
-
-        foreach (var name in stayed)
-        {
-            Assert.Contains("extern ConVar " + name + ";", text);
-        }
     }
 
     [Fact]

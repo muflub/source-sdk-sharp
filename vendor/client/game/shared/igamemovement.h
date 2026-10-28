@@ -79,7 +79,7 @@ inline void CMoveData::SetAbsOrigin( const Vector &vec )
 abstract_class IGameMovement
 {
 public:
-	virtual			~IGameMovement( void ) {}
+	virtual			~IGameMovement() {}
 	
 	// Process the current movement command
 	virtual void	ProcessMovement( CBasePlayer *pPlayer, CMoveData *pMove ) = 0;		

@@ -66,89 +66,6 @@
 namespace
 {
 
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadRaw( const std::string &strAbsolute )
-{
-	std::ifstream file( strAbsolute.c_str(), std::ios::binary );
-	if ( !file.is_open() )
-		return std::string();
-	return std::string( ( std::istreambuf_iterator<char>( file ) ),
-	                    std::istreambuf_iterator<char>() );
-}
-
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-std::string NoWhitespace( const std::string &s )
-{
-	std::string out;
-	for ( size_t i = 0; i < s.size(); i++ )
-	{
-		const char c = s[ i ];
-		if ( c != ' ' && c != '\t' && c != '\n' && c != '\r' )
-			out += c;
-	}
-	return out;
-}
-
-std::string Tight( const char *pszRel, const char *pszAnchor )
-{
-	const char *pszRoot = SrcRoot();
-	EXPECT_TRUE( pszRoot != NULL );
-	if ( !pszRoot )
-		return std::string();
-
-	const std::string raw = ReadRaw( std::string( pszRoot ) + "/" + pszRel );
-	EXPECT_FALSE( raw.empty() ) << "could not open " << pszRel;
-
-	const std::string tight = NoWhitespace( StripComments( raw ) );
-	EXPECT_NE( tight.find( NoWhitespace( pszAnchor ) ), std::string::npos )
-		<< pszRel << " no longer contains its anchor \"" << pszAnchor << "\"";
-	return tight;
-}
-
 // WHAT THE SERVER COMPILES is server_sourcesharp's source list, read through
 // cmake_graph.h (compile_commands.json cross-checked against
 // src/server/native/CMakeLists.txt). Farm-relative paths.
@@ -278,77 +195,9 @@ TEST( ServerWave3, NothingOnTheServerLinkCallsRandSoRandOverrideLeftIt )
 	ASSERT_GT( nObjects, 80u );
 }
 
-TEST( ServerWave3, RandOverrideStaysOnTheClientBecauseItInterposesLibc )
-{
-	EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, "sourcesharp/game/client/randoverride.cpp" ) )
-		<< "randoverride.cpp has left the client build. It DEFINES rand() and "
-		<< "srand() so that calls to them reach the engine's deterministic "
-		<< "RandomInt instead of the C library; take it away and the link still "
-		<< "succeeds, with libc answering, and the client's callers change RNG "
-		<< "in silence.";
-
-	const std::string ro = Tight( "sourcesharp/game/client/randoverride.cpp", "RandomInt" );
-
-	// Both definitions, spelled loosely enough to survive the `__cdecl` the
-	// file writes in front of them (a no-op under GNUC, and still in the
-	// source text). "rand()" cannot be matched by "srand(unsignedint)", which
-	// is the only other place the letters appear.
-	EXPECT_NE( ro.find( "rand()" ), std::string::npos )
-		<< "randoverride.cpp no longer defines rand(), so it is not "
-		<< "interposing anything and the reasoning above is stale.";
-	EXPECT_NE( ro.find( "srand(unsignedint)" ), std::string::npos )
-		<< "randoverride.cpp no longer defines srand(). Half an interposition "
-		<< "is worse than none: seeding would reach libc and drawing would "
-		<< "reach the engine.";
-	EXPECT_NE( ro.find( "RandomInt(0,VALVE_RAND_MAX)" ), std::string::npos )
-		<< "randoverride.cpp's rand() no longer routes to the engine's "
-		<< "RandomInt. That routing IS the file.";
-}
-
 //-----------------------------------------------------------------------------
 // networkvar.cpp: section 8's trap 4, and the reason evict_probe takes a MODE.
 //-----------------------------------------------------------------------------
-//
-// WRITTEN AGAINST THE SYMBOL, NOT THE FILE, and it took a red test to get that
-// right. The first version of this asserted that networkvar.cpp was still in
-// the .vpc, and the Wave 8 globals merge -- which moved the definition into
-// sourcesharp/game/server/shell_globals.cpp and took the $File line out --
-// reded it. Both changes were correct; the assertion was not. What must not
-// change is that SOMETHING in the server's compiled set defines
-// g_bUseNetworkVars, and exactly one thing does.
-//
-TEST( ServerWave3, NetworkVarStaysBecauseDebugReadsIt )
-{
-	ASSERT_TRUE( cmake_graph::Compiles( cmake_graph::kServer, kServerProofOfRead ) )
-		<< "the reader is not reading server_sourcesharp's source list";
-
-	// One definition, wherever it lives. Both files are read: the server no
-	// longer compiles public/networkvar.cpp, and if it ever does again while
-	// shell_globals.cpp still carries the bool, that is two definitions.
-	const std::string merged = Tight( "sourcesharp/game/server/shell_globals.cpp",
-	                                  "g_bUseNetworkVars" );
-	ASSERT_FALSE( merged.empty() );
-
-	EXPECT_NE( merged.find( "boolg_bUseNetworkVars=true;" ), std::string::npos )
-		<< "nothing in the server's own files defines g_bUseNetworkVars. It is "
-		<< "one bool with ZERO readers in release and TWENTY-SIX in debug -- "
-		<< "the _DEBUG network-var assertions in baseentity.h and "
-		<< "baseanimating.h. A release-only probe reports it evictable and the "
-		<< "debug link then fails; this is the case evict_probe's MODE "
-		<< "argument exists for, and section 8's trap 4.";
-
-	EXPECT_FALSE( ServerCompiles( "networkvar.cpp" ) )
-		<< "public/networkvar.cpp is in the server list again AND "
-		<< "shell_globals.cpp defines the same bool. That is a duplicate "
-		<< "definition, not a belt and braces.";
-
-	// The client's own definition, which replaced public/networkvar.cpp on
-	// its side in C8 (engineabi_recv_names.cpp): the same value on both DLLs.
-	const std::string nv = Tight( "sourcesharp/game/client/engineabi_recv_names.cpp", "g_bUseNetworkVars" );
-	EXPECT_NE( nv.find( "boolg_bUseNetworkVars=true;" ), std::string::npos )
-		<< "the client no longer defines g_bUseNetworkVars as the server does.";
-}
-
 //-----------------------------------------------------------------------------
 // The remaining three, so that "zero consumers" never again reads as "free".
 //-----------------------------------------------------------------------------

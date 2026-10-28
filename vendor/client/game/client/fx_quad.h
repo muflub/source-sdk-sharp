@@ -2,9 +2,6 @@
 
 #include "clientsideeffects.h"
 
-#include "materialsystem/imaterial.h"
-#include "materialsystem/imaterialsystem.h"
-
 #ifndef FX_QUAD_H
 #define FX_QUAD_H
 #ifdef _WIN32
@@ -18,7 +15,7 @@
 
 struct FXQuadData_t
 {
-	FXQuadData_t( void )
+	FXQuadData_t()
 	{
 		m_flLifeTime	= 0.0f;
 		m_flDieTime		= 0.0f;
@@ -52,11 +49,11 @@ public:
 
 	CFXQuad( const FXQuadData_t &data );
 	
-	~CFXQuad( void );
+	~CFXQuad();
 
 	virtual void	Draw( double frametime );
-	virtual bool	IsActive( void );
-	virtual void	Destroy( void );
+	virtual bool	IsActive();
+	virtual void	Destroy();
 	virtual	void	Update( double frametime );
 
 	FXQuadData_t	m_FXData;

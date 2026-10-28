@@ -3,6 +3,4 @@
 
 #pragma once
 
-#include "dt_recv.h"
-
 class CRecvProxyData;

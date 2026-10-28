@@ -2,9 +2,7 @@
 
 #pragma once
 
-#include "string_t.h"
-#include "datamap.h"
-#include "mathlib/vmatrix.h"
+class VMatrix;
 
 #ifndef CLIENT_DLL
 class SINGLE_INHERITANCE CBaseEntity;
@@ -61,7 +59,7 @@ public:
 
 	// Logging
 	virtual void	StartLogging( const char *pszLogName ) = 0;
-	virtual void	EndLogging( void ) = 0;
+	virtual void	EndLogging() = 0;
 
 	virtual bool	IsAsync() = 0;
 
@@ -168,10 +166,10 @@ public:
 
 	// Primitive types
 	
-	virtual short	ReadShort( void ) = 0;
+	virtual short	ReadShort() = 0;
 	virtual int		ReadShort( short *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
 	virtual int		ReadInt( int *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
-	virtual int		ReadInt( void ) = 0;
+	virtual int		ReadInt() = 0;
 	virtual int		ReadBool( bool *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
 	virtual int		ReadFloat( float *pValue, int count = 1, int nBytesAvailable = 0 ) = 0;
 	virtual int		ReadData( char *pData, int size, int nBytesAvailable ) = 0;
@@ -197,7 +195,7 @@ public:
 	virtual int		ReadVMatrixWorldspace( VMatrix *pValue, int count = 1, int nBytesAvailable = 0) = 0;
 	virtual int		ReadMatrix3x4Worldspace( matrix3x4_t *pValue, int nElems = 1, int nBytesAvailable = 0 ) = 0;
 
-	virtual bool	GetPrecacheMode( void ) = 0;
+	virtual bool	GetPrecacheMode() = 0;
 
 	// Back door to support somewhat awkward ownership of game save/restore data
 	virtual CGameSaveRestoreInfo *GetGameSaveRestoreInfo() = 0;

@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "networkvar.h" // todo: change this when DECLARE_CLASS is moved into a better location.
-
 // Used to initialize m_flBaseDamage to something that we know pretty much for sure
 // hasn't been modified by a user. 
 #define BASEDAMAGE_NOT_SPECIFIED	FLT_MAX

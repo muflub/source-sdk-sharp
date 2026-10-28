@@ -106,8 +106,8 @@ public:
 	virtual IGameEntity *GetBaseEntity() OVERRIDE { return this; }
 
 	// --- IServerEntity -------------------------------------------------------
-	virtual int GetModelIndex( void ) const OVERRIDE { return Block().Head.ModelIndex; }
-	virtual string_t GetModelName( void ) const OVERRIDE { return NULL_STRING; }
+	virtual int GetModelIndex() const OVERRIDE { return Block().Head.ModelIndex; }
+	virtual string_t GetModelName() const OVERRIDE { return NULL_STRING; }
 
 	virtual void SetModelIndex( int index ) OVERRIDE;
 

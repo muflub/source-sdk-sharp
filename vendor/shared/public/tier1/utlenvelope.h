@@ -2,15 +2,8 @@
 // Purpose: A class to wrap data for transport over a boundary like a thread
 //			or window.
 
-#include "tier1/utlstring.h"
-#include "tier0/basetypes.h"
-
-#ifndef UTLENVELOPE_H
-#define UTLENVELOPE_H
-
-#if defined( _WIN32 )
 #pragma once
-#endif
+#define UTLENVELOPE_H
 
 class CUtlDataEnvelope
 {
@@ -35,8 +28,6 @@ private:
 	};
 	int m_nBytes;
 };
-
-#include "tier0/memdbgon.h"
 
 inline void CUtlDataEnvelope::Assign( const void *pData, int nBytes )
 {
@@ -106,7 +97,3 @@ inline CUtlDataEnvelope::operator void *() const
 
 	return ( m_nBytes > 4) ? (void *)m_pData : (void *)m_data;
 }
-
-#include "tier0/memdbgoff.h"
-
-#endif // UTLENVELOPE_H

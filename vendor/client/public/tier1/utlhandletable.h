@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "tier1/utlvector.h"
 #include "tier1/utlqueue.h"
 
 // Handles are 32 bits on 32-bit and 64 bits on 64-bit. Invalid handles are all 1s

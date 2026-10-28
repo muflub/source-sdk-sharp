@@ -51,7 +51,7 @@ public:
 		GetClientVoiceMgr()->SetPlayerBlockedState(playerIndex, false);
 	}
 
-	void OnGameUIActivated( void )
+	void OnGameUIActivated()
 	{
 		IGameEvent *event = gameeventmanager->CreateEvent( "gameui_activated" );
 		if ( event )
@@ -60,7 +60,7 @@ public:
 		}
 	}
 
-	void OnGameUIHidden( void )
+	void OnGameUIHidden()
 	{
 		IGameEvent *event = gameeventmanager->CreateEvent( "gameui_hidden" );
 		if ( event )
@@ -74,7 +74,7 @@ public:
 	void CreateAchievementsPanel( vgui::Panel *pParent ) {}
 	void DisplayAchievementPanel() {}
 	void ShutdownAchievementPanel() {}
-	int GetAchievementsPanelMinWidth( void ) const { return 0; }
+	int GetAchievementsPanelMinWidth() const { return 0; }
 	const char *GetHolidayString() { return NULL; }
 	const char *GetOperationString() { return NULL; }
 };

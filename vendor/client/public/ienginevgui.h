@@ -34,7 +34,7 @@ enum PaintMode_t
 abstract_class IEngineVGui
 {
 public:
-	virtual					~IEngineVGui( void ) { }
+	virtual					~IEngineVGui() { }
 
 	virtual vgui::VPANEL	GetPanel( VGuiPanel_t type ) = 0;
 

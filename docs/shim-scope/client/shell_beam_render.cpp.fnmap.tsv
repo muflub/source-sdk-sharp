@@ -4,19 +4,19 @@
 4	SLOT-HELP	uint32_t RawFromEntity( IClientEntity *pEnt )
 6	LAYOUT	[CBeamRenderable] CBeamRenderable() : m_nIndex( -1 ), m_bLive( false )
 6	SLOT-HELP	[CBeamRenderable] void Set( const float *p9 )
-1	SLOT	[CBeamRenderable] const Vector &GetRenderOrigin( void ) override
-1	SLOT	[CBeamRenderable] const QAngle &GetRenderAngles( void ) override
+1	SLOT	[CBeamRenderable] const Vector &GetRenderOrigin() override
+1	SLOT	[CBeamRenderable] const QAngle &GetRenderAngles() override
 6	SLOT	[CBeamRenderable] const matrix3x4_t &RenderableToWorldTransform() override
 5	SLOT	[CBeamRenderable] void GetRenderBounds( Vector &mins, Vector &maxs ) override
-1	SLOT	[CBeamRenderable] bool ShouldDraw( void ) override
-1	SLOT	[CBeamRenderable] bool IsTransparent( void ) override
+1	SLOT	[CBeamRenderable] bool ShouldDraw() override
+1	SLOT	[CBeamRenderable] bool IsTransparent() override
 1	SLOT	[CBeamRenderable] void ComputeFxBlend() override
 1	SLOT	[CBeamRenderable] int GetFxBlend() override
 6	SLOT	[CBeamRenderable] int DrawModel( int ) override
 7	SLOT-HELP	CBeamRenderable *RenderableAt( int nIndex )
-10	SLOT	[CSourceSharpBeams] void InitBeams( void ) override
-5	SLOT	[CSourceSharpBeams] void ShutdownBeams( void ) override
-5	SLOT	[CSourceSharpBeams] void ClearBeams( void ) override
+10	SLOT	[CSourceSharpBeams] void InitBeams() override
+5	SLOT	[CSourceSharpBeams] void ShutdownBeams() override
+5	SLOT	[CSourceSharpBeams] void ClearBeams() override
 5	SLOT	[CSourceSharpBeams] void UpdateTempEntBeams() override
 1	SLOT	[CSourceSharpBeams] void DrawBeam( Beam_t * ) override
 1	SLOT	[CSourceSharpBeams] void DrawBeam( C_Beam *, ITraceFilter * ) override

@@ -836,8 +836,7 @@ public sealed class ClientTempEntFrame : IClientTempEntSimulation
           + "this build is a C_BasePlayer to cast to. The effect NAME is deliberately not "
           + "carried across the ABI either: this branch is UNREACHABLE here, because "
           + "m_pszImpactEffect is only set by CTempEnts::ClientProjectile's optional parameter "
-          + "and both live callers leave it at its NULL default "
-          + "(src/sourcesharp/test/tempent_verdict_test.cpp asserts exactly that), and a slot "
+          + "and both live callers leave it at its NULL default, and a slot "
           + "carrying a name nothing sets would be a capability invented for a branch nothing "
           + "takes. If you are reading this line, that measurement has changed. "
           + "Said once per level.\n");

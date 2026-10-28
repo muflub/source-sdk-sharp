@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "mathlib/vector.h"
-
 // CSimplePhysics is a framework for simplified physics simulation.
 // It simulates at a fixed timestep and uses the Verlet integrator.
 // To use it, create your nodes and implement your constraints and

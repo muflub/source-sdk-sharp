@@ -193,19 +193,19 @@ public:
 	virtual client_textmessage_t *TextMessageGet( const char *pName ) = 0;
 
 	// Returns true if the console is visible
-	virtual bool				Con_IsVisible( void ) = 0;
+	virtual bool				Con_IsVisible() = 0;
 
 	// Get the entity index of the local player
-	virtual int					GetLocalPlayer( void ) = 0;
+	virtual int					GetLocalPlayer() = 0;
 
 	// Client DLL is hooking a model, loads the model into memory and returns  pointer to the model_t
 	virtual const model_t		*LoadModel( const char *pName, bool bProp = false ) = 0;
 
 	// Get accurate, sub-frame clock ( profiling use )
-	virtual float				Time( void ) = 0; 
+	virtual float				Time() = 0; 
 
 	// Get the exact server timesstamp ( server time ) from the last message received from the server
-	virtual float				GetLastTimeStamp( void ) = 0; 
+	virtual float				GetLastTimeStamp() = 0; 
 
 	// Given a CAudioSource (opaque pointer), retrieve the underlying CSentence object ( stores the words, phonemes, and close
 	//  captioning data )
@@ -221,7 +221,7 @@ public:
 	virtual void				SetViewAngles( QAngle& va ) = 0;
 	
 	// Retrieve the current game's maxclients setting
-	virtual int					GetMaxClients( void ) = 0;
+	virtual int					GetMaxClients() = 0;
 
 	// Given the string pBinding which may be bound to a key, 
 	//  returns the string name of the key to which this string is bound. Returns NULL if no such binding exists
@@ -231,15 +231,15 @@ public:
 	virtual const char			*Key_BindingForKey( ButtonCode_t code ) = 0;
 
 	// key trapping (for binding keys)
-	virtual void				StartKeyTrapMode( void ) = 0;
+	virtual void				StartKeyTrapMode() = 0;
 	virtual bool				CheckDoneKeyTrapping( ButtonCode_t &code ) = 0;
 
 	// Returns true if the player is fully connected and active in game (i.e, not still loading)
-	virtual bool				IsInGame( void ) = 0;
+	virtual bool				IsInGame() = 0;
 	// Returns true if the player is connected, but not necessarily active in game (could still be loading)
-	virtual bool				IsConnected( void ) = 0;
+	virtual bool				IsConnected() = 0;
 	// Returns true if the loading plaque should be drawn
-	virtual bool				IsDrawingLoadingImage( void ) = 0;
+	virtual bool				IsDrawingLoadingImage() = 0;
 
 	// Prints the formatted string to the notification area of the screen ( down the right hand edge
 	//  numbered lines starting at position 0
@@ -257,10 +257,10 @@ public:
 	virtual bool				CullBox( const Vector& mins, const Vector& maxs ) = 0;
 
 	// Allow the sound system to paint additional data (during lengthy rendering operations) to prevent stuttering sound.
-	virtual void				Sound_ExtraUpdate( void ) = 0;
+	virtual void				Sound_ExtraUpdate() = 0;
 
 	// Get the current game directory ( e.g., hl2, tf2, cstrike, hl1 )
-	virtual const char			*GetGameDirectory( void ) = 0;
+	virtual const char			*GetGameDirectory() = 0;
 
 	// Get access to the world to screen transformation matrix
 	virtual const VMatrix& 		WorldToScreenMatrix() = 0;
@@ -309,15 +309,15 @@ public:
 
 	// Get the name of the current map
 	virtual void GetChapterName( char *pchBuff, int iMaxLength ) = 0;
-	virtual char const	*GetLevelName( void ) = 0;
-	virtual int	GetLevelVersion( void ) = 0;
+	virtual char const	*GetLevelName() = 0;
+	virtual int	GetLevelVersion() = 0;
 #if !defined( NO_VOICE )
 	// Obtain access to the voice tweaking API
-	virtual struct IVoiceTweak_s *GetVoiceTweakAPI( void ) = 0;
+	virtual struct IVoiceTweak_s *GetVoiceTweakAPI() = 0;
 #endif
 	// Tell engine stats gathering system that the rendering frame is beginning/ending
-	virtual void		EngineStats_BeginFrame( void ) = 0;
-	virtual void		EngineStats_EndFrame( void ) = 0;
+	virtual void		EngineStats_BeginFrame() = 0;
+	virtual void		EngineStats_EndFrame() = 0;
 	
 	// This tells the engine to fire any events (temp entity messages) that it has queued up this frame. 
 	// It should only be called once per frame.
@@ -357,7 +357,7 @@ public:
 	virtual void		SaveFreeMemory( void *pSaveMem ) = 0;
 
 	// returns info interface for client netchannel
-	virtual INetChannelInfo	*GetNetChannelInfo( void ) = 0;
+	virtual INetChannelInfo	*GetNetChannelInfo() = 0;
 
 	// Debugging functionality:
 	// Very slow routine to draw a physics model
@@ -367,22 +367,22 @@ public:
 	// Draw portals if r_DrawPortals is set (Debugging only)
 	virtual void		DrawPortals() = 0;
 	// Determine whether the client is playing back or recording a demo
-	virtual bool		IsPlayingDemo( void ) = 0;
-	virtual bool		IsRecordingDemo( void ) = 0;
-	virtual bool		IsPlayingTimeDemo( void ) = 0;
-	virtual int			GetDemoRecordingTick( void ) = 0;
-	virtual int			GetDemoPlaybackTick( void ) = 0;
-	virtual int			GetDemoPlaybackStartTick( void ) = 0;
-	virtual float		GetDemoPlaybackTimeScale( void ) = 0;
-	virtual int			GetDemoPlaybackTotalTicks( void ) = 0;
+	virtual bool		IsPlayingDemo() = 0;
+	virtual bool		IsRecordingDemo() = 0;
+	virtual bool		IsPlayingTimeDemo() = 0;
+	virtual int			GetDemoRecordingTick() = 0;
+	virtual int			GetDemoPlaybackTick() = 0;
+	virtual int			GetDemoPlaybackStartTick() = 0;
+	virtual float		GetDemoPlaybackTimeScale() = 0;
+	virtual int			GetDemoPlaybackTotalTicks() = 0;
 	// Is the game paused?
-	virtual bool		IsPaused( void ) = 0;
+	virtual bool		IsPaused() = 0;
 	// Is the game currently taking a screenshot?
-	virtual bool		IsTakingScreenshot( void ) = 0;
+	virtual bool		IsTakingScreenshot() = 0;
 	// Is this a HLTV broadcast ?
-	virtual bool		IsHLTV( void ) = 0;
+	virtual bool		IsHLTV() = 0;
 	// is this level loaded as just the background to the main menu? (active, but unplayable)
-	virtual bool		IsLevelMainMenuBackground( void ) = 0;
+	virtual bool		IsLevelMainMenuBackground() = 0;
 	// returns the name of the background level
 	virtual void		GetMainMenuBackgroundName( char *dest, int destlen ) = 0;
 
@@ -402,7 +402,7 @@ public:
 	virtual const char*	GetMapEntitiesString() = 0;
 
 	// Is the engine in map edit mode ?
-	virtual bool		IsInEditMode( void ) = 0;
+	virtual bool		IsInEditMode() = 0;
 
 	// current screen aspect ratio (eg. 4.0f/3.0f, 16.0f/9.0f)
 	virtual float		GetScreenAspectRatio() = 0;
@@ -428,7 +428,7 @@ public:
 
 	// returns if the loaded map was processed with HDR info. This will be set regardless
 	// of what HDR mode the player is in.
-	virtual bool MapHasHDRLighting(void) = 0;
+	virtual bool MapHasHDRLighting() = 0;
 
 	virtual int	GetAppID() = 0;
 
@@ -462,19 +462,19 @@ public:
 	virtual void SetAchievementMgr( IAchievementMgr *pAchievementMgr ) = 0;
 	virtual IAchievementMgr *GetAchievementMgr() = 0;
 
-	virtual bool			MapLoadFailed( void ) = 0;
+	virtual bool			MapLoadFailed() = 0;
 	virtual void			SetMapLoadFailed( bool bState ) = 0;
 	
 	virtual bool			IsLowViolence() = 0;
-	virtual const char		*GetMostRecentSaveGame( void ) = 0;
+	virtual const char		*GetMostRecentSaveGame() = 0;
 	virtual void			SetMostRecentSaveGame( const char *lpszFilename ) = 0;
 
 	virtual void			StartXboxExitingProcess() = 0;
 	virtual bool			IsSaveInProgress() = 0;
-	virtual uint			OnStorageDeviceAttached( void ) = 0;
-	virtual void			OnStorageDeviceDetached( void ) = 0;
+	virtual uint			OnStorageDeviceAttached() = 0;
+	virtual void			OnStorageDeviceDetached() = 0;
 
-	virtual void			ResetDemoInterpolation( void ) = 0;
+	virtual void			ResetDemoInterpolation() = 0;
 
 	// Methods to set/get a gamestats data container so client & server running in same process can send combined data
 	virtual void SetGamestatsData( CGamestatsData *pGamestatsData ) = 0;
@@ -491,8 +491,8 @@ public:
 	//				  the pointer is deleted inside the function: pKeyValues->deleteThis()
 	virtual void			ServerCmdKeyValues( KeyValues *pKeyValues ) = 0;
 
-	virtual bool			IsSkippingPlayback( void ) = 0;
-	virtual bool			IsLoadingDemo( void ) = 0;
+	virtual bool			IsSkippingPlayback() = 0;
+	virtual bool			IsLoadingDemo() = 0;
 
 	// Returns true if the engine is playing back a "locally recorded" demo, which includes
 	// both SourceTV and replay demos, since they're recorded locally (on servers), as opposed
@@ -505,10 +505,10 @@ public:
 	virtual	const char		*Key_LookupBindingExact( const char *pBinding ) = 0;
 	
 	virtual void			AddPhonemeFile( const char *pszPhonemeFile ) = 0;
-	virtual float			GetPausedExpireTime( void ) = 0;
+	virtual float			GetPausedExpireTime() = 0;
 
 	virtual bool			StartDemoRecording( const char *pszFilename, const char *pszFolder = NULL ) = 0;
-	virtual void			StopDemoRecording( void ) = 0;
+	virtual void			StopDemoRecording() = 0;
 	virtual void			TakeScreenshot( const char *pszFilename, const char *pszFolder = NULL ) = 0;
 };
 
@@ -546,7 +546,7 @@ public:
 	virtual void			PostInit() = 0;
 
 	// Called once when the client DLL is being unloaded
-	virtual void			Shutdown( void ) = 0;
+	virtual void			Shutdown() = 0;
 	
 	// Called once the client is initialized to setup client-side replay interface pointers
 	virtual bool			ReplayInit( CreateInterfaceFn replayFactory ) = 0;
@@ -557,33 +557,33 @@ public:
 	// Called at the start of a new level, after the entities have been received and created
 	virtual void			LevelInitPostEntity( ) = 0;
 	// Called at the end of a level
-	virtual void			LevelShutdown( void ) = 0;
+	virtual void			LevelShutdown() = 0;
 
 	// Request a pointer to the list of client datatable classes
-	virtual ClientClass		*GetAllClasses( void ) = 0;
+	virtual ClientClass		*GetAllClasses() = 0;
 
 	// Called once per level to re-initialize any hud element drawing stuff
-	virtual int				HudVidInit( void ) = 0;
+	virtual int				HudVidInit() = 0;
 	// Called by the engine when gathering user input
 	virtual void			HudProcessInput( bool bActive ) = 0;
 	// Called oncer per frame to allow the hud elements to think
 	virtual void			HudUpdate( bool bActive ) = 0;
 	// Reset the hud elements to their initial states
-	virtual void			HudReset( void ) = 0;
+	virtual void			HudReset() = 0;
 	// Display a hud text message
 	virtual void			HudText( const char * message ) = 0;
 
 	// Mouse Input Interfaces
 	// Activate the mouse (hides the cursor and locks it to the center of the screen)
-	virtual void			IN_ActivateMouse( void ) = 0;
+	virtual void			IN_ActivateMouse() = 0;
 	// Deactivates the mouse (shows the cursor and unlocks it)
-	virtual void			IN_DeactivateMouse( void ) = 0;
+	virtual void			IN_DeactivateMouse() = 0;
 	// This is only called during extra sound updates and just accumulates mouse x, y offets and recenters the mouse.
 	//  This call is used to try to prevent the mouse from appearing out of the side of a windowed version of the engine if 
 	//  rendering or other processing is taking too long
-	virtual void			IN_Accumulate (void) = 0;
+	virtual void			IN_Accumulate () = 0;
 	// Reset all key and mouse states to their initial, unpressed state
-	virtual void			IN_ClearStates (void) = 0;
+	virtual void			IN_ClearStates () = 0;
 	// If key is found by name, returns whether it's being held down in isdown, otherwise function returns false
 	virtual bool			IN_IsKeyDown( const char *name, bool& isdown ) = 0;
 	// Notify the client that the mouse was wheeled while in game - called prior to executing any bound commands.
@@ -630,7 +630,7 @@ public:
 	// Shutdown a .spr file
 	virtual void			ShutdownSprite( CEngineSprite *pSprite ) = 0;
 	// Returns sizeof( CEngineSprite ) so the engine can allocate appropriate memory
-	virtual int				GetSpriteSize( void ) const = 0;
+	virtual int				GetSpriteSize() const = 0;
 
 	// Called when a player starts or stops talking.
 	// entindex is -1 to represent the local client talking (before the data comes back from the server). 
@@ -739,7 +739,7 @@ public:
 	virtual void			ClientAdjustStartSoundParams( struct StartSoundParams_t& params ) = 0;
 
 	// Returns true if the disconnect command has been handled by the client
-	virtual bool DisconnectAttempt( void ) = 0;
+	virtual bool DisconnectAttempt() = 0;
 
 	virtual bool IsConnectedUserInfoChangeAllowed( IConVar *pCvar ) = 0;
 

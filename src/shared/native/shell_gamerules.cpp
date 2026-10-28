@@ -280,10 +280,10 @@ void SourceSharp_RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy *pPol
 }
 #endif // !CLIENT_DLL
 
-int CSourceSharpGameRules::Damage_GetTimeBased( void )       { return s_DamageRules.nTimeBased; }
-int CSourceSharpGameRules::Damage_GetNoPhysicsForce( void )  { return s_DamageRules.nNoPhysicsForce; }
+int CSourceSharpGameRules::Damage_GetTimeBased()       { return s_DamageRules.nTimeBased; }
+int CSourceSharpGameRules::Damage_GetNoPhysicsForce()  { return s_DamageRules.nNoPhysicsForce; }
 
-bool CSourceSharpGameRules::IsMultiplayer( void )
+bool CSourceSharpGameRules::IsMultiplayer()
 {
 #ifdef CLIENT_DLL
 	// The policy table is registered on the server; the client is multiplayer too.
@@ -320,7 +320,7 @@ bool CSourceSharpGameRules::ClientConnected( edict_t *pEntity, const char *pszNa
 }
 
 // Empty: managed's GameFrame runs the frame's last managed point and the late drain.
-void CSourceSharpGameRules::EndGameFrame( void )
+void CSourceSharpGameRules::EndGameFrame()
 {
 }
 

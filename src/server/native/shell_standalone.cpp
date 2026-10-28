@@ -83,7 +83,7 @@ static SendTable   *g_pTierTables[ SOURCESHARP_TIER_MAX ]  = { NULL };
 static ServerClass *g_pTierClasses[ SOURCESHARP_TIER_MAX ] = { NULL };
 static bool         g_bTiersRegistered = false;
 
-static void RegisterStandaloneTiers( void )
+static void RegisterStandaloneTiers()
 {
 	if ( g_bTiersRegistered )
 		return;

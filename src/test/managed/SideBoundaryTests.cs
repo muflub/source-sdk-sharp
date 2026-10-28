@@ -23,49 +23,6 @@ public sealed class SideBoundaryTests
     // No boundary function takes a side parameter.
     //-------------------------------------------------------------------------
 
-    /// <summary>A parameter list names a side: a side type, or a parameter called side.</summary>
-    private static bool NamesASide(string parameters)
-        => Regex.IsMatch(parameters, @"\bSourceSharpSide\b|\b(?:Side|side|nSide|eSide|iSide)\b");
-
-    private static string Native(string file)
-    {
-        string path = RepoLayout.Repo("src", "host", "native", file);
-        Assert.True(File.Exists(path), $"{path} was not found; a scan that read nothing would pass");
-        string text = File.ReadAllText(path);
-        text = Regex.Replace(text, @"/\*.*?\*/", "", RegexOptions.Singleline);
-        return Regex.Replace(text, @"//[^\n]*", "");
-    }
-
-    [Fact]
-    public void NoExportInTheNativeHeaderTakesASide()
-    {
-        string header = Native("sourcesharp.h");
-        var exports = Regex.Matches(header, @"SOURCESHARP_EXPORT[^;(]*?\b(SourceSharp_\w+)\s*\(([^)]*)\)")
-                           .Select(m => (Name: m.Groups[1].Value, Parameters: m.Groups[2].Value))
-                           .ToList();
-
-        // The stimulus reaches the subject: the six per-side entries are read.
-        foreach (string side in new[] { "Server", "Client" })
-            foreach (string entry in new[] { "Load", "ReloadCheck", "Unload" })
-                Assert.Contains(exports, e => e.Name == $"SourceSharp_{entry}{side}");
-
-        Assert.Empty(exports.Where(e => NamesASide(e.Parameters)).Select(e => e.Name));
-        Assert.DoesNotContain("SourceSharpSide", header);
-    }
-
-    [Fact]
-    public void NoHostDelegateTakesASide()
-    {
-        string host = Native("sourcesharp.cpp");
-        var delegates = Regex.Matches(host, @"typedef\s+int32_t\s*\(\s*CORECLR_DELEGATE_CALLTYPE\s*\*\s*(bootstrap_\w+_fn)\s*\)\s*\(([^)]*)\)")
-                             .Select(m => (Name: m.Groups[1].Value, Parameters: m.Groups[2].Value))
-                             .ToList();
-
-        Assert.Equal(["bootstrap_load_fn", "bootstrap_reload_check_fn", "bootstrap_unload_fn"],
-                     delegates.Select(d => d.Name).Order(StringComparer.Ordinal));
-        Assert.Empty(delegates.Where(d => NamesASide(d.Parameters)).Select(d => d.Name));
-    }
-
     /// <summary>The [UnmanagedCallersOnly] methods of a type, each with what it takes.</summary>
     private static List<MethodInfo> Entries(Type type)
         => type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)

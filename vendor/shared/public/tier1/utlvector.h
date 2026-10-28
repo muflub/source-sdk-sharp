@@ -81,7 +81,7 @@ public:
 	int Size() const;	// don't use me!
 
 	/// are there no elements? For compatibility with lists.
-	inline bool IsEmpty( void ) const
+	inline bool IsEmpty() const
 	{
 		return ( Count() == 0 );
 	}
@@ -188,7 +188,7 @@ public:
 #endif // DBGFLAG_VALIDATE
 
 	/// sort using std:: and expecting a "<" function to be defined for the type
-	void Sort( void );
+	void Sort();
 
 	/// sort using std:: with a predicate. e.g. [] -> bool ( T &a, T &b ) { return a < b; }
 	template <class F> void SortPredicate( F &&predicate );
@@ -489,7 +489,7 @@ public:
 		return false;
 	}
 
-	bool DebugCompileError_ANonVectorIsUsedInThe_FOR_EACH_VEC_Macro( void ) const { return true; }
+	bool DebugCompileError_ANonVectorIsUsedInThe_FOR_EACH_VEC_Macro() const { return true; }
 
 	struct Data_t
 	{
@@ -830,7 +830,7 @@ void CUtlVector<T, A>::InPlaceQuickSort( int (__cdecl *pfnCompare)(const T *, co
 }
 
 template< typename T, class A >
-void CUtlVector<T, A>::Sort( void )
+void CUtlVector<T, A>::Sort()
 {
 	//STACK STATS TODO: Do we care about allocation tracking precision enough to match element origins across a sort?
 	std::sort( Base(), Base() + Count() );
@@ -1303,7 +1303,7 @@ void CUtlVector<T, A>::Validate( CValidator &validator, char *pchName )
 template<class T> class CUtlVectorAutoPurge : public CUtlVector< T, CUtlMemory< T, int> >
 {
 public:
-	~CUtlVectorAutoPurge( void )
+	~CUtlVectorAutoPurge()
 	{
 		this->PurgeAndDeleteElements();
 	}

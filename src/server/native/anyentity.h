@@ -13,18 +13,18 @@
 #pragma once
 #define ANYENTITY_H
 
-#include "const.h"
-#include "iserverentity.h"
-#include "iservernetworkable.h"
-#include "igameentity.h"
-#include "standalone_relays.h"
-#include "ss_entityhandle.h"
-#include "ss_shareddefs.h"
-#include "ispatialpartition.h"
+
+
+
+
+
+
+
+
 #include "entity_name_match.h"
 #include "collideable_center.h"
 #include "shell_shot_path.h"
-#include "world_subject.h"
+
 
 extern ISpatialPartition *partition;
 

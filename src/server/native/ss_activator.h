@@ -11,14 +11,14 @@
 // kind would hand its reader a pointer of the wrong type.
 #pragma once
 
-#include "basehandle.h"
-#include "ihandleentity.h"
+
+
 
 // Instantiated only at call sites that have ehandle.h.
 template < class T > class CHandle;
 
-#include "igameentity.h"
-#include "igameentity_fwd.h"
+
+
 
 // Reached from inside baseentity.h's guard, where CBaseEntity is incomplete, so
 // everything inline here works without it.

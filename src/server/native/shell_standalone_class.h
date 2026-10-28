@@ -22,7 +22,7 @@ bool SourceSharp_InstallStandaloneClass( const char *pClassName, const char **pp
 // install because a reload can change it alone. False for a name never registered.
 bool SourceSharp_SetStandaloneClassOps( const char *pClassName, uint32_t nOpMask );
 
-#include "shell_resolve.h"
+
 
 // The next entity of a classname after pStartAfter. NULL both when there is none and
 // when pStartAfter has been removed.

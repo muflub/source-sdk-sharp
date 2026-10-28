@@ -42,7 +42,7 @@ C_RecipientFilter::~C_RecipientFilter()
 {
 }
 
-void C_RecipientFilter::Reset( void )
+void C_RecipientFilter::Reset()
 {
 	m_bReliable			= false;
 	m_Recipients.RemoveAll();
@@ -50,12 +50,12 @@ void C_RecipientFilter::Reset( void )
 	m_bIgnorePredictionCull = false;
 }
 
-bool C_RecipientFilter::IsReliable( void ) const
+bool C_RecipientFilter::IsReliable() const
 {
 	return m_bReliable;
 }
 
-int C_RecipientFilter::GetRecipientCount( void ) const
+int C_RecipientFilter::GetRecipientCount() const
 {
 	return m_Recipients.Size();
 }
@@ -75,7 +75,7 @@ static int LocalPlayerSlot()
 	return engine ? engine->GetLocalPlayer() : -1;
 }
 
-void C_RecipientFilter::AddAllPlayers( void )
+void C_RecipientFilter::AddAllPlayers()
 {
 	m_Recipients.RemoveAll();
 	AddRecipientByPlayerIndex( LocalPlayerSlot() );

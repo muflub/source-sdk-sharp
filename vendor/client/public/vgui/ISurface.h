@@ -292,7 +292,7 @@ public:
 	virtual void DrawTexturedSubRect( int x0, int y0, int x1, int y1, float texs0, float text0, float texs1, float text1 ) = 0;
 	virtual void DrawTexturedPolygon(int n, Vertex_t *pVertice, bool bClipVertices = true ) = 0;
 	virtual const wchar_t *GetTitle(VPANEL panel) = 0;
-	virtual bool IsCursorLocked( void ) const = 0;
+	virtual bool IsCursorLocked() const = 0;
 	virtual void SetWorkspaceInsets( int left, int top, int right, int bottom ) = 0;
 
 	// Lower level char drawing code, call DrawGet then pass in info to DrawRender
@@ -331,13 +331,13 @@ public:
 	virtual void SetBitmapFontName( const char *pName, const char *pFontFilename ) = 0;
 	// gets the bitmap font filename
 	virtual const char *GetBitmapFontName( const char *pName ) = 0;
-	virtual void ClearTemporaryFontCache( void ) = 0;
+	virtual void ClearTemporaryFontCache() = 0;
 
 	virtual IImage *GetIconImageForFullPath( char const *pFullPath ) = 0;
 	virtual void DrawUnicodeString( const wchar_t *pwString, FontDrawType_t drawType = FONT_DRAW_DEFAULT ) = 0;
 	virtual void PrecacheFontCharacters(HFont font, const wchar_t *pCharacters) = 0;
 	// Console-only.  Get the string to use for the current video mode for layout files.
-	virtual const char *GetResolutionKey( void ) const = 0;
+	virtual const char *GetResolutionKey() const = 0;
 	
 	virtual const char *GetFontName( HFont font ) = 0;
 	virtual const char *GetFontFamilyName( HFont font ) = 0;
@@ -353,8 +353,8 @@ public:
 
 	virtual int GetTextureNumFrames( int id ) = 0;
 	virtual void DrawSetTextureFrame( int id, int nFrame, unsigned int *pFrameCache ) = 0;
-	virtual bool IsScreenSizeOverrideActive( void ) = 0;
-	virtual bool IsScreenPosOverrideActive( void ) = 0;
+	virtual bool IsScreenSizeOverrideActive() = 0;
+	virtual bool IsScreenPosOverrideActive() = 0;
 
 	virtual void DestroyTextureID( int id ) = 0;
 

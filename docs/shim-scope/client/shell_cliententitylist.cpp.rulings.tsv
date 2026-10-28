@@ -1,6 +1,6 @@
 # key (a substring of one fnmap head)	verdict	reason
 # Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-CSourceSharpSlotTable &SourceSharp_ClientSlotTable( void )	SLOT-HELP	the client's handle table the IClientEntityList slots resolve from (a function-local static, handed out); stores and answers, decides nothing
+CSourceSharpSlotTable &SourceSharp_ClientSlotTable()	SLOT-HELP	the client's handle table the IClientEntityList slots resolve from (a function-local static, handed out); stores and answers, decides nothing
 bool SourceSharp_ClientSlotBindAt(	SLOT-HELP	SourceSharp_ClientEntityBind's store into the handle table at the server's own entry and serial; the table refuses an occupied entry
 void SourceSharp_ClientSlotUnbind( int nEntry )	SLOT-HELP	SourceSharp_ClientEntityUnbind's release of one entry of the handle table
 C_StandaloneEntity *SourceSharp_ClientShellFromHandle(	LIVE-API	imported by shell_new_particles_client.o and shell_shadows_client.o (nm -u over the client link edge, 2026-10-25): the table's serial-checked resolve, one cast (tools/entity-gates-allowlist)
@@ -17,13 +17,13 @@ GetClientUnknownFromHandle( CBaseHandle hEnt ) OVERRIDE	SLOT	IClientEntityList +
 GetClientEntity( int entnum ) OVERRIDE	SLOT	IClientEntityList +0x18: the by-index primitive's entity face
 GetClientEntityFromHandle( CBaseHandle hEnt ) OVERRIDE	SLOT	IClientEntityList +0x20: the by-handle primitive's entity face
 NumberOfEntities( bool bIncludeNonNetworkable ) OVERRIDE	SLOT	IClientEntityList +0x28: the table's bound count plus the world
-GetHighestEntityIndex( void ) OVERRIDE	SLOT	IClientEntityList +0x30, the engine's loop bound: the table's highest bound edict entry, raised to the world's
+GetHighestEntityIndex() OVERRIDE	SLOT	IClientEntityList +0x30, the engine's loop bound: the table's highest bound edict entry, raised to the world's
 SetMaxEntities( int maxents ) OVERRIDE	SLOT	IClientEntityList +0x38: stores the engine's number, as stock did
-GetMaxEntities( void ) OVERRIDE	SLOT	IClientEntityList +0x40: hands the stored number back, as stock did
+GetMaxEntities() OVERRIDE	SLOT	IClientEntityList +0x40: hands the stored number back, as stock did
 [CSourceSharpClientEntityList] void OnBound( int nEntry )	SLOT-HELP	the counters' half of a bind the table accepted (CClientEntityCounts), read by the count slots
 [CSourceSharpClientEntityList] void OnUnbound( int nEntry )	SLOT-HELP	the counters' half of an unbind
-static CSourceSharpClientEntityList &SourceSharpClientEntityList( void )	HOOK	the one VClientEntityList003 object, a function-local static the factory hands out
-static void *CreateSourceSharpClientEntityList( void )	HOOK	the InterfaceReg factory the engine resolves VClientEntityList003 by name through
+static CSourceSharpClientEntityList &SourceSharpClientEntityList()	HOOK	the one VClientEntityList003 object, a function-local static the factory hands out
+static void *CreateSourceSharpClientEntityList()	HOOK	the InterfaceReg factory the engine resolves VClientEntityList003 by name through
 IClientEntity *SourceSharp_ClientEntityFromIndex( int nEntry )	LIVE-API	imported by shell_beam_render.o, shell_impact_effects.o, shell_te_backends_client.o, shell_te_pool_client.o, shell_view_facts.o, shell_worldquery_client.o (nm -u, 2026-10-25): the by-index primitive's entity face
 IClientUnknown *SourceSharp_ClientUnknownFromHandle( const CBaseHandle &hEnt )	LIVE-API	imported by shell_beam_render.o and shell_te_pool_client.o (nm -u, 2026-10-25): the by-handle primitive
 IHandleEntity *SourceSharp_EntityFromHandle( const CBaseHandle &handle )	LIVE-API	imported by shell_movement.o and takedamageinfo_library.o (nm -u, 2026-10-25): ehandle.h's CBaseHandle::Get() on the client, the by-handle primitive

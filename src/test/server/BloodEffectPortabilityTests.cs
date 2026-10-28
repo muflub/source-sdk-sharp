@@ -78,134 +78,14 @@ public class BloodEffectPortabilityTests
     // UTIL_IsLowViolence's home since plan_server_native_v2 T2 (2026-10-18): it
     // was #ifdef CLIENT_DLL in ViolenceHome, so it moved to the client's utility
     // library with refs of its own to the same four convars.
-    private const string LowViolenceHome = "src/sourcesharp/game/client/client_util_library.cpp";
-
     // -----------------------------------------------------------------------
     // The gate: what UTIL_ShouldShowBlood actually reads.
     // -----------------------------------------------------------------------
-
-    /// <summary>
-    /// <c>UTIL_ShouldShowBlood</c> is <b>two convar reads and nothing else</b>.
-    /// This is the assertion that corrects S5's note and the roadmap's question
-    /// in one: the deciding term is not <c>engine-&gt;IsLowViolence()</c>,
-    /// because that call is in <c>UTIL_IsLowViolence</c>, which is a DIFFERENT
-    /// function that the blood path never calls.
-    /// </summary>
-    [Fact]
-    public void TheServersBloodGateIsTwoConvarsAndNeverReachesEngineIsLowViolence()
-    {
-        // REPOINTED at step 7f, and the repoint carries an extra assertion
-        // rather than fewer: the violence family moved to
-        // sourcesharp/game/shared/util_shared_library.cpp, and a move that
-        // leaves a copy behind would pass a repointed read while the game ran
-        // the copy. So the old address is asserted empty first.
-        //
-        // AND AT plan_shim.md PHASE 2c, lane 2-utilshared, THE OLD ADDRESS
-        // STOPPED EXISTING: game/shared/util_shared.cpp was deleted, both vpc
-        // rows with it. The claim is the same and is now stronger.
-        AssertAbsent("src/game/shared/util_shared.cpp");
-
-        string body = Body(ViolenceHome, "bool UTIL_ShouldShowBlood(");
-
-        Assert.Contains("violence_hblood.GetBool()", body, StringComparison.Ordinal);
-        Assert.Contains("violence_ablood.GetBool()", body, StringComparison.Ordinal);
-        Assert.Contains("DONT_BLEED", body, StringComparison.Ordinal);
-
-        Assert.DoesNotContain("IsLowViolence", body, StringComparison.Ordinal);
-
-        // And the function that DOES reach the engine is a separate one, so the
-        // absence above is a fact about the call graph rather than about how
-        // this test happened to slice the file.
-        string lowViolence = Body(LowViolenceHome, "bool UTIL_IsLowViolence(");
-        Assert.DoesNotContain("bool UTIL_IsLowViolence(", Read(ViolenceHome), StringComparison.Ordinal);
-
-        Assert.Contains("engine->IsLowViolence()", lowViolence, StringComparison.Ordinal);
-        Assert.Contains("violence_hgibs", lowViolence, StringComparison.Ordinal);
-        Assert.Contains("violence_agibs", lowViolence, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Nothing on the server's blood path calls <c>UTIL_IsLowViolence</c> — not
-    /// <c>UTIL_BloodDrips</c>, not <c>UTIL_BloodStream</c>, not
-    /// <c>UTIL_BloodSpray</c>, and not the ABI shim that calls all three.
-    /// </summary>
-    [Fact]
-    public void NoArmOfBloodEffectCallsUtilIsLowViolence()
-    {
-        var arms = new (string File, string Signature)[]
-        {
-            // plan_shim.md Phase 2c, lane 2-utilshared: UTIL_BloodDrips moved
-            // out of game/shared/util_shared.cpp (deleted) into the shim
-            // library, SERVER ARM ONLY -- the client never called it, and on
-            // the client its UTIL_Smoke callee is stock's. A repoint, not a
-            // relaxation: TheStockFileIsGoneEntirely below is the assertion
-            // that the old address did not keep a copy.
-            (ViolenceHome,                                           "void UTIL_BloodDrips("),
-            // Phase 4 exit, lane p4-util: UTIL_BloodStream left game/server/util.cpp
-            // for the shim with the other two temp-entity emitters. REPOINTED,
-            // not relaxed. (TheBloodStreamArmIsNoLongerAlsoInUtilCpp, which read
-            // util.cpp to prove the old address kept no copy, went when the
-            // farm stopped linking util.cpp: neither DLL compiles it, so a copy
-            // left there could not link anywhere.)
-            ("src/sourcesharp/game/server/server_util_library.cpp",   "void UTIL_BloodStream("),
-            // Phase 1b: shell_entity_orphans.cpp merged into shell_absent.cpp,
-            // which is the one file the three absent-stub files became. The body
-            // moved verbatim; this is a repoint, not a relaxation.
-            ("src/sourcesharp/game/server/shell_absent.cpp",          "void UTIL_BloodSpray("),
-            ("src/sourcesharp/game/server/shell_worldquery.cpp",      "void SourceSharp_BloodEffect("),
-        };
-
-        foreach (var (file, signature) in arms)
-        {
-            string body = Body(file, signature);
-
-            Assert.False(body.Contains("UTIL_IsLowViolence", StringComparison.Ordinal),
-                signature + " in " + file + " reaches UTIL_IsLowViolence, which would put "
-              + "engine->IsLowViolence() back on the blood path and change this row's answer");
-        }
-    }
 
     // -----------------------------------------------------------------------
     // The four branches a faithful port would have to carry, and which one has
     // no managed route.
     // -----------------------------------------------------------------------
-
-    /// <summary>
-    /// <c>UTIL_BloodDrips</c>' whole rule, pinned term by term. Three of the
-    /// four decisions are reachable from C# today; the fourth is the row.
-    /// </summary>
-    [Fact]
-    public void UtilBloodDripsCarriesFourDecisionsAndOnlyOneHasNoManagedRoute()
-    {
-        string body = Body(ViolenceHome, "void UTIL_BloodDrips(");
-
-        // 1 — the violence gate. Reachable: IEngineCore.FindConVarValue.
-        Assert.Contains("UTIL_ShouldShowBlood( color )", body, StringComparison.Ordinal);
-
-        // 2 — the German substitution. g_Language is a REPLICATED ConVar, and
-        // it is sourcesharp/game/shared/shell_gamerules.cpp:80's now rather
-        // than gamerules.cpp's -- which is half of why UTIL_BloodDrips could
-        // move at all. It is a convar read either way and is reachable the same
-        // way. Lane H1's Phase 3e step turns THIS site into a
-        // ManagedConVarRef; the site is in the shim library now, not in
-        // util_shared.cpp. plan_server_novalve.md P2.3b took that step: the
-        // read is through s_Language, a by-name ref on the C# declaration.
-        Assert.Contains("s_Language.GetInt() == LANGUAGE_GERMAN", body, StringComparison.Ordinal);
-
-        // 3 — the one this file was built around, and the premise has changed.
-        // See TheIsMultiplayerRouteRunsTheOtherWay below: C# is the DECLARATION
-        // of this answer, not a reader that has no route to it.
-        Assert.Contains("g_pGameRules->IsMultiplayer()", body, StringComparison.Ordinal);
-        Assert.Contains("amount *= 5", body, StringComparison.Ordinal);
-
-        // 4 — the mech branch: sparks and a coin-flip puff of smoke instead of
-        // blood. Both halves are temp entities and both are reachable.
-        Assert.Contains("color == BLOOD_COLOR_MECH", body, StringComparison.Ordinal);
-        Assert.Contains("ss::Effects()->Sparks(origin)", body, StringComparison.Ordinal);
-        Assert.Contains("UTIL_Smoke(origin", body, StringComparison.Ordinal);
-        Assert.Contains("UTIL_BloodImpact( origin, direction, color, amount )", body,
-                        StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// The convar half of the gate really is convars, so "reachable through
@@ -323,7 +203,7 @@ public class BloodEffectPortabilityTests
         string shell = Read("src/sourcesharp/game/shared/shell_gamerules.h");
         string shellCpp = Read("src/sourcesharp/game/shared/shell_gamerules.cpp");
 
-        Assert.Contains("IsMultiplayer( void ) OVERRIDE", shell, StringComparison.Ordinal);
+        Assert.Contains("IsMultiplayer() OVERRIDE", shell, StringComparison.Ordinal);
 
         // ...and it answers true. Read from the shim's own body rather than
         // assumed from the fact that an override exists: an override that

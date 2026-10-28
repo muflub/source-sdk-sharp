@@ -33,7 +33,7 @@ public:
 		return UTL_INVAL_SYMBOL;
 	}
 
-	int GetNumStrings( void ) const
+	int GetNumStrings() const
 	{
 		return m_SymbolTable.GetNumStrings();
 	}

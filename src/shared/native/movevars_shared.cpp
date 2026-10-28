@@ -14,14 +14,14 @@
 #else
 // The server half reads one managed convar.
 #include "managed_convar_ref.h"
-float GetCurrentGravity( void );
+float GetCurrentGravity();
 #endif
 
 // some cvars used by player movement system
 // Stock's non-HL2 default.
 #define DEFAULT_GRAVITY_STRING	"800"
 
-float GetCurrentGravity( void )
+float GetCurrentGravity()
 {
 #ifdef CLIENT_DLL
 	return sv_gravity.GetFloat();

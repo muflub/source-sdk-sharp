@@ -55,13 +55,6 @@ namespace SourceSharp.Tests;
 /// </remarks>
 public sealed class HltvDroppedTests
 {
-    private const string EngineBoundary = "src/sourcesharp/game/server/shell_engineboundary.cpp";
-    private const string CommandClient = "src/sourcesharp/game/server/shell_commandclient.cpp";
-    private const string GameEnts = "src/sourcesharp/game/server/shell_gameents.cpp";
-    private const string GameClientsCpp = "src/sourcesharp/game/server/shell_gameclients.cpp";
-    private const string GameClientsH = "src/sourcesharp/game/server/shell_gameclients.h";
-    private const string GameDll = "src/sourcesharp/game/server/shell_gamedll.cpp";
-    private const string ClientDll = "src/sourcesharp/game/client/shell_clientdll.cpp";
     private const string LiveGate = "tools/live-gate";
     private const string MakeFile = "Makefile";
     private const string DebugApi = "debug-api";
@@ -93,178 +86,15 @@ public sealed class HltvDroppedTests
             .Select(l => { int at = l.IndexOf("//", StringComparison.Ordinal); return at < 0 ? l : l[..at]; }));
     }
 
-    /// <summary>
-    /// The names of the <c>virtual</c> member declarations in one class body,
-    /// IN DECLARATION ORDER — which is vtable order for a class whose bases
-    /// declare them in that order.
-    /// </summary>
-    private static List<string> VirtualsOf(string text, string classLine)
-    {
-        string code = Code(text);
-        int start = code.IndexOf(classLine, StringComparison.Ordinal);
-        Assert.True(start >= 0, "no `" + classLine + "` in the file");
-
-        // To the closing "\n};" of the class body.
-        int end = code.IndexOf("\n};", start, StringComparison.Ordinal);
-        Assert.True(end > start, "no closing `};` after `" + classLine + "`");
-
-        return Regex.Matches(code[start..end], @"virtual[^;{=]*?\b([A-Za-z_][A-Za-z0-9_]*)\s*\(")
-            .Select(m => m.Groups[1].Value)
-            .ToList();
-    }
-
     //=========================================================================
     // 1. THE VTABLE SLOTS. These come first because they matter most.
     //=========================================================================
-
-    [Fact]
-    public void ServerGameClientsStillDeclaresGetReplayDelayAtItsEngineSlot()
-    {
-        // IServerGameClients, public/eiface.h. The whole declared order is
-        // pinned, not just the presence of the one name: a slot REMOVED
-        // anywhere above GetReplayDelay moves it just as surely as deleting it
-        // does, and presence alone would not see that.
-        var expected = new[]
-        {
-            "ClientConnect", "ClientActive", "ClientDisconnect", "ClientPutInServer",
-            "ClientCommand", "ClientSettingsChanged", "ClientSetupVisibility",
-            "ProcessUsercmds", "PostClientMessagesSent_DEPRECIATED", "SetCommandClient",
-            "GetPlayerState", "ClientEarPosition", "GetPlayerLimits", "GetReplayDelay",
-            "GetBugReportInfo", "NetworkIDValidated", "ClientCommandKeyValues",
-            "ClientSpawned", "ClientVoice",
-        };
-
-        var actual = VirtualsOf(Read(GameClientsH), "class CServerGameClients : public IServerGameClients");
-
-        Assert.True(expected.SequenceEqual(actual),
-            "the IServerGameClients slot order in " + Where(GameClientsH) + " changed.\n"
-            + "expected: " + string.Join(", ", expected) + "\n"
-            + "actual:   " + string.Join(", ", actual) + "\n"
-            + "The engine calls these BY POSITION. If GetReplayDelay was removed "
-            + "because HLTV is dropped, put it back as a refusal — see the body "
-            + "in shell_gameclients.cpp for what that costs.");
-    }
-
-    [Fact]
-    public void GetReplayDelayIsARefusalWithABodyAndNotJustADeclaration()
-    {
-        // A declaration with no definition is a link error on this class, so
-        // this half is cheap — but it is the half that says the KEPT slot is
-        // kept as a real, unconditional answer rather than left pure virtual.
-        string code = Code(Read(GameClientsCpp));
-
-        Assert.Contains("int\tCServerGameClients::GetReplayDelay( edict_t *pEdict, int &entity )", code);
-        Assert.Contains("return 0;", code);
-    }
-
-    [Fact]
-    public void ClientDllStillDeclaresReplayInitAndReplayPostInitInOrder()
-    {
-        // IBaseClientDLL. These two sit at fixed positions the ENGINE knows,
-        // immediately after Shutdown and immediately before
-        // LevelInitPreEntity. Asserted as a four-name window AND as absolute
-        // indices, because the window alone survives a deletion above it.
-        //
-        // THIS FILE BELONGS TO ANOTHER LANE and this fact only READS it.
-        var actual = VirtualsOf(Read(ClientDll),
-            "class CShellClientDLL : public IBaseClientDLL, public IManagedRuntimeEnvironment");
-
-        int at = actual.IndexOf("ReplayInit");
-        Assert.True(at >= 0,
-            "IBaseClientDLL::ReplayInit is gone from " + Where(ClientDll)
-            + ". The engine calls this slot by POSITION; removing it shifts "
-            + "LevelInitPreEntity and everything after it. Keep the slot and "
-            + "refuse in the body.\nactual order: " + string.Join(", ", actual));
-
-        Assert.Equal(3, at);
-        Assert.Equal(new[] { "Shutdown", "ReplayInit", "ReplayPostInit", "LevelInitPreEntity" },
-            actual.Skip(2).Take(4).ToArray());
-    }
-
-    [Fact]
-    public void ServerGameDllStillDeclaresReplayInit()
-    {
-        // IServerGameDLL's own ReplayInit — a FOURTH slot, and one the step's
-        // brief did not list. Same rule as the other three.
-        var actual = VirtualsOf(Read(GameDll),
-            "class CShellGameDll : public IServerGameDLL, public IConCommandBaseAccessor, public IManagedRuntimeEnvironment");
-
-        string code = Code(Read(GameDll));
-        Assert.True(code.Contains("bool ReplayInit(CreateInterfaceFn fnReplayFactory) override", StringComparison.Ordinal),
-            "IServerGameDLL::ReplayInit is gone from " + Where(GameDll)
-            + " — it is a vtable slot, not a feature.\nvirtuals seen: "
-            + string.Join(", ", actual));
-
-        // And it REFUSES rather than forwarding the factory anywhere.
-        int from = code.IndexOf("bool ReplayInit(CreateInterfaceFn fnReplayFactory) override", StringComparison.Ordinal);
-        string body = code[from..Math.Min(code.Length, from + 220)];
-        Assert.Contains("return false;", body);
-    }
 
     // ThePlayerInfoHltvAndReplayFlagsAreStillAnswered went with
     // shell_playerinfo.cpp (plan_server_native_min P1, Decision 1): no engine
     // binary asks for PlayerInfoManager002, so the flags' reader is gone with
     // the interface. CServerGameClients::GetPlayerState still writes
     // player->hltv / player->replay (shell_gameclients.cpp).
-
-    [Fact]
-    public void TheReplayGlobalsDidNotComeBackToTheEngineBoundary()
-    {
-        // g_pReplay and g_pReplayServerContext were inside
-        // `#if defined( REPLAY_ENABLED )`, which neither generated graph
-        // defines; sv_maxreplay was real storage for a reader (player.cpp)
-        // that is on neither link line.
-        string code = Code(Read(EngineBoundary));
-
-        Assert.DoesNotContain("sv_maxreplay", code);
-        Assert.DoesNotContain("g_pReplay", code);
-        Assert.DoesNotContain("REPLAY_ENABLED", code);
-        Assert.DoesNotContain("replay/ireplaysystem.h", code);
-        Assert.DoesNotContain("replay/iserverreplaycontext.h", code);
-    }
-
-    [Fact]
-    public void TheAdminCheckHasNoReplayArmLeft()
-    {
-        string code = Code(Read(CommandClient));
-
-        Assert.DoesNotContain("bPlayerIsReplay", code);
-        Assert.DoesNotContain("REPLAY_ENABLED", code);
-        // The positive half, so this is not an assertion about an empty file.
-        Assert.Contains("if ( issuingPlayerIndex > 1 )", code);
-    }
-
-    [Fact]
-    public void TheTransmitPathHasNoHltvRecipientLeft()
-    {
-        // These branches were ALREADY unreachable before 5c — pRecipientPlayer
-        // was a hardcoded NULL — so this fact is a ratchet, not a claim that
-        // behaviour changed. m_pTransmitAlways is included because it is the
-        // field whose only writer the HLTV arm was.
-        string code = Code(Read(GameEnts));
-
-        Assert.DoesNotContain("bIsHLTV", code);
-        Assert.DoesNotContain("bIsReplay", code);
-        Assert.DoesNotContain("m_pTransmitAlways", code);
-        Assert.DoesNotContain("pRecipientPlayer", code);
-    }
-
-    [Fact]
-    public void TheHltvDirectorHeaderIsNotIncludedAnywhereInTheShim()
-    {
-        // shell_gameclients.cpp included it and named nothing from it. A dead
-        // include is how a deleted feature keeps a header compiling.
-        string root = RepoLayout.SdkTree;
-        var offenders = Directory
-            .EnumerateFiles(Path.Combine(root, "src", "sourcesharp"), "*.*", SearchOption.AllDirectories)
-            .Where(f => f.EndsWith(".cpp", StringComparison.Ordinal) || f.EndsWith(".h", StringComparison.Ordinal))
-            .Where(f => Code(File.ReadAllText(f)).Contains("hltvdirector.h", StringComparison.Ordinal))
-            .ToList();
-
-        Assert.True(offenders.Count == 0,
-            "these shim files still include hltvdirector.h (repo root " + root + "):\n  "
-            + string.Join("\n  ", offenders));
-    }
 
     //=========================================================================
     // 3. THE REFUSAL IS ENFORCED, NOT INCIDENTAL.

@@ -151,18 +151,18 @@ public:
 	// Mark this dynamic light as having changed this frame ( so light maps affected will be recomputed )
 	virtual void unused_TouchLight() = 0;
 	// Draw 3D Overlays
-	virtual void			Draw3DDebugOverlays( void ) = 0;
+	virtual void			Draw3DDebugOverlays() = 0;
 	// Sets global blending fraction
 	virtual void			SetBlend( float blend ) = 0;
-	virtual float			GetBlend( void ) = 0;
+	virtual float			GetBlend() = 0;
 
 	// Sets global color modulation
 	virtual void			SetColorModulation( float const* blend ) = 0;
 	virtual void			GetColorModulation( float* blend ) = 0;
 
 	// Wrap entire scene drawing
-	virtual void			SceneBegin( void ) = 0;
-	virtual void			SceneEnd( void ) = 0;
+	virtual void			SceneBegin() = 0;
+	virtual void			SceneEnd() = 0;
 
 	// Gets the fog volume for a particular point
 	virtual void			GetVisibleFogVolume( const Vector& eyePoint, VisibleFogVolumeInfo_t *pInfo ) = 0;
@@ -181,15 +181,15 @@ public:
 	virtual void unused_TopViewBounds() = 0;
 
 	// Draw lights
-	virtual void			DrawLights( void ) = 0;
+	virtual void			DrawLights() = 0;
 	// FIXME:  This function is a stub, doesn't do anything in the engine right now
-	virtual void			DrawMaskEntities( void ) = 0;
+	virtual void			DrawMaskEntities() = 0;
 
 	// Draw surfaces with alpha
 	virtual void			DrawTranslucentSurfaces( IWorldRenderList *pList, int sortIndex, unsigned long flags, bool bShadowDepth ) = 0;
 
 	// Draw Particles ( just draws the linefine for debugging map leaks )
-	virtual void			DrawLineFile( void ) = 0;
+	virtual void			DrawLineFile() = 0;
 	// Draw lightmaps
 	virtual void			DrawLightmaps( IWorldRenderList *pList, int pageId ) = 0;
 	// Wraps view render sequence, sets up a view
@@ -198,7 +198,7 @@ public:
 	// Return true if any of these leaves are visible in the current PVS.
 	virtual bool			AreAnyLeavesVisible( int *leafList, int nLeaves ) = 0;
 
-	virtual	void			VguiPaint( void ) = 0;
+	virtual	void			VguiPaint() = 0;
 	// Sets up view fade parameters
 	virtual void			ViewDrawFade( byte *color, IMaterial *pMaterial ) = 0;
 	// Sets up the projection matrix for the specified field of view
@@ -206,11 +206,11 @@ public:
 	// Determine lighting at specified position
 	virtual void unused_GetLightAtPoint() = 0;
 	// Whose eyes are we looking through?
-	virtual int				GetViewEntity( void ) = 0;
+	virtual int				GetViewEntity() = 0;
 	// Get engine field of view setting
 	virtual void unused_GetFieldOfView() = 0;
 	// 1 == ducking, 0 == not
-	virtual unsigned char	**GetAreaBits( void ) = 0;
+	virtual unsigned char	**GetAreaBits() = 0;
 
 	// Set up fog for a particular leaf
 	virtual void			SetFogVolumeState( int nVisibleFogVolume, bool bUseHeightFog ) = 0;
@@ -252,8 +252,8 @@ public:
 
 	virtual void			DrawBrushModelShadowDepth( IClientEntity *baseentity, model_t *model, const Vector& origin, const QAngle& angles, ERenderDepthMode DepthMode ) = 0;
 	virtual void			UpdateBrushModelLightmap( model_t *model, IClientRenderable *pRenderable ) = 0;
-	virtual void			BeginUpdateLightmaps( void ) = 0;
-	virtual void			EndUpdateLightmaps( void ) = 0;
+	virtual void			BeginUpdateLightmaps() = 0;
+	virtual void			EndUpdateLightmaps() = 0;
 	virtual void unused_OLD_SetOffCenterProjectionMatrix() = 0;
 	virtual void unused_OLD_SetProjectionMatrixOrtho() = 0;
 	virtual void			Push3DView( const CViewSetup &view, int nFlags, ITexture* pRenderTarget, Frustum frustumPlanes, ITexture* pDepthTexture ) = 0;

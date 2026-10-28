@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "IVguiMatInfoVar.h"
-
 // wrapper for IMaterial
 class IVguiMatInfo
 {

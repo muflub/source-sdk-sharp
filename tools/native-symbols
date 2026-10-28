@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""tools/native-symbols -- the functions server.so and client.so define in our own C++.
+
+    tools/native-symbols                 compare the build with docs/native-symbols.tsv
+    tools/native-symbols --write         rewrite the list from the build (review the diff)
+    tools/native-symbols --self-test
+
+Logic moves to C#; native code that comes back has to be seen. Every object
+a module links from this repo's src/ is read with llvm-nm, and each function
+it DEFINES (strong text symbols, T and t: not the inline and template code a
+header emits weak) becomes a row: module, source file, demangled name. The
+build is the debug tree (SOURCESHARP_CONFIG or --config picks another).
+
+A row the build has and the list does not is a native function that was
+added; a row the list has and the build does not is one that went. Either
+fails until --write records it, so the change shows in review as a diff of
+names. Comments, formatting and line numbers cannot move it.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+LIST = os.path.join(REPO, "docs", "native-symbols.tsv")
+MODULES = ("server_sourcesharp", "client_sourcesharp")
+NM = "llvm-nm-22"
+HEADER = ("# docs/native-symbols.tsv -- written by tools/native-symbols --write; the functions\n"
+          "# server.so and client.so define in this repo's C++ (debug build). module<TAB>source<TAB>function\n")
+
+
+def defined_functions(obj):
+    out = subprocess.run([NM, "--defined-only", "-C", obj], capture_output=True, text=True)
+    if out.returncode != 0:
+        raise SystemExit("tools/native-symbols: %s: %s" % (obj, out.stderr.strip()))
+    rows = []
+    for line in out.stdout.splitlines():
+        parts = line.split(" ", 2)
+        if len(parts) == 3 and parts[1] in ("T", "t"):
+            rows.append(parts[2])
+    return rows
+
+
+def measure(config):
+    build = os.path.join(REPO, "farm", config, "build")
+    db_path = os.path.join(build, "compile_commands.json")
+    if not os.path.exists(db_path):
+        raise SystemExit("tools/native-symbols: no %s; build first (make %s)" % (db_path, config))
+    rows = set()
+    seen = {m: 0 for m in MODULES}
+    for e in json.load(open(db_path)):
+        m = re.search(r"CMakeFiles/([^/]+)\.dir/", e.get("output", ""))
+        if not m or m.group(1) not in MODULES:
+            continue
+        src = os.path.realpath(os.path.join(e["directory"], e["file"]))
+        if not src.startswith(os.path.join(REPO, "src") + os.sep):
+            continue
+        obj = os.path.join(e["directory"], e["output"])
+        if not os.path.exists(obj):
+            raise SystemExit("tools/native-symbols: %s is not built" % obj)
+        seen[m.group(1)] += 1
+        for fn in defined_functions(obj):
+            rows.add((m.group(1), os.path.relpath(src, REPO), fn))
+    for mod, n in seen.items():
+        if n == 0:
+            raise SystemExit("tools/native-symbols: no object of %s was read" % mod)
+    return rows
+
+
+def read_list(path):
+    rows = set()
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("#") or not line.strip():
+                continue
+            mod, src, fn = line.rstrip("\n").split("\t", 2)
+            rows.add((mod, src, fn))
+    return rows
+
+
+def write_list(path, rows):
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(HEADER)
+        for r in sorted(rows):
+            f.write("\t".join(r) + "\n")
+
+
+def diff(listed, built):
+    return sorted(built - listed), sorted(listed - built)
+
+
+def self_test():
+    checks = 0
+
+    def eq(a, b, what):
+        nonlocal checks
+        checks += 1
+        if a != b:
+            raise AssertionError("%s: %r != %r" % (what, a, b))
+
+    with tempfile.TemporaryDirectory() as d:
+        src = os.path.join(d, "a.cpp")
+        open(src, "w").write("int Planted() { return 1; }\nstatic int Local() { return 2; }\n"
+                             "inline int Inline() { return 3; }\nint UseThem() { return Local() + Inline(); }\n")
+        obj = os.path.join(d, "a.o")
+        subprocess.run(["clang++-22", "-c", "-O0", src, "-o", obj], check=True)
+        fns = defined_functions(obj)
+        eq(sorted(fns), ["Local()", "Planted()", "UseThem()"],
+           "strong functions are rows, demangled; an inline one a header could emit is not")
+        built = {("server_sourcesharp", "src/a.cpp", f) for f in fns}
+        listed = built - {("server_sourcesharp", "src/a.cpp", "Planted()")}
+        eq(diff(listed, built), ([("server_sourcesharp", "src/a.cpp", "Planted()")], []),
+           "a function the list does not have is reported as added")
+        eq(diff(built, listed), ([], [("server_sourcesharp", "src/a.cpp", "Planted()")]),
+           "and one the build lost is reported as gone")
+        path = os.path.join(d, "l.tsv")
+        write_list(path, built)
+        eq(read_list(path), built, "--write and the reader agree")
+    print("tools/native-symbols --self-test: %d checks passed" % checks)
+    return 0
+
+
+def main(argv):
+    if "--self-test" in argv:
+        return self_test()
+    config = argv[argv.index("--config") + 1] if "--config" in argv else os.environ.get("SOURCESHARP_CONFIG", "debug")
+    built = measure(config)
+    if "--write" in argv:
+        write_list(LIST, built)
+        print("tools/native-symbols: wrote %d functions (%s)" % (len(built), os.path.relpath(LIST, REPO)))
+        return 0
+    if not os.path.exists(LIST):
+        print("tools/native-symbols: %s is missing; run tools/native-symbols --write" % os.path.relpath(LIST, REPO))
+        return 1
+    added, gone = diff(read_list(LIST), built)
+    for mod, src, fn in added[:40]:
+        print("  added   %s  %s  %s" % (mod, src, fn))
+    for mod, src, fn in gone[:40]:
+        print("  gone    %s  %s  %s" % (mod, src, fn))
+    print("tools/native-symbols: %d functions; %d added, %d gone%s"
+          % (len(built), len(added), len(gone),
+             "" if not (added or gone) else " -- a native function is new or removed: "
+             "record it with tools/native-symbols --write"))
+    return 1 if (added or gone) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

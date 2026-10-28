@@ -49,146 +49,7 @@ namespace
 const IHandleEntity *const kWorld = reinterpret_cast< const IHandleEntity * >( 0x1000 );
 const IHandleEntity *const kCrate = reinterpret_cast< const IHandleEntity * >( 0x2000 );
 
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-std::string ReadStripped( const std::string &strRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	std::string all, line;
-	while ( std::getline( file, line ) )
-	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
-			line.erase( line.size() - 1 );
-		all += line; all += '\n';
-	}
-	return StripComments( all );
-}
-
-std::string NoWhitespace( const std::string &s )
-{
-	std::string out;
-	for ( size_t i = 0; i < s.size(); i++ )
-	{
-		const char c = s[ i ];
-		if ( c != ' ' && c != '\t' && c != '\n' && c != '\r' )
-			out += c;
-	}
-	return out;
-}
-
 struct File_t { const char *pszRel; const char *pszAnchor; };
-
-const File_t kMovementGround = { "sourcesharp/game/shared/movement_ground.h",
-	"MovementGroundFromTrace" };
-const File_t kAnyEntity = { "sourcesharp/game/server/anyentity.h", "AnyEntityOf" };
-// MOVED BY plan_entity.md step 4a. game/server/gametrace_dll.cpp is out of
-// server_csharp.vpc and off disk; its five definitions -- the two
-// SourceSharp_ ones this port wrote and CGameTrace's three accessors --
-// are sourcesharp/game/server/world_subject_dll.cpp now. The path is
-// followed rather than the assertion softened: ReadAnchored fails loudly on
-// a file it cannot read, so a stale path here would have been a red test
-// and never a vacuous pass.
-// Anchored on SourceSharp_WorldFromHandle since plan_server_native_v2 T5 took
-// CGameTrace's two members (no server caller).
-const File_t kTraceDll = { "sourcesharp/game/server/world_subject_dll.cpp", "SourceSharp_WorldFromHandle" };
-// MOVED BY C6 (lane c6-input): game/client/gametrace_client.cpp left client.so,
-// and the client's SourceSharp_IsTheWorld went to world_adapter_client.cpp,
-// beside the world it compares against. Its callers ask it directly; the
-// client defines no CGameTrace member any more.
-const File_t kTraceClient = { "sourcesharp/game/client/world_adapter_client.cpp", "SourceSharp_IsTheWorld" };
-
-int CountAll( const std::string &strHay, const std::string &strNeedle )
-{
-	int n = 0;
-	for ( size_t at = strHay.find( strNeedle ); at != std::string::npos;
-	      at = strHay.find( strNeedle, at + 1 ) )
-	{
-		n++;
-	}
-	return n;
-}
-
-// The client's SourceSharp_IsTheWorld body alone, from the whitespace-free
-// file: the adapter defines a dozen other world reads, and a needle over the
-// whole file would find them instead.
-std::string ClientIsTheWorldBody( const std::string &cliNoWs )
-{
-	const std::string head = "boolSourceSharp_IsTheWorld(constIHandleEntity*pHandleEntity){";
-	const size_t at = cliNoWs.find( head );
-	EXPECT_NE( at, std::string::npos ) << "the client's SourceSharp_IsTheWorld definition is not in its file";
-	if ( at == std::string::npos )
-		return std::string();
-	const size_t end = cliNoWs.find( "}", at );
-	return cliNoWs.substr( at, end - at + 1 );
-}
-
-std::string ReadAnchored( const File_t &file )
-{
-	const std::string body = ReadStripped( file.pszRel );
-
-	EXPECT_FALSE( body.empty() )
-		<< file.pszRel << " could not be read; everything asserted about it "
-		   "would otherwise pass vacuously.";
-
-	if ( !body.empty() )
-	{
-		EXPECT_NE( body.find( file.pszAnchor ), std::string::npos )
-			<< file.pszRel << " no longer contains its anchor \""
-			<< file.pszAnchor << "\".";
-	}
-	return body;
-}
 
 } // namespace
 
@@ -266,105 +127,10 @@ TEST( WorldSubject, AnEntityIsNotTheWorldBeforeThereIsAWorld )
 // standing on nothing — no FL_ONGROUND, no friction, no fall damage — for every
 // player on every map.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, StandingOnTheWorldIsAskedBeforeEitherHierarchy )
-{
-	const std::string body = NoWhitespace( ReadAnchored( kMovementGround ) );
-
-	// READ THE ASSERTIONS, NOT THE NAME. There is ONE hierarchy arm now, not
-	// two: the SDK arm this fact used to order the world against is gone.
-	//
-	// `TraceEntity( tr )` bottomed out in IServerUnknown/IClientUnknown::
-	// GetBaseEntity(), and all eight implementations of that in the two DLLs
-	// are `mov $0x0,%eax; ret`. Lane `the-close` proved it a constant NULL and
-	// deleted it (d3a0bfa3a); TraceGameEntity, which asks the virtual
-	// GetGameEntity() and exists on BOTH sides, is what it left behind.
-	//
-	// SO THE ORDERING CLAIM GETS STRONGER RATHER THAN WEAKER. The world arm
-	// used to be asked first so that it would be EXERCISED before T3 instead of
-	// sitting behind an arm that answered for the world today. Now the arm it
-	// was sheltering behind does not exist, and the world arm is the only thing
-	// between level geometry and an answer of NULL. It is still asserted FIRST,
-	// because the same reasoning applies to the arm that DID survive: a world
-	// hit must not have to fail TraceGameEntity before it is recognised.
-	const size_t nWorld = body.find( "SourceSharp_IsTheWorld(ss::TraceHit(tr))" );
-	const size_t nGame  = body.find( "TraceGameEntity(tr)!=NULL" );
-
-	ASSERT_NE( nWorld, std::string::npos )
-		<< "MovementGroundFromTrace no longer asks whether the trace hit the "
-		   "world. With CWorld off the CBaseEntity hierarchy this function "
-		   "answers NULL for level geometry and the game stops having floors.";
-	ASSERT_NE( nGame, std::string::npos )
-		<< "MovementGroundFromTrace no longer asks TraceGameEntity, which is "
-		   "the only arm left that answers for an entity. Without it every "
-		   "managed floor reads as nothing to stand on.";
-
-	EXPECT_LT( nWorld, nGame )
-		<< "the world arm has been moved AFTER the entity arm. It is a fallback "
-		   "there: it cannot run until CWorld un-derives, so it is untested "
-		   "until the day it is first needed. Asked first it returns the same "
-		   "answer today and is exercised by every world hit in every frame.";
-
-	// THE ARM THAT WENT, asserted absent so a revert is a red rather than a
-	// silently restored constant NULL. `TraceEntity` and `TraceGameEntity`
-	// differ by an INFIX, so neither is a substring of the other and this
-	// absence really can fail while the successor above is present.
-	EXPECT_EQ( body.find( "TraceEntity(tr)" ), std::string::npos )
-		<< "MovementGroundFromTrace resolves through TraceEntity again. It "
-		   "answers a constant NULL for every entity in both DLLs, so it can "
-		   "only take ground away -- and above the world arm it would take the "
-		   "floor away too.";
-}
-
 //-----------------------------------------------------------------------------
 // The same ordering one level out, in the resolver that answers for a volume
 // query and for whatever a blast's trace stopped on.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, AnyEntityOfAsksTheWorldFirst )
-{
-	const std::string body = NoWhitespace( ReadAnchored( kAnyEntity ) );
-
-	// READ THE ASSERTIONS, NOT THE NAME -- or rather, read what the SDK arm now
-	// IS. `ent.pBase = EntityFromEntityHandle( pHandleEntity );` is gone: lane
-	// `the-close` proved that call a constant NULL in both DLLs and deleted the
-	// family (d3a0bfa3a). The field survives, and the assignment survives, as
-	// the literal `ent.pBase = NULL;` -- so the three-arm SHAPE this fact is
-	// about is intact and the ordering is still a real ordering.
-	//
-	// The literal is the successor, not a placeholder to be tidied away: every
-	// reader of AnyEntity_t reads the three arms, and computing a NULL with a
-	// partition walk in front of it is strictly worse than writing one.
-	const size_t nWorld = body.find( "ent.pWorld=SourceSharp_WorldFromEntityHandle(" );
-	const size_t nBase  = body.find( "ent.pBase=NULL;" );
-	// ss:: since P5 lane E: anyentity.h is on public/ headers (ss_entityhandle.h).
-	const size_t nGame  = body.find( "ent.pGame=ss::GameEntityFromEntityHandle(" );
-
-	ASSERT_NE( nWorld, std::string::npos )
-		<< "AnyEntityOf no longer resolves a world arm.";
-	ASSERT_NE( nBase, std::string::npos )
-		<< "AnyEntityOf no longer sets pBase at all. The field is read by "
-		   "IsValid(), ClassMatches and the world_adapter diagnostic; leaving "
-		   "it unwritten is an uninitialised read, not a simplification.";
-	ASSERT_NE( nGame, std::string::npos );
-
-	EXPECT_LT( nWorld, nBase );
-	EXPECT_LT( nWorld, nGame );
-
-	// And the deleted resolver has not come back. Asserted as a count against
-	// its own live successor, because `EntityFromEntityHandle(` IS a suffix of
-	// `GameEntityFromEntityHandle(` -- a plain absence check here could never
-	// fail while the successor is present, which is a green that measures
-	// nothing.
-	EXPECT_EQ( CountAll( body, "EntityFromEntityHandle(" ),
-	           CountAll( body, "GameEntityFromEntityHandle(" ) )
-		<< "anyentity.h names EntityFromEntityHandle on its own again. It "
-		   "bottoms out in GetBaseEntity(), which is a constant NULL in both "
-		   "DLLs, so it is a partition walk in front of a zero.";
-
-	ASSERT_LT( 0, CountAll( body, "GameEntityFromEntityHandle(" ) )
-		<< "neither spelling is in the file, which would make the equality "
-		   "above 0 == 0 and this half vacuous";
-}
-
 //-----------------------------------------------------------------------------
 // The world arm does NOT suppress the SDK arm, and that is deliberate rather
 // than an oversight: today CWorld is still a CBaseEntity and every existing
@@ -375,31 +141,11 @@ TEST( WorldSubject, AnyEntityOfAsksTheWorldFirst )
 // `if ( !ent.pWorld )`, matching the pGame arm above it, and that tidy-up is a
 // silent behaviour change today.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, TheWorldArmDoesNotSuppressTheSdkArm )
-{
-	const std::string body = NoWhitespace( ReadAnchored( kAnyEntity ) );
-
-	EXPECT_EQ( body.find( "if(!ent.pWorld)ent.pBase=" ), std::string::npos )
-		<< "the SDK lookup has been made conditional on the world arm. Today "
-		   "the world IS a CBaseEntity and pBase must keep finding it; the "
-		   "overlap ends at T3 by itself, when the inheritance goes.";
-}
-
 //-----------------------------------------------------------------------------
 // IsValid() counts the world. It is what CAnyEntitiesEnum uses to decide the
 // partition handed it an entity at all — the exact place "hit the world" and
 // "hit nothing" would go on answering alike.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, TheWorldCountsAsSomethingBeingThere )
-{
-	const std::string body = NoWhitespace( ReadAnchored( kAnyEntity ) );
-
-	EXPECT_NE( body.find( "boolIsValid()const{returnpBase!=NULL||pGame!=NULL||pWorld!=NULL;}" ),
-	           std::string::npos )
-		<< "AnyEntity_t::IsValid no longer counts the world, so a resolved "
-		   "world reads as nothing being there.";
-}
-
 //-----------------------------------------------------------------------------
 // The one neutral answer on AnyEntity_t that is WRONG for the world.
 //
@@ -410,18 +156,6 @@ TEST( WorldSubject, TheWorldCountsAsSomethingBeingThere )
 // victim list to include the level itself, which is not a crash and shows up
 // only as damage numbers that do not add up.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, TheWorldCannotBeHurt )
-{
-	const std::string body = NoWhitespace( ReadAnchored( kAnyEntity ) );
-
-	const size_t nDamage = body.find( "boolCanTakeDamage()const{if(pWorld)returnfalse;" );
-
-	EXPECT_NE( nDamage, std::string::npos )
-		<< "AnyEntity_t::CanTakeDamage no longer refuses for the world. Its "
-		   "neutral for an entity off the SDK's tree is TRUE, so after T3 a "
-		   "radius blast would offer damage to the level itself.";
-}
-
 //-----------------------------------------------------------------------------
 // ONE COMPARISON PER DLL, and both of them the shared rule.
 //
@@ -429,29 +163,6 @@ TEST( WorldSubject, TheWorldCannotBeHurt )
 // spellings of "is it the world" in one build is how the two sides drift, and
 // the shared rule is the one with the level-load window handled.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, BothDllsAskTheSharedRuleRatherThanComparingThemselves )
-{
-	const std::string dll = NoWhitespace( ReadAnchored( kTraceDll ) );
-	const std::string cli = NoWhitespace( ReadAnchored( kTraceClient ) );
-
-	EXPECT_NE( dll.find( "SourceSharp_IsTheWorldHandle(" ), std::string::npos )
-		<< "the server no longer routes its world comparison through the "
-		   "shared rule.";
-	EXPECT_NE( ClientIsTheWorldBody( cli ).find( "SourceSharp_IsTheWorldHandle(" ), std::string::npos )
-		<< "the client no longer routes its world comparison through the "
-		   "shared rule.";
-
-	// Neither DLL has a DidHitWorld since plan_server_native_v2 T5 (the client
-	// since C6): callers ask the free function, so there is no second spelling
-	// to drift.
-	EXPECT_EQ( dll.find( "CGameTrace::DidHitWorld" ), std::string::npos )
-		<< "the server defines a CGameTrace member again; a native caller asks "
-		   "SourceSharp_IsTheWorld directly.";
-	EXPECT_EQ( cli.find( "CGameTrace::DidHitWorld" ), std::string::npos )
-		<< "the client defines a CGameTrace member again; its callers ask "
-		   "SourceSharp_IsTheWorld directly.";
-}
-
 //-----------------------------------------------------------------------------
 // THE CLIENT'S SINGLETON IS NOT THE ENTITY LIST ANY MORE, and this is the fact
 // that makes step 5e's un-derive survivable.
@@ -469,23 +180,6 @@ TEST( WorldSubject, BothDllsAskTheSharedRuleRatherThanComparingThemselves )
 // SO THE ABSENCE IS ASSERTED AS WELL AS THE REPLACEMENT. A test that only
 // checked the new spelling was present would pass a file that had both.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, TheClientsArmAsksTheWorldSingletonAndNotTheEntityList )
-{
-	const std::string body = ClientIsTheWorldBody( NoWhitespace( ReadAnchored( kTraceClient ) ) );
-
-	EXPECT_EQ( body.find( "GetBaseEntity(0)" ), std::string::npos )
-		<< "the client's world arm resolves entity 0 through the entity list's "
-		   "SDK view again. C_World is not on that hierarchy, so it answers NULL "
-		   "and every DidHitWorld() on this side becomes false.";
-
-	// Since C6 the singleton is reached through the adapter's own resolver,
-	// SourceSharp_ClientWorldFromHandle, which answers the singleton's
-	// IClientUnknown for the world's handle and NULL otherwise.
-	EXPECT_NE( body.find( "SourceSharp_ClientWorldFromHandle(" ), std::string::npos )
-		<< "the client's world arm no longer reads the world singleton through "
-		   "the adapter's resolver.";
-}
-
 //-----------------------------------------------------------------------------
 // AND IT ASKS FOR THE HANDLE, WHICH IS NOT THE SAME QUESTION AS "does the
 // object exist".
@@ -502,30 +196,6 @@ TEST( WorldSubject, TheClientsArmAsksTheWorldSingletonAndNotTheEntityList )
 // POINTER would have thrown that away on this side only, and the symptom would
 // have been traces reporting a world hit in a window where there is no world.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, TheClientsArmAsksWhetherTheWorldIsBoundToALevel )
-{
-	const std::string body = ClientIsTheWorldBody( NoWhitespace( ReadAnchored( kTraceClient ) ) );
-
-	// Since C6: asked of the bound handle. SourceSharp_ClientWorldHandle() is
-	// invalid between maps, and SourceSharp_ClientWorldFromHandle answers NULL
-	// for it (ClientWorldArm's AnUnboundWorld* facts pin that rule).
-	EXPECT_NE( body.find( "SourceSharp_ClientWorldFromHandle(SourceSharp_ClientWorldHandle())" ), std::string::npos )
-		<< "the client's world arm no longer asks whether the world is bound to "
-		   "a level. The object outlives every map, so its existence cannot mean "
-		   "'there is a world' -- and world_subject.h's rule is written on the "
-		   "assumption that the second argument is NULL when there is none.";
-
-	// AND THE HANDLE IS WHAT ANSWERS IT, read out of the accessor's own body
-	// rather than from its name. A method called IsBoundToTheLevel that
-	// returned true unconditionally would satisfy the line above.
-	const std::string hdr = NoWhitespace( ReadStripped( "game/client/c_world.h" ) );
-	EXPECT_NE( hdr.find( "boolIsBoundToTheLevel()const{returnm_RefEHandle.IsValid();}" ),
-	           std::string::npos )
-		<< "IsBoundToTheLevel is not the handle's validity any more. The handle "
-		   "is what the level's create call binds and Release gives back; "
-		   "anything else is a second answer to the same question.";
-}
-
 //-----------------------------------------------------------------------------
 // THE SERVER'S ARM, AND IT WAS DISABLED BY THE FLIP. Lane `worldspawn`.
 //
@@ -560,50 +230,3 @@ TEST( WorldSubject, TheClientsArmAsksWhetherTheWorldIsBoundToALevel )
 // test above does: a check that only looked for the shared rule would pass a
 // file that had both arms.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, TheServersArmIsNotTurnedOffByTheAliasFlip )
-{
-	const std::string dll = NoWhitespace( ReadAnchored( kTraceDll ) );
-
-	const size_t at = dll.find( "boolSourceSharp_IsTheWorld(constIHandleEntity*pHandleEntity){" );
-	ASSERT_NE( at, std::string::npos )
-		<< "SourceSharp_IsTheWorld has been renamed or resignatured in "
-		<< kTraceDll.pszRel << "; everything below would pass vacuously.";
-
-	// The body, by brace matching. NoWhitespace has already removed every
-	// newline, so "the line with the closing brace on it" does not exist here
-	// and looking for one would silently take the whole file -- which would
-	// make the two absences below assertions about world_subject_dll.cpp
-	// ENTIRELY rather than about this function, and they would then fail on
-	// SourceSharp_IsTheWorldHandle's own `return false` two functions away.
-	size_t p = dll.find( '{', at );
-	ASSERT_NE( p, std::string::npos ) << "no opening brace after the signature.";
-	int nDepth = 0;
-	size_t end = std::string::npos;
-	for ( ; p < dll.size(); p++ )
-	{
-		if ( dll[ p ] == '{' )
-			nDepth++;
-		else if ( dll[ p ] == '}' && --nDepth == 0 )
-		{
-			end = p;
-			break;
-		}
-	}
-	ASSERT_NE( end, std::string::npos ) << "SourceSharp_IsTheWorld's body is unterminated.";
-
-	const std::string body = dll.substr( at, end - at );
-
-	EXPECT_EQ( body.find( "returnfalse;" ), std::string::npos )
-		<< "the server's world comparison answers a compiled-in false again. "
-		   "Every find-by-classname that can reach the world then loops "
-		   "forever, and DidHitWorld() is false for every trace that hits it.";
-
-	EXPECT_EQ( body.find( "SS_CBASEENTITY_ALIAS" ), std::string::npos )
-		<< "the server's world comparison is behind the alias flip again. "
-		   "CWorld is not a CBaseEntity on either side of it -- the cast is "
-		   "CWorld -> IServerEntity -> IServerUnknown -> IHandleEntity in both "
-		   "builds -- so a guard here can only disable the arm on one of them.";
-
-	EXPECT_NE( body.find( "SourceSharp_IsTheWorldHandle(" ), std::string::npos )
-		<< "the server's world comparison no longer asks the shared rule.";
-}

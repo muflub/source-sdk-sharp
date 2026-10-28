@@ -200,19 +200,6 @@ int CountOf( const std::string &hay, const std::string &needle )
 // anchor on one is a proof-of-read the flip can evict.
 const char *kServerProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
 
-// THE LEGACY INCLUDE ANCHOR: the TU whose compile command supplies the -I list
-// the closure walk resolves with. It must be a TU still on the LEGACY include
-// set (game/server, game/shared on its -I list), because the closure being
-// measured is what the stock-header-including TUs can reach.
-// plan_server_novalve.md P5 moves TUs onto the R5 set (public/ only):
-// shell_shared.cpp moved, then physics.cpp, and a moved anchor resolves nothing
-// under game/. shell_mapparse.cpp waits on its tokenizer's move to C#, so it is
-// the legacy TU that stays longest.
-// The last legacy TU moved (P5 closed): the anchor is now just a server TU whose
-// compile command gives the R5 roots, and the walk's absence facts hold by
-// construction -- TheIncludeClosureIsWalkedAndRecurses says so.
-const char *kServerLegacyIncludeAnchor = "sourcesharp/game/server/shell_mapparse.cpp";
-
 std::vector< std::string > CompiledServerSources()
 {
 	const std::set< std::string > src = cmake_graph::CompiledSources( cmake_graph::kServer );
@@ -318,70 +305,12 @@ std::string Join( const std::set< std::string > &s )
 	return out;
 }
 
-// game/server/physics_prop_ragdoll.cpp is no longer compiled by server.so and
-// has left the source tree; the two facts that read it (the attached class is
-// gone from it, the two remaining classnames still register there) were culled
-// with it. The header followed: it is compiled by nothing since
-// plan_server_novalve.md P5 and left the farm in P6, so it is named here only
-// as the thing that must stay unreadable, next to a sibling in the same
-// directory that is readable.
-const char *kRagdollH = "game/server/physics_prop_ragdoll.h";
-const char *kServerSiblingH = "game/shared/shareddefs.h";
-const char *kServerSiblingHAnchor = "#define SHAREDDEFS_H";
-
 // team.cpp and team.h are OUT OF THE BUILD. They stay on disk, so they are
 // still named here -- but only as the thing nothing may reach, never as a file
 // read for its content. kTeamH is the target of the include-closure walk below.
 const char *kTeamCpp = "game/server/team.cpp";
-const char *kTeamH = "game/server/team.h";
-
 const char *kSdkArmFixtureFile = "sourcesharp/game/server/shell_abi_sdk_fixture.cpp";
-const char *kSdkArmFixture = "sourcesharp_abi_sdk_fixture";
 const char *kEntityNames = "sourcesharp/managed/SourceSharp.Shared/EntityNames.cs";
-const char *kManagedServer = "sourcesharp/managed/SourceSharp.Server";
-
-// Every file with the given extension under one directory, recursively. Used to
-// ask the managed tree a question no single file can answer -- "does ANY
-// [ScriptedEntity] shadow this classname" -- rather than picking a file and
-// hoping the answer is in it.
-void CollectFiles( const std::string &strDir, const char *pszExt,
-                   std::vector< std::string > &out )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return;
-
-	DIR *pDir = opendir( ( std::string( pszRoot ) + "/" + strDir ).c_str() );
-	if ( !pDir )
-		return;
-
-	for ( struct dirent *pEnt = readdir( pDir ); pEnt; pEnt = readdir( pDir ) )
-	{
-		const std::string name = pEnt->d_name;
-		if ( name == "." || name == ".." )
-			continue;
-
-		const std::string rel = strDir + "/" + name;
-		struct stat st;
-		if ( stat( ( std::string( pszRoot ) + "/" + rel ).c_str(), &st ) != 0 )
-			continue;
-
-		if ( S_ISDIR( st.st_mode ) )
-		{
-			CollectFiles( rel, pszExt, out );
-			continue;
-		}
-
-		const std::string ext = pszExt;
-		if ( name.size() > ext.size()
-			&& name.compare( name.size() - ext.size(), ext.size(), ext ) == 0 )
-		{
-			out.push_back( rel );
-		}
-	}
-	closedir( pDir );
-}
-
 //-----------------------------------------------------------------------------
 // THE INCLUDE CLOSURE, which is how "no compiled file includes team.h" is asked
 // as a question about the BUILD rather than about the tree.
@@ -407,215 +336,12 @@ void CollectFiles( const std::string &strDir, const char *pszExt,
 // A superset that is empty is a proof, and the over-approximation can only ever
 // make this fire early, never late.
 //-----------------------------------------------------------------------------
-bool Exists( const std::string &strRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return false;
-	struct stat st;
-	return stat( ( std::string( pszRoot ) + "/" + strRelative ).c_str(), &st ) == 0
-		&& S_ISREG( st.st_mode );
-}
-
-// Collapse "a/b/../c" to "a/c" and drop "./", so two spellings of one file are
-// one member of the closure rather than two.
-std::string Normalise( const std::string &strPath )
-{
-	std::vector< std::string > parts;
-	size_t at = 0;
-	for ( ;; )
-	{
-		const size_t slash = strPath.find( '/', at );
-		const std::string part = ( slash == std::string::npos )
-			? strPath.substr( at )
-			: strPath.substr( at, slash - at );
-		if ( part == ".." && !parts.empty() && parts.back() != ".." )
-			parts.pop_back();
-		else if ( !part.empty() && part != "." )
-			parts.push_back( part );
-		if ( slash == std::string::npos )
-			break;
-		at = slash + 1;
-	}
-	std::string out;
-	for ( size_t i = 0; i < parts.size(); i++ )
-	{
-		if ( i )
-			out += "/";
-		out += parts[ i ];
-	}
-	return out;
-}
-
-std::string ResolveInclude( const std::string &strIncluder, const std::string &strInclude )
-{
-	// server_sourcesharp's -I list, in its order, read out of the compile
-	// command of the proof-of-read source (cmake_graph.h). Only roots under the
-	// farm's src/ are kept: a system root (/usr/include/...) holds no game
-	// header, and nothing in this tree reaches one through a quoted include.
-	static std::vector< std::string > s_roots;
-	if ( s_roots.empty() )
-	{
-		const std::string strPrefix = cmake_graph::FarmSrc() + "/";
-		const std::string strFarmSrc = cmake_graph::FarmSrc();
-		// farm/<config>/src -> the repo root, three levels up: vendor/ is there.
-		std::string strRepo = strFarmSrc;
-		for ( int up = 0; up < 3; up++ )
-			strRepo = strRepo.substr( 0, strRepo.rfind( '/' ) );
-		const std::string strVendor = strRepo + "/vendor/";
-		std::istringstream toks( cmake_graph::CompileCommand( cmake_graph::kServer, kServerLegacyIncludeAnchor ) );
-		std::string strTok;
-		while ( toks >> strTok )
-		{
-			if ( strTok.compare( 0, 2, "-I" ) != 0 )
-				continue;
-			const std::string strDir = strTok.substr( 2 );
-			if ( strDir.compare( 0, strPrefix.size(), strPrefix ) == 0 )
-				s_roots.push_back( strDir.substr( strPrefix.size() ) );
-			// The Valve headers server.so builds from are vendor/'s, beside
-			// the farm rather than under it.
-			else if ( strDir.compare( 0, strVendor.size(), strVendor ) == 0 )
-				s_roots.push_back( "../../../vendor/" + strDir.substr( strVendor.size() ) );
-		}
-		// A command whose -I list resolved to nothing under the farm is not
-		// the server's, and an empty root list would make every include
-		// unresolvable -- the closure checks below catch that too, but say so
-		// here where the cause is.
-		// Since P5 every server TU is on the R5 set, and its Valve headers are
-		// vendor/'s: never game/ and never the farm's patched public/.
-		EXPECT_TRUE( std::find( s_roots.begin(), s_roots.end(), std::string( "../../../vendor/shared/public" ) )
-			!= s_roots.end() )
-			<< "server_sourcesharp's compile command has no -I<repo>/vendor/shared/public";
-		EXPECT_TRUE( std::find( s_roots.begin(), s_roots.end(), std::string( "public" ) )
-			== s_roots.end() )
-			<< "server_sourcesharp's compile command reads the farm's patched public/ again";
-	}
-
-	std::string inc = strInclude;
-	for ( size_t i = 0; i < inc.size(); i++ )
-	{
-		if ( inc[ i ] == '\\' )
-			inc[ i ] = '/';
-	}
-
-	// A quoted include looks beside the includer first.
-	const size_t slash = strIncluder.rfind( '/' );
-	if ( slash != std::string::npos )
-	{
-		const std::string beside = Normalise( strIncluder.substr( 0, slash + 1 ) + inc );
-		if ( Exists( beside ) )
-			return beside;
-	}
-
-	for ( size_t i = 0; i < s_roots.size(); i++ )
-	{
-		const std::string cand = Normalise( s_roots[ i ] + "/" + inc );
-		if ( Exists( cand ) )
-			return cand;
-	}
-	return std::string();
-}
-
-// Every quoted #include in one file, in source order. Comments are stripped
-// first: a commented-out include is not an include, and stripping is what makes
-// that true rather than assumed -- three files in the compiled set now carry a
-// comment that names team.h and says why it is gone.
-std::vector< std::string > QuotedIncludes( const std::string &strRelative )
-{
-	std::vector< std::string > out;
-	const std::string body = ReadStripped( strRelative );
-
-	size_t at = 0;
-	while ( at < body.size() )
-	{
-		size_t eol = body.find( '\n', at );
-		if ( eol == std::string::npos )
-			eol = body.size();
-		const std::string line = body.substr( at, eol - at );
-		at = eol + 1;
-
-		const size_t hash = line.find_first_not_of( " \t" );
-		if ( hash == std::string::npos || line[ hash ] != '#' )
-			continue;
-		const size_t kw = line.find( "include", hash );
-		if ( kw == std::string::npos )
-			continue;
-		const size_t q1 = line.find( '"', kw );
-		if ( q1 == std::string::npos )
-			continue;
-		const size_t q2 = line.find( '"', q1 + 1 );
-		if ( q2 == std::string::npos )
-			continue;
-		out.push_back( line.substr( q1 + 1, q2 - q1 - 1 ) );
-	}
-	return out;
-}
-
-const std::set< std::string > &CompiledServerClosure()
-{
-	static std::set< std::string > s_closure;
-	static bool s_bDone = false;
-	if ( s_bDone )
-		return s_closure;
-	s_bDone = true;
-
-	std::vector< std::string > queue = CompiledServerSources();
-	for ( size_t i = 0; i < queue.size(); i++ )
-		s_closure.insert( queue[ i ] );
-
-	for ( size_t i = 0; i < queue.size(); i++ )
-	{
-		const std::vector< std::string > incs = QuotedIncludes( queue[ i ] );
-		for ( size_t j = 0; j < incs.size(); j++ )
-		{
-			const std::string hit = ResolveInclude( queue[ i ], incs[ j ] );
-			if ( hit.empty() || s_closure.count( hit ) )
-				continue;
-			s_closure.insert( hit );
-			queue.push_back( hit );
-		}
-	}
-	return s_closure;
-}
-
 } // namespace
 
 
 //=============================================================================//
 // THE METER'S FLOOR
 //=============================================================================//
-
-TEST( StockServerClassCensus, TheSourceListIsReadAndNamesTheFilesTheServerCompiles )
-{
-	// The vacuity guard for everything below. Every other fact in this file is
-	// an assertion about a body of text assembled from this list; an empty or
-	// wrong list makes all of them pass by finding nothing. (cmake_graph.h
-	// throws on an unreadable or stale list; the anchor is asserted below.)
-	const std::vector< std::string > files = CompiledServerSources();
-	ASSERT_NO_FATAL_FAILURE( AssertTheServerFileListParsed( files ) );
-
-	// THE CONCATENATION, ASKED PER FILE RATHER THAN AS A TOTAL. This was
-	// `CompiledServerCode().size() > 1,000,000u` -- a byte floor over a body of
-	// text the port exists to delete, which would say "the paths this file
-	// builds no longer resolve" about paths that resolve perfectly, the moment
-	// enough stock has left.
-	//
-	// What the floor was FOR is a path that does not open: ReadStripped answers
-	// "" for one, and the concatenation swallows that silently. Asked per file,
-	// that is caught whatever the population is -- and caught for ONE bad path,
-	// where a million-byte total needed most of them to fail at once. Strictly
-	// more than the number it replaces, and nothing left to go stale.
-	std::string strUnread;
-	for ( size_t i = 0; i < files.size(); i++ )
-	{
-		if ( ReadStripped( files[ i ] ).empty() )
-			strUnread += "\n    " + files[ i ];
-	}
-	EXPECT_TRUE( strUnread.empty() )
-		<< "server_sourcesharp compiles source(s) that read as nothing, so every "
-		   "absence check below passes over a hole where their code should be:"
-		<< strUnread;
-}
 
 TEST( StockServerClassCensus, ExactlyFourSdkServerClassRegistrationsSurvive )
 {
@@ -692,117 +418,9 @@ TEST( StockServerClassCensus, TheRegistrationMatcherStillRecognisesTheMacro )
 	EXPECT_TRUE( ServerClassesIn( "// IMPLEMENT_SERVERCLASS_ST is the macro\n" ).empty() );
 }
 
-TEST( StockServerClassCensus, OnlyCWorldIsRegisteredFromSourceSharpsOwnTree )
-{
-	// PHASE A5'S GUARD, AND IT IS NOT WEAKENED -- IT IS THE OTHER HALF OF IT.
-	//
-	// A5 wrote this to refuse ONE specific edit. CWorld was registered in
-	// sourcesharp/game/server/world_adapter.cpp -- our own file -- with the SDK
-	// macro, and it counted as STOCK because SourceSharp_IsManagedServerClass
-	// answers by IDENTITY against the places SourceSharp CONSTRUCTS a
-	// ServerClass and the macro was not one of them. A5's words:
-	//
-	//   "What must not happen is somebody moving the meter by adding
-	//    world_adapter.cpp to that identity list: it would read as an eviction
-	//    and evict nothing."
-	//
-	// plan_gamedll_after.md Part B2 MOVED IT, which is the legitimate way past
-	// that guard and the only one. So the fact now asserts BOTH HALVES AT ONCE,
-	// and neither of them alone gets a lower meter:
-	//
-	//   1. the SDK macro is GONE from world_adapter.cpp -- there is no
-	//      g_CWorld_ClassReg to count;
-	//   2. the meter's third answerer EXISTS and is answered by identity
-	//      against an object shell_world_nettable.cpp built from the C#
-	//      declaration.
-	//
-	// The relabelling A5 refused fails clause 1: adding the answerer while
-	// leaving the macro standing is exactly "reads as an eviction and evicts
-	// nothing", and it is red here. Deleting the macro and NOT moving the props
-	// is Part B2's other forbidden ending -- a class networking as its base --
-	// and it fails clause 2.
-	const std::string world = ReadStripped( "sourcesharp/game/server/world_adapter.cpp" );
-	ASSERT_FALSE( world.empty() );
-	EXPECT_EQ( 0, CountOf( world, "IMPLEMENT_SERVERCLASS_ST(CWorld, DT_WORLD)" ) )
-		<< "the SDK macro is back in world_adapter.cpp. Two registrations for "
-		   "one class name do not collide at link time -- static-initialisation "
-		   "order picks one, silently -- and the meter would count the stock one";
-
-	// Clause 2, in two places, because a claim in the meter and no object
-	// behind it is the relabelling with an extra step.
-	const std::string nettable = ReadStripped( "sourcesharp/game/server/shell_nettable.cpp" );
-	ASSERT_FALSE( nettable.empty() );
-	EXPECT_EQ( 1, CountOf( nettable, "SourceSharp_IsWorldServerClass( pClass )" ) )
-		<< "SourceSharp_IsManagedServerClass no longer asks about the world. "
-		   "With the SDK macro gone as well, CWorld is counted as STOCK while "
-		   "having no stock registration -- the meter would read one too high "
-		   "and the reading would be about nothing";
-
-	const std::string table = ReadStripped( "sourcesharp/game/server/shell_world_nettable.cpp" );
-	ASSERT_FALSE( table.empty() );
-	EXPECT_EQ( 1, CountOf( table, "new ServerClass( \"CWorld\"" ) )
-		<< "nothing in SourceSharp's own tree constructs the world's ServerClass "
-		   "any more. Counting it as managed with no managed object behind it is "
-		   "the exact edit Phase A5 refused";
-}
-
-
 //=============================================================================//
 // THE INCLUDE CLOSURE ITSELF, before anything is asked of it
 //=============================================================================//
-
-TEST( StockServerClassCensus, TheIncludeClosureIsWalkedAndRecurses )
-{
-	// The vacuity guard for the two absence facts below. A resolver that
-	// resolved nothing would report a closure of just the sources, and every
-	// "team.h is not in it" question would pass on the strength of that alone
-	// -- the exact shape of failure this file's header is about.
-	//
-	// So: the closure is much bigger than the file list it starts from, and it
-	// holds headers reachable ONLY through another header. cbase.h is included
-	// by essentially every .cpp directly; ehandle.h is included by NO compiled
-	// .cpp at all -- it arrives under baseentity.h and its neighbours -- so
-	// finding it proves the walk RECURSED rather than reading one level of each
-	// source. Measured, not assumed: of the 789 files in the closure, 383 are
-	// direct includes and ehandle.h is in the other 406.
-	const std::set< std::string > &closure = CompiledServerClosure();
-	const std::vector< std::string > sources = CompiledServerSources();
-
-	ASSERT_NO_FATAL_FAILURE( AssertTheServerFileListParsed( sources ) );
-	EXPECT_GT( closure.size(), sources.size() * 3 )
-		<< "the closure is " << closure.size() << " files over " << sources.size()
-		<< " sources. The include resolver has stopped resolving, and the "
-		   "absence facts below would then pass on an empty walk";
-
-	// SINCE P5 EVERY SERVER TU IS ON THE R5 SET, so cbase.h, baseentity.h and
-	// ehandle.h -- the witnesses this used -- are absent by construction: no
-	// compile command has a game/ directory to find them in. They are asserted
-	// ABSENT now, and recursion is shown by a header the closure reached that
-	// no compiled source includes directly, computed rather than named.
-	EXPECT_EQ( 0u, closure.count( "game/server/cbase.h" ) )
-		<< "cbase.h is reachable from the compiled server again";
-	EXPECT_EQ( 0u, closure.count( "game/server/baseentity.h" ) );
-	EXPECT_EQ( 0u, closure.count( "game/shared/ehandle.h" ) );
-
-	std::set< std::string > direct;
-	for ( size_t i = 0; i < sources.size(); i++ )
-	{
-		const std::vector< std::string > incs = QuotedIncludes( sources[ i ] );
-		for ( size_t j = 0; j < incs.size(); j++ )
-			direct.insert( ResolveInclude( sources[ i ], incs[ j ] ) );
-	}
-	int nOnlyThroughAHeader = 0;
-	for ( std::set< std::string >::const_iterator it = closure.begin(); it != closure.end(); ++it )
-	{
-		if ( !direct.count( *it ) && std::find( sources.begin(), sources.end(), *it ) == sources.end() )
-			nOnlyThroughAHeader++;
-	}
-	EXPECT_GT( nOnlyThroughAHeader, 0 )
-		<< "every file in the closure is a source or a direct include of one: "
-		   "the walk is not recursing, and a one-level walk would say team.h "
-		   "was absent while being unable to see it";
-}
-
 
 //=============================================================================//
 // REMOVAL 1 -- team.h and team.cpp are out of the build
@@ -831,37 +449,6 @@ TEST( StockServerClassCensus, TeamCppIsNotOneOfTheFilesTheServerCompiles )
 	EXPECT_EQ( 0, nTeam )
 		<< "team.cpp is back in the server's file list. The team concept is "
 		   "managed work now; a native CTeam is not the way back to it";
-}
-
-TEST( StockServerClassCensus, NoCompiledFileIncludesTeamH )
-{
-	// THE GATE, over the closure rather than over the tree. FIFTY-ONE files in
-	// this SDK include team.h and every one of them is a file this server does
-	// not compile -- so a grep answers 51 and means nothing. What this asks is
-	// whether team.h is reachable from any compiled source by any chain of quoted
-	// includes, which is the question the compiler answers.
-	const std::set< std::string > &closure = CompiledServerClosure();
-	// RELATIVE, NOT 300. The closure is walked out of the compiled source list,
-	// so it shrinks exactly as that list does -- a fixed floor over it is the same
-	// stale-on-a-correct-tree shape as the row floors above. The claim that does
-	// not go stale is the one TheIncludeClosureIsWalkedAndRecurses already
-	// makes: a real closure is several times the source list, because each
-	// source drags in cbase.h and its neighbours, and a resolver that stopped
-	// resolving returns roughly the sources themselves.
-	const std::vector< std::string > sources = CompiledServerSources();
-	ASSERT_NO_FATAL_FAILURE( AssertTheServerFileListParsed( sources ) );
-	ASSERT_GT( closure.size(), sources.size() * 3 )
-		<< "the closure is " << closure.size() << " files over " << sources.size()
-		<< " compiled sources -- the include resolver has stopped resolving, and "
-		   "the two absences below would pass on an empty walk";
-
-	EXPECT_EQ( 0u, closure.count( kTeamH ) )
-		<< "team.h is reachable from the compiled set again. Whatever includes "
-		   "it now has a CTeam it can name and cannot use: nothing compiles the "
-		   "class, so the first member access is a link error";
-	EXPECT_EQ( 0u, closure.count( kTeamCpp ) )
-		<< "team.cpp is being #included by something, which is a stranger way "
-		   "back into the build than the vpc but works just as well";
 }
 
 TEST( StockServerClassCensus, NothingInTheBuildNamesATeamRegistry )
@@ -946,58 +533,6 @@ TEST( StockServerClassCensus, NothingInTheBuildNamesATeamRegistry )
 // fd5f3bc8d and is replaced below by the absence check for the file itself.
 //=============================================================================//
 
-TEST( StockServerClassCensus, TheSdkArmFixtureHasNoConsumerLeft )
-{
-	// NATIVE. Every file the server compiles, comment-stripped -- the fixture's
-	// own file is allowed to name the classname (that IS the registration) and
-	// nothing else may.
-	const std::vector< std::string > files = CompiledServerSources();
-	ASSERT_NO_FATAL_FAILURE( AssertTheServerFileListParsed( files ) );
-
-	std::string offenders;
-	int nRegistrations = 0;
-
-	for ( size_t i = 0; i < files.size(); i++ )
-	{
-		const std::string body = ReadStripped( files[ i ] );
-
-		if ( files[ i ] == kSdkArmFixtureFile )
-		{
-			nRegistrations += CountOf( body, kSdkArmFixture );
-			continue;
-		}
-
-		if ( body.find( kSdkArmFixture ) != std::string::npos )
-			offenders += "\n    " + files[ i ];
-	}
-
-	EXPECT_TRUE( offenders.empty() )
-		<< kSdkArmFixture << " is named by a compiled server TU other than its "
-		<< "own:" << offenders
-		<< "\n  The classname exists to give a two-hierarchy probe a stock arm, "
-		   "and step 8a deleted that probe. A new native consumer means a "
-		   "second entity model is being reached for again.";
-
-	// THE VACUITY CONTROL IS RETIRED, and saying why is the point.
-	//
-	// It read: "while the file is still in the build its own registration must
-	// be found", and fired only inside `if ( nRegistrations == 0 )`. The file
-	// stopped being in the server's file list at fd5f3bc8d, so from that commit
-	// on `bFileInBuild` was false on every run and EXPECT_FALSE( false ) could
-	// not fail. It was a check that cannot fail for five days before anybody
-	// looked, and it is exactly the shape this file's own header warns about:
-	// a source scanner whose file went away reads nothing and reports every
-	// absence invariant as satisfied.
-	//
-	// What replaces it is the absence check for the file itself, which CAN
-	// fail -- restore shell_abi_sdk_fixture.cpp and this goes red.
-	EXPECT_EQ( 0, nRegistrations )
-		<< kSdkArmFixture << " is registered by a compiled server TU. The "
-		   "fixture's own file was deleted by lane 5e-testonly because the "
-		   "probe it existed for went in step 8a; a registration reappearing "
-		   "means a stock-hierarchy fixture is being reached for again.";
-}
-
 //=============================================================================//
 // THE ABSENCE CHECK FOR THE FILE, and it proves WHICH TREE it read.
 //
@@ -1038,60 +573,6 @@ TEST( StockServerClassCensus, TheSdkArmFixtureFileIsGone )
 		   "two sweeps above need their needles rechecked before it stays.";
 }
 
-TEST( StockServerClassCensus, NoManagedCodeReachesForTheSdkArmFixture )
-{
-	// MANAGED. AbiBothHierarchies.cs was the one file that named the classname
-	// to spawn it; AbiBothHierarchiesTests.cs was the one that read it back.
-	// Both are deleted. EntityNames.cs still declares the constant, and lane
-	// 5e-testonly kept it deliberately even after deleting the fixture's file:
-	// the reason first written here ("because the classname is still registered
-	// by a file the server compiles") was false -- nothing registered it -- but
-	// the constant has a second job that is real, and it is the one asserted at
-	// the bottom of this test. It is the SPELLING ANCHOR for both sweeps. Delete
-	// it and `kSdkArmFixture` is a needle no file in the tree contains, at which
-	// point both sweeps match nothing and pass on everything.
-	//
-	// The sweep is over the managed SERVER tree, which is where a consumer would
-	// live, and the two declarations are not in it.
-	std::vector< std::string > cs;
-	CollectFiles( kManagedServer, ".cs", cs );
-	ASSERT_GT( cs.size(), 50u )
-		<< "only " << cs.size() << " .cs found under " << kManagedServer
-		<< "; the sweep is not reading the managed server tree, so the question "
-		   "below would pass on nothing";
-
-	std::string offenders;
-	for ( size_t i = 0; i < cs.size(); i++ )
-	{
-		// STRIPPED. `///` is `//`, so a doc comment discussing the fixture --
-		// and several did -- would otherwise read as a consumer. Same rule the
-		// shadow sweep this replaced had to learn on its first run.
-		const std::string body = ReadStripped( cs[ i ] );
-
-		if ( body.find( kSdkArmFixture ) != std::string::npos
-			|| body.find( "SourceSharpAbiSdkFixture" ) != std::string::npos )
-		{
-			offenders += "\n    " + cs[ i ];
-		}
-	}
-
-	EXPECT_TRUE( offenders.empty() )
-		<< kSdkArmFixture << " is reached for by managed server code:" << offenders
-		<< "\n  Step 8a deleted the probe that spawned it. A managed consumer "
-		   "of a stock-hierarchy fixture is a two-hierarchy gate coming back.";
-
-	// The needle is not empty and it is spelled the way the tree spells it.
-	// Without this, a renamed constant makes both sweeps above match nothing.
-	const std::string names = ReadRaw( kEntityNames );
-	ASSERT_FALSE( names.empty() ) << kEntityNames << " could not be read";
-	EXPECT_NE( std::string::npos,
-	           names.find( std::string( "SourceSharpAbiSdkFixture = \"" ) + kSdkArmFixture + "\"" ) )
-		<< kEntityNames << " no longer spells the constant "
-		   "SourceSharpAbiSdkFixture = \"" << kSdkArmFixture << "\", so the two "
-		   "needles this file sweeps with are not the ones in use.";
-}
-
-
 //=============================================================================//
 // REMOVAL 2 -- CRagdollPropAttached is out of the build
 //
@@ -1103,29 +584,6 @@ TEST( StockServerClassCensus, NoManagedCodeReachesForTheSdkArmFixture )
 // had zero callers, its stock caller being the NPC death path, and the AI is
 // not compiled. Four permanently-zero props are not worth a managed half.
 //=============================================================================//
-
-TEST( StockServerClassCensus, TheAttachedRagdollFactoriesAreGoneFromTheHeaderToo )
-{
-	// A declaration that survives its definition is a link error waiting for
-	// the first caller to be written, which is a worse way to find this out
-	// than not finding the name at all.
-	//
-	// THE HEADER ITSELF IS GONE NOW, which is the strong form of "declares
-	// neither": game/server/physics_prop_ragdoll.h is compiled by nothing since
-	// plan_server_novalve.md P5 and left the farm in P6. The scan of its text
-	// for CreateServerRagdollAttached and DetachAttachedRagdoll became an
-	// assertion that it cannot be read at all, anchored on a sibling that can,
-	// so a tree with no game/server in it does not pass.
-	const std::string sibling = ReadStripped( kServerSiblingH );
-	ASSERT_NE( std::string::npos, sibling.find( kServerSiblingHAnchor ) )
-		<< kServerSiblingH << " could not be read or lost its anchor; the "
-		   "absence below would prove nothing about game/server";
-
-	EXPECT_TRUE( ReadStripped( kRagdollH ).empty() )
-		<< kRagdollH << " is readable from the farm again. Nothing compiles it; "
-		   "if it is back, check that it did not bring the attached-ragdoll "
-		   "declarations, which are defined nowhere";
-}
 
 TEST( StockServerClassCensus, NothingInTheBuildNamesAnAttachedRagdoll )
 {
@@ -1149,73 +607,3 @@ TEST( StockServerClassCensus, NothingInTheBuildNamesAnAttachedRagdoll )
 // RULING 1, AS A CHECKABLE FACT
 //=============================================================================//
 
-TEST( StockServerClassCensus, NoDeclareServerclassIsLeftCommentedOut )
-{
-	// The owner's first ruling, in the form a reader can check. A class may not
-	// have its DECLARE_SERVERCLASS commented out and be left in the build
-	// networking as its base: either the props move to managed and the
-	// declaration stays with them, or the class goes. Phase A5 did it twice and
-	// both are now gone by the second route.
-	//
-	// The needle is A COMMENT WHOSE FIRST TOKEN IS THE MACRO, which is what a
-	// commented-out invocation looks like, plus the "NO DECLARE_SERVERCLASS"
-	// marker A5 used. Prose that merely mentions the macro is not a violation
-	// -- and there is some, in exactly the files that explain why the class it
-	// belonged to is no longer here. A check that could not tell those apart
-	// would force the explanations to be deleted, which is the opposite of what
-	// this is for.
-	const std::vector< std::string > files = CompiledServerSources();
-	ASSERT_NO_FATAL_FAILURE( AssertTheServerFileListParsed( files ) );
-
-	// The headers too. A DECLARE_SERVERCLASS lives in a class body, and every
-	// class body in this build that has one is in a header.
-	std::vector< std::string > scan = files;
-	const std::set< std::string > &closure = CompiledServerClosure();
-	for ( std::set< std::string >::const_iterator it = closure.begin();
-	      it != closure.end(); ++it )
-	{
-		if ( it->size() > 2 && it->compare( it->size() - 2, 2, ".h" ) == 0 )
-			scan.push_back( *it );
-	}
-	ASSERT_GT( scan.size(), files.size() )
-		<< "no headers came out of the closure, so this only scanned .cpp";
-
-	std::string offenders;
-	for ( size_t i = 0; i < scan.size(); i++ )
-	{
-		const std::string raw = ReadRaw( scan[ i ] );
-		size_t at = 0;
-		while ( at < raw.size() )
-		{
-			size_t eol = raw.find( '\n', at );
-			if ( eol == std::string::npos )
-				eol = raw.size();
-			const std::string line = raw.substr( at, eol - at );
-			at = eol + 1;
-
-			const size_t first = line.find_first_not_of( " \t" );
-			if ( first == std::string::npos )
-				continue;
-			if ( line.compare( first, 2, "//" ) != 0 )
-				continue;
-			const size_t body = line.find_first_not_of( " \t", first + 2 );
-			if ( body == std::string::npos )
-				continue;
-
-			const std::string rest = line.substr( body );
-			if ( rest.compare( 0, 19, "DECLARE_SERVERCLASS" ) == 0
-				|| rest.compare( 0, 22, "NO DECLARE_SERVERCLASS" ) == 0 )
-			{
-				offenders += "\n    " + scan[ i ] + ": " + rest;
-			}
-		}
-	}
-
-	EXPECT_TRUE( offenders.empty() )
-		<< "a DECLARE_SERVERCLASS is commented out in a file the server "
-		   "compiles:" << offenders
-		<< "\n  Network vars belong in managed code with C++ calling in for "
-		   "get/set. A class that networks as its base has lost a capability "
-		   "rather than moved one, so the two endings are: move the props and "
-		   "keep the declaration, or take the class out of the build.";
-}

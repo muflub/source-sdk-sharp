@@ -24,19 +24,19 @@ extern IMDLCache *mdlcache;
 // Defined in shell_standalone_base.cpp.
 void StandaloneEntities_Finish();
 
-void UpdateAllClientData( void );
+void UpdateAllClientData();
 
 // Stock's global, acquired by SourceSharp_AcquireEngineInterfaces.
 extern IUploadGameStats *gamestatsuploader;
 
 extern CGlobalVars *gpGlobals;
 
-bool EntitySim_IsSimulatingOnAlternateTicks( void );
+bool EntitySim_IsSimulatingOnAlternateTicks();
 
 // Not behind _DEBUG, as in stock.
-void DrawAllDebugOverlays( void );
+void DrawAllDebugOverlays();
 
-int SourceSharp_DrainEntitySlots( void );
+int SourceSharp_DrainEntitySlots();
 
 namespace
 {

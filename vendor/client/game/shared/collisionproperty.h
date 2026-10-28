@@ -103,7 +103,7 @@ private:
 // For networking this bad boy
 EXTERN_RECV_TABLE( DT_CollisionProperty );
 
-inline int CCollisionProperty::GetSolidFlags( void ) const
+inline int CCollisionProperty::GetSolidFlags() const
 {
 	return m_usSolidFlags;
 }

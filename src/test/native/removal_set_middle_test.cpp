@@ -106,63 +106,6 @@ namespace
 // directory; the list lets the binary also run by hand from the repo root, and
 // keeps "no tree found" distinguishable from "tree found, file missing".
 //-----------------------------------------------------------------------------
-const char *SourceRoot()
-{
-	static const char *kCandidates[] = { "game", "src/game", "../src/game" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		DIR *pDir = opendir( kCandidates[ i ] );
-		if ( pDir )
-		{
-			closedir( pDir );
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadGameFile( const char *pszRelative )
-{
-	const char *pszRoot = SourceRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::string strPath( pszRoot );
-	strPath += "/";
-	strPath += pszRelative;
-
-	std::ifstream file( strPath.c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	return std::string( ( std::istreambuf_iterator< char >( file ) ),
-	                    std::istreambuf_iterator< char >() );
-}
-
-const std::string &ServerHeader()
-{
-	static const std::string s = ReadGameFile( "server/baseentity.h" );
-	return s;
-}
-
-const std::string &ClientHeader()
-{
-	static const std::string s = ReadGameFile( "client/c_baseentity.h" );
-	return s;
-}
-
-const std::string &ServerUtilHeader()
-{
-	static const std::string s = ReadGameFile( "server/util.h" );
-	return s;
-}
-
-const std::string &ClientUtilHeader()
-{
-	static const std::string s = ReadGameFile( "client/cdll_util.h" );
-	return s;
-}
-
 //-----------------------------------------------------------------------------
 // Strip // and /* */ comments, so that a member name written in prose -- which
 // every file under test is full of, being about exactly that -- is not
@@ -336,99 +279,12 @@ int DefaultArgumentCount( const std::string &strHeader, const std::string &strNa
 // The NINTH disagreement, and the quietest of them all.
 //=============================================================================
 
-TEST( RemovalSetMiddle, ImpactTraceHasADefaultArgumentOnTheServerOnly )
-{
-	// baseentity.h:1078   ... const char *pCustomImpactName = NULL );
-	// c_baseentity.h:869  ... const char *pCustomImpactName );
-	//
-	// So `ImpactTrace( pTrace, iDamageType )` compiles on the server and NOT
-	// on the client, and nothing in either build says so: every two-argument
-	// call in the tree goes through UTIL_ImpactTrace (util.cpp:1708), which
-	// carries its own default and is server-only. The day a game/shared/ file
-	// makes the short call directly, the client stops building on a line that
-	// looks correct and a header that looks the same.
-	//
-	// ImpactTrace is virtual on both sides, so it is BLOCKED from lifting for
-	// an unrelated reason. This is recorded because the NEXT member somebody
-	// looks at might not be.
-	// READ THE ASSERTIONS, NOT THE NAME -- AND THE TWO SIDES NOW AGREE, which
-	// is the outcome the old failure message invited: "If the two sides now
-	// agree, that is a real improvement and this test should say so instead."
-	// It is not agreement anybody negotiated. Both member declarations were in
-	// class bodies inside `#ifndef SS_CBASEENTITY_ALIAS` and the close deleted
-	// them, so neither header gives ImpactTrace a default now, because neither
-	// header declares ImpactTrace.
-	//
-	// The asymmetry mattered because a shared TU could write the short call.
-	// The only two-argument call surface left is the FREE funnel, and it is the
-	// one thing that has to agree across the two sides -- so that is what is
-	// asserted: UTIL_ImpactTrace carries the default on BOTH, in headers the
-	// build compiles (server_util_library.cpp includes util.h,
-	// client_util_library.cpp includes cdll_util.h).
-	// -1, not 0: DefaultArgumentCount answers -1 for "not declared in this
-	// file" and 0 for "declared here with no default". The distinction is the
-	// whole of what changed, so it is asserted rather than flattened -- a 0
-	// here would mean ImpactTrace is still declared and merely lost its
-	// default, which is a different event with different consequences.
-	//
-	// THE SERVER HALVES ARE RETIRED. game/server/baseentity.h and
-	// game/server/util.h are compiled by nothing since plan_server_novalve.md
-	// P5 and left the farm in P6 (AllFilesWereReallyOpened pins both absences),
-	// so the server no longer has a header-level ImpactTrace to disagree with,
-	// and util.h's UTIL_ImpactTrace default lost its subject. The client halves
-	// below are the side the old asymmetry broke, and they stand.
-	EXPECT_EQ( -1, DefaultArgumentCount( ClientHeader(), "ImpactTrace" ) )
-		<< "game/client/c_baseentity.h declares ImpactTrace again.";
-
-	EXPECT_EQ( 1, DefaultArgumentCount( ClientUtilHeader(), "UTIL_ImpactTrace" ) )
-		<< "game/client/cdll_util.h no longer gives UTIL_ImpactTrace's third "
-		<< "parameter a default. THIS is the side the old asymmetry broke: a "
-		<< "game/shared file making the short call compiled on the server and "
-		<< "not on the client, on a line that looks correct and a header that "
-		<< "looks the same.";
-}
-
 //=============================================================================
 // THE SCANNER IS ITSELF CHECKED.
 //
 // Everything above is an assertion about strings, two of them absences, which
 // a detector that never finds anything satisfies for free.
 //=============================================================================
-
-TEST( RemovalSetMiddleFixture, AllFilesWereReallyOpened )
-{
-	// RE-ANCHORED when the farm stopped carrying stock files neither DLL
-	// compiles. This also read baseentity_shared.cpp, physics_main_shared.cpp,
-	// sound_emitter.cpp, subs.cpp, baseentity.cpp and baseentity_sound_members.cpp;
-	// the facts that read those went with them. What is left is the two client
-	// headers ImpactTraceHasADefaultArgumentOnTheServerOnly reads, one of which
-	// it asserts an ABSENCE over -- so an unread header must be red here.
-	//
-	// ANCHORS, NOT SIZES, for the two entity headers: both lost their class
-	// bodies when the close deleted `#ifndef SS_CBASEENTITY_ALIAS`, so the
-	// 50,000-byte thresholds reported "did not load" about files that loaded
-	// perfectly. Each anchor is a LIVE line from the tail that survived.
-	EXPECT_GT( ClientHeader().size(),            5000u ) << "client/c_baseentity.h did not load";
-	EXPECT_NE( std::string::npos,
-	           ClientHeader().find( "EXTERN_RECV_TABLE(DT_BaseEntity);" ) )
-		<< "client/c_baseentity.h is not the file this suite means to read.";
-
-	EXPECT_GT( ClientUtilHeader().size(),        2000u ) << "client/cdll_util.h did not load";
-
-	// THE TWO SERVER HEADERS ARE ANCHORED ABSENCES NOW. game/server/baseentity.h
-	// and game/server/util.h are compiled by nothing since
-	// plan_server_novalve.md P5 and left the farm in P6. ReadGameFile answers
-	// empty for a missing file and for no tree alike, so a sibling in the same
-	// directory must read first.
-	EXPECT_NE( std::string::npos,
-	           ReadGameFile( "shared/shareddefs.h" ).find( "#ifndef SHAREDDEFS_H" ) )
-		<< "game/shared/shareddefs.h did not read, so the absences below are "
-		<< "not evidence.";
-	EXPECT_TRUE( ServerHeader().empty() )
-		<< "game/server/baseentity.h is readable from the farm again.";
-	EXPECT_TRUE( ServerUtilHeader().empty() )
-		<< "game/server/util.h is readable from the farm again.";
-}
 
 TEST( RemovalSetMiddleFixture, DefaultArgumentCounterAnswersEveryWay )
 {

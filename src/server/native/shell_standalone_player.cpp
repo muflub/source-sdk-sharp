@@ -16,7 +16,7 @@
 #include "ss_entityhandle.h"
 #include "ss_gamestringpool.h"
 extern CGlobalVars *gpGlobals;
-int UTIL_GetCommandClientIndex( void );
+int UTIL_GetCommandClientIndex();
 #include "ss_recipient_filter.h"
 #include "igamerules.h"
 #include "shell_standalone_player.h"
@@ -659,7 +659,7 @@ CStandalonePlayer *StandalonePlayer_CommandClient()
 }
 
 // The same, for a C# [ConCommand]. INVALID_EHANDLE_INDEX when no player issued it.
-uint32_t SourceSharp_GetCommandClientHandle( void )
+uint32_t SourceSharp_GetCommandClientHandle()
 {
 	if ( CStandalonePlayer *pPlayer = StandalonePlayer_CommandClient() )
 		return pPlayer->ManagedHandle();
@@ -783,7 +783,7 @@ static void StandaloneClientData_Update( CStandalonePlayer *pPlayer )
 	local.m_skybox3d.area = 255;
 }
 
-void UpdateAllClientData( void )
+void UpdateAllClientData()
 {
 	for ( int i = 1; i <= gpGlobals->maxClients; i++ )
 	{

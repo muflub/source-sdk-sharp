@@ -3,7 +3,7 @@
 #pragma once
 
 #include "edict.h"
-#include "tier1/interface.h"
+
 #include "tier1/KeyValues.h"
 
 class CCommand;
@@ -58,7 +58,7 @@ public:
 	virtual void			GameFrame( bool simulating ) = 0;
 
 	// Called when a level is shutdown (including changing levels)
-	virtual void			LevelShutdown( void ) = 0;
+	virtual void			LevelShutdown() = 0;
 
 	// Client is going active
 	virtual void			ClientActive( edict_t *pEntity ) = 0;

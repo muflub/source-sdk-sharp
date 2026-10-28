@@ -170,7 +170,7 @@ void SpewOutputFunc( SpewOutputFunc_t func )
 	s_pSpew = func ? func : ConsoleSpew;
 }
 
-SpewOutputFunc_t GetSpewOutputFunc( void )
+SpewOutputFunc_t GetSpewOutputFunc()
 {
 	return s_pSpew;
 }

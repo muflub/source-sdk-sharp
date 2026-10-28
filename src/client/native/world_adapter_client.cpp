@@ -227,7 +227,7 @@ Vector C_World::GetWorldMaxs()
 #endif
 
 // m_Collideable is named in the initialiser list so its owner pointer is valid before the body.
-C_World::C_World( void )
+C_World::C_World()
 	: m_bReportedOnce( false )
 	, m_DataChangeEventRef( -1 )
 	, m_hThink( (ClientThinkHandle_t)(uintp)0xFFFF ) // the think list's invalid handle
@@ -241,7 +241,7 @@ C_World::C_World( void )
 	m_RefEHandle.Term();
 }
 
-C_World::~C_World( void )
+C_World::~C_World()
 {
 	// Normally Release() has unbound already; not on a DLL shutdown with a level loaded.
 	if ( m_RefEHandle.IsValid() )
@@ -384,10 +384,10 @@ static const QAngle      s_angWorldAngles( 0.0f, 0.0f, 0.0f );
 static matrix3x4_t       s_matWorldTransform;
 static bool              s_bWorldTransformBuilt = false;
 
-const Vector &C_World::GetAbsOrigin( void ) const     { return s_vecWorldOrigin; }
-const QAngle &C_World::GetAbsAngles( void ) const     { return s_angWorldAngles; }
-const Vector &C_World::GetRenderOrigin( void )        { return s_vecWorldOrigin; }
-const QAngle &C_World::GetRenderAngles( void )        { return s_angWorldAngles; }
+const Vector &C_World::GetAbsOrigin() const     { return s_vecWorldOrigin; }
+const QAngle &C_World::GetAbsAngles() const     { return s_angWorldAngles; }
+const Vector &C_World::GetRenderOrigin()        { return s_vecWorldOrigin; }
+const QAngle &C_World::GetRenderAngles()        { return s_angWorldAngles; }
 
 const matrix3x4_t &C_World::RenderableToWorldTransform()
 {
@@ -444,7 +444,7 @@ C_World *GetClientWorldEntity()
 
 // The world's per-map unbinding at level shutdown, called from the client's level clear as
 // on the server. Guarded on the binding, so a second call is a no-op.
-bool SourceSharp_ClientWorldLevelShutdown( void )
+bool SourceSharp_ClientWorldLevelShutdown()
 {
 	if ( g_pClientWorld == NULL || !g_pClientWorld->IsBoundToTheLevel() )
 		return false;
@@ -457,7 +457,7 @@ bool SourceSharp_ClientWorldLevelShutdown( void )
 // The world's arm of the client resolve: worldspawn is not in the slot table. Reads the
 // global directly rather than GetClientWorldEntity(), which asserts, and tests the handle,
 // which is invalid between maps.
-CBaseHandle SourceSharp_ClientWorldHandle( void )
+CBaseHandle SourceSharp_ClientWorldHandle()
 {
 	// A NULL singleton has no object to ask.
 	return ( g_pClientWorld && g_pClientWorld->IsBoundToTheLevel() )

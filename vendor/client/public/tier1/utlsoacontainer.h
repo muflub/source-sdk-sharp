@@ -4,13 +4,6 @@
 
 #pragma once
 
-#include "tier0/platform.h"
-#include "tier0/dbg.h"
-#include "tier0/threadtools.h"
-#include "tier1/utlmemory.h"
-#include "tier1/utlblockmemory.h"
-#include "mathlib/ssemath.h"
-
 // strided pointers. gives you a class that acts like a pointer, but the ++ and += operators do the
 // right thing
 template<class T> class CStridedPtr
@@ -26,9 +19,9 @@ public:
 		m_nStride = nByteStride / sizeof( T );
 	}
 
-	FORCEINLINE CStridedPtr( void ) {}
+	FORCEINLINE CStridedPtr() {}
 	
-	FORCEINLINE operator T *(void)
+	FORCEINLINE operator T *()
 	{
 		return m_pData;
 	}
@@ -48,9 +41,9 @@ public:
 		m_nStride = nByteStride / sizeof( T );
 	}
 
-	FORCEINLINE CStridedConstPtr( void ) {}
+	FORCEINLINE CStridedConstPtr() {}
 
-	FORCEINLINE operator const T *(void) const
+	FORCEINLINE operator const T *() const
 	{
 		return m_pData;
 	}
@@ -92,7 +85,7 @@ protected:
 
 	uint32 m_nFieldPresentMask;
 
-	FORCEINLINE void Init( void )
+	FORCEINLINE void Init()
 	{
 		memset( m_nDataType, 0xff, sizeof( m_nDataType ) );
 		m_pDataMemory = 0;
@@ -106,9 +99,9 @@ public:
 		Init();
 	}
 
-	void Purge( void );										// set back to un-initted state, freeing memory
+	void Purge();										// set back to un-initted state, freeing memory
 
-	~CSOAContainer( void );
+	~CSOAContainer();
 
 	// easy constructor for 2d using varargs. call like
 	// #define ATTR_RED 0
@@ -119,14 +112,14 @@ public:
 
 	CSOAContainer( int nCols, int nRows, ... );
 
-	size_t ElementSize( void ) const;					// total bytes per element. not super fast.
+	size_t ElementSize() const;					// total bytes per element. not super fast.
 
-	FORCEINLINE int NumCols( void ) const
+	FORCEINLINE int NumCols() const
 	{
 		return m_nColumns;
 	}
 
-	FORCEINLINE int Count( void ) const						// for 1d data
+	FORCEINLINE int Count() const						// for 1d data
 	{
 		return NumCols();
 	}

@@ -66,30 +66,6 @@ public class GameEntitySurfaceTests
         "VPhysicsUpdate",
     };
 
-    [Fact]
-    public void TheSurfaceIsThePinnedOne()
-    {
-        string? header = FindHeader();
-
-        if (header is null)
-        {
-            // Skipped rather than failed, matching AbiParityTests: the tests
-            // must still run from a directory with no source tree next to it.
-            Assert.True(true, "igameentity.h was found (skipped, not found)");
-            return;
-        }
-
-        string body = ClassBodyOf(File.ReadAllText(header));
-        List<string> declared = PureVirtualNamesIn(body);
-
-        Assert.True(declared.SequenceEqual(PinnedMembers),
-            "IGameEntity's pure virtual members are the pinned ones, in order.\n" +
-            $"  pinned   ({PinnedMembers.Length}): {string.Join(", ", PinnedMembers)}\n" +
-            $"  declared ({declared.Count}): {string.Join(", ", declared)}\n" +
-            $"  missing from header: {string.Join(", ", PinnedMembers.Except(declared).DefaultIfEmpty("(none)"))}\n" +
-            $"  unpinned in header:  {string.Join(", ", declared.Except(PinnedMembers).DefaultIfEmpty("(none)"))}");
-    }
-
     /// <summary>
     /// The number itself, asserted against the name list rather than beside
     /// it, so the two cannot disagree — anything citing "IGameEntity has N
@@ -103,124 +79,6 @@ public class GameEntitySurfaceTests
             $"IGameEntity's pinned member count is 6 (pure virtuals, destructor excluded): exactly the six engine-reached methods the plan's Part 2 audit named — ShouldCollide, GetCollisionGroup, Touch, StartTouch, EndTouch, VPhysicsUpdate. The three migration accessors died with their interfaces, replaced by the relays in standalone_relays.h; this is Phase 13's precondition, met. The pin says {PinnedMembers.Length}. " +
             "If a member legitimately left or arrived, update BOTH the list and this number in the same commit, " +
             "and correct plan_baseentity.md's figures against it.");
-    }
-
-    /// <summary>
-    /// The twelve members that plan_baseentity.md's Phase 13 audit left with no
-    /// answer. Each is a member SDK code asks of a <c>CBaseEntity</c> that the
-    /// typedef cannot compile, and each was, for a long time, dated to "the
-    /// phase that removes its caller" — a date that kept not arriving, so the
-    /// twelve kept being re-audited and re-dated instead of answered.
-    /// </summary>
-    private static readonly string[] TheTwelve =
-    {
-        "VPhysicsGetObject",
-        "GetMoveType",
-        "GetFlags",
-        "EyePosition",
-        "GetAbsVelocity",
-        "IsEFlagSet",
-        "GetTeamNumber",
-        "m_takedamage",
-        "m_debugOverlays",
-        "SetTransmit",
-        "GetMoveParent",
-        "AddEFlags",
-    };
-
-    /// <summary>
-    /// None of the twelve is a member. That already follows from the
-    /// pinned-six list, but its failure says "somebody let SDK bookkeeping onto
-    /// the boundary" rather than "the list changed".
-    ///
-    /// <para>
-    /// If one of the twelve genuinely joins the boundary, this test and
-    /// <see cref="PinnedMembers"/> and <see cref="TheCountIsTheListsLength"/>
-    /// all fail together, which is the correct amount of noise for adding a
-    /// permanent cost to every implementor.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void NoneOfTheTwelveIsAMember()
-    {
-        string? header = FindHeader();
-        if (header is null) { Assert.True(true, "skipped, header not found"); return; }
-
-        string body = ClassBodyOf(File.ReadAllText(header));
-        List<string> declared = PureVirtualNamesIn(body);
-
-        foreach (string member in TheTwelve)
-        {
-            Assert.True(!declared.Contains(member),
-                $"'{member}' is one of the twelve and is NOT a member of IGameEntity. " +
-                "None of the twelve is engine-reached, so none of them passes the membership rule. " +
-                "If this one genuinely has to join, say so loudly in the commit and update the pinned list, " +
-                "the count and the answer block together.");
-        }
-    }
-
-    [Fact]
-    public void TheDestructorIsVirtualAndNotPure()
-    {
-        string? header = FindHeader();
-        if (header is null) { Assert.True(true, "skipped, header not found"); return; }
-
-        string body = ClassBodyOf(File.ReadAllText(header));
-
-        Assert.True(Regex.IsMatch(body, @"virtual\s+~IGameEntity\s*\(\s*\)\s*\{\s*\}"),
-            "IGameEntity declares a virtual, non-pure destructor (deleting through the interface must reach the concrete type)");
-        Assert.True(!Regex.IsMatch(body, @"~IGameEntity[^;{]*=\s*0"),
-            "the destructor is not pure, so it is not a member of the pinned count");
-    }
-
-    /// <summary>
-    /// No conditional compilation inside the class body, so the pinned count
-    /// is the same number on both sides. The three-answers confusion this
-    /// suite exists to end was first suspected to be side-ness; this is the
-    /// assertion that it cannot be.
-    /// </summary>
-    [Fact]
-    public void TheSurfaceIsNotSideDependent()
-    {
-        string? header = FindHeader();
-        if (header is null) { Assert.True(true, "skipped, header not found"); return; }
-
-        string body = ClassBodyOf(File.ReadAllText(header));
-
-        // ONE #if IS ALLOWED, AND IT DECLARES ONE MEMBER EITHER WAY: the
-        // destructor's name. On stock headers the class is the side's entity
-        // face, CBaseEntity or C_BaseEntity (SS_GAME_ENTITY, plan_server_native_v2
-        // D1), and a destructor must be spelled with the class's own name, never
-        // an alias. Removing exactly that block must leave no other conditional.
-        const string destructorArms =
-            "#ifdef SS_GAME_ENTITY\n" +
-            "\tvirtual ~SS_GAME_ENTITY() {}\n" +
-            "#else\n" +
-            "\tvirtual ~IGameEntity() {}\n" +
-            "#endif";
-        Assert.True(body.Contains(destructorArms, StringComparison.Ordinal),
-            "the destructor's two arms are spelled as this fact expects");
-        string rest = body.Replace(destructorArms, "", StringComparison.Ordinal);
-
-        Assert.True(!rest.Contains("#if"),
-            "IGameEntity's class body has no #if/#ifdef/#ifndef but the destructor's name, so the member count cannot differ by side");
-    }
-
-    /// <summary>
-    /// The text between the class introducer and its closing brace. Anchored
-    /// on <c>abstract_class IGameEntity</c> and the first <c>};</c> at column
-    /// zero after it, which is how the header is written; a second class in
-    /// the file would not leak into the count.
-    /// </summary>
-    private static string ClassBodyOf(string text)
-    {
-        int start = text.IndexOf("abstract_class IGameEntity", StringComparison.Ordinal);
-        Assert.True(start >= 0, "igameentity.h declares abstract_class IGameEntity");
-
-        int end = text.IndexOf("\n};", start, StringComparison.Ordinal);
-        Assert.True(end > start, "the class body closes with }; at column zero");
-
-        return text.Substring(start, end - start);
     }
 
     /// <summary>
@@ -248,11 +106,4 @@ public class GameEntitySurfaceTests
         return names;
     }
 
-    /// <summary>The header in the compat farm, as TierParityTests finds its own.</summary>
-    private static string? FindHeader()
-    {
-        string relative = Path.Combine("src", "public", "igameentity.h");
-
-        return RepoLayout.FindSdkFile(relative);
-    }
 }

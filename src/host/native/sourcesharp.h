@@ -1280,8 +1280,7 @@ typedef struct
 // gibs, shell casings, sprites and debris. Phase C4 moves the POOL to C#: the
 // allocation, the free list, the priority classes, the expiry and the update
 // loop. What stays here is the OBJECT, because a C_LocalTempEntity is already
-// the draw shell -- de-entified onto CShellRenderable, which
-// src/sourcesharp/test/tempent_verdict_test.cpp records the verdict for.
+// the draw shell -- de-entified onto CShellRenderable.
 //
 // SO THIS STRUCT IS A VIEW, NOT A SECOND COPY OF THE STATE. It is filled from
 // the live object on every read and written straight back into it on every
@@ -1437,8 +1436,7 @@ typedef struct SourceSharpTempEntStatics_s
 	// entity is a C_BasePlayer to dynamic_cast to. The branch is also
 	// UNREACHABLE here: m_pszImpactEffect is only ever set by
 	// CTempEnts::ClientProjectile's optional pszImpactEffect parameter, and both
-	// live callers leave it at its NULL default -- which
-	// src/sourcesharp/test/tempent_verdict_test.cpp asserts.
+	// live callers leave it at its NULL default.
 	//
 	// So the NAME does not cross and no managed dispatch is written: that would
 	// be fabricating a capability for a branch nothing takes, and dead code that

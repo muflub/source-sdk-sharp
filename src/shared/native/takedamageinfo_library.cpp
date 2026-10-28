@@ -156,13 +156,13 @@ void CMultiDamage::Init( IGameEntity *pTarget, IGameEntity *pInflictor, IGameEnt
 }
 
 // Resets the global multi damage accumulator.
-void ClearMultiDamage( void )
+void ClearMultiDamage()
 {
 	g_MultiDamage.Init( NULL, NULL, NULL, NULL, vec3_origin, vec3_origin, vec3_origin, 0, 0, 0 );
 }
 
 // Inflicts the contents of the global multi damage register on its target.
-void ApplyMultiDamage( void )
+void ApplyMultiDamage()
 {
 	if ( !g_MultiDamage.GetTarget() )
 		return;

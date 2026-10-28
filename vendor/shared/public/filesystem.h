@@ -358,7 +358,7 @@ public:
 	virtual bool			RemoveSearchPath( const char *pPath, const char *pathID = 0 ) = 0;
 
 	// Remove all search paths (including write path?)
-	virtual void			RemoveAllSearchPaths( void ) = 0;
+	virtual void			RemoveAllSearchPaths() = 0;
 
 	// Remove search paths associated with a given pathID
 	virtual void			RemoveSearchPaths( const char *szPathID ) = 0;
@@ -504,8 +504,8 @@ public:
 	// Debugging operations
 
 	// Dump to printf/OutputDebugString the list of files that have not been closed
-	virtual void			PrintOpenedFiles( void ) = 0;
-	virtual void			PrintSearchPaths( void ) = 0;
+	virtual void			PrintOpenedFiles() = 0;
+	virtual void			PrintSearchPaths() = 0;
 
 	virtual void			SetWarningFunc( void (*pfnWarning)( PRINTF_FORMAT_STRING const char *fmt, ... ) ) = 0;
 	virtual void			SetWarningLevel( FileWarningLevel_t level ) = 0;

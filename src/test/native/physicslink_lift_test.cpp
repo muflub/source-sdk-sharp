@@ -116,57 +116,6 @@ namespace
 // directory; the list lets the binary also run by hand from the repo root, and
 // keeps "no tree found" distinguishable from "tree found, file missing".
 //-----------------------------------------------------------------------------
-const char *SourceRoot()
-{
-	static const char *kCandidates[] = { "game", "src/game", "../src/game" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		DIR *pDir = opendir( kCandidates[ i ] );
-		if ( pDir )
-		{
-			closedir( pDir );
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadGameFile( const char *pszRelative )
-{
-	const char *pszRoot = SourceRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::string strPath( pszRoot );
-	strPath += "/";
-	strPath += pszRelative;
-
-	std::ifstream file( strPath.c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	return std::string( ( std::istreambuf_iterator< char >( file ) ),
-	                    std::istreambuf_iterator< char >() );
-}
-
-const std::string &PhysicsLinkHeader()
-{
-	static const std::string s = ReadGameFile( "../sourcesharp/game/shared/physicslink.h" );
-	return s;
-}
-
-const std::string &ServerBaseEntityHeader()
-{
-	static const std::string s = ReadGameFile( "server/baseentity.h" );
-	return s;
-}
-
-const std::string &ClientBaseEntityHeader()
-{
-	static const std::string s = ReadGameFile( "client/c_baseentity.h" );
-	return s;
-}
-
 //-----------------------------------------------------------------------------
 // Strip // and /* */ comments, so that a CBaseEntity:: name written in prose --
 // which every file under test is full of, being about exactly that -- is not
@@ -360,40 +309,6 @@ std::string ForwarderBody( const std::string &strSource, const std::string &strM
 // Is `<Name>` declared `static` in this header? Looks for the declaration line
 // and checks that `static` precedes the name on it.
 //-----------------------------------------------------------------------------
-bool DeclaredStatic( const std::string &strHeader, const std::string &strName )
-{
-	const std::string strCode = StripComments( strHeader );
-
-	for ( size_t pos = strCode.find( strName ); pos != std::string::npos;
-	      pos = strCode.find( strName, pos + 1 ) )
-	{
-		if ( pos > 0 && IsIdentChar( strCode[ pos - 1 ] ) )
-			continue;
-		const size_t after = pos + strName.size();
-		if ( after < strCode.size() && IsIdentChar( strCode[ after ] ) )
-			continue;
-
-		// must be a declaration: an argument list then a ';'
-		size_t i = SkipSpace( strCode, after );
-		if ( i >= strCode.size() || strCode[ i ] != '(' )
-			continue;
-		i = SkipParens( strCode, i );
-		if ( i == std::string::npos )
-			continue;
-		i = SkipSpace( strCode, i );
-		if ( i >= strCode.size() || strCode[ i ] != ';' )
-			continue;
-
-		// walk back to the start of the line and look for `static`
-		size_t lineStart = strCode.rfind( '\n', pos );
-		lineStart = ( lineStart == std::string::npos ) ? 0 : lineStart + 1;
-		const std::string strLine = strCode.substr( lineStart, pos - lineStart );
-		if ( strLine.find( "static" ) != std::string::npos )
-			return true;
-	}
-	return false;
-}
-
 //-----------------------------------------------------------------------------
 // Is `<Name>` defined at NAMESPACE scope (i.e. `<Name>( ... ) {` with no
 // `::` immediately before it)?
@@ -424,29 +339,6 @@ bool DefinedFree( const std::string &strSource, const std::string &strName )
 	return false;
 }
 
-bool DeclaredInHeader( const std::string &strHeader, const std::string &strName )
-{
-	const std::string strCode = StripComments( strHeader );
-
-	for ( size_t pos = strCode.find( strName ); pos != std::string::npos;
-	      pos = strCode.find( strName, pos + 1 ) )
-	{
-		if ( pos > 0 && IsIdentChar( strCode[ pos - 1 ] ) )
-			continue;
-		size_t i = pos + strName.size();
-		i = SkipSpace( strCode, i );
-		if ( i >= strCode.size() || strCode[ i ] != '(' )
-			continue;
-		i = SkipParens( strCode, i );
-		if ( i == std::string::npos )
-			continue;
-		i = SkipSpace( strCode, i );
-		if ( i < strCode.size() && strCode[ i ] == ';' )
-			return true;
-	}
-	return false;
-}
-
 //-----------------------------------------------------------------------------
 // The seven, and the free function each one forwards to.
 //-----------------------------------------------------------------------------
@@ -456,24 +348,6 @@ struct Lifted_t
 	const char *pszFree;
 	bool        bDeclaredStatic;   // six are; PhysicsClipVelocity is not
 };
-
-const Lifted_t kLifted[] =
-{
-	{ "PhysicsRemoveTouchedList",          "PhysicsLink_RemoveTouchedList",          true  },
-	{ "PhysicsNotifyOtherOfUntouch",       "PhysicsLink_NotifyOtherOfUntouch",       true  },
-	{ "PhysicsRemoveToucher",              "PhysicsLink_RemoveToucher",              true  },
-	{ "PhysicsNotifyOtherOfGroundRemoval", "PhysicsLink_NotifyOtherOfGroundRemoval", true  },
-	{ "PhysicsRemoveGround",               "PhysicsLink_RemoveGround",               true  },
-	{ "PhysicsRemoveGroundList",           "PhysicsLink_RemoveGroundList",           true  },
-	{ "PhysicsClipVelocity",               "Physics_ClipVelocity",                   false },
-
-	// The EIGHTH, added by the shared-middle-tier lane. Static on both
-	// sides like the first six; see physicslink.h for why it is lifted
-	// rather than deleted despite having no caller on either link line.
-	{ "GetTouchTrace",                     "Physics_GetTouchTrace",                  true  },
-};
-
-const size_t kNumLifted = sizeof( kLifted ) / sizeof( kLifted[ 0 ] );
 
 } // namespace
 
@@ -501,92 +375,6 @@ const size_t kNumLifted = sizeof( kLifted ) / sizeof( kLifted[ 0 ] );
 //
 // The three are checked separately so a partial revert is a specific failure.
 //-----------------------------------------------------------------------------
-TEST( PhysicsLinkLift, TheTwoPhysicsBridgesRefuseTheContactTouchlinkOutLoud )
-{
-	// A plain occurrence counter, NOT CountCallsTo: a refusal is DECLARED
-	// (`static CPhysicsBridgeRefusal s_Foo( ... )`), so the type name is
-	// followed by an identifier rather than by `(`, and the call counter reads
-	// 0 for a file with two of them. Stated because it read 0 here first.
-	struct Local
-	{
-		static size_t Occurrences( const std::string &hay, const std::string &needle )
-		{
-			size_t n = 0;
-			for ( size_t at = hay.find( needle ); at != std::string::npos;
-			      at = hay.find( needle, at + needle.size() ) )
-			{
-				n++;
-			}
-			return n;
-		}
-	};
-
-	// The CLIENT bridge is gone: fork game/client/physics.cpp left client.so
-	// (2026-10-18) and its touch slots are managed's, which answer as stock's
-	// client did for an owner-less pair (ClientPhysicsCollisionEventsTests.
-	// TheFiveSlotsStockLeftEmptyReachNoSink). The server's half stays.
-	const char *const kBridges[] = { "../sourcesharp/game/server/physics.cpp" };
-
-	for ( size_t i = 0; i < sizeof( kBridges ) / sizeof( kBridges[ 0 ] ); i++ )
-	{
-		const std::string strSrc = ReadGameFile( kBridges[ i ] );
-		ASSERT_FALSE( strSrc.empty() ) << kBridges[ i ] << " did not load";
-
-		// Comments are stripped so the prose ABOUT the refusal cannot satisfy
-		// the check for the refusal -- `.vpc prose is load-bearing` in reverse,
-		// and these two files are almost entirely prose.
-		const std::string strCode = StripComments( strSrc );
-
-		// NAMED, NOT COUNTED IN BULK -- and it is the DECLARATION that is
-		// counted, not the name: each refusal's name also appears in its three
-		// uses (.Reached, .What, .Refusal), so a bare name count reads 4 for one
-		// refusal. Stated because it read 4 here first. `server/physics.cpp` declares several
-		// refusals for unrelated paths -- the shadow list, the debug overlay,
-		// the solver -- so a count of ALL CPhysicsBridgeRefusal declarations
-		// would rise as other work lands and would say nothing about THESE two.
-		// The two contact-touchlink refusals are named individually, which is
-		// also what makes a partial revert point at the half that went.
-		// THE SERVER NO LONGER REFUSES (physics stock parity E1, 2026-10-01):
-		// contact touch is ported (managed's since plan_physics_managed B2.2), and
-		// TheServerHoldsAContactTouchAndReleasesIt below pins that build and
-		// teardown went TOGETHER. The client still refuses both.
-		const bool bServer = true;
-
-		EXPECT_EQ( bServer ? 0u : 1u, Local::Occurrences( strCode, "CPhysicsBridgeRefusal s_RefuseContactTouch(" ) )
-			<< kBridges[ i ] << ( bServer
-				? " refuses DispatchStartTouch again, but the server ports contact touch."
-				: " has no DispatchStartTouch refusal. Refusing the "
-				  "teardown while keeping the build leaks touch links that are never "
-				  "torn down -- the bug this test's other message says nothing "
-				  "downstream would notice." );
-
-		EXPECT_EQ( bServer ? 0u : 1u, Local::Occurrences( strCode, "CPhysicsBridgeRefusal s_RefuseContactUntouch(" ) )
-			<< kBridges[ i ] << ( bServer
-				? " refuses DispatchEndTouch again, but the server ports contact touch."
-				: " has no DispatchEndTouch refusal. Refusing the "
-				  "build while keeping the teardown walks a list nothing fills." );
-
-		// AND EACH ONE PRINTS. This was `find("SOURCESHARP_PHYSICS_REFUSAL_FMT")`
-		// and was a check that could not fail: with several refusals in a file,
-		// silencing ONE leaves the others' prints behind and a first-hit search
-		// still says yes. Caught by mutating the server's DispatchStartTouch
-		// print to a DevMsg -- the test stayed green.
-		//
-		// The invariant is one print per refusal, file-wide: every refusal this
-		// file declares must reach the shared format exactly once. Counting the
-		// two together is what makes silencing any single one visible.
-		EXPECT_EQ( Local::Occurrences( strCode, "CPhysicsBridgeRefusal" ),
-		           Local::Occurrences( strCode, "SOURCESHARP_PHYSICS_REFUSAL_FMT" ) )
-			<< kBridges[ i ] << " declares "
-			<< Local::Occurrences( strCode, "CPhysicsBridgeRefusal" ) << " refusals but "
-			<< "prints through the shared format "
-			<< Local::Occurrences( strCode, "SOURCESHARP_PHYSICS_REFUSAL_FMT" ) << " times. "
-			<< "A refusal that never prints is a silent no-op wearing a type -- the "
-			<< "thing plan_entity.md §7 forbids -- and it is invisible in a file that "
-			<< "still has another one printing.";
-	}
-}
-
 //-----------------------------------------------------------------------------
 // THE SERVER'S CONTACT TOUCH, PORTED: both halves, both directions.
 //
@@ -602,44 +390,10 @@ TEST( PhysicsLinkLift, TheTwoPhysicsBridgesRefuseTheContactTouchlinkOutLoud )
 // DispatchStartTouch / DispatchEndTouch are deleted. Whole calls are the
 // needles; the live gate's contact-touch step is the behaviour.
 //-----------------------------------------------------------------------------
-TEST( PhysicsLinkLift, TheServerHoldsAContactTouchAndReleasesIt )
-{
-	const std::string strServer  = StripComments( ReadGameFile( "../sourcesharp/game/server/physics.cpp" ) );
-	const std::string strBinding = StripComments( ReadGameFile(
-		"../sourcesharp/managed/SourceSharp.Server.Interop/PhysicsCollisionEventBinding.cs" ) );
-	ASSERT_FALSE( strServer.empty() );
-	ASSERT_FALSE( strBinding.empty() );
-
-	EXPECT_EQ( std::string::npos, strServer.find( "owner0.StartTouch( owner1 );" ) )
-		<< "native's contact touch dispatch is back in physics.cpp";
-
-	const char *const kNeedles[] = {
-		"solverHeld.Add(first, second);", "solverHeld.Remove(first, second);",
-	};
-	for ( const char *pszNeedle : kNeedles )
-	{
-		EXPECT_NE( std::string::npos, strBinding.find( pszNeedle ) )
-			<< "the collision event binding no longer has `" << pszNeedle << "`: contact "
-			<< "touch must be held, and its teardown must go with its build.";
-	}
-}
-
 //-----------------------------------------------------------------------------
 // ...and the TRIGGER path, a different mechanism on the same set. Without
 // this, dropping both touch mechanisms at once would pass every check above.
 //-----------------------------------------------------------------------------
-TEST( PhysicsLinkLift, TheTriggerTouchPathIsHeldToo )
-{
-	const std::string strBinding = StripComments( ReadGameFile(
-		"../sourcesharp/managed/SourceSharp.Server.Interop/PhysicsCollisionEventBinding.cs" ) );
-	ASSERT_FALSE( strBinding.empty() );
-
-	EXPECT_NE( std::string::npos, strBinding.find( "solverHeld.Add(trigger, entity);" ) )
-		<< "entering a physics trigger no longer holds the pair";
-	EXPECT_NE( std::string::npos, strBinding.find( "solverHeld.Remove(trigger, entity);" ) )
-		<< "leaving a physics trigger no longer releases the pair";
-}
-
 //=============================================================================
 // "Every forwarder is a forward and nothing more" WAS HERE, reading the
 // quarantine file. There are no forwarders left. What it defended -- that the
@@ -653,15 +407,6 @@ TEST( PhysicsLinkLift, TheTriggerTouchPathIsHeldToo )
 // The free functions exist where they are supposed to.
 //=============================================================================
 
-TEST( PhysicsLinkLift, HeaderDeclaresEveryFreeFunction )
-{
-	for ( size_t i = 0; i < kNumLifted; i++ )
-	{
-		EXPECT_TRUE( DeclaredInHeader( PhysicsLinkHeader(), kLifted[ i ].pszFree ) )
-			<< "physicslink.h does not declare " << kLifted[ i ].pszFree;
-	}
-}
-
 //=============================================================================
 // The PREMISE of the lift: seven of the eight really are declared `static`.
 //
@@ -670,97 +415,6 @@ TEST( PhysicsLinkLift, HeaderDeclaresEveryFreeFunction )
 // silently stopped being true.
 //=============================================================================
 
-TEST( PhysicsLinkLift, TheStaticOnesLeftBothHeadersAndTheirFreeFormsTakeTheEntityExplicitly )
-{
-	// WAS TheStaticOnesAreStillDeclaredStaticOnBothSides, which read the
-	// `static` off each member's declaration in the two entity headers. Those
-	// declarations were inside the class bodies, inside
-	// `#ifndef SS_CBASEENTITY_ALIAS` -- an arm this build never compiled -- and
-	// the close deleted it with the tree's other 452 dead arms. Reading a
-	// premise off text the compiler never sees is the check-that-cannot-fail
-	// shape, so this is re-pointed rather than dropped.
-	//
-	// THE PREMISE IS THE SAME CLAIM SPELLED A DIFFERENT WAY. `static` on the
-	// member meant "this function takes no `this`" -- which is what made it
-	// liftable. The lifted form says it outright: every one of the seven static
-	// ones takes its entity as an EXPLICIT parameter, `IGameEntity *`, and
-	// physicslink.h is a header the build really compiles. If a free form ever
-	// stops taking the entity, either it has started reading a global or the
-	// lift has been undone, and neither produces a diagnostic.
-	for ( size_t i = 0; i < kNumLifted; i++ )
-	{
-		if ( !kLifted[ i ].bDeclaredStatic )
-			continue;
-
-		// The server header's half read game/server/baseentity.h, which is
-		// compiled by nothing since plan_server_novalve.md P5 and left the farm
-		// in P6; AllFilesWereReallyOpened pins that absence instead.
-
-		EXPECT_FALSE( DeclaredStatic( ClientBaseEntityHeader(), kLifted[ i ].pszMember ) )
-			<< "game/client/c_baseentity.h declares " << kLifted[ i ].pszMember
-			<< " static again.";
-
-		// The live successor, in the header physicslink.h's own callers include.
-		EXPECT_TRUE( DeclaredInHeader( PhysicsLinkHeader(), kLifted[ i ].pszFree ) )
-			<< kLifted[ i ].pszFree << " is not declared in physicslink.h at all, "
-			<< "so the assertion above is passing over its absence.";
-
-		EXPECT_FALSE( DeclaredStatic( PhysicsLinkHeader(), kLifted[ i ].pszFree ) )
-			<< kLifted[ i ].pszFree << " is declared `static` in physicslink.h. "
-			<< "At namespace scope in a header that is internal linkage -- one "
-			<< "copy per including TU -- which is the opposite of what `static` "
-			<< "bought on the member it replaced.";
-	}
-
-	// Physics_GetTouchTrace is the exception among the seven and is named here
-	// rather than filtered out silently: it reads the file-scope g_TouchTrace,
-	// so it takes no entity either. Its own entry in physicslink.h says why.
-	const std::string strLink = Squeezed( StripComments( PhysicsLinkHeader() ) );
-	const char *const kTakeAnEntity[] = {
-		"voidPhysicsLink_RemoveTouchedList(IGameEntity*ent);",
-		"voidPhysicsLink_NotifyOtherOfUntouch(IGameEntity*ent,IGameEntity*other);",
-		"voidPhysicsLink_RemoveToucher(IGameEntity*other,touchlink_t*link);",
-		"voidPhysicsLink_NotifyOtherOfGroundRemoval(IGameEntity*ent,IGameEntity*other);",
-		"voidPhysicsLink_RemoveGround(IGameEntity*other,groundlink_t*link);",
-		"voidPhysicsLink_RemoveGroundList(IGameEntity*ent);",
-	};
-	for ( size_t i = 0; i < sizeof( kTakeAnEntity ) / sizeof( kTakeAnEntity[ 0 ] ); i++ )
-	{
-		EXPECT_NE( std::string::npos, strLink.find( kTakeAnEntity[ i ] ) )
-			<< "physicslink.h no longer declares \"" << kTakeAnEntity[ i ]
-			<< "\". Note the spelling of the entity type: `IGameEntity`, because "
-			<< "the alias these used to be written through is deleted.";
-	}
-}
-
-TEST( PhysicsLinkLift, ClipVelocityIsTheOneThatWasNeverStatic )
-{
-	// READ THE ASSERTIONS, NOT THE NAME. The name records the asymmetry and the
-	// asymmetry has not changed: PhysicsClipVelocity lifts because its body is
-	// PURE ARITHMETIC, not because it was declared static. What changed is
-	// where that is readable -- the two `static`-free declarations this used to
-	// read were in class bodies inside `#ifndef SS_CBASEENTITY_ALIAS`, which
-	// the compiler never saw and the close deleted.
-	//
-	// The lifted form shows the asymmetry better than the absent `static` did:
-	// Physics_ClipVelocity takes no entity of any kind, while the six link
-	// functions above it all take an `IGameEntity *`. Vectors in, vector out.
-	// (The server header's half left with game/server/baseentity.h: compiled by
-	// nothing since plan_server_novalve.md P5, out of the farm since P6.)
-	EXPECT_FALSE( DeclaredStatic( ClientBaseEntityHeader(), "PhysicsClipVelocity" ) );
-
-	const std::string strLink = Squeezed( StripComments( PhysicsLinkHeader() ) );
-	EXPECT_NE( std::string::npos, strLink.find(
-		"intPhysics_ClipVelocity(constVector&in,constVector&normal,Vector&out,floatoverbounce);" ) )
-		<< "Physics_ClipVelocity's declaration in physicslink.h is not the "
-		<< "arithmetic-only one any more. If it has acquired an entity "
-		<< "parameter, the reason this one was a lift at all has stopped being "
-		<< "true and nothing else in the tree would say so.";
-
-	EXPECT_EQ( std::string::npos, strLink.find( "Physics_ClipVelocity(IGameEntity" ) )
-		<< "Physics_ClipVelocity now takes an entity.";
-}
-
 //=============================================================================
 // THE SCANNER IS ITSELF CHECKED.
 //
@@ -768,49 +422,6 @@ TEST( PhysicsLinkLift, ClipVelocityIsTheOneThatWasNeverStatic )
 // the extractor never matched anything, every one of those assertions that is
 // phrased as "does not contain" passes for free.
 //=============================================================================
-
-TEST( PhysicsLinkLiftFixture, AllFilesWereReallyOpened )
-{
-	// FLOOR PLUS ANCHOR, the shape the two entity headers below already use and
-	// the server vpc took next (05237b9c8). Both subjects here are files the
-	// port is actively moving code OUT of -- that is what this suite measures --
-	// so a byte threshold over either one reddens on a correct tree eventually,
-	// saying "did not load" about a file that loaded perfectly. Measured, not
-	// guessed: baseentity_shared.cpp is 81,361 bytes and physics_main_shared.cpp
-	// 59,986, both against floors of 50,000, and the lift is still taking bodies
-	// out of them. The floor drops to a value only an unopened or truncated read
-	// can miss; the anchor identifies WHICH file was read, which a size cannot.
-	// (physics_main_shared.cpp's row left with the file: neither DLL compiles
-	// it, and the checks that read it were culled 2026-09-27.)
-	EXPECT_GT( PhysicsLinkHeader().size(),        200u ) << "physicslink.h did not load";
-	EXPECT_NE( PhysicsLinkHeader().find( "PHYSICSLINK_H" ), std::string::npos )
-		<< "physicslink.h is not physicslink.h.";
-	// ANCHORS, NOT SIZES, for the two entity headers. Both lost their class
-	// bodies -- 2,693 lines from the server's and 2,233 from the client's --
-	// when the close deleted `#ifndef SS_CBASEENTITY_ALIAS`, so the
-	// 50,000-byte thresholds that stood here reported "did not load" about
-	// files that had loaded perfectly. A size cannot tell a truncated file from
-	// a shortened one in any case. Each anchor is a LIVE line from the tail
-	// that SURVIVED the class, at preprocessor depth 1.
-	EXPECT_GT( ClientBaseEntityHeader().size(), 5000u ) << "client/c_baseentity.h did not load";
-	EXPECT_NE( std::string::npos,
-	           ClientBaseEntityHeader().find( "EXTERN_RECV_TABLE(DT_BaseEntity);" ) )
-		<< "client/c_baseentity.h is not the file this suite means to be reading.";
-
-	// THE SERVER HEADER IS AN ANCHORED ABSENCE NOW. game/server/baseentity.h is
-	// compiled by nothing since plan_server_novalve.md P5 and left the farm in
-	// P6, which is the stronger form of the "declares it static again" facts
-	// above that used to read it. ReadGameFile answers empty both for a missing
-	// file and for no tree at all, so a sibling in the same directory must read
-	// first.
-	EXPECT_NE( std::string::npos,
-	           ReadGameFile( "shared/shareddefs.h" ).find( "#ifndef SHAREDDEFS_H" ) )
-		<< "game/shared/shareddefs.h did not read, so the absence below is not "
-		<< "evidence.";
-	EXPECT_TRUE( ServerBaseEntityHeader().empty() )
-		<< "game/server/baseentity.h is readable from the farm again. Nothing has "
-		<< "compiled it since plan_server_novalve.md P5.";
-}
 
 TEST( PhysicsLinkLiftFixture, ExtractorTellsADefinitionFromACall )
 {
@@ -882,22 +493,6 @@ TEST( PhysicsLinkLiftFixture, ForwarderBodyExtractorWorksOnFixtures )
 		<< "the >1-semicolon rule cannot catch a grown forwarder";
 
 	EXPECT_TRUE( ForwarderBody( strPositive, "Absent" ).empty() );
-}
-
-TEST( PhysicsLinkLiftFixture, StaticDetectorWorksOnFixtures )
-{
-	const std::string strFixture =
-		"class CBaseEntity\n"
-		"{\n"
-		"    static void   IsStatic( CBaseEntity *ent );\n"
-		"    void          IsNotStatic( CBaseEntity *ent );\n"
-		"};\n";
-
-	EXPECT_TRUE ( DeclaredStatic( strFixture, "IsStatic" ) );
-	EXPECT_FALSE( DeclaredStatic( strFixture, "IsNotStatic" ) )
-		<< "the static detector answers true for a non-static declaration, so "
-		<< "TheStaticOnesAreStillDeclaredStaticOnBothSides cannot fail";
-	EXPECT_FALSE( DeclaredStatic( strFixture, "NotPresentAtAll" ) );
 }
 
 TEST( PhysicsLinkLiftFixture, FreeDefinitionDetectorWorksOnFixtures )

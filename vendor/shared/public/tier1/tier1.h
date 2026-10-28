@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "appframework/IAppSystem.h"
 #include "tier1/convar.h"
 
 // Forward declarations

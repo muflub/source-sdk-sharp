@@ -66,16 +66,16 @@ public:
 	void Release();
 
 	// IClientRenderable, answered as CNewParticleEffect did.
-	virtual const Vector &GetRenderOrigin( void ) OVERRIDE { return m_vSortOrigin; }
-	virtual const QAngle &GetRenderAngles( void ) OVERRIDE { return vec3_angle; }
+	virtual const Vector &GetRenderOrigin() OVERRIDE { return m_vSortOrigin; }
+	virtual const QAngle &GetRenderAngles() OVERRIDE { return vec3_angle; }
 	virtual const matrix3x4_t &RenderableToWorldTransform() OVERRIDE;
 	const char *GetDebugName() const { return m_pDebugName; }
 	virtual void GetRenderBounds( Vector &mins, Vector &maxs ) OVERRIDE;
-	virtual bool ShouldDraw( void ) OVERRIDE { return true; }
-	virtual bool IsTransparent( void ) OVERRIDE;
-	virtual bool IsTwoPass( void ) OVERRIDE;
-	virtual bool UsesPowerOfTwoFrameBufferTexture( void ) OVERRIDE;
-	virtual bool UsesFullFrameBufferTexture( void ) OVERRIDE;
+	virtual bool ShouldDraw() OVERRIDE { return true; }
+	virtual bool IsTransparent() OVERRIDE;
+	virtual bool IsTwoPass() OVERRIDE;
+	virtual bool UsesPowerOfTwoFrameBufferTexture() OVERRIDE;
+	virtual bool UsesFullFrameBufferTexture() OVERRIDE;
 	virtual int DrawModel( int flags ) OVERRIDE;
 
 	bool IsReleasedSinceFrame() const { return m_bReleasedSinceFrame; }

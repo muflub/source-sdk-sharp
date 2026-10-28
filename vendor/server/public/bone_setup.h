@@ -3,8 +3,6 @@
 #pragma once
 
 #include "studio.h"
-#include "cmodel.h"
-#include "bitvec.h"
 
 class CIKContext;
 class CBoneAccessor;

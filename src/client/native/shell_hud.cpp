@@ -229,7 +229,7 @@ void SourceSharp_UiSetClip( int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1
 	g_pMatSystemSurface->DisableClipping( g_UiPaint.bPanelClipDisabled );
 }
 
-int32_t SourceSharp_UiTextureCreate( void )
+int32_t SourceSharp_UiTextureCreate()
 {
 	return surface()->CreateNewTextureID( true );
 }
@@ -297,13 +297,13 @@ void SourceSharp_UiPlaySound( const char *pPath )
 }
 
 // The engine's entity index for this client, 0 when there is no local player.
-int32_t SourceSharp_GetLocalPlayerIndex( void )
+int32_t SourceSharp_GetLocalPlayerIndex()
 {
 	const int nIndex = engine->GetLocalPlayer();
 	return nIndex > 0 ? nIndex : 0;
 }
 
-int32_t SourceSharp_GetLocalPlayerHealth( void )
+int32_t SourceSharp_GetLocalPlayerHealth()
 {
 	// The health the managed player publishes each frame; -1 when there is no
 	// local player, so a HUD can tell "no player" from "dead".
@@ -350,7 +350,7 @@ public:
 			g_UiPaint.pMenuRoot = NULL;
 	}
 
-	virtual void Paint( void ) OVERRIDE
+	virtual void Paint() OVERRIDE
 	{
 		IManagedUiClient *pUi = ManagedUiClient();
 		if ( !pUi )
@@ -439,7 +439,7 @@ public:
 			new CSourceSharpMenuRoot( parent );
 	}
 
-	virtual void Paint( void ) OVERRIDE
+	virtual void Paint() OVERRIDE
 	{
 		// Layer 0 is the HUD. The UI area is NULL before the first load and after the
 		// last unload.

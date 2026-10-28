@@ -89,7 +89,7 @@ public:
 	// Remove all symbols in the table.
 	void  RemoveAll();
 
-	int GetNumStrings( void ) const
+	int GetNumStrings() const
 	{
 		return m_Lookup.Count();
 	}

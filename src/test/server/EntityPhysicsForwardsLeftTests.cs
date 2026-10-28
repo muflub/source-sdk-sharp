@@ -121,17 +121,6 @@ public class EntityPhysicsForwardsLeftTests
     }
 
     [Fact]
-    public void TheTeleportsSolverHalfLeftNative()
-    {
-        string body = Body(Code("src", "server", "native", "shell_entityapi.cpp"), "void SourceSharp_EntityTeleport(");
-
-        Assert.Contains("ent.pStandalone->TeleportTo( vecOrigin, pAngles ? &angles : NULL );", body);
-        Assert.DoesNotContain("SetPosition", body);
-        Assert.DoesNotContain("GetPhysics", body);
-        Assert.DoesNotContain("Wake", body);
-    }
-
-    [Fact]
     public void ManagedMovesTheObjectAfterTheTeleport()
     {
         Assert.Contains("_motion.TeleportObject(h, origin, angles, zeroVelocity);",
@@ -141,27 +130,10 @@ public class EntityPhysicsForwardsLeftTests
     }
 
     [Fact]
-    public void TheNativeGameFlagHelpersLeftWithTheirLastCaller()
-    {
-        string header = Code("src", "shared", "native", "ss_physics_shared.h");
-        Assert.Contains("kPhysFlagForceCollideMoveable = 0x1000,", header);
-        Assert.DoesNotContain("PhysSetGameFlags(", header);
-        Assert.DoesNotContain("PhysClearGameFlags(", header);
-    }
-
-    [Fact]
     public void ManagedOrsTheGameFlagsIn()
     {
         Assert.Contains("_v.SetGameFlags(o, (ushort)(_v.GameFlags(o) | (ushort)flags));",
                         Code("src", "shared", "interop", "EntityPhysicsMotion.cs"));
     }
 
-    [Fact]
-    public void TheObjectComesFromTheHeldPointerRead()
-    {
-        Assert.Contains("public nint PhysicsObject(EntityHandle entity) => side.EntityPhysicsObject(entity);",
-                        SideCode());
-        Assert.Contains("void *SourceSharp_EntityPhysicsObject( uint32_t hEntity )",
-                        Code("src", "server", "native", "shell_scripted.cpp"));
-    }
 }

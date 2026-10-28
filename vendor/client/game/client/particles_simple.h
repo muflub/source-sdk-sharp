@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "particlemgr.h"
 #include "particlesphererenderer.h"
 #include "smartptr.h"
 
@@ -25,7 +24,7 @@ public:
 public:
 
 	virtual void				SetParticleCullRadius( float radius );
-	virtual void				NotifyRemove( void );
+	virtual void				NotifyRemove();
 	virtual const Vector &		GetSortOrigin();
 	virtual void				NotifyDestroyParticle( Particle* pParticle );
 	virtual void				Update( float flTimeDelta );

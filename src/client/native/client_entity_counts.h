@@ -66,7 +66,7 @@ public:
 	}
 
 	// -1 when nothing is bound, as stock's CClientEntityList answers.
-	int HighestEntityIndex( void ) const { return m_nHighestUsed; }
+	int HighestEntityIndex() const { return m_nHighestUsed; }
 
 	int NumberOfEntities( bool bIncludeNonNetworkable ) const
 	{
@@ -76,12 +76,12 @@ public:
 	}
 
 	void SetMaxEntities( int nMaxEnts ) { m_nMaxServerEnts = nMaxEnts; }
-	int  MaxEntities( void ) const      { return m_nMaxServerEnts; }
+	int  MaxEntities() const      { return m_nMaxServerEnts; }
 
 private:
 	// Removing the highest entity can lower it by any amount, so it is recomputed,
 	// as stock's RecomputeHighestEntityUsed does.
-	void RecomputeHighest( void )
+	void RecomputeHighest()
 	{
 		m_nHighestUsed = -1;
 

@@ -118,13 +118,13 @@ public:
 
 	// list statistics
 	int	Count() const;
-	inline bool IsEmpty( void ) const
+	inline bool IsEmpty() const
 	{
 		return ( Head() == InvalidIndex() );
 	}
 
 	I	MaxElementIndex() const;
-	I	NumAllocated( void ) const { return m_NumAlloced; }
+	I	NumAllocated() const { return m_NumAlloced; }
 
 	// Traversing the list
 	I  Head() const;
@@ -234,7 +234,7 @@ protected:
 	// it's in release builds so this can be used in libraries correctly
 	ListElem_t  *m_pElements;
 
-	FORCEINLINE M const &Memory( void ) const
+	FORCEINLINE M const &Memory() const
 	{
 		return m_Memory;
 	}

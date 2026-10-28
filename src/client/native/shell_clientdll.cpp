@@ -190,7 +190,7 @@ INetworkStringTable *g_pStringTableServerMapCycle = NULL;
 
 class CHudChat;
 
-extern void StopAllRumbleEffects( void );
+extern void StopAllRumbleEffects();
 
 ISaveRestoreBlockHandler *GetEntitySaveRestoreBlockHandler();
 ISaveRestoreBlockHandler *GetViewEffectsRestoreBlockHandler();
@@ -244,27 +244,27 @@ public:
 	virtual int						Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory, CGlobalVarsBase *pGlobals );
 
 	virtual void					PostInit();
-	virtual void					Shutdown( void );
+	virtual void					Shutdown();
 
 	virtual bool					ReplayInit( CreateInterfaceFn fnReplayFactory );
 	virtual bool					ReplayPostInit();
 
 	virtual void					LevelInitPreEntity( const char *pMapName );
 	virtual void					LevelInitPostEntity();
-	virtual void					LevelShutdown( void );
+	virtual void					LevelShutdown();
 
-	virtual ClientClass				*GetAllClasses( void );
+	virtual ClientClass				*GetAllClasses();
 
-	virtual int						HudVidInit( void );
+	virtual int						HudVidInit();
 	virtual void					HudProcessInput( bool bActive );
 	virtual void					HudUpdate( bool bActive );
-	virtual void					HudReset( void );
+	virtual void					HudReset();
 	virtual void					HudText( const char * message );
 
-	virtual void					IN_ActivateMouse( void );
-	virtual void					IN_DeactivateMouse( void );
-	virtual void					IN_Accumulate( void );
-	virtual void					IN_ClearStates( void );
+	virtual void					IN_ActivateMouse();
+	virtual void					IN_DeactivateMouse();
+	virtual void					IN_Accumulate();
+	virtual void					IN_ClearStates();
 	virtual bool					IN_IsKeyDown( const char *name, bool& isdown );
 	virtual void					IN_OnMouseWheeled( int nDelta );
 	virtual int						IN_KeyEvent( int eventcode, ButtonCode_t keynum, const char *pszCurrentBinding );
@@ -285,7 +285,7 @@ public:
 	virtual void					InitSprite( CEngineSprite *pSprite, const char *loadname );
 	virtual void					ShutdownSprite( CEngineSprite *pSprite );
 
-	virtual int						GetSpriteSize( void ) const;
+	virtual int						GetSpriteSize() const;
 
 	virtual void					VoiceStatus( int entindex, qboolean bTalking );
 
@@ -356,7 +356,7 @@ public:
 	virtual void			ClientAdjustStartSoundParams( struct StartSoundParams_t& params );
 	
 	// Returns true if the disconnect command has been handled by the client
-	virtual bool DisconnectAttempt( void );
+	virtual bool DisconnectAttempt();
 public:
 	void PrecacheMaterial( const char *pMaterialName );
 
@@ -742,7 +742,7 @@ void CShellClientDLL::PostInit()
 	pRuntime->PostInit( nMaxDxLevel );
 }
 
-void CShellClientDLL::Shutdown( void )
+void CShellClientDLL::Shutdown()
 {
 	// First: the hooked slots name functions in this module.
 	void SourceSharp_UninstallMapMaterialReload();
@@ -795,7 +795,7 @@ void CShellClientDLL::Shutdown( void )
 }
 
 // Called at startup and on every vid_mode change so the HUD can reinitialize.
-int CShellClientDLL::HudVidInit( void )
+int CShellClientDLL::HudVidInit()
 {
 	
 	gHUD.VidInit();
@@ -822,7 +822,7 @@ void CShellClientDLL::HudUpdate( bool bActive )
 	SourceSharp_ClientSystemsUpdate( frametime );
 }
 
-void CShellClientDLL::HudReset( void )
+void CShellClientDLL::HudReset()
 {
 	gHUD.VidInit();
 	PhysicsReset();
@@ -837,27 +837,27 @@ bool CShellClientDLL::ShouldDrawDropdownConsole()
 	return true;
 }
 
-ClientClass *CShellClientDLL::GetAllClasses( void )
+ClientClass *CShellClientDLL::GetAllClasses()
 {
 	return g_pClientClassHead;
 }
 
-void CShellClientDLL::IN_ActivateMouse( void )
+void CShellClientDLL::IN_ActivateMouse()
 {
 	input->ActivateMouse();
 }
 
-void CShellClientDLL::IN_DeactivateMouse( void )
+void CShellClientDLL::IN_DeactivateMouse()
 {
 	input->DeactivateMouse();
 }
 
-void CShellClientDLL::IN_Accumulate ( void )
+void CShellClientDLL::IN_Accumulate ()
 {
 	input->AccumulateMouse();
 }
 
-void CShellClientDLL::IN_ClearStates ( void )
+void CShellClientDLL::IN_ClearStates ()
 {
 	input->ClearStates();
 }
@@ -972,12 +972,12 @@ void CShellClientDLL::StartStatsReporting( HANDLE handle, bool bArbitrated )
 
 // The SDK half of the mdl cache flush; managed flushes its own entities. Kept here because
 // it frees m_pStudioHdr.
-int32_t SourceSharp_ClientEntitiesInvalidateMdlCacheAll( void )
+int32_t SourceSharp_ClientEntitiesInvalidateMdlCacheAll()
 {
 	int32_t nInvalidated = 0;
 
 	// Declared rather than included: shell_standalone_client.h is long.
-	int32_t SourceSharp_StandaloneClientsInvalidateBoneCaches( void );
+	int32_t SourceSharp_StandaloneClientsInvalidateBoneCaches();
 
 	return nInvalidated + SourceSharp_StandaloneClientsInvalidateBoneCaches();
 }
@@ -1078,7 +1078,7 @@ void CShellClientDLL::ResetStringTablePointers()
 	g_pStringTableServerMapCycle = NULL;
 }
 
-void CShellClientDLL::LevelShutdown( void )
+void CShellClientDLL::LevelShutdown()
 {
 	if (!g_bLevelInitialized)
 		return;
@@ -1151,7 +1151,7 @@ void CShellClientDLL::ShutdownSprite( CEngineSprite *pSprite )
 }
 
 // Tells the engine how much space to allocate for sprite objects.
-int CShellClientDLL::GetSpriteSize( void ) const
+int CShellClientDLL::GetSpriteSize() const
 {
 	return sizeof( CEngineSprite );
 }
@@ -1621,7 +1621,7 @@ const char* CShellClientDLL::TranslateEffectForVisionFilter( const char *pchEffe
 	return GameRules()->TranslateEffectForVisionFilter( pchEffectType, pchEffectName );
 }
 
-bool CShellClientDLL::DisconnectAttempt( void )
+bool CShellClientDLL::DisconnectAttempt()
 {
 	bool bRet = false;
 

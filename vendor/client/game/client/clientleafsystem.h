@@ -87,7 +87,7 @@ public:
 class CClientLeafSubSystemData
 {
 public:
-	virtual ~CClientLeafSubSystemData( void )
+	virtual ~CClientLeafSubSystemData()
 	{
 	}
 };

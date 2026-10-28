@@ -42,7 +42,7 @@ extern ConVar mat_wireframe;
 
 extern const ConVar *sv_cheats;
 
-static inline bool ShouldDrawInWireFrameMode( void )
+static inline bool ShouldDrawInWireFrameMode()
 {
 	if ( !sv_cheats )
 	{

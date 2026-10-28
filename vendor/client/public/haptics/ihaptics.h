@@ -1,8 +1,5 @@
 #pragma once
 
-#include "tier0/platform.h"
-#include "appframework/IAppSystem.h"
-
 // systems forward decl.
 class IVEngineClient;
 class IViewRender;

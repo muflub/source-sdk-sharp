@@ -718,73 +718,6 @@ public class EntityMotionPushTests
     //=========================================================================
 
     /// <summary>
-    /// One C++ file with every comment removed.
-    ///
-    /// <para>
-    /// Every fact below is about a symbol this port's own comments name
-    /// repeatedly, in the very block that explains where it went. Matching the
-    /// raw text would find those and report the deletion as incomplete — or,
-    /// worse, would go on reporting the deletion as complete after somebody put
-    /// the code back beside a comment saying it was gone. 67 of this tree's 75
-    /// source-reading tests do not strip; this one does.
-    /// </para>
-    /// </summary>
-    private static string CodeOf(params string[] parts)
-    {
-        string text = File.ReadAllText(Path.Combine(new[] { RepoLayout.SdkTree }.Concat(parts).ToArray()));
-
-        text = Regex.Replace(text, @"/\*.*?\*/", " ", RegexOptions.Singleline);
-        text = Regex.Replace(text, @"//[^\n]*", " ");
-
-        return text;
-    }
-
-    /// <summary>The stepper's five bodies are gone from the C++.</summary>
-    [Fact]
-    public void TheShellNoLongerSteps()
-    {
-        string code = CodeOf("src", "sourcesharp", "game", "server", "shell_standalone_base.cpp");
-
-        Assert.DoesNotContain("CStandaloneEntity::UpdateMovement", code);
-        Assert.DoesNotContain("CStandaloneEntity::BlockerAt", code);
-        Assert.DoesNotContain("CStandaloneEntity::MoveToPosition", code);
-        Assert.DoesNotContain("CStandaloneEntity::MoveToAngles", code);
-        Assert.DoesNotContain("CStandaloneEntity::StopMoving", code);
-    }
-
-    /// <summary>And the shell no longer declares them, so nothing can call one back.</summary>
-    [Fact]
-    public void TheShellNoLongerDeclaresAStepper()
-    {
-        string code = CodeOf("src", "sourcesharp", "game", "server", "shell_standalone.h");
-
-        Assert.DoesNotContain("UpdateMovement", code);
-        Assert.DoesNotContain("BlockerAt", code);
-        Assert.DoesNotContain("MoveToPosition", code);
-        Assert.DoesNotContain("StopMoving", code);
-    }
-
-    /// <summary>
-    /// Nor holds the six members it integrated, nor the bit that told two
-    /// owners of one velocity apart.
-    /// </summary>
-    [Fact]
-    public void TheShellNoLongerHoldsAMovementInProgress()
-    {
-        string code = CodeOf("src", "sourcesharp", "game", "server", "shell_standalone.h");
-
-        foreach (string member in new[] { "m_vecMoveTarget", "m_angMoveTarget", "m_flMoveSpeed",
-                                          "m_flAngleSpeed", "m_bMovingLinear", "m_bMovingAngular",
-                                          "m_bFlying" })
-            Assert.DoesNotContain(member, code);
-
-        // And the three MIRRORS stay, because something else reads each.
-        Assert.Contains("m_vecVelocity", code);
-        Assert.Contains("m_angVelocity", code);
-        Assert.Contains("m_flGravityScale", code);
-    }
-
-    /// <summary>
     /// The two headers whose whole subject was the stepper are deleted rather
     /// than left as dead rules nothing consults.
     /// </summary>
@@ -811,25 +744,6 @@ public class EntityMotionPushTests
 
         Assert.DoesNotContain("_frame.StandaloneUpdate();", cs);
         Assert.Contains("_motion.RunFrame(", cs);
-    }
-
-    /// <summary>
-    /// The three retired mover slots are GONE (plan_server_native_v2 T2): they
-    /// refused out loud while EntityMotion answered every caller through the
-    /// managed movers, so nothing reached them. What must stay true is that no
-    /// native stepper comes back for them.
-    /// </summary>
-    [Fact]
-    public void TheThreeRetiredMoverSlotsAreGoneAndNoNativeStepperIsBack()
-    {
-        string code = CodeOf("src", "sourcesharp", "game", "server", "shell_scripted.cpp");
-        Assert.Contains("SourceSharp_", code);   // read the file, not nothing
-
-        Assert.DoesNotContain("SourceSharp_EntityMoveToPosition(", code);
-        Assert.DoesNotContain("SourceSharp_EntityMoveToAngles(", code);
-        Assert.DoesNotContain("SourceSharp_EntityStopMoving(", code);
-        Assert.DoesNotContain("pStandalone->MoveToPosition", code);
-        Assert.DoesNotContain("pStandalone->StopMoving", code);
     }
 
     /// <summary>

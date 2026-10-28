@@ -64,9 +64,7 @@ public class CollisionRulesTests
             Assert.True(native[i] == built[i],
                 "row " + i + " (" + (EngineCollisionGroup)i + "): native has 0x"
                 + native[i].ToString("X8") + ", C# builds 0x" + built[i].ToString("X8")
-                + ". The native words are proved against stock's own predicate by "
-                + "collision_rules_test.cpp, so a difference here means the C# "
-                + "rules have diverged from stock.");
+                + ", so the C# rules have diverged from the native table.");
         }
     }
 

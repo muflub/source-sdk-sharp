@@ -73,7 +73,7 @@ public:
 	virtual bool	ShouldDrawParticles( ) = 0;
 
 	// The mode can choose to not draw fog
-	virtual bool	ShouldDrawFog( void ) = 0;
+	virtual bool	ShouldDrawFog() = 0;
 
 	virtual void	OverrideView( CViewSetup *pSetup ) = 0;
 	virtual int		KeyInput( int down, ButtonCode_t keynum, const char *pszCurrentBinding ) = 0;
@@ -83,11 +83,11 @@ public:
 	virtual bool	CreateMove( float flInputSampleTime, CUserCmd *cmd ) = 0;
 
 	virtual void	LevelInit( const char *newmap ) = 0;
-	virtual void	LevelShutdown( void ) = 0;
+	virtual void	LevelShutdown() = 0;
 
 	// Certain modes hide the view model
-	virtual bool	ShouldDrawViewModel( void ) = 0;
-	virtual bool	ShouldDrawCrosshair( void ) = 0;
+	virtual bool	ShouldDrawViewModel() = 0;
+	virtual bool	ShouldDrawCrosshair() = 0;
 
 	// Let mode override viewport for engine
 	virtual void	AdjustEngineViewport( int& x, int& y, int& width, int& height ) = 0;
@@ -96,13 +96,13 @@ public:
 	virtual void	PreRender( CViewSetup *pSetup ) = 0;
 
 	// Called after everything is rendered.
-	virtual void	PostRender( void ) = 0;
+	virtual void	PostRender() = 0;
 
 	virtual void	PostRenderVGui() = 0;
 
 	virtual void	ActivateInGameVGuiContext( vgui::Panel *pPanel ) = 0;
 	virtual void	DeactivateInGameVGuiContext() = 0;
-	virtual float	GetViewModelFOV( void ) = 0;
+	virtual float	GetViewModelFOV() = 0;
 
 	virtual bool	CanRecordDemo( char *errorMsg, int length ) const = 0;
 

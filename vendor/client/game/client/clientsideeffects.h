@@ -11,17 +11,17 @@ abstract_class CClientSideEffect
 public:
 	// Constructs the named effect
 						CClientSideEffect( const char *name );
-	virtual				~CClientSideEffect( void );
+	virtual				~CClientSideEffect();
 
 	// Update/Draw the effect
 	// Derived classes must implement this method!
 	virtual void		Draw( double frametime ) = 0;
 	// Returns name of effect
-	virtual const char	*GetName( void );
+	virtual const char	*GetName();
 	// Retuns whether the effect is still active
-	virtual bool		IsActive( void );
+	virtual bool		IsActive();
 	// Sets the effect to inactive so it can be destroed
-	virtual void		Destroy( void );
+	virtual void		Destroy();
 
 	// Sets the effect name (useful for debugging).
 	virtual void		SetEffectName( const char *pszName );
@@ -37,7 +37,7 @@ private:
 abstract_class IEffectsList
 {
 public:
-	virtual			~IEffectsList( void ) {}
+	virtual			~IEffectsList() {}
 
 	// Add an effect to the list of effects
 	virtual void	AddEffect( CClientSideEffect *effect ) = 0;
@@ -46,7 +46,7 @@ public:
 	// Simulate/Update/Draw effects on list
 	virtual void	DrawEffects( double frametime ) = 0;
 	// Flush out all effects fbrom the list
-	virtual void	Flush( void ) = 0;
+	virtual void	Flush() = 0;
 };
 
 extern IEffectsList *clienteffects;
@@ -78,4 +78,4 @@ void FX_AddQuad( const Vector &origin,
 
 // For safe addition of client effects
 void SetFXCreationAllowed( bool state );
-bool FXCreationAllowed( void );
+bool FXCreationAllowed();

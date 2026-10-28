@@ -37,6 +37,7 @@ test-tiers	routine	tools/test-tiers --self-test
 ccomments	routine	tools/ccomments.py --self-test
 vpk-extract	routine	tools/vpk-extract --self-test
 server-native-scope	routine	tools/server-native-scope --self-test && tools/server-native-scope
+native-symbols	routine	tools/native-symbols --self-test && tools/native-symbols
 stock-ab	routine	tools/stock-ab/stock-ab --self-test
 client-probe-link	full	tools/client-probe-link --self-test && tools/client-probe-link
 source-tidy	routine	tools/source-tidy --self-test && tools/source-tidy

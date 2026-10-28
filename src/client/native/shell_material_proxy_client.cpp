@@ -213,7 +213,7 @@ public:
 			Apply( ops[ i ] );
 	}
 
-	virtual void Release( void ) OVERRIDE
+	virtual void Release() OVERRIDE
 	{
 		if ( IManagedMaterialProxyClient *pManaged = ManagedMaterialProxyClient() )
 			pManaged->ProxyRelease( m_hProxy );

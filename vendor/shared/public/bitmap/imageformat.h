@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include <stdio.h>
-
 enum NormalDecodeMode_t
 {
 	NORMAL_DECODE_NONE			= 0
@@ -71,10 +69,6 @@ enum ImageFormat
 
 	NUM_IMAGE_FORMATS
 };
-
-#if ( defined( POSIX  ) || defined( DX_TO_GL_ABSTRACTION ) ) && !defined( USE_DXVK )
-#include "togl/dxformats.h"
-#endif
 
 // Color structures
 struct BGRA8888_t;

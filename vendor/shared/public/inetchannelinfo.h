@@ -24,16 +24,16 @@ public:
 		TOTAL,			// must be last and is not a real group
 	};
 	
-	virtual const char  *GetName( void ) const = 0;	// get channel name
-	virtual const char  *GetAddress( void ) const = 0; // get channel IP address as string
-	virtual float		GetTime( void ) const = 0;	// current net time
-	virtual float		GetTimeConnected( void ) const = 0;	// get connection time in seconds
-	virtual int			GetBufferSize( void ) const = 0;	// netchannel packet history size
-	virtual int			GetDataRate( void ) const = 0; // send data rate in byte/sec
+	virtual const char  *GetName() const = 0;	// get channel name
+	virtual const char  *GetAddress() const = 0; // get channel IP address as string
+	virtual float		GetTime() const = 0;	// current net time
+	virtual float		GetTimeConnected() const = 0;	// get connection time in seconds
+	virtual int			GetBufferSize() const = 0;	// netchannel packet history size
+	virtual int			GetDataRate() const = 0; // send data rate in byte/sec
 	
-	virtual bool		IsLoopback( void ) const = 0;	// true if loopback channel
-	virtual bool		IsTimingOut( void ) const = 0;	// true if timing out
-	virtual bool		IsPlayback( void ) const = 0;	// true if demo playback
+	virtual bool		IsLoopback() const = 0;	// true if loopback channel
+	virtual bool		IsTimingOut() const = 0;	// true if timing out
+	virtual bool		IsPlayback() const = 0;	// true if demo playback
 
 	virtual float		GetLatency( int flow ) const = 0;	 // current latency (RTT), more accurate but jittering
 	virtual float		GetAvgLatency( int flow ) const = 0; // average packet latency in seconds
@@ -47,7 +47,7 @@ public:
 	virtual float		GetPacketTime( int flow, int frame_number ) const = 0; // time when packet was send
 	virtual int			GetPacketBytes( int flow, int frame_number, int group ) const = 0; // group size of this packet
 	virtual bool		GetStreamProgress( int flow, int *received, int *total ) const = 0;  // TCP progress if transmitting
-	virtual float		GetTimeSinceLastReceived( void ) const = 0;	// get time since last recieved packet in seconds
+	virtual float		GetTimeSinceLastReceived() const = 0;	// get time since last recieved packet in seconds
 	virtual	float		GetCommandInterpolationAmount( int flow, int frame_number ) const = 0;
 	virtual void		GetPacketResponseLatency( int flow, int frame_number, int *pnLatencyMsecs, int *pnChoke ) const = 0;
 	virtual void		GetRemoteFramerate( float *pflFrameTime, float *pflFrameTimeStdDeviation ) const = 0;

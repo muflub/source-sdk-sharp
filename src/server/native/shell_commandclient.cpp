@@ -43,7 +43,7 @@ void UTIL_SetCommandClientIndex( int index )
 	CommandClient().SetSlot( index );
 }
 
-int UTIL_GetCommandClientIndex( void )
+int UTIL_GetCommandClientIndex()
 {
 	// -1 == unknown,dedicated server console
 	// 0  == player 1
@@ -54,7 +54,7 @@ int UTIL_GetCommandClientIndex( void )
 
 // Returns true if the command was issued by the listenserver host, or by the dedicated
 // server, via rcon or the server console. This is valid during ConCommand execution.
-bool UTIL_IsCommandIssuedByServerAdmin( void )
+bool UTIL_IsCommandIssuedByServerAdmin()
 {
 	int issuingPlayerIndex = UTIL_GetCommandClientIndex();
 

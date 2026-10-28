@@ -17,7 +17,7 @@ extern CGlobalVars *gpGlobals;
 #include <algorithm>
 #include "shell_standalone_player.h"
 
-void ss::CRecipientFilter::AddAllPlayers( void )
+void ss::CRecipientFilter::AddAllPlayers()
 {
 	m_Recipients.clear();
 

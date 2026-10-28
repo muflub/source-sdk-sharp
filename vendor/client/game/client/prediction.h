@@ -21,11 +21,11 @@ class CPrediction : public IPrediction
 public:
 	DECLARE_CLASS_GAMEROOT( CPrediction, IPrediction );
 
-					CPrediction( void );
-	virtual			~CPrediction( void );
+					CPrediction();
+	virtual			~CPrediction();
 
-	virtual void	Init( void );
-	virtual void	Shutdown( void );
+	virtual void	Init();
+	virtual void	Shutdown();
 
 // Implement IPrediction
 public:
@@ -38,16 +38,16 @@ public:
 						int outgoing_command	// Last command (most recent) sent to server (un-modded)
 					);
 
-	virtual void	OnReceivedUncompressedPacket( void );
+	virtual void	OnReceivedUncompressedPacket();
 
 	virtual void	PreEntityPacketReceived( int commands_acknowledged, int current_world_update_packet );
-	virtual void	PostEntityPacketReceived( void );
+	virtual void	PostEntityPacketReceived();
 	virtual void	PostNetworkDataReceived( int commands_acknowledged );
 
-	virtual bool	InPrediction( void ) const;
-	virtual bool	IsFirstTimePredicted( void ) const;
+	virtual bool	InPrediction() const;
+	virtual bool	IsFirstTimePredicted() const;
 
-	virtual int		GetIncomingPacketNumber( void ) const;
+	virtual int		GetIncomingPacketNumber() const;
 
 	// The engine needs to be able to access a few predicted values
 	virtual void	GetViewOrigin( Vector& org );
@@ -74,7 +74,7 @@ protected:
 
 private:
 
-	void			Untouch( void );
+	void			Untouch();
 
 // Data
 protected:

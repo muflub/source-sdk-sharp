@@ -180,7 +180,7 @@ void *SSFwd_PhysicsCallbacks_ConstructKeyHandler( void *pMemory, IManagedVPhysic
 #if defined( SS_FWD_SERVER_BUILD ) || defined( SS_FWD_CLIENT_BUILD )
 #if defined( _MSC_VER )
 #if defined( SS_NO_CRT )
-extern "C" int __cdecl _purecall( void )
+extern "C" int __cdecl _purecall()
 {
 	__debugbreak();
 	return 0;

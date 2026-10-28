@@ -449,7 +449,7 @@ int32_t SourceSharp_FlashlightTexture( const char *pszName )
 	return i;
 }
 
-int32_t SourceSharp_FlashlightSupportsBorderColor( void )
+int32_t SourceSharp_FlashlightSupportsBorderColor()
 {
 	return ( g_pMaterialSystemHardwareConfig && g_pMaterialSystemHardwareConfig->SupportsBorderColor() ) ? 1 : 0;
 }

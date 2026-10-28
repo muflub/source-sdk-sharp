@@ -83,7 +83,7 @@ void SourceSharp_ListenForGameEvent( const char *pEventName )
 // Removes the listener before this DLL unloads: the engine keeps its listener
 // list for the whole process. The subscribed names are cleared too, or a later
 // load could never re-subscribe. Safe to call twice or without listening.
-void SourceSharp_StopListeningForGameEvents( void )
+void SourceSharp_StopListeningForGameEvents()
 {
 	if ( gameeventmanager )
 		gameeventmanager->RemoveListener( &g_SourceSharpEventListener );

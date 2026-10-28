@@ -1,15 +1,11 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #pragma once
 
-#include <soundflags.h>
-#include "mathlib/vector.h"
 #include <shareddefs.h>
 
 #include "shake.h"
-#include "bitmap/imageformat.h"
-#include "ispatialpartition.h"
+
 #include "materialsystem/MaterialSystemUtil.h"
-#include "inputsystem/InputEnums.h"
 
 class Vector;
 class QAngle;
@@ -30,9 +26,9 @@ namespace vgui
 };
 
 // ScreenHeight returns the height of the screen, in pixels
-int		ScreenHeight( void );
+int		ScreenHeight();
 // ScreenWidth returns the width of the screen, in pixels
-int		ScreenWidth( void );
+int		ScreenWidth();
 
 void	UTIL_Smoke( const Vector &origin, const float scale, const float framerate );
 

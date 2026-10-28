@@ -127,7 +127,7 @@ IEffects *g_pEffects = &s_EffectsThunk;
 
 // What SuppressTE reads: this IEffects' IPredictionSystem state, and a client
 // PVS filter's count.
-int32_t SourceSharp_FxCanPredict( void )
+int32_t SourceSharp_FxCanPredict()
 {
 	return s_EffectsThunk.CanPredict() ? 1 : 0;
 }

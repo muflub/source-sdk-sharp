@@ -48,14 +48,14 @@ abstract_class IViewRender
 public:
 	// SETUP
 	// Initialize view renderer
-	virtual void		Init( void ) = 0;
+	virtual void		Init() = 0;
 
 	// Clear any systems between levels
-	virtual void		LevelInit( void ) = 0;
-	virtual void		LevelShutdown( void ) = 0;
+	virtual void		LevelInit() = 0;
+	virtual void		LevelShutdown() = 0;
 
 	// Shutdown
-	virtual void		Shutdown( void ) = 0;
+	virtual void		Shutdown() = 0;
 
 	// RENDERING
 	// Called right before simulation. It must setup the view model origins and angles here so 
@@ -73,18 +73,18 @@ public:
 
 	// MISC
 	// Start and stop pitch drifting logic
-	virtual void		StartPitchDrift( void ) = 0;
-	virtual void		StopPitchDrift( void ) = 0;
+	virtual void		StartPitchDrift() = 0;
+	virtual void		StopPitchDrift() = 0;
 
 	// This can only be called during rendering (while within RenderView).
 	virtual VPlane*		GetFrustum() = 0;
 
-	virtual bool		ShouldDrawBrushModels( void ) = 0;
+	virtual bool		ShouldDrawBrushModels() = 0;
 
-	virtual const CViewSetup *GetPlayerViewSetup( void ) const = 0;
-	virtual const CViewSetup *GetViewSetup( void ) const = 0;
+	virtual const CViewSetup *GetPlayerViewSetup() const = 0;
+	virtual const CViewSetup *GetViewSetup() const = 0;
 
-	virtual void		DisableVis( void ) = 0;
+	virtual void		DisableVis() = 0;
 
 	virtual int			BuildWorldListsNumber() const = 0;
 
@@ -93,7 +93,7 @@ public:
 
 	virtual void		GetWaterLODParams( float &flCheapWaterStartDistance, float &flCheapWaterEndDistance ) = 0;
 
-	virtual void		DriftPitch (void) = 0;
+	virtual void		DriftPitch () = 0;
 
 	virtual void		SetScreenOverlayMaterial( IMaterial *pMaterial ) = 0;
 	virtual IMaterial	*GetScreenOverlayMaterial( ) = 0;

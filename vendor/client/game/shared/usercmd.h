@@ -67,7 +67,7 @@ public:
 		*this = src;
 	}
 
-	CRC32_t GetChecksum( void ) const
+	CRC32_t GetChecksum() const
 	{
 		CRC32_t crc;
 

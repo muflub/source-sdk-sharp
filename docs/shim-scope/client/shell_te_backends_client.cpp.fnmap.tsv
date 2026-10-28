@@ -11,7 +11,7 @@
 3	SLOT	void SourceSharp_ClientPlayerDecalShoot( const float *, int32_t, int32_t )
 6	BOUNDARY	int32_t SourceSharp_ClientDecalIndexFromName( const char *pName )
 14	BOUNDARY	void SourceSharp_ClientDecalStaticProp( const float *pStartXYZ, const float *pEndXYZ,
-4	BOUNDARY	int32_t SourceSharp_ClientIsLowViolence( void )
+4	BOUNDARY	int32_t SourceSharp_ClientIsLowViolence()
 6	BOUNDARY	int32_t SourceSharp_ClientDecalNameFromIndex( int32_t nDecalIndex, char *pOut, int32_t nOutSize )
 12	BOUNDARY	int32_t SourceSharp_ClientEntityModelType( int32_t nEntity )
 21	BOUNDARY	void SourceSharp_ClientDecalStudioModel( int32_t nEntity,

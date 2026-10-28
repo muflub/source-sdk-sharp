@@ -17,7 +17,7 @@ int ScreenTransform( const Vector& point, Vector& screen );
 extern ConVar r_updaterefracttexture;
 extern int g_viewscene_refractUpdateFrame;
 extern bool g_bAllowMultipleRefractUpdatesPerScenePerFrame;
-bool DrawingShadowDepthView( void );
+bool DrawingShadowDepthView();
 
 inline void UpdateRefractTexture( int x, int y, int w, int h, bool bForceUpdate = false )
 {
@@ -112,7 +112,7 @@ inline void DrawScreenEffectMaterial( IMaterial *pMaterial, int x, int y, int w,
 		pTexture->GetActualWidth(), pTexture->GetActualHeight() );
 }
 
-inline void UpdateScreenEffectTexture( void )
+inline void UpdateScreenEffectTexture()
 {
 	Assert( !DrawingShadowDepthView() );
 
@@ -120,4 +120,4 @@ inline void UpdateScreenEffectTexture( void )
 	UpdateScreenEffectTexture( 0, pViewSetup->x, pViewSetup->y, pViewSetup->width, pViewSetup->height);
 }
 
-void UpdateFullScreenDepthTexture( void );
+void UpdateFullScreenDepthTexture();

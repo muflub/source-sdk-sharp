@@ -16,7 +16,7 @@
 #include "managed_runtime_client.h"
 
 // Defined in sourcesharp_gamesystem.cpp, which publishes no header for it.
-bool SourceSharp_LoadManagedSide( void );
+bool SourceSharp_LoadManagedSide();
 
 // Fatal at the point of failure: the engine answers a false IBaseClientDLL::Init with a
 // stack overflow, which hides the diagnostic.

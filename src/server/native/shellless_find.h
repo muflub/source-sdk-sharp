@@ -2,9 +2,9 @@
 // overflow buffer when they don't fit inline. Engine-free so it can be tested.
 #pragma once
 
-#include <stdint.h>
 
-#include <vector>
+
+
 
 // Handles collected without allocating; more costs a second call and an allocation.
 enum { kShellLessFindInline = 64 };

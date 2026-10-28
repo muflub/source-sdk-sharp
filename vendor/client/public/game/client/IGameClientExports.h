@@ -23,7 +23,7 @@ public:
     virtual void CreateAchievementsPanel( vgui::Panel* pParent ) = 0;
     virtual void DisplayAchievementPanel( ) = 0;
     virtual void ShutdownAchievementPanel( ) = 0;
-	virtual int GetAchievementsPanelMinWidth( void ) const = 0;
+	virtual int GetAchievementsPanelMinWidth() const = 0;
 
     // HPE_END
 

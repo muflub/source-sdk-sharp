@@ -145,19 +145,19 @@ class CViewRender : public IViewRender,
 {
 	DECLARE_CLASS_NOBASE( CViewRender );
 public:
-	virtual void	Init( void );
-	virtual void	Shutdown( void );
+	virtual void	Init();
+	virtual void	Shutdown();
 
 	const CViewSetup *GetPlayerViewSetup( ) const;
 
-	virtual void	StartPitchDrift( void );
-	virtual void	StopPitchDrift( void );
+	virtual void	StartPitchDrift();
+	virtual void	StopPitchDrift();
 
 	virtual float	GetZNear();
 	virtual float	GetZFar();
 
 	virtual void	OnRenderStart();
-	void			DriftPitch (void);
+	void			DriftPitch ();
 
 protected:
 
@@ -182,7 +182,7 @@ protected:
 
 public:
 					CViewRender();
-	virtual			~CViewRender( void ) {}
+	virtual			~CViewRender() {}
 
 // Implementation of IViewRender interface
 public:
@@ -195,16 +195,16 @@ public:
 	virtual void unused_Render2DEffectsPostHUD() = 0;
 
 	// Called once per level change
-	void			LevelInit( void );
-	void			LevelShutdown( void );
+	void			LevelInit();
+	void			LevelShutdown();
 
 	// Add entity to transparent entity queue
 
-	bool			ShouldDrawBrushModels( void );
+	bool			ShouldDrawBrushModels();
 
 	const CViewSetup *GetViewSetup( ) const;
 	
-	void			DisableVis( void );
+	void			DisableVis();
 
 	void			SetCheapWaterStartDistance( float flCheapWaterStartDistance );
 	void			SetCheapWaterEndDistance( float flCheapWaterEndDistance );

@@ -103,7 +103,7 @@ void SourceSharpTePool_Update( float flFrameTime )
 // Frees every live tempent (CTempEnts::Clear). The sweep afterwards covers the
 // managed side being down (a reload, or after ClientShutdown): a slot left bound
 // would hold a tempent the memory pool believes is live across a level change.
-void SourceSharpTePool_Clear( void )
+void SourceSharpTePool_Clear()
 {
 	if ( IManagedTempEntsClient *pTempEnts = ManagedTempEntsClient() )
 		pTempEnts->OnTempEntPoolClear();
@@ -132,7 +132,7 @@ C_LocalTempEntity *SourceSharpTePool_Find( int nID, int nSubID )
 	return NULL;
 }
 
-int32_t SourceSharp_TempEntPoolCapacity( void )
+int32_t SourceSharp_TempEntPoolCapacity()
 {
 	return (int32_t)CTempEnts::MAX_TEMP_ENTITIES;
 }
@@ -792,7 +792,7 @@ void SourceSharp_FxVectorRandom( float flLo, float flHi, float *pOutXYZ )
 	pOutXYZ[0] = v.x; pOutXYZ[1] = v.y; pOutXYZ[2] = v.z;
 }
 
-int32_t SourceSharp_FxMaterialsCached( void )
+int32_t SourceSharp_FxMaterialsCached()
 {
 	return ( g_Mat_SMG_Muzzleflash[0] ? 1 : 0 ) | ( g_Mat_Combine_Muzzleflash[0] ? 2 : 0 );
 }

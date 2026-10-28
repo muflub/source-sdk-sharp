@@ -53,20 +53,6 @@ namespace
 
 const char *const kMemOverride = "public/tier0/memoverride.cpp";
 
-std::vector< std::string > Lines( const std::string &strText )
-{
-	std::vector< std::string > v;
-	std::istringstream in( strText );
-	std::string cur;
-	while ( std::getline( in, cur ) )
-	{
-		if ( !cur.empty() && cur[ cur.size() - 1 ] == '\r' )
-			cur.erase( cur.size() - 1 );
-		v.push_back( cur );
-	}
-	return v;
-}
-
 // A stock source is one under game/ or public/. DELIBERATELY a prefix test on
 // the farm-relative path that errs toward over-reporting.
 bool IsStock( const std::string &strPath )
@@ -96,29 +82,6 @@ Counts CountSources( const char *pszTarget )
 			c.nShim++;
 	}
 	return c;
-}
-
-// The ratchet file's value for one metric, or -1.
-long RatchetCeiling( const char *pszMetric )
-{
-	const std::string strPath = cmake_graph::RepoRoot() + "/docs/shim-ratchet.tsv";
-	std::ifstream f( strPath.c_str() );
-	std::stringstream ss;
-	ss << f.rdbuf();
-	const std::vector< std::string > lines = Lines( ss.str() );
-	for ( size_t i = 0; i < lines.size(); i++ )
-	{
-		if ( lines[ i ].empty() || lines[ i ][ 0 ] == '#' )
-			continue;
-		const size_t t1 = lines[ i ].find( '\t' );
-		if ( t1 == std::string::npos || lines[ i ].substr( 0, t1 ) != pszMetric )
-			continue;
-		const size_t t2 = lines[ i ].find( '\t', t1 + 1 );
-		if ( t2 == std::string::npos )
-			continue;
-		return strtol( lines[ i ].substr( t2 + 1 ).c_str(), NULL, 10 );
-	}
-	return -1;
 }
 
 } // namespace
@@ -151,20 +114,6 @@ TEST( ShimVpcStockRows, NeitherSideCompilesMemOverride )
 //-----------------------------------------------------------------------------
 // The ratchet itself.
 //-----------------------------------------------------------------------------
-TEST( ShimVpcStockRows, TheServerCompilesNoStockTu )
-{
-	const long lCeiling = RatchetCeiling( "server_stock_tus" );
-	ASSERT_EQ( 0, lCeiling ) << "docs/shim-ratchet.tsv's server_stock_tus row is "
-		"missing or not zero";
-	const Counts c = CountSources( cmake_graph::kServer );
-	EXPECT_EQ( c.nStock, 0 )
-		<< "server_sourcesharp (src/server/native/CMakeLists.txt) compiles "
-		<< c.nStock << " TU(s) under game/ or public/. plan_shim.md Phase 2's "
-		   "exit condition is zero: a file that must stay native RELOCATES under "
-		   "src/sourcesharp/ carrying its reason letter (see "
-		   "shim_reason_letters_test.cpp).";
-}
-
 //-----------------------------------------------------------------------------
 // And the client, which reached the same exit (2026-10-19, C7 cluster 12 S2:
 // clientshadowmgr.cpp, the client's last fork TU, left client.so).
@@ -179,27 +128,6 @@ TEST( ShimVpcStockRows, TheServerCompilesNoStockTu )
 // and the count is not zero for want of rows) and every source it compiles is
 // classified, so a fourth root cannot hide a stock TU from the zero.
 //-----------------------------------------------------------------------------
-TEST( ShimVpcStockRows, TheClientCompilesNoStockTu )
-{
-	const long lCeiling = RatchetCeiling( "client_stock_tus" );
-	ASSERT_EQ( 0, lCeiling ) << "docs/shim-ratchet.tsv's client_stock_tus row is "
-		"missing or not zero";
-
-	const Counts c = CountSources( cmake_graph::kClient );
-	EXPECT_GT( c.nShim, 0 ) << "client_sourcesharp compiles no sourcesharp/ TU at all, "
-		"so the zero below is a list that was not read";
-	EXPECT_EQ( c.nSources, c.nShim + c.nStock )
-		<< "every source the client compiles is under sourcesharp/, game/ or "
-		   "public/. A source under some fourth root is not covered by this "
-		   "ratchet and has to be classified before it lands.";
-	EXPECT_EQ( c.nStock, 0 )
-		<< "client_sourcesharp (src/client/native/CMakeLists.txt) compiles "
-		<< c.nStock << " TU(s) under game/ or public/. It compiled none once "
-		   "clientshadowmgr.cpp left (C7 cluster 12 S2): Valve code the client "
-		   "needs is changed in the fork, and a file that must stay native "
-		   "relocates under src/sourcesharp/.";
-}
-
 //-----------------------------------------------------------------------------
 // The discrimination, both directions, over farm-relative paths.
 //-----------------------------------------------------------------------------

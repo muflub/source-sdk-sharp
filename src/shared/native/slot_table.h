@@ -28,7 +28,7 @@ public:
 
 	// Every binding gone and every serial back to zero. Constructor and tests only:
 	// a handle from before can then compare equal to a new binding.
-	void Reset( void )
+	void Reset()
 	{
 		memset( m_pShell, 0, sizeof( m_pShell ) );
 		memset( m_nSerial, 0, sizeof( m_nSerial ) );
@@ -42,7 +42,7 @@ public:
 	// Every binding gone, serials kept, for level shutdown. The edict keeps its network
 	// serial across a map load, and a repeated serial would make the engine pack the new
 	// entity as a continuation of the old one. Unbind does the bump.
-	void ClearBindings( void )
+	void ClearBindings()
 	{
 		for ( int nEntry = 0; nEntry < NUM_ENT_ENTRIES; nEntry++ )
 			Unbind( nEntry );
@@ -61,7 +61,7 @@ public:
 		return nEntry >= 0 && nEntry < MAX_EDICTS;
 	}
 
-	static int EntryCount( void ) { return NUM_ENT_ENTRIES; }
+	static int EntryCount() { return NUM_ENT_ENTRIES; }
 
 	// Binds at an entry with the entry's current serial. Returns an invalid handle when
 	// the entry is out of range or already bound, or the shell is NULL.
@@ -172,12 +172,12 @@ public:
 
 	// How many bindings exist. Never which: there is deliberately no highest-index query,
 	// which would turn ResolveByIndex into a walk.
-	int BoundCount( void ) const { return m_nBound; }
+	int BoundCount() const { return m_nBound; }
 
 	// Cumulative counters for the console dump.
-	int Binds( void ) const   { return m_nBinds; }
-	int Unbinds( void ) const { return m_nUnbinds; }
-	int Refused( void ) const { return m_nRefused; }
+	int Binds() const   { return m_nBinds; }
+	int Unbinds() const { return m_nUnbinds; }
+	int Refused() const { return m_nRefused; }
 
 private:
 	CSourceSharpSlotTable( const CSourceSharpSlotTable & );
@@ -198,7 +198,7 @@ private:
 class CStandaloneEntity;
 struct edict_t;
 
-CSourceSharpSlotTable &SourceSharp_SlotTable( void );
+CSourceSharpSlotTable &SourceSharp_SlotTable();
 
 // The handle a shell at this entry will carry, issued without binding; invalid if the
 // entry is occupied or out of range.
@@ -236,7 +236,7 @@ class C_StandaloneEntity;
 
 // The client's table, defined in shell_cliententitylist.cpp. There is no client Bind():
 // the server assigns serials, so the client only binds at the handle it is given.
-CSourceSharpSlotTable &SourceSharp_ClientSlotTable( void );
+CSourceSharpSlotTable &SourceSharp_ClientSlotTable();
 
 // Binds at the handle the server assigned. False if the entry was bound or the handle invalid.
 bool SourceSharp_ClientSlotBindAt( const CBaseHandle &handle, C_StandaloneEntity *pShell );

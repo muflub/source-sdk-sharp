@@ -58,7 +58,7 @@
 #if defined( SS_COVERAGE )
 // Declared rather than included: <gcov.h> exists only on a coverage build, and a
 // linkage specification is not allowed at block scope.
-extern "C" void __gcov_dump( void );
+extern "C" void __gcov_dump();
 #endif
 
 // 0 = errors only, 1 = startup tracing, 2 = verbose (per-call). Named per side

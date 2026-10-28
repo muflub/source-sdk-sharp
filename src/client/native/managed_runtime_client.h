@@ -10,7 +10,7 @@
 IManagedRuntimeClient *ManagedRuntimeClient();
 
 // The partner of LoadManagedRuntime (sourcesharp_gamesystem.cpp, shared by both DLLs).
-void SourceSharp_UnloadManagedSide( void );
+void SourceSharp_UnloadManagedSide();
 
 // One forward per method and no members: ManagedRuntimeClient() is asked on every call
 // because a reload replaces the runtime, so nothing may cache it.

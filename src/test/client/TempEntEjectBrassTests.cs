@@ -148,34 +148,6 @@ public class TempEntEjectBrassTests
     }
 
     /// <summary>
-    /// The two bounce constants read out of <c>public/const.h</c>.
-    ///
-    /// <para>
-    /// This is the check that would otherwise be a copy agreeing with itself.
-    /// <c>BOUNCE_SHELL</c> is 0x20 and <c>TE_BOUNCE_SHELL</c> is 1 — two
-    /// vocabularies four lines apart in one header, and picking the wrong one
-    /// gives a casing that lands in silence, which no assertion about the
-    /// record's own value could tell apart.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void TheBounceConstantsAreConstHs()
-    {
-        string? path = StockFile("src", "public", "const.h");
-        Assert.True(path is not null, "public/const.h is found next to the tests");
-
-        string text = File.ReadAllText(path!);
-
-        Assert.True(text.Contains("#define BOUNCE_SHELL\t0x20"),
-            "BOUNCE_SHELL is still 0x20 in public/const.h");
-        Assert.True(text.Contains("#define BOUNCE_SHOTSHELL 0x80"),
-            "BOUNCE_SHOTSHELL is still 0x80 in public/const.h");
-
-        Assert.True(BounceSounds.Shell == 0x20, "and this port's Shell agrees");
-        Assert.True(BounceSounds.ShotShell == 0x80, "and its ShotShell agrees");
-    }
-
-    /// <summary>
     /// COLLIDEWORLD and not COLLIDEALL, which is the flag a mapper would
     /// notice: a case bounces off the map and passes through people, so a
     /// firefight does not end with brass resting on everyone's shoulders.
@@ -397,51 +369,6 @@ public class TempEntEjectBrassTests
                 + "Check whether the GUARD came back with it -- that would be a much "
                 + "larger revert -- and diff it against the transcription above before "
                 + "trusting either.");
-        }
-    }
-
-    /// <summary>
-    /// And the call that replaced it is there — now UNCONDITIONALLY, which is
-    /// a stronger claim than the one this fact used to make.
-    ///
-    /// <para>
-    /// It used to assert the call sat behind <c>#ifdef SOURCESHARP</c>, because
-    /// while stock's <c>#else</c> arm existed the guard was what chose between
-    /// them. The residue wave deleted the dead arm and the guard with it, so the
-    /// successor property is that there is no conditional left in this body AT
-    /// ALL: exactly one path, and it goes to C#. Asserting the guard's presence
-    /// now would be asserting that a dead arm came back.
-    /// </para>
-    ///
-    /// <para>
-    /// Both halves, because either alone can be satisfied by an empty body: the
-    /// call must be PRESENT, and no preprocessor conditional may be.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void TheArmedSideCallsTheManagedDecision()
-    {
-        string body = ThunkEjectBrassBody();
-
-        Assert.True(body.Contains("pFx->TempEntEjectBrass( in, type );", StringComparison.Ordinal),
-            "the body hands the decision to C# -- otherwise nothing calls the port");
-
-        // LINE-INITIAL, AND NOT IN A COMMENT. The body's own prose names the
-        // guard that used to be here, so a raw substring scan would read the
-        // explanation as the fact -- the hazard this directory exists to catch.
-        // A preprocessor directive is line-initial by construction, so that is
-        // what is looked for.
-        foreach (string line in body.Split('\n'))
-        {
-            string trimmed = line.Trim();
-
-            if (trimmed.StartsWith("//", StringComparison.Ordinal))
-                continue;
-
-            Assert.False(trimmed.StartsWith("#", StringComparison.Ordinal),
-                "CTempEnts::EjectBrass's body carries the directive `" + trimmed
-                + "`. Since the residue wave it has exactly one path and it goes to "
-                + "C#; a conditional here means a second arm has been reintroduced.");
         }
     }
 

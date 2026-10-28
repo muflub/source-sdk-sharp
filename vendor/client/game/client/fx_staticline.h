@@ -20,11 +20,11 @@ class CFXStaticLine : public CClientSideEffect
 public:
 
 	CFXStaticLine( const char *name, const Vector& start, const Vector& end, float scale, float life, const char *shader, unsigned int flags );
-	~CFXStaticLine( void );
+	~CFXStaticLine();
 
 	virtual void	Draw( double frametime );
-	virtual bool	IsActive( void );
-	virtual void	Destroy( void );
+	virtual bool	IsActive();
+	virtual void	Destroy();
 	virtual	void	Update( double frametime );
 
 protected:

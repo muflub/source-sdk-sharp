@@ -4,10 +4,6 @@
 
 #pragma once
 
-#include "tier1/interface.h"
-#include "tier1/refcount.h"
-#include "appframework/IAppSystem.h"
-
 // forward declarations
 
 // important enumeration

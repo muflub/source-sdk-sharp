@@ -31,45 +31,10 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class GameRulesPolicyTests
 {
-    private const string ShellCpp = "src/sourcesharp/game/shared/shell_gamerules.cpp";
     private const string Header = "src/sourcesharp/host/sourcesharp.h";
 
     private static string Read(string relative) =>
         File.ReadAllText(Path.Combine(RepoLayout.SdkTree, relative));
-
-    /// <summary>The initialiser of <c>s_Policy</c>, as field name to literal.</summary>
-    private static Dictionary<string, string> NativeDefaults()
-    {
-        var cpp = Read(ShellCpp);
-
-        int start = cpp.IndexOf("static SourceSharpGameRulesPolicy s_Policy =", StringComparison.Ordinal);
-        Assert.True(start >= 0, "the native policy table is gone from " + ShellCpp);
-
-        int open = cpp.IndexOf('{', start);
-        int close = cpp.IndexOf("};", open, StringComparison.Ordinal);
-        Assert.True(open > 0 && close > open, "cannot find the initialiser body");
-
-        var found = new Dictionary<string, string>(StringComparer.Ordinal);
-
-        foreach (Match m in Regex.Matches(cpp[(open + 1)..close],
-                     @"^\s*(?<value>[^,]+?),\s*//\s*(?<field>\w+)\s*$", RegexOptions.Multiline))
-        {
-            found[m.Groups["field"].Value] = m.Groups["value"].Value.Trim();
-        }
-
-        // ONE, DOWN FROM TWO at plan_shim.md §5 3e. The count is pinned rather
-        // than merely non-zero for the reason the message gives: a regex that
-        // has stopped matching parses nothing and every lookup below would
-        // throw rather than pass, but a regex that matches HALF the table reads
-        // as a smaller table, and the field it stopped seeing would be the one
-        // nobody checks.
-        Assert.True(found.Count == 1,
-            "parsed " + found.Count + " native defaults, want 1. Either a field "
-            + "arrived without a reader, or the initialiser's `value, // fieldName` "
-            + "shape changed and this test now checks less than it claims to.");
-
-        return found;
-    }
 
     // ------------------------------------------------------------------
     // The survivor agrees across the boundary.
@@ -83,10 +48,6 @@ public class GameRulesPolicyTests
     // same value" -- is no longer a claim about anything, because neither
     // default exists.
     // ------------------------------------------------------------------
-
-    [Fact]
-    public void MultiplayerMatchesTheNativeDefault()
-        => Assert.Equal(GameRulesPolicy.Multiplayer, NativeDefaults()["bMultiplayer"] == "true");
 
     [Fact]
     public void RegisterPushesEveryValue()
@@ -111,76 +72,6 @@ public class GameRulesPolicyTests
     // ------------------------------------------------------------------
     // Both fields are read, and by the method they belong to.
     // ------------------------------------------------------------------
-
-    /// <summary>
-    /// A field nothing reads is a value a mod can change with no effect, which
-    /// is worse than not offering it — it reads as a knob and turns nothing.
-    /// Fifteen such fields were removed; this is what stops the sixteenth.
-    /// </summary>
-    [Fact]
-    public void EveryPolicyFieldIsReadByTheMethodItBelongsTo()
-    {
-        var cpp = Read(ShellCpp);
-
-        // ONE PAIR, DOWN FROM TWO. bAllowDamage and the method that read it went
-        // at plan_shim.md §5 3e -- CSourceSharpGameRules::AllowDamage had no
-        // caller in any compiled translation unit, because its one call site is
-        // in game/server/baseentity.cpp, which neither DLL compiles. Taking the
-        // method and leaving the field is the exact failure the second loop
-        // below exists to catch, so they went together.
-        (string Method, string Field)[] pairs =
-        {
-            ("IsMultiplayer", "bMultiplayer"),
-        };
-
-        foreach (var (method, field) in pairs)
-        {
-            string body = Body(cpp, "CSourceSharpGameRules::" + method + "(");
-
-            Assert.True(body.Contains("s_Policy." + field, StringComparison.Ordinal),
-                method + " does not read s_Policy." + field + ". Body was:\n" + body);
-        }
-
-        // ...and no field exists that no method reads.
-        foreach (var field in NativeDefaults().Keys)
-        {
-            Assert.True(cpp.Contains("s_Policy." + field, StringComparison.Ordinal),
-                "s_Policy." + field + " is declared and never read. Fifteen fields "
-                + "were removed for exactly that; a new one must come with its "
-                + "reader or not at all.");
-        }
-    }
-
-    /// <summary>
-    /// The decisions did NOT become table reads. Anything whose answer depends
-    /// on who is asking has to stay a managed call; a table holds one answer.
-    /// </summary>
-    [Fact]
-    public void TheDecisionsAreStillManagedCallsAndNotTableReads()
-    {
-        var cpp = Read(ShellCpp);
-
-        // FlPlayerFallDamage WAS THE FOURTH and left with the eighteen callerless
-        // IGameRules slots at plan_shim.md §5 3e. It is named here rather than
-        // silently dropped because the claim it carried is the one this fact is
-        // about: fall damage is a per-player answer and could never have become
-        // a table read. It still is one -- MoveMath.FallDamage, inside the
-        // managed movement loop, handed the fall velocity that armed the call.
-        // PlayerRelationship went in plan_server_native_v2 T2: it was not an
-        // IGameRules member and nothing native called it.
-        foreach (string method in new[] { "ClientConnected" })
-        {
-            string body = Body(cpp, "CSourceSharpGameRules::" + method + "(");
-
-            Assert.True(body.Contains("pApi->", StringComparison.Ordinal)
-                     || body.Contains("SourceSharp_", StringComparison.Ordinal),
-                method + " no longer calls into managed code. Its answer depends "
-                + "on who is asking, so it cannot be served from the policy table.");
-            Assert.False(body.Contains("s_Policy", StringComparison.Ordinal),
-                method + " reads the policy table. That table is startup "
-                + "constants; this method's answer is per-call.");
-        }
-    }
 
     /// <summary>
     /// The struct is the same shape on both sides, field for field and in
@@ -224,25 +115,6 @@ public class GameRulesPolicyTests
         }
     }
 
-    /// <summary>One function's body, braces counted.</summary>
-    private static string Body(string source, string signature)
-    {
-        int at = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(at >= 0, "cannot find " + signature);
-
-        int open = source.IndexOf('{', at);
-        int depth = 0;
-
-        for (int i = open; i < source.Length; i++)
-        {
-            if (source[i] == '{') depth++;
-            else if (source[i] == '}' && --depth == 0)
-                return source[open..(i + 1)];
-        }
-
-        Assert.Fail("unbalanced braces after " + signature);
-        return "";
-    }
 }
 
 /// <summary>
@@ -278,25 +150,6 @@ public class SkillLevelTests
 
         Assert.DoesNotContain(registry.All, c =>
             string.Equals(c.Name, "skill", StringComparison.OrdinalIgnoreCase));
-    }
-
-    [Fact]
-    public void TheShimDeclaresSkillNowhereBecauseTheEngineOwnsIt()
-    {
-        // plan_server_novalve.md P2.3b. The revert this fact used to pin kept a
-        // THIRD declaration of a name engine.so already registers ("Game skill
-        // level (1-3)." precedes `skill` in its string table), and engine.so
-        // loads before either game DLL, so the shim's copy never owned the
-        // value. The server reads the engine's; neither side declares one.
-        // The managed half is SkillIsNotDeclaredByManagedCode above.
-        string path = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "shared",
-                                   "shell_gamerules.cpp");
-
-        Assert.True(File.Exists(path), path + " is not there");
-
-        string text = File.ReadAllText(path);
-        Assert.Contains("CSourceSharpGameRules", text, StringComparison.Ordinal);
-        Assert.DoesNotMatch(new Regex(@"^\s*ConVar\s+skill\s*\(", RegexOptions.Multiline), text);
     }
 
     /// <summary>

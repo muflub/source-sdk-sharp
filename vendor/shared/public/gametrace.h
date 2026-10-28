@@ -89,13 +89,13 @@ public:
 		m_aEntityList.RemoveAll();
 	}
 
-	void Reset( void )
+	void Reset()
 	{
 		m_nLeafCount = 0;
 		m_nEntityCount = 0;
 	}
 
-	bool	IsEmpty( void ) const			{ return ( m_nLeafCount == 0 && m_nEntityCount == 0 ); }
+	bool	IsEmpty() const			{ return ( m_nLeafCount == 0 && m_nEntityCount == 0 ); }
 
 	// For entities...
 	IterationRetval_t EnumElement( IHandleEntity *pHandleEntity )

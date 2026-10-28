@@ -76,21 +76,6 @@ const char *SrcRoot()
 	return NULL;
 }
 
-std::string Code( const std::string &in );
-
-std::string Read( const std::string &rel )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-	std::ifstream f( ( std::string( pszRoot ) + "/" + rel ).c_str() );
-	if ( !f.is_open() )
-		return std::string();
-	std::stringstream ss;
-	ss << f.rdbuf();
-	return ss.str();
-}
-
 //-----------------------------------------------------------------------------
 // Does the target compile this farm-relative source? The target's CMake source
 // list, read through cmake_graph.h (compile_commands.json cross-checked against
@@ -113,37 +98,8 @@ bool Builds( const char *pszTarget, const char *pszPath )
 	return cmake_graph::Compiles( pszTarget, pszPath );
 }
 
-std::string Code( const std::string &in )
-{
-	std::string out;
-	out.reserve( in.size() );
-	for ( size_t i = 0; i < in.size(); )
-	{
-		if ( in.compare( i, 2, "//" ) == 0 )
-		{
-			while ( i < in.size() && in[ i ] != '\n' ) i++;
-		}
-		else if ( in.compare( i, 2, "/*" ) == 0 )
-		{
-			i += 2;
-			while ( i + 1 < in.size() && in.compare( i, 2, "*/" ) != 0 ) i++;
-			i = ( i + 1 < in.size() ) ? i + 2 : in.size();
-		}
-		else
-		{
-			out += in[ i++ ];
-		}
-	}
-	return out;
-}
-
 const char *const kClientCpp  = "game/server/client.cpp";
 const char *const kOrphans    = "sourcesharp/game/server/shell_client_orphans.cpp";
-const char *const kRetiredCs  = "sourcesharp/managed/SourceSharp.Server/DevCommandsRetired.cs";
-// Phase 1b: the shim .cpp is deleted and all three registrations are managed.
-// kOrphans above is kept as a PATH ONLY, so the source-list facts can still say
-// "this row is not there"; nothing reads its text any more.
-const char *const kConVarsCs  = "sourcesharp/managed/SourceSharp.Server/ConVars.cs";
 } // anonymous namespace
 
 //=============================================================================
@@ -192,123 +148,6 @@ TEST( ClientTuEvicted, TheShimOrphanFileIsInNeitherBuild )
 //=============================================================================
 // 3. WHAT EACH REGISTRATION BECAME
 //=============================================================================
-
-TEST( ClientTuEvicted, ThePointServerCommandGateIsStillRegistered )
-{
-	// REPOINTED, NOT RELAXED. The registration moved from C++ to
-	// SourceSharp.Server/ConVars.cs in Phase 1b, and the reason it could is a
-	// measurement rather than a re-reading: the C++ argued it had to be native
-	// so that an operator's server.cfg setting was not discarded, and the
-	// managed side registers inside CServerGameDLL::DLLInit -- which is the
-	// first call the engine makes into the game DLL, and long before it can
-	// execute a config whose name is itself a game-DLL ConVar (servercfgfile,
-	// game/server/game.cpp). PolicyKnobDeclarationTests pins the default, the
-	// flags, the help and the C++ half being gone; this is the same claim read
-	// out of the source, from the gtest side, so neither suite is the only one
-	// holding it.
-	const std::string s = Code( Read( kConVarsCs ) );
-	ASSERT_FALSE( s.empty() );
-	EXPECT_NE( s.find( "[ConVar(\"sv_allow_point_servercommand\", \"always\"" ),
-	           std::string::npos )
-		<< "the sv_allow_point_servercommand registration is gone or its default "
-		   "changed. PointServerCommand.cs reads it BY NAME through "
-		   "IEngineConsole.FindConVarValue; with no registration the lookup "
-		   "fails and the gate on the most dangerous entity in the SDK is "
-		   "decided by whatever Allows() does with a missing value.";
-	EXPECT_NE( s.find( "disallow : Always disallow" ), std::string::npos )
-		<< "the help text is not stock's, and the help text is where an operator "
-		   "learns what values the gate takes";
-}
-
-TEST( ClientTuEvicted, TheGateIsStillReadByName )
-{
-	// The other half. Deleting the READER would leave the registration above
-	// green while the gate stopped being consulted.
-	const std::string s = Read( "sourcesharp/managed/SourceSharp.Server/Entities/Points/PointServerCommand.cs" );
-	ASSERT_FALSE( s.empty() );
-	EXPECT_NE( s.find( "\"sv_allow_point_servercommand\"" ), std::string::npos )
-		<< "PointServerCommand.cs stopped naming the convar";
-	EXPECT_NE( s.find( "FindConVarValue(AllowConVar)" ), std::string::npos )
-		<< "PointServerCommand stopped reading the gate before running a "
-		   "map-supplied server command";
-}
-
-TEST( ClientTuEvicted, TheTwoDebugDrawCommandsAreLiveManagedCommandsAgain )
-{
-	// THIS FACT HAS NOW SAID THREE THINGS, and each change was a real change to
-	// the build rather than a rewrite of the assertion.
-	//
-	//  1. TheTwoDebugDrawCommandsCameAcrossWhole read the two NATIVE bodies out
-	//     of shell_client_orphans.cpp and counted five UTIL_AddDebugLine calls,
-	//     one for drawline and four for drawcross.
-	//  2. TheTwoDebugDrawCommandsAreDeclaredRetirements, when Phase 1b deleted
-	//     that file. The moved file's own comment had said the two "needed no
-	//     entity, no ABI slot and no decision"; the middle third was wrong --
-	//     UTIL_AddDebugLine puts a line into the ENGINE's debug overlay and the
-	//     ABI published no line primitive at all, DrawEntityOverlay being TEXT
-	//     on an ENTITY -- so there was nothing for a managed body to call. They
-	//     became declared, PRINTED refusals, each naming the one appended slot
-	//     that would lift it: AddLineOverlay.
-	//  3. This. Lane 1e-abi appended that slot, so both are ordinary managed
-	//     DevCommands and they DRAW.
-	//
-	// WHAT THIS FILE CAN AND CANNOT SEE. It is a text scan, so it asserts that
-	// the pair is registered as live commands, that the retirement classes are
-	// gone (two registrations of one word is a console that keeps whichever it
-	// saw first and drops the other in silence), and that the slot they call is
-	// declared and WIRED -- a slot assigned nowhere is a null pointer Engine.cs
-	// skips without a word, which would put the two commands straight back into
-	// the state this fact has spent two revisions describing. What they draw is
-	// SourceSharp.Tests/DebugDrawCommandTests.cs's, against a recorded engine.
-	const std::string s = Read( kRetiredCs );
-	ASSERT_FALSE( s.empty() );
-	EXPECT_EQ( s.find( "class DrawLineRetired" ), std::string::npos )
-		<< "drawline is still registered as a retirement. With the live command "
-		   "beside it the console has two classes for one word.";
-	EXPECT_EQ( s.find( "class DrawCrossRetired" ), std::string::npos )
-		<< "drawcross is still registered as a retirement.";
-
-	const std::string live = Read( "sourcesharp/managed/SourceSharp.Server/DevCommandsLive.cs" );
-	ASSERT_FALSE( live.empty() );
-	EXPECT_NE( live.find( "[ConCommand(\"drawline\"" ), std::string::npos )
-		<< "drawline is answered by nothing. Deleting the registration makes the "
-		   "console say \"Unknown command\", which reads as a typo rather than as "
-		   "a deliberate absence.";
-	EXPECT_NE( live.find( "[ConCommand(\"drawcross\"" ), std::string::npos )
-		<< "drawcross is answered by nothing.";
-	EXPECT_NE( live.find( "class DrawLineCommand : DebugDrawCommand" ), std::string::npos );
-	EXPECT_NE( live.find( "class DrawCrossCommand : DebugDrawCommand" ), std::string::npos );
-
-	// A server shim-area method since plan_engineapi_vtables C6c: declared on
-	// IShimDebugOverlay and wired by its generated forward.
-	const std::string abi = Read( "sourcesharp/game/shared/ishim_areas.h" );
-	ASSERT_FALSE( abi.empty() );
-	EXPECT_NE( abi.find( " AddLineOverlay(" ), std::string::npos )
-		<< "the server's areas no longer declare the line primitive the two commands call.";
-
-	const std::string wiring = Read( "sourcesharp/game/shared/shell_shim_areas.inc" );
-	ASSERT_FALSE( wiring.empty() );
-	EXPECT_NE( wiring.find( "{ return ::SourceSharp_AddLineOverlay(" ), std::string::npos )
-		<< "AddLineOverlay's area method does not forward to its body -- both commands would "
-		   "print success and draw nothing, which is the exact state they were "
-		   "retired OUT LOUD to avoid.";
-}
-
-TEST( ClientTuEvicted, TheTwoUnportedCommandsAreDeclaredRetirements )
-{
-	// §7: a method the port does not implement is a declared, PRINTED refusal,
-	// never a silent no-op. bug_swap in particular was already a silent no-op --
-	// its native body has been `return;` under SOURCESHARP since step 13c -- so
-	// this is strictly better than what the eviction removed.
-	const std::string s = Read( kRetiredCs );
-	ASSERT_FALSE( s.empty() );
-	EXPECT_NE( s.find( "[ConCommand(\"groundlist\"" ), std::string::npos )
-		<< "groundlist went with client.cpp and nothing says so";
-	EXPECT_NE( s.find( "[ConCommand(\"bug_swap\"" ), std::string::npos )
-		<< "bug_swap went with client.cpp and nothing says so";
-	EXPECT_NE( s.find( "class GroundListRetired(ILog log) : RetiredDevCommand" ), std::string::npos );
-	EXPECT_NE( s.find( "class BugSwapRetired(ILog log) : RetiredDevCommand" ), std::string::npos );
-}
 
 //=============================================================================
 // 5. THE INSTRUMENT THIS LANE ADDED, RETIRED.

@@ -2,9 +2,6 @@
 
 #pragma once
 
-#include "vphysics_interface.h"
-#include "mathlib/mathlib.h"
-
 // constraint groups
 struct constraint_groupparams_t
 {
@@ -120,23 +117,23 @@ struct constraint_lengthparams_t
 class IPhysicsConstraint
 {
 public:
-	virtual ~IPhysicsConstraint( void ) {}
+	virtual ~IPhysicsConstraint() {}
 	
 	// NOTE: Constraints are active when created.  You can temporarily enable/disable them with these functions
-	virtual void			Activate( void ) = 0;
-	virtual void			Deactivate( void ) = 0;
+	virtual void			Activate() = 0;
+	virtual void			Deactivate() = 0;
 
 	// set a pointer to the game object
 	virtual void SetGameData( void *gameData ) = 0;
 
 	// get a pointer to the game object
-	virtual void *GetGameData( void ) const = 0;
+	virtual void *GetGameData() const = 0;
 
 	// Get the parent/referenced object
-	virtual IPhysicsObject *GetReferenceObject( void ) const = 0;
+	virtual IPhysicsObject *GetReferenceObject() const = 0;
 
 	// Get the attached object
-	virtual IPhysicsObject *GetAttachedObject( void ) const = 0;
+	virtual IPhysicsObject *GetAttachedObject() const = 0;
 
 	virtual void			SetLinearMotor( float speed, float maxLinearImpulse ) = 0;
 	virtual void			SetAngularMotor( float rotSpeed, float maxAngularImpulse ) = 0;
@@ -151,7 +148,7 @@ public:
 class IPhysicsConstraintGroup
 {
 public:
-	virtual ~IPhysicsConstraintGroup( void ) {}
+	virtual ~IPhysicsConstraintGroup() {}
 	virtual void Activate() = 0;
 	virtual bool IsInErrorState() = 0;
 	virtual void ClearErrorState() = 0;

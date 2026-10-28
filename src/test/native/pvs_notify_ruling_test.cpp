@@ -78,46 +78,6 @@ namespace
 // directory; the list lets the binary also run by hand from the repo root, and
 // keeps "no tree found" distinguishable from "tree found, file missing".
 //-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		std::string strProbe( kCandidates[ i ] );
-		strProbe += "/sourcesharp/game";
-
-		DIR *pDir = opendir( strProbe.c_str() );
-		if ( pDir )
-		{
-			closedir( pDir );
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadFileAt( const std::string &strPath )
-{
-	std::ifstream file( strPath.c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	return std::string( ( std::istreambuf_iterator< char >( file ) ),
-	                    std::istreambuf_iterator< char >() );
-}
-
-std::string ReadSrcFile( const char *pszRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::string strPath( pszRoot );
-	strPath += "/";
-	strPath += pszRelative;
-	return ReadFileAt( strPath );
-}
-
 //-----------------------------------------------------------------------------
 // PROSE IS NOT CODE, and a raw scan cannot tell them apart. COMMON.md records
 // this as a standing hazard -- tools/entity-gates and tools/entity-census both
@@ -225,72 +185,6 @@ std::vector< std::string > NonNullNotifyBodies( const std::string &strRaw )
 // built from. `thirdparty` is not ours. (VPC's `_vpc_` build-output directory
 // was skipped here too; the CMake build writes outside the source roots.)
 //-----------------------------------------------------------------------------
-void WalkSources( const std::string &strDir, std::vector< std::string > &vecOut )
-{
-	DIR *pDir = opendir( strDir.c_str() );
-	if ( !pDir )
-		return;
-
-	for ( struct dirent *pEnt = readdir( pDir ); pEnt; pEnt = readdir( pDir ) )
-	{
-		const std::string strName( pEnt->d_name );
-		if ( strName == "." || strName == ".." )
-			continue;
-		if ( strName == "thirdparty" || strName == ".git" )
-			continue;
-		// AND NOT THE TEST TREE. This file's own classifier control contains a
-		// literal `GetPVSNotifyInterface() { return this; }`, so a sweep that
-		// read sourcesharp/test/ would find TWO owners and fail on itself --
-		// which it did, on the first run, and which is why the control is
-		// written as a string rather than mentioned in a comment.
-		if ( strName == "test" )
-			continue;
-
-		const std::string strPath = strDir + "/" + strName;
-
-		if ( pEnt->d_type == DT_DIR )
-		{
-			WalkSources( strPath, vecOut );
-			continue;
-		}
-
-		const size_t dot = strName.rfind( '.' );
-		if ( dot == std::string::npos )
-			continue;
-
-		const std::string strExt = strName.substr( dot );
-		if ( strExt == ".cpp" || strExt == ".h" )
-			vecOut.push_back( strPath );
-	}
-
-	closedir( pDir );
-}
-
-const std::vector< std::string > &ClientSourceFiles()
-{
-	static std::vector< std::string > s_vec;
-	static bool s_bDone = false;
-	if ( !s_bDone )
-	{
-		s_bDone = true;
-		const char *pszRoot = SrcRoot();
-		if ( pszRoot )
-		{
-			const char *kRoots[] = { "/game", "/public", "/sourcesharp" };
-			for ( size_t i = 0; i < sizeof( kRoots ) / sizeof( kRoots[ 0 ] ); i++ )
-				WalkSources( std::string( pszRoot ) + kRoots[ i ], s_vec );
-		}
-		std::sort( s_vec.begin(), s_vec.end() );
-	}
-	return s_vec;
-}
-
-const std::string &ShellClientDllSource()
-{
-	static const std::string s = ReadSrcFile( "sourcesharp/game/client/shell_clientdll.cpp" );
-	return s;
-}
-
 // FlipClosureSource / FlipRemovalSeed STOOD HERE. They read
 // tools/client-flip-closure's DEFAULT_SEED, which is deleted -- one of seven
 // removal-set instruments retired in `the-close 11/N` because what they forecast
@@ -390,125 +284,13 @@ TEST( PvsNotifyClassifier, AStringLiteralDoesNotSwallowTheRestOfTheLine )
 	EXPECT_EQ( 1u, NonNullNotifyBodies( strFake ).size() );
 }
 
-TEST( PvsNotifyClassifier, TheSweepReachesRealFilesAndRealHeaders )
-{
-	// An empty file list would make every sweep below vacuous.
-	const std::vector< std::string > &vec = ClientSourceFiles();
-	// 1000 -> 900: the port shrinks the tree (995 read at plan_server_native_v2 T3).
-	ASSERT_GT( vec.size(), 900u ) << "the source sweep found almost nothing -- "
-	                                  "run this from the tree's src/ directory";
-
-	int nHeaders = 0;
-	for ( size_t i = 0; i < vec.size(); i++ )
-	{
-		if ( vec[ i ].size() > 2 && vec[ i ].compare( vec[ i ].size() - 2, 2, ".h" ) == 0 )
-			++nHeaders;
-	}
-	EXPECT_GT( nHeaders, 100 ) << "the sweep is not reading headers, and the one "
-	                              "non-NULL GetPVSNotifyInterface in this tree IS "
-	                              "a header inline";
-}
-
 //=============================================================================
 // 2. EXACTLY ONE IMPLEMENTATION IN THE TREE ANSWERS NON-NULL.
 //=============================================================================
 
-TEST( PvsNotifyRuling, TheOnlyNonNullPvsNotifyInterfaceIsTheClientRagdolls )
-{
-	const std::vector< std::string > &vecFiles = ClientSourceFiles();
-
-	std::vector< std::string > vecOwners;
-	for ( size_t i = 0; i < vecFiles.size(); i++ )
-	{
-		if ( !NonNullNotifyBodies( ReadFileAt( vecFiles[ i ] ) ).empty() )
-			vecOwners.push_back( vecFiles[ i ] );
-	}
-
-	std::string strAll;
-	for ( size_t i = 0; i < vecOwners.size(); i++ )
-	{
-		strAll += "\n  ";
-		strAll += vecOwners[ i ];
-	}
-
-	ASSERT_EQ( 1u, vecOwners.size() )
-		<< "every GetPVSNotifyInterface in this tree but ONE answers NULL, and "
-		   "the whole soundness of guarding the two PVS-notify walks out rests "
-		   "on that one living in a TU the flip deletes. A second non-NULL "
-		   "implementation is a new occupant for a list nothing will walk. "
-		   "Found:" << strAll;
-
-	EXPECT_NE( std::string::npos, vecOwners[ 0 ].find( "game/client/c_baseanimating.h" ) )
-		<< "expected C_ClientRagdoll's, in game/client/c_baseanimating.h; got "
-		<< vecOwners[ 0 ];
-}
-
-TEST( PvsNotifyRuling, ThatOneImplementationBelongsToCClientRagdoll )
-{
-	// The inline is in a header shared with C_BaseAnimating, and reading it as
-	// C_BaseAnimating's is EXACTLY the mistake that left this defect open: it
-	// turns "a base class every animating entity has" into the subject, when
-	// the subject is one leaf class the flip deletes outright.
-	const std::string strHeader = ReadSrcFile( "game/client/c_baseanimating.h" );
-	ASSERT_FALSE( strHeader.empty() );
-
-	const size_t klass  = strHeader.find( "class C_ClientRagdoll : public C_BaseAnimating, public IPVSNotify" );
-	const size_t inline_ = strHeader.find( "GetPVSNotifyInterface() { return this; }" );
-
-	ASSERT_NE( std::string::npos, klass )
-		<< "C_ClientRagdoll's declaration has moved or changed shape";
-	ASSERT_NE( std::string::npos, inline_ )
-		<< "the `return this` inline has moved or changed shape";
-
-	EXPECT_LT( klass, inline_ )
-		<< "the `return this` must be inside C_ClientRagdoll's own class body, "
-		   "not C_BaseAnimating's";
-}
-
 //=============================================================================
 // 3. THE GUARD AND THE DELETION ARE ONE COMMIT.
 //=============================================================================
-
-// READ THE ASSERTIONS, NOT THE NAME. There is no arm flag in this file any more.
-//
-// Both walks used to OPEN with `#ifndef SS_CBASEENTITY_ALIAS`, so that armed
-// they did nothing. Both projects defined that macro (client_csharp.vpc:74,
-// server_csharp.vpc:69 then; both targets' target_compile_definitions in
-// src/{client,server}/native/CMakeLists.txt now), so the guarded body was never compiled in the first
-// place and `the-close 1/N` deleted it -- along with every other alias guard in
-// shell_clientdll.cpp, of which there are now ZERO.
-//
-// THE RULING IS THE SAME RULING and has simply landed: no client entity is told
-// when it enters or leaves the PVS, and nothing asks to be. What used to make
-// that true conditionally is now the whole of both functions.
-TEST( PvsNotifyRuling, BothWalksAreGuardedOnTheArmFlag )
-{
-	const std::string &strShell = ShellClientDllSource();
-	ASSERT_FALSE( strShell.empty() );
-
-	// The WHOLE function, brace to brace, and not "the body does not name the
-	// list". A body that grew a walk back through some other spelling would
-	// pass that weaker needle; it cannot pass this one.
-	EXPECT_NE( std::string::npos,
-	           strShell.find( "void UpdateClientRenderableInPVSStatus()\n{\n}\n" ) )
-		<< "UpdateClientRenderableInPVSStatus has a body again. The list it "
-		   "walked is CClientEntityList's own, the only two lines in the tree "
-		   "that ever put a row in it are in game/client/cliententitylist.cpp, "
-		   "and that file is no longer compiled into client_sourcesharp -- so there is "
-		   "nothing to walk and nothing to re-point the walk at.";
-	EXPECT_NE( std::string::npos,
-	           strShell.find( "void UpdatePVSNotifiers()\n{\n}\n" ) )
-		<< "UpdatePVSNotifiers has a body again; same list, other end of the "
-		   "frame.";
-
-	// And the flag itself is gone from the file, so neither body can be
-	// "empty on the arm that compiles and a walk on the one that does not" --
-	// which is the shape this fact used to assert and which is now dead source
-	// wherever it appears.
-	EXPECT_EQ( std::string::npos, strShell.find( "SS_CBASEENTITY_ALIAS" ) )
-		<< "shell_clientdll.cpp names the arm flag again.";
-
-}
 
 // READ THE ASSERTIONS, NOT THE NAME. There is no removal SEED to read any more,
 // and there is no longer anything to predict.

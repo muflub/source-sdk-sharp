@@ -4,12 +4,10 @@
 #pragma once
 
 #include <assert.h>
-#include <limits.h>
-#include "utlmemory.h"
-#include "utlvector.h"
+
 #include "utllinkedlist.h"
 #include "utllinkedlist.h"
-#include "commonmacros.h"
+
 #include "generichash.h"
 
 typedef unsigned int UtlHashHandle_t;
@@ -28,14 +26,14 @@ public:
 	~CUtlHash();
 
 	// invalid handle
-	static UtlHashHandle_t InvalidHandle( void )  { return ( UtlHashHandle_t )~0; }
+	static UtlHashHandle_t InvalidHandle()  { return ( UtlHashHandle_t )~0; }
 	bool IsValidHandle( UtlHashHandle_t handle ) const;
 
 	// size
-	int Count( void ) const;
+	int Count() const;
 
 	// memory
-	void Purge( void );
+	void Purge();
 
 	// insertion methods
 	UtlHashHandle_t Insert( Data const &src );
@@ -127,7 +125,7 @@ inline bool CUtlHash<Data, C, K>::IsValidHandle( UtlHashHandle_t handle ) const
 }
 
 template<class Data, typename C, typename K>
-inline int CUtlHash<Data, C, K>::Count( void ) const
+inline int CUtlHash<Data, C, K>::Count() const
 {
 	int count = 0;
 
@@ -165,7 +163,7 @@ inline UtlHashHandle_t CUtlHash<Data, C, K>::BuildHandle( int ndxBucket, int ndx
 }
 
 template<class Data, typename C, typename K>
-inline void CUtlHash<Data, C, K>::Purge( void )
+inline void CUtlHash<Data, C, K>::Purge()
 {
 	int bucketCount = m_Buckets.Count();
 	for( int ndxBucket = 0; ndxBucket < bucketCount; ndxBucket++ )
@@ -424,16 +422,16 @@ public:
 	~CUtlHashFast();
 
 	// Memory.
-	void Purge( void );
+	void Purge();
 
 	// Invalid handle.
-	static UtlHashFastHandle_t InvalidHandle( void )	{ return ( UtlHashFastHandle_t )~0; }
+	static UtlHashFastHandle_t InvalidHandle()	{ return ( UtlHashFastHandle_t )~0; }
 
 	// Initialize.
 	bool Init( int nBucketCount );
 
 	// Size.
-	int Count( void );
+	int Count();
 
 	// Insertion.
 	UtlHashFastHandle_t Insert( uintp uiKey, const Data &data );
@@ -441,7 +439,7 @@ public:
 
 	// Removal.
 	void Remove( UtlHashFastHandle_t hHash );
-	void RemoveAll( void );
+	void RemoveAll();
 
 	// Retrieval.
 	UtlHashFastHandle_t Find( uintp uiKey );
@@ -479,7 +477,7 @@ template<class Data, class HashFuncs> CUtlHashFast<Data,HashFuncs>::~CUtlHashFas
 }
 
 // Purpose: Destroy dynamically allocated hash data.
-template<class Data, class HashFuncs> inline void CUtlHashFast<Data,HashFuncs>::Purge( void )
+template<class Data, class HashFuncs> inline void CUtlHashFast<Data,HashFuncs>::Purge()
 {
 	m_aBuckets.Purge();
 	m_aDataPool.Purge();
@@ -510,7 +508,7 @@ template<class Data, class HashFuncs> bool CUtlHashFast<Data,HashFuncs>::Init( i
 }
 
 // Purpose: Return the number of elements in the hash.
-template<class Data, class HashFuncs> inline int CUtlHashFast<Data,HashFuncs>::Count( void )
+template<class Data, class HashFuncs> inline int CUtlHashFast<Data,HashFuncs>::Count()
 {
 	return m_aDataPool.Count();
 }
@@ -569,7 +567,7 @@ template<class Data, class HashFuncs> inline void CUtlHashFast<Data,HashFuncs>::
 }
 
 // Purpose: Remove all elements from the hash
-template<class Data, class HashFuncs> inline void CUtlHashFast<Data,HashFuncs>::RemoveAll( void )
+template<class Data, class HashFuncs> inline void CUtlHashFast<Data,HashFuncs>::RemoveAll()
 {
 	m_aBuckets.RemoveAll();
 	m_aDataPool.RemoveAll();
@@ -635,13 +633,13 @@ public:
 	~CUtlHashFixed();
 
 	// Memory.
-	void Purge( void );
+	void Purge();
 
 	// Invalid handle.
-	static UtlHashFixedHandle_t InvalidHandle( void )	{ return ( UtlHashFixedHandle_t )~0; }
+	static UtlHashFixedHandle_t InvalidHandle()	{ return ( UtlHashFixedHandle_t )~0; }
 
 	// Size.
-	int Count( void );
+	int Count();
 
 	// Insertion.
 	UtlHashFixedHandle_t Insert( unsigned int uiKey, const Data &data );
@@ -649,7 +647,7 @@ public:
 
 	// Removal.
 	void Remove( UtlHashFixedHandle_t hHash );
-	void RemoveAll( void );
+	void RemoveAll();
 
 	// Retrieval.
 	UtlHashFixedHandle_t Find( unsigned int uiKey );
@@ -690,13 +688,13 @@ template<class Data, int NUM_BUCKETS, class HashFuncs> CUtlHashFixed<Data,NUM_BU
 }
 
 // Purpose: Destroy dynamically allocated hash data.
-template<class Data, int NUM_BUCKETS, class HashFuncs> inline void CUtlHashFixed<Data,NUM_BUCKETS,HashFuncs>::Purge( void )
+template<class Data, int NUM_BUCKETS, class HashFuncs> inline void CUtlHashFixed<Data,NUM_BUCKETS,HashFuncs>::Purge()
 {
 	RemoveAll();
 }
 
 // Purpose: Return the number of elements in the hash.
-template<class Data, int NUM_BUCKETS, class HashFuncs> inline int CUtlHashFixed<Data,NUM_BUCKETS,HashFuncs>::Count( void )
+template<class Data, int NUM_BUCKETS, class HashFuncs> inline int CUtlHashFixed<Data,NUM_BUCKETS,HashFuncs>::Count()
 {
 	return m_nElements;
 }
@@ -743,7 +741,7 @@ template<class Data, int NUM_BUCKETS, class HashFuncs> inline void CUtlHashFixed
 }
 
 // Purpose: Remove all elements from the hash
-template<class Data, int NUM_BUCKETS, class HashFuncs> inline void CUtlHashFixed<Data,NUM_BUCKETS,HashFuncs>::RemoveAll( void )
+template<class Data, int NUM_BUCKETS, class HashFuncs> inline void CUtlHashFixed<Data,NUM_BUCKETS,HashFuncs>::RemoveAll()
 {
 	for ( int i = 0; i < NUM_BUCKETS; i++ )
 	{

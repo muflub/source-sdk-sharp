@@ -141,7 +141,7 @@ void KeyValues::deleteThis()
 	delete this;
 }
 
-const char *KeyValues::GetName( void ) const
+const char *KeyValues::GetName() const
 {
 	return KVSystem()->GetStringForSymbol( m_iKeyName );
 }

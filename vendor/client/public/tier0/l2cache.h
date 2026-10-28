@@ -10,10 +10,10 @@ public:
 	CL2Cache();
 	~CL2Cache();
 
-	void End( void );
+	void End();
 
 	// GetL2CacheMisses
-	int GetL2CacheMisses( void )
+	int GetL2CacheMisses()
 	{
 		return m_iL2CacheMissCount;
 	}

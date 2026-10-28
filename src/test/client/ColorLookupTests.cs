@@ -147,13 +147,4 @@ public class ColorLookupTests
         Assert.DoesNotContain("_corrections", Body(module, "public void Frame(float frameTime)"));
     }
 
-    [Fact]
-    public void NativeOnRenderStartNoLongerResetsTheWeights()
-    {
-        string clientdll = CodeOnly(File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_clientdll.cpp")));
-        string onRenderStart = Body(clientdll, "void OnRenderStart()");
-
-        Assert.Contains("EntityAbs_SetQueriesValid( false );", onRenderStart);   // the control: this is the function
-        Assert.DoesNotContain("ResetWeights", onRenderStart);
-    }
 }

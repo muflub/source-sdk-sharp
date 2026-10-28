@@ -10,11 +10,6 @@
     #pragma once
 #endif
 
-#include <math.h>
-#include "appframework/IAppSystem.h"
-#include "tier0/platform.h"
-
-#include <stdint.h>
 #ifndef _STDINT_H
 #define _STDINT_H
 #endif

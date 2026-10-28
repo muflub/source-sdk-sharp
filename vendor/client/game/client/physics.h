@@ -3,9 +3,6 @@
 
 #pragma once
 
-#include "interface.h"
-#include "physics_shared.h"
-
 struct objectparams_t;
 struct solid_t;
 

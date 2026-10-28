@@ -181,7 +181,7 @@ public:
 	}
 
 	// IRopeManager.
-	virtual void ResetRenderCache( void ) OVERRIDE { m_Cache.Clear(); }
+	virtual void ResetRenderCache() OVERRIDE { m_Cache.Clear(); }
 
 	// A rope reaches the cache through RopeDraw instead.
 	virtual void AddToRenderCache( C_RopeKeyframe * ) OVERRIDE {}
@@ -210,7 +210,7 @@ public:
 		pCallQueue->QueueCall( this, &CSourceSharpRopeExecutor::Draw, bShadowDepth, pCopy );
 	}
 
-	virtual void OnRenderStart( void ) OVERRIDE
+	virtual void OnRenderStart() OVERRIDE
 	{
 		m_iQueued = 1 - m_iQueued;
 		m_Queued[ m_iQueued ].PurgeAndDeleteElements();
@@ -218,8 +218,8 @@ public:
 
 	// The holiday lights are TF's (USES_ECON_ITEMS), compiled out of stock here too.
 	virtual void SetHolidayLightMode( bool ) OVERRIDE {}
-	virtual bool IsHolidayLightMode( void ) OVERRIDE { return false; }
-	virtual int  GetHolidayLightStyle( void ) OVERRIDE { return 0; }
+	virtual bool IsHolidayLightMode() OVERRIDE { return false; }
+	virtual int  GetHolidayLightStyle() OVERRIDE { return 0; }
 
 	void LevelShutdown()
 	{

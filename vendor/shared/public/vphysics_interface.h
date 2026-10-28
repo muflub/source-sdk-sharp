@@ -92,7 +92,7 @@ class IRestore;
 abstract_class IPhysics : public IAppSystem
 {
 public:
-	virtual	IPhysicsEnvironment		*CreateEnvironment( void ) = 0;
+	virtual	IPhysicsEnvironment		*CreateEnvironment() = 0;
 	virtual void DestroyEnvironment( IPhysicsEnvironment * ) = 0;
 	virtual void unused_GetActiveEnvironmentByIndex() = 0;
 
@@ -125,7 +125,7 @@ struct truncatedcone_t
 abstract_class IPhysicsCollision
 {
 public:
-	virtual ~IPhysicsCollision( void ) {}
+	virtual ~IPhysicsCollision() {}
 
 	// produce a convex element from verts (convex hull around verts)
 	virtual void unused_ConvexFromVerts() = 0;
@@ -337,7 +337,7 @@ struct hlshadowcontrol_params_t
 abstract_class IPhysicsShadowController
 {
 public:
-	virtual ~IPhysicsShadowController( void ) {}
+	virtual ~IPhysicsShadowController() {}
 
 	virtual void Update( const Vector &position, const QAngle &angles, float timeOffset ) = 0;
 	virtual void unused_MaxSpeed() = 0;
@@ -381,7 +381,7 @@ public:
 abstract_class IPhysicsMotionController
 {
 public:
-	virtual ~IPhysicsMotionController( void ) {}
+	virtual ~IPhysicsMotionController() {}
 	virtual void unused_SetEventHandler() = 0;
 	virtual void AttachObject( IPhysicsObject *pObject, bool checkIfAlreadyAttached ) = 0;
 	virtual void DetachObject( IPhysicsObject *pObject ) = 0;
@@ -393,7 +393,7 @@ public:
 	// detaches all attached objects
 	virtual void unused_ClearObjects() = 0;
 	// wakes up all attached objects
-	virtual void WakeObjects( void ) = 0;
+	virtual void WakeObjects() = 0;
 
 	enum priority_t
 	{
@@ -434,7 +434,7 @@ public:
 abstract_class IPhysicsEnvironment
 {
 public:
-	virtual ~IPhysicsEnvironment( void ) {}
+	virtual ~IPhysicsEnvironment() {}
 
 	virtual void SetDebugOverlay( CreateInterfaceFn debugOverlayFactory ) = 0;
 	virtual void unused_GetDebugOverlay() = 0;
@@ -446,7 +446,7 @@ public:
 	// air density is in kg / m^3 (water is 1000)
 	// This controls drag, air that is more dense has more drag.
 	virtual void			SetAirDensity( float density ) = 0;
-	virtual float			GetAirDensity( void ) const = 0;
+	virtual float			GetAirDensity() const = 0;
 	
 	// object creation
 	// create a polygonal object.  pCollisionModel was created by the physics builder DLL in a pre-process.
@@ -525,7 +525,7 @@ public:
 	virtual const IPhysicsObject **GetObjectList( int *pOutputObjectCount ) const = 0;
 	virtual void unused_TransferObject() = 0;
 
-	virtual void			CleanupDeleteList( void ) = 0;
+	virtual void			CleanupDeleteList() = 0;
 	virtual void			EnableDeleteQueue( bool enable ) = 0;
 
 	// Save/Restore methods
@@ -554,13 +554,13 @@ public:
 	virtual void unused_UnserializeObjectFromBuffer() = 0;
 
 	virtual void EnableConstraintNotify( bool bEnable ) = 0;
-	virtual void DebugCheckContacts(void) = 0;
+	virtual void DebugCheckContacts() = 0;
 };
 
 abstract_class IPhysicsObject
 {
 public:
-	virtual ~IPhysicsObject( void ) {}
+	virtual ~IPhysicsObject() {}
 
 	// returns true if this object is static/unmoveable
 	// NOTE: returns false for objects that are not created static, but set EnableMotion(false);
@@ -588,22 +588,22 @@ public:
 
 	// Game can store data in each object (link back to game object)
 	virtual void			SetGameData( void *pGameData ) = 0;
-	virtual void			*GetGameData( void ) const = 0;
+	virtual void			*GetGameData() const = 0;
 	// This flags word can be defined by the game as well
 	virtual void			SetGameFlags( unsigned short userFlags ) = 0;
-	virtual unsigned short	GetGameFlags( void ) const = 0;
+	virtual unsigned short	GetGameFlags() const = 0;
 	virtual void			SetGameIndex( unsigned short gameIndex ) = 0;
 	virtual void unused_GetGameIndex() = 0;
 
 	// setup various callbacks for this object
 	virtual void			SetCallbackFlags( unsigned short callbackflags ) = 0;
 	// get the current callback state for this object
-	virtual unsigned short	GetCallbackFlags( void ) const = 0;
+	virtual unsigned short	GetCallbackFlags() const = 0;
 
 	// "wakes up" an object
 	// NOTE: ALL OBJECTS ARE "Asleep" WHEN CREATED
-	virtual void			Wake( void ) = 0;
-	virtual void			Sleep( void ) = 0;
+	virtual void			Wake() = 0;
+	virtual void			Sleep() = 0;
 	// call this when the collision filter conditions change due to this 
 	// object's state (e.g. changing solid type or collision group)
 	virtual void			RecheckCollisionFilter() = 0;
@@ -613,10 +613,10 @@ public:
 
 	// mass accessors
 	virtual void			SetMass( float mass ) = 0;
-	virtual float			GetMass( void ) const = 0;
+	virtual float			GetMass() const = 0;
 	// get 1/mass (it's cached)
 	virtual void unused_GetInvMass() = 0;
-	virtual Vector			GetInertia( void ) const = 0;
+	virtual Vector			GetInertia() const = 0;
 	virtual void unused_GetInvInertia() = 0;
 	virtual void unused_SetInertia() = 0;
 
@@ -705,14 +705,14 @@ public:
 	
 	// returns number of ticks since last Update() call
 	virtual int				GetShadowPosition( Vector *position, QAngle *angles ) const = 0;
-	virtual IPhysicsShadowController *GetShadowController( void ) const = 0;
+	virtual IPhysicsShadowController *GetShadowController() const = 0;
 	virtual void			RemoveShadowController() = 0;
 	// applies the math of the shadow controller to this object.
 	// for use in your own controllers
 	// returns the new value of secondsToArrival with dt time elapsed
 	virtual float			ComputeShadowControl( const hlshadowcontrol_params_t &params, float secondsToArrival, float dt ) = 0;
 
-	virtual const CPhysCollide	*GetCollide( void ) const = 0;
+	virtual const CPhysCollide	*GetCollide() const = 0;
 	virtual const char			*GetName() const = 0;
 
 	virtual void			BecomeTrigger() = 0;
@@ -736,7 +736,7 @@ public:
 abstract_class IPhysicsSpring
 {
 public:
-	virtual ~IPhysicsSpring( void ) {}
+	virtual ~IPhysicsSpring() {}
 	virtual void unused_GetEndpoints() = 0;
 	virtual void			SetSpringConstant( float flSpringContant) = 0;
 	virtual void			SetSpringDamping( float flSpringDamping) = 0;
@@ -833,12 +833,12 @@ struct surfacedata_t
 abstract_class IPhysicsSurfaceProps
 {
 public:
-	virtual ~IPhysicsSurfaceProps( void ) {}
+	virtual ~IPhysicsSurfaceProps() {}
 
 	// parses a text file containing surface prop keys
 	virtual int		ParseSurfaceData( const char *pFilename, const char *pTextfile ) = 0;
 	// current number of entries in the database
-	virtual int		SurfacePropCount( void ) const = 0;
+	virtual int		SurfacePropCount() const = 0;
 
 	virtual int		GetSurfaceIndex( const char *pSurfacePropName ) const = 0;
 	virtual void	GetPhysicsProperties( int surfaceDataIndex, float *density, float *thickness, float *friction, float *elasticity ) const = 0;
@@ -859,10 +859,10 @@ public:
 abstract_class IPhysicsFluidController
 {
 public:
-	virtual ~IPhysicsFluidController( void ) {}
+	virtual ~IPhysicsFluidController() {}
 
 	virtual void	SetGameData( void *pGameData ) = 0;
-	virtual void	*GetGameData( void ) const = 0;
+	virtual void	*GetGameData() const = 0;
 
 	virtual void	GetSurfacePlane( Vector *pNormal, float *pDist ) const = 0;
 	virtual float	GetDensity() const = 0;

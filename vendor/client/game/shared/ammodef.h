@@ -30,8 +30,6 @@ struct Ammo_t
 
 // Ammo is infinite
 
-#include "shareddefs.h"
-
 //	>> CAmmoDef
 class CAmmoDef
 {
@@ -43,8 +41,8 @@ public:
 
 	int					Index(const char *psz);
 
-	CAmmoDef(void);
-	virtual ~CAmmoDef( void );
+	CAmmoDef();
+	virtual ~CAmmoDef();
 
 private:
 };

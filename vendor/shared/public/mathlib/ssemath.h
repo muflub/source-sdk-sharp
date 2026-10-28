@@ -2,11 +2,6 @@
 // Purpose: - defines SIMD "structure of arrays" classes and functions.
 #pragma once
 
-#include <xmmintrin.h>
-
-#include <mathlib/vector.h>
-#include <mathlib/mathlib.h>
-
 #if defined(GNUC)
 #define USE_STDC_FOR_SIMD 0
 #else
@@ -129,12 +124,12 @@ FORCEINLINE uint32 & SubInt( fltx4 & a, int idx )
 	return a.m128_u32[idx];
 }
 
-FORCEINLINE fltx4 LoadZeroSIMD( void )
+FORCEINLINE fltx4 LoadZeroSIMD()
 {
 	return Four_Zeros;
 }
 
-FORCEINLINE fltx4 LoadOneSIMD( void )
+FORCEINLINE fltx4 LoadOneSIMD()
 {
 	return Four_Ones;
 }
@@ -994,7 +989,7 @@ FORCEINLINE uint32 & SubInt( fltx4 & a, int idx )
 #endif
 }
 
-FORCEINLINE fltx4 LoadZeroSIMD( void )
+FORCEINLINE fltx4 LoadZeroSIMD()
 {
 	return Four_Zeros;
 }
@@ -1444,26 +1439,26 @@ public:
 	}
 
 	/// return the squared length of all 4 vectors
-	FORCEINLINE fltx4 length2(void) const
+	FORCEINLINE fltx4 length2() const
 	{
 		return (*this)*(*this);
 	}
 
 	/// return the approximate length of all 4 vectors. uses the sqrt approximation instruction
-	FORCEINLINE fltx4 length(void) const
+	FORCEINLINE fltx4 length() const
 	{
 		return SqrtEstSIMD(length2());
 	}
 
 	/// normalize all 4 vectors in place. not mega-accurate (uses reciprocal approximation instruction)
-	FORCEINLINE void VectorNormalizeFast(void)
+	FORCEINLINE void VectorNormalizeFast()
 	{
 		fltx4 mag_sq=(*this)*(*this);						// length^2
 		(*this) *= ReciprocalSqrtEstSIMD(mag_sq);			// *(1.0/sqrt(length^2))
 	}
 
 	/// normalize all 4 vectors in place.
-	FORCEINLINE void VectorNormalize(void)
+	FORCEINLINE void VectorNormalize()
 	{
 		fltx4 mag_sq=(*this)*(*this);						// length^2
 		(*this) *= ReciprocalSqrtSIMD(mag_sq);				// *(1.0/sqrt(length^2))

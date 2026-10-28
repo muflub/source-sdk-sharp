@@ -256,22 +256,22 @@ void CShellNewParticleEffect::GetRenderBounds( Vector &mins, Vector &maxs )
 	VectorSubtract( p->MaxBounds(), GetRenderOrigin(), maxs );
 }
 
-bool CShellNewParticleEffect::IsTransparent( void )
+bool CShellNewParticleEffect::IsTransparent()
 {
 	return m_pCollection->IsTranslucent();
 }
 
-bool CShellNewParticleEffect::IsTwoPass( void )
+bool CShellNewParticleEffect::IsTwoPass()
 {
 	return m_pCollection->IsTwoPass();
 }
 
-bool CShellNewParticleEffect::UsesPowerOfTwoFrameBufferTexture( void )
+bool CShellNewParticleEffect::UsesPowerOfTwoFrameBufferTexture()
 {
 	return m_pCollection->UsesPowerOfTwoFrameBufferTexture( true );
 }
 
-bool CShellNewParticleEffect::UsesFullFrameBufferTexture( void )
+bool CShellNewParticleEffect::UsesFullFrameBufferTexture()
 {
 	return m_pCollection->UsesFullFrameBufferTexture( true );
 }

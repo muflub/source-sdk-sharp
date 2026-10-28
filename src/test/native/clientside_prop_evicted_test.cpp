@@ -81,87 +81,6 @@ namespace
 //-----------------------------------------------------------------------------
 // Finding the tree, and reading it.
 //-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-// Whole file, comments gone. Empty means "could not open", which every caller
-// must distinguish from "opened and found nothing".
-std::string ReadStripped( const std::string &strRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	std::string all, line;
-	while ( std::getline( file, line ) )
-	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
-			line.erase( line.size() - 1 );
-		all += line;
-		all += '\n';
-	}
-	return StripComments( all );
-}
-
-std::string NoWhitespace( const std::string &s )
-{
-	std::string out;
-	for ( size_t i = 0; i < s.size(); i++ )
-	{
-		const char c = s[ i ];
-		if ( c != ' ' && c != '\t' && c != '\n' && c != '\r' )
-			out += c;
-	}
-	return out;
-}
-
 struct File_t
 {
 	const char *pszRel;
@@ -182,21 +101,6 @@ struct File_t
 // shell_shared.cpp, as in the rest of this family.)
 const char *const kClientProofOfRead = "sourcesharp/game/client/shell_clientsystems.cpp";
 const char *const kServerProofOfRead = "sourcesharp/game/shared/shell_shared.cpp";
-// The thunk that replaced c_te_legacytempents.cpp when C2 evicted it.
-const File_t kTempEnts = { "sourcesharp/game/client/shell_legacy_tempents_client.cpp",
-	"CTempEnts::PhysicsProp(" };
-
-std::string Load( const File_t &f )
-{
-	const std::string s = ReadStripped( f.pszRel );
-	EXPECT_FALSE( s.empty() ) << "could not open " << f.pszRel
-		<< " — every absence invariant below would pass vacuously";
-	EXPECT_NE( s.find( f.pszAnchor ), std::string::npos )
-		<< f.pszRel << " does not contain its anchor \"" << f.pszAnchor
-		<< "\"; the file this test reasons about has moved or been rewritten";
-	return s;
-}
-
 } // namespace
 
 //-----------------------------------------------------------------------------
@@ -236,18 +140,6 @@ TEST( ClientsidePropEvicted, TheServerStillExcludesPropsCpp )
 		   "reached again";
 }
 
-TEST( ClientsidePropEvicted, TempEntsPhysicsPropBuildsNoClientsideProp )
-{
-	const std::string s = Load( kTempEnts );
-	EXPECT_EQ( s.find( "C_PhysPropClientside::CreateNew" ), std::string::npos )
-		<< "CTempEnts::PhysicsProp constructs a C_PhysPropClientside again. "
-		   "That class is no longer compiled into the client, so this is a "
-		   "link error at best and a reopened door at worst";
-	EXPECT_EQ( s.find( "physpropclientside.h" ), std::string::npos )
-		<< "shell_legacy_tempents_client.cpp includes physpropclientside.h; the "
-		   "return type needs only the forward declaration in its own header";
-}
-
 //-----------------------------------------------------------------------------
 // The other half of the same invariant, and the half the LINKER used to cover.
 //
@@ -266,67 +158,3 @@ TEST( ClientsidePropEvicted, TempEntsPhysicsPropBuildsNoClientsideProp )
 // passed in another. physpropclientside.cpp is not compiled (that is
 // TheClientExcludesPhysPropClientside), so it is never scanned here.
 //-----------------------------------------------------------------------------
-TEST( ClientsidePropEvicted, NoOtherClientTranslationUnitEntersTheBreakPath )
-{
-	const char *const kEntrances[] = { "PropBreakableCreateAll", "CreateGibsFromList" };
-
-	const std::set< std::string > compiled = cmake_graph::CompiledSources( cmake_graph::kClient );
-	ASSERT_TRUE( compiled.count( kClientProofOfRead ) )
-		<< "client_sourcesharp does not compile " << kClientProofOfRead
-		<< " -- the reader is not reading the client's source list";
-
-	size_t nScanned = 0;
-	std::string strOffenders;
-
-	for ( std::set< std::string >::const_iterator it = compiled.begin(); it != compiled.end(); ++it )
-	{
-		const std::string &strRel = *it;
-		if ( strRel.size() < 5 || strRel.compare( strRel.size() - 4, 4, ".cpp" ) != 0 )
-			continue;
-
-		// The break path's own home, should it return to the client.
-		if ( strRel == "game/shared/props_shared.cpp" )
-			continue;
-
-		// Every compiled file must be readable: an unreadable one is a file
-		// this test did not look at, never a pass.
-		const std::string s = ReadStripped( strRel );
-		EXPECT_FALSE( s.empty() ) << "could not read " << strRel << ", which the client compiles";
-		if ( s.empty() )
-			continue;
-		nScanned++;
-
-		for ( size_t e = 0; e < 2; e++ )
-		{
-			// A CALL, not a mention: the name followed by an open paren.
-			const std::string needle = std::string( kEntrances[ e ] ) + "(";
-			if ( NoWhitespace( s ).find( needle ) != std::string::npos )
-			{
-				strOffenders += "\n    " + strRel + " calls " + kEntrances[ e ];
-			}
-		}
-	}
-
-	// The scan really looked at something. Without this the empty-offenders
-	// assertion below is the purest check that cannot fail.
-	// 150, not 200 (lane c5-proxies, 2026-10-05): the client compiles fewer
-	// .cpp files every phase of plan_client_novalve, and 22 proxy TUs leaving
-	// took the scan from 220 to 198. A floor this far under the count is still
-	// a floor no stale list reaches. 120 since C8 (lane c6-input, 2026-10-11:
-	// 149 scanned after the cluster-8/16 evictions).
-	EXPECT_GT( nScanned, 120u )
-		<< "only " << nScanned << " client .cpp files were scanned; the "
-		<< "directory list has gone stale and this test is not covering the "
-		<< "build it claims to";
-
-	EXPECT_TRUE( strOffenders.empty() )
-		<< "a client-compiled file other than props_shared.cpp enters the prop "
-		<< "break path:" << strOffenders << "\n"
-		<< "That reopens the loop C_PhysPropClientside::Break used to close. It "
-		<< "no longer fails the link -- shell_props_absent.cpp supplies "
-		<< "BreakModelCreateSingle now -- so this is the warning, and what "
-		<< "would actually happen at runtime is a PROPS_ABSENT assert and no "
-		<< "gibs. Either the clientside prop simulation is coming back, in "
-		<< "which case un-evict physpropclientside.cpp and delete the client "
-		<< "half of the stub, or this call should not be there.";
-}

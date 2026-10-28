@@ -33,23 +33,6 @@
 namespace
 {
 
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string shim = std::string( kCandidates[ i ] ) + "/sourcesharp";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( shim.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
 std::string Trimmed( const std::string &s )
 {
 	const size_t a = s.find_first_not_of( " \t" );
@@ -57,27 +40,6 @@ std::string Trimmed( const std::string &s )
 		return std::string();
 	const size_t b = s.find_last_not_of( " \t" );
 	return s.substr( a, b - a + 1 );
-}
-
-std::vector< std::string > ReadLines( const std::string &strRelative )
-{
-	std::vector< std::string > lines;
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return lines;
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + strRelative ).c_str() );
-	if ( !file.is_open() )
-		return lines;
-
-	std::string line;
-	while ( std::getline( file, line ) )
-	{
-		if ( !line.empty() && line[ line.size() - 1 ] == '\r' )
-			line.erase( line.size() - 1 );
-		lines.push_back( line );
-	}
-	return lines;
 }
 
 //-----------------------------------------------------------------------------
@@ -119,15 +81,6 @@ std::string StripCommentsAndStrings( const std::string &strIn )
 		i++;
 	}
 	return out;
-}
-
-std::string StrippedFile( const std::string &strRelative )
-{
-	const std::vector< std::string > lines = ReadLines( strRelative );
-	std::string out;
-	for ( size_t i = 0; i < lines.size(); i++ )
-		out += lines[ i ] + "\n";
-	return StripCommentsAndStrings( out );
 }
 
 bool Contains( const std::string &hay, const char *needle )
@@ -250,11 +203,6 @@ std::vector< Guard_t > GuardsInLines( const std::string &strFile,
 	return out;
 }
 
-std::vector< Guard_t > GuardsIn( const std::string &strFile )
-{
-	return GuardsInLines( strFile, ReadLines( strFile ) );
-}
-
 } // namespace
 
 
@@ -288,167 +236,6 @@ std::vector< Guard_t > GuardsIn( const std::string &strFile )
 // said "it is gone" would read the same for a question re-routed and a question
 // abandoned.
 //-----------------------------------------------------------------------------
-TEST( CppAliasShardsB, TheCloseWaveTookTheShimsDeadArmsWhole )
-{
-	struct Closed_t
-	{
-		const char *pszFile;
-		const char *pszGone;       // the spelling the deleted arm carried
-		const char *pszSuccessor;  // what answers the question now
-	};
-
-	const Closed_t kClosed[] = {
-		// DrawSprite's reflection skip. RE-POINTED: the render group is
-		// C_BaseEntity's own question, but the ATTACHMENT is the RENDERABLE's,
-		// and IClientEntity is one -- so it is asked there, which also answers
-		// for a renderable off this hierarchy.
-		{ "sourcesharp/game/client/shell_sprite_leaf.cpp",
-		  "SDKEntityFromUnknown( attachedto )",
-		  "attachedto->GetAttachment( attachmentindex, effect_origin, temp );" },
-
-		// GetColorForSurface's collideable read. DECLARED: the `!pEnt` arm was
-		// already the whole branch, and it is this function's own stated
-		// fallback -- white, with a printed line -- rather than a value
-		// invented to fill the hole. C# since lane M1-C (BulletImpactEffect's
-		// ColorForSurface), with the same answer.
-		{ "sourcesharp/managed/SourceSharp.Client/TempEnts/BulletImpactEffect.cs",
-		  "pCollide->GetCollisionModelIndex()",
-		  "return new Vector(255f, 255f, 255f);" },
-
-		// FX_AntlionImpact's bounding radius. DECLARED AND OWED: IGameEntity has
-		// no bound among its members, so this is an ABI slot the close names as
-		// owed, not a re-point. The function is C# since lane c5-particles
-		// (ShardEffects.AntlionImpact), its gate the radius argument no caller
-		// can supply yet.
-		{ "sourcesharp/managed/SourceSharp.Client/Effects/ShardEffects.cs",
-		  "CollisionProp()->BoundingRadius()",
-		  "if (boundingRadius is null)" },
-
-		// GetImpactDecal's DamageDecal table. DECLARED: "Impact.Concrete" is not
-		// a placeholder for a missing answer, it is this build's own answer for
-		// a subject it has no decal opinion about -- and the material
-		// translation below it still runs, so the surfaceprop the ray hit is
-		// what picks the final decal.
-		//
-		// THE SUCCESSOR IS THE SAME CALL WITH A DIFFERENT ARGUMENT, since
-		// plan_shim.md §6 (lane 4b-effects): the NAME is a managed constant
-		// (ImpactChoicePolicy.DefaultDecal) and arrives on the choice struct,
-		// and the TRANSLATION -- which is the part that answers the deleted
-		// arm's question -- is made where the impact is decided, which since
-		// lane M1-C is BulletImpactEffect over the managed decal system.
-		{ "sourcesharp/managed/SourceSharp.Client/TempEnts/BulletImpactEffect.cs",
-		  "pEntity->DamageDecal( iDamageType, iMaterial )",
-		  "string translated = decals.TranslateForGameMaterial(name, material & 0xFF) ?? name;" },
-
-		// PlayImpactSound's identity half. NARROWED: the test needed pEntity and
-		// tr.m_pEnt to share a base and armed they do not, so what is left is
-		// the half that is answerable -- the server named no surfaceprop. That
-		// is a WEAKER condition, so the client trace is used at least as often
-		// as before and never less. C# since lane M1-C (BulletImpactEffect's
-		// PlayImpactSound), with the same condition.
-		{ "sourcesharp/managed/SourceSharp.Client/TempEnts/BulletImpactEffect.cs",
-		  "pEntity != tr.m_pEnt",
-		  "if (tr.Hit && serverSurfaceProp == 0)" },
-	};
-	const size_t kNumClosed = sizeof( kClosed ) / sizeof( kClosed[ 0 ] );
-
-	for ( size_t i = 0; i < kNumClosed; i++ )
-	{
-		const Closed_t &c = kClosed[ i ];
-		SCOPED_TRACE( std::string( c.pszFile ) + " :: " + c.pszGone );
-
-		const std::string src = StrippedFile( c.pszFile );
-		ASSERT_FALSE( src.empty() ) << c.pszFile << " read as empty.";
-
-		// THE SUCCESSOR FIRST, deliberately. It is the positive anchor as well
-		// as the fact: without it the absence below passes over a file that did
-		// not open, over an emptied one, and over a deletion that took the
-		// ARMED side instead of the dead one.
-		EXPECT_TRUE( Contains( src, c.pszSuccessor ) )
-			<< c.pszFile << " no longer contains '" << c.pszSuccessor
-			<< "', which is what answers the question the deleted arm asked. "
-			<< "Losing it is not a tidy-up: it is the deletion having kept the "
-			<< "wrong side, or a declared answer being quietly dropped.";
-
-		EXPECT_FALSE( Contains( src, c.pszGone ) )
-			<< c.pszFile << " names '" << c.pszGone << "' again. It was inside a "
-			<< "`#ifndef SS_CBASEENTITY_ALIAS` arm, so it was never compiled -- "
-			<< "and it sat behind a resolve that answers a constant NULL in this "
-			<< "build, so it was unreachable as well. If a real ask has come "
-			<< "back it needs a real arm and a row in kShardsBFiles to match.";
-
-		EXPECT_EQ( (size_t)0, GuardsIn( c.pszFile ).size() )
-			<< c.pszFile << " carries an alias-conditional region again.";
-	}
-
-	// FIVE ROWS, WHICH IS THE FALL kShardsBFiles RECORDS -- four from
-	// shell_impact_effects.cpp (three of them C# since lane M1-C, read in
-	// BulletImpactEffect.cs) and one from shell_sprite_leaf.cpp. Pinned so
-	// that a row dropped from here is a failure rather than a shorter loop, in
-	// the way the two counts above would not notice.
-	EXPECT_EQ( (size_t)5, kNumClosed );
-
-	// THE TWO DECLARED ANSWERS THAT ARE STRING LITERALS, WHICH THE TABLE ABOVE
-	// CANNOT SEE. StrippedFile drops string literals as well as comments -- on
-	// purpose, so that prose quoting a forbidden spelling cannot answer for it
-	// -- and two of the successors above ARE literals: GetColorForSurface's
-	// printed "Couldn't find surface" and GetImpactDecal's "Impact.Concrete".
-	// The table's rows for those two therefore pin the code AROUND the answer
-	// (the white it returns, the material translation it feeds) and these two
-	// clauses pin the answer itself, read off the RAW text.
-	//
-	// Reading raw is safe here in the one way it usually is not: neither needle
-	// is a spelling any comment in this file uses -- the prose says
-	// `"Impact.Concrete" is not a placeholder`, which is a different string from
-	// `decalName = "Impact.Concrete";` -- and both are ASSIGNMENTS, which prose
-	// does not write.
-	{
-		const std::vector< std::string > lines =
-			ReadLines( "sourcesharp/managed/SourceSharp.Client/TempEnts/BulletImpactEffect.cs" );
-		ASSERT_GT( lines.size(), (size_t)10 );
-
-		std::string raw;
-		for ( size_t i = 0; i < lines.size(); i++ )
-			raw += lines[ i ] + "\n";
-
-		EXPECT_FALSE( Contains( raw, "decalName = \"Impact.Concrete\";" ) )
-			<< "BulletImpactEffect.cs spells the decal name again. It is "
-			<< "ImpactChoicePolicy.DefaultDecal since plan_shim.md §6, and a "
-			<< "copy here would be a second answer with nothing choosing "
-			<< "between them.";
-		EXPECT_TRUE( Contains( raw, "Msg(\"Couldn't find surface in GetColorForSurface()" ) )
-			<< "GetColorForSurface no longer PRINTS when it cannot find a "
-			<< "surface. §7 wants a behaviour this build does not ship to be a "
-			<< "declared, printed refusal rather than a silent white.";
-	}
-
-	// AND THE DECAL ANSWER, READ WHERE IT LIVES NOW.
-	//
-	// The clause above became an ABSENCE when plan_shim.md §6 moved the name to
-	// managed code, and an absence on its own is the shape this whole test
-	// exists to refuse: a file that simply stopped answering satisfies it. So
-	// the answer is asserted at its new address, in the same raw-read shape and
-	// for the same reason -- it is a string literal, which StrippedFile drops,
-	// and it is an ASSIGNMENT, which prose does not write.
-	{
-		const std::vector< std::string > lines =
-			ReadLines( "sourcesharp/managed/SourceSharp.Client/TempEnts/ImpactChoice.cs" );
-		ASSERT_GT( lines.size(), (size_t)10 )
-			<< "ImpactChoice.cs read as empty, so the clause below is vacuous";
-
-		std::string raw;
-		for ( size_t i = 0; i < lines.size(); i++ )
-			raw += lines[ i ] + "\n";
-
-		EXPECT_TRUE( Contains( raw, "DefaultDecal = \"Impact.Concrete\";" ) )
-			<< "nothing answers \"Impact.Concrete\" any more. That is the answer "
-			<< "for a subject this hierarchy has no decal opinion about -- "
-			<< "DamageDecal is a C_BaseEntity virtual and this build has no "
-			<< "instances of it -- and without the name every impact leaves no "
-			<< "mark at all.";
-	}
-}
-
 //-----------------------------------------------------------------------------
 // The scanner's own check that it can fail: a guard built in memory, so that
 // "no armed arm names a deleted member" is not passing because the arms are

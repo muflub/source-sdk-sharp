@@ -15,7 +15,6 @@
 // Undefine this if using a compiler lacking threadsafe RTTI (like vc6)
 #define MEM_DEBUG_CLASSNAME 1
 
-#include <stddef.h>
 #if defined( OSX )
 #include <malloc/malloc.h>
 #endif

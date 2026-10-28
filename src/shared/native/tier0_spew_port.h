@@ -11,6 +11,6 @@
 
 #include "tier0/dbg.h"
 
-#include <stdarg.h>
+
 
 void Tier0_DevSpewV( int level, SpewType_t type, const tchar *pMsg, va_list args );

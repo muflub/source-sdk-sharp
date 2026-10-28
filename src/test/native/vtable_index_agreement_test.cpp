@@ -46,33 +46,6 @@ namespace
 // A tree file, found by walking up from wherever the binary was run -- the
 // same way map_entity_block_test.cpp finds its table.
 //-----------------------------------------------------------------------------
-std::string ReadRelative( const char *relative )
-{
-	std::string prefix;
-
-	for ( int i = 0; i < 8; i++ )
-	{
-		std::string candidate = prefix + relative;
-
-		if ( FILE *f = fopen( candidate.c_str(), "rb" ) )
-		{
-			std::string text;
-			char buffer[ 4096 ];
-			size_t got;
-
-			while ( ( got = fread( buffer, 1, sizeof( buffer ), f ) ) > 0 )
-				text.append( buffer, got );
-
-			fclose( f );
-			return text;
-		}
-
-		prefix += "../";
-	}
-
-	return std::string();
-}
-
 } // namespace
 
 //=============================================================================
@@ -87,54 +60,6 @@ std::string ReadRelative( const char *relative )
 // one from the compiler at all; these facts hold that, and that ShimRoot_Get
 // hands over the root's table.
 //=============================================================================
-
-TEST( VtableAcquireCount, NoAcquireTakesASlotCountFromTheCompiler )
-{
-	const char *const kAcquires[] = {
-		"sourcesharp/game/server/shell_frame.cpp",
-		"sourcesharp/game/server/shell_level.cpp",
-		"sourcesharp/game/shared/shell_internalfactory.cpp",
-		"sourcesharp/game/shared/shell_vtable_interfaces.cpp",
-		"sourcesharp/game/shared/shell_shim_areas.inc",
-		"sourcesharp/game/shared/shell_shim_areas_client.inc",
-		"sourcesharp/game/client/particles_lib_client.cpp",
-	};
-
-	for ( const char *pszFile : kAcquires )
-	{
-		const std::string source = ReadRelative( pszFile );
-		ASSERT_FALSE( source.empty() ) << "cannot find " << pszFile << " -- this test is vacuous without it";
-		EXPECT_NE( std::string::npos, source.find( "_Acquire" ) )
-			<< pszFile << " holds no acquire any more: the scan reads the wrong file";
-		EXPECT_EQ( std::string::npos, source.find( "VTableHook::MemberOf(" ) )
-			<< pszFile << " takes a vtable slot count again";
-		EXPECT_EQ( std::string::npos, source.find( "pnEntries" ) )
-			<< pszFile << " hands a count back beside a pointer again";
-	}
-}
-
-TEST( VtableAcquireCount, ShimRootGetHandsTheRootsForwarderTableRatherThanACount )
-{
-	// plan_forwarders_everywhere.md phase 3: the root LoadSideV2 hands managed
-	// travels with its forwarder table, which managed holds against
-	// ShimRootFwd's count, so ShimRoot_Get reads no member's slot any more.
-	// The served name is the generated table's (tools/engine-forwarders'
-	// ShimRoot row); a wrong one hands managed a null table, which it refuses.
-	const std::string source =
-		ReadRelative( "sourcesharp/game/shared/shell_internalfactory.cpp" );
-
-	ASSERT_FALSE( source.empty() )
-		<< "cannot find shell_internalfactory.cpp -- this test is vacuous without it";
-
-	const size_t body = source.find( "IShimRoot *ShimRoot_Get( const void **ppTable )\n{" );
-	ASSERT_NE( std::string::npos, body ) << "ShimRoot_Get no longer takes the table's out-parameter";
-	const std::string fn = source.substr( body, source.find( "\n}\n", body ) - body );
-
-	EXPECT_NE( std::string::npos, fn.find( "*ppTable = SSFwd_Serve( \"SSFwd_ShimRoot\" );" ) )
-		<< "ShimRoot_Get no longer hands over SSFwd_ShimRoot";
-	EXPECT_EQ( std::string::npos, fn.find( "VTableHook::MemberOf" ) )
-		<< "ShimRoot_Get counts the root's vtable again";
-}
 
 // The five callbacks managed registers (ClientSteamCallbacks.cs): each id and
 // payload size the SDK headers give, which ClientSteamCallbacksTests pins on

@@ -29,7 +29,7 @@ void StandaloneEntities_LevelShutdown();
 // Defined in physics.cpp, gamestringpool.cpp and shell_entityslots.cpp.
 CServerSystem *PhysicsGameSystem();
 CServerSystem *GameStringSystem();
-void SourceSharp_ResetEntitySlots( void );
+void SourceSharp_ResetEntitySlots();
 
 extern INetworkStringTable *g_pStringTableInfoPanel;
 

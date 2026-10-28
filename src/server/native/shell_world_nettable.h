@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "basetypes.h"
+
 
 class ServerClass;
 

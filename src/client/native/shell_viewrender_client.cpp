@@ -85,7 +85,7 @@ class CShellViewRender final : public IViewRender, public IReplayScreenshotSyste
 {
 public:
 
-	void Init( void ) override
+	void Init() override
 	{
 		beams->InitBeams();
 		tempents->Init();
@@ -93,7 +93,7 @@ public:
 
 	// CViewRender::LevelInit: a level starts with no beams, temp entities,
 	// list stamps, freeze frame or screen overlay, and its screen-space effects.
-	void LevelInit( void ) override
+	void LevelInit() override
 	{
 		beams->ClearBeams();
 		tempents->Clear();
@@ -106,14 +106,14 @@ public:
 			pManaged->ScreenSpaceEffectsStage( 0 );
 	}
 
-	void LevelShutdown( void ) override
+	void LevelShutdown() override
 	{
 		if ( IManagedRenderClient *pManaged = ManagedRenderClient() )
 			pManaged->ScreenSpaceEffectsStage( 1 );
 		m_nCurrentViewID = VIEW_NONE;
 	}
 
-	void Shutdown( void ) override
+	void Shutdown() override
 	{
 		ReleaseScreenOverlay();
 		beams->ShutdownBeams();
@@ -138,21 +138,21 @@ public:
 	// The draw flags of the view the executor is drawing.
 	int GetDrawFlags() override { return SourceSharp_ActiveViewDrawFlags(); }
 	// Pitch drift is not shipped: the view angle is the engine's alone.
-	void StartPitchDrift( void ) override {}
-	void StopPitchDrift( void ) override {}
+	void StartPitchDrift() override {}
+	void StopPitchDrift() override {}
 	VPlane *GetFrustum() override { return m_Frustum; }
 	// r_drawbrushmodels, read by name (the engine's convar); drawn when it is missing, as stock.
-	bool ShouldDrawBrushModels( void ) override
+	bool ShouldDrawBrushModels() override
 	{
 		ConVarRef drawBrushModels( "r_drawbrushmodels", true );
 		return !drawBrushModels.IsValid() || drawBrushModels.GetInt() != 0;
 	}
-	const CViewSetup *GetPlayerViewSetup( void ) const override { return &m_View; }
-	const CViewSetup *GetViewSetup( void ) const override { return &m_CurrentView; }
+	const CViewSetup *GetPlayerViewSetup() const override { return &m_View; }
+	const CViewSetup *GetViewSetup() const override { return &m_CurrentView; }
 
 	void SetCurrentView( const CViewSetup &setup ) { m_CurrentView = setup; }
 	// No vis for the next frame's views; Render clears it.
-	void DisableVis( void ) override { m_bForceNoVis = true; }
+	void DisableVis() override { m_bForceNoVis = true; }
 
 	bool ForceNoVis() const { return m_bForceNoVis; }
 
@@ -198,7 +198,7 @@ public:
 		flStart = m_flCheapWaterStartDistance;
 		flEnd = m_flCheapWaterEndDistance;
 	}
-	void DriftPitch( void ) override
+	void DriftPitch() override
 	{
 		SourceSharp_NotShipped( "pitch drift (v_centermove)",
 			"the drift is written into the local player entity's own local angles, "
@@ -598,7 +598,7 @@ const Vector &CurrentViewRight() { Assert( ShellView_CurrentViewAccessAllowed() 
 const Vector &CurrentViewUp() { Assert( ShellView_CurrentViewAccessAllowed() ); return ShellView_Current().up; }
 const VMatrix &CurrentWorldToViewMatrix() { Assert( ShellView_CurrentViewAccessAllowed() ); return ShellView_Current().worldToView; }
 view_id_t CurrentViewID() { return (view_id_t)ShellView_CurrentViewID(); }
-bool DrawingShadowDepthView( void ) { return ShellView_CurrentViewID() == VIEW_SHADOW_DEPTH_TEXTURE; }
+bool DrawingShadowDepthView() { return ShellView_CurrentViewID() == VIEW_SHADOW_DEPTH_TEXTURE; }
 
 void SetupCurrentView( const Vector &vecOrigin, const QAngle &angles, view_id_t viewID )
 {

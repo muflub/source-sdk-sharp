@@ -9,7 +9,6 @@
 #endif
 
 // Temporarily turn off Valve defines
-#include "tier0/valve_off.h"
 
 #if !defined(_WCHAR_T_DEFINED) && !defined(GNUC)
 typedef unsigned short wchar_t;
@@ -65,4 +64,3 @@ typedef wchar_t uchar32;
 #endif
 
 // Turn valve defines back on
-#include "tier0/valve_on.h"

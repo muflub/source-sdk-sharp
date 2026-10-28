@@ -8,13 +8,13 @@ const char *SourceSharp_ClientMapName(	BOUNDARY	IVEngineClient::GetLevelName's f
 static void WalkForward(	HOOK	a stage walked over the fixed client-system table in its order (stock's IGameSystem::*AllSystems)
 static void WalkBackward(	HOOK	a shutdown stage walked over the same table in reverse
 static void WalkForwardPerFrame(	HOOK	a per-frame stage walked over the table's per-frame rows
-bool SourceSharp_ClientSystemsInit( void )	HOOK	the Init walk, stopping at the first system that refuses (stock's InitAllSystems), naming it
-void SourceSharp_ClientSystemsPostInit( void )	HOOK	the PostInit walk
-void SourceSharp_ClientSystemsShutdown( void )	HOOK	the Shutdown walk, backwards
-void SourceSharp_ClientSystemsLevelInitPreEntity( void )	HOOK	the LevelInitPreEntity walk
-void SourceSharp_ClientSystemsLevelInitPostEntity( void )	HOOK	the LevelInitPostEntity walk
-void SourceSharp_ClientSystemsLevelShutdownPreEntity( void )	HOOK	the LevelShutdownPreEntity walk, backwards
-void SourceSharp_ClientSystemsLevelShutdownPostEntity( void )	HOOK	the LevelShutdownPostEntity walk, backwards
-void SourceSharp_ClientSystemsPreRender( void )	HOOK	the per-frame PreRender walk
+bool SourceSharp_ClientSystemsInit()	HOOK	the Init walk, stopping at the first system that refuses (stock's InitAllSystems), naming it
+void SourceSharp_ClientSystemsPostInit()	HOOK	the PostInit walk
+void SourceSharp_ClientSystemsShutdown()	HOOK	the Shutdown walk, backwards
+void SourceSharp_ClientSystemsLevelInitPreEntity()	HOOK	the LevelInitPreEntity walk
+void SourceSharp_ClientSystemsLevelInitPostEntity()	HOOK	the LevelInitPostEntity walk
+void SourceSharp_ClientSystemsLevelShutdownPreEntity()	HOOK	the LevelShutdownPreEntity walk, backwards
+void SourceSharp_ClientSystemsLevelShutdownPostEntity()	HOOK	the LevelShutdownPostEntity walk, backwards
+void SourceSharp_ClientSystemsPreRender()	HOOK	the per-frame PreRender walk
 void SourceSharp_ClientSystemsUpdate( float frametime )	HOOK	the per-frame Update walk
 IGameSystem::~IGameSystem()	SLOT	IGameSystem's out-of-line destructor, which emits the class's vtable

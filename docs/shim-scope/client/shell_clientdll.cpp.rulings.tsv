@@ -43,18 +43,18 @@ CShellClientDLL::CShellClientDLL()	HOOK	the object the engine holds as IBaseClie
 int CShellClientDLL::Init(	HOOK	IBaseClientDLL::Init: acquires every engine interface (failing on a missing one, stock's), connects the tiers, registers the ConVars, brings up the native subsystems in stock's order and the managed runtime before the HUD (gHUD.Init hooks managed's messages); the -textmode flag stored for the vgui shell. Chooses nothing
 bool CShellClientDLL::ReplayInit(	SLOT	IBaseClientDLL: replay is not shipped (stock's PC answer)
 bool CShellClientDLL::ReplayPostInit()	SLOT	IBaseClientDLL: replay is not shipped
-void CShellClientDLL::Shutdown( void )	HOOK	IBaseClientDLL::Shutdown: the teardown in stock's order, the managed runtime stopped and released after a failed Init too (guarded), the refusal tally printed. Chooses nothing
-int CShellClientDLL::HudVidInit( void )	SLOT	IBaseClientDLL::HudVidInit onto gHUD and the voice manager
+void CShellClientDLL::Shutdown()	HOOK	IBaseClientDLL::Shutdown: the teardown in stock's order, the managed runtime stopped and released after a failed Init too (guarded), the refusal tally printed. Chooses nothing
+int CShellClientDLL::HudVidInit()	SLOT	IBaseClientDLL::HudVidInit onto gHUD and the voice manager
 void CShellClientDLL::HudProcessInput(	SLOT	IBaseClientDLL::HudProcessInput onto the client mode
 void CShellClientDLL::HudUpdate(	SLOT	IBaseClientDLL::HudUpdate: the voice manager's frame, gHUD and the client systems' Update walk, in stock's order
-void CShellClientDLL::HudReset( void )	SLOT	IBaseClientDLL::HudReset onto gHUD and physics
+void CShellClientDLL::HudReset()	SLOT	IBaseClientDLL::HudReset onto gHUD and physics
 void CShellClientDLL::HudText(	SLOT	IBaseClientDLL::HudText: nothing (the HUD is managed's)
 bool CShellClientDLL::ShouldDrawDropdownConsole()	SLOT	IBaseClientDLL: stock's constant
-ClientClass *CShellClientDLL::GetAllClasses( void )	LAYOUT	IBaseClientDLL::GetAllClasses: the ClientClass list head the engine walks by layout
-void CShellClientDLL::IN_ActivateMouse( void )	SLOT	IBaseClientDLL onto the input (managed's ClientInput behind CInput)
-void CShellClientDLL::IN_DeactivateMouse( void )	SLOT	IBaseClientDLL onto the input
-void CShellClientDLL::IN_Accumulate ( void )	SLOT	IBaseClientDLL onto the input
-void CShellClientDLL::IN_ClearStates ( void )	SLOT	IBaseClientDLL onto the input
+ClientClass *CShellClientDLL::GetAllClasses()	LAYOUT	IBaseClientDLL::GetAllClasses: the ClientClass list head the engine walks by layout
+void CShellClientDLL::IN_ActivateMouse()	SLOT	IBaseClientDLL onto the input (managed's ClientInput behind CInput)
+void CShellClientDLL::IN_DeactivateMouse()	SLOT	IBaseClientDLL onto the input
+void CShellClientDLL::IN_Accumulate ()	SLOT	IBaseClientDLL onto the input
+void CShellClientDLL::IN_ClearStates ()	SLOT	IBaseClientDLL onto the input
 bool CShellClientDLL::IN_IsKeyDown(	SLOT	IBaseClientDLL::IN_IsKeyDown: the button's state is managed's (IManagedInputClient::InputIsKeyDown)
 void CShellClientDLL::IN_OnMouseWheeled(	SLOT	IBaseClientDLL: nothing (stock's PC body)
 int CShellClientDLL::IN_KeyEvent(	SLOT	IBaseClientDLL onto the input
@@ -71,17 +71,17 @@ uint CShellClientDLL::GetPresenceID(	SLOT	IBaseClientDLL: refused, stock's 0
 const char *CShellClientDLL::GetPropertyIdString(	SLOT	IBaseClientDLL: refused, stock's NULL
 void CShellClientDLL::GetPropertyDisplayString(	SLOT	IBaseClientDLL: refused
 void CShellClientDLL::StartStatsReporting(	SLOT	IBaseClientDLL: refused
-int32_t SourceSharp_ClientEntitiesInvalidateMdlCacheAll( void )	BOUNDARY	the native half of managed's mdl-cache flush: the standalone shells' bone caches invalidated (shell_standalone_client.cpp)
+int32_t SourceSharp_ClientEntitiesInvalidateMdlCacheAll()	BOUNDARY	the native half of managed's mdl-cache flush: the standalone shells' bone caches invalidated (shell_standalone_client.cpp)
 void CShellClientDLL::InvalidateMdlCache()	SLOT	IBaseClientDLL::InvalidateMdlCache onto the managed runtime
 void CShellClientDLL::View_Fade(	SLOT	IBaseClientDLL::View_Fade onto managed's view effects
 void CShellClientDLL::LevelInitPreEntity(	SLOT	IBaseClientDLL::LevelInitPreEntity: managed's particle-reload answer carried out (stock's full re-read when no runtime is loaded to ask), stock's once-per-level gate (the engine calls it more than once), the native subsystems' level init in stock's order and managed's level start (LevelPrediction). The decisions in it are managed's
 void CShellClientDLL::LevelInitPostEntity( )	SLOT	IBaseClientDLL::LevelInitPostEntity: the client systems' walk and the centre print cleared
 void CShellClientDLL::ResetStringTablePointers()	SLOT-HELP	the string-table globals cleared at level shutdown (the tables go with the connection)
-void CShellClientDLL::LevelShutdown( void )	SLOT	IBaseClientDLL::LevelShutdown: stock's gate, the systems' and subsystems' teardown in the server's order (shells, world, post-entity systems) with the count of what was destroyed logged. Chooses nothing
+void CShellClientDLL::LevelShutdown()	SLOT	IBaseClientDLL::LevelShutdown: stock's gate, the systems' and subsystems' teardown in the server's order (shells, world, post-entity systems) with the count of what was destroyed logged. Chooses nothing
 void CShellClientDLL::SetCrosshairAngle(	SLOT	IBaseClientDLL: nothing (no crosshair element exists; the HUD is managed's)
 void CShellClientDLL::InitSprite(	SLOT	IBaseClientDLL onto CEngineSprite::Init
 void CShellClientDLL::ShutdownSprite(	SLOT	IBaseClientDLL onto CEngineSprite::Shutdown
-int CShellClientDLL::GetSpriteSize( void ) const	LAYOUT	IBaseClientDLL: sizeof( CEngineSprite ), what the engine allocates per sprite
+int CShellClientDLL::GetSpriteSize() const	LAYOUT	IBaseClientDLL: sizeof( CEngineSprite ), what the engine allocates per sprite
 void OnMaterialStringTableChanged(	HOOK	the Materials string table's callback: the material precached and the cache request raised (stock's)
 void OnParticleSystemStringTableChanged(	HOOK	the ParticleEffectNames string table's callback: the system precached and the cache request raised (stock's)
 void OnVguiScreenTableChanged(	HOOK	the VguiScreen string table's callback: nothing (no vgui screen class is compiled)
@@ -120,7 +120,7 @@ CMouthInfo *CShellClientDLL::GetClientUIMouthInfo()	LAYOUT	IBaseClientDLL: the U
 void CShellClientDLL::FileReceived(	SLOT	IBaseClientDLL onto the game rules
 void CShellClientDLL::ClientAdjustStartSoundParams(	SLOT	IBaseClientDLL: nothing (stock's body outside TF)
 const char* CShellClientDLL::TranslateEffectForVisionFilter(	SLOT	IBaseClientDLL onto the game rules, the name unchanged without them (stock's)
-bool CShellClientDLL::DisconnectAttempt( void )	SLOT	IBaseClientDLL: stock's false
+bool CShellClientDLL::DisconnectAttempt()	SLOT	IBaseClientDLL: stock's false
 bool CShellClientDLL::IsConnectedUserInfoChangeAllowed(	SLOT	IBaseClientDLL onto the game rules, allowed without them (stock's)
 bool CShellClientDLL::BHaveChatSuspensionInCurrentMatch()	SLOT	IBaseClientDLL: refused (TF only), stock's false
 void CShellClientDLL::DisplayVoiceUnavailableMessage()	SLOT	IBaseClientDLL: refused (TF only)

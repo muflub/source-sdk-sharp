@@ -20,27 +20,27 @@ public:
 	virtual						~CHudElement();
 
 	// called when the Hud is initialised (whenever the DLL is loaded)
-	virtual void				Init( void ) { return; }
+	virtual void				Init() { return; }
 
 	// called whenever the video mode changes, and whenever Init() would be called, so the hud can vid init itself
-	virtual void				VidInit( void ) { return; }
+	virtual void				VidInit() { return; }
 
 	// LevelInit's called whenever a new level is starting
-	virtual void				LevelInit( void ) { return; };
+	virtual void				LevelInit() { return; };
 	// LevelShutdown's called whenever a level is finishing
-	virtual void				LevelShutdown( void ) { return; };
+	virtual void				LevelShutdown() { return; };
 
 	// called whenever the hud receives "reset" message, which is (usually) every time the client respawns after getting killed
-	virtual void				Reset( void ) { return; }
+	virtual void				Reset() { return; }
 
 	// Called once per frame for visible elements before general key processing
-	virtual void				ProcessInput( void ) { return; }
-	virtual const char			*GetName( void ) const { return m_pElementName; };
+	virtual void				ProcessInput() { return; }
+	virtual const char			*GetName() const { return m_pElementName; };
 
 	// Return true if this hud element should be visible in the current hud state
-	virtual bool				ShouldDraw( void );
+	virtual bool				ShouldDraw();
 
-	virtual bool				IsActive( void ) { return m_bActive; };
+	virtual bool				IsActive() { return m_bActive; };
 	virtual void				SetActive( bool bActive );
 
 	virtual GameActionSet_t GetPreferredActionSet() { return GAME_ACTION_SET_NONE; }

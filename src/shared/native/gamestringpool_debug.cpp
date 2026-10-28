@@ -12,7 +12,7 @@
 #include "gamestringpool_internal.h"
 #include "native_command_body.h"
 
-bool UTIL_IsCommandIssuedByServerAdmin( void );
+bool UTIL_IsCommandIssuedByServerAdmin();
 
 // Entries are numbered by position; stock's RB-tree slot means nothing outside its tree.
 static void DumpGameStringEntry( const char *pszString, void *pContext )
@@ -22,7 +22,7 @@ static void DumpGameStringEntry( const char *pszString, void *pContext )
 	i++;
 }
 
-void CC_DumpGameStringTable( void )
+void CC_DumpGameStringTable()
 {
 	if ( !UTIL_IsCommandIssuedByServerAdmin() )
 		return;

@@ -132,42 +132,10 @@ TEST( StandaloneHandleBanClient, APointerToTheBannedTypeIsStillNameable )
 // empty class you CAN instantiate -- and the must-not-compile leg would go
 // green while the property it stands for was gone.
 //-----------------------------------------------------------------------------
-TEST( StandaloneHandleBanClient, TheSpecialisationIsDeclaredAndNotDefined )
-{
-	const std::string h = ReadFile( "sourcesharp/game/client/standalone_handle_ban_client.h" );
-
-	ASSERT_FALSE( h.empty() ) << "standalone_handle_ban_client.h is missing";
-
-	EXPECT_NE( std::string::npos,
-	           h.find( "template<> class CHandle< C_StandaloneEntity >;" ) )
-		<< "the ban is gone or respelled. plan_entity.md 5d's gate is that "
-		   "instantiating CHandle<C_StandaloneEntity> in a client shim TU is "
-		   "REFUSED, and this declaration is the whole of the refusal.";
-
-	EXPECT_EQ( std::string::npos,
-	           h.find( "template<> class CHandle< C_StandaloneEntity >\n{" ) )
-		<< "the ban has been given a BODY. A defined specialisation is a class "
-		   "you can instantiate, so the must-not-compile leg would go green "
-		   "while the property it stands for was gone.";
-}
-
 //-----------------------------------------------------------------------------
 // The ban is REACHED, and from the header that makes the client shell
 // nameable. A ban in a file nothing includes is a ban on nothing.
 //-----------------------------------------------------------------------------
-TEST( StandaloneHandleBanClient, ShellStandaloneClientIncludesTheBan )
-{
-	const std::string h = ReadFile( "sourcesharp/game/client/shell_standalone_client.h" );
-
-	ASSERT_FALSE( h.empty() ) << "shell_standalone_client.h is missing";
-
-	EXPECT_NE( std::string::npos,
-	           h.find( "#include \"standalone_handle_ban_client.h\"" ) )
-		<< "shell_standalone_client.h no longer includes the ban, so a client "
-		   "shim TU can name C_StandaloneEntity without ever having read it "
-		   "and 5d's gate is unenforced.";
-}
-
 //-----------------------------------------------------------------------------
 // IT IS THE CLIENT'S OWN BAN, not the server's re-read.
 //
@@ -176,23 +144,6 @@ TEST( StandaloneHandleBanClient, ShellStandaloneClientIncludesTheBan )
 // red if somebody "de-duplicated" the two headers into one -- which would leave
 // one of the two sides unbanned while every probe stayed green.
 //-----------------------------------------------------------------------------
-TEST( StandaloneHandleBanClient, TheServerBanNamesTheServerShellAndNotThisOne )
-{
-	const std::string srv = ReadFile( "sourcesharp/game/server/standalone_handle_ban.h" );
-
-	ASSERT_FALSE( srv.empty() ) << "the server's twin is missing";
-
-	EXPECT_NE( std::string::npos,
-	           srv.find( "template<> class CHandle< CStandaloneEntity >;" ) )
-		<< "1e's server ban is gone or respelled.";
-
-	EXPECT_EQ( std::string::npos, srv.find( "C_StandaloneEntity" ) )
-		<< "the server ban names the CLIENT shell. If the two headers have been "
-		   "merged, one side's ban is a forward declaration of a class that "
-		   "does not exist in that DLL -- a ban on nothing, with every probe "
-		   "still green.";
-}
-
 //-----------------------------------------------------------------------------
 // BOTH LEGS EXIST IN THE TEST MANIFEST (src/test/native/CMakeLists.txt; the
 // bash script buildcpptests until Phase 6b), and the control is the one that

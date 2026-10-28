@@ -4,5 +4,3 @@
 //			clients' voice streams.
 
 #pragma once
-
-#include "interface.h"

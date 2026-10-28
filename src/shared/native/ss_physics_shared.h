@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "vphysics_interface.h"
+
 #include "vcollide_parse.h"     // IVPhysicsKeyHandler
 
 // Defined in game/server/physics.cpp.

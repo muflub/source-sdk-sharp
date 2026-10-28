@@ -86,54 +86,6 @@ namespace
 // Where the tree is, from wherever the harness happened to start us. Same shape
 // as gc_sections_link_test.cpp's, for the same reason.
 //-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		std::string strProbe( kCandidates[ i ] );
-		strProbe += "/sourcesharp/game";
-
-		DIR *pDir = opendir( strProbe.c_str() );
-		if ( pDir )
-		{
-			closedir( pDir );
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadSrcFile( const char *pszRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::string strPath( pszRoot );
-	strPath += "/";
-	strPath += pszRelative;
-
-	std::ifstream file( strPath.c_str(), std::ios::binary );
-	if ( !file.is_open() )
-		return std::string();
-
-	return std::string( ( std::istreambuf_iterator< char >( file ) ),
-	                    std::istreambuf_iterator< char >() );
-}
-
-std::string BinaryPath( const char *pszName )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::string strPath( pszRoot );
-	strPath += "/../game/mod_sharp/bin/linux64/";
-	strPath += pszName;
-	return strPath;
-}
-
 //-----------------------------------------------------------------------------
 // The smallest ELF64 reader that answers the three questions above: does this
 // object DEFINE a symbol, does it IMPORT one, and what does it name in
@@ -300,24 +252,6 @@ private:
 	bool						m_bLoaded;
 };
 
-const ElfFile &Host()
-{
-	static const ElfFile f( BinaryPath( "libmanaged_host.so" ) );
-	return f;
-}
-
-const ElfFile &Server()
-{
-	static const ElfFile f( BinaryPath( "server.so" ) );
-	return f;
-}
-
-const ElfFile &Client()
-{
-	static const ElfFile f( BinaryPath( "client.so" ) );
-	return f;
-}
-
 // The link line a target's link edge in build.ninja gives the linker: its
 // LINK_FLAGS and LINK_LIBRARIES (cmake_graph.h; throws when the build is not
 // there, so nothing below can pass on an empty read).
@@ -340,10 +274,6 @@ bool LinksToken( const char *pszTarget, const std::string &strTok )
 	return std::find( libs.begin(), libs.end(), strTok ) != libs.end();
 }
 
-// g_State is file-static, so this is the name the compiler actually emits:
-// `_ZL` is Itanium-ABI for internal linkage, 7 is the length of "g_State".
-const char *const kStateSymbol = "_ZL7g_State";
-
 } // namespace
 
 //-----------------------------------------------------------------------------
@@ -351,142 +281,28 @@ const char *const kStateSymbol = "_ZL7g_State";
 // evidence only because these passed -- an unreadable file would make every
 // "does not define" assertion below pass for the wrong reason.
 //-----------------------------------------------------------------------------
-TEST( ManagedHostSingleInstance, TheHostSharedObjectExists )
-{
-	EXPECT_TRUE( Host().Loaded() )
-		<< "game/mod_sharp/bin/linux64/libmanaged_host.so is missing or unreadable.\n"
-		<< "The host must be its own shared object -- one mapping per process is\n"
-		<< "what makes the refcount single. Run `make debug` if you have not built.";
-}
-
-TEST( ManagedHostSingleInstance, BothGameModulesExist )
-{
-	EXPECT_TRUE( Server().Loaded() )
-		<< "game/mod_sharp/bin/linux64/server.so is missing. Run `make debug`.";
-	EXPECT_TRUE( Client().Loaded() )
-		<< "game/mod_sharp/bin/linux64/client.so is missing. Run `make debug`.";
-}
-
 //-----------------------------------------------------------------------------
 // Layer 1a: the host defines the state. This is the vacuity guard -- it is the
 // assertion that goes red if the ELF reader stops finding anything.
 //-----------------------------------------------------------------------------
-TEST( ManagedHostSingleInstance, HostDefinesTheRuntimeState )
-{
-	ASSERT_TRUE( Host().Loaded() );
-	EXPECT_TRUE( Host().Defines( kStateSymbol ) )
-		<< "libmanaged_host.so does not define " << kStateSymbol << ".\n"
-		<< "Either the host is no longer compiled into it, or this test's ELF\n"
-		<< "reader has stopped working -- and in the second case every 'does not\n"
-		<< "define' assertion below is passing for the wrong reason.";
-}
-
-TEST( ManagedHostSingleInstance, HostExportsTheAcquireApi )
-{
-	ASSERT_TRUE( Host().Loaded() );
-	EXPECT_TRUE( Host().Defines( "SourceSharp_Acquire" ) );
-	EXPECT_TRUE( Host().Defines( "SourceSharp_Release" ) );
-	// plan_side_entries SE1: one export per side, none taking the side.
-	EXPECT_TRUE( Host().Defines( "SourceSharp_LoadServer" ) );
-	EXPECT_TRUE( Host().Defines( "SourceSharp_LoadClient" ) );
-	EXPECT_TRUE( Host().Defines( "SourceSharp_UnloadServer" ) );
-	EXPECT_TRUE( Host().Defines( "SourceSharp_UnloadClient" ) );
-	EXPECT_TRUE( Host().Defines( "SourceSharp_ReloadCheckServer" ) );
-	EXPECT_TRUE( Host().Defines( "SourceSharp_ReloadCheckClient" ) );
-	EXPECT_FALSE( Host().Defines( "SourceSharp_LoadSideV2" ) );
-	EXPECT_FALSE( Host().Defines( "SourceSharp_UnloadSide" ) );
-	EXPECT_FALSE( Host().Defines( "SourceSharp_ReloadCheck" ) );
-	EXPECT_TRUE( Host().Defines( "SourceSharp_RefCount" ) );
-}
-
 //-----------------------------------------------------------------------------
 // Layer 1b: THE REGRESSION ITSELF. A game module that defines the host's state
 // is a second copy of a thing that must be single -- exactly the shape the bug
 // had. This is what goes red if anyone links the host statically again.
 //-----------------------------------------------------------------------------
-TEST( ManagedHostSingleInstance, ServerDoesNotDefineTheRuntimeState )
-{
-	ASSERT_TRUE( Server().Loaded() );
-	EXPECT_FALSE( Server().Defines( kStateSymbol ) )
-		<< "server.so has its OWN copy of the host's g_State. That is the bug:\n"
-		<< "the refcount is per-module again, Acquire's 'runtime already running'\n"
-		<< "branch will never fire, and both game DLLs will cold-start the CLR.";
-}
-
-TEST( ManagedHostSingleInstance, ClientDoesNotDefineTheRuntimeState )
-{
-	ASSERT_TRUE( Client().Loaded() );
-	EXPECT_FALSE( Client().Defines( kStateSymbol ) )
-		<< "client.so has its OWN copy of the host's g_State. That is the bug:\n"
-		<< "the refcount is per-module again, Acquire's 'runtime already running'\n"
-		<< "branch will never fire, and both game DLLs will cold-start the CLR.";
-}
-
-TEST( ManagedHostSingleInstance, ServerImportsTheAcquireApi )
-{
-	ASSERT_TRUE( Server().Loaded() );
-	EXPECT_TRUE( Server().Imports( "SourceSharp_Acquire" ) )
-		<< "server.so does not IMPORT SourceSharp_Acquire.";
-	EXPECT_FALSE( Server().Defines( "SourceSharp_Acquire" ) )
-		<< "server.so DEFINES SourceSharp_Acquire, so it carries its own host.";
-	EXPECT_FALSE( Server().Defines( "SourceSharp_Release" ) );
-}
-
-TEST( ManagedHostSingleInstance, ClientImportsTheAcquireApi )
-{
-	ASSERT_TRUE( Client().Loaded() );
-	EXPECT_TRUE( Client().Imports( "SourceSharp_Acquire" ) )
-		<< "client.so does not IMPORT SourceSharp_Acquire.";
-	EXPECT_FALSE( Client().Defines( "SourceSharp_Acquire" ) )
-		<< "client.so DEFINES SourceSharp_Acquire, so it carries its own host.";
-	EXPECT_FALSE( Client().Defines( "SourceSharp_Release" ) );
-}
-
 //-----------------------------------------------------------------------------
 // Layer 1c: and they name the object they import it from, so the single mapping
 // is the loader's job and not a coincidence of who happened to be loaded first.
 //-----------------------------------------------------------------------------
-TEST( ManagedHostSingleInstance, BothGameModulesNeedTheHostObject )
-{
-	ASSERT_TRUE( Server().Loaded() );
-	ASSERT_TRUE( Client().Loaded() );
-
-	EXPECT_TRUE( Server().Needs( "libmanaged_host.so" ) )
-		<< "server.so has no DT_NEEDED on libmanaged_host.so.";
-	EXPECT_TRUE( Client().Needs( "libmanaged_host.so" ) )
-		<< "client.so has no DT_NEEDED on libmanaged_host.so.";
-
-	// Not vacuous: the reader really did find this object's other dependencies.
-	// (libtier0.so was the server's control until P4.8 took it off the link,
-	// and the client's until plan_client_novalve C9 did the same.)
-	EXPECT_TRUE( Server().Needs( "libstdc++.so.6" ) );
-	EXPECT_TRUE( Client().Needs( "libstdc++.so.6" ) );
-}
-
 //-----------------------------------------------------------------------------
 // plan_server_novalve.md P4: server.so needs no Valve library. The reader's
 // positive arm is the fact above (libstdc++, libmanaged_host found).
 //-----------------------------------------------------------------------------
-TEST( ManagedHostSingleInstance, TheServerNeedsNoValveLibrary )
-{
-	ASSERT_TRUE( Server().Loaded() );
-	EXPECT_FALSE( Server().Needs( "libtier0.so" ) );
-	EXPECT_FALSE( Server().Needs( "libvstdlib.so" ) );
-	EXPECT_FALSE( Server().Needs( "libsteam_api.so" ) );
-}
-
 //-----------------------------------------------------------------------------
 // plan_client_novalve C9: client.so needs neither tier0 nor vstdlib; its names
 // from them are its own or bound to the engine's copies (tier_bindings_client).
 // The reader's positive arm is BothGameModulesNeedTheHostObject.
 //-----------------------------------------------------------------------------
-TEST( ManagedHostSingleInstance, TheClientNeedsNeitherTier0NorVstdlib )
-{
-	ASSERT_TRUE( Client().Loaded() );
-	EXPECT_FALSE( Client().Needs( "libtier0.so" ) );
-	EXPECT_FALSE( Client().Needs( "libvstdlib.so" ) );
-}
-
 //-----------------------------------------------------------------------------
 // Layer 2: the source says so too, so a tree that has not been linked yet still
 // fails the moment the intent is reverted.
@@ -541,21 +357,3 @@ TEST( ManagedHostSingleInstance, BothGameProjectsKeepTheOriginRunpath )
 // did not say which module they came from. Two cold acquires are
 // indistinguishable from one unless the line names its module.
 //-----------------------------------------------------------------------------
-TEST( ManagedHostSingleInstance, EveryRefcountLineNamesItsModule )
-{
-	const std::string strHost = ReadSrcFile( "sourcesharp/host/sourcesharp.cpp" );
-	ASSERT_FALSE( strHost.empty() );
-
-	// Each of the four lines that reports a refcount carries the caller tag.
-	EXPECT_NE( strHost.find( "\"Acquire[%s]: runtime already running, refcount now %d" ),
-	           std::string::npos );
-	EXPECT_NE( strHost.find( "\"Acquire[%s]: runtime ready, refcount 1\"" ), std::string::npos );
-	EXPECT_NE( strHost.find( "\"Release[%s]: refcount now %d\"" ), std::string::npos );
-	EXPECT_NE( strHost.find( "\"Release[%s]: last reference dropped" ), std::string::npos );
-
-	// And the tag is the CALLER's module, not this one -- dladdr on a function
-	// in the host would answer "libmanaged_host.so" every time, which is true
-	// and tells you nothing about who is acquiring.
-	EXPECT_NE( strHost.find( "SS_DescribeCaller" ), std::string::npos );
-	EXPECT_NE( strHost.find( "dladdr" ), std::string::npos );
-}

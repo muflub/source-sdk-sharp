@@ -63,7 +63,7 @@ public:
 	Vector4D&	operator/=(const Vector4D &v);		
 	Vector4D&	operator/=(float s);				
 
-	Vector4D	operator-( void ) const;
+	Vector4D	operator-() const;
 	Vector4D	operator*( float fl ) const;
 	Vector4D	operator/( float fl ) const;
 	Vector4D	operator*( const Vector4D& v ) const;
@@ -86,7 +86,7 @@ public:
 class ALIGN16 Vector4DAligned : public Vector4D
 {
 public:
-	Vector4DAligned(void) {}
+	Vector4DAligned() {}
 	Vector4DAligned( vec_t X, vec_t Y, vec_t Z, vec_t W );
 
 	inline void Set( vec_t X, vec_t Y, vec_t Z, vec_t W );
@@ -120,7 +120,7 @@ vec_t Vector4DLength( Vector4D const& v );
 // constructors
 
 #ifdef _DEBUG
-inline Vector4D::Vector4D(void)									
+inline Vector4D::Vector4D()									
 { 
 	// Initialize to NAN to catch errors
 	x = y = z = w = VEC_T_NAN;
@@ -297,7 +297,7 @@ inline vec_t Vector4DLength( Vector4D const& v )
 	return (vec_t)FastSqrt(v.x*v.x + v.y*v.y + v.z*v.z + v.w*v.w);		
 }
 
-inline vec_t Vector4D::Length(void) const	
+inline vec_t Vector4D::Length() const	
 {
 	return Vector4DLength( *this );
 }

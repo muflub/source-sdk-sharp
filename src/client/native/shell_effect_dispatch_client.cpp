@@ -156,7 +156,7 @@ int CEffectData::entindex() const
 }
 
 // The registration list, read and run by walk index.
-int32_t SourceSharp_EffectRegistrationCount( void )
+int32_t SourceSharp_EffectRegistrationCount()
 {
 	int32_t n = 0;
 	for ( CClientEffectRegistration *pReg = CClientEffectRegistration::s_pHead; pReg; pReg = pReg->m_pNext )

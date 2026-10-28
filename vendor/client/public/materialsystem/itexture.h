@@ -36,7 +36,7 @@ abstract_class ITexture
 {
 public:
 	// Various texture polling methods
-	virtual const char *GetName( void ) const = 0;
+	virtual const char *GetName() const = 0;
 	virtual int GetMappingWidth() const = 0;
 	virtual int GetMappingHeight() const = 0;
 	virtual int GetActualWidth() const = 0;
@@ -56,8 +56,8 @@ public:
 	virtual void *GetResourceData( uint32 eDataType, size_t *pNumBytes ) const = 0;
 
 	// Methods associated with reference count
-	virtual void IncrementReferenceCount( void ) = 0;
-	virtual void DecrementReferenceCount( void ) = 0;
+	virtual void IncrementReferenceCount() = 0;
+	virtual void DecrementReferenceCount() = 0;
 
 	inline void AddRef() { IncrementReferenceCount(); }
 	inline void Release() { DecrementReferenceCount(); }
@@ -99,7 +99,7 @@ public:
 	virtual void unused_SwapContents() = 0;
 
 	// Retrieve the vtf flags mask
-	virtual unsigned int GetFlags( void ) const = 0;
+	virtual unsigned int GetFlags() const = 0;
 
 	// Force LOD override (automatically downloads the texture)
 	virtual void unused_ForceLODOverride() = 0;

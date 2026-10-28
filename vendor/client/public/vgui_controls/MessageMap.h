@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "tier1/utlvector.h"
-
 // more flexible than default pointers to members code required for casting member function pointers
 //#pragma pointers_to_members( full_generality, virtual_inheritance )
 
@@ -35,7 +33,7 @@ class Panel;
 #endif
 typedef uintp VPANEL;
 
-typedef void (Panel::*MessageFunc_t)(void);
+typedef void (Panel::*MessageFunc_t)();
 
 // Purpose: Single item in a message map
 //			Contains the information to map a string message name with parameters
@@ -81,7 +79,7 @@ struct MessageMapItem_t
 		map->entries.AddToTail( entry );												\
 	}																					\
 																						\
-	static void ChainToMap( void )														\
+	static void ChainToMap()														\
 	{																					\
 		static bool chained = false;													\
 		if ( chained )																	\
@@ -216,7 +214,7 @@ struct PanelMessageMap
 	CUtlVector< MessageMapItem_t > entries;
 	bool processed;
 	PanelMessageMap *baseMap;
-	char const *(*pfnClassName)( void );
+	char const *(*pfnClassName)();
 };
 
 PanelMessageMap *FindOrAddPanelMessageMap( char const *className );
@@ -250,11 +248,11 @@ struct PanelMap_t
 #define DECLARE_PANELMAP() \
 	static vgui::PanelMap_t m_PanelMap; \
 	static vgui::MessageMapItem_t m_MessageMap[]; \
-	virtual vgui::PanelMap_t *GetPanelMap( void );
+	virtual vgui::PanelMap_t *GetPanelMap();
 
 // could embed typeid() into here as well?
 
-typedef vgui::Panel *( *PANELCREATEFUNC )( void );
+typedef vgui::Panel *( *PANELCREATEFUNC )();
 
 // Purpose: Used by DECLARE_BUILD_FACTORY macro to create a linked list of
 //  instancing functions
@@ -267,7 +265,7 @@ public:
 	CBuildFactoryHelper( char const *className, PANELCREATEFUNC func );
 
 	// Accessors
-	CBuildFactoryHelper *GetNext( void );
+	CBuildFactoryHelper *GetNext();
 
 private:
 
@@ -284,7 +282,7 @@ private:
 // It them hooks that function up to the helper list so that the CHud objects can create
 //  the elements by name, with no header file dependency, etc.
 #define DECLARE_BUILD_FACTORY( className )										\
-	static vgui::Panel *Create_##className( void )							\
+	static vgui::Panel *Create_##className()							\
 		{																		\
 			return new className( NULL, NULL );									\
 		};																		\

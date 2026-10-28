@@ -3,8 +3,8 @@
 5	SLOT-HELP	[CClientEntityCounts] explicit CClientEntityCounts( const CSourceSharpSlotTable &table )
 15	SLOT-HELP	[CClientEntityCounts] void OnBound( int nEntry )
 15	SLOT-HELP	[CClientEntityCounts] void OnUnbound( int nEntry )
-1	SLOT-HELP	[CClientEntityCounts] int HighestEntityIndex( void ) const
+1	SLOT-HELP	[CClientEntityCounts] int HighestEntityIndex() const
 6	SLOT-HELP	[CClientEntityCounts] int NumberOfEntities( bool bIncludeNonNetworkable ) const
 1	SLOT-HELP	[CClientEntityCounts] void SetMaxEntities( int nMaxEnts )
-1	SLOT-HELP	[CClientEntityCounts] int  MaxEntities( void ) const
-12	SLOT-HELP	[CClientEntityCounts] void RecomputeHighest( void )
+1	SLOT-HELP	[CClientEntityCounts] int  MaxEntities() const
+12	SLOT-HELP	[CClientEntityCounts] void RecomputeHighest()

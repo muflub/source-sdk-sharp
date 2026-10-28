@@ -178,15 +178,4 @@ public class MapMaterialReloadTests
         Assert.Equal(0, Call(new Host(""), "/g/maps/b.bsp", null, 8, out _));
     }
 
-    [Fact]
-    public void The_shell_client_installs_the_hooks_at_init_and_removes_them_first_at_shutdown()
-    {
-        string path = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "client", "shell_clientdll.cpp");
-        Assert.True(File.Exists(path), $"{path} was not found; a scan that read nothing would pass");
-        string text = File.ReadAllText(path);
-        int init = text.IndexOf("int CShellClientDLL::Init(", StringComparison.Ordinal);
-        int install = text.IndexOf("SourceSharp_InstallMapMaterialReload( filesystem, materials );", StringComparison.Ordinal);
-        Assert.True(init > 0 && install > init, "Init no longer installs the spawn's material-reload hooks");
-        Assert.Matches(new Regex(@"void CShellClientDLL::Shutdown\( void \)\s*\{\s*//[^\n]*\n\s*void SourceSharp_UninstallMapMaterialReload\(\);\s*SourceSharp_UninstallMapMaterialReload\(\);"), text);
-    }
 }

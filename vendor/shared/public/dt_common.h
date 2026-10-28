@@ -2,10 +2,8 @@
 
 #pragma once
 
-#include "basetypes.h"
 #include "tier0/dbg.h"
 #include "tier1/strtools.h"
-#include <stddef.h>
 
 // Max number of properties in a datatable and its children.
 	// must be a power of 2.

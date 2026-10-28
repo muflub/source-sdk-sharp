@@ -27,7 +27,7 @@ public:
 	virtual int					NumberOfEntities( bool bIncludeNonNetworkable ) = 0;
 
 	// Returns highest index actually used
-	virtual int					GetHighestEntityIndex( void ) = 0;
+	virtual int					GetHighestEntityIndex() = 0;
 
 	// Sizes entity list to specified size
 	virtual void				SetMaxEntities( int maxents ) = 0;

@@ -8,8 +8,8 @@
 // Columns: field, offset, size. The managed EngineRay and EngineGameTrace read the same rows.
 #pragma once
 
-#include <stddef.h>
-#include "cmodel.h"
+
+
 #include "gametrace.h"
 
 // Ray_t is 16-aligned for the engine's SIMD loads; the fourth float of each vector is unused.

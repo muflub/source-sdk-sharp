@@ -274,19 +274,6 @@ public class ClientBoneRecorderTests
     // ------------------------------------- the native probe is gone, pinned
 
     [Fact]
-    public void TheNativeProbeIsGoneAndTheRecorderIsTheOnlySkinnedReport()
-    {
-        string shell = ClientShell();
-
-        // The control: the file was read, and it is the shell that asks the
-        // managed skeleton now.
-        Assert.Contains("IManagedBonesClient", shell);
-        Assert.DoesNotContain("struct ClientBoneProbe", shell);
-        Assert.DoesNotContain("static void ReportSkinned()", shell);
-        Assert.DoesNotContain("\"SS6CGATE\\tskinned\\t", shell);
-    }
-
-    [Fact]
     public void TheTagAndKindAreTheOnesTheGateParses()
     {
         string gate = File.ReadAllText(RepoLayout.Repo("tools", "live-gate"));

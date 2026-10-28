@@ -56,8 +56,8 @@ public:
 	virtual const ConCommand *FindCommand( const char *name ) const = 0;
 
 	// Get first ConCommandBase to allow iteration
-	virtual ConCommandBase	*GetCommands( void ) = 0;
-	virtual const ConCommandBase *GetCommands( void ) const = 0;
+	virtual ConCommandBase	*GetCommands() = 0;
+	virtual const ConCommandBase *GetCommands() const = 0;
 
 	// Install a global change callback (to be called when any convar changes) 
 	virtual void			InstallGlobalChangeCallback( FnChangeCallback_t callback ) = 0;
@@ -108,11 +108,11 @@ public:
 	{
 	public:
 		inline Iterator(ICvar *icvar);
-		inline ~Iterator(void);
-		inline void		SetFirst( void );
-		inline void		Next( void );
-		inline bool		IsValid( void );
-		inline ConCommandBase *Get( void );
+		inline ~Iterator();
+		inline void		SetFirst();
+		inline void		Next();
+		inline bool		IsValid();
+		inline ConCommandBase *Get();
 	private:
 		ICVarIteratorInternal *m_pIter;
 	};
@@ -124,13 +124,13 @@ protected:
 	public:
 		// warning: delete called on 'ICvar::ICVarIteratorInternal' that is abstract but has non-virtual destructor [-Wdelete-non-virtual-dtor]
 		virtual ~ICVarIteratorInternal() {}
-		virtual void		SetFirst( void ) = 0;
-		virtual void		Next( void ) = 0;
-		virtual	bool		IsValid( void ) = 0;
-		virtual ConCommandBase *Get( void ) = 0;
+		virtual void		SetFirst() = 0;
+		virtual void		Next() = 0;
+		virtual	bool		IsValid() = 0;
+		virtual ConCommandBase *Get() = 0;
 	};
 
-	virtual ICVarIteratorInternal	*FactoryInternalIterator( void ) = 0;
+	virtual ICVarIteratorInternal	*FactoryInternalIterator() = 0;
 	friend class Iterator;
 };
 
@@ -139,27 +139,27 @@ inline ICvar::Iterator::Iterator(ICvar *icvar)
 	m_pIter = icvar->FactoryInternalIterator();
 }
 
-inline ICvar::Iterator::~Iterator( void )
+inline ICvar::Iterator::~Iterator()
 {
 	delete m_pIter;
 }
 
-inline void ICvar::Iterator::SetFirst( void )
+inline void ICvar::Iterator::SetFirst()
 {
 	m_pIter->SetFirst();
 }
 
-inline void ICvar::Iterator::Next( void )
+inline void ICvar::Iterator::Next()
 {
 	m_pIter->Next();
 }
 
-inline bool ICvar::Iterator::IsValid( void )
+inline bool ICvar::Iterator::IsValid()
 {
 	return m_pIter->IsValid();
 }
 
-inline ConCommandBase * ICvar::Iterator::Get( void )
+inline ConCommandBase * ICvar::Iterator::Get()
 {
 	return m_pIter->Get();
 }

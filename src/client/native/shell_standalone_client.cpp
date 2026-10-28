@@ -348,7 +348,7 @@ void C_StandaloneEntity::SetDormant( bool bDormant )
 
 // Only an entity with a managed half enters the mirror: handles are recycled,
 // and an entry nothing clears would be inherited.
-void C_StandaloneEntity::PushDormancy( void )
+void C_StandaloneEntity::PushDormancy()
 {
 	if ( !m_bHasManaged )
 		return;
@@ -460,7 +460,7 @@ void C_StandaloneEntity::RemoveFromLeafSystem()
 	RenderHandle() = INVALID_CLIENT_RENDER_HANDLE;
 }
 
-const model_t *C_StandaloneEntity::GetModel( void ) const
+const model_t *C_StandaloneEntity::GetModel() const
 {
 	return Block().Head.ModelIndex > 0 ? modelinfo->GetModel( Block().Head.ModelIndex ) : NULL;
 }
@@ -468,7 +468,7 @@ const model_t *C_StandaloneEntity::GetModel( void ) const
 static_assert( !std::is_base_of< IGameEntity, C_StandaloneEntity >::value,
                "C_StandaloneEntity derives from IGameEntity again" );
 
-bool C_StandaloneEntity::ShouldDraw( void )
+bool C_StandaloneEntity::ShouldDraw()
 {
 	// Whether the camera sees the owner is solved during view setup just before
 	// this is asked, so it is read live.
@@ -1759,7 +1759,7 @@ int SourceSharp_StandaloneClientsLevelShutdown()
 	return nDestroyed;
 }
 
-int32_t SourceSharp_StandaloneClientsInvalidateBoneCaches( void )
+int32_t SourceSharp_StandaloneClientsInvalidateBoneCaches()
 {
 	return 0;
 }

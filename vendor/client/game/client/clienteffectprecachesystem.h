@@ -60,7 +60,7 @@ class CClientEffect : public IClientEffect
 {
 public:
 
-	CClientEffect( void )
+	CClientEffect()
 	{
 		//Register with the main effect system
 		ClientEffectPrecacheSystem()->Register( this );

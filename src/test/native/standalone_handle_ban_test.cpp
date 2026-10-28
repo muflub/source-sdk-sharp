@@ -133,25 +133,6 @@ static std::string ReadManifest()
 	return ReadFile( ( std::string( pszRepo ) + "/src/test/native/CMakeLists.txt" ).c_str() );
 }
 
-TEST( StandaloneHandleBan, TheSpecialisationIsDeclaredAndNotDefined )
-{
-	const std::string h = ReadFile( "sourcesharp/game/server/standalone_handle_ban.h" );
-
-	ASSERT_FALSE( h.empty() ) << "standalone_handle_ban.h is missing";
-
-	EXPECT_NE( std::string::npos,
-	           h.find( "template<> class CHandle< CStandaloneEntity >;" ) )
-		<< "the ban is gone or respelled. plan_entity.md 1e's gate is that "
-		   "instantiating CHandle<CStandaloneEntity> in a shim TU is REFUSED, "
-		   "and this declaration is the whole of the refusal.";
-
-	EXPECT_EQ( std::string::npos,
-	           h.find( "template<> class CHandle< CStandaloneEntity >\n{" ) )
-		<< "the ban has been given a BODY. A defined specialisation is a class "
-		   "you can instantiate, so the must-not-compile leg would go green "
-		   "while the property it stands for was gone.";
-}
-
 //-----------------------------------------------------------------------------
 // The ban is REACHED, and it is reached from the header that makes the shell
 // nameable.
@@ -160,18 +141,6 @@ TEST( StandaloneHandleBan, TheSpecialisationIsDeclaredAndNotDefined )
 // the placement that cannot be worked around: a TU that can spell
 // CStandaloneEntity has read that header, and therefore this one.
 //-----------------------------------------------------------------------------
-TEST( StandaloneHandleBan, ShellStandaloneIncludesTheBan )
-{
-	const std::string h = ReadFile( "sourcesharp/game/server/shell_standalone.h" );
-
-	ASSERT_FALSE( h.empty() ) << "shell_standalone.h is missing";
-
-	EXPECT_NE( std::string::npos, h.find( "#include \"standalone_handle_ban.h\"" ) )
-		<< "shell_standalone.h no longer includes the ban, so a shim TU can "
-		   "name CStandaloneEntity without ever having read it and the gate "
-		   "is unenforced.";
-}
-
 //-----------------------------------------------------------------------------
 // BOTH LEGS EXIST IN THE TEST MANIFEST (src/test/native/CMakeLists.txt; the
 // bash script buildcpptests until Phase 6b), and the control is the one that

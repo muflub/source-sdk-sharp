@@ -12,7 +12,7 @@
 4	LAYOUT	KeyValues::~KeyValues()
 18	LAYOUT	void KeyValues::RemoveEverything()
 4	LAYOUT	void KeyValues::deleteThis()
-4	LAYOUT	const char *KeyValues::GetName( void ) const
+4	LAYOUT	const char *KeyValues::GetName() const
 4	LAYOUT	void KeyValues::SetName( const char *setName )
 4	LAYOUT	void KeyValues::UsesEscapeSequences( bool state )
 4	LAYOUT	void KeyValues::UsesConditionals( bool state )

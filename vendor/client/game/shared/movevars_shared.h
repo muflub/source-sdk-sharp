@@ -4,7 +4,7 @@
 
 #include "convar.h"
 
-float GetCurrentGravity( void );
+float GetCurrentGravity();
 
 extern ConVar sv_gravity;
 extern ConVar sv_stopspeed;

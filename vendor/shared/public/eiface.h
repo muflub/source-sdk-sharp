@@ -72,10 +72,10 @@ public:
 	virtual void unused_IsMapValid() = 0;
 
 	// Is this a dedicated server?
-	virtual bool		IsDedicatedServer( void ) = 0;
+	virtual bool		IsDedicatedServer() = 0;
 
 	// Is in Hammer editing mode?
-	virtual int			IsInEditMode( void ) = 0;
+	virtual int			IsInEditMode() = 0;
 
 	// Add to the server/client lookup/precache table, the specified string is given a unique index
 	// NOTE: The indices for PrecacheModel are 1 based
@@ -111,7 +111,7 @@ public:
 	virtual void unused_GetPlayerNetworkIDString() = 0;
 
 	// Return the current number of used edict slots
-	virtual int			GetEntityCount( void ) = 0;
+	virtual int			GetEntityCount() = 0;
 	// Given an edict, returns the entity index
 	virtual int			IndexOfEdict( const edict_t *pEdict ) = 0;
 	// Given and entity index, returns the corresponding edict pointer
@@ -153,7 +153,7 @@ public:
 	// Issue a command to the command parser as if it was typed at the server console.	
 	virtual void		ServerCommand( const char *str ) = 0;
 	// Execute any commands currently in the command parser immediately (instead of once per frame)
-	virtual void		ServerExecute( void ) = 0;
+	virtual void		ServerExecute() = 0;
 	// Issue the specified command to the specified client (mimics that client typing the command at the console).
 	virtual void		ClientCommand( edict_t *pEdict, PRINTF_FORMAT_STRING const char *szFmt, ... ) = 0;
 
@@ -172,7 +172,7 @@ public:
 	// Begin a usermessage from the server to the client .dll
 	virtual bf_write	*UserMessageBegin( IRecipientFilter *filter, int msg_type ) = 0;
 	// Finish the Entity or UserMessage and dispatch to network layer
-	virtual void		MessageEnd( void ) = 0;
+	virtual void		MessageEnd() = 0;
 
 	// Print szMsg to the client console.
 	virtual void unused_ClientPrintf() = 0;
@@ -189,7 +189,7 @@ public:
 	virtual void		SetView( const edict_t *pClient, const edict_t *pViewent ) = 0;
 
 	// Get a high precision timer for doing profiling work
-	virtual float		Time( void ) = 0;
+	virtual float		Time() = 0;
 
 	// Set the player's crosshair angle
 	virtual void unused_CrosshairAngle() = 0;
@@ -437,7 +437,7 @@ public:
 	virtual bool			ReplayInit( CreateInterfaceFn fnReplayFactory ) = 0;
 
 	// This is called when a new game is started. (restart, map)
-	virtual bool			GameInit( void ) = 0;
+	virtual bool			GameInit() = 0;
 
 	// Called any time a new level is started (after GameInit() also on level transitions within a game)
 	virtual bool			LevelInit( char const *pMapName, 
@@ -454,28 +454,28 @@ public:
 	virtual void			PreClientUpdate( bool simulating ) = 0;
 
 	// Called when a level is shutdown (including changing levels)
-	virtual void			LevelShutdown( void ) = 0;
+	virtual void			LevelShutdown() = 0;
 	// This is called when a game ends (server disconnect, death, restart, load)
 	// NOT on level transitions within a game
-	virtual void			GameShutdown( void ) = 0;
+	virtual void			GameShutdown() = 0;
 
 	// Called once during DLL shutdown
-	virtual void			DLLShutdown( void ) = 0;
+	virtual void			DLLShutdown() = 0;
 
 	// Get the simulation interval (must be compiled with identical values into both client and game .dll for MOD!!!)
 	// Right now this is only requested at server startup time so it can't be changed on the fly, etc.
-	virtual float			GetTickInterval( void ) const = 0;
+	virtual float			GetTickInterval() const = 0;
 
 	// Give the list of datatable classes to the engine.  The engine matches class names from here with
 	//  edict_t::classname to figure out how to encode a class's data for networking
-	virtual ServerClass*	GetAllServerClasses( void ) = 0;
+	virtual ServerClass*	GetAllServerClasses() = 0;
 
 	// Returns string describing current .dll.  e.g., TeamFortress 2, Half-Life 2.  
 	//  Hey, it's more descriptive than just the name of the game directory
-	virtual const char     *GetGameDescription( void ) = 0;      
+	virtual const char     *GetGameDescription() = 0;      
 	
 	// Let the game .dll allocate it's own network/shared string tables
-	virtual void			CreateNetworkStringTables( void ) = 0;
+	virtual void			CreateNetworkStringTables() = 0;
 	
 	// Save/restore system hooks
 	virtual CSaveRestoreData  *SaveInit( int size ) = 0;
@@ -494,7 +494,7 @@ public:
 	// Returns the number of entities moved across the transition
 	virtual int				CreateEntityTransitionList( CSaveRestoreData *, int ) = 0;
 	// Build the list of maps adjacent to the current map
-	virtual void			BuildAdjacentMapList( void ) = 0;
+	virtual void			BuildAdjacentMapList() = 0;
 
 	// Retrieve info needed for parsing the specified user message
 	virtual bool			GetUserMessageInfo( int msg_type, char *name, int maxnamelength, int& size ) = 0;
@@ -511,7 +511,7 @@ public:
 
 	// Returns true if the game DLL wants the server not to be made public.
 	// Used by commentary system to hide multiplayer commentary servers from the master.
-	virtual bool			ShouldHideServer( void ) = 0;
+	virtual bool			ShouldHideServer() = 0;
 
 	virtual void			InvalidateMdlCache() = 0;
 
@@ -522,10 +522,10 @@ public:
 	virtual void			OnQueryCvarValueFinished( QueryCvarCookie_t iCookie, edict_t *pPlayerEntity, EQueryCvarValueStatus eStatus, const char *pCvarName, const char *pCvarValue ) = 0;
 
 	// Called after the steam API has been activated post-level startup
-	virtual void			GameServerSteamAPIActivated( void ) = 0;
+	virtual void			GameServerSteamAPIActivated() = 0;
 
 	// Called after the steam API has been shutdown post-level startup
-	virtual void			GameServerSteamAPIShutdown( void ) = 0;
+	virtual void			GameServerSteamAPIShutdown() = 0;
 
 	virtual void			SetServerHibernation( bool bHibernating ) = 0;
 
@@ -665,7 +665,7 @@ public:
 								int dropped_packets, bool ignore, bool paused ) = 0;
 	
 	// Let the game .dll do stuff after messages have been sent to all of the clients once the server frame is complete
-	virtual void			PostClientMessagesSent_DEPRECIATED( void ) = 0;
+	virtual void			PostClientMessagesSent_DEPRECIATED() = 0;
 
 	// For players, looks up the CPlayerState structure corresponding to the player
 	virtual CPlayerState	*GetPlayerState( edict_t *player ) = 0;
@@ -705,10 +705,10 @@ public:
 	virtual void unused_UploadGameStats() = 0;		// Pointer to the blob data.
 
 	// Call when created to init the CSER connection
-	virtual void InitConnection( void ) = 0;
+	virtual void InitConnection() = 0;
 
 	// Call periodically to poll steam for a CSER connection
-	virtual void UpdateConnection( void ) = 0;
+	virtual void UpdateConnection() = 0;
 
 	// If user has disabled stats tracking, do nothing
 	virtual void unused_IsGameStatsLoggingEnabled() = 0;

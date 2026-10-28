@@ -59,7 +59,7 @@ int ScreenTransform( const Vector &point, Vector &screen )
 
 // The depth buffer copied into the full-frame depth texture, marked valid,
 // and r_depthoverlay's debug quad over it. Nothing without ps_2_b.
-void UpdateFullScreenDepthTexture( void )
+void UpdateFullScreenDepthTexture()
 {
 	if ( !g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_b() )
 		return;

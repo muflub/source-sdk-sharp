@@ -33,8 +33,8 @@ void SourceSharp_FreezeFrame( float flFreezeTime );
 // stock names answer from it.
 #include "materialsystem/imaterialvar.h"
 #include "bsptreedata.h"
-#include "cdll_int.h"
-#include "collisionproperty.h"
+
+
 struct ShellCamera_t
 {
 	Vector origin;

@@ -2,10 +2,7 @@
 
 #pragma once
 
-#include "utlvector.h"
-#include "vgui/VGUI.h"
 #include "vgui_controls/Panel.h"
-#include "vgui_controls/PHandle.h"
 
 namespace vgui
 {
@@ -159,7 +156,7 @@ protected:
 	virtual void ApplySchemeSettings(IScheme *pScheme);
 	virtual void GetSettings( KeyValues *outResourceData );
 	virtual void ApplySettings( KeyValues *inResourceData );
-	virtual const char *GetDescription( void );
+	virtual const char *GetDescription();
 
 	MESSAGE_FUNC_PARAMS( OnDialogVariablesChanged, "DialogVariables", dialogVariables );
 

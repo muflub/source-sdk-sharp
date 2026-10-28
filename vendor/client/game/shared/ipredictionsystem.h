@@ -35,7 +35,7 @@ public:
 		m_bSuppressEvent = state;
 	}
 
-	bool CanPredict( void ) const
+	bool CanPredict() const
 	{
 		if ( DisableFiltering() )
 		{
@@ -59,7 +59,7 @@ public:
 
 private:
 
-	static void Push( void )
+	static void Push()
 	{
 		IPredictionSystem *sys = g_pPredictionSystems;
 		while ( sys )
@@ -69,7 +69,7 @@ private:
 		}
 	}
 
-	static void Pop( void )
+	static void Pop()
 	{
 		IPredictionSystem *sys = g_pPredictionSystems;
 		while ( sys )
@@ -79,16 +79,16 @@ private:
 		}
 	}
 
-	void _Push( void )
+	void _Push()
 	{
 		++m_nStatusPushed;
 	}
-	void _Pop( void )
+	void _Pop()
 	{
 		--m_nStatusPushed;
 	}
 
-	bool DisableFiltering( void ) const
+	bool DisableFiltering() const
 	{
 		return ( m_nStatusPushed > 0  ) ? true : false;
 	}
@@ -114,7 +114,7 @@ public:
 		}
 	}
 
-	~CDisablePredictionFiltering( void )
+	~CDisablePredictionFiltering()
 	{
 		if ( m_bDisabled )
 		{

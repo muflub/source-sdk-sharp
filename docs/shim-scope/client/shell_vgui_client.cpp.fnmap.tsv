@@ -6,7 +6,7 @@
 10	HOOK	static void CreateModePanels()
 5	HOOK	static void OnVideoModeChange()
 19	HOOK	bool VGui_Startup( CreateInterfaceFn appSystemFactory )
-5	HOOK	void VGui_CreateGlobalPanels( void )
+5	HOOK	void VGui_CreateGlobalPanels()
 9	HOOK	void VGui_Shutdown()
 16	SLOT	void VGui_PreRender()
 3	SLOT	void VGui_PostRender()

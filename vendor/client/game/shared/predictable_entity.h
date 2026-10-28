@@ -3,14 +3,11 @@
 #pragma once
 
 // For introspection
-#include "tier0/platform.h"
+
 #include "predictioncopy.h"
 #include "shared_classnames.h"
 
 // CLIENT DLL includes
-
-#include "iclassmap.h"
-#include "recvproxy.h"
 
 class SendTable;
 
@@ -26,7 +23,7 @@ class SendTable;
 	public:																\
 		static typedescription_t m_PredDesc[];							\
 		static datamap_t m_PredMap;										\
-		virtual datamap_t *GetPredDescMap( void ) MAYBE_OVERRIDE;		\
+		virtual datamap_t *GetPredDescMap() MAYBE_OVERRIDE;		\
 		template <typename T> friend datamap_t *PredMapInit(T *)
 #define DECLARE_PREDICTABLE()	DECLARE_PREDICTABLE_IMPL( /* override */; )
 // With warnings set to inconsistent-override, marking this properly as override would create warnings in all old files.
@@ -34,12 +31,12 @@ class SendTable;
 
 #define BEGIN_PREDICTION_DATA( className ) \
 	datamap_t className::m_PredMap = { 0, 0, #className, &BaseClass::m_PredMap }; \
-	datamap_t *className::GetPredDescMap( void ) { return &m_PredMap; } \
+	datamap_t *className::GetPredDescMap() { return &m_PredMap; } \
 	BEGIN_PREDICTION_DATA_GUTS( className )
 
 #define BEGIN_PREDICTION_DATA_NO_BASE( className ) \
 	datamap_t className::m_PredMap = { 0, 0, #className, NULL }; \
-	datamap_t *className::GetPredDescMap( void ) { return &m_PredMap; } \
+	datamap_t *className::GetPredDescMap() { return &m_PredMap; } \
 	BEGIN_PREDICTION_DATA_GUTS( className )
 
 #define BEGIN_PREDICTION_DATA_GUTS( className ) \
@@ -61,14 +58,14 @@ class SendTable;
 //  a client side class.  Probably could be templatized at some point.
 
 #define LINK_ENTITY_TO_CLASS( localName, className )						\
-	static C_BaseEntity *C##className##Factory( void )						\
+	static C_BaseEntity *C##className##Factory()						\
 	{																		\
 		return static_cast< C_BaseEntity * >( new className );				\
 	};																		\
 	class C##localName##Foo													\
 	{																		\
 	public:																	\
-		C##localName##Foo( void )											\
+		C##localName##Foo()											\
 		{																	\
 			GetClassMap().Add( #localName, #className, sizeof( className ),	\
 				&C##className##Factory );									\

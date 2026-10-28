@@ -38,9 +38,9 @@ public:
 	virtual	char const*		GetName( EntityHandle_t handle ) const = 0;
 
 	// Adds the trace result to touch list, if contact is not already in list.
-	virtual void	ResetTouchList( void ) = 0;
+	virtual void	ResetTouchList() = 0;
 	virtual bool	AddToTouched( const CGameTrace& tr, const Vector& impactvelocity ) = 0;
-	virtual void	ProcessImpacts( void ) = 0;
+	virtual void	ProcessImpacts() = 0;
 	
 	// Numbered line printf
 	virtual void	Con_NPrintf( int idx, PRINTF_FORMAT_STRING char const* fmt, ... ) = 0;
@@ -51,12 +51,12 @@ public:
 	virtual void	PlaybackEventFull( int flags, int clientindex, unsigned short eventindex, float delay, Vector& origin, Vector& angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 ) = 0;
 
 	// Apply falling damage to m_pHostPlayer based on m_pHostPlayer->m_flFallVelocity.
-	virtual bool	PlayerFallingDamage( void ) = 0;
+	virtual bool	PlayerFallingDamage() = 0;
 
 	// Apply falling damage to m_pHostPlayer based on m_pHostPlayer->m_flFallVelocity.
 	virtual void	PlayerSetAnimation( PLAYER_ANIM playerAnim ) = 0;
 
-	virtual IPhysicsSurfaceProps *GetSurfaceProps( void ) = 0;
+	virtual IPhysicsSurfaceProps *GetSurfaceProps() = 0;
 
 	virtual bool IsWorldEntity( const CBaseHandle &handle ) = 0;
 

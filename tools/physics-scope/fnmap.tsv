@@ -1,6 +1,6 @@
 66	90	18	class CPhysicsHook : public CServerSystem
 94	97	4	CServerSystem* PhysicsGameSystem()
-99	116	13	bool CPhysicsHook::Init( void )
+99	116	13	bool CPhysicsHook::Init()
 122	154	25	void CPhysicsHook::LevelInitPreEntity()
 156	159	4	void CPhysicsHook::LevelInitPostEntity()
 161	166	6	void CPhysicsHook::LevelShutdownPreEntity()

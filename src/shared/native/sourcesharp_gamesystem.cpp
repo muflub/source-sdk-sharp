@@ -31,7 +31,7 @@
 #include "eiface.h"
 extern CGlobalVars *gpGlobals;
 extern IVEngineServer *engine;
-float GetCurrentGravity( void );
+float GetCurrentGravity();
 #endif
 #include "tier1/convar.h"
 #include "tier1/utlvector.h"
@@ -69,8 +69,8 @@ float GetCurrentGravity( void );
 // Entry points the fill calls directly rather than through a slot. Server only.
 #ifndef CLIENT_DLL
 	// server/shell_entityslots.cpp: slots changed since the last frame; reset at level shutdown.
-	int  SourceSharp_DrainEntitySlots( void );
-	void SourceSharp_ResetEntitySlots( void );
+	int  SourceSharp_DrainEntitySlots();
+	void SourceSharp_ResetEntitySlots();
 
 #endif
 
@@ -81,35 +81,35 @@ struct SourceSharpSkyboxParams;
 #endif
 
 // Slot bodies about gpGlobals, which each side has for its own globals.
-static float SourceSharp_GetCurrentTime( void )
+static float SourceSharp_GetCurrentTime()
 {
 	return gpGlobals ? gpGlobals->curtime : 0.0f;
 }
 
 // The engine's CGlobalVars for managed to read; NULL until the engine sets it.
-static void *SourceSharp_GetGlobalVarsPtr( void )
+static void *SourceSharp_GetGlobalVarsPtr()
 {
 	return (void *)gpGlobals;
 }
 
 #ifndef CLIENT_DLL
 // Closes the window the engine's single walk of g_pServerClassHead defines.
-void    SourceSharp_TempEntCloseRegistration( void );
+void    SourceSharp_TempEntCloseRegistration();
 
 #endif
 
 #ifdef CLIENT_DLL
 // Closes the build window, which ends before gHUD.Init().
-void    SourceSharp_TempEntClientCloseRegistration( void );
+void    SourceSharp_TempEntClientCloseRegistration();
 #endif
 
 // Wired on both sides so neither answers a plausible managed fallback.
-static float SourceSharp_CurrentGravity( void )
+static float SourceSharp_CurrentGravity()
 {
 	return GetCurrentGravity();
 }
 
-void        SourceSharp_StopListeningForGameEvents( void );
+void        SourceSharp_StopListeningForGameEvents();
 
 #ifdef CLIENT_DLL
 	#include "cdll_client_int.h"
@@ -207,9 +207,9 @@ static int SourceSharp_LoadMySide()
 // unload while any thread's stack, such as the requesting command's, holds its frames.
 static bool g_bReloadRequested = false;
 
-static void SourceSharp_ReloadManagedSide( void );
+static void SourceSharp_ReloadManagedSide();
 
-void SourceSharp_ServiceReloadRequest( void )
+void SourceSharp_ServiceReloadRequest()
 {
 	if ( !g_bReloadRequested )
 		return;
@@ -570,7 +570,7 @@ int32_t CShimConsole::FindConVarFlags( const char *pName )
 	return pExisting ? SourceSharp_ConsoleFlags( pExisting ) : -1;
 }
 
-int32_t CShimConsole::ConsoleSnapshot( void )
+int32_t CShimConsole::ConsoleSnapshot()
 {
 	g_SourceSharpConsoleSnapshot.clear();
 
@@ -715,7 +715,7 @@ static void SourceSharp_FatalInitFailure( int nStage, int rc, const char *pDetai
 }
 
 // Brings the managed side up; each DLL calls it from LoadManagedRuntime.
-bool SourceSharp_LoadManagedSide( void )
+bool SourceSharp_LoadManagedSide()
 {
 	// The gate closes at the bottom, so an unfinished attempt does not count.
 	if ( !g_SourceSharpInitGate.ShouldRun() )
@@ -770,7 +770,7 @@ bool SourceSharp_LoadManagedSide( void )
 }
 
 // The counterpart of SourceSharp_LoadManagedSide; the CLR is refcounted across both DLLs.
-void SourceSharp_UnloadManagedSide( void )
+void SourceSharp_UnloadManagedSide()
 {
 	SOURCESHARP_TRACE();
 	g_SourceSharpInitGate.Reset();
@@ -952,11 +952,11 @@ void SourceSharp_SetClientRuntime( IClientRuntimeAdapter *pRuntime )
 // and commands); managed objects do not. Not FCVAR_CHEAT: the command is local.
 #ifndef CLIENT_DLL
 void SourceSharp_StandaloneResyncSchema( int *pOutChecked, int *pOutRestamped );
-int  SourceSharp_RetireEntitySlots( void );
-int  SourceSharp_StandaloneLiveCount( void );
+int  SourceSharp_RetireEntitySlots();
+int  SourceSharp_StandaloneLiveCount();
 #endif
 
-static void SourceSharp_ReloadManagedSide( void )
+static void SourceSharp_ReloadManagedSide()
 {
 	if ( !g_bSourceSharpLoaded )
 	{
@@ -1062,7 +1062,7 @@ static void SourceSharp_ReloadManagedSide( void )
 #endif
 }
 
-static void SourceSharp_RequestReload( void )
+static void SourceSharp_RequestReload()
 {
 	if ( g_bReloadRequested )
 	{

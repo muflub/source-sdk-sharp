@@ -15,10 +15,10 @@ abstract_class IViewPortPanel
 public:
 	virtual	~IViewPortPanel() {};
 
-	virtual const char *GetName( void ) = 0;// return identifer name
+	virtual const char *GetName() = 0;// return identifer name
 	virtual void SetData(KeyValues *data) = 0; // set ViewPortPanel data
-	virtual void Reset( void ) = 0;		// clears internal state, deactivates it
-	virtual void Update( void ) = 0;	// updates all (size, position, content, etc)
+	virtual void Reset() = 0;		// clears internal state, deactivates it
+	virtual void Update() = 0;	// updates all (size, position, content, etc)
 	virtual void unused_NeedsUpdate() = 0; // query panel if content needs to be updated
 	virtual void unused_HasInputElements() = 0;	// true if panel contains elments which accepts input
 
@@ -27,7 +27,7 @@ public:
 	virtual void unused_GetPreferredActionSet() = 0;
 		
 	// VGUI functions:
-	virtual vgui::VPANEL GetVPanel( void ) = 0; // returns VGUI panel handle
+	virtual vgui::VPANEL GetVPanel() = 0; // returns VGUI panel handle
 	virtual bool IsVisible() = 0;  // true if panel is visible
 	virtual void SetParent( vgui::VPANEL parent ) = 0;
 };
@@ -35,12 +35,12 @@ public:
 abstract_class IViewPort
 {
 public:
-	virtual void UpdateAllPanels( void ) = 0;
+	virtual void UpdateAllPanels() = 0;
 	virtual void ShowPanel( const char *pName, bool state ) = 0;	
 	virtual void ShowPanel( IViewPortPanel* pPanel, bool state ) = 0;	
 	virtual void ShowBackGround(bool bShow) = 0;
 	virtual IViewPortPanel* FindPanelByName(const char *szPanelName) = 0;
-	virtual IViewPortPanel* GetActivePanel( void ) = 0;
+	virtual IViewPortPanel* GetActivePanel() = 0;
 	virtual void PostMessageToPanel( const char *pName, KeyValues *pKeyValues ) = 0;
 };
 

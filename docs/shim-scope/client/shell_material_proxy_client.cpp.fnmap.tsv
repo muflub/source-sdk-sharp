@@ -7,7 +7,7 @@
 5	SLOT-HELP	[CManagedMaterialProxy] explicit CManagedMaterialProxy( int nName )
 41	SLOT	[CManagedMaterialProxy] virtual bool Init( IMaterial *pMaterial, KeyValues *pKeyValues ) OVERRIDE
 26	SLOT	[CManagedMaterialProxy] virtual void OnBind( void *pArg ) OVERRIDE
-10	SLOT	[CManagedMaterialProxy] virtual void Release( void ) OVERRIDE
+10	SLOT	[CManagedMaterialProxy] virtual void Release() OVERRIDE
 4	SLOT	[CManagedMaterialProxy] virtual IMaterial *GetMaterial() OVERRIDE
 10	BOUNDARY	[CManagedMaterialProxy] int32_t FindVar( const char *pszName, bool bComplain, int32_t *pFound )
 10	BOUNDARY	[CManagedMaterialProxy] int32_t FindTexture( const char *pszName, const char *pszGroup, bool bComplain, int32_t *pIsError )

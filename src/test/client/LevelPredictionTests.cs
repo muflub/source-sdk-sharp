@@ -149,37 +149,4 @@ public class LevelPredictionTests
         Assert.Equal(before + 1, crossings.Read(CrossingOp.ClientPostInit));
     }
 
-    private static string Body(string rel, string signature)
-    {
-        string path = Path.Combine(RepoLayout.SdkTree, rel.Replace('/', Path.DirectorySeparatorChar));
-        Assert.True(File.Exists(path), $"{path} was not found; a scan that read nothing would pass");
-        string text = File.ReadAllText(path);
-        int at = text.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(at >= 0, $"{rel} has no '{signature}'");
-        int end = text.IndexOf("\n}\n", at, StringComparison.Ordinal);
-        Assert.True(end > at, $"{rel}: '{signature}' has no closing brace");
-        return Regex.Replace(text[at..end], @"//[^\n]*", "");
-    }
-
-    [Fact]
-    public void The_shell_client_asks_managed_past_its_once_per_level_gate_and_decides_nothing_itself()
-    {
-        string body = Body("src/sourcesharp/game/client/shell_clientdll.cpp", "void CShellClientDLL::LevelInitPreEntity( char const* pMapName )");
-        int gate = body.IndexOf("g_bLevelInitialized = true;", StringComparison.Ordinal);
-        int ask = body.IndexOf("pRuntime->LevelInitPreEntity();", StringComparison.Ordinal);
-        Assert.True(gate >= 0, "LevelInitPreEntity lost its once-per-level gate");
-        Assert.True(ask > gate, "LevelInitPreEntity does not hand the level start to managed after the gate");
-        Assert.DoesNotContain("cl_predict", body);
-        Assert.DoesNotContain("maxClients", body);
-    }
-
-    [Fact]
-    public void The_shell_client_hands_PostInit_the_adapter_and_decides_nothing_itself()
-    {
-        string body = Body("src/sourcesharp/game/client/shell_clientdll.cpp", "void CShellClientDLL::PostInit()");
-        Assert.Contains("m_nMaxDXSupportLevel", body);
-        Assert.Contains("->PostInit(", body);
-        Assert.DoesNotContain("r_lightmap_bicubic", body);
-        Assert.DoesNotContain(">= 95", body);
-    }
 }

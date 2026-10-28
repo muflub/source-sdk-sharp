@@ -110,7 +110,7 @@ bool VGui_Startup( CreateInterfaceFn appSystemFactory )
 	return VGui_GetClientDLLRootPanel() != 0;
 }
 
-void VGui_CreateGlobalPanels( void )
+void VGui_CreateGlobalPanels()
 {
 	internalCenterPrint->Create( enginevgui->GetPanel( PANEL_CLIENTDLL_TOOLS ) );
 	CreateModePanels();

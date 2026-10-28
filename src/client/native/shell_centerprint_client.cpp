@@ -13,7 +13,7 @@
 #include "ivguicenterprint.h"
 #include "imanaged_areas_client.h"
 
-CCenterPrint::CCenterPrint( void )
+CCenterPrint::CCenterPrint()
 {
 	vguiCenterString = NULL;
 }
@@ -22,7 +22,7 @@ void CCenterPrint::Create( vgui::VPANEL parent )
 {
 }
 
-void CCenterPrint::Destroy( void )
+void CCenterPrint::Destroy()
 {
 }
 
@@ -68,7 +68,7 @@ void CCenterPrint::ColorPrint( int r, int g, int b, int a, wchar_t *text )
 	ColorPrint( r, g, b, a, utf8 );
 }
 
-void CCenterPrint::Clear( void )
+void CCenterPrint::Clear()
 {
 	if ( IManagedUiClient *pUi = ManagedUiClient() )
 		pUi->CenterClear();

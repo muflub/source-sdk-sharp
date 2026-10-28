@@ -2,10 +2,6 @@
 
 #pragma once
 
-#include "rangecheckedvar.h"
-#include "lerp_functions.h"
-#include "networkvar.h"
-
 class C_AnimationLayer
 {
 public:
@@ -18,7 +14,7 @@ public:
 
 public:
 
-	bool IsActive( void );
+	bool IsActive();
 
 	CRangeCheckedVar<int, -1, 65535, 0>	m_nSequence;
 	CRangeCheckedVar<float, -2, 2, 0>	m_flPrevCycle;

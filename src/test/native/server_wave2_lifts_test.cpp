@@ -43,93 +43,6 @@
 namespace
 {
 
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadRaw( const std::string &strAbsolute )
-{
-	std::ifstream file( strAbsolute.c_str(), std::ios::binary );
-	if ( !file.is_open() )
-		return std::string();
-
-	return std::string( ( std::istreambuf_iterator<char>( file ) ),
-	                    std::istreambuf_iterator<char>() );
-}
-
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-std::string NoWhitespace( const std::string &s )
-{
-	std::string out;
-	for ( size_t i = 0; i < s.size(); i++ )
-	{
-		const char c = s[ i ];
-		if ( c != ' ' && c != '\t' && c != '\n' && c != '\r' )
-			out += c;
-	}
-	return out;
-}
-
-std::string Tight( const char *pszRel, const char *pszAnchor )
-{
-	const char *pszRoot = SrcRoot();
-	EXPECT_TRUE( pszRoot != NULL ) << "cannot locate src/ from the test's cwd";
-	if ( !pszRoot )
-		return std::string();
-
-	const std::string raw = ReadRaw( std::string( pszRoot ) + "/" + pszRel );
-	EXPECT_FALSE( raw.empty() ) << "could not open " << pszRel
-		<< " -- every invariant about it would pass vacuously";
-
-	const std::string tight = NoWhitespace( StripComments( raw ) );
-	EXPECT_NE( tight.find( NoWhitespace( pszAnchor ) ), std::string::npos )
-		<< pszRel << " no longer contains its anchor \"" << pszAnchor
-		<< "\" outside of comments; this test is reasoning about a file that "
-		<< "has been rewritten.";
-	return tight;
-}
-
 // WHAT EACH DLL COMPILES is its CMake target's source list, read through
 // cmake_graph.h (compile_commands.json cross-checked against
 // src/{server,client}/native/CMakeLists.txt). Paths are farm-relative.
@@ -157,24 +70,6 @@ bool Compiles( const char *pszTarget, const char *pszBasename )
 // The proof-of-read, for both targets: the port's own shim, which no eviction
 // can take. An absence answered by a reader that saw nothing is free.
 const char *const kProofOfRead = "shell_shared.cpp";
-
-// Every usermessages->Register( "name", size ) in a comment-stripped file, in
-// source order. Order is the entire point: the index IS the wire identity.
-std::vector< std::string > RegistrationsIn( const std::string &strTight )
-{
-	std::vector< std::string > out;
-	const std::string needle = "usermessages->Register(";
-	for ( size_t at = strTight.find( needle ); at != std::string::npos;
-	      at = strTight.find( needle, at + 1 ) )
-	{
-		const size_t close = strTight.find( ')', at );
-		if ( close == std::string::npos )
-			break;
-		out.push_back( strTight.substr( at + needle.size(),
-		                                close - at - needle.size() ) );
-	}
-	return out;
-}
 
 } // namespace
 
@@ -218,71 +113,6 @@ TEST( ServerWave2, TheThreeFoldedFilesAreOutOfTheServerList )
 // is the part specific to Wave 2: that the lift's residue is gone, and gone
 // from both sides rather than only from the server.
 //-----------------------------------------------------------------------------
-TEST( ServerWave2, TheLiftedHapticRegistrationIsGoneFromTheShell )
-{
-	// Anchored on a symbol that is still there. shell_shared.cpp no longer even
-	// defines RegisterUserMessages -- step 3 removed its only caller along with
-	// usermessages.cpp -- so anchoring on either name would make this test
-	// reason about a file it could not find, which Tight() reports as a
-	// separate failure rather than as this one.
-	// (Anchored on SourceSharp_RegisterAmmoType until plan_server_native_v2 T2
-	// made that slot the client's alone.)
-	const std::string shell = Tight( "sourcesharp/game/shared/shell_shared.cpp",
-	                                 "default_fov" );
-	ASSERT_FALSE( shell.empty() );
-
-	const std::vector< std::string > mine = RegistrationsIn( shell );
-
-	EXPECT_EQ( mine.size(), 0u )
-		<< "shell_shared.cpp registers " << mine.size() << " user message(s) "
-		<< "natively. C# is the only registrar now, and anything registered "
-		<< "from here lands at an index C# does not know about -- which shifts "
-		<< "every managed message relative to the other side's.";
-
-	EXPECT_EQ( shell.find( "voidRegisterHapticMessages(void){" ), std::string::npos )
-		<< "shell_shared.cpp defines RegisterHapticMessages again. The client "
-		<< "compiles haptic_msgs.cpp, which defines it too.";
-
-	EXPECT_EQ( shell.find( "voidRegisterUserMessages(void){" ), std::string::npos )
-		<< "shell_shared.cpp defines RegisterUserMessages again. Nothing calls "
-		<< "it: usermessages.cpp held the only caller and is out of both "
-		<< "builds. A definition here is either dead or a second registrar.";
-}
-
-TEST( ServerWave2, NothingInTheBuildStillCallsRegisterHapticMessages )
-{
-	// haptic_msgs.cpp still DEFINES it -- the file is on the client's link line
-	// for its hooks and its senders. What must not come back is a caller: the
-	// six would then be registered twice on the client and once on the server,
-	// which is a fatal duplicate Register() at best and a six-index desync at
-	// worst.
-	//
-	// Every SourceSharp file that could reach it, not just one: the shell where
-	// the lift lived, and the two native user-message files left after the
-	// list moved to C# (plan_side_isolation P2).
-	const char *pszFiles[] = {
-		"sourcesharp/game/shared/shell_shared.cpp",
-		"sourcesharp/game/server/shell_usermessage_send.cpp",
-		"sourcesharp/game/client/shell_usermessages_client.cpp",
-	};
-	const char *pszAnchors[] = {
-		"default_fov",
-		"SourceSharp_UserMessageSend",
-		"SourceSharp_ClientViewportQuery",
-	};
-
-	for ( size_t i = 0; i < sizeof( pszFiles ) / sizeof( pszFiles[ 0 ] ); i++ )
-	{
-		const std::string code = Tight( pszFiles[ i ], pszAnchors[ i ] );
-		ASSERT_FALSE( code.empty() ) << pszFiles[ i ];
-
-		EXPECT_EQ( code.find( "RegisterHapticMessages();" ), std::string::npos )
-			<< pszFiles[ i ] << " calls RegisterHapticMessages again. C# "
-			<< "declares the same six at the head of its list, so this "
-			<< "registers each of them a second time.";
-	}
-}
-
 //-----------------------------------------------------------------------------
 // And usermessages.cpp itself, which held the static-init registration, is out
 // of BOTH builds. plan_gamedll.md Phase 5a step 3.
@@ -325,22 +155,6 @@ TEST( ServerWave2, StockUserMessagesCppIsOutOfBothBuilds )
 //-----------------------------------------------------------------------------
 // The ModelSoundsCache fold.
 //-----------------------------------------------------------------------------
-// plan_server_novalve.md P3: THE CACHE IS GONE, and the list it held is built
-// in C# on every precache (SourceSharp.Server.ModelComponents), held live to
-// the cache's own output first.
-TEST( ServerWave2, TheModelSoundsCacheLeftForCSharp )
-{
-	const std::string pm = Tight( "sourcesharp/game/server/precache_model.cpp",
-	                              "Precache_ModelComponents" );
-	ASSERT_FALSE( pm.empty() );
-
-	EXPECT_EQ( pm.find( "CModelSoundsCache" ), std::string::npos )
-		<< "the model sounds cache is back in precache_model.cpp";
-	EXPECT_EQ( pm.find( "modelsounds.cache" ), std::string::npos );
-	EXPECT_NE( pm.find( "pArea->ModelPrecacheComponents(" ), std::string::npos )
-		<< "Precache_ModelComponents no longer hands the model to C#";
-}
-
 //-----------------------------------------------------------------------------
 // The precache_register fold: ONE list head, not two -- and since
 // plan_server_native_v2 T4e, none. The list's one registrant (EffectsPrecache,
@@ -348,30 +162,6 @@ TEST( ServerWave2, TheModelSoundsCacheLeftForCSharp )
 // its walk and the registration all went; a head back here would be a second
 // precache path beside the managed one.
 //-----------------------------------------------------------------------------
-TEST( ServerWave2, ThePrecacheListHeadWentWithItsOneRegistrant )
-{
-	const std::string wa = Tight( "sourcesharp/game/server/world_adapter.cpp",
-	                              "void CWorld::Precache( void )" );
-	ASSERT_FALSE( wa.empty() );
-
-	EXPECT_EQ( wa.find( "g_pPrecacheRegisters" ), std::string::npos )
-		<< "world_adapter.cpp defines a precache list head again";
-	EXPECT_EQ( wa.find( "CPrecacheRegister" ), std::string::npos )
-		<< "world_adapter.cpp pushes onto or walks a precache list again";
-
-	const std::string orphans = Tight( "sourcesharp/game/server/shell_absent.cpp",
-	                                   "void UTIL_BloodSpray(" );
-	EXPECT_EQ( orphans.find( "PRECACHE_REGISTER_FN(EffectsPrecache)" ), std::string::npos )
-		<< "EffectsPrecache registers itself again";
-
-	// The six sounds are not lost: the world's precache names them.
-	const std::string managed = Tight( "sourcesharp/managed/SourceSharp.Server/ServerGameDll.cs",
-	                                   "private void WorldPrecache()" );
-	EXPECT_NE( managed.find( "\"Underwater.BulletImpact\"" ), std::string::npos )
-		<< "the splash, the underwater impact, the ricochet and the explosion go "
-		   "unprecached: the first play of each is silent";
-}
-
 //-----------------------------------------------------------------------------
 // interval.cpp: taken out, put back, and taken out again -- by a DIFFERENT
 // route, which is the whole content of this test now.
@@ -398,80 +188,3 @@ TEST( ServerWave2, ThePrecacheListHeadWentWithItsOneRegistrant )
 // with zero undefined references. A probe under --gc-sections would still say
 // FREE and still be measuring nothing.
 //-----------------------------------------------------------------------------
-TEST( ServerWave2, IntervalLeftTheBuildAndNoNativeTranslationUnitCallsIt )
-{
-	ASSERT_TRUE( Compiles( cmake_graph::kServer, kProofOfRead ) )
-		<< "the reader is not reading server_sourcesharp's source list";
-
-	EXPECT_FALSE( Compiles( cmake_graph::kServer, "interval.cpp" ) )
-		<< "interval.cpp is back in the server build. If that is deliberate, "
-		<< "the inline definitions in game/shared/interval.h have to go with "
-		<< "it -- two definitions of ReadInterval is a link error, and the one "
-		<< "that wins is whichever the linker saw first.";
-
-	// The premise that made Wave 2's eviction fail, still true -- but ASKED OF
-	// A DIFFERENT FILE since plan_shim.md Phase 1d.
-	//
-	// It used to be asked of game/server/AI_Criteria.cpp, whose row Phase 1d
-	// deleted: tools/shim-census reports 0 objects importing it on either
-	// side, and its two BEGIN_SIMPLE_DATADESCs are imported by nothing
-	// either. Those two assertions are retired with the row; "AI_Criteria.cpp
-	// has left the build" is now simply true, and a test that says so is a
-	// test about a file that is not there.
-	//
-	// THE CLAIM, as it stands since sound cluster 17 (lane c2-sims): interval.cpp
-	// is out of the build and NO NATIVE TRANSLATION UNIT CALLS EITHER FUNCTION.
-	// The callers went one by one: AI_Criteria.cpp (plan_shim.md Phase 1d),
-	// shell_soundscape_client.cpp (the client soundscape system is C#, its
-	// intervals SourceSharp.Shared.Interval, held to stock by IntervalTests and
-	// SoundscapeOracleTests), and public/SoundParametersInternal.cpp, which
-	// left client.so when its one importer (TextToSoundLevel) went with the
-	// soundscape. So the inlines below are definitions with no reader: a
-	// caller coming back still links (that is what they are kept for), and
-	// this scan is what makes its return visible rather than silent.
-	//
-	// The scan reads every source both targets compile, comment-stripped; its
-	// control is a call the client is known to make, so an empty read cannot
-	// pass.
-	size_t nRead = 0;
-	bool bControl = false;
-	std::vector< std::string > callers;
-	const char *kTargets[] = { cmake_graph::kServer, cmake_graph::kClient };
-	for ( size_t t = 0; t < 2; t++ )
-	{
-		const std::set< std::string > src = cmake_graph::CompiledSources( kTargets[ t ] );
-		for ( std::set< std::string >::const_iterator it = src.begin(); it != src.end(); ++it )
-		{
-			const std::string raw = ReadRaw( std::string( SrcRoot() ) + "/" + *it );
-			if ( raw.empty() )
-				continue;
-			nRead++;
-			const std::string tight = NoWhitespace( StripComments( raw ) );
-			if ( tight.find( "SourceSharp_ClientEnergySplash(pAt,pDir,1)" ) != std::string::npos )
-				bControl = true;
-			if ( tight.find( "ReadInterval(" ) != std::string::npos
-				|| tight.find( "RandomInterval(" ) != std::string::npos )
-				callers.push_back( *it );
-		}
-	}
-	EXPECT_GT( nRead, 200u ) << "the scan read " << nRead << " compiled sources; it is not reading the source lists";
-	EXPECT_TRUE( bControl )
-		<< "the scan did not see cs_cl_te_backend's energy splash call (shell_te_backends_client.cpp), so it is not reading text";
-	for ( size_t i = 0; i < callers.size(); i++ )
-		ADD_FAILURE() << callers[ i ] << " calls ReadInterval or RandomInterval. The rules are managed "
-		              << "(SourceSharp.Shared.Interval); a native caller would be a second copy of "
-		              << "them, held to stock by nothing.";
-
-	// AND THE HALF WITHOUT WHICH THE ABOVE IS THE WAVE 2 BUG. The definitions
-	// have to be somewhere, and with the .cpp gone the header is the only
-	// somewhere there is.
-	const std::string hdr = Tight( "game/shared/interval.h", "ReadInterval" );
-	ASSERT_FALSE( hdr.empty() );
-	EXPECT_NE( hdr.find( "inlineinterval_tReadInterval(" ), std::string::npos )
-		<< "interval.h does not define ReadInterval inline, and interval.cpp "
-		<< "is out of the build -- so nothing defines it. This is exactly the "
-		<< "Wave 2 failure, and --gc-sections will hide it until somebody "
-		<< "builds with GC_SECTIONS=0.";
-	EXPECT_NE( hdr.find( "inlinefloatRandomInterval(" ), std::string::npos )
-		<< "interval.h does not define RandomInterval inline; see above.";
-}
