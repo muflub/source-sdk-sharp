@@ -58,6 +58,21 @@ TEST( CMakeGraphReal, ALocalPathMapsBackToItsFarmSpelling )
 	EXPECT_TRUE( bThrew ) << "an unreadable source-list entry was accepted";
 }
 
+TEST( CMakeGraphReal, AVendoredValveFileIsNamedByItsValvePath )
+{
+	EXPECT_EQ( "tier1/bitbuf.cpp", RepoToFarm( "vendor/client/tier1/bitbuf.cpp" ) );
+	EXPECT_EQ( "public/tier0/platform.h", RepoToFarm( "vendor/shared/public/tier0/platform.h" ) );
+	bool bThrew = false;
+	try { RepoToFarm( "vendor/other/tier1/bitbuf.cpp" ); } catch ( const std::exception & ) { bThrew = true; }
+	EXPECT_TRUE( bThrew ) << "a vendor/ path outside the three sides was given a farm spelling";
+}
+
+TEST( CMakeGraphReal, TheLocalAndSharedAliasesNameThisRepoSFiles )
+{
+	EXPECT_EQ( "sourcesharp/game/server/physics.cpp", ListToken( "${LOCAL}/physics.cpp", kServer ) );
+	EXPECT_EQ( "sourcesharp/game/shared/shell_shared.cpp", ListToken( "${SHARED}/shell_shared.cpp", kServer ) );
+}
+
 TEST( CMakeGraphReal, TheLinkEdgeNamesOneObjectPerCompiledSource )
 {
 	// Two independent readings: compile_commands.json's entries and

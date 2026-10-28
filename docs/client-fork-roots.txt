@@ -78,7 +78,6 @@ mathlib/lightdesc.h
 mathlib/mathlib.h
 mathlib/math_pfns.h
 mathlib/ssemath.h
-mathlib/ssequaternion.h
 mathlib/vector.h
 mathlib/vector2d.h
 mathlib/vector4d.h

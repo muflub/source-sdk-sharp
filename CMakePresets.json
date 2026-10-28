@@ -109,6 +109,32 @@
       }
     },
     {
+      "name": "windows-cross-debug",
+      "generator": "Ninja",
+      "displayName": "windows-cross-debug: clang-cl + lld-link over xwin, from Linux",
+      "description": "A check that the Windows arms compile and link (cmake/toolchains/windows-clang-cl.cmake). The modules only, no tests; MSVC on CI is the shipped build.",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/windows-clang-cl.cmake",
+      "binaryDir": "${sourceDir}/farm/debug/build-windows-cross",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SS_BUILD_TESTS": "OFF",
+        "SS_DEPLOY_DIR": "${sourceDir}/bin/windows-cross-debug/x64"
+      }
+    },
+    {
+      "name": "windows-cross-release",
+      "generator": "Ninja",
+      "displayName": "windows-cross-release: clang-cl + lld-link over xwin, from Linux",
+      "description": "A check that the Windows arms compile and link (cmake/toolchains/windows-clang-cl.cmake). The modules only, no tests; MSVC on CI is the shipped build.",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/windows-clang-cl.cmake",
+      "binaryDir": "${sourceDir}/farm/release/build-windows-cross",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SS_BUILD_TESTS": "OFF",
+        "SS_DEPLOY_DIR": "${sourceDir}/bin/windows-cross-release/x64"
+      }
+    },
+    {
       "name": "osx",
       "hidden": true,
       "generator": "Ninja",
@@ -169,6 +195,14 @@
     {
       "name": "windows-release",
       "configurePreset": "windows-release"
+    },
+    {
+      "name": "windows-cross-debug",
+      "configurePreset": "windows-cross-debug"
+    },
+    {
+      "name": "windows-cross-release",
+      "configurePreset": "windows-cross-release"
     },
     {
       "name": "osx-debug",

@@ -705,6 +705,24 @@ def interface_entry(struct):
                   % struct)
 
 
+# Our own headers, named by the farm path tools/vtable-layout records, are
+# included by their path under this repo's src/ (the forwarder libraries put
+# src/ on their include path), so the libraries need no farm.
+OWN_HEADER_DIRS = (('src/sourcesharp/game/server/', 'server/native/'),
+                   ('src/sourcesharp/game/client/', 'client/native/'),
+                   ('src/sourcesharp/game/shared/', 'shared/native/'),
+                   ('src/sourcesharp/host/', 'host/native/'))
+
+
+def include_of(header):
+    if header.startswith('src/public/'):
+        return header[len('src/public/'):]
+    for farm, repo in OWN_HEADER_DIRS:
+        if header.startswith(farm):
+            return repo + header[len(farm):]
+    return header[len('src/'):]
+
+
 def resolved(row):
     """The row with its derived fields filled in: table, self_type, include,
     side."""
@@ -713,9 +731,7 @@ def resolved(row):
     out.setdefault('table', row['struct'][:-len('Vtbl')] if row['struct'].endswith('Vtbl')
                    else row['struct'])
     out.setdefault('self_type', entry['chain'][-1])
-    header = entry['header']
-    out.setdefault('include', header[len('src/public/'):] if header.startswith('src/public/')
-                   else header[len('src/'):])
+    out.setdefault('include', include_of(entry['header']))
     out.setdefault('side', 'both')
     if out['side'] not in SIDES:
         raise Refusal('%s names side %s; the sides are %s'
@@ -1174,6 +1190,11 @@ def self_test(out=sys.stdout):
        refuses(dict(base, methods=['GetModel', 'GetModel'])))
     ok('an interface tools/vtable-layout does not describe is refused',
        refuses(dict(base, struct='NoSuchVtbl')))
+
+    ok('a Valve header is included by its public/ path',
+       include_of('src/public/engine/ivmodelinfo.h') == 'engine/ivmodelinfo.h')
+    ok('an own header is included by its path under src/, not the farm\'s',
+       include_of('src/sourcesharp/game/server/ishim_frame.h') == 'server/native/ishim_frame.h')
 
     every_row = resolved(dict(struct='ShimFrameVtbl', every=True))
     every_names = list(slots_of(interface_entry('ShimFrameVtbl')))

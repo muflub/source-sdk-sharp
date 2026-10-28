@@ -67,14 +67,17 @@ function(ss_fwd_library side)
   # which the generated file includes by their farm path,
   # "sourcesharp/game/<side>/ishim_*.h"; sourcesharp/host for the
   # sourcesharp.h the shim area headers include for their data structs.
+  if(side STREQUAL server)
+    ss_vendor_includes(valve_includes server public public/tier0 public/tier1)
+  else()
+    set(valve_includes ${SS_SRC}/common ${SS_SRC}/public ${SS_SRC}/public/tier0 ${SS_SRC}/public/tier1)
+  endif()
   target_include_directories(${tgt} PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}
-      ${SS_SRC}
-      ${SS_SRC}/sourcesharp/host
-      ${SS_SRC}/common
-      ${SS_SRC}/public
-      ${SS_SRC}/public/tier0
-      ${SS_SRC}/public/tier1
+      ${PROJECT_SOURCE_DIR}/src
+      ${PROJECT_SOURCE_DIR}/src/host/native
+      ${SHARED}
+      ${valve_includes}
   )
 
   target_compile_definitions(${tgt} PRIVATE
@@ -138,5 +141,3 @@ foreach(no_rtti fwd_steam.cpp fwd_physics.cpp fwd_recipient_filter.cpp fwd_trace
   endif()
 endforeach()
 # imanaged_core.h, which the managed sides' headers include: both libraries.
-target_include_directories(ss_fwd_client PRIVATE ${SS_SRC}/sourcesharp/game/shared)
-target_include_directories(ss_fwd_server PRIVATE ${SS_SRC}/sourcesharp/game/shared)

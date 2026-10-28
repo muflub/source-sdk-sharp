@@ -173,9 +173,8 @@ jobs:
       - name: Set up (tools/sdk-upstream, tools/setup)
         run: |
           python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
-          # server.so builds on the pristine upstream public/ (plan_server_native_v2
-          # D3): a shared clone of the commit valve-sdk.lock pins, borrowing the
-          # upstream clone's objects, linked by tools/setup as farm/<config>/stock-public.
+          # The pristine reference (valve-sdk.lock), which tools/setup requires:
+          # a shared clone of that commit, borrowing the upstream clone's objects.
           git clone -q --shared --no-checkout ../source-sdk-2013-upstream ../source-sdk-2013-valve
           git -C ../source-sdk-2013-valve checkout -q --detach "$(head -c 40 valve-sdk.lock)"
           python tools/setup --root ../source-sdk-2013-upstream --config release --no-provision --valve-sdk ../source-sdk-2013-valve
@@ -586,9 +585,8 @@ jobs:
       - name: Set up (tools/sdk-upstream, tools/setup)
         run: |
           python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
-          # server.so builds on the pristine upstream public/ (plan_server_native_v2
-          # D3): a shared clone of the commit valve-sdk.lock pins, borrowing the
-          # upstream clone's objects, linked by tools/setup as farm/<config>/stock-public.
+          # The pristine reference (valve-sdk.lock), which tools/setup requires:
+          # a shared clone of that commit, borrowing the upstream clone's objects.
           git clone -q --shared --no-checkout ../source-sdk-2013-upstream ../source-sdk-2013-valve
           git -C ../source-sdk-2013-valve checkout -q --detach "$(head -c 40 valve-sdk.lock)"
           for cfg in release debug; do
@@ -737,9 +735,8 @@ jobs:
       - name: Set up (tools/sdk-upstream, tools/setup)
         run: |
           python tools/sdk-upstream --sdk-dir ../source-sdk-2013-upstream
-          # server.so builds on the pristine upstream public/ (plan_server_native_v2
-          # D3): a shared clone of the commit valve-sdk.lock pins, borrowing the
-          # upstream clone's objects, linked by tools/setup as farm/<config>/stock-public.
+          # The pristine reference (valve-sdk.lock), which tools/setup requires:
+          # a shared clone of that commit, borrowing the upstream clone's objects.
           git clone -q --shared --no-checkout ../source-sdk-2013-upstream ../source-sdk-2013-valve
           git -C ../source-sdk-2013-valve checkout -q --detach "$(head -c 40 valve-sdk.lock)"
           for cfg in release debug; do

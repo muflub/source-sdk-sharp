@@ -84,7 +84,6 @@ src/public/mathlib/lightdesc.h
 src/public/mathlib/math_pfns.h
 src/public/mathlib/mathlib.h
 src/public/mathlib/ssemath.h
-src/public/mathlib/ssequaternion.h
 src/public/mathlib/vector.h
 src/public/mathlib/vector2d.h
 src/public/mathlib/vector4d.h

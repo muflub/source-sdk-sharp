@@ -1,0 +1,361 @@
+#!/usr/bin/env python3
+"""tools/vendor-stub -- stub out the vendored virtual methods nothing uses.
+
+    tools/vendor-stub               report what would be stubbed; exit 0
+    tools/vendor-stub --write       stub them in vendor/ (then build and test)
+    tools/vendor-stub --check       exit 1 if anything is still stubbable
+    tools/vendor-stub --self-test   this script's own checks
+    --config C (or SOURCESHARP_CONFIG) picks farm/<C>; default debug.
+
+A vendored interface keeps every virtual slot, because the engine object
+behind it has them all; a method no module calls keeps only its slot:
+
+    virtual void unused_GetModel() = 0;
+
+What is used is measured with clang-query over every module object's own
+compile command (tools/vendor's SIDE_TARGETS and LIB_TARGETS), so a method
+our code, a forwarder or a vendored inline body calls is seen. A method is
+stubbed only when ALL hold:
+
+  - it is declared in vendor/ and is virtual, not a destructor or operator;
+  - nothing references it (a call, a member access or its address);
+  - it overrides nothing, and its class is no class's base, anywhere in the
+    build: a stub there would move a slot of the derived class;
+  - no other virtual of its class has the same name: MSVC lays a class's
+    overloads out together, so renaming one would move slots on Windows;
+  - its name is never the member of a `.`, `->` or `::` in this repo's native
+    sources, which covers the Windows arms the Linux build does not compile.
+
+A stub is pure, so a class our code instantiates becomes abstract and the
+build fails: build after --write. The stub's name carries the real name.
+"""
+import concurrent.futures
+import importlib.machinery
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+VENDOR = os.path.join(REPO, "vendor")
+VD = importlib.machinery.SourceFileLoader("vendor_tool", os.path.join(REPO, "tools", "vendor")).load_module()
+
+CLANG_QUERY = os.environ.get("CLANG_QUERY", "clang-query-22")
+QUERIES = r'''set output diag
+set bind-root false
+match cxxMethodDecl(isVirtual(), unless(cxxDestructorDecl()), isExpansionInFileMatching("/vendor/"), ofClass(cxxRecordDecl().bind("c"))).bind("d")
+match cxxMethodDecl(isVirtual(), isOverride()).bind("v")
+match memberExpr(member(cxxMethodDecl(isVirtual()).bind("u")))
+match declRefExpr(to(cxxMethodDecl(isVirtual()).bind("u")))
+match cxxRecordDecl(isDefinition(), isDerivedFrom(cxxRecordDecl())).bind("r")
+'''
+OUR_NATIVE = ("src/server/native", "src/client/native", "src/shared/native", "src/fwd/native",
+              "src/host/native", "src/engineabi/native")
+NOTE = re.compile(r'^(/[^:]+):(\d+):(\d+): note: "(\w)" binds here')
+
+
+class Missing(Exception):
+    pass
+
+
+def module_commands(cfg):
+    path = os.path.join(REPO, "farm", cfg, "build", "compile_commands.json")
+    try:
+        with open(path) as f:
+            db = json.load(f)
+    except (OSError, ValueError) as e:
+        raise Missing("compile_commands.json: %s" % e)
+    out = [e for e in db if VD.target_of(e.get("output", "")) and
+           VD.sides_of_target(VD.target_of(e["output"])) is not None]
+    if not out:
+        raise Missing("no module objects in the compile database")
+    return os.path.dirname(path), out
+
+
+def query(build, entry):
+    with tempfile.NamedTemporaryFile("w", suffix=".q", delete=False) as q:
+        q.write(QUERIES)
+    try:
+        r = subprocess.run([CLANG_QUERY, "-p", build, "-f", q.name, entry["file"]],
+                           capture_output=True, text=True)
+    finally:
+        os.unlink(q.name)
+    if "Match #" not in r.stdout and r.returncode != 0:
+        raise Missing("clang-query failed on %s: %s" % (entry["file"], r.stderr.strip()[:300]))
+    matches, cur = [], None
+    for line in r.stdout.splitlines():
+        if line.startswith("Match #"):
+            cur = []
+            matches.append(cur)
+            continue
+        m = NOTE.match(line)
+        if m and cur is not None:
+            cur.append((m.group(4), (os.path.realpath(m.group(1)), int(m.group(2)), int(m.group(3)))))
+    return matches
+
+
+def measure(cfg):
+    """(decls, used, overriders, records): decls {loc: class loc}; the rest sets of locs."""
+    build, entries = module_commands(cfg)
+    decls, used, over, records = {}, set(), set(), set()
+    seen = set()
+    with concurrent.futures.ThreadPoolExecutor(os.cpu_count() or 4) as ex:
+        for matches in ex.map(lambda e: query(build, e), [e for e in entries
+                              if not (e["file"] in seen or seen.add(e["file"]))]):
+            for m in matches:
+                d = dict(m)
+                if "d" in d and "c" in d:
+                    decls[d["d"]] = d["c"]
+                for name, loc in m:
+                    if name == "u":
+                        used.add(loc)
+                    elif name == "v":
+                        over.add(loc)
+                    elif name == "r":
+                        records.add(loc)
+    if not decls:
+        raise Missing("clang-query found no virtual method declared in vendor/")
+    return decls, used, over, records
+
+
+_files = {}
+
+
+def text_of(path):
+    if path not in _files:
+        with open(path, errors="replace", newline="") as f:
+            _files[path] = f.read()
+    return _files[path]
+
+
+def offset(path, line, col):
+    t = text_of(path)
+    pos = 0
+    for _ in range(line - 1):
+        pos = t.index("\n", pos) + 1
+    return pos + col - 1
+
+
+def skip_comments(t, i):
+    """The index after a comment or literal starting at i, or i itself."""
+    if t.startswith("//", i):
+        j = t.find("\n", i)
+        return len(t) if j < 0 else j
+    if t.startswith("/*", i):
+        j = t.find("*/", i + 2)
+        return len(t) if j < 0 else j + 2
+    if t[i] in "\"'":
+        q, j = t[i], i + 1
+        while j < len(t) and t[j] != q:
+            j += 2 if t[j] == "\\" else 1
+        return j + 1
+    return i
+
+
+def decl_span(t, start):
+    """(end, head): the end of the declaration that starts at `start` (after
+    its ';', or its body's closing brace) and its head (the text up to the
+    parameter list's opening paren)."""
+    i, depth, head = start, 0, None
+    while i < len(t):
+        j = skip_comments(t, i)
+        if j != i:
+            i = j
+            continue
+        c = t[i]
+        if c == "(":
+            if depth == 0 and head is None:
+                head = t[start:i]
+            depth += 1
+        elif c == ")":
+            depth -= 1
+        elif depth == 0 and c == ";":
+            return i + 1, head
+        elif depth == 0 and c == "{":
+            n = 0
+            while i < len(t):
+                j = skip_comments(t, i)
+                if j != i:
+                    i = j
+                    continue
+                if t[i] == "{":
+                    n += 1
+                elif t[i] == "}":
+                    n -= 1
+                    if n == 0:
+                        return i + 1, head
+                i += 1
+            break
+        i += 1
+    raise ValueError("unterminated declaration at %d" % start)
+
+
+def method_name(head):
+    if head is None or "operator" in head:
+        return None
+    m = re.search(r"(~?[A-Za-z_]\w*)\s*$", head)
+    return m.group(1) if m else None
+
+
+def class_name(path, line, col):
+    t = text_of(path)
+    s = offset(path, line, col)
+    m = re.match(r"\s*(?:template\s*<[^>]*>\s*)?(?:abstract_class|class|struct)\s+"
+                 r"(?:DECLSPEC_\w+\s+|SINGLE_INHERITANCE\s+|ALIGN\d+\s+)*([A-Za-z_]\w*)", t[s:s + 400])
+    return m.group(1) if m else None
+
+
+def base_names(path, line, col):
+    """The base classes' names in a class head `class X : public A, B<T> {`."""
+    t = text_of(path)
+    s = offset(path, line, col)
+    brace = t.find("{", s)
+    head = t[s:brace if brace >= 0 else s + 400]
+    if ":" not in head:
+        return set()
+    bases = head.split(":", 1)[1]
+    bases = re.sub(r"<[^<>]*>", "", re.sub(r"<[^<>]*>", "", bases))
+    return {w.split("::")[-1] for w in re.findall(r"[A-Za-z_][\w:]*", bases)
+            if w not in ("public", "private", "protected", "virtual")}
+
+
+def member_names_in_our_sources():
+    names = set()
+    pat = re.compile(r"(?:->|\.|::)\s*([A-Za-z_]\w*)\s*\(")
+    for d in OUR_NATIVE:
+        for root, _, files in os.walk(os.path.join(REPO, d)):
+            for f in files:
+                if f.endswith((".cpp", ".h", ".inc", ".inl")):
+                    with open(os.path.join(root, f), errors="replace") as fh:
+                        names.update(pat.findall(fh.read()))
+    return names
+
+
+def candidates(decls, used, over, records, ours):
+    derived_from = set()
+    for r in records:
+        derived_from |= base_names(*r)
+    by_class = {}
+    for d, c in decls.items():
+        by_class.setdefault(c, []).append(d)
+    out, kept = [], {"used": 0, "overrider": 0, "has derived": 0, "overloaded": 0,
+                     "named in our sources": 0, "unparsed": 0}
+    for c, ds in by_class.items():
+        cname = class_name(*c)
+        heads = {}
+        for d in ds:
+            t = text_of(d[0])
+            try:
+                _, head = decl_span(t, offset(*d))
+            except ValueError:
+                head = None
+            heads[d] = method_name(head)
+        counts = {}
+        for n in heads.values():
+            counts[n] = counts.get(n, 0) + 1
+        for d in ds:
+            name = heads[d]
+            if name is None or cname is None or name.startswith("unused_"):
+                kept["unparsed"] += name is None or cname is None
+                continue
+            if d in used:
+                kept["used"] += 1
+            elif d in over:
+                kept["overrider"] += 1
+            elif cname in derived_from:
+                kept["has derived"] += 1
+            elif counts[name] > 1:
+                kept["overloaded"] += 1
+            elif name in ours:
+                kept["named in our sources"] += 1
+            else:
+                out.append((d, cname, name))
+    return sorted(out), kept
+
+
+def stub(path, edits):
+    """Apply (offset, name) stubs to one file, last first."""
+    t = text_of(path)
+    for start, name in sorted(edits, reverse=True):
+        end, _ = decl_span(t, start)
+        t = t[:start] + "virtual void unused_%s() = 0;" % name + t[end:]
+    with open(path, "w", newline="") as f:
+        f.write(t)
+    _files[path] = t
+
+
+def self_test():
+    checks = 0
+
+    def eq(a, b, what):
+        nonlocal checks
+        checks += 1
+        if a != b:
+            raise AssertionError("%s: %r != %r" % (what, a, b))
+
+    t = "virtual int Foo( int a, char b = ')' ) const = 0; // x\nnext"
+    end, head = decl_span(t, 0)
+    eq(t[:end], "virtual int Foo( int a, char b = ')' ) const = 0;", "a pure declaration ends at its ;")
+    eq(method_name(head), "Foo", "the name is the identifier before the parameters")
+    t = "virtual void Bar() { if (x) { y(); } /* } */ }\nnext"
+    end, head = decl_span(t, 0)
+    eq(t[end:], "\nnext", "an inline body ends at its matching brace, past a commented brace")
+    eq(method_name("virtual bool operator==("), None, "an operator is never stubbed")
+    eq(method_name("virtual const model_t *GetModel"), "GetModel", "a pointer return")
+    with tempfile.TemporaryDirectory() as td:
+        p = os.path.join(td, "i.h")
+        with open(p, "w") as f:
+            f.write("abstract_class IThing : public IBase, public CTmpl<int>\n{\npublic:\n"
+                    "\tvirtual int A( int ) = 0;\n\tvirtual void B() {}\n};\n"
+                    "class CImpl : public IThing {};\n")
+        eq(class_name(p, 1, 1), "IThing", "the class name after abstract_class")
+        eq(base_names(p, 1, 1), {"IBase", "CTmpl"}, "the base names, templates stripped")
+        a, b = (p, 4, 2), (p, 5, 2)
+        decls = {a: (p, 1, 1), b: (p, 1, 1)}
+        out, kept = candidates(decls, {a}, set(), set(), set())
+        eq([x[2] for x in out], ["B"], "a used method is kept, an unused one is a candidate")
+        eq(len(candidates(decls, set(), set(), {(p, 1, 1)}, set())[0]), 2,
+           "a class that only derives is still stubbable")
+        eq(candidates(decls, set(), set(), {(p, 7, 1)}, set())[0], [],
+           "a class that is some class's base is never stubbed")
+        eq(candidates(decls, set(), {b}, set(), set())[0][0][2], "A", "an overrider is kept")
+        eq(candidates(decls, set(), set(), set(), {"A", "B"})[0], [],
+           "a name our sources use as a member is kept")
+        stub(p, [(offset(*b), "B")])
+        eq("virtual void unused_B() = 0;" in text_of(p) and "virtual int A( int ) = 0;" in text_of(p),
+           True, "the stub replaces the declaration, the rest stays")
+    print("tools/vendor-stub --self-test: %d checks passed" % checks)
+    return 0
+
+
+def main(argv):
+    if "--self-test" in argv:
+        return self_test()
+    try:
+        decls, used, over, records = measure(VD.config(argv))
+    except Missing as e:
+        print("tools/vendor-stub: " + str(e))
+        return 1
+    out, kept = candidates(decls, used, over, records, member_names_in_our_sources())
+    per_file = {}
+    for d, cname, name in out:
+        per_file.setdefault(d[0], []).append((offset(*d), name))
+    print("tools/vendor-stub: %d virtual methods declared in vendor/; %d stubbable in %d files; kept: %s"
+          % (len(decls), len(out), len(per_file), ", ".join("%s %d" % kv for kv in kept.items())))
+    if "--report" in argv:
+        for d, cname, name in out:
+            print("  %s:%d %s::%s" % (os.path.relpath(d[0], REPO), d[1], cname, name))
+    if "--write" in argv:
+        for path, edits in per_file.items():
+            stub(path, edits)
+        print("tools/vendor-stub: stubbed %d methods; build and test now" % len(out))
+        return 0
+    if "--check" in argv:
+        return 1 if out else 0
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -83,6 +83,10 @@ def parse_sources(cmake_text):
                 continue
             if tok.startswith("${CMAKE_CURRENT_SOURCE_DIR}/"):
                 rel = "src/server/native/" + tok[len("${CMAKE_CURRENT_SOURCE_DIR}/"):]
+            elif tok.startswith("${LOCAL}/"):
+                rel = "src/server/native/" + tok[len("${LOCAL}/"):]
+            elif tok.startswith("${SHARED}/"):
+                rel = "src/shared/native/" + tok[len("${SHARED}/"):]
             elif tok.startswith("${PROJECT_SOURCE_DIR}/"):
                 rel = tok[len("${PROJECT_SOURCE_DIR}/"):]
             else:

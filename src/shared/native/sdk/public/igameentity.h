@@ -59,10 +59,9 @@ struct Toucher_t;
 // same type under the name the rest of the tree spells. The client keeps
 // IGameEntity: its headers are the patched ones, and the alias is per side.
 //
-// SS_STOCK_PUBLIC_HEADERS marks the stock build. Until D3 points server.so's
-// include root at the pristine tree, only tools/server-stock-headers defines
-// it; the patched headers forward-declare `class IGameEntity`, which an alias
-// of the same name could not sit beside.
+// SS_STOCK_PUBLIC_HEADERS marks a build on stock headers (server.so's, from
+// vendor/); the patched headers forward-declare `class IGameEntity`, which an
+// alias of the same name could not sit beside.
 //-----------------------------------------------------------------------------
 #if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )
 abstract_class CBaseEntity

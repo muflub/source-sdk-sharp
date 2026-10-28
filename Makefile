@@ -246,7 +246,7 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test tf2-test
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate cmdgate \
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream windows-cross dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate cmdgate \
         entity-census entity-gates entity-ratchet \
         globals-census globals-ledger globals-client-census globals-client-ledger sdk-census
 
@@ -343,6 +343,11 @@ debug:
 release:
 	$(call require-setup,release)
 	@farm/release/src/buildsourcesharp release $(BUILD_FLAGS)
+
+# A basic Windows check from Linux (tools/windows-cross): clang-cl over xwin's
+# MSVC CRT and SDK builds the modules, wine loads each DLL.
+windows-cross:
+	@tools/windows-cross $(CONFIG)
 
 # CI's build, reproduced: the same CMake project inside Valve's sniper SDK
 # image (glibc 2.31), with the image's gcc, into bin/ci-<config>/linux64, then

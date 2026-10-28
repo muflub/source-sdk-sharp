@@ -36,19 +36,15 @@ set(tier1_sources
 if(NOT SS_PLATFORM STREQUAL windows AND NOT SS_PLATFORM STREQUAL osx)
   list(APPEND tier1_sources tier1/qsort_s.cpp)
 endif()
-list(TRANSFORM tier1_sources PREPEND "${SS_SRC}/")
+list(TRANSFORM tier1_sources PREPEND "${SS_VENDOR}/client/")
 target_sources(tier1 PRIVATE ${tier1_sources})
 
 target_compile_definitions(tier1 PRIVATE
     TIER1_STATIC_LIB
 )
 
-target_include_directories(tier1 PRIVATE
-    ${SS_SRC}/common
-    ${SS_SRC}/public
-    ${SS_SRC}/public/tier0
-    ${SS_SRC}/public/tier1
-)
+ss_vendor_includes(tier1_includes client common public public/tier0 public/tier1)
+target_include_directories(tier1 PRIVATE ${tier1_includes})
 # gcc -O2 only (the CI release build), and the VPC release build printed the
 # same three: byteswap.h:212 -Wmaybe-uninitialized (twice, utlbufferutil.cpp)
 # and utlstring.h:399 -Wstringop-truncation (ilocalize.cpp, no longer built;

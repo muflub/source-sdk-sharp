@@ -80,6 +80,21 @@ endif()
 # sdk-links/ stays the one record of the Valve files this build depends on.
 set(SS_FARM "${PROJECT_SOURCE_DIR}/farm/${SS_CONFIG}")
 set(SS_SRC "${SS_FARM}/src")
+# vendor/ holds the Valve files the modules build from (vendor/README.md):
+# shared/ both sides, server/ and client/ one side each.
+set(SS_VENDOR "${PROJECT_SOURCE_DIR}/vendor")
+set(SHARED "${PROJECT_SOURCE_DIR}/src/shared/native")
+
+# ss_vendor_includes(<out-var> <side> <dir>...): each Valve include dir, the
+# side's copy ahead of the shared one, in the order given.
+function(ss_vendor_includes out side)
+  set(dirs)
+  foreach(sub IN LISTS ARGN)
+    list(APPEND dirs ${SS_VENDOR}/${side}/${sub} ${SS_VENDOR}/shared/${sub})
+  endforeach()
+  set(${out} ${dirs} PARENT_SCOPE)
+endfunction()
+
 # bin/<config> IS the game directory; the shared native binaries go to
 # bin/<platform dir> (linux64, x64, osx64).
 set(SS_BIN "${PROJECT_SOURCE_DIR}/bin/${SS_CONFIG}")
@@ -355,6 +370,12 @@ function(ss_sdk_compile tgt)
       ${SS_OPT_${SS_CONFIG}} /fp:fast /Zc:forScope /Zm200 /Gw /Zc:inline
       /Zc:threadSafeInit- /Wv:18 /Zc:__cplusplus /GS /bigobj
       ${SS_WARN_MSVC})
+    # clang-cl (the windows-cross presets) checks that the Windows arms
+    # compile and link; its warnings are clang's, not cl's, so they are off
+    # there and MSVC on CI holds the zero-warning rule.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      target_compile_options(${tgt} PRIVATE -w)
+    endif()
   else()
     if(SS_IS_CLANG)
       set(warn ${SS_WARN_CLANG})
@@ -419,7 +440,7 @@ function(ss_sdk_target tgt)
   # VERSION_SCRIPT: the export list. Valve's devtools script (global: *) unless
   # the target names its own -- server.so's exports CreateInterface only.
   if(NOT A_VERSION_SCRIPT)
-    set(A_VERSION_SCRIPT ${SS_SRC}/devtools/version_script.linux.txt)
+    set(A_VERSION_SCRIPT ${SS_VENDOR}/shared/devtools/version_script.linux.txt)
   endif()
   ss_sdk_compile(${tgt} PROJECTDIR ${A_PROJECTDIR})
 
@@ -504,7 +525,7 @@ function(ss_sdk_target tgt)
       target_link_libraries(${tgt} PRIVATE m dl pthread)
     endif()
     set_property(TARGET ${tgt} APPEND PROPERTY LINK_DEPENDS
-      ${SS_SRC}/devtools/version_script.linux.txt)
+      ${SS_VENDOR}/shared/devtools/version_script.linux.txt)
 
     # RUNPATH $ORIGIN and nothing else: the DLLs find libmanaged_host.so,
     # libtier0.so and the rest beside themselves in bin/linux64.

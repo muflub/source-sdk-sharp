@@ -371,4 +371,6 @@ needed-forbidden	0
 #   ~105 are RELABELLING, not porting: sdk-census now counts libss_fwd_server/client and libss_particles as their side's,
 #   so 96 headers libss_fwd_server compiles moved client -> shared, 10 lines client -> tests (read only by tests) and
 #   tier1/stringpool.h client -> libs. Hand-edited.
-sdk-links	368
+# 2026-10-25, vendor/ (server side): RAISED 368 -> 466, a relabel: server.so and libss_fwd_server now read their Valve
+#   headers from vendor/, so the 98 shared.txt headers the client still reads from the fork moved to client.txt (tools/sdk-census --write).
+sdk-links	466

@@ -43,13 +43,11 @@ target_sources(ss_particles PRIVATE
     ${PROJECT_SOURCE_DIR}/src/client/native/mesh_index_client.cpp
 )
 
+ss_vendor_includes(particles_vendor_includes client common public public/tier0 public/tier1)
 target_include_directories(ss_particles PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src/client/native
-    ${SS_SRC}/common
-    ${SS_SRC}/public
-    ${SS_SRC}/public/tier0
-    ${SS_SRC}/public/tier1
+    ${particles_vendor_includes}
 )
 
 target_compile_definitions(ss_particles PRIVATE

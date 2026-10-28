@@ -458,7 +458,11 @@ std::string ResolveInclude( const std::string &strIncluder, const std::string &s
 	{
 		const std::string strPrefix = cmake_graph::FarmSrc() + "/";
 		const std::string strFarmSrc = cmake_graph::FarmSrc();
-		const std::string strStock = strFarmSrc.substr( 0, strFarmSrc.rfind( '/' ) ) + "/stock-public";
+		// farm/<config>/src -> the repo root, three levels up: vendor/ is there.
+		std::string strRepo = strFarmSrc;
+		for ( int up = 0; up < 3; up++ )
+			strRepo = strRepo.substr( 0, strRepo.rfind( '/' ) );
+		const std::string strVendor = strRepo + "/vendor/";
 		std::istringstream toks( cmake_graph::CompileCommand( cmake_graph::kServer, kServerLegacyIncludeAnchor ) );
 		std::string strTok;
 		while ( toks >> strTok )
@@ -468,21 +472,20 @@ std::string ResolveInclude( const std::string &strIncluder, const std::string &s
 			const std::string strDir = strTok.substr( 2 );
 			if ( strDir.compare( 0, strPrefix.size(), strPrefix ) == 0 )
 				s_roots.push_back( strDir.substr( strPrefix.size() ) );
-			// The pristine public/ (plan_server_native_v2 D3) is the farm's
-			// stock-public link, beside src/ rather than under it.
-			else if ( strDir.compare( 0, strStock.size(), strStock ) == 0 )
-				s_roots.push_back( "../stock-public" + strDir.substr( strStock.size() ) );
+			// The Valve headers server.so builds from are vendor/'s, beside
+			// the farm rather than under it.
+			else if ( strDir.compare( 0, strVendor.size(), strVendor ) == 0 )
+				s_roots.push_back( "../../../vendor/" + strDir.substr( strVendor.size() ) );
 		}
 		// A command whose -I list resolved to nothing under the farm is not
 		// the server's, and an empty root list would make every include
 		// unresolvable -- the closure checks below catch that too, but say so
 		// here where the cause is.
-		// Since P5 every server TU is on the R5 set, and since D3 its public/
-		// is the pristine one: the roots are stock-public and its tier0/tier1
-		// children, never game/ and never the farm's patched public/.
-		EXPECT_TRUE( std::find( s_roots.begin(), s_roots.end(), std::string( "../stock-public" ) )
+		// Since P5 every server TU is on the R5 set, and its Valve headers are
+		// vendor/'s: never game/ and never the farm's patched public/.
+		EXPECT_TRUE( std::find( s_roots.begin(), s_roots.end(), std::string( "../../../vendor/shared/public" ) )
 			!= s_roots.end() )
-			<< "server_sourcesharp's compile command has no -I<farm>/stock-public";
+			<< "server_sourcesharp's compile command has no -I<repo>/vendor/shared/public";
 		EXPECT_TRUE( std::find( s_roots.begin(), s_roots.end(), std::string( "public" ) )
 			== s_roots.end() )
 			<< "server_sourcesharp's compile command reads the farm's patched public/ again";

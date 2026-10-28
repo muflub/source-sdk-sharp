@@ -82,6 +82,22 @@ public class CMakeGraphTests
         Assert.Throws<InvalidOperationException>(() => CMakeGraph.RepoToFarm(Local("nowhere", "none") + ".cpp"));
         Assert.Throws<InvalidOperationException>(() => CMakeGraph.ListToken("${UNKNOWN}/x" + ".cpp", CMakeGraph.Server));
     }
+
+    [Fact]
+    public void AVendoredValveFileIsNamedByItsValvePath()
+    {
+        static string Vendored(string side, string file) => $"vendor/{side}/{file}";
+        Assert.Equal("tier1/bitbuf" + ".cpp", CMakeGraph.RepoToFarm(Vendored("client", "tier1/bitbuf" + ".cpp")));
+        Assert.Equal("public/tier0/platform.h", CMakeGraph.RepoToFarm(Vendored("shared", "public/tier0/platform.h")));
+        Assert.Throws<InvalidOperationException>(() => CMakeGraph.RepoToFarm(Vendored("other", "tier1/bitbuf" + ".cpp")));
+    }
+
+    [Fact]
+    public void TheLocalAndSharedAliasesNameThisRepoSFiles()
+    {
+        Assert.Equal("sourcesharp/game/server/physics.cpp", CMakeGraph.ListToken("${LOCAL}/physics.cpp", CMakeGraph.Server));
+        Assert.Equal("sourcesharp/game/shared/shell_shared.cpp", CMakeGraph.ListToken("${SHARED}/shell_shared.cpp", CMakeGraph.Server));
+    }
 }
 
 /// <summary>

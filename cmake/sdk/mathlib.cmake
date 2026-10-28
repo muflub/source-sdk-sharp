@@ -21,17 +21,12 @@ set(mathlib_sources
     mathlib/ssenoise.cpp
     mathlib/vmatrix.cpp
 )
-list(TRANSFORM mathlib_sources PREPEND "${SS_SRC}/")
+list(TRANSFORM mathlib_sources PREPEND "${SS_VENDOR}/client/")
 target_sources(mathlib PRIVATE ${mathlib_sources})
 
 target_compile_definitions(mathlib PRIVATE
     MATHLIB_LIB
 )
 
-target_include_directories(mathlib PRIVATE
-    ${SS_SRC}/common
-    ${SS_SRC}/public
-    ${SS_SRC}/public/mathlib
-    ${SS_SRC}/public/tier0
-    ${SS_SRC}/public/tier1
-)
+ss_vendor_includes(mathlib_includes client common public public/mathlib public/tier0 public/tier1)
+target_include_directories(mathlib PRIVATE ${mathlib_includes})

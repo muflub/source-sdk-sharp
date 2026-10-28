@@ -95,16 +95,22 @@ internal static class CMakeGraph
     public static string BuildConfig => Current.BuildConfig;
 
     /// <summary>One source-list entry, farm-relative: <c>${SS_SRC}/x</c> is the
-    /// farm's x; <c>${CMAKE_CURRENT_SOURCE_DIR}/x</c> and <c>${PROJECT_SOURCE_DIR}/x</c>
+    /// farm's x; <c>${LOCAL}/x</c> (<c>${CMAKE_CURRENT_SOURCE_DIR}/x</c>),
+    /// <c>${SHARED}/x</c> (src/shared/native) and <c>${PROJECT_SOURCE_DIR}/x</c>
     /// are this repo's, mapped through the module map; a bare entry is already
     /// farm-relative (the Valve libraries' lists).</summary>
     public static string ListToken(string token, string target)
     {
-        const string farm = "${SS_SRC}/", here = "${CMAKE_CURRENT_SOURCE_DIR}/", repo = "${PROJECT_SOURCE_DIR}/";
+        const string farm = "${SS_SRC}/", here = "${CMAKE_CURRENT_SOURCE_DIR}/", local = "${LOCAL}/",
+            shared = "${SHARED}/", repo = "${PROJECT_SOURCE_DIR}/";
         if (token.StartsWith(farm, StringComparison.Ordinal))
             return token[farm.Length..];
         if (token.StartsWith(here, StringComparison.Ordinal))
             return RepoToFarm(Path.GetDirectoryName(ListFile(target))! + "/" + token[here.Length..]);
+        if (token.StartsWith(local, StringComparison.Ordinal))
+            return RepoToFarm(Path.GetDirectoryName(ListFile(target))! + "/" + token[local.Length..]);
+        if (token.StartsWith(shared, StringComparison.Ordinal))
+            return RepoToFarm("src/shared/native/" + token[shared.Length..]);
         if (token.StartsWith(repo, StringComparison.Ordinal))
             return RepoToFarm(token[repo.Length..]);
         if (token.Contains('$'))
@@ -122,6 +128,11 @@ internal static class CMakeGraph
     /// </summary>
     public static string RepoToFarm(string repoRelative)
     {
+        // A vendored Valve file (vendor/<side>/<path>) is named by its Valve
+        // path, as the farm named it.
+        string[] vendored = repoRelative.Split('/', 3);
+        if (vendored.Length == 3 && vendored[0] == "vendor" && vendored[1] is "shared" or "server" or "client")
+            return vendored[2];
         string map = ReadRequired(Path.Combine(RepoOfBuild, "tools", "module-map.tsv"), "the module map");
         string? bestRel = null, bestFarm = null;
         foreach (string raw in map.Split('\n'))

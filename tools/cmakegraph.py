@@ -117,11 +117,14 @@ def _block(text, opener, where):
 
 def list_token(tok, target, repo=None):
     """One source-list entry, farm-relative: ${SS_SRC}/x is the farm's x;
-    ${CMAKE_CURRENT_SOURCE_DIR}/x and ${PROJECT_SOURCE_DIR}/x are this repo's,
-    mapped through the module map; a bare entry is already farm-relative (the
-    Valve libraries' lists)."""
+    ${LOCAL}/x (${CMAKE_CURRENT_SOURCE_DIR}/x), ${SHARED}/x (src/shared/native)
+    and ${PROJECT_SOURCE_DIR}/x are this repo's, mapped through the module map;
+    a bare entry is already farm-relative (the Valve libraries' lists)."""
+    here = os.path.dirname(list_file(target))
     for var, base in (('${SS_SRC}/', None),
-                      ('${CMAKE_CURRENT_SOURCE_DIR}/', os.path.dirname(list_file(target))),
+                      ('${LOCAL}/', here),
+                      ('${CMAKE_CURRENT_SOURCE_DIR}/', here),
+                      ('${SHARED}/', 'src/shared/native'),
                       ('${PROJECT_SOURCE_DIR}/', '')):
         if tok.startswith(var):
             rest = tok[len(var):]
@@ -203,7 +206,11 @@ def module_rows(repo=None):
 
 def repo_to_farm(repo_rel, repo=None):
     """The farm-relative spelling of a file of this repo: the most specific
-    module-map row that covers it (as tools/setup links it)."""
+    module-map row that covers it (as tools/setup links it). A vendored Valve
+    file (vendor/<side>/<path>) is named by its Valve path, as the farm named it."""
+    parts = repo_rel.split('/', 2)
+    if len(parts) == 3 and parts[0] == 'vendor' and parts[1] in ('shared', 'server', 'client'):
+        return parts[2]
     best = None
     for farm, kind, rel in module_rows(repo):
         if kind == 'file':

@@ -41,7 +41,7 @@
 #include "ihandleentity.h"
 #include "basehandle.h"
 #include "imanaged_physics_callbacks.h"
-#include "sourcesharp/game/shared/trace_layout.h"   // the Ray_t and trace_t managed builds and reads
+#include "trace_layout.h"   // the Ray_t and trace_t managed builds and reads
 
 namespace
 {

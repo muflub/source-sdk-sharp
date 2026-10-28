@@ -220,6 +220,14 @@ inline std::vector< std::string > CMakeBlock( const std::string &strText, const 
 //-----------------------------------------------------------------------------
 inline std::string RepoToFarm( const std::string &strRepoRelative )
 {
+	// A vendored Valve file (vendor/<side>/<path>) is named by its Valve path,
+	// as the farm named it.
+	for ( const char *pszSide : { "shared/", "server/", "client/" } )
+	{
+		const std::string strVendor = std::string( "vendor/" ) + pszSide;
+		if ( strRepoRelative.compare( 0, strVendor.size(), strVendor ) == 0 )
+			return strRepoRelative.substr( strVendor.size() );
+	}
 	std::istringstream in( ReadRequired( RepoRoot() + "/tools/module-map.tsv", "the module map" ) );
 	std::string strLine, strBestRel, strBestFarm;
 	while ( std::getline( in, strLine ) )
@@ -258,17 +266,24 @@ inline std::string RepoToFarm( const std::string &strRepoRelative )
 }
 
 // One source-list entry, farm-relative: ${SS_SRC}/x is the farm's x;
-// ${CMAKE_CURRENT_SOURCE_DIR}/x and ${PROJECT_SOURCE_DIR}/x are this repo's;
-// a bare entry is already farm-relative (the Valve libraries' lists).
+// ${LOCAL}/x (${CMAKE_CURRENT_SOURCE_DIR}/x), ${SHARED}/x (src/shared/native)
+// and ${PROJECT_SOURCE_DIR}/x are this repo's; a bare entry is already
+// farm-relative (the Valve libraries' lists).
 inline std::string ListToken( const std::string &strTok, const std::string &strTarget )
 {
 	static const std::string kFarm = "${SS_SRC}/";
 	static const std::string kHere = "${CMAKE_CURRENT_SOURCE_DIR}/";
+	static const std::string kLocal = "${LOCAL}/";
+	static const std::string kShared = "${SHARED}/";
 	static const std::string kRepo = "${PROJECT_SOURCE_DIR}/";
 	if ( strTok.compare( 0, kFarm.size(), kFarm ) == 0 )
 		return strTok.substr( kFarm.size() );
 	if ( strTok.compare( 0, kHere.size(), kHere ) == 0 )
 		return RepoToFarm( Parent( ListFile( strTarget ) ) + "/" + strTok.substr( kHere.size() ) );
+	if ( strTok.compare( 0, kLocal.size(), kLocal ) == 0 )
+		return RepoToFarm( Parent( ListFile( strTarget ) ) + "/" + strTok.substr( kLocal.size() ) );
+	if ( strTok.compare( 0, kShared.size(), kShared ) == 0 )
+		return RepoToFarm( "src/shared/native/" + strTok.substr( kShared.size() ) );
 	if ( strTok.compare( 0, kRepo.size(), kRepo ) == 0 )
 		return RepoToFarm( strTok.substr( kRepo.size() ) );
 	if ( strTok.find( '$' ) != std::string::npos )

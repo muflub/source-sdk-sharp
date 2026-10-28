@@ -411,7 +411,9 @@ function(_ss_cpptest kind name)
   endif()
   target_compile_definitions(${name} PRIVATE ${A_DEFINES})
   target_compile_options(${name} PRIVATE ${A_OPTIONS})
-  target_include_directories(${name} PRIVATE ${A_INCLUDES})
+  # Last, for the generated forwarder tables, which include our own headers
+  # by their path under src/ (server/native/ishim_frame.h).
+  target_include_directories(${name} PRIVATE ${A_INCLUDES} ${PROJECT_SOURCE_DIR}/src)
   target_link_libraries(${name} PRIVATE GTest::gtest GTest::gtest_main ${A_LIBS})
   _ss_cpptest_pch_record(${name})
 
