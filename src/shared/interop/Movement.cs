@@ -238,6 +238,13 @@ public sealed class MoveState
 
     public float ForwardMove, SideMove, UpMove;
     public int Buttons, OldButtons;
+
+    /// <summary>
+    /// CHL2_Player's m_bPlayUseDenySound: a +USE found nothing, so the deny
+    /// sound is due after the move (PlayerUse). The ladder code clears it when
+    /// that press mounted or left a ladder.
+    /// </summary>
+    public bool PlayUseDenySound;
     public float MaxSpeed, ClientMaxSpeed;
 
     public bool Ducked, Ducking, InDuckJump;
@@ -286,6 +293,56 @@ public sealed class MoveState
 
     /// <summary><c>CGameMovement::m_nOldWaterLevel</c>, carried between commands.</summary>
     public int OldWaterLevel;
+
+    /// <summary>The ladder words' "no ladder": entity index 0 is the world, so -1.</summary>
+    public const int NoLadder = -1;
+
+    /// <summary>
+    /// HL2's <c>m_HL2Local.m_hLadder</c>: the useable ladder the player is on,
+    /// by entity index, or <see cref="NoLadder"/>. Networked and predicted.
+    /// </summary>
+    public int Ladder = NoLadder;
+
+    /// <summary><c>LadderMove_t::m_bForceLadderMove</c>: mid mount or dismount.</summary>
+    public bool LadderForceMove;
+
+    /// <summary><c>LadderMove_t::m_bForceMount</c>: that forced move gets on rather than off.</summary>
+    public bool LadderForceMount;
+
+    // ---- HL2MP's player (m_HL2Local), for GameMovement.Hl2Player ----------
+
+    /// <summary><c>m_flSuitPower</c>: 0 to 100.</summary>
+    public float SuitPower;
+
+    /// <summary><c>m_flSuitPowerLoad</c>: the drain of the devices on.</summary>
+    public float SuitPowerLoad;
+
+    /// <summary><c>m_bitsActiveDevices</c>.</summary>
+    public int SuitDevices;
+
+    /// <summary><c>m_flTimeAllSuitDevicesOff</c>: when the last device went off.</summary>
+    public float SuitDevicesOffTime;
+
+    /// <summary><c>m_bNewSprinting</c>.</summary>
+    public bool NewSprinting;
+
+    /// <summary><c>IsSuitEquipped()</c>: every HL2MP player spawns with it.</summary>
+    public bool SuitEquipped;
+
+    /// <summary>
+    /// <c>!m_bSprintEnabled</c>: a +USE carry stops the sprint (the server's
+    /// CanSprint reads it; stock does not network it).
+    /// </summary>
+    public bool SprintDisabled;
+
+    /// <summary><c>LadderMove_t::m_flStartTime</c> / <c>m_flArrivalTime</c>.</summary>
+    public float LadderStartTime, LadderArrivalTime;
+
+    /// <summary><c>LadderMove_t::m_vecGoalPosition</c> / <c>m_vecStartPosition</c>.</summary>
+    public Vector LadderGoalPosition, LadderStartPosition;
+
+    /// <summary><c>LadderMove_t::m_hForceLadder</c>: the ladder a forced mount ends on.</summary>
+    public int LadderForceLadder = NoLadder;
 
     public bool IsAlive;
     public int ObserverMode;
@@ -403,7 +460,7 @@ public readonly record struct MovementRules(
 /// <see cref="ObserverTargetAsks"/> still counts the commands that reach it.
 /// </para>
 /// </summary>
-public sealed class GameMovement
+public sealed partial class GameMovement
 {
     // gamemovement.cpp's own constants, at the values this build compiles.
     public const float GameMovementDuckTime = 1000.0f;
@@ -413,18 +470,38 @@ public sealed class GameMovement
     public const float GameMovementTimeToUnduck = TimeToUnduck * 1000.0f;
     public const float GameMovementTimeToUnduckInv = GameMovementDuckTime - GameMovementTimeToUnduck;
 
-    // shareddefs.h, the non-HL2 arm — this build defines neither HL2_DLL nor
-    // HL2_CLIENT_DLL, which was checked against the ninja file rather than
-    // assumed. It changes the fall thresholds and it removes CheckJumpButton's
-    // forward-speed bonus entirely.
-    // PlayerMaxSafeFallSpeed IS MoveMath's, not a second 580. The lane that
+    // shareddefs.h:405-413, the HL2 arm, which stock HL2MP compiles (its
+    // projects define HL2_DLL and HL2_CLIENT_DLL; the fork's own build defines
+    // neither, and this loop followed the fork until 2026-10-26). It sets the
+    // fall thresholds, and CheckJumpButton's jump speed and forward bonus.
+    // PlayerMaxSafeFallSpeed IS MoveMath's, not a second copy. The lane that
     // moved the fall-damage amount out of C++ found three copies of this number
     // reading two different fall velocities; this alias is what keeps the
     // arming threshold and the damage slope the same number for ever.
     public const float PlayerMaxSafeFallSpeed = MoveMath.PlayerMaxSafeFallSpeed;
-    public const float PlayerLandOnFloatingObject = 200f;
-    public const float PlayerMinBounceSpeed = 200f;
-    public const float PlayerFallPunchThreshold = 350f;
+    public const float PlayerLandOnFloatingObject = 173f;
+    public const float PlayerMinBounceSpeed = 173f;
+    public const float PlayerFallPunchThreshold = 303f;
+
+    // The non-HL2 arm's (shareddefs.h:415-419), for MoveConstants.NoHl2Arms.
+    public const float NoHl2MaxSafeFallSpeed = 580f;
+    public const float NoHl2LandOnFloatingObject = 200f;
+    public const float NoHl2MinBounceSpeed = 200f;
+    public const float NoHl2FallPunchThreshold = 350f;
+
+    // The arm this loop runs (MoveConstants.NoHl2Arms).
+    private float MaxSafeFallSpeed => _c.NoHl2Arms ? NoHl2MaxSafeFallSpeed : PlayerMaxSafeFallSpeed;
+    private float MinBounceSpeed => _c.NoHl2Arms ? NoHl2MinBounceSpeed : PlayerMinBounceSpeed;
+    private float FallPunchThreshold => _c.NoHl2Arms ? NoHl2FallPunchThreshold : PlayerFallPunchThreshold;
+
+    /// <summary>
+    /// CheckJumpButton's optimised jump speed, the HL2 arm's literal: "approx.
+    /// 21 units" at gravity 600 (the other arm's 268.33 is gravity 800's).
+    /// </summary>
+    public const float Hl2JumpSpeed = 160.0f;
+
+    /// <summary><c>GAMEMOVEMENT_JUMP_HEIGHT</c>: the height <see cref="Hl2JumpSpeed"/> stands for.</summary>
+    public const float StockJumpHeight = 21.0f;
 
     public const float StopEpsilon = 0.1f;
     public const int MaxClipPlanes = 5;
@@ -453,6 +530,7 @@ public sealed class GameMovement
     public const int InJump = 1 << 1;
     public const int InDuck = 1 << 2;
     public const int InSpeed = 1 << 17;
+    public const int InUse = 1 << 5;
 
     public const int MoveTypeNone = 0;
     public const int MoveTypeIsometric = 1;
@@ -761,7 +839,10 @@ public sealed class GameMovement
 
         if (!_s.DeadFlag && (_s.Flags & FlOnTrain) == 0)
         {
-            if (!LadderMove() && _s.MoveType == MoveTypeLadder)
+            // HL2MP's useable ladders when the loop has them, base
+            // CGameMovement's brush ladders when it does not.
+            bool onLadder = Ladders is null ? LadderMove() : UseableLadderMove();
+            if (!onLadder && _s.MoveType == MoveTypeLadder)
             {
                 _s.MoveType = MoveTypeWalk;
                 _s.MoveCollide = MoveCollideDefault;
@@ -785,7 +866,10 @@ public sealed class GameMovement
                 break;
 
             case MoveTypeLadder:
-                FullLadderMove();
+                if (Ladders is null)
+                    FullLadderMove();
+                else
+                    FullUseableLadderMove();
                 break;
 
             case MoveTypeWalk:
@@ -860,6 +944,11 @@ public sealed class GameMovement
     /// <summary><c>CheckParameters</c> (gamemovement.cpp:1058).</summary>
     private void CheckParameters()
     {
+        // CHL2GameMovement's: the speed changes first, "so they are predicted
+        // correctly" (hl_gamemovement.cpp:532).
+        if (Hl2Player is { } hl2)
+            HandleSpeedChanges(hl2);
+
         if (_s.MoveType != MoveTypeIsometric &&
             _s.MoveType != MoveTypeNoClip &&
             _s.MoveType != MoveTypeObserver)
@@ -965,6 +1054,10 @@ public sealed class GameMovement
     /// <summary><c>ReduceTimers</c> (gamemovement.cpp:1172), through MoveMath.</summary>
     private void ReduceTimers()
     {
+        // CHL2GameMovement's: the player's half first (hl_gamemovement.cpp:547).
+        if (Hl2Player is { } hl2)
+            Hl2ReduceTimers(hl2);
+
         float duck = _s.DuckTime, duckJump = _s.DuckJumpTime, jump = _s.JumpTime, swim = _s.SwimSoundTime;
         MoveMath.ReduceTimers(ref duck, ref duckJump, ref jump, ref swim, _s.FrameTime);
         _s.DuckTime = duck;
@@ -1104,8 +1197,13 @@ public sealed class GameMovement
     private void CheckVelocity()
         => MoveMath.CheckVelocity(ref _s.Velocity, ref _s.Origin, _c.MaxVelocity);
 
-    /// <summary><c>CanAccelerate</c> (gamemovement.cpp:2048).</summary>
-    private bool CanAccelerate() => !_s.DeadFlag && _s.WaterJumpTime == 0f;
+    /// <summary>
+    /// <c>CanAccelerate</c> (gamemovement.cpp:2048): not dead, not water
+    /// jumping. HL2MP's loop (one handed <see cref="Ladders"/>, which is
+    /// CHL2GameMovement) answers true always: its override
+    /// (hl_gamemovement.cpp:1182) calls the base and discards the answer.
+    /// </summary>
+    private bool CanAccelerate() => Ladders is not null || (!_s.DeadFlag && _s.WaterJumpTime == 0f);
 
     /// <summary><c>Accelerate</c> (gamemovement.cpp:2068).</summary>
     private void Accelerate(in Vector wishDir, float wishSpeed, float accel)
@@ -1207,21 +1305,29 @@ public sealed class GameMovement
     }
 
     /// <summary>
-    /// <c>SourceSharp_JumpVelocity</c> — sqrt(2 g h), and NOT stock's literal
-    /// 160.0f.
+    /// CheckJumpButton's jump speed, both of stock's branches: under
+    /// movement optimisations (the server's and the client's, always) the HL2
+    /// arm's literal <see cref="Hl2JumpSpeed"/>, whatever the gravity; without
+    /// them, or in the non-HL2 arms the movement recording holds
+    /// (<see cref="MoveConstants.NoHl2Arms"/>), sqrt( 2 g h ).
     ///
     /// <para>
-    /// Stock's optimised branch used the literal with "approx. 21 units"
-    /// written beside it and asserted gravity was still 600, so a build that
-    /// changed the jump height in the OTHER branch changed nothing, silently.
-    /// Both branches are replaced by the one computation, which is what makes
-    /// <see cref="MovementParams.JumpHeight"/> reachable at all.
+    /// The literal stands for <see cref="StockJumpHeight"/>, so a
+    /// <see cref="MovementParams.JumpHeight"/> a mod sets scales it as that
+    /// height's speed would scale (by the root of the ratio), which keeps the
+    /// parameter reachable in the branch stock hard-coded. At the stock height
+    /// it is the literal exactly: sqrt( 2 * 600 * 21 ) is 158.75, 0.8% short of
+    /// what stock jumps.
     /// </para>
     /// </summary>
     private float JumpVelocity(float gravity, float jumpHeight)
-        => gravity > 0.0f && jumpHeight > 0.0f
-             ? MathF.Sqrt(2.0f * gravity * jumpHeight)
-             : 0.0f;
+    {
+        if (jumpHeight <= 0.0f)
+            return 0.0f;
+        if (_c.Optimizations && !_c.NoHl2Arms)
+            return jumpHeight == StockJumpHeight ? Hl2JumpSpeed : Hl2JumpSpeed * MathF.Sqrt(jumpHeight / StockJumpHeight);
+        return gravity > 0.0f ? MathF.Sqrt(2.0f * gravity * jumpHeight) : 0.0f;
+    }
 
     /// <summary>The jump height, which the shim pushes as part of the parameters.</summary>
     public float JumpHeight { get; set; } = 21.0f;
@@ -2123,9 +2229,9 @@ public sealed class GameMovement
 
         float slamVol = 0.0f;
         float lateralStoppingAmount = MoveVec.Length2D(primalVelocity) - MoveVec.Length2D(_s.Velocity);
-        if (lateralStoppingAmount > PlayerMaxSafeFallSpeed * 2.0f)
+        if (lateralStoppingAmount > MaxSafeFallSpeed * 2.0f)
             slamVol = 1.0f;
-        else if (lateralStoppingAmount > PlayerMaxSafeFallSpeed)
+        else if (lateralStoppingAmount > MaxSafeFallSpeed)
             slamVol = 0.85f;
 
         PlayerRoughLandingEffects(slamVol);
@@ -2397,7 +2503,7 @@ public sealed class GameMovement
         if (!_s.HasGround || _s.FallVelocity <= 0)
             return;
 
-        if (!IsDead() && _s.FallVelocity >= PlayerFallPunchThreshold)
+        if (!IsDead() && _s.FallVelocity >= FallPunchThreshold)
         {
             bool alive = true;
             float fvol = 0.5f;
@@ -2423,16 +2529,16 @@ public sealed class GameMovement
                     _s.FallVelocity = MathF.Max(0.1f, _s.FallVelocity);
                 }
 
-                if (_s.FallVelocity > PlayerMaxSafeFallSpeed)
+                if (_s.FallVelocity > MaxSafeFallSpeed)
                 {
                     alive = _w.PlayerFallingDamage(MoveMath.FallDamage(_s.FallVelocity));
                     fvol = 1.0f;
                 }
-                else if (_s.FallVelocity > PlayerMaxSafeFallSpeed / 2)
+                else if (_s.FallVelocity > MaxSafeFallSpeed / 2)
                 {
                     fvol = 0.85f;
                 }
-                else if (_s.FallVelocity < PlayerMinBounceSpeed)
+                else if (_s.FallVelocity < MinBounceSpeed)
                 {
                     fvol = 0;
                 }
@@ -2638,10 +2744,13 @@ public sealed class GameMovement
         else
             _s.Velocity.Z += groundFactor * mul;
 
-        // The HL2 forward-speed bonus is NOT here, and that is a build fact
-        // rather than an omission: it is inside `#if defined(HL2_DLL) ||
-        // defined(HL2_CLIENT_DLL)` AND `maxClients == 1`, and this build
-        // defines neither macro.
+        // The HL2 arm's forward bonus, single player only: a share of the
+        // forward move, clipped so it never carries the speed past that share
+        // over the max speed. CHLMoveData's m_bIsSprinting is IsSprinting(),
+        // whose m_fIsSprinting nothing sets in this SDK, so the share is the
+        // not-sprinting one: half, or a tenth when ducked.
+        if (_c.MaxClients == 1 && !_c.NoHl2Arms)
+            AddJumpForwardBonus();
 
         FinishGravity();
 
@@ -2658,6 +2767,27 @@ public sealed class GameMovement
 
         _s.OldButtons |= InJump;   // don't jump again until released
         return true;
+    }
+
+    /// <summary>CheckJumpButton's single-player forward bonus (gamemovement.cpp:2466).</summary>
+    private void AddJumpForwardBonus()
+    {
+        Vector forward = MoveVec.AngleForward(_s.ViewAngles);
+        forward.Z = 0;
+        MoveVec.Normalize(ref forward);
+
+        float boostPerc = !_s.Ducked ? 0.5f : 0.1f;
+        float addition = MathF.Abs(_s.ForwardMove * boostPerc);
+        float maxSpeed = _s.MaxSpeed + _s.MaxSpeed * boostPerc;
+        float newSpeed = addition + MoveVec.Length2D(_s.Velocity);
+
+        if (newSpeed > maxSpeed)
+            addition -= newSpeed - maxSpeed;
+
+        if (_s.ForwardMove < 0.0f)
+            addition *= -1.0f;
+
+        _s.Velocity += forward * addition;
     }
 
     //=========================================================================

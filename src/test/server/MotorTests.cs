@@ -154,4 +154,47 @@ public class MotorTests
         float lastSpeed = engine.Calls.Last(c => c.Member == "MotionControllers.SetMotor").ArgAs<float>(2);
         Assert.True(lastSpeed > 0f, $"the motor ramps toward 100 (pushed {lastSpeed})");
     }
+
+    // dm_lockdown's fan_motor is keyed speed 1500 with spawnflags 0: stock
+    // leaves it still until the plug lands in its socket and fan_enable sends
+    // TurnOn. CPhysMotor::Think is scheduled only by TurnOn and SetSpeed
+    // (phys_controller.cpp:663-668, 726-742); ours ran the ramp from the
+    // attach think, which kept rescheduling itself up to 1500.
+    [Fact]
+    public void A_motor_without_start_on_stays_still_after_it_attaches()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PhysMotor).Assembly);
+        var services = Services(out var engine);
+        services.AddInstance<IEntityDirectory>(registry);
+        registry.Services = services;
+        engine.Strict = false;
+        var fan = new EntityHandle(0x0001_0060);
+        engine.Returns("Entities.GetOrigin", new Vector(0f, 0f, 0f));
+        engine.Returns("Entities.FindByName", fan);
+        engine.Returns("Entities.IsValid", true);
+        engine.Returns("MotionControllers.Create", 0x0001_0007u);
+        engine.Returns("Entities.GetSpawnFlags", 0);
+        engine.Returns("Clock.Now", 10f);
+
+        registry.KeyValue(Ent, EntityNames.PhysMotor, "attach1", "fan");
+        registry.KeyValue(Ent, EntityNames.PhysMotor, "axis", "0 0 64");
+        registry.KeyValue(Ent, EntityNames.PhysMotor, "speed", "1500");
+        registry.Spawn(Ent, EntityNames.PhysMotor);
+
+        // Thinks as the engine runs them: only what is due, a frame at a time.
+        for (int frame = 0; frame < 8; frame++)
+        {
+            float now = 10f + frame * 0.5f;
+            engine.Returns("Clock.Now", now);
+            registry.Directory.RunFrame(now);
+        }
+        Assert.True(engine.Called("MotionControllers.Create"), "the control: the motor attached");
+
+        var motor = (PhysMotor)registry.Get(Ent)!;
+        Assert.True(motor.NextThinkDelay() < 0f,
+                    $"an off motor schedules no ramp after attaching (next think in {motor.NextThinkDelay()} s)");
+        Assert.All(engine.Calls.Where(c => c.Member == "MotionControllers.SetMotor"),
+                   c => Assert.True(c.ArgAs<float>(2) == 0f, $"an off motor pushes speed 0 (pushed {c.ArgAs<float>(2)})"));
+    }
 }

@@ -2,8 +2,7 @@
 // tests: the swap NativeConsoleBuffer.Drain makes over the same memory, the
 // half it took, and the parse it does after releasing the lock.
 
-#ifndef SOURCESHARP_TEST_CONSOLE_LINE_BUFFER_DRAIN_H
-#define SOURCESHARP_TEST_CONSOLE_LINE_BUFFER_DRAIN_H
+#pragma once
 
 #include "console_line_buffer.h"
 
@@ -31,9 +30,9 @@ inline ConsoleLineTaken ConsoleLineSwap( CConsoleLineBuffer &buffer )
 	buffer.Lock();
 	ConsoleLineBufferHeader &h = buffer.m_Header;
 	const int nHalf = h.nActive;
-	ConsoleLineTaken taken = { buffer.Half( nHalf ), h.nUsed[ nHalf ], h.nOverflow };
+	ConsoleLineTaken taken = { buffer.Half( nHalf ), h.nUsed[nHalf], h.nOverflow };
 	h.nActive = nHalf ^ 1;
-	h.nUsed[ nHalf ^ 1 ] = 0;
+	h.nUsed[nHalf ^ 1] = 0;
 	h.nOverflow = 0;
 	buffer.Unlock();
 	return taken;
@@ -47,7 +46,8 @@ inline std::vector<ConsoleLineDrained> ConsoleLineParse( const ConsoleLineTaken 
 	{
 		ConsoleLineRecord rec;
 		memcpy( &rec, taken.pData + at, sizeof( rec ) );
-		lines.push_back( ConsoleLineDrained{ rec.nSeq, std::string( (const char *)taken.pData + at + sizeof( rec ), rec.nLength ), rec.nWarning } );
+		lines.push_back( ConsoleLineDrained{
+			rec.nSeq, std::string( (const char *)taken.pData + at + sizeof( rec ), rec.nLength ), rec.nWarning } );
 		at += ConsoleLineRecordBytes( rec.nLength );
 	}
 	return lines;
@@ -62,5 +62,3 @@ inline bool ConsoleLineLocked( const CConsoleLineBuffer &buffer )
 {
 	return buffer.m_Header.nLock.load( std::memory_order_acquire ) != 0;
 }
-
-#endif // SOURCESHARP_TEST_CONSOLE_LINE_BUFFER_DRAIN_H

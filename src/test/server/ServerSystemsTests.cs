@@ -39,6 +39,7 @@ public class ServerSystemsTests
         public void LevelShutdownPreEntity() => Note("LevelShutdownPreEntity");
         public void LevelShutdownPostEntity() => Note("LevelShutdownPostEntity");
         public void FramePreThink(float frameTime) => Note("FramePreThink");
+        public void EntitiesFrame(float frameTime) => Note("EntitiesFrame");
         public void Frame(float frameTime) => Note("Frame");
         public void PhysicsFrame() => Note("PhysicsFrame");
     }
@@ -139,14 +140,19 @@ public class ServerSystemsTests
     }
 
     /// <summary>
-    /// The physics row's step, then the managed frame, then the slots drained
-    /// after every managed write of the frame.
+    /// The entities' frame (stock's Physics_RunThinkFunctions, which its
+    /// GameFrame runs before the post-entity-think systems), then the physics
+    /// row's step, then the rest of the managed frame, then the slots drained
+    /// after every managed write of the frame. Found beside stock (dm_lockdown,
+    /// 2026-10-27, cs_sv_physics_watch): the step ran first, so every think
+    /// landed a physics step after stock's; the frags FallThink makes physical
+    /// joined the step one tick late and bounced elsewhere.
     /// </summary>
     [Fact]
-    public void ThePostThinkPassStepsPhysicsThenTheManagedFrameThenDrains()
+    public void ThePostThinkPassRunsTheEntitiesThenStepsPhysicsThenTheRestThenDrains()
     {
         _systems.FramePostThink(0.015f);
-        Assert.Equal(new[] { "Row.PhysicsFrame", "Row.Frame", "Frame.DrainEntitySlots" }, Steps());
+        Assert.Equal(new[] { "Row.EntitiesFrame", "Row.PhysicsFrame", "Row.Frame", "Frame.DrainEntitySlots" }, Steps());
     }
 
     // ---- the model-cache lock -----------------------------------------
@@ -181,7 +187,7 @@ public class ServerSystemsTests
         }
 
         Assert.Equal(0, depth);
-        Assert.Equal(8, rowCalls);
+        Assert.Equal(9, rowCalls);
     }
 
     [Fact]
@@ -232,7 +238,8 @@ public class ManagedSystemRowTests
         => new(_log, _module, () => _soundAnswer, map => _module.Ran.Add("pre " + map),
                () => _module.Ran.Add("shutdown pre"), () => _module.Ran.Add("physics"),
                new LivenessMirror(), Descriptors(),
-               new BreakModels(_ => 0, _ => -1, _ => null, Descriptors(), new RecordingLog()));
+               new BreakModels(_ => 0, _ => -1, _ => null, Descriptors(), new RecordingLog()),
+               _ => _module.Ran.Add("entities"));
 
     private static ModelDescriptors Descriptors() => new(_ => -1, _ => string.Empty, new RecordingLog());
 
@@ -252,12 +259,13 @@ public class ManagedSystemRowTests
         row.LevelInitPreEntity("m");
         row.LevelInitPostEntity("m");
         row.FramePreThink(0.015f);
+        row.EntitiesFrame(0.015f);
         row.PhysicsFrame();
         row.Frame(0.015f);
         row.LevelShutdownPreEntity();
         row.LevelShutdownPostEntity();
 
-        Assert.Equal(new[] { "pre m", "LevelInit m", "FramePreThink", "physics", "Frame", "shutdown pre", "LevelShutdown" },
+        Assert.Equal(new[] { "pre m", "LevelInit m", "FramePreThink", "entities", "physics", "Frame", "shutdown pre", "LevelShutdown" },
                      _module.Ran);
     }
 

@@ -47,6 +47,22 @@ public enum SolidityMode
 [ScriptedEntity(EntityNames.FuncBrush, ScriptedEntityKind.Brush)]
 public sealed class FuncBrush : ScriptedEntity
 {
+    /// <summary>Stock's Spawn makes it SOLID_VPHYSICS.</summary>
+    protected override SolidType BrushSolidType => SolidType.VPhysics;
+
+    /// <summary>SF_IGNORE_PLAYERUSE (modelentities.h): a player's +USE passes it by.</summary>
+    private const int IgnorePlayerUseFlag = 2;
+
+    /// <summary>
+    /// CFuncBrush::ObjectCaps: usable unless it ignores player use. It does
+    /// nothing with a use; being usable is what spares the player the deny sound.
+    /// </summary>
+    public override UseCaps ObjectCaps
+        => base.ObjectCaps | ((SpawnFlags & IgnorePlayerUseFlag) == 0 ? UseCaps.ImpulseUse : UseCaps.None);
+
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     /// <summary>What a map may set on this entity. See <see cref="FuncBrushVars"/>.</summary>
     [ScriptVars] public FuncBrushVars Vars = new();
 
@@ -63,6 +79,10 @@ public sealed class FuncBrush : ScriptedEntity
     {
         _on = !Vars.StartDisabled;
         Apply();
+
+        // CFuncBrush::CreateVPhysics: a shadow, even when it is not solid,
+        // so a constraint or a parent can hold it.
+        InitShadowPhysics();
     }
 
     [ScriptedEvent] private void OnEnable() { _on = true; Apply(); }

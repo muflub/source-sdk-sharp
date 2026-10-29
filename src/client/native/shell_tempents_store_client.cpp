@@ -5,21 +5,13 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — a managed temp entity plan, stored (client) =========//
 // SS_REASON d  a layout the engine reads at fixed offsets
-//
-// See shell_tempents_store_client.h.
-//
-//=============================================================================//
-
-#include <string.h>
+// A managed temp entity table plan, stored into RecvProps.
 
 #include "shell_tempents_store_client.h"
 
-// THE ROW'S TYPE IS DPT_*'s OWN and its flags are SPROP_*'s: C# writes
-// dt_common.h's numbers (SendPropType, TeFlags), the managed parity facts read
-// the header (TePropPlannerWidthsOracleTests holds TeFlags to dt_common.h), and
-// these fail the build if the header ever moves under them.
+// A row's type is DPT_*'s and its flags SPROP_*'s; these fail the build if
+// dt_common.h moves under the values C# writes.
 COMPILE_TIME_ASSERT( DPT_Int == 0 );
 COMPILE_TIME_ASSERT( DPT_Float == 1 );
 COMPILE_TIME_ASSERT( DPT_Vector == 2 );
@@ -37,23 +29,25 @@ RecvVarProxyFn SourceSharpTe_RecvVarProxy( int32_t nProxy )
 {
 	switch ( nProxy )
 	{
-	case SOURCESHARP_RECVPROXY_INT32_TO_INT8:    return RecvProxy_Int32ToInt8;
-	case SOURCESHARP_RECVPROXY_INT32_TO_INT16:   return RecvProxy_Int32ToInt16;
-	case SOURCESHARP_RECVPROXY_INT32_TO_INT32:   return RecvProxy_Int32ToInt32;
-	case SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT:   return RecvProxy_FloatToFloat;
-	case SOURCESHARP_RECVPROXY_VECTOR_TO_VECTOR: return RecvProxy_VectorToVector;
+		case SOURCESHARP_RECVPROXY_INT32_TO_INT8:
+			return RecvProxy_Int32ToInt8;
+		case SOURCESHARP_RECVPROXY_INT32_TO_INT16:
+			return RecvProxy_Int32ToInt16;
+		case SOURCESHARP_RECVPROXY_INT32_TO_INT32:
+			return RecvProxy_Int32ToInt32;
+		case SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT:
+			return RecvProxy_FloatToFloat;
+		case SOURCESHARP_RECVPROXY_VECTOR_TO_VECTOR:
+			return RecvProxy_VectorToVector;
 	}
 
 	return NULL;
 }
 
-//-----------------------------------------------------------------------------
-// The RecvProp constructor's defaults stand for whatever the row does not set,
-// as they did behind dt_recv.h's builders; the array prop gets
-// InternalRecvPropArray's shape (InitArray, no length proxy).
-//-----------------------------------------------------------------------------
-bool SourceSharpTe_StoreRecvProp( const SourceSharpRecvPropRow_t &row, const char *pName,
-                                  RecvTable *pNested, RecvProp *pOut )
+// The RecvProp constructor's defaults stand for whatever the row does not set;
+// the array prop gets InternalRecvPropArray's shape (InitArray, no length proxy).
+bool SourceSharpTe_StoreRecvProp( const SourceSharpRecvPropRow_t &row, const char *pName, RecvTable *pNested,
+								  RecvProp *pOut )
 {
 	if ( !pName || !pOut )
 		return false;

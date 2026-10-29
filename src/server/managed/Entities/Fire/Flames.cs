@@ -103,7 +103,7 @@ public sealed class Flames
 
     /// <summary>Every flame currently burning.</summary>
     public IEnumerable<SsEntityFlame> Live
-        => Directory.OfClass(EntityNames.SsEntityFlame).OfType<SsEntityFlame>();
+        => Directory.OfClass(EntityNames.EntityFlame).OfType<SsEntityFlame>();
 
     /// <summary>The flame already burning on this target, or null.</summary>
     public SsEntityFlame? On(EntityHandle target)
@@ -139,7 +139,7 @@ public sealed class Flames
             return existing;
         }
 
-        var handle = Entities.Create(EntityNames.SsEntityFlame);
+        var handle = Entities.Create(EntityNames.EntityFlame);
 
         if (!Entities.IsValid(handle))
         {
@@ -153,7 +153,7 @@ public sealed class Flames
 
         if (Directory.Get(handle) is not SsEntityFlame flame)
         {
-            _log.Warning("[SourceSharp] ss_entityflame has no managed half\n");
+            _log.Warning("[SourceSharp] entityflame has no managed half\n");
             Entities.Remove(handle);
             return null;
         }

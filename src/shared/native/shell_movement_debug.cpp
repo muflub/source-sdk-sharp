@@ -5,25 +5,21 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — shell_movement.cpp's diagnostic console command ===//
 // SS_REASON c  static-init registration
-//
-// DEBUG BUILDS ONLY (user ruling 2026-10-01: debug commands live in debug files
-// that CMake compiles only for a debug build -- server_sourcesharp_debug_sources).
-// SourceSharp.Server's NativeCommands declares the matching row under #if DEBUG.
-//
-//=============================================================================//
+// Debug builds only.
 
-#include "shell_gamemovement.h"   // SourceSharp_MoveManagedReport
+#include "shell_gamemovement.h"
 #include "native_command_body.h"
+#ifndef CLIENT_DLL
+#include "server_services.h"
+#endif
 
-//-----------------------------------------------------------------------------
-// The server's half of cs_{sv,cl}_move_managed_report: how many commands the
-// managed movement loop ran, counted in the crossing, and how many it could not
-// run. The body is shell_movement.cpp's, shared with the client's
-// cs_cl_move_managed_report, so the two sides print the same measurement.
-//-----------------------------------------------------------------------------
+// Prints how many commands the managed movement loop ran and how many it could not.
 SS_NATIVE_COMMAND( cs_sv_move_managed_report )
 {
-	SourceSharp_MoveManagedReport();
+#ifdef CLIENT_DLL
+	SourceSharp_MoveManagedReport( SourceSharp_MoveManagedCalls() );
+#else
+	SourceSharp_MoveManagedReport( services.m_Movement.CommandsRan() );
+#endif
 }

@@ -5,32 +5,15 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- IClientDLLSharedAppSystems ========================//
 // SS_REASON b  an interface resolved by name at load
-//
-// plan_entity.md Phase 5, the 5b split. ONE CLASS, ONE FILE.
-//
-// The engine asks the client DLL, before it loads it properly, which shared
-// app systems it needs the launcher to bring up: soundemittersystem and
-// scenefilecache. That is the whole of this class, and it is answered from a
-// CUtlVector the class already owns -- so like CGameClientExports it carries
-// no file-scope state and needs no proxy.
-//
-// The server's counterpart is sourcesharp/game/server/shell_sharedappsystems.cpp,
-// which is already one class in one file; this is that shape on the client.
-//
-//===========================================================================//
-#include "cbase.h"
+// The shared app systems the engine asks the client DLL for before loading it:
+// soundemittersystem and scenefilecache.
 #include "appframework/IAppSystemGroup.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "scenefilecache/ISceneFileCache.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
+#include "cdll_int.h"
 
-//-----------------------------------------------------------------------------
-// Purpose: the shared app systems the launcher must bring up for this client
-//-----------------------------------------------------------------------------
 class CClientDLLSharedAppSystems : public IClientDLLSharedAppSystems
 {
 public:
@@ -40,18 +23,12 @@ public:
 		AddAppSystem( "scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION );
 	}
 
-	virtual int	Count()
-	{
-		return m_Systems.Count();
-	}
-	virtual char const *GetDllName( int idx )
-	{
-		return m_Systems[ idx ].m_pModuleName;
-	}
-	virtual char const *GetInterfaceName( int idx )
-	{
-		return m_Systems[ idx ].m_pInterfaceName;
-	}
+	virtual int Count() { return m_Systems.Count(); }
+
+	virtual char const *GetDllName( int idx ) { return m_Systems[idx].m_pModuleName; }
+
+	virtual char const *GetInterfaceName( int idx ) { return m_Systems[idx].m_pInterfaceName; }
+
 private:
 	void AddAppSystem( char const *moduleName, char const *interfaceName )
 	{
@@ -61,7 +38,7 @@ private:
 		m_Systems.AddToTail( sys );
 	}
 
-	CUtlVector< AppSystemInfo_t >	m_Systems;
+	CUtlVector<AppSystemInfo_t> m_Systems;
 };
 
 EXPOSE_SINGLE_INTERFACE( CClientDLLSharedAppSystems, IClientDLLSharedAppSystems, CLIENT_DLL_SHARED_APPSYSTEMS );

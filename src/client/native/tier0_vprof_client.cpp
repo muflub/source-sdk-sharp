@@ -4,42 +4,24 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the client's own vprof profile, never enabled ======//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
-//
-// plan_client_novalve C9: the client links no tier0. The VPROF macros in the
-// fork TUs still on its link (clientleafsystem.cpp's VPROF_BUDGET scopes) name
-// tier0's g_VProfCurrentProfile and three CVProfNode members. User ruling
-// 2026-10-18: drop vprof from the client rather than bind to the engine's
-// profile. This is the client's own profile, which is never enabled, so every
-// one of those macros does nothing. Divergence, accepted by that ruling: the
-// client's nodes no longer appear in the engine's `vprof` report or budget
-// panel; the engine's own nodes are untouched.
+// The client's own vprof profile, never enabled: client.so links no tier0, and
+// the VPROF macros in fork TUs name g_VProfCurrentProfile and three CVProfNode
+// members, so every such macro does nothing. The client's nodes therefore do
+// not appear in the engine's vprof report.
 //
 // The profile is constant-initialised bytes in CVProfile's layout under
-// tier0's name, so no constructor runs and none is needed: m_enabled is 0
-// (IsEnabled() is false, so a CVProfScope never enters) and m_fAtRoot is true
-// (so CVProfile::EnterScope/ExitScope, called directly, do nothing either).
-// m_TargetThreadId is 0, which no thread's id is, a second guard on both.
-// vprof.h's own declaration of the name is renamed out of the way here, so
-// the bytes can carry it; on Windows SS_BIND_IMPORT binds the fork TUs'
-// dllimport of it, and the linker binds the members' (LNK4217), as for
-// server.dll's ports (Windows: CI-verified only).
-//
-// The three CVProfNode members exist for the link alone: a profile that is
-// never enabled has no current node to call them on. Reaching one means that
-// invariant broke, and it stops the process saying so.
-//=============================================================================//
+// tier0's name, so no constructor runs: m_enabled is 0, m_fAtRoot is true (so
+// EnterScope/ExitScope do nothing) and m_TargetThreadId is 0, which no thread's
+// id is. The CVProfNode members exist only for the link; reaching one stops
+// the process.
 
 #define g_VProfCurrentProfile ss_VProfDeclaredProfile
 #include "tier0/vprof.h"
+
 #undef g_VProfCurrentProfile
 
-#include "ss_platform.h"	// SS_BIND_IMPORT
-
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "ss_platform.h"
 
 namespace
 {
@@ -51,8 +33,10 @@ struct ProfileLayout : CVProfile
 
 [[noreturn]] void NeverEntered( const char *pszMember )
 {
-	fprintf( stderr, "[SourceSharp] CVProfNode::%s called in the client, whose vprof profile is "
-	                 "never enabled (user ruling 2026-10-18); stopping.\n", pszMember );
+	fprintf( stderr,
+			 "[SourceSharp] CVProfNode::%s called in the client, whose vprof profile is "
+			 "never enabled (user ruling 2026-10-18); stopping.\n",
+			 pszMember );
 	fflush( stderr );
 	abort();
 }
@@ -62,13 +46,13 @@ namespace ss
 {
 struct alignas( CVProfile ) ClientVProfBytes
 {
-	unsigned char m_Bytes[ sizeof( CVProfile ) ];
+	unsigned char m_Bytes[sizeof( CVProfile )];
 };
 
 constexpr ClientVProfBytes NeverEnabledProfile()
 {
 	ClientVProfBytes bytes{};
-	bytes.m_Bytes[ ProfileLayout::AtRoot() ] = 1;	// m_fAtRoot = true
+	bytes.m_Bytes[ProfileLayout::AtRoot()] = 1; // m_fAtRoot = true
 	return bytes;
 }
 } // namespace ss
@@ -96,17 +80,16 @@ bool CVProfNode::ExitScope()
 }
 
 #if defined( _WIN32 )
-// CVProfile's EnterScope and ExitScope are inline in vprof.h, and a fork object
-// that did not inline one imports it from tier0.dll (particlemgr,
-// clientleafsystem, clientshadowmgr). As tier_bindings_client.cpp's thread
-// members: emitted here, where the header is read plain, and the linker binds
-// each import to them (LNK4217). On this profile both do nothing. Calls
-// compiled without optimisation stay calls; nothing calls this function.
+// CVProfile's EnterScope and ExitScope are inline in vprof.h; a fork object that
+// did not inline one imports it from tier0.dll. Emitted here so the linker binds
+// each import to them (LNK4217). Nothing calls this function.
 #pragma optimize( "", off )
+
 void SS_EmitVProfInlines( CVProfile *pProfile )
 {
 	pProfile->EnterScope( "", 0, "", false, 0 );
 	pProfile->ExitScope();
 }
+
 #pragma optimize( "", on )
 #endif

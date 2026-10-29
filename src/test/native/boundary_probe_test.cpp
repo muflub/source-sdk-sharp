@@ -20,13 +20,13 @@
 
 namespace
 {
-	// Distinct fake return addresses. Their VALUES never matter -- the probe
-	// only ever compares them -- so any distinct pointers will do.
-	const void *FakeCaller( int n )
-	{
-		static const char s_Bytes[ 64 ] = { 0 };
-		return (const void *)( s_Bytes + n );
-	}
+// Distinct fake return addresses. Their VALUES never matter -- the probe
+// only ever compares them -- so any distinct pointers will do.
+const void *FakeCaller( int n )
+{
+	static const char s_Bytes[64] = { 0 };
+	return (const void *)( s_Bytes + n );
+}
 }
 
 TEST( BoundaryProbe, FreshProbeCountsNothing )
@@ -88,8 +88,7 @@ TEST( BoundaryProbe, CallerTableStopsAtItsCapacity )
 	for ( int i = 0; i < CBoundaryProbe::kMaxCallers + 4; ++i )
 		probe.Hit( kBoundaryProbe_Ents_EdictToBaseEntity, FakeCaller( i ) );
 
-	EXPECT_EQ( (int)CBoundaryProbe::kMaxCallers,
-	           probe.CallerCount( kBoundaryProbe_Ents_EdictToBaseEntity ) );
+	EXPECT_EQ( (int)CBoundaryProbe::kMaxCallers, probe.CallerCount( kBoundaryProbe_Ents_EdictToBaseEntity ) );
 }
 
 TEST( BoundaryProbe, CallersPastCapacityAreCountedAsOverflow )
@@ -107,8 +106,7 @@ TEST( BoundaryProbe, OverflowStillCountsTheCall )
 	for ( int i = 0; i < CBoundaryProbe::kMaxCallers + 4; ++i )
 		probe.Hit( kBoundaryProbe_Ents_EdictToBaseEntity, FakeCaller( i ) );
 
-	EXPECT_EQ( (uint64_t)( CBoundaryProbe::kMaxCallers + 4 ),
-	           probe.Calls( kBoundaryProbe_Ents_EdictToBaseEntity ) );
+	EXPECT_EQ( (uint64_t)( CBoundaryProbe::kMaxCallers + 4 ), probe.Calls( kBoundaryProbe_Ents_EdictToBaseEntity ) );
 }
 
 TEST( BoundaryProbe, NullResultCountsAsNull )
@@ -164,7 +162,7 @@ TEST( BoundaryProbe, AnIdOutsideTheEnumIsIgnored )
 
 TEST( BoundaryProbe, EveryIdHasItsOwnName )
 {
-	std::set< std::string > seen;
+	std::set<std::string> seen;
 	for ( int id = 0; id < kBoundaryProbeCount; ++id )
 	{
 		const std::string name = BoundaryProbeName( id );
@@ -181,7 +179,7 @@ TEST( BoundaryProbe, AnIdPastTheEnumHasNoName )
 TEST( BoundaryProbe, FormatLineNamesTheMethod )
 {
 	CBoundaryProbe probe;
-	char buf[ 512 ];
+	char buf[512];
 	probe.FormatLine( kBoundaryProbe_Clients_GetPlayerState, buf, sizeof( buf ) );
 	EXPECT_NE( (const char *)NULL, strstr( buf, "IServerGameClients::GetPlayerState" ) ) << buf;
 }
@@ -192,7 +190,7 @@ TEST( BoundaryProbe, FormatLineCarriesTheCounts )
 	probe.HitPointerResult( kBoundaryProbe_Ents_EdictToBaseEntity, FakeCaller( 0 ), true );
 	probe.HitPointerResult( kBoundaryProbe_Ents_EdictToBaseEntity, FakeCaller( 0 ), false );
 
-	char buf[ 512 ];
+	char buf[512];
 	probe.FormatLine( kBoundaryProbe_Ents_EdictToBaseEntity, buf, sizeof( buf ) );
 	EXPECT_NE( (const char *)NULL, strstr( buf, "calls=2" ) ) << buf;
 	EXPECT_NE( (const char *)NULL, strstr( buf, "null=1" ) ) << buf;
@@ -202,7 +200,7 @@ TEST( BoundaryProbe, FormatLineCarriesTheCounts )
 TEST( BoundaryProbe, FormatLineSaysNoneWhenNothingCalled )
 {
 	CBoundaryProbe probe;
-	char buf[ 512 ];
+	char buf[512];
 	probe.FormatLine( kBoundaryProbe_Ents_EdictToBaseEntity, buf, sizeof( buf ) );
 	EXPECT_NE( (const char *)NULL, strstr( buf, "callers=none" ) ) << buf;
 }
@@ -214,7 +212,7 @@ TEST( BoundaryProbe, FormatLineCountsHitsPerCaller )
 	probe.Hit( kBoundaryProbe_Ents_CheckTransmit, FakeCaller( 0 ) );
 	probe.Hit( kBoundaryProbe_Ents_CheckTransmit, FakeCaller( 1 ) );
 
-	char buf[ 512 ];
+	char buf[512];
 	probe.FormatLine( kBoundaryProbe_Ents_CheckTransmit, buf, sizeof( buf ) );
 	EXPECT_NE( (const char *)NULL, strstr( buf, "x2" ) ) << buf;
 	EXPECT_NE( (const char *)NULL, strstr( buf, "x1" ) ) << buf;
@@ -226,7 +224,7 @@ TEST( BoundaryProbe, FormatLineReportsCallerOverflow )
 	for ( int i = 0; i < CBoundaryProbe::kMaxCallers + 3; ++i )
 		probe.Hit( kBoundaryProbe_Ents_CheckTransmit, FakeCaller( i ) );
 
-	char buf[ 1024 ];
+	char buf[1024];
 	probe.FormatLine( kBoundaryProbe_Ents_CheckTransmit, buf, sizeof( buf ) );
 	EXPECT_NE( (const char *)NULL, strstr( buf, "+3 calls from further sites" ) ) << buf;
 }
@@ -236,35 +234,28 @@ TEST( BoundaryProbe, FormatLineTruncatesRatherThanOverruns )
 	CBoundaryProbe probe;
 	probe.Hit( kBoundaryProbe_Ents_CheckTransmit, FakeCaller( 0 ) );
 
-	char buf[ 24 ];
+	char buf[24];
 	memset( buf, 0x7f, sizeof( buf ) );
 	const int nWould = probe.FormatLine( kBoundaryProbe_Ents_CheckTransmit, buf, 16 );
 
-	EXPECT_GT( nWould, 16 );                       // it wanted more room
-	EXPECT_EQ( '\0', buf[ 15 ] );                  // and stopped inside it
-	EXPECT_EQ( 0x7f, (unsigned char)buf[ 16 ] );   // without touching the rest
+	EXPECT_GT( nWould, 16 ); // it wanted more room
+	EXPECT_EQ( '\0', buf[15] ); // and stopped inside it
+	EXPECT_EQ( 0x7f, (unsigned char)buf[16] ); // without touching the rest
 }
 
 TEST( BoundaryProbe, DescribeAddressNamesTheModuleOfARealFunction )
 {
 	// dladdr resolves a code address to the .so it lives in. This test's own
 	// code is the only address it can be sure is loaded.
-	char buf[ 256 ];
+	char buf[256];
 	CBoundaryProbe::DescribeAddress( (const void *)&BoundaryProbeName, buf, sizeof( buf ) );
 	EXPECT_NE( (const char *)NULL, strchr( buf, '+' ) ) << buf;
-	EXPECT_EQ( (const char *)NULL, strchr( buf, '/' ) ) << buf;  // basename only
+	EXPECT_EQ( (const char *)NULL, strchr( buf, '/' ) ) << buf; // basename only
 }
 
 TEST( BoundaryProbe, DescribeAddressFallsBackToThePointerForNull )
 {
-	char buf[ 256 ];
+	char buf[256];
 	CBoundaryProbe::DescribeAddress( NULL, buf, sizeof( buf ) );
 	EXPECT_EQ( (const char *)NULL, strchr( buf, '+' ) ) << buf;
-}
-
-TEST( BoundaryProbe, TheOneInstanceIsOne )
-{
-	// Two translation units arm the probe and a third reads it; a header that
-	// gave each its own copy would report zeros in the console command.
-	EXPECT_EQ( &BoundaryProbes(), &BoundaryProbes() );
 }

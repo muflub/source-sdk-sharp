@@ -143,8 +143,8 @@ std::string Queue( const CSequenceTransitioner &t )
 	{
 		const C_AnimationLayer &l = t.m_animationQueue[i];
 		out += "\t" + std::to_string( (int)l.m_nSequence ) + ":" + Bits( l.m_flCycle ) + ":" +
-		       Bits( l.m_flPlaybackRate ) + ":" + Bits( l.m_flWeight ) + ":" + Bits( l.m_flLayerAnimtime ) + ":" +
-		       Bits( l.m_flLayerFadeOuttime );
+			Bits( l.m_flPlaybackRate ) + ":" + Bits( l.m_flWeight ) + ":" + Bits( l.m_flLayerAnimtime ) + ":" +
+			Bits( l.m_flLayerFadeOuttime );
 	}
 	return out;
 }
@@ -152,8 +152,17 @@ std::string Queue( const CSequenceTransitioner &t )
 struct Rng
 {
 	uint32_t s = 0x9E3779B9u;
-	uint32_t Next() { s ^= s << 13; s ^= s >> 17; s ^= s << 5; return s; }
+
+	uint32_t Next()
+	{
+		s ^= s << 13;
+		s ^= s >> 17;
+		s ^= s << 5;
+		return s;
+	}
+
 	int Pick( int lo, int hi ) { return lo + (int)( Next() % (uint32_t)( hi - lo + 1 ) ); }
+
 	bool Chance( int nPercent ) { return Pick( 0, 99 ) < nPercent; }
 };
 
@@ -162,7 +171,11 @@ struct Rng
 class CScript
 {
 public:
-	explicit CScript( CStudioHdr *pHdr ) : m_pHdr( pHdr ) { Reset(); }
+	explicit CScript( CStudioHdr *pHdr )
+		: m_pHdr( pHdr )
+	{
+		Reset();
+	}
 
 	void Reset()
 	{
@@ -190,7 +203,7 @@ public:
 
 	// One StandardBlendingRules' worth: the change check, then the update.
 	void Step( int nSeq, float flTime, bool bForce = false, bool bInterpolate = true, float flCycle = 0.25f,
-	           float flRate = 1.0f )
+			   float flRate = 1.0f )
 	{
 		Check( nSeq, bForce, bInterpolate );
 		Update( nSeq, flCycle, flRate, flTime );
@@ -220,11 +233,11 @@ std::string RunScenario()
 	for ( int i = 0; i < kNumSequences; i++ )
 	{
 		out += "model\t" + std::to_string( i ) + "\t" + kSequences[i].pszLabel + "\t" +
-		       std::to_string( kSequences[i].nFlags ) + "\t" + Num( kSequences[i].flFadeIn ) + "\t" +
-		       Num( kSequences[i].flFadeOut ) + "\n";
+			std::to_string( kSequences[i].nFlags ) + "\t" + Num( kSequences[i].flFadeIn ) + "\t" +
+			Num( kSequences[i].flFadeOut ) + "\n";
 	}
 	out += "# step | op (reset, check seq force interp, update seq cycle rate time, removeall) | args |"
-	       " count, then per entry seq:cycle:rate:weight:animtime:fadeouttime (float bits)\n";
+		   " count, then per entry seq:cycle:rate:weight:animtime:fadeouttime (float bits)\n";
 
 	CScript s( &hdr );
 
@@ -340,10 +353,10 @@ std::string RunScenario()
 		const int nSeq = r.Pick( 0, kNumSequences - 1 );
 		const float flCycle = (float)r.Pick( 0, 1000 ) / 1000.0f;
 		const float rates[] = { 1.0f, 0.5f, 2.0f, -1.0f, 0.0f };
-		const float flRate = rates[ r.Pick( 0, 4 ) ];
+		const float flRate = rates[r.Pick( 0, 4 )];
 
 		if ( r.Chance( 3 ) )
-			flTime -= (float)r.Pick( 1, 50 ) / 1000.0f;	// the clock behind
+			flTime -= (float)r.Pick( 1, 50 ) / 1000.0f; // the clock behind
 		else
 			flTime += (float)r.Pick( 0, 120 ) / 1000.0f;
 
@@ -381,7 +394,8 @@ TEST( SequenceTransitionerOracle, StockProducesTheGolden )
 	std::stringstream ss;
 	ss << in.rdbuf();
 	ASSERT_GT( ss.str().size(), 100000u ) << "the golden is empty or truncated";
-	ASSERT_TRUE( ss.str() == run ) << "pristine CSequenceTransitioner no longer writes the golden; do NOT regenerate it to pass";
+	ASSERT_TRUE( ss.str() == run )
+		<< "pristine CSequenceTransitioner no longer writes the golden; do NOT regenerate it to pass";
 }
 
 // The script exercises what it claims to: every arm of the subject is reached

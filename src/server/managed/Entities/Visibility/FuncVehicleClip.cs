@@ -34,6 +34,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncVehicleclip, ScriptedEntityKind.Brush)]
 public sealed class FuncVehicleClip : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     public FuncVehicleClip(IEngineEntityPhysics physics)
     {
         Physics = physics;
@@ -54,8 +57,8 @@ public sealed class FuncVehicleClip : ScriptedEntity
         // Static in the solver as well as in the trace world. Stock calls
         // VPhysicsInitStatic for the reason a func_wall does: a vehicle is a
         // physics object, and a brush the solver cannot see is a brush it
-        // drives through.
-        MakePhysicsStatic();
+        // drives through. The brush's create, which keeps it SOLID_BSP.
+        InitStaticPhysics();
     }
 
     //-------------------------------------------------------------------------

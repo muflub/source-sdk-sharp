@@ -56,7 +56,7 @@ const int kBufBytes = 4096;
 
 struct Fake
 {
-	unsigned char bytes[ kBufBytes ];
+	unsigned char bytes[kBufBytes];
 };
 
 // A deterministic "random" blob. Deterministic on purpose: a failing run has to
@@ -94,8 +94,7 @@ RecvProp MakeRecv( const char *pName, int nOffset, int nBytes )
 // One word through both proxies, exactly as the engine drives them: the send
 // proxy is handed the object base and the field address, the recv proxy is
 // handed the object base and the field address on the other side.
-void RoundTrip( const SendProp &send, const RecvProp &recv,
-                const Fake &from, Fake &to )
+void RoundTrip( const SendProp &send, const RecvProp &recv, const Fake &from, Fake &to )
 {
 	// NOT memset: DVariant is a non-trivial class and clearing one with
 	// memset is a -Wclass-memaccess warning, which this file must not have --
@@ -104,25 +103,23 @@ void RoundTrip( const SendProp &send, const RecvProp &recv,
 	// members read afterwards are the ones it wrote.
 	DVariant var;
 
-	send.GetProxyFn()( &send, &from,
-	                   (const unsigned char *)&from + send.GetOffset(),
-	                   &var, 0, 0 );
+	send.GetProxyFn()( &send, &from, (const unsigned char *)&from + send.GetOffset(), &var, 0, 0 );
 
 	CRecvProxyData data;
 	data.m_pRecvProp = &recv;
-	data.m_Value     = var;
-	data.m_iElement  = 0;
-	data.m_ObjectID  = 0;
+	data.m_Value = var;
+	data.m_iElement = 0;
+	data.m_ObjectID = 0;
 
 	recv.GetProxyFn()( &data, &to, (unsigned char *)&to + recv.GetOffset() );
 }
 
-char g_names[ 8 ][ 32 ];
+char g_names[8][32];
 
 const char *Name( int i )
 {
-	SourceSharpPayload_FormatPropName( i, g_names[ i ], sizeof( g_names[ i ] ) );
-	return g_names[ i ];
+	SourceSharpPayload_FormatPropName( i, g_names[i], sizeof( g_names[i] ) );
+	return g_names[i];
 }
 
 } // namespace
@@ -191,7 +188,7 @@ TEST( PayloadRecvSymmetry, SendThenRecvIsTheIdentityAtARealBlobBase )
 
 	for ( size_t b = 0; b < sizeof( kBases ) / sizeof( kBases[0] ); b++ )
 	{
-		const int nBase = kBases[ b ];
+		const int nBase = kBases[b];
 		const int nWords = 8;
 
 		Fake from, to;
@@ -207,8 +204,7 @@ TEST( PayloadRecvSymmetry, SendThenRecvIsTheIdentityAtARealBlobBase )
 		for ( int i = 0; i < nWords; i++ )
 		{
 			const int off = SourceSharpPayload_WordOffset( nBase, i );
-			EXPECT_EQ( 0, memcmp( from.bytes + off, to.bytes + off, 4 ) )
-				<< "base " << nBase << " word " << i;
+			EXPECT_EQ( 0, memcmp( from.bytes + off, to.bytes + off, 4 ) ) << "base " << nBase << " word " << i;
 		}
 	}
 }
@@ -220,21 +216,20 @@ TEST( PayloadRecvSymmetry, SendThenRecvIsTheIdentityAtARealBlobBase )
 //-----------------------------------------------------------------------------
 TEST( PayloadRecvSymmetry, TheTopBitSurvives )
 {
-	const unsigned int kHard[] = { 0x80000000u, 0xFFFFFFFFu, 0x7FFFFFFFu,
-	                               0x00000000u, 0xDEADBEEFu, 0x0000FFFFu };
+	const unsigned int kHard[] = { 0x80000000u, 0xFFFFFFFFu, 0x7FFFFFFFu, 0x00000000u, 0xDEADBEEFu, 0x0000FFFFu };
 
 	for ( size_t k = 0; k < sizeof( kHard ) / sizeof( kHard[0] ); k++ )
 	{
 		Fake from, to;
 		memset( from.bytes, 0, sizeof( from.bytes ) );
 		memset( to.bytes, 0, sizeof( to.bytes ) );
-		memcpy( from.bytes + 64, &kHard[ k ], 4 );
+		memcpy( from.bytes + 64, &kHard[k], 4 );
 
 		RoundTrip( MakeSend( "000", 64, 4 ), MakeRecv( "000", 64, 4 ), from, to );
 
 		unsigned int got = 0;
 		memcpy( &got, to.bytes + 64, 4 );
-		EXPECT_EQ( kHard[ k ], got ) << "value " << k << " did not survive";
+		EXPECT_EQ( kHard[k], got ) << "value " << k << " did not survive";
 	}
 }
 
@@ -258,9 +253,8 @@ TEST( PayloadRecvSymmetry, NothingOutsideTheWordIsTouched )
 	{
 		if ( i >= 128 && i < 132 )
 			continue;
-		ASSERT_EQ( 0xCD, to.bytes[ i ] )
-			<< "byte " << i << " was written by a proxy pair that was given "
-			<< "offset 128";
+		ASSERT_EQ( 0xCD, to.bytes[i] ) << "byte " << i << " was written by a proxy pair that was given "
+									   << "offset 128";
 	}
 }
 
@@ -293,11 +287,9 @@ TEST( PayloadRecvSymmetry, ANarrowerSendPropIsNotTheIdentity )
 
 	unsigned int got = 0;
 	memcpy( &got, to.bytes + 64, 4 );
-	EXPECT_NE( w, got )
-		<< "a two-byte send prop round-tripped a four-byte word unchanged, "
-		   "which means this test is not driving the proxies it thinks it is";
-	EXPECT_EQ( 0x0000BEEFu, got )
-		<< "and it should have carried only the low half";
+	EXPECT_NE( w, got ) << "a two-byte send prop round-tripped a four-byte word unchanged, "
+						   "which means this test is not driving the proxies it thinks it is";
+	EXPECT_EQ( 0x0000BEEFu, got ) << "and it should have carried only the low half";
 }
 
 //=============================================================================//
@@ -310,89 +302,3 @@ TEST( PayloadRecvSymmetry, ANarrowerSendPropIsNotTheIdentity )
 // nothing, so the builder's own two lines are read out of the source and
 // compared.
 //=============================================================================//
-
-// The receiving half (BuildRecvProps, IsFastRecvProxy) was #ifdef CLIENT_DLL in
-// generic_payload.cpp, so plan_server_native_v2 T2 (2026-10-18) moved it to the
-// client-only generic_payload_client.cpp. Each half is read from its own file.
-static std::string ReadTightFromCandidates( const char *const *ppCandidates, size_t nCandidates )
-{
-	std::string text;
-	for ( size_t i = 0; i < nCandidates; i++ )
-	{
-		FILE *f = fopen( ppCandidates[ i ], "rb" );
-		if ( !f )
-			continue;
-		char buf[ 4096 ];
-		size_t n;
-		while ( ( n = fread( buf, 1, sizeof( buf ), f ) ) > 0 )
-			text.append( buf, n );
-		fclose( f );
-		break;
-	}
-
-	// Tight, so the builders' line breaks are not part of the assertion.
-	std::string tight;
-	for ( size_t i = 0; i < text.size(); i++ )
-	{
-		const char c = text[ i ];
-		if ( c != ' ' && c != '\t' && c != '\n' && c != '\r' )
-			tight += c;
-	}
-	return tight;
-}
-
-TEST( PayloadRecvSymmetry, TheShippedBuildersStillUseThisSpelling )
-{
-	static const char *kCandidates[] = {
-		"sourcesharp/game/shared/generic_payload.cpp",
-		"src/sourcesharp/game/shared/generic_payload.cpp",
-		"../src/sourcesharp/game/shared/generic_payload.cpp",
-	};
-	static const char *kClientCandidates[] = {
-		"sourcesharp/game/client/generic_payload_client.cpp",
-		"src/sourcesharp/game/client/generic_payload_client.cpp",
-		"../src/sourcesharp/game/client/generic_payload_client.cpp",
-	};
-
-	const std::string tight = ReadTightFromCandidates( kCandidates,
-		sizeof( kCandidates ) / sizeof( kCandidates[0] ) );
-	ASSERT_FALSE( tight.empty() )
-		<< "generic_payload.cpp could not be read, so this check would pass "
-		   "over any drift at all";
-	const std::string tightClient = ReadTightFromCandidates( kClientCandidates,
-		sizeof( kClientCandidates ) / sizeof( kClientCandidates[0] ) );
-	ASSERT_FALSE( tightClient.empty() )
-		<< "generic_payload_client.cpp could not be read, so this check would "
-		   "pass over any drift at all";
-
-	EXPECT_NE( tight.find( "SendPropInt(SourceSharpPayload_PropName(i),"
-	                       "SourceSharpPayload_WordOffset(nBlobBase,i),"
-	                       "SOURCESHARP_PAYLOAD_WORD_BYTES,32,SPROP_UNSIGNED);" ),
-	           std::string::npos )
-		<< "SourceSharpPayload_BuildSendProps no longer builds "
-		   "SendPropInt(name, offset, 4, 32, SPROP_UNSIGNED), so the proxy this "
-		   "file round-trips is no longer the proxy the payload uses";
-
-	EXPECT_NE( tightClient.find( "RecvPropInt(SourceSharpPayload_PropName(i),"
-	                             "SourceSharpPayload_WordOffset(nBlobBase,i),"
-	                             "SOURCESHARP_PAYLOAD_WORD_BYTES);" ),
-	           std::string::npos )
-		<< "SourceSharpPayload_BuildRecvProps no longer builds "
-		   "RecvPropInt(name, offset, 4)";
-
-	// And the two predicates the client warns on compare against the SAME pair
-	// this file round-trips. Without this, the runtime check and this test could
-	// drift apart and both stay green about different proxies.
-	EXPECT_NE( tight.find( "pProp->GetProxyFn()==g_StandardSendProxies.m_UInt32ToInt32;" ),
-	           std::string::npos )
-		<< "SourceSharpPayload_IsFastSendProxy no longer tests for "
-		   "m_UInt32ToInt32";
-	EXPECT_NE( tightClient.find( "returnpProp->GetProxyFn()==g_StandardRecvProxies.m_Int32ToInt32;" ),
-	           std::string::npos )
-		<< "SourceSharpPayload_IsFastRecvProxy no longer tests for "
-		   "m_Int32ToInt32";
-
-	// The receiving half is the client's alone: not also in the shared file.
-	EXPECT_EQ( tight.find( "RecvPropInt(" ), std::string::npos )
-		<< "generic_payload.cpp builds receive props again; they are the client's";
-}

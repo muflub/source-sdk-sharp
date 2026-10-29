@@ -1,0 +1,8 @@
+//========= Copyright Valve Corporation, All rights reserved. ============//
+
+#pragma once
+
+// dll export stuff
+#define VSTDLIB_INTERFACE DLL_IMPORT
+
+#define VSTDLIB_CLASS DLL_CLASS_IMPORT

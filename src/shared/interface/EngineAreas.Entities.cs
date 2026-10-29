@@ -160,7 +160,10 @@ public interface IEngineEntities
     /// <inheritdoc cref="EngineSide.EntityGetVelocity"/>
     Vector GetVelocity(EntityHandle h);
 
-    /// <inheritdoc cref="EngineSide.EntityGetWorldSpaceCenter"/>
+    /// <summary>
+    /// The middle of the entity's collision box in world space (stock's
+    /// WorldSpaceCenter); a brush entity's origin is usually nowhere near it.
+    /// </summary>
     Vector GetWorldSpaceCenter(EntityHandle h);
 
     /// <inheritdoc cref="EngineSide.EntityIsPlayer"/>
@@ -192,6 +195,13 @@ public interface IEngineEntities
 
     /// <inheritdoc cref="EngineSide.EntitySetOwner"/>
     void SetOwner(EntityHandle h, EntityHandle owner);
+
+    /// <summary>
+    /// The classname an entity reports from here on, as stock's SetClassname
+    /// renames a dynamic_prop to prop_dynamic at spawn. The class it was made
+    /// as (its managed half and its network layout) stays.
+    /// </summary>
+    void SetClassName(EntityHandle h, string className);
 
     /// <inheritdoc cref="EngineSide.EntitySetVelocity"/>
     void SetVelocity(EntityHandle h, Vector velocity);
@@ -313,6 +323,14 @@ public interface IEngineEntities
     /// <inheritdoc cref="EngineSide.EntitySetSolidity"/>
     void SetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags);
 
+    /// <summary>
+    /// Stock's <c>CCollisionProperty::UseTriggerBounds</c>: triggers touch the
+    /// entity through its box bloated by <paramref name="bloat"/> units (the
+    /// sides, and half that on top; every side when
+    /// <paramref name="uniform"/>), or through its own box again.
+    /// </summary>
+    void UseTriggerBounds(EntityHandle entity, bool enable, float bloat, bool uniform = false);
+
     /// <inheritdoc cref="EngineSide.EntitySetBounds"/>
     void SetBounds(EntityHandle entity, Vector mins, Vector maxs);
 
@@ -375,6 +393,38 @@ public interface IEngineEntityPhysics
     /// <inheritdoc cref="EngineSide.EntityInitPhysics"/>
     bool InitPhysics(EntityHandle entity, bool asleep = false, bool debris = false);
 
+    /// <summary>
+    /// The entity simulated as a perfect sphere of <paramref name="radius"/>,
+    /// a SOLID_BBOX mover with no model collide (CPhysSphere::CreateVPhysics).
+    /// </summary>
+    bool InitSpherePhysics(EntityHandle entity, float radius);
+
+    /// <summary>
+    /// VPhysicsInitStatic as a brush calls it: a static object the solver
+    /// collides with, the entity's own solidity (SOLID_BSP) and movetype kept.
+    /// </summary>
+    bool InitStaticPhysics(EntityHandle entity);
+
+    /// <summary>
+    /// Whether the entity's physics object collides at all
+    /// (<c>IPhysicsObject::EnableCollisions</c>): a func_wall_toggle switched
+    /// off stops blocking props as well as traces. Nothing when it has none.
+    /// </summary>
+    void EnableCollisions(EntityHandle entity, bool enable);
+
+    /// <summary>
+    /// VPhysicsInitShadow as a brush mover calls it: an object that follows
+    /// the entity (doors, buttons, trains, func_brush), its own solidity and
+    /// movetype kept. Props meet it as it moves.
+    /// </summary>
+    bool InitShadowPhysics(EntityHandle entity, bool allowPhysicsMovement = false, bool allowPhysicsRotation = false);
+
+    /// <summary>UpdatePhysicsShadowToCurrentPosition for every shadow, once a frame after the movers.</summary>
+    int UpdateShadows(float frameTime);
+
+    /// <summary>The entity's physics object: 0 none, 1 static, 2 a shadow, 3 simulated.</summary>
+    int PhysicsKind(EntityHandle entity);
+
     /// <inheritdoc cref="EngineSide.EntitySetBounce"/>
     void SetBounce(EntityHandle h, int bounces);
 
@@ -390,7 +440,7 @@ public interface IEngineEntityPhysics
     /// <inheritdoc cref="EngineSide.EntitySetCollisionGroup"/>
     void SetCollisionGroup(EntityHandle entity, CollisionGroup group);
 
-    /// <summary>a per-entity friction on the movement path is not ported (func_friction, ss_gib ask).</summary>
+    /// <summary>a per-entity friction on the movement path is not ported (func_friction, gib ask).</summary>
     void SetFriction(EntityHandle h, float friction);
 
     /// <inheritdoc cref="EngineSide.EntitySetGravity"/>
@@ -572,6 +622,19 @@ public interface IEngineEntityRender
     /// <summary>Play a sequence, from the start or keeping its clock; the skeleton keeps the clock. (plan physics_bones_native_zero 1.2: the skeleton route.)</summary>
     void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart);
 
+    /// <summary>
+    /// Start a sequence over at <paramref name="cycle"/>: forwards for a
+    /// positive rate, backwards for a negative one (CDynamicProp's
+    /// FinishSetSequence, a transition reversed from 0.999).
+    /// </summary>
+    void PlaySequenceAt(EntityHandle entity, int sequence, float playbackRate, float cycle);
+
+    /// <summary>
+    /// <c>SetCycle</c> on a sequence nothing advances (a wall charger's drain):
+    /// the skeleton holds that cycle until the next sequence starts.
+    /// </summary>
+    void SetCycle(EntityHandle entity, float cycle);
+
     /// <inheritdoc cref="EngineSide.EntitySetSkin"/>
     void SetSkin(EntityHandle entity, int skin);
 
@@ -615,16 +678,6 @@ public interface IEngineEntityRender
 /// <c>SourceSharp.Server.GameRulesPolicy</c> for what belongs in the table and
 /// what must stay a managed call.
 /// </summary>
-/// <summary>
-/// The collision matrix, pushed once at startup. See
-/// <see cref="CollisionRules"/> for what it replaces and why both sides send it.
-/// </summary>
-public interface IEngineCollisionRules
-{
-    /// <inheritdoc cref="EngineSide.RegisterCollisionRules"/>
-    bool RegisterCollisionRules(uint[] rows);
-}
-
 public interface IEngineGameRulesPolicy
 {
     /// <inheritdoc cref="EngineSide.RegisterGameRulesPolicy"/>
@@ -688,9 +741,6 @@ public interface IEngineBrushMovement
     /// destination, and a door that stops a fraction short never closes.
     /// </summary>
     void MoveToPosition(EntityHandle entity, Vector destination, float speed);
-
-    /// <inheritdoc cref="EngineSide.SurfaceSetEdges"/>
-    void SetSurfaceEdges(EntityHandle entity, byte[] packed, int count);
 
     /// <summary>retired mover: EntityMotion implements this interface, so nothing reaches the engine binding's.</summary>
     void StopMoving(EntityHandle entity);

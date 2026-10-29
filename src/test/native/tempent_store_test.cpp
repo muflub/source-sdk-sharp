@@ -17,72 +17,26 @@
 #include "mathlib_test_env.h"
 
 #include "shell_tempents_store.h"
+#include "tempent_block.h"
 
-void SendProxy_UInt8ToInt32( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut, int iElement, int objectID );
+void SendProxy_UInt8ToInt32( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut,
+							 int iElement, int objectID );
 
 namespace
 {
 
-SourceSharpSendPropRow_t Row( int nType, int nProxy )
-{
-	SourceSharpSendPropRow_t row;
-	memset( &row, 0, sizeof( row ) );
-	row.nType          = nType;
-	row.nProxy         = nProxy;
-	row.nElements      = 1;
-	row.nElementStride = -1;
-	row.hDataTable     = -1;
-	return row;
-}
-
-// A block as TempEntBlock.Write lays it out: the bit count, the header, the
-// rows, then the names.
-std::vector< unsigned char > Block( const char *pClass, const char *pTable,
-                                    std::vector< SourceSharpSendPropRow_t > rows,
-                                    const std::vector< std::string > &names )
-{
-	const int nFixed = (int)sizeof( SourceSharpTeTableHeader_t )
-	                 + (int)( rows.size() * sizeof( SourceSharpSendPropRow_t ) );
-	std::vector< unsigned char > pool;
-
-	auto Name = [ & ]( const std::string &text )
-	{
-		const int at = nFixed + (int)pool.size();
-		pool.insert( pool.end(), text.begin(), text.end() );
-		pool.push_back( 0 );
-		return at;
-	};
-
-	SourceSharpTeTableHeader_t header;
-	memset( &header, 0, sizeof( header ) );
-	header.nProps         = (int32_t)rows.size();
-	header.bRegisterClass = 1;
-	header.oClassName     = Name( pClass );
-	header.oTableName     = Name( pTable );
-	header.nShapeHash     = 0x1234u;
-
-	for ( size_t i = 0; i < rows.size(); i++ )
-		rows[ i ].oName = Name( names[ i ] );
-
-	const int32_t nBits = ( nFixed + (int)pool.size() ) * 8;
-	std::vector< unsigned char > block( sizeof( nBits ) + nFixed + pool.size() );
-	memcpy( block.data(), &nBits, sizeof( nBits ) );
-	memcpy( block.data() + sizeof( nBits ), &header, sizeof( header ) );
-	if ( !rows.empty() )
-		memcpy( block.data() + sizeof( nBits ) + sizeof( header ), rows.data(), rows.size() * sizeof( rows[0] ) );
-	memcpy( block.data() + sizeof( nBits ) + nFixed, pool.data(), pool.size() );
-	return block;
-}
+using tempent_test::Block;
+using tempent_test::Row;
 
 TEST( TempEntStore, ABlockReadsBackItsHeaderRowsAndNames )
 {
 	SourceSharpSendPropRow_t magnitude = Row( DPT_Int, SOURCESHARP_SENDPROXY_UINT32_TO_INT32 );
 	magnitude.nOffset = 12;
-	magnitude.nBits   = 4;
+	magnitude.nBits = 4;
 
-	const std::vector< unsigned char > block =
+	const std::vector<unsigned char> block =
 		Block( "CTESparks", "DT_TESparks", { Row( DPT_Vector, SOURCESHARP_SENDPROXY_VECTOR_TO_VECTOR ), magnitude },
-		       { "Direction", "Magnitude" } );
+			   { "Direction", "Magnitude" } );
 
 	SourceSharpTeTableBlock_t read;
 	ASSERT_TRUE( SourceSharpTe_ReadTableBlock( block.data(), (int32_t)block.size(), &read ) );
@@ -101,7 +55,7 @@ TEST( TempEntStore, ABlockReadsBackItsHeaderRowsAndNames )
 
 TEST( TempEntStore, AMalformedBlockIsRefused )
 {
-	const std::vector< unsigned char > good =
+	const std::vector<unsigned char> good =
 		Block( "CTESparks", "DT_TESparks", { Row( DPT_Int, SOURCESHARP_SENDPROXY_INT32_TO_INT32 ) }, { "Count" } );
 	SourceSharpTeTableBlock_t read;
 
@@ -113,14 +67,14 @@ TEST( TempEntStore, AMalformedBlockIsRefused )
 	EXPECT_FALSE( SourceSharpTe_ReadTableBlock( good.data(), (int32_t)good.size() - 1, &read ) )
 		<< "a bit count longer than the bytes given";
 
-	std::vector< unsigned char > odd = good;
+	std::vector<unsigned char> odd = good;
 	int32_t nBits = 0;
 	memcpy( &nBits, odd.data(), 4 );
 	nBits -= 3;
 	memcpy( odd.data(), &nBits, 4 );
 	EXPECT_FALSE( SourceSharpTe_ReadTableBlock( odd.data(), (int32_t)odd.size(), &read ) ) << "not whole bytes";
 
-	std::vector< unsigned char > many = good;
+	std::vector<unsigned char> many = good;
 	SourceSharpTeTableHeader_t header;
 	memcpy( &header, many.data() + 4, sizeof( header ) );
 	header.nProps = 2;
@@ -128,7 +82,7 @@ TEST( TempEntStore, AMalformedBlockIsRefused )
 	EXPECT_FALSE( SourceSharpTe_ReadTableBlock( many.data(), (int32_t)many.size(), &read ) )
 		<< "more rows than the payload holds";
 
-	std::vector< unsigned char > lost = good;
+	std::vector<unsigned char> lost = good;
 	memcpy( &header, lost.data() + 4, sizeof( header ) );
 	header.oTableName = 100000;
 	memcpy( lost.data() + 4, &header, sizeof( header ) );
@@ -137,7 +91,7 @@ TEST( TempEntStore, AMalformedBlockIsRefused )
 
 	// The last name is the row's: without its terminator the block still
 	// reads, and the name is refused where the store asks for it.
-	std::vector< unsigned char > open = good;
+	std::vector<unsigned char> open = good;
 	open.back() = 'x';
 	ASSERT_TRUE( SourceSharpTe_ReadTableBlock( open.data(), (int32_t)open.size(), &read ) );
 	EXPECT_EQ( NULL, SourceSharpTe_BlockName( read, SourceSharpTe_BlockRow( read, 0 ).oName ) )
@@ -146,7 +100,7 @@ TEST( TempEntStore, AMalformedBlockIsRefused )
 
 TEST( TempEntStore, ANameIsRefusedWhenEmptyOrUnterminated )
 {
-	const std::vector< unsigned char > block =
+	const std::vector<unsigned char> block =
 		Block( "CTEA", "DT_TEA", { Row( DPT_Int, SOURCESHARP_SENDPROXY_INT32_TO_INT32 ) }, { "x" } );
 	SourceSharpTeTableBlock_t read;
 	ASSERT_TRUE( SourceSharpTe_ReadTableBlock( block.data(), (int32_t)block.size(), &read ) );
@@ -159,19 +113,19 @@ TEST( TempEntStore, ANameIsRefusedWhenEmptyOrUnterminated )
 	EXPECT_EQ( NULL, SourceSharpTe_BlockName( read, read.nPayload ) );
 
 	SourceSharpTeTableBlock_t cut = read;
-	cut.nPayload = oX + 1;   // ends after 'x', before its terminator
+	cut.nPayload = oX + 1; // ends after 'x', before its terminator
 	EXPECT_EQ( NULL, SourceSharpTe_BlockName( cut, oX ) );
 }
 
 TEST( TempEntStore, AFloatRowIsStoredFieldForField )
 {
 	SourceSharpSendPropRow_t row = Row( DPT_Float, SOURCESHARP_SENDPROXY_FLOAT_TO_FLOAT );
-	row.nOffset        = -8;
-	row.nFlags         = SPROP_COORD | SPROP_NOSCALE;
-	row.nBits          = 0;
-	row.flLowValue     = 1.5f;
-	row.flHighValue    = 9.25f;
-	row.flHighLowMul   = 2147483648.0f;
+	row.nOffset = -8;
+	row.nFlags = SPROP_COORD | SPROP_NOSCALE;
+	row.nBits = 0;
+	row.flLowValue = 1.5f;
+	row.flHighValue = 9.25f;
+	row.flHighLowMul = 2147483648.0f;
 
 	SendProp prop;
 	ASSERT_TRUE( SourceSharpTe_StoreProp( row, "m_vecOrigin[2]", NULL, &prop ) );
@@ -191,14 +145,16 @@ TEST( TempEntStore, AFloatRowIsStoredFieldForField )
 
 TEST( TempEntStore, EveryVarProxyIdIsTheRealFunction )
 {
-	EXPECT_EQ( (SendVarProxyFn)SendProxy_Int8ToInt32,   SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_INT8_TO_INT32 ) );
-	EXPECT_EQ( (SendVarProxyFn)SendProxy_Int16ToInt32,  SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_INT16_TO_INT32 ) );
-	EXPECT_EQ( (SendVarProxyFn)SendProxy_Int32ToInt32,  SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_INT32_TO_INT32 ) );
-	EXPECT_EQ( (SendVarProxyFn)SendProxy_UInt8ToInt32,  SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_UINT8_TO_INT32 ) );
-	EXPECT_EQ( (SendVarProxyFn)SendProxy_VectorToVector, SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_VECTOR_TO_VECTOR ) );
-	EXPECT_EQ( (SendVarProxyFn)SendProxy_AngleToFloat,  SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_ANGLE_TO_FLOAT ) );
-	EXPECT_EQ( (SendVarProxyFn)SendProxy_QAngles,       SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_QANGLES ) );
-	EXPECT_EQ( (SendVarProxyFn)SendProxy_StringToString, SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_STRING_TO_STRING ) );
+	EXPECT_EQ( (SendVarProxyFn)SendProxy_Int8ToInt32, SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_INT8_TO_INT32 ) );
+	EXPECT_EQ( (SendVarProxyFn)SendProxy_Int16ToInt32, SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_INT16_TO_INT32 ) );
+	EXPECT_EQ( (SendVarProxyFn)SendProxy_Int32ToInt32, SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_INT32_TO_INT32 ) );
+	EXPECT_EQ( (SendVarProxyFn)SendProxy_UInt8ToInt32, SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_UINT8_TO_INT32 ) );
+	EXPECT_EQ( (SendVarProxyFn)SendProxy_VectorToVector,
+			   SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_VECTOR_TO_VECTOR ) );
+	EXPECT_EQ( (SendVarProxyFn)SendProxy_AngleToFloat, SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_ANGLE_TO_FLOAT ) );
+	EXPECT_EQ( (SendVarProxyFn)SendProxy_QAngles, SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_QANGLES ) );
+	EXPECT_EQ( (SendVarProxyFn)SendProxy_StringToString,
+			   SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_STRING_TO_STRING ) );
 
 	EXPECT_EQ( NULL, SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_NONE ) );
 	EXPECT_EQ( NULL, SourceSharpTe_VarProxy( SOURCESHARP_SENDPROXY_DATATABLE_TO_DATATABLE ) );
@@ -210,7 +166,7 @@ TEST( TempEntStore, AnUnsignedIntKeepsItsUnsignedProxy )
 {
 	SourceSharpSendPropRow_t row = Row( DPT_Int, SOURCESHARP_SENDPROXY_UINT8_TO_INT32 );
 	row.nFlags = SPROP_UNSIGNED;
-	row.nBits  = 8;
+	row.nBits = 8;
 
 	SendProp prop;
 	ASSERT_TRUE( SourceSharpTe_StoreProp( row, "ColorR", NULL, &prop ) );
@@ -226,7 +182,7 @@ TEST( TempEntStore, ANestedTableNeedsItsTableAndTheIdentityProxy )
 	SendTable nested( NULL, 0, "DT_EffectData" );
 	SourceSharpSendPropRow_t row = Row( DPT_DataTable, SOURCESHARP_SENDPROXY_DATATABLE_TO_DATATABLE );
 	row.nOffset = 4;
-	row.nFlags  = SPROP_PROXY_ALWAYS_YES;
+	row.nFlags = SPROP_PROXY_ALWAYS_YES;
 
 	SendProp prop;
 	ASSERT_TRUE( SourceSharpTe_StoreProp( row, "m_EffectData", &nested, &prop ) );
@@ -249,7 +205,7 @@ TEST( TempEntStore, ANestedTableNeedsItsTableAndTheIdentityProxy )
 TEST( TempEntStore, AnArrayIsTheArrayConstructorsOwnProp )
 {
 	SourceSharpSendPropRow_t row = Row( DPT_Array, SOURCESHARP_SENDPROXY_EMPTY );
-	row.nElements      = 16;
+	row.nElements = 16;
 	row.nElementStride = 12;
 
 	SendProp prop;

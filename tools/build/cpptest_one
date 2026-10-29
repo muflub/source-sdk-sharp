@@ -2,7 +2,7 @@
 #
 # Build and run ONE native gtest, by name:
 #
-#   farm/<config>/src/cpptest_one client_orphan_evictions_test
+#   farm/<config>/src/cpptest_one cmake_graph_test
 #
 # WHY THIS EXISTS. The whole suite is the right thing before a commit and the
 # wrong thing in a mutation loop: a harness that mutates the tree, rebuilds and
@@ -17,7 +17,7 @@
 # That matters for the source-SCANNING tests: they read the tree at run time,
 # so a mutation to the tree needs no rebuild at all.
 #
-name="${1:?a test name, e.g. client_orphan_evictions_test}"
+name="${1:?a test name, e.g. cmake_graph_test}"
 if [ $# -gt 1 ]; then
     echo "cpptest_one: takes only a test name since Phase 6b; the sources of" >&2
     echo "$name are the ones src/test/native/CMakeLists.txt names." >&2

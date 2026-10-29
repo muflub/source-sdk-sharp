@@ -102,6 +102,7 @@ public class ExplosionSelfIgnoreTests
         Spawned(string className, params string[] alsoIgnore)
     {
         var services = Services(out var engine);
+        engine.Returns("Environment.Globals", default(Globals)); // one player: the server makes the pieces
         engine.Ignores("Entities.IsValid");
 
         engine.Returns("Entities.GetOrigin", new Vector(1f, 2f, 3f))
@@ -111,6 +112,14 @@ public class ExplosionSelfIgnoreTests
 
         foreach (var member in alsoIgnore)
             engine.Ignores(member);
+
+        // What the RPG's missile reads and writes going off: its facing, the
+        // sky test ahead, going not solid, the ignition's stop and its box
+        // (RpgMissileTests is about those).
+        engine.Returns("Entities.GetAngles", Vector.Zero)
+              .Returns("WorldQuery.TraceLineSurface",
+                       new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None, 0, 0))
+              .Ignores("EntityPhysics.SetNotSolid", "Sound.EntityStopSound", "Entities.SetBounds");
 
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Rocket).Assembly);
@@ -139,7 +148,7 @@ public class ExplosionSelfIgnoreTests
     [Fact]
     public void ARocketNamesItself()
     {
-        var (entity, engine, services) = Spawned(EntityNames.SsRocket);
+        var (entity, engine, services) = Spawned(EntityNames.RpgMissile);
 
         entity.OnTouch(AWall(engine));
 
@@ -148,26 +157,13 @@ public class ExplosionSelfIgnoreTests
     }
 
     /// <summary>
-    /// The rocket's own numbers, against stock's.
-    ///
-    /// <para>
-    /// The radius was 300 here where stock's <c>CMissile::EXPLOSION_RADIUS</c> is
-    /// 200, and it is not a free fifty per cent: the traversal's falloff is
-    /// magnitude/radius per unit, so a wider blast is a HARDER one at every
-    /// distance as well as a longer one. At 100 units 300 gave 133 where 200
-    /// gives 100, and at 250 it still gave 33 where stock had already stopped.
-    /// On a map with explosive barrels the extra hundred units is what reaches
-    /// the next barrel, and the chain comes back to whoever fired.
-    /// </para>
-    /// </summary>
-    /// <summary>
     /// The thing that exploded is the blast's inflictor -- stock's
     /// CTakeDamageInfo( this, GetOwnerEntity(), ... ) -- so a hit is felt FROM
     /// it, while the owner keeps the credit (lane player-msgs).
     /// </summary>
     [Theory]
-    [InlineData(EntityNames.SsRocket)]
-    [InlineData(EntityNames.SsEnergyball)]
+    [InlineData(EntityNames.RpgMissile)]
+    [InlineData(EntityNames.PropCombineBall)]
     public void A_projectile_is_its_blasts_inflictor(string className)
     {
         var (entity, engine, services) = Spawned(className, "Damage.Apply");
@@ -177,26 +173,33 @@ public class ExplosionSelfIgnoreTests
         Assert.Equal(entity.Handle, TheOnlyExplosion(services).Inflictor);
     }
 
+    /// <summary>
+    /// The rocket's own numbers, against stock HL2MP's
+    /// (shared/hl2mp/weapon_rpg.cpp). The 200 and 200 these facts held before
+    /// were the single-player CMissile's (hl2/weapon_rpg.cpp's SetDamage(
+    /// 200.0f ) and EXPLOSION_RADIUS); HL2MP's RPG sets the damage from
+    /// weapon_rpg.txt's "damage" and DoExplosion's radius is twice it.
+    /// </summary>
     [Fact]
     public void ARocketCarriesStocksNumbers()
     {
-        var (entity, engine, services) = Spawned(EntityNames.SsRocket);
+        var (entity, engine, services) = Spawned(EntityNames.RpgMissile);
 
         entity.OnTouch(AWall(engine));
 
         var bang = TheOnlyExplosion(services);
 
-        Assert.True(bang.Magnitude == 200f,
-                    "stock's CMissile::Spawn calls SetDamage( 200.0f )");
+        Assert.True(bang.Magnitude == 150f,
+                    "the RPG's SetDamage( GetHL2MPWpnData().m_iPlayerDamage ), weapon_rpg.txt's 150");
 
-        Assert.True(bang.Radius == 200f,
-                    "stock's CMissile::EXPLOSION_RADIUS is 200");
+        Assert.True(bang.Radius == 300f,
+                    "DoExplosion's ExplosionCreate radius is GetDamage() * 2");
     }
 
     [Fact]
     public void AnEnergyBallNamesItself()
     {
-        var (entity, engine, services) = Spawned(EntityNames.SsEnergyball, "Damage.Apply");
+        var (entity, engine, services) = Spawned(EntityNames.PropCombineBall, "Damage.Apply");
 
         entity.OnTouch(AWall(engine));
 
@@ -208,6 +211,7 @@ public class ExplosionSelfIgnoreTests
     public void ABreakingPropNamesItself()
     {
         var services = Services(out var engine);
+        engine.Returns("Environment.Globals", default(Globals)); // one player: the server makes the pieces
         engine.Ignores("Entities.IsValid");
 
         engine.Returns("Entities.GetOrigin", new Vector(1f, 2f, 3f))
@@ -217,6 +221,7 @@ public class ExplosionSelfIgnoreTests
               .Returns("EntityRender.GetModelName", "models/props_c17/oildrum001_explosive.mdl")
               .Returns("EntityRender.GetModelKeyValueText",
                        "mdlkeyvalue { prop_data { health 30 explosive_damage 120 explosive_radius 256 } }")
+              .Returns("Entities.GetWorldSpaceCenter", new Vector(1f, 2f, 27f))
               .Ignores("Entities.SetModel")
               .Ignores("Entities.Remove")
               .Ignores("Entities.SetNextThink");
@@ -239,5 +244,84 @@ public class ExplosionSelfIgnoreTests
 
         Assert.True(bang.Ignored == handle,
                     "a breaking prop's blast is not stopped by the prop");
+
+        // CBreakableProp::Break: ExplosionCreate( WorldSpaceCenter(), ... ),
+        // and an input's break is the prop's own doing.
+        Assert.Equal(new Vector(1f, 2f, 27f), bang.Origin);
+        Assert.Equal(handle, bang.Attacker);
+    }
+
+    /// <summary>
+    /// The break's explosion: stock's flags (no sparks, no dynamic light, no
+    /// smoke, surface only), and the prop made not solid as it goes.
+    /// </summary>
+    [Fact]
+    public void A_breaking_prop_explodes_with_stocks_flags_and_stops_being_solid()
+    {
+        var (engine, registry, handle) = Barrel();
+
+        registry.Input(handle, "Break", "", 0f, EntityHandle.None);
+
+        var flags = EnvExplosion.EffectFlags(EnvExplosion.SpawnFlag.NoSparks | EnvExplosion.SpawnFlag.NoDynamicLights
+                                             | EnvExplosion.SpawnFlag.NoSmoke | EnvExplosion.SpawnFlag.SurfaceOnly, RenderMode.TransAdd);
+        Assert.Equal((int)flags, engine.Last("Effects.ExplosionEffect")!.Value.ArgAs<int>(4));
+        Assert.True(engine.Last("EntityPhysics.SetNotSolid")!.Value.ArgAs<bool>(1));
+        Assert.True((TheOnlyExplosion((ServiceContainer)registry.Services!).DamageType & DamageType.BlastSurface) != 0,
+                    "surface only: it spares whoever is under water");
+    }
+
+    /// <summary>m_hLastAttacker: the last player to hurt the barrel is credited with what it kills.</summary>
+    [Fact]
+    public void The_last_player_to_hurt_it_is_credited_with_its_blast()
+    {
+        var (engine, registry, handle) = Barrel();
+        var shooter = new EntityHandle(0x0001_0001u);
+        engine.ReturnsEachCall("Entities.IsPlayer", () => engine.Calls.Last().ArgAs<EntityHandle>(0) == shooter);
+
+        registry.Damaged(handle, shooter, 5f, (int)DamageType.Club);
+        registry.Killed(handle, new EntityHandle(0x0002_0001u));
+
+        Assert.Equal(shooter, TheOnlyExplosion((ServiceContainer)registry.Services!).Attacker);
+    }
+
+    /// <summary>m_hPhysicsAttacker: whoever threw it in the last two seconds, and only then.</summary>
+    [Theory]
+    [InlineData(1.5f, true)]
+    [InlineData(2.5f, false)]
+    public void Who_threw_it_lately_is_credited_with_its_blast(float later, bool credited)
+    {
+        float now = 10f;
+        var (engine, registry, handle) = Barrel(() => now);
+        var thrower = new EntityHandle(0x0001_0001u);
+
+        ((IPhysGunTarget)registry.Get(handle)!).OnPhysGunDrop(thrower, PhysGunDrop.LaunchedByCannon);
+        now += later;
+        registry.Input(handle, "Break", "", 0f, EntityHandle.None);
+
+        Assert.Equal(credited ? thrower : handle, TheOnlyExplosion((ServiceContainer)registry.Services!).Attacker);
+    }
+
+    private static (RecordingEngine Engine, ScriptedEntityRegistry Registry, EntityHandle Handle) Barrel(Func<float>? clock = null)
+    {
+        var services = Services(out var engine);
+        engine.Returns("Environment.Globals", default(Globals)); // one player: the server makes the pieces
+        engine.Strict = false;
+        engine.Returns("Entities.GetOrigin", new Vector(1f, 2f, 3f))
+              .Returns("EntityRender.GetModelName", "models/props_c17/oildrum001_explosive.mdl")
+              .Returns("EntityRender.GetModelKeyValueText",
+                       "mdlkeyvalue { prop_data { health 30 explosive_damage 120 explosive_radius 256 } }")
+              .Returns("Entities.GetWorldSpaceCenter", new Vector(1f, 2f, 27f))
+              .Returns("Entities.GetHealth", 30);
+        if (clock is not null)
+            engine.ReturnsEachCall("Clock.Now", () => clock());
+
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PropPhysics).Assembly);
+        registry.Services = services;
+        AnExplosionCanBeMade(engine);
+
+        var handle = new EntityHandle(13);
+        registry.Spawn(handle, EntityNames.PropPhysics);
+        return (engine, registry, handle);
     }
 }

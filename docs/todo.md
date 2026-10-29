@@ -38,8 +38,57 @@ Entries by owner (the file keeps its order; this is the index):
   fold; the render budget and trace cost rows inside the client and T4f
   entries.
 - **User directions waiting on a stage**: the usercmd wire format.
+- **Stock A/B** (tools/stock-ab): what running stock hl2mp beside the test
+  mod found and this mod still does differently.
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
+
+## live-gate's kill-feed icon check fails on main since 582926fef
+
+"and its icon is drawn from the icon atlas through the surface's texture (3
+textured quads)" fails 3 of 3 at 654e16363 and 2 of 2 at 582926fef (2026-10-27,
+`tools/live-gate --steps join,kill-feed`); every other kill-feed check passes,
+the death line included. It passed 1 of 1 on lane t6-globals at a d22e4b864
+base the same day, so it arrived with d22e4b864..582926fef: the pickup-history,
+weapon-selection and icon-atlas commits (4ff041332 makes the atlas a power of
+two tall). **Owner:** the HUD lane. **Next:** bisect the step over those 13
+commits (`tools/3f-gatebisect --steps kill-feed`).
+
+## DebugChannelSessionTests.DisposingTheListenerGivesThePortBack races for its port
+
+The fact closes a listener on an ephemeral port and binds a new one to the same
+number; anything else on the box may take the port in between. It failed once
+in `make test` at 24f9226b9 plus the console conversion (2026-10-27,
+SocketException "Address already in use") and passed 17 of 17 alone right
+after. **Owner:** the managed tests. **Next:** rebind with SO_REUSEADDR in the
+fact's second listener, or assert the first socket is closed by probing it.
+
+## live-gate's second-client step fails when its pass runs slow
+
+"the newcomer's own input moved its player 0.0 units on the server" (2026-10-27,
+lane t6-globals, the game-rules conversion): 3 of 4 passes failed in one
+window, each taking 22.6-23.2 s and 1548-1579 ticks, then 3 of 3 passed on the
+same build at 13.7-15.4 s; 0ff873533 passed 3 of 3 at 13.9-15.9 s. The
+newcomer's input is read inside a window the slow passes outrun.
+Again 2026-10-27 at the edict-mark change (lane t6-globals): 2 of 8 passes
+failed, both at 21.9 s / 1480-1535 ticks; the 6 at 13.8-15.4 s passed. Main
+4544b0f1e passed 8 of 8 at 13.9-19.7 s.
+**Owner:** the live gate. **Next:** wait for the newcomer's first usercmd
+before timing its movement, and print the pass's tick count beside the verdict.
+
+## live-gate's damage step depends on the spawn point
+
+`tools/live-gate --steps damage,pickup` (at 95e7543c9 plus the hierarchy
+conversion, 2026-10-27) failed once with the player at spawn
+[-4116.0, 4600.0, 3.0]: the damage reply said 100 -> 60 and the entity then
+read 85, 25 over (a health kit's amount), and the pickup step's kit then
+healed 85 -> 85. Six passes each on 15776d06d and on the lane, from three
+other spawns, all passed. The step reads health back after the server has
+run ticks in which a respawned or joined player can stand on a kit.
+
+**Owner:** the live gate. **Next:** read the health back in the same tick as
+the damage, or place the player away from items before the step, and confirm
+which spawn sits on an item_healthkit.
 
 ## live-gate's fault check does not see across a hot reload
 
@@ -281,10 +330,6 @@ MoveTrace.
   went in T2; see the T4d row), TE_DispatchEffect and the TE forwards'
   debug arms. The managed recipient filter object (fwd_recipient_filter.cpp) is
   the exit for each; none is a trace.
-- **CSourceSharpGameRules::ShouldCollide, s_CollisionRules and
-  IShimCollision::RegisterCollisionRules** have no server caller left (the
-  managed rule reads the same rows); the vtable keeps them linked. Retiring the
-  slot is a --reorder on a shared row, for a later lane.
 - **Stock shape-clause divergences kept** (TraceFilterRules' summary): the
   transparent / MOVETYPE_PUSH / debris skips stock makes were never answered for
   this hierarchy, and a move is not where they change. The client's filter still
@@ -374,12 +419,12 @@ reason it was left:
 - **shell_movement.cpp's server-dead arms** (the T4g bullet above), including
   `SourceSharp_MovementParams`, live on the client through the TU's own caller.
 - **The header-inline relays.** `StandaloneEntity_IsPlayer`,
-  `StandaloneEntity_OwnerHandle` (with `CStandaloneEntity::OwnerHandleEntity`),
   `PhysicsStandaloneToucher` (with `CStandaloneEntity::AsToucher`) and
-  `GameEntity_ModelIndex` have no importer, but anyentity.h's and
-  physicsowner.h's inline accessors name them, so they go with an audit of
-  those two headers (AnyEntity_t, PhysicsOwner_t), which the client compiles
-  too. GameEntityRelayEvictionTests pins GameEntity_ModelIndex's declaration.
+  `GameEntity_ModelIndex` have no importer, but physicsowner.h's inline
+  accessors name them, so they go with an audit of that header
+  (PhysicsOwner_t), which the client compiles too. anyentity.h, which nothing
+  included, went 2026-10-27 with `StandaloneEntity_OwnerHandle` and
+  `CStandaloneEntity::OwnerHandleEntity`.
 - **dt_send.cpp**: `SendTable::SendTable()`, `~SendTable()` and the
   `CNonModifiedPointerProxy` constructor have no importer. The proxy
   constructor is what builds `s_pNonModifiedPointerProxyHead`, a D6 FLOOR row;
@@ -434,6 +479,30 @@ exit, as written.
 
 **Owner:** the client port. **Next:** not chosen; the cheapest is the
 index-addressed model-name read for the speaker gender.
+
+## Client temp entities, impacts and the schema gate in C# (lane M1-C, 2026-10-25): follow-ups
+
+- **Dead slots for the serialised ABI pass.** Lane M1-C could only append, so
+  these stay until the pass retires them: `IManagedDiagnosticsClient::Md5PseudoRandom`
+  (md5_pseudorandom.cpp left client.so), `IManagedTempEntsClient::OnImpactChoice`
+  with `ImpactChoicePolicy.Choose(span)` (the native impact chain is gone;
+  `BulletImpactEffect` decides), `IShimTempEntBackendsClient::ClientPlayerDecalShoot`
+  (empty; `PlayerSprays` decides, through `ClientPlayerLogoDecal`) with
+  `IEngineEffects.ClientPlayerDecalShoot`, and `IShimStandaloneClient::ClientSchemaRefusal`
+  (empty; the refusals are `ClientSchemaGate`'s, and `ShimAreaTypedCallsTests`
+  waives it by name until it goes). The client `SourceSharpTe_Forward`
+  (shell_tempents_client.cpp) has no caller since TE_Bubbles and TE_Smoke left.
+- **FindTempEntByID's search is still native** (`SourceSharpTePool_Find`,
+  ruled LOGIC): its only stock caller is TF's tf_fx_christmaslights.cpp, so
+  nothing in this build reaches it, and the managed pool holds neither field
+  it matches (skin and hitSound). It moves with the TF stage that brings the
+  caller.
+- **Divergences recorded by the lane:** the warp-shield impact particle is
+  dispatched by name; an impact's control-point entity resolves from the hit's
+  index; a spray checks its files before the logo material;
+  `cs_cl_schema_status` counts the declared types, not the published ones.
+
+**Owner:** the client port. **Next:** the serialised ABI pass for the slots.
 
 ## The TF2 stage-0 plan's class-script fixture does not exist
 
@@ -521,8 +590,14 @@ Added 2026-10-05 from the client no-Valve lanes (plan_client_novalve.md), merged
 - **Server browser has no data source.** No master-server or LAN query exists yet; it opens empty (C4: Steam matchmaking over the managed flat API).
 - **MOTD HTML.** HTML/URL MOTDs fall back to `motd_text` as stock does with HTML off; a web view (Steam HTML surface, already probed in C0) is the later option.
 - **Client physics props: what ClientPhysicsProps still does not carry** (it ports CTempEnts::PhysicsProp and C_PhysPropClientside, 73b64446d): the respawn zones (no map prop_physics_multiplayer path), a piece's motion-disabled flag, the skin-family clamp, and prop shadows (temp entities cast none).
-- **Game logic the ABI pass left unreferenced** (2026-10-20, docs/abi-retirements.md): `ShellLessRoutes.Find`, `PropData.RandomChunkModel`, the `Templates.Add` the native map parse used, `PhysRagdollMagnet.Best` and `C_StandaloneEntity::SetShadowCast` lost their last callers with their slots. Each is a port of stock logic, so the next dead-code pass decides each one (port-dead-stock-arms ruling) rather than the ABI pass. The pass's census was two levels deep (a slot's wrapper, then the wrapper's callers) plus the compiler; a third-level chain the census could not see is that pass's question too.
+- **The client ammo table is written and never read** (lane M1-B, 2026-10-25). `GetAmmoDef` had no importer on client.so's link edge and is deleted, so `SourceSharp_RegisterAmmoType` (shell_client.cpp, the `RegisterAmmoType` row of `IShimStandaloneClient` in docs/engineapi-areas.tsv) fills a `CAmmoDef` nothing reads, from `ClientModule`'s ammo registration. Retire the row, the native body and the managed call together in the serialised ABI pass (rows only append in a lane); until then the slot is ruled LOGIC in its rulings file.
+- **Two client LOGIC rows lane M1-B left, each blocked outside its files** (2026-10-25; rulings in docs/shim-scope/client; `UTIL_IsLowViolence` is C# since 2026-10-26, ClientLowViolence): `FormatViewModelAttachment` (shell_client_orphans.cpp, stock's viewmodel FOV squash) is called per particle by the native particle renderer's local-space emitter (shell_managed_particles.cpp) and moves with that transform; `SourceSharp_RegisterAmmoType` is the dead ammo table below.
+- **Game logic the ABI pass left unreferenced** (2026-10-20, docs/abi-retirements.md): `ShellLessRoutes.Find`, `PropData.RandomChunkModel`, the `Templates.Add` the native map parse used, `PhysRagdollMagnet.Best` and `C_StandaloneEntity::SetShadowCast` lost their last callers with their slots (SetShadowCast was deleted by lane M1-A, ab53190cc: it set the block's ShadowChoice, which managed reads, and stock's choice is managed's own). Each is a port of stock logic, so the next dead-code pass decides each one (port-dead-stock-arms ruling) rather than the ABI pass. The pass's census was two levels deep (a slot's wrapper, then the wrapper's callers) plus the compiler; a third-level chain the census could not see is that pass's question too.
+- **Lane M1-A (2026-10-25): what moved to managed and is not yet seen live.** The standalone shell's remaining decisions left client.so (tools/shim-scope R7 7435 -> 5241 at the lane's tip): the distance fade (StandaloneFade), a broken surface's materials and plan (BreakableSurfaceDraw), the colour-correction table and the frame's weight reset (ColorLookupTable, ColorCorrections at FRAME_RENDER_START), the viewer's own body (ClientRenderPolicy's OwnerSeenRule) and the interpolation filter and delay (InterpolatedSet). No live-gate step breaks a window or stands in a color_correction volume, so the glass draw and the colour-correction fix (the weights were zeroed before every render: ClientDLL_Update runs after _Host_RunFrame_Render) are proven by facts only; a gate step for each is owed. `ViewSubject::ViewEntityOverridesTheEye` is the lane's one LOGIC row: its caller is shell_viewrender_client.cpp's SetUpView, and it moves with that port. The engine block's fingerprint moved with the OwnerSeenRule rename (0x027436fc -> 0xb4839a12): a hosted server must be rebuilt with the client.
 - **Render budget headroom:** `ClientStandaloneDraw` (4-7 per client frame, the standalone entity shell's per-entity draw) is now the main driver of the `render` step; batching it is C7 render-plan work. `ClientFxSmokeFogPlan` costs a steady 1 per frame and could fold into a per-frame call.
+- **IManagedRuntimeClient::MapMaterialReload (slot 8) has no native caller** (2026-10-25, lane M1-D): the spawn's material-reload window moved to managed (`MapMaterialReloadWindow`), and the hooks call the three slots appended after it (`MapMaterialSearchPath`, `MapMaterialMapAccess`, `MapMaterialReloadPlan`). Slot 8, its binding (`ClientRuntimeBinding.MapMaterialReload`, `IClientRuntimeHost.MapMaterialReloadSet`) and its facts in MapMaterialReloadTests retire with the next ABI cleanup's renumber (rows only append between lanes).
+- **Two stock rules are C# with no caller yet** (2026-10-25, lane M1-D; their native headers were included by no compiled TU). `SourceSharp.Shared.BulletGlass.PassesThrough` is CBaseEntity::FireBullets' glass rule: wire it, with `HandleShotImpactingGlass`'s re-trace and one-round re-fire (ai_basenpc.cpp), into `Arsenal.FireBullets` when a managed `func_breakable` exists (none does; `func_breakable_surf` is not penetrable). `ClientCollisionSolver.SelfPenetrationSolvedByOwner` is the client CCollisionEvent::ShouldSolvePenetration ragdoll arm's rule: carrying it out needs `IPhysicsConstraintGroup::SolvePenetration` appended to the constraint group's forwarders and the ragdoll's group found by owner; until then every pair goes to the default solver, as the fork's armed build did.
+- **The interpolation gate's per-frame reads are unmeasured** (2026-10-25, lane M1-D): `InterpolationGate.Open` asks cl_interpolate by name (`FindConVarValue`, one string a frame), three IVEngineClient forwarders and the net channel row once per frame at RenderStart. A ConVar watch (`IClientConVarSlots.Watch`) would drop the string; the perf pass's.
 - **Stock undefined behaviour in the Int and SelectFirstIfNonZero proxies, ported as four-wide.** Added 2026-10-11 (lane c5-proxies, 37ad7f31, ported to f56bc32c). mathproxy.cpp reads a four-wide result through a three-wide `Vector`; in the recorded debug build the fourth float overruns onto the `vecSize` local, so stock writes `SetVecValue( a, 0 )`. The port writes all four components (`Vec4Temp`, `MathProxies.cs`), and the oracle replay names exactly those writes as the allowed disagreements (`TheOverrunBindsAreTheFourWideVectorResultsOnly`). A different compiler or the release build may lay the stack out differently, so the oracle's ruling holds for the recorded build only; re-record in release before relying on it there.
 
 **Owner:** the client port; the unreferenced game logic is the next
@@ -540,8 +615,8 @@ follows CHL2MP_Player::StartObserverMode (observe only on `spectate` /
 ported in `Observers`' remarks:
 
 - **The team-change rate limit.** The team itself changes now: TF2 Stage 0
-  (1c170dac2) made it `Teams.Join`'s (Teams.cs), which stores it through the
-  PlayerSetTeam slot and fires `player_team`; the model switch and the
+  (1c170dac2) made it `Teams.Join`'s (Teams.cs), which stores it through
+  IEnginePlayers.SetTeam (a managed store since 2026-10-26) and fires `player_team`; the model switch and the
   side-change suicide it does not make are a docs/divergences.md row.
   HL2MP's `TEAM_CHANGE_INTERVAL` (5 s, `m_flNextTeamChangeTime`, set by
   CHL2MP_Player::ChangeTeam) is still not ported (grep at 4c808928c: no
@@ -939,18 +1014,22 @@ triggers too); no map here parents anything to a teleported entity.
 
 **Owner:** the client port (C7 shadow and leaf). **Next:** as written.
 
-## bitvec.h's two tables leave with the native PVS/PAS filters (user ruling 2026-10-20)
+## Stock A/B divergences: what stock hl2mp does that this mod does not (2026-10-25)
 
-`firstBitLUT` and `g_StartMask` (bitvec.h, ruled CONST) are emitted into
-server.so only by `ss::CRecipientFilter::AddPlayersFromBitMask`
-(ss_recipient_filter.cpp), called from `AddRecipientsByPVS/PAS`
-(shell_recipientfilter.cpp), which `ss::CPVSFilter`/`CPASFilter` use in
-shell_te_forwards.cpp (397, 470, 481) and server_util_library.cpp (210). When
-those callers move to managed (RecipientFilter.cs already ports the bit walk),
-delete AddPlayersFromBitMask and the tables go with it; check with
-`make globals-census` that the two ledger rows vanished. No fork edit.
+`tools/stock-ab run` builds stock hl2mp from upstream (plus
+tools/stock-ab/patches' hooks) and runs it beside the test mod on
+ss_sandbox; `--map dm_lockdown` takes the census of another map. Found at
+the stock-ab branch's base 9074634e7 and still open after its fixes:
 
-**Owner:** the server lane (T6).
+- **Useable ladders: ported (lane stock-ab-ladders, 2026-10-25).**
+  dm_lockdown's census now matches (3 func_useableladder, 14
+  info_ladder_dismount, none moved), and a +USE mount, climb and top
+  dismount on ss_sandbox's ladders station ends at the same eye in both
+  games. Left: CReservePlayerSpot (the server's `reserved_spot` holding the
+  goal hull), the player's SOLID_NONE during the slide, the use-deny sound,
+  the sv_ladder_useonly HUD hint and `ladderSurfaceProperties` on the ladder
+  footstep (docs/divergences.md). CHL2GameMovement::CanAccelerate (always
+  true, hl_gamemovement.cpp:1182) is ported with it. Owner: the server lane.
 
 ## Rulings and divergences recorded only here (not open work)
 
@@ -1003,7 +1082,7 @@ and where its record lives now.
   dead tempent pool (TempEntPoolRetirementTests), the serialised ABI cleanup
   (docs/abi-retirements.md, 2026-10-20), the PostRender stage (its op and walk
   went in that pass), the crossbow bolt's ragdoll pin (e9b0c2dee; divergence:
-  of two bodies on one line the nearer is pinned), ss_bolt's BoltImpact, the
+  of two bodies on one line the nearer is pinned), crossbow_bolt's BoltImpact, the
   snowfall tolerance and the client trace on props: closed 2026-10-08..19.
 - **Live-gate step fixes**: impact-damage's fall origin (tools/live-gate:2947),
   hot-reload's door (tools/live-gate:5808), spectate's ragdoll lifetime

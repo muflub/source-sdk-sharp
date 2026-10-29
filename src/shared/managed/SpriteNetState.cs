@@ -127,6 +127,16 @@ public interface ISpriteNetState
 
     /// <summary>Drawn at all. Stock's EF_NODRAW, driven by ShowSprite/HideSprite/ToggleSprite.</summary>
     bool Visible { get; set; }
+
+    /// <summary>
+    /// Seconds a change of <see cref="Scale"/> takes to arrive on the client:
+    /// stock's m_flScaleTime, which CSprite::SetScale( scale, time ) sets and
+    /// C_Sprite::GetRenderScale lerps over. Zero is at once.
+    /// </summary>
+    float ScaleTime { get; set; }
+
+    /// <summary>The same for <see cref="Brightness"/>: m_flBrightnessTime (SetBrightness, FadeAndDie).</summary>
+    float BrightnessTime { get; set; }
 }
 
 /// <summary>
@@ -176,6 +186,9 @@ public partial class EnvSpriteNetState : ISpriteNetState
 
     [NetField(Bits = 1)] public partial bool WorldSpaceScale { get; set; }
     [NetField(Bits = 1)] public partial bool Visible { get; set; }
+
+    public partial float ScaleTime { get; set; }
+    public partial float BrightnessTime { get; set; }
 }
 
 /// <summary>env_sprite_oriented's table. The same fields; see <see cref="ISpriteNetState"/>.</summary>
@@ -199,6 +212,9 @@ public partial class EnvSpriteOrientedNetState : ISpriteNetState
 
     [NetField(Bits = 1)] public partial bool WorldSpaceScale { get; set; }
     [NetField(Bits = 1)] public partial bool Visible { get; set; }
+
+    public partial float ScaleTime { get; set; }
+    public partial float BrightnessTime { get; set; }
 }
 
 /// <summary>env_glow's table. The same fields; see <see cref="ISpriteNetState"/>.</summary>
@@ -222,6 +238,9 @@ public partial class EnvGlowNetState : ISpriteNetState
 
     [NetField(Bits = 1)] public partial bool WorldSpaceScale { get; set; }
     [NetField(Bits = 1)] public partial bool Visible { get; set; }
+
+    public partial float ScaleTime { get; set; }
+    public partial float BrightnessTime { get; set; }
 }
 
 /// <summary>
@@ -256,6 +275,9 @@ public partial class EnvSpriteTrailNetState : ISpriteNetState
 
     [NetField(Bits = 1)] public partial bool WorldSpaceScale { get; set; }
     [NetField(Bits = 1)] public partial bool Visible { get; set; }
+
+    public partial float ScaleTime { get; set; }
+    public partial float BrightnessTime { get; set; }
 
     /// <summary>How long a segment of the trail survives after it is laid down.</summary>
     public partial float LifeTime { get; set; }

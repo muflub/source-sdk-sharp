@@ -16,6 +16,7 @@
 #include "Color.h"
 
 #include "fatal_report.h"
+#include "tier0_spew_port.h"
 #include "recording_cvar.h"
 
 #include <cstdio>
@@ -23,9 +24,7 @@
 #include <string>
 #include <vector>
 
-#include "ss_platform.h"	// SS_BIND_IMPORT
-
-ICvar *g_pCVar = nullptr;
+#include "ss_platform.h" // SS_BIND_IMPORT
 
 #ifdef _MSC_VER
 // MSVC at /Od keeps the dead `if ( _bFatal )` arm of every Assert (dbg.h's
@@ -33,7 +32,8 @@ ICvar *g_pCVar = nullptr;
 // constant-false branch even at -O0, and /O1 dropped it too. The port defines
 // no _ExitOnFatalAssert -- nothing in the game DLLs asserts fatally -- and this
 // binary links no tier0, so it is defined here as tier0's is: report, then exit.
-#pragma warning( disable : 4273 )	// defining what dbg.h declares dllimport
+#pragma warning( disable : 4273 ) // defining what dbg.h declares dllimport
+
 void _ExitOnFatalAssert( const tchar *pFile, int line )
 {
 	fprintf( stderr, "Fatal assert failed: %s, line %d.  Application exiting.\n", pFile, line );
@@ -50,7 +50,7 @@ struct SpewRecord
 	std::string text;
 };
 
-std::vector< SpewRecord > g_Hooked;
+std::vector<SpewRecord> g_Hooked;
 
 SpewRetval_t Hook( SpewType_t type, const tchar *pText )
 {
@@ -58,7 +58,7 @@ SpewRetval_t Hook( SpewType_t type, const tchar *pText )
 	return SPEW_CONTINUE;
 }
 
-std::vector< std::string > g_Notified;
+std::vector<std::string> g_Notified;
 
 void Notify( const char *pFile, int nLine, const char *pMsg )
 {
@@ -72,11 +72,11 @@ protected:
 
 	void SetUp() override
 	{
-		SpewOutputFunc( NULL );   // the default: the console
+		SpewOutputFunc( NULL ); // the default: the console
 		g_Hooked.clear();
 		g_Notified.clear();
-		g_pCVar = &m_Cvar;
-		Msg( "%s", "" );            // drain anything an earlier fact left held
+		Tier0_ConnectConsole( &m_Cvar );
+		Msg( "%s", "" ); // drain anything an earlier fact left held
 		m_Cvar.m_Printed.clear();
 	}
 
@@ -84,7 +84,7 @@ protected:
 	{
 		SpewOutputFunc( NULL );
 		SetAssertFailedNotifyFunc( NULL );
-		g_pCVar = nullptr;
+		Tier0_ConnectConsole( nullptr );
 	}
 };
 }
@@ -109,10 +109,10 @@ TEST_F( Tier0SpewPort, AWarningIsPrintedInColour )
 
 TEST_F( Tier0SpewPort, LinesSpewedBeforeTheConsoleExistsComeOutFirstInOrder )
 {
-	g_pCVar = nullptr;
+	Tier0_ConnectConsole( nullptr );
 	Msg( "one\n" );
 	Warning( "two\n" );
-	g_pCVar = &m_Cvar;
+	Tier0_ConnectConsole( &m_Cvar );
 
 	Msg( "three\n" );
 
@@ -175,15 +175,12 @@ TEST_F( Tier0SpewPort, NoAssertAsksForADialog )
 
 TEST_F( Tier0SpewPort, AnErrorIsSaidThenEndsTheProcessWithTheFatalReport )
 {
-	EXPECT_EXIT( Error( "no %s\n", "engine" ),
-	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ),
-	             "FATAL ERROR: no engine" );
+	EXPECT_EXIT( Error( "no %s\n", "engine" ), ::testing::ExitedWithCode( kSourceSharpFatalExitCode ),
+				 "FATAL ERROR: no engine" );
 }
 
 TEST_F( Tier0SpewPort, AFailedAllocationEndsTheProcessWithTheFatalReport )
 {
-	EXPECT_EXIT( MemAllocOOMError( 4096 ),
-	             ::testing::ExitedWithCode( kSourceSharpFatalExitCode ),
-	             "FATAL ERROR: out of memory: an allocation of 4096 bytes failed" );
+	EXPECT_EXIT( MemAllocOOMError( 4096 ), ::testing::ExitedWithCode( kSourceSharpFatalExitCode ),
+				 "FATAL ERROR: out of memory: an allocation of 4096 bytes failed" );
 }
-

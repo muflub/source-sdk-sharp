@@ -87,6 +87,24 @@ public sealed class TempEnts : ITempEnts
     }
 
     /// <inheritdoc/>
+    public void BloodStream(TeFilter filter, float delay, Vector origin, Vector direction, Color32 color, int amount)
+        => Play(new TeBloodStream { Origin = origin, Direction = direction, Color = color, Amount = amount }, filter, delay);
+
+    /// <inheritdoc/>
+    public void Smoke(TeFilter filter, float delay, Vector origin, int modelIndex, float scale, int frameRate)
+        => Play(new TeSmoke { Origin = origin, ModelIndex = modelIndex, Scale = scale, FrameRate = frameRate }, filter, delay);
+
+    private void Play(TempEntState state, TeFilter filter, float delay)
+    {
+        TempEntType? type = Resolve(state);
+
+        if (type is null)
+            return;
+
+        _engine.TempEntPlayback(type.Handle, state.ToBlob(type), filter, delay);
+    }
+
+    /// <inheritdoc/>
     public void MetalSparks(TeFilter filter, float delay, Vector position, Vector direction)
     {
         var state = new TeMetalSparks { Position = position, Direction = direction };
@@ -310,6 +328,29 @@ public sealed class TempEnts : ITempEnts
     }
 
     /// <inheritdoc/>
+    public void BubbleTrail(TeFilter filter, float delay, Vector from, Vector to, float waterZ,
+                            int modelIndex, int count, float speed)
+    {
+        var state = new TeBubbleTrail
+        {
+            Mins       = from,
+            Maxs       = to,
+            WaterZ     = waterZ,
+            ModelIndex = modelIndex,
+            // TE_BubbleTrail's MIN( count, BUBBLE_TRAIL_MAX_COUNT ).
+            Count      = Math.Min(count, 255),
+            Speed      = speed,
+        };
+
+        TempEntType? type = Resolve(state);
+
+        if (type is null)
+            return;
+
+        _engine.TempEntPlayback(type.Handle, state.ToBlob(type), filter, delay);
+    }
+
+    /// <inheritdoc/>
     public void Bubbles(TeFilter filter, float delay, Vector mins, Vector maxs, float height,
                         int modelIndex, int count, float speed)
     {
@@ -361,6 +402,75 @@ public sealed class TempEnts : ITempEnts
         // with no sender is never written. Adding it to the declaration would
         // make this build's wire differ from stock's.
         _engine.TempEntPlayback(te.Handle, state.ToBlob(te), filter, delay);
+    }
+
+    // ------------------------------------------------------------------
+    // The beams (env_beam's strikes and zaps).
+    // ------------------------------------------------------------------
+
+    /// <summary>The handle-ish index stock's beam temp entities send: the entity's low twelve bits and attachment 1.</summary>
+    private static int BeamEntity(int index) => (index & 0x0FFF) | ((1 & 0xF) << 12);
+
+    private static void Look<T>(T beam, in TeBeamLook look) where T : TeBaseBeam
+    {
+        beam.ModelIndex = look.ModelIndex;
+        beam.HaloIndex = look.HaloIndex;
+        beam.StartFrame = look.StartFrame;
+        beam.FrameRate = look.FrameRate;
+        beam.Life = look.Life;
+        beam.Width = look.Width;
+        beam.EndWidth = look.EndWidth;
+        beam.FadeLength = look.FadeLength;
+        beam.Amplitude = look.Amplitude;
+        beam.Speed = look.Speed;
+        beam.Color = new Color32(look.R, look.G, look.B, look.A);
+    }
+
+    private void Send(TempEntState state, TeFilter filter, float delay)
+    {
+        TempEntType? te = Resolve(state);
+        if (te is not null)
+            _engine.TempEntPlayback(te.Handle, state.ToBlob(te), filter, delay);
+    }
+
+    /// <inheritdoc/>
+    public void BeamPoints(TeFilter filter, float delay, Vector start, Vector end, in TeBeamLook look)
+    {
+        var state = new TeBeamPoints { StartPoint = start, EndPoint = end };
+        Look(state, look);
+        Send(state, filter, delay);
+    }
+
+    /// <inheritdoc/>
+    public void BeamEntPoint(TeFilter filter, float delay, int startEntity, Vector start, int endEntity, Vector end,
+                             in TeBeamLook look)
+    {
+        var state = new TeBeamEntPoint
+        {
+            StartEntity = startEntity > 0 ? BeamEntity(startEntity) : 0,
+            EndEntity = endEntity > 0 ? BeamEntity(endEntity) : 0,
+            StartPoint = start,
+            EndPoint = end,
+        };
+        Look(state, look);
+        Send(state, filter, delay);
+    }
+
+    /// <inheritdoc/>
+    public void BeamEnts(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look)
+    {
+        var state = new TeBeamEnts { StartEntity = BeamEntity(startEntity), EndEntity = BeamEntity(endEntity) };
+        Look(state, look);
+        Send(state, filter, delay);
+    }
+
+    /// <inheritdoc/>
+    public void BeamRing(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look, int flags = 0)
+    {
+        var state = new TeBeamRing { StartEntity = BeamEntity(startEntity), EndEntity = BeamEntity(endEntity) };
+        Look(state, look with { EndWidth = look.Width, FadeLength = 0 });
+        state.Flags = flags;
+        Send(state, filter, delay);
     }
 
     /// <inheritdoc/>

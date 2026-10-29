@@ -5,28 +5,16 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — a managed temp entity plan, stored ==================//
-//
-// plan_server_native_v2 T4b. The block one planned table crosses in
-// (sourcesharp.h, SourceSharpTeTableHeader_t), read and checked, and one row
-// stored into one SendProp. Carrying out only: every value in a row was decided
-// in C# (TePropPlanner, SendPropPlan). Split from shell_tempents.cpp so a gtest
-// (tempent_store_test.cpp) can reach it with dt_send.cpp and nothing else.
-//
-//=============================================================================//
-#ifndef SOURCESHARP_SHELL_TEMPENTS_STORE_H
-#define SOURCESHARP_SHELL_TEMPENTS_STORE_H
-#ifdef _WIN32
+// Reads the block one planned temp entity table crosses in and stores each row
+// into a SendProp. Every value is decided in C#. Separate so a test can link it
+// with dt_send.cpp alone.
 #pragma once
-#endif
 
-#include "sourcesharp.h"
 #include "tempent_table_block.h"
 #include "dt_send.h"
 
 // The block, checked (tempent_table_block.h), with the server's rows.
-inline bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockBytes,
-                                          SourceSharpTeTableBlock_t *pOut )
+inline bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockBytes, SourceSharpTeTableBlock_t *pOut )
 {
 	return SourceSharpTe_ReadTableBlock( pBlock, nBlockBytes, (int32_t)sizeof( SourceSharpSendPropRow_t ), pOut );
 }
@@ -35,14 +23,11 @@ inline bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockByte
 SourceSharpSendPropRow_t SourceSharpTe_BlockRow( const SourceSharpTeTableBlock_t &block, int i );
 
 // A proxy id as the function the engine compares with g_StandardSendProxies;
-// NULL for one this does not know (and for the datatable and array ids, which
-// are not var proxies).
+// NULL for an unknown id or the datatable and array ids.
 SendVarProxyFn SourceSharpTe_VarProxy( int32_t nProxy );
 
 // One row into one SendProp. pNested is the table a DPT_DataTable row nests
 // (the caller resolves hDataTable). False, leaving pOut untouched, for a proxy
 // id that does not fit the row's type or a datatable row with no table.
-bool SourceSharpTe_StoreProp( const SourceSharpSendPropRow_t &row, const char *pName,
-                              SendTable *pNested, SendProp *pOut );
-
-#endif // SOURCESHARP_SHELL_TEMPENTS_STORE_H
+bool SourceSharpTe_StoreProp( const SourceSharpSendPropRow_t &row, const char *pName, SendTable *pNested,
+							  SendProp *pOut );

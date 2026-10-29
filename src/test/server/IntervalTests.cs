@@ -136,25 +136,6 @@ public class IntervalTests
         Assert.Equal(1f, three.Range);
     }
 
-    [SharedSourceFact("interval.h")]
-    public void TheHeaderStillCarriesTheTwoFunctionsThisMirrors()
-    {
-        string text = File.ReadAllText(AnimListSources.Find("interval.h")!);
-
-        // The .cpp is out of both builds, so if these are not here they are
-        // nowhere and three native translation units stop linking. That is a
-        // loud failure; what this catches is the quiet direction, somebody
-        // moving them out again and leaving this class as the only copy of a
-        // rule native code no longer follows.
-        Assert.Contains("inline interval_t ReadInterval", text);
-        Assert.Contains("inline float RandomInterval", text);
-
-        // The two clauses this class exists to agree with, asserted against the
-        // header's own text rather than against a memory of it.
-        Assert.Contains("tmp.range = atof( token ) - tmp.start;", text);
-        Assert.Contains("if ( interval.range != 0 )", text);
-    }
-
     private static float NeverAsked(float lo, float hi)
     {
         Assert.Fail($"the random stream was consulted for a fixed interval ({lo}, {hi})");

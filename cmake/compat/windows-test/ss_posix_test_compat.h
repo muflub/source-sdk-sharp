@@ -3,8 +3,7 @@
 // temporary paths, on the Windows CRT, so a test about this tree's sources or
 // data runs the same on both platforms. A test whose subject is POSIX itself
 // (fork, dlopen, ELF, /proc, nm) is LINUX_ONLY instead and never sees this.
-#ifndef SS_POSIX_TEST_COMPAT_H
-#define SS_POSIX_TEST_COMPAT_H
+#pragma once
 
 #ifdef _MSC_VER
 
@@ -18,16 +17,16 @@
 #include <sys/types.h>
 
 #ifndef S_ISDIR
-	#define S_ISDIR( m ) ( ( ( m ) & _S_IFMT ) == _S_IFDIR )
+#define S_ISDIR( m ) ( ( ( m ) & _S_IFMT ) == _S_IFDIR )
 #endif
 #ifndef S_ISREG
-	#define S_ISREG( m ) ( ( ( m ) & _S_IFMT ) == _S_IFREG )
+#define S_ISREG( m ) ( ( ( m ) & _S_IFMT ) == _S_IFREG )
 #endif
 #ifndef S_IXUSR
-	#define S_IXUSR _S_IEXEC
+#define S_IXUSR _S_IEXEC
 #endif
 #ifndef PATH_MAX
-	#define PATH_MAX _MAX_PATH
+#define PATH_MAX _MAX_PATH
 #endif
 #include <stdint.h>
 typedef intptr_t ssize_t;
@@ -45,7 +44,11 @@ inline int unsetenv( const char *pszName )
 }
 
 // mkdir(path, mode): the mode has no meaning to the CRT's _mkdir.
-inline int ss_posix_mkdir( const char *pszPath, int ) { return _mkdir( pszPath ); }
+inline int ss_posix_mkdir( const char *pszPath, int )
+{
+	return _mkdir( pszPath );
+}
+
 #define mkdir( path, mode ) ss_posix_mkdir( path, mode )
 
 // mkdtemp: the template's trailing XXXXXX made unique, then the directory.
@@ -71,5 +74,3 @@ inline char *realpath( const char *pszPath, char *pszResolved )
 #define pclose _pclose
 
 #endif // _MSC_VER
-
-#endif // SS_POSIX_TEST_COMPAT_H

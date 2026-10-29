@@ -61,6 +61,16 @@ public interface IPlayerArmour
     int MaxArmour { get; }
 }
 
+/// <summary>The local player's suit power, HL2's AUX POWER.</summary>
+public interface IPlayerSuitPower
+{
+    /// <summary>0 to 100.</summary>
+    float SuitPower { get; }
+
+    /// <summary>The devices drawing on it (m_bitsActiveDevices): 1 sprint, 2 flashlight, 4 breather.</summary>
+    int SuitDevices { get; }
+}
+
 /// <summary>The weapon in the local player's hands.</summary>
 public interface IPlayerWeapon
 {
@@ -70,6 +80,120 @@ public interface IPlayerWeapon
     /// <summary>The weapon's display name (#Token or text).</summary>
     string WeaponName { get; }
 }
+
+/// <summary>
+/// The weapon selection (stock HL2's CHudWeaponSelection, hud_fastswitch 0):
+/// the buckets of the weapons carried, the one holding the selected weapon
+/// open into its positions.
+/// </summary>
+public interface IWeaponSelectionSource
+{
+    /// <summary>Whether it is drawn: open, in the bucket style, with a player to select for.</summary>
+    bool Showing { get; }
+
+    /// <summary>Its fade, 0 to 1: up as it opens, down as it times out.</summary>
+    float Opacity { get; }
+
+    /// <summary>The bucket the selected weapon is in, 0 to 5; -1 for none.</summary>
+    int OpenSlot { get; }
+
+    /// <summary>Whether a weapon is carried in the bucket.</summary>
+    bool SlotHasWeapon(int slot);
+
+    /// <summary>The furthest position carried in the bucket; -1 for none.</summary>
+    int LastPosition(int slot);
+
+    /// <summary>The weapon at a bucket's position; false for none there.</summary>
+    bool Weapon(int slot, int position, out WeaponSelectionBox box);
+}
+
+/// <summary>
+/// The plus weapon selection (stock HL2's CHudWeaponSelection, hud_fastswitch
+/// 2): the buckets as arms round the crosshair, up, right, down, left and the
+/// two lower diagonals, each place out from the centre a weapon's position.
+/// </summary>
+public interface IWeaponPlusSource
+{
+    /// <summary>Whether it is drawn: a key switched in the last few seconds, with a weapon selected.</summary>
+    bool Showing { get; }
+
+    /// <summary>Its fade, 0 to 1.</summary>
+    float Opacity { get; }
+
+    /// <summary>The selected weapon's glow, 1 as it is reached and down to 0.</summary>
+    float Glow { get; }
+
+    /// <summary>The selected arm (its bucket, 0 to 5); -1 for none.</summary>
+    int SelectedSlot { get; }
+
+    /// <summary>The selected place along the arm, from 0 by the centre.</summary>
+    int SelectedPosition { get; }
+
+    /// <summary>The furthest position carried in the bucket; -1 for none.</summary>
+    int LastPosition(int slot);
+
+    /// <summary>The weapon at an arm's place; false for none there (an empty place, still drawn).</summary>
+    bool Weapon(int slot, int position, out WeaponSelectionBox box);
+}
+
+/// <summary>
+/// The carousel weapon selection (stock HL2's CHudWeaponSelection,
+/// hud_fastswitch 3): every weapon carried, in bucket order, along the top;
+/// the selected one in the middle once the strip has slid to it.
+/// </summary>
+public interface IWeaponCarouselSource
+{
+    /// <summary>Whether it is drawn: a wheel step in the last few seconds, more than one weapon carried.</summary>
+    bool Showing { get; }
+
+    /// <summary>Its fade, 0 to 1.</summary>
+    float Opacity { get; }
+
+    /// <summary>The selected weapon's glow, 1 as the strip arrives and down to 0.</summary>
+    float Glow { get; }
+
+    /// <summary>The boxes in the strip.</summary>
+    int Count { get; }
+
+    /// <summary>The selected box.</summary>
+    int Selected { get; }
+
+    /// <summary>How far the strip has still to slide, in boxes: positive while it comes in from the right.</summary>
+    float Offset { get; }
+
+    /// <summary>The weapon in a box; false when it is no longer carried.</summary>
+    bool Weapon(int box, out WeaponSelectionBox weapon);
+}
+
+/// <summary>One weapon in the open bucket.</summary>
+/// <param name="Icon">Its icon in the UI's icon set (<c>smg1</c>, <c>357</c>).</param>
+/// <param name="Name">Its display name, localised.</param>
+/// <param name="Selectable">Whether it has anything to fire (stock's CanBeSelected): drawn red when not.</param>
+/// <param name="Selected">The weapon the selection is on.</param>
+public readonly record struct WeaponSelectionBox(string Icon, string Name, bool Selectable, bool Selected);
+
+/// <summary>
+/// The pickup history (stock CHudHistoryResource): what was just picked up, a
+/// row per pickup by slot from the bottom; a slot may be empty.
+/// </summary>
+public interface IPickupHistorySource
+{
+    /// <summary>Whether any row waits to be drawn.</summary>
+    bool Showing { get; }
+
+    /// <summary>How many slots the history holds, empty ones included.</summary>
+    int SlotCount { get; }
+
+    /// <summary>The row in a slot; false for an empty one, or one with nothing to draw.</summary>
+    bool Row(int slot, out PickupRow row);
+}
+
+/// <summary>
+/// One history row: its icon, the count an ammo pickup gave (0 for none),
+/// whether it is a refusal ("FULL"), whether it is drawn in caution (a weapon
+/// with nothing to fire, a refusal), and its fade, 0 to 1.
+/// </summary>
+public readonly record struct PickupRow(string Icon, int Count, bool Full, bool Caution, float Opacity);
 
 /// <summary>The ammunition of the weapon in hand.</summary>
 public interface IPlayerAmmo

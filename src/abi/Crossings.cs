@@ -92,9 +92,15 @@ public enum CrossingOp
     ClientGlowDrawOverlays = 37,
     ServerSkyboxAreaForClient = 38,
     ServerEarPositionForClient = 39,
-    ServerDecalIndexForName = 40,
-    ServerDecalNameForIndex = 41,
-    ServerDecalTranslateForGameMaterial = 42,
+    /// <summary>IManagedRuntimeClient::LevelInitPreEntity: the level's prediction switch, once per level (lane M1-B). CLIENT ONLY.</summary>
+    /// <remarks>Value 40 since the server's native decal queries (ServerDecalIndexForName) retired, 2026-10-27 (it was 384): the ops stay contiguous.</remarks>
+    ClientLevelInitPreEntity = 40,
+    /// <summary>IManagedRuntimeClient::PostInit: the bicubic lightmap default, once per process (lane M1-B). CLIENT ONLY.</summary>
+    /// <remarks>Value 41 since the server's native decal queries (ServerDecalNameForIndex) retired, 2026-10-27 (it was 385): the ops stay contiguous.</remarks>
+    ClientPostInit = 41,
+    /// <summary>IManagedTempEntsClient::SuppressLocalTempEnt: a temp entity the client makes for itself asks whether prediction suppresses it (lane M1-C, c_te.cpp's SuppressTE). CLIENT ONLY.</summary>
+    /// <remarks>Value 42 since the server's native decal queries (ServerDecalTranslateForGameMaterial) retired, 2026-10-27 (it was 386): the ops stay contiguous.</remarks>
+    ClientSuppressLocalTempEnt = 42,
     ServerSoundEntInit = 43,
     ServerSoundEntShutdown = 44,
     ServerSoundEntResetClientSound = 45,
@@ -111,7 +117,9 @@ public enum CrossingOp
     ServerOnClientConnect = 55,
     ServerOnClientCommand = 56,
     ClientOnUserMessage = 57,
-    ClientNativeTempEntity = 58,
+    /// <summary>IManagedStandaloneClient::SchemaAccept: a standalone entity's update asks whether its payload's schema hash is this build's (lane M1-C, generic_payload_client.cpp's SourceSharpSchema_Accept). CLIENT ONLY.</summary>
+    /// <remarks>Value 58 since the client's native temp-entity forward (ClientNativeTempEntity) retired, 2026-10-26 (it was 387): the ops stay contiguous.</remarks>
+    ClientSchemaAccept = 58,
     ClientOnTempEntity = 59,
     ClientTempEntPoolUpdate = 60,
     ClientTempEntPoolClear = 61,
@@ -320,11 +328,11 @@ public enum CrossingOp
     LoadServer = 107,
 
     /// <summary>
-    /// plan_engineapi_vtables E13: the server's native temp-entity forward,
-    /// counted by TempEntsBinding since the shared thunk became the client's
-    /// (<see cref="ClientNativeTempEntity"/>).
+    /// IManagedStandaloneClient::OnStandaloneDrawExtras: an entity's extras for one pass, after the
+    /// local viewmodel draws (stock's ViewModelDrawn) and in a two-pass entity's translucent draw. CLIENT ONLY.
     /// </summary>
-    ServerNativeTempEntity = 108,
+    /// <remarks>Value 108 since the server's native temp-entity forward (ServerNativeTempEntity) retired, 2026-10-26 (it was 388): the ops stay contiguous.</remarks>
+    ClientStandaloneDrawExtras = 108,
 
     /// <summary>
     /// plan_engineapi_vtables E16: the server's net-state layout asks, counted by
@@ -938,6 +946,14 @@ public enum CrossingOp
     ClientShadowsRenderShadowTexture = 378,
     /// <summary>IManagedShadowsClient::Pending: the shells' queue handed over before another call, or when full (C7 cluster 12 S2). CLIENT ONLY.</summary>
     ClientShadowsPending = 379,
+    /// <summary>IManagedRuntimeClient::MapMaterialSearchPath: one IFileSystem::AddSearchPath, for the spawn's material-reload window (plan_map_load P1). CLIENT ONLY.</summary>
+    ClientMapMaterialSearchPath = 380,
+    /// <summary>IManagedRuntimeClient::MapMaterialMapAccess: IFileSystem::BeginMapAccess / EndMapAccess, the window's edges (plan_map_load P1). CLIENT ONLY.</summary>
+    ClientMapMaterialMapAccess = 381,
+    /// <summary>IManagedRuntimeClient::MapMaterialReloadPlan: one IMaterialSystem::ReloadMaterials, planned (plan_map_load P1). CLIENT ONLY.</summary>
+    ClientMapMaterialReloadPlan = 382,
+    /// <summary>IManagedRuntimeClient::WorldDataChanged: worldspawn's update, once per change; what its arrival does (WorldArrival). CLIENT ONLY.</summary>
+    ClientWorldDataChanged = 383,
 }
 
 /// <summary>

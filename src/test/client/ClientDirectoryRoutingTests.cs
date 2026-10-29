@@ -157,7 +157,7 @@ public class ClientDirectoryRoutingTests
         standalones.Add(PlayerHandle(LocalPlayer), Player(engine, LocalPlayer));
         standalones.Add(new EntityHandle(0x0100_0041u), Weapon(engine, LocalPlayer));
 
-        Assert.Single(standalones.OfClass(EntityNames.SsPlayer));
+        Assert.Single(standalones.OfClass(EntityNames.Player));
         Assert.Single(standalones.OfClass(EntityNames.SsWeapon));
         Assert.Equal(0, standalones.Walks);
     }
@@ -178,7 +178,7 @@ public class ClientDirectoryRoutingTests
         ((ListOnly)listOnly).Entities.Add(Player(engine, LocalPlayer));
         ((ListOnly)listOnly).Entities.Add(Weapon(engine, LocalPlayer));
 
-        Assert.Single(listOnly.OfClass(EntityNames.SsPlayer));
+        Assert.Single(listOnly.OfClass(EntityNames.Player));
         Assert.Empty(listOnly.OfClass(null));
         Assert.Empty(listOnly.OfClass(string.Empty));
     }
@@ -194,7 +194,7 @@ public class ClientDirectoryRoutingTests
         // A targetname is held by the directory alone, so a list-shaped view
         // has nothing to walk. Empty is the honest answer; a walk that matched
         // on classname instead would answer a different question.
-        Assert.Empty(listOnly.OfName(EntityNames.SsPlayer));
+        Assert.Empty(listOnly.OfName(EntityNames.Player));
         Assert.Empty(listOnly.OfName("anything"));
     }
 

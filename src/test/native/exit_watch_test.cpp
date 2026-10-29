@@ -27,14 +27,15 @@ namespace
 struct ExitWatchTest : ::testing::Test
 {
 	void SetUp() override { ExitWatch_ResetForTest(); }
+
 	void TearDown() override { ExitWatch_ResetForTest(); }
 };
 
 int32_t Fact( int nFact )
 {
-	int32_t facts[ kExitFactCount ] = {};
+	int32_t facts[kExitFactCount] = {};
 	EXPECT_EQ( kExitFactCount, ExitWatch_Read( facts, kExitFactCount ) );
-	return facts[ nFact ];
+	return facts[nFact];
 }
 
 // SDL2's event layout as far as the watch reads it: type, then (for a window
@@ -45,14 +46,22 @@ struct FakeSdlEvent_t
 	uint32_t nTimestamp;
 	uint32_t nWindowId;
 	uint8_t nSubEvent;
-	uint8_t pad[ 43 ];
+	uint8_t pad[43];
 };
 
 volatile sig_atomic_t g_nPlainCalls = 0;
-void PlainHandler( int ) { g_nPlainCalls = g_nPlainCalls + 1; }
+
+void PlainHandler( int )
+{
+	g_nPlainCalls = g_nPlainCalls + 1;
+}
 
 volatile sig_atomic_t g_nInfoPid = 0;
-void InfoHandler( int, siginfo_t *pInfo, void * ) { g_nInfoPid = pInfo ? pInfo->si_pid : -1; }
+
+void InfoHandler( int, siginfo_t *pInfo, void * )
+{
+	g_nInfoPid = pInfo ? pInfo->si_pid : -1;
+}
 
 void Install( int nSigno, void ( *pPlain )( int ) )
 {
@@ -155,7 +164,7 @@ TEST_F( ExitWatchTest, AnIgnoredSignalIsStillIgnoredAndStillRecorded )
 {
 	Install( SIGINT, SIG_IGN );
 	ExitWatch_Arm( NULL );
-	raise( SIGINT );   // the test is that this process is still here
+	raise( SIGINT ); // the test is that this process is still here
 	EXPECT_EQ( 1, Fact( kExitFactSignalCount ) );
 	EXPECT_EQ( 1, Fact( kExitFactPrevInt ) );
 }
@@ -169,7 +178,7 @@ TEST_F( ExitWatchTest, ADefaultDispositionStillEndsTheProcessBySignal )
 		Install( SIGTERM, SIG_DFL );
 		ExitWatch_Arm( NULL );
 		raise( SIGTERM );
-		_exit( 0 );   // reached only if the default action was lost
+		_exit( 0 ); // reached only if the default action was lost
 	}
 
 	int status = 0;
@@ -252,9 +261,9 @@ TEST_F( ExitWatchTest, DisarmRestoresTheHandlerThatWasThere )
 	const int32_t nRemoved = ExitWatch_Disarm();
 	EXPECT_TRUE( nRemoved & kExitWatchSignals );
 
-	raise( SIGHUP );   // the handler that predates the arm is back on top
+	raise( SIGHUP ); // the handler that predates the arm is back on top
 	EXPECT_EQ( 1, g_nPlainCalls );
-	EXPECT_EQ( 0, Fact( kExitFactSignalCount ) );   // our recorder is off
+	EXPECT_EQ( 0, Fact( kExitFactSignalCount ) ); // our recorder is off
 }
 
 TEST_F( ExitWatchTest, DisarmKeepsTheFactsAlreadyRecorded )

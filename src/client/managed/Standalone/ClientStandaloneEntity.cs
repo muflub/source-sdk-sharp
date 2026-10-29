@@ -247,6 +247,28 @@ public abstract class ClientStandaloneEntity
     public virtual int OnDrawBatched() => -1;
 
     /// <summary>
+    /// What this entity draws beside its model in one pass, with the pass's
+    /// <c>STUDIO_*</c> flags (<see cref="Render.ViewDrawProgram.StudioRender"/> and its neighbours).
+    ///
+    /// <para>
+    /// Asked at two places, both stock's. After the LOCAL VIEWMODEL's model,
+    /// in the viewmodel pass: <c>C_BaseViewModel::DrawModel</c>'s call to the
+    /// weapon's <c>ViewModelDrawn</c>, where the RPG's glow and the
+    /// physcannon's and stunstick's sprites are drawn. And in the TRANSLUCENT
+    /// pass of an entity in the two-pass group, before its model: the
+    /// stunstick's and physcannon's <c>DrawModel</c> arm for
+    /// <c>STUDIO_TRANSPARENCY</c>, which draws the effects and answers 1
+    /// without drawing the model again.
+    /// </para>
+    /// </summary>
+    /// <returns>
+    /// What DrawModel answers in place of the model's own draw in this pass,
+    /// or -1 to let the model draw (the default). Ignored after the viewmodel,
+    /// whose model has already drawn.
+    /// </returns>
+    public virtual int OnDrawExtras(int flags) => -1;
+
+    /// <summary>
     /// The class's own replicated state, freshly unpacked.
     ///
     /// <para>

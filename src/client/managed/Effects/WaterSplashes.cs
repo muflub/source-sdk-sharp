@@ -224,8 +224,7 @@ public sealed class SplashEnvironment(IEngineConsole console, IClientWorldLight 
 
     public void SplashSound(Vector origin)
     {
-        if (sounds.Parameters("Physics.WaterSplash", out GameSoundParams p))
-            sounds.EmitAtPosition(p, p.Volume, p.Pitch, origin);
+        sounds.EmitScript("Physics.WaterSplash", origin);
     }
 }
 

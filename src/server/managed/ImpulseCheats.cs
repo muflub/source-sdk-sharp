@@ -27,7 +27,7 @@ public interface IWeaponGiver
 
 /// <summary>
 /// The impulse cheats — stock's <c>CBasePlayer::CheatImpulseCommands</c>, which
-/// left the build with player.cpp at the -ss_player flip and lives here now.
+/// left the build with player.cpp at the -player flip and lives here now.
 ///
 /// <para>
 /// The impulse rides the user command (<see cref="UserCmd.Impulse"/>), exactly
@@ -221,7 +221,7 @@ public sealed class ImpulseCheats
 
         string className = _entities.GetClassName(hit);
 
-        if (className == "worldspawn" || className == EntityNames.SsPlayer)
+        if (className == "worldspawn" || className == EntityNames.Player)
             return;
 
         _log.Msg($"[SourceSharp/Impulse] 203: removing {className}\n");

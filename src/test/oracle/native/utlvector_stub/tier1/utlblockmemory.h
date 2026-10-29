@@ -8,9 +8,8 @@
 //
 //=============================================================================//
 
-#ifndef UTLBLOCKMEMORY_H
+#pragma once
 #define UTLBLOCKMEMORY_H
 
-template < class T, class I > class CUtlBlockMemory;
-
-#endif // UTLBLOCKMEMORY_H
+template <class T, class I>
+class CUtlBlockMemory;

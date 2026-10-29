@@ -41,6 +41,7 @@ public class PhysicsWorldBuilderTests
         public VCollideView Collide(int modelIndex) => Collides.TryGetValue(modelIndex, out VCollideView v) ? v : default;
 
         public nint CollideSolid(in VCollideView collide, int index) => Solids.TryGetValue(index, out nint c) ? c : 0;
+        public Vector CollideMassCenter(nint solid) => throw new NotSupportedException();
 
         public int SurfaceIndex(string name) => name == "default" ? 7 : name.Length;
 

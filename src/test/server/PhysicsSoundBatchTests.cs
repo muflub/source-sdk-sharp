@@ -265,6 +265,7 @@ public class VPhysicsSurfaceDataLayoutTests
     [InlineData(nameof(VPhysicsSurfaceData.RoughThreshold), 32)]
     [InlineData(nameof(VPhysicsSurfaceData.ScrapeSmooth), 52)]
     [InlineData(nameof(VPhysicsSurfaceData.ScrapeRough), 54)]
+    [InlineData(nameof(VPhysicsSurfaceData.BulletImpact), 56)]
     [InlineData(nameof(VPhysicsSurfaceData.BreakSound), 60)]
     [InlineData(nameof(VPhysicsSurfaceData.MaxSpeedFactor), 64)]
     [InlineData(nameof(VPhysicsSurfaceData.JumpFactor), 68)]

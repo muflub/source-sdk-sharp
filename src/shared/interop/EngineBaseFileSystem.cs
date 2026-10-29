@@ -73,7 +73,7 @@ public interface IFwdBaseFileSystem
     /// <c>FileHandle_t</c> for managed code to own across a GC.
     /// </para>
     /// </summary>
-    bool FileExists(string fileName, string pathId);
+    bool FileExists(string fileName, string? pathId);
 
     /// <summary>
     /// <c>Open( name, options, pathId )</c>: a <c>FileHandle_t</c>, or 0
@@ -144,10 +144,13 @@ public sealed unsafe class EngineBaseFileSystem : IFwdBaseFileSystem
             : null;
 
     /// <inheritdoc/>
-    public bool FileExists(string fileName, string pathId)
+    public bool FileExists(string fileName, string? pathId)
     {
         byte[] name = Vtable.Utf8(fileName);
-        byte[] path = Vtable.Utf8(pathId);
+
+        // A null path id is every search path (stock's default argument): the
+        // engine is handed NULL, not an empty name.
+        byte[]? path = pathId is null ? null : Vtable.Utf8(pathId);
 
         fixed (byte* n = name)
         fixed (byte* p = path)

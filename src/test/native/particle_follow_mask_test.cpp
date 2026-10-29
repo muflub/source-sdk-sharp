@@ -30,18 +30,15 @@ namespace
 TEST( ParticleFollowMask, PointZeroIsAlwaysFollowed )
 {
 	// The flame's own request, which already has it.
-	EXPECT_TRUE( SourceSharpParticleFollow_Wants(
-		SourceSharpParticleFollow_Normalise( 0x3 ), 0 ) );
+	EXPECT_TRUE( SourceSharpParticleFollow_Wants( SourceSharpParticleFollow_Normalise( 0x3 ), 0 ) );
 
 	// A request that left it out. Point 0 is where the effect was created, so a
 	// system that stopped following it would emit at the place the flame was
 	// lit for ever.
-	EXPECT_TRUE( SourceSharpParticleFollow_Wants(
-		SourceSharpParticleFollow_Normalise( 0x2 ), 0 ) );
+	EXPECT_TRUE( SourceSharpParticleFollow_Wants( SourceSharpParticleFollow_Normalise( 0x2 ), 0 ) );
 
 	// And the degenerate request.
-	EXPECT_TRUE( SourceSharpParticleFollow_Wants(
-		SourceSharpParticleFollow_Normalise( 0 ), 0 ) );
+	EXPECT_TRUE( SourceSharpParticleFollow_Wants( SourceSharpParticleFollow_Normalise( 0 ), 0 ) );
 }
 
 TEST( ParticleFollowMask, NothingElseIsAddedForFree )
@@ -121,7 +118,7 @@ TEST( ParticleFollowMask, TheDefaultIsBitZero )
 {
 	// Written down rather than inferred: this constant is what
 	// SourceSharp_ParticleSystemStart stores for a system nobody configures,
-	// and every ss_firesmoke and ss_plasma in the game relies on it being
+	// and every _firesmoke and _plasma in the game relies on it being
 	// exactly point 0.
 	EXPECT_EQ( 1, (int)kSourceSharpParticleFollowDefault );
 	EXPECT_EQ( 31, (int)kSourceSharpParticleMaxFollowPoint );

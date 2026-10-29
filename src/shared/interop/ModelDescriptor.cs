@@ -27,9 +27,15 @@ public readonly record struct ModelSequenceEvent(
 /// descriptor rather than behind a per-call crossing. Computed from the side's
 /// managed studio header (<c>StudioSequenceTiming</c>).</param>
 /// <param name="Events">What it fires, in model order.</param>
+/// <param name="ActivityWeight">Its <c>actweight</c>: its share of the
+/// activity's weighted pick, and when negative, a sequence a pick keeps.</param>
+/// <param name="EntryNode">The graph node it starts on, from 1; 0 for none.</param>
+/// <param name="ExitNode">The graph node it ends on, from 1; 0 for none.</param>
+/// <param name="NodeFlags">Non-zero when it may be played backwards between its nodes.</param>
 public sealed record ModelSequence(
     int Index, string Label, string ActivityName, int Flags, float DefaultDuration,
-    IReadOnlyList<ModelSequenceEvent> Events);
+    IReadOnlyList<ModelSequenceEvent> Events, int ActivityWeight = 0, int EntryNode = 0, int ExitNode = 0,
+    int NodeFlags = 0);
 
 /// <summary>
 /// EVERYTHING MANAGED CODE ASKS A MODEL, read once and kept for the level.
@@ -61,7 +67,7 @@ public sealed record ModelSequence(
 /// run, which is the only shape that is the same on both sides by construction.
 /// </para>
 /// </summary>
-public sealed class ModelDescriptor
+public sealed class ModelDescriptor : ISequenceNodes
 {
     /// <summary>
     /// What a model index that names nothing answers — no bones, no
@@ -74,8 +80,12 @@ public sealed class ModelDescriptor
     private ModelDescriptor(int boneCount,
                             IReadOnlyList<string> attachments,
                             IReadOnlyList<Vector> attachmentOrigins,
-                            IReadOnlyList<ModelSequence> sequences)
+                            IReadOnlyList<ModelSequence> sequences,
+                            int nodeCount = 0, byte[]? transitions = null, bool folded = false)
     {
+        _nodeCount = nodeCount;
+        _transitions = transitions ?? Array.Empty<byte>();
+        _folded = folded;
         BoneCount = boneCount;
         Attachments = attachments;
         AttachmentOrigins = attachmentOrigins;
@@ -92,7 +102,8 @@ public sealed class ModelDescriptor
     public static ModelDescriptor Create(int boneCount,
                                          IReadOnlyList<string> attachments,
                                          IReadOnlyList<Vector> attachmentOrigins,
-                                         IReadOnlyList<ModelSequence> sequences)
+                                         IReadOnlyList<ModelSequence> sequences,
+                                         int nodeCount = 0, byte[]? transitions = null, bool folded = false)
     {
         ArgumentNullException.ThrowIfNull(attachments);
         ArgumentNullException.ThrowIfNull(attachmentOrigins);
@@ -108,7 +119,41 @@ public sealed class ModelDescriptor
                 throw new ArgumentException($"sequence {i} carries index {sequences[i].Index}", nameof(sequences));
         }
 
-        return new ModelDescriptor(boneCount, attachments, attachmentOrigins, sequences);
+        if (transitions is not null && transitions.Length != nodeCount * nodeCount)
+            throw new ArgumentException($"{transitions.Length} transition(s) for {nodeCount} node(s)", nameof(transitions));
+
+        return new ModelDescriptor(boneCount, attachments, attachmentOrigins, sequences, nodeCount, transitions, folded);
+    }
+
+    private readonly int _nodeCount;
+    private readonly byte[] _transitions;
+    private readonly bool _folded;
+
+    /// <inheritdoc/>
+    public int NumSequences => Sequences.Count;
+
+    /// <inheritdoc/>
+    public int EntryNode(int sequence) => Sequences[sequence].EntryNode;
+
+    /// <inheritdoc/>
+    public int ExitNode(int sequence) => Sequences[sequence].ExitNode;
+
+    /// <inheritdoc/>
+    public int NodeFlags(int sequence) => Sequences[sequence].NodeFlags;
+
+    /// <summary>
+    /// <inheritdoc/> The studio header's table, nodes from 1; a folded model
+    /// answers the goal node itself, as its header does.
+    /// </summary>
+    public int GetTransition(int from, int to)
+    {
+        if (_folded)
+            return to;
+
+        if (from < 1 || to < 1 || from > _nodeCount || to > _nodeCount)
+            return 0;
+
+        return _transitions[(from - 1) * _nodeCount + (to - 1)];
     }
 
     /// <summary>How many bones the model has.</summary>

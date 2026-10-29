@@ -48,7 +48,7 @@ namespace SourceSharp.Client.TempEnts;
 /// decide whether to make it: <c>UTIL_IsLowViolence()</c>'s deciding term is
 /// <c>engine-&gt;IsLowViolence()</c>, which managed code cannot reach at all,
 /// and the name lookup runs the wrong way round from the one slot that existed.
-/// <see cref="IEngineEffects.ClientIsLowViolence"/> and
+/// <see cref="Effects.IClientLowViolence"/> and
 /// <see cref="IEngineEffects.ClientDecalNameFromIndex"/> are lane CX's answer to
 /// both.
 /// </para>
@@ -97,20 +97,29 @@ namespace SourceSharp.Client.TempEnts;
 public sealed class ClientTeWorldDecal : ClientTempEnt<TeWorldDecal>
 {
     private readonly IEngineEffects _effects;
+    private readonly IDecalSettings _settings;
+    private readonly Effects.IClientLowViolence _lowViolence;
 
-    public ClientTeWorldDecal(IEngineEffects effects)
+    public ClientTeWorldDecal(IEngineEffects effects, IDecalSettings settings, Effects.IClientLowViolence lowViolence)
     {
         _effects = effects;
+        _settings = settings;
+        _lowViolence = lowViolence;
     }
 
     public override void Play(TeWorldDecal te)
     {
         // UNSIGNED on the wire (SPROP_UNSIGNED), nine bits.
 
+        // c_te_worlddecal.cpp's `if ( r_decals.GetInt() )`, before anything
+        // else is asked.
+        if (!_settings.Decals)
+            return;
+
         // THE ORDER IS STOCK'S AND MATTERS. The name is looked up only when
         // violence is turned down, so an ordinary client never asks the decal
         // script anything -- this fires for every bullet hole on brushwork.
-        bool noBlood = _effects.ClientIsLowViolence();
+        bool noBlood = _lowViolence.IsLowViolence;
         bool isBlood = false;
 
         if (noBlood)

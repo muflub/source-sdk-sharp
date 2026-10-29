@@ -25,7 +25,7 @@ namespace SourceSharp.Server;
 /// magnet that forgets what it is holding cannot let go.
 /// </summary>
 [ScriptedEntity(EntityNames.PhysMagnet, ScriptedEntityKind.Prop)]
-public sealed class PhysMagnet : ScriptedEntity, ISaveCustom
+public sealed class PhysMagnet : AnimatingEntity, ISaveCustom
 {
     public PhysMagnet(IGameClock clock, IEngineNetworking net, IEngineEntityPhysics physics, IEngineWorldQuery world,
                       IEngineConstraints constraints)
@@ -83,8 +83,8 @@ public sealed class PhysMagnet : ScriptedEntity, ISaveCustom
     /// <summary>Source's kilograms-per-pound, so a mapper's number means what Hammer says.</summary>
     private const float KilogramsPerPound = 1f / 2.2f;
 
-    public readonly Output OnAttach = new("OnAttach");
-    public readonly Output OnDetach = new("OnDetach");
+    public readonly Output OnAttach = new();
+    public readonly Output OnDetach = new();
 
     /// <summary>
     /// What it is holding. A plain list of tuples crosses no save tier, so

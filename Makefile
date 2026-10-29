@@ -4,10 +4,9 @@
 # work: managed C#, then native C++ with CMake + Ninja (host clang 22 + lld).
 # `make ci-build` runs the same CMake inside the steamrt sniper container.
 #
-#   make setup ROOT=../source-sdk-2013
-#                      build the farms (farm/<config>) and the game directories
-#                      (bin/<config>) against a source-sdk-2013 checkout; ROOT
-#                      is remembered, so later runs need only `make setup`
+#   make setup         build the farms (farm/<config>) and the game directories
+#                      (bin/<config>) from the pristine Valve SDK clone, which
+#                      it clones at valve-sdk.lock when it is missing
 #   make               what the targets are
 #   make debug         build everything with symbols kept in the binaries
 #   make debug GC_SECTIONS=0   ...keeping code nothing refers to
@@ -85,15 +84,11 @@ WEBUI     := src/webui
 # physpropclientside.cpp took one of them off the client, while
 # game/shared/props_shared.cpp -- which both DLLs compile -- went on naming
 # them. The normal build hid it because --gc-sections drops the callers first.
-# Supplied by sourcesharp/game/shared/shell_props_absent.cpp, one file on both
-# link lines; pinned by sourcesharp/test/gc_sections_link_test.cpp.
 #
-# The general shape: evicting a .cpp whose symbols a RETAINED file still names
-# is invisible to `make`, to `make test`, and to src/evict_probe -- which
-# relinks with the same flags the normal build uses, so it cannot see this class
-# at all. Run `make debug GC_SECTIONS=0` after an eviction.
+# The general shape: removing a .cpp whose symbols a RETAINED file still names
+# is invisible to a normal link. Run `make debug GC_SECTIONS=0` after one.
 # tools/nogc-relink asks the same question of the normal build in a quarter of
-# a second (both .so relinked without the collector); orphan_reach_test runs it.
+# a second (both .so relinked without the collector); the checks leg runs it.
 GC_SECTIONS ?= 1
 # NATIVE_TESTS=0 builds the game libraries without the native tests
 # (buildsourcesharp --no-tests: SS_BUILD_TESTS=OFF). CI's release build uses
@@ -246,14 +241,13 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test tf2-test
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack sdk-upstream dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate cmdgate \
-        entity-census entity-gates entity-ratchet \
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack windows-cross dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
         globals-census globals-ledger globals-client-census globals-client-ledger sdk-census
 
 help:
 	@echo "SourceSharp"
 	@echo
-	@echo "  make setup ROOT=../source-sdk-2013   build the farms and bin/ (ROOT is remembered)"
+	@echo "  make setup [VALVE_SDK=..]           build the farms and bin/ from the pristine Valve clone"
 	@echo "  make host-pack [HOST_ROOT=..]       build the host's SDK packages the TF2Descent mod restores from"
 	@echo "  make dedicated [DEDICATED_MOD=tf2_descent] [HOSTED=1]   a dedicated server (unhosted unless HOSTED=1)"
 	@echo "  make join ADDR=host:port [JOIN_MOD=tf2_descent]         a client joining a server"
@@ -272,16 +266,12 @@ help:
 	@echo "  make test-full  every test leg: routine + self-tests, oracles, census (before a merge)"
 	@echo "  make check      build debug and run every test leg (make test-full)"
 	@echo "  make check-public  build debug and run the public tier: what the public inputs can be held to (CI)"
-	@echo "  make entity-census  plan_entity.md's §1 table, diffed against its baseline"
-	@echo "  make entity-gates   plan_entity.md's three definition-of-done gates"
-	@echo "  make entity-ratchet the 'entity' test leg: census + gates ratchet + budget"
-	@echo "  make ui-preview [PNG=1] [WATCH=1]   UI mock-ups to bin/<config>/ui-preview (WATCH serves #mockups)"
+	@echo "  make ui-preview [PNG=1] [WATCH=1] [MOD=id]   UI mock-ups to bin/<config>/ui-preview (WATCH serves #mockups; MOD draws as that mod: its theme, fonts and HUD art)"
 	@echo "  make ui-icons                       rasterise src/client/ui/icons into its atlas (commit the result)"
 	@echo "  make ui-lint    the UI design lint over every screen sample"
 	@echo "  make live-gate  build debug, then load a map TWICE and gate both"
 	@echo "  make movemath-gate  E1's movement port, A/B'd inside one process:"
 	@echo "                  stock C++ arm then managed arm, same map, same connect"
-	@echo "  make cmdgate    step 3d's claim: N commands, one crossing, measured"
 	@echo "                  live at two very different N"
 	@echo "  make clean      remove build output (CONFIG=debug|release for one)"
 	@echo
@@ -296,11 +286,11 @@ help:
 	@echo
 	@echo "  tools/debug-api list                  instances currently up"
 
-# ROOT is optional after the first time: tools/setup remembers it in
-# sdk-root.lock.local. SETUP_ARGS passes anything else through
-# (--accept-root, --repin-root, --config debug, --no-provision). VALVE_SDK is where the
-# pristine upstream clone the oracle tests read lives (default
-# ../source-sdk-2013-valve; remembered in valve-sdk.lock.local).
+# VALVE_SDK is where the pristine upstream clone at valve-sdk.lock lives
+# (default ../source-sdk-2013-valve; remembered in valve-sdk.lock.local): the
+# farm links its Valve files from it and the oracle tests read it. SETUP_ARGS
+# passes anything else through (--config debug, --no-provision). ROOT is
+# ignored: it named the fork, which nothing builds from any more.
 SETUP_ARGS ?=
 # The host's packages (SourceSharp.Host.Sdk, SourceSharp.Host.Contracts) that
 # the TF2Descent projects restore from $(HOST_ROOT)/bin/nupkg (src/tf2_descent/
@@ -316,19 +306,10 @@ host-pack:
 # so a tree without them cannot build at all: setup makes them when they are
 # missing, and fails (naming HOST_ROOT) when there is no host checkout.
 setup:
-	@tools/setup $(if $(ROOT),--root $(ROOT)) $(if $(VALVE_SDK),--valve-sdk $(VALVE_SDK)) $(SETUP_ARGS)
+	@$(if $(ROOT),echo "setup: ROOT=$(ROOT) is ignored; the farm builds from the pristine Valve clone";)
+	@tools/setup $(if $(VALVE_SDK),--valve-sdk $(VALVE_SDK)) $(SETUP_ARGS)
 	@if ! ls $(HOST_PACKAGES) >/dev/null 2>&1; then \
 	    echo "setup: the host packages are missing; building them (make host-pack)"; $(MAKE) --no-print-directory host-pack; fi
-
-# ROOT from stock upstream instead of the fork: clone Valve's
-# source-sdk-2013 into SDK_DIR (or reuse a clean clone of it there), check out
-# the commit patches/source-sdk-2013/UPSTREAM pins, apply our series with a
-# deterministic `git am` (the same sha on every machine), then set up against
-# it. tools/setup accepts that sha with no flag and leaves sdk-root.lock alone.
-SDK_DIR ?= ../source-sdk-2013-upstream
-sdk-upstream:
-	@tools/sdk-upstream --sdk-dir $(SDK_DIR)
-	@$(MAKE) --no-print-directory setup ROOT=$(SDK_DIR)
 
 # The oracle tests (src/test/oracle) find the pristine clone here; a missing
 # clone fails them. `make setup` provisions it and records its path.
@@ -343,6 +324,11 @@ debug:
 release:
 	$(call require-setup,release)
 	@farm/release/src/buildsourcesharp release $(BUILD_FLAGS)
+
+# A basic Windows check from Linux (tools/windows-cross): clang-cl over xwin's
+# MSVC CRT and SDK builds the modules, wine loads each DLL.
+windows-cross:
+	@tools/windows-cross $(CONFIG)
 
 # CI's build, reproduced: the same CMake project inside Valve's sniper SDK
 # image (glibc 2.31), with the image's gcc, into bin/ci-<config>/linux64, then
@@ -729,9 +715,7 @@ map: $(if $(filter $(MAP),$(GENERATED_MAPS)),sandbox)
 # The native leg is the ctest suite src/test/native/CMakeLists.txt defines,
 # built by the <config> preset on the host and run by the farm's
 # src/buildcpptests (tools/build/buildcpptests) in the tree its tests were
-# written against: cwd farm/<config>/src, binaries in bin/<config>/cpptest. The
-# entity leg reads that farm's ninja graph and bin/<config>'s .so files, and
-# SOURCESHARP_CONFIG is how it is told which.
+# written against: cwd farm/<config>/src, binaries in bin/<config>/cpptest.
 MANAGED_TEST  = $(DOTNET) test $(TESTS) --nologo
 # The suite is split by side (plan_side_isolation P6): each side's facts in a
 # project that references that side alone, and the cross-side facts (and the
@@ -774,7 +758,6 @@ ORACLE_TEST   = $(ORACLE_MANAGED_TEST) && $(ORACLE_NATIVE_TEST)
 # serial `&&` chain in the runner leg, 33 s at 79d3b8af; at once they take as
 # long as the slowest.
 CHECKS_TEST   = export SOURCESHARP_CONFIG=$(CONFIG) && tools/run-checks
-ENTITY_TEST   = export SOURCESHARP_CONFIG=$(CONFIG) && tools/entity-ratchet --self-test && tools/entity-ratchet && tools/server-novalve-census --self-test && tools/server-novalve-census && tools/client-novalve-census --self-test && tools/client-novalve-census
 UI_TEST      := echo "==> type-checking and testing the web UI" && \
                 mkdir -p tools/.npm-tmp && \
                 cd $(WEBUI) && \
@@ -864,7 +847,7 @@ UI_TEST      := echo "==> type-checking and testing the web UI" && \
 # THE LEGS RUN IN PARALLEL (tools/run-test-legs; 82 s one after another on
 # 2026-09-29). name@group puts legs that must not overlap in one group, run in
 # order: the two `dotnet test` legs share MSBuild (concurrent runs have hung
-# here), and the native and entity legs share one ninja build directory, which
+# here), and the native and census legs share one ninja build directory, which
 # two ninja runs at once would corrupt. oracle-native has its own
 # (farm/<config>/build-oracle, the oracle-<config> preset), so it runs alone.
 # THE TWO TIERS. `make test` is the routine tier, run per commit: every leg
@@ -876,8 +859,8 @@ UI_TEST      := echo "==> type-checking and testing the web UI" && \
 # (they compile upstream Valve code) and the census tier, the six native
 # tests that drive the census tools over the whole build (2-15 s each, about
 # 70% of the native leg's CPU; ss_census() in src/test/native/CMakeLists.txt).
-# Legs in one group run in this order, so census follows native and entity
-# in the ninja group.
+# Legs in one group run in this order, so census follows native in the ninja
+# group.
 # The managed legs read no native build output, only the CMake graph a
 # configure writes, so CI runs them on their own (`make managed-legs`) before
 # it compiles anything native, and then `make check CHECK_MANAGED=0`.
@@ -896,7 +879,6 @@ TEST_LEGS = \
     'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
     $(if $(filter 0,$(CHECK_MANAGED)),,$(MANAGED_TEST_LEGS)) \
     $(if $(NATIVE_TIER),$(call TIER_LEG,native-$(NATIVE_TIER)),'native@ninja:tools/leg-floor native && $(CPP_TEST)') \
-    'entity@ninja:tools/leg-floor entity && $(ENTITY_TEST)' \
     'ui:tools/leg-floor ui && $(UI_TEST)'
 TEST_FULL_LEGS = \
     'runner:tools/leg-floor runner && tools/run-test-legs --self-test && tools/leg-floor --self-test' \
@@ -933,7 +915,6 @@ TIER_LEG = '$(if $(filter native-%,$(1)),$(1)@ninja,$(1)):tools/leg-floor $(1) &
 TEST_FAST_LEGS = \
     'checks:tools/leg-floor checks && $(CHECKS_TEST) routine' \
     $(foreach l,$(shell tools/test-tiers legs fast),$(call TIER_LEG,$(l))) \
-    'entity@ninja:tools/leg-floor entity && $(ENTITY_TEST)' \
     'ui:tools/leg-floor ui && $(UI_TEST)'
 TEST_SLOW_LEGS = $(foreach l,$(shell tools/test-tiers legs slow),$(call TIER_LEG,$(l)))
 
@@ -970,7 +951,7 @@ test-full: ui
 
 # THE PUBLIC TIER: the legs whose result depends on this tree alone, which is
 # what a machine with only the public inputs (CI, a fresh contributor: `make
-# sdk-upstream`, no Steam, no fork) can be held to. The other legs were run
+# setup`, no Steam) can be held to. The other legs were run
 # that way at 0805b2f (make check without the host SDK package, clang 22.1.8, glibc 2.39, an
 # Intel Xeon with AVX-512, 2026-10-12) and each fails for a reason that is
 # not this tree's code:
@@ -978,13 +959,10 @@ test-full: ui
 #     oracle-native (beamsegdraw): bit-for-bit goldens recorded on one
 #     machine; this one's stock C++ and .NET arithmetic differ in the last
 #     bit (7.5 vs 7.499999, -3.76478958 vs -3.76478934).
-#   - native (8 binaries of 314), census, entity, oracle-managed: facts that
-#     read the fork's edits to Valve files, which the patch series carries
-#     without comments (the markers they look for), or line counts of them.
 #   - managed-server (TF2DescentTownTests), oracle-native (engine_heap): a
 #     Team Fortress 2 or Source SDK Base install, which a runner has not.
 # `make check-public` is `make check` over this tier. It is a FLOOR, not the
-# gate: `make check` on a machine with the fork and Steam stays the gate, and
+# gate: `make check` on a machine with Steam stays the gate, and
 # a leg joins this tier when it passes on the public inputs, never by being
 # made unable to fail. managed, tf2_descent and oracle-managed joined it
 # 2026-10-12: CI's ubuntu-24.04 runner passed all three on the public inputs
@@ -1048,46 +1026,6 @@ tf2-test:
 oracle-test:
 	@$(ORACLE_TEST)
 
-# plan_entity.md's instruments, against the DEPLOYED binaries.
-#
-#   make entity-census   the §1 table, cast census and cross-edges, diffed
-#                        against docs/entity-census.txt; non-zero on drift
-#   make entity-gates    the three definition-of-done gates; non-zero until
-#                        the port is finished, which is the point of them
-#   make entity-ratchet  the `entity` leg of `make test`, on its own
-#
-# THE `entity` LEG (step 8c) IS WIRED TO tools/entity-ratchet AND NOT TO
-# tools/entity-gates, and the difference is the whole design. entity-gates
-# answers "is the port finished?", so it exits non-zero today by design and a
-# leg on its exit code would be red until the last phase lands -- a leg nobody
-# can keep green is a leg everybody learns to re-run. entity-ratchet compares
-# every one of its rows against docs/entity-ratchet.tsv instead: red when a
-# number goes UP, green when it goes down. Read that tool's header.
-#
-# The leg reads bin/<config>/bin/linux64 and farm/<config>/build, both
-# of which are BUILD OUTPUT, so it needs `make debug` to have run in this
-# checkout. (The `native` leg builds what it needs itself.) On a tree with no build it FAILS naming the
-# command, and never reports a clean tree it could not measure.
-#
-# The hermetic halves of the two instruments -- entity_census_test and
-# entity_gates_test, which drive both tools over built fixtures -- stay in the
-# native leg. Those are the halves that decide whether a red here means
-# anything; this leg is what makes a red arrive at all.
-#
-# census and gates read the tree the way the build sees it -- build/
-# and game/mod_sharp/bin/linux64, relative to where they run -- so they run in
-# the farm, where those paths exist.
-entity-census:
-	@cd $(FARM) && tools/entity-census $(CENSUS_ARGS)
-
-CENSUS_ARGS ?=
-GATES_ARGS ?=
-entity-gates:
-	@cd $(FARM) && tools/entity-gates $(GATES_ARGS)
-
-entity-ratchet:
-	@$(ENTITY_TEST)
-
 #-----------------------------------------------------------------------------
 # plan_globals.md step G0: static-storage state on the server link line.
 #
@@ -1136,7 +1074,7 @@ globals-client-ledger:
 # with the dev web UI's Mockups tab at http://127.0.0.1:7191/#mockups.
 # Managed only: no native build, no game.
 ui-preview:
-	@tools/ui-preview --config $(CONFIG) $(if $(filter 1,$(PNG)),--png) $(if $(filter 1,$(WATCH)),--watch)
+	@tools/ui-preview --config $(CONFIG) $(if $(filter 1,$(PNG)),--png) $(if $(filter 1,$(WATCH)),--watch) $(if $(filter command line,$(origin MOD)),--mod $(MOD))
 
 # The icon set's atlas (src/client/ui/icons/atlas), rasterised from its SVGs.
 ui-icons:
@@ -1283,21 +1221,6 @@ client-only-gate: $(CONFIG)
 MOVEMATH_ARGS ?=
 movemath-gate: $(CONFIG)
 	@SOURCESHARP_CONFIG=$(CONFIG) tools/movemath-gate $(MOVEMATH_ARGS)
-
-# plan_entity.md step 3d's own gate: the usercmd path costs ONE crossing per
-# ProcessUsercmds whatever N is, where it used to cost three per COMMAND.
-#
-# It hangs on the RATIO of commands actually run to crossings that carried them,
-# because the crossing counter alone cannot fail -- a build that queued commands
-# and never ran one posts the same number. `ran` comes from inside the managed
-# loop and zero is a failure.
-#
-# NOT part of `make check`, for movemath-gate's reason: it needs a game, a map
-# and a GPU. The flatten and the loop's ORDER are covered hermetically by
-# PlayerCommandTests (40 facts) in the managed leg.
-CMDGATE_ARGS ?=
-cmdgate: $(CONFIG)
-	@SOURCESHARP_CONFIG=$(CONFIG) tools/3d-cmdgate $(CMDGATE_ARGS)
 
 # Every configuration unless one is named: `make clean CONFIG=release`.
 # bin/<config> is the whole game directory, so this also drops what tools/setup

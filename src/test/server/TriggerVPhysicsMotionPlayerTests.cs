@@ -35,7 +35,7 @@ public class TriggerVPhysicsMotionPlayerTests
         engine.Returns("Networking.EntityGetState", EntityState.Player);
         engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
 
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
         var player = (SsPlayer)registry.Get(Player)!;
         player.State.BindLocal();
 

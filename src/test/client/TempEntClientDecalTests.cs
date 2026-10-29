@@ -96,7 +96,7 @@ public class TempEntClientDecalTests
         var engine = Fake();
         var players = new ClientTempEnts(new RecordingLog(), Registered(engine));
 
-        players.RegisterAll(typeof(ClientTeBspDecal).Assembly, Services());
+        players.RegisterAll(typeof(ClientTeBspDecal).Assembly, Services().WithDecalsOn());
 
         Assert.True(players.PlayerNames.Contains("CTEBSPDecal"),
             "CTEBSPDecal has a managed player");
@@ -130,7 +130,7 @@ public class TempEntClientDecalTests
         writer.Int("Index", 42);
 
         var players = new ClientTempEnts(new RecordingLog(), registry);
-        players.Add("CTEBSPDecal", new ClientTeBspDecal(engine));
+        players.Add("CTEBSPDecal", new ClientTeBspDecal(engine, DecalSettings.On()));
 
         players.Dispatch(te.Handle, blob);
 
@@ -168,8 +168,8 @@ public class TempEntClientDecalTests
         new TempEntWriter(bsp, bspBlob).Int("Index", 1);
 
         var players = new ClientTempEnts(new RecordingLog(), registry);
-        players.Add("CTEBSPDecal", new ClientTeBspDecal(engine));
-        players.Add("CTEFootprintDecal", new ClientTeFootprintDecal(engine));
+        players.Add("CTEBSPDecal", new ClientTeBspDecal(engine, DecalSettings.On()));
+        players.Add("CTEFootprintDecal", new ClientTeFootprintDecal(engine, DecalSettings.On()));
 
         players.Dispatch(bsp.Handle, bspBlob);
 
@@ -212,7 +212,7 @@ public class TempEntClientDecalTests
         writer.Int("MaterialType", 'C');
 
         var players = new ClientTempEnts(new RecordingLog(), registry);
-        players.Add("CTEFootprintDecal", new ClientTeFootprintDecal(engine));
+        players.Add("CTEFootprintDecal", new ClientTeFootprintDecal(engine, DecalSettings.On()));
 
         players.Dispatch(te.Handle, blob);
 
@@ -257,7 +257,7 @@ public class TempEntClientDecalTests
         Assert.True(material.Bits == 8, "and eight bits on the wire");
 
         var players = new ClientTempEnts(new RecordingLog(), registry);
-        players.Add("CTEFootprintDecal", new ClientTeFootprintDecal(engine));
+        players.Add("CTEFootprintDecal", new ClientTeFootprintDecal(engine, DecalSettings.On()));
 
         foreach (char kind in new[] { 'C', 'M', 'W' })
         {
@@ -308,20 +308,19 @@ public class TempEntClientDecalTests
         writer.Int("Entity", 21);
         writer.Int("Player", 4);
 
+        var sprays = new RecordingSprays();
         var players = new ClientTempEnts(new RecordingLog(), registry);
-        players.Add("CTEPlayerDecal", new ClientTePlayerDecal(engine));
+        players.Add("CTEPlayerDecal", new ClientTePlayerDecal(sprays));
 
         players.Dispatch(te.Handle, blob);
 
-        Assert.True(engine.CountOf("Effects.ClientPlayerDecalShoot") == 1,
-            "one spray was painted");
+        Assert.True(sprays.Calls.Count == 1, "one spray was asked for");
 
-        var call = engine.Last("Effects.ClientPlayerDecalShoot")!.Value;
+        var (position, player, entity) = sprays.Calls[0];
 
-        Assert.True(Same(call.ArgAs<Vector>(0), new Vector(-16f, 512f, 72f)),
-            "where the spray landed");
-        Assert.True(call.ArgAs<int>(1) == 4, "whose logo -- the player SLOT");
-        Assert.True(call.ArgAs<int>(2) == 21, "and the edict sprayed on, not the slot again");
+        Assert.True(Same(position, new Vector(-16f, 512f, 72f)), "where the spray landed");
+        Assert.True(player == 4, "whose logo -- the player SLOT");
+        Assert.True(entity == 21, "and the edict sprayed on, not the slot again");
     }
 
     /// <summary>
@@ -342,15 +341,15 @@ public class TempEntClientDecalTests
         var engine = Fake();
         var registry = Registered(engine);
 
+        var sprays = new RecordingSprays();
         var players = new ClientTempEnts(new RecordingLog(), registry);
-        players.Add("CTEPlayerDecal", new ClientTePlayerDecal(engine));
-        players.Add("CTEBSPDecal", new ClientTeBspDecal(engine));
+        players.Add("CTEPlayerDecal", new ClientTePlayerDecal(sprays));
+        players.Add("CTEBSPDecal", new ClientTeBspDecal(engine, DecalSettings.On()));
 
         TempEntType spray = registry.Find("CTEPlayerDecal")!;
         players.Dispatch(spray.Handle, new byte[spray.BlobBytes]);
 
-        Assert.True(engine.CountOf("Effects.ClientPlayerDecalShoot") == 1,
-            "the spray went to PlayerDecalShoot");
+        Assert.True(sprays.Calls.Count == 1, "the spray went to the player sprays");
         Assert.True(engine.CountOf("Effects.ClientDecalShoot") == 0,
             "and not to DecalShoot, which would paint a decal index instead of a logo");
 
@@ -359,8 +358,7 @@ public class TempEntClientDecalTests
 
         Assert.True(engine.CountOf("Effects.ClientDecalShoot") == 1,
             "the BSP decal went to DecalShoot");
-        Assert.True(engine.CountOf("Effects.ClientPlayerDecalShoot") == 1,
-            "and did not also reach PlayerDecalShoot");
+        Assert.True(sprays.Calls.Count == 1, "and did not also reach the player sprays");
     }
 
 
@@ -390,8 +388,7 @@ public class TempEntClientDecalTests
     //
     // WHAT STILL CHECKS THE SURVIVORS. TempEntShimKeyTests and
     // TempEntDeclarationWriterTests sweep BOTH sides' forwarder files for the
-    // same field-name agreement, and TeForwardSignatureTests pins each
-    // surviving forward's packing against the arm that unpacks it. Nothing
+    // same field-name agreement. Nothing
     // about the managed declarations, the players or the send path changed, and
     // the facts in this file that test those are untouched.
     // =====================================================================
@@ -417,8 +414,7 @@ public class TempEntClientDecalTests
     //
     // WHAT STILL CHECKS THE SURVIVORS. TempEntShimKeyTests and
     // TempEntDeclarationWriterTests sweep BOTH sides' forwarder files for the
-    // same field-name agreement, and TeForwardSignatureTests pins each
-    // surviving forward's packing against the arm that unpacks it. Nothing
+    // same field-name agreement. Nothing
     // about the managed declarations, the players or the send path changed, and
     // the facts in this file that test those are untouched.
     // =====================================================================
@@ -470,5 +466,17 @@ public class TempEntClientDecalTests
             + "DT_BaseTempEntity) with no props is");
         Assert.False(baseTe.RegistersClass,
             "and it claims no ClientClass of its own -- it is a table, not an effect");
+    }
+
+    /// <summary>The player sprays a spray temp entity asks, recorded.</summary>
+    private sealed class RecordingSprays : IPlayerSprays
+    {
+        public readonly List<(Vector Position, int Player, int Entity)> Calls = [];
+
+        public SprayOutcome Spray(Vector position, int player, int entity)
+        {
+            Calls.Add((position, player, entity));
+            return SprayOutcome.Sprayed;
+        }
     }
 }

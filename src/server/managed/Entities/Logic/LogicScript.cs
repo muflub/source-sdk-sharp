@@ -8,6 +8,7 @@ namespace SourceSharp.Server;
 /// referencing it load; the scripts it names are not run.
 /// </summary>
 [ScriptedEntity(EntityNames.LogicScript)]
+[ClaimsKeys("Group", 0, 16)]
 public sealed class LogicScript : ScriptedEntity
 {
     public override bool OnKeyValue(string key, string value)

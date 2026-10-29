@@ -13,7 +13,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Client.Standalone;
 
 /// <summary>
-/// The client half of ss_plasma: seven sprites that together look like a fire
+/// The client half of _plasma: seven sprites that together look like a fire
 /// burning with no fuel.
 ///
 /// <para>
@@ -44,7 +44,7 @@ namespace SourceSharp.Client.Standalone;
 /// docs/divergences.md.
 /// </para>
 /// </summary>
-[ClientStandaloneEntity(EntityNames.SsPlasma)]
+[ClientStandaloneEntity(EntityNames.Plasma)]
 public sealed class ClientPlasma : ClientStandaloneEntity
 {
     public ClientPlasma(IEngineEntityRender render, IClientSpriteDraw effects,
@@ -72,7 +72,7 @@ public sealed class ClientPlasma : ClientStandaloneEntity
     /// <summary>what the client thinks the time is.</summary>
     private readonly IGameClock Clock;
 
-    public override string ClassName => EntityNames.SsPlasma;
+    public override string ClassName => EntityNames.Plasma;
 
     /// <summary>The same declaration the server writes through.</summary>
     [NetState] public PlasmaNetState State = new();

@@ -33,7 +33,8 @@ PROBE_SO = os.path.join(TREE, "out", "client.so")
 
 BLOCK = re.compile(r"^if\(SS_CONFIG STREQUAL \"debug\" AND SS_CLIENT_PROBES\)\n(.*?)^endif\(\)",
                    re.M | re.S)
-SOURCE = re.compile(r"target_sources\(\s*client_sourcesharp\s+PRIVATE\s+\$\{PROJECT_SOURCE_DIR\}/(\S+\.cpp)\s*\)")
+SOURCES_CALL = re.compile(r"target_sources\(\s*client_sourcesharp\s+PRIVATE\s+([^)]*)\)")
+SOURCE = re.compile(r"\$\{PROJECT_SOURCE_DIR\}/(\S+\.cpp)")
 COMMAND = re.compile(r"^\s*CON_COMMAND(?:_F)?\(\s*([A-Za-z_][A-Za-z_0-9]*)\s*,", re.M)
 UNDEFINED = re.compile(r"undefined symbol: (.+)$", re.M)
 
@@ -48,7 +49,7 @@ def probe_sources(cmake_text):
     m = BLOCK.search(cmake_text)
     if not m:
         return None
-    return SOURCE.findall(m.group(1))
+    return [s for call in SOURCES_CALL.findall(m.group(1)) for s in SOURCE.findall(call)]
 
 
 def commands(cpp_text):
@@ -137,6 +138,13 @@ def self_test():
     ck("the block's two sources are read, and nothing after it",
        probe_sources(block) == ["tools/probes/client/a_debug.cpp", "tools/probes/client/b_debug.cpp"])
     ck("a CMakeLists with no probe block gives none", probe_sources("project(x)\n") is None)
+    multi = ('if(SS_CONFIG STREQUAL "debug" AND SS_CLIENT_PROBES)\n'
+             '  target_sources(client_sourcesharp PRIVATE\n'
+             '      ${PROJECT_SOURCE_DIR}/tools/probes/client/a_debug.cpp\n'
+             '      ${PROJECT_SOURCE_DIR}/tools/probes/client/b_debug.cpp)\n'
+             'endif()\n')
+    ck("one call naming several sources is read whole",
+       probe_sources(multi) == ["tools/probes/client/a_debug.cpp", "tools/probes/client/b_debug.cpp"])
     ck("CON_COMMAND and CON_COMMAND_F names are read, a mention in a comment is not",
        commands('CON_COMMAND( cs_a, "help" )\n{\n}\nCON_COMMAND_F(cs_b, "h", 0)\n// CON_COMMAND( cs_c, x )\n')
        == ["cs_a", "cs_b"])

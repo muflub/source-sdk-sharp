@@ -48,14 +48,21 @@ public class ProjectileTouchTests
               .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
               .Returns("WorldQuery.PointContents", Contents.Empty)
               .Ignores("Effects.PaintDecal")
-              .Ignores("Effects.ExplosionEffect");
+              .Ignores("Effects.ExplosionEffect")
+              // What the missile itself reads and writes going off: its
+              // facing, the sky test ahead, going not solid, the ignition's
+              // stop and its box (RpgMissileTests is about those).
+              .Returns("Entities.GetAngles", Vector.Zero)
+              .Returns("WorldQuery.TraceLineSurface",
+                       new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None, 0, 0))
+              .Ignores("EntityPhysics.SetNotSolid", "Sound.EntityStopSound", "Entities.SetBounds");
 
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Rocket).Assembly);
         registry.Services = services;
 
         var handle = new EntityHandle(1);
-        registry.Spawn(handle, EntityNames.SsRocket);
+        registry.Spawn(handle, EntityNames.RpgMissile);
 
         var rocket = (Rocket)registry.Get(handle)!;
 

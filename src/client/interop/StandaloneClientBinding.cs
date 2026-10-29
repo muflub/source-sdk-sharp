@@ -88,6 +88,17 @@ public sealed unsafe class StandaloneClientBinding(Crossings crossings, ILog log
     }
 
     /// <summary>
+    /// An entity's extras for one pass (stock's ViewModelDrawn after the local
+    /// viewmodel, and a two-pass weapon's translucent DrawModel); see
+    /// IClientModule.StandaloneDrawExtras. -1 lets the model draw.
+    /// </summary>
+    public int OnStandaloneDrawExtras(uint a0, int a1)
+    {
+        crossings.Count(CrossingOp.ClientStandaloneDrawExtras);
+        return module.StandaloneDrawExtras(new EntityHandle(a0), a1);
+    }
+
+    /// <summary>
     /// The engine pushed a PVS transition for a client shell entity
     /// (plan_crossings.md Phase X3). Fed straight into the mirror: nothing in
     /// the client module decides anything here.
@@ -129,5 +140,17 @@ public sealed unsafe class StandaloneClientBinding(Crossings crossings, ILog log
             ManagedVtable.Fail(log, "IManagedStandaloneClient.NetStateFieldBits", e);
             return -1;
         }
+    }
+
+    /// <summary>
+    /// Whether this update's payload is decoded: the schema gate's answer
+    /// (generic_payload_client.cpp asks it once per update). The generated
+    /// catch's 0 refuses, which is the safe answer: nothing reads a blob
+    /// through a layout nobody vouched for.
+    /// </summary>
+    public int SchemaAccept(uint a0, int a1, uint a2, uint a3, int a4, byte* a5)
+    {
+        crossings.Count(CrossingOp.ClientSchemaAccept);
+        return module.SchemaAccept(a0, a1 != 0, a2, a3, a4, _names.Get(a5)) ? 1 : 0;
     }
 }

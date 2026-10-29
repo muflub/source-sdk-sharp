@@ -39,7 +39,21 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "tier1/interface.h"
 #include "particles/particles.h"
 #include "vgui/ISurface.h"
@@ -96,13 +110,14 @@ long long NowNs()
 	return (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec;
 }
 
-void ProbeLog( const char *pFmt, ... ) __attribute__(( format( printf, 1, 2 ) ));
+void ProbeLog( const char *pFmt, ... ) __attribute__( ( format( printf, 1, 2 ) ) );
+
 void ProbeLog( const char *pFmt, ... )
 {
 	int fd = ProbeFd();
 	if ( fd < 0 )
 		return;
-	char buf[ 2048 ];
+	char buf[2048];
 	int n = snprintf( buf, sizeof( buf ), "%lld %d client ", NowNs(), (int)getpid() );
 	va_list ap;
 	va_start( ap, pFmt );
@@ -111,7 +126,7 @@ void ProbeLog( const char *pFmt, ... )
 	if ( m < 0 )
 		m = 0;
 	n += ( m < (int)sizeof( buf ) - n - 1 ) ? m : (int)sizeof( buf ) - n - 2;
-	buf[ n++ ] = '\n';
+	buf[n++] = '\n';
 	ssize_t w = write( fd, buf, n );
 	(void)w;
 }
@@ -128,12 +143,12 @@ const char *ModuleOf( const void *pAddr )
 // The first module on the stack that is not this one: who asked.
 const char *FirstForeignCaller()
 {
-	void *frames[ 16 ];
+	void *frames[16];
 	int n = backtrace( frames, 16 );
 	const char *pSelf = ModuleOf( (const void *)&ModuleOf );
 	for ( int i = 1; i < n; i++ )
 	{
-		const char *pMod = ModuleOf( frames[ i ] );
+		const char *pMod = ModuleOf( frames[i] );
 		if ( strcmp( pMod, pSelf ) )
 			return pMod;
 	}
@@ -144,33 +159,39 @@ const char *FirstForeignCaller()
 // 1. iface: who asks the client's CreateInterface for what, in what order.
 //=============================================================================
 const int kMaxRegs = 64;
-InstantiateInterfaceFn g_OrigCreate[ kMaxRegs ];
-const char *g_RegName[ kMaxRegs ];
+InstantiateInterfaceFn g_OrigCreate[kMaxRegs];
+const char *g_RegName[kMaxRegs];
 
 void HookClientDll( void *pClient );
 
-template < int I >
+template <int I>
 void *LoggedCreate()
 {
-	ProbeLog( "iface %s from %s", g_RegName[ I ], FirstForeignCaller() );
-	void *p = g_OrigCreate[ I ]();
-	if ( p && !strcmp( g_RegName[ I ], CLIENT_DLL_INTERFACE_VERSION ) )
+	ProbeLog( "iface %s from %s", g_RegName[I], FirstForeignCaller() );
+	void *p = g_OrigCreate[I]();
+	if ( p && !strcmp( g_RegName[I], CLIENT_DLL_INTERFACE_VERSION ) )
 		HookClientDll( p );
 	return p;
 }
 
-template < int... Is >
+template <int... Is>
 struct ThunkTable
 {
-	static constexpr InstantiateInterfaceFn s_Fns[ sizeof...( Is ) ] = { &LoggedCreate< Is >... };
+	static constexpr InstantiateInterfaceFn s_Fns[sizeof...( Is )] = { &LoggedCreate<Is>... };
 };
 
-template < int N, int... Is >
-struct MakeThunks : MakeThunks< N - 1, N - 1, Is... > {};
-template < int... Is >
-struct MakeThunks< 0, Is... > { typedef ThunkTable< Is... > Type; };
+template <int N, int... Is>
+struct MakeThunks : MakeThunks<N - 1, N - 1, Is...>
+{
+};
 
-typedef MakeThunks< kMaxRegs >::Type Thunks;
+template <int... Is>
+struct MakeThunks<0, Is...>
+{
+	typedef ThunkTable<Is...> Type;
+};
+
+typedef MakeThunks<kMaxRegs>::Type Thunks;
 
 void InstallInterfaceProbe()
 {
@@ -196,9 +217,9 @@ void InstallInterfaceProbe()
 		}
 		if ( nWrapped < kMaxRegs )
 		{
-			g_OrigCreate[ nWrapped ] = pReg->m_CreateFn;
-			g_RegName[ nWrapped ] = pReg->m_pName;
-			pReg->m_CreateFn = Thunks::s_Fns[ nWrapped ];
+			g_OrigCreate[nWrapped] = pReg->m_CreateFn;
+			g_RegName[nWrapped] = pReg->m_pName;
+			pReg->m_CreateFn = Thunks::s_Fns[nWrapped];
 			nWrapped++;
 		}
 		else
@@ -208,7 +229,8 @@ void InstallInterfaceProbe()
 		ppLink = &pReg->m_pNext;
 	}
 
-	ProbeLog( "iface-list registrations=%d wrapped=%d vr_registered=%d no_vr=%d", nRegs, nWrapped, bSawVr ? 1 : 0, bNoVr ? 1 : 0 );
+	ProbeLog( "iface-list registrations=%d wrapped=%d vr_registered=%d no_vr=%d", nRegs, nWrapped, bSawVr ? 1 : 0,
+			  bNoVr ? 1 : 0 );
 
 	// Proof the removal took: ask the list itself.
 	int rc = -1;
@@ -222,7 +244,8 @@ void InstallInterfaceProbe()
 // Initialize says whether GameUI is initialised before the managed root.
 //-----------------------------------------------------------------------------
 bool PatchSlot( void **pVtable, int slot, void *pNew, void **ppOld );
-template < typename PMF > int VtableSlot( PMF pmf );
+template <typename PMF>
+int VtableSlot( PMF pmf );
 
 typedef int ( *ClientInitFn )( IBaseClientDLL *, CreateInterfaceFn, CreateInterfaceFn, CGlobalVarsBase * );
 typedef void ( *ClientPostInitFn )( IBaseClientDLL * );
@@ -262,38 +285,57 @@ void HookClientDll( void *pClient )
 //=============================================================================
 enum PqMethod
 {
-	PQ_Connect, PQ_Disconnect, PQ_QueryInterface, PQ_Init, PQ_Shutdown,
-	PQ_GetLightingAtPoint, PQ_TraceLine, PQ_MovePointInsideControllingObject,
-	PQ_IsPointInControllingObjectHitBox, PQ_GetCollisionGroupFromName,
-	PQ_GetRandomPointsOnControllingObjectHitBox, PQ_GetControllingObjectHitBoxInfo,
-	PQ_GetLocalPlayerPos, PQ_GetLocalPlayerEyeVectors, PQ_GetPixelVisibility,
+	PQ_Connect,
+	PQ_Disconnect,
+	PQ_QueryInterface,
+	PQ_Init,
+	PQ_Shutdown,
+	PQ_GetLightingAtPoint,
+	PQ_TraceLine,
+	PQ_MovePointInsideControllingObject,
+	PQ_IsPointInControllingObjectHitBox,
+	PQ_GetCollisionGroupFromName,
+	PQ_GetRandomPointsOnControllingObjectHitBox,
+	PQ_GetControllingObjectHitBoxInfo,
+	PQ_GetLocalPlayerPos,
+	PQ_GetLocalPlayerEyeVectors,
+	PQ_GetPixelVisibility,
 	PQ_SetUpLightingEnvironment,
 	PQ_COUNT
 };
 
-const char *const g_PqNames[ PQ_COUNT ] =
-{
-	"Connect", "Disconnect", "QueryInterface", "Init", "Shutdown",
-	"GetLightingAtPoint", "TraceLine", "MovePointInsideControllingObject",
-	"IsPointInControllingObjectHitBox", "GetCollisionGroupFromName",
-	"GetRandomPointsOnControllingObjectHitBox", "GetControllingObjectHitBoxInfo",
-	"GetLocalPlayerPos", "GetLocalPlayerEyeVectors", "GetPixelVisibility",
+const char *const g_PqNames[PQ_COUNT] = {
+	"Connect",
+	"Disconnect",
+	"QueryInterface",
+	"Init",
+	"Shutdown",
+	"GetLightingAtPoint",
+	"TraceLine",
+	"MovePointInsideControllingObject",
+	"IsPointInControllingObjectHitBox",
+	"GetCollisionGroupFromName",
+	"GetRandomPointsOnControllingObjectHitBox",
+	"GetControllingObjectHitBoxInfo",
+	"GetLocalPlayerPos",
+	"GetLocalPlayerEyeVectors",
+	"GetPixelVisibility",
 	"SetUpLightingEnvironment",
 };
 
-long long g_PqCounts[ PQ_COUNT ];
+long long g_PqCounts[PQ_COUNT];
 long long g_PqLastDumpNs;
 long long g_PqTotalAtDump;
 
 void PqDump( const char *pWhy )
 {
-	char buf[ 1536 ];
+	char buf[1536];
 	int n = 0;
 	long long total = 0;
 	for ( int i = 0; i < PQ_COUNT; i++ )
 	{
-		total += g_PqCounts[ i ];
-		n += snprintf( buf + n, sizeof( buf ) - n, " %s=%lld", g_PqNames[ i ], g_PqCounts[ i ] );
+		total += g_PqCounts[i];
+		n += snprintf( buf + n, sizeof( buf ) - n, " %s=%lld", g_PqNames[i], g_PqCounts[i] );
 	}
 	g_PqTotalAtDump = total;
 	g_PqLastDumpNs = NowNs();
@@ -302,7 +344,7 @@ void PqDump( const char *pWhy )
 
 void PqCount( PqMethod m )
 {
-	g_PqCounts[ m ]++;
+	g_PqCounts[m]++;
 	if ( NowNs() - g_PqLastDumpNs > 5000000000LL )
 		PqDump( "periodic" );
 }
@@ -310,70 +352,112 @@ void PqCount( PqMethod m )
 class CProbeParticleQuery : public IParticleSystemQuery
 {
 public:
-	explicit CProbeParticleQuery( IParticleSystemQuery *pInner ) : m_pInner( pInner ) {}
+	explicit CProbeParticleQuery( IParticleSystemQuery *pInner )
+		: m_pInner( pInner )
+	{
+	}
 
-	virtual bool Connect( CreateInterfaceFn factory ) OVERRIDE { PqCount( PQ_Connect ); return m_pInner->Connect( factory ); }
-	virtual void Disconnect() OVERRIDE { PqCount( PQ_Disconnect ); m_pInner->Disconnect(); }
-	virtual void *QueryInterface( const char *pName ) OVERRIDE { PqCount( PQ_QueryInterface ); return m_pInner->QueryInterface( pName ); }
-	virtual InitReturnVal_t Init() OVERRIDE { PqCount( PQ_Init ); return m_pInner->Init(); }
-	virtual void Shutdown() OVERRIDE { PqCount( PQ_Shutdown ); m_pInner->Shutdown(); }
+	virtual bool Connect( CreateInterfaceFn factory ) OVERRIDE
+	{
+		PqCount( PQ_Connect );
+		return m_pInner->Connect( factory );
+	}
+
+	virtual void Disconnect() OVERRIDE
+	{
+		PqCount( PQ_Disconnect );
+		m_pInner->Disconnect();
+	}
+
+	virtual void *QueryInterface( const char *pName ) OVERRIDE
+	{
+		PqCount( PQ_QueryInterface );
+		return m_pInner->QueryInterface( pName );
+	}
+
+	virtual InitReturnVal_t Init() OVERRIDE
+	{
+		PqCount( PQ_Init );
+		return m_pInner->Init();
+	}
+
+	virtual void Shutdown() OVERRIDE
+	{
+		PqCount( PQ_Shutdown );
+		m_pInner->Shutdown();
+	}
 
 	virtual void GetLightingAtPoint( const Vector &vecOrigin, Color &tint ) OVERRIDE
 	{
 		PqCount( PQ_GetLightingAtPoint );
 		m_pInner->GetLightingAtPoint( vecOrigin, tint );
 	}
+
 	virtual void TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask,
-		const class IHandleEntity *ignore, int collisionGroup, CBaseTrace *ptr ) OVERRIDE
+							const class IHandleEntity *ignore, int collisionGroup, CBaseTrace *ptr ) OVERRIDE
 	{
 		PqCount( PQ_TraceLine );
 		m_pInner->TraceLine( vecAbsStart, vecAbsEnd, mask, ignore, collisionGroup, ptr );
 	}
-	virtual bool MovePointInsideControllingObject( CParticleCollection *pParticles, void *pObject, Vector *pPnt ) OVERRIDE
+
+	virtual bool MovePointInsideControllingObject( CParticleCollection *pParticles, void *pObject,
+												   Vector *pPnt ) OVERRIDE
 	{
 		PqCount( PQ_MovePointInsideControllingObject );
 		return m_pInner->MovePointInsideControllingObject( pParticles, pObject, pPnt );
 	}
+
 	virtual bool IsPointInControllingObjectHitBox( CParticleCollection *pParticles, int nControlPointNumber,
-		Vector vecPos, bool bBBoxOnly ) OVERRIDE
+												   Vector vecPos, bool bBBoxOnly ) OVERRIDE
 	{
 		PqCount( PQ_IsPointInControllingObjectHitBox );
 		return m_pInner->IsPointInControllingObjectHitBox( pParticles, nControlPointNumber, vecPos, bBBoxOnly );
 	}
+
 	virtual int GetCollisionGroupFromName( const char *pszCollisionGroupName ) OVERRIDE
 	{
 		PqCount( PQ_GetCollisionGroupFromName );
 		return m_pInner->GetCollisionGroupFromName( pszCollisionGroupName );
 	}
+
 	virtual void GetRandomPointsOnControllingObjectHitBox( CParticleCollection *pParticles, int nControlPointNumber,
-		int nNumPtsOut, float flBBoxScale, int nNumTrysToGetAPointInsideTheModel, Vector *pPntsOut,
-		Vector vecDirectionBias, Vector *pHitBoxRelativeCoordOut, int *pHitBoxIndexOut ) OVERRIDE
+														   int nNumPtsOut, float flBBoxScale,
+														   int nNumTrysToGetAPointInsideTheModel, Vector *pPntsOut,
+														   Vector vecDirectionBias, Vector *pHitBoxRelativeCoordOut,
+														   int *pHitBoxIndexOut ) OVERRIDE
 	{
 		PqCount( PQ_GetRandomPointsOnControllingObjectHitBox );
-		m_pInner->GetRandomPointsOnControllingObjectHitBox( pParticles, nControlPointNumber, nNumPtsOut, flBBoxScale,
-			nNumTrysToGetAPointInsideTheModel, pPntsOut, vecDirectionBias, pHitBoxRelativeCoordOut, pHitBoxIndexOut );
+		m_pInner->GetRandomPointsOnControllingObjectHitBox(
+			pParticles, nControlPointNumber, nNumPtsOut, flBBoxScale, nNumTrysToGetAPointInsideTheModel, pPntsOut,
+			vecDirectionBias, pHitBoxRelativeCoordOut, pHitBoxIndexOut );
 	}
-	virtual int GetControllingObjectHitBoxInfo( CParticleCollection *pParticles, int nControlPointNumber,
-		int nBufSize, ModelHitBoxInfo_t *pHitBoxOutputBuffer ) OVERRIDE
+
+	virtual int GetControllingObjectHitBoxInfo( CParticleCollection *pParticles, int nControlPointNumber, int nBufSize,
+												ModelHitBoxInfo_t *pHitBoxOutputBuffer ) OVERRIDE
 	{
 		PqCount( PQ_GetControllingObjectHitBoxInfo );
-		return m_pInner->GetControllingObjectHitBoxInfo( pParticles, nControlPointNumber, nBufSize, pHitBoxOutputBuffer );
+		return m_pInner->GetControllingObjectHitBoxInfo( pParticles, nControlPointNumber, nBufSize,
+														 pHitBoxOutputBuffer );
 	}
+
 	virtual Vector GetLocalPlayerPos() OVERRIDE
 	{
 		PqCount( PQ_GetLocalPlayerPos );
 		return m_pInner->GetLocalPlayerPos();
 	}
+
 	virtual void GetLocalPlayerEyeVectors( Vector *pForward, Vector *pRight, Vector *pUp ) OVERRIDE
 	{
 		PqCount( PQ_GetLocalPlayerEyeVectors );
 		m_pInner->GetLocalPlayerEyeVectors( pForward, pRight, pUp );
 	}
+
 	virtual float GetPixelVisibility( int *pQueryHandle, const Vector &vecOrigin, float flScale ) OVERRIDE
 	{
 		PqCount( PQ_GetPixelVisibility );
 		return m_pInner->GetPixelVisibility( pQueryHandle, vecOrigin, flScale );
 	}
+
 	virtual void SetUpLightingEnvironment( const Vector &pos ) OVERRIDE
 	{
 		PqCount( PQ_SetUpLightingEnvironment );
@@ -419,6 +503,7 @@ struct CProbeInstaller
 		InstallInterfaceProbe();
 		InstallParticleQueryProbe();
 	}
+
 	~CProbeInstaller()
 	{
 		if ( ProbeOn() )
@@ -437,7 +522,8 @@ class CProbeParticleSweep : public CSourceSharpRawPanel
 {
 public:
 	CProbeParticleSweep( vgui::VPANEL parent, int nFirst, int nCount )
-		: CSourceSharpRawPanel( "SourceSharpProbeParticleSweep" ), m_nNext( nFirst )
+		: CSourceSharpRawPanel( "SourceSharpProbeParticleSweep" )
+		, m_nNext( nFirst )
 	{
 		SetParent( parent );
 		m_nEnd = g_pParticleSystemMgr->GetParticleSystemCount();
@@ -446,7 +532,8 @@ public:
 		SetVisible( true );
 		SetBounds( 0, 0, 1, 1 );
 		SetPaintEnabled( false );
-		ProbeLog( "pq-sweep-start definitions=%d range=%d..%d", g_pParticleSystemMgr->GetParticleSystemCount(), nFirst, m_nEnd );
+		ProbeLog( "pq-sweep-start definitions=%d range=%d..%d", g_pParticleSystemMgr->GetParticleSystemCount(), nFirst,
+				  m_nEnd );
 		vgui::ivgui()->AddTickSignal( GetVPanel(), 100 );
 	}
 
@@ -481,36 +568,38 @@ public:
 private:
 	void Finish()
 	{
-		if ( !m_szName[ 0 ] )
+		if ( !m_szName[0] )
 			return;
-		char buf[ 1024 ];
+		char buf[1024];
 		int n = 0;
 		for ( int i = 0; i < PQ_COUNT; i++ )
 		{
-			long long d = g_PqCounts[ i ] - m_Before[ i ];
+			long long d = g_PqCounts[i] - m_Before[i];
 			if ( d )
-				n += snprintf( buf + n, sizeof( buf ) - n, " %s=%lld", g_PqNames[ i ], d );
+				n += snprintf( buf + n, sizeof( buf ) - n, " %s=%lld", g_PqNames[i], d );
 		}
-		buf[ n ] = 0;
+		buf[n] = 0;
 		ProbeLog( "pq-system %s valid=%d%s", m_szName, ( m_pEffect.IsValid() && m_pEffect->IsValid() ) ? 1 : 0, buf );
 		if ( m_pEffect.IsValid() )
 			m_pEffect->StopEmission( false, true );
 		m_pEffect = NULL;
-		m_szName[ 0 ] = 0;
+		m_szName[0] = 0;
 	}
 
 	static const int kSweepTicks = 8;
 	int m_nNext;
 	int m_nEnd = 0;
 	int m_nTicks = 0;
-	char m_szName[ 256 ] = {};
-	long long m_Before[ PQ_COUNT ];
-	CSmartPtr< CShellNewParticleEffect > m_pEffect;
+	char m_szName[256] = {};
+	long long m_Before[PQ_COUNT];
+	CSmartPtr<CShellNewParticleEffect> m_pEffect;
 };
 
 } // namespace
 
-CON_COMMAND( cs_cl_probe_particle_sweep, "C0 probe (debug): start every particle definition in turn, logging the query calls each causes. [first] [count]" )
+CON_COMMAND(
+	cs_cl_probe_particle_sweep,
+	"C0 probe (debug): start every particle definition in turn, logging the query calls each causes. [first] [count]" )
 {
 	const vgui::VPANEL parent = enginevgui ? enginevgui->GetPanel( PANEL_CLIENTDLL ) : 0;
 	if ( !parent || !g_pParticleSystemMgr || !engine->IsInGame() )
@@ -518,7 +607,8 @@ CON_COMMAND( cs_cl_probe_particle_sweep, "C0 probe (debug): start every particle
 		ProbeLog( "pq-sweep-refused (not in a map)" );
 		return;
 	}
-	new CProbeParticleSweep( parent, args.ArgC() > 1 ? atoi( args.Arg( 1 ) ) : 0, args.ArgC() > 2 ? atoi( args.Arg( 2 ) ) : 0 );
+	new CProbeParticleSweep( parent, args.ArgC() > 1 ? atoi( args.Arg( 1 ) ) : 0,
+							 args.ArgC() > 2 ? atoi( args.Arg( 2 ) ) : 0 );
 }
 
 namespace
@@ -540,10 +630,15 @@ void HookPaintTraverseEx( vgui::ISurface *pThis, vgui::VPANEL panel, bool paintP
 
 // The vtable slot of a virtual member: Itanium encodes a pointer to a virtual
 // member function as 1 + its byte offset in the vtable.
-template < typename PMF >
+template <typename PMF>
 int VtableSlot( PMF pmf )
 {
-	struct Rep { ptrdiff_t ptr; ptrdiff_t adj; } rep;
+	struct Rep
+	{
+		ptrdiff_t ptr;
+		ptrdiff_t adj;
+	} rep;
+
 	static_assert( sizeof( pmf ) == sizeof( rep ), "Itanium member pointer" );
 	memcpy( &rep, &pmf, sizeof( rep ) );
 	return ( rep.ptr & 1 ) ? (int)( ( rep.ptr - 1 ) / (ptrdiff_t)sizeof( void * ) ) : -1;
@@ -552,12 +647,12 @@ int VtableSlot( PMF pmf )
 bool PatchSlot( void **pVtable, int slot, void *pNew, void **ppOld )
 {
 	long page = sysconf( _SC_PAGESIZE );
-	uintptr_t addr = (uintptr_t)&pVtable[ slot ];
+	uintptr_t addr = (uintptr_t)&pVtable[slot];
 	uintptr_t base = addr & ~(uintptr_t)( page - 1 );
 	if ( mprotect( (void *)base, page * 2, PROT_READ | PROT_WRITE ) != 0 )
 		return false;
-	*ppOld = pVtable[ slot ];
-	pVtable[ slot ] = pNew;
+	*ppOld = pVtable[slot];
+	pVtable[slot] = pNew;
 	return true;
 }
 
@@ -572,7 +667,8 @@ CON_COMMAND( cs_cl_probe_paint, "C0 probe (debug): count ISurface::PaintTraverse
 	void *pOld = NULL;
 	bool bOk = pSurface && slot >= 0 && PatchSlot( *(void ***)pSurface, slot, (void *)&HookPaintTraverseEx, &pOld );
 	g_pOrigPaintTraverseEx = (PaintTraverseExFn)pOld;
-	ProbeLog( "paint-install slot=%d ok=%d surface=%p module=%s", slot, bOk ? 1 : 0, (void *)pSurface, ModuleOf( pOld ) );
+	ProbeLog( "paint-install slot=%d ok=%d surface=%p module=%s", slot, bOk ? 1 : 0, (void *)pSurface,
+			  ModuleOf( pOld ) );
 }
 
 CON_COMMAND( cs_cl_probe_pq, "C0 probe (debug): write the IParticleSystemQuery call counts to SOURCESHARP_PROBE_LOG" )
@@ -589,7 +685,8 @@ namespace
 class CProbeTexturePanel : public CSourceSharpRawPanel
 {
 public:
-	explicit CProbeTexturePanel( vgui::VPANEL parent ) : CSourceSharpRawPanel( "SourceSharpProbeTexture" )
+	explicit CProbeTexturePanel( vgui::VPANEL parent )
+		: CSourceSharpRawPanel( "SourceSharpProbeTexture" )
 	{
 		SetParent( parent );
 		SetBounds( 16, 16, kSize, kSize );
@@ -601,18 +698,18 @@ public:
 	// bottom-left white.
 	void Upload()
 	{
-		static unsigned char s_Rgba[ kTex * kTex * 4 ];
+		static unsigned char s_Rgba[kTex * kTex * 4];
 		for ( int y = 0; y < kTex; y++ )
 		{
 			for ( int x = 0; x < kTex; x++ )
 			{
-				unsigned char *p = &s_Rgba[ ( y * kTex + x ) * 4 ];
+				unsigned char *p = &s_Rgba[( y * kTex + x ) * 4];
 				bool right = x >= kTex / 2, bottom = y >= kTex / 2;
 				bool white = !right && bottom;
-				p[ 0 ] = ( white || ( !right && !bottom ) ) ? 255 : 0;
-				p[ 1 ] = ( white || ( right && !bottom ) ) ? 255 : 0;
-				p[ 2 ] = ( white || ( right && bottom ) ) ? 255 : 0;
-				p[ 3 ] = 255;
+				p[0] = ( white || ( !right && !bottom ) ) ? 255 : 0;
+				p[1] = ( white || ( right && !bottom ) ) ? 255 : 0;
+				p[2] = ( white || ( right && bottom ) ) ? 255 : 0;
+				p[3] = 255;
 			}
 		}
 		m_nId = vgui::surface()->CreateNewTextureID( true );
@@ -625,7 +722,7 @@ public:
 		m_nPaints++;
 		if ( m_nPaints % 300 == 1 )
 			ProbeLog( "texture-paint n=%lld id=%d valid=%d screen=%dx%d", m_nPaints, m_nId,
-				vgui::surface()->IsTextureIDValid( m_nId ) ? 1 : 0, ScreenWidth(), ScreenHeight() );
+					  vgui::surface()->IsTextureIDValid( m_nId ) ? 1 : 0, ScreenWidth(), ScreenHeight() );
 		vgui::surface()->DrawSetColor( 255, 255, 255, 255 );
 		vgui::surface()->DrawSetTexture( m_nId );
 		vgui::surface()->DrawTexturedRect( 0, 0, kSize, kSize );
@@ -634,7 +731,7 @@ public:
 	virtual void OnScreenSizeChanged( int oldW, int oldH ) OVERRIDE
 	{
 		ProbeLog( "texture-screen-size-changed old=%dx%d new=%dx%d valid=%d", oldW, oldH, ScreenWidth(), ScreenHeight(),
-			vgui::surface()->IsTextureIDValid( m_nId ) ? 1 : 0 );
+				  vgui::surface()->IsTextureIDValid( m_nId ) ? 1 : 0 );
 		SetBounds( 16, 16, kSize, kSize );
 	}
 
@@ -685,7 +782,8 @@ namespace
 class CProbeMenuPanel : public CSourceSharpRawPanel
 {
 public:
-	explicit CProbeMenuPanel( vgui::VPANEL parent ) : CSourceSharpRawPanel( "SourceSharpProbeMainMenu" )
+	explicit CProbeMenuPanel( vgui::VPANEL parent )
+		: CSourceSharpRawPanel( "SourceSharpProbeMainMenu" )
 	{
 		SetParent( parent );
 		int w, h;
@@ -701,7 +799,8 @@ public:
 		if ( v != m_nLastVisible )
 		{
 			m_nLastVisible = v;
-			ProbeLog( "menu-override-visible %d parent=%#lx", v, (unsigned long)vgui::ipanel()->GetParent( GetVPanel() ) );
+			ProbeLog( "menu-override-visible %d parent=%#lx", v,
+					  (unsigned long)vgui::ipanel()->GetParent( GetVPanel() ) );
 		}
 	}
 
@@ -722,13 +821,13 @@ private:
 
 struct FindGameUi
 {
-	char m_szPath[ 1024 ];
+	char m_szPath[1024];
 };
 
 int FindGameUiModule( struct dl_phdr_info *pInfo, size_t, void *pData )
 {
 	FindGameUi *pFind = (FindGameUi *)pData;
-	if ( pFind->m_szPath[ 0 ] || !pInfo->dlpi_name )
+	if ( pFind->m_szPath[0] || !pInfo->dlpi_name )
 		return 0;
 	const char *pSlash = strrchr( pInfo->dlpi_name, '/' );
 	if ( pSlash && !strcmp( pSlash + 1, "GameUI.so" ) )
@@ -758,16 +857,17 @@ CON_COMMAND( cs_cl_probe_menu_override, "C0 probe (debug): hand GameUI a hidden 
 		return;
 	FindGameUi find = {};
 	dl_iterate_phdr( &FindGameUiModule, &find );
-	void *h = find.m_szPath[ 0 ] ? dlopen( find.m_szPath, RTLD_NOW | RTLD_NOLOAD ) : NULL;
+	void *h = find.m_szPath[0] ? dlopen( find.m_szPath, RTLD_NOW | RTLD_NOLOAD ) : NULL;
 	CreateInterfaceFn fn = h ? (CreateInterfaceFn)dlsym( h, "CreateInterface" ) : NULL;
 	void *pGameUi = fn ? fn( "GameUI011", NULL ) : NULL;
-	ProbeLog( "menu-override module=%s gameui=%p", find.m_szPath[ 0 ] ? find.m_szPath : "(none)", pGameUi );
+	ProbeLog( "menu-override module=%s gameui=%p", find.m_szPath[0] ? find.m_szPath : "(none)", pGameUi );
 	if ( !pGameUi )
 		return;
 	g_pMenuPanel = new CProbeMenuPanel( enginevgui->GetPanel( PANEL_GAMEUIDLL ) );
 	typedef void ( *SetOverrideFn )( void *pThis, vgui::VPANEL panel );
-	SetOverrideFn pfn = (SetOverrideFn)( ( *(void ***)pGameUi )[ 36 ] );
-	ProbeLog( "menu-override calling slot 36 (%s) panel=%#lx", ModuleOf( (void *)pfn ), (unsigned long)g_pMenuPanel->GetVPanel() );
+	SetOverrideFn pfn = (SetOverrideFn)( ( *(void ***)pGameUi )[36] );
+	ProbeLog( "menu-override calling slot 36 (%s) panel=%#lx", ModuleOf( (void *)pfn ),
+			  (unsigned long)g_pMenuPanel->GetVPanel() );
 	pfn( pGameUi, g_pMenuPanel->GetVPanel() );
 	ProbeLog( "menu-override returned; visible=%d", g_pMenuPanel->IsVisible() ? 1 : 0 );
 }

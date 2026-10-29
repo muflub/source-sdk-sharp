@@ -36,19 +36,22 @@ set(tier1_sources
 if(NOT SS_PLATFORM STREQUAL windows AND NOT SS_PLATFORM STREQUAL osx)
   list(APPEND tier1_sources tier1/qsort_s.cpp)
 endif()
-list(TRANSFORM tier1_sources PREPEND "${SS_SRC}/")
+# clang-cl rejects stock bitbuf.cpp's RESTRICT definitions (see
+# cmake/compat/clang-cl/ss_stock_clang_cl.h); nothing the cross build links
+# imports it. MSVC builds it.
+if(SS_IS_MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  list(REMOVE_ITEM tier1_sources tier1/bitbuf.cpp)
+endif()
+list(TRANSFORM tier1_sources PREPEND "${SS_STOCK}/")
 target_sources(tier1 PRIVATE ${tier1_sources})
 
 target_compile_definitions(tier1 PRIVATE
     TIER1_STATIC_LIB
 )
 
-target_include_directories(tier1 PRIVATE
-    ${SS_SRC}/common
-    ${SS_SRC}/public
-    ${SS_SRC}/public/tier0
-    ${SS_SRC}/public/tier1
-)
+ss_stock_includes(tier1_includes common public public/tier0 public/tier1)
+ss_stock_target(tier1)
+target_include_directories(tier1 PRIVATE ${tier1_includes})
 # gcc -O2 only (the CI release build), and the VPC release build printed the
 # same three: byteswap.h:212 -Wmaybe-uninitialized (twice, utlbufferutil.cpp)
 # and utlstring.h:399 -Wstringop-truncation (ilocalize.cpp, no longer built;

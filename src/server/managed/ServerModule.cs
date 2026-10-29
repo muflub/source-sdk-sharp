@@ -270,7 +270,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     internal ManagedSystemRow NewSystemRow()
         => new(Log, this, SoundSystemInit, map => _gameDll.PreEntityParticipants(map),
                () => _gameDll.ShutdownPreEntityParticipants(), () => _physicsFrame?.Frame(),
-               _liveness, _services.Require<ModelDescriptors>(), _services.Require<BreakModels>());
+               _liveness, _services.Require<ModelDescriptors>(), _services.Require<BreakModels>(), EntitiesFrame);
 
     /// <summary>
     /// The server's movement constants from this module's own declarations
@@ -348,8 +348,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // death's pull) and surface triggers (a player's footing). Registered in
     // the container for the entities that join them; each was a static list.
     private readonly EntityRoster<EnvFire> _fires = new();
+
+    // CPhysicsHook's mass-centre overrides: phys_hinge and info_mass_center
+    // leave them at spawn for the physics prop or physbox of that name.
+    private readonly MassCenterOverrides _massCenters = new();
     private readonly EntityRoster<PhysRagdollMagnet> _magnets = new();
     private readonly EntityRoster<EnvPlayerSurfaceTrigger> _surfaceTriggers = new();
+
+    // The RPG's laser dots, which a missile in flight searches: g_LaserDotList.
+    private readonly EntityRoster<LaserDot> _laserDots = new();
 
     // Map decals waiting to paint (level init) or to be triggered by name.
     private readonly EntityRoster<MapDecal> _pendingDecals = new();
@@ -373,6 +380,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     private Flames _flames = null!;
     private ImpulseCheats _impulses = null!;
     private PlayerFlashlight _flashlight = null!;
+    private PlayerUse _playerUse = null!;
     private DamageCheats _damageCheats = null!;
     private DevContext _devContext = null!;
     private Scoreboard _scoreboard = null!;
@@ -511,40 +519,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // plans, built during the DLL-init window; its sender is attached with the
     // recipient filter, in BuildSounds.
     private ServerTempEntEngine? _tempEntEngine;
+    private PredictionSuppression? _prediction;
 
-    /// <summary>
-    /// Pack a native forward into the blob its class expects. The send stays
-    /// native because the filter belongs to the caller, so this hands bytes back
-    /// rather than playing anything.
-    /// </summary>
-    public int BuildForwardBlob(int id, ReadOnlySpan<float> floats, ReadOnlySpan<int> ints,
-                                Span<byte> into, out int classHandle)
-    {
-        classHandle = -1;
-
-        TempEntState? state = TeForwardDispatch.Build((TeForward)id, floats, ints);
-
-        if (state is null)
-            return -1;
-
-        TempEntType? type = _tempEnts.Find(TempEntityAttribute.ClassNameOf(state.GetType()));
-
-        if (type is null)
-            return -1;
-
-        byte[] blob = state.ToBlob(type);
-
-        // REFUSED RATHER THAN TRUNCATED. A short write is a blob whose tail is
-        // whatever native had there, decoded as fields -- which is worse than
-        // nothing happening.
-        if (blob.Length > into.Length)
-            return -1;
-
-        blob.AsSpan().CopyTo(into);
-        classHandle = type.Handle;
-
-        return blob.Length;
-    }
     private GameRules? _rules;
     // Built in Initialize, through the container: it takes three engine areas.
     private Pickups _pickups = null!;
@@ -695,6 +671,15 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the body.
         int engineAreas = ComposeEngineAreas();
 
+        // THE EFFECTS, STRAIGHT AFTER THE AREAS: EffectsOverTempEnts replaces
+        // the engine's IEngineEffects, and a service created above the
+        // replacement silently keeps the engine's, whose managed-answered
+        // members (the impact, the dust, the tracer...) are empty bodies. The
+        // arsenal was created above it and no bullet ever made an impact
+        // (ServerModuleWiringOrderTests). Only the tables' REGISTRATION stays
+        // in the DLL-init window below.
+        ComposeEffects();
+
         // THE PROCESS' OWN COMMAND LINE, read from /proc/self/cmdline: -tickrate
         // and -debugapi. It was two engine slots, retired for this reader.
         _services.AddInstance<ILocalCommandLine>(new ProcessCommandLine());
@@ -776,7 +761,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedConsoleOutput",
                       v => ManagedAreaFactory.Create(v, new ConsoleDisplayBinding(_engine.Crossings, _consoleLines = _services.Require<ConsoleLines>())));
         _bindings.Add("IManagedResources",
-                      v => ManagedAreaFactory.Create(v, new ResourcesBinding(_engine.Crossings, Log, this)));
+                      v => ManagedAreaFactory.Create(v, new ResourcesBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedSaveRestore",
                       v => ManagedAreaFactory.Create(v, new SaveRestoreBinding(_engine.Crossings, Log, this,
                                                                                new SaveGameSession(Log, _services.Require<ISaveMemory>()))));
@@ -792,8 +777,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                       v => ManagedAreaFactory.Create(v, new EventsBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedUserMessages",
                       v => ManagedAreaFactory.Create(v, new UserMessagesBinding(_userMessages)));
-        _bindings.Add("IManagedTempEnts",
-                      v => ManagedAreaFactory.Create(v, new TempEntsBinding(_engine.Crossings, Log, this)));
         _bindings.Add("IManagedDiagnostics",
                       v => ManagedAreaFactory.Create(v, new DiagnosticsBinding(_engine.Crossings, Log)));
         _bindings.Add("IManagedCommands",
@@ -833,6 +816,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<IEntityRoster<EnvFire>>(_fires);
         _services.AddInstance<IEntityRoster<PhysRagdollMagnet>>(_magnets);
         _services.AddInstance<IEntityRoster<EnvPlayerSurfaceTrigger>>(_surfaceTriggers);
+        _services.AddInstance<IEntityRoster<LaserDot>>(_laserDots);
         _services.AddInstance<IEntityRoster<MapDecal>>(_pendingDecals);
 
         // Which point_viewcontrol holds each player's view: the cameras' shared
@@ -938,7 +922,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_hitGroups);
         // UTIL_FindClientInPVS's check client, for the radiation triggers.
         _services.AddInstance(_services.Create<PvsCheckClient>());
-        _services.AddInstance(_services.Create<DeathNotice>());
         _services.AddInstance(_services.Create<PlayerNames>());
         // Stock's observer mode, the dead CBasePlayer arm (the death cycle and spec_*).
         // Its convars are registered later in Initialize; it reads them when first asked.
@@ -966,7 +949,20 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(new SourceSharp.Shared.Anim.AnimStateLayers(
             () => _services.ResolveAll<SourceSharp.Shared.Anim.IAnimStateLayer>()));
 
+        // The weapon's own sound, under the prediction rules, over the server's
+        // sounds (built with the managed root, after this) -- as the move
+        // helper's sounds reach them.
+        _services.AddInstance<IWeaponSounds>(new WeaponSoundsOf(() => _serverSounds, _prediction!));
+
+        // The weapon scripts on disk, read the way stock's weapon parse reads
+        // them: here, for the sounds each one's precache names.
+        _services.AddInstance(new WeaponScriptDatabase(Log, path => _services.Require<IEngineFiles>().ReadGameFile(path)));
+
         _arsenal = _services.Create<Arsenal>();
+
+        // The named effects a weapon sends itself (the stunstick's) reach the
+        // temp entities, composed before it (ComposeEffects), through this door.
+        _arsenal.Temps = _services.Require<ITempEnts>();
         _services.AddInstance(_arsenal);
         _services.AddInstance<IWeaponGiver>(_arsenal);
 
@@ -980,7 +976,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_flames);
 
         // The impulse cheats (stock's CheatImpulseCommands, gone with
-        // player.cpp at the -ss_player flip). Built AFTER the arsenal it gives
+        // player.cpp at the -player flip). Built AFTER the arsenal it gives
         // through, and BEFORE the players decorator below on purpose: the
         // alive check wants the plain answer, not the arsenal's bookkeeping.
         _impulses = _services.Create<ImpulseCheats>();
@@ -993,6 +989,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<IEntityEffectBits>(_services.Create<EngineEntityEffectBits>());
         _flashlight = _services.Create<PlayerFlashlight>();
         _services.AddInstance<IPlayerFlashlight>(_flashlight);
+
 
         // The damage-rule cheats (stock's god and buddha, whose client.cpp
         // registrations no-op on a standalone player). The toggles live here;
@@ -1011,6 +1008,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         _services.AddInstance<IEnginePlayers>(
             new ArsenalPlayers(_services.Require<IEnginePlayers>(), _arsenal));
+
+        // AFTER the decorator: the notice names the scorer's active weapon,
+        // which ArsenalPlayers answers (the engine's arm answers nothing for
+        // this hierarchy's players, and every gunshot kill read "world").
+        _services.AddInstance(_services.Create<DeathNotice>());
 
         // The round's tally. An instance the module owns rather than a static,
         // so two loads cannot share one board.
@@ -1332,6 +1334,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // so the container has to be able to answer for it.
         _services.AddInstance(_convars);
 
+        // The player's +USE (CHL2_Player::PlayerUse over FindUseEntity), run
+        // before each command's move and, for its deny sound, after it. After
+        // the registry: the finder reads sv_debug_player_use.
+        _services.AddInstance<IUseTargetFinder>(_services.Create<PlayerUseFinder>());
+        _playerUse = _services.Create<PlayerUse>();
+
         // Registered on the server too, from the SAME shared declarations the
         // client uses. Dispatch is client-only, but the server resolves a
         // message name to an index when it SENDS one — and a miss is fatal.
@@ -1423,14 +1431,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // one built later is simply not in the list and the first effect that
         // claims it sends the engine into a table that was never flattened.
         // Ordering between game systems is link order, so a second
-        // CAutoGameSystem would be a coin toss (plan 2D).
-        //
-        // THE TABLES ARE PLANNED HERE AND STORED BY NATIVE (plan_server_native_v2
-        // T4b): ServerTempEntEngine answers the registration, the playback and
-        // the effect index; every other IEngineEffects member is the engine's.
-        _tempEntEngine = new ServerTempEntEngine(_services.Require<IEngineEffects>(), TempEntTables.For(_engine), Log,
-                                                 EffectDispatchNames.For(_services));
-        _tempEnts.RegisterAll("Server", Game, (ITempEntRegistrar)_tempEntEngine);
+        // CAutoGameSystem would be a coin toss (plan 2D). The engine itself was
+        // built by ComposeEffects, straight after the areas.
+        ServerTempEntEngine tempEntEngine = _tempEntEngine!;
+        _tempEnts.RegisterAll("Server", Game, (ITempEntRegistrar)tempEntEngine);
 
         // THE REGISTRY ITSELF, as the client already registers its own
         // (ClientModule). ITempEnts covers twenty-one of the forty-three tables
@@ -1443,44 +1447,30 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // The demonstration sender cs_te_fire and ss_te_tester share: this
         // module's registry, and the names it has already complained about.
-        _services.AddInstance<ITeFire>(new TeFire(Log, _tempEnts, _tempEntEngine,
+        _services.AddInstance<ITeFire>(new TeFire(Log, _tempEnts, tempEntEngine,
                                                  _services.Require<IEnginePrecache>()));
 
-        // Registered by CONTRACT: what a caller wants is "make sparks happen",
-        // and the class that answers it is a detail of which side is asking.
-        // The client's own implementation of the same interface plays what
-        // arrives instead of sending it.
-        //
-        // IT HOLDS THE REAL ENGINE, taken before the line below replaces the
-        // registration. TempEnts needs TempEntPlayback and nothing else from
-        // the engine; handing it the wrapper instead would work today and would
-        // be a cycle waiting to be closed the first time a rewired member of
-        // that wrapper wanted a temp entity.
-        IEngineEffects nativeEffects = _tempEntEngine;
-        var temps = new TempEnts(Log, _tempEnts, nativeEffects);
 
-        _services.AddInstance<ITempEnts>(temps);
+        // The gravity gun's world (weapon_physcannon): its grab controllers'
+        // vphysics calls, its traces, and the behaviour the weapon row names,
+        // which the weapon machines resolve on their first command. After the
+        // temp entities above, which carry its launch effect.
+        _services.AddInstance<IVPhysicsGrabCalls>(new VPhysicsGrabCalls(_engine.VPhysics));
+        // HL2MP's placed items and weapons (hl2mp_gamerules.cpp): where each
+        // came to rest, and the relocation that sends a strayed one back.
+        // Before the map, whose pickups join it.
+        _services.AddInstance<IPhysicsRest>(new EnginePhysicsRest(_services.Require<IEngineEntityPhysics>(),
+                                                                  VPhysicsFrameCalls.For(_engine.VPhysics)));
+        _services.AddInstance(_services.Create<PlacedObjects>());
+        _services.AddInstance<ITraceQueries>(new EngineTraceQueries(_services.Require<SideRoute<IServerTraceRoute>>()));
+        _services.AddInstance<ICustomMotionControllers>(_services.Require<PhysicsMotionControllers>());
+        // What a player's +USE may do with a prop or a physbox: their caps
+        // ask it, and their Use; before the map spawns them.
+        _services.AddInstance(_services.Create<PlayerPickupRules>());
 
-        // PLAN Part 8, THE REWIRING. IEngineEffects keeps every one of its call
-        // sites; what changes is who answers eight of them. Sparks, the
-        // explosion, the muzzle flash, the funnel, the dust, the impact, the
-        // splash and the tracer are packed and sent by managed code over the
-        // managed tables from here on; the other forty-seven members are the
-        // engine's and EffectsOverTempEnts forwards them to the binding
-        // untouched. See that class for the three rows of Part 8's table that
-        // did NOT move and exactly why each is still native.
-        //
-        // A REPLACEMENT AND IT SAYS SO. ServiceContainer warns when a contract
-        // is registered twice, and this is the case its comment names -- "a
-        // module registering a better implementation over a default". The line
-        // in the console is the port being visible rather than a mistake.
-        _services.AddInstance<IEngineEffects>(new EffectsOverTempEnts(
-            nativeEffects, temps,
-            _services.Require<IEngineSound>(),
-            _services.Require<IEngineEntities>(),
-            new EngineEffectsWorld(_services.Require<SideRoute<IServerTraceRoute>>(), _services.Require<IEngineEntities>(),
-                                   _services.Require<IEnginePrecache>(), _engineServer),
-            text => Log.Warning(text)));
+        var physCannon = _services.Create<PhysCannonWorld>();
+        _services.AddInstance(physCannon);
+        _services.AddInstance(new PhysCannonBehaviourSource(physCannon));
 
         // plan_entity.md §3.8: the physics event ring's consumer. AFTER the
         // IEngineEffects replacement above, deliberately -- dust from a physics
@@ -1501,6 +1491,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             _services.Require<IEngineEntityPhysics>(), _services.Require<IEngineEntities>(), new VPhysicsInspect(_engine.VPhysics),
             _services.Require<IVPhysicsSurfaceSounds>(), _services.Require<IEngineSound>()));
         _services.AddInstance(physicsSounds);
+        _services.AddInstance(_massCenters);
         // Which entities touch fluid (I2): the props and the player read it.
         var fluid = new FluidTouches(new EngineSurfaceDensity(_services.Require<PhysicsSurfaces>()));
         _services.AddInstance(fluid);
@@ -1545,10 +1536,17 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // (plan_physics_bones_native_zero 2.1), and the entity pairs the game
         // disabled, which its ShouldCollide reads.
         var solverObjects = new VPhysicsSolverObjects(_engine.VPhysics);
+        _services.AddInstance<IVPhysicsSolverObjects>(solverObjects);
         var solverWorld = new EnginePhysicsSolverWorld(_services.Require<IEngineEntities>(),
                                                        _services.Require<IEngineNetworking>(),
-                                                       _services.Require<IEngineEntityPhysics>());
+                                                       _services.Require<IEngineEntityPhysics>(),
+                                                       h => _entities.Get(h) is { MovesAsPusher: true },
+                                                       h => _entities.Get(h)?.PhysicsSolidMask);
         _services.AddInstance<IPhysicsSolverWorld>(solverWorld);
+        // What a func_weight_button weighs: CalculateObjectStress on its object.
+        _services.AddInstance<IObjectStressQuery>(new EntityObjectStress(
+            new PlayerShadowStress(VPhysicsFrameCalls.For(_engine.VPhysics), solverWorld),
+            _services.Require<IEngineEntityPhysics>()));
         var pairs = new EntityPairCollisions(solverWorld, solverObjects);
         _services.AddInstance(pairs);
         _physicsSolver = new PhysicsSolver(solverWorld, solverObjects, new PhysicsSolverRules(), pairs,
@@ -1588,7 +1586,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             _services.Require<IGameClock>());
         _services.AddInstance(solver);
         _physicsRouter = new PhysicsEventRouter(_entities, impacts, fluid, friction, shadows,
-                                                _services.Require<IGameClock>(), solver);
+                                                _services.Require<IGameClock>(), solver,
+                                                new PusherReconcile(_entityMotion, _services.Require<IEngineEntities>(),
+                                                                    _services.Require<IEngineEntityPhysics>(),
+                                                                    solverObjects, solverObjects));
         _physicsEvents = new PhysicsCollisionResponse(
             new EnginePhysicsCollisionWorld(
                 _services.Require<IEngineEffects>(),
@@ -1624,6 +1625,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // rules' reset, its warmup gate before their think).
         var modes = _services.Create<GameModes>();
         _services.AddInstance(modes);
+        _services.AddInstance<ISpawnWeapon>(DefaultSpawnWeapon.Of(_arsenal, _services.Require<IEngineEntities>(), _engineServer));
         _rules = _services.Create<GameRules>();
         modes.Attach(_rules);
         // And the death cycle gets the proxy too (tf2 stage 0.7 part C): the
@@ -1672,14 +1674,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // reason: both are policy a mod states once, and both are read on paths
         // that must not pay for a managed call to be told a startup value.
         GameRulesPolicy.Register(_services.Require<IEngineGameRulesPolicy>());
-
-        // The collision matrix. Registered on BOTH sides -- the client asks the
-        // same question during prediction, and two sides answering from
-        // different tables shows up as jitter rather than as an error.
-        if (CollisionRules.Register(_services.Require<IEngineCollisionRules>()))
-            Log.Msg($"[SourceSharp/Server] collision matrix delivered (rows 0x{CollisionRules.RowHash(CollisionRules.BuildMatrix()):X8})\n");
-        else
-            Log.Warning("[SourceSharp/Server] collision matrix NOT delivered: this side does not serve RegisterCollisionRules\n");
 
             // Attribution for anything a weapon throws. The launch itself is in
             // the shared half, which cannot see the server's entity classes.
@@ -1743,6 +1737,19 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // and inventing an ICorpses for one caller would be an interface with
         // no second implementation and no reader.
         _services.AddInstance(_corpses);
+
+        // The useable ladders (func_useableladder, info_ladder_dismount): the
+        // entities join it at spawn, and the command loop's movement climbs
+        // what it holds (CHL2GameMovement). A lifecycle participant, because
+        // a level's end empties it.
+        var ladders = new UseableLadders(_convars, _services.Require<IEnginePlayers>(),
+                                         () => NewMoveConstants().Read().Constants);
+        _services.AddInstance(ladders);
+        _serverCommands.Ladders = ladders;
+
+        // HL2MP's player speeds and suit power, which the loop runs for every
+        // player's command (CHL2_Player's HandleSpeedChanges and ReduceTimers).
+        _serverCommands.Hl2Player = new Hl2PlayerMoveRules(_convars, _globalState);
 
         //---------------------------------------------------------------------
         // ...and now that every service is registered, the thing that drives
@@ -1846,6 +1853,16 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                 new PlayerShadowStress(frameCalls, _services.Require<IPhysicsSolverWorld>()),
                 () => directory.All.Select(p => p.Player), ev => _physicsRouter?.Post(ev),
                 () => timescale.Value, () => speeds.Value, text => Log.Msg(text), callbacks.EnsureInstalled);
+            var watchSetting = _convars.Get<PhysicsWatchConVar>()
+                ?? throw new InvalidOperationException("cs_sv_physics_watch is not registered");
+            var watch = new PhysicsWatch(_services.Require<IVPhysicsInspect>(), _services.Require<IVPhysicsSolverObjects>(),
+                                         _services.Require<IGameClock>(), Log, () => watchSetting.Value);
+            _physicsFrame.AfterStep = watch.AfterStep;
+            if (_physicsSolver is { } watchedSolver)
+            {
+                watchedSolver.PenetrationAsked = watch.Penetration;
+                watchedSolver.CollideAsked = watch.Collide;
+            }
             _services.AddInstance(_physicsFrame);
         }
 
@@ -1858,6 +1875,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                          _services.Require<IGameClock>(), Log,
                                          _surfaceProps, _convars.Get<AnimThreeWayBlendConVar>());
         _services.AddInstance(_skeletons);
+        _arsenal.Attachments = _skeletons;
         _entities.Directory.RemovalForget = _skeletons.Forget;
 
         // The model descriptors are read from the same studio headers
@@ -2034,11 +2052,26 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _jitWarmup.Start("server", _jitWarmup.TypesOfContextOf(typeof(ServerModule).Assembly));
     }
 
+    /// <summary>
+    /// The entities' frame, before the physics step: the tick, then every
+    /// frame participant up to the parallel hierarchy (its movers, touches,
+    /// thinks and deletes), where stock's GameFrame runs
+    /// Physics_RunThinkFunctions. A think that makes a physics object makes it
+    /// for this frame's step, as stock's FallThink does.
+    /// </summary>
+    public void EntitiesFrame(float frameTime)
+    {
+        _ticks.Advance();
+        _frames.ThinkThrough((int)FrameStage.Standalone, frameTime);
+    }
+
     public void Frame(float frameTime)
     {
         // Deliberately allocation-free: this runs every tick, and a GC pause
         // here shows up as a frame hitch. See plan.md Part 1, risks.
-        _ticks.Advance();
+        // The tick advanced with the entities' frame, when it ran.
+        if (!_frames.EntitiesThought)
+            _ticks.Advance();
 
         // The penetration ledger's frame (stock's UpdatePenetrateEvents, after
         // the step), then the physics step's entity events, now that PhysFrame
@@ -2077,7 +2110,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // -- FrameUpdatePostEntityThink -- and it is where the soundscape and
         // arsenal updates went, followed by the three that used to be reached
         // through CSourceSharpGameRules::Think.
-        _frames.Think(frameTime);
+        _frames.ThinkRest(frameTime);
 
         // Anything the development API was asked to do runs here, on the game
         // thread. Its HTTP handlers answer on thread-pool threads and the engine
@@ -2177,6 +2210,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// </summary>
     public void OnStandalonePlayerCommand(EntityHandle player, in UserCmd cmd, int phase, bool firstTime)
     {
+        // Phase 0, RunPreThink's moment: ItemPreFrame's PlayerUse.
+        if (phase == 0)
+        {
+            _playerUse.BeforeMove(player, cmd.Buttons);
+            return;
+        }
+
         if (phase != 1)
             return;
 
@@ -2191,6 +2231,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // CheatImpulseCommands.
         if (firstTime && cmd.Impulse != 0 && !_flashlight.OnImpulse(player, cmd.Impulse))
             _impulses.Run(player, cmd.Impulse);
+
+        // CHL2_Player::ItemPostFrame's tail, after its base's weapons and impulses.
+        _playerUse.AfterMove(player);
     }
 
     /// <summary>
@@ -2596,7 +2639,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // class -- info_player_deathmatch, info_player_start -- is of kind
         // Logical, so as of this step it HAS no shell: the resolve answered
         // NULL, the whole `if ( pSpot )` block was skipped, and the player
-        // spawned at the world origin. Measured on dm_lockdown: ss_player at
+        // spawned at the world origin. Measured on dm_lockdown: player at
         // (-3893.09, 1413.9, 0.83) before, (0, 0, 0) after, with 24 of the 118
         // engine-invisible reaches in that run coming from that one resolve.
         //
@@ -2832,7 +2875,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             // warning, the single-owner IJoinTeamPolicy decides a playing
             // team BEFORE anything changes, and a playing team stops
             // observing (StopObserverMode, STATE_ACTIVE), sets the team
-            // through the PlayerSetTeam slot and raises player_team.
+            // through IEnginePlayers.SetTeam and raises player_team.
             if (parts[0].Equals("jointeam", StringComparison.OrdinalIgnoreCase))
             {
                 // Stock's `atoi( args[1] )`: the leading digits ("2x" is 2),
@@ -2910,6 +2953,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         SwitchOutcome.NotOwned        => "the player does not own that weapon",
         SwitchOutcome.NoSuchSlot      => "no weapon in that slot",
         SwitchOutcome.NoHistory       => "nothing was held before this",
+        SwitchOutcome.CannotHolster   => "the weapon in the hands will not be put away (it is holding something, or its missile is flying)",
         _                             => outcome.ToString(),
     };
 
@@ -3170,7 +3214,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                     new EngineEntityPhysicsHost(_services.Require<IEngineEntities>(), entityPhysics,
                                                 _services.Require<IEngineEntityRender>(),
                                                 EngineEntityPhysicsNative.ForEngine(_engine), _entities,
-                                                () => solidityFirst?.Value ?? true, text => Log.Warning(text)));
+                                                () => solidityFirst?.Value ?? true, text => Log.Warning(text)),
+                    _massCenters);
                 _services.AddInstance(_entityPhysics);
                 // phys_convert's conversion (stock's physobj.cpp), over the same
                 // calls and the level's parenting registry.
@@ -3196,6 +3241,65 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         }
 
         return _managedRoot.Address;
+    }
+
+    /// <summary>
+    /// The temp-entity engine and the effects over it, registered before
+    /// anything that takes <see cref="IEngineEffects"/> or
+    /// <see cref="ITempEnts"/> is created. Building them registers no
+    /// ServerClass: <c>_tempEnts.RegisterAll</c> does that, later, inside
+    /// the DLL-init window.
+    /// </summary>
+    private void ComposeEffects()
+    {
+        // Stock's prediction filtering: the suppress host the weapon run sets
+        // and the two rules that read it. The temp entities take it here (their
+        // SuppressTE), the weapon sounds below the arsenal's creation.
+        _prediction = new PredictionSuppression(EngineServices.ClientInfo(_engineServer));
+        _services.AddInstance(_prediction);
+
+        // THE TABLES ARE PLANNED HERE AND STORED BY NATIVE (plan_server_native_v2
+        // T4b): ServerTempEntEngine answers the registration, the playback and
+        // the effect index; every other IEngineEffects member is the engine's.
+        _tempEntEngine = new ServerTempEntEngine(_services.Require<IEngineEffects>(), TempEntTables.For(_engine), Log,
+                                                 EffectDispatchNames.For(_services), _prediction);
+
+        // Registered by CONTRACT: what a caller wants is "make sparks happen",
+        // and the class that answers it is a detail of which side is asking.
+        // The client's own implementation of the same interface plays what
+        // arrives instead of sending it.
+        //
+        // IT HOLDS THE REAL ENGINE, taken before the line below replaces the
+        // registration. TempEnts needs TempEntPlayback and nothing else from
+        // the engine; handing it the wrapper instead would work today and would
+        // be a cycle waiting to be closed the first time a rewired member of
+        // that wrapper wanted a temp entity.
+        IEngineEffects nativeEffects = _tempEntEngine;
+        var temps = new TempEnts(Log, _tempEnts, nativeEffects);
+
+        _services.AddInstance<ITempEnts>(temps);
+
+        // PLAN Part 8, THE REWIRING. IEngineEffects keeps every one of its call
+        // sites; what changes is who answers eight of them. Sparks, the
+        // explosion, the muzzle flash, the funnel, the dust, the impact, the
+        // splash and the tracer are packed and sent by managed code over the
+        // managed tables from here on; the other forty-seven members are the
+        // engine's and EffectsOverTempEnts forwards them to the binding
+        // untouched. See that class for the three rows of Part 8's table that
+        // did NOT move and exactly why each is still native.
+        //
+        // A REPLACEMENT AND IT SAYS SO. ServiceContainer warns when a contract
+        // is registered twice, and this is the case its comment names -- "a
+        // module registering a better implementation over a default". The line
+        // in the console is the port being visible rather than a mistake.
+        _services.AddInstance<IEngineEffects>(new EffectsOverTempEnts(
+            nativeEffects, temps,
+            _services.Require<IEngineSound>(),
+            _services.Require<IEngineEntities>(),
+            new EngineEffectsWorld(_services.Require<SideRoute<IServerTraceRoute>>(), _services.Require<IEngineEntities>(),
+                                   _services.Require<IEnginePrecache>(), _engineServer),
+            _services.Require<IEngineConsole>(), _services.Require<IUniformRandom>(),
+            text => Log.Warning(text)));
     }
 
     /// <summary>
@@ -3279,6 +3383,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     }
 
     /// <summary>The move helper's sounds, to whichever emitter the module has built (none before the root).</summary>
+    private sealed class WeaponSoundsOf(Func<ServerSounds?> sounds, PredictionSuppression prediction) : IWeaponSounds
+    {
+        public void Emit(EntityHandle owner, string soundName) => sounds()?.EmitPredicted(owner, soundName, prediction);
+    }
+
     private sealed class MoveSoundsOf(Func<IMoveSoundSink?> sink) : IMoveSoundSink
     {
         public void MoveSound(int entIndex, Vector origin, int channel, string sample, float volume, int soundLevel,
@@ -3447,9 +3556,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     public IServerHosting Hosting => _gameDll;
 
     /// <inheritdoc/>
-    public IServerDecals Decals => _decals;
-
-    /// <inheritdoc/>
     public IServerPropData PropData => _propData;
 
     /// <inheritdoc/>
@@ -3505,7 +3611,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // ServerActivate and before any client existed. Two groups of record
         // could not match anything at that instant and were held rather than
         // dropped: the entities the managed level init creates in
-        // ServerActivate (10 ss_pickup, 9 ss_beam on dm_lockdown), and the
+        // ServerActivate (10 ss_pickup, 9 beam on dm_lockdown), and the
         // PLAYER with its viewmodel and weapons, which cannot exist before a
         // client is active because the edict they bind to is a client's.
         //
@@ -3627,7 +3733,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         DebugWorld.From(_services, () => _entities.Directory.TouchingPairs(),
                         asleep: h => _physicsRouter?.IsAsleep(h),
                         groundIndex: GroundIndexOf,
-                        tick: () => _ticks.Count),
+                        tick: () => _ticks.Count,
+                        physicsKind: _services.Require<IEngineEntityPhysics>().PhysicsKind),
 
         // The networked schema, and one entity's bytes read back through it.
         //
@@ -3735,7 +3842,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             // claim is that no handle from the engine-invisible range reaches
             // native code, which is a zero; `live` beside it is what stops that
             // zero being trivially true of a build that made none. nativeReach
-            // is counted in NATIVE code (SourceSharp_ResolveEntity) because a
+            // is counted in NATIVE code (CServerEntityResolver::Resolve) because a
             // managed counter could only count the routes managed code already
             // knows it takes.
             new DebugLogical(_entities.ShellLessClassCount, _entities.LiveCount,
@@ -3846,6 +3953,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     public void OnPlayerSpawned(EntityHandle player)
     {
         _players.OnSpawned(player, _clock.Now);
+
+        // CHL2_Player::Spawn's SuitPower_SetCharge( 100 ).
+        _services.Require<IEnginePlayerMovement>().SetSuitPower(player, 100f);
         _rules?.OnPlayerSpawned(player, _clock.Now);
 
         // The chapter title, once per player per level, on their first spawn —

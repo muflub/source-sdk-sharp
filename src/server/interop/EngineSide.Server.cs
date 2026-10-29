@@ -378,7 +378,7 @@ internal sealed unsafe partial class EngineSide
     ///
     /// <para>
     /// How many times a handle from entries 2048..8191 has arrived at
-    /// <c>SourceSharp_ResolveEntity</c> and failed to resolve in the engine's
+    /// <c>CServerEntityResolver::Resolve</c> and failed to resolve in the engine's
     /// own entity list — which a shell-less entity's handle always does,
     /// because it was never added to that list, and a live stock server-only
     /// <c>CBaseEntity</c>'s never does.
@@ -755,21 +755,6 @@ internal sealed unsafe partial class EngineSide
     public bool EntityInitPhysics(EntityHandle entity, bool asleep = false, bool debris = false)
         => PhysicsInit.Target?.Create(entity, isStatic: false, asleep, debris) == true;
 
-    /// <summary>
-    /// What shape this entity presents to a trace, as the engine's own FSOLID_
-    /// bits. Zero for a handle that resolves to nothing.
-    ///
-    /// <para>
-    /// Read off the collideable, so both hierarchies answer: the thing a
-    /// projectile has run into may be a CBaseEntity trigger volume or a managed
-    /// brush, and the projectile cannot know which it was handed.
-    /// </para>
-    /// </summary>
-    public SolidFlags EntityGetSolidFlags(ICollisionServerArea collisionArea, EntityHandle entity)
-    {
-        return (SolidFlags)collisionArea.EntityGetSolidFlags(entity.Value);
-    }
-
     //-------------------------------------------------------------------------
     // THE ENTITY FACTORY DICTIONARY'S FIVE QUESTIONS -- the `sub-factory` lane,
     // appended at ABI 242.
@@ -1042,6 +1027,20 @@ internal sealed unsafe partial class EngineSide
     /// Corner offsets RELATIVE to the start point, which is how the engine wants
     /// a hull and how a caller holding an entity's bounds already has them.
     /// </param>
+    /// <summary>A box swept as a hull, answered as a surface line trace is: where, the face, what, and its surface.</summary>
+    public SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs,
+                                       TraceMask mask, EntityHandle ignore = default)
+    {
+        if (Tracer.Target is not { } tracer)
+            return new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);
+
+        long cost = CostMeter.Start();
+        ServerTrace t = tracer.Hull(start, end, mins, maxs, (uint)TraceMasks.Hull(mask),
+                                    new EntityHandle(Skippable(ignore)), CollisionGroupNone);
+        TraceCost.Target!.Hull.Stop(cost);
+        return ServerTraceResults.Surface(t);
+    }
+
     public HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs,
                                        TraceMask mask, EntityHandle ignore = default)
     {

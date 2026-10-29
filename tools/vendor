@@ -1,0 +1,568 @@
+#!/usr/bin/env python3
+"""tools/vendor -- the Valve files server.so and client.so build from.
+
+    tools/vendor                    check vendor/ against what the module
+                                    builds read; exit 1 on any finding
+    tools/vendor --write            move or delete vendor/ files to match
+                                    (git mv / git rm); never adds a file
+    tools/vendor --import SIDE      also copy in every Valve file SIDE's
+                                    modules (server or client) read from
+                                    outside vendor/, from the pristine clone
+                                    (valve-sdk.lock)
+    tools/vendor --import SIDE --only T1,T2
+                                    import only what those targets read
+    tools/vendor --strict [SIDE]    also fail when a module (of SIDE, server or
+                                    client; default both) reads a Valve file
+                                    from outside vendor/
+    tools/vendor --report           list every finding
+    tools/vendor --self-test        this script's own checks
+    --config C (or SOURCESHARP_CONFIG) picks farm/<C>; default debug.
+
+vendor/ holds the Valve SDK files the MODULES compile and link: server.so
+(server_sourcesharp, ss_fwd_server) and client.so (client_sourcesharp,
+ss_fwd_client). libss_particles and the tier1 and mathlib it links build
+from the pristine clone and never from vendor/ or the fork (user 2026-10-25);
+tests may still read the fork (user ruling 2026-10-25). A file sits at its Valve path, less
+the leading src/, under the side that reads it:
+
+    vendor/shared/   read by both sides
+    vendor/server/   read by the server side only
+    vendor/client/   read by the client side only
+
+"Reads" is measured, never declared: the Linux build's dependency logs
+(`ninja -t deps`) for every object of a module target, unioned with a Windows
+pass that preprocesses each of those objects' sources for the MSVC target
+(clang -E -M -MG with the Windows define set), so a header only a Windows
+arm includes is not stripped. Prebuilt libraries count as read when a module
+target's link line names them (build.ninja).
+
+Findings: a vendor/ file no module reads (strip it), a file under the wrong
+side, and with --strict a module reading a Valve file from the fork or the
+pristine clone, or libss_particles' build reading one from vendor/ or the fork. A missing or unreadable input is a failure, never a pass.
+"""
+import concurrent.futures
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+VENDOR = os.path.join(REPO, "vendor")
+SIDE_DIRS = ("shared", "server", "client")
+
+SIDE_TARGETS = {
+    "server": ("server_sourcesharp", "ss_fwd_server"),
+    "client": ("client_sourcesharp", "ss_fwd_client"),
+}
+# Static libraries a module links, built from Valve sources: their objects
+# count for every side whose module links them.
+LIB_TARGETS = {}
+# Built from the pristine clone: they read no vendor/ file and no fork file.
+STOCK_TARGETS = ("ss_particles", "tier1", "mathlib")
+
+# The Linux platform defines the Windows pass drops, and the Windows set it
+# adds (cmake/SourceSharp.cmake's SS_COMMON_DEFS per platform).
+LINUX_DEFS = {"GNUC", "NO_HOOK_MALLOC", "_FILE_OFFSET_BITS", "COMPILER_GCC",
+              "_DLL_EXT", "_LINUX", "LINUX", "POSIX", "_POSIX", "GL_GLEXT_PROTOTYPES",
+              "DX_TO_GL_ABSTRACTION", "USE_SDL", "_DLL_PREFIX", "_EXTERNAL_DLL_EXT",
+              "_LINUXSTEAMRT64", "LINUX64", "LINUXSTEAMRT64", "SYSTEM_TRIPLE"}
+WINDOWS_DEFS = ["COMPILER_MSVC", "COMPILER_MSVC64", "WIN64", "_WIN64", "WIN32",
+                "_WIN32", "_WINDOWS", "_USRDLL", "_CRT_SECURE_NO_DEPRECATE",
+                "_CRT_NONSTDC_NO_DEPRECATE", "_DLL_EXT=.dll", "_EXTERNAL_DLL_EXT=.dll",
+                "AVI_VIDEO", "WMV_VIDEO", "_MSC_VER=1938", "_MSC_FULL_VER=193833130"]
+WINDOWS_FORCED = os.path.join(REPO, "cmake", "compat", "windows", "ss_memalloc_windows.h")
+WINDOWS_FORCED_TARGETS = {"client_sourcesharp", "ss_fwd_client", "ss_fwd_server"}
+
+
+# What the Windows build of a module reads that neither Linux pass can see:
+# the import libraries and archives cmake/sdk/CMakeLists.txt names for the
+# platform. Each is read by one target.
+WINDOWS_INPUTS = {
+    "lib/public/x64/libz.lib": "client_sourcesharp",
+}
+
+
+class Missing(Exception):
+    pass
+
+
+def config(argv):
+    if "--config" in argv:
+        return argv[argv.index("--config") + 1]
+    return os.environ.get("SOURCESHARP_CONFIG", "debug")
+
+
+def read_first(path):
+    try:
+        with open(path) as f:
+            return f.read().split()[0]
+    except (OSError, IndexError):
+        raise Missing("cannot read " + os.path.relpath(path, REPO))
+
+
+def valve_roots():
+    """The Valve tree a module may still read outside vendor/: the pristine
+    clone (valve-sdk.lock.local), which the farm links from."""
+    roots = {}
+    for name, lock in (("stock", "valve-sdk.lock.local"),):
+        p = os.path.join(REPO, lock)
+        if os.path.exists(p):
+            roots[name] = os.path.realpath(read_first(p))
+    return roots
+
+
+def pristine():
+    p = os.path.join(REPO, "valve-sdk.lock.local")
+    root = os.path.realpath(read_first(p))
+    want = read_first(os.path.join(REPO, "valve-sdk.lock"))
+    head = subprocess.run(["git", "-C", root, "rev-parse", "HEAD"], capture_output=True,
+                          text=True).stdout.strip()
+    if head != want:
+        raise Missing("the pristine clone %s is at %s, valve-sdk.lock pins %s" % (root, head, want))
+    return root
+
+
+def classify(real, roots):
+    """(kind, relpath) of a real path: kind 'vendor:<side>', 'fork', 'stock';
+    relpath is the Valve path without src/. None when it is not a Valve file."""
+    vendor = os.path.realpath(VENDOR)
+    if real.startswith(vendor + os.sep):
+        rest = real[len(vendor) + 1:]
+        side, _, rel = rest.partition(os.sep)
+        if side in SIDE_DIRS and rel:
+            return "vendor:" + side, rel
+        return "vendor:?", rest
+    # The clone first: when ROOT is the clone itself, its files are stock.
+    for kind in sorted(roots, key=lambda k: k != "stock"):
+        root = roots[kind]
+        src = os.path.join(root, "src") + os.sep
+        if real.startswith(src):
+            return kind, real[len(src):]
+    return None
+
+
+def target_of(obj):
+    m = re.search(r"CMakeFiles/([^/]+)\.dir/", obj)
+    return m.group(1) if m else None
+
+
+def sides_of_target(tgt):
+    """The vendor/ sides a target's reads count for: () for one read but
+    for no side (the stock targets), None for one not read at all."""
+    for side, tgts in SIDE_TARGETS.items():
+        if tgt in tgts:
+            return (side,)
+    if tgt in STOCK_TARGETS:
+        return ()
+    return LIB_TARGETS.get(tgt)
+
+
+def linux_reads(build):
+    """{target: set(real paths)} from ninja's dependency log."""
+    out = subprocess.run(["ninja", "-C", build, "-t", "deps"], capture_output=True, text=True)
+    if out.returncode != 0 or not out.stdout:
+        raise Missing("ninja -t deps in %s failed: %s" % (build, out.stderr.strip()[:200]))
+    reads, tgt, stale = {}, None, []
+    for line in out.stdout.splitlines():
+        if line and not line[0].isspace():
+            obj = line.split(":")[0]
+            tgt = target_of(obj)
+            if tgt is not None and sides_of_target(tgt) is not None:
+                if "(VALID)" not in line:
+                    stale.append(obj)
+                reads.setdefault(tgt, set())
+            else:
+                tgt = None
+            continue
+        p = line.strip()
+        if tgt is None or not p:
+            continue
+        if not os.path.isabs(p):
+            p = os.path.join(build, p)
+        reads[tgt].add(os.path.realpath(p))
+    if stale:
+        raise Missing("%d module objects have stale deps (rebuild first), e.g. %s"
+                      % (len(stale), stale[0]))
+    for tgt in [t for ts in SIDE_TARGETS.values() for t in ts]:
+        if not reads.get(tgt):
+            raise Missing("no dependency records for %s in %s" % (tgt, build))
+    return reads
+
+
+def windows_command(cmd, tgt):
+    args = shlex.split(cmd["command"])
+    out = [args[0], "--target=x86_64-pc-windows-msvc", "-fms-extensions",
+           "-fms-compatibility", "-fdelayed-template-parsing", "-E", "-M", "-MG", "-w",
+           "-Wno-everything", "-std=c++17"]
+    i = 1
+    while i < len(args):
+        a = args[i]
+        if a in ("-o", "-c", "-MF", "-MT", "-MQ"):
+            i += 2
+            continue
+        if a.startswith("-D"):
+            name = a[2:].split("=")[0]
+            if name not in LINUX_DEFS:
+                out.append(a)
+        elif a.startswith("-U") or a.startswith("-I") or a == "-isystem":
+            out.append(a)
+            if a == "-isystem":
+                out.append(args[i + 1])
+                i += 1
+        elif a == "-include":
+            out += [a, args[i + 1]]
+            i += 1
+        i += 1
+    out += ["-D" + d for d in WINDOWS_DEFS]
+    if tgt in WINDOWS_FORCED_TARGETS:
+        out += ["-include", WINDOWS_FORCED]
+    out.append(cmd["file"])
+    return out, cmd.get("directory", REPO)
+
+
+def windows_reads(build):
+    """{target: set(real paths)}: each module object's source preprocessed for
+    the MSVC target. Missing system headers are tolerated (-MG); a Valve file
+    the Windows arms name is a dependency like any other."""
+    try:
+        with open(os.path.join(build, "compile_commands.json")) as f:
+            db = json.load(f)
+    except (OSError, ValueError) as e:
+        raise Missing("compile_commands.json: %s" % e)
+    jobs = []
+    for cmd in db:
+        tgt = target_of(cmd.get("output", ""))
+        if tgt is not None and sides_of_target(tgt) is not None:
+            jobs.append((tgt, cmd))
+    if not jobs:
+        raise Missing("no module objects in compile_commands.json")
+
+    def run(job):
+        tgt, cmd = job
+        argv, cwd = windows_command(cmd, tgt)
+        r = subprocess.run(argv, cwd=cwd, capture_output=True, text=True)
+        deps = set()
+        text = r.stdout.replace("\\\n", " ")
+        for tok in text.split(":", 1)[-1].split():
+            p = tok if os.path.isabs(tok) else os.path.join(cwd, tok)
+            if os.path.exists(p):
+                deps.add(os.path.realpath(p))
+        return tgt, deps, (r.returncode != 0 and not deps), cmd["file"]
+
+    reads, failed = {}, []
+    with concurrent.futures.ThreadPoolExecutor(os.cpu_count() or 4) as ex:
+        for tgt, deps, bad, src in ex.map(run, jobs):
+            if bad:
+                failed.append(src)
+            reads.setdefault(tgt, set()).update(deps)
+    if failed:
+        raise Missing("the Windows pass could not preprocess %d sources, e.g. %s"
+                      % (len(failed), failed[0]))
+    return reads
+
+
+def link_reads(build):
+    """{target: set(real paths)}: every input of a module's link edge (prebuilt
+    libraries, version scripts); classify() keeps the Valve ones."""
+    try:
+        with open(os.path.join(build, "build.ninja")) as f:
+            text = f.read()
+    except OSError as e:
+        raise Missing("build.ninja: %s" % e)
+    reads = {}
+    for m in re.finditer(r"^build [^\n]*?: CXX_(?:SHARED|STATIC)_LIBRARY_LINKER__(\S+)_(?:Debug|Release)"
+                         r"([^\n]*)", text, re.M):
+        tgt = m.group(1)
+        if sides_of_target(tgt) is None:
+            continue
+        for tok in m.group(2).split():
+            if tok in ("|", "||"):
+                continue
+            p = tok if os.path.isabs(tok) else os.path.join(build, tok)
+            if os.path.exists(p):
+                reads.setdefault(tgt, set()).add(os.path.realpath(p))
+    return reads
+
+
+def windows_inputs(roots):
+    """{target: set(real paths)} for WINDOWS_INPUTS, wherever each is found:
+    vendor/ first, then the fork, then the pristine clone."""
+    reads = {}
+    for rel, tgt in WINDOWS_INPUTS.items():
+        cands = [os.path.join(VENDOR, side, rel) for side in SIDE_DIRS]
+        cands += [os.path.join(roots[k], "src", rel) for k in ("fork", "stock") if k in roots]
+        found = next((c for c in cands if os.path.exists(c)), None)
+        if found is None:
+            raise Missing("the Windows input %s is in neither vendor/ nor a Valve tree" % rel)
+        reads.setdefault(tgt, set()).add(os.path.realpath(found))
+    return reads
+
+
+def probe_reads(build):
+    """{client target: set(real paths)}: the debug client's probe sources
+    (tools/client-probe-link reads the same list from the CMakeLists) are part
+    of client.so's probe build, so what they include is read by the client.
+    Preprocessed with a client object's own flags, so no probe tree has to
+    exist for the measurement."""
+    import importlib.machinery
+    cpl = importlib.machinery.SourceFileLoader(
+        "client_probe_link", os.path.join(REPO, "tools", "client-probe-link")).load_module()
+    with open(os.path.join(REPO, "src", "client", "native", "CMakeLists.txt")) as f:
+        sources = cpl.probe_sources(f.read())
+    if not sources:
+        raise Missing("no probe sources in src/client/native/CMakeLists.txt")
+    try:
+        with open(os.path.join(build, "compile_commands.json")) as f:
+            db = json.load(f)
+    except (OSError, ValueError) as e:
+        raise Missing("compile_commands.json: %s" % e)
+    base = next((c for c in db if target_of(c.get("output", "")) == "client_sourcesharp"), None)
+    if base is None:
+        raise Missing("no client_sourcesharp object in compile_commands.json")
+    args = shlex.split(base["command"])
+    keep, i = [args[0]], 1
+    while i < len(args):
+        a = args[i]
+        if a in ("-o", "-c", "-MF", "-MT", "-MQ"):
+            i += 2
+            continue
+        if not a.startswith("-"):
+            i += 1
+            continue
+        keep.append(a)
+        if a in ("-include", "-isystem", "-Xclang", "-include-pch"):
+            keep.append(args[i + 1])
+            i += 1
+        i += 1
+    keep = [a for a in keep if not a.startswith(("-Winvalid-pch",))]
+    deps = set()
+    for rel in sources:
+        r = subprocess.run(keep + ["-E", "-M", "-MG", "-w", os.path.join(REPO, rel)],
+                           cwd=base.get("directory", REPO), capture_output=True, text=True)
+        text = r.stdout.replace("\\\n", " ")
+        found = 0
+        for tok in text.split(":", 1)[-1].split():
+            q = tok if os.path.isabs(tok) else os.path.join(base.get("directory", REPO), tok)
+            if os.path.exists(q):
+                deps.add(os.path.realpath(q))
+                found += 1
+        if not found:
+            raise Missing("the probe pass could not preprocess %s: %s" % (rel, r.stderr.strip()[:200]))
+    return {"client_sourcesharp": deps}
+
+
+def measure(cfg, windows=True):
+    """{relpath: {"sides": set, "kinds": {side: set}}} over every module read:
+    the sides that read the file, and per side where it was read from."""
+    build = os.path.join(REPO, "farm", cfg, "build")
+    if not os.path.isdir(build):
+        raise Missing("no build tree at farm/%s/build (make %s first)" % (cfg, cfg))
+    roots = valve_roots()
+    passes = [linux_reads(build), link_reads(build), probe_reads(build)]
+    if windows:
+        passes.append(windows_reads(build))
+        passes.append(windows_inputs(roots))
+    files = {}
+    for reads in passes:
+        for tgt, paths in reads.items():
+            sides = sides_of_target(tgt)
+            for real in paths:
+                c = classify(real, roots)
+                if c is None:
+                    continue
+                kind, rel = c
+                e = files.setdefault(rel, {"sides": set(), "kinds": {}})
+                e["sides"].update(sides)
+                for side in sides:
+                    e["kinds"].setdefault(side, set()).add(kind)
+                e.setdefault("targets", set()).add(tgt)
+                if tgt in STOCK_TARGETS:
+                    e.setdefault("stock_kinds", set()).add(kind)
+    return files
+
+
+def side_dir(sides):
+    if "server" in sides and "client" in sides:
+        return "shared"
+    if "server" in sides:
+        return "server"
+    if "client" in sides:
+        return "client"
+    return None
+
+
+def vendor_files():
+    out = {}
+    for side in SIDE_DIRS:
+        root = os.path.join(VENDOR, side)
+        for d, _, names in os.walk(root):
+            for n in names:
+                p = os.path.join(d, n)
+                out[os.path.relpath(p, root)] = side
+    return out
+
+
+def findings(files, have, strict):
+    """strict: False, or the set of sides whose outside reads are findings."""
+    """(unread, misplaced, outside): vendor files nothing reads; vendor files
+    under the wrong side as (rel, have, want); Valve reads from outside
+    vendor/ as (rel, want, kinds)."""
+    unread, misplaced, outside = [], [], []
+    for rel, side in sorted(have.items()):
+        e = files.get(rel)
+        if e is None or not e["sides"]:
+            unread.append((rel, side))
+        elif side_dir(e["sides"]) != side:
+            misplaced.append((rel, side, side_dir(e["sides"])))
+    if strict:
+        for rel, e in sorted(files.items()):
+            kinds = sorted({k for side, ks in e["kinds"].items()
+                            if strict is True or side in strict
+                            for k in ks if not k.startswith("vendor:")})
+            if kinds and side_dir(e["sides"]):
+                outside.append((rel, side_dir(e["sides"]), kinds))
+            bad = sorted(k for k in e.get("stock_kinds", ()) if k != "stock")
+            if bad and (strict is True or "client" in strict):
+                outside.append((rel, "stock", bad))
+    return unread, misplaced, outside
+
+
+def git(*args):
+    subprocess.run(["git", "-C", REPO, *args], check=True, capture_output=True)
+
+
+def write(unread, misplaced, outside, import_side, files, only=None):
+    for rel, side in unread:
+        git("rm", "-q", "-f", os.path.join("vendor", side, rel))
+    for rel, have, want in misplaced:
+        dst = os.path.join(VENDOR, want, rel)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        git("mv", os.path.join("vendor", have, rel), os.path.join("vendor", want, rel))
+    if import_side:
+        src_root = os.path.join(pristine(), "src")
+        for rel, want, _ in outside:
+            if want == "stock":
+                continue        # libss_particles' build: point it at the clone, never import
+            if import_side not in files[rel]["sides"]:
+                continue
+            if only and not (files[rel]["targets"] & only):
+                continue
+            src = os.path.join(src_root, rel)
+            if not os.path.exists(src):
+                raise Missing("%s is not in the pristine clone: a fork-only file cannot be vendored"
+                              % rel)
+            dst = os.path.join(VENDOR, want, rel)
+            if os.path.exists(dst):
+                continue
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copyfile(src, dst)
+            git("add", os.path.join("vendor", want, rel))
+    for d, subdirs, names in os.walk(VENDOR, topdown=False):
+        if d != VENDOR and not os.listdir(d):
+            os.rmdir(d)
+
+
+def self_test():
+    checks = 0
+
+    def eq(a, b, what):
+        nonlocal checks
+        checks += 1
+        if a != b:
+            raise AssertionError("%s: %r != %r" % (what, a, b))
+
+    eq(side_dir({"server", "client"}), "shared", "both sides share")
+    eq(side_dir({"client"}), "client", "client only")
+    eq(side_dir(set()), None, "no side")
+    roots = {"fork": "/f", "stock": "/s"}
+    eq(classify("/f/src/public/a.h", roots), ("fork", "public/a.h"), "fork path")
+    eq(classify("/s/src/public/a.h", roots), ("stock", "public/a.h"), "stock path")
+    eq(classify("/elsewhere/a.h", roots), None, "not Valve")
+    eq(classify("/s/src/public/a.h", {"fork": "/s", "stock": "/s"}), ("stock", "public/a.h"),
+       "a ROOT that is the clone reads as stock")
+    v = os.path.realpath(VENDOR)
+    eq(classify(v + "/server/public/a.h", roots), ("vendor:server", "public/a.h"), "vendor path")
+    files = {"public/a.h": {"sides": {"server"}, "kinds": {"server": {"vendor:shared"}}},
+             "public/b.h": {"sides": {"server", "client"},
+                            "kinds": {"server": {"stock"}, "client": {"stock"}}}}
+    have = {"public/a.h": "shared", "public/c.h": "server"}
+    u, m, o = findings(files, have, True)
+    eq(u, [("public/c.h", "server")], "an unread vendor file is a finding")
+    eq(m, [("public/a.h", "shared", "server")], "a one-side file under shared/ is misplaced")
+    eq(o, [("public/b.h", "shared", ["stock"])], "a read from outside vendor/ under --strict")
+    eq(findings(files, have, False)[2], [], "outside reads are not findings without --strict")
+    eq(findings(files, have, {"server"})[2], [("public/b.h", "shared", ["stock"])],
+       "--strict server covers a file the server reads")
+    files["public/b.h"]["kinds"]["server"] = {"vendor:shared"}
+    eq(findings(files, have, {"server"})[2], [],
+       "--strict server ignores the client's outside read of a shared file")
+    eq(findings(files, have, {"client"})[2], [("public/b.h", "shared", ["stock"])],
+       "--strict client sees it")
+    eq(sides_of_target("tier1"), (), "tier1 is read, for no vendor/ side")
+    files = {"public/s.h": {"sides": set(), "kinds": {}, "stock_kinds": {"vendor:client"}}}
+    eq(findings(files, {}, True)[2], [("public/s.h", "stock", ["vendor:client"])],
+       "libss_particles reading vendor/ is a finding under --strict")
+    files["public/s.h"]["stock_kinds"] = {"stock"}
+    eq(findings(files, {}, True)[2], [], "and reading the pristine clone is not")
+    eq(sides_of_target("fwd_steam_test"), None, "a test target is not a module")
+    argv, _ = windows_command({"command": "c++ -DGNUC -DFOO=1 -Ia -o x.o -c f.cpp",
+                               "file": "f.cpp"}, "server_sourcesharp")
+    eq("-DGNUC" in argv, False, "the Windows pass drops Linux defines")
+    eq("-DFOO=1" in argv and "-Ia" in argv and "-D_WIN32" in argv, True,
+       "the Windows pass keeps the rest and adds the Windows set")
+    eq("x.o" in argv, False, "the Windows pass writes no object")
+    print("tools/vendor --self-test: %d checks passed" % checks)
+    return 0
+
+
+def main(argv):
+    if "--self-test" in argv:
+        return self_test()
+    cfg = config(argv)
+    strict = False
+    if "--strict" in argv:
+        i = argv.index("--strict")
+        nxt = argv[i + 1] if i + 1 < len(argv) else None
+        strict = {nxt} if nxt in ("server", "client") else True
+    try:
+        files = measure(cfg)
+        have = vendor_files()
+        unread, misplaced, outside = findings(files, have, True if "--import" in argv else strict)
+        import_side = argv[argv.index("--import") + 1] if "--import" in argv else None
+        if import_side not in (None, "server", "client"):
+            raise Missing("--import takes server or client")
+        if "--write" in argv or import_side:
+            only = set(argv[argv.index("--only") + 1].split(",")) if "--only" in argv else None
+            write(unread, misplaced, outside, import_side, files, only)
+            have = vendor_files()
+            unread, misplaced, outside = findings(files, have, strict)
+            if "--import" in argv:
+                # Imported files are read from outside vendor/ until the build
+                # is pointed at them; that is the next step, not a finding.
+                outside = [o for o in outside if o[0] not in have]
+    except Missing as e:
+        print("tools/vendor: " + str(e))
+        return 1
+    n = len(unread) + len(misplaced) + len(outside)
+    by_side = {}
+    for side in have.values():
+        by_side[side] = by_side.get(side, 0) + 1
+    print("tools/vendor: %d vendored (%s); %d unread, %d misplaced, %d read from outside vendor/%s"
+          % (len(have), ", ".join("%s %d" % (s, by_side.get(s, 0)) for s in SIDE_DIRS),
+             len(unread), len(misplaced), len(outside), "" if strict else " (not checked)"))
+    if n and ("--report" in argv or n <= 20):
+        for rel, side in unread:
+            print("  unread     vendor/%s/%s" % (side, rel))
+        for rel, h, w in misplaced:
+            print("  misplaced  vendor/%s/%s -> vendor/%s/" % (h, rel, w))
+        for rel, w, kinds in outside:
+            print("  outside    %s (%s) -> %s" % (rel, ",".join(kinds),
+                                                  "the pristine clone" if w == "stock" else "vendor/%s/" % w))
+    return 1 if n else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

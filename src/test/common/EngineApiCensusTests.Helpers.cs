@@ -66,14 +66,15 @@ public partial class EngineApiCensusTests
         // 9 since lane c2-sims took IShimEngine's file reads to the shared base
         // (no server area extends IShimEngine now; the factory below serves it);
         // 8 since plan_server_native_v2 T3 retired IShimStringTablesServer; 7 since
-        // IShimWorld emptied (PointContents folded, 2026-10-19). A floor for the
-        // reader, not a target: the port shrinks it.
-        Assert.True(bases.Count >= 6, $"read the shared bases ({bases.Count})");
+        // IShimWorld emptied (PointContents folded, 2026-10-19); 5 since T6 part 3
+        // retired IShimCollision (2026-10-27). A floor for the reader, not a
+        // target: the port shrinks it.
+        Assert.True(bases.Count >= 5, $"read the shared bases ({bases.Count})");
 
         // And a shared interface no server area extends (IShimEvents, since
         // plan_side_isolation P2 took its user-message slot to IShimUserMessages):
         // the client serves it all the same, which is what its factory hands out.
-        string factory = File.ReadAllText(RepoLayout.Repo("src", "shared", "native", "shell_shim_areas_client.inc"));
+        string factory = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_shim_areas_client.cpp"));
         var served = Regex.Matches(factory, @"static_cast<\s*(\w+)\s*\*\s*>\(\s*&areas\.").Select(m => m.Groups[1].Value).ToList();
         Assert.True(served.Count >= 10, $"read the client factory's areas ({served.Count})");
         bases.UnionWith(served);

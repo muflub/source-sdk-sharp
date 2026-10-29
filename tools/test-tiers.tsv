@@ -82,14 +82,9 @@ fact	managed-client	SourceSharp.Tests.Ui.UiGoldenTests.The_svg_is_its_golden	3.3
 fact	managed-client	SourceSharp.Tests.Ui.UiKeyCaptureTests.The_generator_writes_key_accessors_that_compile	4.1	1
 gtest-binaries	native	dead_conditionals_test	6.2	1
 must-not-compile	native	client_slot_table_no_own_serial	5.8	1
-must-not-compile	native	entity_funcslot_ambiguous	5.7	1
-must-not-compile	native	entity_funcslot_private	6.2	1
-must-not-compile	native	entity_funcslot_unrelated	5.7	1
-must-not-compile	native	entity_funcslot_virtual	5.1	1
 must-not-compile	native	slot_table_no_activelist	7.0	1
 must-not-compile	native	slot_table_no_cursor	5.9	1
 must-not-compile	native	slot_table_no_foreach	7.0	1
 must-not-compile	native	slot_table_no_rangefor	5.5	1
 must-not-compile	native	slot_table_no_storage	6.8	1
 must-not-compile	native	standalone_handle_ban	7.2	1
-must-not-compile	native	standalone_handle_ban_client	5.0	1

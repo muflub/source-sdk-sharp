@@ -23,6 +23,10 @@ public class AnimationMuzzleFlashRouteTests
         public void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null)
         {
         }
+
+        public void StopFrom(EntityHandle entity, string soundName)
+        {
+        }
     }
 
     private sealed class Flashes : ILegacyMuzzleFlashes
@@ -69,10 +73,10 @@ public class AnimationMuzzleFlashRouteTests
     }
 
     private static AnimationEventFired Named(string name, string options)
-        => new(s_viewModel, "ss_viewmodel", 2, new ModelAnimationEvent(0, 0f, 0, AnimationEventTypes.NewEventSystem, name, options));
+        => new(s_viewModel, "predicted_viewmodel", 2, new ModelAnimationEvent(0, 0f, 0, AnimationEventTypes.NewEventSystem, name, options));
 
     private static AnimationEventFired Numbered(int id, string options)
-        => new(s_viewModel, "ss_viewmodel", 2, new ModelAnimationEvent(0, 0f, id, 0, string.Empty, options));
+        => new(s_viewModel, "predicted_viewmodel", 2, new ModelAnimationEvent(0, 0f, id, 0, string.Empty, options));
 
     [Fact]
     public void A_view_models_named_flash_draws_on_its_own_attachment_first_person()

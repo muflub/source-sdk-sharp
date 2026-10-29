@@ -34,6 +34,7 @@
   <Project Path="src/tf2/tests/TF2.Tests.csproj" />
   <Project Path="src/test/oracle/managed/SourceSharp.OracleTests.csproj" />
   <Project Path="src/tools/UiPreview/SourceSharp.UiPreview.csproj" />
+  <Project Path="src/tools/StockAb/SourceSharp.StockAb.csproj" />
   <Project Path="src/debug_api/interfaces/Debug.Api.Server.Interfaces.csproj" />
   <Project Path="src/debug_api_client/interfaces/Debug.Api.Client.Interfaces.csproj" />
 </Solution>

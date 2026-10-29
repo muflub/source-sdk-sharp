@@ -26,7 +26,7 @@ runs:
           | sudo tee /etc/apt/sources.list.d/llvm-22.list > /dev/null
         sudo apt-get update -qq
         sudo apt-get install -y -qq --no-install-recommends \
-          cmake ninja-build clang-22 lld-22 zlib1g-dev uuid-dev python3-yaml
+          cmake ninja-build clang-22 lld-22 llvm-22 zlib1g-dev uuid-dev python3-yaml
         clang++-22 --version | sed -n 1p
         ld.lld-22 --version | sed -n 1p
         cmake --version | sed -n 1p

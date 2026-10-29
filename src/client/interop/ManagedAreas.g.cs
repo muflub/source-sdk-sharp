@@ -38,6 +38,8 @@ public unsafe interface IManagedStandaloneClient
     int NetStateFieldOffset(byte* a0, byte* a1);
     int NetStateFieldBits(byte* a0, byte* a1);
     void OnStandaloneDrawBatch(void* a0, int a1, void* a2);
+    int SchemaAccept(uint a0, int a1, uint a2, uint a3, int a4, byte* a5);
+    int OnStandaloneDrawExtras(uint a0, int a1);
 }
 
 [ManagedVtable(typeof(ManagedPredictionClientTable))]
@@ -52,10 +54,10 @@ public unsafe interface IManagedPredictionClient
 public unsafe interface IManagedTempEntsClient
 {
     void OnTempEntity(int a0, byte* a1, int a2);
-    int OnNativeTempEntity(int a0, void* a1, int a2, void* a3, int a4, void* a5, int a6, void* a7);
     void OnTempEntPoolUpdate(float a0);
     void OnTempEntPoolClear();
     int OnImpactChoice(void* a0, int a1, void* a2, int a3, byte* a4, int a5, byte* a6, int a7);
+    int SuppressLocalTempEnt(int a0, int a1);
 }
 
 [ManagedVtable(typeof(ManagedSaveRestoreClientTable))]
@@ -74,7 +76,6 @@ public unsafe interface IManagedBeamsClient
     void BeamsLifecycle(int a0, int a1);
     void BeamsUpdate(float a0, float a1);
     void BeamsKillDead(uint a0, float a1);
-    int BeamsCreate(int a0, void* a1, void* a2, byte* a3, byte* a4, float a5);
     void BeamsDraw(int a0);
 }
 

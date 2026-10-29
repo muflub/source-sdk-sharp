@@ -14,8 +14,6 @@
 // table managed wrote. The object lives in the block's 3 reserved words after
 // word 0, so it is the block's, across a reload too. Engine types cross as void *.
 
-#ifndef IMANAGED_PHYSICS_CALLBACKS_H
-#define IMANAGED_PHYSICS_CALLBACKS_H
 #pragma once
 
 #include <stdint.h>
@@ -36,20 +34,31 @@ struct SSManagedPhysicsObjectEventTable
 class IManagedPhysicsObjectEvent : public IManagedObject
 {
 public:
-	explicit IManagedPhysicsObjectEvent( const SSManagedPhysicsObjectEventTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedPhysicsObjectEvent( const SSManagedPhysicsObjectEventTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
 	void ObjectWake( void *pObject ) { Table()->ObjectWake( this, pObject ); }
+
 	void ObjectSleep( void *pObject ) { Table()->ObjectSleep( this, pObject ); }
 
 private:
-	const SSManagedPhysicsObjectEventTable *Table() const { return static_cast< const SSManagedPhysicsObjectEventTable * >( m_pTable ); }
+	const SSManagedPhysicsObjectEventTable *Table() const
+	{
+		return static_cast<const SSManagedPhysicsObjectEventTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedPhysicsObjectEventSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xde3e0200, 0xde3e0200,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xde3e0200,
+	0xde3e0200,
 };
 static const int32_t kIManagedPhysicsObjectEventSlotCount = 4;
-static_assert( sizeof( SSManagedPhysicsObjectEventTable ) == 4 * sizeof( void * ), "SSManagedPhysicsObjectEventTable is one pointer per slot" );
+static_assert( sizeof( SSManagedPhysicsObjectEventTable ) == 4 * sizeof( void * ),
+			   "SSManagedPhysicsObjectEventTable is one pointer per slot" );
 
 class IManagedPhysicsCollisionEvent;
 
@@ -60,7 +69,8 @@ struct SSManagedPhysicsCollisionEventTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	void ( *PreCollision )( IManagedPhysicsCollisionEvent *self, void *pEvent );
 	void ( *PostCollision )( IManagedPhysicsCollisionEvent *self, void *pEvent );
-	void ( *Friction )( IManagedPhysicsCollisionEvent *self, void *pObject, float flEnergy, int32_t nSurfaceProps, int32_t nSurfacePropsHit, void *pData );
+	void ( *Friction )( IManagedPhysicsCollisionEvent *self, void *pObject, float flEnergy, int32_t nSurfaceProps,
+						int32_t nSurfacePropsHit, void *pData );
 	void ( *StartTouch )( IManagedPhysicsCollisionEvent *self, void *pObject1, void *pObject2, void *pTouchData );
 	void ( *EndTouch )( IManagedPhysicsCollisionEvent *self, void *pObject1, void *pObject2, void *pTouchData );
 	void ( *FluidStartTouch )( IManagedPhysicsCollisionEvent *self, void *pObject, void *pFluid );
@@ -73,29 +83,54 @@ struct SSManagedPhysicsCollisionEventTable
 class IManagedPhysicsCollisionEvent : public IManagedObject
 {
 public:
-	explicit IManagedPhysicsCollisionEvent( const SSManagedPhysicsCollisionEventTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedPhysicsCollisionEvent( const SSManagedPhysicsCollisionEventTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
 	void PreCollision( void *pEvent ) { Table()->PreCollision( this, pEvent ); }
+
 	void PostCollision( void *pEvent ) { Table()->PostCollision( this, pEvent ); }
-	void Friction( void *pObject, float flEnergy, int32_t nSurfaceProps, int32_t nSurfacePropsHit, void *pData ) { Table()->Friction( this, pObject, flEnergy, nSurfaceProps, nSurfacePropsHit, pData ); }
-	void StartTouch( void *pObject1, void *pObject2, void *pTouchData ) { Table()->StartTouch( this, pObject1, pObject2, pTouchData ); }
-	void EndTouch( void *pObject1, void *pObject2, void *pTouchData ) { Table()->EndTouch( this, pObject1, pObject2, pTouchData ); }
+
+	void Friction( void *pObject, float flEnergy, int32_t nSurfaceProps, int32_t nSurfacePropsHit, void *pData )
+	{
+		Table()->Friction( this, pObject, flEnergy, nSurfaceProps, nSurfacePropsHit, pData );
+	}
+
+	void StartTouch( void *pObject1, void *pObject2, void *pTouchData )
+	{
+		Table()->StartTouch( this, pObject1, pObject2, pTouchData );
+	}
+
+	void EndTouch( void *pObject1, void *pObject2, void *pTouchData )
+	{
+		Table()->EndTouch( this, pObject1, pObject2, pTouchData );
+	}
+
 	void FluidStartTouch( void *pObject, void *pFluid ) { Table()->FluidStartTouch( this, pObject, pFluid ); }
+
 	void FluidEndTouch( void *pObject, void *pFluid ) { Table()->FluidEndTouch( this, pObject, pFluid ); }
+
 	void PostSimulationFrame() { Table()->PostSimulationFrame( this ); }
+
 	void ObjectEnterTrigger( void *pTrigger, void *pObject ) { Table()->ObjectEnterTrigger( this, pTrigger, pObject ); }
+
 	void ObjectLeaveTrigger( void *pTrigger, void *pObject ) { Table()->ObjectLeaveTrigger( this, pTrigger, pObject ); }
 
 private:
-	const SSManagedPhysicsCollisionEventTable *Table() const { return static_cast< const SSManagedPhysicsCollisionEventTable * >( m_pTable ); }
+	const SSManagedPhysicsCollisionEventTable *Table() const
+	{
+		return static_cast<const SSManagedPhysicsCollisionEventTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedPhysicsCollisionEventSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xde3e0200, 0xde3e0200, 0xa86f7f66, 0xd1361c78, 0xd1361c78, 0xd70db9bc,
-	0xd70db9bc, 0x07e0f4c4, 0xd70db9bc, 0xd70db9bc,
+	0x07e0f4c4, 0x0d54c15e, 0xde3e0200, 0xde3e0200, 0xa86f7f66, 0xd1361c78,
+	0xd1361c78, 0xd70db9bc, 0xd70db9bc, 0x07e0f4c4, 0xd70db9bc, 0xd70db9bc,
 };
 static const int32_t kIManagedPhysicsCollisionEventSlotCount = 12;
-static_assert( sizeof( SSManagedPhysicsCollisionEventTable ) == 12 * sizeof( void * ), "SSManagedPhysicsCollisionEventTable is one pointer per slot" );
+static_assert( sizeof( SSManagedPhysicsCollisionEventTable ) == 12 * sizeof( void * ),
+			   "SSManagedPhysicsCollisionEventTable is one pointer per slot" );
 
 class IManagedPhysicsCollisionSolver;
 
@@ -104,8 +139,10 @@ struct SSManagedPhysicsCollisionSolverTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *ShouldCollide )( IManagedPhysicsCollisionSolver *self, void *pObj0, void *pObj1, void *pGameData0, void *pGameData1 );
-	int32_t ( *ShouldSolvePenetration )( IManagedPhysicsCollisionSolver *self, void *pObj0, void *pObj1, void *pGameData0, void *pGameData1, float flDt );
+	int32_t ( *ShouldCollide )( IManagedPhysicsCollisionSolver *self, void *pObj0, void *pObj1, void *pGameData0,
+								void *pGameData1 );
+	int32_t ( *ShouldSolvePenetration )( IManagedPhysicsCollisionSolver *self, void *pObj0, void *pObj1,
+										 void *pGameData0, void *pGameData1, float flDt );
 	bool ( *ShouldFreezeObject )( IManagedPhysicsCollisionSolver *self, void *pObject );
 	int32_t ( *AdditionalCollisionChecksThisTick )( IManagedPhysicsCollisionSolver *self, int32_t nCurrentChecksDone );
 	bool ( *ShouldFreezeContacts )( IManagedPhysicsCollisionSolver *self, void *ppObjectList, int32_t nObjectCount );
@@ -114,23 +151,46 @@ struct SSManagedPhysicsCollisionSolverTable
 class IManagedPhysicsCollisionSolver : public IManagedObject
 {
 public:
-	explicit IManagedPhysicsCollisionSolver( const SSManagedPhysicsCollisionSolverTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedPhysicsCollisionSolver( const SSManagedPhysicsCollisionSolverTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	int32_t ShouldCollide( void *pObj0, void *pObj1, void *pGameData0, void *pGameData1 ) { return Table()->ShouldCollide( this, pObj0, pObj1, pGameData0, pGameData1 ); }
-	int32_t ShouldSolvePenetration( void *pObj0, void *pObj1, void *pGameData0, void *pGameData1, float flDt ) { return Table()->ShouldSolvePenetration( this, pObj0, pObj1, pGameData0, pGameData1, flDt ); }
+	int32_t ShouldCollide( void *pObj0, void *pObj1, void *pGameData0, void *pGameData1 )
+	{
+		return Table()->ShouldCollide( this, pObj0, pObj1, pGameData0, pGameData1 );
+	}
+
+	int32_t ShouldSolvePenetration( void *pObj0, void *pObj1, void *pGameData0, void *pGameData1, float flDt )
+	{
+		return Table()->ShouldSolvePenetration( this, pObj0, pObj1, pGameData0, pGameData1, flDt );
+	}
+
 	bool ShouldFreezeObject( void *pObject ) { return Table()->ShouldFreezeObject( this, pObject ); }
-	int32_t AdditionalCollisionChecksThisTick( int32_t nCurrentChecksDone ) { return Table()->AdditionalCollisionChecksThisTick( this, nCurrentChecksDone ); }
-	bool ShouldFreezeContacts( void *ppObjectList, int32_t nObjectCount ) { return Table()->ShouldFreezeContacts( this, ppObjectList, nObjectCount ); }
+
+	int32_t AdditionalCollisionChecksThisTick( int32_t nCurrentChecksDone )
+	{
+		return Table()->AdditionalCollisionChecksThisTick( this, nCurrentChecksDone );
+	}
+
+	bool ShouldFreezeContacts( void *ppObjectList, int32_t nObjectCount )
+	{
+		return Table()->ShouldFreezeContacts( this, ppObjectList, nObjectCount );
+	}
 
 private:
-	const SSManagedPhysicsCollisionSolverTable *Table() const { return static_cast< const SSManagedPhysicsCollisionSolverTable * >( m_pTable ); }
+	const SSManagedPhysicsCollisionSolverTable *Table() const
+	{
+		return static_cast<const SSManagedPhysicsCollisionSolverTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedPhysicsCollisionSolverSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x633b8df5, 0xd6b575e7, 0xa4166c88, 0xa45f061a, 0x8d9ff6f5,
 };
 static const int32_t kIManagedPhysicsCollisionSolverSlotCount = 7;
-static_assert( sizeof( SSManagedPhysicsCollisionSolverTable ) == 7 * sizeof( void * ), "SSManagedPhysicsCollisionSolverTable is one pointer per slot" );
+static_assert( sizeof( SSManagedPhysicsCollisionSolverTable ) == 7 * sizeof( void * ),
+			   "SSManagedPhysicsCollisionSolverTable is one pointer per slot" );
 
 class IManagedPhysicsConstraintEvent;
 
@@ -145,19 +205,28 @@ struct SSManagedPhysicsConstraintEventTable
 class IManagedPhysicsConstraintEvent : public IManagedObject
 {
 public:
-	explicit IManagedPhysicsConstraintEvent( const SSManagedPhysicsConstraintEventTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedPhysicsConstraintEvent( const SSManagedPhysicsConstraintEventTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
 	void ConstraintBroken( void *pConstraint ) { Table()->ConstraintBroken( this, pConstraint ); }
 
 private:
-	const SSManagedPhysicsConstraintEventTable *Table() const { return static_cast< const SSManagedPhysicsConstraintEventTable * >( m_pTable ); }
+	const SSManagedPhysicsConstraintEventTable *Table() const
+	{
+		return static_cast<const SSManagedPhysicsConstraintEventTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedPhysicsConstraintEventSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xde3e0200,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xde3e0200,
 };
 static const int32_t kIManagedPhysicsConstraintEventSlotCount = 3;
-static_assert( sizeof( SSManagedPhysicsConstraintEventTable ) == 3 * sizeof( void * ), "SSManagedPhysicsConstraintEventTable is one pointer per slot" );
+static_assert( sizeof( SSManagedPhysicsConstraintEventTable ) == 3 * sizeof( void * ),
+			   "SSManagedPhysicsConstraintEventTable is one pointer per slot" );
 
 class IManagedMotionEvent;
 
@@ -166,25 +235,38 @@ struct SSManagedMotionEventTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *Simulate )( IManagedMotionEvent *self, void *pController, void *pObject, float flDeltaTime, void *pLinear, void *pAngular );
+	int32_t ( *Simulate )( IManagedMotionEvent *self, void *pController, void *pObject, float flDeltaTime,
+						   void *pLinear, void *pAngular );
 };
 
 class IManagedMotionEvent : public IManagedObject
 {
 public:
-	explicit IManagedMotionEvent( const SSManagedMotionEventTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedMotionEvent( const SSManagedMotionEventTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	int32_t Simulate( void *pController, void *pObject, float flDeltaTime, void *pLinear, void *pAngular ) { return Table()->Simulate( this, pController, pObject, flDeltaTime, pLinear, pAngular ); }
+	int32_t Simulate( void *pController, void *pObject, float flDeltaTime, void *pLinear, void *pAngular )
+	{
+		return Table()->Simulate( this, pController, pObject, flDeltaTime, pLinear, pAngular );
+	}
 
 private:
-	const SSManagedMotionEventTable *Table() const { return static_cast< const SSManagedMotionEventTable * >( m_pTable ); }
+	const SSManagedMotionEventTable *Table() const
+	{
+		return static_cast<const SSManagedMotionEventTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedMotionEventSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xe23bf65f,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xe23bf65f,
 };
 static const int32_t kIManagedMotionEventSlotCount = 3;
-static_assert( sizeof( SSManagedMotionEventTable ) == 3 * sizeof( void * ), "SSManagedMotionEventTable is one pointer per slot" );
+static_assert( sizeof( SSManagedMotionEventTable ) == 3 * sizeof( void * ),
+			   "SSManagedMotionEventTable is one pointer per slot" );
 
 class IManagedVPhysicsKeyHandler;
 
@@ -200,20 +282,34 @@ struct SSManagedVPhysicsKeyHandlerTable
 class IManagedVPhysicsKeyHandler : public IManagedObject
 {
 public:
-	explicit IManagedVPhysicsKeyHandler( const SSManagedVPhysicsKeyHandlerTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedVPhysicsKeyHandler( const SSManagedVPhysicsKeyHandlerTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	void ParseKeyValue( void *pData, const char *pKey, const char *pValue ) { Table()->ParseKeyValue( this, pData, pKey, pValue ); }
+	void ParseKeyValue( void *pData, const char *pKey, const char *pValue )
+	{
+		Table()->ParseKeyValue( this, pData, pKey, pValue );
+	}
+
 	void SetDefaults( void *pData ) { Table()->SetDefaults( this, pData ); }
 
 private:
-	const SSManagedVPhysicsKeyHandlerTable *Table() const { return static_cast< const SSManagedVPhysicsKeyHandlerTable * >( m_pTable ); }
+	const SSManagedVPhysicsKeyHandlerTable *Table() const
+	{
+		return static_cast<const SSManagedVPhysicsKeyHandlerTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedVPhysicsKeyHandlerSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x888e87b0, 0xde3e0200,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0x888e87b0,
+	0xde3e0200,
 };
 static const int32_t kIManagedVPhysicsKeyHandlerSlotCount = 4;
-static_assert( sizeof( SSManagedVPhysicsKeyHandlerTable ) == 4 * sizeof( void * ), "SSManagedVPhysicsKeyHandlerTable is one pointer per slot" );
+static_assert( sizeof( SSManagedVPhysicsKeyHandlerTable ) == 4 * sizeof( void * ),
+			   "SSManagedVPhysicsKeyHandlerTable is one pointer per slot" );
 
 class IManagedRecipientFilter;
 
@@ -231,22 +327,32 @@ struct SSManagedRecipientFilterTable
 class IManagedRecipientFilter : public IManagedObject
 {
 public:
-	explicit IManagedRecipientFilter( const SSManagedRecipientFilterTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedRecipientFilter( const SSManagedRecipientFilterTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
 	int32_t IsReliable() { return Table()->IsReliable( this ); }
+
 	int32_t IsInitMessage() { return Table()->IsInitMessage( this ); }
+
 	int32_t GetRecipientCount() { return Table()->GetRecipientCount( this ); }
+
 	int32_t GetRecipientIndex( int32_t nSlot ) { return Table()->GetRecipientIndex( this, nSlot ); }
 
 private:
-	const SSManagedRecipientFilterTable *Table() const { return static_cast< const SSManagedRecipientFilterTable * >( m_pTable ); }
+	const SSManagedRecipientFilterTable *Table() const
+	{
+		return static_cast<const SSManagedRecipientFilterTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedRecipientFilterSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245, 0x9d8d9245, 0xa45f061a,
 };
 static const int32_t kIManagedRecipientFilterSlotCount = 6;
-static_assert( sizeof( SSManagedRecipientFilterTable ) == 6 * sizeof( void * ), "SSManagedRecipientFilterTable is one pointer per slot" );
+static_assert( sizeof( SSManagedRecipientFilterTable ) == 6 * sizeof( void * ),
+			   "SSManagedRecipientFilterTable is one pointer per slot" );
 
 class IManagedTraceFilter;
 
@@ -261,21 +367,31 @@ struct SSManagedTraceFilterTable
 class IManagedTraceFilter : public IManagedObject
 {
 public:
-	explicit IManagedTraceFilter( const SSManagedTraceFilterTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedTraceFilter( const SSManagedTraceFilterTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	int32_t ShouldHitEntity( uint32_t hEntity, int32_t nContentsMask ) { return Table()->ShouldHitEntity( this, hEntity, nContentsMask ); }
+	int32_t ShouldHitEntity( uint32_t hEntity, int32_t nContentsMask )
+	{
+		return Table()->ShouldHitEntity( this, hEntity, nContentsMask );
+	}
 
 private:
-	const SSManagedTraceFilterTable *Table() const { return static_cast< const SSManagedTraceFilterTable * >( m_pTable ); }
+	const SSManagedTraceFilterTable *Table() const
+	{
+		return static_cast<const SSManagedTraceFilterTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedTraceFilterSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xbabc0fee,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xbabc0fee,
 };
 static const int32_t kIManagedTraceFilterSlotCount = 3;
-static_assert( sizeof( SSManagedTraceFilterTable ) == 3 * sizeof( void * ), "SSManagedTraceFilterTable is one pointer per slot" );
+static_assert( sizeof( SSManagedTraceFilterTable ) == 3 * sizeof( void * ),
+			   "SSManagedTraceFilterTable is one pointer per slot" );
 
 // The words a block reserves for the object libss_fwd builds in it.
 static const int32_t kManagedPhysicsCallbackWords = 3;
-
-#endif // IMANAGED_PHYSICS_CALLBACKS_H

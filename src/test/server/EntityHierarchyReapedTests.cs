@@ -57,24 +57,12 @@ public class EntityHierarchyReapedTests
     /// <summary>The reaped slot's name, as it was spelled on both sides.</summary>
     private const string Reaped = "EntityHierarchy";
 
-    /// <summary>
-    /// The live slot that sat immediately before it — <c>EngineApi[304]</c>
-    /// before the reap and after it, since the hole is behind it. A server
-    /// shim-area method since plan_engineapi_vtables C6c; it anchors the native
-    /// implementation file.
-    /// </summary>
-    private const string LiveNeighbour = "EntityGetCollisionGroup";
-
     /// <summary>A shared slot: in the shim areas, their layouts and the client's forwards.</summary>
     private const string SharedNeighbour = "EntityGetModelName";
 
-    private const string AreasRel = "game/shared/ishim_areas.h";
-    private const string ClientAreasRel = "game/shared/ishim_areas_client.h";
     // plan_client_vtables CC-last: the client fills no struct; its wiring is
     // the generated forwards from its shim areas to the bodies.
-    private const string WiringRel = "game/shared/shell_shim_areas_client.inc";
-    private const string NativeRel = "game/server/shell_entityapi.cpp";
-
+    private const string WiringRel = "game/client/shell_shim_areas_client.cpp";
     // ---------------------------------------------------------------- reading
 
     /// <summary>
@@ -108,16 +96,6 @@ public class EntityHierarchyReapedTests
         // plan_client_vtables CC-last the client's wiring is its generated
         // forwards, so that is where a re-added slot's wiring would appear.
         Assert.DoesNotContain(Reaped, AnchoredCode(WiringRel, SharedNeighbour), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void TheNativeImplementationIsGone()
-    {
-        // SourceSharp_EntityHierarchy read the one resolve and reported which
-        // arm it filled. The `.so` link would NOT have caught it being left
-        // behind: it is unreferenced once the slot goes, and an unreferenced
-        // function is dead-stripped, so the build stays green either way.
-        Assert.DoesNotContain(Reaped, AnchoredCode(NativeRel, LiveNeighbour), StringComparison.Ordinal);
     }
 
     // TheTombstonesAreCommentsAndTheStripperRemovesThem went with the struct

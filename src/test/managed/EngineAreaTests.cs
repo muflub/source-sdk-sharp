@@ -138,6 +138,8 @@ public class EngineAreaTests
     public void EveryAreaHasABinding()
     {
         var areas = Areas();
+        // 28 since plan_server_native_v2 T6 part 3 (2026-10-27): IEngineCollisionRules
+        // went with the native matrix it pushed, which nothing native read.
         // 29 since IEngineFiles, plan_gamedll_after.md Phase A3: reading a GAME
         // SCRIPT off the engine's own search paths.
         //
@@ -182,7 +184,7 @@ public class EngineAreaTests
         // overlap report left IEngineEntities as areas of their own
         // (IEngineEntityNames, IEngineOverlaps), because their types are not
         // data and the seam interfaces moved to the interface assemblies.
-        Assert.True(areas.Length == 29, "the engine is split into areas");
+        Assert.True(areas.Length == 28, "the engine is split into areas");
 
         // Paired by name, and the pairing is reflected over rather than listed —
         // so this is what catches an area added with no binding behind it.

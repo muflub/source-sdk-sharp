@@ -33,6 +33,7 @@ int ScopedWork( int n )
 struct TargetThisThread
 {
 	TargetThisThread() { g_VProfCurrentProfile.SetTargetThreadId( ThreadGetCurrentId() ); }
+
 	~TargetThisThread() { g_VProfCurrentProfile.SetTargetThreadId( 0 ); }
 };
 } // namespace
@@ -63,9 +64,10 @@ TEST( Tier0VProfClient, DirectEnterAndExitDoNothingEvenOnTheTargetThread )
 TEST( Tier0VProfClientDeathTest, ANodeMemberStopsTheProcessNamingTheRuling )
 {
 	SS_DEATH_NO_CORE();
-	alignas( CVProfNode ) unsigned char storage[ sizeof( CVProfNode ) ] = {};
-	CVProfNode *pNode = reinterpret_cast< CVProfNode * >( storage );
-	EXPECT_DEATH( pNode->EnterScope(), "CVProfNode::EnterScope called in the client, whose vprof profile is never enabled" );
+	alignas( CVProfNode ) unsigned char storage[sizeof( CVProfNode )] = {};
+	CVProfNode *pNode = reinterpret_cast<CVProfNode *>( storage );
+	EXPECT_DEATH( pNode->EnterScope(),
+				  "CVProfNode::EnterScope called in the client, whose vprof profile is never enabled" );
 	EXPECT_DEATH( (void)pNode->ExitScope(), "CVProfNode::ExitScope called in the client" );
 	EXPECT_DEATH( (void)pNode->GetSubNode( "a", 0, "b", 0 ), "CVProfNode::GetSubNode called in the client" );
 }

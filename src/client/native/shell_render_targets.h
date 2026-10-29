@@ -5,18 +5,10 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- the render targets client.so holds ================//
-//
-// The texture in one of shell_render_targets_client.cpp's slots (SS_RT_*,
-// render_target_store.h), as managed's RenderTargetCatalog declared it; NULL
-// for a slot nobody declared.
-//=============================================================================//
+// The texture in a render-target slot (SS_RT_*), or NULL for a slot nobody declared.
 
-#ifndef SHELL_RENDER_TARGETS_H
-#define SHELL_RENDER_TARGETS_H
+#pragma once
 
 #include "render_target_store.h"
 
 ITexture *ShellRenderTarget( int nSlot );
-
-#endif // SHELL_RENDER_TARGETS_H

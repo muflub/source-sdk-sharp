@@ -31,6 +31,52 @@ public static partial class TestServices
     /// </summary>
     public static IPlayerButtons NoButtons => IdleButtons.Instance;
 
+    /// <summary>
+    /// A vphysics that answers every object as a ten-kilo body free to move,
+    /// flagged nothing, at rest and touching nothing: what PlayerPickupRules
+    /// reads a prop through in a test that does not care about its body.
+    /// </summary>
+    public static SourceSharp.Server.Interop.IVPhysicsGrabCalls RestingBodies => RestingGrabCalls.Instance;
+
+    /// <summary>A directory of nothing: every handle names no managed entity.</summary>
+    private sealed class NoEntities : IEntityDirectory
+    {
+        public static readonly NoEntities Instance = new();
+        public ScriptedEntity? Get(EntityHandle handle) => null;
+        public ScriptedEntity? FindByName(string name) => null;
+        public IEnumerable<ScriptedEntity> OfClass(string className) => [];
+        public bool IsRegistered(string className) => false;
+        public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => [];
+    }
+
+    private sealed class RestingGrabCalls : SourceSharp.Server.Interop.IVPhysicsGrabCalls
+    {
+        public static readonly RestingGrabCalls Instance = new();
+        public (Vector Position, QAngle Angles) Position(nint o) => (Vector.Zero, default);
+        public Vector ShadowPosition(nint o) => Vector.Zero;
+        public float Mass(nint o) => 10f;
+        public void SetMass(nint o, float mass) { }
+        public float RotDamping(nint o) => 0f;
+        public void SetRotDamping(nint o, float rotDamping) { }
+        public void EnableDrag(nint o, bool enable) { }
+        public void Wake(nint o) { }
+        public bool IsMoveable(nint o) => true;
+        public bool IsHinged(nint o) => false;
+        public ushort GameFlags(nint o) => 0;
+        public void SetGameFlags(nint o, ushort flags) { }
+        public int MaterialIndex(nint o) => 0;
+        public (Vector Linear, Vector Angular) Velocity(nint o) => (Vector.Zero, Vector.Zero);
+        public void SetVelocity(nint o, Vector linear, Vector angular) { }
+        public void AddVelocity(nint o, Vector linear, Vector angular) { }
+        public void SetVelocityInstantaneous(nint o, Vector linear) { }
+        public void ApplyForceCenter(nint o, Vector force) { }
+        public void ApplyForceOffset(nint o, Vector force, Vector worldPoint) { }
+        public float ComputeShadowControl(nint o, in SourceSharp.Server.Interop.ShadowControlParams p, float secondsToArrival, float dt) => 0f;
+        public bool HasContact(nint o) => false;
+        public int Contacts(nint o, Span<SourceSharp.Server.Interop.GrabContact> into) => 0;
+        public void ClearContactFriction(nint o) { }
+    }
+
     private sealed class IdleButtons : IPlayerButtons
     {
         public static readonly IdleButtons Instance = new();
@@ -71,6 +117,11 @@ public static partial class TestServices
         services.AddInstance<SourceSharp.Server.IScreenEffects>(
             new SourceSharp.Server.ScreenEffects(engine, engine, engine, engine));
 
+        // The model descriptors entities read sequences and graphs from: none
+        // attached, so every model answers the empty descriptor. A fact that
+        // needs a model passes descriptors of its own.
+        services.AddInstance(new ModelDescriptors(_ => -1, _ => string.Empty, new RecordingLog()));
+
         // The world's noise record — plan_gamedll_after.md Phase A3, second
         // pair. Two map entities take it now (env_microphone reads it, ai_sound
         // writes it) where they used to take IEngineSound, because
@@ -96,6 +147,14 @@ public static partial class TestServices
         // Reachable with services.Resolve( typeof( IBlastSweep ) ).
         services.AddInstance<IBlastSweep>(new RecordingBlastSweep());
 
+        // HL2MP's placed objects, whose physics never sleeps here: a pickup
+        // a test spawns watches for a rest that does not come.
+        services.AddInstance(new SourceSharp.Server.PlacedObjects(engine, new NoPhysicsRest(), engine, engine, engine, engine));
+        services.AddInstance<SourceSharp.Server.IObjectStressQuery>(new FixedStress());
+
+        // The RPG's laser dots, which a missile searches: a real roster, empty.
+        services.AddInstance<IEntityRoster<SourceSharp.Server.LaserDot>>(new SourceSharp.Server.EntityRoster<SourceSharp.Server.LaserDot>());
+
         // The step's impact damage (physics stock parity C7): a REAL queue over
         // the double, for SoundEnt's reason above -- a prop or player a test
         // spawns queues into it, and the test delivers it.
@@ -111,6 +170,13 @@ public static partial class TestServices
         // 2.3), a REAL batch over a world that records what it is asked into
         // the double's log: a breaking prop is seen asking for its break source.
         services.AddInstance(new SourceSharp.Server.PhysicsSoundBatch(new RecordingPhysicsSoundWorld(engine)));
+
+        // What a player's +USE may do with a prop or a physbox, which their
+        // caps ask: REAL rules over the double, resting bodies and the
+        // console of a side with no module (every convar at its default).
+        services.AddInstance(new SourceSharp.Server.PlayerPickupRules(engine, engine, RestingBodies, NoEntities.Instance,
+                                                                      ConVarRegistry.For(UnattachedConsole()),
+                                                                      new RecordingLog()));
 
         // The scrape (D2), over the double and a controller that plays
         // nothing: a test that slides a prop reaches the policy, and
@@ -146,6 +212,13 @@ public static partial class TestServices
         services.AddInstance<IServerDecals>(decals);
         services.AddInstance(new BloodDecals(engine, decals, engine, engine));
         services.AddInstance<IServerSkins>(new RecordingServerSkins());
+
+        // Every model entity's flames (AnimatingEntity), as the server module
+        // registers them: over no entities, so nothing is burning until a
+        // test registers a Flames over its own registry.
+        services.AddInstance(new SourceSharp.Server.Flames(new RecordingLog(), NoEntities.Instance, engine));
+        services.AddInstance(new SourceSharp.Server.DamageInflictors());
+        services.AddInstance<SourceSharp.Server.Interop.IVPhysicsGrabCalls>(RestingBodies);
         services.AddInstance(new SourceSharp.Server.Interop.SolverHeldOverlaps());
 
         services.AddInstance<IServerSoundEnt>(new SoundEnt(engine, engine, engine));
@@ -174,7 +247,7 @@ public static partial class TestServices
         // frame through: EntityMotionTests builds its own with a directory it
         // binds entities into, which is what a frame needs.
         var motionDirectory = new EntityDirectory(new RecordingLog());
-        services.AddInstance(new EntityMotion(new RecordingLog(), engine, engine, engine, engine, motionDirectory,
+        services.AddInstance(new EntityMotion(new RecordingLog(), engine, engine, engine, engine, engine, motionDirectory,
             new PhysicsPushedEntities(new EnginePushWorld(engine, engine, engine, motionDirectory), new RecordingLog())));
 
         // The cross-level global state table (plan_entity.md Phase 4 exit).
@@ -375,3 +448,16 @@ public sealed class FakeSolverObjects : SourceSharp.Server.Interop.IVPhysicsSolv
     }
 }
 
+
+/// <summary>A world with no physics objects to ask: every entity's answer is that it has none.</summary>
+public sealed class NoPhysicsRest : SourceSharp.Server.IPhysicsRest
+{
+    public bool? Asleep(EntityHandle entity) => null;
+}
+
+/// <summary>A stress that answers what a test set it to: none until then.</summary>
+public sealed class FixedStress : SourceSharp.Server.IObjectStressQuery
+{
+    public float Kilograms;
+    public float StressOf(EntityHandle entity) => Kilograms;
+}

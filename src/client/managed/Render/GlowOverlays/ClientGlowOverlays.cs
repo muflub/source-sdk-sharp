@@ -216,8 +216,7 @@ public sealed class RpgShotDownEffect(IFxGameSounds sounds, GlowOverlayCreators 
 
     public void Dispatch(in EffectData data)
     {
-        if (sounds.Parameters("Missile.ShotDown", out GameSoundParams p))
-            sounds.EmitAtPosition(p, p.Volume, p.Pitch, data.Origin);
+        sounds.EmitScript("Missile.ShotDown", data.Origin);
         overlays.ShotDown(data.Origin);
     }
 }

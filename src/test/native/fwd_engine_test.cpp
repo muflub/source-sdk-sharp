@@ -42,53 +42,124 @@ struct Seen
 {
 	const char *pszMethod = nullptr;
 	const void *pSelf = nullptr;
-	intptr_t args[ 3 ] = { 0, 0, 0 };
+	intptr_t args[3] = { 0, 0, 0 };
 };
 
 Seen g_seen;
 
 // Distinct answers, so a forwarder returning another method's value is caught.
-const model_t *const kModel = reinterpret_cast< const model_t * >( 0x1000 );
-vcollide_t *const kCollide = reinterpret_cast< vcollide_t * >( 0x2000 );
-const studiohdr_t *const kFound = reinterpret_cast< const studiohdr_t * >( 0x3000 );
-byte *const kBlock = reinterpret_cast< byte * >( 0x4000 );
-studiohdr_t *const kStudio = reinterpret_cast< studiohdr_t * >( 0x5000 );
-CPhysCollide *const kTerrain = reinterpret_cast< CPhysCollide * >( 0x6000 );
+const model_t *const kModel = reinterpret_cast<const model_t *>( 0x1000 );
+vcollide_t *const kCollide = reinterpret_cast<vcollide_t *>( 0x2000 );
+const studiohdr_t *const kFound = reinterpret_cast<const studiohdr_t *>( 0x3000 );
+byte *const kBlock = reinterpret_cast<byte *>( 0x4000 );
+studiohdr_t *const kStudio = reinterpret_cast<studiohdr_t *>( 0x5000 );
+CPhysCollide *const kTerrain = reinterpret_cast<CPhysCollide *>( 0x6000 );
 
 void Note( const char *pszMethod, const void *pSelf, intptr_t a0 = 0, intptr_t a1 = 0, intptr_t a2 = 0 )
 {
 	g_seen.pszMethod = pszMethod;
 	g_seen.pSelf = pSelf;
-	g_seen.args[ 0 ] = a0;
-	g_seen.args[ 1 ] = a1;
-	g_seen.args[ 2 ] = a2;
+	g_seen.args[0] = a0;
+	g_seen.args[1] = a1;
+	g_seen.args[2] = a2;
 }
 
-const model_t *Rec_GetModel( void *self, int index ) { Note( "GetModel", self, index ); return kModel; }
-int Rec_GetModelIndex( void *self, const char *name ) { Note( "GetModelIndex", self, (intptr_t)name ); return 41; }
-const char *Rec_GetModelName( void *self, const model_t *model ) { Note( "GetModelName", self, (intptr_t)model ); return "models/x.mdl"; }
-vcollide_t *Rec_GetVCollideByModel( void *self, const model_t *model ) { Note( "GetVCollide(model)", self, (intptr_t)model ); return nullptr; }
-vcollide_t *Rec_GetVCollideByIndex( void *self, int index ) { Note( "GetVCollide(int)", self, index ); return kCollide; }
+const model_t *Rec_GetModel( void *self, int index )
+{
+	Note( "GetModel", self, index );
+	return kModel;
+}
+
+int Rec_GetModelIndex( void *self, const char *name )
+{
+	Note( "GetModelIndex", self, (intptr_t)name );
+	return 41;
+}
+
+const char *Rec_GetModelName( void *self, const model_t *model )
+{
+	Note( "GetModelName", self, (intptr_t)model );
+	return "models/x.mdl";
+}
+
+vcollide_t *Rec_GetVCollideByModel( void *self, const model_t *model )
+{
+	Note( "GetVCollide(model)", self, (intptr_t)model );
+	return nullptr;
+}
+
+vcollide_t *Rec_GetVCollideByIndex( void *self, int index )
+{
+	Note( "GetVCollide(int)", self, index );
+	return kCollide;
+}
+
 void Rec_GetModelBounds( void *self, const model_t *model, Vector &mins, Vector &maxs )
 {
 	Note( "GetModelBounds", self, (intptr_t)model, (intptr_t)&mins, (intptr_t)&maxs );
 	mins.Init( -1, -2, -3 );
 	maxs.Init( 1, 2, 3 );
 }
-int Rec_GetModelFrameCount( void *self, const model_t *model ) { Note( "GetModelFrameCount", self, (intptr_t)model ); return 7; }
-int Rec_GetModelType( void *self, const model_t *model ) { Note( "GetModelType", self, (intptr_t)model ); return 3; }
-const char *Rec_GetModelKeyValueText( void *self, const model_t *model ) { Note( "GetModelKeyValueText", self, (intptr_t)model ); return "kv"; }
+
+int Rec_GetModelFrameCount( void *self, const model_t *model )
+{
+	Note( "GetModelFrameCount", self, (intptr_t)model );
+	return 7;
+}
+
+int Rec_GetModelType( void *self, const model_t *model )
+{
+	Note( "GetModelType", self, (intptr_t)model );
+	return 3;
+}
+
+const char *Rec_GetModelKeyValueText( void *self, const model_t *model )
+{
+	Note( "GetModelKeyValueText", self, (intptr_t)model );
+	return "kv";
+}
+
 const studiohdr_t *Rec_FindModelByName( void *self, const studiohdr_t *hdr, void **cache, const char *name )
 {
 	Note( "FindModel(hdr, cache, name)", self, (intptr_t)hdr, (intptr_t)cache, (intptr_t)name );
 	return kFound;
 }
-const studiohdr_t *Rec_FindModelByCache( void *self, void *cache ) { Note( "FindModel(cache)", self, (intptr_t)cache ); return nullptr; }
-byte *Rec_GetAnimBlock( void *self, const studiohdr_t *hdr, int block ) { Note( "GetAnimBlock", self, (intptr_t)hdr, block ); return kBlock; }
-studiohdr_t *Rec_GetStudiomodel( void *self, const model_t *model ) { Note( "GetStudiomodel", self, (intptr_t)model ); return kStudio; }
-CPhysCollide *Rec_GetCollideForVirtualTerrain( void *self, int index ) { Note( "GetCollideForVirtualTerrain", self, index ); return kTerrain; }
-bool Rec_IsModelVertexLit( void *self, const model_t *model ) { Note( "IsModelVertexLit", self, (intptr_t)model ); return true; }
-bool Rec_ModelHasMaterialProxy( void *self, const model_t *model ) { Note( "ModelHasMaterialProxy", self, (intptr_t)model ); return true; }
+
+const studiohdr_t *Rec_FindModelByCache( void *self, void *cache )
+{
+	Note( "FindModel(cache)", self, (intptr_t)cache );
+	return nullptr;
+}
+
+byte *Rec_GetAnimBlock( void *self, const studiohdr_t *hdr, int block )
+{
+	Note( "GetAnimBlock", self, (intptr_t)hdr, block );
+	return kBlock;
+}
+
+studiohdr_t *Rec_GetStudiomodel( void *self, const model_t *model )
+{
+	Note( "GetStudiomodel", self, (intptr_t)model );
+	return kStudio;
+}
+
+CPhysCollide *Rec_GetCollideForVirtualTerrain( void *self, int index )
+{
+	Note( "GetCollideForVirtualTerrain", self, index );
+	return kTerrain;
+}
+
+bool Rec_IsModelVertexLit( void *self, const model_t *model )
+{
+	Note( "IsModelVertexLit", self, (intptr_t)model );
+	return true;
+}
+
+bool Rec_ModelHasMaterialProxy( void *self, const model_t *model )
+{
+	Note( "ModelHasMaterialProxy", self, (intptr_t)model );
+	return true;
+}
 
 // The fake: word 0 points at a table as long as the compiler says IVModelInfo
 // is, with a recorder at each forwarded method's slot (and at the two
@@ -96,15 +167,15 @@ bool Rec_ModelHasMaterialProxy( void *self, const model_t *model ) { Note( "Mode
 struct FakeModelInfo
 {
 	void **vtable;
-	void *slots[ 64 ];
+	void *slots[64];
 
-	template < typename Fn >
+	template <typename Fn>
 	void Put( Fn pmf, void *pRecorder )
 	{
 		const int slot = VTableHook::MemberOf( pmf ).slot;
 		ASSERT_GE( slot, 0 );
 		ASSERT_LT( slot, 64 );
-		slots[ slot ] = pRecorder;
+		slots[slot] = pRecorder;
 	}
 
 	FakeModelInfo()
@@ -114,19 +185,19 @@ struct FakeModelInfo
 		Put( &IVModelInfo::GetModel, (void *)&Rec_GetModel );
 		Put( &IVModelInfo::GetModelIndex, (void *)&Rec_GetModelIndex );
 		Put( &IVModelInfo::GetModelName, (void *)&Rec_GetModelName );
-		Put( static_cast< vcollide_t *( IVModelInfo::* )( const model_t * ) >( &IVModelInfo::GetVCollide ),
-		     (void *)&Rec_GetVCollideByModel );
-		Put( static_cast< vcollide_t *( IVModelInfo::* )( int ) >( &IVModelInfo::GetVCollide ),
-		     (void *)&Rec_GetVCollideByIndex );
+		Put( static_cast<vcollide_t *(IVModelInfo::*)( const model_t * )>( &IVModelInfo::GetVCollide ),
+			 (void *)&Rec_GetVCollideByModel );
+		Put( static_cast<vcollide_t *(IVModelInfo::*)( int )>( &IVModelInfo::GetVCollide ),
+			 (void *)&Rec_GetVCollideByIndex );
 		Put( &IVModelInfo::GetModelBounds, (void *)&Rec_GetModelBounds );
 		Put( &IVModelInfo::GetModelFrameCount, (void *)&Rec_GetModelFrameCount );
 		Put( &IVModelInfo::GetModelType, (void *)&Rec_GetModelType );
 		Put( &IVModelInfo::GetModelKeyValueText, (void *)&Rec_GetModelKeyValueText );
-		Put( static_cast< const studiohdr_t *( IVModelInfo::* )( const studiohdr_t *, void **, const char * ) const >(
-		         &IVModelInfo::FindModel ),
-		     (void *)&Rec_FindModelByName );
-		Put( static_cast< const studiohdr_t *( IVModelInfo::* )( void * ) const >( &IVModelInfo::FindModel ),
-		     (void *)&Rec_FindModelByCache );
+		Put( static_cast<const studiohdr_t *(IVModelInfo::*)( const studiohdr_t *, void **, const char * ) const>(
+				 &IVModelInfo::FindModel ),
+			 (void *)&Rec_FindModelByName );
+		Put( static_cast<const studiohdr_t *(IVModelInfo::*)( void * ) const>( &IVModelInfo::FindModel ),
+			 (void *)&Rec_FindModelByCache );
 		Put( &IVModelInfo::GetAnimBlock, (void *)&Rec_GetAnimBlock );
 		Put( &IVModelInfo::GetStudiomodel, (void *)&Rec_GetStudiomodel );
 		Put( &IVModelInfo::GetCollideForVirtualTerrain, (void *)&Rec_GetCollideForVirtualTerrain );
@@ -147,18 +218,29 @@ const SSForwarderTable &ModelInfoTable()
 // (SharedForwarders.g.cs's ModelInfoFwd lists the same order).
 enum ModelInfoSlot
 {
-	kGetModel, kGetModelIndex, kGetModelName, kGetVCollide_2, kGetModelBounds,
-	kGetModelFrameCount, kGetModelType, kGetModelKeyValueText, kFindModel,
-	kGetAnimBlock, kGetStudiomodel, kGetCollideForVirtualTerrain,
+	kGetModel,
+	kGetModelIndex,
+	kGetModelName,
+	kGetVCollide_2,
+	kGetModelBounds,
+	kGetModelFrameCount,
+	kGetModelType,
+	kGetModelKeyValueText,
+	kFindModel,
+	kGetAnimBlock,
+	kGetStudiomodel,
+	kGetCollideForVirtualTerrain,
 	// Appended for the detail props (C7 cluster 10).
-	kIsModelVertexLit, kModelHasMaterialProxy, kModelInfoSlots
+	kIsModelVertexLit,
+	kModelHasMaterialProxy,
+	kModelInfoSlots
 };
 
-template < typename Fn >
+template <typename Fn>
 Fn Slot( int slot )
 {
 	const SSForwarderTable &table = ModelInfoTable();
-	return slot < table.nSlots ? reinterpret_cast< Fn >( table.ppSlots[ slot ] ) : nullptr;
+	return slot < table.nSlots ? reinterpret_cast<Fn>( table.ppSlots[slot] ) : nullptr;
 }
 
 } // namespace
@@ -170,7 +252,7 @@ TEST( FwdEngine, TheLibraryServesTheModelInfoTableAndNothingUnderOtherNames )
 	ASSERT_NE( nullptr, table.ppSlots );
 
 	EXPECT_EQ( nullptr, SSFwdServer_Table( "SSFwd_NoSuchTable" ) );
-	EXPECT_EQ( nullptr, SSFwdServer_Table( "ssfwd_modelinfo" ) );   // names are exact
+	EXPECT_EQ( nullptr, SSFwdServer_Table( "ssfwd_modelinfo" ) ); // names are exact
 	EXPECT_EQ( nullptr, SSFwdServer_Table( nullptr ) );
 }
 
@@ -179,38 +261,38 @@ TEST( FwdEngine, EverySlotIsADistinctFunction )
 	const SSForwarderTable &table = ModelInfoTable();
 	for ( int i = 0; i < table.nSlots; i++ )
 	{
-		EXPECT_NE( nullptr, table.ppSlots[ i ] ) << "slot " << i;
+		EXPECT_NE( nullptr, table.ppSlots[i] ) << "slot " << i;
 		for ( int j = 0; j < i; j++ )
-			EXPECT_NE( table.ppSlots[ j ], table.ppSlots[ i ] ) << "slots " << j << " and " << i;
+			EXPECT_NE( table.ppSlots[j], table.ppSlots[i] ) << "slots " << j << " and " << i;
 	}
 }
 
 TEST( FwdEngine, GetModelForwardsTheIndexAndReturnsTheModel )
 {
 	FakeModelInfo fake;
-	auto fn = Slot< const model_t *( * )( void *, int ) >( kGetModel );
+	auto fn = Slot<const model_t *(*)( void *, int )>( kGetModel );
 	ASSERT_NE( nullptr, fn );
 	EXPECT_EQ( kModel, fn( &fake, 17 ) );
 	EXPECT_STREQ( "GetModel", g_seen.pszMethod );
 	EXPECT_EQ( &fake, g_seen.pSelf );
-	EXPECT_EQ( 17, g_seen.args[ 0 ] );
+	EXPECT_EQ( 17, g_seen.args[0] );
 }
 
 TEST( FwdEngine, GetModelIndexForwardsTheName )
 {
 	FakeModelInfo fake;
 	const char *pszName = "models/a.mdl";
-	EXPECT_EQ( 41, Slot< int ( * )( void *, const char * ) >( kGetModelIndex )( &fake, pszName ) );
+	EXPECT_EQ( 41, Slot<int ( * )( void *, const char * )>( kGetModelIndex )( &fake, pszName ) );
 	EXPECT_STREQ( "GetModelIndex", g_seen.pszMethod );
-	EXPECT_EQ( (intptr_t)pszName, g_seen.args[ 0 ] );
+	EXPECT_EQ( (intptr_t)pszName, g_seen.args[0] );
 }
 
 TEST( FwdEngine, GetModelNameForwardsTheModel )
 {
 	FakeModelInfo fake;
-	EXPECT_STREQ( "models/x.mdl", Slot< const char *( * )( void *, const model_t * ) >( kGetModelName )( &fake, kModel ) );
+	EXPECT_STREQ( "models/x.mdl", Slot<const char *(*)( void *, const model_t * )>( kGetModelName )( &fake, kModel ) );
 	EXPECT_STREQ( "GetModelName", g_seen.pszMethod );
-	EXPECT_EQ( (intptr_t)kModel, g_seen.args[ 0 ] );
+	EXPECT_EQ( (intptr_t)kModel, g_seen.args[0] );
 }
 
 TEST( FwdEngine, GetVCollide2IsTheIntOverload )
@@ -218,20 +300,20 @@ TEST( FwdEngine, GetVCollide2IsTheIntOverload )
 	// The overload MSVC reorders: the table's GetVCollide_2 must reach
 	// GetVCollide( int ), never GetVCollide( const model_t * ).
 	FakeModelInfo fake;
-	EXPECT_EQ( kCollide, Slot< vcollide_t *( * )( void *, int ) >( kGetVCollide_2 )( &fake, 5 ) );
+	EXPECT_EQ( kCollide, Slot<vcollide_t *(*)( void *, int )>( kGetVCollide_2 )( &fake, 5 ) );
 	EXPECT_STREQ( "GetVCollide(int)", g_seen.pszMethod );
-	EXPECT_EQ( 5, g_seen.args[ 0 ] );
+	EXPECT_EQ( 5, g_seen.args[0] );
 }
 
 TEST( FwdEngine, GetModelBoundsForwardsBothOutVectorsByReference )
 {
 	FakeModelInfo fake;
 	Vector mins, maxs;
-	Slot< void ( * )( void *, const model_t *, Vector *, Vector * ) >( kGetModelBounds )( &fake, kModel, &mins, &maxs );
+	Slot<void ( * )( void *, const model_t *, Vector *, Vector * )>( kGetModelBounds )( &fake, kModel, &mins, &maxs );
 	EXPECT_STREQ( "GetModelBounds", g_seen.pszMethod );
-	EXPECT_EQ( (intptr_t)kModel, g_seen.args[ 0 ] );
-	EXPECT_EQ( (intptr_t)&mins, g_seen.args[ 1 ] );
-	EXPECT_EQ( (intptr_t)&maxs, g_seen.args[ 2 ] );
+	EXPECT_EQ( (intptr_t)kModel, g_seen.args[0] );
+	EXPECT_EQ( (intptr_t)&mins, g_seen.args[1] );
+	EXPECT_EQ( (intptr_t)&maxs, g_seen.args[2] );
 	EXPECT_EQ( Vector( -1, -2, -3 ), mins );
 	EXPECT_EQ( Vector( 1, 2, 3 ), maxs );
 }
@@ -240,16 +322,16 @@ TEST( FwdEngine, GetModelFrameCountAndGetModelTypeAreNotSwapped )
 {
 	// Same signature, adjacent methods: a swap would compile and pass a count.
 	FakeModelInfo fake;
-	EXPECT_EQ( 7, Slot< int ( * )( void *, const model_t * ) >( kGetModelFrameCount )( &fake, kModel ) );
+	EXPECT_EQ( 7, Slot<int ( * )( void *, const model_t * )>( kGetModelFrameCount )( &fake, kModel ) );
 	EXPECT_STREQ( "GetModelFrameCount", g_seen.pszMethod );
-	EXPECT_EQ( 3, Slot< int ( * )( void *, const model_t * ) >( kGetModelType )( &fake, kModel ) );
+	EXPECT_EQ( 3, Slot<int ( * )( void *, const model_t * )>( kGetModelType )( &fake, kModel ) );
 	EXPECT_STREQ( "GetModelType", g_seen.pszMethod );
 }
 
 TEST( FwdEngine, GetModelKeyValueTextForwardsTheModel )
 {
 	FakeModelInfo fake;
-	EXPECT_STREQ( "kv", Slot< const char *( * )( void *, const model_t * ) >( kGetModelKeyValueText )( &fake, kModel ) );
+	EXPECT_STREQ( "kv", Slot<const char *(*)( void *, const model_t * )>( kGetModelKeyValueText )( &fake, kModel ) );
 	EXPECT_STREQ( "GetModelKeyValueText", g_seen.pszMethod );
 }
 
@@ -258,47 +340,48 @@ TEST( FwdEngine, FindModelIsTheThreeArgumentOverloadWithItsArgumentsInOrder )
 	FakeModelInfo fake;
 	void *cache = nullptr;
 	const char *pszName = "inc.mdl";
-	const studiohdr_t *pHdr = reinterpret_cast< const studiohdr_t * >( 0x7000 );
-	EXPECT_EQ( kFound, Slot< const studiohdr_t *( * )( void *, const studiohdr_t *, void **, const char * ) >( kFindModel )(
-	                       &fake, pHdr, &cache, pszName ) );
+	const studiohdr_t *pHdr = reinterpret_cast<const studiohdr_t *>( 0x7000 );
+	EXPECT_EQ( kFound,
+			   Slot<const studiohdr_t *(*)( void *, const studiohdr_t *, void **, const char * )>( kFindModel )(
+				   &fake, pHdr, &cache, pszName ) );
 	EXPECT_STREQ( "FindModel(hdr, cache, name)", g_seen.pszMethod );
-	EXPECT_EQ( (intptr_t)pHdr, g_seen.args[ 0 ] );
-	EXPECT_EQ( (intptr_t)&cache, g_seen.args[ 1 ] );
-	EXPECT_EQ( (intptr_t)pszName, g_seen.args[ 2 ] );
+	EXPECT_EQ( (intptr_t)pHdr, g_seen.args[0] );
+	EXPECT_EQ( (intptr_t)&cache, g_seen.args[1] );
+	EXPECT_EQ( (intptr_t)pszName, g_seen.args[2] );
 }
 
 TEST( FwdEngine, GetAnimBlockForwardsTheHeaderAndTheBlock )
 {
 	FakeModelInfo fake;
-	const studiohdr_t *pHdr = reinterpret_cast< const studiohdr_t * >( 0x7000 );
-	EXPECT_EQ( kBlock, Slot< byte *( * )( void *, const studiohdr_t *, int ) >( kGetAnimBlock )( &fake, pHdr, 9 ) );
+	const studiohdr_t *pHdr = reinterpret_cast<const studiohdr_t *>( 0x7000 );
+	EXPECT_EQ( kBlock, Slot<byte *(*)( void *, const studiohdr_t *, int )>( kGetAnimBlock )( &fake, pHdr, 9 ) );
 	EXPECT_STREQ( "GetAnimBlock", g_seen.pszMethod );
-	EXPECT_EQ( (intptr_t)pHdr, g_seen.args[ 0 ] );
-	EXPECT_EQ( 9, g_seen.args[ 1 ] );
+	EXPECT_EQ( (intptr_t)pHdr, g_seen.args[0] );
+	EXPECT_EQ( 9, g_seen.args[1] );
 }
 
 TEST( FwdEngine, GetStudiomodelForwardsTheModel )
 {
 	FakeModelInfo fake;
-	EXPECT_EQ( kStudio, Slot< studiohdr_t *( * )( void *, const model_t * ) >( kGetStudiomodel )( &fake, kModel ) );
+	EXPECT_EQ( kStudio, Slot<studiohdr_t *(*)( void *, const model_t * )>( kGetStudiomodel )( &fake, kModel ) );
 	EXPECT_STREQ( "GetStudiomodel", g_seen.pszMethod );
 }
 
 TEST( FwdEngine, GetCollideForVirtualTerrainForwardsTheIndex )
 {
 	FakeModelInfo fake;
-	EXPECT_EQ( kTerrain, Slot< CPhysCollide *( * )( void *, int ) >( kGetCollideForVirtualTerrain )( &fake, 12 ) );
+	EXPECT_EQ( kTerrain, Slot<CPhysCollide *(*)( void *, int )>( kGetCollideForVirtualTerrain )( &fake, 12 ) );
 	EXPECT_STREQ( "GetCollideForVirtualTerrain", g_seen.pszMethod );
-	EXPECT_EQ( 12, g_seen.args[ 0 ] );
+	EXPECT_EQ( 12, g_seen.args[0] );
 }
 
 TEST( FwdEngine, TheDetailPropsDictionaryQuestionsForwardTheModel )
 {
 	FakeModelInfo fake;
-	EXPECT_TRUE( Slot< bool ( * )( void *, const model_t * ) >( kIsModelVertexLit )( &fake, kModel ) );
+	EXPECT_TRUE( Slot<bool ( * )( void *, const model_t * )>( kIsModelVertexLit )( &fake, kModel ) );
 	EXPECT_STREQ( "IsModelVertexLit", g_seen.pszMethod );
-	EXPECT_EQ( (intptr_t)kModel, g_seen.args[ 0 ] );
-	EXPECT_TRUE( Slot< bool ( * )( void *, const model_t * ) >( kModelHasMaterialProxy )( &fake, kModel ) );
+	EXPECT_EQ( (intptr_t)kModel, g_seen.args[0] );
+	EXPECT_TRUE( Slot<bool ( * )( void *, const model_t * )>( kModelHasMaterialProxy )( &fake, kModel ) );
 	EXPECT_STREQ( "ModelHasMaterialProxy", g_seen.pszMethod );
 	EXPECT_EQ( &fake, g_seen.pSelf );
 }
@@ -311,8 +394,8 @@ TEST( FwdEngine, TheInternalFactoryServesATableAsItsSlotArrayWithItsCount )
 	// against its struct (no count is returned beside it any more).
 	void *pServed = SSFwd_Serve( "SSFwd_ModelInfo" );
 	ASSERT_NE( nullptr, pServed );
-	EXPECT_EQ( (int32_t)kModelInfoSlots, static_cast< const SSForwarderTable * >( pServed )->nSlots );
-	EXPECT_EQ( ModelInfoTable().ppSlots, *static_cast< void *const *const * >( pServed ) );
+	EXPECT_EQ( (int32_t)kModelInfoSlots, static_cast<const SSForwarderTable *>( pServed )->nSlots );
+	EXPECT_EQ( ModelInfoTable().ppSlots, *static_cast<void *const *const *>( pServed ) );
 }
 
 TEST( FwdEngine, TheInternalFactoryAnswersNullForANameItDoesNotServe )
@@ -332,8 +415,8 @@ TEST( FwdEngine, TheInternalFactoryServesTheVPhysicsTablesToo )
 
 	void *pServed = SSFwd_Serve( "SSFwd_PhysicsObject" );
 	ASSERT_NE( nullptr, pServed );
-	EXPECT_EQ( pTable->nSlots, static_cast< const SSForwarderTable * >( pServed )->nSlots );
-	EXPECT_EQ( pTable->ppSlots, *static_cast< void *const *const * >( pServed ) );
+	EXPECT_EQ( pTable->nSlots, static_cast<const SSForwarderTable *>( pServed )->nSlots );
+	EXPECT_EQ( pTable->ppSlots, *static_cast<void *const *const *>( pServed ) );
 }
 
 TEST( FwdEngine, TheServerServesItsOwnTables )
@@ -341,8 +424,8 @@ TEST( FwdEngine, TheServerServesItsOwnTables )
 	// The tables only the server calls (IVEngineServer, the INetChannelInfo
 	// objects it answers, the static prop manager, and IEngineSoundServer003
 	// the managed SoundEmitter emits through) are in its library.
-	for ( const char *pszName : { "SSFwd_EngineServer", "SSFwd_NetChannelInfo", "SSFwd_StaticPropMgrServer",
-	                              "SSFwd_EngineSound" } )
+	for ( const char *pszName :
+		  { "SSFwd_EngineServer", "SSFwd_NetChannelInfo", "SSFwd_StaticPropMgrServer", "SSFwd_EngineSound" } )
 	{
 		EXPECT_NE( nullptr, SSFwdServer_Table( pszName ) ) << pszName;
 		EXPECT_NE( nullptr, SSFwd_Serve( pszName ) ) << pszName;
@@ -360,4 +443,3 @@ TEST( FwdEngine, TheServerServesNoTableOnlyTheClientCalls )
 		EXPECT_EQ( nullptr, SSFwd_Serve( pszName ) ) << pszName;
 	}
 }
-

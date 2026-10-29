@@ -26,7 +26,8 @@ public class PathTests
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(KeyframeTrack).Assembly);
-        registry.Services = Ignoring("Clock.Now", "Entities.GetAngles", "Entities.GetBounds", "Entities.GetBoundsSize", "Entities.GetOrigin", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid");
+        registry.Services = Ignoring("Clock.Now", "Entities.GetAngles", "Entities.GetBounds", "Entities.GetBoundsSize", "Entities.GetOrigin", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid",
+                                     "Sound.SoundPatchCreate");
         return registry;
     }
 

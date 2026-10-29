@@ -103,6 +103,19 @@ public sealed class ClientPlayerPrediction
     private readonly ViewReadout? _view;
 
     /// <summary>
+    /// The useable ladders the replay climbs, as the server's loop does
+    /// (CHL2GameMovement); null replays base CGameMovement's brush ladders.
+    /// </summary>
+    private readonly ILadderWorld? _ladders;
+
+    /// <summary>
+    /// HL2MP's player, whose speeds and suit the replay runs as the server's
+    /// loop does (C_HL2MP_Player's HandleSpeedChanges and ReduceTimers); null
+    /// replays base CGameMovement's own max speed and no suit.
+    /// </summary>
+    private readonly IHl2PlayerMove? _hl2Player;
+
+    /// <summary>
     /// The working copy the replay moves, and the ONLY thing the ring saves.
     /// Never the decoded state — see the file header.
     /// </summary>
@@ -218,7 +231,8 @@ public sealed class ClientPlayerPrediction
     public ClientPlayerPrediction(ILog log, IClientStandalones standalones, IEngineHud screen,
                                   IClientReplayEngine engine, MovementRunner movement,
                                   ClientArsenal? arsenal, PredictionErrorRing errors,
-                                  NetStateCatalog catalog, ViewReadout? view = null)
+                                  NetStateCatalog catalog, ViewReadout? view = null,
+                                  ILadderWorld? ladders = null, IHl2PlayerMove? hl2Player = null)
     {
 
         _log = log;
@@ -230,6 +244,8 @@ public sealed class ClientPlayerPrediction
         _movement = movement;
         _arsenal = arsenal;
         _view = view;
+        _ladders = ladders;
+        _hl2Player = hl2Player;
 
         _working.BindLocal();
     }
@@ -488,6 +504,9 @@ public sealed class ClientPlayerPrediction
             GameMovement loop = _movement.ClientLoop(constants.Constants,
                                                      constants.JumpHeight,
                                                      constants.EngineTime);
+            loop.Ladders = _ladders;
+            loop.Hl2Player = _hl2Player;
+            _move.SuitEquipped = _hl2Player is not null;
 
             ran = loop.ProcessMovement(_move);
             _movement.NoteClientCommand(ran);
@@ -502,7 +521,8 @@ public sealed class ClientPlayerPrediction
             // closed it would run at seed -1 and disagree with the server about
             // every random decision — silently, and only under prediction.
             if (ran)
-                _arsenal?.OnPlayerCommand(player.Handle, in cmd, 1, firstTime, _move.CurTime);
+                _arsenal?.OnPlayerCommand(player.Handle, in cmd, 1, firstTime, _move.CurTime,
+                                          eye: _move.Origin + _move.ViewOffset);
         }
         finally
         {
@@ -580,6 +600,19 @@ public sealed class ClientPlayerPrediction
         _move.PunchAngleVel = _working.PunchAngleVel.AsVector();
         _move.LadderNormal = _working.LadderNormal;
         _move.WaterJumpVel = _working.WaterJumpVel;
+        _move.Ladder = _working.Ladder;
+        _move.LadderForceMove = _working.LadderForceMove;
+        _move.LadderForceMount = _working.LadderForceMount;
+        _move.LadderStartTime = _working.LadderStartTime;
+        _move.LadderArrivalTime = _working.LadderArrivalTime;
+        _move.LadderGoalPosition = _working.LadderGoalPosition;
+        _move.LadderStartPosition = _working.LadderStartPosition;
+        _move.LadderForceLadder = _working.LadderForceLadder;
+        _move.SuitPower = _working.SuitPower;
+        _move.SuitPowerLoad = _working.SuitPowerLoad;
+        _move.SuitDevices = _working.SuitDevices;
+        _move.SuitDevicesOffTime = _working.SuitDevicesOffTime;
+        _move.NewSprinting = _working.NewSprinting;
 
         _move.MaxSpeed = _working.MaxSpeed;
         _move.FallVelocity = _working.FallVelocity;
@@ -629,8 +662,26 @@ public sealed class ClientPlayerPrediction
         into.PunchAngleVel = QAngle.FromVector(_move.PunchAngleVel);
         into.LadderNormal = _move.LadderNormal;
         into.WaterJumpVel = _move.WaterJumpVel;
+        into.Ladder = _move.Ladder;
+        into.LadderForceMove = _move.LadderForceMove;
+        into.LadderForceMount = _move.LadderForceMount;
+        into.LadderStartTime = _move.LadderStartTime;
+        into.LadderArrivalTime = _move.LadderArrivalTime;
+        into.LadderGoalPosition = _move.LadderGoalPosition;
+        into.LadderStartPosition = _move.LadderStartPosition;
+        into.LadderForceLadder = _move.LadderForceLadder;
+        into.SuitPower = _move.SuitPower;
+        into.SuitPowerLoad = _move.SuitPowerLoad;
+        into.SuitDevices = _move.SuitDevices;
+        into.SuitDevicesOffTime = _move.SuitDevicesOffTime;
+        into.NewSprinting = _move.NewSprinting;
 
-        into.MaxSpeed = _move.MaxSpeed;
+        // MaxSpeed is NOT written back: the loop's value is mv->m_flMaxSpeed,
+        // the cap after the client max speed, the surface and the movement
+        // rules, and stock's FinishMove never stores it into m_flMaxspeed
+        // (prediction.cpp:720, player_command.cpp:212); this server's record
+        // keeps what game code set. Persisting it made every compare a
+        // MaxSpeed misprediction (TF's scout: predicted 400, server 320).
         into.FallVelocity = _move.FallVelocity;
         into.DuckTime = _move.DuckTime;
         into.DuckJumpTime = _move.DuckJumpTime;
@@ -692,7 +743,7 @@ public sealed class ClientPlayerPrediction
 
         ClearWitnessedPoke(acknowledged);
 
-        uint typeId = NetSchema.TypeIdOf(EntityNames.SsPlayer);
+        uint typeId = NetSchema.TypeIdOf(EntityNames.Player);
 
         // THE ENGINE BLOCK COMES FROM THE ARRIVAL ON BOTH SIDES. See
         // _declaredStart: nothing predicts it, so comparing it would report the
@@ -817,6 +868,7 @@ public sealed class ClientPlayerPrediction
 
         LastReplayed = 0;
         Driving = false;
+        DrivenHandle = EntityHandle.None;
     }
 
     public string Report()
@@ -863,7 +915,7 @@ public sealed class ClientPlayerPrediction
         if (local <= 0)
             return null;
 
-        foreach (var entity in _standalones.OfClass(EntityNames.SsPlayer))
+        foreach (var entity in _standalones.OfClass(EntityNames.Player))
         {
             if (entity is ClientSsPlayer player &&
                 (int)(player.Handle.Value & HandleEntryMask) == local)
@@ -887,8 +939,18 @@ public sealed class ClientPlayerPrediction
         return cmd;
     }
 
+    /// <summary>
+    /// The entity the replay last said it drives (<see cref="EntityHandle.None"/>
+    /// when the last published view did not drive): what the interpolation pass
+    /// leaves out (<see cref="InterpolatedSet"/>), set with the same publish
+    /// that tells the shell to draw the replay's origin.
+    /// </summary>
+    public EntityHandle DrivenHandle { get; private set; }
+
     private void PublishView(ClientSsPlayer player, bool driving, bool fromReplay)
     {
+        DrivenHandle = driving ? player.Handle : EntityHandle.None;
+
         // The DECODED punch and eye when nothing was replayed, the replay's when
         // something was. Both are the right answer for their case, and
         // publishing every frame is what keeps the view following a player whose

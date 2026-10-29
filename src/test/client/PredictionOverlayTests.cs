@@ -28,7 +28,7 @@ public class PredictionOverlayTests
 
     [Theory]
     [InlineData(typeof(WeaponNetState), EntityNames.SsWeapon)]
-    [InlineData(typeof(ViewModelNetState), EntityNames.SsViewModel)]
+    [InlineData(typeof(ViewModelNetState), EntityNames.PredictedViewModel)]
     public void TheServerMovingTheCarriedPairIsNotAMisprediction(Type stateType, string className)
     {
         var (predicted, start) = Image(stateType);
@@ -52,7 +52,7 @@ public class PredictionOverlayTests
 
     [Theory]
     [InlineData(typeof(WeaponNetState), EntityNames.SsWeapon)]
-    [InlineData(typeof(ViewModelNetState), EntityNames.SsViewModel)]
+    [InlineData(typeof(ViewModelNetState), EntityNames.PredictedViewModel)]
     public void ADeclaredFieldThatDiffersStillStands(Type stateType, string className)
     {
         var (predicted, start) = Image(stateType);

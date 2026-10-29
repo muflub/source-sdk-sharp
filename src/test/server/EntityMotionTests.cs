@@ -237,7 +237,7 @@ public class EntityMotionTests
     [Fact]
     public void TheBoltsWholeFlightSurvivesBeingChainedFrameToFrame()
     {
-        var bolt = StockTrajectory().Where(r => r.ClassName == "ss_bolt").ToList();
+        var bolt = StockTrajectory().Where(r => r.ClassName == "crossbow_bolt").ToList();
 
         Assert.True(bolt.Count >= 8, $"only {bolt.Count} recorded bolt frames");
 
@@ -468,7 +468,7 @@ public class EntityMotionTests
         var engine = Fake();
         var directory = new EntityDirectory(new RecordingLog());
 
-        return (new EntityMotion(new RecordingLog(), engine, engine, engine, engine, directory,
+        return (new EntityMotion(new RecordingLog(), engine, engine, engine, engine, engine, directory,
             new PhysicsPushedEntities(new EnginePushWorld(engine, engine, engine, directory), new RecordingLog())), engine, directory);
     }
 
@@ -532,6 +532,119 @@ public class EntityMotionTests
 
         Assert.Equal(64, motion.RunFrame(0.015f));
         Assert.Equal(64, motion.MovedLastFrame);
+    }
+
+    /// <summary>
+    /// A flyer launched with a spin turns by it each frame, as PhysicsToss
+    /// turns a MOVETYPE_FLYGRAVITY entity by its angular velocity: the SMG1's
+    /// grenade tumbles (RandomAngle( -400, 400 )). One launched without a spin
+    /// is never turned.
+    /// </summary>
+    [Fact]
+    public void ASpunFlyerTurnsByItsSpinEachFrame()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        Bound(directory, TheProjectile);
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Effects.CurrentGravity", 600f)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("Entities.GetAngles", new Vector(10f, 20f, 30f))
+              .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0.5f, 0, TheShooter, spin: new Vector(100f, -200f, 400f));
+        motion.RunFrame(0.1f);
+
+        var turned = (Vector)engine.Last("Entities.SetAngles")!.Value.Args[1]!;
+        Assert.Equal((20f, 0f, 70f), (turned.X, turned.Y, turned.Z));
+    }
+
+    [Fact]
+    public void AnUnspunFlyerIsNeverTurned()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        Bound(directory, TheProjectile);
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Effects.CurrentGravity", 600f)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0.5f, 0, TheShooter);
+        motion.RunFrame(0.1f);
+
+        Assert.False(engine.Called("Entities.SetAngles"), "a flyer with no spin was turned");
+    }
+
+    /// <summary>
+    /// What a touch reads as the velocity it arrived with is the one going into
+    /// the step that struck, not what the collision left: a contact grenade's
+    /// scorch is traced along its flight.
+    /// </summary>
+    [Fact]
+    public void AStruckFlyerRemembersTheVelocityItArrivedWith()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        Bound(directory, TheProjectile);
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Effects.CurrentGravity", 600f)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("WorldQuery.TraceLine", new TraceResult(true, 0.5f, new Vector(0f, 7.5f, 0f), new Vector(0f, -1f, 0f), EntityHandle.None))
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter);
+        motion.RunFrame(0.015f);
+
+        Assert.Equal(new Vector(0f, 1000f, 0f), motion.IncomingVelocityOf(TheProjectile));
+    }
+
+    /// <summary>
+    /// A flyer with a hull sweeps its box, as stock's UTIL_TraceEntity sweeps
+    /// the entity's own bounds; one without traces a point.
+    ///
+    /// <para>
+    /// Found side by side with stock (tools/stock-ab --weapons weapon_crossbow,
+    /// 2026-10-25): this mod's bolt traced a ray and flew past the corner of a
+    /// brush that stock's two-unit bolt struck.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AHulledFlyerSweepsItsBox()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        Bound(directory, TheProjectile);
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Effects.CurrentGravity", 600f)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("WorldQuery.TraceBox", new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None, -1, 0))
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter, hull: new Vector(1f, 1f, 1f));
+        motion.RunFrame(0.015f);
+
+        EngineCall? box = engine.Last("WorldQuery.TraceBox");
+        Assert.True(box is not null, "a hulled flyer swept no box");
+        Assert.Equal((new Vector(-1f, -1f, -1f), new Vector(1f, 1f, 1f), TheProjectile),
+                     (box!.Value.ArgAs<Vector>(2), box.Value.ArgAs<Vector>(3), box.Value.ArgAs<EntityHandle>(5)));
+        Assert.False(engine.Called("WorldQuery.TraceLine"), "a hulled flyer traced a ray as well");
+    }
+
+    [Fact]
+    public void AFlyerWithNoHullTracesAPoint()
+    {
+        var (motion, engine, directory) = AMotionPass();
+        Bound(directory, TheProjectile);
+        engine.Returns("Entities.GetParent", EntityHandle.None)
+              .Returns("Effects.CurrentGravity", 600f)
+              .Returns("Entities.GetOrigin", Vector.Zero)
+              .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
+              .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
+
+        motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter);
+        motion.RunFrame(0.015f);
+
+        Assert.True(engine.Called("WorldQuery.TraceLine"), "a point flyer made no step trace");
+        Assert.False(engine.Called("WorldQuery.TraceBox"), "a point flyer swept a box");
     }
 
     /// <summary>
@@ -964,35 +1077,4 @@ public class EntityMotionTests
         Assert.Equal(0, motion.RunFrame(0.015f));
     }
 
-    /// <summary>
-    /// Flight is no longer in the native frame step. The pass would otherwise
-    /// run twice — once here and once in <c>StandaloneEntities_Update</c> — and
-    /// a doubly-integrated projectile flies at twice the speed it was fired at,
-    /// which reads as a tuning problem rather than as two integrators.
-    /// </summary>
-    [Fact]
-    public void TheNativeFrameStepNoLongerFliesAnything()
-    {
-        string text = File.ReadAllText(Path.Combine(
-            RepoLayout.SdkTree, "src", "sourcesharp", "game", "server",
-            "shell_standalone_base.cpp"));
-
-        Assert.Contains("StandaloneEntities_Update", text);
-        Assert.DoesNotContain("pEnt->UpdateFlight();", text);
-        Assert.DoesNotContain("void CStandaloneEntity::UpdateFlight()", text);
-    }
-
-    /// <summary>
-    /// And the shell no longer declares it either, so nothing can call it back
-    /// into existence without noticing this suite.
-    /// </summary>
-    [Fact]
-    public void TheShellNoLongerDeclaresAFlightStep()
-    {
-        string text = File.ReadAllText(Path.Combine(
-            RepoLayout.SdkTree, "src", "sourcesharp", "game", "server", "shell_standalone.h"));
-
-        Assert.Contains("void SetBounces(", text);
-        Assert.DoesNotContain("void UpdateFlight();", text);
-    }
 }

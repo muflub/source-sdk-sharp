@@ -23,6 +23,12 @@ public interface IClientEntitySounds
     /// handle names nothing with one.
     /// </summary>
     void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null);
+
+    /// <summary>
+    /// <c>C_BaseEntity::StopSound( soundname )</c>: the script's waves stopped
+    /// on <paramref name="entity"/>'s index and the script's channel.
+    /// </summary>
+    void StopFrom(EntityHandle entity, string soundName);
 }
 
 /// <summary>
@@ -111,6 +117,14 @@ public sealed class ClientSounds(IEngineEntities entities)
     }
 
     /// <inheritdoc/>
+    public void StopFrom(EntityHandle entity, string soundName)
+    {
+        int index = entities.GetIndex(entity);
+        if (_emitter is { } emitter && index >= 0 && !string.IsNullOrEmpty(soundName))
+            emitter.Stop(index, soundName);
+    }
+
+    /// <inheritdoc/>
     public bool Parameters(string script, out GameSoundParams parameters)
     {
         parameters = default;
@@ -136,6 +150,15 @@ public sealed class ClientSounds(IEngineEntities entities)
             Pitch = pitch,
             Origin = origin,
         });
+    }
+
+    /// <inheritdoc/>
+    public void EmitScript(string script, in Vector origin)
+    {
+        if (_emitter is not { } emitter)
+            return;
+
+        emitter.Emit(emitter.LocalPlayer(), SoundEmitterCore.SoundFromWorld, script, origin);
     }
 
     /// <inheritdoc/>

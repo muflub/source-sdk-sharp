@@ -29,7 +29,7 @@ internal static class NullableEngineInterfaceCensus
     private static readonly string[] Slices =
     [
         "IUniformRandom", "ISaveMemory", "IAreaPortalEngine", "IVPhysicsSurfaceSounds",
-        "IClientInputEngine", "ISteamLaunchCommands",
+        "IClientInputEngine", "ISteamLaunchCommands", "IPlaybackState",
     ];
 
     // The slots, and the binding that installs the server slot's acquirer.

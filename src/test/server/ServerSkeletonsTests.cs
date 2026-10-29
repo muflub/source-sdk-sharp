@@ -70,6 +70,7 @@ public class ServerSkeletonsTests
         public int GameMaterial(int surfaceProps) => 0;
         public MoveSurface Surface(int surfaceProps) => default;
         public string? ScrapeSound(int surfaceProps, bool smooth) => null;
+        public string? BulletImpactSound(int surfaceProps) => null;
         public int SurfaceIndex(string name)
         {
             Asked.Add(name);
@@ -118,10 +119,11 @@ public class ServerSkeletonsTests
         return grown;
     }
 
-    private static byte[] Block(NVector origin, float yaw = 0f, int sequence = 0, float rate = 1f, float animTime = 0f, int hitboxSet = 0)
+    private static byte[] Block(NVector origin, float yaw = 0f, int sequence = 0, float rate = 1f, float animTime = 0f, int hitboxSet = 0,
+                                int model = Model)
     {
         EngineBlock block = default;
-        block.Head.ModelIndex = Model;
+        block.Head.ModelIndex = model;
         block.Head.Origin = new Vector(origin.X, origin.Y, origin.Z);
         block.Head.Angles = new QAngle(0f, yaw, 0f);
         block.Client.Sequence = sequence;
@@ -186,6 +188,82 @@ public class ServerSkeletonsTests
         Assert.Equal((106f, 2f, 13f), (origin.X, origin.Y, origin.Z));
     }
 
+    // ---- an attachment bone-merged onto a carrier ---------------------------
+
+    private const int WeaponModel = 4;
+    private static readonly EntityHandle Weapon = new(0x00010007u);
+
+    /// <summary>
+    /// A w_ model: "hand", which the carrier's chain also names, and "tip"
+    /// eight units along it, which it does not; attachment 1 one unit above
+    /// the tip. With <paramref name="merged"/> false the root is a bone the
+    /// carrier does not name.
+    /// </summary>
+    private static byte[] Stick(bool merged = true)
+    {
+        StudioHdrBuilder b = new();
+        b.ModelName = "test/stick.mdl";
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = merged ? "hand" : "grip", Parent = -1, Flags = UsedByAnything });
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "tip", Parent = 0, Flags = UsedByAnything, Pos = new NVector(8f, 0f, 0f) });
+        b.Sequences.Add(new StudioHdrBuilder.SeqDef { Label = "idle", AnimTable = [0], Weights = [1f, 1f] });
+        b.Anims.Add(new StudioHdrBuilder.AnimDef { Name = "idle", NumFrames = 1, Fps = 30f });
+        BoneMatrix3x4 local = BoneMatrix3x4.Identity;
+        local.Position = new NVector(0f, 0f, 1f);
+        b.Attachments.Add(new StudioHdrBuilder.AttachmentDef { Name = "sparkrear", LocalBone = 1, Local = local });
+        return b.Build();
+    }
+
+    private static Rig Carried(bool merged = true)
+    {
+        Rig rig = new();
+        rig.Memory.Models[WeaponModel] = Stick(merged);
+        rig.Blocks.Held[Entity] = Block(new NVector(100f, 0f, 0f), yaw: 90f);
+        rig.Blocks.Held[Weapon] = Block(new NVector(-50f, -50f, 0f), model: WeaponModel);
+        return rig;
+    }
+
+    private static (float, float, float) Rounded(Vector v)
+        => (MathF.Round(v.X, 3), MathF.Round(v.Y, 3), MathF.Round(v.Z, 3));
+
+    [Fact]
+    public void AMergedAttachmentHangsOffTheCarriersBoneOfTheSameName()
+    {
+        Rig rig = Carried();
+
+        bool found = rig.Skeletons.GetMergedAttachment(Weapon, Entity, 1, out Vector origin);
+
+        // The carrier, at 100,0,0 facing +y, holds its hand at +5 x and +10 z
+        // of its own frame: 100,5,10. The stick's tip is eight along the hand
+        // (+y here) and the attachment one above it -- wherever the weapon was
+        // parked.
+        Assert.True(found);
+        Assert.Equal((100f, 13f, 11f), Rounded(origin));
+    }
+
+    [Fact]
+    public void AMergedFollowersOwnRootIsPlacedOnTheCarrier()
+    {
+        Rig rig = Carried(merged: false);
+
+        bool found = rig.Skeletons.GetMergedAttachment(Weapon, Entity, 1, out Vector origin);
+
+        // No bone shared: FollowEntity's placement, the carrier's origin and
+        // facing, under the stick's own pose.
+        Assert.True(found);
+        Assert.Equal((100f, 8f, 1f), Rounded(origin));
+    }
+
+    [Fact]
+    public void AMergedAttachmentTheModelDoesNotCarryAnswersTheFollowersOwnPlace()
+    {
+        Rig rig = Carried();
+
+        bool found = rig.Skeletons.GetMergedAttachment(Weapon, Entity, 2, out Vector origin);
+
+        Assert.False(found);
+        Assert.Equal((-50f, -50f, 0f), Rounded(origin));
+    }
+
     [Fact]
     public void AMissingAttachmentAnswersTheEntitysOwnPlace()
     {
@@ -219,6 +297,39 @@ public class ServerSkeletonsTests
 
         EngineBlock block = rig.Read(Entity);
         Assert.Equal((0, 2f, 5f), (block.Client.Sequence, block.Client.PlaybackRate, block.Client.AnimTime));
+    }
+
+    /// <summary>
+    /// The block's clock knows no start cycle: a sequence started part-way, or
+    /// backwards from its end, writes the start time that gives the same
+    /// cycle from 0, so what reads the block lands where the skeleton does.
+    /// </summary>
+    [Fact]
+    public void ASequenceStartedPartWayWritesTheStartTimeThatGivesItsCycle()
+    {
+        Rig rig = new();
+        rig.Clock.Now = 5f;
+
+        Assert.True(rig.Skeletons.SetSequence(Entity, 0, -1f, restart: true, startCycle: 0.999f));
+        Assert.True(rig.Skeletons.SequenceState(Entity, out _, out float cycle, out float duration, out _, out _));
+        Assert.True(duration > 0f);
+
+        EngineBlock block = rig.Read(Entity);
+        Assert.Equal(0.999f, cycle, 4);
+        Assert.Equal(cycle, (rig.Clock.Now - block.Client.AnimTime) * block.Client.PlaybackRate / duration, 4);
+    }
+
+    [Fact]
+    public void SetCycleHoldsTheCycleClampedAndANoBlockHandleIsRefused()
+    {
+        Rig rig = new();
+
+        Assert.True(rig.Skeletons.SetCycle(Entity, 1.5f));
+        Assert.True(rig.Skeletons.States.TryGet(Entity, out BoneEntityState? state));
+        Assert.Equal(1f, state!.HeldCycle);
+        Assert.Equal(1f, state.SequenceCycle(123f));
+
+        Assert.False(rig.Skeletons.SetCycle(Other, 0.5f));
     }
 
     [Fact]

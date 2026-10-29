@@ -423,6 +423,8 @@ Of the three ways out offered (leave them; a `__builtin_ctz` loop of our own;
 let them go with their last caller), the user chose the third: they leave the
 link when the remaining native PVS/PAS filter users move to managed, which
 `RecipientFilter.cs` already ports. No code changes for them now.
+Done 2026-10-27: the PVS/PAS filters had no caller left, and the tables went
+with `AddPlayersFromBitMask` (`globals_link_level` 118 -> 116).
 
 **T6 part 1 done (2026-10-19, lane t6-globals, steps 1-3 and step 4's first
 item; not yet on main).** Measured at the lane's tip the same way (debug
@@ -472,6 +474,128 @@ callback accessor and whatever of (b)/(c) the ruling keeps), 0 UNRULED, 0
 MEMBER, 0 DEAD; `objects_with_a_static_initialiser` at the floor; the daily
 gate green on the new static-init order; plan_globals.md's banner replaced
 by a pointer here.
+
+### T6 part 3: injection, not lookup (user 2026-10-27)
+
+**The goal, restated by the user (2026-10-27):** "remove free standing functions
+and use classes with deps injected via the constructor owned by the game dll
+instance". Moving a global onto a tier is half of it. The state must also be
+reached through `this`: a subsystem is a class whose constructor takes the
+engine interfaces and tier objects it uses and stores them, owned by the game
+DLL instance (directly, or by its DLL or level tier), and every call that
+reaches it (managed through its `IShim<Area>`, or the engine through an
+interface the root serves) arrives on that object.
+
+**Where part 2 left it (2026-10-27, lane tip bf13e21f2).** Part 2's 18
+commits took `globals_link_level` from 168 to 118 by making the state tier
+members, but the code reads them through free accessors that find the root
+through its one static. That is a service locator, and the globals ratchet
+cannot see it. Measured by `grep -rhoE` over `src/server/native` and
+`src/shared/native` (45 files):
+
+| accessor | call sites |
+|---|--:|
+| `ServerEngine()` | 52 |
+| `ShellGameDll_Dll()` | 47 |
+| `ServerModelInfo()` | 17 |
+| `ServerMdlCache()`, `ServerFileSystem()` | 12 each |
+| `ShellGameDll_Managed()`, `ShellGameDll_Level()`, `ServerPartition()` | 9 each |
+| `ServerOverlay()` 7, `ServerTrace()` 6, `ServerStaticProps()` 5, `ServerStringTables()` 4, `ServerRandom()` 4, `ShellGameDll_ShimRoot()` 3, `ServerGameStats()` 3, `ServerEvents()` 3 | 45 |
+| **total** | **211** |
+
+`tools/native-symbols` (debug, same tip): server.so defines 654 free
+functions from `src/server/native` and `src/shared/native` (no `::` in the
+name), 273 of them `SourceSharp_*`.
+
+**The shape.**
+
+1. **A shim area is implemented by its subsystem's class.** Today
+   `tools/shim-areas` generates an empty `CShim<Area>` per area whose methods
+   call the free `SourceSharp_*` body the row names, and `CShimAreas` (a
+   member of `CShimRootServer`) holds them all. Instead, a row's `body`
+   column may name a class (`CServerUserMessages`); the generator then emits
+   no forwarder for the area, and `ShimAreas_Acquire` hands out the tier's
+   instance of that class. The class implements `IShim<Area>`, takes what it
+   uses by constructor, and its free bodies and their `sourcesharp_entrypoints.h`
+   declarations go in the same commit. Areas convert one at a time;
+   `CShimAreas` shrinks as they do and goes with the last.
+2. **Lifetime.** Managed acquires the areas once, at attach in DLLInit, and
+   keeps the pointers across maps. So the object behind an area is
+   DLL-tier (or a root member). An area whose state is per map holds the
+   level tier by pointer, which the root sets in LevelInit and clears in
+   LevelShutdown: an injection the owner performs, visible at one site, not a
+   lookup.
+3. **Interfaces the engine calls** (`IServerGameClients`, `IServerGameEnts`,
+   the tags and shared-app-systems objects: `s_ServerGameClients` and the
+   other MEMBER rows) become members of the root, built with their
+   dependencies, and served by the root's `CreateInterface` answer.
+4. **Helpers stay free only when they are pure**: a function of its
+   arguments that reads no state (string and math helpers, `ss::Format`).
+   A helper that needs the engine becomes a method of the class that has it.
+5. **The accessors retire as their callers go.** `ServerEngine()` and the
+   other `Server*()` functions in `server_engine.h`, then
+   `ShellGameDll_Dll()`/`ShellGameDll_Level()`/`ShellGameDll_Managed()`,
+   delete once nothing calls them.
+
+**Two cases with no object to call into, and their answers:**
+
+- **`CBaseEdict::StateChanged`** (vendor `edict.h`, inline) has no engine
+  caller: the engine compiles its own copy. In server.so its only callers
+  are `CStandaloneEntity::NetworkStateChanged` (the argument-less overload,
+  which reads no state) and `CStandaloneEntity::MarkBlockChanged` (the offset
+  overload, which reads `SharedEdictChangeInfo()` and calls
+  `CBaseEdict::GetChangeAccessor`, both defined in our
+  `shell_engineboundary.cpp` through `ServerEngine()`). So the offset
+  overload's bookkeeping moves to a method of a class that holds the engine
+  and the shared change list by constructor, and the vendor inline and
+  `GetChangeAccessor`'s definition go: both are non-virtual, outside any
+  layout the engine reads. `SharedEdictChangeInfo()` then deletes.
+- **C callbacks with no user-data argument** (D6(a)): the spew hook
+  (`SpewOutputFunc_t (SpewType_t, const char *)`), the assert notify
+  (`AssertFailedNotifyFunc_t (const char *, int, const char *)`) and the
+  global ConVar change callback (`FnChangeCallback_t (IConVar *, const char *,
+  float)`). The user asked (2026-10-27) for a generated code block that binds
+  each to its class instance, in place of D6(a)'s `ShellSide()` accessor.
+  It is feasible: a `CBoundCallback<Sig, &Class::Method>` owned by the
+  instance writes a small thunk into a page it allocates read-write, then
+  flips the page to read-execute (never both; `mmap`/`mprotect` on Linux,
+  `VirtualAlloc`/`VirtualProtect`/`FlushInstructionCache` on Windows). The
+  thunk inserts the instance as the first argument and tail-jumps to the
+  member's static trampoline. All three signatures have at most three
+  arguments, so the shift fits in registers on both ABIs: System V moves
+  `rdx->rcx, rsi->rdx, rdi->rsi` and loads `rdi`; floats stay in `xmm0`.
+  Win64 moves `r8->r9, rdx->r8, rcx->rdx` and loads `rcx`; a float is
+  positional there, so the change callback's float moves `xmm2->xmm3`.
+  The template accepts only signatures it has a shift for
+  (`static_assert`). Ordering: the owner uninstalls the hook before the
+  thunk frees, as the current code restores the previous spew function.
+  The CLR already JITs in this process, so executable pages are allowed.
+  Proof: gtests call each thunk through its plain function pointer and check
+  the instance and every argument (the float among them) arrive; the Windows
+  arm builds under `tools/windows-cross` and runs in CI.
+  ConVar callbacks on our own ConVars need no thunk: `FnChangeCallback_t`
+  receives the `IConVar *`, and our ConVar subclass can carry its owner.
+
+**The ratchet.** A new row in `docs/globals-ratchet.tsv` (or a sibling
+check): call sites of the root accessors and the `Server*()` accessors,
+counted as code relocations against them over the server's link-edge objects
+(`tools/globals-census summary`'s `locator_calls`; `globals_locator_calls` in
+`docs/globals-ratchet.tsv`, held by `globals_ledger_test`). 181 at its first
+measure (fe875afa0 plus the tool, debug; `objdump -dr` agreed; the 211 above
+is a source grep that also counts declarations and comments). It only falls.
+Widened the same day to the 16 managed-area accessors (`ManagedCommands()` and the
+rest, native finding the managed object it calls): 251 at e0334fd36. A free-function row counts server.so's free
+functions that read state, with the pure helpers ruled by name.
+
+**Order.** The smallest areas first, to set the pattern and the generator
+change: user messages (`shell_usermessage_send.cpp`) and recipient filters,
+then the client steps, sentences, precache, temp entities, then the large
+ones (standalone entities, players, game clients, physics). The engine
+interfaces the root serves follow. The thunks come when Diagnostics and
+Console convert.
+
+**Exit:** no free function in server.so reads state except the bound-callback
+trampolines; the accessor ratchet at 0; `link_level` at the D6 floor.
 
 ## 4. End state (measured at the T5 close, 2026-10-19)
 
@@ -655,6 +779,41 @@ New:
 5. **D5: order.** T1 before T2-T4 [recommended: it respells one type across
    48 TUs and would conflict with every lane], or T1 as its own lane beside
    them with the conflicts resolved at each rebase.
+
+**RULED 2026-10-27 (user):** T6's goal is free-standing functions removed in
+favour of classes with their dependencies injected by constructor, owned by
+the game DLL instance; moving a global onto a tier and reading it through an
+accessor is not the end state (§3 T6 part 3). The user also asked whether the
+spew hook and ConVar callbacks can be bound to their instance by a generated
+code block; part 3 says how, in place of D6(a)'s `ShellSide()` accessor.
+The user approved part 3 as written (2026-10-27), thunks included.
+
+**RULED 2026-10-27 (user), on the rows left after the diagnostics hooks:** "Move
+logging to log class, remove g_pCVar and have a CVar registry class, sure keep
+get verbosity, do it. Can have a per class string pool instance instead of
+global." So: the logging state (verbosity cache, the ready flag, the
+not-shipped ledger and the trace/stub/entity-log bodies) moves into a log
+class, and `SourceSharp_GetVerbosity()` stays the free read the trace macros
+use; `g_pCVar` and convar_port's registration state become a CVar registry
+class; pooled strings live in a pool instance owned by the class that pools
+them, not one global pool.
+
+**RULED 2026-10-27 (user), on the tier0 port:** "whats in tier0? if they are
+standalone functions that dont need global state leave them". The stateless
+entry points (ShouldUseNewAssertDialog, DoNewAssertDialog, HandedOnAs) stay as
+they are. The rest are tier0's C API, which tier1, mathlib and the vendor
+headers call by symbol with no instance, from static initialisers on, so their
+ten statics are ruled FLOOR (fe2083429).
+
+**RULED 2026-10-27 (user), on tools/shim-areas:** "the shim generator should
+generate one for server and another for client", and, asked why the forwards
+were an include file in the shared folder, each side's is now a generated TU
+in its own folder (src/server/native/shell_shim_areas_server.cpp,
+src/client/native/shell_shim_areas_client.cpp; 9625da2ee). A shared base's
+client bodies are ruled by the client as the server's are by the server, so a
+shared area can be one class per side or one class both DLLs compile
+(CGameEvents, 9f0b8a3ca). The last server MEMBER row, s_CollisionRules, had no
+reader and retired with its slot (73fccf01d).
 
 **T5 CLOSED, 2026-10-19.** Substrate collapse done as §3 T5 says, under the
 user's rulings of 2026-10-12 (server-dead code the client uses moves to

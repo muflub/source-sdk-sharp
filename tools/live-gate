@@ -1540,7 +1540,7 @@ class Api:
             return None
         return dict(collections.Counter(e["classname"] for e in entities))
 
-    def player(self, klass="ss_player"):
+    def player(self, klass="player"):
         """The local player: the lowest entity index of the player class.
 
         By index rather than 'the only one', because the two-client step puts a
@@ -2242,7 +2242,7 @@ def join_playerinfo(g):
     origin = player.get("origin") if player else None
     g.check(origin is not None and any(abs(float(c)) > 0.5 for c in origin),
             "and the player's position out of the block is the player's, not "
-            "the world origin (%s)" % (origin if origin is not None else "no ss_player"))
+            "the world origin (%s)" % (origin if origin is not None else "no player"))
 
     # `status`, WHICH IS THE THIRD READOUT plan_entity.md's 3c gate NAMES and
     # the only one that goes through the ENGINE rather than through this DLL's
@@ -3307,7 +3307,7 @@ def _projectile(g):
     plan_entity.md step 2f -- MOVETYPE_FLY/TOSS/NOCLIP/FOLLOW, moved out of
     native `UpdateFlight` into managed `EntityMotion.cs` -- is invisible to it.
     2f measured that: a build with the integrator unregistered passes `shoot`
-    unchanged. It probed a projectile separately, found ss_bolt and ss_rocket
+    unchanged. It probed a projectile separately, found crossbow_bolt and rpg_missile
     both reaching 367 units downrange and both gone afterwards, and correctly
     declined to edit this file. This step is that probe made into a check.
 
@@ -3734,7 +3734,7 @@ def step_push_prop(g):
     was right: measured per tick, the player walked into a crate, was stopped
     dead by it, and the crate moved 0.000 units. `CBasePlayer::InitVCollision` /
     `SetupVPhysicsShadow` (src/game/server/player.cpp:8569, :8269) give a stock
-    player the physics shadow that pushes objects and the managed `ss_player`
+    player the physics shadow that pushes objects and the managed `player`
     had no equivalent. plan_entity.md step 3f ported it.
 
     THREE CHECKS, and the first is a control rather than decoration: a prop
@@ -5265,7 +5265,7 @@ def reload_vanish_allowance(before, elapsed):
     """{class: n}: how many entities of a class may have removed themselves
     across a reload of `elapsed` seconds -- the bookings of that class due
     inside the span (dueMs.<class>[:context].<n>, a tenth of a second slack),
-    read before it. A corpse's removal think (ss_ragdoll's 15 s Lifetime)
+    read before it. A corpse's removal think (hl2mp_ragdoll's 15 s Lifetime)
     that comes due during the swap runs and the entity is gone: the schedule
     working, not the reload losing it (2026-10-11, after spectate's kill)."""
     span_ms = max(0.0, elapsed) * 1000.0 + 100.0
@@ -5282,7 +5282,7 @@ def reload_vanish_allowance_over(reads, now):
     game time it was read at), every one judged from its own time to `now`
     and kept per class at the largest. The census before the reload is read
     BEFORE the think reads it is compared with (2.5 s of game earlier), so a
-    booking that came due and ran in that gap -- spectate's ss_ragdoll, whose
+    booking that came due and ran in that gap -- spectate's hl2mp_ragdoll, whose
     15 s Lifetime ended in it, 2 of 2 passes (docs/todo.md, 2026-10-12) -- is
     in no later read, and only the read taken with the census can excuse it."""
     out = {}
@@ -5373,12 +5373,27 @@ def reload_probe(g, name):
     return g.api.entity(name=name)
 
 
+def probe_door_lip(height, distance):
+    """The lip that makes an upward func_door of this brush height travel
+    `distance`. PURE, so --self-test holds it.
+
+    Stock's CBaseDoor::Spawn has no distance key: the door travels its own
+    depth along movedir, less 2 (the bloat the engine adds on each side), less
+    the lip. So the lip says the distance, and a negative one carries a shallow
+    brush further than its own depth. The probe used `movedistance` until
+    dfd905868 dropped that non-stock key, and the 2-unit lift slab (*7) then
+    travelled nothing (hot-reload red from 2026-10-25)."""
+    return (height - 2.0) - distance
+
+
 def reload_door(g, name):
     """One func_door the step owns, opened and left standing open."""
+    model = g.scen["lift"]["brushModel"]
+    bounds = g.api.get("map")["brushModels"][int(model.lstrip("*"))]
+    height = bounds["maxs"][2] - bounds["mins"][2]
     g.api.cmd('ent_create func_door model %s targetname %s '
-              'movedir "-90 0 0" speed %d movedistance %d wait "-1"'
-              % (g.scen["lift"]["brushModel"], name,
-                 RELOAD_PROBE_SPEED, RELOAD_PROBE_DISTANCE))
+              'movedir "-90 0 0" speed %d lip %g wait "-1"'
+              % (model, name, RELOAD_PROBE_SPEED, probe_door_lip(height, RELOAD_PROBE_DISTANCE)))
     g.api.wait({"exists": 1, "name": name}, int(10.0 / TICK_SECONDS))
     return g.api.entity(name=name)
 
@@ -6221,10 +6236,10 @@ and a door's are MovingBrush's.
     # THIS STEP PASSED ON A RELOAD THAT DROPPED THE PLAYER, twice, in two
     # separate live runs. The console said, both times:
     #
-    #   reload: ss_player '' (281477122) could not be rebuilt (PlayerNetState
-    #     needs 692 byte(s) and entity 2 ('ss_player') offers 0)
+    #   reload: player '' (281477122) could not be rebuilt (PlayerNetState
+    #     needs 692 byte(s) and entity 2 ('player') offers 0)
     #   reload: 480 of 481 entit(ies) restored; 1 FAILED to rebuild, first
-    #     'ss_player'
+    #     'player'
     #
     # and every check above was true anyway: the census was unchanged, the
     # world had not moved, the player's health was 100 -- all of which are just
@@ -6942,7 +6957,7 @@ COVERAGE_BACKDOOR = (
 #               listing carries no targetname, so tying the two ends together
 #               needs a dev API change. OWNER: whoever owns the dev API's
 #               entity listing.
-#   die         "a ss_ragdoll was created for the corpse" is the COUNT going
+#   die         "a hl2mp_ragdoll was created for the corpse" is the COUNT going
 #               up, not that the ragdoll is this player's. True today because
 #               there is one player. OWNER: this file, when a step has two.
 #   pickup      health rising satisfies the health half; if this build ever
@@ -7377,7 +7392,7 @@ def census_drift(before, after, switched_pairs):
     per-class censuses, except a switched pair moving TOGETHER. PURE.
 
     `switched_pairs` maps a child class to its partner, {"spotlight_end":
-    "ss_beam"}: a lit point_spotlight owns exactly one of each, so lighting or
+    "beam"}: a lit point_spotlight owns exactly one of each, so lighting or
     dousing one moves both by the same amount and is the lamp's STATE, not a
     leak. Only that equal movement is forgiven -- a spotlight_end without its
     beam, or a beam without its end, still reads as drift, and so does every
@@ -8126,6 +8141,10 @@ def step_render_plan_sandbox(g):
 PHYS_CONVERT_KINDS = [
     # (converter, target, the class it is, the class stock makes of it)
     ("physbrush_convertslab", "physbrush_slab", "func_brush", "simple_physics_brush"),
+    # The map places the crate as prop_dynamic_override: on a physics prop's
+    # model a plain prop_dynamic is deleted as it spawns, in stock and here.
+    # Both rename the override prop_dynamic once it has spawned
+    # (CDynamicProp::Spawn), so that is the class it is.
     ("physbrush_convert", "physbrush_scenery0", "prop_dynamic", "simple_physics_prop"),
 ]
 PHYS_CONVERT_CONTROL = ("physbrush_scenery1", "prop_dynamic")
@@ -9324,7 +9343,7 @@ def step_map_change(g):
     # cleared the floor -- which on ss_sandbox lands about 0.6s before the
     # weighed drum presses its plate and about 1.1s before the client rejoins
     # (medians over 40 visits, reload-probe at f48aeb1). A visit polled late
-    # read +1 ss_player, ss_weapon, ss_viewmodel and +1 spotlight_end, ss_beam:
+    # read +1 player, ss_weapon, predicted_viewmodel and +1 spotlight_end, beam:
     # the "1239 / 274 against 1234 / 271" drift, 2 visits in 40 here. After the
     # rejoin the client's entities are always there; the lamps that physics or
     # I/O switch are compared as PAIRS (see census_drift), because a drum that
@@ -10067,32 +10086,32 @@ def self_test():
     ok(FAULT_EXEMPT == (), "no step is exempt today")
 
     #-- reload_vanish_allowance / reload_excused: a self-removal in the span --
-    before = {"booked.ss_ragdoll": 1, "dueMs.ss_ragdoll.0": 2500,
+    before = {"booked.hl2mp_ragdoll": 1, "dueMs.hl2mp_ragdoll.0": 2500,
               "booked.item_healthkit": 1, "dueMs.item_healthkit.0": 20000,
               "booked.prop_physics:Fade": 1, "dueMs.prop_physics:Fade.0": 900}
     allow = reload_vanish_allowance(before, 3.0)
-    ok(allow == {"ss_ragdoll": 1, "prop_physics": 1},
+    ok(allow == {"hl2mp_ragdoll": 1, "prop_physics": 1},
        "a booking due inside the span lets its class lose one entity (%s)" % allow)
-    ok(reload_excused(["ss_ragdoll"], allow) == (["ss_ragdoll"], []),
+    ok(reload_excused(["hl2mp_ragdoll"], allow) == (["hl2mp_ragdoll"], []),
        "a corpse whose removal came due inside the reload is excused")
     ok(reload_excused(["item_healthkit"], allow) == ([], ["item_healthkit"]),
        "an entity whose class had nothing due is still lost")
-    ok(reload_excused(["ss_ragdoll", "ss_ragdoll"], allow) == (["ss_ragdoll"], ["ss_ragdoll"]),
+    ok(reload_excused(["hl2mp_ragdoll", "hl2mp_ragdoll"], allow) == (["hl2mp_ragdoll"], ["hl2mp_ragdoll"]),
        "a class loses no more than it had due")
     ok(reload_vanish_allowance(before, 1.0) == {"prop_physics": 1},
        "a booking due after the span excuses nothing")
     # spectate then hot-reload (2026-10-12, 2 of 2): the corpse was due 0.5 s
     # after the census read and gone by the think reads 1.7 s later.
-    census = ({"booked.ss_ragdoll": 1, "dueMs.ss_ragdoll.0": 500,
+    census = ({"booked.hl2mp_ragdoll": 1, "dueMs.hl2mp_ragdoll.0": 500,
                "booked.item_healthkit": 1, "dueMs.item_healthkit.0": 20000}, 63.3)
     later = ({"booked.item_healthkit": 1, "dueMs.item_healthkit.0": 18300}, 65.0)
-    ok(reload_vanish_allowance_over([census, later], 67.1) == {"ss_ragdoll": 1},
+    ok(reload_vanish_allowance_over([census, later], 67.1) == {"hl2mp_ragdoll": 1},
        "a removal due between the census read and the think reads is excused (%s)"
        % reload_vanish_allowance_over([census, later], 67.1))
     ok(reload_vanish_allowance_over([later], 67.1) == {},
        "and the think reads alone cannot see it (the control)")
-    ok(reload_vanish_allowance_over([census, ({"booked.ss_ragdoll": 1, "dueMs.ss_ragdoll.0": 100}, 63.7)],
-                                    67.1) == {"ss_ragdoll": 1},
+    ok(reload_vanish_allowance_over([census, ({"booked.hl2mp_ragdoll": 1, "dueMs.hl2mp_ragdoll.0": 100}, 63.7)],
+                                    67.1) == {"hl2mp_ragdoll": 1},
        "one booking in two reads excuses one entity, not two")
 
     #-- fall_drop_origin: impact-damage's crate does not follow a falling player --
@@ -10160,6 +10179,12 @@ def self_test():
        "a door already clear of the player moves nobody")
     ok(reload_player_clear_of(you, you) is not None,
        "a door right on the player still sends them somewhere")
+
+    #-- probe_door_lip: the hot-reload door's travel, in stock's terms ---------
+    # dm_lockdown's *7 is a 2-unit slab (bounds z -1..1): its own depth less 2
+    # is nothing, so the whole 128 is the (negative) lip.
+    ok(probe_door_lip(2.0, 128) == -128.0, "a 2-unit slab travels 128 on a lip of -128")
+    ok((96.0 - 2.0) - probe_door_lip(96.0, 128) == 128.0, "and any brush depth travels exactly the distance asked")
 
     #-- think_survival: the hot-reload step's think-heap verdict --------------
     # The race this exists for (1 in 5-10 runs, 2026-10-11): item_ammo_pistol's
@@ -10337,7 +10362,7 @@ def self_test():
     # runs, on a reload whose own console said
     #
     #   reload: 480 of 481 entit(ies) restored; 1 FAILED to rebuild, first
-    #     'ss_player'
+    #     'player'
     #
     # Every assertion it had was true anyway -- the census, the world's
     # geometry, the player's 100 health are all held by the NATIVE half, which
@@ -10348,8 +10373,8 @@ def self_test():
     ok(reload_rebuild_verdict({"failed": {"entities": 0, "first": ""}})
        == (True, 0, ""),
        "a reload that rebuilt everything reports no failures")
-    ok(reload_rebuild_verdict({"failed": {"entities": 1, "first": "ss_player"}})
-       == (True, 1, "ss_player"),
+    ok(reload_rebuild_verdict({"failed": {"entities": 1, "first": "player"}})
+       == (True, 1, "player"),
        "and one that dropped an entity reports it BY NAME -- which is the "
        "reading step 14 did not have, and the exact record two live runs made")
     ok(reload_rebuild_verdict({"saved": {"entities": 481},
@@ -10971,25 +10996,25 @@ def self_test():
         ok(len(_other["mustHold"]) > 0,
            "and it names at least one class the other map must hold, because a "
            "census is a number and a map is what is in it")
-        ok(_other.get("switchedPairs") == {"spotlight_end": "ss_beam"},
+        ok(_other.get("switchedPairs") == {"spotlight_end": "beam"},
            "the other map forgives exactly one switched pair, a lamp's end and beam")
     # census_drift: the reload-probe readings, 1234/271 before the rejoin and
     # the drum, 1239/274 after both, 1237/274 when the drum left the plate.
-    _pre = {"x": 1229, "spotlight_end": 139, "ss_beam": 142}
-    _lit = dict(_pre, spotlight_end=140, ss_beam=143)
-    _pair = {"spotlight_end": "ss_beam"}
+    _pre = {"x": 1229, "spotlight_end": 139, "beam": 142}
+    _lit = dict(_pre, spotlight_end=140, beam=143)
+    _pair = {"spotlight_end": "beam"}
     ok(census_drift(_pre, _pre, _pair) == [], "an identical census does not drift")
     ok(census_drift(_pre, _lit, _pair) == [],
        "a lamp lit on one visit and dark on the other is its state, not drift")
-    ok(census_drift(_pre, _lit, {}) == [("spotlight_end", 1), ("ss_beam", 1)],
+    ok(census_drift(_pre, _lit, {}) == [("beam", 1), ("spotlight_end", 1)],
        "and without the pair declared the same two readings DO drift")
     ok(census_drift(_pre, dict(_pre, spotlight_end=140), _pair)
        == [("spotlight_end", 1)],
        "an end without its beam still drifts")
-    ok(census_drift(_pre, dict(_lit, ss_beam=144), _pair)
-       == [("spotlight_end", 1), ("ss_beam", 2)],
+    ok(census_drift(_pre, dict(_lit, beam=144), _pair)
+       == [("beam", 2), ("spotlight_end", 1)],
        "and so does a beam beyond the lamp's")
-    ok(census_drift(_pre, dict(_pre, ss_player=1), _pair) == [("ss_player", 1)],
+    ok(census_drift(_pre, dict(_pre, player=1), _pair) == [("player", 1)],
        "any other class drifts, including one the first visit never held")
     ok(census_drift(dict(_pre, prop_physics=3), _pre, _pair)
        == [("prop_physics", -3)],
@@ -11624,7 +11649,7 @@ def self_test():
                 "trigger", "door", "lift", "healthItemClass", "ammoItemClass",
                 "ammoWeapon", "propModel", "projectile"):
         ok(key in scenario, "the dm_lockdown scenario carries %r" % key)
-    ok(scenario["entities"] == 473 and scenario["classes"] == 61,
+    ok(scenario["entities"] == 475 and scenario["classes"] == 62,
        "and the census this map is gated against")
 
     #-- the projectile step's threshold, which has to sit between two numbers -

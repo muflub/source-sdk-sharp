@@ -54,7 +54,7 @@ public class DebugChannelSessionTests
         return condition();
     }
 
-    private static PredictionErrorRecord Record(long sequence, string className = "ss_player")
+    private static PredictionErrorRecord Record(long sequence, string className = "player")
         => new(sequence, 412, 12, className, 120, 8, 56, 0, DateTime.UnixEpoch,
                new[]
                {
@@ -156,7 +156,7 @@ public class DebugChannelSessionTests
         var arrived = listener.Mirror.Since(0);
 
         Assert.True(arrived.Count == 1
-                 && arrived[0].ClassName == "ss_player"
+                 && arrived[0].ClassName == "player"
                  && arrived[0].Fields[0].Components[0].Delta == 3.25,
             "a count that arrived with the wrong numbers in it would make the remote report " +
             "say something different from the local one for the same game");

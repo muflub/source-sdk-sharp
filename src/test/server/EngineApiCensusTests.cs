@@ -214,8 +214,22 @@ public partial class EngineApiCensusTests
     // player's base velocity is the managed record's and nothing else has the
     // channel (121 - 1 = 120). The serialised ABI pass (2026-10-20):
     // EventSetFloat, OverlayResetCounts and EntityMarkStateChanged, which only
-    // tests called (120 - 3 = 117).
-    private const int ServerOnly = 117;
+    // tests called (120 - 3 = 117). IShimCollisionServer.EntitySetTriggerBloat
+    // joined, stock's m_triggerBloat on the shell (stock-ab, 2026-10-26;
+    // 117 + 1 = 118).
+    // BloodEffect is C# over the managed temp entities (118 - 1 = 117).
+    // IShimCollisionServer.EntityGetSolidType and EntityGetSolidFlags retired:
+    // managed reads the engine block's head (117 - 2 = 115).
+    // IShimPlayers.GetPlayerTeam and PlayerSetTeam retired: the team store
+    // is managed (PlayerTeams.cs) (115 - 2 = 113).
+    // IShimTransform.EntityGetWorldSpaceCenter retired: managed reads the
+    // block's origin and box (113 - 1 = 112).
+    // IShimWorldServer.AngleVectorsFromForward retired: Angles.RightUp is
+    // mathlib's arithmetic, bit for bit (112 - 1 = 111).
+    // IShimEntitiesServer.EntitySetClassName joined: stock's SetClassname at
+    // spawn, the reported name apart from the class (stock-ab, 2026-10-27;
+    // 111 + 1 = 112).
+    private const int ServerOnly = 112;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.
@@ -388,7 +402,22 @@ public partial class EngineApiCensusTests
     // the managed pool integrates every tempent (241 - 1 = 240), and
     // StandaloneSetShadowCast and UiScreenSize, which only tests called
     // (240 - 2 = 238).
-    private const int ClientOnly = 238;
+    // Lane M1-A: StandaloneSurroundingBounds, the shells' boxes for the
+    // managed per-view fade (238 + 1 = 239); SurfaceMaterialFacts,
+    // SurfaceSetMaterials and SurfaceSetPlan, a broken surface's draw handed
+    // from managed (239 + 3 = 242); the four ColorLookup slots in, the
+    // ClientColorCorrection op dispatcher out, the handle table managed's
+    // (242 + 4 - 1 = 245); ClientInterpAdmitted, the interpolation pass's
+    // admitted set for the shell's PreRender walk (245 + 1 = 246); SurfaceSetEdges
+    // retired, the edges riding SurfaceSetPlan (246 - 1 = 245).
+    // Lane M1-C: the managed bullet impact's ClientShotTrace, ClientWorldLighting,
+    // ClientStaticPropLighting, ClientImpactLedger and ParticleSystemImpact (245 + 5 = 250, landed after M1-A),
+    // and the spray's ClientPlayerLogoDecal (250 + 1 = 251).
+    // Predicted weapon effects (stock-ab): ClientClipRayToEntities, the predicted
+    // shot's clip against the shells no client trace can see (251 + 1 = 252, landed after M1-C).
+    // The predicted swing's hull (stock-ab): ClientTraceHullEntities (252 + 1).
+    // ClientIsLowViolence retired: the rule is C# over the engine client (253 - 1).
+    private const int ClientOnly = 252;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).
@@ -417,27 +446,16 @@ public partial class EngineApiCensusTests
     // plan_server_native_v2 T4b: TempEntRegister left for the client (36 - 1 = 35).
     // plan_server_native_v2 T4e: IShimConsole's FindConVarFlags, the flags the
     // convar registry reads to refuse an engine-owned name (35 + 1 = 36).
-    private const int BothSides = 36;
+    // plan_server_native_v2 T4: IShimEngine.GetCurrentTime retired; the clock
+    // is a load from the bound CGlobalVars (36 - 1 = 35).
+    // plan_server_native_v2 T6 part 3: IShimCollision.RegisterCollisionRules
+    // retired; nothing native read the matrix (35 - 1 = 34).
+    private const int BothSides = 34;
 
     // TheStructIsExactlyTheSlotsTheClientFills and AServerOnlySlotHasNoStructField
     // went with the struct (plan_client_vtables CC-last 2c): there are no fields
     // left to compare with a side. AbiParityTests.TheEngineApiStructIsGone holds
     // the absence.
-
-    /// <summary>
-    /// plan_client_vtables CC-last: neither side fills the struct. The server
-    /// stopped at C6c; the client's slots are methods of its shim areas.
-    /// </summary>
-    [Fact]
-    public void NeitherSideFillsTheStruct()
-    {
-        string path = RepoLayout.Repo("src", "shared", "native", "sourcesharp_gamesystem.cpp");
-        string src = AbiParityTests.CodeOnly(File.ReadAllText(path));
-        Assert.Contains("SourceSharp_LoadMySide_Host(", src);   // the control: this is the load's file
-
-        Assert.Empty(Regex.Matches(src, @"\bengineApi\.\w+\s*=").Select(m => m.Value));
-        Assert.DoesNotContain("SourceSharpEngineApi g_EngineApi", src);
-    }
 
     [Fact]
     public void TheSideCountsAreThePinnedOnes()

@@ -25,4 +25,15 @@ public readonly record struct AmmoType(string Name, DamageType DamageType, int M
 
     /// <summary>Physics impulse applied on hit.</summary>
     public float DamageForce { get; init; }
+
+    /// <summary>
+    /// The size range of the splash a round makes going into water
+    /// (CAmmoDef's minSplashSize and maxSplashSize, HandleShotImpactingWater's
+    /// gunshotsplash scale). Every HL2MP ammo type takes AddAmmoType's
+    /// defaults, 4 and 8.
+    /// </summary>
+    public int MinSplashSize { get; init; } = 4;
+
+    /// <inheritdoc cref="MinSplashSize"/>
+    public int MaxSplashSize { get; init; } = 8;
 }

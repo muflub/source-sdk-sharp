@@ -56,20 +56,37 @@ internal enum ConstraintSpawnFlag
     DisableCollision = 0b0000_0001,
 
     /// <summary>
-    /// Built but not enforcing until something turns it on. Honoured only by
-    /// the ragdoll, which is the one kind whose parameters carry an active flag
-    /// of their own.
+    /// SF_CONSTRAINT_START_INACTIVE: built but not holding until TurnOn
+    /// (GetBreakParams' isActive, for every kind).
     /// </summary>
     StartInactive = 0b0000_0100,
+
+    /// <summary>
+    /// SF_CONSTRAINT_ASSUME_WORLD_GEOMETRY: a hinge to the world makes its
+    /// object itself hinged, fixed in place and turning about one axis.
+    /// </summary>
+    AssumeWorldGeometry = 0b0000_1000,
+
+    /// <summary>
+    /// SF_CONSTRAINT_NO_CONNECT_UNTIL_ACTIVATED: not built at all until
+    /// TurnOn, which looks its two ends up then.
+    /// </summary>
+    NoConnectUntilActivated = 0b0001_0000,
 }
 
 public abstract class PhysicsConstraintEntity : ScriptedEntity
 {
-    protected PhysicsConstraintEntity(IEngineConstraints constraints, IEngineSound sound)
+    protected PhysicsConstraintEntity(IEngineConstraints constraints, IEngineSound sound, EntityPairCollisions pairs)
     {
         Constraints = constraints;
         Sound = sound;
+        Pairs = pairs;
     }
+
+    /// <summary>Where a "do not collide" pair is recorded (stock's PhysDisableEntityCollisions).</summary>
+    private EntityPairCollisions Pairs { get; }
+
+    private ConstraintSpawnFlag ConstraintFlags => SpawnFlagsAs<ConstraintSpawnFlag>();
 
     /// <summary>Where the breaksound is played.</summary>
     private IEngineSound Sound { get; }
@@ -86,7 +103,7 @@ public abstract class PhysicsConstraintEntity : ScriptedEntity
     [ScriptVars] public PhysicsConstraintEntityVars Vars = new();
 
     /// <summary>Fired when the joint breaks or is broken.</summary>
-    public readonly Output OnBreak = new("OnBreak");
+    public readonly Output OnBreak = new();
 
     /// <summary>
     /// The joint, once built. Setting it also records the raw native id and
@@ -129,25 +146,16 @@ public abstract class PhysicsConstraintEntity : ScriptedEntity
     [SaveField] private EntityHandle _b = EntityHandle.None;
 
     /// <summary>
-    /// TurnOff's state. Stock keeps it on the native joint (Deactivate), which
-    /// the reload leaves standing; here it is managed, so it rides the record.
-    /// </summary>
-    [SaveField] private bool _disabled;
-
-    /// <summary>
     /// Builds the joint. Called once both ends have been resolved; either may be
     /// <see cref="EntityHandle.None"/>, meaning the world.
     /// </summary>
     protected abstract Constraint? Build(EntityHandle a, EntityHandle b);
 
     /// <summary>
-    /// Deferred to the first think rather than done in OnSpawn.
-    ///
-    /// The two ends are named, and a name cannot be resolved while the map is
-    /// still being parsed — half the entities in it do not exist yet. Stock
-    /// Source has an Activate pass for exactly this; a think at zero delay
-    /// lands in the same place, on the first tick after the map is loaded, and
-    /// needs nothing new from the shell.
+    /// CPhysConstraint::Activate, deferred to the first think: the two ends are
+    /// named, and a name cannot be resolved while the map is still being
+    /// parsed. A constraint that cannot be made is removed, as stock removes
+    /// it -- unless it waits for TurnOn (SF_CONSTRAINT_NO_CONNECT_UNTIL_ACTIVATED).
     /// </summary>
     public override void OnSpawn() => SetNextThink(0f);
 
@@ -155,32 +163,74 @@ public abstract class PhysicsConstraintEntity : ScriptedEntity
     {
         StopThinking();
 
-        if (_disabled || Joint is not null)
+        if (ConstraintFlags.HasFlag(ConstraintSpawnFlag.NoConnectUntilActivated))
             return;
+
+        if (!ActivateConstraint())
+            Remove();
+    }
+
+    /// <summary>
+    /// CPhysConstraint::ActivateConstraint: a joint already made is only set
+    /// up again; otherwise both ends are looked up and the joint built.
+    /// </summary>
+    private bool ActivateConstraint()
+    {
+        if (Joint is not null)
+        {
+            OnConstraintSetup();
+            return true;
+        }
 
         EntityHandle a = Resolve(Vars.Attach1);
         EntityHandle b = Resolve(Vars.Attach2);
 
-        // Both ends unnamed would constrain the world to itself. Native refuses
-        // it, but saying so here names the entity that is wrong.
+        // Both ends unnamed would constrain the world to itself.
         if (!Entities.IsValid(a) && !Entities.IsValid(b))
         {
             Log.Warning($"[SourceSharp] {ClassName} '{Name}' has neither end attached\n");
-            return;
+            return false;
         }
 
         Joint = Build(a, b);
+        if (Joint is null)
+        {
+            Log.Warning($"[SourceSharp] {ClassName} '{Name}' could not be created\n");
+            return false;
+        }
+
         (_a, _b) = (a, b);
 
-        if (Joint is null)
-            Log.Warning($"[SourceSharp] {ClassName} '{Name}' could not be created\n");
+        // GetBreakParams' isActive.
+        if (ConstraintFlags.HasFlag(ConstraintSpawnFlag.StartInactive))
+            Joint.Deactivate();
+
+        OnConstraintSetup();
+        return true;
+    }
+
+    /// <summary>CPhysConstraint::OnConstraintSetup: the pair stops colliding when the map says so.</summary>
+    private void OnConstraintSetup()
+    {
+        if (ConstraintFlags.HasFlag(ConstraintSpawnFlag.DisableCollision))
+            Pairs.SetEnabled(_a, _b, false);
     }
 
     /// <summary>
-    /// Re-adopts the joint the reload left standing, by its saved id. A second
-    /// Build would weld at the current pose and strand the old joint where no
-    /// managed code could break it.
+    /// CPhysConstraint::Deactivate: the joint stops holding, and a pair the map
+    /// kept apart collides again.
     /// </summary>
+    private void Deactivate()
+    {
+        if (Joint is null)
+            return;
+
+        Joint.Deactivate();
+
+        if (ConstraintFlags.HasFlag(ConstraintSpawnFlag.DisableCollision))
+            Pairs.SetEnabled(_a, _b, true);
+    }
+
     public override void LoadState(SavedEntity state)
     {
         base.LoadState(state);
@@ -189,48 +239,36 @@ public abstract class PhysicsConstraintEntity : ScriptedEntity
             _joint = Constraint.Adopt(Constraints, new PhysicsId(_jointId), (ConstraintKind)_jointKind);
     }
 
-    /// <summary>
-    /// An empty name is the world, deliberately — not a lookup failure. A name
-    /// that was given and does not resolve is a map error and says so, because
-    /// silently anchoring to the world instead produces a door that will not
-    /// open and no clue as to why.
-    /// </summary>
     private EntityHandle Resolve(string name)
     {
         if (string.IsNullOrEmpty(name))
             return EntityHandle.None;
 
         EntityHandle found = Entities.FindByName(name);
-
         if (!Entities.IsValid(found))
             Log.Warning($"[SourceSharp] {ClassName} '{Name}': no entity named '{name}'\n");
 
         return found;
     }
 
-    /// <summary>Breaks the joint, as though it had been overloaded: stock's InputBreak is OnBreak.</summary>
+    /// <summary>CPhysConstraint::InputBreak.</summary>
     [ScriptedEvent("Break")]
-    protected void OnBreakInput() => Break();
+    protected void OnBreakInput() => OnBroken();
 
-    /// <summary>The solver broke this entity's joint (A23).</summary>
+    /// <summary>The joint broke under load (IPhysicsConstraintEvent::ConstraintBroken).</summary>
     public override bool OnPhysicsConstraintBroken(PhysicsId constraint)
     {
         if (Joint is null || Joint.Id != constraint)
             return false;
 
-        Break();
+        OnBroken();
         return true;
     }
 
-    /// <summary>
-    /// Stock's CPhysConstraint::OnBreak (physconstraint.cpp:270-317): the joint
-    /// stops holding, the breaksound plays between the two objects, OnBreak
-    /// fires, and the entity is removed (PhysCallbackRemove).
-    /// </summary>
-    private void Break()
+    /// <summary>CPhysConstraint::OnBreak: deactivated, the sound between its ends, OnBreak, and gone.</summary>
+    private void OnBroken()
     {
-        Joint?.Destroy();
-        Joint = null;
+        Deactivate();
 
         if (Vars.BreakSound.Length > 0)
             Sound.EmitSoundAtPosition(Vars.BreakSound, BreakSoundOrigin());
@@ -240,9 +278,9 @@ public abstract class PhysicsConstraintEntity : ScriptedEntity
     }
 
     /// <summary>
-    /// The midpoint of the two objects; a world end takes the other end's
-    /// position, and two world ends the entity's own origin, as stock's
-    /// refPos/attachPos fallbacks do.
+    /// CPhysConstraint::OnBreak's origin: halfway between the two ends' objects,
+    /// either one alone when the other is the world, the constraint's own
+    /// origin when neither is.
     /// </summary>
     private Vector BreakSoundOrigin()
     {
@@ -255,38 +293,31 @@ public abstract class PhysicsConstraintEntity : ScriptedEntity
             return Entities.GetOrigin(_a);
         if (hasB)
             return Entities.GetOrigin(_b);
+
         return Origin;
     }
 
+    /// <summary>CPhysConstraint::InputTurnOff: Deactivate, the joint kept.</summary>
     [ScriptedEvent("TurnOff")]
-    protected void OnTurnOff()
-    {
-        _disabled = true;
-        Joint?.Destroy();
-        Joint = null;
-    }
+    protected void OnTurnOff() => Deactivate();
 
     /// <summary>
-    /// Rebuilds the joint in the objects' CURRENT pose, which is stock
-    /// behaviour and matters: a fixed constraint turned off, moved, and turned
-    /// on again should hold where it now is, not snap back.
+    /// CPhysConstraint::InputTurnOn: built now if it waited for this, then
+    /// holding again, both ends woken.
     /// </summary>
     [ScriptedEvent("TurnOn")]
     protected void OnTurnOn()
     {
-        _disabled = false;
+        if (ConstraintFlags.HasFlag(ConstraintSpawnFlag.NoConnectUntilActivated))
+            ActivateConstraint();
 
-        if (Joint is null)
-            SetNextThink(0f);
+        Joint?.Activate();
     }
 
-    /// <summary>
-    /// The joint goes with the entity that made it. VPhysics severs a
-    /// constraint whose object is destroyed, so the far end needs no watching —
-    /// but nothing else would ever free this one.
-    /// </summary>
+    /// <summary>~CPhysConstraint: Deactivate, then the joint goes.</summary>
     public override void OnRemoved()
     {
+        Deactivate();
         Joint?.Destroy();
         Joint = null;
     }

@@ -19,9 +19,6 @@ public unsafe interface IManagedPhysicsFrame
 [ManagedVtable(typeof(ManagedResourcesTable))]
 public unsafe interface IManagedResources
 {
-    int ServerDecalIndexForName(byte* a0);
-    int ServerDecalNameForIndex(int a0, byte* a1, int a2);
-    int ServerDecalTranslateForGameMaterial(byte* a0, int a1, byte* a2, int a3);
     void ModelPrecacheComponents(byte* a0);
     void ModelPrecacheCheck(byte* a0, byte a1);
 }
@@ -97,12 +94,6 @@ public unsafe interface IManagedUserMessages
     byte GetUserMessageInfo(int a0, byte* a1, int a2, void* a3);
 }
 
-[ManagedVtable(typeof(ManagedTempEntsTable))]
-public unsafe interface IManagedTempEnts
-{
-    int OnNativeTempEntity(int a0, void* a1, int a2, void* a3, int a4, void* a5, int a6, void* a7);
-}
-
 [ManagedVtable(typeof(ManagedDiagnosticsTable))]
 public unsafe interface IManagedDiagnostics
 {
@@ -164,8 +155,6 @@ public static class ManagedAreaFactory
         => IManagedEvents__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedUserMessages target)
         => IManagedUserMessages__ManagedVtable.Create(vtables, target);
-    public static ManagedVtable Create(ManagedVtables vtables, IManagedTempEnts target)
-        => IManagedTempEnts__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedDiagnostics target)
         => IManagedDiagnostics__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedCommands target)

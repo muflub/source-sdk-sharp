@@ -36,7 +36,7 @@ namespace SourceSharp.Shared;
 /// being flung. Giving the damage path a direction is what would close it.
 /// </para>
 /// </summary>
-[StandaloneNetState(EntityNames.SsRagdoll)]
+[StandaloneNetState(EntityNames.Hl2mpRagdoll)]
 public partial class RagdollNetState
 {
     /// <summary>

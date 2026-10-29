@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Server.Interop;
 using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
@@ -29,61 +30,38 @@ namespace SourceSharp.Server;
 // under names that differ for the editor's benefit.
 [ScriptedEntity(EntityNames.PhysicsProp, ScriptedEntityKind.Prop)]
 [ScriptedEntity(EntityNames.PropPhysicsOverride, ScriptedEntityKind.Prop)]
-public class PropPhysics : ScriptedEntity
+public class PropPhysics : BreakableProp, ITakesMassCenterOverride
 {
     public PropPhysics(IEngineDamage damage, IEngineEntityPhysics physics, IEngineWorldQuery world,
                        IEngineEffects effects, IEnginePrecache precache, IEngineHost host, IBlastSweep blast, IServerDecals decals,
                        IEngineEntityRender render, IServerPropData propData, PhysicsDamageQueue impacts,
-                       FluidTouches fluid, PhysicsSoundBatch sounds)
+                       FluidTouches fluid, PhysicsSoundBatch sounds, PlayerPickupRules pickups,
+                       DamageInflictors inflictors, IEngineSound sound, IVPhysicsGrabCalls vphysics, ITempEnts temps,
+                       IEngineEnvironment environment, ConVarRegistry? convars = null)
+        : base(damage, physics, world, effects, precache, host, blast, decals, render, propData, sounds, inflictors, sound,
+               temps, environment, convars)
     {
-        Sounds = sounds;
+        VPhysics = vphysics;
+        Pickups = pickups;
         Impacts = impacts;
         Fluid = fluid;
-        Render = render;
-        PropDataTable = propData;
-        Damage = damage;
-        Physics = physics;
-        World = world;
-        Effects = effects;
-        Precache = precache;
-        Host = host;
-        Blast = blast;
-        Decals = decals;
     }
 
-    /// <summary>
-    /// The managed blast traversal — the falloff, the line of sight and the
-    /// blocking rule that used to run inside <c>CGameRules::RadiusDamage</c>.
-    /// See <see cref="BlastSweep"/>.
-    /// </summary>
-    private readonly IBlastSweep Blast;
+    protected override string MapModel => Vars.Model;
 
-    /// <summary>the decal system, whose "Scorch" group the blast paints from.</summary>
-    private readonly IServerDecals Decals;
+    /// <summary>What a player's +USE may do with this prop (its caps and its Use).</summary>
+    private readonly PlayerPickupRules Pickups;
 
-    /// <summary>The model's $keyvalues text, for its prop data.</summary>
-    private readonly IEngineEntityRender Render;
+    /// <summary>The physics object's game flags, which a launch's first collision clears of FVPHYSICS_WAS_THROWN.</summary>
+    private readonly IVPhysicsGrabCalls VPhysics;
 
-    /// <summary>propdata.txt, which a model's prop_data names as its base.</summary>
-    private readonly IServerPropData PropDataTable;
+    /// <summary>m_bFirstCollisionAfterLaunch: the gravity gun launched it, and it has not hit anything since.</summary>
+    [SaveField] private bool _firstCollisionAfterLaunch;
 
-    /// <summary>tracing, and what is at a point. For the blast.</summary>
-    protected readonly IEngineWorldQuery World;
+    /// <summary>m_bThrownByPlayer: a player threw it by hand, which a launch's extra damage does not reward.</summary>
+    [SaveField] private bool _thrownByPlayer;
 
-    /// <summary>the fireball, the scorch mark and the sparks.</summary>
-    protected readonly IEngineEffects Effects;
-
-    /// <summary>Getting the blast's sprite and decal onto the client, and
-    /// asking a model what it is made of before the level runs. Two lanes
-    /// added this field independently -- explosions and break pieces -- and
-    /// the compiler caught the duplicate at merge.</summary>
-    protected readonly IEnginePrecache Precache;
-
-    /// <summary>the engine's random stream, which the blast's sparks draw from.</summary>
-    protected readonly IEngineHost Host;
-
-    /// <summary>hurting things.</summary>
-    protected readonly IEngineDamage Damage;
+    private const string ClearFlagsContext = "PROP_CLEARFLAGS";
 
     /// <summary>The step's impact damage, delivered after it (PhysCallbackDamage).</summary>
     protected readonly PhysicsDamageQueue Impacts;
@@ -91,29 +69,6 @@ public class PropPhysics : ScriptedEntity
     /// <summary>Whether this prop is in fluid and floats (IsFloating, I2).</summary>
     protected readonly FluidTouches Fluid;
 
-    /// <summary>this entity as the solver sees it.</summary>
-    protected readonly IEngineEntityPhysics Physics;
-
-    /// <summary>The queued impact and break sounds (CPhysicsHook's batch, managed).</summary>
-    protected readonly PhysicsSoundBatch Sounds;
-
-    private PropBreak? _breaker;
-
-    /// <summary>
-    /// What this prop breaks into, and how to make it.
-    ///
-    /// <para>
-    /// Built on first use rather than in the constructor, and that is not
-    /// laziness for its own sake: <see cref="ScriptedEntity.Entities"/> is
-    /// BOUND after construction, so a breaker made in the constructor would
-    /// hold the default binding — the real engine — however the entity was
-    /// wired. In a test that means an engine that answers zero to everything,
-    /// silently, which is the one thing the double exists to prevent.
-    /// </para>
-    /// </summary>
-    private PropBreak Breaker => _breaker ??= new PropBreak(Log, Entities, Physics, Precache);
-    public readonly Output OnBreak = new();
-    public readonly Output OnHealthChanged = new();
     public readonly Output OnMotionEnabled = new();
 
     /// <summary>
@@ -127,6 +82,16 @@ public class PropPhysics : ScriptedEntity
     /// CBaseEntity::IsInWorld, checked on every VPhysicsUpdate (props.cpp:2932).
     /// </summary>
     public readonly Output OnOutOfWorld = new();
+
+    // The gravity gun's and the player's pickups (CPhysicsProp::OnPhysGunPickup,
+    // OnPhysGunDrop and Use; props.cpp:2428-2433), each with the player as
+    // activator.
+    public readonly Output OnPhysGunPickup = new();
+    public readonly Output OnPhysGunOnlyPickup = new();
+    public readonly Output OnPhysGunPunt = new();
+    public readonly Output OnPhysGunDrop = new();
+    public readonly Output OnPlayerUse = new();
+    public readonly Output OnPlayerPickup = new();
 
     /// <summary>What a map may set on this entity. See <see cref="PropPhysicsVars"/>.</summary>
     [ScriptVars] public PropPhysicsVars Vars = new();
@@ -147,6 +112,15 @@ public class PropPhysics : ScriptedEntity
     /// <summary>SF_PHYSPROP_START_ASLEEP: the prop is put to sleep when it spawns.</summary>
     private const int StartAsleep = 1;
 
+    /// <summary>SF_PHYSPROP_ENABLE_ON_PHYSCANNON: pinned, until the gravity gun takes it.</summary>
+    private const int EnableOnPhyscannon = 0x40;
+
+    /// <summary>SF_PHYSPROP_PREVENT_PICKUP: neither +use nor the gravity gun may pick it up.</summary>
+    private const int PreventPickup = 0x200;
+
+    /// <summary>FVPHYSICS_WAS_THROWN: what a launch from the gun marks the object with.</summary>
+    private const uint WasThrown = 0x0100;
+
     /// <summary>SF_PHYSPROP_DEBRIS (props_shared.h).</summary>
     private const int DebrisFlag = 4;
 
@@ -159,29 +133,7 @@ public class PropPhysics : ScriptedEntity
     /// <summary>m_impactEnergyScale's default when the map gives none (props.cpp:903).</summary>
     private const float DefaultImpactEnergyScale = 0.1f;
 
-    private bool _broken;
     private bool _settled;
-    private int _startingHealth;
-
-    /// <summary>How big a bang this model makes when it breaks, if any.</summary>
-    private float _explosiveDamage;
-    private float _explosiveRadius;
-    private bool _propDataRead;
-
-    /// <summary>
-    /// How many pieces this model breaks into — stock's
-    /// <c>m_iNumBreakableChunks</c>, filled at the same moment stock fills it.
-    ///
-    /// <para>
-    /// It is not only the loop count. It is also what tells a GIB whether it may
-    /// break again: stock refuses damage to a fading piece that has no pieces of
-    /// its own, so a splinter cannot be shot into smaller splinters forever.
-    /// </para>
-    /// </summary>
-    private int _breakPieces;
-
-    /// <summary>What the piece count says, for tests, which have no models.</summary>
-    internal int BreakPieceCount => _breakPieces;
 
     /// <summary>
     /// What the settle armed the next think for, or -1 if it stopped thinking.
@@ -196,22 +148,23 @@ public class PropPhysics : ScriptedEntity
     /// </summary>
     internal float ThinkArmed { get; private set; } = -1f;
 
-    /// <summary>Whether this prop has taken itself out of the world. Same reason.</summary>
-    internal bool Gone { get; private set; }
-
-    /// <summary>
-    /// Out of the world, and said so where a test can see it.
-    /// </summary>
-    private void Vanish()
-    {
-        Gone = true;
-        Remove();
-    }
-
     public override void OnSpawn()
     {
+        // Condense classname's to one, except for "prop_physics_override" (CPhysicsProp::Spawn).
+        if (string.Equals(ClassName, EntityNames.PhysicsProp, StringComparison.OrdinalIgnoreCase))
+            SetClassName(EntityNames.PropPhysics);
+
         if (Vars.Model.Length > 0)
             SetModel(Vars.Model);
+
+        // Now condense all classnames to one: the override too, once the
+        // spawn has read it (CPhysicsProp::Spawn after BaseClass::Spawn).
+        // Remembered first: its prop data still reads as an override's.
+        if (string.Equals(ClassName, EntityNames.PropPhysicsOverride, StringComparison.OrdinalIgnoreCase))
+        {
+            IsOverride = true;
+            SetClassName(EntityNames.PropPhysics);
+        }
 
         // CPhysicsProp::Spawn (props.cpp:2497-2500; A32): the debris flag puts the
         // prop in COLLISION_GROUP_DEBRIS before its object is made (the shell
@@ -220,25 +173,14 @@ public class PropPhysics : ScriptedEntity
         if ((SpawnFlags & DebrisFlag) != 0)
             Physics.SetCollisionGroup(Handle, CollisionGroup.Debris);
 
-        // What this prop breaks into, precached HERE because here is inside the
-        // level-load window. Stock says the same thing in the same place —
-        // CBreakableProp::Precache is where m_iNumBreakableChunks comes from —
-        // and it has to be here: a piece is created when something breaks, by
-        // which time the map is long since built and a precache is a console
-        // line and nothing drawn.
-        //
-        // By NAME, not through this entity, which is what makes it possible at
-        // all: the pieces are read out of the model file, and a piece's own
-        // pieces are read by recursing on a name with no entity behind it.
-        if (Vars.Model.Length > 0)
-            _breakPieces = Breaker.Precache(Vars.Model);
+        PrecacheBreakable();
 
         // Health is NOT resolved here, and the reason is worth stating: SetModel
         // above only records a pending name, which the shell applies after this
         // returns. For the whole of OnSpawn this prop has no model, so there is
         // nothing to read prop data out of yet.
-        if (Vars.Health > 0)
-            Health = Vars.Health;
+        if (BreakableVars.Health > 0)
+            Health = BreakableVars.Health;
 
         // Mass and motion cannot be set here for the same reason health cannot
         // be read here: the shell creates the physics object AFTER this returns,
@@ -257,39 +199,6 @@ public class PropPhysics : ScriptedEntity
     /// </para>
     /// </summary>
     protected bool IsGib => Vars.GibFadeTime > 0f;
-
-    /// <summary>
-    /// The health this prop starts with, resolved on first use.
-    ///
-    /// The model, not the map, is where a prop's health usually comes from: no
-    /// map gives an explosive barrel a "health" key, and its health, damage
-    /// modifiers and explosion are all compiled into the model and resolved
-    /// through scripts/propdata.txt. Reading only map keys made every barrel in
-    /// dm_lockdown scenery, and scenery ignores damage entirely.
-    ///
-    /// Lazy rather than eager because the model is not set until after OnSpawn.
-    /// </summary>
-    private int StartingHealth
-    {
-        get
-        {
-            if (_propDataRead)
-                return _startingHealth;
-
-            _propDataRead = true;
-
-            // The model's own prop_data over propdata.txt's base chain, parsed in
-            // C# (plan_server_novalve.md P2.4; SourceSharp_EntityGetPropData
-            // parsed it with tier1's KeyValues).
-            int fromModel = PropDataTable.ModelPropData(Render.GetModelKeyValueText(Render.GetModelName(Handle)),
-                                                        out _explosiveDamage, out _explosiveRadius);
-
-            // A map key still wins where there is one — that is the point of
-            // being able to write it.
-            _startingHealth = Vars.Health > 0 ? Vars.Health : fromModel;
-            return _startingHealth;
-        }
-    }
 
     /// <summary>
     /// Mass and motion, a tick after spawn.
@@ -361,6 +270,11 @@ public class PropPhysics : ScriptedEntity
                 Physics.SetMass(Handle, mass * Vars.MassScale);
         }
 
+        // CreateVPhysics: a sharp prop cuts (FVPHYSICS_DMG_SLICE), which its
+        // impacts read as spin as well as speed.
+        if (Vars.DamageType == 1)
+            Physics.AddGameFlags(Handle, PhysicsGameFlags.SliceDamage);
+
         // CreateVPhysics: a prop that needs a force to move starts pinned too.
         // SF_PHYSPROP_MOTIONDISABLED, forcetoenablemotion or damagetoenablemotion
         // (props.cpp:2585).
@@ -381,6 +295,48 @@ public class PropPhysics : ScriptedEntity
     // The last blow taken, for Event_Killed's push of a pinned prop.
     private (DamageType Type, Vector Position, Vector Force) _lastBlow;
 
+    /// <summary>
+    /// CPhysicsPropRespawnable::Event_Killed's tail, for a prop that hides to
+    /// come back: no flame left burning on it, back where it spawned, and out
+    /// of the simulation while hidden. Stock destroys its physics object;
+    /// this keeps it, still and colliding with nothing.
+    /// </summary>
+    protected void HideForRespawn(Vector origin, Vector angles)
+    {
+        if (Flame is { } flame)
+            Entities.Remove(flame.Handle);
+
+        SetVisible(false);
+        Physics.EnableMotion(Handle, false);
+        Physics.EnableCollisions(Handle, false);
+        Entities.SetOrigin(Handle, origin);
+        Entities.SetAngles(Handle, angles);
+        Entities.SetVelocity(Handle, Vector.Zero);
+        Entities.SetAngularVelocity(Handle, Vector.Zero);
+    }
+
+    /// <summary>
+    /// CPhysicsPropRespawnable::Materialize's Spawn, for what this hide undid:
+    /// whole again, at full health, solid, colliding, seen, and moving unless
+    /// its map pins it.
+    /// </summary>
+    protected void MaterializeAfterRespawn()
+    {
+        Unbreak();
+        Physics.SetNotSolid(Handle, false);
+        Physics.EnableCollisions(Handle, true);
+        SetVisible(true);
+
+        if ((SpawnFlags & MotionDisabled) != 0 || Vars.ForceToEnableMotion > 0f || Vars.DamageToEnableMotion > 0)
+        {
+            _motionDisabled = true;
+            return;
+        }
+
+        Physics.EnableMotion(Handle, true);
+        Physics.Wake(Handle);
+    }
+
     private void EnableMotion()
     {
         _motionDisabled = false;
@@ -399,13 +355,113 @@ public class PropPhysics : ScriptedEntity
 
     [ScriptedEvent] private void OnDisableMotion() => Physics.EnableMotion(Handle, false);
 
-    [ScriptedEvent] private void OnSetHealth(float health)
+    //-------------------------------------------------------------------------
+    // A player's +USE (CPhysicsProp::ObjectCaps and Use, props.cpp:2861, 2894).
+    //-------------------------------------------------------------------------
+
+    /// <summary>SF_PHYSPROP_ENABLE_PICKUP_OUTPUT: a +USE fires OnPlayerUse.</summary>
+    private const int EnablePickupOutput = 0x100;
+
+    /// <summary>SF_PHYSPROP_RADIUS_PICKUP: found by the radius search too.</summary>
+    private const int RadiusPickup = 0x4000;
+
+    /// <summary>
+    /// CPhysicsProp::ObjectCaps: usable when the map asked for the use output
+    /// or a player could pick it up; found in the radius when the map says.
+    /// (The episodic flare arm is hl2_episodic's.)
+    /// </summary>
+    public override UseCaps ObjectCaps
     {
-        _startingHealth = Math.Max(1, (int)health);
-        Health = _startingHealth;
+        get
+        {
+            UseCaps caps = base.ObjectCaps;
+            int flags = SpawnFlags;
+
+            if ((flags & EnablePickupOutput) != 0 || Pickups.CanPickupObject(Handle))
+                caps |= UseCaps.ImpulseUse;
+
+            if ((flags & RadiusPickup) != 0)
+                caps |= UseCaps.UseInRadius;
+
+            return caps;
+        }
     }
 
-    [ScriptedEvent("Break")] private void OnBreakInput() => Break();
+    /// <summary>
+    /// CPhysicsProp::Use: a player's use fires OnPlayerUse when the map asked,
+    /// then asks to pick the prop up (which stock HL2MP refuses unless
+    /// hl2mp_allow_pickup is on).
+    /// </summary>
+    [ScriptedEvent("Use")]
+    private void OnUseInput(InputData input)
+    {
+        if (!Entities.IsPlayer(input.Activator))
+            return;
+
+        if ((SpawnFlags & EnablePickupOutput) != 0)
+            OnPlayerUse.Fire(input.Activator);
+
+        Pickups.PickupObject(input.Activator, Handle);
+    }
+
+    //-------------------------------------------------------------------------
+    // The gravity gun (CPhysicsProp's IPlayerPickupVPhysics, props.cpp).
+    //-------------------------------------------------------------------------
+
+    /// <summary>SF_PHYSPROP_PREVENT_PICKUP: stock sets FVPHYSICS_NO_PLAYER_PICKUP from it at creation.</summary>
+    protected override bool PreventsPhysGunPickup => (SpawnFlags & PreventPickup) != 0;
+
+    /// <summary>A pinned prop the gun may take: SF_PHYSPROP_ENABLE_ON_PHYSCANNON.</summary>
+    protected override bool EnablesOnPhyscannon => (SpawnFlags & EnableOnPhyscannon) != 0;
+
+    /// <summary>
+    /// CPhysicsProp::OnPhysGunPickup: a pinned prop comes loose only if its
+    /// map said the gun may free it, and one that stays pinned says nothing;
+    /// otherwise the pickup's outputs, in stock's order.
+    /// </summary>
+    protected override void PhysGunPickedUp(EntityHandle player, PhysGunPickup reason)
+    {
+        // CBreakableProp::OnPhysGunPickup, before CPhysicsProp's.
+        base.PhysGunPickedUp(player, reason);
+
+        if (_motionDisabled)
+        {
+            if ((SpawnFlags & EnableOnPhyscannon) == 0)
+                return;
+
+            EnableMotion();
+        }
+
+        OnPhysGunPickup.Fire(player);
+
+        if (reason == PhysGunPickup.PickedUpByCannon)
+            OnPhysGunOnlyPickup.Fire(player);
+
+        if (reason == PhysGunPickup.PuntedByCannon)
+            OnPhysGunPunt.Fire(player);
+
+        if (reason is PhysGunPickup.PickedUpByCannon or PhysGunPickup.PickedUpByPlayer)
+            OnPlayerPickup.Fire(player);
+    }
+
+    /// <summary>CPhysicsProp::OnPhysGunDrop: a launch marks the object thrown, and every drop says so.</summary>
+    protected override void PhysGunDropped(EntityHandle player, PhysGunDrop reason)
+    {
+        // CBreakableProp::OnPhysGunDrop, before CPhysicsProp's.
+        base.PhysGunDropped(player, reason);
+
+        if (reason == PhysGunDrop.LaunchedByCannon)
+        {
+            Physics.AddGameFlags(Handle, WasThrown);
+            _firstCollisionAfterLaunch = true;
+        }
+        else if (reason == PhysGunDrop.ThrownByPlayer)
+        {
+            _thrownByPlayer = true;
+        }
+
+        OnPhysGunDrop.Fire(player);
+    }
 
     /// <summary>
     /// Stock's CPhysicsProp::CreateVPhysics creates a SF_PHYSPROP_START_ASLEEP
@@ -428,9 +484,9 @@ public class PropPhysics : ScriptedEntity
             // after it returns), so a crate whose health came from its model sat
             // at 0 and broke on the first point of damage. Here the model is in
             // place and nothing has been able to hurt the prop yet.
-            int health = StartingHealth;
-            if (health > 0)
-                Health = health;
+            // Unconditionally: a metal model's 0 replaces the map's health,
+            // as ParsePropFromKV's SetHealth does.
+            Health = StartingHealth;
 
             ApplySpawnPhysics();
         }
@@ -490,10 +546,20 @@ public class PropPhysics : ScriptedEntity
         if (Vars.ForceToEnableMotion > 0f)
             KnockLoose(in ev, index);
 
+        bool firstAfterLaunch = _firstCollisionAfterLaunch;
+        if (firstAfterLaunch)
+        {
+            _firstCollisionAfterLaunch = false;
+            HandleFirstCollisionInteractions();
+
+            // ClearFlagsThink: FVPHYSICS_WAS_THROWN comes off now it has landed.
+            SetContextThink(ClearFlagsContext, 0f);
+        }
+
         if ((SpawnFlags & DontTakePhysicsDamage) != 0 && StartingHealth <= 0)
             return;
 
-        float energyScale = Vars.PhysDamageScale > 0f ? Vars.PhysDamageScale : DefaultImpactEnergyScale;
+        float energyScale = BreakableVars.PhysDamageScale > 0f ? BreakableVars.PhysDamageScale : DefaultImpactEnergyScale;
         uint otherRaw = index == 0 ? ev.Entity1 : ev.Entity0;
         var other = otherRaw == PhysicsEvent.NoEntity ? EntityHandle.None : new EntityHandle(otherRaw);
         var parties = new ImpactParties(
@@ -505,8 +571,35 @@ public class PropPhysics : ScriptedEntity
         float damage = PhysicsImpactDamage.Calculate(in ev, index, ImpactDamageTables.Npc, energyScale,
                                                      allowStaticDamage: true, damageFromHeldObjects: false,
                                                      parties, out DamageType damageType);
+
+        // Take extra damage after being punted by the physcannon.
+        if (damage > 0f && firstAfterLaunch && !_thrownByPlayer)
+            damage *= 10f;
         if (damage > 0f)
             Impacts.Add(Handle, other, damage, damageType, in ev, index);
+    }
+
+    /// <summary>
+    /// CBreakableProp::HandleFirstCollisionInteractions: an onfirstimpact
+    /// break prop breaks by damaging itself for its health, as itself. Its
+    /// world-impact stick and paint splat are not here: no HL2MP model asks
+    /// for them.
+    /// </summary>
+    private void HandleFirstCollisionInteractions()
+    {
+        if (HasInteraction(PropInteractions.PhysgunFirstBreak))
+            Damage.TakeDamage(Handle, Handle, Health, DamageType.Generic);
+    }
+
+    public override void OnThink(string context)
+    {
+        if (context != ClearFlagsContext)
+            return;
+
+        // The collision may have destroyed the object; recheck.
+        nint physicsObject = Physics.PhysicsObject(Handle);
+        if (physicsObject != 0)
+            VPhysics.SetGameFlags(physicsObject, (ushort)(VPhysics.GameFlags(physicsObject) & ~WasThrown));
     }
 
     public override void OnPhysicsWake()
@@ -608,7 +701,7 @@ public class PropPhysics : ScriptedEntity
     {
         // CBreakableProp::OnTakeDamage: under minhealthdmg the blow is refused
         // before the base, so it neither hurts nor pushes (props.cpp:1045; A38).
-        if (damage < Vars.MinHealthDamage)
+        if (damage < BreakableVars.MinHealthDamage)
             return 0;
 
         VPhysicsTakeDamage(damageType, position, force);
@@ -635,44 +728,31 @@ public class PropPhysics : ScriptedEntity
         return taken;
     }
 
-    public override int OnDamaged(EntityHandle attacker, float damage, DamageType damageType)
-    {
-        // A gib that breaks into nothing takes no damage. Stock's
-        // BreakModelCreateSingle says this as
-        //
-        //     if ( pProp && !pProp->GetNumBreakableChunks() && m_takedamage == DAMAGE_YES )
-        //         pProp->m_takedamage = DAMAGE_EVENTS_ONLY;
-        //
-        // and without it a splinter is a breakable prop with one health that
-        // vanishes on the first pellet — fifty entities' worth of debris that
-        // evaporates the moment anyone shoots near it.
-        if ((IsGib && _breakPieces == 0) || _broken || StartingHealth <= 0)
-        {
-            // Frozen debris crushed under a heavier object (ShouldFreezeObject,
-            // physics stock parity G). Stock: a prop gib that cannot be damaged
-            // is removed -- "it's always safe to delete gibs, so kill this one to
-            // avoid simulation problems". Anything else would get an entity
-            // solver, which is deferred.
-            if (IsGib && (damageType & DamageType.Crush) != 0)
-                Entities.Remove(Handle);
-
-            return 0;
-        }
-
-        int taken = (int)damage;
-        if (taken <= 0)
-            return 0;
-
-        OnHealthChanged.Fire(Math.Max(0, Health - taken) / (float)StartingHealth);
-        return taken;
-    }
+    /// <summary>
+    /// A gib that breaks into nothing takes no damage. Stock's
+    /// BreakModelCreateSingle says this as
+    ///
+    ///     if ( pProp &amp;&amp; !pProp->GetNumBreakableChunks() &amp;&amp; m_takedamage == DAMAGE_YES )
+    ///         pProp->m_takedamage = DAMAGE_EVENTS_ONLY;
+    ///
+    /// and without it a splinter is a breakable prop with one health that
+    /// vanishes on the first pellet — fifty entities' worth of debris that
+    /// evaporates the moment anyone shoots near it.
+    /// </summary>
+    protected override bool CanTakeDamage => !(IsGib && BreakPieceCount == 0) && base.CanTakeDamage;
 
     /// <summary>
-    /// CBreakableProp's physdamagescale input: m_impactEnergyScale, which the
-    /// next impact reads (props.cpp:775; A38).
+    /// Frozen debris crushed under a heavier object (ShouldFreezeObject,
+    /// physics stock parity G). Stock: a prop gib that cannot be damaged is
+    /// removed -- "it's always safe to delete gibs, so kill this one to avoid
+    /// simulation problems". Anything else would get an entity solver, which
+    /// is deferred.
     /// </summary>
-    [ScriptedEvent("physdamagescale")]
-    internal void OnPhysDamageScaleInput(float scale) => Vars.PhysDamageScale = scale;
+    protected override void RefusedDamage(DamageType damageType)
+    {
+        if (IsGib && (damageType & DamageType.Crush) != 0)
+            Entities.Remove(Handle);
+    }
 
     public override void OnKilled(EntityHandle attacker)
     {
@@ -684,116 +764,8 @@ public class PropPhysics : ScriptedEntity
             VPhysicsTakeDamage(_lastBlow.Type, _lastBlow.Position, _lastBlow.Force);
         }
 
-        Break();
+        base.OnKilled(attacker);
     }
-
-    /// <summary>
-    /// Breaking, which is the same for every physics prop and therefore not
-    /// virtual.
-    ///
-    /// It was virtual once, and prop_physics_respawnable overrode it to hide
-    /// itself instead — which silently dropped the explosion, because the bang
-    /// lived in the half that was replaced. Every explosive barrel in
-    /// dm_lockdown is a respawnable one, so the map's twenty-one barrels all
-    /// died quietly. A subclass now chooses only what becomes of the prop
-    /// afterwards; it cannot skip the parts that are common to breaking.
-    /// </summary>
-    protected void Break()
-    {
-        // Once. A prop hit twice in a tick would otherwise fire its outputs
-        // twice and be removed twice.
-        if (_broken)
-            return;
-
-        _broken = true;
-        OnBreak.Fire();
-
-        // CBreakableProp::Break's PhysBreakSound( this, VPhysicsGetObject(),
-        // GetAbsOrigin() ), before the explosion and the pieces (props.cpp:1673;
-        // physics stock parity L).
-        Sounds.AddBreakSound(Handle);
-
-        // The bang is the model's, and it happens before the prop goes: the
-        // explosion needs somewhere to be, and the owner is credited with
-        // whatever it kills. Touching StartingHealth first is what guarantees
-        // the prop data has been read, for a prop broken by an input rather
-        // than by damage.
-        _ = StartingHealth;
-
-        // ignored: Handle -- a barrel that explodes where it stands must say so,
-        // or its own hull stops the very first trace of the traversal and every
-        // victim in the radius is scored at distance zero. See Explosions.Fire.
-        if (_explosiveDamage > 0f)
-            Explosions.Fire(World, Effects, Damage, Precache, Host, Blast, Decals,
-                            Origin, _explosiveDamage, _explosiveRadius, Handle,
-                            ignored: Handle, inflictor: Handle);
-
-        CreatePieces();
-
-        Broken();
-    }
-
-    /// <summary>
-    /// The debris, which is what a player actually sees a prop do when it
-    /// breaks.
-    ///
-    /// <para>
-    /// BEFORE <see cref="Broken"/>, and that order is the whole of it: the
-    /// pieces are placed relative to where the prop is and thrown along what it
-    /// was doing, and the default <see cref="Broken"/> removes it. Reading a
-    /// removed entity's origin and velocity gives a heap of debris at the world
-    /// origin, motionless.
-    /// </para>
-    ///
-    /// <para>
-    /// The prop is handed on as each piece's owner. Stock does the same, through
-    /// <c>CreateNoSpawn( "prop_physics", position, angles, pOwner )</c>, and it
-    /// is what keeps a piece from colliding with the thing it came out of.
-    /// </para>
-    /// </summary>
-    private void CreatePieces()
-    {
-        if (_breakPieces == 0 || Vars.Model.Length == 0)
-            return;
-
-        var context = new BreakContext(
-            // Through the injected area rather than the base class's Origin
-            // property, so the whole context comes from one place — the property
-            // is a static-engine convenience and would answer from a different
-            // engine than the four lines below it.
-            Origin: Entities.GetOrigin(Handle),
-            Angles: Entities.GetAngles(Handle),
-            Velocity: Entities.GetVelocity(Handle),
-            AngularVelocity: Entities.GetAngularVelocity(Handle),
-
-            // Stock sets this unconditionally in CBreakableProp::Break: "no
-            // damage/damage force? set a burst of 100 for some movement".
-            DefaultBurstScale: PropBreakPlan.DefaultBurstScale,
-
-            DefaultCollisionGroup: PropBreakPlan.GroupForPieces(
-                Physics.GetCollisionGroup(Handle)),
-
-            SpawnFlags: SpawnFlags);
-
-        PiecesMade = Breaker.CreateAll(Vars.Model, Handle, context);
-    }
-
-    /// <summary>How many pieces the last break made. For tests, and for a report.</summary>
-    internal int PiecesMade { get; private set; }
-
-    /// <summary>
-    /// What becomes of the prop once it has broken. Gone, unless a subclass
-    /// wants it back.
-    /// </summary>
-    protected virtual void Broken() => Vanish();
-
-    /// <summary>
-    /// Puts a broken prop back into play, so it can break again.
-    ///
-    /// Only a prop that comes back needs this, and it exists rather than a
-    /// settable flag so the one-shot guard stays private to breaking.
-    /// </summary>
-    protected void Unbreak() => _broken = false;
 }
 
 /// <summary>
@@ -805,10 +777,12 @@ public partial class PropPhysicsVars
     /// <summary>The model, which also supplies the collision shape.</summary>
     public string Model { get; set; } = string.Empty;
 
-    public int Health { get; set; }
-
     /// <summary>Multiplies the mass the model was compiled with.</summary>
     public float MassScale { get; set; }
+
+    /// <summary>m_damageType: 1 is sharp, its object FVPHYSICS_DMG_SLICE.</summary>
+    [VarName("Damagetype")]
+    public int DamageType { get; set; }
 
     /// <summary>
     /// Seconds this prop lasts before it goes. Zero, on everything a mapper
@@ -833,25 +807,11 @@ public partial class PropPhysicsVars
     public float GibFadeTime { get; set; }
 
     /// <summary>
-    /// m_impactEnergyScale: how much of a physics impact's energy this prop
-    /// feels. 0 means stock's default, 0.1.
-    /// </summary>
-    [VarName("physdamagescale")]
-    public float PhysDamageScale { get; set; }
-
-    /// <summary>
     /// m_flForceToEnableMotion: the prop starts pinned and a collision whose
     /// mass x speed reaches this lets it go, once (it is zeroed then).
     /// </summary>
     [VarName("forcetoenablemotion")]
     public float ForceToEnableMotion { get; set; }
-
-    /// <summary>
-    /// m_iMinHealthDmg: a blow under this is refused outright, neither hurting
-    /// nor pushing the prop.
-    /// </summary>
-    [VarName("minhealthdmg")]
-    public int MinHealthDamage { get; set; }
 
     /// <summary>
     /// m_damageToEnableMotion: the prop starts pinned, and the blow that leaves

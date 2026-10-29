@@ -5,18 +5,14 @@ namespace SourceSharp.Client.Interop;
 /// <summary>
 /// The client's temp entities, its temp entity pool, and the impact rules the
 /// effect code asks for, managed-built (plan_client_vtables CE6): the bodies of
-/// the Entry.cs thunks ClientOnTempEntity, ClientNativeTempEntity,
-/// ClientImpactChoice,
-/// ClientTempEntPoolUpdate/Clear, moved, as
-/// the server's TempEntsBinding took its forward (plan_engineapi_vtables E13).
+/// the Entry.cs thunks ClientOnTempEntity, ClientImpactChoice and
+/// ClientTempEntPoolUpdate/Clear, moved.
 ///
 /// <para>
 /// The generated thunk has already made the client the active side and catches
 /// what a body throws. ITS CATCH ANSWERS 0, and for two of these slots 0 is not
-/// a refusal: OnNativeTempEntity and OnImpactChoice each
-/// answer -1 when they cannot
-/// answer (pool slot 0 is a real slot), so each keeps its own catch with the
-/// thunk's -1.
+/// a refusal: OnImpactChoice answers -1 when it cannot answer (pool slot 0 is a
+/// real slot), so it keeps its own catch with the thunk's -1.
 /// </para>
 ///
 /// <para>
@@ -35,31 +31,6 @@ public sealed unsafe class TempEntsClientBinding(Crossings crossings, ILog log, 
         if (a2 < 0) return;
 
         client.DispatchTempEntity(a0, new ReadOnlySpan<byte>(a1, a2));
-    }
-
-    /// <summary>
-    /// A client forward raises the effect locally, so no blob exists at any
-    /// point; a call with a blob buffer is the server's (TempEntsBinding) and
-    /// answers -1, as does anything else it cannot do.
-    /// </summary>
-    public int OnNativeTempEntity(int a0, void* a1, int a2, void* a3, int a4, void* a5, int a6, void* a7)
-    {
-        crossings.Count(CrossingOp.ClientNativeTempEntity);
-        try
-        {
-            if (a5 is not null)
-                return -1;
-
-            var floats = a2 > 0 ? new ReadOnlySpan<float>(a1, a2) : default;
-            var ints   = a4 > 0 ? new ReadOnlySpan<int>(a3, a4)   : default;
-
-            return client.ForwardTempEntity(a0, floats, ints) ? 0 : -1;
-        }
-        catch (Exception e)
-        {
-            ManagedVtable.Fail(log, "IManagedTempEntsClient.OnNativeTempEntity", e);
-            return -1;
-        }
     }
 
     /// <summary>One frame of the pool: CTempEnts::Update's body.</summary>
@@ -99,5 +70,16 @@ public sealed unsafe class TempEntsClientBinding(Crossings crossings, ILog log, 
             ManagedVtable.Fail(log, "IManagedTempEntsClient.OnImpactChoice", e);
             return -1;
         }
+    }
+
+    /// <summary>
+    /// Whether a temp entity the client makes for itself is dropped (c_te.cpp's
+    /// SuppressTE). The thunk's catch answers 0, which lets the effect through,
+    /// as stock does whenever it can predict and has a recipient.
+    /// </summary>
+    public int SuppressLocalTempEnt(int a0, int a1)
+    {
+        crossings.Count(CrossingOp.ClientSuppressLocalTempEnt);
+        return client.SuppressLocalTempEnt(a0 != 0, a1) ? 1 : 0;
     }
 }

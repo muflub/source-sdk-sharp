@@ -30,7 +30,7 @@ public readonly struct PlayerMirrorComparison
 }
 
 /// <summary>
-/// <c>cs_sv_player_mirror</c> — every entity's "is it an <c>ss_player</c>",
+/// <c>cs_sv_player_mirror</c> — every entity's "is it a <c>player</c>",
 /// held against the ABI slot the answer replaced.
 ///
 /// <para>
@@ -58,10 +58,10 @@ public readonly struct PlayerMirrorComparison
 /// <para>
 /// <b>BOTH DIRECTIONS, and the second is the one that matters.</b> Walking the
 /// world catches a spawn push that never fired: an entity the engine calls
-/// <c>ss_player</c> that the registry does not hold. It cannot catch the
+/// <c>player</c> that the registry does not hold. It cannot catch the
 /// opposite — a registry instance whose entity is gone or was re-classed —
 /// because the walk is over the engine's list. So pass two walks
-/// <c>OfClass(ss_player)</c> and asks the slot about each one. That is the
+/// <c>OfClass(player)</c> and asks the slot about each one. That is the
 /// direction in which this inversion answers "yes, a player" for something that
 /// is not one.
 /// </para>
@@ -104,9 +104,9 @@ public sealed class PlayerMirrorCheckCommand : IConCommand
     {
         // The SLOT's own rule, spelled out here rather than borrowed: stock
         // compares classnames with stricmp, so a case difference between the
-        // shell's string and EntityNames.SsPlayer is a divergence this gate
+        // shell's string and EntityNames.Player is a divergence this gate
         // must SEE rather than normalise away. Ordinal, deliberately.
-        bool slotSaysPlayer = slotClassName == EntityNames.SsPlayer;
+        bool slotSaysPlayer = slotClassName == EntityNames.Player;
 
         if (registrySaysPlayer == slotSaysPlayer)
             return true;
@@ -122,7 +122,7 @@ public sealed class PlayerMirrorCheckCommand : IConCommand
         int registryPlayers = 0;
 
         // Pass one: the world's live entities. Catches a spawn push that never
-        // fired — an entity the engine calls ss_player that the registry has no
+        // fired — an entity the engine calls player that the registry has no
         // instance for.
         foreach (EntityHandle entity in _entities.FindAllByClassname("*"))
         {
@@ -139,13 +139,13 @@ public sealed class PlayerMirrorCheckCommand : IConCommand
 
         // Pass two: everything the registry holds as a player. Catches the
         // direction pass one structurally cannot see — an instance whose entity
-        // the engine no longer calls ss_player, which is the case where this
+        // the engine no longer calls player, which is the case where this
         // inversion answers "player" for something that is not one.
         // Materialised first: GetClassName crosses the boundary and nothing may
         // mutate the registry under an open enumerator.
         var held = new List<EntityHandle>();
 
-        foreach (ScriptedEntity instance in _directory.OfClass(EntityNames.SsPlayer))
+        foreach (ScriptedEntity instance in _directory.OfClass(EntityNames.Player))
             held.Add(instance.Handle);
 
         int orphaned = 0;
@@ -154,7 +154,7 @@ public sealed class PlayerMirrorCheckCommand : IConCommand
         {
             string slotClassName = _entities.GetClassName(entity);
 
-            if (slotClassName == EntityNames.SsPlayer)
+            if (slotClassName == EntityNames.Player)
                 continue;
 
             orphaned++;

@@ -25,21 +25,6 @@ internal sealed unsafe partial class EngineBrushMovement
     // Movement. What a trigger does to whoever is standing in it.
     //-------------------------------------------------------------------------
 
-    /// <summary>
-    /// Hands a broken surface the cracked edges it should draw.
-    ///
-    /// Pushed when the state changes, not asked for per frame: what stays native
-    /// is the mesh building, which cannot come across at four interop calls a
-    /// quad, and what stays here is deciding which edges there are.
-    /// </summary>
-    public void SetSurfaceEdges(EntityHandle entity, byte[] packed, int count)
-    {
-        fixed (byte* p = packed)
-        {
-            _standaloneClientArea.SurfaceSetEdges(entity.Value, p, count);
-        }
-    }
-
     // The server's members, as a client engine answers them: what each one's
     // attach guard answered here, where the server's areas are never attached.
     public void Spin(EntityHandle entity, Vector degreesPerSecond) { }
@@ -357,25 +342,6 @@ internal sealed unsafe partial class EngineEffects
     }
 
     /// <summary>
-    /// Whether this client is running with gore turned down.
-    /// <c>UTIL_IsLowViolence</c>.
-    ///
-    /// <para>
-    /// NOT FOUR CONVAR READS. <c>violence_hblood</c> and its three siblings are
-    /// all reachable through <see cref="FindConVarValue"/>, and stock's own
-    /// comment above them says they are legacy and that "the engine is the
-    /// final arbiter of violence settings". The arbiter is
-    /// <c>engine-&gt;IsLowViolence()</c>, which managed code cannot reach at
-    /// all — so a C# copy of this rule would have been the four terms that do
-    /// not decide anything and a missing fifth that does.
-    /// </para>
-    /// </summary>
-    public bool ClientIsLowViolence()
-    {
-        return _tempEntBackendsClientArea.ClientIsLowViolence() != 0;
-    }
-
-    /// <summary>
     /// A decal's NAME from its index, or the empty string for an index that
     /// names nothing. <c>decalsystem-&gt;GetDecalNameForIndex</c>.
     ///
@@ -405,30 +371,31 @@ internal sealed unsafe partial class EngineEffects
     /// BEHAVIOUR LEDGER ROWS C2 AND C3's studio arm.
     ///
     /// <para>
-    /// THE TWO POINTS AND NOT A RAY. Stock builds the <c>Ray_t</c> inside
+    /// A START AND A DELTA, NOT TWO POINTS. Stock builds the <c>Ray_t</c> inside
     /// <c>AddDecal</c> and then widens its DELTA by a tenth
-    /// (<c>ray.m_Delta *= 1.1f</c>, under its own "bloat a little bit so we get
-    /// the intersection"). Both stay native: bloating the endpoint here and
-    /// letting <c>Ray_t::Init</c> subtract would hand the engine
-    /// <c>(start + d * 1.1f) - start</c>, which is not <c>d * 1.1f</c>.
+    /// (<c>ray.m_Delta *= 1.1f</c>); managed does that multiply
+    /// (ClientEntityDecal.AddStudioDecal, lane M1-C) and hands the delta over,
+    /// because handing the lengthened ENDPOINT and letting <c>Ray_t::Init</c>
+    /// subtract would give the engine <c>(start + d * 1.1f) - start</c>, which
+    /// is not <c>d * 1.1f</c>.
     /// </para>
     ///
     /// <para>
     /// No hitbox: <c>AddStudioDecal</c> takes one and never reads it. No LOD
     /// limit: both of stock's call sites take <c>ADDDECAL_TO_ALL_LODS</c> by
-    /// default. <c>r_drawmodeldecals</c> is checked natively, because that is
-    /// where stock checks it and it is a renderer setting.
+    /// default. <c>r_drawmodeldecals</c> is managed's to test before this
+    /// (DecalSettings).
     /// </para>
     /// </summary>
-    public void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayEnd, int decalIndex)
+    public void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayDelta, int decalIndex)
     {
         float* pStart = stackalloc float[3];
         pStart[0] = rayStart.X; pStart[1] = rayStart.Y; pStart[2] = rayStart.Z;
 
-        float* pEnd = stackalloc float[3];
-        pEnd[0] = rayEnd.X; pEnd[1] = rayEnd.Y; pEnd[2] = rayEnd.Z;
+        float* pDelta = stackalloc float[3];
+        pDelta[0] = rayDelta.X; pDelta[1] = rayDelta.Y; pDelta[2] = rayDelta.Z;
 
-        _tempEntBackendsClientArea.ClientDecalStudioModel(entIndex, pStart, pEnd, decalIndex);
+        _tempEntBackendsClientArea.ClientDecalStudioModel(entIndex, pStart, pDelta, decalIndex);
     }
 
     /// <summary>
@@ -869,6 +836,7 @@ internal sealed unsafe partial class EngineEffects
     // attach guard answered here, where the server's areas are never attached.
     public void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream = false, BloodSpray sprayFlags = BloodSpray.None) { }
     public void BubbleEffect(EntityHandle entity, int count, float speed) { }
+    public void BubbleTrailEffect(Vector from, Vector to, int count) { }
     public void TempEntPlayback(int handle, ReadOnlySpan<byte> blob, TeFilter filter, float delay) { }
     public int EffectDispatchIndex(string name) => 0;
     public void DustEffect(Vector origin, Vector direction, float size, float speed) { }
@@ -997,6 +965,7 @@ internal sealed unsafe partial class EngineEntities
     public bool SetKeyValue(EntityHandle entity, string key, string value) => false;
     public void SetOrigin(EntityHandle h, Vector origin) { }
     public void SetOwner(EntityHandle h, EntityHandle owner) { }
+    public void SetClassName(EntityHandle h, string className) { }
     public void SetVelocity(EntityHandle h, Vector velocity) { }
     public void Spawn(EntityHandle entity) { }
     public void Teleport(EntityHandle h, Vector origin, Vector? angles, bool zeroVelocity) { }
@@ -1017,6 +986,7 @@ internal sealed unsafe partial class EngineEntities
     public SolidFlags GetSolidFlags(EntityHandle entity) => SolidFlags.None;
     public SolidType GetSolidType(EntityHandle entity) => SolidType.None;
     public void SetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags) { }
+    public void UseTriggerBounds(EntityHandle entity, bool enable, float bloat, bool uniform = false) { }
     public void SetBounds(EntityHandle entity, Vector mins, Vector maxs) { }
     public void SetSpawnFlags(EntityHandle entity, int spawnFlags) { }
     public void PositionChanged(EntityHandle entity, Vector previousOrigin) { }
@@ -1052,6 +1022,12 @@ internal sealed unsafe partial class EngineEntityPhysics
     public void AddGameFlags(EntityHandle entity, uint flags) { }
     public float GetMass(EntityHandle entity) => 0f;
     public bool InitPhysics(EntityHandle entity, bool asleep = false, bool debris = false) => false;
+    public bool InitSpherePhysics(EntityHandle entity, float radius) => false;
+    public bool InitStaticPhysics(EntityHandle entity) => false;
+    public void EnableCollisions(EntityHandle entity, bool enable) { }
+    public bool InitShadowPhysics(EntityHandle entity, bool allowPhysicsMovement = false, bool allowPhysicsRotation = false) => false;
+    public int UpdateShadows(float frameTime) => 0;
+    public int PhysicsKind(EntityHandle entity) => 0;
     public void SetBounce(EntityHandle h, int bounces) { }
     public void SetBrushSolidity(EntityHandle entity, BrushSolidity solidity) { }
     public CollisionGroup GetCollisionGroup(EntityHandle entity) => CollisionGroup.None;
@@ -1515,6 +1491,10 @@ internal sealed unsafe partial class EnginePlayerMovement
     // The server's members, as a client engine answers them: what each one's
     // attach guard answered here, where the server's areas are never attached.
     public void SetSlowMovement(EntityHandle player, bool slow) { }
+    public void SetSuitPower(EntityHandle player, float power) { }
+    public void SwallowUse(EntityHandle player) { }
+    public void QueueUseDenySound(EntityHandle player) { }
+    public bool TakeUseDenySound(EntityHandle player) => false;
     public MoveType SetMoveType(EntityHandle player, MoveType moveType) => MoveType.None;
     public void SnapEyeAngles(EntityHandle player, Vector pitchYawRoll) { }
 }
@@ -1634,6 +1614,8 @@ internal sealed unsafe partial class EngineSound
     public void EmitSoundAtPosition(string soundName, Vector origin) { }
     public void EntityStopSound(EntityHandle entity, string soundName) { }
     public void EntityEmitSound(EntityHandle entity, string soundName) { }
+
+    public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) { }
 }
 
 internal sealed unsafe partial class EngineVisibility
@@ -1680,6 +1662,9 @@ internal sealed unsafe partial class EngineVisibility
         }
     }
 
+    // The lookups' handles (lane M1-A: the table shell_worldrender.cpp kept).
+    private readonly SourceSharp.Client.Interop.ColorLookupTable _colorLookups = new();
+
     /// <summary>
     /// Loads a colour-correction lookup and answers a handle, or 0 if the file
     /// would not load.
@@ -1689,7 +1674,7 @@ internal sealed unsafe partial class EngineVisibility
         var bytes = Encoding.UTF8.GetBytes(lookupFile + "\0");
         fixed (byte* p = bytes)
         {
-            return _viewClientArea.ClientColorCorrection((int)ColorCorrectionOp.Add, 0, p, 0f);
+            return _colorLookups.Register((nint)_viewClientArea.ColorLookupAdd(p));
         }
     }
 
@@ -1699,7 +1684,8 @@ internal sealed unsafe partial class EngineVisibility
     /// </summary>
     public void ColorCorrectionRemove(int handle)
     {
-        _viewClientArea.ClientColorCorrection((int)ColorCorrectionOp.Remove, handle, null, 0f);
+        if (_colorLookups.Forget(handle, out nint lookup))
+            _viewClientArea.ColorLookupRemove((void*)lookup);
     }
 
     /// <summary>
@@ -1709,8 +1695,12 @@ internal sealed unsafe partial class EngineVisibility
     /// </summary>
     public void ColorCorrectionSetWeight(int handle, float weight)
     {
-        _viewClientArea.ClientColorCorrection((int)ColorCorrectionOp.SetWeight, handle, null, weight);
+        if (_colorLookups.TryGet(handle, out nint lookup))
+            _viewClientArea.ColorLookupSetWeight((void*)lookup, weight);
     }
+
+    /// <summary>Every lookup's weight back to zero, before the frame re-weighs them.</summary>
+    public void ColorCorrectionResetWeights() => _viewClientArea.ColorLookupResetWeights();
 
     /// <summary>
     /// Puts a light out now.
@@ -1953,6 +1943,67 @@ internal sealed unsafe partial class EngineWorldQuery
                                              TraceFilter filter, int passEntityIndex = -1)
         => ClientTraceLineCore(start, end, mask, filter, passEntityIndex);
 
+    /// <inheritdoc/>
+    public unsafe ClientTraceResult ClientClipRayToEntities(Vector start, Vector end, TraceMask mask,
+                                                            ReadOnlySpan<int> entityIndices)
+    {
+        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
+        float* e = stackalloc float[3] { end.X, end.Y, end.Z };
+        float* endPos = stackalloc float[3];
+        float* normal = stackalloc float[3];
+        float fraction;
+        int hitbox;
+        int entIndex;
+        int surfaceProps;
+        int surfaceFlags;
+        int stopped;
+
+        // ONE CROSSING FOR THE WHOLE LIST: the indices go over as one buffer.
+        fixed (int* indices = entityIndices)
+        {
+            stopped = _viewClientArea.ClientClipRayToEntities(s, e, (int)mask, indices, entityIndices.Length,
+                                                              &fraction, endPos, normal, &hitbox, &entIndex,
+                                                              &surfaceProps, &surfaceFlags);
+        }
+
+        return new ClientTraceResult(
+            stopped != 0,
+            fraction,
+            new Vector(endPos[0], endPos[1], endPos[2]),
+            new Vector(normal[0], normal[1], normal[2]),
+            hitbox,
+            entIndex,
+            surfaceProps,
+            surfaceFlags);
+    }
+
+    /// <inheritdoc/>
+    public unsafe ClientBoxTrace ClientTraceHullEntities(Vector start, Vector end, Vector mins, Vector maxs,
+                                                          TraceMask mask, int passEntityIndex,
+                                                          ReadOnlySpan<int> entityIndices)
+    {
+        float* s = stackalloc float[3] { start.X, start.Y, start.Z };
+        float* e = stackalloc float[3] { end.X, end.Y, end.Z };
+        float* lo = stackalloc float[3] { mins.X, mins.Y, mins.Z };
+        float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
+        float* endPos = stackalloc float[3];
+        float* origin = stackalloc float[3];
+        float fraction = 1f;
+        int entIndex = -1;
+        int stopped;
+
+        // One crossing for the whole list, as the ray's clip.
+        fixed (int* indices = entityIndices)
+        {
+            stopped = _viewClientArea.ClientTraceHullEntities(s, e, lo, hi, (int)mask, passEntityIndex,
+                                                              indices, entityIndices.Length,
+                                                              &fraction, endPos, &entIndex, origin);
+        }
+
+        return new ClientBoxTrace(stopped != 0, fraction, new Vector(endPos[0], endPos[1], endPos[2]),
+                                   entIndex, new Vector(origin[0], origin[1], origin[2]));
+    }
+
     /// <summary>
     /// The same trace, choosing which entities it may hit. See
     /// <see cref="TraceFilter"/> for why this is an enumeration and not an
@@ -1990,9 +2041,9 @@ internal sealed unsafe partial class EngineWorldQuery
 
     // The server's members, as a client engine answers them: what each one's
     // attach guard answered here, where the server's areas are never attached.
-    public (Vector Right, Vector Up) AngleVectorsFromForward(Vector forward) => (default, default);
     public int EntitiesInSphere(Vector center, float radius, Span<EntityHandle> into) => 0;
     public HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default) => new HullResult(false, false, EntityHandle.None);
+    public SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default) => new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);
     public EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs, uint mask, int collisionGroup) => new EntityHullTrace(start, true, true);
     public TraceResult TraceLine(Vector start, Vector end, TraceMask mask, EntityHandle ignore = default) => new TraceResult(false, 1f, end, Vector.Zero, EntityHandle.None);
     public SurfaceTraceResult TraceLineSurface(Vector start, Vector end, TraceMask mask, EntityHandle ignore = default) => new SurfaceTraceResult(false, 1f, end, Vector.Zero, EntityHandle.None, -1, 0);

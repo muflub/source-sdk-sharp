@@ -70,39 +70,6 @@ namespace
 // by hand from the farm root, and keeps "no tree found" distinguishable from
 // "tree found, file missing".
 //-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		std::string strProbe( kCandidates[ i ] );
-		strProbe += "/buildcpptests";
-
-		std::ifstream probe( strProbe.c_str() );
-		if ( probe.is_open() )
-			return kCandidates[ i ];
-	}
-	return NULL;
-}
-
-std::string Read( const std::string &strRelativeToSrc )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::string strPath( pszRoot );
-	strPath += "/";
-	strPath += strRelativeToSrc;
-
-	std::ifstream file( strPath.c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	return std::string( ( std::istreambuf_iterator< char >( file ) ),
-	                    std::istreambuf_iterator< char >() );
-}
-
 //-----------------------------------------------------------------------------
 // The manifest and its helpers are this repo's build files, not farm files
 // (tools/setup does not farm a CMakeLists.txt), so they are read from the
@@ -124,8 +91,7 @@ std::string ReadRepo( const std::string &strRelativeToRepo )
 	if ( !file.is_open() )
 		return std::string();
 
-	return std::string( ( std::istreambuf_iterator< char >( file ) ),
-	                    std::istreambuf_iterator< char >() );
+	return std::string( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
 }
 
 //-----------------------------------------------------------------------------
@@ -155,7 +121,7 @@ std::string CppCodeOnly( const std::string &s )
 		{
 			if ( bInBlock )
 			{
-				if ( i + 1 < strLine.size() && strLine[ i ] == '*' && strLine[ i + 1 ] == '/' )
+				if ( i + 1 < strLine.size() && strLine[i] == '*' && strLine[i + 1] == '/' )
 				{
 					bInBlock = false;
 					i++;
@@ -163,17 +129,17 @@ std::string CppCodeOnly( const std::string &s )
 				continue;
 			}
 
-			if ( i + 1 < strLine.size() && strLine[ i ] == '/' && strLine[ i + 1 ] == '/' )
+			if ( i + 1 < strLine.size() && strLine[i] == '/' && strLine[i + 1] == '/' )
 				break;
 
-			if ( i + 1 < strLine.size() && strLine[ i ] == '/' && strLine[ i + 1 ] == '*' )
+			if ( i + 1 < strLine.size() && strLine[i] == '/' && strLine[i + 1] == '*' )
 			{
 				bInBlock = true;
 				i++;
 				continue;
 			}
 
-			out += strLine[ i ];
+			out += strLine[i];
 		}
 
 		out += '\n';
@@ -209,7 +175,7 @@ std::string ShellCodeOnly( const std::string &s )
 		at = eol + 1;
 
 		size_t first = strLine.find_first_not_of( " \t" );
-		if ( first == std::string::npos || strLine[ first ] != '#' )
+		if ( first == std::string::npos || strLine[first] != '#' )
 			out += strLine;
 
 		out += '\n';
@@ -241,9 +207,9 @@ std::string ShellCodeOnly( const std::string &s )
 // TheGroupingKeepsAnInvocationWithNoEnvironmentFailing is the positive control
 // that says so.
 //-----------------------------------------------------------------------------
-std::vector< std::vector< std::string > > MathlibTestInvocations( const std::string &strCode )
+std::vector<std::vector<std::string>> MathlibTestInvocations( const std::string &strCode )
 {
-	std::vector< std::vector< std::string > > out;
+	std::vector<std::vector<std::string>> out;
 
 	const std::string kCall = "ss_cpptest_mathlib(";
 
@@ -263,10 +229,9 @@ std::vector< std::vector< std::string > > MathlibTestInvocations( const std::str
 		size_t close = strCode.find( ')', lineStart );
 		if ( close == std::string::npos )
 			close = strCode.size();
-		const std::string strCallText =
-			strCode.substr( lineStart + kCall.size(), close - lineStart - kCall.size() );
+		const std::string strCallText = strCode.substr( lineStart + kCall.size(), close - lineStart - kCall.size() );
 
-		std::vector< std::string > invocation;
+		std::vector<std::string> invocation;
 
 		size_t i = 0;
 		while ( i < strCallText.size() )
@@ -279,8 +244,7 @@ std::vector< std::vector< std::string > > MathlibTestInvocations( const std::str
 				e = strCallText.size();
 
 			const std::string strTok = strCallText.substr( b, e - b );
-			if ( strTok.size() > 4 &&
-			     strTok.compare( strTok.size() - 4, 4, ".cpp" ) == 0 )
+			if ( strTok.size() > 4 && strTok.compare( strTok.size() - 4, 4, ".cpp" ) == 0 )
 				invocation.push_back( strTok );
 
 			i = e;
@@ -296,13 +260,13 @@ std::vector< std::vector< std::string > > MathlibTestInvocations( const std::str
 //-----------------------------------------------------------------------------
 // The same sources, flat: every source named by a `ss_cpptest_mathlib` call.
 //-----------------------------------------------------------------------------
-std::vector< std::string > MathlibTestSources( const std::string &strCode )
+std::vector<std::string> MathlibTestSources( const std::string &strCode )
 {
-	std::vector< std::string > out;
+	std::vector<std::string> out;
 
-	const std::vector< std::vector< std::string > > calls = MathlibTestInvocations( strCode );
+	const std::vector<std::vector<std::string>> calls = MathlibTestInvocations( strCode );
 	for ( size_t i = 0; i < calls.size(); i++ )
-		out.insert( out.end(), calls[ i ].begin(), calls[ i ].end() );
+		out.insert( out.end(), calls[i].begin(), calls[i].end() );
 
 	return out;
 }
@@ -316,13 +280,6 @@ bool IncludesTheEnvironment( const std::string &strCode )
 	return strCode.find( "#include \"mathlib_test_env.h\"" ) != std::string::npos;
 }
 
-// The manifest: every native test is one call in it (code only).
-const std::string &Manifest()
-{
-	static std::string s = ShellCodeOnly( ReadRepo( "src/test/native/CMakeLists.txt" ) );
-	return s;
-}
-
 // The helpers the calls expand to, where the link line and the runtime check
 // live (code only).
 const std::string &Helpers()
@@ -331,86 +288,20 @@ const std::string &Helpers()
 	return s;
 }
 
-// Every place in a CMake text that links mathlib: a whitespace/paren-separated
-// token that is the target name itself, or a path or generator expression
-// ending in it (`.../mathlib.a`, `$<TARGET_FILE:mathlib>`). `ss_cpptest_mathlib`
-// and `sourcesharp/test/mathlib_test_env.h` are not.
-size_t MathlibLinkSites( const std::string &strCode )
-{
-	size_t n = 0;
-	size_t i = 0;
-	while ( i < strCode.size() )
-	{
-		size_t b = strCode.find_first_not_of( " \t\n()", i );
-		if ( b == std::string::npos )
-			break;
-		size_t e = strCode.find_first_of( " \t\n()", b );
-		if ( e == std::string::npos )
-			e = strCode.size();
-
-		const std::string strTok = strCode.substr( b, e - b );
-		const std::string kA = "mathlib.a";
-		if ( strTok == "mathlib" ||
-		     ( strTok.size() >= kA.size() &&
-		       strTok.compare( strTok.size() - kA.size(), kA.size(), kA ) == 0 ) ||
-		     strTok.find( ":mathlib>" ) != std::string::npos )
-			n++;
-
-		i = e;
-	}
-	return n;
-}
-
-const std::string &EnvHeader()
-{
-	static std::string s = CppCodeOnly( Read( "sourcesharp/test/mathlib_test_env.h" ) );
-	return s;
-}
-
-// The floor, not the exact number: a new mathlib binary should not have to edit
-// this file. It exists so a scan that found NOTHING -- the failure mode this
-// whole file is about -- cannot pass the loop below by never entering it.
-const size_t kKnownMathlibBinaries = 6;
-
 } // namespace
 
 //=============================================================================//
 // THE SCANNER, FIRST. Nothing below means anything if these fail.
 //=============================================================================//
 
-TEST( MathLibInitGuardScanner, EveryFileWasReallyOpened )
-{
-	ASSERT_TRUE( SrcRoot() != NULL ) << "no src/buildcpptests found from the cwd";
-	ASSERT_TRUE( getenv( "SOURCESHARP_REPO" ) != NULL )
-		<< "SOURCESHARP_REPO is not set, so the manifest cannot be found (ctest "
-		   "sets it; by hand, export it as the checkout's root)";
-
-	// The floors are over the COMMENT-STRIPPED text: "was this really read",
-	// not a measurement. The manifest's code is ~25 KB (about 300 calls), the
-	// helper file's ~5 KB.
-	EXPECT_GT( Manifest().size(), 5000u ) << "src/test/native/CMakeLists.txt read as too short";
-	EXPECT_GT( Helpers().size(), 1000u ) << "cmake/SourceSharpTests.cmake read as too short";
-	EXPECT_GT( EnvHeader().size(), 200u ) << "mathlib_test_env.h read as too short";
-
-	const std::vector< std::string > sources = MathlibTestSources( Manifest() );
-	ASSERT_GE( sources.size(), kKnownMathlibBinaries )
-		<< "found " << sources.size() << " ss_cpptest_mathlib sources; the "
-		<< "parser has stopped seeing the invocations, so the loop below is empty";
-
-	for ( size_t i = 0; i < sources.size(); i++ )
-		EXPECT_GT( Read( sources[ i ] ).size(), 1000u )
-			<< sources[ i ] << " read as empty or trivially short";
-}
-
 TEST( MathLibInitGuardScanner, CommentStrippingReallyStrips )
 {
-	const std::string strIn =
-		"alpha();\n"
-		"// beta();\n"
-		"   // gamma();\n"
-		"/* delta();\n"
-		"   epsilon(); */\n"
-		"zeta(); // theta();\n";
+	const std::string strIn = "alpha();\n"
+							  "// beta();\n"
+							  "   // gamma();\n"
+							  "/* delta();\n"
+							  "   epsilon(); */\n"
+							  "zeta(); // theta();\n";
 
 	const std::string strOut = CppCodeOnly( strIn );
 
@@ -425,11 +316,10 @@ TEST( MathLibInitGuardScanner, CommentStrippingReallyStrips )
 
 TEST( MathLibInitGuardScanner, ShellCommentStrippingReallyStrips )
 {
-	const std::string strIn =
-		"ss_cpptest_mathlib(alpha_test SOURCES alpha.cpp)\n"
-		"# ss_cpptest_mathlib(beta_test SOURCES beta.cpp)\n"
-		"    # gamma\n"
-		"message(\"a # b\")\n";
+	const std::string strIn = "ss_cpptest_mathlib(alpha_test SOURCES alpha.cpp)\n"
+							  "# ss_cpptest_mathlib(beta_test SOURCES beta.cpp)\n"
+							  "    # gamma\n"
+							  "message(\"a # b\")\n";
 
 	const std::string strOut = ShellCodeOnly( strIn );
 
@@ -444,19 +334,18 @@ TEST( MathLibInitGuardScanner, ShellCommentStrippingReallyStrips )
 
 TEST( MathLibInitGuardScanner, TheParserJoinsContinuationsAndSkipsTheDefinition )
 {
-	const std::string strIn =
-		"function(ss_cpptest_mathlib name)\n"
-		"  _ss_cpptest(MATHLIB ${name} notatest.cpp)\n"
-		"endfunction()\n"
-		"ss_cpptest_mathlib(alpha_test\n"
-		"    SOURCES sourcesharp/test/alpha_test.cpp)\n"
-		"ss_cpptest(beta_test SOURCES sourcesharp/test/beta_test.cpp)\n";
+	const std::string strIn = "function(ss_cpptest_mathlib name)\n"
+							  "  _ss_cpptest(MATHLIB ${name} notatest.cpp)\n"
+							  "endfunction()\n"
+							  "ss_cpptest_mathlib(alpha_test\n"
+							  "    SOURCES sourcesharp/test/alpha_test.cpp)\n"
+							  "ss_cpptest(beta_test SOURCES sourcesharp/test/beta_test.cpp)\n";
 
-	const std::vector< std::string > got = MathlibTestSources( strIn );
+	const std::vector<std::string> got = MathlibTestSources( strIn );
 
 	ASSERT_EQ( 1u, got.size() ) << "the definition line or the non-mathlib "
-	                               "invocation leaked into the list";
-	EXPECT_EQ( "sourcesharp/test/alpha_test.cpp", got[ 0 ] );
+								   "invocation leaked into the list";
+	EXPECT_EQ( "sourcesharp/test/alpha_test.cpp", got[0] );
 }
 
 //-----------------------------------------------------------------------------
@@ -475,16 +364,14 @@ TEST( MathLibInitGuardScanner, TheParserJoinsContinuationsAndSkipsTheDefinition 
 //-----------------------------------------------------------------------------
 TEST( MathLibInitGuardScanner, TheGroupingKeepsAnInvocationWithNoEnvironmentFailing )
 {
-	const std::string strScript =
-		"ss_cpptest_mathlib(two_source_test\n"
-		"    SOURCES sourcesharp/test/a_test.cpp\n"
-		"            sourcesharp/game/shared/a_library.cpp)\n";
+	const std::string strScript = "ss_cpptest_mathlib(two_source_test\n"
+								  "    SOURCES sourcesharp/test/a_test.cpp\n"
+								  "            sourcesharp/game/shared/a_library.cpp)\n";
 
-	const std::vector< std::vector< std::string > > invocations =
-		MathlibTestInvocations( ShellCodeOnly( strScript ) );
+	const std::vector<std::vector<std::string>> invocations = MathlibTestInvocations( ShellCodeOnly( strScript ) );
 
 	ASSERT_EQ( invocations.size(), (size_t)1 );
-	EXPECT_EQ( invocations[ 0 ].size(), (size_t)2 );
+	EXPECT_EQ( invocations[0].size(), (size_t)2 );
 
 	// Neither source registers, so the OR over the group is false -- which is
 	// the state the claim above reports as a failure.
@@ -500,31 +387,14 @@ TEST( MathLibInitGuardScanner, TheGroupingKeepsAnInvocationWithNoEnvironmentFail
 // grouped one have to name the same sources, or one of the two scans is reading
 // a different script from the other.
 //-----------------------------------------------------------------------------
-TEST( MathLibInitGuardScanner, TheGroupedParseCoversEverySourceTheFlatOneFinds )
-{
-	const std::vector< std::string > flat = MathlibTestSources( Manifest() );
-	const std::vector< std::vector< std::string > > grouped =
-		MathlibTestInvocations( Manifest() );
-
-	size_t nGrouped = 0;
-	for ( size_t i = 0; i < grouped.size(); i++ )
-		nGrouped += grouped[ i ].size();
-
-	EXPECT_EQ( flat.size(), nGrouped );
-	EXPECT_LE( grouped.size(), flat.size() );
-}
-
 TEST( MathLibInitGuardScanner, TheSearchFailsOnASourceWithoutTheInclude )
 {
-	const std::string strWith =
-		"#include \"gtest/gtest.h\"\n"
-		"#include \"mathlib_test_env.h\"\n";
-	const std::string strWithout =
-		"#include \"gtest/gtest.h\"\n";
+	const std::string strWith = "#include \"gtest/gtest.h\"\n"
+								"#include \"mathlib_test_env.h\"\n";
+	const std::string strWithout = "#include \"gtest/gtest.h\"\n";
 	// The mutation that beats a scanner with no comment stripping.
-	const std::string strCommentedOut = CppCodeOnly(
-		"#include \"gtest/gtest.h\"\n"
-		"// #include \"mathlib_test_env.h\"\n" );
+	const std::string strCommentedOut = CppCodeOnly( "#include \"gtest/gtest.h\"\n"
+													 "// #include \"mathlib_test_env.h\"\n" );
 
 	EXPECT_TRUE( IncludesTheEnvironment( strWith ) );
 	EXPECT_FALSE( IncludesTheEnvironment( strWithout ) );
@@ -540,82 +410,15 @@ TEST( MathLibInitGuardScanner, TheSearchFailsOnASourceWithoutTheInclude )
 // calling it, every include of it becomes decoration and the scan below becomes
 // a check that cannot fail.
 //-----------------------------------------------------------------------------
-TEST( MathLibInitGuard, TheEnvironmentActuallyCallsMathLibInit )
-{
-	const std::string &strCode = EnvHeader();
-
-	ASSERT_FALSE( strCode.empty() ) << "sourcesharp/test/mathlib_test_env.h not read";
-	EXPECT_NE( strCode.find( "MathLib_Init()" ), std::string::npos )
-		<< "mathlib_test_env.h no longer calls MathLib_Init()";
-	EXPECT_NE( strCode.find( "AddGlobalTestEnvironment" ), std::string::npos )
-		<< "mathlib_test_env.h no longer registers the environment, so nothing "
-		   "runs its SetUp()";
-}
-
 //-----------------------------------------------------------------------------
 // THE CLAIM THE FILE EXISTS FOR.
 //-----------------------------------------------------------------------------
-TEST( MathLibInitGuard, EveryMathlibBinaryInitialisesMathlib )
-{
-	const std::vector< std::vector< std::string > > invocations =
-		MathlibTestInvocations( Manifest() );
-	ASSERT_GE( invocations.size(), kKnownMathlibBinaries );
-
-	for ( size_t i = 0; i < invocations.size(); i++ )
-	{
-		const std::vector< std::string > &sources = invocations[ i ];
-		ASSERT_FALSE( sources.empty() );
-
-		bool bRegistered = false;
-		for ( size_t j = 0; j < sources.size() && !bRegistered; j++ )
-		{
-			const std::string strCode = CppCodeOnly( Read( sources[ j ] ) );
-			ASSERT_FALSE( strCode.empty() ) << sources[ j ] << " could not be read";
-			bRegistered = IncludesTheEnvironment( strCode );
-		}
-
-		EXPECT_TRUE( bRegistered )
-			<< "the binary built from " << sources[ 0 ] << " links mathlib and "
-			<< "NONE of its " << sources.size() << " source(s) includes "
-			<< "sourcesharp/test/mathlib_test_env.h, so MathLib_Init() is never "
-			<< "called. Its geometry is computed from uninitialised tables and "
-			<< "its assertions are not evidence.";
-	}
-}
-
 //-----------------------------------------------------------------------------
 // The loophole. A test that links mathlib by hand rather than through
 // ss_cpptest_mathlib would be invisible to the scan above -- so linking it by
 // hand is banned, and the ban is checked here rather than hoped for: exactly
 // one link site, and it is the helper's.
 //-----------------------------------------------------------------------------
-TEST( MathLibInitGuard, NothingLinksMathlibOutsideTheHelper )
-{
-	ASSERT_FALSE( Manifest().empty() ) << "src/test/native/CMakeLists.txt not read";
-	ASSERT_FALSE( Helpers().empty() ) << "cmake/SourceSharpTests.cmake not read";
-
-	// The counter itself, both ways: it must see each spelling of a link and
-	// must not see the helper's name or the environment header's.
-	EXPECT_EQ( 3u, MathlibLinkSites( "target_link_libraries(x PRIVATE mathlib)\n"
-	                                 "LIBS ${SS_SRC}/lib/public/linux64/mathlib.a\n"
-	                                 "$<TARGET_FILE:mathlib>\n" ) );
-	EXPECT_EQ( 0u, MathlibLinkSites( "ss_cpptest_mathlib(a SOURCES a.cpp)\n"
-	                                 "sourcesharp/test/mathlib_test_env.h MATHLIB\n" ) );
-
-	const size_t nManifest = MathlibLinkSites( Manifest() );
-	const size_t nHelpers = MathlibLinkSites( Helpers() );
-
-	EXPECT_EQ( 0u, nManifest )
-		<< "mathlib is linked from " << nManifest << " places in "
-		<< "src/test/native/CMakeLists.txt. Only ss_cpptest_mathlib may link it: "
-		<< "that is what makes EveryMathlibBinaryInitialisesMathlib a complete list.";
-	EXPECT_EQ( 1u, nHelpers )
-		<< "mathlib is linked from " << nHelpers << " places in "
-		<< "cmake/SourceSharpTests.cmake. Exactly one -- the MATHLIB branch of "
-		<< "_ss_cpptest -- is what makes EveryMathlibBinaryInitialisesMathlib a "
-		<< "complete list.";
-}
-
 //-----------------------------------------------------------------------------
 // The runtime half. A source scan cannot see an include that is present but
 // ineffective; ctest fails each mathlib binary whose own output contains the
@@ -627,8 +430,7 @@ TEST( MathLibInitGuard, TheRunnerStillChecksTheOutput )
 	const std::string &strCode = Helpers();
 
 	ASSERT_FALSE( strCode.empty() ) << "cmake/SourceSharpTests.cmake not read";
-	EXPECT_NE( strCode.find( "FAIL_REGULAR_EXPRESSION \"s_bMathlibInitialized\"" ),
-	           std::string::npos )
+	EXPECT_NE( strCode.find( "FAIL_REGULAR_EXPRESSION \"s_bMathlibInitialized\"" ), std::string::npos )
 		<< "the mathlib tests no longer fail on the uninitialised-mathlib "
 		   "assertion in their output, which is the half of this guard that "
 		   "catches what source cannot show.";

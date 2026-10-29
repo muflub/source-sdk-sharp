@@ -128,6 +128,9 @@ public sealed class PhysicsPushedEntities
     /// <summary>The <paramref name="index"/>th entity the current push is moving.</summary>
     public EntityHandle PushedAt(int index) => _moved[index].Entity;
 
+    /// <summary>Where the <paramref name="index"/>th entity the current push is moving started.</summary>
+    public Vector PushedStartAt(int index) => _moved[index].StartOrigin;
+
     //-------------------------------------------------------------------------
     // The begin half: before the pusher is committed.
     //-------------------------------------------------------------------------

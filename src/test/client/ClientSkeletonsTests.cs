@@ -88,6 +88,7 @@ public unsafe class ClientSkeletonsTests
         public int GameMaterial(int surfaceProps) => 0;
         public MoveSurface Surface(int surfaceProps) => default;
         public string? ScrapeSound(int surfaceProps, bool smooth) => null;
+        public string? BulletImpactSound(int surfaceProps) => null;
         public int SurfaceIndex(string name) => 42;
     }
 
@@ -252,6 +253,22 @@ public unsafe class ClientSkeletonsTests
 
         // Cycle 0: the root at the entity origin, the hand +5 x and +10 z off it.
         Assert.Equal(new NVector(105f, 0f, 10f), At(output, 2));
+    }
+
+    [Fact]
+    public void SetCycleHoldsThePoseAtThatCycle()
+    {
+        using Rig rig = new();
+        float[] free = new float[4 * Floats];
+        Assert.True(rig.Setup(Entity, free));
+
+        Assert.True(rig.Skeletons.SetCycle(Entity, 0.5f));
+        float[] held = new float[4 * Floats];
+        Assert.True(rig.Setup(Entity, held));
+
+        Assert.True(rig.Skeletons.States.TryGet(Entity, out BoneEntityState? state));
+        Assert.Equal(0.5f, state!.HeldCycle);
+        Assert.NotEqual(At(free, 2), At(held, 2));
     }
 
     [Fact]
@@ -466,7 +483,7 @@ public unsafe class ClientSkeletonsTests
         rig.Blocks.Held[Source] = Block(new NVector(0f, 300f, 0f), model: 8);
         rig.Setup(Entity, output, time: 2f);
 
-        Assert.Equal((new NVector(0f, 300f, 0f), new NVector(105f, 0f, 10f)), (At(output, 0), At(output, 2)));
+        Assert.Equal((new NVector(0f, 300f, 0f), new NVector(5f, 300f, 10f)), (At(output, 0), At(output, 2)));
     }
 
     // ---- the frame's batch (plan_physics_bones_perf A2) -------------------------------
@@ -835,6 +852,19 @@ public unsafe class ClientSkeletonsTests
         (EntityHandle e, int seq, float rate, float start, float duration, bool looping) = Assert.Single(rig.Store.Stored);
         Assert.Equal((Entity, 0, 2f, 5f, true), (e, seq, rate, start, looping));
         Assert.True(duration > 0f);
+    }
+
+    [Fact]
+    public void ASequenceStartedPartWayTellsNativeTheStartTimeThatGivesItsCycle()
+    {
+        using Rig rig = new();
+        rig.Environment.Now = 5f;
+
+        rig.Skeletons.SetSequence(Entity, 0, 1f, restart: true, startCycle: 0.25f);
+
+        (_, _, float rate, float start, float duration, _) = Assert.Single(rig.Store.Stored);
+        Assert.True(duration > 0f);
+        Assert.Equal(0.25f, (5f - start) * rate / duration, 4);
     }
 
     [Fact]

@@ -355,6 +355,9 @@ public sealed partial class StudioHdrBuilder
     public List<IncludeDef> Includes { get; } = [];
     public List<string> NodeNames { get; } = [];
 
+    /// <summary>The transition table's entries, (from, to) -> via, nodes counted from 1; the rest are 0.</summary>
+    public Dictionary<(int From, int To), byte> Transitions { get; } = [];
+
     /// <summary>Anim blocks for sectioned anims: (datastart, dataend) pairs
     /// filled by <see cref="Build"/> when an anim declares
     /// <c>AnimBlock &gt; 0</c> — the chain bytes then live inside one block.</summary>
@@ -797,7 +800,9 @@ public sealed partial class StudioHdrBuilder
         {
             PadTo(4);
             int nodes = Mark();
-            Pad(NodeNames.Count * NodeNames.Count);
+            for (int from = 1; from <= NodeNames.Count; from++)
+                for (int to = 1; to <= NodeNames.Count; to++)
+                    W8(Transitions.TryGetValue((from, to), out byte via) ? via : 0);
             Patch32(248, NodeNames.Count);
             Patch32(252, nodes);
             // Name table: header-based indices (NodeName reads

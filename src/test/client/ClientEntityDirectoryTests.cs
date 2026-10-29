@@ -168,7 +168,7 @@ public class ClientEntityDirectoryTests
     {
         var directory = Directory();
         var gone = new DirectoryProbeEntity("ss_barrel").At(41);
-        var arrived = new DirectoryProbeEntity("ss_ragdoll").At(41);
+        var arrived = new DirectoryProbeEntity("hl2mp_ragdoll").At(41);
 
         directory.Bind(H(41, 2), 41, gone);
         directory.Bind(H(41, 3), 41, arrived);
@@ -181,7 +181,7 @@ public class ClientEntityDirectoryTests
     {
         var directory = Directory();
         var stale = new DirectoryProbeEntity("ss_barrel").At(41);
-        var live = new DirectoryProbeEntity("ss_ragdoll").At(41);
+        var live = new DirectoryProbeEntity("hl2mp_ragdoll").At(41);
 
         // TWO ENTITIES CARRYING ONE ENGINE INDEX AT DIFFERENT ENTRIES. The
         // index an entity carries is asked of the engine ONCE, in
@@ -220,7 +220,7 @@ public class ClientEntityDirectoryTests
     {
         var directory = Directory();
         var a = new DirectoryProbeEntity("ss_barrel");
-        var b = new DirectoryProbeEntity("ss_ragdoll");
+        var b = new DirectoryProbeEntity("hl2mp_ragdoll");
 
         directory.Bind(H(4, 1), -1, a);
         directory.Bind(H(9, 1), -1, b);
@@ -307,7 +307,7 @@ public class ClientEntityDirectoryTests
 
         directory.Bind(H(1, 1), -1, one);
         directory.Bind(H(2, 1), -1, two);
-        directory.Bind(H(3, 1), -1, new DirectoryProbeEntity("ss_ragdoll"));
+        directory.Bind(H(3, 1), -1, new DirectoryProbeEntity("hl2mp_ragdoll"));
 
         Assert.Equal(new HashSet<ClientStandaloneEntity> { one, two },
                      directory.OfClass("ss_barrel").ToHashSet());
@@ -329,13 +329,13 @@ public class ClientEntityDirectoryTests
     {
         var directory = Directory();
         var barrel = new DirectoryProbeEntity("ss_barrel");
-        var beam = new DirectoryProbeEntity("ss_beam");
+        var pickup = new DirectoryProbeEntity("ss_pickup");
 
         directory.Bind(H(1, 1), -1, barrel);
-        directory.Bind(H(2, 1), -1, beam);
+        directory.Bind(H(2, 1), -1, pickup);
         directory.Bind(H(3, 1), -1, new DirectoryProbeEntity("env_fog_controller"));
 
-        Assert.Equal(new HashSet<ClientStandaloneEntity> { barrel, beam },
+        Assert.Equal(new HashSet<ClientStandaloneEntity> { barrel, pickup },
                      directory.OfClass("ss_*").ToHashSet());
     }
 

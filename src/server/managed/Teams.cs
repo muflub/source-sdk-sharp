@@ -16,8 +16,8 @@ namespace SourceSharp.Server;
 /// <para>
 /// Stock's teams live in <c>CTeamplayRules</c> and on <c>CBaseEntity.m_iTeamNum</c>
 /// (baseentity.cpp:4947 — one assignment). The rules class is not in this build
-/// and the standalone player answered <c>GetPlayerTeam</c> with a flat <c>0</c>;
-/// the store is native now (the <c>PlayerSetTeam</c> slot), and it is a store
+/// and the standalone player answered every team ask with a flat <c>0</c>;
+/// the store is <see cref="IEnginePlayers.SetTeam"/>'s now, and it is a store
 /// and not a decision — it validates nothing, exactly as stock's did. The
 /// decisions are here.
 /// </para>

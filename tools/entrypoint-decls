@@ -215,11 +215,7 @@ BANNER = '''//========= SourceSharp — the shim's entry points, GENERATED =====
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_ENTRYPOINTS_H
-#define SOURCESHARP_ENTRYPOINTS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 // sourcesharp.h is what these signatures are derived FROM, so it has to be
 // included before them: every argument type below is one of its typedefs or a
@@ -228,13 +224,13 @@ BANNER = '''//========= SourceSharp — the shim's entry points, GENERATED =====
 
 '''
 
-FOOTER = "\n#endif // SOURCESHARP_ENTRYPOINTS_H\n"
+FOOTER = ""
 
 
 def declaration(ret, name, args):
     """One prototype, wrapped the way the tree wraps them."""
     head = "%s%s%s(" % (ret, " " if not ret.endswith("*") else "", name)
-    one = "%s %s );" % (head, args) if args else "%s void );" % head
+    one = "%s %s );" % (head, args) if args and args.strip() != "void" else "%s);" % head
     one = re.sub(r"\(\s+", "( ", one)
     if len(one) <= 96:
         return [one]
@@ -432,7 +428,7 @@ def self_test():
     check("declaration unwraps a simple field",
           declaration("void", "SourceSharp_X", "uint32_t h") == ["void SourceSharp_X( uint32_t h );"])
     check("declaration handles an empty argument list",
-          declaration("int32_t", "SourceSharp_X", "void") == ["int32_t SourceSharp_X( void );"])
+          declaration("int32_t", "SourceSharp_X", "void") == ["int32_t SourceSharp_X();"])
     check("a pointer return type keeps its star tight",
           declaration("void *", "SourceSharp_X", "void")[0].startswith("void *SourceSharp_X("))
 
@@ -462,12 +458,21 @@ def self_test():
     return 0 if ok else 1
 
 
+def formatted(text, name):
+    """What tools/clang-format makes of a native file this writes."""
+    import importlib.machinery
+    cf = importlib.machinery.SourceFileLoader(
+        "clang_format_tool", os.path.join(os.path.dirname(os.path.realpath(__file__)), "clang-format")).load_module()
+    return cf.format_text(text, name)
+
+
 def main():
     args = sys.argv[1:]
     if args == ["--self-test"]:
         return self_test()
 
     text, rows, local = generate()
+    text = formatted(text, OUTPUT)
 
     if args == ["--emit"]:
         sys.stdout.write(text)

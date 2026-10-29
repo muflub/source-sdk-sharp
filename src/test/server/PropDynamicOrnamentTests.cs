@@ -60,6 +60,11 @@ public class PropDynamicOrnamentTests
         // spawn does; a test that attaches re-stubs it true afterwards.
         engine.Returns("Entities.SetParent", false);
 
+        // CBaseProp::Spawn precaches the model and reads its prop data: none
+        // here, which a dynamic prop keeps (DynamicPropSpawnTests).
+        engine.Returns("Precache.PrecacheModel", 3)
+              .Returns("EntityRender.GetModelKeyValueText", null);
+
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropDynamicOrnament).Assembly);
         registry.Services = services;
@@ -84,6 +89,21 @@ public class PropDynamicOrnamentTests
     // ornament is useless as a fixture: it adds EF_NODRAW, so one that has never
     // been attached cannot be seen at all.
     //-------------------------------------------------------------------------
+    /// <summary>
+    /// COrnamentProp keeps SOLID_NONE, so CDynamicProp::CreateVPhysics makes
+    /// it no object, static or otherwise. Found beside stock (ss_sandbox
+    /// solidity census, 2026-10-27): ours made a static one, which the attach
+    /// then made a shadow.
+    /// </summary>
+    [Fact]
+    public void An_ornament_has_no_physics_object()
+    {
+        var registry = Registry(out var engine, ("model", "models/props/chair.mdl"));
+
+        Assert.False(engine.Called("EntityPhysics.SetPhysicsStatic"));
+        Assert.False(Ornament(registry).SpawnsPhysics);
+    }
+
     [Fact]
     public void AnUnattachedOrnamentRidesNothing()
     {
@@ -141,6 +161,44 @@ public class PropDynamicOrnamentTests
 
         Assert.True(ornament.State.AttachedToIndex == 73,
             "and the client is told which entindex to merge its bones onto");
+    }
+
+    //-------------------------------------------------------------------------
+    // FollowEntity's SetLocalOrigin( vec3_origin ) and SetLocalAngles(
+    // vec3_angle ): the ornament stands on its owner's origin and facing,
+    // wherever the map put it. Found beside stock on ss_sandbox (2026-10-26):
+    // here it kept its placement, 48 units above stock's.
+    //-------------------------------------------------------------------------
+    [Fact]
+    public void Attaching_puts_it_on_its_owners_origin_and_facing()
+    {
+        var registry = Registry(out var engine, ("model", "models/props/chair.mdl"));
+
+        engine.Returns("Entities.FindByName", new EntityHandle(0x0499));
+        engine.Returns("Entities.SetParent", true);
+        engine.Returns("Entities.GetIndex", 73);
+        engine.Clear();
+
+        registry.Input(Ent, "SetAttached", "tree", 0f, default);
+
+        var placed = Assert.Single(engine.AllOf("Entities.SetLocalTransform"));
+        Assert.Equal((Vector.Zero, Vector.Zero), (placed.ArgAs<Vector?>(1), placed.ArgAs<Vector?>(2)));
+        Assert.True(engine.Calls.ToList().FindIndex(c => c.Member == "Entities.SetParent")
+                    < engine.Calls.ToList().FindIndex(c => c.Member == "Entities.SetLocalTransform"),
+                    "placed in the parent's frame, after the link");
+    }
+
+    [Fact]
+    public void A_refused_link_leaves_its_placement_alone()
+    {
+        var registry = Registry(out var engine, ("model", "models/props/chair.mdl"));
+
+        engine.Returns("Entities.FindByName", new EntityHandle(0x0499));
+        engine.Clear();
+
+        registry.Input(Ent, "SetAttached", "tree", 0f, default);
+
+        Assert.False(engine.Called("Entities.SetLocalTransform"));
     }
 
     //-------------------------------------------------------------------------

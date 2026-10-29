@@ -53,6 +53,30 @@ public unsafe struct ManagedRuntimeClientTable
     // 8: int32_t MapMaterialReload( const char *pszNextBsp, const char *pszPreviousBsp, char *pOut, int32_t nOutSize )
     [SlotHash(0x994fbbfe)]
     public delegate* unmanaged<void*, byte*, byte*, byte*, int, int> MapMaterialReload;
+
+    // 9: void MapMaterialSearchPath( const char *pszPath, const char *pszPathID, int32_t bAddToHead )
+    [SlotHash(0x21cbcf2d)]
+    public delegate* unmanaged<void*, byte*, byte*, int, void> MapMaterialSearchPath;
+
+    // 10: void MapMaterialMapAccess( int32_t bOpen )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> MapMaterialMapAccess;
+
+    // 11: int32_t MapMaterialReloadPlan( const char *pszSubString, char *pOut, int32_t nOutSize )
+    [SlotHash(0xfcfc634a)]
+    public delegate* unmanaged<void*, byte*, byte*, int, int> MapMaterialReloadPlan;
+
+    // 12: int32_t WorldDataChanged( const unsigned char *pBlob, int32_t nBytes, int32_t nUpdateType, float *pOut, int32_t nOut )
+    [SlotHash(0x0fd0a53e)]
+    public delegate* unmanaged<void*, byte*, int, int, void*, int, int> WorldDataChanged;
+
+    // 13: void LevelInitPreEntity( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> LevelInitPreEntity;
+
+    // 14: void PostInit( int32_t nAdapterMaxDxLevel )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> PostInit;
 }
 
 /// <summary>The table managed writes for <c>IManagedCommandsClient</c> (<c>SSManagedCommandsClientTable</c> native-side).</summary>
@@ -161,6 +185,14 @@ public unsafe struct ManagedStandaloneClientTable
     // 10: void OnStandaloneDrawBatch( const uint32_t *pHandles, int32_t nCount, int32_t *pResults )
     [SlotHash(0xd26c0bc9)]
     public delegate* unmanaged<void*, void*, int, void*, void> OnStandaloneDrawBatch;
+
+    // 11: int32_t SchemaAccept( uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex, const char *pClassName )
+    [SlotHash(0x87f5efbd)]
+    public delegate* unmanaged<void*, uint, int, uint, uint, int, byte*, int> SchemaAccept;
+
+    // 12: int32_t OnStandaloneDrawExtras( uint32_t hEntity, int32_t nFlags )
+    [SlotHash(0xbabc0fee)]
+    public delegate* unmanaged<void*, uint, int, int> OnStandaloneDrawExtras;
 }
 
 /// <summary>The table managed writes for <c>IManagedPredictionClient</c> (<c>SSManagedPredictionClientTable</c> native-side).</summary>
@@ -206,21 +238,21 @@ public unsafe struct ManagedTempEntsClientTable
     [SlotHash(0xdec81a24)]
     public delegate* unmanaged<void*, int, byte*, int, void> OnTempEntity;
 
-    // 3: int32_t OnNativeTempEntity( int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut )
-    [SlotHash(0x4febfaf5)]
-    public delegate* unmanaged<void*, int, void*, int, void*, int, void*, int, void*, int> OnNativeTempEntity;
-
-    // 4: void OnTempEntPoolUpdate( float flFrameTime )
+    // 3: void OnTempEntPoolUpdate( float flFrameTime )
     [SlotHash(0xb86ff9be)]
     public delegate* unmanaged<void*, float, void> OnTempEntPoolUpdate;
 
-    // 5: void OnTempEntPoolClear( void )
+    // 4: void OnTempEntPoolClear( void )
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> OnTempEntPoolClear;
 
-    // 6: int32_t OnImpactChoice( const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax )
+    // 5: int32_t OnImpactChoice( const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax )
     [SlotHash(0x055e06f1)]
     public delegate* unmanaged<void*, void*, int, void*, int, byte*, int, byte*, int, int> OnImpactChoice;
+
+    // 6: int32_t SuppressLocalTempEnt( int32_t bCanPredict, int32_t nRecipients )
+    [SlotHash(0xecb3ae59)]
+    public delegate* unmanaged<void*, int, int, int> SuppressLocalTempEnt;
 }
 
 /// <summary>The table managed writes for <c>IManagedSaveRestoreClient</c> (<c>SSManagedSaveRestoreClientTable</c> native-side).</summary>
@@ -282,11 +314,7 @@ public unsafe struct ManagedBeamsClientTable
     [SlotHash(0x86461d22)]
     public delegate* unmanaged<void*, uint, float, void> BeamsKillDead;
 
-    // 5: int32_t BeamsCreate( int32_t nKind, const int32_t *pInts, const float *pFloats, const char *pszModel, const char *pszHalo, float flCurTime )
-    [SlotHash(0x0d2e11b0)]
-    public delegate* unmanaged<void*, int, void*, void*, byte*, byte*, float, int> BeamsCreate;
-
-    // 6: void BeamsDraw( int32_t nRenderable )
+    // 5: void BeamsDraw( int32_t nRenderable )
     [SlotHash(0xc83e311d)]
     public delegate* unmanaged<void*, int, void> BeamsDraw;
 }

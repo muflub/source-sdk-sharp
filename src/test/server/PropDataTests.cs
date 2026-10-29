@@ -147,8 +147,7 @@ public class PropDataTests
         // Wood.Small is not in the fixture, so a base naming it contributes
         // nothing and the model's own health stands; the fixture's own chunk
         // group is proof the file was parsed.
-        Assert.Equal(12, props.ModelPropData("mdlkeyvalue { prop_data { base NoSuch health 12 } }",
-                                             out _, out _));
+        Assert.Equal(12, props.ModelPropValues("mdlkeyvalue { prop_data { base NoSuch health 12 } }").Health);
         Assert.True(props.Counts.Groups > 0, "the file was parsed before any prop can ask");
     }
 

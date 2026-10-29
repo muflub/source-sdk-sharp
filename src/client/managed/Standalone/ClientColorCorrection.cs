@@ -24,13 +24,17 @@ namespace SourceSharp.Client.Standalone;
 /// </summary>
 public sealed class ColorCorrections : IColorCorrections
 {
-    public ColorCorrections(IEngineHud screen)
+    public ColorCorrections(IEngineHud screen, IEngineVisibility visibility)
     {
         Screen = screen;
+        Visibility = visibility;
     }
 
     /// <summary>drawing, and the local player it is drawn for.</summary>
     private readonly IEngineHud Screen;
+
+    /// <summary>the lookups' weights, which the frame resets before it re-weighs them.</summary>
+    private readonly IEngineVisibility Visibility;
 
 
     private readonly List<IWeightedCorrection> _live = new();
@@ -49,8 +53,13 @@ public sealed class ColorCorrections : IColorCorrections
     public int LiveCount => _live.Count;
 
     /// <summary>
-    /// Re-weights every live correction. Called once a frame by the client
-    /// module.
+    /// Resets every lookup's weight, then re-weights every live correction.
+    /// Called once a frame by the client module, at FRAME_RENDER_START: stock's
+    /// <c>OnRenderStart</c> calls <c>ResetColorCorrectionWeights</c> and then
+    /// <c>SimulateEntities</c>, where each <c>C_ColorCorrection</c> thinks, so
+    /// the weights the view draws with are set after the reset and before the
+    /// render (lane M1-A: the reset was native, at OnRenderStart, and ran after
+    /// this pass, which ran from the frame's update after the render).
     ///
     /// <para>
     /// Backwards, so a correction that releases itself mid-pass cannot make the
@@ -60,6 +69,8 @@ public sealed class ColorCorrections : IColorCorrections
     /// </summary>
     public void Frame()
     {
+        Visibility.ColorCorrectionResetWeights();
+
         if (_live.Count == 0)
             return;
 

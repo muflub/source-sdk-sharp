@@ -1,6 +1,4 @@
-//========= SourceSharp — ss_command_line.h ===================================//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
-//=============================================================================//
 
 #include "ss_command_line.h"
 #include "ss_platform.h"
@@ -11,9 +9,9 @@
 #include <string>
 
 #if defined( _WIN32 )
-	#include <shellapi.h>
-#elif !defined( __APPLE__ )
-	#include <fcntl.h>
+#include <shellapi.h>
+#else
+#include <fcntl.h>
 #endif
 
 namespace ss
@@ -35,29 +33,21 @@ std::string ReadCmdline()
 	{
 		for ( int i = 0; i < nArgs; ++i )
 		{
-			const int n = ::WideCharToMultiByte( CP_UTF8, 0, ppArgs[ i ], -1, NULL, 0, NULL, NULL );
+			const int n = ::WideCharToMultiByte( CP_UTF8, 0, ppArgs[i], -1, NULL, 0, NULL, NULL );
 			if ( n <= 0 )
 				continue;
 			std::string arg( (size_t)n, '\0' );
-			::WideCharToMultiByte( CP_UTF8, 0, ppArgs[ i ], -1, &arg[ 0 ], n, NULL, NULL );
-			args += arg;   // n counts the terminator, so the NUL comes with it
+			::WideCharToMultiByte( CP_UTF8, 0, ppArgs[i], -1, &arg[0], n, NULL, NULL );
+			args += arg; // n counts the terminator, so the NUL comes with it
 		}
 		::LocalFree( ppArgs );
-	}
-#elif defined( __APPLE__ )
-	const int nArgs = *_NSGetArgc();
-	char **ppArgs = *_NSGetArgv();
-	for ( int i = 0; ppArgs && i < nArgs; ++i )
-	{
-		args += ppArgs[ i ] ? ppArgs[ i ] : "";
-		args += '\0';
 	}
 #else
 	const int fd = open( "/proc/self/cmdline", O_RDONLY | O_CLOEXEC );
 	if ( fd < 0 )
 		return LaunchArgsBlock( getenv( kLaunchArgsVariable ) );
 
-	char buf[ 4096 ];
+	char buf[4096];
 	ssize_t n;
 	while ( ( n = read( fd, buf, sizeof( buf ) ) ) > 0 )
 		args.append( buf, (size_t)n );
@@ -86,7 +76,7 @@ const char *FindArg( const char *pArgs, size_t nLen, const char *pParam )
 	return nullptr;
 }
 
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
+#ifdef CLIENT_DLL // server gc cull: server.so never reaches this
 void Copy( char *pOut, size_t nOut, const char *pText )
 {
 	if ( !pOut || !nOut )
@@ -94,7 +84,7 @@ void Copy( char *pOut, size_t nOut, const char *pText )
 	const size_t n = pText ? strnlen( pText, nOut - 1 ) : 0;
 	if ( n )
 		memcpy( pOut, pText, n );
-	pOut[ n ] = 0;
+	pOut[n] = 0;
 }
 #endif
 }
@@ -123,9 +113,9 @@ bool CommandLineHasIn( const char *pArgs, size_t nLen, const char *pParam )
 	return FindArg( pArgs, nLen, pParam ) != nullptr;
 }
 
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-bool CommandLineValueIn( const char *pArgs, size_t nLen, const char *pParam,
-                         const char *pDefault, char *pOut, size_t nOut )
+#ifdef CLIENT_DLL // server gc cull: server.so never reaches this
+bool CommandLineValueIn( const char *pArgs, size_t nLen, const char *pParam, const char *pDefault, char *pOut,
+						 size_t nOut )
 {
 	const char *pArg = FindArg( pArgs, nLen, pParam );
 	const char *pValue = pArg ? NextArg( pArgs, nLen, pArg ) : nullptr;
@@ -146,7 +136,7 @@ bool CommandLineHas( const char *pParam )
 	return CommandLineHasIn( args.data(), args.size(), pParam );
 }
 
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
+#ifdef CLIENT_DLL // server gc cull: server.so never reaches this
 bool CommandLineValue( const char *pParam, const char *pDefault, char *pOut, size_t nOut )
 {
 	const std::string args = ReadCmdline();

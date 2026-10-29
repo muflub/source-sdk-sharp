@@ -3,7 +3,7 @@
 # ss_alloc_check_wraps is an INTERFACE target: linking it puts -Wl,--wrap= on
 # every allocation and release entry point, so each reference the linked code
 # makes to malloc/free/operator new/delete resolves to the __wrap_ function in
-# src/server/native/alloc_check.cpp, which must be linked alongside.
+# src/shared/native/alloc_check.cpp, which must be linked alongside.
 #
 # libstdc++ stays a shared library. Its out-of-line template code
 # (std::string, container growth) allocates AND frees inside libstdc++.so, where

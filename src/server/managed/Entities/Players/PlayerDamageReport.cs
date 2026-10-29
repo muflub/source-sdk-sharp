@@ -132,9 +132,9 @@ public sealed class PlayerDamageReport
     /// <summary>
     /// Every <see cref="TimeBasedInterval"/>: each time-based kind carried
     /// starts its duration, or counts it down and is forgotten when done.
-    /// Answers the health poison gives back this interval (TakeHealth's to
-    /// apply). Drowning is not ported, so drown recovery has nothing to give.
-    /// Stock deals no time-based damage: its OnTakeDamage calls are commented out.
+    /// Answers the health poison and drowning give back this interval
+    /// (TakeHealth's to apply). Stock deals no time-based damage: its
+    /// OnTakeDamage calls are commented out.
     /// </summary>
     public int CheckTimeBased(float now)
     {
@@ -160,6 +160,15 @@ public sealed class PlayerDamageReport
                 _poisonRestored += dif;
             }
 
+            // "this hack is actually used to RESTORE health after the player
+            // has been drowning and finally takes a breath": ten at a time.
+            if (i == DrownRecoverIndex && _drownDamage > _drownRestored)
+            {
+                int dif = Math.Min(_drownDamage - _drownRestored, DrownRecoverStep);
+                heal += dif;
+                _drownRestored += dif;
+            }
+
             if (_timeBased[i] != 0)
             {
                 if (--_timeBased[i] == 0)
@@ -176,6 +185,43 @@ public sealed class PlayerDamageReport
 
     /// <summary>itbd_PoisonRecover.</summary>
     public const int PoisonRecoverIndex = 2;
+
+    //-- DROWNING (WaterMove's half of the report) -----------------------------
+
+    /// <summary>itbd_DrownRecover, and what it gives back an interval.</summary>
+    public const int DrownRecoverIndex = 4, DrownRecoverStep = 10;
+
+    // m_idrowndmg and m_idrownrestored: never reset, as stock never resets them.
+    private int _drownDamage;
+    private int _drownRestored;
+
+    /// <summary>The drowning taken and not yet given back.</summary>
+    public int DrownOwed => _drownDamage - _drownRestored;
+
+    /// <summary>A drowning hit of <paramref name="damage"/>, to be given back once the player breathes.</summary>
+    public void Drowned(int damage) => _drownDamage += damage;
+
+    /// <summary>
+    /// A breath with drowning owed: DMG_DROWNRECOVER on, DMG_DROWN off, and
+    /// its count restarted ("this actually causes the count to continue
+    /// restarting until all drowning damage is healed").
+    /// </summary>
+    public void BreatheAgain()
+    {
+        _bitsDamageType |= (int)DamageType.DrownRecover;
+        _bitsDamageType &= ~(int)DamageType.Drown;
+        _timeBased[DrownRecoverIndex] = 0;
+    }
+
+    /// <summary>Under water: no restoring.</summary>
+    public void HoldBreath()
+    {
+        _bitsDamageType &= ~(int)DamageType.DrownRecover;
+        _timeBased[DrownRecoverIndex] = 0;
+    }
+
+    /// <summary>Under water with air left: the drowning bit off.</summary>
+    public void NotDrowning() => _bitsDamageType &= ~(int)DamageType.Drown;
 
     /// <summary>
     /// The client-data update: the message to send, if anything changed since

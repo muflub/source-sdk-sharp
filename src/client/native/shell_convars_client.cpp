@@ -4,31 +4,21 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the managed client's convar watch and decided values
-//
 // SS_REASON b  an interface resolved by name at load
 //
-// IShimConVarsClient's two slots (plan_client_novalve C8, lane c6-input).
+// IShimConVarsClient's two slots.
 //
-// WATCH. tier1's ChangeStringValue calls every installed global change
-// callback for every convar in the process, the engine's replicated ones
-// included when the server's value arrives. The client's one callback
-// (sourcesharp_gamesystem.cpp's SourceSharp_OnConVarChanged) forwards our own
-// registry's names; a WATCHED name is forwarded too, through the same
-// ConVarChanged, under the id this answered. The table lives here, survives a
-// managed reload (a re-watch answers the same id) and is never shrunk.
+// Watch: tier1 calls every installed global change callback for every convar,
+// so a watched name is forwarded to managed's ConVarChanged under the id this
+// answered. The table survives a managed reload and never shrinks.
 //
-// VALUES. A value managed decided, stored under a name native code reads
-// without crossing (the server-bounded convars' GetFloat, the client's
-// interpolation amount). Mechanism only: what each value is, is C#'s.
-//=============================================================================//
+// Values: floats managed decided, stored under names native code reads without
+// crossing.
 
-#include "cbase.h"
-#include "convar.h"
-#include "sourcesharp_entrypoints.h"
+#include "icvar.h"
+
 #include "shell_convars_client.h"
-
-#include "tier0/memdbgon.h"
+#include "shell_shim_console.h"
 
 namespace
 {
@@ -36,17 +26,18 @@ const int kMaxWatched = 32;
 const int kNameBytes = 64;
 
 // The watched names; an id is SOURCESHARP_CONVAR_WATCH_ID_BASE + the index.
-char g_szWatched[ kMaxWatched ][ kNameBytes ];
+char g_szWatched[kMaxWatched][kNameBytes];
 int g_nWatched = 0;
 
 // The decided values: a name and its float, set by managed.
 struct DecidedValue_t
 {
-	char szName[ kNameBytes ];
+	char szName[kNameBytes];
 	float flValue;
 };
+
 const int kMaxDecided = 8;
-DecidedValue_t g_Decided[ kMaxDecided ];
+DecidedValue_t g_Decided[kMaxDecided];
 int g_nDecided = 0;
 } // namespace
 
@@ -57,15 +48,15 @@ int32_t SourceSharp_ConVarsClientWatch( const char *pName )
 
 	for ( int i = 0; i < g_nWatched; i++ )
 	{
-		if ( !V_stricmp( g_szWatched[ i ], pName ) )
+		if ( !V_stricmp( g_szWatched[i], pName ) )
 			return SOURCESHARP_CONVAR_WATCH_ID_BASE + i;
 	}
 
 	if ( g_nWatched >= kMaxWatched || V_strlen( pName ) >= kNameBytes )
 		return -1;
 
-	V_strncpy( g_szWatched[ g_nWatched ], pName, kNameBytes );
-	SourceSharp_EnsureConVarChangeCallback();
+	V_strncpy( g_szWatched[g_nWatched], pName, kNameBytes );
+	ShimConsole().EnsureChangeCallback();
 	return SOURCESHARP_CONVAR_WATCH_ID_BASE + g_nWatched++;
 }
 
@@ -75,7 +66,7 @@ int32_t SourceSharp_ClientWatchedConVarId( const char *pName )
 		return -1;
 	for ( int i = 0; i < g_nWatched; i++ )
 	{
-		if ( !V_stricmp( g_szWatched[ i ], pName ) )
+		if ( !V_stricmp( g_szWatched[i], pName ) )
 			return SOURCESHARP_CONVAR_WATCH_ID_BASE + i;
 	}
 	return -1;
@@ -88,9 +79,9 @@ int32_t SourceSharp_ConVarsClientSetValue( const char *pName, float flValue )
 
 	for ( int i = 0; i < g_nDecided; i++ )
 	{
-		if ( !V_stricmp( g_Decided[ i ].szName, pName ) )
+		if ( !V_stricmp( g_Decided[i].szName, pName ) )
 		{
-			g_Decided[ i ].flValue = flValue;
+			g_Decided[i].flValue = flValue;
 			return 1;
 		}
 	}
@@ -98,8 +89,8 @@ int32_t SourceSharp_ConVarsClientSetValue( const char *pName, float flValue )
 	if ( g_nDecided >= kMaxDecided )
 		return 0;
 
-	V_strncpy( g_Decided[ g_nDecided ].szName, pName, kNameBytes );
-	g_Decided[ g_nDecided ].flValue = flValue;
+	V_strncpy( g_Decided[g_nDecided].szName, pName, kNameBytes );
+	g_Decided[g_nDecided].flValue = flValue;
 	g_nDecided++;
 	return 1;
 }
@@ -108,9 +99,9 @@ bool SourceSharp_ClientDecidedValue( const char *pName, float *pOut )
 {
 	for ( int i = 0; i < g_nDecided; i++ )
 	{
-		if ( !V_stricmp( g_Decided[ i ].szName, pName ) )
+		if ( !V_stricmp( g_Decided[i].szName, pName ) )
 		{
-			*pOut = g_Decided[ i ].flValue;
+			*pOut = g_Decided[i].flValue;
 			return true;
 		}
 	}

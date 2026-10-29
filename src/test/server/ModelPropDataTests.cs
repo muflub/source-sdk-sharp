@@ -35,7 +35,12 @@ public class ModelPropDataTests
     }
 
     private static int Resolve(string? text, out float damage, out float radius)
-        => Loaded().ModelPropData(text, out damage, out radius);
+    {
+        var values = Loaded().ModelPropValues(text);
+        damage = values.ExplosiveDamage ?? 0f;
+        radius = values.ExplosiveRadius ?? 0f;
+        return values.Health ?? 0;
+    }
 
     [Fact]
     public void TheModelsOwnSectionIsRead()
@@ -133,4 +138,57 @@ public class KeyValuesTypedReadTests
         Assert.Equal(5, root.GetInt("a/b/c", 0));
         Assert.Null(root.FindPath("a/x"));
     }
+}
+
+/// <summary>
+/// A model's prop interactions (CPropData::ParsePropFromKV). Found 2026-10-28:
+/// the server read none, so dm_lockdown's 21 explosive barrels neither caught
+/// fire at half health nor broke on the first impact after a physcannon throw.
+/// </summary>
+public class ModelInteractionsTests
+{
+    /// <summary>oildrum001_explosive.mdl's $keyvalues, as the model holds them.</summary>
+    private const string Barrel = "mdlkeyvalue\n{\nprop_data {\n\"dmg.bullets\" \"1.0\" \"dmg.club\" \"1.0\" \"dmg.explosive\" \"1.0\" \"health\" \"20\" \"explosive_damage\" \"120\" \"explosive_radius\" \"256\"  }\nphysgun_interactions {\n\"onfirstimpact\" \"break\"  }\nfire_interactions {\n\"flammable\" \"yes\" \"explosive_resist\" \"yes\" \"ignite\" \"halfhealth\"  }\n}\n";
+
+    private const string File = @"
+""PropData""
+{
+    ""Sharp.Base""   { ""health"" ""5"" ""physgun_interactions"" { ""onlaunch"" ""spin_zaxis"" } }
+    ""Sharp.Blade""  { ""base"" ""Sharp.Base"" }
+}
+";
+
+    private static PropInteractions Read(string? text)
+    {
+        var engine = TestServices.Fake();
+        engine.Returns("Files.ReadGameFile", File);
+        var props = new PropData(new RecordingLog(), engine, engine, engine);
+        props.Load();
+        return props.ModelInteractions(text);
+    }
+
+    [Fact]
+    public void The_explosive_barrel_breaks_on_first_impact_and_burns()
+        => Assert.Equal(PropInteractions.PhysgunFirstBreak | PropInteractions.FireFlammable
+                        | PropInteractions.FireExplosiveResist | PropInteractions.FireIgniteHalfHealth,
+                        Read(Barrel));
+
+    /// <summary>A base reads its interactions from its own propdata.txt section, under the model's.</summary>
+    [Fact]
+    public void A_base_sections_interactions_are_the_models_too()
+        => Assert.Equal(PropInteractions.PhysgunLaunchSpinZ | PropInteractions.FireFlammable,
+                        Read("mdlkeyvalue { prop_data { base Sharp.Blade } fire_interactions { flammable yes } }"));
+
+    [Fact]
+    public void A_value_that_is_not_the_one_is_nothing()
+        => Assert.Equal(PropInteractions.None, Read("mdlkeyvalue { prop_data { health 5 } fire_interactions { flammable no } }"));
+
+    /// <summary>ParsePropData reaches the interactions only through prop_data.</summary>
+    [Fact]
+    public void A_model_with_no_prop_data_has_none()
+        => Assert.Equal(PropInteractions.None, Read("mdlkeyvalue { fire_interactions { flammable yes } }"));
+
+    [Fact]
+    public void Values_compare_as_stricmp_does()
+        => Assert.Equal(PropInteractions.FireFlammable, Read("mdlkeyvalue { prop_data { health 5 } fire_interactions { flammable YES } }"));
 }

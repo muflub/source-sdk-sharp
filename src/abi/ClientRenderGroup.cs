@@ -21,6 +21,14 @@ public enum ClientRenderGroup
     /// <summary>Blended, and drawn in the translucent pass after the opaque one.</summary>
     TranslucentEntity = 8,
 
+    /// <summary>
+    /// Opaque AND translucent: the model in the opaque pass, then again in the
+    /// translucent pass with <c>STUDIO_TWOPASS</c>. Stock's stunstick and
+    /// physcannon answer this from <c>GetRenderGroup</c> so that their glows
+    /// draw in the translucent pass while the weapon itself is solid.
+    /// </summary>
+    TwoPass = 9,
+
     /// <summary>Solid weapon view models: a list of its own, never the leaves.</summary>
     ViewModelOpaque = 10,
 

@@ -85,6 +85,8 @@ public sealed class TraceMaskFoldTests : System.IDisposable
     [InlineData(TraceMask.OpaqueAndNpcsWindow, 0x2004083)]
     [InlineData(TraceMask.GlowSight, 0x6004081)]
     [InlineData(TraceMask.ContentsSolid, 0x1)]
+    [InlineData(TraceMask.ShotNoWindows, 0x46004001)]
+    [InlineData(TraceMask.Opaque, 0x4081)]
     [InlineData((TraceMask)99, 0x400b)]
     public void ALineTraceCarriesTheEnginesOwnMask(TraceMask mask, int engine)
     {
@@ -103,14 +105,24 @@ public sealed class TraceMaskFoldTests : System.IDisposable
 
     [Theory]
     [InlineData(TraceMask.Shot, 0x46004003)]
+    [InlineData(TraceMask.ShotHull, 0x600400b)]
     [InlineData(TraceMask.Brushes, 0x200400b)]
     [InlineData(TraceMask.Solid, 0x200400b)]
     [InlineData(TraceMask.All, 0x200400b)]
-    public void AHullIsAShotOrSolidAndNothingElse(TraceMask mask, int engine)
+    public void AHullIsAShotASwingOrSolidAndNothingElse(TraceMask mask, int engine)
     {
         _side.TraceHull(Vector.Zero, new Vector(0, 0, 1), new Vector(-1, -1, -1), new Vector(1, 1, 1), mask);
 
         Assert.Equal(engine, s_Mask);
+    }
+
+    /// <summary>The bludgeon's near-miss hull (CBaseHL2MPBludgeonWeapon::Swing) sweeps MASK_SHOT_HULL.</summary>
+    [Fact]
+    public void ABoxSweepCarriesTheSameMaskAsAHull()
+    {
+        _side.TraceBox(Vector.Zero, new Vector(0, 0, 1), new Vector(-16, -16, -16), new Vector(16, 16, 16), TraceMask.ShotHull);
+
+        Assert.Equal(0x600400b, s_Mask);
     }
 
     [Fact]

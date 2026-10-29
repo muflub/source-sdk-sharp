@@ -20,7 +20,21 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "vstdlib/random.h"
 #include "sharedInterface.h"
 
@@ -37,7 +51,7 @@ FILE *OpenFixture( const char *pName )
 		Msg( "[c2-sims probe] SOURCESHARP_C2SIMS_FIXTURE_DIR is not set; %s not written\n", pName );
 		return NULL;
 	}
-	char path[ 1024 ];
+	char path[1024];
 	Q_snprintf( path, sizeof( path ), "%s/%s", pDir, pName );
 	FILE *f = fopen( path, "w" );
 	if ( !f )
@@ -83,7 +97,9 @@ class CSimRecordingRandom : public IUniformRandomStream
 {
 public:
 	IUniformRandomStream *m_pInner = NULL;
+
 	virtual void SetSeed( int iSeed ) { m_pInner->SetSeed( iSeed ); }
+
 	virtual float RandomFloat( float flMin, float flMax )
 	{
 		float v = m_pInner->RandomFloat( flMin, flMax );
@@ -91,6 +107,7 @@ public:
 			fprintf( g_pSimFile, "RF\t%.9g\t%.9g\t%.9g\n", flMin, flMax, v );
 		return v;
 	}
+
 	virtual int RandomInt( int iMin, int iMax )
 	{
 		int v = m_pInner->RandomInt( iMin, iMax );
@@ -98,6 +115,7 @@ public:
 			fprintf( g_pSimFile, "RI\t%d\t%d\t%d\n", iMin, iMax, v );
 		return v;
 	}
+
 	virtual float RandomFloatExp( float flMin, float flMax, float flExp )
 	{
 		float v = m_pInner->RandomFloatExp( flMin, flMax, flExp );
@@ -106,6 +124,7 @@ public:
 		return v;
 	}
 };
+
 CSimRecordingRandom g_SimRandom;
 
 // The stream every draw comes from while recording, seeded fixed: client.so's
@@ -116,8 +135,11 @@ class CSimStream : public IUniformRandomStream
 {
 public:
 	virtual void SetSeed( int iSeed ) { RandomSeed( iSeed ); }
+
 	virtual float RandomFloat( float flMin, float flMax ) { return ::RandomFloat( flMin, flMax ); }
+
 	virtual int RandomInt( int iMin, int iMax ) { return ::RandomInt( iMin, iMax ); }
+
 	virtual float RandomFloatExp( float flMin, float flMax, float flExp )
 	{
 		float fl = ::RandomFloat( 0.0f, 1.0f );
@@ -126,14 +148,27 @@ public:
 		return fl * ( flMax - flMin ) + flMin;
 	}
 };
+
 CSimStream g_SimStream;
 } // namespace
 
-bool C2SimsProbe_On() { return g_pSimFile != NULL; }
-int C2SimsProbe_Frame() { return g_nSimFrame; }
-void C2SimsProbe_Arm( bool bArm ) { g_bSimArmed = bArm && g_pSimFile; }
+bool C2SimsProbe_On()
+{
+	return g_pSimFile != NULL;
+}
 
-void C2SimsProbe_Row( const char *pFmt, ... ) __attribute__(( format( printf, 1, 2 ) ));
+int C2SimsProbe_Frame()
+{
+	return g_nSimFrame;
+}
+
+void C2SimsProbe_Arm( bool bArm )
+{
+	g_bSimArmed = bArm && g_pSimFile;
+}
+
+void C2SimsProbe_Row( const char *pFmt, ... ) __attribute__( ( format( printf, 1, 2 ) ) );
+
 void C2SimsProbe_Row( const char *pFmt, ... )
 {
 	if ( !g_pSimFile )
@@ -170,14 +205,16 @@ bool C2SimsProbe_BeginFrame()
 	return true;
 }
 
-CON_COMMAND( cs_cl_probe_sim, "c2-sims probe (debug): record a patched sim into $SOURCESHARP_C2SIMS_FIXTURE_DIR/<name>-stock.tsv. <name> <frames>" )
+CON_COMMAND(
+	cs_cl_probe_sim,
+	"c2-sims probe (debug): record a patched sim into $SOURCESHARP_C2SIMS_FIXTURE_DIR/<name>-stock.tsv. <name> <frames>" )
 {
 	if ( args.ArgC() < 3 || g_pSimFile )
 	{
 		Msg( "[c2-sims probe] usage: cs_cl_probe_sim <name> <frames> (one recording at a time)\n" );
 		return;
 	}
-	char name[ 128 ];
+	char name[128];
 	Q_snprintf( name, sizeof( name ), "%s-stock.tsv", args.Arg( 1 ) );
 	g_pSimFile = OpenFixture( name );
 	if ( !g_pSimFile )
@@ -191,7 +228,8 @@ CON_COMMAND( cs_cl_probe_sim, "c2-sims probe (debug): record a patched sim into 
 		g_SimRandom.m_pInner = &g_SimStream;
 		random = &g_SimRandom;
 	}
-	fprintf( g_pSimFile, "# c2-sims %s oracle, recorded by a patched sim (tools/probes/c2sims-%s-probe.diff)\n", args.Arg( 1 ), args.Arg( 1 ) );
+	fprintf( g_pSimFile, "# c2-sims %s oracle, recorded by a patched sim (tools/probes/c2sims-%s-probe.diff)\n",
+			 args.Arg( 1 ), args.Arg( 1 ) );
 	Msg( "[c2-sims probe] sim: recording %s for %d frame(s)\n", args.Arg( 1 ), g_nSimFramesLeft );
 }
 
@@ -221,7 +259,8 @@ int g_nEnvFrames = 0;
 int g_nEnvFrame = 0;
 CSoundPatch *g_pEnvPatch = NULL;
 
-void EnvRow( const char *pFmt, ... ) __attribute__(( format( printf, 1, 2 ) ));
+void EnvRow( const char *pFmt, ... ) __attribute__( ( format( printf, 1, 2 ) ) );
+
 void EnvRow( const char *pFmt, ... )
 {
 	va_list ap;
@@ -232,7 +271,10 @@ void EnvRow( const char *pFmt, ... )
 }
 }
 
-namespace { void FrictionTick(); }
+namespace
+{
+void FrictionTick();
+}
 
 void C2SimsProbe_Tick()
 {
@@ -271,7 +313,8 @@ void C2SimsProbe_Tick()
 		c.SoundFadeOut( g_pEnvPatch, 0.4f, false );
 	}
 
-	EnvRow( "W\t%.9g\t%.9g\t%.9g\t%.9g", t, gpGlobals->frametime, c.SoundGetVolume( g_pEnvPatch ), c.SoundGetPitch( g_pEnvPatch ) );
+	EnvRow( "W\t%.9g\t%.9g\t%.9g\t%.9g", t, gpGlobals->frametime, c.SoundGetVolume( g_pEnvPatch ),
+			c.SoundGetPitch( g_pEnvPatch ) );
 
 	if ( f >= g_nEnvFrames )
 	{
@@ -283,7 +326,9 @@ void C2SimsProbe_Tick()
 	}
 }
 
-CON_COMMAND( cs_cl_probe_sndenv, "c2-sims probe (debug): record the client sound envelope controller into $SOURCESHARP_C2SIMS_FIXTURE_DIR/soundenvelope-stock.tsv. <frames>" )
+CON_COMMAND(
+	cs_cl_probe_sndenv,
+	"c2-sims probe (debug): record the client sound envelope controller into $SOURCESHARP_C2SIMS_FIXTURE_DIR/soundenvelope-stock.tsv. <frames>" )
 {
 	if ( args.ArgC() < 2 || g_pEnvFile )
 		return;
@@ -292,7 +337,9 @@ CON_COMMAND( cs_cl_probe_sndenv, "c2-sims probe (debug): record the client sound
 		return;
 	g_nEnvFrames = atoi( args.Arg( 1 ) );
 	g_nEnvFrame = 0;
-	fprintf( g_pEnvFile, "# c2-sims soundenvelope oracle: stock CSoundEnvelopeController on the client (tools/probes/c2sims-sndenv-probe.diff)\n" );
+	fprintf(
+		g_pEnvFile,
+		"# c2-sims soundenvelope oracle: stock CSoundEnvelopeController on the client (tools/probes/c2sims-sndenv-probe.diff)\n" );
 	CSoundEnvelopeController &c = CSoundEnvelopeController::GetController();
 	CLocalPlayerFilter filter;
 	const float t = gpGlobals->curtime;
@@ -323,15 +370,15 @@ CON_COMMAND( cs_cl_probe_sndenv, "c2-sims probe (debug): record the client sound
 //   cs_cl_probe_friction <frames> [sound]   default sound Metal_Box.ScrapeRough
 //=============================================================================//
 
-#include "client_sound.h"	// soundemitterbase
+#include "client_sound.h" // soundemitterbase
 #include "physics_shared.h"
 
 namespace
 {
 int g_nFrictionFrames = 0;
 int g_nFrictionFrame = 0;
-int g_FrictionKey = 0;	// its address is the probe's "entity"
-char g_szFrictionSound[ 128 ] = "Metal_Box.ScrapeRough";
+int g_FrictionKey = 0; // its address is the probe's "entity"
+char g_szFrictionSound[128] = "Metal_Box.ScrapeRough";
 HSOUNDSCRIPTHANDLE g_hFriction = SOUNDEMITTER_INVALID_HANDLE;
 
 void FrictionTick()
@@ -348,11 +395,13 @@ void FrictionTick()
 	const float flVolume = 0.3f + 0.6f * sinf( 3.14159265f * f / (float)g_nFrictionFrames );
 	PhysFrictionSound( (IGameEntity *)&g_FrictionKey, g_PhysWorldObject, g_szFrictionSound, g_hFriction, flVolume );
 	if ( g_nFrictionFrame == g_nFrictionFrames )
-		Msg( "[c2-sims probe] friction: drove %d frame(s) of %s (handle %d)\n", g_nFrictionFrames, g_szFrictionSound, (int)g_hFriction );
+		Msg( "[c2-sims probe] friction: drove %d frame(s) of %s (handle %d)\n", g_nFrictionFrames, g_szFrictionSound,
+			 (int)g_hFriction );
 }
 }
 
-CON_COMMAND( cs_cl_probe_friction, "c2-sims probe (debug): drive the client friction sound for <frames> frames. <frames> [sound]" )
+CON_COMMAND( cs_cl_probe_friction,
+			 "c2-sims probe (debug): drive the client friction sound for <frames> frames. <frames> [sound]" )
 {
 	if ( args.ArgC() < 2 )
 		return;
@@ -369,6 +418,7 @@ CON_COMMAND( cs_cl_probe_friction, "c2-sims probe (debug): drive the client fric
 	// handle is looked up (and cached) as PhysFrictionSound will use it.
 	CSoundParameters params;
 	const bool bKnown = soundemitterbase->GetParametersForSoundEx( g_szFrictionSound, g_hFriction, params,
-	                                                               soundemitterbase->GetActorGender( NULL ), true );
-	Msg( "[c2-sims probe] friction: %s is %s\n", g_szFrictionSound, bKnown ? "a known sound script" : "NOT a known sound script" );
+																   soundemitterbase->GetActorGender( NULL ), true );
+	Msg( "[c2-sims probe] friction: %s is %s\n", g_szFrictionSound,
+		 bKnown ? "a known sound script" : "NOT a known sound script" );
 }

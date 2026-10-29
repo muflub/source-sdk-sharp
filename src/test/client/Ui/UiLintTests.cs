@@ -327,6 +327,18 @@ public class UiLintTests
     }
 
     [Fact]
+    public void An_art_coordinate_is_not_a_raw_escape()
+    {
+        // AtRes carries the game's own .res position (the same escape
+        // UiPaint.FromGame gives game colours); Inset(Raw.Du) is the design
+        // escape and stays listed.
+        var findings = Lint((ref UiFrame ui) =>
+            ui.Rect(Tone.Surface, Size.Du(225), Size.Du(112.5f))
+                .AtRes(UiAnchor.BottomLeft, 20.25f, 135f).Name("art"));
+        Assert.Empty(Of(findings, "raw"));
+    }
+
+    [Fact]
     public void Ids_reports_two_keyed_elements_sharing_an_id()
     {
         var bad = Lint((ref UiFrame ui) =>

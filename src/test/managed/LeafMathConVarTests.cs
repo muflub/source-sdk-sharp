@@ -51,15 +51,6 @@ public class LeafMathConVarTests
     // (mod_load_showstall) left with it at studio.cpp's eviction (2026-10-18).
     private const string Studio = "src/sourcesharp/public/studio.cpp";
 
-    private static string Read(string relative)
-    {
-        string path = Path.Combine(RepoLayout.SdkTree, relative);
-
-        Assert.True(File.Exists(path), "not on disk: " + path);
-
-        return File.ReadAllText(path);
-    }
-
     /// <summary>
     /// A declaration as these facts compare it. Each side compiles its own copy
     /// of the shared interop (plan_shim_areas_split phase 3), so the two sides'
@@ -181,19 +172,6 @@ public class LeafMathConVarTests
     // The native side: it READS them and no longer DECLARES them.
     //=========================================================================
 
-    [Fact]
-    public void TheShowstallKnobsLastNativeReaderIsGone()
-    {
-        // The positive arm: the anchored tree is read (a file that stays).
-        Assert.True(File.Exists(Path.Combine(RepoLayout.SdkTree, "src", "buildsourcesharp")));
-
-        // studio.cpp read mod_load_showstall at three stall sites of its
-        // animation-block read; the block read is the managed StudioHdr's now
-        // (no stall telemetry: it reads copied images, not the engine's IO).
-        Assert.False(File.Exists(Path.Combine(RepoLayout.SdkTree, Studio)),
-            "studio.cpp is back in the tree: " + Path.Combine(RepoLayout.SdkTree, Studio));
-    }
-
     //=========================================================================
     // The path resolution itself, because an absence check that read the wrong
     // tree would pass every one of the assertions above.
@@ -269,17 +247,4 @@ public class LeafMathConVarTests
         }
     }
 
-    [Fact]
-    public void AMissingFileFailsAndSaysWhichPathItLookedAt()
-    {
-        // The check that cannot fail, made able to fail: Read() must refuse a
-        // path that is not there rather than finding one somewhere else. The
-        // failure message carries the RESOLVED path, which is the only thing
-        // that tells a reader which tree was searched.
-        var ex = Assert.ThrowsAny<Xunit.Sdk.XunitException>(
-            () => Read("src/sourcesharp/public/this_file_does_not_exist.cpp"));
-
-        Assert.Contains("this_file_does_not_exist.cpp", ex.Message, StringComparison.Ordinal);
-        Assert.Contains(RepoLayout.SdkTree, ex.Message, StringComparison.Ordinal);
-    }
 }

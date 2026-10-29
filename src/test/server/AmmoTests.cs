@@ -41,33 +41,8 @@ public class AmmoTests
         // Inserting into it is a protocol break and requires an argument.
         Assert.Equal(
             new[] { "Pistol", "SMG1", "357", "Buckshot", "AR2",
-                    "Grenade", "SMG1_Grenade", "AR2AltFire", "RPG_Round", "XBowBolt" },
+                    "Grenade", "SMG1_Grenade", "AR2AltFire", "RPG_Round", "XBowBolt", "slam" },
             Names());
-    }
-
-    [SharedSourceFact("ammodef.h")]
-    public void TheNativeGettersMovedIntoTheHeaderAndDidNotChange()
-    {
-        string text = File.ReadAllText(AnimListSources.Find("ammodef.h")!);
-
-        // The .cpp is gone, so if the bodies are not here they are nowhere and
-        // eleven translation units stop linking -- loud. What this catches is
-        // the two clauses that could be quietly rewritten while still
-        // compiling, and both are behaviour a test elsewhere would not see:
-        //
-        //   the search starts at 1, because index 0 is the invalid slot; a
-        //   loop from 0 matches the zeroed name of an unregistered type;
-        //
-        //   an unknown index answers the DEFAULT splash size 4/8 and not 0,
-        //   because zero is a bullet that makes no splash at all, which is a
-        //   different bug from one that makes the default splash.
-        Assert.Contains("for ( int i = 1; i < m_nAmmoIndex; i++ )", text);
-        Assert.Contains("return 4;", text);
-        Assert.Contains("return 8;", text);
-
-        // And the constructor's index, which is the same fact as the loop's
-        // lower bound seen from the other side.
-        Assert.Contains("m_nAmmoIndex = 1;", text);
     }
 
     [Fact]

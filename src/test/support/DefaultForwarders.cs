@@ -79,6 +79,7 @@ internal static class DefaultForwarders
         public MoveSurface Surface(int surfaceProps) => default;
 
         public string? ScrapeSound(int surfaceProps, bool smooth) => null;
+        public string? BulletImpactSound(int surfaceProps) => null;
     }
 
     /// <summary>No sound scripts answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
@@ -132,7 +133,7 @@ internal static class DefaultForwarders
 
         public long FileTime(string fileName, string pathId) => default;
 
-        public bool FileExists(string fileName, string pathId) => false;
+        public bool FileExists(string fileName, string? pathId) => false;
 
         public nint Open(string fileName, string options, string pathId) => default;
 
@@ -261,8 +262,16 @@ internal static class DefaultForwarders
     }
 #else
     /// <summary>An engine client in no game answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
-    internal sealed unsafe class NoEngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine
+    internal sealed unsafe class NoEngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine,
+                                                  IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand,
+                                                  IViolenceSettings
     {
+        // No engine: the cl_predict switch and a selection line go nowhere.
+        public void SetPredict(bool predict) { }
+
+        public void SendSelection(string line) { }
+        public void Escape() { }
+
         // No allocator: a save is refused, said by the save session.
         public void* SaveAlloc(nuint count, nuint size) => null;
 
@@ -278,6 +287,16 @@ internal static class DefaultForwarders
 
         bool Client.Input.IClientInputEngine.IsPaused => false;
 
+        // Never paused, no demo playing.
+        bool IPlaybackState.IsPaused => false;
+
+        bool IPlaybackState.IsPlayingDemo => false;
+
+        bool IPlaybackState.IsPlayingTimeDemo => false;
+
+        // Normal violence.
+        bool IViolenceSettings.EngineSaysLowViolence => false;
+
         void Client.Input.IClientInputEngine.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta) => (x, y) = (0, 0);
 
         void Client.Input.IClientInputEngine.ClientCmdUnrestricted(string command) { }
@@ -287,6 +306,7 @@ internal static class DefaultForwarders
         public string? GameDirectory() => null;
 
         public uint ProtocolVersion() => default;
+        public bool CopyLocalFile(string source, string destination) => false;
 
         public void Reconnect() { }
 

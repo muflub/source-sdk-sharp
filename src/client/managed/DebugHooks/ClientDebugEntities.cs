@@ -70,7 +70,7 @@ public sealed class ClientDebugEntities(IRenderPolicyBlocks blocks, IEngineEntit
             }
 
             return new DebugClientEntityState(Row(block), Vec(block.Head.Angles), Vec(block.Client.RenderAngles),
-                                              states, interpolated, block.Client.Skin);
+                                              states, interpolated, block.Client.Skin, block.Client.Body);
         }
 
         return null;

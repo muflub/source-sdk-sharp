@@ -92,7 +92,7 @@ public sealed class Intermission(ILog log, ConVarRegistry convars, IEntityDirect
         GameOver = true;
         _endsAt = now + (int)(_chatTime?.Value ?? 10f);   // mp_chattime.GetInt()
 
-        foreach (var entity in directory.OfClass(EntityNames.SsPlayer))
+        foreach (var entity in directory.OfClass(EntityNames.Player))
         {
             if (entity is not SsPlayer player)
                 continue;

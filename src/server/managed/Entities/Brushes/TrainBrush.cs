@@ -45,6 +45,9 @@ namespace SourceSharp.Server;
 /// </summary>
 public abstract class TrainBrush : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     public TrainBrush(IGameClock clock, IEngineDamage damage,
                       IEnginePrecache precache, IEngineSound sound)
     {
@@ -106,6 +109,8 @@ public abstract class TrainBrush : ScriptedEntity
         // train you can walk through is a train nobody can ride.
         SetSolidity(BrushSolidity.Solid);
         SetVisible(true);
+        // CreateVPhysics: a shadow that follows it, which props meet.
+        InitShadowPhysics();
 
         if (Vars.Speed <= 0f)
             Vars.Speed = DefaultSpeed;
@@ -292,21 +297,17 @@ public abstract class TrainBrush : ScriptedEntity
     // patch and builds a new one. A track train's legs are the gaps between
     // sleepers, and it keeps one sound running across all of them.
     //-------------------------------------------------------------------------
-    protected virtual void PlayMoveSound()
-    {
-        if (Vars.MoveSound.Length > 0)
-            Sound.EntityEmitSound(Handle, Vars.MoveSound);
-    }
+    private readonly MovingNoise _movingNoise = new();
+
+    protected virtual void PlayMoveSound() => _movingNoise.Play(Sound, Handle, Vars.MoveSound, Vars.Volume);
 
     /// <summary>
     /// Stops the loop. Not optional: noise1 is a looping sound, and a train that
     /// started one and never stopped it grinds for the rest of the map.
     /// </summary>
-    protected virtual void StopMoveSound()
-    {
-        if (Vars.MoveSound.Length > 0)
-            Sound.EntityStopSound(Handle, Vars.MoveSound);
-    }
+    protected virtual void StopMoveSound() => _movingNoise.Stop(Sound);
+
+    public override void OnRemoved() => StopMoveSound();
 
     protected void PlayArriveSound()
     {
@@ -389,10 +390,6 @@ public partial class TrainBrushVars
     [VarName("noise2")]
     public string ArriveSound { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Declared so a map's value survives being read back, and used by nothing:
-    /// the managed sound call plays at the entity's own attenuation and takes no
-    /// volume. See docs/divergences.md.
-    /// </summary>
-    public float Volume { get; set; } = 0.85f;
+    /// <summary>m_volume: the moving noise's volume, 0.85 when unset.</summary>
+    public float Volume { get; set; } = MovingNoise.DefaultVolume;
 }

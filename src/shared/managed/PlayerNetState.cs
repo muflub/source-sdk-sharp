@@ -40,7 +40,7 @@ namespace SourceSharp.Shared;
 /// extension owns that).
 /// </para>
 /// </summary>
-[StandaloneNetState(EntityNames.SsPlayer)]
+[StandaloneNetState(EntityNames.Player)]
 public partial class PlayerNetState
 {
     // ---- whole words, in declaration order --------------------------------
@@ -233,6 +233,79 @@ public partial class PlayerNetState
     [Predicted]
     public partial Vector WaterJumpVel { get; set; }
 
+    // ---- the useable ladder (HL2's m_HL2Local.m_hLadder and LadderMove_t) --
+    //
+    // Stock networks these in the player's HL2 local data and predicts them
+    // (c_hl2_playerlocaldata.cpp, c_basehlplayer.cpp): the movement loop's
+    // CHL2GameMovement reads and writes every one, so the replay has to start
+    // from the server's word for each. The tolerances are stock's: the two
+    // times 0.02, the two positions not compared (FTYPEDESC_NOERRORCHECK)
+    // but still the basis.
+
+    /// <summary>
+    /// The func_useableladder the player is on, by entity index; -1 for none
+    /// (MoveState.NoLadder). An identity, so compared exactly.
+    /// </summary>
+    [Predicted]
+    public partial int Ladder { get; set; }
+
+    /// <summary><c>m_bForceLadderMove</c>: being slid on or off a ladder.</summary>
+    [Predicted]
+    public partial bool LadderForceMove { get; set; }
+
+    /// <summary><c>m_bForceMount</c>: that slide ends on the ladder.</summary>
+    [Predicted]
+    public partial bool LadderForceMount { get; set; }
+
+    /// <summary><c>m_flStartTime</c>: when the slide began.</summary>
+    [Predicted(0.02f)]
+    public partial float LadderStartTime { get; set; }
+
+    /// <summary><c>m_flArrivalTime</c>: when it ends.</summary>
+    [Predicted(0.02f)]
+    public partial float LadderArrivalTime { get; set; }
+
+    /// <summary><c>m_vecGoalPosition</c>: where the slide ends.</summary>
+    public partial Vector LadderGoalPosition { get; set; }
+
+    /// <summary><c>m_vecStartPosition</c>: where it began.</summary>
+    public partial Vector LadderStartPosition { get; set; }
+
+    /// <summary>
+    /// <c>m_hForceLadder</c>: the ladder a mounting slide ends on, by entity
+    /// index. Stock does not send it and its client keeps its own; it is sent
+    /// here so a replay that starts mid-slide ends on the same ladder.
+    /// </summary>
+    [Predicted]
+    public partial int LadderForceLadder { get; set; }
+
+    // ---- HL2MP's suit (m_HL2Local's power words and m_bNewSprinting) -------
+    //
+    // Stock networks these in the player's HL2 local data and predicts them,
+    // exactly (c_hl2_playerlocaldata.cpp): the movement loop's HL2 player
+    // (GameMovement.Hl2Player) picks the sprint from the power and drains and
+    // recharges it every command, on both sides.
+
+    /// <summary><c>m_flSuitPower</c>: 0 to 100; the AUX POWER bar.</summary>
+    [Predicted]
+    public partial float SuitPower { get; set; }
+
+    /// <summary><c>m_flSuitPowerLoad</c>: the drain of the devices on.</summary>
+    [Predicted]
+    public partial float SuitPowerLoad { get; set; }
+
+    /// <summary><c>m_bitsActiveDevices</c>.</summary>
+    [Predicted]
+    public partial int SuitDevices { get; set; }
+
+    /// <summary><c>m_flTimeAllSuitDevicesOff</c>: when the last device went off.</summary>
+    [Predicted]
+    public partial float SuitDevicesOffTime { get; set; }
+
+    /// <summary><c>m_bNewSprinting</c>.</summary>
+    [Predicted]
+    public partial bool NewSprinting { get; set; }
+
     // ---- the world fog this viewer is standing in (step 8e-render) ---------
     //
     // WHY THE PLAYER CARRIES IT. In stock, fog reaches a client two ways at
@@ -369,4 +442,28 @@ public partial class PlayerNetState
 
     /// <summary>The densest the skybox's fog gets.</summary>
     public partial float SkyFogMaxDensity { get; set; }
+
+    // ---- the weapon-selection HUD (stock's m_hMyWeapons and m_iAmmo) --------
+    //
+    // Stock's client walks the weapons the player carries and asks each
+    // CanBeSelected. Only the active weapon is an entity here, so the server
+    // says both answers as bits, one per WeaponTypes index.
+
+    /// <summary>The weapons carried: bit <c>1 &lt;&lt; WeaponTypeId</c>.</summary>
+    public partial uint CarriedWeapons { get; set; }
+
+    /// <summary>
+    /// The carried weapons that cannot be selected: stock's CanBeSelected is
+    /// false, which is HasAmmo's answer (no clip, no pool, no select-on-empty).
+    /// </summary>
+    public partial uint EmptyWeapons { get; set; }
+
+    /// <summary>MAX_AMMO_SLOTS: stock's m_iAmmo array length.</summary>
+    public const int MaxAmmoSlots = 32;
+
+    /// <summary>
+    /// m_iAmmo: each pool's count, by the ammo type's wire index (from one, as
+    /// AmmoCatalog.WireIndex numbers it). The pickup history adds what rises.
+    /// </summary>
+    [NetArray(MaxAmmoSlots)] public partial NetArray<short> Ammo { get; }
 }

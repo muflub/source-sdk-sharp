@@ -1,0 +1,114 @@
+//========= Copyright Valve Corporation, All rights reserved. ============//
+#pragma once
+
+// commonmacros.h
+// This should contain ONLY general purpose macros that are
+// appropriate for use in engine/launcher/all tools
+
+// Makes a 4-byte "packed ID" int out of 4 characters
+
+// Compares a string with a 4-byte packed ID constant
+
+template <typename T>
+inline bool IsPowerOfTwo( T value )
+{
+	return ( value & ( value - (T)1 ) ) == (T)0;
+}
+
+#ifndef REFERENCE
+#define REFERENCE( arg ) ( (void)arg )
+#endif
+
+//Wraps the integer in quotes, allowing us to form constant strings with it
+//__LINE__ can only be converted to an actual number by going through this, otherwise the output is literally "__LINE__"
+//Gives you the line number in constant string form
+
+// Using ARRAYSIZE implementation from winnt.h:
+#ifdef ARRAYSIZE
+#undef ARRAYSIZE
+#endif
+
+// Return the number of elements in a statically sized array.
+//   DWORD Buffer[100];
+//   RTL_NUMBER_OF(Buffer) == 100
+// This is also popularly known as: NUMBER_OF, ARRSIZE, _countof, NELEM, etc.
+// winnt.h defines these too, and a redefinition is accepted only when it is
+// spelt the same, spaces between tokens included (MSVC C4005): winnt.h's spelling.
+// clang-format off
+#define RTL_NUMBER_OF_V1(A) (sizeof(A)/sizeof((A)[0]))
+// clang-format on
+
+#if defined( __cplusplus ) && _MSC_FULL_VER >= 13009466
+
+// From crtdefs.h
+#if !defined( UNALIGNED )
+#if defined( _M_AMD64 )
+#define UNALIGNED __unaligned
+#else
+#define UNALIGNED
+#endif
+#endif
+
+// RtlpNumberOf is a function that takes a reference to an array of N Ts.
+// typedef T array_of_T[N];
+// typedef array_of_T &reference_to_array_of_T;
+// RtlpNumberOf returns a pointer to an array of N chars.
+// We could return a reference instead of a pointer but older compilers do not accept that.
+// typedef char array_of_char[N];
+// typedef array_of_char *pointer_to_array_of_char;
+// sizeof(array_of_char) == N
+// sizeof(*pointer_to_array_of_char) == N
+// pointer_to_array_of_char RtlpNumberOf(reference_to_array_of_T);
+// We never even call RtlpNumberOf, we just take the size of dereferencing its return type.
+// We do not even implement RtlpNumberOf, we just decare it.
+// Attempts to pass pointers instead of arrays to this macro result in compile time errors.
+// That is the point.
+extern "C++" // templates cannot be declared to have 'C' linkage
+	template <typename T, size_t N>
+	char ( *RtlpNumberOf( UNALIGNED T ( & )[N] ) )[N];
+
+// clang-format off
+#define RTL_NUMBER_OF_V2(A) (sizeof(*RtlpNumberOf(A)))
+// clang-format on
+
+// This does not work with:
+// void Foo()
+// {
+//    struct { int x; } y[2];
+//    RTL_NUMBER_OF_V2(y); // illegal use of anonymous local type in template instantiation
+// }
+// You must instead do:
+// struct Foo1 { int x; };
+// void Foo()
+// {
+//    Foo1 y[2];
+//    RTL_NUMBER_OF_V2(y); // ok
+// }
+// OR
+// void Foo()
+// {
+//    struct { int x; } y[2];
+//    RTL_NUMBER_OF_V1(y); // ok
+// }
+// OR
+// void Foo()
+// {
+//    struct { int x; } y[2];
+//    _ARRAYSIZE(y); // ok
+// }
+
+#else
+// clang-format off
+#define RTL_NUMBER_OF_V2(A) RTL_NUMBER_OF_V1(A)
+// clang-format on
+#endif
+
+// ARRAYSIZE is more readable version of RTL_NUMBER_OF_V2
+// _ARRAYSIZE is a version useful for anonymous types
+// clang-format off
+#define ARRAYSIZE(A)    RTL_NUMBER_OF_V2(A)
+#define _ARRAYSIZE(A)   RTL_NUMBER_OF_V1(A)
+// clang-format on
+
+#define Q_ARRAYSIZE( p ) ARRAYSIZE( p )
+#define V_ARRAYSIZE( p ) ARRAYSIZE( p )

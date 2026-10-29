@@ -283,6 +283,37 @@ public class ViewModelPresenterTests
         Assert.True(engine.CountOf("EntityRender.PlaySequence") == before + 1,
                     "a different sequence is a different animation whatever its parity says");
     }
+    //-------------------------------------------------------------------------
+    // The skin a weapon puts on its viewmodel (CWeaponCrossbow::SetSkin).
+    //-------------------------------------------------------------------------
+
+    [Fact]
+    public void TheWeaponsSkinReachesTheDrawnViewModelOnce()
+    {
+        var engine = Fake();
+        engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
+        var viewModel = ViewModel(engine, owner: LocalPlayer);
+
+        viewModel.State.Skin = 1;
+        Decode(viewModel);
+        viewModel.ShowSkin(1);
+
+        var skin = Assert.Single(engine.AllOf("EntityRender.SetSkin"));
+        Assert.Equal(1, skin.ArgAs<int>(1));
+    }
+
+    [Fact]
+    public void SomebodyElsesViewModelTakesNoSkin()
+    {
+        var engine = Fake();
+        engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
+        var viewModel = ViewModel(engine, owner: SomebodyElse);
+
+        viewModel.State.Skin = 1;
+        Decode(viewModel);
+
+        Assert.False(engine.Called("EntityRender.SetSkin"), "a viewmodel nobody here looks through was skinned");
+    }
 }
 
 /// <summary>
@@ -321,4 +352,5 @@ public class AnimationParityTests
         Assert.True(AnimationParity.IsAhead(6, 1), "and so is one after six");
         Assert.True(!AnimationParity.IsAhead(0, 7), "while seven after zero is the packet before it");
     }
+
 }

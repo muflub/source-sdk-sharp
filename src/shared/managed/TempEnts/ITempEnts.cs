@@ -34,6 +34,12 @@ public interface ITempEnts
     void Sparks(TeFilter filter, float delay, Vector position,
                 int magnitude, int trailLength, Vector? direction);
 
+    /// <summary>A jet of blood: <c>te_bloodstream.cpp</c>'s <c>TE_BloodStream</c>.</summary>
+    void BloodStream(TeFilter filter, float delay, Vector origin, Vector direction, Color32 color, int amount);
+
+    /// <summary>A puff of smoke: <c>te_smoke.cpp</c>'s <c>TE_Smoke</c>.</summary>
+    void Smoke(TeFilter filter, float delay, Vector origin, int modelIndex, float scale, int frameRate);
+
     /// <summary>
     /// Sparks off metal: <c>te_metalsparks.cpp</c>'s <c>TE_MetalSparks</c>,
     /// what stock's server-side <c>IEffects::MetalSparks</c> sends (a scrape's
@@ -145,6 +151,15 @@ public interface ITempEnts
     /// </summary>
     void Bubbles(TeFilter filter, float delay, Vector mins, Vector maxs, float height,
                  int modelIndex, int count, float speed);
+
+    /// <summary>
+    /// A wake of bubbles from one point to another, up to a water surface.
+    /// <c>te_bubbletrail.cpp</c>'s <c>TE_BubbleTrail</c>: the ends, the
+    /// surface's world Z, the sprite, how many (at most BUBBLE_TRAIL_MAX_COUNT,
+    /// 255) and how fast.
+    /// </summary>
+    void BubbleTrail(TeFilter filter, float delay, Vector from, Vector to, float waterZ,
+                     int modelIndex, int count, float speed);
     // ------------------------------------------------------------------
     // Lane F's three ledger rows. The lane's other three classes —
     // BeamSpline, ClientProjectile and MuzzleFlash — keep their native
@@ -350,4 +365,28 @@ public interface ITempEnts
     /// </para>
     /// </summary>
     void DispatchEffect(TeFilter filter, float delay, string effectName, in TeEffectData data);
+
+    /// <summary><c>te_beampoints.cpp</c>'s <c>TE_BeamPoints</c>: a beam between two points.</summary>
+    void BeamPoints(TeFilter filter, float delay, Vector start, Vector end, in TeBeamLook look);
+
+    /// <summary>
+    /// <c>te_beamentpoint.cpp</c>'s <c>TE_BeamEntPoint</c>: from an entity (by
+    /// index) or, where the index is 0, a point, to an entity or a point.
+    /// </summary>
+    void BeamEntPoint(TeFilter filter, float delay, int startEntity, Vector start, int endEntity, Vector end,
+                      in TeBeamLook look);
+
+    /// <summary><c>te_beaments.cpp</c>'s <c>TE_BeamEnts</c>: a beam between two entities, by index.</summary>
+    void BeamEnts(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look);
+
+    /// <summary>
+    /// <c>te_beamring.cpp</c>'s <c>TE_BeamRing</c>: a ring through two
+    /// entities. Its end width is its width and it has no fade, as stock's.
+    /// </summary>
+    void BeamRing(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look, int flags = 0);
 }
+
+/// <summary>What stock's <c>te-&gt;Beam*</c> calls carry after their ends: the look and life of the beam.</summary>
+public readonly record struct TeBeamLook(int ModelIndex, int HaloIndex, int StartFrame, int FrameRate, float Life,
+                                         float Width, float EndWidth, int FadeLength, float Amplitude,
+                                         int R, int G, int B, int A, int Speed);

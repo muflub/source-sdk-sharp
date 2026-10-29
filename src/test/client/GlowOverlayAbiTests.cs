@@ -251,6 +251,8 @@ public class GlowOverlayAbiTests
 
         public void EmitAtPosition(in GameSoundParams parameters, float volume, int pitch, in Vector origin)
             => Emitted.Add((parameters.Wave, origin));
+
+        public void EmitScript(string script, in Vector origin) => Emitted.Add((script, origin));
     }
 
     [Fact]
@@ -265,7 +267,7 @@ public class GlowOverlayAbiTests
 
         effect.Dispatch(new EffectData { Origin = new Vector(10, 20, 30) });
 
-        Assert.Equal([("Missile.ShotDown.wav", new Vector(10, 20, 30))], sounds.Emitted);
+        Assert.Equal([("Missile.ShotDown", new Vector(10, 20, 30))], sounds.Emitted);
         RampOverlay flash = Overlay(system, 0);
         Assert.Equal(new Vector(10, 20, 30), flash.Pos);
         Assert.Equal(0.01f, flash.Sprites[0].HorzSize);

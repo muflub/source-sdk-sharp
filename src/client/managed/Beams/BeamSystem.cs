@@ -986,6 +986,29 @@ public sealed class BeamSystem
     // The draw.
     //-------------------------------------------------------------------------
 
+    /// <summary>
+    /// <c>DrawBeam( C_Beam *, ITraceFilter * )</c> for a beam between two
+    /// points: a Beam_t built from the entity's own state on the stack, never
+    /// listed or given a renderable, then updated and drawn at once, from
+    /// inside the entity's DrawModel. Its life is 0, so its die time is now.
+    /// </summary>
+    public void DrawEntityBeam(BeamInfo info, BeamFlags entityFlags, float hdrColorScale, BeamDraw draw,
+                               IBeamDrawWorld world, float now, float frameTime)
+    {
+        var beam = new Beam();
+        info.Life = 0;
+        ResolveNames(ref info);
+        SetupBeam(beam, info, now);
+        SetBeamAttributes(beam, info);
+
+        beam.Flags |= entityFlags & (BeamFlags.SineNoise | BeamFlags.Solid | BeamFlags.ShadeIn
+                                     | BeamFlags.ShadeOut | BeamFlags.NoTile);
+        beam.HdrColorScale = hdrColorScale;
+
+        UpdateBeam(beam, frameTime, now);
+        DrawBeam(beam, draw, world);
+    }
+
     /// <summary><c>DrawBeam( Beam_t * )</c>: frame, render mode, colour, then the shape by type.</summary>
     public void DrawBeam(Beam beam, BeamDraw draw, IBeamDrawWorld world)
     {

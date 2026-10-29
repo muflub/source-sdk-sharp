@@ -780,6 +780,21 @@ public abstract class EntityDirectoryCore<TEntity>
         _entities[entry] = null;
     }
 
+    /// <summary>
+    /// Moves a bound entity in the classname index from <paramref name="was"/>
+    /// to the name <see cref="ClassNameOf"/> answers now: a class renamed after
+    /// it was bound, as stock's SetClassname renames one at spawn.
+    /// </summary>
+    protected void Reclass(EntityHandle handle, string? was)
+    {
+        TEntity? entity = Resolve(handle);
+        if (entity is null)
+            return;
+
+        Unindex(_byClassName, was, handle);
+        Index(_byClassName, ClassNameOf(entity), handle);
+    }
+
     private static void Index(Dictionary<string, List<EntityHandle>> into, string? key, EntityHandle handle)
     {
         if (string.IsNullOrEmpty(key))

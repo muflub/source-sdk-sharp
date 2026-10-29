@@ -43,8 +43,17 @@ public enum SolidFlags
     /// </summary>
     Trigger = 0x0008,
 
+    /// <summary>Nothing may stand on it: a player stepping onto one slides off rather than riding it.</summary>
+    NotStandable = 0x0010,
+
     /// <summary>Volumetric contents, the way water is. Also a volume to fly through.</summary>
     VolumeContents = 0x0020,
+
+    /// <summary>
+    /// Touched by triggers through a box bloated past its own (an item's 24
+    /// units, a weapon's 36): see <c>IEngineEntities.UseTriggerBounds</c>.
+    /// </summary>
+    UseTriggerBounds = 0x0080,
 }
 
 /// <summary>
@@ -167,11 +176,31 @@ public enum CollisionGroup
     /// </para>
     /// </summary>
     Interactive = 4,
+
+    /// <summary>
+    /// Something fired: it hits everything but debris, weapons and other
+    /// projectiles (CGameRules::ShouldCollide). The SMG1's grenade_ar2.
+    /// </summary>
+    Projectile = 5,
+
+    /// <summary>
+    /// A sheet of breakable glass (func_breakable_surf, CBreakableSurface::
+    /// Spawn): it does not collide with other glass (CGameRules::ShouldCollide),
+    /// and a crossbow bolt flies on through it after the damage.
+    /// </summary>
+    BreakableGlass = 6,
+
+    /// <summary>
+    /// A door players walk through (SF_DOOR_NONSOLID_TO_PLAYER, CBaseDoor::
+    /// Spawn): the player's movement does not collide with it
+    /// (CGameRules::ShouldCollide), and nothing else changes.
+    /// </summary>
+    PassableDoor = 7,
 }
 
 /// <summary>
 /// Which distance-fade rule an entity on the parallel hierarchy follows. Must
-/// match the switch in C_StandaloneEntity::ComputeFxBlend.
+/// match the switch in the client's StandaloneFade.Blend.
 ///
 /// <para>
 /// There are two because stock has two, and they are not variations on one

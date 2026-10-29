@@ -182,6 +182,36 @@ if (args.Length > 0 && args[0] == "town")
     return 0;
 }
 
+// "stockmap" writes the copy of a compiled ss_sandbox that stock hl2mp loads:
+// the SourceSharp-only classnames renamed (StockMap.Renames), nothing else
+// changed. tools/stock-ab makes it on every run, from the tree's own .bsp.
+if (args.Length > 0 && args[0] == "stockmap")
+{
+    if (args.Length < 3)
+    {
+        Console.Error.WriteLine("usage: MapGen stockmap <in.bsp> <out.bsp>");
+        return 2;
+    }
+
+    int renamed = StockMap.Write(args[1], args[2]);
+    Console.WriteLine($"{args[2]}: {renamed} classname(s) renamed for stock");
+    return renamed > 0 ? 0 : 1;
+}
+
+// "stations" prints where each station's plot sits, one per line:
+// slug, x, y, z (the plot centre on the floor), title. tools/stock-ab aims
+// its cameras from it.
+if (args.Length > 0 && args[0] == "stations")
+{
+    for (int i = 0; i < Sandbox.Stations.Count; i++)
+    {
+        var at = Sandbox.SiteOf(i);
+        Console.WriteLine($"{Sandbox.Stations[i].Slug}\t{at.X:0}\t{at.Y:0}\t{at.Z:0}\t{Sandbox.Stations[i].Title}");
+    }
+
+    return 0;
+}
+
 // Where the .vmf goes. An argument wins, so a caller can put it somewhere else;
 // otherwise it lands in maps/ beside the other map sources, which is what
 // "make map" compiles from.

@@ -2096,7 +2096,11 @@ public sealed class DebugApiServer : IDebugApi
         json.Append("{\"handle\":").Append(entity)
             .Append(",\"index\":").Append(entities.GetIndex(entity))
             .Append(",\"classname\":").Append(Quote(entities.GetClassName(entity)))
+            .Append(",\"name\":").Append(Quote(entities.GetName(entity)))
             .Append(",\"health\":").Append(entities.GetHealth(entity))
+            .Append(",\"solid\":").Append(entities.GetSolidType(entity))
+            .Append(",\"solidflags\":").Append(entities.GetSolidFlags(entity))
+            .Append(",\"physics\":").Append(entities.GetPhysicsKind(entity))
             .Append(",\"origin\":[")
             .Append(F(origin.X)).Append(',').Append(F(origin.Y)).Append(',').Append(F(origin.Z))
             .Append("],\"angles\":[")
@@ -3275,7 +3279,7 @@ public sealed class DebugApiServer : IDebugApi
 
                 // Never the world or a player: a cleanup glob that matched
                 // either would end the session it is cleaning up after.
-                if (world.GetIndex(entity) == 0 || world.GetClassName(entity) is "player" or "ss_player")
+                if (world.GetIndex(entity) == 0 || world.GetClassName(entity) is "player" or "player")
                     continue;
 
                 if (!string.IsNullOrEmpty(classGlob) && !Glob.Matches(classGlob, world.GetClassName(entity)))
@@ -3480,9 +3484,23 @@ public sealed class DebugApiServer : IDebugApi
                 .Append(",\"version\":").Append(contents.Version)
                 .Append(",\"entityCount\":").Append(contents.Entities.Count)
                 .Append(",\"brushModelCount\":").Append(contents.Models.Count)
-                .Append(",\"connectionCount\":").Append(contents.Entities.Sum(e => e.Connections.Count));
+                .Append(",\"connectionCount\":").Append(contents.Entities.Sum(e => e.Connections.Count))
+                .Append(",\"brushModels\":[");
 
-            return json.Append('}').ToString();
+            // Each brush model's bounds, by its index (*N): what a fixture sizes a mover by.
+            for (int i = 0; i < contents.Models.Count; i++)
+            {
+                if (i > 0)
+                    json.Append(',');
+
+                json.Append("{\"mins\":");
+                AppendVector(json, contents.Models[i].Mins);
+                json.Append(",\"maxs\":");
+                AppendVector(json, contents.Models[i].Maxs);
+                json.Append('}');
+            }
+
+            return json.Append("]}").ToString();
         }
         catch (Exception e)
         {

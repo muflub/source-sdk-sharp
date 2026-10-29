@@ -15,7 +15,7 @@ namespace SourceSharp.Server;
 public interface ITempEntRecipients
 {
     /// <summary>CPVSFilter, CPASFilter, CPASAttenuationFilter, CSingleUserRecipientFilter or CBroadcastRecipientFilter.</summary>
-    IRecipientList For(TeFilter filter);
+    RecipientFilter For(TeFilter filter);
 }
 
 /// <summary>The send itself: one temp entity through a built table to some recipients.</summary>
@@ -47,12 +47,15 @@ public sealed class ServerTempEntEngine : EngineEffectsForwarder, ITempEntRegist
 
     private ITempEntSender? _sender;
     private ITempEntRecipients? _recipients;
+    private readonly PredictionSuppression? _prediction;
     private bool _saidNoSender;
 
     public ServerTempEntEngine(IEngineEffects inner, ITempEntTables tables, ILog log,
-                               IEffectDispatchNames? effectNames = null)
+                               IEffectDispatchNames? effectNames = null,
+                               PredictionSuppression? prediction = null)
         : base(inner)
     {
+        _prediction = prediction;
         _tables = tables ?? throw new ArgumentNullException(nameof(tables));
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _effectNames = effectNames;
@@ -213,7 +216,15 @@ public sealed class ServerTempEntEngine : EngineEffectsForwarder, ITempEntRegist
             return;
         }
 
-        _sender.Playback(_recipients.For(filter), delay, blob, entry.Table);
+        RecipientFilter recipients = _recipients.For(filter);
+
+        // CTempEntsSystem::SuppressTE: the predicting player made this one
+        // for itself, so the server's copy leaves it out (and is not sent at
+        // all when that was everyone).
+        if (_prediction is not null && _prediction.SuppressTempEntity(recipients, filter.IgnorePredictionCull))
+            return;
+
+        _sender.Playback(recipients, delay, blob, entry.Table);
     }
 
     /// <summary>
@@ -240,7 +251,7 @@ public sealed class ServerTempEntEngine : EngineEffectsForwarder, ITempEntRegist
 public sealed class TempEntRecipients(SoundRecipients recipients) : ITempEntRecipients
 {
     /// <inheritdoc/>
-    public IRecipientList For(TeFilter filter) => filter.Kind switch
+    public RecipientFilter For(TeFilter filter) => filter.Kind switch
     {
         TeFilterKind.Pvs            => recipients.Pvs(filter.Origin),
         TeFilterKind.Pas            => recipients.Pas(filter.Origin),

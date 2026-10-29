@@ -1,33 +1,17 @@
-//========= SourceSharp — loaded_symbol.h's lookup ============================//
 // SS_REASON d  a layout the engine reads at fixed offsets
-//
-// Native for engine_heap.h (d), which must free through the allocator the
-// engine's vectors were grown with, for tier0_spew_port (x), and for
-// client.so's tier0 and vstdlib bindings (tier_bindings_client.cpp, d).
-//
-// Three spellings of "a symbol in a library the process already holds",
-// none of which loads anything: Linux walks the loaded objects
-// (dl_iterate_phdr) for the file name and reopens it RTLD_NOLOAD; macOS asks
-// dyld for its image list; Windows asks for the module handle by name, which
-// is a lookup, not a load.
-
-#include "loaded_symbol.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #if defined( _WIN32 )
-	#ifndef WIN32_LEAN_AND_MEAN
-		#define WIN32_LEAN_AND_MEAN
-	#endif
-	#include <windows.h>
-#elif defined( __APPLE__ )
-	#include <dlfcn.h>
-	#include <mach-o/dyld.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #else
-	#include <dlfcn.h>
-	#include <link.h>
+
+#include <link.h>
 #endif
 
 namespace ss
@@ -42,7 +26,6 @@ const char *BaseName( const char *pszName )
 	return pszBase ? pszBase + 1 : pszName;
 }
 
-#if !defined( __APPLE__ )
 struct FindFile_t
 {
 	const char *pszFile;
@@ -62,26 +45,13 @@ int FindLoadedPath( struct dl_phdr_info *pInfo, size_t, void *pv )
 	pFind->pszPath = pszName;
 	return 1;
 }
-#endif
 
-// The path dyld or the dynamic linker has for a loaded file of that base
-// name, or NULL.
+// The path the dynamic linker has for a loaded file of that base name, or NULL.
 const char *LoadedPath( const char *pszFile )
 {
-#if defined( __APPLE__ )
-	const uint32_t nImages = _dyld_image_count();
-	for ( uint32_t i = 0; i < nImages; ++i )
-	{
-		const char *pszName = _dyld_get_image_name( i );
-		if ( pszName && strcmp( BaseName( pszName ), pszFile ) == 0 )
-			return pszName;
-	}
-	return NULL;
-#else
 	FindFile_t find = { pszFile, NULL };
 	dl_iterate_phdr( FindLoadedPath, &find );
 	return find.pszPath;
-#endif
 }
 }
 #endif

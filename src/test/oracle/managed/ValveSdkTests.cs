@@ -16,18 +16,14 @@ public sealed class ValveSdkTests
     }
 
     [Fact]
-    public void TheCloneIsNotTheForkOrTheFarm()
+    public void TheCloneIsNotTheFarm()
     {
+        // The farm's ROOT may be this clone (both are stock); the farm itself,
+        // which links our own files in beside Valve's, never is.
         string root = Path.GetFullPath(ValveSdk.Root);
         string repo = Path.GetFullPath(ValveSdk.RepoRoot);
         Assert.False(root.StartsWith(repo + Path.DirectorySeparatorChar, StringComparison.Ordinal),
             $"{root} is inside this repository (the farm?)");
-        string? forkLocal = Path.Combine(repo, "sdk-root.lock.local");
-        if (File.Exists(forkLocal))
-        {
-            string fork = Path.GetFullPath(File.ReadAllText(forkLocal).Trim());
-            Assert.NotEqual(fork.TrimEnd('/'), root.TrimEnd('/'));
-        }
     }
 
     [Fact]

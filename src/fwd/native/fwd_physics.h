@@ -11,8 +11,6 @@
 // PhysicsCallbacks) lays them out, in this order. They are the library's own:
 // its version script exports none of them.
 //=============================================================================//
-#ifndef FWD_PHYSICS_H
-#define FWD_PHYSICS_H
 #pragma once
 
 class IManagedPhysicsObjectEvent;
@@ -37,5 +35,3 @@ void *SSFwd_PhysicsCallbacks_ConstructCollisionSolver( void *pMemory, IManagedPh
 void *SSFwd_PhysicsCallbacks_ConstructConstraintEvent( void *pMemory, IManagedPhysicsConstraintEvent *pTarget );
 void *SSFwd_PhysicsCallbacks_ConstructMotionEvent( void *pMemory, IManagedMotionEvent *pTarget );
 void *SSFwd_PhysicsCallbacks_ConstructKeyHandler( void *pMemory, IManagedVPhysicsKeyHandler *pTarget );
-
-#endif // FWD_PHYSICS_H

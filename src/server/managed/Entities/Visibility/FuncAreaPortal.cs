@@ -95,6 +95,16 @@ public class FuncAreaPortal : ScriptedEntity
     [ScriptedEvent("TurnOn")]  private void OnTurnedOn()  { _open = false; Apply(); }
     [ScriptedEvent("TurnOff")] private void OnTurnedOff() { _open = true;  Apply(); }
 
+    /// <summary>
+    /// CAreaPortal::Use as a door gives it (UpdateAreaPortals): USE_ON opens
+    /// the portal and USE_OFF shuts it.
+    /// </summary>
+    public void Use(bool open)
+    {
+        _open = open;
+        Apply();
+    }
+
     private void Apply() => Portals.SetOpen(Portal, _open);
 }
 
@@ -116,4 +126,7 @@ public partial class FuncAreaPortalVars
 
     /// <summary>The map's starting state. Stock reads it in KeyValue and defaults open.</summary>
     public bool StartOpen { get; set; } = true;
+
+    /// <summary>The door it opens and shuts with (CBaseDoor::UpdateAreaPortals finds the portals that target it).</summary>
+    public string Target { get; set; } = string.Empty;
 }

@@ -41,7 +41,7 @@ IMemAlloc *g_pMemAlloc = NULL;
 
 namespace
 {
-template < class PMF >
+template <class PMF>
 long SlotOf( PMF pmf )
 {
 	static_assert( sizeof( PMF ) == 2 * sizeof( uintptr_t ), "Itanium member pointer" );
@@ -55,14 +55,17 @@ long SlotOf( PMF pmf )
 bool Tier0Loaded()
 {
 	bool bFound = false;
-	dl_iterate_phdr( []( struct dl_phdr_info *pInfo, size_t, void *pv ) -> int {
-		const char *n = pInfo->dlpi_name;
-		const char *b = n ? strrchr( n, '/' ) : NULL;
-		b = b ? b + 1 : n;
-		if ( b && strcmp( b, "libtier0.so" ) == 0 )
-			*(bool *)pv = true;
-		return 0;
-	}, &bFound );
+	dl_iterate_phdr(
+		[]( struct dl_phdr_info *pInfo, size_t, void *pv ) -> int
+		{
+			const char *n = pInfo->dlpi_name;
+			const char *b = n ? strrchr( n, '/' ) : NULL;
+			b = b ? b + 1 : n;
+			if ( b && strcmp( b, "libtier0.so" ) == 0 )
+				*(bool *)pv = true;
+			return 0;
+		},
+		&bFound );
 	return bFound;
 }
 
@@ -72,8 +75,8 @@ void *LoadGamesTier0()
 	if ( !pszPath || !*pszPath )
 	{
 		ADD_FAILURE() << "SOURCESHARP_ENGINE_TIER0 is empty: CMake found no Source SDK Base "
-		                 "2013 Multiplayer install in Steam's libraryfolders.vdf. Install it "
-		                 "(app 243750) or set SOURCESHARP_ENGINE_TIER0 and re-run `make setup`.";
+						 "2013 Multiplayer install in Steam's libraryfolders.vdf. Install it "
+						 "(app 243750) or set SOURCESHARP_ENGINE_TIER0 and re-run `make setup`.";
 		return NULL;
 	}
 	void *h = dlopen( pszPath, RTLD_NOW | RTLD_GLOBAL );
@@ -88,23 +91,30 @@ void *LoadGamesTier0()
 struct CountingHeap : ss::IEngineHeap
 {
 	IMemAlloc *m_pReal = NULL;
-	int   m_nFrees = 0;
+	int m_nFrees = 0;
 	void *m_pLastFreed = NULL;
 
-	void *Alloc( size_t n ) override              { return m_pReal->Alloc( n ); }
-	void *Realloc( void *p, size_t n ) override   { return m_pReal->Realloc( p, n ); }
-	void  Free( void *p ) override                { m_nFrees++; m_pLastFreed = p; m_pReal->Free( p ); }
+	void *Alloc( size_t n ) override { return m_pReal->Alloc( n ); }
+
+	void *Realloc( void *p, size_t n ) override { return m_pReal->Realloc( p, n ); }
+
+	void Free( void *p ) override
+	{
+		m_nFrees++;
+		m_pLastFreed = p;
+		m_pReal->Free( p );
+	}
 };
 }
 
 TEST( EngineHeap, ItsThreeSlotsAreTier0sAllocReallocAndFree )
 {
-	EXPECT_EQ( SlotOf( static_cast< void *( IMemAlloc::* )( size_t ) >( &IMemAlloc::Alloc ) ),
-	           SlotOf( &ss::IEngineHeap::Alloc ) );
-	EXPECT_EQ( SlotOf( static_cast< void *( IMemAlloc::* )( void *, size_t ) >( &IMemAlloc::Realloc ) ),
-	           SlotOf( &ss::IEngineHeap::Realloc ) );
-	EXPECT_EQ( SlotOf( static_cast< void ( IMemAlloc::* )( void * ) >( &IMemAlloc::Free ) ),
-	           SlotOf( &ss::IEngineHeap::Free ) );
+	EXPECT_EQ( SlotOf( static_cast<void *(IMemAlloc::*)( size_t )>( &IMemAlloc::Alloc ) ),
+			   SlotOf( &ss::IEngineHeap::Alloc ) );
+	EXPECT_EQ( SlotOf( static_cast<void *(IMemAlloc::*)( void *, size_t )>( &IMemAlloc::Realloc ) ),
+			   SlotOf( &ss::IEngineHeap::Realloc ) );
+	EXPECT_EQ( SlotOf( static_cast<void ( IMemAlloc::* )( void * )>( &IMemAlloc::Free ) ),
+			   SlotOf( &ss::IEngineHeap::Free ) );
 	EXPECT_EQ( 2, SlotOf( &ss::IEngineHeap::Free ) );
 }
 
@@ -117,7 +127,12 @@ TEST( EngineHeap, WithNoTier0InTheProcessTheLookupFindsNothing )
 TEST( EngineHeapDeathTest, FreeingWithNoTier0InTheProcessStopsTheProcess )
 {
 	ASSERT_FALSE( Tier0Loaded() );
-	EXPECT_DEATH( { SS_DEATH_NO_CORE(); ss::EngineHeapFree( (void *)0x1000 ); }, "no libtier0.so g_pMemAlloc" );
+	EXPECT_DEATH(
+		{
+			SS_DEATH_NO_CORE();
+			ss::EngineHeapFree( (void *)0x1000 );
+		},
+		"no libtier0.so g_pMemAlloc" );
 }
 
 TEST( EngineHeap, FreeingNullIsNothingEvenWithNoTier0 )
@@ -128,7 +143,8 @@ TEST( EngineHeap, FreeingNullIsNothingEvenWithNoTier0 )
 
 TEST( EngineHeap, TheGamesTier0IsFoundOnceLoaded )
 {
-	SS_SKIP_ON_CI( "needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
+	SS_SKIP_ON_CI(
+		"needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
 	void *h = LoadGamesTier0();
 	ASSERT_NE( nullptr, h );
 	ASSERT_TRUE( Tier0Loaded() );
@@ -141,7 +157,8 @@ TEST( EngineHeap, TheGamesTier0IsFoundOnceLoaded )
 
 TEST( EngineHeap, AVectorTheGamesTier0GrewIsReadThroughTheViewAndFreedThroughTheLookup )
 {
-	SS_SKIP_ON_CI( "needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
+	SS_SKIP_ON_CI(
+		"needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
 	void *h = LoadGamesTier0();
 	ASSERT_NE( nullptr, h );
 	IMemAlloc **ppExported = (IMemAlloc **)dlsym( h, "g_pMemAlloc" );
@@ -158,16 +175,16 @@ TEST( EngineHeap, AVectorTheGamesTier0GrewIsReadThroughTheViewAndFreedThroughThe
 
 	void *pBlock = NULL;
 	{
-		ss::EngineFilledUtlVector< int > out;
+		ss::EngineFilledUtlVector<int> out;
 		EXPECT_EQ( 0, out.View().Count() );
 		EXPECT_EQ( nullptr, out.View().m_pMemory ) << "not a default-constructed CUtlVector";
 
 		// What IEngineTrace::GetBrushesInAABB does to its out-parameter.
-		CUtlVector< int > *pEngineSide = out.ForEngine< CUtlVector< int > >();
+		CUtlVector<int> *pEngineSide = out.ForEngine<CUtlVector<int>>();
 		for ( int i = 0; i < 100; i++ )
 			pEngineSide->AddToTail( i * 7 );
 
-		const ss::EngineUtlVector< int > &view = out.View();
+		const ss::EngineUtlVector<int> &view = out.View();
 		ASSERT_EQ( 100, view.Count() );
 		for ( int i = 0; i < 100; i++ )
 			EXPECT_EQ( i * 7, view[i] );

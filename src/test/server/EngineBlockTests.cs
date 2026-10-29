@@ -313,8 +313,8 @@ public class EngineBlockTests
         => Assert.Equal(168, (int)Marshal.OffsetOf<EngineBlockClientTail>("Translucent"));
 
     [Fact]
-    public void ClientHideWhenOwnerSeenIsAt172()
-        => Assert.Equal(172, (int)Marshal.OffsetOf<EngineBlockClientTail>("HideWhenOwnerSeen"));
+    public void ClientOwnerSeenRuleIsAt172()
+        => Assert.Equal(172, (int)Marshal.OffsetOf<EngineBlockClientTail>("OwnerSeenRule"));
 
     [Fact]
     public void ClientFadeStyleIsAt176()
@@ -360,7 +360,7 @@ public class EngineBlockTests
         // fourteenth placement value would pass every offset fact above and be
         // checked by none of them, on either side.
         Assert.Equal(
-            new[] { "RenderOrigin", "RenderAngles", "RenderMins", "RenderMaxs", "RenderColorR", "RenderColorG", "RenderColorB", "RenderColorA", "FxBlend", "Skin", "Body", "ShadowChoice", "RenderGroup", "Sequence", "Cycle", "PlaybackRate", "AnimTime", "SimulationTime", "RenderTransform", "Drawn", "Transparent", "ShadowType", "ShadowFlags", "Dormant", "ViewModel", "CustomDraw", "Translucent", "HideWhenOwnerSeen", "FadeStyle", "FadeStartDistance", "FadeEndDistance", "FadeMinAlpha", "ModelType", "PolicyInputs", "PolicyOutputs", "HitboxSet" },
+            new[] { "RenderOrigin", "RenderAngles", "RenderMins", "RenderMaxs", "RenderColorR", "RenderColorG", "RenderColorB", "RenderColorA", "FxBlend", "Skin", "Body", "ShadowChoice", "RenderGroup", "Sequence", "Cycle", "PlaybackRate", "AnimTime", "SimulationTime", "RenderTransform", "Drawn", "Transparent", "ShadowType", "ShadowFlags", "Dormant", "ViewModel", "CustomDraw", "Translucent", "OwnerSeenRule", "FadeStyle", "FadeStartDistance", "FadeEndDistance", "FadeMinAlpha", "ModelType", "PolicyInputs", "PolicyOutputs", "HitboxSet" },
             EngineBlock.FieldsOf(typeof(EngineBlockClientTail)).Select(f => f.Name).ToArray());
     }
 
@@ -451,7 +451,9 @@ public class EngineBlockTests
     /// past.
     /// </para>
     /// </summary>
-    private const uint PinnedFingerprint = 0x027436fcu;
+    // Lane M1-A renamed the client tail's HideWhenOwnerSeen to OwnerSeenRule
+    // (the viewer's own body joined the viewmodel under it): 0x027436fc -> 0xb4839a12.
+    private const uint PinnedFingerprint = 0xb4839a12u;
 
     [Fact]
     public void TheFingerprintIsTheValueBothSidesWereBuiltWith()

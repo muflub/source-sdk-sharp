@@ -1,7 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-CBeamSegDraw::Start	BOUNDARY	a name particles.a links against, a counted no-op (user ruling 2026-10-12)
-CBeamSegDraw::NextSeg	BOUNDARY	a name particles.a links against (and the vtable's key function), a no-op
-CBeamSegDraw::End	BOUNDARY	a name particles.a links against, a no-op
-RenderWireframeSphere	BOUNDARY	a name particles.a links against, a counted no-op
-RenderWireframeBox	BOUNDARY	a name particles.a links against, a counted no-op

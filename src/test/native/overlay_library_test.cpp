@@ -62,16 +62,10 @@
 
 #include "mathlib_test_env.h"
 
-// The one global the library reads, exactly as both files it replaces did. The
-// game defines it per side (shell_engineboundary.cpp / shell_clientdll.cpp); here
-// the test owns it, which is what lets a fact point it at a recorder and at NULL.
-IVDebugOverlay *debugoverlay = NULL;
-
 //-----------------------------------------------------------------------------
 // THE RECORDING OVERLAY.
 //
-// The library reads one global, `debugoverlay`, exactly as both files it
-// replaces did, and it is defined here so the test owns it. Every draw the
+// The library is handed this overlay by its constructor. Every draw the
 // library makes lands in one of these vectors, so "it drew" is a recorded fact
 // rather than the absence of a crash.
 //-----------------------------------------------------------------------------
@@ -82,9 +76,9 @@ struct RecordedLine
 {
 	Vector vecOrigin;
 	Vector vecDest;
-	int    r, g, b;
-	bool   bNoDepthTest;
-	float  flDuration;
+	int r, g, b;
+	bool bNoDepthTest;
+	float flDuration;
 };
 
 struct RecordedBox
@@ -93,31 +87,36 @@ struct RecordedBox
 	Vector vecMins;
 	Vector vecMaxs;
 	QAngle angles;
-	int    r, g, b, a;
-	float  flDuration;
+	int r, g, b, a;
+	float flDuration;
 };
 
 struct RecordedText
 {
-	Vector      vecOrigin;
-	int         nLine;
+	Vector vecOrigin;
+	int nLine;
 	std::string sText;
-	int         r, g, b, a;
+	int r, g, b, a;
 };
 
 class CRecordingOverlay : public IVDebugOverlay
 {
 public:
-	std::vector< RecordedLine > lines;
-	std::vector< RecordedBox >  boxes;
-	std::vector< RecordedText > rgbText;
-	std::vector< RecordedText > plainText;
-	std::vector< RecordedText > entityText;
+	std::vector<RecordedLine> lines;
+	std::vector<RecordedBox> boxes;
+	std::vector<RecordedText> rgbText;
+	std::vector<RecordedText> plainText;
+	std::vector<RecordedText> entityText;
 	int nGrids;
 	int nClears;
 	int nSweptBoxes;
 
-	CRecordingOverlay() : nGrids( 0 ), nClears( 0 ), nSweptBoxes( 0 ) {}
+	CRecordingOverlay()
+		: nGrids( 0 )
+		, nClears( 0 )
+		, nSweptBoxes( 0 )
+	{
+	}
 
 	void Reset()
 	{
@@ -130,42 +129,59 @@ public:
 	}
 
 	virtual void AddEntityTextOverlay( int ent_index, int line_offset, float, int r, int g, int b, int a,
-	                                   const char *format, ... ) OVERRIDE
+									   const char *format, ... ) OVERRIDE
 	{
 		RecordedText t;
 		t.vecOrigin.Init( (float)ent_index, 0, 0 );
 		t.nLine = line_offset;
 		t.sText = format ? format : "";
-		t.r = r; t.g = g; t.b = b; t.a = a;
+		t.r = r;
+		t.g = g;
+		t.b = b;
+		t.a = a;
 		entityText.push_back( t );
 	}
 
-	virtual void AddBoxOverlay( const Vector &origin, const Vector &mins, const Vector &maxs,
-	                            QAngle const &orientation, int r, int g, int b, int a, float duration ) OVERRIDE
+	virtual void AddBoxOverlay( const Vector &origin, const Vector &mins, const Vector &maxs, QAngle const &orientation,
+								int r, int g, int b, int a, float duration ) OVERRIDE
 	{
 		RecordedBox box;
-		box.vecOrigin = origin; box.vecMins = mins; box.vecMaxs = maxs; box.angles = orientation;
-		box.r = r; box.g = g; box.b = b; box.a = a; box.flDuration = duration;
+		box.vecOrigin = origin;
+		box.vecMins = mins;
+		box.vecMaxs = maxs;
+		box.angles = orientation;
+		box.r = r;
+		box.g = g;
+		box.b = b;
+		box.a = a;
+		box.flDuration = duration;
 		boxes.push_back( box );
 	}
 
-	virtual void AddTriangleOverlay( const Vector &, const Vector &, const Vector &,
-	                                 int, int, int, int, bool, float ) OVERRIDE {}
+	virtual void AddTriangleOverlay( const Vector &, const Vector &, const Vector &, int, int, int, int, bool,
+									 float ) OVERRIDE
+	{
+	}
 
-	virtual void AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b,
-	                             bool noDepthTest, float duration ) OVERRIDE
+	virtual void AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b, bool noDepthTest,
+								 float duration ) OVERRIDE
 	{
 		RecordedLine line;
-		line.vecOrigin = origin; line.vecDest = dest;
-		line.r = r; line.g = g; line.b = b;
-		line.bNoDepthTest = noDepthTest; line.flDuration = duration;
+		line.vecOrigin = origin;
+		line.vecDest = dest;
+		line.r = r;
+		line.g = g;
+		line.b = b;
+		line.bNoDepthTest = noDepthTest;
+		line.flDuration = duration;
 		lines.push_back( line );
 	}
 
 	virtual void AddTextOverlay( const Vector &origin, float, const char *format, ... ) OVERRIDE
 	{
 		RecordedText t;
-		t.vecOrigin = origin; t.nLine = 0;
+		t.vecOrigin = origin;
+		t.nLine = 0;
 		t.sText = format ? format : "";
 		t.r = t.g = t.b = t.a = 0;
 		plainText.push_back( t );
@@ -174,7 +190,8 @@ public:
 	virtual void AddTextOverlay( const Vector &origin, int line_offset, float, const char *format, ... ) OVERRIDE
 	{
 		RecordedText t;
-		t.vecOrigin = origin; t.nLine = line_offset;
+		t.vecOrigin = origin;
+		t.nLine = line_offset;
 		t.sText = format ? format : "";
 		t.r = t.g = t.b = t.a = 0;
 		plainText.push_back( t );
@@ -182,42 +199,61 @@ public:
 
 	virtual void AddScreenTextOverlay( float, float, float, int, int, int, int, const char * ) OVERRIDE {}
 
-	virtual void AddSweptBoxOverlay( const Vector &, const Vector &, const Vector &, const Vector &,
-	                                 const QAngle &, int, int, int, int, float ) OVERRIDE { nSweptBoxes++; }
+	virtual void AddSweptBoxOverlay( const Vector &, const Vector &, const Vector &, const Vector &, const QAngle &,
+									 int, int, int, int, float ) OVERRIDE
+	{
+		nSweptBoxes++;
+	}
 
 	virtual void AddGridOverlay( const Vector & ) OVERRIDE { nGrids++; }
 
 	virtual int ScreenPosition( const Vector &, Vector & ) OVERRIDE { return 0; }
+
 	virtual int ScreenPosition( float, float, Vector & ) OVERRIDE { return 0; }
 
 	virtual OverlayText_t *GetFirst( void ) OVERRIDE { return NULL; }
+
 	virtual OverlayText_t *GetNext( OverlayText_t * ) OVERRIDE { return NULL; }
+
 	virtual void ClearDeadOverlays( void ) OVERRIDE {}
+
 	virtual void ClearAllOverlays() OVERRIDE { nClears++; }
 
-	virtual void AddTextOverlayRGB( const Vector &origin, int line_offset, float, float r, float g,
-	                                float b, float alpha, const char *format, ... ) OVERRIDE
+	virtual void AddTextOverlayRGB( const Vector &origin, int line_offset, float, float r, float g, float b,
+									float alpha, const char *format, ... ) OVERRIDE
 	{
 		RecordedText t;
-		t.vecOrigin = origin; t.nLine = line_offset;
+		t.vecOrigin = origin;
+		t.nLine = line_offset;
 		t.sText = format ? format : "";
-		t.r = (int)r; t.g = (int)g; t.b = (int)b; t.a = (int)alpha;
+		t.r = (int)r;
+		t.g = (int)g;
+		t.b = (int)b;
+		t.a = (int)alpha;
 		rgbText.push_back( t );
 	}
 
-	virtual void AddTextOverlayRGB( const Vector &origin, int line_offset, float, int r, int g,
-	                                int b, int a, const char *format, ... ) OVERRIDE
+	virtual void AddTextOverlayRGB( const Vector &origin, int line_offset, float, int r, int g, int b, int a,
+									const char *format, ... ) OVERRIDE
 	{
 		RecordedText t;
-		t.vecOrigin = origin; t.nLine = line_offset;
+		t.vecOrigin = origin;
+		t.nLine = line_offset;
 		t.sText = format ? format : "";
-		t.r = r; t.g = g; t.b = b; t.a = a;
+		t.r = r;
+		t.g = g;
+		t.b = b;
+		t.a = a;
 		rgbText.push_back( t );
 	}
 
 	virtual void AddLineOverlayAlpha( const Vector &, const Vector &, int, int, int, int, bool, float ) OVERRIDE {}
-	virtual void AddBoxOverlay2( const Vector &, const Vector &, const Vector &, QAngle const &,
-	                             const Color &, const Color &, float ) OVERRIDE {}
+
+	virtual void AddBoxOverlay2( const Vector &, const Vector &, const Vector &, QAngle const &, const Color &,
+								 const Color &, float ) OVERRIDE
+	{
+	}
+
 	virtual void AddScreenTextOverlay2( float, float, int, float, int, int, int, int, const char * ) OVERRIDE {}
 };
 
@@ -232,23 +268,13 @@ const float kBeyondRange = 12000.0f;
 class OverlayLibrary : public ::testing::Test
 {
 protected:
-	void SetUp() OVERRIDE
-	{
-		g_Recorder.Reset();
-		Overlay_ResetCounts();
-		Overlay_ClearViewer();
-	}
-
-	void TearDown() OVERRIDE
-	{
-		Overlay_ClearViewer();
-	}
+	void SetUp() OVERRIDE { g_Recorder.Reset(); }
 
 	// Eyes at the origin looking down +X.
-	void SetLookingAlongX()
-	{
-		Overlay_SetViewer( Vector( 0, 0, 0 ), Vector( 1, 0, 0 ) );
-	}
+	void SetLookingAlongX() { m_Library.SetViewer( Vector( 0, 0, 0 ), Vector( 1, 0, 0 ) ); }
+
+	// A new library per fact: no viewer, zeroed counters, an empty pool.
+	COverlayLibrary m_Library{ &g_Recorder };
 };
 
 //-----------------------------------------------------------------------------
@@ -256,46 +282,6 @@ protected:
 // restated here rather than shared, because a header shared between two test
 // binaries is a third thing to keep in step.
 //-----------------------------------------------------------------------------
-std::string ReadFile( const char *pPath )
-{
-	std::ifstream f( pPath );
-	EXPECT_TRUE( f.good() ) << "cannot open " << pPath;
-	std::stringstream ss;
-	ss << f.rdbuf();
-	return ss.str();
-}
-
-std::string StripComments( const std::string &src )
-{
-	std::string out;
-	out.reserve( src.size() );
-
-	size_t i = 0;
-	while ( i < src.size() )
-	{
-		if ( src[i] == '/' && i + 1 < src.size() && src[i + 1] == '/' )
-		{
-			while ( i < src.size() && src[i] != '\n' )
-				i++;
-			continue;
-		}
-
-		if ( src[i] == '/' && i + 1 < src.size() && src[i + 1] == '*' )
-		{
-			i += 2;
-			while ( i + 1 < src.size() && !( src[i] == '*' && src[i + 1] == '/' ) )
-				i++;
-			i = ( i + 1 < src.size() ) ? i + 2 : src.size();
-			continue;
-		}
-
-		out.push_back( src[i] );
-		i++;
-	}
-
-	return out;
-}
-
 } // anonymous namespace
 
 //=============================================================================//
@@ -308,13 +294,13 @@ std::string StripComments( const std::string &src )
 
 TEST_F( OverlayLibrary, SegmentWithNoViewerIsNotVisible )
 {
-	EXPECT_FALSE( Overlay_SegmentIsVisible( Vector( 10, 0, 0 ), Vector( 20, 0, 0 ) ) );
+	EXPECT_FALSE( m_Library.SegmentIsVisible( Vector( 10, 0, 0 ), Vector( 20, 0, 0 ) ) );
 }
 
 TEST_F( OverlayLibrary, SegmentWithBothEndsAheadAndNearIsVisible )
 {
 	SetLookingAlongX();
-	EXPECT_TRUE( Overlay_SegmentIsVisible( Vector( 10, 0, 0 ), Vector( 200, 0, 0 ) ) );
+	EXPECT_TRUE( m_Library.SegmentIsVisible( Vector( 10, 0, 0 ), Vector( 200, 0, 0 ) ) );
 }
 
 // The near end is BEHIND the eye and the far end is in front. Point-by-point,
@@ -326,13 +312,13 @@ TEST_F( OverlayLibrary, SegmentNearEndBehindFarEndAheadIsVisible )
 	const Vector vecBehind( -50, 0, 0 );
 	const Vector vecAhead( 300, 0, 0 );
 
-	EXPECT_TRUE( Overlay_SegmentIsVisible( vecBehind, vecAhead ) );
+	EXPECT_TRUE( m_Library.SegmentIsVisible( vecBehind, vecAhead ) );
 }
 
 TEST_F( OverlayLibrary, SegmentWithBothEndsBehindIsNotVisible )
 {
 	SetLookingAlongX();
-	EXPECT_FALSE( Overlay_SegmentIsVisible( Vector( -50, 0, 0 ), Vector( -300, 0, 0 ) ) );
+	EXPECT_FALSE( m_Library.SegmentIsVisible( Vector( -50, 0, 0 ), Vector( -300, 0, 0 ) ) );
 }
 
 // One end out of range and one end in it is kept: the distance rule needs BOTH
@@ -340,14 +326,13 @@ TEST_F( OverlayLibrary, SegmentWithBothEndsBehindIsNotVisible )
 TEST_F( OverlayLibrary, SegmentWithOneEndInRangeIsVisible )
 {
 	SetLookingAlongX();
-	EXPECT_TRUE( Overlay_SegmentIsVisible( Vector( 10, 0, 0 ), Vector( kBeyondRange, 0, 0 ) ) );
+	EXPECT_TRUE( m_Library.SegmentIsVisible( Vector( 10, 0, 0 ), Vector( kBeyondRange, 0, 0 ) ) );
 }
 
 TEST_F( OverlayLibrary, SegmentWithBothEndsOutOfRangeIsNotVisible )
 {
 	SetLookingAlongX();
-	EXPECT_FALSE( Overlay_SegmentIsVisible( Vector( kBeyondRange, 0, 0 ),
-	                                        Vector( kBeyondRange + 100, 0, 0 ) ) );
+	EXPECT_FALSE( m_Library.SegmentIsVisible( Vector( kBeyondRange, 0, 0 ), Vector( kBeyondRange + 100, 0, 0 ) ) );
 }
 
 //=============================================================================//
@@ -356,34 +341,30 @@ TEST_F( OverlayLibrary, SegmentWithBothEndsOutOfRangeIsNotVisible )
 
 TEST_F( OverlayLibrary, LineWithNoViewerCountsNoViewerAndDrawsNothing )
 {
-	debugoverlay = &g_Recorder;
+	m_Library.Line( Vector( 10, 0, 0 ), Vector( 20, 0, 0 ), 255, 0, 0, false, 0 );
 
-	Overlay_Line( Vector( 10, 0, 0 ), Vector( 20, 0, 0 ), 255, 0, 0, false, 0 );
-
-	EXPECT_EQ( 0u, Overlay_Counts().nDrawn );
-	EXPECT_EQ( 1u, Overlay_Counts().nNoViewer );
+	EXPECT_EQ( 0u, m_Library.Counts().nDrawn );
+	EXPECT_EQ( 1u, m_Library.Counts().nNoViewer );
 	EXPECT_EQ( 0u, g_Recorder.lines.size() );
 }
 
 TEST_F( OverlayLibrary, ClippedLineCountsClippedAndDrawsNothing )
 {
-	debugoverlay = &g_Recorder;
 	SetLookingAlongX();
 
-	Overlay_Line( Vector( -50, 0, 0 ), Vector( -300, 0, 0 ), 255, 0, 0, false, 0 );
+	m_Library.Line( Vector( -50, 0, 0 ), Vector( -300, 0, 0 ), 255, 0, 0, false, 0 );
 
-	EXPECT_EQ( 0u, Overlay_Counts().nDrawn );
-	EXPECT_EQ( 1u, Overlay_Counts().nClipped );
-	EXPECT_EQ( 0u, Overlay_Counts().nNoViewer );
+	EXPECT_EQ( 0u, m_Library.Counts().nDrawn );
+	EXPECT_EQ( 1u, m_Library.Counts().nClipped );
+	EXPECT_EQ( 0u, m_Library.Counts().nNoViewer );
 	EXPECT_EQ( 0u, g_Recorder.lines.size() );
 }
 
 TEST_F( OverlayLibrary, VisibleLineReachesTheOverlayWithItsColour )
 {
-	debugoverlay = &g_Recorder;
 	SetLookingAlongX();
 
-	Overlay_Line( Vector( 10, 1, 2 ), Vector( 200, 3, 4 ), 11, 22, 33, true, 5.0f );
+	m_Library.Line( Vector( 10, 1, 2 ), Vector( 200, 3, 4 ), 11, 22, 33, true, 5.0f );
 
 	ASSERT_EQ( 1u, g_Recorder.lines.size() );
 	EXPECT_EQ( 11, g_Recorder.lines[0].r );
@@ -391,33 +372,32 @@ TEST_F( OverlayLibrary, VisibleLineReachesTheOverlayWithItsColour )
 	EXPECT_EQ( 33, g_Recorder.lines[0].b );
 	EXPECT_TRUE( g_Recorder.lines[0].bNoDepthTest );
 	EXPECT_FLOAT_EQ( 5.0f, g_Recorder.lines[0].flDuration );
-	EXPECT_EQ( 1u, Overlay_Counts().nDrawn );
+	EXPECT_EQ( 1u, m_Library.Counts().nDrawn );
 }
 
 TEST_F( OverlayLibrary, WithNoOverlayInterfaceADrawCountsNoOverlay )
 {
-	debugoverlay = NULL;
-	SetLookingAlongX();
+	COverlayLibrary none( nullptr );
+	none.SetViewer( Vector( 0, 0, 0 ), Vector( 1, 0, 0 ) );
 
-	Overlay_Line( Vector( 10, 0, 0 ), Vector( 200, 0, 0 ), 255, 0, 0, false, 0 );
+	none.Line( Vector( 10, 0, 0 ), Vector( 200, 0, 0 ), 255, 0, 0, false, 0 );
 
-	EXPECT_EQ( 0u, Overlay_Counts().nDrawn );
-	EXPECT_EQ( 1u, Overlay_Counts().nNoOverlay );
+	EXPECT_EQ( 0u, none.Counts().nDrawn );
+	EXPECT_EQ( 1u, none.Counts().nNoOverlay );
 }
 
 TEST_F( OverlayLibrary, ResetCountsZeroesEveryCounter )
 {
-	debugoverlay = &g_Recorder;
 	SetLookingAlongX();
-	Overlay_Line( Vector( 10, 0, 0 ), Vector( 200, 0, 0 ), 1, 2, 3, false, 0 );
-	ASSERT_EQ( 1u, Overlay_Counts().nDrawn );
+	m_Library.Line( Vector( 10, 0, 0 ), Vector( 200, 0, 0 ), 1, 2, 3, false, 0 );
+	ASSERT_EQ( 1u, m_Library.Counts().nDrawn );
 
-	Overlay_ResetCounts();
+	m_Library.ResetCounts();
 
-	EXPECT_EQ( 0u, Overlay_Counts().nDrawn );
-	EXPECT_EQ( 0u, Overlay_Counts().nClipped );
-	EXPECT_EQ( 0u, Overlay_Counts().nNoViewer );
-	EXPECT_EQ( 0u, Overlay_Counts().nNoOverlay );
+	EXPECT_EQ( 0u, m_Library.Counts().nDrawn );
+	EXPECT_EQ( 0u, m_Library.Counts().nClipped );
+	EXPECT_EQ( 0u, m_Library.Counts().nNoViewer );
+	EXPECT_EQ( 0u, m_Library.Counts().nNoOverlay );
 }
 
 //=============================================================================//
@@ -426,16 +406,14 @@ TEST_F( OverlayLibrary, ResetCountsZeroesEveryCounter )
 
 TEST_F( OverlayLibrary, TextAtPositionDrawsWithNoViewer )
 {
-	debugoverlay = &g_Recorder;
-
-	Overlay_TextAtPosition( Vector( 1, 2, 3 ), 4, "hello", 0.5f, 10, 20, 30, 40 );
+	m_Library.TextAtPosition( Vector( 1, 2, 3 ), 4, "hello", 0.5f, 10, 20, 30, 40 );
 
 	ASSERT_EQ( 1u, g_Recorder.rgbText.size() );
 	EXPECT_EQ( 4, g_Recorder.rgbText[0].nLine );
 	EXPECT_EQ( 10, g_Recorder.rgbText[0].r );
 	EXPECT_EQ( 40, g_Recorder.rgbText[0].a );
-	EXPECT_EQ( 1u, Overlay_Counts().nDrawn );
-	EXPECT_EQ( 0u, Overlay_Counts().nNoViewer );
+	EXPECT_EQ( 1u, m_Library.Counts().nDrawn );
+	EXPECT_EQ( 0u, m_Library.Counts().nNoViewer );
 }
 
 //=============================================================================//
@@ -444,9 +422,7 @@ TEST_F( OverlayLibrary, TextAtPositionDrawsWithNoViewer )
 
 TEST_F( OverlayLibrary, BoxIsDrawnUnrotated )
 {
-	debugoverlay = &g_Recorder;
-
-	Overlay_Box( Vector( 5, 6, 7 ), Vector( -1, -2, -3 ), Vector( 1, 2, 3 ), 9, 8, 7, 6, 2.0f );
+	m_Library.Box( Vector( 5, 6, 7 ), Vector( -1, -2, -3 ), Vector( 1, 2, 3 ), 9, 8, 7, 6, 2.0f );
 
 	ASSERT_EQ( 1u, g_Recorder.boxes.size() );
 	EXPECT_FLOAT_EQ( 0.0f, g_Recorder.boxes[0].angles.x );
@@ -464,40 +440,33 @@ TEST_F( OverlayLibrary, BoxIsDrawnUnrotated )
 // THE POOL
 //=============================================================================//
 
-// THE POOL HAS NO RESET since the server gc cull took Overlay_ResetPool (no
-// caller but these tests), so it carries whatever earlier facts added. Each
-// fact below FILLS every slot first: after OVERLAY_POOL_LINES adds the pool's
-// contents are exactly these lines whatever ran before, so the counts are exact
-// rather than order-dependent.
-static void FillPool( int r )
+// Each fact fills every slot of a new library's pool.
+static void FillPool( COverlayLibrary &library, int r )
 {
-	for ( int i = 0; i < OVERLAY_POOL_LINES; i++ )
-		Overlay_AddLine( Vector( 10.0f + i, 0, 0 ), Vector( 20.0f + i, 0, 0 ), true, r, 2, 3 );
+	for ( int i = 0; i < COverlayLibrary::kPoolLines; i++ )
+		library.AddLine( Vector( 10.0f + i, 0, 0 ), Vector( 20.0f + i, 0, 0 ), true, r, 2, 3 );
 }
 
 TEST_F( OverlayLibrary, DrawingThePoolDrawsEveryArmedSlot )
 {
-	debugoverlay = &g_Recorder;
 	SetLookingAlongX();
 
-	FillPool( 7 );
-	Overlay_DrawPooledLines();
+	FillPool( m_Library, 7 );
+	m_Library.DrawPooledLines();
 
-	ASSERT_EQ( (size_t)OVERLAY_POOL_LINES, g_Recorder.lines.size() );
-	EXPECT_EQ( (unsigned)OVERLAY_POOL_LINES, Overlay_Counts().nDrawn );
+	ASSERT_EQ( (size_t)COverlayLibrary::kPoolLines, g_Recorder.lines.size() );
+	EXPECT_EQ( (unsigned)COverlayLibrary::kPoolLines, m_Library.Counts().nDrawn );
 	for ( size_t i = 0; i < g_Recorder.lines.size(); i++ )
 		EXPECT_EQ( 7, g_Recorder.lines[i].r ) << "slot " << i << " drew a line this fact did not add";
 }
 
 TEST_F( OverlayLibrary, DrawingThePoolWithNoViewerDrawsNothingAndSaysWhy )
 {
-	debugoverlay = &g_Recorder;
-
-	FillPool( 1 );
-	Overlay_DrawPooledLines();
+	FillPool( m_Library, 1 );
+	m_Library.DrawPooledLines();
 
 	EXPECT_EQ( 0u, g_Recorder.lines.size() );
-	EXPECT_EQ( (unsigned)OVERLAY_POOL_LINES, Overlay_Counts().nNoViewer );
+	EXPECT_EQ( (unsigned)COverlayLibrary::kPoolLines, m_Library.Counts().nNoViewer );
 }
 
 //=============================================================================//
@@ -507,78 +476,23 @@ TEST_F( OverlayLibrary, DrawingThePoolWithNoViewerDrawsNothingAndSaysWhy )
 TEST_F( OverlayLibrary, ClearingTheViewerUnsetsIt )
 {
 	SetLookingAlongX();
-	ASSERT_TRUE( Overlay_ViewerIsSet() );
+	ASSERT_TRUE( m_Library.ViewerIsSet() );
 
-	Overlay_ClearViewer();
+	m_Library.ClearViewer();
 
-	EXPECT_FALSE( Overlay_ViewerIsSet() );
+	EXPECT_FALSE( m_Library.ViewerIsSet() );
 }
 
 //=============================================================================//
 // THE FILES
 //=============================================================================//
 
-TEST( OverlayLibraryFiles, StripperRemovesBothCommentForms )
-{
-	EXPECT_EQ( "int a;\nint b;\n",
-	           StripComments( "int a;// CBaseEntity\nint b;/* CBasePlayer */\n" ) );
-}
-
-// The stripper has to survive an unterminated block comment rather than run off
-// the end -- a file that ends inside one is a file this scan would otherwise
-// read as empty and pass.
-TEST( OverlayLibraryFiles, StripperSurvivesAnUnterminatedBlockComment )
-{
-	EXPECT_EQ( "int a;", StripComments( "int a;/* and then nothing" ) );
-}
-
-TEST( OverlayLibraryFiles, HeaderNamesNoEntityType )
-{
-	const std::string src = StripComments( ReadFile( "sourcesharp/game/shared/overlay_library.h" ) );
-
-	static const char *kForbidden[] = {
-		"CBaseEntity", "C_BaseEntity", "CBasePlayer", "C_BasePlayer",
-		"CBaseAnimating", "C_BaseAnimating", "CStandaloneEntity", "C_StandaloneEntity",
-		"IGameEntity", "EHANDLE", "CHandle<", "cbase.h",
-	};
-
-	for ( size_t i = 0; i < ARRAYSIZE( kForbidden ); i++ )
-		EXPECT_EQ( std::string::npos, src.find( kForbidden[i] ) )
-			<< "overlay_library.h names " << kForbidden[i];
-}
-
-TEST( OverlayLibraryFiles, SourceNamesNoEntityType )
-{
-	const std::string src = StripComments( ReadFile( "sourcesharp/game/shared/overlay_library.cpp" ) );
-
-	static const char *kForbidden[] = {
-		"CBaseEntity", "C_BaseEntity", "CBasePlayer", "C_BasePlayer",
-		"CBaseAnimating", "C_BaseAnimating", "CStandaloneEntity", "C_StandaloneEntity",
-		"IGameEntity", "EHANDLE", "CHandle<", "cbase.h",
-	};
-
-	for ( size_t i = 0; i < ARRAYSIZE( kForbidden ); i++ )
-		EXPECT_EQ( std::string::npos, src.find( kForbidden[i] ) )
-			<< "overlay_library.cpp names " << kForbidden[i];
-}
-
-// The scan is only worth anything if it would catch the include that loses the
-// property. Fed a line that DOES name one, it has to fail -- so the needle is
-// checked against a positive as well as against the file.
-TEST( OverlayLibraryFiles, TheScanWouldCatchAnEntityInclude )
-{
-	const std::string src = StripComments( "#include \"cbase.h\"\nCBaseEntity *p;\n" );
-
-	EXPECT_NE( std::string::npos, src.find( "cbase.h" ) );
-	EXPECT_NE( std::string::npos, src.find( "CBaseEntity" ) );
-}
-
 namespace
 {
 
 std::string ResolvedCwd()
 {
-	char buf[ 4096 ];
+	char buf[4096];
 	if ( getcwd( buf, sizeof( buf ) ) )
 		return std::string( buf );
 	return std::string( "<getcwd failed>" );
@@ -620,23 +534,23 @@ namespace
 
 // The objects on server_sourcesharp's link edge, as paths nm can open from
 // the test's cwd (the edge names them relative to the build dir).
-std::vector< std::string > ServerLinkLine()
+std::vector<std::string> ServerLinkLine()
 {
 	const std::string strBuild = cmake_graph::BuildDir();
-	const std::vector< std::string > rel = cmake_graph::LinkObjects( cmake_graph::kServer );
+	const std::vector<std::string> rel = cmake_graph::LinkObjects( cmake_graph::kServer );
 
-	std::vector< std::string > out;
+	std::vector<std::string> out;
 	for ( size_t i = 0; i < rel.size(); i++ )
 	{
-		if ( rel[ i ].size() > 2 && rel[ i ].compare( rel[ i ].size() - 2, 2, ".o" ) == 0 )
-			out.push_back( rel[ i ][ 0 ] == '/' ? rel[ i ] : strBuild + "/" + rel[ i ] );
+		if ( rel[i].size() > 2 && rel[i].compare( rel[i].size() - 2, 2, ".o" ) == 0 )
+			out.push_back( rel[i][0] == '/' ? rel[i] : strBuild + "/" + rel[i] );
 	}
 	return out;
 }
 
 // The proof-of-read for the link line: the object of the server's own overlay
 // shim, which imports the overlay entries the positive control below names.
-bool HasOverlayShimObject( const std::vector< std::string > &objs )
+bool HasOverlayShimObject( const std::vector<std::string> &objs )
 {
 	// CMake names an object after its source's path: this repo's
 	// src/server/native/shell_debugoverlays.cpp compiles to
@@ -644,8 +558,7 @@ bool HasOverlayShimObject( const std::vector< std::string > &objs )
 	const std::string kObj = "/server_sourcesharp.dir/shell_debugoverlays.cpp.o";
 	for ( size_t i = 0; i < objs.size(); i++ )
 	{
-		if ( objs[ i ].size() >= kObj.size()
-		     && objs[ i ].compare( objs[ i ].size() - kObj.size(), kObj.size(), kObj ) == 0 )
+		if ( objs[i].size() >= kObj.size() && objs[i].compare( objs[i].size() - kObj.size(), kObj.size(), kObj ) == 0 )
 			return true;
 	}
 	return false;
@@ -653,14 +566,14 @@ bool HasOverlayShimObject( const std::vector< std::string > &objs )
 
 // `nm -C --undefined-only` over every object at once. Demangled, because the
 // namespace is only spelled `NDebugOverlay::` after demangling.
-std::string UndefinedSymbolsOnTheServerLink( const std::vector< std::string > &objs )
+std::string UndefinedSymbolsOnTheServerLink( const std::vector<std::string> &objs )
 {
 	if ( objs.empty() )
 		return std::string();
 
 	std::string cmd = "nm -C --undefined-only";
 	for ( size_t i = 0; i < objs.size(); i++ )
-		cmd += " '" + objs[ i ] + "'";
+		cmd += " '" + objs[i] + "'";
 	cmd += " 2>/dev/null";
 
 	FILE *pPipe = popen( cmd.c_str(), "r" );
@@ -668,7 +581,7 @@ std::string UndefinedSymbolsOnTheServerLink( const std::vector< std::string > &o
 		return std::string();
 
 	std::string out;
-	char buf[ 1024 ];
+	char buf[1024];
 	while ( fgets( buf, sizeof( buf ), pPipe ) )
 		out += buf;
 	pclose( pPipe );
@@ -679,7 +592,7 @@ std::string UndefinedSymbolsOnTheServerLink( const std::vector< std::string > &o
 
 TEST( OverlayLinkLine, TheGraphNamesAServerLinkWithObjectsOnIt )
 {
-	const std::vector< std::string > objs = ServerLinkLine();
+	const std::vector<std::string> objs = ServerLinkLine();
 
 	// RED AND NOT SKIPPED when there is no graph. A fact that passes because it
 	// could not measure is the shape this tree has recorded 51 times. (The
@@ -687,14 +600,14 @@ TEST( OverlayLinkLine, TheGraphNamesAServerLinkWithObjectsOnIt )
 	// throws on a missing graph or an empty edge, and the anchor below says the
 	// edge is the server's.)
 	ASSERT_TRUE( HasOverlayShimObject( objs ) )
-		<< "read " << objs.size() << " objects off server_sourcesharp's link edge in "
-		<< cmake_graph::BuildDir() << "/build.ninja and none is shell_debugoverlays.cpp.o"
+		<< "read " << objs.size() << " objects off server_sourcesharp's link edge in " << cmake_graph::BuildDir()
+		<< "/build.ninja and none is shell_debugoverlays.cpp.o"
 		<< " -- run `make debug` first. Working directory: " << ResolvedCwd();
 }
 
 TEST( OverlayLinkLine, TheScanReachesTheOverlayConsumers )
 {
-	const std::vector< std::string > objs = ServerLinkLine();
+	const std::vector<std::string> objs = ServerLinkLine();
 	ASSERT_TRUE( HasOverlayShimObject( objs ) ) << "no server link line; working directory: " << ResolvedCwd();
 
 	const std::string undefined = UndefinedSymbolsOnTheServerLink( objs );
@@ -702,28 +615,28 @@ TEST( OverlayLinkLine, TheScanReachesTheOverlayConsumers )
 	// THE POSITIVE CONTROL. shell_debugoverlays.o and shell_worldquery.o both
 	// import this entry, so an nm that ran and read the right objects says so.
 	// Without this, an empty string passes the absence below.
-	EXPECT_NE( std::string::npos, undefined.find( "Overlay_TextAtPosition" ) )
-		<< "nm over " << objs.size() << " objects found no importer of a known "
+	EXPECT_NE( std::string::npos, undefined.find( "COverlayLibrary::TextAtPosition" ) )
+		<< "nm over " << objs.size()
+		<< " objects found no importer of a known "
 		   "imported overlay entry, so it measured nothing. Working directory: "
 		<< ResolvedCwd();
 }
 
 TEST( OverlayLinkLine, NoObjectAsksForAnNDebugOverlayEntry )
 {
-	const std::vector< std::string > objs = ServerLinkLine();
+	const std::vector<std::string> objs = ServerLinkLine();
 	ASSERT_TRUE( HasOverlayShimObject( objs ) ) << "no server link line; working directory: " << ResolvedCwd();
 
 	const std::string undefined = UndefinedSymbolsOnTheServerLink( objs );
-	ASSERT_NE( std::string::npos, undefined.find( "Overlay_TextAtPosition" ) )
+	ASSERT_NE( std::string::npos, undefined.find( "COverlayLibrary::TextAtPosition" ) )
 		<< "the scan measured nothing; working directory: " << ResolvedCwd();
 
 	const size_t at = undefined.find( "NDebugOverlay::" );
-	EXPECT_EQ( std::string::npos, at )
-		<< "an object on the server link line asks for an NDebugOverlay entry "
-		   "that nothing in this build defines. It links today only because "
-		   "--gc-sections drops the caller first; a caller makes it a link "
-		   "error. The spelling is Overlay_* now:\n"
-		<< ( at == std::string::npos ? std::string() : undefined.substr( at, 200 ) );
+	EXPECT_EQ( std::string::npos, at ) << "an object on the server link line asks for an NDebugOverlay entry "
+										  "that nothing in this build defines. It links today only because "
+										  "--gc-sections drops the caller first; a caller makes it a link "
+										  "error. The spelling is COverlayLibrary:: now:\n"
+									   << ( at == std::string::npos ? std::string() : undefined.substr( at, 200 ) );
 }
 
 //=============================================================================//
@@ -743,104 +656,4 @@ TEST( OverlayLinkLine, NoObjectAsksForAnNDebugOverlayEntry )
 namespace
 {
 
-// The seven entries step 6c removed: nothing in this build reached any of them
-// by a cross-TU import, an intra-TU call or a name.
-const char *kRemoved[] = {
-	"Overlay_BoxDirection",
-	"Overlay_SweptBox",
-	"Overlay_EntityTextByIndex",
-	"Overlay_ScreenText",
-	"Overlay_Grid",
-	"Overlay_Cross3D",
-	"Overlay_Cross3DSize",
-};
-
 } // namespace
-
-TEST( OverlayLibraryFiles, TheHeaderStillDeclaresTheLiveEntries )
-{
-	const std::string src = StripComments( ReadFile( "sourcesharp/game/shared/overlay_library.h" ) );
-
-	// THE ANCHOR. Everything below is an absence, and an absence over an empty
-	// string passes. This is what says the read landed on a real header in the
-	// tree this run is in.
-	ASSERT_NE( std::string::npos, src.find( "Overlay_SegmentIsVisible" ) )
-		<< "overlay_library.h does not declare a live entry, so every absence "
-		   "below would pass on nothing. Working directory: " << ResolvedCwd();
-	// The whole call, so the needle cannot be met by a longer name: the bare
-	// "Overlay_Text" stood here and Overlay_TextAtPosition satisfied it.
-	EXPECT_NE( std::string::npos, src.find( "Overlay_TextAtPosition(" ) );
-}
-
-// THE SEVEN THE SERVER GC CULL TOOK (2026-10-01, user ruling): server.so's
-// --print-gc-sections discarded each and the client never compiled this file.
-// Spelled with the opening parenthesis for the same prefix reason as above.
-const char *const kGcCulled[] = {
-	"Overlay_Text(",
-	"Overlay_PointIsVisible(",
-	"Overlay_MaxDistanceSqr(",
-	"Overlay_ViewerOrigin(",
-	"Overlay_ViewerForward(",
-	"Overlay_PooledLineCount(",
-	"Overlay_ResetPool(",
-};
-
-TEST( OverlayLibraryFiles, NeitherFileHasWhatTheGcCullRemoved )
-{
-	const std::string hdr = StripComments( ReadFile( "sourcesharp/game/shared/overlay_library.h" ) );
-	const std::string src = StripComments( ReadFile( "sourcesharp/game/shared/overlay_library.cpp" ) );
-
-	ASSERT_NE( std::string::npos, hdr.find( "Overlay_SegmentIsVisible(" ) )
-		<< "header anchor missing; working directory: " << ResolvedCwd();
-	ASSERT_NE( std::string::npos, src.find( "Overlay_SegmentIsVisible(" ) )
-		<< "source anchor missing; working directory: " << ResolvedCwd();
-
-	for ( size_t i = 0; i < ARRAYSIZE( kGcCulled ); i++ )
-	{
-		EXPECT_EQ( std::string::npos, hdr.find( kGcCulled[ i ] ) )
-			<< "overlay_library.h declares " << kGcCulled[ i ] << " again";
-		EXPECT_EQ( std::string::npos, src.find( kGcCulled[ i ] ) )
-			<< "overlay_library.cpp defines " << kGcCulled[ i ] << " again";
-	}
-}
-
-TEST( OverlayLibraryFiles, TheHeaderDeclaresNoneOfWhatSixCRemoved )
-{
-	const std::string src = StripComments( ReadFile( "sourcesharp/game/shared/overlay_library.h" ) );
-
-	ASSERT_NE( std::string::npos, src.find( "Overlay_SegmentIsVisible" ) )
-		<< "anchor missing; working directory: " << ResolvedCwd();
-
-	for ( size_t i = 0; i < ARRAYSIZE( kRemoved ); i++ )
-		EXPECT_EQ( std::string::npos, src.find( kRemoved[ i ] ) )
-			<< "overlay_library.h still declares " << kRemoved[ i ]
-			<< ". Working directory: " << ResolvedCwd();
-}
-
-TEST( OverlayLibraryFiles, TheSourceDefinesNoneOfWhatSixCRemoved )
-{
-	const std::string src = StripComments( ReadFile( "sourcesharp/game/shared/overlay_library.cpp" ) );
-
-	ASSERT_NE( std::string::npos, src.find( "Overlay_SegmentIsVisible" ) )
-		<< "anchor missing; working directory: " << ResolvedCwd();
-
-	for ( size_t i = 0; i < ARRAYSIZE( kRemoved ); i++ )
-		EXPECT_EQ( std::string::npos, src.find( kRemoved[ i ] ) )
-			<< "overlay_library.cpp still defines " << kRemoved[ i ]
-			<< ". Working directory: " << ResolvedCwd();
-}
-
-// THE NEEDLE HAS TO BE ABLE TO MISS. `Overlay_Cross3D` is a prefix of
-// `Overlay_Cross3DSize`, so a scan spelled only one way reports both gone when
-// only the longer one is. Fed a text that DOES contain each name, the scan has
-// to find every one of them.
-TEST( OverlayLibraryFiles, TheRemovalScanWouldCatchEachNamePutBack )
-{
-	for ( size_t i = 0; i < ARRAYSIZE( kRemoved ); i++ )
-	{
-		const std::string putBack = std::string( "void " ) + kRemoved[ i ] + "( const Vector &v );\n";
-		EXPECT_NE( std::string::npos, StripComments( putBack ).find( kRemoved[ i ] ) )
-			<< "the scan cannot see " << kRemoved[ i ] << " even when it is there";
-	}
-}
-

@@ -1,10 +1,6 @@
-//========= SourceSharp — the detail props' buffers, read ======================//
-//
-// C7 cluster 10. The managed detail props (SourceSharp.Client.Detail) answer
-// native's client system (shell_detail_props.cpp) with one buffer per call:
-// int32 words, word 0 the buffer's length in words, a model a pointer in two
-// words (low first), a float its bits. DetailPropsWire (C#) writes them; this
-// reads them, and does nothing else: every number in them is managed's.
+// Readers for the managed detail props' answer buffers. Each buffer is int32
+// words, word 0 its length in words; a model pointer is two words (low first),
+// a float its bits. A reader that would step past the length stops.
 //
 //   LevelInitPreEntity  [flags] [objects] objects x (model lo, hi, origin xyz,
 //                       angles xyz) [runs] runs x (leaf, first, count, fast)
@@ -15,18 +11,7 @@
 //   Emit                commands: Begin quads | Vertices n, n x (x, y, z,
 //                       r | g << 8 | b << 16 | a << 24, s, t) | EndDraw |
 //                       ModelAlpha object, alpha | End
-//
-// A reader that would step past a buffer's length stops and says so: native
-// then carries out nothing more of that answer.
-//
-// No SDK header, so the native tests read the shipped reader
-// (detail_props_wire_test).
-//=============================================================================//
-#ifndef SS_DETAIL_PROPS_WIRE_H
-#define SS_DETAIL_PROPS_WIRE_H
-
-#include <stdint.h>
-#include <string.h>
+#pragma once
 
 namespace ss_detail
 {
@@ -59,7 +44,10 @@ class CWords
 {
 public:
 	explicit CWords( const void *p )
-		: m_p( (const int32_t *)p ), m_n( p ? ( (const int32_t *)p )[ 0 ] : 0 ), m_at( 1 ), m_bBad( !p || m_n < 1 )
+		: m_p( (const int32_t *)p )
+		, m_n( p ? ( (const int32_t *)p )[0] : 0 )
+		, m_at( 1 )
+		, m_bBad( !p || m_n < 1 )
 	{
 	}
 
@@ -72,7 +60,7 @@ public:
 			m_bBad = true;
 			return 0;
 		}
-		return m_p[ m_at++ ];
+		return m_p[m_at++];
 	}
 
 	float Float()
@@ -92,9 +80,9 @@ public:
 
 	void Vec( float *pOut )
 	{
-		pOut[ 0 ] = Float();
-		pOut[ 1 ] = Float();
-		pOut[ 2 ] = Float();
+		pOut[0] = Float();
+		pOut[1] = Float();
+		pOut[2] = Float();
 	}
 
 	bool Bad() const { return m_bBad; }
@@ -109,7 +97,7 @@ private:
 // LevelInitPreEntity's answer, handed to LEVEL: Precache( bool ),
 // Object( index, model, origin, angles ), Run( leaf, first, count, fast ).
 // False when the buffer is malformed (what was handed over stays handed).
-template < class LEVEL >
+template <class LEVEL>
 bool ReadLevel( const void *p, LEVEL &level )
 {
 	CWords w( p );
@@ -123,7 +111,7 @@ bool ReadLevel( const void *p, LEVEL &level )
 	for ( int32_t i = 0; i < nObjects; ++i )
 	{
 		void *pModel = w.Pointer();
-		float origin[ 3 ], angles[ 3 ];
+		float origin[3], angles[3];
 		w.Vec( origin );
 		w.Vec( angles );
 		if ( w.Bad() )
@@ -146,7 +134,7 @@ bool ReadLevel( const void *p, LEVEL &level )
 // BuildLists' answer, handed to VIEW: Proxy( model ), then Model( ordinal,
 // alpha, setAngles, angles, colour ). False when the view builds nothing (or
 // the buffer is malformed); otherwise the sphere's radius in *pRadius.
-template < class VIEW >
+template <class VIEW>
 bool ReadView( const void *p, VIEW &view, float *pRadius )
 {
 	CWords w( p );
@@ -172,7 +160,7 @@ bool ReadView( const void *p, VIEW &view, float *pRadius )
 	for ( int32_t i = 0; i < nModels; ++i )
 	{
 		const int32_t state = w.Int();
-		float angles[ 3 ], color[ 3 ];
+		float angles[3], color[3];
 		w.Vec( angles );
 		w.Vec( color );
 		if ( w.Bad() )
@@ -185,7 +173,7 @@ bool ReadView( const void *p, VIEW &view, float *pRadius )
 
 // Prepare's answer: its model alphas handed to SINK.ModelAlpha( object,
 // alpha ); answers the material (kMaterialNone when there is no draw).
-template < class SINK >
+template <class SINK>
 int ReadPrepare( const void *p, SINK &sink )
 {
 	CWords w( p );
@@ -208,7 +196,7 @@ int ReadPrepare( const void *p, SINK &sink )
 // Emit's commands, carried out by MESH: Begin( quads ), Vertex( xyz, rgba,
 // st ), EndDraw(), ModelAlpha( object, alpha ). False when the buffer is
 // malformed or ends without kEnd.
-template < class MESH >
+template <class MESH>
 bool RunEmit( const void *p, MESH &mesh )
 {
 	CWords w( p );
@@ -221,52 +209,51 @@ bool RunEmit( const void *p, MESH &mesh )
 			return false;
 		switch ( op )
 		{
-		case kEnd:
-			return true;
-		case kBegin:
-		{
-			const int32_t quads = w.Int();
-			if ( w.Bad() )
-				return false;
-			mesh.Begin( quads );
-			break;
-		}
-		case kVertices:
-		{
-			const int32_t n = w.Int();
-			if ( w.Bad() || n < 0 || !w.Has( n * kVertexWords ) )
-				return false;
-			for ( int32_t i = 0; i < n; ++i )
+			case kEnd:
+				return true;
+			case kBegin:
 			{
-				float xyz[ 3 ];
-				w.Vec( xyz );
-				const uint32_t rgba = (uint32_t)w.Int();
-				const unsigned char color[ 4 ] = { (unsigned char)( rgba & 0xff ), (unsigned char)( ( rgba >> 8 ) & 0xff ),
-				                                   (unsigned char)( ( rgba >> 16 ) & 0xff ), (unsigned char)( rgba >> 24 ) };
-				float st[ 2 ];
-				st[ 0 ] = w.Float();
-				st[ 1 ] = w.Float();
-				mesh.Vertex( xyz, color, st );
+				const int32_t quads = w.Int();
+				if ( w.Bad() )
+					return false;
+				mesh.Begin( quads );
+				break;
 			}
-			break;
-		}
-		case kEndDraw:
-			mesh.EndDraw();
-			break;
-		case kModelAlpha:
-		{
-			const int32_t object = w.Int(), alpha = w.Int();
-			if ( w.Bad() )
+			case kVertices:
+			{
+				const int32_t n = w.Int();
+				if ( w.Bad() || n < 0 || !w.Has( n * kVertexWords ) )
+					return false;
+				for ( int32_t i = 0; i < n; ++i )
+				{
+					float xyz[3];
+					w.Vec( xyz );
+					const uint32_t rgba = (uint32_t)w.Int();
+					const unsigned char color[4] = {
+						(unsigned char)( rgba & 0xff ), (unsigned char)( ( rgba >> 8 ) & 0xff ),
+						(unsigned char)( ( rgba >> 16 ) & 0xff ), (unsigned char)( rgba >> 24 ) };
+					float st[2];
+					st[0] = w.Float();
+					st[1] = w.Float();
+					mesh.Vertex( xyz, color, st );
+				}
+				break;
+			}
+			case kEndDraw:
+				mesh.EndDraw();
+				break;
+			case kModelAlpha:
+			{
+				const int32_t object = w.Int(), alpha = w.Int();
+				if ( w.Bad() )
+					return false;
+				mesh.ModelAlpha( object, (unsigned char)alpha );
+				break;
+			}
+			default:
 				return false;
-			mesh.ModelAlpha( object, (unsigned char)alpha );
-			break;
-		}
-		default:
-			return false;
 		}
 	}
 }
 
 } // namespace ss_detail
-
-#endif // SS_DETAIL_PROPS_WIRE_H

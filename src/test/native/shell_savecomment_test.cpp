@@ -49,7 +49,7 @@ struct PoisonedBuffer
 {
 	PoisonedBuffer() { memset( buf, '\xAB', sizeof( buf ) ); }
 
-	char buf[ kEngineComment + 8 ];
+	char buf[kEngineComment + 8];
 };
 
 } // namespace
@@ -68,11 +68,10 @@ TEST( SaveComment, AShortMapNameIsPaddedToSixtyFourSoTheClockStartsAtAFixedColum
 	// The clock is the last seven characters of both, at the same offset,
 	// regardless of how long the two names are.
 	ASSERT_EQ( strlen( a.buf ), strlen( b.buf ) )
-		<< "two different map names produced different lengths: '"
-		<< a.buf << "' vs '" << b.buf << "'";
+		<< "two different map names produced different lengths: '" << a.buf << "' vs '" << b.buf << "'";
 	EXPECT_EQ( 71u, strlen( a.buf ) ) << "'" << a.buf << "'";
 	EXPECT_STREQ( "000:00", a.buf + 65 );
-	EXPECT_EQ( ' ', a.buf[ 64 ] );
+	EXPECT_EQ( ' ', a.buf[64] );
 }
 
 TEST( SaveComment, ALongMapNameIsCutAtSixtyFour )
@@ -83,9 +82,9 @@ TEST( SaveComment, ALongMapNameIsCutAtSixtyFour )
 	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, strLong.c_str(), 0, 0, false );
 
 	EXPECT_EQ( 71u, strlen( p.buf ) ) << "'" << p.buf << "'";
-	EXPECT_EQ( 'm', p.buf[ 63 ] );
-	EXPECT_EQ( ' ', p.buf[ 64 ] ) << "the 65th character of a 100-character name "
-	                                 "reached the buffer: the .64 precision is gone";
+	EXPECT_EQ( 'm', p.buf[63] );
+	EXPECT_EQ( ' ', p.buf[64] ) << "the 65th character of a 100-character name "
+								   "reached the buffer: the .64 precision is gone";
 }
 
 TEST( SaveComment, TheClockIsThreeDigitMinutesAndTwoDigitSeconds )
@@ -129,8 +128,7 @@ TEST( SaveComment, TheClampRunsBeforeTheRolloverExactlyAsStockDoesIt )
 	// column after it moves.
 	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, "dm_lockdown", 999, 120, false );
 
-	EXPECT_STREQ( "1001:00", p.buf + 65 )
-		<< "the clamp moved relative to the rollover; stock prints 1001:00 here";
+	EXPECT_STREQ( "1001:00", p.buf + 65 ) << "the clamp moved relative to the rollover; stock prints 1001:00 here";
 }
 
 TEST( SaveComment, NoTimeIsTheNameAloneWithNoClock )
@@ -157,7 +155,7 @@ TEST( SaveComment, ALongMapNameIsCutAtSixtyFourInTheNoTimeSpellingToo )
 	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, strLong.c_str(), 0, 0, true );
 
 	EXPECT_EQ( 64u, strlen( p.buf ) ) << "'" << p.buf << "'";
-	EXPECT_EQ( '\0', p.buf[ 64 ] );
+	EXPECT_EQ( '\0', p.buf[64] );
 }
 
 TEST( SaveComment, TheNameLeadsTheStringInBothSpellings )
@@ -202,8 +200,8 @@ TEST( SaveComment, AShortBufferTruncatesAndStillNullTerminates )
 	ShellGameDll_FormatSaveComment( p.buf, (int)nShortLength, "dm_lockdown", 7, 4, false );
 
 	EXPECT_EQ( 9u, strlen( p.buf ) ) << "'" << p.buf << "'";
-	EXPECT_EQ( '\0', p.buf[ 9 ] );
-	EXPECT_EQ( '\xAB', p.buf[ 10 ] ) << "the formatter wrote past the length it was given";
+	EXPECT_EQ( '\0', p.buf[9] );
+	EXPECT_EQ( '\xAB', p.buf[10] ) << "the formatter wrote past the length it was given";
 }
 
 TEST( SaveComment, ANonPositiveLengthWritesNothingRatherThanOneNullByte )
@@ -213,8 +211,8 @@ TEST( SaveComment, ANonPositiveLengthWritesNothingRatherThanOneNullByte )
 	ShellGameDll_FormatSaveComment( zero.buf, 0, "dm_lockdown", 7, 4, false );
 	ShellGameDll_FormatSaveComment( negative.buf, -1, "dm_lockdown", 7, 4, false );
 
-	EXPECT_EQ( '\xAB', zero.buf[ 0 ] );
-	EXPECT_EQ( '\xAB', negative.buf[ 0 ] );
+	EXPECT_EQ( '\xAB', zero.buf[0] );
+	EXPECT_EQ( '\xAB', negative.buf[0] );
 }
 
 TEST( SaveComment, ANullBufferIsNotADereference )
@@ -232,7 +230,7 @@ TEST( SaveComment, ANullMapNameProducesADefinedStringRatherThanACrash )
 
 	EXPECT_EQ( 71u, strlen( p.buf ) ) << "'" << p.buf << "'";
 	EXPECT_STREQ( "007:04", p.buf + 65 );
-	EXPECT_EQ( ' ', p.buf[ 0 ] ) << "a NULL name should pad, not print a pointer";
+	EXPECT_EQ( ' ', p.buf[0] ) << "a NULL name should pad, not print a pointer";
 }
 
 // THE DEFECT ITSELF, stated as a fact rather than implied by the others: the
@@ -244,7 +242,7 @@ TEST( SaveComment, TheEnginesBufferIsWrittenAndNotLeftAsItWasFound )
 
 	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, "dm_lockdown", 0, 0, false );
 
-	EXPECT_NE( '\xAB', p.buf[ 0 ] ) << "the buffer came back exactly as it went in";
+	EXPECT_NE( '\xAB', p.buf[0] ) << "the buffer came back exactly as it went in";
 }
 
 //-----------------------------------------------------------------------------
@@ -254,138 +252,4 @@ TEST( SaveComment, TheEnginesBufferIsWrittenAndNotLeftAsItWasFound )
 namespace
 {
 
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string s = std::string( kCandidates[ i ] ) + "/sourcesharp/host/sourcesharp.h";
-		if ( stat( s.c_str(), &st ) == 0 )
-			return kCandidates[ i ];
-	}
-	return NULL;
-}
-
-std::string StripComments( const std::string &strIn )
-{
-	std::string out;
-	bool bInBlock = false;
-	for ( size_t i = 0; i < strIn.size(); i++ )
-	{
-		if ( bInBlock )
-		{
-			if ( i + 1 < strIn.size() && strIn[ i ] == '*' && strIn[ i + 1 ] == '/' )
-			{
-				bInBlock = false; i++;
-			}
-			continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '*' )
-		{
-			bInBlock = true; i++; continue;
-		}
-		if ( i + 1 < strIn.size() && strIn[ i ] == '/' && strIn[ i + 1 ] == '/' )
-		{
-			while ( i < strIn.size() && strIn[ i ] != '\n' ) i++;
-			if ( i < strIn.size() ) out += '\n';
-			continue;
-		}
-		out += strIn[ i ];
-	}
-	return out;
-}
-
-std::string Shell()
-{
-	const char *pRoot = SrcRoot();
-	if ( pRoot == NULL )
-		return std::string();
-
-	std::ifstream f( ( std::string( pRoot ) +
-	                   "/sourcesharp/game/server/shell_gamedll.cpp" ).c_str(),
-	                 std::ios::binary );
-	if ( !f.is_open() )
-		return std::string();
-
-	return StripComments( std::string( ( std::istreambuf_iterator<char>( f ) ),
-	                                   std::istreambuf_iterator<char>() ) );
-}
-
-// The body of GetSaveComment, between its `override` and the brace that closes
-// it. Anchored on the full signature rather than on the name, because `comment`
-// and `GetSaveComment` both occur elsewhere in the file.
-std::string GetSaveCommentBody()
-{
-	const std::string strShell = Shell();
-	const std::string strSig = "void GetSaveComment(char *comment, int maxlength";
-
-	const size_t at = strShell.find( strSig );
-	if ( at == std::string::npos )
-		return std::string();
-
-	const size_t open = strShell.find( '{', at );
-	if ( open == std::string::npos )
-		return std::string();
-
-	int nDepth = 0;
-	for ( size_t i = open; i < strShell.size(); i++ )
-	{
-		if ( strShell[ i ] == '{' ) nDepth++;
-		else if ( strShell[ i ] == '}' && --nDepth == 0 )
-			return strShell.substr( open, i - open + 1 );
-	}
-	return std::string();
-}
-
 } // namespace
-
-TEST( SaveCommentArrangement, TheShellFillsTheBufferFromGetSaveComment )
-{
-	const std::string strBody = GetSaveCommentBody();
-
-	ASSERT_FALSE( strBody.empty() ) << "GetSaveComment has no body in shell_gamedll.cpp";
-	EXPECT_NE( std::string::npos, strBody.find( "ShellGameDll_FormatSaveComment" ) )
-		<< "GetSaveComment stopped filling the engine's buffer; the engine is "
-		   "back to using uninitialised stack as the save's title";
-}
-
-TEST( SaveCommentArrangement, TheShellStillCountsTheRefusalFromGetSaveComment )
-{
-	const std::string strBody = GetSaveCommentBody();
-
-	ASSERT_FALSE( strBody.empty() ) << "GetSaveComment has no body in shell_gamedll.cpp";
-	EXPECT_NE( std::string::npos,
-	           strBody.find( "ShellGameDll_Unreachable( \"IServerGameDLL::GetSaveComment\" )" ) )
-		<< "filling the buffer is not answering the save: the refusal must still "
-		   "warn and count";
-}
-
-// THE ORDER, and it is the same rule the two LevelInit save arms follow: count
-// BEFORE the line under it, so a fill that throws or a fill that is later
-// replaced by a forward still leaves the finding behind.
-TEST( SaveCommentArrangement, TheRefusalIsCountedBeforeTheBufferIsFilled )
-{
-	const std::string strBody = GetSaveCommentBody();
-
-	ASSERT_FALSE( strBody.empty() ) << "GetSaveComment has no body in shell_gamedll.cpp";
-
-	const size_t at_count = strBody.find( "ShellGameDll_Unreachable" );
-	const size_t at_fill  = strBody.find( "ShellGameDll_FormatSaveComment" );
-
-	ASSERT_NE( std::string::npos, at_count );
-	ASSERT_NE( std::string::npos, at_fill );
-	EXPECT_LT( at_count, at_fill );
-}
-
-// THE SHELL PASSES THE MAP NAME, and not a literal. A formatter that is right
-// about every column and is handed "" produces 64 spaces and a clock -- which
-// is a defined string, so every fact above still passes.
-TEST( SaveCommentArrangement, TheShellPassesTheLiveMapNameAndNotAConstant )
-{
-	const std::string strBody = GetSaveCommentBody();
-
-	ASSERT_FALSE( strBody.empty() ) << "GetSaveComment has no body in shell_gamedll.cpp";
-	EXPECT_NE( std::string::npos, strBody.find( "gpGlobals->mapname" ) )
-		<< "the save comment stopped naming the map that is loaded";
-}

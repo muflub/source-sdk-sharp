@@ -48,4 +48,3 @@ TEST( MempoolClient, TheScenarioIsStocksLineForLine )
 	EXPECT_FALSE( (bool)std::getline( r, rl ) ) << "ours has more lines than stock: " << rl;
 	EXPECT_GT( n, 10000 );
 }
-

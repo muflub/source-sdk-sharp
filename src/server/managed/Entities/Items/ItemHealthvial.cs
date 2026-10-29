@@ -4,7 +4,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 [ScriptedEntity(EntityNames.ItemHealthvial, ScriptedEntityKind.Item)]
-public sealed class ItemHealthvial(IUserMessageSender messages) : PickupItem
+public sealed class ItemHealthvial(IUserMessageSender messages, IEngineWorldQuery world, PlacedObjects placed) : PickupItem(world, placed)
 {
     protected override string Model => "models/healthvial.mdl";
     protected override string Describe() => "a health vial";

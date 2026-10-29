@@ -106,7 +106,7 @@ public sealed class WorldSkybox : IFrameLifecycle, IGameLifecycle
 
         int seen = 0;
 
-        foreach (var entity in _entities.OfClass(EntityNames.SsPlayer))
+        foreach (var entity in _entities.OfClass(EntityNames.Player))
         {
             if (entity is not SsPlayer player)
                 continue;

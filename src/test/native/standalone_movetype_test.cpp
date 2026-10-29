@@ -43,7 +43,7 @@ namespace
 TEST( StandaloneMoveType, WalkingPlayerIsCarryable )
 {
 	EXPECT_EQ( SOURCESHARP_MOVETYPE_WALK,
-	           StandaloneMoveType_Report( true, SOURCESHARP_MOVETYPE_WALK, false, SOURCESHARP_MOVETYPE_NONE ) );
+			   StandaloneMoveType_Report( true, SOURCESHARP_MOVETYPE_WALK, false, SOURCESHARP_MOVETYPE_NONE ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -71,10 +71,10 @@ TEST( StandaloneMoveType, NoclippingPlayerIsNotCarryable )
 TEST( StandaloneMoveType, PlayerOutranksPhysics )
 {
 	EXPECT_EQ( SOURCESHARP_MOVETYPE_WALK,
-	           StandaloneMoveType_Report( true, SOURCESHARP_MOVETYPE_WALK, true, SOURCESHARP_MOVETYPE_VPHYSICS ) );
+			   StandaloneMoveType_Report( true, SOURCESHARP_MOVETYPE_WALK, true, SOURCESHARP_MOVETYPE_VPHYSICS ) );
 
 	EXPECT_EQ( SOURCESHARP_MOVETYPE_NOCLIP,
-	           StandaloneMoveType_Report( true, SOURCESHARP_MOVETYPE_NOCLIP, true, SOURCESHARP_MOVETYPE_VPHYSICS ) );
+			   StandaloneMoveType_Report( true, SOURCESHARP_MOVETYPE_NOCLIP, true, SOURCESHARP_MOVETYPE_VPHYSICS ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -85,7 +85,7 @@ TEST( StandaloneMoveType, PlayerOutranksPhysics )
 TEST( StandaloneMoveType, SimulatedEntityIsVPhysics )
 {
 	EXPECT_EQ( SOURCESHARP_MOVETYPE_VPHYSICS,
-	           StandaloneMoveType_Report( false, 0, true, SOURCESHARP_MOVETYPE_VPHYSICS ) );
+			   StandaloneMoveType_Report( false, 0, true, SOURCESHARP_MOVETYPE_VPHYSICS ) );
 }
 
 TEST( StandaloneMoveType, StaticObjectKeepsTheEntitysOwnMoveType )
@@ -93,16 +93,14 @@ TEST( StandaloneMoveType, StaticObjectKeepsTheEntitysOwnMoveType )
 	// VPhysicsInitStatic leaves the entity's movetype alone: a solid
 	// prop_dynamic holds a static object and stays MOVETYPE_NONE, which
 	// managed writes into the block's MoveType word (EntityPhysicsCreation).
-	EXPECT_EQ( SOURCESHARP_MOVETYPE_NONE,
-	           StandaloneMoveType_Report( false, 0, true, SOURCESHARP_MOVETYPE_NONE ) );
+	EXPECT_EQ( SOURCESHARP_MOVETYPE_NONE, StandaloneMoveType_Report( false, 0, true, SOURCESHARP_MOVETYPE_NONE ) );
 }
 
 TEST( StandaloneMoveType, AHeldMoveTypeNeedsAnObject )
 {
 	// The word follows the object: with none held the entity is not simulated,
 	// whatever an earlier object left in it.
-	EXPECT_EQ( SOURCESHARP_MOVETYPE_NONE,
-	           StandaloneMoveType_Report( false, 0, false, SOURCESHARP_MOVETYPE_VPHYSICS ) );
+	EXPECT_EQ( SOURCESHARP_MOVETYPE_NONE, StandaloneMoveType_Report( false, 0, false, SOURCESHARP_MOVETYPE_VPHYSICS ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -112,13 +110,12 @@ TEST( StandaloneMoveType, AHeldMoveTypeNeedsAnObject )
 //-----------------------------------------------------------------------------
 TEST( StandaloneMoveType, PlainStandaloneEntityIsNone )
 {
-	EXPECT_EQ( SOURCESHARP_MOVETYPE_NONE,
-	           StandaloneMoveType_Report( false, 0, false, SOURCESHARP_MOVETYPE_NONE ) );
+	EXPECT_EQ( SOURCESHARP_MOVETYPE_NONE, StandaloneMoveType_Report( false, 0, false, SOURCESHARP_MOVETYPE_NONE ) );
 
 	// The player movetype argument is not read when the subject is not a
 	// player: a mover must not become carryable because of a stale int.
 	EXPECT_EQ( SOURCESHARP_MOVETYPE_NONE,
-	           StandaloneMoveType_Report( false, SOURCESHARP_MOVETYPE_WALK, false, SOURCESHARP_MOVETYPE_NONE ) );
+			   StandaloneMoveType_Report( false, SOURCESHARP_MOVETYPE_WALK, false, SOURCESHARP_MOVETYPE_NONE ) );
 }
 
 } // namespace

@@ -172,7 +172,7 @@ public class GameManagerTests
         var other = new ScriptedEntityRegistry(TestEngines.Server());
         other.RegisterAll(typeof(GameWeaponManager).Assembly);
         other.Services = Services();
-        other.KeyValue(Ent, EntityNames.GameWeaponManager, "weaponname", "weapon_physcannon");
+        other.KeyValue(Ent, EntityNames.GameWeaponManager, "weaponname", "weapon_bugbait");
         other.Spawn(Ent, EntityNames.GameWeaponManager);
 
         Assert.True(!((GameWeaponManager)other.Get(Ent)!).Managing, "a manager for a weapon this mod does not have removes itself");

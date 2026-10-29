@@ -218,7 +218,7 @@ public class EngineHierarchyWorldTests
                                               ParentProbe bits = ParentProbe.None)
     {
         engine = TestServices.Mock().Returns("Entities.ParentProbe.bits", bits);
-        return new EngineHierarchyWorld(engine, engine, new RecordingLog());
+        return new EngineHierarchyWorld(engine, engine, engine, new RecordingLog());
     }
 
     /// <summary>
@@ -317,6 +317,43 @@ public class EngineHierarchyWorldTests
     /// and nowhere else.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// VPhysicsInitStatic's move-parent arm (baseentity_shared.cpp): a child
+    /// linked while it holds a static object is given a shadow in its place,
+    /// made after the static one is gone. Found beside stock (dm_lockdown
+    /// solidity census, 2026-10-27): plug_model2 held a shadow in stock and
+    /// nothing here.
+    /// </summary>
+    [Fact]
+    public void A_static_child_is_given_a_shadow_in_its_objects_place()
+    {
+        var world = World(out var engine);
+        engine.Returns("EntityPhysics.PhysicsKind", 1).Returns("EntityPhysics.InitShadowPhysics", true);
+        var child = new EntityHandle(0x2A0002);
+
+        world.DetachPhysics(child);
+
+        var order = engine.Calls.Select(c => c.Member).ToList();
+        int destroyed = order.IndexOf("Entities.DestroyPhysics");
+        int shadow = order.IndexOf("EntityPhysics.InitShadowPhysics");
+        Assert.True(destroyed >= 0 && shadow > destroyed, string.Join(", ", order));
+        var made = engine.Last("EntityPhysics.InitShadowPhysics")!.Value;
+        Assert.Equal((child, false, false), (made.ArgAs<EntityHandle>(0), made.ArgAs<bool>(1), made.ArgAs<bool>(2)));
+    }
+
+    /// <summary>A simulated child's object is destroyed: the solver would fight its composition.</summary>
+    [Fact]
+    public void A_simulated_child_loses_its_object()
+    {
+        var world = World(out var engine);
+        engine.Returns("EntityPhysics.PhysicsKind", 3);
+
+        world.DetachPhysics(new EntityHandle(0x2A0003));
+
+        Assert.Equal(1, engine.CountOf("Entities.DestroyPhysics"));
+        Assert.False(engine.Called("EntityPhysics.InitShadowPhysics"));
+    }
+
     [Fact]
     public void EachWorldAsksOnlyTheEngineItWasComposedWith()
     {
@@ -324,7 +361,7 @@ public class EngineHierarchyWorldTests
         var b = World(out var engineB, ParentProbe.Standalone);
         var handle = new EntityHandle(0x2A0001);
 
-        engineA.Returns("Entities.FindBaseByName", handle);
+        engineA.Returns("Entities.FindBaseByName", handle).Returns("EntityPhysics.PhysicsKind", 3);
 
         Assert.True(a.IsBase(handle), "world A did not read engine A's probe");
         Assert.False(a.IsStandalone(handle));
@@ -342,6 +379,7 @@ public class EngineHierarchyWorldTests
 
         Assert.False(engineB.Called("Entities.Remove"), "world A's removal reached engine B");
         Assert.False(engineB.Called("Entities.DestroyPhysics"), "world A's detach reached engine B");
+        Assert.False(engineB.Called("EntityPhysics.PhysicsKind"), "world A's detach asked engine B");
         Assert.False(engineB.Called("Entities.FindBaseByName"), "world A's search reached engine B");
         Assert.False(engineB.Called("Entities.GetEngineBlock"), "world A's block read reached engine B");
         Assert.Equal(1, engineB.CountOf("Entities.ParentProbe"));

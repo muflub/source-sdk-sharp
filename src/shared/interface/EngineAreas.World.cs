@@ -12,17 +12,9 @@ namespace SourceSharp.Abi;
 /// to be in it.
 /// </para>
 ///
-/// <para>
-/// <see cref="AngleVectorsFromForward"/> is the exception and is here because it
-/// has nowhere better: it asks about no place at all, it is pure geometry. It is
-/// an engine call, so it belongs on an area rather than nowhere.
-/// </para>
 /// </summary>
 public interface IEngineWorldQuery
 {
-    /// <inheritdoc cref="EngineSide.AngleVectorsFromForward"/>
-    (Vector Right, Vector Up) AngleVectorsFromForward(Vector forward);
-
     /// <inheritdoc cref="EngineSide.EntitiesInSphere"/>
     int EntitiesInSphere(Vector center, float radius, Span<EntityHandle> into);
 
@@ -39,6 +31,15 @@ public interface IEngineWorldQuery
 
     /// <inheritdoc cref="EngineSide.TraceHull"/>
     HullResult TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default);
+
+    /// <summary>
+    /// The same box swept from <paramref name="start"/> to <paramref name="end"/>,
+    /// with the whole answer a surface line trace gives -- where it stopped,
+    /// the face, what owns it and its surface: stock's UTIL_TraceEntity, which
+    /// moves a flying entity as its box, not as a point, and whose trace is the
+    /// touch trace a projectile's touch reads.
+    /// </summary>
+    SurfaceTraceResult TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore = default);
 
     /// <inheritdoc cref="EngineSide.EntityTraceHull"/>
     EntityHullTrace EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs,
@@ -70,6 +71,34 @@ public interface IEngineWorldQuery
     /// </summary>
     ClientTraceResult ClientTraceLine(Vector start, Vector end, TraceMask mask,
                                       TraceFilter filter, int passEntityIndex = -1);
+
+    /// <summary>
+    /// The CLIENT's ray clipped against the entities named, by INDEX: the
+    /// nearest solid one it hits, in <see cref="ClientTraceLine(Vector, Vector, TraceMask)"/>'s
+    /// shape, or a miss, at any <see cref="TraceMask"/> the line takes.
+    ///
+    /// <para>
+    /// The other half of a client trace that has to stop on entities: the
+    /// standalone shells are in no spatial partition, so
+    /// <see cref="ClientTraceLine(Vector, Vector, TraceMask)"/> sees the world
+    /// and nothing else. Which entities may stop the ray is the caller's
+    /// decision, from the directory; a non-solid one never does. The server
+    /// answers a miss.
+    /// </para>
+    /// </summary>
+    ClientTraceResult ClientClipRayToEntities(Vector start, Vector end, TraceMask mask,
+                                              ReadOnlySpan<int> entityIndices);
+
+    /// <summary>
+    /// The CLIENT's box, <paramref name="mins"/> to <paramref name="maxs"/>,
+    /// swept through the world (a simple filter passing
+    /// <paramref name="passEntityIndex"/>) and clipped against the entities
+    /// named, by INDEX, as <see cref="ClientClipRayToEntities"/> clips a ray:
+    /// the nearest stop of them all. The server answers a miss.
+    /// </summary>
+    ClientBoxTrace ClientTraceHullEntities(Vector start, Vector end, Vector mins, Vector maxs,
+                                            TraceMask mask, int passEntityIndex,
+                                            ReadOnlySpan<int> entityIndices);
 
     /// <inheritdoc cref="EngineSide.ClientEntityModelType"/>
     ModelType? ClientEntityModelType(int entIndex);
@@ -150,6 +179,9 @@ public interface IEngineSound
     /// <inheritdoc cref="EngineSide.EntityEmitSound"/>
     void EntityEmitSound(EntityHandle entity, string soundName);
 
+    /// <summary>A script sound from an entity at a volume and pitch of the caller's. See IServerSoundRoute.EntityEmitSoundAs.</summary>
+    void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch);
+
     /// <inheritdoc cref="EngineSide.EntityStopSound"/>
     void EntityStopSound(EntityHandle entity, string soundName);
 
@@ -219,6 +251,14 @@ public interface IEngineEffects
     /// </summary>
     void BubbleEffect(EntityHandle entity, int count, float speed);
 
+    /// <summary>
+    /// UTIL_BubbleTrail: <paramref name="count"/> bubbles along the line from
+    /// <paramref name="from"/> to <paramref name="to"/>, the part of it that is
+    /// under water, rising to the surface (the server's answer is
+    /// SourceSharp.Server's EffectsOverTempEnts).
+    /// </summary>
+    void BubbleTrailEffect(Vector from, Vector to, int count);
+
     /// <inheritdoc cref="EngineSide.TempEntRegister"/>
     int TempEntRegister(TeClass description);
 
@@ -265,9 +305,6 @@ public interface IEngineEffects
     /// <inheritdoc cref="EngineSide.ClientDecalStaticProp"/>
     void ClientDecalStaticProp(Vector start, Vector end, int staticPropIndex, int decalIndex);
 
-    /// <inheritdoc cref="EngineSide.ClientIsLowViolence"/>
-    bool ClientIsLowViolence();
-
     /// <inheritdoc cref="EngineSide.ClientDecalNameFromIndex"/>
     string ClientDecalNameFromIndex(int decalIndex);
 
@@ -276,8 +313,13 @@ public interface IEngineEffects
     // IEngineWorldQuery: what an entity's model IS is a question, and the
     // switch it feeds is C#'s.
 
-    /// <inheritdoc cref="EngineSide.ClientDecalStudioModel"/>
-    void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayEnd, int decalIndex);
+    /// <summary>
+    /// A decal on a studio model, along the ray from <paramref name="rayStart"/>
+    /// by <paramref name="rayDelta"/>: the RAY as stock aims it (its delta
+    /// already lengthened, <c>ray.m_Delta *= 1.1f</c>), so that the engine is
+    /// handed the delta itself and not <c>( start + delta ) - start</c>.
+    /// </summary>
+    void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayDelta, int decalIndex);
 
     /// <inheritdoc cref="EngineSide.ClientDecalBrushModel"/>
     void ClientDecalBrushModel(int entIndex, Vector decalCenter, int decalIndex);
@@ -524,6 +566,13 @@ public interface IEngineVisibility
     /// <inheritdoc cref="EngineSide.ColorCorrectionSetWeight"/>
     void ColorCorrectionSetWeight(int handle, float weight);
 
+    /// <summary>
+    /// Every lookup's weight back to zero, before the frame's corrections
+    /// weigh them again (stock's <c>ResetColorCorrectionWeights</c> ahead of
+    /// <c>SimulateEntities</c>). Client only; nothing on the server.
+    /// </summary>
+    void ColorCorrectionResetWeights();
+
     /// <inheritdoc cref="EngineSide.DynamicLightRelease"/>
     void DynamicLightRelease(int key);
 
@@ -600,5 +649,10 @@ public interface IEngineVisibility
 /// <summary>A sound script's CSoundParameters: volume, pitch and its range, and soundlevel.</summary>
 public readonly record struct SoundScriptParams(float Volume, int Pitch, int PitchLow, int PitchHigh, int SoundLevel);
 
-/// <summary>UTIL_TraceEntity's answer: where the hull stopped, and whether it started or stayed in solid.</summary>
-public readonly record struct EntityHullTrace(Vector EndPos, bool StartSolid, bool AllSolid);
+/// <summary>
+/// UTIL_TraceEntity's answer: where the hull stopped, whether it started or
+/// stayed in solid, what stopped it (None for nothing) and how far it got
+/// (1 for the whole way).
+/// </summary>
+public readonly record struct EntityHullTrace(Vector EndPos, bool StartSolid, bool AllSolid,
+                                              EntityHandle Entity = default, float Fraction = 0f);

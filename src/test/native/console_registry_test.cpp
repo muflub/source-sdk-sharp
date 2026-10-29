@@ -18,12 +18,12 @@ namespace
 
 struct Carrier
 {
-	int         nId;
+	int nId;
 	std::string strName;
 };
 
 // Registers as the game does: build the carrier with NextId(), then Add.
-int Register( CConsoleRegistry< Carrier > &reg, const char *pName, std::vector< Carrier * > &owned )
+int Register( CConsoleRegistry<Carrier> &reg, const char *pName, std::vector<Carrier *> &owned )
 {
 	if ( Carrier *pExisting = reg.ByName( pName ) )
 		return pExisting->nId;
@@ -37,13 +37,18 @@ int Register( CConsoleRegistry< Carrier > &reg, const char *pName, std::vector< 
 
 struct Owned
 {
-	std::vector< Carrier * > v;
-	~Owned() { for ( Carrier *p : v ) delete p; }
+	std::vector<Carrier *> v;
+
+	~Owned()
+	{
+		for ( Carrier *p : v )
+			delete p;
+	}
 };
 
 TEST( ConsoleRegistry, IdsAreDenseAndInRegistrationOrder )
 {
-	CConsoleRegistry< Carrier > reg;
+	CConsoleRegistry<Carrier> reg;
 	Owned owned;
 
 	const char *const kNames[] = { "sv_gravity", "mp_timelimit", "ss_debug", "cl_foo", "sv_cheats" };
@@ -60,7 +65,7 @@ TEST( ConsoleRegistry, IdsAreDenseAndInRegistrationOrder )
 
 TEST( ConsoleRegistry, ReRegisteringANameInAnotherCaseAnswersTheExistingId )
 {
-	CConsoleRegistry< Carrier > reg;
+	CConsoleRegistry<Carrier> reg;
 	Owned owned;
 
 	Register( reg, "sv_first", owned.v );
@@ -73,7 +78,7 @@ TEST( ConsoleRegistry, ReRegisteringANameInAnotherCaseAnswersTheExistingId )
 
 TEST( ConsoleRegistry, AnUnknownOrNegativeIdFindsNothing )
 {
-	CConsoleRegistry< Carrier > reg;
+	CConsoleRegistry<Carrier> reg;
 	Owned owned;
 	Register( reg, "sv_gravity", owned.v );
 
@@ -89,7 +94,7 @@ TEST( ConsoleRegistry, AnUnknownOrNegativeIdFindsNothing )
 // name registered, in whatever case the engine spells it.
 TEST( ConsoleRegistry, ANameReachesTheCarrierItRegistered )
 {
-	CConsoleRegistry< Carrier > reg;
+	CConsoleRegistry<Carrier> reg;
 	Owned owned;
 	Register( reg, "sv_gravity", owned.v );
 	Register( reg, "Mp_TimeLimit", owned.v );
@@ -109,6 +114,7 @@ TEST( ConsoleRegistry, ANameReachesTheCarrierItRegistered )
 namespace
 {
 int g_nDestroyed = 0;
+
 struct CCountedCarrier
 {
 	~CCountedCarrier() { ++g_nDestroyed; }
@@ -118,7 +124,7 @@ struct CCountedCarrier
 TEST( ConsoleRegistry, DeleteAllDeletesEveryCarrierOnceAndForgetsEveryName )
 {
 	g_nDestroyed = 0;
-	CConsoleRegistry< CCountedCarrier > reg;
+	CConsoleRegistry<CCountedCarrier> reg;
 	reg.Add( "cs_one", new CCountedCarrier );
 	reg.Add( "cs_two", new CCountedCarrier );
 	reg.Add( "cs_three", new CCountedCarrier );
@@ -134,7 +140,7 @@ TEST( ConsoleRegistry, DeleteAllDeletesEveryCarrierOnceAndForgetsEveryName )
 
 TEST( ConsoleRegistry, AnIdIsNotHandedOutAgainAfterDeleteAll )
 {
-	CConsoleRegistry< CCountedCarrier > reg;
+	CConsoleRegistry<CCountedCarrier> reg;
 	const int nFirst = reg.Add( "cs_one", new CCountedCarrier );
 	reg.DeleteAll();
 	const int nAfter = reg.Add( "cs_one", new CCountedCarrier );

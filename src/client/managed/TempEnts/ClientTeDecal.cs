@@ -73,11 +73,13 @@ public sealed class ClientTeDecal : ClientTempEnt<TeDecal>
 {
     private readonly IEngineEffects _effects;
     private readonly IEngineWorldQuery _world;
+    private readonly IDecalSettings _settings;
 
-    public ClientTeDecal(IEngineEffects effects, IEngineWorldQuery world)
+    public ClientTeDecal(IEngineEffects effects, IEngineWorldQuery world, IDecalSettings settings)
     {
         _effects = effects;
         _world = world;
+        _settings = settings;
     }
 
     public override void Play(TeDecal te)
@@ -103,7 +105,7 @@ public sealed class ClientTeDecal : ClientTempEnt<TeDecal>
         // vector HERE and are not in c_te_projecteddecal.cpp, which is why
         // AddDecal takes them separately rather than deriving one from the
         // other.
-        ClientEntityDecal.AddDecal(_world, _effects, te.Entity,
+        ClientEntityDecal.AddDecal(_world, _effects, _settings, te.Entity,
                                    rayStart: te.Start, rayEnd: te.Origin,
                                    decalCenter: te.Origin, decalIndex: te.Index);
     }

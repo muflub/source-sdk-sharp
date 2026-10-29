@@ -32,7 +32,21 @@
 //
 //=============================================================================//
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "particles/particles.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterial.h"
@@ -48,8 +62,15 @@
 namespace
 {
 
-enum Module_t { kClient, kParticles, kOther, kModules };
-const char *const s_ModuleNames[ kModules ] = { "client.so", "libss_particles.so", "other" };
+enum Module_t
+{
+	kClient,
+	kParticles,
+	kOther,
+	kModules
+};
+
+const char *const s_ModuleNames[kModules] = { "client.so", "libss_particles.so", "other" };
 
 struct Counts_t
 {
@@ -62,12 +83,12 @@ struct Counts_t
 bool g_bArmed = false;
 const void *g_pClientBase = NULL;
 const void *g_pParticlesBase = NULL;
-Counts_t g_Counts[ kModules ];
-CUtlDict< int64, int > g_Materials[ kModules ];
+Counts_t g_Counts[kModules];
+CUtlDict<int64, int> g_Materials[kModules];
 int g_nStartFrame = 0;
-CUtlVector< VTableSlotPatch::Patch > g_Patches;
-CUtlVector< void ** > g_MeshTables;	// mesh vtables whose Draw is hooked
-CUtlVector< void * > g_MeshDraws;	// and each one's original Draw
+CUtlVector<VTableSlotPatch::Patch> g_Patches;
+CUtlVector<void **> g_MeshTables; // mesh vtables whose Draw is hooked
+CUtlVector<void *> g_MeshDraws; // and each one's original Draw
 
 void *g_pBind = NULL;
 void *g_pGetDynamicMesh = NULL;
@@ -95,8 +116,8 @@ void HookMesh( IMesh *pMesh )
 	if ( g_MeshTables.Find( pTable ) >= 0 )
 		return;
 	VTableSlotPatch::Patch patch;
-	if ( !VTableSlotPatch::Install( pMesh, static_cast< void ( IMesh::* )( int, int ) >( &IMesh::Draw ),
-	                                (void *)&H_MeshDraw, &patch ) )
+	if ( !VTableSlotPatch::Install( pMesh, static_cast<void ( IMesh::* )( int, int )>( &IMesh::Draw ),
+									(void *)&H_MeshDraw, &patch ) )
 		return;
 	g_Patches.AddToTail( patch );
 	g_MeshTables.AddToTail( pTable );
@@ -108,34 +129,34 @@ void H_Bind( IMatRenderContext *self, IMaterial *pMaterial, void *pProxyData )
 	if ( g_bArmed )
 	{
 		Module_t m = ModuleOf( __builtin_return_address( 0 ) );
-		g_Counts[ m ].nBind++;
+		g_Counts[m].nBind++;
 		const char *pszName = pMaterial ? pMaterial->GetName() : "(null)";
-		int i = g_Materials[ m ].Find( pszName );
-		if ( i == g_Materials[ m ].InvalidIndex() )
-			i = g_Materials[ m ].Insert( pszName, 0 );
-		g_Materials[ m ][ i ]++;
+		int i = g_Materials[m].Find( pszName );
+		if ( i == g_Materials[m].InvalidIndex() )
+			i = g_Materials[m].Insert( pszName, 0 );
+		g_Materials[m][i]++;
 	}
 	( (void ( * )( IMatRenderContext *, IMaterial *, void * ))g_pBind )( self, pMaterial, pProxyData );
 }
 
 IMesh *H_GetDynamicMesh( IMatRenderContext *self, bool bBuffered, IMesh *pVertexOverride, IMesh *pIndexOverride,
-                         IMaterial *pAutoBind )
+						 IMaterial *pAutoBind )
 {
 	if ( g_bArmed )
-		g_Counts[ ModuleOf( __builtin_return_address( 0 ) ) ].nGetMesh++;
-	IMesh *pMesh = ( (IMesh * ( * )( IMatRenderContext *, bool, IMesh *, IMesh *, IMaterial * ))g_pGetDynamicMesh )(
-		self, bBuffered, pVertexOverride, pIndexOverride, pAutoBind );
+		g_Counts[ModuleOf( __builtin_return_address( 0 ) )].nGetMesh++;
+	IMesh *pMesh = ( ( IMesh * (*)(IMatRenderContext *, bool, IMesh *, IMesh *, IMaterial *))
+						 g_pGetDynamicMesh )( self, bBuffered, pVertexOverride, pIndexOverride, pAutoBind );
 	HookMesh( pMesh );
 	return pMesh;
 }
 
 IMesh *H_GetDynamicMeshEx( IMatRenderContext *self, VertexFormat_t fmt, bool bBuffered, IMesh *pVertexOverride,
-                           IMesh *pIndexOverride, IMaterial *pAutoBind )
+						   IMesh *pIndexOverride, IMaterial *pAutoBind )
 {
 	if ( g_bArmed )
-		g_Counts[ ModuleOf( __builtin_return_address( 0 ) ) ].nGetMesh++;
-	IMesh *pMesh = ( (IMesh * ( * )( IMatRenderContext *, VertexFormat_t, bool, IMesh *, IMesh *, IMaterial * ))
-	                     g_pGetDynamicMeshEx )( self, fmt, bBuffered, pVertexOverride, pIndexOverride, pAutoBind );
+		g_Counts[ModuleOf( __builtin_return_address( 0 ) )].nGetMesh++;
+	IMesh *pMesh = ( ( IMesh * (*)(IMatRenderContext *, VertexFormat_t, bool, IMesh *, IMesh *, IMaterial *))
+						 g_pGetDynamicMeshEx )( self, fmt, bBuffered, pVertexOverride, pIndexOverride, pAutoBind );
 	HookMesh( pMesh );
 	return pMesh;
 }
@@ -145,17 +166,17 @@ void H_MeshDraw( IMesh *self, int firstIndex, int numIndices )
 	if ( g_bArmed )
 	{
 		Module_t m = ModuleOf( __builtin_return_address( 0 ) );
-		g_Counts[ m ].nDraw++;
-		g_Counts[ m ].nDrawIndices += numIndices;
+		g_Counts[m].nDraw++;
+		g_Counts[m].nDrawIndices += numIndices;
 	}
 	const int i = g_MeshTables.Find( *(void ***)self );
-	( (void ( * )( IMesh *, int, int ))g_MeshDraws[ i ] )( self, firstIndex, numIndices );
+	( (void ( * )( IMesh *, int, int ))g_MeshDraws[i] )( self, firstIndex, numIndices );
 }
 
 void Unhook()
 {
 	for ( int i = g_Patches.Count() - 1; i >= 0; --i )
-		VTableSlotPatch::Remove( g_Patches[ i ] );
+		VTableSlotPatch::Remove( g_Patches[i] );
 	g_Patches.RemoveAll();
 	g_MeshTables.RemoveAll();
 	g_MeshDraws.RemoveAll();
@@ -180,14 +201,29 @@ bool Hook()
 	CMatRenderContextPtr pContext( materials );
 	VTableSlotPatch::Patch patch;
 	bool bOk = true;
-	bOk = bOk && VTableSlotPatch::Install( (IMatRenderContext *)pContext, &IMatRenderContext::Bind, (void *)&H_Bind, &patch );
-	if ( bOk ) { g_pBind = patch.pOriginal; g_Patches.AddToTail( patch ); }
-	bOk = bOk && VTableSlotPatch::Install( (IMatRenderContext *)pContext, &IMatRenderContext::GetDynamicMesh,
-	                                       (void *)&H_GetDynamicMesh, &patch );
-	if ( bOk ) { g_pGetDynamicMesh = patch.pOriginal; g_Patches.AddToTail( patch ); }
-	bOk = bOk && VTableSlotPatch::Install( (IMatRenderContext *)pContext, &IMatRenderContext::GetDynamicMeshEx,
-	                                       (void *)&H_GetDynamicMeshEx, &patch );
-	if ( bOk ) { g_pGetDynamicMeshEx = patch.pOriginal; g_Patches.AddToTail( patch ); }
+	bOk = bOk &&
+		VTableSlotPatch::Install( (IMatRenderContext *)pContext, &IMatRenderContext::Bind, (void *)&H_Bind, &patch );
+	if ( bOk )
+	{
+		g_pBind = patch.pOriginal;
+		g_Patches.AddToTail( patch );
+	}
+	bOk = bOk &&
+		VTableSlotPatch::Install( (IMatRenderContext *)pContext, &IMatRenderContext::GetDynamicMesh,
+								  (void *)&H_GetDynamicMesh, &patch );
+	if ( bOk )
+	{
+		g_pGetDynamicMesh = patch.pOriginal;
+		g_Patches.AddToTail( patch );
+	}
+	bOk = bOk &&
+		VTableSlotPatch::Install( (IMatRenderContext *)pContext, &IMatRenderContext::GetDynamicMeshEx,
+								  (void *)&H_GetDynamicMeshEx, &patch );
+	if ( bOk )
+	{
+		g_pGetDynamicMeshEx = patch.pOriginal;
+		g_Patches.AddToTail( patch );
+	}
 	if ( !bOk )
 		Unhook();
 	return bOk;
@@ -208,7 +244,7 @@ CON_COMMAND( cs_cl_pso_trace_start, "particles-so spike: count Bind/dynamic mesh
 		return;
 	memset( g_Counts, 0, sizeof( g_Counts ) );
 	for ( int m = 0; m < kModules; ++m )
-		g_Materials[ m ].RemoveAll();
+		g_Materials[m].RemoveAll();
 	if ( !Hook() )
 	{
 		Warning( "[SourceSharp/pso] a hook could not be installed\n" );
@@ -217,7 +253,7 @@ CON_COMMAND( cs_cl_pso_trace_start, "particles-so spike: count Bind/dynamic mesh
 	g_nStartFrame = gpGlobals->framecount;
 	g_bArmed = true;
 	Msg( "[SourceSharp/pso] trace armed at frame %d (libss_particles.so %s)\n", g_nStartFrame,
-	     g_pParticlesBase ? "loaded" : "not loaded" );
+		 g_pParticlesBase ? "loaded" : "not loaded" );
 }
 
 CON_COMMAND( cs_cl_pso_trace_stop, "particles-so spike: stop counting and print" )
@@ -230,19 +266,20 @@ CON_COMMAND( cs_cl_pso_trace_stop, "particles-so spike: stop counting and print"
 	Msg( "[SourceSharp/pso] trace: %d frames\n", nFrames );
 	for ( int m = 0; m < kModules; ++m )
 	{
-		const Counts_t &c = g_Counts[ m ];
-		Msg( "[SourceSharp/pso] module %s binds %lld getmesh %lld draws %lld indices %lld (per frame %.2f %.2f %.2f %.1f)\n",
-		     s_ModuleNames[ m ], c.nBind, c.nGetMesh, c.nDraw, c.nDrawIndices, (double)c.nBind / nFrames,
-		     (double)c.nGetMesh / nFrames, (double)c.nDraw / nFrames, (double)c.nDrawIndices / nFrames );
-		for ( int i = g_Materials[ m ].First(); i != g_Materials[ m ].InvalidIndex(); i = g_Materials[ m ].Next( i ) )
-			Msg( "[SourceSharp/pso] material %s %s %lld\n", s_ModuleNames[ m ], g_Materials[ m ].GetElementName( i ),
-			     g_Materials[ m ][ i ] );
+		const Counts_t &c = g_Counts[m];
+		Msg(
+			"[SourceSharp/pso] module %s binds %lld getmesh %lld draws %lld indices %lld (per frame %.2f %.2f %.2f %.1f)\n",
+			s_ModuleNames[m], c.nBind, c.nGetMesh, c.nDraw, c.nDrawIndices, (double)c.nBind / nFrames,
+			(double)c.nGetMesh / nFrames, (double)c.nDraw / nFrames, (double)c.nDrawIndices / nFrames );
+		for ( int i = g_Materials[m].First(); i != g_Materials[m].InvalidIndex(); i = g_Materials[m].Next( i ) )
+			Msg( "[SourceSharp/pso] material %s %s %lld\n", s_ModuleNames[m], g_Materials[m].GetElementName( i ),
+				 g_Materials[m][i] );
 	}
 }
 
 CON_COMMAND( cs_cl_pso_bench, "particles-so spike: time n particle-manager getter calls" )
 {
-	const int n = args.ArgC() > 1 ? MAX( 1000, atoi( args[ 1 ] ) ) : 10000000;
+	const int n = args.ArgC() > 1 ? MAX( 1000, atoi( args[1] ) ) : 10000000;
 	volatile float flSink = 0.0f;
 	double t0 = NowNs();
 	for ( int i = 0; i < n; ++i )
@@ -251,6 +288,7 @@ CON_COMMAND( cs_cl_pso_bench, "particles-so spike: time n particle-manager gette
 	for ( int i = 0; i < n; ++i )
 		flSink = flSink + g_pParticleSystemMgr->ParticleThrottleScaling();
 	double t2 = NowNs();
-	Msg( "[SourceSharp/pso] bench %d calls: GetLastSimulationTime %.2f ns/call, ParticleThrottleScaling %.2f ns/call (%s)\n",
-	     n, ( t1 - t0 ) / n, ( t2 - t1 ) / n, "forwarded to libss_particles.so" );
+	Msg(
+		"[SourceSharp/pso] bench %d calls: GetLastSimulationTime %.2f ns/call, ParticleThrottleScaling %.2f ns/call (%s)\n",
+		n, ( t1 - t0 ) / n, ( t2 - t1 ) / n, "forwarded to libss_particles.so" );
 }

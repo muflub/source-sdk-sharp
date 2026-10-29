@@ -35,6 +35,12 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncReflectiveGlass, ScriptedEntityKind.Brush)]
 public sealed class FuncReflectiveGlass : ScriptedEntity
 {
+    /// <summary>Stock's Spawn makes it SOLID_VPHYSICS.</summary>
+    protected override SolidType BrushSolidType => SolidType.VPhysics;
+
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
     /// <summary>What a map may set on this entity. See <see cref="FuncReflectiveGlassVars"/>.</summary>
     [ScriptVars] public FuncReflectiveGlassVars Vars = new();
 
@@ -51,6 +57,10 @@ public sealed class FuncReflectiveGlass : ScriptedEntity
     {
         _on = !Vars.StartDisabled;
         Apply();
+
+        // CFuncBrush::CreateVPhysics: a shadow, even when it is not solid,
+        // so a constraint or a parent can hold it.
+        InitShadowPhysics();
     }
 
     // The func_brush inputs, because that is what the entity derives from in

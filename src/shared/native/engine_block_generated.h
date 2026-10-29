@@ -24,8 +24,7 @@
 // what each struct and each field IS travels with the declaration, out of the
 // [NativeDoc] attributes on the C# side, and is emitted below.
 
-#ifndef SOURCESHARP_ENGINE_BLOCK_GENERATED_H
-#define SOURCESHARP_ENGINE_BLOCK_GENERATED_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -41,7 +40,7 @@
 // was built against, and so a stale header is a value that disagrees with
 // EngineBlockFingerprint.Current rather than a silence.
 //-----------------------------------------------------------------------------
-#define SOURCESHARP_ENGINE_BLOCK_FINGERPRINT 0x027436fcu
+#define SOURCESHARP_ENGINE_BLOCK_FINGERPRINT 0xb4839a12u
 
 //-----------------------------------------------------------------------------
 // The shared head: who the entity is and where it is.
@@ -60,43 +59,43 @@ struct EngineBlockHead_t
 	// ---- identity ----------------------------------------------------------
 
 	// This entity's CBaseHandle, packed index and serial.
-	uint32_t    Handle;
+	uint32_t Handle;
 
 	// The classname's index in the shared string table.
-	int32_t     ClassnameIndex;
+	int32_t ClassnameIndex;
 
 	// What GetModelIndex returns.
-	int32_t     ModelIndex;
+	int32_t ModelIndex;
 
 	// The collision model, which is not always the render model.
-	int32_t     CollisionModelIndex;
+	int32_t CollisionModelIndex;
 
 	// ---- placement ---------------------------------------------------------
 
 	// What GetCollisionOrigin returns.
-	Vector      Origin;
+	Vector Origin;
 
 	// What GetCollisionAngles returns.
-	QAngle      Angles;
+	QAngle Angles;
 
 	// OBB mins, in collision space.
-	Vector      Mins;
+	Vector Mins;
 
 	// OBB maxs, in collision space.
-	Vector      Maxs;
+	Vector Maxs;
 
 	// The cached world transform. CollisionToWorldTransform returns a reference
 	// to it, so it is storage rather than something computed per call.
 	matrix3x4_t WorldTransform;
 
 	// A SolidType_t.
-	int32_t     SolidType;
+	int32_t SolidType;
 
 	// The FSOLID_* bits.
-	int32_t     SolidFlags;
+	int32_t SolidFlags;
 
 	// A Collision_Group_t.
-	int32_t     CollisionGroup;
+	int32_t CollisionGroup;
 
 	// The move parent, as a handle. Never a pointer: the blob is engine-owned
 	// memory and a pointer into it outlives nothing safely.
@@ -105,22 +104,22 @@ struct EngineBlockHead_t
 	// write, a removal and the two frame conversions decide whether parenting
 	// is involved at all without crossing to ask, and it is the whole answer
 	// to "is this entity parented".
-	uint32_t    ParentHandle;
+	uint32_t ParentHandle;
 
 	// The owner, as a handle, and for the same reason.
-	uint32_t    OwnerHandle;
+	uint32_t OwnerHandle;
 
 	// A MoveType_t.
-	int32_t     MoveType;
+	int32_t MoveType;
 
 	// The FL_* flags.
-	int32_t     Flags;
+	int32_t Flags;
 
 	// The EF_* effects bits.
-	int32_t     Effects;
+	int32_t Effects;
 
 	// 0 to 3, as GetWaterLevel reports it.
-	int32_t     WaterLevel;
+	int32_t WaterLevel;
 
 	// How many entities this one carries. Written by managed code only, and
 	// read by native code only as "is it zero": it is what lets the tail of a
@@ -128,20 +127,20 @@ struct EngineBlockHead_t
 	// entity has children. It occupies the word that used to be Padding0, so
 	// the head is still a multiple of eight and the tails after it still start
 	// where both declarations say.
-	int32_t     ChildCount;
+	int32_t ChildCount;
 
 	// Stock's m_ubInterpolationFrame: the discontinuity counter a teleport
 	// bumps, networked as m_ubInterpolationFrame. A COUNTER and not a flag,
 	// because a flag lives for one snapshot and a client that missed that
 	// snapshot never learns the entity jumped. Written by managed code only,
 	// and read by the client's interpolation pass against OldInterpolationFrame.
-	int32_t     InterpolationFrame;
+	int32_t InterpolationFrame;
 
 	// Stock's m_ubOldInterpolationFrame: the value the client last reset on.
 	// IsNoInterpolationFrame() is exactly the two words differing. Written by
 	// the client's interpolation pass and by nothing else; never networked,
 	// and dead on the server -- the block is one layout for both sides.
-	int32_t     OldInterpolationFrame;
+	int32_t OldInterpolationFrame;
 };
 
 //-----------------------------------------------------------------------------
@@ -171,18 +170,18 @@ struct EngineBlockServerTail_t
 {
 	// Room for PVSInfo_t (40 bytes), which the engine fills in
 	// BuildEntityClusterList.
-	uint64  PvsInfo[5];
+	uint64 PvsInfo[5];
 
 	// Room for CPlayerState (64 bytes) on a player slot, and the storage
 	// GetPlayerState hands the engine. Constructed in place by the player
 	// shell; zero on everything else.
-	uint64  PlayerState[8];
+	uint64 PlayerState[8];
 
 	// Where this player's eyes are, as managed code last answered it: the one
 	// position ClientSetupVisibility adds to the PVS and ClientEarPosition puts
 	// the sound listener at. A cache of a managed answer, stamped by
 	// ViewOriginFrame.
-	Vector  ViewOrigin;
+	Vector ViewOrigin;
 
 	// The frame ViewOrigin was filled on. -1 for a block nobody has asked
 	// about: frame 0 is a real frame and a zeroed blob would otherwise read as
@@ -208,60 +207,60 @@ struct EngineBlockServerTail_t
 struct EngineBlockClientTail_t
 {
 	// What GetRenderOrigin returns.
-	Vector      RenderOrigin;
+	Vector RenderOrigin;
 
 	// What GetRenderAngles returns.
-	QAngle      RenderAngles;
+	QAngle RenderAngles;
 
 	// Render-bounds mins, which are not the collision bounds.
-	Vector      RenderMins;
+	Vector RenderMins;
 
 	// Render-bounds maxs.
-	Vector      RenderMaxs;
+	Vector RenderMaxs;
 
 	// Render colour, one byte a channel -- the engine's color32, not the
 	// managed Color32, which is four ints.
-	uint8_t     RenderColorR;
+	uint8_t RenderColorR;
 
 	// Render colour, green.
-	uint8_t     RenderColorG;
+	uint8_t RenderColorG;
 
 	// Render colour, blue.
-	uint8_t     RenderColorB;
+	uint8_t RenderColorB;
 
 	// Render colour, alpha.
-	uint8_t     RenderColorA;
+	uint8_t RenderColorA;
 
 	// The fx blend the renderer asks for, 0 to 255.
-	int32_t     FxBlend;
+	int32_t FxBlend;
 
 	// What GetSkin returns.
-	int32_t     Skin;
+	int32_t Skin;
 
 	// The studio body group selection.
-	int32_t     Body;
+	int32_t Body;
 
 	// What a managed class ASKED for: a ShadowCastChoice (auto, never, simple),
 	// which is not a ShadowType_t. The ANSWER is ShadowType below.
-	int32_t     ShadowChoice;
+	int32_t ShadowChoice;
 
 	// A RenderGroup_t, decided by managed code.
-	int32_t     RenderGroup;
+	int32_t RenderGroup;
 
 	// The studio sequence the bone setup runs.
-	int32_t     Sequence;
+	int32_t Sequence;
 
 	// Where in that sequence, 0 to 1.
-	float       Cycle;
+	float Cycle;
 
 	// How fast the cycle advances.
-	float       PlaybackRate;
+	float PlaybackRate;
 
 	// The server time the animation was last set from.
-	float       AnimTime;
+	float AnimTime;
 
 	// The server time the entity last simulated at.
-	float       SimulationTime;
+	float SimulationTime;
 
 	// ---- render policy: what managed code DECIDED (plan_entity.md step 6b) -
 
@@ -273,79 +272,80 @@ struct EngineBlockClientTail_t
 	matrix3x4_t RenderTransform;
 
 	// What ShouldDraw returns, minus the one term that cannot be precomputed --
-	// see HideWhenOwnerSeen below. Non-zero draws.
-	int32_t     Drawn;
+	// see OwnerSeenRule below. Non-zero draws.
+	int32_t Drawn;
 
 	// What IsTransparent returns. Non-zero is translucent.
-	int32_t     Transparent;
+	int32_t Transparent;
 
 	// A ShadowType_t: the ANSWER, from ShadowChoice and the model facts below.
-	int32_t     ShadowType;
+	int32_t ShadowType;
 
 	// The SHADOW_FLAGS_* bits CreateShadow is given, and above them (1 << 29,
 	// 1 << 30) the policy's ShouldReceiveProjectedTextures answers for a shadow
 	// and for a flashlight, which CreateShadow is not given.
-	int32_t     ShadowFlags;
+	int32_t ShadowFlags;
 
 	// ---- render policy: what managed code decided FROM, that it also owns --
 
 	// Out of the client's PVS. The engine owns this one -- NotifyShouldTransmit is an
 	// IClientNetworkable method only the engine calls -- so the shell writes it and
 	// managed code reads it, the opposite direction from the rest of this group.
-	int32_t     Dormant;
+	int32_t Dormant;
 
 	// Drawn in the viewmodel pass, which is a list of its own and not the leaves.
-	int32_t     ViewModel;
+	int32_t ViewModel;
 
 	// Draws ITSELF through OnDraw. A beam has no model by design -- it IS a drawing.
-	int32_t     CustomDraw;
+	int32_t CustomDraw;
 
 	// Blended, as a managed class that draws itself said through SetBlending.
-	int32_t     Translucent;
+	int32_t Translucent;
 
-	// Hidden while the third-person camera can see this entity's owner: the
-	// viewmodel's rule, and the ONE render-policy term that cannot be decided ahead
-	// of the draw. The camera is solved during view setup, after every stage a
-	// managed pass can run on, so the shell ANDs this bit with the live engine fact.
-	int32_t     HideWhenOwnerSeen;
+	// How the live 'camera sees the owner' fact gates the draw: 0 not at all, 1
+	// hidden while the camera sees the owner (the viewmodel), 2 drawn only while it
+	// does (the viewer's own body). The ONE render-policy term that cannot be decided
+	// ahead of the draw: the camera is solved during view setup, after every stage a
+	// managed pass can run on, so the shell combines this rule with the live fact.
+	int32_t OwnerSeenRule;
 
 	// A FadeStyle: 0 none, 1 LOD, 2 portal window.
-	int32_t     FadeStyle;
+	int32_t FadeStyle;
 
 	// Where the fade starts, in world units.
-	float       FadeStartDistance;
+	float FadeStartDistance;
 
 	// Where the fade ends.
-	float       FadeEndDistance;
+	float FadeEndDistance;
 
 	// The alpha a portal-window fade bottoms out at, 0 to 1.
-	float       FadeMinAlpha;
+	float FadeMinAlpha;
 
 	// ---- render policy: the model facts, which are the ENGINE's ------------
 
 	// The model's modtype_t -- 0 bad, 1 brush, 2 sprite, 3 studio -- or -1 when the
 	// entity has no model at all, which is what GetModel() == NULL means and is not
 	// the same as mod_bad.
-	int32_t     ModelType;
+	int32_t ModelType;
 
 	// ---- render policy: the two serials that keep the loop from running ----
 
 	// Bumped by whoever changes any policy INPUT above. Managed code recomputes an
 	// entity's policy only when this differs from what it last computed for, so the
 	// pass costs one load and one compare per entity per frame in the common case.
-	uint32_t    PolicyInputs;
+	uint32_t PolicyInputs;
 
 	// Bumped by managed code when it writes new OUTPUTS. The shell applies an
 	// entity's policy to the leaf system and the shadow manager only when this
 	// differs from what it last applied.
-	uint32_t    PolicyOutputs;
+	uint32_t PolicyOutputs;
 
 	// WHICH HITBOX SET this model is wearing. TestHitboxes and the client's
 	// ModelRenderInfo_t both hard-coded 0 before step 6d; stock keeps this on
 	// CBaseAnimating and a mod moves it to swap a character's boxes
 	// mid-animation, which is a decision and so belongs to managed code.
 	// It took the word that used to be explicit tail padding.
-	int32_t     HitboxSet;
+	int32_t HitboxSet;
 };
 
 //-----------------------------------------------------------------------------
@@ -355,7 +355,7 @@ struct EngineBlockClientTail_t
 struct EngineBlock_t
 {
 	// What both sides read: identity and placement.
-	EngineBlockHead_t       Head;
+	EngineBlockHead_t Head;
 
 	// What the server writes and the engine reads back through it.
 	EngineBlockServerTail_t Server;
@@ -397,135 +397,130 @@ struct EngineBlock_t
 //-----------------------------------------------------------------------------
 
 static_assert( sizeof( EngineBlockHead_t ) == 160,
-               "EngineBlockHead_t is not the size SourceSharp.Abi.EngineBlockHead is" );
+			   "EngineBlockHead_t is not the size SourceSharp.Abi.EngineBlockHead is" );
 static_assert( offsetof( EngineBlockHead_t, ClassnameIndex ) == 4,
-               "EngineBlockHead_t::ClassnameIndex is not where EngineBlockHead.ClassnameIndex is" );
+			   "EngineBlockHead_t::ClassnameIndex is not where EngineBlockHead.ClassnameIndex is" );
 static_assert( offsetof( EngineBlockHead_t, ModelIndex ) == 8,
-               "EngineBlockHead_t::ModelIndex is not where EngineBlockHead.ModelIndex is" );
+			   "EngineBlockHead_t::ModelIndex is not where EngineBlockHead.ModelIndex is" );
 static_assert( offsetof( EngineBlockHead_t, CollisionModelIndex ) == 12,
-               "EngineBlockHead_t::CollisionModelIndex is not where EngineBlockHead.CollisionModelIndex is" );
+			   "EngineBlockHead_t::CollisionModelIndex is not where EngineBlockHead.CollisionModelIndex is" );
 static_assert( offsetof( EngineBlockHead_t, Origin ) == 16,
-               "EngineBlockHead_t::Origin is not where EngineBlockHead.Origin is" );
+			   "EngineBlockHead_t::Origin is not where EngineBlockHead.Origin is" );
 static_assert( offsetof( EngineBlockHead_t, Angles ) == 28,
-               "EngineBlockHead_t::Angles is not where EngineBlockHead.Angles is" );
+			   "EngineBlockHead_t::Angles is not where EngineBlockHead.Angles is" );
 static_assert( offsetof( EngineBlockHead_t, Mins ) == 40,
-               "EngineBlockHead_t::Mins is not where EngineBlockHead.Mins is" );
+			   "EngineBlockHead_t::Mins is not where EngineBlockHead.Mins is" );
 static_assert( offsetof( EngineBlockHead_t, Maxs ) == 52,
-               "EngineBlockHead_t::Maxs is not where EngineBlockHead.Maxs is" );
+			   "EngineBlockHead_t::Maxs is not where EngineBlockHead.Maxs is" );
 static_assert( offsetof( EngineBlockHead_t, WorldTransform ) == 64,
-               "EngineBlockHead_t::WorldTransform is not where EngineBlockHead.WorldTransform is" );
+			   "EngineBlockHead_t::WorldTransform is not where EngineBlockHead.WorldTransform is" );
 static_assert( offsetof( EngineBlockHead_t, SolidType ) == 112,
-               "EngineBlockHead_t::SolidType is not where EngineBlockHead.SolidType is" );
+			   "EngineBlockHead_t::SolidType is not where EngineBlockHead.SolidType is" );
 static_assert( offsetof( EngineBlockHead_t, SolidFlags ) == 116,
-               "EngineBlockHead_t::SolidFlags is not where EngineBlockHead.SolidFlags is" );
+			   "EngineBlockHead_t::SolidFlags is not where EngineBlockHead.SolidFlags is" );
 static_assert( offsetof( EngineBlockHead_t, CollisionGroup ) == 120,
-               "EngineBlockHead_t::CollisionGroup is not where EngineBlockHead.CollisionGroup is" );
+			   "EngineBlockHead_t::CollisionGroup is not where EngineBlockHead.CollisionGroup is" );
 static_assert( offsetof( EngineBlockHead_t, ParentHandle ) == 124,
-               "EngineBlockHead_t::ParentHandle is not where EngineBlockHead.ParentHandle is" );
+			   "EngineBlockHead_t::ParentHandle is not where EngineBlockHead.ParentHandle is" );
 static_assert( offsetof( EngineBlockHead_t, OwnerHandle ) == 128,
-               "EngineBlockHead_t::OwnerHandle is not where EngineBlockHead.OwnerHandle is" );
+			   "EngineBlockHead_t::OwnerHandle is not where EngineBlockHead.OwnerHandle is" );
 static_assert( offsetof( EngineBlockHead_t, MoveType ) == 132,
-               "EngineBlockHead_t::MoveType is not where EngineBlockHead.MoveType is" );
+			   "EngineBlockHead_t::MoveType is not where EngineBlockHead.MoveType is" );
 static_assert( offsetof( EngineBlockHead_t, Flags ) == 136,
-               "EngineBlockHead_t::Flags is not where EngineBlockHead.Flags is" );
+			   "EngineBlockHead_t::Flags is not where EngineBlockHead.Flags is" );
 static_assert( offsetof( EngineBlockHead_t, Effects ) == 140,
-               "EngineBlockHead_t::Effects is not where EngineBlockHead.Effects is" );
+			   "EngineBlockHead_t::Effects is not where EngineBlockHead.Effects is" );
 static_assert( offsetof( EngineBlockHead_t, WaterLevel ) == 144,
-               "EngineBlockHead_t::WaterLevel is not where EngineBlockHead.WaterLevel is" );
+			   "EngineBlockHead_t::WaterLevel is not where EngineBlockHead.WaterLevel is" );
 static_assert( offsetof( EngineBlockHead_t, ChildCount ) == 148,
-               "EngineBlockHead_t::ChildCount is not where EngineBlockHead.ChildCount is" );
+			   "EngineBlockHead_t::ChildCount is not where EngineBlockHead.ChildCount is" );
 static_assert( offsetof( EngineBlockHead_t, InterpolationFrame ) == 152,
-               "EngineBlockHead_t::InterpolationFrame is not where EngineBlockHead.InterpolationFrame is" );
+			   "EngineBlockHead_t::InterpolationFrame is not where EngineBlockHead.InterpolationFrame is" );
 static_assert( offsetof( EngineBlockHead_t, OldInterpolationFrame ) == 156,
-               "EngineBlockHead_t::OldInterpolationFrame is not where EngineBlockHead.OldInterpolationFrame is" );
+			   "EngineBlockHead_t::OldInterpolationFrame is not where EngineBlockHead.OldInterpolationFrame is" );
 
 static_assert( sizeof( EngineBlockServerTail_t ) == 120,
-               "EngineBlockServerTail_t is not the size SourceSharp.Abi.EngineBlockServerTail is" );
+			   "EngineBlockServerTail_t is not the size SourceSharp.Abi.EngineBlockServerTail is" );
 static_assert( offsetof( EngineBlockServerTail_t, PlayerState ) == 40,
-               "EngineBlockServerTail_t::PlayerState is not where EngineBlockServerTail.PlayerState is" );
+			   "EngineBlockServerTail_t::PlayerState is not where EngineBlockServerTail.PlayerState is" );
 static_assert( offsetof( EngineBlockServerTail_t, ViewOrigin ) == 104,
-               "EngineBlockServerTail_t::ViewOrigin is not where EngineBlockServerTail.ViewOrigin is" );
+			   "EngineBlockServerTail_t::ViewOrigin is not where EngineBlockServerTail.ViewOrigin is" );
 static_assert( offsetof( EngineBlockServerTail_t, ViewOriginFrame ) == 116,
-               "EngineBlockServerTail_t::ViewOriginFrame is not where EngineBlockServerTail.ViewOriginFrame is" );
+			   "EngineBlockServerTail_t::ViewOriginFrame is not where EngineBlockServerTail.ViewOriginFrame is" );
 
 static_assert( sizeof( EngineBlockClientTail_t ) == 208,
-               "EngineBlockClientTail_t is not the size SourceSharp.Abi.EngineBlockClientTail is" );
+			   "EngineBlockClientTail_t is not the size SourceSharp.Abi.EngineBlockClientTail is" );
 static_assert( offsetof( EngineBlockClientTail_t, RenderAngles ) == 12,
-               "EngineBlockClientTail_t::RenderAngles is not where EngineBlockClientTail.RenderAngles is" );
+			   "EngineBlockClientTail_t::RenderAngles is not where EngineBlockClientTail.RenderAngles is" );
 static_assert( offsetof( EngineBlockClientTail_t, RenderMins ) == 24,
-               "EngineBlockClientTail_t::RenderMins is not where EngineBlockClientTail.RenderMins is" );
+			   "EngineBlockClientTail_t::RenderMins is not where EngineBlockClientTail.RenderMins is" );
 static_assert( offsetof( EngineBlockClientTail_t, RenderMaxs ) == 36,
-               "EngineBlockClientTail_t::RenderMaxs is not where EngineBlockClientTail.RenderMaxs is" );
+			   "EngineBlockClientTail_t::RenderMaxs is not where EngineBlockClientTail.RenderMaxs is" );
 static_assert( offsetof( EngineBlockClientTail_t, RenderColorR ) == 48,
-               "EngineBlockClientTail_t::RenderColorR is not where EngineBlockClientTail.RenderColorR is" );
+			   "EngineBlockClientTail_t::RenderColorR is not where EngineBlockClientTail.RenderColorR is" );
 static_assert( offsetof( EngineBlockClientTail_t, RenderColorG ) == 49,
-               "EngineBlockClientTail_t::RenderColorG is not where EngineBlockClientTail.RenderColorG is" );
+			   "EngineBlockClientTail_t::RenderColorG is not where EngineBlockClientTail.RenderColorG is" );
 static_assert( offsetof( EngineBlockClientTail_t, RenderColorB ) == 50,
-               "EngineBlockClientTail_t::RenderColorB is not where EngineBlockClientTail.RenderColorB is" );
+			   "EngineBlockClientTail_t::RenderColorB is not where EngineBlockClientTail.RenderColorB is" );
 static_assert( offsetof( EngineBlockClientTail_t, RenderColorA ) == 51,
-               "EngineBlockClientTail_t::RenderColorA is not where EngineBlockClientTail.RenderColorA is" );
+			   "EngineBlockClientTail_t::RenderColorA is not where EngineBlockClientTail.RenderColorA is" );
 static_assert( offsetof( EngineBlockClientTail_t, FxBlend ) == 52,
-               "EngineBlockClientTail_t::FxBlend is not where EngineBlockClientTail.FxBlend is" );
+			   "EngineBlockClientTail_t::FxBlend is not where EngineBlockClientTail.FxBlend is" );
 static_assert( offsetof( EngineBlockClientTail_t, Skin ) == 56,
-               "EngineBlockClientTail_t::Skin is not where EngineBlockClientTail.Skin is" );
+			   "EngineBlockClientTail_t::Skin is not where EngineBlockClientTail.Skin is" );
 static_assert( offsetof( EngineBlockClientTail_t, Body ) == 60,
-               "EngineBlockClientTail_t::Body is not where EngineBlockClientTail.Body is" );
+			   "EngineBlockClientTail_t::Body is not where EngineBlockClientTail.Body is" );
 static_assert( offsetof( EngineBlockClientTail_t, ShadowChoice ) == 64,
-               "EngineBlockClientTail_t::ShadowChoice is not where EngineBlockClientTail.ShadowChoice is" );
+			   "EngineBlockClientTail_t::ShadowChoice is not where EngineBlockClientTail.ShadowChoice is" );
 static_assert( offsetof( EngineBlockClientTail_t, RenderGroup ) == 68,
-               "EngineBlockClientTail_t::RenderGroup is not where EngineBlockClientTail.RenderGroup is" );
+			   "EngineBlockClientTail_t::RenderGroup is not where EngineBlockClientTail.RenderGroup is" );
 static_assert( offsetof( EngineBlockClientTail_t, Sequence ) == 72,
-               "EngineBlockClientTail_t::Sequence is not where EngineBlockClientTail.Sequence is" );
+			   "EngineBlockClientTail_t::Sequence is not where EngineBlockClientTail.Sequence is" );
 static_assert( offsetof( EngineBlockClientTail_t, Cycle ) == 76,
-               "EngineBlockClientTail_t::Cycle is not where EngineBlockClientTail.Cycle is" );
+			   "EngineBlockClientTail_t::Cycle is not where EngineBlockClientTail.Cycle is" );
 static_assert( offsetof( EngineBlockClientTail_t, PlaybackRate ) == 80,
-               "EngineBlockClientTail_t::PlaybackRate is not where EngineBlockClientTail.PlaybackRate is" );
+			   "EngineBlockClientTail_t::PlaybackRate is not where EngineBlockClientTail.PlaybackRate is" );
 static_assert( offsetof( EngineBlockClientTail_t, AnimTime ) == 84,
-               "EngineBlockClientTail_t::AnimTime is not where EngineBlockClientTail.AnimTime is" );
+			   "EngineBlockClientTail_t::AnimTime is not where EngineBlockClientTail.AnimTime is" );
 static_assert( offsetof( EngineBlockClientTail_t, SimulationTime ) == 88,
-               "EngineBlockClientTail_t::SimulationTime is not where EngineBlockClientTail.SimulationTime is" );
+			   "EngineBlockClientTail_t::SimulationTime is not where EngineBlockClientTail.SimulationTime is" );
 static_assert( offsetof( EngineBlockClientTail_t, RenderTransform ) == 92,
-               "EngineBlockClientTail_t::RenderTransform is not where EngineBlockClientTail.RenderTransform is" );
+			   "EngineBlockClientTail_t::RenderTransform is not where EngineBlockClientTail.RenderTransform is" );
 static_assert( offsetof( EngineBlockClientTail_t, Drawn ) == 140,
-               "EngineBlockClientTail_t::Drawn is not where EngineBlockClientTail.Drawn is" );
+			   "EngineBlockClientTail_t::Drawn is not where EngineBlockClientTail.Drawn is" );
 static_assert( offsetof( EngineBlockClientTail_t, Transparent ) == 144,
-               "EngineBlockClientTail_t::Transparent is not where EngineBlockClientTail.Transparent is" );
+			   "EngineBlockClientTail_t::Transparent is not where EngineBlockClientTail.Transparent is" );
 static_assert( offsetof( EngineBlockClientTail_t, ShadowType ) == 148,
-               "EngineBlockClientTail_t::ShadowType is not where EngineBlockClientTail.ShadowType is" );
+			   "EngineBlockClientTail_t::ShadowType is not where EngineBlockClientTail.ShadowType is" );
 static_assert( offsetof( EngineBlockClientTail_t, ShadowFlags ) == 152,
-               "EngineBlockClientTail_t::ShadowFlags is not where EngineBlockClientTail.ShadowFlags is" );
+			   "EngineBlockClientTail_t::ShadowFlags is not where EngineBlockClientTail.ShadowFlags is" );
 static_assert( offsetof( EngineBlockClientTail_t, Dormant ) == 156,
-               "EngineBlockClientTail_t::Dormant is not where EngineBlockClientTail.Dormant is" );
+			   "EngineBlockClientTail_t::Dormant is not where EngineBlockClientTail.Dormant is" );
 static_assert( offsetof( EngineBlockClientTail_t, ViewModel ) == 160,
-               "EngineBlockClientTail_t::ViewModel is not where EngineBlockClientTail.ViewModel is" );
+			   "EngineBlockClientTail_t::ViewModel is not where EngineBlockClientTail.ViewModel is" );
 static_assert( offsetof( EngineBlockClientTail_t, CustomDraw ) == 164,
-               "EngineBlockClientTail_t::CustomDraw is not where EngineBlockClientTail.CustomDraw is" );
+			   "EngineBlockClientTail_t::CustomDraw is not where EngineBlockClientTail.CustomDraw is" );
 static_assert( offsetof( EngineBlockClientTail_t, Translucent ) == 168,
-               "EngineBlockClientTail_t::Translucent is not where EngineBlockClientTail.Translucent is" );
-static_assert( offsetof( EngineBlockClientTail_t, HideWhenOwnerSeen ) == 172,
-               "EngineBlockClientTail_t::HideWhenOwnerSeen is not where EngineBlockClientTail.HideWhenOwnerSeen is" );
+			   "EngineBlockClientTail_t::Translucent is not where EngineBlockClientTail.Translucent is" );
+static_assert( offsetof( EngineBlockClientTail_t, OwnerSeenRule ) == 172,
+			   "EngineBlockClientTail_t::OwnerSeenRule is not where EngineBlockClientTail.OwnerSeenRule is" );
 static_assert( offsetof( EngineBlockClientTail_t, FadeStyle ) == 176,
-               "EngineBlockClientTail_t::FadeStyle is not where EngineBlockClientTail.FadeStyle is" );
+			   "EngineBlockClientTail_t::FadeStyle is not where EngineBlockClientTail.FadeStyle is" );
 static_assert( offsetof( EngineBlockClientTail_t, FadeStartDistance ) == 180,
-               "EngineBlockClientTail_t::FadeStartDistance is not where EngineBlockClientTail.FadeStartDistance is" );
+			   "EngineBlockClientTail_t::FadeStartDistance is not where EngineBlockClientTail.FadeStartDistance is" );
 static_assert( offsetof( EngineBlockClientTail_t, FadeEndDistance ) == 184,
-               "EngineBlockClientTail_t::FadeEndDistance is not where EngineBlockClientTail.FadeEndDistance is" );
+			   "EngineBlockClientTail_t::FadeEndDistance is not where EngineBlockClientTail.FadeEndDistance is" );
 static_assert( offsetof( EngineBlockClientTail_t, FadeMinAlpha ) == 188,
-               "EngineBlockClientTail_t::FadeMinAlpha is not where EngineBlockClientTail.FadeMinAlpha is" );
+			   "EngineBlockClientTail_t::FadeMinAlpha is not where EngineBlockClientTail.FadeMinAlpha is" );
 static_assert( offsetof( EngineBlockClientTail_t, ModelType ) == 192,
-               "EngineBlockClientTail_t::ModelType is not where EngineBlockClientTail.ModelType is" );
+			   "EngineBlockClientTail_t::ModelType is not where EngineBlockClientTail.ModelType is" );
 static_assert( offsetof( EngineBlockClientTail_t, PolicyInputs ) == 196,
-               "EngineBlockClientTail_t::PolicyInputs is not where EngineBlockClientTail.PolicyInputs is" );
+			   "EngineBlockClientTail_t::PolicyInputs is not where EngineBlockClientTail.PolicyInputs is" );
 static_assert( offsetof( EngineBlockClientTail_t, PolicyOutputs ) == 200,
-               "EngineBlockClientTail_t::PolicyOutputs is not where EngineBlockClientTail.PolicyOutputs is" );
+			   "EngineBlockClientTail_t::PolicyOutputs is not where EngineBlockClientTail.PolicyOutputs is" );
 static_assert( offsetof( EngineBlockClientTail_t, HitboxSet ) == 204,
-               "EngineBlockClientTail_t::HitboxSet is not where EngineBlockClientTail.HitboxSet is" );
+			   "EngineBlockClientTail_t::HitboxSet is not where EngineBlockClientTail.HitboxSet is" );
 
-static_assert( sizeof( EngineBlock_t ) == 488,
-               "EngineBlock_t is not the size SourceSharp.Abi.EngineBlock is" );
-static_assert( offsetof( EngineBlock_t, Server ) == 160,
-               "EngineBlock_t::Server is not where EngineBlock.Server is" );
-static_assert( offsetof( EngineBlock_t, Client ) == 280,
-               "EngineBlock_t::Client is not where EngineBlock.Client is" );
-
-#endif // SOURCESHARP_ENGINE_BLOCK_GENERATED_H
+static_assert( sizeof( EngineBlock_t ) == 488, "EngineBlock_t is not the size SourceSharp.Abi.EngineBlock is" );
+static_assert( offsetof( EngineBlock_t, Server ) == 160, "EngineBlock_t::Server is not where EngineBlock.Server is" );
+static_assert( offsetof( EngineBlock_t, Client ) == 280, "EngineBlock_t::Client is not where EngineBlock.Client is" );

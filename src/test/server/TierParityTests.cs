@@ -107,8 +107,8 @@ public class TierParityTests
                 $"the {tier.PayloadBytes} tier's words are its bytes over four");
 
             // SOURCESHARP_TIER_PROPS_STANDALONE, the rows of StandaloneNetFields.
-            Assert.True(tier.Props == tier.Words + 11,   // 11 real props since m_nSkin (2026-10-19)
-                $"the {tier.PayloadBytes} tier carries eleven real props in front of its payload");
+            Assert.True(tier.Props == tier.Words + 12,   // 11 real props since m_nSkin (2026-10-19), 12 since m_nBody (2026-10-25)
+                $"the {tier.PayloadBytes} tier carries twelve real props in front of its payload");
 
             Assert.True(tier.Table == $"DT_SourceSharpStdEnt{tier.PayloadBytes}",
                 $"the {tier.PayloadBytes} tier's table is named for its size");

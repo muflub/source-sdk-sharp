@@ -41,7 +41,7 @@ public sealed class LogicRelay : ScriptedEntity
 
     // Named explicitly: a field called OnSpawn would collide with the OnSpawn
     // handler every entity has, and the map-facing name is not ours to change.
-    public readonly Output OnRelaySpawn = new("OnSpawn");
+    [OutputName("OnSpawn")] public readonly Output OnRelaySpawn = new();
 
     /// <summary>What a map may set on this entity. See <see cref="LogicRelayVars"/>.</summary>
     [ScriptVars] public LogicRelayVars Vars = new();

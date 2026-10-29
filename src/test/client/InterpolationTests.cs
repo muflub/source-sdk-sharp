@@ -1029,6 +1029,43 @@ public class InterpolationTests
     /// alone. See <c>ClientRenderTail.TheEyePinWritesTheTailAndLeavesTheHeadAlone</c>.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// A closed gate (<see cref="InterpolationGate"/>) draws the last value the
+    /// server sent: stock's BaseInterpolatePart1 calls
+    /// MoveToLastReceivedPosition on <c>!IsInterpolationEnabled()</c>.
+    /// </summary>
+    [Fact]
+    public void TheRenderPassWithTheGateClosedDrawsTheLastReceivedPose()
+    {
+        (Interpolation interp, FakeBlocks blocks, byte[] block) = OneEntity();
+
+        Deliver(interp, blocks, block, 1.0f, 1.0f, 0f, 0f, 0f, 0f);
+        Deliver(interp, blocks, block, 1.1f, 1.1f, 100f, 0f, 0f, 0f);
+
+        // Open, the same frame draws halfway (see the fact above).
+        Assert.Equal(1, interp.RenderPass(blocks, 1.15f, interpolate: false));
+
+        float[] rendered = GetTriple(block, TailOffset(nameof(EngineBlockClientTail.RenderOrigin)));
+        Assert.Equal(100f, rendered[0]);
+    }
+
+    [Fact]
+    public void TheRenderPassWithTheGateClosedWritesTheHeadToo()
+    {
+        (Interpolation interp, FakeBlocks blocks, byte[] block) = OneEntity();
+
+        Deliver(interp, blocks, block, 1.0f, 1.0f, 0f, 0f, 0f, 0f);
+        Deliver(interp, blocks, block, 1.1f, 1.1f, 100f, 0f, 0f, 0f);
+        interp.RenderPass(blocks, 1.15f);
+
+        // The open pass left the head on the drawn pose; the closed one puts it
+        // back on the networked one, as SetLocalOrigin( GetNetworkOrigin() ).
+        interp.RenderPass(blocks, 1.15f, interpolate: false);
+
+        float[] head = GetTriple(block, HeadOffset(nameof(EngineBlockHead.Origin)));
+        Assert.Equal(100f, head[0]);
+    }
+
     [Fact]
     public void TheRenderPassAlsoWritesTheHeadBecauseThatIsWhereStockInterpolates()
     {

@@ -10,19 +10,15 @@ namespace SourceSharp.Client.Interop;
 public readonly record struct ClientRecvPropRow(
     string ClassName, string Table, string Prop, int Type, int Flags, int Offset, int Elements);
 
-/// <summary>One type whose schema hash this client refused (the payload decoder's send/recv agreement).</summary>
+/// <summary>One type whose schema hash this client refused (the payload decoder's send/recv agreement, the client's schema gate).</summary>
 public readonly record struct ClientSchemaRefusalRow(uint TypeId, uint Expected, uint Seen, int Count, string ClassName);
 
 /// <summary>
-/// The client's recv tables as the engine walks them, and the schema refusals
-/// the payload decoder made (plan_client_novalve §4.4, the nettables route).
-/// Game thread.
+/// The client's recv tables as the engine walks them (plan_client_novalve
+/// §4.4, the nettables route). Game thread.
 /// </summary>
 public interface IClientRecvTables
 {
     /// <summary>Every prop of every reachable recv table, each table once.</summary>
     IReadOnlyList<ClientRecvPropRow> Props();
-
-    /// <summary>How many updates were refused, and the types they were spread over.</summary>
-    (int RefusedUpdates, IReadOnlyList<ClientSchemaRefusalRow> Types) Refusals();
 }

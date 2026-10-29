@@ -43,6 +43,7 @@ public class PropGibTests
         params (string Key, string Value)[] keys)
     {
         var services = Services(out var engine);
+        engine.Returns("Environment.Globals", default(Globals)); // one player: the server makes the pieces
 
         engine.Returns("Precache.BreakPieceCount", pieces.Length);
         engine.Returns("Precache.BreakPieceAt.pieces", (IReadOnlyList<(string, BreakPiece)>)pieces);
@@ -119,6 +120,7 @@ public class PropGibTests
     public void APropWithNoModelAsksNothing()
     {
         var services = Services(out var engine);
+        engine.Returns("Environment.Globals", default(Globals)); // one player: the server makes the pieces
 
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PropPhysics).Assembly);
@@ -309,5 +311,72 @@ public class PropGibTests
 
         Assert.True(gib.OnDamaged(EntityHandle.None, 10f, DamageType.Bullet) == 10,
                     "a plank that breaks into splinters is still worth shooting");
+    }
+
+    /// <summary>
+    /// "If we're burning, break into burning pieces" (PropBreakableCreateAll):
+    /// each piece alight for what the prop's flame had left, with its hitbox
+    /// fires and scale. Found 2026-10-28: a burning crate broke into cold
+    /// planks.
+    /// </summary>
+    [Fact]
+    public void A_burning_prop_breaks_into_pieces_burning_for_what_its_flame_had_left()
+    {
+        var prop = new EntityHandle(0x0C_0101u);
+        var piece = new EntityHandle(0x0C_0102u);
+        var propFlame = new EntityHandle(0x0C_0103u);
+        var pieceFlame = new EntityHandle(0x0C_0104u);
+        float now = 10f;
+
+        var services = Services(out var engine);
+        engine.Returns("Environment.Globals", default(Globals)); // one player: the server makes the pieces
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PropPhysics).Assembly);
+        services.AddInstance(new Flames(new RecordingLog(), registry, engine));
+        services.AddInstance<IEntityRoster<EnvFire>>(new EntityRoster<EnvFire>());
+        registry.Services = services;
+        engine.Strict = false;
+
+        var made = new Queue<EntityHandle>(new[] { propFlame, piece, pieceFlame });
+        engine.Returns("Precache.BreakPieceCount", 1)
+              .Returns("Precache.BreakPieceAt.pieces", (IReadOnlyList<(string, BreakPiece)>)new[] { Plank("models/plank_a.mdl", new Vector(8f, 0f, 0f)) })
+              .Returns("Entities.Count", 880)
+              .ReturnsEachCall("Entities.Create", () => made.Dequeue())
+              .Returns("Entities.IsValid", true)
+              .ReturnsEachCall("Clock.Now", () => now)
+              // Flammable, the prop and its piece alike: CBreakableProp::Ignite
+              // sets alight only a model whose fire_interactions say so.
+              .Returns("EntityRender.GetModelKeyValueText",
+                       "mdlkeyvalue { prop_data { health 30 } fire_interactions { flammable yes } }");
+
+        registry.KeyValue(prop, EntityNames.PropPhysics, "model", Crate);
+        registry.Spawn(prop, EntityNames.PropPhysics);
+        registry.KeyValue(piece, EntityNames.PropPhysics, "origin", "0 0 0");
+        foreach (var flame in new[] { propFlame, pieceFlame })
+            registry.KeyValue(flame, EntityNames.EntityFlame, "origin", "0 0 0");
+
+        var burning = (PropPhysics)registry.Get(prop)!;
+        burning.Ignite(10f);
+        burning.IgniteNumHitboxFires(4);
+        burning.IgniteHitboxFireScale(0.5f);
+
+        now = 14f;
+        burning.OnKilled(EntityHandle.None);
+
+        var lit = (SsEntityFlame)registry.Get(pieceFlame)!;
+        Assert.Equal(piece, lit.Attached);
+        Assert.Equal(20f, lit.ExpiresAt, 3);
+        Assert.Equal((4, 0.5f), (lit.NumHitboxFires, lit.HitboxFireScale));
+    }
+
+    [Fact]
+    public void A_cold_prop_breaks_into_cold_pieces()
+    {
+        var (prop, engine) = Prop(5, Plank("models/plank_a.mdl", new Vector(8f, 0f, 0f)));
+
+        prop.OnKilled(EntityHandle.None);
+
+        Assert.Equal(1, prop.PiecesMade);
+        Assert.DoesNotContain(engine.AllOf("Entities.Create"), c => c.ArgAs<string>(0) == EntityNames.EntityFlame);
     }
 }

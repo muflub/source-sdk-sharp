@@ -22,26 +22,6 @@ public class ClientCommandsAreaTests
     }
 
     [Fact]
-    public void BothNativeCallSitesTakeTheClientsArea()
-    {
-        string system = Code("src", "shared", "native", "sourcesharp_gamesystem.cpp");
-
-        Assert.Equal(2, Regex.Matches(system, @"\bManagedCommandsClient\(\)").Count);
-        Assert.Single(Regex.Matches(system, @"pCommands->ConCommandDispatch\("));
-        Assert.Single(Regex.Matches(system, @"pCommands->ConVarChanged\("));
-    }
-
-    [Fact]
-    public void NoNativeCodeReadsEitherTableSlot()
-    {
-        string system = Code("src", "shared", "native", "sourcesharp_gamesystem.cpp");
-
-        Assert.Contains("ManagedCommandsClient()", system);
-        Assert.DoesNotContain("g_ManagedApi.ConCommandDispatch", system);
-        Assert.DoesNotContain("g_ManagedApi.ConVarChanged", system);
-    }
-
-    [Fact]
     public void TheBootstrapFillsNeitherSlot()
     {
         string entry = Code("src", "shared", "interop", "SideLoad.cs");

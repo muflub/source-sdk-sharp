@@ -4,43 +4,27 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-// ss::GameEntityFromEntityHandle and ss::TraceGameEntity: what util_shared.h's
-// inlines of those names answer on the server, for code built on public/ headers (plan_server_novalve.md
-// P5, lane E). The body is the server arm of that inline, unchanged.
-//
-// SAFE BESIDE util_shared.h: it is ss::, declares nothing global with a default
-// argument, and needs only the static-prop manager and the IServerEntity chain.
-// So a header included by legacy TUs as well as R5 ones (anyentity.h) can use
-// it, which ss_util.h cannot offer.
-//=============================================================================//
 
-#ifndef SS_ENTITYHANDLE_H
-#define SS_ENTITYHANDLE_H
-#ifdef _WIN32
+// ss::GameEntityFromEntityHandle and ss::TraceGameEntity, the server arms of
+// util_shared.h's inlines. Safe to include beside util_shared.h.
+
 #pragma once
-#endif
 
 #include "iserverentity.h"
 #include "engine/IStaticPropMgr.h"
 #include "gametrace.h"
 
 #include "igameentity_fwd.h"
-#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
-
-extern IStaticPropMgrServer *staticpropmgr;   // shell_engineboundary.cpp
+#include "trace_hit.h"
 
 namespace ss
 {
 
-// The game entity behind a handle the engine or the partition handed back, or
-// NULL for nothing, a static prop, or anything outside the game hierarchy.
-inline IGameEntity *GameEntityFromEntityHandle( IHandleEntity *pHandleEntity )
+// The game entity behind a handle known to be a server entity (an edict's, or what a
+// factory made), or NULL for nothing or anything outside the game hierarchy.
+inline IGameEntity *GameEntityFromServerEntity( IHandleEntity *pHandleEntity )
 {
 	if ( !pHandleEntity )
-		return NULL;
-
-	// A static prop is not an entity at all and has no interface to ask.
-	if ( staticpropmgr->IsStaticProp( pHandleEntity ) )
 		return NULL;
 
 	// IServerEntity, IServerUnknown and IHandleEntity are a single-inheritance
@@ -49,19 +33,24 @@ inline IGameEntity *GameEntityFromEntityHandle( IHandleEntity *pHandleEntity )
 	return pServerEntity->GetBaseEntity();
 }
 
-inline const IGameEntity *GameEntityFromEntityHandle( const IHandleEntity *pConstHandleEntity )
+// The game entity behind a handle the engine or the partition handed back, or
+// NULL for nothing, a static prop, or anything outside the game hierarchy.
+inline IGameEntity *GameEntityFromEntityHandle( IStaticPropMgrServer *pStaticProps, IHandleEntity *pHandleEntity )
 {
-	// Qualified: unqualified, argument-dependent lookup would also find
-	// util_shared.h's global overload in a TU that sees both.
-	return ss::GameEntityFromEntityHandle( const_cast< IHandleEntity * >( pConstHandleEntity ) );
+	if ( !pHandleEntity )
+		return NULL;
+
+	// A static prop is not an entity at all and has no interface to ask.
+	if ( pStaticProps->IsStaticProp( pHandleEntity ) )
+		return NULL;
+
+	return GameEntityFromServerEntity( pHandleEntity );
 }
 
 // The game entity a trace hit (util_shared.h's TraceGameEntity, server arm).
-inline IGameEntity *TraceGameEntity( const trace_t &tr )
+inline IGameEntity *TraceGameEntity( IStaticPropMgrServer *pStaticProps, const trace_t &tr )
 {
-	return ss::GameEntityFromEntityHandle( ss::TraceHit( tr ) );
+	return ss::GameEntityFromEntityHandle( pStaticProps, ss::TraceHit( tr ) );
 }
 
 } // namespace ss
-
-#endif // SS_ENTITYHANDLE_H

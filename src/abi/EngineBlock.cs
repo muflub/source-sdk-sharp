@@ -161,6 +161,19 @@ public struct EngineBlock
 
         void Rule() => Line("//" + new string('-', 77));
 
+        // As tools/clang-format lays one out: on one line when it fits in 120
+        // columns, else the message under the condition's first argument.
+        void Assert(string head, string message)
+        {
+            if (head.Length + 1 + message.Length <= 120)
+                Line(head + " " + message);
+            else
+            {
+                Line(head);
+                Line("\t\t\t   " + message);
+            }
+        }
+
         void Banner(params string[] lines)
         {
             Rule();
@@ -203,8 +216,7 @@ public struct EngineBlock
         Line("// what each struct and each field IS travels with the declaration, out of the");
         Line("// [NativeDoc] attributes on the C# side, and is emitted below.");
         Line("");
-        Line("#ifndef SOURCESHARP_ENGINE_BLOCK_GENERATED_H");
-        Line("#define SOURCESHARP_ENGINE_BLOCK_GENERATED_H");
+        Line("#pragma once");
         Line("");
         Line("#include <stddef.h>");
         Line("#include <stdint.h>");
@@ -233,11 +245,6 @@ public struct EngineBlock
 
             FieldInfo[] fields = FieldsOf(type);
 
-            // One column for the whole struct, wide enough for its widest type
-            // name. Per struct rather than per file so a nested struct's long
-            // name does not push every primitive in the head out to column 25.
-            int column = fields.Max(f => NativeDeclarationOf(f).CppType.Length) + 1;
-
             for (int i = 0; i < fields.Length; i++)
             {
                 NativeDocAttribute doc = DocOf(fields[i]);
@@ -255,7 +262,7 @@ public struct EngineBlock
                     Line(l.Length == 0 ? "\t//" : "\t// " + l);
 
                 (string cppType, string declarator) = NativeDeclarationOf(fields[i]);
-                Line("\t" + cppType.PadRight(column) + declarator + ";");
+                Line("\t" + cppType + " " + declarator + ";");
             }
 
             Line("};");
@@ -299,19 +306,17 @@ public struct EngineBlock
         foreach ((string cppName, Type type) in NativeStructs)
         {
             Line("");
-            Line($"static_assert( sizeof( {cppName} ) == {Marshal.SizeOf(type)},");
-            Line($"               \"{cppName} is not the size SourceSharp.Abi.{type.Name} is\" );");
+            Assert($"static_assert( sizeof( {cppName} ) == {Marshal.SizeOf(type)},",
+                   $"\"{cppName} is not the size SourceSharp.Abi.{type.Name} is\" );");
 
             foreach (FieldInfo field in FieldsOf(type).Skip(1))
             {
                 int offset = (int)Marshal.OffsetOf(type, field.Name);
-                Line($"static_assert( offsetof( {cppName}, {field.Name} ) == {offset},");
-                Line($"               \"{cppName}::{field.Name} is not where {type.Name}.{field.Name} is\" );");
+                Assert($"static_assert( offsetof( {cppName}, {field.Name} ) == {offset},",
+                       $"\"{cppName}::{field.Name} is not where {type.Name}.{field.Name} is\" );");
             }
         }
 
-        Line("");
-        Line("#endif // SOURCESHARP_ENGINE_BLOCK_GENERATED_H");
 
         return sb.ToString();
     }
@@ -977,11 +982,11 @@ public struct EngineBlockClientTail
 
     /// <summary>
     /// What <c>ShouldDraw</c> returns, minus the one term that cannot be
-    /// precomputed — see <see cref="HideWhenOwnerSeen"/>. Non-zero draws.
+    /// precomputed — see <see cref="OwnerSeenRule"/>. Non-zero draws.
     /// </summary>
     [NativeDoc(
         "What ShouldDraw returns, minus the one term that cannot be precomputed --",
-        "see HideWhenOwnerSeen below. Non-zero draws.")]
+        "see OwnerSeenRule below. Non-zero draws.")]
     public int Drawn;
 
     /// <summary>What <c>IsTransparent</c> returns. Non-zero is translucent.</summary>
@@ -1045,27 +1050,29 @@ public struct EngineBlockClientTail
     public int Translucent;
 
     /// <summary>
-    /// Hidden while the third-person camera can see this entity's owner: the
-    /// viewmodel's rule, and the ONE render-policy term that cannot be decided
-    /// ahead of the draw.
+    /// How the live "can the camera see the owner" fact gates the draw: 0 not
+    /// at all, 1 hidden while the camera sees the entity's owner (the
+    /// viewmodel's rule), 2 drawn only while it does (the viewer's own body).
+    /// A <c>ClientOwnerSeenRule</c>, and the ONE render-policy term that cannot
+    /// be decided ahead of the draw.
     ///
     /// <para>
     /// The camera is solved during view setup, after every stage a managed pass
-    /// can run on, and <c>CViewRender</c> asks <c>ShouldDraw</c> for the
-    /// viewmodel list after that. So the shell combines this bit with the live
-    /// engine fact — <c>Drawn &amp;&amp; !(HideWhenOwnerSeen &amp;&amp; SeesOwner)</c>
-    /// — and the decision stays managed because WHICH entities carry the bit is
-    /// what this field says. A precomputed <see cref="Drawn"/> alone would be one
-    /// frame stale, which is a pair of arms flashing on screen for a frame on
-    /// every <c>thirdperson</c>.
+    /// can run on, and <c>CViewRender</c> asks <c>ShouldDraw</c> after that. So
+    /// the shell combines this rule with the live engine fact, and the decision
+    /// stays managed because WHICH entities carry which rule is what this field
+    /// says. A precomputed <see cref="Drawn"/> alone would be one frame stale,
+    /// which is a pair of arms flashing on screen for a frame on every
+    /// <c>thirdperson</c>.
     /// </para>
     /// </summary>
     [NativeDoc(
-        "Hidden while the third-person camera can see this entity's owner: the",
-        "viewmodel's rule, and the ONE render-policy term that cannot be decided ahead",
-        "of the draw. The camera is solved during view setup, after every stage a",
-        "managed pass can run on, so the shell ANDs this bit with the live engine fact.")]
-    public int HideWhenOwnerSeen;
+        "How the live 'camera sees the owner' fact gates the draw: 0 not at all, 1",
+        "hidden while the camera sees the owner (the viewmodel), 2 drawn only while it",
+        "does (the viewer's own body). The ONE render-policy term that cannot be decided",
+        "ahead of the draw: the camera is solved during view setup, after every stage a",
+        "managed pass can run on, so the shell combines this rule with the live fact.")]
+    public int OwnerSeenRule;
 
     /// <summary>A <c>FadeStyle</c>: 0 none, 1 LOD, 2 portal window.</summary>
     [NativeDoc("A FadeStyle: 0 none, 1 LOD, 2 portal window.")]

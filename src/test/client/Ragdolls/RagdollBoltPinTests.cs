@@ -76,18 +76,18 @@ public class RagdollBoltPinTests
 
     private sealed class Sounds : IFxGameSounds
     {
-        public readonly List<(string Wave, float Volume, int Pitch, Vector At)> Played = [];
-        public readonly List<string> Asked = [];
+        public readonly List<(string Script, Vector At)> Played = [];
 
         public bool Parameters(string script, out GameSoundParams parameters)
         {
-            Asked.Add(script);
-            parameters = new GameSoundParams("weapons/crossbow/bolt_skewer1.wav", 0.8f, 98, 95, 105, 75, 2);
-            return true;
+            parameters = default;
+            return false;
         }
 
         public void EmitAtPosition(in GameSoundParams parameters, float volume, int pitch, in Vector origin)
-            => Played.Add((parameters.Wave, volume, pitch, origin));
+            => Played.Add(("wave " + parameters.Wave, origin));
+
+        public void EmitScript(string script, in Vector origin) => Played.Add((script, origin));
     }
 
     private sealed record Rig(RagdollBoltPin Pin, FakeRagdollVPhysics Fake, Bodies Bodies, Hitboxes Hitboxes, WorldObjectSource World,
@@ -202,11 +202,10 @@ public class RagdollBoltPinTests
         Rig rig = Make();
         rig.Pin.Stick(Origin, Flight);
 
-        Assert.True(rig.Sounds.Asked.SequenceEqual(["Weapon_Crossbow.BoltSkewer"]), $"the script: {string.Join(",", rig.Sounds.Asked)}");
         Assert.True(rig.Sounds.Played.Count == 1, $"played once: {rig.Sounds.Played.Count}");
+        Assert.True(rig.Sounds.Played[0].Script == "Weapon_Crossbow.BoltSkewer",
+                    $"the script by name, so its own volume and pitch play (no SND_CHANGE_* flag): {rig.Sounds.Played[0].Script}");
         Assert.True(Same(rig.Sounds.Played[0].At, new Vector(68f, 1f, 40f)), $"at the body's origin: {rig.Sounds.Played[0].At}");
-        Assert.True(rig.Sounds.Played[0].Volume == 0.8f && rig.Sounds.Played[0].Pitch == 98,
-                    "at the script's own volume and pitch (no SND_CHANGE_* flag)");
     }
 
     [Fact]

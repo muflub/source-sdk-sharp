@@ -49,11 +49,19 @@ internal static class TraceMasks
     /// <summary><c>CONTENTS_SOLID</c> alone: a glow overlay's line at the sky (C7 glow overlays).</summary>
     public const int SolidOnly = ContentsSolid;
 
+    /// <summary>
+    /// <c>MASK_SOLID &amp; ~CONTENTS_MONSTER</c>: what stops a third-person
+    /// camera's sweep (stock CInput::CAM_Think), the world and not a player.
+    /// </summary>
+    public const int CameraSweep = Solid & ~ContentsMonster;
+    /// <summary><c>MASK_OPAQUE</c>.</summary>
+    public const int Opaque = ContentsSolid | ContentsMoveable | ContentsOpaque;
+
     /// <summary><c>MASK_ALL</c>.</summary>
     public const int All = unchecked((int)0xFFFFFFFF);
 
     /// <summary>
-    /// A line trace's mask: the nine named masks, and the brushes-only mask for
+    /// A line trace's mask: the eleven named masks, and the brushes-only mask for
     /// anything else (the native table's fall-through).
     /// </summary>
     public static int Line(TraceMask mask) => mask switch
@@ -67,12 +75,20 @@ internal static class TraceMasks
         TraceMask.OpaqueAndNpcsWindow => OpaqueAndNpcsWindow,
         TraceMask.GlowSight => GlowSight,
         TraceMask.ContentsSolid => SolidOnly,
+        TraceMask.ShotNoWindows => Shot & ~ContentsWindow,
+        TraceMask.Opaque => Opaque,
         _ => SolidBrushOnly,
     };
 
     /// <summary>
-    /// A hull trace's mask: a shot, or solid. Anything that would fit or not --
+    /// A hull trace's mask: a shot, a swing (MASK_SHOT_HULL, the bludgeon's
+    /// near-miss hull), or solid. Anything that would fit or not --
     /// env_entity_maker's question -- is asked against MASK_SOLID.
     /// </summary>
-    public static int Hull(TraceMask mask) => mask == TraceMask.Shot ? Shot : Solid;
+    public static int Hull(TraceMask mask) => mask switch
+    {
+        TraceMask.Shot => Shot,
+        TraceMask.ShotHull => ShotHull,
+        _ => Solid,
+    };
 }

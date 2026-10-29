@@ -48,6 +48,7 @@ public enum DamageType
     Blast       = 0b00000000_00000000_00000000_01000000,
 
     Club        = 0b00000000_00000000_00000000_10000000,
+    NeverGib    = 0b00000000_00000000_00010000_00000000,  // DMG_NEVERGIB, shareddefs.h -- 0x1000
 
     /// <summary>A laser or other high-energy beam. What env_laser deals.</summary>
     EnergyBeam  = 0b00000000_00000000_00000100_00000000,  // DMG_ENERGYBEAM, shareddefs.h -- 0x400

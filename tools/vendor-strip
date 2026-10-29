@@ -1,0 +1,1018 @@
+#!/usr/bin/env python3
+"""tools/vendor-strip -- delete the vendored declarations nothing uses.
+
+    tools/vendor-strip                    report what would go; exit 0
+    tools/vendor-strip --write [--only S] delete it (S: shared, server or client;
+                                          default all three), then build
+    tools/vendor-strip --stub [--write]   the unused virtuals instead: each keeps its
+                                          slot as `virtual void unused_<Name>() = 0;`
+    tools/vendor-strip --check            exit 1 if anything would still go
+    tools/vendor-strip --self-test        this script's own checks
+    --cache FILE  keep the walk's result in FILE and reuse it (one tree state only)
+    --config C (or SOURCESHARP_CONFIG) picks farm/<C>; default debug.
+
+vendor/ is cut to what the modules use (vendor/README.md). tools/vendor
+drops the files no module reads; this drops what is inside a file that no
+module needs. Every module object is parsed with libclang (tools/lib/
+libclang_lite.py) from its own compile command, the Linux build's and the
+windows-cross build's, and each declaration is named by its USR, so a use
+through any copy of a header (the fork's, the pristine clone's, vendor/'s)
+counts for the vendored one.
+
+LIVENESS. A reference from this repo's code is a root. A reference from
+inside a vendored declaration counts only when that declaration is live, so
+a helper only a dead inline function calls goes with it. A live member keeps
+its class; a live class keeps its data members, enumerators, constructors,
+destructor, operators, virtual methods (tools/vendor-stub's), and, for a
+class template, every member (an instantiation's uses are not in the AST).
+A macro is live when any module object expands it, or when any #if, #ifdef,
+#ifndef or #elif line here or in our native sources names it.
+
+WHAT GOES: a declaration of a dead free function, function template,
+non-virtual method, global, class, class template, enum, typedef or alias,
+and the #define of a dead macro; with each, its attached comment. A
+declaration whose text spans a preprocessor line, or that a macro wrote, is
+kept. Then an #include of a vendored file with nothing live left in it (or
+in what it includes) goes too, and tools/vendor --write deletes the file.
+
+WHAT THE AST CANNOT SEE: a member a template body reaches only through its
+type parameter. Building after --write finds those; KEEP below names each,
+with the error that found it.
+"""
+import concurrent.futures
+import hashlib
+import subprocess
+import importlib.machinery
+import json
+import os
+import re
+import shlex
+import sys
+import tempfile
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+VENDOR = os.path.realpath(os.path.join(REPO, "vendor"))
+sys.path.insert(0, os.path.join(REPO, "tools", "lib"))
+VD = importlib.machinery.SourceFileLoader("vendor_tool", os.path.join(REPO, "tools", "vendor")).load_module()
+
+# Names the build needed that the AST walk could not see (see the docstring).
+KEEP = {
+    # xboxstubs.h's _XSESSION_INFO, a struct whose text a typedef shares (so
+    # it stays), types a field with it: "unknown type name 'XNADDR'" in
+    # tier1's convar.cpp and the client forwarder library.
+    "XNADDR",
+    # dmxelement.h's member templates (SetValue<T> and kin) call it from
+    # bodies the AST shows only per instantiation: "use of undeclared
+    # identifier 'AddAttribute'" in libss_particles.
+    "AddAttribute",
+    # platform.h's, for the byte stubs tools/vendor-fields writes where MSVC
+    # and Itanium lay a record out differently; kept for the next such run.
+    "SS_ABI_PICK",
+}
+
+CLANG_RESOURCE = "/usr/lib/llvm-22/lib/clang/22/include"
+OUR_NATIVE = ("src/server/native", "src/client/native", "src/shared/native", "src/fwd/native",
+              "src/host/native", "src/engineabi/native")
+
+UNIT_KINDS = {"FunctionDecl", "CXXMethod", "Constructor", "Destructor", "ConversionFunction",
+              "FunctionTemplate", "ClassDecl", "StructDecl", "UnionDecl", "ClassTemplate",
+              "ClassTemplatePartialSpecialization", "EnumDecl", "TypedefDecl", "TypeAliasDecl",
+              "VarDecl"}
+CLASS_KINDS = {"ClassDecl", "StructDecl", "UnionDecl", "ClassTemplate",
+               "ClassTemplatePartialSpecialization"}
+ALWAYS_WITH_CLASS = {"FieldDecl", "Constructor", "Destructor", "ConversionFunction",
+                     "EnumConstantDecl"}
+# A declaration inside a function body is the body's, never a unit of its own.
+FUNCTION_KINDS = {"FunctionDecl", "CXXMethod", "Constructor", "Destructor", "ConversionFunction",
+                  "FunctionTemplate"}
+STRIPPABLE = {"FunctionDecl", "CXXMethod", "FunctionTemplate", "ClassDecl", "StructDecl",
+              "UnionDecl", "ClassTemplate", "EnumDecl", "TypedefDecl", "TypeAliasDecl", "VarDecl"}
+
+
+class Missing(Exception):
+    pass
+
+
+REPO_REAL = os.path.realpath(REPO)
+
+
+def is_ours(path):
+    """A file of this repo outside vendor/ (the farm's links resolve into the
+    fork or the clone, so a realpath under the repo is ours)."""
+    return path.startswith(REPO_REAL + os.sep) and side_of(path) is None
+
+
+def side_of(path):
+    if not path or not path.startswith(VENDOR + os.sep):
+        return None
+    return path[len(VENDOR) + 1:].split(os.sep, 1)[0]
+
+
+# ---------------------------------------------------------------------------
+# The walk (one module object per call, in a worker process)
+# ---------------------------------------------------------------------------
+
+def compile_args(entry, windows):
+    toks = shlex.split(entry["command"]) if "command" in entry else list(entry["arguments"])
+    out, skip = [], False
+    for t in toks[1:]:
+        if skip:
+            skip = False
+            continue
+        if t in ("-o", "-c", "-MF", "-MT", "-MQ", "--"):
+            skip = t != "--"
+            continue
+        if t.startswith(("/Fo", "/Fd", "/Fe", "-MD", "/showIncludes")) and windows:
+            continue
+        if t in ("-MD", "-MMD") or os.path.basename(t) == os.path.basename(entry["file"]):
+            continue
+        out.append(t)
+    if windows:
+        out = ["--driver-mode=cl"] + out
+    else:
+        out.append("-I" + CLANG_RESOURCE)
+    return out
+
+
+def walk(job):
+    import libclang_lite as lc
+    entry, windows = job
+    kinds = {v: k for k, v in lc.K.items()}
+    idx = lc.createIndex(0, 0)
+    tu = lc.parse(idx, entry["file"], compile_args(entry, windows))
+    decls, edges, macro_defs, macro_uses = {}, set(), {}, set()
+    bases, overriders = set(), set()
+    usr_of = lc.usr
+
+    def add_decl(c, kind, owner_usr):
+        u = usr_of(c)
+        if not u:
+            return None
+        ext = lc.getCursorExtent(c)
+        f, _, start = lc.where(lc.getRangeStart(ext))
+        f2, _, end = lc.where(lc.getRangeEnd(ext))
+        f = os.path.realpath(f) if f else None
+        if side_of(f) is None or f != (os.path.realpath(f2) if f2 else None):
+            return u
+        parent = lc.getSemanticParent(c)
+        pk = kinds.get(parent.kind, "")
+        info = (f, start, end, kind, lc.spelling(c),
+                usr_of(parent) if pk in CLASS_KINDS or pk == "EnumDecl" else "",
+                bool(kind == "CXXMethod" and lc.methodIsVirtual(c)), pk == "ClassTemplate")
+        decls.setdefault(u, set()).add(info)
+        return u
+
+    def visit(cursor, owner, in_body):
+        @lc.VISITOR
+        def cb(c, parent, data):
+            kind = kinds.get(c.kind)
+            if kind == "MacroDefinition":
+                ext = lc.getCursorExtent(c)
+                f, _, start = lc.where(lc.getRangeStart(ext))
+                _, _, end = lc.where(lc.getRangeEnd(ext))
+                f = os.path.realpath(f) if f else None
+                if side_of(f):
+                    macro_defs[(f, start)] = (lc.spelling(c), end)
+                return 1
+            if kind == "MacroExpansion":
+                macro_uses.add(lc.spelling(c))
+                return 1
+            if kind == "InclusionDirective":
+                return 1
+            if kind == "CXXBaseSpecifier":
+                b = lc.getCursorReferenced(c)
+                for _ in range(3):
+                    if lc.cursorIsNull(b):
+                        break
+                    if usr_of(b):
+                        bases.add(usr_of(b))
+                    b = lc.specializedTemplate(b)
+            elif kind == "CXXMethod" and not in_body:
+                ov = lc.overridden(c)
+                if ov:
+                    overriders.add(usr_of(c))
+                    # The methods it overrides are implemented somewhere: an
+                    # interface our code answers (IParticleSystemQuery through
+                    # CBaseAppSystem<>, a base no base specifier names) keeps
+                    # every slot it fills.
+                    for o in ov:
+                        overriders.add(usr_of(o))
+            new_owner = owner
+            body = in_body or kind in FUNCTION_KINDS
+            if in_body:
+                kind = "local"
+            if kind is not None and (kind in UNIT_KINDS or kind in ALWAYS_WITH_CLASS):
+                u = add_decl(c, kind, owner)
+                # Our code declaring or defining a vendored name (an
+                # out-of-line member of a vendored class) keeps that name.
+                if u and is_ours(os.path.realpath(lc.where(lc.getCursorLocation(c))[0] or "")):
+                    edges.add(("", u))
+                if u and kind in UNIT_KINDS:
+                    loc_file = lc.where(lc.getCursorLocation(c))[0]
+                    new_owner = u if side_of(os.path.realpath(loc_file) if loc_file else None) else ""
+            r = lc.getCursorReferenced(c)
+            if not lc.cursorIsNull(r) and not lc.equalCursors(r, c):
+                if kind == "OverloadedDeclRef":
+                    for i in range(lc.numOverloaded(c)):
+                        edges.add((owner, usr_of(lc.overloadedDecl(c, i))))
+                else:
+                    ru = usr_of(r)
+                    if ru:
+                        edges.add((owner, ru))
+                    # A use of Clamp<int> or CUtlVector<int>::Count is a use
+                    # of the template it was made from, which is what the
+                    # text declares.
+                    t = lc.specializedTemplate(r)
+                    for _ in range(3):
+                        if lc.cursorIsNull(t):
+                            break
+                        tu_ = usr_of(t)
+                        if tu_:
+                            edges.add((owner, tu_))
+                        t = lc.specializedTemplate(t)
+            visit(c, new_owner, body)
+            return 1
+        lc.visitChildren(cursor, cb, None)
+
+    visit(lc.getTUCursor(tu), "", False)
+    diags = lc.getNumDiagnostics(tu)
+    lc.disposeTU(tu)
+    lc.disposeIndex(idx)
+    return decls, edges, macro_defs, macro_uses, bases, overriders, diags, entry["file"]
+
+
+# ---------------------------------------------------------------------------
+# Liveness
+# ---------------------------------------------------------------------------
+
+def module_jobs(cfg):
+    """Every module object of both configurations, Linux and windows-cross:
+    debug and release take different #if arms (_DEBUG, DBGFLAG_ASSERT), and
+    so do the platforms, so a use any of the four builds makes counts."""
+    jobs = []
+    for windows, c, bdir in ((False, "debug", "build"), (False, "release", "build"),
+                             (True, "debug", "build-windows-cross"),
+                             (True, "release", "build-windows-cross")):
+        path = os.path.join(REPO, "farm", c, bdir, "compile_commands.json")
+        if not os.path.exists(path):
+            raise Missing("no build at farm/%s/%s (make %s%s): its arms' uses would go unseen"
+                          % (c, bdir, "windows-cross CONFIG=" if windows else "", c))
+        with open(path) as f:
+            jobs += [(e, windows) for e in pick_jobs(json.load(f), windows, c)]
+    # The probe build (tools/client-probe-link): client.so with the debug
+    # probes, which name vendored members the shipped build does not.
+    probes = os.path.join(REPO, "farm", "debug", "build-probes", "compile_commands.json")
+    if not os.path.exists(probes):
+        raise Missing("no probe build at farm/debug/build-probes (tools/client-probe-link): "
+                      "the probes' uses would go unseen")
+    with open(probes) as f:
+        jobs += [(e, False) for e in json.load(f)
+                 if VD.target_of(e.get("output", "")) == "client_sourcesharp"]
+    return jobs
+
+
+def pick_jobs(db, windows, c):
+    """By object, not by source: a shared source is compiled once per side,
+    and each side's #if arms are their own. A test object that reads vendor/
+    (the forwarder tests compile the client library on it) counts as well;
+    one that reads the fork does not."""
+    out, seen = [], set()
+    vendor_flag = os.sep + "vendor" + os.sep
+    for e in db:
+        tgt = VD.target_of(e.get("output", ""))
+        module = bool(tgt) and VD.sides_of_target(tgt) is not None
+        test_on_vendor = (not windows and c == "debug" and bool(tgt) and not module
+                          and vendor_flag in e.get("command", ""))
+        if (module or test_on_vendor) and e["output"] not in seen:
+            seen.add(e["output"])
+            out.append(e)
+    return out
+
+
+def measure(cfg):
+    jobs = module_jobs(cfg)
+    decls, edges, macro_defs, macro_uses = {}, set(), {}, set()
+    bases, overriders = set(), set()
+    with concurrent.futures.ProcessPoolExecutor(os.cpu_count() or 4) as ex:
+        for d, e, md, mu, b, o, diags, src in ex.map(walk, jobs, chunksize=1):
+            for u, infos in d.items():
+                decls.setdefault(u, set()).update(infos)
+            edges |= e
+            macro_defs.update(md)
+            macro_uses |= mu
+            bases |= b
+            overriders |= o
+    return decls, edges, macro_defs, macro_uses, bases, overriders, len(jobs)
+
+
+def conditional_names():
+    names = set()
+    pat = re.compile(r"^\s*#\s*(?:if|ifdef|ifndef|elif|elifdef|elifndef)\b(.*)$", re.M)
+    roots = [VENDOR] + [os.path.join(REPO, d) for d in OUR_NATIVE]
+    for root in roots:
+        for d, _, files in os.walk(root):
+            for fn in files:
+                if fn.endswith((".h", ".cpp", ".inl", ".inc", ".hpp")):
+                    with open(os.path.join(d, fn), errors="replace") as f:
+                        for m in pat.finditer(f.read()):
+                            names.update(re.findall(r"[A-Za-z_]\w*", m.group(1)))
+    return names
+
+
+def mentioned_names():
+    """{identifier: count} over vendor/ and our native sources, counting the
+    text outside #define lines' names: a macro passed as another macro's
+    argument, or named in an #if, has no expansion of its own to see."""
+    counts = {}
+    roots = [VENDOR] + [os.path.join(REPO, d) for d in OUR_NATIVE]
+    for root in roots:
+        for d, _, files in os.walk(root):
+            for fn in files:
+                if not fn.endswith((".h", ".cpp", ".inl", ".inc", ".hpp")):
+                    continue
+                text = read(os.path.join(d, fn))
+                text = re.sub(r"^\s*#\s*define\s+[A-Za-z_]\w*", "#define", text, flags=re.M)
+                for w in re.findall(r"[A-Za-z_]\w*", text):
+                    counts[w] = counts.get(w, 0) + 1
+    return counts
+
+
+def pasted_prefixes():
+    """The literal prefixes macro bodies paste names onto (FUNC_CALL_ARGS_##N):
+    a macro so named is made by an expansion, never spelled."""
+    out = set()
+    for d, _, files in os.walk(VENDOR):
+        for fn in files:
+            if fn.endswith((".h", ".cpp", ".inl", ".hpp")):
+                out.update(p for p in re.findall(r"([A-Za-z_]\w*)\s*##", read(os.path.join(d, fn)))
+                           if len(p) >= 3)
+    return out
+
+
+def macro_body_names():
+    """Every identifier a vendored #define's body names: a macro or a
+    declaration used only inside another macro has no expansion of its own
+    for the walk to see, so these are kept."""
+    names = set()
+    for d, _, files in os.walk(VENDOR):
+        for fn in files:
+            if not fn.endswith((".h", ".cpp", ".inl", ".hpp")):
+                continue
+            text = read(os.path.join(d, fn)).replace("\\\r\n", " ").replace("\\\n", " ")
+            for m in re.finditer(r"^\s*#\s*define\s+[A-Za-z_]\w*(?:\([^)]*\))?(.*)$", text, re.M):
+                names.update(re.findall(r"[A-Za-z_]\w*", m.group(1)))
+    return names
+
+
+TEMPLATE_KINDS = {"ClassTemplate", "FunctionTemplate", "ClassTemplatePartialSpecialization"}
+
+
+def template_names(live, info_of, decls):
+    """The identifiers in the text of every live template: a template body's
+    dependent calls (V_swap( m_a, m_b ) in CUtlMemory::Swap) name what the
+    AST cannot resolve until an instantiation it does not show."""
+    names, texts = set(), {}
+    for u in live:
+        for i in decls.get(u, ()):
+            if not (i[3] in TEMPLATE_KINDS or i[7]):
+                continue
+            t = texts.get(i[0])
+            if t is None:
+                t = texts[i[0]] = read(i[0])
+            names.update(re.findall(r"[A-Za-z_]\w*", t[i[1]:i[2]]))
+    return names
+
+
+def liveness(decls, edges, extra_roots=(), evidence=None):
+    """evidence None: the conservative rule (a class template's members and
+    every operator stay with their class). Otherwise {(class, member)} that
+    some object defines a symbol for: those, and only those, stay."""
+    adj = {}
+    for a, b in edges:
+        adj.setdefault(a, set()).add(b)
+    members = {}
+    info_of = {}
+    by_name = {}
+    for u, infos in decls.items():
+        for i in infos:
+            info_of.setdefault(u, i)
+            by_name.setdefault(i[4], set()).add(u)
+            if i[5]:
+                members.setdefault(i[5], set()).add(u)
+    # A vendored .cpp defines what the prebuilt libraries (particles.a,
+    # dmxloader.a) may import, which no AST shows: all of it is a root.
+    roots = set(adj.get("", ())) | set(extra_roots)
+    roots |= {u for u, infos in decls.items() if any(i[0].endswith(".cpp") for i in infos)}
+    live, stack, named = set(), list(roots), set()
+    while True:
+        _mark(stack, live, adj, info_of, members, evidence)
+        names = template_names(live, info_of, decls) - named
+        if not names:
+            return live, info_of
+        named |= names
+        stack = [u for n in names for u in by_name.get(n, ())]
+
+
+def _mark(stack, live, adj, info_of, members, evidence=None):
+    while stack:
+        u = stack.pop()
+        if u in live:
+            continue
+        live.add(u)
+        stack.extend(adj.get(u, ()))
+        i = info_of.get(u)
+        if i is None:
+            continue
+        if i[5]:
+            stack.append(i[5])
+        if i[3] in CLASS_KINDS or i[3] == "EnumDecl":
+            for m in members.get(u, ()):
+                mi = info_of[m]
+                if mi[3] in ALWAYS_WITH_CLASS or mi[6] or mi[3] in CLASS_KINDS or mi[3] == "EnumDecl":
+                    stack.append(m)
+                elif evidence is None:
+                    if mi[7] or i[3] == "ClassTemplate" or mi[4].startswith("operator"):
+                        stack.append(m)
+                elif (i[4], mi[4]) in evidence:
+                    stack.append(m)
+
+
+# ---------------------------------------------------------------------------
+# Edits
+# ---------------------------------------------------------------------------
+
+def read(path):
+    # latin-1 maps each byte to one character, so libclang's byte offsets
+    # index the text directly whatever the file's encoding.
+    with open(path, encoding="latin-1", newline="") as f:
+        return f.read()
+
+
+# A linkage or attribute macro libclang leaves outside a declaration's extent:
+# PLATFORM_INTERFACE before it, ALIGN16_POST between it and its ;. Left
+# behind, `PLATFORM_INTERFACE;` and `ALIGN16_POST;` declare nothing, which
+# gcc refuses (clang only warns). Before a declaration, so is a linkage
+# specification: `extern "C";` is refused by gcc 10 and accepted by gcc 13.
+MACRO_TOKENS = re.compile(r"(?:[ \t]*[A-Z_][A-Z0-9_]*(?:[ \t]*\([^()\n]*\))?)+[ \t]*")
+LEADING_TOKENS = re.compile(r'(?:[ \t]*(?:extern[ \t]*"C(?:\+\+)?"|[A-Z_][A-Z0-9_]*(?:[ \t]*\([^()\n]*\))?))+[ \t]*')
+
+
+def widen(t, start, end):
+    """The span to delete for a declaration at [start, end): the macros and
+    linkage specification around it (MACRO_TOKENS, LEADING_TOKENS), its
+    trailing ; and line end, its leading indentation, and the comment lines
+    directly above it."""
+    j = end
+    m = MACRO_TOKENS.match(t, j)
+    if m and t.startswith(";", m.end()):
+        j = m.end()
+    while j < len(t) and t[j] in " \t":
+        j += 1
+    if j < len(t) and t[j] == ";":
+        j += 1
+    ls = t.rfind("\n", 0, start) + 1
+    m = LEADING_TOKENS.fullmatch(t, ls, start)
+    if m:
+        start = ls
+    while j < len(t) and t[j] in " \t":
+        j += 1
+    if t.startswith("//", j):
+        k = t.find("\n", j)
+        j = len(t) if k < 0 else k
+    if j < len(t) and t[j] == "\r":
+        j += 1
+    if j < len(t) and t[j] == "\n":
+        j += 1
+    i = start
+    while i > 0 and t[i - 1] in " \t":
+        i -= 1
+    if i > 0 and t[i - 1] != "\n":
+        return start, end
+    while i > 0:
+        ls = t.rfind("\n", 0, i - 1) + 1
+        line = t[ls:i].strip()
+        if line.startswith("//") or (line.startswith("/*") and line.endswith("*/")) \
+                or (line.startswith("*") and not line.startswith("*/")):
+            i = ls
+        else:
+            break
+    return i, j
+
+
+def removable(t, start, end, name):
+    if not name:
+        return False
+    body = t[start:end]
+    if re.search(r"^\s*#", body, re.M):
+        return False
+    # An operator's spelling is its type (`operator unsigned int` for the
+    # text's `operator uint32()`): the keyword is what the text shows.
+    if name not in body and not (name.startswith("operator") and "operator" in body):
+        return False
+    head = t[max(0, start - 40):start]
+    if re.search(r"template\s*<\s*>\s*$", head):
+        return False
+    return True
+
+
+def removability(decls, only, in_macros, proving=False):
+    """(may_go, roots, goes_with): may_go[u] when every declaration of u may
+    be deleted (a strippable kind, no operator, virtual, KEEP or macro name,
+    not in a template or a vendored .cpp, its side selected, and text that
+    spans no preprocessor line); goes_with(u) when an enclosing class may go,
+    taking u with it. Every declaration that must stay is a root: its text
+    stays in the file, so what it names must too."""
+    texts = {}
+
+    def text_ok(i):
+        t = texts.get(i[0])
+        if t is None:
+            t = texts[i[0]] = read(i[0])
+        return removable(t, i[1], i[2], i[4])
+
+    parent = {}
+    may_go = {}
+    for u, infos in decls.items():
+        i0 = next(iter(infos))
+        parent[u] = i0[5]
+        may_go[u] = ({i[3] for i in infos} <= STRIPPABLE
+                     and not any(i[6] or (not proving and (i[7] or i[4].startswith("operator")))
+                                 or i[4] in KEEP
+                                 or i[4] in in_macros or i[0].endswith(".cpp")
+                                 or side_of(i[0]) not in only for i in infos)
+                     and all(text_ok(i) for i in infos))
+
+    def removable_ancestor(u):
+        p = parent.get(u)
+        while p:
+            if may_go.get(p):
+                return p
+            p = parent.get(p)
+        return None
+
+    # A member written outside its class goes with the class only when that
+    # text may go too; when it may not, neither may the class.
+    changed = True
+    while changed:
+        changed = False
+        for u, infos in decls.items():
+            a = removable_ancestor(u)
+            if a is None:
+                continue
+            outer = decls[a]
+            for i in infos:
+                inside = any(o[0] == i[0] and o[1] <= i[1] and i[2] <= o[2] for o in outer)
+                if not inside and (i[0].endswith(".cpp") or side_of(i[0]) not in only or not text_ok(i)):
+                    may_go[a] = False
+                    changed = True
+                    break
+    roots = {u for u in decls if not may_go[u] and removable_ancestor(u) is None}
+    return may_go, roots, removable_ancestor
+
+
+def plan(decls, live, may_go, goes_with, macro_defs, macro_uses, conds, only):
+    spans = {}
+    in_macros = macro_body_names()
+    mentioned = mentioned_names()
+    pasted = pasted_prefixes()
+    for u, infos in decls.items():
+        if u in live:
+            continue
+        a = goes_with(u)
+        if not may_go[u] and (a is None or a in live):
+            continue
+        for i in infos:
+            spans.setdefault(i[0], []).append((i[1], i[2], "decl"))
+    # A declaration can carry two USRs (C linkage in one translation unit,
+    # C++ in another) over the same text, and an anonymous enum sits inside
+    # its live typedef: a span may go only where it overlaps no live
+    # declaration's text, or lies wholly inside a live class, enum or
+    # template (a dead member of a live class).
+    live_spans = {}
+    for u in live:
+        for i in decls.get(u, ()):
+            live_spans.setdefault(i[0], []).append((i[1], i[2], i[3]))
+    for f in list(spans):
+        keep = []
+        for s0, e0, k in spans[f]:
+            ok = True
+            for ls, le, lk in live_spans.get(f, ()):
+                if le <= s0 or e0 <= ls:
+                    continue
+                if lk in CLASS_KINDS or lk == "EnumDecl":
+                    if ls <= s0 and e0 <= le and (ls, le) != (s0, e0):
+                        continue
+                ok = False
+                break
+            if ok:
+                keep.append((s0, e0, k))
+        spans[f] = keep
+    for (f, start), (name, end) in macro_defs.items():
+        if (name in macro_uses or name in conds or name in KEEP or name in in_macros
+                or name in mentioned or any(name.startswith(p) for p in pasted)
+                or side_of(f) not in only or f.endswith(".cpp")):
+            continue
+        t = read(f)
+        ls = t.rfind("\n", 0, start) + 1
+        le = end
+        while True:
+            nl = t.find("\n", le)
+            if nl < 0 or not t[le:nl].rstrip("\r").endswith("\\"):
+                break
+            le = nl + 1
+        spans.setdefault(f, []).append((ls, le, "macro"))
+    return spans
+
+
+def symbol_evidence():
+    """{(class, member)} with a defined symbol in some module object of the
+    debug build: at -O0 every inline or template member a unit uses is
+    emitted, so one with no symbol anywhere is unused."""
+    out = set()
+    path = os.path.join(REPO, "farm", "debug", "build", "compile_commands.json")
+    with open(path) as f:
+        db = json.load(f)
+    objs = [os.path.join(e.get("directory", ""), e["output"]) for e in pick_jobs(db, False, "debug")]
+    member = re.compile(r"(?:^|::)(\w+)(?:<[^()]*>)?::(~?\w+|operator\s*[^\s(]+(?:\s*\[\])?)\(")
+    for i in range(0, len(objs), 200):
+        r = subprocess.run(["llvm-nm-22", "-C", "--defined-only", "-j"] + objs[i:i + 200],
+                           capture_output=True, text=True, errors="replace")
+        for line in r.stdout.split("\n"):
+            for m in member.finditer(line):
+                out.add((m.group(1), m.group(2).replace(" ", "")))
+    return out
+
+
+def units(spans):
+    """[(file, start, end)]: the spans as plan() would delete them, widened
+    and merged, on the files' text as they are now."""
+    out = []
+    for f, ss in spans.items():
+        t = read(f)
+        wide = sorted(set(widen(t, s, e) if k == "decl" else (s, e) for s, e, k in ss))
+        merged = []
+        for s, e in wide:
+            if merged and s < merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+            else:
+                merged.append((s, e))
+        out += [(f, s, e) for s, e in merged]
+    return out
+
+
+PROVE_BUILDS = (("debug", "build", ("client_sourcesharp", "server_sourcesharp", "ss_fwd_client",
+                 "ss_fwd_server")), ("debug", "build", None), ("release", "build", ("client_sourcesharp", "server_sourcesharp",
+                 "ss_fwd_client", "ss_fwd_server")), ("debug", "build-windows-cross", ("client_sourcesharp",
+                 "server_sourcesharp", "ss_fwd_client", "ss_fwd_server")), ("release", "build-windows-cross",
+                 ("client_sourcesharp", "server_sourcesharp", "ss_fwd_client", "ss_fwd_server")),
+                ("debug", "build-probes", ("client_sourcesharp",)))
+PROVE_SOS = ("client.so", "server.so", "libss_fwd_client.so", "libss_fwd_server.so")
+
+
+LAST_BUILD_LOG = [""]
+MISSING_NAME = re.compile(r"(?:unknown type name|use of undeclared identifier|no member named|"
+                          r"no template named|undeclared identifier|no type named|"
+                          r"use of undeclared|unknown class name|undefined symbol:)\s*'?([~\w:]+)'?")
+
+
+def prove_state():
+    """None when a build fails (its output in LAST_BUILD_LOG); else each
+    module's defined symbols, which a removal of something unused leaves
+    alone."""
+    for cfg, bdir, targets in PROVE_BUILDS:
+        r = subprocess.run(["ninja", "-C", os.path.join(REPO, "farm", cfg, bdir), "-k", "0", *(targets or ())],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            LAST_BUILD_LOG[0] = r.stdout + r.stderr
+            return None
+    syms = {}
+    for so in PROVE_SOS:
+        r = subprocess.run(["llvm-nm-22", "--defined-only", "-j",
+                            os.path.join(REPO, "farm", "debug", "build", "out", so)],
+                           capture_output=True, text=True)
+        syms[so] = hashlib.sha256(r.stdout.encode()).hexdigest()
+    return syms
+
+
+def layout_holds(base_snap):
+    """True when a snapshot now moves no vtable slot and no field the base
+    snapshot has (tools/vendor-layout compare; a record that left is fine)."""
+    tool = os.path.join(REPO, "tools", "vendor-layout")
+    with tempfile.TemporaryDirectory() as td:
+        snap = os.path.join(td, "layout.json")
+        if subprocess.run([tool, "snapshot", snap], capture_output=True).returncode != 0:
+            return False
+        return subprocess.run([tool, "compare", base_snap, snap], capture_output=True).returncode == 0
+
+
+def prove(cands, log):
+    """The candidates that hold: removed in waves from the original text, a
+    wave kept when every build passes and prove_state() is unchanged, a
+    failed one halved down to the one span that caused it."""
+    # A candidate is (file, start, end) to delete, or (file, start, end,
+    # replacement) to put text in its place (tools/vendor-fields' stubs).
+    cands = [c if len(c) == 4 else (c[0], c[1], c[2], "") for c in cands]
+    originals = {c[0]: read(c[0]) for c in cands}
+    accepted = []
+
+    def write(extra):
+        by = {}
+        for f, s, e, rep in accepted + extra:
+            by.setdefault(f, []).append((s, e, rep))
+        for f, text in originals.items():
+            for s, e, rep in sorted(by.get(f, ()), reverse=True):
+                text = text[:s] + rep + text[e:]
+            with open(f, "w", encoding="latin-1", newline="") as fh:
+                fh.write(text)
+
+    base = prove_state()
+    if base is None:
+        raise SystemExit("tools/vendor-strip --prove: the tree does not build before any change")
+    base_snap = tempfile.NamedTemporaryFile(suffix=".json", delete=False).name
+    if subprocess.run([os.path.join(REPO, "tools", "vendor-layout"), "snapshot", base_snap],
+                      capture_output=True).returncode != 0:
+        raise SystemExit("tools/vendor-strip --prove: no layout snapshot before any change")
+
+    def declared(c):
+        f, s, e, _ = c
+        return set(re.findall(r"[A-Za-z_]\w*", originals[f][s:e]))
+
+    def settle(cs):
+        if not cs:
+            return
+        while True:
+            write(cs)
+            state = prove_state()
+            if state == base and layout_holds(base_snap):
+                accepted.extend(cs)
+                log("  %d hold" % len(cs))
+                return
+            # A compile error names what it misses: the spans that declare
+            # it go back, and the rest is tried again before any halving.
+            names = {n.split("::")[-1].lstrip("~") for n in MISSING_NAME.findall(LAST_BUILD_LOG[0])} \
+                if state is None else set()
+            back = [c for c in cs if names & declared(c)]
+            if not back or len(back) == len(cs):
+                break
+            log("  %d named by the build go back (%s)" % (len(back), ", ".join(sorted(names)[:6])))
+            cs = [c for c in cs if c not in back]
+        write([])
+        if len(cs) == 1:
+            f, s, e, _ = cs[0]
+            log("  kept: %s:%d" % (os.path.relpath(f, REPO), originals[f].count("\n", 0, s) + 1))
+            return
+        half = len(cs) // 2
+        settle(cs[:half])
+        settle(cs[half:])
+
+    settle(cands)
+    write([])
+    prove_state()
+    return len(accepted)
+
+
+def our_member_names():
+    """Names this repo's native sources use as a member (x.Name(, p->Name(,
+    C::Name(): the arms no build here compiles (client.dll on Windows until
+    it cross-builds) still keep a method by name."""
+    names = set()
+    pat = re.compile(r"(?:->|\.|::)\s*([A-Za-z_]\w*)\s*\(")
+    for d in OUR_NATIVE:
+        for root, _, files in os.walk(os.path.join(REPO, d)):
+            for f in files:
+                if f.endswith((".cpp", ".h", ".inc", ".inl")):
+                    names.update(pat.findall(read(os.path.join(root, f))))
+    return names
+
+
+def plan_stubs(decls, edges, live, bases, overriders, only):
+    """{file: [(start, end, "stub", name)]}: the virtual methods of a live
+    class that nothing calls, which keep their slot as
+    `virtual void unused_<Name>() = 0;`. Not stubbed: a method of a class
+    that is any class's base (its derived class's slots would move), an
+    overrider or a method something overrides, an overloaded name (MSVC lays overloads out together), a
+    template's member, an operator, a name our sources use as a member."""
+    used = {b for a, b in edges if a == "" or a in live}
+    ours = our_member_names()
+    virtuals = {}
+    for u, infos in decls.items():
+        for i in infos:
+            if i[3] == "CXXMethod" and i[6]:
+                virtuals.setdefault(i[5], {}).setdefault(i[4], set()).add(u)
+    out = {}
+    for cls, by_name in virtuals.items():
+        if cls in bases or cls not in live:
+            continue
+        for name, us in by_name.items():
+            if len(us) != 1 or name.startswith(("operator", "unused_")) or name in ours or name in KEEP:
+                continue
+            u = next(iter(us))
+            if u in used or u in overriders:
+                continue
+            infos = decls[u]
+            if any(i[7] or side_of(i[0]) not in only or i[0].endswith(".cpp") for i in infos):
+                continue
+            inside = [i for i in infos if any(c[0] == i[0] and c[1] <= i[1] and i[2] <= c[2]
+                                               for c in decls.get(cls, ()))]
+            outside = [i for i in infos if i not in inside]
+            if len(inside) != 1:
+                continue
+            ok = all(removable(read(i[0]), i[1], i[2], i[4]) for i in infos)
+            if not ok:
+                continue
+            i = inside[0]
+            out.setdefault(i[0], []).append((i[1], i[2], "stub", name))
+            for o in outside:
+                out.setdefault(o[0], []).append((o[1], o[2], "decl", name))
+    return out
+
+
+def apply_stubs(spans):
+    n = 0
+    for f, ss in spans.items():
+        t = read(f)
+        for s0, e0, kind, name in sorted(ss, reverse=True):
+            if kind == "stub":
+                j = e0
+                while j < len(t) and t[j] in " \t":
+                    j += 1
+                if j < len(t) and t[j] == ";":
+                    j += 1
+                t = t[:s0] + "virtual void unused_%s() = 0;" % name + t[j:]
+            else:
+                a, b = widen(t, s0, e0)
+                t = t[:a] + t[b:]
+            n += 1
+        with open(f, "w", encoding="latin-1", newline="") as fh:
+            fh.write(t)
+    return n
+
+
+def apply(spans):
+    removed = 0
+    for f, ss in spans.items():
+        t = read(f)
+        wide = sorted(set(widen(t, s, e) if k == "decl" else (s, e) for s, e, k in ss))
+        merged = []
+        for s, e in wide:
+            if merged and s < merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+            else:
+                merged.append((s, e))
+        for s, e in reversed(merged):
+            t = t[:s] + t[e:]
+            removed += 1
+        with open(f, "w", encoding="latin-1", newline="") as fh:
+            fh.write(t)
+    return removed
+
+
+def self_test():
+    checks = 0
+
+    def eq(a, b, what):
+        nonlocal checks
+        checks += 1
+        if a != b:
+            raise AssertionError("%s: %r != %r" % (what, a, b))
+
+    t = "int a;\n// about f\n// more\nvoid f( int );\nint b;\n"
+    s = t.index("void")
+    e = t.index(")") + 1
+    i, j = widen(t, s, e)
+    eq(t[:i] + t[j:], "int a;\nint b;\n", "a declaration goes with its ; and its comment lines")
+    t = "int a;\nPLATFORM_INTERFACE void f( int );\nint b;\n"
+    i, j = widen(t, t.index("void"), t.index(")") + 1)
+    eq(t[:i] + t[j:], "int a;\nint b;\n", "a linkage macro before a declaration goes with it")
+    t = 'int a;\nextern "C" typedef void ( *Hook_t )( int );\nint b;\n'
+    i, j = widen(t, t.index("typedef"), t.index("int )") + 5)
+    eq(t[:i] + t[j:], "int a;\nint b;\n", "a linkage specification before a declaration goes with it")
+    t = "int a;\nextern const ALIGN16 int g[ 4 ] ALIGN16_POST; // mask\nint b;\n"
+    i, j = widen(t, t.index("extern"), t.index("]") + 1)
+    eq(t[:i] + t[j:], "int a;\nint b;\n", "an attribute macro before the ; goes with the declaration")
+    t = "int a;\nint x = 1, f( int );\nint b;\n"
+    i, j = widen(t, t.index("f("), t.index(")") + 1)
+    eq(t[:i] + t[j:], "int a;\nint x = 1, ;\nint b;\n", "code before a declaration on its line is no macro")
+    t = "class X\n{\n#ifdef Y\n int a;\n#endif\n};\n"
+    eq(removable(t, 0, len(t) - 2, "X"), False, "a span across a preprocessor line is kept")
+    eq(removable("template<> struct S<int> {}", 11, 27, "S"), False, "an explicit specialisation is kept")
+    eq(removable("void g();", 0, 8, "g"), True, "a plain declaration may go")
+    eq(removable("A::operator uint32() {}", 0, 22, "operator unsigned int"), True,
+       "a conversion operator spelt through a typedef may go")
+    decls = {
+        "c:@S@A": {("/v/a.h", 0, 9, "StructDecl", "A", "", False, False)},
+        "c:@S@A@F@M#": {("/v/a.h", 1, 2, "CXXMethod", "M", "c:@S@A", False, False)},
+        "c:@S@A@FI@x": {("/v/a.h", 3, 4, "FieldDecl", "x", "c:@S@A", False, False)},
+        "c:@F@dead#": {("/v/a.h", 5, 6, "FunctionDecl", "dead", "", False, False)},
+        "c:@F@helper#": {("/v/a.h", 7, 8, "FunctionDecl", "helper", "", False, False)},
+    }
+    edges = {("", "c:@S@A@F@M#"), ("c:@F@dead#", "c:@F@helper#")}
+    live, _ = liveness(decls, edges)
+    eq("c:@S@A" in live, True, "a live member keeps its class")
+    eq("c:@S@A@FI@x" in live, True, "a live class keeps its data members")
+    eq("c:@F@helper#" in live, False, "a reference from a dead declaration keeps nothing alive")
+    eq("c:@F@dead#" in live, False, "nothing our code references is live")
+    with tempfile.TemporaryDirectory() as td:
+        h = os.path.join(td, "t.h")
+        src = "template <class T> void Swap2( T &a ) { V_swap( a, a ); }\nvoid V_swap( int, int );\n"
+        with open(h, "w") as f:
+            f.write(src)
+        decls = {
+            "c:@FT@>1#TSwap2": {(h, 0, src.index("}") + 1, "FunctionTemplate", "Swap2", "", False, False)},
+            "c:@F@V_swap#I#I#": {(h, src.index("void V_swap"), len(src) - 2, "FunctionDecl", "V_swap", "",
+                                  False, False)},
+            "c:@E@Kind": {(h, 0, 1, "EnumDecl", "Kind", "", False, False)},
+            "c:@E@Kind@KindA": {(h, 0, 1, "EnumConstantDecl", "KindA", "c:@E@Kind", False, False)},
+        }
+        live, _ = liveness(decls, {("", "c:@FT@>1#TSwap2"), ("", "c:@E@Kind@KindA")})
+        eq("c:@F@V_swap#I#I#" in live, True, "a name a live template's body calls is kept")
+        eq("c:@E@Kind" in live, True, "a live enumerator keeps its enum")
+    # A method a class of ours overrides through a template base (no base
+    # specifier names the interface) is used: IParticleSystemQuery's slots,
+    # which libss_particles' query answers through CBaseAppSystem<>.
+    with tempfile.TemporaryDirectory() as td:
+        src = os.path.join(td, "ov.cpp")
+        with open(src, "w") as f:
+            f.write("struct IQuery { virtual void Ask() = 0; virtual void Idle() = 0; };\n"
+                    "template< class T > struct CBase : public T {};\n"
+                    "struct CQuery : public CBase< IQuery > { void Ask() override {} void Idle() override {} };\n")
+        overriders = walk(({"file": src, "directory": td, "command": "clang++ -std=c++17 -c " + src}, False))[5]
+    eq("c:@S@IQuery@F@Ask#" in overriders, True, "a method overridden through a template base is an overrider's target")
+    db = [{"file": "/r/src/shared/native/s.cpp", "output": "src/server/native/CMakeFiles/server_sourcesharp.dir/s.cpp.o",
+           "command": "c++ -I/r/vendor/server"},
+          {"file": "/r/src/shared/native/s.cpp", "output": "src/client/native/CMakeFiles/client_sourcesharp.dir/s.cpp.o",
+           "command": "c++ -I/r/vendor/client"},
+          {"file": "/r/src/fwd/native/f.cpp", "output": "src/test/native/CMakeFiles/fwd_steam_test.dir/f.cpp.o",
+           "command": "c++ -I/r/vendor/client"},
+          {"file": "/r/src/test/native/t.cpp", "output": "src/test/native/CMakeFiles/other_test.dir/t.cpp.o",
+           "command": "c++ -I/r/farm/debug/src/public"}]
+    got = sorted(VD.target_of(e["output"]) for e in pick_jobs(db, False, "debug"))
+    eq(got, ["client_sourcesharp", "fwd_steam_test", "server_sourcesharp"],
+       "a shared source is walked once per side, and a test on vendor/ is walked; one on the fork is not")
+    eq(len(pick_jobs(db, False, "release")), 2, "the tests count in the debug build only")
+    print("tools/vendor-strip --self-test: %d checks passed" % checks)
+    return 0
+
+
+def main(argv):
+    if "--self-test" in argv:
+        return self_test()
+    only = {argv[argv.index("--only") + 1]} if "--only" in argv else {"shared", "server", "client"}
+    try:
+        cache = argv[argv.index("--cache") + 1] if "--cache" in argv else None
+        if cache and os.path.exists(cache):
+            import pickle
+            with open(cache, "rb") as f:
+                decls, edges, macro_defs, macro_uses, bases, overriders, n = pickle.load(f)
+        else:
+            decls, edges, macro_defs, macro_uses, bases, overriders, n = measure(VD.config(argv))
+            if cache:
+                import pickle
+                with open(cache, "wb") as f:
+                    pickle.dump((decls, edges, macro_defs, macro_uses, bases, overriders, n), f)
+    except Missing as e:
+        print("tools/vendor-strip: " + str(e))
+        return 1
+    may_go, fixed, goes_with = removability(decls, only, macro_body_names())
+    live, info_of = liveness(decls, edges, fixed)
+    spans = plan(decls, live, may_go, goes_with, macro_defs, macro_uses, conditional_names(), only)
+    count = sum(len(v) for v in spans.values())
+    lines = 0
+    for f, ss in spans.items():
+        t = read(f)
+        lines += sum(t.count("\n", s, e) + 1 for s, e, _ in ss)
+    print("tools/vendor-strip: %d objects walked; %d declarations in vendor/, %d live; "
+          "%d spans to delete in %d files (~%d lines)"
+          % (n, len(decls), len(live & set(decls)), count, len(spans), lines))
+    if "--report" in argv:
+        for f in sorted(spans):
+            print("  %s: %d" % (os.path.relpath(f, REPO), len(spans[f])))
+    if "--stub" in argv:
+        stubs = plan_stubs(decls, edges, live, bases, overriders, only)
+        print("tools/vendor-strip --stub: %d virtual methods to stub in %d files"
+              % (sum(1 for v in stubs.values() for x in v if x[2] == "stub"), len(stubs)))
+        if "--write" in argv:
+            print("tools/vendor-strip: stubbed %d; build and test now" % apply_stubs(stubs))
+        return 0
+    if "--prove" in argv:
+        evidence = symbol_evidence()
+        may_go_p, fixed_p, goes_with_p = removability(decls, only, macro_body_names(), proving=True)
+        live_e, _ = liveness(decls, edges, fixed_p, evidence)
+        more = plan(decls, live_e, may_go_p, goes_with_p, macro_defs, macro_uses, conditional_names(), only)
+        have = set(units(spans))
+        cands = [u for u in units(more) if u not in have]
+        print("tools/vendor-strip --prove: %d spans more that no object's symbols or references keep"
+              % len(cands))
+        if "--write" in argv:
+            print("tools/vendor-strip --prove: removed %d of %d" % (prove(cands, print), len(cands)))
+        return 0
+    if "--write" in argv:
+        print("tools/vendor-strip: deleted %d spans; build and test now" % apply(spans))
+        return 0
+    if "--check" in argv:
+        return 1 if count else 0
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

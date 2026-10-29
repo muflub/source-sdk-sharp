@@ -39,6 +39,7 @@ public class ServerGameDllTests
         public void LevelShutdownPreEntity() => engine.Note("Row.LevelShutdownPreEntity");
         public void LevelShutdownPostEntity() => engine.Note("Row.LevelShutdownPostEntity");
         public void FramePreThink(float frameTime) => engine.Note("Row.FramePreThink");
+        public void EntitiesFrame(float frameTime) => engine.Note("Row.EntitiesFrame");
         public void Frame(float frameTime) => engine.Note("Row.Frame");
         public void PhysicsFrame() => engine.Note("Row.PhysicsFrame");
     }
@@ -508,10 +509,10 @@ public class ServerGameDllTests
 
             Assert.Equal(new[]
             {
-                // W_Precache, less the four native readers hold the indices of.
-                "sprites/zerogxplode.vmt", "sprites/WXplo1.vmt", "sprites/laserbeam.vmt", "sprites/laserdot.vmt",
+                // W_Precache's HL2MP arm.
+                "sprites/zerogxplode.vmt", "sprites/steam1.vmt", "sprites/bubble.vmt", "sprites/laserbeam.vmt",
                 "blood_impact_red_01", "blood_impact_green_01", "blood_impact_yellow_01",
-                "effects/bubble.vmt",
+                "effects/bubble.vmt", "models/weapons/w_bullet.mdl",
                 // ClientGamePrecache.
                 "models/player/male_01.mdl",
                 // The gibs for an English server.
@@ -549,6 +550,8 @@ public class ServerGameDllTests
 
             Assert.Equal(new[]
             {
+                // W_Precache's two, then CWorld::Precache's water pair, then effects.cpp's.
+                "BaseCombatWeapon.WeaponDrop", "BaseCombatWeapon.WeaponMaterialize",
                 "BaseEntity.EnterWater", "BaseEntity.ExitWater",
                 "Underwater.BulletImpact", "FX_RicochetSound.Ricochet", "Physics.WaterSplash",
                 "BaseExplosionEffect.Sound", "Splash.SplashSound",
@@ -1412,9 +1415,9 @@ public class ServerGameDllTests
             //
             //   PhysicsRunThinkFunctions was here, between the two system
             //   passes. physics_main.cpp left the vpc and the thinks are
-            //   managed: they drain inside the managed frame (Row.Frame), in
-            //   the post-entity-think pass below, from StandaloneHierarchy's
-            //   hook.
+            //   managed: they drain in the entities' frame (Row.EntitiesFrame),
+            //   at the head of the post-entity-think pass below and before its
+            //   physics step, where stock's ran.
             //
             //   ServiceEventQueue was between ServerSystemsPostThink and the
             //   second reap. cbase.cpp defined the queue and both producers
@@ -1424,8 +1427,9 @@ public class ServerGameDllTests
             //   FireNetworkPropertyEvents was between EndGameFrame and
             //   SetFrameTime. g_NetworkPropertyEventMgr went at Phase 1d and
             //   nothing could ever have registered with it.
-            // The post-entity-think pass: the physics row's step, the managed
-            // frame, the slots drained.
+            // The post-entity-think pass: the entities' frame, the physics
+            // row's step, the rest of the managed frame, the slots drained.
+            "Row.EntitiesFrame",
             "Row.PhysicsFrame",
             "Row.Frame",
             "Frame.DrainEntitySlots",
@@ -1502,7 +1506,7 @@ public class ServerGameDllTests
         var steps = FrameStepsOf(engine).ToList();
 
         int pre = steps.IndexOf("Row.FramePreThink");
-        int post = steps.IndexOf("Row.PhysicsFrame");
+        int post = steps.IndexOf("Row.EntitiesFrame");
 
         Assert.True(pre >= 0, "the pre-entity pass ran");
         Assert.Equal(pre + 2, post);

@@ -21,8 +21,8 @@ namespace
 
 struct Pair
 {
-	unsigned char stock[ 64 ];
-	unsigned char ours[ 64 ];
+	unsigned char stock[64];
+	unsigned char ours[64];
 	bf_write a, b;
 
 	Pair( int nPrefixBits, unsigned int prefix )
@@ -61,9 +61,9 @@ TEST( UserMessageAppend, TheShakePayloadIsBitIdenticalAtEveryOffset )
 		p.a.WriteFloat( 0.1f );
 
 		// Shake { Command = 1, Amplitude = 12.5, Frequency = -3.25, Duration = 0.1 }
-		float floats[ 3 ] = { 12.5f, -3.25f, 0.1f };
-		unsigned char payload[ 13 ];
-		payload[ 0 ] = 1;
+		float floats[3] = { 12.5f, -3.25f, 0.1f };
+		unsigned char payload[13];
+		payload[0] = 1;
 		memcpy( payload + 1, floats, sizeof( floats ) );
 		SourceSharp_AppendBits( &p.b, payload, (int)sizeof( payload ) * 8 );
 
@@ -85,7 +85,7 @@ TEST( UserMessageAppend, TheFadePayloadIsBitIdenticalAtEveryOffset )
 		p.a.WriteByte( 7 );
 
 		// Fade { Duration = 1500, HoldTime = 0xFFFE, Flags = 0x11, Color = (255, 0, 128, 7) }
-		const unsigned char payload[ 10 ] = { 0xDC, 0x05, 0xFE, 0xFF, 0x11, 0x00, 255, 0, 128, 7 };
+		const unsigned char payload[10] = { 0xDC, 0x05, 0xFE, 0xFF, 0x11, 0x00, 255, 0, 128, 7 };
 		SourceSharp_AppendBits( &p.b, payload, (int)sizeof( payload ) * 8 );
 
 		p.Same( "Fade", off );
@@ -102,12 +102,12 @@ TEST( UserMessageAppend, TheCloseCaptionPayloadIsBitIdenticalAtEveryOffset )
 		p.a.WriteByte( 3 );
 
 		// CloseCaption { Token = "hl2mp.combine.alert", Duration = 42, Flags = 3 }
-		unsigned char payload[ 32 ];
+		unsigned char payload[32];
 		const size_t n = strlen( "hl2mp.combine.alert" ) + 1;
 		memcpy( payload, "hl2mp.combine.alert", n );
-		payload[ n ] = 42;
-		payload[ n + 1 ] = 0;
-		payload[ n + 2 ] = 3;
+		payload[n] = 42;
+		payload[n + 1] = 0;
+		payload[n + 2] = 3;
 		SourceSharp_AppendBits( &p.b, payload, (int)( n + 3 ) * 8 );
 
 		p.Same( "CloseCaption", off );
@@ -116,18 +116,18 @@ TEST( UserMessageAppend, TheCloseCaptionPayloadIsBitIdenticalAtEveryOffset )
 
 TEST( UserMessageAppend, APayloadThatDoesNotFitOverflowsAndWritesNothing )
 {
-	unsigned char buf[ 4 ];
+	unsigned char buf[4];
 	memset( buf, 0, sizeof( buf ) );
 	bf_write w( buf, sizeof( buf ) );
 	w.WriteUBitLong( 3, 5 );
 
-	const unsigned char big[ 8 ] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+	const unsigned char big[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
 	SourceSharp_AppendBits( &w, big, 64 );
 
 	EXPECT_TRUE( w.IsOverflowed() );
 	EXPECT_EQ( 5, w.GetNumBitsWritten() );
-	EXPECT_EQ( 3, buf[ 0 ] );
-	EXPECT_EQ( 0, buf[ 1 ] );
+	EXPECT_EQ( 3, buf[0] );
+	EXPECT_EQ( 0, buf[1] );
 }
 
 // APayloadRefusesToGrowPastItsCapacity WENT with CUserMessagePayload: a C#

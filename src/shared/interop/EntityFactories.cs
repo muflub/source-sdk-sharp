@@ -133,12 +133,13 @@ public sealed class EntityFactories
     /// <para>
     /// Cumulative for the life of the process, because a refusal is a fact about
     /// the BUILD and not about the map that happened to name it. On dm_lockdown
-    /// this is <c>func_useableladder</c>, <c>info_ladder_dismount</c> and
-    /// <c>info_node</c> — the map's ladders and its AI node graph, whose definers
-    /// (<c>game/shared/func_ladder.cpp</c>, <c>ai_initutils.cpp</c>) are not rows
-    /// of <c>server_csharp.vpc</c>. Players cannot use ladders on that map;
-    /// <c>.claude/entity-port/status/p4-flip.md</c> §2 found it by grepping a
-    /// console log that no gate opens, and this is the same fact asked for.
+    /// this is <c>info_node</c> — the map's AI node graph, whose definer
+    /// (<c>ai_initutils.cpp</c>) is not a row of <c>server_csharp.vpc</c>. It
+    /// was also <c>func_useableladder</c> and <c>info_ladder_dismount</c>, the
+    /// map's ladders, until those became managed entities;
+    /// <c>.claude/entity-port/status/p4-flip.md</c> §2 found the three by
+    /// grepping a console log that no gate opens, and this is the same fact
+    /// asked for.
     /// </para>
     /// </summary>
     public IReadOnlyList<(string ClassName, int Times)> Refusals => _refused;

@@ -31,6 +31,12 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncBreakableSurf, ScriptedEntityKind.Brush)]
 public sealed class FuncBreakableSurf : ScriptedEntity
 {
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
+    /// <summary>CBreakableSurface: glass takes damage, which is how it breaks.</summary>
+    public override bool TakesDamage => true;
+
     public FuncBreakableSurf(IEngineWorldQuery world, IEngineEffects effects)
     {
         World = world;
@@ -45,14 +51,14 @@ public sealed class FuncBreakableSurf : ScriptedEntity
     /// <summary>What a map may set on this entity. See <see cref="FuncBreakableSurfVars"/>.</summary>
     [ScriptVars] public FuncBreakableSurfVars Vars = new();
 
-    public readonly Output OnBreak = new("OnBreak");
+    public readonly Output OnBreak = new();
 
     /// <summary>
     /// Named without the "On" because the class also OVERRIDES OnDamaged, and a
     /// field cannot share a name with a method. Of the two it is the field that
     /// can be renamed without changing what a map writes.
     /// </summary>
-    public readonly Output Damaged = new("OnDamaged");
+    [OutputName("OnDamaged")] public readonly Output Damaged = new();
 
     /// <summary>What the client is told. Bound to this entity by the registry.</summary>
     [NetState] public BreakableSurfaceNetState State = new();
@@ -139,6 +145,12 @@ public sealed class FuncBreakableSurf : ScriptedEntity
             Remove();
             return;
         }
+
+        // CBreakableSurface::Spawn: glass's own group, SOLID_BSP, and
+        // CBreakable::CreateVPhysics' static object, so a prop meets the pane.
+        SetCollisionGroup(CollisionGroup.BreakableGlass);
+        SetSolidity(BrushSolidity.Solid);
+        InitStaticPhysics();
 
         if (Vars.Health > 0)
             Health = Vars.Health;
@@ -301,7 +313,7 @@ public sealed class FuncBreakableSurf : ScriptedEntity
 
         var quad = new PaneGrid.Quad(Vars.LowerLeft, Vars.LowerRight, Vars.UpperLeft, Vars.UpperRight);
 
-        _grid = PaneGrid.Derive(quad, PaneNormal, attackDir, World.AngleVectorsFromForward);
+        _grid = PaneGrid.Derive(quad, PaneNormal, attackDir, Angles.RightUp);
 
         // Told in one go, because the client cannot read half a grid: the pane
         // bits are indexed by a fixed stride, but the dimensions decide how many

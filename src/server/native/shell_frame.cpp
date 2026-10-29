@@ -5,354 +5,89 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — IShimFrame, and the native frame steps behind it ===//
 // SS_REASON a  a vtable the engine calls through
-//
-// plan_shim.md §5 3a. ONE FILE, where there were two: shell_framesteps.cpp held
-// nineteen free functions and shell_frameshim.cpp held a class whose nineteen
-// methods each called one of them by name. The delegation layer bought a
-// signature check the compiler was already giving us on the vtable itself, and
-// cost nineteen forward declarations, nineteen one-line bodies and a second
-// file header. The bodies live in the methods now.
-//
-// The rule the steps obey is unchanged, and it is plan_server.md Part 4's:
-//
-//     Native exposes one irreducible step per slot. C# owns the order, the
-//     conditions and the early returns. A STEP IS NEVER A DECISION.
-//
-// So there is no SourceSharp_GameFrame() here. Each method is one thing
-// CServerGameDLL::GameFrame (gameinterface.cpp:1319-1418) or ::PreClientUpdate
-// (:1424-1442) does, and the ORDER of them is in ServerGameDll.cs.
-//
-//=============================================================================
-// WHERE THE MANAGED FRAME ACTUALLY RUNS, because it is NOT a line in that order
-// and plan_gamedll.md Part 4's sketch says it is.
-//
-// Part 4 writes the frame as
-//
-//     Entities.CleanupDeleteList();
-//     _frames.PreThink(frameTime);          <-- inline
-//     Physics.RunThinkFunctions(simulating);
-//     _frames.Think(frameTime);             <-- inline
-//     ...
-//
-// MEASURED, that is wrong, and it is wrong in a way that changes behaviour
-// rather than only reading order. The three managed points are game-system
-// stages in stock: FramePreThink is CSourceSharpSystem::FrameUpdatePreEntityThink
-// and Frame is its FrameUpdatePostEntityThink, both of which run INSIDE
-// IGameSystem's per-frame passes at that object's position in the list. Hoisting
-// them out and calling them around the passes moves the managed frame
-//
-//   * ahead of CSoundEnt in the pre pass, and
-//   * ahead of CRagdollLRURetirement and CEntityListSystem in the post pass.
-//
-// None of those three is a no-op. So the two passes below are the steps, the
-// managed frame is a ROW of kServerSystems[] inside them, and what C# owns is
-// the order AROUND the passes -- which is exactly what stock's GameFrame owns.
-//
-// The THIRD managed point is different and stays where it is: FramePostThink is
-// reached from CSourceSharpGameRules::EndGameFrame, which is the EndGameFrame
-// method below, because that is where stock reaches it from too.
-//
-//=============================================================================
-// WHAT IS NOT HERE
-//
-//   `if ( g_InRestore ) return;` -- GameFrame's first line. Nothing in a
-//   multiplayer build sets g_InRestore; it is the save cluster's flag and this
-//   build's engine answers "Can't save multiplayer games" to everything that
-//   could set it. plan_gamedll.md Part 11c #9. Dead code that reads as live.
-//
-//   GameStartFrame() -- this build's is shell_server.cpp:94, a verbosity-gated
-//   SOURCESHARP_STUB(). A step whose whole body is a stub is a crossing that
-//   buys nothing.
-//
-//   TheNavMesh->Update() and TheNextBots().Update() -- USE_NAV_MESH and NEXT_BOT
-//   are defined nowhere in this build. Grepped, not assumed.
-//
-//   UpdateQueryCache and g_pServerBenchmark->UpdateBenchmark -- both already
-//   `#ifndef SOURCESHARP` in stock, gone with querycache.cpp and
-//   serverbenchmark_base.cpp.
-//
-//   trace_report -- a debug readout behind a convar, and one that reads THREE
-//   engine trace counters and prints them. It is a diagnostic with a condition
-//   in it, so by Part 4's rule it is not a step; nothing has asked for it since
-//   the port began and it is left out rather than carried inert.
-//
-//   g_bUseNetworkVars = s_UseNetworkVars.GetBool() -- `#ifdef _DEBUG` profiling
-//   support for a manual-mode switch this port does not use.
-//
-//   DrawAllDebugOverlays IS carried, because it is what makes every
-//   NDebugOverlay call in managed code visible, and it is NOT behind _DEBUG in
-//   stock -- stock's own comment says "allow this in release for now".
-//
-//=============================================================================
-// THE RETIRED SLOTS ARE GONE. PhysicsRunThinkFunctions, ServiceEventQueue,
-// FireNetworkPropertyEvents, DeliverToSdkEntities, SetServerCurTime and
-// StandaloneUpdate did nothing and could do nothing: each one's subject left
-// the vpc. The serialised ABI pass (docs/abi-retirements.md, 2026-10-20)
-// removed them from ishim_frame.h and the forwarder table in one deliberate
-// --reorder.
-//
-// The refusal objects that used to warn from these four bodies are gone with
-// the bodies. They were reach counters for an argument nothing can now reach:
-// with no managed caller the slot is not entered at all, so a counter on it
-// measures the binding rather than the claim.
-//
-//=============================================================================
-// THE ONE FILE-SCOPE OBJECT IN THIS PORT'S C++, AND IT IS ARGUED RATHER THAN
-// SLIPPED IN.
-//
-// CLAUDE.md's standing rule is no file-scope statics or globals: state goes in
-// a class as fields. tools/statics-audit and tools/shell-globals-audit both
-// gate it, and this file adds one symbol to each of their baselines.
-//
-// What it adds is not state. CShimFrame has NO FIELDS -- the object exists
-// solely so that there is an address whose first word is a vtable pointer,
-// which is what a bound call needs and the only thing it needs. This is exactly
-// the shape the engine's own EXPOSE_SINGLE_INTERFACE_GLOBALVAR has
-// (interface.h registers one file-scope static per version string), and the
-// whole design of this phase is that our factory answers the same way the
-// engine's does.
-//
-// The alternatives were weighed and are worse. A function-local static emits
-// the same object PLUS a thread-safe-init guard variable -- two symbols where
-// this is one -- and hides the object from the source-level audit while leaving
-// it in the emitted one, which is the sort of half-visibility a rule with a
-// gate exists to prevent. An anonymous namespace would drop the word `static`
-// and change nothing else, which is a dodge by spelling. Putting the file
-// somewhere shell-globals-audit does not sweep would be a dodge by filename.
-//
-// So it is spelled plainly, baselined deliberately, and said out loud here.
-//
-//-----------------------------------------------------------------------------
-// NO ENTRY COUNT (plan_forwarders_everywhere.md). Managed calls IShimFrame
-// through the forwarder library's SSFwd_ShimFrame, generated from
-// ishim_frame.h, so its slots are the compiler's to number and the table's
-// header carries its own count, which managed holds against ShimFrameFwd
-// (managed <= native: appending to the class appends to the table).
-//
-//=============================================================================//
 
-#include "eiface.h"		// IUploadGameStats, CGlobalVars
+#include "shell_frame.h"
+
+#include "shell_debugoverlays.h"
+#include "eiface.h"
 #include "igamerules.h"
-#include "ishim_frame.h"
-#include "shell_server.h"
+
 #include "shell_standalone_player.h"
 #include "datacache/imdlcache.h"
+#include "server_entity_context.h"
 
-// The engine's model cache (connected with the tiers): the managed row's
-// stages take its lock through BeginModelCacheLock / EndModelCacheLock.
-extern IMDLCache *mdlcache;
+// Defined in shell_standalone_base.cpp.
+void StandaloneEntities_Finish( const CServerEntityContext &context );
 
+void UpdateAllClientData( const CServerEntityContext &context, const CServerWorldQueries &world );
 
-// The parallel hierarchy's per-frame drive, declared where it is used rather
-// than given a header whose only reader would be this file -- the same shape
-// shell_standalone.cpp itself uses for it. Defined in shell_standalone_base.cpp.
-void StandaloneEntities_Finish();
+bool EntitySim_IsSimulatingOnAlternateTicks( const CGlobalVars *pGlobals );
 
-// Declared exactly the way stock's GameFrame declares them -- as function-local
-// externs, because none of the three has a header (gameinterface.cpp:1347-1349).
+int SourceSharp_DrainEntitySlots( const CServerEntityContext &context );
 
-
-// client.cpp / player.cpp's, reached by stock's GameFrame without a header of
-// its own either.
-void UpdateAllClientData( void );
-
-// gameinterface.cpp:155. Stock's global, acquired by
-// SourceSharp_AcquireEngineInterfaces on the shell path.
-extern IUploadGameStats *gamestatsuploader;
-
-// The engine's globals (connected in shell_engineboundary.cpp).
-extern CGlobalVars *gpGlobals;
-
-// entity_shared_statics.h:121, defined at baseentity_shared.cpp:2763.
-bool EntitySim_IsSimulatingOnAlternateTicks( void );
-
-// gameinterface.cpp:468. NOT behind _DEBUG -- stock's own comment beside the
-// call is "allow this in release for now".
-void DrawAllDebugOverlays( void );
-
-// shell_entityslots.cpp: one NetworkStateChanged per entity a managed write
-// dirtied this frame.
-int SourceSharp_DrainEntitySlots( void );
-
-namespace
+int32_t CServerFrame::IsSimulatingOnAlternateTicks()
 {
+	return EntitySim_IsSimulatingOnAlternateTicks( m_pGlobals ) ? 1 : 0;
+}
 
-class CShimFrame : public IShimFrame
+int32_t CServerFrame::TickCount()
 {
-public:
-	// NO FIELDS, AND NONE IS COMING. The moment one appears, this object stops
-	// being a vtable with an address and becomes state at file scope, which is
-	// the thing the rule above is about.
+	return m_pGlobals->tickcount;
+}
 
-	//-------------------------------------------------------------------------
-	// STEP 1 -- gameinterface.cpp:1326. Whether this server runs simulation on
-	// every other tick.
-	//
-	// A QUESTION, not a decision: the step answers it and C# does the
-	// branching, which is the only way the alternate-tick arm can be read as
-	// the four lines it is rather than as a native early return.
-	//-------------------------------------------------------------------------
-	virtual int32_t IsSimulatingOnAlternateTicks() OVERRIDE
-	{
-		return EntitySim_IsSimulatingOnAlternateTicks() ? 1 : 0;
-	}
-
-	//-------------------------------------------------------------------------
-	// STEP 2 -- gpGlobals->tickcount, for the `tickcount & 1` test above.
-	//
-	// A step rather than a Globals read, and that is measured: IEngineEnvironment
-	// is registered from its parameterless constructor, so Globals.IsAvailable
-	// answers FALSE on this path and every property on it throws. Wiring the
-	// environment through is Phase 5's unfinished business and not this
-	// phase's.
-	//-------------------------------------------------------------------------
-	virtual int32_t TickCount() OVERRIDE
-	{
-		return gpGlobals->tickcount;
-	}
-
-	//-------------------------------------------------------------------------
-	// STEPS 3 and 4 -- gpGlobals->frametime, read and written.
-	//
-	// A PAIR, because stock's body is a pair: it doubles frametime for an
-	// alternate tick, saves the old value, runs the frame and puts the old
-	// value back. Two steps rather than a ScaleFrameTime and a RestoreFrameTime,
-	// so that the arithmetic -- the `* 2.0f` -- is in C# where the
-	// transliteration can be read against stock line for line.
-	//-------------------------------------------------------------------------
-	virtual float GetFrameTime() OVERRIDE
-	{
-		return gpGlobals->frametime;
-	}
-
-	virtual void SetFrameTime( float flFrameTime ) OVERRIDE
-	{
-		gpGlobals->frametime = flFrameTime;
-	}
-
-	//-------------------------------------------------------------------------
-	// STEP 10 -- gameinterface.cpp:1389. Stock's own comment is "FIXME: Should
-	// this only occur on the final tick?", carried across unanswered: this is a
-	// transliteration, and answering an open question in it would be a change
-	// disguised as a port.
-	//-------------------------------------------------------------------------
-	virtual void UpdateAllClientData() OVERRIDE
-	{
-		::UpdateAllClientData();
-	}
-
-	//-------------------------------------------------------------------------
-	// STEP 11 -- gameinterface.cpp:1391-1394. The rules' end of frame, which is
-	// where the THIRD managed frame point lives (CSourceSharpGameRules::
-	// EndGameFrame -> FramePostThink) along with the late entity-slot drain.
-	//
-	// The null test is stock's and stays native, because it is not a policy: it
-	// is the fact that g_pGameRules does not exist between levels. A C# caller
-	// would need a second step to ask, and the answer would be stale by the
-	// time it acted on it.
-	//-------------------------------------------------------------------------
-	virtual void EndGameFrame() OVERRIDE
-	{
-		if ( g_pGameRules )
-			g_pGameRules->EndGameFrame();
-	}
-
-	//-------------------------------------------------------------------------
-	// STEP 13 -- gameinterface.cpp:1366. The stats uploader's connection.
-	//-------------------------------------------------------------------------
-	virtual void GamestatsUpdateConnection() OVERRIDE
-	{
-		gamestatsuploader->UpdateConnection();
-	}
-
-	//-------------------------------------------------------------------------
-	// STEPS 14 and 15 -- PreClientUpdate, gameinterface.cpp:1436 and :1440.
-	//
-	// `if ( !simulating ) return;` is stock's first line and it is a CONDITION,
-	// so it stays in C#. It is also already in the shell today, which is where
-	// it came from -- see CShellGameDll::PreClientUpdate.
-	//-------------------------------------------------------------------------
-	virtual void DrawAllDebugOverlays() OVERRIDE
-	{
-		::DrawAllDebugOverlays();
-	}
-
-	//-------------------------------------------------------------------------
-	// THE PARALLEL HIERARCHY'S THREE POST-THINK STEPS -- plan_gamedll_after.md
-	// Phase A3, the fifth "C" system.
-	//
-	// These were one game system stage: CSourceSharpStandaloneSystem's
-	// FrameUpdatePostEntityThink, a row of kServerSystems[] immediately before
-	// the SourceSharpManaged row. They are steps now, driven by the
-	// StandaloneHierarchy participant at FrameStage.Standalone -- which runs
-	// FIRST at OnThink, i.e. at the very start of the managed row's body, which
-	// is where index 11 sat with nothing between it and index 12.
-	//
-	// SPLIT BECAUSE THE ORDER BETWEEN THEM WAS A COMMENT. The row ran the
-	// player commands and then the entity thinks, and said why in C++:
-	// "Players first, so an entity's think this tick sees where the players
-	// moved this tick". That is a decision, and IShimFrame's rule is that a
-	// step is never one -- so the calls are separate steps and the decision is
-	// in C#, beside every other frame ordering this build makes.
-	//
-	// THE WORK ITSELF IS NATIVE AND STAYS NATIVE. RunAllQueuedCommands replays
-	// CUserCmds and saves and restores gpGlobals->curtime around them;
-	// StandaloneEntities_Finish composes the attachment-parented children and
-	// drains the deferred deletes; the Update half went (P1, an empty body
-	// behind a slot the managed frame has never called). This is the
-	// floor the managed hierarchy stands on, not logic with a managed half.
-	//
-	// UPDATE AND FINISH ARE TWO AND NOT ONE, because the DUE THINKS run between
-	// them and they are managed now (plan_entity.md §3.4, step 1g). The order
-	// around the thinks -- touch links before, hierarchy compose and deletes
-	// after -- is what the split exists to keep, and shell_standalone_base.cpp
-	// says why each half is on the side it is on.
-	//-------------------------------------------------------------------------
-	virtual void StandalonePlayerCommands() OVERRIDE
-	{
-		CStandalonePlayer::RunAllQueuedCommands();
-	}
-
-	virtual void StandaloneFinish() OVERRIDE
-	{
-		StandaloneEntities_Finish();
-	}
-
-	// plan_server_native_v2 T4e: the managed row's native half after the
-	// managed frame, at the position managed's ServerSystems gives it.
-	virtual void DrainEntitySlots() OVERRIDE
-	{
-		SourceSharp_DrainEntitySlots();
-	}
-
-	virtual void BeginModelCacheLock() OVERRIDE
-	{
-		mdlcache->BeginLock();
-	}
-
-	virtual void EndModelCacheLock() OVERRIDE
-	{
-		mdlcache->EndLock();
-	}
-};
-
-} // namespace
-
-// The one object. See the header comment for why it is spelled this way and
-// what was rejected.
-static CShimFrame g_ShimFrame;
-
-//-----------------------------------------------------------------------------
-// The internalFactory's row for this area: the pointer alone. Managed calls it
-// through SSFwd_ShimFrame (plan_forwarders_everywhere.md phase 1), whose table
-// the forwarder library generates from ishim_frame.h with its own count, so a
-// method appended to IShimFrame needs no line here. (A count typed here once
-// named the wrong last member and killed every managed frame with the suite
-// green; the forwarder table cannot drift that way.)
-//-----------------------------------------------------------------------------
-void *ShimFrame_Acquire()
+float CServerFrame::GetFrameTime()
 {
-	return static_cast< IShimFrame * >( &g_ShimFrame );
+	return m_pGlobals->frametime;
+}
+
+void CServerFrame::SetFrameTime( float flFrameTime )
+{
+	m_pGlobals->frametime = flFrameTime;
+}
+
+void CServerFrame::UpdateAllClientData()
+{
+	::UpdateAllClientData( m_Entities, m_World );
+}
+
+void CServerFrame::EndGameFrame()
+{
+	if ( IGameRules *pRules = m_Entities.GameRules() )
+		pRules->EndGameFrame();
+}
+
+void CServerFrame::GamestatsUpdateConnection()
+{
+	m_pGameStats->UpdateConnection();
+}
+
+void CServerFrame::DrawAllDebugOverlays()
+{
+	m_Overlays.DrawAll();
+}
+
+void CServerFrame::StandalonePlayerCommands()
+{
+	CStandalonePlayer::RunAllQueuedCommands( m_Entities );
+}
+
+void CServerFrame::StandaloneFinish()
+{
+	StandaloneEntities_Finish( m_Entities );
+}
+
+void CServerFrame::DrainEntitySlots()
+{
+	SourceSharp_DrainEntitySlots( m_Entities );
+}
+
+void CServerFrame::BeginModelCacheLock()
+{
+	m_pMdlCache->BeginLock();
+}
+
+void CServerFrame::EndModelCacheLock()
+{
+	m_pMdlCache->EndLock();
 }

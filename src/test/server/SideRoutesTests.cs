@@ -15,6 +15,7 @@ public class SideRoutesTests
     private sealed class Sounds : IServerSoundRoute
     {
         public void EntityEmitSound(EntityHandle entity, string soundName) { }
+        public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) { }
         public void EntityStopSound(EntityHandle entity, string soundName) { }
         public void EmitSoundAtPosition(string soundName, Vector origin) { }
         public bool EmitWorldSoundScript(string soundName, Vector origin, int channel, float volume) => false;

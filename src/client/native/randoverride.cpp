@@ -6,25 +6,15 @@
 //=============================================================================//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
 
-#if !defined(_STATIC_LINKED) || defined(_SHARED_LIB)
-
-#include "stdlib.h"
 #include "vstdlib/random.h"
 
-
 #ifdef GNUC
-#define __cdecl 
+#define __cdecl
 #endif
 
-#ifdef CLIENT_DLL   // server gc cull: server.so never reaches this
-void __cdecl srand(unsigned int)
-{
-}
-#endif
+void __cdecl srand( unsigned int ) {}
 
 int __cdecl rand()
 {
 	return RandomInt( 0, VALVE_RAND_MAX );
 }
-
-#endif // !_STATIC_LINKED || _SHARED_LIB

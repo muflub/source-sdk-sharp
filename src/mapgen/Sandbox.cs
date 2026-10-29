@@ -101,6 +101,13 @@ public static class Sandbox
     /// <summary>A small warm light over each reset button, to draw the eye to it.</summary>
     private const string ButtonLight = "255 200 120 45";
 
+    /// <summary>
+    /// SF_BUTTON_USE_ACTIVATES: what Hammer ticks by default on a func_button,
+    /// and what lets a player's +USE press one (CBaseButton::ObjectCaps), in
+    /// stock and here alike.
+    /// </summary>
+    private const string ButtonUseActivates = "1024";
+
     /// <summary>One family of entities, and what a player should see happen.</summary>
     public sealed record Station(
         string Slug,
@@ -118,6 +125,11 @@ public static class Sandbox
     private const string Chair  = "models/props_c17/FurnitureChair001a.mdl";
     private const string Can    = "models/props_junk/PopCan01a.mdl";
     private const string Door   = "models/props_doors/door01_dynamic.mdl";
+
+    // Two with no prop data, so a plain prop_dynamic (and an ornament, which is
+    // one) keeps them in stock: everything above is a physics prop's model.
+    private const string Sink    = "models/props_c17/furnituresink001a.mdl";
+    private const string Fixture = "models/props_c17/lampfixture01a.mdl";
 
     /// <summary>
     /// The one material here chosen for what vbsp does with it. A face carrying
@@ -392,6 +404,10 @@ public static class Sandbox
             "Press the button. Forty-three one-shot effects sweep the plot, one per temp "
             + "entity this build sends. Nothing here is an entity you can walk up to.",
             TempEntities),
+
+        new("ladders", "A LADDER YOU USE",
+            "Walk into the ladder or press USE at it, climb, and step off at the top. "
+            + "JUMP lets go; USE halfway up lets go too.", Ladders),
     ];
 
     /// <summary>Where a plot sits, by its position in the list.</summary>
@@ -611,7 +627,7 @@ public static class Sandbox
 
         site.Brush(EntityNames.FuncButton, "button",
             new(-16f, -292f, 44f), new(16f, -260f, 68f), Site.Switch,
-            "wait", "1")
+            "wait", "1", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.ResetName, "Trigger");
 
         site.Marker("beam", new(0f, -276f, 68f), "120 255 150");
@@ -742,19 +758,23 @@ public static class Sandbox
 
     private static void Weapons(Site site)
     {
-        // The nine names WeaponPickup claims (Phase 10) — a row is a weapon,
+        // The names WeaponPickup claims (Phase 10) — a row is a weapon,
         // exactly as the table says, and WeaponTests pins these to the table.
         string[] kinds =
         [
             EntityNames.WeaponCrowbar, EntityNames.WeaponPistol, EntityNames.Weapon357,
             EntityNames.WeaponSmg1, EntityNames.WeaponAr2, EntityNames.WeaponShotgun,
             EntityNames.WeaponCrossbow, EntityNames.WeaponRpg, EntityNames.WeaponFrag,
+            EntityNames.WeaponStunstick, EntityNames.WeaponSlam,
+            EntityNames.WeaponPhyscannon,
         ];
 
         for (int i = 0; i < kinds.Length; i++)
         {
-            float x = -160f + ((i % 5) * 72f);
-            float y = (i / 5) == 0 ? 48f : -48f;
+            // Two rows of six, as the ammo station lays its twelve: a third row
+            // of five would land on the second.
+            float x = -160f + ((i % 6) * 64f);
+            float y = (i / 6) == 0 ? 48f : -48f;
 
             site.Ent(kinds[i], $"w{i}", new(x, y, 16f));
         }
@@ -762,8 +782,11 @@ public static class Sandbox
 
     private static void DynamicProps(Site site)
     {
-        site.Ent(EntityNames.PropDynamic, "dyn", new(-128f, 64f, 8f), "model", Chair, "angles", "0 90 0");
-        site.Ent(EntityNames.DynamicProp, "dyn2", new(-32f, 64f, 8f), "model", Chair, "angles", "0 90 0");
+        // A prop_dynamic must be on a model with no prop data: stock's
+        // CBaseProp::Spawn deletes one on a physics prop's model, which is what
+        // prop_dynamic_override is for -- dyn3 shows that on the chair.
+        site.Ent(EntityNames.PropDynamic, "dyn", new(-128f, 64f, 8f), "model", Sink, "angles", "0 90 0");
+        site.Ent(EntityNames.DynamicProp, "dyn2", new(-32f, 64f, 8f), "model", Sink, "angles", "0 90 0");
         site.Ent(EntityNames.PropDynamicOverride, "dyn3", new(64f, 64f, 8f), "model", Chair,
             "angles", "0 90 0", "health", "40");
 
@@ -781,7 +804,7 @@ public static class Sandbox
         // No "angles": an ornament's facing comes from its parent, and giving it
         // one here would hide a composition that ignored rotation.
         site.Ent(EntityNames.PropDynamicOrnament, "ornament", new(96f, -96f, 56f),
-            "model", Chair, "InitialOwner", site.Name("door"));
+            "model", Fixture, "InitialOwner", site.Name("door"));
 
         site.OnReset("door", "Close");
         site.OnReset("dyn", "Enable");
@@ -823,8 +846,7 @@ public static class Sandbox
     {
         site.Brush(EntityNames.FuncDoor, "slider",
             new(-192f, -32f, 8f), new(-64f, 32f, 136f), Site.Wall,
-            "angles", "-90 0 0", "speed", "80", "wait", "4",
-            "movedistance", "120", "lip", "8");
+            "movedir", "-90 0 0", "speed", "80", "wait", "4", "lip", "8");
 
         // The hinge, written out because a door is the one rotating brush whose
         // axis is NOT its middle. Site.Brush defaults a rotator's origin to the
@@ -857,8 +879,7 @@ public static class Sandbox
         //---------------------------------------------------------------------
         site.Brush(EntityNames.FuncWater, "water",
             new(-64f, 96f, 8f), new(64f, 160f, 72f), Site.Wall,
-            "angles", "-90 0 0", "speed", "40", "wait", "4",
-            "movedistance", "64", "lip", "0");
+            "movedir", "-90 0 0", "speed", "40", "wait", "4", "lip", "0");
 
         site.OnReset("slider", "Close");
         site.OnReset("swinger", "Close");
@@ -876,7 +897,7 @@ public static class Sandbox
             new(128f, 64f, 8f), new(192f, 128f, 72f), Site.Pad, "Solidity", "0");
 
         site.Brush(EntityNames.FuncButton, "push",
-            new(-176f, -32f, 8f), new(-144f, 0f, 64f), Site.Wall, "wait", "2")
+            new(-176f, -32f, 8f), new(-144f, 0f, 64f), Site.Wall, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("lamp1"), "Toggle");
 
         site.Brush(EntityNames.FuncRotButton, "twist",
@@ -898,16 +919,17 @@ public static class Sandbox
         //
         // returnspeed 0, so it stays where it is put. A wheel that wound itself
         // back would move the slab on its own and the readout would be the
-        // spring rather than the player.
+        // spring rather than the player. Use-activates (1024), so it turns while
+        // +USE is held on it, and each hold turns it the other way.
         //---------------------------------------------------------------------
         site.Brush(EntityNames.MomentaryRotButton, "wheel",
             new(-16f, -32f, 8f), new(16f, 0f, 64f), Site.Switch,
             "speed", "60", "distance", "90", "returnspeed", "0",
-            "StartPosition", "0", "spawnflags", "0");
+            "StartPosition", "0", "spawnflags", ButtonUseActivates);
 
         site.Brush(EntityNames.FuncMovelinear, "gauge",
             new(-32f, 64f, 8f), new(32f, 128f, 40f), Site.Accent,
-            "angles", "-90 0 0", "MoveDistance", "96", "speed", "200",
+            "movedir", "-90 0 0", "MoveDistance", "96", "speed", "200",
             "StartPosition", "0");
 
         site.Wire("wheel", "Position", site.Name("gauge"), "SetPosition");
@@ -919,21 +941,21 @@ public static class Sandbox
         site.OnReset("lamp1", "Enable");
         site.OnReset("lamp2", "Enable");
 
-        // Only the wheel is put back, because putting the wheel back is what
-        // puts the gauge back: wound to nought it reports nought, and the slab
-        // follows the report rather than the button.
+        // Both are put back: SetPositionImmediately moves the wheel and tells
+        // nothing it drives, as stock's does, so the gauge is reset as well.
         site.OnReset("wheel", "SetPositionImmediately", "0");
+        site.OnReset("gauge", "SetPosition", "0");
     }
 
     private static void Movers(Site site)
     {
         site.Brush(EntityNames.FuncMovelinear, "slide",
             new(-192f, 32f, 8f), new(-96f, 128f, 40f), Site.Wall,
-            "angles", "-90 0 0", "MoveDistance", "128", "speed", "60", "StartPosition", "0");
+            "movedir", "-90 0 0", "MoveDistance", "128", "speed", "60", "StartPosition", "0");
 
         site.Brush(EntityNames.MomentaryDoor, "momentary",
             new(-64f, 32f, 8f), new(32f, 128f, 40f), Site.Wall,
-            "angles", "-90 0 0", "MoveDistance", "96", "speed", "40", "StartPosition", "0");
+            "movedir", "-90 0 0", "MoveDistance", "96", "speed", "40", "StartPosition", "0");
 
         site.Brush(EntityNames.FuncPlat, "lift",
             new(64f, 32f, 8f), new(176f, 128f, 24f), Site.Pad,
@@ -964,7 +986,7 @@ public static class Sandbox
 
         var pool = site.Brush(EntityNames.FuncWaterAnalog, "pool",
             new(96f, -160f, -32f), new(208f, -48f, 7f), Site.NoDraw,
-            "angles", "-90 0 0", "MoveDistance", "38", "speed", "12", "StartPosition", "0");
+            "movedir", "-90 0 0", "MoveDistance", "38", "speed", "12", "StartPosition", "0");
 
         // The lid alone carries the water material, and the sides are nodraw.
         // vbsp draws a water surface wherever it finds one, so a brush textured
@@ -1001,9 +1023,11 @@ public static class Sandbox
         site.Brush(EntityNames.FuncBrush, "brush",
             new(80f, 64f, 8f), new(144f, 128f, 104f), Site.Wall, "Solidity", "1");
 
+        // Stock's key (CFrictionModifier). It grips everything but a player:
+        // a player walks across it unchanged, in stock and here.
         site.Brush(EntityNames.FuncFriction, "ice",
             new(-128f, -160f, 8f), new(128f, -32f, 24f), Site.Trigger,
-            "modifytofriction", "15");
+            "modifier", "15");
 
         site.OnReset("toggle", "TurnOn");
         site.OnReset("brush", "Enable");
@@ -1717,7 +1741,7 @@ public static class Sandbox
             "target", "Rebels");
 
         site.Brush(EntityNames.FuncButton, "teamswitch",
-            new(144f, -112f, 8f), new(176f, -80f, 56f), Site.Switch, "wait", "2")
+            new(144f, -112f, 8f), new(176f, -80f, 56f), Site.Switch, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("team"), "Use");
 
         site.Marker("switch", new(160f, -136f, 8f), "255 140 140");
@@ -1741,7 +1765,7 @@ public static class Sandbox
         site.Ent(EntityNames.PlayerWeaponstrip, "strip", new(-128f, -64f, 16f));
 
         site.Brush(EntityNames.FuncButton, "stripswitch",
-            new(-144f, -112f, 8f), new(-112f, -80f, 56f), Site.Switch, "wait", "2")
+            new(-144f, -112f, 8f), new(-112f, -80f, 56f), Site.Switch, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("strip"), "Strip");
 
         site.Marker("stripped", new(-128f, -136f, 8f), "255 140 140");
@@ -1818,9 +1842,23 @@ public static class Sandbox
             "spawnflags", "8");
         site.Ent(EntityNames.PropPhysics, "hingearm", new(-32f, 64f, 128f), "model", Chair);
 
+        // hingeaxis is a POINT: the axis runs from the hinge to it, here straight up.
         site.Ent(EntityNames.PhysHinge, "hinge", new(-32f, 64f, 96f),
             "attach1", site.Name("hingebase"), "attach2", site.Name("hingearm"),
-            "hingeaxis", "0 0 1", "hingefriction", "0");
+            "hingeaxis", (site.At + new Point(-32f, 64f, 160f)).ToString(), "hingefriction", "0");
+
+        // Two crates hung from the world by an edge, on a hinge along x. The
+        // one that assumes world geometry (spawnflag 8) is hinged in place and
+        // has its mass centre moved onto the axis, so it hangs where it was
+        // put; the other swings down under its pivot. Each hinge comes before
+        // its crate: the override it leaves is taken when the crate is made.
+        foreach (var (suffix, flags, x) in new[] { ("swung", "0", -176f), ("balanced", "8", -96f) })
+        {
+            site.Ent(EntityNames.PhysHinge, suffix + "hinge", new(x, -72f, 112f),
+                "attach1", site.Name(suffix), "spawnflags", flags,
+                "hingeaxis", (site.At + new Point(x + 64f, -72f, 112f)).ToString());
+            site.Ent(EntityNames.PropPhysics, suffix, new(x, -96f, 112f), "model", Crate);
+        }
 
         site.Ent(EntityNames.PropPhysics, "ballbase", new(96f, 64f, 48f), "model", Crate,
             "spawnflags", "8");
@@ -2014,7 +2052,7 @@ public static class Sandbox
 
         for (int i = 0; i < 2; i++)
         {
-            site.Ent(EntityNames.PropDynamic, $"scenery{i}", new(112f + (i * 48f), -128f, 72f),
+            site.Ent(EntityNames.PropDynamicOverride, $"scenery{i}", new(112f + (i * 48f), -128f, 72f),
                 "model", Crate, "solid", "6");
         }
 
@@ -2138,10 +2176,10 @@ public static class Sandbox
         //
         // Both halves of that have gone. Parenting a standalone child to either
         // kind of parent landed in shell_standalone_hierarchy.cpp, and then the
-        // flame itself became managed (ss_entityflame), so the two entities are
+        // flame itself became managed (entityflame), so the two entities are
         // on the SAME hierarchy and the link is ordinary. Proved live rather
         // than assumed: while it burns, cs_sv_hierarchy reports
-        //   ss_entityflame '(unnamed)' -> standalone 'effects_burnme'
+        //   entityflame '(unnamed)' -> standalone 'effects_burnme'
         //   local 0.00 0.00 0.00
         // and the client says which particle system it started.
         //
@@ -2681,7 +2719,7 @@ public static class Sandbox
         // instruction and not a reset: the platform only moves when a player
         // decides the train has arrived, and that decision is the entity.
         site.Brush(EntityNames.FuncButton, "swing",
-            new(-160f, -152f, 8f), new(-96f, -120f, 56f), Site.Switch, "wait", "4")
+            new(-160f, -152f, 8f), new(-96f, -120f, 56f), Site.Switch, "wait", "4", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("changer"), "Use");
 
         // Three seconds later, which is the turn plus a moment. A changer hands
@@ -2852,7 +2890,7 @@ public static class Sandbox
         // prop_dynamic and not prop_physics, and that is the point rather than a
         // convenience: this entity TELEPORTS its target every tick, and anything
         // the solver also owns would spend the frame fighting it.
-        site.Ent(EntityNames.PropDynamic, "copy", new(-96f, -64f, 40f), "model", Crate);
+        site.Ent(EntityNames.PropDynamicOverride, "copy", new(-96f, -64f, 40f), "model", Crate);
 
         site.Ent(EntityNames.LogicMeasureMovement, "measure", new(0f, -160f, 16f),
             "MeasureTarget", site.Name("mover"),
@@ -2896,7 +2934,7 @@ public static class Sandbox
             "height", "96", "rotation", "180", "speed", "60", "spawnflags", "1");
 
         site.Brush(EntityNames.FuncButton, "call",
-            new(-184f, -24f, 8f), new(-120f, 8f, 56f), Site.Switch, "wait", "3")
+            new(-184f, -24f, 8f), new(-120f, 8f, 56f), Site.Switch, "wait", "3", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("lift"), "Toggle");
 
         //---------------------------------------------------------------------
@@ -2941,7 +2979,7 @@ public static class Sandbox
             site.Ent(EntityNames.PropPhysics, $"can{i}", new(-64f + (i * 64f), -120f, 32f), "model", Can);
 
         site.Brush(EntityNames.FuncButton, "flip",
-            new(24f, -24f, 8f), new(88f, 8f, 56f), Site.Switch, "wait", "2")
+            new(24f, -24f, 8f), new(88f, 8f, 56f), Site.Switch, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("belt"), "ToggleDirection");
 
         site.Marker("m1", new(-152f, 120f, 8f), "140 190 255");
@@ -3444,13 +3482,13 @@ public static class Sandbox
         // visible. One button doing both would show the result and hide the
         // mechanism.
         site.Brush(EntityNames.FuncButton, "swap",
-            new(-104f, -160f, 8f), new(-72f, -128f, 56f), Site.Switch, "wait", "2")
+            new(-104f, -160f, 8f), new(-72f, -128f, 56f), Site.Switch, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("aimfar"), "Activate");
 
         site.Wire("swap", "OnPressed", site.Name("pickfar"), "Activate");
 
         site.Brush(EntityNames.FuncButton, "lift",
-            new(72f, -160f, 8f), new(104f, -128f, 56f), Site.Switch, "wait", "2")
+            new(72f, -160f, 8f), new(104f, -128f, 56f), Site.Switch, "wait", "2", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("hoist"), "Teleport");
 
         site.Marker("swapmark", new(-88f, -144f, 56f), "255 220 140", 72f);
@@ -3580,7 +3618,7 @@ public static class Sandbox
         // matters more here than it would elsewhere, because the camera holds
         // the player still while it runs.
         site.Brush(EntityNames.FuncButton, "start",
-            new(-16f, 96f, 8f), new(16f, 128f, 56f), Site.Switch, "wait", "12")
+            new(-16f, 96f, 8f), new(16f, 128f, 56f), Site.Switch, "wait", "12", "spawnflags", ButtonUseActivates)
             .Wire("OnPressed", site.Name("eye"), "Enable");
 
         site.Marker("startmark", new(0f, 112f, 56f), "255 220 140", 72f);
@@ -3810,7 +3848,7 @@ public static class Sandbox
         // a sound you have to walk up to, which is the only way to hear that it
         // has a position at all.
         //---------------------------------------------------------------------
-        site.Ent(EntityNames.PropDynamic, "machine", new(-176f, -96f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "machine", new(-176f, -96f, 8f),
             "model", Drum, "solid", "6");
 
         site.Ent(EntityNames.AmbientGeneric, "hum", new(-176f, -96f, 48f),
@@ -4059,7 +4097,7 @@ public static class Sandbox
             "Solidity", "1", "rendermode", "9", "renderamt", "170");
 
         // A crate inside, so there is something for the portals to be hiding.
-        site.Ent(EntityNames.PropDynamic, "shut", new(-136f, 128f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "shut", new(-136f, 128f, 8f),
             "model", Crate, "solid", "6");
 
         site.Marker("doormark", new(-8f, 140f, 8f), "255 220 120");
@@ -4081,7 +4119,7 @@ public static class Sandbox
             new(16f, 128f, 8f), new(144f, 136f, 136f), Occluder,
             "StartActive", "1");
 
-        site.Ent(EntityNames.PropDynamic, "hidden", new(80f, 184f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "hidden", new(80f, 184f, 8f),
             "model", Crate, "solid", "6");
 
         site.Marker("blockmark", new(80f, 96f, 8f), "255 160 140");
@@ -4625,10 +4663,10 @@ public static class Sandbox
             "_inner_cone", "30", "_cone", "50", "_exponent", "1");
 
         // Something under each cone to see the difference on.
-        site.Ent(EntityNames.PropDynamic, "underlit", new(-128f, 0f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "underlit", new(-128f, 0f, 8f),
             "model", Crate, "solid", "6");
 
-        site.Ent(EntityNames.PropDynamic, "unlit", new(128f, 0f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "unlit", new(128f, 0f, 8f),
             "model", Crate, "solid", "6");
 
         //---------------------------------------------------------------------
@@ -4672,7 +4710,7 @@ public static class Sandbox
         //
         // Not wired to the reset button. Nothing in this build delivers world
         // fog to a client -- CBasePlayer::InitFogController and
-        // C_BasePlayer::GetFogParams both left with the -ss_player flip -- so a
+        // C_BasePlayer::GetFogParams both left with the -player flip -- so a
         // button promising a visible change would be promising one that cannot
         // happen. The entity answers its inputs and holds its state; when a fog
         // channel to the managed client exists, this is where it is driven from.
@@ -5001,7 +5039,7 @@ public static class Sandbox
         // the curve has zero length.
         //
         // What is new is that managed code can now BUILD one, the way env_laser
-        // builds an ss_beam. Nothing does yet, deliberately: a factory written
+        // builds a beam. Nothing does yet, deliberately: a factory written
         // for nobody is a factory written against a guess.
         //---------------------------------------------------------------------
         site.Ent(EntityNames.EnvQuadraticbeam, "curve", new(128f, 128f, 72f));
@@ -5035,7 +5073,7 @@ public static class Sandbox
             "texture", ThrownDecal,
             "angles", "0 90 0", "distance", "64");
 
-        site.Ent(EntityNames.PropDynamic, "post", new(96f, 190f, 8f),
+        site.Ent(EntityNames.PropDynamicOverride, "post", new(96f, 190f, 8f),
             "model", Crate, "solid", "6");
 
         site.Marker("bloodmark", new(-192f, 128f, 8f), "255 140 140");
@@ -5083,6 +5121,46 @@ public static class Sandbox
     // -- and because the tester's `delay` keyvalue is the CLIENT's playback
     // delay, which is a different thing wearing the same word.
     //-------------------------------------------------------------------------
+    /// <summary>
+    /// HL2MP's useable ladder: a func_useableladder up the near face of a
+    /// tower, and the info_ladder_dismount points a player is slid onto when
+    /// getting off.
+    ///
+    /// <para>
+    /// The ladder is two points, not a brush: nothing here is solid but the
+    /// tower. The points stand one unit clear of the tower's face, so the
+    /// player's hull (32 wide) is clear of it at both, and the top one is level
+    /// with the tower's top, so climbing to it puts the player's feet at the
+    /// landing. stock's CFuncLadder settles each point onto whatever is up to
+    /// four units under it, and the bottom one settles onto the pad.
+    /// </para>
+    ///
+    /// <para>
+    /// Four dismount points: one on the tower's top, where reaching the top
+    /// with a key held takes the player (sv_autoladderdismount), and three on
+    /// the floor round the foot. The left one names the ladder in its target,
+    /// which is the form dm_lockdown's ladder_02 and ladder_03 use; the others
+    /// are claimed by being near it, which is the form its first ladder uses.
+    /// </para>
+    /// </summary>
+    private static void Ladders(Site site)
+    {
+        // The tower: 128 tall above the pad, its near face at y = 96.
+        site.Solid(new(-64f, 96f, 8f), new(64f, 224f, 136f), Site.Wall, Site.Accent);
+
+        site.Ent(EntityNames.FuncUseableladder, "ladder", new(0f, 79f, 72f),
+            "point0", (site.At + new Point(0f, 79f, 8f)).ToString(),
+            "point1", (site.At + new Point(0f, 79f, 136f)).ToString());
+
+        site.Ent(EntityNames.InfoLadderDismount, "top", new(0f, 128f, 137f));
+        site.Ent(EntityNames.InfoLadderDismount, "foot", new(0f, 40f, 9f));
+        site.Ent(EntityNames.InfoLadderDismount, "left", new(-40f, 79f, 9f), "target", site.Name("ladder"));
+        site.Ent(EntityNames.InfoLadderDismount, "right", new(40f, 79f, 9f));
+
+        // A ladder something disabled is climbable again after a reset.
+        site.OnReset("ladder", "Enable");
+    }
+
     private static void TempEntities(Site site)
     {
         var demos = SourceSharp.Server.TeDemos.All;

@@ -18,7 +18,7 @@ namespace
 
 struct Wire
 {
-	unsigned char bytes[ 8192 ];
+	unsigned char bytes[8192];
 	bf_write out;
 	int nStart;
 
@@ -26,22 +26,25 @@ struct Wire
 	{
 		memset( bytes, 0xA5, sizeof( bytes ) );
 		out.StartWriting( bytes, sizeof( bytes ) );
-		if ( nOffset > 0 )   // bf_write takes no zero-bit write
+		if ( nOffset > 0 ) // bf_write takes no zero-bit write
 			out.WriteUBitLong( 0x5A3C96E1u & ( ( 1u << nOffset ) - 1u ), nOffset );
 		nStart = nOffset;
 	}
 };
 
 // After the 6-bit type, which the engine reads before handing the message over.
-int BodyStart( const Wire &w ) { return w.nStart + SOURCESHARP_NETMSG_TYPE_BITS; }
+int BodyStart( const Wire &w )
+{
+	return w.nStart + SOURCESHARP_NETMSG_TYPE_BITS;
+}
 
 }
 
 TEST( ClientMessage, WhatTheClientWritesTheServerDecodesAtEveryOffset )
 {
-	uint8_t payload[ 300 ];
+	uint8_t payload[300];
 	for ( int i = 0; i < 300; i++ )
-		payload[ i ] = (uint8_t)( i * 37 + 11 );
+		payload[i] = (uint8_t)( i * 37 + 11 );
 
 	for ( int off = 0; off < 32; off++ )
 	{
@@ -49,7 +52,7 @@ TEST( ClientMessage, WhatTheClientWritesTheServerDecodesAtEveryOffset )
 		CSourceSharpClientMessage sent( NULL, SourceSharp_WriteClientMessage );
 		ASSERT_TRUE( sent.Set( "tf2_descent:ticket", payload, 300 ) );
 		ASSERT_TRUE( sent.WriteToBuffer( w.out ) );
-		w.out.WriteUBitLong( 0x2B, 7 );   // what follows the message on the wire
+		w.out.WriteUBitLong( 0x2B, 7 ); // what follows the message on the wire
 
 		bf_read in( w.bytes, w.out.GetNumBytesWritten(), w.out.GetNumBitsWritten() );
 		in.Seek( w.nStart );
@@ -104,7 +107,7 @@ TEST( ClientMessage, ATruncatedMessageIsRefusedAndKeepsNothing )
 {
 	Wire w( 0 );
 	CSourceSharpClientMessage sent( NULL, SourceSharp_WriteClientMessage );
-	const uint8_t bytes[ 40 ] = {};
+	const uint8_t bytes[40] = {};
 	ASSERT_TRUE( sent.Set( "key", bytes, 40 ) );
 	ASSERT_TRUE( sent.WriteToBuffer( w.out ) );
 
@@ -127,7 +130,7 @@ TEST( ClientMessage, ATruncatedMessageIsRefusedAndKeepsNothing )
 
 TEST( ClientMessage, ALengthPastTheLimitAnEmptyKeyAndANulInTheKeyAreRefused )
 {
-	unsigned char bytes[ 64 ] = {};
+	unsigned char bytes[64] = {};
 	bf_write out( bytes, sizeof( bytes ) );
 
 	out.WriteUBitLong( 1, SOURCESHARP_CLIENT_MESSAGE_KEY_BITS );
@@ -137,7 +140,7 @@ TEST( ClientMessage, ALengthPastTheLimitAnEmptyKeyAndANulInTheKeyAreRefused )
 	CSourceSharpClientMessage got;
 	EXPECT_FALSE( got.Decode( bytes, 0, 8 * (int)sizeof( bytes ), &used ) );
 
-	memset( bytes, 0, sizeof( bytes ) );   // key length 0
+	memset( bytes, 0, sizeof( bytes ) ); // key length 0
 	EXPECT_FALSE( got.Decode( bytes, 0, 8 * (int)sizeof( bytes ), &used ) );
 
 	bf_write nul( bytes, sizeof( bytes ) );
@@ -151,10 +154,10 @@ TEST( ClientMessage, ALengthPastTheLimitAnEmptyKeyAndANulInTheKeyAreRefused )
 TEST( ClientMessage, SetRefusesWhatCannotTravel )
 {
 	CSourceSharpClientMessage m( NULL, SourceSharp_WriteClientMessage );
-	static uint8_t big[ SOURCESHARP_CLIENT_MESSAGE_MAX_BYTES + 1 ];
-	char longKey[ SOURCESHARP_CLIENT_MESSAGE_MAX_KEY + 2 ];
+	static uint8_t big[SOURCESHARP_CLIENT_MESSAGE_MAX_BYTES + 1];
+	char longKey[SOURCESHARP_CLIENT_MESSAGE_MAX_KEY + 2];
 	memset( longKey, 'k', sizeof( longKey ) - 1 );
-	longKey[ sizeof( longKey ) - 1 ] = 0;
+	longKey[sizeof( longKey ) - 1] = 0;
 
 	EXPECT_FALSE( m.Set( "", big, 1 ) );
 	EXPECT_FALSE( m.Set( NULL, big, 1 ) );
@@ -166,7 +169,7 @@ TEST( ClientMessage, SetRefusesWhatCannotTravel )
 
 TEST( ClientMessage, TheServersCopyHasNoWriterAndRefusesToWrite )
 {
-	unsigned char bytes[ 64 ];
+	unsigned char bytes[64];
 	bf_write out( bytes, sizeof( bytes ) );
 	CSourceSharpClientMessage serverSide;
 	ASSERT_TRUE( serverSide.Set( "k", NULL, 0 ) );
@@ -179,23 +182,32 @@ TEST( ClientMessage, ItsTypeIsClearOfTheEnginesAndFitsTheTypeField )
 {
 	CSourceSharpClientMessage m;
 	EXPECT_EQ( 60, m.GetType() );
-	EXPECT_GT( m.GetType(), 17 );   // net_ 0-7 and clc_ 8-17 share a server's channel
+	EXPECT_GT( m.GetType(), 17 ); // net_ 0-7 and clc_ 8-17 share a server's channel
 	EXPECT_LT( m.GetType(), 1 << SOURCESHARP_NETMSG_TYPE_BITS );
 }
 
 namespace
 {
-int s_nHandled;
-bool CountHandled( CSourceSharpClientMessage &msg ) { s_nHandled += msg.Owner(); return true; }
+class CCountingHandler : public IClientMessageHandler
+{
+public:
+	bool OnClientMessage( CSourceSharpClientMessage &msg ) override
+	{
+		m_nHandled += msg.Owner();
+		return true;
+	}
+
+	int m_nHandled = 0;
+};
 }
 
 TEST( ClientMessage, ProcessHandsTheMessageWithItsOwnerToTheHandler )
 {
-	CSourceSharpClientMessage m( CountHandled );
+	CCountingHandler handler;
+	CSourceSharpClientMessage m( &handler );
 	m.SetOwner( 7 );
-	s_nHandled = 0;
 
 	EXPECT_TRUE( m.Process() );
-	EXPECT_EQ( 7, s_nHandled );
-	EXPECT_TRUE( CSourceSharpClientMessage().Process() );   // no handler: kept, not dropped
+	EXPECT_EQ( 7, handler.m_nHandled );
+	EXPECT_TRUE( CSourceSharpClientMessage().Process() ); // no handler: kept, not dropped
 }

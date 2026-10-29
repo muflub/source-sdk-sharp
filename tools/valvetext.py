@@ -1,5 +1,4 @@
-"""Verbatim Valve-text detection, shared by tools/move-classify and
-tools/valve-text-audit.
+"""Verbatim Valve-text detection, for tools/valve-text-audit.
 
 A file "contains Valve text" when it has a run of at least RUN consecutive
 non-trivial lines that also appear, consecutively and in the same order, in a

@@ -60,7 +60,7 @@ public sealed class ColorCorrectionVolume : ScriptedEntity
         // everyone always, like its point sibling, because a fade that started
         // while the volume was in the PVS must keep arriving after the player
         // walks out of it.
-        SetSolidity(BrushSolidity.None);
+        SetSolidity(BrushSolidity.Trigger);
         SetVisible(false);
         Render.SetTransmitAlways(Handle, true);
 

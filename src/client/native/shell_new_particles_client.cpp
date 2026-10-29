@@ -5,58 +5,34 @@
 //
 //=============================================================================//
 // SS_REASON a  a vtable the engine calls through
+// The new-style particle effects' shell and frame. Managed decides each step and draw;
+// the particle library owns and runs the collections. Each frame reads every live effect
+// into one length-prefixed buffer and carries out managed's answers.
 
-//========= SourceSharp — the new-style particle effects' shell and frame ====//
-//
-// C7 particles phase 3 (shell_new_particles.h has the design). This file is
-// the mechanics of CNewParticleEffect (particles_new.cpp) and of
-// CParticleMgr's new-effect half (particlemgr.cpp's AddEffect, RemoveEffect,
-// UpdateNewEffects, RemoveAllNewEffects), with every decision managed's
-// (SourceSharp.Client.Effects.NewParticleManager over NewParticleEffect):
-//
-//   the frame   ShellNewParticles_Frame reads each live effect into one
-//               length-prefixed buffer (IManagedParticlesClient::
-//               NewEffectsFrame). Managed builds the sim list, decides each
-//               step and has the library carry them out in one batch
-//               (ISSParticleLib::CollectionSimulateBatch), and answers what to
-//               do to each effect: tell the leaf system its box changed, move
-//               it to the view model's group, replace it, remove it.
-//   the draw    DrawModel reads what stock's read and asks managed
-//               (NewEffectDraw) whether to render now, hand the collection to
-//               the library's render cache, or draw nothing, and whether the
-//               distance cull keeps the system awake.
-//
-// The particle library (libss_particles.so) owns and runs the collection:
-// simulation, operators and rendering stay there (user ruling, 2026-10-18).
-//=============================================================================//
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "client_entity.h"
 
-#include "cbase.h"
-#include "shell_new_particles.h"
-#include "particles/particles.h"
-#include "imanaged_areas_client.h"
-#include "sourcesharp.h"
-#include "ss_bitblock.h"
-#include "managed_convar_ref.h"
 #include "iclientmode.h"
-#include "iinput.h"
-#include "view.h"
+
 #include "iviewrender.h"
 #include "model_types.h"
-#include "engine/ivdebugoverlay.h"
-#include "shell_cliententitylist.h"
+
+#include "shell_new_particles.h"
+#include "imanaged_areas_client.h"
+
+#include "ss_bitblock.h"
+#include "managed_convar_ref.h"
+
 #include "shell_standalone_client.h"
 #include "slot_table.h"
-#include "collisionproperty.h"	// UpdateDirtySpatialPartitionEntities
-
-// memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 
 using ss::BitBlockBits;
 using ss::BitBlockSetBits;
 using ss::kBitBlockHeaderBytes;
 
-// The convars the frame and the draw read, by name: the declarations are
-// particlemgr.cpp's until C7 phase 4 and managed's after it.
+// The convars the frame and the draw read, by name.
 static CManagedConVarRef s_r_drawparticles( "r_drawparticles" );
 static CManagedConVarRef s_cl_particleeffect_aabb_buffer( "cl_particleeffect_aabb_buffer" );
 static CManagedConVarRef s_cl_particle_show_bbox( "cl_particle_show_bbox" );
@@ -68,10 +44,8 @@ static CManagedConVarRef s_r_particle_sim_spike_threshold_ms( "r_particle_sim_sp
 namespace
 {
 
-// The protected members of the library's collection this shell reaches: its
-// construction (the library allocates it, through particles_lib_client.cpp's
-// forwards) and the bounds stock's derived class read. No member is added, so
-// the object is exactly the library's CParticleCollection.
+// The protected members of the library's collection this shell reaches. No member is
+// added, so the object is exactly the library's CParticleCollection.
 struct ShellCollection : public CParticleCollection
 {
 	static CParticleCollection *Make( const char *pszName )
@@ -80,20 +54,29 @@ struct ShellCollection : public CParticleCollection
 		p->Init( pszName );
 		return p;
 	}
-	static void Free( CParticleCollection *p ) { delete static_cast< ShellCollection * >( p ); }
-	static ShellCollection *Of( CParticleCollection *p ) { return static_cast< ShellCollection * >( p ); }
-	static const ShellCollection *Of( const CParticleCollection *p ) { return static_cast< const ShellCollection * >( p ); }
+
+	static void Free( CParticleCollection *p ) { delete static_cast<ShellCollection *>( p ); }
+
+	static ShellCollection *Of( CParticleCollection *p ) { return static_cast<ShellCollection *>( p ); }
+
+	static const ShellCollection *Of( const CParticleCollection *p )
+	{
+		return static_cast<const ShellCollection *>( p );
+	}
 
 	Vector &MinBounds() { return m_MinBounds; }
+
 	Vector &MaxBounds() { return m_MaxBounds; }
+
 	const Vector &MinBounds() const { return m_MinBounds; }
+
 	const Vector &MaxBounds() const { return m_MaxBounds; }
+
 	int HighestCP() const { return m_nHighestCP; }
 };
 
-// The live effects, newest first (CParticleMgr::AddEffect's AddToHead). Ids
-// rise with creation, so the list is in falling id order.
-CUtlVector< CShellNewParticleEffect * > s_Effects;
+// The live effects, newest first; ids rise with creation, so falling id order.
+CUtlVector<CShellNewParticleEffect *> s_Effects;
 uint32_t s_nNextId = 0;
 
 void CopyVector( const Vector &v, float *pOut )
@@ -105,21 +88,22 @@ void CopyVector( const Vector &v, float *pOut )
 
 } // namespace
 
-//-----------------------------------------------------------------------------
-// Creation: CNewParticleEffect's constructor and Construct(), and
-// CParticleMgr::AddEffect's mechanics. The render group a view-model effect
-// takes is managed's, at its first frame.
-//-----------------------------------------------------------------------------
-CSmartPtr< CShellNewParticleEffect > CShellNewParticleEffect::Create( const char *pszName, const char *pszDebugName )
+// The render group a view-model effect takes is managed's, at its first frame.
+CSmartPtr<CShellNewParticleEffect> CShellNewParticleEffect::Create( const char *pszName, const char *pszDebugName )
 {
-	CShellNewParticleEffect *pEffect = new CShellNewParticleEffect( ShellCollection::Make( pszName ),
-	                                                                pszDebugName ? pszDebugName : pszName );
+	CShellNewParticleEffect *pEffect =
+		new CShellNewParticleEffect( ShellCollection::Make( pszName ), pszDebugName ? pszDebugName : pszName );
 	return pEffect;
 }
 
 CShellNewParticleEffect::CShellNewParticleEffect( CParticleCollection *pCollection, const char *pszDebugName )
-	: m_pCollection( pCollection ), m_pDebugName( pszDebugName ), m_nId( ++s_nNextId ), m_nRefCount( 0 ),
-	  m_bRemoved( false ), m_bReleasedSinceFrame( false ), m_bAddedSinceFrame( true )
+	: m_pCollection( pCollection )
+	, m_pDebugName( pszDebugName )
+	, m_nId( ++s_nNextId )
+	, m_nRefCount( 0 )
+	, m_bRemoved( false )
+	, m_bReleasedSinceFrame( false )
+	, m_bAddedSinceFrame( true )
 {
 	m_vSortOrigin.Init();
 	SetIdentityMatrix( m_RenderTransform );
@@ -144,11 +128,8 @@ CShellNewParticleEffect::~CShellNewParticleEffect()
 	m_pCollection = NULL;
 }
 
-//-----------------------------------------------------------------------------
-// CParticleMgr::RemoveEffect: out of the leaf system and the list. Deleted
-// now if nothing holds it, else when the last holder lets go (stock deleted
-// at once).
-//-----------------------------------------------------------------------------
+// Out of the leaf system and the list; deleted now if nothing holds it, else when the
+// last holder lets go.
 void CShellNewParticleEffect::Remove()
 {
 	if ( m_bRemoved )
@@ -169,8 +150,7 @@ void CShellNewParticleEffect::AddRef()
 	++m_nRefCount;
 }
 
-// Release's test (finished and allocated: removed) is managed's, at the next
-// frame, when nothing has stepped since.
+// The finished-and-allocated removal test is managed's, at the next frame.
 void CShellNewParticleEffect::Release()
 {
 	Assert( m_nRefCount > 0 );
@@ -182,10 +162,6 @@ void CShellNewParticleEffect::Release()
 		m_bReleasedSinceFrame = true;
 }
 
-//-----------------------------------------------------------------------------
-// The control points, as CNewParticleEffect set them (its tool recording is
-// not carried: this build has no tool framework recording).
-//-----------------------------------------------------------------------------
 bool CShellNewParticleEffect::DefinitionReadsControlPoint( int nPoint ) const
 {
 	return m_pCollection && m_pCollection->m_pDef && m_pCollection->m_pDef->ReadsControlPoint( nPoint );
@@ -196,7 +172,8 @@ void CShellNewParticleEffect::SetControlPoint( int nWhichPoint, const Vector &v 
 	m_pCollection->SetControlPoint( nWhichPoint, v );
 }
 
-void CShellNewParticleEffect::SetControlPointOrientation( int nWhichPoint, const Vector &forward, const Vector &right, const Vector &up )
+void CShellNewParticleEffect::SetControlPointOrientation( int nWhichPoint, const Vector &forward, const Vector &right,
+														  const Vector &up )
 {
 	m_pCollection->SetControlPointOrientation( nWhichPoint, forward, right, up );
 }
@@ -205,8 +182,8 @@ void CShellNewParticleEffect::SetControlPointEntity( int nWhichPoint, C_Standalo
 {
 	if ( pEntity )
 	{
-		m_pCollection->SetControlPointObject( nWhichPoint, &m_hControlPointOwners[ nWhichPoint ] );
-		m_hControlPointOwners[ nWhichPoint ] = pEntity->GetRefEHandle();
+		m_pCollection->SetControlPointObject( nWhichPoint, &m_hControlPointOwners[nWhichPoint] );
+		m_hControlPointOwners[nWhichPoint] = pEntity->GetRefEHandle();
 	}
 	else
 	{
@@ -216,7 +193,7 @@ void CShellNewParticleEffect::SetControlPointEntity( int nWhichPoint, C_Standalo
 
 C_StandaloneEntity *CShellNewParticleEffect::GetControlPointEntity( int nWhichPoint ) const
 {
-	return SourceSharp_ClientShellFromHandle( m_hControlPointOwners[ nWhichPoint ] );
+	return SourceSharp_ClientShellFromHandle( m_hControlPointOwners[nWhichPoint] );
 }
 
 void CShellNewParticleEffect::StopEmission( bool bInfiniteOnly, bool bRemoveAllParticles, bool bWakeOnStop )
@@ -230,7 +207,7 @@ CShellNewParticleEffect *CShellNewParticleEffect::ReplaceWith( const char *pszNa
 	if ( !pszName || !pszName[0] )
 		return NULL;
 
-	CSmartPtr< CShellNewParticleEffect > pNew = Create( pszName, pszName );
+	CSmartPtr<CShellNewParticleEffect> pNew = Create( pszName, pszName );
 	if ( !pNew->IsValid() )
 		return pNew.GetObject();
 
@@ -249,9 +226,6 @@ CShellNewParticleEffect *CShellNewParticleEffect::ReplaceWith( const char *pszNa
 	return pNew.GetObject();
 }
 
-//-----------------------------------------------------------------------------
-// IClientRenderable, as CNewParticleEffect answered it.
-//-----------------------------------------------------------------------------
 const matrix3x4_t &CShellNewParticleEffect::RenderableToWorldTransform()
 {
 	SetIdentityMatrix( m_RenderTransform );
@@ -266,30 +240,27 @@ void CShellNewParticleEffect::GetRenderBounds( Vector &mins, Vector &maxs )
 	VectorSubtract( p->MaxBounds(), GetRenderOrigin(), maxs );
 }
 
-bool CShellNewParticleEffect::IsTransparent( void )
+bool CShellNewParticleEffect::IsTransparent()
 {
 	return m_pCollection->IsTranslucent();
 }
 
-bool CShellNewParticleEffect::IsTwoPass( void )
+bool CShellNewParticleEffect::IsTwoPass()
 {
 	return m_pCollection->IsTwoPass();
 }
 
-bool CShellNewParticleEffect::UsesPowerOfTwoFrameBufferTexture( void )
+bool CShellNewParticleEffect::UsesPowerOfTwoFrameBufferTexture()
 {
 	return m_pCollection->UsesPowerOfTwoFrameBufferTexture( true );
 }
 
-bool CShellNewParticleEffect::UsesFullFrameBufferTexture( void )
+bool CShellNewParticleEffect::UsesFullFrameBufferTexture()
 {
 	return m_pCollection->UsesFullFrameBufferTexture( true );
 }
 
-//-----------------------------------------------------------------------------
-// CNewParticleEffect::DrawModel: what stock read, managed's answer, carried
-// out. The entities are identity tokens: managed only compares them.
-//-----------------------------------------------------------------------------
+// The entities passed to managed are identity tokens: managed only compares them.
 int CShellNewParticleEffect::DrawModel( int flags )
 {
 	IManagedParticlesClient *pArea = ManagedParticlesClient();
@@ -306,8 +277,7 @@ int CShellNewParticleEffect::DrawModel( int flags )
 	in.Flags = flags;
 	in.DrawParticles = s_r_drawparticles.GetBool() ? 1 : 0;
 	in.ClientModeDraws = g_pClientMode->ShouldDrawParticles() ? 1 : 0;
-	// CParticleMgr::ShouldRenderParticleSystems: nothing in this build turns
-	// the manager's switch (RenderParticleSystems has no caller), so it is on.
+	// Nothing turns the manager's render switch off, so it is on.
 	in.RenderSystems = 1;
 	in.ShowBBox = s_cl_particle_show_bbox.GetBool() ? 1 : 0;
 	in.ShowBBoxCost = s_cl_particle_show_bbox_cost.GetInt();
@@ -325,20 +295,14 @@ int CShellNewParticleEffect::DrawModel( int flags )
 	in.HighestControlPoint = p->HighestCP();
 	in.ThirdPerson = input->CAM_IsThirdPerson() ? 1 : 0;
 
-	// THE CAMERA OBJECT IS NULL, and in.CameraObject 0. Stock's is the
-	// C_BaseEntity at the view entity; the SDK-filtered resolve that stood for
-	// it here answered NULL for every entity on this side, so managed's
-	// skip-render test has never been taken (docs/todo.md: feeding it the view
-	// entity's shell is a behaviour change of its own).
+	// The camera object is NULL: on this side no view entity resolves to a C_BaseEntity.
 	void *pCameraObject = NULL;
 	if ( flags & STUDIO_TRANSPARENCY )
 	{
 		const int nSkip = pDef->m_nSkipRenderControlPoint;
 		if ( nSkip >= 0 && nSkip < MAX_PARTICLE_CONTROL_POINTS )
 			in.SkipObject = (uint64_t)(uintptr_t)GetControlPointEntity( nSkip );
-		// The local player is never a C_BasePlayer on this hierarchy
-		// (shell_player_orphans.cpp's GetLocalPlayer answers NULL), so its
-		// observer fields stay 0, as stock's NULL test left them unread.
+		// The local player is never a C_BasePlayer, so its observer fields stay 0.
 	}
 
 	SourceSharpNewParticleDrawOut_t out;
@@ -370,16 +334,13 @@ int CShellNewParticleEffect::DrawModel( int flags )
 		const Vector mins = p->MinBounds() - center;
 		const Vector maxs = p->MaxBounds() - center;
 		debugoverlay->AddBoxOverlay( center, mins, maxs, QAngle( 0, 0, 0 ), out.BBoxR, out.BBoxG, out.BBoxB, 16, 0 );
-		debugoverlay->AddTextOverlayRGB( center, 0, 0, out.BBoxR, out.BBoxG, out.BBoxB, 64, "%s:(%d)",
-		                                 GetEffectName(), m_pCollection->m_nActiveParticles );
+		debugoverlay->AddTextOverlayRGB( center, 0, 0, out.BBoxR, out.BBoxG, out.BBoxB, 64, "%s:(%d)", GetEffectName(),
+										 m_pCollection->m_nActiveParticles );
 	}
 
 	return out.Action != 0 ? 1 : 0;
 }
 
-//-----------------------------------------------------------------------------
-// The list, for the dev API's reads and the report.
-//-----------------------------------------------------------------------------
 int ShellNewParticles_Count()
 {
 	return s_Effects.Count();
@@ -387,7 +348,7 @@ int ShellNewParticles_Count()
 
 CShellNewParticleEffect *ShellNewParticles_At( int nIndex )
 {
-	return ( nIndex >= 0 && nIndex < s_Effects.Count() ) ? s_Effects[ nIndex ] : NULL;
+	return ( nIndex >= 0 && nIndex < s_Effects.Count() ) ? s_Effects[nIndex] : NULL;
 }
 
 namespace
@@ -402,10 +363,9 @@ void FillEffectIn( CShellNewParticleEffect *pEffect, SourceSharpNewParticleIn_t 
 
 	V_memset( &in, 0, sizeof( in ) );
 	in.Id = pEffect->Id();
-	in.Flags = SOURCESHARP_NEW_PARTICLE_ALLOCATED
-	         | ( bReleased ? SOURCESHARP_NEW_PARTICLE_RELEASED : 0 )
-	         | ( pEffect->m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE ? SOURCESHARP_NEW_PARTICLE_RENDER_HANDLE : 0 )
-	         | ( pEffect->IsAddedSinceFrame() ? SOURCESHARP_NEW_PARTICLE_ADDED : 0 );
+	in.Flags = SOURCESHARP_NEW_PARTICLE_ALLOCATED | ( bReleased ? SOURCESHARP_NEW_PARTICLE_RELEASED : 0 ) |
+		( pEffect->m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE ? SOURCESHARP_NEW_PARTICLE_RENDER_HANDLE : 0 ) |
+		( pEffect->IsAddedSinceFrame() ? SOURCESHARP_NEW_PARTICLE_ADDED : 0 );
 	if ( pEffect->IsValid() && pDef->IsViewModelEffect() )
 		in.Flags |= SOURCESHARP_NEW_PARTICLE_VIEW_MODEL;
 	in.Collection = (uint64_t)(uintptr_t)pCollection;
@@ -424,12 +384,11 @@ void FillEffectIn( CShellNewParticleEffect *pEffect, SourceSharpNewParticleIn_t 
 			in.Flags |= SOURCESHARP_NEW_PARTICLE_HAS_REPLACEMENT;
 		in.CullRadius = pDef->GetCullRadius();
 		in.CullFillCost = pDef->GetCullFillCost();
-		// The retirement pass reads the cull point only for a system with a
-		// cull radius; read from the array, as GetControlPointAtCurrentTime
-		// would, without its asserts for a point nothing set.
+		// Read from the array rather than GetControlPointAtCurrentTime, which asserts for a point
+		// nothing set.
 		const int nCull = pDef->GetCullControlPoint();
 		if ( in.CullRadius != 0.0f && nCull >= 0 && nCull < MAX_PARTICLE_CONTROL_POINTS )
-			CopyVector( pCollection->m_ControlPoints[ nCull ].m_Position, in.CullPointXYZ );
+			CopyVector( pCollection->m_ControlPoints[nCull].m_Position, in.CullPointXYZ );
 	}
 }
 
@@ -440,9 +399,9 @@ int FindById( const uint32_t *ids, int nCount, uint32_t nId )
 	while ( lo <= hi )
 	{
 		const int mid = ( lo + hi ) / 2;
-		if ( ids[ mid ] == nId )
+		if ( ids[mid] == nId )
 			return mid;
-		if ( ids[ mid ] > nId )
+		if ( ids[mid] > nId )
 			lo = mid + 1;
 		else
 			hi = mid - 1;
@@ -452,11 +411,8 @@ int FindById( const uint32_t *ids, int nCount, uint32_t nId )
 
 } // namespace
 
-//-----------------------------------------------------------------------------
-// UpdateAllEffects' new-effect half (UpdateNewEffects and the removals after
-// it): one crossing, managed deciding, the library stepping during it, and
-// what managed answered carried out here, in its order.
-//-----------------------------------------------------------------------------
+// One crossing: managed decides, the library steps during it, and managed's answers are
+// carried out here in order.
 void ShellNewParticles_Frame( float flFrameTime )
 {
 	IManagedParticlesClient *pArea = ManagedParticlesClient();
@@ -467,22 +423,20 @@ void ShellNewParticles_Frame( float flFrameTime )
 	if ( flFrameTime > 0.1f )
 		flFrameTime = 0.1f;
 
-	// UpdateNewEffects' partition update before any collection steps (stock
-	// made it when the sim list was not empty; the list is managed's, so it is
-	// made whenever there is an effect to list). The partition's dirty list is
-	// always empty on this hierarchy, so this is its read-lock pair and no more
-	// (collisionproperty.cpp).
+	// The partition's read-lock pair before any collection steps.
 	if ( s_Effects.Count() > 0 )
 		UpdateDirtySpatialPartitionEntities();
 
 	const int nEffects = s_Effects.Count();
-	CUtlVectorFixedGrowable< uint8_t, 16384 > in;
-	CUtlVectorFixedGrowable< uint8_t, 4096 > out;
-	const int nIn = (int)sizeof( SourceSharpNewParticleFrameHeader_t ) + nEffects * (int)sizeof( SourceSharpNewParticleIn_t );
+	CUtlVectorFixedGrowable<uint8_t, 16384> in;
+	CUtlVectorFixedGrowable<uint8_t, 4096> out;
+	const int nIn =
+		(int)sizeof( SourceSharpNewParticleFrameHeader_t ) + nEffects * (int)sizeof( SourceSharpNewParticleIn_t );
 	in.SetCount( kBitBlockHeaderBytes + nIn );
 	BitBlockSetBits( in.Base(), nIn * 8 );
 
-	SourceSharpNewParticleFrameHeader_t *pHeader = (SourceSharpNewParticleFrameHeader_t *)( in.Base() + kBitBlockHeaderBytes );
+	SourceSharpNewParticleFrameHeader_t *pHeader =
+		(SourceSharpNewParticleFrameHeader_t *)( in.Base() + kBitBlockHeaderBytes );
 	V_memset( pHeader, 0, sizeof( *pHeader ) );
 	pHeader->Dt = flFrameTime;
 	pHeader->Timescale = s_r_particle_timescale.GetFloat();
@@ -493,7 +447,6 @@ void ShellNewParticles_Frame( float flFrameTime )
 	pHeader->SpikeThresholdMs = s_r_particle_sim_spike_threshold_ms.GetInt();
 	if ( pHeader->RetireCost != 0.0f && nEffects > 0 )
 	{
-		// EarlyRetireParticleSystems' view, read only when it can run.
 		const CViewSetup *pView = view->GetPlayerViewSetup();
 		pHeader->ViewX = pView->x;
 		pHeader->ViewY = pView->y;
@@ -506,8 +459,8 @@ void ShellNewParticles_Frame( float flFrameTime )
 		V_memcpy( pHeader->WorldToScreen, worldToScreen.Base(), sizeof( pHeader->WorldToScreen ) );
 	}
 
-	CUtlVectorFixedGrowable< CShellNewParticleEffect *, 256 > snapshot;
-	CUtlVectorFixedGrowable< uint32_t, 256 > ids;
+	CUtlVectorFixedGrowable<CShellNewParticleEffect *, 256> snapshot;
+	CUtlVectorFixedGrowable<uint32_t, 256> ids;
 	snapshot.SetCount( nEffects );
 	ids.SetCount( nEffects );
 	SourceSharpNewParticleIn_t *pIn = (SourceSharpNewParticleIn_t *)( pHeader + 1 );
@@ -519,8 +472,7 @@ void ShellNewParticles_Frame( float flFrameTime )
 		s_Effects[i]->ClearFrameFlags();
 	}
 
-	// At most four commits per effect (the view group, a replacement, a
-	// change and the removal).
+	// At most four commits per effect: the view group, a replacement, a change and the removal.
 	const int nOut = MAX( nEffects * 4 * (int)sizeof( SourceSharpNewParticleCommit_t ), 4 );
 	out.SetCount( kBitBlockHeaderBytes + nOut );
 	BitBlockSetBits( out.Base(), 0 );
@@ -528,7 +480,8 @@ void ShellNewParticles_Frame( float flFrameTime )
 		return;
 
 	const int nBytes = MIN( BitBlockBits( out.Base() ) / 8, out.Count() - kBitBlockHeaderBytes );
-	const SourceSharpNewParticleCommit_t *pCommits = (const SourceSharpNewParticleCommit_t *)( out.Base() + kBitBlockHeaderBytes );
+	const SourceSharpNewParticleCommit_t *pCommits =
+		(const SourceSharpNewParticleCommit_t *)( out.Base() + kBitBlockHeaderBytes );
 	for ( int c = 0; c < nBytes / (int)sizeof( SourceSharpNewParticleCommit_t ); c++ )
 	{
 		const int i = FindById( ids.Base(), ids.Count(), pCommits[c].Id );
@@ -536,11 +489,13 @@ void ShellNewParticles_Frame( float flFrameTime )
 			continue;
 		CShellNewParticleEffect *pEffect = snapshot[i];
 		const int32_t nActions = pCommits[c].Actions;
-		if ( ( nActions & SOURCESHARP_NEW_PARTICLE_VIEW_GROUP ) && pEffect->m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE )
+		if ( ( nActions & SOURCESHARP_NEW_PARTICLE_VIEW_GROUP ) &&
+			 pEffect->m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE )
 			ClientLeafSystem()->SetRenderGroup( pEffect->m_hRenderHandle, RENDER_GROUP_VIEW_MODEL_TRANSLUCENT );
 		if ( nActions & SOURCESHARP_NEW_PARTICLE_REPLACE )
 			pEffect->ReplaceWith( pEffect->Collection()->m_pDef->GetCullReplacementDefinition() );
-		if ( ( nActions & SOURCESHARP_NEW_PARTICLE_CHANGED ) && pEffect->m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE )
+		if ( ( nActions & SOURCESHARP_NEW_PARTICLE_CHANGED ) &&
+			 pEffect->m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE )
 			ClientLeafSystem()->RenderableChanged( pEffect->m_hRenderHandle );
 		if ( nActions & SOURCESHARP_NEW_PARTICLE_REMOVE )
 		{
@@ -550,9 +505,6 @@ void ShellNewParticles_Frame( float flFrameTime )
 	}
 }
 
-//-----------------------------------------------------------------------------
-// CParticleMgr::RemoveAllNewEffects (level shutdown).
-//-----------------------------------------------------------------------------
 void ShellNewParticles_RemoveAll()
 {
 	while ( s_Effects.Count() > 0 )

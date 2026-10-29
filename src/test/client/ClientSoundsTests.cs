@@ -194,6 +194,23 @@ public class ClientSoundsTests
     }
 
     [Fact]
+    public void AnExplosionsSoundIsItsScriptByNameFromTheWorld()
+    {
+        // C_BaseExplosionEffect::PlaySound: EmitSound( filter, SOUND_FROM_WORLD,
+        // "BaseExplosionEffect.Sound", &origin ). Found side by side with stock
+        // (tools/stock-ab --weapons, 2026-10-25): this client resolved the
+        // script itself and played the wave raw, so no script was looked up.
+        var (sounds, engine, _, _, _) = Rig();
+        engine.Scripts["BaseExplosionEffect.Sound"] = Script("^weapons/explode3.wav", 1f, 140, 100, 6);
+        var explosion = new SourceSharp.Client.Effects.ExplosionEnvironment(null!, null!, sounds);
+
+        explosion.Sound("BaseExplosionEffect.Sound", new Vector(1, 2, 3));
+
+        Assert.Equal(["paramsex BaseExplosionEffect.Sound h-1", "emit 2/0 ent0 ch6 ^weapons/explode3.wav v1 l140 f0 p100 at1,2,3"],
+                     engine.Calls);
+    }
+
+    [Fact]
     public void ATracersWhizIsTheAttenuationOverloadAlongTheShot()
     {
         var (sounds, engine, _, _, _) = Rig();

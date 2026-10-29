@@ -66,20 +66,27 @@ const SSForwarderTable &SteamCallbackTable()
 	return pTable ? *pTable : kNone;
 }
 
-template < typename F >
+template <typename F>
 F Slot( int nSlot )
 {
-	return reinterpret_cast< F >( SteamCallbackTable().ppSlots[ nSlot ] );
+	return reinterpret_cast<F>( SteamCallbackTable().ppSlots[nSlot] );
 }
 
-int SizeOf() { return Slot< int ( * )() >( kSizeOf )(); }
+int SizeOf()
+{
+	return Slot<int ( * )()>( kSizeOf )();
+}
 
 CCallbackBase *Build( void *pMemory, IManagedSteamCallback *pTarget, int nPayloadBytes )
 {
-	return Slot< CCallbackBase *( * )( void *, IManagedSteamCallback *, int ) >( kConstruct )( pMemory, pTarget, nPayloadBytes );
+	return Slot<CCallbackBase *(*)( void *, IManagedSteamCallback *, int )>( kConstruct )( pMemory, pTarget,
+																						   nPayloadBytes );
 }
 
-bool IsRegistered( CCallbackBase *pCallback ) { return Slot< bool ( * )( CCallbackBase * ) >( kIsRegistered )( pCallback ); }
+bool IsRegistered( CCallbackBase *pCallback )
+{
+	return Slot<bool ( * )( CCallbackBase * )>( kIsRegistered )( pCallback );
+}
 
 // The managed side: counts its runs and keeps the last payload. Managed builds
 // this object as a block whose first word is its table (plan_forwarders_
@@ -88,16 +95,22 @@ bool IsRegistered( CCallbackBase *pCallback ) { return Slot< bool ( * )( CCallba
 class RecordingTarget final : public IManagedSteamCallback
 {
 public:
-	RecordingTarget() : IManagedSteamCallback( &kTable ) {}
+	RecordingTarget()
+		: IManagedSteamCallback( &kTable )
+	{
+	}
 
 	int nRuns = 0;
 	int nReleases = 0;
 	void *pLast = nullptr;
 
 private:
-	static RecordingTarget *Of( void *self ) { return static_cast< RecordingTarget * >( self ); }
+	static RecordingTarget *Of( void *self ) { return static_cast<RecordingTarget *>( self ); }
+
 	static void Released( IManagedObject *self ) { ++Of( self )->nReleases; }
+
 	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return 0; }
+
 	static void Ran( IManagedSteamCallback *self, void *pvParam )
 	{
 		++Of( self )->nRuns;
@@ -113,7 +126,7 @@ const SSManagedSteamCallbackTable RecordingTarget::kTable = { &Released, &Valida
 // a SizeOf that answered too little shows as a mismatch, not a corruption.
 struct Memory
 {
-	alignas( 16 ) unsigned char bytes[ 256 ];
+	alignas( 16 ) unsigned char bytes[256];
 };
 
 } // namespace
@@ -144,7 +157,7 @@ TEST( FwdSteam, ConstructBuildsTheCallbackInTheMemoryItIsGiven )
 
 	CCallbackBase *pCallback = Build( memory.bytes, &target, 8 );
 
-	EXPECT_EQ( static_cast< void * >( memory.bytes ), static_cast< void * >( pCallback ) );
+	EXPECT_EQ( static_cast<void *>( memory.bytes ), static_cast<void *>( pCallback ) );
 	EXPECT_FALSE( IsRegistered( pCallback ) );
 	EXPECT_EQ( 0, pCallback->GetICallback() );
 	EXPECT_EQ( 0, target.nRuns );
@@ -164,12 +177,12 @@ TEST( FwdSteam, SteamsRunReachesTheManagedRunWithThePayload )
 	Memory memory;
 	RecordingTarget target;
 	CCallbackBase *pCallback = Build( memory.bytes, &target, 8 );
-	unsigned char payload[ 8 ] = { 5, 0, 0, 0, 1, 0, 0, 0 };
+	unsigned char payload[8] = { 5, 0, 0, 0, 1, 0, 0, 0 };
 
 	pCallback->Run( payload );
 
 	EXPECT_EQ( 1, target.nRuns );
-	EXPECT_EQ( static_cast< void * >( payload ), target.pLast );
+	EXPECT_EQ( static_cast<void *>( payload ), target.pLast );
 }
 
 TEST( FwdSteam, TheCallResultOverloadReachesTheSameManagedRun )
@@ -177,12 +190,12 @@ TEST( FwdSteam, TheCallResultOverloadReachesTheSameManagedRun )
 	Memory memory;
 	RecordingTarget target;
 	CCallbackBase *pCallback = Build( memory.bytes, &target, 4 );
-	unsigned char payload[ 4 ] = {};
+	unsigned char payload[4] = {};
 
 	pCallback->Run( payload, true, SteamAPICall_t( 99 ) );
 
 	EXPECT_EQ( 1, target.nRuns );
-	EXPECT_EQ( static_cast< void * >( payload ), target.pLast );
+	EXPECT_EQ( static_cast<void *>( payload ), target.pLast );
 }
 
 TEST( FwdSteam, TheSizeSteamChecksIsThePayloadSizeConstructWasGiven )
@@ -191,7 +204,7 @@ TEST( FwdSteam, TheSizeSteamChecksIsThePayloadSizeConstructWasGiven )
 	RecordingTarget target;
 
 	EXPECT_EQ( 264, Build( memory.bytes, &target, 264 )->GetCallbackSizeBytes() );
-	EXPECT_EQ( 0, target.nRuns );   // answered natively, no call into managed
+	EXPECT_EQ( 0, target.nRuns ); // answered natively, no call into managed
 }
 
 TEST( FwdSteam, EachCallbackRunsItsOwnTarget )
@@ -200,7 +213,7 @@ TEST( FwdSteam, EachCallbackRunsItsOwnTarget )
 	RecordingTarget targetA, targetB;
 	CCallbackBase *pA = Build( a.bytes, &targetA, 1 );
 	CCallbackBase *pB = Build( b.bytes, &targetB, 4 );
-	unsigned char payload[ 4 ] = {};
+	unsigned char payload[4] = {};
 
 	pB->Run( payload );
 
@@ -236,7 +249,7 @@ TEST( FwdSteam, NeitherReleaseNorValidateIsCalledByTheCallback )
 	Memory memory;
 	RecordingTarget target;
 	CCallbackBase *pCallback = Build( memory.bytes, &target, 1 );
-	unsigned char payload[ 1 ] = {};
+	unsigned char payload[1] = {};
 
 	pCallback->Run( payload );
 	pCallback->Run( payload, false, SteamAPICall_t( 0 ) );
@@ -252,8 +265,8 @@ TEST( FwdSteam, AGameDllThatLinksTheLibraryServesItsTable )
 	// array and count.
 	void *pServed = SSFwd_Serve( "SSFwd_SteamCallback" );
 	ASSERT_NE( nullptr, pServed );
-	EXPECT_EQ( (int32_t)kSteamCallbackSlots, static_cast< const SSForwarderTable * >( pServed )->nSlots );
-	EXPECT_EQ( SteamCallbackTable().ppSlots, *static_cast< void *const *const * >( pServed ) );
+	EXPECT_EQ( (int32_t)kSteamCallbackSlots, static_cast<const SSForwarderTable *>( pServed )->nSlots );
+	EXPECT_EQ( SteamCallbackTable().ppSlots, *static_cast<void *const *const *>( pServed ) );
 
 	// The client's library also holds the tables both sides call, and its own.
 	EXPECT_NE( nullptr, SSFwd_Serve( "SSFwd_ModelInfo" ) );

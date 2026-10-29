@@ -1,0 +1,27 @@
+//========= Copyright Valve Corporation, All rights reserved. ============//
+// Purpose: Exposes client-server neutral interfaces implemented in both places
+
+#pragma once
+
+#ifdef POSIX
+#define random \
+	random_valve // stdlib.h defined random() and our class defn conflicts so under POSIX rename it using the preprocessor
+#endif
+
+class IFileSystem;
+class IUniformRandomStream;
+class CGaussianRandomStream;
+class IEngineSound;
+
+extern IFileSystem *filesystem;
+#if defined( _STATIC_LINKED ) && defined( _SUBSYSTEM ) && ( defined( CLIENT_DLL ) || defined( GAME_DLL ) )
+namespace _SUBSYSTEM
+{
+extern IUniformRandomStream *random;
+}
+#else
+extern IUniformRandomStream *random;
+#endif
+extern IEngineSound *enginesound;
+// interface are in TF2, should probably move
+// to TF2/HL2 neutral territory

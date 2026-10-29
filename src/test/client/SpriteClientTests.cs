@@ -157,6 +157,37 @@ public class SpriteClientTests
     }
 
     /// <summary>
+    /// A fade the server timed (CSprite::FadeAndDie: brightness 0 over three
+    /// seconds) is drawn half way through at half its brightness, not at zero
+    /// the moment it arrives: C_Sprite::GetRenderBrightness.
+    /// </summary>
+    [Fact]
+    public void ATimedFadeIsDrawnPartWay()
+    {
+        var (sprite, engine) = Client<ClientSprite>(EntityNames.EnvSprite);
+        float now = 20f;
+        engine.ReturnsEachCall("Clock.Now", () => now).Returns("Effects.DrawSprite", 1)
+              .Ignores("EntityRender.SetCustomDraw", "EntityRender.SetBlending");
+
+        sprite.State.ModelIndex = 64;
+        sprite.State.Visible = true;
+        sprite.State.Scale = 0.2f;
+        sprite.State.Brightness = 200;
+        sprite.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        sprite.OnDraw();
+
+        sprite.State.Brightness = 0;
+        sprite.State.BrightnessTime = 3f;
+        sprite.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.DataTableChanged);
+        sprite.OnDraw();
+
+        now = 21.5f;
+        sprite.OnDraw();
+
+        Assert.Equal(100, engine.Last("Effects.DrawSprite")!.Value.ArgAs<int>(8));
+    }
+
+    /// <summary>
     /// A sprite's client half, built through the registry the game uses rather
     /// than with <c>new</c>, because the thing under test is partly the
     /// REGISTRATION: a classname with no client class joins with a datatable

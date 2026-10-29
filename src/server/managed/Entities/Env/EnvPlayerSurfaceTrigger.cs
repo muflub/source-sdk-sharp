@@ -26,8 +26,8 @@ public sealed class EnvPlayerSurfaceTrigger : ScriptedEntity
     /// <summary>What a map may set on this entity. See <see cref="EnvPlayerSurfaceTriggerVars"/>.</summary>
     [ScriptVars] public EnvPlayerSurfaceTriggerVars Vars = new();
 
-    public readonly Output OnSurfaceChangedToTarget = new("OnSurfaceChangedToTarget");
-    public readonly Output OnSurfaceChangedFromTarget = new("OnSurfaceChangedFromTarget");
+    public readonly Output OnSurfaceChangedToTarget = new();
+    public readonly Output OnSurfaceChangedFromTarget = new();
 
     /// <summary>The module's triggers, which this one joins while it is live.</summary>
     public EnvPlayerSurfaceTrigger(IEntityRoster<EnvPlayerSurfaceTrigger> triggers)

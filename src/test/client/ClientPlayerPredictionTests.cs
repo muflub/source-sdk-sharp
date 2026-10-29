@@ -77,6 +77,7 @@ public class ClientPlayerPredictionTests
         public float TickInterval = 0.015f;
 
         public float ForwardMove;
+        public int Buttons;
 
         public bool TryGetUserCmd(int commandNumber, out UserCmd cmd)
         {
@@ -88,6 +89,7 @@ public class ClientPlayerPredictionTests
             cmd.CommandNumber = commandNumber;
             cmd.TickCount = commandNumber;
             cmd.ForwardMove = ForwardMove;
+            cmd.Buttons = Buttons;
             return true;
         }
 
@@ -159,7 +161,12 @@ public class ClientPlayerPredictionTests
         public void Packet() => Player.OnDataChanged(default, DataUpdateType.DataTableChanged);
     }
 
-    private static Bench Build(params int[] ringCommands)
+    private static Bench Build(params int[] ringCommands) => Build(null, ringCommands);
+
+    private static Bench Build(ILadderWorld? ladders, params int[] ringCommands)
+        => Build(ladders, null, ringCommands);
+
+    private static Bench Build(ILadderWorld? ladders, IHl2PlayerMove? hl2Player, params int[] ringCommands)
     {
         var engine = Fake();
         engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
@@ -173,7 +180,7 @@ public class ClientPlayerPredictionTests
         player.Enabled = false;
 
         // A player standing on the world with a plausible eye height, which is
-        // what a decoded ss_player looks like on the frame after it spawns.
+        // what a decoded player looks like on the frame after it spawns.
         player.State.Origin = new Vector(64f, 128f, 16f);
         player.State.ViewOffset = new Vector(0f, 0f, 64f);
         player.State.MaxSpeed = 320f;
@@ -201,8 +208,99 @@ public class ClientPlayerPredictionTests
             Prediction = new ClientPlayerPrediction(new RecordingLog(), standalones, engine, replay,
                                                     runner,
                                                     null, new PredictionErrorRing(),
-                                                    NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog())),
+                                                    NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()),
+                                                    ladders: ladders, hl2Player: hl2Player),
         };
+    }
+
+    private sealed class Hl2Player : IHl2PlayerMove
+    {
+        public float WalkSpeed => 150f;
+        public float NormSpeed => 190f;
+        public float SprintSpeed => 320f;
+        public bool InfiniteAuxPower => false;
+        public bool CanSprint(bool ducked, bool ducking, int waterLevel, bool sprintDisabled) => true;
+    }
+
+    /// <summary>
+    /// The replay runs HL2MP's player from the suit words the server's state
+    /// carries (m_HL2Local, predicted as stock predicts it): +speed with power
+    /// starts the sprint device and saves it; with no HL2 player, base
+    /// CGameMovement, it saves no sprint.
+    /// </summary>
+    [Fact]
+    public void TheReplaySprintsOnTheSuitPowerTheServerSent()
+    {
+        PlayerNetState Saved(IHl2PlayerMove? hl2, float power)
+        {
+            var bench = Build(null, hl2, 11);
+            bench.Player.State.SuitPower = power;
+            bench.Replay.Buttons = 1 << 17;   // IN_SPEED
+
+            bench.Prediction.Update(0, validFrame: true, incomingAcknowledged: 10,
+                                    outgoingCommand: 11, worldUpdateArrived: false);
+
+            Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+            var saved = new PlayerNetState();
+            saved.BindLocal();
+            saved.Decode(bench.Prediction.LastSavedBytes.ToArray());
+            return saved;
+        }
+
+        PlayerNetState sprinting = Saved(new Hl2Player(), 50f);
+        Assert.True(sprinting.NewSprinting, "a +speed with power sprints");
+        Assert.Equal((GameMovement.SuitDeviceSprint, 25f), (sprinting.SuitDevices, sprinting.SuitPowerLoad));
+
+        Assert.False(Saved(new Hl2Player(), 5f).NewSprinting, "too little power to start one");
+        Assert.False(Saved(null, 50f).NewSprinting, "no HL2 player, no sprint");
+    }
+
+    /// <summary>One ladder, entity 7, from (0,32,0) to (0,32,128).</summary>
+    private sealed class OneLadder : ILadderWorld
+    {
+        public int Count => 1;
+        public UseableLadder At(int index) => Ladder;
+        public bool TryGet(int entityIndex, out UseableLadder ladder)
+        {
+            ladder = Ladder;
+            return entityIndex == Ladder.Index;
+        }
+        public IReadOnlyList<Vector> Dismounts(int ladderIndex) => Array.Empty<Vector>();
+        public LadderConVars ConVars => new(true, 0.4f, false);
+        public void PlayerGotOn(int ladderIndex, int playerIndex) { }
+        public void PlayerGotOff(int ladderIndex, int playerIndex) { }
+
+        private static readonly UseableLadder Ladder =
+            new(7, new Vector(0f, 32f, 128f), new Vector(0f, 32f, 0f), Enabled: true, Fake: false);
+    }
+
+    /// <summary>
+    /// The replay climbs the ladder the server's word names (HL2's m_hLadder,
+    /// predicted as stock predicts it): a player decoded on ladder 7 with no
+    /// key held hangs on it, and the saved state still names ladder 7 in
+    /// MOVETYPE_LADDER. A replay that dropped the word, or ran base
+    /// CGameMovement, would let go and save MOVETYPE_WALK.
+    /// </summary>
+    [Fact]
+    public void TheReplayHangsOnTheLadderTheServerNamed()
+    {
+        var bench = Build(new OneLadder(), 11);
+        bench.Player.State.MoveType = 9;   // MOVETYPE_LADDER
+        bench.Player.State.Origin = new Vector(0f, 32f, 64f);
+        bench.Player.State.Ladder = 7;
+
+        bench.Prediction.Update(0, validFrame: true, incomingAcknowledged: 10,
+                                outgoingCommand: 11, worldUpdateArrived: false);
+
+        Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+
+        var saved = new PlayerNetState();
+        saved.BindLocal();
+        saved.Decode(bench.Prediction.LastSavedBytes.ToArray());
+
+        Assert.Equal(9, saved.MoveType);
+        Assert.Equal(7, saved.Ladder);
+        Assert.Equal(new Vector(0f, 32f, 64f), saved.Origin);
     }
 
     //=========================================================================
@@ -242,6 +340,95 @@ public class ClientPlayerPredictionTests
 
         Assert.True(saved.OldForwardMove == 0f,
             $"the predicted OldForwardMove stays the server's 0, not {saved.OldForwardMove}");
+    }
+
+    /// <summary>
+    /// The loop's cap (mv->m_flMaxSpeed) is not the player's networked
+    /// m_flMaxspeed: stock's FinishMove never stores it back
+    /// (prediction.cpp:720 and player_command.cpp:212 are commented out), and
+    /// neither does this server, whose record keeps what game code set. A
+    /// movement rule that raises the cap (TF's class speed, 400 for a scout)
+    /// changes the move and not the saved MaxSpeed; saving the cap made every
+    /// compare a MaxSpeed misprediction (predicted 400, server 320).
+    /// </summary>
+    [Fact]
+    public void ARuleRaisedCapIsNotSavedAsTheNetworkedMaxSpeed()
+    {
+        var bench = Build(11);
+        bench.Replay.ForwardMove = 450f;
+        int asked = 0;
+        bench.Runner.ReplayRules = MovementRules.Stock with
+        {
+            MaxSpeed = (_, _, _, _) =>
+            {
+                asked++;
+                return 400f;
+            },
+        };
+
+        bench.Prediction.Update(0, validFrame: true, incomingAcknowledged: 10,
+                                outgoingCommand: 11, worldUpdateArrived: false);
+
+        Assert.True(asked > 0, "the rule was asked for the cap");
+
+        var saved = new PlayerNetState();
+        saved.BindLocal();
+        saved.Decode(bench.Prediction.LastSavedBytes.ToArray());
+
+        Assert.True(saved.MaxSpeed == 320f,
+            $"the predicted MaxSpeed stays the server's 320, not {saved.MaxSpeed}");
+    }
+
+    /// <summary>
+    /// HL2MP's speeds are the move's client max speed (CHL2GameMovement's
+    /// CheckParameters), and the cap they leave is not saved either: a replay
+    /// with the HL2 player at its normal speed (190) still saves the server's
+    /// 320.
+    /// </summary>
+    [Fact]
+    public void TheHl2SpeedCapIsNotSavedAsTheNetworkedMaxSpeed()
+    {
+        var bench = Build(null, new Hl2Player(), 11);
+        bench.Replay.ForwardMove = 450f;
+
+        bench.Prediction.Update(0, validFrame: true, incomingAcknowledged: 10,
+                                outgoingCommand: 11, worldUpdateArrived: false);
+
+        Assert.True(bench.Prediction.LastReplayed == 1, "the walking command was replayed");
+
+        var saved = new PlayerNetState();
+        saved.BindLocal();
+        saved.Decode(bench.Prediction.LastSavedBytes.ToArray());
+
+        Assert.True(saved.MaxSpeed == 320f,
+            $"the predicted MaxSpeed stays the server's 320, not {saved.MaxSpeed}");
+    }
+
+    /// <summary>
+    /// The live symptom: the server sends its record's MaxSpeed (320) beside
+    /// the moved state, and a replay whose rule raised the cap to 400 holds
+    /// against it instead of standing as a MaxSpeed misprediction.
+    /// </summary>
+    [Fact]
+    public void AReplayUnderARaisedCapHoldsAgainstTheServersMaxSpeed()
+    {
+        var bench = Build(11);
+        bench.Replay.ForwardMove = 450f;
+        bench.Runner.ReplayRules = MovementRules.Stock with { MaxSpeed = (_, _, _, _) => 400f };
+
+        bench.Prediction.Update(0, true, 10, 11, false);
+
+        // The server's word: the move the replay made, with the MaxSpeed its
+        // record holds (ServerPlayerMove.MaxSpeed, which no command writes).
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.MaxSpeed = 320f;
+        bench.Packet();
+
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.True(bench.Prediction.Mispredicts == 0,
+                    $"no misprediction, not {bench.Prediction.Mispredicts} on {bench.Prediction.LastMissFields}");
+        Assert.Equal(1, bench.Prediction.Holds);
     }
 
     [Fact]
@@ -464,6 +651,28 @@ public class ClientPlayerPredictionTests
         Assert.Equal(bench.Player.State.Origin.X, bench.Replay.LastOrigin.X);
         Assert.Equal(bench.Player.State.Origin.Y, bench.Replay.LastOrigin.Y);
         Assert.Equal(bench.Player.State.Origin.Z, bench.Replay.LastOrigin.Z);
+    }
+
+    [Fact]
+    public void ADrivingPublishNamesTheDrivenEntity()
+    {
+        // What the interpolation pass leaves out (InterpolatedSet, lane M1-A):
+        // the entity the shell is told to draw at the replay's origin.
+        var bench = Build(11);
+
+        bench.Prediction.Update(0, true, 10, 11, false);
+
+        Assert.Equal(LocalHandle, bench.Prediction.DrivenHandle.Value);
+    }
+
+    [Fact]
+    public void APublishThatDoesNotDriveNamesNoEntity()
+    {
+        var bench = Build(13);
+
+        bench.Prediction.Update(0, true, 10, 13, false);
+
+        Assert.Equal(EntityHandle.None, bench.Prediction.DrivenHandle);
     }
 
     [Fact]

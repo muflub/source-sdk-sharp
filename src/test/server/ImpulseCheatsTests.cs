@@ -11,7 +11,7 @@ namespace SourceSharp.Tests;
 
 /// <summary>
 /// The impulse cheats (ImpulseCheats.cs) — stock's CheatImpulseCommands, ported
-/// managed after the -ss_player flip evicted player.cpp and impulse 101 with it.
+/// managed after the -player flip evicted player.cpp and impulse 101 with it.
 ///
 /// What can regress: the sv_cheats gate (both directions), the give-everything
 /// inventory being THIS mod's registry rather than a hand-kept list, the heal
@@ -214,7 +214,7 @@ public class ImpulseCheatsTests
         Assert.True(world.CountOf("Entities.Remove") == 0, "the world cannot be removed");
 
         var (cheats2, _, other) = Rig();
-        Aiming(other, new EntityHandle(4u), EntityNames.SsPlayer);
+        Aiming(other, new EntityHandle(4u), EntityNames.Player);
         cheats2.Run(Player, 203);
         Assert.True(other.CountOf("Entities.Remove") == 0, "a player cannot be removed — stock's crash, not kept");
 

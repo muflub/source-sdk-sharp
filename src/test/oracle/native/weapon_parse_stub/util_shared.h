@@ -18,9 +18,6 @@
 //
 //=============================================================================
 
-#ifndef SOURCESHARP_TEST_WEAPONPARSE_UTIL_SHARED_H
-#define SOURCESHARP_TEST_WEAPONPARSE_UTIL_SHARED_H
+#pragma once
 
 void UTIL_DecodeICE( unsigned char *buffer, int size, const unsigned char *key );
-
-#endif // SOURCESHARP_TEST_WEAPONPARSE_UTIL_SHARED_H

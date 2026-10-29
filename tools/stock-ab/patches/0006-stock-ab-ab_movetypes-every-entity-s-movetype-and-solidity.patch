@@ -1,0 +1,52 @@
+From 978acc12dac1cfd5704961a5101fde079c78baf3 Mon Sep 17 00:00:00 2001
+From: Mark Chandler <mark@lodle.net>
+Date: Sun, 25 Oct 2026 20:47:47 -0700
+Subject: [PATCH] stock-ab: ab_movetypes, every entity's movetype and solidity
+
+---
+ src/game/server/ss_ab_server.cpp | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/src/game/server/ss_ab_server.cpp b/src/game/server/ss_ab_server.cpp
+index 3f70d7cc..8cb35d3b 100644
+--- a/src/game/server/ss_ab_server.cpp
++++ b/src/game/server/ss_ab_server.cpp
+@@ -121,3 +121,35 @@ CON_COMMAND( ab_trace, "stock-ab: trace a MASK_SHOT line and write what it hit t
+ 	fclose( pFile );
+ 	rename( szTmp, szPath );
+ }
++
++//-----------------------------------------------------------------------------
++// ab_movetypes <token>: every entity in gEntList with what moves it and how it
++// is solid, to $SS_AB_DIR/movetypes (tab-separated: index, classname,
++// targetname, movetype, solid, solid flags), then "#end <token>" -- the
++// stock answer to pOther->GetMoveType(), which decides branches such as the
++// crossbow bolt's "static architecture" test.
++//-----------------------------------------------------------------------------
++CON_COMMAND( ab_movetypes, "stock-ab: write every entity's movetype and solidity to $SS_AB_DIR/movetypes" )
++{
++	const char *pszDir = getenv( "SS_AB_DIR" );
++	if ( !pszDir || !*pszDir || args.ArgC() < 2 )
++		return;
++
++	char szTmp[MAX_PATH], szPath[MAX_PATH];
++	V_snprintf( szTmp, sizeof( szTmp ), "%s/movetypes.tmp", pszDir );
++	V_snprintf( szPath, sizeof( szPath ), "%s/movetypes", pszDir );
++
++	FILE *pFile = fopen( szTmp, "wb" );
++	if ( !pFile )
++		return;
++
++	for ( CBaseEntity *pEnt = gEntList.FirstEnt(); pEnt != NULL; pEnt = gEntList.NextEnt( pEnt ) )
++	{
++		fprintf( pFile, "%d\t%s\t%s\t%d\t%d\t%d\n", pEnt->entindex(), pEnt->GetClassname(),
++			STRING( pEnt->GetEntityName() ), (int)pEnt->GetMoveType(), (int)pEnt->GetSolid(),
++			(int)pEnt->GetSolidFlags() );
++	}
++	fprintf( pFile, "#end\t%s\n", args[1] );
++	fclose( pFile );
++	rename( szTmp, szPath );
++}
+-- 
+2.53.0
+

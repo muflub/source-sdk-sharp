@@ -86,13 +86,15 @@ public sealed class EngineHierarchyWorld : IComposedWorld
     /// </summary>
     private readonly IEngineEntities _entities;
     private readonly IEngineNetworking _networking;
+    private readonly IEngineEntityPhysics _physics;
 
     /// <param name="log">Where the hierarchy's warnings go (statics to zero).</param>
-    public EngineHierarchyWorld(IEngineEntities entities, IEngineNetworking networking, ILog log)
+    public EngineHierarchyWorld(IEngineEntities entities, IEngineNetworking networking, IEngineEntityPhysics physics, ILog log)
     {
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _entities = entities;
         _networking = networking;
+        _physics = physics;
     }
 
     /// <summary>
@@ -308,7 +310,22 @@ public sealed class EngineHierarchyWorld : IComposedWorld
 
     public void Remove(EntityHandle handle) => _entities.Remove(handle);
 
-    public void DetachPhysics(EntityHandle child) => _entities.DestroyPhysics(child);
+    /// <summary>
+    /// A static object becomes a shadow, as stock's VPhysicsInitStatic makes
+    /// one for an entity with a move parent: it follows the entity, which
+    /// follows its parent, and still collides. Any other object is destroyed.
+    /// </summary>
+    public void DetachPhysics(EntityHandle child)
+    {
+        bool wasStatic = _physics.PhysicsKind(child) == StaticPhysicsKind;
+        _entities.DestroyPhysics(child);
+
+        if (wasStatic)
+            _physics.InitShadowPhysics(child);
+    }
+
+    /// <summary><see cref="IEngineEntityPhysics.PhysicsKind"/> for a static object.</summary>
+    private const int StaticPhysicsKind = 1;
 
     /// <summary>
     /// A refusal on the console, never a silent no-op (§7). <c>Warning</c> and not

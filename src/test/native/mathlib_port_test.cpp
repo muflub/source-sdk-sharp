@@ -48,7 +48,7 @@ TEST( MathlibPort, AngleVectorsOfZeroIsTheAxes )
 	Vector f, r, u;
 	AngleVectors( QAngle( 0, 0, 0 ), &f, &r, &u );
 	ExpectNear( f, 1, 0, 0 );
-	ExpectNear( r, 0, -1, 0 );   // right is -Y: Y is left
+	ExpectNear( r, 0, -1, 0 ); // right is -Y: Y is left
 	ExpectNear( u, 0, 0, 1 );
 }
 
@@ -120,7 +120,7 @@ TEST( MathlibPort, MatrixAnglesInvertsAngleMatrix )
 	matrix3x4_t m;
 	AngleMatrix( in, m );
 	QAngle out;
-	MatrixAngles( m, out );   // mathlib.h's inline, over the float* member
+	MatrixAngles( m, out ); // mathlib.h's inline, over the float* member
 	EXPECT_NEAR( out.x, 20, 1e-4f );
 	EXPECT_NEAR( out.y, 30, 1e-4f );
 	EXPECT_NEAR( out.z, 40, 1e-4f );
@@ -147,9 +147,9 @@ TEST( MathlibPort, VectorAnglesOfTheAxes )
 	VectorAngles( Vector( -1, 0, 0 ), a );
 	EXPECT_NEAR( a.y, 180, kTol );
 	VectorAngles( Vector( 0, -1, 0 ), a );
-	EXPECT_NEAR( a.y, 270, kTol );   // [0, 360), never negative
+	EXPECT_NEAR( a.y, 270, kTol ); // [0, 360), never negative
 	VectorAngles( Vector( 1, 0, -1 ), a );
-	EXPECT_NEAR( a.x, 45, kTol );    // down is positive pitch
+	EXPECT_NEAR( a.x, 45, kTol ); // down is positive pitch
 	VectorAngles( Vector( 1, 0, 1 ), a );
 	EXPECT_NEAR( a.x, 315, kTol );
 	EXPECT_EQ( a.z, 0.0f );
@@ -171,7 +171,7 @@ TEST( MathlibPort, VectorTransformRotatesThenTranslates )
 	matrix3x4_t m;
 	AngleMatrix( QAngle( 0, 90, 0 ), Vector( 10, 20, 30 ), m );
 	Vector out;
-	VectorTransform( Vector( 1, 0, 0 ), m, out );   // mathlib.h's Vector& inline
+	VectorTransform( Vector( 1, 0, 0 ), m, out ); // mathlib.h's Vector& inline
 	ExpectNear( out, 10, 21, 30 );
 }
 
@@ -189,8 +189,8 @@ TEST( MathlibPort, CalcSqrDistanceToAABBIsZeroInsideAndOnTheFaces )
 TEST( MathlibPort, CalcSqrDistanceToAABBAddsEachAxisOvershoot )
 {
 	const Vector mins( -1, -2, -3 ), maxs( 1, 2, 3 );
-	EXPECT_EQ( CalcSqrDistanceToAABB( mins, maxs, Vector( 4, 0, 0 ) ), 9.0f );           // past +X by 3
-	EXPECT_EQ( CalcSqrDistanceToAABB( mins, maxs, Vector( 0, -6, 0 ) ), 16.0f );         // past -Y by 4
+	EXPECT_EQ( CalcSqrDistanceToAABB( mins, maxs, Vector( 4, 0, 0 ) ), 9.0f ); // past +X by 3
+	EXPECT_EQ( CalcSqrDistanceToAABB( mins, maxs, Vector( 0, -6, 0 ) ), 16.0f ); // past -Y by 4
 	EXPECT_EQ( CalcSqrDistanceToAABB( mins, maxs, Vector( -4, 6, -15 ) ), 9.0f + 16.0f + 144.0f );
 }
 

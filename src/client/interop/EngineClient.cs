@@ -6,7 +6,9 @@ namespace SourceSharp.Abi;
 /// <see cref="Client.Input.IClientInputEngine"/>, implemented explicitly so the
 /// class offers game code exactly its interface.
 /// </summary>
-public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine
+public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine,
+                                          IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand,
+                                          IViolenceSettings
 {
     /// <summary>
     /// <c>VENGINE_CLIENT_INTERFACE_VERSION</c>, from <c>cdll_int.h:188</c>.
@@ -90,8 +92,17 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
         }
         info = new ClientPlayerInfo(Vtable.TextOf(raw.NameBuffer, PlayerInfoT.NameBytes) ?? string.Empty,
                                     raw.UserId, raw.FakePlayer != 0,
-                                    Vtable.TextOf(raw.GuidBuffer, PlayerInfoT.GuidBytes) ?? string.Empty);
+                                    Vtable.TextOf(raw.GuidBuffer, PlayerInfoT.GuidBytes) ?? string.Empty,
+                                    raw.CustomFile0);
         return true;
+    }
+
+    /// <inheritdoc/>
+    public bool CopyLocalFile(string source, string destination)
+    {
+        fixed (byte* s = Vtable.Utf8(source))
+        fixed (byte* d = Vtable.Utf8(destination))
+            return _fwd->CopyLocalFile(_self, s, d) != 0;
     }
 
     /// <inheritdoc/>
@@ -119,6 +130,14 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
             return;
         byte[] bytes = Vtable.Utf8(line);
         fixed (byte* p = bytes)
+            _fwd->ClientCmd(_self, p);
+    }
+
+    /// <inheritdoc/>
+    void IClientPredictCommand.SetPredict(bool predict)
+    {
+        ReadOnlySpan<byte> text = predict ? "cl_predict 1\0"u8 : "cl_predict 0\0"u8;
+        fixed (byte* p = text)
             _fwd->ClientCmd(_self, p);
     }
 
@@ -153,6 +172,23 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
         byte[] bytes = Vtable.Utf8(line);
         fixed (byte* p = bytes)
             _fwd->ServerCmd(_self, p, 1);
+    }
+
+    /// <inheritdoc/>
+    void IWeaponSelectionCommand.SendSelection(string line)
+    {
+        if (string.IsNullOrEmpty(line))
+            return;
+        byte[] bytes = Vtable.Utf8(line);
+        fixed (byte* p = bytes)
+            _fwd->ServerCmd(_self, p, 1);
+    }
+
+    /// <inheritdoc/>
+    void IWeaponSelectionCommand.Escape()
+    {
+        fixed (byte* p = "escape\0"u8)
+            _fwd->ClientCmd(_self, p);
     }
 
     /// <summary>The one text <see cref="Reconnect"/> sends through the ClientCmd slot.</summary>
@@ -229,6 +265,18 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
     bool Client.Input.IClientInputEngine.IsPaused => _fwd->IsPaused(_self) != 0;
 
     /// <inheritdoc/>
+    bool IPlaybackState.IsPaused => _fwd->IsPaused(_self) != 0;
+
+    /// <inheritdoc/>
+    bool IPlaybackState.IsPlayingDemo => _fwd->IsPlayingDemo(_self) != 0;
+
+    /// <inheritdoc/>
+    bool IPlaybackState.IsPlayingTimeDemo => _fwd->IsPlayingTimeDemo(_self) != 0;
+
+    /// <inheritdoc/>
+    bool IViolenceSettings.EngineSaysLowViolence => _fwd->IsLowViolence(_self) != 0;
+
+    /// <inheritdoc/>
     void Client.Input.IClientInputEngine.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta)
     {
         int dx = 0, dy = 0;
@@ -251,7 +299,8 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
 
 /// <summary>
 /// <c>player_info_t</c> (public/cdll_int.h): 132 bytes, name at 0, userID at
-/// 32, guid at 36, fakeplayer at 108 (shell_hud.cpp asserts the same four of the C++).
+/// 32, guid at 36, fakeplayer at 108 (shell_hud.cpp asserts the same four of the
+/// C++), and customFiles at 112 (shell_te_backends_client.cpp asserts that one).
 /// </summary>
 [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit, Size = 132)]
 internal unsafe struct PlayerInfoT
@@ -265,6 +314,9 @@ internal unsafe struct PlayerInfoT
     [System.Runtime.InteropServices.FieldOffset(32)] public int UserId;
     [System.Runtime.InteropServices.FieldOffset(36)] public fixed byte GuidBuffer[GuidBytes];
     [System.Runtime.InteropServices.FieldOffset(108)] public byte FakePlayer;
+
+    /// <summary><c>customFiles[0]</c>: the spray logo's CRC32, 0 for none.</summary>
+    [System.Runtime.InteropServices.FieldOffset(112)] public uint CustomFile0;
 }
 
 /// <summary>

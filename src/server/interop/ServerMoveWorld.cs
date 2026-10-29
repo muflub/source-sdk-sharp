@@ -138,9 +138,12 @@ internal sealed unsafe class ServerMoveWorld(EngineSide api, IMovementServerArea
             Host?.RecordTouch(hit);
     }
 
-    /// <summary>The swim stroke: "Player.Swim" from the host, as native's START_SOUND_SWIM played it.</summary>
+    /// <summary>
+    /// <c>CMoveHelperServer::StartSound</c>: the script sound the loop names
+    /// (the swim stroke, the HL2 player's sprint), from the host at the origin.
+    /// </summary>
     public void StartSound(in Vector origin, string sound)
-        => sounds.MoveSoundScript(EntIndex, origin, "Player.Swim");
+        => sounds.MoveSoundScript(EntIndex, origin, sound);
 
     public void PlayerSetAnimation(int activity) { }
 

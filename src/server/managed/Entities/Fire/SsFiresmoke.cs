@@ -4,7 +4,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// ss_firesmoke: the flame a natural fire is made of.
+/// _firesmoke: the flame a natural fire is made of.
 ///
 /// <para>
 /// It replaces <c>_firesmoke</c>, which was a native <c>CFireSmoke</c> paired
@@ -33,7 +33,7 @@ namespace SourceSharp.Server;
 /// picks a particle system from the pair and starts it.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsFiresmoke, ScriptedEntityKind.Effect)]
+[ScriptedEntity(EntityNames.FireSmoke, ScriptedEntityKind.Effect)]
 public sealed class SsFiresmoke : ScriptedEntity
 {
     /// <summary>

@@ -24,24 +24,48 @@
 #include <stdarg.h>
 
 #ifdef _WIN32
-	#include <windows.h>
-	#define SS_PATHSEP "\\"
-	typedef HMODULE ss_module_t;
-	static ss_module_t ss_dlopen( const char *p ) { return ::LoadLibraryA( p ); }
-	static void *ss_dlsym( ss_module_t m, const char *s ) { return (void *)::GetProcAddress( m, s ); }
-	static void ss_setenv( const char *k, const char *v ) { ::SetEnvironmentVariableA( k, v ); }
+#include <windows.h>
+#define SS_PATHSEP "\\"
+typedef HMODULE ss_module_t;
+
+static ss_module_t ss_dlopen( const char *p )
+{
+	return ::LoadLibraryA( p );
+}
+
+static void *ss_dlsym( ss_module_t m, const char *s )
+{
+	return (void *)::GetProcAddress( m, s );
+}
+
+static void ss_setenv( const char *k, const char *v )
+{
+	::SetEnvironmentVariableA( k, v );
+}
 #else
-	#include <dlfcn.h>
-	#include <dirent.h>
-	#include <unistd.h>
-	#if defined( __linux__ )
-		#include <sys/prctl.h>
-	#endif
-	#define SS_PATHSEP "/"
-	typedef void *ss_module_t;
-	static ss_module_t ss_dlopen( const char *p ) { return ::dlopen( p, RTLD_LAZY | RTLD_LOCAL ); }
-	static void *ss_dlsym( ss_module_t m, const char *s ) { return ::dlsym( m, s ); }
-	static void ss_setenv( const char *k, const char *v ) { ::setenv( k, v, 1 ); }
+#include <dlfcn.h>
+#include <dirent.h>
+#include <unistd.h>
+#if defined( __linux__ )
+#include <sys/prctl.h>
+#endif
+#define SS_PATHSEP "/"
+typedef void *ss_module_t;
+
+static ss_module_t ss_dlopen( const char *p )
+{
+	return ::dlopen( p, RTLD_LAZY | RTLD_LOCAL );
+}
+
+static void *ss_dlsym( ss_module_t m, const char *s )
+{
+	return ::dlsym( m, s );
+}
+
+static void ss_setenv( const char *k, const char *v )
+{
+	::setenv( k, v, 1 );
+}
 #endif
 
 //-----------------------------------------------------------------------------
@@ -49,20 +73,20 @@
 //-----------------------------------------------------------------------------
 // plan_side_entries SE1: one set per side (ServerEntry, ClientEntry), so no
 // side travels as an argument.
-typedef int32_t (CORECLR_DELEGATE_CALLTYPE *bootstrap_load_fn)(
-	void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot );
-typedef int32_t (CORECLR_DELEGATE_CALLTYPE *bootstrap_unload_fn)( void );
-typedef int32_t (CORECLR_DELEGATE_CALLTYPE *bootstrap_reload_check_fn)( char *pWhy, int32_t nWhy );
+typedef int32_t( CORECLR_DELEGATE_CALLTYPE *bootstrap_load_fn )( void *pShimRoot, const void *pShimRootTable,
+																 void **ppManagedRoot );
+typedef int32_t( CORECLR_DELEGATE_CALLTYPE *bootstrap_unload_fn )( void );
+typedef int32_t( CORECLR_DELEGATE_CALLTYPE *bootstrap_reload_check_fn )( char *pWhy, int32_t nWhy );
 
 // A side's three Bootstrap entries, resolved once at Acquire.
 struct SourceSharpSideEntries
 {
-	const char					*pName;   // "server" / "client", for the log
-	const char					*pSuffix; // "Server" / "Client": LoadServer, UnloadClient, ...
-	const char					*pType;   // the Bootstrap type that serves the side
-	bootstrap_load_fn			pfnLoad;
-	bootstrap_unload_fn			pfnUnload;
-	bootstrap_reload_check_fn	pfnReloadCheck;
+	const char *pName; // "server" / "client", for the log
+	const char *pSuffix; // "Server" / "Client": LoadServer, UnloadClient, ...
+	const char *pType; // the Bootstrap type that serves the side
+	bootstrap_load_fn pfnLoad;
+	bootstrap_unload_fn pfnUnload;
+	bootstrap_reload_check_fn pfnReloadCheck;
 };
 
 //-----------------------------------------------------------------------------
@@ -84,8 +108,8 @@ struct SourceSharpSideEntries
 //-----------------------------------------------------------------------------
 struct SourceSharpCaller
 {
-	const char	*pName;		// basename of the calling module, for logging
-	const void	*pBase;		// its load address, for identity comparisons
+	const char *pName; // basename of the calling module, for logging
+	const void *pBase; // its load address, for identity comparisons
 };
 
 static SourceSharpCaller SS_DescribeCaller( const void *pReturnAddress )
@@ -94,9 +118,9 @@ static SourceSharpCaller SS_DescribeCaller( const void *pReturnAddress )
 
 #ifdef _WIN32
 	HMODULE hModule = NULL;
-	if ( ::GetModuleHandleExA(
-			GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-			(LPCSTR)pReturnAddress, &hModule ) && hModule )
+	if ( ::GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+							   (LPCSTR)pReturnAddress, &hModule ) &&
+		 hModule )
 	{
 		caller.pBase = (const void *)hModule;
 		caller.pName = "module";
@@ -118,14 +142,14 @@ static SourceSharpCaller SS_DescribeCaller( const void *pReturnAddress )
 }
 
 #if defined( _MSC_VER )
-	#include <intrin.h>
-	#pragma intrinsic( _ReturnAddress )
-	#define SS_RETURN_ADDRESS()	_ReturnAddress()
+#include <intrin.h>
+#pragma intrinsic( _ReturnAddress )
+#define SS_RETURN_ADDRESS() _ReturnAddress()
 #else
-	#define SS_RETURN_ADDRESS()	__builtin_return_address( 0 )
+#define SS_RETURN_ADDRESS() __builtin_return_address( 0 )
 #endif
 
-#define SS_CALLER()	SS_DescribeCaller( SS_RETURN_ADDRESS() )
+#define SS_CALLER() SS_DescribeCaller( SS_RETURN_ADDRESS() )
 
 // hostfxr's strings are char_t: char on Linux and macOS, wchar_t on Windows,
 // where the runtime takes UTF-16 paths and names. This host builds them as
@@ -136,18 +160,25 @@ static SourceSharpCaller SS_DescribeCaller( const void *pReturnAddress )
 struct SS_HostString
 {
 	wchar_t sz[1024];
+
 	explicit SS_HostString( const char *pUtf8 )
 	{
 		if ( !MultiByteToWideChar( CP_UTF8, 0, pUtf8, -1, sz, (int)( sizeof( sz ) / sizeof( sz[0] ) ) ) )
 			sz[0] = L'\0';
 	}
+
 	const char_t *c_str() const { return sz; }
 };
 #else
 struct SS_HostString
 {
 	const char *p;
-	explicit SS_HostString( const char *pUtf8 ) : p( pUtf8 ) {}
+
+	explicit SS_HostString( const char *pUtf8 )
+		: p( pUtf8 )
+	{
+	}
+
 	const char_t *c_str() const { return p; }
 };
 #endif
@@ -170,12 +201,15 @@ struct SS_HostString
 // than to stdout -- which is strictly better than either "dangle" or "go quiet".
 // Two slots is the whole population: there are two sides.
 //-----------------------------------------------------------------------------
-enum { kSourceSharpMaxLogSlots = 2 };
+enum
+{
+	kSourceSharpMaxLogSlots = 2
+};
 
 struct SourceSharpLogSlot
 {
-	const void			*pModuleBase;
-	SourceSharpLogFn	pfnLog;
+	const void *pModuleBase;
+	SourceSharpLogFn pfnLog;
 };
 
 //-----------------------------------------------------------------------------
@@ -185,25 +219,25 @@ struct SourceSharpLogSlot
 //-----------------------------------------------------------------------------
 struct SourceSharpState
 {
-	int							nRefCount;
-	ss_module_t					hHostFxr;
-	hostfxr_handle				hContext;
+	int nRefCount;
+	ss_module_t hHostFxr;
+	hostfxr_handle hContext;
 
-	hostfxr_initialize_for_runtime_config_fn	pfnInit;
-	hostfxr_get_runtime_delegate_fn				pfnGetDelegate;
-	hostfxr_close_fn							pfnClose;
+	hostfxr_initialize_for_runtime_config_fn pfnInit;
+	hostfxr_get_runtime_delegate_fn pfnGetDelegate;
+	hostfxr_close_fn pfnClose;
 
-	load_assembly_and_get_function_pointer_fn	pfnLoadAssemblyAndGetFn;
+	load_assembly_and_get_function_pointer_fn pfnLoadAssemblyAndGetFn;
 
-	SourceSharpSideEntries		Server;
-	SourceSharpSideEntries		Client;
+	SourceSharpSideEntries Server;
+	SourceSharpSideEntries Client;
 
-	SourceSharpLogSlot			LogSlots[kSourceSharpMaxLogSlots];
-	int							nLogSlots;
-	int							nVerbosity;
+	SourceSharpLogSlot LogSlots[kSourceSharpMaxLogSlots];
+	int nLogSlots;
+	int nVerbosity;
 
-	char						szModBinDir[1024];
-	char						szLastError[1024];
+	char szModBinDir[1024];
+	char szLastError[1024];
 };
 
 // THE OWNER'S SANCTIONED EXCEPTION TO "no file-scope statics or globals in
@@ -219,7 +253,8 @@ struct SourceSharpState
 // cold path memsets it, and doing that while another module holds a reference
 // would silently drop that module's count. The refcount guard above the memset
 // is what stops it.
-static SourceSharpState g_State = { 0, 0, 0, 0, 0, 0, 0, { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 }, { { 0, 0 }, { 0, 0 } }, 0, 1, "", "" };
+static SourceSharpState g_State = {
+	0, 0, 0, 0, 0, 0, 0, { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 }, { { 0, 0 }, { 0, 0 } }, 0, 1, "", "" };
 
 void SourceSharp_SetLogger( SourceSharpLogFn pfnLog )
 {
@@ -300,9 +335,9 @@ static void SS_LogAt( int nLevel, const char *pFmt, ... )
 		fputs( szLine, stdout );
 }
 
-#define SS_LogErr( ... )  SS_LogAt( 0, __VA_ARGS__ )
-#define SS_Log( ... )     SS_LogAt( 1, __VA_ARGS__ )
-#define SS_LogV( ... )    SS_LogAt( 2, __VA_ARGS__ )
+#define SS_LogErr( ... ) SS_LogAt( 0, __VA_ARGS__ )
+#define SS_Log( ... ) SS_LogAt( 1, __VA_ARGS__ )
+#define SS_LogV( ... ) SS_LogAt( 2, __VA_ARGS__ )
 
 //-----------------------------------------------------------------------------
 // Decodes the hostfxr status codes that matter for diagnosis.
@@ -311,12 +346,18 @@ static const char *HostFxrResultName( int rc )
 {
 	switch ( rc )
 	{
-	case 0:          return "Success";
-	case 1:          return "Success_HostAlreadyInitialized";
-	case 2:          return "Success_DifferentRuntimeProperties";
-	case -2147450750: return "CoreHostIncompatibleConfig";
-	case -2147450748: return "HostApiUnsupportedScenario";
-	default:         return "unknown";
+		case 0:
+			return "Success";
+		case 1:
+			return "Success_HostAlreadyInitialized";
+		case 2:
+			return "Success_DifferentRuntimeProperties";
+		case -2147450750:
+			return "CoreHostIncompatibleConfig";
+		case -2147450748:
+			return "HostApiUnsupportedScenario";
+		default:
+			return "unknown";
 	}
 }
 
@@ -467,8 +508,8 @@ int SourceSharp_Acquire( const char *pModBinDir )
 		// zeroed g_State. A run whose log shows two "runtime ready, refcount 1"
 		// lines and no "refcount now 2" is the bug, back again.
 		g_State.nRefCount++;
-		SS_Log( "Acquire[%s]: runtime already running, refcount now %d (listen server)",
-			caller.pName, g_State.nRefCount );
+		SS_Log( "Acquire[%s]: runtime already running, refcount now %d (listen server)", caller.pName,
+				g_State.nRefCount );
 		return SOURCESHARP_OK;
 	}
 
@@ -479,8 +520,7 @@ int SourceSharp_Acquire( const char *pModBinDir )
 	// zeroed here. It does clear the log slots, so the caller's logger is put
 	// back immediately below rather than being lost for the rest of this call.
 	{
-		const SourceSharpLogSlot savedSlots[kSourceSharpMaxLogSlots] =
-			{ g_State.LogSlots[0], g_State.LogSlots[1] };
+		const SourceSharpLogSlot savedSlots[kSourceSharpMaxLogSlots] = { g_State.LogSlots[0], g_State.LogSlots[1] };
 		const int nSavedSlots = g_State.nLogSlots;
 		const int nSavedVerbosity = g_State.nVerbosity;
 
@@ -517,12 +557,11 @@ int SourceSharp_Acquire( const char *pModBinDir )
 	}
 	SS_Log( "  hostfxr loaded" );
 
-	g_State.pfnInit = (hostfxr_initialize_for_runtime_config_fn)
-		ss_dlsym( g_State.hHostFxr, "hostfxr_initialize_for_runtime_config" );
-	g_State.pfnGetDelegate = (hostfxr_get_runtime_delegate_fn)
-		ss_dlsym( g_State.hHostFxr, "hostfxr_get_runtime_delegate" );
-	g_State.pfnClose = (hostfxr_close_fn)
-		ss_dlsym( g_State.hHostFxr, "hostfxr_close" );
+	g_State.pfnInit =
+		(hostfxr_initialize_for_runtime_config_fn)ss_dlsym( g_State.hHostFxr, "hostfxr_initialize_for_runtime_config" );
+	g_State.pfnGetDelegate =
+		(hostfxr_get_runtime_delegate_fn)ss_dlsym( g_State.hHostFxr, "hostfxr_get_runtime_delegate" );
+	g_State.pfnClose = (hostfxr_close_fn)ss_dlsym( g_State.hHostFxr, "hostfxr_close" );
 
 	if ( !g_State.pfnInit || !g_State.pfnGetDelegate || !g_State.pfnClose )
 	{
@@ -533,7 +572,7 @@ int SourceSharp_Acquire( const char *pModBinDir )
 
 	char szRuntimeConfig[1024];
 	snprintf( szRuntimeConfig, sizeof( szRuntimeConfig ),
-		"%s" SS_PATHSEP "managed" SS_PATHSEP "SourceSharp.Bootstrap.runtimeconfig.json", pModBinDir );
+			  "%s" SS_PATHSEP "managed" SS_PATHSEP "SourceSharp.Bootstrap.runtimeconfig.json", pModBinDir );
 
 	SS_Log( "  runtimeconfig: %s", szRuntimeConfig );
 
@@ -548,9 +587,8 @@ int SourceSharp_Acquire( const char *pModBinDir )
 		return SOURCESHARP_ERR_RUNTIME_INIT;
 	}
 
-	rc = g_State.pfnGetDelegate( g_State.hContext,
-		hdt_load_assembly_and_get_function_pointer,
-		(void **)&g_State.pfnLoadAssemblyAndGetFn );
+	rc = g_State.pfnGetDelegate( g_State.hContext, hdt_load_assembly_and_get_function_pointer,
+								 (void **)&g_State.pfnLoadAssemblyAndGetFn );
 
 	if ( rc != 0 || !g_State.pfnLoadAssemblyAndGetFn )
 	{
@@ -563,7 +601,7 @@ int SourceSharp_Acquire( const char *pModBinDir )
 	// raw function pointers — never a hostfxr lookup on a hot path.
 	char szBootstrapDll[1024];
 	snprintf( szBootstrapDll, sizeof( szBootstrapDll ),
-		"%s" SS_PATHSEP "managed" SS_PATHSEP "SourceSharp.Bootstrap.dll", pModBinDir );
+			  "%s" SS_PATHSEP "managed" SS_PATHSEP "SourceSharp.Bootstrap.dll", pModBinDir );
 
 	SS_Log( "  bootstrap: %s", szBootstrapDll );
 
@@ -577,21 +615,25 @@ int SourceSharp_Acquire( const char *pModBinDir )
 	SourceSharpSideEntries *pSides[] = { &g_State.Server, &g_State.Client };
 	for ( SourceSharpSideEntries *pSide : pSides )
 	{
-		struct { const char *pVerb; void **ppFn; } entries[] = {
-			{ "Load",        (void **)&pSide->pfnLoad },
-			{ "Unload",      (void **)&pSide->pfnUnload },
+		struct
+		{
+			const char *pVerb;
+			void **ppFn;
+		} entries[] = {
+			{ "Load", (void **)&pSide->pfnLoad },
+			{ "Unload", (void **)&pSide->pfnUnload },
 			// plan_managed_vtable_reload.md L5: the reload's hash check, run
 			// before the running build is touched.
 			{ "ReloadCheck", (void **)&pSide->pfnReloadCheck },
 		};
+
 		for ( const auto &entry : entries )
 		{
 			char szMethod[64];
 			snprintf( szMethod, sizeof( szMethod ), "%s%s", entry.pVerb, pSide->pSuffix );
-			rc = g_State.pfnLoadAssemblyAndGetFn( SS_HostString( szBootstrapDll ).c_str(),
-			                                      SS_HostString( pSide->pType ).c_str(),
-			                                      SS_HostString( szMethod ).c_str(),
-			                                      UNMANAGEDCALLERSONLY_METHOD, NULL, entry.ppFn );
+			rc = g_State.pfnLoadAssemblyAndGetFn(
+				SS_HostString( szBootstrapDll ).c_str(), SS_HostString( pSide->pType ).c_str(),
+				SS_HostString( szMethod ).c_str(), UNMANAGEDCALLERSONLY_METHOD, NULL, entry.ppFn );
 			if ( rc != 0 || !*entry.ppFn )
 			{
 				SetError( "failed to resolve %s.%s (0x%x) in %s", pSide->pType, szMethod, rc, szBootstrapDll );
@@ -664,8 +706,8 @@ void SourceSharp_Release( void )
 // area acquired through the managed root this hands back. The shim root's
 // forwarder table's count is checked on the managed side.
 //-----------------------------------------------------------------------------
-static int LoadSide( const SourceSharpSideEntries &side,
-                     void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot )
+static int LoadSide( const SourceSharpSideEntries &side, void *pShimRoot, const void *pShimRootTable,
+					 void **ppManagedRoot )
 {
 	if ( g_State.nRefCount <= 0 || !side.pfnLoad )
 	{
@@ -679,8 +721,7 @@ static int LoadSide( const SourceSharpSideEntries &side,
 		return SOURCESHARP_ERR_BOOTSTRAP;
 	}
 
-	SS_Log( "LoadSideV2(%s): calling managed bootstrap, root %p, table %p",
-		side.pName, pShimRoot, pShimRootTable );
+	SS_Log( "LoadSideV2(%s): calling managed bootstrap, root %p, table %p", side.pName, pShimRoot, pShimRootTable );
 
 	if ( ppManagedRoot )
 		*ppManagedRoot = NULL;
@@ -717,12 +758,31 @@ static void UnloadSide( const SourceSharpSideEntries &side )
 }
 
 int SourceSharp_LoadServer( void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot )
-{ return LoadSide( g_State.Server, pShimRoot, pShimRootTable, ppManagedRoot ); }
+{
+	return LoadSide( g_State.Server, pShimRoot, pShimRootTable, ppManagedRoot );
+}
+
 int SourceSharp_LoadClient( void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot )
-{ return LoadSide( g_State.Client, pShimRoot, pShimRootTable, ppManagedRoot ); }
+{
+	return LoadSide( g_State.Client, pShimRoot, pShimRootTable, ppManagedRoot );
+}
 
-int SourceSharp_ReloadCheckServer( char *pWhy, int32_t nWhy ) { return ReloadCheck( g_State.Server, pWhy, nWhy ); }
-int SourceSharp_ReloadCheckClient( char *pWhy, int32_t nWhy ) { return ReloadCheck( g_State.Client, pWhy, nWhy ); }
+int SourceSharp_ReloadCheckServer( char *pWhy, int32_t nWhy )
+{
+	return ReloadCheck( g_State.Server, pWhy, nWhy );
+}
 
-void SourceSharp_UnloadServer( void ) { UnloadSide( g_State.Server ); }
-void SourceSharp_UnloadClient( void ) { UnloadSide( g_State.Client ); }
+int SourceSharp_ReloadCheckClient( char *pWhy, int32_t nWhy )
+{
+	return ReloadCheck( g_State.Client, pWhy, nWhy );
+}
+
+void SourceSharp_UnloadServer( void )
+{
+	UnloadSide( g_State.Server );
+}
+
+void SourceSharp_UnloadClient( void )
+{
+	UnloadSide( g_State.Client );
+}

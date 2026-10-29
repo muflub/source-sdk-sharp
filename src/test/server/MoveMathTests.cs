@@ -878,7 +878,7 @@ public class FallDamageTests
     [Fact]
     public void AFallOneUnitUnderTheSafeSpeedDoesNoDamage()
     {
-        Assert.Equal(0f, MoveMath.FallDamage(579f));
+        Assert.Equal(0f, MoveMath.FallDamage(525.5f));
     }
 
     /// <summary>
@@ -889,7 +889,7 @@ public class FallDamageTests
     [Fact]
     public void AFallOneUnitOverTheSafeSpeedDoesDamage()
     {
-        Assert.True(MoveMath.FallDamage(581f) > 0f,
+        Assert.True(MoveMath.FallDamage(527.5f) > 0f,
             "a fall past PLAYER_MAX_SAFE_FALL_SPEED must cost health");
     }
 
@@ -900,7 +900,7 @@ public class FallDamageTests
     [Fact]
     public void AFallExactlyAtTheSafeSpeedDoesNoDamage()
     {
-        Assert.Equal(0f, MoveMath.FallDamage(580f));
+        Assert.Equal(0f, MoveMath.FallDamage(526.5f));
     }
 
     /// <summary>
@@ -912,7 +912,7 @@ public class FallDamageTests
     [Fact]
     public void AFallAtTheFatalSpeedDoesExactlyOneHundred()
     {
-        Assert.Equal(100f, MoveMath.FallDamage(1024f), 3);
+        Assert.Equal(100f, MoveMath.FallDamage(922.5f), 3);
     }
 
     /// <summary>
@@ -923,30 +923,30 @@ public class FallDamageTests
     [Fact]
     public void TheFallDamageRuleIsLinearBetweenTheTwoSpeeds()
     {
-        // (580 + 1024) / 2, written out because the point of the fact is that
-        // the port agrees with stock's numbers and not with its own.
-        Assert.Equal(50f, MoveMath.FallDamage(802f), 3);
+        // (526.5 + 922.5) / 2, written out because the point of the fact is
+        // that the port agrees with stock's numbers and not with its own.
+        Assert.Equal(50f, MoveMath.FallDamage(724.5f), 3);
     }
 
     /// <summary>
     /// THE MULTIPLY COMES BEFORE THE DIVIDE. <c>DAMAGE_FOR_FALL_SPEED</c> is an
     /// unparenthesised macro, so stock's expansion is
-    /// <c>(v - 580) * 100.0f / 444</c>; folding the constant to
-    /// <c>(v - 580) * (100.0f / 444)</c> is a different float. This fact is bit-
+    /// <c>(v - 526.5) * 100.0f / 396</c>; folding the constant to
+    /// <c>(v - 526.5) * (100.0f / 396)</c> is a different float. This fact is bit-
     /// exact against the expansion and goes red if anyone "simplifies" it.
     /// </summary>
     [Fact]
     public void TheFallDamageRuleMatchesTheMacroExpansionBitForBit()
     {
-        // 587.46875 IS CHOSEN AND NOT ARBITRARY. At most inputs the two
+        // 527.09375 IS CHOSEN AND NOT ARBITRARY. At most inputs the two
         // orderings agree to the last bit, so a value picked for looking like a
         // fall speed makes a fact that cannot fail. This one is a value at
-        // which they DIFFER — folded gives 1.6821508407592773, stock's ordering
-        // 1.682150959968567 — which is what makes replacing the expression with
-        // the folded constant go red here and nowhere else.
-        const float v = 587.46875f;
+        // which they DIFFER — folded gives 0.14993685483932495, stock's
+        // ordering 0.14993686974048615 — which is what makes replacing the
+        // expression with the folded constant go red here and nowhere else.
+        const float v = 527.09375f;
 
-        float stock = (v - 580f) * 100.0f / (1024f - 580f);
+        float stock = (v - 526.5f) * 100.0f / (922.5f - 526.5f);
 
         Assert.Equal(BitConverter.SingleToInt32Bits(stock),
                      BitConverter.SingleToInt32Bits(MoveMath.FallDamage(v)));
@@ -974,9 +974,10 @@ public class FallDamageTests
     {
         Assert.Equal(MoveMath.PlayerMaxSafeFallSpeed, GameMovement.PlayerMaxSafeFallSpeed);
 
-        // And it is STOCK's number, not merely a shared one. Two identical
-        // wrong constants would satisfy the line above on its own.
-        Assert.Equal(580f, MoveMath.PlayerMaxSafeFallSpeed);
-        Assert.Equal(1024f, MoveMath.PlayerFatalFallSpeed);
+        // And it is STOCK HL2MP's number, not merely a shared one: the HL2
+        // arm of shareddefs.h, which its projects compile. Two identical wrong
+        // constants would satisfy the line above on its own.
+        Assert.Equal(526.5f, MoveMath.PlayerMaxSafeFallSpeed);
+        Assert.Equal(922.5f, MoveMath.PlayerFatalFallSpeed);
     }
 }

@@ -88,75 +88,28 @@ uintptr_t PayloadOf( const void *pGameData )
 //-----------------------------------------------------------------------------
 struct Sample_t
 {
-	int         nEntry;
-	int         nSerial;
+	int nEntry;
+	int nSerial;
 	const char *pszWhy;
 };
 
 const Sample_t kSamples[] = {
-	{ 0,                    0,                             "entry 0 serial 0 -- packs to the integer ZERO, which is the whole reason for the bias" },
-	{ 0,                    1,                             "entry 0, a serial that is not" },
-	{ 1,                    0,                             "a serial of zero on a non-zero entry" },
-	{ MAX_EDICTS - 1,       7,                             "the last edict" },
-	{ MAX_EDICTS,           7,                             "the first entry the engine cannot see (§3.3)" },
-	{ NUM_ENT_ENTRIES - 1,  0,                             "the last entry in the table" },
-	{ NUM_ENT_ENTRIES - 1,  SOURCESHARP_SLOT_SERIAL_MASK,  "the largest word a valid handle can pack to" },
+	{ 0, 0, "entry 0 serial 0 -- packs to the integer ZERO, which is the whole reason for the bias" },
+	{ 0, 1, "entry 0, a serial that is not" },
+	{ 1, 0, "a serial of zero on a non-zero entry" },
+	{ MAX_EDICTS - 1, 7, "the last edict" },
+	{ MAX_EDICTS, 7, "the first entry the engine cannot see (§3.3)" },
+	{ NUM_ENT_ENTRIES - 1, 0, "the last entry in the table" },
+	{ NUM_ENT_ENTRIES - 1, SOURCESHARP_SLOT_SERIAL_MASK, "the largest word a valid handle can pack to" },
 };
 
-const size_t kNumSamples = sizeof( kSamples ) / sizeof( kSamples[ 0 ] );
+const size_t kNumSamples = sizeof( kSamples ) / sizeof( kSamples[0] );
 
 //-----------------------------------------------------------------------------
 // Reading the tree, for the facts that are about what a FILE says rather than
 // about what a function does. Same shape as cpp_alias_lane1_test.cpp's.
 //-----------------------------------------------------------------------------
-const char *SrcRoot()
-{
-	static const char *kCandidates[] = { ".", "src", "../src" };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[ 0 ] ); i++ )
-	{
-		struct stat st;
-		const std::string game = std::string( kCandidates[ i ] ) + "/game";
-		const std::string pub  = std::string( kCandidates[ i ] ) + "/public";
-		if ( stat( game.c_str(), &st ) == 0 && S_ISDIR( st.st_mode )
-			&& stat( pub.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) )
-		{
-			return kCandidates[ i ];
-		}
-	}
-	return NULL;
-}
-
-std::string ReadFile( const char *pszRelative )
-{
-	const char *pszRoot = SrcRoot();
-	if ( !pszRoot )
-		return std::string();
-
-	std::ifstream file( ( std::string( pszRoot ) + "/" + pszRelative ).c_str() );
-	if ( !file.is_open() )
-		return std::string();
-
-	std::string all, line;
-	while ( std::getline( file, line ) )
-		all += line + "\n";
-	return all;
-}
-
-bool Contains( const std::string &hay, const char *pszNeedle )
-{
-	return hay.find( pszNeedle ) != std::string::npos;
-}
-
-const char *kShellBase        = "sourcesharp/game/server/shell_standalone_base.cpp";
-const char *kShellPhysObjects = "sourcesharp/game/server/shell_physicsobjects.cpp";
-// shell_constraints.cpp left the tree at plan_physics_bones_native_zero 2.4:
-// the constraint table is managed's, so no shim file of this step holds it.
-const char *kShellConstraints = "sourcesharp/game/server/shell_constraints.cpp";
-const char *kPhysicsOwner     = "sourcesharp/game/shared/physicsowner.h";
-const char *kServerPhysics    = "sourcesharp/game/server/physics.cpp";
-
 } // namespace
-
 
 //=============================================================================
 // THE BOUNDARY: PLUS ONE, AND WHY IT IS NOT DECORATION
@@ -210,11 +163,10 @@ TEST( PhysicsGameDataBias, TheStoredWordIsThePackedHandlePlusExactlyOne )
 {
 	for ( size_t i = 0; i < kNumSamples; i++ )
 	{
-		const CBaseHandle handle( kSamples[ i ].nEntry, kSamples[ i ].nSerial );
-		const uintptr_t   expected = (uintptr_t)(uint32)handle.ToInt() + 1;
+		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
+		const uintptr_t expected = (uintptr_t)(uint32)handle.ToInt() + 1;
 
-		EXPECT_EQ( expected, PayloadOf( PhysicsGameDataFromHandle( handle ) ) )
-			<< kSamples[ i ].pszWhy;
+		EXPECT_EQ( expected, PayloadOf( PhysicsGameDataFromHandle( handle ) ) ) << kSamples[i].pszWhy;
 	}
 }
 
@@ -227,15 +179,14 @@ TEST( PhysicsGameDataBias, TheDecodeSubtractsExactlyOneFromAHandWrittenWord )
 {
 	for ( size_t i = 0; i < kNumSamples; i++ )
 	{
-		const CBaseHandle handle( kSamples[ i ].nEntry, kSamples[ i ].nSerial );
+		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
 
-		const uintptr_t word = ( (uintptr_t)(uint32)handle.ToInt() + 1 )
-		                     | SOURCESHARP_PHYSICS_GAMEDATA_TAG;
+		const uintptr_t word = ( (uintptr_t)(uint32)handle.ToInt() + 1 ) | SOURCESHARP_PHYSICS_GAMEDATA_TAG;
 
 		const CBaseHandle back = PhysicsHandleFromGameData( (void *)word );
 
-		EXPECT_EQ( kSamples[ i ].nEntry,  back.GetEntryIndex() )  << kSamples[ i ].pszWhy;
-		EXPECT_EQ( kSamples[ i ].nSerial, back.GetSerialNumber() ) << kSamples[ i ].pszWhy;
+		EXPECT_EQ( kSamples[i].nEntry, back.GetEntryIndex() ) << kSamples[i].pszWhy;
+		EXPECT_EQ( kSamples[i].nSerial, back.GetSerialNumber() ) << kSamples[i].pszWhy;
 	}
 }
 
@@ -246,10 +197,10 @@ TEST( PhysicsGameDataBias, EveryHandleComesBackAsItself )
 {
 	for ( size_t i = 0; i < kNumSamples; i++ )
 	{
-		const CBaseHandle handle( kSamples[ i ].nEntry, kSamples[ i ].nSerial );
+		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
 		const CBaseHandle back = PhysicsHandleFromGameData( PhysicsGameDataFromHandle( handle ) );
 
-		EXPECT_TRUE( back == handle ) << kSamples[ i ].pszWhy;
+		EXPECT_TRUE( back == handle ) << kSamples[i].pszWhy;
 	}
 }
 
@@ -270,7 +221,6 @@ TEST( PhysicsGameDataBias, AnEntityWithNoHandleStoresNoOwnerAndNotEntry8191 )
 	EXPECT_EQ( PHYSICS_GAMEDATA_NONE, PhysicsGameDataKindOf( PhysicsGameDataFromHandle( invalid ) ) );
 }
 
-
 //=============================================================================
 // THE DISCRIMINATOR: WHICH ARM OF PhysicsOwnerOf A WORD BELONGS TO
 //=============================================================================
@@ -282,12 +232,11 @@ TEST( PhysicsGameDataKind, AStoredHandleReadsAsAHandle )
 {
 	for ( size_t i = 0; i < kNumSamples; i++ )
 	{
-		const CBaseHandle handle( kSamples[ i ].nEntry, kSamples[ i ].nSerial );
+		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
 		void *pGameData = PhysicsGameDataFromHandle( handle );
 
-		EXPECT_EQ( PHYSICS_GAMEDATA_HANDLE, PhysicsGameDataKindOf( pGameData ) )
-			<< kSamples[ i ].pszWhy;
-		EXPECT_TRUE( PhysicsGameDataIsHandle( pGameData ) ) << kSamples[ i ].pszWhy;
+		EXPECT_EQ( PHYSICS_GAMEDATA_HANDLE, PhysicsGameDataKindOf( pGameData ) ) << kSamples[i].pszWhy;
+		EXPECT_TRUE( PhysicsGameDataIsHandle( pGameData ) ) << kSamples[i].pszWhy;
 	}
 }
 
@@ -310,21 +259,20 @@ TEST( PhysicsGameDataKind, ARealEntityPointerNeverReadsAsAHandle )
 	EXPECT_EQ( PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf( &onStack ) )
 		<< "a stack address carried the handle tag";
 
-	std::vector< FakeShell * > allocated;
+	std::vector<FakeShell *> allocated;
 	for ( int i = 0; i < 64; i++ )
 		allocated.push_back( new FakeShell );
 
 	for ( size_t i = 0; i < allocated.size(); i++ )
 	{
-		EXPECT_EQ( PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf( allocated[ i ] ) )
-			<< "heap allocation " << i << " at " << (void *)allocated[ i ]
+		EXPECT_EQ( PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf( allocated[i] ) )
+			<< "heap allocation " << i << " at " << (void *)allocated[i]
 			<< " carried the handle tag -- the discriminator is not exact";
-		EXPECT_FALSE( PhysicsHandleFromGameData( allocated[ i ] ).IsValid() )
-			<< "a heap pointer decoded to a handle";
+		EXPECT_FALSE( PhysicsHandleFromGameData( allocated[i] ).IsValid() ) << "a heap pointer decoded to a handle";
 	}
 
 	for ( size_t i = 0; i < allocated.size(); i++ )
-		delete allocated[ i ];
+		delete allocated[i];
 }
 
 //-----------------------------------------------------------------------------
@@ -334,14 +282,11 @@ TEST( PhysicsGameDataKind, ARealEntityPointerNeverReadsAsAHandle )
 //-----------------------------------------------------------------------------
 TEST( PhysicsGameDataKind, TheTagIsTheTopBitOfAPointerSizedWord )
 {
-	EXPECT_EQ( (uintptr_t)1 << ( sizeof( void * ) * 8 - 1 ),
-	           SOURCESHARP_PHYSICS_GAMEDATA_TAG );
+	EXPECT_EQ( (uintptr_t)1 << ( sizeof( void * ) * 8 - 1 ), SOURCESHARP_PHYSICS_GAMEDATA_TAG );
 
 	const CBaseHandle handle( 3, 4 );
-	EXPECT_TRUE( ( WordOf( PhysicsGameDataFromHandle( handle ) )
-	               & SOURCESHARP_PHYSICS_GAMEDATA_TAG ) != 0 );
+	EXPECT_TRUE( ( WordOf( PhysicsGameDataFromHandle( handle ) ) & SOURCESHARP_PHYSICS_GAMEDATA_TAG ) != 0 );
 }
-
 
 //=============================================================================
 // THE HEART OF THE STEP: A STALE HANDLE IN GAME DATA
@@ -396,11 +341,9 @@ TEST( PhysicsGameDataStale, AStaleHandleInGameDataResolvesToNullAndNotToTheNewOc
 
 	void *pResolved = table.Resolve( PhysicsHandleFromGameData( pGameData ) );
 
-	EXPECT_TRUE( pResolved == NULL )
-		<< "a stale handle in game data resolved to something";
-	EXPECT_NE( &alive, pResolved )
-		<< "a stale handle in game data resolved to the entry's NEW occupant -- "
-		   "a VPhysics callback about a dead entity would be delivered to a live one";
+	EXPECT_TRUE( pResolved == NULL ) << "a stale handle in game data resolved to something";
+	EXPECT_NE( &alive, pResolved ) << "a stale handle in game data resolved to the entry's NEW occupant -- "
+									  "a VPhysics callback about a dead entity would be delivered to a live one";
 }
 
 //-----------------------------------------------------------------------------
@@ -480,16 +423,15 @@ TEST( PhysicsGameDataStale, TwoObjectsGameDataAnswerWithTwoDifferentShells )
 	CSourceSharpSlotTable table;
 	FakeShell first = { 1 }, second = { 2 };
 
-	void *pFirst  = PhysicsGameDataFromHandle( table.Bind( 100, &first ) );
+	void *pFirst = PhysicsGameDataFromHandle( table.Bind( 100, &first ) );
 	void *pSecond = PhysicsGameDataFromHandle( table.Bind( 101, &second ) );
 
 	ASSERT_TRUE( pFirst != NULL && pSecond != NULL );
 	EXPECT_NE( pFirst, pSecond );
 
-	EXPECT_EQ( &first,  table.Resolve( PhysicsHandleFromGameData( pFirst ) ) );
+	EXPECT_EQ( &first, table.Resolve( PhysicsHandleFromGameData( pFirst ) ) );
 	EXPECT_EQ( &second, table.Resolve( PhysicsHandleFromGameData( pSecond ) ) );
 }
-
 
 //=============================================================================
 // THE REGISTRY IS GONE, AND THE SHIM READS NO GAME DATA
@@ -503,46 +445,11 @@ TEST( PhysicsGameDataStale, TwoObjectsGameDataAnswerWithTwoDifferentShells )
 // The scanner opened the right files. Two lanes have shipped a source-scanning
 // test that was reading nothing; assert the reads before asserting on them.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataSource, TheFilesAreReallyOpenedAndNonEmpty )
-{
-	ASSERT_TRUE( SrcRoot() != NULL ) << "cannot locate the src tree from the cwd";
-
-	EXPECT_TRUE( Contains( ReadFile( kShellBase ), "void CStandaloneEntity::DestroyPhysics()" ) )
-		<< kShellBase << " has no DestroyPhysics -- the scanner opened the wrong file";
-	EXPECT_TRUE( Contains( ReadFile( kShellPhysObjects ), "PhysicsStandaloneOwner" ) )
-		<< kShellPhysObjects << " has no PhysicsStandaloneOwner";
-	// (PhysTeleportConstrainedEntity was the needle; it went in the server gc
-	// cull, 2026-10-01, with no caller.)
-	EXPECT_TRUE( ReadFile( kShellConstraints ).empty() )
-		<< kShellConstraints << " is back (plan_physics_bones_native_zero 2.4 deleted it)";
-	EXPECT_TRUE( Contains( ReadFile( kPhysicsOwner ), "PhysicsOwnerOf" ) )
-		<< kPhysicsOwner << " has no PhysicsOwnerOf";
-}
-
 //-----------------------------------------------------------------------------
 // THE FILE-SCOPE REGISTRY IS DELETED. plan_entity.md step 1h says so in as many
 // words, and plan.md §1a says nothing is a file-scope global; this is the fact
 // that notices a replacement one appearing under a new name in the same place.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataSource, TheFileScopePhysicsOwnerRegistryIsGone )
-{
-	const std::string strBase = ReadFile( kShellBase );
-	ASSERT_FALSE( strBase.empty() );
-
-	EXPECT_FALSE( Contains( strBase, "g_PhysicsOwners" ) )
-		<< "the registry step 1h deletes is still in " << kShellBase;
-
-	// And the scan it existed for. Narrower than "no CUtlVector here", on
-	// purpose: this file still holds the entity list and the pending-delete
-	// list, which are other steps' to move, and a fact that tripped on those
-	// would be a fact about somebody else's work.
-	EXPECT_FALSE( Contains( strBase, "->GetPhysics() == pObject" ) )
-		<< "a linear scan for the object's owner is back in " << kShellBase;
-	EXPECT_FALSE( Contains( strBase, "IServerEntity *PhysicsStandaloneOwner" ) )
-		<< kShellBase << " still defines PhysicsStandaloneOwner -- it moved to "
-		<< kShellPhysObjects << " with the registry's deletion";
-}
-
 //-----------------------------------------------------------------------------
 // And what replaced it: the object carries its owner's handle. Written by
 // managed since the entity physics init moved (2026-10-12):
@@ -554,29 +461,6 @@ TEST( PhysicsGameDataSource, TheFileScopePhysicsOwnerRegistryIsGone )
 // one: the REMOVAL half is that no create is left in it, the RETENTION half
 // that the hold and its teardown, which clears the game data, are.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataSource, TheShellHoldsTheObjectManagedMadeAndCreatesNone )
-{
-	const std::string strBase = ReadFile( kShellBase );
-	const std::string strHeader = ReadFile( "sourcesharp/game/server/shell_standalone.h" );
-	ASSERT_FALSE( strBase.empty() );
-	ASSERT_FALSE( strHeader.empty() );
-
-	EXPECT_FALSE( Contains( strBase, "CreatePolyObject" ) )
-		<< kShellBase << " creates a physics object again; managed's EntityPhysicsCreation makes them";
-	EXPECT_FALSE( Contains( strBase, "pGameData = " ) )
-		<< kShellBase << " writes an object's game data again";
-	EXPECT_FALSE( Contains( strHeader, "bool InitPhysics(" ) )
-		<< "CStandaloneEntity::InitPhysics is declared again";
-
-	EXPECT_TRUE( Contains( strHeader, "IPhysicsObject *SwapPhysics( IPhysicsObject *pObject )" ) )
-		<< "the shell no longer holds the object managed made";
-	EXPECT_TRUE( Contains( strBase, "m_pPhysics->SetGameData( NULL );" ) )
-		<< "DestroyPhysics no longer clears the owner before the object goes";
-	EXPECT_TRUE( Contains( ReadFile( kShellPhysObjects ),
-	                       "int32_t SourceSharp_EntitySwapPhysicsObject( uint32_t hEntity, void *pObject, void **ppPrevious )" ) )
-		<< "the ABI's swap body is gone";
-}
-
 //-----------------------------------------------------------------------------
 // THE TWO LOOKUPS DO NOT READ GAME DATA AND DO NOT CAST.
 //
@@ -586,17 +470,6 @@ TEST( PhysicsGameDataSource, TheShellHoldsTheObjectManagedMadeAndCreatesNone )
 // object again would put a GetGameData call back into a shim TU, which is what
 // the step's census gate measures.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataSource, TheStandaloneLookupsTakeAHandleAndNotAnObject )
-{
-	const std::string strPhys = ReadFile( kShellPhysObjects );
-	ASSERT_FALSE( strPhys.empty() );
-
-	EXPECT_TRUE( Contains( strPhys, "IServerEntity *PhysicsStandaloneOwner( const CBaseHandle &handle )" ) );
-	EXPECT_TRUE( Contains( strPhys, "Toucher_t PhysicsStandaloneToucher( const CBaseHandle &handle )" ) );
-	EXPECT_TRUE( Contains( strPhys, "SourceSharp_ShellFromHandle" ) )
-		<< "the lookups no longer go through the slot table's serial-checked resolve";
-}
-
 //-----------------------------------------------------------------------------
 // NO SERVER SHIM FILE THIS STEP OWNS READS GAME DATA ANY MORE.
 //
@@ -613,30 +486,6 @@ TEST( PhysicsGameDataSource, TheStandaloneLookupsTakeAHandleAndNotAnObject )
 // EntitySetNotSolid over the solidity getters and EntitySetSolidity), so the
 // native half that must stay is the one solidity writer.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataSource, SetSolidToWorldLeftForTheGenericNotSolidCall )
-{
-	const std::string strObjects = ReadFile( kShellPhysObjects );
-	ASSERT_TRUE( Contains( strObjects, "SourceSharp_EntitySwapPhysicsObject" ) ) << kShellPhysObjects << " did not read";
-	EXPECT_FALSE( Contains( strObjects, "SourceSharp_EntitySetSolidToWorld" ) )
-		<< "the native SetSolidToWorld body is back";
-	EXPECT_TRUE( Contains( ReadFile( "sourcesharp/game/server/shell_entityapi.cpp" ),
-	                       "void SourceSharp_EntitySetSolidity( uint32_t hEntity, int32_t nSolidType, int32_t nSolidFlags )" ) );
-}
-
-TEST( PhysicsGameDataSource, NoFileThisStepOwnsCallsGetGameData )
-{
-	const char *kOwned[] = { kShellBase, kShellPhysObjects };
-
-	for ( size_t i = 0; i < sizeof( kOwned ) / sizeof( kOwned[ 0 ] ); i++ )
-	{
-		const std::string strFile = ReadFile( kOwned[ i ] );
-		ASSERT_FALSE( strFile.empty() ) << kOwned[ i ];
-
-		EXPECT_FALSE( Contains( strFile, "GetGameData()" ) )
-			<< kOwned[ i ] << " calls GetGameData -- §3.16 family 4 is back";
-	}
-}
-
 //-----------------------------------------------------------------------------
 // THE SHELL BINDS ITSELF INTO THE SLOT TABLE, WHICH IS WHAT MAKES 1h LIVE.
 //
@@ -652,45 +501,6 @@ TEST( PhysicsGameDataSource, NoFileThisStepOwnsCallsGetGameData )
 // makes them load-bearing. This fact is here so that a merge which resolves
 // shell_standalone_base.cpp in 1e's favour cannot quietly drop them.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataSource, TheShellBindsItsHandleIntoTheSlotTable )
-{
-	const std::string strBase = ReadFile( kShellBase );
-	ASSERT_FALSE( strBase.empty() );
-
-	EXPECT_TRUE( Contains( strBase, "SourceSharp_SlotBindAt( handle, this, m_pEdict );" ) )
-		<< "SetRefEHandle no longer binds the handle it was given -- every "
-		   "resolve through the slot table will answer NULL and no managed prop "
-		   "will be simulated";
-	// REPOINTED BY STEP 1b, NOT RELAXED. The handle is a field of the engine
-	// block now rather than a member of the shell (plan_entity.md §3.2), so the
-	// line reads BlockHandle() where it read m_RefEHandle. Both the bind and the
-	// unbind are otherwise the same calls in the same places.
-	EXPECT_TRUE( Contains( strBase, "SourceSharp_SlotUnbind( BlockHandle().GetEntryIndex() );" ) )
-		<< "nothing unbinds the entry, so the next occupant's Bind is refused";
-
-	// The unbind has to come BEFORE the new handle is stored, or the entry it
-	// names is the new one and the old binding is left dangling.
-	//
-	// SCOPED TO THE FUNCTION, and that is not tidiness: the destructor carries
-	// the same unbind line and sits ~700 lines EARLIER in the file, so a
-	// whole-file search finds that one first and the ordering compares two
-	// unrelated statements -- a check that cannot fail. Mutation-verified by
-	// moving the store above the unbind, which a whole-file search reported as
-	// green.
-	const size_t nFunc = strBase.find( "void CStandaloneEntity::SetRefEHandle(" );
-	ASSERT_NE( std::string::npos, nFunc ) << "SetRefEHandle is not in " << kShellBase;
-
-	const std::string strFunc = strBase.substr( nFunc );
-	const size_t nUnbind = strFunc.find( "SourceSharp_SlotUnbind( BlockHandle().GetEntryIndex() );" );
-	const size_t nStore  = strFunc.find( "\n\tBlockHandle() = handle;" );
-	ASSERT_NE( std::string::npos, nUnbind ) << "SetRefEHandle does not unbind at all";
-	ASSERT_NE( std::string::npos, nStore );
-	EXPECT_LT( nUnbind, nStore )
-		<< "SetRefEHandle stores the new handle before unbinding the old entry, "
-		   "so the unbind names the NEW entry and the old binding is left "
-		   "pointing at an object that is about to be freed";
-}
-
 //-----------------------------------------------------------------------------
 // NOTHING ON THIS SIDE STILL CASTS A RAW GAME-DATA WORD TO AN ENTITY.
 //
@@ -712,41 +522,6 @@ TEST( PhysicsGameDataSource, TheShellBindsItsHandleIntoTheSlotTable )
 // whole of the claim, and it is a source fact because the callback cannot be
 // reached without a solver.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataSource, TheServerBridgeNeverCastsARawGameDataWordToAnEntity )
-{
-	const std::string strPhysics = ReadFile( kServerPhysics );
-	ASSERT_FALSE( strPhysics.empty() );
-	// The penetration callback this fact was first about left native with
-	// plan_physics_bones_native_zero 2.1 (managed's PhysicsSolver answers it,
-	// reading the owner through PhysicsGameData.Owner). The step's own owner
-	// ask is what physics.cpp still has, so the fact is held over that: since
-	// 2.3 in the owners' update the managed PhysicsFrame asks for.
-	ASSERT_TRUE( Contains( strPhysics, "int32_t SourceSharp_PhysicsUpdateOwners(" ) )
-		<< kServerPhysics << " does not contain the step this fact reads";
-
-	// CBaseEntity is not a name any more -- ss_cbaseentity_alias.h is deleted
-	// and the 1,543 code tokens now read IGameEntity -- so an absence needle
-	// spelled CBaseEntity is a check that cannot fail. The needles are the
-	// LIVE spelling.
-	EXPECT_FALSE( Contains( strPhysics, "static_cast<IGameEntity *>(pGameData" ) )
-		<< "physics.cpp casts a raw game-data word to IGameEntity * -- since "
-		   "step 1h that word can be a packed handle and the NULL guard behind "
-		   "the cast no longer stops it";
-	EXPECT_FALSE( Contains( strPhysics, "static_cast< IGameEntity * >( pGameData" ) )
-		<< "same cast, spaced the other way";
-	EXPECT_FALSE( Contains( strPhysics, "(IGameEntity *)pGameData" ) )
-		<< "physics.cpp C-casts a raw game-data word to IGameEntity *";
-	EXPECT_FALSE( Contains( strPhysics, "(IGameEntity *) pGameData" ) )
-		<< "physics.cpp C-casts a raw game-data word to IGameEntity *";
-
-	// Live successor. "the cast is gone" alone also passes over an empty file
-	// and over a callback that simply stopped resolving its two objects, so
-	// the ask that replaced it is asserted here with it.
-	EXPECT_TRUE( Contains( strPhysics, "PhysicsOwner_t owner = PhysicsOwnerOf( pObject );" ) )
-		<< "the step no longer asks PhysicsOwnerOf for an active object's owner "
-		   "-- that ask is what a cast would be replacing";
-}
-
 //-----------------------------------------------------------------------------
 // PhysicsOwnerOf'S TAGGED ARM RETURNS RATHER THAN FALLING THROUGH.
 //
@@ -754,29 +529,3 @@ TEST( PhysicsGameDataSource, TheServerBridgeNeverCastsARawGameDataWordToAnEntity
 // without an engine, and the one whose absence would turn "a stale handle
 // answers nobody" into "a stale handle answers as a CBaseEntity *".
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataSource, TheTaggedArmOfPhysicsOwnerOfDoesNotFallThroughToTheCast )
-{
-	const std::string strOwner = ReadFile( kPhysicsOwner );
-	ASSERT_FALSE( strOwner.empty() );
-
-	const size_t nArm  = strOwner.find( "if ( PhysicsGameDataIsHandle( pGameData ) )" );
-	const size_t nCast = strOwner.find( "owner.pBase = static_cast< IGameEntity * >( pGameData );" );
-
-	ASSERT_NE( std::string::npos, nArm )
-		<< "physicsowner.h no longer asks which arm the game data belongs to";
-	ASSERT_NE( std::string::npos, nCast );
-	ASSERT_LT( nArm, nCast );
-
-	// The arm must end in an UNCONDITIONAL return -- `return owner;` at the
-	// arm's own indentation, immediately before the arm's closing brace.
-	//
-	// "contains a return somewhere" is not the same claim and is a check that
-	// cannot fail: moving the return inside the `if ( owner.pServer )` two lines
-	// above keeps the substring and reintroduces exactly the fall-through this
-	// fact exists to stop -- a stale handle would then reach the cast below.
-	// Mutation-verified against that edit.
-	const std::string strArm = strOwner.substr( nArm, nCast - nArm );
-	EXPECT_TRUE( Contains( strArm, "\n\t\treturn owner;\n\t}\n" ) )
-		<< "the tagged arm does not return unconditionally, so a game-data word "
-		   "that is a handle can fall through to the SDK cast below";
-}

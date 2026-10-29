@@ -50,7 +50,7 @@ public class PlayerImpactDamageTests
         engine.Returns("Entities.IsPlayer", false);
         engine.Returns("Entities.GetSolidFlags", (SolidFlags)0);
 
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
         var player = (SsPlayer)registry.Get(Player)!;
 
         player.State.BindLocal();

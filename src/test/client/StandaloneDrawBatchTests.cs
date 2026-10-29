@@ -34,11 +34,12 @@ public unsafe class StandaloneDrawBatchTests
 
         // Not this slot's: a call here is a wiring fault, never a default answer.
         public void DispatchTempEntity(int handle, ReadOnlySpan<byte> blob) => throw new NotSupportedException();
-        public bool ForwardTempEntity(int id, ReadOnlySpan<float> floats, ReadOnlySpan<int> ints) => throw new NotSupportedException();
         public void TempEntPoolUpdate(float frameTime) => throw new NotSupportedException();
         public void TempEntPoolClear() => throw new NotSupportedException();
         public int ImpactEffectParams(int effect, int material, float scale, bool noFlecks, Span<float> block) => throw new NotSupportedException();
         public int ImpactChoice(ReadOnlySpan<int> input, Span<int> output, Span<byte> particleName, Span<byte> decalName) => throw new NotSupportedException();
+        public bool SuppressLocalTempEnt(bool canPredict, int recipientCount) => throw new NotSupportedException();
+        public bool SchemaAccept(uint typeId, bool published, uint expected, uint seen, int entIndex, string className) => throw new NotSupportedException();
         public void DispatchUserMessage(int index, ReadOnlySpan<byte> payload) => throw new NotSupportedException();
         public float GetJumpScale(in JumpRequest request) => throw new NotSupportedException();
         public float GetFrictionScale(int playerIndex, float friction, float speed, bool ducking, int groundMaterial) => throw new NotSupportedException();
@@ -46,6 +47,7 @@ public unsafe class StandaloneDrawBatchTests
         public bool StandaloneCreate(EntityHandle entity, string className) => throw new NotSupportedException();
         public void StandaloneSpawn(EntityHandle entity) => throw new NotSupportedException();
         public int StandaloneDraw(EntityHandle entity) => throw new NotSupportedException();
+        public int StandaloneDrawExtras(EntityHandle entity, int flags) => throw new NotSupportedException();
         public void StandaloneRemoved(EntityHandle entity) => throw new NotSupportedException();
         public void StandaloneDataChanged(EntityHandle entity, ReadOnlySpan<byte> blob, int updateType) => throw new NotSupportedException();
         public void OnStage(ClientFrameStage stage) => throw new NotSupportedException();

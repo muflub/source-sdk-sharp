@@ -406,28 +406,6 @@ public class EffectsRewiringTests
     // than described.
     // ---------------------------------------------------------------------
 
-    [Fact]
-    public void TheRowThatCouldNotMoveStillReachesTheEngineUntouched()
-    {
-        var (effects, temps, engine) = Rig();
-
-        // BloodEffect: RE-MEASURED BY LANE SRV, and the reason changed. The
-        // violence gate is UTIL_ShouldShowBlood -- two convar reads, reachable
-        // through FindConVarValue -- and NOT engine->IsLowViolence(), which
-        // lives in UTIL_IsLowViolence and is on no arm of this row. What blocks
-        // it is g_pGameRules->IsMultiplayer(), the amount * 5 scaling, which has
-        // no managed route in either direction. BloodEffectPortabilityTests
-        // asserts every clause of that against stock's own .cpp read off disk.
-        effects.BloodEffect(Vector.Zero, new Vector(1f, 0f, 0f), BloodColor.Red, 50f);
-
-        Assert.True(engine.CountOf("Effects.BloodEffect") == 1, "the blood is still the shim's");
-
-        Assert.True(temps.Count == 0,
-            "and it sent no temp entity from managed code. It fires today exactly as it fired "
-          + "before the rewiring, which is the constraint: no intermediate state where an effect "
-          + "that fires today stops firing");
-    }
-
     // ---------------------------------------------------------------------
     // The gate the per-member tests cannot be.
     // ---------------------------------------------------------------------
@@ -462,7 +440,9 @@ public class EffectsRewiringTests
         Assert.True(members.Count == 49,
             $"IEngineEffects has forty-nine members ({members.Count} found) — if this "
           + "number moved, a member arrived and this sweep is the thing that decides whether "
-          + "it was wired. It has moved twenty-four times (the twenty-fourth DOWN: the serialised ABI pass took TempEntPoolSimulate, the managed pool integrating every tempent itself; the twenty-third DOWN: C7 glow overlays took ClientExplosionFireball, the fireball's flash being the managed GlowOverlaySystem's; the twenty-second DOWN: plan_server_native_v2 T2 took BloodDecal, whose decal was never painted (UTIL_DecalTrace's subject was NULL) and which is managed BloodDecals now; the twenty-first DOWN: plan_server_native_v2 T2 took FireEffectCreate, FireEffectEnable and FireEffectScale, retired refusals no managed code called (env_fire is ss_firesmoke); the twentieth DOWN: lane c5-particles took ClientBloodStream and ClientShowLine, CTEParticleRenderer's two effects being C# (TeParticles); the nineteenth DOWN: lane c5-particles took ClientDust, the dust puff being C# (DustPuff); the eighteenth DOWN: lane c5-particles took DustUpdate and DustDestroy, the dust motes being C# (DustVolumeSim); the seventeenth DOWN: lane c5-particles took ClientLargeFunnel, the funnel being C# (LargeFunnel); the sixteenth DOWN: lane c5-particles took ClientBloodPuff, the blood sprite's puff being C# (ImpactSprays.Blood); the fifteenth DOWN: lane c5-particles took ClientShatterSurface, the shattered pane being C# (ShardEffects); the fourteenth DOWN: lane c5-particles took ClientExplosionCore and ClientExplosionWater, fx_explosion.cpp's effects being C# (ExplosionEffects); the thirteenth DOWN: lane c5-particles took ClientGaussExplosion, the gauss discharge being C# (SparkEffects.GaussExplosion); the twelfth DOWN: lane c2-fx took TempEntPoolPlaySound, the tempent frame playing its bounce sound in C# (TempEntSounds); the eleventh DOWN: lane c2-fx took ClientDispatchEffect, whose one caller dispatches through the client's managed table now; the ninth DOWN: the C2 rope port took "
+          + "it was wired. It has moved twenty-six times (the twenty-sixth DOWN: ClientIsLowViolence, "
+          + "the rule being C#'s ClientLowViolence over the engine client; the twenty-fifth UP: stock A/B added "
+          + "BubbleTrailEffect, UTIL_BubbleTrail, answered by EffectsOverTempEnts; the twenty-fourth DOWN: the serialised ABI pass took TempEntPoolSimulate, the managed pool integrating every tempent itself; the twenty-third DOWN: C7 glow overlays took ClientExplosionFireball, the fireball's flash being the managed GlowOverlaySystem's; the twenty-second DOWN: plan_server_native_v2 T2 took BloodDecal, whose decal was never painted (UTIL_DecalTrace's subject was NULL) and which is managed BloodDecals now; the twenty-first DOWN: plan_server_native_v2 T2 took FireEffectCreate, FireEffectEnable and FireEffectScale, retired refusals no managed code called (env_fire is _firesmoke); the twentieth DOWN: lane c5-particles took ClientBloodStream and ClientShowLine, CTEParticleRenderer's two effects being C# (TeParticles); the nineteenth DOWN: lane c5-particles took ClientDust, the dust puff being C# (DustPuff); the eighteenth DOWN: lane c5-particles took DustUpdate and DustDestroy, the dust motes being C# (DustVolumeSim); the seventeenth DOWN: lane c5-particles took ClientLargeFunnel, the funnel being C# (LargeFunnel); the sixteenth DOWN: lane c5-particles took ClientBloodPuff, the blood sprite's puff being C# (ImpactSprays.Blood); the fifteenth DOWN: lane c5-particles took ClientShatterSurface, the shattered pane being C# (ShardEffects); the fourteenth DOWN: lane c5-particles took ClientExplosionCore and ClientExplosionWater, fx_explosion.cpp's effects being C# (ExplosionEffects); the thirteenth DOWN: lane c5-particles took ClientGaussExplosion, the gauss discharge being C# (SparkEffects.GaussExplosion); the twelfth DOWN: lane c2-fx took TempEntPoolPlaySound, the tempent frame playing its bounce sound in C# (TempEntSounds); the eleventh DOWN: lane c2-fx took ClientDispatchEffect, whose one caller dispatches through the client's managed table now; the ninth DOWN: the C2 rope port took "
           + "RopeUpdate and RopeDestroy, the rope being C#'s now; the tenth DOWN: the C2 beam "
           + "port took the six BeamCreate* creators, DrawBeamPoints and DrawBeamQuadratic, "
           + "the beams being C#'s now): C-Phase 2 added fifteen client backends, "
@@ -494,7 +474,11 @@ public class EffectsRewiringTests
         // BubbleEffect (plan_server_native_v2 T4f) refuses an entity with no
         // engine block, which is every handle the sweep can invent: the volume
         // the bubbles rise out of is the block's bounds.
-        var refusesTheSweep = new HashSet<string>(StringComparer.Ordinal) { "FunnelEffect", "BubbleEffect" };
+        // BubbleTrailEffect: a default-argument line is dry, and makes no bubbles
+        // (EffectsTracedTests holds its arms).
+        // BloodEffect: a default amount of 0 makes no drips, as stock's refuse it
+        // (BloodEffectTests holds its arms).
+        var refusesTheSweep = new HashSet<string>(StringComparer.Ordinal) { "FunnelEffect", "BubbleEffect", "BubbleTrailEffect", "BloodEffect" };
 
         // And the one that cannot be invoked by reflection at all: its blob is
         // a ReadOnlySpan<byte>, and a ref struct cannot be boxed into an
@@ -561,16 +545,12 @@ public class EffectsRewiringTests
                 $"{expected} is answered over ITempEnts");
         }
 
-        Assert.True(forwarded.Count == 39,
-            "and thirty-nine reached the engine unchanged — forty-nine less the eight that moved and the two "
+        Assert.True(forwarded.Count == 37,
+            "and thirty-seven reached the engine unchanged — forty-eight less the eight that moved and the three "
           + "that refused the sweep (the three FireEffect forwards and BloodDecal went with their "
           + "slots, plan_server_native_v2 T2, ClientExplosionFireball with the glow overlays' port, "
           + "C7; BubbleEffect and PaintDecal moved at T4f; TempEntPoolSimulate left in the serialised "
-          + "ABI pass): " + forwarded.Count + " found");
-
-        Assert.True(forwarded.Contains("BloodEffect"),
-            "BloodEffect is the Part 8 row that could not move, and it still reaches the engine — a "
-          + "row of that table doing nothing at all would be worse than one that did not move");
+          + "ABI pass; ClientIsLowViolence left when its rule became C#; BloodEffect moved, refusing the sweep's zero amount): " + forwarded.Count + " found");
     }
 
     /// <summary>
@@ -624,7 +604,7 @@ public class EffectsRewiringTests
         var engine = TestServices.Fake();
         var temps = new RecordingTempEnts();
 
-        return (new EffectsOverTempEnts(engine, temps, engine, engine, new OpenWorld(), _ => { }), temps, engine);
+        return (new EffectsOverTempEnts(engine, temps, engine, engine, new OpenWorld(), engine, new DefaultForwarders.LowestRandom(), _ => { }), temps, engine);
     }
 
     /// <summary>
@@ -672,6 +652,8 @@ public class EffectsRewiringTests
         private readonly List<TempEntCall> _calls = new();
 
         public int Count => _calls.Count;
+
+        public IReadOnlyList<TempEntCall> Calls => _calls;
 
         public int CountOf(string member) => _calls.Count(c => c.Member == member);
 
@@ -724,6 +706,14 @@ public class EffectsRewiringTests
                                   float size, float speed)
             => _calls.Add(new("Dust", filter, delay,
                               new object?[] { position, direction, size, speed }));
+
+        public override void BloodStream(TeFilter filter, float delay, Vector origin, Vector direction,
+                                         Color32 color, int amount)
+            => _calls.Add(new("BloodStream", filter, delay, new object?[] { origin, direction, color, amount }));
+
+        public override void Smoke(TeFilter filter, float delay, Vector origin, int modelIndex, float scale,
+                                   int frameRate)
+            => _calls.Add(new("Smoke", filter, delay, new object?[] { origin, modelIndex, scale, frameRate }));
 
         public override void DispatchEffect(TeFilter filter, float delay, string effectName,
                                             in TeEffectData data)

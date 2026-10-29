@@ -45,6 +45,9 @@ public interface IFwdPhysicsSurfaceProps
     /// when the surface has none.
     /// </summary>
     string? ScrapeSound(int surfaceProps, bool smooth);
+
+    /// <summary><c>sounds.bulletImpact</c>'s name, or null when the surface has none.</summary>
+    string? BulletImpactSound(int surfaceProps);
 }
 
 public sealed unsafe class PhysicsSurfaceProps : IFwdPhysicsSurfaceProps, IVPhysicsSurfaceSounds
@@ -146,5 +149,11 @@ public sealed unsafe class PhysicsSurfaceProps : IFwdPhysicsSurfaceProps, IVPhys
             return null;
 
         return Name(smooth ? data->ScrapeSmooth : data->ScrapeRough);
+    }
+
+    public string? BulletImpactSound(int surfaceProps)
+    {
+        var data = (VPhysicsSurfaceData*)_fwd->GetSurfaceData(_self, surfaceProps);
+        return data == null ? null : Name(data->BulletImpact);
     }
 }

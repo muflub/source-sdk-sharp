@@ -1,0 +1,309 @@
+#!/usr/bin/env python3
+"""tools/vendor-layout -- prove a vendor/ edit moved no slot and no field.
+
+    tools/vendor-layout snapshot OUT.json   dump the layouts the module builds see
+    tools/vendor-layout snapshot --pristine OUT.json
+                                            the same objects against the pristine
+                                            clone's headers instead of vendor/'s
+    tools/vendor-layout compare A.json B.json
+                                            exit 1 if B moved anything A had
+    tools/vendor-layout --self-test
+    --config C (or SOURCESHARP_CONFIG): the configuration; default debug.
+
+The vendored headers are trimmed (tools/vendor-strip) and their unused
+virtuals stubbed (`virtual void unused_<Name>() = 0;`). The engine, VPhysics
+and the prebuilt libraries were compiled against Valve's headers, so every
+vtable slot and every data member the modules share with them must stay
+where it was. A snapshot compiles each module object of the Linux build and
+of the windows-cross build with clang's -fdump-vtable-layouts and
+-fdump-record-layouts-simple: Itanium and MSVC vtables (MSVC groups a class's
+overloads, which is why the stub rule refuses an overloaded name) and every
+record's size, alignment and offsets.
+
+compare holds B to A: every vtable and record A has must be in B with the same
+entries at the same indexes and the same size, alignment and offsets. One
+difference is allowed: a slot A named Class::Name may be Class::unused_Name()
+in B, the stub. A record or vtable B has and A does not is fine (nothing
+can depend on it yet); one A has and B lacks is reported only when the class
+still exists in B under another layout.
+"""
+import concurrent.futures
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+import tempfile
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(REPO, "tools"))
+import importlib.machinery  # noqa: E402
+VD = importlib.machinery.SourceFileLoader("vendor_tool", os.path.join(REPO, "tools", "vendor")).load_module()
+
+# What the windows-cross build compiles (tools/windows-cross).
+WINDOWS_TARGETS = {"server_sourcesharp", "ss_fwd_server", "client_sourcesharp", "ss_fwd_client", "ss_particles", "tier1", "mathlib"}
+
+VT_HEAD = re.compile(r"^(?:Vtable|VFTable) for '(.+?)'(?: in '(.+?)')? \((\d+) entries\)\.")
+VT_ROW = re.compile(r"^\s*(\d+) \| (.*)$")
+
+
+def jobs(cfg):
+    out = []
+    for windows, bdir in ((False, "build"), (True, "build-windows-cross")):
+        if windows and PRISTINE:
+            # Valve's own headers do not compile under clang-cl (the fixes
+            # vendor/ carries); MSVC layouts are held by before/after compares.
+            continue
+        path = os.path.join(REPO, "farm", cfg, bdir, "compile_commands.json")
+        if not os.path.exists(path):
+            raise SystemExit("tools/vendor-layout: no build at %s" % os.path.relpath(path, REPO))
+        seen = set()
+        for e in json.load(open(path)):
+            t = VD.target_of(e.get("output", ""))
+            if windows and t not in WINDOWS_TARGETS:
+                continue
+            if t and VD.sides_of_target(t) is not None and e["file"] not in seen:
+                seen.add(e["file"])
+                out.append((e, windows))
+    return out
+
+
+PRISTINE = None
+
+
+def pristine_dirs(t):
+    """An include directory under vendor/<side>/ maps to the pristine
+    clone's src/; the clang wrapper for the one header clang rejects
+    (cmake/compat/clang) goes ahead of them."""
+    v = os.path.join(os.path.realpath(REPO), "vendor") + os.sep
+    for flag in ("-I", "/I", "-imsvc"):
+        if t.startswith(flag) and os.path.realpath(t[len(flag):]).startswith(v):
+            rest = os.path.realpath(t[len(flag):])[len(v):].split(os.sep, 1)
+            return flag + os.path.join(PRISTINE, "src", rest[1] if len(rest) > 1 else "")
+    return t
+
+
+def command(e, windows, obj):
+    toks = shlex.split(e["command"])
+    if PRISTINE:
+        toks = [toks[0], "-I" + os.path.join(REPO, "cmake", "compat", "clang") if not windows
+                else "/I" + os.path.join(REPO, "cmake", "compat", "clang")] + \
+            [pristine_dirs(t) for t in toks[1:]]
+    out, skip = [], False
+    for t in toks:
+        if skip:
+            skip = False
+            continue
+        if not windows and t == "-o":
+            skip = True
+            continue
+        if windows and t.startswith(("/Fo", "/Fd", "/showIncludes")):
+            continue
+        out.append(t)
+    flags = ["-w", "-Xclang", "-fdump-vtable-layouts", "-Xclang", "-fdump-record-layouts-simple"]
+    if windows:
+        i = out.index("--") if "--" in out else len(out) - 1
+        return out[:i] + flags + ["/Fo" + obj] + out[i:]
+    return out + flags + ["-o", obj]
+
+
+def dump(job):
+    e, windows = job
+    with tempfile.TemporaryDirectory() as td:
+        r = subprocess.run(command(e, windows, os.path.join(td, "x.o")), cwd=e["directory"],
+                           capture_output=True, text=True, errors="replace")
+    if r.returncode != 0:
+        return None, e["file"], r.stderr[-400:]
+    return parse(r.stdout, "msvc" if windows else "itanium"), e["file"], ""
+
+
+def parse(text, abi):
+    vt, rec = {}, {}
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        m = VT_HEAD.match(lines[i])
+        if m:
+            key = "%s|%s|%s" % (abi, m.group(1), m.group(2) or "")
+            rows = []
+            i += 1
+            while i < len(lines) and lines[i].strip():
+                r = VT_ROW.match(lines[i])
+                if r:
+                    rows.append([int(r.group(1)), r.group(2).strip()])
+                i += 1
+            vt.setdefault(key, set()).add(json.dumps(rows))
+            continue
+        if lines[i].startswith("*** Dumping AST Record Layout"):
+            name = lines[i + 1][len("Type: "):] if lines[i + 1].startswith("Type: ") else None
+            body = []
+            i += 2
+            while i < len(lines) and not lines[i].startswith("***") and not VT_HEAD.match(lines[i]):
+                if lines[i].strip().startswith(("Size:", "Alignment:", "FieldOffsets:", "BaseOffsets:",
+                                                "VBaseOffsets:")):
+                    body.append(lines[i].strip())
+                i += 1
+            if name and "(unnamed" not in name and "(anonymous" not in name:
+                rec.setdefault("%s|%s" % (abi, name), set()).add("\n".join(body))
+            continue
+        i += 1
+    return vt, rec
+
+
+def snapshot(cfg, out):
+    vt, rec, failed = {}, {}, []
+    with concurrent.futures.ThreadPoolExecutor(os.cpu_count() or 4) as ex:
+        for res, src, err in ex.map(dump, jobs(cfg)):
+            if res is None:
+                failed.append((src, err))
+                continue
+            for k, v in res[0].items():
+                vt.setdefault(k, set()).update(v)
+            for k, v in res[1].items():
+                rec.setdefault(k, set()).update(v)
+    if failed and PRISTINE:
+        # Valve's own headers do not compile some objects under clang (the
+        # fixes vendor/ carries): those are left out of this snapshot, named.
+        print("tools/vendor-layout: %d objects do not compile on the pristine headers, left out: %s"
+              % (len(failed), ", ".join(sorted(os.path.relpath(f, REPO) for f, _ in failed))))
+    elif failed:
+        raise SystemExit("tools/vendor-layout: %d objects did not compile, e.g. %s\n%s"
+                         % (len(failed), failed[0][0], failed[0][1]))
+    with open(out, "w") as f:
+        json.dump({"vtables": {k: sorted(v) for k, v in vt.items()},
+                   "records": {k: sorted(v) for k, v in rec.items()}}, f)
+    print("tools/vendor-layout: %d vtables, %d records -> %s" % (len(vt), len(rec), out))
+
+
+STUB = re.compile(r"^void (.*)::unused_(\w+)\(\) \[pure\]$")
+
+
+def same_row(a, b):
+    if a == b:
+        return True
+    m = STUB.match(b)
+    if not m:
+        return False
+    cls, name = m.groups()
+    return re.search(r"(^|[\s*&])%s::%s\(" % (re.escape(cls), re.escape(name)), a) is not None
+
+
+def record_fields(text):
+    """{label: value} of one record's simple dump: Size, Alignment, the
+    offset lists."""
+    out = {}
+    for line in text.split("\n"):
+        k, _, v = line.partition(":")
+        out[k.strip()] = v.strip().rstrip(">")
+    return out
+
+
+def same_record(a, b):
+    """The same layout, or one where tools/vendor-fields stubbed a run of
+    fields: same size and alignment, the same bases, and the fields B keeps
+    at offsets A had, in A's order (a stub sits where its run began)."""
+    if a == b:
+        return True
+    fa, fb = record_fields(a), record_fields(b)
+    if any(fa.get(k) != fb.get(k) for k in ("Size", "Alignment", "BaseOffsets", "VBaseOffsets")):
+        return False
+    oa = [x for x in fa.get("FieldOffsets", "").strip("[]").split(",") if x.strip()]
+    ob = [x for x in fb.get("FieldOffsets", "").strip("[]").split(",") if x.strip()]
+    it = iter(oa)
+    return len(ob) < len(oa) and all(any(x.strip() == y.strip() for y in it) for x in ob)
+
+
+def compare_vtable(a_rows, b_rows):
+    a, b = json.loads(a_rows), json.loads(b_rows)
+    if len(a) != len(b):
+        return "%d entries -> %d" % (len(a), len(b))
+    for (ia, ta), (ib, tb) in zip(a, b):
+        if ia != ib or not same_row(ta, tb):
+            return "slot %d: %r -> %r" % (ia, ta, tb)
+    return None
+
+
+def compare(a, b):
+    problems = []
+    for k, a_set in a["vtables"].items():
+        b_set = b["vtables"].get(k)
+        if b_set is None:
+            continue
+        for ar in a_set:
+            if not any(compare_vtable(ar, br) is None for br in b_set):
+                why = min((compare_vtable(ar, br) for br in b_set), key=len)
+                problems.append("vtable %s: %s" % (k, why))
+                break
+    for k, a_set in a["records"].items():
+        b_set = b["records"].get(k)
+        if b_set is None:
+            continue
+        if a_set and not any(same_record(ar, br) for ar in a_set for br in b_set):
+            problems.append("record %s: %s -> %s" % (k, a_set[0].replace("\n", " "),
+                                                      b_set[0].replace("\n", " ")))
+    return problems
+
+
+def self_test():
+    checks = 0
+
+    def eq(x, y, what):
+        nonlocal checks
+        checks += 1
+        if x != y:
+            raise AssertionError("%s: %r != %r" % (what, x, y))
+
+    eq(same_row("void IFoo::Bar(int) [pure]", "void IFoo::unused_Bar() [pure]"), True, "a stub keeps the slot")
+    eq(same_row("void IFoo::Bar(int) [pure]", "void IFoo::unused_Baz() [pure]"), False, "a stub of another name moved")
+    eq(same_row("int IFoo::Bar() [pure]", "int IFoo::Bar() [pure]"), True, "an unchanged slot")
+    a = json.dumps([[0, "void A::f() [pure]"], [1, "void A::g() [pure]"]])
+    b = json.dumps([[0, "void A::g() [pure]"], [1, "void A::f() [pure]"]])
+    eq(compare_vtable(a, b) is not None, True, "two slots that swap are refused")
+    eq(compare_vtable(a, json.dumps([[0, "void A::f() [pure]"]])) is not None, True, "a lost slot is refused")
+    text = ("Vtable for 'IFoo' (3 entries).\n   0 | offset_to_top (0)\n   1 | IFoo RTTI\n"
+            "   2 | void IFoo::Bar() [pure]\n\n*** Dumping AST Record Layout\nType: struct S\n\n"
+            "Layout: <ASTRecordLayout\n  Size:64\n  Alignment:32\n  FieldOffsets: [0, 32]>\n")
+    vt, rec = parse(text, "itanium")
+    eq(list(vt), ["itanium|IFoo|"], "the vtable header parses")
+    eq(len(json.loads(next(iter(vt["itanium|IFoo|"])))), 3, "its rows parse")
+    eq(list(rec), ["itanium|struct S"], "the record parses")
+    A = {"vtables": {}, "records": {"itanium|struct S": ["Size:64\nFieldOffsets: [0, 32]"]}}
+    B = {"vtables": {}, "records": {"itanium|struct S": ["Size:64\nFieldOffsets: [0, 64]"]}}
+    eq(len(compare(A, B)), 1, "a moved field is refused")
+    eq(compare(A, A), [], "an unchanged snapshot passes")
+    A3 = {"vtables": {}, "records": {"itanium|struct T": ["Size:128\nAlignment:32\nFieldOffsets: [0, 32, 64, 96]"]}}
+    B3 = {"vtables": {}, "records": {"itanium|struct T": ["Size:128\nAlignment:32\nFieldOffsets: [0, 32, 96]"]}}
+    eq(compare(A3, B3), [], "a stubbed run keeps its first offset and the rest of the fields")
+    B4 = {"vtables": {}, "records": {"itanium|struct T": ["Size:128\nAlignment:32\nFieldOffsets: [0, 40, 96]"]}}
+    eq(len(compare(A3, B4)), 1, "a field at an offset A never had is refused")
+    B5 = {"vtables": {}, "records": {"itanium|struct T": ["Size:96\nAlignment:32\nFieldOffsets: [0, 32]"]}}
+    eq(len(compare(A3, B5)), 1, "a smaller record is refused")
+    print("tools/vendor-layout --self-test: %d checks passed" % checks)
+    return 0
+
+
+def main(argv):
+    if "--self-test" in argv:
+        return self_test()
+    cfg = VD.config(argv)
+    if argv and argv[0] == "snapshot":
+        if "--pristine" in argv:
+            global PRISTINE
+            PRISTINE = VD.pristine()
+        snapshot(cfg, [a for a in argv[1:] if not a.startswith("--")][0])
+        return 0
+    if argv and argv[0] == "compare":
+        a, b = (json.load(open(p)) for p in argv[1:3])
+        problems = compare(a, b)
+        print("tools/vendor-layout: %d vtables and %d records held; %d moved"
+              % (len(a["vtables"]), len(a["records"]), len(problems)))
+        for p in problems[:40]:
+            print("  " + p)
+        return 1 if problems else 0
+    print(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -52,26 +52,6 @@ allow	NDEBUG	configuration marker: the release preset defines it (SS_DEFS_releas
 # delete the row". A waiver is not a fact; removing it makes the check stricter,
 # which is the direction this file's own header says the list may move.
 allow	SS_COVERAGE	another configuration of this tree: the coverage build defines it.
-# PHASE 6B, FOR A RULING: the two link-mode rows below were waived as "other
-# VPC configurations" of this tree. VPC is retired, and neither VPC's own graph
-# (main at 8e35279) nor the CMake build defines _STATIC_LINKED or _SHARED_LIB on
-# any target, so no configuration that is built here gives these guards a live
-# arm. They stay waived, unchanged, until someone rules whether the sites go.
-allow	_STATIC_LINKED	link mode: set by the static-link VPC configurations in this tree, not by the shared-object one this builds.
-allow	_SHARED_LIB	link mode: the mirror of _STATIC_LINKED, set by other VPC configurations here.
 allow	SS_NO_CRT	another configuration of this tree: ss_sdk_target's NO_RUNTIME sets it on MSVC only (cmake/SourceSharp.cmake), for a library linked with no CRT, so a scan of the Linux build sees it as never defined. fwd_physics.cpp defines the one CRT handler the forwarder libraries' vtables name (_purecall) under it; a test compiling the same source into an executable with a CRT leaves it to the CRT.
 allow	SS_FWD_SERVER_BUILD	side marker: on libss_fwd_server's command line and not libss_fwd_client's (src/fwd/native/CMakeLists.txt). fwd_physics.cpp is a source of both libraries, so the scan of the client's compile sees the server's marker as never defined, the way a shared file sees GAME_DLL.
 allow	SS_FWD_CLIENT_BUILD	side marker: the mirror of SS_FWD_SERVER_BUILD, on libss_fwd_client's command line and not the server library's.
-#
-#=============================================================================
-# PENDING -- dead here, already present when this check landed, with an owner.
-#
-# None of these is lane 5b-split's file. The lane brief is explicit that a lane
-# touches only what its step owns, so each is written down rather than edited:
-# the row makes the site visible, stops the count growing, and fails the moment
-# somebody cleans it up and forgets to delete the row.
-#=============================================================================
-pending	sourcesharp/common/steamid.cpp	HL1	relocated stock, verbatim (Steam's own steamclientpublic.h lineage). Owned by whoever next touches the relocation.
-pending	sourcesharp/common/steamid.cpp	STEAM	relocated stock, verbatim. Same owner as HL1 above.
-pending	sourcesharp/public/dt_send.cpp	SUPPORTS_INT64	relocated stock, verbatim. Owned by the datatable work, not by a client-shell lane.
-pending	sourcesharp/game/server/shell_engineboundary.cpp	TF_DLL	server shim, and a mod guard: this is not Team Fortress. Owned by the server side.

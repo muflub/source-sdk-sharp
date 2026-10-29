@@ -14,6 +14,7 @@ namespace SourceSharp.Client.Ui.Toolkit;
 /// type.number.size: 48            # du
 /// type.title.weight: 700
 /// type.label.upper: false
+/// font.file: "TF2 Build" resource/TF2Build.ttf   # a TTF on a GAME path
 /// motion.quick: 0.1               # seconds
 /// hud.surface-opacity: 0.85
 /// scroll.step: 48                # du a wheel notch scrolls
@@ -44,7 +45,7 @@ public static class UiThemeFile
 
             try
             {
-                ApplyOne(theme, key, value);
+                ApplyOne(theme, key, value, line[(colon + 1)..].Trim());
             }
             catch (FormatException e)
             {
@@ -68,7 +69,7 @@ public static class UiThemeFile
     private static InvalidDataException Error(int line, string text, string why)
         => new($"ui-theme.yaml line {line}: {why}: {text.Trim()}");
 
-    private static void ApplyOne(UiTheme theme, string setting, string value)
+    private static void ApplyOne(UiTheme theme, string setting, string value, string quoted)
     {
         string key = setting;
         var parts = key.Split('.');
@@ -93,6 +94,11 @@ public static class UiThemeFile
                 theme.Set(role, t);
                 return;
             }
+            case "font" when parts.Length == 2 && parts[1] == "file":
+                // The row's own quotes (a family and a path on one line); the
+                // plain value has had its outer quotes stripped.
+                theme.AddFontFile(FontFile(quoted));
+                return;
             case "motion" when parts.Length == 2:
                 theme.Set(Parse<Motion>(parts[1]), Number(value));
                 return;
@@ -103,7 +109,26 @@ public static class UiThemeFile
                 theme.ScrollStepDu = Number(value);
                 return;
         }
-        throw new FormatException($"unknown key '{key}' (tone.*, type.<role>.*, motion.*, hud.surface-opacity, scroll.step)");
+        throw new FormatException($"unknown key '{key}' (tone.*, type.<role>.*, font.file, motion.*, hud.surface-opacity, scroll.step)");
+    }
+
+    /// <summary>
+    /// A font file row: an optional quoted family, then the GAME path.
+    /// <c>font.file: "TF2 Build" resource/TF2Build.ttf</c>, or a bare path
+    /// whose family only the engine knows.
+    /// </summary>
+    private static UiThemeFontFile FontFile(string value)
+    {
+        if (value.StartsWith('"'))
+        {
+            int end = value.IndexOf('"', 1);
+            if (end < 0 || value[(end + 1)..].Trim().Length == 0)
+                throw new FormatException($"'{value}' is not \"family\" game/path.ttf");
+            return new UiThemeFontFile(value[1..end], value[(end + 1)..].Trim());
+        }
+        if (value.Length == 0)
+            throw new FormatException("expected \"family\" game/path.ttf or game/path.ttf");
+        return new UiThemeFontFile(null, value);
     }
 
     private static T Parse<T>(string name) where T : struct, Enum

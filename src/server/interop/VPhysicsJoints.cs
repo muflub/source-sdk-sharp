@@ -33,6 +33,9 @@ public interface IVPhysicsJoints
     /// <summary><c>IPhysicsConstraint::Deactivate</c>.</summary>
     void Deactivate(nint constraint);
 
+    /// <summary><c>IPhysicsConstraint::Activate</c>.</summary>
+    void Activate(nint constraint);
+
     /// <summary><c>IPhysicsConstraint::SetAngularMotor</c>.</summary>
     void SetAngularMotor(nint constraint, float rotSpeed, float maxAngularImpulse);
 
@@ -102,6 +105,12 @@ public interface IVPhysicsJoints
     /// <summary><c>IPhysicsObject::IsMoveable</c>.</summary>
     bool IsMoveable(nint physicsObject);
 
+    /// <summary><c>IPhysicsObject::IsStatic</c>.</summary>
+    bool IsStatic(nint physicsObject);
+
+    /// <summary>Whether <c>IPhysicsObject::GetShadowController</c> answers one.</summary>
+    bool HasShadowController(nint physicsObject);
+
     /// <summary><c>IPhysicsObject::GetMass</c>.</summary>
     float Mass(nint physicsObject);
 
@@ -113,6 +122,18 @@ public interface IVPhysicsJoints
 
     /// <summary><c>IPhysicsObject::CalculateAngularDrag</c>.</summary>
     float AngularDrag(nint physicsObject, Vector objectSpaceRotationAxis);
+
+    /// <summary><c>IPhysicsObject::GetInertia</c>.</summary>
+    Vector Inertia(nint physicsObject);
+
+    /// <summary><c>IPhysicsObject::WorldToLocalVector</c>.</summary>
+    Vector WorldToLocalVector(nint physicsObject, Vector world);
+
+    /// <summary><c>IPhysicsObject::BecomeHinged</c>: fixed in place, turning about one local axis.</summary>
+    void BecomeHinged(nint physicsObject, int localAxis);
+
+    /// <summary><c>IPhysicsObject::RemoveHinged</c>.</summary>
+    void RemoveHinged(nint physicsObject);
 }
 
 /// <summary>The real vphysics. Holds nothing: every pointer is handed in.</summary>
@@ -200,6 +221,12 @@ public sealed unsafe class VPhysicsJoints : IVPhysicsJoints
     {
         if (constraint != 0)
             Constraint(constraint)->Deactivate((void*)constraint);
+    }
+
+    public void Activate(nint constraint)
+    {
+        if (constraint != 0)
+            Constraint(constraint)->Activate((void*)constraint);
     }
 
     public void SetAngularMotor(nint constraint, float rotSpeed, float maxAngularImpulse)
@@ -335,6 +362,12 @@ public sealed unsafe class VPhysicsJoints : IVPhysicsJoints
     public bool IsMoveable(nint physicsObject)
         => physicsObject != 0 && Object(physicsObject)->IsMoveable((void*)physicsObject) != 0;
 
+    public bool IsStatic(nint physicsObject)
+        => physicsObject != 0 && Object(physicsObject)->IsStatic((void*)physicsObject) != 0;
+
+    public bool HasShadowController(nint physicsObject)
+        => physicsObject != 0 && Object(physicsObject)->GetShadowController((void*)physicsObject) != null;
+
     public float Mass(nint physicsObject)
         => physicsObject == 0 ? 0f : Object(physicsObject)->GetMass((void*)physicsObject);
 
@@ -351,4 +384,27 @@ public sealed unsafe class VPhysicsJoints : IVPhysicsJoints
 
     public float AngularDrag(nint physicsObject, Vector objectSpaceRotationAxis)
         => physicsObject == 0 ? 0f : Object(physicsObject)->CalculateAngularDrag((void*)physicsObject, &objectSpaceRotationAxis);
+
+    public Vector Inertia(nint physicsObject)
+        => physicsObject == 0 ? default : Object(physicsObject)->GetInertia((void*)physicsObject);
+
+    public Vector WorldToLocalVector(nint physicsObject, Vector world)
+    {
+        Vector local = default;
+        if (physicsObject != 0)
+            Object(physicsObject)->WorldToLocalVector((void*)physicsObject, &local, &world);
+        return local;
+    }
+
+    public void BecomeHinged(nint physicsObject, int localAxis)
+    {
+        if (physicsObject != 0)
+            Object(physicsObject)->BecomeHinged((void*)physicsObject, localAxis);
+    }
+
+    public void RemoveHinged(nint physicsObject)
+    {
+        if (physicsObject != 0)
+            Object(physicsObject)->RemoveHinged((void*)physicsObject);
+    }
 }

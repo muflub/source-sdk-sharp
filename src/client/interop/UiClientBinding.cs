@@ -68,6 +68,7 @@ public enum ClientKeyBinding
     Attack2,
     Jump,
     Strafe,
+    CancelSelect,
 }
 
 /// <summary>The engine's mute questions (IGameClientExports' IsPlayerGameVoiceMuted and its two setters).</summary>
@@ -138,6 +139,7 @@ public sealed class UiClientBinding(Crossings crossings, Func<IUiClientEvents?> 
         if (b.SequenceEqual("messagemode3"u8)) return ClientKeyBinding.MessageMode3;
         if (b.SequenceEqual("say_party"u8)) return ClientKeyBinding.SayParty;
         if (b.SequenceEqual("+duck"u8)) return ClientKeyBinding.Duck;
+        if (b.SequenceEqual("cancelselect"u8)) return ClientKeyBinding.CancelSelect;
         if (b.SequenceEqual("+attack"u8)) return ClientKeyBinding.Attack;
         if (b.SequenceEqual("+attack2"u8)) return ClientKeyBinding.Attack2;
         if (b.SequenceEqual("+jump"u8)) return ClientKeyBinding.Jump;

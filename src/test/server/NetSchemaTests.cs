@@ -223,7 +223,7 @@ public partial class NetSchemaTests
         // The names the gtest pins, so a change to either implementation fails
         // in both suites rather than in one.
         Assert.True(NetSchema.TypeIdOf("ss_barrel") == 0xE456BA08u
-            && NetSchema.TypeIdOf("ss_beam") == 0xB0BBBAD3u
+            && NetSchema.TypeIdOf("beam") == 0xA75279FAu
             && NetSchema.TypeIdOf("func_breakable_surf") == 0x043470C0u, "and the hierarchy classes the gtest pins too");
 
         // A COLLISION is a build-time fact about a fixed set of strings, and
@@ -748,8 +748,8 @@ public partial class NetSchemaTests
         Assert.True(schema.Contains("\"tiersLive\":true")
             && schema.Contains("\"name\":\"DT_SourceSharpStdEnt32\""), "the tier rollup reports what native registered");
 
-        Assert.True(schema.Contains("\"payloadBytes\":32,\"words\":8,\"props\":19,\"live\":true")
-            && schema.Contains("\"payloadBytes\":256,\"words\":64,\"props\":75,\"live\":false"), "a tier reports the props native built, and whether anything is on it");
+        Assert.True(schema.Contains("\"payloadBytes\":32,\"words\":8,\"props\":20,\"live\":true")
+            && schema.Contains("\"payloadBytes\":256,\"words\":64,\"props\":76,\"live\":false"), "a tier reports the props native built, and whether anything is on it");
 
         string one = Body(server, "/nettable/ss_schema_every_kind");
 

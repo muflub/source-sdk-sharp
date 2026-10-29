@@ -546,6 +546,8 @@ public class LifecycleTests
         (typeof(PhysicsSoundBatch), 2200),  // 2.3: the queued physics sounds go
                                             // with the level (CPhysicsHook's
                                             // LevelShutdownPostEntity emptied them).
+        (typeof(MassCenterOverrides), 2250),  // the mass-centre overrides nobody took
+                                              // go with the level (the same purge).
         (typeof(PhysWorldReport), 2100),  // 2.3: the SS-PHYSWORLD report's automatic run
                                           // at post-entity init (sourcesharp_physworld_report),
                                           // native's CPhysicsHook::LevelInitPostEntity's.
@@ -562,6 +564,11 @@ public class LifecycleTests
                                            // gap (between GlobalState 50 and Rules
                                            // 100) rather than appended, so no
                                            // existing participant moved.
+        (typeof(PhysCannonWorld),   650),  // weapon_physcannon: the grab controllers
+                                           // hold the level's objects and go with it;
+                                           // the gun's sounds are precached at level
+                                           // init. Inserted in the Arsenal/Soundscapes
+                                           // gap; no recorded participant moved.
         (typeof(PlayerComposites),  450),  // tf2 stage 0.7 (D9/D10): the per-player
                                            // composite's level-shutdown detach,
                                            // FOUR HUNDRED FIFTY — beside the player
@@ -579,6 +586,14 @@ public class LifecycleTests
                                            // level's default light styles, which
                                            // CWorld::Precache wrote; at level init
                                            // pre-entity. In the same gap.
+        (typeof(UseableLadders),    720),  // the useable ladders: the map's
+                                           // func_useableladder and
+                                           // info_ladder_dismount entities, emptied
+                                           // at level shutdown. In the 700/750 gap;
+                                           // none moved.
+        (typeof(PlacedObjects),     210),  // HL2MP's placed items and weapons
+                                           // (hl2mp_gamerules.cpp), emptied at level
+                                           // shutdown. In the 200/300 gap.
     };
 
     [Fact]

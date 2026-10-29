@@ -149,7 +149,7 @@ public sealed class ClientWorldFog
         // Through the directory's classname index — see
         // ClientPlayerPrediction.FindLocalPlayer, which is the same lookup and
         // carries the reasoning. plan_entity.md §3.5.
-        foreach (var entity in _standalones.OfClass(EntityNames.SsPlayer))
+        foreach (var entity in _standalones.OfClass(EntityNames.Player))
         {
             if (entity is ClientSsPlayer player &&
                 (int)(player.Handle.Value & HandleEntryMask) == local)

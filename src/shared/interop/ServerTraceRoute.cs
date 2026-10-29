@@ -106,7 +106,7 @@ public static class ServerTraceResults
     /// </summary>
     public static HullResult Hull(in ServerTrace t) => new(Stopped(t), t.Trace.StartSolid != 0, t.Hit);
 
-    /// <summary>EntityTraceHull's answer: where the sweep ended, startsolid and allsolid.</summary>
+    /// <summary>EntityTraceHull's answer: where the sweep ended, startsolid and allsolid, what it struck and how far it got.</summary>
     public static EntityHullTrace EntityHull(in ServerTrace t)
-        => new(t.Trace.EndPos, t.Trace.StartSolid != 0, t.Trace.AllSolid != 0);
+        => new(t.Trace.EndPos, t.Trace.StartSolid != 0, t.Trace.AllSolid != 0, t.Hit, t.Trace.Fraction);
 }

@@ -66,10 +66,11 @@ public sealed class EntityMotion
 
     public EntityMotion(ILog log, IEngineEntities entities, IEngineWorldQuery world,
                         IEngineEffects effects,
-                        IEngineConsole console, EntityDirectory directory,
+                        IEngineConsole console, IEngineEntityPhysics physics, EntityDirectory directory,
                         PhysicsPushedEntities pushed)
     {
         _log = log;
+        _physics = physics;
         _pushed = pushed;
         _entities = entities;
         _world = world;
@@ -122,6 +123,9 @@ public sealed class EntityMotion
     /// <summary>What a mover does to whatever is in its way: CPhysicsPushedEntities.</summary>
     private readonly PhysicsPushedEntities _pushed;
 
+    /// <summary>What the movers' shadows are told after the movers move.</summary>
+    private readonly IEngineEntityPhysics _physics;
+
     /// <summary>One entity's motion, as this side holds it.</summary>
     private sealed class Mover
     {
@@ -130,6 +134,21 @@ public sealed class EntityMotion
         public float GravityScale;
         public int BouncesLeft;
         public EntityHandle Owner;
+
+        /// <summary>Degrees per second its angles turn by in flight: PhysicsToss's avelocity.</summary>
+        public Vector Spin;
+
+        /// <summary>The velocity it was flying at going into the last step: what a touch saw it arrive with.</summary>
+        public Vector Incoming;
+
+        /// <summary>Half the box it sweeps; zero sweeps a point (a ray).</summary>
+        public Vector Hull;
+
+        /// <summary>
+        /// It flies through players: a FSOLID_NOT_SOLID flyer's sweep, which
+        /// PhysicsCheckSweep makes without CONTENTS_MONSTER. See <see cref="PassCharacters"/>.
+        /// </summary>
+        public bool PassCharacters;
     }
 
     private readonly Dictionary<EntityHandle, Mover> _movers = new();
@@ -173,7 +192,7 @@ public sealed class EntityMotion
     /// </para>
     /// </summary>
     public void Launch(EntityHandle entity, Vector velocity, float gravityScale,
-                       int bounces, EntityHandle owner)
+                       int bounces, EntityHandle owner, Vector spin = default, Vector hull = default)
     {
         // COMPARED AGAINST None RATHER THAN ASKED IsValid, here and at every
         // other handle test in this file. EntityHandle.IsValid is a NATIVE CALL
@@ -190,8 +209,28 @@ public sealed class EntityMotion
         mover.GravityScale = gravityScale;
         mover.BouncesLeft = bounces;
         mover.Owner = owner;
+        mover.Spin = spin;
+        mover.Incoming = velocity;
+        mover.Hull = hull;
         mover.Kind = gravityScale != 0f ? MotionKind.Toss : MotionKind.Fly;
     }
+
+    /// <summary>
+    /// Whether a flyer passes through players: stock's
+    /// <c>PhysicsCheckSweep</c>, which takes <c>CONTENTS_MONSTER</c> out of
+    /// the sweep of an entity with <c>FSOLID_NOT_SOLID</c> (the RPG missile's
+    /// grace period, <c>CMissile::SetGracePeriod</c>). Nothing for an entity
+    /// that is not flying.
+    /// </summary>
+    public void PassCharacters(EntityHandle entity, bool pass)
+    {
+        if (_movers.TryGetValue(entity, out var mover))
+            mover.PassCharacters = pass;
+    }
+
+    /// <summary>Whether a flyer passes through players. See <see cref="PassCharacters"/>.</summary>
+    public bool PassesCharacters(EntityHandle entity)
+        => _movers.TryGetValue(entity, out var mover) && mover.PassCharacters;
 
     /// <summary>
     /// Velocity applied and nothing asked about what is there — stock's
@@ -208,6 +247,7 @@ public sealed class EntityMotion
         mover.Velocity = velocity;
         mover.GravityScale = 0f;
         mover.BouncesLeft = 0;
+        mover.Spin = Vector.Zero;
     }
 
     /// <summary>
@@ -270,6 +310,21 @@ public sealed class EntityMotion
     public Vector VelocityOf(EntityHandle entity)
         => _movers.TryGetValue(entity, out var mover) ? mover.Velocity : Vector.Zero;
 
+    /// <summary>A box sweep's answer as the step reads a line's: the surface is the touch's to ask for.</summary>
+    private static TraceResult Swept(in SurfaceTraceResult box) => new(box.Hit, box.Fraction, box.End, box.Normal, box.Entity);
+
+    /// <summary>Half the box its step sweeps; zero for a point (or nothing flying).</summary>
+    public Vector HullOf(EntityHandle entity)
+        => _movers.TryGetValue(entity, out var mover) ? mover.Hull : Vector.Zero;
+
+    /// <summary>
+    /// The velocity it arrived with at its last step: stock's GetAbsVelocity
+    /// inside a touch, which runs before the collision changes it. Zero for
+    /// something not flying.
+    /// </summary>
+    public Vector IncomingVelocityOf(EntityHandle entity)
+        => _movers.TryGetValue(entity, out var mover) ? mover.Incoming : Vector.Zero;
+
     /// <summary>How many bounces an entity has left.</summary>
     public int BouncesLeftOf(EntityHandle entity)
         => _movers.TryGetValue(entity, out var mover) ? mover.BouncesLeft : 0;
@@ -302,6 +357,11 @@ public sealed class EntityMotion
         // after it. It is not arbitrary — a projectile's step trace should meet
         // the door where the door is THIS frame, not where it was last frame.
         RunPushFrame(frameTime);
+
+        // FinishPushers' UpdatePhysicsShadowToCurrentPosition: each shadow is
+        // taken where its entity now is, before the post-think physics step
+        // simulates it there, so a prop meets the door where the door is.
+        _physics.UpdateShadows(frameTime);
 
         if (_movers.Count == 0)
             return PushedLastFrame;
@@ -402,6 +462,7 @@ public sealed class EntityMotion
                                     mover.BouncesLeft);
 
         FlightStep step = MoveMath.AdvanceFlight(input);
+        mover.Incoming = mover.Velocity;
 
         // SKIPPING ITSELF, and that is not an optimisation — it is what makes a
         // projectile fly at all. A projectile is SOLID_BBOX and goes into the
@@ -409,8 +470,11 @@ public sealed class EntityMotion
         // through starts inside its own two-unit box and hits IT, at fraction
         // zero, on the very first frame. A rocket exploded the instant it was
         // fired and a bolt was removed before it was ever drawn.
-        TraceResult trace = _world.TraceLine(input.Origin, step.Destination,
-                                             TraceMask.Shot, handle);
+        // UTIL_TraceEntity: the entity's own box, or a point for one with none.
+        Vector hull = mover.Hull;
+        TraceResult trace = hull.X != 0f || hull.Y != 0f || hull.Z != 0f
+            ? Swept(_world.TraceBox(input.Origin, step.Destination, hull * -1f, hull, TraceMask.Shot, handle))
+            : _world.TraceLine(input.Origin, step.Destination, TraceMask.Shot, handle);
 
         // AND ITS OWNER, which the filter cannot be told about — see the type's
         // remarks and abi-requests/2f.md. A rocket fired at the floor spawns
@@ -419,10 +483,20 @@ public sealed class EntityMotion
         if (mover.Owner != EntityHandle.None && trace.Entity == mover.Owner)
             trace = new TraceResult(false, 1f, step.Destination, Vector.Zero, EntityHandle.None);
 
+        // A flyer made not solid sweeps without CONTENTS_MONSTER, so a player
+        // in its way is flown through and the world still stops it.
+        if (mover.PassCharacters && trace.Entity != EntityHandle.None && _entities.IsPlayer(trace.Entity))
+            trace = new TraceResult(false, 1f, step.Destination, Vector.Zero, EntityHandle.None);
+
         FlightResult result = MoveMath.ResolveFlight(input, step, trace.Fraction,
                                                      trace.End, trace.Normal);
 
         _entities.SetOrigin(handle, result.Origin);
+
+        // PhysicsToss turns the angles by the angular velocity each frame: a
+        // tumbling grenade. Nothing launched without a spin asks.
+        if (mover.Spin.X != 0f || mover.Spin.Y != 0f || mover.Spin.Z != 0f)
+            _entities.SetAngles(handle, _entities.GetAngles(handle) + mover.Spin * frameTime);
 
         // The velocity is written back to the shell only when it MOVED, and
         // that is not thrift for its own sake: EntitySetVelocity is also what
@@ -539,9 +613,103 @@ public sealed class EntityMotion
         /// <summary>A continuous spin, which never arrives and so never reports.</summary>
         public QAngle Spin;
 
+        /// <summary>m_pBlocker: what the last step's push failed against, or none.</summary>
+        public EntityHandle Blocker;
+
         /// <summary>What was last written to the shell, so an unchanged velocity costs no call.</summary>
         public Vector Velocity;
+
+        /// <summary>The last step's turn, in degrees a second (stock's local angular velocity).</summary>
+        public QAngle AngularVelocity;
+
+        /// <summary>The frame and the time of the last step, for the reconcile with vphysics.</summary>
+        public int Frame;
+        public float FrameTime;
+        public int ReconciledFrame = -1;
+
+        /// <summary>
+        /// This frame's push list (stock's PHYSICSPUSHLIST): where the mover
+        /// started and what it pushed by how much, so a reconcile that finds
+        /// vphysics blocked it can undo the frame.
+        /// </summary>
+        public bool HasList;
+        public Vector StartOrigin;
+        public QAngle StartAngles;
+        public readonly List<(EntityHandle Entity, Vector PushVec)> Pushed = new();
     }
+
+    /// <summary>A mover's last step, as the reconcile with vphysics reads it.</summary>
+    public readonly record struct PusherStep(int Frame, float FrameTime, Vector Velocity, QAngle AngularVelocity,
+                                             bool HasList, Vector StartOrigin, QAngle StartAngles);
+
+    private int _frame;
+
+    /// <summary>The mover's last step, or false for an entity that is not being pushed.</summary>
+    public bool TryPusherStep(EntityHandle handle, out PusherStep step)
+    {
+        if (!_pushers.TryGetValue(handle, out Push? push))
+        {
+            step = default;
+            return false;
+        }
+
+        step = new PusherStep(push.Frame, push.FrameTime, push.Velocity, push.AngularVelocity,
+                              push.HasList, push.StartOrigin, push.StartAngles);
+        return true;
+    }
+
+    /// <summary>The push list's entries; empty when this frame's step pushed nothing.</summary>
+    public IReadOnlyList<(EntityHandle Entity, Vector PushVec)> PushListOf(EntityHandle handle)
+        => _pushers.TryGetValue(handle, out Push? push) && push.HasList ? push.Pushed : [];
+
+    /// <summary>
+    /// Whether this frame's step has still to be reconciled, marking it done:
+    /// stock reconciles once, on the final vphysics tick.
+    /// </summary>
+    public bool BeginReconcile(EntityHandle handle)
+    {
+        if (!_pushers.TryGetValue(handle, out Push? push) || push.ReconciledFrame == push.Frame || push.Frame != _frame)
+            return false;
+
+        push.ReconciledFrame = push.Frame;
+        return true;
+    }
+
+    /// <summary>
+    /// PerformPush's edges: when the step's blocker is not the last one, the
+    /// last one's block ends and the new one's starts, before the frame's
+    /// Blocked. A stopped mover pushes nothing, so its block ends too.
+    /// </summary>
+    private void BlockerEdges(EntityHandle handle, Push push, EntityHandle blocker)
+    {
+        EntityHandle previous = push.Blocker;
+        if (blocker == previous)
+            return;
+
+        push.Blocker = blocker;
+        ScriptedEntity? mover = _directory.Resolve(handle);
+        if (previous != EntityHandle.None)
+            mover?.OnEndBlocked();
+        if (blocker != EntityHandle.None)
+            mover?.OnStartBlocked(blocker);
+    }
+
+    /// <summary>The mover put back where vphysics says it got to.</summary>
+    public void MoveBack(EntityHandle handle, Vector origin, QAngle angles) => Commit(handle, origin, angles);
+
+    /// <summary>A mover vphysics blocked, told what blocked it as a game push's blocker is.</summary>
+    public void PhysicsBlocked(EntityHandle mover, EntityHandle blocker)
+    {
+        LastBlocker = blocker;
+        ReportBlocked(mover, blocker, _entities.GetOrigin(mover));
+        _directory.Resolve(mover)?.OnBlocked(blocker);
+    }
+
+    /// <summary>One pushed entity's push undone (stock's SetAbsOrigin( origin - pushVec )).</summary>
+    public void UndoPush(EntityHandle entity, Vector pushVec)
+        => _entities.SetOrigin(entity, _entities.GetOrigin(entity) - pushVec);
+
+    private static float AngleDelta(float to, float from) => ((to - from) % 360f + 540f) % 360f - 180f;
 
     private readonly Dictionary<EntityHandle, Push> _pushers = new();
     private readonly List<EntityHandle> _pushOrder = new();
@@ -881,6 +1049,7 @@ public sealed class EntityMotion
     private int RunPushFrame(float frameTime)
     {
         PushedLastFrame = 0;
+        _frame++;
 
         if (_pushers.Count == 0)
             return 0;
@@ -926,6 +1095,13 @@ public sealed class EntityMotion
         // that a mover which stops is measured as having stopped.
         Vector worldBefore = _entities.GetOrigin(handle);
 
+        // This frame's step, as the reconcile with vphysics reads it; the push
+        // list is the last frame's until a push this frame stores one.
+        push.Frame = _frame;
+        push.FrameTime = frameTime;
+        push.HasList = false;
+        push.Pushed.Clear();
+
         if (!push.MovingLinear && !push.MovingAngular && push.Spin == QAngle.Zero)
         {
             // STOPPED, and that has to be said out loud. Falling out with the
@@ -938,6 +1114,8 @@ public sealed class EntityMotion
                 _entities.SetVelocity(handle, Vector.Zero);
             }
 
+            push.AngularVelocity = default;
+            BlockerEdges(handle, push, EntityHandle.None);
             return false;
         }
 
@@ -1007,6 +1185,8 @@ public sealed class EntityMotion
 
                 if (blocker != EntityHandle.None)
                     Commit(handle, current, angCurrent);
+                else
+                    StorePushList(push, worldBefore, angCurrent);
             }
 
             if (blocker == EntityHandle.None)
@@ -1065,6 +1245,10 @@ public sealed class EntityMotion
                     blockedAt = to;
                     Commit(handle, current, angNext);
                 }
+                else
+                {
+                    StorePushList(push, worldBefore, angCurrent);
+                }
             }
 
             if (blocker == EntityHandle.None)
@@ -1081,6 +1265,8 @@ public sealed class EntityMotion
 
         if (rotationPending)
             Commit(handle, current, angNext);
+
+        BlockerEdges(handle, push, blocker);
 
         if (blocker != EntityHandle.None)
         {
@@ -1100,6 +1286,13 @@ public sealed class EntityMotion
         // moving. Written only when it CHANGED, because an unchanged velocity is
         // a native call for a value the shell already holds.
         Vector velocity = MoverMath.Velocity(worldBefore, worldAfter, frameTime);
+
+        // And how fast it turned, which the reconcile projects a blocked
+        // rotation onto (stock's GetLocalAngularVelocity).
+        QAngle facing = blocker == EntityHandle.None && moved ? angNext : angCurrent;
+        push.AngularVelocity = new QAngle(AngleDelta(facing.Pitch, angCurrent.Pitch) / frameTime,
+                                          AngleDelta(facing.Yaw, angCurrent.Yaw) / frameTime,
+                                          AngleDelta(facing.Roll, angCurrent.Roll) / frameTime);
 
         if (!Same(velocity, push.Velocity))
         {
@@ -1127,6 +1320,27 @@ public sealed class EntityMotion
     /// </summary>
     private void Commit(EntityHandle handle, Vector origin, QAngle angles)
         => Parenting?.SetLocal(handle, origin, angles);
+
+    /// <summary>
+    /// CPhysicsPushedEntities::StoreMovedEntities: a push that moved somebody,
+    /// kept for a reconcile that may undo it. The last push of the frame wins,
+    /// as stock's one list per frame.
+    /// </summary>
+    private void StorePushList(Push push, Vector startOrigin, QAngle startAngles)
+    {
+        if (_pushed.Count == 0)
+            return;
+
+        push.HasList = true;
+        push.StartOrigin = startOrigin;
+        push.StartAngles = startAngles;
+        push.Pushed.Clear();
+        for (int i = 0; i < _pushed.Count; i++)
+        {
+            EntityHandle entity = _pushed.PushedAt(i);
+            push.Pushed.Add((entity, _entities.GetOrigin(entity) - _pushed.PushedStartAt(i)));
+        }
+    }
 
     /// <summary>
     /// WHO stopped a mover, said out loud on request.
@@ -1274,16 +1488,6 @@ public sealed class MoversPushedConVar : BoolConVar
 /// the two dozen brush classes changing a line.
 /// </para>
 ///
-/// <para>
-/// <b>The pane half is a DECLARED REFUSAL on this side</b> and not a forward.
-/// <c>SetSurfaceEdges</c> is on this interface because a breakable surface's
-/// panes are brush geometry, not because they move — and its ABI slot is
-/// CLIENT-ONLY: <c>func_breakable_surf</c>'s edge set is drawn, and the server
-/// has never had a slot to fill. Forwarding it compiled, ran, and was caught by
-/// <c>SideAuditTests.ServerAssemblyLeansOnlyOnSlotsItsSideFills</c>, which is
-/// exactly the audit's job. So it says so once per entity rather than reaching
-/// for a slot this side does not fill (LANE_BRIEF §7).
-/// </para>
 /// </summary>
 internal sealed class ManagedBrushMovement : IEngineBrushMovement
 {
@@ -1308,10 +1512,4 @@ internal sealed class ManagedBrushMovement : IEngineBrushMovement
         => _motion.Spin(entity, QAngle.FromVector(degreesPerSecond));
 
     public void StopMoving(EntityHandle entity) => _motion.StopMoving(entity);
-
-    public void SetSurfaceEdges(EntityHandle entity, byte[] packed, int count)
-        => _log.Warning($"[SourceSharp] SetSurfaceEdges({entity}, {count} edges) is a CLIENT " +
-                       "call; the server fills no slot for it and the edges were not set. " +
-                       "A breakable surface's panes are drawn, not simulated — " +
-                       "SourceSharp.Client's ClientBreakableSurf is what sets them.\n");
 }

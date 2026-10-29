@@ -229,9 +229,11 @@ public sealed class ServerBoneDriver
     /// at the model's DEFAULT pose, and the cache goes.
     /// </summary>
     public void SetPoseSequence(BoneEntityState s, int modelIndex, int sequence, float playbackRate,
-                                bool restart, float now)
+                                bool restart, float now, float startCycle = 0.0f)
     {
-        if (playbackRate <= 0.0f)
+        // 0 would freeze the clock (a held cycle is HeldCycle's); a negative
+        // rate plays backwards from the start cycle.
+        if (playbackRate == 0.0f)
         {
             playbackRate = 1.0f;
         }
@@ -250,6 +252,8 @@ public sealed class ServerBoneDriver
         s.Sequence = sequence;
         s.PlaybackRate = playbackRate;
         s.AnimTime = now;
+        s.StartCycle = startCycle;
+        s.HeldCycle = null;
 
         s.SeqDuration = 0.0f;
         s.SeqLooping = false;

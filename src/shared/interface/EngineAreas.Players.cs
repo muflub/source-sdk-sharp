@@ -80,7 +80,10 @@ public interface IEnginePlayers
     /// <inheritdoc cref="EngineSide.GetPlayerShootOrigin"/>
     Vector GetShootOrigin(EntityHandle player);
 
-    /// <inheritdoc cref="EngineSide.GetPlayerTeam"/>
+    /// <summary>
+    /// The player's team, unassigned (0) until <see cref="SetTeam"/>; -1 when
+    /// the handle is not a player, since 0 is a real team.
+    /// </summary>
     int GetTeam(EntityHandle player);
 
     /// <summary>
@@ -163,7 +166,10 @@ public interface IEnginePlayers
     /// <inheritdoc cref="EngineSide.PlayerSetObserverMode"/>
     void SetObserverMode(EntityHandle player, ObserverMode mode);
 
-    /// <inheritdoc cref="EngineSide.PlayerSetTeam"/>
+    /// <summary>
+    /// Stores the player's team, stock's <c>CBaseEntity::ChangeTeam</c> store
+    /// and nothing more: which teams exist is <c>ITeams</c>' policy.
+    /// </summary>
     void SetTeam(EntityHandle player, int team);
 
     /// <inheritdoc cref="EngineSide.EntitySetPickupEnabled"/>
@@ -295,6 +301,32 @@ public interface IEnginePlayerMovement
 
     /// <inheritdoc cref="EngineSide.PlayerSetSlowMovement"/>
     void SetSlowMovement(EntityHandle player, bool slow);
+
+    /// <summary>
+    /// <c>SuitPower_SetCharge</c>: the player's suit power, 0 to 100 (a spawn
+    /// sets it full). The movement loop drains and recharges it from there.
+    /// </summary>
+    void SetSuitPower(EntityHandle player, float power);
+
+    /// <summary>
+    /// PlayerUse's debounce (<c>m_Local.m_nOldButtons |= IN_USE</c>): the
+    /// +USE that used something reads as held to this command's move, so a
+    /// ladder in reach is not mounted by it as well.
+    /// </summary>
+    void SwallowUse(EntityHandle player);
+
+    /// <summary>
+    /// CHL2_Player's <c>m_bPlayUseDenySound = true</c>: a +USE found nothing,
+    /// so the deny sound is due after the move, unless the move's ladder took
+    /// the press.
+    /// </summary>
+    void QueueUseDenySound(EntityHandle player);
+
+    /// <summary>
+    /// CHL2_Player::ItemPostFrame's half: whether the deny sound is still due,
+    /// cleared by asking.
+    /// </summary>
+    bool TakeUseDenySound(EntityHandle player);
 
     /// <inheritdoc cref="EngineSide.PlayerSetMoveType"/>
     MoveType SetMoveType(EntityHandle player, MoveType moveType);

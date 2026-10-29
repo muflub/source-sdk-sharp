@@ -115,7 +115,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The render policy grades a studio model by counts it reads from the
         // skeletons' studio headers, composed later (studio.cpp's eviction).
-        _renderPolicy = new Standalone.ClientRenderPolicy(() => _skeletons?.Models);
+        // And the viewer's own body by the engine's local player index, which
+        // the composition's engine client answers (0 before it is composed).
+        _renderPolicy = new Standalone.ClientRenderPolicy(() => _skeletons?.Models,
+                                                          () => _engineClient?.LocalPlayerSlot() ?? 0);
     }
 
     /// <summary>
@@ -133,6 +136,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private readonly Standalone.ClientRenderPolicy _renderPolicy;
     private readonly ConCommandRegistry _commands = new();
     private ClientArsenal _clientArsenal = null!;
+    private WeaponSelectionHud? _weaponSelection;
+    private LocalPickupHistory? _pickupHistory;
+    private WeaponEffects.WeaponDrawEffects? _weaponEffects;
+    private UnderwaterAmbience? _underwater;
     private ClientPlayerPrediction _prediction = null!;
 
     /// <summary>The viewer's world fog — plan_entity.md step 8e-render.</summary>
@@ -346,6 +353,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     {
         _services.AddInstance(_mirror);
 
+        // What a class asks of its render policy beyond its block (the two-pass
+        // group a weapon with glows answers): the module's one policy.
+        _services.AddInstance<Standalone.IRenderPolicyWishes>(_renderPolicy);
+
         // This side's reload sections: the debug channel's resume data crosses
         // cs_cl_reload in them (WireDebugChannel, ReloadSave). Here, with the
         // mirror, because ReloadSave is reachable from this composition alone.
@@ -524,17 +535,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public void DispatchTempEntity(int handle, ReadOnlySpan<byte> blob)
         => _tempEntPlayers?.Dispatch(handle, blob);
 
-    /// <summary>
-    /// A native forward raised one locally: the id and the numbers arrive rather
-    /// than a blob, because the effect is local and never has to become bytes.
-    /// </summary>
-    public bool ForwardTempEntity(int id, ReadOnlySpan<float> floats, ReadOnlySpan<int> ints)
-    {
-        TempEntState? state = TeForwardDispatch.Build((TeForward)id, floats, ints);
-
-        return state is not null && (_tempEntPlayers?.PlayLocally(state) ?? false);
-    }
-
     /// <summary>Exposed so the report command can read what has arrived.</summary>
     public TempEnts.ClientTempEnts TempEntities => _tempEntPlayers;
 
@@ -578,6 +578,30 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// off this module and answers the same before the level has loaded as
     /// after it.
     /// </summary>
+    /// <summary>
+    /// The managed "Impact" client effect over its engine calls, the decal
+    /// and spark slots, the impact sprays and the four knobs it reads.
+    /// </summary>
+    private TempEnts.BulletImpactEffect BulletImpact()
+    {
+        var debris = _convars.Get<FxDrawimpactdebrisConVar>() ?? throw new InvalidOperationException("fx_drawimpactdebris is not registered");
+        var dust = _convars.Get<FxDrawimpactdustConVar>() ?? throw new InvalidOperationException("fx_drawimpactdust is not registered");
+        var flecks = _convars.Get<RDrawflecksConVar>() ?? throw new InvalidOperationException("r_drawflecks is not registered");
+        var newEffects = _convars.Get<ClNewImpactEffectsConVar>() ?? throw new InvalidOperationException("cl_new_impact_effects is not registered");
+        var settings = new TempEnts.BulletImpactSettings(() => debris.Value, () => dust.Value, () => flecks.Value,
+                                                         () => newEffects.Value != 0);
+        return new TempEnts.BulletImpactEffect(_services.Require<IClientImpactEngine>(), _services.Require<IEngineWorldQuery>(),
+                                               _services.Require<IEngineEffects>(), _services.Require<IClientDecals>(),
+                                               _services.Require<IClientImpactSprays>(), _services.Require<IClientImpactSparks>(),
+                                               _services.Require<IParticleThrottle>(), _services.Require<IClientParticleOneShots>(),
+                                               _services.Require<IFwdPhysicsSurfaceProps>(), _services.Require<Sounds.IClientEntitySounds>(),
+                                               settings, _services.Require<TempEnts.IDecalSettings>(), Log);
+    }
+
+    /// <inheritdoc/>
+    public bool SuppressLocalTempEnt(bool canPredict, int recipientCount)
+        => LocalTempEntSuppression.Suppress(canPredict, recipientCount);
+
     public int ImpactChoice(ReadOnlySpan<int> input, Span<int> output,
                             Span<byte> particleName, Span<byte> decalName)
     {
@@ -790,7 +814,22 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance<IProcessEnvironment>(new ProcessEnvironment());
         _services.AddInstance<IModInfo>(new ModInfo());
         _services.AddInstance(new ParticleReloadPolicy());
+        // CHLClient::LevelInitPreEntity's cl_predict arm and PostInit's bicubic
+        // lightmap default, both decided here since lane M1-B.
+        _services.AddFactory(locator =>
+        {
+            IEngineEnvironment environment = locator.Require<IEngineEnvironment>();
+            return new LevelPrediction(() => environment.Globals.IsAvailable ? environment.Globals.MaxClients : 1,
+                                       locator.Require<IEngineConsole>().FindConVarValue,
+                                       locator.Require<IClientPredictCommand>());
+        });
+        _services.AddFactory(locator => new LightmapBicubicDefault(locator.Require<IEngineConsole>(), OperatingSystem.IsLinux()));
         _services.AddInstance(new ClientMapMaterials(log));
+        _services.AddInstance(new MapMaterialReloadWindow(_services.Require<ClientMapMaterials>().ReloadSet));
+        // worldspawn's arrival (stock's C_World::OnDataChanged): the start-dark
+        // fade goes where the engine's View_Fade goes, the view effects.
+        _services.AddInstance(WorldArrival.Over((duration, hold, flags) =>
+            _services.Require<Render.ViewEffectsHost>().Fade(duration, hold, flags, 0, 0, 0, 255, _clock.Now)));
         // decals.cpp's tables (lane c2-sims); an IReloadParticipant, so its
         // parse and indices cross cs_cl_reload.
         _services.Add<IClientDecals, ClientDecals>();
@@ -827,6 +866,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // crosses cs_cl_reload.
         _services.AddFactory<Render.ScreenSpaceEffectManager>(locator => Render.ScreenSpaceEffectManager.WithStockEffects(
             w => Log.Warning(w), p => LocalCommandLine.Has(locator.Require<ILocalCommandLine>().Args, p)));
+        // The frame's player view, which the render plan decides and the
+        // weapons' draws read to move a viewmodel attachment between fields of view.
+        var playerView = new Render.PlayerViewRecord();
+        _services.AddInstance(playerView);
+        _services.AddInstance<Render.IPlayerView>(playerView);
         _services.Add<Render.RenderPlanHost, Render.RenderPlanHost>();
         // The kClientSystems[] rows whose system is managed's (C7): the
         // viewport system (vgui_game_viewport.cpp's CViewportClientSystem).
@@ -846,6 +890,30 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // in C# since that file left, and building_cubemaps the engine's,
         // watched. The flashes last a tenth of a second, so a managed reload
         // drops the few in flight rather than carry them.
+        // r_decals and r_drawmodeldecals, the engine's, watched: the client's
+        // decal gates (lane M1-C; the temp entity players, AddStudioDecal and
+        // the bullet impact read them).
+        // UTIL_IsLowViolence: the four violence_* convars and the engine's word.
+        _services.AddFactory<Effects.IClientLowViolence>(locator =>
+            new Effects.ClientLowViolence(locator.Require<IEngineConsole>(), locator.Require<IViolenceSettings>()));
+        _services.AddFactory<TempEnts.IDecalSettings>(locator =>
+        {
+            var watch = new TempEnts.DecalConVarsWatch(
+                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
+            watch.Start();
+            _decalConVars = watch;
+            return watch;
+        });
+        // A player's spray (lane M1-C): c_te_playerdecal.cpp's decisions over
+        // the engine client, the file system and the carry-out slot.
+        _services.AddFactory<TempEnts.IPlayerSprays>(locator =>
+        {
+            var sprayDisable = _convars.Get<ClSpraydisableConVar>()
+                               ?? throw new InvalidOperationException("cl_spraydisable is not registered");
+            return new TempEnts.PlayerSprays(locator.Require<TempEnts.IDecalSettings>(), () => sprayDisable.Value,
+                                             locator.Require<IFwdEngineClient>(), locator.Require<IFwdBaseFileSystem>(),
+                                             locator.Require<IEngineEffects>(), locator.Require<IClientSprayEngine>());
+        });
         _services.AddFactory<Render.PixelVisibility.BuildingCubemapsWatch>(locator =>
         {
             var watch = new Render.PixelVisibility.BuildingCubemapsWatch(
@@ -927,8 +995,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             _leafConVars = leafConVars;
             return leafConVars;
         });
+        // The standalone entities' per-view fade (lane M1-A: C_StandaloneEntity::
+        // ComputeFxBlend's rule), run before each of the builder's blend batches.
+        _services.AddFactory<Standalone.StandaloneFadePass>(locator => new Standalone.StandaloneFadePass(
+            locator.Require<IRenderPolicyBlocks>(), locator.Require<Render.PixelVisibility.ClientPixelVisEngine>(),
+            locator.Require<IStandaloneRenderBounds>()));
         _services.AddFactory<Render.LeafSystem.RenderableListBuilder>(locator => new Render.LeafSystem.RenderableListBuilder(
-            locator.Require<Render.LeafSystem.LeafRegistry>(), locator.Require<Render.LeafSystem.LeafListConVars>()));
+            locator.Require<Render.LeafSystem.LeafRegistry>(), locator.Require<Render.LeafSystem.LeafListConVars>(),
+            locator.Require<Standalone.StandaloneFadePass>()));
         // The leaf system's cost (L3, cs_cl_leaf_stats): its calls and time, and
         // the native batches it asks.
         _services.AddFactory<Render.LeafSystem.LeafSystemStats>(locator => new Render.LeafSystem.LeafSystemStats
@@ -1068,7 +1142,26 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // THE INTERPOLATION LIST AND THE CLOCK, TAKEN OUT OF THE CONTAINER ONCE
         // (plan_entity.md step 6a). Both are read twice a frame from OnStage,
         // which is a stage notification and not a place to resolve a service.
-        _interpolationBlocks = _services.Require<IEngineEntities>().InterpolationBlocks;
+        //
+        // WHICH entities the pass writes and how far behind it draws are
+        // InterpolatedSet's (lane M1-A): the shell's list is every block, and
+        // the admitted set goes back for its PreRender walk.
+        IEngineEnvironment interpEnvironment = _services.Require<IEngineEnvironment>();
+        IEngineConsole interpConsole = _services.Require<IEngineConsole>();
+        _interpolationBlocks = new InterpolatedSet(
+            _services.Require<IEngineEntities>().InterpolationBlocks,
+            () => (_prediction?.DrivenHandle ?? EntityHandle.None).Value,
+            () => interpEnvironment.Globals.IsAvailable ? interpEnvironment.Globals.IntervalPerTick : 0f,
+            () => InterpolationDelay.AlternateTicks(
+                interpEnvironment.Globals.IsAvailable ? interpEnvironment.Globals.MaxClients : 0,
+                () => interpConsole.FindConVarValue("sv_alternateticks")),
+            _services.Require<IInterpolationAdmission>());
+
+        // AND THE GATE THE RENDER PASS OPENS ON (stock's InterpolateServerEntities
+        // policy, which was native and read by nothing): its engine reads are
+        // asked once a frame, at RenderStart.
+        _interpolationGate = new InterpolationGate(_services.Require<IPlaybackState>(), _services.Require<IClientNetChannel>(),
+                                                   _services.Require<IEngineConsole>().FindConVarValue);
 
         // AND THE RENDER-POLICY LIST (step 6b), for the same reason and out of
         // the same area.
@@ -1118,6 +1211,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.Add<IDebugClientEntities, ClientDebugEntities>();
         _services.AddInstance(new ClientNetSchemaTypes(_services.Require<INetTiers>(),
                                                        () => StandaloneNetStates.Discover(Game, Log)));
+        _services.Add<IClientSchemaGate, ClientSchemaGate>();
         _services.Add<IDebugClientNetTables, ClientDebugNetTables>();
         _services.Add<IDebugClientHooks, DebugClientHooks>();
 
@@ -1152,6 +1246,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _flecks = _services.Create<Effects.FleckSystems>();
         _services.AddInstance(_flecks);
         _sounds = _services.Create<ClientSoundController>();
+        _services.AddInstance<IClientSoundController>(_sounds);
         _corrections = _services.Create<Standalone.ColorCorrections>();
 
         // The round's tally. An instance the module owns rather than a static,
@@ -1194,9 +1289,15 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // THE BEAMS (§2 cluster 5): the bookkeeping and the builders are
         // managed; native's `beams` forwards here (IManagedBeamsClient) and the
         // executor draws. Before the temp entity players, which create them.
+        // A local viewmodel attachment converted to the world's field of view,
+        // as stock's C_BaseViewModel::GetAttachment answers: the beams' endpoints
+        // and the weapons' world-pass effects read it.
+        _services.AddInstance<Standalone.IViewModelAttachmentFormat>(
+            new Standalone.ViewModelAttachmentFormat(_standalones, _services.Require<Render.IPlayerView>()));
         _beams = _services.Create<Beams.ClientBeamSystem>();
         _services.AddInstance(_beams);
         _services.AddInstance<Beams.IClientBeams>(_beams);
+        _services.AddInstance<Beams.IClientTranslucentRenderables>(_beams);
 
         // THE SECOND CAMERA (lane camproto): what a HUD panel shows, decided
         // here and drawn by the native executor at the frame's render.
@@ -1260,6 +1361,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(new WeaponCatalog(() => _services.ResolveAll<IWeaponTypeSource>(), Log));
         _services.AddInstance(new AmmoCatalog(() => _services.ResolveAll<IAmmoTypeSource>(), Log));
         _services.AddInstance(new WeaponBehaviours(() => _services.ResolveAll<IWeaponBehaviourSource>(), Log));
+
+        // The physcannon's behaviour, which the server resolves under the same
+        // key: the replay predicts it over a world that holds nothing.
+        _services.AddInstance(new PhysCannonBehaviourSource(new ReplayPhysCannonWorld()));
 
         // The animation layer chain's composition, the server's twin: the
         // mods' IAnimStateLayer services and the core's HL2 layer, so the
@@ -1336,20 +1441,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // MovementRunner.ClientLoop), so the client's own hook answers its
         // predicted commands too — frozen here, before any command runs.
         _movement.ReplayRules = _movementRules.Rules;
-
-        // The collision matrix, the SAME one the server sends. ShouldCollide is
-        // asked on this side too -- util_shared.cpp is shared and the trace
-        // filter runs during prediction -- so if the client answered from the
-        // native defaults while the server answered from C#, a change to
-        // CollisionRules would desynchronise prediction with nothing to say so.
-        //
-        // It used not to arrive: the slot was server-only, so this call was a
-        // silent no-op and the client's table was equal to the matrix by
-        // coincidence alone. Now the log says which, on both sides.
-        if (CollisionRules.Register(_services.Require<IEngineCollisionRules>()))
-            Log.Msg($"[SourceSharp/Client] collision matrix delivered (rows 0x{CollisionRules.RowHash(CollisionRules.BuildMatrix()):X8})\n");
-        else
-            Log.Warning("[SourceSharp/Client] collision matrix NOT delivered: this side does not serve RegisterCollisionRules\n");
 
         int standalone = _standalones.RegisterAll(typeof(ClientModule).Assembly);
         Log.Msg($"[SourceSharp/Client] registered {standalone} standalone entity class(es)\n");
@@ -1608,6 +1699,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             new Effects.GlassImpactEffect(shards),
             // fx_sparks.cpp's ManhackSparks (lane c5-particles: SparkEffects.SparkFan).
             new Effects.ManhackSparksEffect(_sparks),
+            // hl2/fx_hl2_impacts.cpp's Impact, the bullet's mark (lane M1-C; it was
+            // shell_impact_effects.cpp's SourceSharp_ImpactCallback).
+            BulletImpact(),
+            // weapon_stunstick.cpp's StunstickImpact: a glow quad and FX_Sparks.
+            new Effects.StunstickImpactEffect(_sparks),
         ]);
         _services.AddInstance<IClientEffectHandlers>(effectHandlers);
 
@@ -1689,6 +1785,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                               _services.Require<IFxGameSounds>())
                 : new Ragdolls.NoRagdollBoltPin());
         effectHandlers.Add(_services.Create<Effects.CrossbowBoltEffect>());
+        // PhyscannonImpact (weapon_physcannon.cpp's client effect): the gravity gun's blast.
+        effectHandlers.Add(_services.Create<Effects.PhysCannonImpactEffect>());
         // The mods' effects (stage 0.9): every [SideService(Side.Client)]
         // IClientEffectHandler, after the core's, now the services they may
         // ask for exist.
@@ -1782,6 +1880,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             scrapingProps.HitSurfaces = new TempEnts.ClientPropHitSurfaces(
                 _services.Require<IEngineEntityRender>().GetModelKeyValueText, _services.Require<IClientDecals>(),
                 _services.Require<IEngineWorldQuery>(), _services.Require<IEngineEffects>(),
+                _services.Require<TempEnts.IDecalSettings>(),
                 () => !int.TryParse(bloodConsole.FindConVarValue("violence_hblood"), out int hblood) || hblood != 0);
             _contactTouches = new Physics.ClientContactTouches(
                 new Physics.VPhysicsTouchWorld(new VPhysicsObjects(_engine.VPhysics)), scrapingProps);
@@ -1835,10 +1934,41 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The weapon machine's replay half (Phase 10): the same shared machine
         // the server runs, over working copies of the declared states, plus
-        // the misprediction meter for the pair the player carries.
+        // the misprediction meter for the pair the player carries. Its
+        // first prediction of a command plays the weapon's own sounds and
+        // impacts, as stock's client does (PredictedWeaponFx).
+        _services.AddInstance<IPredictedWeaponFx>(_services.Create<PredictedWeaponFx>());
         _clientArsenal = _services.Create<ClientArsenal>();
         _services.AddInstance(_clientArsenal);
         _services.AddInstance<ILocalArsenal>(_clientArsenal);
+
+        // THE WEAPON SELECTION (stock CBaseHudWeaponSelection / HL2's
+        // CHudWeaponSelection): the binds, the cancel key and the attack
+        // buttons drive it, the HUD draws it. Over the weapons' scripts on disk
+        // (the client has no engine file read: those slots are the server's).
+        var gameDir = _services.Require<IModInfo>().GameDir;
+        var weaponScripts = new WeaponScriptDatabase(Log, path =>
+        {
+            string full = Path.Combine(gameDir, path);
+            return File.Exists(full) ? File.ReadAllText(full) : null;
+        });
+        _services.AddInstance(weaponScripts);
+        var localSelection = _services.Create<LocalWeaponSelection>();
+        var fastSwitch = _convars.Get<HudFastSwitchConVar>();
+        _weaponSelection = new WeaponSelectionHud(localSelection, localSelection,
+            new ScriptWeaponSlots(_services.Require<WeaponCatalog>(), weaponScripts), _clock,
+            () => fastSwitch?.Value ?? WeaponSelectionHud.HudTypeBuckets);
+        _services.AddInstance(_weaponSelection);
+
+        // THE PICKUP HISTORY (stock CHudHistoryResource): what was just picked
+        // up, fed by the local player's weapons and pools and the server's
+        // ItemPickup and AmmoDenied.
+        var drawHistoryTime = _convars.Get<HudDrawHistoryTimeConVar>();
+        var history = new PickupHistory(_clock, () => drawHistoryTime?.Value ?? 5f);
+        _services.AddInstance(history);
+        _pickupHistory = _services.Create<LocalPickupHistory>();
+        _pickupHistory.Subscribe(_services.Require<ItemPickupMessage>(), _services.Require<AmmoDeniedMessage>());
+        _services.AddInstance(_pickupHistory);
 
         // THE UI (plan_client_ui §8 U2): the HUD as toolkit screens, drawn
         // through IShimUiClient when the HUD panel paints (IManagedUiClient).
@@ -1933,11 +2063,15 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(new Vgui.ViewportPanelCommand(_uiLoader));
         var uiLoader = _uiLoader;
         _services.AddInstance(new Vgui.ShowInfo(() => uiLoader.Current, Log));
-        _keys = new Vgui.ClientKeyInput(chatOpener, observer, _engineClient);
+        _keys = new Vgui.ClientKeyInput(chatOpener, observer, _engineClient, _weaponSelection);
 
         // THE PLAYER'S REPLAY (plan_entity.md step 6f). After the arsenal,
         // which it drives: the weapon machine's two phases are direct calls
         // from inside the prediction frame now that both halves are managed.
+        // The useable ladders the replay climbs, over the client's entities.
+        _services.AddInstance<ILadderWorld>(new ClientUseableLadders(_standalones, _convars));
+        // And HL2MP's player speeds and suit power, which it runs as the server does.
+        _services.AddInstance<IHl2PlayerMove>(new ClientHl2PlayerMove(_convars));
         _prediction = _services.Create<ClientPlayerPrediction>();
 
         // THE OBSERVER'S CAMERA (C7 item 5), after the standalones and the HUD
@@ -2009,7 +2143,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         if (inputMailbox is null)
             Log.Warning($"[SourceSharp/Client] input: no input mailbox ({whyNoMailbox}); every input call crosses\n");
         var input = new Input.ClientInput(inputHost, inputDevices, inputCvars, new Input.UiMenuInputGate(() => _uiLoader?.Current),
-                                          mailbox: inputMailbox);
+                                          mailbox: inputMailbox, hud: _weaponSelection);
 
         // The rumble mixer (c_rumble.cpp's CRumbleEffects), stepped once a frame
         // below; its random amplitude is the engine's own stream.
@@ -2023,6 +2157,24 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                      curTime: () => _clock.Now,
                                                      paused: () => inputHost.IsPaused);
         _services.AddInstance(_inputService);
+
+        // THE WEAPONS' DRAW EFFECTS (stock's ViewModelDrawn, the two-pass
+        // DrawModel arm and ClientThink): after the input, whose camera says
+        // whether a weapon is drawn through the viewmodel. The carried weapon
+        // and the viewmodel ask for them when the registry makes them.
+        _weaponEffects = new WeaponEffects.WeaponDrawEffects(
+            _standalones, hudArea, new WeaponEffects.InputThirdPersonCamera(input), _clock,
+            _services.Require<WeaponCatalog>(),
+            [
+                _services.Create<WeaponEffects.RpgDrawEffect>(),
+                _services.Create<WeaponEffects.StunStickDrawEffect>(),
+                _services.Create<WeaponEffects.PhysCannonDrawEffect>(),
+                _services.Create<WeaponEffects.CrossbowDrawEffect>(),
+            ],
+            _clientArsenal);
+        _services.AddInstance<WeaponEffects.IWeaponDrawEffects>(_weaponEffects);
+        _underwater = _services.Create<UnderwaterAmbience>();
+
         IEngineConsole inputConsole = _services.Require<IEngineConsole>();
         _services.AddInstance<IDebugClientInput>(new ClientDebugInput(_inputService, inputCvars, inputHost,
                                                                       () => inputConsole.FindConVarValue("sv_cheats")));
@@ -2165,6 +2317,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The voice manager tells the server its state once a second (stock CVoiceStatus::Frame).
         _voiceStatus?.Frame();
+
+        // The weapon selection's timeout and fade (CHudWeaponSelection::OnThink).
+        _weaponSelection?.Think();
+
+        // The pickup history's feeds and expiry (CHudHistoryResource::Paint's bookkeeping).
+        _pickupHistory?.Think();
         _frameTimes.Add(frameTime);
 
         // The dev API's questions that read the game's state, answered here on
@@ -2180,11 +2338,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The impact sounds, the fluid entries and the scrapes are the physics
         // step's (ClientPhysicsSystem.Simulate, at stock's place in the frame).
 
-        // Colour corrections, here for the same reason and with the same
-        // argument: the weight is a function of where the player is standing,
-        // which moves without anybody deciding it, and a correction round a
-        // corner still tints the wall you can see.
-        _corrections.Frame();
+        // Colour corrections are re-weighed at FRAME_RENDER_START (OnStage),
+        // where stock reset and re-weighed them, not here: this runs after the
+        // frame's render.
 
         // Animation events, here for the third instance of the same argument.
         // A sequence's cycle advances on its own clock whether or not the leaf
@@ -2218,6 +2374,15 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The ropes AFTER the winds: a rope reads this frame's published wind.
         _ropes?.Frame(frameTime);
+
+        // The physcannon's claws on the local viewmodel (its ClientThink).
+        _clientArsenal?.Frame();
+
+        // The carried weapons' own client thinks (their draw effects').
+        _weaponEffects?.Frame(frameTime);
+
+        // The local player's underwater ambience (its PreThink's UpdateUnderwaterState).
+        _underwater?.Frame();
     }
 
     /// <summary>
@@ -2298,7 +2463,18 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                 break;
 
             case ClientFrameStage.RenderStart:
-                _interpolation.RenderPass(_interpolationBlocks, _clock.Now);
+                // The frame's gate first, in stock's place: the top of
+                // InterpolateServerEntities, before any entity interpolates.
+                _interpolation.RenderPass(_interpolationBlocks, _clock.Now, _interpolationGate?.Open() ?? true);
+
+                // Colour corrections: the weights reset and re-weighed from
+                // where the player now stands (stock's OnRenderStart:
+                // ResetColorCorrectionWeights, then SimulateEntities' thinks),
+                // so the view renders with this frame's. Not in Frame, which
+                // the engine calls after the render, and not visibility-gated:
+                // a correction round a corner still tints the wall you can see.
+                // Null in a module that was never composed (a stage fact).
+                _corrections?.Frame();
 
                 // The local player's flashlight, where stock's
                 // C_BasePlayer::Simulate ran it (OnRenderStart's SimulateEntities,
@@ -2336,8 +2512,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Render.LeafSystem.LeafListConVars? _leafConVars;
     private Render.Shadows.ShadowConVars? _shadowConVars;
     private Render.PixelVisibility.BuildingCubemapsWatch? _buildingCubemaps;
+    private TempEnts.DecalConVarsWatch? _decalConVars;
+    private IClientSchemaGate? _schemaGate;
 
     private IInterpolationBlocks _interpolationBlocks = NoInterpolationBlocks.Instance;
+
+    // Null until the composition builds it, as the lists above are their null
+    // objects: a stage before then interpolates, as stock's first frame does.
+    private InterpolationGate? _interpolationGate;
 
     /// <summary>
     /// The engine's render-policy list, held rather than fetched, for the reason
@@ -2587,6 +2769,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // building_cubemaps, the engine's, which the pixel visibility and the glow overlays read (C7).
         if (_buildingCubemaps is { } buildingCubemaps && buildingCubemaps.OnChanged(id, newValue))
+            return;
+
+        // r_decals and r_drawmodeldecals, the engine's, which the client's decals read (lane M1-C).
+        if (_decalConVars is { } decalConVars && decalConVars.OnChanged(id, newValue))
             return;
 
         if (!_convars.NotifyChanged(id, newValue, oldValue))
@@ -2988,8 +3174,36 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         => _services.Require<ClientMapMaterials>().ReloadSet(nextBsp, previousBsp);
 
     /// <inheritdoc/>
+    public void MapMaterialSearchPath(string? path, string? pathId, bool addToHead)
+        => _services.Require<MapMaterialReloadWindow>().OnAddSearchPath(path, pathId, addToHead);
+
+    /// <inheritdoc/>
+    public void MapMaterialMapAccess(bool open)
+    {
+        MapMaterialReloadWindow window = _services.Require<MapMaterialReloadWindow>();
+        if (open)
+            window.OnBeginMapAccess();
+        else
+            window.OnEndMapAccess();
+    }
+
+    /// <inheritdoc/>
+    public string? MapMaterialReloadPlan(string? subString)
+        => _services.Require<MapMaterialReloadWindow>().Plan(subString);
+
+    /// <inheritdoc/>
+    public int WorldDataChanged(ReadOnlySpan<byte> blob, int updateType, Span<float> plan)
+        => (int)_services.Require<WorldArrival>().OnDataChanged(blob, (DataUpdateType)updateType, plan);
+
+    /// <inheritdoc/>
     public bool ParticlesNeedFullReload(int previousMapParticleFiles)
         => _services.Require<ParticleReloadPolicy>().NeedsFullReload(previousMapParticleFiles);
+
+    /// <inheritdoc/>
+    public void LevelInitPreEntity() => _services.Require<LevelPrediction>().LevelInitPreEntity();
+
+    /// <inheritdoc/>
+    public void PostInit(int adapterMaxDxLevel) => _services.Require<LightmapBicubicDefault>().PostInit(adapterMaxDxLevel);
 
     /// <inheritdoc/>
     public void InvalidateMdlCache()
@@ -3093,6 +3307,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public bool StandaloneCreate(EntityHandle entity, string className)
         => _standalones.Create(entity, className);
 
+    /// <inheritdoc/>
+    public bool SchemaAccept(uint typeId, bool published, uint expected, uint seen, int entIndex, string className)
+        => (_schemaGate ??= _services.Require<IClientSchemaGate>()).Accept(typeId, published, expected, seen, entIndex, className);
+
     public void StandaloneSpawn(EntityHandle entity) => _standalones.Get(entity)?.OnSpawn();
 
     /// <summary>
@@ -3100,6 +3318,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// so this resolves and dispatches and does nothing else.
     /// </summary>
     public int StandaloneDraw(EntityHandle entity) => _standalones.Get(entity)?.OnDraw() ?? 0;
+
+    public int StandaloneDrawExtras(EntityHandle entity, int flags) => _standalones.Get(entity)?.OnDrawExtras(flags) ?? -1;
 
     public void StandaloneDrawBatch(ReadOnlySpan<uint> handles, Span<int> results)
     {

@@ -71,9 +71,14 @@ public sealed partial class ClientInput
     private InputAngles _previousViewAngles;
     private int _selectedWeaponIndex;
 
+    // CHud::ProcessInput's one element here: the weapon selection.
+    private readonly IHudProcessInput? _hud;
+
     public ClientInput(IInputHost host, IInputDevices devices, InputCvars cvars,
-                       IMenuInputGate? menu = null, bool isPc = true, IInputMailbox? mailbox = null)
+                       IMenuInputGate? menu = null, bool isPc = true, IInputMailbox? mailbox = null,
+                       IHudProcessInput? hud = null)
     {
+        _hud = hud;
         _mailbox = mailbox;
         _host = host;
         _devices = devices;
@@ -545,6 +550,12 @@ public sealed partial class ClientInput
             _selectedWeaponIndex = 0;
         }
 
+        // CHud::ProcessInput: attack with a weapon selection open draws its
+        // weapon, and the button is swallowed.
+        const int attacks = (int)(InputButtons.Attack | InputButtons.Attack2);
+        if (_hud is not null && (GetButtonBits(false) & attacks) != 0 && _hud.AttackPressed())
+            ClearInputButton(attacks);
+
         cmd.Buttons = GetButtonBits(true);
 
         // Using the joystick? The stick's forward sets the forward/back bits.
@@ -785,4 +796,13 @@ public static class MathX
             return val >= b ? d : c;
         return c + (d - c) * (val - a) / (b - a);
     }
+}
+
+/// <summary>
+/// A HUD element's CHud::ProcessInput, asked as each command is built: true
+/// when it used the attack buttons (the weapon selection drawing a weapon).
+/// </summary>
+public interface IHudProcessInput
+{
+    bool AttackPressed();
 }

@@ -83,6 +83,26 @@ public sealed class SvWaterAccelerateConVar : FloatConVar { }
 public sealed class SvWaterDistConVar : FloatConVar { }
 
 //-----------------------------------------------------------------------------
+// hl_gamemovement.cpp's three ladder knobs, read by the useable-ladder
+// movement (GameMovement.Ladders) through this side's ladder world.
+//-----------------------------------------------------------------------------
+
+/// <summary><c>sv_autoladderdismount</c>: get off at a ladder's end without +USE.</summary>
+[ConVar("sv_autoladderdismount", "1", Flags = ConVarFlags.Replicated,
+        Help = "Automatically dismount from ladders when you reach the end (don't have to +USE).")]
+public sealed class SvAutoLadderDismountConVar : BoolConVar { }
+
+/// <summary><c>sv_ladderautomountdot</c>: how nearly along a ladder's axis a look auto-mounts it.</summary>
+[ConVar("sv_ladderautomountdot", "0.4", Flags = ConVarFlags.Replicated,
+        Help = "When auto-mounting a ladder by looking up its axis, this is the tolerance for looking now directly along the ladder axis.")]
+public sealed class SvLadderAutoMountDotConVar : FloatConVar { }
+
+/// <summary><c>sv_ladder_useonly</c>: ladders mount only by +USE.</summary>
+[ConVar("sv_ladder_useonly", "0", Flags = ConVarFlags.Replicated,
+        Help = "If set, ladders can only be mounted by pressing +USE")]
+public sealed class SvLadderUseOnlyConVar : BoolConVar { }
+
+//-----------------------------------------------------------------------------
 // The seven vehicle view-damping knobs. All FCVAR_CHEAT as stock declared them.
 //-----------------------------------------------------------------------------
 
@@ -237,3 +257,28 @@ public sealed class SvStepSizeConVar : MovementTunedConVar { }
 [ConVar("sv_skyname", "sky_urb01", Flags = ConVarFlags.Archive | ConVarFlags.Replicated,
         Help = "Current name of the skybox texture")]
 public sealed class SvSkyNameConVar : StringConVar { }
+
+//-----------------------------------------------------------------------------
+// HL2MP's player speeds and suit (hl2_player.cpp), read by the movement loop's
+// HL2 player (GameMovement.Hl2Player) through Hl2PlayerMoveRules.
+//-----------------------------------------------------------------------------
+
+/// <summary><c>hl2_walkspeed</c>: +walk's speed.</summary>
+[ConVar("hl2_walkspeed", "150", Flags = ConVarFlags.Replicated)]
+public sealed class Hl2WalkSpeedConVar : FloatConVar { }
+
+/// <summary><c>hl2_normspeed</c>: the run.</summary>
+[ConVar("hl2_normspeed", "190", Flags = ConVarFlags.Replicated)]
+public sealed class Hl2NormSpeedConVar : FloatConVar { }
+
+/// <summary><c>hl2_sprintspeed</c>: +speed's, while the suit has power.</summary>
+[ConVar("hl2_sprintspeed", "320", Flags = ConVarFlags.Replicated)]
+public sealed class Hl2SprintSpeedConVar : FloatConVar { }
+
+/// <summary>
+/// <c>sv_infinite_aux_power</c>: the suit never drains. Replicated as well
+/// as a cheat here, which only the client's declaration was in stock, so the
+/// client predicts what the server runs.
+/// </summary>
+[ConVar("sv_infinite_aux_power", "0", Flags = ConVarFlags.Cheat | ConVarFlags.Replicated)]
+public sealed class SvInfiniteAuxPowerConVar : BoolConVar { }

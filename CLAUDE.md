@@ -2,9 +2,10 @@
 
 SourceSharp is a .NET 10 host for the Source SDK 2013 multiplayer game. Game
 logic is ported from Valve's C++ into C#, with only the native code the engine
-needs. This repo holds our code only. It builds against the Valve fork, checked
-out beside it at `../source-sdk-2013` (see "Two repos"). Each rule carries its
-reason: read the reason before you work around a rule.
+needs. This repo holds our code only: the DLLs build from the trimmed Valve
+headers in `vendor/`, and everything else Valve comes from a pristine clone of
+upstream (see "The Valve tree"). Each rule carries its reason: read the reason
+before you work around a rule.
 
 ## Core rules
 
@@ -15,8 +16,8 @@ reason: read the reason before you work around a rule.
   never runs it.
 - **The build must compile and produce correct output after every change.**
 - **Maximise C#, minimise C++.** The ideal C++ diff for a port is one
-  `#ifndef SOURCESHARP`. When unsure what the logic should do, read the C++ in
-  the fork (the farm shows it at `farm/<config>/src/...`).
+  `#ifndef SOURCESHARP`. When unsure what the logic should do, read the stock
+  C++ in the Valve clone (`../source-sdk-2013-valve`, `valve-sdk.lock`).
 - **Work autonomously through a plan.** Don't stop between phases or ask
   "should I continue?". Stop only for ambiguous requirements that change what
   gets built, destructive or outward-facing actions (push, publish, delete),
@@ -45,53 +46,46 @@ reason: read the reason before you work around a rule.
 - Packet capture has not been blocked here. Try a capture before claiming it
   needs root or sudo.
 
-## Two repos
+## The Valve tree
 
-| Repo | Holds (classes in `docs/move/ledger.tsv`) |
+| Where | Holds (classes in `docs/move/ledger.tsv`) |
 |---|---|
-| this repo | `OURS`, `OURS-OVERLAY` (our files at Valve paths: `src/<module>/native/sdk/...`, `tools/build/`), `MOD-COPY` (`game/mod_test/`) |
-| the fork (`../source-sdk-2013`) | `VALVE`, `VALVE-EDITED` (our edits to Valve files), `VALVE-DERIVED` (relocated or split Valve code) |
+| this repo | `OURS`, `OURS-OVERLAY` (our files at Valve paths: `src/<module>/native/sdk/...`, `tools/build/`), `MOD-COPY` (`game/mod_test/`), and `vendor/`: the Valve headers server.so and client.so build from |
+| the Valve clone (`../source-sdk-2013-valve`, `valve-sdk.lock`) | stock upstream, unedited: what the farm links, what tier1, mathlib and libss_particles build from, and what the oracles read |
 
-- **Decide which repo a file belongs in before editing it.** Valve files, our
-  edits to them and relocated Valve code are changed in the fork, never copied
-  here. `tools/setup` refuses a path supplied by both repos.
+- **`make setup` clones the Valve clone at `valve-sdk.lock`** (`VALVE_SDK=`
+  elsewhere) and links the farm from it; it refuses a clone at another commit
+  or with edits. There is no ROOT and no patch series (dropped 2026-10-27):
+  nothing builds from the fork's edits. A Valve header the DLLs need changed
+  is edited in `vendor/` (within the engine barrier); a stock file is never
+  edited.
 - **Never write to the fork** (`../source-sdk-2013` or any clone or worktree
-  of it): no commits, branches, config or worktrees (user ruling 2026-10-04).
-  Builds and `make setup` only read it. A change that needs a fork edit stops
-  and goes to the user. Once the user has made the fork change, re-pin with
-  `make setup SETUP_ARGS=--accept-root`, which rewrites `sdk-root.lock`, and
-  commit the lock with the change that needed it. `--accept-root` follows
-  descendants only; `--repin-root` switches to an unrelated tree that holds
-  the Valve base, and says so.
-- **ROOT comes two ways:** the fork (`make setup ROOT=../source-sdk-2013`), or
-  stock upstream plus `patches/source-sdk-2013/` (`make sdk-upstream
-  [SDK_DIR=...]`: a fresh clone and a deterministic `git am` to
-  `UPSTREAM`'s `result=`, which setup accepts with no flag). A fork change
-  the build needs is also a change to that series and its `result=`.
-- **`sdk-links/*.txt` is the list of fork files we still depend on**, split
-  by consumer (client, server, shared, libs, tests). It only shrinks: delete
-  a file's line when it is fully ported; `make sdk-census` says which list a
-  file belongs in. Nothing under `src/sourcesharp/` is ever a fork link.
+  of it) or to the Valve clone: no commits, branches, config or worktrees
+  (user ruling 2026-10-04). Builds only read the clone.
+- **`sdk-links/*.txt` is the list of Valve files the farm links**, split by
+  consumer (client, server, shared, libs, tests); all but tests.txt are empty.
+  `make sdk-census` says which list a file belongs in. Nothing under
+  `src/sourcesharp/` is ever linked from the clone.
 - **A test that checks a port against stock code is an oracle** and reads
-  the pristine upstream clone (`src/test/oracle/`, `valve-sdk.lock`), never
-  the farm: the farm holds only what the DLLs compile.
-- After any build or test run, `git -C ../source-sdk-2013 status --porcelain`
-  must be empty. A write into the fork means a build output was linked instead
-  of built.
+  the clone (`src/test/oracle/`), never the farm: the farm holds only what the
+  tests compile.
+- After any build or test run, `git -C ../source-sdk-2013-valve status
+  --porcelain` must be empty. A write into it means a build output was linked
+  instead of built.
 
 ## Layout and build
 
 | Path | What |
 |---|---|
-| `farm/<config>/` | The compat farm: the old single-repo layout as links (`make setup ROOT=../source-sdk-2013`). CMake compiles from `farm/<config>/src` into `farm/<config>/build`; tests run with cwd `farm/<config>/src`. Rules in `tools/setup`'s header. |
+| `farm/<config>/` | The compat farm: the old single-repo layout as links (`make setup`). CMake compiles from `farm/<config>/src` into `farm/<config>/build`; tests run with cwd `farm/<config>/src`. Rules in `tools/setup`'s header. |
 | `bin/<config>/` | The game dir: `source#`, `mods.yaml`, `bin/{linux64,managed,dotnet}`, `mods/test/` (its `console.log`). |
 | `bin/<config>/cpptest`, `tools/.test-legs/` | Native test binaries; per-leg logs of `make test`. |
 | `farm/<config>/build-oracle`, `bin/<config>/cpptest-oracle` | The oracle tests' own build tree (`oracle-<config>` preset) and binaries, so the native and oracle legs run at once. |
 | `src/<module>/{managed,native}` | Our code by module. |
-| `docs/move/` | The move ledger, header rulings, overrides, tools triage. |
+| `docs/move/` | The move ledger, header rulings, overrides. |
 
 ```
-make setup ROOT=../source-sdk-2013   make debug | make release
+make setup                           make debug | make release
 make test [CONFIG=release]           make check    (debug + test-full, before merging to main)
 make test-full                       make census-test | make cpp-test | make managed-test
 make live-gate (daily, tools/daily-gate) make run | make headless | make run-debug
@@ -108,8 +102,7 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
 - `source#` reads `mods.yaml` beside it: no `-game`. In make, write
   `./source\#` (`tools/launcher-name-test` checks every launch path).
 - Tests find files through `RepoLayout`: `Repo(...)` is this repo, `Sdk(...)`
-  the farm (`$SOURCESHARP_SDK_TREE` overrides). An "is this Valve file absent"
-  test reads the farm, never the fork, which still has the file.
+  the farm (`$SOURCESHARP_SDK_TREE` overrides).
 - **A managed change is deployed by `dotnet build`**, into
   `bin/<config>/bin/managed`. Native-only checks go green while the game runs
   old C#. Confirm the deploy by the HUD build stamp or `tools/debug-api status`.
@@ -128,6 +121,16 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   comment (a list names what it builds, not what it used to).
   After reordering sources, the daily gate covers the new static-init order (a
   new object order is a new one); read its next report before building on it.
+- **Every native file is in one clang-format style** (`.clang-format`, no
+  per-file settings; user 2026-10-26). Run `tools/clang-format --write`
+  before committing C or C++; the routine `clang-format` check fails an
+  unformatted file. Generators write through it, so regenerate rather than
+  hand-format a generated file.
+- **A native function added or removed is a reviewed change:**
+  `tools/native-symbols` lists what server.so and client.so define
+  (`docs/native-symbols.tsv`); record it with `--write` in the same commit.
+  Tests that read native source as text were dropped (user 2026-10-26); don't
+  add new ones.
 - Never edit a Valve source to satisfy clang: fix our code, or a named
   `-Wno-...` on the Valve target/source with a comment. Zero warnings.
 - **The object directory is not the link line.** Ninja keeps stale `.o` files
@@ -146,7 +149,7 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   tests get no header.
 - `make test`'s checks leg (`tools/checks.tsv`) enforces this: `tools/valve-header check` and
   `tools/valve-text-audit`, which must stay at zero findings. The header does
-  not license a copy: verbatim Valve code belongs in the fork.
+  not license a copy: verbatim Valve code belongs in `vendor/` or the clone.
 
 ## Porting rules
 
@@ -306,14 +309,14 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   far smaller than usual was not measured. `make test` is the routine tier
   (about 18 s warm): checks (`tools/checks.tsv`, run at once by
   `tools/run-checks`), managed, managed-server, managed-client, tf2_descent,
-  native, entity, ui. `make test-full` (about 40 s) adds runner and
+  native, ui. `make test-full` (about 40 s) adds runner and
   checks-full (the instruments' self-tests), oracle-managed, oracle-native
-  and census (the six native tests labelled by `ss_census()`, 2-15 s each).
+  and census (the native tests labelled by `ss_census()`, 2-15 s each).
   Both build the solution once and run the managed legs from the built
-  assemblies. At d31e20d3: native 312 binaries / 3,973 gtests / 13
-  must-not-compile, census 6 / 110, managed 1,118 + server 5,458 + client 999,
-  tf2_descent 151, oracle 117 + 12 binaries / 76, entity 150, ui 476, checks
-  11 + 3. A check that is slow and changes only with its own subject goes in
+  assemblies. At 3375b841f: native 133 binaries / 1,652 gtests / 7
+  must-not-compile, census 3 / 32, managed 2,164 + server 8,355 + client
+  3,555, tf2_descent 172, tf2 3, oracle 231 + 37 binaries / 157, ui 490,
+  checks 31 + 3. A check that is slow and changes only with its own subject goes in
   the full tier; nothing leaves both. One `make test` per worktree at a time:
   a concurrent run makes the other's legs report `LOG LOST`.
 - **A quick local loop: `make test-fast`**, which is `make test` without the
@@ -369,7 +372,7 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   live-gate` by hand only when the user asks, or to diagnose a failure a
   daily report shows (`tools/live-gate --steps <ids> --passes 3`, or
   `tools/3f-gatebisect --steps <id> --rounds 3`).
-- `make live-gate` loads `dm_lockdown` (473 entities / 61 classes), then
+- `make live-gate` loads `dm_lockdown` (475 entities / 62 classes), then
   changes and reloads maps in one process. **Keep the second map load in any
   gate**: reload bugs are invisible to single-load gates.
 - **Zero `[SourceSharp]` lines and a death in swapchain creation** means the GPU

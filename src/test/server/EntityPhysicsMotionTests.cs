@@ -111,6 +111,10 @@ public class EntityPhysicsMotionTests
 
         public MoveType SetMoveType(EntityHandle player, MoveType moveType) => throw new InvalidOperationException("not asked");
         public void SetSlowMovement(EntityHandle player, bool slow) => throw new InvalidOperationException("not asked");
+        public void SetSuitPower(EntityHandle player, float power) => throw new InvalidOperationException("not asked");
+        public void SwallowUse(EntityHandle player) => throw new InvalidOperationException("not asked");
+        public void QueueUseDenySound(EntityHandle player) => throw new InvalidOperationException("not asked");
+        public bool TakeUseDenySound(EntityHandle player) => throw new InvalidOperationException("not asked");
         public void SetObserverMode(EntityHandle player, int mode) => throw new InvalidOperationException("not asked");
         public bool AddBaseVelocity(EntityHandle entity, Vector velocity) => throw new InvalidOperationException("not asked");
         public void ViewPunch(Vector center, Vector punch, float radius, bool inAir) => throw new InvalidOperationException("not asked");

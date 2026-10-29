@@ -47,6 +47,7 @@ namespace SourceSharp.Server;
 /// precache are one managed object calling another.
 /// </para>
 /// </summary>
+[ClaimsKeys("Template", 1, 16)]
 [ScriptedEntity(EntityNames.PointTemplate)]
 public sealed class PointTemplate : ScriptedEntity
 {
@@ -118,7 +119,7 @@ public sealed class PointTemplate : ScriptedEntity
     public bool RemovesItsSources => !Flags.HasFlag(SpawnFlag.KeepSources);
 
     /// <summary>Fired by ForceSpawn once a copy of the group is in the world.</summary>
-    public readonly Output OnEntitySpawned = new("OnEntitySpawned");
+    public readonly Output OnEntitySpawned = new();
 
     /// <summary>The "Template01".."Template16" keys, in slot order.</summary>
     private readonly string?[] _sourceNames = new string?[MaxTemplates];

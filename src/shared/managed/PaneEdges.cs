@@ -158,26 +158,4 @@ public static class PaneEdges
 
         return PaneEdge.Flat;
     }
-
-    /// <summary>
-    /// Packs an edge into the four bytes native reads.
-    ///
-    /// Four rather than five: the shape is 0..3 and the style is 0..2, so they
-    /// share a byte. The order here IS the wire format for this call, and the
-    /// native side unpacks it the same way in one place.
-    /// </summary>
-    public static byte[] Pack(IReadOnlyList<PaneEdgeDraw> edges)
-    {
-        var bytes = new byte[edges.Count * 4];
-
-        for (int i = 0; i < edges.Count; i++)
-        {
-            bytes[i * 4 + 0] = edges[i].W;
-            bytes[i * 4 + 1] = edges[i].H;
-            bytes[i * 4 + 2] = (byte)edges[i].Side;
-            bytes[i * 4 + 3] = (byte)(((int)edges[i].Edge << 2) | edges[i].Style);
-        }
-
-        return bytes;
-    }
 }

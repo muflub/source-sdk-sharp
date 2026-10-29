@@ -1,6 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-[CSourceSharpViewport] virtual void UpdateAllPanels(	SLOT	IViewPort: no native panels
-[CSourceSharpViewport] virtual void ShowBackGround(	SLOT	IViewPort: no background
-[CSourceSharpViewport] virtual IViewPortPanel *FindPanelByName(	SLOT	IViewPort: no native panels
-[CSourceSharpViewport] virtual IViewPortPanel *GetActivePanel(	SLOT	IViewPort: no native panels

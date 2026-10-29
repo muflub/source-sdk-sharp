@@ -3,6 +3,7 @@ using System.IO.Compression;
 
 using SourceSharp.Abi;
 using SourceSharp.Client.Effects;
+using SourceSharp.Client.Interop;
 using SourceSharp.Client.Ropes;
 
 using Xunit;
@@ -215,6 +216,84 @@ public class ClientSpriteTrailTests
 
         Assert.True(trail.StepCount == 1, "the tick laid a point");
         Assert.True(trail.Draw(1, new Vector(10, 0, 0), new BeamSeg[8]) == 0, "a ribbon switched off is not drawn");
+    }
+
+    /// <summary>
+    /// The strip writer's executor, recording what the host draws: one sprite
+    /// that binds, a camera at <see cref="Camera"/>.
+    /// </summary>
+    private sealed class StripExecutor : IClientBeamExecutor
+    {
+        public Vector Camera = new(0, -200, 0);
+        public readonly List<float[]> Strips = [];
+
+        public void View(bool insideView, Span<float> out42)
+        {
+            out42.Clear();
+            out42[39] = Camera.X; out42[40] = Camera.Y; out42[41] = Camera.Z;
+        }
+
+        public bool BindSprite(int modelIndex, int frame, int renderMode, bool wireframe) => true;
+        public void Strip(ReadOnlySpan<float> vertices) => Strips.Add(vertices.ToArray());
+
+        public bool ModelInfo(int modelIndex, out int frameCount) => throw new NotSupportedException();
+        public int ModelIndex(string name) => throw new NotSupportedException();
+        public EntityHandle EntityAt(int entry) => throw new NotSupportedException();
+        public bool EntityHasModel(EntityHandle entity) => throw new NotSupportedException();
+        public int EntityFacts(EntityHandle entity, int attachment, bool tryAttachment, Span<float> out9) => throw new NotSupportedException();
+        public void BoxVisibility(in Vector mins, in Vector maxs, out bool visible, out bool culled) => throw new NotSupportedException();
+        public Vector ScreenPosition(in Vector point) => throw new NotSupportedException();
+        public int RenderableAdd(in Vector origin, in Vector mins, in Vector maxs) => throw new NotSupportedException();
+        public void RenderableChanged(int renderable, in Vector origin, in Vector mins, in Vector maxs) => throw new NotSupportedException();
+        public void RenderableRemove(int renderable) => throw new NotSupportedException();
+        public void SetHdrColorScale(int modelIndex, int renderMode, float scale) => throw new NotSupportedException();
+        public bool Glow(int modelIndex, bool bind) => throw new NotSupportedException();
+        public void Mesh(int primitive, int primitives, int colorKind, ReadOnlySpan<float> vertices) => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// The ribbon reaches the strip writer as CBeamSegDraw's camera-facing
+    /// vertices (BeamSegDraw.Expand), seventeen floats each, two a segment --
+    /// what native's writer reads.
+    ///
+    /// <para>
+    /// Found side by side with stock (tools/stock-ab, a thrown frag, 2026-10-25):
+    /// the host handed the writer the raw segments, nine floats each, so a
+    /// moving trail's strip was drawn from garbage and nothing showed.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TheRibbonIsDrawnAsCameraFacingVertices()
+    {
+        var executor = new StripExecutor();
+        var rig = new FxTestRig();
+        var trails = new ClientSpriteTrails(executor, rig);
+        var owner = new EntityHandle(0x0001_0042u);
+        trails.Update(owner, new SpriteTrailParams { ModelIndex = 7, LifeTime = 1f, StartWidth = 8f, EndWidth = 1f,
+                                                     RenderMode = 5, R = 255, Brightness = 255, Visible = true });
+        for (int i = 0; i < 3; i++)
+        {
+            rig.Randoms.Enqueue((0, 0, 0));
+            trails.Tick(owner, 1f + i * 0.1f, new Vector(i * 10f, 0, 0), out _, out _);
+        }
+
+        int segments = trails.Draw(owner, 1.25f, new Vector(30, 0, 0));
+
+        var strip = Assert.Single(executor.Strips);
+        var segs = new BeamSeg[segments];
+        var drawn = new SpriteTrail { Params = new SpriteTrailParams { LifeTime = 1f, StartWidth = 8f, EndWidth = 1f, R = 255,
+                                                                      Brightness = 255, Visible = true } };
+        for (int i = 0; i < 3; i++)
+        {
+            rig.Randoms.Enqueue((0, 0, 0));
+            drawn.Tick(1f + i * 0.1f, new Vector(i * 10f, 0, 0), rig);
+        }
+        drawn.Draw(1.25f, new Vector(30, 0, 0), segs);
+        var expected = new BeamSegVertex[2 * segments];
+        int verts = BeamSegDraw.Expand(segs, executor.Camera, expected);
+
+        Assert.Equal(verts * BeamSegDraw.VertexFloats, strip.Length);
+        Assert.Equal(System.Runtime.InteropServices.MemoryMarshal.Cast<BeamSegVertex, float>(expected.AsSpan(0, verts)).ToArray(), strip);
     }
 
     [Fact]

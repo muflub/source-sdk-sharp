@@ -59,7 +59,7 @@ void LogLine( const char *pszLine )
 
 void SseLog( const char *pFmt, ... )
 {
-	char sz[ 1024 ];
+	char sz[1024];
 	va_list ap;
 	va_start( ap, pFmt );
 	vsnprintf( sz, sizeof( sz ), pFmt, ap );
@@ -69,15 +69,15 @@ void SseLog( const char *pFmt, ... )
 
 void SseWarning( const char *pFmt, ... )
 {
-	char sz[ 1024 ];
+	char sz[1024];
 	va_list ap;
 	va_start( ap, pFmt );
 	vsnprintf( sz, sizeof( sz ), pFmt, ap );
 	va_end( ap );
 	// One row per line the subject warns with, its newline dropped.
 	size_t n = strlen( sz );
-	if ( n && sz[ n - 1 ] == '\n' )
-		sz[ n - 1 ] = 0;
+	if ( n && sz[n - 1] == '\n' )
+		sz[n - 1] = 0;
 	SseLog( "W\t%s", sz );
 }
 
@@ -98,21 +98,33 @@ ITexture *GetFullFrameFrameBufferTexture( int textureIndex )
 class CRecordingEffect : public IScreenSpaceEffect
 {
 public:
-	CRecordingEffect( const char *pszName, bool bStartEnabled ) : m_pszName( pszName ), m_bEnabled( bStartEnabled ) {}
+	CRecordingEffect( const char *pszName, bool bStartEnabled )
+		: m_pszName( pszName )
+		, m_bEnabled( bStartEnabled )
+	{
+	}
 
 	void Init() override { SseLog( "E\t%s\tInit", m_pszName ); }
+
 	void Shutdown() override { SseLog( "E\t%s\tShutdown", m_pszName ); }
+
 	void SetParameters( KeyValues *params ) override
 	{
 		SseLog( "E\t%s\tSetParameters\t%s\t%s", m_pszName, params ? params->GetName() : "(null)",
-		        params ? params->GetString( "value", "(none)" ) : "(null)" );
+				params ? params->GetString( "value", "(none)" ) : "(null)" );
 	}
-	void Render( int x, int y, int w, int h ) override { SseLog( "E\t%s\tRender\t%d\t%d\t%d\t%d", m_pszName, x, y, w, h ); }
+
+	void Render( int x, int y, int w, int h ) override
+	{
+		SseLog( "E\t%s\tRender\t%d\t%d\t%d\t%d", m_pszName, x, y, w, h );
+	}
+
 	void Enable( bool bEnable ) override
 	{
 		SseLog( "E\t%s\tEnable\t%d", m_pszName, bEnable ? 1 : 0 );
 		m_bEnabled = bEnable;
 	}
+
 	bool IsEnabled() override
 	{
 		SseLog( "E\t%s\tIsEnabled\t%d", m_pszName, m_bEnabled ? 1 : 0 );
@@ -144,20 +156,29 @@ namespace
 // subject's lookup); "-" is no effect.
 IScreenSpaceEffect *EffectNamed( const std::string &name )
 {
-	if ( name == "alpha" ) return &alpha_effect;
-	if ( name == "beta" ) return &beta_effect;
-	if ( name == "filmgrain" ) return &filmgrain_effect;
-	if ( name == "exampleeffect" ) return &exampleeffect_effect;
+	if ( name == "alpha" )
+		return &alpha_effect;
+	if ( name == "beta" )
+		return &beta_effect;
+	if ( name == "filmgrain" )
+		return &filmgrain_effect;
+	if ( name == "exampleeffect" )
+		return &exampleeffect_effect;
 	return NULL;
 }
 
 const char *NameOf( IScreenSpaceEffect *p )
 {
-	if ( !p ) return "(null)";
-	if ( p == &alpha_effect ) return "alpha";
-	if ( p == &beta_effect ) return "beta";
-	if ( p == &filmgrain_effect ) return "filmgrain";
-	if ( p == &exampleeffect_effect ) return "exampleeffect";
+	if ( !p )
+		return "(null)";
+	if ( p == &alpha_effect )
+		return "alpha";
+	if ( p == &beta_effect )
+		return "beta";
+	if ( p == &filmgrain_effect )
+		return "filmgrain";
+	if ( p == &exampleeffect_effect )
+		return "exampleeffect";
 	return "(unknown)";
 }
 
@@ -165,52 +186,52 @@ const char *NameOf( IScreenSpaceEffect *p )
 void Step( const std::string &step )
 {
 	SseLog( "S\t%s", step.c_str() );
-	std::vector< std::string > f;
+	std::vector<std::string> f;
 	std::istringstream in( step );
 	std::string c;
 	while ( std::getline( in, c, '\t' ) )
 		f.push_back( c );
 
 	IScreenSpaceEffectManager *m = g_pScreenSpaceEffects;
-	const std::string &verb = f[ 0 ];
+	const std::string &verb = f[0];
 	if ( verb == "init" )
 	{
-		CommandLine()->CreateCmdLine( f.size() > 1 ? f[ 1 ].c_str() : "game" );
+		CommandLine()->CreateCmdLine( f.size() > 1 ? f[1].c_str() : "game" );
 		m->InitScreenSpaceEffects();
 	}
 	else if ( verb == "shutdown" )
 		m->ShutdownScreenSpaceEffects();
 	else if ( verb == "get" )
-		SseLog( "G\t%s", NameOf( m->GetScreenSpaceEffect( f[ 1 ].c_str() ) ) );
+		SseLog( "G\t%s", NameOf( m->GetScreenSpaceEffect( f[1].c_str() ) ) );
 	else if ( verb == "setparams-name" || verb == "setparams-effect" )
 	{
 		// f[2] the KeyValues' name, f[3] its "value" (a string), f[4] whether example_param is set as one.
-		KeyValues *kv = f[ 2 ] == "-" ? NULL : new KeyValues( f[ 2 ].c_str() );
+		KeyValues *kv = f[2] == "-" ? NULL : new KeyValues( f[2].c_str() );
 		if ( kv )
 		{
-			kv->SetString( "value", f[ 3 ].c_str() );
-			if ( f.size() > 4 && f[ 4 ] == "1" )
+			kv->SetString( "value", f[3].c_str() );
+			if ( f.size() > 4 && f[4] == "1" )
 				kv->SetString( "example_param", "x" );
 		}
 		if ( verb == "setparams-name" )
-			m->SetScreenSpaceEffectParams( f[ 1 ].c_str(), kv );
+			m->SetScreenSpaceEffectParams( f[1].c_str(), kv );
 		else
-			m->SetScreenSpaceEffectParams( EffectNamed( f[ 1 ] ), kv );
+			m->SetScreenSpaceEffectParams( EffectNamed( f[1] ), kv );
 		if ( kv )
 			kv->deleteThis();
 	}
 	else if ( verb == "enable-name" )
-		m->EnableScreenSpaceEffect( f[ 1 ].c_str() );
+		m->EnableScreenSpaceEffect( f[1].c_str() );
 	else if ( verb == "enable-effect" )
-		m->EnableScreenSpaceEffect( EffectNamed( f[ 1 ] ) );
+		m->EnableScreenSpaceEffect( EffectNamed( f[1] ) );
 	else if ( verb == "disable-name" )
-		m->DisableScreenSpaceEffect( f[ 1 ].c_str() );
+		m->DisableScreenSpaceEffect( f[1].c_str() );
 	else if ( verb == "disable-effect" )
-		m->DisableScreenSpaceEffect( EffectNamed( f[ 1 ] ) );
+		m->DisableScreenSpaceEffect( EffectNamed( f[1] ) );
 	else if ( verb == "disableall" )
 		m->DisableAllScreenSpaceEffects();
 	else if ( verb == "render" )
-		m->RenderEffects( atoi( f[ 1 ].c_str() ), atoi( f[ 2 ].c_str() ), atoi( f[ 3 ].c_str() ), atoi( f[ 4 ].c_str() ) );
+		m->RenderEffects( atoi( f[1].c_str() ), atoi( f[2].c_str() ), atoi( f[3].c_str() ), atoi( f[4].c_str() ) );
 	else if ( verb == "example-enabled" )
 		SseLog( "X\t%d", exampleeffect_effect.IsEnabled() ? 1 : 0 );
 	else
@@ -274,8 +295,15 @@ std::string RepoFile( const char *pszRel )
 	return std::string( pszRepo ? pszRepo : "." ) + "/" + pszRel;
 }
 
-std::string GoldenPath() { return RepoFile( "src/test/client/Fixtures/screenspaceeffects-stock.tsv" ); }
-std::string MarkerPath() { return RepoFile( "src/test/oracle/native/screenspaceeffects_golden.regen" ); }
+std::string GoldenPath()
+{
+	return RepoFile( "src/test/client/Fixtures/screenspaceeffects-stock.tsv" );
+}
+
+std::string MarkerPath()
+{
+	return RepoFile( "src/test/oracle/native/screenspaceeffects_golden.regen" );
+}
 
 } // namespace
 
@@ -306,9 +334,9 @@ TEST( ScreenSpaceEffectsOracle, StockProducesTheGolden )
 		++n;
 		if ( !ha && !hb )
 			break;
-		ASSERT_TRUE( ha && hb && la == lb ) << "line " << n << ": stock now writes\n  " << ( ha ? la : "<end>" )
-			<< "\nand the golden has\n  " << ( hb ? lb : "<end>" )
-			<< "\nDo NOT regenerate the golden to make this pass; see the file header.";
+		ASSERT_TRUE( ha && hb && la == lb )
+			<< "line " << n << ": stock now writes\n  " << ( ha ? la : "<end>" ) << "\nand the golden has\n  "
+			<< ( hb ? lb : "<end>" ) << "\nDo NOT regenerate the golden to make this pass; see the file header.";
 	}
 }
 
@@ -316,24 +344,39 @@ TEST( ScreenSpaceEffectsOracle, StockProducesTheGolden )
 TEST( ScreenSpaceEffectsOracle, TheScriptReachesEveryArm )
 {
 	const std::string run = RunScript();
-	struct Arm_t { const char *pszNeedle; const char *pszWhat; };
+
+	struct Arm_t
+	{
+		const char *pszNeedle;
+		const char *pszWhat;
+	};
+
 	static const Arm_t kArms[] = {
 		// The list is newest-first: filmgrain (registered last of the four effects) is walked first.
-		{ "S\tinit\nE\tfilmgrain\tIsEnabled\t0\nE\tfilmgrain\tInit\nE\tfilmgrain\tEnable\t0\n", "Init walks the newest registration first, keeping its flag across Init" },
-		{ "E\tbeta\tIsEnabled\t1\nE\tbeta\tInit\nE\tbeta\tEnable\t1\n", "an effect enabled before Init is enabled after it" },
+		{ "S\tinit\nE\tfilmgrain\tIsEnabled\t0\nE\tfilmgrain\tInit\nE\tfilmgrain\tEnable\t0\n",
+		  "Init walks the newest registration first, keeping its flag across Init" },
+		{ "E\tbeta\tIsEnabled\t1\nE\tbeta\tInit\nE\tbeta\tEnable\t1\n",
+		  "an effect enabled before Init is enabled after it" },
 		{ "S\tget\tALPHA\nG\talpha\n", "the lookup ignores case" },
 		{ "S\tget\tExampleEffect\nG\texampleeffect\n", "the lookup finds the subject's own effect" },
-		{ "S\tget\tmissing\nW\tCould not find screen space effect missing\nG\t(null)\n", "an unknown name warns and answers nothing" },
+		{ "S\tget\tmissing\nW\tCould not find screen space effect missing\nG\t(null)\n",
+		  "an unknown name warns and answers nothing" },
 		{ "S\tget\thollow\nG\t(null)\n", "a registration with no effect answers nothing, without a warning" },
-		{ "S\tsetparams-name\talpha\tkv1\tone\nE\talpha\tSetParameters\tkv1\tone\n", "parameters by name reach the effect" },
-		{ "S\tsetparams-effect\tbeta\tkv4\tfour\nE\tbeta\tSetParameters\tkv4\tfour\n", "parameters by effect reach it" },
+		{ "S\tsetparams-name\talpha\tkv1\tone\nE\talpha\tSetParameters\tkv1\tone\n",
+		  "parameters by name reach the effect" },
+		{ "S\tsetparams-effect\tbeta\tkv4\tfour\nE\tbeta\tSetParameters\tkv4\tfour\n",
+		  "parameters by effect reach it" },
 		{ "S\tsetparams-effect\t-\tkv5\tfive\nS\t", "parameters for no effect do nothing" },
-		{ "S\tsetparams-effect\tfilmgrain\t-\t-\nE\tfilmgrain\tSetParameters\t(null)\t(null)\n", "no parameters are passed on as none" },
+		{ "S\tsetparams-effect\tfilmgrain\t-\t-\nE\tfilmgrain\tSetParameters\t(null)\t(null)\n",
+		  "no parameters are passed on as none" },
 		{ "S\tenable-name\texampleeffect\nS\texample-enabled\nX\t0\n", "the example effect cannot be enabled" },
-		{ "S\trender\t1\t2\t640\t480\nE\tfilmgrain\tRender\t1\t2\t640\t480\nE\tbeta\tRender\t1\t2\t640\t480\nE\talpha\tRender\t1\t2\t640\t480\n", "every effect renders, enabled or not, newest first" },
-		{ "S\tdisableall\nE\tfilmgrain\tEnable\t0\nE\tbeta\tEnable\t0\nE\talpha\tEnable\t0\n", "disabling all disables each" },
+		{ "S\trender\t1\t2\t640\t480\nE\tfilmgrain\tRender\t1\t2\t640\t480\nE\tbeta\tRender\t1\t2\t640\t480\nE\talpha\tRender\t1\t2\t640\t480\n",
+		  "every effect renders, enabled or not, newest first" },
+		{ "S\tdisableall\nE\tfilmgrain\tEnable\t0\nE\tbeta\tEnable\t0\nE\talpha\tEnable\t0\n",
+		  "disabling all disables each" },
 		{ "S\tshutdown\nE\tfilmgrain\tShutdown\nE\tbeta\tShutdown\nE\talpha\tShutdown\n", "shutdown reaches each" },
-		{ "S\tinit\tgame -filmgrain\nE\tfilmgrain\tEnable\t1\nE\tfilmgrain\tIsEnabled\t1\n", "-filmgrain enables filmgrain before the walk" },
+		{ "S\tinit\tgame -filmgrain\nE\tfilmgrain\tEnable\t1\nE\tfilmgrain\tIsEnabled\t1\n",
+		  "-filmgrain enables filmgrain before the walk" },
 	};
 	for ( const Arm_t &arm : kArms )
 		EXPECT_NE( run.find( arm.pszNeedle ), std::string::npos ) << arm.pszWhat << ": no";

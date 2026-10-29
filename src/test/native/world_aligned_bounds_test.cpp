@@ -53,9 +53,8 @@ const float kEps = 0.001f;
 // and rotate the box through it. At identity angles this must agree with the
 // shortcut, exactly; off identity it is the only correct answer.
 //-----------------------------------------------------------------------------
-void ReferenceTransform( const Vector &vecLocalMins, const Vector &vecLocalMaxs,
-                         const Vector &vecOrigin, const QAngle &angAngles,
-                         Vector *pWorldMins, Vector *pWorldMaxs )
+void ReferenceTransform( const Vector &vecLocalMins, const Vector &vecLocalMaxs, const Vector &vecOrigin,
+						 const QAngle &angAngles, Vector *pWorldMins, Vector *pWorldMaxs )
 {
 	matrix3x4_t mat;
 	AngleMatrix( angAngles, vecOrigin, mat );
@@ -74,21 +73,20 @@ struct Case
 	Vector mins, maxs, origin;
 };
 
-const Case kCases[] =
-{
+const Case kCases[] = {
 	// A brush at the world origin, which is the ordinary func_smokevolume: a
 	// brush model's bounds are already where the brush is.
-	{ Vector( -64, -64, 0 ),      Vector( 64, 64, 128 ),    Vector( 0, 0, 0 ) },
+	{ Vector( -64, -64, 0 ), Vector( 64, 64, 128 ), Vector( 0, 0, 0 ) },
 
 	// The same brush, moved. This is the case the addition exists for.
-	{ Vector( -64, -64, 0 ),      Vector( 64, 64, 128 ),    Vector( 512, -256, 64 ) },
+	{ Vector( -64, -64, 0 ), Vector( 64, 64, 128 ), Vector( 512, -256, 64 ) },
 
 	// Asymmetric, so a bug that averages or mirrors shows up.
-	{ Vector( -10, -200, -3 ),    Vector( 400, 5, 7 ),      Vector( -33, 77, 12.5f ) },
+	{ Vector( -10, -200, -3 ), Vector( 400, 5, 7 ), Vector( -33, 77, 12.5f ) },
 
 	// Degenerate: a point. The grid would fill nothing, but the arithmetic must
 	// still be the arithmetic.
-	{ Vector( 0, 0, 0 ),          Vector( 0, 0, 0 ),        Vector( 9, -9, 0.25f ) },
+	{ Vector( 0, 0, 0 ), Vector( 0, 0, 0 ), Vector( 9, -9, 0.25f ) },
 
 	// Fractional, because origins are interpolated floats and not integers.
 	{ Vector( -1.5f, -2.25f, -0.125f ), Vector( 1.5f, 2.25f, 0.125f ), Vector( 0.5f, 0.5f, 0.5f ) },
@@ -121,8 +119,7 @@ TEST( WorldAlignedBounds, TheOriginIsAddedRatherThanReplacingTheBox )
 	// the output and forgetting the box, which for a brush at the world origin
 	// looks completely correct.
 	Vector mins, maxs;
-	SourceSharp_BoundsToWorld( Vector( -64, -64, 0 ), Vector( 64, 64, 128 ),
-	                           Vector( 100, 200, 300 ), &mins, &maxs );
+	SourceSharp_BoundsToWorld( Vector( -64, -64, 0 ), Vector( 64, 64, 128 ), Vector( 100, 200, 300 ), &mins, &maxs );
 
 	ExpectVectorNear( mins, Vector( 36, 136, 300 ), "mins" );
 	ExpectVectorNear( maxs, Vector( 164, 264, 428 ), "maxs" );
@@ -131,8 +128,7 @@ TEST( WorldAlignedBounds, TheOriginIsAddedRatherThanReplacingTheBox )
 TEST( WorldAlignedBounds, AZeroOriginLeavesTheBoxAlone )
 {
 	Vector mins, maxs;
-	SourceSharp_BoundsToWorld( Vector( -3, -4, -5 ), Vector( 6, 7, 8 ),
-	                           vec3_origin, &mins, &maxs );
+	SourceSharp_BoundsToWorld( Vector( -3, -4, -5 ), Vector( 6, 7, 8 ), vec3_origin, &mins, &maxs );
 
 	ExpectVectorNear( mins, Vector( -3, -4, -5 ), "mins" );
 	ExpectVectorNear( maxs, Vector( 6, 7, 8 ), "maxs" );
@@ -189,4 +185,115 @@ TEST( WorldAlignedBounds, ARotationOfAWHOLETURNIsStillIdentity )
 	ExpectVectorNear( shortcutMaxs, refMaxs, "maxs" );
 }
 
-}  // namespace
+//=============================================================================
+// The whole rule, as the standalone shells use it
+//=============================================================================
+
+// dm_lockdown's controlroom_desk001b: its model box, its origin, yaw 135.
+const Vector kDeskMins( -21.35f, -55.89f, -16.80f );
+const Vector kDeskMaxs( 20.60f, 55.90f, 17.09f );
+const Vector kDeskOrigin( -3778.31f, 4451.8f, 16.744f );
+const QAngle kDeskAngles( 0, 135, 0 );
+
+TEST( CollisionBoundsToWorld, ARotatedVPhysicsBoxIsRotatedAndReBounded )
+{
+	Vector mins, maxs;
+	SourceSharp_CollisionBoundsToWorld( SOLID_VPHYSICS, 0, kDeskMins, kDeskMaxs, kDeskOrigin, kDeskAngles, &mins,
+										&maxs );
+
+	Vector refMins, refMaxs;
+	ReferenceTransform( kDeskMins, kDeskMaxs, kDeskOrigin, kDeskAngles, &refMins, &refMaxs );
+
+	ExpectVectorNear( mins, refMins, "mins" );
+	ExpectVectorNear( maxs, refMaxs, "maxs" );
+
+	// The control: the addition alone is the box the desk was traced through.
+	Vector addedMins, addedMaxs;
+	SourceSharp_BoundsToWorld( kDeskMins, kDeskMaxs, kDeskOrigin, &addedMins, &addedMaxs );
+	EXPECT_LT( mins.x, addedMins.x - 10.0f ) << "the turned desk reaches past its unturned box";
+}
+
+TEST( CollisionBoundsToWorld, ABBoxStaysWorldAlignedWhateverItsAngles )
+{
+	// A player's hull and a pickup's trigger box: SOLID_BBOX is world-aligned.
+	Vector mins, maxs;
+	SourceSharp_CollisionBoundsToWorld( SOLID_BBOX, 0, kDeskMins, kDeskMaxs, kDeskOrigin, kDeskAngles, &mins, &maxs );
+
+	ExpectVectorNear( mins, kDeskOrigin + kDeskMins, "mins" );
+	ExpectVectorNear( maxs, kDeskOrigin + kDeskMaxs, "maxs" );
+}
+
+TEST( CollisionBoundsToWorld, ForcedWorldAlignedStaysWorldAligned )
+{
+	Vector mins, maxs;
+	SourceSharp_CollisionBoundsToWorld( SOLID_VPHYSICS, FSOLID_FORCE_WORLD_ALIGNED, kDeskMins, kDeskMaxs, kDeskOrigin,
+										kDeskAngles, &mins, &maxs );
+
+	ExpectVectorNear( mins, kDeskOrigin + kDeskMins, "mins" );
+	ExpectVectorNear( maxs, kDeskOrigin + kDeskMaxs, "maxs" );
+}
+
+TEST( CollisionBoundsToWorld, AnEntitySpaceBoxAtIdentityAnglesIsTheAddition )
+{
+	Vector mins, maxs;
+	SourceSharp_CollisionBoundsToWorld( SOLID_BSP, 0, kDeskMins, kDeskMaxs, kDeskOrigin, vec3_angle, &mins, &maxs );
+
+	ExpectVectorNear( mins, kDeskOrigin + kDeskMins, "mins" );
+	ExpectVectorNear( maxs, kDeskOrigin + kDeskMaxs, "maxs" );
+}
+
+TEST( CollisionBoundsToWorld, OnlyBBoxNoneAndForcedAlignedAreWorldSpace )
+{
+	EXPECT_FALSE( SourceSharp_BoundsInEntitySpace( SOLID_NONE, 0 ) );
+	EXPECT_FALSE( SourceSharp_BoundsInEntitySpace( SOLID_BBOX, 0 ) );
+	EXPECT_TRUE( SourceSharp_BoundsInEntitySpace( SOLID_BSP, 0 ) );
+	EXPECT_TRUE( SourceSharp_BoundsInEntitySpace( SOLID_OBB, 0 ) );
+	EXPECT_TRUE( SourceSharp_BoundsInEntitySpace( SOLID_VPHYSICS, 0 ) );
+	EXPECT_FALSE( SourceSharp_BoundsInEntitySpace( SOLID_VPHYSICS, FSOLID_FORCE_WORLD_ALIGNED ) );
+}
+
+} // namespace
+
+//-----------------------------------------------------------------------------
+// The trigger bloat (CCollisionProperty::WorldSpaceTriggerBounds and the tail
+// of ComputeSurroundingBox). Found by stock-ab's solidity census (2026-10-26):
+// stock's items and weapons carry FSOLID_USE_TRIGGER_BOUNDS, and a player
+// picks one up 24 (36) units before reaching its box.
+//-----------------------------------------------------------------------------
+
+TEST( TriggerBounds, WithoutTheFlagTheBoxIsUntouched )
+{
+	Vector vecMins( -10, -10, 0 ), vecMaxs( 10, 10, 20 );
+	SourceSharp_TriggerBounds( FSOLID_TRIGGER, 24, false, &vecMins, &vecMaxs );
+	EXPECT_EQ( Vector( -10, -10, 0 ), vecMins );
+	EXPECT_EQ( Vector( 10, 10, 20 ), vecMaxs );
+}
+
+TEST( TriggerBounds, TheDefaultBloatsTheSidesAndHalfTheTopButNotTheBottom )
+{
+	Vector vecMins( -10, -10, 0 ), vecMaxs( 10, 10, 20 );
+	SourceSharp_TriggerBounds( FSOLID_TRIGGER | FSOLID_USE_TRIGGER_BOUNDS, 24, false, &vecMins, &vecMaxs );
+	EXPECT_EQ( Vector( -34, -34, 0 ), vecMins );
+	EXPECT_EQ( Vector( 34, 34, 32 ), vecMaxs );
+}
+
+TEST( TriggerBounds, UniformBloatGrowsEverySide )
+{
+	Vector vecMins( -10, -10, 0 ), vecMaxs( 10, 10, 20 );
+	SourceSharp_TriggerBounds( FSOLID_USE_TRIGGER_BOUNDS, 36, true, &vecMins, &vecMaxs );
+	EXPECT_EQ( Vector( -46, -46, -36 ), vecMins );
+	EXPECT_EQ( Vector( 46, 46, 56 ), vecMaxs );
+}
+
+TEST( TriggerBounds, TheSurroundingBoxTakesInTheTriggerBox )
+{
+	Vector vecMins( -10, -10, 0 ), vecMaxs( 10, 10, 20 );
+	SourceSharp_SurroundingBounds( FSOLID_USE_TRIGGER_BOUNDS, 24, false, &vecMins, &vecMaxs );
+	EXPECT_EQ( Vector( -34, -34, 0 ), vecMins );
+	EXPECT_EQ( Vector( 34, 34, 32 ), vecMaxs );
+
+	Vector vecPlainMins( -10, -10, 0 ), vecPlainMaxs( 10, 10, 20 );
+	SourceSharp_SurroundingBounds( 0, 24, false, &vecPlainMins, &vecPlainMaxs );
+	EXPECT_EQ( Vector( -10, -10, 0 ), vecPlainMins );
+	EXPECT_EQ( Vector( 10, 10, 20 ), vecPlainMaxs );
+}

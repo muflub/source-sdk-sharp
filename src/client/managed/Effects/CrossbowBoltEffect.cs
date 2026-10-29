@@ -27,7 +27,7 @@ namespace SourceSharp.Client.Effects;
 /// and forever in a single-player one. That is the
 /// <c>CTempEnts::SpawnTempModel</c> arm, which the legacy tempents' thunk keeps
 /// as a no-caller stub because this is its only hl2mp caller. The sender is
-/// <c>ss_bolt</c>'s port of <c>BoltTouch</c>, which sends <c>BoltImpact</c>
+/// <c>crossbow_bolt</c>'s port of <c>BoltTouch</c>, which sends <c>BoltImpact</c>
 /// from both impact branches.
 /// </para>
 /// </summary>

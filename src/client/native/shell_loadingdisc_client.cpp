@@ -4,29 +4,21 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the loading and paused plaques' native half =========//
 // SS_REASON a  a vtable the engine calls through
-//
-// plan_client_novalve C3. Stock's CLoadingDisc (game/client/
-// vgui_loadingdiscpanel.cpp) made two vgui EditablePanels; vgui_int.cpp's
-// the panels are gone, and so is the rule that showed them: the managed UI's
-// LoadingDisc decides from the engine facts shell_vgui_client.cpp's
-// VGui_PreRender forwards (IManagedUiClient::PlaqueState). vgui_int's panel
-// creation and destruction still reach this object; it has nothing to do.
-//=============================================================================//
+// The managed UI decides the loading and paused plaques; this object only
+// answers vgui_int's calls.
 
-#include "cbase.h"
 #include "iloadingdisc.h"
 
 class CSourceSharpLoadingDisc : public ILoadingDisc
 {
 public:
 	virtual void Create( vgui::VPANEL parent ) OVERRIDE {}
-	virtual void Destroy( void ) OVERRIDE {}
 
-	// Nothing calls these now: shell_vgui_client.cpp's VGui_PreRender hands the
-	// managed UI the engine's facts, and the plaques are decided there.
+	virtual void Destroy() OVERRIDE {}
+
 	virtual void SetLoadingVisible( bool bVisible ) OVERRIDE {}
+
 	virtual void SetPausedVisible( bool bVisible, float flExpireTime ) OVERRIDE {}
 };
 

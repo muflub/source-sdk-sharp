@@ -6,14 +6,6 @@
 //=============================================================================//
 // SS_REASON d  a layout the engine reads at fixed offsets
 
-//========= SourceSharp — engine_heap.h's lookup =============================//
-//
-// See engine_heap.h. Looked up on each call rather than cached: the calls are
-// rare (an engine out-parameter's release), and a cached pointer would outlive
-// a libtier0.so that went away, which a fresh lookup cannot.
-//
-//=============================================================================//
-
 #include "engine_heap.h"
 #include "loaded_symbol.h"
 
@@ -23,8 +15,6 @@
 namespace ss
 {
 
-// g_pMemAlloc as the loaded module whose file is pszFile resolves it
-// (loaded_symbol.h).
 static IEngineHeap *HeapSeenFrom( const char *pszFile )
 {
 	IEngineHeap **ppHeap = (IEngineHeap **)FindLoadedSymbol( pszFile, "g_pMemAlloc" );
@@ -49,9 +39,11 @@ void EngineHeapFree( void *pMem )
 	IEngineHeap *pHeap = FindEngineHeap();
 	if ( !pHeap )
 	{
-		fprintf( stderr, "[SourceSharp] EngineHeapFree(%p): no libtier0.so g_pMemAlloc in "
-		                 "this process, so the block cannot be tier0's. Refusing to free "
-		                 "it into another heap.\n", pMem );
+		fprintf( stderr,
+				 "[SourceSharp] EngineHeapFree(%p): no libtier0.so g_pMemAlloc in "
+				 "this process, so the block cannot be tier0's. Refusing to free "
+				 "it into another heap.\n",
+				 pMem );
 		abort();
 	}
 

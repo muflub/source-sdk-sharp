@@ -4,17 +4,8 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the managed client's convar watch and decided values
-//
-// shell_convars_client.cpp says what these are (plan_client_novalve C8).
-//=============================================================================//
-#ifndef SOURCESHARP_SHELL_CONVARS_CLIENT_H
-#define SOURCESHARP_SHELL_CONVARS_CLIENT_H
-#ifdef _WIN32
+// The managed client's convar watch and decided values.
 #pragma once
-#endif
-
-#include <stdint.h>
 
 // Watched convars' ids start here, clear of the managed registry's own ids.
 #define SOURCESHARP_CONVAR_WATCH_ID_BASE 0x10000
@@ -26,6 +17,3 @@ int32_t SourceSharp_ClientWatchedConVarId( const char *pName );
 bool SourceSharp_ClientDecidedValue( const char *pName, float *pOut );
 
 // Installs the client's global change callback if no registration has yet.
-void SourceSharp_EnsureConVarChangeCallback();
-
-#endif // SOURCESHARP_SHELL_CONVARS_CLIENT_H

@@ -41,12 +41,12 @@ public class PhysicsObjectEngineTests
 
         Assert.NotNull(joint);
         Assert.True(joint!.IsValid);
-        joint.SetMotor(90f, 10f);
+        joint.SetHingeVelocity(90f, 1f);
         joint.Destroy();
 
         Assert.Equal(1, mine.CountOf("Constraints.Create"));
         Assert.Equal(1, mine.CountOf("Constraints.IsValid"));
-        Assert.Equal(7u, mine.Last("Constraints.SetMotor")!.Value.ArgAs<uint>(0));
+        Assert.Equal(7u, mine.Last("Constraints.SetHingeVelocity")!.Value.ArgAs<uint>(0));
         Assert.Equal(7u, mine.Last("Constraints.Destroy")!.Value.ArgAs<uint>(0));
         Assert.Empty(other.Calls);
     }

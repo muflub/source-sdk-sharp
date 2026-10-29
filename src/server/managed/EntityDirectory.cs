@@ -81,6 +81,17 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
     /// <summary>The classname index's key — the name the class was registered under.</summary>
     protected override string? ClassNameOf(ScriptedEntity entity) => entity.ClassName;
 
+    /// <summary>
+    /// CBaseEntity::SetClassname: <paramref name="entity"/> reports
+    /// <paramref name="className"/> from here on, and is found by it.
+    /// </summary>
+    public void SetClassName(ScriptedEntity entity, string className)
+    {
+        string was = entity.ClassName;
+        entity.ClassName = className;
+        Reclass(entity.Handle, was);
+    }
+
     /// <summary>The think heap this directory runs — <c>plan_entity.md</c> §3.5.</summary>
     public ThinkScheduler Think { get; } = new();
 
@@ -1186,7 +1197,7 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
         float number = EventAction.ParseFloat(value);
 
         for (int i = 0; i < _targets.Count; i++)
-            InputDelivery?.Invoke(_targets[i], e.TargetInput, value, number, e.Activator);
+            InputDelivery?.Invoke(_targets[i], e.TargetInput, value, number, e.Activator, e.Caller);
     }
 
     private void AddIfLive(EntityHandle handle)
@@ -1776,7 +1787,7 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
     /// <summary>
     /// <b>WHERE THE SAFETY COUNTER IS NOT.</b> 2e's third gate clause — "a
     /// handle from the invisible range never reaches native" — is counted on
-    /// the NATIVE side, in <c>SourceSharp_ResolveEntity</c>, and read back
+    /// the NATIVE side, in <c>CServerEntityResolver::Resolve</c>, and read back
     /// through <see cref="EngineSide.InvisibleRangeReach"/>.
     ///
     /// <para>

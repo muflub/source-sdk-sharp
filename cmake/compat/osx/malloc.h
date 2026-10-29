@@ -8,10 +8,7 @@
 // else is defined here. It lives under cmake/, not in the shim tree, because
 // it is build plumbing and the shim's line ratchet walks that tree.
 //=============================================================================//
-#ifndef SOURCESHARP_COMPAT_OSX_MALLOC_H
-#define SOURCESHARP_COMPAT_OSX_MALLOC_H
+#pragma once
 
 #include <stdlib.h>
 #include <malloc/malloc.h>
-
-#endif // SOURCESHARP_COMPAT_OSX_MALLOC_H

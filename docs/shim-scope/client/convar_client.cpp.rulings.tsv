@@ -1,8 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-int NoCompletions(	LAYOUT	the empty completion convar.h's callback slot holds (C9 tier1)
-ConCommand::ConCommand( const char *pName, FnCommandCallbackVoid_t	LAYOUT	builds a ConCommand the engine calls through convar.h's vtable (C9 tier1)
-ConCommand::ConCommand( const char *pName, FnCommandCallback_t	LAYOUT	builds a ConCommand the engine calls through convar.h's vtable (C9 tier1)
-ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString )	LAYOUT	builds a ConVar the engine reads by layout and vtable (C9 tier1)
-ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString,	LAYOUT	builds a ConVar the engine reads by layout and vtable (C9 tier1)
-ConVarRef::ConVarRef( const char *pName, bool bIgnoreMissing )	LAYOUT	the by-name handle over the engine's ICvar (C9 tier1)

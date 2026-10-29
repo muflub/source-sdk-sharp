@@ -47,10 +47,10 @@ public class PredictionSchemaTests
         // than defaulted either way.
         StandaloneNetStates.Discover(typeof(PlayerNetState).Assembly, new RecordingLog());
 
-        Assert.True(_catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsPlayer)) > 0,
+        Assert.True(_catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.Player)) > 0,
             "the player must declare itself predictable or nothing replays it");
 
-        Assert.Equal(0, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsBeam)));
+        Assert.Equal(0, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.Beam)));
 
         Assert.Equal(-1, _catalog.PredictedFieldCount(0xDEADBEEF));
     }

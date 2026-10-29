@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using SourceSharp.Client.WeaponEffects;
 using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Standalone;
@@ -17,10 +18,25 @@ namespace SourceSharp.Client.Standalone;
 [ClientStandaloneEntity(EntityNames.SsWeapon)]
 public sealed class ClientSsWeapon : ClientStandaloneEntity
 {
+    /// <summary>A weapon with no draw effects and no render policy to ask (a test's).</summary>
     public ClientSsWeapon(IEngineEntityRender render)
-        : base(render)
+        : this(render, new NoWeaponDrawEffects(), new NoRenderPolicyWishes())
     {
     }
+
+    [Inject]
+    public ClientSsWeapon(IEngineEntityRender render, IWeaponDrawEffects effects, IRenderPolicyWishes policy)
+        : base(render)
+    {
+        _effects = effects;
+        _policy = policy;
+    }
+
+    private readonly IWeaponDrawEffects _effects;
+    private readonly IRenderPolicyWishes _policy;
+
+    // The type the two-pass wish was last made for, so it is asked once per change.
+    private int _wishedFor = int.MinValue;
 
     public override string ClassName => EntityNames.SsWeapon;
 
@@ -40,6 +56,15 @@ public sealed class ClientSsWeapon : ClientStandaloneEntity
     public override void OnDataChanged(ReadOnlySpan<byte> blob, DataUpdateType updateType)
     {
         Decodes++;
+
+        // Which render group this weapon answers is its type's: stock's
+        // stunstick and physcannon draw their glows in the translucent pass of
+        // a two-pass model (GetRenderGroup).
+        if (State.WeaponTypeId != _wishedFor)
+        {
+            _wishedFor = State.WeaponTypeId;
+            _policy.WantTwoPass(Handle, _effects.WantsTwoPass(State.WeaponTypeId));
+        }
 
         // The carrier is named by ENTINDEX — players hold 1..maxplayers on
         // both sides identically, which is what lets an entity reference cross
@@ -64,5 +89,10 @@ public sealed class ClientSsWeapon : ClientStandaloneEntity
     public override void OnRemoved()
     {
         _mergedOnto = -1;
+        _policy.WantTwoPass(Handle, false);
+        _wishedFor = int.MinValue;
     }
+
+    /// <summary>The translucent pass of a two-pass weapon: its type's draw effects.</summary>
+    public override int OnDrawExtras(int flags) => _effects.DrawWorldModel(this, flags);
 }

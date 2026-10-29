@@ -28,11 +28,56 @@ public interface IWeaponArms
     /// <summary>Plays a soundscript entry on the carrier. Silently nothing for "".</summary>
     void Sound(string soundScript);
 
+    /// <summary>
+    /// A sound only the predicting client plays: stock's WeaponSound under
+    /// <c>#ifdef CLIENT_DLL</c> (DefaultReload's). The server's arms play nothing.
+    /// </summary>
+    void ClientSound(string soundScript)
+    {
+    }
+
+    /// <summary>
+    /// A sound only the server plays: stock's from a server-only path
+    /// (Operator_HandleAnimEvent's). The client's arms play nothing.
+    /// </summary>
+    void ServerSound(string soundScript) => Sound(soundScript);
+
     /// <summary>Hitscan fire: trace, damage, impact — the ammo row says how hard.</summary>
     void FireBullets(in WeaponType type, int pellets, float spreadDegrees);
 
     /// <summary>One melee swing: a short trace, the row's own damage.</summary>
     void MeleeSwing(in WeaponType type);
+
+    /// <summary>
+    /// Whether a swing now would meet something: CBaseHL2MPBludgeonWeapon::
+    /// Swing's aim, the ray and then the hull for a near miss. Asked on every
+    /// pass, the replay's too, because it picks the animation (a hit's
+    /// ACT_VM_HITCENTER or a miss's ACT_VM_MISSCENTER) and the animation is
+    /// predicted.
+    /// </summary>
+    bool MeleeConnects(in WeaponType type) => true;
+
+    /// <summary>
+    /// A swing met nothing: Swing's miss tail, ImpactWater's splash where the
+    /// swing went into water. The server's; nothing on the client's replay.
+    /// </summary>
+    void MeleeMiss(in WeaponType type) { }
+
+    /// <summary>
+    /// The weapon in the hands has nothing left to fire: stock's
+    /// <c>SwitchToNextBestWeapon</c> for the carrier (CMultiplayRules::
+    /// GetNextBestWeapon by weight). True when the hands will take another,
+    /// which happens once this command has run. The server's; the client's
+    /// replay never switches.
+    /// </summary>
+    bool SwitchToNextBest() => false;
+
+    /// <summary>
+    /// The carrier's eyes are under water or slime (GetWaterLevel() == 3):
+    /// the crossbow fires slower there. The server's; the replay launches
+    /// nothing, so it is never asked.
+    /// </summary>
+    bool EyesUnderwater() => false;
 
     /// <summary>Sends what the weapon launches instead of a bullet.</summary>
     void Launch(in WeaponType type, string projectile, float speed, bool thrown);
@@ -69,6 +114,90 @@ public interface IWeaponArms
         // the replay side is a no-op whatever door it comes through.
     }
 
+    //-------------------------------------------------------------------------
+    // THE SLAM'S HANDS (CWeapon_SLAM, weapon_slam.cpp, run by SlamMachine).
+    //
+    // Default bodies, so the arms that never carry a SLAM — a test's recording
+    // arms, a mod's — inherit "no such animation, nothing in front of me, and
+    // nothing placed". The first three write PREDICTED state and are answered
+    // on both sides; the rest make or set off entities and are the server's,
+    // called only while effects are live.
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// The sequence tagged with an activity IN THE CURRENT VIEWMODEL, or -1 —
+    /// stock's <c>SelectWeightedSequence</c>, for a weapon that names its
+    /// animations by activity rather than by <see cref="WeaponAnim"/> kind.
+    /// </summary>
+    int LookupActivity(string activity) => -1;
+
+    /// <summary>How long a viewmodel sequence runs; 0 for none.</summary>
+    float SequenceDuration(int sequence) => 0f;
+
+    /// <summary>
+    /// What is within <paramref name="reach"/> of the carrier's eye along their
+    /// aim, through <c>MASK_SOLID</c> — the trace <c>CanAttachSLAM</c> and the
+    /// two attaches make.
+    /// </summary>
+    WallProbe ProbeWall(float reach) => WallProbe.Nothing;
+
+    /// <summary><c>CWeapon_SLAM::SatchelThrow</c>'s spawn: a satchel thrown from the carrier.</summary>
+    void ThrowCharge(in WeaponType type) { }
+
+    /// <summary><c>CWeapon_SLAM::SatchelAttach</c>'s spawn: a satchel stuck to the wall ahead.</summary>
+    void AttachCharge(in WeaponType type) { }
+
+    /// <summary><c>CWeapon_SLAM::TripmineAttach</c>'s spawn: a tripmine planted on the wall ahead.</summary>
+    void AttachTripmine(in WeaponType type) { }
+
+    /// <summary><c>CWeapon_SLAM::SatchelDetonate</c>: every live satchel this carrier threw goes off.</summary>
+    void DetonateCharges() { }
+
+    /// <summary><c>AnyUndetonatedCharges</c>: whether a satchel this carrier threw is still live.</summary>
+    bool ChargesOut() => false;
+
+    /// <summary>
+    /// CWeaponFrag's ThrowGrenade, LobGrenade or RollGrenade, server half: a
+    /// frag grenade from where and at the velocity stock's throw puts it,
+    /// with its timer set. Nothing by default, as <see cref="LaunchWith"/>:
+    /// the client's replay throws nothing.
+    /// </summary>
+    void ThrowGrenade(in WeaponType type, GrenadeThrow kind, float timer)
+    {
+    }
+
+    //-------------------------------------------------------------------------
+    // THE RPG'S HANDS (CWeaponRPG, shared/hl2mp/weapon_rpg.cpp). What stock
+    // does only #ifndef CLIENT_DLL: nothing by default, which is what the
+    // client's replay and a test's arms do.
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// CWeaponRPG::PrimaryAttack's server half: CMissile::Create at the muzzle
+    /// (twelve ahead, six right, three down of the shoot position), facing the
+    /// aim, owned by the carrier, with its grace period when the first 128
+    /// units ahead of the eye are clear.
+    /// </summary>
+    void LaunchMissile(in WeaponType type) { }
+
+    /// <summary>
+    /// The laser dot the RPG owns, made to match: none when
+    /// <paramref name="exists"/> is false (StopGuiding's UTIL_Remove), else one
+    /// (CreateLaserPointer's CLaserDot::Create) switched
+    /// <paramref name="on"/> or off and moved to where the carrier's aim ends
+    /// (UpdateLaserPosition). Idempotent: it is asked every command.
+    /// </summary>
+    void UpdateLaserDot(bool exists, bool on) { }
+
+    /// <summary>
+    /// CBasePlayer::SetFOV( weapon, fov, rate ) for the carrier: a zoom the
+    /// weapon asks for (0 gives the view back). The server's alone, as stock's
+    /// is; the client's replay asks nothing.
+    /// </summary>
+    void SetFov(int fov, float rate)
+    {
+    }
+
     /// <summary>
     /// The named animation's sequence index IN THE CURRENT VIEWMODEL, or -1.
     /// Both sides answer from the same model, which is what lets the sequence
@@ -78,6 +207,35 @@ public interface IWeaponArms
 
     /// <summary>How long that animation runs, which is how long a reload takes.</summary>
     float AnimDuration(WeaponAnim anim);
+}
+
+/// <summary>How a frag grenade leaves the hand: CWeaponFrag's three throws.</summary>
+public enum GrenadeThrow
+{
+    /// <summary>ThrowGrenade: overhand, from the primary.</summary>
+    Throw,
+
+    /// <summary>LobGrenade: underhand, from the secondary standing.</summary>
+    Lob,
+
+    /// <summary>RollGrenade: along the floor, from the secondary crouched.</summary>
+    Roll,
+}
+
+/// <summary>What <see cref="IWeaponArms.ProbeWall"/> found ahead of the carrier.</summary>
+public enum WallProbe
+{
+    /// <summary>The trace ran its whole length.</summary>
+    Nothing = 0,
+
+    /// <summary>It stopped on something that is not alive: a wall, a crate.</summary>
+    Surface = 1,
+
+    /// <summary>
+    /// It stopped on a combat character, which <c>CanAttachSLAM</c> refuses —
+    /// "Don't attach to a living creature" — and the attaches do not.
+    /// </summary>
+    Character = 2,
 }
 
 /// <summary>
@@ -98,6 +256,25 @@ public interface IWeaponArms
 /// fallback for a model with untagged sequences.
 /// </para>
 /// </summary>
+/// <summary>
+/// CBaseHL2MPBludgeonWeapon::Swing's geometry, which the server's swing and the
+/// client's predicted one both read.
+/// </summary>
+public static class BludgeonSwing
+{
+    /// <summary>BLUDGEON_HULL_DIM.</summary>
+    public const float HullDim = 16f;
+
+    /// <summary>The swing's hull, <see cref="HullDim"/> each way.</summary>
+    public static Vector Hull => new(HullDim, HullDim, HullDim);
+
+    /// <summary>Swing's "cuberoot of 2" backoff: 1.732 * BLUDGEON_HULL_DIM.</summary>
+    public const float HullRadius = 1.732f * HullDim;
+
+    /// <summary>Swing's "sort of facing the guy" threshold.</summary>
+    public const float FacingDot = 0.70721f;
+}
+
 public static class WeaponAnimNames
 {
     public static string[] For(WeaponAnim anim) => anim switch
@@ -105,6 +282,17 @@ public static class WeaponAnimNames
         WeaponAnim.Primary => new[] { "fire", "attack1", "shoot", "fire1" },
         WeaponAnim.Reload  => new[] { "reload", "reload1" },
         WeaponAnim.Draw    => new[] { "draw", "deploy" },
+        WeaponAnim.Secondary    => new[] { "altfire", "fire2", "secondaryattack" },
+        WeaponAnim.DryFire      => new[] { "dryfire" },
+        WeaponAnim.Pump         => new[] { "pump" },
+        WeaponAnim.ReloadStart  => new[] { "reload1" },
+        WeaponAnim.ReloadFinish => new[] { "reload3" },
+        WeaponAnim.PullbackHigh => new[] { "drawbackhigh" },
+        WeaponAnim.PullbackLow  => new[] { "drawbacklow" },
+        WeaponAnim.Throw        => new[] { "throw" },
+        WeaponAnim.Haulback     => new[] { "lob" },
+        WeaponAnim.Fidget       => new[] { "idle_empty" },
+        WeaponAnim.Miss         => new[] { "misscenter1", "misscenter" },
         _                  => new[] { "idle01", "idle" },
     };
 
@@ -121,6 +309,17 @@ public static class WeaponAnimNames
         WeaponAnim.Primary => new[] { "ACT_VM_PRIMARYATTACK", "ACT_VM_HITCENTER", "ACT_VM_THROW" },
         WeaponAnim.Reload  => new[] { "ACT_VM_RELOAD" },
         WeaponAnim.Draw    => new[] { "ACT_VM_DRAW" },
+        WeaponAnim.Secondary    => new[] { "ACT_VM_SECONDARYATTACK" },
+        WeaponAnim.DryFire      => new[] { "ACT_VM_DRYFIRE" },
+        WeaponAnim.Pump         => new[] { "ACT_SHOTGUN_PUMP" },
+        WeaponAnim.ReloadStart  => new[] { "ACT_SHOTGUN_RELOAD_START" },
+        WeaponAnim.ReloadFinish => new[] { "ACT_SHOTGUN_RELOAD_FINISH" },
+        WeaponAnim.PullbackHigh => new[] { "ACT_VM_PULLBACK_HIGH" },
+        WeaponAnim.PullbackLow  => new[] { "ACT_VM_PULLBACK_LOW" },
+        WeaponAnim.Throw        => new[] { "ACT_VM_THROW" },
+        WeaponAnim.Haulback     => new[] { "ACT_VM_HAULBACK" },
+        WeaponAnim.Fidget       => new[] { "ACT_VM_FIDGET" },
+        WeaponAnim.Miss         => new[] { "ACT_VM_MISSCENTER" },
         _                  => new[] { "ACT_VM_IDLE" },
     };
 
@@ -203,6 +402,25 @@ public sealed class WeaponLogic
         // with no mod assemblies would build anyway.
         _catalog = catalog ?? WeaponCatalog.Stock();
         _behaviours = behaviours ?? WeaponBehaviours.Stock();
+        _slam = new SlamMachine(arms);
+    }
+
+    private readonly SlamMachine _slam;
+
+    /// <summary>
+    /// A weapon's own draw, for a row whose machine picks it: the SLAM's
+    /// <c>Deploy</c>, which chooses among six draws by what it is facing and
+    /// whether a satchel is out. False for every other row, whose draw is the
+    /// generic one the caller sends. Run by the server's switch, which is not
+    /// a predicted command.
+    /// </summary>
+    public bool Deploy(WeaponNetState w, ViewModelNetState vm, float now)
+    {
+        if (_catalog.ByIndex(w.WeaponTypeId) is not WeaponType type || type.Kind != WeaponKind.Slam)
+            return false;
+
+        _slam.Deploy(w, vm, now, in type);
+        return true;
     }
 
     //-------------------------------------------------------------------------
@@ -234,7 +452,26 @@ public sealed class WeaponLogic
 
         var behaviour = _behaviours.For(type.Behaviour);
 
-        Step(w, vm, buttons, now, effectsLive, in type, behaviour);
+        behaviour?.ItemPreFrame(Context(in type, w, vm, now, effectsLive), buttons);
+
+        // A weapon whose stock class replaces CBaseCombatWeapon::ItemPostFrame
+        // outright (the shotgun) runs its own command.
+        if (behaviour is not null)
+        {
+            int pressed = buttons & ~w.LastButtons;
+            if (behaviour.RunCommand(Context(in type, w, vm, now, effectsLive), buttons, pressed))
+            {
+                w.LastButtons = buttons;
+                return;
+            }
+        }
+
+        // A weapon with a machine of its own runs it instead of the generic
+        // step: the SLAM's ItemPostFrame shares only the clocks with it.
+        if (type.Kind == WeaponKind.Slam)
+            _slam.RunCommand(w, vm, buttons, now, effectsLive, in type);
+        else
+            Step(w, vm, buttons, now, effectsLive, in type, behaviour);
 
         // The tail, run for EVERY command whatever the weapon did in it —
         // firing, reloading or standing idle — as stock's ItemPostFrame was.
@@ -297,6 +534,12 @@ public sealed class WeaponLogic
             PrimaryAttack(w, vm, in type, now, effectsLive, behaviour);
             return;
         }
+
+        // ReloadOrSwitchWeapons: with nothing held and nothing left to fire,
+        // the hands take the next best weapon.
+        if ((held & (InputButtons.Attack | InputButtons.Attack2 | InputButtons.Reload)) == 0
+            && SwitchIfExhausted(_arms, w, now, effectsLive, HasAnyAmmo(w, in type, clipSize)))
+            return;
 
         // Reload on request, or because the clip ran dry and nothing is held.
         bool wantsReload = held.HasFlag(InputButtons.Reload)
@@ -395,7 +638,9 @@ public sealed class WeaponLogic
         if (shots <= 0)
             return;
 
-        SendAnim(vm, WeaponAnim.Primary, 0f);
+        // A swing that meets nothing plays its miss (Swing's ACT_VM_MISSCENTER).
+        bool connects = !type.IsMelee || _arms.MeleeConnects(in type);
+        SendAnim(vm, connects ? WeaponAnim.Primary : WeaponAnim.Miss, 0f);
 
         // The sound is per shot, stock's order — before the round leaves.
         if (effectsLive)
@@ -406,8 +651,10 @@ public sealed class WeaponLogic
 
         if (type.IsMelee)
         {
-            if (effectsLive)
+            if (effectsLive && connects)
                 _arms.MeleeSwing(in type);
+            else if (effectsLive)
+                _arms.MeleeMiss(in type);
         }
         // A weapon either throws or shoots, never both. A launcher that also
         // fired a bullet down the middle would be two weapons wearing one model.
@@ -418,7 +665,8 @@ public sealed class WeaponLogic
         }
         else if (effectsLive)
         {
-            _arms.FireBullets(in type, shots * Math.Max(1, type.Pellets), type.Spread);
+            _arms.FireBullets(in type, shots * Math.Max(1, type.Pellets),
+                              behaviour?.BulletSpread(Context(in type, w, vm, now, effectsLive)) ?? type.Spread);
         }
 
         // The tail, after the stock shot has been spent and the arms have fired.
@@ -515,8 +763,9 @@ public sealed class WeaponLogic
 
         SendAnim(vm, WeaponAnim.Reload, 0f);
 
+        // DefaultReload's WeaponSound( RELOAD ), which is the client's alone.
         if (effectsLive)
-            _arms.Sound(type.ReloadSound);
+            _arms.ClientSound(type.ReloadSound);
 
         w.InReload = true;
 
@@ -564,6 +813,43 @@ public sealed class WeaponLogic
     }
 
     /// <summary>
+    /// CBaseCombatWeapon::HasAnyAmmo for a row the machine runs: a weapon that
+    /// uses no ammo always has some; else rounds in the clip or the pool, or
+    /// in the secondary pool.
+    /// </summary>
+    public static bool HasAnyAmmo(WeaponNetState w, in WeaponType type, int clipSize)
+    {
+        bool usesPrimary = type.AmmoName.Length > 0, usesSecondary = type.SecondaryAmmoName.Length > 0;
+        if (!usesPrimary && !usesSecondary)
+            return true;
+
+        bool primary = usesPrimary && ((clipSize > 0 && w.Clip > 0) || w.Reserve > 0);
+        return primary || (usesSecondary && w.SecondaryReserve > 0);
+    }
+
+    /// <summary>ReloadOrSwitchWeapons' m_flNextPrimaryAttack = curtime + 0.3 after the switch.</summary>
+    public const float ExhaustedSwitchDelay = 0.3f;
+
+    /// <summary>
+    /// CBaseCombatWeapon::ReloadOrSwitchWeapons' switch, for the machine and
+    /// the behaviours that replace its idle tail: nothing left to fire and the
+    /// trigger's wait over (both triggers', but the shotgun's own copy waits on
+    /// the primary alone), and the arms take the next best weapon.
+    /// </summary>
+    public static bool SwitchIfExhausted(IWeaponArms arms, WeaponNetState w, float now, bool effectsLive,
+                                         bool hasAnyAmmo, bool waitsOnSecondary = true)
+    {
+        if (hasAnyAmmo || !effectsLive || w.NextPrimaryAttack >= now || (waitsOnSecondary && w.NextSecondaryAttack >= now))
+            return false;
+
+        if (!arms.SwitchToNextBest())
+            return false;
+
+        w.NextPrimaryAttack = now + ExhaustedSwitchDelay;
+        return true;
+    }
+
+    /// <summary>
     /// The click of an empty gun, and a short delay so it clicks at a rate
     /// rather than every tick.
     /// </summary>
@@ -591,16 +877,24 @@ public sealed class WeaponLogic
     /// animation the model is already in — stock's m_nAnimationParity, kept for
     /// stock's reason: without it the second shot of a pair is invisible.
     /// </summary>
-    private void SendAnim(ViewModelNetState vm, WeaponAnim anim, float rate)
+    private void SendAnim(ViewModelNetState vm, WeaponAnim anim, float rate) => Play(_arms, vm, anim, rate);
+
+    /// <summary>
+    /// Stock's SendWeaponAnim for a behaviour: the sequence, the parity bump
+    /// and the rate, exactly as the machine sends its own. False when the
+    /// model has no such animation.
+    /// </summary>
+    public static bool Play(IWeaponArms arms, ViewModelNetState vm, WeaponAnim anim, float rate = 0f)
     {
-        int sequence = _arms.LookupSequence(anim);
+        int sequence = arms.LookupSequence(anim);
 
         if (sequence < 0)
-            return;
+            return false;
 
         vm.Sequence        = sequence;
         vm.AnimationParity = SourceSharp.Shared.AnimationParity.Next(vm.AnimationParity);
         vm.PlaybackRate    = rate > 0f ? rate : 1f;
+        return true;
     }
 
     private const float EmptyClickInterval = 0.5f;

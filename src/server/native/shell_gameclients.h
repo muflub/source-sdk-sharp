@@ -5,112 +5,120 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — IServerGameClients, declared where it lives ========//
-//
-// plan_entity.md step 4g. The class the engine reaches for every question about
-// one player, moved OUT of stock `game/server/gameinterface.h` and into the
-// shim beside the file that implements it.
-//
-// WHY IT WAS STILL THERE, AND WHY THAT REASON IS SPENT. The bodies left
-// gameinterface.cpp at plan_gamedll_after.md Phase A9 step 2 and the
-// declaration deliberately did not, with the reason written down in
-// shell_gameclients.cpp:
-//
-//     "three other translation units in the compiled set define methods ON
-//      this class ... and four mod-specific gameinterface.cpp files out of the
-//      build define their own GetPlayerLimits against the same declaration. A
-//      per-mod override of one method is the SDK's arrangement here and moving
-//      the declaration would not change what this file does; it would only
-//      decide something this phase was not asked to decide."
-//
-// 4g IS asked to decide it, and the arithmetic has moved besides. Measured at
-// this tip, `gameinterface.h` has EIGHT compiled readers and every one of them
-// is a shim file:
-//
-//     ServerNetworkProperty.cpp  shell_engineboundary.cpp  shell_frame.cpp
-//     shell_gameclients.cpp      shell_gamedll.cpp        shell_level.cpp
-//     shell_server.cpp
-//
-// (`base_gameinterface.cpp`, `hl2mp_gameinterface.cpp`, `sdk_gameinterface.cpp`
-// and `tf_gameinterface.cpp` — the four per-mod GetPlayerLimits overrides the
-// note above was protecting — are none of them in server_csharp.vpc.) So the
-// declaration is not shared with stock any more; it is a shim declaration that
-// happened to be sitting in a stock header, which is exactly the residue 4g is
-// for.
-//
-// WHAT DID NOT MOVE WITH IT. `CMapEntityRef`, `g_MapEntityRefs`,
-// `CMapLoadEntityFilter` and the two networked string tables stay in
-// gameinterface.h: they are the MAP LOADER's, read by shell_level.cpp and
-// shell_engineboundary.cpp, and they belong to whichever step takes
-// mapentities.cpp rather than to this one.
-//
-//=============================================================================//
-#ifndef SOURCESHARP_SHELL_GAMECLIENTS_H
-#define SOURCESHARP_SHELL_GAMECLIENTS_H
-#ifdef _WIN32
+// IServerGameClients: everything the engine asks the game about one player. The
+// engine holds the root's forwarder (late_bound_game_clients.g.h) from load; this
+// is the DLL tier's implementation it forwards to, handed what it calls.
+
 #pragma once
-#endif
 
 #include "eiface.h"
-#include "convar.h"
+#include "PlayerState.h"
+#include "ss_client_message.h"
+#include "late_bound_game_clients.g.h"
 
+class CGlobalVars;
+class IMDLCache;
+class IServerPlayerMaker;
+class CBoundaryProbe;
+class CServerEntityContext;
+class IManagedClients;
+struct CManagedAreas;
 struct edict_t;
 
-// Player / Client related functions
-// Most of this is implemented in sourcesharp/game/server/shell_gameclients.cpp
-// since plan_gamedll_after.md Phase A9, but some of it is per-mod in each game's
-// gameinterface file.
-class CServerGameClients : public IServerGameClients
+class CServerGameClients final : public IServerGameClients, private IClientMessageHandler
 {
 public:
-	virtual bool			ClientConnect( edict_t *pEntity, char const* pszName, char const* pszAddress, char *reject, int maxrejectlen ) OVERRIDE;
-	virtual void			ClientActive( edict_t *pEntity, bool bLoadGame ) OVERRIDE;
-	virtual void			ClientDisconnect( edict_t *pEntity ) OVERRIDE;
-	virtual void			ClientPutInServer( edict_t *pEntity, const char *playername ) OVERRIDE;
-	virtual void			ClientCommand( edict_t *pEntity, const CCommand &args ) OVERRIDE;
-	virtual void			ClientSettingsChanged( edict_t *pEntity ) OVERRIDE;
-	virtual void			ClientSetupVisibility( edict_t *pViewEntity, edict_t *pClient, unsigned char *pvs, int pvssize ) OVERRIDE;
-	virtual float			ProcessUsercmds( edict_t *player, bf_read *buf, int numcmds, int totalcmds,
-								int dropped_packets, bool ignore, bool paused ) OVERRIDE;
-	// Player is running a command
-	virtual void			PostClientMessagesSent_DEPRECIATED( void ) OVERRIDE;
-	virtual void			SetCommandClient( int index ) OVERRIDE;
-	virtual CPlayerState	*GetPlayerState( edict_t *player ) OVERRIDE;
-	virtual void			ClientEarPosition( edict_t *pEntity, Vector *pEarOrigin ) OVERRIDE;
+	CServerGameClients( IVEngineServer *pEngine, CGlobalVars *pGlobals, IMDLCache *pMdlCache,
+						const CManagedAreas &managed, const bool &bManagedLoaded, IServerPlayerMaker &players,
+						CBoundaryProbe &probes, const CServerEntityContext &entities )
+		: m_pEngine( pEngine )
+		, m_pGlobals( pGlobals )
+		, m_pMdlCache( pMdlCache )
+		, m_Managed( managed )
+		, m_bManagedLoaded( bManagedLoaded )
+		, m_Players( players )
+		, m_Probes( probes )
+		, m_Entities( entities )
+	{
+	}
 
-	virtual void			GetPlayerLimits( int& minplayers, int& maxplayers, int &defaultMaxPlayers ) const OVERRIDE;
-	
-	// returns number of delay ticks if player is in Replay mode (0 = no delay)
-	virtual int				GetReplayDelay( edict_t *player, int& entity ) OVERRIDE;
-	// Anything this game .dll wants to add to the bug reporter text (e.g., the entity/model under the picker crosshair)
-	//  can be added here
-	virtual void			GetBugReportInfo( char *buf, int buflen ) OVERRIDE;
-	virtual void			NetworkIDValidated( const char *pszUserName, const char *pszNetworkID ) OVERRIDE;
+	CServerGameClients( const CServerGameClients & ) = delete;
+	CServerGameClients &operator=( const CServerGameClients & ) = delete;
 
-	// The client has submitted a keyvalues command
-	virtual void			ClientCommandKeyValues( edict_t *pEntity, KeyValues *pKeyValues ) OVERRIDE;
+	bool ClientConnect( edict_t *pEntity, char const *pszName, char const *pszAddress, char *reject,
+						int maxrejectlen ) override;
+	void ClientActive( edict_t *pEntity, bool bLoadGame ) override;
+	void ClientDisconnect( edict_t *pEntity ) override;
+	void ClientPutInServer( edict_t *pEntity, const char *playername ) override;
+	void ClientCommand( edict_t *pEntity, const CCommand &args ) override;
+	void ClientSettingsChanged( edict_t *pEntity ) override;
+	void ClientSetupVisibility( edict_t *pViewEntity, edict_t *pClient, unsigned char *pvs, int pvssize ) override;
+	float ProcessUsercmds( edict_t *player, bf_read *buf, int numcmds, int totalcmds, int dropped_packets, bool ignore,
+						   bool paused ) override;
+	void PostClientMessagesSent_DEPRECIATED() override;
+	void SetCommandClient( int index ) override;
+	CPlayerState *GetPlayerState( edict_t *player ) override;
+	void ClientEarPosition( edict_t *pEntity, Vector *pEarOrigin ) override;
+	void GetPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers ) const override;
+	int GetReplayDelay( edict_t *player, int &entity ) override;
+	void GetBugReportInfo( char *buf, int buflen ) override;
+	void NetworkIDValidated( const char *pszUserName, const char *pszNetworkID ) override;
+	void ClientCommandKeyValues( edict_t *pEntity, KeyValues *pKeyValues ) override;
+	void ClientSpawned( edict_t *pPlayer ) override;
+	void ClientVoice( edict_t *pEdict ) override;
 
-	// Notify that the player is spawned
-	virtual void			ClientSpawned( edict_t *pPlayer ) OVERRIDE;
+private:
+	// A client's net message, handed to managed code, which decides what it means. A
+	// message nobody claims, or no managed side, is not the client's fault.
+	bool OnClientMessage( CSourceSharpClientMessage &msg ) override;
 
-	virtual void			ClientVoice( edict_t* pEdict ) OVERRIDE;
+	void RegisterClientMessage( int nEntIndex );
 
-	// plan_gamedll_after.md Phase A9 step 2 made two file-scope statics of
-	// gameinterface.cpp fields of this class. Both are gone.
-	//
-	// THE FIRST was the bot hook, m_pClientPutInServerOverride: a mod could
-	// substitute its own player factory for the engine's ClientPutInServer. Its
-	// setters, SetClientPutInServerOverride and the free
-	// ClientPutInServerOverride, went in the server gc cull (2026-10-01) because
-	// nothing called them, which left the field always NULL; it went in the
-	// dead-state sweep after, with the typedef and the constructor that set it.
-	//
-	// THE SECOND FIELD IS GONE TOO. It was m_svMaxUsercmdMoveMagnitude, a native
-	// ConVar declaration for sv_max_usercmd_move_magnitude, and plan_shim.md
-	// §5 3a moved the declaration to SourceSharp.Server/ConVars.cs: its flags
-	// were 0, so it is not replicated and not read by the engine, which makes
-	// it policy rather than transmitted state. ProcessUsercmds still reads it,
-	// by name through CManagedConVarRef.
+	// Never NULL: two engine sites write through GetPlayerState unchecked, one on an
+	// edict with no entity.
+	CPlayerState *PlayerStateForEdict( edict_t *pEdict );
+
+	// Where this client's eyes are, asked of managed code at most once per frame.
+	bool ClientViewOrigin( edict_t *pClient, Vector *pOut );
+
+	// The managed clients area while the managed side is up, else NULL.
+	IManagedClients *ManagedClientsIfLoaded() const;
+
+	// 1 with the client's ear position in pOutXYZ, else 0 (stock's miss path).
+	int EarPositionForClient( int iClientEdict, float *pOutXYZ ) const;
+
+	// The area portal walk for ClientSetupVisibility: sets the client's bits in pPortalBits
+	// (zeroed by the caller) and returns -1, or a portal number too large for the bits.
+	int AreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor, unsigned char *pPortalBits,
+							  int nPortalBytes ) const;
+
+	IVEngineServer *m_pEngine;
+	CGlobalVars *m_pGlobals;
+	IMDLCache *m_pMdlCache;
+	const CManagedAreas &m_Managed;
+
+	// False while the managed side is down, a reload included.
+	const bool &m_bManagedLoaded;
+
+	// Makes the player entity a client is put in the server with.
+	IServerPlayerMaker &m_Players;
+
+	// Counts the engine's calls into this object, for ss_boundary_probe_report.
+	CBoundaryProbe &m_Probes;
+
+	// Whose level's rules the engine's client events reach.
+	const CServerEntityContext &m_Entities;
+
+	// GetPlayerState's answer for an edict with no player, per edict, so the HLTV and
+	// Replay masters don't share one.
+	CPlayerState m_OrphanPlayerStates[ABSOLUTE_PLAYER_LIMIT + 1];
 };
 
-#endif // SOURCESHARP_SHELL_GAMECLIENTS_H
+// The root's IServerGameClients, which the engine holds from load: it forwards to the
+// DLL tier's CServerGameClients once DLLInit binds it, and answers GetPlayerLimits
+// itself, since the engine asks for the limits while loading the DLL.
+class CRootServerGameClients final : public CLateBoundServerGameClients
+{
+public:
+	void GetPlayerLimits( int &minplayers, int &maxplayers, int &defaultMaxPlayers ) const override;
+};

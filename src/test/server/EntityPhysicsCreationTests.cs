@@ -99,12 +99,26 @@ public class EntityPhysicsCreationTests
 
         public nint VirtualTerrainCollide(int index) => throw new NotSupportedException();
 
+        public Vector SolidMassCenter;
+
+        public Vector CollideMassCenter(nint solid) => SolidMassCenter;
+
         public void CreateStaticPropPhysics(nint environment) => throw new NotSupportedException();
 
         // ---- IVPhysicsEntityCalls -------------------------------------------
 
         public EntitySolid ReadSolid(nint solid)
             => solid == ScratchSolid && _copied ? Parsed : new EntitySolid(0, string.Empty, default);
+
+        /// <summary>The override written into the scratch solid, and where it was answered to be.</summary>
+        public Vector? WrittenMassCenter;
+        public const nint MassCenterSlot = 0x5540;
+
+        public nint WriteMassCenterOverride(nint solid, Vector local)
+        {
+            WrittenMassCenter = local;
+            return MassCenterSlot;
+        }
 
         public nint CreatePolyObject(nint environment, nint collide, int surfaceIndex, Vector origin, QAngle angles,
                                      in ObjectParams objectParams, bool isStatic)
@@ -115,6 +129,16 @@ public class EntityPhysicsCreationTests
             if (made != 0)
                 Flags[made] = 0x0010;
             return made;
+        }
+
+        public List<(float Radius, int Material, Vector Origin, ObjectParams Params)> Spheres { get; } = new();
+
+        public nint CreateSphereObject(nint environment, float radius, int materialIndex, Vector origin, QAngle angles,
+                                       in ObjectParams objectParams, bool isStatic)
+        {
+            Spheres.Add((radius, materialIndex, origin, objectParams));
+            Calls.Add("create sphere");
+            return NextObject;
         }
 
         public void DestroyObject(nint environment, nint physicsObject) => Calls.Add($"destroy {physicsObject:x}");
@@ -144,6 +168,25 @@ public class EntityPhysicsCreationTests
         public void EnableGravity(nint physicsObject, bool enable) => Calls.Add($"gravity {enable}");
 
         public void RecheckCollisionFilter(nint physicsObject) => Calls.Add("recheck");
+
+        public void EnableCollisions(nint physicsObject, bool enable) => Calls.Add($"collisions {physicsObject:x} {enable}");
+
+        public void SetShadow(nint physicsObject, float maxSpeed, float maxAngularSpeed, bool allowPhysicsMovement, bool allowPhysicsRotation)
+        {
+            Calls.Add($"shadow {physicsObject:x} {maxSpeed} {maxAngularSpeed} {allowPhysicsMovement} {allowPhysicsRotation}");
+            Shadowed.Add(physicsObject);
+        }
+
+        public readonly List<(nint Object, Vector Position, QAngle Angles, float Dt)> ShadowTargets = [];
+
+        public void UpdateShadow(nint physicsObject, Vector position, QAngle angles, bool tempDisableGravity, float timeOffset)
+            => ShadowTargets.Add((physicsObject, position, angles, timeOffset));
+
+        public readonly HashSet<nint> Shadowed = [];
+
+        public bool HasShadowController(nint physicsObject) => Shadowed.Contains(physicsObject);
+
+        public void Teleport(nint physicsObject, Vector position, QAngle angles) => Calls.Add($"teleport {physicsObject:x} {position}");
     }
 
     /// <summary>The shell and its managed class as a test sets them.</summary>
@@ -196,13 +239,187 @@ public class EntityPhysicsCreationTests
         public bool SolidityBeforePhysics => SolidityFirst;
 
         public void Warning(string text) => Warnings.Add(text);
+
+        public string? MassCenterName;
+
+        public string? MassCenterOverrideName(EntityHandle entity) => MassCenterName;
     }
 
     private static (EntityPhysicsCreation Create, FakeVPhysics V, FakeHost Host) Make()
+        => Make(new MassCenterOverrides());
+
+    private static (EntityPhysicsCreation Create, FakeVPhysics V, FakeHost Host) Make(MassCenterOverrides massCenters)
     {
         var v = new FakeVPhysics();
         var host = new FakeHost(v);
-        return (new EntityPhysicsCreation(v, v, host), v, host);
+        return (new EntityPhysicsCreation(v, v, host, massCenters), v, host);
+    }
+
+    // prop_sphere: CPhysSphere::CreateVPhysics (props.cpp) builds a real
+    // twelve-unit sphere, SOLID_BBOX, from g_PhysDefaultObjectParams. Here it
+    // used the model's hull, and ss_sandbox's ball rested 10.4 below stock's.
+    [Fact]
+    public void A_sphere_is_a_ball_of_its_radius_at_the_entitys_pose()
+    {
+        var (c, v, host) = Make();
+
+        Assert.True(c.CreateSphere(Crate, 12f));
+
+        var made = Assert.Single(v.Spheres);
+        Assert.Equal((12f, 0, new Vector(1, 2, 3)), (made.Radius, made.Material, made.Origin));
+        Assert.Equal(ObjectParams.Defaults(0).Mass, made.Params.Mass);
+        Assert.Equal(PhysicsGameData.FromHandle(Crate), made.Params.GameData);
+        Assert.Equal([MoveType.VPhysics], host.MoveTypes);
+
+        int solidity = v.Calls.IndexOf(v.Calls.First(l => l.StartsWith("solidity BoundingBox")));
+        Assert.True(solidity >= 0 && solidity < v.Calls.IndexOf("create sphere"),
+                    $"SOLID_BBOX before the object: {string.Join(", ", v.Calls)}");
+        Assert.Contains("created", v.Calls);
+    }
+
+    // A mover's shadow (CBaseEntity::VPhysicsInitShadow). Found by stock-ab's
+    // solidity census (2026-10-26): stock's doors, buttons, plats, trains and
+    // func_brushes hold a shadow and ours held nothing, so props passed
+    // through every one of them.
+    [Fact]
+    public void A_shadow_is_a_moveable_object_set_to_follow_with_stocks_limits()
+    {
+        var (c, v, host) = Make();
+
+        Assert.True(c.CreateShadow(Crate, false, false));
+
+        Assert.False(Assert.Single(v.Made).IsStatic);
+        Assert.Contains("shadow 4000 2000 3600 False False", v.Calls);
+        Assert.Equal([(host.Held, new Vector(1, 2, 3), new QAngle(10, 20, 30), 0f)], v.ShadowTargets);
+        Assert.DoesNotContain(v.Calls, l => l.StartsWith("solidity"));
+        Assert.Empty(host.MoveTypes);
+        Assert.Equal(2, c.PhysicsKind(Crate));
+    }
+
+    [Fact]
+    public void Each_frame_the_shadow_is_sent_where_its_entity_now_is()
+    {
+        var (c, v, host) = Make();
+        c.CreateShadow(Crate, false, false);
+        v.ShadowTargets.Clear();
+        host.Facts = host.Facts with { Origin = new Vector(1, 2, 13) };
+
+        Assert.Equal(1, c.UpdateShadows(0.015f));
+
+        Assert.Equal([(host.Held, new Vector(1, 2, 13), new QAngle(10, 20, 30), 0.015f)], v.ShadowTargets);
+        Assert.DoesNotContain(v.Calls, l => l.StartsWith("teleport"));
+    }
+
+    [Fact]
+    public void A_jump_further_than_a_shadow_can_travel_in_a_frame_is_a_teleport()
+    {
+        var (c, v, host) = Make();
+        c.CreateShadow(Crate, false, false);
+        v.ShadowTargets.Clear();
+        host.Facts = host.Facts with { Origin = new Vector(1, 2, 3 + 40f) };
+
+        c.UpdateShadows(0.015f);
+
+        Assert.Contains(v.Calls, l => l.StartsWith("teleport 4000"));
+        Assert.Equal(0f, Assert.Single(v.ShadowTargets).Dt);
+    }
+
+    [Fact]
+    public void A_shadow_whose_object_has_gone_is_forgotten()
+    {
+        var (c, v, host) = Make();
+        c.CreateShadow(Crate, false, false);
+        host.Held = 0;
+
+        Assert.Equal(0, c.UpdateShadows(0.015f));
+        host.Held = 0x4000;
+        Assert.Equal(0, c.UpdateShadows(0.015f));
+    }
+
+    [Fact]
+    public void An_entity_that_already_has_an_object_is_given_no_sphere()
+    {
+        var (c, v, host) = Make();
+        host.Held = 0x55;
+
+        Assert.True(c.CreateSphere(Crate, 12f));
+        Assert.Empty(v.Spheres);
+    }
+
+    // A brush's VPhysicsInitStatic (CFuncWall::CreateVPhysics): the object is
+    // static and the brush stays SOLID_BSP with its MOVETYPE_PUSH. Here the
+    // static brushes had no object, and ss_sandbox's belt cans sank into the
+    // conveyor they stand on (z 10.1 against stock's 19.4).
+    [Fact]
+    public void A_brush_static_object_keeps_the_brushs_solidity_and_movetype()
+    {
+        var (c, v, host) = Make();
+
+        Assert.True(c.CreateStatic(Crate));
+
+        var made = Assert.Single(v.Made);
+        Assert.True(made.IsStatic);
+        Assert.DoesNotContain(v.Calls, l => l.StartsWith("solidity"));
+        Assert.Empty(host.MoveTypes);
+        Assert.Contains("created", v.Calls);
+    }
+
+    [Fact]
+    public void Collisions_switch_on_the_held_object_and_nothing_without_one()
+    {
+        var (c, v, host) = Make();
+
+        c.EnableCollisions(Crate, false);
+        Assert.DoesNotContain(v.Calls, l => l.StartsWith("collisions"));
+
+        host.Held = 0x55;
+        c.EnableCollisions(Crate, false);
+        c.EnableCollisions(Crate, true);
+        Assert.Equal(["collisions 55 False", "collisions 55 True"], v.Calls.Where(l => l.StartsWith("collisions")));
+    }
+
+    [Fact]
+    public void A_class_that_consults_the_overrides_is_made_with_its_mass_centre()
+    {
+        var list = new MassCenterOverrides();
+        list.Add(MassCenterOverride.SnapToAxis("door", new Vector(0f, 0f, 0f), new Vector(0f, 0f, 1f)));
+        var (c, v, host) = Make(list);
+        host.Facts = host.Facts with { Origin = Vector.Zero, Angles = default };
+        host.MassCenterName = "door";
+        v.SolidMassCenter = new Vector(3f, 4f, 5f);
+
+        Assert.True(c.Create(Crate, isStatic: false, asleep: false, debris: false));
+
+        Assert.Equal(FakeVPhysics.MassCenterSlot, v.Made.Single().Params.MassCenterOverride);
+        Assert.Equal(new Vector(0f, 0f, 5f), v.WrittenMassCenter);
+    }
+
+    [Fact]
+    public void A_class_that_does_not_leaves_the_override_for_one_that_does()
+    {
+        var list = new MassCenterOverrides();
+        list.Add(MassCenterOverride.SnapToPoint("door", new Vector(1f, 0f, 0f)));
+        var (c, v, host) = Make(list);
+        host.MassCenterName = null;
+
+        Assert.True(c.Create(Crate, isStatic: false, asleep: false, debris: false));
+
+        Assert.Null(v.WrittenMassCenter);
+        Assert.Equal(1, list.Count);
+    }
+
+    [Fact]
+    public void A_static_object_never_consults_the_overrides()
+    {
+        var list = new MassCenterOverrides();
+        list.Add(MassCenterOverride.SnapToPoint("door", new Vector(1f, 0f, 0f)));
+        var (c, v, host) = Make(list);
+        host.MassCenterName = "door";
+
+        Assert.True(c.Create(Crate, isStatic: true, asleep: false, debris: false));
+
+        Assert.Null(v.WrittenMassCenter);
+        Assert.Equal(1, list.Count);
     }
 
     [Fact]
@@ -480,6 +697,27 @@ public class EntityPhysicsCreationTests
         registry.Spawn(Crate, EntityNames.SimplePhysicsProp);
 
         Assert.False(Assert.Single(v.Made).IsStatic);
+    }
+
+    // CDynamicProp::CreateVPhysics makes a static object or none, never a
+    // simulated one: a SOLID_NONE prop_dynamic_override has no object at all.
+    [Fact]
+    public void TheRegistrysSpawnAsksNothingForAPropWhoseSpawnDecidesItsOwn()
+    {
+        var (c, v, _) = Make();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PropDynamic).Assembly);
+        registry.Services = TestServices.Services(out var engine);
+        engine.Strict = false;
+        engine.Returns("Precache.PrecacheModel", 3)
+              .Returns("EntityRender.GetModelKeyValueText", null);
+        registry.SpawnPhysics = c;
+
+        registry.KeyValue(Crate, EntityNames.PropDynamicOverride, "model", "models/props_c17/chair.mdl");
+        registry.Spawn(Crate, EntityNames.PropDynamicOverride);
+
+        Assert.Empty(v.Made);
+        Assert.False(engine.Called("EntityPhysics.InitStaticPhysics"));
     }
 
     [Fact]

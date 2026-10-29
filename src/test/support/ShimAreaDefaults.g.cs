@@ -15,7 +15,6 @@ namespace SourceSharp.Abi;
 /// <summary><see cref="IEngineArea"/> for a test with no engine: every call answers its default.</summary>
 internal sealed unsafe class DefaultEngineArea : IEngineArea
 {
-    public float GetCurrentTime() => default;
     public nint GetGlobalVarsPtr() => default;
 }
 
@@ -62,12 +61,6 @@ internal unsafe class DefaultEntitiesArea : IEntitiesArea
     public void EntityGetOrigin(uint a0, float* a1) { }
     public void EntityGetAngles(uint a0, float* a1) { }
     public int EntityIsValid(uint a0) => default;
-}
-
-/// <summary><see cref="ICollisionArea"/> for a test with no engine: every call answers its default.</summary>
-internal unsafe class DefaultCollisionArea : ICollisionArea
-{
-    public void RegisterCollisionRules(CollisionRulesBlob* a0) { }
 }
 
 /// <summary><see cref="IConsoleArea"/> for a test with no engine: every call answers its default.</summary>
@@ -144,7 +137,6 @@ internal sealed unsafe class DefaultMovementServerArea : DefaultMovementArea, IM
 /// <summary><see cref="IWorldServerArea"/> for a test with no engine: every call answers its default.</summary>
 internal sealed unsafe class DefaultWorldServerArea : IWorldServerArea
 {
-    public void AngleVectorsFromForward(float* a0, float* a1, float* a2) { }
     public int EntityModelSurfaceProp(uint a0) => default;
     public int InvisibleRangeReach() => default;
     public void SetSkyboxParams(SkyboxParams* a0) { }
@@ -169,6 +161,7 @@ internal sealed unsafe class DefaultEntitiesServerArea : DefaultEntitiesArea, IE
     public void EntitySetVisible(uint a0, int a1) { }
     public void EntitySetOwner(uint a0, uint a1) { }
     public int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1) => default;
+    public void EntitySetClassName(uint a0, byte* a1) { }
 }
 
 /// <summary><see cref="IEntityLifecycleArea"/> for a test with no engine: every call answers its default.</summary>
@@ -202,7 +195,6 @@ internal sealed unsafe class DefaultTransformArea : ITransformArea
     public void EntitySetAngularVelocity(uint a0, float* a1) { }
     public void EntityGetEyePosition(uint a0, float* a1) { }
     public void EntityGetEyeAngles(uint a0, float* a1) { }
-    public void EntityGetWorldSpaceCenter(uint a0, float* a1) { }
     public float EntityGetGravity(uint a0) => default;
     public void EntitySetGravity(uint a0, float a1) { }
     public void EntitySetBounce(uint a0, int a1) { }
@@ -221,17 +213,16 @@ internal sealed unsafe class DefaultHierarchyArea : IHierarchyArea
 }
 
 /// <summary><see cref="ICollisionServerArea"/> for a test with no engine: every call answers its default.</summary>
-internal sealed unsafe class DefaultCollisionServerArea : DefaultCollisionArea, ICollisionServerArea
+internal sealed unsafe class DefaultCollisionServerArea : ICollisionServerArea
 {
     public void EntityGetBounds(uint a0, float* a1, float* a2) { }
     public void EntityGetBoundsSize(uint a0, float* a1) { }
     public void EntitySetBounds(uint a0, float* a1, float* a2) { }
-    public int EntityGetSolidType(uint a0) => default;
     public void EntitySetSolidity(uint a0, int a1, int a2) { }
-    public int EntityGetSolidFlags(uint a0) => default;
     public int EntityGetCollisionGroup(uint a0) => default;
     public void EntitySetCollisionGroup(uint a0, int a1) { }
     public int EntityOverlapReport(uint* a0, int a1) => default;
+    public void EntitySetTriggerBloat(uint a0, int a1, int a2) { }
 }
 
 /// <summary><see cref="IPhysicsArea"/> for a test with no engine: every call answers its default.</summary>
@@ -264,20 +255,17 @@ internal sealed unsafe class DefaultGameRulesArea : IGameRulesArea
 internal sealed unsafe class DefaultPlayersArea : IPlayersArea
 {
     public uint GetPlayerHandle(int a0) => 0xFFFFFFFFu;
-    public int GetPlayerTeam(uint a0) => default;
     public int PlayerIsAlive(uint a0) => default;
     public void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2) { }
     public int PlayerGetObserverMode(uint a0) => default;
     public void PlayerSetObserverMode(uint a0, int a1) { }
     public void PlayerSnapEyeAngles(uint a0, float* a1) { }
     public int ClientsStandalonePlayerEarPosition(int a0, float* a1) => default;
-    public void PlayerSetTeam(uint a0, int a1) { }
 }
 
 /// <summary><see cref="IEffectsServerArea"/> for a test with no engine: every call answers its default.</summary>
 internal sealed unsafe class DefaultEffectsServerArea : IEffectsServerArea
 {
-    public void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5) { }
     public int TempEntBuild(void* a0, int a1, TeBuiltTable* a2) => default;
 }
 
@@ -352,7 +340,6 @@ internal sealed unsafe class DefaultTempEntBackendsClientArea : ITempEntBackends
     public void ClientDecalStudioModel(int a0, float* a1, float* a2, int a3) { }
     public void ClientEnergySplash(float* a0, float* a1, int a2) { }
     public int ClientEntityModelType(int a0) => default;
-    public int ClientIsLowViolence() => default;
     public void ClientMetalSparks(float* a0, float* a1) { }
     public void ClientMuzzleFlash(float* a0, float* a1, float a2, int a3) { }
     public void ClientPlayerDecalShoot(float* a0, int a1, int a2) { }
@@ -361,6 +348,11 @@ internal sealed unsafe class DefaultTempEntBackendsClientArea : ITempEntBackends
     public void ClientSparks(float* a0, int a1, int a2, float* a3) { }
     public void EffectDispatchName(int a0, byte* a1, int a2) { }
     public int TempEntBuildClient(void* a0, int a1, int a2, TeRecvBuilt* a3) => default;
+    public int ClientShotTrace(float* a0, float* a1, int a2, float* a3, int a4, int* a5, int a6) => default;
+    public void ClientWorldLighting(float* a0, float* a1, float* a2) { }
+    public void ClientStaticPropLighting(float* a0, float* a1, float* a2, int a3, float* a4) { }
+    public void ClientImpactLedger(int a0, int a1) { }
+    public void ClientPlayerLogoDecal(float* a0, int a1, int a2, byte* a3, byte* a4) { }
 }
 
 /// <summary><see cref="IEffectsRenderClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -412,7 +404,6 @@ internal sealed unsafe class DefaultStandaloneClientArea : IStandaloneClientArea
     public void StandaloneSetOverlayModel(uint a0, int a1) { }
     public void StandaloneSetViewModel(uint a0, int a1) { }
     public int StandaloneShadowCast(uint a0, int* a1) => default;
-    public void SurfaceSetEdges(uint a0, byte* a1, int a2) { }
     public int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10) => default;
     public int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7) => default;
     public void* StandaloneEngineBlock(uint a0, int* a1) => default;
@@ -420,6 +411,11 @@ internal sealed unsafe class DefaultStandaloneClientArea : IStandaloneClientArea
     public void StandaloneSetRagdoll(uint a0, int a1) { }
     public void EntitySetSkin(uint a0, int a1) { }
     public void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5) { }
+    public int StandaloneSurroundingBounds(uint* a0, int a1, float* a2) => default;
+    public int SurfaceMaterialFacts(uint a0, byte* a1, int a2, byte* a3, int a4, int* a5) => default;
+    public void SurfaceSetMaterials(uint a0, byte* a1, int a2, int a3) { }
+    public void SurfaceSetPlan(uint a0, int* a1, int a2) { }
+    public void ClientInterpAdmitted(uint* a0, int a1) { }
 }
 
 /// <summary><see cref="IViewClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -429,7 +425,6 @@ internal sealed unsafe class DefaultViewClientArea : IViewClientArea
     public void ConNXPrintf(void* a0, int a1, float a2, float* a3, int a4, byte* a5) { }
     public void GetLightForPoint(void* a0, float* a1, int a2, float* a3) { }
     public void GetLightForPointFast(void* a0, float* a1, int a2, float* a3) { }
-    public int ClientColorCorrection(int a0, int a1, byte* a2, float a3) => default;
     public void ClientSetWorldRenderState(int a0, float* a1, int a2) { }
     public int GetLocalPlayerOrigin(float* a0) => default;
     public void SetViewerFogParams(FogParams* a0) { }
@@ -449,6 +444,12 @@ internal sealed unsafe class DefaultViewClientArea : IViewClientArea
     public void PixelVisDiameters(float* a0, int a1, float* a2) { }
     public int PixelVisView(float* a0, int a1) => default;
     public int GlowMaterialFind(byte* a0, byte* a1) => default;
+    public void* ColorLookupAdd(byte* a0) => default;
+    public void ColorLookupSetWeight(void* a0, float a1) { }
+    public void ColorLookupRemove(void* a0) { }
+    public void ColorLookupResetWeights() { }
+    public int ClientClipRayToEntities(float* a0, float* a1, int a2, int* a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11) => default;
+    public int ClientTraceHullEntities(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int* a6, int a7, float* a8, float* a9, int* a10, float* a11) => default;
 }
 
 /// <summary><see cref="IUserMessagesClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -522,6 +523,7 @@ internal sealed unsafe class DefaultParticlesClientArea : IParticlesClientArea
     public int ParticlesTraceMask(float* a0, float* a1, uint a2, float* a3, int a4) => default;
     public int ParticlesSetSpace(uint a0, int a1, uint a2, int a3, int a4, ParticleFollow* a5) => default;
     public int ParticlesBrushPointContents(uint a0, float* a1) => default;
+    public int ParticleSystemImpact(byte* a0, float* a1, int a2, float a3, float* a4) => default;
 }
 
 /// <summary><see cref="IFxClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -708,7 +710,6 @@ internal static class ServerAreaDefaults
         add(typeof(IModelsArea), modelsServerArea);
         add(typeof(IMovementArea), movementServerArea);
         add(typeof(IEntitiesArea), entitiesServerArea);
-        add(typeof(ICollisionArea), collisionServerArea);
     }
 }
 
@@ -726,7 +727,6 @@ internal static class ClientAreaDefaults
         var modelsArea = new DefaultModelsArea();
         var movementArea = new DefaultMovementArea();
         var entitiesArea = new DefaultEntitiesArea();
-        var collisionArea = new DefaultCollisionArea();
         var consoleArea = new DefaultConsoleArea();
         var hudClientArea = new DefaultHudClientArea();
         var predictionClientArea = new DefaultPredictionClientArea();
@@ -754,7 +754,6 @@ internal static class ClientAreaDefaults
         add(typeof(IModelsArea), modelsArea);
         add(typeof(IMovementArea), movementArea);
         add(typeof(IEntitiesArea), entitiesArea);
-        add(typeof(ICollisionArea), collisionArea);
         add(typeof(IConsoleArea), consoleArea);
         add(typeof(IHudClientArea), hudClientArea);
         add(typeof(IPredictionClientArea), predictionClientArea);

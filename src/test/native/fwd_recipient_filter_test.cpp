@@ -30,10 +30,14 @@ const SSForwarderTable &Table()
 	return pTable ? *pTable : kNone;
 }
 
-using ConstructFn = void *( * )( void *, IManagedRecipientFilter * );
+using ConstructFn = void *(*)( void *, IManagedRecipientFilter * );
 
 void Released( IManagedObject * ) {}
-int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return -1; }
+
+int32_t Validated( IManagedObject *, const uint32_t *, int32_t )
+{
+	return -1;
+}
 
 // The recipients the managed side chose, as its table answers them.
 const int32_t kSlots[] = { 3, 1, 7 };
@@ -41,25 +45,33 @@ void *g_pSelfAsked = nullptr;
 int32_t g_nIndexAsked = -99;
 
 const SSManagedRecipientFilterTable kTable = {
-	&Released, &Validated,
-	[]( IManagedRecipientFilter *self ) -> int32_t { g_pSelfAsked = self; return 1; },
+	&Released,
+	&Validated,
+	[]( IManagedRecipientFilter *self ) -> int32_t
+	{
+		g_pSelfAsked = self;
+		return 1;
+	},
 	[]( IManagedRecipientFilter * ) -> int32_t { return 0; },
 	[]( IManagedRecipientFilter * ) -> int32_t { return 3; },
 	[]( IManagedRecipientFilter *, int32_t nSlot ) -> int32_t
-		{ g_nIndexAsked = nSlot; return ( nSlot >= 0 && nSlot < 3 ) ? kSlots[ nSlot ] : -1; },
+	{
+		g_nIndexAsked = nSlot;
+		return ( nSlot >= 0 && nSlot < 3 ) ? kSlots[nSlot] : -1;
+	},
 };
 
 struct Block
 {
 	const SSManagedRecipientFilterTable *pTable;
-	alignas( void * ) unsigned char reserved[ kManagedPhysicsCallbackWords * sizeof( void * ) ];
+	alignas( void * ) unsigned char reserved[kManagedPhysicsCallbackWords * sizeof( void * )];
 };
 
 IRecipientFilter *Build( Block &block )
 {
-	auto construct = reinterpret_cast< ConstructFn >( Table().ppSlots[ kConstruct ] );
-	return static_cast< IRecipientFilter * >(
-		construct( block.reserved, reinterpret_cast< IManagedRecipientFilter * >( &block ) ) );
+	auto construct = reinterpret_cast<ConstructFn>( Table().ppSlots[kConstruct] );
+	return static_cast<IRecipientFilter *>(
+		construct( block.reserved, reinterpret_cast<IManagedRecipientFilter *>( &block ) ) );
 }
 
 } // namespace
@@ -70,7 +82,7 @@ TEST( FwdRecipientFilter, TheTableServesSizeOfAndConstruct )
 	ASSERT_NE( nullptr, table.ppSlots );
 	EXPECT_EQ( (int32_t)kRecipientFilterSlots, table.nSlots );
 
-	const int nBytes = reinterpret_cast< int ( * )() >( table.ppSlots[ kSizeOf ] )();
+	const int nBytes = reinterpret_cast<int ( * )()>( table.ppSlots[kSizeOf] )();
 	EXPECT_EQ( int( kManagedPhysicsCallbackWords * sizeof( void * ) ), nBytes )
 		<< "the object is a vptr and one pointer, in exactly the words a block reserves";
 }
@@ -78,16 +90,16 @@ TEST( FwdRecipientFilter, TheTableServesSizeOfAndConstruct )
 TEST( FwdRecipientFilter, AConstructGivenNoMemoryOrNoTargetBuildsNothing )
 {
 	Block block = { &kTable, {} };
-	auto construct = reinterpret_cast< ConstructFn >( Table().ppSlots[ kConstruct ] );
+	auto construct = reinterpret_cast<ConstructFn>( Table().ppSlots[kConstruct] );
 
-	EXPECT_EQ( nullptr, construct( nullptr, reinterpret_cast< IManagedRecipientFilter * >( &block ) ) );
+	EXPECT_EQ( nullptr, construct( nullptr, reinterpret_cast<IManagedRecipientFilter *>( &block ) ) );
 	EXPECT_EQ( nullptr, construct( block.reserved, nullptr ) );
 }
 
 TEST( FwdRecipientFilter, TheFilterIsBuiltInTheBlocksReservedWords )
 {
 	Block block = { &kTable, {} };
-	EXPECT_EQ( static_cast< void * >( block.reserved ), static_cast< void * >( Build( block ) ) );
+	EXPECT_EQ( static_cast<void *>( block.reserved ), static_cast<void *>( Build( block ) ) );
 }
 
 TEST( FwdRecipientFilter, TheEngineReadsTheRecipientsTheManagedSideChose )
@@ -97,7 +109,7 @@ TEST( FwdRecipientFilter, TheEngineReadsTheRecipientsTheManagedSideChose )
 
 	g_pSelfAsked = nullptr;
 	EXPECT_TRUE( pFilter->IsReliable() );
-	EXPECT_EQ( static_cast< void * >( &block ), g_pSelfAsked ) << "the managed side is the block the filter was built in";
+	EXPECT_EQ( static_cast<void *>( &block ), g_pSelfAsked ) << "the managed side is the block the filter was built in";
 	EXPECT_FALSE( pFilter->IsInitMessage() );
 
 	ASSERT_EQ( 3, pFilter->GetRecipientCount() );

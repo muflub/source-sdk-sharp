@@ -10,8 +10,8 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.ItemAmmoPistol, ScriptedEntityKind.Item)]
 public sealed class ItemAmmoPistol : AmmoItem
 {
-    public ItemAmmoPistol(IEnginePlayers players)
-        : base(players)
+    public ItemAmmoPistol(IEnginePlayers players, IEngineWorldQuery world, PlacedObjects placed)
+        : base(players, world, placed)
     {
     }
 

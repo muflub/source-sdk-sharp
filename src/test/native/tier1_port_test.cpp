@@ -23,7 +23,7 @@ TEST( Tier1Port, SetOverflowFlagMarksTheReaderOverflowed )
 	// not assert on overflow and has not overflowed.
 	alignas( bf_read ) unsigned char mem[sizeof( bf_read )];
 	memset( mem, 0, sizeof( mem ) );
-	bf_read *r = reinterpret_cast< bf_read * >( mem );
+	bf_read *r = reinterpret_cast<bf_read *>( mem );
 	EXPECT_FALSE( r->IsOverflowed() );
 	r->SetOverflowFlag();
 	EXPECT_TRUE( r->IsOverflowed() );

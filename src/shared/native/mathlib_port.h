@@ -4,40 +4,12 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — mathlib's members, as server.so uses them =========//
-//
-// server.so links no libmathlib.a. These are the only mathlib functions its
-// objects call (an `nm -u` sweep of the link edge, against what the archive
-// defines), written out here so the archive can leave the link line, as tier1
-// left it for tier1_port.cpp.
-//
-// WHY A HEADER OF INLINES IN A NAMESPACE, and the global symbols only in
-// mathlib_port.cpp: the one way to hold this against stock bit for bit is to
-// call both from one binary, on one CPU, with one libm. A binary that links
-// libmathlib.a already has the global names; ss_mathlib:: does not collide
-// with them, so mathlib_port_stock_test calls each pair side by side.
-//
-// WHAT IS LEFT OUT ON PURPOSE. Stock asserts s_bMathlibInitialized in most of
-// these, and MathLib_Init's job is to pick the SSE or generic sqrt/rsqrt and
-// fill the sine and gamma tables. Nothing here reads any of that: SinCos is
-// sinf/cosf (math_pfns.h) and the one square root is sqrtf, which stock's
-// FastSqrt also is. So there is no initialisation to forget, and server.so no
-// longer calls MathLib_Init.
-//
-// The arithmetic is kept in stock's order and types (the float/double mix in
-// VectorAngles included): a value that differed in the last bit would move an
-// entity by it, and the stock test would say so.
-//=============================================================================//
-#ifndef SS_MATHLIB_PORT_H
-#define SS_MATHLIB_PORT_H
+// The mathlib functions the game DLLs call, for DLLs that link no libmathlib.a.
+// Inlines in ss_mathlib:: so a test can call them beside stock's globals. The
+// arithmetic keeps stock's order and types so results match to the last bit.
+#pragma once
 
-#include "mathlib/mathlib.h"
-#include "mathlib/vector.h"
 #include "mathlib/vmatrix.h"
-
-#include <math.h>
-#include <stdint.h>
-#include <string.h>
 
 namespace ss_mathlib
 {
@@ -275,13 +247,7 @@ inline float CalcSqrDistanceToAABB( const Vector &mins, const Vector &maxs, cons
 	return sum;
 }
 
-//-----------------------------------------------------------------------------
-// client.so's members (plan_client_novalve C9: libmathlib.a off client.so's
-// link line). The set is what the client's live sections leave undefined when
-// the archive is taken away, plus what these call themselves. Same rules as
-// above: stock's arithmetic order and types, held bit for bit by
-// mathlib_port_stock_test.
-//-----------------------------------------------------------------------------
+// The members only client.so calls.
 
 // The cross product of two three-float arrays (neither may be the output).
 inline void CrossProduct( const float *a, const float *b, float *out )
@@ -497,7 +463,8 @@ inline void AddPointToBounds( const Vector &v, Vector &mins, Vector &maxs )
 
 // A box under a 3x4: its centre transformed, its half-extents projected on
 // the rows' absolute values.
-inline void TransformAABB( const matrix3x4_t &m, const Vector &minsIn, const Vector &maxsIn, Vector &minsOut, Vector &maxsOut )
+inline void TransformAABB( const matrix3x4_t &m, const Vector &minsIn, const Vector &maxsIn, Vector &minsOut,
+						   Vector &maxsOut )
 {
 	Vector centre;
 	VectorAdd( minsIn, maxsIn, centre );
@@ -604,7 +571,8 @@ inline int BoxOnPlaneSide( const float *mins, const float *maxs, const cplane_t 
 // True when the box is wholly behind any of the frustum's six planes.
 inline bool R_CullBox( const Vector &mins, const Vector &maxs, const Frustum_t &frustum )
 {
-	static const int kPlanes[] = { FRUSTUM_RIGHT, FRUSTUM_LEFT, FRUSTUM_TOP, FRUSTUM_BOTTOM, FRUSTUM_NEARZ, FRUSTUM_FARZ };
+	static const int kPlanes[] = { FRUSTUM_RIGHT,  FRUSTUM_LEFT,  FRUSTUM_TOP,
+								   FRUSTUM_BOTTOM, FRUSTUM_NEARZ, FRUSTUM_FARZ };
 	for ( int plane : kPlanes )
 	{
 		if ( ss_mathlib::BoxOnPlaneSide( &mins.x, &maxs.x, frustum.GetPlane( plane ) ) == 2 )
@@ -631,8 +599,9 @@ inline float CalcFovY( float fovX, float aspect )
 // The six planes of a perspective view: far and near along forward, then
 // left/right and bottom/top tilted by the half angles' tangents. SetPlane is
 // mathlib.h's inline; its sign bits are SignbitsForPlane's (this port's global).
-inline void GeneratePerspectiveFrustum( const Vector &origin, const Vector &forward, const Vector &right, const Vector &up,
-                                        float zNear, float zFar, float fovX, float fovY, Frustum_t &frustum )
+inline void GeneratePerspectiveFrustum( const Vector &origin, const Vector &forward, const Vector &right,
+										const Vector &up, float zNear, float zFar, float fovX, float fovY,
+										Frustum_t &frustum )
 {
 	const float intercept = DotProduct( origin, forward );
 
@@ -660,8 +629,8 @@ inline void GeneratePerspectiveFrustum( const Vector &origin, const Vector &forw
 	frustum.SetPlane( FRUSTUM_TOP, PLANE_ANYZ, neg, neg.Dot( origin ) );
 }
 
-inline void GeneratePerspectiveFrustum( const Vector &origin, const QAngle &angles, float zNear, float zFar,
-                                        float fovX, float aspect, Frustum_t &frustum )
+inline void GeneratePerspectiveFrustum( const Vector &origin, const QAngle &angles, float zNear, float zFar, float fovX,
+										float aspect, Frustum_t &frustum )
 {
 	Vector forward, right, up;
 	ss_mathlib::AngleVectors( angles, &forward, &right, &up );
@@ -674,8 +643,6 @@ inline float LinearToGammaFullRange( float linear )
 {
 	return pow( linear, 1.0f / 2.2f );
 }
-
-// --- VMatrix ---------------------------------------------------------------
 
 inline void MatrixSetIdentity( VMatrix &dst )
 {
@@ -725,7 +692,8 @@ inline void MatrixMultiply( const VMatrix &src1, const VMatrix &src2, VMatrix &d
 	{
 		for ( int col = 0; col < 4; ++col )
 		{
-			dst[row][col] = a[row][0] * b[0][col] + a[row][1] * b[1][col] + a[row][2] * b[2][col] + a[row][3] * b[3][col];
+			dst[row][col] =
+				a[row][0] * b[0][col] + a[row][1] * b[1][col] + a[row][2] * b[2][col] + a[row][3] * b[3][col];
 		}
 	}
 }
@@ -884,8 +852,7 @@ inline void CalculateAABBFromProjectionMatrix( const VMatrix &worldToVolume, Vec
 	}
 }
 
-// --- Called only from code --gc-sections drops; defined so that a
-// GC_SECTIONS=0 link (tools/nogc-relink) still resolves. ------------------
+// Reached only from code --gc-sections drops; defined so a GC_SECTIONS=0 link resolves.
 
 // AngleIMatrix with the translation carried into the rotated space.
 inline void AngleIMatrix( const QAngle &angles, const Vector &position, matrix3x4_t &m )
@@ -923,7 +890,8 @@ inline void BasisToQuaternion( const Vector &forward, const Vector &right, const
 
 // The point at t on the Catmull-Rom segment from p2 to p3, the basis rows
 // summed into the output in stock's order.
-inline void Catmull_Rom_Spline( const Vector &p1, const Vector &p2, const Vector &p3, const Vector &p4, float t, Vector &output )
+inline void Catmull_Rom_Spline( const Vector &p1, const Vector &p2, const Vector &p3, const Vector &p4, float t,
+								Vector &output )
 {
 	const float tSqr = t * t * 0.5f;
 	const float tCube = t * tSqr;
@@ -958,11 +926,8 @@ inline void Catmull_Rom_Spline( const Vector &p1, const Vector &p2, const Vector
 	VectorAdd( p2, output, output );
 }
 
-// power2_n's entries: 2^(i - 128) / 255, the check stock's table carries.
-// Stock's are literals, so the smallest are subnormal floats. Computed at
-// compile time (constant-initialised, no static initialiser; and runtime
-// arithmetic that yields a subnormal is flushed where denormals are off):
-// the power of two by exact halvings or doublings, then one rounded divide.
+// power2_n's entries, 2^(i - 128) / 255. Computed at compile time because the
+// smallest are subnormal and runtime arithmetic may flush them.
 constexpr float Power2NAt( int i )
 {
 	float p = 1.0f;
@@ -980,7 +945,9 @@ constexpr float Power2NAt( int i )
 struct Power2NTable
 {
 	float v[256];
-	constexpr Power2NTable() : v()
+
+	constexpr Power2NTable()
+		: v()
 	{
 		for ( int i = 0; i < 256; ++i )
 		{
@@ -992,5 +959,3 @@ struct Power2NTable
 inline constexpr Power2NTable kPower2N{};
 
 } // namespace ss_mathlib
-
-#endif // SS_MATHLIB_PORT_H

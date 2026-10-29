@@ -4,27 +4,10 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — one player command, as server.so holds it
-//
-// plan_server_novalve.md P5. game/shared/usercmd.h's CUserCmd is, on the
-// server, only a record our own code fills and reads: the engine never sees
-// it (commands arrive as bits, and P2.2 moved their decoding to C#, which
-// hands CStandalonePlayer::QueueDecodedUsercmds the fields below). Per the
-// plan's naming rule it is server.so's own type, ss::CUserCmd, on public/
-// headers alone. The client keeps Valve's CUserCmd, which it predicts with.
-//
-// What is not carried over: the virtual destructor (nothing deletes one
-// through a base), the CRC (the server checks none), the bit codec
-// (ReadUsercmd/WriteUsercmd; C# decodes), and entitygroundcontact (HL2_DLL
-// only, never defined here).
-//=============================================================================//
-#ifndef SOURCESHARP_SS_USERCMD_H
-#define SOURCESHARP_SS_USERCMD_H
-#ifdef _WIN32
-#pragma once
-#endif
+// One player command as the server holds it, filled from C#'s decoding; the
+// engine never sees it. The client keeps Valve's CUserCmd.
 
-#include "mathlib/vector.h"   // QAngle
+#pragma once
 
 namespace ss
 {
@@ -48,23 +31,21 @@ struct CUserCmd
 		hasbeenpredicted = false;
 	}
 
-	int command_number;        // the client's sequence number for it
-	int tick_count;            // the tick it was created for
-	QAngle viewangles;         // where the player looks
-	float forwardmove;         // the three move axes
+	int command_number; // the client's sequence number for it
+	int tick_count; // the tick it was created for
+	QAngle viewangles; // where the player looks
+	float forwardmove; // the three move axes
 	float sidemove;
 	float upmove;
-	int buttons;               // IN_* bits
+	int buttons; // IN_* bits
 	unsigned char impulse;
-	int weaponselect;          // entity index of a weapon to switch to, 0 for none
+	int weaponselect; // entity index of a weapon to switch to, 0 for none
 	int weaponsubtype;
-	int random_seed;           // the client's shared random seed for this command
-	int server_random_seed;    // the server's own, never sent to the client
-	short mousedx;             // raw mouse deltas
+	int random_seed; // the client's shared random seed for this command
+	int server_random_seed; // the server's own, never sent to the client
+	short mousedx; // raw mouse deltas
 	short mousedy;
-	bool hasbeenpredicted;     // client side only; carried for the shared readers
+	bool hasbeenpredicted; // client side only; carried for the shared readers
 };
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_USERCMD_H

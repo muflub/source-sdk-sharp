@@ -181,24 +181,31 @@ public static class BoneLibraryMath
         placement.Angles = viewModelPass ? renderAngles : netAngles;
     }
 
-    /// <summary><c>BoneLibrary_Cycle</c>: where in a sequence a clock has got to.</summary>
-    public static float Cycle(float now, float start, float rate, float duration, bool looping)
+    /// <summary>
+    /// <c>BoneLibrary_Cycle</c>: where in a sequence a clock has got to, from
+    /// <paramref name="startCycle"/> at <paramref name="start"/>. A clock not
+    /// yet started stands at its start cycle; a negative rate plays backwards
+    /// (CDynamicProp's reversed transitions). A looping sequence keeps the
+    /// fraction; a one-shot holds at 0 or its last frame, 0.999.
+    /// </summary>
+    public static float Cycle(float now, float start, float rate, float duration, bool looping, float startCycle = 0.0f)
     {
         if (duration <= 0.0f)
         {
             return 0.0f;
         }
 
-        float cycle = (now - start) * rate / duration;
+        float elapsed = now - start;
+        float cycle = startCycle + (elapsed > 0.0f ? elapsed : 0.0f) * rate / duration;
+
+        if (looping)
+        {
+            return cycle - MathF.Floor(cycle);
+        }
 
         if (cycle < 0.0f)
         {
             return 0.0f;
-        }
-
-        if (looping)
-        {
-            return cycle - (int)cycle;
         }
 
         // MIN( flCycle, 0.999f ): the macro's (a) < (b) ? (a) : (b).
@@ -262,6 +269,36 @@ public static class BoneLibraryMath
         BoneMatrix3x4 m = BoneMatrix3x4.Identity;
         m.Position = worldBonePos;
         return m;
+    }
+
+    /// <summary>
+    /// The bones a merge did not name, under the parents it moved:
+    /// <c>C_BaseAnimating::BuildTransformations</c>' order for a bone-merged
+    /// entity, which copies the matching bones from the source first and then
+    /// builds every other bone under its parent, so a child the source does
+    /// not name (a w_ model's weapon bone, under the hand) follows it. Each
+    /// such bone keeps the transform the own build gave it under its parent
+    /// (<paramref name="own"/>, the build before the merge), under that parent
+    /// as merged (<paramref name="bones"/>), in bone order, so a chain follows
+    /// whole. A root bone keeps its own place.
+    /// </summary>
+    public static void ReparentUnmergedBones(StudioHdr hdr, ReadOnlySpan<short> map,
+                                             ReadOnlySpan<BoneMatrix3x4> own, Span<BoneMatrix3x4> bones)
+    {
+        int count = Math.Min(Math.Min(hdr.NumBones, map.Length), Math.Min(own.Length, bones.Length));
+
+        for (int i = 0; i < count; i++)
+        {
+            int parent = hdr.BoneParent(i);
+
+            if (map[i] >= 0 || parent < 0 || parent >= i)
+            {
+                continue;
+            }
+
+            BoneMatrix3x4 local = BoneSetupMath.ConcatTransforms(BoneSetupMath.MatrixInvert(own[parent]), own[i]);
+            bones[i] = BoneSetupMath.ConcatTransforms(bones[parent], local);
+        }
     }
 
     /// <summary>

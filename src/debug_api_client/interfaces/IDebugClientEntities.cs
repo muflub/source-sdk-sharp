@@ -37,13 +37,13 @@ public sealed record DebugClientInterpolated(string Field, int Depth, float Newe
 /// One entity, as <c>/client/{slot}/entity/{n}</c> reports it: its list row,
 /// its [NetState] blocks, and its interpolated values against the latest
 /// (the engine block's networked origin and angles against what was drawn),
-/// and the skin the block holds (what GetSkin answers; the server sends it as
-/// m_nSkin since 2026-10-19).
+/// and the skin and body the block holds (what GetSkin and GetBody answer; the
+/// server sends them as m_nSkin since 2026-10-19 and m_nBody since 2026-10-25).
 /// </summary>
 public sealed record DebugClientEntityState(
     DebugClientEntity Entity, DebugClientVec3 Angles, DebugClientVec3 RenderAngles,
     IReadOnlyList<DebugClientNetStateBlock> States, IReadOnlyList<DebugClientInterpolated> Interpolated,
-    int Skin = 0);
+    int Skin = 0, int Body = 0);
 
 /// <summary>The client's own entity list (plan_client_novalve §4.4). Game thread.</summary>
 public interface IDebugClientEntities

@@ -35,10 +35,9 @@ public class BreakableSurfaceTests
 
         var services = Services(out var engine);
 
-        // The geometry, and what the pane is MADE of — neither is what these
-        // three are about. See BreakableSurfaceMaterialTests for the second.
-        engine.Ignores("WorldQuery.AngleVectorsFromForward",
-                       "WorldQuery.EntityModelSurfaceProp",
+        // What the pane is MADE of is not what these three are about. See
+        // BreakableSurfaceMaterialTests.
+        engine.Ignores("WorldQuery.EntityModelSurfaceProp",
                        "WorldQuery.SurfacePropIndex",
                        "WorldQuery.SurfacePropGameMaterial");
 
@@ -127,9 +126,6 @@ public class BreakableSurfaceMaterialTests
 
         var services = Services(out engine);
 
-        // The pane grid's geometry, which these tests are not about.
-        engine.Ignores("WorldQuery.AngleVectorsFromForward");
-
         engine.Returns("WorldQuery.EntityModelSurfaceProp", modelProp);
         engine.Returns("WorldQuery.SurfacePropIndex", namedProp);
 
@@ -147,6 +143,17 @@ public class BreakableSurfaceMaterialTests
 
         registry.Spawn(handle, EntityNames.FuncBreakableSurf);
         return (FuncBreakableSurf)registry.Get(handle)!;
+    }
+
+    /// <summary>CBreakableSurface::Spawn's SetCollisionGroup( COLLISION_GROUP_BREAKABLE_GLASS ), which this mod left at none.</summary>
+    [Fact]
+    public void ASheetOfGlassIsInGlasssOwnGroup()
+    {
+        var glass = Spawn(43, out var engine, modelProp: GlassProp, namedProp: CoarseGlassProp);
+
+        Assert.Contains(engine.Calls, c => c.Member == "EntityPhysics.SetCollisionGroup"
+                                        && c.ArgAs<EntityHandle>(0) == glass.Handle
+                                        && c.ArgAs<CollisionGroup>(1) == CollisionGroup.BreakableGlass);
     }
 
     [Fact]

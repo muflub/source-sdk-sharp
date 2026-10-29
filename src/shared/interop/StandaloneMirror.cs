@@ -29,8 +29,9 @@ public readonly struct SequenceRecord
     public static readonly SequenceRecord Fresh = new(0, 1f, 0f, 0f, false, 0);
 
     public SequenceRecord(int sequence, float playbackRate, float startTime,
-                          float duration, bool looping, int starts)
+                          float duration, bool looping, int starts, float startCycle = 0f)
     {
+        StartCycle = startCycle;
         Sequence = sequence;
         PlaybackRate = playbackRate;
         StartTime = startTime;
@@ -46,6 +47,9 @@ public readonly struct SequenceRecord
     public bool Looping { get; }
     public int Starts { get; }
 
+    /// <summary>The cycle the sequence started at (0, or 0.999 for one played backwards).</summary>
+    public float StartCycle { get; }
+
     /// <summary>
     /// The same write <c>SetPlayingSequence</c> performs, on the managed copy.
     ///
@@ -54,9 +58,9 @@ public readonly struct SequenceRecord
     /// each of the three is load-bearing:
     /// </para>
     /// <list type="bullet">
-    /// <item>a rate of zero or less becomes 1 — a caller that means "default
-    /// speed" passes 0, and a rate of 0 would freeze the cycle at its first
-    /// frame forever;</item>
+    /// <item>a rate of zero becomes 1 — a caller that means "default speed"
+    /// passes 0, and a rate of 0 would freeze the cycle at its first frame
+    /// forever; a negative rate plays backwards from the start cycle;</item>
     /// <item>a negative sequence becomes 0 — the shell clamps rather than
     /// refusing, so a lookup that missed plays the reference pose;</item>
     /// <item><b>the same sequence, not restarted, moves ONLY the rate</b> —
@@ -73,23 +77,23 @@ public readonly struct SequenceRecord
     /// this record already treats as "this model has no animation".
     /// </para>
     /// </summary>
-    public SequenceRecord Play(int sequence, float playbackRate, bool restart, float now)
+    public SequenceRecord Play(int sequence, float playbackRate, bool restart, float now, float startCycle = 0f)
     {
-        if (playbackRate <= 0f)
+        if (playbackRate == 0f)
             playbackRate = 1f;
 
         if (sequence < 0)
             sequence = 0;
 
         if (sequence == Sequence && !restart)
-            return new SequenceRecord(Sequence, playbackRate, StartTime, Duration, Looping, Starts);
+            return new SequenceRecord(Sequence, playbackRate, StartTime, Duration, Looping, Starts, StartCycle);
 
-        return new SequenceRecord(sequence, playbackRate, now, 0f, false, Starts + 1);
+        return new SequenceRecord(sequence, playbackRate, now, 0f, false, Starts + 1, startCycle);
     }
 
     /// <summary>This record with the model's two numbers filled in.</summary>
     public SequenceRecord WithInfo(float duration, bool looping)
-        => new(Sequence, PlaybackRate, StartTime, duration, looping, Starts);
+        => new(Sequence, PlaybackRate, StartTime, duration, looping, Starts, StartCycle);
 
     /// <summary>
     /// How far through the sequence is, at <paramref name="now"/>.
@@ -97,8 +101,8 @@ public readonly struct SequenceRecord
     /// <para>
     /// <c>C_StandaloneEntity::SequenceCycle</c>'s arithmetic, moved rather than
     /// reinvented: a duration of zero is "no animation" and answers 0 rather
-    /// than dividing; a negative elapsed time (a clock that has not started)
-    /// answers 0; a looping sequence keeps the fraction; and a finished
+    /// than dividing; a clock that has not started stands at its start cycle;
+    /// a looping sequence keeps the fraction; and a finished
     /// one-shot HOLDS ITS LAST FRAME at 0.999 rather than wrapping — a fire
     /// animation that returned to the ready pose on its own would look like a
     /// shot that never happened.
@@ -109,13 +113,14 @@ public readonly struct SequenceRecord
         if (Duration <= 0f)
             return 0f;
 
-        float cycle = (now - StartTime) * PlaybackRate / Duration;
+        float elapsed = now - StartTime;
+        float cycle = StartCycle + (elapsed > 0f ? elapsed : 0f) * PlaybackRate / Duration;
+
+        if (Looping)
+            return cycle - MathF.Floor(cycle);
 
         if (cycle < 0f)
             return 0f;
-
-        if (Looping)
-            return cycle - (int)cycle;
 
         return MathF.Min(cycle, 0.999f);
     }
@@ -218,13 +223,13 @@ public sealed class StandaloneMirror
     /// Managed just wrote the animation clock. Records the same write.
     /// </summary>
     public SequenceRecord NoteSequence(EntityHandle entity, int sequence,
-                                       float playbackRate, bool restart, float now)
+                                       float playbackRate, bool restart, float now, float startCycle = 0f)
     {
         SequenceRecord before = _sequences.TryGetValue(entity.Value, out var seen)
             ? seen
             : SequenceRecord.Fresh;
 
-        SequenceRecord after = before.Play(sequence, playbackRate, restart, now);
+        SequenceRecord after = before.Play(sequence, playbackRate, restart, now, startCycle);
 
         _sequences[entity.Value] = after;
         return after;

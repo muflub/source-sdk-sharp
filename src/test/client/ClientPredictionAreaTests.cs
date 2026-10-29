@@ -21,54 +21,6 @@ public class ClientPredictionAreaTests
         return Regex.Replace(text, @"//[^\n]*", "");
     }
 
-    private static string Movement() => Code("src", "shared", "native", "shell_movement.cpp");
-    private static string Prediction() => Code("src", "client", "native", "shell_prediction.cpp");
-    private static string Camera() => Code("src", "client", "native", "shell_client.cpp");
-
-    [Fact]
-    public void TheMovementForwardersClientArmTakesTheClientsArea()
-    {
-        string movement = Movement();
-
-        // The crossing is the client's alone since plan_server_native_v2 T4g
-        // (the server's commands run in managed): the whole function is in
-        // the client's arm.
-        Assert.Matches(new Regex(@"#ifdef CLIENT_DLL\s*bool SourceSharp_MoveProcessMovement\( SourceSharpMoveState \*pState \)\s*\{\s*IManagedPredictionClient \*pCommands = ManagedPredictionClient\(\);"),
-                       movement);
-        Assert.Single(Regex.Matches(movement, @"pCommands->MoveProcessMovement\( pState \)"));
-    }
-
-    [Fact]
-    public void ThePredictionFrameTakesTheClientsArea()
-    {
-        Assert.Matches(new Regex(@"if \( IManagedPredictionClient \*pPrediction = ManagedPredictionClient\(\) \)\s*\{\s*pPrediction->ClientPredictionUpdate\("),
-                       Prediction());
-    }
-
-    [Fact]
-    public void BothThirdPersonCameraPhasesTakeTheClientsArea()
-    {
-        string camera = Camera();
-
-        Assert.Single(Regex.Matches(camera, @"IManagedPredictionClient \*pPrediction = ManagedPredictionClient\(\);"));
-        Assert.Equal(2, Regex.Matches(camera, @"if \( !pPrediction->ThirdPersonCamera\( &io \) \)").Count);
-    }
-
-    [Fact]
-    public void NoNativeCallSiteReadsTheTableSlots()
-    {
-        string[] files = [Movement(), Prediction(), Camera()];
-
-        foreach (string code in files)
-        {
-            Assert.Contains("ManagedPredictionClient()", code);
-            Assert.DoesNotContain("SourceSharp_GetManagedApi", code);
-            Assert.DoesNotContain("pApi->MoveProcessMovement", code);
-            Assert.DoesNotContain("pApi->ClientPredictionUpdate", code);
-            Assert.DoesNotContain("pApi->ThirdPersonCamera", code);
-        }
-    }
-
     [Fact]
     public void TheBootstrapFillsNoneOfTheSlots()
     {

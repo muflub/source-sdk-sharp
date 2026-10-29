@@ -53,6 +53,7 @@ public abstract class EngineEffectsForwarder : IEngineEffects
 
     public virtual void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream = false, BloodSpray sprayFlags = BloodSpray.None) => Inner.BloodEffect(origin, direction, color, amount, stream, sprayFlags);
     public virtual void BubbleEffect(EntityHandle entity, int count, float speed) => Inner.BubbleEffect(entity, count, speed);
+    public virtual void BubbleTrailEffect(Vector from, Vector to, int count) => Inner.BubbleTrailEffect(from, to, count);
     public virtual int TempEntRegister(TeClass description) => Inner.TempEntRegister(description);
     public virtual void TempEntPlayback(int handle, ReadOnlySpan<byte> blob, TeFilter filter, float delay) => Inner.TempEntPlayback(handle, blob, filter, delay);
     public virtual int EffectDispatchIndex(string name) => Inner.EffectDispatchIndex(name);
@@ -114,11 +115,10 @@ public abstract class EngineEffectsForwarder : IEngineEffects
     // RecordingEngine as the two sites lanes keep missing, and the forwarder
     // stopped compiling on the integration tip once because C2 and S5 never met.
     public virtual void ClientDecalStaticProp(Vector start, Vector end, int staticPropIndex, int decalIndex) => Inner.ClientDecalStaticProp(start, end, staticPropIndex, decalIndex);
-    public virtual bool ClientIsLowViolence() => Inner.ClientIsLowViolence();
     public virtual string ClientDecalNameFromIndex(int decalIndex) => Inner.ClientDecalNameFromIndex(decalIndex);
     // C-Phase 3 lane DECALS's two drawing arms, closing behaviour ledger rows
     // C2 and C3. Here for the block above's reason.
-    public virtual void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayEnd, int decalIndex) => Inner.ClientDecalStudioModel(entIndex, rayStart, rayEnd, decalIndex);
+    public virtual void ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayDelta, int decalIndex) => Inner.ClientDecalStudioModel(entIndex, rayStart, rayDelta, decalIndex);
     public virtual void ClientDecalBrushModel(int entIndex, Vector decalCenter, int decalIndex) => Inner.ClientDecalBrushModel(entIndex, decalCenter, decalIndex);
 
     // C-Phase 6 lane FRAME's two.

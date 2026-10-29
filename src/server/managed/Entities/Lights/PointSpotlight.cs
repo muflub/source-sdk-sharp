@@ -18,7 +18,7 @@ namespace SourceSharp.Server;
 /// the shaft of light you can see through the dust; and a
 /// <see cref="SpotlightEnd"/>, which is the pool on the floor. The first is a
 /// point entity nobody can see, and the other two are already managed — the
-/// beam is an <c>ss_beam</c>, the end is a C# class with its own client half.
+/// beam is a <c>beam</c>, the end is a C# class with its own client half.
 /// </para>
 ///
 /// <para>
@@ -129,8 +129,8 @@ public sealed class PointSpotlight : ScriptedEntity
         NoDynamicLight = 0b0000_0010,
     }
 
-    public readonly Output OnLightOn = new("OnLightOn");
-    public readonly Output OnLightOff = new("OnLightOff");
+    public readonly Output OnLightOn = new();
+    public readonly Output OnLightOff = new();
 
     public override void OnSpawn()
     {
@@ -189,8 +189,14 @@ public sealed class PointSpotlight : ScriptedEntity
             if (Vars.TargetName.Length == 0 && Name.Length == 0)
             {
                 // Nothing can ever reach it again, so there is nothing left to
-                // think about. The light stays where it was put.
+                // think about. The beam stays where it was put; the end goes
+                // with this entity, as stock's CPointSpotlight::Activate kills
+                // "ourselves and the end point" (SpotlightBeamTests).
                 StopThinking();
+                if (Entities.IsValid(_end))
+                    Entities.Remove(_end);
+                _end = EntityHandle.None;
+                _managedEnd = null;
                 Entities.Remove(Handle);
                 _static = true;
                 return;
@@ -254,7 +260,7 @@ public sealed class PointSpotlight : ScriptedEntity
 
         _lastTarget = target;
 
-        _beam = Entities.Create(EntityNames.SsBeam);
+        _beam = Entities.Create(EntityNames.Beam);
 
         if (Entities.IsValid(_beam))
         {
@@ -266,6 +272,12 @@ public sealed class PointSpotlight : ScriptedEntity
             _managedBeam?.SetLook(_beamSprite, Vars.GoalWidth, Vars.GoalWidth, 0f, 0f,
                                   (byte)Vars.Colour.X, (byte)Vars.Colour.Y, (byte)Vars.Colour.Z, 64);
             _managedBeam?.SetPoints(origin, target);
+
+            // Stock's CBeam draws whenever it exists; a beam draws only
+            // when told to (SsBeam.Visible), and nothing told this one, so no
+            // spotlight's shaft was ever drawn (SpotlightBeamTests).
+            if (_managedBeam is not null)
+                _managedBeam.Visible = true;
         }
 
         _currentLength = (target - origin).Length;
@@ -298,8 +310,11 @@ public sealed class PointSpotlight : ScriptedEntity
             return;
         }
 
+        // Stock's SpotlightUpdate: an end that has gone takes the beam with it
+        // before both are made again, or every rebuild leaves a beam behind.
         if (!Entities.IsValid(_end))
         {
+            Destroy();
             Create();
             return;
         }
@@ -338,6 +353,11 @@ public sealed class PointSpotlight : ScriptedEntity
         _managedBeam?.SetLook(_beamSprite, Vars.GoalWidth, width, 0f, 0f,
                               (byte)Vars.Colour.X, (byte)Vars.Colour.Y, (byte)Vars.Colour.Z, 64);
 
+        // SpotlightCreate's CBeam: shaded out along its length and untiled,
+        // with the halo at its source; ComputeRenderInfo's fade length.
+        _managedBeam?.SetEffects(BeamNetFlags.ShadeOut | BeamNetFlags.NoTile, FadeLength(length, Vars.MaxLength),
+                                 _haloSprite, HaloScale, Vars.HdrColourScale);
+
         if (_managedEnd is not null)
         {
             float scale = Flags.HasFlag(SpawnFlag.NoDynamicLight)
@@ -347,6 +367,15 @@ public sealed class PointSpotlight : ScriptedEntity
             _managedEnd.Place(_lastTarget, scale, alpha);
         }
     }
+
+    /// <summary>SpotlightCreate's SetHaloScale( 60 ).</summary>
+    public const float HaloScale = 60f;
+
+    /// <summary>
+    /// How far along the beam it fades: its length, but never more than the
+    /// stated length (stock's ComputeRenderInfo, all three arms).
+    /// </summary>
+    public static float FadeLength(float length, float maxLength) => length > maxLength ? maxLength : length;
 
     /// <summary>
     /// How much of the pool's colour survives at a given length: all of it

@@ -74,11 +74,33 @@ public interface IWeaponBehaviour
     void Reload(in WeaponAttackContext attack) { }
 
     /// <summary>
+    /// The start of one command, before anything is fired or reloaded: stock's
+    /// <c>ItemPreFrame</c>, with the command's own <paramref name="buttons"/>.
+    /// </summary>
+    void ItemPreFrame(in WeaponAttackContext attack, int buttons) { }
+
+    /// <summary>
+    /// The cone a shot is spread in, as its half-angle in degrees, when the
+    /// weapon's own GetBulletSpread decides it (the pistol's, which widens with
+    /// its accuracy penalty); null for the row's own.
+    /// </summary>
+    float? BulletSpread(in WeaponAttackContext attack) => null;
+
+    /// <summary>
     /// The end of one command, whatever the weapon did in it — firing,
     /// reloading, or standing idle. Stock's <c>ItemPostFrame</c> tail, and the
     /// only behaviour point that runs every command.
     /// </summary>
     void ItemPostFrame(in WeaponAttackContext attack) { }
+
+    /// <summary>
+    /// The whole command, in place of the shared machine's: for a stock weapon
+    /// whose ItemPostFrame replaces CBaseCombatWeapon's (the HL2MP shotgun).
+    /// True when it ran the command; false leaves the machine to it. The
+    /// machine records the buttons either way; ItemPostFrame is not called
+    /// after a command this ran.
+    /// </summary>
+    bool RunCommand(in WeaponAttackContext attack, int buttons, int pressed) => false;
 
     /// <summary>
     /// The weapon's fire interval, which is the seconds between shots the
@@ -97,6 +119,27 @@ public interface IWeaponBehaviour
     /// <paramref name="clipSize"/> for the row's own.
     /// </summary>
     int ModifyClipSize(in WeaponType type, int clipSize) => clipSize;
+
+    /// <summary>
+    /// Asked when the weapon comes into the hands, after the side has set the
+    /// deploy's timers and sent the draw: stock's per-class Deploy tail.
+    /// </summary>
+    void Deploy(in WeaponAttackContext attack) { }
+
+    /// <summary>Whether the weapon may be put away now (stock's CanHolster).</summary>
+    bool CanHolster(in WeaponAttackContext attack) => true;
+
+    /// <summary>
+    /// Asked as the weapon leaves the hands — a switch, a death, a strip, a
+    /// disconnect — before its state is handed to the next weapon.
+    /// </summary>
+    void Holster(in WeaponAttackContext attack) { }
+
+    /// <summary>
+    /// Whether a death drops this weapon as a pickup. False for one whose stock
+    /// Drop removes it instead (the physcannon).
+    /// </summary>
+    bool LeavesPickup => true;
 }
 
 /// <summary>
@@ -194,7 +237,7 @@ public sealed class WeaponBehaviours
         _log = log;
     }
 
-    /// <summary>No sources: every key unresolved, so the whole machine is stock.</summary>
+    /// <summary>No mod sources: the core HL2MP weapons' rules and nothing else.</summary>
     public static WeaponBehaviours Stock() => new(null);
 
     /// <summary>
@@ -223,8 +266,19 @@ public sealed class WeaponBehaviours
     {
         var found = new Dictionary<string, IWeaponBehaviour>(StringComparer.OrdinalIgnoreCase);
 
+        // The core HL2MP weapons' own rules, after every mod source has had
+        // its say: a mod that names one of these keys owns it.
+        void AddCore()
+        {
+            foreach (var (key, behaviour) in Hl2mpWeaponBehaviours.All())
+                found.TryAdd(key, behaviour);
+        }
+
         if (_sources is null)
+        {
+            AddCore();
             return found;
+        }
 
         foreach (var source in HookOrder.Sorted(_sources()))
         {
@@ -247,6 +301,7 @@ public sealed class WeaponBehaviours
             }
         }
 
+        AddCore();
         return found;
     }
 }

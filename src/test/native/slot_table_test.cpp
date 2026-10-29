@@ -72,10 +72,9 @@ struct FakeEdict
 // The first entry of the engine-invisible half. Derived, not typed in: §3.3's
 // split is at MAX_EDICTS, and a literal 2048 here would stop tracking const.h.
 const int kFirstLogicalEntry = MAX_EDICTS;
-const int kLastEntry         = NUM_ENT_ENTRIES - 1;
+const int kLastEntry = NUM_ENT_ENTRIES - 1;
 
 } // namespace
-
 
 //=============================================================================
 // SIZE AND SHAPE -- the two fixed facts of plan_entity.md §2
@@ -99,8 +98,8 @@ TEST( SlotTableRange, TheTableSpansTheWholeHandleRangeAndNotJustTheEdicts )
 //-----------------------------------------------------------------------------
 TEST( SlotTableRange, EdictEntriesAreTheFirstQuarterAndTheRestAreInvisible )
 {
-	EXPECT_TRUE ( CSourceSharpSlotTable::IsEdictEntry( 0 ) );
-	EXPECT_TRUE ( CSourceSharpSlotTable::IsEdictEntry( MAX_EDICTS - 1 ) );
+	EXPECT_TRUE( CSourceSharpSlotTable::IsEdictEntry( 0 ) );
+	EXPECT_TRUE( CSourceSharpSlotTable::IsEdictEntry( MAX_EDICTS - 1 ) );
 	EXPECT_FALSE( CSourceSharpSlotTable::IsEdictEntry( kFirstLogicalEntry ) );
 	EXPECT_FALSE( CSourceSharpSlotTable::IsEdictEntry( kLastEntry ) );
 
@@ -135,7 +134,6 @@ TEST( SlotTableRange, TheSerialMaskIsFifteenBitsAndNotSixteen )
 	EXPECT_LT( (int)SOURCESHARP_SLOT_SERIAL_MASK, 1 << NUM_SERIAL_NUM_BITS );
 }
 
-
 //=============================================================================
 // BIND, UNBIND, RESOLVE
 //=============================================================================
@@ -147,7 +145,7 @@ TEST( SlotTableBind, AFreshTableHasNothingBound )
 	EXPECT_EQ( 0, table.BoundCount() );
 	EXPECT_FALSE( table.IsBound( 0 ) );
 	EXPECT_FALSE( table.IsBound( kLastEntry ) );
-	EXPECT_TRUE ( table.ResolveByIndex( 0 ) == NULL );
+	EXPECT_TRUE( table.ResolveByIndex( 0 ) == NULL );
 	EXPECT_FALSE( table.HandleOf( 0 ).IsValid() );
 }
 
@@ -303,7 +301,6 @@ TEST( SlotTableBind, ResetClearsEveryBinding )
 	EXPECT_TRUE( table.ResolveByIndex( 3 ) == NULL );
 }
 
-
 //=============================================================================
 // THE SERIAL-REUSE TEST -- step 1c's gate, and the cover for the one
 // allowlisted downcast
@@ -372,7 +369,7 @@ TEST( SerialReuse, UnbindAdvancesTheEntrysSerialByOne )
 	EXPECT_EQ( 0, table.SerialAt( 55 ) );
 
 	table.Bind( 55, &shell );
-	EXPECT_EQ( 0, table.SerialAt( 55 ) );   // bind takes the serial, never moves it
+	EXPECT_EQ( 0, table.SerialAt( 55 ) ); // bind takes the serial, never moves it
 
 	table.Unbind( 55 );
 	EXPECT_EQ( 1, table.SerialAt( 55 ) );
@@ -389,7 +386,7 @@ TEST( SerialReuse, UnbindAdvancesTheEntrysSerialByOne )
 TEST( SerialReuse, EveryGenerationOfAnEntryGetsItsOwnHandle )
 {
 	CSourceSharpSlotTable table;
-	FakeShell shells[4] = { {0}, {1}, {2}, {3} };
+	FakeShell shells[4] = { { 0 }, { 1 }, { 2 }, { 3 } };
 	CBaseHandle handles[4];
 
 	for ( int i = 0; i < 4; ++i )
@@ -465,7 +462,6 @@ TEST( SerialReuse, AHandleWithASerialThatWasNeverIssuedResolvesToNull )
 	EXPECT_TRUE( table.Resolve( hForged ) == NULL );
 }
 
-
 //=============================================================================
 // SLOT ZERO AND THE INVALID HANDLE
 //
@@ -486,7 +482,7 @@ TEST( SlotTableSlotZero, EntryZeroSerialZeroIsARealHandleAndResolves )
 	ASSERT_TRUE( h.IsValid() );
 	EXPECT_EQ( 0, h.GetEntryIndex() );
 	EXPECT_EQ( 0, h.GetSerialNumber() );
-	EXPECT_EQ( 0, h.ToInt() );          // the whole handle is the integer zero
+	EXPECT_EQ( 0, h.ToInt() ); // the whole handle is the integer zero
 	EXPECT_EQ( &world, table.Resolve( h ) );
 }
 
@@ -506,7 +502,7 @@ TEST( SlotTableSlotZero, TheInvalidHandleResolvesToNullEvenWhenTheLastEntryIsBou
 
 	const CBaseHandle hInvalid;
 	ASSERT_FALSE( hInvalid.IsValid() );
-	ASSERT_EQ( kLastEntry, hInvalid.GetEntryIndex() );   // the bug-submarining hack
+	ASSERT_EQ( kLastEntry, hInvalid.GetEntryIndex() ); // the bug-submarining hack
 
 	EXPECT_TRUE( table.Resolve( hInvalid ) == NULL );
 	EXPECT_NE( &last, table.Resolve( hInvalid ) );
@@ -547,7 +543,6 @@ TEST( SlotTableSlotZero, BindingTheInvalidHandleIsRefused )
 	EXPECT_FALSE( table.IsBound( kLastEntry ) );
 	EXPECT_EQ( 0, table.BoundCount() );
 }
-
 
 //=============================================================================
 // BINDAT -- a handle assigned elsewhere
@@ -602,7 +597,7 @@ TEST( SlotTableBindAt, ASerialAboveTheTablesOwnWrapIsAdoptedRatherThanMasked )
 	CSourceSharpSlotTable table;
 	FakeShell shell = { 1 };
 
-	const int nWide = ( 1 << NUM_SERIAL_NUM_BITS ) - 2;   // 65534, above the 15-bit wrap
+	const int nWide = ( 1 << NUM_SERIAL_NUM_BITS ) - 2; // 65534, above the 15-bit wrap
 	ASSERT_GT( nWide, (int)SOURCESHARP_SLOT_SERIAL_MASK );
 
 	const CBaseHandle hForced( 21, nWide );
@@ -622,7 +617,7 @@ TEST( SlotTableBindAt, UnbindingAnAdoptedWideSerialWrapsBackIntoTheTablesRange )
 	CSourceSharpSlotTable table;
 	FakeShell shell = { 1 };
 
-	const CBaseHandle hForced( 22, ( 1 << NUM_SERIAL_NUM_BITS ) - 1 );   // 65535
+	const CBaseHandle hForced( 22, ( 1 << NUM_SERIAL_NUM_BITS ) - 1 ); // 65535
 	ASSERT_TRUE( table.BindAt( hForced, &shell ) );
 
 	table.Unbind( 22 );
@@ -637,11 +632,10 @@ TEST( SlotTableBindAt, BindingOverALiveBindingIsRefused )
 	FakeShell first = { 1 }, second = { 2 };
 
 	const CBaseHandle h( 19, 1 );
-	ASSERT_TRUE ( table.BindAt( h, &first ) );
+	ASSERT_TRUE( table.BindAt( h, &first ) );
 	EXPECT_FALSE( table.BindAt( h, &second ) );
 	EXPECT_EQ( &first, table.ResolveByIndex( 19 ) );
 }
-
 
 //=============================================================================
 // RESOLVE BY INDEX -- the engine's route, which carries no serial
@@ -690,7 +684,6 @@ TEST( SlotTableByIndex, HandleOfGivesBackTheHandleBindReturned )
 	EXPECT_FALSE( table.HandleOf( 31 ).IsValid() );
 }
 
-
 //=============================================================================
 // ISSUE -- THE HANDLE A BIND WOULD PRODUCE, WITHOUT BINDING
 //
@@ -732,9 +725,8 @@ TEST( SlotTableIssue, TheIssuedHandleIsTheOneTheFollowingBindReturns )
 
 	const CBaseHandle bound = table.Bind( 31, &shell );
 
-	EXPECT_TRUE( bound == issued )
-		<< "issue and bind disagreed about the serial: the entity would hold a "
-		   "handle the table cannot resolve";
+	EXPECT_TRUE( bound == issued ) << "issue and bind disagreed about the serial: the entity would hold a "
+									  "handle the table cannot resolve";
 	EXPECT_EQ( &shell, table.Resolve( issued ) );
 }
 
@@ -744,7 +736,7 @@ TEST( SlotTableIssue, IssuingDoesNotBindAndDoesNotMoveTheSerial )
 
 	const int nBefore = table.SerialAt( 12 );
 
-	const CBaseHandle first  = table.IssueHandle( 12 );
+	const CBaseHandle first = table.IssueHandle( 12 );
 	const CBaseHandle second = table.IssueHandle( 12 );
 
 	EXPECT_TRUE( first == second ) << "issuing twice handed out two identities";
@@ -752,8 +744,7 @@ TEST( SlotTableIssue, IssuingDoesNotBindAndDoesNotMoveTheSerial )
 	EXPECT_FALSE( table.IsBound( 12 ) );
 	EXPECT_EQ( 0, table.BoundCount() );
 	EXPECT_EQ( 0, table.Binds() );
-	EXPECT_EQ( NULL, table.Resolve( first ) )
-		<< "an issued-but-unbound handle resolved to something";
+	EXPECT_EQ( NULL, table.Resolve( first ) ) << "an issued-but-unbound handle resolved to something";
 }
 
 //-----------------------------------------------------------------------------
@@ -812,15 +803,13 @@ TEST( SlotTableIssue, AfterAnUnbindTheNextIssueIsADifferentIdentity )
 	const CBaseHandle hNew = table.IssueHandle( 63 );
 
 	ASSERT_TRUE( hNew.IsValid() );
-	EXPECT_FALSE( hNew == hOld )
-		<< "the entry re-issued the dead entity's handle";
+	EXPECT_FALSE( hNew == hOld ) << "the entry re-issued the dead entity's handle";
 	EXPECT_NE( hOld.GetSerialNumber(), hNew.GetSerialNumber() );
 
 	table.Bind( 63, &second );
 
 	EXPECT_EQ( &second, table.Resolve( hNew ) );
-	EXPECT_EQ( NULL, table.Resolve( hOld ) )
-		<< "the dead entity's handle came back with its successor";
+	EXPECT_EQ( NULL, table.Resolve( hOld ) ) << "the dead entity's handle came back with its successor";
 }
 
 //-----------------------------------------------------------------------------
@@ -902,8 +891,7 @@ TEST( SlotTableClear, ClearingBetweenMapsBumpsEverySerialRatherThanRewindingIt )
 		   "does not move, so the engine packs this entity as a CONTINUATION of "
 		   "the dead one.";
 	EXPECT_FALSE( hSecondMap == hFirstMap );
-	EXPECT_EQ( NULL, table.Resolve( hFirstMap ) )
-		<< "the previous map's handle still resolves";
+	EXPECT_EQ( NULL, table.Resolve( hFirstMap ) ) << "the previous map's handle still resolves";
 	EXPECT_EQ( &b, table.Resolve( hSecondMap ) );
 }
 
@@ -923,9 +911,8 @@ TEST( SlotTableClear, ResetIsStillTheRewindAndIsNotWhatALevelChangeUses )
 
 	table.Reset();
 
-	EXPECT_EQ( 0, table.SerialAt( 5 ) )
-		<< "Reset no longer rewinds. The constructor calls it, so a fresh table "
-		   "would start on whatever was in the memory it was handed.";
+	EXPECT_EQ( 0, table.SerialAt( 5 ) ) << "Reset no longer rewinds. The constructor calls it, so a fresh table "
+										   "would start on whatever was in the memory it was handed.";
 }
 
 //-----------------------------------------------------------------------------
@@ -937,9 +924,9 @@ TEST( SlotTableClear, ClearingLeavesNothingBoundAnywhereInEitherHalf )
 	CSourceSharpSlotTable table;
 	FakeShell a = { 1 }, b = { 2 }, c = { 3 };
 
-	const CBaseHandle hEdict     = table.Bind( 7, &a );
+	const CBaseHandle hEdict = table.Bind( 7, &a );
 	const CBaseHandle hInvisible = table.Bind( MAX_EDICTS + 3, &b );
-	const CBaseHandle hLast      = table.Bind( kLastEntry, &c );
+	const CBaseHandle hLast = table.Bind( kLastEntry, &c );
 
 	ASSERT_EQ( 3, table.BoundCount() );
 
@@ -974,8 +961,7 @@ TEST( SlotTableClear, ClearingDoesNotBumpAnEntryThatWasAlreadyUnbound )
 	EXPECT_EQ( nAfterTheShellWentAway, table.SerialAt( 9 ) )
 		<< "the level teardown bumped a serial nobody was using. Doing that "
 		   "once per map per entry leaks the serial space at 8192 a map.";
-	EXPECT_EQ( 0, table.SerialAt( 10 ) )
-		<< "an entry that was never bound at all was bumped";
+	EXPECT_EQ( 0, table.SerialAt( 10 ) ) << "an entry that was never bound at all was bumped";
 }
 
 //=============================================================================
@@ -985,7 +971,7 @@ TEST( SlotTableClear, ClearingDoesNotBumpAnEntryThatWasAlreadyUnbound )
 TEST( SlotTableCounts, BindAndUnbindMaintainTheCount )
 {
 	CSourceSharpSlotTable table;
-	FakeShell shells[5] = { {0}, {1}, {2}, {3}, {4} };
+	FakeShell shells[5] = { { 0 }, { 1 }, { 2 }, { 3 }, { 4 } };
 
 	for ( int i = 0; i < 5; ++i )
 		table.Bind( 400 + i, &shells[i] );
@@ -1019,7 +1005,6 @@ TEST( SlotTableCounts, TheCountSurvivesTheWholeTableBeingFilled )
 
 	EXPECT_EQ( 0, table.BoundCount() );
 }
-
 
 //=============================================================================
 // THE EDICT SERIAL MIRROR
@@ -1085,8 +1070,7 @@ TEST( SlotTableMirror, TheMirrorMasksToTenBits )
 	StandaloneNetSerial_Mirror( &edict, nWide );
 
 	EXPECT_EQ( 5, (int)edict.m_NetworkSerialNumber );
-	EXPECT_EQ( (int)( nWide & ( ( 1ul << STANDALONE_NETSERIAL_BITS ) - 1ul ) ),
-	           (int)edict.m_NetworkSerialNumber );
+	EXPECT_EQ( (int)( nWide & ( ( 1ul << STANDALONE_NETSERIAL_BITS ) - 1ul ) ), (int)edict.m_NetworkSerialNumber );
 }
 
 //-----------------------------------------------------------------------------
@@ -1103,7 +1087,6 @@ TEST( SlotTableMirror, AnEntityWithNoEdictMirrorsNothing )
 
 	SUCCEED();
 }
-
 
 //=============================================================================
 // THE RESOLVER'S SHAPE
@@ -1129,7 +1112,7 @@ TEST( SlotTableResolver, ThePointerOutIsTheSameAddressAsThePointerIn )
 	// The round trip a typed resolver makes: concrete pointer -> void * ->
 	// concrete pointer, with the serial checked in the middle.
 	void *pErased = table.Resolve( h );
-	FakeShell *pBack = static_cast< FakeShell * >( pErased );
+	FakeShell *pBack = static_cast<FakeShell *>( pErased );
 
 	ASSERT_TRUE( pBack != NULL );
 	EXPECT_EQ( &shell, pBack );
@@ -1149,11 +1132,10 @@ TEST( SlotTableResolver, AStaleHandleRoundTripsToANullOfTheTargetType )
 	table.Unbind( 71 );
 	table.Bind( 71, &alive );
 
-	FakeShell *pBack = static_cast< FakeShell * >( table.Resolve( hOld ) );
+	FakeShell *pBack = static_cast<FakeShell *>( table.Resolve( hOld ) );
 
 	EXPECT_TRUE( pBack == NULL );
 }
-
 
 //=============================================================================
 // THE TABLE CANNOT ITERATE -- five programs that must NOT compile.
@@ -1175,6 +1157,7 @@ TEST( SlotTableResolver, AStaleHandleRoundTripsToANullOfTheTargetType )
 #if defined( SLOT_TABLE_NOCOMPILE )
 
 void SlotTableNoCompileProbe( CSourceSharpSlotTable &table );
+
 void SlotTableNoCompileProbe( CSourceSharpSlotTable &table )
 {
 #if SLOT_TABLE_NOCOMPILE == 1

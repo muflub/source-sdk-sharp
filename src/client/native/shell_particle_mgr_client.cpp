@@ -6,42 +6,32 @@
 //=============================================================================//
 // SS_REASON b  an interface resolved by name at load
 
-//========= SourceSharp — what was left of CParticleMgr: its mechanics ======//
-//
-// C7 particles phase 4 (shell_particle_mgr.h has the design). particlemgr.cpp
-// left client.so; these are the members of it the client still called, as
-// free functions over this file's state: the PMaterial table (GetPMaterial,
-// PMaterialToIMaterial, RepairPMaterial and FindOrAddSubTextureGroup, with
-// CParticleSubTexture's and CParticleSubTextureGroup's constructors, which
-// particlemgr.h declares, from phase 4's eviction), the draw state, and Init, Term and LevelInit's
-// calls into the particle library. The SS_REASON is the library's: its
-// manager is reached by name (particles_lib_client.cpp).
-//=============================================================================//
+// The CParticleMgr members the client still calls, as free functions over this
+// file's state: the PMaterial table, the draw state, and Init, Term and
+// LevelInit's calls into the particle library, whose manager is reached by name.
 
-#include "cbase.h"
-#include "shell_particle_mgr.h"
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/imaterial.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
+
 #include "particles/particles.h"
 #include "particle_parse.h"
-#include "tier1/utldict.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
+#include "particlemgr.h"
+
+#include "shell_particle_mgr.h"
 
 extern IParticleSystemQuery *g_pParticleSystemQuery;
 
-//-----------------------------------------------------------------------------
-// particlemgr.h's two value classes, as particlemgr.cpp defined them.
-//-----------------------------------------------------------------------------
+// particlemgr.h's two value classes.
 CParticleSubTextureGroup::CParticleSubTextureGroup()
 {
 	m_pPageMaterial = NULL;
 }
 
-CParticleSubTextureGroup::~CParticleSubTextureGroup()
-{
-}
+CParticleSubTextureGroup::~CParticleSubTextureGroup() {}
 
 CParticleSubTexture::CParticleSubTexture()
 {
@@ -63,31 +53,31 @@ namespace
 struct ShellParticleMgr_t
 {
 	IMaterialSystem *pMaterialSystem;
-	CUtlVector< CParticleSubTextureGroup * > *pGroups;            // lookup by page material
-	CUtlDict< CParticleSubTexture *, unsigned short > *pSubTextures; // lookup by material name
+	CUtlVector<CParticleSubTextureGroup *> *pGroups; // lookup by page material
+	CUtlDict<CParticleSubTexture *, unsigned short> *pSubTextures; // lookup by material name
 	CParticleLightInfo light;
 	VMatrix modelView;
 };
 
 ShellParticleMgr_t s_Mgr;
 
-CUtlVector< CParticleSubTextureGroup * > &Groups()
+CUtlVector<CParticleSubTextureGroup *> &Groups()
 {
 	if ( !s_Mgr.pGroups )
-		s_Mgr.pGroups = new CUtlVector< CParticleSubTextureGroup * >;
+		s_Mgr.pGroups = new CUtlVector<CParticleSubTextureGroup *>;
 	return *s_Mgr.pGroups;
 }
 
-CUtlDict< CParticleSubTexture *, unsigned short > &SubTextures()
+CUtlDict<CParticleSubTexture *, unsigned short> &SubTextures()
 {
 	if ( !s_Mgr.pSubTextures )
-		s_Mgr.pSubTextures = new CUtlDict< CParticleSubTexture *, unsigned short >;
+		s_Mgr.pSubTextures = new CUtlDict<CParticleSubTexture *, unsigned short>;
 	return *s_Mgr.pSubTextures;
 }
 
 CParticleSubTextureGroup *FindOrAddSubTextureGroup( IMaterial *pPageMaterial )
 {
-	CUtlVector< CParticleSubTextureGroup * > &groups = Groups();
+	CUtlVector<CParticleSubTextureGroup *> &groups = Groups();
 	for ( int i = 0; i < groups.Count(); i++ )
 	{
 		if ( groups[i]->m_pPageMaterial == pPageMaterial )
@@ -108,7 +98,7 @@ void RepairPMaterial( PMaterialHandle hMaterial )
 	if ( hMaterial->m_pMaterial != NULL || !s_Mgr.pMaterialSystem )
 		return;
 
-	CUtlDict< CParticleSubTexture *, unsigned short > &subTextures = SubTextures();
+	CUtlDict<CParticleSubTexture *, unsigned short> &subTextures = SubTextures();
 	const char *pMaterialName = NULL;
 	for ( int i = subTextures.First(); i != subTextures.InvalidIndex(); i = subTextures.Next( i ) )
 	{
@@ -151,7 +141,7 @@ void ReleaseMaterials( bool bDelete )
 {
 	if ( s_Mgr.pSubTextures )
 	{
-		CUtlDict< CParticleSubTexture *, unsigned short > &subTextures = *s_Mgr.pSubTextures;
+		CUtlDict<CParticleSubTexture *, unsigned short> &subTextures = *s_Mgr.pSubTextures;
 		for ( int i = subTextures.First(); i != subTextures.InvalidIndex(); i = subTextures.Next( i ) )
 		{
 			IMaterial *pMaterial = subTextures[i]->m_pMaterial;
@@ -165,7 +155,7 @@ void ReleaseMaterials( bool bDelete )
 
 	if ( s_Mgr.pGroups )
 	{
-		CUtlVector< CParticleSubTextureGroup * > &groups = *s_Mgr.pGroups;
+		CUtlVector<CParticleSubTextureGroup *> &groups = *s_Mgr.pGroups;
 		for ( int i = groups.Count(); --i >= 0; )
 		{
 			IMaterial *pMaterial = groups[i]->m_pPageMaterial;
@@ -180,9 +170,7 @@ void ReleaseMaterials( bool bDelete )
 
 } // namespace
 
-//-----------------------------------------------------------------------------
 // The library's setup, as CParticleMgr's Init, Term and LevelInit made it.
-//-----------------------------------------------------------------------------
 bool ShellParticleMgr_Init( IMaterialSystem *pMaterials )
 {
 	ShellParticleMgr_Term();
@@ -213,17 +201,14 @@ void ShellParticleMgr_LevelInit()
 	g_pParticleSystemMgr->SetLastSimulationTime( gpGlobals->curtime );
 }
 
-// The handles leak from level to level, as stock's did: the code that cached
-// one (shell_impact_effects.cpp's g_Mat_*) keeps it, and its next use
-// re-acquires the material.
+// Handles leak from level to level, as stock's did: their next use re-acquires
+// the material.
 void ShellParticleMgr_LevelShutdown()
 {
 	ReleaseMaterials( false );
 }
 
-//-----------------------------------------------------------------------------
 // The PMaterial table: CParticleMgr::GetPMaterial and PMaterialToIMaterial.
-//-----------------------------------------------------------------------------
 PMaterialHandle ShellParticleMaterial_Find( const char *pMaterialName )
 {
 	if ( !s_Mgr.pMaterialSystem )
@@ -232,7 +217,7 @@ PMaterialHandle ShellParticleMaterial_Find( const char *pMaterialName )
 		return NULL;
 	}
 
-	CUtlDict< CParticleSubTexture *, unsigned short > &subTextures = SubTextures();
+	CUtlDict<CParticleSubTexture *, unsigned short> &subTextures = SubTextures();
 	int hMat = subTextures.Find( pMaterialName );
 	if ( hMat != subTextures.InvalidIndex() )
 	{
@@ -281,7 +266,7 @@ PMaterialHandle ShellParticleMaterial_Find( const char *pMaterialName )
 	{
 		pSubTexture->m_pGroup = &pSubTexture->m_DefaultGroup;
 		pSubTexture->m_DefaultGroup.m_pPageMaterial = pIMaterial;
-		pPageMaterial = pIMaterial;	// for the texcoords' scale
+		pPageMaterial = pIMaterial; // for the texcoords' scale
 
 		pSubTexture->m_tCoordMins[0] = pSubTexture->m_tCoordMins[1] = 0;
 		pSubTexture->m_tCoordMaxs[0] = pIMaterial->GetMappingWidth();
@@ -305,9 +290,7 @@ IMaterial *ShellParticleMaterial_Material( PMaterialHandle hMaterial )
 	return hMaterial->m_pMaterial;
 }
 
-//-----------------------------------------------------------------------------
 // The draw state.
-//-----------------------------------------------------------------------------
 VMatrix &ShellParticleDraw_ModelView()
 {
 	return s_Mgr.modelView;

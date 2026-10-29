@@ -4,42 +4,12 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — tier0's spew and assert entry points, in server.so ==//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
-//
-// plan_server_novalve.md P4: server.so stops linking libtier0. Every server
-// object that logs or asserts calls tier0 through public/tier0/dbg.h (the
-// Assert macro alone expands to five tier0 calls, in 102 objects), and those
-// headers stay until P5. So server.so DEFINES the tier0 functions it calls,
-// here, with its own behaviour; -fvisibility=hidden plus the version script
-// keep them inside server.so, so its own calls bind to these and the
-// libtier0.so the engine loaded is untouched.
-//
-// THE SPEW SLOT IS server.so's OWN. SpewOutputFunc / GetSpewOutputFunc set and
-// read a function local to this DLL, and everything below formats its text
-// and hands it to that function. Its default hands the line on to whatever
-// spew function is current in the libtier0.so the engine loaded, found at
-// runtime (loaded_symbol.h): that function is the engine's, and it is what
-// writes the console AND console.log. ICvar::ConsolePrintf reaches the console
-// only; a gate run with it lost every native line from console.log. With no
-// libtier0 loaded (the tests), the default falls back to ICvar.
-//
-// A line is handed on as a message or a warning, never as SPEW_ASSERT or
-// SPEW_ERROR: tier0's slot answers those with SPEW_DEBUGGER or SPEW_ABORT,
-// and what an assert or an error does is decided here and in shell_diagnostics,
-// not by the engine's answer.
-// shell_diagnostics installs its hook into this slot exactly as it installed
-// it into tier0's, so the assert policy (fatal by default, -assertlog demotes,
-// the self-test's deliberate assert survives) is unchanged, and a fatal one
-// ends in SourceSharp_FatalReport.
-//
-// Error() ends there too, as the user designed for a failed assert: the
-// report and the stack to stderr and assert-<pid>.txt, exit -3.
-//
-// Without libtier0 and before the engine's ICvar is connected there is nowhere
-// to write, so early lines are held and written out, in order, by the first
-// line after it.
-//=============================================================================//
+// tier0's spew and assert entry points, defined in server.so, which links no libtier0.
+// Hidden visibility keeps them inside the DLL. The spew slot is this DLL's own; its
+// default hands lines to the engine's current tier0 spew function (which writes the
+// console and console.log), else to ICvar, else holds them until one exists. Asserts
+// and errors are handed on as warnings: what they do is decided here, not by tier0.
 
 #include "tier0/dbg.h"
 #include "icvar.h"
@@ -49,10 +19,9 @@
 #include "fatal_report.h"
 #include "loaded_symbol.h"
 #include "tier0_spew_port.h"
-#include "ss_platform.h"	// SS_BIND_IMPORT
+#include "ss_platform.h"
 #ifdef _MSC_VER
-// This file defines functions the engine DLLs' headers declare dllimport
-// (C4273); SS_BIND_IMPORT at the end binds this module's calls to them.
+// SS_BIND_IMPORT at the end binds this module's calls to these dllimport-declared functions.
 #pragma warning( disable : 4273 )
 #endif
 
@@ -63,8 +32,6 @@
 #include <string.h>
 #include <string>
 
-extern ICvar *g_pCVar;
-
 namespace
 {
 // Where an assert's text came from: _SpewInfo sets it, _SpewMessage reads it,
@@ -74,24 +41,27 @@ thread_local const tchar *t_pFile = nullptr;
 thread_local int t_nLine = 0;
 
 std::mutex s_EarlyLock;
-std::string s_Early;   // lines spewed before the console existed
+std::string s_Early; // lines spewed before the console existed
 
 AssertFailedNotifyFunc_t s_pAssertNotify = nullptr;
+
+// The engine's console, connected by the DLL root beside its CCVarRegistry.
+ICvar *s_pConsole = nullptr;
 
 void WriteToConsole( SpewType_t type, const char *pText )
 {
 	switch ( type )
 	{
-	case SPEW_WARNING:
-		g_pCVar->ConsoleColorPrintf( Color( 255, 255, 0, 255 ), "%s", pText );
-		break;
-	case SPEW_ASSERT:
-	case SPEW_ERROR:
-		g_pCVar->ConsoleColorPrintf( Color( 255, 64, 64, 255 ), "%s", pText );
-		break;
-	default:
-		g_pCVar->ConsolePrintf( "%s", pText );
-		break;
+		case SPEW_WARNING:
+			s_pConsole->ConsoleColorPrintf( Color( 255, 255, 0, 255 ), "%s", pText );
+			break;
+		case SPEW_ASSERT:
+		case SPEW_ERROR:
+			s_pConsole->ConsoleColorPrintf( Color( 255, 64, 64, 255 ), "%s", pText );
+			break;
+		default:
+			s_pConsole->ConsolePrintf( "%s", pText );
+			break;
 	}
 }
 
@@ -101,7 +71,7 @@ SpewRetval_t ConsoleSpew( SpewType_t type, const tchar *pText );
 // Kept once found: engine.so needs that libtier0, so it outlives server.so. A
 // miss is not kept, so a libtier0 that arrives later is still found.
 using GetSpewOutputFunc_t = SpewOutputFunc_t ( * )();
-std::atomic< GetSpewOutputFunc_t > s_pEngineGetSpew{ nullptr };
+std::atomic<GetSpewOutputFunc_t> s_pEngineGetSpew{ nullptr };
 
 SpewOutputFunc_t EngineSpew()
 {
@@ -123,12 +93,12 @@ SpewType_t HandedOnAs( SpewType_t type )
 {
 	switch ( type )
 	{
-	case SPEW_ASSERT:
-	case SPEW_ERROR:
-	case SPEW_WARNING:
-		return SPEW_WARNING;
-	default:
-		return SPEW_MESSAGE;
+		case SPEW_ASSERT:
+		case SPEW_ERROR:
+		case SPEW_WARNING:
+			return SPEW_WARNING;
+		default:
+			return SPEW_MESSAGE;
 	}
 }
 
@@ -152,21 +122,21 @@ SpewRetval_t ConsoleSpew( SpewType_t type, const tchar *pText )
 		return SPEW_CONTINUE;
 
 	SpewOutputFunc_t pEngine = t_bInEngine ? nullptr : EngineSpew();
-	if ( !pEngine && !g_pCVar )
+	if ( !pEngine && !s_pConsole )
 	{
-		std::lock_guard< std::mutex > hold( s_EarlyLock );
+		std::lock_guard<std::mutex> hold( s_EarlyLock );
 		s_Early += pText;
 		return SPEW_CONTINUE;
 	}
 
 	{
-		std::lock_guard< std::mutex > hold( s_EarlyLock );
+		std::lock_guard<std::mutex> hold( s_EarlyLock );
 		if ( !s_Early.empty() )
 		{
 			if ( pEngine )
 				HandToEngine( pEngine, SPEW_MESSAGE, s_Early.c_str() );
 			else
-				g_pCVar->ConsolePrintf( "%s", s_Early.c_str() );
+				s_pConsole->ConsolePrintf( "%s", s_Early.c_str() );
 			s_Early.clear();
 		}
 	}
@@ -182,38 +152,37 @@ SpewOutputFunc_t s_pSpew = ConsoleSpew;
 
 SpewRetval_t SpewV( SpewType_t type, const tchar *pFormat, va_list args )
 {
-	char szText[ 4096 ];
+	char szText[4096];
 	vsnprintf( szText, sizeof( szText ), pFormat, args );
 	return s_pSpew( type, szText );
 }
 
 bool DeveloperAt( int level )
 {
-	if ( !g_pCVar )
+	if ( !s_pConsole )
 		return false;
-	const ConVar *pDeveloper = g_pCVar->FindVar( "developer" );
+	const ConVar *pDeveloper = s_pConsole->FindVar( "developer" );
 	return pDeveloper && pDeveloper->GetInt() >= level;
 }
 }
 
-//-----------------------------------------------------------------------------
-// The spew slot.
-//-----------------------------------------------------------------------------
+void Tier0_ConnectConsole( ICvar *pConsole )
+{
+	s_pConsole = pConsole;
+}
+
 void SpewOutputFunc( SpewOutputFunc_t func )
 {
 	s_pSpew = func ? func : ConsoleSpew;
 }
 
-SpewOutputFunc_t GetSpewOutputFunc( void )
+SpewOutputFunc_t GetSpewOutputFunc()
 {
 	return s_pSpew;
 }
 
-//-----------------------------------------------------------------------------
-// Assert. The macro calls _SpewInfo then _SpewMessage, then the notify
-// function, then asks about a dialog only if the spew answered SPEW_DEBUGGER,
-// which nothing here does.
-//-----------------------------------------------------------------------------
+// The Assert macro calls _SpewInfo, _SpewMessage, then the notify function, and asks
+// about a dialog only on SPEW_DEBUGGER, which nothing here answers.
 void _SpewInfo( SpewType_t type, const tchar *pFile, int line )
 {
 	t_Type = type;
@@ -223,7 +192,7 @@ void _SpewInfo( SpewType_t type, const tchar *pFile, int line )
 
 SpewRetval_t _SpewMessage( const tchar *pMsg, ... )
 {
-	char szText[ 4096 ];
+	char szText[4096];
 	int n = 0;
 
 	// tier0's assert line: "file (line) : message\n".
@@ -241,10 +210,10 @@ SpewRetval_t _SpewMessage( const tchar *pMsg, ... )
 	if ( t_Type == SPEW_ASSERT )
 	{
 		const size_t len = strlen( szText );
-		if ( len + 1 < sizeof( szText ) && ( len == 0 || szText[ len - 1 ] != '\n' ) )
+		if ( len + 1 < sizeof( szText ) && ( len == 0 || szText[len - 1] != '\n' ) )
 		{
-			szText[ len ] = '\n';
-			szText[ len + 1 ] = 0;
+			szText[len] = '\n';
+			szText[len + 1] = 0;
 		}
 	}
 
@@ -274,9 +243,6 @@ void CallAssertFailedNotifyFunc( const char *pchFile, int nLine, const char *pch
 		s_pAssertNotify( pchFile, nLine, pchMessage );
 }
 
-//-----------------------------------------------------------------------------
-// Logging.
-//-----------------------------------------------------------------------------
 void Msg( const tchar *pMsg, ... )
 {
 	va_list args;
@@ -299,9 +265,8 @@ void Tier0_DevSpewV( int level, SpewType_t type, const tchar *pMsg, va_list args
 		SpewV( type, pMsg, args );
 }
 
-// The C++-linkage overloads: their import names are mangled, so SS_BIND_IMPORT
-// cannot bind them. Neither DLL links tier0.lib (client.dll since plan_client_
-// novalve C9), so the linker binds each import of one to these (LNK4217).
+// C++-linkage overloads have mangled import names SS_BIND_IMPORT cannot bind; with no
+// tier0.lib linked, the linker binds their imports to these (LNK4217).
 void DevMsg( const tchar *pMsg, ... )
 {
 	if ( !DeveloperAt( 1 ) )
@@ -322,12 +287,10 @@ void DevWarning( const tchar *pMsg, ... )
 	va_end( args );
 }
 
-//-----------------------------------------------------------------------------
-// Error: said, then the process ends -- the user's fatal report.
-//-----------------------------------------------------------------------------
+// Said, then the process ends through the fatal report.
 void Error( const tchar *pMsg, ... )
 {
-	char szText[ 4096 ];
+	char szText[4096];
 	va_list args;
 	va_start( args, pMsg );
 	vsnprintf( szText, sizeof( szText ), pMsg, args );
@@ -337,8 +300,6 @@ void Error( const tchar *pMsg, ... )
 	SourceSharp_FatalReport( "ERROR", szText );
 }
 
-// Every call in this module of the functions above, made through the
-// import pointer, reaches these definitions (ss_platform.h).
 SS_BIND_IMPORT( Msg )
 SS_BIND_IMPORT( Warning )
 SS_BIND_IMPORT( Error )

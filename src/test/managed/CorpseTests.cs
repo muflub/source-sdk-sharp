@@ -80,7 +80,7 @@ public class CorpseTests
         // spawning just bound, and asks nothing else of it.
         public ScriptedEntity? FindByName(string name) => null;
         public IEnumerable<ScriptedEntity> OfClass(string className) => Array.Empty<ScriptedEntity>();
-        public bool IsRegistered(string className) => className == EntityNames.SsRagdoll;
+        public bool IsRegistered(string className) => className == EntityNames.Hl2mpRagdoll;
         public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => Array.Empty<ScriptedClassInfo>();
     }
 
@@ -165,8 +165,8 @@ public class CorpseTests
 
         var created = engine.Last("Entities.Create")!.Value;
 
-        Assert.True(created.ArgAs<string>(0) == EntityNames.SsRagdoll,
-            $"and what it spawns is an {EntityNames.SsRagdoll}, not a "
+        Assert.True(created.ArgAs<string>(0) == EntityNames.Hl2mpRagdoll,
+            $"and what it spawns is an {EntityNames.Hl2mpRagdoll}, not a "
           + $"{created.ArgAs<string>(0)}");
     }
 
@@ -884,7 +884,7 @@ public class CorpseRetirementTests
         public ScriptedEntity? FindByName(string name) => null;
         public IEnumerable<ScriptedEntity> OfClass(string className) => Array.Empty<ScriptedEntity>();
         public IEnumerable<ScriptedEntity> All() => Array.Empty<ScriptedEntity>();
-        public bool IsRegistered(string className) => className == EntityNames.SsRagdoll;
+        public bool IsRegistered(string className) => className == EntityNames.Hl2mpRagdoll;
         public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => Array.Empty<ScriptedClassInfo>();
     }
 

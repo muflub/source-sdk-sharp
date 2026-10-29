@@ -43,44 +43,8 @@
 //                 read by the engine's PlaybackTempEntity (it copies only the
 //                 recipients), so the TeFilter's missing init bit costs nothing.
 //
-//   BloodEffect   its three arms are UTIL_BloodStream, UTIL_BloodDrips and
-//                 UTIL_BloodSpray. RE-MEASURED BY LANE SRV, and the sentence
-//                 that used to be here was wrong in a way worth keeping visible:
-//                 it said the gate was "two violence convars and
-//                 engine->IsLowViolence". It is not. UTIL_ShouldShowBlood
-//                 (util_shared.cpp:1277) reads violence_hblood or
-//                 violence_ablood and returns; engine->IsLowViolence() is in
-//                 UTIL_IsLowViolence, a DIFFERENT function that no arm of this
-//                 row calls. So the low-violence half was reachable all along --
-//                 FindConVarValue -- and the roadmap's question ("is the
-//                 server's UTIL_IsLowViolence equivalent reachable?") does not
-//                 have a bearing on this row at all.
-//
-//                 WHAT ACTUALLY BLOCKS IT is one term nobody had named:
-//                 g_pGameRules->IsMultiplayer(), which multiplies the blood
-//                 amount by five. There is no managed route to it in either
-//                 direction -- the ABI has no gamerules query, and
-//                 SourceSharp.Server.IGameRules is the shell asking C#, not C#
-//                 asking the shell. It is `return true` in this build because
-//                 CSourceSharpGameRules derives from CMultiplayRules, which is
-//                 a fact about shell_gamerules.h and not about blood: hardcoding
-//                 it here would be right today for a reason stated in another
-//                 file, and would go silently wrong the day that base changed.
-//                 Lane CD's rule, exactly.
-//
-//                 The German substitution (g_Language is a replicated ConVar),
-//                 the BLOOD_COLOR_MECH sparks-and-smoke branch and the
-//                 bloodimpact/bloodspray dispatches are all reachable; two new
-//                 ITempEnts members (BloodStream, Smoke) would be needed and
-//                 neither would cost an ABI slot. ONE bool is the whole of what
-//                 is left, and BloodEffectPortabilityTests asserts every clause
-//                 of this paragraph against stock's own .cpp read off disk --
-//                 including that the ABI still has no IsMultiplayer, so the day
-//                 one arrives a test says this row is now portable.
-//
-// Those three are reported to the integrator as design questions, not taken as
-// slots. Nothing about them changed in this commit: they fire today exactly as
-// they fired before it.
+// BloodEffect moved too: its one blocker, the multiplayer scale, is
+// GameRulesPolicy.Multiplayer, which C# decides.
 
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -119,6 +83,8 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
     private readonly IEngineSound _sound;
     private readonly IEngineEntities _entities;
     private readonly IEffectsWorld _world;
+    private readonly IEngineConsole _console;
+    private readonly IUniformRandom _random;
     private readonly Action<string> _warning;
 
     /// <param name="engine">
@@ -129,15 +95,20 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
     /// <param name="world">The traces, the static decal and the sprite precache
     /// <see cref="PaintDecal"/> and <see cref="BubbleEffect"/> ask for.</param>
     /// <param name="warning">Where a refused decal says so.</param>
+    /// <param name="console">The violence and language convars the blood reads.</param>
+    /// <param name="random">The engine's uniform stream, as stock's <c>random</c>.</param>
     public EffectsOverTempEnts(IEngineEffects engine, ITempEnts temps,
                                IEngineSound sound, IEngineEntities entities,
-                               IEffectsWorld world, Action<string> warning)
+                               IEffectsWorld world, IEngineConsole console, IUniformRandom random,
+                               Action<string> warning)
         : base(engine)
     {
         _temps = temps;
         _sound = sound;
         _entities = entities;
         _world = world ?? throw new ArgumentNullException(nameof(world));
+        _console = console ?? throw new ArgumentNullException(nameof(console));
+        _random = random ?? throw new ArgumentNullException(nameof(random));
         _warning = warning ?? throw new ArgumentNullException(nameof(warning));
     }
 
@@ -442,6 +413,98 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
     /// <c>PATTACH_ABSORIGIN</c>, which is 0.
     /// </para>
     /// </summary>
+    // shareddefs.h's blood colours and language, as the native callers spelled them.
+    private const int DontBleed = -1;
+    private const int BloodColorRed = 0;
+    private const int BloodColorMech = 3;
+
+    /// <summary>
+    /// Blood at a point: <c>UTIL_BloodStream</c> or <c>UTIL_BloodDrips</c>, then
+    /// <c>UTIL_BloodSpray</c> when flags are given, in stock's order. Stock's
+    /// German substitution (red becomes colour 0) is a no-op here, red being 0.
+    /// </summary>
+    public override void BloodEffect(Vector origin, Vector direction, BloodColor color, float amount,
+                                     bool stream = false, BloodSpray sprayFlags = BloodSpray.None)
+    {
+        int c = (int)color;
+
+        if (c == DontBleed)
+            return;
+
+        if (stream)
+            BloodStream(origin, direction, c, (int)amount);
+        else
+            BloodDrips(origin, direction, c, (int)amount);
+
+        if (sprayFlags != BloodSpray.None)
+            BloodSprayEffect(origin, direction, c, (int)amount, (int)sprayFlags);
+    }
+
+    private void BloodStream(Vector origin, Vector direction, int color, int amount)
+    {
+        if (!ShouldShowBlood(color))
+            return;
+
+        _temps.BloodStream(TeFilters.Pvs(origin), 0f, origin, direction, new Color32(247, 63, 14, 255),
+                           Math.Min(amount, 255));
+    }
+
+    private void BloodDrips(Vector origin, Vector direction, int color, int amount)
+    {
+        if (!ShouldShowBlood(color) || amount == 0)
+            return;
+
+        // Scaled up in multiplayer for visibility.
+        if (GameRulesPolicy.Multiplayer)
+            amount *= 5;
+
+        amount = Math.Min(amount, 255);
+
+        if (color == BloodColorMech)
+        {
+            _temps.Sparks(TeFilters.Pvs(origin), 0f, origin, 1, 1, null);
+
+            if (_random.RandomFloat(0, 2) >= 1)
+            {
+                // UTIL_Smoke: the effect's scale is a tenth of the caller's.
+                float scale = _random.RandomInt(10, 15);
+                _temps.Smoke(TeFilters.Pvs(origin), 0f, origin, _world.PrecacheModel("sprites/steam1.vmt"),
+                             scale * 0.1f, 10);
+            }
+
+            return;
+        }
+
+        TeEffectData impact = NewEffectData();
+        impact.Origin = origin;
+        impact.Normal = direction;
+        impact.Scale = amount;
+        impact.Color = (byte)color;
+        Dispatch("bloodimpact", in impact);
+    }
+
+    private void BloodSprayEffect(Vector origin, Vector direction, int color, int amount, int flags)
+    {
+        TeEffectData spray = NewEffectData();
+        spray.Origin = origin;
+        spray.Normal = direction;
+        spray.Scale = amount;
+        spray.Flags = flags;
+        spray.Color = (byte)color;
+        Dispatch("bloodspray", in spray);
+    }
+
+    // UTIL_ShouldShowBlood: violence_hblood for red, violence_ablood for any other colour.
+    private bool ShouldShowBlood(int color)
+        => color != DontBleed && ConVarOn(color == BloodColorRed ? "violence_hblood" : "violence_ablood");
+
+    // ConVar::GetBool: the integer value non-zero; a convar nothing answers reads as off.
+    private bool ConVarOn(string name)
+    {
+        string? value = _console.FindConVarValue(name);
+        return value is not null && (int)VariantParse.Atof(value) != 0;
+    }
+
     private static TeEffectData NewEffectData() => new() { Scale = 1f };
 
     /// <summary>
@@ -613,6 +676,56 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
             height = trace.Trace.EndPos.Z - mins.Z;
 
         _temps.Bubbles(TeFilters.Broadcast, 0f, mins, maxs, height, sprite, count, speed);
+    }
+
+    /// <summary>
+    /// UTIL_BubbleTrail: the water surface above each end (UTIL_FindWaterSurface:
+    /// a MASK_WATER line from 256 above down to the point, which answers the
+    /// point's own Z for one out of the water); nothing when both ends are dry;
+    /// one end dry, the line cut where it meets the surface and the count cut to
+    /// the wet part; the trail to everyone, at speed 8.
+    /// </summary>
+    public override void BubbleTrailEffect(Vector from, Vector to, int count)
+    {
+        float startHeight = WaterSurface(from) - from.Z;
+        float endHeight = WaterSurface(to) - to.Z;
+        if (startHeight == 0f && endHeight == 0f)
+            return;
+
+        float waterZ = startHeight + from.Z;
+        Vector wetFrom = from, wetTo = to;
+        if (startHeight == 0f || endHeight == 0f)
+        {
+            if (startHeight == 0f)
+                waterZ = endHeight + to.Z;
+
+            // IntersectRayWithAAPlane on z, and the count by the wet length.
+            float t = to.Z != from.Z ? (waterZ - from.Z) / (to.Z - from.Z) : 0f;
+            Vector waterPoint = from + (to - from) * t;
+            if (startHeight == 0f)
+            {
+                wetFrom = waterPoint;
+                count = (int)(count * (1f - t));
+            }
+            else
+            {
+                wetTo = waterPoint;
+                count = (int)(count * t);
+            }
+        }
+
+        int sprite = _world.PrecacheModel("sprites/bubble.vmt");
+        if (sprite <= 0)
+            return;
+
+        _temps.BubbleTrail(TeFilters.Broadcast, 0f, wetFrom, wetTo, waterZ, sprite, count, 8f);
+    }
+
+    /// <summary>UTIL_FindWaterSurface( position, position.z, position.z + 256 ).</summary>
+    private float WaterSurface(Vector position)
+    {
+        var top = new Vector(position.X, position.Y, position.Z + 256f);
+        return _world.Trace(top, position, MaskWater) is { } trace ? trace.Trace.EndPos.Z : position.Z;
     }
 
     /// <summary>

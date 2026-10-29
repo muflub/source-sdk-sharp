@@ -130,7 +130,7 @@ public static class ClientEntityDecal
     /// <param name="rayEnd">Stock's <c>rayEnd</c>; read by the studio arm only.</param>
     /// <param name="decalCenter">Stock's <c>decalCenter</c>; read by the brush arm only.</param>
     /// <param name="decalIndex">The decal to stamp.</param>
-    public static EntityDecalArm AddDecal(IEngineWorldQuery world, IEngineEffects effects,
+    public static EntityDecalArm AddDecal(IEngineWorldQuery world, IEngineEffects effects, IDecalSettings settings,
                                           int entIndex, Vector rayStart, Vector rayEnd,
                                           Vector decalCenter, int decalIndex)
     {
@@ -149,7 +149,7 @@ public static class ClientEntityDecal
         switch (model.Value)
         {
             case ModelType.Studio:
-                effects.ClientDecalStudioModel(entIndex, rayStart, rayEnd, decalIndex);
+                AddStudioDecal(effects, settings, entIndex, rayStart, rayEnd, decalIndex);
                 return EntityDecalArm.StudioModel;
 
             case ModelType.Brush:
@@ -165,4 +165,34 @@ public static class ClientEntityDecal
                 return EntityDecalArm.NoDecalPath;
         }
     }
+
+    /// <summary>How much longer than the segment the studio decal's ray is: stock's <c>ray.m_Delta *= 1.1f</c>.</summary>
+    public const float StudioRayBloat = 1.1f;
+
+    /// <summary>
+    /// <c>C_BaseEntity::AddStudioDecal</c> with <c>doTrace</c> false (both of
+    /// stock's call sites): nothing when <c>r_drawmodeldecals</c> is off
+    /// ("Exit out after doing the trace so any other effects that want to happen
+    /// can happen" -- there is no trace here), else the decal along the ray from
+    /// <paramref name="rayStart"/> to <paramref name="rayEnd"/>, its DELTA
+    /// lengthened a tenth (<c>ray.Init( rayStart, rayEnd ); ray.m_Delta *= 1.1f</c>)
+    /// and handed over as the delta, the start untouched. The model instance and
+    /// the renderer's AddDecal are the backend's (SourceSharp_ClientDecalStudioModel).
+    /// Answers whether it was asked for.
+    /// </summary>
+    public static bool AddStudioDecal(IEngineEffects effects, IDecalSettings settings, int entIndex,
+                                      Vector rayStart, Vector rayEnd, int decalIndex)
+    {
+        if (!settings.ModelDecals)
+            return false;
+
+        effects.ClientDecalStudioModel(entIndex, rayStart, StudioRayDelta(rayStart, rayEnd), decalIndex);
+        return true;
+    }
+
+    /// <summary><c>( rayEnd - rayStart ) * 1.1f</c>, in single precision as stock's Ray_t holds it.</summary>
+    public static Vector StudioRayDelta(Vector rayStart, Vector rayEnd)
+        => new((rayEnd.X - rayStart.X) * StudioRayBloat,
+               (rayEnd.Y - rayStart.Y) * StudioRayBloat,
+               (rayEnd.Z - rayStart.Z) * StudioRayBloat);
 }

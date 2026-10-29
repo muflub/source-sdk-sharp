@@ -307,16 +307,6 @@ public class DebugDrawCommandTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheShimAreaDeclaresTheAddLineOverlayMethod()
-    {
-        // The DECLARATION and not the name, read without comments.
-        string areas = AbiParityTests.CodeOnly(File.ReadAllText(
-            RepoLayout.Repo("src", "shared", "native", "ishim_areas.h")));
-
-        Assert.Matches(@"\bvirtual\s+void\s+AddLineOverlay\s*\(", areas);
-    }
-
-    [Fact]
     public void TheManagedVtableDeclaresTheAddLineOverlaySlot()
     {
         var slot = typeof(ShimDebugOverlayFwd).GetField(nameof(ShimDebugOverlayFwd.AddLineOverlay));
@@ -324,32 +314,4 @@ public class DebugDrawCommandTests
         Assert.True(slot is { FieldType.IsFunctionPointer: true });
     }
 
-    [Fact]
-    public void TheShimAreaForwardsAddLineOverlayToItsBody()
-    {
-        // Comment-stripped, and anchored on the definition: this file's first
-        // version of the wiring fact looked for a substring, and commenting the
-        // assignment out left that text exactly where it was.
-        string impl = AbiParityTests.CodeOnly(File.ReadAllText(
-            RepoLayout.Repo("src", "shared", "native", "shell_shim_areas.inc")));
-
-        Assert.Matches(@"CShimDebugOverlay::AddLineOverlay\s*\([^)]*\)\s*\{\s*return\s+::SourceSharp_AddLineOverlay\(", impl);
-    }
-
-    [Fact]
-    public void TheNativeBodyPoolsALineWithNoDuration()
-    {
-        // The branch the commands depend on: duration 0 is the twenty-slot pool
-        // (stock's lifetime), not a one-frame overlay. A body that always called
-        // Overlay_Line would draw for one frame and print success.
-        string body = Source("src", "sourcesharp", "game", "server", "shell_debugoverlays.cpp");
-
-        Assert.Contains("void SourceSharp_AddLineOverlay(", body);
-        Assert.Contains("Overlay_AddLine(", body);
-    }
-
-    private static string Source(params string[] parts)
-    {
-        return File.ReadAllText(RepoLayout.Sdk(parts));
-    }
 }

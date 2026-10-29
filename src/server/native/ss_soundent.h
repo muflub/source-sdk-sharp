@@ -4,27 +4,14 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the world's sound-hint list, as server.so reaches it
-//
-// plan_server_novalve.md P5. game/server/soundent.h's CSoundEnt is a class
-// server.so never constructs: its pool is `SoundEnt` in SourceSharp.Server, and
-// all that is left native are the statics the tree spells (shell_soundent.cpp).
-// No engine reads any of it, so per the plan's naming rule the server's own
-// entry points live in namespace ss, on public/ headers alone, and a TU on the
-// R5 include set calls these instead of CSoundEnt::.
-//
-// shell_soundent.cpp defines them. CSoundEnt's statics forward here until their
-// last legacy caller has switched; then they, and soundent.h, leave server.so.
-//=============================================================================//
 
-#ifndef SOURCESHARP_SS_SOUNDENT_H
-#define SOURCESHARP_SS_SOUNDENT_H
-#ifdef _WIN32
+// The server's entry points to the managed sound-hint pool (SoundEnt), defined in
+// shell_soundent.cpp.
+
 #pragma once
-#endif
 
-#include "mathlib/vector.h"
-
+class CGlobalVars;
+class IManagedSoundEnt;
 class IHandleEntity;
 struct edict_t;
 
@@ -32,14 +19,12 @@ namespace ss
 {
 
 // The managed pool's level start and end (CSoundEnt::InitSoundEnt /
-// ShutdownSoundEnt). Init answers true, as stock's did.
-bool SoundEnt_Init();
-void SoundEnt_Shutdown();
+// ShutdownSoundEnt), over the load's sound-ent area (NULL outside a load: nothing to
+// do). Init answers true, as stock's did.
+bool SoundEnt_Init( IManagedSoundEnt *pApi, const CGlobalVars *pGlobals );
+void SoundEnt_Shutdown( IManagedSoundEnt *pApi );
 
-// The client reserve: a player's slot in the list, and clearing it.
-void SoundEnt_ResetClientSound( int iIndex );
-int SoundEnt_ClientSoundIndex( edict_t *pClient );
+// Clears the reserved slot of the leaving client at this entity index.
+void SoundEnt_ResetClientSound( IManagedSoundEnt *pApi, int iClientIndex );
 
 } // namespace ss
-
-#endif // SOURCESHARP_SS_SOUNDENT_H

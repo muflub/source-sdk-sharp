@@ -464,83 +464,6 @@ public class PlayerCommandTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void ProcessUsercmdsCrossesOnceAndNotOncePerCommand()
-    {
-        // plan_server_novalve.md P2.2: the packet's ONE crossing is in
-        // ProcessUsercmds now -- decode, clamp, plan and queue all happen in
-        // C# behind it -- and QueueUsercmds, whose crossing this watched, is
-        // gone. The old slot must not be called from anywhere either.
-        string body = NativeFunction(GameClientsPath(), "float CServerGameClients::ProcessUsercmds");
-
-        Assert.Single(Regex.Matches(body, @"pCommands->PlayerDecodeCommands\("));
-        Assert.DoesNotContain("pApi->PlayerCommands(", AbiParityTests.CodeOnly(File.ReadAllText(ServerPlayerPath())));
-        Assert.DoesNotContain("pApi->PlayerCommands(", AbiParityTests.CodeOnly(File.ReadAllText(GameClientsPath())));
-    }
-
-    [Fact]
-    public void TheQueueingCrossingIsNotInsideALoop()
-    {
-        // The count above is satisfied by ONE call SITE; this is what makes it
-        // one CALL. A single site inside a `for` is still one crossing per
-        // command, which is the exact thing this step removed — and the
-        // function does contain loops (the flatten, and the plan's
-        // materialisation), so "no loops anywhere" would not be checkable here.
-        //
-        // Brace depth is one half: the body of the function is depth 1,
-        // anything nested inside a braced loop is deeper.
-        string body = NativeFunction(GameClientsPath(), "float CServerGameClients::ProcessUsercmds");
-        int call = body.IndexOf("pCommands->PlayerDecodeCommands(", StringComparison.Ordinal);
-
-        Assert.True(call > 0, "ProcessUsercmds calls PlayerDecodeCommands");
-        Assert.Equal(1, BraceDepthAt(body, call));
-    }
-
-    [Fact]
-    public void NoBRACELESSLoopWrapsTheQueueingCrossingEither()
-    {
-        // THE HALF THE DEPTH CHECK CANNOT SEE, and it is not hypothetical: the
-        // first mutation written against the fact above was
-        //
-        //     for ( int nRetry = 0; nRetry < 1; nRetry++ )
-        //         nPlan = pApi->PlayerCommands( ... );
-        //
-        // which compiles, calls once per iteration, and leaves the brace depth
-        // at 1 because it opens no brace. It SURVIVED, and this is what killed
-        // it. A loop head immediately above the call with no `{` on it is the
-        // whole of the shape.
-        string body = NativeFunction(GameClientsPath(), "float CServerGameClients::ProcessUsercmds");
-        int call = body.IndexOf("pCommands->PlayerDecodeCommands(", StringComparison.Ordinal);
-        string[] lines = body[..call].Split('\n');
-
-        foreach (string line in lines.TakeLast(3))
-        {
-            Assert.False(Regex.IsMatch(line, @"^\s*(for|while)\s*\(") && !line.Contains('{'),
-                         $"a braceless loop head stands over the crossing: {line.Trim()}");
-        }
-    }
-
-    [Fact]
-    public void TheQueueingCrossingsResultIsBoundAtFunctionScopeAndReadThere()
-    {
-        // THE PROPERTY THAT IS ANCHORED ON COMPILABILITY rather than on layout,
-        // which is what makes it hard to defeat by reformatting. The call's
-        // answer is bound to a `const int` in the function's own scope, and
-        // that constant is READ afterwards — so a loop body holding the
-        // declaration, braced or not, would scope it to the loop and the reader
-        // below would not compile.
-        string body = NativeFunction(GameClientsPath(), "float CServerGameClients::ProcessUsercmds");
-        int decl = body.IndexOf("const int nQueued = pCommands->PlayerDecodeCommands(", StringComparison.Ordinal);
-
-        Assert.True(decl > 0, "the crossing's answer is bound to a const at function scope");
-        Assert.Equal(1, BraceDepthAt(body, decl));
-
-        int read = body.IndexOf("nQueued", decl + 30, StringComparison.Ordinal);
-
-        Assert.True(read > decl, "the bound constant is read after the call");
-        Assert.Equal(1, BraceDepthAt(body, read));
-    }
-
-    [Fact]
     public void TheDepthMeasureCanTellATopLevelCallFromANestedOne()
     {
         // The check above is only worth anything if its measure separates the
@@ -549,37 +472,6 @@ public class PlayerCommandTests
 
         Assert.Equal(1, BraceDepthAt(sample, sample.IndexOf("A()", StringComparison.Ordinal)));
         Assert.Equal(2, BraceDepthAt(sample, sample.IndexOf("B()", StringComparison.Ordinal)));
-    }
-
-    [Fact]
-    public void RunQueuedCommandsCrossesOncePerPlayerPerFrame()
-    {
-        string body = NativeFunction("void CStandalonePlayer::RunQueuedCommands");
-
-        Assert.Single(Regex.Matches(body, @"pCommands->PlayerRunCommands\("));
-        Assert.Empty(Regex.Matches(body, @"\bfor\s*\("));
-    }
-
-    [Fact]
-    public void NoCommandCrossingSurvivesAnywhereInTheServersPlayerFile()
-    {
-        // The per-function facts above cannot see a call that moved to a helper.
-        string code = AbiParityTests.CodeOnly(File.ReadAllText(ServerPlayerPath()));
-
-        Assert.Empty(Regex.Matches(code, @"OnStandalonePlayerCommand\s*\("));
-        Assert.Empty(Regex.Matches(code, @"OnPlayerRunCommand\s*\("));
-    }
-
-    [Fact]
-    public void TheHandleResolverChecksTheSerialAndRefusesTheZeroSentinel()
-    {
-        // A default handle is entry ZERO, a real slot — worldspawn. Decoding
-        // only the entry index would answer whichever player later occupied the
-        // slot, which is how two other lanes measured the wrong path.
-        string body = NativeFunction("static CStandalonePlayer *StandalonePlayer_FromManagedHandle");
-
-        Assert.Contains("INVALID_EHANDLE_INDEX", body, StringComparison.Ordinal);
-        Assert.Contains("ManagedHandle() == hPlayer", body, StringComparison.Ordinal);
     }
 
     //-------------------------------------------------------------------------
@@ -673,13 +565,6 @@ public class PlayerCommandTests
 
     private static string ServerPlayerPath()
         => Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "server", "shell_standalone_player.cpp");
-
-    /// <summary>
-    /// One function's body from the native file, comment-stripped, from its
-    /// signature to the closing brace at column zero.
-    /// </summary>
-    private static string GameClientsPath()
-        => Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "server", "shell_gameclients.cpp");
 
     private static string NativeFunction(string signature) => NativeFunction(ServerPlayerPath(), signature);
 

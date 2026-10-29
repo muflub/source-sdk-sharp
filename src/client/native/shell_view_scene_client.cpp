@@ -5,34 +5,27 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- what view_scene.cpp gave the rest of client.so =====//
+// The view_scene.cpp names the rest of client.so still imports.
 // SS_REASON c  static-init registration
-// plan_client_novalve C7 step 2: view_scene.cpp leaves client.so. Four of its
-// names are still imported, and they are here:
-//   * r_updaterefracttexture and g_viewscene_refractUpdateFrame, which
-//     view_scene.h's inline UpdateRefractTexture reads (particlemgr.cpp, the
-//     render plan's executor, stock's viewrender while it stays);
-//   * UpdateFullScreenDepthTexture, which stock's viewrender calls (the plan's
-//     executor carries the same copy as its own op);
-//   * ScreenTransform, c_pixel_visibility.cpp's world-to-screen projection.
-// ViewTransform, HudTransform and FrustumTransform's other callers, and the
-// X360 multiple-refract system, had no importer and went with the TU.
-//=============================================================================//
 
-#include "cbase.h"
-#include "materialsystem/imaterialsystem.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+
 #include "materialsystem/imaterialvar.h"
-#include "materialsystem/imaterialsystemhardwareconfig.h"
+
+#include "materialsystem/itexture.h"
+
+#include "client_entity.h"
+
 #include "shell_render_targets.h"
-#include "view_scene.h"
 #include "view_frustum_transform.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
-
 ConVar r_updaterefracttexture( "r_updaterefracttexture", "1", FCVAR_CHEAT );
-static ConVar r_depthoverlay( "r_depthoverlay", "0", FCVAR_CHEAT,
-                              "Replaces opaque objects with their grayscaled depth values. r_showz_power scales the output." );
+static ConVar r_depthoverlay(
+	"r_depthoverlay", "0", FCVAR_CHEAT,
+	"Replaces opaque objects with their grayscaled depth values. r_showz_power scales the output." );
 
 int g_viewscene_refractUpdateFrame = 0;
 bool g_bAllowMultipleRefractUpdatesPerScenePerFrame = false;
@@ -43,13 +36,13 @@ int ScreenTransform( const Vector &point, Vector &screen )
 	float rows[16];
 	for ( int r = 0; r < 4; ++r )
 		for ( int c = 0; c < 4; ++c )
-			rows[ r * 4 + c ] = m[r][c];
+			rows[r * 4 + c] = m[r][c];
 	return ViewFrustumTransform( rows, &point.x, &screen.x );
 }
 
 // The depth buffer copied into the full-frame depth texture, marked valid,
 // and r_depthoverlay's debug quad over it. Nothing without ps_2_b.
-void UpdateFullScreenDepthTexture( void )
+void UpdateFullScreenDepthTexture()
 {
 	if ( !g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_b() )
 		return;

@@ -4,78 +4,59 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — client's tier0 and vstdlib, bound to the engine's ===//
 // SS_REASON d  a layout the engine reads at fixed offsets
+// client.so links no tier0 and no vstdlib. What its objects still take from them
+// is state only the engine's copies hold, so each name below is defined here
+// and reaches the definition in the library the engine already loaded
+// (loaded_symbol.h):
 //
-// plan_client_novalve C9: the client links no tier0 and no vstdlib (no
-// DT_NEEDED on libtier0.so/libvstdlib.so, no tier0.lib/vstdlib.lib), as the
-// server links neither. What its objects still take from them is state only
-// the engine's copies hold, so it is bound, not ported: each name below is
-// defined here and reaches the definition in the library the engine already
-// loaded (loaded_symbol.h), the way engine_heap.h reaches tier0's allocator.
-//
-//   CommandLine_Tier0     the engine's command line (clientshadowmgr's -tools,
-//                         ScreenSpaceEffects' -filmgrain): the one the
-//                         launcher built, not /proc/self/cmdline
-//   g_pThreadPool,        vstdlib's thread pool, which the client's parallel
-//   DestroyThreadPool     jobs run on (clientleafsystem, clientshadowmgr,
-//                         particlemgr), and its pools' destruction
+//   CommandLine_Tier0     the engine's command line, as the launcher built it
+//   g_pThreadPool,        vstdlib's thread pool the client's parallel jobs run
+//   DestroyThreadPool     on, and its pools' destruction
 //   CThreadEvent, CThreadSyncObject, CThreadRWLock, CThreadSpinRWLock members
-//                         tier0's own: their layout is tier0's, and a CJob's
-//                         completion event is set here and waited on in the
-//                         engine's pool (clientleafsystem's CJob::Abort,
-//                         tier1's utlsymbol)
-//   g_pMemAlloc           tier0's allocator, through which tier1's utlsymbol
-//                         member (compiled without NO_MALLOC_OVERRIDE)
-//                         allocates and frees
-//   g_pVCR                (Windows) tier0's VCR hooks, through which the
-//                         CThreadMutex::Lock emitted below enters its
-//                         critical section
+//                         tier0's own: a CJob's completion event is set here and
+//                         waited on in the engine's pool
+//   g_pMemAlloc           tier0's allocator, used by tier1's utlsymbol
+//   g_pVCR                (Windows) tier0's VCR hooks, used by CThreadMutex::Lock
 //
-// Each function is found once, on first call: the engine needs that tier0 and
-// vstdlib, so they outlive the client. The two pointers are copied when the
-// client loads, ahead of every C++ static initialiser, so no object sees them
-// empty. A missing library or name stops the process, naming both
-// (RequireLoadedSymbol): there is no other copy to fall back on.
+// Each function is found once, on first call; the engine keeps those libraries
+// loaded for the client's lifetime. The two pointers are copied when the client
+// loads, ahead of every C++ static initialiser. A missing library or name stops
+// the process, naming both.
 //
-// Linux (measured: the names lld reports with -ltier0/-lvstdlib taken off
-// client.so's link, with and without --gc-sections): no tier0 header is read.
-// The functions are defined under the names client objects import (asm
-// labels), with the arguments the Itanium ABI passes, so this file knows no
-// layout; constructor priority 101 copies the pointers.
+// Linux: no tier0 header is read. Functions are defined under the names client
+// objects import (asm labels) with the arguments the Itanium ABI passes;
+// constructor priority 101 copies the pointers.
 //
-// Windows (CI-verified only: no MSVC toolchain on the box this was written
-// on): tier0's headers are read with STATIC_TIER0 (CMakeLists.txt), so the
-// members are defined as plain members and the linker binds each dllimport of
-// one to its definition (LNK4217), as server.dll's ports are bound. Each finds
-// tier0.dll's own by its decorated name, which the compiler spells
-// (__FUNCDNAME__). The C names and the two pointers are bound with
-// SS_BIND_IMPORT (ss_platform.h); init_seg(lib) copies the pointers.
-//=============================================================================//
+// Windows: tier0's headers are read with STATIC_TIER0, so members are defined
+// plainly and the linker binds each dllimport to its definition (LNK4217).
+// Each finds tier0.dll's own by its decorated name (__FUNCDNAME__); the C names
+// and the two pointers are bound with SS_BIND_IMPORT; init_seg(lib) copies the
+// pointers.
 
 #include "loaded_symbol.h"
 
 #if defined( _WIN32 )
-	#include "tier0/threadtools.h"
-	#include "ss_platform.h"	// SS_BIND_IMPORT
-	#include <new>
-	#pragma warning( disable : 4073 )	// initializers put in library initialization area
-	#pragma init_seg( lib )
+#include "tier0/threadtools.h"
+#include "ss_platform.h"
+#include <new>
+#pragma warning( disable : 4073 ) // initializers put in library initialization area
+#pragma init_seg( lib )
 #endif
 
 #include <stdio.h>
 #include <stdlib.h>
 
-// loaded_symbol.h's RequireLoadedSymbol, defined beside its one caller
-// (plan_server_native_v2 T5: no server object imports it).
+// loaded_symbol.h's RequireLoadedSymbol, defined beside its one caller.
 void *ss::RequireLoadedSymbol( const char *pszFile, const char *pszSymbol )
 {
 	void *pSymbol = FindLoadedSymbol( pszFile, pszSymbol );
 	if ( !pSymbol )
 	{
-		fprintf( stderr, "[SourceSharp] %s: no loaded %s defines it. This module binds it "
-		                 "to the copy the engine loaded and links no other; stopping.\n",
-		         pszSymbol, pszFile );
+		fprintf( stderr,
+				 "[SourceSharp] %s: no loaded %s defines it. This module binds it "
+				 "to the copy the engine loaded and links no other; stopping.\n",
+				 pszSymbol, pszFile );
 		fflush( stderr );
 		abort();
 	}
@@ -92,21 +73,21 @@ const char kTier0[] = "libtier0.so";
 const char kVstdlib[] = "libvstdlib.so";
 #endif
 
-template < typename Fn >
+template <typename Fn>
 Fn Tier0( const char *pszSymbol )
 {
-	return reinterpret_cast< Fn >( ss::RequireLoadedSymbol( kTier0, pszSymbol ) );
+	return reinterpret_cast<Fn>( ss::RequireLoadedSymbol( kTier0, pszSymbol ) );
 }
 
-template < typename Fn >
+template <typename Fn>
 Fn Vstdlib( const char *pszSymbol )
 {
-	return reinterpret_cast< Fn >( ss::RequireLoadedSymbol( kVstdlib, pszSymbol ) );
+	return reinterpret_cast<Fn>( ss::RequireLoadedSymbol( kVstdlib, pszSymbol ) );
 }
 
 void *PointerIn( const char *pszFile, const char *pszSymbol )
 {
-	return *static_cast< void ** >( ss::RequireLoadedSymbol( pszFile, pszSymbol ) );
+	return *static_cast<void **>( ss::RequireLoadedSymbol( pszFile, pszSymbol ) );
 }
 } // namespace
 
@@ -127,9 +108,10 @@ struct BindEnginePointers
 	{
 		g_pMemAlloc = PointerIn( kTier0, "g_pMemAlloc" );
 		g_pThreadPool = PointerIn( kVstdlib, "g_pThreadPool" );
-		g_pVCR = static_cast< VCR_t * >( PointerIn( kTier0, "g_pVCR" ) );
+		g_pVCR = static_cast<VCR_t *>( PointerIn( kTier0, "g_pVCR" ) );
 	}
 };
+
 BindEnginePointers s_BindEnginePointers;
 } // namespace
 
@@ -139,13 +121,13 @@ VCR_t *g_pVCR = nullptr;
 
 extern "C" void *CommandLine_Tier0()
 {
-	static const auto pfn = Tier0< void *(*)() >( "CommandLine_Tier0" );
+	static const auto pfn = Tier0<void *(*)()>( "CommandLine_Tier0" );
 	return pfn();
 }
 
 extern "C" void DestroyThreadPool( void *pPool )
 {
-	static const auto pfn = Vstdlib< void (*)( void * ) >( "DestroyThreadPool" );
+	static const auto pfn = Vstdlib<void ( * )( void * )>( "DestroyThreadPool" );
 	pfn( pPool );
 }
 
@@ -156,8 +138,7 @@ SS_BIND_IMPORT( DestroyThreadPool )
 
 // tier0.dll's member, by this member's own decorated name. On x64 a member's
 // `this` is passed as the first argument, so it is called as a plain function.
-#define SS_TIER0_MEMBER( Ret, ... ) \
-	static const auto pfn = Tier0< Ret (*)( __VA_ARGS__ ) >( __FUNCDNAME__ )
+#define SS_TIER0_MEMBER( Ret, ... ) static const auto pfn = Tier0<Ret ( * )( __VA_ARGS__ )>( __FUNCDNAME__ )
 
 // Runs before CThreadEvent's constructor below, which then runs tier0's, whose
 // own call of this constructor again only clears the handle fields it set.
@@ -257,21 +238,19 @@ void CThreadSpinRWLock::SpinLockForWrite( const uint32 threadId )
 	pfn( this, threadId );
 }
 
-// tier0's headers define these members inline, and a fork object that did not
-// inline one imports it from tier0.dll (clientleafsystem's and particlemgr's
-// CThreadMutex::Lock, tier1's utlsymbol's CThreadSpinRWLock constructor and
-// LockForWrite). Read plain here, they are emitted as this module's own (the
-// headers' bodies, on the object's own fields, as tier0's copies run) and the
-// linker binds each import to them (LNK4217). Calls compiled without
-// optimisation stay calls, so the compiler emits each member; nothing calls
-// this function.
+// tier0's headers define these members inline; a fork object that did not
+// inline one imports it from tier0.dll. Read plain here, they are emitted as
+// this module's own and the linker binds each import to them (LNK4217).
+// Nothing calls this function.
 #pragma optimize( "", off )
+
 void SS_EmitTier0ThreadInlines( CThreadMutex *pMutex, void *pSpinLock )
 {
 	pMutex->Lock();
 	CThreadSpinRWLock *pLock = new ( pSpinLock ) CThreadSpinRWLock;
 	pLock->LockForWrite();
 }
+
 #pragma optimize( "", on )
 
 #else // the ELF names
@@ -294,10 +273,11 @@ void SS_CThreadRWLock_UnlockWrite( void *pThis ) __asm__( "_ZN13CThreadRWLock11U
 void SS_CThreadSpinRWLock_LockForRead( void *pThis ) __asm__( "_ZN17CThreadSpinRWLock11LockForReadEv" );
 void SS_CThreadSpinRWLock_UnlockRead( void *pThis ) __asm__( "_ZN17CThreadSpinRWLock10UnlockReadEv" );
 void SS_CThreadSpinRWLock_UnlockWrite( void *pThis ) __asm__( "_ZN17CThreadSpinRWLock11UnlockWriteEv" );
-void SS_CThreadSpinRWLock_SpinLockForWrite( void *pThis, unsigned int nThreadId ) __asm__( "_ZN17CThreadSpinRWLock16SpinLockForWriteEj" );
+void SS_CThreadSpinRWLock_SpinLockForWrite( void *pThis, unsigned int nThreadId ) __asm__(
+	"_ZN17CThreadSpinRWLock16SpinLockForWriteEj" );
 }
 
-__attribute__(( constructor( 101 ) )) static void BindEnginePointers()
+__attribute__( ( constructor( 101 ) ) ) static void BindEnginePointers()
 {
 	g_pMemAlloc = PointerIn( kTier0, "g_pMemAlloc" );
 	g_pThreadPool = PointerIn( kVstdlib, "g_pThreadPool" );
@@ -305,73 +285,73 @@ __attribute__(( constructor( 101 ) )) static void BindEnginePointers()
 
 void *SS_CommandLine_Tier0()
 {
-	static const auto pfn = Tier0< void *(*)() >( "CommandLine_Tier0" );
+	static const auto pfn = Tier0<void *(*)()>( "CommandLine_Tier0" );
 	return pfn();
 }
 
 void SS_DestroyThreadPool( void *pPool )
 {
-	static const auto pfn = Vstdlib< void (*)( void * ) >( "DestroyThreadPool" );
+	static const auto pfn = Vstdlib<void ( * )( void * )>( "DestroyThreadPool" );
 	pfn( pPool );
 }
 
 void SS_CThreadEvent_Ctor( void *pThis, bool bManualReset )
 {
-	static const auto pfn = Tier0< void (*)( void *, bool ) >( "_ZN12CThreadEventC1Eb" );
+	static const auto pfn = Tier0<void ( * )( void *, bool )>( "_ZN12CThreadEventC1Eb" );
 	pfn( pThis, bManualReset );
 }
 
 bool SS_CThreadEvent_Set( void *pThis )
 {
-	static const auto pfn = Tier0< bool (*)( void * ) >( "_ZN12CThreadEvent3SetEv" );
+	static const auto pfn = Tier0<bool ( * )( void * )>( "_ZN12CThreadEvent3SetEv" );
 	return pfn( pThis );
 }
 
 void SS_CThreadSyncObject_Dtor( void *pThis )
 {
-	static const auto pfn = Tier0< void (*)( void * ) >( "_ZN17CThreadSyncObjectD2Ev" );
+	static const auto pfn = Tier0<void ( * )( void * )>( "_ZN17CThreadSyncObjectD2Ev" );
 	pfn( pThis );
 }
 
 void SS_CThreadRWLock_WaitForRead( void *pThis )
 {
-	static const auto pfn = Tier0< void (*)( void * ) >( "_ZN13CThreadRWLock11WaitForReadEv" );
+	static const auto pfn = Tier0<void ( * )( void * )>( "_ZN13CThreadRWLock11WaitForReadEv" );
 	pfn( pThis );
 }
 
 void SS_CThreadRWLock_LockForWrite( void *pThis )
 {
-	static const auto pfn = Tier0< void (*)( void * ) >( "_ZN13CThreadRWLock12LockForWriteEv" );
+	static const auto pfn = Tier0<void ( * )( void * )>( "_ZN13CThreadRWLock12LockForWriteEv" );
 	pfn( pThis );
 }
 
 void SS_CThreadRWLock_UnlockWrite( void *pThis )
 {
-	static const auto pfn = Tier0< void (*)( void * ) >( "_ZN13CThreadRWLock11UnlockWriteEv" );
+	static const auto pfn = Tier0<void ( * )( void * )>( "_ZN13CThreadRWLock11UnlockWriteEv" );
 	pfn( pThis );
 }
 
 void SS_CThreadSpinRWLock_LockForRead( void *pThis )
 {
-	static const auto pfn = Tier0< void (*)( void * ) >( "_ZN17CThreadSpinRWLock11LockForReadEv" );
+	static const auto pfn = Tier0<void ( * )( void * )>( "_ZN17CThreadSpinRWLock11LockForReadEv" );
 	pfn( pThis );
 }
 
 void SS_CThreadSpinRWLock_UnlockRead( void *pThis )
 {
-	static const auto pfn = Tier0< void (*)( void * ) >( "_ZN17CThreadSpinRWLock10UnlockReadEv" );
+	static const auto pfn = Tier0<void ( * )( void * )>( "_ZN17CThreadSpinRWLock10UnlockReadEv" );
 	pfn( pThis );
 }
 
 void SS_CThreadSpinRWLock_UnlockWrite( void *pThis )
 {
-	static const auto pfn = Tier0< void (*)( void * ) >( "_ZN17CThreadSpinRWLock11UnlockWriteEv" );
+	static const auto pfn = Tier0<void ( * )( void * )>( "_ZN17CThreadSpinRWLock11UnlockWriteEv" );
 	pfn( pThis );
 }
 
 void SS_CThreadSpinRWLock_SpinLockForWrite( void *pThis, unsigned int nThreadId )
 {
-	static const auto pfn = Tier0< void (*)( void *, unsigned int ) >( "_ZN17CThreadSpinRWLock16SpinLockForWriteEj" );
+	static const auto pfn = Tier0<void ( * )( void *, unsigned int )>( "_ZN17CThreadSpinRWLock16SpinLockForWriteEj" );
 	pfn( pThis, nThreadId );
 }
 

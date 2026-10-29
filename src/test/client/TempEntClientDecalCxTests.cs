@@ -70,17 +70,22 @@ public class TempEntClientDecalCxTests
     /// violence branch below a decision rather than a default.
     /// </summary>
     private static RecordingEngine Quiet()
-        => Fake().Returns("Effects.ClientIsLowViolence", false);
+        => Fake();
 
-    private static ClientTempEnts Players(RecordingEngine engine, TempEntRegistry registry)
+    private sealed class FixedLowViolence(bool low) : SourceSharp.Client.Effects.IClientLowViolence
+    {
+        public bool IsLowViolence => low;
+    }
+
+    private static ClientTempEnts Players(RecordingEngine engine, TempEntRegistry registry, bool lowViolence = false)
     {
         var players = new ClientTempEnts(new RecordingLog(), registry);
 
-        Assert.True(players.Add("CTEDecal", new ClientTeDecal(engine, engine)),
+        Assert.True(players.Add("CTEDecal", new ClientTeDecal(engine, engine, DecalSettings.On())),
             "the bullet-hole decal claims its name");
-        Assert.True(players.Add("CTEProjectedDecal", new ClientTeProjectedDecal(engine, engine)),
+        Assert.True(players.Add("CTEProjectedDecal", new ClientTeProjectedDecal(engine, engine, DecalSettings.On())),
             "and the projected one");
-        Assert.True(players.Add("CTEWorldDecal", new ClientTeWorldDecal(engine)),
+        Assert.True(players.Add("CTEWorldDecal", new ClientTeWorldDecal(engine, DecalSettings.On(), new FixedLowViolence(lowViolence))),
             "and the world one");
 
         return players;
@@ -107,7 +112,7 @@ public class TempEntClientDecalCxTests
         var engine = Fake();
         var players = new ClientTempEnts(new RecordingLog(), Registered(engine));
 
-        players.RegisterAll(typeof(ClientTeDecal).Assembly, Services());
+        players.RegisterAll(typeof(ClientTeDecal).Assembly, Services().WithDecalsOn());
 
         Assert.True(players.PlayerNames.Contains("CTEDecal"),
             "CTEDecal has a managed player -- its static prop arm reaches "
@@ -116,7 +121,7 @@ public class TempEntClientDecalCxTests
             "and so does CTEProjectedDecal, over ClientTraceLine and the same "
           + "static prop slot");
         Assert.True(players.PlayerNames.Contains("CTEWorldDecal"),
-            "and so does CTEWorldDecal, over ClientIsLowViolence and "
+            "and so does CTEWorldDecal, over IClientLowViolence and "
           + "ClientDecalNameFromIndex");
     }
 
@@ -130,7 +135,7 @@ public class TempEntClientDecalCxTests
         var engine = Fake();
         var players = new ClientTempEnts(new RecordingLog(), Registered(engine));
 
-        players.RegisterAll(typeof(ClientTeDecal).Assembly, Services());
+        players.RegisterAll(typeof(ClientTeDecal).Assembly, Services().WithDecalsOn());
 
         foreach (string name in new[]
         {
@@ -267,8 +272,9 @@ public class TempEntClientDecalCxTests
             Assert.True(call.ArgAs<int>(0) == 17, "on the entity the wire named");
             Assert.True(Same(call.ArgAs<Vector>(1), new Vector(60f, 120f, 40f)),
                 "the ray starts at m_vecStart, which is stock's rayStart");
-            Assert.True(Same(call.ArgAs<Vector>(2), new Vector(64f, 128f, 16f)),
-                "and ends at m_vecOrigin -- swapped, the decal projects the other way");
+            Assert.True(Same(call.ArgAs<Vector>(2),
+                             ClientEntityDecal.StudioRayDelta(new Vector(60f, 120f, 40f), new Vector(64f, 128f, 16f))),
+                "and ends at m_vecOrigin (the ray's lengthened delta) -- swapped, the decal projects the other way");
             Assert.True(call.ArgAs<int>(3) == 5, "with the decal index off the wire");
 
             Assert.True(engine.CountOf("Effects.ClientDecalBrushModel") == 0,
@@ -778,8 +784,7 @@ public class TempEntClientDecalCxTests
     [Fact]
     public void LowViolenceSuppressesBloodAndNothingElse()
     {
-        var engine = Fake().Returns("Effects.ClientIsLowViolence", true)
-                           .Returns("Effects.ClientDecalNameFromIndex", "Blood_Big");
+        var engine = Fake().Returns("Effects.ClientDecalNameFromIndex", "Blood_Big");
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEWorldDecal")!;
@@ -789,7 +794,7 @@ public class TempEntClientDecalCxTests
         writer.Vector("Origin", new Vector(8f, 16f, 32f));
         writer.Int("Index", 12);
 
-        var players = Players(engine, registry);
+        var players = Players(engine, registry, lowViolence: true);
         players.Dispatch(te.Handle, blob);
 
         Assert.True(engine.CountOf("Effects.ClientDecalNameFromIndex") == 1,
@@ -827,12 +832,11 @@ public class TempEntClientDecalCxTests
 
         foreach (string name in new[] { "Blood_Big", "blood", "SmallBloodSplatter", "BLOOD" })
         {
-            var engine = Fake().Returns("Effects.ClientIsLowViolence", true)
-                               .Returns("Effects.ClientDecalNameFromIndex", name);
+            var engine = Fake().Returns("Effects.ClientDecalNameFromIndex", name);
             var own = Registered(engine);
 
             TempEntType te = own.Find("CTEWorldDecal")!;
-            Players(engine, own).Dispatch(te.Handle, new byte[te.BlobBytes]);
+            Players(engine, own, lowViolence: true).Dispatch(te.Handle, new byte[te.BlobBytes]);
 
             Assert.True(engine.CountOf("Effects.ClientDecalShoot") == 0,
                 $"'{name}' is blood and is suppressed -- V_stristr is case-insensitive");
@@ -857,12 +861,11 @@ public class TempEntClientDecalCxTests
     [Fact]
     public void AnUnknownDecalIndexIsNotBlood()
     {
-        var engine = Fake().Returns("Effects.ClientIsLowViolence", true)
-                           .Returns("Effects.ClientDecalNameFromIndex", string.Empty);
+        var engine = Fake().Returns("Effects.ClientDecalNameFromIndex", string.Empty);
         var registry = Registered(engine);
 
         TempEntType te = registry.Find("CTEWorldDecal")!;
-        Players(engine, registry).Dispatch(te.Handle, new byte[te.BlobBytes]);
+        Players(engine, registry, lowViolence: true).Dispatch(te.Handle, new byte[te.BlobBytes]);
 
         Assert.True(engine.CountOf("Effects.ClientDecalShoot") == 1,
             "an index the game's decal script does not name is not blood, and still draws");

@@ -102,7 +102,7 @@ public sealed class EntAutoaimRetired(ILog log) : RetiredDevCommand(log)
 {
     public override string Reason =>
         "autoaim is a CBaseCombatCharacter radius read by the SDK weapon code that " +
-        "left the build at the -ss_player flip.";
+        "left the build at the -player flip.";
 }
 
 [ConCommand("ent_attachments",

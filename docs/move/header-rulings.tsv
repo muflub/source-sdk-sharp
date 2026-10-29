@@ -3,7 +3,6 @@
 src/game/client/c_baseentity_statics.h	no	lifted declarations only, bodies stay in c_baseentity.cpp, no algorithm here
 src/game/client/client_csharp.vpc	no	build/project file (.vpc), no logic
 src/game/client/local_recipient.h	yes	ports C_RecipientFilter's local-player suppression rule (c_te.cpp SuppressTE)
-src/game/client/self_penetration_rule.h	yes	ports/fixes CCollisionEvent::ShouldSolvePenetration (game/client/physics.cpp)
 src/game/server/server_csharp.vpc	no	build/project file (.vpc), no logic
 src/game/shared/blast_blocking.h	yes	ports CGameRules::RadiusDamage's blast-blocking rule (gamerules.cpp)
 src/game/shared/collideable_center_math.h	yes	ports CCollisionProperty::WorldSpaceCenter/OBBCenter math (collisionproperty.cpp)
@@ -19,7 +18,6 @@ src/public/bullet_glass.h	yes	ports CBaseEntity::FireBullets' glass-penetration 
 src/public/chain_state_notify.h	no	retypes a network-var chain holder for interop, no logic reproduced
 src/public/entity_funcslot.h	no	pointer-to-member cast-safety mechanism, not porting logic
 src/sourcesharp/game/client/client_entity_counts.h	yes	rule 3: includes slot_table.h which includes basehandle.h (public)
-src/sourcesharp/game/client/impact_effects.h	no	parameter-block layout only, no algorithm
 src/sourcesharp/game/client/managed_runtime_client.h	no	pure interop adapter, no logic
 src/sourcesharp/game/client/shell_clientdll_refusals.h	no	own refusal-counter infrastructure
 src/sourcesharp/game/client/shell_clientdll_voicehelper.h	yes	rule 3: includes voice_status.h (Valve SDK header, game/shared)
@@ -400,7 +398,7 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/FuncWall.cs	no	trivi
 src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/FuncWallToggle.cs	yes	ports CFuncWallToggle::Spawn/TurnOn/TurnOff (bmodels.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/FuncWeightButton.cs	yes	ports CWeightButton::TriggerThink press/release latch (weight_button.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/MomentaryRotButton.cs	yes	ports CMomentaryRotButton::Spawn/UpdateSelf position-fraction math (buttons.cpp)
-src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/MovingBrush.cs	no	original door state machine; not CBaseDoor::Blocked's actual damage/solver logic
+src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/MovingBrush.cs	yes	ports CBaseDoor (doors.cpp): toggle states, Use/DoorTouch/DoorActivate, DoorGoUp/HitTop/GoDown/HitBottom, Blocked/StartBlocked/EndBlocked, lock sounds, area portals
 src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/Riders.cs	no	explicitly rejects porting stock's push/carry; original box-overlap algorithm instead
 src/sourcesharp/managed/SourceSharp.Server/Entities/Brushes/TrainBrush.cs	yes	ports UTIL_ValidateSoundName's empty-or-"0" check (util.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Effects/EnvBlood.cs	yes	ports UTIL_RandomBloodVector's ±1/±1/0..1 bias (util.cpp)
@@ -426,7 +424,7 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Effects/SsGib.cs	yes	ports C
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/AiSound.cs	yes	ports CAISound::InputInsertSound/InputEmitAISound (soundent.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/AmbientGeneric.cs	yes	ports CAmbientGeneric ComputeSoundlevel dB formula and Spawn/Toggle logic
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/AmbientModulation.cs	yes	ports CAmbientGeneric fixed-point ramp/preset/LFO envelope arithmetic (sound.cpp)
-src/sourcesharp/managed/SourceSharp.Server/Entities/Env/EnvBeam.cs	no	simplified reinterpretation of persistent mode; no specific stock function ported
+src/sourcesharp/managed/SourceSharp.Server/Entities/Env/EnvBeam.cs	yes	ports CEnvBeam (EnvBeam.cpp): Spawn, TurnOn/Off, UpdateThink, StrikeThink, Strike, Zap, RandomArea, RandomPoint, PassesTouchFilters
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/EnvBeverage.cs	yes	ports CEnvBeverage::Use/Spawn dispense and skin-pick logic (effects.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/EnvEntityIgniter.cs	yes	ports CEntityFlame::InputIgnite's walk-all-matching-names loop
 src/sourcesharp/managed/SourceSharp.Server/Entities/Env/EnvEntityMaker.cs	yes	ports CEnvEntityMaker::SpawnEntity scatter formula and blocker room-check
@@ -482,12 +480,12 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemAmmoSmg1Grenade.cs
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemAmmoSmg1Large.cs	no	data-only entity declaration (model, ammo count), no logic
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemBattery.cs	no	data-only entity declaration, generic TopUp helper, no algorithm
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemBoxBuckshot.cs	no	data-only entity declaration (model, ammo count), no logic
-src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemHealthCharger.cs	no	explicitly diverges from stock's hold-to-drain behaviour, own design
+src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemHealthCharger.cs	yes	ports CNewWallHealth (item_healthkit.cpp:408-670) on WallCharger, since 2026-10-26: its model, juice, sounds and outputs
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemHealthkit.cs	no	data-only entity declaration, generic TopUp helper, no algorithm
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemHealthvial.cs	no	data-only entity declaration, generic TopUp helper, no algorithm
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemRpgRound.cs	no	data-only entity declaration (model, ammo count), no logic
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemSodacan.cs	yes	ports CItemSoda::Spawn/CanThink/CanTouch timing and health gain (effects.cpp)
-src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemSuitCharger.cs	no	data-only entity declaration, generic TopUp helper, no algorithm
+src/sourcesharp/managed/SourceSharp.Server/Entities/Items/ItemSuitCharger.cs	yes	ports CNewRecharge (func_recharge.cpp:334-790) on WallCharger, since 2026-10-26: its charges, UpdateJuice, inputs and outputs
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/PickupItem.cs	no	original respawn/touch design, not a literal port of CItem
 src/sourcesharp/managed/SourceSharp.Server/Entities/Items/SsPickup.cs	no	thin relay to pickup directory, no algorithm
 src/sourcesharp/managed/SourceSharp.Server/Entities/Lights/InfoLightingRelative.cs	no	discusses CInfoLightingRelative but explicitly omits its offset logic
@@ -500,8 +498,8 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/EnvGlobal.cs	yes	ports
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicActiveAutosave.cs	no	deliberately inert stub, no save logic implemented
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicAuto.cs	yes	ports logic_auto globalstate gate and fire-once removal (logicauto.cpp:87)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicAutosave.cs	no	deliberately inert stub, no save logic implemented
-src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicBranch.cs	no	trivial boolean toggle; names match interop I/O contract, not ported algorithm
-src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicBranchListener.cs	no	trivial all/none/mixed check; interop event name only, no algorithm
+src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicBranch.cs	yes	ports CLogicBranch (logicentities.cpp): UpdateValue and its listener notifications, AddLogicBranchListener
+src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicBranchListener.cs	yes	ports CLogicBranchList (logicentities.cpp): Branch01..16, Activate registration, DoTest state machine
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicCase.cs	yes	ports CLogicCase InputValue/PickRandom/PickRandomShuffle shuffle-bag (logicentities.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicCollisionPair.cs	yes	ports CLogicCollisionPair::InputEnable/DisableCollisions succeeded-guard logic (logicentities.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Logic/LogicCompare.cs	yes	ports CLogicCompare::DoCompare branching (logicentities.cpp)
@@ -555,7 +553,7 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PhysSpring.cs	yes	Po
 src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PhysThruster.cs	yes	Ports phys_thruster's force/torque application and flags from physics.cpp SF_THRUST_*.
 src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PhysTorque.cs	yes	Ports phys_torque's constant-force/timed-shutoff pattern mirroring stock's phys_torque entity.
 src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PointPush.cs	yes	Ports point_push's falloff/impulse formulas and filters, though its time-scaling deliberately diverges from stock.
-src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PropSphere.cs	no	Trivial SetModel passthrough; comment states the actual stock sphere-physics logic does not come over.
+src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/PropSphere.cs	yes	ports CPhysSphere::CreateVPhysics (props.cpp) since 2026-10-26: the twelve-unit sphere in a SOLID_BBOX of twelve
 src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/SimplePhysicsBrush.cs	no	Plumbing: sets solidity and calls InitPhysics; no ported Valve algorithm.
 src/sourcesharp/managed/SourceSharp.Server/Entities/Physics/SimplePhysicsProp.cs	no	Trivial: only assigns the model string; no ported logic.
 src/sourcesharp/managed/SourceSharp.Server/Entities/PlayerResource.cs	yes	Ports CPlayerResource's think/update loop and slot walk from player_resource.cpp, cites UpdateConnectedPlayer.
@@ -580,10 +578,10 @@ src/sourcesharp/managed/SourceSharp.Server/Entities/Points/PointWorldText.cs	yes
 src/sourcesharp/managed/SourceSharp.Server/Entities/Points/TargetCdAudio.cs	yes	explicit port of target_cdaudio, keeping stock's health-field reuse
 src/sourcesharp/managed/SourceSharp.Server/Entities/Points/TargetChangeGravity.cs	yes	mirrors target_changegravity's zero-means-normal scale and activator-only rule
 src/sourcesharp/managed/SourceSharp.Server/Entities/Points/TriggerCamera.cs	yes	ports CTriggerCamera's path-node follow and view-entity state machine (triggers.cpp)
-src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/Bolt.cs	no	only reuses stock crossbow bolt model path; gravity/damage handling is original
+src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/Bolt.cs	yes	ports CCrossbowBolt (weapon_crossbow.cpp: Spawn, CreateSprites, BoltTouch)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/EnergyBall.cs	yes	ports CPropCombineBall's bounce-count/4s lifetime ending rule (prop_combine_ball.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/FlyingProjectile.cs	yes	ports stock projectile trigger-vs-obstacle and NPC/weapon touch exceptions
-src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/Grenade.cs	no	original shell built from generic primitives; only reuses stock grenade model path
+src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/Grenade.cs	yes	ports CGrenadeFrag (grenade_frag.cpp: Spawn, SetTimer, DelayThink, BlipSound) and CBaseGrenade::Detonate/Explode (basegrenade_shared.cpp)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Projectiles/Rocket.cs	yes	ports CMissile::Spawn damage/EXPLOSION_RADIUS constants (200/200)
 src/sourcesharp/managed/SourceSharp.Server/Entities/Props/PropBreak.cs	yes	ports PropBreakableCreateAll and breakablepropparams_t piece-spawning logic
 src/sourcesharp/managed/SourceSharp.Server/Entities/Props/PropDoorRotating.cs	yes	mirrors CBaseDoor/prop_door_rotating state machine and reverse-on-block rule
@@ -831,7 +829,6 @@ src/sourcesharp/managed/SourceSharp.Tests/ArmourTests.cs	no	calls production Arm
 src/sourcesharp/managed/SourceSharp.Tests/AssemblyInfo.cs	no	trivial assembly metadata, no logic
 src/sourcesharp/managed/SourceSharp.Tests/AttachmentReportTests.cs	no	calls production attachment report code; checks report text only
 src/sourcesharp/managed/SourceSharp.Tests/BlastRulesTests.cs	no	calls production BlastRules.Falloff/AtDistance; checks against comment-derived constants
-src/sourcesharp/managed/SourceSharp.Tests/BloodEffectPortabilityTests.cs	no	reads native .cpp text to confirm call graph; no algorithm reproduced
 src/sourcesharp/managed/SourceSharp.Tests/BreakableSurfaceTests.cs	no	calls production breakable-surface entity; checks documented zero-health rule
 src/sourcesharp/managed/SourceSharp.Tests/BrushTests.cs	no	calls production MomentaryRotButton/FuncPushable; checks against documented constants
 src/sourcesharp/managed/SourceSharp.Tests/BspReportTests.cs	no	parses BSP binary layout via production reader; data layout, not logic
@@ -883,11 +880,8 @@ src/sourcesharp/managed/SourceSharp.Tests/DebugChannelLifecycleSiteTests.cs	no	s
 src/sourcesharp/managed/SourceSharp.Tests/DebugChannelRouteTests.cs	no	own routing behaviour for prediction data
 src/sourcesharp/managed/SourceSharp.Tests/DebugChannelSessionTests.cs	no	own socket session end-to-end test
 src/sourcesharp/managed/SourceSharp.Tests/DebugDrawCommandTests.cs	no	own dev command wiring for debug draw
-src/sourcesharp/managed/SourceSharp.Tests/DebugOnlyAliasSitesTests.cs	no	own compile-diagnostic ledger for debug-only sites
 src/sourcesharp/managed/SourceSharp.Tests/DecalEmitterTests.cs	no	own decal script parsing seam
 src/sourcesharp/managed/SourceSharp.Tests/DeferredRestoreTests.cs	no	own savegame restore ordering rule
-src/sourcesharp/managed/SourceSharp.Tests/DevApiReloadDeadlockTests.cs	no	own hot-reload threading deadlock fix
-src/sourcesharp/managed/SourceSharp.Tests/DevApiTests.cs	no	own dev API log ring behaviour
 src/sourcesharp/managed/SourceSharp.Tests/DevCommandsTests.cs	no	own console command wiring and sv_cheats gates
 src/sourcesharp/managed/SourceSharp.Tests/DustBrushSolidityTests.cs	no	investigates engine/compiler brush-contents behaviour, no managed algorithm
 src/sourcesharp/managed/SourceSharp.Tests/EffectEntityTests.cs	no	own conveyor/spread arithmetic, no cited Valve formula
@@ -929,7 +923,6 @@ src/sourcesharp/managed/SourceSharp.Tests/FlameRulesTests.cs	no	checks constants
 src/sourcesharp/managed/SourceSharp.Tests/FrameLifecycleTests.cs	no	own per-frame sequencing/discovery
 src/sourcesharp/managed/SourceSharp.Tests/FuncButtonTests.cs	no	own damage/output wiring for func_button
 src/sourcesharp/managed/SourceSharp.Tests/FuncClipVphysicsTests.cs	no	own call-order test for solidity init
-src/sourcesharp/managed/SourceSharp.Tests/GameDllConVarsTests.cs	no	parses native .cpp for convar declaration parity, data
 src/sourcesharp/managed/SourceSharp.Tests/GameEntitySurfaceTests.cs	no	own interface member-count ledger
 src/sourcesharp/managed/SourceSharp.Tests/GameManagerTests.cs	no	own manager entity budget/sweep logic
 src/sourcesharp/managed/SourceSharp.Tests/GameRulesFallDamageTests.cs	no	asserts absence of native formula, does not reproduce it
@@ -945,7 +938,6 @@ src/sourcesharp/managed/SourceSharp.Tests/HierarchyDriverTests.cs	no	own hierarc
 src/sourcesharp/managed/SourceSharp.Tests/HierarchySetLocalCommandTests.cs	no	own command behaviour
 src/sourcesharp/managed/SourceSharp.Tests/HierarchyTests.cs	no	own hierarchy compose parity vs native parent_compose_test.cpp
 src/sourcesharp/managed/SourceSharp.Tests/HltvDroppedTests.cs	no	own dropped-feature ledger
-src/sourcesharp/managed/SourceSharp.Tests/HotTraceAuditTests.cs	no	own hot-path trace audit
 src/sourcesharp/managed/SourceSharp.Tests/HudAmmoFeedTests.cs	no	own HUD feed wiring
 src/sourcesharp/managed/SourceSharp.Tests/HudBuildStampTests.cs	no	own build stamp HUD text
 src/sourcesharp/managed/SourceSharp.Tests/ImpactChoiceTests.cs	no	own impact effect choice logic
@@ -969,8 +961,6 @@ src/sourcesharp/managed/SourceSharp.Tests/LivenessMirrorTests.cs	no	own handle-l
 src/sourcesharp/managed/SourceSharp.Tests/LoadedAssemblyTests.cs	no	own assembly discovery
 src/sourcesharp/managed/SourceSharp.Tests/LocalCommandLineTests.cs	no	own command-line reading
 src/sourcesharp/managed/SourceSharp.Tests/MagnetTests.cs	no	own magnet material-pick rule
-src/sourcesharp/managed/SourceSharp.Tests/ManagedInitFatalScanTests.cs	no	own scanner-guard fixtures
-src/sourcesharp/managed/SourceSharp.Tests/ManagedInitFatalTests.cs	no	own init-failure fatal-path source scan
 src/sourcesharp/managed/SourceSharp.Tests/ManagedSaveTests.cs	no	own save/restore ABI slot contract
 src/sourcesharp/managed/SourceSharp.Tests/MapEntityBlockTests.cs	yes	oracle: cases.txt records mapentities_shared.cpp tokenizer output, compared bit-exact
 src/sourcesharp/managed/SourceSharp.Tests/MapLoadTests.cs	no	own entity-lump lifetime rule
@@ -1115,10 +1105,8 @@ src/sourcesharp/managed/SourceSharp.Tests/SpriteTests.cs	no	asserts production b
 src/sourcesharp/managed/SourceSharp.Tests/SpriteTrailTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/StandaloneBonesTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/StandaloneMirrorTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
-src/sourcesharp/managed/SourceSharp.Tests/StockContract.cs	no	scrapes stock's C++ declarations as interop data (layout, not logic)
 src/sourcesharp/managed/SourceSharp.Tests/StringTableDeclarationTests.cs	no	schema/layout parity vs stock send table read off disk (layout, not logic)
 src/sourcesharp/managed/SourceSharp.Tests/StringTableGeneratorTests.cs	no	tests our own source generator, no Valve logic
-src/sourcesharp/managed/SourceSharp.Tests/SuppressionAuditTests.cs	no	our own native-source audit for [SuppressGCTransition], no Valve logic
 src/sourcesharp/managed/SourceSharp.Tests/TeamTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/TeFireCommandTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/TeForwardDispatchTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
@@ -1153,7 +1141,6 @@ src/sourcesharp/managed/SourceSharp.Tests/TempEntParticleClientTests.cs	no	schem
 src/sourcesharp/managed/SourceSharp.Tests/TempEntPoolTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/TempEntSchemaTests.cs	no	schema/layout parity vs stock send table read off disk (layout, not logic)
 src/sourcesharp/managed/SourceSharp.Tests/TempEntsDouble.cs	no	no-op ITempEnts test double, no Valve logic
-src/sourcesharp/managed/SourceSharp.Tests/TempEntShimKeyTests.cs	no	schema/layout parity vs stock send table read off disk (layout, not logic)
 src/sourcesharp/managed/SourceSharp.Tests/TempEntSmokeTrailTests.cs	yes	checks managed source reproduces stock's random(0,255)<100 gate from c_te_legacytempents.cpp (borderline)
 src/sourcesharp/managed/SourceSharp.Tests/TempEntSpawnTests.cs	yes	embeds C_LocalTempEntity::Prepare's exact default values as stock/port comparison pairs (borderline)
 src/sourcesharp/managed/SourceSharp.Tests/TempEntSpritesTests.cs	no	schema/layout parity vs stock send table read off disk (layout, not logic)
@@ -1176,8 +1163,6 @@ src/sourcesharp/managed/SourceSharp.Tests/UserMessageDeclarationTests.cs	no	sche
 src/sourcesharp/managed/SourceSharp.Tests/UserMessageEncodingGroupTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/UserMessageHookParityTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/UserMessageHookScanTests.cs	no	tests our own vpc/hook text scanner, no Valve logic
-src/sourcesharp/managed/SourceSharp.Tests/UserMessagePackerGeneratorTests.cs	no	tests our own source generator, no Valve logic
-src/sourcesharp/managed/SourceSharp.Tests/UserMessagePackerTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/UserMessageRegistryOwnershipTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/UserMessageWriteTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
 src/sourcesharp/managed/SourceSharp.Tests/Utf8NameTests.cs	no	asserts production behaviour / structure against stock refs; no logic embedded in this test file
@@ -1204,80 +1189,54 @@ src/sourcesharp/managed/SourceSharp.Tests/WorldTextTests.cs	no	schema/layout par
 src/sourcesharp/sourcesharp.vpc	no	build/VPC project file only
 src/sourcesharp/test/acquire_reason_test.cpp	no	walks own enum vs shell_acquire_reasons.cpp; no Valve algorithm reproduced
 src/sourcesharp/test/admin_command_move_test.cpp	no	checks a moved stock function's callers/decl survived; no logic reproduced in test
-src/sourcesharp/test/alias_mechanics_test.cpp	no	source scan of #ifndef guard shape; no logic
 src/sourcesharp/test/ambient_generic_evicted_test.cpp	no	source scan confirming entity class deleted from build; no logic
 src/sourcesharp/test/animating_parallel_arm_test.cpp	no	checks shim entry points return NULL on SDK-only arm; no algorithm
-src/sourcesharp/test/animation_policy_test.cpp	no	checks shim leaves duration/hitbox decisions to managed side; no algorithm
-src/sourcesharp/test/anim_cluster_ledger_test.cpp	no	ledger source-scan of registrations still wired; no logic embedded
 src/sourcesharp/test/anim_event_names_test.cpp	no	checks own 5-row table agrees with C# table; own data not Valve algorithm
-src/sourcesharp/test/armed_arm_swallowed_test.cpp	no	source scan for a guard-shape bug; no algorithm reproduced
 src/sourcesharp/test/assert_stack_test.cpp	no	tests own dedup/format arithmetic header; not a Valve port
-src/sourcesharp/test/baseentity_lift_test.cpp	no	source scanner over stock file text for lifted defs; no embedded logic
-src/sourcesharp/test/baseentity_shared_lift_test.cpp	no	source scanner over stock file text; no embedded logic
 src/sourcesharp/test/baseentity_statics_test.cpp	no	source scan plus own fake void* round-trip shape; not Valve logic
 src/sourcesharp/test/base_table_chain_end_test.cpp	no	source scan re overload resolution claim; no logic
 src/sourcesharp/test/blast_blocking_test.cpp	no	drives own blast_blocking.h identity rule over opaque handles; own header
 src/sourcesharp/test/blood_family_move_test.cpp	no	source scan of a code move between files; no embedded algorithm
 src/sourcesharp/test/bone_leaf_rehome_ruling_test.cpp	no	source scan of move rulings; no embedded algorithm
 src/sourcesharp/test/boundary_probe_test.cpp	no	tests own CBoundaryProbe counters; no Valve logic
-src/sourcesharp/test/break_model_return_type_test.cpp	no	source scan for return-type agreement across 3 sites; no logic
-src/sourcesharp/test/bullet_glass_test.cpp	no	drives public/bullet_glass.h classname rule; own header, no Valve body
-src/sourcesharp/test/c_baseentity_lift_test.cpp	no	source scanner over stock file text for lifted defs; no embedded logic
 src/sourcesharp/test/chain_state_notify_test.cpp	no	drives own chain_state_notify.h holder; not Valve logic
 src/sourcesharp/test/client_beam_evicted_test.cpp	no	source scan confirming a stock refusal-body string unchanged; no embedded logic
-src/sourcesharp/test/client_data_walk_test.cpp	no	source scan of a stock loop's reachability; no logic embedded
 src/sourcesharp/test/client_entity_resolve_test.cpp	no	source scan of resolver-order facts; no logic
 src/sourcesharp/test/client_flex_evicted_test.cpp	no	source/link scan of eviction facts; no logic
-src/sourcesharp/test/client_flip_ruling_test.cpp	no	source scan of client-system ruling table; no logic
 src/sourcesharp/test/client_interpolation_test.cpp	no	source scan confirming native interpolation code removed; no logic
 src/sourcesharp/test/client_orphan_evictions_test.cpp	no	source/link scan for orphaned client classes; no logic
 src/sourcesharp/test/client_pch_prelude_test.cpp	no	source scan of vpc precompiled-header removal; no logic
-src/sourcesharp/test/client_replay_bracket_test.cpp	no	source scan for NULL-player guards on 4 methods; no logic
 src/sourcesharp/test/clientside_prop_evicted_test.cpp	no	source/link scan of eviction facts; no logic
 src/sourcesharp/test/client_slot_table_test.cpp	no	drives real CClientEntityCounts class plus compile-fail check; no Valve logic
-src/sourcesharp/test/client_systems_table_test.cpp	no	source scan of client system table; no logic
 src/sourcesharp/test/client_tu_evicted_test.cpp	no	source scan enumerating moved registrations; no logic
-src/sourcesharp/test/client_typed_handle_sweep_test.cpp	no	directory-walk source scan for typed handles; no logic
 src/sourcesharp/test/client_util_library_test.cpp	no	source scan checking symbols moved intact; no logic
 src/sourcesharp/test/client_world_arm_test.cpp	no	drives own world_subject.h handle rules; not a Valve port
-src/sourcesharp/test/clip_vphysics_port_test.cpp	no	explicitly not a reimplementation of stock's override; source scan of supporting facts
 src/sourcesharp/test/close_rulings_test.cpp	no	drives changed regexes over text; scanner facts, no Valve algorithm
 src/sourcesharp/test/collideable_center_adapter_test.cpp	no	drives own collideable_center.h adapter over real Vector/matrix; no Valve body
 src/sourcesharp/test/collideable_center_test.cpp	no	drives own collideable_center_math.h; expected values hand-computed, no embedded algorithm
 src/sourcesharp/test/collision_group_names_test.cpp	no	drives own name<->number lookup table; own data, no Valve logic
-src/sourcesharp/test/collision_origin_identity_test.cpp	no	source-reads another file's identity claim; stock body already deleted, no logic here
-src/sourcesharp/test/collision_rules_test.cpp	yes	embeds StockShouldCollide, a verbatim copy of CGameRules::ShouldCollide (gamerules.cpp:915), as an oracle
-src/sourcesharp/test/commandclient_move_test.cpp	no	source scan of a moved global's read/write sites; no logic
 src/sourcesharp/test/commentary_viewer_evicted_test.cpp	no	source/link scan of eviction facts; no logic
 src/sourcesharp/test/component_closure_test.cpp	no	drives tools/4f-component self-test fixture; no Valve logic
 src/sourcesharp/test/concommand_flags_ledger_test.cpp	no	source scan of ledger rows text; no logic
-src/sourcesharp/test/concommand_flags_test.cpp	no	source scan of FCVAR wiring order; no logic
-src/sourcesharp/test/convar_dllflag_test.cpp	no	source scan of FCVAR_GAMEDLL/CLIENTDLL flag line; no logic
 src/sourcesharp/test/convar_ledger_test.cpp	no	source scan of ConVar keep-list vs ledger; no logic
-src/sourcesharp/test/convar_notify_test.cpp	no	explains tier1 callback aliasing; source/behavior facts, no logic embedded
-src/sourcesharp/test/cpp_alias_lane1_test.cpp	no	source scan of #ifndef guard shapes; no logic
 src/sourcesharp/test/cpp_alias_retype_w1_test.cpp	no	source scan of guard/retype shapes; no logic
 src/sourcesharp/test/cpp_alias_shard2_test.cpp	no	source scan of unconditional retype edits; no logic
 src/sourcesharp/test/cpp_alias_shards_b_test.cpp	no	source scan of reroutes/guards; no logic
 src/sourcesharp/test/cpp_alias_shard_t3_test.cpp	no	source scan of guard shapes; no logic
-src/sourcesharp/test/cpp_alias_shard_t4_test.cpp	no	source scan of guard shapes; no logic
 src/sourcesharp/test/cpp_alias_t1_test.cpp	no	source scan of guard/retype shapes; no logic
 src/sourcesharp/test/cpp_alias_t5_test.cpp	no	source scan of guard/retype shapes; no logic
-src/sourcesharp/test/cpp_alias_t6_test.cpp	no	source scan of guard/retype shapes; no logic
 src/sourcesharp/test/crossings_fetch_test.cpp	no	drives own crossings_fetch.h loop against fakes; no Valve logic
 src/sourcesharp/test/c_systems_managed_test.cpp	no	source scan of vpc/table membership; no logic
 src/sourcesharp/test/c_team_evicted_test.cpp	no	source/live scan of eviction facts; no logic
 src/sourcesharp/test/cycle_debt_move_test.cpp	no	source scan of moved util bodies; no logic
 src/sourcesharp/test/data_object_key_test.cpp	no	drives CUtlHash with retyped key; infra change, no algorithm ported
 src/sourcesharp/test/dead_conditionals_test.cpp	no	drives tools/dead-conditionals script fixtures; no logic
-src/sourcesharp/test/debugoverlays_move_test.cpp	no	source scan of a moved function's callers/guards; no logic
 src/sourcesharp/test/dust_verdict_test.cpp	no	source scan splitting deletion vs keep regions; no logic
 src/sourcesharp/test/effects_cluster_test.cpp	no	source scan of per-file cluster status; no logic
 src/sourcesharp/test/effects_evicted_test.cpp	no	source scan of eviction facts and one value parity check; no algorithm
 src/sourcesharp/test/effect_tus_evicted_test.cpp	no	source scan of evicted stock files; no logic
 src/sourcesharp/test/engine_block_layout_test.cpp	no	offsetof checks vs generated struct; struct layout only, not logic
 src/sourcesharp/test/engine_core_retype_test.cpp	no	source scan of retype supporting facts; no logic
-src/sourcesharp/test/entity_base_cluster_test.cpp	no	source scan of removed base-class behaviours; no logic
 src/sourcesharp/test/entity_base_husks_test.cpp	no	source scan of deleted classes and stub glue; no logic
 src/sourcesharp/test/entity_bases_alias_armed.cpp	no	compiles own entity_bases.h against real interface; no Valve logic embedded
 src/sourcesharp/test/entity_bases_alias_test.cpp	no	compiles own entity_bases.h for a compile-time property; no Valve logic
@@ -1285,45 +1244,28 @@ src/sourcesharp/test/entity_census_test.cpp	no	shells out to tools/entity-census
 src/sourcesharp/test/entity_factory_table_test.cpp	no	drives own entity_factory_table.h dictionary; own replacement, not ported
 src/sourcesharp/test/entity_funcslot_test.cpp	no	drives own EntityFuncSlot pun-safety probe; no Valve algorithm
 src/sourcesharp/test/entity_gates_test.cpp	no	drives tools/entity-gates against fixtures; no embedded logic
-src/sourcesharp/test/entitylist_slot0_test.cpp	no	drives real entitylist_base.cpp handle bug fix; behavioral, no algorithm embedded in test
-src/sourcesharp/test/entitylist_stub/cbase.h	no	empty compile shim, tier0/const.h includes only; no logic
 src/sourcesharp/test/entity_list_sweep_test.cpp	no	source scan of resolver call sites; no logic
 src/sourcesharp/test/entity_name_match_test.cpp	no	calls own entity_name_match.h consolidated rule; test does not embed it
 src/sourcesharp/test/entity_op_test.cpp	no	own entity_op.h mechanism; header explicitly takes nothing from Valve
-src/sourcesharp/test/entity_shell_inert_slots_test.cpp	no	derives stub set from source, compares to ledger; no Valve algorithm
 src/sourcesharp/test/entity_slots_test.cpp	no	drives own CSourceSharpEntitySlots bookkeeping; no Valve logic
 src/sourcesharp/test/entity_visibility_test.cpp	no	source scan of diagnostic tools' hierarchy walks; no logic
-src/sourcesharp/test/entrypoint_decls_test.cpp	no	re-derives generated decls from same inputs as generator; own tooling, not Valve
-src/sourcesharp/test/exepath_test.cpp	no	drives own ReadLinkNullTerminated helper; no Valve logic
-src/sourcesharp/test/fog_wire_test.cpp	no	source/behavioral scan of fog-wire plumbing; no logic
-src/sourcesharp/test/gamedll_ledger_test.cpp	no	source scan of TODO/verdict table; no logic
-src/sourcesharp/test/gameevent_listener_lifetime_test.cpp	no	source scan of unhook call order; no logic
 src/sourcesharp/test/gameinterface_split_test.cpp	no	source scan of interface-registration facts; no logic
 src/sourcesharp/test/gamemovement_evicted_test.cpp	no	source scan confirming file removed from both vpcs; no logic
-src/sourcesharp/test/gamerules_damage_test.cpp	no	source scan confirming native defaults/overrides present; no embedded algorithm
 src/sourcesharp/test/gamerules_interface_test.cpp	no	checks class derives only from IGameRules; structural, no logic
-src/sourcesharp/test/gamerules_view_vectors_test.cpp	no	source scan comparing two literal tables' agreement; not an oracle of Valve code
 src/sourcesharp/test/gamestats_evicted_test.cpp	no	explicitly declines to port the telemetry uploader; source scan of eviction facts
 src/sourcesharp/test/gc_sections_link_test.cpp	no	source scan tripwire for a build-config regression; no logic
 src/sourcesharp/test/generic_payload_test.cpp	no	drives own generic_payload.h byte-offset arithmetic; no Valve algorithm
-src/sourcesharp/test/gib_evicted_test.cpp	no	source scan of eviction/replacement facts; behaviour asserted in C#, not here
 src/sourcesharp/test/globalvars_layout_test.cpp	no	static_asserts offsetof against real CGlobalVars; layout check, not logic
 src/sourcesharp/test/ground_handle_wire_test.cpp	no	drives own ground_handle_wire.h sentinel encode/decode rule; own logic
-src/sourcesharp/test/ground_trace_subject_test.cpp	no	source-scanner inventory of a bug pattern; CanStandOn body only quoted in prose
 src/sourcesharp/test/handle_cross_test.cpp	no	drives real handle_cross.h crossing logic against mocks; no algorithm embedded in test
 src/sourcesharp/test/header_alias_test.cpp	no	source scan of header guard shapes; no logic
-src/sourcesharp/test/hierarchy_managed_test.cpp	no	checks native parenting code is absent; text-absence check, no logic
-src/sourcesharp/test/impact_dispatch_test.cpp	no	source/behavior scan of ABI wiring facts; no logic
 src/sourcesharp/test/impact_subject_test.cpp	no	drives real handle_cross.h function via mocks plus a source ban; no algorithm embedded
-src/sourcesharp/test/ivp_ovtree_audit_test.cpp	no	drives real SourceSharpIvpKeyHash against a captured value; test states value 'neither derived here'
 src/sourcesharp/test/jet_lifetime_test.cpp	no	drives own finite/positive arithmetic guard; no Valve algorithm embedded
 src/sourcesharp/test/leaf_cycle_test.cpp	no	source scan of relocation/cycle facts; no logic
 src/sourcesharp/test/local_recipient_test.cpp	no	drives own local_recipient.h slot-comparison rule; no Valve algorithm
 src/sourcesharp/test/managed_host_single_instance_test.cpp	no	binary/source scan of a single-instance host fix; no Valve logic
 src/sourcesharp/test/managed_init_failure_test.cpp	no	drives own managed_init_failure.h message/gate logic; no Valve algorithm
 src/sourcesharp/test/managed_runtime_client_test.cpp	no	drives real managed_runtime_client.h forwarding adapter; no Valve logic
-src/sourcesharp/test/managed_runtime_server_test.cpp	no	drives real managed_runtime_server.h forwarding adapter; no Valve logic
-src/sourcesharp/test/map_entity_block_stub/cbase.h	yes	embeds FStrEq verbatim, copied from game/server/util.h:193 and cdll_util.h:164
 src/sourcesharp/test/map_entity_block_test.cpp	no	compiles real mapentities_shared.cpp tokenizer; test itself holds only fixture rows
 src/sourcesharp/test/map_residue_factories_test.cpp	no	source scan of which classnames have native factories; no logic
 src/sourcesharp/test/materialproxy_subject_test.cpp	no	drives own materialproxy_subject.h rules lifted from a shim body; header not embedded here
@@ -1346,41 +1288,26 @@ src/sourcesharp/test/physics_event_sink_test.cpp	no	source-scan checking sink is
 src/sourcesharp/test/physics_gamedata_test.cpp	no	handle/gamedata arithmetic test, original rule
 src/sourcesharp/test/physicslink_lift_test.cpp	no	source scanner verifying static members moved out
 src/sourcesharp/test/physics_move_scope_test.cpp	no	scope-document measurement test, infra
-src/sourcesharp/test/player_disconnect_removal_test.cpp	no	source-read verifying announcement ordering
 src/sourcesharp/test/precache_model_move_test.cpp	no	source scanner verifying static members moved
 src/sourcesharp/test/pvs_notify_ruling_test.cpp	no	source-scan pinning PVS-notify reachability facts
-src/sourcesharp/test/ragdoll_blast_seam_test.cpp	no	source-scan verifying stock formula text still present, not embedded computation
-src/sourcesharp/test/ragdoll_model_guard_test.cpp	no	source-scan for NULL-guard ordering bug
 src/sourcesharp/test/removal_set_middle_test.cpp	no	source-scan classifying member definitions, no algorithm reproduced
 src/sourcesharp/test/removal_set_tail_test.cpp	no	source-scan verifying lifted/deleted definitions
-src/sourcesharp/test/renderable_subject_test.cpp	no	source-scan plus counter test for render path de-entitying
-src/sourcesharp/test/rope_verdict_test.cpp	no	verdict/ledger re-take test, measures link facts
-src/sourcesharp/test/rules_callers_test.cpp	no	source-scan verifying casts/bridge removed
 src/sourcesharp/test/said_once_per_id_test.cpp	no	tests own once-per-id tracker, original logic
 src/sourcesharp/test/saverestore_evicted_test.cpp	no	vpc/guard eviction verification test
 src/sourcesharp/test/scripted_kinds_test.cpp	no	tests own totality-switch header, original logic
 src/sourcesharp/test/sdk_player_cast_test.cpp	no	source-scan classifier for banned cast patterns, fixtures quote Valve lines but logic is original
-src/sourcesharp/test/section6_rulings_test.cpp	no	source-scan pinning a documentation ruling's preconditions
-src/sourcesharp/test/self_penetration_rule_test.cpp	no	tests own boolean-rule header, cites Valve bug only as motivation
 src/sourcesharp/test/server_beam_viewmodel_evicted_test.cpp	no	vpc/classname eviction verification test
 src/sourcesharp/test/server_globals_merge_test.cpp	no	verifies merged file retains stock guard text, no algorithm reproduced
-src/sourcesharp/test/server_systems_table_test.cpp	no	source-read verifying game-system table invariants
-src/sourcesharp/test/server_systems_underive_test.cpp	no	source-scan verifying IGameSystem symbols removed
 src/sourcesharp/test/server_tus_evicted_test.cpp	no	vpc eviction verification test
 src/sourcesharp/test/server_util_library_test.cpp	no	source-scan verifying utility functions moved correctly
 src/sourcesharp/test/server_wave0_evicted_test.cpp	no	vpc eviction wave verification test
 src/sourcesharp/test/server_wave1_shadowed_test.cpp	no	vpc eviction wave verification test
 src/sourcesharp/test/server_wave2_lifts_test.cpp	no	vpc lift/fold verification test
 src/sourcesharp/test/server_wave3_interfaces_test.cpp	no	nm/interface eviction verification test
-src/sourcesharp/test/shadow_ctrl_probe_test.cpp	no	tests own NaN-probe header, original arithmetic
-src/sourcesharp/test/shared_random_move_test.cpp	no	source-scan verifying functions relocated correctly
 src/sourcesharp/test/shell_clientdll_refusals_test.cpp	no	runs own shipped refusal-counter header, no algorithm port
 src/sourcesharp/test/shell_clientdll_test.cpp	no	source-read of IBaseClientDLL arrangement, no algorithm port
-src/sourcesharp/test/shell_clientsteps_test.cpp	no	source-read verifying crossing arrangement
-src/sourcesharp/test/shell_diagnostics_surface_test.cpp	no	source-scan verifying declared-function callers exist
 src/sourcesharp/test/shell_effect_registry_test.cpp	no	tests own registry-ownership header, original logic
 src/sourcesharp/test/shell_entitystatics_test.cpp	no	runs own shipped refusal-counter header plus source-scan
-src/sourcesharp/test/shell_gamedll_refusals_test.cpp	no	source-scan of refusal arrangement
 src/sourcesharp/test/shell_gamedll_registration_test.cpp	no	source-read verifying registration/guard arrangement
 src/sourcesharp/test/shell_gamemovement_test.cpp	no	source-scan verifying interface shim exists, no movement algorithm embedded
 src/sourcesharp/test/shell_leaf_link_test.cpp	no	tests own leaf-link guard header, original logic
@@ -1389,64 +1316,37 @@ src/sourcesharp/test/shell_notshipped_test.cpp	no	runs own shipped ledger header
 src/sourcesharp/test/shell_savecomment_test.cpp	no	runs own shipped save-comment formatter, original logic
 src/sourcesharp/test/shell_savegame_test.cpp	no	tests own load-game player gate, original logic
 src/sourcesharp/test/shell_steporder_test.cpp	no	runs own shipped transmit-set recorder, original logic
-src/sourcesharp/test/shell_transmitsteps_test.cpp	no	source-read verifying crossing arrangement
 src/sourcesharp/test/shim_reason_letters_test.cpp	no	marker-format checker, original tooling
-src/sourcesharp/test/shim_underive_test.cpp	no	source-scan verifying replacement sweeps for de-entified classes
-src/sourcesharp/test/shim_underive_verdict_test.cpp	no	verdict re-take test over file facts
 src/sourcesharp/test/shim_vpc_stock_rows_test.cpp	no	vpc ratchet parser test
-src/sourcesharp/test/shot_path_solidity_test.cpp	no	source-scan verifying a chain of definitions across files
-src/sourcesharp/test/skybox_wire_test.cpp	no	source-scan verifying wiring links exist
 src/sourcesharp/test/slot_table_test.cpp	no	tests own slot-table header plus must-not-compile probes, original logic
-src/sourcesharp/test/soundent_gamesystem_test.cpp	no	source-scan verifying de-entification facts
 src/sourcesharp/test/soundent_managed_test.cpp	no	source-scan verifying managed participant wiring
 src/sourcesharp/test/soundscape_particle_7e_test.cpp	no	source-scan verifying view-accessor/entity-ask facts
-src/sourcesharp/test/srvshim_rulings_test.cpp	no	source-scan pinning two refusal rulings
 src/sourcesharp/test/standalone_client_layout_test.cpp	no	source-scan verifying single-copy layout
 src/sourcesharp/test/standalone_collision_rules_test.cpp	no	tests own collision-invalidation rule header, cites Valve only as motivation
 src/sourcesharp/test/standalone_handle_ban_client_test.cpp	no	must-not-compile probe for banned handle type
 src/sourcesharp/test/standalone_handle_ban_test.cpp	no	must-not-compile probe for banned handle type
-src/sourcesharp/test/standalone_layout_test.cpp	no	source-scan verifying single-copy layout across TUs
 src/sourcesharp/test/standalone_model_bounds_test.cpp	no	tests own model-bounds-adoption rule header, original logic
 src/sourcesharp/test/standalone_movetype_test.cpp	no	tests own movetype-report header, original logic
 src/sourcesharp/test/standalone_names_test.cpp	no	tests own classname-matcher header, original logic
 src/sourcesharp/test/standalone_netserial_test.cpp	no	tests own netserial-mirror rule header, cites Valve only as motivation
-src/sourcesharp/test/standalone_reload_idempotent_test.cpp	no	source-read verifying idempotent-registration fix
-src/sourcesharp/test/standalone_system_test.cpp	no	source-scan verifying stage-by-stage system disposition
 src/sourcesharp/test/standard_filter_shape_test.cpp	no	tests own trace-filter shape-rule header, original logic
-src/sourcesharp/test/steam_mdlcache_test.cpp	no	source-read verifying native step ordering/state
 src/sourcesharp/test/stock_serverclass_census_test.cpp	no	vpc/source scan counting surviving ServerClass registrations
-src/sourcesharp/test/stringtable_index0_test.cpp	no	replays shipped sequence against a model of engine numbering, own code
 src/sourcesharp/test/suppress_host_dead_test.cpp	no	source-scan verifying dead writers stay absent
 src/sourcesharp/test/survey_stub_elision_test.cpp	no	source-scan verifying survey-stub boundary rule
 src/sourcesharp/test/takedamageinfo_library_test.cpp	no	source-scan verifying TU relocation, declares interop signatures only
 src/sourcesharp/test/te_backend_args_test.cpp	no	tests own argument-unpacking header, original logic
 src/sourcesharp/test/teleport_discontinuity_test.cpp	no	source-scan verifying wire wiring exists in managed code
 src/sourcesharp/test/tempent_evicted_test.cpp	no	source-scan verifying eviction claims per file
-src/sourcesharp/test/tempent_pool_test.cpp	no	source-scan verifying pool seam facts
-src/sourcesharp/test/tempent_spawn_seam_test.cpp	no	source-scan verifying spawn-seam facts
-src/sourcesharp/test/tempent_verdict_test.cpp	no	verdict re-take test over dead-caller facts
 src/sourcesharp/test/template_transform_test.cpp	yes	recomputes template placement with real mathlib VMatrix exactly as CPointTemplate::AddTemplateNamed/CreateInstance did
 src/sourcesharp/test/trace_filter_library_test.cpp	no	source-scan verifying trace-filter relocation
 src/sourcesharp/test/trail_lifetime_test.cpp	no	tests own allocator/latch header, original logic
-src/sourcesharp/test/typed_handle_sweep_test.cpp	no	source-scan verifying typed handles removed
 src/sourcesharp/test/usercmd_codec_test.cpp	no	source-scan verifying bit-symmetry of relocated codec
 src/sourcesharp/test/util_shared_library_test.cpp	no	source-scan verifying utility relocation correctness
 src/sourcesharp/test/variant_convert_test.cpp	yes	every expression copied out of variant_t::Convert and variant_t::ToString (cbase.cpp)
 src/sourcesharp/test/view_subject_test.cpp	no	tests own view-subject rule header plus source-scan
-src/sourcesharp/test/vpc_folders_test.cpp	no	vpc folder-structure verification test
-src/sourcesharp/test/vpc_link_libraries_test.cpp	no	vpc link-library ratchet test
-src/sourcesharp/test/vpc_no_protobuf_test.cpp	no	vpc/graph protobuf-absence test
-src/sourcesharp/test/vpc_platforms_test.cpp	no	vpc platform-conditional verification test
-src/sourcesharp/test/vpc_removal_gate_test.cpp	no	vpc removal-gate script test
-src/sourcesharp/test/vpc_watermark_gate_test.cpp	no	vpc watermark-gate script test
 src/sourcesharp/test/vtable_hook_test.cpp	no	tests own vtable slot-of helper, original logic
 src/sourcesharp/test/vtable_index_agreement_test.cpp	no	verifies generated vtable layout matches compiler count
-src/sourcesharp/test/weapon_parse_stub/cdll_util.h	no	empty compile stub for test harness
-src/sourcesharp/test/weapon_parse_stub/util_shared.h	no	minimal compile stub declaring one function for test harness
-src/sourcesharp/test/weapon_script_oracle_test.cpp	yes	native oracle compiling/running real weapon_parse.cpp against golden table
 src/sourcesharp/test/world_aligned_bounds_test.cpp	yes	checks shortcut against mathlib TransformAABB/AngleMatrix, same call CCollisionProperty::CollisionAABBToWorldAABB uses
-src/sourcesharp/test/world_release_test.cpp	no	tests own Release ownership arm, original logic
-src/sourcesharp/test/world_shim_test.cpp	no	source-read pinning CWorld shim wiring shape
 src/sourcesharp/test/world_subject_test.cpp	no	tests own partition-arm rule header plus source-scan ordering
 src/sourcesharp/test/globals_client_ledger_test.cpp	no	measures client static state via readelf against the globals ledger; no Valve logic (ruled at T)
 src/sourcesharp/test/globals_ledger_test.cpp	no	measures server static state via readelf against the globals ledger; no Valve logic (ruled at T)

@@ -57,6 +57,20 @@ public interface IEntityPhysicsHost
 
     /// <summary>Where a refusal is said (native's Warning).</summary>
     void Warning(string text);
+
+    /// <summary>
+    /// The entity's name when its class consults the mass-centre overrides as
+    /// it is made (<see cref="ITakesMassCenterOverride"/>), else null.
+    /// </summary>
+    string? MassCenterOverrideName(EntityHandle entity);
+}
+
+/// <summary>
+/// A class whose CreateVPhysics calls PhysGetMassCenterOverride: stock's
+/// CPhysicsProp and CPhysBox, and nothing else.
+/// </summary>
+public interface ITakesMassCenterOverride
+{
 }
 
 /// <summary>
@@ -81,12 +95,15 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
     private readonly IPhysicsWorldVPhysics _world;
     private readonly IVPhysicsEntityCalls _v;
     private readonly IEntityPhysicsHost _host;
+    private readonly MassCenterOverrides _massCenters;
 
-    public EntityPhysicsCreation(IPhysicsWorldVPhysics world, IVPhysicsEntityCalls v, IEntityPhysicsHost host)
+    public EntityPhysicsCreation(IPhysicsWorldVPhysics world, IVPhysicsEntityCalls v, IEntityPhysicsHost host,
+                                 MassCenterOverrides massCenters)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _v = v ?? throw new ArgumentNullException(nameof(v));
         _host = host ?? throw new ArgumentNullException(nameof(host));
+        _massCenters = massCenters ?? throw new ArgumentNullException(nameof(massCenters));
     }
 
     /// <summary>Objects created since the module started.</summary>
@@ -99,6 +116,116 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
     /// solver would step it forever.
     /// </summary>
     public bool Create(EntityHandle entity, bool isStatic, bool asleep, bool debris)
+        => Make(entity, isStatic, asleep, debris, ownSolidity: false);
+
+    /// <summary>
+    /// VPhysicsInitStatic as a brush calls it (CFuncWall::CreateVPhysics,
+    /// CBreakable::CreateVPhysics): a static object, and the entity's own
+    /// solidity and movetype kept. A brush stays SOLID_BSP, so a trace still
+    /// meets its faces and their materials; the solver meets the object.
+    /// </summary>
+    public bool CreateStatic(EntityHandle entity) => Make(entity, isStatic: true, asleep: false, debris: false, ownSolidity: true);
+
+    /// <summary>CBaseEntity::VPhysicsInitShadow's speed limits ("UNDONE: Tune or expose these parameters").</summary>
+    public const float ShadowMaxSpeed = 2000f;
+    public const float ShadowMaxAngularSpeed = 360f * 10f;
+
+    /// <summary>
+    /// The entities holding a shadow, which <see cref="UpdateShadows"/> follows
+    /// every frame, with where each was last sent.
+    /// </summary>
+    private readonly Dictionary<EntityHandle, Vector> _shadows = new();
+
+    /// <summary>
+    /// CBaseEntity::VPhysicsInitShadow as a brush mover calls it: a simulated
+    /// object from the model that follows the entity rather than gravity,
+    /// placed where the entity is; its solidity and movetype kept. What a
+    /// prop meets when a door swings into it or a lift carries it.
+    /// </summary>
+    public bool CreateShadow(EntityHandle entity, bool allowPhysicsMovement, bool allowPhysicsRotation)
+    {
+        if (_host.PhysicsObject(entity) != 0)
+            return true;
+
+        if (!Make(entity, isStatic: false, asleep: false, debris: false, ownSolidity: true))
+            return false;
+
+        nint made = _host.PhysicsObject(entity);
+        if (made == 0 || !_host.TryFacts(entity, out EntityPhysicsFacts f))
+            return false;
+
+        _v.SetShadow(made, ShadowMaxSpeed, ShadowMaxAngularSpeed, allowPhysicsMovement, allowPhysicsRotation);
+        _v.UpdateShadow(made, f.Origin, f.Angles, false, 0f);
+        _shadows[entity] = f.Origin;
+        return true;
+    }
+
+    /// <summary>
+    /// UpdatePhysicsShadowToCurrentPosition for every shadow, once a frame
+    /// after the movers have moved: the solver takes each where its entity
+    /// now is over <paramref name="frameTime"/>. One that has lost its object
+    /// or its entity is forgotten. Answers how many were updated.
+    /// </summary>
+    public int UpdateShadows(float frameTime)
+    {
+        if (_shadows.Count == 0)
+            return 0;
+
+        int updated = 0;
+        _shadowPass.Clear();
+        _shadowPass.AddRange(_shadows.Keys);
+
+        foreach (EntityHandle entity in _shadowPass)
+        {
+            nint shadow = _host.PhysicsObject(entity);
+            if (shadow == 0 || !_host.TryFacts(entity, out EntityPhysicsFacts f))
+            {
+                _shadows.Remove(entity);
+                continue;
+            }
+
+            // Further than the shadow may travel in a frame is a teleport (a
+            // train placed at its first corner, a SetOrigin): stock's Teleport
+            // places the object rather than sweeping it through the map.
+            Vector moved = f.Origin - _shadows[entity];
+            if (moved.Length > ShadowMaxSpeed * frameTime)
+            {
+                _v.Teleport(shadow, f.Origin, f.Angles);
+                _v.UpdateShadow(shadow, f.Origin, f.Angles, false, 0f);
+            }
+            else
+            {
+                _v.UpdateShadow(shadow, f.Origin, f.Angles, false, frameTime);
+            }
+
+            _shadows[entity] = f.Origin;
+            updated++;
+        }
+
+        return updated;
+    }
+
+    private readonly List<EntityHandle> _shadowPass = new();
+
+    /// <summary>The entity's physics object: 0 none, 1 static, 2 a shadow, 3 simulated.</summary>
+    public int PhysicsKind(EntityHandle entity)
+    {
+        nint made = _host.PhysicsObject(entity);
+        return made == 0 ? 0 : _v.IsStatic(made) ? 1 : _v.HasShadowController(made) ? 2 : 3;
+    }
+
+    /// <summary>
+    /// CFuncWallToggle's TurnOn and TurnOff: the object kept, its collisions
+    /// switched. Nothing when the entity has none.
+    /// </summary>
+    public void EnableCollisions(EntityHandle entity, bool enable)
+    {
+        nint made = _host.PhysicsObject(entity);
+        if (made != 0)
+            _v.EnableCollisions(made, enable);
+    }
+
+    private bool Make(EntityHandle entity, bool isStatic, bool asleep, bool debris, bool ownSolidity)
     {
         if (_host.PhysicsObject(entity) != 0)
             return true;
@@ -145,12 +272,21 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
         p.GameData = PhysicsGameData.FromHandle(f.Handle);
         p.Name = _world.NativeText(f.ClassName);
 
+        // PhysGetMassCenterOverride, which a physics prop's and a physbox's
+        // CreateVPhysics ask before making the object.
+        if (!isStatic && !ownSolidity && _host.MassCenterOverrideName(entity) is { } name
+            && _massCenters.TryTake(name, f.Origin, f.Angles,
+                                    _world.CollideMassCenter(_world.CollideSolid(collide, solid.Index)), out Vector local))
+        {
+            p.MassCenterOverride = _v.WriteMassCenterOverride(scratch, local);
+        }
+
         // Stock's order: the solidity BEFORE the create, because the create
         // calls back into ShouldCollide, which reads it. The flags are read
         // once, so both arms write the same value.
         SolidFlags flags = f.SolidFlags & ~SolidFlags.NotSolid;
         bool solidityFirst = _host.SolidityBeforePhysics;
-        if (solidityFirst)
+        if (solidityFirst && !ownSolidity)
             _host.SetSolidity(entity, SolidType.VPhysics, flags);
 
         nint made = _v.CreatePolyObject(environment, _world.CollideSolid(collide, solid.Index), surface,
@@ -178,14 +314,15 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
         else
             _v.Wake(made);
 
-        if (!solidityFirst)
+        if (!solidityFirst && !ownSolidity)
             _host.SetSolidity(entity, SolidType.VPhysics, flags);
 
         // Stock's movetypes: VPhysicsInitNormal sets MOVETYPE_VPHYSICS, while
         // VPhysicsInitStatic leaves the entity's own (a prop_dynamic's NONE).
         // Native reports this word for an entity holding an object, so a solid
         // prop_dynamic no longer reads as simulated.
-        _host.SetMoveType(entity, isStatic ? MoveType.None : MoveType.VPhysics);
+        if (!ownSolidity)
+            _host.SetMoveType(entity, isStatic ? MoveType.None : MoveType.VPhysics);
 
         Created++;
 
@@ -204,6 +341,52 @@ public sealed class EntityPhysicsCreation : IEntityPhysicsRoute
         _host.DestroyPhysics(entity);
         return Create(entity, isStatic, asleep: false, debris: false);
     }
+
+    /// <summary>
+    /// CPhysSphere::CreateVPhysics (props.cpp): SOLID_BBOX, a sphere of
+    /// <paramref name="radius"/> from <c>g_PhysDefaultObjectParams</c> (no
+    /// model, no surface: material 0), simulated and awake.
+    /// </summary>
+    public bool CreateSphere(EntityHandle entity, float radius)
+    {
+        if (_host.PhysicsObject(entity) != 0)
+            return true;
+
+        if (!_host.TryFacts(entity, out EntityPhysicsFacts f))
+            return false;
+
+        nint environment = _world.Environment();
+        if (environment == 0)
+            return false;
+
+        _host.SetSolidity(entity, SolidType.BoundingBox, f.SolidFlags & ~SolidFlags.NotSolid);
+
+        ObjectParams p = ObjectParams.Defaults(_world.NativeText(DefaultObjectName));
+        p.GameData = PhysicsGameData.FromHandle(f.Handle);
+
+        nint made = _v.CreateSphereObject(environment, radius, 0, f.Origin, f.Angles, in p, isStatic: false);
+        if (made == 0)
+            return false;
+
+        if (!_host.Swap(entity, made, out nint previous))
+        {
+            _v.DestroyObject(environment, made);
+            return false;
+        }
+
+        if (previous != 0)
+            _v.DestroyObject(environment, previous);
+
+        _host.SetMoveType(entity, MoveType.VPhysics);
+        _v.Wake(made);
+
+        Created++;
+        _host.Created(entity);
+        return true;
+    }
+
+    /// <summary><c>g_PhysDefaultObjectParams</c>' name.</summary>
+    public const string DefaultObjectName = "DEFAULT";
 
     /// <summary>
     /// After the managed spawn: a class whose kind the solver moves

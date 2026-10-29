@@ -69,5 +69,10 @@ public static class AmmoTypes
         // every existing index; inserting would renumber them. HL2's numbers —
         // sk_plr_dmg_crossbow 100, ten carried, 800 grains at 8000 ft/s.
         new("XBowBolt", DamageType.Bullet, MaxCarry: 10) { Damage = 100f, DamageForce = 17450f },
+
+        // APPENDED for weapon_slam, whose script names "slam" as its secondary
+        // ammo. HL2MP's own row (hl2mp_gamerules.cpp): DMG_BURN, five carried.
+        // The charges do their damage as explosions, so no bullet damage here.
+        new("slam", DamageType.Burn, MaxCarry: 5),
     ];
 }

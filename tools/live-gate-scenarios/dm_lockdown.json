@@ -10,8 +10,18 @@
   ],
 
   "map": "dm_lockdown",
-  "entities": 473,
-  "classes": 61,
+  "entities": 475,
+  "classes": 62,
+  "_census": [
+    "475 / 62 since 2026-10-27, read off a live dm_lockdown with a client joined",
+    "(`debug-api ents \"*\"`, debug, lane stock-ab). From 485 / 63: -10 ss_pickup,",
+    "the health kits ours put beside every spawn point, which stock HL2MP does not.",
+    "485 / 63 before that,",
+    "(`debug-api ents \"*\"`, debug, lane t6-globals). From 473 / 61: +17 for",
+    "func_useableladder (3) and info_ladder_dismount (14), managed entities since",
+    "0dffef1db; -5 spotlight_end, since an unnamed point_spotlight removes its end",
+    "as stock's Activate does (435e890d1; stock leaves 4)."
+  ],
 
   "_otherMap": [
     "THE MAP-CHANGE STEP'S TARGET. Not a second deathmatch map -- there is only",
@@ -37,7 +47,7 @@
     "1234 entities / 271 classes, and 43 ss_te_tester. The floors below are set",
     "under those at roughly 90% -- tight enough that a half-loaded level or a",
     "game answering about the map it never left cannot clear them (dm_lockdown",
-    "is 473 / 61), loose enough that regenerating the map from Sandbox.cs with",
+    "is 475 / 62), loose enough that regenerating the map from Sandbox.cs with",
     "one class more or less does not turn the gate red for a reason that is not",
     "a defect. What pins the number exactly is the step's own cross-pass",
     "equality, which needs no constant here at all."
@@ -49,12 +59,12 @@
     "mustHold":    [ "ss_te_tester" ],
     "_switchedPairs": [
       "Classes whose count is a lamp's STATE: a lit point_spotlight owns one",
-      "spotlight_end and one ss_beam. The weighed plate's drum lights one about",
+      "spotlight_end and one beam. The weighed plate's drum lights one about",
       "0.6s after level start and, in 9 of 40 visits (reload-probe, f48aeb1),",
       "leaves the plate and douses it at ~8s. The cross-visit equality forgives the two",
       "moving together and nothing else (census_drift in tools/live-gate)."
     ],
-    "switchedPairs": { "spotlight_end": "ss_beam" },
+    "switchedPairs": { "spotlight_end": "beam" },
     "_renderPoses": [
       "render-plan-sandbox compares at the spawn the client joins at and at these: under the",
       "mirror pool's surface (the under-water fixture's pose). ss_sandbox's view lists hold",
@@ -66,9 +76,9 @@
     ]
   },
 
-  "playerClass":  "ss_player",
+  "playerClass":  "player",
   "weaponClass":  "ss_weapon",
-  "ragdollClass": "ss_ragdoll",
+  "ragdollClass": "hl2mp_ragdoll",
 
   "_openFloor": [
     "Flat, walled-off floor in the yard south of the showers. The player is put",
@@ -159,7 +169,7 @@
     "",
     "FIRED FLAT, pitch 0, along openFloorAngles' yaw. The yard's far wall is",
     "367 units away at eye height and that is what step 2f's separate probe",
-    "recorded for both ss_bolt and ss_rocket standing here. At the scenario's",
+    "recorded for both crossbow_bolt and rpg_missile standing here. At the scenario's",
     "own 25-degrees-down angle a bolt is in the floor after 123.9 units, which",
     "is why this step sets its own pitch instead of reusing openFloorAngles.",
     "",
@@ -217,7 +227,7 @@
   ],
   "projectile": {
     "weapon":         "weapon_crossbow",
-    "class":          "ss_bolt",
+    "class":          "crossbow_bolt",
     "pitch":          0,
     "fireSeconds":    5.0,
     "settleSeconds":  1.5,

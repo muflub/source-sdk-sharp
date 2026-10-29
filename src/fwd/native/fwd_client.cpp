@@ -33,13 +33,16 @@
 // sets SDL only with GL). Checked before the headers, as command-line defines.
 #if defined( _WIN32 )
 #if defined( USE_SDL )
-#error "SourceSharp: the shipped Windows engine is built without USE_SDL and this translation unit has it. Every IVEngineClient013 slot from 127 down would be called one too high."
+#error \
+	"SourceSharp: the shipped Windows engine is built without USE_SDL and this translation unit has it. Every IVEngineClient013 slot from 127 down would be called one too high."
 #endif
 #elif !defined( USE_SDL )
-#error "SourceSharp: the shipped engine is built with USE_SDL and this translation unit is not. Every IVEngineClient013 slot from 127 down would be called one too low."
+#error \
+	"SourceSharp: the shipped engine is built with USE_SDL and this translation unit is not. Every IVEngineClient013 slot from 127 down would be called one too low."
 #endif
 #if defined( NO_VOICE )
-#error "SourceSharp: the shipped engine is built with voice IN (NO_VOICE undefined) and this translation unit has NO_VOICE. Every IVEngineClient013 slot from 53 down would be called one too high."
+#error \
+	"SourceSharp: the shipped engine is built with voice IN (NO_VOICE undefined) and this translation unit has NO_VOICE. Every IVEngineClient013 slot from 53 down would be called one too high."
 #endif
 
 // The interface headers the forwarders call through, and fwd_steam.h for the

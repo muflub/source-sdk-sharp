@@ -9,7 +9,7 @@ public sealed class FuncIllusionary : ScriptedEntity
 {
     public override void OnSpawn()
     {
-        SetSolidity(BrushSolidity.None);
+        SetSolidNone();
         SetVisible(true);
     }
 }

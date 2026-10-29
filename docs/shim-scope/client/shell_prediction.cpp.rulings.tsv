@@ -1,3 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-void EntityPrediction_SetSeedFromCommand( const EntityPredictionCmd_t *cmd )	BOUNDARY	copies a usercmd's random seed into entity_prediction_seed.h's storage, deciding nothing (from entity_shared_statics.cpp at plan_server_native_v2 T5)

@@ -41,7 +41,7 @@ public sealed class PlayerNetStateTests
     [Fact]
     public void IsDeclaredForThePlayerClassname()
     {
-        Assert.Equal(EntityNames.SsPlayer, PlayerNetState.NetLayout.ClassName);
+        Assert.Equal(EntityNames.Player, PlayerNetState.NetLayout.ClassName);
     }
 
     [Fact]

@@ -25,7 +25,7 @@ class RecordingHeap : public ss::IEngineHeap
 public:
 	int m_nAllocs = 0, m_nReallocs = 0, m_nFrees = 0;
 	bool m_bRefuse = false;
-	std::set< void * > m_Live;
+	std::set<void *> m_Live;
 
 	void *Alloc( size_t n ) override
 	{
@@ -36,6 +36,7 @@ public:
 		m_Live.insert( p );
 		return p;
 	}
+
 	void *Realloc( void *p, size_t n ) override
 	{
 		m_nReallocs++;
@@ -46,12 +47,14 @@ public:
 		m_Live.insert( q );
 		return q;
 	}
+
 	void Free( void *p ) override
 	{
 		m_nFrees++;
 		m_Live.erase( p );
 		free( p );
 	}
+
 	~RecordingHeap()
 	{
 		for ( void *p : m_Live )
@@ -62,7 +65,7 @@ public:
 TEST( EngineUtlVectorAppend, AppendsInOrderAndGrowsThroughTheHeap )
 {
 	RecordingHeap heap;
-	ss::EngineUtlVectorLayout< int > vec = {};
+	ss::EngineUtlVectorLayout<int> vec = {};
 
 	for ( int i = 0; i < 100; i++ )
 		ASSERT_TRUE( ss::EngineUtlVectorAppend( &heap, vec, i * 3 ) );
@@ -82,10 +85,11 @@ TEST( EngineUtlVectorAppend, AppendsInOrderAndGrowsThroughTheHeap )
 TEST( EngineUtlVectorAppend, AppendsAfterWhatTheOwnerAlreadyHas )
 {
 	RecordingHeap heap;
-	ss::EngineUtlVectorLayout< int > vec = {};
+	ss::EngineUtlVectorLayout<int> vec = {};
 	vec.m_pMemory = (int *)heap.Alloc( 3 * sizeof( int ) );
 	vec.m_nAllocationCount = 3;
-	vec.m_pMemory[0] = 10; vec.m_pMemory[1] = 11;
+	vec.m_pMemory[0] = 10;
+	vec.m_pMemory[1] = 11;
 	vec.m_Size = 2;
 
 	ASSERT_TRUE( ss::EngineUtlVectorAppend( &heap, vec, 12 ) );
@@ -101,7 +105,7 @@ TEST( EngineUtlVectorAppend, AppendsAfterWhatTheOwnerAlreadyHas )
 TEST( EngineUtlVectorAppend, AGrowSizeRoundsTheCapacityUp )
 {
 	RecordingHeap heap;
-	ss::EngineUtlVectorLayout< int > vec = {};
+	ss::EngineUtlVectorLayout<int> vec = {};
 	vec.m_nGrowSize = 16;
 
 	ASSERT_TRUE( ss::EngineUtlVectorAppend( &heap, vec, 1 ) );
@@ -115,13 +119,13 @@ TEST( EngineUtlVectorAppend, ExternalMemoryOrARefusingHeapChangesNothing )
 {
 	RecordingHeap heap;
 	int buffer[2] = { 7, 8 };
-	ss::EngineUtlVectorLayout< int > ext = { buffer, 2, -1, 2, buffer };
+	ss::EngineUtlVectorLayout<int> ext = { buffer, 2, -1, 2, buffer };
 	EXPECT_FALSE( ss::EngineUtlVectorAppend( &heap, ext, 9 ) );
 	EXPECT_EQ( 2, ext.m_Size );
 	EXPECT_EQ( buffer, ext.m_pMemory );
 
 	heap.m_bRefuse = true;
-	ss::EngineUtlVectorLayout< int > vec = {};
+	ss::EngineUtlVectorLayout<int> vec = {};
 	EXPECT_FALSE( ss::EngineUtlVectorAppend( &heap, vec, 1 ) );
 	EXPECT_EQ( 0, vec.m_Size );
 	EXPECT_TRUE( vec.m_pMemory == NULL );
@@ -132,7 +136,7 @@ TEST( EngineUtlVectorAppend, ExternalMemoryOrARefusingHeapChangesNothing )
 TEST( EngineUtlStringVectorAppend, EachStringIsTheHeapsOwnCopy )
 {
 	RecordingHeap heap;
-	ss::EngineUtlVectorLayout< ss::EngineUtlString > vec = {};
+	ss::EngineUtlVectorLayout<ss::EngineUtlString> vec = {};
 	char szSource[] = "sv_gravity";
 
 	ASSERT_TRUE( ss::EngineUtlStringVectorAppend( &heap, vec, szSource ) );
@@ -152,8 +156,8 @@ TEST( EngineUtlStringVectorAppend, ACopyTheVectorCannotTakeGoesBackToTheHeap )
 	RecordingHeap heap;
 	int buffer[1];
 	// External memory: the vector refuses, the string copy must not leak.
-	ss::EngineUtlVectorLayout< ss::EngineUtlString > ext =
-		{ (ss::EngineUtlString *)buffer, 0, -1, 0, (ss::EngineUtlString *)buffer };
+	ss::EngineUtlVectorLayout<ss::EngineUtlString> ext = { (ss::EngineUtlString *)buffer, 0, -1, 0,
+														   (ss::EngineUtlString *)buffer };
 
 	EXPECT_FALSE( ss::EngineUtlStringVectorAppend( &heap, ext, "sv_gravity" ) );
 	EXPECT_EQ( 1, heap.m_nAllocs );

@@ -28,12 +28,12 @@ TEST( SsCpp20, TheShimIsTheStandardOneUnderCpp20AndOursUnderCpp17 )
 #if defined( __cpp_lib_erase_if ) && __cpp_lib_erase_if >= 202002L
 	// The header's own condition, so the test and the shim cannot disagree on
 	// which half is live. The same function, not a lookalike: both names resolve to one address.
-	using EraseIf = std::vector< int >::size_type ( * )( std::vector< int > &, bool ( * )( int ) );
-	using Erase   = std::vector< int >::size_type ( * )( std::vector< int > &, const int & );
+	using EraseIf = std::vector<int>::size_type ( * )( std::vector<int> &, bool ( * )( int ) );
+	using Erase = std::vector<int>::size_type ( * )( std::vector<int> &, const int & );
 	EraseIf ourIf = &ss::erase_if;
 	EraseIf stdIf = &std::erase_if;
-	Erase   ours  = &ss::erase;
-	Erase   std_  = &std::erase;
+	Erase ours = &ss::erase;
+	Erase std_ = &std::erase;
 	EXPECT_EQ( stdIf, ourIf );
 	EXPECT_EQ( std_, ours );
 	EXPECT_GE( __cpp_lib_erase_if, 202002L );
@@ -44,41 +44,41 @@ TEST( SsCpp20, TheShimIsTheStandardOneUnderCpp20AndOursUnderCpp17 )
 
 TEST( SsCpp20, EraseOnAVectorRemovesEveryMatchAndKeepsTheOrder )
 {
-	std::vector< int > v = { 2, 1, 2, 3, 2, 4 };
+	std::vector<int> v = { 2, 1, 2, 3, 2, 4 };
 	EXPECT_EQ( 3u, ss::erase( v, 2 ) );
-	EXPECT_EQ( ( std::vector< int >{ 1, 3, 4 } ), v );
+	EXPECT_EQ( ( std::vector<int>{ 1, 3, 4 } ), v );
 }
 
 TEST( SsCpp20, EraseOfAValueThatIsNotThereRemovesNothing )
 {
-	std::vector< int > v = { 1, 3 };
+	std::vector<int> v = { 1, 3 };
 	EXPECT_EQ( 0u, ss::erase( v, 2 ) );
-	EXPECT_EQ( ( std::vector< int >{ 1, 3 } ), v );
+	EXPECT_EQ( ( std::vector<int>{ 1, 3 } ), v );
 }
 
 TEST( SsCpp20, EraseIfOnAVectorRemovesWhatThePredicateAccepts )
 {
-	std::vector< int > v = { 1, 2, 3, 4, 5, 6 };
+	std::vector<int> v = { 1, 2, 3, 4, 5, 6 };
 	EXPECT_EQ( 3u, ss::erase_if( v, []( int x ) { return x % 2 == 0; } ) );
-	EXPECT_EQ( ( std::vector< int >{ 1, 3, 5 } ), v );
+	EXPECT_EQ( ( std::vector<int>{ 1, 3, 5 } ), v );
 }
 
 TEST( SsCpp20, EraseOnAVectorOfPointersRemovesThatPointer )
 {
 	// The shape the entity code has: a list of object pointers, one to drop.
 	int a = 0, b = 0, c = 0;
-	std::vector< int * > v = { &a, &b, &c, &b };
+	std::vector<int *> v = { &a, &b, &c, &b };
 	EXPECT_EQ( 2u, ss::erase( v, &b ) );
-	EXPECT_EQ( ( std::vector< int * >{ &a, &c } ), v );
+	EXPECT_EQ( ( std::vector<int *>{ &a, &c } ), v );
 }
 
 TEST( SsCpp20, EraseAndEraseIfOnADeque )
 {
-	std::deque< int > d = { 5, 1, 5, 2 };
+	std::deque<int> d = { 5, 1, 5, 2 };
 	EXPECT_EQ( 2u, ss::erase( d, 5 ) );
-	EXPECT_EQ( ( std::deque< int >{ 1, 2 } ), d );
+	EXPECT_EQ( ( std::deque<int>{ 1, 2 } ), d );
 	EXPECT_EQ( 1u, ss::erase_if( d, []( int x ) { return x == 1; } ) );
-	EXPECT_EQ( ( std::deque< int >{ 2 } ), d );
+	EXPECT_EQ( ( std::deque<int>{ 2 } ), d );
 }
 
 TEST( SsCpp20, EraseAndEraseIfOnAString )
@@ -92,47 +92,47 @@ TEST( SsCpp20, EraseAndEraseIfOnAString )
 
 TEST( SsCpp20, EraseAndEraseIfOnAListCountTheRemoved )
 {
-	std::list< int > l = { 7, 8, 7, 9 };
+	std::list<int> l = { 7, 8, 7, 9 };
 	EXPECT_EQ( 2u, ss::erase( l, 7 ) );
-	EXPECT_EQ( ( std::list< int >{ 8, 9 } ), l );
+	EXPECT_EQ( ( std::list<int>{ 8, 9 } ), l );
 	EXPECT_EQ( 1u, ss::erase_if( l, []( int x ) { return x > 8; } ) );
-	EXPECT_EQ( ( std::list< int >{ 8 } ), l );
+	EXPECT_EQ( ( std::list<int>{ 8 } ), l );
 }
 
 TEST( SsCpp20, EraseIfOnAMapTakesKeyValuePairs )
 {
-	std::map< std::string, int > m = { { "a", 1 }, { "b", 2 }, { "c", 3 } };
-	EXPECT_EQ( 2u, ss::erase_if( m, []( const std::pair< const std::string, int > &kv ) { return kv.second != 2; } ) );
+	std::map<std::string, int> m = { { "a", 1 }, { "b", 2 }, { "c", 3 } };
+	EXPECT_EQ( 2u, ss::erase_if( m, []( const std::pair<const std::string, int> &kv ) { return kv.second != 2; } ) );
 	ASSERT_EQ( 1u, m.size() );
 	EXPECT_EQ( 2, m.at( "b" ) );
 }
 
 TEST( SsCpp20, EraseIfOnAMultimapRemovesEveryMatchingNode )
 {
-	std::multimap< int, int > m = { { 1, 1 }, { 1, 2 }, { 2, 3 } };
-	EXPECT_EQ( 2u, ss::erase_if( m, []( const std::pair< const int, int > &kv ) { return kv.first == 1; } ) );
+	std::multimap<int, int> m = { { 1, 1 }, { 1, 2 }, { 2, 3 } };
+	EXPECT_EQ( 2u, ss::erase_if( m, []( const std::pair<const int, int> &kv ) { return kv.first == 1; } ) );
 	EXPECT_EQ( 1u, m.size() );
 }
 
 TEST( SsCpp20, EraseIfOnSets )
 {
-	std::set< int > s = { 1, 2, 3, 4 };
+	std::set<int> s = { 1, 2, 3, 4 };
 	EXPECT_EQ( 2u, ss::erase_if( s, []( int x ) { return x <= 2; } ) );
-	EXPECT_EQ( ( std::set< int >{ 3, 4 } ), s );
+	EXPECT_EQ( ( std::set<int>{ 3, 4 } ), s );
 
-	std::multiset< int > ms = { 1, 1, 2 };
+	std::multiset<int> ms = { 1, 1, 2 };
 	EXPECT_EQ( 2u, ss::erase_if( ms, []( int x ) { return x == 1; } ) );
 	EXPECT_EQ( 1u, ms.size() );
 }
 
 TEST( SsCpp20, EraseIfOnUnorderedContainers )
 {
-	std::unordered_map< int, int > um = { { 1, 10 }, { 2, 20 }, { 3, 30 } };
-	EXPECT_EQ( 1u, ss::erase_if( um, []( const std::pair< const int, int > &kv ) { return kv.second == 20; } ) );
+	std::unordered_map<int, int> um = { { 1, 10 }, { 2, 20 }, { 3, 30 } };
+	EXPECT_EQ( 1u, ss::erase_if( um, []( const std::pair<const int, int> &kv ) { return kv.second == 20; } ) );
 	EXPECT_EQ( 0u, um.count( 2 ) );
 	EXPECT_EQ( 2u, um.size() );
 
-	std::unordered_set< int > us = { 1, 2, 3 };
+	std::unordered_set<int> us = { 1, 2, 3 };
 	EXPECT_EQ( 3u, ss::erase_if( us, []( int ) { return true; } ) );
 	EXPECT_TRUE( us.empty() );
 }

@@ -10,28 +10,42 @@
 # dmxloader.a, whose sources Valve does not publish), is not built there
 # (src/client/native/particles_lib/CMakeLists.txt).
 #
-# Built from source (tier1.cmake, mathlib.cmake, raytrace.cmake): Valve's tree
-# has no linux64 prebuilt of these three (vgui_controls and matsys_controls were
+# Built from source (tier1.cmake, mathlib.cmake): Valve's tree
+# has no linux64 prebuilt of these two (vgui_controls and matsys_controls were
 # built here too until the client stopped linking them, plan_client_novalve C3) -- upstream 22288b919 tracks none, and the .a files an
 # old checkout holds are gitignored output of its own VPC build. tier1 is
 # compiled from Valve's own interface.cpp again since Phase 6b, when the fork
 # dropped the Interface_SetMissHook edit.
 
+# libss_particles's particles, dmxloader, tier0 and vstdlib come from the
+# pristine clone (SS_STOCK), client.dll's zlib from vendor/client; the rest
+# only the tests link, from the farm.
+set(SS_STOCK_LIBS dmxloader particles tier0 vstdlib)
+function(ss_sdk_libdir out lib platform_dir)
+  if(lib IN_LIST SS_STOCK_LIBS)
+    set(${out} "${SS_STOCK}/lib/public/${platform_dir}" PARENT_SCOPE)
+  else()
+    set(${out} "${SS_SRC}/lib/public/${platform_dir}" PARENT_SCOPE)
+  endif()
+endfunction()
+
 if(SS_PLATFORM STREQUAL linux)
   set(SS_SDK_LIBDIR "${SS_SRC}/lib/public/linux64")
 
   foreach(lib bitmap dmxloader particles tier2 tier3 vtf)
+    ss_sdk_libdir(dir ${lib} linux64)
     add_library(sdk::${lib} STATIC IMPORTED GLOBAL)
     set_target_properties(sdk::${lib} PROPERTIES
-      IMPORTED_LOCATION "${SS_SDK_LIBDIR}/${lib}.a")
+      IMPORTED_LOCATION "${dir}/${lib}.a")
   endforeach()
 
   # tier0 and vstdlib carry no SONAME, so they are linked by -l name (as VPC did)
   # and recorded in DT_NEEDED as libtier0.so / libvstdlib.so, not by path.
   foreach(lib tier0 vstdlib steam_api)
+    ss_sdk_libdir(dir ${lib} linux64)
     add_library(sdk::${lib} SHARED IMPORTED GLOBAL)
     set_target_properties(sdk::${lib} PROPERTIES
-      IMPORTED_LOCATION "${SS_SDK_LIBDIR}/lib${lib}.so")
+      IMPORTED_LOCATION "${dir}/lib${lib}.so")
   endforeach()
   set_target_properties(sdk::tier0 sdk::vstdlib PROPERTIES IMPORTED_NO_SONAME ON)
 elseif(SS_PLATFORM STREQUAL windows)
@@ -42,9 +56,10 @@ elseif(SS_PLATFORM STREQUAL windows)
   set(SS_SDK_LIBDIR "${SS_SRC}/lib/public/x64")
 
   foreach(lib bitmap dmxloader particles tier2 tier3 vtf tier0 vstdlib)
+    ss_sdk_libdir(dir ${lib} x64)
     add_library(sdk::${lib} UNKNOWN IMPORTED GLOBAL)
     set_target_properties(sdk::${lib} PROPERTIES
-      IMPORTED_LOCATION "${SS_SDK_LIBDIR}/${lib}.lib")
+      IMPORTED_LOCATION "${dir}/${lib}.lib")
   endforeach()
   add_library(sdk::steam_api UNKNOWN IMPORTED GLOBAL)
   set_target_properties(sdk::steam_api PROPERTIES
@@ -53,9 +68,8 @@ elseif(SS_PLATFORM STREQUAL windows)
   # ships it for Windows.
   add_library(sdk::z UNKNOWN IMPORTED GLOBAL)
   set_target_properties(sdk::z PROPERTIES
-    IMPORTED_LOCATION "${SS_SDK_LIBDIR}/libz.lib")
+    IMPORTED_LOCATION "${SS_VENDOR}/client/lib/public/x64/libz.lib")
 endif()
 
 include(tier1.cmake)
 include(mathlib.cmake)
-include(raytrace.cmake)

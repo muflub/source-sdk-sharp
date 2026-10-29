@@ -61,27 +61,33 @@ class OpaqueBuffer
 public:
 	explicit OpaqueBuffer( size_t cch )
 		: m_cch( Hide( cch ) )
-		, m_pch( new char[ Hide( cch ) + 1 ] )
+		, m_pch( new char[Hide( cch ) + 1] )
 	{
 		memset( m_pch, 'X', m_cch + 1 );
 	}
 
-	~OpaqueBuffer() { delete [] m_pch; }
+	~OpaqueBuffer() { delete[] m_pch; }
 
-	char       *Data() const { return m_pch; }
-	size_t      Size() const { return m_cch; }
-	std::string Str()  const { return std::string( m_pch ); }
+	char *Data() const { return m_pch; }
 
-	bool SentinelIntact() const { return m_pch[ m_cch ] == 'X'; }
+	size_t Size() const { return m_cch; }
+
+	std::string Str() const { return std::string( m_pch ); }
+
+	bool SentinelIntact() const { return m_pch[m_cch] == 'X'; }
 
 private:
-	static size_t Hide( size_t cch ) { volatile size_t v = cch; return v; }
+	static size_t Hide( size_t cch )
+	{
+		volatile size_t v = cch;
+		return v;
+	}
 
 	OpaqueBuffer( const OpaqueBuffer & );
 	OpaqueBuffer &operator=( const OpaqueBuffer & );
 
-	size_t  m_cch;
-	char   *m_pch;
+	size_t m_cch;
+	char *m_pch;
 };
 
 std::string Format( const char *pSide, int nStage, int rc, const char *pDetail )
@@ -103,15 +109,15 @@ bool Contains( const std::string &haystack, const char *needle )
 TEST( ManagedInitFailure, EachStageHasItsOwnName )
 {
 	EXPECT_STREQ( "GetModBinDir", SourceSharpInit_StageName( kSourceSharpInitStage_ModBinDir ) );
-	EXPECT_STREQ( "Acquire",      SourceSharpInit_StageName( kSourceSharpInitStage_Acquire ) );
-	EXPECT_STREQ( "LoadSide",     SourceSharpInit_StageName( kSourceSharpInitStage_LoadSide ) );
+	EXPECT_STREQ( "Acquire", SourceSharpInit_StageName( kSourceSharpInitStage_Acquire ) );
+	EXPECT_STREQ( "LoadSide", SourceSharpInit_StageName( kSourceSharpInitStage_LoadSide ) );
 
 	// All three distinct: a table that answered the same string twice would
 	// name a stage and mean another.
 	EXPECT_STRNE( SourceSharpInit_StageName( kSourceSharpInitStage_ModBinDir ),
-	              SourceSharpInit_StageName( kSourceSharpInitStage_Acquire ) );
+				  SourceSharpInit_StageName( kSourceSharpInitStage_Acquire ) );
 	EXPECT_STRNE( SourceSharpInit_StageName( kSourceSharpInitStage_Acquire ),
-	              SourceSharpInit_StageName( kSourceSharpInitStage_LoadSide ) );
+				  SourceSharpInit_StageName( kSourceSharpInitStage_LoadSide ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -139,12 +145,8 @@ TEST( ManagedInitFailure, AnUnknownStageStillAnswersAString )
 TEST( ManagedInitFailure, EveryHostResultCodeHasItsOwnCause )
 {
 	const int rgCodes[] = {
-		SOURCESHARP_ERR_HOSTFXR_LOAD,
-		SOURCESHARP_ERR_HOSTFXR_SYM,
-		SOURCESHARP_ERR_RUNTIME_INIT,
-		SOURCESHARP_ERR_DELEGATE,
-		SOURCESHARP_ERR_BOOTSTRAP,
-		SOURCESHARP_ERR_ABI_MISMATCH,
+		SOURCESHARP_ERR_HOSTFXR_LOAD,    SOURCESHARP_ERR_HOSTFXR_SYM, SOURCESHARP_ERR_RUNTIME_INIT,
+		SOURCESHARP_ERR_DELEGATE,        SOURCESHARP_ERR_BOOTSTRAP,   SOURCESHARP_ERR_ABI_MISMATCH,
 		SOURCESHARP_ERR_NOT_INITIALIZED,
 	};
 	const int cCodes = (int)( sizeof( rgCodes ) / sizeof( rgCodes[0] ) );
@@ -160,8 +162,7 @@ TEST( ManagedInitFailure, EveryHostResultCodeHasItsOwnCause )
 		const char *pCause = SourceSharpInit_CauseText( rgCodes[i] );
 		ASSERT_TRUE( pCause != NULL ) << "code " << rgCodes[i];
 		EXPECT_GT( strlen( pCause ), 0u ) << "code " << rgCodes[i];
-		EXPECT_STRNE( pUnknown, pCause )
-			<< "code " << rgCodes[i] << " falls through to the catch-all";
+		EXPECT_STRNE( pUnknown, pCause ) << "code " << rgCodes[i] << " falls through to the catch-all";
 
 		for ( int j = 0; j < i; j++ )
 			EXPECT_STRNE( SourceSharpInit_CauseText( rgCodes[j] ), pCause )
@@ -176,9 +177,8 @@ TEST( ManagedInitFailure, EveryHostResultCodeHasItsOwnCause )
 //-----------------------------------------------------------------------------
 TEST( ManagedInitFailure, AMissingRuntimeDirectorySendsTheReaderToWorktreeSetup )
 {
-	std::string s = Format( "client", kSourceSharpInitStage_Acquire,
-		SOURCESHARP_ERR_HOSTFXR_LOAD,
-		"no bundled libhostfxr under /x/game/mod_sharp/bin/dotnet/host/fxr" );
+	std::string s = Format( "client", kSourceSharpInitStage_Acquire, SOURCESHARP_ERR_HOSTFXR_LOAD,
+							"no bundled libhostfxr under /x/game/mod_sharp/bin/dotnet/host/fxr" );
 
 	EXPECT_TRUE( Contains( s, "bin/dotnet" ) ) << s;
 	EXPECT_TRUE( Contains( s, "worktree-setup" ) ) << s;
@@ -186,9 +186,8 @@ TEST( ManagedInitFailure, AMissingRuntimeDirectorySendsTheReaderToWorktreeSetup 
 
 TEST( ManagedInitFailure, MissingAssembliesSendTheReaderToTheBuild )
 {
-	std::string s = Format( "server", kSourceSharpInitStage_Acquire,
-		SOURCESHARP_ERR_RUNTIME_INIT,
-		"hostfxr_initialize_for_runtime_config failed (0x80008093)" );
+	std::string s = Format( "server", kSourceSharpInitStage_Acquire, SOURCESHARP_ERR_RUNTIME_INIT,
+							"hostfxr_initialize_for_runtime_config failed (0x80008093)" );
 
 	EXPECT_TRUE( Contains( s, "bin/managed" ) ) << s;
 	EXPECT_TRUE( Contains( s, "make debug" ) ) << s;
@@ -222,8 +221,8 @@ TEST( ManagedInitFailure, TheMessageCarriesSideStageCodeAndDetail )
 	// real one does ("managed LoadSide returned -3"). With that detail the
 	// stage check finds its needle in the DETAIL and passes with the stage line
 	// deleted — measured, not hypothesised.
-	std::string s = Format( "server", kSourceSharpInitStage_LoadSide,
-		SOURCESHARP_ERR_BOOTSTRAP, "the bootstrap refused" );
+	std::string s =
+		Format( "server", kSourceSharpInitStage_LoadSide, SOURCESHARP_ERR_BOOTSTRAP, "the bootstrap refused" );
 
 	EXPECT_TRUE( Contains( s, "server" ) ) << s;
 	EXPECT_TRUE( Contains( s, "LoadSide" ) ) << s;
@@ -248,8 +247,8 @@ TEST( ManagedInitFailure, AStageWithNoCodePrintsNoCodeLine )
 	// The remedy, which is the point of the message, survives.
 	EXPECT_TRUE( Contains( none, "-game" ) ) << none;
 
-	std::string some = Format( "client", kSourceSharpInitStage_Acquire,
-		SOURCESHARP_ERR_HOSTFXR_LOAD, "no bundled libhostfxr" );
+	std::string some =
+		Format( "client", kSourceSharpInitStage_Acquire, SOURCESHARP_ERR_HOSTFXR_LOAD, "no bundled libhostfxr" );
 	EXPECT_TRUE( Contains( some, "code  :" ) ) << some;
 	EXPECT_TRUE( Contains( some, "-1" ) ) << some;
 }
@@ -258,10 +257,8 @@ TEST( ManagedInitFailure, TheTwoSidesAreDistinguishable )
 {
 	const char *pDetail = "hostfxr_initialize_for_runtime_config failed";
 
-	std::string sv = Format( "server", kSourceSharpInitStage_Acquire,
-		SOURCESHARP_ERR_RUNTIME_INIT, pDetail );
-	std::string cl = Format( "client", kSourceSharpInitStage_Acquire,
-		SOURCESHARP_ERR_RUNTIME_INIT, pDetail );
+	std::string sv = Format( "server", kSourceSharpInitStage_Acquire, SOURCESHARP_ERR_RUNTIME_INIT, pDetail );
+	std::string cl = Format( "client", kSourceSharpInitStage_Acquire, SOURCESHARP_ERR_RUNTIME_INIT, pDetail );
 
 	EXPECT_NE( sv, cl );
 	EXPECT_TRUE( Contains( sv, "server" ) ) << sv;
@@ -298,14 +295,13 @@ TEST( ManagedInitFailure, ANullSideIsSubstituted )
 //-----------------------------------------------------------------------------
 TEST( ManagedInitFailure, TwoKilobytesFitsARealFailure )
 {
-	const char *pRealDetail =
-		"hostfxr_initialize_for_runtime_config failed (0x80008093) for "
-		"/srv/checkouts/source-sdk-2013/.claude/worktrees/agent-000000000000000/"
-		"base/game/mod_sharp/bin/managed/SourceSharp.Bootstrap.runtimeconfig.json";
+	const char *pRealDetail = "hostfxr_initialize_for_runtime_config failed (0x80008093) for "
+							  "/srv/checkouts/source-sdk-2013/.claude/worktrees/agent-000000000000000/"
+							  "base/game/mod_sharp/bin/managed/SourceSharp.Bootstrap.runtimeconfig.json";
 
 	char szBuf[2048];
-	int nWanted = SourceSharpInit_Format( szBuf, sizeof( szBuf ), "server",
-		kSourceSharpInitStage_Acquire, SOURCESHARP_ERR_RUNTIME_INIT, pRealDetail );
+	int nWanted = SourceSharpInit_Format( szBuf, sizeof( szBuf ), "server", kSourceSharpInitStage_Acquire,
+										  SOURCESHARP_ERR_RUNTIME_INIT, pRealDetail );
 
 	EXPECT_GT( nWanted, 0 );
 	EXPECT_LT( (size_t)nWanted, sizeof( szBuf ) )
@@ -322,8 +318,8 @@ TEST( ManagedInitFailure, ASmallBufferTruncatesSafely )
 {
 	OpaqueBuffer buf( 32 );
 
-	int nWanted = SourceSharpInit_Format( buf.Data(), buf.Size(), "server",
-		kSourceSharpInitStage_Acquire, SOURCESHARP_ERR_RUNTIME_INIT, "detail" );
+	int nWanted = SourceSharpInit_Format( buf.Data(), buf.Size(), "server", kSourceSharpInitStage_Acquire,
+										  SOURCESHARP_ERR_RUNTIME_INIT, "detail" );
 
 	// The WANTED length, not the written one: a caller cannot tell a complete
 	// message from a cut-off one otherwise.
@@ -338,7 +334,7 @@ TEST( ManagedInitFailure, AZeroSizedBufferIsRefused )
 
 	OpaqueBuffer buf( 0 );
 	EXPECT_EQ( 0, SourceSharpInit_Format( buf.Data(), buf.Size(), "server", 0, -1, "d" ) );
-	EXPECT_TRUE( buf.SentinelIntact() );   // untouched
+	EXPECT_TRUE( buf.SentinelIntact() ); // untouched
 }
 
 //=============================================================================//
@@ -390,8 +386,7 @@ TEST( ManagedInitGate, NothingButMarkSucceededClosesIt )
 
 	for ( int i = 0; i < 5; i++ )
 	{
-		EXPECT_TRUE( gate.ShouldRun() )
-			<< "asking closed the gate on pass " << i;
+		EXPECT_TRUE( gate.ShouldRun() ) << "asking closed the gate on pass " << i;
 		EXPECT_FALSE( gate.HasSucceeded() );
 	}
 

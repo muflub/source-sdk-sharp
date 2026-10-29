@@ -44,7 +44,7 @@ public class PlayerStressDamageTests
         engine.Returns("Players.IsAlive", true);
         engine.Returns("Entities.GetSolidFlags", (SolidFlags)0);
 
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
         var player = (SsPlayer)registry.Get(Player)!;
         player.State.BindLocal();
         return (player, engine, services.Require<PhysicsDamageQueue>());

@@ -34,40 +34,38 @@
 // vtable would point at a type_info whose own vtable is the C++ runtime's.
 //=============================================================================//
 #include "ss_fwd_sdk.h"
-#include "fwd_steam.h"
-
-#include <new>
 
 #include "steam/steam_api_common.h"
 #include "imanaged_steam_callback.h"
 
 namespace
 {
-	class SSSteamCallback final : public CCallbackBase
+class SSSteamCallback final : public CCallbackBase
+{
+public:
+	SSSteamCallback( IManagedSteamCallback *pTarget, int nPayloadBytes )
+		: m_pTarget( pTarget )
+		, m_nPayloadBytes( nPayloadBytes )
 	{
-	public:
-		SSSteamCallback( IManagedSteamCallback *pTarget, int nPayloadBytes )
-			: m_pTarget( pTarget ), m_nPayloadBytes( nPayloadBytes )
-		{
-		}
+	}
 
-		void Run( void *pvParam ) override { m_pTarget->Run( pvParam ); }
+	void Run( void *pvParam ) override { m_pTarget->Run( pvParam ); }
 
-		// A call result: stock's CCallback runs the same member function, the
-		// I/O failure and call handle unread.
-		void Run( void *pvParam, bool, SteamAPICall_t ) override { m_pTarget->Run( pvParam ); }
+	// A call result: stock's CCallback runs the same member function, the
+	// I/O failure and call handle unread.
+	void Run( void *pvParam, bool, SteamAPICall_t ) override { m_pTarget->Run( pvParam ); }
 
-		int GetCallbackSizeBytes() override { return m_nPayloadBytes; }
+	int GetCallbackSizeBytes() override { return m_nPayloadBytes; }
 
-		// The flag SteamAPI_RegisterCallback sets and SteamAPI_Unregister-
-		// Callback clears, which stock's CCallback destructor reads to decide
-		// whether to unregister.
-		bool IsRegistered() const { return ( m_nCallbackFlags & k_ECallbackFlagsRegistered ) != 0; }
+	// The flag SteamAPI_RegisterCallback sets and SteamAPI_Unregister-
+	// Callback clears, which stock's CCallback destructor reads to decide
+	// whether to unregister.
+	bool IsRegistered() const { return ( m_nCallbackFlags & k_ECallbackFlagsRegistered ) != 0; }
 
-	private:
-		IManagedSteamCallback *m_pTarget;
-		int m_nPayloadBytes;
-	};
+private:
+	IManagedSteamCallback *m_pTarget;
+	int m_nPayloadBytes;
+};
 }
 
 // How many bytes Construct needs: what managed allocates for one callback.
@@ -90,5 +88,5 @@ CCallbackBase *SSFwd_SteamCallback_Construct( void *pMemory, IManagedSteamCallba
 // Whether Steam holds the callback: unregister it before freeing it only then.
 bool SSFwd_SteamCallback_IsRegistered( CCallbackBase *pCallback )
 {
-	return pCallback && static_cast< SSSteamCallback * >( pCallback )->IsRegistered();
+	return pCallback && static_cast<SSSteamCallback *>( pCallback )->IsRegistered();
 }

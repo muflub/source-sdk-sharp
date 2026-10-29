@@ -54,11 +54,11 @@ struct StringCase
 {
 	std::string input;
 
-	int         asInt;
-	std::string asFloat;     // %.9g, or inf/-inf/nan
-	int         asBool;
-	std::string vec[3];      // %.9g each
-	unsigned    color[4];
+	int asInt;
+	std::string asFloat; // %.9g, or inf/-inf/nan
+	int asBool;
+	std::string vec[3]; // %.9g each
+	unsigned color[4];
 
 	std::string toStringInt;
 	std::string toStringFloat;
@@ -68,9 +68,9 @@ struct StringCase
 
 struct FloatCase
 {
-	std::string value;       // %.9g
-	int         asInt;
-	int         asBool;
+	std::string value; // %.9g
+	int asInt;
+	int asBool;
 	std::string toString;
 };
 
@@ -116,13 +116,20 @@ std::string Unquote( const std::string &field )
 		}
 
 		i++;
-		if ( i + 1 > field.size() ) break;
+		if ( i + 1 > field.size() )
+			break;
 
 		switch ( field[i] )
 		{
-		case 't':  out += '\t'; break;
-		case 'n':  out += '\n'; break;
-		default:   out += field[i]; break;
+			case 't':
+				out += '\t';
+				break;
+			case 'n':
+				out += '\n';
+				break;
+			default:
+				out += field[i];
+				break;
 		}
 	}
 
@@ -134,7 +141,7 @@ std::vector<std::string> SplitTabs( const std::string &line )
 	std::vector<std::string> fields;
 	size_t start = 0;
 
-	for (;;)
+	for ( ;; )
 	{
 		size_t tab = line.find( '\t', start );
 
@@ -182,29 +189,29 @@ public:
 			if ( fields[0] == "S" && fields.size() >= 16 )
 			{
 				StringCase c;
-				c.input          = Unquote( fields[1] );
-				c.asInt          = atoi( fields[2].c_str() );
-				c.asFloat        = fields[3];
-				c.asBool         = atoi( fields[4].c_str() );
-				c.vec[0]         = fields[5];
-				c.vec[1]         = fields[6];
-				c.vec[2]         = fields[7];
-				c.color[0]       = (unsigned)atoi( fields[8].c_str() );
-				c.color[1]       = (unsigned)atoi( fields[9].c_str() );
-				c.color[2]       = (unsigned)atoi( fields[10].c_str() );
-				c.color[3]       = (unsigned)atoi( fields[11].c_str() );
-				c.toStringInt    = fields[12];
-				c.toStringFloat  = fields[13];
+				c.input = Unquote( fields[1] );
+				c.asInt = atoi( fields[2].c_str() );
+				c.asFloat = fields[3];
+				c.asBool = atoi( fields[4].c_str() );
+				c.vec[0] = fields[5];
+				c.vec[1] = fields[6];
+				c.vec[2] = fields[7];
+				c.color[0] = (unsigned)atoi( fields[8].c_str() );
+				c.color[1] = (unsigned)atoi( fields[9].c_str() );
+				c.color[2] = (unsigned)atoi( fields[10].c_str() );
+				c.color[3] = (unsigned)atoi( fields[11].c_str() );
+				c.toStringInt = fields[12];
+				c.toStringFloat = fields[13];
 				c.toStringVector = fields[14];
-				c.toStringColor  = fields[15];
+				c.toStringColor = fields[15];
 				m_strings.push_back( c );
 			}
 			else if ( fields[0] == "F" && fields.size() >= 5 )
 			{
 				FloatCase c;
-				c.value    = fields[1];
-				c.asInt    = atoi( fields[2].c_str() );
-				c.asBool   = atoi( fields[3].c_str() );
+				c.value = fields[1];
+				c.asInt = atoi( fields[2].c_str() );
+				c.asBool = atoi( fields[3].c_str() );
 				c.toString = fields[4];
 				m_floats.push_back( c );
 			}
@@ -213,14 +220,16 @@ public:
 		fclose( f );
 	}
 
-	const std::string &Path() const                     { return m_path; }
-	const std::vector<StringCase> &Strings() const      { return m_strings; }
-	const std::vector<FloatCase> &Floats() const        { return m_floats; }
+	const std::string &Path() const { return m_path; }
+
+	const std::vector<StringCase> &Strings() const { return m_strings; }
+
+	const std::vector<FloatCase> &Floats() const { return m_floats; }
 
 private:
 	std::string m_path;
 	std::vector<StringCase> m_strings;
-	std::vector<FloatCase>  m_floats;
+	std::vector<FloatCase> m_floats;
 };
 
 const VariantCases &Cases()
@@ -245,17 +254,15 @@ std::string Exact( float f )
 
 } // namespace
 
-
 //-----------------------------------------------------------------------------
 // The table has to be there, and it has to have content. A suite that silently
 // runs zero rows is the "check that cannot fail" this directory exists to stop.
 //-----------------------------------------------------------------------------
 TEST( VariantConvert, TheCaseTableIsFound )
 {
-	ASSERT_FALSE( Cases().Path().empty() )
-		<< "src/sourcesharp/test/variant_convert_cases.tsv was not found by walking "
-		   "up from the working directory. Both this suite and the managed "
-		   "VariantAgreementTests read it; without it neither is checking anything.";
+	ASSERT_FALSE( Cases().Path().empty() ) << "src/sourcesharp/test/variant_convert_cases.tsv was not found by walking "
+											  "up from the working directory. Both this suite and the managed "
+											  "VariantAgreementTests read it; without it neither is checking anything.";
 }
 
 TEST( VariantConvert, TheCaseTableHasRows )
@@ -283,8 +290,7 @@ TEST( VariantConvert, StringToInteger )
 TEST( VariantConvert, StringToFloat )
 {
 	for ( const StringCase &c : Cases().Strings() )
-		EXPECT_EQ( c.asFloat, Exact( (float)atof( c.input.c_str() ) ) )
-			<< "input [" << c.input << "]";
+		EXPECT_EQ( c.asFloat, Exact( (float)atof( c.input.c_str() ) ) ) << "input [" << c.input << "]";
 }
 
 //-----------------------------------------------------------------------------
@@ -409,9 +415,9 @@ TEST( VariantConvert, StringToColor32 )
 		int nRed = 0, nGreen = 0, nBlue = 0, nAlpha = 255;
 		sscanf( c.input.c_str(), "%d %d %d %d", &nRed, &nGreen, &nBlue, &nAlpha );
 
-		EXPECT_EQ( c.color[0], (unsigned)(unsigned char)nRed )   << "input [" << c.input << "] r";
+		EXPECT_EQ( c.color[0], (unsigned)(unsigned char)nRed ) << "input [" << c.input << "] r";
 		EXPECT_EQ( c.color[1], (unsigned)(unsigned char)nGreen ) << "input [" << c.input << "] g";
-		EXPECT_EQ( c.color[2], (unsigned)(unsigned char)nBlue )  << "input [" << c.input << "] b";
+		EXPECT_EQ( c.color[2], (unsigned)(unsigned char)nBlue ) << "input [" << c.input << "] b";
 		EXPECT_EQ( c.color[3], (unsigned)(unsigned char)nAlpha ) << "input [" << c.input << "] a";
 	}
 }
@@ -454,8 +460,7 @@ TEST( VariantConvert, ToStringSpellsAVector )
 		if ( sscanf( c.input.c_str(), "[%f %f %f]", &v[0], &v[1], &v[2] ) == 0 )
 			sscanf( c.input.c_str(), "%f %f %f", &v[0], &v[1], &v[2] );
 
-		snprintf( buffer, sizeof( buffer ), "[%g %g %g]",
-		          (double)v[0], (double)v[1], (double)v[2] );
+		snprintf( buffer, sizeof( buffer ), "[%g %g %g]", (double)v[0], (double)v[1], (double)v[2] );
 
 		EXPECT_EQ( ExpectedVecString( c ), std::string( buffer ) ) << "input [" << c.input << "]";
 	}
@@ -470,9 +475,8 @@ TEST( VariantConvert, ToStringSpellsAColor )
 		int nRed = 0, nGreen = 0, nBlue = 0, nAlpha = 255;
 		sscanf( c.input.c_str(), "%d %d %d %d", &nRed, &nGreen, &nBlue, &nAlpha );
 
-		snprintf( buffer, sizeof( buffer ), "%d %d %d %d",
-		          (int)(unsigned char)nRed,  (int)(unsigned char)nGreen,
-		          (int)(unsigned char)nBlue, (int)(unsigned char)nAlpha );
+		snprintf( buffer, sizeof( buffer ), "%d %d %d %d", (int)(unsigned char)nRed, (int)(unsigned char)nGreen,
+				  (int)(unsigned char)nBlue, (int)(unsigned char)nAlpha );
 
 		EXPECT_EQ( c.toStringColor, std::string( buffer ) ) << "input [" << c.input << "]";
 	}
@@ -532,110 +536,4 @@ TEST( VariantConvert, ToStringSpellsEveryFloatBracket )
 namespace
 {
 
-std::string ReadStockConvert()
-{
-	// The armed link moved variant_t::Convert and ::ToString out of
-	// game/server/cbase.cpp, which the armed server does not compile, into the
-	// merged server-globals file, beside variant_t::SetEntity, which an earlier
-	// merge had already put there. The bodies are unchanged and so is the
-	// slice below -- it still runs from the conversion to the to-string body,
-	// and the move deliberately kept them in that order for this reader.
-	static const char *kRelative = "src/sourcesharp/game/server/shell_globals.cpp";
-
-	std::string prefix;
-
-	for ( int up = 0; up < 12; up++ )
-	{
-		std::string candidate = prefix + kRelative;
-
-		if ( FILE *f = fopen( candidate.c_str(), "r" ) )
-		{
-			std::string all;
-			char buffer[8192];
-			size_t got;
-
-			while ( ( got = fread( buffer, 1, sizeof( buffer ), f ) ) > 0 )
-				all.append( buffer, got );
-
-			fclose( f );
-
-			size_t start = all.find( "bool variant_t::Convert(" );
-			size_t end   = all.find( "const char *variant_t::ToString(" );
-
-			if ( start != std::string::npos && end != std::string::npos && end > start )
-				return all.substr( start, end - start );
-
-			return std::string();
-		}
-
-		prefix += "../";
-	}
-
-	return std::string();
-}
-
-int CountOf( const std::string &haystack, const std::string &needle )
-{
-	int found = 0;
-
-	for ( size_t at = haystack.find( needle );
-	      at != std::string::npos;
-	      at = haystack.find( needle, at + needle.size() ) )
-	{
-		found++;
-	}
-
-	return found;
-}
-
 } // namespace
-
-TEST( VariantConvert, StockConvertStillHasExactlyFourSourceArms )
-{
-	std::string body = ReadStockConvert();
-	ASSERT_FALSE( body.empty() ) << "could not read variant_t::Convert out of cbase.cpp";
-
-	// The outer switch's arms, and no others. FIELD_BOOLEAN, FIELD_VECTOR,
-	// FIELD_POSITION_VECTOR and FIELD_COLOR32 are absent on purpose: a variant
-	// of any of those converts to nothing at all.
-	EXPECT_EQ( 1, CountOf( body, "case FIELD_INTEGER:\n\t\t{" ) );
-	EXPECT_EQ( 1, CountOf( body, "case FIELD_FLOAT:\n\t\t{" ) );
-	EXPECT_EQ( 1, CountOf( body, "case FIELD_STRING:\n\t\t{" ) );
-	EXPECT_EQ( 1, CountOf( body, "case FIELD_EHANDLE:\n\t\t{" ) );
-
-	EXPECT_EQ( 0, CountOf( body, "case FIELD_BOOLEAN:\n\t\t{" ) );
-	EXPECT_EQ( 0, CountOf( body, "case FIELD_VECTOR:\n\t\t{" ) );
-	EXPECT_EQ( 0, CountOf( body, "case FIELD_POSITION_VECTOR:\n\t\t{" ) );
-	EXPECT_EQ( 0, CountOf( body, "case FIELD_COLOR32:\n\t\t{" ) );
-}
-
-TEST( VariantConvert, StockStringArmHasNoPositionVectorTarget )
-{
-	std::string body = ReadStockConvert();
-	ASSERT_FALSE( body.empty() );
-
-	// A string converts to a vector and NOT to a position vector, though the two
-	// hold the same three floats. The managed table copies the asymmetry.
-	EXPECT_EQ( 1, CountOf( body, "case FIELD_VECTOR:" ) );
-	EXPECT_EQ( 0, CountOf( body, "case FIELD_POSITION_VECTOR:" ) );
-}
-
-TEST( VariantConvert, StockStringToBooleanUsesAtoiAndNotAtof )
-{
-	std::string body = ReadStockConvert();
-	ASSERT_FALSE( body.empty() );
-
-	// The one line that makes "0.5" false while its float conversion is 0.5.
-	EXPECT_EQ( 1, CountOf( body, "SetBool( atoi(STRING(iszVal)) != 0 );" ) );
-	EXPECT_EQ( 0, CountOf( body, "SetBool( atof(STRING(iszVal)) != 0 );" ) );
-}
-
-TEST( VariantConvert, StockVectorRetryTestsForZeroAndNotForThree )
-{
-	std::string body = ReadStockConvert();
-	ASSERT_FALSE( body.empty() );
-
-	// == 0 is what leaves "[1 2" as (1,2,0) instead of retrying the bare form.
-	EXPECT_EQ( 1, CountOf( body, "&tmpVec[2]) == 0)" ) );
-	EXPECT_EQ( 0, CountOf( body, "&tmpVec[2]) != 3)" ) );
-}

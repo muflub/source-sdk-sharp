@@ -234,7 +234,7 @@ internal unsafe struct EngineSoundFwd : IForwarderTable
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_EngineSound";
 
-    // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
+    // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, soundlevel_t, int, int, int, const Vector *, const Vector *, CUtlVector<Vector> *, bool, float, int )
     public delegate* unmanaged<void*, void*, int, int, byte*, float, int, int, int, int, void*, void*, void*, byte, float, int, void> EmitSound_2;
 
     // void IEngineSound::StopSound( int, int, const char * )
@@ -255,12 +255,12 @@ internal unsafe struct EngineSoundFwd : IForwarderTable
     // void IEngineSound::EmitAmbientSound( const char *, float, int, int, float )
     public delegate* unmanaged<void*, byte*, float, int, int, float, void> EmitAmbientSound;
 
-    // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, float, int, int, int, const Vector *, const Vector *, CUtlVector< Vector > *, bool, float, int )
+    // void IEngineSound::EmitSound( IRecipientFilter &, int, int, const char *, float, float, int, int, int, const Vector *, const Vector *, CUtlVector<Vector> *, bool, float, int )
     public delegate* unmanaged<void*, void*, int, int, byte*, float, float, int, int, int, void*, void*, void*, byte, float, int, void> EmitSound;
 }
 
 /// <summary>
-/// <c>IPhysicsCollision</c> through its forwarders (SSFwd_PhysicsCollision): 6 slot(s).
+/// <c>IPhysicsCollision</c> through its forwarders (SSFwd_PhysicsCollision): 7 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsCollisionFwd : IForwarderTable
@@ -285,6 +285,9 @@ internal unsafe struct PhysicsCollisionFwd : IForwarderTable
 
     // bool IPhysicsCollision::SupportsVirtualMesh( void )
     public delegate* unmanaged<void*, byte> SupportsVirtualMesh;
+
+    // void IPhysicsCollision::CollideGetMassCenter( CPhysCollide *, Vector * )
+    public delegate* unmanaged<void*, void*, void*, void> CollideGetMassCenter;
 }
 
 /// <summary>
@@ -322,7 +325,7 @@ internal unsafe struct PhysicsSurfacePropsFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IPhysicsEnvironment</c> through its forwarders (SSFwd_PhysicsEnvironment): 37 slot(s).
+/// <c>IPhysicsEnvironment</c> through its forwarders (SSFwd_PhysicsEnvironment): 38 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsEnvironmentFwd : IForwarderTable
@@ -440,10 +443,13 @@ internal unsafe struct PhysicsEnvironmentFwd : IForwarderTable
 
     // void IPhysicsEnvironment::SetQuickDelete( bool )
     public delegate* unmanaged<void*, byte, void> SetQuickDelete;
+
+    // IPhysicsObject * IPhysicsEnvironment::CreateSphereObject( float, int, const Vector &, const QAngle &, objectparams_t *, bool )
+    public delegate* unmanaged<void*, float, int, void*, void*, void*, byte, void*> CreateSphereObject;
 }
 
 /// <summary>
-/// <c>IPhysicsObject</c> through its forwarders (SSFwd_PhysicsObject): 54 slot(s).
+/// <c>IPhysicsObject</c> through its forwarders (SSFwd_PhysicsObject): 64 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsObjectFwd : IForwarderTable
@@ -612,10 +618,40 @@ internal unsafe struct PhysicsObjectFwd : IForwarderTable
 
     // void IPhysicsObject::DestroyFrictionSnapshot( IPhysicsFrictionSnapshot * )
     public delegate* unmanaged<void*, void*, void> DestroyFrictionSnapshot;
+
+    // void IPhysicsObject::EnableDrag( bool )
+    public delegate* unmanaged<void*, byte, void> EnableDrag;
+
+    // void IPhysicsObject::SetDamping( const float *, const float * )
+    public delegate* unmanaged<void*, void*, void*, void> SetDamping;
+
+    // void IPhysicsObject::GetDamping( float *, float * )
+    public delegate* unmanaged<void*, void*, void*, void> GetDamping;
+
+    // void IPhysicsObject::SetVelocityInstantaneous( const Vector *, const AngularImpulse * )
+    public delegate* unmanaged<void*, void*, void*, void> SetVelocityInstantaneous;
+
+    // float IPhysicsObject::ComputeShadowControl( const hlshadowcontrol_params_t &, float, float )
+    public delegate* unmanaged<void*, void*, float, float, float> ComputeShadowControl;
+
+    // void IPhysicsObject::SetShadow( float, float, bool, bool )
+    public delegate* unmanaged<void*, float, float, byte, byte, void> SetShadow;
+
+    // void IPhysicsObject::UpdateShadow( const Vector &, const QAngle &, bool, float )
+    public delegate* unmanaged<void*, void*, void*, byte, float, void> UpdateShadow;
+
+    // bool IPhysicsObject::IsHinged( void )
+    public delegate* unmanaged<void*, byte> IsHinged;
+
+    // void IPhysicsObject::BecomeHinged( int )
+    public delegate* unmanaged<void*, int, void> BecomeHinged;
+
+    // void IPhysicsObject::RemoveHinged( void )
+    public delegate* unmanaged<void*, void> RemoveHinged;
 }
 
 /// <summary>
-/// <c>IPhysicsShadowController</c> through its forwarders (SSFwd_PhysicsShadowController): 2 slot(s).
+/// <c>IPhysicsShadowController</c> through its forwarders (SSFwd_PhysicsShadowController): 3 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsShadowControllerFwd : IForwarderTable
@@ -628,6 +664,9 @@ internal unsafe struct PhysicsShadowControllerFwd : IForwarderTable
 
     // void IPhysicsShadowController::GetLastImpulse( Vector * )
     public delegate* unmanaged<void*, void*, void> GetLastImpulse;
+
+    // float IPhysicsShadowController::GetTargetPosition( Vector *, QAngle * )
+    public delegate* unmanaged<void*, void*, void*, float> GetTargetPosition;
 }
 
 /// <summary>
@@ -746,7 +785,7 @@ internal unsafe struct PhysicsFluidControllerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IPhysicsConstraint</c> through its forwarders (SSFwd_PhysicsConstraint): 5 slot(s).
+/// <c>IPhysicsConstraint</c> through its forwarders (SSFwd_PhysicsConstraint): 6 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct PhysicsConstraintFwd : IForwarderTable
@@ -768,6 +807,9 @@ internal unsafe struct PhysicsConstraintFwd : IForwarderTable
 
     // void IPhysicsConstraint::SetAngularMotor( float, float )
     public delegate* unmanaged<void*, float, float, void> SetAngularMotor;
+
+    // void IPhysicsConstraint::Activate( void )
+    public delegate* unmanaged<void*, void> Activate;
 }
 
 /// <summary>
@@ -1094,16 +1136,13 @@ internal unsafe struct ShimConsoleFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimEngine</c> through its forwarders (SSFwd_ShimEngine): 2 slot(s).
+/// <c>IShimEngine</c> through its forwarders (SSFwd_ShimEngine): 1 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimEngineFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimEngine";
-
-    // float IShimEngine::GetCurrentTime( void )
-    public delegate* unmanaged[SuppressGCTransition]<void*, float> GetCurrentTime;
 
     // void * IShimEngine::GetGlobalVarsPtr( void )
     public delegate* unmanaged<void*, void*> GetGlobalVarsPtr;
@@ -1290,16 +1329,13 @@ internal unsafe struct ShimMovementServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimWorldServer</c> through its forwarders (SSFwd_ShimWorldServer): 4 slot(s).
+/// <c>IShimWorldServer</c> through its forwarders (SSFwd_ShimWorldServer): 3 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimWorldServerFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimWorldServer";
-
-    // void IShimWorldServer::AngleVectorsFromForward( const float *, float *, float * )
-    public delegate* unmanaged<void*, void*, void*, void*, void> AngleVectorsFromForward;
 
     // int32_t IShimWorldServer::EntityModelSurfaceProp( uint32_t )
     public delegate* unmanaged<void*, uint, int> EntityModelSurfaceProp;
@@ -1312,7 +1348,7 @@ internal unsafe struct ShimWorldServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimEntitiesServer</c> through its forwarders (SSFwd_ShimEntitiesServer): 20 slot(s).
+/// <c>IShimEntitiesServer</c> through its forwarders (SSFwd_ShimEntitiesServer): 21 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimEntitiesServerFwd : IForwarderTable
@@ -1379,6 +1415,9 @@ internal unsafe struct ShimEntitiesServerFwd : IForwarderTable
 
     // int32_t IShimEntitiesServer::EntitiesStandalonePlayerSkyboxArea( int32_t, int32_t * )
     public delegate* unmanaged<void*, int, void*, int> EntitiesStandalonePlayerSkyboxArea;
+
+    // void IShimEntitiesServer::EntitySetClassName( uint32_t, const char * )
+    public delegate* unmanaged<void*, uint, byte*, void> EntitySetClassName;
 }
 
 /// <summary>
@@ -1434,7 +1473,7 @@ internal unsafe struct ShimEntityLifecycleFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimTransform</c> through its forwarders (SSFwd_ShimTransform): 13 slot(s).
+/// <c>IShimTransform</c> through its forwarders (SSFwd_ShimTransform): 12 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimTransformFwd : IForwarderTable
@@ -1468,9 +1507,6 @@ internal unsafe struct ShimTransformFwd : IForwarderTable
 
     // void IShimTransform::EntityGetEyeAngles( uint32_t, float * )
     public delegate* unmanaged[SuppressGCTransition]<void*, uint, void*, void> EntityGetEyeAngles;
-
-    // void IShimTransform::EntityGetWorldSpaceCenter( uint32_t, float * )
-    public delegate* unmanaged<void*, uint, void*, void> EntityGetWorldSpaceCenter;
 
     // float IShimTransform::EntityGetGravity( uint32_t )
     public delegate* unmanaged<void*, uint, float> EntityGetGravity;
@@ -1514,16 +1550,13 @@ internal unsafe struct ShimHierarchyFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimCollisionServer</c> through its forwarders (SSFwd_ShimCollisionServer): 10 slot(s).
+/// <c>IShimCollisionServer</c> through its forwarders (SSFwd_ShimCollisionServer): 8 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimCollisionServerFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimCollisionServer";
-
-    // void IShimCollision::RegisterCollisionRules( const SourceSharpCollisionRules * )
-    public delegate* unmanaged<void*, void*, void> RegisterCollisionRules;
 
     // void IShimCollisionServer::EntityGetBounds( uint32_t, float *, float * )
     public delegate* unmanaged<void*, uint, void*, void*, void> EntityGetBounds;
@@ -1534,14 +1567,8 @@ internal unsafe struct ShimCollisionServerFwd : IForwarderTable
     // void IShimCollisionServer::EntitySetBounds( uint32_t, const float *, const float * )
     public delegate* unmanaged<void*, uint, void*, void*, void> EntitySetBounds;
 
-    // int32_t IShimCollisionServer::EntityGetSolidType( uint32_t )
-    public delegate* unmanaged<void*, uint, int> EntityGetSolidType;
-
     // void IShimCollisionServer::EntitySetSolidity( uint32_t, int32_t, int32_t )
     public delegate* unmanaged<void*, uint, int, int, void> EntitySetSolidity;
-
-    // int32_t IShimCollisionServer::EntityGetSolidFlags( uint32_t )
-    public delegate* unmanaged<void*, uint, int> EntityGetSolidFlags;
 
     // int32_t IShimCollisionServer::EntityGetCollisionGroup( uint32_t )
     public delegate* unmanaged<void*, uint, int> EntityGetCollisionGroup;
@@ -1551,6 +1578,9 @@ internal unsafe struct ShimCollisionServerFwd : IForwarderTable
 
     // int32_t IShimCollisionServer::EntityOverlapReport( uint32_t *, int32_t )
     public delegate* unmanaged<void*, void*, int, int> EntityOverlapReport;
+
+    // void IShimCollisionServer::EntitySetTriggerBloat( uint32_t, int32_t, int32_t )
+    public delegate* unmanaged<void*, uint, int, int, void> EntitySetTriggerBloat;
 }
 
 /// <summary>
@@ -1617,7 +1647,7 @@ internal unsafe struct ShimGameRulesFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimPlayers</c> through its forwarders (SSFwd_ShimPlayers): 9 slot(s).
+/// <c>IShimPlayers</c> through its forwarders (SSFwd_ShimPlayers): 7 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimPlayersFwd : IForwarderTable
@@ -1627,9 +1657,6 @@ internal unsafe struct ShimPlayersFwd : IForwarderTable
 
     // uint32_t IShimPlayers::GetPlayerHandle( int32_t )
     public delegate* unmanaged[SuppressGCTransition]<void*, int, uint> GetPlayerHandle;
-
-    // int32_t IShimPlayers::GetPlayerTeam( uint32_t )
-    public delegate* unmanaged[SuppressGCTransition]<void*, uint, int> GetPlayerTeam;
 
     // int32_t IShimPlayers::PlayerIsAlive( uint32_t )
     public delegate* unmanaged[SuppressGCTransition]<void*, uint, int> PlayerIsAlive;
@@ -1648,22 +1675,16 @@ internal unsafe struct ShimPlayersFwd : IForwarderTable
 
     // int32_t IShimPlayers::ClientsStandalonePlayerEarPosition( int32_t, float * )
     public delegate* unmanaged<void*, int, void*, int> ClientsStandalonePlayerEarPosition;
-
-    // void IShimPlayers::PlayerSetTeam( uint32_t, int32_t )
-    public delegate* unmanaged<void*, uint, int, void> PlayerSetTeam;
 }
 
 /// <summary>
-/// <c>IShimEffectsServer</c> through its forwarders (SSFwd_ShimEffectsServer): 2 slot(s).
+/// <c>IShimEffectsServer</c> through its forwarders (SSFwd_ShimEffectsServer): 1 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimEffectsServerFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimEffectsServer";
-
-    // void IShimEffectsServer::BloodEffect( const float *, const float *, int32_t, float, int32_t, int32_t )
-    public delegate* unmanaged<void*, void*, void*, int, float, int, int, void> BloodEffect;
 
     // int32_t IShimEffectsServer::TempEntBuild( const void *, int32_t, SourceSharpTeBuiltTable_t * )
     public delegate* unmanaged<void*, void*, int, void*, int> TempEntBuild;
@@ -1834,19 +1855,6 @@ internal unsafe struct ShimEntitiesFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimCollision</c> through its forwarders (SSFwd_ShimCollision): 1 slot(s).
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-internal unsafe struct ShimCollisionFwd : IForwarderTable
-{
-    /// <summary>The name native serves the table under.</summary>
-    public static string TableName => "SSFwd_ShimCollision";
-
-    // void IShimCollision::RegisterCollisionRules( const SourceSharpCollisionRules * )
-    public delegate* unmanaged<void*, void*, void> RegisterCollisionRules;
-}
-
-/// <summary>
 /// <c>IShimHudClient</c> through its forwarders (SSFwd_ShimHudClient): 5 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
@@ -1943,7 +1951,7 @@ internal unsafe struct ShimTempEntPoolClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimTempEntBackendsClient</c> through its forwarders (SSFwd_ShimTempEntBackendsClient): 17 slot(s).
+/// <c>IShimTempEntBackendsClient</c> through its forwarders (SSFwd_ShimTempEntBackendsClient): 21 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
@@ -1975,9 +1983,6 @@ internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
     // int32_t IShimTempEntBackendsClient::ClientEntityModelType( int32_t )
     public delegate* unmanaged<void*, int, int> ClientEntityModelType;
 
-    // int32_t IShimTempEntBackendsClient::ClientIsLowViolence( void )
-    public delegate* unmanaged<void*, int> ClientIsLowViolence;
-
     // void IShimTempEntBackendsClient::ClientMetalSparks( const float *, const float * )
     public delegate* unmanaged<void*, void*, void*, void> ClientMetalSparks;
 
@@ -2001,6 +2006,21 @@ internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
 
     // int32_t IShimTempEntBackendsClient::TempEntBuildClient( const void *, int32_t, int32_t, SourceSharpTeRecvBuilt_t * )
     public delegate* unmanaged<void*, void*, int, int, void*, int> TempEntBuildClient;
+
+    // int32_t IShimTempEntBackendsClient::ClientShotTrace( const float *, const float *, int32_t, float *, int32_t, int32_t *, int32_t )
+    public delegate* unmanaged<void*, void*, void*, int, void*, int, void*, int, int> ClientShotTrace;
+
+    // void IShimTempEntBackendsClient::ClientWorldLighting( const float *, const float *, float * )
+    public delegate* unmanaged<void*, void*, void*, void*, void> ClientWorldLighting;
+
+    // void IShimTempEntBackendsClient::ClientStaticPropLighting( const float *, const float *, const float *, int32_t, float * )
+    public delegate* unmanaged<void*, void*, void*, void*, int, void*, void> ClientStaticPropLighting;
+
+    // void IShimTempEntBackendsClient::ClientImpactLedger( int32_t, int32_t )
+    public delegate* unmanaged<void*, int, int, void> ClientImpactLedger;
+
+    // void IShimTempEntBackendsClient::ClientPlayerLogoDecal( const float *, int32_t, int32_t, const char *, const char * )
+    public delegate* unmanaged<void*, void*, int, int, byte*, byte*, void> ClientPlayerLogoDecal;
 }
 
 /// <summary>
@@ -2101,7 +2121,7 @@ internal unsafe struct ShimEffectsRenderClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimStandaloneClient</c> through its forwarders (SSFwd_ShimStandaloneClient): 20 slot(s).
+/// <c>IShimStandaloneClient</c> through its forwarders (SSFwd_ShimStandaloneClient): 24 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
@@ -2145,9 +2165,6 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
     // int32_t IShimStandaloneClient::StandaloneShadowCast( uint32_t, int32_t * )
     public delegate* unmanaged<void*, uint, void*, int> StandaloneShadowCast;
 
-    // void IShimStandaloneClient::SurfaceSetEdges( uint32_t, const unsigned char *, int32_t )
-    public delegate* unmanaged<void*, uint, byte*, int, void> SurfaceSetEdges;
-
     // int32_t IShimStandaloneClient::ClientRecvProp( int32_t, char *, int32_t, char *, int32_t, char *, int32_t, int32_t *, int32_t *, int32_t *, int32_t * )
     public delegate* unmanaged<void*, int, byte*, int, byte*, int, byte*, int, void*, void*, void*, void*, int> ClientRecvProp;
 
@@ -2168,10 +2185,25 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
 
     // void IShimStandaloneClient::RegisterAmmoType( const char *, int32_t, int32_t, int32_t, float, float )
     public delegate* unmanaged<void*, byte*, int, int, int, float, float, void> RegisterAmmoType;
+
+    // int32_t IShimStandaloneClient::StandaloneSurroundingBounds( const uint32_t *, int32_t, float * )
+    public delegate* unmanaged<void*, void*, int, void*, int> StandaloneSurroundingBounds;
+
+    // int32_t IShimStandaloneClient::SurfaceMaterialFacts( uint32_t, char *, int32_t, char *, int32_t, int32_t * )
+    public delegate* unmanaged<void*, uint, byte*, int, byte*, int, void*, int> SurfaceMaterialFacts;
+
+    // void IShimStandaloneClient::SurfaceSetMaterials( uint32_t, const char *, int32_t, int32_t )
+    public delegate* unmanaged<void*, uint, byte*, int, int, void> SurfaceSetMaterials;
+
+    // void IShimStandaloneClient::SurfaceSetPlan( uint32_t, const int32_t *, int32_t )
+    public delegate* unmanaged<void*, uint, void*, int, void> SurfaceSetPlan;
+
+    // void IShimStandaloneClient::ClientInterpAdmitted( const uint32_t *, int32_t )
+    public delegate* unmanaged<void*, void*, int, void> ClientInterpAdmitted;
 }
 
 /// <summary>
-/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 24 slot(s).
+/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 29 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimViewClientFwd : IForwarderTable
@@ -2190,9 +2222,6 @@ internal unsafe struct ShimViewClientFwd : IForwarderTable
 
     // void IShimViewClient::GetLightForPointFast( void *, const float *, int32_t, float * )
     public delegate* unmanaged<void*, void*, void*, int, void*, void> GetLightForPointFast;
-
-    // int32_t IShimViewClient::ClientColorCorrection( int32_t, int32_t, const char *, float )
-    public delegate* unmanaged<void*, int, int, byte*, float, int> ClientColorCorrection;
 
     // void IShimViewClient::ClientSetWorldRenderState( int32_t, const float *, int32_t )
     public delegate* unmanaged<void*, int, void*, int, void> ClientSetWorldRenderState;
@@ -2250,6 +2279,24 @@ internal unsafe struct ShimViewClientFwd : IForwarderTable
 
     // int32_t IShimViewClient::GlowMaterialFind( const char *, const char * )
     public delegate* unmanaged<void*, byte*, byte*, int> GlowMaterialFind;
+
+    // void * IShimViewClient::ColorLookupAdd( const char * )
+    public delegate* unmanaged<void*, byte*, void*> ColorLookupAdd;
+
+    // void IShimViewClient::ColorLookupSetWeight( void *, float )
+    public delegate* unmanaged<void*, void*, float, void> ColorLookupSetWeight;
+
+    // void IShimViewClient::ColorLookupRemove( void * )
+    public delegate* unmanaged<void*, void*, void> ColorLookupRemove;
+
+    // void IShimViewClient::ColorLookupResetWeights( void )
+    public delegate* unmanaged<void*, void> ColorLookupResetWeights;
+
+    // int32_t IShimViewClient::ClientClipRayToEntities( const float *, const float *, int32_t, const int32_t *, int32_t, float *, float *, float *, int32_t *, int32_t *, int32_t *, int32_t * )
+    public delegate* unmanaged<void*, void*, void*, int, void*, int, void*, void*, void*, void*, void*, void*, void*, int> ClientClipRayToEntities;
+
+    // int32_t IShimViewClient::ClientTraceHullEntities( const float *, const float *, const float *, const float *, int32_t, int32_t, const int32_t *, int32_t, float *, float *, int32_t *, float * )
+    public delegate* unmanaged<void*, void*, void*, void*, void*, int, int, void*, int, void*, void*, void*, void*, int> ClientTraceHullEntities;
 }
 
 /// <summary>
@@ -2380,7 +2427,7 @@ internal unsafe struct ShimUiClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimParticlesClient</c> through its forwarders (SSFwd_ShimParticlesClient): 19 slot(s).
+/// <c>IShimParticlesClient</c> through its forwarders (SSFwd_ShimParticlesClient): 20 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimParticlesClientFwd : IForwarderTable
@@ -2444,6 +2491,9 @@ internal unsafe struct ShimParticlesClientFwd : IForwarderTable
 
     // int32_t IShimParticlesClient::ParticlesBrushPointContents( uint32_t, const float * )
     public delegate* unmanaged<void*, uint, void*, int> ParticlesBrushPointContents;
+
+    // int32_t IShimParticlesClient::ParticleSystemImpact( const char *, const float *, int32_t, float, const float * )
+    public delegate* unmanaged<void*, byte*, void*, int, float, void*, int> ParticleSystemImpact;
 }
 
 /// <summary>

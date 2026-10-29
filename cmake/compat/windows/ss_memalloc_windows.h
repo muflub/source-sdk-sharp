@@ -23,8 +23,7 @@
 // #include of it a no-op and these definitions follow its declarations.
 //=============================================================================//
 
-#ifndef SS_MEMALLOC_WINDOWS_H
-#define SS_MEMALLOC_WINDOWS_H
+#pragma once
 
 #if defined( _WIN32 ) && defined( NO_MALLOC_OVERRIDE ) && !defined( STEAM )
 
@@ -96,5 +95,3 @@ inline void *MemAlloc_ReallocAligned( void *ptr, size_t nSize, size_t align )
 }
 
 #endif // _WIN32 && NO_MALLOC_OVERRIDE && !STEAM
-
-#endif // SS_MEMALLOC_WINDOWS_H

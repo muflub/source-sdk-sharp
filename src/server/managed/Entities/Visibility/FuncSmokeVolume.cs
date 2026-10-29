@@ -43,7 +43,7 @@ public sealed class FuncSmokeVolume : ScriptedEntity
         // Passable and undrawn, but still SOLID_BSP underneath — which is what
         // BrushSolidity leaves it as. The client reads the brush's own bounds to
         // work out how many cells of smoke fit in it.
-        SetSolidity(BrushSolidity.None);
+        SetSolidNone();
         SetVisible(false);
 
         State.Red1   = ToByte(Vars.Color1.X);

@@ -11,7 +11,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// ss_entityflame: the fire attached to something that is burning.
+/// entityflame: the fire attached to something that is burning.
 ///
 /// <para>
 /// It replaces <c>entityflame</c>, which was a native <c>CEntityFlame</c> paired
@@ -40,7 +40,7 @@ namespace SourceSharp.Server;
 /// contain zero of them. The name a mapper writes is
 /// <c>env_entity_igniter</c>, which stock ALSO binds to <c>CEntityFlame</c> and
 /// which this mod has had as its own managed class for some time. There is no
-/// mapper-facing contract here to preserve. <c>ss_firesmoke</c>'s precedent.
+/// mapper-facing contract here to preserve. <c>_firesmoke</c>'s precedent.
 /// </para>
 ///
 /// <para>
@@ -55,7 +55,7 @@ namespace SourceSharp.Server;
 /// flame is.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsEntityFlame, ScriptedEntityKind.Effect)]
+[ScriptedEntity(EntityNames.EntityFlame, ScriptedEntityKind.Effect)]
 public sealed class SsEntityFlame : ScriptedEntity
 {
     public SsEntityFlame(IGameClock clock, IEngineDamage damage, IEngineSound sound,
@@ -115,6 +115,9 @@ public sealed class SsEntityFlame : ScriptedEntity
     /// <summary>When it goes out, on the server clock.</summary>
     public float ExpiresAt => _expiresAt;
 
+    /// <summary>CEntityFlame::GetRemainingLife: how long it has left to burn.</summary>
+    public float RemainingLife => _expiresAt - Clock.Now;
+
     /// <summary>
     /// Attaches this flame to something and starts it burning — stock's
     /// <c>CEntityFlame::Create</c> and <c>AttachToEntity</c> in one, because
@@ -153,7 +156,7 @@ public sealed class SsEntityFlame : ScriptedEntity
             // flame burns at the place it was lit and never moves, which looks
             // like a flame that is drawing in the wrong place rather than like
             // a refusal.
-            Log.Warning($"[SourceSharp] ss_entityflame: could not parent to what it is burning\n");
+            Log.Warning($"[SourceSharp] entityflame: could not parent to what it is burning\n");
         }
 
         // Stock's split, and it is about what is burning rather than about how:
@@ -175,6 +178,12 @@ public sealed class SsEntityFlame : ScriptedEntity
     /// now and not an absolute time, however its callers spell it.
     /// </summary>
     public void SetLifetime(float lifetime) => _expiresAt = FlameRules.ExpiryFor(Clock.Now, lifetime);
+
+    /// <summary>m_iNumHitboxFires: what a burning prop's gibs are set alight with (stock's default 10).</summary>
+    public int NumHitboxFires { get; set; } = 10;
+
+    /// <summary>m_flHitboxFireScale: the same, for their size (stock's default 1).</summary>
+    public float HitboxFireScale { get; set; } = 1f;
 
     /// <summary>
     /// Burn, hurt, warm — stock's <c>FlameThink</c>, on stock's interval.

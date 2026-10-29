@@ -139,6 +139,38 @@ public class UiLayoutTests
     }
 
     [Fact]
+    public void AtRes_places_an_art_element_at_its_stock_coordinate()
+    {
+        // hudplayerclass.res in du (×2.25): the character bg at xpos 20.25,
+        // r135 and the portrait at 56.25, r198 of the player-status canvas —
+        // the child's own edges at those distances from the named corner.
+        var ctx = Context();
+        Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) =>
+        {
+            using (ui.Box().At(UiAnchor.BottomLeft).Size(Size.Du(440), Size.Du(500)).Name("canvas"))
+            {
+                ui.Rect(Tone.Surface, Size.Du(225), Size.Du(112.5f))
+                    .AtRes(UiAnchor.BottomLeft, 20.25f, 135f).Name("bg");
+                ui.Rect(Tone.Accent, Size.Du(168.75f), Size.Du(168.75f))
+                    .AtRes(UiAnchor.BottomLeft, 56.25f, 198f).Name("portrait");
+                ui.Rect(Tone.Accent, Size.Du(40), Size.Du(20))
+                    .AtRes(UiAnchor.TopRight, 10f, 12f).Name("corner");
+            }
+        });
+
+        var canvas = Named(ctx, "canvas").Rect;
+        var bg = Named(ctx, "bg").Rect;
+        Near(canvas.X + 20.25f, bg.X, "bg left");
+        Near(canvas.Y + canvas.H - 135f, bg.Y + bg.H, "bg bottom");
+        var portrait = Named(ctx, "portrait").Rect;
+        Near(canvas.X + 56.25f, portrait.X, "portrait left");
+        Near(canvas.Y + canvas.H - 198f, portrait.Y + portrait.H, "portrait bottom");
+        var corner = Named(ctx, "corner").Rect;
+        Near(canvas.X + canvas.W - 10f, corner.X + corner.W, "corner right");
+        Near(canvas.Y + 12f, corner.Y, "corner top");
+    }
+
+    [Fact]
     public void Nested_clips_intersect_down_the_tree_in_the_list_and_the_svg()
     {
         var ctx = Context();

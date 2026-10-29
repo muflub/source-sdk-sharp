@@ -110,7 +110,7 @@ public struct TempEntStatics
     /// branch is also UNREACHABLE here: <c>m_pszImpactEffect</c> is only ever
     /// set by <c>CTempEnts::ClientProjectile</c>'s optional
     /// <c>pszImpactEffect</c> parameter, and both live callers leave it at its
-    /// NULL default — which <c>tempent_verdict_test.cpp</c> asserts.
+    /// NULL default.
     /// </para>
     ///
     /// <para>

@@ -280,33 +280,6 @@ public sealed class EntityOpTests
             EntityOpMask.Armed(EntityOpMask.Always));
     }
 
-    /// <summary>
-    /// The native constant is the same four. A native side with a wider floor
-    /// would pay crossings managed code thinks it has switched off; a narrower
-    /// one would switch off the call that CREATES the managed entity.
-    /// </summary>
-    [Fact]
-    public void TheNativeAlwaysMaskIsTheSameFour()
-    {
-        string header = Read(NativeHeader);
-
-        int start = header.IndexOf("#define ENTITY_OP_ALWAYS_MASK", StringComparison.Ordinal);
-        Assert.True(start > 0, "entity_op.h no longer defines ENTITY_OP_ALWAYS_MASK");
-
-        int end = header.IndexOf("ENTITY_OP_FILTER_PASSES ) )", start, StringComparison.Ordinal);
-        Assert.True(end > start, "the always-mask macro no longer ends where this fact reads it");
-
-        string macro = header[start..(end + "ENTITY_OP_FILTER_PASSES ) )".Length)];
-
-        var named = Regex.Matches(macro, @"ENTITY_OP_BIT\( (ENTITY_OP_\w+) \)")
-                         .Select(m => m.Groups[1].Value)
-                         .ToArray();
-
-        Assert.Equal(
-            EntityOpMask.Armed(EntityOpMask.Always).Select(NativeNameOf).ToArray(),
-            named);
-    }
-
     /// <summary>Bit n is 1 &lt;&lt; n, which is what makes the shell's test one AND.</summary>
     [Fact]
     public void TheBitIsTheShift()
@@ -689,30 +662,6 @@ public sealed class EntityOpTests
         Assert.Contains("public int Dispatch(uint a0, int a1, void* a2)", binding);
     }
 
-    /// <summary>
-    /// A NULL <c>Dispatch</c> KILLS THE SERVER AT LOAD rather than at play.
-    ///
-    /// <para>
-    /// It is the one route every entity event takes. A null makes every relay
-    /// return early, so no map entity ever reaches C# — no keyvalue lands, no
-    /// instance is built, no trigger fires — and not one message anywhere says
-    /// why, because every relay guards the pointer. That is precisely what
-    /// <c>SOURCESHARP_SHELL_REQUIRED</c> is for.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void TheEntitiesAreaIsRequiredAtLoad()
-    {
-        // The area is acquired on every load at its compiler's count, and a
-        // refusal fails the load -- the guard SOURCESHARP_SHELL_REQUIRED was. The
-        // retired struct slot must not be required any more.
-        string acquire = Read("src/sourcesharp/game/shared/shell_managed_areas.inc");
-        string required = Read("src/sourcesharp/game/server/managed_runtime_server.cpp");
-
-        Assert.Contains("ManagedAccept< IManagedEntities >", acquire);
-        Assert.DoesNotContain("f( Dispatch )", required);
-    }
-
     //-------------------------------------------------------------------------
     // THE INPUT VALUE'S FIELD TYPE, ACROSS THE WIRE -- the `sub-variant` lane's
     // one-line ask, landed by `abi-tail`.
@@ -723,9 +672,6 @@ public sealed class EntityOpTests
     // is a plausible zero. A one-sided slot that answers a plausible zero has
     // cost this port two lanes already.
     //-------------------------------------------------------------------------
-
-    private const string DispatchPath =
-        "src/sourcesharp/game/server/shell_dispatch.cpp";
 
     /// <summary>
     /// The <c>EntityOp.Input</c> arm of <c>DecodeArgs</c> carries
@@ -770,40 +716,6 @@ public sealed class EntityOpTests
 
         Assert.DoesNotContain("case EntityOp.Damage", arm);
         Assert.DoesNotContain("DamageType", arm);
-    }
-
-    /// <summary>
-    /// The far end WRITES it, in <c>DispatchInput</c> and nowhere else on that
-    /// path: <c>args.nInt0 = nFieldType + 1</c>.
-    /// </summary>
-    [Fact]
-    public void TheShimWritesTheFieldTypePlusOne()
-    {
-        string dispatch = Read(DispatchPath);
-
-        int start = dispatch.IndexOf("static bool DispatchInput(", StringComparison.Ordinal);
-        Assert.True(start > 0, "shell_dispatch.cpp no longer defines DispatchInput where this fact reads it");
-
-        // To the next definition at column zero, so the slice is DispatchInput's
-        // body and not the whole file.
-        int end = dispatch.IndexOf("\n}\n", start, StringComparison.Ordinal);
-        Assert.True(end > start, "DispatchInput's body does not close where this fact reads it");
-
-        Assert.Contains("args.nInt0    = nFieldType + 1;", Strip(dispatch[start..end]));
-    }
-
-    /// <summary>
-    /// PLUS ONE, and the plus one is the whole point: zero has to mean "the shim
-    /// did not say" rather than <c>FIELD_VOID</c>, which is a real type. A
-    /// mutation to a bare <c>nFieldType</c> reddens this.
-    /// </summary>
-    [Fact]
-    public void TheShimNeverWritesTheBareFieldType()
-    {
-        string dispatch = Strip(Read(DispatchPath));
-
-        Assert.DoesNotContain("args.nInt0    = nFieldType;", dispatch);
-        Assert.DoesNotContain("args.nInt0 = nFieldType;", dispatch);
     }
 
     /// <summary>

@@ -931,3 +931,15 @@ WHAT THE REMOVALS LEFT UNREFERENCED, for a later pass rather than this one
 (they are game logic, not ABI): `ShellLessRoutes.Find`,
 `PropData.RandomChunkModel`, the `Templates.Add` the map parse used,
 `PhysRagdollMagnet.Best`, and `C_StandaloneEntity::SetShadowCast`.
+
+## Lane M1-A (2026-10-25): client native decisions to managed
+
+Removed in the lane's own commits, each with its generators run (`tools/shim-areas
+--write`, `tools/engine-forwarders --write --reorder`: a deliberate break, rebuild both
+sides), because `ShimAreaTypedCallsTests.EveryTypedAreaCallHasAProductCaller` holds no
+uncalled slot:
+
+| family | slot | table | why it went |
+|---|---|---|---|
+| shim areas | `ClientColorCorrection` | IShimViewClient | the colour-correction handle table and its op dispatcher are managed's (`ColorLookupTable` in the client's `EngineVisibility`), over the four appended `ColorLookup*` slots that take the render context's opaque handle; `SourceSharpColorCorrectionOp` and `ColorCorrectionOp` went with it |
+| shim areas | `SurfaceSetEdges` | IShimStandaloneClient | the cracked edges ride `SurfaceSetPlan` (BreakableSurfaceDraw's plan); `IEngineBrushMovement.SetSurfaceEdges`, its client binding, the server's refusal in `ManagedBrushMovement` and `PaneEdges.Pack` went with it |

@@ -103,6 +103,41 @@ public static class PlayerFeedbackSounds
 }
 
 /// <summary>
+/// The player's water noises (<c>CBasePlayer::Precache</c>, player.cpp:5217):
+/// the gasp after drowning, its continuation, the wade in and out, and the
+/// client's underwater ambience. SsPlayer's WaterMove plays the first and
+/// the wade.
+/// </summary>
+[Precache(PrecacheKind.Sound, "Player.DrownStart")]
+[Precache(PrecacheKind.Sound, "Player.DrownContinue")]
+[Precache(PrecacheKind.Sound, "Player.Wade")]
+[Precache(PrecacheKind.Sound, "Player.AmbientUnderWater")]
+public static class PlayerWaterSounds
+{
+}
+
+/// <summary>
+/// The +USE noises (<c>CHL2_Player::Precache</c>, hl2_player.cpp:436, :441):
+/// a press that found something, and one that found nothing. PlayerUse plays them.
+/// </summary>
+[Precache(PrecacheKind.Sound, "HL2Player.Use")]
+[Precache(PrecacheKind.Sound, "HL2Player.UseDeny")]
+public static class PlayerUseSounds
+{
+}
+
+/// <summary>
+/// The sprint's two noises (<c>CHL2_Player::Precache</c>, hl2_player.cpp:434):
+/// the start, and the click when the suit has too little power for one. The
+/// movement loop's HL2 player plays them (GameMovement.Hl2Player).
+/// </summary>
+[Precache(PrecacheKind.Sound, "HL2Player.SprintNoPower")]
+[Precache(PrecacheKind.Sound, "HL2Player.SprintStart")]
+public static class SprintSounds
+{
+}
+
+/// <summary>
 /// The five noises the weapon-selection HUD makes.
 ///
 /// <para>

@@ -35,8 +35,7 @@
 //
 //=============================================================================
 
-#ifndef SS_GLOWOVERLAY_HARNESS_H
-#define SS_GLOWOVERLAY_HARNESS_H
+#pragma once
 
 #include <stdio.h>
 #include <float.h>
@@ -74,6 +73,7 @@ struct GlowGlobals_t
 	float frametime;
 	float curtime;
 };
+
 extern GlowGlobals_t *gpGlobals;
 
 //-----------------------------------------------------------------------------
@@ -83,8 +83,11 @@ class CAutoGameSystem
 {
 public:
 	explicit CAutoGameSystem( const char *pszName ) {}
+
 	virtual ~CAutoGameSystem() {}
+
 	virtual void LevelInitPreEntity() {}
+
 	virtual void LevelShutdownPostEntity() {}
 };
 
@@ -107,6 +110,7 @@ public:
 	const CViewSetup *GetViewSetup() const;
 	VPlane *GetFrustum();
 };
+
 extern CGlowViewRender *view;
 
 bool R_CullSphere( VPlane const *pPlanes, int nPlanes, Vector const *pCenter, float radius );
@@ -131,10 +135,11 @@ public:
 	IHandleEntity *m_pEnt;
 	int hitbox;
 };
+
 typedef CGameTrace trace_t;
 
-void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask,
-                     const IHandleEntity *ignore, int collisionGroup, trace_t *ptr );
+void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask, const IHandleEntity *ignore,
+					 int collisionGroup, trace_t *ptr );
 
 //-----------------------------------------------------------------------------
 // VPROF (tier0/vprof.h is shadowed by glowoverlay_stub/tier0/vprof.h).
@@ -151,14 +156,15 @@ struct GlowPrecache_t
 	GlowPrecache_t( const char *pszName, const char *const *ppszMaterials, int nMaterials );
 };
 
-#define CLIENTEFFECT_REGISTER_BEGIN( className ) \
-	namespace className {                        \
+#define CLIENTEFFECT_REGISTER_BEGIN( className )             \
+	namespace className                                      \
+	{                                                        \
 	static const char *const s_pszRegisterName = #className; \
 	static const char *const s_pszRegisterMaterials[] = {
 #define CLIENTEFFECT_MATERIAL( materialName ) materialName,
-#define CLIENTEFFECT_REGISTER_END() \
-	};                              \
-	static GlowPrecache_t s_Register( s_pszRegisterName, s_pszRegisterMaterials, ARRAYSIZE( s_pszRegisterMaterials ) ); \
+#define CLIENTEFFECT_REGISTER_END()                                              \
+	}                                                                            \
+	;                                                                            \
+	static GlowPrecache_t s_Register( s_pszRegisterName, s_pszRegisterMaterials, \
+									  ARRAYSIZE( s_pszRegisterMaterials ) );     \
 	}
-
-#endif // SS_GLOWOVERLAY_HARNESS_H

@@ -82,9 +82,9 @@ std::string FindCases()
 	return std::string();
 }
 
-std::vector< Row > LoadCases()
+std::vector<Row> LoadCases()
 {
-	std::vector< Row > rows;
+	std::vector<Row> rows;
 
 	const std::string path = FindCases();
 	if ( path.empty() )
@@ -102,14 +102,11 @@ std::vector< Row > LoadCases()
 
 		char name[128];
 		Row r;
-		int n = sscanf( line,
-		                "%127s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
-		                name,
-		                &r.pOrg[0], &r.pOrg[1], &r.pOrg[2], &r.pAng[0], &r.pAng[1], &r.pAng[2],
-		                &r.cOrg[0], &r.cOrg[1], &r.cOrg[2], &r.cAng[0], &r.cAng[1], &r.cAng[2],
-		                &r.nOrg[0], &r.nOrg[1], &r.nOrg[2], &r.nAng[0], &r.nAng[1], &r.nAng[2],
-		                &r.outOrg[0], &r.outOrg[1], &r.outOrg[2],
-		                &r.outAng[0], &r.outAng[1], &r.outAng[2] );
+		int n = sscanf( line, "%127s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f", name,
+						&r.pOrg[0], &r.pOrg[1], &r.pOrg[2], &r.pAng[0], &r.pAng[1], &r.pAng[2], &r.cOrg[0], &r.cOrg[1],
+						&r.cOrg[2], &r.cAng[0], &r.cAng[1], &r.cAng[2], &r.nOrg[0], &r.nOrg[1], &r.nOrg[2], &r.nAng[0],
+						&r.nAng[1], &r.nAng[2], &r.outOrg[0], &r.outOrg[1], &r.outOrg[2], &r.outAng[0], &r.outAng[1],
+						&r.outAng[2] );
 
 		if ( n != 25 )
 			continue;
@@ -138,19 +135,16 @@ void Place( const Row &r, Vector &vecOut, QAngle &angOut )
 {
 	matrix3x4_t parentToWorld, worldToParent, childToWorld, childToParent;
 
-	AngleMatrix( QAngle( r.pAng[0], r.pAng[1], r.pAng[2] ),
-	             Vector( r.pOrg[0], r.pOrg[1], r.pOrg[2] ), parentToWorld );
+	AngleMatrix( QAngle( r.pAng[0], r.pAng[1], r.pAng[2] ), Vector( r.pOrg[0], r.pOrg[1], r.pOrg[2] ), parentToWorld );
 	MatrixInvert( parentToWorld, worldToParent );
 
-	AngleMatrix( QAngle( r.cAng[0], r.cAng[1], r.cAng[2] ),
-	             Vector( r.cOrg[0], r.cOrg[1], r.cOrg[2] ), childToWorld );
+	AngleMatrix( QAngle( r.cAng[0], r.cAng[1], r.cAng[2] ), Vector( r.cOrg[0], r.cOrg[1], r.cOrg[2] ), childToWorld );
 
 	ConcatTransforms( worldToParent, childToWorld, childToParent );
 
 	matrix3x4_t movedToWorld, composed;
 
-	AngleMatrix( QAngle( r.nAng[0], r.nAng[1], r.nAng[2] ),
-	             Vector( r.nOrg[0], r.nOrg[1], r.nOrg[2] ), movedToWorld );
+	AngleMatrix( QAngle( r.nAng[0], r.nAng[1], r.nAng[2] ), Vector( r.nOrg[0], r.nOrg[1], r.nOrg[2] ), movedToWorld );
 	ConcatTransforms( movedToWorld, childToParent, composed );
 
 	MatrixAngles( composed, angOut, vecOut );
@@ -164,7 +158,7 @@ void Place( const Row &r, Vector &vecOut, QAngle &angOut )
 //-----------------------------------------------------------------------------
 TEST( ParentCompose, TheTableIsThereAndHasEveryRow )
 {
-	const std::vector< Row > rows = LoadCases();
+	const std::vector<Row> rows = LoadCases();
 
 	ASSERT_FALSE( rows.empty() ) << "parent_compose_cases.txt was not found next to the test";
 	EXPECT_EQ( 12u, rows.size() ) << "the table has the rows both sides were written against";
@@ -175,7 +169,7 @@ TEST( ParentCompose, TheTableIsThereAndHasEveryRow )
 //-----------------------------------------------------------------------------
 TEST( ParentCompose, EveryRowIsWhatMathlibComputes )
 {
-	const std::vector< Row > rows = LoadCases();
+	const std::vector<Row> rows = LoadCases();
 	ASSERT_FALSE( rows.empty() );
 
 	for ( size_t i = 0; i < rows.size(); i++ )
@@ -209,7 +203,7 @@ TEST( ParentCompose, EveryRowIsWhatMathlibComputes )
 //-----------------------------------------------------------------------------
 TEST( ParentCompose, MostRowsWouldFailARotationBlindComposition )
 {
-	const std::vector< Row > rows = LoadCases();
+	const std::vector<Row> rows = LoadCases();
 	ASSERT_FALSE( rows.empty() );
 
 	size_t nDiffer = 0;
@@ -220,28 +214,21 @@ TEST( ParentCompose, MostRowsWouldFailARotationBlindComposition )
 
 		// The wrong answer: the offset as a plain vector difference, added to the
 		// parent's new origin, with the child's own facing left alone.
-		const Vector vecBlind(
-			r.nOrg[0] + ( r.cOrg[0] - r.pOrg[0] ),
-			r.nOrg[1] + ( r.cOrg[1] - r.pOrg[1] ),
-			r.nOrg[2] + ( r.cOrg[2] - r.pOrg[2] ) );
+		const Vector vecBlind( r.nOrg[0] + ( r.cOrg[0] - r.pOrg[0] ), r.nOrg[1] + ( r.cOrg[1] - r.pOrg[1] ),
+							   r.nOrg[2] + ( r.cOrg[2] - r.pOrg[2] ) );
 
-		const bool bSameOrigin =
-			fabsf( vecBlind.x - r.outOrg[0] ) < 0.01f &&
-			fabsf( vecBlind.y - r.outOrg[1] ) < 0.01f &&
-			fabsf( vecBlind.z - r.outOrg[2] ) < 0.01f;
+		const bool bSameOrigin = fabsf( vecBlind.x - r.outOrg[0] ) < 0.01f &&
+			fabsf( vecBlind.y - r.outOrg[1] ) < 0.01f && fabsf( vecBlind.z - r.outOrg[2] ) < 0.01f;
 
-		const bool bSameAngles =
-			fabsf( r.cAng[0] - r.outAng[0] ) < 0.01f &&
-			fabsf( r.cAng[1] - r.outAng[1] ) < 0.01f &&
+		const bool bSameAngles = fabsf( r.cAng[0] - r.outAng[0] ) < 0.01f && fabsf( r.cAng[1] - r.outAng[1] ) < 0.01f &&
 			fabsf( r.cAng[2] - r.outAng[2] ) < 0.01f;
 
 		if ( !bSameOrigin || !bSameAngles )
 			nDiffer++;
 	}
 
-	EXPECT_GE( nDiffer, 10u )
-		<< "the table must keep enough rotating rows to catch a composition that "
-		   "ignores the parent's rotation";
+	EXPECT_GE( nDiffer, 10u ) << "the table must keep enough rotating rows to catch a composition that "
+								 "ignores the parent's rotation";
 }
 
 } // namespace

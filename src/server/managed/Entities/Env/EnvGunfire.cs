@@ -21,7 +21,7 @@ namespace SourceSharp.Server;
 /// the rounds come, how wide the group is and how it is DISTRIBUTED across that
 /// width, whether the rounds stop at what is in the way or carry to the
 /// distance, and where the aim point actually is. None of that is presentation;
-/// only the tracer is, and a tracer is an ss_beam the same way env_laser's is.
+/// only the tracer is, and a tracer is a beam the same way env_laser's is.
 /// </para>
 ///
 /// <para>
@@ -138,7 +138,7 @@ public sealed class EnvGunfire : ScriptedEntity
 
         if (sprite >= 0)
         {
-            _tracer = Entities.Create(EntityNames.SsBeam);
+            _tracer = Entities.Create(EntityNames.Beam);
 
             if (Entities.IsValid(_tracer))
             {
@@ -313,7 +313,7 @@ public sealed class EnvGunfire : ScriptedEntity
         if (_cone == 0f)
             return direction;
 
-        var (right, up) = World.AngleVectorsFromForward(direction);
+        var (right, up) = Angles.RightUp(direction);
 
         var (x, y) = Scatter(Vars.Bias, _biasMin, _biasMax, Host.RandomFloat);
 

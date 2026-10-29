@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using SourceSharp.Client.TempEnts;
 using Xunit;
 
@@ -10,11 +9,9 @@ namespace SourceSharp.Tests;
 /// <see cref="ImpactChoicePolicy"/> now (plan_shim.md §6, lane 4b-effects).
 ///
 /// <para>
-/// The first three facts are the same check
-/// <see cref="ImpactEffectParamsTests"/> makes for the block: these enums cross
-/// as numbers, so a value inserted in the middle of either side renumbers every
-/// one after it and a concrete impact starts drawing an antlion's, with nothing
-/// failing to compile. They read the header off disk.
+/// The facts that held these enums to <c>impact_effects.h</c>, number for
+/// number, left with that header in lane M1-C: the choice no longer crosses as
+/// numbers, because the managed impact asks the policy itself.
 /// </para>
 ///
 /// <para>
@@ -25,120 +22,12 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class ImpactChoiceTests
 {
-    private const string Header = "src/sourcesharp/game/client/impact_effects.h";
+    // THE HEADER THE ACTIONS, INPUTS AND OUTPUTS ONCE MATCHED (impact_effects.h)
+    // LEFT in lane M1-C with its last reader: BulletImpactEffect asks
+    // ImpactChoicePolicy directly, so nothing crosses as these numbers now.
 
-    private static string HeaderText()
-    {
-        string candidate = RepoLayout.Sdk(Header.Replace('/', Path.DirectorySeparatorChar));
-
-        Assert.True(File.Exists(candidate), $"{Header} was not found in {RepoLayout.SdkTree}");
-        return File.ReadAllText(candidate);
-    }
-
-    // ------------------------------------------------------------------
-    // The two declarations are one declaration.
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void TheManagedActionsAreTheOnesTheHeaderDeclares()
-    {
-        var native = new Dictionary<int, string>();
-
-        foreach (Match m in Regex.Matches(HeaderText(), @"SS_IMPACT_ACT_(\w+)\s*=\s*(\d+),"))
-        {
-            // SS_IMPACT_ACT_COUNT is the terminator, not an action.
-            if (m.Groups[1].Value == "COUNT")
-                continue;
-
-            native[int.Parse(m.Groups[2].Value)] = m.Groups[1].Value;
-        }
-
-        Assert.Equal(8, native.Count);
-
-        foreach ((int id, string screaming) in native)
-        {
-            Assert.True(Enum.IsDefined(typeof(ImpactAction), id),
-                $"the header declares action {id} ({screaming}) and the managed enum has none");
-            Assert.Equal(screaming.Replace("_", ""),
-                         ((ImpactAction)id).ToString().ToUpperInvariant());
-        }
-
-        // AND NO MANAGED VALUE THE HEADER DOES NOT DECLARE — the loop above
-        // walks the header, so a managed-only value would pass it.
-        foreach (ImpactAction a in Enum.GetValues<ImpactAction>())
-            Assert.True(native.ContainsKey((int)a), $"{a} is managed-only");
-    }
-
-    [Fact]
-    public void TheManagedInputOrderIsTheOneTheHeaderDeclares()
-    {
-        var native = new List<(int Value, string Name)>();
-
-        foreach (Match m in Regex.Matches(HeaderText(), @"SS_CHOICE_IN_(\w+)\s*=\s*(\d+),"))
-        {
-            if (m.Groups[1].Value == "COUNT")
-                continue;
-
-            native.Add((int.Parse(m.Groups[2].Value), m.Groups[1].Value));
-        }
-
-        Assert.Equal(ImpactChoicePolicy.InCount, native.Count);
-
-        foreach ((int value, string screaming) in native)
-        {
-            Assert.True(Enum.IsDefined(typeof(ImpactChoiceIn), value),
-                $"the header declares input {value} ({screaming}) and the managed enum has none");
-            Assert.Equal(screaming.Replace("_", ""),
-                         ((ImpactChoiceIn)value).ToString().ToUpperInvariant());
-        }
-    }
-
-    [Fact]
-    public void TheManagedOutputOrderIsTheOneTheHeaderDeclares()
-    {
-        var native = new List<(int Value, string Name)>();
-
-        foreach (Match m in Regex.Matches(HeaderText(), @"SS_CHOICE_OUT_(\w+)\s*=\s*(\d+),"))
-        {
-            if (m.Groups[1].Value == "COUNT")
-                continue;
-
-            native.Add((int.Parse(m.Groups[2].Value), m.Groups[1].Value));
-        }
-
-        Assert.Equal(ImpactChoicePolicy.OutCount, native.Count);
-
-        foreach ((int value, string screaming) in native)
-        {
-            Assert.True(Enum.IsDefined(typeof(ImpactChoiceOut), value),
-                $"the header declares output {value} ({screaming}) and the managed enum has none");
-            Assert.Equal(screaming.Replace("_", ""),
-                         ((ImpactChoiceOut)value).ToString().ToUpperInvariant());
-        }
-    }
-
-    [Fact]
-    public void TheNameCeilingIsTheOneTheHeaderDeclares()
-    {
-        var m = Regex.Match(HeaderText(), @"#define\s+SS_IMPACT_NAME_MAX\s+(\d+)");
-
-        Assert.True(m.Success, "the header no longer declares SS_IMPACT_NAME_MAX");
-        Assert.Equal(ImpactChoicePolicy.NameMax, int.Parse(m.Groups[1].Value));
-    }
-
-    [Fact]
-    public void TheNoFlecksFlagIsTheOneTheClientHeaderDeclares()
-    {
-        // FLAGS_CUSTIOM_EFFECTS_NOFLECKS -- stock's spelling of "custom",
-        // preserved because it is the name the constant actually has.
-        string text = File.ReadAllText(RepoLayout.Sdk("src", "game", "client", "fx_impact.h"));
-
-        var m = Regex.Match(text, @"FLAGS_CUSTIOM_EFFECTS_NOFLECKS\s*=\s*0x([0-9A-Fa-f]+)");
-
-        Assert.True(m.Success, "game/client/fx_impact.h no longer declares the no-flecks flag");
-        Assert.Equal(ImpactChoicePolicy.FlagsNoFlecks,
-                     Convert.ToInt32(m.Groups[1].Value, 16));
-    }
+    // (The no-flecks flag is held to stock's fx_impact.h by ImpactOracleTests,
+    // over the upstream clone: the client build includes that header no more.)
 
     // ------------------------------------------------------------------
     // The chain — cl_new_impact_effects 0, which is every shot in this build.

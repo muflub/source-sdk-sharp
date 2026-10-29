@@ -5,18 +5,13 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — shell_engineboundary.cpp's diagnostic console command ===//
 // SS_REASON c  static-init registration
-//
-// DEBUG BUILDS ONLY (user ruling 2026-10-01: debug commands live in debug files
-// that CMake compiles only for a debug build -- server_sourcesharp_debug_sources).
-// SourceSharp.Server's NativeCommands declares the matching row under #if DEBUG.
-//
-//=============================================================================//
+// Debug builds only; NativeCommands declares the matching row under #if DEBUG.
 
+#include "server_services.h"
 #include "tier0/dbg.h"
 #include "mathlib/vector.h"
-#include "worldsize.h"                // MAX_COORD_FLOAT
+#include "worldsize.h"
 #include "engine/IEngineTrace.h"
 #include "engine/IStaticPropMgr.h"
 #include "engine_heap.h"
@@ -27,31 +22,14 @@
 #endif
 
 // Defined and acquired in shell_engineboundary.cpp.
-extern IEngineTrace         *enginetrace;
-extern IStaticPropMgrServer *staticpropmgr;
 
-//=============================================================================//
-// 3. VECTORS THE ENGINE FILLS FOR US -- engine_heap.h, checked live
-//=============================================================================//
-
-//-----------------------------------------------------------------------------
-// Has the engine grow two out-parameters on the running map, reads them
-// through the view and releases them to the allocator the engine grew them
-// with. The live gate's engine-vector step reads the one line this prints:
-//
-//   heap  -- the g_pMemAlloc FindEngineHeap found IS the one engine.so resolves
-//            (not merely a libtier0 somewhere): same pointer, both non-NULL.
-//   brushes / props -- what IEngineTrace::GetBrushesInAABB and
-//            IStaticPropMgrServer::GetAllStaticProps put in them, over the
-//            whole map, and whether the brush indices are all non-negative.
-//   foreign / mismatch -- the allocation checker's counters across the two
-//            releases (debug builds carry it; -1 when this one does not). A
-//            release that went through server.so's own free() would show
-//            here, because the checker never saw these blocks allocated.
-//-----------------------------------------------------------------------------
+// Has the engine fill two vectors over the whole map, reads them and releases
+// them to the engine's allocator. Prints whether FindEngineHeap's heap is
+// engine.so's, the counts, and the allocation checker's foreign/mismatch frees
+// across the releases (-1 without the checker). The live gate reads this line.
 SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 {
-	ss::IEngineHeap *pHeap   = ss::FindEngineHeap();
+	ss::IEngineHeap *pHeap = ss::FindEngineHeap();
 	ss::IEngineHeap *pEngine = ss::EngineHeapSeenBy( "engine.so" );
 
 #ifdef SOURCESHARP_ALLOC_CHECK
@@ -59,16 +37,17 @@ SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 #endif
 
 	const Vector vMins( -MAX_COORD_FLOAT, -MAX_COORD_FLOAT, -MAX_COORD_FLOAT );
-	const Vector vMaxs(  MAX_COORD_FLOAT,  MAX_COORD_FLOAT,  MAX_COORD_FLOAT );
+	const Vector vMaxs( MAX_COORD_FLOAT, MAX_COORD_FLOAT, MAX_COORD_FLOAT );
 
 	int nBrushes = -1;
 	int nNegative = 0;
 	int nBrushAlloc = 0;
-	if ( enginetrace )
+	IEngineTrace *pTrace = services.m_EntityContext.m_pTrace;
+	if ( pTrace )
 	{
-		ss::EngineFilledUtlVector< int > brushes;
-		enginetrace->GetBrushesInAABB( vMins, vMaxs, brushes.ForEngine< CUtlVector< int > >() );
-		const ss::EngineUtlVector< int > &view = brushes.View();
+		ss::EngineFilledUtlVector<int> brushes;
+		pTrace->GetBrushesInAABB( vMins, vMaxs, brushes.ForEngine<CUtlVector<int>>() );
+		const ss::EngineUtlVector<int> &view = brushes.View();
 		nBrushes = view.Count();
 		nBrushAlloc = view.m_nAllocationCount;
 		for ( int iBrush : view )
@@ -77,11 +56,12 @@ SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 
 	int nProps = -1;
 	int nNullProps = 0;
-	if ( staticpropmgr )
+	IStaticPropMgrServer *pStaticProps = services.m_EntityContext.m_pStaticProps;
+	if ( pStaticProps )
 	{
-		ss::EngineFilledUtlVector< ICollideable * > props;
-		staticpropmgr->GetAllStaticProps( props.ForEngine< CUtlVector< ICollideable * > >() );
-		const ss::EngineUtlVector< ICollideable * > &view = props.View();
+		ss::EngineFilledUtlVector<ICollideable *> props;
+		pStaticProps->GetAllStaticProps( props.ForEngine<CUtlVector<ICollideable *>>() );
+		const ss::EngineUtlVector<ICollideable *> &view = props.View();
 		nProps = view.Count();
 		for ( ICollideable *pProp : view )
 			nNullProps += ( pProp == NULL );
@@ -90,12 +70,12 @@ SS_NATIVE_COMMAND( cs_sv_engine_vectors )
 	long long nForeign = -1, nMismatch = -1;
 #ifdef SOURCESHARP_ALLOC_CHECK
 	const SourceSharpAllocCheckCounts after = SourceSharp_AllocCheckCounts();
-	nForeign  = (long long)( after.foreignFrees - before.foreignFrees );
+	nForeign = (long long)( after.foreignFrees - before.foreignFrees );
 	nMismatch = (long long)( after.mismatches - before.mismatches );
 #endif
 
 	Msg( "[SourceSharp] engine vectors: heap %s (%p, engine.so %p) brushes %d "
-	     "(allocated %d, negative %d) props %d (null %d) foreign %lld mismatch %lld\n",
-	     ( pHeap && pHeap == pEngine ) ? "same" : "DIFFERENT", (void *)pHeap, (void *)pEngine,
-	     nBrushes, nBrushAlloc, nNegative, nProps, nNullProps, nForeign, nMismatch );
+		 "(allocated %d, negative %d) props %d (null %d) foreign %lld mismatch %lld\n",
+		 ( pHeap && pHeap == pEngine ) ? "same" : "DIFFERENT", (void *)pHeap, (void *)pEngine, nBrushes, nBrushAlloc,
+		 nNegative, nProps, nNullProps, nForeign, nMismatch );
 }

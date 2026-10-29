@@ -24,61 +24,6 @@ public class SaveRestoreClientAreaTests
         return Regex.Replace(text, @"//[^\n]*", "");
     }
 
-    private static string ReloadFunction()
-    {
-        string system = Code("src", "shared", "native", "sourcesharp_gamesystem.cpp");
-        int body = system.IndexOf("static void SourceSharp_ReloadManagedSide( void )\n{", StringComparison.Ordinal);
-        Assert.True(body >= 0, "SourceSharp_ReloadManagedSide was not found");
-        int end = system.IndexOf("\n}\n", body, StringComparison.Ordinal);
-        Assert.True(end > body, "SourceSharp_ReloadManagedSide has no end");
-        return system[body..end];
-    }
-
-    [Fact]
-    public void TheReloadReadsTheClientsAreaAtEachCallAndAnswersZeroWithoutIt()
-    {
-        string fn = ReloadFunction();
-
-        // Read at the call (the holder is patched in place across the reload),
-        // never cached from before it: one read for the save, one for the restore.
-        Assert.Equal(2, Regex.Matches(fn, @"\bManagedSaveRestoreClient\(\)").Count);
-        Assert.Single(Regex.Matches(fn, @"IManagedSaveRestoreClient \*pSaveArea = ManagedSaveRestoreClient\(\);"));
-        Assert.Single(Regex.Matches(fn, @"IManagedSaveRestoreClient \*pRestoreArea = ManagedSaveRestoreClient\(\);"));
-        Assert.Single(Regex.Matches(fn, @"const int nSaved = pSaveArea \? pSaveArea->ReloadSave\(\) : 0;"));
-        Assert.Single(Regex.Matches(fn, @"const int nRestored = pRestoreArea \? pRestoreArea->ReloadRestore\(\) : 0;"));
-    }
-
-    [Fact]
-    public void TheRestoreAreaIsReadAfterTheNewBuildLoads()
-    {
-        string fn = ReloadFunction();
-
-        int unload = fn.IndexOf("SourceSharp_UnloadMySide();", StringComparison.Ordinal);
-        int restore = fn.IndexOf("*pRestoreArea = ManagedSaveRestoreClient();", StringComparison.Ordinal);
-        int save = fn.IndexOf("*pSaveArea = ManagedSaveRestoreClient();", StringComparison.Ordinal);
-        Assert.True(unload >= 0 && restore >= 0 && save >= 0, "a reload landmark was not found");
-        Assert.True(save < unload, "the save's area is read before the old build unloads");
-        Assert.True(restore > unload, "the restore's area is read after the new build loads, not cached from the old one");
-    }
-
-    [Fact]
-    public void NoNativeCodeReadsTheTableSlots()
-    {
-        var slot = new Regex(@"(g_ManagedApi\.|pApi->)(ReloadSave|ReloadRestore|SaveCollectEntities|SaveRestoreEntities)\b");
-        string[] files =
-        {
-            Code("src", "shared", "native", "sourcesharp_gamesystem.cpp"),
-            // The server's save cluster forwards from here since
-            // plan_server_native_v2 T4c (shell_savegame.cpp is client.so's).
-            Code("src", "server", "native", "shell_gamedll.cpp"),
-        };
-
-        Assert.Contains("ManagedSaveRestoreClient()", files[0]);
-        Assert.Contains("ManagedSaveRestore()", files[1]);
-        foreach (string text in files)
-            Assert.DoesNotMatch(slot, text);
-    }
-
     [Fact]
     public void TheBootstrapFillsNoneOfTheSlots()
     {

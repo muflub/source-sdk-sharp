@@ -4,63 +4,29 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — tier1's KeyValues and ILocalize members client.so links ==//
+// The members of tier1's KeyValues and ILocalize that client.so calls.
 // SS_REASON d  a layout the engine reads at fixed offsets
 //
-// plan_client_novalve C9, KeyValues K5. The members of tier1's KeyValues.cpp
-// and ilocalize.cpp that client.so's own objects call, so neither archive
-// member is linked: a KeyValues crosses into the engine and the material
-// system (a procedural material's .vmt, a material proxy's keys, a
-// panel's message), and they read it by tier1's layout, so the object is
-// tier1's class and its members are kept to tier1's behaviour. The TEXT
-// load is managed's (KeyValuesLoad); nothing here parses.
+// A KeyValues crosses into the engine and the material system, which read it by tier1's
+// layout, so this is tier1's class with tier1's behaviour.
 //
-// ILocalize::ConvertUnicodeToANSI is Q_UTF32ToUTF8 under its default policy
-// on POSIX, where wchar_t is UTF-32, and Q_UTF16ToUTF8 on Windows, where it
-// is UTF-16; ss_string.h's WideToUTF8 picks by wchar_t's size, and both
-// converters are held to pristine strtools_unicode.cpp by
-// ss_string_oracle_test.
-//
-// WHERE ITS MEMORY COMES FROM. A key is made and freed by vstdlib's
-// KeyValuesSystem (AllocKeyValuesMemory / FreeKeyValuesMemory), as tier1's
-// operator new and delete do, so one made here can be freed by the material
-// system and one it made can be freed here. A value string is on the engine
-// heap (libtier0.so's g_pMemAlloc, engine_heap.h): the material system frees
-// what it is handed with its own delete[], which is tier0's, and client.so's
-// own new[] has been glibc's since memoverride.cpp left (C1). KeyValuesSystem
-// is found in the loaded libvstdlib.so (loaded_symbol.h) at each use rather
-// than imported or cached: every caller in client.so is cold (a material
-// built, a panel message, a tool record, a proxy's Init), and nothing is kept.
-//
-// Not here, because nothing in client.so calls it: the text load (managed's),
-// the wide-string setters, copies, merges, the binary and file forms, and the
-// growable string table (tier1's default is the classic one, used here).
-// GetInt/GetFloat/GetString still read a TYPE_WSTRING key another module made.
-//
-// Exit: the last client caller of a KeyValues member leaving.
-//=============================================================================//
+// Keys are allocated through vstdlib's KeyValuesSystem, as tier1's operator new does, so
+// either side can free them. Value strings live on the engine heap because the material
+// system frees them with tier0's delete[]. KeyValuesSystem is looked up at each use.
 
 #include "tier1/ilocalize.h"
-#include "tier1/KeyValues.h"
+
 #include "vstdlib/IKeyValuesSystem.h"
+
 #include "engine_heap.h"
 #include "loaded_symbol.h"
 #include "ss_string.h"
-
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <wchar.h>
 
 int ILocalize::ConvertUnicodeToANSI( const wchar_t *unicode, char *ansi, int ansiBufferSize )
 {
 	return ss::WideToUTF8( unicode, ansi, ansiBufferSize );
 }
 
-//=============================================================================
-// KeyValues (tier1/KeyValues.cpp), the members client.so calls.
-//=============================================================================
 namespace
 {
 IKeyValuesSystem *KVSystem()
@@ -114,7 +80,8 @@ KeyValues::KeyValues( const char *setName )
 	SetName( setName );
 }
 
-KeyValues::KeyValues( const char *setName, const char *firstKey, int firstValue, const char *secondKey, int secondValue )
+KeyValues::KeyValues( const char *setName, const char *firstKey, int firstValue, const char *secondKey,
+					  int secondValue )
 {
 	Init();
 	SetName( setName );
@@ -146,7 +113,8 @@ KeyValues::~KeyValues()
 // back here stops at it), then the value strings.
 void KeyValues::RemoveEverything()
 {
-	auto freeList = []( KeyValues *pFirst, const KeyValues *pStop ) {
+	auto freeList = []( KeyValues *pFirst, const KeyValues *pStop )
+	{
 		while ( pFirst && pFirst != pStop )
 		{
 			KeyValues *pNext = pFirst->m_pPeer;
@@ -169,7 +137,7 @@ void KeyValues::deleteThis()
 	delete this;
 }
 
-const char *KeyValues::GetName( void ) const
+const char *KeyValues::GetName() const
 {
 	return KVSystem()->GetStringForSymbol( m_iKeyName );
 }
@@ -273,13 +241,18 @@ int KeyValues::GetInt( const char *keyName, int defaultValue )
 		return defaultValue;
 	switch ( dat->m_iDataType )
 	{
-	case TYPE_STRING: return atoi( dat->m_sValue );
-	case TYPE_WSTRING: return (int)wcstol( dat->m_wsValue, NULL, 10 );
-	case TYPE_FLOAT: return (int)dat->m_flValue;
-	case TYPE_UINT64: return 0;	// tier1 asserts: it would lose data
-	case TYPE_INT:
-	case TYPE_PTR:
-	default: return dat->m_iValue;
+		case TYPE_STRING:
+			return atoi( dat->m_sValue );
+		case TYPE_WSTRING:
+			return (int)wcstol( dat->m_wsValue, NULL, 10 );
+		case TYPE_FLOAT:
+			return (int)dat->m_flValue;
+		case TYPE_UINT64:
+			return 0; // tier1 asserts: it would lose data
+		case TYPE_INT:
+		case TYPE_PTR:
+		default:
+			return dat->m_iValue;
 	}
 }
 
@@ -290,13 +263,19 @@ float KeyValues::GetFloat( const char *keyName, float defaultValue )
 		return defaultValue;
 	switch ( dat->m_iDataType )
 	{
-	case TYPE_STRING: return (float)atof( dat->m_sValue );
-	case TYPE_WSTRING: return 0.0f;	// tier1 has no wide atof off Windows
-	case TYPE_FLOAT: return dat->m_flValue;
-	case TYPE_INT: return (float)dat->m_iValue;
-	case TYPE_UINT64: return (float)( *( (uint64 *)dat->m_sValue ) );
-	case TYPE_PTR:
-	default: return 0.0f;
+		case TYPE_STRING:
+			return (float)atof( dat->m_sValue );
+		case TYPE_WSTRING:
+			return 0.0f; // tier1 has no wide atof off Windows
+		case TYPE_FLOAT:
+			return dat->m_flValue;
+		case TYPE_INT:
+			return (float)dat->m_iValue;
+		case TYPE_UINT64:
+			return (float)( *( (uint64 *)dat->m_sValue ) );
+		case TYPE_PTR:
+		default:
+			return 0.0f;
 	}
 }
 
@@ -311,34 +290,34 @@ const char *KeyValues::GetString( const char *keyName, const char *defaultValue 
 	char buf[64];
 	switch ( dat->m_iDataType )
 	{
-	case TYPE_FLOAT:
-		snprintf( buf, sizeof( buf ), "%f", dat->m_flValue );
-		SetString( keyName, buf );
-		break;
-	case TYPE_PTR:
-		snprintf( buf, sizeof( buf ), "%lld", (long long)CastPtrToInt64( dat->m_pValue ) );
-		SetString( keyName, buf );
-		break;
-	case TYPE_INT:
-		snprintf( buf, sizeof( buf ), "%d", dat->m_iValue );
-		SetString( keyName, buf );
-		break;
-	case TYPE_UINT64:
-		snprintf( buf, sizeof( buf ), "%lld", *( (long long *)( dat->m_sValue ) ) );
-		SetString( keyName, buf );
-		break;
-	case TYPE_WSTRING:
-	{
-		char wideBuf[512];
-		if ( !ss::WideToUTF8( dat->m_wsValue, wideBuf, sizeof( wideBuf ) ) )
+		case TYPE_FLOAT:
+			snprintf( buf, sizeof( buf ), "%f", dat->m_flValue );
+			SetString( keyName, buf );
+			break;
+		case TYPE_PTR:
+			snprintf( buf, sizeof( buf ), "%lld", (long long)CastPtrToInt64( dat->m_pValue ) );
+			SetString( keyName, buf );
+			break;
+		case TYPE_INT:
+			snprintf( buf, sizeof( buf ), "%d", dat->m_iValue );
+			SetString( keyName, buf );
+			break;
+		case TYPE_UINT64:
+			snprintf( buf, sizeof( buf ), "%lld", *( (long long *)( dat->m_sValue ) ) );
+			SetString( keyName, buf );
+			break;
+		case TYPE_WSTRING:
+		{
+			char wideBuf[512];
+			if ( !ss::WideToUTF8( dat->m_wsValue, wideBuf, sizeof( wideBuf ) ) )
+				return defaultValue;
+			SetString( keyName, wideBuf );
+			break;
+		}
+		case TYPE_STRING:
+			break;
+		default:
 			return defaultValue;
-		SetString( keyName, wideBuf );
-		break;
-	}
-	case TYPE_STRING:
-		break;
-	default:
-		return defaultValue;
 	}
 	return dat->m_sValue;
 }

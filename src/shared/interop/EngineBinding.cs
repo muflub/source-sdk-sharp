@@ -784,7 +784,7 @@ internal sealed unsafe partial class EngineEntityPhysics : IEngineEntityPhysics
     private readonly EngineSide _side;
 
     private EngineSide E => _side;
-    // No engine answer since plan_server_native_v2 T2: a per-entity friction on the movement path is not ported (func_friction, ss_gib ask).
+    // No engine answer since plan_server_native_v2 T2: a per-entity friction on the movement path is not ported (func_friction, gib ask).
     public void SetFriction(EntityHandle h, float friction) { }
 }
 
@@ -1009,6 +1009,9 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
             if (Client is { } client)
                 return client.SequenceState(entity, out sequence, out cycle, out duration, out looping, out starts);
 
+            if (Skeletons is { } skeletons)
+                return skeletons.SequenceState(entity, out sequence, out cycle, out duration, out looping, out starts);
+
             sequence = 0;
             cycle = 0f;
             duration = 0f;
@@ -1110,6 +1113,20 @@ internal sealed unsafe partial class EngineEntityRender : IEngineEntityRender
     /// it replaces.
     /// </para>
     /// </summary>
+    public void SetCycle(EntityHandle entity, float cycle) => Skeletons?.SetCycle(entity, cycle);
+
+    public void PlaySequenceAt(EntityHandle entity, int sequence, float playbackRate, float cycle)
+    {
+        Skeletons?.SetSequence(entity, sequence, playbackRate, restart: true, cycle);
+
+        if (!Recording)
+            return;
+
+        _mirror.NoteSequence(entity, sequence, playbackRate, restart: true, E.CurrentTime, cycle);
+        if (Client is { } client && client.SequenceInfo(entity, out float duration, out bool looping))
+            _mirror.NoteSequenceInfo(entity, duration, looping);
+    }
+
     public void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart)
     {
         Skeletons?.SetSequence(entity, sequence, playbackRate, restart);
@@ -1162,32 +1179,6 @@ internal sealed unsafe partial class EngineDamage : IEngineDamage
     public void SetForceServerRagdoll(EntityHandle entity, bool force) { }
     // No engine answer since plan_server_native_v2 T2: the take-damage mode left with CBaseEntity; every entity answers DAMAGE_YES (trigger_camera asks).
     public TakeDamageMode SetTakeDamageMode(EntityHandle entity, TakeDamageMode mode) => TakeDamageMode.Yes;
-}
-
-/// <summary>The real engine, for <see cref="IEngineCollisionRules"/>.</summary>
-internal sealed unsafe partial class EngineCollisionRules : IEngineCollisionRules
-{
-    private readonly ICollisionArea _collisionArea;
-
-    public EngineCollisionRules(ICollisionArea collisionArea)
-    {
-        _collisionArea = collisionArea ?? throw new ArgumentNullException(nameof(collisionArea));
-    }
-
-    /// <summary>
-    /// The collision matrix. Registered from both sides; answers whether this
-    /// side's native received it, so a side that cannot serve the slot says so
-    /// instead of keeping native's defaults in silence (which the client did
-    /// until the slot moved into the shared IShimCollision base).
-    /// </summary>
-    public bool RegisterCollisionRules(uint[] rows)
-    {
-        var blob = default(CollisionRulesBlob);
-        blob.SetRows(rows);
-
-        _collisionArea.RegisterCollisionRules(&blob);
-        return true;
-    }
 }
 
 /// <summary>The real engine, for <see cref="IEngineGameRulesPolicy"/>.</summary>

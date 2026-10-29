@@ -70,7 +70,17 @@ public sealed class TempEntReportCommand : IConCommand
             // against a dispatch that went nowhere.
             _log.Msg($"[SourceSharp/Client]   {type.Class.ClassName,-24} handle " +
                     $"{type.Handle,3}  {type.BlobBytes,3} blob byte(s)  " +
-                    $"{(_players.PlayerNames.Contains(type.Class.ClassName) ? "played by C#" : "NO PLAYER")}\n");
+                    $"{(_players.PlayerNames.Contains(type.Class.ClassName) ? "played by C#" : "NO PLAYER")}" +
+                    $"  {_players.PlayedOf(type.Class.ClassName)} played\n");
+        }
+
+        // One temp entity stands for every named effect, so its count alone
+        // cannot say which arrived.
+        if (_players.PlayerOf("CTEEffectDispatch") is ClientTeEffectDispatch dispatch && dispatch.PlayedByName.Count > 0)
+        {
+            _log.Msg("[SourceSharp/Client]   dispatched: " +
+                    string.Join(", ", dispatch.PlayedByName.OrderBy(p => p.Key, StringComparer.Ordinal)
+                                                           .Select(p => $"{p.Key} {p.Value}")) + "\n");
         }
 
         Describe();

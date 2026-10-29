@@ -5,69 +5,85 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — a box put into the world, without a collision property //
-//
-// WHAT THIS IS AND WHY IT IS NOT INLINED AT ITS ONE CALL SITE.
-//
-// A de-entified effect that has a VOLUME -- func_smokevolume is the first --
-// used to ask its collision property where that volume was:
-//
-//     CollisionProp()->WorldSpaceAABB( &vWorldMins, &vWorldMaxs );
-//
-// There is no collision property on something that is not an entity, and the
-// replacement looks trivially like `mins + origin`. It is trivially that, and
-// ONLY UNDER A PRECONDITION, which is exactly the shape of thing this project
-// has been bitten by before: `GetAbsAngles() -> GetCollisionAngles()` was given
-// to three agents as an identity and is not one.
-//
-// So here is the real rule, from CCollisionProperty::CollisionAABBToWorldAABB:
-//
-//     if ( !IsBoundsDefinedInEntitySpace() || GetCollisionAngles() == vec3_angle )
-//         world = entity + GetCollisionOrigin()
-//     else
-//         world = TransformAABB( CollisionToWorldTransform(), entity )
-//
-// The addition is the answer WHENEVER THE ANGLES ARE IDENTITY, whatever the
-// solid type; off identity it is the answer only for a world-aligned box, and
-// for anything else the box has to be rotated and re-bounded, which is a
-// strictly LARGER box rather than a shifted one.
-//
-// The one caller today never rotates -- SourceSharp_CreateSmokeVolume sets an
-// origin and no angles, and nothing else writes them -- so it takes the first
-// branch. This header exists so that the day something does rotate, the
-// precondition is written down where the call is, with a test that says what
-// goes wrong instead of a silently wrong bounding box that makes a smoke volume
-// vanish at certain camera angles.
-//
-// Engine-free: two vector adds. world_aligned_bounds_test.cpp checks them
-// against the real mathlib TransformAABB rather than against a restatement of
-// them.
-//
-//=============================================================================//
+// Collision bounds placed in the world without a collision property, following
+// CCollisionProperty::CollisionAABBToWorldAABB: a turned entity-space box is rotated and
+// re-bounded, not just offset.
 
-#ifndef SOURCESHARP_WORLD_ALIGNED_BOUNDS_H
-#define SOURCESHARP_WORLD_ALIGNED_BOUNDS_H
-#ifdef _WIN32
 #pragma once
-#endif
 
-#include "mathlib/vector.h"
+#include "const.h"
+#include "mathlib_port.h"
 
-//-----------------------------------------------------------------------------
-// A local box placed at an origin, with no rotation.
-//
-// PRECONDITION: the box is not rotated -- the owner's angles are vec3_angle, or
-// its bounds are world-aligned. See the header note. Violate it and the answer
-// is too SMALL, which reads as an effect that disappears when the camera moves
-// rather than as an error.
-//-----------------------------------------------------------------------------
-inline void SourceSharp_BoundsToWorld( const Vector &vecLocalMins,
-                                       const Vector &vecLocalMaxs,
-                                       const Vector &vecOrigin,
-                                       Vector *pWorldMins, Vector *pWorldMaxs )
+// A local box placed at an origin. Only correct when the box is not rotated: the owner's
+// angles are zero or its bounds are world-aligned.
+inline void SourceSharp_BoundsToWorld( const Vector &vecLocalMins, const Vector &vecLocalMaxs, const Vector &vecOrigin,
+									   Vector *pWorldMins, Vector *pWorldMaxs )
 {
 	VectorAdd( vecLocalMins, vecOrigin, *pWorldMins );
 	VectorAdd( vecLocalMaxs, vecOrigin, *pWorldMaxs );
 }
 
-#endif // SOURCESHARP_WORLD_ALIGNED_BOUNDS_H
+// CCollisionProperty::IsBoundsDefinedInEntitySpace: a box turns with its owner unless it
+// is SOLID_BBOX, SOLID_NONE or forced world-aligned.
+inline bool SourceSharp_BoundsInEntitySpace( int nSolidType, int nSolidFlags )
+{
+	return ( nSolidFlags & FSOLID_FORCE_WORLD_ALIGNED ) == 0 && nSolidType != SOLID_BBOX && nSolidType != SOLID_NONE;
+}
+
+// The box the world sees, rotated and re-bounded when it is in entity space and turned.
+inline void SourceSharp_CollisionBoundsToWorld( int nSolidType, int nSolidFlags, const Vector &vecLocalMins,
+												const Vector &vecLocalMaxs, const Vector &vecOrigin,
+												const QAngle &angAngles, Vector *pWorldMins, Vector *pWorldMaxs )
+{
+	if ( !SourceSharp_BoundsInEntitySpace( nSolidType, nSolidFlags ) || angAngles == vec3_angle )
+	{
+		SourceSharp_BoundsToWorld( vecLocalMins, vecLocalMaxs, vecOrigin, pWorldMins, pWorldMaxs );
+		return;
+	}
+
+	matrix3x4_t matCollisionToWorld;
+	ss_mathlib::AngleMatrix( angAngles, vecOrigin, matCollisionToWorld );
+	ss_mathlib::TransformAABB( matCollisionToWorld, vecLocalMins, vecLocalMaxs, *pWorldMins, *pWorldMaxs );
+}
+
+// CCollisionProperty::WorldSpaceTriggerBounds, in place: with FSOLID_USE_TRIGGER_BOUNDS the
+// sides grow by the bloat and the top by half, or every side when uniform.
+inline void SourceSharp_TriggerBounds( int nSolidFlags, int nBloat, bool bUniform, Vector *pWorldMins,
+									   Vector *pWorldMaxs )
+{
+	if ( ( nSolidFlags & FSOLID_USE_TRIGGER_BOUNDS ) == 0 )
+		return;
+
+	const float flBloat = (float)nBloat;
+	pWorldMins->x -= flBloat;
+	pWorldMins->y -= flBloat;
+	pWorldMaxs->x += flBloat;
+	pWorldMaxs->y += flBloat;
+
+	if ( bUniform )
+	{
+		pWorldMins->z -= flBloat;
+		pWorldMaxs->z += flBloat;
+	}
+	else
+	{
+		pWorldMaxs->z += flBloat * 0.5f;
+	}
+}
+
+// The tail of CCollisionProperty::ComputeSurroundingBox, in place: the surrounding box takes
+// in the trigger box.
+inline void SourceSharp_SurroundingBounds( int nSolidFlags, int nBloat, bool bUniform, Vector *pWorldMins,
+										   Vector *pWorldMaxs )
+{
+	if ( ( nSolidFlags & FSOLID_USE_TRIGGER_BOUNDS ) == 0 )
+		return;
+
+	Vector vecTriggerMins = *pWorldMins, vecTriggerMaxs = *pWorldMaxs;
+	SourceSharp_TriggerBounds( nSolidFlags, nBloat, bUniform, &vecTriggerMins, &vecTriggerMaxs );
+	for ( int i = 0; i < 3; ++i )
+	{
+		( *pWorldMins )[i] = vecTriggerMins[i] < ( *pWorldMins )[i] ? vecTriggerMins[i] : ( *pWorldMins )[i];
+		( *pWorldMaxs )[i] = vecTriggerMaxs[i] > ( *pWorldMaxs )[i] ? vecTriggerMaxs[i] : ( *pWorldMaxs )[i];
+	}
+}

@@ -211,7 +211,7 @@ public sealed class Corpses : IGameLifecycle
         Forget();
         Trim();
 
-        var body = _entities.Create(EntityNames.SsRagdoll);
+        var body = _entities.Create(EntityNames.Hl2mpRagdoll);
 
         // COMPARED AGAINST None RATHER THAN ASKED WHETHER IT IsValid, which is
         // the same trap Players.OnKilled records: EntityHandle.IsValid asks the
@@ -368,7 +368,7 @@ public sealed class Corpses : IGameLifecycle
     /// <c>CEntityDissolve</c> parented to the body, and neither reaches a
     /// managed corpse: <c>SourceSharp_EntityDissolve</c> is a declared refusal
     /// (step 4a, <c>ContractBaseline.Refusals</c>) and nothing in
-    /// <c>SourceSharp.Server</c> ignites an <c>ss_ragdoll</c>. The moment
+    /// <c>SourceSharp.Server</c> ignites an <c>hl2mp_ragdoll</c>. The moment
     /// either lands, this is the one line that has to answer, and it is named
     /// so the next lane finds it instead of rediscovering the rule.
     /// </para>

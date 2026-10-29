@@ -97,7 +97,7 @@ public class TeamJoinTests
             services.AddInstance<IEntityDirectory>(Registry);
             Registry.Services = services;
             for (int i = 0; i < Handles.Length; i++)
-                Registry.KeyValue(Handles[i], EntityNames.SsPlayer, "targetname", "p" + i);
+                Registry.KeyValue(Handles[i], EntityNames.Player, "targetname", "p" + i);
             Players = Handles.Select(h => (SsPlayer)Registry.Get(h)!).ToArray();
             foreach (var p in Players)
             {

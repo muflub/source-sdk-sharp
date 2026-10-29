@@ -4,35 +4,12 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — tier1's small members client.so links =============//
+// The small tier1 members client.so links: CRC32, g_bDoRangeChecks and CUtlMemoryPool.
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
-//
-// plan_client_novalve C9, the small tier1 pieces: what client.so calls from
-// tier1 objects too small to carry their own file, so each object leaves the
-// client's link. The server links no tier1 and calls none of these.
-//
-//   checksum_crc.cpp  CRC32_Init / ProcessBuffer / Final: sentence.cpp's
-//                     phoneme checksum, shell_input.cpp's command checksum,
-//                     SharedRandom's seed (util_shared_library.cpp). Over
-//                     ss_crc32.h, held to pristine checksum_crc.cpp by
-//                     ss_crc32_oracle_test.
-//   rangecheckedvar.cpp g_bDoRangeChecks, read by sequence_Transitioner.cpp;
-//                     no CDisableRangeChecks is made on client.so.
-//   mempool.cpp       CUtlMemoryPool (clientleafsystem.cpp, viewrender.cpp,
-//                     the temp-entity pools, the view executor), held to
-//                     pristine mempool.cpp by mempool_client_test. No leak
-//                     report: nothing on client.so installs a report function.
-//
-// Exit: each name's last native caller leaving.
-//=============================================================================//
 
 #include "tier1/checksum_crc.h"
 #include "tier1/mempool.h"
 #include "ss_crc32.h"
-
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 
 void CRC32_Init( CRC32_t *pulCRC )
 {
@@ -49,19 +26,14 @@ void CRC32_Final( CRC32_t *pulCRC )
 	*pulCRC = ss::Crc32Finish( *pulCRC );
 }
 
-// rangecheckedvar.cpp's switch, which sequence_Transitioner.cpp's
-// CRangeCheckedVar reads; nothing on client.so turns it off.
+// Read by CRangeCheckedVar; nothing on client.so turns it off.
 bool g_bDoRangeChecks = true;
 
-//-----------------------------------------------------------------------------
-// CUtlMemoryPool: fixed-size blocks carved from blobs on a ring, handed out
-// and taken back through a free list threaded through the blocks themselves
-// (last freed, first reused). A block is at least a pointer, rounded up to
-// the alignment. A new blob holds numElements blocks, times the blob count
-// so far plus one when growing FAST, plain numElements when SLOW; a NONE pool
-// has its first blob only.
-//-----------------------------------------------------------------------------
-CUtlMemoryPool::CUtlMemoryPool( int blockSize, int numElements, int growMode, const char *pszAllocOwner, int nAlignment )
+// Fixed-size blocks carved from blobs, handed out through a free list threaded through the
+// blocks (last freed, first reused). A FAST pool's new blob grows with the blob count, a
+// SLOW pool's is numElements, a NONE pool has its first blob only.
+CUtlMemoryPool::CUtlMemoryPool( int blockSize, int numElements, int growMode, const char *pszAllocOwner,
+								int nAlignment )
 {
 	m_nAlignment = (unsigned short)( nAlignment ? nAlignment : 1 );
 	const int nAtLeast = blockSize < (int)sizeof( void * ) ? (int)sizeof( void * ) : blockSize;

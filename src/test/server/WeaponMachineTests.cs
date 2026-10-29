@@ -36,9 +36,11 @@ public class WeaponMachineTests
 
         // Every field of the weapon's state is machine state, so every field
         // is predicted — the 9c5 gate answers yes for it, which is what makes
-        // the client replay it at all.
-        Assert.Equal(10, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
-        Assert.Equal(4, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsViewModel)));
+        // the client replay it at all. The machine's and the HL2MP behaviours',
+        // the SLAM's two, eleven of the physcannon's (PhysCannonBehaviour), and
+        // the pistol's accuracy penalty with its clock.
+        Assert.Equal(38, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
+        Assert.Equal(5, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.PredictedViewModel)));
     }
 
     [Fact]
@@ -65,7 +67,7 @@ public class WeaponMachineTests
         var state = StandaloneNetStates.Of(typeof(ViewModelNetState));
 
         Assert.Equal(1, _catalog.DescribeOffset(
-            NetSchema.TypeIdOf(EntityNames.SsViewModel), state["PlaybackRate"].Offset,
+            NetSchema.TypeIdOf(EntityNames.PredictedViewModel), state["PlaybackRate"].Offset,
             out string name, out _, out _, out _, out float tolerance));
         Assert.Equal("PlaybackRate", name);
         Assert.Equal(0.125f, tolerance); // baseviewmodel_shared.cpp's own number
@@ -92,7 +94,10 @@ public class WeaponMachineTests
                 Assert.True(AmmoCatalog.Stock().For(type.SecondaryAmmoName) is not null,
                     $"{type.Name}'s secondary ammo '{type.SecondaryAmmoName}' has a row");
 
-            if (type.IsMelee)
+            // The physcannon spends nothing and throws nothing, which is the
+            // row's definition of melee; it never swings, because its
+            // behaviour runs the whole command.
+            if (type.IsMelee && type.Behaviour != PhysCannonBehaviour.Key)
                 Assert.True(type.MeleeRange > 0 && type.MeleeDamage > 0,
                     $"{type.Name} is melee and must say its reach and damage");
         }
@@ -182,7 +187,7 @@ public class WeaponMachineTests
         machine.RunCommand(w, vm, Attack, now: 10f, effectsLive: true);
 
         Assert.Equal(17, w.Clip);
-        Assert.Equal(10.20f, w.NextPrimaryAttack, precision: 3); // the pistol's interval
+        Assert.Equal(10.5f, w.NextPrimaryAttack, precision: 3); // the pistol's GetFireRate()
         Assert.Equal(1, arms.BulletsFired);
         Assert.Single(arms.Sounds);
         Assert.Equal("Weapon_Pistol.Single", arms.Sounds[0]);
@@ -252,7 +257,7 @@ public class WeaponMachineTests
     }
 
     [Fact]
-    public void TheDoubleBlastSpendsTwoShellsFromTheClipAndRefusesWithOne()
+    public void TheDoubleBlastSpendsTwoShellsFromTheClipAndIsASingleWithOne()
     {
         var arms = new RecordingArms();
         var machine = new WeaponLogic(arms);
@@ -262,11 +267,13 @@ public class WeaponMachineTests
         Assert.Equal(4, w.Clip);
         Assert.Equal(12, arms.PelletsFired); // both barrels
 
-        // One shell left: no half blast, no shell lost.
+        // The pump the double owes, then one shell left: CWeaponShotgun fires
+        // a single instead ("If only one shell is left, do a single shot").
+        machine.RunCommand(w, vm, 0, now: 10f, effectsLive: true);
         w.Clip = 1;
-        machine.RunCommand(w, vm, Attack2, now: 10f, effectsLive: true);
-        Assert.Equal(1, w.Clip);
-        Assert.Contains(arms.Sounds, s => s.Contains("Empty"));
+        machine.RunCommand(w, vm, Attack2, now: 20f, effectsLive: true);
+        Assert.Equal(0, w.Clip);
+        Assert.Equal(12 + 7, arms.PelletsFired);
     }
 
     [Fact]
@@ -288,24 +295,30 @@ public class WeaponMachineTests
     }
 
     [Fact]
-    public void ThePoolFedWeaponsLaunchTheirProjectiles()
+    public void APoolFedWeaponLaunchesItsProjectile()
     {
+        // The frag and the RPG are pool-fed too, and launch through their own
+        // machines (Hl2mpFragTests, Hl2mpRpgTests); the generic path is a
+        // mod's row with no behaviour.
         var arms = new RecordingArms();
-        var machine = new WeaponLogic(arms);
+        var row = new WeaponType("weapon_test_launcher", Interval: 1f)
+        {
+            Projectile = "rpg_missile",
+            LaunchSpeed = 1500f,
+            AmmoName = "RPG_Round",
+        };
+        var machine = new WeaponLogic(arms, new WeaponCatalog(() => [new Source(row)]));
 
-        var (rpg, vm) = States("weapon_rpg", clip: -1, reserve: 2);
-        machine.RunCommand(rpg, vm, Attack, now: 5f, effectsLive: true);
-        Assert.Equal(new[] { "ss_rocket" }, arms.Launches);
-        Assert.Equal(1, rpg.Reserve);
+        var (w, vm) = States("weapon_rpg", clip: -1, reserve: 2);
+        w.WeaponTypeId = new WeaponCatalog(() => [new Source(row)]).IndexOf("weapon_test_launcher");
+        machine.RunCommand(w, vm, Attack, now: 5f, effectsLive: true);
+        Assert.Equal(new[] { "rpg_missile" }, arms.Launches);
+        Assert.Equal(1, w.Reserve);
+    }
 
-        var (frag, vm2) = States("weapon_frag", clip: -1, reserve: 1);
-        machine.RunCommand(frag, vm2, Attack, now: 5f, effectsLive: true);
-        Assert.Contains("ss_grenade", arms.Launches);
-        Assert.Equal(0, frag.Reserve);
-
-        // Out of grenades: an empty click, not a throw.
-        machine.RunCommand(frag, vm2, Attack, now: 10f, effectsLive: true);
-        Assert.Equal(2, arms.Launches.Count);
+    private sealed class Source(WeaponType row) : IWeaponTypeSource
+    {
+        public IEnumerable<WeaponType> Rows() => [row];
     }
 
     [Fact]
@@ -316,7 +329,7 @@ public class WeaponMachineTests
         var (w, vm) = States("weapon_smg1", clip: 45, reserve: 0, secondary: 1);
 
         machine.RunCommand(w, vm, Attack2, now: 5f, effectsLive: true);
-        Assert.Contains("ss_grenade", arms.Launches);
+        Assert.Contains("grenade_ar2", arms.Launches);
         Assert.Equal(0, w.SecondaryReserve);
         Assert.Equal(45, w.Clip); // the launcher never touches the clip
 

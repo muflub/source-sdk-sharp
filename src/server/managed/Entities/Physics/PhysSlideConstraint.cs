@@ -16,8 +16,8 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PhysSlideconstraint)]
 public sealed class PhysSlideConstraint : PhysicsConstraintEntity
 {
-    public PhysSlideConstraint(IEngineConstraints constraints, IEngineSound sound)
-        : base(constraints, sound)
+    public PhysSlideConstraint(IEngineConstraints constraints, IEngineSound sound, EntityPairCollisions pairs)
+        : base(constraints, sound, pairs)
     {
     }
 

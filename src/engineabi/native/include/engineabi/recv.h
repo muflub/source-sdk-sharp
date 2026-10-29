@@ -27,11 +27,7 @@
 // RecvPropArray3, VectorXY or quaternion props, and no int64 (dt_common.h
 // leaves SUPPORTS_INT64 undefined).
 //=============================================================================//
-#ifndef SOURCESHARP_ENGINEABI_RECV_H
-#define SOURCESHARP_ENGINEABI_RECV_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "dt_recv.h"
 
@@ -49,11 +45,11 @@ namespace recv
 // default proxy must be the very function the table holds, which is the
 // Valve-named one client.so's callers also pass by name.
 RecvProp Float( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-                const CStandardRecvProxies &standard );
+				const CStandardRecvProxies &standard );
 RecvProp Vector( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-                 const CStandardRecvProxies &standard );
+				 const CStandardRecvProxies &standard );
 RecvProp Int( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-              const CStandardRecvProxies &standard );
+			  const CStandardRecvProxies &standard );
 RecvProp String( const char *pVarName, int offset, int bufferSize, int flags, RecvVarProxyFn proxy );
 RecvProp DataTable( const char *pVarName, int offset, int flags, RecvTable *pTable, DataTableRecvVarProxyFn proxy );
 RecvProp ArrayLength( int elementCount, int elementStride, const char *pName, ArrayLengthRecvProxyFn proxy );
@@ -68,5 +64,3 @@ void StringToString( const CRecvProxyData *pData, void *pStruct, void *pOut );
 void StaticDataTable( const RecvProp *pProp, void **pOut, void *pData, int objectID );
 } // namespace recv
 } // namespace engineabi
-
-#endif // SOURCESHARP_ENGINEABI_RECV_H

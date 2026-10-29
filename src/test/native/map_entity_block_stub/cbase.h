@@ -27,8 +27,7 @@
 //
 //=============================================================================
 
-#ifndef SOURCESHARP_TEST_MAPENTITYBLOCK_CBASE_H
-#define SOURCESHARP_TEST_MAPENTITYBLOCK_CBASE_H
+#pragma once
 
 #include "tier0/platform.h"
 #include "tier0/basetypes.h"
@@ -42,5 +41,3 @@ inline bool FStrEq( const char *sz1, const char *sz2 )
 {
 	return ( sz1 == sz2 || V_stricmp( sz1, sz2 ) == 0 );
 }
-
-#endif // SOURCESHARP_TEST_MAPENTITYBLOCK_CBASE_H

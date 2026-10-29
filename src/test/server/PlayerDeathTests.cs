@@ -34,7 +34,7 @@ public class PlayerDeathTests
         public ScriptedEntity? Get(EntityHandle handle) => bodies.FirstOrDefault(b => b.Handle == handle);
         public ScriptedEntity? FindByName(string name) => null;
         public IEnumerable<ScriptedEntity> OfClass(string className) => Array.Empty<ScriptedEntity>();
-        public bool IsRegistered(string className) => className == EntityNames.SsRagdoll;
+        public bool IsRegistered(string className) => className == EntityNames.Hl2mpRagdoll;
         public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => Array.Empty<ScriptedClassInfo>();
     }
 
@@ -338,7 +338,7 @@ public class PlayerDeathTests
         var before = Ragdoll(engine, Body);
         before.Kept = true;
 
-        var record = new SavedEntity(Body.Value, EntityNames.SsRagdoll, string.Empty);
+        var record = new SavedEntity(Body.Value, EntityNames.Hl2mpRagdoll, string.Empty);
         before.SaveState(record);
 
         var after = Ragdoll(engine, Body);

@@ -8,8 +8,7 @@
 // writes a line, and the trees are dumped after the setters and again after
 // the getters have converted what they convert.
 
-#ifndef KEYVALUES_SCENARIO_H
-#define KEYVALUES_SCENARIO_H
+#pragma once
 
 #include "tier1/KeyValues.h"
 
@@ -58,10 +57,18 @@ inline void Dump( KeyValues *kv, int nDepth, std::string &out )
 	out += b;
 	switch ( nType )
 	{
-	case KeyValues::TYPE_INT: snprintf( b, sizeof( b ), "%d", kv->GetInt( (const char *)NULL ) ); out += b; break;
-	case KeyValues::TYPE_FLOAT: out += FloatBits( kv->GetFloat( (const char *)NULL ) ); break;
-	case KeyValues::TYPE_STRING: out += Escape( kv->GetString( (const char *)NULL ) ); break;
-	default: break;
+		case KeyValues::TYPE_INT:
+			snprintf( b, sizeof( b ), "%d", kv->GetInt( (const char *)NULL ) );
+			out += b;
+			break;
+		case KeyValues::TYPE_FLOAT:
+			out += FloatBits( kv->GetFloat( (const char *)NULL ) );
+			break;
+		case KeyValues::TYPE_STRING:
+			out += Escape( kv->GetString( (const char *)NULL ) );
+			break;
+		default:
+			break;
 	}
 	out += "\n";
 	for ( KeyValues *sub = kv->GetFirstSubKey(); sub; sub = sub->GetNextKey() )
@@ -72,7 +79,11 @@ inline std::string Run()
 {
 	std::string out;
 	char b[512];
-	auto line = [&]( const std::string &s ) { out += s; out += "\n"; };
+	auto line = [&]( const std::string &s )
+	{
+		out += s;
+		out += "\n";
+	};
 
 	KeyValues *root = new KeyValues( "KvRoot" );
 	root->SetInt( "int", 7 );
@@ -92,11 +103,11 @@ inline std::string Run()
 	root->SetInt( "path/to/leaf", 3 );
 	root->SetString( "path/to/other", "x" );
 	root->SetFloat( "path/also", 1.0f );
-	root->SetInt( "PATH/TO/LEAF", 4 );			// the symbol table is case-insensitive
+	root->SetInt( "PATH/TO/LEAF", 4 ); // the symbol table is case-insensitive
 	root->SetInt( "trailing/", 5 );
 	root->SetInt( "a//b", 6 );
 	std::string longName( 300, 'n' );
-	root->SetInt( ( longName + "/x" ).c_str(), 8 );	// a 300-character segment, cut at 255
+	root->SetInt( ( longName + "/x" ).c_str(), 8 ); // a 300-character segment, cut at 255
 	root->SetInt( "retype", 1 );
 	root->SetString( "retype", "now a string" );
 	root->SetFloat( "retype", 9.5f );
@@ -104,13 +115,13 @@ inline std::string Run()
 	root->SetString( "retype2", "back to string" );
 	root->SetInt( "retype2", 11 );
 	root->SetString( "block/child", "c" );
-	root->SetInt( "block", 12 );				// a block given a value keeps its children
+	root->SetInt( "block", 12 ); // a block given a value keeps its children
 	root->SetString( "dup", "first" );
 
 	KeyValues *self = new KeyValues( "Self" );
 	self->SetInt( NULL, 99 );
 	self->SetString( "", "self string" );
-	self->SetInt( "kid", 1 );				// the parent becomes a block: TYPE_NONE
+	self->SetInt( "kid", 1 ); // the parent becomes a block: TYPE_NONE
 
 	KeyValues *pair = new KeyValues( "Pair", "first", 1, "second", 2 );
 	KeyValues *same = new KeyValues( "Same", "k", 1, "k", 2 );
@@ -126,9 +137,10 @@ inline std::string Run()
 	for ( KeyValues *k : { root, self, pair, same } )
 		Dump( k, 0, out );
 
-	const char *kKeys[] = { "int", "neg", "float", "negfloat", "big", "str", "nullstr", "empty", "numstr", "floatstr", "hex",
-	                        "ptr", "u64", "u64small", "path", "path/to/leaf", "path/to", "trailing", "block", "missing",
-	                        "missing/deeper", "Adopted", "EmptyParent", NULL, "" };
+	const char *kKeys[] = { "int",     "neg",          "float",    "negfloat", "big",   "str",     "nullstr",
+							"empty",   "numstr",       "floatstr", "hex",      "ptr",   "u64",     "u64small",
+							"path",    "path/to/leaf", "path/to",  "trailing", "block", "missing", "missing/deeper",
+							"Adopted", "EmptyParent",  NULL,       "" };
 	const char *kDefault = "DEFAULT";
 	line( "== GetDataType, GetInt, GetFloat, then GetString (which converts)" );
 	for ( const char *k : kKeys )
@@ -136,25 +148,27 @@ inline std::string Run()
 		const int nType = root->GetDataType( k );
 		const int n = root->GetInt( k, -77 );
 		const float fl = root->GetFloat( k, -7.5f );
-		snprintf( b, sizeof( b ), "%s\ttype %d\tint %d\tfloat %s", k ? k : "(null)", nType, n, FloatBits( fl ).c_str() );
+		snprintf( b, sizeof( b ), "%s\ttype %d\tint %d\tfloat %s", k ? k : "(null)", nType, n,
+				  FloatBits( fl ).c_str() );
 		line( b );
 	}
 	for ( const char *k : kKeys )
 	{
 		const char *psz = root->GetString( k, kDefault );
 		snprintf( b, sizeof( b ), "%s\tstring %s\ttype now %d", k ? k : "(null)",
-		          psz == kDefault ? "<the default>" : Escape( psz ).c_str(), root->GetDataType( k ) );
+				  psz == kDefault ? "<the default>" : Escape( psz ).c_str(), root->GetDataType( k ) );
 		line( b );
 	}
 
 	// A string set from its own value is not reallocated.
 	const char *pszOwn = root->GetString( "str" );
 	root->SetString( "str", pszOwn );
-	snprintf( b, sizeof( b ), "SetString from its own value keeps the pointer: %d", root->GetString( "str" ) == pszOwn ? 1 : 0 );
+	snprintf( b, sizeof( b ), "SetString from its own value keeps the pointer: %d",
+			  root->GetString( "str" ) == pszOwn ? 1 : 0 );
 	line( b );
 
 	snprintf( b, sizeof( b ), "names: %s %s %s", Escape( root->GetName() ).c_str(), Escape( pair->GetName() ).c_str(),
-	          Escape( root->FindKey( "PATH" ) ? root->FindKey( "PATH" )->GetName() : "(none)" ).c_str() );
+			  Escape( root->FindKey( "PATH" ) ? root->FindKey( "PATH" )->GetName() : "(none)" ).c_str() );
 	line( b );
 
 	line( "== after the getters" );
@@ -169,5 +183,3 @@ inline std::string Run()
 	return out;
 }
 } // namespace keyvalues_scenario
-
-#endif // KEYVALUES_SCENARIO_H

@@ -12,6 +12,23 @@ using SourceSharp.Shared.Bones;
 namespace SourceSharp.Client.Standalone;
 
 /// <summary>
+/// How the live "the camera sees the owner" fact gates an entity's draw, the
+/// block's <c>OwnerSeenRule</c>; the shell's <c>STANDALONE_OWNER_SEEN_*</c>
+/// are the same numbers (ClientRenderPolicyTests pins the pair).
+/// </summary>
+public enum ClientOwnerSeenRule
+{
+    /// <summary>Not at all.</summary>
+    Always = 0,
+
+    /// <summary>Hidden while the camera sees the owner: the viewmodel, drawn at the eye.</summary>
+    HiddenWhileSeen = 1,
+
+    /// <summary>Drawn only while the camera sees the owner: the viewer's own body.</summary>
+    DrawnOnlyWhileSeen = 2,
+}
+
+/// <summary>
 /// Everything the render policy is decided FROM, as numbers.
 ///
 /// <para>
@@ -24,6 +41,12 @@ namespace SourceSharp.Client.Standalone;
 /// </summary>
 public struct ClientRenderFacts
 {
+    /// <summary>
+    /// The viewer's own body: the entity at the engine's local player index
+    /// (<c>engine-&gt;GetLocalPlayer()</c>), as stock's <c>C_BasePlayer::IsLocalPlayer</c>.
+    /// </summary>
+    public bool LocalPlayer;
+
     /// <summary>Out of the client's PVS. The engine's word, not this side's.</summary>
     public bool Dormant;
 
@@ -42,6 +65,9 @@ public struct ClientRenderFacts
     /// </summary>
     public bool NoDraw;
 
+    /// <summary>EF_NOSHADOW: the server said it casts nothing.</summary>
+    public bool NoShadow;
+
     /// <summary>Drawn in the viewmodel pass.</summary>
     public bool ViewModel;
 
@@ -50,6 +76,13 @@ public struct ClientRenderFacts
 
     /// <summary>Blended, as <c>SetBlending</c> said.</summary>
     public bool Translucent;
+
+    /// <summary>
+    /// Its managed class draws something of its own in the translucent pass
+    /// beside an opaque model (<see cref="IRenderPolicyWishes.WantTwoPass"/>):
+    /// stock's weapons that answer <c>RENDER_GROUP_TWOPASS</c>.
+    /// </summary>
+    public bool TwoPass;
 
     /// <summary>What <see cref="FadeStyle"/> this entity fades by.</summary>
     public FadeStyle Fade;
@@ -116,6 +149,27 @@ public struct ClientRenderFacts
 }
 
 /// <summary>
+/// What a managed class asks of its render policy beyond what its block says:
+/// the choices stock made in a class's own override (<c>GetRenderGroup</c>).
+/// </summary>
+public interface IRenderPolicyWishes
+{
+    /// <summary>
+    /// Put <paramref name="entity"/> in the two-pass group, or take it out:
+    /// its model drawn in the opaque pass and the class's own
+    /// <see cref="ClientStandaloneEntity.OnDrawExtras"/> in the translucent
+    /// one. Decided on the next pass.
+    /// </summary>
+    void WantTwoPass(EntityHandle entity, bool twoPass);
+}
+
+/// <summary>No render policy to ask: a class built on its own (a test's).</summary>
+public sealed class NoRenderPolicyWishes : IRenderPolicyWishes
+{
+    public void WantTwoPass(EntityHandle entity, bool twoPass) { }
+}
+
+/// <summary>
 /// What the shell loads. One value per block field the policy writes.
 /// </summary>
 public struct ClientRenderChoices
@@ -123,8 +177,11 @@ public struct ClientRenderChoices
     /// <summary>What <c>ShouldDraw</c> answers, before the live third-person term.</summary>
     public bool Drawn;
 
-    /// <summary>Whether the entity is hidden while the camera can see its owner.</summary>
-    public bool HideWhenOwnerSeen;
+    /// <summary>
+    /// How the live "the camera sees the owner" fact gates the draw
+    /// (<see cref="EngineBlockClientTail.OwnerSeenRule"/>).
+    /// </summary>
+    public ClientOwnerSeenRule OwnerSeen;
 
     /// <summary>What <c>IsTransparent</c> answers.</summary>
     public bool Transparent;
@@ -180,7 +237,7 @@ public struct ClientRenderChoices
 /// was paid for once rather than per phase.
 /// </para>
 /// </summary>
-public sealed class ClientRenderPolicy
+public sealed class ClientRenderPolicy : IRenderPolicyWishes
 {
     //-------------------------------------------------------------------------
     // THE RULES. Static and pure: a fact can supply any combination of inputs,
@@ -189,7 +246,7 @@ public sealed class ClientRenderPolicy
 
     /// <summary>
     /// Whether the entity is drawn at all, before the one term the shell has to
-    /// AND in live (see <see cref="HideWhenOwnerSeen"/>).
+    /// combine live (see <see cref="OwnerSeen"/>).
     ///
     /// <para>
     /// A dormant entity draws nothing, whatever else it is. Then: an entity that
@@ -214,6 +271,12 @@ public sealed class ClientRenderPolicy
         if (facts.NoDraw)
             return false;
 
+        // THE VIEWER'S OWN BODY draws by whether it has a model, and whether
+        // the camera can see it is the live half (OwnerSeen). Stock's
+        // C_BasePlayer::ShouldDraw: ShouldDrawThisPlayer, then the base's.
+        if (facts.LocalPlayer && !facts.ViewModel)
+            return facts.HasModel;
+
         if (facts.CustomDraw && !facts.ViewModel)
             return true;
 
@@ -221,8 +284,18 @@ public sealed class ClientRenderPolicy
     }
 
     /// <summary>
-    /// Whether the entity is hidden while the third-person camera can see its
-    /// owner: the viewmodel, and nothing else.
+    /// How the live "the camera sees the owner" fact gates the entity's draw:
+    /// the viewmodel is hidden while the third-person camera can see its owner,
+    /// the viewer's own body is drawn only while it can, and everything else
+    /// ignores it.
+    ///
+    /// <para>
+    /// THE VIEWER'S OWN BODY is the one model a client must NOT draw most of the
+    /// time: stock's <c>C_BasePlayer::ShouldDraw</c> opens with the same refusal
+    /// (<c>!IsLocalPlayer() || input->CAM_IsThirdPerson()</c>), and every OTHER
+    /// player draws by whether it has a model. Decided natively in the shell's
+    /// ShouldDraw until lane M1-A.
+    /// </para>
     ///
     /// <para>
     /// The viewmodel belongs to the eye, and in third person there is no eye to
@@ -238,7 +311,14 @@ public sealed class ClientRenderPolicy
     /// the arms belong back on screen for it.
     /// </para>
     /// </summary>
-    public static bool HideWhenOwnerSeen(in ClientRenderFacts facts) => facts.ViewModel;
+    public static ClientOwnerSeenRule OwnerSeen(in ClientRenderFacts facts)
+    {
+        if (facts.ViewModel)
+            return ClientOwnerSeenRule.HiddenWhileSeen;
+        if (facts.LocalPlayer)
+            return ClientOwnerSeenRule.DrawnOnlyWhileSeen;
+        return ClientOwnerSeenRule.Always;
+    }
 
     /// <summary>
     /// Transparent while it is FADING, and while a managed class that draws
@@ -293,6 +373,11 @@ public sealed class ClientRenderPolicy
         if (facts.ViewModel)
             return ClientRenderGroup.ViewModelOpaque;
 
+        // A class that asked: C_WeaponStunStick's and C_WeaponPhysCannon's
+        // GetRenderGroup answer RENDER_GROUP_TWOPASS whatever else is true.
+        if (facts.TwoPass)
+            return ClientRenderGroup.TwoPass;
+
         if (Transparent(facts))
             return ClientRenderGroup.TranslucentEntity;
 
@@ -344,7 +429,8 @@ public sealed class ClientRenderPolicy
         if (facts.ViewModel)
             return ShadowCast.None;
 
-        if (facts.ShadowChoice == ShadowCastChoice.Never)
+        // C_BaseEntity::ShadowCastType: EF_NOSHADOW casts nothing, as EF_NODRAW does.
+        if (facts.NoShadow || facts.ShadowChoice == ShadowCastChoice.Never)
             return ShadowCast.None;
 
         // The cheap blob, for something the auto rule would refuse: an entity
@@ -461,7 +547,7 @@ public sealed class ClientRenderPolicy
         return new ClientRenderChoices
         {
             Drawn             = Drawn(facts),
-            HideWhenOwnerSeen = HideWhenOwnerSeen(facts),
+            OwnerSeen         = OwnerSeen(facts),
             Transparent       = Transparent(facts),
             Group             = Group(facts),
             Shadow            = shadow,
@@ -550,9 +636,19 @@ public sealed class ClientRenderPolicy
     // skeletons that own the headers are composed later; null until then.
     private readonly Func<IBoneModels?> _models;
 
+    // The engine's local player index (engine->GetLocalPlayer()), asked once
+    // by a pass that decides anything; 0 and below before there is one.
+    private readonly Func<int> _localPlayer;
+
     public ClientRenderPolicy(Func<IBoneModels?> models)
+        : this(models, () => 0)
+    {
+    }
+
+    public ClientRenderPolicy(Func<IBoneModels?> models, Func<int> localPlayer)
     {
         _models = models ?? throw new ArgumentNullException(nameof(models));
+        _localPlayer = localPlayer ?? throw new ArgumentNullException(nameof(localPlayer));
         Forget();
     }
 
@@ -560,6 +656,23 @@ public sealed class ClientRenderPolicy
     {
         Array.Fill(_handles, NoHandle);
         Array.Clear(_inputs);
+    }
+
+    /// <summary>The handles whose classes asked for the two-pass group.</summary>
+    private readonly HashSet<uint> _twoPass = [];
+
+    /// <inheritdoc/>
+    public void WantTwoPass(EntityHandle entity, bool twoPass)
+    {
+        bool changed = twoPass ? _twoPass.Add(entity.Value) : _twoPass.Remove(entity.Value);
+        if (!changed)
+            return;
+
+        // Decided again on the next pass: the wish is an input the block's
+        // serial cannot see, so the entry's "already decided" mark goes.
+        int index = (int)(entity.Value & EntryMask);
+        if ((uint)index < MaxEntities)
+            _handles[index] = NoHandle;
     }
 
     /// <summary>The entry-index bits of a <c>CBaseHandle</c>.</summary>
@@ -598,6 +711,7 @@ public sealed class ClientRenderPolicy
             return 0;
 
         int decided = 0;
+        int? localPlayer = null;
 
         for (int i = 0; i < count; i++)
         {
@@ -634,7 +748,9 @@ public sealed class ClientRenderPolicy
             if (_handles[index] == handle && _inputs[index] == inputs && ReadUInt(block, OutputsOffset) != 0)
                 continue;
 
-            ClientRenderFacts facts = ReadFacts(block, _models());
+            localPlayer ??= _localPlayer();
+            ClientRenderFacts facts = ReadFacts(block, _models(), localPlayer.Value);
+            facts.TwoPass = _twoPass.Contains(handle);
             ClientRenderChoices choices = Decide(facts);
             WriteChoices(block, choices);
 
@@ -658,6 +774,7 @@ public sealed class ClientRenderPolicy
     public void Clear()
     {
         Forget();
+        _twoPass.Clear();
         LastSeen = 0;
         LastDecided = 0;
     }
@@ -699,7 +816,7 @@ public sealed class ClientRenderPolicy
     private static readonly int RenderAlphaOffset = Tail(nameof(EngineBlockClientTail.RenderColorA));
 
     private static readonly int DrawnOffset = Tail(nameof(EngineBlockClientTail.Drawn));
-    private static readonly int HideWhenOwnerSeenOffset = Tail(nameof(EngineBlockClientTail.HideWhenOwnerSeen));
+    private static readonly int OwnerSeenOffset = Tail(nameof(EngineBlockClientTail.OwnerSeenRule));
     private static readonly int TransparentOffset = Tail(nameof(EngineBlockClientTail.Transparent));
     private static readonly int RenderGroupOffset = Tail(nameof(EngineBlockClientTail.RenderGroup));
     private static readonly int ShadowTypeOffset = Tail(nameof(EngineBlockClientTail.ShadowType));
@@ -710,8 +827,17 @@ public sealed class ClientRenderPolicy
     /// <paramref name="models"/>' header for the block's model index.
     /// </summary>
     public static ClientRenderFacts ReadFacts(ReadOnlySpan<byte> block, IBoneModels? models)
+        => ReadFacts(block, models, 0);
+
+    /// <summary>
+    /// The facts, with the entity the engine names as its local player
+    /// (<paramref name="localPlayer"/>, 0 and below for none) marked as the
+    /// viewer's own body.
+    /// </summary>
+    public static ClientRenderFacts ReadFacts(ReadOnlySpan<byte> block, IBoneModels? models, int localPlayer)
     {
         ClientRenderFacts facts = ReadBlockFacts(block);
+        facts.LocalPlayer = localPlayer > 0 && (int)(ReadUInt(block, HandleOffset) & EntryMask) == localPlayer;
         ReadModelCounts(ref facts, ReadInt(block, ModelIndexOffset), models);
         return facts;
     }
@@ -747,6 +873,7 @@ public sealed class ClientRenderPolicy
     {
         Dormant             = ReadInt(block, DormantOffset) != 0,
         NoDraw              = (ReadInt(block, EffectsOffset) & (int)EntityEffect.NoDraw) != 0,
+        NoShadow            = (ReadInt(block, EffectsOffset) & (int)EntityEffect.NoShadow) != 0,
         NoReceiveShadow     = (ReadInt(block, EffectsOffset) & (int)EntityEffect.NoReceiveShadow) != 0,
         RenderAlpha         = block[RenderAlphaOffset],
         // The render mode: the block carries no RenderMode_t, and an entity's
@@ -765,7 +892,7 @@ public sealed class ClientRenderPolicy
     private void WriteChoices(Span<byte> block, in ClientRenderChoices choices)
     {
         WriteInt(block, DrawnOffset, choices.Drawn ? 1 : 0);
-        WriteInt(block, HideWhenOwnerSeenOffset, choices.HideWhenOwnerSeen ? 1 : 0);
+        WriteInt(block, OwnerSeenOffset, (int)choices.OwnerSeen);
         WriteInt(block, TransparentOffset, choices.Transparent ? 1 : 0);
         WriteInt(block, RenderGroupOffset, (int)choices.Group);
         WriteInt(block, ShadowTypeOffset, (int)choices.Shadow);
@@ -787,7 +914,7 @@ public sealed class ClientRenderPolicy
     public static ClientRenderChoices ReadChoices(ReadOnlySpan<byte> block) => new()
     {
         Drawn             = ReadInt(block, DrawnOffset) != 0,
-        HideWhenOwnerSeen = ReadInt(block, HideWhenOwnerSeenOffset) != 0,
+        OwnerSeen         = (ClientOwnerSeenRule)ReadInt(block, OwnerSeenOffset),
         Transparent       = ReadInt(block, TransparentOffset) != 0,
         Group             = (ClientRenderGroup)ReadInt(block, RenderGroupOffset),
         Shadow            = (ShadowCast)ReadInt(block, ShadowTypeOffset),

@@ -20,6 +20,13 @@ public:
 	int m_nMarker;
 };
 
+// The test's stand-in for the DLL tier's services a body is handed.
+class CServerDllServices
+{
+public:
+	int m_nSeen = 0;
+};
+
 namespace
 {
 
@@ -35,11 +42,12 @@ SS_NATIVE_COMMAND( ss_test_body_alpha )
 SS_NATIVE_COMMAND( ss_test_body_beta )
 {
 	g_nCalledWith = -args.m_nMarker;
+	services.m_nSeen = args.m_nMarker;
 }
 
 TEST( NativeCommandBody, EveryBodyDefinedIsOnTheList )
 {
-	std::vector< std::string > names;
+	std::vector<std::string> names;
 	for ( const CNativeCommandBody *p = CNativeCommandBody::First(); p; p = p->Next() )
 		names.push_back( p->Name() );
 
@@ -56,14 +64,15 @@ TEST( NativeCommandBody, FindAnswersTheBodyOfThatNameAndRunsIt )
 	CCommand args;
 	args.m_nMarker = 7;
 	g_nCalledWith = 0;
-	p->Run( args );
+	CServerDllServices services;
+	p->Run( args, services );
 	EXPECT_EQ( -7, g_nCalledWith );
+	EXPECT_EQ( 7, services.m_nSeen ) << "the body was not handed the services Run was given";
 }
 
 TEST( NativeCommandBody, FindIgnoresCaseAsTheConsoleDoes )
 {
-	EXPECT_EQ( CNativeCommandBody::Find( "ss_test_body_alpha" ),
-	           CNativeCommandBody::Find( "SS_Test_Body_ALPHA" ) );
+	EXPECT_EQ( CNativeCommandBody::Find( "ss_test_body_alpha" ), CNativeCommandBody::Find( "SS_Test_Body_ALPHA" ) );
 	EXPECT_NE( nullptr, CNativeCommandBody::Find( "SS_Test_Body_ALPHA" ) );
 }
 

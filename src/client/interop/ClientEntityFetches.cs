@@ -51,7 +51,13 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         IServiceLocator areas = engine.Attachment.Areas;
 
         services.AddInstance<IInterpolationBlocks>(new InterpolationBlocks(areas.Require<IStandaloneClientArea>()));
+        // The interpolation pass's admitted set, for the shell's PreRender walk (InterpolatedSet).
+        services.AddInstance<IInterpolationAdmission>(new ClientInterpolationAdmission(areas.Require<IStandaloneClientArea>()));
         services.AddInstance<IRenderPolicyBlocks>(new RenderPolicyBlocks(areas.Require<IStandaloneClientArea>()));
+        // The shells' surrounding boxes, for the per-view fade (StandaloneFadePass).
+        services.AddInstance<IStandaloneRenderBounds>(new ClientStandaloneRenderBounds(areas.Require<IStandaloneClientArea>()));
+        // A broken surface's native draw (ClientBreakableSurf hands it the materials and the plan).
+        services.AddInstance<IBreakableSurfaceRenderer>(new ClientBreakableSurfaceRenderer(areas.Require<IStandaloneClientArea>()));
         services.AddInstance<IClientReplayEngine>(new ClientReplayEngine(areas.Require<IPredictionClientArea>()));
 
         // The recv tables and schema refusals, for the dev API's nettables
@@ -142,6 +148,11 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         // adapters (EngineServices.AddForwarders): built on first resolve.
         services.AddFactory<IClientModelNames>(s => new ClientModelNames(s.Require<IFwdModelInfo>()));
         services.AddInstance<IClientPlaneTrace>(new ClientPlaneTrace(areas.Require<IParticlesClientArea>()));
+        // A player's spray, carried out (lane M1-C, shell_te_backends_client.cpp).
+        services.AddInstance<IClientSprayEngine>(new ClientSpraySlots(areas.Require<ITempEntBackendsClientArea>()));
+        // The managed bullet impact's engine calls (lane M1-C, shell_impact_effects.cpp).
+        services.AddInstance<IClientImpactEngine>(new ClientImpactSlots(areas.Require<ITempEntBackendsClientArea>(),
+                                                                        areas.Require<IParticlesClientArea>()));
         // point_worldtext's native text renderer (lane c2-sims): its lifetime.
         services.AddInstance<IClientWorldTextMeshes>(new ClientWorldTextMeshes(areas.Require<IParticlesClientArea>()));
         // The client wind's publication (lane c2-sims).

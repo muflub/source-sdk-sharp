@@ -1,61 +1,7 @@
-# sdk-links/libs.txt: fork files that only the Valve static libraries use (tier1, mathlib, raytrace).
+# sdk-links/libs.txt: fork files that only the Valve static libraries use (tier1, mathlib).
 # The farm links the union of sdk-links/*.txt, one link per file (tools/setup).
 # This is Valve code we still depend on: it shrinks as code is ported, and a
 # fully ported file's line is deleted. tools/sdk-census decides which list a
 # file belongs in; `make sdk-census` fails on a line nothing uses or a line in
 # the wrong list, and `tools/sdk-census --write` regenerates every list.
-# 49 links here; 540 in all lists (were 541)
-#      12 src/mathlib
-#      14 src/public
-#       3 src/raytrace
-#      17 src/tier1
-#       3 src/utils
-src/mathlib/3dnow.h
-src/mathlib/color_conversion.cpp
-src/mathlib/lightdesc.cpp
-src/mathlib/mathlib_base.cpp
-src/mathlib/noisedata.h
-src/mathlib/powsse.cpp
-src/mathlib/randsse.cpp
-src/mathlib/sse.cpp
-src/mathlib/sse.h
-src/mathlib/sseconst.cpp
-src/mathlib/ssenoise.cpp
-src/mathlib/vmatrix.cpp
-src/public/filesystem_init.h
-src/public/mathlib/amd3dx.h
-src/public/mathlib/halton.h
-src/public/mathlib/ssequaternion.h
-src/public/raytrace.h
-src/public/tier1/characterset.h
-src/public/tier1/fmtstr.h
-src/public/tier1/memstack.h
-src/public/tier1/stringpool.h
-src/public/tier1/utlbufferutil.h
-src/public/tier1/utlcommon.h
-src/public/tier1/utlhashtable.h
-src/public/vstdlib/iprocessutils.h
-src/public/zip_utils.h
-src/raytrace/raytrace.cpp
-src/raytrace/trace2.cpp
-src/raytrace/trace3.cpp
-src/tier1/KeyValues.cpp
-src/tier1/bitbuf.cpp
-src/tier1/characterset.cpp
-src/tier1/checksum_crc.cpp
-src/tier1/convar.cpp
-src/tier1/generichash.cpp
-src/tier1/memstack.cpp
-src/tier1/qsort_s.cpp
-src/tier1/strtools.cpp
-src/tier1/strtools_unicode.cpp
-src/tier1/tier1.cpp
-src/tier1/uniqueid.cpp
-src/tier1/utlbinaryblock.cpp
-src/tier1/utlbuffer.cpp
-src/tier1/utlbufferutil.cpp
-src/tier1/utlstring.cpp
-src/tier1/utlsymbol.cpp
-src/utils/common/bsplib.h
-src/utils/common/cmdlib.h
-src/utils/common/filesystem_tools.h
+# 0 links here; 519 in all lists (were 523)

@@ -5,44 +5,25 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the material proxy trampoline =======================//
 // SS_REASON c  static-init registration
+// The material proxy trampoline. The material system finds a proxy by name through
+// CreateInterface ("<Name>_IMaterialProxy003") and holds it for the material's life.
+// CManagedMaterialProxy, registered once per name, asks managed what the stock proxy of
+// that name decided and carries it out.
 //
-// plan_client_novalve.md §2 cluster 1 (lane c5-proxies). The material system
-// finds a proxy BY NAME through client.so's CreateInterface
-// ("<Name>_IMaterialProxy003") and holds the IMaterialProxy it gets for the
-// material's life, calling Init once and OnBind each time the material is
-// bound. That vtable and that by-name lookup are the whole engine contract,
-// so they are all that stays native: ONE class, CManagedMaterialProxy,
-// registered once per name below, whose Init and OnBind ask managed
-// (IManagedMaterialProxyClient -> MaterialProxyHost) what the stock proxy of
-// that name decided, and carry it out.
-//
-// WHAT NATIVE HOLDS, AND ONLY THAT. The engine's pointers: the material, the
-// IMaterialVar each FindVar answered, the ITexture each FindTexture answered
-// (with a reference for the proxy's life). Managed holds their slot numbers.
-// A bind hands managed every held var's state before the bind (the getters
-// stock's proxies call) and gets back the IMaterialVar setter calls to make,
-// in order, which this file makes. Anything else a proxy reads through the
-// engine it asks for by handle (IShimMaterialProxyClient, the bodies at the
-// end), so a read stock made only on one arm is made only on that arm.
-//
-// RELOAD (§3.8): the handles and the pointers are native's and survive a
-// cs_cl_reload; managed carries each proxy's Init answers as bytes
-// (MaterialProxyHost is an IReloadParticipant), so every bound proxy answers
-// through the new build's code from the next bind.
-//
-// The 46 names are the 22 stock proxy TUs' it replaced, the old
-// shell_materialproxies.cpp's four (Shield, HeliBlade, VortEmissive,
-// PlayerLogo) and viewpostprocess.cpp's two (MotionBlur, engine_post: C7, the
-// post program's values); MaterialProxyFactoryTests holds this list equal to
-// MaterialProxyFactory's and to the C0 registry's. Then clientshadowmgr.cpp's
-// two (Shadow, ShadowModel: C7 cluster 12 S2, the render-to-texture shadow
-// decals' atlas and ShadowInfo_t; user ruling Q1, 2026-10-19, "move to c#").
-//
-//=============================================================================//
+// Native holds the engine's pointers (material, vars, textures); managed holds their slot
+// numbers. A bind hands managed every held var's state and gets back the setter calls to
+// make, in order. The handles and pointers survive a managed reload.
 
-#include "cbase.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "materialsystem/imaterialproxy.h"
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialvar.h"
@@ -51,24 +32,41 @@
 #include "tier1/KeyValues.h"
 #include "tier1/interface.h"
 #include "tier1/utlmap.h"
-#include "shell_particle_mgr.h"	// the particle draw state (C7 particles phase 4)
 #include "view.h"
 #include "iviewrender.h"
-#include "c_world.h"
+#include "client_world.h"
+#include "cl_mat_stub.h"
+#include "materialsystem/imaterialsystemstub.h"
+#include "mathlib/vector.h"
+#include "mathlib/vmatrix.h"
+#include "tier0/dbg.h"
+#include "tier0/platform.h"
+#include "tier1/strtools.h"
+#include "tier1/utlrbtree.h"
+#include "tier1/utlvector.h"
+#include "toolframework/itoolentity.h"
+#include "cdll_client_int.h"
+#include "cdll_int.h"
+#include "const.h"
+#include "eiface.h"
+#include "globalvars_base.h"
+#include "icliententity.h"
+#include "icliententitylist.h"
+#include "iclientnetworkable.h"
+#include "iclientrenderable.h"
+#include "iclientunknown.h"
+#include "particlemgr.h"
+#include "shell_particle_mgr.h"
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"
 #include "shell_standalone_client.h"
 #include "slot_table.h"
 #include "shell_diagnostics.h"
-#include "cl_mat_stub.h"
-#include "materialsystem/imaterialsystemstub.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
-// memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
-
+// clang-format off
 #define SS_PROXY_NAMES( X ) \
 	X( 0, Abs ) X( 1, Add ) X( 2, Alpha ) X( 3, AnimateSpecificTexture ) X( 4, AnimatedEntityTexture ) \
 	X( 5, AnimatedOffsetTexture ) X( 6, AnimatedTexture ) X( 7, Camo ) X( 8, Clamp ) X( 9, CurrentTime ) \
@@ -81,13 +79,15 @@
 	X( 40, WorldDims ) X( 41, WrapMinMax ) X( 42, lampbeam ) X( 43, lamphalo ) \
 	X( 44, MotionBlur ) X( 45, engine_post ) X( 46, ParticleSphereProxy ) \
 	X( 47, Shadow ) X( 48, ShadowModel )
+// clang-format on
 
 #define SS_PROXY_NAME( i, name ) #name,
 static const char *const s_ProxyNames[] = { SS_PROXY_NAMES( SS_PROXY_NAME ) };
 #undef SS_PROXY_NAME
 
-// The setter calls one bind may ask for (sourcesharp.h's op kinds).
+// The most setter calls one bind may ask for.
 static const int kMaxProxyOps = 16;
+
 enum
 {
 	kProxyOpFloat = 1,
@@ -97,20 +97,20 @@ enum
 	kProxyOpVecComponent = 5,
 	kProxyOpMatrix = 6,
 	kProxyOpTexture = 7,
-	// 8 was kProxyOpRecordTools (ToolFramework_RecordMaterialParams), deleted:
-	// SFM is dead (user ruling 2026-10-19). Never reuse it.
+	// 8 is reserved; never reuse it.
 };
 
 class CManagedMaterialProxy;
 
-//-----------------------------------------------------------------------------
-// The handles managed knows the live proxies by: issued here, never reused, so
-// a stale one finds nothing rather than another proxy.
-//-----------------------------------------------------------------------------
+// Handles managed knows the live proxies by: never reused, so a stale one finds nothing.
 class CManagedProxyTable
 {
 public:
-	CManagedProxyTable() : m_Proxies( DefLessFunc( int32_t ) ), m_nNext( 0 ) {}
+	CManagedProxyTable()
+		: m_Proxies( DefLessFunc( int32_t ) )
+		, m_nNext( 0 )
+	{
+	}
 
 	int32_t Add( CManagedMaterialProxy *pProxy )
 	{
@@ -124,11 +124,11 @@ public:
 	CManagedMaterialProxy *Find( int32_t h ) const
 	{
 		const unsigned short i = m_Proxies.Find( h );
-		return i == m_Proxies.InvalidIndex() ? NULL : m_Proxies[ i ];
+		return i == m_Proxies.InvalidIndex() ? NULL : m_Proxies[i];
 	}
 
 private:
-	CUtlMap< int32_t, CManagedMaterialProxy * > m_Proxies;
+	CUtlMap<int32_t, CManagedMaterialProxy *> m_Proxies;
 	int32_t m_nNext;
 };
 
@@ -138,7 +138,11 @@ class CManagedMaterialProxy : public IMaterialProxy
 {
 public:
 	explicit CManagedMaterialProxy( int nName )
-		: m_nName( nName ), m_hProxy( 0 ), m_pMaterial( NULL ), m_pBindArg( NULL ), m_pBindVars( NULL )
+		: m_nName( nName )
+		, m_hProxy( 0 )
+		, m_pMaterial( NULL )
+		, m_pBindArg( NULL )
+		, m_pBindVars( NULL )
 	{
 		m_hProxy = s_ManagedProxies.Add( this );
 	}
@@ -151,13 +155,12 @@ public:
 		if ( !pManaged || !pMaterial )
 		{
 			Warning( "[SourceSharp] material proxy \"%s\" on \"%s\": no managed client to ask; refused\n",
-			         s_ProxyNames[ m_nName ], pMaterial ? pMaterial->GetName() : "(null)" );
+					 s_ProxyNames[m_nName], pMaterial ? pMaterial->GetName() : "(null)" );
 			return false;
 		}
 
-		// The block, RAW (sourcesharp.h says why): no key is read through an
-		// accessor that converts it.
-		CUtlVector< SourceSharpProxyKey_t > keys;
+		// Raw: no key is read through an accessor that converts it.
+		CUtlVector<SourceSharpProxyKey_t> keys;
 		if ( pKeyValues )
 		{
 			for ( KeyValues *k = pKeyValues->GetFirstSubKey(); k; k = k->GetNextKey() )
@@ -186,8 +189,8 @@ public:
 			}
 		}
 
-		return pManaged->ProxyInit( m_hProxy, s_ProxyNames[ m_nName ], pMaterial->GetName(),
-		                            keys.Base(), keys.Count() ) != 0;
+		return pManaged->ProxyInit( m_hProxy, s_ProxyNames[m_nName], pMaterial->GetName(), keys.Base(),
+									keys.Count() ) != 0;
 	}
 
 	virtual void OnBind( void *pArg ) OVERRIDE
@@ -205,12 +208,12 @@ public:
 		in.Reserved = 0;
 		in.Arg = pArg;
 
-		CUtlVectorFixedGrowable< SourceSharpProxyVar_t, 16 > vars;
+		CUtlVectorFixedGrowable<SourceSharpProxyVar_t, 16> vars;
 		vars.SetCount( m_Vars.Count() );
 		for ( int i = 0; i < m_Vars.Count(); ++i )
-			ReadVar( m_Vars[ i ], vars[ i ] );
+			ReadVar( m_Vars[i], vars[i] );
 
-		SourceSharpProxyOp_t ops[ kMaxProxyOps ];
+		SourceSharpProxyOp_t ops[kMaxProxyOps];
 		m_pBindArg = pArg;
 		m_pBindVars = vars.Base();
 		const int32_t nOps = pManaged->ProxyBind( m_hProxy, &in, vars.Base(), ops, kMaxProxyOps );
@@ -218,28 +221,22 @@ public:
 		m_pBindVars = NULL;
 
 		for ( int i = 0; i < nOps && i < kMaxProxyOps; ++i )
-			Apply( ops[ i ] );
+			Apply( ops[i] );
 	}
 
-	virtual void Release( void ) OVERRIDE
+	virtual void Release() OVERRIDE
 	{
 		if ( IManagedMaterialProxyClient *pManaged = ManagedMaterialProxyClient() )
 			pManaged->ProxyRelease( m_hProxy );
 		for ( int i = 0; i < m_Textures.Count(); ++i )
-			m_Textures[ i ]->DecrementReferenceCount();
+			m_Textures[i]->DecrementReferenceCount();
 		m_Textures.RemoveAll();
 		s_ManagedProxies.Remove( m_hProxy );
 		delete this;
 	}
 
-	virtual IMaterial *GetMaterial() OVERRIDE
-	{
-		return m_pMaterial;
-	}
+	virtual IMaterial *GetMaterial() OVERRIDE { return m_pMaterial; }
 
-	//-------------------------------------------------------------------------
-	// What the shim bodies below carry out for managed.
-	//-------------------------------------------------------------------------
 	int32_t FindVar( const char *pszName, bool bComplain, int32_t *pFound )
 	{
 		bool bFound = false;
@@ -265,17 +262,16 @@ public:
 	int32_t VarTexture( int32_t nSlot, char *pOutName, int32_t nOutSize )
 	{
 		if ( pOutName && nOutSize > 0 )
-			pOutName[ 0 ] = 0;
+			pOutName[0] = 0;
 		if ( !m_Vars.IsValidIndex( nSlot ) )
 			return -1;
-		IMaterialVar *pVar = m_Vars[ nSlot ];
+		IMaterialVar *pVar = m_Vars[nSlot];
 		ITexture *pTexture = pVar->GetTextureValue();
 
-		// GetTextureValue loads a string var's texture and makes the var a
-		// texture: what managed reads of it for the rest of this bind is the
-		// var as it is now.
+		// GetTextureValue loads a string var's texture and makes the var a texture; managed
+		// reads the var as it is now for the rest of this bind.
 		if ( m_pBindVars )
-			ReadVar( pVar, m_pBindVars[ nSlot ] );
+			ReadVar( pVar, m_pBindVars[nSlot] );
 
 		if ( !pTexture )
 			return -1;
@@ -289,69 +285,65 @@ public:
 private:
 	static void ReadVar( IMaterialVar *pVar, SourceSharpProxyVar_t &out )
 	{
-		float v[ 4 ] = { 0, 0, 0, 0 };
+		float v[4] = { 0, 0, 0, 0 };
 		pVar->GetVecValue( v, 4 );
 		out.Type = (int32_t)pVar->GetType();
 		out.VecSize = pVar->VectorSize();
 		out.Int = pVar->GetIntValue();
 		out.Float = pVar->GetFloatValue();
-		out.V0 = v[ 0 ];
-		out.V1 = v[ 1 ];
-		out.V2 = v[ 2 ];
-		out.V3 = v[ 3 ];
+		out.V0 = v[0];
+		out.V1 = v[1];
+		out.V2 = v[2];
+		out.V3 = v[3];
 	}
 
 	void Apply( const SourceSharpProxyOp_t &op )
 	{
 		if ( !m_Vars.IsValidIndex( op.Slot ) )
 			return;
-		IMaterialVar *pVar = m_Vars[ op.Slot ];
+		IMaterialVar *pVar = m_Vars[op.Slot];
 		switch ( op.Kind )
 		{
-		case kProxyOpFloat:
-			pVar->SetFloatValue( op.Values[ 0 ] );
-			break;
-		case kProxyOpInt:
-			pVar->SetIntValue( op.Arg );
-			break;
-		case kProxyOpVecN:
-			pVar->SetVecValue( op.Values, op.Arg );
-			break;
-		case kProxyOpVec3:
-			pVar->SetVecValue( op.Values[ 0 ], op.Values[ 1 ], op.Values[ 2 ] );
-			break;
-		case kProxyOpVecComponent:
-			pVar->SetVecComponentValue( op.Values[ 0 ], op.Arg );
-			break;
-		case kProxyOpMatrix:
-		{
-			VMatrix mat;
-			V_memcpy( mat.Base(), op.Values, sizeof( op.Values ) );
-			pVar->SetMatrixValue( mat );
-			break;
-		}
-		case kProxyOpTexture:
-			if ( m_Textures.IsValidIndex( op.Arg ) )
-				pVar->SetTextureValue( m_Textures[ op.Arg ] );
-			break;
+			case kProxyOpFloat:
+				pVar->SetFloatValue( op.Values[0] );
+				break;
+			case kProxyOpInt:
+				pVar->SetIntValue( op.Arg );
+				break;
+			case kProxyOpVecN:
+				pVar->SetVecValue( op.Values, op.Arg );
+				break;
+			case kProxyOpVec3:
+				pVar->SetVecValue( op.Values[0], op.Values[1], op.Values[2] );
+				break;
+			case kProxyOpVecComponent:
+				pVar->SetVecComponentValue( op.Values[0], op.Arg );
+				break;
+			case kProxyOpMatrix:
+			{
+				VMatrix mat;
+				V_memcpy( mat.Base(), op.Values, sizeof( op.Values ) );
+				pVar->SetMatrixValue( mat );
+				break;
+			}
+			case kProxyOpTexture:
+				if ( m_Textures.IsValidIndex( op.Arg ) )
+					pVar->SetTextureValue( m_Textures[op.Arg] );
+				break;
 		}
 	}
 
 	int m_nName;
 	int32_t m_hProxy;
 	IMaterial *m_pMaterial;
-	CUtlVector< IMaterialVar * > m_Vars;
-	CUtlVector< ITexture * > m_Textures;
+	CUtlVector<IMaterialVar *> m_Vars;
+	CUtlVector<ITexture *> m_Textures;
 	void *m_pBindArg;
 	SourceSharpProxyVar_t *m_pBindVars;
 };
 
-//-----------------------------------------------------------------------------
-// The bind argument as stock's entity proxies read it: GetIClientUnknown,
-// then GetIClientEntity (CEntityMaterialProxy), and the engine block's render
-// alpha and FL_NPC through the slot table (what the fork's edited Alpha and
-// IsNPC read).
-//-----------------------------------------------------------------------------
+// The bind argument as stock's entity proxies read it, with the render alpha and FL_NPC
+// read through the slot table.
 int32_t CManagedMaterialProxy::BindEntity( SourceSharpProxyEntity_t *pOut )
 {
 	V_memset( pOut, 0, sizeof( *pOut ) );
@@ -371,9 +363,9 @@ int32_t CManagedMaterialProxy::BindEntity( SourceSharpProxyEntity_t *pOut )
 	{
 		const Vector &origin = pEntity->GetAbsOrigin();
 		pOut->EntIndex = pEntity->entindex();
-		pOut->OriginXYZ[ 0 ] = origin.x;
-		pOut->OriginXYZ[ 1 ] = origin.y;
-		pOut->OriginXYZ[ 2 ] = origin.z;
+		pOut->OriginXYZ[0] = origin.x;
+		pOut->OriginXYZ[1] = origin.y;
+		pOut->OriginXYZ[2] = origin.z;
 	}
 
 	if ( C_StandaloneEntity *pShell = SourceSharp_ClientShellFromHandleEntity( pUnknown ) )
@@ -384,24 +376,19 @@ int32_t CManagedMaterialProxy::BindEntity( SourceSharpProxyEntity_t *pOut )
 	return 1;
 }
 
-//-----------------------------------------------------------------------------
-// One registration per name, each with its own create function, so the
-// trampoline knows which proxy it is without a lookup.
-//-----------------------------------------------------------------------------
-template < int N >
+// One registration per name, each with its own create function, so the trampoline knows
+// which proxy it is without a lookup.
+template <int N>
 static void *CreateManagedMaterialProxy()
 {
-	return static_cast< IMaterialProxy * >( new CManagedMaterialProxy( N ) );
+	return static_cast<IMaterialProxy *>( new CManagedMaterialProxy( N ) );
 }
 
 #define SS_PROXY_REG( i, name ) \
-	static InterfaceReg s_ManagedProxyReg##i( &CreateManagedMaterialProxy< i >, #name IMATERIAL_PROXY_INTERFACE_VERSION );
+	static InterfaceReg s_ManagedProxyReg##i( &CreateManagedMaterialProxy<i>, #name IMATERIAL_PROXY_INTERFACE_VERSION );
 SS_PROXY_NAMES( SS_PROXY_REG )
 #undef SS_PROXY_REG
 
-//=============================================================================
-// IShimMaterialProxyClient's bodies.
-//=============================================================================
 int32_t SourceSharp_ProxyFindVar( int32_t hProxy, const char *pszName, int32_t bComplain, int32_t *pFound )
 {
 	CManagedMaterialProxy *pProxy = s_ManagedProxies.Find( hProxy );
@@ -410,8 +397,8 @@ int32_t SourceSharp_ProxyFindVar( int32_t hProxy, const char *pszName, int32_t b
 	return pProxy && pszName ? pProxy->FindVar( pszName, bComplain != 0, pFound ) : -1;
 }
 
-int32_t SourceSharp_ProxyFindTexture( int32_t hProxy, const char *pszName, const char *pszGroup,
-                                      int32_t bComplain, int32_t *pIsError )
+int32_t SourceSharp_ProxyFindTexture( int32_t hProxy, const char *pszName, const char *pszGroup, int32_t bComplain,
+									  int32_t *pIsError )
 {
 	CManagedMaterialProxy *pProxy = s_ManagedProxies.Find( hProxy );
 	if ( pIsError )
@@ -433,11 +420,9 @@ int32_t SourceSharp_ProxyBindEntity( int32_t hProxy, SourceSharpProxyEntity_t *p
 	return pProxy->BindEntity( pOut );
 }
 
-// 0: CurrentViewOrigin (3). 1: view->GetWaterLODParams (2). 2: the client
-// world's GetWorldMins/Maxs (6), answering 0 when there is no world. 3: the
-// particle manager's directional light (position, colour, intensity: 7) and
-// model-view matrix (16, row-major), which ParticleSphereProxy's bind reads
-// off the manager its bind argument is (particle materials bind with it).
+// 0: CurrentViewOrigin (3). 1: view->GetWaterLODParams (2). 2: the world's mins and maxs
+// (6), 0 with no world. 3: the particle manager's directional light (position, colour,
+// intensity: 7) and model-view matrix (16, row-major).
 int32_t SourceSharp_ProxyReadView( int32_t nKind, float *pOut, int32_t nFloats )
 {
 	if ( !pOut )
@@ -445,9 +430,9 @@ int32_t SourceSharp_ProxyReadView( int32_t nKind, float *pOut, int32_t nFloats )
 	if ( nKind == 0 && nFloats >= 3 )
 	{
 		const Vector &v = CurrentViewOrigin();
-		pOut[ 0 ] = v.x;
-		pOut[ 1 ] = v.y;
-		pOut[ 2 ] = v.z;
+		pOut[0] = v.x;
+		pOut[1] = v.y;
+		pOut[2] = v.z;
 		return 1;
 	}
 	if ( nKind == 1 && nFloats >= 2 )
@@ -455,8 +440,8 @@ int32_t SourceSharp_ProxyReadView( int32_t nKind, float *pOut, int32_t nFloats )
 		float flStart = 0.0f, flEnd = 0.0f;
 		if ( view )
 			view->GetWaterLODParams( flStart, flEnd );
-		pOut[ 0 ] = flStart;
-		pOut[ 1 ] = flEnd;
+		pOut[0] = flStart;
+		pOut[1] = flEnd;
 		return 1;
 	}
 	if ( nKind == 2 && nFloats >= 6 )
@@ -466,12 +451,12 @@ int32_t SourceSharp_ProxyReadView( int32_t nKind, float *pOut, int32_t nFloats )
 			return 0;
 		const Vector vecMins = pWorld->GetWorldMins();
 		const Vector vecMaxs = pWorld->GetWorldMaxs();
-		pOut[ 0 ] = vecMins.x;
-		pOut[ 1 ] = vecMins.y;
-		pOut[ 2 ] = vecMins.z;
-		pOut[ 3 ] = vecMaxs.x;
-		pOut[ 4 ] = vecMaxs.y;
-		pOut[ 5 ] = vecMaxs.z;
+		pOut[0] = vecMins.x;
+		pOut[1] = vecMins.y;
+		pOut[2] = vecMins.z;
+		pOut[3] = vecMaxs.x;
+		pOut[4] = vecMaxs.y;
+		pOut[5] = vecMaxs.z;
 		return 1;
 	}
 	if ( nKind == 3 && nFloats >= 23 )
@@ -479,15 +464,15 @@ int32_t SourceSharp_ProxyReadView( int32_t nKind, float *pOut, int32_t nFloats )
 		CParticleLightInfo info;
 		ShellParticleDraw_GetLight( info );
 		const VMatrix &mModelView = ShellParticleDraw_ModelView();
-		pOut[ 0 ] = info.m_vPos.x;
-		pOut[ 1 ] = info.m_vPos.y;
-		pOut[ 2 ] = info.m_vPos.z;
-		pOut[ 3 ] = info.m_vColor.x;
-		pOut[ 4 ] = info.m_vColor.y;
-		pOut[ 5 ] = info.m_vColor.z;
-		pOut[ 6 ] = info.m_flIntensity;
+		pOut[0] = info.m_vPos.x;
+		pOut[1] = info.m_vPos.y;
+		pOut[2] = info.m_vPos.z;
+		pOut[3] = info.m_vColor.x;
+		pOut[4] = info.m_vColor.y;
+		pOut[5] = info.m_vColor.z;
+		pOut[6] = info.m_flIntensity;
 		for ( int i = 0; i < 16; ++i )
-			pOut[ 7 + i ] = mModelView.m[ i / 4 ][ i % 4 ];
+			pOut[7 + i] = mModelView.m[i / 4][i % 4];
 		return 1;
 	}
 	return 0;
@@ -501,14 +486,12 @@ int32_t SourceSharp_ProxyPlayerCustomFile( int32_t nPlayer, uint32_t *pCrc )
 	if ( !engine->GetPlayerInfo( nPlayer, &info ) )
 		return 0;
 	if ( pCrc )
-		*pCrc = (uint32_t)info.customFiles[ 0 ];
+		*pCrc = (uint32_t)info.customFiles[0];
 	return 1;
 }
 
-//-----------------------------------------------------------------------------
-// The not-shipped ledger keeps the name and reason pointers it is given, so a
-// managed refusal's text is interned here, once per name, for the process.
-//-----------------------------------------------------------------------------
+// The not-shipped ledger keeps the name and reason pointers it is given, so a managed
+// refusal's text is interned here once per name for the process.
 class CProxyRefusalNames
 {
 public:
@@ -517,7 +500,7 @@ public:
 		int i = 0;
 		for ( ; i < m_Names.Count(); ++i )
 		{
-			if ( !V_strcmp( m_Names[ i ], pszCapability ) )
+			if ( !V_strcmp( m_Names[i], pszCapability ) )
 				break;
 		}
 		if ( i == m_Names.Count() )
@@ -525,12 +508,12 @@ public:
 			m_Names.AddToTail( V_strdup( pszCapability ) );
 			m_Reasons.AddToTail( V_strdup( pszReason ) );
 		}
-		SourceSharp_NotShipped( m_Names[ i ], m_Reasons[ i ] );
+		SourceSharp_NotShipped( m_Names[i], m_Reasons[i] );
 	}
 
 private:
-	CUtlVector< char * > m_Names;
-	CUtlVector< char * > m_Reasons;
+	CUtlVector<char *> m_Names;
+	CUtlVector<char *> m_Reasons;
 };
 
 static CProxyRefusalNames s_ProxyRefusalNames;
@@ -541,13 +524,7 @@ void SourceSharp_ProxyNotShipped( const char *pszCapability, const char *pszReas
 		s_ProxyRefusalNames.Reach( pszCapability, pszReason );
 }
 
-//=============================================================================
-// CMatStubHandler (cl_mat_stub.h), which view.cpp's Render constructs once a
-// frame: while mat_stub is on, the frame renders through the material system
-// stub. Whether it is on is managed's (the mat_stub convar,
-// IManagedMaterialProxyClient::MatStubEnabled); the swap is native's. This was
-// game/client/cl_mat_stub.cpp, cluster 1's last TU (lane c5-proxies).
-//=============================================================================
+// While mat_stub is on (managed's convar), the frame renders through the material system stub.
 CMatStubHandler::CMatStubHandler()
 {
 	m_pOldMaterialSystem = NULL;

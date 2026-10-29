@@ -32,6 +32,8 @@ public sealed class ClientFxReportCommand(ILog log, ClientEffectDispatch dispatc
         log.Msg($"[SourceSharp/Client] fx: effect list {list.Count} live, {list.Draws} draws, {list.Refused} refused, " +
                 $"{factory.WhizSounds} near-miss sound(s)\n");
         log.Msg($"[SourceSharp/Client] fx: sprites {sprites.Planned} planned; trails {trails.Count} live, {trails.Ticks} ticks, {trails.Draws} draws\n");
+        foreach (string trail in trails.Describe())
+            log.Msg($"[SourceSharp/Client] fx:   trail {trail}\n");
         log.Msg($"[SourceSharp/Client] fx: precache {precache.LevelInits} level start(s), {precache.LevelShutdowns} end(s); smoke fog {smokeFog.Drawn} quad(s)\n");
         var (ftzNow, dazNow) = views.FloatMode.Measure();
         log.Msg($"[SourceSharp/Client] fx: float mode on the particle steps: {views.FloatMode.Samples} sample(s), " +

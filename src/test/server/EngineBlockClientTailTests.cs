@@ -189,7 +189,7 @@ public class EngineBlockClientTailTests
         public int ViewModel;
         public int CustomDraw;
         public int Translucent;
-        public int HideWhenOwnerSeen;
+        public int OwnerSeenRule;
         public int FadeStyle;
         public float FadeStartDistance;
         public float FadeEndDistance;
@@ -231,7 +231,7 @@ public class EngineBlockClientTailTests
         public int ViewModel;
         public int CustomDraw;
         public int Translucent;
-        public int HideWhenOwnerSeen;
+        public int OwnerSeenRule;
         public int FadeStyle;
         public float FadeStartDistance;
         public float FadeEndDistance;
@@ -273,7 +273,7 @@ public class EngineBlockClientTailTests
         public int ViewModel;
         public int CustomDraw;
         public int Translucent;
-        public int HideWhenOwnerSeen;
+        public int OwnerSeenRule;
         public int FadeStyle;
         public float FadeStartDistance;
         public float FadeEndDistance;

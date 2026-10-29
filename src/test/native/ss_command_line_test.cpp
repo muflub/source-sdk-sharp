@@ -18,7 +18,7 @@
 namespace
 {
 // "a\0b\0" from { "a", "b" }: /proc/self/cmdline's shape.
-std::string Argv( std::initializer_list< const char * > args )
+std::string Argv( std::initializer_list<const char *> args )
 {
 	std::string block;
 	for ( const char *a : args )
@@ -36,7 +36,7 @@ bool Has( const std::string &argv, const char *param )
 
 std::string Value( const std::string &argv, const char *param, const char *fallback, bool *pFound = nullptr )
 {
-	char out[ 64 ];
+	char out[64];
 	const bool found = ss::CommandLineValueIn( argv.data(), argv.size(), param, fallback, out, sizeof( out ) );
 	if ( pFound )
 		*pFound = found;
@@ -83,7 +83,7 @@ TEST( SsCommandLine, ALongValueIsCutToTheBufferAndTerminated )
 {
 	const std::string longValue( 200, 'v' );
 	const std::string argv = Argv( { "hl2_linux", "-p", longValue.c_str() } );
-	char out[ 8 ];
+	char out[8];
 	EXPECT_TRUE( ss::CommandLineValueIn( argv.data(), argv.size(), "-p", "", out, sizeof( out ) ) );
 	EXPECT_EQ( std::string( 7, 'v' ), out );
 }

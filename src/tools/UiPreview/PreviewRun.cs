@@ -12,8 +12,18 @@ using SourceSharp.Client.Ui.Toolkit;
 namespace SourceSharp.UiPreview;
 
 /// <summary>Where the preview reads from and writes to.</summary>
-public sealed record PreviewOptions(string Root, string Out, bool Png, bool Quiet, string? Only)
+public sealed record PreviewOptions(string Root, string Out, bool Png, bool Quiet, string? Only, string? Content = null,
+                                   string? ModDir = null)
 {
+    /// <summary>
+    /// The GAME paths the run reads: a mod's (--mod: its gameinfo.txt's mounts,
+    /// as the game sees them), else a bare content directory (--content), else none.
+    /// </summary>
+    public ContentFiles? Files()
+        => ModDir is not null ? ContentFiles.FromGameInfo(Path.Combine(ModDir, "gameinfo.txt"))
+         : Content is not null ? ContentFiles.FromDirectory(Content)
+         : null;
+
     public string Backdrops => Path.Combine(Root, "src", "client", "ui", "backdrops");
 
     public string LanguageFile => Path.Combine(Root, "game", "mod_test", "resource", "mod_sharp_english.txt");
@@ -43,7 +53,10 @@ public sealed record PreviewOptions(string Root, string Out, bool Png, bool Quie
         return files;
     }
 
-    public string ThemeFile => Path.Combine(Root, "game", "mod_test", "resource", "ui-theme.yaml");
+    /// <summary>The mod's own theme (--mod), else the core game's.</summary>
+    public string ThemeFile => ModDir is not null
+        ? Path.Combine(ModDir, "resource", "ui-theme.yaml")
+        : Path.Combine(Root, "game", "mod_test", "resource", "ui-theme.yaml");
 
     /// <summary>The fonts as the game measured them (plan_client_ui U2); the TTFs answer what it does not hold.</summary>
     public string FontsFile => Path.Combine(Root, "src", "test", "client", "Fixtures", "ui-fonts.tsv");
@@ -81,16 +94,55 @@ public sealed class Backdrops : IDisposable
 public sealed class PreviewRun
 {
     private readonly PreviewOptions _o;
-    private readonly UiFontLibrary _fonts = new();
+    private readonly UiFontLibrary _fonts;
+    private readonly ContentFiles? _files;
     private readonly List<double> _pngMs = new();
     private readonly List<double> _drawMs = new();
 
     private readonly IUiFontMetrics _metrics;
 
+    /// <summary>The HUD art a run with game files decodes, handed to every backend it draws with.</summary>
+    private readonly PreviewTextures? _hudArt;
+    private readonly PreviewUiTextureLibrary? _hudLibrary;
+
+    /// <summary>The store the backends draw HUD art from, when the run has game files.</summary>
+    public PreviewTextures? HudStore() => _hudArt;
+
+    /// <summary>The HUD art library, when the run has game files; null draws the fallbacks.</summary>
+    public PreviewUiTextureLibrary? HudLibrary() => _hudLibrary;
+
     public PreviewRun(PreviewOptions options)
     {
         _o = options;
+        _files = options.Files();
+        // Made once, before the samples draw in parallel: made on first use,
+        // two samples could each make a store, and one's art was looked up in
+        // the other's.
+        if (_files is not null)
+        {
+            _hudArt = new PreviewTextures();
+            _hudLibrary = new PreviewUiTextureLibrary(_files, _hudArt);
+        }
+        _fonts = new UiFontLibrary(ModFonts(Theme(), _files));
         _metrics = UiRecordedFontMetrics.LoadOrFallback(_fonts, options.FontsFile);
+    }
+
+    /// <summary>
+    /// The theme's own font files read from the game files, as the game's
+    /// GameFonts reads them: each answers the family the theme names it by.
+    /// One the files do not hold is skipped, and its family falls to the default.
+    /// </summary>
+    public static IReadOnlyList<TtfFace> ModFonts(UiTheme theme, SourceSharp.Abi.IEngineFiles? files)
+    {
+        var faces = new List<TtfFace>();
+        if (files is null)
+            return faces;
+        foreach (var font in theme.FontFiles)
+        {
+            if (font.Family is { } family && files.ReadGameFileBytes(font.Path) is { } bytes)
+                faces.Add(new TtfFace(family, 400, bytes));
+        }
+        return faces;
     }
 
     /// <summary>The gallery's size: one 16:9 screen.</summary>
@@ -159,7 +211,7 @@ public sealed class PreviewRun
         Parallel.For(0, samples.Count, k =>
         {
             var sample = samples[k];
-            using var skia = new SkiaBackend(_fonts);
+            using var skia = new SkiaBackend(_fonts) { HudArt = HudStore() };
             var svg = new SvgBackend(_metrics);
             var sizes = sample.Gallery ? [new UiPreviewSize(GalleryW, GalleryH, 1f)] : UiSamples.Sizes().ToArray();
             var files = new Dictionary<string, object>();
@@ -319,7 +371,7 @@ public sealed class PreviewRun
         using var sheet = new SKBitmap(cols * tileW, rows * (tileH + label));
         using var canvas = new SKCanvas(sheet);
         canvas.Clear(new SKColor(24, 26, 30));
-        using var skia = new SkiaBackend(_fonts);
+        using var skia = new SkiaBackend(_fonts) { HudArt = HudStore() };
         using var labelFont = new SKFont(SKTypeface.FromData(SKData.CreateCopy(_fonts.Faces[1].Data)), 18);
         using var labelPaint = new SKPaint { Color = new SKColor(230, 226, 218), IsAntialias = true };
 

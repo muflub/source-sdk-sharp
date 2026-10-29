@@ -41,17 +41,7 @@ public sealed class Pickups : IPickupDirectory, IGameLifecycle, IFrameLifecycle,
     // them or it refers to handles that no longer exist.
     int IGameLifecycle.LifecycleOrder => (int)LifecycleStage.Pickups;
 
-    void IGameLifecycle.OnLevelInit(string mapName)
-    {
-        Reset();
-
-        // Re-arm the first-frame placement. Without this the SECOND map of a
-        // session gets no pickups at all: the flag latches on the first frame
-        // and nothing else clears it. ServerModule cleared it from LevelInit
-        // when the flag lived there, and it has to keep being cleared now that
-        // it lives here.
-        _placed = false;
-    }
+    void IGameLifecycle.OnLevelInit(string mapName) => Reset();
 
     /// <summary>The kinds this mod defines.</summary>
     public static readonly PickupKind Health = new(
@@ -84,28 +74,10 @@ public sealed class Pickups : IPickupDirectory, IGameLifecycle, IFrameLifecycle,
 
     private readonly IGameClock _clock;
 
-    /// <summary>
-    /// Whether the map's own pickups have been placed yet.
-    ///
-    /// Placement happens on the FIRST FRAME rather than at level init, and that
-    /// is not a preference: the map's entities do not exist yet when LevelInit
-    /// runs, so iterating spawn points there finds nothing.
-    /// </summary>
-    private bool _placed;
-
     // Last of the three former OnGameRulesThink lines.
     int IFrameLifecycle.FrameOrder => (int)FrameStage.Pickups;
 
-    void IFrameLifecycle.OnThink(float frameTime)
-    {
-        if (!_placed)
-        {
-            _placed = true;
-            PopulateFromSpawnPoints();
-        }
-
-        Think(_clock.Now);
-    }
+    void IFrameLifecycle.OnThink(float frameTime) => Think(_clock.Now);
 
 
     /// <summary>Live pickups, by entity handle.</summary>
@@ -124,21 +96,11 @@ public sealed class Pickups : IPickupDirectory, IGameLifecycle, IFrameLifecycle,
     private readonly List<(PickupKind Kind, Vector Origin, float DueAt)> _pending = new();
 
     //-------------------------------------------------------------------------
-    // SURVIVING A HOT RELOAD -- and this is THE ten-entity leak, found and named.
+    // SURVIVING A HOT RELOAD.
     //
-    // `_placed` is what stops the level's spawn points being populated twice.
-    // It is a field of this service, and this service is destroyed by the
-    // unload -- so after cs_sv_reload it reads false again, the first frame
-    // calls PopulateFromSpawnPoints a SECOND time, and dm_lockdown gains ten
-    // ss_pickup it already had. Measured: 473 entities before the reload, 483
-    // after, ten of one class, with the live gate green.
-    //
-    // tools/live-gate's hot-reload step has carried a comment about that leak
-    // and asserts `entities >= before` rather than `==` BECAUSE of it. This is
-    // the defect the tolerance existed for.
-    //
-    // `_live` and `_pending` go the same way and matter for the same reason a
-    // count does not show: a collected kit's respawn timer is in `_pending`, so
+    // `_live` and `_pending` are fields of this service, which the unload
+    // destroys, and they matter for a reason a count does not show: a
+    // collected kit's respawn timer is in `_pending`, so
     // a reload between collection and respawn loses the kit for the rest of the
     // map, and `_live` is what OnTouched consults -- every pickup standing in
     // the world stops being collectable at all.
@@ -150,8 +112,6 @@ public sealed class Pickups : IPickupDirectory, IGameLifecycle, IFrameLifecycle,
 
     void ISaveCustom.OnSave(ISaveWriter writer)
     {
-        writer.Write("placed", _placed);
-
         foreach (var (handle, kind) in _live)
         {
             writer.AddRow()
@@ -178,11 +138,6 @@ public sealed class Pickups : IPickupDirectory, IGameLifecycle, IFrameLifecycle,
 
     void ISaveCustom.OnRestore(ISaveReader reader)
     {
-        // THE FLAG FIRST AND ON ITS OWN. Even a record with no rows has to put
-        // this back, because a reload with every pickup already collected still
-        // must not re-place the map's.
-        _placed = reader.ReadBool("placed", _placed);
-
         float now = _clock.Now;
 
         foreach (ReloadRow row in reader.Rows)
@@ -340,126 +295,6 @@ public sealed class Pickups : IPickupDirectory, IGameLifecycle, IFrameLifecycle,
         }
     }
 
-    /// <summary>
-    /// The player hull's half-width in X and Y.
-    ///
-    /// Quoted, not chosen: VEC_HULL_MIN/VEC_HULL_MAX are (-16,-16,0)/(16,16,72)
-    /// in the view vectors both hierarchies read
-    /// (<c>shell_gamerules.cpp</c>'s <c>g_DefaultViewVectors</c>, which is
-    /// stock's table copied), and <c>CStandalonePlayer::Spawn</c> sets exactly
-    /// those bounds. A player standing on a spawn point fills this much of it.
-    /// </summary>
-    public const float PlayerHalfWidth = 16f;
-
-    /// <summary>
-    /// How far from a spawn point its pickup is placed, along the point's own
-    /// facing.
-    ///
-    /// <para>
-    /// DERIVED, AND THE DERIVATION IS THE WHOLE POINT. The pickup's trigger is
-    /// an axis-aligned box of <see cref="PickupKind.SizeX"/> by
-    /// <see cref="PickupKind.SizeY"/> half-extents; the spawning player is an
-    /// axis-aligned box of <see cref="PlayerHalfWidth"/>. Two such boxes miss
-    /// each other when they are separated by the sum on EITHER axis — 32 units
-    /// for the sizes this mod uses — and a facing at 45° splits the offset
-    /// evenly, so the shortest offset that clears every yaw is 32·√2 ≈ 45.3.
-    /// 48 is that with a little room.
-    /// </para>
-    ///
-    /// <para>
-    /// WHY THERE IS AN OFFSET AT ALL. There was not one, and the pickup went
-    /// eight units directly above the spawn point — inside the player who
-    /// spawned there: the trigger stands 32 units up from where it is put and
-    /// the player 72, so the two boxes shared every axis.
-    /// At full health nothing happens, because a health pickup with nothing to
-    /// give is left in the world; but the FIRST damage a player takes while
-    /// standing on their own spawn is undone in the same instant, and again
-    /// every <see cref="PickupKind.RespawnDelay"/> seconds for as long as they
-    /// stand there. Measured on dm_lockdown: hit for 17, the reply reads
-    /// health 100 -&gt; 83, and the next line of the log is
-    /// "ss_player#1 took 'health': 83 -&gt; 100 health".
-    /// </para>
-    /// </summary>
-    public const float ClearanceFromSpawn = 48f;
-
-    /// <summary>
-    /// Where a spawn point's pickup goes: <paramref name="heightAboveSpawn"/>
-    /// up, and <see cref="ClearanceFromSpawn"/> along the way the point faces.
-    ///
-    /// <para>
-    /// ALONG THE FACING rather than along an axis, because a spawn point's
-    /// angles are where the player will be LOOKING when they arrive — the
-    /// shell adopts them as the view angle — so a mapper has already pointed
-    /// them at the open part of the room. An arbitrary axis would put a
-    /// share of the map's pickups inside walls.
-    /// </para>
-    ///
-    /// <para>
-    /// FLATTENED to the XY plane, and renormalised. A spawn point with pitch
-    /// would otherwise spend its offset going up or down, which buys none of
-    /// the horizontal separation this exists for. A facing that is straight up
-    /// or down has no direction left to flatten, so it falls back to +X: some
-    /// direction is required, and none of them is better than the others.
-    /// </para>
-    ///
-    /// <para>
-    /// Pure, and public, so the geometry can be held by a fact rather than by
-    /// a game nobody can run in CI.
-    /// </para>
-    /// </summary>
-    public static Vector PlacementNear(Vector spawnOrigin, Vector spawnAngles,
-                                       float heightAboveSpawn = 8f)
-    {
-        var forward = Angles.Forward(spawnAngles);
-
-        float x = forward.X, y = forward.Y;
-        float length = MathF.Sqrt((x * x) + (y * y));
-
-        if (length < 1e-4f)
-        {
-            x = 1f;
-            y = 0f;
-            length = 1f;
-        }
-
-        return new Vector(spawnOrigin.X + (x / length * ClearanceFromSpawn),
-                          spawnOrigin.Y + (y / length * ClearanceFromSpawn),
-                          spawnOrigin.Z + heightAboveSpawn);
-    }
-
-    /// <summary>
-    /// Places pickups around the map, one near each spawn point.
-    ///
-    /// Spawn points are what this map actually has: it was built for HL2MP and
-    /// its item entities are classes this mod does not define, so there is
-    /// nothing else to key off. Placing on spawn points is a real design choice
-    /// a deathmatch mod could make, not a stand-in — and it means a map needs no
-    /// special authoring to work with this mod.
-    ///
-    /// NEAR, and <see cref="PlacementNear"/> is what makes that word true: a
-    /// pickup placed ON the spawn point is a pickup inside whoever spawns
-    /// there.
-    ///
-    /// Returns how many were placed.
-    /// </summary>
-    public int PopulateFromSpawnPoints(float heightAboveSpawn = 8f)
-    {
-        int placed = 0;
-
-        foreach (string className in SpawnPointClasses)
-        {
-            foreach (var spawnPoint in _entities.FindAllByClassname(className))
-            {
-                Spawn(Health, PlacementNear(_entities.GetOrigin(spawnPoint),
-                                            _entities.GetAngles(spawnPoint),
-                                            heightAboveSpawn));
-                placed++;
-            }
-        }
-
-        _log.Msg($"[SourceSharp/Pickup] placed {placed} pickup(s) near spawn points\n");
-        return placed;
-    }
 
     /// <summary>
     /// Where players enter the map. Both are checked because a map may use

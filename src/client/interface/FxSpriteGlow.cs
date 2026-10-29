@@ -71,4 +71,10 @@ public interface IFxGameSounds
 
     /// <summary><c>GameSound_Emit</c> to the local player, from the world, at <paramref name="origin"/>.</summary>
     void EmitAtPosition(in GameSoundParams parameters, float volume, int pitch, in Vector origin);
+
+    /// <summary>
+    /// <c>C_BaseEntity::EmitSound( CLocalPlayerFilter, SOUND_FROM_WORLD, script, &amp;origin )</c>:
+    /// the script by name, resolved and traced as a script.
+    /// </summary>
+    void EmitScript(string script, in Vector origin);
 }

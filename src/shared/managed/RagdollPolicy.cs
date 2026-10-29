@@ -79,16 +79,9 @@ public static class RagdollViolencePolicy
     /// <c>UTIL_IsLowViolence</c>'s legacy half: is any of the four ConVars off?
     ///
     /// <para>
-    /// THE OTHER HALF IS NOT HERE AND THAT IS MEASURED RATHER THAN GLOSSED.
-    /// <c>engine-&gt;IsLowViolence()</c> is an engine call with no managed door
-    /// on the server: <c>ClientIsLowViolence</c> exists
-    /// (<c>sourcesharp.h:6312</c>) and <c>sourcesharp_gamesystem.cpp</c>'s own
-    /// comment says it is client-only on purpose — <i>"a violence setting … is
-    /// a question about this side's convars … The server answers none of them
-    /// for this side."</i> The server's own answer wants a slot of its own,
-    /// <c>ServerIsLowViolence</c>, taking nothing and returning an
-    /// <c>int32_t</c>, wired beside <c>SurfacePropGameMaterial</c> as the
-    /// seventh "one slot, two implementations".
+    /// The other half, <c>engine-&gt;IsLowViolence()</c>, is the client's
+    /// (<c>IViolenceSettings</c>; <c>ClientLowViolence</c> composes the two).
+    /// The server has no door to it.
     /// </para>
     ///
     /// <para>

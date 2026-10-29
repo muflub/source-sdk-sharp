@@ -57,6 +57,20 @@ public sealed class PlayerMovePublisher(Func<EntityHandle, SsPlayer?> players) :
         state.PunchAngleVel = QAngle.FromVector(s.PunchAngleVel);
         state.LadderNormal = s.LadderNormal;
         state.WaterJumpVel = s.WaterJumpVel;
+
+        state.Ladder = s.Ladder;
+        state.LadderForceMove = s.LadderForceMove;
+        state.LadderForceMount = s.LadderForceMount;
+        state.LadderStartTime = s.LadderStartTime;
+        state.LadderArrivalTime = s.LadderArrivalTime;
+        state.LadderGoalPosition = s.LadderGoalPosition;
+        state.LadderStartPosition = s.LadderStartPosition;
+        state.LadderForceLadder = s.LadderForceLadder;
+        state.SuitPower = s.SuitPower;
+        state.SuitPowerLoad = s.SuitPowerLoad;
+        state.SuitDevices = s.SuitDevices;
+        state.SuitDevicesOffTime = s.SuitDevicesOffTime;
+        state.NewSprinting = s.NewSprinting;
     }
 
     /// <summary>
@@ -111,6 +125,19 @@ public sealed class PlayerMovePublisher(Func<EntityHandle, SsPlayer?> players) :
         s.PunchAngleVel = state.PunchAngleVel.AsVector();
         s.LadderNormal = state.LadderNormal;
         s.WaterJumpVel = state.WaterJumpVel;
+        s.Ladder = state.Ladder;
+        s.LadderForceMove = state.LadderForceMove;
+        s.LadderForceMount = state.LadderForceMount;
+        s.LadderStartTime = state.LadderStartTime;
+        s.LadderArrivalTime = state.LadderArrivalTime;
+        s.LadderGoalPosition = state.LadderGoalPosition;
+        s.LadderStartPosition = state.LadderStartPosition;
+        s.LadderForceLadder = state.LadderForceLadder;
+        s.SuitPower = state.SuitPower;
+        s.SuitPowerLoad = state.SuitPowerLoad;
+        s.SuitDevices = state.SuitDevices;
+        s.SuitDevicesOffTime = state.SuitDevicesOffTime;
+        s.NewSprinting = state.NewSprinting;
         move.PreviouslyPredictedOrigin = state.Origin;
         return true;
     }

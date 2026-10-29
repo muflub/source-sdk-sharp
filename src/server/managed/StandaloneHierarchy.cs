@@ -120,7 +120,7 @@ public sealed class StandaloneHierarchy : IFrameLifecycle, IGameLifecycle, ISave
                                EntityDirectory directory, EntityMotion motion,
                                IEngineEntities entities, ShellLessRoutes shellLess,
                                IEngineNetworking networking, SolverHeldOverlaps solverHeld,
-                               IEngineOverlaps overlaps)
+                               IEngineOverlaps overlaps, IEngineEntityPhysics physics)
     {
         _solverHeld = solverHeld;
 
@@ -128,7 +128,7 @@ public sealed class StandaloneHierarchy : IFrameLifecycle, IGameLifecycle, ISave
         // The world answers from THIS side's areas (plan_abi_hotreload D8): it
         // used to read the process-wide Engine, so a second game instance in the
         // process would have composed its children against the first one's.
-        Parenting = HierarchyDriver.For(new EngineHierarchyWorld(entities, networking, log));
+        Parenting = HierarchyDriver.For(new EngineHierarchyWorld(entities, networking, physics, log));
 
         _frame = frame;
         _level = level;

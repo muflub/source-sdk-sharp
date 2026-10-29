@@ -40,9 +40,9 @@ namespace
 // Three entities, as the only thing the rule knows about them: distinct
 // addresses. Never dereferenced — IHandleEntity is incomplete in this binary
 // and that is the point of the rule taking handles.
-IHandleEntity *const kVictim  = reinterpret_cast< IHandleEntity * >( 0x1000 );
-IHandleEntity *const kCrate   = reinterpret_cast< IHandleEntity * >( 0x2000 );
-IHandleEntity *const kShooter = reinterpret_cast< IHandleEntity * >( 0x3000 );
+IHandleEntity *const kVictim = reinterpret_cast<IHandleEntity *>( 0x1000 );
+IHandleEntity *const kCrate = reinterpret_cast<IHandleEntity *>( 0x2000 );
+IHandleEntity *const kShooter = reinterpret_cast<IHandleEntity *>( 0x3000 );
 
 //=============================================================================//
 // Who is in the way.
@@ -79,8 +79,7 @@ TEST( BlastBlocking, NothingHitIsNobodyInTheWay )
 //-----------------------------------------------------------------------------
 TEST( BlastBlocking, TheVictimDoesNotShieldItself )
 {
-	EXPECT_FALSE( BlastBlockerCounts( kVictim, kVictim, NULL ) )
-		<< "the victim is not in its own way";
+	EXPECT_FALSE( BlastBlockerCounts( kVictim, kVictim, NULL ) ) << "the victim is not in its own way";
 }
 
 //-----------------------------------------------------------------------------
@@ -100,8 +99,7 @@ TEST( BlastBlocking, SomethingTheVictimOwnsDoesNotShieldTheVictim )
 //-----------------------------------------------------------------------------
 TEST( BlastBlocking, SomethingOwnedByAThirdPartyStillShields )
 {
-	EXPECT_TRUE( BlastBlockerCounts( kVictim, kCrate, kShooter ) )
-		<< "a crate somebody else owns is still in the way";
+	EXPECT_TRUE( BlastBlockerCounts( kVictim, kCrate, kShooter ) ) << "a crate somebody else owns is still in the way";
 }
 
 //=============================================================================//
@@ -119,8 +117,7 @@ TEST( BlastBlocking, APhysicsBlockerKeepsItsShareOfTheThreshold )
 	EXPECT_FLOAT_EQ( 140.0f / 350.0f, BlastBlockedFraction( true, 140.0f ) )
 		<< "a 140kg blocker keeps 140/350 of the blast";
 
-	EXPECT_FLOAT_EQ( 35.0f / 350.0f, BlastBlockedFraction( true, 35.0f ) )
-		<< "a 35kg blocker keeps a tenth";
+	EXPECT_FLOAT_EQ( 35.0f / 350.0f, BlastBlockedFraction( true, 35.0f ) ) << "a 35kg blocker keeps a tenth";
 }
 
 //-----------------------------------------------------------------------------
@@ -147,8 +144,7 @@ TEST( BlastBlocking, TheThresholdIsWhereItKeepsEverything )
 //-----------------------------------------------------------------------------
 TEST( BlastBlocking, ABlockerWithNoPhysicsKeepsAFlatQuarter )
 {
-	EXPECT_FLOAT_EQ( 0.25f, BlastBlockedFraction( false, 0.0f ) )
-		<< "a non-physics blocker keeps a quarter";
+	EXPECT_FLOAT_EQ( 0.25f, BlastBlockedFraction( false, 0.0f ) ) << "a non-physics blocker keeps a quarter";
 
 	EXPECT_FLOAT_EQ( 0.25f, BlastBlockedFraction( false, 10000.0f ) )
 		<< "a mass it does not have does not change what it keeps";
@@ -162,12 +158,10 @@ TEST( BlastBlocking, ABlockerWithNoPhysicsKeepsAFlatQuarter )
 //-----------------------------------------------------------------------------
 TEST( BlastBlocking, PhysicsAndNonPhysicsAreDifferentRules )
 {
-	EXPECT_FLOAT_EQ( BlastBlockedFraction( false, 0.0f ),
-	                 BlastBlockedFraction( true, BLAST_MASS_ABSORB_ALL * 0.25f ) )
+	EXPECT_FLOAT_EQ( BlastBlockedFraction( false, 0.0f ), BlastBlockedFraction( true, BLAST_MASS_ABSORB_ALL * 0.25f ) )
 		<< "the arms meet at 87.5kg, which is what makes the rest of this a real comparison";
 
-	EXPECT_NE( BlastBlockedFraction( false, 0.0f ),
-	           BlastBlockedFraction( true, 30.0f ) )
+	EXPECT_NE( BlastBlockedFraction( false, 0.0f ), BlastBlockedFraction( true, 30.0f ) )
 		<< "a 30kg blocker does not keep a flat quarter";
 }
 

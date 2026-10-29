@@ -5,20 +5,11 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the interface factory, as one function ============//
 // SS_REASON b  an interface resolved by name at load
-//
-// CreateInterface is the one symbol the engine looks up in server.so, and every
-// interface it (or a server plugin) asks this DLL for is answered here, by
-// comparing the name with each row of kExposed. What stock did with a linked
-// list of InterfaceReg nodes, built during static initialisation by the
-// EXPOSE_*_INTERFACE macros, is this table: see shell_factory.h for why. A
-// name matches exactly (case and length), as stock's strcmp did; anything
-// else, and a NULL name, answers NULL with IFACE_FAILED.
-//
-// server_factory_test pins the table and the answers.
-//
-//=============================================================================//
+
+// CreateInterface: answers each interface name the engine asks this DLL for from
+// the kExposed table. Names match exactly, as stock's strcmp did; anything else,
+// and a NULL name, answers NULL with IFACE_FAILED.
 
 #include "tier1/interface.h"
 #include "shell_factory.h"
@@ -28,8 +19,7 @@
 namespace
 {
 
-const SourceSharpExposed *const kExposed[] =
-{
+const SourceSharpExposed *const kExposed[] = {
 	&kExposeServerGameDll,
 	&kExposeServerGameEnts,
 	&kExposeServerGameClients,

@@ -18,8 +18,10 @@ public sealed class RecordingJointTables(RecordingEngine engine)
     uint IEngineConstraints.Create(EntityHandle a, EntityHandle b, int kind, ReadOnlySpan<float> parameters) => engine.RecordAnswer<uint>("Constraints.Create", a, b, kind, parameters.ToArray());
     void IEngineConstraints.Destroy(uint constraint) => engine.RecordCall("Constraints.Destroy", constraint);
     bool IEngineConstraints.IsValid(uint constraint) => engine.RecordAnswer<bool>("Constraints.IsValid", constraint);
+    void IEngineConstraints.Deactivate(uint constraint) => engine.RecordCall("Constraints.Deactivate", constraint);
+    void IEngineConstraints.Activate(uint constraint) => engine.RecordCall("Constraints.Activate", constraint);
     void IEngineConstraints.SetLinearMotor(uint constraint, float unitsPerSecond, float systemLoadScale) => engine.RecordCall("Constraints.SetLinearMotor", constraint, unitsPerSecond, systemLoadScale);
-    void IEngineConstraints.SetMotor(uint constraint, float degreesPerSecond, float maxTorque) => engine.RecordCall("Constraints.SetMotor", constraint, degreesPerSecond, maxTorque);
+    void IEngineConstraints.SetHingeVelocity(uint constraint, float degreesPerSecond, float systemLoadScale) => engine.RecordCall("Constraints.SetHingeVelocity", constraint, degreesPerSecond, systemLoadScale);
 
     // Springs
     int IEngineSprings.Count() => engine.RecordAnswer<int>("Springs.Count");

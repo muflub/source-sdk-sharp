@@ -22,8 +22,6 @@
 //
 //=============================================================================//
 
-#ifndef IMANAGED_ROOT_H
-#define IMANAGED_ROOT_H
 #pragma once
 
 #include <stdint.h>
@@ -39,26 +37,3 @@
 #include "imanaged_core.h"
 
 #include <stddef.h>
-
-// THIS SIDE'S ROOT, held by the shim root (shell_internalfactory.cpp) so the
-// DLL gains no static for it. Server only until the client's own wave.
-//
-// Accept takes LoadSideV2's answer and keeps it only at the compiler's count
-// (managed_accept.h), answering the refusal otherwise. Release nulls the held
-// pointer and THEN releases through it: a freed handle's slot is reused, so a
-// late call through a kept pointer would land on a different live object.
-// It releases every acquired area before the root.
-IManagedRoot *ManagedRoot_Get();
-bool ManagedRoot_Accept( void *pObject, char *pWhy, size_t nWhy );
-// The managed-built interfaces this side's native code calls, acquired from
-// the accepted root by name and each accepted at its compiler's count; false
-// with the reason on the first refusal. Called on every load, after Accept.
-bool ManagedRoot_AcquireAreas( char *pWhy, size_t nWhy );
-
-// After a reload: the root LoadSideV2 handed back is the one native holds, and
-// everything native holds validates through its patched block (reload L4).
-bool ManagedRoot_Reattached( void *pObject, char *pWhy, size_t nWhy );
-
-void ManagedRoot_Release();
-
-#endif // IMANAGED_ROOT_H

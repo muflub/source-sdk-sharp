@@ -6,9 +6,6 @@
 //
 //=============================================================================//
 
-#ifndef SAVEGAME_ORACLE_FILESYSTEM_H
-#define SAVEGAME_ORACLE_FILESYSTEM_H
+#pragma once
 
 typedef void *FileHandle_t;
-
-#endif // SAVEGAME_ORACLE_FILESYSTEM_H

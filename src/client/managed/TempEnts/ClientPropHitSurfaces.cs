@@ -30,7 +30,8 @@ namespace SourceSharp.Client.TempEnts;
 /// </para>
 /// </summary>
 public sealed class ClientPropHitSurfaces(Func<string, string?> modelKeyValues, IClientDecals decals,
-                                         IEngineWorldQuery world, IEngineEffects effects, Func<bool> showRedBlood)
+                                         IEngineWorldQuery world, IEngineEffects effects, IDecalSettings settings,
+                                         Func<bool> showRedBlood)
     : IClientPropHitSurfaces
 {
     private readonly Dictionary<string, bool> _splats = new(StringComparer.OrdinalIgnoreCase);
@@ -82,7 +83,7 @@ public sealed class ClientPropHitSurfaces(Func<string, string?> modelKeyValues, 
         if (index < 0)
             return;
 
-        ClientEntityDecal.AddDecal(world, effects, other.EntryIndex, rayStart: start, rayEnd: end,
+        ClientEntityDecal.AddDecal(world, effects, settings, other.EntryIndex, rayStart: start, rayEnd: end,
                                    decalCenter: end, decalIndex: index);
     }
 }

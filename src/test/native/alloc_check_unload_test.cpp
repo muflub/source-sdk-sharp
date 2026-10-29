@@ -42,12 +42,14 @@ TEST( AllocCheckUnload, DlcloseReportsOnlyWhatStaticDestructorsLeftBehind )
 	const std::string strLog = ss.str();
 
 	std::smatch m;
-	const std::regex re( R"(unload: (\d+) allocations, (\d+) releases, (\d+) mismatches, (\d+) foreign frees, (\d+) live)" );
+	const std::regex re(
+		R"(unload: (\d+) allocations, (\d+) releases, (\d+) mismatches, (\d+) foreign frees, (\d+) live)" );
 	ASSERT_TRUE( std::regex_search( strLog, m, re ) ) << "no unload report in:\n" << strLog;
-	EXPECT_GT( std::stoul( m[ 1 ] ), 50u ) << "the map's nodes were not seen allocated";
-	EXPECT_EQ( "0", m[ 4 ].str() ) << "foreign frees in the probe:\n" << strLog;
-	EXPECT_EQ( "1", m[ 5 ].str() )
-		<< "the unload report counts " << m[ 5 ] << " live blocks; only the one deliberate leak "
+	EXPECT_GT( std::stoul( m[1] ), 50u ) << "the map's nodes were not seen allocated";
+	EXPECT_EQ( "0", m[4].str() ) << "foreign frees in the probe:\n" << strLog;
+	EXPECT_EQ( "1", m[5].str() )
+		<< "the unload report counts " << m[5]
+		<< " live blocks; only the one deliberate leak "
 		   "should be left once static destructors have run. More means the report ran first.\n"
 		<< strLog;
 }

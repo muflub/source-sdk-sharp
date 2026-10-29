@@ -1,3 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-inline int SourceSharp_ClientIndexOfHit( const CBaseHandle &hHit, bool bResolves )	SLOT-HELP	TraceHitIndex (the trace slot helper) is its only caller: an entry-range read of a handle, pinned by the ClientWorldArm facts

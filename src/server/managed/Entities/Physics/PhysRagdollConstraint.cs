@@ -17,8 +17,8 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PhysRagdollconstraint)]
 public sealed class PhysRagdollConstraint : PhysicsConstraintEntity
 {
-    public PhysRagdollConstraint(IEngineConstraints constraints, IEngineSound sound)
-        : base(constraints, sound)
+    public PhysRagdollConstraint(IEngineConstraints constraints, IEngineSound sound, EntityPairCollisions pairs)
+        : base(constraints, sound, pairs)
     {
     }
 

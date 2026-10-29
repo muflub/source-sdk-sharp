@@ -1,0 +1,39 @@
+From f91454a7dab6191ca83a143a53dede76702dde57 Mon Sep 17 00:00:00 2001
+From: Mark Chandler <mark@lodle.net>
+Date: Mon, 26 Oct 2026 02:55:51 -0700
+Subject: [PATCH] stock-ab: client_entity.h for the render tracer
+
+The render tracer copied from source-sdk-sharp includes its client entity
+header (since source-sdk-sharp c8ca3303e, client.so on stock headers). In
+stock the types it names are C_BaseEntity's, which cbase.h declares, so the
+stock build carries a header that includes c_baseentity.h. Without it the
+stock client stopped compiling: 'client_entity.h: No such file'.
+---
+ src/game/client/ss_ab/client_entity.h | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+ create mode 100644 src/game/client/ss_ab/client_entity.h
+
+diff --git a/src/game/client/ss_ab/client_entity.h b/src/game/client/ss_ab/client_entity.h
+new file mode 100644
+index 00000000..01e70758
+--- /dev/null
++++ b/src/game/client/ss_ab/client_entity.h
+@@ -0,0 +1,15 @@
++//========= SourceSharp stock A/B hooks (test build only) =====================//
++//
++// The render tracer (shell_render_trace_client.cpp, copied from
++// source-sdk-sharp) includes source-sdk-sharp's client entity header, which
++// names the client entity types it reads. In stock those are C_BaseEntity's,
++// which cbase.h (the precompiled header every client file is built with)
++// already declares.
++//
++//=============================================================================//
++#ifndef SS_AB_CLIENT_ENTITY_H
++#define SS_AB_CLIENT_ENTITY_H
++
++#include "c_baseentity.h"
++
++#endif // SS_AB_CLIENT_ENTITY_H
+-- 
+2.53.0
+

@@ -1176,7 +1176,7 @@ public partial class NetTableTests
     // of those cannot be true, and this is the test that says which is. It was
     // the view.
     //
-    // ASKED OF ss_beam NOW. spotlight_end's four channels have since become one
+    // ASKED OF beam NOW. spotlight_end's four channels have since become one
     // Color32, and this guard is about the PACKER rather than about that class —
     // a beam still declares four byte channels and a bool, so it is the same
     // question with a live answer. Pinned on the LAYOUT, so a packer that
@@ -1193,14 +1193,15 @@ public partial class NetTableTests
 
         // ONE WORD BETWEEN THEM, wherever the buckets put it. The four are 8
         // bits each and 32 between them, so they are an EXACT FILL under rule 2
-        // and lead the narrow half of the class — behind the five fields that
+        // and lead the narrow half of the class — behind the eleven fields that
         // are naturally four bytes (Width, EndWidth, Noise, ScrollRate,
-        // SpriteIndex), which is why the word is at 20 rather than at 0. That
-        // number is derived and pinned; what the test is ABOUT is that there is
-        // one word and not four.
+        // SpriteIndex, Flags, FadeLength, HaloIndex, HaloScale,
+        // HdrColorScale, Frame), which is why the word is at 44 rather than at 0.
+        // That number is derived and pinned; what the test is ABOUT is that
+        // there is one word and not four.
         Assert.True(placed.Select(f => f.Offset).Distinct().Count() == 1, "all four of a beam's colour channels live in ONE word");
 
-        Assert.True(placed[0].Offset == Block + 20, $"the word after the class's five whole-word fields, i.e. 20 and not {placed[0].Offset}");
+        Assert.True(placed[0].Offset == Block + 44, $"the word after the class's eleven whole-word fields, i.e. 44 and not {placed[0].Offset - Block}");
 
         Assert.True(placed.Select(f => f.BitShift).SequenceEqual(new[] { 0, 8, 16, 24 }), "each takes the next eight bits of it rather than a word of its own");
 

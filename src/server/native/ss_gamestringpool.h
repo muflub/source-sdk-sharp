@@ -5,34 +5,17 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the server's pooled-string accessors ===============//
-//
-// plan_server_novalve.md P5. gamestringpool.cpp (src/shared/native) defines
-// two functions on the server: AllocPooledString and GameStringSystem. This
-// header declares exactly those two, on public/ headers alone, for the
-// translation units built without game/shared/gamestringpool.h. The names stay
-// global because the TUs still on that header call the same definitions.
-//
-// game/shared/gamestringpool.h also declares FindPooledString,
-// RemovePooledString, AllocPooledString_StaticConstantStringPointer and
-// PurgeDeferredPooledStrings; server.so defines none of them, so they are not
-// here.
-//=============================================================================//
-
-#ifndef SOURCESHARP_SS_GAMESTRINGPOOL_H
-#define SOURCESHARP_SS_GAMESTRINGPOOL_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include "string_t.h"
+#include "server_string_pool.h"
 
-class CServerSystem;
-
-// The level-lifetime pooled copy of pszValue (NULL_STRING for NULL or "").
-string_t AllocPooledString( const char *pszValue );
-
-// The pool's server system: it frees every pooled string at level shutdown.
-CServerSystem *GameStringSystem();
-
-#endif // SOURCESHARP_SS_GAMESTRINGPOOL_H
+// Stock's AllocPooledString over the pool of the object that holds the string_t: a pooled
+// string lives as long as that object, the world's for its model name, a player's for its
+// name. There is no level-wide pool.
+inline string_t PooledString( CServerStringPool &pool, const char *pszValue )
+{
+	if ( pszValue && *pszValue )
+		return MAKE_STRING( pool.Allocate( pszValue ) );
+	return NULL_STRING;
+}

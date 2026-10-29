@@ -22,14 +22,42 @@ public enum MotionSimResult
 }
 
 /// <summary>
+/// A motion controller's Simulate written by its owner (stock's IMotionEvent
+/// implemented by a game class, as CGrabController does), for
+/// <see cref="MotionControllerKind.Custom"/>.
+/// </summary>
+public interface IMotionSimulate
+{
+    /// <summary>One tick for one attached object: what to add, and how to read it.</summary>
+    MotionSimResult Simulate(nint physicsObject, float deltaTime, out Vector linear, out Vector angular);
+}
+
+/// <summary>
 /// One motion controller's parameters and its feedback state: what managed's
 /// IMotionEvent answers vphysics from, each tick, for each object it acts on
 /// (plan_physics_bones_native_zero 2.4). The fields of the four native
 /// controllers of shell_motioncontrollers.cpp in one record, read by kind.
 /// </summary>
+/// <summary>
+/// The motion controllers a game class makes for its own Simulate (the grab controller): the
+/// <see cref="MotionControllerKind.Custom"/> door of
+/// <see cref="PhysicsMotionControllers"/>.
+/// </summary>
+public interface ICustomMotionControllers
+{
+    /// <summary>A controller on the entity's object simulated by <paramref name="simulate"/>; 0 for none.</summary>
+    uint CreateCustom(EntityHandle entity, IMotionSimulate simulate);
+
+    /// <summary>Frees one; an id that names nothing is ignored.</summary>
+    void Destroy(uint motion);
+}
+
 public sealed class MotionState
 {
     public MotionState(MotionControllerKind kind) => Kind = kind;
+
+    /// <summary>A <see cref="MotionControllerKind.Custom"/> controller's own Simulate.</summary>
+    public IMotionSimulate? Custom { get; init; }
 
     public MotionControllerKind Kind { get; }
 
@@ -98,6 +126,8 @@ public static class MotionSimulation
                 return KeepUpright(state, physicsObject, deltaTime, vphysics, out linear, out angular);
             case MotionControllerKind.Medium:
                 return Medium(state, physicsObject, deltaTime, vphysics, world, out linear, out angular);
+            case MotionControllerKind.Custom when state.Custom is { } custom:
+                return custom.Simulate(physicsObject, deltaTime, out linear, out angular);
             default:
                 linear = Vector.Zero;
                 angular = Vector.Zero;

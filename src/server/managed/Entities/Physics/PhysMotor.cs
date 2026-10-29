@@ -98,13 +98,19 @@ public sealed class PhysMotor : PhysicsForceEntity
 
     public override void OnThink()
     {
-        base.OnThink();
+        // The first think only attaches: stock's Think runs only once TurnOn
+        // or SetSpeed has scheduled it, and an off motor that ramped from
+        // here spun dm_lockdown's fan up before its plug was ever seated.
+        // OnAttached schedules the ramp itself when the motor starts on.
+        if (Controller is null)
+        {
+            base.OnThink();
+            return;
+        }
 
         // No "on" gate, as stock's Think has none: SetSpeed schedules this
         // think and the ramp runs whether or not the motor was started on
         // (phys_controller.cpp:825-837; A27). TurnOff stops the thinking.
-        if (Controller is null)
-            return;
 
         float now = Clock.Now;
         _currentSpeed = Approach(PhysMotorVars.TargetSpeed, _currentSpeed, _acceleration * (now - _lastRampTime));

@@ -70,7 +70,7 @@ void DetailLog( const char *pFmt, ... )
 	va_end( ap );
 	std::string line( n > 0 ? n : 0, '\0' );
 	if ( n > 0 )
-		vsnprintf( &line[ 0 ], n + 1, pFmt, again );
+		vsnprintf( &line[0], n + 1, pFmt, again );
 	va_end( again );
 	g_Log += line;
 	g_Log += '\n';
@@ -102,42 +102,78 @@ class CDetailCvar final : public ICvar
 {
 public:
 	virtual bool Connect( CreateInterfaceFn ) { return true; }
+
 	virtual void Disconnect() {}
+
 	virtual void *QueryInterface( const char * ) { return NULL; }
+
 	virtual InitReturnVal_t Init() { return INIT_OK; }
+
 	virtual void Shutdown() {}
+
 	virtual CVarDLLIdentifier_t AllocateDLLIdentifier() { return 1; }
+
 	virtual void RegisterConCommand( ConCommandBase * ) {}
+
 	virtual void UnregisterConCommand( ConCommandBase * ) {}
+
 	virtual void UnregisterConCommands( CVarDLLIdentifier_t ) {}
+
 	virtual const char *GetCommandLineValue( const char * ) { return NULL; }
+
 	virtual ConCommandBase *FindCommandBase( const char * ) { return NULL; }
+
 	virtual const ConCommandBase *FindCommandBase( const char * ) const { return NULL; }
+
 	virtual ConVar *FindVar( const char * ) { return NULL; }
+
 	virtual const ConVar *FindVar( const char * ) const { return NULL; }
+
 	virtual ConCommand *FindCommand( const char * ) { return NULL; }
+
 	virtual const ConCommand *FindCommand( const char * ) const { return NULL; }
+
 	virtual ConCommandBase *GetCommands( void ) { return NULL; }
+
 	virtual const ConCommandBase *GetCommands( void ) const { return NULL; }
+
 	virtual void InstallGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void RemoveGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void CallGlobalChangeCallbacks( ConVar *, const char *, float ) {}
+
 	virtual void InstallConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void RemoveConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void ConsoleColorPrintf( const Color &, const char *, ... ) const {}
+
 	virtual void ConsolePrintf( const char *, ... ) const {}
+
 	virtual void ConsoleDPrintf( const char *, ... ) const {}
+
 	virtual void RevertFlaggedConVars( int ) {}
+
 	virtual void InstallCVarQuery( ICvarQuery * ) {}
+
 	virtual void PublishToVXConsole() {}
+
 	virtual bool IsMaterialThreadSetAllowed() const { return true; }
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, const char * ) {}
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, int ) {}
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, float ) {}
+
 	virtual bool HasQueuedMaterialThreadConVarSets() const { return false; }
+
 	virtual int ProcessQueuedMaterialThreadConVarSets() { return 0; }
+
 	virtual ICVarIteratorInternal *FactoryInternalIterator( void ) { return NULL; }
 };
+
 static CDetailCvar g_DetailCvar;
 
 // The convar the subject declares `extern`: viewrender's, in the game.
@@ -157,7 +193,7 @@ namespace
 struct World_t
 {
 	// The game lumps, by id; a lump with no entry is not in the map.
-	std::vector< std::pair< int, std::pair< int, std::vector< unsigned char > > > > lumps;
+	std::vector<std::pair<int, std::pair<int, std::vector<unsigned char>>>> lumps;
 	bool bHdr = false;
 	int nMatW = 256, nMatH = 256;
 	int nMaxVerts = 32768, nMaxIndices = 32768;
@@ -167,14 +203,15 @@ struct World_t
 	Vector vecCurrentViewOrigin;
 	int nBuildWorldListsNumber = 0;
 	// The leaves' centres, for the BSP query.
-	std::vector< Vector > leafCenters;
+	std::vector<Vector> leafCenters;
 	// The leaf system's tables.
-	std::vector< int > leafFirst, leafCount, leafFrame;
-	std::vector< CClientLeafSubSystemData * > leafData;
+	std::vector<int> leafFirst, leafCount, leafFrame;
+	std::vector<CClientLeafSubSystemData *> leafData;
 	int nObjectsEnd = 0;
 	// The models the engine has loaded, in load order.
-	std::vector< model_t * > models;
+	std::vector<model_t *> models;
 };
+
 World_t g_World;
 
 unsigned int g_nMsvcRand = 1;
@@ -192,7 +229,7 @@ int ss_detail_rand()
 //-----------------------------------------------------------------------------
 // The engine.
 //-----------------------------------------------------------------------------
-static const std::vector< unsigned char > *FindLump( int lumpId, int *pnVersion )
+static const std::vector<unsigned char> *FindLump( int lumpId, int *pnVersion )
 {
 	for ( auto &entry : g_World.lumps )
 	{
@@ -215,13 +252,13 @@ int CDetailEngine::GameLumpVersion( int lumpId ) const
 
 int CDetailEngine::GameLumpSize( int lumpId ) const
 {
-	const std::vector< unsigned char > *pLump = FindLump( lumpId, NULL );
+	const std::vector<unsigned char> *pLump = FindLump( lumpId, NULL );
 	return pLump ? (int)pLump->size() : 0;
 }
 
 bool CDetailEngine::LoadGameLump( int lumpId, void *pBuffer, int size )
 {
-	const std::vector< unsigned char > *pLump = FindLump( lumpId, NULL );
+	const std::vector<unsigned char> *pLump = FindLump( lumpId, NULL );
 	DetailLog( "GL\t%08x\t%d\t%d", (unsigned)lumpId, size, pLump ? 1 : 0 );
 	if ( !pLump || size != (int)pLump->size() )
 		return false;
@@ -261,13 +298,13 @@ void CDetailEngine::LinearToGamma( float *linear, float *gamma )
 {
 	for ( int i = 0; i < 3; i++ )
 	{
-		float x = linear[ i ];
+		float x = linear[i];
 		if ( x < 0.0f )
 			x = 0.0f;
 		int n = (int)( sqrtf( x ) * 255.0f );
 		if ( n > 255 )
 			n = 255;
-		gamma[ i ] = (float)n / 255.0f;
+		gamma[i] = (float)n / 255.0f;
 	}
 }
 
@@ -293,29 +330,36 @@ class CDetailQuery : public ISpatialQuery
 {
 public:
 	virtual int LeafCount() const { return (int)g_World.leafCenters.size(); }
+
 	virtual bool EnumerateLeavesAtPoint( Vector const &, ISpatialLeafEnumerator *, intp ) { return true; }
+
 	virtual bool EnumerateLeavesInBox( Vector const &, Vector const &, ISpatialLeafEnumerator *, intp ) { return true; }
-	virtual bool EnumerateLeavesInSphere( Vector const &center, float radius, ISpatialLeafEnumerator *pEnum, intp context )
+
+	virtual bool EnumerateLeavesInSphere( Vector const &center, float radius, ISpatialLeafEnumerator *pEnum,
+										  intp context )
 	{
 		std::string leaves;
 		for ( int i = 0; i < (int)g_World.leafCenters.size(); i++ )
 		{
-			if ( ( g_World.leafCenters[ i ] - center ).Length() > radius + 212.0f )
+			if ( ( g_World.leafCenters[i] - center ).Length() > radius + 212.0f )
 				continue;
 			leaves += "\t" + std::to_string( i );
 		}
-		DetailLog( "Q\t%08x\t%08x\t%08x\t%08x%s", B( center.x ), B( center.y ), B( center.z ), B( radius ), leaves.c_str() );
+		DetailLog( "Q\t%08x\t%08x\t%08x\t%08x%s", B( center.x ), B( center.y ), B( center.z ), B( radius ),
+				   leaves.c_str() );
 		for ( int i = 0; i < (int)g_World.leafCenters.size(); i++ )
 		{
-			if ( ( g_World.leafCenters[ i ] - center ).Length() > radius + 212.0f )
+			if ( ( g_World.leafCenters[i] - center ).Length() > radius + 212.0f )
 				continue;
 			if ( !pEnum->EnumerateLeaf( i, context ) )
 				return false;
 		}
 		return true;
 	}
+
 	virtual bool EnumerateLeavesAlongRay( Ray_t const &, ISpatialLeafEnumerator *, intp ) { return true; }
 };
+
 CDetailQuery g_Query;
 } // namespace
 
@@ -327,39 +371,60 @@ ISpatialQuery *CDetailEngine::GetBSPTreeQuery()
 static CDetailEngine g_Engine;
 CDetailEngine *engine = &g_Engine;
 
-int CDetailModelInfo::GetModelType( const model_t *model ) const { return model ? model->nType : mod_bad; }
+int CDetailModelInfo::GetModelType( const model_t *model ) const
+{
+	return model ? model->nType : mod_bad;
+}
+
 void CDetailModelInfo::GetModelRenderBounds( const model_t *model, Vector &mins, Vector &maxs ) const
 {
 	mins = model->vecMins;
 	maxs = model->vecMaxs;
 }
-bool CDetailModelInfo::ModelHasMaterialProxy( const model_t *model ) const { return model && model->bProxy; }
-bool CDetailModelInfo::IsTranslucent( model_t const *model ) const { return model && model->bTranslucent; }
-void CDetailModelInfo::RecomputeTranslucency( const model_t *model, int nSkin, int nBody, void *pClientRenderable, float )
+
+bool CDetailModelInfo::ModelHasMaterialProxy( const model_t *model ) const
+{
+	return model && model->bProxy;
+}
+
+bool CDetailModelInfo::IsTranslucent( model_t const *model ) const
+{
+	return model && model->bTranslucent;
+}
+
+void CDetailModelInfo::RecomputeTranslucency( const model_t *model, int nSkin, int nBody, void *pClientRenderable,
+											  float )
 {
 	DetailLog( "RT\t%d\t%d\t%d\t%d", model ? model->nId : 0, nSkin, nBody, pClientRenderable ? 1 : 0 );
 }
+
 bool CDetailModelInfo::IsModelVertexLit( const model_t *model ) const
 {
 	const bool b = model && model->bVertexLit;
 	DetailLog( "VL\t%d\t%d", model ? model->nId : 0, b ? 1 : 0 );
 	return b;
 }
+
 static studiohdr_t g_StudioHdr = { 3 };
-studiohdr_t *CDetailModelInfo::GetStudiomodel( const model_t * ) { return &g_StudioHdr; }
+
+studiohdr_t *CDetailModelInfo::GetStudiomodel( const model_t * )
+{
+	return &g_StudioHdr;
+}
 
 static CDetailModelInfo g_ModelInfo;
 CDetailModelInfo *modelinfo = &g_ModelInfo;
 
-int CDetailModelRender::DrawModel( int flags, IClientRenderable *pRenderable, ModelInstanceHandle_t instance, int entity_index,
-                                   const model_t *model, Vector const &origin, QAngle const &angles, int skin, int body, int hitboxset,
-                                   const matrix3x4_t *, const matrix3x4_t * )
+int CDetailModelRender::DrawModel( int flags, IClientRenderable *pRenderable, ModelInstanceHandle_t instance,
+								   int entity_index, const model_t *model, Vector const &origin, QAngle const &angles,
+								   int skin, int body, int hitboxset, const matrix3x4_t *, const matrix3x4_t * )
 {
 	DetailLog( "DM\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%d\t%d\t%d", flags, (int)instance, entity_index,
-	           model ? model->nId : 0, B( origin.x ), B( origin.y ), B( origin.z ), B( angles.x ), B( angles.y ), B( angles.z ),
-	           skin, body, hitboxset );
+			   model ? model->nId : 0, B( origin.x ), B( origin.y ), B( origin.z ), B( angles.x ), B( angles.y ),
+			   B( angles.z ), skin, body, hitboxset );
 	return 1;
 }
+
 static CDetailModelRender g_ModelRender;
 CDetailModelRender *modelrender = &g_ModelRender;
 
@@ -384,73 +449,111 @@ class CDetailLeafData : public CClientLeafSubSystemData
 void CDetailLeafSystem::SetSubSystemDataInLeaf( int leaf, int nSubSystemIdx, CClientLeafSubSystemData *pData )
 {
 	DetailLog( "LS\t%d\t%d\t%d", leaf, nSubSystemIdx, pData ? 1 : 0 );
-	if ( g_World.leafData[ leaf ] )
-		delete g_World.leafData[ leaf ];
-	g_World.leafData[ leaf ] = pData;
+	if ( g_World.leafData[leaf] )
+		delete g_World.leafData[leaf];
+	g_World.leafData[leaf] = pData;
 }
 
 CClientLeafSubSystemData *CDetailLeafSystem::GetSubSystemDataInLeaf( int leaf, int nSubSystemIdx )
 {
-	return g_World.leafData[ leaf ];
+	return g_World.leafData[leaf];
 }
 
 void CDetailLeafSystem::SetDetailObjectsInLeaf( int leaf, int firstDetailObject, int detailObjectCount )
 {
 	DetailLog( "LD\t%d\t%d\t%d", leaf, firstDetailObject, detailObjectCount );
-	g_World.leafFirst[ leaf ] = firstDetailObject;
-	g_World.leafCount[ leaf ] = detailObjectCount;
+	g_World.leafFirst[leaf] = firstDetailObject;
+	g_World.leafCount[leaf] = detailObjectCount;
 	g_World.nObjectsEnd = MAX( g_World.nObjectsEnd, firstDetailObject + detailObjectCount );
 }
 
 void CDetailLeafSystem::GetDetailObjectsInLeaf( int leaf, int &firstDetailObject, int &detailObjectCount )
 {
-	firstDetailObject = g_World.leafFirst[ leaf ];
-	detailObjectCount = g_World.leafCount[ leaf ];
+	firstDetailObject = g_World.leafFirst[leaf];
+	detailObjectCount = g_World.leafCount[leaf];
 }
 
-void CDetailLeafSystem::DrawDetailObjectsInLeaf( int leaf, int frameNumber, int &firstDetailObject, int &detailObjectCount )
+void CDetailLeafSystem::DrawDetailObjectsInLeaf( int leaf, int frameNumber, int &firstDetailObject,
+												 int &detailObjectCount )
 {
 	DetailLog( "LK\t%d\t%d", leaf, frameNumber );
-	g_World.leafFrame[ leaf ] = frameNumber;
-	firstDetailObject = g_World.leafFirst[ leaf ];
-	detailObjectCount = g_World.leafCount[ leaf ];
+	g_World.leafFrame[leaf] = frameNumber;
+	firstDetailObject = g_World.leafFirst[leaf];
+	detailObjectCount = g_World.leafCount[leaf];
 }
 
 static CDetailLeafSystem g_LeafSystem;
-CDetailLeafSystem *ClientLeafSystem() { return &g_LeafSystem; }
+
+CDetailLeafSystem *ClientLeafSystem()
+{
+	return &g_LeafSystem;
+}
 
 //-----------------------------------------------------------------------------
 // The view, the client mode, the map's controller and world.
 //-----------------------------------------------------------------------------
-int CDetailView::BuildWorldListsNumber() const { return g_World.nBuildWorldListsNumber; }
+int CDetailView::BuildWorldListsNumber() const
+{
+	return g_World.nBuildWorldListsNumber;
+}
+
 static CDetailView g_View;
 CDetailView *view = &g_View;
 
-const Vector &CurrentViewOrigin() { return g_World.vecCurrentViewOrigin; }
-bool ShouldDrawInWireFrameMode() { return g_World.bWireframe; }
+const Vector &CurrentViewOrigin()
+{
+	return g_World.vecCurrentViewOrigin;
+}
 
-bool CDetailClientMode::ShouldDrawDetailObjects() { return g_World.bClientModeDraws; }
+bool ShouldDrawInWireFrameMode()
+{
+	return g_World.bWireframe;
+}
+
+bool CDetailClientMode::ShouldDrawDetailObjects()
+{
+	return g_World.bClientModeDraws;
+}
+
 static CDetailClientMode g_ClientMode;
 CDetailClientMode *g_pClientMode = &g_ClientMode;
 
 // NULL, as this build's GetDetailController answered (shell_client_orphans.cpp,
 // until C7 cluster 10): the managed env_detail_controller clamps the convars
 // itself.
-C_EnvDetailController *GetDetailController() { return NULL; }
+C_EnvDetailController *GetDetailController()
+{
+	return NULL;
+}
 
-const char *C_World::GetDetailSpriteMaterial() const { return g_World.pszWorldMaterial; }
+const char *C_World::GetDetailSpriteMaterial() const
+{
+	return g_World.pszWorldMaterial;
+}
+
 static C_World g_ClientWorld;
-C_World *GetClientWorldEntity() { return &g_ClientWorld; }
+
+C_World *GetClientWorldEntity()
+{
+	return &g_ClientWorld;
+}
 
 //-----------------------------------------------------------------------------
 // The material system.
 //-----------------------------------------------------------------------------
-int IMaterial::GetMappingWidth() { return g_World.nMatW; }
-int IMaterial::GetMappingHeight() { return g_World.nMatH; }
+int IMaterial::GetMappingWidth()
+{
+	return g_World.nMatW;
+}
+
+int IMaterial::GetMappingHeight()
+{
+	return g_World.nMatH;
+}
 
 namespace
 {
-std::vector< IMaterial * > g_Materials;
+std::vector<IMaterial *> g_Materials;
 }
 
 void CMaterialReference::Init( const char *pMaterialName, const char *pTextureGroupName, bool )
@@ -488,15 +591,32 @@ void IMesh::Draw( int, int )
 
 static IMesh g_Mesh;
 
-void IMatRenderContext::MatrixMode( MaterialMatrixMode_t mode ) { DetailLog( "XM\t%d", (int)mode ); }
-void IMatRenderContext::PushMatrix() { DetailLog( "XP" ); }
-void IMatRenderContext::LoadIdentity() { DetailLog( "XI" ); }
-void IMatRenderContext::PopMatrix() { DetailLog( "XO" ); }
+void IMatRenderContext::MatrixMode( MaterialMatrixMode_t mode )
+{
+	DetailLog( "XM\t%d", (int)mode );
+}
+
+void IMatRenderContext::PushMatrix()
+{
+	DetailLog( "XP" );
+}
+
+void IMatRenderContext::LoadIdentity()
+{
+	DetailLog( "XI" );
+}
+
+void IMatRenderContext::PopMatrix()
+{
+	DetailLog( "XO" );
+}
+
 IMesh *IMatRenderContext::GetDynamicMesh( bool buffered, IMesh *, IMesh *, IMaterial *pAutoBind )
 {
 	DetailLog( "XG\t%d\t%s", buffered ? 1 : 0, pAutoBind ? pAutoBind->m_pszName : "-" );
 	return &g_Mesh;
 }
+
 void IMatRenderContext::GetMaxToRender( IMesh *, bool, int *pMaxVerts, int *pMaxIndices )
 {
 	*pMaxVerts = g_World.nMaxVerts;
@@ -504,7 +624,12 @@ void IMatRenderContext::GetMaxToRender( IMesh *, bool, int *pMaxVerts, int *pMax
 }
 
 static IMatRenderContext g_RenderContext;
-IMatRenderContext *IMaterialSystem::GetRenderContext() { return &g_RenderContext; }
+
+IMatRenderContext *IMaterialSystem::GetRenderContext()
+{
+	return &g_RenderContext;
+}
+
 static IMaterialSystem g_MaterialSystem;
 IMaterialSystem *materials = &g_MaterialSystem;
 
@@ -521,31 +646,44 @@ void CMeshBuilder::End( bool, bool )
 
 void CMeshBuilder::Position3f( float x, float y, float z )
 {
-	m_Pos[ 0 ] = x;
-	m_Pos[ 1 ] = y;
-	m_Pos[ 2 ] = z;
+	m_Pos[0] = x;
+	m_Pos[1] = y;
+	m_Pos[2] = z;
 }
 
-void CMeshBuilder::Position3fv( const float *v ) { Position3f( v[ 0 ], v[ 1 ], v[ 2 ] ); }
+void CMeshBuilder::Position3fv( const float *v )
+{
+	Position3f( v[0], v[1], v[2] );
+}
 
-void CMeshBuilder::Color4ubv( unsigned char const *rgba ) { memcpy( m_Color, rgba, 4 ); }
+void CMeshBuilder::Color4ubv( unsigned char const *rgba )
+{
+	memcpy( m_Color, rgba, 4 );
+}
 
 void CMeshBuilder::TexCoord2f( int, float s, float t )
 {
-	m_Tex[ 0 ] = s;
-	m_Tex[ 1 ] = t;
+	m_Tex[0] = s;
+	m_Tex[1] = t;
 }
 
-void CMeshBuilder::TexCoord2fv( int stage, const float *st ) { TexCoord2f( stage, st[ 0 ], st[ 1 ] ); }
+void CMeshBuilder::TexCoord2fv( int stage, const float *st )
+{
+	TexCoord2f( stage, st[0], st[1] );
+}
 
 void CMeshBuilder::AdvanceVertex()
 {
-	DetailLog( "V\t%08x\t%08x\t%08x\t%02x%02x%02x%02x\t%08x\t%08x", B( m_Pos[ 0 ] ), B( m_Pos[ 1 ] ), B( m_Pos[ 2 ] ),
-	           m_Color[ 0 ], m_Color[ 1 ], m_Color[ 2 ], m_Color[ 3 ], B( m_Tex[ 0 ] ), B( m_Tex[ 1 ] ) );
+	DetailLog( "V\t%08x\t%08x\t%08x\t%02x%02x%02x%02x\t%08x\t%08x", B( m_Pos[0] ), B( m_Pos[1] ), B( m_Pos[2] ),
+			   m_Color[0], m_Color[1], m_Color[2], m_Color[3], B( m_Tex[0] ), B( m_Tex[1] ) );
 	++m_nVerts;
 }
 
-HDRType_t CDetailHardwareConfig::GetHDRType() const { return g_World.bHdr ? HDR_TYPE_INTEGER : HDR_TYPE_NONE; }
+HDRType_t CDetailHardwareConfig::GetHDRType() const
+{
+	return g_World.bHdr ? HDR_TYPE_INTEGER : HDR_TYPE_NONE;
+}
+
 static CDetailHardwareConfig g_HardwareConfig;
 CDetailHardwareConfig *g_pMaterialSystemHardwareConfig = &g_HardwareConfig;
 
@@ -559,6 +697,7 @@ namespace
 struct Rng_t
 {
 	unsigned int s;
+
 	unsigned int Next()
 	{
 		s ^= s << 13;
@@ -566,7 +705,9 @@ struct Rng_t
 		s ^= s << 5;
 		return s;
 	}
+
 	int Int( int lo, int hi ) { return lo + (int)( Next() % (unsigned)( hi - lo + 1 ) ); }
+
 	float Float( float lo, float hi ) { return lo + ( hi - lo ) * (float)( Next() & 0xffffff ) / (float)0xffffff; }
 };
 
@@ -574,59 +715,77 @@ struct Scenario_t
 {
 	const char *pszName;
 	unsigned int nSeed;
-	int nVersion;			// the detail lump's; 0: the map has no detail lump
+	int nVersion; // the detail lump's; 0: the map has no detail lump
 	bool bHdr;
-	int nLighting;			// light style entries in each lighting lump (-1: neither lump)
+	int nLighting; // light style entries in each lighting lump (-1: neither lump)
 	int nMatW, nMatH;
 	int nMaxVerts, nMaxIndices;
-	float flDist, flFade;	// cl_detaildist / cl_detailfade at Init
-	int nFast;				// cl_fastdetailsprites
-	int nMultiplier;		// cl_detail_multiplier
+	float flDist, flFade; // cl_detaildist / cl_detailfade at Init
+	int nFast; // cl_fastdetailsprites
+	int nMultiplier; // cl_detail_multiplier
 	int nLeaves, nObjects, nDict, nSprites;
 	const char *pszWorldMaterial;
 	int nViews;
-	float flUserDist;		// cl_detaildist the player sets after the level loads (0: none)
+	float flUserDist; // cl_detaildist the player sets after the level loads (0: none)
 };
 
-const Scenario_t kScenarios[] =
-{
+const Scenario_t kScenarios[] = {
 	// name          seed        ver hdr  lit  matW matH  verts  idx    dist   fade  fast mul lv  obj  dct spr  world material              views user
-	{ "basic",       0x5eed0001, 4, true,  6, 512, 256, 32768, 32768, 1200, 400, 1, 1, 12, 260, 4, 6, NULL,                       6, 0 },
-	{ "ldr-square",  0x5eed0002, 4, false, 4, 256, 256, 32768, 32768, 800, 900, 1, 1, 10, 180, 3, 5, "detail/detailsprites_map", 5, 0 },
-	{ "tiny-mesh",   0x5eed0003, 4, true,  3, 512, 128, 23, 40, 1500, 300, 1, 1, 4, 220, 2, 4, NULL,                             5, 0 },
-	{ "slow-only",   0x5eed0004, 4, true,  5, 128, 512, 32768, 32768, 1200, 400, 0, 1, 9, 200, 2, 6, NULL,                       5, 0 },
-	{ "multiplier",  0x5eed0005, 4, true,  2, 256, 256, 32768, 32768, 1200, 400, 1, 3, 6, 90, 2, 3, NULL,                        4, 0 },
-	{ "user-dist",   0x5eed0006, 4, true,  2, 256, 256, 32768, 32768, 1200, 400, 1, 1, 8, 160, 2, 4, NULL,                       4, 500 },
-	{ "close-fade",  0x5eed0007, 4, false, 0, 256, 256, 32768, 32768, 300, 50, 1, 1, 6, 150, 2, 4, NULL,                         4, 0 },
-	{ "old-format",  0x5eed0008, 3, true,  2, 256, 256, 32768, 32768, 1200, 400, 1, 1, 4, 40, 1, 2, NULL,                        1, 0 },
-	{ "no-lump",     0x5eed0009, 0, true, -1, 256, 256, 32768, 32768, 1200, 400, 1, 1, 4, 0, 0, 0, NULL,                         1, 0 },
-	{ "empty",       0x5eed000a, 4, true,  0, 256, 256, 32768, 32768, 1200, 400, 1, 1, 4, 0, 0, 0, NULL,                         1, 0 },
-	{ "dict-only-v5",0x5eed000b, 5, true,  2, 256, 256, 32768, 32768, 1200, 400, 1, 1, 4, 30, 2, 2, NULL,                        1, 0 },
+	{ "basic", 0x5eed0001, 4, true, 6, 512, 256, 32768, 32768, 1200, 400, 1, 1, 12, 260, 4, 6, NULL, 6, 0 },
+	{ "ldr-square",
+	  0x5eed0002,
+	  4,
+	  false,
+	  4,
+	  256,
+	  256,
+	  32768,
+	  32768,
+	  800,
+	  900,
+	  1,
+	  1,
+	  10,
+	  180,
+	  3,
+	  5,
+	  "detail/detailsprites_map",
+	  5,
+	  0 },
+	{ "tiny-mesh", 0x5eed0003, 4, true, 3, 512, 128, 23, 40, 1500, 300, 1, 1, 4, 220, 2, 4, NULL, 5, 0 },
+	{ "slow-only", 0x5eed0004, 4, true, 5, 128, 512, 32768, 32768, 1200, 400, 0, 1, 9, 200, 2, 6, NULL, 5, 0 },
+	{ "multiplier", 0x5eed0005, 4, true, 2, 256, 256, 32768, 32768, 1200, 400, 1, 3, 6, 90, 2, 3, NULL, 4, 0 },
+	{ "user-dist", 0x5eed0006, 4, true, 2, 256, 256, 32768, 32768, 1200, 400, 1, 1, 8, 160, 2, 4, NULL, 4, 500 },
+	{ "close-fade", 0x5eed0007, 4, false, 0, 256, 256, 32768, 32768, 300, 50, 1, 1, 6, 150, 2, 4, NULL, 4, 0 },
+	{ "old-format", 0x5eed0008, 3, true, 2, 256, 256, 32768, 32768, 1200, 400, 1, 1, 4, 40, 1, 2, NULL, 1, 0 },
+	{ "no-lump", 0x5eed0009, 0, true, -1, 256, 256, 32768, 32768, 1200, 400, 1, 1, 4, 0, 0, 0, NULL, 1, 0 },
+	{ "empty", 0x5eed000a, 4, true, 0, 256, 256, 32768, 32768, 1200, 400, 1, 1, 4, 0, 0, 0, NULL, 1, 0 },
+	{ "dict-only-v5", 0x5eed000b, 5, true, 2, 256, 256, 32768, 32768, 1200, 400, 1, 1, 4, 30, 2, 2, NULL, 1, 0 },
 };
 
-void PutInt( std::vector< unsigned char > &out, int v )
+void PutInt( std::vector<unsigned char> &out, int v )
 {
-	unsigned char b[ 4 ];
+	unsigned char b[4];
 	memcpy( b, &v, 4 );
 	out.insert( out.end(), b, b + 4 );
 }
 
-void PutFloat( std::vector< unsigned char > &out, float v )
+void PutFloat( std::vector<unsigned char> &out, float v )
 {
-	unsigned char b[ 4 ];
+	unsigned char b[4];
 	memcpy( b, &v, 4 );
 	out.insert( out.end(), b, b + 4 );
 }
 
-std::string Hex( const std::vector< unsigned char > &bytes )
+std::string Hex( const std::vector<unsigned char> &bytes )
 {
 	static const char kDigits[] = "0123456789abcdef";
 	std::string s;
 	s.reserve( bytes.size() * 2 );
 	for ( unsigned char c : bytes )
 	{
-		s += kDigits[ c >> 4 ];
-		s += kDigits[ c & 15 ];
+		s += kDigits[c >> 4];
+		s += kDigits[c & 15];
 	}
 	return s;
 }
@@ -637,16 +796,16 @@ Vector LeafCenter( int i )
 }
 
 // The detail lump: the model dictionary, the sprite dictionary, the objects.
-std::vector< unsigned char > BuildDetailLump( const Scenario_t &sc, Rng_t &rng, int nLightingEntries )
+std::vector<unsigned char> BuildDetailLump( const Scenario_t &sc, Rng_t &rng, int nLightingEntries )
 {
-	std::vector< unsigned char > out;
+	std::vector<unsigned char> out;
 
 	PutInt( out, sc.nDict );
 	for ( int i = 0; i < sc.nDict; i++ )
 	{
-		char name[ DETAIL_NAME_LENGTH ] = {};
+		char name[DETAIL_NAME_LENGTH] = {};
 		static const char *kKinds[] = { "grass", "vlit_fern", "glass_shard", "proxy_reed", "brush_rock" };
-		V_snprintf( name, sizeof( name ), "models/detail/%s%02d.mdl", kKinds[ i % 5 ], i );
+		V_snprintf( name, sizeof( name ), "models/detail/%s%02d.mdl", kKinds[i % 5], i );
 		out.insert( out.end(), name, name + DETAIL_NAME_LENGTH );
 	}
 
@@ -654,32 +813,32 @@ std::vector< unsigned char > BuildDetailLump( const Scenario_t &sc, Rng_t &rng, 
 	for ( int i = 0; i < sc.nSprites; i++ )
 	{
 		const float halfW = rng.Float( 4.0f, 28.0f );
-		PutFloat( out, -halfW );						// m_UL.x
-		PutFloat( out, rng.Float( 8.0f, 44.0f ) );		// m_UL.y
-		PutFloat( out, halfW + rng.Float( -2.0f, 2.0f ) );	// m_LR.x
-		PutFloat( out, rng.Float( -4.0f, 4.0f ) );		// m_LR.y
+		PutFloat( out, -halfW ); // m_UL.x
+		PutFloat( out, rng.Float( 8.0f, 44.0f ) ); // m_UL.y
+		PutFloat( out, halfW + rng.Float( -2.0f, 2.0f ) ); // m_LR.x
+		PutFloat( out, rng.Float( -4.0f, 4.0f ) ); // m_LR.y
 		const float u0 = rng.Float( 0.0f, 0.75f ), v0 = rng.Float( 0.0f, 0.75f );
-		PutFloat( out, u0 );							// m_TexUL
+		PutFloat( out, u0 ); // m_TexUL
 		PutFloat( out, v0 );
-		PutFloat( out, u0 + rng.Float( 0.05f, 0.25f ) );	// m_TexLR
+		PutFloat( out, u0 + rng.Float( 0.05f, 0.25f ) ); // m_TexLR
 		PutFloat( out, v0 + rng.Float( 0.05f, 0.25f ) );
 	}
 
 	// The objects, sorted by leaf as vbsp writes them, then one leaf revisited.
-	std::vector< int > leafOf;
+	std::vector<int> leafOf;
 	for ( int i = 0; i < sc.nObjects; i++ )
 		leafOf.push_back( ( i * sc.nLeaves ) / MAX( sc.nObjects, 1 ) );
 	if ( sc.nObjects > 8 && sc.nLeaves > 3 )
 	{
 		for ( int i = sc.nObjects - 4; i < sc.nObjects; i++ )
-			leafOf[ i ] = 2;
+			leafOf[i] = 2;
 	}
 
 	PutInt( out, sc.nObjects );
 	static const float kScales[] = { 0.333333f, 1e-6f, 70000.0f, 0.0f, 1.0f, 65519.0f };
 	for ( int i = 0; i < sc.nObjects; i++ )
 	{
-		const int leaf = leafOf[ i ];
+		const int leaf = leafOf[i];
 		const Vector c = LeafCenter( leaf );
 		DetailObjectLump_t lump;
 		memset( &lump, 0, sizeof( lump ) );
@@ -692,13 +851,13 @@ std::vector< unsigned char > BuildDetailLump( const Scenario_t &sc, Rng_t &rng, 
 		lump.m_Lighting.exponent = (signed char)rng.Int( -6, 1 );
 		lump.m_flScale = rng.Float( 0.3f, 2.5f );
 		if ( rng.Int( 0, 19 ) == 0 )
-			lump.m_flScale = kScales[ rng.Int( 0, 5 ) ];
+			lump.m_flScale = kScales[rng.Int( 0, 5 )];
 
 		const int roll = rng.Int( 0, 99 );
 		lump.m_Type = DETAIL_PROP_TYPE_SPRITE;
 		if ( roll < 40 )
 		{
-			lump.m_Orientation = 2;		// the fast sprites
+			lump.m_Orientation = 2; // the fast sprites
 		}
 		else if ( roll < 55 )
 		{
@@ -745,21 +904,21 @@ std::vector< unsigned char > BuildDetailLump( const Scenario_t &sc, Rng_t &rng, 
 		}
 		else if ( roll < 89 )
 		{
-			lump.m_Type = (unsigned char)rng.Int( 4, 7 );	// not a type: skipped
+			lump.m_Type = (unsigned char)rng.Int( 4, 7 ); // not a type: skipped
 			lump.m_Orientation = 2;
 		}
 		else if ( roll < 92 )
 		{
-			lump.m_Orientation = 6;		// the bitfield keeps 2
+			lump.m_Orientation = 6; // the bitfield keeps 2
 		}
 		else if ( roll < 95 )
 		{
-			lump.m_Orientation = 3;		// no screen alignment at all
+			lump.m_Orientation = 3; // no screen alignment at all
 		}
 		else
 		{
 			lump.m_Orientation = 2;
-			lump.m_ShapeAngle = (unsigned char)rng.Int( 1, 255 );	// not fast either
+			lump.m_ShapeAngle = (unsigned char)rng.Int( 1, 255 ); // not fast either
 		}
 
 		if ( lump.m_Type == DETAIL_PROP_TYPE_MODEL )
@@ -774,9 +933,9 @@ std::vector< unsigned char > BuildDetailLump( const Scenario_t &sc, Rng_t &rng, 
 	return out;
 }
 
-std::vector< unsigned char > BuildLightingLump( int nEntries, Rng_t &rng )
+std::vector<unsigned char> BuildLightingLump( int nEntries, Rng_t &rng )
 {
-	std::vector< unsigned char > out;
+	std::vector<unsigned char> out;
 	PutInt( out, nEntries );
 	for ( int i = 0; i < nEntries; i++ )
 	{
@@ -810,14 +969,14 @@ void DumpModels( IDetailObjectSystem *pSystem, bool bColor )
 			continue;
 		const Vector &o = pRenderable->GetRenderOrigin();
 		const QAngle &a = pRenderable->GetRenderAngles();
-		DetailLog( "M\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%d\t%d", i, pRenderable->GetModel() ? pRenderable->GetModel()->nId : 0,
-		           B( o.x ), B( o.y ), B( o.z ), B( a.x ), B( a.y ), B( a.z ),
-		           pRenderable->GetFxBlend(), pRenderable->IsTransparent() ? 1 : 0 );
+		DetailLog( "M\t%d\t%d\t%08x\t%08x\t%08x\t%08x\t%08x\t%08x\t%d\t%d", i,
+				   pRenderable->GetModel() ? pRenderable->GetModel()->nId : 0, B( o.x ), B( o.y ), B( o.z ), B( a.x ),
+				   B( a.y ), B( a.z ), pRenderable->GetFxBlend(), pRenderable->IsTransparent() ? 1 : 0 );
 		if ( bColor )
 		{
-			float color[ 3 ];
+			float color[3];
 			pRenderable->GetColorModulation( color );
-			DetailLog( "MC\t%d\t%08x\t%08x\t%08x", i, B( color[ 0 ] ), B( color[ 1 ] ), B( color[ 2 ] ) );
+			DetailLog( "MC\t%d\t%08x\t%08x\t%08x", i, B( color[0] ), B( color[1] ), B( color[2] ) );
 		}
 		pRenderable->DrawModel( 1 );
 	}
@@ -848,20 +1007,21 @@ void RunOne( const Scenario_t &sc )
 	g_nMsvcRand = sc.nSeed & 0xffff;
 
 	const int nLighting = MAX( sc.nLighting, 0 );
-	std::vector< unsigned char > detail = BuildDetailLump( sc, rng, nLighting );
-	std::vector< unsigned char > ldr = BuildLightingLump( nLighting, rng );
-	std::vector< unsigned char > hdr = BuildLightingLump( nLighting, rng );
+	std::vector<unsigned char> detail = BuildDetailLump( sc, rng, nLighting );
+	std::vector<unsigned char> ldr = BuildLightingLump( nLighting, rng );
+	std::vector<unsigned char> hdr = BuildLightingLump( nLighting, rng );
 	if ( sc.nVersion > 0 )
 		g_World.lumps.push_back( { GAMELUMP_DETAIL_PROPS, { sc.nVersion, detail } } );
 	if ( sc.nLighting >= 0 )
 	{
 		g_World.lumps.push_back( { GAMELUMP_DETAIL_PROP_LIGHTING, { GAMELUMP_DETAIL_PROP_LIGHTING_VERSION, ldr } } );
-		g_World.lumps.push_back( { GAMELUMP_DETAIL_PROP_LIGHTING_HDR, { GAMELUMP_DETAIL_PROP_LIGHTING_HDR_VERSION, hdr } } );
+		g_World.lumps.push_back(
+			{ GAMELUMP_DETAIL_PROP_LIGHTING_HDR, { GAMELUMP_DETAIL_PROP_LIGHTING_HDR_VERSION, hdr } } );
 	}
 
-	DetailLog( "S\t%s\t%u\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%d\t%d\t%s", sc.pszName, sc.nSeed, sc.nVersion, sc.bHdr ? 1 : 0,
-	           sc.nLighting, sc.nMatW, sc.nMatH, sc.nMaxVerts, sc.nMaxIndices, B( sc.flDist ), B( sc.flFade ), sc.nFast,
-	           sc.nMultiplier, sc.pszWorldMaterial ? sc.pszWorldMaterial : "-" );
+	DetailLog( "S\t%s\t%u\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%d\t%d\t%s", sc.pszName, sc.nSeed, sc.nVersion,
+			   sc.bHdr ? 1 : 0, sc.nLighting, sc.nMatW, sc.nMatH, sc.nMaxVerts, sc.nMaxIndices, B( sc.flDist ),
+			   B( sc.flFade ), sc.nFast, sc.nMultiplier, sc.pszWorldMaterial ? sc.pszWorldMaterial : "-" );
 	for ( auto &entry : g_World.lumps )
 		DetailLog( "G\t%08x\t%d\t%s", (unsigned)entry.first, entry.second.first, Hex( entry.second.second ).c_str() );
 
@@ -895,13 +1055,13 @@ void RunOne( const Scenario_t &sc )
 		const Vector c = LeafCenter( leaf );
 		Vector origin( c.x + rng.Float( -250, 250 ), c.y + rng.Float( -250, 250 ), c.z + rng.Float( 10, 80 ) );
 		if ( v == 3 )
-			origin += Vector( 700, 0, 0 );	// one view far off, past most fades
+			origin += Vector( 700, 0, 0 ); // one view far off, past most fades
 		QAngle angles( rng.Float( -30, 30 ), rng.Float( 0, 360 ), 0 );
 		Vector fwd, right, up;
 		ViewVectors( angles, fwd, right, up );
 		g_World.vecCurrentViewOrigin = origin;
 		if ( v == 2 )
-			g_World.vecCurrentViewOrigin = origin + Vector( 40, -30, 5 );	// screen alignment's own view
+			g_World.vecCurrentViewOrigin = origin + Vector( 40, -30, 5 ); // screen alignment's own view
 
 		// The switches this view runs under.
 		r_DrawDetailProps.SetValue( v == 4 ? 2 : ( v == 5 ? 0 : 1 ) );
@@ -911,7 +1071,7 @@ void RunOne( const Scenario_t &sc )
 		g_World.nBuildWorldListsNumber = 100 + v;
 
 		DetailLog( "C\tview\t%d\t%d\t%d\t%d\t%d\t%d", v, r_DrawDetailProps.GetInt(), g_World.bWireframe ? 1 : 0,
-		           mat_fullbright.GetInt(), g_World.bClientModeDraws ? 1 : 0, g_World.nBuildWorldListsNumber );
+				   mat_fullbright.GetInt(), g_World.bClientModeDraws ? 1 : 0, g_World.nBuildWorldListsNumber );
 		Vec( "VO", origin );
 		Vec( "VC", g_World.vecCurrentViewOrigin );
 		Vec( "VF", fwd );
@@ -926,17 +1086,19 @@ void RunOne( const Scenario_t &sc )
 
 		// The leaves the view draws: those the build marked, as the plan's
 		// scene lists them, and one it did not.
-		std::vector< LeafIndex_t > marked;
+		std::vector<LeafIndex_t> marked;
 		for ( int i = 0; i < nLeafSlots; i++ )
 		{
-			if ( g_World.leafFrame[ i ] == g_World.nBuildWorldListsNumber )
+			if ( g_World.leafFrame[i] == g_World.nBuildWorldListsNumber )
 				marked.push_back( (LeafIndex_t)i );
 		}
 		// Back to front, as the translucent pass visits them.
-		std::sort( marked.begin(), marked.end(), [&]( LeafIndex_t a, LeafIndex_t b )
-		{
-			return ( g_World.leafCenters[ a ] - origin ).LengthSqr() > ( g_World.leafCenters[ b ] - origin ).LengthSqr();
-		} );
+		std::sort( marked.begin(), marked.end(),
+				   [&]( LeafIndex_t a, LeafIndex_t b )
+				   {
+					   return ( g_World.leafCenters[a] - origin ).LengthSqr() >
+						   ( g_World.leafCenters[b] - origin ).LengthSqr();
+				   } );
 		if ( v == 0 )
 			marked.push_back( (LeafIndex_t)( nLeafSlots - 1 ) );
 		// A view whose build marked nothing (detail off, or the client mode
@@ -955,7 +1117,7 @@ void RunOne( const Scenario_t &sc )
 
 		// The first half as one list, the next leaf with entities in it, then the rest.
 		const int nHalf = (int)marked.size() / 2;
-		std::vector< LeafIndex_t > first( marked.begin(), marked.begin() + nHalf );
+		std::vector<LeafIndex_t> first( marked.begin(), marked.begin() + nHalf );
 		std::string firstText;
 		for ( LeafIndex_t l : first )
 			firstText += "\t" + std::to_string( l );
@@ -964,7 +1126,7 @@ void RunOne( const Scenario_t &sc )
 
 		if ( nHalf < (int)marked.size() )
 		{
-			const int nLeaf = marked[ nHalf ];
+			const int nLeaf = marked[nHalf];
 			// Entities in the leaf, back to front: each draw is the detail
 			// farther than it, then the entity.
 			for ( int e = 0; e < 3; e++ )
@@ -980,9 +1142,9 @@ void RunOne( const Scenario_t &sc )
 			pSystem->RenderTranslucentDetailObjectsInLeaf( origin, fwd, right, up, nLeaf, NULL );
 		}
 
-		std::vector< LeafIndex_t > rest;
+		std::vector<LeafIndex_t> rest;
 		for ( int i = nHalf + 1; i < (int)marked.size(); i++ )
-			rest.push_back( marked[ i ] );
+			rest.push_back( marked[i] );
 		std::string restText;
 		for ( LeafIndex_t l : rest )
 			restText += "\t" + std::to_string( l );
@@ -1036,8 +1198,15 @@ std::string RepoPath( const char *pszRel )
 	return std::string( pszRepo ? pszRepo : "." ) + "/" + pszRel;
 }
 
-std::string GoldenPath() { return RepoPath( "src/test/client/Fixtures/detailprops-stock.tsv" ); }
-std::string MarkerPath() { return RepoPath( "src/test/oracle/native/detailprops_golden.regen" ); }
+std::string GoldenPath()
+{
+	return RepoPath( "src/test/client/Fixtures/detailprops-stock.tsv" );
+}
+
+std::string MarkerPath()
+{
+	return RepoPath( "src/test/oracle/native/detailprops_golden.regen" );
+}
 
 bool WriteText( const std::string &path, const std::string &text )
 {
@@ -1061,7 +1230,8 @@ bool ReadText( const std::string &path, std::string *pOut )
 
 TEST( DetailPropsOracle, StockProducesTheGolden )
 {
-	SS_SKIP_ON_CI( "a golden recorded bit for bit on the owner's machine; another CPU's rsqrtps differs in the last bit" );
+	SS_SKIP_ON_CI(
+		"a golden recorded bit for bit on the owner's machine; another CPU's rsqrtps differs in the last bit" );
 	const std::string run = RunScenario();
 
 	if ( std::ifstream( MarkerPath() ).good() )
@@ -1081,16 +1251,22 @@ TEST( DetailPropsOracle, StockProducesTheGolden )
 		++n;
 		if ( !ha && !hb )
 			break;
-		ASSERT_TRUE( ha && hb && la == lb ) << "line " << n << ": stock now writes\n  " << ( ha ? la : "<end>" )
-			<< "\nand the golden has\n  " << ( hb ? lb : "<end>" )
-			<< "\nDo NOT regenerate the golden to make this pass; see the file header.";
+		ASSERT_TRUE( ha && hb && la == lb )
+			<< "line " << n << ": stock now writes\n  " << ( ha ? la : "<end>" ) << "\nand the golden has\n  "
+			<< ( hb ? lb : "<end>" ) << "\nDo NOT regenerate the golden to make this pass; see the file header.";
 	}
 }
 
 TEST( DetailPropsOracle, TheScenarioReachesEveryArm )
 {
 	const std::string run = RunScenario();
-	struct Arm_t { const char *pszNeedle; const char *pszWhat; };
+
+	struct Arm_t
+	{
+		const char *pszNeedle;
+		const char *pszWhat;
+	};
+
 	static const Arm_t kArms[] = {
 		{ "\nLS\t", "a leaf got fast sprites" },
 		{ "\nLD\t", "a leaf got its detail objects" },
@@ -1108,6 +1284,6 @@ TEST( DetailPropsOracle, TheScenarioReachesEveryArm )
 		{ "\nMC\t", "a model prop's colour modulation was read" },
 		{ "old detail prop file format", "the old format was refused" },
 	};
-	for ( size_t i = 0; i < sizeof( kArms ) / sizeof( kArms[ 0 ] ); i++ )
-		EXPECT_NE( run.find( kArms[ i ].pszNeedle ), std::string::npos ) << kArms[ i ].pszWhat << ": no";
+	for ( size_t i = 0; i < sizeof( kArms ) / sizeof( kArms[0] ); i++ )
+		EXPECT_NE( run.find( kArms[i].pszNeedle ), std::string::npos ) << kArms[i].pszWhat << ": no";
 }

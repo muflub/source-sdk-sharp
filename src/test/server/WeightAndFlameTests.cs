@@ -39,6 +39,58 @@ public class WeightAndFlameTests
         return (FuncWeightButton)registry.Get(handle)!;
     }
 
+    /// <summary>
+    /// CWeightButton::TriggerThink, each tick: the plate weighs what
+    /// CalculateObjectStress sums on its object. Found beside stock (ss_sandbox,
+    /// 2026-10-27): ours weighed the masses standing over the plate instead and
+    /// left out the plate's own, so stock's "weighed" lamp was lit and ours dark.
+    /// </summary>
+    [Fact]
+    public void The_plate_presses_on_the_stress_its_object_reports()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(FuncWeightButton).Assembly);
+        var stress = new FixedStress { Kilograms = 30f };
+        var services = Services(out var engine);
+        services.AddInstance<IObjectStressQuery>(stress);
+        registry.Services = services;
+        engine.Strict = false;
+        engine.Returns("EntityPhysics.PhysicsObject", (nint)0x77);
+        var handle = new EntityHandle(0x0041_0010u);
+        registry.KeyValue(handle, EntityNames.FuncWeightButton, "WeightToActivate", "20");
+        registry.Spawn(handle, EntityNames.FuncWeightButton);
+        var plate = (FuncWeightButton)registry.Get(handle)!;
+
+        plate.OnThink();
+        Assert.Equal(1, plate.OnPressed.FireCount);
+
+        stress.Kilograms = 10f;
+        plate.OnThink();
+        Assert.Equal(1, plate.OnReleased.FireCount);
+    }
+
+    [Fact]
+    public void A_plate_with_no_object_stops_thinking()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(FuncWeightButton).Assembly);
+        var services = Services(out var engine);
+        services.AddInstance<IObjectStressQuery>(new FixedStress { Kilograms = 30f });
+        registry.Services = services;
+        engine.Strict = false;
+        var thinks = new ThinkScheduler();
+        var handle = new EntityHandle(0x0041_0011u);
+        registry.KeyValue(handle, EntityNames.FuncWeightButton, "WeightToActivate", "20");
+        registry.Get(handle)!.BindThinks(thinks);
+        registry.Spawn(handle, EntityNames.FuncWeightButton);
+        var plate = (FuncWeightButton)registry.Get(handle)!;
+
+        plate.OnThink();
+
+        Assert.Equal(0, plate.OnPressed.FireCount);
+        Assert.False(thinks.IsScheduled(handle, null));
+    }
+
     [Fact]
     public void PlatePressesOnceUnderLoad()
     {

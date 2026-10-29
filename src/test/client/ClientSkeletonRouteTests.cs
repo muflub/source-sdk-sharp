@@ -34,9 +34,15 @@ public class ClientSkeletonRouteTests
         public bool IsPoseable(EntityHandle entity) { Calls.Add("poseable"); return true; }
         public string StudioName(EntityHandle entity) { Calls.Add("name"); return "x.mdl"; }
 
-        public bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart)
+        public bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart, float startCycle = 0f)
         {
-            Calls.Add($"seq {sequence} {playbackRate} {restart}");
+            Calls.Add(startCycle == 0f ? $"seq {sequence} {playbackRate} {restart}" : $"seq {sequence} {playbackRate} {restart} at {startCycle}");
+            return true;
+        }
+
+        public bool SetCycle(EntityHandle entity, float cycle)
+        {
+            Calls.Add($"cycle {cycle}");
             return true;
         }
 

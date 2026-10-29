@@ -669,6 +669,94 @@ public sealed class SparkEffects(ClientParticleEffects effects, IParticleWorldTr
         return burst;
     }
 
+    private const float SparkSpread = 3.0f, SparkGravity = 800.0f, SparkDampen = 0.3f;
+
+    /// <summary>
+    /// <c>FX_Sparks</c>: a spray of big sparks along a direction and a ring of
+    /// little ones round it, both trail emitters. What the stunstick's impact
+    /// throws off a wall.
+    /// </summary>
+    public SparkBurst Sparks(Vector pos, int magnitude, int trailLength, Vector direction, float width,
+                             float minSpeed, float maxSpeed, string material = SparkMaterial)
+        => Sparks(pos, magnitude, trailLength, direction, width, minSpeed, maxSpeed, material, _random);
+
+    /// <inheritdoc cref="Sparks(Vector, int, int, Vector, float, float, float, string)"/>
+    public SparkBurst Sparks(Vector pos, int magnitude, int trailLength, Vector direction, float width,
+                             float minSpeed, float maxSpeed, string material, IParticleRandom random)
+    {
+        Bursts++;
+        var burst = new SparkBurst();
+
+        // Big sparks.
+        var big = new TrailEmitter(material, views, world, random);
+        burst.Emitters.Add(big);
+        big.Setup(pos, null, SparkSpread, minSpeed, maxSpeed, SparkGravity, SparkDampen, TrailFlags.VelocityDampen);
+
+        int numSparks = (int)(magnitude * magnitude * random.RandomFloat(2, 4));
+        for (int i = 0; i < numSparks; i++)
+        {
+            var p = new TrailParticle { Position = pos, Lifetime = 0.0f };
+            p.DieTime = magnitude * random.RandomFloat(1.0f, 2.0f);
+
+            float spreadOfs = random.RandomFloat(0.0f, 2.0f);
+            float x = direction.X + random.RandomFloat(-(SparkSpread * spreadOfs), SparkSpread * spreadOfs);
+            float y = direction.Y + random.RandomFloat(-(SparkSpread * spreadOfs), SparkSpread * spreadOfs);
+            float z = direction.Z + random.RandomFloat(-(SparkSpread * spreadOfs), SparkSpread * spreadOfs);
+            p.Velocity = new Vector(x, y, z) * random.RandomFloat(minSpeed * (2.0f - spreadOfs), maxSpeed * (2.0f - spreadOfs));
+
+            p.Width = width + random.RandomFloat(0.0f, 0.5f);
+            p.Length = trailLength * random.RandomFloat(0.02f, 0.05f);
+            p.R = p.G = p.B = p.A = 255;
+            big.Add(p);
+        }
+        Start(big, pos);
+
+        // Little sparks.
+        var little = new TrailEmitter(material, views, world, random);
+        burst.Emitters.Add(little);
+        little.Collision.Gravity = 400.0f;
+        little.Flags |= TrailFlags.VelocityDampen;
+
+        numSparks = magnitude * random.RandomInt(4, 8);
+        for (int i = 0; i < numSparks; i++)
+        {
+            var p = new TrailParticle { Position = pos, Lifetime = 0.0f };
+
+            Vector dir = RandomVector(random, -1.0f, 1.0f) + direction;
+            FxMath.Normalize(ref dir);
+
+            p.Width = (width * 0.25f) + random.RandomFloat(0.0f, 0.5f);
+            p.Length = trailLength * random.RandomFloat(0.02f, 0.03f);
+            p.DieTime = magnitude * random.RandomFloat(0.3f, 0.5f);
+            p.Velocity = dir * random.RandomFloat(minSpeed, maxSpeed);
+            p.R = p.G = p.B = p.A = 255;
+            little.Add(p);
+        }
+        Start(little, pos);
+
+        return burst;
+    }
+
+    /// <summary>
+    /// <c>StunstickImpactCallback</c> (weapon_stunstick.cpp): a glow quad laid
+    /// on the struck face and a small <c>FX_Sparks</c> off it.
+    /// </summary>
+    public SparkBurst StunstickImpact(Vector origin, Vector normal) => StunstickImpact(origin, normal, _random);
+
+    /// <inheritdoc cref="StunstickImpact(Vector, Vector)"/>
+    public SparkBurst StunstickImpact(Vector origin, Vector normal, IParticleRandom random)
+    {
+        float scale = random.RandomFloat(16, 32);
+
+        quads.AddQuad(origin, normal, scale, scale * 2.0f, 1.0f, 1.0f, 0.0f, 0.0f, random.RandomInt(0, 360), 0,
+                      new Vector(1.0f, 1.0f, 1.0f), 0.1f, StunstickGlowMaterial, FxQuadFlags.None);
+
+        return Sparks(origin, 1, 2, normal, 6, 64, 256, SparkMaterial, random);
+    }
+
+    /// <summary>The quad's material: STUNSTICK_GLOW_MATERIAL.</summary>
+    public const string StunstickGlowMaterial = "sprites/light_glow02_add";
+
     public void MetalSpark(Vector position, Vector direction, Vector surfaceNormal, int scale = 1)
     {
         if (!environment.DrawMetalSpark)
@@ -904,4 +992,12 @@ public sealed class ManhackSparksEffect(SparkEffects sparks) : IClientEffectHand
     public string EffectName => "ManhackSparks";
 
     public void Dispatch(in EffectData data) => sparks.SparkFan(data.Origin, data.Normal);
+}
+
+/// <summary>The <c>StunstickImpact</c> client effect (weapon_stunstick.cpp's StunstickImpactCallback).</summary>
+public sealed class StunstickImpactEffect(SparkEffects sparks) : IClientEffectHandler
+{
+    public string EffectName => "StunstickImpact";
+
+    public void Dispatch(in EffectData data) => sparks.StunstickImpact(data.Origin, data.Normal);
 }

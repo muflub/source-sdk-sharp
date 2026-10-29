@@ -1,51 +1,53 @@
-//========= SourceSharp — precaching a model, without an entity ===============//
-//
-// CBaseEntity::PrecacheModel and CBaseEntity::PrecacheModelComponents were
-// STATIC members of CBaseEntity that never touched an entity. Between them they
-// do three things -- warn about a late precache, call engine->PrecacheModel, and
-// walk the returned model's sounds, particles and anim events -- and not one of
-// those needs, reads or produces an entity. The class supplied a namespace and
-// nothing else, and that namespace is what plan_baseentity.md Phase 13 deletes.
-//
-// Why this mattered enough to move: five of the port's own translation units
-// asked CBaseEntity for nothing BUT this. shell_server.o and
-// shell_standalone_base.o each had exactly one undefined reference to
-// baseentity.o and it was CBaseEntity::PrecacheModel(char const*, bool) -- so a
-// static with no entity in it was the whole of their dependency on the class.
-// Both leave the consumer set with this move. The other three
-// (shell_worldquery.o, shell_physicsobjects.o, world_adapter.o) shed a reference
-// each but stay, because they ask for setters and, in world_adapter's case, for
-// CWorld's base-class vtable.
-//
-// The declarations stay on CBaseEntity as one-line forwarders. 734 call sites
-// across 262 SDK files reach them unqualified from inside member functions, and
-// retyping those is not this move -- most of those files are evicted or ported
-// before the typedef lands, and the ones that are not already consume
-// baseentity.o for a dozen other reasons.
-//
-// Engine-facing, so it is NOT engine-free and does not pretend to be: it talks
-// to engine, modelinfo and mdlcache directly. What it does not talk to is an
-// entity.
-//
-//=============================================================================//
-#ifndef PRECACHE_MODEL_H
-#define PRECACHE_MODEL_H
-#ifdef _WIN32
+// Model precache without an entity, and the window in which precaching is legal.
 #pragma once
-#endif
+#define PRECACHE_MODEL_H
 
-//-----------------------------------------------------------------------------
-// Add a model to the level precache list and return its model index, or -1.
-//
-// Warns when called after precaching is closed, then hands the name to the
-// engine and precaches the components of whatever came back.
-//-----------------------------------------------------------------------------
-int Precache_Model( const char *name, bool bPreload = true );
+#include "ishim_areas.h"
 
-//-----------------------------------------------------------------------------
-// Precache the sounds, particle systems and anim-event-owned assets belonging
-// to an already-precached studio model. A no-op for a non-studio model.
-//-----------------------------------------------------------------------------
-void Precache_ModelComponents( int nModelIndex );
+class IVEngineServer;
+class IVModelInfo;
+struct CManagedAreas;
 
-#endif // PRECACHE_MODEL_H
+class CServerModelPrecache final : public IShimPrecache
+{
+public:
+	CServerModelPrecache( IVEngineServer *pEngine, IVModelInfo *pModelInfo, const CManagedAreas &managed )
+		: m_pEngine( pEngine )
+		, m_pModelInfo( pModelInfo )
+		, m_Managed( managed )
+	{
+	}
+
+	CServerModelPrecache( const CServerModelPrecache & ) = delete;
+	CServerModelPrecache &operator=( const CServerModelPrecache & ) = delete;
+
+	// Adds a model to the level precache list and returns its model index, or -1.
+	int Model( const char *name, bool bPreload = true );
+
+	// The slot: a model's index, or -1 if it would not load (0 is a real index).
+	int32_t PrecacheModel( const char *pszModel ) override;
+
+	// Whether precaching is legal right now. Callers bracket a block of precaching with it
+	// and put the old value back.
+	bool IsAllowed() const { return m_bAllowed; }
+
+	void SetAllowed( bool bAllowed ) { m_bAllowed = bAllowed; }
+
+	// scripts/sentences.txt, for the sentence groups' playback (stock's SENTENCEG_Init).
+	// Called from every world spawn; only the DLL's first call does anything.
+	void SentenceFile();
+
+private:
+	// Precaches the sounds, particle systems and anim-event assets of an already-precached
+	// studio model. A no-op for a non-studio model.
+	void ModelComponents( int nModelIndex );
+
+	IVEngineServer *m_pEngine;
+	IVModelInfo *m_pModelInfo;
+
+	// Read when called: a managed reload replaces the areas.
+	const CManagedAreas &m_Managed;
+
+	bool m_bAllowed = false;
+	bool m_bSentenceFile = false;
+};

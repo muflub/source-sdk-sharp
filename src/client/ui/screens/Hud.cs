@@ -7,7 +7,8 @@ namespace SourceSharp.Client.Ui.Screens;
 /// The HUD (plan_client_ui §7: today's elements re-done on the toolkit), as
 /// one sub-panel per element (§5.7a), each in its own full-screen layer:
 /// vitals (health and suit meters) bottom left, ammo bottom right, crosshair,
-/// damage vignette, a map's text, key hints and the build stamp.
+/// damage vignette, a map's text, key hints, the weapon selection (top
+/// centre) and the build stamp.
 /// Slots: <c>hud.top-left</c>, <c>hud.top-right</c>, <c>hud.bottom-left</c>
 /// (above the vitals), <c>hud.bottom-right</c> (above the ammo).
 /// </summary>
@@ -23,11 +24,20 @@ public sealed class Hud : UiScreen
     private readonly BuildStampPanel _build;
     private readonly KillFeedPanel _kills;
     private readonly VoicePanel _voice;
+    private readonly WeaponSelectionPanel _selection;
+    private readonly WeaponPlusPanel _plus;
+    private readonly WeaponCarouselPanel _carousel;
+    private readonly PickupHistoryPanel _history;
 
     /// <summary>The HUD reads only whether there is a player; each element reads its own sources.</summary>
     public Hud(IPlayerLife life, VitalsPanel vitals, AmmoPanel ammo, CrosshairPanel crosshair, DamagePanel damage,
-               MapTextPanel mapText, HintsPanel hints, BuildStampPanel build, KillFeedPanel kills, VoicePanel voice)
+               MapTextPanel mapText, HintsPanel hints, BuildStampPanel build, KillFeedPanel kills, VoicePanel voice,
+               WeaponSelectionPanel selection, WeaponPlusPanel plus, WeaponCarouselPanel carousel, PickupHistoryPanel history)
     {
+        _selection = selection;
+        _plus = plus;
+        _carousel = carousel;
+        _history = history;
         _voice = voice;
         _kills = kills;
         _life = life;
@@ -97,6 +107,10 @@ public sealed class Hud : UiScreen
         }
 
         ui.Sub("maptext", _mapText);
+        ui.Sub("weaponselection", _selection);
+        ui.Sub("weaponplus", _plus);
+        ui.Sub("weaponcarousel", _carousel);
+        ui.Sub("history", _history);
 
         // The top corners' slots; the bottom ones sit above the vitals and the ammo, in their panels.
         using (ui.Box().Size(Size.Fill, Size.Fill).Layered())
@@ -107,16 +121,21 @@ public sealed class Hud : UiScreen
     }
 }
 
-/// <summary>Health and suit, bottom left: two <see cref="HudMeter"/>s side by side.</summary>
+/// <summary>
+/// Health and suit, bottom left: two <see cref="HudMeter"/>s side by side, the
+/// <see cref="AuxPowerPanel"/> above them while it shows.
+/// </summary>
 public sealed class VitalsPanel : UiPanel
 {
     private readonly IPlayerHealth _healthSource;
     private readonly IPlayerArmour _armourSource;
+    private readonly AuxPowerPanel _aux;
 
-    public VitalsPanel(IPlayerHealth health, IPlayerArmour armour)
+    public VitalsPanel(IPlayerHealth health, IPlayerArmour armour, AuxPowerPanel aux)
     {
         _healthSource = health;
         _armourSource = armour;
+        _aux = aux;
     }
 
     private readonly HudMeter _health = new();
@@ -132,12 +151,75 @@ public sealed class VitalsPanel : UiPanel
         using (ui.Column(Space.L, Align.Start))
         {
             ui.Slot("hud.bottom-left", Space.S);
+            ui.Sub("aux", _aux);
             using (ui.Row(Space.M, Align.End))
             {
                 ui.Sub("health", _health, new HudMeterProps("#SS_UI_Health", UiShape.Cross, h.Health, h.MaxHealth, h.MaxHealth / 4, Tone.Accent));
                 if (a.Armour > 0)
                     ui.Sub("suit", _suit, new HudMeterProps("#SS_UI_Suit", UiShape.Shield, a.Armour, a.MaxArmour, 0, Tone.Accent));
             }
+        }
+    }
+}
+
+/// <summary>
+/// The suit's AUX POWER (stock hud_suitpower.cpp), above the vitals: a bar of
+/// ten chunks, the ones the power has left lit and the rest dim, in the danger
+/// tone at a quarter or less, and a line for each device that draws on it as
+/// stock lists them (OXYGEN under water, FLASHLIGHT; stock's SPRINT line asks
+/// IsSprinting, which nothing sets, so it never shows). It fades in when the
+/// power drops below full and out when it is full again
+/// (SuitAuxPowerNotMax / SuitAuxPowerMax).
+/// </summary>
+public sealed class AuxPowerPanel : UiPanel
+{
+    private readonly IPlayerSuitPower _suit;
+
+    public AuxPowerPanel(IPlayerSuitPower suit)
+    {
+        _suit = suit;
+    }
+
+    /// <summary>BarWidth / (BarChunkWidth + BarChunkGap): 92 / 9.</summary>
+    public const int Chunks = 10;
+
+    /// <summary>A chunk and the bar, at 1080 lines (stock's 6 and 4 at 480, on the 4 du grid).</summary>
+    public const float ChunkDu = 12, BarDu = 8;
+
+    /// <summary>AuxPowerDisabledAlpha against the colour's own: 70 of 220.</summary>
+    public const float DimOpacity = 70f / 220f;
+
+    /// <summary>bits_SUIT_DEVICE_FLASHLIGHT and bits_SUIT_DEVICE_BREATHER.</summary>
+    public const int Flashlight = 0x2, Breather = 0x4;
+
+    /// <summary>The chunks lit at <paramref name="power"/>: stock's rounding.</summary>
+    public static int Lit(float power) => (int)(Chunks * (power / 100f) + 0.5f);
+
+    public override void Describe(ref UiFrame ui)
+    {
+        float power = _suit.SuitPower;
+        float shown = ui.Animate("fade", power < 100f ? 1f : 0f, Motion.Standard);
+        if (shown <= 0.001f)
+            return;
+
+        int lit = Lit(power);
+        var tone = lit <= Chunks / 4 ? Tone.Danger : Tone.Accent;
+        UiPaint on = tone;
+        UiPaint dim = ((UiPaint)tone).WithOpacity(DimOpacity);
+        int devices = _suit.SuitDevices;
+
+        using (ui.Panel(gap: Space.XS).Pad(Space.M, Space.S).Opacity(shown))
+        {
+            ui.Label("#SS_UI_AuxPower", tone);
+            using (ui.Row(Space.XS, Align.Centre))
+            {
+                for (int i = 0; i < Chunks; i++)
+                    ui.Rect(i < lit ? on : dim, Size.Du(ChunkDu), Size.Du(BarDu));
+            }
+            if ((devices & Breather) != 0)
+                ui.Label("#SS_UI_Oxygen", tone);
+            if ((devices & Flashlight) != 0)
+                ui.Label("#SS_UI_Flashlight", tone);
         }
     }
 }

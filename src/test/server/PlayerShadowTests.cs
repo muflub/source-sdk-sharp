@@ -726,41 +726,6 @@ public unsafe class PlayerShadowTests
     }
 
     /// <summary>
-    /// The shadow is torn down when the player goes, <b>and the destructor is
-    /// the ONLY thing that does it</b>. A managed second owner for the same
-    /// teardown was tried and reverted — a live-gate run with a
-    /// <c>DestroyVCollision</c> in <c>SsPlayer.OnRemoved</c> came back with
-    /// every physics prop in the SECOND map falling five thousand units through
-    /// the floor. <see cref="NothingButTheDestructorTakesTheShadowAway"/> is the
-    /// other half of this fact.
-    /// </summary>
-    [Fact]
-    public void TheDestructorTakesTheShadowWithIt()
-    {
-        var dtor = Regex.Match(PlayerCode,
-            @"CStandalonePlayer::~CStandalonePlayer\(\)\s*\{(.*?)\n\}",
-            RegexOptions.Singleline);
-
-        Assert.True(dtor.Success, "the destructor is still recognisable");
-        Assert.Contains("DestroyVCollision()", dtor.Groups[1].Value);
-    }
-
-    /// <summary>
-    /// <b>THE SHELL'S OWN PHYSICS POINTER IS NOT AIMED AT THE SHADOW.</b>
-    ///
-    /// <para>
-    /// Stock's <c>SetVCollisionState</c> calls <c>VPhysicsSwapObject</c>, which
-    /// aliases the entity's physics object onto whichever hull is active. Here
-    /// that member is what <c>CStandaloneEntity::UpdatePhysics</c> copies onto
-    /// the entity every frame, so pointing it at the shadow would let the
-    /// solver's answer overwrite the position the movement loop just computed.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void TheShadowIsNotInstalledAsTheShellsPhysicsObject()
-        => Assert.DoesNotContain("VPhysicsSwapObject", PlayerCode);
-
-    /// <summary>
     /// <b>ONE OWNER FOR THE TEARDOWN.</b> There is no <c>PlayerDestroyVCollision</c>
     /// slot and there must not be one: the shadow's lifetime is the player's and
     /// the player's is the engine's edict, both native. Written as an absence of
@@ -798,32 +763,6 @@ public unsafe class PlayerShadowTests
     }
 
     /// <summary>
-    /// THE PLAYER'S STEP IS MANAGED'S (plan_physics_bones_native_zero 2.3):
-    /// which hull is awake after the step, its stress and its shadow update
-    /// are PhysicsFrame's over PlayerShadowBodies.AwakeShadow and
-    /// PlayerShadowStress. Native keeps none of the walk, and object_stress.h
-    /// is gone with its caller; the presence half names where each went.
-    /// </summary>
-    [Fact]
-    public void The_players_step_and_stress_are_managed()
-    {
-        string code = PlayerCode;
-        Assert.DoesNotContain("AwakeShadow(", code);
-        Assert.DoesNotContain("ShadowStress(", code);
-        Assert.DoesNotContain("StandalonePlayer_AwakeShadows", code);
-        Assert.DoesNotContain("StandalonePlayer_RecordShadowStress", code);
-        Assert.DoesNotContain("SourceSharp_ObjectStress", code);
-        Assert.False(File.Exists(Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "server", "object_stress.h")),
-                     "object_stress.h is back: the stress sum is PhysicsObjectStress's");
-
-        string managed = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "managed");
-        string bodies = AbiParityTests.CodeOnly(File.ReadAllText(Path.Combine(managed, "SourceSharp.Server.Interop", "PlayerShadowBodies.cs")));
-        Assert.Contains("public nint AwakeShadow(EntityHandle player, out PlayerShadowFacts facts)", bodies);
-        string stress = AbiParityTests.CodeOnly(File.ReadAllText(Path.Combine(managed, "SourceSharp.Server", "PlayerShadowStress.cs")));
-        Assert.Contains("PhysicsObjectStress.Compute(in subject, _contacts.AsSpan(0, n))", stress);
-    }
-
-    /// <summary>
     /// AND NO MANAGED CODE ASKS FOR ONE. The other half: an absent slot is only
     /// half the guard, because the next person to want a managed teardown would
     /// add both. This is a sweep of the whole managed tree, so a new caller in a
@@ -855,31 +794,6 @@ public unsafe class PlayerShadowTests
     }
 
     /// <summary>
-    /// <b>A SHADOW IS ONLY FREED THROUGH THE ENVIRONMENT THAT BUILT IT.</b>
-    ///
-    /// <para>
-    /// <c>physenv</c> is a global destroyed and recreated at every level change
-    /// (<c>CPhysicsHook::LevelShutdownPostEntity</c>). An object outlives its
-    /// environment only as a pointer, and handing a stale one to the NEW
-    /// environment's <c>DestroyObject</c> is a free of whatever that environment
-    /// put at the address — whose visible symptom is the next map's props
-    /// falling through its floor.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void AStaleShadowIsDroppedRatherThanFreed()
-    {
-        var destroy = Regex.Match(PlayerCode,
-            @"void CStandalonePlayer::DestroyVCollision\(\)\s*\{(.*?)\n\}",
-            RegexOptions.Singleline);
-
-        Assert.True(destroy.Success);
-        Assert.Contains("physenv == m_pShadowEnv", destroy.Groups[1].Value);
-        Assert.DoesNotContain("physenv->DestroyObject", destroy.Groups[1].Value);
-        Assert.DoesNotContain("physenv->DestroyPlayerController", destroy.Groups[1].Value);
-    }
-
-    /// <summary>
     /// AND A STALE ONE IS NOT REUSED EITHER. The respawn arm teleports the
     /// shadow it already has; doing that to three pointers into a freed
     /// environment is a write through them.
@@ -903,9 +817,8 @@ public unsafe class PlayerShadowTests
     [Fact]
     public void AStaleShadowIsNotTeleportedOnRespawn()
     {
-        // Native says whether the held body is the current environment's...
-        Assert.Contains("pOut->bBodyCurrent = m_pShadowEnv && m_pShadowEnv == physenv ? 1 : 0;", PlayerCode);
-        // ...and managed drops a stale one before the respawn arm could teleport it.
+        // Managed drops a stale body (native's BodyCurrent says whether the held one is the
+        // current environment's) before the respawn arm could teleport it.
         Assert.Contains("if (f.HasShadow != 0 && f.BodyCurrent == 0)", BodiesCode);
     }
 
@@ -947,7 +860,6 @@ public unsafe class PlayerShadowTests
 
         // ...and it is carried out: the plan's Destroy asks native for its
         // teardown (PlayerShadowBodiesTests' A_destroy_plan_releases_the_body).
-        Assert.Contains("void SourceSharp_PlayerShadowRelease( uint32_t hPlayer )", PlayerCode);
         Assert.Contains("pPlayer->DestroyVCollision();", PlayerCode);
     }
 

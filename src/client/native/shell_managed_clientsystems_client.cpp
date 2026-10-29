@@ -5,33 +5,16 @@
 //
 //=============================================================================//
 
-//========= SourceSharp -- kClientSystems[] rows whose system is managed's ====//
 // SS_REASON c  static-init registration
-//
-// A row of shell_clientsystems.cpp's table keeps its place in the walk (the
-// walk's order is the table's, and only the table decides it), and this
-// adapter hands each of the row's stages to managed's system of the same name
-// (IManagedClientSystemsClient::Stage, SourceSharp.Client.ClientSystems). The
-// stage numbers are ClientSystemStage's; ManagedClientSystemsAbiTests holds the
-// two lists equal.
-//
-// Its one if on an answer is Init's: managed's 0 refuses the client's start-up,
-// as a native row's false does. With no managed load, or a row managed does not
-// know, there is nothing to ask and nothing refuses (the second is said once).
-//
-// The rows: CViewportClientSystem (vgui_game_viewport.cpp, C7),
-// CPixelVisibilitySystem (c_pixel_visibility.cpp, C7), CGlowOverlaySystem
-// (glow_overlay.cpp, C7).
-//=============================================================================//
+// kClientSystems[] rows whose system is managed: each stage goes to the managed
+// system of the same name. Init's 0 refuses client start-up, as a native row's
+// false does; with no managed side or an unknown row nothing refuses.
 
-#include "cbase.h"
+#include "tier0/dbg.h"
 #include "shell_clientsystem.h"
 #include "imanaged_areas_client.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
-
-// ClientSystemStage (C#), same names and numbers.
+// Must match ClientSystemStage in C#.
 enum ClientSystemStage_t
 {
 	SS_CLIENT_SYSTEM_STAGE_Init = 0,
@@ -49,14 +32,25 @@ namespace
 class CManagedClientSystemRow : public CClientSystem
 {
 public:
-	explicit CManagedClientSystemRow( const char *pszRow ) : CClientSystem( pszRow ), m_pszRow( pszRow ), m_bWarned( false ) {}
+	explicit CManagedClientSystemRow( const char *pszRow )
+		: CClientSystem( pszRow )
+		, m_pszRow( pszRow )
+		, m_bWarned( false )
+	{
+	}
 
 	bool Init() override { return Stage( SS_CLIENT_SYSTEM_STAGE_Init ) != 0; }
+
 	void PostInit() override { Stage( SS_CLIENT_SYSTEM_STAGE_PostInit ); }
+
 	void Shutdown() override { Stage( SS_CLIENT_SYSTEM_STAGE_Shutdown ); }
+
 	void LevelInitPreEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelInitPreEntity ); }
+
 	void LevelInitPostEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelInitPostEntity ); }
+
 	void LevelShutdownPreEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelShutdownPreEntity ); }
+
 	void LevelShutdownPostEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelShutdownPostEntity ); }
 
 private:
@@ -81,21 +75,18 @@ private:
 
 } // namespace
 
-// kClientSystems[]'s "CViewportClientSystem": ViewportClientSystem (C#).
 CClientSystem *ClientSystem_ManagedViewport()
 {
 	static CManagedClientSystemRow s_Row( "CViewportClientSystem" );
 	return &s_Row;
 }
 
-// kClientSystems[]'s "CGlowOverlaySystem": GlowOverlaySystem (C#).
 CClientSystem *ClientSystem_ManagedGlowOverlay()
 {
 	static CManagedClientSystemRow s_Row( "CGlowOverlaySystem" );
 	return &s_Row;
 }
 
-// kClientSystems[]'s "CPixelVisibilitySystem": PixelVisibilitySystem (C#).
 CClientSystem *ClientSystem_ManagedPixelVisibility()
 {
 	static CManagedClientSystemRow s_Row( "CPixelVisibilitySystem" );

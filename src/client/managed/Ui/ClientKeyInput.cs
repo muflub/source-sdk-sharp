@@ -24,13 +24,15 @@ namespace SourceSharp.Client.Vgui;
 /// <item>an observer past the death cam: +attack spec_next, +attack2
 /// spec_prev, +jump spec_mode; +duck and +strafe are used (the spectator menu
 /// and HLTV's director, neither built); each on the press;</item>
-/// <item>anything else: no decision, and the shell asks the HUD elements
-/// (weapon selection) before letting the engine run it.</item>
+/// <item>the cancelselect key with a weapon selection open closes it and is
+/// used (CBaseHudWeaponSelection::KeyInput);</item>
+/// <item>anything else: no decision, and the engine runs it.</item>
 /// </list>
 /// The chat key opened nothing before this: the fork's StartMessageMode lost
 /// its CHudChat, and KeyInput still used the key.
 /// </summary>
-public sealed class ClientKeyInput(IChatOpener chat, IObserverSource observer, IFwdEngineClient engine)
+public sealed class ClientKeyInput(IChatOpener chat, IObserverSource observer, IFwdEngineClient engine,
+                                   WeaponSelectionHud? selection = null)
     : IClientKeyEvents
 {
     public const int EngineRuns = 1, Used = 0, NoDecision = UiClientBinding.KeyNoDecision;
@@ -56,6 +58,12 @@ public sealed class ClientKeyInput(IChatOpener chat, IObserverSource observer, I
 
         if (observer.Mode > SpectatorMode.DeathCam && down && Spectator(binding))
             return Used;
+
+        // The HUD elements: CBaseHudWeaponSelection::KeyInput closes an open
+        // selection on the cancelselect key and uses it.
+        if (binding == ClientKeyBinding.CancelSelect && selection is not null && selection.CancelKey())
+            return Used;
+
         return NoDecision;
     }
 

@@ -404,7 +404,7 @@ public static class TeDemos
         // Beam_t::entity[] is re-read every frame and used to be dereferenced
         // through CBaseHandle::Get(), an unfiltered reinterpret of the handle
         // table -- so SourceSharp_BeamCreate* refused a managed entity and said
-        // so once per entity index. Entity 1 in this build is ss_player, which
+        // so once per entity index. Entity 1 in this build is player, which
         // IS managed, so all four of these arrived, decoded, and were refused.
         //
         // Lane C8 closed the row by resolving the endpoint through
@@ -422,7 +422,7 @@ public static class TeDemos
             ]),
 
         new("CTEBeamFollow", "beamfollow",
-            "a beam trailing an entity. Row C8 closed: entity 1 is ss_player, managed, and it now has a subject",
+            "a beam trailing an entity. Row C8 closed: entity 1 is player, managed, and it now has a subject",
             [
                 .. BaseBeam(255, 255, 255),
                 TeArg.Int("EntIndex", FirstPlayer),

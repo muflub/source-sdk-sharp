@@ -35,11 +35,15 @@ const SSForwarderTable &Table()
 	return pTable ? *pTable : kNone;
 }
 
-using ConstructFn = void *( * )( void *, IManagedTraceFilter *, int32_t );
+using ConstructFn = void *(*)( void *, IManagedTraceFilter *, int32_t );
 using HandleOfFn = uint32_t ( * )( IHandleEntity * );
 
 void Released( IManagedObject * ) {}
-int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return -1; }
+
+int32_t Validated( IManagedObject *, const uint32_t *, int32_t )
+{
+	return -1;
+}
 
 // What the managed side was asked, and what it answers.
 void *g_pSelfAsked = nullptr;
@@ -48,22 +52,28 @@ int32_t g_nMaskAsked = 0;
 int32_t g_nAnswer = 0;
 
 const SSManagedTraceFilterTable kTable = {
-	&Released, &Validated,
+	&Released,
+	&Validated,
 	[]( IManagedTraceFilter *self, uint32_t hEntity, int32_t nMask ) -> int32_t
-		{ g_pSelfAsked = self; g_hAsked = hEntity; g_nMaskAsked = nMask; return g_nAnswer; },
+	{
+		g_pSelfAsked = self;
+		g_hAsked = hEntity;
+		g_nMaskAsked = nMask;
+		return g_nAnswer;
+	},
 };
 
 struct Block
 {
 	const SSManagedTraceFilterTable *pTable;
-	alignas( void * ) unsigned char reserved[ kManagedPhysicsCallbackWords * sizeof( void * ) ];
+	alignas( void * ) unsigned char reserved[kManagedPhysicsCallbackWords * sizeof( void * )];
 };
 
 ITraceFilter *Build( Block &block, int32_t nTraceType = TRACE_EVERYTHING )
 {
-	auto construct = reinterpret_cast< ConstructFn >( Table().ppSlots[ kConstruct ] );
-	return static_cast< ITraceFilter * >(
-		construct( block.reserved, reinterpret_cast< IManagedTraceFilter * >( &block ), nTraceType ) );
+	auto construct = reinterpret_cast<ConstructFn>( Table().ppSlots[kConstruct] );
+	return static_cast<ITraceFilter *>(
+		construct( block.reserved, reinterpret_cast<IManagedTraceFilter *>( &block ), nTraceType ) );
 }
 
 // An entity as the partition hands one to a filter: an IHandleEntity that
@@ -72,7 +82,9 @@ class FakeEntity : public IHandleEntity
 {
 public:
 	explicit FakeEntity( int nEntry, int nSerial ) { m_Handle.Init( nEntry, nSerial ); }
+
 	void SetRefEHandle( const CBaseHandle &handle ) override { m_Handle = handle; }
+
 	const CBaseHandle &GetRefEHandle() const override { return m_Handle; }
 
 private:
@@ -81,7 +93,7 @@ private:
 
 uint32_t HandleOf( IHandleEntity *pEntity )
 {
-	return reinterpret_cast< HandleOfFn >( Table().ppSlots[ kHandleOf ] )( pEntity );
+	return reinterpret_cast<HandleOfFn>( Table().ppSlots[kHandleOf] )( pEntity );
 }
 
 } // namespace
@@ -92,7 +104,7 @@ TEST( FwdTraceFilter, TheTableServesSizeOfConstructAndHandleOf )
 	ASSERT_NE( nullptr, table.ppSlots );
 	EXPECT_EQ( (int32_t)kTraceFilterSlots, table.nSlots );
 
-	const int nBytes = reinterpret_cast< int ( * )() >( table.ppSlots[ kSizeOf ] )();
+	const int nBytes = reinterpret_cast<int ( * )()>( table.ppSlots[kSizeOf] )();
 	EXPECT_EQ( int( kManagedPhysicsCallbackWords * sizeof( void * ) ), nBytes )
 		<< "the object is a vptr, one pointer and the trace type, in exactly the words a block reserves";
 }
@@ -100,16 +112,16 @@ TEST( FwdTraceFilter, TheTableServesSizeOfConstructAndHandleOf )
 TEST( FwdTraceFilter, AConstructGivenNoMemoryOrNoTargetBuildsNothing )
 {
 	Block block = { &kTable, {} };
-	auto construct = reinterpret_cast< ConstructFn >( Table().ppSlots[ kConstruct ] );
+	auto construct = reinterpret_cast<ConstructFn>( Table().ppSlots[kConstruct] );
 
-	EXPECT_EQ( nullptr, construct( nullptr, reinterpret_cast< IManagedTraceFilter * >( &block ), TRACE_EVERYTHING ) );
+	EXPECT_EQ( nullptr, construct( nullptr, reinterpret_cast<IManagedTraceFilter *>( &block ), TRACE_EVERYTHING ) );
 	EXPECT_EQ( nullptr, construct( block.reserved, nullptr, TRACE_EVERYTHING ) );
 }
 
 TEST( FwdTraceFilter, TheFilterIsBuiltInTheBlocksReservedWords )
 {
 	Block block = { &kTable, {} };
-	EXPECT_EQ( static_cast< void * >( block.reserved ), static_cast< void * >( Build( block ) ) );
+	EXPECT_EQ( static_cast<void *>( block.reserved ), static_cast<void *>( Build( block ) ) );
 }
 
 TEST( FwdTraceFilter, EachCandidateReachesTheManagedSideAsItsHandleAndTheMask )
@@ -121,7 +133,7 @@ TEST( FwdTraceFilter, EachCandidateReachesTheManagedSideAsItsHandleAndTheMask )
 	g_pSelfAsked = nullptr;
 	g_nAnswer = 1;
 	EXPECT_TRUE( pFilter->ShouldHitEntity( &crate, 0x0200400B ) );
-	EXPECT_EQ( static_cast< void * >( &block ), g_pSelfAsked ) << "the managed side is the block the filter was built in";
+	EXPECT_EQ( static_cast<void *>( &block ), g_pSelfAsked ) << "the managed side is the block the filter was built in";
 	EXPECT_EQ( (uint32_t)crate.GetRefEHandle().ToInt(), g_hAsked );
 	EXPECT_EQ( 0x0200400B, g_nMaskAsked );
 }
@@ -185,19 +197,19 @@ struct LayoutRow
 	size_t size;
 };
 
-#define SS_TRACE_ROW( name, offset, size ) { #name, (offset), (size) },
+#define SS_TRACE_ROW( name, offset, size ) { #name, ( offset ), ( size ) },
 const LayoutRow kRayRows[] = { SOURCESHARP_RAY_LAYOUT( SS_TRACE_ROW ) };
 const LayoutRow kTraceRows[] = { SOURCESHARP_GAMETRACE_LAYOUT( SS_TRACE_ROW ) };
 #undef SS_TRACE_ROW
 
-template < size_t N >
-void ExpectRowsAscendWithoutOverlapWithin( const LayoutRow ( &rows )[ N ], size_t nSizeOf, const char *pWhat )
+template <size_t N>
+void ExpectRowsAscendWithoutOverlapWithin( const LayoutRow ( &rows )[N], size_t nSizeOf, const char *pWhat )
 {
 	for ( size_t i = 1; i < N; ++i )
-		EXPECT_LE( rows[ i - 1 ].offset + rows[ i - 1 ].size, rows[ i ].offset )
-			<< pWhat << "::" << rows[ i ].name << " overlaps " << rows[ i - 1 ].name;
+		EXPECT_LE( rows[i - 1].offset + rows[i - 1].size, rows[i].offset )
+			<< pWhat << "::" << rows[i].name << " overlaps " << rows[i - 1].name;
 
-	EXPECT_LE( rows[ N - 1 ].offset + rows[ N - 1 ].size, nSizeOf ) << pWhat << "'s last row runs past its size";
+	EXPECT_LE( rows[N - 1].offset + rows[N - 1].size, nSizeOf ) << pWhat << "'s last row runs past its size";
 }
 } // namespace
 

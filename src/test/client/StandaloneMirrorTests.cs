@@ -65,12 +65,15 @@ public class StandaloneMirrorTests
     }
 
     [Fact]
-    public void ANegativeRateBecomesOne()
+    public void ANegativeRatePlaysBackwardsFromTheStartCycle()
     {
-        SequenceRecord played = SequenceRecord.Fresh.Play(sequence: 3, playbackRate: -2f,
-                                                          restart: false, now: 10f);
+        SequenceRecord played = SequenceRecord.Fresh.Play(sequence: 3, playbackRate: -1f,
+                                                          restart: false, now: 10f, startCycle: 0.999f)
+                                                    .WithInfo(duration: 2f, looping: false);
 
-        Assert.True(played.PlaybackRate == 1f, "a negative playback rate becomes 1, as the shell does");
+        Assert.Equal((-1f, 0.999f), (played.PlaybackRate, played.Cycle(10f)));
+        Assert.Equal(0.499f, played.Cycle(11f), 4);
+        Assert.Equal(0f, played.Cycle(14f));
     }
 
     [Fact]
@@ -447,7 +450,7 @@ public class StandaloneMirrorTests
     /// <para>
     /// The write was briefly gated on <c>Rerouted</c> as well as on the side,
     /// so taking the census's "before" arm stopped feeding the mirror.
-    /// <c>cs_cl_mirror_check</c> reported <c>ss_viewmodel: starts mirror=167
+    /// <c>cs_cl_mirror_check</c> reported <c>predicted_viewmodel: starts mirror=167
     /// slot=185</c> — eighteen behind, growing by one per sequence change and
     /// never recovering, because nothing in a push mirror ever resynchronises.
     /// That is the failure mode Part C2 names, produced by the measurement

@@ -20,8 +20,15 @@ namespace SourceSharp.Server;
 /// so it is static as far as the simulation is concerned.
 /// </summary>
 [ScriptedEntity(EntityNames.PropDoorRotating, ScriptedEntityKind.Prop)]
-public sealed class PropDoorRotating : ScriptedEntity
+public sealed class PropDoorRotating : AnimatingEntity
 {
+    /// <summary>SF_DOOR_IGNORE_USE: the door ignores a player's +USE altogether.</summary>
+    private const int IgnoreUseFlag = 32768;
+
+    /// <summary>CBasePropDoor::ObjectCaps: usable, and found in the radius, unless it ignores use.</summary>
+    public override UseCaps ObjectCaps
+        => base.ObjectCaps | ((SpawnFlags & IgnoreUseFlag) == 0 ? UseCaps.ImpulseUse | UseCaps.UseInRadius : UseCaps.None);
+
     public readonly Output OnOpen = new();
     public readonly Output OnClose = new();
     public readonly Output OnFullyOpen = new();
@@ -52,9 +59,10 @@ public sealed class PropDoorRotating : ScriptedEntity
         if (Vars.Model.Length > 0)
             SetModel(Vars.Model);
 
-        // Solid through the model, but moved by this logic rather than by the
-        // simulation — a door that could be shoved would not stay shut.
-        MakePhysicsStatic();
+        // CBasePropDoor::Spawn: SOLID_VPHYSICS and a shadow, moved by this
+        // logic rather than by the simulation, which props meet as it swings.
+        SetSolidity(SolidType.VPhysics, SolidFlags.None);
+        InitShadowPhysics();
 
         _closedAngles = SpawnAngles;
         _openAngles = new Vector(_closedAngles.X, _closedAngles.Y + Vars.Distance, _closedAngles.Z);

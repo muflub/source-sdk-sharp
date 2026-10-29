@@ -11,8 +11,6 @@
 // lays them out, in this order. They are the library's own: its version script
 // exports none of them.
 //=============================================================================//
-#ifndef FWD_TRACE_FILTER_H
-#define FWD_TRACE_FILTER_H
 #pragma once
 
 #include <stdint.h>
@@ -35,5 +33,3 @@ void *SSFwd_TraceFilter_Construct( void *pMemory, IManagedTraceFilter *pTarget, 
 // CBaseHandle::ToInt packs it, or INVALID_EHANDLE_INDEX for none. The engine's
 // IHandleEntity answers it through its own vtable; managed reads no vtable.
 uint32_t SSFwd_TraceFilter_HandleOf( IHandleEntity *pEntity );
-
-#endif // FWD_TRACE_FILTER_H

@@ -1,0 +1,114 @@
+//========= Copyright Valve Corporation, All rights reserved. ============//
+
+#pragma once
+
+// contents flags are seperate bits
+// a given brush can contribute multiple content bits
+// multiple brushes can be in a single leaf
+
+// these definitions also need to be in q_shared.h!
+
+// lower bits are stronger, and will eat weaker brushes completely
+#define CONTENTS_EMPTY 0 // No contents
+
+#define CONTENTS_SOLID 0x1 // an eye is never valid in a solid
+#define CONTENTS_WINDOW 0x2 // translucent, but not watery (glass)
+
+#define CONTENTS_GRATE 0x8 // alpha-tested "grate" textures.  Bullets/sight pass through, but solids don't
+#define CONTENTS_SLIME 0x10
+#define CONTENTS_WATER 0x20
+#define CONTENTS_BLOCKLOS 0x40 // block AI line of sight
+#define CONTENTS_OPAQUE 0x80 // things that cannot be seen through (may be non-solid though)
+#define LAST_VISIBLE_CONTENTS 0x80
+
+// unused
+// NOTE: If it's visible, grab from the top + update LAST_VISIBLE_CONTENTS
+// if not visible, then grab from the bottom.
+
+// per team contents used to differentiate collisions
+// between players and objects on different teams
+
+// ignore CONTENTS_OPAQUE on surfaces that have SURF_NODRAW
+
+// hits entities which are MOVETYPE_PUSH (doors, plats, etc.)
+#define CONTENTS_MOVEABLE 0x4000
+
+// remaining contents are non-visible, and don't eat brushes
+
+#define CONTENTS_PLAYERCLIP 0x10000
+
+// currents can be added to any other contents, and may be mixed
+
+// removed before bsping an entity
+
+#define CONTENTS_MONSTER 0x2000000 // should never be on a brush, only in game
+#define CONTENTS_DEBRIS 0x4000000
+// brushes to be added after vis leafs
+// auto set if any surface has trans
+
+#define CONTENTS_HITBOX 0x40000000 // use accurate hitboxes on trace
+
+// NOTE: These are stored in a short in the engine now.  Don't use more than 16 bits
+// value will hold the light strength
+// don't draw, indicates we should skylight + draw 2d sky but not draw the 3D skybox
+// don't draw, but add to skybox
+// turbulent water warp
+
+// the surface can not have a portal placed on it
+#define SURF_NODRAW 0x0080 // don't bother referencing the texture
+
+// make a primary bsp splitter
+
+// completely ignore, allowing non-closed brushes
+// Don't calculate light
+// calculate three lightmaps for the surface for bumpmapping
+// Don't receive shadows
+// Don't receive decals
+// Don't subdivide patches on this surface
+// surface is part of a hitbox
+
+// spatial content masks - used for spatial queries (traceline,etc.)
+#define MASK_ALL ( 0xFFFFFFFF )
+// everything that is normally solid
+#define MASK_SOLID ( CONTENTS_SOLID | CONTENTS_MOVEABLE | CONTENTS_WINDOW | CONTENTS_MONSTER | CONTENTS_GRATE )
+// everything that blocks player movement
+#define MASK_PLAYERSOLID \
+	( CONTENTS_SOLID | CONTENTS_MOVEABLE | CONTENTS_PLAYERCLIP | CONTENTS_WINDOW | CONTENTS_MONSTER | CONTENTS_GRATE )
+// blocks npc movement
+
+// water physics in these contents
+#define MASK_WATER ( CONTENTS_WATER | CONTENTS_MOVEABLE | CONTENTS_SLIME )
+// everything that blocks lighting
+#define MASK_OPAQUE ( CONTENTS_SOLID | CONTENTS_MOVEABLE | CONTENTS_OPAQUE )
+// everything that blocks lighting, but with monsters added.
+#define MASK_OPAQUE_AND_NPCS ( MASK_OPAQUE | CONTENTS_MONSTER )
+// everything that blocks line of sight for AI
+#define MASK_BLOCKLOS ( CONTENTS_SOLID | CONTENTS_MOVEABLE | CONTENTS_BLOCKLOS )
+// everything that blocks line of sight for AI plus NPCs
+
+// everything that blocks line of sight for players
+
+// everything that blocks line of sight for players, but with monsters added.
+
+// bullets see these as solid
+#define MASK_SHOT \
+	( CONTENTS_SOLID | CONTENTS_MOVEABLE | CONTENTS_MONSTER | CONTENTS_WINDOW | CONTENTS_DEBRIS | CONTENTS_HITBOX )
+// non-raycasted weapons see this as solid (includes grates)
+#define MASK_SHOT_HULL \
+	( CONTENTS_SOLID | CONTENTS_MOVEABLE | CONTENTS_MONSTER | CONTENTS_WINDOW | CONTENTS_DEBRIS | CONTENTS_GRATE )
+// hits solids (not grates) and passes through everything else
+
+// everything normally solid, except monsters (world+brush only)
+#define MASK_SOLID_BRUSHONLY ( CONTENTS_SOLID | CONTENTS_MOVEABLE | CONTENTS_WINDOW | CONTENTS_GRATE )
+// everything normally solid for player movement, except monsters (world+brush only)
+
+// everything normally solid for npc movement, except monsters (world+brush only)
+
+// just the world, used for route rebuilding
+
+// These are things that can split areaportals
+
+// UNDONE: This is untested, any moving water
+
+// everything that blocks corpse movement
+// UNDONE: Not used yet / may be deleted

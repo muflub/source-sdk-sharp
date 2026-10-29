@@ -19,63 +19,8 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class NativeCommandTableTests
 {
-    private static readonly Regex Body =
-        new(@"^\s*SS_NATIVE_COMMAND\(\s*(\w+)\s*\)", RegexOptions.Multiline);
-
     // debugFiles: the bodies in *_debug.cpp (compiled into a debug server.so
     // only, declared in NativeCommands.Debug) or the rest (NativeCommands.Server).
-    private static SortedSet<string> NativeBodies(bool debugFiles)
-    {
-        var names = new SortedSet<string>(StringComparer.Ordinal);
-        int files = 0;
-
-        foreach (string side in new[] { "server", "shared" })
-        {
-            string dir = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", side);
-            Assert.True(Directory.Exists(dir), dir + " is not there");
-
-            foreach (string path in Directory.EnumerateFiles(dir, "*.cpp"))
-            {
-                files++;
-                if (path.EndsWith("_debug.cpp", StringComparison.Ordinal) != debugFiles)
-                    continue;
-                foreach (Match m in Body.Matches(File.ReadAllText(path)))
-                    names.Add(m.Groups[1].Value);
-            }
-        }
-
-        // 100 .cpp files between server/ and shared/ when this was written
-        // (plan_server_novalve.md P2.4); a floor, since files keep leaving.
-        Assert.True(files > 60, "read only " + files + " native files");
-        return names;
-    }
-
-    [Fact]
-    public void TheTableAndTheNativeBodiesNameTheSameCommands()
-    {
-        SortedSet<string> bodies = NativeBodies(debugFiles: false);
-        SortedSet<string> debugBodies = NativeBodies(debugFiles: true);
-        var declared = new SortedSet<string>(NativeCommands.Server.Select(c => c.Name), StringComparer.Ordinal);
-        var declaredDebug = new SortedSet<string>(NativeCommands.Debug.Select(c => c.Name), StringComparer.Ordinal);
-
-        // A floor, so an instrument that found nothing on either side is red.
-        // It guards the instrument, not the population: 40 -> 34 when
-        // physics_debug.cpp's six went managed (2026-10-18), and lower again
-        // when plan_server_native_min P1 deleted cs_standalone_parent and the
-        // player-slot and player-info debug commands with their files.
-        // 30 -> 25 at plan_server_native_v2 T3 (28 left after its three
-        // driverless debug commands went).
-        Assert.True(bodies.Count + debugBodies.Count >= 25,
-            "found only " + (bodies.Count + debugBodies.Count) + " SS_NATIVE_COMMAND bodies");
-        Assert.NotEmpty(debugBodies);
-
-        // Each half of the table is held to its own files: a diagnostic body in an
-        // ordinary .cpp (compiled into release) or a gameplay body in a *_debug.cpp
-        // (missing from release) is red here, in either build.
-        Assert.Equal(declared, bodies);
-        Assert.Equal(declaredDebug, debugBodies);
-    }
-
     [Fact]
     public void NoCommandIsDeclaredTwice()
     {

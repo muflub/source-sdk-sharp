@@ -74,6 +74,12 @@ public interface IFwdEngineClient
     uint ProtocolVersion();
 
     /// <summary>
+    /// <c>IVEngineClient::CopyLocalFile( source, destination )</c>: a file
+    /// copied between two paths of the game's own tree. False when it failed.
+    /// </summary>
+    bool CopyLocalFile(string source, string destination);
+
+    /// <summary>
     /// Reconnects this client to the server it is on, as the console's
     /// <c>retry</c> does: what a hosting service needs once it has re-routed the
     /// player (plan_host_sdk §2.3, the user's ruling of 2026-09-30). The text is
@@ -211,9 +217,66 @@ public interface ISteamLaunchCommands
     void ConnectFromSteamLaunch(string connectLine);
 }
 
+/// <summary>
+/// Whether the engine is paused or playing a demo back: the three engine
+/// facts stock's <c>C_BaseEntity::InterpolateServerEntities</c> closes the
+/// interpolation gate on (<c>IsPaused</c>, <c>IsPlayingDemo</c>,
+/// <c>IsPlayingTimeDemo</c>), read through the engine client's forwarders.
+/// </summary>
+public interface IPlaybackState
+{
+    /// <summary>IVEngineClient::IsPaused.</summary>
+    bool IsPaused { get; }
+
+    /// <summary>IVEngineClient::IsPlayingDemo.</summary>
+    bool IsPlayingDemo { get; }
+
+    /// <summary>IVEngineClient::IsPlayingTimeDemo.</summary>
+    bool IsPlayingTimeDemo { get; }
+}
+
+/// <summary>
+/// The engine's own word on gore: <c>IVEngineClient::IsLowViolence</c>, the
+/// term of <c>UTIL_IsLowViolence</c> that decides it (the four violence_*
+/// convars are the legacy terms).
+/// </summary>
+public interface IViolenceSettings
+{
+    /// <summary>IVEngineClient::IsLowViolence.</summary>
+    bool EngineSaysLowViolence { get; }
+}
+
+/// <summary>
+/// The level's prediction switch (stock CHLClient::LevelInitPreEntity):
+/// <c>cl_predict 1</c> or <c>cl_predict 0</c> through ClientCmd, a fixed text.
+/// Through the console and not a direct set, as stock: "don't set direct
+/// because of FCVAR_USERINFO" -- the change has to reach the server.
+/// </summary>
+public interface IClientPredictCommand
+{
+    /// <summary>Queues <c>cl_predict 1</c> when <paramref name="predict"/>, else <c>cl_predict 0</c>.</summary>
+    void SetPredict(bool predict);
+}
+
+/// <summary>
+/// The weapon selection's line to the server (<c>ss_use</c> with a weapon's
+/// classname, <c>lastinv</c>): through ServerCmd, reliable, as the native
+/// forwarders sent it. The managed Arsenal on the server answers each as a
+/// client command.
+/// </summary>
+public interface IWeaponSelectionCommand
+{
+    /// <summary>Sends <paramref name="line"/>, with no trailing newline: the server tokenizes it verbatim.</summary>
+    void SendSelection(string line);
+
+    /// <summary><c>engine-&gt;ClientCmd( "escape" )</c>: cancelselect with no selection open shows the game menu.</summary>
+    void Escape();
+}
+
 /// <summary>What the scoreboard needs of <c>player_info_t</c>.</summary>
 /// <param name="Guid">player_info_t's guid (the hashed id voice bans key on); empty when the engine has none.</param>
-public readonly record struct ClientPlayerInfo(string Name, int UserId, bool Fake, string Guid = "");
+/// <param name="LogoFile"><c>customFiles[0]</c>: the CRC of the player's spray logo, 0 for none.</param>
+public readonly record struct ClientPlayerInfo(string Name, int UserId, bool Fake, string Guid = "", uint LogoFile = 0);
 
 /// <summary>The three commands a spectator's keys run (stock HandleSpectatorKeyInput).</summary>
 public enum SpectatorKeyCommand

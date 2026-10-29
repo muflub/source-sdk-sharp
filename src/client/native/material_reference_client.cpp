@@ -4,32 +4,16 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — CMaterialReference and CTextureReference, ours
-//
 // SS_REASON b  an interface resolved by name at load
-//
-// plan_client_novalve C9: public/materialsystem/MaterialSystemUtil.h's two
-// reference holders, the members client.so took from tier2.a's
-// MaterialSystemUtil.o. Each holds one material or texture and its reference
-// count: every attach takes a reference, every detach gives it back, and the
-// creating calls (CreateMaterial, CreateProceduralTexture, the render target)
-// arrive already referenced. materialreference_oracle_test holds the call
-// sequence against upstream's MaterialSystemUtil.cpp over a recording double.
-//
-// Not carried: Init's IsErrorMaterial check, which only prints on OS X; and
-// the two _X360 render-target builders, which are not compiled here either.
-//=============================================================================//
+// MaterialSystemUtil.h's reference holders. Every attach takes a reference and
+// every detach gives it back; created materials and textures arrive referenced.
 
 #include "materialsystem/MaterialSystemUtil.h"
-#include "materialsystem/imaterialsystem.h"
+
 #include "materialsystem/imaterial.h"
 #include "materialsystem/itexture.h"
 #include "tier2/tier2.h"
-#include "tier0/dbg.h"
 
-//-----------------------------------------------------------------------------
-// CMaterialReference
-//-----------------------------------------------------------------------------
 CMaterialReference::CMaterialReference( char const *pMaterialName, const char *pTextureGroupName, bool bComplain )
 	: m_pMaterial( NULL )
 {
@@ -81,7 +65,7 @@ void CMaterialReference::Init( CMaterialReference &ref )
 	Init( ref.m_pMaterial );
 }
 
-// Gives the reference back -- unless the material system has gone, when the
+// Gives the reference back, unless the material system has gone, when the
 // holder keeps its pointer (as upstream's does).
 void CMaterialReference::Shutdown()
 {
@@ -91,9 +75,6 @@ void CMaterialReference::Shutdown()
 	m_pMaterial = NULL;
 }
 
-//-----------------------------------------------------------------------------
-// CTextureReference
-//-----------------------------------------------------------------------------
 CTextureReference::CTextureReference()
 	: m_pTexture( NULL )
 {
@@ -106,8 +87,7 @@ CTextureReference::CTextureReference( const CTextureReference &ref )
 		m_pTexture->IncrementReferenceCount();
 }
 
-// Takes the other's texture and a reference to it; what this held is NOT
-// given back first (upstream's assignment does not).
+// Does not release what this held first, as upstream's assignment does not.
 void CTextureReference::operator=( CTextureReference &ref )
 {
 	m_pTexture = ref.m_pTexture;
@@ -137,15 +117,15 @@ void CTextureReference::Init( ITexture *pTexture )
 }
 
 // Created textures arrive with their one reference already taken.
-void CTextureReference::InitProceduralTexture( const char *pTextureName, const char *pTextureGroupName,
-                                               int w, int h, ImageFormat fmt, int nFlags )
+void CTextureReference::InitProceduralTexture( const char *pTextureName, const char *pTextureGroupName, int w, int h,
+											   ImageFormat fmt, int nFlags )
 {
 	Shutdown();
 	m_pTexture = materials->CreateProceduralTexture( pTextureName, pTextureGroupName, w, h, fmt, nFlags );
 }
 
 void CTextureReference::InitRenderTarget( int w, int h, RenderTargetSizeMode_t sizeMode, ImageFormat fmt,
-                                          MaterialRenderTargetDepth_t depth, bool bHDR, char *pStrOptionalName )
+										  MaterialRenderTargetDepth_t depth, bool bHDR, char *pStrOptionalName )
 {
 	Shutdown();
 
@@ -156,7 +136,7 @@ void CTextureReference::InitRenderTarget( int w, int h, RenderTargetSizeMode_t s
 	const unsigned int nTargetFlags = bHDR ? CREATERENDERTARGETFLAGS_HDR : 0;
 
 	m_pTexture = materials->CreateNamedRenderTargetTextureEx( pStrOptionalName, w, h, sizeMode, fmt, depth,
-	                                                         nTextureFlags, nTargetFlags );
+															  nTextureFlags, nTargetFlags );
 	Assert( m_pTexture );
 }
 

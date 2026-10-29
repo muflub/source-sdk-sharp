@@ -103,6 +103,22 @@ public static class ThirdPersonCamera
     public const float MaxPitch = 89.0f;
 
     /// <summary>
+    /// The half extent of the cube the camera sweeps towards its wish: stock's
+    /// <c>CAM_HULL_OFFSET</c>. A hull rather than a line, because a camera is
+    /// not a point: a line sweep clears a doorframe the near plane then cuts
+    /// through.
+    /// </summary>
+    public const float HullHalfExtent = 14.0f;
+
+    /// <summary>
+    /// The sweep a placement asks the shell for: stock's hull under
+    /// <c>MASK_SOLID &amp; ~CONTENTS_MONSTER</c> while <c>cam_collision</c> is
+    /// on or not there to read, and none (0) when it is off.
+    /// </summary>
+    public static (float HalfExtent, uint Mask) Sweep(int collision)
+        => (collision != 0 ? HullHalfExtent : 0f, (uint)TraceMasks.CameraSweep);
+
+    /// <summary>
     /// The camera's own angles: the view angles with the orbit added, pitch
     /// clamped and yaw wrapped.
     ///
@@ -232,6 +248,7 @@ public static class ThirdPersonCamera
 
                 io.Wish = wish;
                 io.WishLength = wish.Length;
+                (io.HullHalfExtent, io.TraceMask) = Sweep(io.Collision);
                 return 1;
             }
 

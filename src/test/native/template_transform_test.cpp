@@ -74,9 +74,9 @@ std::string FindCases()
 	return std::string();
 }
 
-std::vector< Row > LoadCases()
+std::vector<Row> LoadCases()
 {
-	std::vector< Row > rows;
+	std::vector<Row> rows;
 
 	const std::string path = FindCases();
 	if ( path.empty() )
@@ -94,14 +94,11 @@ std::vector< Row > LoadCases()
 
 		char name[128];
 		Row r;
-		int n = sscanf( line,
-		                "%127s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
-		                name,
-		                &r.tOrg[0], &r.tOrg[1], &r.tOrg[2], &r.tAng[0], &r.tAng[1], &r.tAng[2],
-		                &r.eOrg[0], &r.eOrg[1], &r.eOrg[2], &r.eAng[0], &r.eAng[1], &r.eAng[2],
-		                &r.nOrg[0], &r.nOrg[1], &r.nOrg[2], &r.nAng[0], &r.nAng[1], &r.nAng[2],
-		                &r.outOrg[0], &r.outOrg[1], &r.outOrg[2],
-		                &r.outAng[0], &r.outAng[1], &r.outAng[2] );
+		int n = sscanf( line, "%127s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f", name,
+						&r.tOrg[0], &r.tOrg[1], &r.tOrg[2], &r.tAng[0], &r.tAng[1], &r.tAng[2], &r.eOrg[0], &r.eOrg[1],
+						&r.eOrg[2], &r.eAng[0], &r.eAng[1], &r.eAng[2], &r.nOrg[0], &r.nOrg[1], &r.nOrg[2], &r.nAng[0],
+						&r.nAng[1], &r.nAng[2], &r.outOrg[0], &r.outOrg[1], &r.outOrg[2], &r.outAng[0], &r.outAng[1],
+						&r.outAng[2] );
 
 		if ( n != 25 )
 			continue;
@@ -122,15 +119,15 @@ void Place( const Row &r, Vector &vecOut, QAngle &angOut )
 	VMatrix matTemplateToWorld, matWorldToTemplate, matEntityToWorld, matEntityToTemplate;
 
 	matTemplateToWorld.SetupMatrixOrgAngles( Vector( r.tOrg[0], r.tOrg[1], r.tOrg[2] ),
-	                                         QAngle( r.tAng[0], r.tAng[1], r.tAng[2] ) );
+											 QAngle( r.tAng[0], r.tAng[1], r.tAng[2] ) );
 	matTemplateToWorld.InverseTR( matWorldToTemplate );
 	matEntityToWorld.SetupMatrixOrgAngles( Vector( r.eOrg[0], r.eOrg[1], r.eOrg[2] ),
-	                                       QAngle( r.eAng[0], r.eAng[1], r.eAng[2] ) );
+										   QAngle( r.eAng[0], r.eAng[1], r.eAng[2] ) );
 	MatrixMultiply( matWorldToTemplate, matEntityToWorld, matEntityToTemplate );
 
 	VMatrix matNewTemplateToWorld, matStoredLocalToWorld;
 	matNewTemplateToWorld.SetupMatrixOrgAngles( Vector( r.nOrg[0], r.nOrg[1], r.nOrg[2] ),
-	                                            QAngle( r.nAng[0], r.nAng[1], r.nAng[2] ) );
+												QAngle( r.nAng[0], r.nAng[1], r.nAng[2] ) );
 	MatrixMultiply( matNewTemplateToWorld, matEntityToTemplate, matStoredLocalToWorld );
 
 	vecOut = matStoredLocalToWorld.GetTranslation();
@@ -145,7 +142,7 @@ void Place( const Row &r, Vector &vecOut, QAngle &angOut )
 //-----------------------------------------------------------------------------
 TEST( TemplateTransform, TheTableIsThereAndHasEveryRow )
 {
-	const std::vector< Row > rows = LoadCases();
+	const std::vector<Row> rows = LoadCases();
 
 	ASSERT_FALSE( rows.empty() ) << "template_transform_cases.txt was not found next to the test";
 	EXPECT_EQ( 13u, rows.size() ) << "the table has the rows both sides were written against";
@@ -156,7 +153,7 @@ TEST( TemplateTransform, TheTableIsThereAndHasEveryRow )
 //-----------------------------------------------------------------------------
 TEST( TemplateTransform, EveryRowIsWhatVMatrixComputes )
 {
-	const std::vector< Row > rows = LoadCases();
+	const std::vector<Row> rows = LoadCases();
 	ASSERT_FALSE( rows.empty() );
 
 	for ( size_t i = 0; i < rows.size(); i++ )
@@ -189,10 +186,18 @@ TEST( TemplateTransform, InstancingAtHomePutsASourceBackWhereItWas )
 {
 	Row r;
 	r.name = "at-home";
-	r.tOrg[0] = 12.f;  r.tOrg[1] = -34.f; r.tOrg[2] = 56.f;
-	r.tAng[0] = 7.f;   r.tAng[1] = 111.f; r.tAng[2] = -23.f;
-	r.eOrg[0] = -90.f; r.eOrg[1] = 200.f; r.eOrg[2] = 5.f;
-	r.eAng[0] = 3.f;   r.eAng[1] = -47.f; r.eAng[2] = 61.f;
+	r.tOrg[0] = 12.f;
+	r.tOrg[1] = -34.f;
+	r.tOrg[2] = 56.f;
+	r.tAng[0] = 7.f;
+	r.tAng[1] = 111.f;
+	r.tAng[2] = -23.f;
+	r.eOrg[0] = -90.f;
+	r.eOrg[1] = 200.f;
+	r.eOrg[2] = 5.f;
+	r.eAng[0] = 3.f;
+	r.eAng[1] = -47.f;
+	r.eAng[2] = 61.f;
 	memcpy( r.nOrg, r.tOrg, sizeof( r.nOrg ) );
 	memcpy( r.nAng, r.tAng, sizeof( r.nAng ) );
 

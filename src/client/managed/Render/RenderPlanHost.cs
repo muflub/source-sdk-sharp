@@ -25,8 +25,10 @@ public sealed class RenderPlanHost : IClientRenderPlan
 
     /// <summary>The game's: the debug overlays' materials are found through <paramref name="fx"/> by the names <paramref name="console"/> holds.</summary>
     public RenderPlanHost(IFxRender fx, IEngineConsole console, PostProcessHost post, ViewEffectsHost viewEffects,
-                          IUniformRandom random, DemoViewCamera demoCamera, ScreenSpaceEffectManager screenEffects)
+                          IUniformRandom random, DemoViewCamera demoCamera, ScreenSpaceEffectManager screenEffects,
+                          PlayerViewRecord playerView)
     {
+        _playerView = playerView;
         _screenEffects = screenEffects;
         _demoCamera = demoCamera;
         _fx = fx;
@@ -56,6 +58,10 @@ public sealed class RenderPlanHost : IClientRenderPlan
     private void DecideView(in RenderFrameIn frame, ref RenderFrameOut answer)
     {
         ViewFrame.Render(frame, ref answer, _randomByte);
+
+        // The frame's player view (GetPlayerViewSetup after Render scaled it),
+        // for the draws that convert a viewmodel attachment's field of view.
+        _playerView?.Record(PlayerView.Of(answer.Eye));
         lock (_lock)
             ViewDecisions++;
         if (answer.Overview == 0)
@@ -70,6 +76,10 @@ public sealed class RenderPlanHost : IClientRenderPlan
     }
 
     private readonly ViewEffectsHost? _viewEffects;
+
+    // Where the frame's player view is kept (IPlayerView's writer); none in a
+    // test's host.
+    private readonly PlayerViewRecord? _playerView;
 
     public void ViewEffectsFade(int duration, int holdTime, int flags, byte r, byte g, byte b, byte a, float curTime)
         => _viewEffects?.Fade(duration, holdTime, (FadeFlags)flags, r, g, b, a, curTime);
@@ -145,6 +155,12 @@ public sealed class RenderPlanHost : IClientRenderPlan
 
     internal RenderPlanHost()
     {
+    }
+
+    /// <summary>A test's: no engine, the frame's player view kept in <paramref name="playerView"/>.</summary>
+    internal RenderPlanHost(PlayerViewRecord playerView)
+    {
+        _playerView = playerView;
     }
 
     /// <summary>A test's: no engine, the screen-space effects <paramref name="screenEffects"/>.</summary>

@@ -72,16 +72,21 @@ namespace SourceSharp.Client.TempEnts;
 public sealed class ClientTeFootprintDecal : ClientTempEnt<TeFootprintDecal>
 {
     private readonly IEngineEffects _effects;
+    private readonly IDecalSettings _settings;
 
-    public ClientTeFootprintDecal(IEngineEffects effects)
+    public ClientTeFootprintDecal(IEngineEffects effects, IDecalSettings settings)
     {
         _effects = effects;
+        _settings = settings;
     }
 
     public override void Play(TeFootprintDecal te)
     {
-        // r_decals and the entity lookup are the backend's, where stock's own
-        // callers put them and where the model_t* they need actually lives.
+        // c_te_footprint.cpp's `if ( r_decals.GetInt() )`. The entity lookup
+        // is the backend's, where the model_t* it needs actually lives.
+        if (!_settings.Decals)
+            return;
+
         // Zero flags: a footprint is not FDECAL_PERMANENT.
         _effects.ClientDecalShoot(te.Index, te.Entity, te.Origin, sAxis: te.Direction, flags: 0);
     }

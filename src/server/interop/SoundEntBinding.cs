@@ -21,5 +21,5 @@ public sealed unsafe class SoundEntBinding(Crossings crossings, IServerModule ga
 
     public void ServerSoundEntShutdown() { Enter(CrossingOp.ServerSoundEntShutdown); game.SoundEnt.Shutdown(); }
 
-    public void ServerSoundEntResetClientSound(int a0) { Enter(CrossingOp.ServerSoundEntResetClientSound); game.SoundEnt.ResetClientSound(a0); }
+    public void ServerSoundEntResetClientSound(int a0) { Enter(CrossingOp.ServerSoundEntResetClientSound); game.SoundEnt.ResetClientSoundOf(a0); }
 }

@@ -7,10 +7,12 @@ namespace SourceSharp.Server;
 
 /// <summary>
 /// What the solver's answers read of an entity: its engine block's collision
-/// fields, whether it is a player, and what moves it.
+/// fields, whether it is a player, what moves it, and the contents it
+/// collides with (stock's PhysicsSolidMaskForEntity).
 /// </summary>
 public readonly record struct SolverEntity(int CollisionGroup, int Solid, int SolidFlags, int MoveType,
-                                           bool IsPlayer, EntityHandle Owner, EntityHandle Parent);
+                                           bool IsPlayer, EntityHandle Owner, EntityHandle Parent,
+                                           uint SolidMask = EnginePushWorld.MaskSolid);
 
 /// <summary>
 /// The engine facts managed's <c>IPhysicsCollisionSolver</c> answers from
@@ -32,10 +34,14 @@ public interface IPhysicsSolverWorld
 /// <see cref="IPhysicsSolverWorld"/> answered by the engine: the entity's
 /// engine block read in place, IsPlayer, and EntityGetState's move type (the
 /// player's own, or MOVETYPE_VPHYSICS for an entity with a physics object, as
-/// native's StandaloneMoveType_Report has it).
+/// native's StandaloneMoveType_Report has it), except that a class which
+/// moves as a pusher answers MOVETYPE_PUSH, as stock's movers are: an "AI
+/// mover" whose shadow passes through the world (ShouldCollide).
 /// </summary>
 public sealed class EnginePhysicsSolverWorld(IEngineEntities entities, IEngineNetworking net,
-                                             IEngineEntityPhysics physics) : IPhysicsSolverWorld
+                                             IEngineEntityPhysics physics, Func<EntityHandle, bool>? movesAsPusher = null,
+                                             Func<EntityHandle, uint?>? solidMask = null)
+    : IPhysicsSolverWorld
 {
     private static readonly int SolidOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.SolidType));
     private static readonly int SolidFlagsOffset = EngineBlockMarks.OffsetInBlockOf(nameof(EngineBlockHead.SolidFlags));
@@ -55,6 +61,8 @@ public sealed class EnginePhysicsSolverWorld(IEngineEntities entities, IEngineNe
         }
 
         net.EntityGetState(entity, out MoveType moveType);
+        if (movesAsPusher?.Invoke(entity) == true)
+            moveType = MoveType.Push;
         facts = new SolverEntity(
             MemoryMarshal.Read<int>(block.Slice(GroupOffset)),
             MemoryMarshal.Read<int>(block.Slice(SolidOffset)),
@@ -62,7 +70,8 @@ public sealed class EnginePhysicsSolverWorld(IEngineEntities entities, IEngineNe
             (int)moveType,
             entities.IsPlayer(entity),
             new EntityHandle(MemoryMarshal.Read<uint>(block.Slice(OwnerOffset))),
-            new EntityHandle(MemoryMarshal.Read<uint>(block.Slice(ParentOffset))));
+            new EntityHandle(MemoryMarshal.Read<uint>(block.Slice(ParentOffset))),
+            solidMask?.Invoke(entity) ?? EnginePushWorld.MaskSolid);
         return true;
     }
 

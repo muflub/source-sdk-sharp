@@ -43,13 +43,12 @@ target_sources(ss_particles PRIVATE
     ${PROJECT_SOURCE_DIR}/src/client/native/mesh_index_client.cpp
 )
 
+ss_stock_includes(particles_stock_includes common public public/tier0 public/tier1)
+ss_stock_target(ss_particles)
 target_include_directories(ss_particles PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src/client/native
-    ${SS_SRC}/common
-    ${SS_SRC}/public
-    ${SS_SRC}/public/tier0
-    ${SS_SRC}/public/tier1
+    ${particles_stock_includes}
 )
 
 target_compile_definitions(ss_particles PRIVATE
@@ -71,7 +70,7 @@ if(SS_PLATFORM STREQUAL windows)
 endif()
 
 if(SS_ALLOC_CHECK)
-  target_sources(ss_particles PRIVATE ${PROJECT_SOURCE_DIR}/src/server/native/alloc_check.cpp)
+  target_sources(ss_particles PRIVATE ${PROJECT_SOURCE_DIR}/src/shared/native/alloc_check.cpp)
   target_compile_definitions(ss_particles PRIVATE SOURCESHARP_ALLOC_CHECK
       "SOURCESHARP_ALLOC_CHECK_TAG=\"[SourceSharp/AllocCheck/particles]\"")
   target_link_libraries(ss_particles PRIVATE ss_alloc_check_wraps)

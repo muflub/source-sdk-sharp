@@ -16,6 +16,8 @@ public sealed class ClientSpriteTrails(IClientBeamExecutor executor, IEngineHost
 {
     private readonly Dictionary<EntityHandle, SpriteTrail> _trails = new();
     private readonly BeamSeg[] _segs = new BeamSeg[SpriteTrail.MaxPoints + 1];
+    private readonly BeamSegVertex[] _verts = new BeamSegVertex[2 * (SpriteTrail.MaxPoints + 1)];
+    private readonly float[] _view = new float[42];
 
     /// <summary>Ticks and draws since the load (cs_cl_fx_report).</summary>
     public long Ticks { get; private set; }
@@ -34,6 +36,18 @@ public sealed class ClientSpriteTrails(IClientBeamExecutor executor, IEngineHost
 
     /// <summary>The entity went.</summary>
     public void Remove(EntityHandle owner) => _trails.Remove(owner);
+
+    /// <summary>One line per live trail, for cs_cl_fx_report: what would stop it drawing.</summary>
+    public IEnumerable<string> Describe()
+    {
+        foreach (var (owner, trail) in _trails)
+        {
+            SpriteTrailParams p = trail.Params;
+            yield return $"0x{owner.Value:x8} steps {trail.StepCount} visible {p.Visible} model {p.ModelIndex} " +
+                         $"mode {p.RenderMode} rgb {p.R} {p.G} {p.B} x{p.Brightness} life {p.LifeTime} " +
+                         $"width {p.StartWidth}->{p.EndWidth} box {trail.RenderMins}..{trail.RenderMaxs}";
+        }
+    }
 
     public bool Tick(EntityHandle owner, float curTime, in Vector origin, out Vector mins, out Vector maxs)
     {
@@ -61,9 +75,16 @@ public sealed class ClientSpriteTrails(IClientBeamExecutor executor, IEngineHost
         if (!executor.BindSprite(trail.Params.ModelIndex, 0, trail.Params.RenderMode, wireframe: false))
             return 0;
 
+        // CBeamSegDraw: each segment turned to face the camera the view draws
+        // from, two vertices apiece, which is what the strip writer reads.
         int n = trail.Draw(curTime, origin, _segs);
         if (n >= 2)
-            executor.Strip(System.Runtime.InteropServices.MemoryMarshal.Cast<BeamSeg, float>(_segs.AsSpan(0, n)));
+        {
+            executor.View(insideView: true, _view);
+            var camera = new Vector(_view[39], _view[40], _view[41]);
+            int verts = BeamSegDraw.Expand(_segs.AsSpan(0, n), camera, _verts);
+            executor.Strip(System.Runtime.InteropServices.MemoryMarshal.Cast<BeamSegVertex, float>(_verts.AsSpan(0, verts)));
+        }
         Draws++;
         return n;
     }

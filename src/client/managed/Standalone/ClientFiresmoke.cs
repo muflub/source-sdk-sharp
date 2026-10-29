@@ -4,7 +4,7 @@ using SourceSharp.Shared;
 namespace SourceSharp.Client.Standalone;
 
 /// <summary>
-/// The client half of ss_firesmoke, and the shortest entity in this directory.
+/// The client half of _firesmoke, and the shortest entity in this directory.
 ///
 /// <para>
 /// That is not an omission — it is what stock's <c>C_FireSmoke</c> had already
@@ -30,7 +30,7 @@ namespace SourceSharp.Client.Standalone;
 /// rather than with a missing flame.
 /// </para>
 /// </summary>
-[ClientStandaloneEntity(EntityNames.SsFiresmoke)]
+[ClientStandaloneEntity(EntityNames.FireSmoke)]
 public sealed class ClientFiresmoke : ClientStandaloneEntity
 {
     public ClientFiresmoke(IEngineEntityRender render, IEngineEffects effects)
@@ -42,7 +42,7 @@ public sealed class ClientFiresmoke : ClientStandaloneEntity
     /// <summary>the small effects.</summary>
     private readonly IEngineEffects Effects;
 
-    public override string ClassName => EntityNames.SsFiresmoke;
+    public override string ClassName => EntityNames.FireSmoke;
 
     /// <summary>
     /// The same declaration the server writes through. Decoded by the registry
@@ -91,7 +91,7 @@ public sealed class ClientFiresmoke : ClientStandaloneEntity
         {
             // A name no .pcf defines. Said once per flame rather than per
             // update, which is what leaving _running empty would have cost.
-            Log.Warning($"[SourceSharp] ss_firesmoke: no particle system named '{wanted}'\n");
+            Log.Warning($"[SourceSharp] _firesmoke: no particle system named '{wanted}'\n");
             _running = wanted;
             return;
         }
@@ -101,7 +101,7 @@ public sealed class ClientFiresmoke : ClientStandaloneEntity
         // outside, and "no warning" is not the same evidence as "this one".
         // It is also the only place the size-to-bucket decision becomes visible
         // in a running game.
-        Log.Msg($"[SourceSharp/Client] ss_firesmoke: {wanted} for a flame of {State.FlameSize} units\n");
+        Log.Msg($"[SourceSharp/Client] _firesmoke: {wanted} for a flame of {State.FlameSize} units\n");
 
         _running = wanted;
     }

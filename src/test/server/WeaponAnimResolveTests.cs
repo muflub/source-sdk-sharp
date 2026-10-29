@@ -81,7 +81,9 @@ public class WeaponAnimResolveTests
         public void SetBoneMergeSource(EntityHandle entity, int sourceEntityIndex) => throw Refuse(nameof(SetBoneMergeSource));
         public void SetSequence(EntityHandle entity, int sequence) => throw Refuse(nameof(SetSequence));
         public void SetViewModel(EntityHandle entity, bool enable) => throw Refuse(nameof(SetViewModel));
+        public void PlaySequenceAt(EntityHandle entity, int sequence, float playbackRate, float cycle) => throw Refuse(nameof(PlaySequenceAt));
         public void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart) => throw Refuse(nameof(PlaySequence));
+        public void SetCycle(EntityHandle entity, float cycle) => throw Refuse(nameof(SetCycle));
         public void SetSkin(EntityHandle entity, int skin) => throw Refuse(nameof(SetSkin));
         public void SetTextureFrame(EntityHandle entity, int frame) => throw Refuse(nameof(SetTextureFrame));
         public void SetTransmitAlways(EntityHandle entity, bool always) => throw Refuse(nameof(SetTransmitAlways));
@@ -165,6 +167,19 @@ public class WeaponAnimResolveTests
     // The lists themselves, pinned: these strings are half of a contract whose
     // other half is compiled into nine shipped models.
     //-------------------------------------------------------------------------
+
+    [Fact]
+    public void TheSecondaryResolvesThroughTheAltfireActivity()
+    {
+        // v_physcannon tags its punt 'altfire' ACT_VM_SECONDARYATTACK and its
+        // dry fire 'fire' ACT_VM_PRIMARYATTACK: two different animations.
+        var table = new SequenceTable();
+        table.Activities["ACT_VM_PRIMARYATTACK"] = 4;
+        table.Activities["ACT_VM_SECONDARYATTACK"] = 5;
+
+        Assert.Equal((4, 5), (WeaponAnimNames.Resolve(table, ViewModel, WeaponAnim.Primary),
+                              WeaponAnimNames.Resolve(table, ViewModel, WeaponAnim.Secondary)));
+    }
 
     [Fact]
     public void ThePrimaryActivityListIsStocksInOrder()

@@ -36,18 +36,19 @@ const float kPoison = -8192.5f; // A transform that must never be read.
 //-----------------------------------------------------------------------------
 TEST( CollideableCenter, AddArmIsMidpointPlusOrigin )
 {
-	const float mins[3]   = { -16.0f, -16.0f, 0.0f };
-	const float maxs[3]   = {  16.0f,  16.0f, 72.0f };
+	const float mins[3] = { -16.0f, -16.0f, 0.0f };
+	const float maxs[3] = { 16.0f, 16.0f, 72.0f };
 	const float origin[3] = { 100.0f, -50.0f, 8.0f };
 	float xform[12];
-	for ( int i = 0; i < 12; ++i ) xform[i] = kPoison;
+	for ( int i = 0; i < 12; ++i )
+		xform[i] = kPoison;
 
 	float out[3];
 	CollideableCenter_Compute( mins, maxs, true, origin, xform, out );
 
 	EXPECT_FLOAT_EQ( 100.0f, out[0] );
 	EXPECT_FLOAT_EQ( -50.0f, out[1] );
-	EXPECT_FLOAT_EQ(  44.0f, out[2] ); // 36 up the box, 8 up the origin
+	EXPECT_FLOAT_EQ( 44.0f, out[2] ); // 36 up the box, 8 up the origin
 }
 
 //-----------------------------------------------------------------------------
@@ -56,9 +57,9 @@ TEST( CollideableCenter, AddArmIsMidpointPlusOrigin )
 //-----------------------------------------------------------------------------
 TEST( CollideableCenter, MidpointHonoursAsymmetricBounds )
 {
-	const float mins[3]   = { -2.0f, -4.0f,  0.0f };
-	const float maxs[3]   = {  6.0f,  4.0f, 10.0f };
-	const float origin[3] = {  0.0f,  0.0f,  0.0f };
+	const float mins[3] = { -2.0f, -4.0f, 0.0f };
+	const float maxs[3] = { 6.0f, 4.0f, 10.0f };
+	const float origin[3] = { 0.0f, 0.0f, 0.0f };
 
 	float out[3];
 	CollideableCenter_Compute( mins, maxs, true, origin, NULL, out );
@@ -74,16 +75,16 @@ TEST( CollideableCenter, MidpointHonoursAsymmetricBounds )
 //-----------------------------------------------------------------------------
 TEST( CollideableCenter, PointBoundsCenterOnTheOrigin )
 {
-	const float mins[3]   = { 0.0f, 0.0f, 0.0f };
-	const float maxs[3]   = { 0.0f, 0.0f, 0.0f };
+	const float mins[3] = { 0.0f, 0.0f, 0.0f };
+	const float maxs[3] = { 0.0f, 0.0f, 0.0f };
 	const float origin[3] = { -320.0f, 64.0f, 128.25f };
 
 	float out[3];
 	CollideableCenter_Compute( mins, maxs, true, origin, NULL, out );
 
 	EXPECT_FLOAT_EQ( -320.0f, out[0] );
-	EXPECT_FLOAT_EQ(   64.0f, out[1] );
-	EXPECT_FLOAT_EQ(  128.25f, out[2] );
+	EXPECT_FLOAT_EQ( 64.0f, out[1] );
+	EXPECT_FLOAT_EQ( 128.25f, out[2] );
 }
 
 //-----------------------------------------------------------------------------
@@ -97,12 +98,10 @@ TEST( CollideableCenter, PointBoundsCenterOnTheOrigin )
 //-----------------------------------------------------------------------------
 TEST( CollideableCenter, TransformArmRotatesAndTranslates )
 {
-	const float mins[3]   = { 0.0f, -8.0f, 0.0f };
-	const float maxs[3]   = { 20.0f, 8.0f, 4.0f }; // center in OBB space: (10, 0, 2)
+	const float mins[3] = { 0.0f, -8.0f, 0.0f };
+	const float maxs[3] = { 20.0f, 8.0f, 4.0f }; // center in OBB space: (10, 0, 2)
 	const float origin[3] = { kPoison, kPoison, kPoison }; // must not be read on this arm
-	const float xform[12] = { 0.0f, -1.0f, 0.0f, 50.0f,
-	                          1.0f,  0.0f, 0.0f, -30.0f,
-	                          0.0f,  0.0f, 1.0f, 7.0f };
+	const float xform[12] = { 0.0f, -1.0f, 0.0f, 50.0f, 1.0f, 0.0f, 0.0f, -30.0f, 0.0f, 0.0f, 1.0f, 7.0f };
 
 	float out[3];
 	CollideableCenter_Compute( mins, maxs, false, origin, xform, out );
@@ -110,7 +109,7 @@ TEST( CollideableCenter, TransformArmRotatesAndTranslates )
 	// (10, 0, 2) rotated: (0*10 + -1*0, 1*10 + 0*0, 2) = (0, 10, 2); translated.
 	EXPECT_FLOAT_EQ( 50.0f, out[0] );
 	EXPECT_FLOAT_EQ( -20.0f, out[1] );
-	EXPECT_FLOAT_EQ(  9.0f, out[2] );
+	EXPECT_FLOAT_EQ( 9.0f, out[2] );
 }
 
 //-----------------------------------------------------------------------------
@@ -122,15 +121,13 @@ TEST( CollideableCenter, TransformArmRotatesAndTranslates )
 //-----------------------------------------------------------------------------
 TEST( CollideableCenter, ArmsAgreeOnPureTranslation )
 {
-	const float mins[3]   = { -3.0f, -5.0f, -7.0f };
-	const float maxs[3]   = {  9.0f, 11.0f, 13.0f };
+	const float mins[3] = { -3.0f, -5.0f, -7.0f };
+	const float maxs[3] = { 9.0f, 11.0f, 13.0f };
 	const float origin[3] = { 12.0f, -34.0f, 56.0f };
-	const float xform[12] = { 1.0f, 0.0f, 0.0f, 12.0f,
-	                          0.0f, 1.0f, 0.0f, -34.0f,
-	                          0.0f, 0.0f, 1.0f, 56.0f };
+	const float xform[12] = { 1.0f, 0.0f, 0.0f, 12.0f, 0.0f, 1.0f, 0.0f, -34.0f, 0.0f, 0.0f, 1.0f, 56.0f };
 
 	float outAdd[3], outXform[3];
-	CollideableCenter_Compute( mins, maxs, true,  origin, NULL,  outAdd );
+	CollideableCenter_Compute( mins, maxs, true, origin, NULL, outAdd );
 	CollideableCenter_Compute( mins, maxs, false, origin, xform, outXform );
 
 	EXPECT_FLOAT_EQ( outAdd[0], outXform[0] );

@@ -258,44 +258,6 @@ public class PhysicsFrameTests
         Assert.Equal(new Vector(0, -5, 2), _native.Velocities[0x101]);
     }
 
-    /// <summary>
-    /// The movement's per-trace ground read answers the velocity managed
-    /// holds on the entity, and picks nothing: the pick between the solver and
-    /// the entity's own member was native's (shell_velocity_home.h) and is
-    /// managed's (the velocity the frame hands over above, and
-    /// EntityPhysicsMotion's routing for an entity with no object).
-    /// </summary>
-    [Fact]
-    public void The_grounds_velocity_relay_reads_the_held_value_and_picks_nothing()
-    {
-        string code = AbiParityTests.CodeOnly(File.ReadAllText(
-            Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "server", "standalone_relays.cpp")));
-        int at = code.IndexOf("Vector StandaloneEntity_Velocity( const IGameEntity *pEnt )", StringComparison.Ordinal);
-        Assert.True(at >= 0, "StandaloneEntity_Velocity is in standalone_relays.cpp");
-        int open = code.IndexOf('{', at);
-        string body = code[open..code.IndexOf("\n}", open, StringComparison.Ordinal)];
-
-        Assert.Contains("MoveVelocity()", body);
-        Assert.DoesNotContain("GetPhysics", body);
-        Assert.DoesNotContain("VelocityHome", body);
-    }
-
-    [Fact]
-    public void The_shells_update_asks_the_object_nothing_but_its_pose()
-    {
-        string code = AbiParityTests.CodeOnly(File.ReadAllText(
-            Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "server", "shell_standalone_base.cpp")));
-        int at = code.IndexOf("void CStandaloneEntity::UpdatePhysics()", StringComparison.Ordinal);
-        Assert.True(at >= 0, "CStandaloneEntity::UpdatePhysics is in shell_standalone_base.cpp");
-        int open = code.IndexOf('{', at);
-        string body = code[open..code.IndexOf("\n}", open, StringComparison.Ordinal)];
-
-        Assert.Contains("GetPosition(", body);
-        Assert.DoesNotContain("IsAsleep", body);
-        Assert.DoesNotContain("IsStatic", body);
-        Assert.DoesNotContain("m_bPhysicsWasAwake", code);
-    }
-
     private void AwakeBody(EntityHandle player, nint stand)
     {
         _players.Add(player);

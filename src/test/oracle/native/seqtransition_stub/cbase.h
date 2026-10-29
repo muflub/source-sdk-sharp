@@ -8,11 +8,10 @@
 // which public/client_class.h defines (with all of the receive tables); the
 // same one-line friend declaration is restated here instead.
 //=============================================================================//
-#ifndef SEQTRANSITION_STUB_CBASE_H
-#define SEQTRANSITION_STUB_CBASE_H
+#pragma once
 #define ALLOW_DATATABLES_PRIVATE_ACCESS() \
-	template <typename T> friend int ClientClassInit(T *);
+	template <typename T>                 \
+	friend int ClientClassInit( T * );
 #include "studio.h"
 #include "utlvector.h"
 #include "animationlayer.h"
-#endif

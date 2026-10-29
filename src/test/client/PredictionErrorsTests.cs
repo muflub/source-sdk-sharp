@@ -37,7 +37,7 @@ public class PredictionErrorsTests
         // Discovery fills the by-type-id map DescribeOffset reads — the same
         // walk both modules run at startup, over the same shared assembly.
         StandaloneNetStates.Discover(typeof(PlayerNetState).Assembly, new RecordingLog());
-        return NetSchema.TypeIdOf(EntityNames.SsPlayer);
+        return NetSchema.TypeIdOf(EntityNames.Player);
     }
 
     private static NetFieldLayout Field(string name)
@@ -367,7 +367,7 @@ public class PredictionErrorsTests
         PutVector(predicted, origin, 0f, 0f, 0f);
         PutVector(arrived,   origin, 9f, 0f, 0f);
 
-        Assert.Equal(EntityNames.SsPlayer, Describe(predicted, arrived).ClassName);
+        Assert.Equal(EntityNames.Player, Describe(predicted, arrived).ClassName);
     }
 
     [Fact]
@@ -425,7 +425,7 @@ public class PredictionErrorsTests
     //-------------------------------------------------------------------------
 
     private static PredictionErrorRecord Row(long sequence, int command, int standing = 1)
-        => new(sequence, command, 1, "ss_player", 16, standing, 0, 0,
+        => new(sequence, command, 1, "player", 16, standing, 0, 0,
                DateTime.UnixEpoch, Array.Empty<PredictionFieldError>());
 
     [Fact]

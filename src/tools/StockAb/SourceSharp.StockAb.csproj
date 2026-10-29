@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    tools/stock-ab's image half: reads the screenshots stock hl2mp and the test
+    mod took from the same camera, scores how far apart they are, and writes
+    the side-by-side report. A tool, not the game: it builds into
+    bin/<config>/tools/stock-ab.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>SourceSharp.StockAb</AssemblyName>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/tools/stock-ab/</OutputPath>
+    <RootNamespace>SourceSharp.StockAb</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- StockMap.Renames: the census counts SourceSharp's classnames as the
+         stock map renamed them. -->
+    <ProjectReference Include="..\..\mapgen\SourceSharp.MapGen.csproj" />
+  </ItemGroup>
+</Project>

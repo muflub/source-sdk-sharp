@@ -242,13 +242,10 @@ public sealed class PropData : IServerPropData, IGameLifecycle
     /// with tier1's KeyValues. Answers the health, 0 for a model with no text,
     /// no parse or no section.
     /// </summary>
-    public int ModelPropData(string? modelKeyValueText, out float explosiveDamage, out float explosiveRadius)
+    public PropDataValues ModelPropValues(string? modelKeyValueText)
     {
-        explosiveDamage = 0f;
-        explosiveRadius = 0f;
-
         if (string.IsNullOrEmpty(modelKeyValueText))
-            return 0;
+            return default;
 
         KeyValuesText document;
         try
@@ -257,24 +254,232 @@ public sealed class PropData : IServerPropData, IGameLifecycle
         }
         catch (KeyValuesTextException)
         {
-            return 0;
+            return default;
         }
 
         // LoadFromBuffer reads the text's first root INTO the KeyValues it is
         // called on, and FindKey then searches that root's children.
         if (document.Children.Count == 0)
-            return 0;
+            return default;
 
-        int health = 0;
-        ReadSection(document.Children[0].FindPath("prop_data"), 0,
-                    ref health, ref explosiveDamage, ref explosiveRadius);
-        return health;
+        PropDataValues values = default;
+        ReadSection(document.Children[0].FindPath("prop_data"), 0, ref values);
+        return values;
+    }
+
+    /// <inheritdoc/>
+    /// <summary>
+    /// CBaseProp::ParsePropData's answer: no text, no parse or no prop_data
+    /// section is NoData; otherwise the section's kind, through its base
+    /// chain (CPropData::ParsePropFromKV and ParsePropFromBase).
+    /// </summary>
+    public PropDataParse ModelPropDataKind(string? modelKeyValueText)
+    {
+        if (string.IsNullOrEmpty(modelKeyValueText))
+            return PropDataParse.NoData;
+
+        KeyValuesText document;
+        try
+        {
+            document = KeyValuesText.Parse(modelKeyValueText);
+        }
+        catch (KeyValuesTextException)
+        {
+            return PropDataParse.NoData;
+        }
+
+        KeyValuesText? section = document.Children.Count > 0 ? document.Children[0].FindPath("prop_data") : null;
+        return section is null ? PropDataParse.NoData : SectionKind(section, 0);
+    }
+
+    private PropDataParse SectionKind(KeyValuesText section, int depth)
+    {
+        var baseResult = PropDataParse.Succeeded;
+        string? baseName = section.GetString("base", null);
+
+        if (!string.IsNullOrEmpty(baseName))
+        {
+            // ParsePropFromBase: no propdata.txt is no data, a base it does
+            // not have is bad data. Stock recurses on a cycle forever; this
+            // stops at the same depth the health read does and calls it bad.
+            if (!_loaded)
+                Load();
+            if (_fileRoot is null)
+                return PropDataParse.NoData;
+
+            KeyValuesText? baseSection = depth > 8 ? null : _fileRoot.FindPath(baseName);
+            if (baseSection is null)
+            {
+                _log.Warning($"[SourceSharp/PropData] a model's prop_data has a base specified as '{baseName}', "
+                             + $"but there is no matching entry in {ScriptPath}\n");
+                return PropDataParse.BadData;
+            }
+
+            baseResult = SectionKind(baseSection, depth + 1);
+            if (baseResult is not (PropDataParse.Succeeded or PropDataParse.SucceededAllowedStatic))
+                return baseResult;
+        }
+
+        if (baseResult == PropDataParse.SucceededAllowedStatic)
+            return PropDataParse.SucceededAllowedStatic;
+
+        return section.GetInt("allowstatic", 0) != 0 ? PropDataParse.SucceededAllowedStatic : PropDataParse.Succeeded;
     }
 
     // The base first, so this section's own values override it; depth-limited
     // because a base cycle in data is a bad file, not a hang.
-    private void ReadSection(KeyValuesText? section, int depth,
-                             ref int health, ref float explosiveDamage, ref float explosiveRadius)
+    /// <summary>The number of stock's interactions, PROPINTER_NUM_INTERACTIONS.</summary>
+    private const int InteractionCount = 14;
+
+    /// <summary>
+    /// sPropdataInteractionSections: interaction <paramref name="i"/>'s
+    /// section, key and the value that sets it, in its bit's order.
+    /// </summary>
+    private static (string Section, string Key, string Value) InteractionSection(int i) => i switch
+    {
+        0 => ("physgun_interactions", "onworldimpact", "stick"),
+        1 => ("physgun_interactions", "onfirstimpact", "break"),
+        2 => ("physgun_interactions", "onfirstimpact", "paintsplat"),
+        3 => ("physgun_interactions", "onfirstimpact", "impale"),
+        4 => ("physgun_interactions", "onlaunch", "spin_none"),
+        5 => ("physgun_interactions", "onlaunch", "spin_zaxis"),
+        6 => ("physgun_interactions", "onbreak", "explode_fire"),
+        7 => ("physgun_interactions", "damage", "none"),
+        8 => ("fire_interactions", "flammable", "yes"),
+        9 => ("fire_interactions", "explosive_resist", "yes"),
+        10 => ("fire_interactions", "ignite", "halfhealth"),
+        11 => ("physgun_interactions", "onpickup", "create_flare"),
+        12 => ("physgun_interactions", "allow_overhead", "yes"),
+        13 => ("world_interactions", "onworldimpact", "bloodsplat"),
+        _ => throw new ArgumentOutOfRangeException(nameof(i)),
+    };
+
+    /// <inheritdoc/>
+    /// <summary>
+    /// CPropData::ParsePropFromKV's interactions: the base chain's first,
+    /// each base reading them from its own propdata.txt section, then the
+    /// model's from its <c>$keyvalues</c> root, beside its prop_data. A bit
+    /// is only ever set; a model with no prop_data has none.
+    /// </summary>
+    public PropInteractions ModelInteractions(string? modelKeyValueText)
+    {
+        if (string.IsNullOrEmpty(modelKeyValueText))
+            return PropInteractions.None;
+
+        KeyValuesText document;
+        try
+        {
+            document = KeyValuesText.Parse(modelKeyValueText);
+        }
+        catch (KeyValuesTextException)
+        {
+            return PropInteractions.None;
+        }
+
+        if (document.Children.Count == 0)
+            return PropInteractions.None;
+
+        KeyValuesText root = document.Children[0];
+        KeyValuesText? section = root.FindPath("prop_data");
+        if (section is null)
+            return PropInteractions.None;
+
+        var interactions = PropInteractions.None;
+        ReadInteractions(section, root, 0, ref interactions);
+        return interactions;
+    }
+
+    private void ReadInteractions(KeyValuesText section, KeyValuesText interactionSection, int depth,
+                                  ref PropInteractions interactions)
+    {
+        string? baseName = section.GetString("base", null);
+
+        if (!string.IsNullOrEmpty(baseName) && depth <= 8)
+        {
+            if (!_loaded)
+                Load();
+
+            if (_fileRoot?.FindPath(baseName) is { } baseSection)
+                ReadInteractions(baseSection, baseSection, depth + 1, ref interactions);
+        }
+
+        for (int i = 0; i < InteractionCount; i++)
+        {
+            var (name, key, value) = InteractionSection(i);
+            string? set = interactionSection.FindPath(name)?.GetString(key, null);
+
+            if (!string.IsNullOrEmpty(set) && string.Equals(set, value, StringComparison.OrdinalIgnoreCase))
+                interactions |= (PropInteractions)(1u << i);
+        }
+    }
+
+    /// <inheritdoc/>
+    public PropDamageModifiers ModelDamageModifiers(string? modelKeyValueText)
+    {
+        var modifiers = new PropDamageModifiers(1f, 1f, 1f);
+
+        if (string.IsNullOrEmpty(modelKeyValueText))
+            return modifiers;
+
+        KeyValuesText document;
+        try
+        {
+            document = KeyValuesText.Parse(modelKeyValueText);
+        }
+        catch (KeyValuesTextException)
+        {
+            return modifiers;
+        }
+
+        if (document.Children.Count == 0 || document.Children[0].FindPath("prop_data") is not { } section)
+            return modifiers;
+
+        ReadModifiers(section, 0, ref modifiers);
+        return modifiers;
+    }
+
+    /// <inheritdoc/>
+    public bool BaseSectionData(string sectionName, PropDamageModifiers start, out PropDataValues values,
+                                out PropDamageModifiers modifiers)
+    {
+        values = default;
+        modifiers = start;
+
+        if (!_loaded)
+            Load();
+
+        if (string.IsNullOrEmpty(sectionName) || _fileRoot?.FindPath(sectionName) is not { } section)
+        {
+            _log.Warning($"[SourceSharp/PropData] a breakable's propdata is '{sectionName}', "
+                         + $"but there is no matching entry in {ScriptPath}\n");
+            return false;
+        }
+
+        ReadSection(section, 0, ref values);
+        ReadModifiers(section, 0, ref modifiers);
+        return true;
+    }
+
+    /// <summary>ParsePropFromKV's dmg.* reads: the base chain first, each key keeping what it had where a level is silent.</summary>
+    private void ReadModifiers(KeyValuesText section, int depth, ref PropDamageModifiers modifiers)
+    {
+        string? baseName = section.GetString("base", null);
+
+        if (!string.IsNullOrEmpty(baseName) && depth <= 8)
+        {
+            if (!_loaded)
+                Load();
+
+            if (_fileRoot?.FindPath(baseName) is { } baseSection)
+                ReadModifiers(baseSection, depth + 1, ref modifiers);
+        }
+
+        modifiers = new PropDamageModifiers(section.GetFloat("dmg.bullets", modifiers.Bullet),
+                                            section.GetFloat("dmg.club", modifiers.Club),
+                                            section.GetFloat("dmg.explosive", modifiers.Explosive));
+    }
+
+    private void ReadSection(KeyValuesText? section, int depth, ref PropDataValues values)
     {
         if (section is null || depth > 8)
             return;
@@ -282,12 +487,24 @@ public sealed class PropData : IServerPropData, IGameLifecycle
         string? baseName = section.GetString("base", null);
 
         if (!string.IsNullOrEmpty(baseName) && _fileRoot is not null)
-            ReadSection(_fileRoot.FindPath(baseName), depth + 1, ref health, ref explosiveDamage, ref explosiveRadius);
+            ReadSection(_fileRoot.FindPath(baseName), depth + 1, ref values);
 
-        health          = section.GetInt("health", health);
-        explosiveDamage = section.GetFloat("explosive_damage", explosiveDamage);
-        explosiveRadius = section.GetFloat("explosive_radius", explosiveRadius);
+        values = new PropDataValues(
+            section.GetString("health", null) is not null ? section.GetInt("health", 0) : values.Health,
+            section.GetString("explosive_damage", null) is not null ? section.GetFloat("explosive_damage", 0f) : values.ExplosiveDamage,
+            section.GetString("explosive_radius", null) is not null ? section.GetFloat("explosive_radius", 0f) : values.ExplosiveRadius,
+            section.GetString("multiplayer_break", null) is { } mode ? MultiplayerBreakNamed(mode) : values.MultiplayerBreak);
     }
+
+    /// <summary>ParsePropFromKV's multiplayer_break: server, client or both (FStrEq), anything else the default.</summary>
+    private static MultiplayerBreak MultiplayerBreakNamed(string mode)
+        => mode.ToLowerInvariant() switch
+        {
+            "server" => MultiplayerBreak.ServerSide,
+            "client" => MultiplayerBreak.ClientSide,
+            "both" => MultiplayerBreak.Both,
+            _ => MultiplayerBreak.Default,
+        };
 
     public string? RandomChunkModel(string section, int maxSize)
     {

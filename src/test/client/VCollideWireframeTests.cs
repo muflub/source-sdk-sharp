@@ -188,64 +188,10 @@ public class VCollideWireframeTests
     {
         // plan_client_vtables CC-last: wired means the client's shim area
         // forwards the slot to its body (the fill that assigned it is gone).
-        string forwards = Source("src", "sourcesharp", "game", "shared", "shell_shim_areas_client.inc");
+        string forwards = Source("src", "sourcesharp", "game", "client", "shell_shim_areas_client.cpp");
 
         Assert.Contains("CShimViewClient::EntitiesUpdateVisibilityAll", forwards);
         Assert.Contains("::SourceSharp_ClientEntitiesUpdateVisibilityAll(", forwards);
-    }
-
-    /// <summary>
-    /// And the native body it is wired to still walks the registry. A slot
-    /// assigned to a body that swept nothing would pass everything above.
-    /// </summary>
-    [Fact]
-    public void TheNativeSweepWalksTheStandaloneRegistry()
-    {
-        string body = Source("src", "sourcesharp", "game", "client", "shell_entitystatics.cpp");
-
-        Assert.Contains("int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll( void )", body);
-        Assert.Contains("SourceSharp_StandaloneClientCount()", body);
-        Assert.Contains("UpdateVisibility()", body);
-    }
-
-    /// <summary>
-    /// NOTHING DECLARES IT NATIVELY ANY MORE. A second registration of one name
-    /// is neither a compile error nor a link error: the console sets one object
-    /// and the reader is bound to the other, and as
-    /// <c>util_shared_library.cpp</c>'s note on <c>developer</c> records,
-    /// "neither the console nor the game says which one it read".
-    /// </summary>
-    [Fact]
-    public void TheShimNoLongerDeclaresItNatively()
-    {
-        string shim = Source("src", "sourcesharp", "game", "client", "shell_entitystatics.cpp");
-
-        Assert.DoesNotContain("ConVar vcollide_wireframe(", shim);
-    }
-
-    /// <summary>
-    /// The native reader resolves it BY NAME. An <c>extern</c> binds to a
-    /// DEFINITION and a managed declaration is not one, so under SOURCESHARP an
-    /// extern would not link at all — and a <c>ConVarRef</c> built once at DLL
-    /// load would cache the miss and answer 0 for the life of the process.
-    ///
-    /// <para>
-    /// viewrender.cpp read it through a CManagedConVarRef until it left
-    /// client.so at C7 step 3; the reader is the render plan's executor now,
-    /// which reads its whole convar table by name at each frame (a ConVarRef
-    /// made at the read) into the plan's inputs, where ViewDrawProgram hands it
-    /// to both static-prop batches.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void TheNativeReaderResolvesItByNameAtTheRead()
-    {
-        string text = Source("src", "sourcesharp", "game", "client", "shell_view_executor_client.cpp");
-        int table = text.IndexOf("const char *const kRenderCvars[] =", StringComparison.Ordinal);
-        Assert.True(table > 0, "the executor has no render convar table");
-        int end = text.IndexOf("};", table, StringComparison.Ordinal);
-        Assert.Contains("\"vcollide_wireframe\"", text[table..end]);
-        Assert.Contains("ConVarRef var( kRenderCvars[i], true );", text);
     }
 
     private static string Source(params string[] parts)

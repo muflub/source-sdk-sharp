@@ -33,6 +33,8 @@ internal abstract class TempEntsDouble : ITempEnts
                                int magnitude, int trailLength, Vector? direction) { }
 
     public virtual void MetalSparks(TeFilter filter, float delay, Vector position, Vector direction) { }
+    public virtual void BloodStream(TeFilter filter, float delay, Vector origin, Vector direction, Color32 color, int amount) { }
+    public virtual void Smoke(TeFilter filter, float delay, Vector origin, int modelIndex, float scale, int frameRate) { }
 
     public virtual void EnergySplash(TeFilter filter, float delay, Vector position,
                                      Vector direction, bool explosive) { }
@@ -61,8 +63,21 @@ internal abstract class TempEntsDouble : ITempEnts
     public virtual void Bubbles(TeFilter filter, float delay, Vector mins, Vector maxs, float height,
                                 int modelIndex, int count, float speed) { }
 
+    public virtual void BubbleTrail(TeFilter filter, float delay, Vector from, Vector to, float waterZ,
+                                    int modelIndex, int count, float speed) { }
+
     public virtual void Impact(TeFilter filter, float delay, Vector position,
                                Vector normal, int type) { }
+
+    public virtual void BeamPoints(TeFilter filter, float delay, Vector start, Vector end, in TeBeamLook look) { }
+
+    public virtual void BeamEntPoint(TeFilter filter, float delay, int startEntity, Vector start, int endEntity,
+                                     Vector end, in TeBeamLook look) { }
+
+    public virtual void BeamEnts(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look) { }
+
+    public virtual void BeamRing(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look,
+                                 int flags = 0) { }
 
     public virtual void GaussExplosion(TeFilter filter, float delay, Vector position,
                                        Vector direction, int type) { }

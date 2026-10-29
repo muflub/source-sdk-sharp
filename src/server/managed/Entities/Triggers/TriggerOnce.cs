@@ -30,7 +30,7 @@ public sealed class TriggerOnce : TriggerVolume
             return;
 
         _fired = true;
-        OnTrigger.Fire();
+        OnTrigger.Fire(toucher);
         Remove();
     }
 }

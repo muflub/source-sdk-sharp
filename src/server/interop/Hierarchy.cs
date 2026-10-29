@@ -449,20 +449,20 @@ public interface IHierarchyWorld
     void Remove(EntityHandle handle);
 
     /// <summary>
-    /// THE CHILD'S SOLVER OBJECT, DESTROYED — and it is the one thing linking
-    /// does that is not arithmetic.
+    /// THE CHILD'S SOLVER OBJECT, MADE ONE THAT FOLLOWS — and it is the one
+    /// thing linking does that is not arithmetic.
     ///
     /// <para>
-    /// <b>A DIVERGENCE FROM STOCK, and the stated kind.</b> Stock hands a
-    /// simulated child to a SHADOW controller: the solver keeps the object and is
-    /// told to follow the parent's transform each tick, so the child still
-    /// collides and still pushes things. There is no shadow support on this
-    /// hierarchy, and leaving the object alone is strictly WORSE than destroying
-    /// it — a static object cannot be moved by writing the entity's origin, and
-    /// both live children in the shipped map are exactly that. Without this the
-    /// drawn model follows its parent while an invisible collision hull stays at
-    /// the map position for the rest of the round, stopping bullets and players
-    /// in mid-air.
+    /// Stock's VPhysicsInitStatic gives an entity with a move parent a SHADOW
+    /// instead of a static object: the solver keeps it and is told each tick
+    /// where the entity now is, so the child still collides and still pushes
+    /// things (dm_lockdown's plug_model2, a not-solid prop_dynamic on a
+    /// moving plug, holds one in stock). Here the map's parents are linked
+    /// after the spawn made the object, so a static one is swapped for a
+    /// shadow at the link. Left static, the drawn model would follow its
+    /// parent while its hull stayed at the map position, stopping bullets and
+    /// players in mid-air. A simulated object is destroyed: the solver would
+    /// fight the composition for it every tick.
     /// </para>
     ///
     /// <para>

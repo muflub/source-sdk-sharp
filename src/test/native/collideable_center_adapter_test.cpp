@@ -60,11 +60,12 @@ namespace
 class CStubCollideable : public ICollideable
 {
 public:
-	CStubCollideable( const Vector &vecMins, const Vector &vecMaxs,
-	                  const Vector &vecOrigin, const QAngle &angles )
-		: m_vecMins( vecMins ), m_vecMaxs( vecMaxs ),
-		  m_vecOrigin( vecOrigin ), m_angRotation( angles ),
-		  m_nTransformReads( 0 )
+	CStubCollideable( const Vector &vecMins, const Vector &vecMaxs, const Vector &vecOrigin, const QAngle &angles )
+		: m_vecMins( vecMins )
+		, m_vecMaxs( vecMaxs )
+		, m_vecOrigin( vecOrigin )
+		, m_angRotation( angles )
+		, m_nTransformReads( 0 )
 	{
 		AngleMatrix( m_angRotation, m_vecOrigin, m_Transform );
 
@@ -75,8 +76,11 @@ public:
 
 	// --- what the adapter is allowed to ask -------------------------------
 	virtual const Vector &OBBMins() const OVERRIDE { return m_vecMins; }
+
 	virtual const Vector &OBBMaxs() const OVERRIDE { return m_vecMaxs; }
+
 	virtual const Vector &GetCollisionOrigin() const OVERRIDE { return m_vecOrigin; }
+
 	virtual const QAngle &GetCollisionAngles() const OVERRIDE { return m_angRotation; }
 
 	virtual const matrix3x4_t &CollisionToWorldTransform() const OVERRIDE
@@ -92,33 +96,103 @@ public:
 	// same stub, and show the two are different points.
 	virtual void WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs ) OVERRIDE
 	{
-		if ( pMins ) *pMins = m_vecOrigin + m_vecMins;
-		if ( pMaxs ) *pMaxs = m_vecOrigin + m_vecMaxs;
+		if ( pMins )
+			*pMins = m_vecOrigin + m_vecMins;
+		if ( pMaxs )
+			*pMaxs = m_vecOrigin + m_vecMaxs;
 	}
 
 	// --- the traps ---------------------------------------------------------
-	virtual const Vector &OBBMinsPreScaled() const OVERRIDE { ADD_FAILURE() << "OBBMinsPreScaled"; return m_vecPoison; }
-	virtual const Vector &OBBMaxsPreScaled() const OVERRIDE { ADD_FAILURE() << "OBBMaxsPreScaled"; return m_vecPoison; }
-	virtual IHandleEntity *GetEntityHandle() OVERRIDE { ADD_FAILURE() << "GetEntityHandle"; return NULL; }
-	virtual void WorldSpaceTriggerBounds( Vector *, Vector * ) const OVERRIDE { ADD_FAILURE() << "WorldSpaceTriggerBounds"; }
-	virtual bool TestCollision( const Ray_t &, unsigned int, trace_t & ) OVERRIDE { ADD_FAILURE() << "TestCollision"; return false; }
-	virtual bool TestHitboxes( const Ray_t &, unsigned int, trace_t & ) OVERRIDE { ADD_FAILURE() << "TestHitboxes"; return false; }
-	virtual int GetCollisionModelIndex() OVERRIDE { ADD_FAILURE() << "GetCollisionModelIndex"; return -1; }
-	virtual const model_t *GetCollisionModel() OVERRIDE { ADD_FAILURE() << "GetCollisionModel"; return NULL; }
-	virtual SolidType_t GetSolid() const OVERRIDE { ADD_FAILURE() << "GetSolid"; return (SolidType_t)0; }
-	virtual int GetSolidFlags() const OVERRIDE { ADD_FAILURE() << "GetSolidFlags"; return 0; }
-	virtual IClientUnknown *GetIClientUnknown() OVERRIDE { ADD_FAILURE() << "GetIClientUnknown"; return NULL; }
-	virtual int GetCollisionGroup() const OVERRIDE { ADD_FAILURE() << "GetCollisionGroup"; return 0; }
-	virtual bool ShouldTouchTrigger( int ) const OVERRIDE { ADD_FAILURE() << "ShouldTouchTrigger"; return false; }
-	virtual const matrix3x4_t *GetRootParentToWorldTransform() const OVERRIDE { ADD_FAILURE() << "GetRootParentToWorldTransform"; return NULL; }
+	virtual const Vector &OBBMinsPreScaled() const OVERRIDE
+	{
+		ADD_FAILURE() << "OBBMinsPreScaled";
+		return m_vecPoison;
+	}
+
+	virtual const Vector &OBBMaxsPreScaled() const OVERRIDE
+	{
+		ADD_FAILURE() << "OBBMaxsPreScaled";
+		return m_vecPoison;
+	}
+
+	virtual IHandleEntity *GetEntityHandle() OVERRIDE
+	{
+		ADD_FAILURE() << "GetEntityHandle";
+		return NULL;
+	}
+
+	virtual void WorldSpaceTriggerBounds( Vector *, Vector * ) const OVERRIDE
+	{
+		ADD_FAILURE() << "WorldSpaceTriggerBounds";
+	}
+
+	virtual bool TestCollision( const Ray_t &, unsigned int, trace_t & ) OVERRIDE
+	{
+		ADD_FAILURE() << "TestCollision";
+		return false;
+	}
+
+	virtual bool TestHitboxes( const Ray_t &, unsigned int, trace_t & ) OVERRIDE
+	{
+		ADD_FAILURE() << "TestHitboxes";
+		return false;
+	}
+
+	virtual int GetCollisionModelIndex() OVERRIDE
+	{
+		ADD_FAILURE() << "GetCollisionModelIndex";
+		return -1;
+	}
+
+	virtual const model_t *GetCollisionModel() OVERRIDE
+	{
+		ADD_FAILURE() << "GetCollisionModel";
+		return NULL;
+	}
+
+	virtual SolidType_t GetSolid() const OVERRIDE
+	{
+		ADD_FAILURE() << "GetSolid";
+		return (SolidType_t)0;
+	}
+
+	virtual int GetSolidFlags() const OVERRIDE
+	{
+		ADD_FAILURE() << "GetSolidFlags";
+		return 0;
+	}
+
+	virtual IClientUnknown *GetIClientUnknown() OVERRIDE
+	{
+		ADD_FAILURE() << "GetIClientUnknown";
+		return NULL;
+	}
+
+	virtual int GetCollisionGroup() const OVERRIDE
+	{
+		ADD_FAILURE() << "GetCollisionGroup";
+		return 0;
+	}
+
+	virtual bool ShouldTouchTrigger( int ) const OVERRIDE
+	{
+		ADD_FAILURE() << "ShouldTouchTrigger";
+		return false;
+	}
+
+	virtual const matrix3x4_t *GetRootParentToWorldTransform() const OVERRIDE
+	{
+		ADD_FAILURE() << "GetRootParentToWorldTransform";
+		return NULL;
+	}
 
 private:
-	Vector      m_vecMins;
-	Vector      m_vecMaxs;
-	Vector      m_vecOrigin;
-	QAngle      m_angRotation;
+	Vector m_vecMins;
+	Vector m_vecMaxs;
+	Vector m_vecOrigin;
+	QAngle m_angRotation;
 	matrix3x4_t m_Transform;
-	Vector      m_vecPoison;
+	Vector m_vecPoison;
 	mutable int m_nTransformReads;
 };
 
@@ -195,8 +269,8 @@ TEST( CollideableCenterAdapter, BoundsMidpointIsNotTheObbCentreWhenRotated )
 	const Vector vecNewAnswer = UTIL_CollideableWorldSpaceCenter( &stub );
 
 	EXPECT_GT( ( vecNewAnswer - vecOldAnswer ).Length(), 1.0f )
-		<< "old " << vecOldAnswer.x << "," << vecOldAnswer.y << "," << vecOldAnswer.z
-		<< "  new " << vecNewAnswer.x << "," << vecNewAnswer.y << "," << vecNewAnswer.z;
+		<< "old " << vecOldAnswer.x << "," << vecOldAnswer.y << "," << vecOldAnswer.z << "  new " << vecNewAnswer.x
+		<< "," << vecNewAnswer.y << "," << vecNewAnswer.z;
 }
 
 //-----------------------------------------------------------------------------

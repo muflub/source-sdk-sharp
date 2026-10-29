@@ -37,7 +37,7 @@ namespace SourceSharp.Shared;
 ///   viewmodel share an owner, and the pairing goes through the player.
 /// </para>
 /// </summary>
-[StandaloneNetState(EntityNames.SsViewModel)]
+[StandaloneNetState(EntityNames.PredictedViewModel)]
 public partial class ViewModelNetState
 {
     /// <summary>Entindex of the player whose eyes this belongs to.</summary>
@@ -59,4 +59,11 @@ public partial class ViewModelNetState
     /// <summary>Playback speed. Stock predicts it with a 0.125 tolerance.</summary>
     [Predicted(0.125f)]
     public partial float PlaybackRate { get; set; }
+
+    /// <summary>
+    /// The viewmodel's skin: stock's m_nSkin, which a weapon sets on its own
+    /// viewmodel (CWeaponCrossbow::SetSkin, the bolt's glow).
+    /// </summary>
+    [Predicted]
+    public partial int Skin { get; set; }
 }

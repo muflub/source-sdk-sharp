@@ -25,7 +25,21 @@
 //                                mode for each call. Logs
 //                                "fxlookup <i or -1> <name>".
 
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "c_te_effect_dispatch.h"
 #include "fx_probe_log.h"
 #include "IEffects.h"
@@ -67,9 +81,9 @@ void FxProbeLog( const char *pFmt, ... )
 		return;
 	timespec ts;
 	clock_gettime( CLOCK_MONOTONIC, &ts );
-	char buf[ 2048 ];
-	int n = snprintf( buf, sizeof( buf ), "%lld %d fx ",
-	                  (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec, (int)getpid() );
+	char buf[2048];
+	int n =
+		snprintf( buf, sizeof( buf ), "%lld %d fx ", (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec, (int)getpid() );
 	va_list ap;
 	va_start( ap, pFmt );
 	int m = vsnprintf( buf + n, sizeof( buf ) - n - 1, pFmt, ap );
@@ -77,7 +91,7 @@ void FxProbeLog( const char *pFmt, ... )
 	if ( m < 0 )
 		m = 0;
 	n += ( m < (int)sizeof( buf ) - n - 1 ) ? m : (int)sizeof( buf ) - n - 2;
-	buf[ n++ ] = '\n';
+	buf[n++] = '\n';
 	ssize_t w = write( fd, buf, n );
 	(void)w;
 }
@@ -90,38 +104,38 @@ namespace
 // trampoline knows which registration it stands for without any state.
 //-----------------------------------------------------------------------------
 const int kMaxRegs = 128;
-ClientEffectCallback g_pOrig[ kMaxRegs ];
+ClientEffectCallback g_pOrig[kMaxRegs];
 int g_nRegs = 0;
 bool g_bDry = false;
 int g_nHit = -1;
 
-template < int N >
+template <int N>
 void FxTrampoline( const CEffectData &data )
 {
 	g_nHit = N;
 	if ( g_bDry )
 		return;
 	FxProbeLog( "fxrun %d", N );
-	g_pOrig[ N ]( data );
+	g_pOrig[N]( data );
 }
 
-template < int N >
+template <int N>
 struct TrampolineTable
 {
 	static void Fill( ClientEffectCallback *pOut )
 	{
-		TrampolineTable< N - 1 >::Fill( pOut );
-		pOut[ N - 1 ] = &FxTrampoline< N - 1 >;
+		TrampolineTable<N - 1>::Fill( pOut );
+		pOut[N - 1] = &FxTrampoline<N - 1>;
 	}
 };
 
 template <>
-struct TrampolineTable< 0 >
+struct TrampolineTable<0>
 {
 	static void Fill( ClientEffectCallback * ) {}
 };
 
-ClientEffectCallback g_pTramp[ kMaxRegs ];
+ClientEffectCallback g_pTramp[kMaxRegs];
 
 } // namespace
 
@@ -134,28 +148,29 @@ CON_COMMAND( cs_cl_probe_fxreg, "c2-fx probe (debug): log the client effect regi
 		FxProbeLog( "fxreg-again %d", g_nRegs );
 		return;
 	}
-	TrampolineTable< kMaxRegs >::Fill( g_pTramp );
+	TrampolineTable<kMaxRegs>::Fill( g_pTramp );
 	int i = 0;
 	for ( CClientEffectRegistration *pReg = CClientEffectRegistration::s_pHead; pReg; pReg = pReg->m_pNext, ++i )
 	{
 		FxProbeLog( "fxreg %d %s", i, pReg->m_pEffectName );
 		if ( i < kMaxRegs )
 		{
-			g_pOrig[ i ] = pReg->m_pFunction;
-			pReg->m_pFunction = g_pTramp[ i ];
+			g_pOrig[i] = pReg->m_pFunction;
+			pReg->m_pFunction = g_pTramp[i];
 		}
 	}
 	g_nRegs = i;
 	FxProbeLog( "fxreg-count %d traced=%d", i, i < kMaxRegs ? i : kMaxRegs );
 }
 
-CON_COMMAND( cs_cl_probe_fxlookup, "c2-fx probe (debug): which registration stock's walk picks for each name, without running it" )
+CON_COMMAND( cs_cl_probe_fxlookup,
+			 "c2-fx probe (debug): which registration stock's walk picks for each name, without running it" )
 {
 	if ( FxProbeFd() < 0 || g_nRegs == 0 )
 		return;
 	for ( int i = 1; i < args.ArgC(); ++i )
 	{
-		const char *pName = args.ArgV()[ i ];
+		const char *pName = args[i];
 		CEffectData data;
 		g_bDry = true;
 		g_nHit = -1;
@@ -238,13 +253,14 @@ Vector Ahead( float flForward, float flRight, float flUp )
 
 } // namespace
 
-CON_COMMAND( cs_cl_probe_fxbattery, "c2-fx probe (debug): add a fixed battery of client-side effects in front of the camera" )
+CON_COMMAND( cs_cl_probe_fxbattery,
+			 "c2-fx probe (debug): add a fixed battery of client-side effects in front of the camera" )
 {
 	if ( FxProbeFd() < 0 )
 		return;
 	const int nSet = args.ArgC() > 1 ? atoi( args.Arg( 1 ) ) : 0;
-	FxProbeLog( "fxb-begin %d view=%.9g %.9g %.9g ang=%.9g %.9g %.9g", nSet, MainViewOrigin().x, MainViewOrigin().y, MainViewOrigin().z,
-	            MainViewAngles().x, MainViewAngles().y, MainViewAngles().z );
+	FxProbeLog( "fxb-begin %d view=%.9g %.9g %.9g ang=%.9g %.9g %.9g", nSet, MainViewOrigin().x, MainViewOrigin().y,
+				MainViewOrigin().z, MainViewAngles().x, MainViewAngles().y, MainViewAngles().z );
 
 	// Lines: still, moving, alpha and scale ramps, two materials.
 	const char *pLineMats[] = { "effects/spark", "effects/gunshiptracer" };
@@ -261,7 +277,7 @@ CON_COMMAND( cs_cl_probe_fxbattery, "c2-fx probe (debug): add a fixed battery of
 		data.m_flEndScale = 4.0f - i;
 		data.m_flDieTime = 0.4f + 0.3f * i + 0.1f * nSet;
 		data.m_flLifeTime = 0.0f;
-		data.m_pMaterial = materials->FindMaterial( pLineMats[ i & 1 ], TEXTURE_GROUP_CLIENT_EFFECTS );
+		data.m_pMaterial = materials->FindMaterial( pLineMats[i & 1], TEXTURE_GROUP_CLIENT_EFFECTS );
 		FX_AddLine( data );
 	}
 
@@ -269,26 +285,29 @@ CON_COMMAND( cs_cl_probe_fxbattery, "c2-fx probe (debug): add a fixed battery of
 	const char *pQuadMats[] = { "effects/splashwake1", "effects/fire_cloud1", "effects/blood_core" };
 	for ( int i = 0; i < 8; ++i )
 	{
-		const Vector n = ( i % 3 == 0 ) ? Vector( 0, 0, 1 ) : ( i % 3 == 1 ) ? Vector( 0.6f, 0.0f, 0.8f ) : Vector( -0.48f, 0.6f, 0.64f );
+		const Vector n = ( i % 3 == 0 ) ? Vector( 0, 0, 1 )
+			: ( i % 3 == 1 )            ? Vector( 0.6f, 0.0f, 0.8f )
+										: Vector( -0.48f, 0.6f, 0.64f );
 		const float flAlpha0 = ( i == 7 ) ? 0.0f : 1.0f;
 		const float flAlpha1 = ( i == 7 ) ? 0.0f : 0.05f * i;
 		FX_AddQuad( Ahead( 240.0f, -90.0f + 26.0f * i, 30.0f ), n, 8.0f + 4.0f * i, 40.0f - 3.0f * i, 0.3f + 0.05f * i,
-		            flAlpha0, flAlpha1, 0.4f + 0.05f * i, 30.0f * i, ( i & 1 ) ? 90.0f : -45.0f,
-		            Vector( 1.0f, 0.8f - 0.1f * ( i % 4 ), 0.5f ), 0.5f + 0.2f * i + 0.1f * nSet, pQuadMats[ i % 3 ], (unsigned int)i );
+					flAlpha0, flAlpha1, 0.4f + 0.05f * i, 30.0f * i, ( i & 1 ) ? 90.0f : -45.0f,
+					Vector( 1.0f, 0.8f - 0.1f * ( i % 4 ), 0.5f ), 0.5f + 0.2f * i + 0.1f * nSet, pQuadMats[i % 3],
+					(unsigned int)i );
 	}
 
 	// Static lines: each flip.
 	for ( int i = 0; i < 4; ++i )
-		FX_AddStaticLine( Ahead( 180.0f, -30.0f + 20.0f * i, -30.0f ), Ahead( 220.0f, -10.0f + 20.0f * i, 10.0f ), 2.0f + i, 0.3f + 0.2f * i,
-		                  "effects/spark", (unsigned char)i );
+		FX_AddStaticLine( Ahead( 180.0f, -30.0f + 20.0f * i, -30.0f ), Ahead( 220.0f, -10.0f + 20.0f * i, 10.0f ),
+						  2.0f + i, 0.3f + 0.2f * i, "effects/spark", (unsigned char)i );
 
 	// Discreet lines: clipped and not.
 	for ( int i = 0; i < 4; ++i )
 	{
 		Vector dir = Ahead( 300.0f, 20.0f * i, -10.0f * i ) - Ahead( 100.0f, -40.0f, 20.0f );
 		VectorNormalize( dir );
-		FX_AddDiscreetLine( Ahead( 100.0f, -40.0f, 20.0f ), dir, 1500.0f + 500.0f * i, 64.0f + 16.0f * i, ( i & 1 ) ? 200.0f : 0.0f,
-		                    0.75f + 0.05f * i, 0.4f + 0.1f * i, "effects/spark" );
+		FX_AddDiscreetLine( Ahead( 100.0f, -40.0f, 20.0f ), dir, 1500.0f + 500.0f * i, 64.0f + 16.0f * i,
+							( i & 1 ) ? 200.0f : 0.0f, 0.75f + 0.05f * i, 0.4f + 0.1f * i, "effects/spark" );
 	}
 
 	// Tracers and the player's own (FX_Tracer, FX_PlayerTracer) were here; they
@@ -301,17 +320,19 @@ CON_COMMAND( cs_cl_probe_fxtracersound, "c2-fx probe (debug): FX_TracerSound for
 {
 	if ( FxProbeFd() < 0 )
 		return;
-	const int types[] = { TRACER_TYPE_DEFAULT, TRACER_TYPE_GUNSHIP, TRACER_TYPE_STRIDER, TRACER_TYPE_GAUSS, TRACER_TYPE_WATERBULLET, 0 };
+	const int types[] = { TRACER_TYPE_DEFAULT, TRACER_TYPE_GUNSHIP,     TRACER_TYPE_STRIDER,
+						  TRACER_TYPE_GAUSS,   TRACER_TYPE_WATERBULLET, 0 };
 	const float flPass = args.ArgC() > 1 ? atof( args.Arg( 1 ) ) : 10.0f;
 	for ( int t = 0; t < 6; ++t )
 	{
 		const Vector s = Ahead( -300.0f, flPass, 0.0f );
 		const Vector e = Ahead( 300.0f, flPass, -8.0f );
-		FX_TracerSound( s, e, types[ t ] );
+		FX_TracerSound( s, e, types[t] );
 	}
 }
 
-CON_COMMAND( cs_cl_probe_fxtracercb, "c2-fx probe (debug): dispatch Tracer, ParticleTracer and TracerSound with fixed data" )
+CON_COMMAND( cs_cl_probe_fxtracercb,
+			 "c2-fx probe (debug): dispatch Tracer, ParticleTracer and TracerSound with fixed data" )
 {
 	if ( FxProbeFd() < 0 )
 		return;
@@ -328,14 +349,15 @@ CON_COMMAND( cs_cl_probe_fxtracercb, "c2-fx probe (debug): dispatch Tracer, Part
 			data.m_nAttachmentIndex = 1;
 			data.m_nHitBox = 0;
 			data.m_hEntity = INVALID_EHANDLE;
-			DispatchEffectToCallback( names[ n ], data );
+			DispatchEffectToCallback( names[n], data );
 		}
 	}
 }
 
 // fx_shelleject.cpp (probe copy): the three shell-eject effects, dispatched
 // for each kind of owner: the local player, the world, an empty slot, none.
-CON_COMMAND( cs_cl_probe_fxshells, "c2-fx probe (debug): dispatch ShellEject, RifleShellEject, ShotgunShellEject for several owners" )
+CON_COMMAND( cs_cl_probe_fxshells,
+			 "c2-fx probe (debug): dispatch ShellEject, RifleShellEject, ShotgunShellEject for several owners" )
 {
 	if ( FxProbeFd() < 0 )
 		return;
@@ -348,8 +370,8 @@ CON_COMMAND( cs_cl_probe_fxshells, "c2-fx probe (debug): dispatch ShellEject, Ri
 			CEffectData data;
 			data.m_vOrigin = Ahead( 40.0f, 10.0f * n, -5.0f * o );
 			data.m_vAngles = QAngle( 10.0f * o, 90.0f + 20.0f * n, 5.0f );
-			data.m_hEntity = owners[ o ] >= 0 ? SourceSharp_ClientHandleFromIndex( owners[ o ] ) : INVALID_EHANDLE;
-			DispatchEffectToCallback( names[ n ], data );
+			data.m_hEntity = owners[o] >= 0 ? SourceSharp_ClientHandleFromIndex( owners[o] ) : INVALID_EHANDLE;
+			DispatchEffectToCallback( names[n], data );
 		}
 	}
 }

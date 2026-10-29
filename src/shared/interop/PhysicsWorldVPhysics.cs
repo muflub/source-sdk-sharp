@@ -38,6 +38,9 @@ public interface IPhysicsWorldVPhysics
     /// <summary><c>vcollide_t::solids[ index ]</c>; 0 outside the solids.</summary>
     nint CollideSolid(in VCollideView collide, int index);
 
+    /// <summary><c>physcollision-&gt;CollideGetMassCenter</c>: a solid's own mass centre, in its space.</summary>
+    Vector CollideMassCenter(nint solid);
+
     /// <summary><c>physprops-&gt;GetSurfaceIndex( name )</c>.</summary>
     int SurfaceIndex(string name);
 
@@ -473,6 +476,14 @@ public sealed unsafe class PhysicsWorldVPhysics : IPhysicsWorldVPhysics, ISurfac
     public void SkipBlock(nint parser) => Parser(parser)->SkipBlock((void*)parser);
 
     public bool SupportsVirtualMesh() => _collisionFwd->SupportsVirtualMesh(_collision) != 0;
+
+    public Vector CollideMassCenter(nint solid)
+    {
+        Vector center = default;
+        if (solid != 0)
+            _collisionFwd->CollideGetMassCenter(_collision, (void*)solid, &center);
+        return center;
+    }
 
     public nint VirtualTerrainCollide(int index) => (nint)_modelInfoFwd->GetCollideForVirtualTerrain(_modelInfo, index);
 

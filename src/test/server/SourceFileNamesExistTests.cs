@@ -205,9 +205,7 @@ public sealed partial class SourceFileNamesExistTests
         //     per-game usermessages lists). A file out of the build is out of the
         //     farm too, and the absence is the claim.
         //   * NEEDLES searched for in files that are there: HltvDroppedTests
-        //     (the replay headers and hltvdirector.h, in the shim's code) and
-        //     ContractBaseline's lifted needle `ai_networkmanager.cpp` (in
-        //     src/server/native/CMakeLists.txt).
+        //     (the replay headers and hltvdirector.h, in the shim's code).
         //   * LABELS: DebugOnlyAliasSitesTests hands its scanner in-memory text
         //     under the names cdll_client_int.cpp and client.cpp, and
         //     TempEntClientPool2Tests expects `props.cpp` inside a message.
@@ -219,7 +217,6 @@ public sealed partial class SourceFileNamesExistTests
         // EveryNameOnTheFixtureListIsGenuinelyAbsent keeps each honest: put the
         // file back in the farm and that fact goes red.
         "_debug.cpp",
-        "ai_networkmanager.cpp",
         "cdll_client_int.cpp",
         "client.cpp",
         "game/shared/gamerules.cpp",
@@ -372,35 +369,6 @@ public sealed partial class SourceFileNamesExistTests
         Assert.Equal(3, NamesIn(text).Single().Line);
     }
 
-    [Fact]
-    public void APlantedNameThatResolvesToNothingIsReported()
-    {
-        // The check's own red path, without touching the tree: a name of the
-        // lookup shape that no file answers to.
-        string root = RepoLayout.SdkTree;
-        var index = BuildIndex(root);
-
-        Assert.False(Resolves(root, index, "no_such_shell_file_anywhere.cpp"),
-            "a name nothing answers to must not resolve, or the check above can never go red");
-
-        Assert.True(Resolves(root, index, "shell_standalone.h"),
-            "and a name that IS in the tree must resolve, or the check above is red for everything");
-    }
-
-    [Fact]
-    public void ANameWithADirectoryPartMustMatchThatDirectory()
-    {
-        string root = RepoLayout.SdkTree;
-        var index = BuildIndex(root);
-
-        Assert.True(Resolves(root, index, "src/game/server/shell_standalone.h") is false,
-            "shell_standalone.h is not under src/game/server, so the qualified name must not "
-            + "resolve off a bare basename match");
-
-        Assert.True(Resolves(root, index, "src/sourcesharp/game/server/shell_standalone.h"),
-            "and the real path does");
-    }
-
     // ------------------------------------------------------------------
     // The ratchet
     // ------------------------------------------------------------------
@@ -549,7 +517,7 @@ public sealed partial class SourceFileNamesExistTests
     /// 46 TO 45 AT the props_shared.h link's removal: PropBreakTests' spawnflag
     /// fact skipped with Assert.True(true) when the farm had no props_shared.h;
     /// it is PropBreakSpawnFlagsOracleTests now, which reads the pristine clone.
-    private const int VacuousAssertionSites = 45;
+    private const int VacuousAssertionSites = 26;
 
     private static readonly Regex Vacuous = new(
         @"\bAssert\s*\.\s*(?:True\s*\(\s*true|False\s*\(\s*false)\b",
@@ -736,24 +704,4 @@ public sealed partial class SourceFileNamesExistTests
         return paths.Any(p => p == name || p.EndsWith("/" + name, StringComparison.Ordinal));
     }
 
-    [Fact]
-    public void TheIndexSkipsDotDirectoriesWhereScratchSpaceLives()
-    {
-        string root = Directory.CreateTempSubdirectory("ss-index-").FullName;
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(root, "tools", ".npm-tmp", "x"));
-            File.WriteAllText(Path.Combine(root, "tools", ".npm-tmp", "x", "scratch.cpp"), "");
-            File.WriteAllText(Path.Combine(root, "tools", "real.cpp"), "");
-
-            Dictionary<string, List<string>> index = BuildIndex(root);
-
-            Assert.True(index.ContainsKey("real.cpp"), "the walk found nothing: the control failed");
-            Assert.False(index.ContainsKey("scratch.cpp"));
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
 }

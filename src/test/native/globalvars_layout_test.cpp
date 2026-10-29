@@ -43,18 +43,15 @@ namespace
 // table as a whole rather than only about fields named one at a time.
 struct LayoutRow
 {
-    const char *name;
-    size_t offset;
-    size_t size;
-    const char *reach;
+	const char *name;
+	size_t offset;
+	size_t size;
+	const char *reach;
 };
 
-#define SS_GV_ROW( name, offset, size, reach ) { #name, (offset), (size), #reach },
+#define SS_GV_ROW( name, offset, size, reach ) { #name, ( offset ), ( size ), #reach },
 
-const LayoutRow kRows[] =
-{
-    SOURCESHARP_GLOBALVARS_LAYOUT( SS_GV_ROW )
-};
+const LayoutRow kRows[] = { SOURCESHARP_GLOBALVARS_LAYOUT( SS_GV_ROW ) };
 
 #undef SS_GV_ROW
 
@@ -67,26 +64,26 @@ const size_t kRowCount = sizeof( kRows ) / sizeof( kRows[0] );
 // managed mirror moves, and the mirror's total size stops matching.
 TEST( GlobalVarsLayout, TheTableCoversEveryByteOfTheStruct )
 {
-    size_t covered = 0;
+	size_t covered = 0;
 
-    for ( size_t i = 0; i < kRowCount; ++i )
-        covered += kRows[i].size;
+	for ( size_t i = 0; i < kRowCount; ++i )
+		covered += kRows[i].size;
 
-    // 112 bytes of struct, 25 fields, 97 bytes of field. The other fifteen are
-    // padding, in four places and every one of them a place a managed mirror
-    // can silently absorb an extra field without any offset moving:
-    //
-    //   44 -> 48   four, aligning pSaveData
-    //   57 -> 60   three, the bool-then-int that is the whole `bool` trap
-    //   68 -> 72   four, the base class's own tail (and the reason a
-    //              four-byte string_t would put mapname at 68 instead)
-    //   84 -> 88   four, aligning startspot
-    //
-    // Counting them is what makes an inserted field visible: it either moves an
-    // offset, which the rows catch, or it eats padding, which this catches.
-    EXPECT_EQ( 97u, covered ) << "the table's fields account for 97 of the struct's bytes";
-    EXPECT_EQ( 15u, sizeof( CGlobalVars ) - covered ) << "the remaining fifteen bytes are padding";
-    EXPECT_EQ( (size_t)SOURCESHARP_GLOBALVARS_SIZEOF, sizeof( CGlobalVars ) );
+	// 112 bytes of struct, 25 fields, 97 bytes of field. The other fifteen are
+	// padding, in four places and every one of them a place a managed mirror
+	// can silently absorb an extra field without any offset moving:
+	//
+	//   44 -> 48   four, aligning pSaveData
+	//   57 -> 60   three, the bool-then-int that is the whole `bool` trap
+	//   68 -> 72   four, the base class's own tail (and the reason a
+	//              four-byte string_t would put mapname at 68 instead)
+	//   84 -> 88   four, aligning startspot
+	//
+	// Counting them is what makes an inserted field visible: it either moves an
+	// offset, which the rows catch, or it eats padding, which this catches.
+	EXPECT_EQ( 97u, covered ) << "the table's fields account for 97 of the struct's bytes";
+	EXPECT_EQ( 15u, sizeof( CGlobalVars ) - covered ) << "the remaining fifteen bytes are padding";
+	EXPECT_EQ( (size_t)SOURCESHARP_GLOBALVARS_SIZEOF, sizeof( CGlobalVars ) );
 }
 
 // The rows are in ascending offset order and none of them overlap. A table that
@@ -95,23 +92,23 @@ TEST( GlobalVarsLayout, TheTableCoversEveryByteOfTheStruct )
 // hide one bigger than its own padding.
 TEST( GlobalVarsLayout, TheRowsRunForwardAndDoNotOverlap )
 {
-    ASSERT_GT( kRowCount, 0u );
-    EXPECT_EQ( 0u, kRows[0].offset ) << "the first field is at the start of the struct";
+	ASSERT_GT( kRowCount, 0u );
+	EXPECT_EQ( 0u, kRows[0].offset ) << "the first field is at the start of the struct";
 
-    for ( size_t i = 1; i < kRowCount; ++i )
-    {
-        EXPECT_GE( kRows[i].offset, kRows[i - 1].offset + kRows[i - 1].size )
-            << kRows[i].name << " starts after " << kRows[i - 1].name << " ends";
+	for ( size_t i = 1; i < kRowCount; ++i )
+	{
+		EXPECT_GE( kRows[i].offset, kRows[i - 1].offset + kRows[i - 1].size )
+			<< kRows[i].name << " starts after " << kRows[i - 1].name << " ends";
 
-        // No gap bigger than seven bytes anywhere: alignment can never need
-        // more than that here, so a larger one is a field nobody wrote down.
-        EXPECT_LT( kRows[i].offset - ( kRows[i - 1].offset + kRows[i - 1].size ), 8u )
-            << "the gap in front of " << kRows[i].name << " is padding, not a missing field";
-    }
+		// No gap bigger than seven bytes anywhere: alignment can never need
+		// more than that here, so a larger one is a field nobody wrote down.
+		EXPECT_LT( kRows[i].offset - ( kRows[i - 1].offset + kRows[i - 1].size ), 8u )
+			<< "the gap in front of " << kRows[i].name << " is padding, not a missing field";
+	}
 
-    const LayoutRow &last = kRows[kRowCount - 1];
-    EXPECT_LT( sizeof( CGlobalVars ) - ( last.offset + last.size ), 8u )
-        << "nothing follows " << last.name << " but padding";
+	const LayoutRow &last = kRows[kRowCount - 1];
+	EXPECT_LT( sizeof( CGlobalVars ) - ( last.offset + last.size ), 8u )
+		<< "nothing follows " << last.name << " but padding";
 }
 
 // The private tail is in the table. It is the part a mirror written from the
@@ -119,20 +116,19 @@ TEST( GlobalVarsLayout, TheRowsRunForwardAndDoNotOverlap )
 // middle of the struct rather than at the end -- mapname lands at 56.
 TEST( GlobalVarsLayout, ThePrivateTailIsInTheTable )
 {
-    int privateRows = 0;
+	int privateRows = 0;
 
-    for ( size_t i = 0; i < kRowCount; ++i )
-    {
-        if ( strcmp( kRows[i].reach, "PRIVATE" ) == 0 )
-            ++privateRows;
-    }
+	for ( size_t i = 0; i < kRowCount; ++i )
+	{
+		if ( strcmp( kRows[i].reach, "PRIVATE" ) == 0 )
+			++privateRows;
+	}
 
-    EXPECT_EQ( 3, privateRows )
-        << "CGlobalVarsBase's three private members are rows in the table";
+	EXPECT_EQ( 3, privateRows ) << "CGlobalVarsBase's three private members are rows in the table";
 
-    EXPECT_EQ( (size_t)SOURCESHARP_GLOBALVARS_BASE_SIZEOF, sizeof( CGlobalVarsBase ) );
-    EXPECT_EQ( sizeof( CGlobalVarsBase ), offsetof( CGlobalVars, mapname ) )
-        << "CGlobalVars's own fields begin where the base class ends";
+	EXPECT_EQ( (size_t)SOURCESHARP_GLOBALVARS_BASE_SIZEOF, sizeof( CGlobalVarsBase ) );
+	EXPECT_EQ( sizeof( CGlobalVarsBase ), offsetof( CGlobalVars, mapname ) )
+		<< "CGlobalVars's own fields begin where the base class ends";
 }
 
 // x64, and string_t pointer-sized, restated as a running check beside the
@@ -141,21 +137,21 @@ TEST( GlobalVarsLayout, ThePrivateTailIsInTheTable )
 // rather than compile a header nobody read.
 TEST( GlobalVarsLayout, TheTableDescribesX64 )
 {
-    EXPECT_EQ( 8u, sizeof( void * ) );
-    EXPECT_EQ( 8u, sizeof( string_t ) ) << "string_t is a pointer here, not a four-byte handle";
-    EXPECT_EQ( 48u, offsetof( CGlobalVars, pSaveData ) );
-    EXPECT_EQ( 72u, offsetof( CGlobalVars, mapname ) )
-        << "a four-byte string_t would put mapname at 68, in the base's tail padding";
+	EXPECT_EQ( 8u, sizeof( void * ) );
+	EXPECT_EQ( 8u, sizeof( string_t ) ) << "string_t is a pointer here, not a four-byte handle";
+	EXPECT_EQ( 48u, offsetof( CGlobalVars, pSaveData ) );
+	EXPECT_EQ( 72u, offsetof( CGlobalVars, mapname ) )
+		<< "a four-byte string_t would put mapname at 68, in the base's tail padding";
 }
 
 // The four consecutive bools, which is where a widened managed bool does its
 // damage: one byte each, back to back, with maxEntities immediately after.
 TEST( GlobalVarsLayout, TheFourBoolsAreOneByteEachAndAdjacent )
 {
-    EXPECT_EQ( 1u, sizeof( ( (CGlobalVars *)0 )->bMapLoadFailed ) );
-    EXPECT_EQ( offsetof( CGlobalVars, bMapLoadFailed ) + 1, offsetof( CGlobalVars, deathmatch ) );
-    EXPECT_EQ( offsetof( CGlobalVars, deathmatch ) + 1, offsetof( CGlobalVars, coop ) );
-    EXPECT_EQ( offsetof( CGlobalVars, coop ) + 1, offsetof( CGlobalVars, teamplay ) );
-    EXPECT_EQ( offsetof( CGlobalVars, teamplay ) + 1, offsetof( CGlobalVars, maxEntities ) )
-        << "maxEntities sits directly on the fourth bool, with no padding to absorb a widened one";
+	EXPECT_EQ( 1u, sizeof( ( (CGlobalVars *)0 )->bMapLoadFailed ) );
+	EXPECT_EQ( offsetof( CGlobalVars, bMapLoadFailed ) + 1, offsetof( CGlobalVars, deathmatch ) );
+	EXPECT_EQ( offsetof( CGlobalVars, deathmatch ) + 1, offsetof( CGlobalVars, coop ) );
+	EXPECT_EQ( offsetof( CGlobalVars, coop ) + 1, offsetof( CGlobalVars, teamplay ) );
+	EXPECT_EQ( offsetof( CGlobalVars, teamplay ) + 1, offsetof( CGlobalVars, maxEntities ) )
+		<< "maxEntities sits directly on the fourth bool, with no padding to absorb a widened one";
 }

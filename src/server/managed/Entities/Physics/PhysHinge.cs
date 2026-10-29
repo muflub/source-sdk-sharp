@@ -16,14 +16,24 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PhysHinge)]
 public sealed class PhysHinge : PhysicsConstraintEntity
 {
-    public PhysHinge(IEngineConstraints constraints, IEngineSound sound, EntityPairCollisions pairs)
-        : base(constraints, sound)
+    public PhysHinge(IEngineConstraints constraints, IEngineSound sound, EntityPairCollisions pairs,
+                     MassCenterOverrides massCenters)
+        : base(constraints, sound, pairs)
     {
-        _pairs = pairs;
+        _massCenters = massCenters;
     }
 
-    /// <summary>Where the family's "do not collide" pair is recorded (stock's PhysDisableEntityCollisions).</summary>
-    private readonly EntityPairCollisions _pairs;
+    /// <summary>m_hinge.worldPosition and worldAxisDirection, taken at Spawn (CPhysHinge::Spawn).</summary>
+    [SaveField] private Vector _worldPosition, _worldAxis;
+
+    /// <summary>
+    /// SF_CONSTRAINT_ASSUME_WORLD_GEOMETRY as Spawn leaves it: removed from a
+    /// hinge with both ends named, which joins two objects and no world.
+    /// </summary>
+    [SaveField] private bool _assumeWorld;
+
+    /// <summary>Where a world hinge leaves its object's mass centre (stock's PhysSetMassCenterOverride).</summary>
+    private readonly MassCenterOverrides _massCenters;
 
     /// <summary>
     /// The bits this entity shares with the rest of its family. See
@@ -34,31 +44,41 @@ public sealed class PhysHinge : PhysicsConstraintEntity
     /// <summary>What a map may set on this entity. See <see cref="PhysHingeVars"/>.</summary>
     [ScriptVars] public PhysHingeVars PhysHingeVars = new();
 
+    /// <summary>
+    /// CPhysHinge::Spawn's world hinge: the one named end's mass centre is
+    /// moved onto the hinge's axis when that end is made.
+    /// </summary>
+    public override void OnSpawn()
+    {
+        base.OnSpawn();
+
+        // Where it stands and which way it points now, not when it is built.
+        _worldPosition = Origin;
+        Vector direction = PhysHingeVars.HingeAxis - _worldPosition;
+        _worldAxis = direction.LengthSquared > 0f ? SnapToAxis(direction.Normalized) : Vector.Zero;
+
+        _assumeWorld = FamilyFlags.HasFlag(ConstraintSpawnFlag.AssumeWorldGeometry);
+        if (!_assumeWorld)
+            return;
+
+        if (Vars.Attach1.Length == 0)
+            _massCenters.Add(MassCenterOverride.SnapToAxis(Vars.Attach2, _worldPosition, _worldAxis));
+        else if (Vars.Attach2.Length == 0)
+            _massCenters.Add(MassCenterOverride.SnapToAxis(Vars.Attach1, _worldPosition, _worldAxis));
+        else
+            _assumeWorld = false;
+    }
+
     protected override Constraint? Build(EntityHandle a, EntityHandle b)
     {
-        Vector direction = PhysHingeVars.HingeAxis - Origin;
-
-        if (direction.LengthSquared <= 0f)
+        if (_worldAxis.LengthSquared <= 0f)
         {
             Log.Warning($"[SourceSharp] phys_hinge '{Name}' has no axis\n");
             return null;
         }
 
-        // The family-wide checkbox, not a hinge one -- see ConstraintSpawnFlag.
-        // Almost every hinge wants it, because a hinge usually joins two things
-        // that overlap: dm_lockdown's fan sweeps through its own housing, and
-        // without it the fan is stopped by that housing within a turn of being
-        // powered up.
-        bool noCollide = FamilyFlags.HasFlag(ConstraintSpawnFlag.DisableCollision);
-        Constraint? hinge = Constraint.Hinge(Constraints, a, b, Origin, SnapToAxis(direction.Normalized),
-                                             PhysHingeVars.Friction, ForceLimitKg, TorqueLimitKg);
-
-        // The pair the solver refuses is managed's (plan_physics_bones_native_zero
-        // 2.1): recorded once the joint exists, as native's create did.
-        if (hinge is not null && noCollide)
-            _pairs.SetEnabled(a, b, false);
-
-        return hinge;
+        return Constraint.Hinge(Constraints, a, b, _worldPosition, _worldAxis, PhysHingeVars.Friction,
+                                ForceLimitKg, TorqueLimitKg, _assumeWorld);
     }
 
     /// <summary>
@@ -80,19 +100,20 @@ public sealed class PhysHinge : PhysicsConstraintEntity
     }
 
     /// <summary>
-    /// Drives the hinge. The value is degrees per second; zero lets it swing
-    /// free again.
-    ///
-    /// Stock scales the torque by the load on the joint so that a heavy door
-    /// and a light one open at the same rate. This does not, and the difference
-    /// shows on anything unusually heavy — worth knowing before blaming the
-    /// map.
+    /// Drives the hinge at degrees per second, the torque scaled by the load
+    /// on the joint so that a heavy door and a light one open at the same rate.
     /// </summary>
     [ScriptedEvent("SetAngularVelocity")]
     private void OnSetAngularVelocity(InputData input)
-        => Joint?.SetMotor(input.Number, MotorTorque);
+        => Joint?.SetHingeVelocity(input.Number, PhysHingeVars.SystemLoadScale);
 
-    private const float MotorTorque = 1000f;
+    /// <summary>InputSetHingeFriction: the friction the next joint is made with.</summary>
+    [ScriptedEvent("SetHingeFriction")]
+    private void OnSetHingeFriction(InputData input)
+    {
+        PhysHingeVars.Friction = input.Number;
+        Log.Msg($"Setting hinge friction to {input.Number.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)}\n");
+    }
 }
 
 /// <summary>
@@ -110,4 +131,7 @@ public partial class PhysHingeVars
 
     [VarName("hingefriction")]
     public float Friction { get; set; }
+
+    [VarName("systemloadscale")]
+    public float SystemLoadScale { get; set; }
 }

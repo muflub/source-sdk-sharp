@@ -9,6 +9,7 @@
 //=============================================================================//
 
 #include "gtest/gtest.h"
+#include "tier0_spew_port.h"
 
 #include "tier0/dbg.h"
 #include "tier1/convar.h"
@@ -19,8 +20,6 @@
 #include <string>
 #include <vector>
 
-ICvar *g_pCVar = nullptr;
-
 namespace
 {
 struct SpewRecord
@@ -29,8 +28,8 @@ struct SpewRecord
 	std::string text;
 };
 
-std::vector< SpewRecord > g_EngineA;
-std::vector< SpewRecord > g_EngineB;
+std::vector<SpewRecord> g_EngineA;
+std::vector<SpewRecord> g_EngineB;
 
 SpewRetval_t EngineA( SpewType_t type, const tchar *pText )
 {
@@ -78,9 +77,9 @@ protected:
 	void SetUp() override
 	{
 		ASSERT_NE( nullptr, s_pSetEngineSpew );
-		SpewOutputFunc( NULL );   // server.so's slot: the default
+		SpewOutputFunc( NULL ); // server.so's slot: the default
 		s_pSetEngineSpew( EngineA );
-		g_pCVar = &m_Cvar;
+		Tier0_ConnectConsole( &m_Cvar );
 		g_EngineA.clear();
 		g_EngineB.clear();
 	}
@@ -88,7 +87,7 @@ protected:
 	void TearDown() override
 	{
 		s_pSetEngineSpew( nullptr );
-		g_pCVar = nullptr;
+		Tier0_ConnectConsole( nullptr );
 	}
 };
 
@@ -100,8 +99,8 @@ TEST_F( Tier0SpewForward, MsgGoesToTheEngineSlotAndNotToICvar )
 	Msg( "hello %d\n", 7 );
 
 	ASSERT_EQ( 1u, g_EngineA.size() );
-	EXPECT_EQ( SPEW_MESSAGE, g_EngineA[ 0 ].type );
-	EXPECT_EQ( "hello 7\n", g_EngineA[ 0 ].text );
+	EXPECT_EQ( SPEW_MESSAGE, g_EngineA[0].type );
+	EXPECT_EQ( "hello 7\n", g_EngineA[0].text );
 	EXPECT_TRUE( m_Cvar.m_Printed.empty() );
 }
 
@@ -110,8 +109,8 @@ TEST_F( Tier0SpewForward, AWarningIsHandedOnAsAWarning )
 	Warning( "careful\n" );
 
 	ASSERT_EQ( 1u, g_EngineA.size() );
-	EXPECT_EQ( SPEW_WARNING, g_EngineA[ 0 ].type );
-	EXPECT_EQ( "careful\n", g_EngineA[ 0 ].text );
+	EXPECT_EQ( SPEW_WARNING, g_EngineA[0].type );
+	EXPECT_EQ( "careful\n", g_EngineA[0].text );
 }
 
 TEST_F( Tier0SpewForward, AnAssertIsHandedOnAsAWarningSoTheEngineCannotDecideIt )
@@ -122,8 +121,8 @@ TEST_F( Tier0SpewForward, AnAssertIsHandedOnAsAWarningSoTheEngineCannotDecideIt 
 	const SpewRetval_t ret = _SpewMessage( "%s", "x > 0" );
 
 	ASSERT_EQ( 1u, g_EngineA.size() );
-	EXPECT_EQ( SPEW_WARNING, g_EngineA[ 0 ].type );
-	EXPECT_EQ( "file.cpp (12) : x > 0\n", g_EngineA[ 0 ].text );
+	EXPECT_EQ( SPEW_WARNING, g_EngineA[0].type );
+	EXPECT_EQ( "file.cpp (12) : x > 0\n", g_EngineA[0].text );
 	EXPECT_EQ( SPEW_CONTINUE, ret ) << "the engine's SPEW_ABORT came back to the assert";
 }
 
@@ -134,9 +133,9 @@ TEST_F( Tier0SpewForward, TheEngineSlotIsReadOnEveryLine )
 	Msg( "two\n" );
 
 	ASSERT_EQ( 1u, g_EngineA.size() );
-	EXPECT_EQ( "one\n", g_EngineA[ 0 ].text );
+	EXPECT_EQ( "one\n", g_EngineA[0].text );
 	ASSERT_EQ( 1u, g_EngineB.size() );
-	EXPECT_EQ( "two\n", g_EngineB[ 0 ].text );
+	EXPECT_EQ( "two\n", g_EngineB[0].text );
 }
 
 TEST_F( Tier0SpewForward, AnEmptyEngineSlotFallsBackToICvar )
@@ -145,16 +144,16 @@ TEST_F( Tier0SpewForward, AnEmptyEngineSlotFallsBackToICvar )
 	Msg( "to the console\n" );
 
 	ASSERT_EQ( 1u, m_Cvar.m_Printed.size() );
-	EXPECT_EQ( "to the console\n", m_Cvar.m_Printed[ 0 ].text );
+	EXPECT_EQ( "to the console\n", m_Cvar.m_Printed[0].text );
 }
 
 TEST_F( Tier0SpewForward, LinesBeforeICvarExistsStillReachTheEngineAtOnce )
 {
-	g_pCVar = nullptr;
+	Tier0_ConnectConsole( nullptr );
 	Msg( "early\n" );
 
 	ASSERT_EQ( 1u, g_EngineA.size() );
-	EXPECT_EQ( "early\n", g_EngineA[ 0 ].text );
+	EXPECT_EQ( "early\n", g_EngineA[0].text );
 }
 
 TEST_F( Tier0SpewForward, AnEngineSlotThatLeadsBackHereWritesOnceToICvarInstead )
@@ -164,7 +163,7 @@ TEST_F( Tier0SpewForward, AnEngineSlotThatLeadsBackHereWritesOnceToICvarInstead 
 
 	ASSERT_EQ( 1u, g_EngineA.size() );
 	ASSERT_EQ( 1u, m_Cvar.m_Printed.size() );
-	EXPECT_EQ( "loop\n", m_Cvar.m_Printed[ 0 ].text );
+	EXPECT_EQ( "loop\n", m_Cvar.m_Printed[0].text );
 }
 
 TEST_F( Tier0SpewForward, ServerSlotHooksStillSeeEveryLineFirst )
@@ -175,14 +174,16 @@ TEST_F( Tier0SpewForward, ServerSlotHooksStillSeeEveryLineFirst )
 	s_pPrevious = GetSpewOutputFunc();
 	static int s_nSeen;
 	s_nSeen = 0;
-	SpewOutputFunc( []( SpewType_t type, const tchar *pText ) {
-		++s_nSeen;
-		return s_pPrevious( type, pText );
-	} );
+	SpewOutputFunc(
+		[]( SpewType_t type, const tchar *pText )
+		{
+			++s_nSeen;
+			return s_pPrevious( type, pText );
+		} );
 
 	Msg( "through the hook\n" );
 
 	EXPECT_EQ( 1, s_nSeen );
 	ASSERT_EQ( 1u, g_EngineA.size() );
-	EXPECT_EQ( "through the hook\n", g_EngineA[ 0 ].text );
+	EXPECT_EQ( "through the hook\n", g_EngineA[0].text );
 }

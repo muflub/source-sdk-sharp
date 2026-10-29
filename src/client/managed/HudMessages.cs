@@ -87,6 +87,14 @@ public sealed class HudMessages : IHudMessages, IReloadParticipant, IMapTextSour
     private readonly Channel[] _channels = new Channel[Channels];
     private readonly Title[] _titles = new Title[TitleSlots];
 
+    /// <summary>
+    /// The titles.txt entry a HudText name reaches: a leading <c>#</c> is how a
+    /// map spells "this is a lookup", and both spellings reach the same entry
+    /// (stock CHudMessage::MessageAdd, message.cpp). Here since lane M1-B; the
+    /// shell's HudTextMessageGet looks up exactly the name it is handed.
+    /// </summary>
+    public static string TitleName(string name) => name.Length > 0 && name[0] == '#' ? name[1..] : name;
+
     /// <summary>Listens to the module's HudMsg and HudText events.</summary>
     public void Subscribe(IUserMessageEvent<HudMessageArgs> messages, IUserMessageEvent<string> titles)
     {
@@ -105,7 +113,7 @@ public sealed class HudMessages : IHudMessages, IReloadParticipant, IMapTextSour
     /// </summary>
     private void OnTitle(string name)
     {
-        var entry = Screen.TextMessageGet(name);
+        var entry = Screen.TextMessageGet(TitleName(name));
 
         if (entry is null)
         {

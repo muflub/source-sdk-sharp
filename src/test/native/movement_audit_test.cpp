@@ -30,7 +30,7 @@ namespace
 // The two readings the defect was reported as. Named rather than spelled at
 // each use, because a test that says 600 and 800 in nine places is a test
 // nobody can re-point when the mod's tuning changes.
-const float kGravityDeclared   = 800.0f;
+const float kGravityDeclared = 800.0f;
 const float kGravityRegistered = 600.0f;
 
 } // namespace
@@ -42,9 +42,7 @@ const float kGravityRegistered = 600.0f;
 TEST( MovementAudit, TheValueTheModSetIsNotAFault )
 {
 	EXPECT_EQ( kMovementConVarAsRegistered,
-	           SourceSharp_ClassifyMovementConVar( kGravityRegistered,
-	                                               kGravityDeclared,
-	                                               kGravityRegistered ) );
+			   SourceSharp_ClassifyMovementConVar( kGravityRegistered, kGravityDeclared, kGravityRegistered ) );
 }
 
 TEST( MovementAudit, BackAtTheDeclaredDefaultIsTheDefect )
@@ -52,9 +50,7 @@ TEST( MovementAudit, BackAtTheDeclaredDefaultIsTheDefect )
 	// The exact reading plan_shim.md 4a item 16 is about: the mod set 600 and
 	// the convar holds the .cpp's 800.
 	EXPECT_EQ( kMovementConVarRevertedToDeclared,
-	           SourceSharp_ClassifyMovementConVar( kGravityRegistered,
-	                                               kGravityDeclared,
-	                                               kGravityDeclared ) );
+			   SourceSharp_ClassifyMovementConVar( kGravityRegistered, kGravityDeclared, kGravityDeclared ) );
 }
 
 TEST( MovementAudit, AThirdNumberIsAnOverrideAndNotTheDefect )
@@ -63,9 +59,7 @@ TEST( MovementAudit, AThirdNumberIsAnOverrideAndNotTheDefect )
 	// precisely so this wins, so calling it a fault would make the warning
 	// useless on any server that tunes anything.
 	EXPECT_EQ( kMovementConVarOverridden,
-	           SourceSharp_ClassifyMovementConVar( kGravityRegistered,
-	                                               kGravityDeclared,
-	                                               700.0f ) );
+			   SourceSharp_ClassifyMovementConVar( kGravityRegistered, kGravityDeclared, 700.0f ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -79,8 +73,7 @@ TEST( MovementAudit, WhenTheTuningIsTheDeclarationNothingIsReported )
 	// comparisons the other way would report the defect on six of the eight
 	// convars on every healthy run, which is a warning nobody would ever read
 	// again.
-	EXPECT_EQ( kMovementConVarAsRegistered,
-	           SourceSharp_ClassifyMovementConVar( 10.0f, 10.0f, 10.0f ) );
+	EXPECT_EQ( kMovementConVarAsRegistered, SourceSharp_ClassifyMovementConVar( 10.0f, 10.0f, 10.0f ) );
 }
 
 TEST( MovementAudit, TheDecimalStringRoundTripIsNotAChange )
@@ -92,16 +85,14 @@ TEST( MovementAudit, TheDecimalStringRoundTripIsNotAChange )
 	const float flAfterRoundTrip = 0.333333f;
 
 	EXPECT_EQ( kMovementConVarAsRegistered,
-	           SourceSharp_ClassifyMovementConVar( flRegistered, 1.0f,
-	                                               flAfterRoundTrip ) );
+			   SourceSharp_ClassifyMovementConVar( flRegistered, 1.0f, flAfterRoundTrip ) );
 }
 
 TEST( MovementAudit, AStopspeedRevertIsCaughtToo )
 {
 	// The second of the two convars whose tuning differs from its declaration,
 	// and the second reading in the defect document: 100 declared, 75 set.
-	EXPECT_EQ( kMovementConVarRevertedToDeclared,
-	           SourceSharp_ClassifyMovementConVar( 75.0f, 100.0f, 100.0f ) );
+	EXPECT_EQ( kMovementConVarRevertedToDeclared, SourceSharp_ClassifyMovementConVar( 75.0f, 100.0f, 100.0f ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -114,20 +105,16 @@ TEST( MovementAudit, TheTableIsTheEightConVarsTheWriteTargets )
 	// here rather than derived, because a ninth SetEngineConVar call with no
 	// row in the table would be unaudited and nothing else in the build would
 	// say so.
-	const char *const kExpected[] =
-	{
-		"sv_gravity", "sv_friction", "sv_accelerate", "sv_airaccelerate",
-		"sv_stopspeed", "sv_maxvelocity", "sv_stepsize", "sv_maxspeed",
+	const char *const kExpected[] = {
+		"sv_gravity",   "sv_friction",    "sv_accelerate", "sv_airaccelerate",
+		"sv_stopspeed", "sv_maxvelocity", "sv_stepsize",   "sv_maxspeed",
 	};
 
-	ASSERT_EQ( (int)( sizeof( kExpected ) / sizeof( kExpected[0] ) ),
-	           SourceSharp_MovementConVarCount() );
+	ASSERT_EQ( (int)( sizeof( kExpected ) / sizeof( kExpected[0] ) ), SourceSharp_MovementConVarCount() );
 
 	for ( int i = 0; i < SourceSharp_MovementConVarCount(); i++ )
 	{
-		EXPECT_EQ( std::string( kExpected[ i ] ),
-		           std::string( SourceSharp_MovementConVarName( i ) ) )
-			<< "row " << i;
+		EXPECT_EQ( std::string( kExpected[i] ), std::string( SourceSharp_MovementConVarName( i ) ) ) << "row " << i;
 	}
 }
 
@@ -144,8 +131,7 @@ TEST( MovementAudit, EveryNameResolvesToItsOwnIndex )
 {
 	for ( int i = 0; i < SourceSharp_MovementConVarCount(); i++ )
 	{
-		EXPECT_EQ( i, SourceSharp_MovementConVarIndex(
-			SourceSharp_MovementConVarName( i ) ) );
+		EXPECT_EQ( i, SourceSharp_MovementConVarIndex( SourceSharp_MovementConVarName( i ) ) );
 	}
 }
 

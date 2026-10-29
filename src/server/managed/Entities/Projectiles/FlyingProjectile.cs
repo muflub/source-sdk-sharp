@@ -17,7 +17,7 @@ namespace SourceSharp.Server;
 /// a rocket are all in what "hits something" means, so that is the only thing
 /// left abstract.
 /// </summary>
-public abstract class FlyingProjectile : ScriptedEntity
+public abstract class FlyingProjectile : AnimatingEntity
 {
     public FlyingProjectile(IEngineEntityPhysics physics, EntityMotion motion)
     {
@@ -81,6 +81,19 @@ public abstract class FlyingProjectile : ScriptedEntity
 
     protected abstract string ProjectileModel { get; }
 
+    /// <summary>
+    /// The angular velocity it leaves with, degrees per second about its own
+    /// pitch, yaw and roll: stock's SetLocalAngularVelocity at the launch.
+    /// None for everything but a tumbling grenade.
+    /// </summary>
+    protected virtual Vector LaunchSpin => Vector.Zero;
+
+    /// <summary>
+    /// Half the box it flies as (stock's UTIL_SetSize in its Spawn): the bolt's
+    /// one unit, grenade_ar2's three. Zero flies as a point.
+    /// </summary>
+    protected virtual Vector HullExtent => Vector.Zero;
+
     /// <summary>What it does to whatever it ran into. <paramref name="hit"/> may be the world.</summary>
     protected abstract void Impact(EntityHandle hit);
 
@@ -88,6 +101,10 @@ public abstract class FlyingProjectile : ScriptedEntity
     {
         SetModel(ProjectileModel);
         Physics.SetGravity(Handle, GravityScale);
+
+        Vector hull = HullExtent;
+        if (hull.X != 0f || hull.Y != 0f || hull.Z != 0f)
+            Entities.SetBounds(Handle, hull * -1f, hull);
     }
 
     /// <summary>
@@ -98,6 +115,14 @@ public abstract class FlyingProjectile : ScriptedEntity
     /// the two answers to differ by a frame of mouse movement.
     /// </summary>
     public void FiredBy(EntityHandle shooter, Vector velocity)
+        => Release(shooter, velocity, Angles.FromVector(velocity));
+
+    /// <summary>
+    /// <see cref="FiredBy"/> with the angles the launcher chose, for a
+    /// projectile that does not point along its first velocity: stock's RPG
+    /// missile leaves lofted (forward * 300 + 128 up) still facing the aim.
+    /// </summary>
+    protected void Release(EntityHandle shooter, Vector velocity, Vector angles)
     {
         Shooter = shooter;
 
@@ -110,14 +135,14 @@ public abstract class FlyingProjectile : ScriptedEntity
         // Angles as well as velocity, or the model flies sideways: nothing
         // turns a projectile to face its travel, so where it POINTS is whatever
         // it was spawned with unless it is told.
-        Entities.SetAngles(Handle, Angles.FromVector(velocity));
+        Entities.SetAngles(Handle, angles);
         Entities.SetVelocity(Handle, velocity);
 
         // AND TO THE INTEGRATOR, which is what actually moves it now
         // (plan_entity.md step 2f). SetVelocity above still goes to the shell,
         // and is not redundant: it is what EntityGetVelocity, the save state
         // and the mover's "whose velocity is this" rule all read.
-        Motion.Launch(Handle, velocity, GravityScale, Bounces, shooter);
+        Motion.Launch(Handle, velocity, GravityScale, Bounces, shooter, LaunchSpin, HullExtent);
     }
 
     public override void OnTouch(EntityHandle toucher)
@@ -131,12 +156,94 @@ public abstract class FlyingProjectile : ScriptedEntity
         if (PassesThrough(toucher))
             return;
 
+        Spend(toucher);
+    }
+
+    /// <summary>
+    /// <see cref="Impact"/> once and gone: the touch's end, and the door for a
+    /// projectile that goes off on its own clock (the RPG missile augering
+    /// out, or brought to a halt).
+    /// </summary>
+    protected void Spend(EntityHandle hit)
+    {
         if (_spent)
             return;
 
         _spent = true;
-        Impact(toucher);
+        _keepFlying = false;
+        _lingerFor = -1f;
+        Impact(hit);
+
+        if (_keepFlying)
+        {
+            // Turned to its new way, and flying again as if just launched.
+            _spent = false;
+            Entities.SetAngles(Handle, Angles.FromVector(_keepVelocity));
+            Entities.SetVelocity(Handle, _keepVelocity);
+            Physics.SetGravity(Handle, _keepGravity);
+            Motion.Launch(Handle, _keepVelocity, _keepGravity, Bounces, Shooter, hull: HullExtent);
+            return;
+        }
+
+        if (_lingerFor >= 0f)
+        {
+            // Stopped where it is, unseen; gone when the time is up.
+            SetVisible(false);
+            _lingering = true;
+            SetNextThink(_lingerFor);
+            return;
+        }
+
         Remove();
+    }
+
+    /// <summary>A projectile lingering after its impact goes when the time is up.</summary>
+    public override void OnThink()
+    {
+        if (_lingering)
+            Remove();
+    }
+
+    /// <summary>
+    /// From inside <see cref="Impact"/>: not over -- it flies on at
+    /// <paramref name="velocity"/> under <paramref name="gravityScale"/>, as
+    /// stock's crossbow bolt glances off a shallow wall.
+    /// </summary>
+    protected void KeepFlying(Vector velocity, float gravityScale)
+    {
+        _keepFlying = true;
+        _keepVelocity = velocity;
+        _keepGravity = gravityScale;
+    }
+
+    /// <summary>
+    /// From inside <see cref="Impact"/>: stay where it stopped, not drawn, for
+    /// <paramref name="seconds"/> before going -- stock's NODRAW and SUB_Remove
+    /// think, which keeps what follows the projectile alive that long.
+    /// </summary>
+    protected void Linger(float seconds) => _lingerFor = seconds;
+
+    private bool _keepFlying;
+    private Vector _keepVelocity;
+    private float _keepGravity;
+    private float _lingerFor = -1f;
+    [SaveField] private bool _lingering;
+
+    /// <summary>Stopped and waiting out <see cref="Linger"/>: its think is the removal's.</summary>
+    protected bool IsLingering => _lingering;
+
+    /// <summary>Whether it has gone off: <see cref="Spend"/> has run.</summary>
+    protected bool IsSpent => _spent;
+
+    /// <summary>
+    /// A new velocity in flight, told to the shell and the integrator as a
+    /// launch is: stock's SetAbsVelocity (and SetMoveType) on a flyer already
+    /// moving. <paramref name="gravityScale"/> zero flies flat.
+    /// </summary>
+    protected void Steer(Vector velocity, float gravityScale)
+    {
+        Entities.SetVelocity(Handle, velocity);
+        Motion.Launch(Handle, velocity, gravityScale, Bounces, Shooter, LaunchSpin, HullExtent);
     }
 
     /// <summary>

@@ -32,9 +32,7 @@ namespace SourceSharp.Client.TempEnts;
 /// <para>
 /// <b>WHAT IT DOES NOT, AND WHY NONE OF IT IS AN OVERSIGHT.</b> The OBJECT stays
 /// native, because a <c>C_LocalTempEntity</c> is already the draw shell — it was
-/// de-entified onto <c>CShellRenderable</c> and
-/// <c>src/sourcesharp/test/tempent_verdict_test.cpp</c> records that verdict —
-/// and its thirty members are the drawable's state. <c>Frame()</c>'s physics
+/// de-entified onto <c>CShellRenderable</c> — and its thirty members are the drawable's state. <c>Frame()</c>'s physics
 /// stays with it: the collision arm needs <c>UTIL_TraceLine</c> and a whole
 /// <c>trace_t</c>, and this build's client has no trace at all, which is what
 /// holds ledger rows C4 and C5 open. <c>PlaySound</c> is called from inside that
@@ -138,7 +136,7 @@ public sealed class ClientTempEntPool
     /// an effect can allocate a tempent. That is not reachable in THIS build —
     /// <c>m_pszImpactEffect</c> is only set by <c>ClientProjectile</c>, and both
     /// of its live callers pass six arguments so the parameter is always its
-    /// NULL default, which <c>tempent_verdict_test.cpp</c> asserts — but the
+    /// NULL default — but the
     /// reachability of it is not this class's to guarantee, and a loop that
     /// corrupted its own list would be a pool that half works, which plan Part 5
     /// names as the worst outcome of this phase.

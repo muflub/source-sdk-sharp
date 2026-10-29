@@ -78,7 +78,7 @@ public static class EntityNames
     public const string EnvWind         = "env_wind";
     public const string FuncPrecipitation = "func_precipitation";
     public const string EnvExplosion     = "env_explosion";
-    public const string Entityflame      = "entityflame";
+    public const string EntityFlame      = "entityflame";
 
     // The predicates a trigger asks before acting.
     public const string FilterActivatorClass = "filter_activator_class";
@@ -138,6 +138,10 @@ public static class EntityNames
     public const string InfoTarget              = "info_target";
     public const string InfoTeleportDestination = "info_teleport_destination";
     public const string InfoIntermission        = "info_intermission";
+
+    // HL2MP's useable ladders: the ladder, and the points a player gets off at.
+    public const string FuncUseableladder       = "func_useableladder";
+    public const string InfoLadderDismount      = "info_ladder_dismount";
 
     // What a player walks into and collects.
     public const string ItemAmmo357         = "item_ammo_357";
@@ -241,40 +245,29 @@ public static class EntityNames
     public const string SimplePhysicsBrush = "simple_physics_brush";
     public const string SimplePhysicsProp  = "simple_physics_prop";
 
-    // This mod's own. Not stock, and not spawned by any Half-Life 2 map.
-    public const string SsBarrel  = "ss_barrel";
-    public const string SsBeam    = "ss_beam";
-    public const string SsBolt       = "ss_bolt";
-    public const string SsEnergyball = "ss_energyball";
-    public const string SsEntityFlame = "ss_entityflame";
-    public const string SsFiresmoke = "ss_firesmoke";
-    /// <summary>
-    /// One thrown piece of debris — stock's <c>gib</c>, as a managed entity.
-    ///
-    /// <para>
-    /// WHY THE NAME CHANGED, where most of this port keeps stock's. <c>gib</c>
-    /// is not a name a mapper writes and no map in this tree contains one; it
-    /// is created by code, and the only code left that creates one is
-    /// <see cref="EnvShooter"/>, which is C# already. The <c>ss_</c> prefix
-    /// follows <c>ss_firesmoke</c>, which changed its name for exactly the same
-    /// reason and recorded exactly this argument.
-    /// </para>
-    ///
-    /// <para>
-    /// It replaces <c>CGib</c> (game/server/gib.cpp, 768 lines), whose only
-    /// consumer on the server link was our own shim — the "inverted" shape,
-    /// a C++ class kept alive because C# asked native to build one.
-    /// plan_entity.md step 4a.
-    /// </para>
-    /// </summary>
-    public const string SsGib     = "ss_gib";
-    public const string SsGrenade = "ss_grenade";
-    public const string SsPickup  = "ss_pickup";
-    public const string SsPlasma  = "ss_plasma";
-    public const string SsPlayer  = "ss_player";
+    // The classes stock's code creates and no map places, under stock's names.
+    public const string Beam            = "beam";
+    public const string CrossbowBolt    = "crossbow_bolt";
+    public const string PropCombineBall = "prop_combine_ball";
+    public const string FireSmoke       = "_firesmoke";
 
     /// <summary>
-    /// The body a player leaves behind. See <c>SsRagdoll</c>.
+    /// One thrown piece of debris: stock's <c>gib</c> (CGib, gib.cpp), as a
+    /// managed entity. Created by code (<see cref="EnvShooter"/>), never by a map.
+    /// </summary>
+    public const string Gib            = "gib";
+    public const string NpcGrenadeFrag = "npc_grenade_frag";
+
+    /// <summary>The SMG1's alt-fire grenade, under stock's own name: CGrenadeAR2.</summary>
+    public const string GrenadeAr2 = "grenade_ar2";
+
+    /// <summary>A func_plat's ride trigger: stock's CPlatTrigger, made by the platform, never by a map.</summary>
+    public const string PlatTrigger = "plat_trigger";
+    public const string Plasma    = "_plasma";
+    public const string Player    = "player";
+
+    /// <summary>
+    /// The body a player leaves behind: stock's <c>hl2mp_ragdoll</c>. See <c>SsRagdoll</c>.
     ///
     /// <para>
     /// A SEPARATE ENTITY from the player, which is the whole reason it exists
@@ -286,8 +279,12 @@ public static class EntityNames
     /// <c>CHL2MP_Player::CreateRagdollEntity</c> is what makes one.
     /// </para>
     /// </summary>
-    public const string SsRagdoll = "ss_ragdoll";
-    public const string SsRocket  = "ss_rocket";
+    public const string Hl2mpRagdoll = "hl2mp_ragdoll";
+    public const string RpgMissile   = "rpg_missile";
+
+    // This mod's own. Not stock, and not spawned by any Half-Life 2 map.
+    public const string SsBarrel  = "ss_barrel";
+    public const string SsPickup  = "ss_pickup";
 
     /// <summary>
     /// One temp entity, fired where it stands.
@@ -300,8 +297,10 @@ public static class EntityNames
     /// effects, told apart by the <c>te</c> keyvalue.
     /// </summary>
     public const string SsTeTester = "ss_te_tester";
-    public const string SsViewModel = "ss_viewmodel";
     public const string SsWeapon  = "ss_weapon";
+
+    /// <summary>HL2MP's CPredictedViewModel (CHL2MP_Player::CreateViewModel).</summary>
+    public const string PredictedViewModel = "predicted_viewmodel";
 
     // Volumes that act on whoever is inside them.
     public const string TriggerApplyImpulse     = "trigger_apply_impulse";
@@ -344,6 +343,15 @@ public static class EntityNames
     public const string WeaponRpg       = "weapon_rpg";
     public const string WeaponShotgun   = "weapon_shotgun";
     public const string WeaponSmg1      = "weapon_smg1";
+    public const string WeaponStunstick = "weapon_stunstick";
+    public const string WeaponSlam      = "weapon_slam";
+    public const string WeaponPhyscannon = "weapon_physcannon";
+
+    // What weapon_slam leaves in the world: the satchel it throws and the
+    // laser tripmine it plants. Stock's own classnames (grenade_satchel.cpp,
+    // grenade_tripmine.cpp), because the kill feed names them.
+    public const string NpcSatchel      = "npc_satchel";
+    public const string NpcTripmine     = "npc_tripmine";
 
     // --- wave 1 of the remaining native classnames: lights and ropes, sky and
     // soundscape, the presentation brushes, the point/info controllers, and the
@@ -438,6 +446,7 @@ public static class EntityNames
     public const string EnvParticleTrail         = "env_particle_trail";
     public const string EnvParticlelight         = "env_particlelight";
     public const string EnvRockettrail           = "env_rockettrail";
+    public const string EnvLaserdot              = "env_laserdot";
     public const string SparkShower              = "spark_shower";
     public const string TriggerTransition       = "trigger_transition";
     public const string TriggerCdaudio          = "trigger_cdaudio";

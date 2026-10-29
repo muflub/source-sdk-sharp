@@ -5,58 +5,95 @@
 //
 //=============================================================================//
 //
-// The engine's console prints, forwarded in process (docs/todo.md's console
-// capture item). shell_internalfactory.cpp installs this once per side at the
-// end of ManagedRoot_AcquireAreas -- the point where the side holds both its
-// ICvar and its managed areas -- and removes it in ManagedRoot_Release, the
-// teardown the same file owns.
-//
-// The three IConsoleDisplayFunc methods make no decision: each appends the
-// engine's already-formatted text, with its channel, to the forwarder's
-// console line buffer (console_line_buffer.h, console-batch 2026-10-11), which
-// the load's managed side drains without a crossing; the buffer is handed to
-// the load's console-output area once per install (ConsoleBufferAttach).
-// Outside a load the area accessor answers NULL and the line is dropped (the
-// hot-reload lesson: the accessor is read per call, so a side that released
-// its managed module stops forwarding at once, and the engine's own console
-// keeps working untouched -- the list is not a replacement).
-//
-// The Color& of ColorPrint is not forwarded; consumers carry a warning flag.
-// nWarning is read back from the spew colour (every spew reaches ColorPrint:
-// the engine's spew handler colours each one): 1 for SPEW_WARNING/
-// ASSERT/ERROR's colours, 0 for any other (a plain Msg, a ConColorMsg), and
-// always 0 for Print and DPrint. A ConColorMsg in a spew colour reads as a
-// warning: the flag is the spew type the engine chose, not a colour.
+// Forwards the engine's console prints to the managed side's line buffer. nWarning
+// is read back from the spew colour: 1 for warning, assert and error, else 0.
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_CONSOLE_DISPLAY_FORWARD_H
-#define SOURCESHARP_CONSOLE_DISPLAY_FORWARD_H
+#pragma once
 
-class ICvar;
+#include <atomic>
+#include <memory>
 
-/// Installs the forwarder on pCVar; false when pCVar is NULL or a forwarder
-/// is already live. Install is the native decision; forwarding is pure.
-bool ConsoleDisplay_Install( ICvar *pCVar );
+#include "icvar.h"
+#include "console_line_buffer.h"
 
-/// Removes it from the ICvar it was installed on; a no-op when not installed.
-void ConsoleDisplay_Remove();
+#ifdef CLIENT_DLL
+class IManagedConsoleOutputClient;
+typedef IManagedConsoleOutputClient ManagedConsoleOutputArea_t;
+#else
+class IManagedConsoleOutput;
+typedef IManagedConsoleOutput ManagedConsoleOutputArea_t;
+#endif
 
-/// The forwarder off the engine's list for a managed reload's gap, back on the
-/// same ICvar at End() or the scope's end: in the gap every area slot is on the
-/// trap table, and a forwarded print recursed through the trap's own report
-/// (the nightly hot-reload SIGABRT, 10-10/11). A no-op when not installed.
+// The engine's console prints, handed to this DLL's managed side: an IConsoleDisplayFunc
+// installed on the side's ICvar appends each print to a line buffer, which the managed
+// console-output area drains. One per DLL, a member of its managed side; the engine's
+// list holds the forwarder by pointer, so a second install would double every line.
+class CConsoleDisplay
+{
+public:
+	// ppArea is where the side's holders keep this load's console-output area.
+	explicit CConsoleDisplay( ManagedConsoleOutputArea_t *const &ppArea );
+
+	// Off the engine's list before the forwarder goes.
+	~CConsoleDisplay() { Remove(); }
+
+	CConsoleDisplay( const CConsoleDisplay & ) = delete;
+	CConsoleDisplay &operator=( const CConsoleDisplay & ) = delete;
+
+	// False for a NULL ICvar, or a second ICvar while one is installed.
+	bool Install( ICvar *pCVar );
+	void Remove();
+
+	ICvar *Installed() const { return m_pInstalledCvar; }
+
+private:
+	class CForwarder final : public IConsoleDisplayFunc
+	{
+	public:
+		explicit CForwarder( CConsoleDisplay &owner )
+			: m_Owner( owner )
+		{
+		}
+
+		void ColorPrint( const Color &color, const char *pMessage ) override;
+		void Print( const char *pMessage ) override;
+		void DPrint( const char *pMessage ) override;
+
+	private:
+		CConsoleDisplay &m_Owner;
+	};
+
+	// The engine calls the forwarder on the printing thread.
+	void Forward( const char *pText, int nWarning );
+
+	// Hands the buffer to this load's area, once per install; false outside a load.
+	bool Attach();
+
+	ManagedConsoleOutputArea_t *const &m_ppArea;
+	CForwarder m_Forwarder{ *this };
+	ICvar *m_pInstalledCvar = nullptr;
+	std::atomic<bool> m_bAttached{ false };
+
+	// Allocated once and kept across reloads: managed holds its address. On the heap, so
+	// the root that owns this does not carry 1 MiB.
+	std::unique_ptr<CConsoleLineBuffer> m_pBuffer;
+};
+
+// Off the engine's list for the span of a managed reload, then back on the same ICvar.
 class CConsoleDisplayReloadGap
 {
 public:
-	CConsoleDisplayReloadGap();
+	explicit CConsoleDisplayReloadGap( CConsoleDisplay &display );
+
 	~CConsoleDisplayReloadGap() { End(); }
-	void End();   // back on the list now; the scope's end then does nothing
+
+	void End(); // back on the list now; the scope's end then does nothing
 	CConsoleDisplayReloadGap( const CConsoleDisplayReloadGap & ) = delete;
 	CConsoleDisplayReloadGap &operator=( const CConsoleDisplayReloadGap & ) = delete;
 
 private:
+	CConsoleDisplay &m_Display;
 	ICvar *m_pCVar;
 };
-
-#endif // SOURCESHARP_CONSOLE_DISPLAY_FORWARD_H

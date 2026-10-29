@@ -46,8 +46,8 @@ public class HostSayTests
               .Ignores("GameEvents.EventSetInt", "GameEvents.EventSetString");
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
-        registry.KeyValue(Alice, EntityNames.SsPlayer, "targetname", "a");
-        registry.KeyValue(Bob, EntityNames.SsPlayer, "targetname", "b");
+        registry.KeyValue(Alice, EntityNames.Player, "targetname", "a");
+        registry.KeyValue(Bob, EntityNames.Player, "targetname", "b");
         var log = new RecordingLog();
         return (new HostSay(log, engine, engine, registry, engine, new Clients(), engine, engine), engine, log);
     }

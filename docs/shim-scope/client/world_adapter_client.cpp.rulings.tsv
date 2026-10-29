@@ -1,5 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-bool SourceSharp_IsTheWorld( const IHandleEntity *pHandleEntity )	LIVE-API	imported by shell_impact_effects.o and shell_movement.o (nm -u over client.so objects, 2026-10-11, C6): the shared rule (world_subject.h) applied to the bound world, a pointer compare
-void ConnectHaptics( CreateInterfaceFn )	SLOT-HELP	Windows only: what CShellClientDLL::Init's (IBaseClientDLL slot) stock haptics connect comes to without the Novint library the SDK does not ship; empty, so haptics stays NULL as on Linux
-void DisconnectHaptics()	SLOT-HELP	Windows only: CShellClientDLL::Shutdown's (IBaseClientDLL slot) matching disconnect; nothing was connected

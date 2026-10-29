@@ -17,8 +17,7 @@
 //
 //=============================================================================
 
-#ifndef SS_VIEWPORT_HARNESS_H
-#define SS_VIEWPORT_HARNESS_H
+#pragma once
 
 #include "tier0/platform.h"
 #include "igamesystem.h"
@@ -30,5 +29,3 @@ public:
 };
 
 extern IClientMode *g_pClientMode;
-
-#endif // SS_VIEWPORT_HARNESS_H

@@ -17,6 +17,9 @@ public class DebugApiEntityTests
         crate.Origin = new DebugVec3(1, 2, 3);
         crate.Velocity = new DebugVec3(3, 4, 0);
         crate.Asleep = true;
+        crate.SolidType = 6;
+        crate.SolidFlags = 4;
+        crate.PhysicsKind = 2;
         var player = world.Add(0x20001u, 1, "player");
         player.Ground = -1;
         return (DebugApiServer.ForTest(TestDebugHooks.Server(world: world)), world);
@@ -37,6 +40,18 @@ public class DebugApiEntityTests
         Assert.Equal(0x10028u, e.GetProperty("handle").GetUInt32());
         Assert.Equal(5.0, e.GetProperty("speed").GetDouble(), 3);
         Assert.Equal(3.0, e.GetProperty("velocity")[0].GetDouble(), 3);
+    }
+
+    // stock-ab's solidity census pairs these with stock's ab_movetypes rows
+    // by name: the listing carries the name, solid type and flags.
+    [Fact]
+    public void The_listing_names_each_entity_with_its_solid_type_and_flags()
+    {
+        var (server, _) = Serve();
+        using var _s = server;
+        var crate = Read(server, "/entities?class=prop_physics").GetProperty("entities")[0];
+        Assert.Equal(("crate_a", 6, 4, 2), (crate.GetProperty("name").GetString(), crate.GetProperty("solid").GetInt32(),
+                                            crate.GetProperty("solidflags").GetInt32(), crate.GetProperty("physics").GetInt32()));
     }
 
     [Fact]

@@ -32,9 +32,6 @@ IManagedRuntimeServer	OnWorldKeyValue	int	uint32_t hWorld, const char *pKey, con
 IManagedRuntimeServer	OnGetGameDescription	void	char *pOut, int nOutSize
 IManagedPhysicsFrame	CreateWorld	void *	void
 IManagedPhysicsFrame	PrecacheSurfaceSounds	int32_t	void
-IManagedResources	ServerDecalIndexForName	int32_t	const char *pszName
-IManagedResources	ServerDecalNameForIndex	int32_t	int32_t nIndex, char *pOut, int32_t nOutSize
-IManagedResources	ServerDecalTranslateForGameMaterial	int32_t	const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize
 IManagedResources	ModelPrecacheComponents	void	const char *pszModelName
 IManagedResources	ModelPrecacheCheck	void	const char *pszModelName, bool bAllowed
 IManagedSaveRestore	ReloadSave	int32_t	void
@@ -46,7 +43,7 @@ IManagedSaveRestore	SaveWriteBody	int32_t	void *pSave
 IManagedSaveRestore	SaveReadBody	int32_t	void *pSave
 IManagedSoundEnt	ServerSoundEntInit	void	int32_t nMaxClients, float flCurTime
 IManagedSoundEnt	ServerSoundEntShutdown	void	void
-IManagedSoundEnt	ServerSoundEntResetClientSound	void	int32_t nIndex
+IManagedSoundEnt	ServerSoundEntResetClientSound	void	int32_t nClientIndex
 IManagedHierarchy	HierarchyParentMoved	void	uint32_t hParent
 IManagedHierarchy	HierarchyChildMoved	void	uint32_t hChild
 IManagedHierarchy	HierarchySetParent	int32_t	uint32_t hChild, uint32_t hParent, int32_t nParentAttachment
@@ -73,7 +70,6 @@ IManagedClients	ServerTransmitAlwaysForClient	int32_t	int32_t iClientEdict
 IManagedClients	ServerAreaPortalVisibility	int32_t	const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes
 IManagedEvents	OnGameEvent	void	const char *pEventName, void *hEvent
 IManagedUserMessages	GetUserMessageInfo	bool	int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize
-IManagedTempEnts	OnNativeTempEntity	int32_t	int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut
 IManagedDiagnostics	CrossingsReport	int32_t	char *pBuffer, int32_t nBytes, int32_t bReset
 IManagedCommands	ConCommandDispatch	void	int32_t nCommandId, const char *pArgs
 IManagedCommands	ConVarChanged	void	int32_t nConVarId, const char *pNewValue, const char *pOldValue
@@ -89,6 +85,12 @@ IManagedRuntimeClient	LevelShutdown	void	void
 IManagedRuntimeClient	ClientInvalidateMdlCache	void	void
 IManagedRuntimeClient	ParticlesNeedFullReload	int32_t	int32_t nPreviousMapParticleFiles
 IManagedRuntimeClient	MapMaterialReload	int32_t	const char *pszNextBsp, const char *pszPreviousBsp, char *pOut, int32_t nOutSize
+IManagedRuntimeClient	MapMaterialSearchPath	void	const char *pszPath, const char *pszPathID, int32_t bAddToHead
+IManagedRuntimeClient	MapMaterialMapAccess	void	int32_t bOpen
+IManagedRuntimeClient	MapMaterialReloadPlan	int32_t	const char *pszSubString, char *pOut, int32_t nOutSize
+IManagedRuntimeClient	WorldDataChanged	int32_t	const unsigned char *pBlob, int32_t nBytes, int32_t nUpdateType, float *pOut, int32_t nOut
+IManagedRuntimeClient	LevelInitPreEntity	void	void
+IManagedRuntimeClient	PostInit	void	int32_t nAdapterMaxDxLevel
 IManagedCommandsClient	ConCommandDispatch	void	int32_t nCommandId, const char *pArgs
 IManagedCommandsClient	ConVarChanged	void	int32_t nConVarId, const char *pNewValue, const char *pOldValue
 IManagedEventsClient	OnGameEvent	void	const char *pEventName, void *hEvent
@@ -102,14 +104,21 @@ IManagedStandaloneClient	OnStandaloneDormancyChanged	void	uint32_t hEntity, int3
 IManagedStandaloneClient	NetStateFieldOffset	int32_t	const char *pClassName, const char *pFieldName
 IManagedStandaloneClient	NetStateFieldBits	int32_t	const char *pClassName, const char *pFieldName
 IManagedStandaloneClient	OnStandaloneDrawBatch	void	const uint32_t *pHandles, int32_t nCount, int32_t *pResults
+# Lane M1-C: the payload decoder's schema gate (generic_payload_client.cpp's SourceSharpSchema_Accept):
+# native hands over what its type table holds for the type (published or not, the hash it published) and the
+# hash the update arrived with; managed decides and keeps the refusals. 1 decodes the payload.
+IManagedStandaloneClient	SchemaAccept	int32_t	uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex, const char *pClassName
+IManagedStandaloneClient	OnStandaloneDrawExtras	int32_t	uint32_t hEntity, int32_t nFlags
 IManagedPredictionClient	MoveProcessMovement	int32_t	SourceSharpMoveState *pState
 IManagedPredictionClient	ClientPredictionUpdate	void	int32_t nStartFrame, int32_t bValidFrame, int32_t nIncomingAcknowledged, int32_t nOutgoingCommand, int32_t bWorldUpdateArrived
 IManagedPredictionClient	ThirdPersonCamera	int32_t	SourceSharpThirdPersonCamera *pIo
 IManagedTempEntsClient	OnTempEntity	void	int32_t hClass, const unsigned char *pBlob, int32_t nBytes
-IManagedTempEntsClient	OnNativeTempEntity	int32_t	int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut
 IManagedTempEntsClient	OnTempEntPoolUpdate	void	float flFrameTime
 IManagedTempEntsClient	OnTempEntPoolClear	void	void
 IManagedTempEntsClient	OnImpactChoice	int32_t	const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax
+# Lane M1-C: c_te.cpp's C_TempEntsSystem::SuppressTE, the client's own temp entity's prediction filter
+# (shell_te_forwards_client.cpp hands over CanPredict() and the filter's recipient count). 1 suppresses the effect.
+IManagedTempEntsClient	SuppressLocalTempEnt	int32_t	int32_t bCanPredict, int32_t nRecipients
 IManagedSaveRestoreClient	ReloadSave	int32_t	void
 IManagedSaveRestoreClient	ReloadRestore	int32_t	void
 IManagedSaveRestoreClient	SaveInit	void *	int32_t nSize, float flCurTime
@@ -118,7 +127,6 @@ IManagedSaveRestoreClient	SaveReadFields	int32_t	void *pSave, const char *pszNam
 IManagedBeamsClient	BeamsLifecycle	void	int32_t nOp, int32_t nArg
 IManagedBeamsClient	BeamsUpdate	void	float flCurTime, float flFrameTime
 IManagedBeamsClient	BeamsKillDead	void	uint32_t hEntity, float flCurTime
-IManagedBeamsClient	BeamsCreate	int32_t	int32_t nKind, const int32_t *pInts, const float *pFloats, const char *pszModel, const char *pszHalo, float flCurTime
 IManagedBeamsClient	BeamsDraw	void	int32_t nRenderable
 IManagedDiagnosticsClient	CrossingsReport	int32_t	char *pBuffer, int32_t nBytes, int32_t bReset
 IManagedDiagnosticsClient	Md5PseudoRandom	uint32_t	uint32_t nSeed

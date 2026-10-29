@@ -429,11 +429,15 @@ public class DevCommandsTests
                                                      "never spawned is the silent half-failure stock left behind");
     }
 
-    [Fact]
-    public void ACreatedEntityFacesBackAtThePlayer()
+    /// <summary>
+    /// The aimed-create rig: a hit 64 units out, a player looking along +y,
+    /// the surface the entity would stand on facing <paramref name="normal"/>.
+    /// </summary>
+    private static (DevContext Context, RecordingEngine Engine) Aimed(Vector normal)
     {
         var (context, engine, _, directory) = Rig();
         directory.Registered.Add("prop_physics");
+        directory.Registered.Add("prop_dynamic");
         engine.Returns("WorldQuery.TracePlayerAim", EntityHandle.None)
               .Returns("WorldQuery.TracePlayerAim.hitPoint", new Vector(64f, 0f, 0f));
         engine.Returns("Entities.Create", Target);
@@ -441,14 +445,55 @@ public class DevCommandsTests
         engine.Returns("Entities.GetEyeAngles", new Vector(10f, 90f, 0f));
         engine.Returns("Entities.GetIndex", 11);
         engine.Returns("Entities.GetBounds", (Vector.Zero, Vector.Zero));
+        engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 0.01f, new Vector(64f, 0f, 0f), normal, EntityHandle.None));
+        return (context, engine);
+    }
 
-        Run<EntCreateCommand>(context, "prop_physics");
+    /// <summary>
+    /// CC_Ent_Create teleports what it made with NULL angles: it keeps its own,
+    /// or the angles key it was given. Found against stock (2026-10-25): this
+    /// command turned it to face the player, over any angles key.
+    /// </summary>
+    [Fact]
+    public void ACreatedEntityKeepsItsOwnAngles()
+    {
+        var (context, engine) = Aimed(new Vector(0f, 0f, 1f));
+
+        Run<EntCreateCommand>(context, "prop_physics angles \"0 45 0\"");
+
+        Assert.False(engine.Called("Entities.SetAngles"), "ent_create turned what it made");
+        Assert.Contains(engine.Calls, c => c.Member == "Entities.SetKeyValue" && c.ArgAs<string>(1) == "angles");
+    }
+
+    /// <summary>CreatePhysicsProp: QAngle( 0, 0, 0 ).</summary>
+    [Fact]
+    public void APhysicsPropIsMadeSquare()
+    {
+        var (context, engine) = Aimed(new Vector(0f, 0f, 1f));
+
+        Run<PropPhysicsCreateCommand>(context, "props_junk/wood_crate001a");
+
+        Assert.Equal(Vector.Zero, engine.Last("Entities.SetAngles")!.Value.ArgAs<Vector>(1));
+    }
+
+    /// <summary>
+    /// CC_Prop_Dynamic_Create: up along the surface's normal, and stood where
+    /// the aim met it rather than lifted to fall: a dynamic prop never moves.
+    /// </summary>
+    [Theory]
+    [InlineData(0f, 0f, 1f, 0f, 0f, 0f)]       // a floor: square
+    [InlineData(-1f, 0f, 0f, -90f, 0f, 0f)]    // a wall facing back along x: on its back, pointing up
+    public void ADynamicPropStandsOnTheSurfaceItWasAimedAt(float nx, float ny, float nz,
+                                                          float pitch, float yaw, float roll)
+    {
+        var (context, engine) = Aimed(new Vector(nx, ny, nz));
+
+        Run<PropDynamicCreateCommand>(context, "props_junk/wood_crate001a");
 
         var angles = engine.Last("Entities.SetAngles")!.Value.ArgAs<Vector>(1);
-
-        Assert.True(angles.Y == 270f, "a created entity faces back at the player: yaw + 180");
-        Assert.True(angles.X == 0f && angles.Z == 0f,
-                    "and it is upright — the player's PITCH must not tip a spawned prop over");
+        Assert.Equal((pitch, yaw, roll), (MathF.Round(angles.X, 3), MathF.Round(angles.Y, 3), MathF.Round(angles.Z, 3)));
+        Assert.False(engine.Called("Entities.Teleport"), "a dynamic prop was lifted to fall");
+        Assert.Equal(new Vector(64f, 0f, 0f), engine.Last("Entities.SetOrigin")!.Value.ArgAs<Vector>(1));
     }
 
     //-------------------------------------------------------------------------
@@ -695,11 +740,13 @@ public class DevCommandsTests
         engine.Returns("Entities.GetEyeAngles", Vector.Zero);
         engine.Returns("Entities.GetIndex", 11);
         engine.Returns("Entities.GetBounds", (Vector.Zero, Vector.Zero));
+        engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 0.01f, new Vector(64f, 0f, 0f),
+                                                               new Vector(0f, 0f, 1f), EntityHandle.None));
 
         Run<PropDynamicCreateCommand>(context, "props_c17/door01a");
 
         Assert.True(engine.Last("Entities.Create")?.ArgAs<string>(0) == "prop_dynamic",
-                    "the two prop spellings differ in exactly one thing, and it is the class");
+                    "the dynamic spelling makes the dynamic class (its angles and placement are its own facts)");
     }
 
     //-------------------------------------------------------------------------
@@ -958,7 +1005,7 @@ public class DevCommandsTests
     //-------------------------------------------------------------------------
 
     /// <summary>An engine stubbed for everything the long form of a dump reads.</summary>
-    private static RecordingEngine Dumpable(RecordingEngine engine, string className = "ss_player")
+    private static RecordingEngine Dumpable(RecordingEngine engine, string className = "player")
         => Describable(engine, className)
             .Returns("Entities.GetOrigin", Vector.Zero)
             .Returns("Entities.GetAngles", Vector.Zero)
@@ -967,7 +1014,7 @@ public class DevCommandsTests
             .Returns("Entities.GetBounds", (Vector.Zero, Vector.Zero))
             .Returns("Entities.GetSpawnFlags", 0);
 
-    private static NetSchemaType TwoFieldSchema(string className = "ss_player")
+    private static NetSchemaType TwoFieldSchema(string className = "player")
         => NetSchemaType.Create(className, "SsPlayerState", NetSchemaShell.Standalone,
                new[]
                {
@@ -993,7 +1040,7 @@ public class DevCommandsTests
         var (context, engine, _, directory) = Rig();
         Dumpable(engine);
         directory.Classes.Add(new ScriptedClassInfo(
-            "ss_player", "Entity", "SsPlayer",
+            "player", "Entity", "SsPlayer",
             new[] { "AddOutput", "Kill", "SetHealth" },
             new[] { "OnDeath" },
             Array.Empty<ScriptedFieldInfo>(), 1));
@@ -1014,7 +1061,7 @@ public class DevCommandsTests
         var (context, engine, _, directory) = Rig();
         Dumpable(engine);
         directory.Classes.Add(new ScriptedClassInfo(
-            "ss_player", "Entity", "SsPlayer",
+            "player", "Entity", "SsPlayer",
             Array.Empty<string>(), Array.Empty<string>(),
             Array.Empty<ScriptedFieldInfo>(), 1));
 
@@ -1053,7 +1100,7 @@ public class DevCommandsTests
         var net = new FakeNetState
         {
             Schema = schema,
-            Blob = new NetEntityBlob(true, 11, Target.Value, "ss_player", Bytes(77, 25)),
+            Blob = new NetEntityBlob(true, 11, Target.Value, "player", Bytes(77, 25)),
         };
 
         string report = Dump(context, net, Target);
@@ -1087,7 +1134,7 @@ public class DevCommandsTests
             Schema = TwoFieldSchema(),
             // Room for the first field and not the second. Native sizes the
             // blob for the greediest class, so a short one is a real fault.
-            Blob = new NetEntityBlob(true, 11, Target.Value, "ss_player", new byte[4]),
+            Blob = new NetEntityBlob(true, 11, Target.Value, "player", new byte[4]),
         };
 
         string report = Dump(context, net, Target);
@@ -1134,13 +1181,13 @@ public class DevCommandsTests
         var (context, engine, _, directory) = Rig();
         Dumpable(engine);
         directory.Classes.Add(new ScriptedClassInfo(
-            "ss_player", "Entity", "SsPlayer", new[] { "Kill" }, new[] { "OnDeath" },
+            "player", "Entity", "SsPlayer", new[] { "Kill" }, new[] { "OnDeath" },
             Array.Empty<ScriptedFieldInfo>(), 1));
 
         var net = new FakeNetState
         {
             Schema = TwoFieldSchema(),
-            Blob = new NetEntityBlob(true, 11, Target.Value, "ss_player", Bytes(77, 25)),
+            Blob = new NetEntityBlob(true, 11, Target.Value, "player", Bytes(77, 25)),
         };
 
         string report = ((DescribeCommand)Build(typeof(EntNameCommand), context, net)).Report(Target);

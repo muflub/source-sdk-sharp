@@ -233,7 +233,7 @@ public sealed class LivenessMirror
 
         // THE SENTINEL IS ANSWERED, NOT DECLINED, and it is not a guess: it is
         // native's own early return moved one side of the boundary.
-        // SourceSharp_ResolveEntity opens with
+        // CServerEntityResolver::Resolve opens with
         //
         //     if ( hEntity == INVALID_EHANDLE_INDEX )
         //         return ent;      // all three arms NULL -> IsValid() false

@@ -73,28 +73,34 @@ class OpaqueBuffer
 public:
 	explicit OpaqueBuffer( size_t cch )
 		: m_cch( Hide( cch ) )
-		, m_pch( new char[ Hide( cch ) + 1 ] )
+		, m_pch( new char[Hide( cch ) + 1] )
 	{
 		memset( m_pch, 'X', m_cch + 1 );
 	}
 
-	~OpaqueBuffer() { delete [] m_pch; }
+	~OpaqueBuffer() { delete[] m_pch; }
 
-	char       *Data()  const { return m_pch; }
-	size_t      Size()  const { return m_cch; }
-	std::string Str()   const { return std::string( m_pch ); }
+	char *Data() const { return m_pch; }
+
+	size_t Size() const { return m_cch; }
+
+	std::string Str() const { return std::string( m_pch ); }
 
 	// Nothing was written past the length handed to the formatter.
-	bool SentinelIntact() const { return m_pch[ m_cch ] == 'X'; }
+	bool SentinelIntact() const { return m_pch[m_cch] == 'X'; }
 
 private:
-	static size_t Hide( size_t cch ) { volatile size_t v = cch; return v; }
+	static size_t Hide( size_t cch )
+	{
+		volatile size_t v = cch;
+		return v;
+	}
 
 	OpaqueBuffer( const OpaqueBuffer & );
 	OpaqueBuffer &operator=( const OpaqueBuffer & );
 
-	size_t  m_cch;
-	char   *m_pch;
+	size_t m_cch;
+	char *m_pch;
 };
 
 // Stand-in return addresses. The values are never dereferenced — only their
@@ -113,7 +119,7 @@ TEST( AssertStackKey, SameInputsGiveSameKey )
 	void *frames[] = { Frame( 0x1000 ), Frame( 0x2000 ), Frame( 0x3000 ) };
 
 	EXPECT_EQ( SourceSharpAssertStack_Key( "imesh.h", 1665, frames, 3 ),
-	           SourceSharpAssertStack_Key( "imesh.h", 1665, frames, 3 ) );
+			   SourceSharpAssertStack_Key( "imesh.h", 1665, frames, 3 ) );
 }
 
 TEST( AssertStackKey, DifferentLineIsADifferentReport )
@@ -123,7 +129,7 @@ TEST( AssertStackKey, DifferentLineIsADifferentReport )
 	// imesh.h has TWO asserts in Position3f, one line apart: the null check on
 	// 1664 and the finiteness check on 1665. They are different bugs.
 	EXPECT_NE( SourceSharpAssertStack_Key( "imesh.h", 1664, frames, 2 ),
-	           SourceSharpAssertStack_Key( "imesh.h", 1665, frames, 2 ) );
+			   SourceSharpAssertStack_Key( "imesh.h", 1665, frames, 2 ) );
 }
 
 TEST( AssertStackKey, DifferentFileIsADifferentReport )
@@ -131,18 +137,18 @@ TEST( AssertStackKey, DifferentFileIsADifferentReport )
 	void *frames[] = { Frame( 0x1000 ) };
 
 	EXPECT_NE( SourceSharpAssertStack_Key( "imesh.h", 100, frames, 1 ),
-	           SourceSharpAssertStack_Key( "c_tracer.cpp", 100, frames, 1 ) );
+			   SourceSharpAssertStack_Key( "c_tracer.cpp", 100, frames, 1 ) );
 }
 
 // The clause the whole probe exists for. One leaf, two callers: if the key
 // ignored the stack these would collapse and the report would be useless.
 TEST( AssertStackKey, SameAssertFromADifferentCallerIsADifferentReport )
 {
-	void *fromTracer[]   = { Frame( 0x1000 ), Frame( 0xAAAA ) };
+	void *fromTracer[] = { Frame( 0x1000 ), Frame( 0xAAAA ) };
 	void *fromParticle[] = { Frame( 0x1000 ), Frame( 0xBBBB ) };
 
 	EXPECT_NE( SourceSharpAssertStack_Key( "imesh.h", 1665, fromTracer, 2 ),
-	           SourceSharpAssertStack_Key( "imesh.h", 1665, fromParticle, 2 ) );
+			   SourceSharpAssertStack_Key( "imesh.h", 1665, fromParticle, 2 ) );
 }
 
 // The other half of the same trade-off: past the leading frames the stack does
@@ -150,42 +156,40 @@ TEST( AssertStackKey, SameAssertFromADifferentCallerIsADifferentReport )
 // report rather than a fresh one every frame.
 TEST( AssertStackKey, FramesPastTheKeyDepthDoNotTakePart )
 {
-	void *shortTail[ kSourceSharpAssertStackKeyFrames + 1 ];
-	void *longTail[ kSourceSharpAssertStackKeyFrames + 1 ];
+	void *shortTail[kSourceSharpAssertStackKeyFrames + 1];
+	void *longTail[kSourceSharpAssertStackKeyFrames + 1];
 
 	for ( int i = 0; i < kSourceSharpAssertStackKeyFrames; ++i )
 	{
-		shortTail[ i ] = Frame( 0x1000 + i );
-		longTail[ i ]  = Frame( 0x1000 + i );
+		shortTail[i] = Frame( 0x1000 + i );
+		longTail[i] = Frame( 0x1000 + i );
 	}
 
 	// Identical up to the key depth, different immediately after it.
-	shortTail[ kSourceSharpAssertStackKeyFrames ] = Frame( 0xDEAD );
-	longTail[ kSourceSharpAssertStackKeyFrames ]  = Frame( 0xBEEF );
+	shortTail[kSourceSharpAssertStackKeyFrames] = Frame( 0xDEAD );
+	longTail[kSourceSharpAssertStackKeyFrames] = Frame( 0xBEEF );
 
-	EXPECT_EQ( SourceSharpAssertStack_Key( "imesh.h", 1665, shortTail,
-	                                       kSourceSharpAssertStackKeyFrames + 1 ),
-	           SourceSharpAssertStack_Key( "imesh.h", 1665, longTail,
-	                                       kSourceSharpAssertStackKeyFrames + 1 ) );
+	EXPECT_EQ( SourceSharpAssertStack_Key( "imesh.h", 1665, shortTail, kSourceSharpAssertStackKeyFrames + 1 ),
+			   SourceSharpAssertStack_Key( "imesh.h", 1665, longTail, kSourceSharpAssertStackKeyFrames + 1 ) );
 }
 
 // ...and the boundary itself: the LAST frame inside the depth must still count.
 // Off by one here and the key silently uses five frames, not six.
 TEST( AssertStackKey, TheLastFrameInsideTheKeyDepthDoesTakePart )
 {
-	void *a[ kSourceSharpAssertStackKeyFrames ];
-	void *b[ kSourceSharpAssertStackKeyFrames ];
+	void *a[kSourceSharpAssertStackKeyFrames];
+	void *b[kSourceSharpAssertStackKeyFrames];
 
 	for ( int i = 0; i < kSourceSharpAssertStackKeyFrames; ++i )
 	{
-		a[ i ] = Frame( 0x1000 + i );
-		b[ i ] = Frame( 0x1000 + i );
+		a[i] = Frame( 0x1000 + i );
+		b[i] = Frame( 0x1000 + i );
 	}
 
-	b[ kSourceSharpAssertStackKeyFrames - 1 ] = Frame( 0xFEED );
+	b[kSourceSharpAssertStackKeyFrames - 1] = Frame( 0xFEED );
 
 	EXPECT_NE( SourceSharpAssertStack_Key( "imesh.h", 1665, a, kSourceSharpAssertStackKeyFrames ),
-	           SourceSharpAssertStack_Key( "imesh.h", 1665, b, kSourceSharpAssertStackKeyFrames ) );
+			   SourceSharpAssertStack_Key( "imesh.h", 1665, b, kSourceSharpAssertStackKeyFrames ) );
 }
 
 // A notify callback is a public entry point; a probe that crashes while
@@ -193,13 +197,11 @@ TEST( AssertStackKey, TheLastFrameInsideTheKeyDepthDoesTakePart )
 TEST( AssertStackKey, NullAndEmptyInputsAreTolerated )
 {
 	EXPECT_NO_FATAL_FAILURE( SourceSharpAssertStack_Key( NULL, 0, NULL, 0 ) );
-	EXPECT_EQ( SourceSharpAssertStack_Key( NULL, 7, NULL, 0 ),
-	           SourceSharpAssertStack_Key( NULL, 7, NULL, 0 ) );
+	EXPECT_EQ( SourceSharpAssertStack_Key( NULL, 7, NULL, 0 ), SourceSharpAssertStack_Key( NULL, 7, NULL, 0 ) );
 
 	// A negative count must not be read as a length.
 	void *frames[] = { Frame( 0x1000 ) };
-	EXPECT_EQ( SourceSharpAssertStack_Key( "x", 1, frames, -1 ),
-	           SourceSharpAssertStack_Key( "x", 1, NULL, 0 ) );
+	EXPECT_EQ( SourceSharpAssertStack_Key( "x", 1, frames, -1 ), SourceSharpAssertStack_Key( "x", 1, NULL, 0 ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -211,7 +213,7 @@ TEST( AssertStackDedup, FirstTimeReportsAndTheRestDoNot )
 	SourceSharpAssertStackSeen_t seen;
 	SourceSharpAssertStack_Reset( &seen );
 
-	bool bOverflow = true;   // must be cleared by the call
+	bool bOverflow = true; // must be cleared by the call
 	EXPECT_TRUE( SourceSharpAssertStack_ShouldReport( &seen, 42, &bOverflow ) );
 	EXPECT_FALSE( bOverflow );
 
@@ -272,11 +274,11 @@ TEST( AssertStackDedup, AFullTableStillRecognisesWhatItHolds )
 	for ( int i = 0; i < kSourceSharpAssertStackMaxSeen; ++i )
 		SourceSharpAssertStack_ShouldReport( &seen, (SourceSharpAssertStackKey_t)( i + 1 ), NULL );
 
-	SourceSharpAssertStack_ShouldReport( &seen, 100000, NULL );   // refused, table full
+	SourceSharpAssertStack_ShouldReport( &seen, 100000, NULL ); // refused, table full
 
 	EXPECT_FALSE( SourceSharpAssertStack_ShouldReport( &seen, 1, NULL ) );
-	EXPECT_FALSE( SourceSharpAssertStack_ShouldReport( &seen,
-		(SourceSharpAssertStackKey_t)kSourceSharpAssertStackMaxSeen, NULL ) );
+	EXPECT_FALSE( SourceSharpAssertStack_ShouldReport(
+		&seen, (SourceSharpAssertStackKey_t)kSourceSharpAssertStackMaxSeen, NULL ) );
 }
 
 TEST( AssertStackDedup, ResetEmptiesTheSetAndClearsTheFullNotice )
@@ -297,9 +299,9 @@ TEST( AssertStackDedup, ResetEmptiesTheSetAndClearsTheFullNotice )
 
 TEST( AssertStackFormat, ModuleAndOffsetAreWhatAddr2lineNeeds )
 {
-	char sz[ 256 ];
-	SourceSharpAssertStack_FormatFrame( sz, sizeof( sz ), 3,
-		"/game/bin/linux64/client.so", 0x7f0000000000ULL, 0x7f00001234abULL, "Tracer_Draw" );
+	char sz[256];
+	SourceSharpAssertStack_FormatFrame( sz, sizeof( sz ), 3, "/game/bin/linux64/client.so", 0x7f0000000000ULL,
+										0x7f00001234abULL, "Tracer_Draw" );
 
 	const std::string s( sz );
 	EXPECT_NE( s.find( "/game/bin/linux64/client.so" ), std::string::npos );
@@ -313,9 +315,9 @@ TEST( AssertStackFormat, ModuleAndOffsetAreWhatAddr2lineNeeds )
 // and entirely wrong — source line. Report it as unknown instead.
 TEST( AssertStackFormat, AnAddressBelowTheModuleBaseIsNotFormattedAsAnOffset )
 {
-	char sz[ 256 ];
-	SourceSharpAssertStack_FormatFrame( sz, sizeof( sz ), 0,
-		"/game/bin/linux64/client.so", 0x7f0000000000ULL, 0x100ULL, "Something" );
+	char sz[256];
+	SourceSharpAssertStack_FormatFrame( sz, sizeof( sz ), 0, "/game/bin/linux64/client.so", 0x7f0000000000ULL, 0x100ULL,
+										"Something" );
 
 	const std::string s( sz );
 	EXPECT_EQ( s.find( "client.so+" ), std::string::npos ) << s;
@@ -325,9 +327,8 @@ TEST( AssertStackFormat, AnAddressBelowTheModuleBaseIsNotFormattedAsAnOffset )
 
 TEST( AssertStackFormat, NoModuleFallsBackToTheAbsoluteAddress )
 {
-	char sz[ 256 ];
-	SourceSharpAssertStack_FormatFrame( sz, sizeof( sz ), 11,
-		NULL, 0, 0xCAFEBABEULL, NULL );
+	char sz[256];
+	SourceSharpAssertStack_FormatFrame( sz, sizeof( sz ), 11, NULL, 0, 0xCAFEBABEULL, NULL );
 
 	const std::string s( sz );
 	EXPECT_NE( s.find( "??" ), std::string::npos ) << s;
@@ -342,9 +343,8 @@ TEST( AssertStackFormat, NoModuleFallsBackToTheAbsoluteAddress )
 // The offset is still exact, so the line is still the answer.
 TEST( AssertStackFormat, NoSymbolStillLeavesAUsableOffset )
 {
-	char sz[ 256 ];
-	SourceSharpAssertStack_FormatFrame( sz, sizeof( sz ), 1,
-		"/lib/client.so", 0x1000ULL, 0x1ABCULL, NULL );
+	char sz[256];
+	SourceSharpAssertStack_FormatFrame( sz, sizeof( sz ), 1, "/lib/client.so", 0x1000ULL, 0x1ABCULL, NULL );
 
 	const std::string s( sz );
 	EXPECT_NE( s.find( "+0x00000abc" ), std::string::npos ) << s;
@@ -355,27 +355,27 @@ TEST( AssertStackFormat, TruncationIsSafeAndReported )
 {
 	OpaqueBuffer buf( 16 );
 
-	const int nWritten = SourceSharpAssertStack_FormatFrame( buf.Data(), buf.Size(), 0,
-		"/a/very/long/path/to/a/module/that/will/not/fit/client.so",
-		0x1000ULL, 0x2000ULL, "AnAwfullyLongSymbolNameIndeed" );
+	const int nWritten = SourceSharpAssertStack_FormatFrame(
+		buf.Data(), buf.Size(), 0, "/a/very/long/path/to/a/module/that/will/not/fit/client.so", 0x1000ULL, 0x2000ULL,
+		"AnAwfullyLongSymbolNameIndeed" );
 
 	// Never past the end, always terminated, never claims to have written more
 	// than it did.
 	EXPECT_LT( nWritten, (int)buf.Size() );
-	EXPECT_EQ( buf.Data()[ buf.Size() - 1 ], '\0' );
+	EXPECT_EQ( buf.Data()[buf.Size() - 1], '\0' );
 	EXPECT_EQ( (int)strlen( buf.Data() ), nWritten );
 	EXPECT_TRUE( buf.SentinelIntact() );
 }
 
 TEST( AssertStackFormat, ADegenerateBufferIsRefusedRatherThanWritten )
 {
-	char sz[ 4 ] = { 'a', 'b', 'c', '\0' };
+	char sz[4] = { 'a', 'b', 'c', '\0' };
 
 	EXPECT_EQ( 0, SourceSharpAssertStack_FormatFrame( NULL, 100, 0, "m", 0, 1, "s" ) );
 	EXPECT_EQ( 0, SourceSharpAssertStack_FormatFrame( sz, 0, 0, "m", 0, 1, "s" ) );
 
 	// cchOut == 0 must not have touched the buffer.
-	EXPECT_EQ( sz[ 0 ], 'a' );
+	EXPECT_EQ( sz[0], 'a' );
 }
 
 //-----------------------------------------------------------------------------
@@ -395,21 +395,19 @@ TEST( AssertStackFormat, ADegenerateBufferIsRefusedRatherThanWritten )
 // Long enough that no buffer here can hold it: the module path and the symbol
 // are what get to four figures in a real report, where dli_sname is the
 // undemangled _ZN name.
-const char *const kLongModule =
-	"/data/somebody/a/deeply/nested/checkout/game/mod_sharp/bin/linux64/client.so";
-const char *const kLongSymbol =
-	"_ZN20CVertexBuilderDetail9Position3fERKN9CMeshData19SomewhatLongTypeNameE";
+const char *const kLongModule = "/data/somebody/a/deeply/nested/checkout/game/mod_sharp/bin/linux64/client.so";
+const char *const kLongSymbol = "_ZN20CVertexBuilderDetail9Position3fERKN9CMeshData19SomewhatLongTypeNameE";
 
 TEST( AssertStackFormatLine, EndsInANewlineWhenEverythingFits )
 {
-	char sz[ 512 ];
+	char sz[512];
 
-	const int nLen = SourceSharpAssertStack_FormatFrameLine( sz, sizeof( sz ), 7,
-		"client.so", 0x1000ULL, 0x1abcULL, "Symbol" );
+	const int nLen =
+		SourceSharpAssertStack_FormatFrameLine( sz, sizeof( sz ), 7, "client.so", 0x1000ULL, 0x1abcULL, "Symbol" );
 
 	ASSERT_GT( nLen, 0 );
 	EXPECT_EQ( (int)strlen( sz ), nLen );
-	EXPECT_EQ( '\n', sz[ nLen - 1 ] );
+	EXPECT_EQ( '\n', sz[nLen - 1] );
 
 	// Exactly one newline, and it is the last character.
 	EXPECT_EQ( (size_t)( nLen - 1 ), std::string( sz ).find( '\n' ) ) << sz;
@@ -421,16 +419,15 @@ TEST( AssertStackFormatLine, TheNewlineSurvivesAFrameThatDoesNotFit )
 {
 	OpaqueBuffer buf( 24 );
 
-	const int nLen = SourceSharpAssertStack_FormatFrameLine( buf.Data(), buf.Size(), 0,
-		kLongModule, 0x1000ULL, 0x2000ULL, kLongSymbol );
+	const int nLen = SourceSharpAssertStack_FormatFrameLine( buf.Data(), buf.Size(), 0, kLongModule, 0x1000ULL,
+															 0x2000ULL, kLongSymbol );
 
 	ASSERT_GT( nLen, 0 );
 	EXPECT_LT( nLen, (int)buf.Size() );
 	EXPECT_EQ( (int)strlen( buf.Data() ), nLen );
-	EXPECT_EQ( '\0', buf.Data()[ buf.Size() - 1 ] );
+	EXPECT_EQ( '\0', buf.Data()[buf.Size() - 1] );
 	EXPECT_TRUE( buf.SentinelIntact() );
-	EXPECT_EQ( '\n', buf.Data()[ nLen - 1 ] )
-		<< "the line ran out of room and lost its ending: " << buf.Str();
+	EXPECT_EQ( '\n', buf.Data()[nLen - 1] ) << "the line ran out of room and lost its ending: " << buf.Str();
 }
 
 // The same at every size from "only a newline fits" upwards, because the bug
@@ -440,36 +437,36 @@ TEST( AssertStackFormatLine, EverySizeThatCanHoldALineEndsInOne )
 {
 	for ( size_t cch = 2; cch <= 200; ++cch )
 	{
-		char sz[ 256 ];
+		char sz[256];
 		memset( sz, 'X', sizeof( sz ) );
 
-		const int nLen = SourceSharpAssertStack_FormatFrameLine( sz, cch, 3,
-			kLongModule, 0x1000ULL, 0x2000ULL, kLongSymbol );
+		const int nLen =
+			SourceSharpAssertStack_FormatFrameLine( sz, cch, 3, kLongModule, 0x1000ULL, 0x2000ULL, kLongSymbol );
 
 		ASSERT_GT( nLen, 0 ) << "cch=" << cch;
 		ASSERT_LT( (size_t)nLen, cch ) << "cch=" << cch;
 		ASSERT_EQ( (int)strlen( sz ), nLen ) << "cch=" << cch;
-		ASSERT_EQ( '\n', sz[ nLen - 1 ] ) << "cch=" << cch << " line='" << sz << "'";
+		ASSERT_EQ( '\n', sz[nLen - 1] ) << "cch=" << cch << " line='" << sz << "'";
 
 		// Nothing written past what it claims.
-		ASSERT_EQ( 'X', sz[ cch ] ) << "cch=" << cch;
+		ASSERT_EQ( 'X', sz[cch] ) << "cch=" << cch;
 	}
 }
 
 TEST( AssertStackFormatLine, ABufferWithNoRoomForALineIsRefused )
 {
-	char sz[ 4 ] = { 'a', 'b', 'c', '\0' };
+	char sz[4] = { 'a', 'b', 'c', '\0' };
 
 	EXPECT_EQ( 0, SourceSharpAssertStack_FormatFrameLine( NULL, 100, 0, "m", 0, 1, "s" ) );
 
 	// cchOut == 0 must not have touched the buffer.
 	EXPECT_EQ( 0, SourceSharpAssertStack_FormatFrameLine( sz, 0, 0, "m", 0, 1, "s" ) );
-	EXPECT_EQ( 'a', sz[ 0 ] );
+	EXPECT_EQ( 'a', sz[0] );
 
 	// One byte is room for a terminator and nothing else -- there is no line to
 	// write, so the answer is an empty string rather than a stray newline.
 	EXPECT_EQ( 0, SourceSharpAssertStack_FormatFrameLine( sz, 1, 0, "m", 0, 1, "s" ) );
-	EXPECT_EQ( '\0', sz[ 0 ] );
+	EXPECT_EQ( '\0', sz[0] );
 }
 
 //-----------------------------------------------------------------------------
@@ -539,11 +536,11 @@ TEST( AssertStackCounter, WhatTheHookWritesIsWhatComesBack )
 	// The round trip the hook actually performs: snprintf "%lld", then parse.
 	const long long llValues[] = { 0, 1, 9, 128, 4096, 2147483648LL };
 
-	for ( size_t i = 0; i < sizeof( llValues ) / sizeof( llValues[ 0 ] ); ++i )
+	for ( size_t i = 0; i < sizeof( llValues ) / sizeof( llValues[0] ); ++i )
 	{
-		char sz[ 32 ];
-		snprintf( sz, sizeof( sz ), "%lld", llValues[ i ] );
-		EXPECT_EQ( llValues[ i ], SourceSharpAssertStack_ParseCounter( sz ) );
+		char sz[32];
+		snprintf( sz, sizeof( sz ), "%lld", llValues[i] );
+		EXPECT_EQ( llValues[i], SourceSharpAssertStack_ParseCounter( sz ) );
 	}
 }
 
@@ -595,13 +592,13 @@ TEST( AssertFatality, DeliberateBeatsFatalEvenWithoutAssertLog )
 	// no help from -assertlog. Swap the two tests in the implementation and
 	// every other fact here still passes.
 	EXPECT_FALSE( SourceSharp_AssertShouldBeFatal( true, true, false, true ) );
-	EXPECT_TRUE ( SourceSharp_AssertShouldBeFatal( true, true, false, false ) );
+	EXPECT_TRUE( SourceSharp_AssertShouldBeFatal( true, true, false, false ) );
 }
 
 TEST( AssertFatality, FatalOffMeansNothingIsFatal )
 {
 	EXPECT_FALSE( SourceSharp_AssertShouldBeFatal( true, false, false, false ) );
-	EXPECT_FALSE( SourceSharp_AssertShouldBeFatal( true, false, true,  true  ) );
+	EXPECT_FALSE( SourceSharp_AssertShouldBeFatal( true, false, true, true ) );
 }
 
 //=============================================================================//
@@ -624,7 +621,7 @@ TEST( AssertFatality, FatalOffMeansNothingIsFatal )
 TEST( SpewEcho, OurOwnLineIsEchoed )
 {
 	EXPECT_TRUE( SourceSharp_SpewShouldEcho( /*claimed=*/true, /*stack=*/false,
-	                                         /*ours=*/true, /*fatal=*/false ) );
+											 /*ours=*/true, /*fatal=*/false ) );
 }
 
 TEST( SpewEcho, SomebodyElsesOrdinaryLineIsNot )
@@ -632,7 +629,7 @@ TEST( SpewEcho, SomebodyElsesOrdinaryLineIsNot )
 	// The prefix filter's whole purpose: the terminal is not a second copy of
 	// the engine console. console.log already is that.
 	EXPECT_FALSE( SourceSharp_SpewShouldEcho( true, false, /*ours=*/false,
-	                                          /*fatal=*/false ) );
+											  /*fatal=*/false ) );
 }
 
 TEST( SpewEcho, AFatalLineFromOutsideThisDllIsEchoed )
@@ -641,7 +638,7 @@ TEST( SpewEcho, AFatalLineFromOutsideThisDllIsEchoed )
 	// the last thing the process says; before this it was dropped and three
 	// crashes were reported as a stack smash in the managed runtime.
 	EXPECT_TRUE( SourceSharp_SpewShouldEcho( true, false, /*ours=*/false,
-	                                         /*fatal=*/true ) );
+											 /*fatal=*/true ) );
 }
 
 TEST( SpewEcho, TheDllThatDidNotClaimTheEchoStaysQuietEvenForAFatal )
@@ -650,9 +647,9 @@ TEST( SpewEcho, TheDllThatDidNotClaimTheEchoStaysQuietEvenForAFatal )
 	// Without the claim a fatal prints twice — and the claim has to beat
 	// fatality for that, which is the precedence this fact pins.
 	EXPECT_FALSE( SourceSharp_SpewShouldEcho( /*claimed=*/false, false,
-	                                          /*ours=*/false, /*fatal=*/true ) );
+											  /*ours=*/false, /*fatal=*/true ) );
 	EXPECT_FALSE( SourceSharp_SpewShouldEcho( /*claimed=*/false, false,
-	                                          /*ours=*/true, /*fatal=*/false ) );
+											  /*ours=*/true, /*fatal=*/false ) );
 }
 
 TEST( SpewEcho, AnAssertStackReportMidWriteIsNotEchoedOverEvenWhenFatal )
@@ -660,9 +657,9 @@ TEST( SpewEcho, AnAssertStackReportMidWriteIsNotEchoedOverEvenWhenFatal )
 	// The -assertstack hook puts every line on stderr itself and then sends the
 	// same line down the chain to reach console.log. Echoing here doubles it.
 	EXPECT_FALSE( SourceSharp_SpewShouldEcho( true, /*stack=*/true,
-	                                          /*ours=*/true, /*fatal=*/false ) );
+											  /*ours=*/true, /*fatal=*/false ) );
 	EXPECT_FALSE( SourceSharp_SpewShouldEcho( true, /*stack=*/true,
-	                                          /*ours=*/false, /*fatal=*/true ) );
+											  /*ours=*/false, /*fatal=*/true ) );
 }
 
 //=============================================================================//
@@ -682,8 +679,8 @@ TEST( SpewEcho, AnAssertStackReportMidWriteIsNotEchoedOverEvenWhenFatal )
 TEST( FatalSpewStack, AFatalGetsAStack )
 {
 	EXPECT_TRUE( SourceSharp_FatalSpewShouldWriteStack( /*fatal=*/true,
-	                                                    /*written=*/false,
-	                                                    /*stackWriting=*/false ) );
+														/*written=*/false,
+														/*stackWriting=*/false ) );
 }
 
 TEST( FatalSpewStack, AnOrdinaryLineDoesNot )
@@ -696,11 +693,11 @@ TEST( FatalSpewStack, AnOrdinaryLineDoesNot )
 TEST( FatalSpewStack, TheSecondFatalDoesNotPrintTheStackAgain )
 {
 	EXPECT_FALSE( SourceSharp_FatalSpewShouldWriteStack( /*fatal=*/true,
-	                                                     /*written=*/true, false ) );
+														 /*written=*/true, false ) );
 }
 
 TEST( FatalSpewStack, AReportMidWriteIsNotWalkedIntoAgain )
 {
 	EXPECT_FALSE( SourceSharp_FatalSpewShouldWriteStack( /*fatal=*/true, false,
-	                                                     /*stackWriting=*/true ) );
+														 /*stackWriting=*/true ) );
 }

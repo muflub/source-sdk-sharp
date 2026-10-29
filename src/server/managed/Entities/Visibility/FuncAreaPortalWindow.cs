@@ -65,6 +65,11 @@ public sealed class FuncAreaPortalWindow : ScriptedEntity
 
     public override void OnSpawn()
     {
+        // Nothing to walk into: stock's Spawn never sets a solid type, so the
+        // window is SOLID_NONE. A brush here starts SOLID_BSP and solid, and
+        // the window stood as an invisible wall (stock-ab's solidity census).
+        SetSolidity(SolidType.None, SolidFlags.None);
+
         State.FadeStartDist        = Vars.FadeStartDist;
         State.FadeDist             = Vars.FadeDist;
         State.TranslucencyLimit    = Vars.TranslucencyLimit;

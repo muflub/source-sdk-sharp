@@ -77,35 +77,62 @@ void Trap()
 struct Fake_t
 {
 	void **pVtbl;
-	void *pTable[ kSlots ];
+	void *pTable[kSlots];
 	int nId;
-	explicit Fake_t( int id ) : pVtbl( pTable ), nId( id )
+
+	explicit Fake_t( int id )
+		: pVtbl( pTable )
+		, nId( id )
 	{
 		for ( int i = 0; i < kSlots; i++ )
-			pTable[ i ] = (void *)&Trap;
+			pTable[i] = (void *)&Trap;
 	}
-	template < typename Fn, typename Impl >
+
+	template <typename Fn, typename Impl>
 	void Set( Fn pmf, Impl impl )
 	{
 		const int slot = VTableHook::MemberOf( pmf ).slot;
 		ASSERT_GE( slot, 0 );
 		ASSERT_LT( slot, kSlots );
-		pTable[ slot ] = (void *)impl;
+		pTable[slot] = (void *)impl;
 	}
 };
 
-std::string Name( const void *p ) { return p ? "#" + std::to_string( static_cast< const Fake_t * >( p )->nId ) : "null"; }
-std::string Str( const char *p ) { return p ? p : "(null)"; }
+std::string Name( const void *p )
+{
+	return p ? "#" + std::to_string( static_cast<const Fake_t *>( p )->nId ) : "null";
+}
 
-void IncRef( void *self ) { Log( "inc\t" + Name( self ) ); }
-void DecRef( void *self ) { Log( "dec\t" + Name( self ) ); }
-void DeleteIfUnref( void *self ) { Log( "deleteifunref\t" + Name( self ) ); }
-bool IsError( const void *self ) { Log( "iserror\t" + Name( self ) ); return false; }
+std::string Str( const char *p )
+{
+	return p ? p : "(null)";
+}
+
+void IncRef( void *self )
+{
+	Log( "inc\t" + Name( self ) );
+}
+
+void DecRef( void *self )
+{
+	Log( "dec\t" + Name( self ) );
+}
+
+void DeleteIfUnref( void *self )
+{
+	Log( "deleteifunref\t" + Name( self ) );
+}
+
+bool IsError( const void *self )
+{
+	Log( "iserror\t" + Name( self ) );
+	return false;
+}
 
 // One texture per name, numbered in the order first asked for, so a find
 // that comes back answers the same texture.
-std::vector< Fake_t * > g_Textures;
-std::map< std::string, Fake_t * > g_TexturesByName;
+std::vector<Fake_t *> g_Textures;
+std::map<std::string, Fake_t *> g_TexturesByName;
 Fake_t g_System( 100 );
 MaterialBufferReleaseFunc_t g_pRelease = NULL;
 int g_nReleaseFuncs = 0;
@@ -113,7 +140,7 @@ int g_nReleaseFuncs = 0;
 ITexture *FindTexture( void *, const char *pName, const char *pGroup, bool bComplain, int nFlags )
 {
 	Log( "findtexture\t" + Str( pName ) + "\t" + Str( pGroup ) + "\t" + std::to_string( bComplain ? 1 : 0 ) + "\t" +
-	     std::to_string( nFlags ) );
+		 std::to_string( nFlags ) );
 	auto it = g_TexturesByName.find( Str( pName ) );
 	if ( it != g_TexturesByName.end() )
 		return (ITexture *)it->second;
@@ -123,7 +150,7 @@ ITexture *FindTexture( void *, const char *pName, const char *pGroup, bool bComp
 	pTex->Set( &ITexture::DeleteIfUnreferenced, &DeleteIfUnref );
 	pTex->Set( &ITexture::IsError, &IsError );
 	g_Textures.push_back( pTex );
-	g_TexturesByName[ Str( pName ) ] = pTex;
+	g_TexturesByName[Str( pName )] = pTex;
 	return (ITexture *)pTex;
 }
 
@@ -183,18 +210,30 @@ typedef ITexture *( *GetFn_t )( const Getter_t & );
 ITexture *StockGet( const Getter_t &g )
 {
 	const std::string n = g.pszName;
-	if ( n == "GetPowerOfTwoFrameBufferTexture" ) return GetPowerOfTwoFrameBufferTexture();
-	if ( n == "GetFullFrameFrameBufferTexture" ) return GetFullFrameFrameBufferTexture( g.nArg );
-	if ( n == "GetWaterReflectionTexture" ) return GetWaterReflectionTexture();
-	if ( n == "GetWaterRefractionTexture" ) return GetWaterRefractionTexture();
-	if ( n == "GetFullscreenTexture" ) return GetFullscreenTexture();
-	if ( n == "GetCameraTexture" ) return GetCameraTexture();
-	if ( n == "GetFullFrameDepthTexture" ) return GetFullFrameDepthTexture();
-	if ( n == "GetSmallBufferHDR0" ) return GetSmallBufferHDR0();
-	if ( n == "GetSmallBufferHDR1" ) return GetSmallBufferHDR1();
-	if ( n == "GetSmallBuffer0" ) return GetSmallBuffer0();
-	if ( n == "GetSmallBuffer1" ) return GetSmallBuffer1();
-	if ( n == "GetTeenyTexture" ) return GetTeenyTexture( g.nArg );
+	if ( n == "GetPowerOfTwoFrameBufferTexture" )
+		return GetPowerOfTwoFrameBufferTexture();
+	if ( n == "GetFullFrameFrameBufferTexture" )
+		return GetFullFrameFrameBufferTexture( g.nArg );
+	if ( n == "GetWaterReflectionTexture" )
+		return GetWaterReflectionTexture();
+	if ( n == "GetWaterRefractionTexture" )
+		return GetWaterRefractionTexture();
+	if ( n == "GetFullscreenTexture" )
+		return GetFullscreenTexture();
+	if ( n == "GetCameraTexture" )
+		return GetCameraTexture();
+	if ( n == "GetFullFrameDepthTexture" )
+		return GetFullFrameDepthTexture();
+	if ( n == "GetSmallBufferHDR0" )
+		return GetSmallBufferHDR0();
+	if ( n == "GetSmallBufferHDR1" )
+		return GetSmallBufferHDR1();
+	if ( n == "GetSmallBuffer0" )
+		return GetSmallBuffer0();
+	if ( n == "GetSmallBuffer1" )
+		return GetSmallBuffer1();
+	if ( n == "GetTeenyTexture" )
+		return GetTeenyTexture( g.nArg );
 	ADD_FAILURE() << "no getter " << n;
 	return NULL;
 }
@@ -246,8 +285,15 @@ std::string RepoFile( const char *pszRel )
 	return std::string( pszRepo ? pszRepo : "." ) + "/" + pszRel;
 }
 
-std::string GoldenPath() { return RepoFile( "src/test/client/Fixtures/rendertexture-stock.tsv" ); }
-std::string MarkerPath() { return RepoFile( "src/test/oracle/native/rendertexture_golden.regen" ); }
+std::string GoldenPath()
+{
+	return RepoFile( "src/test/client/Fixtures/rendertexture-stock.tsv" );
+}
+
+std::string MarkerPath()
+{
+	return RepoFile( "src/test/oracle/native/rendertexture_golden.regen" );
+}
 
 std::string ReadGolden()
 {
@@ -271,9 +317,9 @@ void ExpectSameLines( const std::string &run, const std::string &golden, const c
 		++n;
 		if ( !ha && !hb )
 			break;
-		ASSERT_TRUE( ha && hb && la == lb ) << "line " << n << ": " << pszWho << " writes\n  " << ( ha ? la : "<end>" )
-			<< "\nand the golden has\n  " << ( hb ? lb : "<end>" )
-			<< "\nDo NOT regenerate the golden to make this pass; see the file header.";
+		ASSERT_TRUE( ha && hb && la == lb )
+			<< "line " << n << ": " << pszWho << " writes\n  " << ( ha ? la : "<end>" ) << "\nand the golden has\n  "
+			<< ( hb ? lb : "<end>" ) << "\nDo NOT regenerate the golden to make this pass; see the file header.";
 	}
 }
 
@@ -300,14 +346,22 @@ TEST( RenderTextureOracle, StockProducesTheGolden )
 TEST( RenderTextureOracle, TheScriptReachesEveryArm )
 {
 	const std::string run = RunScript();
-	struct Arm_t { const char *pszNeedle; const char *pszWhat; };
+
+	struct Arm_t
+	{
+		const char *pszNeedle;
+		const char *pszWhat;
+	};
+
 	static const Arm_t kArms[] = {
-		{ "findtexture\t_rt_PowerOfTwoFB\tRenderTargets\t1\t0\ninc\t#1\naddreleasefunc\t1\n", "the first find registered the release function" },
+		{ "findtexture\t_rt_PowerOfTwoFB\tRenderTargets\t1\t0\ninc\t#1\naddreleasefunc\t1\n",
+		  "the first find registered the release function" },
 		{ "findtexture\t_rt_FullFrameFB\tRenderTargets", "index 0 of the frame buffers has no number" },
 		{ "findtexture\t_rt_FullFrameFB3\tRenderTargets", "index 3 of the frame buffers is numbered" },
 		{ "findtexture\t_rt_TeenyFB2\tRenderTargets", "the teeny textures are numbered" },
 		{ "phase\trelease\ndec\t#1\n", "the release function dropped the first reference" },
-		{ "phase\tafter\nG\tGetPowerOfTwoFrameBufferTexture\t-\nfindtexture\t_rt_PowerOfTwoFB", "a released texture is found again" },
+		{ "phase\tafter\nG\tGetPowerOfTwoFrameBufferTexture\t-\nfindtexture\t_rt_PowerOfTwoFB",
+		  "a released texture is found again" },
 		{ "G\tGetFullscreenTexture\t-\nholds\t#", "a getter answered a texture" },
 	};
 	for ( const Arm_t &arm : kArms )
@@ -320,7 +374,7 @@ TEST( RenderTextureOracle, TheScriptReachesEveryArm )
 	// texture's only find is the first pass's.
 	size_t n = 0;
 	for ( size_t at = run.find( "findtexture\t_rt_Fullscreen\t" ); at != std::string::npos;
-	      at = run.find( "findtexture\t_rt_Fullscreen\t", at + 1 ) )
+		  at = run.find( "findtexture\t_rt_Fullscreen\t", at + 1 ) )
 		++n;
 	EXPECT_EQ( n, 1u ) << "the fullscreen texture should be found once and kept across the release";
 
@@ -347,16 +401,19 @@ namespace
 
 CRenderTargetStore g_Store;
 
-void StoreRelease() { g_Store.Release(); }
+void StoreRelease()
+{
+	g_Store.Release();
+}
 
 // A getter's slot: its row in kGetters, which is rendertexture.h's order and
 // the store's SS_RT_* numbering.
 int SlotOf( const std::string &getter, const std::string &arg )
 {
 	const int nArg = arg == "-" ? -1 : atoi( arg.c_str() );
-	for ( int i = 0; i < (int)( sizeof( kGetters ) / sizeof( kGetters[ 0 ] ) ); i++ )
+	for ( int i = 0; i < (int)( sizeof( kGetters ) / sizeof( kGetters[0] ) ); i++ )
 	{
-		if ( getter == kGetters[ i ].pszName && nArg == kGetters[ i ].nArg )
+		if ( getter == kGetters[i].pszName && nArg == kGetters[i].nArg )
 			return i;
 	}
 	return -1;
@@ -374,38 +431,38 @@ struct GoldenRow_t
 };
 
 // The rows, from the golden's own lines.
-std::vector< GoldenRow_t > RowsFromGolden( const std::string &golden )
+std::vector<GoldenRow_t> RowsFromGolden( const std::string &golden )
 {
-	std::vector< GoldenRow_t > rows( SS_RT_COUNT );
-	std::map< std::string, int > slotOfTexture;
+	std::vector<GoldenRow_t> rows( SS_RT_COUNT );
+	std::map<std::string, int> slotOfTexture;
 	int nReleased = 0;
 	std::istringstream in( golden );
 	std::string line, phase;
 	int slot = -1;
 	while ( std::getline( in, line ) )
 	{
-		std::vector< std::string > f;
+		std::vector<std::string> f;
 		std::istringstream ls( line );
 		std::string c;
 		while ( std::getline( ls, c, '\t' ) )
 			f.push_back( c );
 		if ( f.size() < 2 )
 			continue;
-		if ( f[ 0 ] == "phase" )
-			phase = f[ 1 ];
-		else if ( f[ 0 ] == "G" && f.size() == 3 )
-			slot = SlotOf( f[ 1 ], f[ 2 ] );
-		else if ( f[ 0 ] == "findtexture" && phase == "first" && slot >= 0 && f.size() == 5 )
+		if ( f[0] == "phase" )
+			phase = f[1];
+		else if ( f[0] == "G" && f.size() == 3 )
+			slot = SlotOf( f[1], f[2] );
+		else if ( f[0] == "findtexture" && phase == "first" && slot >= 0 && f.size() == 5 )
 		{
-			rows[ slot ].Name = f[ 1 ];
-			rows[ slot ].Group = f[ 2 ];
-			rows[ slot ].Complain = atoi( f[ 3 ].c_str() );
-			rows[ slot ].Flags = atoi( f[ 4 ].c_str() );
+			rows[slot].Name = f[1];
+			rows[slot].Group = f[2];
+			rows[slot].Complain = atoi( f[3].c_str() );
+			rows[slot].Flags = atoi( f[4].c_str() );
 		}
-		else if ( f[ 0 ] == "holds" && phase == "first" && slot >= 0 )
-			slotOfTexture[ f[ 1 ] ] = slot;
-		else if ( f[ 0 ] == "dec" && phase == "release" && slotOfTexture.count( f[ 1 ] ) )
-			rows[ slotOfTexture[ f[ 1 ] ] ].ReleaseOrder = ++nReleased;
+		else if ( f[0] == "holds" && phase == "first" && slot >= 0 )
+			slotOfTexture[f[1]] = slot;
+		else if ( f[0] == "dec" && phase == "release" && slotOfTexture.count( f[1] ) )
+			rows[slotOfTexture[f[1]]].ReleaseOrder = ++nReleased;
 	}
 	return rows;
 }
@@ -418,9 +475,9 @@ TEST( RenderTextureOracle, OurStoreMakesStocksCalls )
 	ASSERT_FALSE( golden.empty() ) << GoldenPath() << " is missing or empty";
 
 	// Every getter is a slot, in order.
-	ASSERT_EQ( (int)( sizeof( kGetters ) / sizeof( kGetters[ 0 ] ) ), (int)SS_RT_COUNT );
+	ASSERT_EQ( (int)( sizeof( kGetters ) / sizeof( kGetters[0] ) ), (int)SS_RT_COUNT );
 
-	const std::vector< GoldenRow_t > rows = RowsFromGolden( golden );
+	const std::vector<GoldenRow_t> rows = RowsFromGolden( golden );
 	int named = 0, released = 0;
 	for ( const GoldenRow_t &r : rows )
 	{
@@ -436,8 +493,9 @@ TEST( RenderTextureOracle, OurStoreMakesStocksCalls )
 	g_Store.Reset();
 	g_Store.SetReleaseFunc( &StoreRelease );
 	for ( int i = 0; i < SS_RT_COUNT; i++ )
-		ASSERT_TRUE( g_Store.Declare( i, rows[ i ].Name.c_str(), rows[ i ].Group.c_str(), rows[ i ].Complain,
-		                              rows[ i ].Flags, rows[ i ].ReleaseOrder ) ) << "slot " << i;
+		ASSERT_TRUE( g_Store.Declare( i, rows[i].Name.c_str(), rows[i].Group.c_str(), rows[i].Complain, rows[i].Flags,
+									  rows[i].ReleaseOrder ) )
+			<< "slot " << i;
 	EXPECT_EQ( g_Log.find( "findtexture" ), std::string::npos ) << "a declaration found a texture before its first use";
 
 	g_Log.clear();
@@ -490,5 +548,6 @@ TEST( RenderTextureOracle, TheStoreKeepsAReferenceAcrossTheSameDeclaration )
 	ASSERT_TRUE( g_Store.Declare( 3, "_rt_b", "RenderTargets", 1, 0, 1 ) );
 	ITexture *pSecond = g_Store.Get( 3 );
 	EXPECT_NE( pSecond, pFirst );
-	EXPECT_EQ( g_Log, "dec\t" + Name( pFirst ) + "\nfindtexture\t_rt_b\tRenderTargets\t1\t0\ninc\t" + Name( pSecond ) + "\n" );
+	EXPECT_EQ( g_Log,
+			   "dec\t" + Name( pFirst ) + "\nfindtexture\t_rt_b\tRenderTargets\t1\t0\ninc\t" + Name( pSecond ) + "\n" );
 }

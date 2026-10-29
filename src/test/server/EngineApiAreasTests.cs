@@ -31,8 +31,9 @@ public partial class EngineApiAreasTests
         // An anti-vacuous floor, not a count: the slots leave as their work
         // goes managed (300 at the entity physics init's ABI, 2026-10-12;
         // 250 -> 200 when plan_server_native_v2 T2 deleted the dead ones).
-        // A floor for the reader: 200 -> 150 as the port folds slots (199 at 2026-10-19).
-        Assert.True(served.Count > 150, $"the census found the server's slots ({served.Count})");
+        // A floor for the reader: 200 -> 150 as the port folds slots (199 at 2026-10-19);
+        // 150 -> 125 at 149 (plan_server_native_v2 T4, 2026-10-26).
+        Assert.True(served.Count > 125, $"the census found the server's slots ({served.Count})");
         Assert.DoesNotContain(served, s => rows.Count(r => r.Slot == s) != 1);
         // A client-only row (plan_client_vtables CC) is the kind rule's to check.
         Assert.Empty(rows.Where(r => r.Kind != "client" && !served.Contains(r.Slot)).Select(r => r.Slot));
@@ -154,18 +155,27 @@ public partial class EngineApiAreasTests
     /// plan_client_vtables CB, CC: the client implements each shared base and
     /// each client-only area by forwarding to a body. Since CC-last there is no
     /// struct fill to compare with, so every client forward must call exactly
-    /// the body its row names (client_body where the client's differs).
+    /// the body its row names (client_body where the client's differs). A row
+    /// whose client body is a class's method (T6 part 3) has no forward: the
+    /// class is the area, held by pointer and acquired through it.
     /// </summary>
     [Fact]
     public void EveryClientForwardCallsItsRowsBody()
     {
-        string forwards = File.ReadAllText(RepoLayout.Repo("src", "shared", "native", "shell_shim_areas_client.inc"));
-        var calls = Regex.Matches(forwards, @"\bCShim\w+::(\w+)\([^)]*\)\s*\n\s*\{ return ::(\w+)\(")
+        string forwards = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_shim_areas_client.cpp"));
+        var calls = Regex.Matches(forwards, @"\bCShim\w+::(\w+)\([^)]*\)\s*\{\s*return ::(\w+)\(")
                          .ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value);
 
-        var rows = Rows().Where(r => r.Struct == "EngineApi" && r.Kind is "shared" or "client"
-                                     && r.Interface is not ("IShimConsole" or "IShimRoot")).ToList();
+        var served = Rows().Where(r => r.Struct == "EngineApi" && r.Kind is "shared" or "client"
+                                       && r.Interface is not ("IShimConsole" or "IShimRoot")).ToList();
+        static string ClientBody(Row r) => r.ClientBody.Length > 0 ? r.ClientBody : r.Body;
+        var owned = served.Where(r => ClientBody(r).Contains("::")).ToList();
+        var rows = served.Except(owned).ToList();
         Assert.True(rows.Count >= 170, $"{rows.Count} client-served rows");
+        Assert.NotEmpty(owned);   // the control: CGameEvents is the client's events area
+        Assert.All(owned, r => Assert.False(calls.ContainsKey(r.Slot), $"{r.Slot} is forwarded, but its class is the area"));
+        Assert.All(owned.Select(r => r.Interface).Distinct(),
+                   i => Assert.Contains($"return areas.m_p{i["IShim".Length..]};", forwards));
         Assert.True(calls.Count == rows.Count, $"{calls.Count} forwards for {rows.Count} rows");
         Assert.Contains(rows, r => r.ClientBody.Length > 0);   // the control: some bodies differ
 

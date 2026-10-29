@@ -19,7 +19,7 @@ configuration):
           libss_fwd_client.so)
   server  only server.so's graph (server_sourcesharp, libss_fwd_server.so)
   shared  both DLLs (or the managed host library, libmanaged_host.so)
-  libs    only the Valve static libraries (tier1, mathlib, raytrace)
+  libs    only the Valve static libraries (tier1, mathlib)
   tests   nothing above: only test targets compile it, or only a traced run
           (make test, a configure, the live gate's driver) opened it
 
@@ -53,7 +53,7 @@ from collections import Counter
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIGS = ("debug", "release")
 LISTS = ("client", "server", "shared", "libs", "tests")
-LIBS = ("tier1", "mathlib", "raytrace")
+LIBS = ("tier1", "mathlib")
 # SourceSharp's own tree: linked from this repo by tools/module-map.tsv (the
 # relocated Valve code there included, kept local by user decision
 # 2026-09-27), so no list may ever name a fork file under it.
@@ -87,7 +87,7 @@ LIST_HEAD = {
               "libss_fwd_server.so) uses",
     "shared": "fork files both DLLs use (or the managed host library)",
     "libs": "fork files that only the Valve static libraries use (tier1, "
-            "mathlib, raytrace)",
+            "mathlib)",
     "tests": "fork files that only test targets compile, or that only a "
              "traced run (make test, a configure, the live gate's driver) "
              "opened",
@@ -113,7 +113,7 @@ def read_lists(repo):
 
 
 def root_dir(repo):
-    local = os.path.join(repo, "sdk-root.lock.local")
+    local = os.path.join(repo, "valve-sdk.lock.local")
     return os.path.realpath(open(local).read().strip())
 
 

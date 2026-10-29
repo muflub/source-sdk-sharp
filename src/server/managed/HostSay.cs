@@ -62,7 +62,7 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
         int sent = 0;
         if (hasSpeaker)
         {
-            foreach (var entity in directory.OfClass(EntityNames.SsPlayer))
+            foreach (var entity in directory.OfClass(EntityNames.Player))
             {
                 if (entity is not SsPlayer listener || listener.Handle == speaker)
                     continue;

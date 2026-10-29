@@ -79,8 +79,11 @@ public sealed class FakeScoreboard : IScoreboardSource
 /// The local player as a sample: one fake behind the six player interfaces,
 /// registered once per interface (<see cref="Register"/>).
 /// </summary>
-public sealed class FakeLocalPlayer : IPlayerLife, IPlayerHealth, IPlayerArmour, IPlayerWeapon, IPlayerAmmo, IPlayerDamage
+public sealed class FakeLocalPlayer : IPlayerLife, IPlayerHealth, IPlayerArmour, IPlayerWeapon, IPlayerAmmo, IPlayerDamage,
+                                     IPlayerSuitPower
 {
+    public float SuitPower { get; init; } = 100f;
+    public int SuitDevices { get; init; }
     public bool Alive { get; init; } = true;
     public int Health { get; init; } = 100;
     public int MaxHealth { get; init; } = 100;
@@ -97,7 +100,166 @@ public sealed class FakeLocalPlayer : IPlayerLife, IPlayerHealth, IPlayerArmour,
 
     public UiSampleServices Register(UiSampleServices s)
         => s.Add<IPlayerLife>(this).Add<IPlayerHealth>(this).Add<IPlayerArmour>(this)
-            .Add<IPlayerWeapon>(this).Add<IPlayerAmmo>(this).Add<IPlayerDamage>(this);
+            .Add<IPlayerWeapon>(this).Add<IPlayerAmmo>(this).Add<IPlayerDamage>(this).Add<IPlayerSuitPower>(this);
+}
+
+/// <summary>
+/// The pickup history as a sample: a row per slot of <see cref="Rows"/>,
+/// bottom first; a null slot is empty.
+/// </summary>
+public sealed class FakePickupHistory : IPickupHistorySource
+{
+    public PickupRow?[] Rows { get; init; } = [];
+
+    public bool Showing => Rows.Length > 0;
+    public int SlotCount => Rows.Length;
+
+    public bool Row(int slot, out PickupRow row)
+    {
+        row = slot >= 0 && slot < Rows.Length && Rows[slot] is { } r ? r : default;
+        return slot >= 0 && slot < Rows.Length && Rows[slot] is not null;
+    }
+
+    /// <summary>A spawn's pickups: the weapons, then their ammunition.</summary>
+    public static PickupRow?[] Spawned =>
+    [
+        new PickupRow("crowbar", 0, false, false, 1f), new PickupRow("pistol", 0, false, false, 1f),
+        new PickupRow("smg1", 0, false, false, 0.9f), new PickupRow("ammo_smg1", 45, false, false, 0.8f),
+        new PickupRow("ammo_smg1_grenade", 1, false, false, 0.6f),
+    ];
+}
+
+/// <summary>
+/// The weapon selection as a sample: a bucket per row of <see cref="Weapons"/>
+/// (slot, position, icon, name, selectable), open on <see cref="Selected"/>.
+/// </summary>
+public sealed class FakeWeaponSelection : IWeaponSelectionSource
+{
+    public bool Showing { get; init; } = true;
+    public float Opacity { get; init; } = 1f;
+    public (int Slot, int Position, string Icon, string Name, bool Selectable)[] Weapons { get; init; } = [];
+
+    /// <summary>The selected weapon's index in <see cref="Weapons"/>.</summary>
+    public int Selected { get; init; } = -1;
+
+    /// <summary>Stock HL2MP's full arsenal, as a carry: every bucket with something in it.</summary>
+    public static (int, int, string, string, bool)[] Full =>
+    [
+        (0, 0, "crowbar", "#HL2_Crowbar", true), (0, 1, "stunstick", "#HL2_StunBaton", true),
+        (0, 2, "physcannon", "#HL2_GravityGun", true),
+        (1, 0, "pistol", "#HL2_Pistol", true), (1, 1, "357", "#HL2_357Handgun", true),
+        (2, 0, "smg1", "#HL2_SMG1", true), (2, 1, "ar2", "#HL2_Pulse_Rifle", true),
+        (3, 0, "shotgun", "#HL2_Shotgun", true), (3, 1, "crossbow", "#HL2_Crossbow", true),
+        (4, 0, "rpg", "#HL2_RPG", true), (4, 1, "frag", "#HL2_Grenade", true), (4, 2, "slam", "#HL2_SLAM", true),
+    ];
+
+    public int OpenSlot => Selected >= 0 ? Weapons[Selected].Slot : -1;
+
+    public bool SlotHasWeapon(int slot)
+    {
+        foreach (var w in Weapons)
+            if (w.Slot == slot)
+                return true;
+        return false;
+    }
+
+    public int LastPosition(int slot)
+    {
+        int last = -1;
+        foreach (var w in Weapons)
+            if (w.Slot == slot && w.Position > last)
+                last = w.Position;
+        return last;
+    }
+
+    public bool Weapon(int slot, int position, out WeaponSelectionBox box)
+    {
+        for (int i = 0; i < Weapons.Length; i++)
+        {
+            var w = Weapons[i];
+            if (w.Slot == slot && w.Position == position)
+            {
+                box = new WeaponSelectionBox(w.Icon, w.Name, w.Selectable, i == Selected);
+                return true;
+            }
+        }
+
+        box = default;
+        return false;
+    }
+}
+
+/// <summary>The plus weapon selection as a sample: <see cref="FakeWeaponSelection.Weapons"/>'s rows round the crosshair.</summary>
+public sealed class FakeWeaponPlus : IWeaponPlusSource
+{
+    public bool Showing { get; init; } = true;
+    public float Opacity { get; init; } = 1f;
+    public float Glow { get; init; }
+    public (int Slot, int Position, string Icon, string Name, bool Selectable)[] Weapons { get; init; } = [];
+    public int SelectedSlot { get; init; } = -1;
+    public int SelectedPosition { get; init; }
+
+    public int LastPosition(int slot)
+    {
+        int last = -1;
+        foreach (var w in Weapons)
+            if (w.Slot == slot && w.Position > last)
+                last = w.Position;
+        return last;
+    }
+
+    public bool Weapon(int slot, int position, out WeaponSelectionBox box)
+    {
+        foreach (var w in Weapons)
+        {
+            if (w.Slot == slot && w.Position == position)
+            {
+                box = new WeaponSelectionBox(w.Icon, w.Name, w.Selectable, slot == SelectedSlot && position == SelectedPosition);
+                return true;
+            }
+        }
+
+        box = default;
+        return false;
+    }
+}
+
+/// <summary>The carousel as a sample: a box per row of <see cref="Weapons"/>, in order.</summary>
+public sealed class FakeWeaponCarousel : IWeaponCarouselSource
+{
+    public bool Showing { get; init; } = true;
+    public float Opacity { get; init; } = 1f;
+    public float Glow { get; init; }
+    public (string Icon, string Name, bool Selectable)[] Weapons { get; init; } = [];
+    public int Selected { get; init; }
+    public float Offset { get; init; }
+    public int Count => Weapons.Length;
+
+    /// <summary><see cref="FakeWeaponSelection.Full"/>'s weapons, in bucket order.</summary>
+    public static (string, string, bool)[] Full
+    {
+        get
+        {
+            var full = FakeWeaponSelection.Full;
+            var weapons = new (string, string, bool)[full.Length];
+            for (int i = 0; i < full.Length; i++)
+                weapons[i] = (full[i].Item3, full[i].Item4, full[i].Item5);
+            return weapons;
+        }
+    }
+
+    public bool Weapon(int box, out WeaponSelectionBox weapon)
+    {
+        if (box < 0 || box >= Weapons.Length)
+        {
+            weapon = default;
+            return false;
+        }
+
+        var w = Weapons[box];
+        weapon = new WeaponSelectionBox(w.Icon, w.Name, w.Selectable, box == Selected);
+        return true;
+    }
 }
 
 /// <summary>The spectated player as a sample.</summary>

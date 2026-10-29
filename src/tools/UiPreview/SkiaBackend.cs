@@ -35,6 +35,22 @@ public sealed class SkiaBackend : IUiBackend, IDisposable
 
     public SkiaBackend(UiFontLibrary fonts) => _fonts = fonts;
 
+    /// <summary>Decoded HUD art a textured quad's handle names, when the run has a content directory.</summary>
+    public PreviewTextures? HudArt { get; set; }
+
+    private readonly Dictionary<int, SKImage> _hudImages = [];
+
+    private SKImage Image(int handle, (byte[] Rgba, int Wide, int Tall) hud)
+    {
+        if (_hudImages.GetValueOrDefault(handle) is not SKImage cached)
+        {
+            var bmp = new SKBitmap(new SKImageInfo(hud.Wide, hud.Tall, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+            hud.Rgba.CopyTo(bmp.GetPixelSpan());
+            _hudImages[handle] = cached = SKImage.FromBitmap(bmp);
+        }
+        return cached;
+    }
+
     /// <summary>Drawn under the list, scaled to cover the screen; null for a flat colour.</summary>
     public SKBitmap? Backdrop { get; set; }
 
@@ -88,6 +104,16 @@ public sealed class SkiaBackend : IUiBackend, IDisposable
                 case UiPrimitiveKind.TexturedQuad:
                 {
                     var t = list.TexturedQuads[op.Index];
+                    if (HudArt?.Find(t.Texture) is { } hud)
+                    {
+                        // Decoded HUD art (PreviewTextures): the file's own colours.
+                        paint.Style = SKPaintStyle.Fill;
+                        paint.Shader = null;
+                        var hudImage = Image(t.Texture, hud);
+                        canvas.DrawImage(hudImage, new SKRect(0, 0, hud.Wide, hud.Tall), R(t.Rect),
+                                         new SKSamplingOptions(SKFilterMode.Linear));
+                        break;
+                    }
                     if (UiIconSet.RectOf(t.Texture) is int a and >= 0)
                     {
                         // An icon: the atlas copy, as the game draws it, tinted.
@@ -244,6 +270,7 @@ public sealed class SkiaBackend : IUiBackend, IDisposable
     {
         foreach (var tf in _typefaces.Values) tf.Dispose();
         foreach (var img in _images.Values) img.Dispose();
+        foreach (var img in _hudImages.Values) img.Dispose();
         _typefaces.Clear();
         _bitmap?.Dispose();
         _atlas?.Dispose();

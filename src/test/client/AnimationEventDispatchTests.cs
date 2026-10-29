@@ -719,7 +719,7 @@ public class AnimationEventPumpTests
                                .Fires(3, "AE_MUZZLEFLASH", cycle: 0f, options: "SMG1 muzzle");
         var sink = new Recorder();
 
-        new AnimationEventPump(model, model, sink).Advance(Weapon, "ss_viewmodel");
+        new AnimationEventPump(model, model, sink).Advance(Weapon, "predicted_viewmodel");
 
         Assert.True(sink.Fired.Count == 1, "the animation started and its cycle-0 muzzle flash fired");
         Assert.True(sink.Fired[0].Carried.Name == "AE_MUZZLEFLASH", "and it is the event the model carries");
@@ -733,7 +733,7 @@ public class AnimationEventPumpTests
                         .Fires(3, "AE_MUZZLEFLASH", cycle: 0f, options: "SMG1 muzzle");
         var sink = new Recorder();
 
-        new AnimationEventPump(model, model, sink).Advance(Weapon, "ss_viewmodel");
+        new AnimationEventPump(model, model, sink).Advance(Weapon, "predicted_viewmodel");
 
         Assert.True(sink.Fired.Count == 0, "a dormant entity fires nothing");
         Assert.True(model.StateAsks == 0,
@@ -763,7 +763,7 @@ public class AnimationEventPumpTests
                                .FiresNumbered(3, 3005, cycle: 0f);
         var sink = new Recorder();
 
-        new AnimationEventPump(model, model, sink).Advance(Weapon, "ss_viewmodel");
+        new AnimationEventPump(model, model, sink).Advance(Weapon, "predicted_viewmodel");
 
         Assert.True(sink.Fired.Count == 0,
                     "a server-side named event and an old-system event below 5000 both stay on the server");
@@ -777,16 +777,16 @@ public class AnimationEventPumpTests
         var sink = new Recorder();
         var pump = new AnimationEventPump(model, model, sink);
 
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
         model.Playing(sequence: 3, cycle: 0.2f, duration: 0.5f, starts: 1);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         Assert.True(sink.Fired.Count == 1, "the flash fired once for the first shot and not again as it played out");
 
         // The second shot, 0.1s later: the cycle falls from 0.2 to 0, which is
         // not a wrap and is not a stall.
         model.Playing(sequence: 3, cycle: 0.0f, duration: 0.5f, starts: 2);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         Assert.True(sink.Fired.Count == 2, "and again for the second shot of the burst");
     }
@@ -857,7 +857,7 @@ public class AnimationEventPumpTests
         for (int i = 0; i < 180; i++)
         {
             model.Playing(sequence: 3, cycle: record.Cycle(i / 60f), duration: 1f, starts: 1);
-            pump.Advance(Weapon, "ss_viewmodel");
+            pump.Advance(Weapon, "predicted_viewmodel");
         }
 
         Assert.True(sink.Fired.Count == 3,
@@ -880,7 +880,7 @@ public class AnimationEventPumpTests
         for (int i = 0; i < 300; i++)
         {
             model.Playing(sequence: 3, cycle: record.Cycle(i / 60f), duration: 0.5f, starts: 1);
-            pump.Advance(Weapon, "ss_viewmodel");
+            pump.Advance(Weapon, "predicted_viewmodel");
         }
 
         Assert.True(sink.Fired.Count == 1,
@@ -901,7 +901,7 @@ public class AnimationEventPumpTests
         for (int i = 0; i < 180; i++)
         {
             model.Playing(sequence: 3, cycle: record.Cycle(i / 60f), duration: 1f, starts: 1);
-            pump.Advance(Weapon, "ss_viewmodel");
+            pump.Advance(Weapon, "predicted_viewmodel");
         }
 
         Assert.True(model.EventCountAsks == 1,
@@ -920,7 +920,7 @@ public class AnimationEventPumpTests
         var pump = new AnimationEventPump(model, model, new Recorder());
 
         model.Playing(sequence: 3, cycle: 0f, duration: 0.5f, starts: 1);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         Assert.True(pump.FiredOn(Weapon) == 1, "the entity that started an animation fired one");
         Assert.True(pump.FiredOn(quiet) == 0, "and one nothing has happened to fired none");
@@ -938,7 +938,7 @@ public class AnimationEventPumpTests
         for (int i = 0; i < 180; i++)
         {
             model.Playing(sequence: 3, cycle: record.Cycle(i / 60f), duration: 1f, starts: 1);
-            pump.Advance(Weapon, "ss_viewmodel");
+            pump.Advance(Weapon, "predicted_viewmodel");
         }
 
         Assert.True(pump.FiredOn(Weapon) == 3,
@@ -955,7 +955,7 @@ public class AnimationEventPumpTests
         var pump = new AnimationEventPump(model, model, new Recorder());
 
         model.Playing(sequence: 3, cycle: 0f, duration: 0.5f, starts: 1);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
         Assert.True(pump.FiredOn(Weapon) == 1, "it fired once");
 
         pump.Forget(Weapon);
@@ -971,7 +971,7 @@ public class AnimationEventPumpTests
         var pump = new AnimationEventPump(model, model, new Recorder());
 
         model.Playing(sequence: 3, cycle: 0f, duration: 0.5f, starts: 1);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         pump.Reset();
 
@@ -985,13 +985,13 @@ public class AnimationEventPumpTests
         var model = FiringClock();
         var pump = new AnimationEventPump(model, model, new Recorder());
 
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
         int afterFirst = model.EventCountAsks;
 
         for (int i = 0; i < 8; i++)
         {
             model.Playing(sequence: 3, cycle: 0.4f, duration: 0.5f, starts: i + 2);
-            pump.Advance(Weapon, "ss_viewmodel");
+            pump.Advance(Weapon, "predicted_viewmodel");
         }
 
         Assert.True(afterFirst == 1, "the first look reads the table out of the model");
@@ -1024,12 +1024,12 @@ public class AnimationEventPumpTests
         var model = FiringClock();
         var pump = new AnimationEventPump(model, model, new Recorder());
 
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         pump.NoteDataChanged(Weapon);
 
         model.Playing(sequence: 3, cycle: 0.4f, duration: 0.5f, starts: 2);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         Assert.True(model.EventCountAsks == 2,
             "the model index is networked into the shell's own member and never reaches managed, "
@@ -1044,11 +1044,11 @@ public class AnimationEventPumpTests
         var sink = new Recorder();
         var pump = new AnimationEventPump(model, model, sink);
 
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
         sink.Fired.Clear();
 
         pump.NoteDataChanged(Weapon);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         Assert.True(sink.Fired.Count == 0,
             "dropping the CURSOR on a net update would re-establish it as Fresh, which claims "
@@ -1062,11 +1062,11 @@ public class AnimationEventPumpTests
         var model = FiringClock();
         var pump = new AnimationEventPump(model, model, new Recorder());
 
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
         pump.Forget(Weapon);
 
         model.Playing(sequence: 3, cycle: 0.4f, duration: 0.5f, starts: 2);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         Assert.True(model.EventCountAsks == 2,
             "handles are recycled, so a table left behind would be handed to whatever entity the "
@@ -1079,14 +1079,14 @@ public class AnimationEventPumpTests
         var model = FiringClock();
         var pump = new AnimationEventPump(model, model, new Recorder());
 
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
         pump.Reset();
 
         Assert.True(pump.MemoisedCount == 0,
             "every model index in the memo belongs to the level that is going");
 
         model.Playing(sequence: 3, cycle: 0.4f, duration: 0.5f, starts: 2);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         Assert.True(model.EventCountAsks == 2, "and the next level reads its own tables");
     }
@@ -1099,13 +1099,13 @@ public class AnimationEventPumpTests
         var pump = new AnimationEventPump(model, model, new Recorder());
 
         model.Playing(sequence: 3, cycle: 0.4f, duration: 0.5f, starts: 1);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         model.Playing(sequence: 4, cycle: 0.4f, duration: 0.5f, starts: 2);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         model.Playing(sequence: 3, cycle: 0.4f, duration: 0.5f, starts: 3);
-        pump.Advance(Weapon, "ss_viewmodel");
+        pump.Advance(Weapon, "predicted_viewmodel");
 
         Assert.True(model.EventCountAsks == 2,
             "the memo is per (entity, sequence), so going back to a sequence already seen reads "
@@ -1250,7 +1250,9 @@ public class AnimationEventPumpTests
         public void SetBoneMergeSource(EntityHandle entity, int sourceEntityIndex) => throw Refuse(nameof(SetBoneMergeSource));
         public void SetSequence(EntityHandle entity, int sequence) => throw Refuse(nameof(SetSequence));
         public void SetViewModel(EntityHandle entity, bool enable) => throw Refuse(nameof(SetViewModel));
+        public void PlaySequenceAt(EntityHandle entity, int sequence, float playbackRate, float cycle) => throw Refuse(nameof(PlaySequenceAt));
         public void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart) => throw Refuse(nameof(PlaySequence));
+        public void SetCycle(EntityHandle entity, float cycle) => throw Refuse(nameof(SetCycle));
         public void SetSkin(EntityHandle entity, int skin) => throw Refuse(nameof(SetSkin));
         public void SetTextureFrame(EntityHandle entity, int frame) => throw Refuse(nameof(SetTextureFrame));
         public void SetTransmitAlways(EntityHandle entity, bool always) => throw Refuse(nameof(SetTransmitAlways));

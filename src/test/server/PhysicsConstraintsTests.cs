@@ -37,6 +37,18 @@ public class PhysicsConstraintsTests
     private static float[] Hinge(Vector point, Vector axis, float friction) =>
         [0f, 0f, point.X, point.Y, point.Z, axis.X, axis.Y, axis.Z, friction];
 
+    private static float[] WorldHinge(Vector axis, bool assumeWorldGeometry = true) =>
+        [0f, 0f, 0f, 0f, 0f, axis.X, axis.Y, axis.Z, 0f, assumeWorldGeometry ? 1f : 0f];
+
+    /// <summary>Turned a quarter about x: world z is the body's local y.</summary>
+    private static Float3x4 QuarterAboutX()
+    {
+        var m = Float3x4.Identity;
+        m[1, 1] = 0f; m[1, 2] = -1f;
+        m[2, 1] = 1f; m[2, 2] = 0f;
+        return m;
+    }
+
     private static IEngineConstraints C(PhysicsConstraints t) => t;
 
     private static IEngineSprings S(PhysicsConstraints t) => t;
@@ -270,13 +282,70 @@ public class PhysicsConstraintsTests
     }
 
     [Fact]
-    public void AMotorDrivesAHingeAndWakesItsAttachedEnd()
+    public void TwoStaticEndsAreRefusedAndNamed()
+    {
+        var (t, v, _, log, _) = Make();
+        v.Of(ObjA).Static = true;
+        v.Of(ObjB).Static = true;
+
+        Assert.Equal(0u, C(t).Create(A, B, (int)ConstraintKind.Fixed, Fixed()));
+        Assert.Contains("two static objects", log.Text);
+        Assert.DoesNotContain("CreateFixed", v.Calls);
+
+        v.Of(ObjB).Static = false;
+        Assert.NotEqual(0u, C(t).Create(A, B, (int)ConstraintKind.Fixed, Fixed()));
+    }
+
+    [Fact]
+    public void TwoShadowedEndsAreRefusedAndNamed()
+    {
+        var (t, v, _, log, _) = Make();
+        v.Of(ObjA).Shadowed = true;
+        v.Of(ObjB).Shadowed = true;
+
+        Assert.Equal(0u, C(t).Create(A, B, (int)ConstraintKind.Fixed, Fixed()));
+        Assert.Contains("two shadow objects", log.Text);
+    }
+
+    [Fact]
+    public void DeactivateKeepsTheJointAndClearsTheStaticFlagOnBothEnds()
     {
         var (t, v, _, _, _) = Make();
-        uint id = C(t).Create(A, B, (int)ConstraintKind.Hinge, Hinge(Vector.Zero, new Vector(0f, 0f, 1f), 0f));
-        C(t).SetMotor(id, 90f, 12f);
-        Assert.Equal((90f, 12f), v.AngularMotors.Values.Single());
-        Assert.Equal(1, v.Of(ObjB).Wakes);
+        uint id = C(t).Create(EntityHandle.None, B, (int)ConstraintKind.Fixed, Fixed());
+        nint made = v.Ends.Keys.Single();
+        Assert.NotEqual(0, v.Of(ObjB).GameFlags & PhysicsConstraints.ConstraintStaticFlag);
+        v.Of(ObjB).GameFlags |= 0x0100;
+
+        C(t).Deactivate(id);
+
+        Assert.Contains($"Deactivate {made:x}", v.Calls);
+        Assert.Equal(0x0100, v.Of(ObjB).GameFlags);
+        Assert.True(C(t).IsValid(id), "the joint stays, to be turned on again");
+        Assert.DoesNotContain(v.Calls, c => c.StartsWith("DestroyConstraint"));
+    }
+
+    [Fact]
+    public void ActivateHoldsAgainAndWakesBothEnds()
+    {
+        var (t, v, _, _, _) = Make();
+        uint id = C(t).Create(A, B, (int)ConstraintKind.Fixed, Fixed());
+        nint made = v.Ends.Keys.Single();
+
+        C(t).Activate(id);
+
+        Assert.Contains($"Activate {made:x}", v.Calls);
+        Assert.Equal((1, 1), (v.Of(ObjA).Wakes, v.Of(ObjB).Wakes));
+    }
+
+    [Fact]
+    public void DestroyClearsTheStaticFlagItsJointSet()
+    {
+        var (t, v, _, _, _) = Make();
+        uint id = C(t).Create(EntityHandle.None, B, (int)ConstraintKind.Fixed, Fixed());
+
+        C(t).Destroy(id);
+
+        Assert.Equal(0, v.Of(ObjB).GameFlags & PhysicsConstraints.ConstraintStaticFlag);
     }
 
     [Fact]
@@ -284,7 +353,7 @@ public class PhysicsConstraintsTests
     {
         var (t, v, _, _, _) = Make();
         uint id = C(t).Create(A, B, (int)ConstraintKind.Fixed, Fixed());
-        C(t).SetMotor(id, 90f, 12f);
+        C(t).SetHingeVelocity(id, 90f, 1f);
         Assert.Empty(v.AngularMotors);
     }
 
@@ -316,6 +385,36 @@ public class PhysicsConstraintsTests
 
         // massLoad starts at 1 and the attached mass is ADDED: 31, over one mass.
         Assert.Equal(1f * 1f * 31f * (1f / w.Tick), v.LinearMotors.Values.Single().Max);
+    }
+
+    [Fact]
+    public void AHingeVelocitysTorqueIsTheAverageMovingInertiaTimesTheLoadScaleSquaredPerTick()
+    {
+        var (t, v, w, _, _) = Make();
+        v.Of(ObjA).Inertia = new Vector(0f, 3f, 4f);   // 5
+        v.Of(ObjB).Inertia = new Vector(0f, 0f, 15f);  // 15
+        uint id = C(t).Create(A, B, (int)ConstraintKind.Hinge, Hinge(Vector.Zero, new Vector(0f, 0f, 1f), 0f));
+
+        C(t).SetHingeVelocity(id, 30f, 2f);
+
+        // avg inertia 10, speed 30, load 2 twice, 1/0.015 per tick.
+        Assert.Equal((30f, 30f * 2f * 10f * 2f * (1f / w.Tick)), v.AngularMotors.Values.Single());
+        Assert.True(v.Of(ObjA).Wakes == 1 && v.Of(ObjB).Wakes == 1);
+    }
+
+    [Fact]
+    public void AHingeVelocityAgainstTheWorldKeepsStocksOneAndALoadScaleOfZeroIsOne()
+    {
+        var (t, v, w, _, _) = Make();
+        v.Of(w.World).Moveable = false;
+        v.Of(ObjB).Inertia = new Vector(0f, 0f, 15f);
+        uint id = C(t).Create(EntityHandle.None, B, (int)ConstraintKind.Hinge, Hinge(Vector.Zero, new Vector(0f, 0f, 1f), 0f));
+
+        C(t).SetHingeVelocity(id, 10f, 0f);
+
+        // massLoad starts at 1 and the attached inertia is ADDED: 16, over one.
+        Assert.Equal(10f * 16f * (1f / w.Tick), v.AngularMotors.Values.Single().Max);
+        Assert.Equal(0, v.Of(w.World).Wakes);
     }
 
     [Fact]
@@ -411,7 +510,95 @@ public class PhysicsConstraintsTests
         ((ISaveCustom)next).OnRestore(new SaveRecordAccess(record, "joints", log));
 
         Assert.True(((IEngineConstraints)next).IsValid(joint) && ((IEngineSprings)next).IsValid(spring));
-        ((IEngineConstraints)next).SetMotor(joint, 45f, 1f);
-        Assert.Equal((45f, 1f), v.AngularMotors.Values.Single());
+        ((IEngineConstraints)next).SetHingeVelocity(joint, 45f, 1f);
+        Assert.Equal(45f, v.AngularMotors.Values.Single().Speed);
     }
+
+    //-------------------------------------------------------------------------
+    // A world hinge (CPhysHinge::CreateConstraint, IsWorldHinge, Deactivate).
+    //-------------------------------------------------------------------------
+
+    [Fact]
+    public void AWorldHingeHingesItsObjectAboutTheLocalAxisItLiesOnBeforeTheJointIsMade()
+    {
+        var (t, v, _, _, _) = Make();
+        v.Of(ObjA).Pose = QuarterAboutX();
+
+        C(t).Create(A, EntityHandle.None, (int)ConstraintKind.Hinge, WorldHinge(new Vector(0f, 0f, 1f)));
+
+        Assert.Equal(1, v.Of(ObjA).HingedAxis);
+        Assert.Equal(new[] { "BecomeHinged 1", "CreateHinge" }, v.Calls);
+    }
+
+    [Fact]
+    public void AHingeToTheWorldWithoutTheFlagLeavesItsObjectFree()
+    {
+        var (t, v, _, _, _) = Make();
+
+        C(t).Create(A, EntityHandle.None, (int)ConstraintKind.Hinge, WorldHinge(new Vector(0f, 0f, 1f), assumeWorldGeometry: false));
+
+        Assert.Equal(-1, v.Of(ObjA).HingedAxis);
+    }
+
+    [Fact]
+    public void AHingeBetweenTwoObjectsIsNeverAWorldHinge()
+    {
+        var (t, v, _, _, _) = Make();
+
+        C(t).Create(A, B, (int)ConstraintKind.Hinge, WorldHinge(new Vector(0f, 0f, 1f)));
+
+        Assert.True(v.Of(ObjA).HingedAxis == -1 && v.Of(ObjB).HingedAxis == -1);
+    }
+
+    [Fact]
+    public void AWorldHingeAcrossTheObjectsAxesLeavesItFree()
+    {
+        var (t, v, _, _, _) = Make();
+
+        // Forty-five degrees off: no local axis is the hinge's.
+        C(t).Create(A, EntityHandle.None, (int)ConstraintKind.Hinge, WorldHinge(new Vector(0f, 0.70710677f, 0.70710677f)));
+
+        Assert.Equal(-1, v.Of(ObjA).HingedAxis);
+    }
+
+    [Fact]
+    public void TakingAWorldHingeDownFreesItsObjectFirst()
+    {
+        var (t, v, _, _, _) = Make();
+        uint id = C(t).Create(A, EntityHandle.None, (int)ConstraintKind.Hinge, WorldHinge(new Vector(0f, 0f, 1f)));
+        nint made = v.Ends.Keys.Single();
+        v.Calls.Clear();
+
+        C(t).Destroy(id);
+
+        Assert.Equal(new[] { "RemoveHinged", $"Deactivate {made:x}", $"DestroyConstraint {made:x}" }, v.Calls);
+        Assert.Equal(-1, v.Of(ObjA).HingedAxis);
+    }
+
+    [Fact]
+    public void AReloadRemembersAWorldHinge()
+    {
+        var (t, v, w, log, _) = Make();
+        uint id = C(t).Create(A, EntityHandle.None, (int)ConstraintKind.Hinge, WorldHinge(new Vector(0f, 0f, 1f)));
+
+        var record = new ReloadRecord("joints");
+        ((ISaveCustom)t).OnSave(new SaveRecordAccess(record, "joints", log));
+        var next = new PhysicsConstraints(new PhysicsJointTable(), v, w, log, _ => { });
+        ((ISaveCustom)next).OnRestore(new SaveRecordAccess(record, "joints", log));
+        v.Calls.Clear();
+
+        ((IEngineConstraints)next).Destroy(id);
+
+        Assert.Equal("RemoveHinged", v.Calls.First());
+    }
+
+    [Theory]
+    [InlineData(0f, -1f, 0f, 1)]
+    [InlineData(0f, 0f, 1f, 2)]
+    [InlineData(1f, 1f, 0f, -1)]
+    [InlineData(0.5f, 0f, 0f, -1)]
+    [InlineData(1f, 0.5f, 0f, -1)]
+    [InlineData(0f, 0f, 0f, -1)]
+    public void UnitAxisIndexNamesTheOneUnitComponent(float x, float y, float z, int expected)
+        => Assert.Equal(expected, PhysicsConstraints.UnitAxisIndex(new Vector(x, y, z)));
 }

@@ -59,7 +59,7 @@ public sealed class EnvFade : ScriptedEntity
         StayOut = 0b0000_1000,
     }
 
-    public readonly Output OnBeginFade = new("OnBeginFade");
+    public readonly Output OnBeginFade = new();
 
     [ScriptedEvent("Fade")]
     private void OnFade(InputData input)

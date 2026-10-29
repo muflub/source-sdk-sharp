@@ -67,7 +67,7 @@ public class DeathNoticeTests
         engine.ReturnsEachCall("Players.GetUserId", () => engine.Calls[^1].Args[0] is EntityHandle h ? (h == Victim ? 7 : h == Killer ? 9 : 0) : 0);
         engine.ReturnsEachCall("Entities.IsPlayer", () => engine.Calls[^1].Args[0] is EntityHandle h && (h == Victim || h == Killer));
         engine.ReturnsEachCall("Entities.GetClassName", () => engine.Calls[^1].Args[0] is EntityHandle h
-            ? (h == Prop ? "prop_physics" : h.EntryIndex == 0 ? "worldspawn" : "ss_player") : "");
+            ? (h == Prop ? "prop_physics" : h.EntryIndex == 0 ? "worldspawn" : "player") : "");
         engine.Returns("Players.GetActiveWeapon", killerWeapon).Returns("Entities.IsValid", true);
         var events = new LoopbackEvents();
         var inflictors = new DamageInflictors();
@@ -163,10 +163,10 @@ public class DeathNoticeTests
 public class DeathNoticeWeaponNameTests
 {
     [Theory]
-    [InlineData(EntityNames.SsBolt, "crossbow_bolt")]
-    [InlineData(EntityNames.SsRocket, "rpg_missile")]
-    [InlineData(EntityNames.SsGrenade, "grenade_frag")]
-    [InlineData(EntityNames.SsEnergyball, "combine_ball")]
+    [InlineData(EntityNames.CrossbowBolt, "crossbow_bolt")]
+    [InlineData(EntityNames.RpgMissile, "rpg_missile")]
+    [InlineData(EntityNames.NpcGrenadeFrag, "grenade_frag")]
+    [InlineData(EntityNames.PropCombineBall, "combine_ball")]
     [InlineData(EntityNames.SsBarrel, "physics")]
     public void A_projectile_is_named_as_stocks(string ours, string stock)
         => Assert.Equal(stock, DeathNotice.WeaponName(ours));

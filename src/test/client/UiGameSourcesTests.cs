@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Client;
+using SourceSharp.Client.Standalone;
 using SourceSharp.Client.Ui.Toolkit;
 using SourceSharp.Client.Vgui;
 using SourceSharp.Shared;
@@ -148,6 +149,41 @@ public class UiGameSourcesTests
         Assert.Equal(-1, player.Secondary);
         Assert.True(float.IsNaN(player.LastDamageYaw));
     }
+
+    private sealed class OnePlayer(ClientStandaloneEntity player) : IClientStandalones
+    {
+        public IReadOnlyList<ClientStandaloneEntity> Live() => [player];
+        public ClientStandaloneEntity? GetByIndex(int entityIndex) => entityIndex == 1 ? player : null;
+    }
+
+    /// <summary>The AUX POWER reads the local player's suit words, and is full with no player.</summary>
+    [Fact]
+    public void The_suit_power_is_the_local_players_networked_words()
+    {
+        var engine = Fake().Returns("Hud.LocalPlayerHealth", 80).Returns("Hud.LocalPlayerIndex", 1);
+        var local = new ClientSsPlayer(engine) { Handle = new EntityHandle(0x0001_0001u) };
+        local.State.BindLocal();
+        local.State.SuitPower = 37.5f;
+        local.State.SuitDevices = 4;
+        var player = new LocalPlayerUi(engine, new Arsenal(false, "", -1, -1), NewHud(engine), new OnePlayer(local));
+
+        player.Refresh();
+        Assert.Equal((37.5f, 4), (player.SuitPower, player.SuitDevices));
+
+        engine.Returns("Hud.LocalPlayerHealth", -1);
+        player.Refresh();
+        Assert.Equal((100f, 0), (player.SuitPower, player.SuitDevices));
+    }
+
+    /// <summary>Stock's chunks: ten across, rounded to the nearest (hud_suitpower.cpp's enabledChunks).</summary>
+    [Theory]
+    [InlineData(100f, 10)]
+    [InlineData(62f, 6)]
+    [InlineData(25f, 3)]
+    [InlineData(4.9f, 0)]
+    [InlineData(5f, 1)]
+    public void The_aux_power_lights_its_share_of_ten_chunks(float power, int lit)
+        => Assert.Equal(lit, SourceSharp.Client.Ui.Screens.AuxPowerPanel.Lit(power));
 
     [Fact]
     public void No_player_is_not_alive_and_has_no_ammunition()

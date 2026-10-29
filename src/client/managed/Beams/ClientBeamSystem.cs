@@ -44,6 +44,20 @@ public interface IClientBeams
     void CreateBeamPoints(BeamInfo info);
 
     /// <summary>
+    /// <c>CreateBeamEntPoint( BeamInfo_t &amp; )</c>: the beam, which its maker
+    /// keeps and changes (stock's <c>Beam_t *</c>: a weapon's laser brightens
+    /// and fades it each frame), or null when none was made.
+    /// </summary>
+    Beam? CreateBeamEntPoint(BeamInfo info);
+
+    /// <summary>
+    /// <c>DrawBeam( C_Beam * )</c>: an entity's beam between two points, drawn
+    /// now, so only from inside the owner's draw. Nothing is listed, so
+    /// nothing outlives the call.
+    /// </summary>
+    void DrawEntityBeam(BeamInfo info, BeamFlags entityFlags, float hdrColorScale);
+
+    /// <summary>
     /// <c>DrawBeamQuadratic</c> over a sprite bound for a render mode: drawn
     /// now, so only from inside the owner's draw.
     /// </summary>
@@ -54,24 +68,45 @@ public interface IClientBeams
 }
 
 /// <summary>
+/// A renderable of the client's own in the world's translucent pass, as a
+/// beam's is (<c>RENDER_GROUP_TRANSLUCENT_ENTITY</c>): what a stock client
+/// effect drawn by an entity of its own (an env_sprite hung on a viewmodel)
+/// draws through here, where no entity exists to draw it.
+/// </summary>
+public interface IClientTranslucentRenderables
+{
+    /// <summary>
+    /// A renderable at <paramref name="origin"/>, its bounds relative to it,
+    /// whose draw is <paramref name="draw"/>, in the world's translucent pass
+    /// at that view. The handle, or -1.
+    /// </summary>
+    int Add(Vector origin, Vector mins, Vector maxs, Action draw);
+
+    /// <summary><c>RenderableChanged</c>: it moved.</summary>
+    void Changed(int handle, Vector origin, Vector mins, Vector maxs);
+
+    /// <summary><c>RemoveRenderable</c>, of one this added; any other handle is left alone.</summary>
+    void Remove(int handle);
+}
+
+/// <summary>
 /// <see cref="IClientBeams"/> over <see cref="BeamSystem"/> and
 /// <see cref="BeamDraw"/>, drawing through <see cref="IClientBeamExecutor"/>;
 /// what native's <c>beams</c> forwards (<see cref="IClientBeamCallbacks"/>).
 /// Carries every live beam across a client reload.
 /// </summary>
-public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IReloadParticipant
+public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IReloadParticipant, IClientTranslucentRenderables
 {
     // view_beams.cpp's trail pool: -particles, at least MIN_PARTICLES, else DEFAULT_PARTICLES.
     private const int MinTrails = 512;
 
     // BeamCreateKind_t (shell_beam_render.cpp).
-    private const int KindEnts = 0, KindEntPoint = 1, KindPoints = 2, KindRing = 3, KindRingPoint = 4,
-                      KindCirclePoints = 5, KindFollow = 6;
 
     // BeamLifecycle_t.
     private const int LifecycleInit = 0, LifecycleShutdown = 1, LifecycleClear = 2;
 
     private readonly IClientBeamExecutor _executor;
+    private readonly Standalone.IViewModelAttachmentFormat _viewModels;
     private readonly IPixelVisibility _pixelVis;
     private readonly IGameClock _clock;
     private readonly IEngineConsole _console;
@@ -82,11 +117,18 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
     private readonly float[] _viewFloats = new float[42];
     private readonly float[] _matrix = new float[16];
     private readonly Dictionary<int, Beam> _byRenderable = [];
+
+    // The pool's other renderables (IClientTranslucentRenderables), by handle:
+    // the native pool is one, and only managed code frees from it, so a level's
+    // clear leaves these to their owners' removal.
+    private readonly Dictionary<int, Action> _drawnByOthers = [];
     private BeamSystem _system;
     private long _created, _refused, _updates, _draws;
 
-    public ClientBeamSystem(IClientBeamExecutor executor, IGameClock clock, IEngineConsole console, ILog log, IPixelVisibility pixelVis)
+    public ClientBeamSystem(IClientBeamExecutor executor, IGameClock clock, IEngineConsole console, ILog log, IPixelVisibility pixelVis,
+                            Standalone.IViewModelAttachmentFormat viewModels)
     {
+        _viewModels = viewModels;
         _executor = executor;
         _pixelVis = pixelVis;
         _clock = clock;
@@ -162,6 +204,13 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
 
     public void CreateBeamPoints(BeamInfo info) => Count(_system.CreateBeamPoints(info, _clock.Now));
 
+    public Beam? CreateBeamEntPoint(BeamInfo info)
+    {
+        Beam? beam = _system.CreateBeamEntPoint(info, _clock.Now);
+        Count(beam);
+        return beam;
+    }
+
     //-------------------------------------------------------------------------
     // Native's `beams`.
     //-------------------------------------------------------------------------
@@ -228,67 +277,50 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
 
     public void KillDead(EntityHandle entity, float curTime) => _system.KillDeadBeams(entity, curTime);
 
-    public bool Create(int kind, ReadOnlySpan<int> ints, ReadOnlySpan<float> floats, string? model, string? halo,
-                       float curTime)
-    {
-        var info = new BeamInfo
-        {
-            Type = (BeamType)ints[0],
-            StartEnt = new EntityHandle((uint)ints[1]),
-            StartAttachment = ints[2],
-            EndEnt = new EntityHandle((uint)ints[3]),
-            EndAttachment = ints[4],
-            ModelIndex = ints[5],
-            HaloIndex = ints[6],
-            StartFrame = ints[7],
-            Renderable = ints[8] != 0,
-            Segments = ints[9],
-            Flags = (BeamFlags)ints[10],
-            Start = new Vector(floats[0], floats[1], floats[2]),
-            End = new Vector(floats[3], floats[4], floats[5]),
-            Center = new Vector(floats[6], floats[7], floats[8]),
-            HaloScale = floats[9],
-            Life = floats[10],
-            Width = floats[11],
-            EndWidth = floats[12],
-            FadeLength = floats[13],
-            Amplitude = floats[14],
-            Brightness = floats[15],
-            Speed = floats[16],
-            FrameRate = floats[17],
-            Red = floats[18],
-            Green = floats[19],
-            Blue = floats[20],
-            StartRadius = floats[21],
-            EndRadius = floats[22],
-            ModelName = model,
-            HaloName = halo,
-        };
-
-        Beam? beam = kind switch
-        {
-            KindEnts => _system.CreateBeamEnts(info, curTime),
-            KindEntPoint => _system.CreateBeamEntPoint(info, curTime),
-            KindPoints => _system.CreateBeamPoints(info, curTime),
-            KindRing => _system.CreateBeamRing(info, curTime),
-            KindRingPoint => _system.CreateBeamRingPoint(info, curTime),
-            KindCirclePoints => _system.CreateBeamCirclePoints(info, curTime),
-            KindFollow => _system.CreateBeamFollow(info, curTime),
-            _ => null,
-        };
-
-        Count(beam);
-        return beam is not null;
-    }
-
     public void Draw(int renderable)
     {
+        if (_drawnByOthers.TryGetValue(renderable, out Action? draw))
+        {
+            draw();
+            return;
+        }
+
         if (!_byRenderable.TryGetValue(renderable, out Beam? beam))
             return;
 
         _draws++;
         _draw.View = View(insideView: true);
         _system.DrawBeam(beam, _draw, _world);
+    }
+
+    /// <inheritdoc/>
+    public int Add(Vector origin, Vector mins, Vector maxs, Action draw)
+    {
+        int handle = _executor.RenderableAdd(origin, mins, maxs);
+        if (handle >= 0)
+            _drawnByOthers[handle] = draw;
+        return handle;
+    }
+
+    /// <inheritdoc/>
+    public void Changed(int handle, Vector origin, Vector mins, Vector maxs)
+    {
+        if (_drawnByOthers.ContainsKey(handle))
+            _executor.RenderableChanged(handle, origin, mins, maxs);
+    }
+
+    /// <inheritdoc/>
+    public void Remove(int handle)
+    {
+        if (_drawnByOthers.Remove(handle))
+            _executor.RenderableRemove(handle);
+    }
+
+    public void DrawEntityBeam(BeamInfo info, BeamFlags entityFlags, float hdrColorScale)
+    {
+        _draws++;
+        _draw.View = View(insideView: true);
+        _system.DrawEntityBeam(info, entityFlags, hdrColorScale, _draw, _world, _draw.View.CurTime, _draw.View.FrameTime);
     }
 
     public void DrawQuadratic(in Vector start, in Vector control, in Vector end, float width, in Vector color,
@@ -343,7 +375,9 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
         float[] f = _facts;
         if (plan.TryAttachment && (facts & BeamEntityFacts.Attachment) != 0)
         {
-            position = new Vector(f[0], f[1], f[2]);
+            // A viewmodel's attachment as stock's C_BaseViewModel hands it
+            // out: where the world's projection draws that point of the gun.
+            position = _viewModels.ForWorldPass(entity, new Vector(f[0], f[1], f[2]));
             return true;
         }
 

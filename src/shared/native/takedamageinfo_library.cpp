@@ -5,84 +5,54 @@
 //
 //=============================================================================//
 // SS_REASON e  a synchronous mid-step answer
-// SOURCESHARP: the damage-info value type, moved WHOLE out of
-// game/shared/takedamageinfo.cpp.
-// WHY THE WHOLE FILE AND NOT A FAMILY. Step 7f measured `ClearMultiDamage()`
-// on its own and recorded it as a CONVERSION: its body is `g_MultiDamage.Init(
-// ... )`, `g_MultiDamage`'s type is `CMultiDamage`, and `CMultiDamage::Init`
-// reaches `CTakeDamageInfo::Init` and `CTakeDamageInfo::m_DataMap`, both
-// out-of-line in the stock object. That measurement is right about the family
-// and is exactly why the unit here is the TRANSLATION UNIT: taking the value
-// type, its datadesc, the multi-damage accumulator and the four damage-force
-// calculators together leaves nothing behind for a converted edge to land on.
-// The cost was measured before the move rather than after. The stock server
-// object left undefined exactly TWO symbols that SCC 11 defines --
-// `g_pEntityList` and `CBaseEntity::TakeDamage(CTakeDamageInfo const&)`, both
-// from `ApplyMultiDamage`'s one entity call -- and both were ALREADY distinct
-// shim->stock cross-edges before this file existed, so neither is a new one.
-// The stock CLIENT object left undefined NOTHING that any stock TU defines.
-// TWO COMMENTS WERE REWORDED IN THE MOVE, and nothing else was. The Phase 13
-// step 5 notes below named the typed-handle template and its Get() in prose,
-// while explaining why the port cannot use it -- and this banner cannot repeat
-// that spelling either, which is the rule working rather than a nuisance. Inside the stock TU that was invisible
-// to TypedHandleSweep, which walks sourcesharp/game/{server,shared} off the
-// FILESYSTEM and requires that no source there spell a typed handle AT ALL --
-// no other swept file spells one in code or in prose, so the rule as enforced
-// is "not even in prose". They now say "the typed handle's own Get()", which is
-// the same sentence. The CODE is untouched: this TU never spelled a typed
-// handle, because the members are declared in takedamageinfo.h.
-// Every declaration stays in game/shared/takedamageinfo.h, so not one caller on
-// either side changed. This TU is in BOTH vpcs, because the stock one was: a
-// one-sided row would give one side two definitions of `g_MultiDamage` and the
-// other none, and the side with two would silently keep stock's.
+// The damage-info value type and the damage-force calculators. Declarations stay in
+// takedamageinfo.h; compiled into both DLLs.
 
 #ifdef CLIENT_DLL
-#include "cbase.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "tier0/platform.h"
+#include "tier0/dbg.h"
+#include "tier1/strtools.h"
+#include "vstdlib/random.h"
+#include "utlvector.h"
+#include "const.h"
+#include "string_t.h"
+#include "icvar.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #endif
 #ifdef CLIENT_DLL
-#include "gamerules.h"
+#include "igamerules.h"
 #else
-#include "igamerules.h"	// g_pGameRules; stock's CGameRules is not reached on the server
+#include "igamerules.h"
 #endif
 #ifdef CLIENT_DLL
 #include "sharedInterface.h"
 #include <vstdlib/random.h>
 #else
-// sharedInterface.h's two lines the server half uses: the engine's random stream,
-// which is named random_valve under POSIX (stdlib.h's random() would collide),
-// defined in shell_engineboundary.cpp.
-#include <vstdlib/random.h>
-extern IUniformRandomStream *random_valve;
-#define random random_valve
-// The damage bits this file names, from ss_shareddefs.h (oracle-checked against
-// shareddefs.h), under their stock spellings as shell_gamerules.cpp does.
-#include "ss_shareddefs.h"
+#include "vstdlib/random.h"
+#include "server_entity_resolver.h"
+// The damage bits this file names, under their stock spellings.
+
 #define DMG_GENERIC ss::kDmgGeneric
-#define DMG_BULLET  ss::kDmgBullet
-#define DMG_BLAST   ss::kDmgBlast
-#define DMG_CRUSH   ss::kDmgCrush
+#define DMG_BULLET ss::kDmgBullet
+#define DMG_BLAST ss::kDmgBlast
+#define DMG_CRUSH ss::kDmgCrush
 #endif
 #ifdef CLIENT_DLL
 #include "takedamageinfo.h"
 #else
-// The server's damage info is its own ss:: type (ss_takedamageinfo.h); every
-// definition below lands in namespace ss on that side.
+// The server's damage info is its own ss:: type.
 #include "ss_takedamageinfo.h"
 #endif
 
-// memdbgon must be the last include file in a .cpp file!!!
 #include "managed_convar_ref.h"
 
-
-// phys_pushscale MOVED TO MANAGED CODE, plan_shim.md Phase 5 (lane 5d):
-// SourceSharp.Server/MoveVars.cs and SourceSharp.Client/MoveVars.cs declare it,
-// both halves in one commit because it is FCVAR_REPLICATED. Nothing on either
-// link line read the declaration; the three reads below are in this file and
-// resolve the same engine ConVar by name.
-//
-// CManagedConVarRef rather than ConVarRef: a ConVarRef built at DLL load caches
-// its miss forever, and a managed declaration does not exist until
-// ConVarRegistry.RegisterAll runs. See managed_convar_ref.h.
+// Declared in managed code; CManagedConVarRef retries until it registers.
 static CManagedConVarRef phys_pushscale( "phys_pushscale" );
 
 #ifndef CLIENT_DLL
@@ -90,31 +60,23 @@ namespace ss
 {
 #endif
 
-// THE DATADESCS AND THE MULTI-DAMAGE ACCUMULATOR ARE THE CLIENT'S ONLY
-// (plan_server_native_v2 T6): on the server nothing accumulated into
-// g_MultiDamage -- AddMultiDamage exists in neither DLL -- so it was always
-// clear, its apply could not fire, and the two datamaps were read by nothing
-// but the accumulator's own base-map chain (nm: server 0 importers).
+// Client only: nothing on the server accumulates multi-damage.
 #ifdef CLIENT_DLL
 BEGIN_SIMPLE_DATADESC( CTakeDamageInfo )
-	DEFINE_FIELD( m_vecDamageForce, FIELD_VECTOR ),
-	DEFINE_FIELD( m_vecDamagePosition, FIELD_POSITION_VECTOR),
-	DEFINE_FIELD( m_vecReportedPosition, FIELD_POSITION_VECTOR),
-	DEFINE_FIELD( m_hInflictor, FIELD_EHANDLE),
-	DEFINE_FIELD( m_hAttacker, FIELD_EHANDLE),
-	DEFINE_FIELD( m_hWeapon, FIELD_EHANDLE),
-	DEFINE_FIELD( m_flDamage, FIELD_FLOAT),
-	DEFINE_FIELD( m_flMaxDamage, FIELD_FLOAT),
-	DEFINE_FIELD( m_flBaseDamage, FIELD_FLOAT ),
-	DEFINE_FIELD( m_bitsDamageType, FIELD_INTEGER),
-	DEFINE_FIELD( m_iDamageCustom, FIELD_INTEGER),
-	DEFINE_FIELD( m_iDamageStats, FIELD_INTEGER),
-	DEFINE_FIELD( m_iAmmoType, FIELD_INTEGER),
-	DEFINE_FIELD( m_iDamagedOtherPlayers, FIELD_INTEGER),
-END_DATADESC()
+DEFINE_FIELD( m_vecDamageForce, FIELD_VECTOR ), DEFINE_FIELD( m_vecDamagePosition, FIELD_POSITION_VECTOR ),
+	DEFINE_FIELD( m_vecReportedPosition, FIELD_POSITION_VECTOR ), DEFINE_FIELD( m_hInflictor, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_hAttacker, FIELD_EHANDLE ), DEFINE_FIELD( m_hWeapon, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_flDamage, FIELD_FLOAT ), DEFINE_FIELD( m_flMaxDamage, FIELD_FLOAT ),
+	DEFINE_FIELD( m_flBaseDamage, FIELD_FLOAT ), DEFINE_FIELD( m_bitsDamageType, FIELD_INTEGER ),
+	DEFINE_FIELD( m_iDamageCustom, FIELD_INTEGER ), DEFINE_FIELD( m_iDamageStats, FIELD_INTEGER ),
+	DEFINE_FIELD( m_iAmmoType, FIELD_INTEGER ), DEFINE_FIELD( m_iDamagedOtherPlayers, FIELD_INTEGER ),
+	END_DATADESC()
 #endif // CLIENT_DLL
 
-void CTakeDamageInfo::Init( IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon, const Vector &damageForce, const Vector &damagePosition, const Vector &reportedPosition, float flDamage, int bitsDamageType, int iCustomDamage )
+		void CTakeDamageInfo::Init( IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon,
+									const Vector &damageForce, const Vector &damagePosition,
+									const Vector &reportedPosition, float flDamage, int bitsDamageType,
+									int iCustomDamage )
 {
 	m_hInflictor = pInflictor;
 	if ( pAttacker )
@@ -157,102 +119,72 @@ CTakeDamageInfo::CTakeDamageInfo()
 	Init( NULL, NULL, NULL, vec3_origin, vec3_origin, vec3_origin, 0, 0, 0 );
 }
 
-CTakeDamageInfo::CTakeDamageInfo( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType, int iKillType )
+CTakeDamageInfo::CTakeDamageInfo( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType,
+								  int iKillType )
 {
 	Set( pInflictor, pAttacker, flDamage, bitsDamageType, iKillType );
 }
 
-void CTakeDamageInfo::Set( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType, int iKillType )
+void CTakeDamageInfo::Set( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType,
+						   int iKillType )
 {
 	Init( pInflictor, pAttacker, NULL, vec3_origin, vec3_origin, vec3_origin, flDamage, bitsDamageType, iKillType );
 }
 
-//-----------------------------------------------------------------------------
-// THREE MEMBERS ARE GONE -- plan_shim.md §5 3f, lane 3f.
-//
-// AdjustPlayerDamageInflictedForSkillLevel, AdjustPlayerDamageTakenForSkillLevel
-// and GetAmmoName had no importer on either link line and no caller inside this
-// translation unit either. takedamageinfo.h still DECLARES all three, which is
-// how the unported stock files that call them (hl2_player.cpp, gamerules.cpp,
-// the tf tree) keep compiling if a lane brings one back.
-//
-// GetAmmoName CARRIED AN ARGUMENT WORTH MORE THAN THE FUNCTION, and it is kept
-// in docs/shim-3f-retired-arguments.md rather than in git history alone,
-// because the next person to ask "how do I get an entity's classname on this
-// side?" needs it and will not think to look in a deleted body: the SERVER can
-// answer from the handle (GetClassname() is STRING(m_iClassname), which is
-// IServerNetworkable::GetClassName(), the same string) and the CLIENT CANNOT.
-// C_BaseEntity::GetClassname() reads the PREDICTION datamap and falls back to
-// typeid, both SDK-internal; and IClientNetworkable::GetClientClass()->GetName()
-// is NOT the substitute it looks like -- it is the DT class name
-// ("C_PhysicsProp"), never a map classname, so a test on it would go from
-// sometimes-true to never-true while appearing to have been answered.
-//-----------------------------------------------------------------------------
-
 #ifdef CLIENT_DLL
-// -------------------------------------------------------------------------------------------------- //
-// MultiDamage
-// Collects multiple small damages into a single damage
-// -------------------------------------------------------------------------------------------------- //
+// MultiDamage: collects multiple small damages into a single damage.
 BEGIN_SIMPLE_DATADESC_( CMultiDamage, CTakeDamageInfo )
-	DEFINE_FIELD( m_hTarget, FIELD_EHANDLE),
-END_DATADESC()
+DEFINE_FIELD( m_hTarget, FIELD_EHANDLE ),
+	END_DATADESC()
 
-CMultiDamage g_MultiDamage;
+		CMultiDamage g_MultiDamage;
 
 CMultiDamage::CMultiDamage()
 {
 	m_hTarget = NULL;
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CMultiDamage::Init( IGameEntity *pTarget, IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon, const Vector &damageForce, const Vector &damagePosition, const Vector &reportedPosition, float flDamage, int bitsDamageType, int iKillType )
+void CMultiDamage::Init( IGameEntity *pTarget, IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon,
+						 const Vector &damageForce, const Vector &damagePosition, const Vector &reportedPosition,
+						 float flDamage, int bitsDamageType, int iKillType )
 {
 	m_hTarget = pTarget;
-	BaseClass::Init( pInflictor, pAttacker, pWeapon, damageForce, damagePosition, reportedPosition, flDamage, bitsDamageType, iKillType );
+	BaseClass::Init( pInflictor, pAttacker, pWeapon, damageForce, damagePosition, reportedPosition, flDamage,
+					 bitsDamageType, iKillType );
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Resets the global multi damage accumulator
-//-----------------------------------------------------------------------------
-void ClearMultiDamage( void )
+// Resets the global multi damage accumulator.
+void ClearMultiDamage()
 {
 	g_MultiDamage.Init( NULL, NULL, NULL, NULL, vec3_origin, vec3_origin, vec3_origin, 0, 0, 0 );
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: inflicts contents of global multi damage register on gMultiDamage.pEntity
-//-----------------------------------------------------------------------------
-void ApplyMultiDamage( void )
+// Inflicts the contents of the global multi damage register on its target.
+void ApplyMultiDamage()
 {
 	if ( !g_MultiDamage.GetTarget() )
 		return;
-
 
 	// Damage is done, clear it out
 	ClearMultiDamage();
 }
 #endif // CLIENT_DLL
 
-//============================================================================================================
-// Utility functions for physics damage force calculation 
-//============================================================================================================
-//-----------------------------------------------------------------------------
-// Purpose: Returns an impulse scale required to push an object.
-// Input  : flTargetMass - Mass of the target object, in kg
-//			flDesiredSpeed - Desired speed of the target, in inches/sec.
-//-----------------------------------------------------------------------------
+// An impulse scale required to push an object. flTargetMass in kg, flDesiredSpeed in
+// inches/sec.
 float ImpulseScale( float flTargetMass, float flDesiredSpeed )
 {
-	return (flTargetMass * flDesiredSpeed);
+	return ( flTargetMass * flDesiredSpeed );
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Fill out a takedamageinfo with a damage force for an explosive
-//-----------------------------------------------------------------------------
-void CalculateExplosiveDamageForce( CTakeDamageInfo *info, const Vector &vecDir, const Vector &vecForceOrigin, float flScale )
+// Fills out a takedamageinfo with a damage force for an explosive.
+IGameEntity *CTakeDamageInfo::GetAttacker( CServerEntityResolver &entities ) const
+{
+	return SourceSharp_CrossHandleToGameEntity<IGameEntity, IServerEntity>( entities.EntityFromHandle( m_hAttacker ) );
+}
+
+void CalculateExplosiveDamageForce( IUniformRandomStream *pRandom, CTakeDamageInfo *info, const Vector &vecDir,
+									const Vector &vecForceOrigin, float flScale )
 {
 	info->SetDamagePosition( vecForceOrigin );
 
@@ -261,15 +193,15 @@ void CalculateExplosiveDamageForce( CTakeDamageInfo *info, const Vector &vecDir,
 	// Calculate an impulse large enough to push a 75kg man 4 in/sec per point of damage
 	float flForceScale = info->GetBaseDamage() * ImpulseScale( 75, 4 );
 
-	if( flForceScale > flClampForce )
+	if ( flForceScale > flClampForce )
 		flForceScale = flClampForce;
 
 	// Fudge blast forces a little bit, so that each
-	// victim gets a slightly different trajectory. 
+	// victim gets a slightly different trajectory.
 	// This simulates features that usually vary from
 	// person-to-person variables such as bodyweight,
 	// which are all indentical for characters using the same model.
-	flForceScale *= random->RandomFloat( 0.85, 1.15 );
+	flForceScale *= pRandom->RandomFloat( 0.85, 1.15 );
 
 	// Calculate the vector and stuff it into the takedamageinfo
 	Vector vecForce = vecDir;
@@ -279,20 +211,6 @@ void CalculateExplosiveDamageForce( CTakeDamageInfo *info, const Vector &vecDir,
 	vecForce *= flScale;
 	info->SetDamageForce( vecForce );
 }
-
-//-----------------------------------------------------------------------------
-// DebugGetDamageTypeString AND ITS 31-ENTRY STRING TABLE ARE GONE -- lane 3f.
-//
-// A diagnostic that spells a DMG_ bitfield out in words. No importer on either
-// link line, no caller in this TU, and nothing reaches it by name: it is a
-// member function, not a ConCommand, so there is no console route to it either.
-// The table was file-static and this was its only reader, so the two go
-// together or the one that stays is a warning.
-//
-// The DMG_ bit NAMES are not this file's to own and are not lost with it --
-// they are in game/shared/shareddefs.h, which is where the table was copied
-// from and where a managed or native replacement would read them.
-//-----------------------------------------------------------------------------
 
 #ifndef CLIENT_DLL
 } // namespace ss

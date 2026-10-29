@@ -18,12 +18,18 @@ internal sealed class FakeVPhysicsJoints : IVPhysicsJoints
         public Vector AngularVelocity = default;
         public float Mass = 10f;
         public bool Moveable = true;
+        public bool Static = false;
+        public bool Shadowed = false;
         public ushort GameFlags;
         public int Wakes;
         public float LinearDrag = 1f;
         public float AngularDrag = 1f;
         public (Vector Linear, Vector Angular) VelocityOffset = default;
         public (Vector Force, Vector Point)? VelocityOffsetAsked;
+        public Vector Inertia = new(1f, 2f, 2f);
+
+        /// <summary>The local axis BecomeHinged named, or -1 while it is free.</summary>
+        public int HingedAxis = -1;
     }
 
     public readonly Dictionary<nint, Body> Bodies = new();
@@ -84,6 +90,7 @@ internal sealed class FakeVPhysicsJoints : IVPhysicsJoints
 
     public void DestroyConstraint(nint environment, nint constraint) => Calls.Add($"DestroyConstraint {constraint:x}");
     public void Deactivate(nint constraint) => Calls.Add($"Deactivate {constraint:x}");
+    public void Activate(nint constraint) => Calls.Add($"Activate {constraint:x}");
     public void SetAngularMotor(nint constraint, float rotSpeed, float maxAngularImpulse) => AngularMotors[constraint] = (rotSpeed, maxAngularImpulse);
     public void SetLinearMotor(nint constraint, float speed, float maxLinearImpulse) => LinearMotors[constraint] = (speed, maxLinearImpulse);
     public nint ReferenceObject(nint constraint) => Ends.TryGetValue(constraint, out var e) ? e.Reference : 0;
@@ -120,6 +127,29 @@ internal sealed class FakeVPhysicsJoints : IVPhysicsJoints
         return world - origin;
     }
 
+    public Vector WorldToLocalVector(nint physicsObject, Vector world)
+    {
+        // The transpose of the pose's rotation.
+        var m = Of(physicsObject).Pose;
+        return new Vector(m[0, 0] * world.X + m[1, 0] * world.Y + m[2, 0] * world.Z,
+                          m[0, 1] * world.X + m[1, 1] * world.Y + m[2, 1] * world.Z,
+                          m[0, 2] * world.X + m[1, 2] * world.Y + m[2, 2] * world.Z);
+    }
+
+    public Vector Inertia(nint physicsObject) => Of(physicsObject).Inertia;
+
+    public void BecomeHinged(nint physicsObject, int localAxis)
+    {
+        Calls.Add($"BecomeHinged {localAxis}");
+        Of(physicsObject).HingedAxis = localAxis;
+    }
+
+    public void RemoveHinged(nint physicsObject)
+    {
+        Calls.Add("RemoveHinged");
+        Of(physicsObject).HingedAxis = -1;
+    }
+
     public (Vector Linear, Vector Angular) VelocityOffset(nint physicsObject, Vector force, Vector worldPosition)
     {
         Body b = Of(physicsObject);
@@ -131,6 +161,8 @@ internal sealed class FakeVPhysicsJoints : IVPhysicsJoints
     public ushort GameFlags(nint physicsObject) => Of(physicsObject).GameFlags;
     public void SetGameFlags(nint physicsObject, ushort flags) => Of(physicsObject).GameFlags = flags;
     public bool IsMoveable(nint physicsObject) => Of(physicsObject).Moveable;
+    public bool IsStatic(nint physicsObject) => Of(physicsObject).Static;
+    public bool HasShadowController(nint physicsObject) => Of(physicsObject).Shadowed;
     public float Mass(nint physicsObject) => Of(physicsObject).Mass;
     public (Vector Linear, Vector Angular) Velocity(nint physicsObject) => (Of(physicsObject).Velocity, Of(physicsObject).AngularVelocity);
     public float LinearDrag(nint physicsObject, Vector unitDirection) => Of(physicsObject).LinearDrag;

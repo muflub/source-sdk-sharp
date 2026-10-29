@@ -32,7 +32,7 @@ namespace SourceSharp.Shared;
 /// flame's lifetime, which is what stock actually does.
 /// </para>
 /// </summary>
-[StandaloneNetState(EntityNames.SsFiresmoke)]
+[StandaloneNetState(EntityNames.FireSmoke)]
 public partial class FireSmokeNetState
 {
     /// <summary>

@@ -5,30 +5,17 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — a managed temp entity plan, stored (client) =========//
-//
-// The client half of plan_server_native_v2 T4b. The block one planned table
-// crosses in (sourcesharp.h: SourceSharpTeTableHeader_t and
-// SourceSharpRecvPropRow_t rows, read by tempent_table_block.h), and one row
-// stored into one RecvProp. Carrying out only: every value in a row was decided
-// in C# (TePropPlanner, RecvPropPlan). Split from shell_tempents_client.cpp so a
-// gtest (tempent_recv_store_test.cpp) can reach it with the recv builders and
-// nothing else.
-//
-//=============================================================================//
-#ifndef SOURCESHARP_SHELL_TEMPENTS_STORE_CLIENT_H
-#define SOURCESHARP_SHELL_TEMPENTS_STORE_CLIENT_H
-#ifdef _WIN32
+// A managed temp entity table plan, stored: the block one planned table crosses
+// in (SourceSharpTeTableHeader_t and SourceSharpRecvPropRow_t rows), and one row
+// stored into one RecvProp. Every value was decided in C#. Separate so a gtest
+// can reach it with the recv builders alone.
 #pragma once
-#endif
 
-#include "sourcesharp.h"
 #include "tempent_table_block.h"
 #include "dt_recv.h"
 
 // The block, checked (tempent_table_block.h), with the client's rows.
-inline bool SourceSharpTe_ReadRecvTableBlock( const void *pBlock, int32_t nBlockBytes,
-                                              SourceSharpTeTableBlock_t *pOut )
+inline bool SourceSharpTe_ReadRecvTableBlock( const void *pBlock, int32_t nBlockBytes, SourceSharpTeTableBlock_t *pOut )
 {
 	return SourceSharpTe_ReadTableBlock( pBlock, nBlockBytes, (int32_t)sizeof( SourceSharpRecvPropRow_t ), pOut );
 }
@@ -44,7 +31,5 @@ RecvVarProxyFn SourceSharpTe_RecvVarProxy( int32_t nProxy );
 // One row into one RecvProp. pNested is the table a DPT_DataTable row nests
 // (the caller resolves hDataTable). False, leaving pOut untouched, for a proxy
 // id that does not fit the row's type or a datatable row with no table.
-bool SourceSharpTe_StoreRecvProp( const SourceSharpRecvPropRow_t &row, const char *pName,
-                                  RecvTable *pNested, RecvProp *pOut );
-
-#endif // SOURCESHARP_SHELL_TEMPENTS_STORE_CLIENT_H
+bool SourceSharpTe_StoreRecvProp( const SourceSharpRecvPropRow_t &row, const char *pName, RecvTable *pNested,
+								  RecvProp *pOut );

@@ -29,6 +29,34 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.MomentaryRotButton, ScriptedEntityKind.Brush)]
 public sealed class MomentaryRotButton : ScriptedEntity
 {
+    public MomentaryRotButton(IGameClock clock, IEnginePrecache precache, IEngineSound sound)
+    {
+        Clock = clock;
+        Precache = precache;
+        Sound = sound;
+    }
+
+    private readonly IEnginePrecache Precache;
+
+    private readonly IEngineSound Sound;
+
+    /// <summary>
+    /// m_sNoise: the <c>sounds</c> key's "Buttons.sndN", set only for a wheel
+    /// the player turns (SF_BUTTON_USE_ACTIVATES), as stock's Spawn does. Its
+    /// Spawn never runs CBaseButton::Precache, so the lock sounds are never set
+    /// and a locked wheel is silent, here as there.
+    /// </summary>
+    private string _noise = string.Empty;
+
+    /// <summary>what the server thinks the time is: OnUseLocked's half-second.</summary>
+    private readonly IGameClock Clock;
+
+    /// <summary>Stock's Spawn makes it SOLID_VPHYSICS.</summary>
+    protected override SolidType BrushSolidType => SolidType.VPhysics;
+
+    /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
+    public override bool MovesAsPusher => true;
+
 
     /// <summary>moving a brush, and reporting when it arrives.</summary>
     /// <summary>This entity's own spawnflags, as their own type.</summary>
@@ -65,7 +93,13 @@ public sealed class MomentaryRotButton : ScriptedEntity
         /// <summary>Stays wound on rather than winding back. Suppresses the auto-return.</summary>
         Toggle = 0b0000_0000_0010_0000,
 
+        /// <summary>SF_BUTTON_USE_ACTIVATES: a player's +USE turns it, for as long as it is held.</summary>
+        UseActivates = 0b0000_0100_0000_0000,  // 0x400
+
         Locked = 0b0000_1000_0000_0000,  // 0x800
+
+        /// <summary>SF_BUTTON_JIGGLE_ON_USE_LOCKED: a locked wheel jiggles two degrees when used.</summary>
+        JiggleOnUseLocked = 0b0010_0000_0000_0000,  // 0x2000
     }
 
     /// <summary>
@@ -82,7 +116,15 @@ public sealed class MomentaryRotButton : ScriptedEntity
     }
 
     /// <summary>What started the movement now under way. Decides what arrival means.</summary>
-    private enum Driver { Still, Map, Press, Return }
+    private enum Driver { Still, Map }
+
+    /// <summary>Stock's m_pfnMoveDone for the turning a player does: what the move-done timer runs.</summary>
+    private enum UseMove { None, Use, Return }
+
+    /// <summary>The 0.1 s move-done timer each use re-arms (stock's SetMoveDoneTime).</summary>
+    private const string MoveDoneContext = "MoveDone";
+
+    private const string JiggleContext = "Jiggle";
 
     private Vector _startAngles;
 
@@ -107,6 +149,27 @@ public sealed class MomentaryRotButton : ScriptedEntity
     private bool _disabled;
     private bool _updateTarget = true;
 
+    /// <summary>m_lastUsed: held since the last move-done, so a press does not reverse it again.</summary>
+    private bool _lastUsed;
+
+    private UseMove _moveDone;
+
+    /// <summary>m_flUseLockedTime: OnUseLocked says so at most every half second.</summary>
+    private float _useLockedTime;
+
+    /// <summary>The locked jiggle's next step, and how far it jiggles.</summary>
+    private int _jiggleStep;
+    private float _jiggleDistance;
+
+    /// <summary>
+    /// CBaseButton's and CMomentaryRotButton's ObjectCaps: a wheel +USE turns
+    /// is used every command the key is held, and found in the radius.
+    /// </summary>
+    public override UseCaps ObjectCaps
+        => base.ObjectCaps | (Flags.HasFlag(SpawnFlag.UseActivates)
+            ? UseCaps.ImpulseUse | UseCaps.ContinuousUse | UseCaps.UseInRadius
+            : UseCaps.None);
+
     public override void OnSpawn()
     {
         SetVisible(true);
@@ -114,6 +177,8 @@ public sealed class MomentaryRotButton : ScriptedEntity
         SetSolidity(Flags.HasFlag(SpawnFlag.NotSolid)
             ? BrushSolidity.None
             : BrushSolidity.Solid);
+        // CreateVPhysics: a shadow that follows it, which props meet.
+        InitShadowPhysics();
 
         if (Vars.Speed <= 0f)
             Vars.Speed = 100f;
@@ -137,6 +202,12 @@ public sealed class MomentaryRotButton : ScriptedEntity
             Vars.Direction = 1;
 
         _locked = Flags.HasFlag(SpawnFlag.Locked);
+
+        if (Flags.HasFlag(SpawnFlag.UseActivates) && Vars.Sounds != 0)
+        {
+            _noise = BaseButton.ButtonSound(Vars.Sounds);
+            Precache.PrecacheSound(_noise);
+        }
 
         // Nothing is fired here, because stock fires nothing here either: it
         // reports nought at spawn, which its own "has the value changed" guard
@@ -200,13 +271,18 @@ public sealed class MomentaryRotButton : ScriptedEntity
     // Inputs.
     //-------------------------------------------------------------------------
 
-    [ScriptedEvent] private void OnSetPosition(float fraction) => Travel(fraction, Vars.Speed, Driver.Map);
+    /// <summary>m_vecMoveAng: the unit turn about the wheel's axis, along its travel.</summary>
+    private Vector MoveAngles => OffsetAngles(Vector.Zero, (RotationAxisFlag)SpawnFlags, _travel < 0f ? -1f : 1f);
 
+    private Vector EndAngles => OffsetAngles(_startAngles, (RotationAxisFlag)SpawnFlags, _travel);
+
+    [ScriptedEvent] private void OnSetPosition(float fraction) => Travel(fraction, Vars.Speed);
+
+    /// <summary>InputSetPositionImmediately: there at once, and nothing told.</summary>
     [ScriptedEvent] private void OnSetPositionImmediately(float fraction)
     {
         _target = Math.Clamp(fraction, 0f, 1f);
         SetAngles(OffsetAngles(_startAngles, (RotationAxisFlag)SpawnFlags, _travel * _target));
-        Report(_target);
     }
 
     // Underscored, so they cannot be method names with the "On" stripped. Stock
@@ -218,23 +294,32 @@ public sealed class MomentaryRotButton : ScriptedEntity
     [ScriptedEvent] private void OnEnable() => _disabled = false;
     [ScriptedEvent] private void OnDisable() => _disabled = true;
 
+    /// <summary>CMomentaryRotButton::Lock: stopped where it stands, nothing pending.</summary>
     [ScriptedEvent] private void OnLock()
     {
         _locked = true;
 
-        // Stopped where it stands rather than allowed to coast to the end: a
-        // wheel locked halfway is meant to stay halfway.
         Movement.StopMoving(Handle);
+        Spin(Vector.Zero);
+        StopThinking(MoveDoneContext);
+        _moveDone = UseMove.None;
         StopThinking();
         _driver = Driver.Still;
     }
 
-    [ScriptedEvent] private void OnUnlock() => _locked = false;
+    /// <summary>CMomentaryRotButton::Unlock: the auto-return a tenth of a second on.</summary>
+    [ScriptedEvent] private void OnUnlock()
+    {
+        _locked = false;
+
+        _moveDone = UseMove.Return;
+        SetContextThink(MoveDoneContext, 0.1f);
+    }
 
     /// <summary>
-    /// A player turning it. One press, one traverse — see the divergence note:
-    /// the shell offers the use key as an impulse, so the wheel cannot be turned
-    /// by the amount a player holds it for.
+    /// CMomentaryRotButton::Use, every command +USE is held: the first use
+    /// since it last stopped reverses the direction and presses it; each use
+    /// turns it on at its speed for another tenth of a second.
     /// </summary>
     [ScriptedEvent("Use")] private void OnUsed()
     {
@@ -243,34 +328,183 @@ public sealed class MomentaryRotButton : ScriptedEntity
 
         if (_locked)
         {
-            OnUseLocked.Fire();
+            if (UseLocked() && Flags.HasFlag(SpawnFlag.JiggleOnUseLocked))
+                StartJiggle();
+
             return;
         }
 
-        // Already being turned by this press. A second press mid-traverse is the
-        // player leaning on the key, not a new decision.
-        if (_driver == Driver.Press)
+        // Reverse our direction and play movement sound every time the player
+        // pauses between uses.
+        if (!_lastUsed)
+        {
+            Vars.Direction = -Vars.Direction;
+
+            //Alert that we've been pressed
+            OnPressed.Fire();
+        }
+
+        bool playSound = !_lastUsed;
+        _lastUsed = true;
+
+        UpdateSelf(CurrentPosition, playSound);
+
+        // Think every frame while we are moving, unless a think is pending.
+        if (NextThinkDelay() < 0f)
+            SetNextThink(0f);
+    }
+
+    /// <summary>
+    /// CBaseButton::OnUseLocked: OnUseLocked fires, and answers true, at most
+    /// once every half second.
+    /// </summary>
+    private bool UseLocked()
+    {
+        if (Clock.Now > _useLockedTime)
+        {
+            OnUseLocked.Fire();
+            _useLockedTime = Clock.Now + 0.5f;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>The jiggle's four SetPositions as stock queues them: when, and how much of the two degrees.</summary>
+    private const int JiggleSteps = 4;
+
+    private static (float Delay, float Scale) Jiggle(int step) => step switch
+    {
+        0 => (0.01f, 1f),
+        1 => (0.1f, 0f),
+        2 => (0.2f, 0.5f),
+        _ => (0.3f, 0f),
+    };
+
+    /// <summary>Jiggle two degrees: out, back, half out, back, with the target left alone.</summary>
+    private void StartJiggle()
+    {
+        _jiggleDistance = 2f / MathF.Abs(_travel);
+        _updateTarget = false;
+        _jiggleStep = 0;
+        SetContextThink(JiggleContext, Jiggle(0).Delay);
+    }
+
+    private void JiggleThink()
+    {
+        if (_jiggleStep < JiggleSteps)
+        {
+            var (delay, scale) = Jiggle(_jiggleStep);
+            Travel(scale * _jiggleDistance, Vars.Speed);
+            _jiggleStep++;
+
+            // Must be last! And must be late enough to cover the settling time.
+            float next = _jiggleStep < JiggleSteps ? Jiggle(_jiggleStep).Delay : 0.5f;
+            SetContextThink(JiggleContext, next - delay);
             return;
+        }
 
-        // Reversing on each fresh press is what makes it a wheel: the same key
-        // winds it on and then back off again.
-        Vars.Direction = -Vars.Direction;
+        _updateTarget = true;
+    }
 
-        OnPressed.Fire();
-        Travel(Vars.Direction > 0 ? 1f : 0f, Vars.Speed, Driver.Press);
+    /// <summary>
+    /// CMomentaryRotButton::UpdateSelf: turning on for another tenth of a
+    /// second, or stopped and snapped at the end it has reached.
+    /// </summary>
+    private void UpdateSelf(float value, bool playSound)
+    {
+        // A map's SetPosition under way gives way to the player.
+        if (_driver != Driver.Still)
+        {
+            Movement.StopMoving(Handle);
+            _driver = Driver.Still;
+        }
+
+        SetContextThink(MoveDoneContext, 0.1f);
+
+        if (Vars.Direction > 0 && value >= 1f)
+        {
+            Spin(Vector.Zero);
+            SetAngles(EndAngles);
+            OnFullyClosed.Fire();
+            return;
+        }
+
+        if (Vars.Direction < 0 && value <= 0f)
+        {
+            Spin(Vector.Zero);
+            SetAngles(_startAngles);
+            OnFullyOpen.Fire();
+            return;
+        }
+
+        // CMomentaryRotButton::PlaySound, on the turn that starts a use.
+        if (playSound && _noise.Length > 0)
+            Sound.EntityEmitSound(Handle, _noise);
+
+        Spin(MoveAngles * (Vars.Direction * Vars.Speed));
+        _moveDone = UseMove.Use;
+    }
+
+    /// <summary>CMomentaryRotButton::UseMoveDone: let go. Stopped, unpressed, and wound back if it returns.</summary>
+    private void UseMoveDone()
+    {
+        Spin(Vector.Zero);
+
+        // Make sure our targets stop where we stopped.
+        Report(CurrentPosition);
+
+        // Alert that we've been unpressed
+        OnUnpressed.Fire();
+
+        _lastUsed = false;
+
+        if (!Flags.HasFlag(SpawnFlag.Toggle) && Vars.ReturnSpeed > 0f)
+        {
+            _moveDone = UseMove.Return;
+            Vars.Direction = -1;
+
+            // Delay before autoreturn.
+            SetContextThink(MoveDoneContext, 0.1f);
+        }
+        else
+        {
+            StopThinking();
+            _moveDone = UseMove.None;
+        }
+    }
+
+    /// <summary>CMomentaryRotButton::ReturnMoveDone: winding back at the return speed until it is at the start.</summary>
+    private void ReturnMoveDone()
+    {
+        if (CurrentPosition <= 0f)
+        {
+            // Got back to the start, stop spinning.
+            Spin(Vector.Zero);
+            SetAngles(_startAngles);
+
+            Report(0f);
+
+            _moveDone = UseMove.None;
+            StopThinking();
+        }
+        else
+        {
+            Spin(MoveAngles * -Vars.ReturnSpeed);
+            SetContextThink(MoveDoneContext, 0.1f);
+            SetNextThink(0.01f);
+        }
     }
 
     //-------------------------------------------------------------------------
-    // Turning, and reporting while it turns.
+    // Turning to a position the map asked for, and reporting while it turns.
     //-------------------------------------------------------------------------
 
-    private void Travel(float fraction, float speed, Driver driver)
+    /// <summary>InputSetPosition: turns to the fraction at a speed, locked or not.</summary>
+    private void Travel(float fraction, float speed)
     {
-        if (_locked || _disabled)
-            return;
-
         _target = Math.Clamp(fraction, 0f, 1f);
-        _driver = driver;
+        _driver = Driver.Map;
 
         // Every tick, from now until it arrives. The only entity here that does,
         // and the class comment says why.
@@ -284,10 +518,33 @@ public sealed class MomentaryRotButton : ScriptedEntity
         RotateTo(OffsetAngles(_startAngles, (RotationAxisFlag)SpawnFlags, _travel * _target), speed);
     }
 
+    /// <summary>UpdateThink: the Position output follows the wheel every tick while it turns.</summary>
     public override void OnThink()
     {
         Report(CurrentPosition);
         SetNextThink(0f);
+    }
+
+    public override void OnThink(string context)
+    {
+        if (context == JiggleContext)
+        {
+            JiggleThink();
+            return;
+        }
+
+        if (context != MoveDoneContext)
+            return;
+
+        switch (_moveDone)
+        {
+            case UseMove.Use:
+                UseMoveDone();
+                break;
+            case UseMove.Return:
+                ReturnMoveDone();
+                break;
+        }
     }
 
     /// <summary>
@@ -304,6 +561,7 @@ public sealed class MomentaryRotButton : ScriptedEntity
         Position.Fire(value);
     }
 
+    /// <summary>SetPositionMoveDone and OutputMovementComplete: the map's turn arrived.</summary>
     public override void OnMoveDone()
     {
         // An arrival with nothing under way is not an arrival. Without this a
@@ -317,12 +575,7 @@ public sealed class MomentaryRotButton : ScriptedEntity
         // guarantees a wheel wound fully on says one rather than 0.9998.
         Report(_target);
         StopThinking();
-
-        var driver = _driver;
         _driver = Driver.Still;
-
-        if (driver == Driver.Press)
-            OnUnpressed.Fire();
 
         if (_target >= 1f)
             OnFullyClosed.Fire();
@@ -330,12 +583,6 @@ public sealed class MomentaryRotButton : ScriptedEntity
             OnFullyOpen.Fire();
 
         OnReachedPosition.Fire();
-
-        // Winding back is the answer to a PRESS only. A map that parks the wheel
-        // with SetPosition has said where it wants it, and taking that away again
-        // would make the input useless.
-        if (driver == Driver.Press && Vars.ReturnSpeed > 0f && !Flags.HasFlag(SpawnFlag.Toggle) && _target > 0f)
-            Travel(0f, Vars.ReturnSpeed, Driver.Return);
     }
 
     /// <summary>
@@ -366,6 +613,9 @@ public partial class MomentaryRotButtonVars
 {
     /// <summary>How far the wheel turns end to end, in degrees. Negative reverses it.</summary>
     public float Distance { get; set; } = 90f;
+
+    /// <summary>The "Buttons.sndN" a turn starts with; 0 for none.</summary>
+    public int Sounds { get; set; }
 
     public float Speed { get; set; } = 100f;
 

@@ -62,17 +62,48 @@ public sealed class ScriptedEventAttribute : Attribute
 }
 
 /// <summary>
+/// A family of numbered map keys the class takes in its own
+/// <see cref="ScriptedEntity.OnKeyValue"/> rather than as <c>[ScriptVars]</c>:
+/// <paramref name="prefix"/> and each number from <paramref name="first"/> to
+/// <paramref name="last"/>, zero-padded to <paramref name="digits"/>. Read by
+/// <see cref="ScriptedEntityRegistry.DescribeClasses"/>, so the keys a map may
+/// send are described as declared ones are (logic_case's Case01..Case16).
+/// </summary>
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
+public sealed class ClaimsKeysAttribute(string prefix, int first, int last, int digits = 2) : Attribute
+{
+    public string Prefix { get; } = prefix;
+
+    public int First { get; } = first;
+
+    public int Last { get; } = last;
+
+    public int Digits { get; } = digits;
+
+    /// <summary>Every key of the family, in order.</summary>
+    public IEnumerable<string> Keys()
+    {
+        for (int i = First; i <= Last; i++)
+            yield return Prefix + i.ToString("D" + Digits, System.Globalization.CultureInfo.InvariantCulture);
+    }
+}
+
+/// <summary>
 /// Everything an input carries. Taken as a parameter only by inputs that need
 /// more than the value.
 /// </summary>
 public readonly struct InputData
 {
-    public InputData(string value, float number, EntityHandle activator)
+    public InputData(string value, float number, EntityHandle activator, EntityHandle caller = default)
     {
         Value = value;
         Number = number;
         Activator = activator;
+        Caller = caller;
     }
+
+    /// <summary>The entity whose output sent it (stock's pCaller), or none when nothing did.</summary>
+    public EntityHandle Caller { get; }
 
     /// <summary>The value as text, which is how the map wrote it.</summary>
     public string Value { get; }
@@ -82,6 +113,18 @@ public readonly struct InputData
 
     /// <summary>Whatever caused this input to fire, which may not be valid.</summary>
     public EntityHandle Activator { get; }
+}
+
+/// <summary>
+/// The name a map uses for an output whose field cannot carry it: one that
+/// would hide a member, as logic_relay's "OnSpawn" would its OnSpawn handler
+/// and a button's "OnDamaged" its damage virtual. On the field, so a class
+/// is described under its map names before any instance exists.
+/// </summary>
+[AttributeUsage(AttributeTargets.Field)]
+public sealed class OutputNameAttribute(string name) : Attribute
+{
+    public string Name { get; } = name;
 }
 
 /// <summary>
@@ -98,23 +141,8 @@ public readonly struct InputData
 public sealed class Output
 {
     private ScriptedEntity? _owner;
-    private readonly string? _explicitName;
 
-    public Output()
-    {
-    }
-
-    /// <summary>
-    /// An output whose mapper-visible name differs from its field's. Needed when
-    /// the name a map uses is not available as a field — logic_relay's "OnSpawn"
-    /// output, for instance, would collide with the OnSpawn handler.
-    /// </summary>
-    public Output(string name)
-    {
-        _explicitName = name;
-    }
-
-    /// <summary>Mapper-visible name. The declaring field's, unless one was given.</summary>
+    /// <summary>Mapper-visible name: the declaring field's, or its <see cref="OutputNameAttribute"/>'s.</summary>
     public string Name { get; private set; } = string.Empty;
 
     /// <summary>Slot in the owning class's output list, which is what the native side fires.</summary>
@@ -123,7 +151,7 @@ public sealed class Output
     internal void Bind(ScriptedEntity owner, string name, int index)
     {
         _owner = owner;
-        Name = _explicitName ?? name;
+        Name = name;
         Index = index;
     }
 
@@ -229,6 +257,20 @@ public abstract class ScriptedEntity
 
     /// <summary>Class name the map used, which may be one of several for a shared implementation.</summary>
     public string ClassName { get; internal set; } = string.Empty;
+
+    /// <summary>
+    /// CBaseEntity::SetClassname: the name this entity reports and is found by
+    /// from here on, in the engine and in the directory. What it was made as
+    /// stays, so a rename is only ever to another name of the same class.
+    /// </summary>
+    protected void SetClassName(string className)
+    {
+        Entities.SetClassName(Handle, className);
+        if (Owner is { } owner)
+            owner.Directory.SetClassName(this, className);
+        else
+            ClassName = className;
+    }
 
     /// <summary>
     /// The name the mapper gave this entity, if any.
@@ -337,6 +379,9 @@ public abstract class ScriptedEntity
     private IEngineEntityPhysics Physics => _physics ?? throw Unbound(nameof(IEngineEntityPhysics));
     private IEnginePlayers Players => _players ?? throw Unbound(nameof(IEnginePlayers));
 
+    /// <summary>Whether this is a player who is dead (stock's IsPlayer() and !IsAlive()).</summary>
+    protected bool IsDeadPlayer(EntityHandle entity) => Entities.IsPlayer(entity) && !Players.IsAlive(entity);
+
     /// <summary>
     /// Every area the base's helpers reach, from one container: the registry's
     /// at creation, or a test's (plan_abi_hotreload D8).
@@ -351,7 +396,14 @@ public abstract class ScriptedEntity
         _players = engine.Require<IEnginePlayers>();
         _host = engine.Require<IEngineHost>();
         _surfaces = engine.Resolve(typeof(PhysicsSurfaces)) as PhysicsSurfaces;
+        BindOwnAreas(engine);
     }
+
+    /// <summary>
+    /// What a base below this one binds from the same container, at the same
+    /// moment: <see cref="AnimatingEntity"/>'s skins, flames and precache.
+    /// </summary>
+    private protected virtual void BindOwnAreas(IServiceLocator engine) { }
 
     // How this entity's restore re-checks a saved handle: against its own
     // side's engine (plan_abi_hotreload D8).
@@ -1153,6 +1205,17 @@ public abstract class ScriptedEntity
     public int SpawnFlags => Entities.GetSpawnFlags(Handle);
 
     /// <summary>
+    /// CBaseEntity::ObjectCaps, its use bits: what a player's +USE may do with
+    /// this entity (PlayerUse). An entity with a parent answers the parent's
+    /// usable bits, so a use on a part reaches the thing it is part of; a class
+    /// that is used itself adds its own.
+    /// </summary>
+    public virtual UseCaps ObjectCaps
+        => FindByHandle<ScriptedEntity>(Entities.GetParent(Handle)) is { } parent
+            ? parent.ObjectCaps & UseCaps.Usable
+            : UseCaps.None;
+
+    /// <summary>
     /// Spawnflags as an entity's own enum.
     ///
     /// <para>
@@ -1399,6 +1462,21 @@ public abstract class ScriptedEntity
     public virtual void OnPhysicsCreated() { }
 
     /// <summary>
+    /// Whether the registry gives this entity a simulated object after its
+    /// spawn when it made none (a Prop kind's VPhysicsInitNormal). False for a
+    /// class whose spawn decides its own object or none, as CDynamicProp's
+    /// CreateVPhysics does from its solid type.
+    /// </summary>
+    public virtual bool SpawnsPhysics => true;
+
+    /// <summary>
+    /// <c>PhysicsSolidMaskForEntity</c>: the contents this entity's physics
+    /// object collides with (ShouldCollide's contents clause). MASK_SOLID;
+    /// an item adds player clips, a missile hitboxes.
+    /// </summary>
+    public virtual uint PhysicsSolidMask => SourceSharp.Server.EnginePushWorld.MaskSolid;
+
+    /// <summary>
     /// Once per physics frame while the solver is moving this entity's object:
     /// stock's VPhysicsUpdate, called for each object on the active list.
     /// Delivered with the next drain.
@@ -1417,6 +1495,43 @@ public abstract class ScriptedEntity
     /// than settled by the engine.
     /// </summary>
     public virtual void OnBlocked(EntityHandle other) { }
+
+    /// <summary>
+    /// The mover's blocker has changed to <paramref name="other"/>: stock's
+    /// StartBlocked, said once when a push first fails against it, before
+    /// that frame's <see cref="OnBlocked"/>.
+    /// </summary>
+    public virtual void OnStartBlocked(EntityHandle other) { }
+
+    /// <summary>The blocker a push last failed against is no longer in the way: stock's EndBlocked.</summary>
+    public virtual void OnEndBlocked() { }
+
+    /// <summary>
+    /// Stock's <c>m_takedamage != DAMAGE_NO</c>, which decides, for one, whether
+    /// a crossbow bolt counts this as a body (CCrossbowBolt::BoltTouch). The
+    /// families' own defaults: a prop takes damage (CBreakableProp: DAMAGE_YES,
+    /// or DAMAGE_EVENTS_ONLY with no health), a brush only when it is given
+    /// health (a button or a door, as their Spawns rule), and nothing else; a
+    /// class whose stock Spawn says otherwise answers for itself.
+    /// </summary>
+    public virtual bool TakesDamage => RegisteredKind switch
+    {
+        ScriptedEntityKind.Prop => true,
+        ScriptedEntityKind.Brush => Entities.GetHealth(Handle) > 0,
+        _ => false,
+    };
+
+    /// <summary>
+    /// Stock's <c>GetMoveType() == MOVETYPE_PUSH</c>, which its brush entities'
+    /// Spawns set and which decides, for one, that a crossbow bolt does not
+    /// stick in this (CCrossbowBolt::BoltTouch's static-architecture test).
+    /// The shell reports MOVETYPE_NONE for every managed brush, on purpose
+    /// (standalone_movetype.h: claiming PUSH would hand it to the physics
+    /// solver), so a reader of stock's test asks this. The classes answering
+    /// yes are the ones stock's ss_sandbox census measured as PUSH
+    /// (tools/stock-ab ab_movetypes); everything else answers no.
+    /// </summary>
+    public virtual bool MovesAsPusher => false;
 
     /// <summary>
     /// <c>FL_UNBLOCKABLE_BY_PLAYER</c>: a player in this mover's way is pushed
@@ -1497,6 +1612,9 @@ public abstract class ScriptedEntity
     /// </summary>
     protected void SetNotSolid(bool notSolid) => Physics.SetNotSolid(Handle, notSolid);
 
+    /// <summary>FSOLID_NOT_SOLID on another entity, as FollowEntity sets it on what it attaches.</summary>
+    protected void SetNotSolid(EntityHandle entity, bool notSolid) => Physics.SetNotSolid(entity, notSolid);
+
     // EFL_NO_DAMAGE_FORCES, which the two inputs below set and clear.
     private bool _noDamageForces;
 
@@ -1548,9 +1666,22 @@ public abstract class ScriptedEntity
     {
         if (context is null)
             OnThink();
-        else
+        else if (!TakeBaseThink(context))
             OnThink(context);
     }
+
+    /// <summary>
+    /// A context think a base below this one books for itself, taken before the
+    /// class's own <see cref="OnThink(string)"/> sees it, so a class that
+    /// overrides that without calling down still lets its base's thinks run.
+    /// </summary>
+    private protected virtual bool TakeBaseThink(string context) => false;
+
+    /// <summary>
+    /// A key one of this entity's sets has just taken, for a base whose keys
+    /// act as they arrive (stock's keyfields write the field the engine sends).
+    /// </summary>
+    internal virtual void KeyTaken(ScriptedVarSet set, string lowered) { }
 
     /// <summary>
     /// The think heap this entity books into.
@@ -1577,6 +1708,13 @@ public abstract class ScriptedEntity
 
     /// <summary>The registry's clock, for a subclass that stamps state with the time (0 with no registry).</summary>
     protected float GameTime => Now;
+
+    /// <summary>
+    /// g_EventQueue.AddEvent( target, input, delay, activator, this ): an input
+    /// for another entity, queued from this one, which arrives as its caller.
+    /// </summary>
+    protected void QueueInput(EntityHandle target, string input, float delay = 0f, EntityHandle activator = default)
+        => Owner?.Directory.FireInputAt(target, input, null, Now, delay, activator, Handle);
 
     /// <summary>
     /// Schedules <see cref="OnThink()"/> for <paramref name="delay"/> seconds
@@ -1671,6 +1809,40 @@ public abstract class ScriptedEntity
     protected void MakePhysicsStatic() => Physics.SetPhysicsStatic(Handle, true);
 
     /// <summary>
+    /// Stock's <c>VPhysicsInitNormal</c>: a simulated object from this
+    /// entity's model, made as the entity's solidity and collision group say.
+    /// False when the model has none.
+    /// </summary>
+    protected bool InitPhysics(bool asleep = false) => Physics.InitPhysics(Handle, asleep);
+
+    /// <summary>
+    /// Stock's <c>VPhysicsInitStatic</c> as a brush calls it: an object the
+    /// solver collides with, this brush's SOLID_BSP and movetype kept.
+    /// </summary>
+    protected bool InitStaticPhysics() => Physics.InitStaticPhysics(Handle);
+
+    /// <summary>This entity's solid type and flags, as its spawn decides them.</summary>
+    protected void SetSolidity(SolidType solidType, SolidFlags solidFlags) => Entities.SetSolidity(Handle, solidType, solidFlags);
+
+    /// <summary>Stock's <c>CollisionProp()->UseTriggerBounds</c> on this entity.</summary>
+    protected void UseTriggerBounds(bool enable, float bloat, bool uniform = false) => Entities.UseTriggerBounds(Handle, enable, bloat, uniform);
+
+    /// <summary>
+    /// Stock's <c>VPhysicsInitShadow( false, false )</c> as a mover calls it:
+    /// an object that follows this entity, its solidity and movetype kept.
+    /// </summary>
+    protected bool InitShadowPhysics() => Physics.InitShadowPhysics(Handle);
+
+    /// <summary>Whether this entity's physics object collides at all.</summary>
+    protected void EnablePhysicsCollisions(bool enable) => Physics.EnableCollisions(Handle, enable);
+
+    /// <summary>Stock's <c>IPhysicsObject::BecomeTrigger</c>: the solver reports what overlaps this entity's object.</summary>
+    protected void BecomePhysicsTrigger(bool isTrigger) => Physics.BecomePhysicsTrigger(Handle, isTrigger);
+
+    /// <summary>Which collision group this entity is in: what it collides with and what passes through it.</summary>
+    protected void SetCollisionGroup(CollisionGroup group) => Physics.SetCollisionGroup(Handle, group);
+
+    /// <summary>
     /// Plays a named animation. Returns false if the model has no such
     /// sequence, which a caller usually wants to know: the map named something
     /// the artist did not build.
@@ -1698,8 +1870,39 @@ public abstract class ScriptedEntity
     /// <summary>Whether this brush is drawn.</summary>
     protected void SetVisible(bool visible) => Render.SetVisible(Handle, visible);
 
+    /// <summary>
+    /// The solid type <see cref="SetSolidity(BrushSolidity)"/> gives this brush:
+    /// SOLID_BSP, or SOLID_VPHYSICS for the movers stock's Spawn makes so
+    /// (doors, func_movelinear, func_rotating, the rotating buttons,
+    /// func_brush, func_tracktrain). A SOLID_VPHYSICS mover is one vphysics
+    /// may block (CBaseEntity::VPhysicsUpdatePusher); box traces meet its
+    /// collision model, rays its brushes.
+    /// </summary>
+    protected virtual SolidType BrushSolidType => SolidType.Bsp;
+
+    /// <summary>
+    /// SetSolid( SOLID_NONE ): out of every partition list, as stock leaves a
+    /// volume nothing traces or touches (func_illusionary, func_occluder, the
+    /// weather and dust volumes). Its bounds still answer.
+    /// </summary>
+    protected void SetSolidNone(SolidFlags flags = SolidFlags.None) => Entities.SetSolidity(Handle, SolidType.None, flags);
+
     /// <summary>What this brush does to something walking into it.</summary>
-    protected void SetSolidity(BrushSolidity solidity) => Physics.SetBrushSolidity(Handle, solidity);
+    protected void SetSolidity(BrushSolidity solidity)
+    {
+        if (BrushSolidType == SolidType.Bsp)
+        {
+            Physics.SetBrushSolidity(Handle, solidity);
+            return;
+        }
+
+        Entities.SetSolidity(Handle, BrushSolidType, solidity switch
+        {
+            BrushSolidity.None => SolidFlags.NotSolid,
+            BrushSolidity.Trigger => SolidFlags.NotSolid | SolidFlags.Trigger,
+            _ => SolidFlags.None,
+        });
+    }
 
     //-------------------------------------------------------------------------
     // PARENTING.
@@ -2117,8 +2320,8 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
         _io = io;
         _removal = removal;
 
-        _directory.InputDelivery = (target, input, value, number, activator)
-            => Input(target, input, value ?? string.Empty, number, activator);
+        _directory.InputDelivery = (target, input, value, number, activator, caller)
+            => Input(Resolve(target), input, value ?? string.Empty, number, activator, caller);
 
         _directory.PlayerProvider = () => _engine.Require<IEnginePlayers>().GetHandle(1);
 
@@ -2292,10 +2495,10 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     ///
     /// <list type="number">
     /// <item>the ones the managed level init creates in
-    /// <c>ServerActivate</c> — 10 <c>ss_pickup</c> and 9 <c>ss_beam</c> on
+    /// <c>ServerActivate</c> — 10 <c>ss_pickup</c> and 9 <c>beam</c> on
     /// <c>dm_lockdown</c>, measured;</item>
-    /// <item><b>the player and its kit</b> — <c>ss_player</c>,
-    /// <c>ss_viewmodel</c>, <c>ss_weapon</c> — which cannot exist before a
+    /// <item><b>the player and its kit</b> — <c>player</c>,
+    /// <c>predicted_viewmodel</c>, <c>ss_weapon</c> — which cannot exist before a
     /// client is active, because the edict they bind to is a client's.</item>
     /// </list>
     ///
@@ -2370,7 +2573,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
             // An output may carry a name of its own, and registration happens
             // before any instance exists — so a throwaway instance is built to
             // read what each field actually declared.
-            var names = OutputNamesFor(type, fields);
+            var names = OutputNamesFor(fields);
 
             // The declared map keys, which live in [ScriptVars] classes the
             // entity holds — found exactly as [NetState] fields are, and for the
@@ -2620,13 +2823,15 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// </summary>
     public void Spawn(EntityHandle handle, string className)
     {
-        EnsureInstance(handle, className)?.OnSpawn();
+        var instance = EnsureInstance(handle, className);
+        instance?.OnSpawn();
 
         // AFTER the class's own spawn, which is what sets the model and may
         // already have made an object (or a static one): a class whose kind
         // the solver moves gets an object now. The class is the registered
         // one even when its instance failed to build, as the shell's was.
-        if (SpawnPhysics is { } physics && _byClassName.TryGetValue(className, out var reg))
+        if (SpawnPhysics is { } physics && instance?.SpawnsPhysics != false
+            && _byClassName.TryGetValue(className, out var reg))
             physics.Spawned(handle, reg.Kind);
     }
 
@@ -2759,15 +2964,6 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
             {
                 output.Bind(instance, reg.OutputNames[i], i);
                 outputs.Add(output);
-
-                // The registration's name list is what FireOutput, ResolveOutput
-                // and the class description check against. Registration could
-                // only read a declared name off a throwaway instance, which a
-                // class with constructor-injected services cannot give it, so it
-                // held the FIELD name: trigger_*'s OnLeft for "OnEndTouch", and
-                // every fire of it was refused as undeclared. The first real
-                // instance knows; the name is a per-class constant.
-                reg.OutputNames[i] = output.Name;
             }
             else
             {
@@ -2879,15 +3075,50 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
         foreach (var set in instance.VarSets)
         {
             if (set.OfferLowered(lowered, value))
+            {
+                instance.KeyTaken(set, lowered);
                 return true;
+            }
         }
 
         if (instance.OnKeyValue(key, value))
             return true;
 
+        if (TakeBaseKey(instance, handle, lowered, value))
+            return true;
+
         _byClassName.TryGetValue(instance.ClassName, out var reg);
         ReportUnclaimed(instance, reg, key);
         return false;
+    }
+
+    /// <summary>
+    /// The keys CBaseEntity takes for every class that does not take them
+    /// itself: disableshadows (CBaseEntity::KeyValue's EF_NOSHADOW, any
+    /// entity). CBaseAnimating's are <see cref="AnimatingVars"/>.
+    /// </summary>
+    private bool TakeBaseKey(ScriptedEntity instance, EntityHandle handle, string lowered, string value)
+    {
+        switch (lowered)
+        {
+            case "disableshadows":
+                if (Atoi(value) != 0 && Services?.Resolve(typeof(SourceSharp.Server.IEntityEffectBits)) is SourceSharp.Server.IEntityEffectBits bits)
+                    bits.Set(handle, EntityEffect.NoShadow, true);
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>atoi: the leading integer, 0 when there is none.</summary>
+    private static int Atoi(string value)
+    {
+        ReadOnlySpan<char> s = value.AsSpan().TrimStart();
+        int end = s.Length > 0 && (s[0] == '-' || s[0] == '+') ? 1 : 0;
+        while (end < s.Length && char.IsAsciiDigit(s[end]))
+            end++;
+        return int.TryParse(s[..end], System.Globalization.NumberStyles.AllowLeadingSign,
+                            System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : 0;
     }
 
     /// <summary>
@@ -3209,6 +3440,10 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
 
     /// <inheritdoc cref="Input(EntityHandle, string, string, float, EntityHandle)"/>
     public bool Input(in EntityRef entity, string name, string value, float number, EntityHandle activator)
+        => Input(entity, name, value, number, activator, EntityHandle.None);
+
+    /// <summary>An input with the entity that sent it, as an output's delivery has one.</summary>
+    public bool Input(in EntityRef entity, string name, string value, float number, EntityHandle activator, EntityHandle caller)
     {
         var instance = entity.Entity;
         if (instance is null)
@@ -3231,7 +3466,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
             if (_byClassName.TryGetValue(instance.ClassName, out var reg)
                 && reg.Inputs.TryGetValue(name, out var method))
             {
-                method.Invoke(instance, ArgumentsFor(method, value, number, activator));
+                method.Invoke(instance, ArgumentsFor(method, value, number, activator, caller));
                 return true;
             }
 
@@ -3365,33 +3600,8 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// The mapper-visible name of each output, which is the field's name unless
     /// the Output was constructed with one of its own.
     /// </summary>
-    private static string[] OutputNamesFor(Type type, FieldInfo[] fields)
-    {
-        var names = fields.Select(f => f.Name).ToArray();
-
-        // A type that cannot be constructed here (its constructor takes
-        // services) still registers under its field names; the class's first
-        // real instance writes the declared names back (EnsureInstance's bind
-        // loop, which runs at the entity's first keyvalue, before any is
-        // applied), so even the first entity of the class in a map connects.
-        object? probe;
-        try { probe = Activator.CreateInstance(type); }
-        catch { return names; }
-
-        if (probe is null)
-            return names;
-
-        for (int i = 0; i < fields.Length; i++)
-        {
-            if (fields[i].GetValue(probe) is Output output)
-            {
-                output.Bind((ScriptedEntity)probe, fields[i].Name, i);
-                names[i] = output.Name;
-            }
-        }
-
-        return names;
-    }
+    private static string[] OutputNamesFor(FieldInfo[] fields)
+        => fields.Select(f => f.GetCustomAttribute<OutputNameAttribute>()?.Name ?? f.Name).ToArray();
 
     /// <summary>
     /// The input name a handler answers to: its own name with the "On" dropped.
@@ -3437,7 +3647,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
         };
     }
 
-    private static object?[] ArgumentsFor(MethodInfo method, string value, float number, EntityHandle activator)
+    private static object?[] ArgumentsFor(MethodInfo method, string value, float number, EntityHandle activator, EntityHandle caller)
     {
         var parameters = method.GetParameters();
         if (parameters.Length == 0)
@@ -3451,7 +3661,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
         if (type == typeof(string))
             return new object?[] { value };
 
-        return new object?[] { new InputData(value, number, activator) };
+        return new object?[] { new InputData(value, number, activator, caller) };
     }
 
     public void Think(EntityHandle handle) => Think(Resolve(handle));
@@ -3853,6 +4063,10 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
                 reg.OutputNames.ToArray(),
                 reg.VarSetKeys.SelectMany(s => s)
                     .Select(d => new ScriptedFieldInfo(d.Name, d.TypeName))
+                    .Concat(reg.Type.GetCustomAttributes(typeof(ClaimsKeysAttribute), inherit: true)
+                                .Cast<ClaimsKeysAttribute>()
+                                .SelectMany(a => a.Keys())
+                                .Select(k => new ScriptedFieldInfo(k, "string")))
                     .OrderBy(v => v.Name, StringComparer.OrdinalIgnoreCase).ToArray(),
                 live));
         }
@@ -4327,7 +4541,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
             //
             //   EXCEPTION IN ServerReloadRestore
             //   BlobTooShortException: PlayerNetState needs 652 byte(s) and
-            //   entity 2 ('ss_player') offers 0
+            //   entity 2 ('player') offers 0
             //   server: managed reload complete -- 478 saved, -1 restored
             //
             // -- ONE entity with a zero-length blob threw out of NetState.Bind,
@@ -4903,7 +5117,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// engine-invisible range have reached native code.
     ///
     /// <para>
-    /// Counted natively, in <c>SourceSharp_ResolveEntity</c>, and only forwarded
+    /// Counted natively, in <c>CServerEntityResolver::Resolve</c>, and only forwarded
     /// here: a managed counter could count nothing but the routes managed code
     /// already knows it takes, so it would read zero for exactly the case the
     /// number exists to catch. Read it beside <see cref="LiveCount"/>.

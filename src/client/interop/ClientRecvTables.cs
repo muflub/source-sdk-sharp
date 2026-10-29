@@ -4,7 +4,7 @@ using SourceSharp.Abi;
 
 namespace SourceSharp.Client.Interop;
 
-/// <summary>The real one, over <c>ClientRecvProp</c> and <c>ClientSchemaRefusal</c>.</summary>
+/// <summary>The real one, over <c>ClientRecvProp</c>.</summary>
 internal sealed unsafe class ClientRecvTables(IStandaloneClientArea standaloneClient) : IClientRecvTables
 {
     private const int NameBytes = 128;
@@ -28,24 +28,6 @@ internal sealed unsafe class ClientRecvTables(IStandaloneClientArea standaloneCl
         }
 
         return rows;
-    }
-
-    public (int RefusedUpdates, IReadOnlyList<ClientSchemaRefusalRow> Types) Refusals()
-    {
-        int updates = 0;
-        int types = standaloneClient.ClientSchemaRefusal(-1, null, null, null, null, null, 0, &updates);
-        var rows = new List<ClientSchemaRefusalRow>(Math.Max(types, 0));
-        byte* cls = stackalloc byte[NameBytes];
-        for (int i = 0; i < types; i++)
-        {
-            uint id = 0, expected = 0, seen = 0;
-            int count = 0;
-            cls[0] = 0;
-            standaloneClient.ClientSchemaRefusal(i, &id, &expected, &seen, &count, cls, NameBytes, &updates);
-            rows.Add(new ClientSchemaRefusalRow(id, expected, seen, count, Text(cls)));
-        }
-
-        return (updates, rows);
     }
 
     private static string Text(byte* bytes)

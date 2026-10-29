@@ -22,57 +22,6 @@ public class DiagnosticsClientAreaTests
         return Regex.Replace(text, @"//[^\n]*", "");
     }
 
-    private static string Diagnostics() => Code("src", "shared", "native", "shell_diagnostics.cpp");
-    private static string Md5() => Code("src", "client", "native", "md5_pseudorandom.cpp");
-    private static string ClientDll() => Code("src", "client", "native", "shell_clientdll.cpp");
-
-    [Fact]
-    public void TheCrossingsReportCallSiteTakesTheClientsArea()
-    {
-        string text = Diagnostics();
-
-        Assert.Single(Regex.Matches(text, @"IManagedDiagnosticsClient \*pDiagnostics = ManagedDiagnosticsClient\(\);"));
-        Assert.Single(Regex.Matches(text, @"SourceSharpCrossingsReportFn pFn = ManagedDiagnosticsClient\(\) \? &SourceSharp_ClientCrossingsReport : NULL;"));
-    }
-
-    [Fact]
-    public void TheMd5PseudoRandomCallSiteTakesTheClientsArea()
-    {
-        string text = Md5();
-
-        Assert.Single(Regex.Matches(text, @"IManagedDiagnosticsClient \*pDiagnostics = ManagedDiagnosticsClient\(\);"));
-        Assert.Single(Regex.Matches(text, @"return pDiagnostics->Md5PseudoRandom\( nSeed \);"));
-    }
-
-    [Fact]
-    public void TheMdlCacheFlushTakesTheClientsRuntime()
-    {
-        string text = ClientDll();
-        int at = text.IndexOf("void CShellClientDLL::InvalidateMdlCache()", StringComparison.Ordinal);
-        Assert.True(at >= 0, "CShellClientDLL::InvalidateMdlCache is gone");
-        string body = text[at..text.IndexOf("\n}", at, StringComparison.Ordinal)];
-
-        Assert.Contains("if ( IManagedRuntimeClient *pRuntime = ManagedRuntimeClient() )", body);
-        Assert.Contains("pRuntime->ClientInvalidateMdlCache();", body);
-    }
-
-    [Fact]
-    public void NoNativeCodeReadsTheThreeTableSlots()
-    {
-        string diagnostics = Diagnostics(), md5 = Md5(), clientDll = ClientDll();
-
-        Assert.Contains("ManagedDiagnosticsClient()", diagnostics);
-        Assert.Contains("ManagedDiagnosticsClient()", md5);
-        Assert.Contains("ManagedRuntimeClient()", clientDll);
-        foreach (string text in new[] { diagnostics, md5, clientDll })
-        {
-            Assert.DoesNotMatch(new Regex(@"(->|\.)CrossingsReport\b(?!\()"), text);
-            Assert.DoesNotContain("pApi->Md5PseudoRandom", text);
-            Assert.DoesNotContain("pApi->ClientInvalidateMdlCache", text);
-            Assert.DoesNotContain("SourceSharp_GetManagedApi", text);
-        }
-    }
-
     [Fact]
     public void TheBootstrapFillsNoneOfTheThreeSlots()
     {

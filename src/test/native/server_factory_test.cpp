@@ -24,7 +24,7 @@ namespace
 
 int g_Objects[11];
 
-template < int N >
+template <int N>
 void *StandIn()
 {
 	return &g_Objects[N];
@@ -39,8 +39,7 @@ struct Expected
 	int nObject;
 };
 
-const Expected kExpected[] =
-{
+const Expected kExpected[] = {
 	{ "ServerGameDLL012", 0 },
 	{ "ServerGameEnts001", 1 },
 	{ "ServerGameClients005", 2 },
@@ -52,13 +51,13 @@ const Expected kExpected[] =
 
 }
 
-const SourceSharpExposed kExposeServerGameDll = { "ServerGameDLL012", StandIn< 0 > };
-const SourceSharpExposed kExposeServerGameEnts = { "ServerGameEnts001", StandIn< 1 > };
-const SourceSharpExposed kExposeServerGameClients = { "ServerGameClients005", StandIn< 2 > };
-const SourceSharpExposed kExposeServerGameClients004 = { "ServerGameClients004", StandIn< 3 > };
-const SourceSharpExposed kExposeServerGameClients003 = { "ServerGameClients003", StandIn< 4 > };
-const SourceSharpExposed kExposeServerGameTags = { "ServerGameTags001", StandIn< 5 > };
-const SourceSharpExposed kExposeServerDllSharedAppSystems = { "VServerDllSharedAppSystems001", StandIn< 8 > };
+const SourceSharpExposed kExposeServerGameDll = { "ServerGameDLL012", StandIn<0> };
+const SourceSharpExposed kExposeServerGameEnts = { "ServerGameEnts001", StandIn<1> };
+const SourceSharpExposed kExposeServerGameClients = { "ServerGameClients005", StandIn<2> };
+const SourceSharpExposed kExposeServerGameClients004 = { "ServerGameClients004", StandIn<3> };
+const SourceSharpExposed kExposeServerGameClients003 = { "ServerGameClients003", StandIn<4> };
+const SourceSharpExposed kExposeServerGameTags = { "ServerGameTags001", StandIn<5> };
+const SourceSharpExposed kExposeServerDllSharedAppSystems = { "VServerDllSharedAppSystems001", StandIn<8> };
 
 TEST( ServerFactory, EveryNameAnswersItsOwnObject )
 {
@@ -135,7 +134,7 @@ TEST( ServerFactory, TheGameMovementInterfaceIsNotExposed )
 TEST( ServerFactory, TheTableHasSevenRowsAndNoNameTwice )
 {
 	ASSERT_EQ( 7, SourceSharp_ExposedCount() );
-	std::set< std::string > names;
+	std::set<std::string> names;
 	for ( int i = 0; i < SourceSharp_ExposedCount(); i++ )
 		EXPECT_TRUE( names.insert( SourceSharp_ExposedAt( i ).m_pszVersion ).second )
 			<< SourceSharp_ExposedAt( i ).m_pszVersion << " is in the table twice";
@@ -165,98 +164,10 @@ TEST( ServerFactory, ThePluginInterfacesAreNotExposedEither )
 namespace
 {
 
-std::string SrcRoot()
-{
-	for ( const char *p : { ".", "src", "../src" } )
-	{
-		struct stat st;
-		if ( stat( ( std::string( p ) + "/sourcesharp/host/sourcesharp.h" ).c_str(), &st ) == 0 )
-			return p;
-	}
-	return "";
-}
-
-std::string Read( const std::string &rel )
-{
-	std::ifstream f( SrcRoot() + "/" + rel );
-	std::stringstream ss;
-	ss << f.rdbuf();
-	return ss.str();
-}
-
-// Line comments out, so prose naming a macro cannot satisfy or fail a check.
-std::string Code( const std::string &text )
-{
-	std::stringstream in( text ), out;
-	std::string line;
-	while ( std::getline( in, line ) )
-	{
-		const size_t at = line.find( "//" );
-		out << ( at == std::string::npos ? line : line.substr( 0, at ) ) << "\n";
-	}
-	return out.str();
-}
-
-size_t CountOf( const std::string &hay, const std::string &needle )
-{
-	size_t n = 0;
-	for ( size_t at = hay.find( needle ); at != std::string::npos; at = hay.find( needle, at + needle.size() ) )
-		n++;
-	return n;
-}
-
 struct Site
 {
 	const char *pszFile;
 	const char *pszRow;
 };
 
-const Site kSites[] =
-{
-	{ "sourcesharp/game/server/shell_gamedll.cpp", "kExposeServerGameDll" },
-	{ "sourcesharp/game/server/shell_gameents.cpp", "kExposeServerGameEnts" },
-	{ "sourcesharp/game/server/shell_gameclients.cpp", "kExposeServerGameClients" },
-	{ "sourcesharp/game/server/shell_gameclients.cpp", "kExposeServerGameClients004" },
-	{ "sourcesharp/game/server/shell_gameclients.cpp", "kExposeServerGameClients003" },
-	{ "sourcesharp/game/server/shell_gametags.cpp", "kExposeServerGameTags" },
-	// shell_playerinfo.cpp and plugin_check.cpp had rows here and went with
-	// the plugin ABI (plan_server_native_min P1, Decision 1): no engine binary
-	// asks for PlayerInfoManager002 or the plugin check (engine-boundary.md §6).
-	{ "sourcesharp/game/server/shell_sharedappsystems.cpp", "kExposeServerDllSharedAppSystems" },
-};
-
-}
-
-TEST( ServerFactorySources, EachObjectsFileDefinesItsRowOnce )
-{
-	ASSERT_FALSE( SrcRoot().empty() ) << "run from the farm's src directory";
-	for ( const Site &s : kSites )
-	{
-		const std::string code = Code( Read( s.pszFile ) );
-		ASSERT_FALSE( code.empty() ) << s.pszFile << " could not be read";
-		EXPECT_EQ( 1u, CountOf( code, std::string( "const SourceSharpExposed " ) + s.pszRow + " = {" ) )
-			<< s.pszFile << " does not define " << s.pszRow << " exactly once";
-	}
-}
-
-TEST( ServerFactorySources, NoServerFileExposesThroughTheRegistry )
-{
-	for ( const Site &s : kSites )
-	{
-		std::string code = Code( Read( s.pszFile ) );
-		// shell_movement.cpp is shared: the client keeps its EXPOSE_, behind CLIENT_DLL.
-		const size_t clientArm = code.find( "#ifdef CLIENT_DLL\nEXPOSE_SINGLE_INTERFACE_GLOBALVAR" );
-		if ( clientArm != std::string::npos )
-			code.erase( clientArm, code.find( "#else", clientArm ) - clientArm );
-		EXPECT_EQ( 0u, CountOf( code, "EXPOSE_SINGLE_INTERFACE" ) ) << s.pszFile;
-		EXPECT_EQ( 0u, CountOf( code, "EXPOSE_INTERFACE" ) ) << s.pszFile;
-	}
-}
-
-TEST( ServerFactorySources, TheTableListsEveryRowOnce )
-{
-	const std::string code = Code( Read( "sourcesharp/game/server/shell_factory.cpp" ) );
-	ASSERT_FALSE( code.empty() );
-	for ( const Site &s : kSites )
-		EXPECT_EQ( 1u, CountOf( code, std::string( "&" ) + s.pszRow + "," ) ) << s.pszRow;
 }

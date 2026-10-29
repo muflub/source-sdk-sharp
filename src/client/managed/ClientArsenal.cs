@@ -27,7 +27,7 @@ namespace SourceSharp.Client;
 /// stays the server's word by construction.
 /// </para>
 /// </summary>
-public sealed class ClientArsenal : ILocalArsenal
+public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStates
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -69,12 +69,35 @@ public sealed class ClientArsenal : ILocalArsenal
     private readonly WeaponCatalog _weapons;
     private readonly AmmoCatalog _ammo;
 
+    // The client's view of the world, for the one replayed decision that asks
+    // what is in front of the player (the SLAM's wall probe). Null in a test's
+    // arsenal built without one, which answers that nothing is.
+    private readonly IEngineWorldQuery? _world;
+
+    // What the probe and the swing clip against besides the world.
+    private readonly EntityCandidates _candidates = new();
+
+    // The local player's entindex and the replayed command's aim, for that
+    // probe: set by the basis reset and by each replayed command.
+    private int _localIndex;
+    private Vector _commandAngles;
+
+    // The predicted effects (stock's client-side WeaponSound, FireBullets and
+    // bludgeon impacts), and the command they are for. Null in a composition
+    // without them: the replay then predicts state and plays nothing.
+    private readonly IPredictedWeaponFx? _fx;
+    private PredictedShot _shot;
+    private bool _hasEye;
+
     public ClientArsenal(ILog log, IClientStandalones standalones, IEngineEntityRender render,
                          IGameClock clock, IEngineHud screen, NetStateCatalog catalog,
                          WeaponCatalog? weapons = null, AmmoCatalog? ammo = null,
-                         WeaponBehaviours? behaviours = null)
+                         WeaponBehaviours? behaviours = null, IEngineWorldQuery? world = null,
+                         IPredictedWeaponFx? fx = null)
     {
+        _fx = fx;
         _log = log;
+        _world = world;
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _standalones = standalones;
         _render = render;
@@ -113,6 +136,15 @@ public sealed class ClientArsenal : ILocalArsenal
     /// </summary>
     public void OnPlayerCommand(EntityHandle player, in UserCmd cmd, int phase, bool firstTime,
                                 float commandTime)
+        => OnPlayerCommand(player, in cmd, phase, firstTime, commandTime, eye: null);
+
+    /// <summary>
+    /// The replay's form with the predicted EYE (the command's origin plus
+    /// the view offset): what the first prediction's shot traces from. A
+    /// replay that knows no eye predicts state and fires no predicted shot.
+    /// </summary>
+    public void OnPlayerCommand(EntityHandle player, in UserCmd cmd, int phase, bool firstTime,
+                                float commandTime, Vector? eye)
     {
         if (phase == 2)
         {
@@ -126,9 +158,23 @@ public sealed class ClientArsenal : ILocalArsenal
         if (_weapon.WeaponTypeId < 0)
             return;
 
+        // The shot the arms fire, if this run fires one: from the predicted
+        // eye along the command's angles, spread from the command's seed --
+        // the server's run of the same command reads the same three.
+        _shot = new PredictedShot(player, (int)(player.Value & 0xFFFF), eye ?? default,
+                                  new Vector(cmd.Pitch, cmd.Yaw, cmd.Roll),
+                                  UserCmdCodec.RandomSeedFor(cmd.CommandNumber));
+
         // The clock is the command's own, as the server's run of it read. Read
         // from the engine instead it was the frame's curtime, and every timer
         // the machine sets (TimeWeaponIdle, NextPrimaryAttack) mispredicted.
+        _commandAngles = new Vector(cmd.Pitch, cmd.Yaw, cmd.Roll);
+
+
+        // effectsLive is the FIRST prediction only, stock's
+        // IsFirstTimePredicted: a replay of a command already predicted plays
+        // nothing again.
+        _hasEye = eye.HasValue;
         _machine.RunCommand(_weapon, _viewModel, cmd.Buttons,
                             commandTime, effectsLive: firstTime);
 
@@ -142,6 +188,7 @@ public sealed class ClientArsenal : ILocalArsenal
         // the prediction held.
         _localViewModel.Present(_viewModel.Sequence, _viewModel.AnimationParity,
                                 _viewModel.PlaybackRate);
+        _localViewModel.ShowSkin(_viewModel.Skin);
     }
 
     //-------------------------------------------------------------------------
@@ -151,11 +198,24 @@ public sealed class ClientArsenal : ILocalArsenal
     /// <summary>The working weapon state the replay runs, for tests.</summary>
     internal WeaponNetState WorkingWeapon => _weapon;
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// The working copy, for the local player's gun, once the replay has reset
+    /// its basis to the latest decode: with prediction off, or before the
+    /// first replay over a new decode, the copy is behind the server's word.
+    /// </remarks>
+    public WeaponNetState? PredictedStateOf(ClientSsWeapon weapon)
+        => ReferenceEquals(weapon, _localWeapon) && _localViewModel is not null
+           && _lastComparedDecode == _localWeapon.Decodes + _localViewModel.Decodes
+            ? _weapon
+            : null;
+
     private void ResetBasis(EntityHandle player, int acknowledged)
     {
         // Players hold 1..maxplayers identically on both sides; the low bits
         // of a client handle are its entity-list entry.
         int localIndex = (int)(player.Value & 0xFFFF);
+        _localIndex = localIndex;
 
         FindLocalPair(localIndex);
 
@@ -183,7 +243,7 @@ public sealed class ClientArsenal : ILocalArsenal
     private void Compare(int acknowledged)
     {
         CompareOne(_weaponRing, _localWeapon!.State, EntityNames.SsWeapon, acknowledged);
-        CompareOne(_viewModelRing, _localViewModel!.State, EntityNames.SsViewModel, acknowledged);
+        CompareOne(_viewModelRing, _localViewModel!.State, EntityNames.PredictedViewModel, acknowledged);
     }
 
     private void CompareOne(PredictionRing ring, NetState arrivedState, string className, int acknowledged)
@@ -308,7 +368,7 @@ public sealed class ClientArsenal : ILocalArsenal
                 _localWeapon = weapon;
         }
 
-        foreach (var entity in _standalones.OfClass(EntityNames.SsViewModel))
+        foreach (var entity in _standalones.OfClass(EntityNames.PredictedViewModel))
         {
             if (entity is ClientSsViewModel viewModel && viewModel.State.OwnerIndex == localIndex)
                 _localViewModel = viewModel;
@@ -417,10 +477,135 @@ public sealed class ClientArsenal : ILocalArsenal
     /// The sequence an animation kind resolves to on the local viewmodel's
     /// current model — the ONE lookup the replay's arms fire with.
     /// </summary>
+    //-------------------------------------------------------------------------
+    // The physcannon's claws (C_WeaponPhysCannon::ClientThink's
+    // UpdateElementPosition): once a frame, the local viewmodel's "active"
+    // pose parameter follows the gun's networked m_bOpen.
+    //-------------------------------------------------------------------------
+
+    private readonly PhysCannonElements _claws = new();
+
+    /// <summary>The claws' last value, for the facts and the reports.</summary>
+    public float ClawPosition { get; private set; }
+
+    public void Frame()
+    {
+        int local = _screen.LocalPlayerIndex;
+
+        if (local <= 0)
+            return;
+
+        FindLocalPair(local);
+
+        if (_localWeapon is null || _localViewModel is null
+            || _weapons.ByIndex(_localWeapon.State.WeaponTypeId) is not { Behaviour: PhysCannonBehaviour.Key })
+        {
+            _claws.Reset();
+            return;
+        }
+
+        ClawPosition = _claws.Advance(_localWeapon.State.CannonOpen, _clock.Now);
+
+        int pose = _render.LookupPoseParameter(_localViewModel.Handle, PhysCannonElements.PoseParameter);
+        if (pose >= 0)
+            _render.SetPoseParameter(_localViewModel.Handle, pose, ClawPosition);
+    }
+
     internal int ResolveSequence(WeaponAnim anim)
         => _localViewModel is null
             ? -1
             : WeaponAnimNames.Resolve(_render, _localViewModel.Handle, anim);
+
+    internal int ResolveActivity(string activity)
+        => _localViewModel is null ? -1 : _render.LookupSequenceByActivity(_localViewModel.Handle, activity);
+
+    internal float DurationOf(int sequence)
+        => sequence < 0 || _localViewModel is null ? 0f : _render.SequenceDuration(_localViewModel.Handle, sequence);
+
+    /// <summary>
+    /// Where this command's probes look from: the eye the prediction ran the
+    /// command's movement to (stock's Weapon_ShootPosition, which the server's
+    /// run of the same command reads), or, for a run told none, the DECODED
+    /// origin plus the view offset -- the server's last word, a few units
+    /// behind a player still walking.
+    /// </summary>
+    private bool EyeOfThisCommand(out Vector eye)
+    {
+        if (_hasEye)
+        {
+            eye = _shot.Eye;
+            return true;
+        }
+
+        if (_standalones.GetByIndex(_localIndex) is ClientSsPlayer player)
+        {
+            eye = player.State.Origin + player.State.ViewOffset;
+            return true;
+        }
+
+        eye = default;
+        return false;
+    }
+
+    /// <summary>The SLAM's wall probe, from <see cref="EyeOfThisCommand"/> along the command's angles.</summary>
+    internal WallProbe ProbeWall(float reach)
+    {
+        if (_world is null || !EyeOfThisCommand(out Vector eye))
+            return WallProbe.Nothing;
+
+        Vector forward = Angles.Forward(_commandAngles);
+
+        var trace = LineAhead(eye, eye + forward * reach, TraceMask.Solid);
+
+        if (!trace.Hit)
+            return WallProbe.Nothing;
+
+        return _standalones.GetByIndex(trace.EntityIndex) is ClientSsPlayer
+            ? WallProbe.Character
+            : WallProbe.Surface;
+    }
+
+    /// <summary>
+    /// CBaseHL2MPBludgeonWeapon::Swing's aim, from <see cref="EyeOfThisCommand"/>,
+    /// for the predicted hit-or-miss animation, as the server's swing aims:
+    /// the ray; then the swing's hull, backed off by its corner radius, kept
+    /// only if the swinger roughly faces what it found (the world's origin is
+    /// the map's).
+    /// </summary>
+    internal bool MeleeConnects(float range)
+    {
+        if (_world is null || !EyeOfThisCommand(out Vector eye))
+            return true;
+
+        Vector forward = Angles.Forward(_commandAngles);
+        Vector end = eye + forward * range;
+
+        if (LineAhead(eye, end, TraceMask.ShotHull).Hit)
+            return true;
+
+        var hull = _world.ClientTraceHullEntities(eye, end - forward * BludgeonSwing.HullRadius,
+                                                  BludgeonSwing.Hull * -1f, BludgeonSwing.Hull,
+                                                  TraceMask.ShotHull, _localIndex,
+                                                  _candidates.AllBut(_localIndex));
+        if (!hull.Hit)
+            return false;
+
+        Vector target = hull.EntityIndex > 0 ? hull.EntityOrigin : Vector.Zero;
+        return (target - eye).Normalized.Dot(forward) >= BludgeonSwing.FacingDot;
+    }
+
+    /// <summary>
+    /// A line from the local player as the server's would stop: the world's
+    /// trace, then the entities before its stop (no client trace sees the
+    /// shells, <see cref="EntityCandidates"/>).
+    /// </summary>
+    private ClientTraceResult LineAhead(Vector from, Vector to, TraceMask mask)
+    {
+        var world = _world!.ClientTraceLine(from, to, mask, TraceFilter.Simple, _localIndex);
+        var entity = _world.ClientClipRayToEntities(from, world.Hit ? world.End : to, mask,
+                                                    _candidates.AllBut(_localIndex));
+        return entity.Hit ? entity : world;
+    }
 
     /// <summary>Arms the poke: every future weapon-ring save is damaged at the
     /// offset until a compare witnesses it.</summary>
@@ -434,9 +619,11 @@ public sealed class ClientArsenal : ILocalArsenal
     }
 
     //-------------------------------------------------------------------------
-    // The arms: what the machine's decisions do HERE, which is almost nothing.
-    // Effects are the server's until client-side effects land; the two asks
-    // that write PREDICTED STATE answer from the same model the server read.
+    // The arms: what the machine's decisions do HERE. The first prediction of
+    // a command plays the weapon's sounds and its bullets' and swings'
+    // impacts (IPredictedWeaponFx), as stock's client does; what flies is the
+    // server's. The two asks that write PREDICTED STATE answer from the same
+    // model the server read.
     //-------------------------------------------------------------------------
 
     private sealed class ClientWeaponArms : IWeaponArms
@@ -445,12 +632,38 @@ public sealed class ClientArsenal : ILocalArsenal
 
         public ClientWeaponArms(ClientArsenal owner) => _owner = owner;
 
-        public void Sound(string soundScript) { }
-        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees) { }
-        public void MeleeSwing(in WeaponType type) { }
+        public void Sound(string soundScript) => _owner._fx?.Sound(in _owner._shot, soundScript);
+
+        public void ClientSound(string soundScript) => Sound(soundScript);
+
+        // A server-only path's sound (an animation event's): not predicted.
+        public void ServerSound(string soundScript)
+        {
+        }
+
+        // No shot without an eye to fire it from (a replay told none).
+        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees)
+        {
+            if (_owner._hasEye)
+                _owner._fx?.FireBullets(in _owner._shot, in type, pellets, spreadDegrees);
+        }
+
+        public void MeleeSwing(in WeaponType type)
+        {
+            if (_owner._hasEye)
+                _owner._fx?.MeleeSwing(in _owner._shot, in type);
+        }
+
+        // A projectile is the server's entity; its launch sound is Sound's.
         public void Launch(in WeaponType type, string projectile, float speed, bool thrown) { }
 
         public int LookupSequence(WeaponAnim anim) => _owner.ResolveSequence(anim);
+
+        // The SLAM's three predicted asks; its spawns stay the server's.
+        public int LookupActivity(string activity) => _owner.ResolveActivity(activity);
+        public float SequenceDuration(int sequence) => _owner.DurationOf(sequence);
+        public WallProbe ProbeWall(float reach) => _owner.ProbeWall(reach);
+        public bool MeleeConnects(in WeaponType type) => _owner.MeleeConnects(type.MeleeRange);
 
         public float AnimDuration(WeaponAnim anim)
         {

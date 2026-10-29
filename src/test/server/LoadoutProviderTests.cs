@@ -49,6 +49,33 @@ public class LoadoutProviderTests
         }
     }
 
+    /// <summary>A spawn weapon that notes how far the grant had got when it was asked.</summary>
+    private sealed class ChoiceProbe : ISpawnWeapon
+    {
+        public Func<int> Seen = () => 0;
+        public int SeenAt = -1;
+        public int Choices;
+
+        public void Choose(EntityHandle player)
+        {
+            Choices++;
+            SeenAt = Seen();
+        }
+    }
+
+    /// <summary>GiveDefaultItems' last word, cl_defaultweapon's switch, comes after the whole kit is in hand.</summary>
+    [Fact]
+    public void TheSpawnWeaponIsChosenOnceTheKitIsInHand()
+    {
+        var rig = new Rig();
+        var probe = new ChoiceProbe();
+
+        int seen = rig.GrantsBeforeChoice(rig.Rules(spawnWeapon: probe), probe);
+
+        Assert.Equal(1, probe.Choices);
+        Assert.Equal(GameRules.Loadout.Length + GameRules.StartingAmmo.Length, seen);
+    }
+
     /// <summary>The rules over a recording engine, as the other rules' facts build them.</summary>
     private sealed class Rig
     {
@@ -66,11 +93,19 @@ public class LoadoutProviderTests
             _players.Returns("Players.GiveAmmo", 1);
         }
 
-        public GameRules Rules(IHooks<ILoadoutProvider>? chain = null)
+        public GameRules Rules(IHooks<ILoadoutProvider>? chain = null, ISpawnWeapon? spawnWeapon = null)
             => new(Log, ConVars, _host, _players,
                    Fake().Returns("Entities.IsValid", false),
                    new Scoreboard(_host, new PlayerDisconnectEvent(), new RecordingLog()),
-                   new PlayerDeathEvent(), loadout: chain);
+                   new PlayerDeathEvent(), loadout: chain, spawnWeapon: spawnWeapon);
+
+        /// <summary>How many grant calls the engine had seen when the spawn weapon was chosen.</summary>
+        public int GrantsBeforeChoice(GameRules rules, ChoiceProbe probe)
+        {
+            probe.Seen = () => _players.Calls.Count(c => c.Member is "Players.GiveItem" or "Players.GiveAmmo");
+            rules.OnPlayerSpawned(Player, 0f);
+            return probe.SeenAt;
+        }
 
         /// <summary>
         /// The weapon class names one spawn's grant passed to the engine.
@@ -126,13 +161,29 @@ public class LoadoutProviderTests
     // The owner arms.
     //-------------------------------------------------------------------------
 
+    /// <summary>
+    /// With no provider a spawn gets stock's GiveDefaultItems ammo: 255
+    /// pistol, 45 SMG1, a grenade, 6 buckshot and 6 .357. Found side by side
+    /// with stock (tools/stock-ab --weapons, 2026-10-25): this mod gave 100
+    /// pistol and 45 SMG1 and nothing else, so a frag fresh from a give had one
+    /// grenade where stock's had two.
+    /// </summary>
+    [Fact]
+    public void TheCoreAmmoIsStocksDefaultItems()
+    {
+        var rig = new Rig();
+
+        Assert.Equal([("Pistol", 255), ("SMG1", 45), ("Grenade", 1), ("Buckshot", 6), ("357", 6)], rig.GaveAmmo(rig.Rules()));
+    }
+
     [Fact]
     public void AProviderTakesTheWeaponColumnWhole()
     {
         var rig = new Rig();
 
-        // BEFORE: the core's three.
-        Assert.True(rig.Gave(rig.Rules()).SequenceEqual(["weapon_crowbar", "weapon_pistol", "weapon_smg1"]));
+        // BEFORE: the core's kit, stock's GiveDefaultItems.
+        Assert.True(rig.Gave(rig.Rules()).SequenceEqual(["weapon_crowbar", "weapon_pistol", "weapon_smg1", "weapon_frag",
+                                                         "weapon_physcannon"]));
 
         var kit = new Provider(["weapon_357"], [("Buckshot", 6)]);
         Assert.True(rig.Gave(rig.Rules(new ListHooks<ILoadoutProvider>(kit)))

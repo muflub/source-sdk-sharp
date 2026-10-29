@@ -1,6 +1,0 @@
-# key (a substring of one fnmap head)	verdict	reason
-# Verdicts: SLOT SLOT-HELP LAYOUT HOOK BOUNDARY HOST LIVE-API INSTRUMENT STOCK-DEBUG LOGIC. An unruled function counts as LOGIC.
-void InternalBitBufErrorHandler(	LAYOUT	bitbuf.h's debug error hook; no handler is installed on client.so (C9 tier1)
-bf_write::GetDebugName	LAYOUT	reads the engine buffer's name field (C9 tier1)
-bf_write::WriteBits	LAYOUT	writes bits into the engine's bf_write by bitbuf.h's layout, held to pristine bitbuf.cpp (C9 tier1)
-bf_read::ReadBits	LAYOUT	reads bits from the engine's bf_read by bitbuf.h's layout, held to pristine bitbuf.cpp (C9 tier1)

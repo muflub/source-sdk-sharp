@@ -72,10 +72,14 @@ public class TriggerTests
     /// Without the engine the clock reads zero forever, so the refire delay would
     /// gate every touch after the first.
     /// </summary>
-    private static (ScriptedEntityRegistry, T) Spawn<T>(string className) where T : ScriptedEntity
-        => SpawnWith<T>(className, ("wait", "0"));
+    private static (ScriptedEntityRegistry, T) Spawn<T>(string className, Func<float>? clock = null) where T : ScriptedEntity
+        => SpawnWith<T>(className, clock, ("wait", "0"));
 
     private static (ScriptedEntityRegistry, T) SpawnWith<T>(string className,
+        params (string Key, string Value)[] keys) where T : ScriptedEntity
+        => SpawnWith<T>(className, null, keys);
+
+    private static (ScriptedEntityRegistry, T) SpawnWith<T>(string className, Func<float>? clock,
         params (string Key, string Value)[] keys) where T : ScriptedEntity
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
@@ -84,8 +88,18 @@ public class TriggerTests
         // spawn, through the container's area since plan_abi_hotreload D8. The
         // recorded engine answers id 0, a refused medium -- what the static
         // engine answered here before, with no engine behind it.
-        var services = Ignoring("Clock.Now", "Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType",
-                                "MotionControllers.Create", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid");
+        var services = Services(out var engine);
+        if (clock is null)
+            engine.Ignores("Clock.Now");
+        else
+            engine.ReturnsEachCall("Clock.Now", () => clock());
+        engine.Ignores("Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType",
+                       "MotionControllers.Create", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles",
+                       "Entities.GetSolidFlags", "Entities.GetSolidType", "Entities.IsPlayer");
+
+        // Whoever touches is a live entity: CBaseTrigger::EndTouch cleans the
+        // gone out of its list before it decides whether the volume emptied.
+        engine.Returns("Entities.IsValid", true);
         // trigger_vphysics_motion reaches a player's managed flags through it.
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
@@ -103,7 +117,10 @@ public class TriggerTests
     [Fact]
     public void VolumeMembership()
     {
-        var (registry, trigger) = Spawn<TriggerMultiple>(EntityNames.TriggerMultiple);
+        // Stepped past trigger_multiple's wait (0 is 0.2 s) before each entry
+        // that has to fire: its wait gates a re-entry as much as a stay.
+        float now = 0f;
+        var (registry, trigger) = Spawn<TriggerMultiple>(EntityNames.TriggerMultiple, () => now);
 
         registry.Touch(Ent, Player);
         Assert.True(trigger.OnTrigger.FireCount == 1, "entering fires the trigger");
@@ -118,6 +135,7 @@ public class TriggerTests
         Assert.True(trigger.OnLeft.FireCount == 1, "leaving is reported");
         Assert.True(trigger.OnEndTouchAll.FireCount == 1, "the last one out empties it");
 
+        now = 1f;
         registry.Touch(Ent, Player);
         Assert.True(trigger.OnTrigger.FireCount == 2, "re-entering fires again");
 
@@ -164,7 +182,8 @@ public class TriggerTests
         // StartDisabled is read at spawn.
         var registry3 = new ScriptedEntityRegistry(TestEngines.Server());
         registry3.RegisterAll(typeof(TriggerMultiple).Assembly);
-        registry3.Services = Ignoring("Clock.Now", "Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid");
+        registry3.Services = Ignoring("Clock.Now", "Host.RandomFloat", "Networking.EntityGetState", "Networking.EntityGetState.moveType", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.IsValid",
+                                      "Entities.GetSolidFlags", "Entities.GetSolidType", "Entities.IsPlayer");
         registry3.KeyValue(Ent, EntityNames.TriggerMultiple, "StartDisabled", "1");
         registry3.KeyValue(Ent, EntityNames.TriggerMultiple, "wait", "0");
         registry3.Spawn(Ent, EntityNames.TriggerMultiple);
@@ -173,6 +192,84 @@ public class TriggerTests
 
         registry3.Touch(Ent, Player);
         Assert.True(offAtStart.OnTrigger.FireCount == 0, "StartDisabled holds from spawn");
+    }
+
+    // A trigger whose solidity reads back what it was last set to: a brush's
+    // SetBrushSolidity or an explicit SetSolidity, whichever came last.
+    private static (ScriptedEntityRegistry, RecordingEngine) Solid(string className, params (string Key, string Value)[] keys)
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(TriggerMultiple).Assembly);
+        registry.Services = Services(out var engine);
+        engine.Strict = false;
+        engine.ReturnsEachCall("Entities.GetSolidFlags", () => FlagsOf(engine))
+              .ReturnsEachCall("Entities.GetSolidType", () => engine.Last("Entities.SetSolidity")?.ArgAs<SolidType>(1) ?? SolidType.Bsp);
+        foreach (var (key, value) in keys)
+            registry.KeyValue(Ent, className, key, value);
+        registry.Spawn(Ent, className);
+        return (registry, engine);
+    }
+
+    private static SolidFlags FlagsOf(RecordingEngine engine)
+    {
+        for (int i = engine.Calls.Count - 1; i >= 0; i--)
+        {
+            var call = engine.Calls[i];
+            if (call.Member == "Entities.SetSolidity")
+                return call.ArgAs<SolidFlags>(2);
+            if (call.Member == "EntityPhysics.SetBrushSolidity")
+                return call.ArgAs<BrushSolidity>(1) switch
+                {
+                    BrushSolidity.Trigger => SolidFlags.NotSolid | SolidFlags.Trigger,
+                    BrushSolidity.None => SolidFlags.NotSolid,
+                    _ => SolidFlags.None,
+                };
+        }
+
+        return SolidFlags.None;
+    }
+
+    /// <summary>
+    /// CBaseTrigger::Disable and Enable (triggers.cpp): FSOLID_TRIGGER goes
+    /// with being on, so a disabled volume leaves the engine's trigger walk
+    /// (whoever is inside is told they left, and told they arrived when it
+    /// comes back on). Found beside stock (dm_lockdown solidity census,
+    /// 2026-10-27): fan_wind and fan_gib_trigger, both disabled, were 0xc
+    /// here and 0x4 in stock.
+    /// </summary>
+    [Fact]
+    public void A_disabled_trigger_is_no_trigger_until_it_is_enabled()
+    {
+        var (registry, engine) = Solid(EntityNames.TriggerMultiple);
+        Assert.Equal(SolidFlags.NotSolid | SolidFlags.Trigger, FlagsOf(engine));
+
+        registry.Input(Ent, "Disable", "", 0f, EntityHandle.None);
+        Assert.Equal(SolidFlags.NotSolid, FlagsOf(engine));
+        Assert.Equal(SolidType.Bsp, engine.Last("Entities.SetSolidity")!.Value.ArgAs<SolidType>(1));
+        Assert.Single(engine.AllOf("Entities.SetSolidity"));
+
+        registry.Input(Ent, "Enable", "", 0f, EntityHandle.None);
+        Assert.Equal(SolidFlags.NotSolid | SolidFlags.Trigger, FlagsOf(engine));
+    }
+
+    /// <summary>InitTrigger: one keyed StartDisabled spawns without FSOLID_TRIGGER.</summary>
+    [Fact]
+    public void A_trigger_that_starts_disabled_spawns_as_no_trigger()
+    {
+        var (_, engine) = Solid(EntityNames.TriggerPush, ("StartDisabled", "1"));
+
+        Assert.Equal(SolidFlags.NotSolid, FlagsOf(engine));
+    }
+
+    /// <summary>CTriggerBrush's Disable is FL_DONTTOUCH: it stays a trigger.</summary>
+    [Fact]
+    public void A_disabled_trigger_brush_stays_a_trigger()
+    {
+        var (registry, engine) = Solid(EntityNames.TriggerBrush);
+
+        registry.Input(Ent, "Disable", "", 0f, EntityHandle.None);
+
+        Assert.Equal(SolidFlags.Trigger, FlagsOf(engine));
     }
 
     /// <summary>
@@ -248,51 +345,29 @@ public class TriggerTests
     }
 
     /// <summary>
-    /// The wind's arithmetic, which is where its one real bug lives: stock
-    /// compares two yaws by subtracting them, so a gust that crosses zero is
-    /// measured as most of a turn away from a place the wind has already reached.
+    /// CTriggerImpact: always starts disabled (no FSOLID_TRIGGER); Impact turns
+    /// it on for a tenth of a second, and what starts touching it then is
+    /// thrown, filter or none. Found beside stock (ss_sandbox solidity census,
+    /// 2026-10-27): ours was always on, 0xc where stock's is 0x4.
     /// </summary>
     [Fact]
-    public void WindAngles()
+    public void An_impact_is_on_only_for_its_moment_and_throws_what_touches_it_then()
     {
-        Assert.True(Near(TriggerWind.AngleMod(370f), 10f), "angles wrap into one turn");
-        Assert.True(Near(TriggerWind.AngleMod(-10f), 350f), "and negative angles wrap forwards");
+        var (registry, engine) = Solid(EntityNames.TriggerImpact, ("Magnitude", "200"));
+        engine.Returns("EntityPhysics.PhysicsObject", (nint)0x1234);
+        var impact = (TriggerImpact)registry.Get(Ent)!;
+        Assert.Equal(SolidFlags.NotSolid, FlagsOf(engine));
 
-        Assert.True(Near(TriggerWind.AngleDiff(10f, 350f), 20f), "two angles are compared the short way");
-        Assert.True(Near(TriggerWind.AngleDiff(350f, 10f), -20f), "and the sign says which way to turn");
-        Assert.True(Near(MathF.Abs(TriggerWind.AngleDiff(180f, 0f)), 180f), "opposites are half a turn apart");
+        impact.OnTouch(Other);
+        Assert.False(engine.Called("EntityPhysics.ApplyForceCenter"));
 
-        Assert.True(Near(TriggerWind.ApproachAngle(90f, 0f, 5f), 5f), "approaching steps by the limit");
-        Assert.True(Near(TriggerWind.ApproachAngle(350f, 2f, 5f), 357f), "approaching crosses zero");
-        Assert.True(Near(TriggerWind.ApproachAngle(3f, 0f, 5f), 3f), "approaching never overshoots");
-    }
+        registry.Input(Ent, "Impact", "", 0f, EntityHandle.None);
+        Assert.Equal(SolidFlags.NotSolid | SolidFlags.Trigger, FlagsOf(engine));
+        impact.OnTouch(Other);
+        Assert.Equal(new Vector(200f, 0f, 0f), engine.Last("EntityPhysics.ApplyForceCenter")!.Value.ArgAs<Vector>(1));
 
-    [Fact]
-    public void WindGusts()
-    {
-        var (registry, wind) = SpawnWith<TriggerWind>(EntityNames.TriggerWind,
-                                                     ("Speed", "200"), ("HoldTime", "3"));
-
-        Assert.True(Near(wind.CurrentSpeed, 200f), "wind starts at its baseline");
-
-        // With no engine there is no randomness, so the gust it picks is exactly
-        // the baseline and it is already there.
-        Assert.True(Near(wind.Advance(), 0.1f), "a step picks a gust");
-        Assert.True(Near(wind.Advance(), 3f), "and arriving holds it for HoldTime");
-
-        registry.Input(Ent, "SetSpeed", "400", 400f, EntityHandle.None);
-
-        wind.Advance();
-        wind.Advance();
-
-        // Walked towards rather than jumped to: a wind that snapped between gusts
-        // reads as something hitting the props rather than as weather.
-        Assert.True(Near(wind.CurrentSpeed, 205f), "a new baseline is ramped towards");
-
-        for (int i = 0; i < 100 && !Near(wind.CurrentSpeed, 400f); i++)
-            wind.Advance();
-
-        Assert.True(Near(wind.CurrentSpeed, 400f), "and is reached");
+        impact.OnThink("ImpactOff");
+        Assert.Equal(SolidFlags.NotSolid, FlagsOf(engine));
     }
 
     /// <summary>

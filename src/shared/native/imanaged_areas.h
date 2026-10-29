@@ -14,10 +14,9 @@
 // phase 4); Release is slot 0 and Validate slot 1, and native takes
 // an area only when Validate matches its k<I>SlotHashes (managed_accept.h).
 // Each is acquired again on every load and released before every unload,
-// so native keeps no pointer and calls through the accessor.
+// so native keeps no pointer of its own: it is handed the holders and reads the
+// area from them at the point of use (plan_server_native_v2 T6 part 3).
 
-#ifndef IMANAGED_AREAS_H
-#define IMANAGED_AREAS_H
 #pragma once
 
 #include <stdint.h>
@@ -34,27 +33,38 @@ struct SSManagedPhysicsFrameTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void * ( *CreateWorld )( IManagedPhysicsFrame *self );
+	void *( *CreateWorld )( IManagedPhysicsFrame *self );
 	int32_t ( *PrecacheSurfaceSounds )( IManagedPhysicsFrame *self );
 };
 
 class IManagedPhysicsFrame : public IManagedObject
 {
 public:
-	explicit IManagedPhysicsFrame( const SSManagedPhysicsFrameTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedPhysicsFrame( const SSManagedPhysicsFrameTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
 	void *CreateWorld() { return Table()->CreateWorld( this ); }
+
 	int32_t PrecacheSurfaceSounds() { return Table()->PrecacheSurfaceSounds( this ); }
 
 private:
-	const SSManagedPhysicsFrameTable *Table() const { return static_cast< const SSManagedPhysicsFrameTable * >( m_pTable ); }
+	const SSManagedPhysicsFrameTable *Table() const
+	{
+		return static_cast<const SSManagedPhysicsFrameTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedPhysicsFrameSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xe13ef122, 0x9d8d9245,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xe13ef122,
+	0x9d8d9245,
 };
 static const int32_t kIManagedPhysicsFrameSlotCount = 4;
-static_assert( sizeof( SSManagedPhysicsFrameTable ) == 4 * sizeof( void * ), "SSManagedPhysicsFrameTable is one pointer per slot" );
+static_assert( sizeof( SSManagedPhysicsFrameTable ) == 4 * sizeof( void * ),
+			   "SSManagedPhysicsFrameTable is one pointer per slot" );
 
 class IManagedResources;
 
@@ -63,9 +73,6 @@ struct SSManagedResourcesTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *ServerDecalIndexForName )( IManagedResources *self, const char *pszName );
-	int32_t ( *ServerDecalNameForIndex )( IManagedResources *self, int32_t nIndex, char *pOut, int32_t nOutSize );
-	int32_t ( *ServerDecalTranslateForGameMaterial )( IManagedResources *self, const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize );
 	void ( *ModelPrecacheComponents )( IManagedResources *self, const char *pszModelName );
 	void ( *ModelPrecacheCheck )( IManagedResources *self, const char *pszModelName, bool bAllowed );
 };
@@ -73,23 +80,31 @@ struct SSManagedResourcesTable
 class IManagedResources : public IManagedObject
 {
 public:
-	explicit IManagedResources( const SSManagedResourcesTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedResources( const SSManagedResourcesTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	int32_t ServerDecalIndexForName( const char *pszName ) { return Table()->ServerDecalIndexForName( this, pszName ); }
-	int32_t ServerDecalNameForIndex( int32_t nIndex, char *pOut, int32_t nOutSize ) { return Table()->ServerDecalNameForIndex( this, nIndex, pOut, nOutSize ); }
-	int32_t ServerDecalTranslateForGameMaterial( const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize ) { return Table()->ServerDecalTranslateForGameMaterial( this, pszDecalName, nGameMaterial, pOut, nOutSize ); }
 	void ModelPrecacheComponents( const char *pszModelName ) { Table()->ModelPrecacheComponents( this, pszModelName ); }
-	void ModelPrecacheCheck( const char *pszModelName, bool bAllowed ) { Table()->ModelPrecacheCheck( this, pszModelName, bAllowed ); }
+
+	void ModelPrecacheCheck( const char *pszModelName, bool bAllowed )
+	{
+		Table()->ModelPrecacheCheck( this, pszModelName, bAllowed );
+	}
 
 private:
-	const SSManagedResourcesTable *Table() const { return static_cast< const SSManagedResourcesTable * >( m_pTable ); }
+	const SSManagedResourcesTable *Table() const { return static_cast<const SSManagedResourcesTable *>( m_pTable ); }
 };
 
 static const uint32_t kIManagedResourcesSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x88774d41, 0xc7f046a5, 0x256306e9, 0x3aa7ebf0, 0x296debda,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0x3aa7ebf0,
+	0x296debda,
 };
-static const int32_t kIManagedResourcesSlotCount = 7;
-static_assert( sizeof( SSManagedResourcesTable ) == 7 * sizeof( void * ), "SSManagedResourcesTable is one pointer per slot" );
+static const int32_t kIManagedResourcesSlotCount = 4;
+static_assert( sizeof( SSManagedResourcesTable ) == 4 * sizeof( void * ),
+			   "SSManagedResourcesTable is one pointer per slot" );
 
 class IManagedSaveRestore;
 
@@ -100,9 +115,11 @@ struct SSManagedSaveRestoreTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	int32_t ( *ReloadSave )( IManagedSaveRestore *self );
 	int32_t ( *ReloadRestore )( IManagedSaveRestore *self );
-	void * ( *SaveInit )( IManagedSaveRestore *self, int32_t nSize, float flCurTime );
-	int32_t ( *SaveWriteFields )( IManagedSaveRestore *self, void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount );
-	int32_t ( *SaveReadFields )( IManagedSaveRestore *self, void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount );
+	void *( *SaveInit )( IManagedSaveRestore *self, int32_t nSize, float flCurTime );
+	int32_t ( *SaveWriteFields )( IManagedSaveRestore *self, void *pSave, const char *pszName, void *pBase,
+								  const void *pFields, int32_t nFieldStride, int32_t nCount );
+	int32_t ( *SaveReadFields )( IManagedSaveRestore *self, void *pSave, const char *pszName, void *pBase,
+								 const void *pFields, int32_t nFieldStride, int32_t nCount );
 	int32_t ( *SaveWriteBody )( IManagedSaveRestore *self, void *pSave );
 	int32_t ( *SaveReadBody )( IManagedSaveRestore *self, void *pSave );
 };
@@ -110,26 +127,46 @@ struct SSManagedSaveRestoreTable
 class IManagedSaveRestore : public IManagedObject
 {
 public:
-	explicit IManagedSaveRestore( const SSManagedSaveRestoreTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedSaveRestore( const SSManagedSaveRestoreTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
 	int32_t ReloadSave() { return Table()->ReloadSave( this ); }
+
 	int32_t ReloadRestore() { return Table()->ReloadRestore( this ); }
+
 	void *SaveInit( int32_t nSize, float flCurTime ) { return Table()->SaveInit( this, nSize, flCurTime ); }
-	int32_t SaveWriteFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount ) { return Table()->SaveWriteFields( this, pSave, pszName, pBase, pFields, nFieldStride, nCount ); }
-	int32_t SaveReadFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride, int32_t nCount ) { return Table()->SaveReadFields( this, pSave, pszName, pBase, pFields, nFieldStride, nCount ); }
+
+	int32_t SaveWriteFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride,
+							 int32_t nCount )
+	{
+		return Table()->SaveWriteFields( this, pSave, pszName, pBase, pFields, nFieldStride, nCount );
+	}
+
+	int32_t SaveReadFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride,
+							int32_t nCount )
+	{
+		return Table()->SaveReadFields( this, pSave, pszName, pBase, pFields, nFieldStride, nCount );
+	}
+
 	int32_t SaveWriteBody( void *pSave ) { return Table()->SaveWriteBody( this, pSave ); }
+
 	int32_t SaveReadBody( void *pSave ) { return Table()->SaveReadBody( this, pSave ); }
 
 private:
-	const SSManagedSaveRestoreTable *Table() const { return static_cast< const SSManagedSaveRestoreTable * >( m_pTable ); }
+	const SSManagedSaveRestoreTable *Table() const
+	{
+		return static_cast<const SSManagedSaveRestoreTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedSaveRestoreSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245, 0xeb834733, 0x7a6a4861, 0x7a6a4861, 0x1134ef71,
-	0x1134ef71,
+	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245, 0xeb834733, 0x7a6a4861, 0x7a6a4861, 0x1134ef71, 0x1134ef71,
 };
 static const int32_t kIManagedSaveRestoreSlotCount = 9;
-static_assert( sizeof( SSManagedSaveRestoreTable ) == 9 * sizeof( void * ), "SSManagedSaveRestoreTable is one pointer per slot" );
+static_assert( sizeof( SSManagedSaveRestoreTable ) == 9 * sizeof( void * ),
+			   "SSManagedSaveRestoreTable is one pointer per slot" );
 
 class IManagedSoundEnt;
 
@@ -140,27 +177,39 @@ struct SSManagedSoundEntTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	void ( *ServerSoundEntInit )( IManagedSoundEnt *self, int32_t nMaxClients, float flCurTime );
 	void ( *ServerSoundEntShutdown )( IManagedSoundEnt *self );
-	void ( *ServerSoundEntResetClientSound )( IManagedSoundEnt *self, int32_t nIndex );
+	void ( *ServerSoundEntResetClientSound )( IManagedSoundEnt *self, int32_t nClientIndex );
 };
 
 class IManagedSoundEnt : public IManagedObject
 {
 public:
-	explicit IManagedSoundEnt( const SSManagedSoundEntTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedSoundEnt( const SSManagedSoundEntTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	void ServerSoundEntInit( int32_t nMaxClients, float flCurTime ) { Table()->ServerSoundEntInit( this, nMaxClients, flCurTime ); }
+	void ServerSoundEntInit( int32_t nMaxClients, float flCurTime )
+	{
+		Table()->ServerSoundEntInit( this, nMaxClients, flCurTime );
+	}
+
 	void ServerSoundEntShutdown() { Table()->ServerSoundEntShutdown( this ); }
-	void ServerSoundEntResetClientSound( int32_t nIndex ) { Table()->ServerSoundEntResetClientSound( this, nIndex ); }
+
+	void ServerSoundEntResetClientSound( int32_t nClientIndex )
+	{
+		Table()->ServerSoundEntResetClientSound( this, nClientIndex );
+	}
 
 private:
-	const SSManagedSoundEntTable *Table() const { return static_cast< const SSManagedSoundEntTable * >( m_pTable ); }
+	const SSManagedSoundEntTable *Table() const { return static_cast<const SSManagedSoundEntTable *>( m_pTable ); }
 };
 
 static const uint32_t kIManagedSoundEntSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x7579bac3, 0x07e0f4c4, 0xc83e311d,
 };
 static const int32_t kIManagedSoundEntSlotCount = 5;
-static_assert( sizeof( SSManagedSoundEntTable ) == 5 * sizeof( void * ), "SSManagedSoundEntTable is one pointer per slot" );
+static_assert( sizeof( SSManagedSoundEntTable ) == 5 * sizeof( void * ),
+			   "SSManagedSoundEntTable is one pointer per slot" );
 
 class IManagedHierarchy;
 
@@ -171,40 +220,75 @@ struct SSManagedHierarchyTable
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	void ( *HierarchyParentMoved )( IManagedHierarchy *self, uint32_t hParent );
 	void ( *HierarchyChildMoved )( IManagedHierarchy *self, uint32_t hChild );
-	int32_t ( *HierarchySetParent )( IManagedHierarchy *self, uint32_t hChild, uint32_t hParent, int32_t nParentAttachment );
+	int32_t ( *HierarchySetParent )( IManagedHierarchy *self, uint32_t hChild, uint32_t hParent,
+									 int32_t nParentAttachment );
 	int32_t ( *HierarchyGetParentAttachment )( IManagedHierarchy *self, uint32_t hChild );
 	void ( *HierarchySetParentName )( IManagedHierarchy *self, uint32_t hChild, const char *pParentName );
 	void ( *HierarchySetParentAttachmentName )( IManagedHierarchy *self, uint32_t hChild, const char *pAttachmentName );
 	int32_t ( *HierarchyToLocal )( IManagedHierarchy *self, uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR );
 	int32_t ( *HierarchyToWorld )( IManagedHierarchy *self, uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR );
-	void ( *HierarchySetLocal )( IManagedHierarchy *self, uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR );
+	void ( *HierarchySetLocal )( IManagedHierarchy *self, uint32_t hChild, const float *pOriginXYZ,
+								 const float *pAnglesPYR );
 };
 
 class IManagedHierarchy : public IManagedObject
 {
 public:
-	explicit IManagedHierarchy( const SSManagedHierarchyTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedHierarchy( const SSManagedHierarchyTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
 	void HierarchyParentMoved( uint32_t hParent ) { Table()->HierarchyParentMoved( this, hParent ); }
+
 	void HierarchyChildMoved( uint32_t hChild ) { Table()->HierarchyChildMoved( this, hChild ); }
-	int32_t HierarchySetParent( uint32_t hChild, uint32_t hParent, int32_t nParentAttachment ) { return Table()->HierarchySetParent( this, hChild, hParent, nParentAttachment ); }
-	int32_t HierarchyGetParentAttachment( uint32_t hChild ) { return Table()->HierarchyGetParentAttachment( this, hChild ); }
-	void HierarchySetParentName( uint32_t hChild, const char *pParentName ) { Table()->HierarchySetParentName( this, hChild, pParentName ); }
-	void HierarchySetParentAttachmentName( uint32_t hChild, const char *pAttachmentName ) { Table()->HierarchySetParentAttachmentName( this, hChild, pAttachmentName ); }
-	int32_t HierarchyToLocal( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR ) { return Table()->HierarchyToLocal( this, hChild, pOriginXYZ, pAnglesPYR ); }
-	int32_t HierarchyToWorld( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR ) { return Table()->HierarchyToWorld( this, hChild, pOriginXYZ, pAnglesPYR ); }
-	void HierarchySetLocal( uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR ) { Table()->HierarchySetLocal( this, hChild, pOriginXYZ, pAnglesPYR ); }
+
+	int32_t HierarchySetParent( uint32_t hChild, uint32_t hParent, int32_t nParentAttachment )
+	{
+		return Table()->HierarchySetParent( this, hChild, hParent, nParentAttachment );
+	}
+
+	int32_t HierarchyGetParentAttachment( uint32_t hChild )
+	{
+		return Table()->HierarchyGetParentAttachment( this, hChild );
+	}
+
+	void HierarchySetParentName( uint32_t hChild, const char *pParentName )
+	{
+		Table()->HierarchySetParentName( this, hChild, pParentName );
+	}
+
+	void HierarchySetParentAttachmentName( uint32_t hChild, const char *pAttachmentName )
+	{
+		Table()->HierarchySetParentAttachmentName( this, hChild, pAttachmentName );
+	}
+
+	int32_t HierarchyToLocal( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR )
+	{
+		return Table()->HierarchyToLocal( this, hChild, pOriginXYZ, pAnglesPYR );
+	}
+
+	int32_t HierarchyToWorld( uint32_t hChild, float *pOriginXYZ, float *pAnglesPYR )
+	{
+		return Table()->HierarchyToWorld( this, hChild, pOriginXYZ, pAnglesPYR );
+	}
+
+	void HierarchySetLocal( uint32_t hChild, const float *pOriginXYZ, const float *pAnglesPYR )
+	{
+		Table()->HierarchySetLocal( this, hChild, pOriginXYZ, pAnglesPYR );
+	}
 
 private:
-	const SSManagedHierarchyTable *Table() const { return static_cast< const SSManagedHierarchyTable * >( m_pTable ); }
+	const SSManagedHierarchyTable *Table() const { return static_cast<const SSManagedHierarchyTable *>( m_pTable ); }
 };
 
 static const uint32_t kIManagedHierarchySlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x8a6f1a50, 0x8a6f1a50, 0x18f4833a, 0xe0e1e121, 0xaf0c4354, 0xaf0c4354,
-	0x8ff15189, 0x8ff15189, 0x542fda88,
+	0x07e0f4c4, 0x0d54c15e, 0x8a6f1a50, 0x8a6f1a50, 0x18f4833a, 0xe0e1e121,
+	0xaf0c4354, 0xaf0c4354, 0x8ff15189, 0x8ff15189, 0x542fda88,
 };
 static const int32_t kIManagedHierarchySlotCount = 11;
-static_assert( sizeof( SSManagedHierarchyTable ) == 11 * sizeof( void * ), "SSManagedHierarchyTable is one pointer per slot" );
+static_assert( sizeof( SSManagedHierarchyTable ) == 11 * sizeof( void * ),
+			   "SSManagedHierarchyTable is one pointer per slot" );
 
 class IManagedEntities;
 
@@ -220,20 +304,31 @@ struct SSManagedEntitiesTable
 class IManagedEntities : public IManagedObject
 {
 public:
-	explicit IManagedEntities( const SSManagedEntitiesTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedEntities( const SSManagedEntitiesTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	int32_t Dispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs ) { return Table()->Dispatch( this, hEntity, nOp, pArgs ); }
+	int32_t Dispatch( uint32_t hEntity, int32_t nOp, const SourceSharpOpArgs *pArgs )
+	{
+		return Table()->Dispatch( this, hEntity, nOp, pArgs );
+	}
+
 	int32_t EntityRemoveRequested( uint32_t hEntity ) { return Table()->EntityRemoveRequested( this, hEntity ); }
 
 private:
-	const SSManagedEntitiesTable *Table() const { return static_cast< const SSManagedEntitiesTable * >( m_pTable ); }
+	const SSManagedEntitiesTable *Table() const { return static_cast<const SSManagedEntitiesTable *>( m_pTable ); }
 };
 
 static const uint32_t kIManagedEntitiesSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x4e69f0b6, 0xe0e1e121,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0x4e69f0b6,
+	0xe0e1e121,
 };
 static const int32_t kIManagedEntitiesSlotCount = 4;
-static_assert( sizeof( SSManagedEntitiesTable ) == 4 * sizeof( void * ), "SSManagedEntitiesTable is one pointer per slot" );
+static_assert( sizeof( SSManagedEntitiesTable ) == 4 * sizeof( void * ),
+			   "SSManagedEntitiesTable is one pointer per slot" );
 
 class IManagedClients;
 
@@ -242,7 +337,8 @@ struct SSManagedClientsTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *OnClientConnect )( IManagedClients *self, const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize );
+	int32_t ( *OnClientConnect )( IManagedClients *self, const char *pName, const char *pAddress, char *pReject,
+								  int32_t nRejectSize );
 	void ( *OnClientPutInServer )( IManagedClients *self, int32_t nEntIndex, const char *pPlayerName );
 	void ( *OnClientActive )( IManagedClients *self, int32_t nEntIndex, int32_t bLoadGame );
 	void ( *OnPlayerSpawn )( IManagedClients *self, uint32_t hPlayer );
@@ -251,33 +347,77 @@ struct SSManagedClientsTable
 	uint32_t ( *OnSelectSpawnPoint )( IManagedClients *self, uint32_t hPlayer );
 	int32_t ( *ServerSkyboxAreaForClient )( IManagedClients *self, int32_t iClientEdict, int32_t *pOutArea );
 	int32_t ( *ServerEarPositionForClient )( IManagedClients *self, int32_t iClientEdict, float *pOutXYZ );
-	int32_t ( *OnClientNetMessage )( IManagedClients *self, int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen );
+	int32_t ( *OnClientNetMessage )( IManagedClients *self, int32_t nEntIndex, const char *pKey, const uint8_t *pData,
+									 int32_t nLen );
 	int32_t ( *OnClientSettingsChanged )( IManagedClients *self, int32_t nEntIndex );
 	int32_t ( *ServerTransmitAlwaysForClient )( IManagedClients *self, int32_t iClientEdict );
-	int32_t ( *ServerAreaPortalVisibility )( IManagedClients *self, const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes );
+	int32_t ( *ServerAreaPortalVisibility )( IManagedClients *self, const float *pOriginXYZ,
+											 float flFovDistanceAdjustFactor, uint8_t *pPortalBits,
+											 int32_t nPortalBytes );
 };
 
 class IManagedClients : public IManagedObject
 {
 public:
-	explicit IManagedClients( const SSManagedClientsTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedClients( const SSManagedClientsTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	int32_t OnClientConnect( const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize ) { return Table()->OnClientConnect( this, pName, pAddress, pReject, nRejectSize ); }
-	void OnClientPutInServer( int32_t nEntIndex, const char *pPlayerName ) { Table()->OnClientPutInServer( this, nEntIndex, pPlayerName ); }
-	void OnClientActive( int32_t nEntIndex, int32_t bLoadGame ) { Table()->OnClientActive( this, nEntIndex, bLoadGame ); }
+	int32_t OnClientConnect( const char *pName, const char *pAddress, char *pReject, int32_t nRejectSize )
+	{
+		return Table()->OnClientConnect( this, pName, pAddress, pReject, nRejectSize );
+	}
+
+	void OnClientPutInServer( int32_t nEntIndex, const char *pPlayerName )
+	{
+		Table()->OnClientPutInServer( this, nEntIndex, pPlayerName );
+	}
+
+	void OnClientActive( int32_t nEntIndex, int32_t bLoadGame )
+	{
+		Table()->OnClientActive( this, nEntIndex, bLoadGame );
+	}
+
 	void OnPlayerSpawn( uint32_t hPlayer ) { Table()->OnPlayerSpawn( this, hPlayer ); }
+
 	void OnPlayerSpawned( uint32_t hPlayer ) { Table()->OnPlayerSpawned( this, hPlayer ); }
+
 	void OnPlayerKilled( uint32_t hPlayer, uint32_t hAttacker ) { Table()->OnPlayerKilled( this, hPlayer, hAttacker ); }
+
 	uint32_t OnSelectSpawnPoint( uint32_t hPlayer ) { return Table()->OnSelectSpawnPoint( this, hPlayer ); }
-	int32_t ServerSkyboxAreaForClient( int32_t iClientEdict, int32_t *pOutArea ) { return Table()->ServerSkyboxAreaForClient( this, iClientEdict, pOutArea ); }
-	int32_t ServerEarPositionForClient( int32_t iClientEdict, float *pOutXYZ ) { return Table()->ServerEarPositionForClient( this, iClientEdict, pOutXYZ ); }
-	int32_t OnClientNetMessage( int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen ) { return Table()->OnClientNetMessage( this, nEntIndex, pKey, pData, nLen ); }
+
+	int32_t ServerSkyboxAreaForClient( int32_t iClientEdict, int32_t *pOutArea )
+	{
+		return Table()->ServerSkyboxAreaForClient( this, iClientEdict, pOutArea );
+	}
+
+	int32_t ServerEarPositionForClient( int32_t iClientEdict, float *pOutXYZ )
+	{
+		return Table()->ServerEarPositionForClient( this, iClientEdict, pOutXYZ );
+	}
+
+	int32_t OnClientNetMessage( int32_t nEntIndex, const char *pKey, const uint8_t *pData, int32_t nLen )
+	{
+		return Table()->OnClientNetMessage( this, nEntIndex, pKey, pData, nLen );
+	}
+
 	int32_t OnClientSettingsChanged( int32_t nEntIndex ) { return Table()->OnClientSettingsChanged( this, nEntIndex ); }
-	int32_t ServerTransmitAlwaysForClient( int32_t iClientEdict ) { return Table()->ServerTransmitAlwaysForClient( this, iClientEdict ); }
-	int32_t ServerAreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes ) { return Table()->ServerAreaPortalVisibility( this, pOriginXYZ, flFovDistanceAdjustFactor, pPortalBits, nPortalBytes ); }
+
+	int32_t ServerTransmitAlwaysForClient( int32_t iClientEdict )
+	{
+		return Table()->ServerTransmitAlwaysForClient( this, iClientEdict );
+	}
+
+	int32_t ServerAreaPortalVisibility( const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits,
+										int32_t nPortalBytes )
+	{
+		return Table()->ServerAreaPortalVisibility( this, pOriginXYZ, flFovDistanceAdjustFactor, pPortalBits,
+													nPortalBytes );
+	}
 
 private:
-	const SSManagedClientsTable *Table() const { return static_cast< const SSManagedClientsTable * >( m_pTable ); }
+	const SSManagedClientsTable *Table() const { return static_cast<const SSManagedClientsTable *>( m_pTable ); }
 };
 
 static const uint32_t kIManagedClientsSlotHashes[] = {
@@ -285,7 +425,8 @@ static const uint32_t kIManagedClientsSlotHashes[] = {
 	0x021a56ce, 0x17365172, 0x17365172, 0x4a9e65fd, 0xa45f061a, 0xa45f061a, 0x9546130c,
 };
 static const int32_t kIManagedClientsSlotCount = 15;
-static_assert( sizeof( SSManagedClientsTable ) == 15 * sizeof( void * ), "SSManagedClientsTable is one pointer per slot" );
+static_assert( sizeof( SSManagedClientsTable ) == 15 * sizeof( void * ),
+			   "SSManagedClientsTable is one pointer per slot" );
 
 class IManagedEvents;
 
@@ -300,16 +441,21 @@ struct SSManagedEventsTable
 class IManagedEvents : public IManagedObject
 {
 public:
-	explicit IManagedEvents( const SSManagedEventsTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedEvents( const SSManagedEventsTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
 	void OnGameEvent( const char *pEventName, void *hEvent ) { Table()->OnGameEvent( this, pEventName, hEvent ); }
 
 private:
-	const SSManagedEventsTable *Table() const { return static_cast< const SSManagedEventsTable * >( m_pTable ); }
+	const SSManagedEventsTable *Table() const { return static_cast<const SSManagedEventsTable *>( m_pTable ); }
 };
 
 static const uint32_t kIManagedEventsSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xacb4e74c,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xacb4e74c,
 };
 static const int32_t kIManagedEventsSlotCount = 3;
 static_assert( sizeof( SSManagedEventsTable ) == 3 * sizeof( void * ), "SSManagedEventsTable is one pointer per slot" );
@@ -321,52 +467,38 @@ struct SSManagedUserMessagesTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	bool ( *GetUserMessageInfo )( IManagedUserMessages *self, int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize );
+	bool ( *GetUserMessageInfo )( IManagedUserMessages *self, int32_t nIndex, char *pName, int32_t nMaxName,
+								  int32_t *pSize );
 };
 
 class IManagedUserMessages : public IManagedObject
 {
 public:
-	explicit IManagedUserMessages( const SSManagedUserMessagesTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedUserMessages( const SSManagedUserMessagesTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	bool GetUserMessageInfo( int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize ) { return Table()->GetUserMessageInfo( this, nIndex, pName, nMaxName, pSize ); }
+	bool GetUserMessageInfo( int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize )
+	{
+		return Table()->GetUserMessageInfo( this, nIndex, pName, nMaxName, pSize );
+	}
 
 private:
-	const SSManagedUserMessagesTable *Table() const { return static_cast< const SSManagedUserMessagesTable * >( m_pTable ); }
+	const SSManagedUserMessagesTable *Table() const
+	{
+		return static_cast<const SSManagedUserMessagesTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedUserMessagesSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xdd84ebe8,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xdd84ebe8,
 };
 static const int32_t kIManagedUserMessagesSlotCount = 3;
-static_assert( sizeof( SSManagedUserMessagesTable ) == 3 * sizeof( void * ), "SSManagedUserMessagesTable is one pointer per slot" );
-
-class IManagedTempEnts;
-
-// The table managed writes for IManagedTempEnts: Release, Validate, then the TSV's order.
-struct SSManagedTempEntsTable
-{
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *OnNativeTempEntity )( IManagedTempEnts *self, int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut );
-};
-
-class IManagedTempEnts : public IManagedObject
-{
-public:
-	explicit IManagedTempEnts( const SSManagedTempEntsTable *pTable ) : IManagedObject( pTable ) {}
-
-	int32_t OnNativeTempEntity( int32_t nId, const float *pFloats, int32_t nFloats, const int32_t *pInts, int32_t nInts, void *pBlobOut, int32_t nBlobMax, int32_t *pClassOut ) { return Table()->OnNativeTempEntity( this, nId, pFloats, nFloats, pInts, nInts, pBlobOut, nBlobMax, pClassOut ); }
-
-private:
-	const SSManagedTempEntsTable *Table() const { return static_cast< const SSManagedTempEntsTable * >( m_pTable ); }
-};
-
-static const uint32_t kIManagedTempEntsSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x4febfaf5,
-};
-static const int32_t kIManagedTempEntsSlotCount = 3;
-static_assert( sizeof( SSManagedTempEntsTable ) == 3 * sizeof( void * ), "SSManagedTempEntsTable is one pointer per slot" );
+static_assert( sizeof( SSManagedUserMessagesTable ) == 3 * sizeof( void * ),
+			   "SSManagedUserMessagesTable is one pointer per slot" );
 
 class IManagedDiagnostics;
 
@@ -381,19 +513,31 @@ struct SSManagedDiagnosticsTable
 class IManagedDiagnostics : public IManagedObject
 {
 public:
-	explicit IManagedDiagnostics( const SSManagedDiagnosticsTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedDiagnostics( const SSManagedDiagnosticsTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	int32_t CrossingsReport( char *pBuffer, int32_t nBytes, int32_t bReset ) { return Table()->CrossingsReport( this, pBuffer, nBytes, bReset ); }
+	int32_t CrossingsReport( char *pBuffer, int32_t nBytes, int32_t bReset )
+	{
+		return Table()->CrossingsReport( this, pBuffer, nBytes, bReset );
+	}
 
 private:
-	const SSManagedDiagnosticsTable *Table() const { return static_cast< const SSManagedDiagnosticsTable * >( m_pTable ); }
+	const SSManagedDiagnosticsTable *Table() const
+	{
+		return static_cast<const SSManagedDiagnosticsTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedDiagnosticsSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xd64a23a5,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xd64a23a5,
 };
 static const int32_t kIManagedDiagnosticsSlotCount = 3;
-static_assert( sizeof( SSManagedDiagnosticsTable ) == 3 * sizeof( void * ), "SSManagedDiagnosticsTable is one pointer per slot" );
+static_assert( sizeof( SSManagedDiagnosticsTable ) == 3 * sizeof( void * ),
+			   "SSManagedDiagnosticsTable is one pointer per slot" );
 
 class IManagedCommands;
 
@@ -410,21 +554,36 @@ struct SSManagedCommandsTable
 class IManagedCommands : public IManagedObject
 {
 public:
-	explicit IManagedCommands( const SSManagedCommandsTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedCommands( const SSManagedCommandsTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	void ConCommandDispatch( int32_t nCommandId, const char *pArgs ) { Table()->ConCommandDispatch( this, nCommandId, pArgs ); }
-	void ConVarChanged( int32_t nConVarId, const char *pNewValue, const char *pOldValue ) { Table()->ConVarChanged( this, nConVarId, pNewValue, pOldValue ); }
-	int32_t OnClientCommand( uint32_t hPlayer, const char *pCommand ) { return Table()->OnClientCommand( this, hPlayer, pCommand ); }
+	void ConCommandDispatch( int32_t nCommandId, const char *pArgs )
+	{
+		Table()->ConCommandDispatch( this, nCommandId, pArgs );
+	}
+
+	void ConVarChanged( int32_t nConVarId, const char *pNewValue, const char *pOldValue )
+	{
+		Table()->ConVarChanged( this, nConVarId, pNewValue, pOldValue );
+	}
+
+	int32_t OnClientCommand( uint32_t hPlayer, const char *pCommand )
+	{
+		return Table()->OnClientCommand( this, hPlayer, pCommand );
+	}
 
 private:
-	const SSManagedCommandsTable *Table() const { return static_cast< const SSManagedCommandsTable * >( m_pTable ); }
+	const SSManagedCommandsTable *Table() const { return static_cast<const SSManagedCommandsTable *>( m_pTable ); }
 };
 
 static const uint32_t kIManagedCommandsSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xeed27821, 0x3d217e2d, 0xff2dadb5,
 };
 static const int32_t kIManagedCommandsSlotCount = 5;
-static_assert( sizeof( SSManagedCommandsTable ) == 5 * sizeof( void * ), "SSManagedCommandsTable is one pointer per slot" );
+static_assert( sizeof( SSManagedCommandsTable ) == 5 * sizeof( void * ),
+			   "SSManagedCommandsTable is one pointer per slot" );
 
 class IManagedNetState;
 
@@ -440,20 +599,34 @@ struct SSManagedNetStateTable
 class IManagedNetState : public IManagedObject
 {
 public:
-	explicit IManagedNetState( const SSManagedNetStateTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedNetState( const SSManagedNetStateTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	int32_t NetStateFieldOffset( const char *pClassName, const char *pFieldName ) { return Table()->NetStateFieldOffset( this, pClassName, pFieldName ); }
-	int32_t NetStateFieldBits( const char *pClassName, const char *pFieldName ) { return Table()->NetStateFieldBits( this, pClassName, pFieldName ); }
+	int32_t NetStateFieldOffset( const char *pClassName, const char *pFieldName )
+	{
+		return Table()->NetStateFieldOffset( this, pClassName, pFieldName );
+	}
+
+	int32_t NetStateFieldBits( const char *pClassName, const char *pFieldName )
+	{
+		return Table()->NetStateFieldBits( this, pClassName, pFieldName );
+	}
 
 private:
-	const SSManagedNetStateTable *Table() const { return static_cast< const SSManagedNetStateTable * >( m_pTable ); }
+	const SSManagedNetStateTable *Table() const { return static_cast<const SSManagedNetStateTable *>( m_pTable ); }
 };
 
 static const uint32_t kIManagedNetStateSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xbddf45d5, 0xbddf45d5,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xbddf45d5,
+	0xbddf45d5,
 };
 static const int32_t kIManagedNetStateSlotCount = 4;
-static_assert( sizeof( SSManagedNetStateTable ) == 4 * sizeof( void * ), "SSManagedNetStateTable is one pointer per slot" );
+static_assert( sizeof( SSManagedNetStateTable ) == 4 * sizeof( void * ),
+			   "SSManagedNetStateTable is one pointer per slot" );
 
 class IManagedPlayerCommands;
 
@@ -463,26 +636,49 @@ struct SSManagedPlayerCommandsTable
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
 	int32_t ( *PlayerRunCommands )( IManagedPlayerCommands *self, uint32_t hPlayer, int32_t nCount );
-	int32_t ( *PlayerDecodeCommands )( IManagedPlayerCommands *self, uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead );
+	int32_t ( *PlayerDecodeCommands )( IManagedPlayerCommands *self, uint32_t hPlayer, const uint8_t *pData,
+									   int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds,
+									   int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut,
+									   int32_t nOutMax, int32_t *pBitsRead );
 };
 
 class IManagedPlayerCommands : public IManagedObject
 {
 public:
-	explicit IManagedPlayerCommands( const SSManagedPlayerCommandsTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedPlayerCommands( const SSManagedPlayerCommandsTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	int32_t PlayerRunCommands( uint32_t hPlayer, int32_t nCount ) { return Table()->PlayerRunCommands( this, hPlayer, nCount ); }
-	int32_t PlayerDecodeCommands( uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits, int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue, SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead ) { return Table()->PlayerDecodeCommands( this, hPlayer, pData, nStartBit, nDataBits, nNumCmds, nTotalCmds, nDroppedPackets, bQueue, pOut, nOutMax, pBitsRead ); }
+	int32_t PlayerRunCommands( uint32_t hPlayer, int32_t nCount )
+	{
+		return Table()->PlayerRunCommands( this, hPlayer, nCount );
+	}
+
+	int32_t PlayerDecodeCommands( uint32_t hPlayer, const uint8_t *pData, int32_t nStartBit, int32_t nDataBits,
+								  int32_t nNumCmds, int32_t nTotalCmds, int32_t nDroppedPackets, int32_t bQueue,
+								  SourceSharpDecodedUserCmd *pOut, int32_t nOutMax, int32_t *pBitsRead )
+	{
+		return Table()->PlayerDecodeCommands( this, hPlayer, pData, nStartBit, nDataBits, nNumCmds, nTotalCmds,
+											  nDroppedPackets, bQueue, pOut, nOutMax, pBitsRead );
+	}
 
 private:
-	const SSManagedPlayerCommandsTable *Table() const { return static_cast< const SSManagedPlayerCommandsTable * >( m_pTable ); }
+	const SSManagedPlayerCommandsTable *Table() const
+	{
+		return static_cast<const SSManagedPlayerCommandsTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedPlayerCommandsSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xbabc0fee, 0x889faf12,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xbabc0fee,
+	0x889faf12,
 };
 static const int32_t kIManagedPlayerCommandsSlotCount = 4;
-static_assert( sizeof( SSManagedPlayerCommandsTable ) == 4 * sizeof( void * ), "SSManagedPlayerCommandsTable is one pointer per slot" );
+static_assert( sizeof( SSManagedPlayerCommandsTable ) == 4 * sizeof( void * ),
+			   "SSManagedPlayerCommandsTable is one pointer per slot" );
 
 class IManagedConsoleOutput;
 
@@ -497,19 +693,28 @@ struct SSManagedConsoleOutputTable
 class IManagedConsoleOutput : public IManagedObject
 {
 public:
-	explicit IManagedConsoleOutput( const SSManagedConsoleOutputTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedConsoleOutput( const SSManagedConsoleOutputTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
 	void ConsoleBufferAttach( void *pBuffer ) { Table()->ConsoleBufferAttach( this, pBuffer ); }
 
 private:
-	const SSManagedConsoleOutputTable *Table() const { return static_cast< const SSManagedConsoleOutputTable * >( m_pTable ); }
+	const SSManagedConsoleOutputTable *Table() const
+	{
+		return static_cast<const SSManagedConsoleOutputTable *>( m_pTable );
+	}
 };
 
 static const uint32_t kIManagedConsoleOutputSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xde3e0200,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0xde3e0200,
 };
 static const int32_t kIManagedConsoleOutputSlotCount = 3;
-static_assert( sizeof( SSManagedConsoleOutputTable ) == 3 * sizeof( void * ), "SSManagedConsoleOutputTable is one pointer per slot" );
+static_assert( sizeof( SSManagedConsoleOutputTable ) == 3 * sizeof( void * ),
+			   "SSManagedConsoleOutputTable is one pointer per slot" );
 
 class IManagedBones;
 
@@ -518,43 +723,34 @@ struct SSManagedBonesTable
 {
 	void ( *Release )( IManagedObject *self );
 	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *TestHitboxes )( IManagedBones *self, uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts );
+	int32_t ( *TestHitboxes )( IManagedBones *self, uint32_t hEntity, const void *pBlock, const float *pRay,
+							   int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts );
 };
 
 class IManagedBones : public IManagedObject
 {
 public:
-	explicit IManagedBones( const SSManagedBonesTable *pTable ) : IManagedObject( pTable ) {}
+	explicit IManagedBones( const SSManagedBonesTable *pTable )
+		: IManagedObject( pTable )
+	{
+	}
 
-	int32_t TestHitboxes( uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts ) { return Table()->TestHitboxes( this, hEntity, pBlock, pRay, nContentsMask, pTraceFloats, pTraceInts ); }
+	int32_t TestHitboxes( uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask,
+						  float *pTraceFloats, int32_t *pTraceInts )
+	{
+		return Table()->TestHitboxes( this, hEntity, pBlock, pRay, nContentsMask, pTraceFloats, pTraceInts );
+	}
 
 private:
-	const SSManagedBonesTable *Table() const { return static_cast< const SSManagedBonesTable * >( m_pTable ); }
+	const SSManagedBonesTable *Table() const { return static_cast<const SSManagedBonesTable *>( m_pTable ); }
 };
 
 static const uint32_t kIManagedBonesSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0x43ac8bd6,
+	0x07e0f4c4,
+	0x0d54c15e,
+	0x43ac8bd6,
 };
 static const int32_t kIManagedBonesSlotCount = 3;
 static_assert( sizeof( SSManagedBonesTable ) == 3 * sizeof( void * ), "SSManagedBonesTable is one pointer per slot" );
 
-IManagedPhysicsFrame *ManagedPhysicsFrame();   // this load's area, or NULL outside a load
-IManagedResources *ManagedResources();   // this load's area, or NULL outside a load
-IManagedSaveRestore *ManagedSaveRestore();   // this load's area, or NULL outside a load
-IManagedSoundEnt *ManagedSoundEnt();   // this load's area, or NULL outside a load
-IManagedHierarchy *ManagedHierarchy();   // this load's area, or NULL outside a load
-IManagedEntities *ManagedEntities();   // this load's area, or NULL outside a load
-IManagedClients *ManagedClients();   // this load's area, or NULL outside a load
-IManagedEvents *ManagedEvents();   // this load's area, or NULL outside a load
-IManagedUserMessages *ManagedUserMessages();   // this load's area, or NULL outside a load
-IManagedTempEnts *ManagedTempEnts();   // this load's area, or NULL outside a load
-IManagedDiagnostics *ManagedDiagnostics();   // this load's area, or NULL outside a load
-IManagedCommands *ManagedCommands();   // this load's area, or NULL outside a load
-IManagedNetState *ManagedNetState();   // this load's area, or NULL outside a load
-IManagedPlayerCommands *ManagedPlayerCommands();   // this load's area, or NULL outside a load
-IManagedConsoleOutput *ManagedConsoleOutput();   // this load's area, or NULL outside a load
-IManagedBones *ManagedBones();   // this load's area, or NULL outside a load
-
 #endif // !CLIENT_DLL
-
-#endif // IMANAGED_AREAS_H

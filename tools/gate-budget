@@ -1,0 +1,256 @@
+#!/usr/bin/env python3
+"""tools/gate-budget -- the live gate's crossing budget is well formed.
+
+    tools/gate-budget              check tools/live-gate-budget.tsv; exit 1 on a bad row
+    tools/gate-budget --self-test  check that this script can fail
+
+Every stage tools/live-gate runs has one row in tools/live-gate-budget.tsv and
+every row is a stage it runs; each row agrees with the formulas tools/live-gate
+records it with (its MIN_FRAMES_FOR_RATE, SHORT_STAGE_FLOOR, ceiling_for and
+ceiling_total_for, imported rather than re-typed). A ceiling_total may sit
+BELOW the formula's cap (live-gate keeps an existing ceiling when a raise is
+unearned) but never above it: that is a limit relaxed, not a measurement
+corrected. The count itself needs a game and is the live gate's to enforce.
+"""
+import collections
+import importlib.machinery
+import importlib.util
+import io
+import os
+import re
+import sys
+
+HERE = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
+ROOT = os.path.abspath(os.path.join(HERE, '..'))
+LIVE_GATE = 'tools/live-gate'
+
+Consts = collections.namedtuple(
+    'Consts', 'min_frames_for_rate short_stage_floor ceiling_for ceiling_total_for')
+
+
+class CannotMeasure(Exception):
+    """Nothing was measured. Never report a clean budget from one of these."""
+
+
+def load_live_gate(path=None):
+    path = path or os.path.join(ROOT, LIVE_GATE)
+    if not os.path.isfile(path):
+        raise CannotMeasure('no %s -- the crossing budget has no owner to '
+                            'check it against' % LIVE_GATE)
+    loader = importlib.machinery.SourceFileLoader('_ss_live_gate', path)
+    spec = importlib.util.spec_from_loader('_ss_live_gate', loader)
+    module = importlib.util.module_from_spec(spec)
+    try:
+        loader.exec_module(module)
+    except Exception as exc:                       # pragma: no cover - defensive
+        raise CannotMeasure('cannot import %s (%s)' % (LIVE_GATE, exc))
+    for want in ('MIN_FRAMES_FOR_RATE', 'SHORT_STAGE_FLOOR', 'ceiling_for',
+                 'ceiling_total_for', 'read_budget', 'ALL_STEPS', 'BUDGET',
+                 'BudgetRow'):
+        if not hasattr(module, want):
+            raise CannotMeasure(
+                '%s no longer defines %s. The budget checks are built out of '
+                'that module on purpose -- a copy of the formula here would '
+                'drift from the one that records it.' % (LIVE_GATE, want))
+    return module
+
+
+def consts_from(module):
+    return Consts(module.MIN_FRAMES_FOR_RATE, dict(module.SHORT_STAGE_FLOOR),
+                  module.ceiling_for, module.ceiling_total_for)
+
+
+def budget_row_issues(stage, row, consts):
+    """Everything wrong with one budget row, as sentences. PURE."""
+    bad = []
+    if row.frames < 1:
+        bad.append('recorded_frames %d' % row.frames)
+        return bad
+    if row.samples < 1:
+        bad.append('samples %d: a row resting on no measurement' % row.samples)
+    want_gated = 'rate' if row.frames >= consts.min_frames_for_rate else 'total'
+    if row.gated_on != want_gated:
+        bad.append('gated_on=%s on %d frames; MIN_FRAMES_FOR_RATE=%d says %s'
+                   % (row.gated_on, row.frames, consts.min_frames_for_rate, want_gated))
+    rate = round(row.total / float(row.frames), 3)
+    if round(row.rate, 3) != rate:
+        bad.append('recorded_per_frame %s but %d/%d = %s'
+                   % (row.rate, row.total, row.frames, rate))
+    # The formula takes the full-precision rate: tools/live-gate computes
+    # ceiling_for(total/frames) and only then rounds the column, so the rounded
+    # column can differ from it in the last place. Tolerance: one unit there.
+    want_rate_ceiling = consts.ceiling_for(row.total / float(row.frames))
+    if abs(row.ceiling_rate - want_rate_ceiling) > 0.001:
+        bad.append('ceiling_per_frame %s but the formula on %d/%d gives %s'
+                   % (row.ceiling_rate, row.total, row.frames,
+                      round(want_rate_ceiling, 3)))
+    cap = consts.ceiling_total_for(max(row.total_max,
+                                       consts.short_stage_floor.get(stage, 0)))
+    if row.ceiling_total > cap:
+        bad.append('ceiling_total %d is ABOVE the %d the formula allows for '
+                   'total_max=%d -- a limit relaxed, not a measurement corrected'
+                   % (row.ceiling_total, cap, row.total_max))
+    if row.ceiling_total < row.total_max:
+        bad.append('ceiling_total %d is below total_max %d -- the row fails on '
+                   'its own recorded sample' % (row.ceiling_total, row.total_max))
+    if not row.total_min <= row.total <= row.total_max:
+        bad.append('recorded_total %d is outside total_min..total_max %d..%d'
+                   % (row.total, row.total_min, row.total_max))
+    return bad
+
+
+def budget_checks(budget, stages, consts):
+    """-> [(label, ok, detail)], the two set checks plus one per row. PURE."""
+    out = []
+    missing = [s for s in stages if s not in budget]
+    out.append((
+        'every live-gate stage has a budget row', not missing,
+        'tools/live-gate runs %s with no row in the budget, so they are '
+        'ungated' % ', '.join(missing) if missing
+        else '%d stages' % len(stages)))
+    extra = [s for s in sorted(budget) if s not in stages]
+    out.append((
+        'every budget row is a live-gate stage', not extra,
+        'the budget gates %s, which tools/live-gate does not run' % ', '.join(extra)
+        if extra else '%d rows' % len(budget)))
+    for stage in sorted(budget):
+        issues = budget_row_issues(stage, budget[stage], consts)
+        out.append(('budget %s' % stage, not issues,
+                    '; '.join(issues) if issues
+                    else 'gated_on=%s, ceiling %s/frame, %d total'
+                         % (budget[stage].gated_on, budget[stage].ceiling_rate,
+                            budget[stage].ceiling_total)))
+    return out
+
+
+def report(results, out=sys.stdout):
+    failed = 0
+    for label, ok, detail in results:
+        out.write('  %-5s %s%s\n' % ('ok' if ok else 'FAIL', label,
+                                     ('   -- ' + detail) if detail else ''))
+        if not ok:
+            failed += 1
+    out.write('  ==> %d checks, %d failed\n' % (len(results), failed))
+    return failed
+
+
+def main():
+    try:
+        live = load_live_gate()
+        budget = live.read_budget(live.BUDGET)
+    except CannotMeasure as exc:
+        print('gate-budget: REFUSED: %s' % exc)
+        return 2
+    if not budget:
+        print('gate-budget: REFUSED: %s has no rows' % live.BUDGET)
+        return 2
+    results = budget_checks(budget, [s[0] for s in live.ALL_STEPS], consts_from(live))
+    return 1 if report(results) else 0
+
+
+def self_test():
+    checks = failed = 0
+    transcripts = []
+
+    def ck(label, cond, detail=''):
+        nonlocal checks, failed
+        checks += 1
+        print('  %-5s %s%s' % ('ok' if cond else 'FAIL', label,
+                               ('   -- ' + detail) if detail else ''))
+        if not cond:
+            failed += 1
+
+    def quiet(results):
+        """report() a fixture's results with stdout held back."""
+        buf = io.StringIO()
+        report(results, out=buf)
+        transcripts.append(buf.getvalue())
+        return results
+
+    def fails(results):
+        return [(l, d) for l, ok, d in results if not ok]
+
+    live = load_live_gate()
+    real = consts_from(live)
+    Row = live.BudgetRow
+
+    def row(**kw):
+        d = dict(ceiling_rate=160.0, ceiling_total=1700, gated_on='total',
+                 rate=100.0, total=1000, frames=10, samples=5,
+                 total_min=900, total_max=1000)
+        d.update(kw)
+        return Row(**d)
+
+    ck('a well-formed budget row passes', not budget_row_issues('x', row(), real),
+       'without this every budget check below passes for the wrong reason')
+    ck('a ceiling_total ABOVE the formula fails',
+       any('ABOVE' in i for i in budget_row_issues('x', row(ceiling_total=1701), real)),
+       repr(budget_row_issues('x', row(ceiling_total=1701), real)))
+    ck('and one BELOW it passes -- live-gate keeps an unearned raise off',
+       not budget_row_issues('x', row(ceiling_total=1400), real))
+    ck('a ceiling_total below total_max fails on the row\'s own sample',
+       any('below total_max' in i for i in budget_row_issues('x', row(ceiling_total=900, total=900, total_min=900), real)))
+    ck('a ceiling_per_frame off the formula fails',
+       any('ceiling_per_frame' in i for i in budget_row_issues('x', row(ceiling_rate=999.0), real)))
+    ck('recorded_per_frame that is not total/frames fails',
+       any('recorded_per_frame' in i for i in budget_row_issues('x', row(rate=42.0, ceiling_rate=73.0), real)))
+    ck('gated_on disagreeing with recorded_frames fails',
+       any('gated_on' in i for i in budget_row_issues('x', row(gated_on='rate'), real)))
+    ck('recorded_total outside total_min..total_max fails',
+       any('outside' in i for i in budget_row_issues('x', row(total_max=900, ceiling_total=1550), real)))
+    ck('samples of 0 fails -- a ceiling resting on no measurement',
+       any('samples' in i for i in budget_row_issues('x', row(samples=0), real)))
+
+    floor_stage = sorted(real.short_stage_floor)[0] if real.short_stage_floor else None
+    if floor_stage:
+        f = real.short_stage_floor[floor_stage]
+        cap = real.ceiling_total_for(f)
+        ck('SHORT_STAGE_FLOOR raises the cap for the stage it names',
+           not budget_row_issues(floor_stage, row(ceiling_total=cap), real)
+           and any('ABOVE' in i for i in budget_row_issues('x', row(ceiling_total=cap), real)),
+           '%s floor %d -> cap %d' % (floor_stage, f, cap))
+
+    # The constants are read, not written: a stub whose formulas differ must
+    # move the verdict.
+    stub = Consts(9999, {}, lambda r: 0.0, lambda t: 0)
+    ck('the checks follow the constants they are GIVEN, so tools/live-gate '
+       'owns them',
+       bool(budget_row_issues('x', row(), stub))
+       and not budget_row_issues('x', row(), real),
+       'the same row is clean under live-gate\'s constants and dirty under a stub')
+
+    good_budget = {'a': row(), 'b': row()}
+    ck('a budget whose stages match live-gate\'s passes',
+       not fails(quiet(budget_checks(good_budget, ['a', 'b'], real))))
+    got = fails(quiet(budget_checks(good_budget, ['a', 'b', 'c'], real)))
+    ck('a live-gate stage with no budget row fails',
+       any('ungated' in d for _l, d in got), repr(got))
+    got = fails(quiet(budget_checks(good_budget, ['a'], real)))
+    ck('a budget row for a stage live-gate does not run fails',
+       any('does not run' in d for _l, d in got), repr(got))
+
+    try:
+        load_live_gate(os.path.join(ROOT, 'tools', 'no-such-live-gate'))
+        refused = False
+    except CannotMeasure:
+        refused = True
+    ck('a missing tools/live-gate is refused, not passed', refused)
+
+    real_budget = live.read_budget(live.BUDGET)
+    stages = [s[0] for s in live.ALL_STEPS]
+    ck('the REAL budget is read and is not empty', len(real_budget) > 0,
+       '%d rows' % len(real_budget))
+
+    held = sum(len(re.findall(r'^  ==> \d+ checks?, \d+ failed$', t, re.M))
+               for t in transcripts)
+    ck('the fixture summaries were captured, not left on stdout', held > 0,
+       '%d held across %d fixture passes' % (held, len(transcripts)))
+
+    print('  ==> %d checks, %d failed' % (checks, failed))
+    return 1 if failed else 0
+
+
+if __name__ == '__main__':
+    if '--self-test' in sys.argv[1:]:
+        sys.exit(self_test())
+    sys.exit(main())

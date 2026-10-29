@@ -26,7 +26,7 @@ public class DebugChannelCodecTests
                });
 
     private static PredictionErrorRecord Record(long sequence = 7, int command = 412)
-        => new(sequence, command, 12, "ss_player", 120, 8, 56, 1, DateTime.UnixEpoch,
+        => new(sequence, command, 12, "player", 120, 8, 56, 1, DateTime.UnixEpoch,
                new[] { Origin(3.25) });
 
     //-------------------------------------------------------------------------
@@ -59,7 +59,7 @@ public class DebugChannelCodecTests
         DebugChannelCodec.TryReadPredictionBatch(
             DebugChannelCodec.PredictionBatch((new[] { Record() }).ToWire()), out var back);
 
-        Assert.True(back[0].ClassName == "ss_player",
+        Assert.True(back[0].ClassName == "player",
             "a report that could not name the class would send a reader to the type id table");
     }
 

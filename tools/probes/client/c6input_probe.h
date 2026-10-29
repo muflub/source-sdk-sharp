@@ -10,13 +10,12 @@
 // (probe_copies.cmake). The bodies are in c6input_probes_debug.cpp. Every
 // call is a no-op until cs_cl_probe_input arms the recording.
 
-#ifndef C6INPUT_PROBE_H
-#define C6INPUT_PROBE_H
+#pragma once
 
 struct kbutton_t;
 
 // One fixture line (a '\n' is added), while armed.
-void C6P_Log( const char *pFmt, ... ) __attribute__(( format( printf, 1, 2 ) ));
+void C6P_Log( const char *pFmt, ... ) __attribute__( ( format( printf, 1, 2 ) ) );
 bool C6P_Armed();
 
 // A kbutton_t's name for the "K" lines; the two TUs that own buttons register
@@ -28,5 +27,3 @@ const char *C6P_ButtonName( const kbutton_t *pButton );
 // CInput::CreateMove, before anything there reads a device.
 void C6P_BeforeCreateMove( int nSequence );
 void C6P_BeforeExtraMouseSample();
-
-#endif // C6INPUT_PROBE_H

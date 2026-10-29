@@ -80,6 +80,58 @@ endif()
 # sdk-links/ stays the one record of the Valve files this build depends on.
 set(SS_FARM "${PROJECT_SOURCE_DIR}/farm/${SS_CONFIG}")
 set(SS_SRC "${SS_FARM}/src")
+# vendor/ holds the Valve files the modules build from (vendor/README.md):
+# shared/ both sides, server/ and client/ one side each.
+set(SS_VENDOR "${PROJECT_SOURCE_DIR}/vendor")
+set(SHARED "${PROJECT_SOURCE_DIR}/src/shared/native")
+
+# ss_vendor_includes(<out-var> <side> <dir>...): each Valve include dir, the
+# side's copy ahead of the shared one, in the order given.
+function(ss_vendor_includes out side)
+  set(dirs)
+  foreach(sub IN LISTS ARGN)
+    list(APPEND dirs ${SS_VENDOR}/${side}/${sub} ${SS_VENDOR}/shared/${sub})
+  endforeach()
+  set(${out} ${dirs} PARENT_SCOPE)
+endfunction()
+
+# The pristine upstream clone at valve-sdk.lock (`make setup` provisions it;
+# $SOURCESHARP_VALVE_SDK overrides): libss_particles and the tier1 and mathlib
+# it links build from it, never from vendor/ or the fork (user 2026-10-25), so
+# vendor/ holds only what client.so and server.so read.
+set(SS_STOCK_SDK "$ENV{SOURCESHARP_VALVE_SDK}")
+if(NOT SS_STOCK_SDK AND EXISTS "${PROJECT_SOURCE_DIR}/valve-sdk.lock.local")
+  file(STRINGS "${PROJECT_SOURCE_DIR}/valve-sdk.lock.local" SS_STOCK_SDK LIMIT_COUNT 1)
+endif()
+if(NOT EXISTS "${SS_STOCK_SDK}/src/public/tier0/platform.h")
+  message(FATAL_ERROR "no pristine Valve SDK clone at '${SS_STOCK_SDK}': run make setup "
+                      "(or set SOURCESHARP_VALVE_SDK); libss_particles builds from it")
+endif()
+set(SS_STOCK "${SS_STOCK_SDK}/src")
+
+# ss_stock_includes(<out-var> <dir>...): the clone's include dirs, behind the
+# clang wrapper for the one stock header clang rejects (cmake/compat/clang).
+function(ss_stock_includes out)
+  set(dirs)
+  # clang and clang-cl (which SS_IS_CLANG does not name: it is MSVC's front end).
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    list(APPEND dirs ${PROJECT_SOURCE_DIR}/cmake/compat/clang)
+  endif()
+  foreach(sub IN LISTS ARGN)
+    list(APPEND dirs ${SS_STOCK}/${sub})
+  endforeach()
+  set(${out} ${dirs} PARENT_SCOPE)
+endfunction()
+
+# ss_stock_target(<target>): what a target built from the clone needs beyond
+# its include dirs: under clang-cl, the stock headers clang-cl rejects and MSVC
+# accepts, settled first (cmake/compat/clang-cl/ss_stock_clang_cl.h).
+function(ss_stock_target tgt)
+  if(SS_IS_MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(${tgt} PRIVATE "/FI${PROJECT_SOURCE_DIR}/cmake/compat/clang-cl/ss_stock_clang_cl.h")
+  endif()
+endfunction()
+
 # bin/<config> IS the game directory; the shared native binaries go to
 # bin/<platform dir> (linux64, x64, osx64).
 set(SS_BIN "${PROJECT_SOURCE_DIR}/bin/${SS_CONFIG}")
@@ -88,7 +140,7 @@ set(SS_BIN "${PROJECT_SOURCE_DIR}/bin/${SS_CONFIG}")
 set(SS_DEPLOY_DIR "${SS_BIN}/bin/${SS_PLATFORM_BINDIR}" CACHE PATH "where the built libraries are deployed")
 
 if(NOT EXISTS "${SS_SRC}/public/tier0/platform.h")
-  message(FATAL_ERROR "no farm at ${SS_FARM}: run `make setup ROOT=../source-sdk-2013`")
+  message(FATAL_ERROR "no farm at ${SS_FARM}: run `make setup`")
 endif()
 
 # CMake's per-build-type defaults (-O3 -DNDEBUG, -g; /MDd /Zi /Ob0 /Od /RTC1 and
@@ -355,6 +407,12 @@ function(ss_sdk_compile tgt)
       ${SS_OPT_${SS_CONFIG}} /fp:fast /Zc:forScope /Zm200 /Gw /Zc:inline
       /Zc:threadSafeInit- /Wv:18 /Zc:__cplusplus /GS /bigobj
       ${SS_WARN_MSVC})
+    # clang-cl (the windows-cross presets) checks that the Windows arms
+    # compile and link; its warnings are clang's, not cl's, so they are off
+    # there and MSVC on CI holds the zero-warning rule.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      target_compile_options(${tgt} PRIVATE -w)
+    endif()
   else()
     if(SS_IS_CLANG)
       set(warn ${SS_WARN_CLANG})
@@ -419,7 +477,7 @@ function(ss_sdk_target tgt)
   # VERSION_SCRIPT: the export list. Valve's devtools script (global: *) unless
   # the target names its own -- server.so's exports CreateInterface only.
   if(NOT A_VERSION_SCRIPT)
-    set(A_VERSION_SCRIPT ${SS_SRC}/devtools/version_script.linux.txt)
+    set(A_VERSION_SCRIPT ${SS_STOCK}/devtools/version_script.linux.txt)
   endif()
   ss_sdk_compile(${tgt} PROJECTDIR ${A_PROJECTDIR})
 
@@ -503,8 +561,7 @@ function(ss_sdk_target tgt)
       # Steam Runtime's glibc (2.31). No game DLL calls libuuid.
       target_link_libraries(${tgt} PRIVATE m dl pthread)
     endif()
-    set_property(TARGET ${tgt} APPEND PROPERTY LINK_DEPENDS
-      ${SS_SRC}/devtools/version_script.linux.txt)
+    set_property(TARGET ${tgt} APPEND PROPERTY LINK_DEPENDS ${A_VERSION_SCRIPT})
 
     # RUNPATH $ORIGIN and nothing else: the DLLs find libmanaged_host.so,
     # libtier0.so and the rest beside themselves in bin/linux64.

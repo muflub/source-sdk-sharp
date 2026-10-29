@@ -120,21 +120,21 @@ public static class SandboxPass
         {
             // ---- Created by something else at runtime, never by a mapper ----
 
-            [EntityNames.SsFiresmoke] =
+            [EntityNames.FireSmoke] =
                 "the smoke and flame an env_fire creates when it ignites; the mapper places "
                 + "the env_fire, and both maps confirm zero _firesmoke in their entity lumps",
 
-            [EntityNames.SsEntityFlame] =
+            [EntityNames.EntityFlame] =
                 "the fire attached to something that is burning, created by env_entity_igniter "
                 + "and by the engine's own ignites; the mapper places the igniter, and both maps "
                 + "confirm zero entityflame in their entity lumps. One placed by a map would be "
                 + "a flame attached to nothing, which removes itself on its first think",
 
-            [EntityNames.SsPlasma] =
+            [EntityNames.Plasma] =
                 "the plasma sprite ring an env_fire creates for firetype 1; created the same "
-                + "way and for the same reason as ss_firesmoke",
+                + "way and for the same reason as _firesmoke",
 
-            [EntityNames.SsGib] =
+            [EntityNames.Gib] =
                 "one thrown piece of debris, created by Gibs.Shoot from an env_shooter or a "
                 + "gibshooter exactly as CGibShooter::SpawnGib created stock's CGib. A "
                 + "map-placed one is worse than inert: everything that makes a gib a gib -- "
@@ -155,15 +155,27 @@ public static class SandboxPass
                 "what phys_convert makes of a model that is not a brush, made the same way and "
                 + "checked by the same step from the station's prop_dynamic",
 
-            [EntityNames.SsGrenade] =
+            [EntityNames.NpcGrenadeFrag] =
                 "thrown by weapon_frag; one placed by a map starts its fuse at level load "
                 + "and explodes in an empty room",
 
-            [EntityNames.SsPlayer] =
+            [EntityNames.NpcSatchel] =
+                "thrown or stuck to a wall by weapon_slam, which the weapons station holds. "
+                + "Source SDK Base 2013 MP's FGDs (base, halflife2, hl2mp) do not list it, so a "
+                + "mapper cannot place one, and one placed anyway has no thrower: no detonator "
+                + "ever sets it off",
+
+            [EntityNames.NpcTripmine] =
+                "planted on a wall by weapon_slam, which the weapons station holds. No FGD of "
+                + "Source SDK Base 2013 MP lists it, so a mapper cannot place one; one placed "
+                + "anyway arms its beam two seconds into the map and blows up the first player "
+                + "who walks through the station",
+
+            [EntityNames.Player] =
                 "the one class the ENGINE causes — one per connecting client, bound to the "
                 + "edict the engine allocated — so a map-placed one is a player nobody is behind",
 
-            [EntityNames.SsRagdoll] =
+            [EntityNames.Hl2mpRagdoll] =
                 "the body a player leaves behind, created by Corpses.Make from the server's "
                 + "death hook exactly as CHL2MP_Player::CreateRagdollEntity creates stock's. "
                 + "A map-placed one is a corpse of nobody, and it removes itself fifteen "
@@ -180,20 +192,28 @@ public static class SandboxPass
 
             [EntityNames.SsWeapon] =
                 "the carried weapon, created by the Arsenal when a player first receives one; "
-                + "what a map places is the weapon_* pickup, and the weapons station holds all nine",
+                + "what a map places is the weapon_* pickup, and the weapons station holds every one",
 
-            [EntityNames.SsViewModel] =
+            [EntityNames.PredictedViewModel] =
                 "the viewmodel, created with the carried weapon; a map-placed one is arms in "
                 + "front of nobody's eyes",
 
-            [EntityNames.SsBolt] =
+            [EntityNames.CrossbowBolt] =
                 "fired by weapon_crossbow; it spawns stationary and is told where to go by the "
                 + "shot that made it, so a map-placed one hangs in the air",
 
-            [EntityNames.SsRocket] =
+            [EntityNames.RpgMissile] =
                 "fired by weapon_rpg; same argument as the bolt",
 
-            [EntityNames.SsEnergyball] =
+            [EntityNames.EnvLaserdot] =
+                "weapon_rpg's laser dot, made and moved by the RPG in a player's hands; a "
+                + "map-placed one is a dot nobody is painting",
+
+            [EntityNames.GrenadeAr2] =
+                "fired by weapon_smg1's alt-fire; same argument as the bolt, and one that "
+                + "goes off at the first thing it touches",
+
+            [EntityNames.PropCombineBall] =
                 "the AR2's alt-fire; it exists when the weapon is fired and not before",
 
             [EntityNames.ItemSodacan] =
@@ -202,7 +222,7 @@ public static class SandboxPass
                 + "item that never comes back, so a station holding one could not reset it. "
                 + "The thing worth demonstrating is the MACHINE, and the effects station has one",
 
-            [EntityNames.SsBeam] =
+            [EntityNames.Beam] =
                 "built by whatever owns one — env_laser is the first — and told where its ends "
                 + "are every tick. A map-placed beam has no endpoints and draws nothing",
 
@@ -214,10 +234,15 @@ public static class SandboxPass
                 + "point_spotlight and each creates one",
 
             [EntityNames.SsPickup] =
-                "spawned by the Pickups directory above each spawn point on the first rules "
-                + "tick. The directory deciding placement is the whole difference between it "
-                + "and the item_* classes; one placed by a map would be a pickup the directory "
-                + "does not know",
+                "spawned by the Pickups directory, at a player's feet by its console command. "
+                + "The directory deciding placement is the whole difference between it and the "
+                + "item_* classes; one placed by a map would be a pickup the directory does not "
+                + "know",
+
+            [EntityNames.PlatTrigger] =
+                "a func_plat's ride trigger, made by every func_plat that is not a toggle "
+                + "(CFuncPlat::Precache) and pointed at its platform. A map-placed one has no "
+                + "platform to send and does nothing",
 
             // ---- Eaten by the map compiler before a server ever sees it ----
             //

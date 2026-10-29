@@ -367,12 +367,35 @@ public class BonesServerDriverTests
     // ---- SetPoseSequence / PoseCycle -----------------------------------------------
 
     [Fact]
-    public void ANonPositiveRateAndANegativeSequenceAreNormalised()
+    public void AZeroRateAndANegativeSequenceAreNormalised()
     {
         (_, ServerBoneDriver d, BoneEntityState s) = Rig(Chain());
         s.Sequence = 3;
         d.SetPoseSequence(s, Model, -4, 0f, false, 2f);
         Assert.Equal((0, 1f), (s.Sequence, s.PlaybackRate));
+    }
+
+    [Fact]
+    public void ANegativeRatePlaysBackwardsFromTheStartCycle()
+    {
+        (_, ServerBoneDriver d, BoneEntityState s) = Rig(Chain(seqFlags: 0));
+        d.SetPoseSequence(s, Model, 0, -1f, true, 2f, startCycle: 0.999f);
+        Assert.True(s.SeqDuration > 0f);
+
+        Assert.Equal((-1f, 0.999f), (s.PlaybackRate, s.SequenceCycle(2f)));
+        Assert.Equal(0.999f - 0.5f, s.SequenceCycle(2f + 0.5f * s.SeqDuration), 4);
+    }
+
+    [Fact]
+    public void AStartLetsGoOfAHeldCycleAndKeepingTheSequenceKeepsIt()
+    {
+        (_, ServerBoneDriver d, BoneEntityState s) = Rig(Chain());
+        s.HeldCycle = 0.4f;
+        d.SetPoseSequence(s, Model, 0, 1f, false, 5f);
+        Assert.Equal(0.4f, s.HeldCycle);
+
+        d.SetPoseSequence(s, Model, 0, 1f, true, 6f);
+        Assert.Null(s.HeldCycle);
     }
 
     [Fact]

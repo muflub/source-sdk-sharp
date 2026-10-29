@@ -51,7 +51,7 @@ namespace SourceSharp.Client.Standalone;
 /// the wire — a divergence the target's <see cref="IAnimTarget"/> row names.
 /// </para>
 /// </summary>
-[ClientStandaloneEntity(EntityNames.SsPlayer)]
+[ClientStandaloneEntity(EntityNames.Player)]
 public sealed class ClientSsPlayer : ClientStandaloneEntity
 {
     /// <summary>
@@ -129,7 +129,7 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
         _layers = layers;
     }
 
-    public override string ClassName => EntityNames.SsPlayer;
+    public override string ClassName => EntityNames.Player;
 
     /// <summary>The same type the server writes through, decoded per update.</summary>
     [NetState] public PlayerNetState State = new();

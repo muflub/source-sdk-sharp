@@ -1,9 +1,0 @@
-133	161	18	class CPhysicsHook : public CServerSystem
-169	172	4	CServerSystem* PhysicsGameSystem()
-178	200	13	bool CPhysicsHook::Init( void )
-214	292	25	void CPhysicsHook::LevelInitPreEntity()
-296	299	4	void CPhysicsHook::LevelInitPostEntity()
-301	306	6	void CPhysicsHook::LevelShutdownPreEntity()
-308	324	12	void CPhysicsHook::LevelShutdownPostEntity()
-355	361	6	CWorld *PhysicsWorldOwner( const IPhysicsObject *pObject )
-398	426	24	int32_t SourceSharp_PhysicsUpdateOwners( void **ppObjects, float *pVelocities, int32_t nCount,

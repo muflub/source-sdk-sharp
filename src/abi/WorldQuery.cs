@@ -183,6 +183,18 @@ public enum TraceMask
     /// ABI for <see cref="All"/>'s reason.
     /// </summary>
     ContentsSolid = 9,
+
+    /// <summary>
+    /// <c>MASK_SHOT &amp; ~CONTENTS_WINDOW</c>: a shot that passes through
+    /// glass, the RPG laser's (<c>UpdateLaserPosition</c>). Mapped on both arms.
+    /// </summary>
+    ShotNoWindows = 10,
+
+    /// <summary>
+    /// <c>MASK_OPAQUE</c>: solid, moveable and opaque contents, the line a
+    /// crossbow bolt traces behind its victim. Mapped on both arms.
+    /// </summary>
+    Opaque = 11,
 }
 
 /// <summary>
@@ -203,6 +215,9 @@ public enum Contents
     /// <summary>Solid brush. CONTENTS_SOLID.</summary>
     Solid = 0x1,
 
+    /// <summary>Slime. CONTENTS_SLIME: water's neighbour, a splash that reads as slime.</summary>
+    Slime = 0x10,
+
     /// <summary>
     /// Water. CONTENTS_WATER.
     ///
@@ -213,6 +228,12 @@ public enum Contents
     /// </para>
     /// </summary>
     Water = 0x20,
+
+    /// <summary>CONTENTS_MOVEABLE: a func_door-style mover's volume.</summary>
+    Moveable = 0x4000,
+
+    /// <summary>MASK_WATER: water, slime or a mover's volume, what stock means by "in water".</summary>
+    MaskWater = Water | Slime | Moveable,
 }
 
 /// <summary>
@@ -385,6 +406,19 @@ public readonly record struct ClientTraceResult(
     int SurfaceFlags);
 
 /// <summary>
+/// What a CLIENT box swept through the world and the entities its caller names
+/// stopped on first: whether it stopped, how far it got and where, the index
+/// of what it stopped on (the world's is 0, -1 for a miss) and that entity's
+/// origin (the world's is the map's origin).
+/// </summary>
+public readonly record struct ClientBoxTrace(
+    bool Hit,
+    float Fraction,
+    Vector End,
+    int EntityIndex,
+    Vector EntityOrigin);
+
+/// <summary>
 /// What a swept BOX ran into.
 ///
 /// <para>
@@ -457,6 +491,39 @@ public enum WeaponAnim
     /// name on the managed side now.
     /// </summary>
     Draw = 3,
+
+    /// <summary>ACT_VM_SECONDARYATTACK: an alt-fire with an animation of its own (the shotgun's double).</summary>
+    Secondary = 4,
+
+    /// <summary>ACT_VM_DRYFIRE: the trigger pulled on nothing.</summary>
+    DryFire = 5,
+
+    /// <summary>ACT_SHOTGUN_PUMP.</summary>
+    Pump = 6,
+
+    /// <summary>ACT_SHOTGUN_RELOAD_START: the shotgun turned to take shells.</summary>
+    ReloadStart = 7,
+
+    /// <summary>ACT_SHOTGUN_RELOAD_FINISH.</summary>
+    ReloadFinish = 8,
+
+    /// <summary>ACT_VM_PULLBACK_HIGH: the grenade's pin pulled for an overhand throw.</summary>
+    PullbackHigh = 9,
+
+    /// <summary>ACT_VM_PULLBACK_LOW: the pin pulled for a lob or a roll.</summary>
+    PullbackLow = 10,
+
+    /// <summary>ACT_VM_THROW: the overhand throw.</summary>
+    Throw = 11,
+
+    /// <summary>ACT_VM_HAULBACK: the grenade's underhand lob.</summary>
+    Haulback = 12,
+
+    /// <summary>ACT_VM_FIDGET: the crossbow's idle with no bolt loaded.</summary>
+    Fidget = 13,
+
+    /// <summary>ACT_VM_MISSCENTER: a melee swing that met nothing.</summary>
+    Miss = 14,
 }
 
 /// <summary>Which of the weapon script's sounds to play.</summary>

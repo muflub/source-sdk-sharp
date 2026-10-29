@@ -34,12 +34,19 @@ namespace SourceSharp.Server;
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.FuncPhysbox, ScriptedEntityKind.Brush)]
-public class FuncPhysbox : ScriptedEntity
+public class FuncPhysbox : ScriptedEntity, IPhysGunTarget, ITakesMassCenterOverride
 {
-    public FuncPhysbox(IEngineEntityPhysics physics)
+    /// <summary>CPhysBox::Spawn: DAMAGE_YES, or DAMAGE_EVENTS_ONLY -- never DAMAGE_NO.</summary>
+    public override bool TakesDamage => true;
+
+    public FuncPhysbox(IEngineEntityPhysics physics, PlayerPickupRules pickups)
     {
         Physics = physics;
+        Pickups = pickups;
     }
+
+    /// <summary>What a player's +USE may do with this box (its caps and its Use).</summary>
+    private readonly PlayerPickupRules Pickups;
 
     /// <summary>this entity as the solver sees it.</summary>
     protected readonly IEngineEntityPhysics Physics;
@@ -73,21 +80,31 @@ public class FuncPhysbox : ScriptedEntity
         StartAsleep = 0b0001_0000_0000_0000,  // 0x1000
         Debris = 0b0100_0000_0000_0000,  // 0x4000
         MotionDisabled = 0b1000_0000_0000_0000,  // 0x8000
+        IgnoreUse = 0x2000,                      // SF_PHYSBOX_IGNOREUSE
+        EnableOnPhyscannon = 0x20000,            // SF_PHYSBOX_ENABLE_ON_PHYSCANNON
         EnablePickupOutput = 0x80000,            // SF_PHYSBOX_ENABLE_PICKUP_OUTPUT
+        NeverPickUp = 0x200000,                  // SF_PHYSBOX_NEVER_PICK_UP
     }
 
-    public readonly Output OnBreak = new("OnBreak");
+    public readonly Output OnBreak = new();
     /// <summary>
     /// Named without the "On" because the class also OVERRIDES OnDamaged — the
     /// virtual that decides how much damage is taken. A field and a method
     /// cannot share a name, and of the two it is the output that can be renamed
     /// without changing what a map writes.
     /// </summary>
-    public readonly Output Damaged = new("OnDamaged");
-    public readonly Output OnMotionEnabled = new("OnMotionEnabled");
-    public readonly Output OnHealthChanged = new("OnHealthChanged");
-    public readonly Output OnAwakened = new("OnAwakened");
-    public readonly Output OnPlayerUse = new("OnPlayerUse");
+    [OutputName("OnDamaged")] public readonly Output Damaged = new();
+    public readonly Output OnMotionEnabled = new();
+    public readonly Output OnHealthChanged = new();
+    public readonly Output OnAwakened = new();
+    public readonly Output OnPlayerUse = new();
+
+    // The gravity gun's (CPhysBox::OnPhysGunPickup and OnPhysGunDrop,
+    // physobj.cpp:398-401), each with the player as activator.
+    public readonly Output OnPhysGunPickup = new();
+    public readonly Output OnPhysGunPunt = new();
+    public readonly Output OnPhysGunOnlyPickup = new();
+    public readonly Output OnPhysGunDrop = new();
 
     // Stock keeps all three on the entity across a save (CBreakable's
     // m_iMaxHealth; the motion flag lives on the physics object; a broken box
@@ -130,6 +147,10 @@ public class FuncPhysbox : ScriptedEntity
                 Physics.SetMass(Handle, mass * Vars.MassScale);
         }
 
+        // CPhysBox::CreateVPhysics: a sharp box cuts (FVPHYSICS_DMG_SLICE).
+        if (Vars.DamageType == 1)
+            Physics.AddGameFlags(Handle, PhysicsGameFlags.SliceDamage);
+
         if (Vars.NotSolidToWorld)
             Physics.SetNotSolid(Handle, true);
 
@@ -149,15 +170,41 @@ public class FuncPhysbox : ScriptedEntity
     [ScriptedEvent("Wake")] private void OnWake() => Physics.Wake(Handle);
 
     /// <summary>
+    /// CPhysBox::ObjectCaps (physobj.cpp:550): usable when the map asked for
+    /// the use output, or, unless it ignores use, when a player could pick it up.
+    /// </summary>
+    public override UseCaps ObjectCaps
+    {
+        get
+        {
+            UseCaps caps = base.ObjectCaps;
+
+            if (Flags.HasFlag(SpawnFlag.EnablePickupOutput))
+                caps |= UseCaps.ImpulseUse;
+            else if (!Flags.HasFlag(SpawnFlag.IgnoreUse) && Pickups.CanPickupObject(Handle))
+                caps |= UseCaps.ImpulseUse;
+
+            return caps;
+        }
+    }
+
+    /// <summary>
     /// CPhysBox::Use (physobj.cpp:571-580; A28): a player's use fires
-    /// OnPlayerUse when the map asked for it. Stock then hands the box to the
-    /// player's use-pickup, which this build does not have yet.
+    /// OnPlayerUse when the map asked for it, then, unless the box ignores
+    /// use, asks to pick it up (which stock HL2MP refuses unless
+    /// hl2mp_allow_pickup is on).
     /// </summary>
     [ScriptedEvent("Use")]
     private void OnUseInput(InputData input)
     {
-        if (Flags.HasFlag(SpawnFlag.EnablePickupOutput) && Entities.IsPlayer(input.Activator))
+        if (!Entities.IsPlayer(input.Activator))
+            return;
+
+        if (Flags.HasFlag(SpawnFlag.EnablePickupOutput))
             OnPlayerUse.Fire(input.Activator);
+
+        if (!Flags.HasFlag(SpawnFlag.IgnoreUse))
+            Pickups.PickupObject(input.Activator, Handle);
     }
 
     /// <summary>
@@ -253,6 +300,46 @@ public class FuncPhysbox : ScriptedEntity
 
     public override void OnKilled(EntityHandle attacker) => Break(attacker);
 
+    //-------------------------------------------------------------------------
+    // The gravity gun (CPhysBox's IPlayerPickupVPhysics, physobj.cpp).
+    //-------------------------------------------------------------------------
+
+    /// <summary>CPhysBox::CanBePickedUpByPhyscannon's spawnflag: never.</summary>
+    bool IPhysGunTarget.PreventsPickup => Flags.HasFlag(SpawnFlag.NeverPickUp);
+
+    /// <summary>A pinned box the gun may take: SF_PHYSBOX_ENABLE_ON_PHYSCANNON.</summary>
+    bool IPhysGunTarget.EnablesOnPhyscannon => Flags.HasFlag(SpawnFlag.EnableOnPhyscannon);
+
+    /// <summary>
+    /// CPhysBox::OnPhysGunPickup (physobj.cpp:731): a punt says so first; a
+    /// pinned box comes loose only if its map said the gun may free it (and
+    /// says nothing more if not); then the pickup, and the cannon's own.
+    /// </summary>
+    void IPhysGunTarget.OnPhysGunPickup(EntityHandle player, PhysGunPickup reason)
+    {
+        if (reason == PhysGunPickup.PuntedByCannon)
+            OnPhysGunPunt.Fire(player);
+
+        if (!_motionEnabled)
+        {
+            if (!Flags.HasFlag(SpawnFlag.EnableOnPhyscannon))
+                return;
+
+            SetMotion(true);
+        }
+
+        OnPhysGunPickup.Fire(player);
+
+        if (reason == PhysGunPickup.PuntedByCannon)
+            return;
+
+        if (reason == PhysGunPickup.PickedUpByCannon)
+            OnPhysGunOnlyPickup.Fire(player);
+    }
+
+    /// <summary>CPhysBox::OnPhysGunDrop: every drop says so.</summary>
+    void IPhysGunTarget.OnPhysGunDrop(EntityHandle player, PhysGunDrop reason) => OnPhysGunDrop.Fire(player);
+
     private void Break(EntityHandle breaker)
     {
         if (_broken)
@@ -279,6 +366,10 @@ public partial class FuncPhysboxVars
 
     /// <summary>Multiplies the mass derived from the brush's volume.</summary>
     public float MassScale { get; set; }
+
+    /// <summary>m_damageType: 1 is sharp, its object FVPHYSICS_DMG_SLICE.</summary>
+    [VarName("Damagetype")]
+    public int DamageType { get; set; }
 
     /// <summary>
     /// Still collides with players and props; simply does not wedge against the

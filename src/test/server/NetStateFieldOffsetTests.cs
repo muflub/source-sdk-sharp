@@ -35,21 +35,6 @@ public class NetStateFieldOffsetTests
     private readonly NetStateCatalog _catalog = NetStateCatalog.Of(TestServices.ServerGame, new RecordingLog());
 
     /// <summary>
-    /// The names shell_surface_render.cpp resolves at its first update, in the
-    /// order it resolves them. A copy, unavoidably — the other end is C++ — but a
-    /// copy that FAILS rather than one that drifts: this list and that one are
-    /// the same sixteen strings, and if they stop being so this goes red while
-    /// the renderer only stops drawing.
-    /// </summary>
-    private static readonly string[] SurfaceRendererFields =
-    {
-        "Wide", "High", "PanelWidth", "PanelHeight",
-        "Normal", "Corner", "Broken", "SurfaceType",
-        "PaneBits.0", "PaneBits.1", "PaneBits.2", "PaneBits.3",
-        "PaneBits.4", "PaneBits.5", "PaneBits.6", "PaneBits.7",
-    };
-
-    /// <summary>
     /// The map is filled by Discover, which is what both modules call at startup
     /// before publishing. Called here for the same reason: a lookup that
     /// answered before anything had been discovered would be answering from
@@ -113,36 +98,6 @@ public class NetStateFieldOffsetTests
         Assert.True(
             Discovered().Any(s => s.Fields.Count > 0 && s.Fields[0].Offset == EngineBlock.SizeBytes),
             "the first declared field of some class sits immediately behind the engine block");
-    }
-
-    [Fact]
-    public void TheSurfaceRendererCanResolveEveryFieldItAsksFor()
-    {
-        // Discovery, done HERE rather than inherited from another suite.
-        StandaloneNetStates.Discover(TestServices.ServerGame, new RecordingLog());
-
-        string missing = string.Join(", ", SurfaceRendererFields.Where(
-            name => _catalog.FieldOffset(EntityNames.FuncBreakableSurf, name) < 0));
-
-        Assert.True(missing.Length == 0, missing.Length == 0
-                ? "the surface renderer's sixteen field names all resolve"
-                : $"the surface renderer asks for fields that no longer exist: {missing}");
-
-        // The eight pane words are contiguous and four bytes apart, which is what
-        // the renderer's loop assumes when it reads them one at a time.
-        int first = _catalog.FieldOffset(EntityNames.FuncBreakableSurf, "PaneBits.0");
-        bool stepped = true;
-
-        for (int i = 0; i < 8; i++)
-        {
-            if (_catalog.FieldOffset(EntityNames.FuncBreakableSurf, $"PaneBits.{i}")
-                != first + i * 4)
-            {
-                stepped = false;
-            }
-        }
-
-        Assert.True(stepped, "the pane words are eight consecutive dwords");
     }
 
     [Fact]

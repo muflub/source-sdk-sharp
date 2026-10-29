@@ -154,7 +154,7 @@ public sealed class ClientSkybox
         if (local <= 0)
             return null;
 
-        foreach (var entity in _standalones.OfClass(EntityNames.SsPlayer))
+        foreach (var entity in _standalones.OfClass(EntityNames.Player))
         {
             if (entity is ClientSsPlayer player &&
                 (int)(player.Handle.Value & HandleEntryMask) == local)

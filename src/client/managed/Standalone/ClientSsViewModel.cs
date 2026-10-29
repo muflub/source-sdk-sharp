@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Client.WeaponEffects;
 using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Standalone;
@@ -36,18 +37,27 @@ namespace SourceSharp.Client.Standalone;
 /// that the same sequence must restart.
 /// </para>
 /// </summary>
-[ClientStandaloneEntity(EntityNames.SsViewModel)]
+[ClientStandaloneEntity(EntityNames.PredictedViewModel)]
 public sealed class ClientSsViewModel : ClientStandaloneEntity
 {
     private readonly IEngineHud _screen;
+    private readonly IWeaponDrawEffects _effects;
 
+    /// <summary>A viewmodel whose weapon draws nothing beside it (a test's).</summary>
     public ClientSsViewModel(IEngineEntityRender render, IEngineHud screen)
+        : this(render, screen, new NoWeaponDrawEffects())
+    {
+    }
+
+    [Inject]
+    public ClientSsViewModel(IEngineEntityRender render, IEngineHud screen, IWeaponDrawEffects effects)
         : base(render)
     {
         _screen = screen;
+        _effects = effects;
     }
 
-    public override string ClassName => EntityNames.SsViewModel;
+    public override string ClassName => EntityNames.PredictedViewModel;
 
     /// <summary>The same type the server writes through, decoded per update.</summary>
     [NetState] public ViewModelNetState State = new();
@@ -91,6 +101,23 @@ public sealed class ClientSsViewModel : ClientStandaloneEntity
         // gate makes the second writer free: a held prediction decodes to the
         // same (sequence, parity) the replay already presented.
         Present(State.Sequence, State.AnimationParity, State.PlaybackRate);
+        ShowSkin(State.Skin);
+    }
+
+    /// <summary>The skin last handed to the renderer, so <see cref="ShowSkin"/> is edge-triggered.</summary>
+    public int ShownSkin { get; private set; }
+
+    /// <summary>
+    /// Puts the weapon's chosen skin on the drawn viewmodel, once per change:
+    /// from the server's word and from each replayed command alike.
+    /// </summary>
+    public void ShowSkin(int skin)
+    {
+        if (!IsLocal || skin == ShownSkin)
+            return;
+
+        ShownSkin = skin;
+        Render.SetSkin(Handle, skin);
     }
 
     /// <summary>
@@ -110,7 +137,7 @@ public sealed class ClientSsViewModel : ClientStandaloneEntity
     /// live.</b> Two writers reach here — the server's decode and the
     /// prediction replay — and they disagree whenever the prediction
     /// mispredicts, which for this entity it does and has been logging
-    /// ("MISPREDICTION on 'ss_viewmodel' — Sequence, AnimationParity"). The
+    /// ("MISPREDICTION on 'predicted_viewmodel' — Sequence, AnimationParity"). The
     /// server's OLDER parity then arrived after the replay had already
     /// presented the newer one, and a plain inequality read that as a second
     /// restart. The animation was invisibly restarting several times per shot;
@@ -155,4 +182,14 @@ public sealed class ClientSsViewModel : ClientStandaloneEntity
     }
 
     public override int OnDraw() => 0;
+
+    /// <summary>
+    /// C_BaseViewModel::DrawModel's tail: the model has drawn, and its weapon
+    /// draws what it hangs off it (ViewModelDrawn), in the viewmodel pass.
+    /// </summary>
+    public override int OnDrawExtras(int flags)
+    {
+        _effects.ViewModelDrawn(this);
+        return -1;
+    }
 }

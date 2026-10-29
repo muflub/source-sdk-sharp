@@ -95,6 +95,9 @@ public enum LifecycleStage
     /// <summary>Map and runtime pickups.</summary>
     Pickups = 200,
 
+    /// <summary>HL2MP's placed items and weapons, which hold entities until the level goes.</summary>
+    PlacedObjects = 210,
+
     /// <summary>Corpses, which hold entity handles.</summary>
     Corpses = 300,
 
@@ -120,8 +123,22 @@ public enum LifecycleStage
     /// <summary>Inventories, which hold handles that do not survive the map.</summary>
     Arsenal = 600,
 
+    /// <summary>
+    /// The gravity guns' grab controllers (PhysCannonWorld), which hold the
+    /// level's objects and its motion controllers; and the gun's sounds,
+    /// precached at level init. After the inventories that carry the guns.
+    /// </summary>
+    PhysCannon = 650,
+
     /// <summary>Soundscape identity tokens, which restart with the map.</summary>
     Soundscapes = 700,
+
+    /// <summary>
+    /// The useable ladders and dismount points (func_useableladder,
+    /// info_ladder_dismount), which are the map's: emptied at level shutdown,
+    /// and the next map's entities join it at their spawn.
+    /// </summary>
+    UseableLadders = 720,
 
     /// <summary>
     /// The area portal records (plan_server_native_v2 T4d), whose portal numbers
@@ -311,6 +328,13 @@ public enum LifecycleStage
     PhysicsSoundBatch = 2200,
 
     /// <summary>
+    /// MassCenterOverrides: the overrides no entity took go with the level
+    /// (CPhysicsHook's LevelShutdownPostEntity purged them). Nothing else
+    /// reads the list, so its order against the others does not matter.
+    /// </summary>
+    MassCenterOverrides = 2250,
+
+    /// <summary>
     /// PhysicsFrame (plan_physics_bones_native_zero 2.3): the level is paused
     /// for physics between its pre- and post-entity init (CPhysicsHook's
     /// m_bPaused). Nothing else reads the flag and no frame runs between the
@@ -382,6 +406,9 @@ public enum FrameStage
 
     /// <summary>The win check — where a mod decides the round is over.</summary>
     Rules = 300,
+
+    /// <summary>ManageObjectRelocation, which ends CHL2MPRules::Think.</summary>
+    PlacedObjects = 310,
 
     // ---- tf2 stage 0.7 (the mode proxy's warmup) ----------------------------
 

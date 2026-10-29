@@ -36,7 +36,7 @@ public sealed class EnvEntityIgniter : ScriptedEntity
     /// it — so it could only ever burn something on the SDK's hierarchy, and the
     /// last prop on that hierarchy became C# some time ago. Every ignite in this
     /// mod was a silent no-op, and the sandbox's burn station demonstrated the
-    /// refusal. The flame is <c>ss_entityflame</c> now and parents to either
+    /// refusal. The flame is <c>entityflame</c> now and parents to either
     /// kind; the engine slot is retired.
     /// </para>
     /// </summary>

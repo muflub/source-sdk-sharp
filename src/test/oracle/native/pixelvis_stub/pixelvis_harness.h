@@ -34,8 +34,7 @@
 //
 //=============================================================================
 
-#ifndef SS_PIXELVIS_HARNESS_H
-#define SS_PIXELVIS_HARNESS_H
+#pragma once
 
 #include <stdio.h>
 #include <float.h>
@@ -86,6 +85,7 @@ struct PixelVisGlobals_t
 	float frametime;
 	float curtime;
 };
+
 extern PixelVisGlobals_t *gpGlobals;
 
 class IPixelVisEngine
@@ -93,6 +93,7 @@ class IPixelVisEngine
 public:
 	int GetDXSupportLevel();
 };
+
 extern IPixelVisEngine *engine;
 
 //-----------------------------------------------------------------------------
@@ -102,8 +103,11 @@ class CAutoGameSystem
 {
 public:
 	explicit CAutoGameSystem( const char *pszName ) {}
+
 	virtual ~CAutoGameSystem() {}
+
 	virtual void LevelInitPreEntity() {}
+
 	virtual void LevelShutdownPostEntity() {}
 };
 
@@ -115,7 +119,11 @@ const Vector &CurrentViewOrigin();
 const Vector &CurrentViewForward();
 const Vector &CurrentViewRight();
 const Vector &CurrentViewUp();
-inline bool UseVR() { return false; }
+
+inline bool UseVR()
+{
+	return false;
+}
 
 //-----------------------------------------------------------------------------
 // The entities the glow trace filter is asked about: a collideable's solid type.
@@ -138,6 +146,7 @@ class C_BasePlayer
 {
 public:
 	static C_BasePlayer *GetLocalPlayer() { return NULL; }
+
 	float GetFOVDistanceAdjustFactor() { return 1.0f; }
 };
 
@@ -176,10 +185,11 @@ public:
 	IHandleEntity *m_pEnt;
 	int hitbox;
 };
+
 typedef CGameTrace trace_t;
 
-void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask,
-                     ITraceFilter *pFilter, trace_t *ptr );
+void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask, ITraceFilter *pFilter,
+					 trace_t *ptr );
 
 //-----------------------------------------------------------------------------
 // clienteffectprecachesystem.h's registration: the list is a row of the log.
@@ -189,14 +199,15 @@ struct PixelVisPrecache_t
 	PixelVisPrecache_t( const char *pszName, const char *const *ppszMaterials, int nMaterials );
 };
 
-#define CLIENTEFFECT_REGISTER_BEGIN( className ) \
-	namespace className {                        \
+#define CLIENTEFFECT_REGISTER_BEGIN( className )             \
+	namespace className                                      \
+	{                                                        \
 	static const char *const s_pszRegisterName = #className; \
 	static const char *const s_pszRegisterMaterials[] = {
 #define CLIENTEFFECT_MATERIAL( materialName ) materialName,
-#define CLIENTEFFECT_REGISTER_END() \
-	};                              \
-	static PixelVisPrecache_t s_Register( s_pszRegisterName, s_pszRegisterMaterials, ARRAYSIZE( s_pszRegisterMaterials ) ); \
+#define CLIENTEFFECT_REGISTER_END()                                                  \
+	}                                                                                \
+	;                                                                                \
+	static PixelVisPrecache_t s_Register( s_pszRegisterName, s_pszRegisterMaterials, \
+										  ARRAYSIZE( s_pszRegisterMaterials ) );     \
 	}
-
-#endif // SS_PIXELVIS_HARNESS_H

@@ -76,6 +76,8 @@ public class CrossingsAuditTests
         "ServerTemplatesAddNamed", "ServerPropDataRandomChunkModel", "ServerOnFireAddHeatInRadius", "ServerOnEntityIgnite", "ServerOnRagdollMagnetForce", "ServerShellLessFindByName", "ServerShellLessFindByClassname", "ServerMoveSound", "ServerMoveSoundScript", "ServerPrecacheScriptSound",
         "ClientOnCreateMove", "ClientRenderLeafList", "ClientRenderLeafViewModels",
         "ClientLeafChangeRenderableRenderGroup", "ClientLeafAddShadow", "ClientLeafRemoveShadow", "ClientLeafProjectShadow", "ClientLeafProjectFlashlight", "ClientLeafEnumerateShadowsInLeaves",
+        "ClientNativeTempEntity", "ServerNativeTempEntity",
+        "ServerDecalIndexForName", "ServerDecalNameForIndex", "ServerDecalTranslateForGameMaterial",
     };
 
     /// <summary>
@@ -226,16 +228,6 @@ public class CrossingsAuditTests
     }
 
     [Fact]
-    public void AnOpTheAbiPassRemovedIsNoMember()
-    {
-        var names = Enum.GetNames<CrossingOp>();
-
-        foreach (string op in RemovedByTheAbiPass)
-            Assert.DoesNotContain(op, names);
-        Assert.Contains("ClientTempEntPoolUpdate", names);   // the control: a live op, read the same way
-    }
-
-    [Fact]
     public void CrossingsReportIsNotCounted()
     {
         foreach (var (side, file) in new[] { ("client", "DiagnosticsClientBinding.cs"), ("server", "DiagnosticsBinding.cs") })
@@ -250,27 +242,6 @@ public class CrossingsAuditTests
             Assert.DoesNotContain("rossings.Count", body.Groups[1].Value);
             Assert.DoesNotContain("Enter(", body.Groups[1].Value);
         }
-    }
-
-    /// <summary>
-    /// The native console command exists and reaches the slot. Its body cannot
-    /// be run from here — it needs an engine — but a command deleted or renamed
-    /// leaves the whole native half of this lane unreachable with nothing else
-    /// noticing.
-    /// </summary>
-    [Fact]
-    public void TheNativeConsoleCommandsExist()
-    {
-        string text = File.ReadAllText(
-            Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "shared", "shell_diagnostics.cpp"));
-        // The SERVER's command is a diagnostic: its body is in
-        // shell_diagnostics_debug.cpp, compiled into a debug server.so only.
-        string debug = File.ReadAllText(
-            Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "shared", "shell_diagnostics_debug.cpp"));
-
-        Assert.Contains("SS_NATIVE_COMMAND( cs_sv_crossings )", debug);
-        Assert.Contains("cs_cl_crossings", text);
-        Assert.Contains("CrossingsReport", text);
     }
 
     /// <summary>

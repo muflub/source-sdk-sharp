@@ -21,6 +21,12 @@ public unsafe interface IClientRuntime
     void ClientInvalidateMdlCache();
     int ParticlesNeedFullReload(int previousMapParticleFiles);
     int MapMaterialReload(byte* pNextBsp, byte* pPreviousBsp, byte* pOut, int outSize);
+    void MapMaterialSearchPath(byte* pPath, byte* pPathID, int addToHead);
+    void MapMaterialMapAccess(int open);
+    int MapMaterialReloadPlan(byte* pSubString, byte* pOut, int outSize);
+    int WorldDataChanged(byte* pBlob, int nBytes, int updateType, void* pOut, int nOut);
+    void LevelInitPreEntity();
+    void PostInit(int adapterMaxDxLevel);
 }
 
 /// <summary>
@@ -51,6 +57,42 @@ public interface IClientRuntimeHost
     /// reload. plan_map_load P1.
     /// </summary>
     string? MapMaterialReloadSet(string nextBsp, string previousBsp);
+
+    /// <summary>
+    /// <c>IFileSystem::AddSearchPath</c>, after the engine's own: the path as
+    /// a file on disk where the filesystem resolved one. plan_map_load P1.
+    /// </summary>
+    void MapMaterialSearchPath(string? path, string? pathId, bool addToHead);
+
+    /// <summary><c>IFileSystem::BeginMapAccess</c> (true) or <c>EndMapAccess</c> (false).</summary>
+    void MapMaterialMapAccess(bool open);
+
+    /// <summary>
+    /// <c>IMaterialSystem::ReloadMaterials( <paramref name="subString"/> )</c>:
+    /// null to pass the call through unchanged, else the newline-joined names
+    /// to reload one by one, possibly empty (<see cref="MapMaterialReloadWindow"/>).
+    /// </summary>
+    string? MapMaterialReloadPlan(string? subString);
+
+    /// <summary>
+    /// worldspawn's update, decoded into <paramref name="blob"/>: what the
+    /// native world carries out (WorldArrivalActions bits), with its values in
+    /// <paramref name="plan"/>. Stock's C_World::OnDataChanged.
+    /// </summary>
+    int WorldDataChanged(ReadOnlySpan<byte> blob, int updateType, Span<float> plan);
+    /// IBaseClientDLL::LevelInitPreEntity, once per level (the shell's
+    /// g_bLevelInitialized gate has let it through): the level's prediction
+    /// switch (LevelPrediction). Lane M1-B.
+    /// </summary>
+    void LevelInitPreEntity();
+
+    /// <summary>
+    /// IBaseClientDLL::PostInit, after every client system's PostInit: the
+    /// once-per-install bicubic lightmap default (LightmapBicubicDefault), from
+    /// the adapter's maximum DX support level, negative with no material
+    /// system. Lane M1-B.
+    /// </summary>
+    void PostInit(int adapterMaxDxLevel);
 }
 
 /// <summary>
@@ -121,6 +163,20 @@ public sealed unsafe class ClientRuntimeBinding(Crossings crossings, ILog log, I
     /// -1 for the full reload -- also the answer to anything that fails or does
     /// not fit, so a failure costs time and never an override. plan_map_load P1.
     /// </summary>
+    /// <summary>The shell client's LevelInitPreEntity, past its once-per-level gate.</summary>
+    public void LevelInitPreEntity()
+    {
+        crossings.Count(CrossingOp.ClientLevelInitPreEntity);
+        host.LevelInitPreEntity();
+    }
+
+    /// <summary>The shell client's PostInit, with the adapter's maximum DX support level (negative: none).</summary>
+    public void PostInit(int adapterMaxDxLevel)
+    {
+        crossings.Count(CrossingOp.ClientPostInit);
+        host.PostInit(adapterMaxDxLevel);
+    }
+
     public int MapMaterialReload(byte* pNextBsp, byte* pPreviousBsp, byte* pOut, int outSize)
     {
         crossings.Count(CrossingOp.ClientMapMaterialReload);
@@ -137,6 +193,53 @@ public sealed unsafe class ClientRuntimeBinding(Crossings crossings, ILog log, I
         int written = System.Text.Encoding.UTF8.GetBytes(set, into);
         into[written] = 0;
         return written;
+    }
+
+    /// <summary>The shell client's AddSearchPath hook, after the engine's own call.</summary>
+    public void MapMaterialSearchPath(byte* pPath, byte* pPathID, int addToHead)
+    {
+        crossings.Count(CrossingOp.ClientMapMaterialSearchPath);
+        host.MapMaterialSearchPath(pPath == null ? null : Marshal.PtrToStringUTF8((nint)pPath),
+                                   pPathID == null ? null : Marshal.PtrToStringUTF8((nint)pPathID),
+                                   addToHead != 0);
+    }
+
+    /// <summary>The shell client's BeginMapAccess (1) and EndMapAccess (0) hooks.</summary>
+    public void MapMaterialMapAccess(int open)
+    {
+        crossings.Count(CrossingOp.ClientMapMaterialMapAccess);
+        host.MapMaterialMapAccess(open != 0);
+    }
+
+    /// <summary>
+    /// The shell client's ReloadMaterials hook: -1 to make the call unchanged,
+    /// else the bytes of newline-joined names written (NUL-terminated, possibly
+    /// 0), each reloaded alone. A plan that does not fit is -1 too, which for
+    /// the spawn's NULL is the stock full reload. plan_map_load P1.
+    /// </summary>
+    public int MapMaterialReloadPlan(byte* pSubString, byte* pOut, int outSize)
+    {
+        crossings.Count(CrossingOp.ClientMapMaterialReloadPlan);
+        string? names = host.MapMaterialReloadPlan(pSubString == null ? null : Marshal.PtrToStringUTF8((nint)pSubString));
+        if (names is null || pOut == null || outSize <= 0)
+            return -1;
+        int needed = System.Text.Encoding.UTF8.GetByteCount(names);
+        if (needed >= outSize)
+            return -1;
+        var into = new Span<byte>(pOut, outSize);
+        int written = System.Text.Encoding.UTF8.GetBytes(names, into);
+        into[written] = 0;
+        return written;
+    }
+
+    /// <summary>C_World::OnDataChanged's crossing: the blob the update filled, and the plan's floats to write.</summary>
+    public int WorldDataChanged(byte* pBlob, int nBytes, int updateType, void* pOut, int nOut)
+    {
+        crossings.Count(CrossingOp.ClientWorldDataChanged);
+        if (pBlob == null || nBytes <= 0)
+            return 0;
+        return host.WorldDataChanged(new ReadOnlySpan<byte>(pBlob, nBytes), updateType,
+                                     pOut == null || nOut <= 0 ? Span<float>.Empty : new Span<float>(pOut, nOut));
     }
 }
 

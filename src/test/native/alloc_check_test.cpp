@@ -32,10 +32,14 @@ namespace
 struct Delta
 {
 	SourceSharpAllocCheckCounts before = SourceSharp_AllocCheckCounts();
+
 	uint64_t Mismatches() const { return SourceSharp_AllocCheckCounts().mismatches - before.mismatches; }
-	uint64_t Foreign() const    { return SourceSharp_AllocCheckCounts().foreignFrees - before.foreignFrees; }
-	uint64_t Allocs() const     { return SourceSharp_AllocCheckCounts().allocations - before.allocations; }
-	int64_t  Live() const       { return (int64_t)SourceSharp_AllocCheckCounts().live - (int64_t)before.live; }
+
+	uint64_t Foreign() const { return SourceSharp_AllocCheckCounts().foreignFrees - before.foreignFrees; }
+
+	uint64_t Allocs() const { return SourceSharp_AllocCheckCounts().allocations - before.allocations; }
+
+	int64_t Live() const { return (int64_t)SourceSharp_AllocCheckCounts().live - (int64_t)before.live; }
 };
 
 void *volatile g_sink;
@@ -56,16 +60,30 @@ TEST( AllocCheck, MatchingPairsRaiseNothing )
 	Delta d;
 	// Each block escapes through g_sink: an allocation nobody can observe is
 	// one the optimiser is allowed to delete, and then the wrap never sees it.
-	void *a = malloc( 16 );          g_sink = a; free( a );
-	void *b = calloc( 4, 8 );        g_sink = b; free( b );
-	void *c = ::operator new( 24 );  g_sink = c; ::operator delete( c );
-	void *e = ::operator new[]( 40 ); g_sink = e; ::operator delete[]( e );
-	void *f = ::operator new( 24 );  g_sink = f; ::operator delete( f, (size_t)24 );
-	char *g = strdup( "novalve" );   g_sink = g; free( g );
-	void *h = malloc( 8 );           g_sink = h;
-	h = realloc( h, 4096 );          g_sink = h;
+	void *a = malloc( 16 );
+	g_sink = a;
+	free( a );
+	void *b = calloc( 4, 8 );
+	g_sink = b;
+	free( b );
+	void *c = ::operator new( 24 );
+	g_sink = c;
+	::operator delete( c );
+	void *e = ::operator new[]( 40 );
+	g_sink = e;
+	::operator delete[]( e );
+	void *f = ::operator new( 24 );
+	g_sink = f;
+	::operator delete( f, (size_t)24 );
+	char *g = strdup( "novalve" );
+	g_sink = g;
+	free( g );
+	void *h = malloc( 8 );
+	g_sink = h;
+	h = realloc( h, 4096 );
+	g_sink = h;
 	free( h );
-	std::string s( 200, 'x' );       // libstdc++.so's own growth: unwrapped both ways
+	std::string s( 200, 'x' ); // libstdc++.so's own growth: unwrapped both ways
 	std::vector<int> v( 1000 );
 	g_sink = &v;
 	EXPECT_EQ( 0u, d.Mismatches() );
@@ -79,11 +97,16 @@ TEST( AllocCheck, AlignedBlocksReleasedByFreeRaiseNothing )
 	// (MemAlloc_AllocAligned, CTSQueue's nodes): a block from it that free
 	// releases is this module's own, never a foreign free.
 	Delta d;
-	void *a = memalign( 64, 96 );       g_sink = a; free( a );
+	void *a = memalign( 64, 96 );
+	g_sink = a;
+	free( a );
 	void *b = nullptr;
 	const int rc = posix_memalign( &b, 64, 96 );
-	g_sink = b; free( b );
-	void *c = aligned_alloc( 64, 128 ); g_sink = c; free( c );
+	g_sink = b;
+	free( b );
+	void *c = aligned_alloc( 64, 128 );
+	g_sink = c;
+	free( c );
 	// Read before any assertion: gtest's own messages allocate.
 	const uint64_t nForeign = d.Foreign(), nMismatches = d.Mismatches(), nAllocs = d.Allocs();
 	EXPECT_EQ( 0, rc );
@@ -131,7 +154,7 @@ TEST( AllocCheck, SizedDeleteWithTheWrongSizeIsAMismatch )
 TEST( AllocCheck, FreeingABlockThisModuleDidNotAllocateIsForeign )
 {
 	Delta d;
-	void *p = __real_malloc( 64 );   // as the engine would: outside the wraps
+	void *p = __real_malloc( 64 ); // as the engine would: outside the wraps
 	g_sink = p;
 	free( p );
 	EXPECT_EQ( 1u, d.Foreign() );

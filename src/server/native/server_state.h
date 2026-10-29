@@ -5,108 +5,57 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the game DLL's two heap tiers =====================//
-//
-// plan_globals.md §2 ("one root, two tiers") and plan_server_native_v2 T6. The
-// server keeps ONE static object, the game DLL (`s_gameShellDll`,
-// shell_gamedll.cpp). Native state that is not one of D6's three FLOOR shapes
-// hangs off it in one of two heap objects:
+// The game DLL's two heap tiers, hanging off the one static root in shell_gamedll.cpp:
 //
 //   m_pDll    CServerDllState     new in DLLInit,   delete in DLLShutdown
 //   m_pLevel  CServerLevelState   new in LevelInit, delete in LevelShutdown
 //
-// WHY HEAP AND NOT BY-VALUE MEMBERS OF THE ROOT. A by-value member of a static
-// is constructed at static init, before the engine, the allocator hooks and the
-// managed runtime exist, and it is never reset. `new` in DLLInit puts the
-// construction where the root already sequences everything else, and
-// `delete m_pLevel` in LevelShutdown makes the per-map reset STRUCTURAL: a
-// level-tier field cannot leak into the next map, because the object it lived
-// in no longer exists. A reload bug of the "somebody forgot an = 0" kind
-// cannot be written against a level-tier member.
-//
-// WHAT IS NOT HERE. The registration list heads static initialisers build, the
-// ConVar/ConCommand objects the engine holds, and the C callbacks with no
-// user-data argument stay as the FLOOR rows they are (user ruling D6,
-// 2026-10-19). Everything else in docs/globals-ledger.tsv ruled MEMBER names
-// its owner and tier, and moves in here owner by owner.
-//
-// A member's own header brings what it needs; the tier mechanics and each
-// member's reset are gtests (server_state_test.cpp).
-//
-//=============================================================================//
+// Heap rather than by-value members so construction happens after the engine is up,
+// and so a level-tier field cannot leak into the next map.
 
-#ifndef SERVER_STATE_H
-#define SERVER_STATE_H
 #pragma once
 
-#include "entity_slots.h"   // CSourceSharpEntitySlots, the block C# writes through
-#include "slot_table.h"     // CSourceSharpSlotTable, handle -> shell
-#include "generic_nettable.h"   // CSourceSharpTypeTable, the published net types
+#include "entity_slots.h"
+#include "slot_table.h"
+#include "generic_nettable.h"
+#include "generic_payload.h"
+#include "server_overlaps.h"
+#include "world_nettable.h"
+#include "standalone_player_sync.h"
+#include "ss_shareddefs.h"
+#include "server_engine_interfaces.h"
+#include "server_services.h"
 
-#include <stdint.h>
+#include <memory>
 #include <set>
+#include <vector>
 #include <string>
 
+class CSharedEdictChangeInfo;
+class CStandalonePlayer;
+class CWorld;
+class IEngineTrace;
+class IFileSystem;
+class IGameEventManager2;
+class IUniformRandomStream;
+class IVDebugOverlay;
+class IMDLCache;
+class IStaticPropMgrServer;
+class IVModelInfo;
+class IVEngineServer;
+class INetworkStringTable;
+class INetworkStringTableContainer;
+class ISpatialPartition;
+class IUploadGameStats;
+struct edict_t;
 class SendProp;
 class SendTable;
 class ServerClass;
 
-//-----------------------------------------------------------------------------
-// TEMPENTS (shell_tempents.cpp): the temp entity tables managed's plan built.
-//
-// One built table. The props, the table and the class are leaked on purpose: a
-// SendTable is read by the engine for the life of the process, and there is no
-// point at which they could be freed and nothing would notice.
-//-----------------------------------------------------------------------------
-enum { SOURCESHARP_TE_MAX_TABLES = 64 };
-
-struct SourceSharpTeBuilt_t
-{
-	SendProp    *pProps;
-	int          nProps;
-	SendTable   *pTable;
-	ServerClass *pClass;      // NULL for a table registered without one
-	const char  *pClassName;  // interned: what a managed reload asks for again
-	uint32_t     nShapeHash;
-};
-
-class CServerTempEnts
-{
-public:
-	CServerTempEnts() = default;
-	CServerTempEnts( const CServerTempEnts & ) = delete;
-	CServerTempEnts &operator=( const CServerTempEnts & ) = delete;
-
-	SourceSharpTeBuilt_t m_Built[ SOURCESHARP_TE_MAX_TABLES ] = {};
-	int m_nBuilt = 0;
-	bool m_bClosed = false;
-
-	// The names the engine keeps by pointer for the table's lifetime: prop
-	// names, table names and class names. A std::set node never moves, so
-	// c_str() is stable for the life of the set; the same text twice is the
-	// same pointer.
-	std::set< std::string > m_Names;
-
-	// TRANSIT: the encode buffer one PlaybackTempEntity is written into.
-	unsigned char m_Scratch[ 512 ] = {};
-};
-
-//-----------------------------------------------------------------------------
-// One heap tier: an owning pointer whose object exists between Begin and End.
-//
-// Begin ALWAYS builds a new object. A tier whose End was missed (a LevelInit
-// with no LevelShutdown before it) has its stale object destroyed first, so a
-// tier is never reused across a Begin -- that is the reset, and it is the whole
-// point of the type.
-//
-// End clears the pointer BEFORE it deletes, so code the destructor reaches
-// sees "no tier" rather than an object half torn down.
-//
-// The root is a static and outlives DLLShutdown; this type's own destructor
-// therefore does NOT delete. Destroying a tier is DLLShutdown's job, in the
-// order the root states, never the C runtime's at process exit.
-//-----------------------------------------------------------------------------
-template < typename T >
+// One heap tier: an owning pointer whose object exists between Begin and End. Begin
+// destroys a stale object first, so a tier is never reused. End clears the pointer
+// before deleting. The destructor does not delete: DLLShutdown ends the tiers.
+template <typename T>
 class CStateTier
 {
 public:
@@ -134,10 +83,89 @@ private:
 	T *m_p = nullptr;
 };
 
-//-----------------------------------------------------------------------------
-// The DLL tier: DLLInit to DLLShutdown. Its owners are the ledger's MEMBER rows
-// with tier DLL (EntitySlots, NetTables, TempEnts, Players, ...).
-//-----------------------------------------------------------------------------
+// The DLL tier: DLLInit to DLLShutdown.
+// The standalone hierarchy's one ServerClass per tier, built once and handed to the
+// engine's class list, which keeps pointers to them for the life of the DLL.
+class CServerStandaloneTiers
+{
+public:
+	CServerStandaloneTiers() = default;
+	CServerStandaloneTiers( const CServerStandaloneTiers & ) = delete;
+	CServerStandaloneTiers &operator=( const CServerStandaloneTiers & ) = delete;
+
+	SendProp *m_pProps[SOURCESHARP_TIER_MAX] = {};
+	SendTable *m_pTables[SOURCESHARP_TIER_MAX] = {};
+	ServerClass *m_pClasses[SOURCESHARP_TIER_MAX] = {};
+	bool m_bRegistered = false;
+};
+
+// What the server networks managed types with: the published types, the tier
+// ServerClasses built from them, worldspawn's table and the payload's prop names. DLL
+// tier: the engine's class list keeps pointers into it for the life of the DLL.
+class CServerNetTables
+{
+public:
+	CServerNetTables() = default;
+	CServerNetTables( const CServerNetTables & ) = delete;
+	CServerNetTables &operator=( const CServerNetTables & ) = delete;
+
+	CSourceSharpTypeTable m_Types;
+	CSourceSharpPayloadPropNames m_PropNames;
+	CServerStandaloneTiers m_Tiers;
+	CWorldNetTable m_World;
+
+	// Warned once: an entity of a class nobody published.
+	bool m_bWarnedUnpublishedClass = false;
+};
+
+// The players' DLL-tier state: what survives a map change.
+class CServerPlayersDll
+{
+public:
+	CServerPlayersDll() = default;
+	CServerPlayersDll( const CServerPlayersDll & ) = delete;
+	CServerPlayersDll &operator=( const CServerPlayersDll & ) = delete;
+
+	// The player's edict, in transit from ClientPutInServer to PostConstruct.
+	edict_t *m_pPendingEdict = nullptr;
+
+	// Where the engine-side player words sit in the net state, resolved per generation.
+	SourceSharpPlayerFields_t m_Fields;
+
+	// Shadows still in the solver, and those that outlived their environment, which is
+	// recreated at every level change.
+	int m_nShadowsLive = 0;
+	int m_nShadowsOutlived = 0;
+
+	// The engine's console client (IServerGameClients::SetCommandClient), a 0-based slot;
+	// -1 for the dedicated console. The initial 0 is stock's.
+	int m_nCommandClientSlot = 0;
+};
+
+// Every live standalone entity of this map, and the removals managed code did not take
+// (a shell never bound on the managed side), emptied after the frame's thinks.
+class CServerEntityShells
+{
+public:
+	CServerEntityShells() = default;
+	CServerEntityShells( const CServerEntityShells & ) = delete;
+	CServerEntityShells &operator=( const CServerEntityShells & ) = delete;
+
+	std::vector<CStandaloneEntity *> m_Live;
+	std::vector<CStandaloneEntity *> m_PendingDeletes;
+};
+
+// The players connected on this map, by entindex, asked once per packet and per snapshot.
+class CServerPlayersLevel
+{
+public:
+	CServerPlayersLevel() = default;
+	CServerPlayersLevel( const CServerPlayersLevel & ) = delete;
+	CServerPlayersLevel &operator=( const CServerPlayersLevel & ) = delete;
+
+	CStandalonePlayer *m_pByIndex[ss::kMaxPlayers + 1] = {};
+};
+
 class CServerDllState
 {
 public:
@@ -145,52 +173,39 @@ public:
 	CServerDllState( const CServerDllState & ) = delete;
 	CServerDllState &operator=( const CServerDllState & ) = delete;
 
-	//-------------------------------------------------------------------------
-	// ENTITYSLOTS (shell_entityslots.cpp). Were g_EntitySlots (164 KB) and
-	// SourceSharp_SlotTable()'s s_SlotTable (82 KB), file-scope statics.
-	//
-	// DLL tier, not level: managed holds pointers into m_EntitySlots for the
-	// life of the side (they must outlive a cs_sv_reload, which keeps the DLL),
-	// and the table's serials stay monotone across maps so map N+1 never
-	// reissues a handle map N handed out. DLLShutdown unloads the managed side
-	// before it ends this tier.
-	//-------------------------------------------------------------------------
+	// DLL tier: managed holds pointers into m_EntitySlots across a reload, and serials stay
+	// monotone across maps so no handle is reissued. Managed unloads before this tier ends.
 	CSourceSharpEntitySlots m_EntitySlots;
 	CSourceSharpSlotTable m_SlotTable;
 
-	//-------------------------------------------------------------------------
-	// NETTYPES (generic_payload.cpp). Was SourceSharp_NetTypes()'s s_Types
-	// (43 KB), a function-local static. The managed types published into it
-	// at registration name the tier tables every shell's ServerClass is built
-	// from, so it lives as long as those: the DLL.
-	//-------------------------------------------------------------------------
-	CSourceSharpTypeTable m_NetTypes;
+	CServerNetTables m_NetTables;
+	CServerPlayersDll m_Players;
+	CServerEngineInterfaces m_Engine;
+	std::unique_ptr<CServerDllServices> m_pServices;
 
-	//-------------------------------------------------------------------------
-	// TEMPENTS (shell_tempents.cpp). Were g_TeBuilt, g_nTeBuilt, g_bTeClosed,
-	// g_TeNames and g_TeScratch, file-scope statics. Built once, at managed
-	// registration; a managed reload asks for the same tables again by class
-	// name and gets the existing ones back, so they live as long as the DLL.
-	//-------------------------------------------------------------------------
-	CServerTempEnts m_TempEnts;
+	// The world's handle serial: not reset between maps, so a client cannot resolve
+	// the previous map's world with the new handle.
+	unsigned short m_nWorldSerial = 0;
+
+	// Handles from the engine-invisible range that reached native and did not resolve.
+	int32_t m_nInvisibleRangeReach = 0;
 };
 
-//-----------------------------------------------------------------------------
-// The level tier: LevelInit to LevelShutdown. Its owners are the ledger's
-// MEMBER rows with tier LEVEL (the physics environment, string tables, the
-// world's per-map latches, ...).
-//-----------------------------------------------------------------------------
+// The level tier: LevelInit to LevelShutdown.
 class CServerLevelState
 {
 public:
 	CServerLevelState() = default;
 	CServerLevelState( const CServerLevelState & ) = delete;
 	CServerLevelState &operator=( const CServerLevelState & ) = delete;
+
+	CServerOverlaps m_Overlaps;
+	CServerPlayersLevel m_Players;
+	CServerEntityShells m_Shells;
+
+	// worldspawn, claimed at its construction; NULL until the map makes it.
+	CWorld *m_pWorld = nullptr;
+
+	// Warned once per map: an entity allocated a blob shorter than its published layout.
+	bool m_bWarnedShortBlob = false;
 };
-
-// The game DLL's tiers, NULL outside their windows. Defined beside the root in
-// shell_gamedll.cpp.
-CServerDllState *ShellGameDll_Dll();
-CServerLevelState *ShellGameDll_Level();
-
-#endif // SERVER_STATE_H

@@ -25,7 +25,7 @@ namespace SourceSharp.Abi;
 /// </para>
 /// </summary>
 public delegate bool EntityInputDelivery(EntityHandle target, string input, string? value,
-                                 float number, EntityHandle activator);
+                                 float number, EntityHandle activator, EntityHandle caller);
 
 /// <summary>
 /// THE I/O HALF'S ROUTE FROM THE ENGINE SURFACE TO THE SIDE'S DIRECTORY, and
@@ -139,6 +139,6 @@ public sealed class EntityIoRoutes
 
         string text = value ?? string.Empty;
 
-        return Input(target, input, text, EventAction.ParseFloat(text), activator);
+        return Input(target, input, text, EventAction.ParseFloat(text), activator, EntityHandle.None);
     }
 }

@@ -90,11 +90,22 @@ public static class WeaponAnimEvents
         EntityNames.WeaponRpg      => [AnimationEventExpectation.Numbered(WeaponAnim.Primary, RpgFireEvent)],
         EntityNames.WeaponFrag     => [AnimationEventExpectation.Numbered(WeaponAnim.Primary, GrenadeThrowEvent)],
 
-        // The two that carry nothing on any animation anyone fires. Recorded
+        // The ones that carry nothing on any animation anyone fires. Recorded
         // as an EMPTY expectation set rather than left out, so the report says
-        // "checked, carries nothing" rather than "never looked".
+        // "checked, carries nothing" rather than "never looked". v_physcannon's
+        // seven sequences (idle, hold_idle, draw, holster, fire, altfire,
+        // prong_blend) were dumped and carry no event at all.
         EntityNames.WeaponCrowbar  => None,
         EntityNames.WeaponCrossbow => None,
+        // v_stunstick.mdl (hl2mp_pak_dir.vpk), dumped: the crowbar's nine
+        // sequences under the same activities, and no event on any of them.
+        EntityNames.WeaponStunstick => None,
+        // v_slam.mdl (hl2mp_pak_dir.vpk), dumped: twenty-eight ACT_SLAM_*
+        // sequences and one event, AE_CL_PLAYSOUND Weapon_SLAM.TripMineMode on
+        // throw_to_tripmine_ND — a mode switch, not one of the animation kinds
+        // this table is keyed by, which the SLAM's activities never resolve to.
+        EntityNames.WeaponSlam => None,
+        EntityNames.WeaponPhyscannon => None,
 
         _ => null,
     };

@@ -149,6 +149,7 @@ public sealed class MapSpawnerTests
         public bool SetKeyValue(EntityHandle entity, string key, string value) => _engine.SetKeyValue(entity, key, value);
         public void SetOrigin(EntityHandle h, Vector origin) => _engine.SetOrigin(h, origin);
         public void SetOwner(EntityHandle h, EntityHandle owner) => _engine.SetOwner(h, owner);
+        public void SetClassName(EntityHandle h, string className) => _engine.SetClassName(h, className);
         public void SetVelocity(EntityHandle h, Vector velocity) => _engine.SetVelocity(h, velocity);
         public void Teleport(EntityHandle h, Vector origin, Vector? angles, bool zeroVelocity) => _engine.Teleport(h, origin, angles, zeroVelocity);
         public bool SetParent(EntityHandle child, EntityHandle parent, int parentAttachment = 0) => _engine.SetParent(child, parent, parentAttachment);
@@ -167,6 +168,7 @@ public sealed class MapSpawnerTests
         public SolidFlags GetSolidFlags(EntityHandle entity) => _engine.GetSolidFlags(entity);
         public SolidType GetSolidType(EntityHandle entity) => _engine.GetSolidType(entity);
         public void SetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags) => _engine.SetSolidity(entity, solidType, solidFlags);
+        public void UseTriggerBounds(EntityHandle entity, bool enable, float bloat, bool uniform = false) => _engine.UseTriggerBounds(entity, enable, bloat, uniform);
         public void SetBounds(EntityHandle entity, Vector mins, Vector maxs) => _engine.SetBounds(entity, mins, maxs);
         public void SetSpawnFlags(EntityHandle entity, int spawnFlags) => _engine.SetSpawnFlags(entity, spawnFlags);
     }

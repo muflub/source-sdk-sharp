@@ -60,6 +60,34 @@ public sealed class PlayerPredictConVar : BoolConVar
 {
 }
 
+/// <summary>
+/// Stock's <c>cl_predictweapons</c> (prediction.cpp): whether this client
+/// plays its own weapon's sounds and impacts as it predicts a command
+/// (PredictedWeaponFx).
+///
+/// <para>
+/// USERINFO because the server reads it: <c>CBasePlayer::IsPredictingWeapons</c>
+/// is this and <c>cl_predict</c>, and while it holds the server's copies of
+/// those sounds and impacts skip this player (PredictionSuppression). A client
+/// that did not declare it would read as 0 there and hear every shot twice.
+/// </para>
+/// </summary>
+/// <summary>
+/// The weapon a player spawns holding: stock's C_HL2MP_Player cl_defaultweapon,
+/// which the server reads back (CHL2MP_Player::GiveDefaultItems).
+/// </summary>
+[ConVar("cl_defaultweapon", "weapon_physcannon", Flags = ConVarFlags.UserInfo | ConVarFlags.Archive,
+        Help = "Default Spawn Weapon")]
+public sealed class DefaultWeaponConVar : StringConVar
+{
+}
+
+[ConVar("cl_predictweapons", "1", Flags = ConVarFlags.UserInfo | ConVarFlags.NotConnected,
+        Help = "Perform client side prediction of weapon effects.")]
+public sealed class PredictWeaponsConVar : BoolConVar
+{
+}
+
 //=============================================================================
 // THE SHIM'S POLICY KNOBS, MOVED OUT OF C++ — the client's half.
 //
@@ -122,31 +150,20 @@ public sealed class PlayerPredictConVar : BoolConVar
 public sealed class ShowParticleCountsConVar : BoolConVar { }
 
 /// <summary>
-/// Whether a weapon switch waits for a selection UI. It never does here.
+/// The weapon selection's HUD type (weapon_selection.cpp): 0 the buckets a
+/// slot key opens and attack confirms, 1 fastswitch, which switches at once
+/// and draws nothing. Stock's default, 0. <see cref="WeaponSelectionHud"/>
+/// reads it each time, as stock does.
 ///
 /// <para>
 /// FROM <c>shell_hud.cpp</c>, WHERE IT WAS HELD BACK BY A LINK ERROR RATHER
-/// THAN BY A RULE. <c>game/shared/weapon_parse.cpp</c> holds
-/// <c>extern ConVar hud_fastswitch;</c> and reads it to pick the console
-/// bucket layout at <c>hud_fastswitch.GetInt() == 2</c>, so moving the
-/// declaration used to fail with
-/// <c>weapon_parse.o: undefined reference to hud_fastswitch</c>. That
-/// translation unit is no longer compiled into either DLL, and the symbol had
-/// one definer and zero importers on both link lines, so the reason expired.
-/// </para>
-///
-/// <para>
-/// DEFAULT 1, WHICH IS NOT STOCK'S 0, and that is deliberate and predates this
-/// move: switching is always immediate in this mod because there is no
-/// selection UI to drive — SourceSharp draws its own weapon list, and the
-/// commands the stock binds land on (invnext, invprev, lastinv, slot1..slot6)
-/// forward straight to the managed Arsenal on the server. The registration is
-/// kept so a config that sets the name still loads.
+/// THAN BY A RULE: <c>game/shared/weapon_parse.cpp</c> held
+/// <c>extern ConVar hud_fastswitch;</c>, a translation unit no longer compiled
+/// into either DLL.
 /// </para>
 /// </summary>
-[ConVar("hud_fastswitch", "1", Flags = ConVarFlags.Archive,
-        Help = "Weapon switching is always immediate in this mod; kept for config compatibility.")]
-public sealed class HudFastSwitchConVar : BoolConVar { }
+[ConVar("hud_fastswitch", "0", Flags = ConVarFlags.Archive)]
+public sealed class HudFastSwitchConVar : IntConVar { }
 
 /// <summary>
 /// The once-per-install marker behind the bicubic lightmap default.
@@ -257,12 +274,10 @@ public sealed class VCollideWireframeConVar : BoolConVar
 public sealed class SoundscapeFadetimeConVar : FloatConVar { }
 
 /// <summary>
-/// How long the pickup history stays on screen. From
-/// game/client/shell_hud.cpp. Its stock reader, history_resource.cpp, is not
-/// compiled into this build, so the declaration is the whole of it.
+/// How long the pickup history stays on screen (CHudHistoryResource; a
+/// refused ammo pickup stays half as long). Read by <see cref="PickupHistory"/>.
 /// </summary>
-[ConVar("hud_drawhistory_time", "5",
-        Help = "Seconds the pickup history stays up. Unused here \u2014 the history HUD is hidden.")]
+[ConVar("hud_drawhistory_time", "5", Help = "Seconds the pickup history stays up.")]
 public sealed class HudDrawHistoryTimeConVar : FloatConVar { }
 
 //-----------------------------------------------------------------------------

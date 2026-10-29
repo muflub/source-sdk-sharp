@@ -18,6 +18,22 @@ public sealed class EngineStandaloneBlocks(IEngineEntities entities) : IStandalo
 }
 
 /// <summary>
+/// Where an attachment is on a model another entity carries bone-merged, as
+/// the SDK's server answers it for a weapon that follows its carrier.
+/// </summary>
+public interface IMergedAttachments
+{
+    /// <summary>
+    /// <paramref name="follower"/>'s one-based <paramref name="attachment"/>,
+    /// its skeleton bone-merged onto <paramref name="source"/>'s. False, with
+    /// the follower's own origin, when either has no skeleton or the follower's
+    /// model carries no such attachment (CBaseAnimating::GetAttachment's
+    /// failure answer).
+    /// </summary>
+    bool GetMergedAttachment(EntityHandle follower, EntityHandle source, int attachment, out Vector origin);
+}
+
+/// <summary>
 /// THE SERVER'S SKELETONS, IN MANAGED CODE (plan physics_bones_native_zero
 /// steps 1.1-1.2).
 ///
@@ -58,7 +74,7 @@ public sealed class EngineStandaloneBlocks(IEngineEntities entities) : IStandalo
 /// scale was set again.
 /// </para>
 /// </summary>
-public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes, IGameLifecycle, ISaveCustom
+public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes, IGameLifecycle, ISaveCustom, IMergedAttachments
 {
     private readonly IStandaloneBlocks _blocks;
     private readonly StudioModels _models;
@@ -202,7 +218,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         ref EngineBlock target = ref MemoryMarshal.AsRef<EngineBlock>(block);
         target.Client.Sequence = state.Sequence;
         target.Client.PlaybackRate = state.PlaybackRate;
-        target.Client.AnimTime = state.AnimTime;
+        target.Client.AnimTime = state.ClockStart;
     }
 
     // ---- the cost wrapper -----------------------------------------------------
@@ -254,6 +270,76 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         origin = new Vector(o.X, o.Y, o.Z);
         angles = new QAngle(a.Pitch, a.Yaw, a.Roll);
         return found;
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// SetupBones' BuildMatricesWithBoneMerge arm (baseanimating.cpp): the
+    /// follower is placed where FollowEntity puts it, on the source; each of
+    /// its bones the source's model names takes the source's matrix, and any
+    /// other is its own pose under its parent as merged.
+    /// </remarks>
+    public bool GetMergedAttachment(EntityHandle follower, EntityHandle source, int attachment, out Vector origin)
+    {
+        origin = default;
+
+        if (!Find(follower, out EngineBlock followerBlock, out BoneEntityState own))
+        {
+            return false;
+        }
+
+        ServerBonePose ownPose = PoseOf(followerBlock);
+        origin = new Vector(ownPose.AbsOrigin.X, ownPose.AbsOrigin.Y, ownPose.AbsOrigin.Z);
+
+        if (!Find(source, out EngineBlock sourceBlock, out BoneEntityState carrier))
+        {
+            return false;
+        }
+
+        ServerBonePose sourcePose = PoseOf(sourceBlock);
+        StudioHdr? ownHdr = _models.OpenStudioHdr(ownPose.ModelIndex);
+        StudioHdr? sourceHdr = _models.OpenStudioHdr(sourcePose.ModelIndex);
+
+        if (ownHdr is null || sourceHdr is null || attachment < 1 || attachment > ownHdr.NumGlobalAttachments)
+        {
+            return false;
+        }
+
+        ownPose.AbsOrigin = sourcePose.AbsOrigin;
+        ownPose.AbsAngles = sourcePose.AbsAngles;
+
+        long started = Begin(own, out BoneCacheKey before);
+        bool built = _driver.EnsureBones(carrier, sourcePose, BoneLibrary.BoneUsedByAnything, _clock.Now, ConVars)
+                   & _driver.EnsureBones(own, ownPose, BoneLibrary.BoneUsedByAnything, _clock.Now, ConVars);
+        End(own, started, before);
+
+        int bones = own.CachedBones.Length;
+
+        if (!built || bones <= 0)
+        {
+            return false;
+        }
+
+        Span<short> map = stackalloc short[bones];
+        BoneLibrary.BuildMergeMap(ownHdr, sourceHdr, map);
+
+        var merged = (BoneMatrix3x4[])own.CachedBones.Clone();
+        BoneLibraryMath.ApplyMergedBones(map, carrier.CachedBones, merged);
+        BoneLibraryMath.ReparentUnmergedBones(ownHdr, map, own.CachedBones, merged);
+
+        int bone = ownHdr.GetAttachmentBone(attachment - 1);
+
+        if (bone < 0 || bone >= bones)
+        {
+            return false;
+        }
+
+        MstudioAttachment local1 = ownHdr.Attachment(attachment - 1);
+        BoneMatrix3x4 world = BoneLibraryMath.ComposeAttachment(
+            merged[bone], local1.Local, (local1.Flags & BoneLibrary.AttachmentFlagWorldAlign) != 0);
+
+        origin = new Vector(world.Position.X, world.Position.Y, world.Position.Z);
+        return true;
     }
 
     /// <inheritdoc/>
@@ -346,7 +432,7 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         Read(_blocks.Block(entity), out EngineBlock block) ? _models.StudioName(block.Head.ModelIndex) : string.Empty;
 
     /// <inheritdoc/>
-    public bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart)
+    public bool SetSequence(EntityHandle entity, int sequence, float playbackRate, bool restart, float startCycle = 0.0f)
     {
         Span<byte> span = _blocks.Block(entity);
 
@@ -356,8 +442,44 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         }
 
         BoneEntityState state = StateOf(entity, block);
-        _driver.SetPoseSequence(state, block.Head.ModelIndex, sequence, playbackRate, restart, _clock.Now);
+        _driver.SetPoseSequence(state, block.Head.ModelIndex, sequence, playbackRate, restart, _clock.Now, startCycle);
         WriteClock(span, state);
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public bool SequenceState(EntityHandle entity, out int sequence, out float cycle, out float duration,
+                              out bool looping, out int starts)
+    {
+        sequence = 0;
+        cycle = 0.0f;
+        duration = 0.0f;
+        looping = false;
+        starts = 0;
+
+        if (!Find(entity, out _, out BoneEntityState state))
+        {
+            return false;
+        }
+
+        sequence = state.Sequence;
+        cycle = state.SequenceCycle(_clock.Now);
+        duration = state.SeqDuration;
+        looping = state.SeqLooping;
+        starts = state.SequenceStarts;
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public bool SetCycle(EntityHandle entity, float cycle)
+    {
+        if (!Find(entity, out _, out BoneEntityState state))
+        {
+            return false;
+        }
+
+        // The cache key carries the cycle, so a held one is a new key.
+        state.HeldCycle = Math.Clamp(cycle, 0.0f, 1.0f);
         return true;
     }
 

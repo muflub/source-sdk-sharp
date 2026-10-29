@@ -4,31 +4,15 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — strtools.h's names client.so still links ===========//
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
-//
-// The strtools.cpp functions that client.so's objects, particles.a,
-// dmxloader.a and the tier1 members kept for those two archives call, so
-// strtools.o leaves the client's link (plan_client_novalve C9, tier1).
-// tier1_port.cpp (src/shared/native) defines what both DLLs call; these are
-// the rest, client-only (ruling 2026-10-12; _V_memset, _V_memmove and
-// V_stricmp joined them at plan_server_native_v2 T5, when the server's last
-// importers left). Each forwards to
-// ss_string.h (held to pristine strtools.cpp by ss_string_oracle_test) or,
-// where tier1 is the C library call, to that. Where tier1 called Error, so
-// do these. The debug forms' file and line arguments fed tier0's pointer
-// asserts, which are not kept.
-//
-// Exit: each name's last caller leaving -- for the archives' share,
-// particles.a and dmxloader.a leaving client.so.
-//=============================================================================//
+// The strtools.h functions only client.so calls; the ones both DLLs call are in
+// tier1_port.cpp. Each forwards to ss_string.h or the C library call tier1 made;
+// where tier1 called Error, so do these.
 
 #include "tier0/dbg.h"
-#include "tier1/strtools.h"
+
 #include "ss_string.h"
 
-#include <stdarg.h>
-#include <string.h>
 #include <wchar.h>
 
 void _V_memcpy( const char *, int, void *dest, const void *src, int count )
@@ -64,7 +48,7 @@ void _V_strcpy( const char *, int, char *dest, const char *src )
 
 char *_V_strstr( const char *, int, const char *s1, const char *search )
 {
-	return const_cast< char * >( strstr( s1, search ) );
+	return const_cast<char *>( strstr( s1, search ) );
 }
 
 int _V_wcslen( const char *, int, const wchar_t *pwch )
@@ -72,21 +56,19 @@ int _V_wcslen( const char *, int, const wchar_t *pwch )
 	return (int)wcslen( pwch );
 }
 
-// _V_strcmp and V_strncpy were tier1_port.cpp's until plan_server_native_v2 T2:
-// server.so stopped calling them, so they are client-only now (ruling
-// 2026-10-12). strncpy's semantics kept: the rest is zero-filled, then the last
-// byte is always the terminator.
 int _V_strcmp( const char *, int, const char *s1, const char *s2 )
 {
 	return strcmp( s1, s2 );
 }
 
+// strncpy's semantics: the rest is zero-filled, then the last byte is always
+// the terminator.
 void V_strncpy( char *pDest, const char *pSrc, int maxLen )
 {
 	if ( maxLen <= 0 )
 		return;
 	strncpy( pDest, pSrc, maxLen );
-	pDest[ maxLen - 1 ] = 0;
+	pDest[maxLen - 1] = 0;
 }
 
 int V_strncmp( const char *s1, const char *s2, int count )
@@ -94,8 +76,7 @@ int V_strncmp( const char *s1, const char *s2, int count )
 	return ss::StrNCmp( s1, s2, count );
 }
 
-// ASCII case folding, the sign of V_stricmp (ss_string_oracle_test holds it):
-// CaselessStringLessThan and the other callers fork headers inline.
+// ASCII case folding, with V_stricmp's sign.
 int V_stricmp( const char *s1, const char *s2 )
 {
 	return ss::StrICmp( s1, s2 );

@@ -61,7 +61,21 @@ public class BonesClientMergeTests
     {
         (_, ClientBoneDriver d, BoneEntityState s) = Rig();
         Assert.True(d.EnsureBones(s, Pose(), UsedByAnything, 1f, Quiet));
-        Assert.Equal([Translation(20f, 0f, 0f), Translation(10f, 0f, 0f), OwnPlacement], s.CachedBones);
+        // "jaw", which the source does not name, hangs off the merged "hand"
+        // where its own build put it under its own (BuildTransformations' order).
+        Assert.Equal([Translation(20f, 0f, 0f), Translation(10f, 0f, 0f), Translation(10f, 0f, 0f)], s.CachedBones);
+    }
+
+    /// <summary>
+    /// A root the source does not name keeps its own place; the bones under
+    /// one it does name follow it, a chain whole.
+    /// </summary>
+    [Fact]
+    public void AnUnnamedRootKeepsItsPlaceAndAChainFollowsTheNamedBone()
+    {
+        (_, ClientBoneDriver d, BoneEntityState s) = Rig(NamedStatic("hand"));
+        Assert.True(d.EnsureBones(s, Pose(), UsedByAnything, 1f, Quiet));
+        Assert.Equal([OwnPlacement, Translation(10f, 0f, 0f), Translation(10f, 0f, 0f)], s.CachedBones);
     }
 
     [Fact]

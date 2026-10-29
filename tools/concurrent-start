@@ -3,7 +3,7 @@
 
 Starts N live-gate servers (dm_lockdown) from this tree AT ONCE, in a tight
 loop, and reports per round which of them JOINED -- their map loaded, they
-hold exactly one `ss_player`, and their client printed "[SourceSharp/Hud]
+hold exactly one `player`, and their client printed "[SourceSharp/Hud]
 first paint" -- and how many "KeyValues Error: LoadFromBuffer: missing { in
 file videoconfig_linux.cfg" lines each one printed: the trace of games reading
 each other's half-written video config (docs/todo.md, 2026-10-05).
@@ -15,7 +15,7 @@ finished starting -- a stall that never stalls the socket is invisible here.
 A game now counts as joined only with all three pieces of evidence, and a
 game that opened its socket but never joined is reported NOT JOINED, with
 the half it failed on named, and fails the run (docs/todo.md). A listen
-server's own client IS its join: the census proves the map, the ss_player
+server's own client IS its join: the census proves the map, the player
 proves the client connected to its own server, the first paint proves the
 client side runs.
 
@@ -358,7 +358,7 @@ def self_test():
     check("map census" in join_decision(dict(good, map_loaded=False))[1],
           "an unloaded map is named as what the game waits on, not the missing player")
     check("holds 0 players" in join_decision(dict(good, players=0))[1],
-          "a server with no ss_player never joined, and says so")
+          "a server with no player never joined, and says so")
     check("holds 2 players" in join_decision(dict(good, players=2))[1],
           "and TWO players before we launched anyone is another gate's client, also refused")
     check("first paint" in join_decision(dict(good, painted=False))[1],
@@ -414,7 +414,7 @@ def main():
             bad = [g for g in games if not g["ok"]]
             stalled += len(bad)
             total += len(games)
-            print("round %d: %d/%d joined (first paint + one ss_player%s); videoconfig parse errors per game %s"
+            print("round %d: %d/%d joined (first paint + one player%s); videoconfig parse errors per game %s"
                   % (r, len(games) - len(bad), len(games),
                      ", second client" if a.second_client else "",
                      [g["errors"] for g in games]), flush=True)

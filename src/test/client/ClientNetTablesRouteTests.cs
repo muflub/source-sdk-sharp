@@ -26,11 +26,9 @@ public class ClientNetTablesRouteTests
         public bool NearCeiling(int layoutBytes) => false;
     }
 
-    private sealed class Recv(ClientRecvPropRow[] props, int refusedUpdates, ClientSchemaRefusalRow[] refusals)
-        : IClientRecvTables
+    private sealed class Recv(ClientRecvPropRow[] props) : IClientRecvTables
     {
         public IReadOnlyList<ClientRecvPropRow> Props() => props;
-        public (int RefusedUpdates, IReadOnlyList<ClientSchemaRefusalRow> Types) Refusals() => (refusedUpdates, refusals);
     }
 
     private static ClientRecvPropRow[] TierTable(string table, int props)
@@ -42,11 +40,19 @@ public class ClientNetTablesRouteTests
     {
         var tiers = new Tiers(new NetTierInfo(0, "DT_SS_Tier0", 64, 16, 22, true));
         var recv = new Recv([.. TierTable("DT_SS_Tier0", engineProps),
-                             new ClientRecvPropRow("CWorld", "DT_World", "m_flWaveHeight", 1, 0, 8, 1)],
-                            refusals.Sum(r => r.Count), refusals);
+                             new ClientRecvPropRow("CWorld", "DT_World", "m_flWaveHeight", 1, 0, 8, 1)]);
         var types = new ClientNetSchemaTypes(tiers, () => StandaloneNetStates.Discover(
             typeof(ClientModule).Assembly, new RecordingLog()));
-        return new ClientDebugNetTables(recv, tiers, types);
+
+        // The refusals are the schema gate's: each row is that many refused updates.
+        var gate = new ClientSchemaGate(new RecordingLog());
+        foreach (var r in refusals)
+        {
+            for (int i = 0; i < r.Count; i++)
+                Assert.False(gate.Accept(r.TypeId, published: true, r.Expected, r.Seen, entIndex: 1, r.ClassName));
+        }
+
+        return new ClientDebugNetTables(recv, tiers, types, gate);
     }
 
     private static JsonDocument Read(ClientDebugNetTables route)

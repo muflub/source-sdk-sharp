@@ -457,54 +457,6 @@ def _tsv_rows(rel, columns):
     return n
 
 
-def floor_entity():
-    """plan_entity.md step 8c's leg: the census, the three gates, the budget.
-
-    THREE POPULATIONS, EACH COUNTED WHERE IT IS WRITTEN DOWN, so the floor
-    rises on its own the way every other one here does:
-
-      * docs/entity-ratchet.tsv  -- one gated (or reconciliation) row of
-        `tools/entity-gates --tsv`, one check each. A row added to the gates
-        and baselined raises this by one.
-      * tools/live-gate-budget.tsv -- one live-gate stage, one check each. A
-        stage added to tools/live-gate raises it by one, because the leg fails
-        until that stage has a budget row.
-      * tools/entity-ratchet's own --self-test, by its ck() call sites, for the
-        reason floor_runner counts this file's: the leg runs the fixtures
-        first, and a fixture suite that stopped running is exactly how a
-        comparison that can no longer fail goes unnoticed.
-
-    `>=`, and the undercount is NAMED rather than left as slack: the leg also
-    runs five checks that are a property of the tool rather than of any row --
-    the census diff, and the two set checks each of the gate and budget halves
-    ("every baselined row was measured" and its converse, "every live-gate
-    stage has a budget row" and its converse). 85 against a real 90 today.
-    Undercounting weakens the floor; overcounting breaks the build for no
-    reason and gets the floor deleted, and only the first is recoverable.
-    """
-    rows = _tsv_rows('docs/entity-ratchet.tsv', 5)
-    stages = _tsv_rows('tools/live-gate-budget.tsv', 10)
-    fixtures = _count_sites('tools/entity-ratchet', RE_CK)
-    # EACH POPULATION IS REFUSED AT ZERO, not just their sum. Two of the three
-    # could empty out and the sum would still be a plausible non-zero number,
-    # and a floor the leg clears while measuring nothing is the shape this file
-    # exists to remove. _nonzero on the total alone would not have caught it.
-    for what, count, where in (('ratchet rows', rows, 'docs/entity-ratchet.tsv'),
-                               ('budget stages', stages, 'tools/live-gate-budget.tsv'),
-                               ('ck( sites', fixtures, 'tools/entity-ratchet')):
-        _nonzero(where, what, count)
-    n = rows + stages + fixtures
-    return [('checks', '>=',
-             _nonzero('docs/entity-ratchet.tsv', 'checks', n),
-             '%d ratchet rows + %d budget stages + %d ck( in entity-ratchet'
-             % (rows, stages, fixtures))]
-
-
-RE_FIXTURE_TREE = re.compile(r'^FIXTURE_TREE_EXPECT = \{(.*?)^\}', re.S | re.M)
-
-
-RE_MANIFEST = re.compile(r'^MANIFEST = \[(.*?)^\]', re.S | re.M)
-
 # THE ORACLE LEG (src/test/oracle): ports checked against upstream Valve code
 # read from the pristine clone at valve-sdk.lock. Two halves, each sized the
 # way its kind is sized elsewhere here: the managed project's xUnit cases, and
@@ -589,7 +541,7 @@ def roster_census():
 
 
 # THE TIERS (Makefile TEST_LEGS / TEST_FULL_LEGS). `make test` runs checks,
-# managed, managed-server, managed-client, tf2_descent, native, entity and ui;
+# managed, managed-server, managed-client, tf2_descent, native and ui;
 # `make test-full` adds runner, checks-full, oracle-managed, oracle-native and
 # census. Every leg here belongs to exactly one tier, so each tier's size is the
 # sum of its legs' floors (`tools/leg-floor --list`). native and census split
@@ -598,7 +550,6 @@ def roster_census():
 # together are the whole manifest. `oracle` is the two oracle legs' sum, for
 # `make oracle-test`; no tier runs it as a leg.
 LEGS = {
-    'entity': floor_entity,
     'runner': floor_runner,
     'checks': floor_checks,
     'checks-full': floor_checks_full,
@@ -668,7 +619,9 @@ def _native_tier(tier):
     out = []
     for unit in ('gtest-binaries', 'must-not-compile'):
         n = sum(1 for u, _name in names if u == unit)
-        if n or tier == 'fast':
+        # The fast tier always has binaries; its must-not-compile checks may
+        # all be slow (each is a compile of 5 s or more).
+        if n or (tier == 'fast' and unit == 'gtest-binaries'):
             out.append((unit, '==', _nonzero(NATIVE_MANIFEST, 'native-%s %s' % (tier, unit), n),
                         '%d of the native leg\'s %s, by tools/test-tiers.tsv' % (n, unit)))
     if not out:
@@ -1050,28 +1003,6 @@ def self_test():
         put('tools/leg-floor', '# nor here\n')
         ck('a self-test with no checks REFUSES rather than declaring 0',
            n_of(floor_runner) is None)
-
-        # -- entity ------------------------------------------------------
-        put('docs/entity-ratchet.tsv',
-            '# gate\trole\tmetric\tserver\tclient\n'
-            '1\tgate\tcstyle\t3\t4\n'
-            '3\tgate\tEHANDLE\t5\t6\n'
-            'a stray fragment with no columns at all\n')
-        put('tools/live-gate-budget.tsv',
-            '# columns:\n'
-            'join\ttotal\t1\t2\t3\t4\t5\t6\t7\t8\n')
-        put('tools/entity-ratchet',
-            '    ck("one", True)\n    ck("two", True)\n'
-            '# ck("commented out", True)\n')
-        ck('entity sums ratchet rows, budget stages and its own fixture checks',
-           n_of(floor_entity) == 5, 'got %s, want 2 + 1 + 2' % n_of(floor_entity))
-        ck('a line without the reader\'s column count is not a row',
-           n_of(floor_entity) == 5, 'the fixture carries a stray fragment')
-
-        put('docs/entity-ratchet.tsv', '# every row gone\n')
-        ck('an EMPTY ratchet baseline REFUSES, even though the other two '
-           'populations would still sum to a plausible number',
-           n_of(floor_entity) is None)
 
         # -- the declaration itself --------------------------------------
         put(NATIVE_MANIFEST,

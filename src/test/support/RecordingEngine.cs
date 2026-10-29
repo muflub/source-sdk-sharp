@@ -80,7 +80,6 @@ public sealed class RecordingEngine :
     IEngineEntityRender,
     IEngineDamage,
     IEngineGameRulesPolicy,
-    IEngineCollisionRules,
     IEngineBrushMovement,
     IEnginePlayers,
     IEnginePlayerMovement,
@@ -645,6 +644,7 @@ public sealed class RecordingEngine :
     bool IEngineEntities.SetKeyValue(EntityHandle entity, string key, string value) => Record<bool>("Entities.SetKeyValue", entity, key, value);
     void IEngineEntities.SetOrigin(EntityHandle h, Vector origin) => RecordVoid("Entities.SetOrigin", h, origin);
     void IEngineEntities.SetOwner(EntityHandle h, EntityHandle owner) => RecordVoid("Entities.SetOwner", h, owner);
+    void IEngineEntities.SetClassName(EntityHandle h, string className) => RecordVoid("Entities.SetClassName", h, className);
     void IEngineEntities.SetVelocity(EntityHandle h, Vector velocity) => RecordVoid("Entities.SetVelocity", h, velocity);
     void IEngineEntities.Spawn(EntityHandle entity) => RecordVoid("Entities.Spawn", entity);
     void IEngineEntities.Teleport(EntityHandle h, Vector origin, Vector? angles, bool zeroVelocity) => RecordVoid("Entities.Teleport", h, origin, angles, zeroVelocity);
@@ -691,11 +691,11 @@ public sealed class RecordingEngine :
     }
 
     /// <summary>
-    /// EMPTY, ALWAYS, and recorded. There is no engine memory behind a recorded
-    /// engine, and a scratch array handed back here would be a block a test
-    /// could write into and nothing could read — which reads as the write having
-    /// landed. An empty span is what "there is no block here" already means
-    /// everywhere else.
+    /// EMPTY unless a fact stubs one, and recorded. There is no engine memory
+    /// behind a recorded engine, and a scratch array handed back here would be
+    /// a block a test could write into and nothing could read — which reads as
+    /// the write having landed. An empty span is what "there is no block here"
+    /// already means everywhere else.
     /// </summary>
     // The empty answers of a side with no lists and no replay, as the
     // interface's default bodies gave before plan_shim_areas_split phase 4.
@@ -705,8 +705,12 @@ public sealed class RecordingEngine :
 
     Span<byte> IEngineEntities.GetEngineBlock(EntityHandle entity)
     {
+        // Or a block the fact built and stubbed (a byte[], or a factory that
+        // reads the call just recorded): memory the fact itself reads back.
         RecordVoid("Entities.GetEngineBlock", entity);
-        return Span<byte>.Empty;
+        return _answers.ContainsKey("Entities.GetEngineBlock")
+            ? (Value<byte[]>("Entities.GetEngineBlock") ?? []).AsSpan()
+            : Span<byte>.Empty;
     }
 
     void IEngineEntities.DestroyPhysics(EntityHandle entity)
@@ -742,6 +746,7 @@ public sealed class RecordingEngine :
     SolidFlags IEngineEntities.GetSolidFlags(EntityHandle entity) => Record<SolidFlags>("Entities.GetSolidFlags", entity);
     SolidType IEngineEntities.GetSolidType(EntityHandle entity) => Record<SolidType>("Entities.GetSolidType", entity);
     void IEngineEntities.SetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags) => RecordVoid("Entities.SetSolidity", entity, solidType, solidFlags);
+    void IEngineEntities.UseTriggerBounds(EntityHandle entity, bool enable, float bloat, bool uniform) => RecordVoid("Entities.UseTriggerBounds", entity, enable, bloat, uniform);
     void IEngineEntities.SetBounds(EntityHandle entity, Vector mins, Vector maxs) => RecordVoid("Entities.SetBounds", entity, mins, maxs);
     void IEngineEntities.SetSpawnFlags(EntityHandle entity, int spawnFlags) => RecordVoid("Entities.SetSpawnFlags", entity, spawnFlags);
 
@@ -756,6 +761,23 @@ public sealed class RecordingEngine :
     void IEngineEntityPhysics.AddGameFlags(EntityHandle entity, uint flags) => RecordVoid("EntityPhysics.AddGameFlags", entity, flags);
     float IEngineEntityPhysics.GetMass(EntityHandle entity) => Record<float>("EntityPhysics.GetMass", entity);
     bool IEngineEntityPhysics.InitPhysics(EntityHandle entity, bool asleep, bool debris) => Record<bool>("EntityPhysics.InitPhysics", entity, asleep, debris);
+    bool IEngineEntityPhysics.InitSpherePhysics(EntityHandle entity, float radius) => Record<bool>("EntityPhysics.InitSpherePhysics", entity, radius);
+    // No stub needed, as InitShadowPhysics: a static brush's create answers "no object".
+    bool IEngineEntityPhysics.InitStaticPhysics(EntityHandle entity)
+    {
+        RecordVoid("EntityPhysics.InitStaticPhysics", entity);
+        return false;
+    }
+    void IEngineEntityPhysics.EnableCollisions(EntityHandle entity, bool enable) => RecordVoid("EntityPhysics.EnableCollisions", entity, enable);
+    // No stub needed: a test engine has no physics, so every mover's spawn
+    // making its shadow answers "no object" unless a fact says otherwise.
+    bool IEngineEntityPhysics.InitShadowPhysics(EntityHandle entity, bool allowPhysicsMovement, bool allowPhysicsRotation)
+    {
+        RecordVoid("EntityPhysics.InitShadowPhysics", entity, allowPhysicsMovement, allowPhysicsRotation);
+        return false;
+    }
+    int IEngineEntityPhysics.UpdateShadows(float frameTime) { RecordVoid("EntityPhysics.UpdateShadows", frameTime); return 0; }
+    int IEngineEntityPhysics.PhysicsKind(EntityHandle entity) => Record<int>("EntityPhysics.PhysicsKind", entity);
     void IEngineEntityPhysics.SetBounce(EntityHandle h, int bounces) => RecordVoid("EntityPhysics.SetBounce", h, bounces);
     void IEngineEntityPhysics.SetBrushSolidity(EntityHandle entity, BrushSolidity solidity) => RecordVoid("EntityPhysics.SetBrushSolidity", entity, solidity);
     CollisionGroup IEngineEntityPhysics.GetCollisionGroup(EntityHandle entity) => Record<CollisionGroup>("EntityPhysics.GetCollisionGroup", entity);
@@ -876,6 +898,8 @@ public sealed class RecordingEngine :
     void IEngineEntityRender.SetSequence(EntityHandle entity, int sequence) => RecordVoid("EntityRender.SetSequence", entity, sequence);
     void IEngineEntityRender.SetViewModel(EntityHandle entity, bool enable) => RecordVoid("EntityRender.SetViewModel", entity, enable);
     void IEngineEntityRender.PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart) => RecordVoid("EntityRender.PlaySequence", entity, sequence, playbackRate, restart);
+    void IEngineEntityRender.PlaySequenceAt(EntityHandle entity, int sequence, float playbackRate, float cycle) => RecordVoid("EntityRender.PlaySequenceAt", entity, sequence, playbackRate, cycle);
+    void IEngineEntityRender.SetCycle(EntityHandle entity, float cycle) => RecordVoid("EntityRender.SetCycle", entity, cycle);
     void IEngineEntityRender.SetSkin(EntityHandle entity, int skin) => RecordVoid("EntityRender.SetSkin", entity, skin);
     void IEngineEntityRender.SetTextureFrame(EntityHandle entity, int frame) => RecordVoid("EntityRender.SetTextureFrame", entity, frame);
     void IEngineEntityRender.SetTransmitAlways(EntityHandle entity, bool always) => RecordVoid("EntityRender.SetTransmitAlways", entity, always);
@@ -892,19 +916,11 @@ public sealed class RecordingEngine :
     // GameRulesPolicy
     void IEngineGameRulesPolicy.RegisterPolicy(GameRulesPolicyBlob policy) => RecordVoid("GameRulesPolicy.RegisterPolicy", policy);
 
-    // CollisionRules
-    // Recorded is received: the recorder is this side's native, so it reports delivery.
-    bool IEngineCollisionRules.RegisterCollisionRules(uint[] rows)
-    {
-        RecordVoid("CollisionRules.RegisterCollisionRules", rows);
-        return true;
-    }
     void IEngineDamage.TakeDamage(EntityHandle entity, EntityHandle attacker, float damage, DamageType damageType, Vector? direction, Vector forceOrigin, bool physicsOnly) => RecordVoid("Damage.TakeDamage", entity, attacker, damage, damageType, direction, forceOrigin, physicsOnly);
 
     // BrushMovement
     void IEngineBrushMovement.MoveToAngles(EntityHandle entity, Vector destination, float speed) => RecordVoid("BrushMovement.MoveToAngles", entity, destination, speed);
     void IEngineBrushMovement.MoveToPosition(EntityHandle entity, Vector destination, float speed) => RecordVoid("BrushMovement.MoveToPosition", entity, destination, speed);
-    void IEngineBrushMovement.SetSurfaceEdges(EntityHandle entity, byte[] packed, int count) => RecordVoid("BrushMovement.SetSurfaceEdges", entity, packed, count);
     void IEngineBrushMovement.StopMoving(EntityHandle entity) => RecordVoid("BrushMovement.StopMoving", entity);
     void IEngineBrushMovement.Spin(EntityHandle entity, Vector degreesPerSecond) => RecordVoid("BrushMovement.Spin", entity, degreesPerSecond);
 
@@ -959,6 +975,10 @@ public sealed class RecordingEngine :
 
     // PlayerMovement
     void IEnginePlayerMovement.ClearMovementConstraint(EntityHandle player) => RecordVoid("PlayerMovement.ClearMovementConstraint", player);
+    void IEnginePlayerMovement.SetSuitPower(EntityHandle player, float power) => RecordVoid("PlayerMovement.SetSuitPower", player, power);
+    void IEnginePlayerMovement.SwallowUse(EntityHandle player) => RecordVoid("PlayerMovement.SwallowUse", player);
+    void IEnginePlayerMovement.QueueUseDenySound(EntityHandle player) => RecordVoid("PlayerMovement.QueueUseDenySound", player);
+    bool IEnginePlayerMovement.TakeUseDenySound(EntityHandle player) => Record<bool>("PlayerMovement.TakeUseDenySound", player);
     void IEnginePlayerMovement.ForceButtons(EntityHandle player, InputButtons buttons, bool forced) => RecordVoid("PlayerMovement.ForceButtons", player, buttons, forced);
     InputButtons IEnginePlayerMovement.GetButtons(EntityHandle player) => Record<InputButtons>("PlayerMovement.GetButtons", player);
     void IEnginePlayerMovement.RegisterParams(MovementParams parameters) => RecordVoid("PlayerMovement.RegisterParams", parameters);
@@ -996,10 +1016,10 @@ public sealed class RecordingEngine :
     void IEngineHud.ViewportShow(string panel, bool show, IReadOnlyList<KeyValuePair<string, string>> data, ViewportActions actions) => RecordVoid("Hud.ViewportShow", panel, show, data.ToList(), actions);
 
     // WorldQuery
-    (Vector Right, Vector Up) IEngineWorldQuery.AngleVectorsFromForward(Vector forward) => Record<(Vector Right, Vector Up)>("WorldQuery.AngleVectorsFromForward", forward);
     int IEngineWorldQuery.EntitiesInSphere(Vector center, float radius, Span<EntityHandle> into) => EntitiesInSphere(center, radius, into);
     int IEngineWorldQuery.GetArea(Vector origin) => Record<int>("WorldQuery.GetArea", origin);
     HullResult IEngineWorldQuery.TraceHull(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore) => Record<HullResult>("WorldQuery.TraceHull", start, end, mins, maxs, mask, ignore);
+    SurfaceTraceResult IEngineWorldQuery.TraceBox(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, EntityHandle ignore) => Record<SurfaceTraceResult>("WorldQuery.TraceBox", start, end, mins, maxs, mask, ignore);
     EntityHullTrace IEngineWorldQuery.EntityTraceHull(EntityHandle entity, Vector start, Vector end, Vector mins, Vector maxs, uint mask, int collisionGroup) => Record<EntityHullTrace>("WorldQuery.EntityTraceHull", entity, start, end, mins, maxs, mask, collisionGroup);
     TraceResult IEngineWorldQuery.TraceLine(Vector start, Vector end, TraceMask mask, EntityHandle ignore) => Record<TraceResult>("WorldQuery.TraceLine", start, end, mask, ignore);
     SurfaceTraceResult IEngineWorldQuery.TraceLineSurface(Vector start, Vector end, TraceMask mask, EntityHandle ignore) => Record<SurfaceTraceResult>("WorldQuery.TraceLineSurface", start, end, mask, ignore);
@@ -1009,6 +1029,9 @@ public sealed class RecordingEngine :
     // that bounces off a door and one that falls through it, and a recording
     // that forgot which filter ran could not tell them apart.
     ClientTraceResult IEngineWorldQuery.ClientTraceLine(Vector start, Vector end, TraceMask mask, TraceFilter filter, int passEntityIndex) => Record<ClientTraceResult>("WorldQuery.ClientTraceLine", start, end, mask, filter, passEntityIndex);
+    // The list is copied: the caller's span is a scratch buffer it refills.
+    ClientTraceResult IEngineWorldQuery.ClientClipRayToEntities(Vector start, Vector end, TraceMask mask, ReadOnlySpan<int> entityIndices) => Record<ClientTraceResult>("WorldQuery.ClientClipRayToEntities", start, end, mask, entityIndices.ToArray());
+    ClientBoxTrace IEngineWorldQuery.ClientTraceHullEntities(Vector start, Vector end, Vector mins, Vector maxs, TraceMask mask, int passEntityIndex, ReadOnlySpan<int> entityIndices) => Record<ClientBoxTrace>("WorldQuery.ClientTraceHullEntities", start, end, mins, maxs, mask, passEntityIndex, entityIndices.ToArray());
     // C-Phase 3 lane DECALS. STRICT, deliberately: this is the question
     // C_BaseEntity::AddDecal's switch is made from, and a double that answered
     // "no such entity" by default would turn every decal test into a test of
@@ -1045,6 +1068,7 @@ public sealed class RecordingEngine :
     bool IEngineSound.EmitWorldSoundScript(string soundName, Vector origin, int channel, float volume) => Record<bool>("Sound.EmitWorldSoundScript", soundName, origin, channel, volume);
     void IEngineSound.EmitSoundAtPosition(string soundName, Vector origin) => RecordVoid("Sound.EmitSoundAtPosition", soundName, origin);
     void IEngineSound.EntityEmitSound(EntityHandle entity, string soundName) => RecordVoid("Sound.EntityEmitSound", entity, soundName);
+    void IEngineSound.EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) => RecordVoid("Sound.EntityEmitSoundAs", entity, soundName, volume, pitch);
     void IEngineSound.EntityStopSound(EntityHandle entity, string soundName) => RecordVoid("Sound.EntityStopSound", entity, soundName);
     void IEngineSound.SoundPatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption) => RecordVoid("Sound.SoundPatchEmit", patch, volume01, pitch, flags, startTime, emitCaption);
     void IEngineSound.SoundPatchStop(int patch) => RecordVoid("Sound.SoundPatchStop", patch);
@@ -1062,6 +1086,7 @@ public sealed class RecordingEngine :
     // Effects
     void IEngineEffects.BloodEffect(Vector origin, Vector direction, BloodColor color, float amount, bool stream, BloodSpray sprayFlags) => RecordVoid("Effects.BloodEffect", origin, direction, color, amount, stream, sprayFlags);
     void IEngineEffects.BubbleEffect(EntityHandle entity, int count, float speed) => RecordVoid("Effects.BubbleEffect", entity, count, speed);
+    void IEngineEffects.BubbleTrailEffect(Vector from, Vector to, int count) => RecordVoid("Effects.BubbleTrailEffect", from, to, count);
 
     // The description is recorded WHOLE rather than by name, because what a test
     // asserts about a registration is the shape it published — the table, the
@@ -1192,12 +1217,11 @@ public sealed class RecordingEngine :
     // C-Phase 3 lane CX's three. The fourth, ClientTraceLine, is recorded with
     // the other world queries above -- a trace is not an effect.
     void IEngineEffects.ClientDecalStaticProp(Vector start, Vector end, int staticPropIndex, int decalIndex) => RecordVoid("Effects.ClientDecalStaticProp", start, end, staticPropIndex, decalIndex);
-    bool IEngineEffects.ClientIsLowViolence() => Record<bool>("Effects.ClientIsLowViolence");
     string IEngineEffects.ClientDecalNameFromIndex(int decalIndex) => Record<string?>("Effects.ClientDecalNameFromIndex", decalIndex) ?? string.Empty;
     // C-Phase 3 lane DECALS's two drawing arms. The third slot of that lane,
     // ClientEntityModelType, is recorded with the world queries above -- what
     // an entity's model IS is a question, not an effect.
-    void IEngineEffects.ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayEnd, int decalIndex) => RecordVoid("Effects.ClientDecalStudioModel", entIndex, rayStart, rayEnd, decalIndex);
+    void IEngineEffects.ClientDecalStudioModel(int entIndex, Vector rayStart, Vector rayDelta, int decalIndex) => RecordVoid("Effects.ClientDecalStudioModel", entIndex, rayStart, rayDelta, decalIndex);
     void IEngineEffects.ClientDecalBrushModel(int entIndex, Vector decalCenter, int decalIndex) => RecordVoid("Effects.ClientDecalBrushModel", entIndex, decalCenter, decalIndex);
 
     // C-Phase 6 lane FRAME's two. The statics record comes back through a
@@ -1239,6 +1263,7 @@ public sealed class RecordingEngine :
     int IEngineVisibility.ColorCorrectionAdd(string lookupFile) => Record<int>("Visibility.ColorCorrectionAdd", lookupFile);
     void IEngineVisibility.ColorCorrectionRemove(int handle) => RecordVoid("Visibility.ColorCorrectionRemove", handle);
     void IEngineVisibility.ColorCorrectionSetWeight(int handle, float weight) => RecordVoid("Visibility.ColorCorrectionSetWeight", handle, weight);
+    void IEngineVisibility.ColorCorrectionResetWeights() => RecordVoid("Visibility.ColorCorrectionResetWeights");
     void IEngineVisibility.DynamicLightRelease(int key) => RecordVoid("Visibility.DynamicLightRelease", key);
     void IEngineVisibility.DynamicLightUpdate(in DynamicLight light) => RecordVoid("Visibility.DynamicLightUpdate", light);
     void IEngineVisibility.SetLightStyle(int style, string pattern) => RecordVoid("Visibility.SetLightStyle", style, pattern);

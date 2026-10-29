@@ -154,7 +154,7 @@ public class EntityInjectionTests
     public void RealClientEntitiesReachTheirRegistries()
     {
         var lights = new DynamicLights(ClientDoubles.Fake());
-        var corrections = new ColorCorrections(ClientDoubles.Fake());
+        var corrections = new ColorCorrections(ClientDoubles.Fake(), ClientDoubles.Fake());
 
         var registry = new ClientStandaloneRegistry(ClientDoubles.UnattachedEngine());
         registry.RegisterAll(typeof(ClientDynamicLight).Assembly);

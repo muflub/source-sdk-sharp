@@ -11,8 +11,8 @@ using SourceSharp.Shared;
 namespace SourceSharp.Server;
 
 /// <summary>
-/// A door that slides. The map gives a direction as angles and a distance
-/// worked out from how big the brush is, which is why the open position is
+/// A door that slides. The map gives a direction (movedir) and the distance
+/// is worked out from how big the brush is, which is why the open position is
 /// computed rather than given.
 ///
 /// Water whose level moves is the same entity, and stock says so the same way:
@@ -26,53 +26,72 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.FuncWater, ScriptedEntityKind.Brush)]
 public sealed class FuncDoor : MovingBrush
 {
-    public FuncDoor(IEnginePrecache precache, IEngineSound sound)
-        : base(precache, sound)
+    public FuncDoor(IEnginePrecache precache, IEngineSound sound, IEngineDamage damage, IEngineNetworking net,
+                    PhysicsEntitySolver solver)
+        : base(precache, sound, damage, net, solver)
     {
     }
 
     /// <summary>What a map may set on this entity. See <see cref="FuncDoorVars"/>.</summary>
     [ScriptVars] public FuncDoorVars FuncDoorVars = new();
 
-    protected override Vector ComputeOpenPosition()
+    /// <summary>
+    /// m_vecPosition1 and m_vecPosition2: where it sits shut and open, worked
+    /// out ONCE, at spawn, from the map's keys, which a hot reload does not
+    /// read again -- so they are carried. Uncarried, the rebuilt instance
+    /// held Vector.Zero and every close after a cs_sv_reload headed for the
+    /// world origin (OnSpawnFieldReloadTests).
+    /// </summary>
+    [SaveField] internal Vector ClosedPosition { get; private set; }
+
+    [SaveField] internal Vector OpenPosition { get; private set; }
+
+    protected override bool IsRotatingDoor => false;
+
+    protected override (string Move, string Arrive, string Locked) DefaultSounds
+        => ("DoorSound.DefaultMove", "DoorSound.DefaultArrive", "DoorSound.DefaultLocked");
+
+    /// <summary>
+    /// CBaseDoor::Spawn: the travel is the movedir key (the FGD's "Move
+    /// Direction"), 0 0 0 -- +x -- when the map gives none, the brush's own
+    /// depth along it less the lip. The angles are the brush's rotation and
+    /// stay: a map that points a door with its angles has a door turned on its
+    /// side, in stock and here (MoverDirectionTests). spawnpos 1 or the
+    /// obsolete start-open flag put it at the open end.
+    /// </summary>
+    protected override void SpawnTravel()
     {
-        // A door's direction comes from its ANGLES, not from a movedir key.
-        // That is how the FGD works and how every map is authored: the mapper
-        // points the door and the engine converts that to a vector, then zeroes
-        // the angles so the brush is not left rotated. Nothing writes "movedir",
-        // which is why reading it gave every door the same default direction.
-        //
-        // "Did the map write movedir" used to be asked by comparing the key's
-        // text against "0 0 0", which answered no for a map that wrote exactly
-        // that on purpose. IsSet asks the question the code actually means.
-        var direction = FuncDoorVars.MoveDirIsSet
-            ? Angles.Forward(FuncDoorVars.MoveDir)
-            : Angles.Forward(SpawnAngles);
+        ClosedPosition = SpawnOrigin;
+        var direction = Angles.Forward(Vars.MoveDir);
+        OpenPosition = ClosedPosition + direction * (DepthAlong(Entities.GetBoundsSize(Handle), direction) - FuncDoorVars.Lip);
 
-        SetAngles(Vector.Zero);
-
-        // Without an explicit distance the door travels its own depth along the
-        // move direction, less the lip. That is the stock rule, and it is why a
-        // door drawn wider slides further without the mapper saying so.
-        float distance = FuncDoorVars.MoveDistance > 0f ? FuncDoorVars.MoveDistance : DefaultTravel(direction) - FuncDoorVars.Lip;
-
-        return ClosedPosition + direction * distance;
+        if (Vars.SpawnPosition == 1 || Flags.HasFlag(DoorFlag.StartOpenObsolete))
+        {
+            Origin = OpenPosition;
+            State = ToggleState.AtTop;
+        }
+        else
+        {
+            State = ToggleState.AtBottom;
+        }
     }
 
     /// <summary>
-    /// How far the brush must travel to clear its own opening. Approximated
-    /// from the collision bounds, which is what the engine measures too.
+    /// How deep a brush is along a direction, from its collision size: stock's
+    /// <c>DotProductAbs( movedir, OBBSize - (2,2,2) )</c>, the 2 being the unit
+    /// the engine grows a brush's bounds by on every side.
     /// </summary>
-    private float DefaultTravel(Vector direction)
-    {
-        var size = Entities.GetBoundsSize(Handle);
+    internal static float DepthAlong(Vector boundsSize, Vector direction)
+        => MathF.Abs(direction.X * (boundsSize.X - 2f))
+         + MathF.Abs(direction.Y * (boundsSize.Y - 2f))
+         + MathF.Abs(direction.Z * (boundsSize.Z - 2f));
 
-        return MathF.Abs(direction.X * size.X)
-             + MathF.Abs(direction.Y * size.Y)
-             + MathF.Abs(direction.Z * size.Z);
-    }
+    protected override void TravelUp(float sign) => MoveTo(OpenPosition, Vars.Speed);
 
-    protected override void Travel(Vector destination) => MoveTo(destination, Vars.Speed);
+    protected override void TravelDown() => MoveTo(ClosedPosition, Vars.Speed);
+
+    /// <summary>CBaseDoor::SetToggleState.</summary>
+    protected override void PlaceAt(ToggleState end) => Origin = end == ToggleState.AtTop ? OpenPosition : ClosedPosition;
 }
 
 /// <summary>
@@ -81,12 +100,6 @@ public sealed class FuncDoor : MovingBrush
 [ScriptVars]
 public partial class FuncDoorVars
 {
-    /// <summary>Which way it slides, written by the map as angles.</summary>
-    public QAngle MoveDir { get; set; }
-
-    /// <summary>How far it slides. Zero means the map wants the brush's own size used.</summary>
-    public float MoveDistance { get; set; }
-
     /// <summary>How much of the brush stays behind when open.</summary>
     public float Lip { get; set; }
 }

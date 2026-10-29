@@ -13,7 +13,6 @@ SourceSharp.Abi.EngineEntities	EntityGetEyeAngles
 SourceSharp.Abi.EngineEntities	EntityGetEyePosition
 SourceSharp.Abi.EngineEntities	EntityGetIndex
 SourceSharp.Abi.EngineEntities	EntityGetOrigin
-SourceSharp.Abi.EngineEntities	EntityGetSolidFlags
 SourceSharp.Abi.EngineEntities	EntityGetVelocity
 SourceSharp.Abi.EngineEntities	EntityIsPlayer
 SourceSharp.Abi.EngineEntities	EntityIsValid
@@ -34,7 +33,6 @@ SourceSharp.Abi.EngineEntityPhysics	EntityApplyTorque
 SourceSharp.Abi.EngineEntityPhysics	EntityBecomePhysicsTrigger
 SourceSharp.Abi.EngineEntityPhysics	EntityEnableMotion
 SourceSharp.Abi.EngineEntityPhysics	EntityGetMass
-SourceSharp.Abi.EngineEntityPhysics	EntityGetSolidFlags
 SourceSharp.Abi.EngineEntityPhysics	EntityInitPhysics
 SourceSharp.Abi.EngineEntityPhysics	EntityPhysicsObject
 SourceSharp.Abi.EngineEntityPhysics	EntityPhysicsSleep
@@ -92,6 +90,7 @@ SourceSharp.Abi.EngineServices	get_Tracer
 SourceSharp.Abi.EngineServices	get_VPhysics
 SourceSharp.Abi.EngineStringTables	get_Side
 SourceSharp.Abi.EngineWorldQuery	EntityTraceHull
+SourceSharp.Abi.EngineWorldQuery	TraceBox
 SourceSharp.Abi.EngineWorldQuery	TraceHull
 SourceSharp.Abi.EngineWorldQuery	TraceLine
 SourceSharp.Abi.EngineWorldQuery	TraceLineSurface

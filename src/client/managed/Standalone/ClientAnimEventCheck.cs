@@ -89,7 +89,7 @@ public sealed class AnimEventCheckCommand : IConCommand
         // entity with the v_ model loaded — a weapon's own handle wears the
         // world model and would answer about a different .mdl entirely.
         var live = _standalones.Live();
-        var viewModel = live.FirstOrDefault(e => e.ClassName == EntityNames.SsViewModel);
+        var viewModel = live.FirstOrDefault(e => e.ClassName == EntityNames.PredictedViewModel);
 
         if (viewModel is null)
         {

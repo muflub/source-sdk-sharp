@@ -4,43 +4,35 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-// The map-entity parse's entry points that need no game/ type, for server.so
-// TUs on the R5 include set (plan_server_novalve.md P5). All of them are
-// defined in shell_mapparse.cpp, which includes this header so the compiler
-// holds these declarations to its definitions.
-//
-// The parse itself is ss::MapEntity_ParseEntity over an ss::IMapEntityFilter
-// (P5 lane E): the filter is server.so's own interface, so it is not a second
-// body under the fork's IMapEntityFilter name, and the entry point that takes
-// one is ss:: too, so a TU that still sees mapentities.h's declaration of
-// ::MapEntity_ParseEntity is never offered two overloads for a NULL filter.
-// The plain entry points below agree with mapentities.h word for word, so a
-// TU may include both.
-//=============================================================================//
+// Map-entity entry points that need no game/ type, defined in shell_mapparse.cpp.
 
-#ifndef SS_MAPENTITIES_H
-#define SS_MAPENTITIES_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stddef.h>
 
 #include "igameentity_fwd.h"
 class CWorld;
+class CServerEntityContext;
+class IServerEntity;
+class IServerNetworkable;
 
+namespace ss
+{
+class IEntityFactoryDictionary;
+}
 
-// Builds the world from its parsed key/value pairs (block order) and spawns it:
-// the level-init step that must have the world before any other entity exists.
-// Managed parsed the map and picked the block (IShimLevel::SpawnWorld). False
-// when the factory gave nothing or the object did not claim the singleton.
-bool MapEntity_SpawnWorld( const char *const *ppKeys, const char *const *ppValues, int nKeys );
+// Builds and spawns the world from its parsed key/value pairs, before any other
+// entity exists. False when the factory gave nothing or the object did not claim
+// the singleton.
+bool MapEntity_SpawnWorld( ss::IEntityFactoryDictionary &factories, const CServerEntityContext &entities,
+						   const char *const *ppKeys, const char *const *ppValues, int nKeys );
 
-// A standalone entity from its parsed key/value pairs (block order, classname
-// included), created and keyed; the caller places and spawns it. The same work
-// the text parse's non-base arm did, without the text. NULL when no registered
-// class answers pClassName.
-IGameEntity *MapEntity_CreateFromKeys( const char *pClassName, const char *const *ppKeys,
-                                       const char *const *ppValues, int nKeys );
+// Creates and keys a standalone entity from its parsed key/value pairs (classname
+// included); the caller places and spawns it. NULL when no class answers pClassName.
+IGameEntity *MapEntity_CreateFromKeys( ss::IEntityFactoryDictionary &factories, const char *pClassName,
+									   const char *const *ppKeys, const char *const *ppValues, int nKeys );
 
-#endif // SS_MAPENTITIES_H
+// Creates a classname on either hierarchy, asking the factory once. The caller owns the result.
+IGameEntity *CreateEntityByNameEither( ss::IEntityFactoryDictionary &factories, const char *className,
+									   IGameEntity **ppOutBaseEntity, IServerEntity **ppOutServerEntity );
+IServerNetworkable *CreateNetworkableEntityByName( ss::IEntityFactoryDictionary &factories, const char *className );

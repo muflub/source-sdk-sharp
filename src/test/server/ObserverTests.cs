@@ -62,7 +62,7 @@ public class ObserverTests
             services.AddInstance<IEntityDirectory>(registry);
             registry.Services = services;
             for (int i = 0; i < count; i++)
-                registry.KeyValue(Handles[i], EntityNames.SsPlayer, "targetname", "p" + i);
+                registry.KeyValue(Handles[i], EntityNames.Player, "targetname", "p" + i);
             Players = Handles.Take(count).Select(h => (SsPlayer)registry.Get(h)!).ToArray();
             foreach (var p in Players)
             {

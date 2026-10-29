@@ -220,10 +220,21 @@ public sealed class StockContract
         // BaseOnlyFiles for why they are read at all.
         var baseOnly = new HashSet<string>(BaseOnlyFiles(gameDir), StringComparer.Ordinal);
 
+        // A BASE NAMED BY A MACRO: every HL2MP weapon's chain reads
+        // CBaseCombatWeapon <- BASECOMBATWEAPON_DERIVED_FROM, which
+        // basecombatweapon_shared.h defines as CEconEntity under
+        // USES_ECON_ITEMS and CBaseAnimating otherwise. Read with the
+        // project's own defines, the first live definition wins.
+        var defined = ProjectDefines(gameDir);
+        var macros = new Dictionary<string, string>(StringComparer.Ordinal);
+
         foreach (string file in SourceFiles(gameDir).Concat(baseOnly))
         {
             string text = CodeOnly(File.ReadAllText(file));
             string shortName = Path.GetFileName(file);
+
+            foreach (var (name, value) in LiveDefines(text, defined))
+                macros.TryAdd(name, value);
 
             if (!baseOnly.Contains(file))
             {
@@ -281,6 +292,12 @@ public sealed class StockContract
                     Bag(inputs, cls).Add(d.Groups["name"].Value);
                 }
             }
+        }
+
+        foreach (var (cls, edge) in bases.ToArray())
+        {
+            if (macros.TryGetValue(edge.Base, out string? real))
+                bases[cls] = (real, edge.Rank, edge.File);
         }
 
         foreach (string cls in inputs.Keys.Concat(outputs.Keys).Concat(keys.Keys)
@@ -351,27 +368,51 @@ public sealed class StockContract
     //-------------------------------------------------------------------------
 
     /// <summary>
-    /// The game DLL's two source sets. <c>src/game/client</c> is deliberately
-    /// out: a client-side <c>LINK_ENTITY_TO_CLASS</c> registers a different
-    /// entity for the same map name, and mixing the two would compare a managed
-    /// server entity against a client one.
+    /// What the HL2MP game DLL compiles of the game's two server source sets:
+    /// <c>server/server_hl2mp.vpc</c>'s files (<see cref="VpcProject"/>).
+    /// <c>src/game/client</c> is deliberately out: a client-side
+    /// <c>LINK_ENTITY_TO_CLASS</c> registers a different entity for the same
+    /// map name, and mixing the two would compare a managed server entity
+    /// against a client one.
+    ///
+    /// <para>
+    /// NOT EVERY FILE UNDER <c>server</c> AND <c>shared</c>, which is what this
+    /// read until 2026-10-26. The single-player and episodic sources declare
+    /// the same C++ classes as HL2MP's (<c>CWeaponCrossbow</c> in
+    /// <c>server/hl2</c> and <c>shared/hl2mp</c>), and a class's bags are
+    /// keyed by its C++ name, so the two datadescs were read as one and the
+    /// first file found linked the map name: HL2MP's weapons were held to
+    /// single-player members the HL2MP DLL never compiled.
+    /// </para>
     /// </summary>
     public static IEnumerable<string> SourceFiles(string gameDir)
     {
-        foreach (string side in new[] { "server", "shared" })
+        string project = Path.Combine(gameDir, "server", "server_hl2mp.vpc");
+        string server = Path.Combine(gameDir, "server") + Path.DirectorySeparatorChar;
+        string shared = Path.Combine(gameDir, "shared") + Path.DirectorySeparatorChar;
+
+        var files = new SortedSet<string>(
+            VpcProject.Files(project, Path.GetDirectoryName(gameDir)!)
+                .Where(f => (f.StartsWith(server, StringComparison.Ordinal) || f.StartsWith(shared, StringComparison.Ordinal))
+                            && Path.GetExtension(f) is ".cpp" or ".h"
+                            && File.Exists(f)),
+            StringComparer.Ordinal);
+
+        // THE HEADERS ON ITS INCLUDE PATH TOO. A project lists its .cpp files
+        // and only some of its headers, and a class declared in an unlisted one
+        // (CNewWallHealth : CBaseAnimating, in hl2/item_healthkit.h) lost its
+        // base and so its whole inherited contract: a truncated chain reports
+        // FEWER gaps, never more. The directories are server_hl2mp.vpc's and
+        // server_base.vpc's AdditionalIncludeDirectories.
+        foreach (string dir in new[] { "server", "shared", "shared/econ", "server/NextBot",
+                                       "server/hl2", "shared/hl2", "server/hl2mp", "shared/hl2mp" })
         {
-            string dir = Path.Combine(gameDir, side);
-
-            if (!Directory.Exists(dir))
-                continue;
-
-            foreach (string f in Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories))
-            {
-                string ext = Path.GetExtension(f);
-                if (ext is ".cpp" or ".h")
-                    yield return f;
-            }
+            string at = Path.Combine(gameDir, dir.Replace('/', Path.DirectorySeparatorChar));
+            if (Directory.Exists(at))
+                files.UnionWith(Directory.EnumerateFiles(at, "*.h", SearchOption.TopDirectoryOnly));
         }
+
+        return files;
     }
 
     /// <summary>
@@ -447,6 +488,95 @@ public sealed class StockContract
     /// sdk_player_cast_test.cpp, and the StripComments helpers throughout
     /// src/sourcesharp/test.
     /// </summary>
+    private static readonly Regex DefinitionsRe = new(
+        @"\$PreprocessorDefinitions\s+""(?<defs>[^""]*)""\s*(?<cond>\[[^\]]*\])?", RegexOptions.Compiled);
+
+    /// <summary>
+    /// What the HL2MP server defines on Linux: server_base.vpc's and
+    /// server_hl2mp.vpc's <c>$PreprocessorDefinitions</c>, unconditional or
+    /// under <c>$POSIX</c>.
+    /// </summary>
+    internal static HashSet<string> ProjectDefines(string gameDir)
+    {
+        var defined = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (string vpc in new[] { "server_base.vpc", "server_hl2mp.vpc" })
+        {
+            string path = Path.Combine(gameDir, "server", vpc);
+            if (!File.Exists(path))
+                throw new FileNotFoundException($"the project that names HL2MP's defines is missing: {path}");
+
+            foreach (Match m in DefinitionsRe.Matches(File.ReadAllText(path)))
+            {
+                string cond = m.Groups["cond"].Value;
+                if (cond.Length > 0 && cond != "[$POSIX]")
+                    continue;
+
+                foreach (string d in m.Groups["defs"].Value.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string name = d.Split('=')[0].Trim();
+                    if (name != "$BASE")
+                        defined.Add(name);
+                }
+            }
+        }
+
+        return defined;
+    }
+
+    private static readonly Regex DirectiveRe = new(
+        @"^\s*#\s*(?<op>ifdef|ifndef|if|elif|else|endif|define)\b\s*(?<rest>.*)$", RegexOptions.Compiled);
+
+    private static readonly Regex DefinedRe = new(
+        @"^(?<not>!)?\s*defined\s*\(?\s*(?<name>\w+)\s*\)?\s*$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// The <c>#define NAME Ident</c>s a file makes under <paramref name="defined"/>:
+    /// <c>#ifdef</c>, <c>#ifndef</c> and <c>#if [!]defined X</c> are followed,
+    /// with their <c>#else</c>; any other condition is unknown and nothing
+    /// defined under it is taken.
+    /// </summary>
+    internal static IEnumerable<(string Name, string Value)> LiveDefines(string code, ISet<string> defined)
+    {
+        // Each open conditional: whether its current arm is live (null: unknown).
+        var arms = new Stack<bool?>();
+
+        foreach (string line in code.Split('\n'))
+        {
+            var d = DirectiveRe.Match(line);
+            if (!d.Success)
+                continue;
+
+            string rest = d.Groups["rest"].Value.Trim();
+            switch (d.Groups["op"].Value)
+            {
+                case "ifdef": arms.Push(defined.Contains(rest)); break;
+                case "ifndef": arms.Push(!defined.Contains(rest)); break;
+                case "if":
+                    var test = DefinedRe.Match(rest);
+                    arms.Push(test.Success ? defined.Contains(test.Groups["name"].Value) != test.Groups["not"].Success : null);
+                    break;
+                case "elif":
+                    if (arms.Count > 0) { arms.Pop(); arms.Push(null); }
+                    break;
+                case "else":
+                    if (arms.Count > 0) { bool? arm = arms.Pop(); arms.Push(arm is null ? null : !arm); }
+                    break;
+                case "endif":
+                    if (arms.Count > 0) arms.Pop();
+                    break;
+                case "define":
+                    if (arms.All(a => a == true))
+                    {
+                        string[] parts = rest.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length == 2 && Regex.IsMatch(parts[0], @"^[A-Z_][A-Z0-9_]*$") && Regex.IsMatch(parts[1], @"^[A-Za-z_]\w*$"))
+                            yield return (parts[0], parts[1]);
+                    }
+                    break;
+            }
+        }
+    }
+
     internal static string CodeOnly(string source)
     {
         var code = new System.Text.StringBuilder(source.Length);

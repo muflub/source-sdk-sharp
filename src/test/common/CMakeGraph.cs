@@ -59,7 +59,7 @@ internal static class CMakeGraph
         Server => "src/server/native/CMakeLists.txt",
         Client => "src/client/native/CMakeLists.txt",
         Host => "src/host/native/CMakeLists.txt",
-        "tier1" or "mathlib" or "raytrace" => $"cmake/sdk/{target}.cmake",
+        "tier1" or "mathlib" => $"cmake/sdk/{target}.cmake",
         _ => throw new InvalidOperationException($"cmake_graph: no CMakeLists is known for target '{target}'"),
     };
 
@@ -95,22 +95,33 @@ internal static class CMakeGraph
     public static string BuildConfig => Current.BuildConfig;
 
     /// <summary>One source-list entry, farm-relative: <c>${SS_SRC}/x</c> is the
-    /// farm's x; <c>${CMAKE_CURRENT_SOURCE_DIR}/x</c> and <c>${PROJECT_SOURCE_DIR}/x</c>
+    /// farm's x; <c>${LOCAL}/x</c> (<c>${CMAKE_CURRENT_SOURCE_DIR}/x</c>),
+    /// <c>${SHARED}/x</c> (src/shared/native) and <c>${PROJECT_SOURCE_DIR}/x</c>
     /// are this repo's, mapped through the module map; a bare entry is already
     /// farm-relative (the Valve libraries' lists).</summary>
     public static string ListToken(string token, string target)
     {
-        const string farm = "${SS_SRC}/", here = "${CMAKE_CURRENT_SOURCE_DIR}/", repo = "${PROJECT_SOURCE_DIR}/";
+        const string farm = "${SS_SRC}/", here = "${CMAKE_CURRENT_SOURCE_DIR}/", local = "${LOCAL}/",
+            shared = "${SHARED}/", repo = "${PROJECT_SOURCE_DIR}/";
         if (token.StartsWith(farm, StringComparison.Ordinal))
             return token[farm.Length..];
         if (token.StartsWith(here, StringComparison.Ordinal))
-            return RepoToFarm(Path.GetDirectoryName(ListFile(target))! + "/" + token[here.Length..]);
+            return RepoToFarm(ListDirectory(target) + "/" + token[here.Length..]);
+        if (token.StartsWith(local, StringComparison.Ordinal))
+            return RepoToFarm(ListDirectory(target) + "/" + token[local.Length..]);
+        if (token.StartsWith(shared, StringComparison.Ordinal))
+            return RepoToFarm("src/shared/native/" + token[shared.Length..]);
         if (token.StartsWith(repo, StringComparison.Ordinal))
             return RepoToFarm(token[repo.Length..]);
         if (token.Contains('$'))
             throw new InvalidOperationException($"cmake_graph: {ListFile(target)}: cannot read the source-list entry '{token}'");
         return token;
     }
+
+    // The list file's directory with '/' as the module map spells it:
+    // Path.GetDirectoryName answers with '\\' on Windows.
+    private static string ListDirectory(string target) =>
+        Path.GetDirectoryName(ListFile(target))!.Replace('\\', '/');
 
     /// <summary>This checkout, whose CMakeLists and module map the lists are read from.</summary>
     internal static string RepoOfBuild => RepoLayout.RepoRoot;
@@ -122,6 +133,11 @@ internal static class CMakeGraph
     /// </summary>
     public static string RepoToFarm(string repoRelative)
     {
+        // A vendored Valve file (vendor/<side>/<path>) is named by its Valve
+        // path, as the farm named it.
+        string[] vendored = repoRelative.Split('/', 3);
+        if (vendored.Length == 3 && vendored[0] == "vendor" && vendored[1] is "shared" or "server" or "client")
+            return vendored[2];
         string map = ReadRequired(Path.Combine(RepoOfBuild, "tools", "module-map.tsv"), "the module map");
         string? bestRel = null, bestFarm = null;
         foreach (string raw in map.Split('\n'))
@@ -281,6 +297,22 @@ internal sealed class CMakeBuild(string buildDir)
         return found;
     }
 
+    private static string? StockSrc()
+    {
+        string? root = Environment.GetEnvironmentVariable("SOURCESHARP_VALVE_SDK");
+        if (string.IsNullOrEmpty(root))
+        {
+            string lockFile = Path.Combine(CMakeGraph.RepoOfBuild, "valve-sdk.lock.local");
+            if (!File.Exists(lockFile))
+                return null;
+            string[] words = File.ReadAllText(lockFile).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length == 0)
+                return null;
+            root = words[0];
+        }
+        return Path.GetFullPath(Path.Combine(root, "src"));
+    }
+
     public string FarmRelative(string absolute)
     {
         string prefix = FarmSrc + "/";
@@ -290,6 +322,10 @@ internal sealed class CMakeBuild(string buildDir)
         string repo = CMakeGraph.RepoOfBuild + "/";
         if (path.StartsWith(repo, StringComparison.Ordinal) && !path.StartsWith(repo + "farm/", StringComparison.Ordinal))
             return CMakeGraph.RepoToFarm(path[repo.Length..]);
+        // The pristine clone's src/: libss_particles, tier1 and mathlib build from it.
+        string? stock = StockSrc();
+        if (stock != null && path.StartsWith(stock + "/", StringComparison.Ordinal))
+            return path[(stock.Length + 1)..];
         throw new InvalidOperationException($"cmake_graph: {absolute} is neither under the farm's src/ ({prefix}) nor a file of this repo");
     }
 

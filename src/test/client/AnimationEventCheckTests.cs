@@ -141,7 +141,9 @@ public class AnimationEventCheckTests
         public void SetBoneMergeSource(EntityHandle entity, int sourceEntityIndex) => throw Refuse(nameof(SetBoneMergeSource));
         public void SetSequence(EntityHandle entity, int sequence) => throw Refuse(nameof(SetSequence));
         public void SetViewModel(EntityHandle entity, bool enable) => throw Refuse(nameof(SetViewModel));
+        public void PlaySequenceAt(EntityHandle entity, int sequence, float playbackRate, float cycle) => throw Refuse(nameof(PlaySequenceAt));
         public void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart) => throw Refuse(nameof(PlaySequence));
+        public void SetCycle(EntityHandle entity, float cycle) => throw Refuse(nameof(SetCycle));
         public void SetSkin(EntityHandle entity, int skin) => throw Refuse(nameof(SetSkin));
         public void SetTextureFrame(EntityHandle entity, int frame) => throw Refuse(nameof(SetTextureFrame));
         public void SetTransmitAlways(EntityHandle entity, bool always) => throw Refuse(nameof(SetTransmitAlways));

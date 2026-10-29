@@ -47,6 +47,9 @@ public class WeaponSwitchTests
         private readonly IEngineEntities _engine;
         private readonly ScriptedEntityRegistry _registry;
         private readonly Dictionary<uint, string> _created = new();
+
+        /// <summary>Every classname this double has been asked to create, in no order.</summary>
+        public IReadOnlyCollection<string> CreatedClasses => _created.Values;
         private uint _next = 0x0500;
 
         public readonly List<EntityHandle> WeaponHandles = new();
@@ -79,7 +82,7 @@ public class WeaponSwitchTests
 
             if (className == EntityNames.SsWeapon)
                 WeaponHandles.Add(handle);
-            else if (className == EntityNames.SsViewModel)
+            else if (className == EntityNames.PredictedViewModel)
                 ViewModelHandles.Add(handle);
 
             return handle;
@@ -133,6 +136,7 @@ public class WeaponSwitchTests
         public bool SetKeyValue(EntityHandle entity, string key, string value) => _engine.SetKeyValue(entity, key, value);
         public void SetOrigin(EntityHandle h, Vector origin) => _engine.SetOrigin(h, origin);
         public void SetOwner(EntityHandle h, EntityHandle owner) => _engine.SetOwner(h, owner);
+        public void SetClassName(EntityHandle h, string className) => _engine.SetClassName(h, className);
         public void SetVelocity(EntityHandle h, Vector velocity) => _engine.SetVelocity(h, velocity);
         public void Teleport(EntityHandle h, Vector origin, Vector? angles, bool zeroVelocity) => _engine.Teleport(h, origin, angles, zeroVelocity);
         public bool SetParent(EntityHandle child, EntityHandle parent, int parentAttachment = 0) => _engine.SetParent(child, parent, parentAttachment);
@@ -156,6 +160,7 @@ public class WeaponSwitchTests
         public SolidFlags GetSolidFlags(EntityHandle entity) => _engine.GetSolidFlags(entity);
         public SolidType GetSolidType(EntityHandle entity) => _engine.GetSolidType(entity);
         public void SetSolidity(EntityHandle entity, SolidType solidType, SolidFlags solidFlags) => _engine.SetSolidity(entity, solidType, solidFlags);
+        public void UseTriggerBounds(EntityHandle entity, bool enable, float bloat, bool uniform = false) => _engine.UseTriggerBounds(entity, enable, bloat, uniform);
         public void SetBounds(EntityHandle entity, Vector mins, Vector maxs) => _engine.SetBounds(entity, mins, maxs);
         public void SetSpawnFlags(EntityHandle entity, int spawnFlags) => _engine.SetSpawnFlags(entity, spawnFlags);
     }
@@ -163,7 +168,7 @@ public class WeaponSwitchTests
     private static (Arsenal arsenal, RecordingEngine engine, SpawningEntities world) World()
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)
-            .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+            .Returns("Entities.GetClassName", EntityNames.Player)
             .Returns("Entities.GetOrigin", new Vector(0, 0, 64))
             // Alive: the Arsenal refuses a dead player's hands outright, and
             // everything below is about what a LIVING player's switch does.
@@ -186,7 +191,7 @@ public class WeaponSwitchTests
         // plan-audit D19 measured Arsenal.IsStandalonePlayer asking the shell
         // for a classname 6.000 times a server frame and made it a registry
         // lookup. On a live server the two are the same fact -- SsPlayer IS the
-        // [ScriptedEntity] bound to "ss_player" -- but a fixture that answers
+        // [ScriptedEntity] bound to "player" -- but a fixture that answers
         // the classname and holds no instance is a player the ARSENAL can see
         // and the REGISTRY cannot, which is a state no running game is ever in.
         // The stand-in had drifted from the thing it stands in for; this is the
@@ -200,7 +205,7 @@ public class WeaponSwitchTests
         // running server passes through; running OnSpawn here would put an
         // EntityRender.SetVisible into engine.Calls, which two facts in this
         // file read.
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
 
         var world = new SpawningEntities(engine, registry);
 

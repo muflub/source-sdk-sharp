@@ -21,8 +21,15 @@
 
 // RecvPropArray3 in upstream's file names these, and nothing here calls it.
 // dt_utlvector_common.cpp defines them in the DLLs; the oracle does not link it.
-const char *DT_ArrayElementNameForIdx( size_t ) { return "000"; }
-char *AllocateStringHelper( const char *, ... ) { return NULL; }
+const char *DT_ArrayElementNameForIdx( size_t )
+{
+	return "000";
+}
+
+char *AllocateStringHelper( const char *, ... )
+{
+	return NULL;
+}
 
 namespace
 {
@@ -48,7 +55,9 @@ void ExpectSameProp( const RecvProp &ours, const RecvProp &stock, const char *pW
 }
 
 void OtherProxy( const CRecvProxyData *, void *, void * ) {}
+
 void OtherTableProxy( const RecvProp *, void **, void *, int ) {}
+
 void OtherLengthProxy( void *, int, int ) {}
 
 const char kName[] = "m_flTest";
@@ -76,9 +85,9 @@ TEST( RecvBuildersOracle, IntPicksUpstreamsProxyForEveryWidth )
 		for ( int flags : { 0, SPROP_UNSIGNED, SPROP_CHANGES_OFTEN } )
 		{
 			ExpectSameProp( engineabi::recv::Int( kName, 12, size, flags, NULL, g_StandardRecvProxies ),
-			                RecvPropInt( kName, 12, size, flags, NULL ), "Int, default proxy" );
+							RecvPropInt( kName, 12, size, flags, NULL ), "Int, default proxy" );
 			ExpectSameProp( engineabi::recv::Int( kName, 12, size, flags, OtherProxy, g_StandardRecvProxies ),
-			                RecvPropInt( kName, 12, size, flags, OtherProxy ), "Int, named proxy" );
+							RecvPropInt( kName, 12, size, flags, OtherProxy ), "Int, named proxy" );
 		}
 	}
 	// The control: the widths really do pick different proxies.
@@ -87,29 +96,34 @@ TEST( RecvBuildersOracle, IntPicksUpstreamsProxyForEveryWidth )
 
 TEST( RecvBuildersOracle, FloatVectorStringAndTableMatchUpstream )
 {
-	ExpectSameProp( engineabi::recv::Float( kName, 40, 4, SPROP_NOSCALE, RecvProxy_FloatToFloat, g_StandardRecvProxies ),
-	                RecvPropFloat( kName, 40, 4, SPROP_NOSCALE, RecvProxy_FloatToFloat ), "Float" );
+	ExpectSameProp(
+		engineabi::recv::Float( kName, 40, 4, SPROP_NOSCALE, RecvProxy_FloatToFloat, g_StandardRecvProxies ),
+		RecvPropFloat( kName, 40, 4, SPROP_NOSCALE, RecvProxy_FloatToFloat ), "Float" );
 	ExpectSameProp( engineabi::recv::Float( kName, 40, 0, 0, OtherProxy, g_StandardRecvProxies ),
-	                RecvPropFloat( kName, 40, 0, 0, OtherProxy ), "Float, named proxy" );
-	ExpectSameProp( engineabi::recv::Vector( kName, 64, 12, SPROP_COORD, RecvProxy_VectorToVector, g_StandardRecvProxies ),
-	                RecvPropVector( kName, 64, 12, SPROP_COORD, RecvProxy_VectorToVector ), "Vector" );
+					RecvPropFloat( kName, 40, 0, 0, OtherProxy ), "Float, named proxy" );
+	ExpectSameProp(
+		engineabi::recv::Vector( kName, 64, 12, SPROP_COORD, RecvProxy_VectorToVector, g_StandardRecvProxies ),
+		RecvPropVector( kName, 64, 12, SPROP_COORD, RecvProxy_VectorToVector ), "Vector" );
 	ExpectSameProp( engineabi::recv::String( kName, 8, 260, 0, RecvProxy_StringToString ),
-	                RecvPropString( kName, 8, 260, 0, RecvProxy_StringToString ), "String" );
+					RecvPropString( kName, 8, 260, 0, RecvProxy_StringToString ), "String" );
 
 	RecvTable table;
-	ExpectSameProp( engineabi::recv::DataTable( kName, 16, SPROP_PROXY_ALWAYS_YES, &table, DataTableRecvProxy_StaticDataTable ),
-	                RecvPropDataTable( kName, 16, SPROP_PROXY_ALWAYS_YES, &table, DataTableRecvProxy_StaticDataTable ), "DataTable" );
+	ExpectSameProp(
+		engineabi::recv::DataTable( kName, 16, SPROP_PROXY_ALWAYS_YES, &table, DataTableRecvProxy_StaticDataTable ),
+		RecvPropDataTable( kName, 16, SPROP_PROXY_ALWAYS_YES, &table, DataTableRecvProxy_StaticDataTable ),
+		"DataTable" );
 	ExpectSameProp( engineabi::recv::DataTable( kName, 16, 0, &table, OtherTableProxy ),
-	                RecvPropDataTable( kName, 16, 0, &table, OtherTableProxy ), "DataTable, named proxy" );
+					RecvPropDataTable( kName, 16, 0, &table, OtherTableProxy ), "DataTable, named proxy" );
 	ExpectSameProp( engineabi::recv::ArrayLength( 33, 4, kName, OtherLengthProxy ),
-	                InternalRecvPropArray( 33, 4, kName, OtherLengthProxy ), "ArrayLength" );
+					InternalRecvPropArray( 33, 4, kName, OtherLengthProxy ), "ArrayLength" );
 }
 
 TEST( RecvBuildersOracle, TheIntegerProxiesWriteUpstreamsBytes )
 {
-	const RecvVarProxyFn ours[] = { engineabi::recv::Int32ToInt8, engineabi::recv::Int32ToInt16, engineabi::recv::Int32ToInt32 };
+	const RecvVarProxyFn ours[] = { engineabi::recv::Int32ToInt8, engineabi::recv::Int32ToInt16,
+									engineabi::recv::Int32ToInt32 };
 	const RecvVarProxyFn stock[] = { RecvProxy_Int32ToInt8, RecvProxy_Int32ToInt16, RecvProxy_Int32ToInt32 };
-	std::uniform_int_distribution< int > any( INT_MIN, INT_MAX );
+	std::uniform_int_distribution<int> any( INT_MIN, INT_MAX );
 
 	int nCompared = 0;
 	for ( int round = 0; round < 2000; round++ )
@@ -134,7 +148,7 @@ TEST( RecvBuildersOracle, TheIntegerProxiesWriteUpstreamsBytes )
 
 TEST( RecvBuildersOracle, TheFloatAndVectorProxiesWriteUpstreamsBytes )
 {
-	std::uniform_real_distribution< float > any( -65536.f, 65536.f );
+	std::uniform_real_distribution<float> any( -65536.f, 65536.f );
 	for ( int round = 0; round < 2000; round++ )
 	{
 		CRecvProxyData data;
@@ -156,7 +170,7 @@ TEST( RecvBuildersOracle, TheFloatAndVectorProxiesWriteUpstreamsBytes )
 
 TEST( RecvBuildersOracle, TheStringProxyWritesUpstreamsBytesForEveryBufferSize )
 {
-	const std::vector< std::string > texts = { "", "a", "player", "exactly8", std::string( 300, 'x' ) };
+	const std::vector<std::string> texts = { "", "a", "player", "exactly8", std::string( 300, 'x' ) };
 	int nCompared = 0;
 	for ( int size : { 0, -1, 1, 2, 8, 9, 64, 260 } )
 	{
@@ -187,5 +201,5 @@ TEST( RecvBuildersOracle, TheStaticTableProxyAnswersTheSameObject )
 	engineabi::recv::StaticDataTable( NULL, &pOurs, &object, 7 );
 	DataTableRecvProxy_StaticDataTable( NULL, &pStock, &object, 7 );
 	EXPECT_EQ( pStock, pOurs );
-	EXPECT_EQ( static_cast< void * >( &object ), pOurs );
+	EXPECT_EQ( static_cast<void *>( &object ), pOurs );
 }

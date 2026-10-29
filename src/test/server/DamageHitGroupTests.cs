@@ -129,7 +129,7 @@ public class DamageHitGroupTests
         var services = Services(out var engine, convars);
         engine.Strict = false;   // the player's spawn-free build reads more than this fact asks
         registry.Services = services;
-        registry.KeyValue(Victim, EntityNames.SsPlayer, "targetname", "victim");
+        registry.KeyValue(Victim, EntityNames.Player, "targetname", "victim");
         var player = (SsPlayer)registry.Get(Victim)!;
 
         var lines = new List<string>();

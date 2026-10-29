@@ -117,7 +117,7 @@ internal static class RepoLayout
         if (!File.Exists(Path.Combine(tree, "src", "buildsourcesharp")))
         {
             throw new InvalidOperationException(
-                $"no farm at {tree} (no src/buildsourcesharp): run `make setup ROOT=../source-sdk-2013`");
+                $"no farm at {tree} (no src/buildsourcesharp): run `make setup`");
         }
 
         return tree;

@@ -144,6 +144,9 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     private readonly IHooks<IDamageRule>? _damageRules;
     private readonly IHooks<ILoadoutProvider>? _loadoutProviders;
 
+    /// <summary>What a spawning player ends up holding; null leaves the grant's own choice.</summary>
+    private readonly ISpawnWeapon? _spawnWeapon;
+
     /// <summary>
     /// The mode the proxy is answering for, or null — before any proxy,
     /// before the first pick, and on the unknown-id arm. Null is not an
@@ -158,8 +161,10 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
                      IGameEvent<PlayerDeathArgs> deaths, Intermission? intermission = null,
                      ConVarRegistry? mpConVars = null, GameModes? modes = null,
                      IHooks<IDamageRule>? damageRules = null,
-                     IHooks<ILoadoutProvider>? loadout = null)
+                     IHooks<ILoadoutProvider>? loadout = null,
+                     ISpawnWeapon? spawnWeapon = null)
     {
+        _spawnWeapon = spawnWeapon;
         // The mode proxy (tf2 stage 0.7). OPTIONAL and null means the game
         // before it: every question below answers with this class's own
         // machine, which is what every no-owner fact measures. The module
@@ -198,22 +203,34 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     /// decision, and HL2MP putting it in CHL2MP_Player::GiveDefaultItems is why
     /// changing it there means editing the player class.
     ///
-    /// The weapon entity classes do not exist yet, so giving them warns and does
-    /// nothing; the ammo does apply. Registering the intent here means only the
-    /// entity side is left to build.
+    /// <para>
+    /// Stock's kit (CHL2MP_Player::GiveDefaultItems): the melee weapon, the
+    /// pistol, the SMG1, a frag and the gravity gun. Stock's melee follows the
+    /// player model -- a stunstick for a combine or police model, a crowbar for
+    /// a citizen -- and every player here wears SsPlayer's citizen
+    /// (models/humans/...), so the crowbar.
+    /// </para>
     /// </summary>
     public static readonly ImmutableArray<string> Loadout =
     [
         "weapon_crowbar",
         "weapon_pistol",
         "weapon_smg1",
+        "weapon_frag",
+        "weapon_physcannon",
     ];
 
-    /// <summary>Ammo handed out alongside the loadout.</summary>
+    /// <summary>
+    /// Ammo handed out alongside the loadout: GiveDefaultItems' GiveAmmo calls,
+    /// each held to its type's carry limit (the pistol's 255 is 150).
+    /// </summary>
     public static readonly ImmutableArray<(string Ammo, int Count)> StartingAmmo =
     [
-        ("Pistol", 100),
-        ("SMG1",    45),
+        ("Pistol",   255),
+        ("SMG1",      45),
+        ("Grenade",    1),
+        ("Buckshot",   6),
+        ("357",        6),
     ];
 
     /// <summary>
@@ -402,6 +419,9 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         int ammoGiven = 0;
         foreach (var (name, count) in ammo)
             ammoGiven += _players.GiveAmmo(player, count, name);
+
+        // GiveDefaultItems' last word: the weapon the player asked to spawn with.
+        _spawnWeapon?.Choose(player);
 
         // The mode's spawn arm, after the core's own bookkeeping: today's
         // deathmatch adds nothing here (NullMode's machine IS this class and

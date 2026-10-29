@@ -65,7 +65,7 @@ public sealed class PvsCheckClient(IEntityDirectory directory, IEngineEntities e
 
     private IEnumerable<(int Slot, SsPlayer Player)> Players()
     {
-        foreach (var entity in directory.OfClass(EntityNames.SsPlayer))
+        foreach (var entity in directory.OfClass(EntityNames.Player))
         {
             if (entity is SsPlayer player)
                 yield return (entities.GetIndex(player.Handle), player);

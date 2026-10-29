@@ -15,6 +15,7 @@ namespace SourceSharp.Server;
 /// sixteen configured cases, or picks one at random.
 /// </summary>
 [ScriptedEntity(EntityNames.LogicCase)]
+[ClaimsKeys("Case", 1, 16)]
 public sealed class LogicCase : ScriptedEntity
 {
     /// <summary>

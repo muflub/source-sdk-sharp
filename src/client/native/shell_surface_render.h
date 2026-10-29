@@ -5,59 +5,19 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — drawing a shattered pane of glass ==================//
-//
-// The client half of func_breakable_surf, off C_BaseEntity.
-//
-// Stock's renderer is a C_BaseEntity that also implements IBrushRenderer, and
-// nothing on the parallel hierarchy is a C_BaseEntity — so it could not come
-// along unchanged. It did not need to be one: what it actually asks for is to
-// be an IClientRenderable (for Bind) and to have the brush model drawn with
-// itself installed as the surface renderer, and the standalone shell is the
-// first thing here that can supply both.
-//
-// So this is NOT an entity. It is a renderer the shell owns, one per surface,
-// which reads the class's replicated state out of the entity's blob and draws
-// the panes that are left. Everything about how the mesh is built is stock's,
-// nearly line for line, because how glass is drawn was never the thing worth
-// changing.
-//
-// WHICH pieces are left is not decided here at all. That is the rule, it is in
-// C#, and it arrives over the wire.
-//
-//=============================================================================//
-#ifndef SOURCESHARP_SHELL_SURFACE_RENDER_H
-#define SOURCESHARP_SHELL_SURFACE_RENDER_H
-#ifdef _WIN32
+// Draws a broken func_breakable_surf pane: holds the materials managed code
+// named and, when the engine hands it the brush surface, builds the plan's quads
+// with the surface's texture and lightmap coordinates.
 #pragma once
-#endif
 
-#include "materialsystem/imaterial.h"
 #include "materialsystem/imaterialvar.h"
-#include "materialsystem/imesh.h"
-#include "materialsystem/itexture.h"
-#include "ivrenderview.h"
-#include "utlvector.h"
-#include "generic_payload.h"   // SourceSharpPackedField_t
 
-class C_StandaloneEntity;
+#include "materialsystem/itexture.h"
+
 class CMeshBuilder;
 
-// The one class this renderer draws.
-//
-// A native literal, and the only one left: a renderer written in C++ has to
-// know which class it is for, and there is nothing to derive that from. It must
-// match EntityNames.FuncBreakableSurf, which is where every other copy went.
-#define SOURCESHARP_SURFACE_CLASSNAME "func_breakable_surf"
-
-// Must match BreakableSurfaceNetState.MaxPanels. The grid is 16 on a side and
-// the wire carries 16 x 16 bits whatever any one surface uses.
-#define SOURCESHARP_SURFACE_MAX_PANELS 16
-
-//-----------------------------------------------------------------------------
-// Which side of a pane an edge is on, and what shape that edge is. Stock's,
-// unchanged — these choose which of twelve edge materials draws.
-//-----------------------------------------------------------------------------
+// Stock's values; they pick which of twelve edge materials draws and which way
+// its texture runs. PaneSide and PaneEdge in C# must match.
 enum SurfaceWinSide_t
 {
 	SURF_SIDE_BOTTOM,
@@ -68,171 +28,88 @@ enum SurfaceWinSide_t
 
 enum SurfaceWinEdge_t
 {
-	SURF_EDGE_NOT = -1,     // No edge at all
-	SURF_EDGE_NONE,         /* No edge on either side   /##\ */
-	SURF_EDGE_FULL,         // Edge on both             |##|
-	SURF_EDGE_LEFT,         /* Left only                |##\ */
-	SURF_EDGE_RIGHT,        // Right only               /##|
+	SURF_EDGE_NOT = -1, // No edge at all
+	SURF_EDGE_NONE, /* No edge on either side   /##\ */
+	SURF_EDGE_FULL, // Edge on both             |##|
+	SURF_EDGE_LEFT, /* Left only                |##\ */
+	SURF_EDGE_RIGHT, // Right only               /##|
 };
 
-#define SOURCESHARP_SURFACE_EDGE_TYPES  4
+#define SOURCESHARP_SURFACE_EDGE_TYPES 4
 #define SOURCESHARP_SURFACE_EDGE_STYLES 3
 
-//-----------------------------------------------------------------------------
-// One edge queued to be drawn.
-//-----------------------------------------------------------------------------
-struct SurfacePanel_t
+// The plan: a header of eight floats' bits (normal, corner, pane width and
+// height), then entries of four words (kind, column, row, argument). A solid
+// run's argument is its length in rows; an edge's or highlight's packs the side
+// (bits 0-1), edge shape (bits 2-3) and style (bits 4 and up). Must match C#.
+enum
 {
-	char m_nWidth;
-	char m_nHeight;
-	char m_nSide;
-	char m_nEdgeType;
-	char m_nStyle;
+	SURFACE_PLAN_HEADER_WORDS = 8,
+	SURFACE_PLAN_ENTRY_WORDS = 4,
+};
+
+enum
+{
+	SURFACE_PLAN_SOLID = 0,
+	SURFACE_PLAN_EDGE = 1,
+	SURFACE_PLAN_HIGHLIGHT = 2,
+};
+
+// The materials SurfaceSetMaterials names, in order: the pieces', the solid
+// block's, then the twelve edges' (edge * 3 + style).
+#define SOURCESHARP_SURFACE_MATERIAL_NAMES ( 2 + SOURCESHARP_SURFACE_EDGE_TYPES * SOURCESHARP_SURFACE_EDGE_STYLES )
+
+// SurfaceSetMaterials' flags.
+enum
+{
+	SURFACE_MATERIALS_SWAPS_DETAIL = 1 << 0, // the pieces' material takes the detail texture
+	SURFACE_MATERIALS_DEBUG = 1 << 1, // the pieces' material is the debug stand-in
 };
 
 struct SurfaceEdgeTexture_t
 {
-	int                 m_nRenderIndex;
-	int                 m_nStyle;
-	CMaterialReference  m_pMaterialEdge;
-	CTextureReference   m_pMaterialEdgeTexture;
+	CMaterialReference m_pMaterialEdge;
+	CTextureReference m_pMaterialEdgeTexture;
 };
 
-//-----------------------------------------------------------------------------
-// A pane of glass, drawn.
-//-----------------------------------------------------------------------------
+// One broken surface's draw, owned by the shell and made when managed code first
+// hands it materials or a plan.
 class CSourceSharpSurfaceRenderer : public IBrushRenderer
 {
 public:
 	CSourceSharpSurfaceRenderer();
 	virtual ~CSourceSharpSurfaceRenderer();
 
-	// Reads the replicated state out of the entity's blob and brings the edge
-	// list up to date. Called on every update, because which panes are left is
-	// the whole of what changes.
-	void Update( C_StandaloneEntity *pEntity, bool bCreated );
+	void SetMaterials( const char *const *ppNames, int nFlags );
 
-	// True once the sheet has broken. Before that there is no grid and the
-	// brush draws exactly as any other brush does.
-	bool IsBroken() const { return m_bIsBroken; }
+	// What to draw, replacing the last plan; an empty one draws nothing.
+	void SetPlan( const int32_t *pWords, int nWords );
 
-	// The cracked edges to draw, decided in C#. Four bytes each; see
-	// SurfaceSetEdges in sourcesharp.h for the packing.
-	void SetEdges( const unsigned char *pEdges, int nCount );
-
-	// Installs itself for the duration of one brush draw.
+	// The engine hands each brush surface to RenderBrushModelSurface while installed.
 	void BeginDraw();
 	void EndDraw();
 
-	// --- IBrushRenderer ------------------------------------------------------
-	virtual bool RenderBrushModelSurface( IClientEntity *pBaseEntity,
-	                                      IBrushSurface *pBrushSurface ) OVERRIDE;
+	virtual bool RenderBrushModelSurface( IClientEntity *pBaseEntity, IBrushSurface *pBrushSurface ) OVERRIDE;
 
 private:
-
-	bool InLegalRange( int w, int h ) const;
-	bool IsPanelSolid( int w, int h ) const;
-	void SetPanelSolid( int w, int h, bool bValue );
-
-	// A packed field's whole placement, by name. Static because it asks C# and
-	// keeps nothing: the answer is a property of the build, not of a surface.
-	static SourceSharpPackedField_t ResolvePacked( const char *pClass, const char *pField );
-
-	void InitMaterials( const model_t *pModel );
-	void InitMaterial( SurfaceWinEdge_t nEdgeType, int nStyle, const char *pMaterialName );
-
-	void DrawSolidBlocks( IBrushSurface *pBrushSurface );
-	void DrawRenderList( IBrushSurface *pBrushSurface );
-	void DrawRenderListHighlights( IBrushSurface *pBrushSurface );
-
-	void DrawOneBlock( IBrushSurface *pBrushSurface, IMesh *pMesh, CMeshBuilder *pBuilder,
-	                   const Vector &vPos, const Vector &vWidth, const Vector &vHeight );
-	void DrawOneEdge( IBrushSurface *pBrushSurface, IMesh *pMesh, CMeshBuilder *pBuilder,
-	                  const Vector &vStart, const Vector &vWStep, const Vector &vHStep,
-	                  SurfaceWinSide_t nEdge );
-	void DrawOneHighlight( IBrushSurface *pBrushSurface, IMesh *pMesh, CMeshBuilder *pBuilder,
-	                       const Vector &vStart, const Vector &vWStep, const Vector &vHStep,
-	                       SurfaceWinSide_t nEdge );
-
-	// The detail texture the cracked material draws with, set directly rather
-	// than through a material proxy. Stock's proxy resolves the bind argument
-	// to a C_BaseEntity, which this is not — so it would quietly do nothing.
 	void SetDetailTexture( ITexture *pTexture );
-
 	void Steps( Vector *pWidthStep, Vector *pHeightStep ) const;
+	void DrawQuad( IBrushSurface *pBrushSurface, IMesh *pMesh, CMeshBuilder *pBuilder, const Vector &vStart,
+				   const Vector &vWStep, const Vector &vHStep, const float ( *pCorners )[2], bool bGrout );
 
-	// --- replicated state, decoded from the blob -----------------------------
-	int    m_nNumWide;
-	int    m_nNumHigh;
-	float  m_flPanelWidth;
-	float  m_flPanelHeight;
 	Vector m_vNormal;
 	Vector m_vCorner;
-	bool   m_bIsBroken;
-	int    m_nSurfaceType;
-
-	// --- local ---------------------------------------------------------------
-	//
-	// Which panes are still there, which is all that is left of the state this
-	// class used to derive: the edges are decided in C# and arrive through
-	// SetEdges, and the crack styles and staleness went with them.
-	bool m_bPaneSolid[ SOURCESHARP_SURFACE_MAX_PANELS ][ SOURCESHARP_SURFACE_MAX_PANELS ];
-
-	CUtlVector< SurfacePanel_t > m_RenderList;
+	float m_flPanelWidth;
+	float m_flPanelHeight;
+	CUtlVector<int32_t> m_Plan;
 
 	CMaterialReference m_pCrackedMaterial;
 	CMaterialReference m_pMaterialBox;
-	CTextureReference  m_pMaterialBoxTexture;
-	IMaterialVar      *m_pDetailVar;
+	CTextureReference m_pMaterialBoxTexture;
+	IMaterialVar *m_pDetailVar;
 
-	SurfaceEdgeTexture_t m_pEdge[ SOURCESHARP_SURFACE_EDGE_TYPES ][ SOURCESHARP_SURFACE_EDGE_STYLES ];
+	SurfaceEdgeTexture_t m_pEdge[SOURCESHARP_SURFACE_EDGE_TYPES][SOURCESHARP_SURFACE_EDGE_STYLES];
 
 	bool m_bMaterialsReady;
-
-	// Whether the surface's material named a cracked variant. Decides whether
-	// the detail texture is swapped at all — see InitMaterials.
-	bool m_bHasCrackedMaterial;
-
-	// Whether the first draw has been reported. See BeginDraw.
 	bool m_bDrawReported;
-
-	// Where each field sits in the entity, resolved once by NAME from the table
-	// C# described. Not written down here: the offsets are C#'s, and a second
-	// copy of them is the drift this whole design removes.
-	//
-	// Three states rather than two, because a FAILED lookup has to be cached as
-	// well: it runs per entity per update, and one that retried would walk the
-	// prop list and warn again every time.
-	enum
-	{
-		RESOLVE_PENDING,
-		RESOLVE_DONE,
-		RESOLVE_FAILED,
-	};
-
-	int m_nResolved;
-
-	// PLACEMENTS, not offsets, since Part 10's packing (Step 8). Wide, High,
-	// Broken and SurfaceType share one word now, so the offset alone names the
-	// word rather than the field and reading a byte at it returns whichever
-	// field starts there. The four that pack carry a shift and a width beside
-	// the offset; the rest are whole storage and keep a plain offset, because a
-	// Vector and a float are read as themselves and always were.
-	SourceSharpPackedField_t m_fldWide, m_fldHigh, m_fldBroken, m_fldSurfaceType;
-
-	int  m_nOffPanelWidth, m_nOffPanelHeight;
-	int  m_nOffNormal, m_nOffCorner;
-	int  m_nOffPaneBits[ 8 ];
 };
-
-// The object-relative offset of a described field, or -1. See the definition:
-// this is what lets native read C#-declared state without a second copy of the
-// layout.
-int SourceSharp_StandaloneFieldOffset( const char *pClassName, const char *pFieldName );
-
-// Where inside that offset's dword the field's bits are: shift in the low byte,
-// width above it, -1 for unknown. The other half of a placement since packing —
-// see SourceSharpPayload_Place.
-int SourceSharp_StandaloneFieldBits( const char *pClassName, const char *pFieldName );
-
-#endif // SOURCESHARP_SHELL_SURFACE_RENDER_H

@@ -8,8 +8,7 @@
 // interface, over a game system that declares only the members the harness
 // calls (upstream's IGameSystem has more, which CDetailObjectSystem defines as
 // plain members either way).
-#ifndef SS_DETAIL_STUB_DETAILOBJECTSYSTEM_H
-#define SS_DETAIL_STUB_DETAILOBJECTSYSTEM_H
+#pragma once
 
 #include "detail_harness.h"
 
@@ -17,6 +16,7 @@ class IGameSystem
 {
 public:
 	virtual ~IGameSystem() {}
+
 	virtual bool Init() = 0;
 	virtual void LevelInitPreEntity() = 0;
 	virtual void LevelInitPostEntity() = 0;
@@ -27,14 +27,16 @@ public:
 abstract_class IDetailObjectSystem : public IGameSystem
 {
 public:
-	virtual IClientRenderable* GetDetailModel( int idx ) = 0;
+	virtual IClientRenderable *GetDetailModel( int idx ) = 0;
 	virtual void BuildDetailObjectRenderLists( const Vector &vViewOrigin ) = 0;
 	virtual void RenderOpaqueDetailObjects( int nLeafCount, LeafIndex_t *pLeafList ) = 0;
-	virtual void BeginTranslucentDetailRendering( ) = 0;
-	virtual void RenderTranslucentDetailObjects( const Vector &viewOrigin, const Vector &viewForward, const Vector &viewRight, const Vector &viewUp, int nLeafCount, LeafIndex_t *pLeafList ) =0;
-	virtual void RenderTranslucentDetailObjectsInLeaf( const Vector &viewOrigin, const Vector &viewForward, const Vector &viewRight, const Vector &viewUp, int nLeaf, const Vector *pVecClosestPoint ) = 0;
+	virtual void BeginTranslucentDetailRendering() = 0;
+	virtual void RenderTranslucentDetailObjects( const Vector &viewOrigin, const Vector &viewForward,
+												 const Vector &viewRight, const Vector &viewUp, int nLeafCount,
+												 LeafIndex_t *pLeafList ) = 0;
+	virtual void RenderTranslucentDetailObjectsInLeaf( const Vector &viewOrigin, const Vector &viewForward,
+													   const Vector &viewRight, const Vector &viewUp, int nLeaf,
+													   const Vector *pVecClosestPoint ) = 0;
 };
 
-IDetailObjectSystem* DetailObjectSystem();
-
-#endif
+IDetailObjectSystem *DetailObjectSystem();

@@ -24,34 +24,37 @@
 // nothing, rather than import the runtime's.
 //=============================================================================//
 #include "ss_fwd_sdk.h"
-#include "fwd_recipient_filter.h"
-
-#include <new>
-#include <stddef.h>
 
 #include "irecipientfilter.h"
 #include "imanaged_physics_callbacks.h"
 
 namespace
 {
-	class SSRecipientFilter final : public IRecipientFilter
+class SSRecipientFilter final : public IRecipientFilter
+{
+public:
+	explicit SSRecipientFilter( IManagedRecipientFilter *pTarget )
+		: m_pTarget( pTarget )
 	{
-	public:
-		explicit SSRecipientFilter( IManagedRecipientFilter *pTarget ) : m_pTarget( pTarget ) {}
+	}
 
-		bool IsReliable( void ) const override { return m_pTarget->IsReliable() != 0; }
-		bool IsInitMessage( void ) const override { return m_pTarget->IsInitMessage() != 0; }
-		int GetRecipientCount( void ) const override { return m_pTarget->GetRecipientCount(); }
-		int GetRecipientIndex( int slot ) const override { return m_pTarget->GetRecipientIndex( slot ); }
+	bool IsReliable() const override { return m_pTarget->IsReliable() != 0; }
 
-		static void operator delete( void *, size_t ) {}
+	bool IsInitMessage() const override { return m_pTarget->IsInitMessage() != 0; }
 
-	private:
-		IManagedRecipientFilter *m_pTarget;
-	};
+	int GetRecipientCount() const override { return m_pTarget->GetRecipientCount(); }
 
-	// A vptr and one pointer: the block's reserved words hold it.
-	static_assert( sizeof( SSRecipientFilter ) <= kManagedPhysicsCallbackWords * sizeof( void * ), "fits the block's reserved words" );
+	int GetRecipientIndex( int slot ) const override { return m_pTarget->GetRecipientIndex( slot ); }
+
+	static void operator delete( void *, size_t ) {}
+
+private:
+	IManagedRecipientFilter *m_pTarget;
+};
+
+// A vptr and one pointer: the block's reserved words hold it.
+static_assert( sizeof( SSRecipientFilter ) <= kManagedPhysicsCallbackWords * sizeof( void * ),
+			   "fits the block's reserved words" );
 }
 
 int SSFwd_RecipientFilter_SizeOf()
@@ -64,5 +67,5 @@ void *SSFwd_RecipientFilter_Construct( void *pMemory, IManagedRecipientFilter *p
 	if ( !pMemory || !pTarget )
 		return nullptr;
 
-	return static_cast< IRecipientFilter * >( new ( pMemory ) SSRecipientFilter( pTarget ) );
+	return static_cast<IRecipientFilter *>( new ( pMemory ) SSRecipientFilter( pTarget ) );
 }

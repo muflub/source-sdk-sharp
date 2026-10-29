@@ -29,14 +29,6 @@ public interface IClientModule
     void DispatchTempEntity(int handle, ReadOnlySpan<byte> blob);
 
     /// <summary>
-    /// A native forward raised a temp entity LOCALLY. The id and the numbers
-    /// arrive rather than a blob: the effect is local, so it never has to become
-    /// bytes, and the module turns them into the declaration and plays it.
-    /// Answers whether a player took it.
-    /// </summary>
-    bool ForwardTempEntity(int id, ReadOnlySpan<float> floats, ReadOnlySpan<int> ints);
-
-    /// <summary>
     /// One frame of the pool: expiry, the physics step, the visibility cull and
     /// the frees. <c>CTempEnts::Update</c>'s body, from the same place
     /// <c>cdll_client_int.cpp</c> called it.
@@ -100,6 +92,16 @@ public interface IClientModule
     /// out, or -1 for one that must still draw in place.
     /// </summary>
     void StandaloneDrawBatch(ReadOnlySpan<uint> handles, Span<int> results);
+
+    /// <summary>
+    /// What an entity draws beside its model in one pass, with the pass's
+    /// <c>STUDIO_*</c> flags: after the local viewmodel's model (stock's
+    /// <c>C_BaseCombatWeapon::ViewModelDrawn</c>), and in a two-pass entity's
+    /// translucent pass (stock's weapons' <c>DrawModel</c> arm for
+    /// <c>STUDIO_TRANSPARENCY</c>). Answers what DrawModel returns in place of
+    /// the model's draw, or -1 to let the model draw.
+    /// </summary>
+    int StandaloneDrawExtras(EntityHandle entity, int flags);
     void StandaloneRemoved(EntityHandle entity);
 
     /// <summary>
@@ -194,4 +196,20 @@ public interface IClientModule
     /// </summary>
     int ImpactChoice(ReadOnlySpan<int> input, Span<int> output,
                      Span<byte> particleName, Span<byte> decalName);
+
+    /// <summary>
+    /// Whether a temp entity the client makes for itself is dropped: stock
+    /// c_te.cpp's <c>C_TempEntsSystem::SuppressTE</c>, asked by
+    /// <c>te-&gt;DispatchEffect</c> with the prediction system's
+    /// <c>CanPredict()</c> and the filter's recipient count.
+    /// </summary>
+    bool SuppressLocalTempEnt(bool canPredict, int recipientCount);
+
+    /// <summary>
+    /// Whether a standalone entity's update is decoded: the schema gate, asked
+    /// once per update with what this side's type table holds for the type and
+    /// the hash the update arrived with. Refusals are kept and warned once per
+    /// type.
+    /// </summary>
+    bool SchemaAccept(uint typeId, bool published, uint expected, uint seen, int entIndex, string className);
 }

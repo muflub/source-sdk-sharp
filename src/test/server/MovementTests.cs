@@ -109,7 +109,7 @@ public class MovementTests
         // stock it should be because somebody meant it, in a commit that says
         // so — not as a side effect of making them reachable.
         Assert.True(p.JumpHeight == 21f && p.Gravity == 600f && p.Friction == 4f &&
-            p.StopSpeed == 75f && p.StepSize == 18f && p.MaxSpeed == 320f &&
+            p.StopSpeed == 100f && p.StepSize == 18f && p.MaxSpeed == 320f &&
             p.AirSpeedCap == 30f && Math.Abs(p.DuckSpeedScale - 0.33333333f) < 1e-6f, "the parameters are still stock Half-Life's");
     }
 
@@ -336,6 +336,8 @@ public class MovementTests
                         AirSpeedCap = Flt(body[13]),
                         DuckSpeedScale = Flt(body[14]),
                         Optimizations = body[15] == "1",
+                        // The fork's build, whose loop the recording is of.
+                        NoHl2Arms = true,
                         SpecNoClip = body[16] == "1",
                         MaxClients = Int(body[17]),
                         TickInterval = Flt(body[18]),
@@ -1706,7 +1708,7 @@ public class MovementTests
         var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
         var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
-        s.FallVelocity = 579f;   // PLAYER_MAX_SAFE_FALL_SPEED - 1, shareddefs.h:416
+        s.FallVelocity = 525.5f; // PLAYER_MAX_SAFE_FALL_SPEED - 1, shareddefs.h:410
         s.Flags = GameMovement.FlOnGround;
         s.HasGround = true;
 
@@ -1726,7 +1728,7 @@ public class MovementTests
         var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
         var movement = new GameMovement(world, MoveConstantDefaults.Stock);
         MoveState s = BaselineState();
-        s.FallVelocity = 581f;   // PLAYER_MAX_SAFE_FALL_SPEED + 1, shareddefs.h:416
+        s.FallVelocity = 527.5f; // PLAYER_MAX_SAFE_FALL_SPEED + 1, shareddefs.h:410
         s.Flags = GameMovement.FlOnGround;
         s.HasGround = true;
 
@@ -2019,47 +2021,245 @@ public class MovementTests
     }
 
     /// <summary>
-    /// The jump velocity is <c>sqrt(2 g h)</c> and NOT stock's literal 160.
-    ///
-    /// <para>
-    /// Two runs rather than one number, because the relationship is the thing
-    /// that was broken: stock's optimised branch used a literal 160.0f, so a
-    /// build that changed the jump height changed nothing. Quadrupling the
-    /// height DOUBLES the impulse — it does not quadruple it, which is what
-    /// people get wrong when they tune it.
-    /// </para>
+    /// CheckJumpButton's jump speed under movement optimisations is the HL2
+    /// arm's literal, 160 ("approx. 21 units"), whatever the gravity; a jump
+    /// height a mod sets scales it by the root of the ratio, as that height's
+    /// own speed would scale, so the parameter still reaches the branch stock
+    /// hard-coded.
     /// </summary>
     [Fact]
-    public void TheJumpVelocityFollowsTheJumpHeightRatherThanALiteral()
+    public void TheOptimisedJumpIsStocksLiteralAndAHeightScalesIt()
     {
-        float Impulse(float jumpHeight)
+        Assert.Equal(160f, Impulse(21f, optimisations: true), 3);
+        Assert.Equal(320f, Impulse(84f, optimisations: true), 3);
+        Assert.Equal(160f, Impulse(21f, optimisations: true, gravity: 800f), 3);
+    }
+
+    /// <summary>
+    /// Without optimisations, or in the non-HL2 arms the movement recording
+    /// holds, it is sqrt( 2 g h ): 158.75 for 21 units at 600.
+    /// </summary>
+    [Fact]
+    public void TheUnoptimisedJumpAndTheRecordedArmFollowTheFormula()
+    {
+        Assert.InRange(Impulse(21f, optimisations: false), 158.73f, 158.76f);
+        Assert.InRange(Impulse(21f, optimisations: true, noHl2Arms: true), 158.73f, 158.76f);
+        Assert.InRange(Impulse(84f, optimisations: false), 317.47f, 317.51f);
+    }
+
+    /// <summary>
+    /// The HL2 arm's landing thresholds (shareddefs.h:409-413): a landing at
+    /// 320 is past the punch threshold (303) and half the safe speed, so the
+    /// view is punched; in the non-HL2 arm the recording holds, 320 is under
+    /// 350 and nothing happens.
+    /// </summary>
+    [Fact]
+    public void A320LandingPunchesTheViewInTheHl2ArmAndNotTheRecordedOne()
+    {
+        // The roll: PlayerRoughLandingEffects sets PunchAngle.Z (and tests X).
+        Assert.NotEqual(0f, LandAt(320f, noHl2Arms: false).PunchAngle.Z);
+        Assert.Equal(0f, LandAt(320f, noHl2Arms: true).PunchAngle.Z);
+    }
+
+    private static MoveState LandAt(float fallVelocity, bool noHl2Arms)
+    {
+        var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
+        MoveConstants constants = MoveConstantDefaults.Stock;
+        constants.NoHl2Arms = noHl2Arms;
+        var movement = new GameMovement(world, constants);
+        MoveState s = BaselineState();
+        s.FallVelocity = fallVelocity;
+        s.Flags = GameMovement.FlOnGround;
+        s.HasGround = true;
+        movement.ProcessMovement(s);
+        return s;
+    }
+
+    /// <summary>
+    /// The HL2 arm's single-player jump bonus (gamemovement.cpp:2466): half
+    /// the forward move, along the view's yaw, backwards for a backward move.
+    /// A multiplayer game, or the recorded arm, adds none; what air control
+    /// gives in the first frame stays under the air speed cap, 30.
+    /// </summary>
+    [Fact]
+    public void ASinglePlayerJumpAddsHalfTheForwardMove()
+    {
+        Assert.Equal(100f, JumpWithForward(200f, maxClients: 1).Velocity.X, 1);
+        Assert.Equal(-100f, JumpWithForward(-200f, maxClients: 1).Velocity.X, 1);
+        Assert.True(JumpWithForward(200f, maxClients: 2).Velocity.X <= 30.01f, "a multiplayer jump took no bonus");
+        Assert.True(JumpWithForward(200f, maxClients: 1, noHl2Arms: true).Velocity.X <= 30.01f, "the recorded arm took no bonus");
+    }
+
+    private static MoveState JumpWithForward(float forward, int maxClients, bool noHl2Arms = false)
+    {
+        var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
+        MoveConstants constants = MoveConstantDefaults.Stock;
+        constants.MaxClients = maxClients;
+        constants.NoHl2Arms = noHl2Arms;
+        var movement = new GameMovement(world, constants);
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Buttons = GameMovement.InJump;
+        s.ForwardMove = forward;
+        movement.ProcessMovement(s);
+        return s;
+    }
+
+    //=========================================================================
+    // HL2MP's player: the walk, run and sprint speeds and the suit's power
+    // (CHL2_Player / C_HL2MP_Player's HandleSpeedChanges and ReduceTimers).
+    //=========================================================================
+
+    private sealed class Hl2Player(bool infinite = false, bool canSprint = true) : IHl2PlayerMove
+    {
+        public float WalkSpeed => 150f;
+        public float NormSpeed => 190f;
+        public float SprintSpeed => 320f;
+        public bool InfiniteAuxPower => infinite;
+        public bool CanSprint(bool ducked, bool ducking, int waterLevel, bool sprintDisabled) => canSprint;
+    }
+
+    /// <summary>One command by an HL2MP player standing on a floor, at curtime <paramref name="now"/>.</summary>
+    private static (MoveState S, ScriptedWorld W) Hl2Command(int buttons, int oldButtons = 0, float power = 100f,
+                                                             Vector? velocity = null, float now = 10f,
+                                                             Action<MoveState>? setup = null, Hl2Player? player = null)
+    {
+        var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock) { Hl2Player = player ?? new Hl2Player() };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Buttons = buttons;
+        s.OldButtons = oldButtons;
+        s.SuitEquipped = true;
+        s.SuitPower = power;
+        s.CurTime = now;
+        s.Velocity = velocity ?? Vector.Zero;
+        setup?.Invoke(s);
+        movement.ProcessMovement(s);
+        return (s, world);
+    }
+
+    [Fact]
+    public void AnHl2PlayerRunsAt190WalksAt150AndSprintsAt320()
+    {
+        Assert.Equal(190f, Hl2Command(0).S.MaxSpeed);
+        Assert.Equal(150f, Hl2Command(GameMovement.InWalk).S.MaxSpeed);
+
+        var (sprint, world) = Hl2Command(GameMovement.InSpeed);
+        Assert.Equal((320f, true), (sprint.MaxSpeed, sprint.NewSprinting));
+        Assert.Contains("StartSound:HL2Player.SprintStart", world.Effects);
+    }
+
+    [Fact]
+    public void ALoopWithNoHl2PlayerKeepsTheMaxSpeedItWasGiven()
+    {
+        var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Buttons = GameMovement.InSpeed;
+        float given = s.MaxSpeed;
+        new GameMovement(world, MoveConstantDefaults.Stock).ProcessMovement(s);
+
+        Assert.Equal(given, s.MaxSpeed);
+        Assert.False(s.NewSprinting);
+    }
+
+    [Fact]
+    public void ASprintWantsTenPowerToStartAndClicksWithout()
+    {
+        var (s, world) = Hl2Command(GameMovement.InSpeed, power: 9f);
+
+        Assert.Equal((190f, false), (s.MaxSpeed, s.NewSprinting));
+        Assert.Contains("StartSound:HL2Player.SprintNoPower", world.Effects);
+    }
+
+    [Fact]
+    public void AHeldSprintKeepsGoingUntilThePowerIsGone()
+    {
+        Assert.Equal(320f, Hl2Command(GameMovement.InSpeed, GameMovement.InSpeed, power: 5f,
+                                      setup: s => s.NewSprinting = true).S.MaxSpeed);
+        Assert.Equal(190f, Hl2Command(GameMovement.InSpeed, GameMovement.InSpeed, power: 0f,
+                                      setup: s => s.NewSprinting = true).S.MaxSpeed);
+    }
+
+    [Fact]
+    public void WalkingOrNoSprintModuleNeverSprints()
+    {
+        Assert.Equal(150f, Hl2Command(GameMovement.InSpeed | GameMovement.InWalk,
+                                      player: new Hl2Player(canSprint: false)).S.MaxSpeed);
+        Assert.Equal(190f, Hl2Command(GameMovement.InSpeed, player: new Hl2Player(canSprint: false)).S.MaxSpeed);
+    }
+
+    [Fact]
+    public void ASprintDrainsTwentyFiveASecondWhileMoving()
+    {
+        var (s, _) = Hl2Command(GameMovement.InSpeed, velocity: new Vector(200f, 0f, 0f));
+
+        Assert.Equal(GameMovement.SuitDeviceSprint, s.SuitDevices);
+        Assert.Equal(25f, s.SuitPowerLoad);
+        Assert.Equal(100f - 25f * 0.015f, s.SuitPower, 4);
+    }
+
+    [Fact]
+    public void ASprintStandingStillDrainsNothing()
+    {
+        var (s, _) = Hl2Command(GameMovement.InSpeed);
+
+        Assert.Equal(GameMovement.SuitDeviceSprint, s.SuitDevices);
+        Assert.Equal(100f, s.SuitPower);
+    }
+
+    [Fact]
+    public void StoppingASprintCostsATenthOfASecondsDrainAndStartsTheQuiet()
+    {
+        var (s, _) = Hl2Command(0, GameMovement.InSpeed, power: 50f, now: 12f, setup: m =>
         {
-            var world = new ScriptedWorld
-            {
-                OnTrace = (start, end, _, _, _, _) => ScriptedWorld.Floor(start, end),
-            };
-            var movement = new GameMovement(world, MoveConstantDefaults.Stock) { JumpHeight = jumpHeight };
+            m.NewSprinting = true;
+            m.SuitDevices = GameMovement.SuitDeviceSprint;
+            m.SuitPowerLoad = GameMovement.SuitDeviceSprintDrain;
+        });
 
-            MoveState s = BaselineState();
-            s.HasGround = true;
-            s.Buttons = GameMovement.InJump;
+        Assert.Equal((0, 0f, 12f), (s.SuitDevices, s.SuitPowerLoad, s.SuitDevicesOffTime));
+        Assert.Equal(50f - 2.5f, s.SuitPower, 4);
+    }
 
-            movement.ProcessMovement(s);
+    [Fact]
+    public void TheSuitRechargesHalfASecondAfterTheLastDeviceWentOff()
+    {
+        Assert.Equal(40f, Hl2Command(0, power: 40f, now: 10.4f, setup: m => m.SuitDevicesOffTime = 10f).S.SuitPower);
+        Assert.Equal(40f + 12.5f * 0.015f, Hl2Command(0, power: 40f, now: 10.5f, setup: m => m.SuitDevicesOffTime = 10f).S.SuitPower, 4);
+        Assert.Equal(100f, Hl2Command(0, power: 99.99f, now: 20f).S.SuitPower);
+    }
 
-            // FinishGravity takes half a frame off before the impulse is
-            // recorded, and it takes the same half off both runs.
-            return s.OutJumpVel.Z + 0.5f * 600f * 0.015f;
-        }
+    [Fact]
+    public void InfiniteAuxPowerNeverDrains()
+    {
+        var (s, _) = Hl2Command(GameMovement.InSpeed, velocity: new Vector(200f, 0f, 0f),
+                                player: new Hl2Player(infinite: true));
 
-        float low = Impulse(21f);
-        float high = Impulse(84f);
+        Assert.Equal((320f, 100f), (s.MaxSpeed, s.SuitPower));
+    }
 
-        Assert.True(MathF.Abs(high - 2f * low) < 0.01f,
-            $"quadrupling the height took the impulse from {low} to {high}, not to twice it");
+    private static float Impulse(float jumpHeight, bool optimisations, bool noHl2Arms = false, float gravity = 600f)
+    {
+        var world = new ScriptedWorld
+        {
+            OnTrace = (start, end, _, _, _, _) => ScriptedWorld.Floor(start, end),
+        };
+        MoveConstants constants = MoveConstantDefaults.Stock;
+        constants.Optimizations = optimisations;
+        constants.NoHl2Arms = noHl2Arms;
+        var movement = new GameMovement(world, constants) { JumpHeight = jumpHeight };
 
-        // And it is NOT the literal: sqrt(2 * 600 * 21) is 158.75, not 160.
-        Assert.True(MathF.Abs(low - 158.745f) < 0.01f,
-            $"a 21-unit jump left the ground at {low}, which is stock's literal rather than the formula");
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Buttons = GameMovement.InJump;
+        s.CurrentGravity = gravity;
+
+        movement.ProcessMovement(s);
+
+        // FinishGravity takes half a frame off before the impulse is recorded.
+        return s.OutJumpVel.Z + 0.5f * gravity * 0.015f;
     }
 
     /// <summary>

@@ -4,24 +4,15 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — the client's vgui start, shutdown and panels ======//
+// The client's vgui start, shutdown and global panels, without vgui_controls.
 // SS_REASON b  an interface resolved by name at load
-//
-// plan_client_novalve C3 step 4. Stock's vgui_int.cpp started vgui for the
-// client through vgui_controls (VGui_InitInterfacesList, a property converter
-// for HUD textures, the panel-animation dump) and made the global panels.
-// No panel here is a vgui_controls panel now, so this asks for what the
-// client uses directly: tier3 connected the vgui interfaces before this runs,
-// the input-internal interface comes from the factory (stock's comment: the
-// vgui screen code needs it), and the root panel and the global panels are
-// made and destroyed as stock's were, also around a video-mode change. The
-// loading and paused plaques are decided by the managed UI from the engine
-// facts VGui_PreRender forwards.
-//=============================================================================//
 
-#include "cbase.h"
+#include "predictable_entity.h"
+#include "cdll_util.h"
+#include "util_shared.h"
+#include "vphysics_interface.h"
+#include "client_entity.h"
 #include "vgui_int.h"
-#include "hud.h"
 #include "ienginevgui.h"
 #include "iclientmode.h"
 #include "vguicenterprint.h"
@@ -30,18 +21,13 @@
 #include "imessagechars.h"
 #include "inetgraphpanel.h"
 #include "idebugoverlaypanel.h"
-#include "materialsystem/imaterialsystem.h"
-#include "tier3/tier3.h"
-#include "imanaged_areas_client.h"
-#include "tier0/platform.h"
-#include <vgui/ISurface.h>
-#include <vgui/IVGui.h>
-#include <vgui/IPanel.h>
-#include <vgui/IInputInternal.h>
-#include <vgui/IInput.h>
 
-// memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
+#include "vgui/ISurface.h"
+#include "vgui/IVGui.h"
+#include "vgui/IPanel.h"
+#include "vgui/IInputInternal.h"
+
+#include "imanaged_areas_client.h"
 
 vgui::IInputInternal *g_InputInternal = NULL;
 
@@ -108,7 +94,7 @@ bool VGui_Startup( CreateInterfaceFn appSystemFactory )
 	return VGui_GetClientDLLRootPanel() != 0;
 }
 
-void VGui_CreateGlobalPanels( void )
+void VGui_CreateGlobalPanels()
 {
 	internalCenterPrint->Create( enginevgui->GetPanel( PANEL_CLIENTDLL_TOOLS ) );
 	CreateModePanels();
@@ -127,21 +113,18 @@ void VGui_Shutdown()
 	g_pVGui->RunFrame();
 }
 
-// The engine facts the loading and paused plaques are decided from, to the
-// managed UI (IManagedUiClient::PlaqueState) when they change; the rule is
-// SourceSharp.Client's LoadingDisc (stock's VGui_PreRender, which viewrender.cpp
-// calls each frame). The seconds left on a timed pause, -1 without a timer.
+// The engine facts the managed UI decides the loading and paused plaques from, sent when
+// they change. The seconds left on a timed pause, -1 without a timer.
 static int s_nPlaqueFacts = -1;
 static int s_nPausedSeconds = -1;
 
 void VGui_PreRender()
 {
-	const int nFacts = ( engine->IsDrawingLoadingImage() ? 1 : 0 ) | ( engine->IsPlayingDemo() ? 2 : 0 )
-		| ( enginevgui->IsGameUIVisible() ? 4 : 0 ) | ( engine->IsPaused() ? 8 : 0 )
-		| ( engine->IsTakingScreenshot() ? 16 : 0 );
+	const int nFacts = ( engine->IsDrawingLoadingImage() ? 1 : 0 ) | ( engine->IsPlayingDemo() ? 2 : 0 ) |
+		( enginevgui->IsGameUIVisible() ? 4 : 0 ) | ( engine->IsPaused() ? 8 : 0 ) |
+		( engine->IsTakingScreenshot() ? 16 : 0 );
 	const float flExpire = engine->GetPausedExpireTime();
-	// The expiry is on the engine's clock (tier0's Plat_FloatTime, which
-	// engine->Time() answers), so it is compared with that clock.
+	// The expiry is on the engine's clock, which engine->Time() answers.
 	const int nSeconds = flExpire != -1.f ? (int)( flExpire - engine->Time() ) : -1;
 	if ( nFacts == s_nPlaqueFacts && nSeconds == s_nPausedSeconds )
 		return;
@@ -153,9 +136,7 @@ void VGui_PreRender()
 	pUi->PlaqueState( nFacts, nSeconds );
 }
 
-void VGui_PostRender()
-{
-}
+void VGui_PostRender() {}
 
 // The HUD's size: the client panel's, or the screen's before there is one.
 void GetHudSize( int &w, int &h )

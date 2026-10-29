@@ -7,31 +7,27 @@
 // testable against a fake engine harness with no Source dependency.
 //
 //=============================================================================//
-#ifndef SOURCESHARP_H
-#define SOURCESHARP_H
-#ifdef _WIN32
 #pragma once
-#endif
 
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 // The host (SOURCESHARP_HOST_BUILD, its CMake target) exports the API; the
 // game libraries, which include this header to call it, import it. On the GNU
 // platforms one visibility attribute serves both sides.
 #ifdef _WIN32
-	#ifdef SOURCESHARP_HOST_BUILD
-		#define SOURCESHARP_EXPORT __declspec(dllexport)
-	#else
-		#define SOURCESHARP_EXPORT __declspec(dllimport)
-	#endif
+#ifdef SOURCESHARP_HOST_BUILD
+#define SOURCESHARP_EXPORT __declspec( dllexport )
 #else
-	#define SOURCESHARP_EXPORT __attribute__((visibility("default")))
+#define SOURCESHARP_EXPORT __declspec( dllimport )
 #endif
-
+#else
+#define SOURCESHARP_EXPORT __attribute__( ( visibility( "default" ) ) )
+#endif
 
 //-----------------------------------------------------------------------------
 // WHICH FACTORY ANSWERS -- plan_native_api.md Part 3b.
@@ -60,10 +56,10 @@ extern "C" {
 //-----------------------------------------------------------------------------
 typedef enum
 {
-	SOURCESHARP_FACTORY_APPSYSTEM  = 0,  // the engine's appSystemFactory
-	SOURCESHARP_FACTORY_PHYSICS    = 1,  // physicsFactory
-	SOURCESHARP_FACTORY_FILESYSTEM = 2,  // the filesystem, wherever this side gets it
-	SOURCESHARP_FACTORY_INTERNAL   = 3,  // the shim layer's own interfaces
+	SOURCESHARP_FACTORY_APPSYSTEM = 0, // the engine's appSystemFactory
+	SOURCESHARP_FACTORY_PHYSICS = 1, // physicsFactory
+	SOURCESHARP_FACTORY_FILESYSTEM = 2, // the filesystem, wherever this side gets it
+	SOURCESHARP_FACTORY_INTERNAL = 3, // the shim layer's own interfaces
 } SourceSharpFactoryType;
 
 // How many bytes AcquireInterface's caller must give it for a failure reason,
@@ -92,16 +88,16 @@ typedef enum
 	// Asked before DLLInit/Init captured the engine's factories.
 	// SOURCESHARP_FACTORY_INTERNAL is exempt -- its objects are ours and exist
 	// from DLL load.
-	SOURCESHARP_ACQUIRE_NOT_YET_AVAILABLE   = 0,
+	SOURCESHARP_ACQUIRE_NOT_YET_AVAILABLE = 0,
 
 	// The list was captured, but this side has no factory of the kind asked
 	// for.
-	SOURCESHARP_ACQUIRE_NO_SUCH_FACTORY     = 1,
+	SOURCESHARP_ACQUIRE_NO_SUCH_FACTORY = 1,
 
 	// The interesting one: a factory answers only for what it registered, not
 	// for everything anyone hoped. Also the answer for a name this side was not
 	// built to serve.
-	SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE   = 2,
+	SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE = 2,
 
 	// A managed/native skew that should be impossible while the handshake
 	// version agrees. Refused rather than assumed.
@@ -110,13 +106,13 @@ typedef enum
 
 typedef enum
 {
-	SOURCESHARP_OK                  = 0,
-	SOURCESHARP_ERR_HOSTFXR_LOAD    = -1,  // couldn't dlopen libhostfxr
-	SOURCESHARP_ERR_HOSTFXR_SYM     = -2,  // missing export in libhostfxr
-	SOURCESHARP_ERR_RUNTIME_INIT    = -3,  // hostfxr_initialize_for_runtime_config failed
-	SOURCESHARP_ERR_DELEGATE        = -4,  // couldn't get load_assembly_and_get_function_pointer
-	SOURCESHARP_ERR_BOOTSTRAP       = -5,  // couldn't resolve/call the managed bootstrap
-	SOURCESHARP_ERR_ABI_MISMATCH    = -6,  // managed side rejected our ABI version
+	SOURCESHARP_OK = 0,
+	SOURCESHARP_ERR_HOSTFXR_LOAD = -1, // couldn't dlopen libhostfxr
+	SOURCESHARP_ERR_HOSTFXR_SYM = -2, // missing export in libhostfxr
+	SOURCESHARP_ERR_RUNTIME_INIT = -3, // hostfxr_initialize_for_runtime_config failed
+	SOURCESHARP_ERR_DELEGATE = -4, // couldn't get load_assembly_and_get_function_pointer
+	SOURCESHARP_ERR_BOOTSTRAP = -5, // couldn't resolve/call the managed bootstrap
+	SOURCESHARP_ERR_ABI_MISMATCH = -6, // managed side rejected our ABI version
 	SOURCESHARP_ERR_NOT_INITIALIZED = -7,
 } SourceSharpResult;
 
@@ -159,15 +155,15 @@ typedef struct
 typedef enum
 {
 	SOURCESHARP_WEAPONANIM_PRIMARY = 0,
-	SOURCESHARP_WEAPONANIM_RELOAD  = 1,
-	SOURCESHARP_WEAPONANIM_IDLE    = 2,
+	SOURCESHARP_WEAPONANIM_RELOAD = 1,
+	SOURCESHARP_WEAPONANIM_IDLE = 2,
 } SourceSharpWeaponAnim;
 
 // Which of the weapon script's sounds to play.
 typedef enum
 {
 	SOURCESHARP_WEAPONSOUND_SINGLE = 0,
-	SOURCESHARP_WEAPONSOUND_EMPTY  = 1,
+	SOURCESHARP_WEAPONSOUND_EMPTY = 1,
 	SOURCESHARP_WEAPONSOUND_RELOAD = 2,
 } SourceSharpWeaponSound;
 
@@ -204,37 +200,37 @@ typedef struct
 	// Already corrected for the two models' "placementOrigin" attachments,
 	// which is the half of stock's sum that needs a studio header and so cannot
 	// be done anywhere else.
-	float    OffsetXYZ[3];
+	float OffsetXYZ[3];
 
 	// The block's own "velocity" key, in the same frame. Almost never written;
 	// zero when it is not.
-	float    VelocityXYZ[3];
+	float VelocityXYZ[3];
 
 	// How much damage the piece itself takes before breaking again, how long
 	// before it fades, and the distance band it is drawn in.
-	float    Health;
-	float    FadeTime;
-	float    FadeMinDist;
-	float    FadeMaxDist;
+	float Health;
+	float FadeTime;
+	float FadeMinDist;
+	float FadeMaxDist;
 
 	// How hard the piece is pushed away from the break, if the block asked for
 	// something other than the caller's default.
-	float    BurstScale;
+	float BurstScale;
 
 	// What it collides as, in SOURCESHARP's vocabulary and not the engine's:
 	// translated on the way out by the one table that owns the mapping, so that
 	// the group a piece is created in and the group C# believes it asked for
 	// cannot be two different lookups. Debris unless the block said otherwise.
-	int32_t  CollisionGroup;
+	int32_t CollisionGroup;
 
 	// A jointed body rather than a lump, and a piece that is bolted in place.
-	int32_t  IsRagdoll;
-	int32_t  IsMotionDisabled;
+	int32_t IsRagdoll;
+	int32_t IsMotionDisabled;
 
 	// mp_break_t: DEFAULT, SERVERSIDE, CLIENTSIDE or BOTH. Reported rather than
 	// acted on -- which side of the wire a piece belongs on is a decision, and
 	// this mod has only one answer to it since the clientside prop went.
-	int32_t  MultiplayerBreakMode;
+	int32_t MultiplayerBreakMode;
 } SourceSharpBreakPiece;
 
 // The 3D skybox, as sky_camera describes it.
@@ -260,21 +256,21 @@ typedef struct SourceSharpSkyboxParams
 {
 	// Where in the world the miniature is, and how many times smaller. The
 	// client subtracts this origin and divides by the scale.
-	float    OriginXYZ[3];
-	int32_t  Scale;
+	float OriginXYZ[3];
+	int32_t Scale;
 
 	// Which visleaf area the camera sits in, so the engine knows what of the
 	// miniature world is visible. 255 means "no sky camera", which is the value
 	// the native path writes when it finds none.
-	int32_t  Area;
+	int32_t Area;
 
 	// The skybox's own fog, which is a separate volume from the world's -- a
 	// map can have distance fog in the playable space and none in the sky, or
 	// the other way round.
-	int32_t  FogEnable;
-	int32_t  FogBlend;
-	int32_t  FogRadial;
-	float    FogDirPrimaryXYZ[3];
+	int32_t FogEnable;
+	int32_t FogBlend;
+	int32_t FogRadial;
+	float FogDirPrimaryXYZ[3];
 
 	// Packed RGBA, one byte each, in the order the engine's color32 stores
 	// them. Bytes rather than four floats because that is what the send table
@@ -283,9 +279,9 @@ typedef struct SourceSharpSkyboxParams
 	uint32_t FogColorPrimary;
 	uint32_t FogColorSecondary;
 
-	float    FogStart;
-	float    FogEnd;
-	float    FogMaxDensity;
+	float FogStart;
+	float FogEnd;
+	float FogMaxDensity;
 } SourceSharpSkyboxParams;
 
 // THE WORLD'S FOG, as env_fog_controller describes it (plan_entity.md step
@@ -319,12 +315,12 @@ typedef struct SourceSharpFogParams
 {
 	// Whether there is fog at all, and how it blends. Ints rather than bools
 	// for the ABI's fixed-width rule.
-	int32_t  Enable;
-	int32_t  Blend;
-	int32_t  Radial;
+	int32_t Enable;
+	int32_t Blend;
+	int32_t Radial;
 
 	// The direction the secondary colour comes from, for a blended fog.
-	float    DirPrimaryXYZ[3];
+	float DirPrimaryXYZ[3];
 
 	// Packed RGBA, one byte each, in the order the engine's color32 stores
 	// them -- the same encoding SourceSharpSkyboxParams uses and for the same
@@ -336,10 +332,10 @@ typedef struct SourceSharpFogParams
 	// Where the fog begins and ends, how far the far plane is pushed, and the
 	// densest it gets. FarZ <= 0 means "the mapper did not set one", which is
 	// how stock's env_fog_controller spells it too.
-	float    Start;
-	float    End;
-	float    FarZ;
-	float    MaxDensity;
+	float Start;
+	float End;
+	float FarZ;
+	float MaxDensity;
 } SourceSharpFogParams;
 
 // A SECOND CAMERA'S VIEW, as managed code decides it (lane camproto, the
@@ -354,22 +350,22 @@ typedef struct SourceSharpFogParams
 // NAMED, for SourceSharpFogParams' reason: it is forward-declared.
 typedef struct SourceSharpViewTargetSetup
 {
-	float    OriginXYZ[3];
-	float    Angles[3];       // pitch, yaw, roll
-	float    Fov;             // horizontal, degrees, at the target's aspect
-	float    ZNear;
-	float    ZFar;
-	float    OrthoLeft;
-	float    OrthoTop;
-	float    OrthoRight;
-	float    OrthoBottom;
-	int32_t  Width;
-	int32_t  Height;
-	int32_t  Flags;           // SOURCESHARP_VIEWTARGET_*
+	float OriginXYZ[3];
+	float Angles[3]; // pitch, yaw, roll
+	float Fov; // horizontal, degrees, at the target's aspect
+	float ZNear;
+	float ZFar;
+	float OrthoLeft;
+	float OrthoTop;
+	float OrthoRight;
+	float OrthoBottom;
+	int32_t Width;
+	int32_t Height;
+	int32_t Flags; // SOURCESHARP_VIEWTARGET_*
 } SourceSharpViewTargetSetup;
 
-#define SOURCESHARP_VIEWTARGET_ORTHO       1   // the Ortho* extents, not Fov
-#define SOURCESHARP_VIEWTARGET_DRAW_VIEWER 2   // the local player's body draws in this view
+#define SOURCESHARP_VIEWTARGET_ORTHO 1 // the Ortho* extents, not Fov
+#define SOURCESHARP_VIEWTARGET_DRAW_VIEWER 2 // the local player's body draws in this view
 
 // One dynamic light, as the client asks the engine for it.
 //
@@ -390,34 +386,34 @@ typedef struct
 	// Entity indices are the usual choice and negative keys are conventionally
 	// the same entity's second light, which is how a spotlight has one at each
 	// end. Zero is not special.
-	int32_t  Key;
+	int32_t Key;
 
 	// An elight lights MODELS only and never the world, which is much cheaper
 	// and is what a light with DLIGHT_NO_WORLD_ILLUMINATION really wants.
-	int32_t  IsElight;
+	int32_t IsElight;
 
-	float    OriginXYZ[3];
-	float    DirectionXYZ[3];
+	float OriginXYZ[3];
+	float DirectionXYZ[3];
 
-	float    Radius;
+	float Radius;
 
 	// Colour, with the engine's shared exponent -- ColorRGBExp32, not a byte
 	// triple. The exponent is what lets a dlight be brighter than white.
-	int32_t  Red, Green, Blue, Exponent;
+	int32_t Red, Green, Blue, Exponent;
 
 	// Which lightstyle animates it, and the engine's own DLIGHT_* bits.
-	int32_t  Style;
-	int32_t  Flags;
+	int32_t Style;
+	int32_t Flags;
 
 	// A cone rather than a point light, in degrees. Zero outer angle means it
 	// is not a cone at all.
-	float    InnerAngle;
-	float    OuterAngle;
+	float InnerAngle;
+	float OuterAngle;
 
 	// How long from now it lasts, in seconds. A light refreshed every frame
 	// asks for slightly more than a frame; one that is placed and left asks for
 	// a very large number.
-	float    LiveFor;
+	float LiveFor;
 
 	// How much radius the light sheds each second before it dies -- dlight_t's
 	// own `decay`, "drop this each second".
@@ -434,7 +430,7 @@ typedef struct
 	//
 	// Zero for every other caller, which is what a freshly allocated dlight
 	// already has -- so adding it changed no existing light's behaviour.
-	float    Decay;
+	float Decay;
 } SourceSharpDynamicLight;
 
 // One projected-texture flashlight's state, as managed decides it
@@ -447,28 +443,27 @@ typedef struct
 // AbiParityTests holds the two field for field.
 typedef struct
 {
-	float    OriginXYZ[3];
+	float OriginXYZ[3];
 	// m_quatOrientation: x, y, z, w.
-	float    Orientation[4];
-	float    NearZ;
-	float    FarZ;
-	float    HorizontalFovDegrees;
-	float    VerticalFovDegrees;
-	float    QuadraticAtten;
-	float    LinearAtten;
-	float    ConstantAtten;
+	float Orientation[4];
+	float NearZ;
+	float FarZ;
+	float HorizontalFovDegrees;
+	float VerticalFovDegrees;
+	float QuadraticAtten;
+	float LinearAtten;
+	float ConstantAtten;
 	// m_Color: r, g, b and the ambient term.
-	float    Color[4];
+	float Color[4];
 	// FlashlightTexture's id for m_pSpotlightTexture; -1 for none.
-	int32_t  Texture;
-	int32_t  TextureFrame;
-	int32_t  EnableShadows;
-	float    ShadowMapResolution;
-	float    ShadowAtten;
-	float    ShadowSlopeScaleDepthBias;
-	float    ShadowDepthBias;
+	int32_t Texture;
+	int32_t TextureFrame;
+	int32_t EnableShadows;
+	float ShadowMapResolution;
+	float ShadowAtten;
+	float ShadowSlopeScaleDepthBias;
+	float ShadowDepthBias;
 } SourceSharpFlashlightState;
-
 
 // How movement feels, stated once by C# and read by the native movement loop.
 //
@@ -559,15 +554,15 @@ typedef struct
 	// static, which is initialised to exactly the numbers Shared/Movement.cs
 	// declares. gamerules_view_vectors_test.cpp asserts the two agree, so the
 	// default can never silently become a second opinion.
-	float vecView[3];            // VEC_VIEW
-	float vecHullMin[3];         // VEC_HULL_MIN
-	float vecHullMax[3];         // VEC_HULL_MAX
-	float vecDuckHullMin[3];     // VEC_DUCK_HULL_MIN
-	float vecDuckHullMax[3];     // VEC_DUCK_HULL_MAX
-	float vecDuckView[3];        // VEC_DUCK_VIEW
-	float vecObsHullMin[3];      // VEC_OBS_HULL_MIN
-	float vecObsHullMax[3];      // VEC_OBS_HULL_MAX
-	float vecDeadViewHeight[3];  // VEC_DEAD_VIEWHEIGHT
+	float vecView[3]; // VEC_VIEW
+	float vecHullMin[3]; // VEC_HULL_MIN
+	float vecHullMax[3]; // VEC_HULL_MAX
+	float vecDuckHullMin[3]; // VEC_DUCK_HULL_MIN
+	float vecDuckHullMax[3]; // VEC_DUCK_HULL_MAX
+	float vecDuckView[3]; // VEC_DUCK_VIEW
+	float vecObsHullMin[3]; // VEC_OBS_HULL_MIN
+	float vecObsHullMax[3]; // VEC_OBS_HULL_MAX
+	float vecDeadViewHeight[3]; // VEC_DEAD_VIEWHEIGHT
 } SourceSharpMovementParams;
 
 //-----------------------------------------------------------------------------
@@ -644,30 +639,6 @@ typedef struct
 	// declaration behind it" this struct's own comment refuses.
 } SourceSharpGameRulesPolicy;
 
-//-----------------------------------------------------------------------------
-// WHICH COLLISION GROUPS COLLIDE, as a matrix rather than a function.
-//
-// CGameRules::ShouldCollide was sixty-seven lines of ordered ifs over two group
-// indices -- pure integer logic, no entity, no engine call, and TOTAL over a
-// domain of twenty by twenty. That makes it exactly the shape a table can hold,
-// and the table is what removes it: the predicate is asked once per traced
-// entity, so it was branching through up to fourteen comparisons on a path that
-// runs thousands of times a frame.
-//
-// ROW g0, BIT g1. The predicate sorts its two arguments before deciding, so the
-// relation is symmetric and the matrix is too -- which is asserted rather than
-// assumed, on both sides.
-//
-// Twenty rows because LAST_SHARED_COLLISION_GROUP is twenty. A group index
-// outside that range is not indexable and native answers stock's fallthrough
-// (true) without touching the table.
-//-----------------------------------------------------------------------------
-typedef struct
-{
-	// One row per collision group; bit N of row M is "M collides with N".
-	uint32_t nRows[ 20 ];
-} SourceSharpCollisionRules;
-
 // Everything a jump decision is given, in one crossing.
 //
 // One struct rather than a handle to ask questions of, and that shape is the
@@ -686,53 +657,53 @@ typedef struct
 	// client's entity list knows nothing about, and this question is asked on
 	// both sides. The index is what identifies a player across the wire, so it
 	// is the only name for one that means the same thing in both answers.
-	int32_t  nPlayerIndex;
+	int32_t nPlayerIndex;
 
 	// Speed along the ground, which is what a rule about bunny-hopping needs.
-	float    flHorizontalSpeed;
+	float flHorizontalSpeed;
 
 	// Straight up, before the jump is added. Negative while falling.
-	float    flVerticalSpeed;
+	float flVerticalSpeed;
 
-	int32_t  bDucking;
+	int32_t bDucking;
 
 	// Ground material, as a surfaceprops game material character. Enough to
 	// tell "you cannot jump off this" apart from ordinary ground.
-	int32_t  nGroundMaterial;
+	int32_t nGroundMaterial;
 
-	float    flCurTime;
+	float flCurTime;
 } SourceSharpJumpRequest;
 
 // Spectator modes. Source's OBS_MODE_*, with only the ones a deathmatch needs
 // named — NONE is "in play", and the rest are ways of watching.
 typedef enum
 {
-	SOURCESHARP_OBS_NONE     = 0,
+	SOURCESHARP_OBS_NONE = 0,
 	SOURCESHARP_OBS_DEATHCAM = 1,
 	SOURCESHARP_OBS_FREEZECAM = 2,
-	SOURCESHARP_OBS_IN_EYE   = 4,
-	SOURCESHARP_OBS_CHASE    = 5,
-	SOURCESHARP_OBS_ROAMING  = 7,
+	SOURCESHARP_OBS_IN_EYE = 4,
+	SOURCESHARP_OBS_CHASE = 5,
+	SOURCESHARP_OBS_ROAMING = 7,
 } SourceSharpObserverMode;
 
 // How a screen fade behaves. Source's FFADE_*.
 typedef enum
 {
-	SOURCESHARP_FADE_IN       = 0x01,  // fade FROM the colour, revealing the world
-	SOURCESHARP_FADE_OUT      = 0x02,  // fade TO the colour
-	SOURCESHARP_FADE_MODULATE = 0x04,  // modulate rather than blend
-	SOURCESHARP_FADE_STAYOUT  = 0x08,  // hold indefinitely, until another fade arrives
-	SOURCESHARP_FADE_PURGE    = 0x10,  // replace whatever fades the client already has
+	SOURCESHARP_FADE_IN = 0x01, // fade FROM the colour, revealing the world
+	SOURCESHARP_FADE_OUT = 0x02, // fade TO the colour
+	SOURCESHARP_FADE_MODULATE = 0x04, // modulate rather than blend
+	SOURCESHARP_FADE_STAYOUT = 0x08, // hold indefinitely, until another fade arrives
+	SOURCESHARP_FADE_PURGE = 0x10, // replace whatever fades the client already has
 } SourceSharpFadeFlags;
 
 // What a screen shake is being asked to do. Source's ShakeCommand_t.
 typedef enum
 {
-	SOURCESHARP_SHAKE_START          = 0,
-	SOURCESHARP_SHAKE_STOP           = 1,
-	SOURCESHARP_SHAKE_AMPLITUDE      = 2,
-	SOURCESHARP_SHAKE_FREQUENCY      = 3,
-	SOURCESHARP_SHAKE_START_RUMBLE   = 4,
+	SOURCESHARP_SHAKE_START = 0,
+	SOURCESHARP_SHAKE_STOP = 1,
+	SOURCESHARP_SHAKE_AMPLITUDE = 2,
+	SOURCESHARP_SHAKE_FREQUENCY = 3,
+	SOURCESHARP_SHAKE_START_RUMBLE = 4,
 	SOURCESHARP_SHAKE_START_NORUMBLE = 5,
 } SourceSharpShakeCommand;
 
@@ -743,8 +714,8 @@ typedef enum
 // second arm is TraceMasks now (TraceMaskFoldTests).
 typedef enum
 {
-	SOURCESHARP_TRACE_BRUSHES = 0,  // world and brush entities: MASK_SOLID_BRUSHONLY
-	SOURCESHARP_TRACE_SHOT    = 1,  // what a bullet hits: MASK_SHOT
+	SOURCESHARP_TRACE_BRUSHES = 0, // world and brush entities: MASK_SOLID_BRUSHONLY
+	SOURCESHARP_TRACE_SHOT = 1, // what a bullet hits: MASK_SHOT
 
 	// Brushes AND water, which is what "can this be heard from there" means.
 	// Sound does not cross a water surface the way a bullet does, and the
@@ -839,6 +810,18 @@ typedef enum
 	// brushes and nothing else, the sky's surface flag read off what it hit.
 	// Wired on BOTH arms, for SOURCESHARP_TRACE_ALL's reason.
 	SOURCESHARP_TRACE_CONTENTS_SOLID = 9,
+
+	// MASK_SHOT & ~CONTENTS_WINDOW -- a shot that passes through glass: the
+	// RPG's laser (weapon_rpg.cpp, UpdateLaserPosition), whose dot lands on
+	// what is behind a window. Wired on BOTH arms, for SOURCESHARP_TRACE_ALL's
+	// reason.
+	SOURCESHARP_TRACE_SHOT_NO_WINDOWS = 10,
+
+	// MASK_OPAQUE -- solid, moveable and opaque contents: what a crossbow
+	// bolt's line behind its victim stops on (CCrossbowBolt::BoltTouch). Not
+	// SOURCESHARP_TRACE_BLOCKLOS: that stops on CONTENTS_BLOCKLOS and passes
+	// CONTENTS_OPAQUE. Wired on BOTH arms, for SOURCESHARP_TRACE_ALL's reason.
+	SOURCESHARP_TRACE_OPAQUE = 11,
 } SourceSharpTraceMask;
 
 // WHICH ENTITIES A CLIENT TRACE IS ALLOWED TO HIT. Named modes, each one a
@@ -907,47 +890,38 @@ typedef enum
 typedef enum
 {
 	// dirX, dirY, dirZ, r, g, b, maxDist, disabled  (8)
-	SOURCESHARP_WORLDRENDER_SHADOW   = 0,
+	SOURCESHARP_WORLDRENDER_SHADOW = 0,
 
 	// cheapStart, cheapEnd  (2)
 	SOURCESHARP_WORLDRENDER_WATERLOD = 1,
 
 	// useExposureMin, useExposureMax, useBloomScale,
 	// exposureMin, exposureMax, bloomScale, bloomScaleMinimum  (7)
-	SOURCESHARP_WORLDRENDER_TONEMAP  = 2,
+	SOURCESHARP_WORLDRENDER_TONEMAP = 2,
 } SourceSharpWorldRenderState;
-
-// What ClientColorCorrection is being asked to do. The three together are one
-// lookup's whole life.
-typedef enum
-{
-	SOURCESHARP_CC_ADD        = 0,  // load pLookupFile, answer a handle
-	SOURCESHARP_CC_SET_WEIGHT = 1,  // how much of it to apply, 0..1
-	SOURCESHARP_CC_REMOVE     = 2,  // release it
-} SourceSharpColorCorrectionOp;
 
 // What an entity is, as one answer. A radius query returns everything in range
 // and the caller discards most of it, so these travel together rather than as
 // four separate crossings per entity per tick.
 typedef enum
 {
-	SOURCESHARP_ENTSTATE_SOLID       = 1 << 0,
-	SOURCESHARP_ENTSTATE_PLAYER      = 1 << 1,
-	SOURCESHARP_ENTSTATE_PARENTED    = 1 << 2,  // moves with something else, so pushing it does nothing
+	SOURCESHARP_ENTSTATE_SOLID = 1 << 0,
+	SOURCESHARP_ENTSTATE_PLAYER = 1 << 1,
+	SOURCESHARP_ENTSTATE_PARENTED = 1 << 2, // moves with something else, so pushing it does nothing
 	SOURCESHARP_ENTSTATE_TAKESDAMAGE = 1 << 3,
-	SOURCESHARP_ENTSTATE_PHYSICS     = 1 << 4,  // has a VPhysics object, whatever its movetype
-	SOURCESHARP_ENTSTATE_ONGROUND    = 1 << 5,
+	SOURCESHARP_ENTSTATE_PHYSICS = 1 << 4, // has a VPhysics object, whatever its movetype
+	SOURCESHARP_ENTSTATE_ONGROUND = 1 << 5,
 } SourceSharpEntityState;
 
 // Source's MOVETYPE_*, as far as anything managed needs to tell them apart.
 typedef enum
 {
-	SOURCESHARP_MOVETYPE_NONE     = 0,
-	SOURCESHARP_MOVETYPE_WALK     = 2,
-	SOURCESHARP_MOVETYPE_STEP     = 3,
+	SOURCESHARP_MOVETYPE_NONE = 0,
+	SOURCESHARP_MOVETYPE_WALK = 2,
+	SOURCESHARP_MOVETYPE_STEP = 3,
 	SOURCESHARP_MOVETYPE_VPHYSICS = 6,
-	SOURCESHARP_MOVETYPE_PUSH     = 7,
-	SOURCESHARP_MOVETYPE_NOCLIP   = 8,
+	SOURCESHARP_MOVETYPE_PUSH = 7,
+	SOURCESHARP_MOVETYPE_NOCLIP = 8,
 } SourceSharpMoveType;
 
 //-----------------------------------------------------------------------------
@@ -963,10 +937,10 @@ typedef struct
 {
 	uint32_t struct_size;
 
-	float   viewangles[3];
-	float   forwardmove;
-	float   sidemove;
-	float   upmove;
+	float viewangles[3];
+	float forwardmove;
+	float sidemove;
+	float upmove;
 	int32_t buttons;
 	int32_t impulse;
 	int32_t weaponselect;
@@ -1028,14 +1002,14 @@ typedef struct
 typedef struct
 {
 	// The entity's payload blob, engine block first (see engine_block.h).
-	void        *pBlob;
-	int32_t      nBlobBytes;
+	void *pBlob;
+	int32_t nBlobBytes;
 
 	// The other entity in this op: a toucher, an attacker, a blocker, an
 	// activator, a filter's subject. The INVALID handle when the op has none,
 	// never a null pointer -- "no entity" has a spelling everywhere else in
 	// this API and it is a handle that does not resolve.
-	uint32_t     hOther;
+	uint32_t hOther;
 
 	// THE RULE IS: pText0 IS THE CLASSNAME whenever one is carried, and the
 	// op's own strings are pText1 and pText2. SPAWN carries the classname
@@ -1045,9 +1019,9 @@ typedef struct
 	// the managed instance does not exist yet and the classname is what builds
 	// it -- asking the entity for its class instead would be a native round
 	// trip per key of a map.
-	const char  *pText0;
-	const char  *pText1;
-	const char  *pText2;
+	const char *pText0;
+	const char *pText1;
+	const char *pText2;
 
 	// DAMAGE: where the blow landed, and which way it was going. POSITION_
 	// CHANGED: the previous origin. NULL when the op has none.
@@ -1058,11 +1032,11 @@ typedef struct
 	// what a map writes -- a map sends "3" as a string and variant_t::Float()
 	// answers zero for one, so the conversion happens on the native side where
 	// the variant is.
-	float        flFloat0;
+	float flFloat0;
 
 	// DAMAGE: the DMG_ word. FILTER_PASSES: the damage type, and hOther is the
 	// subject. Zero when the op has none.
-	int32_t      nInt0;
+	int32_t nInt0;
 } SourceSharpOpArgs;
 
 //-----------------------------------------------------------------------------
@@ -1080,21 +1054,21 @@ typedef struct
 //-----------------------------------------------------------------------------
 typedef struct
 {
-	char    szName[80];
-	char    szValue[128];    // empty for a command: a command holds no value
-	char    szDefault[128];  // likewise empty for a command
-	char    szHelp[400];
-	int32_t nFlags;          // FCVAR_* bits, exactly as it was registered with
-	int32_t bIsCommand;      // 1 for a ConCommand, 0 for a ConVar
+	char szName[80];
+	char szValue[128]; // empty for a command: a command holds no value
+	char szDefault[128]; // likewise empty for a command
+	char szHelp[400];
+	int32_t nFlags; // FCVAR_* bits, exactly as it was registered with
+	int32_t bIsCommand; // 1 for a ConCommand, 0 for a ConVar
 
 	// The bounds the convar clamps to, if it has any. Worth carrying because a
 	// value that will not go past 100 is a fact about the setting that appears
 	// nowhere in its name, its help or its flags -- and a listing that offers an
 	// edit without it invites one the engine silently rewrites.
 	int32_t bHasMin;
-	float   flMin;
+	float flMin;
 	int32_t bHasMax;
-	float   flMax;
+	float flMax;
 } SourceSharpConsoleEntry;
 
 //-----------------------------------------------------------------------------
@@ -1112,10 +1086,10 @@ typedef struct
 //-----------------------------------------------------------------------------
 typedef struct
 {
-	float    vecOrigin[3];
-	int32_t  nType;      // SOUND_* bits, including the context bits
-	int32_t  nVolume;
-	uint32_t hOwner;     // what made the noise, or an invalid handle
+	float vecOrigin[3];
+	int32_t nType; // SOUND_* bits, including the context bits
+	int32_t nVolume;
+	uint32_t hOwner; // what made the noise, or an invalid handle
 } SourceSharpHeardSound;
 
 //-----------------------------------------------------------------------------
@@ -1135,13 +1109,13 @@ typedef struct
 	int32_t nEffect;
 	uint8_t r1, g1, b1, a1;
 	uint8_t r2, g2, b2, a2;
-	float   flX, flY;
-	float   flFadeIn, flFadeOut, flHoldTime, flFxTime;
-	char    szMessage[512];
+	float flX, flY;
+	float flFadeIn, flFadeOut, flHoldTime, flFxTime;
+	char szMessage[512];
 
 	// The message this one takes down when it arrives, which titles.txt entries
 	// use to replace one another rather than stack up. Empty for most.
-	char    szClearMessage[64];
+	char szClearMessage[64];
 } SourceSharpTextMessage;
 
 //=============================================================================//
@@ -1173,46 +1147,46 @@ typedef struct
 //-----------------------------------------------------------------------------
 typedef enum
 {
-	SOURCESHARP_SENDPROXY_NONE                    = 0,
-	SOURCESHARP_SENDPROXY_INT8_TO_INT32           = 1,
-	SOURCESHARP_SENDPROXY_INT16_TO_INT32          = 2,
-	SOURCESHARP_SENDPROXY_INT32_TO_INT32          = 3,
-	SOURCESHARP_SENDPROXY_UINT8_TO_INT32          = 4,
-	SOURCESHARP_SENDPROXY_UINT16_TO_INT32         = 5,
-	SOURCESHARP_SENDPROXY_UINT32_TO_INT32         = 6,
-	SOURCESHARP_SENDPROXY_FLOAT_TO_FLOAT          = 7,
-	SOURCESHARP_SENDPROXY_VECTOR_TO_VECTOR        = 8,
-	SOURCESHARP_SENDPROXY_ANGLE_TO_FLOAT          = 9,
-	SOURCESHARP_SENDPROXY_QANGLES                 = 10,
-	SOURCESHARP_SENDPROXY_STRING_TO_STRING        = 11,
-	SOURCESHARP_SENDPROXY_DATATABLE_TO_DATATABLE  = 12,   // a DPT_DataTable's table proxy
-	SOURCESHARP_SENDPROXY_EMPTY                   = 13,   // a DPT_Array's (InternalSendPropArray)
-	SOURCESHARP_SENDPROXY_COUNT                   = 14,
+	SOURCESHARP_SENDPROXY_NONE = 0,
+	SOURCESHARP_SENDPROXY_INT8_TO_INT32 = 1,
+	SOURCESHARP_SENDPROXY_INT16_TO_INT32 = 2,
+	SOURCESHARP_SENDPROXY_INT32_TO_INT32 = 3,
+	SOURCESHARP_SENDPROXY_UINT8_TO_INT32 = 4,
+	SOURCESHARP_SENDPROXY_UINT16_TO_INT32 = 5,
+	SOURCESHARP_SENDPROXY_UINT32_TO_INT32 = 6,
+	SOURCESHARP_SENDPROXY_FLOAT_TO_FLOAT = 7,
+	SOURCESHARP_SENDPROXY_VECTOR_TO_VECTOR = 8,
+	SOURCESHARP_SENDPROXY_ANGLE_TO_FLOAT = 9,
+	SOURCESHARP_SENDPROXY_QANGLES = 10,
+	SOURCESHARP_SENDPROXY_STRING_TO_STRING = 11,
+	SOURCESHARP_SENDPROXY_DATATABLE_TO_DATATABLE = 12, // a DPT_DataTable's table proxy
+	SOURCESHARP_SENDPROXY_EMPTY = 13, // a DPT_Array's (InternalSendPropArray)
+	SOURCESHARP_SENDPROXY_COUNT = 14,
 } SourceSharpSendProxy;
 
 typedef struct
 {
-	int32_t  nProps;
-	int32_t  bRegisterClass;    // 0 = a table other tables nest, with no ServerClass
-	int32_t  oClassName;        // payload offsets of the two names
-	int32_t  oTableName;
-	uint32_t nShapeHash;        // managed's fingerprint, handed back on a re-registration
+	int32_t nProps;
+	int32_t bRegisterClass; // 0 = a table other tables nest, with no ServerClass
+	int32_t oClassName; // payload offsets of the two names
+	int32_t oTableName;
+	uint32_t nShapeHash; // managed's fingerprint, handed back on a re-registration
 } SourceSharpTeTableHeader_t;
 
 typedef struct
 {
-	int32_t nType;              // DPT_* (dt_common.h)
-	int32_t nOffset;            // negative for a vector elem; the engine flips it
-	int32_t nFlags;             // SPROP_*
+	int32_t nType; // DPT_* (dt_common.h)
+	int32_t nOffset; // negative for a vector elem; the engine flips it
+	int32_t nFlags; // SPROP_*
 	int32_t nBits;
-	float   flLowValue;
-	float   flHighValue;
-	float   flHighLowMul;
+	float flLowValue;
+	float flHighValue;
+	float flHighLowMul;
 	int32_t nElements;
 	int32_t nElementStride;
-	int32_t nProxy;             // SourceSharpSendProxy
-	int32_t hDataTable;         // DPT_DataTable: a table built before this one; else -1
-	int32_t oName;              // payload offset of the prop's name
+	int32_t nProxy; // SourceSharpSendProxy
+	int32_t hDataTable; // DPT_DataTable: a table built before this one; else -1
+	int32_t oName; // payload offset of the prop's name
 } SourceSharpSendPropRow_t;
 
 // What a build answers besides its handle. A class NAME built by an earlier
@@ -1221,10 +1195,10 @@ typedef struct
 // a managed reload gets its handles back rather than new tables.
 typedef struct
 {
-	int32_t     bExisted;
-	uint32_t    nShapeHash;
-	const void *pSendTable;     // for PlaybackTempEntity
-	int32_t    *pClassId;       // &ServerClass::m_ClassID, which the engine fills after DLL init; NULL with no class
+	int32_t bExisted;
+	uint32_t nShapeHash;
+	const void *pSendTable; // for PlaybackTempEntity
+	int32_t *pClassId; // &ServerClass::m_ClassID, which the engine fills after DLL init; NULL with no class
 } SourceSharpTeBuiltTable_t;
 
 //-----------------------------------------------------------------------------
@@ -1242,26 +1216,26 @@ typedef struct
 //-----------------------------------------------------------------------------
 typedef enum
 {
-	SOURCESHARP_RECVPROXY_NONE                = 0,   // a DPT_Array (InternalRecvPropArray, no length proxy)
-	SOURCESHARP_RECVPROXY_INT32_TO_INT8       = 1,
-	SOURCESHARP_RECVPROXY_INT32_TO_INT16      = 2,
-	SOURCESHARP_RECVPROXY_INT32_TO_INT32      = 3,
-	SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT      = 4,
-	SOURCESHARP_RECVPROXY_VECTOR_TO_VECTOR    = 5,
-	SOURCESHARP_RECVPROXY_STATIC_DATATABLE    = 6,   // a DPT_DataTable's table proxy
-	SOURCESHARP_RECVPROXY_COUNT               = 7,
+	SOURCESHARP_RECVPROXY_NONE = 0, // a DPT_Array (InternalRecvPropArray, no length proxy)
+	SOURCESHARP_RECVPROXY_INT32_TO_INT8 = 1,
+	SOURCESHARP_RECVPROXY_INT32_TO_INT16 = 2,
+	SOURCESHARP_RECVPROXY_INT32_TO_INT32 = 3,
+	SOURCESHARP_RECVPROXY_FLOAT_TO_FLOAT = 4,
+	SOURCESHARP_RECVPROXY_VECTOR_TO_VECTOR = 5,
+	SOURCESHARP_RECVPROXY_STATIC_DATATABLE = 6, // a DPT_DataTable's table proxy
+	SOURCESHARP_RECVPROXY_COUNT = 7,
 } SourceSharpRecvProxy;
 
 typedef struct
 {
-	int32_t nType;              // DPT_* (dt_common.h)
-	int32_t nOffset;            // into the blob, never negated
-	int32_t nFlags;             // SPROP_*
-	int32_t nElements;          // m_nElements: 1 unless a DPT_Array
-	int32_t nElementStride;     // m_ElementStride: -1 unless a DPT_Array
-	int32_t nProxy;             // SourceSharpRecvProxy
-	int32_t hDataTable;         // DPT_DataTable: a table built before this one; else -1
-	int32_t oName;              // payload offset of the prop's name
+	int32_t nType; // DPT_* (dt_common.h)
+	int32_t nOffset; // into the blob, never negated
+	int32_t nFlags; // SPROP_*
+	int32_t nElements; // m_nElements: 1 unless a DPT_Array
+	int32_t nElementStride; // m_ElementStride: -1 unless a DPT_Array
+	int32_t nProxy; // SourceSharpRecvProxy
+	int32_t hDataTable; // DPT_DataTable: a table built before this one; else -1
+	int32_t oName; // payload offset of the prop's name
 } SourceSharpRecvPropRow_t;
 
 // What a client build answers besides its handle: a class NAME built by an
@@ -1269,7 +1243,7 @@ typedef struct
 // with, because the engine walked the class list once.
 typedef struct
 {
-	int32_t  bExisted;
+	int32_t bExisted;
 	uint32_t nShapeHash;
 } SourceSharpTeRecvBuilt_t;
 
@@ -1281,8 +1255,7 @@ typedef struct
 // gibs, shell casings, sprites and debris. Phase C4 moves the POOL to C#: the
 // allocation, the free list, the priority classes, the expiry and the update
 // loop. What stays here is the OBJECT, because a C_LocalTempEntity is already
-// the draw shell -- de-entified onto CShellRenderable, which
-// src/sourcesharp/test/tempent_verdict_test.cpp records the verdict for.
+// the draw shell -- de-entified onto CShellRenderable.
 //
 // SO THIS STRUCT IS A VIEW, NOT A SECOND COPY OF THE STATE. It is filled from
 // the live object on every read and written straight back into it on every
@@ -1308,14 +1281,14 @@ typedef struct
 //-----------------------------------------------------------------------------
 typedef struct
 {
-	float   Die;              // ::die -- the curtime this tempent expires at
-	int32_t Flags;            // ::flags -- the FTENT_* set, tempent.h
-	float   FadeSpeed;        // ::fadeSpeed -- the FTENT_FADEOUT ramp's rate
-	int32_t RenderAmt;        // ::tempent_renderamt -- the alpha the ramp is OF
-	int32_t Priority;         // ::priority -- TENTPRIORITY_LOW / _HIGH
-	int32_t ClientIndex;      // ::clientIndex -- FTENT_PLYRATTACHMENT's subject
-	int32_t RenderMode;       // ::m_nRenderMode -- kRender*, flipped when fading
-	int32_t Alpha;            // ::m_clrRender.a -- what the ramp writes
+	float Die; // ::die -- the curtime this tempent expires at
+	int32_t Flags; // ::flags -- the FTENT_* set, tempent.h
+	float FadeSpeed; // ::fadeSpeed -- the FTENT_FADEOUT ramp's rate
+	int32_t RenderAmt; // ::tempent_renderamt -- the alpha the ramp is OF
+	int32_t Priority; // ::priority -- TENTPRIORITY_LOW / _HIGH
+	int32_t ClientIndex; // ::clientIndex -- FTENT_PLYRATTACHMENT's subject
+	int32_t RenderMode; // ::m_nRenderMode -- kRender*, flipped when fading
+	int32_t Alpha; // ::m_clrRender.a -- what the ramp writes
 } SourceSharpTempEntLife_t;
 
 //-----------------------------------------------------------------------------
@@ -1346,24 +1319,24 @@ typedef struct
 //-----------------------------------------------------------------------------
 typedef struct SourceSharpTempEntTransform_s
 {
-	float   OriginXYZ[ 3 ];
-	float   AnglesPYR[ 3 ];          // QAngle: pitch, yaw, roll
+	float OriginXYZ[3];
+	float AnglesPYR[3]; // QAngle: pitch, yaw, roll
 
-	float   VelocityXYZ[ 3 ];
-	float   AccelerationXYZ[ 3 ];
-	float   AngVelocityPYR[ 3 ];     // QAngle per second
+	float VelocityXYZ[3];
+	float AccelerationXYZ[3];
+	float AngVelocityPYR[3]; // QAngle per second
 
 	// The animating sprite's state, which Frame advances alongside the place.
-	float   flSpriteScale;
-	float   flFrame;
+	float flSpriteScale;
+	float flFrame;
 
 	// FTENT_SINEWAVE's two accumulators -- stock's `x` and `y`. They are in the
 	// TRANSFORM and not only in the spawn record because Frame ADVANCES them
 	// every tick: the spawn record is written once and these move with the
 	// place. A sine-wave tempent whose accumulators did not cross back would
 	// restart its wobble from the spawn value every frame.
-	float   flSineX;
-	float   flSineY;
+	float flSineX;
+	float flSineY;
 } SourceSharpTempEntTransform_t;
 
 //-----------------------------------------------------------------------------
@@ -1398,7 +1371,7 @@ typedef struct SourceSharpTempEntStatics_s
 {
 	// ::bounceFactor -- how much speed survives a bounce. Prepare's default is
 	// ONE, not zero, and a zero here is a gib that sticks where it lands.
-	float   flBounceFactor;
+	float flBounceFactor;
 
 	// ::hitSound -- a BOUNCE_* sound kind, and zero for silence. Frame's own
 	// gate is `if ( hitSound )` before it calls PlaySound.
@@ -1408,12 +1381,12 @@ typedef struct SourceSharpTempEntStatics_s
 	// FTENT_SPRCYCLE advance ::m_flFrame against. An animating sprite whose
 	// FrameMax read zero would run off its last frame on the first tick and
 	// (without FTENT_SPRANIMATELOOP) ask to die immediately.
-	float   flFrameMax;
-	float   flFrameRate;
+	float flFrameMax;
+	float flFrameRate;
 
 	// ::tentOffset -- where a FTENT_PLYRATTACHMENT tempent sits relative to the
 	// player it is stuck to. AttachTentToPlayer's zoffset lands in [2].
-	float   TentOffsetXYZ[ 3 ];
+	float TentOffsetXYZ[3];
 
 	// ::m_hOwnerEntity as an INDEX -- the entity Frame's CTraceFilterSimple
 	// passes through, so a projectile does not immediately hit whoever fired
@@ -1438,8 +1411,7 @@ typedef struct SourceSharpTempEntStatics_s
 	// entity is a C_BasePlayer to dynamic_cast to. The branch is also
 	// UNREACHABLE here: m_pszImpactEffect is only ever set by
 	// CTempEnts::ClientProjectile's optional pszImpactEffect parameter, and both
-	// live callers leave it at its NULL default -- which
-	// src/sourcesharp/test/tempent_verdict_test.cpp asserts.
+	// live callers leave it at its NULL default.
 	//
 	// So the NAME does not cross and no managed dispatch is written: that would
 	// be fabricating a capability for a branch nothing takes, and dead code that
@@ -1490,46 +1462,46 @@ typedef struct SourceSharpTempEntStatics_s
 typedef struct
 {
 	// --- the flag word and the clock -----------------------------------------
-	int32_t Flags;             // ::flags -- the FTENT_* set, WHOLE, not OR'd
-	float   Die;               // ::die -- the curtime this tempent expires at
+	int32_t Flags; // ::flags -- the FTENT_* set, WHOLE, not OR'd
+	float Die; // ::die -- the curtime this tempent expires at
 
 	// --- the sprite animation ------------------------------------------------
-	float   SpriteScale;       // ::m_flSpriteScale
-	float   Frame;             // ::m_flFrame -- the frame it starts on
-	float   FrameMax;          // ::m_flFrameMax -- usually frameCount - 1
-	float   FrameRate;         // ::m_flFrameRate
+	float SpriteScale; // ::m_flSpriteScale
+	float Frame; // ::m_flFrame -- the frame it starts on
+	float FrameMax; // ::m_flFrameMax -- usually frameCount - 1
+	float FrameRate; // ::m_flFrameRate
 
 	// --- the studio model's look ---------------------------------------------
-	int32_t Body;              // ::m_nBody -- BreakModel randomises this for mod_studio
-	int32_t Skin;              // ::m_nSkin -- also stock's FindTempEntByID hack
+	int32_t Body; // ::m_nBody -- BreakModel randomises this for mod_studio
+	int32_t Skin; // ::m_nSkin -- also stock's FindTempEntByID hack
 
 	// --- the render state ----------------------------------------------------
-	int32_t RenderMode;        // ::m_nRenderMode, through SetRenderMode
-	int32_t RenderFx;          // ::m_nRenderFX
-	int32_t RenderAmt;         // ::tempent_renderamt -- what FTENT_FADEOUT ramps FROM
-	float   FadeSpeed;         // ::fadeSpeed
-	int32_t ColorR;            // ::m_clrRender, through SetRenderColor
+	int32_t RenderMode; // ::m_nRenderMode, through SetRenderMode
+	int32_t RenderFx; // ::m_nRenderFX
+	int32_t RenderAmt; // ::tempent_renderamt -- what FTENT_FADEOUT ramps FROM
+	float FadeSpeed; // ::fadeSpeed
+	int32_t ColorR; // ::m_clrRender, through SetRenderColor
 	int32_t ColorG;
 	int32_t ColorB;
 	int32_t ColorA;
 
 	// --- the physics ---------------------------------------------------------
-	float   VelocityXYZ[3];         // SetVelocity
-	float   AccelerationXYZ[3];     // SetAcceleration
-	float   AngularVelocityPYR[3];  // ::m_vecTempEntAngVelocity -- FTENT_ROTATE's rate
-	float   AnglesPYR[3];           // SetAbsAngles
-	float   BounceFactor;        // ::bounceFactor
+	float VelocityXYZ[3]; // SetVelocity
+	float AccelerationXYZ[3]; // SetAcceleration
+	float AngularVelocityPYR[3]; // ::m_vecTempEntAngVelocity -- FTENT_ROTATE's rate
+	float AnglesPYR[3]; // SetAbsAngles
+	float BounceFactor; // ::bounceFactor
 
 	// --- FTENT_SINEWAVE's axis -----------------------------------------------
 	//
 	// Stock calls them x and y and they are NOT the origin: Frame() oscillates
 	// about this point while the tempent rises, so a bubble spawned at its own
 	// origin has x,y set to that origin and then wanders around it.
-	float   SineX;             // ::x
-	float   SineY;             // ::y
+	float SineX; // ::x
+	float SineY; // ::y
 
 	// --- the surface a sprite is lying on -------------------------------------
-	float   NormalXYZ[3];         // ::m_vecNormal
+	float NormalXYZ[3]; // ::m_vecNormal
 
 	// --- stock's own hack, carried because FindTempEntByID reads it -----------
 	//
@@ -1538,8 +1510,8 @@ typedef struct
 	// FindTempEntByID. BreakModel also uses hitSound for something else
 	// entirely: it stores the BREAK_* flags there so PlaySound knows which
 	// bounce sound to make.
-	int32_t HitSound;          // ::hitSound
-	int32_t ClientIndex;       // ::clientIndex
+	int32_t HitSound; // ::hitSound
+	int32_t ClientIndex; // ::clientIndex
 
 	// --- the two that are not a field write ----------------------------------
 	//
@@ -1570,7 +1542,7 @@ typedef struct
 	// ::tentOffset: where above the player an FTENT_PLYRATTACHMENT tempent sits
 	// (AttachTentToPlayer, lane c2-fx). The managed frame reads it back off the
 	// statics each frame to follow the player.
-	float   TentOffsetXYZ[3];
+	float TentOffsetXYZ[3];
 } SourceSharpTempEntSpawn_t;
 
 // What a model IS, for the two helpers that branch on it. Source's modtype_t
@@ -1579,8 +1551,8 @@ typedef struct
 // which is the only place the distinction is read.
 typedef enum
 {
-	SOURCESHARP_MODELTYPE_BAD    = 0,
-	SOURCESHARP_MODELTYPE_BRUSH  = 1,
+	SOURCESHARP_MODELTYPE_BAD = 0,
+	SOURCESHARP_MODELTYPE_BRUSH = 1,
 	SOURCESHARP_MODELTYPE_SPRITE = 2,
 	SOURCESHARP_MODELTYPE_STUDIO = 3,
 } SourceSharpModelType;
@@ -1618,15 +1590,15 @@ typedef enum
 //-----------------------------------------------------------------------------
 typedef struct
 {
-	float   OriginXYZ[3];
-	float   StartXYZ[3];
-	float   NormalXYZ[3];
-	float   AnglesPYR[3];
+	float OriginXYZ[3];
+	float StartXYZ[3];
+	float NormalXYZ[3];
+	float AnglesPYR[3];
 	int32_t Flags;
 	int32_t EntIndex;
-	float   Scale;
-	float   Magnitude;
-	float   Radius;
+	float Scale;
+	float Magnitude;
+	float Radius;
 	int32_t AttachmentIndex;
 	int32_t SurfaceProp;
 	int32_t Material;
@@ -1634,11 +1606,11 @@ typedef struct
 	int32_t HitBox;
 	int32_t Color;
 	int32_t CustomColors;
-	float   Color1XYZ[3];
-	float   Color2XYZ[3];
+	float Color1XYZ[3];
+	float Color2XYZ[3];
 	int32_t ControlPoint1;
 	int32_t ControlPointAttachment;
-	float   ControlPointOffsetXYZ[3];
+	float ControlPointOffsetXYZ[3];
 } SourceSharpEffectData_t;
 
 //-----------------------------------------------------------------------------
@@ -1673,106 +1645,106 @@ typedef struct
 typedef struct SourceSharpMoveState
 {
 	int32_t nCommandNumber;
-	float   flFrameTime;
+	float flFrameTime;
 	int32_t nMoveType;
 	int32_t nFlags;
 	int32_t nWaterLevel;
 	int32_t nWaterType;
 	int32_t bDeadFlag;
-	float   vecOrigin[3];
-	float   vecVelocity[3];
-	float   vecBaseVelocity[3];
-	float   angViewAngles[3];
-	float   flForwardMove;
-	float   flSideMove;
-	float   flUpMove;
+	float vecOrigin[3];
+	float vecVelocity[3];
+	float vecBaseVelocity[3];
+	float angViewAngles[3];
+	float flForwardMove;
+	float flSideMove;
+	float flUpMove;
 	int32_t nButtons;
 	int32_t nOldButtons;
-	float   flMaxSpeed;
-	float   flClientMaxSpeed;
+	float flMaxSpeed;
+	float flClientMaxSpeed;
 	int32_t bDucked;
 	int32_t bDucking;
 	int32_t bInDuckJump;
-	float   flDuckTime;
-	float   flDuckJumpTime;
-	float   flJumpTime;
-	float   flFallVelocity;
-	float   flStepSize;
-	float   vecViewOffset[3];
-	float   angPunchAngle[3];
-	float   angPunchAngleVel[3];
-	float   flEntityGravity;
-	float   flCurrentGravity;
-	float   flSurfaceFriction;
+	float flDuckTime;
+	float flDuckJumpTime;
+	float flJumpTime;
+	float flFallVelocity;
+	float flStepSize;
+	float vecViewOffset[3];
+	float angPunchAngle[3];
+	float angPunchAngleVel[3];
+	float flEntityGravity;
+	float flCurrentGravity;
+	float flSurfaceFriction;
 	int32_t bHasGround;
-	float   vecGroundVelocity[3];
-	float   flWaterJumpTime;
-	float   vecWaterJumpVel[3];
-	float   flSwimSoundTime;
-	float   flStepSoundTime;
+	float vecGroundVelocity[3];
+	float flWaterJumpTime;
+	float vecWaterJumpVel[3];
+	float flSwimSoundTime;
+	float flStepSoundTime;
 	int32_t nHealth;
 	int32_t bGameCodeMovedPlayer;
-	float   flConstraintRadius;
-	float   flConstraintWidth;
-	float   flConstraintSpeedFactor;
-	float   vecConstraintCenter[3];
-	float   flOldForwardMove;
+	float flConstraintRadius;
+	float flConstraintWidth;
+	float flConstraintSpeedFactor;
+	float vecConstraintCenter[3];
+	float flOldForwardMove;
 	int32_t nImpulseCommand;
-	float   flLaggedMovementValue;
+	float flLaggedMovementValue;
 	int32_t nSurfaceProps;
-	float   vecLadderNormal[3];
-	float   flOutStepHeight;
-	float   vecOutWishVel[3];
-	float   vecOutJumpVel[3];
+	float vecLadderNormal[3];
+	float flOutStepHeight;
+	float vecOutWishVel[3];
+	float vecOutJumpVel[3];
 	int32_t nMoveCollide;
 	int32_t nOnLadder;
 	int32_t nOldWaterLevel;
 	int32_t bIsAlive;
 	int32_t nObserverMode;
 	int32_t bInAVehicle;
-	float   flModelScale;
+	float flModelScale;
 	int32_t nEntIndex;
 	int32_t nStuckLast;
-	float   angAngles[3];
-	float   angOldAngles[3];
+	float angAngles[3];
+	float angOldAngles[3];
 	int32_t bFirstRunOfFunctions;
-	float   flCurTime;
+	float flCurTime;
 	int32_t bSurfaceDataValid;
 	int32_t bAllowAutoMovement;
 	int32_t bSlowMovement;
 	int32_t bIsServer;
-	float   flCvFriction;
-	float   flCvAccelerate;
-	float   flCvAirAccelerate;
-	float   flCvStopSpeed;
-	float   flCvMaxVelocity;
-	float   flCvMaxSpeed;
-	float   flCvBounce;
-	float   flCvRollAngle;
-	float   flCvRollSpeed;
-	float   flCvNoClipSpeed;
-	float   flCvNoClipAccelerate;
-	float   flCvSpecSpeed;
-	float   flCvSpecAccelerate;
-	float   flCvAirSpeedCap;
-	float   flCvDuckSpeedScale;
+	float flCvFriction;
+	float flCvAccelerate;
+	float flCvAirAccelerate;
+	float flCvStopSpeed;
+	float flCvMaxVelocity;
+	float flCvMaxSpeed;
+	float flCvBounce;
+	float flCvRollAngle;
+	float flCvRollSpeed;
+	float flCvNoClipSpeed;
+	float flCvNoClipAccelerate;
+	float flCvSpecSpeed;
+	float flCvSpecAccelerate;
+	float flCvAirSpeedCap;
+	float flCvDuckSpeedScale;
 	int32_t bCvOptimizations;
 	int32_t bCvSpecNoClip;
 	int32_t nCvMaxClients;
-	float   flCvTickInterval;
-	float   vecCvView[3];
-	float   vecCvHullMin[3];
-	float   vecCvHullMax[3];
-	float   vecCvDuckHullMin[3];
-	float   vecCvDuckHullMax[3];
-	float   vecCvDuckView[3];
-	float   vecCvObsHullMin[3];
-	float   vecCvObsHullMax[3];
-	float   vecCvDeadViewHeight[3];
-	float   flCvJumpHeight;
+	float flCvTickInterval;
+	float vecCvView[3];
+	float vecCvHullMin[3];
+	float vecCvHullMax[3];
+	float vecCvDuckHullMin[3];
+	float vecCvDuckHullMax[3];
+	float vecCvDuckView[3];
+	float vecCvObsHullMin[3];
+	float vecCvObsHullMax[3];
+	float vecCvDeadViewHeight[3];
+	float flCvJumpHeight;
 
 	// engine->Time(), read only by CheckStuck's throttle.
-	float   flEngineTime;
+	float flEngineTime;
 } SourceSharpMoveState;
 
 //-----------------------------------------------------------------------------
@@ -1787,17 +1759,17 @@ typedef struct SourceSharpMoveState
 //-----------------------------------------------------------------------------
 typedef struct SourceSharpMoveTraceResult
 {
-	float   flFraction;
-	float   vecEndPos[3];
-	float   vecPlaneNormal[3];
-	float   flPlaneDist;
+	float flFraction;
+	float vecEndPos[3];
+	float vecPlaneNormal[3];
+	float flPlaneDist;
 	int32_t bStartSolid;
 	int32_t bAllSolid;
 	int32_t nSurfaceProps;
 	int32_t nSurfaceFlags;
 	int32_t nContents;
 	int32_t bHasGround;
-	float   vecGroundVelocity[3];
+	float vecGroundVelocity[3];
 	int32_t bHasEntity;
 	int32_t bHitWorld;
 } SourceSharpMoveTraceResult;
@@ -1822,11 +1794,11 @@ typedef struct SourceSharpClientPlayerView
 	// Where the replay says they are. Written into the block's head only when
 	// bDriving; otherwise the interpolated origin stands and this is the
 	// decoded one, which is the same number the eye is measured from.
-	float   vecOrigin[3];
+	float vecOrigin[3];
 
 	// Eyes above feet. Ducking moves it, and the view, the ears and the
 	// third-person camera all measure from it.
-	float   vecViewOffset[3];
+	float vecViewOffset[3];
 
 	// The view kick in flight and its decay rate. Read by the view pass, which
 	// adds it to the frame's angles in CSourceSharpClientMode::OverrideView.
@@ -1834,8 +1806,8 @@ typedef struct SourceSharpClientPlayerView
 	// actually applied, which was the one reading that could tell "the punch
 	// never arrived" from "the punch arrived and nothing applied it". Phase 1c
 	// deleted it with the other client instruments.)
-	float   angPunch[3];
-	float   angPunchVel[3];
+	float angPunch[3];
+	float angPunchVel[3];
 
 	// Whether the origin above is the replay's answer. It is the interpolation
 	// pass's filter: a point read from the networked past must not overwrite an
@@ -1892,8 +1864,8 @@ typedef enum
 // having to infer from a collapsed enum.
 //-----------------------------------------------------------------------------
 #define SOURCESHARP_PARENT_PROBE_STANDALONE 0x1
-#define SOURCESHARP_PARENT_PROBE_BASE       0x2
-#define SOURCESHARP_PARENT_PROBE_CAN_POSE   0x4
+#define SOURCESHARP_PARENT_PROBE_BASE 0x2
+#define SOURCESHARP_PARENT_PROBE_CAN_POSE 0x4
 
 //-----------------------------------------------------------------------------
 // THE PLAYER'S PHYSICS SHADOW, ONE COMMAND -- plan_entity.md §3.1 and §3.10,
@@ -1956,39 +1928,50 @@ typedef enum
 // developer command, not a mode this mod ships in. So the steady-state crossing
 // cost is ZERO and the third-person cost is two per rendered frame.
 //-----------------------------------------------------------------------------
-#define SOURCESHARP_THIRDPERSON_PHASE_PLACE   0
+#define SOURCESHARP_THIRDPERSON_PHASE_PLACE 0
 #define SOURCESHARP_THIRDPERSON_PHASE_RESOLVE 1
 
 typedef struct
 {
 	uint32_t struct_size;
-	int32_t  nPhase;
+	int32_t nPhase;
 
 	// --- PLACE: in ---
 	// Where the player is looking, and the orbit the cam_ideal* convars ask for.
-	float    vecViewAngles[3];
-	float    flIdealPitch;
-	float    flIdealYaw;
-	float    flIdealDist;
-	float    flIdealDistRight;
-	float    flIdealDistUp;
+	float vecViewAngles[3];
+	float flIdealPitch;
+	float flIdealYaw;
+	float flIdealDist;
+	float flIdealDistRight;
+	float flIdealDistUp;
 
 	// --- PLACE: out ---
 	// The camera's own angles, and the displacement from the eye it wants.
-	float    vecCameraAngles[3];
-	float    vecWish[3];
-	float    flWishLength;
+	float vecCameraAngles[3];
+	float vecWish[3];
+	float flWishLength;
 
 	// --- RESOLVE: in ---
 	// What the hull sweep reached, 0..1, and the wish length PLACE answered.
-	float    flTraceFraction;
+	float flTraceFraction;
 
 	// --- RESOLVE: out ---
 	// How much of the wish to keep, and whether a camera placed with that much
 	// of it actually sees the player -- which is what decides whether their own
 	// model draws.
-	float    flSurvivingFraction;
-	int32_t  bSeesOwner;
+	float flSurvivingFraction;
+	int32_t bSeesOwner;
+
+	// --- PLACE: in, appended (lane M1-B) ---
+	// cam_collision's value: 1 on, 0 off, -1 when the convar is not there.
+	int32_t nCollision;
+
+	// --- PLACE: out, appended ---
+	// The sweep the camera wants towards its wish: a cube of this half extent
+	// under nTraceMask (CONTENTS_* bits), or no sweep at all at 0, when the
+	// wish is kept whole. Stock's CAM_HULL_OFFSET and mask are managed's.
+	float flHullHalfExtent;
+	uint32_t nTraceMask;
 } SourceSharpThirdPersonCamera;
 
 // SourceSharpPlayerShadowState and SourceSharpPlayerShadowPlan stood here: the
@@ -2013,27 +1996,27 @@ typedef struct
 typedef struct
 {
 	uint32_t struct_size;
-	int32_t  bHasShadow;      // a body (both hulls and the controller) is held
-	int32_t  bBodyCurrent;    // ...and the environment that built it is physenv
-	int32_t  nState;          // which hull is in the solver (VPHYS_*), -1 none yet
+	int32_t bHasShadow; // a body (both hulls and the controller) is held
+	int32_t bBodyCurrent; // ...and the environment that built it is physenv
+	int32_t nState; // which hull is in the solver (VPHYS_*), -1 none yet
 
-	void    *pStand;
-	void    *pCrouch;
-	void    *pController;
+	void *pStand;
+	void *pCrouch;
+	void *pController;
 
-	float    vecOrigin[3];
-	float    vecVelocity[3];
-	float    vecOutWishVel[3];   // CMoveData::m_outWishVel
-	float    flOutStepHeight;    // CMoveData::m_outStepHeight
-	float    flMaxSpeed;
-	int32_t  nFlags;
-	int32_t  nMoveType;
-	float    flFrameTime;        // RAW gpGlobals->frametime
-	float    flTickInterval;
+	float vecOrigin[3];
+	float vecVelocity[3];
+	float vecOutWishVel[3]; // CMoveData::m_outWishVel
+	float flOutStepHeight; // CMoveData::m_outStepHeight
+	float flMaxSpeed;
+	int32_t nFlags;
+	int32_t nMoveType;
+	float flFrameTime; // RAW gpGlobals->frametime
+	float flTickInterval;
 
-	uint32_t hGround;            // the ground entity, or the invalid handle
-	int32_t  nGroundMoveType;    // its move type
-	void    *pGroundObject;      // its own physics object, or NULL
+	uint32_t hGround; // the ground entity, or the invalid handle
+	int32_t nGroundMoveType; // its move type
+	void *pGroundObject; // its own physics object, or NULL
 
 	// What the last command's move ran into (the move helper's touch list,
 	// one entry per entity, kept from the command until the next one starts):
@@ -2041,7 +2024,7 @@ typedef struct
 	// (stock's CBasePlayer::Touch -> m_touchedPhysObject). nTouched counts
 	// every entity; the first SOURCESHARP_PLAYER_TOUCH_MAX are listed, and bit
 	// i of fTouchedGround says entry i was the ground when it was touched.
-	int32_t  nTouched;
+	int32_t nTouched;
 	uint32_t fTouchedGround;
 	uint32_t hTouched[SOURCESHARP_PLAYER_TOUCH_MAX];
 } SourceSharpPlayerShadowFacts;
@@ -2060,18 +2043,18 @@ typedef struct
 typedef struct
 {
 	uint32_t struct_size;
-	uint32_t hGround;              // in: the ground handle, or the invalid one
+	uint32_t hGround; // in: the ground handle, or the invalid one
 
-	float    vecOrigin[3];         // out: GetAbsOrigin()
-	float    angVAngle[3];         // out: pl.v_angle
-	float    angAngleChange[3];    // out: pl.anglechange
-	int32_t  nFixAngle;            // out: pl.fixangle
-	int32_t  bDeadFlag;            // out: pl.deadflag
-	int32_t  nHealth;              // out: GetHealth()
-	float    flModelScale;         // out: the shell's model scale
-	int32_t  nEntIndex;            // out
-	int32_t  bGroundResolves;      // out: hGround names a live entity
-	float    vecGroundVelocity[3]; // out: MovementGroundVelocity( that entity )
+	float vecOrigin[3]; // out: GetAbsOrigin()
+	float angVAngle[3]; // out: pl.v_angle
+	float angAngleChange[3]; // out: pl.anglechange
+	int32_t nFixAngle; // out: pl.fixangle
+	int32_t bDeadFlag; // out: pl.deadflag
+	int32_t nHealth; // out: GetHealth()
+	float flModelScale; // out: the shell's model scale
+	int32_t nEntIndex; // out
+	int32_t bGroundResolves; // out: hGround names a live entity
+	float vecGroundVelocity[3]; // out: MovementGroundVelocity( that entity )
 } SourceSharpPlayerCommandFacts;
 
 // IShimMovementServer::PlayerCommandFinish: the move's result, carried out.
@@ -2082,16 +2065,16 @@ typedef struct
 typedef struct
 {
 	uint32_t struct_size;
-	int32_t  bRan;                 // the loop ran (the movemath counter)
-	float    vecOrigin[3];
-	float    flYaw;
-	int32_t  nFlags;
-	int32_t  nMoveType;
-	float    vecViewOffset[3];
-	float    vecVelocity[3];
-	float    vecBaseVelocity[3];
+	int32_t bRan; // the loop ran (the movemath counter)
+	float vecOrigin[3];
+	float flYaw;
+	int32_t nFlags;
+	int32_t nMoveType;
+	float vecViewOffset[3];
+	float vecVelocity[3];
+	float vecBaseVelocity[3];
 	uint32_t hGround;
-	float    flFallVelocity;
+	float flFallVelocity;
 } SourceSharpPlayerCommandResult;
 
 // SourceSharpEngineApi, the struct of engine slots, is gone (plan_client_vtables
@@ -2107,7 +2090,7 @@ typedef struct
 // BY POINTER, not by value. Four pointers is small enough to pass either way,
 // but a struct passed by value across this boundary has an ABI of its own
 // (register vs. memory class) that neither side states, and every other
-// aggregate on this table -- SourceSharpCollisionRules, SourceSharpUserCmd --
+// aggregate on this table -- SourceSharpUserCmd --
 // already crosses as a pointer.
 //
 // The strings are the ENGINE's, valid only for the duration of the call.
@@ -2145,19 +2128,21 @@ typedef struct
 typedef struct
 {
 	int32_t Id;
-	int32_t Kind;             // 0 RenderParticle_ColorSizeAngle, 1 the heatwave's ColorSizePerturbNormal, 2 RenderParticle_Color255SizeNormalAngle (lit by managed: Color 0..255, normal zero), 3 RenderParticle_ColorSize, 4 a tracer quad already in view space (Position, Normal, Corner2, Corner3; nothing drawn when Size is 0), 5 a 3D particle's quad in world space (Position the corner, Normal the face, Corner2/Corner3 the width and height edges)
-	float   PositionXYZ[3];
-	float   ColorXYZ[3];
-	float   Alpha;
-	float   Size;
-	float   Roll;
-	float   NormalXYZ[3];
-	float   FadeNear;         // GetAlphaDistanceFade( tPos, FadeNear, FadeFar ) when FadeFar > 0
-	float   FadeFar;
-	int32_t FixedSort;        // 1: GetNext( SortKey ); 2: by view depth truncated to an integer (CSimpleEmitter's); 0: by view depth
-	float   SortKey;
-	float   Corner2XYZ[3];    // Kind 4: the tracer's third and fourth view-space corners; kind 5: the width and height edges
-	float   Corner3XYZ[3];
+	int32_t
+		Kind; // 0 RenderParticle_ColorSizeAngle, 1 the heatwave's ColorSizePerturbNormal, 2 RenderParticle_Color255SizeNormalAngle (lit by managed: Color 0..255, normal zero), 3 RenderParticle_ColorSize, 4 a tracer quad already in view space (Position, Normal, Corner2, Corner3; nothing drawn when Size is 0), 5 a 3D particle's quad in world space (Position the corner, Normal the face, Corner2/Corner3 the width and height edges)
+	float PositionXYZ[3];
+	float ColorXYZ[3];
+	float Alpha;
+	float Size;
+	float Roll;
+	float NormalXYZ[3];
+	float FadeNear; // GetAlphaDistanceFade( tPos, FadeNear, FadeFar ) when FadeFar > 0
+	float FadeFar;
+	int32_t
+		FixedSort; // 1: GetNext( SortKey ); 2: by view depth truncated to an integer (CSimpleEmitter's); 0: by view depth
+	float SortKey;
+	float Corner2XYZ[3]; // Kind 4: the tracer's third and fourth view-space corners; kind 5: the width and height edges
+	float Corner3XYZ[3];
 } SourceSharpParticleQuad_t;
 
 // C7 particles phase 2: the old-style particle manager is managed's
@@ -2169,11 +2154,11 @@ typedef struct
 // SourceSharpParticleFrameIn_t per live executor.
 typedef struct
 {
-	float   Dt;               // gpGlobals->frametime, unclamped
-	float   CurTime;          // gpGlobals->curtime
-	float   FrameTime;        // gpGlobals->frametime (Helper_GetFrameTime)
-	float   AabbBuffer;       // cl_particleeffect_aabb_buffer (DetectChanges)
-	float   ViewOriginXYZ[3]; // MainViewOrigin()
+	float Dt; // gpGlobals->frametime, unclamped
+	float CurTime; // gpGlobals->curtime
+	float FrameTime; // gpGlobals->frametime (Helper_GetFrameTime)
+	float AabbBuffer; // cl_particleeffect_aabb_buffer (DetectChanges)
+	float ViewOriginXYZ[3]; // MainViewOrigin()
 } SourceSharpParticleFrameHeader_t;
 
 // An executor's local space as FollowSpace read it (CLocalSpaceEmitter's
@@ -2182,72 +2167,72 @@ typedef struct
 // collideable.
 typedef struct
 {
-	int32_t Followed;         // 0: no follow ran (nothing below is set)
-	float   Matrix[12];
-	float   OriginXYZ[3];
+	int32_t Followed; // 0: no follow ran (nothing below is set)
+	float Matrix[12];
+	float OriginXYZ[3];
 	int32_t HasBox;
-	float   MinsXYZ[3];
-	float   MaxsXYZ[3];
+	float MinsXYZ[3];
+	float MaxsXYZ[3];
 } SourceSharpParticleFollow_t;
 
 typedef struct
 {
 	uint32_t Owner;
-	int32_t  Channel;
-	float    OriginXYZ[3];    // GetAbsOrigin before this frame's follow (the emit's)
-	float    AnglesPYR[3];
-	int32_t  MaterialFlags;   // 1: the page material needs the power-of-two frame buffer; 2: the full one
-	int32_t  Followed;        // the follow below ran this frame
-	float    Matrix[12];
-	float    FollowOriginXYZ[3];
-	int32_t  HasBox;
-	float    MinsXYZ[3];
-	float    MaxsXYZ[3];
+	int32_t Channel;
+	float OriginXYZ[3]; // GetAbsOrigin before this frame's follow (the emit's)
+	float AnglesPYR[3];
+	int32_t MaterialFlags; // 1: the page material needs the power-of-two frame buffer; 2: the full one
+	int32_t Followed; // the follow below ran this frame
+	float Matrix[12];
+	float FollowOriginXYZ[3];
+	int32_t HasBox;
+	float MinsXYZ[3];
+	float MaxsXYZ[3];
 } SourceSharpParticleFrameIn_t;
 
 // IManagedParticlesClient::Frame's out: one per binding managed updated.
 typedef struct
 {
 	uint32_t Owner;
-	int32_t  Channel;
-	float    MinXYZ[3];       // the world box GetRenderBounds answers from
-	float    MaxXYZ[3];
-	int32_t  Flags;           // CParticleEffectBinding's FLAGS_ (ShouldDraw reads FLAGS_DRAW_THRU_LEAF_SYSTEM)
-	int32_t  Active;
-	int32_t  Changed;         // DetectChanges: tell the leaf system (RenderableChanged)
+	int32_t Channel;
+	float MinXYZ[3]; // the world box GetRenderBounds answers from
+	float MaxXYZ[3];
+	int32_t Flags; // CParticleEffectBinding's FLAGS_ (ShouldDraw reads FLAGS_DRAW_THRU_LEAF_SYSTEM)
+	int32_t Active;
+	int32_t Changed; // DetectChanges: tell the leaf system (RenderableChanged)
 } SourceSharpParticleCommit_t;
 
 // IManagedParticlesClient::DrawBegin's in: what native read for DrawModel.
 typedef struct
 {
 	uint32_t Owner;
-	int32_t  Channel;
-	int32_t  Flags;           // DrawModel's studio flags
-	int32_t  ClientModeDraws; // g_pClientMode->ShouldDrawParticles()
-	int32_t  DrawParticles;   // r_drawparticles
-	int32_t  Wireframe;       // ShouldDrawInWireFrameMode()
-	int32_t  ShowBBox;        // cl_particle_show_bbox
-	int32_t  ShowBBoxCost;    // cl_particle_show_bbox_cost
-	int32_t  ViewKey;         // ParticlesViewKey: the view being drawn
-	float    FrameTime;       // gpGlobals->frametime
+	int32_t Channel;
+	int32_t Flags; // DrawModel's studio flags
+	int32_t ClientModeDraws; // g_pClientMode->ShouldDrawParticles()
+	int32_t DrawParticles; // r_drawparticles
+	int32_t Wireframe; // ShouldDrawInWireFrameMode()
+	int32_t ShowBBox; // cl_particle_show_bbox
+	int32_t ShowBBoxCost; // cl_particle_show_bbox_cost
+	int32_t ViewKey; // ParticlesViewKey: the view being drawn
+	float FrameTime; // gpGlobals->frametime
 } SourceSharpParticleDrawIn_t;
 
 // DrawBegin's out: this header, then one quad per particle in the binding's
 // list order (Kind -1: a particle the sim drew nothing for).
 typedef struct
 {
-	int32_t Result;           // 0 return 0; 1 drawn, nothing to draw (return 1); 2 draw the quads
-	float   FrameTime;        // ParticleDraw::Init's frame time
-	int32_t RefractUpdate;    // UpdateRefractTexture() before the material
-	int32_t ScreenUpdate;     // UpdateScreenEffectTexture() before the material
-	int32_t Wireframe;        // a second pass with debug/debugparticlewireframe
-	int32_t BBox;             // draw the debug box (cl_particle_show_bbox)
+	int32_t Result; // 0 return 0; 1 drawn, nothing to draw (return 1); 2 draw the quads
+	float FrameTime; // ParticleDraw::Init's frame time
+	int32_t RefractUpdate; // UpdateRefractTexture() before the material
+	int32_t ScreenUpdate; // UpdateScreenEffectTexture() before the material
+	int32_t Wireframe; // a second pass with debug/debugparticlewireframe
+	int32_t BBox; // draw the debug box (cl_particle_show_bbox)
 	int32_t BBoxR;
 	int32_t BBoxG;
 	int32_t BBoxB;
 	int32_t Active;
-	float   MinXYZ[3];
-	float   MaxXYZ[3];
+	float MinXYZ[3];
+	float MaxXYZ[3];
 } SourceSharpParticleDrawOut_t;
 
 // DrawEnd's in: the sort key the executor handed each quad, in list order.
@@ -2264,15 +2249,15 @@ typedef struct
 //-----------------------------------------------------------------------------
 typedef struct
 {
-	int32_t  Kind;
+	int32_t Kind;
 	uint32_t Owner;
-	int32_t  FollowMask;
-	int32_t  Stopped;
-	float    Age;
-	int32_t  Particles;
-	float    ControlPoint0XYZ[3];
-	float    ControlPoint1XYZ[3];
-	float    SortOriginXYZ[3];  // what the leaf system sorts and culls it by
+	int32_t FollowMask;
+	int32_t Stopped;
+	float Age;
+	int32_t Particles;
+	float ControlPoint0XYZ[3];
+	float ControlPoint1XYZ[3];
+	float SortOriginXYZ[3]; // what the leaf system sorts and culls it by
 } SourceSharpParticleSystemInfo_t;
 
 //-----------------------------------------------------------------------------
@@ -2290,64 +2275,64 @@ typedef struct
 //-----------------------------------------------------------------------------
 typedef struct
 {
-	float   Dt;               // the frame's dt (UpdateAllEffects', after its 0.1 s clamp)
-	float   Timescale;        // r_particle_timescale
-	float   CurTime;          // gpGlobals->curtime: the library's last simulation time
-	int32_t FrameCount;       // gpGlobals->framecount (the retirement check)
-	float   AabbBuffer;       // cl_particleeffect_aabb_buffer (DetectChanges)
-	float   RetireCost;       // cl_particle_retire_cost
+	float Dt; // the frame's dt (UpdateAllEffects', after its 0.1 s clamp)
+	float Timescale; // r_particle_timescale
+	float CurTime; // gpGlobals->curtime: the library's last simulation time
+	int32_t FrameCount; // gpGlobals->framecount (the retirement check)
+	float AabbBuffer; // cl_particleeffect_aabb_buffer (DetectChanges)
+	float RetireCost; // cl_particle_retire_cost
 	int32_t SpikeThresholdMs; // r_particle_sim_spike_threshold_ms (EndSimulateParticles' profile commit)
-	int32_t ViewX;            // view->GetPlayerViewSetup(): the retirement pass's view
+	int32_t ViewX; // view->GetPlayerViewSetup(): the retirement pass's view
 	int32_t ViewY;
 	int32_t ViewWidth;
 	int32_t ViewHeight;
-	float   ViewFov;
-	float   ViewOriginXYZ[3];
-	float   WorldToScreen[16]; // render->GetMatricesForView's, row-major
+	float ViewFov;
+	float ViewOriginXYZ[3];
+	float WorldToScreen[16]; // render->GetMatricesForView's, row-major
 } SourceSharpNewParticleFrameHeader_t;
 
 // A live effect's Flags.
 enum
 {
-	SOURCESHARP_NEW_PARTICLE_RELEASED        = 1 << 0,  // its reference count reached zero since the last frame
-	SOURCESHARP_NEW_PARTICLE_ALLOCATED       = 1 << 1,  // Create made it (m_bAllocated)
-	SOURCESHARP_NEW_PARTICLE_RENDER_HANDLE   = 1 << 2,  // it is in the leaf system
-	SOURCESHARP_NEW_PARTICLE_VIEW_MODEL      = 1 << 3,  // its definition is a view-model effect
-	SOURCESHARP_NEW_PARTICLE_HAS_REPLACEMENT = 1 << 4,  // its definition names a cull replacement
-	SOURCESHARP_NEW_PARTICLE_ADDED           = 1 << 5,  // started since the last frame
+	SOURCESHARP_NEW_PARTICLE_RELEASED = 1 << 0, // its reference count reached zero since the last frame
+	SOURCESHARP_NEW_PARTICLE_ALLOCATED = 1 << 1, // Create made it (m_bAllocated)
+	SOURCESHARP_NEW_PARTICLE_RENDER_HANDLE = 1 << 2, // it is in the leaf system
+	SOURCESHARP_NEW_PARTICLE_VIEW_MODEL = 1 << 3, // its definition is a view-model effect
+	SOURCESHARP_NEW_PARTICLE_HAS_REPLACEMENT = 1 << 4, // its definition names a cull replacement
+	SOURCESHARP_NEW_PARTICLE_ADDED = 1 << 5, // started since the last frame
 };
 
 typedef struct
 {
-	uint32_t Id;              // the shell's, stable for the effect's life
-	int32_t  Flags;           // SOURCESHARP_NEW_PARTICLE_*
-	uint64_t Collection;      // the library's CParticleCollection *, for the batch
-	uint64_t Definition;      // its CParticleSystemDefinition *, an identity
-	float    NextSleepTime;   // m_flNextSleepTime
-	int32_t  Active;          // m_nActiveParticles
-	int32_t  HasMoved;        // HasMoved()
-	int32_t  Finished;        // IsFinished() (Release's test)
-	float    SortOriginXYZ[3];
-	float    MinXYZ[3];       // the collection's bounds
-	float    MaxXYZ[3];
-	float    CullRadius;      // the definition's (EarlyRetireParticleSystems)
-	float    CullFillCost;
-	float    CullPointXYZ[3]; // GetControlPointAtCurrentTime( the definition's cull control point )
+	uint32_t Id; // the shell's, stable for the effect's life
+	int32_t Flags; // SOURCESHARP_NEW_PARTICLE_*
+	uint64_t Collection; // the library's CParticleCollection *, for the batch
+	uint64_t Definition; // its CParticleSystemDefinition *, an identity
+	float NextSleepTime; // m_flNextSleepTime
+	int32_t Active; // m_nActiveParticles
+	int32_t HasMoved; // HasMoved()
+	int32_t Finished; // IsFinished() (Release's test)
+	float SortOriginXYZ[3];
+	float MinXYZ[3]; // the collection's bounds
+	float MaxXYZ[3];
+	float CullRadius; // the definition's (EarlyRetireParticleSystems)
+	float CullFillCost;
+	float CullPointXYZ[3]; // GetControlPointAtCurrentTime( the definition's cull control point )
 } SourceSharpNewParticleIn_t;
 
 // NewEffectsFrame's out: one per effect managed asks native to act on.
 enum
 {
-	SOURCESHARP_NEW_PARTICLE_CHANGED    = 1 << 0,  // DetectChanges: RenderableChanged
-	SOURCESHARP_NEW_PARTICLE_REMOVE     = 1 << 1,  // RemoveEffect: out of the leaf system, deleted if allocated
-	SOURCESHARP_NEW_PARTICLE_VIEW_GROUP = 1 << 2,  // AddEffect's RENDER_GROUP_VIEW_MODEL_TRANSLUCENT
-	SOURCESHARP_NEW_PARTICLE_REPLACE    = 1 << 3,  // ReplaceWith( the definition's cull replacement )
+	SOURCESHARP_NEW_PARTICLE_CHANGED = 1 << 0, // DetectChanges: RenderableChanged
+	SOURCESHARP_NEW_PARTICLE_REMOVE = 1 << 1, // RemoveEffect: out of the leaf system, deleted if allocated
+	SOURCESHARP_NEW_PARTICLE_VIEW_GROUP = 1 << 2, // AddEffect's RENDER_GROUP_VIEW_MODEL_TRANSLUCENT
+	SOURCESHARP_NEW_PARTICLE_REPLACE = 1 << 3, // ReplaceWith( the definition's cull replacement )
 };
 
 typedef struct
 {
 	uint32_t Id;
-	int32_t  Actions;         // SOURCESHARP_NEW_PARTICLE_CHANGED and the rest
+	int32_t Actions; // SOURCESHARP_NEW_PARTICLE_CHANGED and the rest
 } SourceSharpNewParticleCommit_t;
 
 // IManagedParticlesClient::NewEffectDraw's in: what native read for one
@@ -2356,41 +2341,41 @@ typedef struct
 typedef struct
 {
 	uint32_t Id;
-	int32_t  Flags;           // DrawModel's studio flags
-	int32_t  DrawParticles;   // r_drawparticles
-	int32_t  ClientModeDraws; // g_pClientMode->ShouldDrawParticles()
-	int32_t  RenderSystems;   // ParticleMgr()->ShouldRenderParticleSystems()
-	int32_t  ShowBBox;        // cl_particle_show_bbox
-	int32_t  ShowBBoxCost;    // cl_particle_show_bbox_cost
-	int32_t  Active;          // m_nActiveParticles (the debug box's cost)
-	float    CameraXYZ[3];    // the render context's world-space camera
-	float    MinXYZ[3];       // the collection's bounds
-	float    MaxXYZ[3];
-	float    MaxDrawDistance; // the definition's
-	float    NoDrawTimeToGoToSleep;
-	float    LastSimulationTime; // the library manager's
-	float    NextSleepTime;   // m_flNextSleepTime
-	int32_t  SkipRenderControlPoint; // the definition's (-1: none)
-	int32_t  HighestControlPoint;    // m_nHighestCP
-	int32_t  ThirdPerson;     // input->CAM_IsThirdPerson()
-	int32_t  ObserverMode;    // the local player's
-	int32_t  Pad;
-	uint64_t CameraObject;    // the entity at render->GetViewEntity()
-	uint64_t SkipObject;      // the skip-render control point's entity
+	int32_t Flags; // DrawModel's studio flags
+	int32_t DrawParticles; // r_drawparticles
+	int32_t ClientModeDraws; // g_pClientMode->ShouldDrawParticles()
+	int32_t RenderSystems; // ParticleMgr()->ShouldRenderParticleSystems()
+	int32_t ShowBBox; // cl_particle_show_bbox
+	int32_t ShowBBoxCost; // cl_particle_show_bbox_cost
+	int32_t Active; // m_nActiveParticles (the debug box's cost)
+	float CameraXYZ[3]; // the render context's world-space camera
+	float MinXYZ[3]; // the collection's bounds
+	float MaxXYZ[3];
+	float MaxDrawDistance; // the definition's
+	float NoDrawTimeToGoToSleep;
+	float LastSimulationTime; // the library manager's
+	float NextSleepTime; // m_flNextSleepTime
+	int32_t SkipRenderControlPoint; // the definition's (-1: none)
+	int32_t HighestControlPoint; // m_nHighestCP
+	int32_t ThirdPerson; // input->CAM_IsThirdPerson()
+	int32_t ObserverMode; // the local player's
+	int32_t Pad;
+	uint64_t CameraObject; // the entity at render->GetViewEntity()
+	uint64_t SkipObject; // the skip-render control point's entity
 	uint64_t LocalPlayer;
-	uint64_t ObserverTarget;  // the local player's
+	uint64_t ObserverTarget; // the local player's
 } SourceSharpNewParticleDrawIn_t;
 
 typedef struct
 {
-	int32_t Action;           // 0 return 0; 1 render now (two-pass when the system is); 2 the library's render cache
-	int32_t SetSleep;         // write NextSleepTime (the distance cull keeps the system awake)
-	float   NextSleepTime;
-	int32_t BBox;             // draw the debug box (cl_particle_show_bbox / _cost)
+	int32_t Action; // 0 return 0; 1 render now (two-pass when the system is); 2 the library's render cache
+	int32_t SetSleep; // write NextSleepTime (the distance cull keeps the system awake)
+	float NextSleepTime;
+	int32_t BBox; // draw the debug box (cl_particle_show_bbox / _cost)
 	int32_t BBoxR;
 	int32_t BBoxG;
 	int32_t BBoxB;
-	int32_t Stats;            // the frame's stats count this draw (cl_particle_stats)
+	int32_t Stats; // the frame's stats count this draw (cl_particle_stats)
 } SourceSharpNewParticleDrawOut_t;
 
 //-----------------------------------------------------------------------------
@@ -2407,19 +2392,19 @@ typedef struct
 //-----------------------------------------------------------------------------
 typedef struct
 {
-	float   OriginXYZ[3];
-	float   AnglesPYR[3];
-	float   ForwardXYZ[3];
-	float   RightXYZ[3];
-	float   UpXYZ[3];
-	float   CurTime;
+	float OriginXYZ[3];
+	float AnglesPYR[3];
+	float ForwardXYZ[3];
+	float RightXYZ[3];
+	float UpXYZ[3];
+	float CurTime;
 } SourceSharpWorldTextView_t;
 
 typedef struct
 {
-	float    PositionXYZ[3];
-	float    S;
-	float    T;
+	float PositionXYZ[3];
+	float S;
+	float T;
 	uint32_t Color;
 } SourceSharpWorldTextVertex_t;
 
@@ -2452,14 +2437,14 @@ typedef struct
 {
 	const char *Name;
 	const char *String;
-	int32_t     Type;
-	float       Float;
-	int32_t     Int;
-	int32_t     ScanCount;
-	float       ScanValue;
-	float       Atof;
-	int32_t     Atoi;
-	int32_t     Reserved;
+	int32_t Type;
+	float Float;
+	int32_t Int;
+	int32_t ScanCount;
+	float ScanValue;
+	float Atof;
+	int32_t Atoi;
+	int32_t Reserved;
 } SourceSharpProxyKey_t;
 
 typedef struct
@@ -2467,22 +2452,22 @@ typedef struct
 	int32_t Type;
 	int32_t VecSize;
 	int32_t Int;
-	float   Float;
-	float   V0;
-	float   V1;
-	float   V2;
-	float   V3;
+	float Float;
+	float V0;
+	float V1;
+	float V2;
+	float V3;
 } SourceSharpProxyVar_t;
 
 typedef struct
 {
-	float   CurTime;          // gpGlobals->curtime
-	float   FrameTime;        // gpGlobals->frametime
-	int32_t MaxClients;       // gpGlobals->maxClients
-	int32_t FrameCount;       // gpGlobals->framecount
+	float CurTime; // gpGlobals->curtime
+	float FrameTime; // gpGlobals->frametime
+	int32_t MaxClients; // gpGlobals->maxClients
+	int32_t FrameCount; // gpGlobals->framecount
 	int32_t VarCount;
 	int32_t Reserved;
-	void   *Arg;              // the bind argument, opaque to managed
+	void *Arg; // the bind argument, opaque to managed
 } SourceSharpProxyBindIn_t;
 
 typedef struct
@@ -2491,16 +2476,16 @@ typedef struct
 	int32_t Slot;
 	int32_t Arg;
 	int32_t Reserved;
-	float   Values[16];
+	float Values[16];
 } SourceSharpProxyOp_t;
 
 typedef struct
 {
-	int32_t HasUnknown;       // the renderable answered an IClientUnknown
-	int32_t EntIndex;         // its IClientEntity's index, or -1
-	float   OriginXYZ[3];     // that entity's GetAbsOrigin()
-	int32_t RenderAlpha;      // the engine block's RenderColorA, or -1
-	int32_t IsNpc;            // FL_NPC from the engine block's flags: 1, 0, or -1
+	int32_t HasUnknown; // the renderable answered an IClientUnknown
+	int32_t EntIndex; // its IClientEntity's index, or -1
+	float OriginXYZ[3]; // that entity's GetAbsOrigin()
+	int32_t RenderAlpha; // the engine block's RenderColorA, or -1
+	int32_t IsNpc; // FL_NPC from the engine block's flags: 1, 0, or -1
 	int32_t Reserved;
 } SourceSharpProxyEntity_t;
 
@@ -2532,29 +2517,29 @@ typedef struct
 	int32_t UnscaledHeight;
 	int32_t StereoEye;
 	int32_t Ortho;
-	float   OrthoLeft;
-	float   OrthoTop;
-	float   OrthoRight;
-	float   OrthoBottom;
-	float   Fov;
-	float   FovViewmodel;
-	float   OriginXYZ[3];
-	float   AnglesXYZ[3];
-	float   ZNear;
-	float   ZFar;
-	float   ZNearViewmodel;
-	float   ZFarViewmodel;
+	float OrthoLeft;
+	float OrthoTop;
+	float OrthoRight;
+	float OrthoBottom;
+	float Fov;
+	float FovViewmodel;
+	float OriginXYZ[3];
+	float AnglesXYZ[3];
+	float ZNear;
+	float ZFar;
+	float ZNearViewmodel;
+	float ZFarViewmodel;
 	int32_t RenderToSubrect;
-	float   AspectRatio;
+	float AspectRatio;
 	int32_t OffCenter;
-	float   OffCenterTop;
-	float   OffCenterBottom;
-	float   OffCenterLeft;
-	float   OffCenterRight;
+	float OffCenterTop;
+	float OffCenterBottom;
+	float OffCenterLeft;
+	float OffCenterRight;
 	int32_t DoBloomAndToneMapping;
 	int32_t CacheFullSceneState;
 	int32_t ViewToProjectionOverride;
-	float   ViewToProjection[16];
+	float ViewToProjection[16];
 } SourceSharpViewSetup_t;
 
 typedef struct
@@ -2564,25 +2549,25 @@ typedef struct
 	int32_t Width;
 	int32_t Height;
 	int32_t FrameCount;
-	float   CurTime;
+	float CurTime;
 	int32_t LastPath;
-	float   LastRenderMs;
+	float LastRenderMs;
 	// CViewRender::Render's inputs (view.cpp; C7 step 3 phase 2, appended):
 	// the mono eye SetUpViews and the client mode's override left, the
 	// engine's aspect and window, the convars, the ATI antialiasing case, the
 	// client mode's viewmodel switch, cl_leveloverview, the rectangle after
 	// AdjustEngineViewport.
 	SourceSharpViewSetup_t Eye;
-	float   ScreenAspect;
+	float ScreenAspect;
 	int32_t Windowed;
 	int32_t MaxClients;
 	int32_t RestrictAspectFov;
-	float   ViewportScale;
+	float ViewportScale;
 	int32_t GlClear;
 	int32_t GlClearRandomColor;
 	int32_t ClearColorForAntialiasing;
 	int32_t ClientModeDrawViewModel;
-	float   LevelOverview;
+	float LevelOverview;
 	int32_t ViewportX;
 	int32_t ViewportY;
 	int32_t ViewportWidth;
@@ -2637,18 +2622,18 @@ typedef struct
 typedef struct
 {
 	int32_t Present;
-	float   DirPrimaryXYZ[3];
+	float DirPrimaryXYZ[3];
 	int32_t ColorPrimary[3];
 	int32_t ColorSecondary[3];
 	int32_t ColorPrimaryLerpTo[3];
 	int32_t ColorSecondaryLerpTo[3];
-	float   Start;
-	float   End;
-	float   MaxDensity;
-	float   StartLerpTo;
-	float   EndLerpTo;
-	float   LerpTime;
-	float   Duration;
+	float Start;
+	float End;
+	float MaxDensity;
+	float StartLerpTo;
+	float EndLerpTo;
+	float LerpTime;
+	float Duration;
 	int32_t Enable;
 	int32_t Blend;
 	int32_t Radial;
@@ -2665,15 +2650,15 @@ typedef struct
 	SourceSharpViewSetup_t View;
 	int32_t ClearFlags;
 	int32_t WhatToDraw;
-	float   CurTime;
-	float   FrameTime;
+	float CurTime;
+	float FrameTime;
 	int32_t FrameCount;
 	int32_t MaxClients;
 	int32_t HdrType;
 	int32_t DxLevel;
 	int32_t UseFastClipping;
 	int32_t IsHammerRunning;
-	float   ScreenAspect;
+	float ScreenAspect;
 	int32_t ClientModeDrawFog;
 	int32_t FreezeActive;
 	int32_t ForceNoVis;
@@ -2681,15 +2666,15 @@ typedef struct
 	int32_t SkyboxVisible;
 	int32_t SkyPresent;
 	int32_t SkyScale;
-	float   SkyOriginXYZ[3];
+	float SkyOriginXYZ[3];
 	int32_t SkyArea;
 	SourceSharpFogParams_t SkyFog;
 	SourceSharpFogParams_t Fog;
 	int32_t FogVolume;
 	int32_t FogVolumeLeaf;
 	int32_t EyeInFogVolume;
-	float   DistanceToWater;
-	float   WaterHeight;
+	float DistanceToWater;
+	float WaterHeight;
 	int32_t WaterMaterial;
 	int32_t WaterTranslucent;
 	int32_t WaterForceCheapDefined;
@@ -2701,24 +2686,24 @@ typedef struct
 	int32_t WaterReflectEntities;
 	int32_t WaterUnderwaterOverlay;
 	int32_t ViewPlaneIntersectsWater;
-	float   CheapWaterStart;
-	float   CheapWaterEnd;
+	float CheapWaterStart;
+	float CheapWaterEnd;
 	int32_t GlassInView;
-	float   GlassPlane[4];
+	float GlassPlane[4];
 	int32_t ReflectionWidth;
 	int32_t ReflectionHeight;
 	int32_t RefractionWidth;
 	int32_t RefractionHeight;
 	int32_t ThirdPersonSeesOwner;
 	int32_t ViewEntity;
-	int32_t Retired0;   // always 0: was ToolsEnabled(); SFM is dead (2026-10-19). Holds the layout.
+	int32_t Retired0; // always 0: was ToolsEnabled(); SFM is dead (2026-10-19). Holds the layout.
 	int32_t FadeColor[4];
 	int32_t FadeBlend;
 	int32_t ScreenOverlay;
 	int32_t ScreenOverlayFullFrame;
 	int32_t ScreenOverlayPowerOfTwo;
 	int32_t FlashlightOn;
-	float   Cvars[64];
+	float Cvars[64];
 	// Appended (C7 step 3 phase 1): RenderInputs only grows at its end, so the
 	// frozen recordings still read (their tail reads zero).
 	int32_t ClientModeDrawDetail;
@@ -2726,7 +2711,7 @@ typedef struct
 	// (m_rbTakeFreezeFrame), the flash's end time (g_flFreezeFlash) and
 	// engine->IsTakingScreenshot().
 	int32_t FreezeTake;
-	float   FreezeFlash;
+	float FreezeFlash;
 	int32_t TakingScreenshot;
 } SourceSharpRenderInputs_t;
 
@@ -2737,7 +2722,7 @@ typedef struct
 {
 	int32_t Kind;
 	int32_t I[7];
-	float   F[8];
+	float F[8];
 	SourceSharpViewSetup_t View;
 } SourceSharpRenderOp_t;
 
@@ -2780,7 +2765,7 @@ typedef struct
 	int32_t Leaf;
 	int32_t EntIndex;
 	int32_t FxBlend;
-	float   Color[3];
+	float Color[3];
 } SourceSharpViewSceneEntry_t;
 
 // C7 post-processing: what viewpostprocess.cpp's decisions read where the
@@ -2826,13 +2811,13 @@ typedef struct
 	float CurTime;
 	float FrameTime;
 	float ToneScaleLinear;
-	float ViewOriginXYZ[ 3 ];
-	float ViewAnglesXYZ[ 3 ];
+	float ViewOriginXYZ[3];
+	float ViewAnglesXYZ[3];
 	float Fov;
 	float AspectRatio;
-	int32_t Readback[ 32 ];
-	int32_t TextureSize[ 16 ];
-	float Cvars[ 64 ];
+	int32_t Readback[32];
+	int32_t TextureSize[16];
+	float Cvars[64];
 } SourceSharpPostInputs_t;
 
 // SourceSharpManagedApi, the struct of managed slots native called, is gone
@@ -2841,8 +2826,6 @@ typedef struct
 // or the client's (imanaged_areas_client.h) -- acquired through each side's
 // managed root.
 
-
-
 //-----------------------------------------------------------------------------
 // Diagnostics.
 //
@@ -2850,7 +2833,7 @@ typedef struct
 // game shim installs a logger before Acquire so startup tracing goes to the
 // Source console; without one, output falls back to stdout.
 //-----------------------------------------------------------------------------
-typedef void (*SourceSharpLogFn)( const char *pMsg );
+typedef void ( *SourceSharpLogFn )( const char *pMsg );
 
 SOURCESHARP_EXPORT void SourceSharp_SetLogger( SourceSharpLogFn pfnLog );
 
@@ -2866,9 +2849,9 @@ SOURCESHARP_EXPORT void SourceSharp_SetVerbosity( int nLevel );
 // runtime is created. This is why the host must be a SHARED library: a static
 // lib would give each caller its own refcount.
 //-----------------------------------------------------------------------------
-SOURCESHARP_EXPORT int  SourceSharp_Acquire( const char *pModBinDir );
+SOURCESHARP_EXPORT int SourceSharp_Acquire( const char *pModBinDir );
 SOURCESHARP_EXPORT void SourceSharp_Release( void );
-SOURCESHARP_EXPORT int  SourceSharp_RefCount( void );
+SOURCESHARP_EXPORT int SourceSharp_RefCount( void );
 
 // plan_engineapi_vtables.md step A3: the same load, handing managed ONE native
 // object -- pShimRoot, an IShimRoot (shared/native/ishim_root.h), called through
@@ -2880,17 +2863,15 @@ SOURCESHARP_EXPORT int  SourceSharp_RefCount( void );
 // root (the server since plan_engineapi_vtables E-last, the client since
 // plan_client_vtables CE-last). One export per side (plan_side_entries SE1):
 // no side travels as an argument.
-SOURCESHARP_EXPORT int  SourceSharp_LoadServer( void *pShimRoot, const void *pShimRootTable,
-                                                void **ppManagedRoot );
-SOURCESHARP_EXPORT int  SourceSharp_LoadClient( void *pShimRoot, const void *pShimRootTable,
-                                                void **ppManagedRoot );
+SOURCESHARP_EXPORT int SourceSharp_LoadServer( void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot );
+SOURCESHARP_EXPORT int SourceSharp_LoadClient( void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot );
 
 // plan_managed_vtable_reload.md L5: before a reload saves or unloads anything.
 // 0 when the build on disk keeps every slot hash of every managed-built
 // contract native holds; otherwise nonzero with the first difference in pWhy,
 // and the caller keeps the running build.
-SOURCESHARP_EXPORT int  SourceSharp_ReloadCheckServer( char *pWhy, int32_t nWhy );
-SOURCESHARP_EXPORT int  SourceSharp_ReloadCheckClient( char *pWhy, int32_t nWhy );
+SOURCESHARP_EXPORT int SourceSharp_ReloadCheckServer( char *pWhy, int32_t nWhy );
+SOURCESHARP_EXPORT int SourceSharp_ReloadCheckClient( char *pWhy, int32_t nWhy );
 
 SOURCESHARP_EXPORT void SourceSharp_UnloadServer( void );
 SOURCESHARP_EXPORT void SourceSharp_UnloadClient( void );
@@ -2901,5 +2882,3 @@ SOURCESHARP_EXPORT const char *SourceSharp_LastError( void );
 #ifdef __cplusplus
 }
 #endif
-
-#endif // SOURCESHARP_H

@@ -204,6 +204,12 @@ public class SideAuditTests
         // client, the only side that has a camera.
         "ClientTraceHull", "ClientEntityRenderPose", "ViewOverrideSet",
 
+        // The predicting client's shot, clipped against the shells: only the
+        // client predicts a shot, and only its shells are outside a partition.
+        "ClientClipRayToEntities",
+        // The predicted swing's hull, for the same reason as the clip above.
+        "ClientTraceHullEntities",
+
         // The defect-skybox lane. What 3D skybox the viewer is shown, and the
         // OTHER END of SetSkyboxParams -- which is server-only for the mirror
         // reason. One map's sky camera makes one round trip: sky_camera pushes
@@ -248,11 +254,11 @@ public class SideAuditTests
         // PlayerSetSoundscape slot is dead and named in
         // .claude/entity-port/abi-requests/8e-sound.md for removal.
 
-        "ActivateOccluder", "ClientColorCorrection", "ClientSetWorldRenderState",
+        "ActivateOccluder", "ClientSetWorldRenderState",
         "DrawSprite", "DrawSpriteOffset",
-        // The flame: ss_plasma draws its seven sprites through the offset entry
-        // and ss_firesmoke owns a particle system between frames. Both are
-        // drawing, so both are this side only. ss_entityflame's follow mask is
+        // The flame: _plasma draws its seven sprites through the offset entry
+        // and _firesmoke owns a particle system between frames. Both are
+        // drawing, so both are this side only. entityflame's follow mask is
         // the same thing said about control points -- which point of a running
         // system is fed is a fact about the renderer's copy of it, and the
         // server has no copy.
@@ -311,8 +317,24 @@ public class SideAuditTests
         // client.so's.
         "PixelVisQueryCreate", "PixelVisQueryDestroy", "PixelVisQueryReset", "PixelVisQueryPixels",
         "PixelVisDiameters", "PixelVisView",
+        // The shells' surrounding boxes for the per-view fade (lane M1-A):
+        // client.so's standalone shells.
+        "StandaloneSurroundingBounds",
+        // A broken surface's draw (lane M1-A): client.so's surface renderer.
+        "SurfaceMaterialFacts", "SurfaceSetMaterials", "SurfaceSetPlan",
+        // The colour-correction lookups on client.so's render context (lane M1-A).
+        "ColorLookupAdd", "ColorLookupSetWeight", "ColorLookupRemove", "ColorLookupResetWeights",
+        // The interpolation pass's admitted set, for client.so's PreRender walk (lane M1-A).
+        "ClientInterpAdmitted",
         // The glow overlays' material find (C7, glow_overlay.cpp): client.so's materials.
         "GlowMaterialFind",
+        // The managed bullet impact's engine calls (lane M1-C, fx_impact.cpp's
+        // chain): the client trace, its lighting reads, the client's effect
+        // ledger and its particle systems.
+        "ClientShotTrace", "ClientWorldLighting", "ClientStaticPropLighting", "ClientImpactLedger",
+        "ParticleSystemImpact",
+        // A player's spray, carried out (lane M1-C, c_te_playerdecal.cpp).
+        "ClientPlayerLogoDecal",
         "InputMailbox",
         "SpriteTrailDestroy", "SpriteTrailUpdate",
         "StandaloneSetBlending",
@@ -332,7 +354,6 @@ public class SideAuditTests
         // Dormancy is a CLIENT concept: it means the server has stopped
         // sending this entity, which the server itself has no version of.
         "StandaloneIsDormant",
-        "SurfaceSetEdges",
         // The temp entity backends (plan_tmp.md Part 4). Client-only because
         // they are DRAWING: a ported c_te_*.cpp moves its decode and its
         // decision to C# and calls one of these at the end, which is the same
@@ -393,12 +414,10 @@ public class SideAuditTests
         // C-Phase 3 lane CX's four, for the last three client decal halves.
         // Client-only, and only ONE of them is drawing. ClientDecalStaticProp
         // is the engine's static prop renderer, which the server has no arm of.
-        // The other three are QUESTIONS, and each is a question only this side
+        // The other two are QUESTIONS, and each is a question only this side
         // can answer: ClientTraceLine reads the CLIENT's copy of the BSP and
         // the client's entity list -- the copy that decides what the client
         // draws, which is PointContents' argument one slot further along;
-        // ClientIsLowViolence reads this viewer's convars and this viewer's
-        // engine, and one player's gore setting is not a fact about the match;
         // ClientDecalNameFromIndex reads the game decal script through
         // `decalsystem`, whose precache indices are the CLIENT's numbering.
         //
@@ -407,8 +426,7 @@ public class SideAuditTests
         // EHANDLE; this one answers a hitbox and hands back an entity INDEX,
         // because a client handle read back through CBaseHandle::Get() is
         // ledger row C8. They are two slots that trace, not one slot twice.
-        "ClientDecalStaticProp", "ClientTraceLine", "ClientIsLowViolence",
-        "ClientDecalNameFromIndex",
+        "ClientDecalStaticProp", "ClientTraceLine", "ClientDecalNameFromIndex",
         // C-Phase 3 lane DECALS's three, closing behaviour ledger rows C2 and
         // C3 -- the two arms of C_BaseEntity::AddDecal this hierarchy never had
         // and the question the switch between them is made from. Client-only
@@ -486,7 +504,7 @@ public class SideAuditTests
 
         "ConsoleSnapshot", "ConsoleSnapshotEntry",
         "EventGetBool", "EventGetFloat", "EventGetInt", "EventGetString",
-        "FindConVarValue", "GetConVarValue", "GetCurrentTime",
+        "FindConVarValue", "GetConVarValue",
 
         // plan_crossings.md Phase X1, and it is the same hazard CurrentGravity's
         // note above describes rather than bookkeeping. Each game DLL has its
@@ -509,15 +527,8 @@ public class SideAuditTests
         // equal to Movement.cs by coincidence alone. Regressing this to
         // server-only is that hazard coming back.
         "RegisterMovementParams",
-        // Both sides since lane side-audit (2026-10-02), the same hazard as
-        // RegisterMovementParams one table over: ShouldCollide is asked during
-        // prediction, and while the slot was server-only the client's
-        // CollisionRules.Register was a silent no-op, its table equal to the
-        // managed matrix by coincidence alone (CollisionRulesTests'
-        // TheBuiltMatrixIsTheNativeDefaultTable). The shared IShimCollision
-        // base holds it; the server's other collision slots moved to
-        // IShimCollisionServer.
-        "RegisterCollisionRules",
+        // RegisterCollisionRules went in plan_server_native_v2 T6 part 3: the
+        // native matrix it overwrote had no reader on either side.
         // RegisterWeaponType went in plan_server_native_v2 T2: its table had
         // no reader on either side.
         "SetConVarValue", "SetNamedConVarValue", "RevertNamedConVar", "Warning",

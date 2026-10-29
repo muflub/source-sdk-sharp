@@ -14,6 +14,13 @@ public interface IServerSkins
     /// the m_nSkin prop (standalone_nettable.h); the client's GetSkin answers it.
     /// </summary>
     void SetSkin(EntityHandle entity, int skin);
+
+    /// <summary>
+    /// Which bodygroup combination <paramref name="entity"/> is drawn with
+    /// (CBaseAnimating's m_nBody). Sent as the m_nBody prop; the client's
+    /// GetBody answers it.
+    /// </summary>
+    void SetBody(EntityHandle entity, int body);
 }
 
 /// <summary>
@@ -46,5 +53,12 @@ public sealed class ServerSkins : IServerSkins
     {
         if (NetworkedSkin.Write(_side.GetEntityBlock(_network, entity), skin))
             _side.MarkEntityBlockChanged(_network, entity, NetworkedSkin.Offset);
+    }
+
+    /// <inheritdoc/>
+    public void SetBody(EntityHandle entity, int body)
+    {
+        if (NetworkedBody.Write(_side.GetEntityBlock(_network, entity), body))
+            _side.MarkEntityBlockChanged(_network, entity, NetworkedBody.Offset);
     }
 }

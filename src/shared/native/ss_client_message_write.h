@@ -5,16 +5,9 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the client's writer for CSourceSharpClientMessage ==//
-//
-// tier1's bf_write, so client.so and the tests only (server.so links no
-// tier1 and never sends one). The type first, as every net message's
-// WriteToBuffer writes it, then ss_client_message.h's wire.
-//
-//=============================================================================//
+// Writes a CSourceSharpClientMessage: the message type, then ss_client_message.h's wire.
+// Uses tier1's bf_write, so only client.so and the tests include it.
 
-#ifndef SS_CLIENT_MESSAGE_WRITE_H
-#define SS_CLIENT_MESSAGE_WRITE_H
 #pragma once
 
 #include "ss_client_message.h"
@@ -29,5 +22,3 @@ inline bool SourceSharp_WriteClientMessage( const CSourceSharpClientMessage &msg
 		buffer.WriteBits( msg.Data(), msg.DataLength() * 8 );
 	return !buffer.IsOverflowed();
 }
-
-#endif // SS_CLIENT_MESSAGE_WRITE_H

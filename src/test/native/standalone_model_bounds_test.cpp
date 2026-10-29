@@ -11,7 +11,7 @@
 //
 // Measured on ss_sandbox at 821aea34, a player standing on belts_lift:
 //
-//     cand 'ss_player' originZ=26 mins=-13,-13,-5.93788 maxs=13,13,72
+//     cand 'player' originZ=26 mins=-13,-13,-5.93788 maxs=13,13,72
 //
 // Feet reported at 20.06 for a player whose feet are at 26. Riders.Carry asks
 // whether a candidate's feet are within Riders.Sink (four units) of the
@@ -53,8 +53,7 @@ TEST( StandaloneModelBounds, PlayerKeepsItsHullDespiteAModelWithBounds )
 TEST( StandaloneModelBounds, PlayerRefusalDoesNotDependOnTheModel )
 {
 	EXPECT_FALSE( StandaloneModel_AdoptsBounds( true, false ) );
-	EXPECT_EQ( StandaloneModel_AdoptsBounds( true, true ),
-	           StandaloneModel_AdoptsBounds( true, false ) );
+	EXPECT_EQ( StandaloneModel_AdoptsBounds( true, true ), StandaloneModel_AdoptsBounds( true, false ) );
 }
 
 //-----------------------------------------------------------------------------

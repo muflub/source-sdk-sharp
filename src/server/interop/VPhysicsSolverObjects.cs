@@ -69,7 +69,23 @@ public interface IVPhysicsSolverObjects
 }
 
 /// <summary>The real objects, by their generated vtables. Holds nothing.</summary>
-public sealed unsafe class VPhysicsSolverObjects : IVPhysicsSolverObjects
+/// <summary>Where a shadow is and where it was sent: GetShadowPosition and the controller's GetTargetPosition.</summary>
+public readonly record struct ShadowState(Vector Position, QAngle Angles, Vector Target, QAngle TargetAngles);
+
+/// <summary>
+/// What a pusher's reconcile with vphysics reads (CBaseEntity::VPhysicsUpdatePusher
+/// and CheckPushedEntity): how far its shadow got, and what it is touching.
+/// </summary>
+public interface IVPhysicsPusherCalls
+{
+    /// <summary>The shadow's position and target; false unless the object is moveable and under a shadow controller.</summary>
+    bool TryShadow(nint physicsObject, out ShadowState state);
+
+    /// <summary><c>IPhysicsObject::GetContactPoint( NULL, &amp;other )</c>: the object it touches, or 0.</summary>
+    nint ContactObject(nint physicsObject);
+}
+
+public sealed unsafe class VPhysicsSolverObjects : IVPhysicsSolverObjects, IVPhysicsPusherCalls
 {
     private readonly VPhysicsTables _vphysics;
 
@@ -98,6 +114,33 @@ public sealed unsafe class VPhysicsSolverObjects : IVPhysicsSolverObjects
     public bool IsTrigger(nint o) => o != 0 && Vt(o)->IsTrigger((void*)o) != 0;
 
     public bool HasShadowController(nint o) => o != 0 && Vt(o)->GetShadowController((void*)o) != null;
+
+    public bool TryShadow(nint o, out ShadowState state)
+    {
+        state = default;
+        if (o == 0 || Vt(o)->IsMoveable((void*)o) == 0)
+            return false;
+
+        void* controller = Vt(o)->GetShadowController((void*)o);
+        if (controller == null)
+            return false;
+
+        Vector position, target;
+        QAngle angles, targetAngles;
+        Vt(o)->GetShadowPosition((void*)o, &position, &angles);
+        _vphysics.PhysicsShadowController->GetTargetPosition(controller, &target, &targetAngles);
+        state = new ShadowState(position, angles, target, targetAngles);
+        return true;
+    }
+
+    public nint ContactObject(nint o)
+    {
+        if (o == 0)
+            return 0;
+
+        void* other = null;
+        return Vt(o)->GetContactPoint((void*)o, null, &other) != 0 ? (nint)other : 0;
+    }
 
     public ushort CallbackFlags(nint o) => o == 0 ? (ushort)0 : Vt(o)->GetCallbackFlags((void*)o);
 

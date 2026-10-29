@@ -90,7 +90,6 @@ internal readonly unsafe struct ShimRef<TFwd> where TFwd : unmanaged, IForwarder
 /// </summary>
 internal unsafe interface IEngineArea
 {
-    float GetCurrentTime();
     nint GetGlobalVarsPtr();
 }
 
@@ -103,7 +102,6 @@ internal sealed unsafe class EngineArea : IEngineArea
 
     internal EngineArea(ShimRef<ShimEngineFwd> shim) { _shim = shim; }
 
-    public float GetCurrentTime() { return _shim.Table->GetCurrentTime(_shim.Self); }
     public nint GetGlobalVarsPtr() { return (nint)_shim.Table->GetGlobalVarsPtr(_shim.Self); }
 }
 
@@ -240,27 +238,6 @@ internal unsafe class EntitiesArea : IEntitiesArea
     public void EntityGetOrigin(uint a0, float* a1) { _shim.Table->EntityGetOrigin(_shim.Self, a0, a1); }
     public void EntityGetAngles(uint a0, float* a1) { _shim.Table->EntityGetAngles(_shim.Self, a0, a1); }
     public int EntityIsValid(uint a0) { return _shim.Table->EntityIsValid(_shim.Self, a0); }
-}
-
-/// <summary>
-/// <c>IShimCollision</c> as its consumers take it: <see cref="CollisionArea"/> over the engine,
-/// or a test's default (<c>DefaultCollisionArea</c>).
-/// </summary>
-internal unsafe interface ICollisionArea
-{
-    void RegisterCollisionRules(CollisionRulesBlob* a0);
-}
-
-/// <summary>
-/// <c>IShimCollision</c>, served as <c>SourceSharpCollision001</c>, through <see cref="ShimCollisionFwd"/>.
-/// </summary>
-internal unsafe class CollisionArea : ICollisionArea
-{
-    private readonly ShimRef<ShimCollisionFwd> _shim;
-
-    internal CollisionArea(ShimRef<ShimCollisionFwd> shim) { _shim = shim; }
-
-    public void RegisterCollisionRules(CollisionRulesBlob* a0) { _shim.Table->RegisterCollisionRules(_shim.Self, a0); }
 }
 
 /// <summary>
@@ -490,7 +467,6 @@ internal sealed unsafe class MovementServerArea : MovementArea, IMovementServerA
 /// </summary>
 internal unsafe interface IWorldServerArea
 {
-    void AngleVectorsFromForward(float* a0, float* a1, float* a2);
     int EntityModelSurfaceProp(uint a0);
     int InvisibleRangeReach();
     void SetSkyboxParams(SkyboxParams* a0);
@@ -505,7 +481,6 @@ internal sealed unsafe class WorldServerArea : IWorldServerArea
 
     internal WorldServerArea(ShimRef<ShimWorldServerFwd> shim) { _shim = shim; }
 
-    public void AngleVectorsFromForward(float* a0, float* a1, float* a2) { _shim.Table->AngleVectorsFromForward(_shim.Self, a0, a1, a2); }
     public int EntityModelSurfaceProp(uint a0) { return _shim.Table->EntityModelSurfaceProp(_shim.Self, a0); }
     public int InvisibleRangeReach() { return _shim.Table->InvisibleRangeReach(_shim.Self); }
     public void SetSkyboxParams(SkyboxParams* a0) { _shim.Table->SetSkyboxParams(_shim.Self, a0); }
@@ -533,6 +508,7 @@ internal unsafe interface IEntitiesServerArea : IEntitiesArea
     void EntitySetVisible(uint a0, int a1);
     void EntitySetOwner(uint a0, uint a1);
     int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1);
+    void EntitySetClassName(uint a0, byte* a1);
 }
 
 /// <summary>
@@ -564,6 +540,7 @@ internal sealed unsafe class EntitiesServerArea : EntitiesArea, IEntitiesServerA
     public void EntitySetVisible(uint a0, int a1) { _shim.Table->EntitySetVisible(_shim.Self, a0, a1); }
     public void EntitySetOwner(uint a0, uint a1) { _shim.Table->EntitySetOwner(_shim.Self, a0, a1); }
     public int EntitiesStandalonePlayerSkyboxArea(int a0, int* a1) { return _shim.Table->EntitiesStandalonePlayerSkyboxArea(_shim.Self, a0, a1); }
+    public void EntitySetClassName(uint a0, byte* a1) { _shim.Table->EntitySetClassName(_shim.Self, a0, a1); }
 }
 
 /// <summary>
@@ -628,7 +605,6 @@ internal unsafe interface ITransformArea
     void EntitySetAngularVelocity(uint a0, float* a1);
     void EntityGetEyePosition(uint a0, float* a1);
     void EntityGetEyeAngles(uint a0, float* a1);
-    void EntityGetWorldSpaceCenter(uint a0, float* a1);
     float EntityGetGravity(uint a0);
     void EntitySetGravity(uint a0, float a1);
     void EntitySetBounce(uint a0, int a1);
@@ -652,7 +628,6 @@ internal sealed unsafe class TransformArea : ITransformArea
     public void EntitySetAngularVelocity(uint a0, float* a1) { _shim.Table->EntitySetAngularVelocity(_shim.Self, a0, a1); }
     public void EntityGetEyePosition(uint a0, float* a1) { _shim.Table->EntityGetEyePosition(_shim.Self, a0, a1); }
     public void EntityGetEyeAngles(uint a0, float* a1) { _shim.Table->EntityGetEyeAngles(_shim.Self, a0, a1); }
-    public void EntityGetWorldSpaceCenter(uint a0, float* a1) { _shim.Table->EntityGetWorldSpaceCenter(_shim.Self, a0, a1); }
     public float EntityGetGravity(uint a0) { return _shim.Table->EntityGetGravity(_shim.Self, a0); }
     public void EntitySetGravity(uint a0, float a1) { _shim.Table->EntitySetGravity(_shim.Self, a0, a1); }
     public void EntitySetBounce(uint a0, int a1) { _shim.Table->EntitySetBounce(_shim.Self, a0, a1); }
@@ -695,41 +670,35 @@ internal sealed unsafe class HierarchyArea : IHierarchyArea
 /// <c>IShimCollisionServer</c> as its consumers take it: <see cref="CollisionServerArea"/> over the engine,
 /// or a test's default (<c>DefaultCollisionServerArea</c>).
 /// </summary>
-internal unsafe interface ICollisionServerArea : ICollisionArea
+internal unsafe interface ICollisionServerArea
 {
     void EntityGetBounds(uint a0, float* a1, float* a2);
     void EntityGetBoundsSize(uint a0, float* a1);
     void EntitySetBounds(uint a0, float* a1, float* a2);
-    int EntityGetSolidType(uint a0);
     void EntitySetSolidity(uint a0, int a1, int a2);
-    int EntityGetSolidFlags(uint a0);
     int EntityGetCollisionGroup(uint a0);
     void EntitySetCollisionGroup(uint a0, int a1);
     int EntityOverlapReport(uint* a0, int a1);
+    void EntitySetTriggerBloat(uint a0, int a1, int a2);
 }
 
 /// <summary>
-/// <c>IShimCollisionServer</c>, served as <c>SourceSharpCollisionServer001</c>, through <see cref="ShimCollisionServerFwd"/>. Its base's slots are <see cref="CollisionArea"/>'s.
+/// <c>IShimCollisionServer</c>, served as <c>SourceSharpCollisionServer001</c>, through <see cref="ShimCollisionServerFwd"/>.
 /// </summary>
-internal sealed unsafe class CollisionServerArea : CollisionArea, ICollisionServerArea
+internal sealed unsafe class CollisionServerArea : ICollisionServerArea
 {
     private readonly ShimRef<ShimCollisionServerFwd> _shim;
 
-    internal CollisionServerArea(ShimRef<ShimCollisionServerFwd> shim, ShimRef<ShimCollisionFwd> asBase)
-        : base(asBase)
-    {
-        _shim = shim;
-    }
+    internal CollisionServerArea(ShimRef<ShimCollisionServerFwd> shim) { _shim = shim; }
 
     public void EntityGetBounds(uint a0, float* a1, float* a2) { _shim.Table->EntityGetBounds(_shim.Self, a0, a1, a2); }
     public void EntityGetBoundsSize(uint a0, float* a1) { _shim.Table->EntityGetBoundsSize(_shim.Self, a0, a1); }
     public void EntitySetBounds(uint a0, float* a1, float* a2) { _shim.Table->EntitySetBounds(_shim.Self, a0, a1, a2); }
-    public int EntityGetSolidType(uint a0) { return _shim.Table->EntityGetSolidType(_shim.Self, a0); }
     public void EntitySetSolidity(uint a0, int a1, int a2) { _shim.Table->EntitySetSolidity(_shim.Self, a0, a1, a2); }
-    public int EntityGetSolidFlags(uint a0) { return _shim.Table->EntityGetSolidFlags(_shim.Self, a0); }
     public int EntityGetCollisionGroup(uint a0) { return _shim.Table->EntityGetCollisionGroup(_shim.Self, a0); }
     public void EntitySetCollisionGroup(uint a0, int a1) { _shim.Table->EntitySetCollisionGroup(_shim.Self, a0, a1); }
     public int EntityOverlapReport(uint* a0, int a1) { return _shim.Table->EntityOverlapReport(_shim.Self, a0, a1); }
+    public void EntitySetTriggerBloat(uint a0, int a1, int a2) { _shim.Table->EntitySetTriggerBloat(_shim.Self, a0, a1, a2); }
 }
 
 /// <summary>
@@ -818,14 +787,12 @@ internal sealed unsafe class GameRulesArea : IGameRulesArea
 internal unsafe interface IPlayersArea
 {
     uint GetPlayerHandle(int a0);
-    int GetPlayerTeam(uint a0);
     int PlayerIsAlive(uint a0);
     void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2);
     int PlayerGetObserverMode(uint a0);
     void PlayerSetObserverMode(uint a0, int a1);
     void PlayerSnapEyeAngles(uint a0, float* a1);
     int ClientsStandalonePlayerEarPosition(int a0, float* a1);
-    void PlayerSetTeam(uint a0, int a1);
 }
 
 /// <summary>
@@ -838,14 +805,12 @@ internal sealed unsafe class PlayersArea : IPlayersArea
     internal PlayersArea(ShimRef<ShimPlayersFwd> shim) { _shim = shim; }
 
     public uint GetPlayerHandle(int a0) { return _shim.Table->GetPlayerHandle(_shim.Self, a0); }
-    public int GetPlayerTeam(uint a0) { return _shim.Table->GetPlayerTeam(_shim.Self, a0); }
     public int PlayerIsAlive(uint a0) { return _shim.Table->PlayerIsAlive(_shim.Self, a0); }
     public void PlayerPlaceAtSpawn(uint a0, float* a1, float* a2) { _shim.Table->PlayerPlaceAtSpawn(_shim.Self, a0, a1, a2); }
     public int PlayerGetObserverMode(uint a0) { return _shim.Table->PlayerGetObserverMode(_shim.Self, a0); }
     public void PlayerSetObserverMode(uint a0, int a1) { _shim.Table->PlayerSetObserverMode(_shim.Self, a0, a1); }
     public void PlayerSnapEyeAngles(uint a0, float* a1) { _shim.Table->PlayerSnapEyeAngles(_shim.Self, a0, a1); }
     public int ClientsStandalonePlayerEarPosition(int a0, float* a1) { return _shim.Table->ClientsStandalonePlayerEarPosition(_shim.Self, a0, a1); }
-    public void PlayerSetTeam(uint a0, int a1) { _shim.Table->PlayerSetTeam(_shim.Self, a0, a1); }
 }
 
 /// <summary>
@@ -854,7 +819,6 @@ internal sealed unsafe class PlayersArea : IPlayersArea
 /// </summary>
 internal unsafe interface IEffectsServerArea
 {
-    void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5);
     int TempEntBuild(void* a0, int a1, TeBuiltTable* a2);
 }
 
@@ -867,7 +831,6 @@ internal sealed unsafe class EffectsServerArea : IEffectsServerArea
 
     internal EffectsServerArea(ShimRef<ShimEffectsServerFwd> shim) { _shim = shim; }
 
-    public void BloodEffect(float* a0, float* a1, int a2, float a3, int a4, int a5) { _shim.Table->BloodEffect(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public int TempEntBuild(void* a0, int a1, TeBuiltTable* a2) { return _shim.Table->TempEntBuild(_shim.Self, a0, a1, a2); }
 }
 
@@ -1059,7 +1022,6 @@ internal unsafe interface ITempEntBackendsClientArea
     void ClientDecalStudioModel(int a0, float* a1, float* a2, int a3);
     void ClientEnergySplash(float* a0, float* a1, int a2);
     int ClientEntityModelType(int a0);
-    int ClientIsLowViolence();
     void ClientMetalSparks(float* a0, float* a1);
     void ClientMuzzleFlash(float* a0, float* a1, float a2, int a3);
     void ClientPlayerDecalShoot(float* a0, int a1, int a2);
@@ -1068,6 +1030,11 @@ internal unsafe interface ITempEntBackendsClientArea
     void ClientSparks(float* a0, int a1, int a2, float* a3);
     void EffectDispatchName(int a0, byte* a1, int a2);
     int TempEntBuildClient(void* a0, int a1, int a2, TeRecvBuilt* a3);
+    int ClientShotTrace(float* a0, float* a1, int a2, float* a3, int a4, int* a5, int a6);
+    void ClientWorldLighting(float* a0, float* a1, float* a2);
+    void ClientStaticPropLighting(float* a0, float* a1, float* a2, int a3, float* a4);
+    void ClientImpactLedger(int a0, int a1);
+    void ClientPlayerLogoDecal(float* a0, int a1, int a2, byte* a3, byte* a4);
 }
 
 /// <summary>
@@ -1087,7 +1054,6 @@ internal sealed unsafe class TempEntBackendsClientArea : ITempEntBackendsClientA
     public void ClientDecalStudioModel(int a0, float* a1, float* a2, int a3) { _shim.Table->ClientDecalStudioModel(_shim.Self, a0, a1, a2, a3); }
     public void ClientEnergySplash(float* a0, float* a1, int a2) { _shim.Table->ClientEnergySplash(_shim.Self, a0, a1, a2); }
     public int ClientEntityModelType(int a0) { return _shim.Table->ClientEntityModelType(_shim.Self, a0); }
-    public int ClientIsLowViolence() { return _shim.Table->ClientIsLowViolence(_shim.Self); }
     public void ClientMetalSparks(float* a0, float* a1) { _shim.Table->ClientMetalSparks(_shim.Self, a0, a1); }
     public void ClientMuzzleFlash(float* a0, float* a1, float a2, int a3) { _shim.Table->ClientMuzzleFlash(_shim.Self, a0, a1, a2, a3); }
     public void ClientPlayerDecalShoot(float* a0, int a1, int a2) { _shim.Table->ClientPlayerDecalShoot(_shim.Self, a0, a1, a2); }
@@ -1096,6 +1062,11 @@ internal sealed unsafe class TempEntBackendsClientArea : ITempEntBackendsClientA
     public void ClientSparks(float* a0, int a1, int a2, float* a3) { _shim.Table->ClientSparks(_shim.Self, a0, a1, a2, a3); }
     public void EffectDispatchName(int a0, byte* a1, int a2) { _shim.Table->EffectDispatchName(_shim.Self, a0, a1, a2); }
     public int TempEntBuildClient(void* a0, int a1, int a2, TeRecvBuilt* a3) { return _shim.Table->TempEntBuildClient(_shim.Self, a0, a1, a2, a3); }
+    public int ClientShotTrace(float* a0, float* a1, int a2, float* a3, int a4, int* a5, int a6) { return _shim.Table->ClientShotTrace(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
+    public void ClientWorldLighting(float* a0, float* a1, float* a2) { _shim.Table->ClientWorldLighting(_shim.Self, a0, a1, a2); }
+    public void ClientStaticPropLighting(float* a0, float* a1, float* a2, int a3, float* a4) { _shim.Table->ClientStaticPropLighting(_shim.Self, a0, a1, a2, a3, a4); }
+    public void ClientImpactLedger(int a0, int a1) { _shim.Table->ClientImpactLedger(_shim.Self, a0, a1); }
+    public void ClientPlayerLogoDecal(float* a0, int a1, int a2, byte* a3, byte* a4) { _shim.Table->ClientPlayerLogoDecal(_shim.Self, a0, a1, a2, a3, a4); }
 }
 
 /// <summary>
@@ -1193,7 +1164,6 @@ internal unsafe interface IStandaloneClientArea
     void StandaloneSetOverlayModel(uint a0, int a1);
     void StandaloneSetViewModel(uint a0, int a1);
     int StandaloneShadowCast(uint a0, int* a1);
-    void SurfaceSetEdges(uint a0, byte* a1, int a2);
     int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10);
     int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7);
     void* StandaloneEngineBlock(uint a0, int* a1);
@@ -1201,6 +1171,11 @@ internal unsafe interface IStandaloneClientArea
     void StandaloneSetRagdoll(uint a0, int a1);
     void EntitySetSkin(uint a0, int a1);
     void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5);
+    int StandaloneSurroundingBounds(uint* a0, int a1, float* a2);
+    int SurfaceMaterialFacts(uint a0, byte* a1, int a2, byte* a3, int a4, int* a5);
+    void SurfaceSetMaterials(uint a0, byte* a1, int a2, int a3);
+    void SurfaceSetPlan(uint a0, int* a1, int a2);
+    void ClientInterpAdmitted(uint* a0, int a1);
 }
 
 /// <summary>
@@ -1224,7 +1199,6 @@ internal sealed unsafe class StandaloneClientArea : IStandaloneClientArea
     public void StandaloneSetOverlayModel(uint a0, int a1) { _shim.Table->StandaloneSetOverlayModel(_shim.Self, a0, a1); }
     public void StandaloneSetViewModel(uint a0, int a1) { _shim.Table->StandaloneSetViewModel(_shim.Self, a0, a1); }
     public int StandaloneShadowCast(uint a0, int* a1) { return _shim.Table->StandaloneShadowCast(_shim.Self, a0, a1); }
-    public void SurfaceSetEdges(uint a0, byte* a1, int a2) { _shim.Table->SurfaceSetEdges(_shim.Self, a0, a1, a2); }
     public int ClientRecvProp(int a0, byte* a1, int a2, byte* a3, int a4, byte* a5, int a6, int* a7, int* a8, int* a9, int* a10) { return _shim.Table->ClientRecvProp(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10); }
     public int ClientSchemaRefusal(int a0, uint* a1, uint* a2, uint* a3, int* a4, byte* a5, int a6, int* a7) { return _shim.Table->ClientSchemaRefusal(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public void* StandaloneEngineBlock(uint a0, int* a1) { return _shim.Table->StandaloneEngineBlock(_shim.Self, a0, a1); }
@@ -1232,6 +1206,11 @@ internal sealed unsafe class StandaloneClientArea : IStandaloneClientArea
     public void StandaloneSetRagdoll(uint a0, int a1) { _shim.Table->StandaloneSetRagdoll(_shim.Self, a0, a1); }
     public void EntitySetSkin(uint a0, int a1) { _shim.Table->EntitySetSkin(_shim.Self, a0, a1); }
     public void RegisterAmmoType(byte* a0, int a1, int a2, int a3, float a4, float a5) { _shim.Table->RegisterAmmoType(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public int StandaloneSurroundingBounds(uint* a0, int a1, float* a2) { return _shim.Table->StandaloneSurroundingBounds(_shim.Self, a0, a1, a2); }
+    public int SurfaceMaterialFacts(uint a0, byte* a1, int a2, byte* a3, int a4, int* a5) { return _shim.Table->SurfaceMaterialFacts(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public void SurfaceSetMaterials(uint a0, byte* a1, int a2, int a3) { _shim.Table->SurfaceSetMaterials(_shim.Self, a0, a1, a2, a3); }
+    public void SurfaceSetPlan(uint a0, int* a1, int a2) { _shim.Table->SurfaceSetPlan(_shim.Self, a0, a1, a2); }
+    public void ClientInterpAdmitted(uint* a0, int a1) { _shim.Table->ClientInterpAdmitted(_shim.Self, a0, a1); }
 }
 
 /// <summary>
@@ -1244,7 +1223,6 @@ internal unsafe interface IViewClientArea
     void ConNXPrintf(void* a0, int a1, float a2, float* a3, int a4, byte* a5);
     void GetLightForPoint(void* a0, float* a1, int a2, float* a3);
     void GetLightForPointFast(void* a0, float* a1, int a2, float* a3);
-    int ClientColorCorrection(int a0, int a1, byte* a2, float a3);
     void ClientSetWorldRenderState(int a0, float* a1, int a2);
     int GetLocalPlayerOrigin(float* a0);
     void SetViewerFogParams(FogParams* a0);
@@ -1264,6 +1242,12 @@ internal unsafe interface IViewClientArea
     void PixelVisDiameters(float* a0, int a1, float* a2);
     int PixelVisView(float* a0, int a1);
     int GlowMaterialFind(byte* a0, byte* a1);
+    void* ColorLookupAdd(byte* a0);
+    void ColorLookupSetWeight(void* a0, float a1);
+    void ColorLookupRemove(void* a0);
+    void ColorLookupResetWeights();
+    int ClientClipRayToEntities(float* a0, float* a1, int a2, int* a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11);
+    int ClientTraceHullEntities(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int* a6, int a7, float* a8, float* a9, int* a10, float* a11);
 }
 
 /// <summary>
@@ -1279,7 +1263,6 @@ internal sealed unsafe class ViewClientArea : IViewClientArea
     public void ConNXPrintf(void* a0, int a1, float a2, float* a3, int a4, byte* a5) { _shim.Table->ConNXPrintf(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public void GetLightForPoint(void* a0, float* a1, int a2, float* a3) { _shim.Table->GetLightForPoint(_shim.Self, a0, a1, a2, a3); }
     public void GetLightForPointFast(void* a0, float* a1, int a2, float* a3) { _shim.Table->GetLightForPointFast(_shim.Self, a0, a1, a2, a3); }
-    public int ClientColorCorrection(int a0, int a1, byte* a2, float a3) { return _shim.Table->ClientColorCorrection(_shim.Self, a0, a1, a2, a3); }
     public void ClientSetWorldRenderState(int a0, float* a1, int a2) { _shim.Table->ClientSetWorldRenderState(_shim.Self, a0, a1, a2); }
     public int GetLocalPlayerOrigin(float* a0) { return _shim.Table->GetLocalPlayerOrigin(_shim.Self, a0); }
     public void SetViewerFogParams(FogParams* a0) { _shim.Table->SetViewerFogParams(_shim.Self, a0); }
@@ -1299,6 +1282,12 @@ internal sealed unsafe class ViewClientArea : IViewClientArea
     public void PixelVisDiameters(float* a0, int a1, float* a2) { _shim.Table->PixelVisDiameters(_shim.Self, a0, a1, a2); }
     public int PixelVisView(float* a0, int a1) { return _shim.Table->PixelVisView(_shim.Self, a0, a1); }
     public int GlowMaterialFind(byte* a0, byte* a1) { return _shim.Table->GlowMaterialFind(_shim.Self, a0, a1); }
+    public void* ColorLookupAdd(byte* a0) { return _shim.Table->ColorLookupAdd(_shim.Self, a0); }
+    public void ColorLookupSetWeight(void* a0, float a1) { _shim.Table->ColorLookupSetWeight(_shim.Self, a0, a1); }
+    public void ColorLookupRemove(void* a0) { _shim.Table->ColorLookupRemove(_shim.Self, a0); }
+    public void ColorLookupResetWeights() { _shim.Table->ColorLookupResetWeights(_shim.Self); }
+    public int ClientClipRayToEntities(float* a0, float* a1, int a2, int* a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11) { return _shim.Table->ClientClipRayToEntities(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11); }
+    public int ClientTraceHullEntities(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int* a6, int a7, float* a8, float* a9, int* a10, float* a11) { return _shim.Table->ClientTraceHullEntities(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11); }
 }
 
 /// <summary>
@@ -1460,6 +1449,7 @@ internal unsafe interface IParticlesClientArea
     int ParticlesTraceMask(float* a0, float* a1, uint a2, float* a3, int a4);
     int ParticlesSetSpace(uint a0, int a1, uint a2, int a3, int a4, ParticleFollow* a5);
     int ParticlesBrushPointContents(uint a0, float* a1);
+    int ParticleSystemImpact(byte* a0, float* a1, int a2, float a3, float* a4);
 }
 
 /// <summary>
@@ -1490,6 +1480,7 @@ internal sealed unsafe class ParticlesClientArea : IParticlesClientArea
     public int ParticlesTraceMask(float* a0, float* a1, uint a2, float* a3, int a4) { return _shim.Table->ParticlesTraceMask(_shim.Self, a0, a1, a2, a3, a4); }
     public int ParticlesSetSpace(uint a0, int a1, uint a2, int a3, int a4, ParticleFollow* a5) { return _shim.Table->ParticlesSetSpace(_shim.Self, a0, a1, a2, a3, a4, a5); }
     public int ParticlesBrushPointContents(uint a0, float* a1) { return _shim.Table->ParticlesBrushPointContents(_shim.Self, a0, a1); }
+    public int ParticleSystemImpact(byte* a0, float* a1, int a2, float a3, float* a4) { return _shim.Table->ParticleSystemImpact(_shim.Self, a0, a1, a2, a3, a4); }
 }
 
 /// <summary>
@@ -1852,7 +1843,7 @@ internal static unsafe class ServerAreaRegistration
             new EntityLifecycleArea(entityLifecycleArea),
             new TransformArea(transformArea),
             new HierarchyArea(hierarchyArea),
-            new CollisionServerArea(collisionServerArea, collisionServerArea.As<ShimCollisionFwd>()),
+            new CollisionServerArea(collisionServerArea),
             new PhysicsArea(physicsArea),
             new DamageArea(damageArea),
             new GameRulesArea(gameRulesArea),
@@ -1884,7 +1875,7 @@ internal static unsafe class ServerAreaRegistration
             new EntityLifecycleArea(default),
             new TransformArea(default),
             new HierarchyArea(default),
-            new CollisionServerArea(default, default),
+            new CollisionServerArea(default),
             new PhysicsArea(default),
             new DamageArea(default),
             new GameRulesArea(default),
@@ -1946,7 +1937,6 @@ internal static unsafe class ServerAreaRegistration
         add(typeof(IModelsArea), modelsServerArea);
         add(typeof(IMovementArea), movementServerArea);
         add(typeof(IEntitiesArea), entitiesServerArea);
-        add(typeof(ICollisionArea), collisionServerArea);
     }
 }
 
@@ -1956,7 +1946,7 @@ internal static unsafe class ServerAreaRegistration
 /// </summary>
 internal static unsafe class ClientAreaRegistration
 {
-    internal static int Count => 28;
+    internal static int Count => 27;
 
     /// <summary>
     /// Takes every area from the root, each with its table, and hands them
@@ -1972,7 +1962,6 @@ internal static unsafe class ClientAreaRegistration
         if (!ShimRef<ShimModelsFwd>.TryTake(root, "SourceSharpModels001", out var modelsArea, out why)) return false;
         if (!ShimRef<ShimMovementFwd>.TryTake(root, "SourceSharpMovement001", out var movementArea, out why)) return false;
         if (!ShimRef<ShimEntitiesFwd>.TryTake(root, "SourceSharpEntities001", out var entitiesArea, out why)) return false;
-        if (!ShimRef<ShimCollisionFwd>.TryTake(root, "SourceSharpCollision001", out var collisionArea, out why)) return false;
         if (!ShimRef<ShimConsoleFwd>.TryTake(root, "SourceSharpConsole001", out var consoleArea, out why)) return false;
         if (!ShimRef<ShimHudClientFwd>.TryTake(root, "SourceSharpHudClient001", out var hudClientArea, out why)) return false;
         if (!ShimRef<ShimPredictionClientFwd>.TryTake(root, "SourceSharpPredictionClient001", out var predictionClientArea, out why)) return false;
@@ -2001,7 +1990,6 @@ internal static unsafe class ClientAreaRegistration
             new ModelsArea(modelsArea),
             new MovementArea(movementArea),
             new EntitiesArea(entitiesArea),
-            new CollisionArea(collisionArea),
             new ConsoleArea(consoleArea),
             new HudClientArea(hudClientArea),
             new PredictionClientArea(predictionClientArea),
@@ -2039,7 +2027,6 @@ internal static unsafe class ClientAreaRegistration
             new ModelsArea(default),
             new MovementArea(default),
             new EntitiesArea(default),
-            new CollisionArea(default),
             new ConsoleArea(default),
             new HudClientArea(default),
             new PredictionClientArea(default),
@@ -2069,7 +2056,6 @@ internal static unsafe class ClientAreaRegistration
         ModelsArea modelsArea,
         MovementArea movementArea,
         EntitiesArea entitiesArea,
-        CollisionArea collisionArea,
         ConsoleArea consoleArea,
         HudClientArea hudClientArea,
         PredictionClientArea predictionClientArea,
@@ -2098,7 +2084,6 @@ internal static unsafe class ClientAreaRegistration
         add(typeof(IModelsArea), modelsArea);
         add(typeof(IMovementArea), movementArea);
         add(typeof(IEntitiesArea), entitiesArea);
-        add(typeof(ICollisionArea), collisionArea);
         add(typeof(IConsoleArea), consoleArea);
         add(typeof(IHudClientArea), hudClientArea);
         add(typeof(IPredictionClientArea), predictionClientArea);

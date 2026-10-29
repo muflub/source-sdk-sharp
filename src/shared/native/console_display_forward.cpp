@@ -5,21 +5,9 @@
 //
 //=============================================================================//
 // SS_REASON a  a vtable the engine calls through
-//
-// The engine holds the installed IConsoleDisplayFunc and calls its three
-// methods through that vtable, on the printing thread, from inside the
-// engine's own console writes. Install/remove are the only decisions here;
-// forwarding is pure carry (docs/todo.md's console capture item).
-//
-// console-batch (2026-10-11): a print is appended to this DLL's console line
-// buffer (console_line_buffer.h) and crosses nothing; the managed side drains
-// the buffer itself, through the pointer handed to its area once per load
-// (ConsoleBufferAttach). One crossing per line was 13 per server frame across
-// a map change, the whole of the nightly gate's map-change overrun.
-//=============================================================================//
+// The engine calls the installed IConsoleDisplayFunc on the printing thread.
+// A print is appended to the line buffer, which the managed side drains itself.
 
-
-#include "basetypes.h"
 #include "icvar.h"
 #include "Color.h"
 #ifdef CLIENT_DLL
@@ -28,131 +16,110 @@
 #include "imanaged_areas.h"
 #endif
 #include "console_display_forward.h"
-#include "console_line_buffer.h"
 
-namespace
+// Every spew reaches ColorPrint with its spew type's colour: warning (255,90,90),
+// assert (255,20,20), error (20,70,255).
+static bool IsEngineWarningColor( const Color &c )
 {
+	return c.r() == 255 ? ( c.g() == 90 && c.b() == 90 ) || ( c.g() == 20 && c.b() == 20 )
+						: c.r() == 20 && c.g() == 70 && c.b() == 255;
+}
 
-/// The one forwarder per DLL: the engine's display-func list holds a raw
-/// pointer, so a second installation would double every line.
-class CConsoleDisplayForward final : public IConsoleDisplayFunc
+void CConsoleDisplay::CForwarder::ColorPrint( const Color &color, const char *pMessage )
 {
-public:
-	void ColorPrint( const Color &color, const char *pMessage ) override { Forward( pMessage, IsEngineWarningColor( color ) ? 1 : 0 ); }
-	void Print( const char *pMessage ) override { Forward( pMessage, 0 ); }
-	void DPrint( const char *pMessage ) override { Forward( pMessage, 0 ); }
+	m_Owner.Forward( pMessage, IsEngineWarningColor( color ) ? 1 : 0 );
+}
 
-	CConsoleDisplayForward() = default;
-	CConsoleDisplayForward( const CConsoleDisplayForward & ) = delete;
-	CConsoleDisplayForward &operator=( const CConsoleDisplayForward & ) = delete;
-
-	/// Hands the buffer to this load's area, once per install; false outside a load.
-	bool Attach();
-	void Detach() { m_bAttached.store( false, std::memory_order_release ); }
-
-private:
-	void Forward( const char *pText, int nWarning );
-
-	std::atomic< bool > m_bAttached{ false };
-
-	// Every spew reaches ColorPrint, a Msg too (the engine's spew handler); its colour is the
-	// spew type's: warning (255,90,90), assert (255,20,20), error (20,70,255). Read back, not decided.
-	static bool IsEngineWarningColor( const Color &c )
-	{
-		return c.r() == 255 ? ( c.g() == 90 && c.b() == 90 ) || ( c.g() == 20 && c.b() == 20 )
-		                    : c.r() == 20 && c.g() == 70 && c.b() == 255;
-	}
-};
-
-CConsoleLineBuffer g_LineBuffer;  // the lines outlive a reload; not a member: the forwarder's vtable would put 1 MiB in .data
-CConsoleDisplayForward g_Forwarder;
-ICvar *g_pInstalledCvar = NULL;
-
-} // namespace
-
-void CConsoleDisplayForward::Forward( const char *pText, int nWarning )
+void CConsoleDisplay::CForwarder::Print( const char *pMessage )
 {
-	// Installed-or-not is the ONE piece of state forwarding consults: it is
-	// the lifetime decision install/remove already made, and a pointer the
-	// engine captured before a Remove must stop re-entering this DLL.
-	if ( !g_pInstalledCvar || !pText )
+	m_Owner.Forward( pMessage, 0 );
+}
+
+void CConsoleDisplay::CForwarder::DPrint( const char *pMessage )
+{
+	m_Owner.Forward( pMessage, 0 );
+}
+
+CConsoleDisplay::CConsoleDisplay( ManagedConsoleOutputArea_t *const &ppArea )
+	: m_ppArea( ppArea )
+	, m_pBuffer( std::make_unique<CConsoleLineBuffer>() )
+{
+}
+
+void CConsoleDisplay::Forward( const char *pText, int nWarning )
+{
+	// A pointer the engine captured before a Remove must stop re-entering this DLL.
+	if ( !m_pInstalledCvar || !pText )
 	{
 		return;
 	}
-	// Outside a load (before the first acquire, after the last release,
-	// during shutdown) there is no reader, and the line is dropped as it was
-	// before the buffer. A load not yet handed the buffer (an install made
-	// before its area was acquired) is handed it here, once.
+	// Outside a load there is no reader and the line is dropped.
 	if ( !Attach() )
 	{
 		return;
 	}
-	g_LineBuffer.Append( pText, nWarning );
+	m_pBuffer->Append( pText, nWarning );
 }
 
-bool CConsoleDisplayForward::Attach()
+bool CConsoleDisplay::Attach()
 {
-#ifdef CLIENT_DLL
-	IManagedConsoleOutputClient *pArea = ManagedConsoleOutputClient();
-#else
-	IManagedConsoleOutput *pArea = ManagedConsoleOutput();
-#endif
+	ManagedConsoleOutputArea_t *pArea = m_ppArea;
 	if ( !pArea )
 	{
 		return false;
 	}
 	if ( !m_bAttached.exchange( true, std::memory_order_acq_rel ) )
 	{
-		g_LineBuffer.Publish();
+		m_pBuffer->Publish();
 #ifdef CLIENT_DLL
-		pArea->ClientConsoleBufferAttach( &g_LineBuffer );
+		pArea->ClientConsoleBufferAttach( m_pBuffer.get() );
 #else
-		pArea->ConsoleBufferAttach( &g_LineBuffer );
+		pArea->ConsoleBufferAttach( m_pBuffer.get() );
 #endif
 	}
 	return true;
 }
 
-bool ConsoleDisplay_Install( ICvar *pCVar )
+bool CConsoleDisplay::Install( ICvar *pCVar )
 {
 	if ( !pCVar )
 	{
 		return false;
 	}
-	if ( g_pInstalledCvar )
+	if ( m_pInstalledCvar )
 	{
-		return g_pInstalledCvar == pCVar;
+		return m_pInstalledCvar == pCVar;
 	}
-	pCVar->InstallConsoleDisplayFunc( &g_Forwarder );
-	g_pInstalledCvar = pCVar;
+	pCVar->InstallConsoleDisplayFunc( &m_Forwarder );
+	m_pInstalledCvar = pCVar;
 	// This load gets the buffer now, so its reader exists before any print.
-	g_Forwarder.Attach();
+	Attach();
 	return true;
 }
 
-void ConsoleDisplay_Remove()
+void CConsoleDisplay::Remove()
 {
-	if ( !g_pInstalledCvar )
+	if ( !m_pInstalledCvar )
 	{
 		return;
 	}
-	g_pInstalledCvar->RemoveConsoleDisplayFunc( &g_Forwarder );
-	g_pInstalledCvar = NULL;
-	// The next install is the next load's: it is handed the buffer again.
-	g_Forwarder.Detach();
+	m_pInstalledCvar->RemoveConsoleDisplayFunc( &m_Forwarder );
+	m_pInstalledCvar = NULL;
+	m_bAttached.store( false, std::memory_order_release );
 }
 
-CConsoleDisplayReloadGap::CConsoleDisplayReloadGap()
-	: m_pCVar( g_pInstalledCvar )
+CConsoleDisplayReloadGap::CConsoleDisplayReloadGap( CConsoleDisplay &display )
+	: m_Display( display )
+	, m_pCVar( display.Installed() )
 {
-	ConsoleDisplay_Remove();
+	m_Display.Remove();
 }
 
 void CConsoleDisplayReloadGap::End()
 {
 	if ( m_pCVar )
 	{
-		ConsoleDisplay_Install( m_pCVar );
+		m_Display.Install( m_pCVar );
 		m_pCVar = NULL;
 	}
 }

@@ -29,275 +29,287 @@
 #include "ss_fwd_sdk.h"
 #include "fwd_shadows.h"
 
-#include <stddef.h>
-
 #include "cdll_int.h"
 #include "globalvars_base.h"
 #include "engine/ishadowmgr.h"
 #include "engine/IStaticPropMgr.h"
 #include "engine/ivmodelinfo.h"
-#include "engine/ivmodelrender.h"
+
 #include "engine/ivdebugoverlay.h"
 #include "ivrenderview.h"
 #include "iclientrenderable.h"
-#include "iclientunknown.h"
+
 #include "iclientnetworkable.h"
 #include "bsptreedata.h"
 #include "cmodel.h"
 #include "view_shared.h"
-#include "materialsystem/imaterialsystem.h"
-#include "materialsystem/imaterialsystemhardwareconfig.h"
+
 #include "materialsystem/itexture.h"
-#include "mathlib/vmatrix.h"
+
 #include "sourcesharp.h"
 
 namespace
 {
-	union Word
-	{
-		int32_t i;
-		float f;
-	};
+union Word
+{
+	int32_t i;
+	float f;
+};
 
-	float F( int32_t w )
+float F( int32_t w )
+{
+	Word u;
+	u.i = w;
+	return u.f;
+}
+
+int32_t Bits( float f )
+{
+	Word u;
+	u.f = f;
+	return u.i;
+}
+
+// One record's payload, read in order; a read past its end answers 0
+// and marks the record short, which ends the run.
+struct Payload
+{
+	const int32_t *p;
+	int32_t n;
+	int32_t at;
+	bool bShort;
+
+	int32_t I()
 	{
-		Word u;
-		u.i = w;
-		return u.f;
+		if ( at >= n )
+		{
+			bShort = true;
+			return 0;
+		}
+		return p[at++];
 	}
 
-	int32_t Bits( float f )
+	float Fl() { return F( I() ); }
+
+	void *Ptr()
 	{
-		Word u;
-		u.f = f;
-		return u.i;
+		const uint32_t lo = (uint32_t)I();
+		const uint32_t hi = (uint32_t)I();
+		return reinterpret_cast<void *>( (uintptr_t)( ( (uint64_t)hi << 32 ) | lo ) );
 	}
 
-	// One record's payload, read in order; a read past its end answers 0
-	// and marks the record short, which ends the run.
-	struct Payload
+	// NULL when the record was too short to hold the whole pointer: a
+	// truncated pointer is never followed.
+	IClientRenderable *Renderable()
 	{
-		const int32_t *p;
-		int32_t n;
-		int32_t at;
-		bool bShort;
-
-		int32_t I()
-		{
-			if ( at >= n )
-			{
-				bShort = true;
-				return 0;
-			}
-			return p[ at++ ];
-		}
-
-		float Fl() { return F( I() ); }
-
-		void *Ptr()
-		{
-			const uint32_t lo = (uint32_t)I();
-			const uint32_t hi = (uint32_t)I();
-			return reinterpret_cast< void * >( (uintptr_t)( ( (uint64_t)hi << 32 ) | lo ) );
-		}
-
-		// NULL when the record was too short to hold the whole pointer: a
-		// truncated pointer is never followed.
-		IClientRenderable *Renderable()
-		{
-			void *pv = Ptr();
-			return bShort ? NULL : static_cast< IClientRenderable * >( pv );
-		}
-
-		Vector Vec()
-		{
-			const float x = Fl();
-			const float y = Fl();
-			const float z = Fl();
-			return Vector( x, y, z );
-		}
-
-		QAngle Ang()
-		{
-			const float x = Fl();
-			const float y = Fl();
-			const float z = Fl();
-			return QAngle( x, y, z );
-		}
-
-		double D()
-		{
-			union
-			{
-				int32_t w[ 2 ];
-				double d;
-			} u;
-			u.w[ 0 ] = I();
-			u.w[ 1 ] = I();
-			return u.d;
-		}
-
-		void Matrix( VMatrix &m )
-		{
-			for ( int r = 0; r < 4; ++r )
-				for ( int c = 0; c < 4; ++c )
-					m.m[ r ][ c ] = Fl();
-		}
-
-		// A string: its byte length, then its bytes padded to a word; NULL
-		// when the record is too short to hold it or it carries no NUL.
-		const char *Str()
-		{
-			const int32_t nBytes = I();
-			const int32_t nWords = ( nBytes + 4 ) / 4;
-			if ( bShort || nBytes < 0 || nWords > n - at )
-			{
-				bShort = true;
-				return NULL;
-			}
-			const char *psz = reinterpret_cast< const char * >( p + at );
-			at += nWords;
-			if ( psz[ nBytes ] != 0 )
-			{
-				bShort = true;
-				return NULL;
-			}
-			return psz;
-		}
-
-		// The rest of the payload: a count, then that many words.
-		const int *Leaves( int &nCount )
-		{
-			nCount = I();
-			if ( bShort || nCount < 0 || nCount > n - at )
-			{
-				bShort = true;
-				nCount = 0;
-				return NULL;
-			}
-			const int *pLeaves = reinterpret_cast< const int * >( p + at );
-			at += nCount;
-			return pLeaves;
-		}
-	};
-
-	// The answers, after one another; past the buffer only counted.
-	struct Answers
-	{
-		int32_t *p;
-		int32_t nMax;
-		int32_t n;
-
-		void I( int32_t w )
-		{
-			if ( n < nMax )
-				p[ n ] = w;
-			++n;
-		}
-
-		void Fl( float f ) { I( Bits( f ) ); }
-
-		void Ptr( const void *pv )
-		{
-			const uint64_t v = (uint64_t)(uintptr_t)pv;
-			I( (int32_t)(uint32_t)( v & 0xFFFFFFFFu ) );
-			I( (int32_t)(uint32_t)( v >> 32 ) );
-		}
-
-		void Vec( const Vector &v )
-		{
-			Fl( v.x );
-			Fl( v.y );
-			Fl( v.z );
-		}
-
-		// A struct's words as they lie: ShadowInfo_t and Frustum_t, which the
-		// managed side reads through their byte-for-byte mirrors.
-		void Words( const void *pv, size_t nBytes )
-		{
-			const unsigned char *pb = static_cast< const unsigned char * >( pv );
-			for ( size_t i = 0; i < nBytes; i += 4 )
-			{
-				int32_t w = 0;
-				for ( size_t k = 0; k < 4 && i + k < nBytes; ++k )
-					w |= (int32_t)( (uint32_t)pb[ i + k ] << ( 8 * k ) );
-				I( w );
-			}
-		}
-	};
-
-	// The engine's BSP query calls this back per leaf; the leaves go after the
-	// count the caller reserved.
-	class CLeafCollector final : public ISpatialLeafEnumerator
-	{
-	public:
-		explicit CLeafCollector( Answers &out ) : m_Out( out ), m_nCount( 0 ) {}
-
-		bool EnumerateLeaf( int leaf, intp ) override
-		{
-			m_Out.I( leaf );
-			++m_nCount;
-			return true;
-		}
-
-		Answers &m_Out;
-		int32_t m_nCount;
-	};
-
-	// The render context, asked for once per run that needs it.
-	struct Context
-	{
-		IMaterialSystem *pMaterials;
-		IMatRenderContext *pContext;
-
-		IMatRenderContext *Get()
-		{
-			if ( !pContext && pMaterials )
-				pContext = pMaterials->GetRenderContext();
-			return pContext;
-		}
-	};
-
-	void StateFromWire( const SSShadowEnv &env, const SourceSharpFlashlightState &w, FlashlightState_t &s )
-	{
-		s.m_vecLightOrigin.Init( w.OriginXYZ[ 0 ], w.OriginXYZ[ 1 ], w.OriginXYZ[ 2 ] );
-		s.m_quatOrientation.Init( w.Orientation[ 0 ], w.Orientation[ 1 ], w.Orientation[ 2 ], w.Orientation[ 3 ] );
-		s.m_NearZ = w.NearZ;
-		s.m_FarZ = w.FarZ;
-		s.m_fHorizontalFOVDegrees = w.HorizontalFovDegrees;
-		s.m_fVerticalFOVDegrees = w.VerticalFovDegrees;
-		s.m_fQuadraticAtten = w.QuadraticAtten;
-		s.m_fLinearAtten = w.LinearAtten;
-		s.m_fConstantAtten = w.ConstantAtten;
-		for ( int i = 0; i < 4; i++ )
-			s.m_Color[ i ] = w.Color[ i ];
-		s.m_pSpotlightTexture = env.pfnFlashlightTexture ? env.pfnFlashlightTexture( w.Texture ) : NULL;
-		s.m_nSpotlightTextureFrame = w.TextureFrame;
-		s.m_bEnableShadows = w.EnableShadows != 0;
-		s.m_flShadowMapResolution = w.ShadowMapResolution;
-		s.m_flShadowAtten = w.ShadowAtten;
-		s.m_flShadowSlopeScaleDepthBias = w.ShadowSlopeScaleDepthBias;
-		s.m_flShadowDepthBias = w.ShadowDepthBias;
+		void *pv = Ptr();
+		return bShort ? NULL : static_cast<IClientRenderable *>( pv );
 	}
 
-	enum { FLASHLIGHT_STATE_WORDS = sizeof( SourceSharpFlashlightState ) / 4 };
-	static_assert( sizeof( SourceSharpFlashlightState ) == 25 * 4, "the flashlight state is 25 words" );
-
-	IMaterial *Material( const SSShadowEnv &env, int32_t id ) { return env.pfnMaterial ? env.pfnMaterial( id ) : NULL; }
-
-	ITexture *Texture( const SSShadowEnv &env, int32_t id ) { return env.pfnTexture ? env.pfnTexture( id ) : NULL; }
-
-	// One record; false when it was short (the run ends).
-	bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, Context &ctx )
+	Vector Vec()
 	{
-		IShadowMgr *pShadowMgr = env.ppShadowMgr ? *env.ppShadowMgr : NULL;
-		IStaticPropMgrClient *pStaticProps = env.ppStaticPropMgr ? *env.ppStaticPropMgr : NULL;
-		IMaterialSystem *pMaterials = env.ppMaterials ? *env.ppMaterials : NULL;
-		IVEngineClient *pEngine = env.ppEngine ? *env.ppEngine : NULL;
-		IVModelInfoClient *pModelInfo = env.ppModelInfo ? *env.ppModelInfo : NULL;
+		const float x = Fl();
+		const float y = Fl();
+		const float z = Fl();
+		return Vector( x, y, z );
+	}
 
-		switch ( kind )
+	QAngle Ang()
+	{
+		const float x = Fl();
+		const float y = Fl();
+		const float z = Fl();
+		return QAngle( x, y, z );
+	}
+
+	double D()
+	{
+		union
 		{
+			int32_t w[2];
+			double d;
+		} u;
+
+		u.w[0] = I();
+		u.w[1] = I();
+		return u.d;
+	}
+
+	void Matrix( VMatrix &m )
+	{
+		for ( int r = 0; r < 4; ++r )
+			for ( int c = 0; c < 4; ++c )
+				m.m[r][c] = Fl();
+	}
+
+	// A string: its byte length, then its bytes padded to a word; NULL
+	// when the record is too short to hold it or it carries no NUL.
+	const char *Str()
+	{
+		const int32_t nBytes = I();
+		const int32_t nWords = ( nBytes + 4 ) / 4;
+		if ( bShort || nBytes < 0 || nWords > n - at )
+		{
+			bShort = true;
+			return NULL;
+		}
+		const char *psz = reinterpret_cast<const char *>( p + at );
+		at += nWords;
+		if ( psz[nBytes] != 0 )
+		{
+			bShort = true;
+			return NULL;
+		}
+		return psz;
+	}
+
+	// The rest of the payload: a count, then that many words.
+	const int *Leaves( int &nCount )
+	{
+		nCount = I();
+		if ( bShort || nCount < 0 || nCount > n - at )
+		{
+			bShort = true;
+			nCount = 0;
+			return NULL;
+		}
+		const int *pLeaves = reinterpret_cast<const int *>( p + at );
+		at += nCount;
+		return pLeaves;
+	}
+};
+
+// The answers, after one another; past the buffer only counted.
+struct Answers
+{
+	int32_t *p;
+	int32_t nMax;
+	int32_t n;
+
+	void I( int32_t w )
+	{
+		if ( n < nMax )
+			p[n] = w;
+		++n;
+	}
+
+	void Fl( float f ) { I( Bits( f ) ); }
+
+	void Ptr( const void *pv )
+	{
+		const uint64_t v = (uint64_t)(uintptr_t)pv;
+		I( (int32_t)(uint32_t)( v & 0xFFFFFFFFu ) );
+		I( (int32_t)(uint32_t)( v >> 32 ) );
+	}
+
+	void Vec( const Vector &v )
+	{
+		Fl( v.x );
+		Fl( v.y );
+		Fl( v.z );
+	}
+
+	// A struct's words as they lie: ShadowInfo_t and Frustum_t, which the
+	// managed side reads through their byte-for-byte mirrors.
+	void Words( const void *pv, size_t nBytes )
+	{
+		const unsigned char *pb = static_cast<const unsigned char *>( pv );
+		for ( size_t i = 0; i < nBytes; i += 4 )
+		{
+			int32_t w = 0;
+			for ( size_t k = 0; k < 4 && i + k < nBytes; ++k )
+				w |= (int32_t)( (uint32_t)pb[i + k] << ( 8 * k ) );
+			I( w );
+		}
+	}
+};
+
+// The engine's BSP query calls this back per leaf; the leaves go after the
+// count the caller reserved.
+class CLeafCollector final : public ISpatialLeafEnumerator
+{
+public:
+	explicit CLeafCollector( Answers &out )
+		: m_Out( out )
+		, m_nCount( 0 )
+	{
+	}
+
+	bool EnumerateLeaf( int leaf, intp ) override
+	{
+		m_Out.I( leaf );
+		++m_nCount;
+		return true;
+	}
+
+	Answers &m_Out;
+	int32_t m_nCount;
+};
+
+// The render context, asked for once per run that needs it.
+struct Context
+{
+	IMaterialSystem *pMaterials;
+	IMatRenderContext *pContext;
+
+	IMatRenderContext *Get()
+	{
+		if ( !pContext && pMaterials )
+			pContext = pMaterials->GetRenderContext();
+		return pContext;
+	}
+};
+
+void StateFromWire( const SSShadowEnv &env, const SourceSharpFlashlightState &w, FlashlightState_t &s )
+{
+	s.m_vecLightOrigin.Init( w.OriginXYZ[0], w.OriginXYZ[1], w.OriginXYZ[2] );
+	s.m_quatOrientation.Init( w.Orientation[0], w.Orientation[1], w.Orientation[2], w.Orientation[3] );
+	s.m_NearZ = w.NearZ;
+	s.m_FarZ = w.FarZ;
+	s.m_fHorizontalFOVDegrees = w.HorizontalFovDegrees;
+	s.m_fVerticalFOVDegrees = w.VerticalFovDegrees;
+	s.m_fQuadraticAtten = w.QuadraticAtten;
+	s.m_fLinearAtten = w.LinearAtten;
+	s.m_fConstantAtten = w.ConstantAtten;
+	for ( int i = 0; i < 4; i++ )
+		s.m_Color[i] = w.Color[i];
+	s.m_pSpotlightTexture = env.pfnFlashlightTexture ? env.pfnFlashlightTexture( w.Texture ) : NULL;
+	s.m_nSpotlightTextureFrame = w.TextureFrame;
+	s.m_bEnableShadows = w.EnableShadows != 0;
+	s.m_flShadowMapResolution = w.ShadowMapResolution;
+	s.m_flShadowAtten = w.ShadowAtten;
+	s.m_flShadowSlopeScaleDepthBias = w.ShadowSlopeScaleDepthBias;
+	s.m_flShadowDepthBias = w.ShadowDepthBias;
+}
+
+enum
+{
+	FLASHLIGHT_STATE_WORDS = sizeof( SourceSharpFlashlightState ) / 4
+};
+
+static_assert( sizeof( SourceSharpFlashlightState ) == 25 * 4, "the flashlight state is 25 words" );
+
+IMaterial *Material( const SSShadowEnv &env, int32_t id )
+{
+	return env.pfnMaterial ? env.pfnMaterial( id ) : NULL;
+}
+
+ITexture *Texture( const SSShadowEnv &env, int32_t id )
+{
+	return env.pfnTexture ? env.pfnTexture( id ) : NULL;
+}
+
+// One record; false when it was short (the run ends).
+bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, Context &ctx )
+{
+	IShadowMgr *pShadowMgr = env.ppShadowMgr ? *env.ppShadowMgr : NULL;
+	IStaticPropMgrClient *pStaticProps = env.ppStaticPropMgr ? *env.ppStaticPropMgr : NULL;
+	IMaterialSystem *pMaterials = env.ppMaterials ? *env.ppMaterials : NULL;
+	IVEngineClient *pEngine = env.ppEngine ? *env.ppEngine : NULL;
+	IVModelInfoClient *pModelInfo = env.ppModelInfo ? *env.ppModelInfo : NULL;
+
+	switch ( kind )
+	{
 		//---------------------------------------------------------------------
 		// IShadowMgr and the static prop manager.
 		//---------------------------------------------------------------------
@@ -334,8 +346,8 @@ namespace
 			int nLeaves;
 			const int *pLeaves = in.Leaves( nLeaves );
 			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->ProjectShadow( h, origin, dir, worldToShadow, Vector2D( sx, sy ), nLeaves, pLeaves, maxHeight,
-				                           falloffOffset, falloffAmount, caster );
+				pShadowMgr->ProjectShadow( h, origin, dir, worldToShadow, Vector2D( sx, sy ), nLeaves, pLeaves,
+										   maxHeight, falloffOffset, falloffAmount, caster );
 			break;
 		}
 		case SS_SHADOW_ProjectFlashlight:
@@ -352,7 +364,7 @@ namespace
 		case SS_SHADOW_AddShadowToBrushModel:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
-			model_t *pModel = static_cast< model_t * >( in.Ptr() );
+			model_t *pModel = static_cast<model_t *>( in.Ptr() );
 			const Vector origin = in.Vec();
 			const QAngle angles = in.Ang();
 			if ( !in.bShort && pShadowMgr && pModel )
@@ -361,7 +373,7 @@ namespace
 		}
 		case SS_SHADOW_RemoveAllShadowsFromBrushModel:
 		{
-			model_t *pModel = static_cast< model_t * >( in.Ptr() );
+			model_t *pModel = static_cast<model_t *>( in.Ptr() );
 			if ( !in.bShort && pShadowMgr && pModel )
 				pShadowMgr->RemoveAllShadowsFromBrushModel( pModel );
 			break;
@@ -432,7 +444,8 @@ namespace
 				in.bShort = true;
 				break;
 			}
-			const SourceSharpFlashlightState *pWire = reinterpret_cast< const SourceSharpFlashlightState * >( in.p + in.at );
+			const SourceSharpFlashlightState *pWire =
+				reinterpret_cast<const SourceSharpFlashlightState *>( in.p + in.at );
 			in.at += FLASHLIGHT_STATE_WORDS;
 			FlashlightState_t state;
 			StateFromWire( env, *pWire, state );
@@ -732,8 +745,9 @@ namespace
 			IMaterial *pModelMaterial = Material( env, in.I() );
 			void *pProxy = in.Ptr();
 			const int32_t flags = in.I();
-			const ShadowHandle_t h = ( !in.bShort && pShadowMgr ) ? pShadowMgr->CreateShadowEx( pMaterial, pModelMaterial, pProxy, flags )
-			                                                     : (ShadowHandle_t)SHADOW_HANDLE_INVALID;
+			const ShadowHandle_t h = ( !in.bShort && pShadowMgr )
+				? pShadowMgr->CreateShadowEx( pMaterial, pModelMaterial, pProxy, flags )
+				: (ShadowHandle_t)SHADOW_HANDLE_INVALID;
 			out.I( h );
 			break;
 		}
@@ -779,7 +793,9 @@ namespace
 			const int32_t format = in.I();
 			const int32_t depth = in.I();
 			const int32_t hdr = in.I();
-			out.I( ( !in.bShort && env.pfnInitRenderTarget ) ? env.pfnInitRenderTarget( pszName, w, h, sizeMode, format, depth, hdr ) : 0 );
+			out.I( ( !in.bShort && env.pfnInitRenderTarget )
+					   ? env.pfnInitRenderTarget( pszName, w, h, sizeMode, format, depth, hdr )
+					   : 0 );
 			break;
 		}
 		case SS_SHADOW_TextureSize:
@@ -873,7 +889,7 @@ namespace
 				pQuery->EnumerateLeavesInBox( a, b, &collector, 0 );
 			}
 			if ( at < out.nMax )
-				out.p[ at ] = collector.m_nCount;
+				out.p[at] = collector.m_nCount;
 			break;
 		}
 		case SS_SHADOW_FrameCount:
@@ -908,7 +924,7 @@ namespace
 			IClientRenderable *p = in.Renderable();
 			for ( int r = 0; r < 3; ++r )
 				for ( int c = 0; c < 4; ++c )
-					out.Fl( p ? p->RenderableToWorldTransform()[ r ][ c ] : 0.0f );
+					out.Fl( p ? p->RenderableToWorldTransform()[r][c] : 0.0f );
 			break;
 		}
 		case SS_SHADOW_Model:
@@ -919,7 +935,7 @@ namespace
 		}
 		case SS_SHADOW_ModelType:
 		{
-			const model_t *pModel = static_cast< const model_t * >( in.Ptr() );
+			const model_t *pModel = static_cast<const model_t *>( in.Ptr() );
 			out.I( ( !in.bShort && pModelInfo ) ? pModelInfo->GetModelType( pModel ) : 0 );
 			break;
 		}
@@ -1013,12 +1029,13 @@ namespace
 
 		default:
 			break;
-		}
-		return !in.bShort;
 	}
+	return !in.bShort;
+}
 }
 
-int32_t SSFwd_Shadows_Run( const SSShadowEnv *pEnv, const int32_t *pOps, int32_t nWords, int32_t *pAnswers, int32_t nAnswerWords )
+int32_t SSFwd_Shadows_Run( const SSShadowEnv *pEnv, const int32_t *pOps, int32_t nWords, int32_t *pAnswers,
+						   int32_t nAnswerWords )
 {
 	if ( !pEnv || !pOps || nWords <= 0 )
 		return 0;
@@ -1034,8 +1051,8 @@ int32_t SSFwd_Shadows_Run( const SSShadowEnv *pEnv, const int32_t *pOps, int32_t
 
 	for ( int32_t at = 0; at + 2 <= nWords; )
 	{
-		const int32_t kind = pOps[ at ];
-		const int32_t nPayload = pOps[ at + 1 ];
+		const int32_t kind = pOps[at];
+		const int32_t nPayload = pOps[at + 1];
 		if ( nPayload < 0 || nPayload > nWords - at - 2 )
 			break;
 		Payload in;

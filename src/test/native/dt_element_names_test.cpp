@@ -6,7 +6,7 @@
 // first time it is asked for, rather than held as 16 KB of pointers.
 
 #include "gtest/gtest.h"
-#include "mathlib_test_env.h"	// a mathlib binary initialises mathlib (mathlib_init_guard_test)
+#include "mathlib_test_env.h" // a mathlib binary initialises mathlib (mathlib_init_guard_test)
 
 #include <cstdio>
 #include <cstring>
@@ -17,14 +17,14 @@ const char *DT_ArrayElementNameForIdx( size_t i );
 
 namespace
 {
-const size_t kElements = 2048;   // MAX_ARRAY_ELEMENTS
+const size_t kElements = 2048; // MAX_ARRAY_ELEMENTS
 }
 
 TEST( DTElementNames, EveryIndexIsNamedAsTheTableOfLiteralsNamedIt )
 {
 	for ( size_t i = 0; i < kElements; i++ )
 	{
-		char expected[ 8 ];
+		char expected[8];
 		snprintf( expected, sizeof( expected ), i < 1000 ? "%03zu" : "%zu", i );
 		EXPECT_STREQ( expected, DT_ArrayElementNameForIdx( i ) ) << "index " << i;
 	}
@@ -43,7 +43,7 @@ TEST( DTElementNames, EachNameIsItsOwnTerminatedStorage )
 {
 	// A prop keeps the pointer it was handed for the life of the table, so each
 	// name must be stable, distinct and terminated within its own slot.
-	std::set< std::string > seen;
+	std::set<std::string> seen;
 	for ( size_t i = 0; i < kElements; i++ )
 	{
 		const char *psz = DT_ArrayElementNameForIdx( i );

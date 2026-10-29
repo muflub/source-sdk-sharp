@@ -7,6 +7,4 @@
 //
 //=============================================================================
 
-#ifndef SOURCESHARP_TEST_WEAPONPARSE_CDLL_UTIL_H
-#define SOURCESHARP_TEST_WEAPONPARSE_CDLL_UTIL_H
-#endif // SOURCESHARP_TEST_WEAPONPARSE_CDLL_UTIL_H
+#pragma once

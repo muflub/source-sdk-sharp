@@ -23,7 +23,7 @@ namespace SourceSharp.Server;
 /// (<c>m_handler-&gt;Simulate( this, ... )</c>),
 /// which is the key the state is found by.
 /// </summary>
-public sealed class PhysicsMotionControllers : IEngineMotionControllers, IMotionAnswers, IGameLifecycle, ISaveCustom
+public sealed class PhysicsMotionControllers : IEngineMotionControllers, ICustomMotionControllers, IMotionAnswers, IGameLifecycle, ISaveCustom
 {
     private readonly PhysicsJointTable _table;
     private readonly IVPhysicsJoints _vphysics;
@@ -122,6 +122,46 @@ public sealed class PhysicsMotionControllers : IEngineMotionControllers, IMotion
         {
             // Refused rather than made room for: an id the caller cannot hold
             // would leave a live controller pushing an object nothing can stop.
+            _log.Warning("[SourceSharp] motion controller: the physics id table is full\n");
+            _vphysics.DestroyMotionController(env, controller);
+            return 0u;
+        }
+
+        _byController[controller] = entry;
+        return id;
+    }
+
+    /// <summary>
+    /// A <see cref="MotionControllerKind.Custom"/> controller on
+    /// <paramref name="entity"/>'s physics object, simulated by
+    /// <paramref name="simulate"/>: the id, or 0 when there is no environment,
+    /// no object, or no room. <see cref="Destroy"/> frees it; a hot reload
+    /// does not carry it.
+    /// </summary>
+    public uint CreateCustom(EntityHandle entity, IMotionSimulate simulate)
+    {
+        ArgumentNullException.ThrowIfNull(simulate);
+
+        nint env = _world.Environment();
+        if (env == 0 || Handler == 0)
+            return 0u;
+
+        nint physicsObject = _world.PhysicsObject(entity);
+        if (physicsObject == 0)
+            return 0u;
+
+        nint controller = _vphysics.CreateMotionController(env, Handler);
+        if (controller == 0)
+            return 0u;
+
+        _vphysics.AttachObject(controller, physicsObject, true);
+
+        var entry = new MotionEntry(controller, entity,
+                                    new MotionState(MotionControllerKind.Custom) { Custom = simulate });
+        uint id = _table.Bind(PhysicsJointKind.Controller, entry);
+
+        if (id == 0u)
+        {
             _log.Warning("[SourceSharp] motion controller: the physics id table is full\n");
             _vphysics.DestroyMotionController(env, controller);
             return 0u;
@@ -371,6 +411,13 @@ public sealed class PhysicsMotionControllers : IEngineMotionControllers, IMotion
         foreach (var (id, entry) in _table.All<MotionEntry>(PhysicsJointKind.Controller))
         {
             MotionState s = entry.State;
+
+            // A custom controller's Simulate is its owner's object, which a
+            // reload does not rebuild: the row would restore a controller that
+            // nothing simulates.
+            if (s.Kind == MotionControllerKind.Custom)
+                continue;
+
             writer.AddRow()
                   .Set("id", unchecked((int)id))
                   .Set("ptr", ((long)entry.Controller).ToString(CultureInfo.InvariantCulture))

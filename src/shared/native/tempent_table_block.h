@@ -1,37 +1,20 @@
-//========= SourceSharp — a planned temp entity table's block, read ===========//
-//
-// Both sides' temp entity tables are planned in C# and cross as one
-// length-prefixed block per table (sourcesharp.h: SourceSharpTeTableHeader_t,
-// then the rows, then the names): the server's with SourceSharpSendPropRow_t
-// rows (shell_tempents_store.cpp), the client's with SourceSharpRecvPropRow_t
-// rows (shell_tempents_client.cpp). This reads and checks the block; each side
-// copies its own rows out. Carrying out only: nothing here decides a prop.
-//
-// No engine headers, so the gtests of both stores reach it.
-//
-//=============================================================================//
-#ifndef SOURCESHARP_TEMPENT_TABLE_BLOCK_H
-#define SOURCESHARP_TEMPENT_TABLE_BLOCK_H
-#ifdef _WIN32
+// Reads and checks one temp entity table block: SourceSharpTeTableHeader_t, the rows,
+// then the names. No engine headers, so both sides' gtests can include it.
 #pragma once
-#endif
 
 #include <string.h>
 
 #include "sourcesharp.h"
 
-//-----------------------------------------------------------------------------
-// One block, read: the header, the rows (unaligned, so copied out one at a
-// time), and the payload the names are found in.
-//-----------------------------------------------------------------------------
+// Rows are unaligned, so callers copy them out one at a time.
 struct SourceSharpTeTableBlock_t
 {
-	SourceSharpTeTableHeader_t  header;
-	const unsigned char        *pPayload;
-	int                         nPayload;
-	const unsigned char        *pRows;
-	const char                 *pClassName;
-	const char                 *pTableName;
+	SourceSharpTeTableHeader_t header;
+	const unsigned char *pPayload;
+	int nPayload;
+	const unsigned char *pRows;
+	const char *pClassName;
+	const char *pTableName;
 };
 
 // A name at a payload offset: NULL when the offset is outside the payload, the
@@ -43,18 +26,16 @@ inline const char *SourceSharpTe_BlockName( const SourceSharpTeTableBlock_t &blo
 
 	for ( int i = oName; i < block.nPayload; i++ )
 	{
-		if ( block.pPayload[ i ] == 0 )
+		if ( block.pPayload[i] == 0 )
 			return i > oName ? (const char *)block.pPayload + oName : NULL;
 	}
 
 	return NULL;
 }
 
-// The block, checked: a whole-byte bit count that fits the bytes given, a
-// header, as many rows of nRowBytes as it claims, and both names. False for
-// anything else.
+// Checks a whole-byte bit count that fits, a header, the rows it claims and both names.
 inline bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockBytes, int32_t nRowBytes,
-                                          SourceSharpTeTableBlock_t *pOut )
+										  SourceSharpTeTableBlock_t *pOut )
 {
 	if ( !pBlock || !pOut || nRowBytes <= 0 || nBlockBytes < (int32_t)sizeof( int32_t ) )
 		return false;
@@ -68,8 +49,7 @@ inline bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockByte
 
 	const int nPayload = nBits / 8;
 
-	if ( nPayload > nBlockBytes - (int)sizeof( int32_t )
-	  || nPayload < (int)sizeof( SourceSharpTeTableHeader_t ) )
+	if ( nPayload > nBlockBytes - (int)sizeof( int32_t ) || nPayload < (int)sizeof( SourceSharpTeTableHeader_t ) )
 		return false;
 
 	SourceSharpTeTableBlock_t block;
@@ -92,5 +72,3 @@ inline bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockByte
 	*pOut = block;
 	return true;
 }
-
-#endif // SOURCESHARP_TEMPENT_TABLE_BLOCK_H

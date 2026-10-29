@@ -56,6 +56,9 @@ public sealed class EngineEntityPhysicsHost(IEngineEntities entities, IEngineEnt
 
     public void Created(EntityHandle entity) => registry.PhysicsCreated(entity);
 
+    public string? MassCenterOverrideName(EntityHandle entity)
+        => registry.Get(entity) is ITakesMassCenterOverride ? entities.GetName(entity) : null;
+
     public bool SolidityBeforePhysics => solidityBeforePhysics();
 
     public void Warning(string text) => warning(text);

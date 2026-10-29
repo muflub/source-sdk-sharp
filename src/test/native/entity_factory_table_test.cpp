@@ -1,7 +1,7 @@
 //========= SourceSharp — the port's entity factory table, exercised ==========//
 //
 // `src/sourcesharp/game/server/entity_factory_table.h` is the name half of the
-// dictionary `EntityFactoryDictionary()` hands back -- the replacement for
+// dictionary `CServerEntityLifecycle::Factories()` hands back -- the replacement for
 // `CEntityFactoryDictionary` (`src/game/server/util.cpp:111`), which is a class
 // local to a stock translation unit this port is trying to stop compiling.
 //
@@ -34,11 +34,15 @@ namespace
 //-----------------------------------------------------------------------------
 struct FakeFactory
 {
-	explicit FakeFactory( const char *pName ) : name( pName ) {}
+	explicit FakeFactory( const char *pName )
+		: name( pName )
+	{
+	}
+
 	std::string name;
 };
 
-typedef CEntityFactoryTable< FakeFactory > Table;
+typedef CEntityFactoryTable<FakeFactory> Table;
 
 } // namespace
 
@@ -136,7 +140,7 @@ TEST( EntityFactoryTable, ADifferentPointerUnderATakenNameKeepsTheFirst )
 	FakeFactory second( "second" );
 
 	EXPECT_EQ( kEntityFactoryInstalled, table.Install( &first, "ss_prop" ) );
-	EXPECT_EQ( kEntityFactoryNameTaken,  table.Install( &second, "ss_prop" ) );
+	EXPECT_EQ( kEntityFactoryNameTaken, table.Install( &second, "ss_prop" ) );
 
 	// THE FIRST, not the last. The engine may already hold instances made
 	// through it, and the map that names the class must keep reaching the same
@@ -206,9 +210,9 @@ TEST( EntityFactoryTable, EnumerationIsDenseAndInInstallOrder )
 	table.Install( &b, "ss_mike" );
 
 	ASSERT_EQ( 3, table.Count() );
-	EXPECT_STREQ( "ss_zulu",  table.NameAt( 0 ) );
+	EXPECT_STREQ( "ss_zulu", table.NameAt( 0 ) );
 	EXPECT_STREQ( "ss_alpha", table.NameAt( 1 ) );
-	EXPECT_STREQ( "ss_mike",  table.NameAt( 2 ) );
+	EXPECT_STREQ( "ss_mike", table.NameAt( 2 ) );
 
 	EXPECT_EQ( &c, table.FactoryAt( 0 ) );
 	EXPECT_EQ( &a, table.FactoryAt( 1 ) );
@@ -233,9 +237,9 @@ TEST( EntityFactoryTable, ARefusedInstallDoesNotGrowTheEnumeration )
 	FakeFactory a( "a" ), b( "b" );
 
 	table.Install( &a, "ss_alpha" );
-	table.Install( &a, "ss_alpha" );   // already installed
-	table.Install( &b, "ss_alpha" );   // name taken
-	table.Install( &b, "" );           // no name
+	table.Install( &a, "ss_alpha" ); // already installed
+	table.Install( &b, "ss_alpha" ); // name taken
+	table.Install( &b, "" ); // no name
 
 	EXPECT_EQ( 1, table.Count() );
 	EXPECT_STREQ( "ss_alpha", table.NameAt( 0 ) );
@@ -254,32 +258,31 @@ TEST( EntityFactoryTable, EnumerationSurvivesTheDictionaryRebalancing )
 	// is not a check, and 156 factories is the live count on this build, so the
 	// number here is chosen to be past it.
 	Table table;
-	std::vector< FakeFactory * > made;
-	std::vector< std::string > names;
+	std::vector<FakeFactory *> made;
+	std::vector<std::string> names;
 
 	for ( int i = 0; i < 200; i++ )
 	{
-		char name[ 32 ];
+		char name[32];
 		// Deliberately NOT ascending: an ascending key order is the one shape a
 		// red-black tree rotates least on.
 		snprintf( name, sizeof( name ), "ss_%03d", ( i * 97 ) % 200 );
 		names.push_back( name );
 		made.push_back( new FakeFactory( name ) );
-		ASSERT_EQ( kEntityFactoryInstalled, table.Install( made.back(), name ) )
-			<< "at " << i << " (" << name << ")";
+		ASSERT_EQ( kEntityFactoryInstalled, table.Install( made.back(), name ) ) << "at " << i << " (" << name << ")";
 	}
 
 	ASSERT_EQ( 200, table.Count() );
 
 	for ( int i = 0; i < 200; i++ )
 	{
-		EXPECT_STREQ( names[ i ].c_str(), table.NameAt( i ) ) << "at " << i;
-		EXPECT_EQ( made[ i ], table.FactoryAt( i ) ) << "at " << i;
-		EXPECT_EQ( made[ i ], table.Find( names[ i ].c_str() ) ) << "at " << i;
+		EXPECT_STREQ( names[i].c_str(), table.NameAt( i ) ) << "at " << i;
+		EXPECT_EQ( made[i], table.FactoryAt( i ) ) << "at " << i;
+		EXPECT_EQ( made[i], table.Find( names[i].c_str() ) ) << "at " << i;
 	}
 
 	for ( size_t i = 0; i < made.size(); i++ )
-		delete made[ i ];
+		delete made[i];
 }
 
 //=============================================================================//
@@ -299,7 +302,7 @@ TEST( EntityFactoryTable, AReloadReinstallsEveryClassAndTheTableDoesNotGrow )
 
 	table.Install( &world, "worldspawn" );
 	table.Install( &prop, "ss_prop" );
-	table.Install( &player, "ss_player" );
+	table.Install( &player, "player" );
 	table.Install( &trigger, "ss_trigger" );
 
 	ASSERT_EQ( 4, table.Count() );
@@ -309,11 +312,11 @@ TEST( EntityFactoryTable, AReloadReinstallsEveryClassAndTheTableDoesNotGrow )
 	for ( int pass = 0; pass < 3; pass++ )
 	{
 		EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &prop, "ss_prop" ) );
-		EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &player, "ss_player" ) );
+		EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &player, "player" ) );
 		EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &trigger, "ss_trigger" ) );
 	}
 
 	EXPECT_EQ( 4, table.Count() );
-	EXPECT_EQ( &player, table.Find( "ss_player" ) );
+	EXPECT_EQ( &player, table.Find( "player" ) );
 	EXPECT_EQ( &world, table.Find( "worldspawn" ) );
 }

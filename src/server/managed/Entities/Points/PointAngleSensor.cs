@@ -44,10 +44,10 @@ public sealed class PointAngleSensor : ScriptedEntity
     /// </summary>
     private const int UseTargetFacingFlag = 1;
 
-    public readonly Output OnFacingLookat = new("OnFacingLookat");
-    public readonly Output OnNotFacingLookat = new("OnNotFacingLookat");
-    public readonly Output TargetDir = new("TargetDir");
-    public readonly Output FacingPercentage = new("FacingPercentage");
+    public readonly Output OnFacingLookat = new();
+    public readonly Output OnNotFacingLookat = new();
+    public readonly Output TargetDir = new();
+    public readonly Output FacingPercentage = new();
 
     private EntityHandle _watched = EntityHandle.None;
     private EntityHandle _lookAt = EntityHandle.None;

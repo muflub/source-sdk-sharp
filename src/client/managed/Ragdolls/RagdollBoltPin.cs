@@ -175,8 +175,7 @@ public sealed class RagdollBoltPin(IClientRagdolls ragdolls, IRagdollHitboxTrace
         // entity's origin. The name is a sound script, so the script's own
         // volume, level and pitch play (no SND_CHANGE_* flag is set).
         ragdolls.State(best, out Vector at);
-        if (sounds.Parameters(SkewerSound, out GameSoundParams p))
-            sounds.EmitAtPosition(p, p.Volume, p.Pitch, at);
+        sounds.EmitScript(SkewerSound, at);
 
         return true;
     }

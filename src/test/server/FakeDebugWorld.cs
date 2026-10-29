@@ -18,6 +18,9 @@ internal sealed class FakeDebugWorld : IDebugWorld
         public string ClassName = "prop_physics";
         public string Name = "";
         public int Health = 100;
+        public int SolidType;
+        public int SolidFlags;
+        public int PhysicsKind;
         public DebugVec3 Origin;
         public DebugVec3 Angles;
         public DebugVec3 Velocity;
@@ -75,6 +78,9 @@ internal sealed class FakeDebugWorld : IDebugWorld
     public DebugVec3 GetAngles(uint entity) => Must(entity).Angles;
     public DebugVec3 GetVelocity(uint entity) => Must(entity).Velocity;
     public string GetName(uint entity) => Must(entity).Name;
+    public int GetSolidType(uint entity) => Must(entity).SolidType;
+    public int GetSolidFlags(uint entity) => Must(entity).SolidFlags;
+    public int GetPhysicsKind(uint entity) => Must(entity).PhysicsKind;
     public bool? IsAsleep(uint entity) => Must(entity).Asleep;
     public int? GroundIndex(uint entity) => Must(entity).Ground;
 

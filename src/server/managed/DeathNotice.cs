@@ -95,10 +95,10 @@ public sealed class DeathNotice(IEngineGameEvents events, IEnginePlayers players
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string> StockClassOf = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        [EntityNames.SsBolt] = "crossbow_bolt",
-        [EntityNames.SsRocket] = "rpg_missile",
-        [EntityNames.SsGrenade] = "npc_grenade_frag",
-        [EntityNames.SsEnergyball] = "prop_combine_ball",
+        [EntityNames.CrossbowBolt] = "crossbow_bolt",
+        [EntityNames.RpgMissile] = "rpg_missile",
+        [EntityNames.NpcGrenadeFrag] = "npc_grenade_frag",
+        [EntityNames.PropCombineBall] = "prop_combine_ball",
         [EntityNames.SsBarrel] = "prop_physics",
     };
 

@@ -56,7 +56,8 @@ public sealed unsafe class TriggerPushTests : IDisposable
         registry.RegisterAll(typeof(TriggerPush).Assembly);
 
         var services = TestServices.Services(out RecordingEngine engine);
-        engine.Ignores("Clock.Now", "Host.RandomFloat", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles");
+        engine.Ignores("Clock.Now", "Host.RandomFloat", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles",
+                       "Entities.GetSolidFlags", "Entities.GetSolidType");
         engine.Returns("Entities.IsValid", true)
               .Returns("Entities.GetSpawnFlags", spawnflags)
               .Returns("Networking.EntityGetState", state)

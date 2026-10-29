@@ -22,8 +22,8 @@ namespace SourceSharp.Server;
 /// <para>
 /// The fade itself is client-side and has to be: it is a distance from the
 /// viewer, recomputed as they move, and there is one viewer per client. So the
-/// server sends the distance and the client's shell does the arithmetic — see
-/// <c>C_StandaloneEntity::ComputeFxBlend</c>, which is the engine's own
+/// server sends the distance and the client does the arithmetic — see
+/// the client's <c>StandaloneFade</c>, which is the engine's own
 /// ComputeDistanceFade, and <see cref="SourceSharp.Client.Standalone.ClientLod"/>,
 /// which does nothing but hand the number over.
 /// </para>
@@ -52,8 +52,9 @@ public sealed class FuncLod : ScriptedEntity
 
         // Static in the solver, which is CFunc_LOD::CreateVPhysics. A brush that
         // fades out of sight is still a brush a crate can rest on, and stock
-        // makes one whether or not the map asked for solidity.
-        MakePhysicsStatic();
+        // makes one whether or not the map asked for solidity. The brush's
+        // create, which keeps it SOLID_BSP.
+        InitStaticPhysics();
 
         State.DisappearDist = Vars.DisappearDistance;
     }

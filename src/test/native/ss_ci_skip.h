@@ -4,8 +4,7 @@
 // SOURCESHARP_CI is exactly "1" (CI's workflow sets it, nothing else does)
 // the test is skipped with the reason; everywhere else it runs and fails as
 // it always did.
-#ifndef SS_CI_SKIP_H
-#define SS_CI_SKIP_H
+#pragma once
 
 #include <cstdlib>
 #include <cstring>
@@ -14,22 +13,20 @@
 
 namespace ss_test
 {
-	inline bool IsCiValue( const char *pszValue )
-	{
-		return pszValue && std::strcmp( pszValue, "1" ) == 0;
-	}
-
-	inline bool OnCi()
-	{
-		return IsCiValue( std::getenv( "SOURCESHARP_CI" ) );
-	}
+inline bool IsCiValue( const char *pszValue )
+{
+	return pszValue && std::strcmp( pszValue, "1" ) == 0;
 }
 
-#define SS_SKIP_ON_CI( reason )                                                \
-	do                                                                         \
-	{                                                                          \
-		if ( ::ss_test::OnCi() )                                               \
-			GTEST_SKIP() << "not on CI: " << ( reason );                       \
-	} while ( 0 )
+inline bool OnCi()
+{
+	return IsCiValue( std::getenv( "SOURCESHARP_CI" ) );
+}
+}
 
-#endif // SS_CI_SKIP_H
+#define SS_SKIP_ON_CI( reason )                          \
+	do                                                   \
+	{                                                    \
+		if ( ::ss_test::OnCi() )                         \
+			GTEST_SKIP() << "not on CI: " << ( reason ); \
+	} while ( 0 )

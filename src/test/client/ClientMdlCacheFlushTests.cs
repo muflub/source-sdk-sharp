@@ -121,14 +121,14 @@ public class ClientMdlCacheFlushTests
     public void TheLineCarriesHowManyTheWalkInvalidated()
     {
         Assert.Contains("123 entities invalidated",
-            Describe(1, 123, 41, ("ss_beam", 1)));
+            Describe(1, 123, 41, ("beam", 1)));
     }
 
     [Fact]
     public void TheLineCarriesWhichFlushThisWas()
     {
         Assert.Contains("model cache flushed (#4)",
-            Describe(4, 123, 41, ("ss_beam", 1)));
+            Describe(4, 123, 41, ("beam", 1)));
     }
 
     /// <summary>
@@ -139,16 +139,16 @@ public class ClientMdlCacheFlushTests
     [Fact]
     public void TheLineNamesEveryClassTheDirectoryHolds()
     {
-        string line = Describe(1, 123, 41, ("env_sprite", 23), ("ss_beam", 1));
+        string line = Describe(1, 123, 41, ("env_sprite", 23), ("beam", 1));
 
         Assert.Contains("env_sprite(23)", line);
-        Assert.Contains("ss_beam(1)", line);
+        Assert.Contains("beam(1)", line);
     }
 
     [Fact]
     public void TheLineCarriesTheHeldPopulationAndTheClassCount()
     {
-        string line = Describe(1, 123, 41, ("env_sprite", 23), ("ss_beam", 1));
+        string line = Describe(1, 123, 41, ("env_sprite", 23), ("beam", 1));
 
         Assert.Contains("the directory holds 41 managed entities in 2 class(es)", line);
     }
@@ -161,7 +161,7 @@ public class ClientMdlCacheFlushTests
     [Fact]
     public void AZeroReachedBesideANonEmptyDirectoryIsLegibleInTheLine()
     {
-        string line = Describe(1, 0, 41, ("env_sprite", 23), ("ss_beam", 18));
+        string line = Describe(1, 0, 41, ("env_sprite", 23), ("beam", 18));
 
         Assert.Contains("0 entities invalidated", line);
         Assert.Contains("the directory holds 41 managed entities", line);
@@ -184,13 +184,13 @@ public class ClientMdlCacheFlushTests
     [Fact]
     public void OneInvalidatedEntityIsSingular()
     {
-        Assert.Contains("1 entity invalidated", Describe(1, 1, 1, ("ss_beam", 1)));
+        Assert.Contains("1 entity invalidated", Describe(1, 1, 1, ("beam", 1)));
     }
 
     [Fact]
     public void OneHeldEntityIsSingular()
     {
-        Assert.Contains("holds 1 managed entity in", Describe(1, 1, 1, ("ss_beam", 1)));
+        Assert.Contains("holds 1 managed entity in", Describe(1, 1, 1, ("beam", 1)));
     }
 
     /// <summary>
@@ -213,8 +213,8 @@ public class ClientMdlCacheFlushTests
     [Fact]
     public void TheFirstClassFollowsAColonAndTheRestFollowCommas()
     {
-        string line = Describe(1, 2, 2, ("env_sprite", 1), ("ss_beam", 1));
+        string line = Describe(1, 2, 2, ("beam", 1), ("env_sprite", 1));
 
-        Assert.Contains("class(es): env_sprite(1), ss_beam(1)", line);
+        Assert.Contains("class(es): beam(1), env_sprite(1)", line);
     }
 }

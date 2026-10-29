@@ -107,7 +107,7 @@ TEST( ClientSerialReuse, TheOldHandleDoesNotResolveToTheNewOccupant )
 {
 	CSourceSharpSlotTable table;
 
-	FakeClientShell first  = { 1 };
+	FakeClientShell first = { 1 };
 	FakeClientShell second = { 2 };
 
 	ASSERT_TRUE( ClientBind( table, 42, 7, &first ) );
@@ -140,7 +140,7 @@ TEST( ClientSerialReuse, TheRuleHoldsAboveMaxEdicts )
 {
 	CSourceSharpSlotTable table;
 
-	FakeClientShell first  = { 1 };
+	FakeClientShell first = { 1 };
 	FakeClientShell second = { 2 };
 
 	const int nEntry = MAX_EDICTS + 100;
@@ -212,7 +212,7 @@ TEST( ClientSerialAdoption, ASecondBindAtALiveEntryIsRefusedAndLeavesTheFirst )
 {
 	CSourceSharpSlotTable table;
 
-	FakeClientShell first  = { 1 };
+	FakeClientShell first = { 1 };
 	FakeClientShell second = { 2 };
 
 	ASSERT_TRUE( ClientBind( table, 3, 1, &first ) );
@@ -238,7 +238,7 @@ TEST( ClientSerialAdoption, ASecondBindAtALiveEntryIsRefusedAndLeavesTheFirst )
 TEST( ClientEntityCounts, AnEmptyWorldHasNoHighestIndex )
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts   counts( table );
+	CClientEntityCounts counts( table );
 
 	EXPECT_EQ( -1, counts.HighestEntityIndex() );
 	EXPECT_EQ( 0, counts.NumberOfEntities( false ) );
@@ -251,7 +251,7 @@ TEST( ClientEntityCounts, AnEmptyWorldHasNoHighestIndex )
 TEST( ClientEntityCounts, BindAndUnbindMaintainTheNetworkedCount )
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts   counts( table );
+	CClientEntityCounts counts( table );
 
 	FakeClientShell a = { 1 };
 	FakeClientShell b = { 2 };
@@ -279,7 +279,7 @@ TEST( ClientEntityCounts, BindAndUnbindMaintainTheNetworkedCount )
 TEST( ClientEntityCounts, TheHighestIndexRisesWithTheHighestBind )
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts   counts( table );
+	CClientEntityCounts counts( table );
 
 	FakeClientShell a = { 1 };
 	FakeClientShell b = { 2 };
@@ -311,7 +311,7 @@ TEST( ClientEntityCounts, TheHighestIndexRisesWithTheHighestBind )
 TEST( ClientEntityCounts, RemovingTheHighestFallsToTheNextOccupiedEntryAndNotToOneLess )
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts   counts( table );
+	CClientEntityCounts counts( table );
 
 	FakeClientShell a = { 1 };
 	FakeClientShell b = { 2 };
@@ -336,7 +336,7 @@ TEST( ClientEntityCounts, RemovingTheHighestFallsToTheNextOccupiedEntryAndNotToO
 TEST( ClientEntityCounts, RemovingABelowTheTopEntityLeavesTheHighestAlone )
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts   counts( table );
+	CClientEntityCounts counts( table );
 
 	FakeClientShell a = { 1 };
 	FakeClientShell b = { 2 };
@@ -358,7 +358,7 @@ TEST( ClientEntityCounts, RemovingABelowTheTopEntityLeavesTheHighestAlone )
 TEST( ClientEntityCounts, TheLastRemovalReturnsTheHighestToMinusOne )
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts   counts( table );
+	CClientEntityCounts counts( table );
 
 	FakeClientShell a = { 1 };
 
@@ -380,7 +380,7 @@ TEST( ClientEntityCounts, TheLastRemovalReturnsTheHighestToMinusOne )
 TEST( ClientEntityCounts, EntryZeroIsARealEntityForTheCountsToo )
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts   counts( table );
+	CClientEntityCounts counts( table );
 
 	FakeClientShell world = { 1 };
 
@@ -404,9 +404,9 @@ TEST( ClientEntityCounts, EntryZeroIsARealEntityForTheCountsToo )
 TEST( ClientEntityCounts, AnEntityAboveMaxEdictsDoesNotRaiseTheHighestIndex )
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts   counts( table );
+	CClientEntityCounts counts( table );
 
-	FakeClientShell edict     = { 1 };
+	FakeClientShell edict = { 1 };
 	FakeClientShell invisible = { 2 };
 
 	ASSERT_TRUE( ClientBind( table, 6, 0, &edict ) );
@@ -430,9 +430,9 @@ TEST( ClientEntityCounts, AnEntityAboveMaxEdictsDoesNotRaiseTheHighestIndex )
 TEST( ClientEntityCounts, TheEngineInvisibleRangeCountsOnlyWhenAskedFor )
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts   counts( table );
+	CClientEntityCounts counts( table );
 
-	FakeClientShell edict     = { 1 };
+	FakeClientShell edict = { 1 };
 	FakeClientShell invisible = { 2 };
 
 	ASSERT_TRUE( ClientBind( table, 6, 0, &edict ) );
@@ -453,7 +453,7 @@ TEST( ClientEntityCounts, TheEngineInvisibleRangeCountsOnlyWhenAskedFor )
 TEST( ClientEntityCounts, AnEntryOutsideTheTableMovesNothing )
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts   counts( table );
+	CClientEntityCounts counts( table );
 
 	counts.OnBound( -1 );
 	counts.OnBound( CSourceSharpSlotTable::EntryCount() );
@@ -477,7 +477,7 @@ TEST( ClientEntityCounts, AnEntryOutsideTheTableMovesNothing )
 TEST( ClientEntityCounts, MaxEntitiesIsWhatTheEngineSetAndNotHowManyExist )
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts   counts( table );
+	CClientEntityCounts counts( table );
 
 	FakeClientShell a = { 1 };
 
@@ -521,8 +521,7 @@ TEST( ClientEntityCounts, MaxEntitiesIsWhatTheEngineSetAndNotHowManyExist )
 
 // The server has SourceSharp_SlotBind( entry, shell, edict ): bind and let the
 // table choose the serial. There is no client twin, and this asks for one.
-void ClientSlotTableProbe_ChoosesItsOwnSerial( CSourceSharpSlotTable &table,
-                                               FakeClientShell *pShell )
+void ClientSlotTableProbe_ChoosesItsOwnSerial( CSourceSharpSlotTable &table, FakeClientShell *pShell )
 {
 	// Expected: 'Bind' is protected/absent to the client's declared surface --
 	// the table's own Bind exists, but the CLIENT WRAPPER that would let a shim

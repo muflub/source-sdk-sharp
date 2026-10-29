@@ -81,8 +81,8 @@ public class WeaponTests
         Assert.True(WeaponTypes.All.All(w => w.LaunchSpeed == 0f || w.Projectile.Length > 0), "no weapon launches something it did not name");
 
         // The gap this closes: both used to be hitscan.
-        Assert.True(WeaponCatalog.Stock().For("weapon_crossbow")!.Value.Projectile == EntityNames.SsBolt &&
-            WeaponCatalog.Stock().For("weapon_rpg")!.Value.Projectile == EntityNames.SsRocket, "the crossbow and the RPG launch rather than trace");
+        Assert.True(WeaponCatalog.Stock().For("weapon_crossbow")!.Value.Projectile == EntityNames.CrossbowBolt &&
+            WeaponCatalog.Stock().For("weapon_rpg")!.Value.Projectile == EntityNames.RpgMissile, "the crossbow and the RPG launch rather than trace");
 
         SecondaryFire();
     }
@@ -129,22 +129,25 @@ public class WeaponTests
         Assert.True(shotgun.FromClip, "the shotgun's double blast comes out of the clip");
         Assert.True(shotgun.AmmoCost > 1, "it costs more than one shell");
 
-        // Worth more than it looks: a double blast that were merely twice as
-        // strong would have no drawback, and nobody would ever use the primary.
-        Assert.True(shotgun.Spread > WeaponCatalog.Stock().For("weapon_shotgun")!.Value.Spread, "the double blast is wider than the single");
+        // One cone for both barrels: CWeaponShotgun::GetBulletSpread is
+        // VECTOR_CONE_10DEGREES for the single and the double alike.
+        Assert.True(shotgun.Spread == WeaponCatalog.Stock().For("weapon_shotgun")!.Value.Spread, "both barrels share the single's cone");
 
         Assert.True(shotgun.Pellets > WeaponCatalog.Stock().For("weapon_shotgun")!.Value.Pellets, "it fires more pellets than the single");
 
         // Everything else draws on a pool the primary never touches, so a full
         // clip says nothing about whether the alt-fire can fire.
         Assert.True(!smg.FromClip, "the SMG's grenade does not come out of its clip");
-        Assert.True(smg.Thrown, "it throws rather than aims");
+        // CWeaponSMG1::SecondaryAttack aims grenade_ar2 along the eyes.
+        Assert.True(!smg.Thrown, "it aims rather than throws");
 
         // The launch machinery is shared with the primary, which is the point:
         // a grenade is a grenade whichever trigger sent it.
         var level = Angles.Vectors(SourceSharp.Abi.Vector.Zero);
 
-        Assert.True(WeaponLogic.LaunchVelocity(level, smg.LaunchSpeed, smg.Thrown).Z > 0f, "a thrown second trigger lofts like a thrown primary");
+        var smgLaunch = WeaponLogic.LaunchVelocity(level, smg.LaunchSpeed, smg.Thrown);
+        Assert.True(Math.Abs(smgLaunch.X - 1000f) < 0.001f && Math.Abs(smgLaunch.Z) < 0.001f,
+                    "the SMG's grenade leaves along the eyes at a thousand");
 
         var ar2 = WeaponCatalog.Stock().For("weapon_ar2")!.Value.Secondary!.Value;
 
@@ -205,7 +208,7 @@ public class WeaponTests
 
         // The table is the ONLY place the mod says what weapons it has: each row
         // claims its own classname for the weapon shell at startup, and there is
-        // no second list in C++ any more. So the nine names being here is not
+        // no second list in C++ any more. So the names being here is not
         // decoration — a name missing from this array is a weapon that does not
         // exist, and the symptom is "unknown entity" rather than anything about
         // rates or spread.
@@ -214,6 +217,8 @@ public class WeaponTests
             EntityNames.Weapon357, EntityNames.WeaponAr2, EntityNames.WeaponCrossbow,
             EntityNames.WeaponCrowbar, EntityNames.WeaponFrag, EntityNames.WeaponPistol,
             EntityNames.WeaponRpg, EntityNames.WeaponShotgun, EntityNames.WeaponSmg1,
+            EntityNames.WeaponStunstick, EntityNames.WeaponSlam,
+            EntityNames.WeaponPhyscannon,
         };
 
         foreach (string name in expected)
@@ -221,7 +226,7 @@ public class WeaponTests
 
         // And nothing beyond them, because a row nobody expected is a classname
         // claimed by the shell that no loadout, map or script asks for.
-        Assert.True(WeaponTypes.All.Length == expected.Length, "the table declares those nine and no others");
+        Assert.True(WeaponTypes.All.Length == expected.Length, "the table declares those rows and no others");
 
         // A duplicate row would register the same classname twice. Native
         // refuses the second install rather than asserting, so the tell would be

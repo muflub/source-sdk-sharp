@@ -41,7 +41,7 @@ std::string Capture( const std::string &strCommand, int *pExit )
 		*pExit = -1;
 		return out;
 	}
-	char buf[ 4096 ];
+	char buf[4096];
 	size_t n;
 	while ( ( n = fread( buf, 1, sizeof( buf ), p ) ) > 0 )
 		out.append( buf, n );
@@ -57,33 +57,33 @@ std::string InBuildDir( const std::string &strCommand )
 
 // Every link edge in build.ninja that reads one of the two archives: its
 // first output.
-std::vector< std::string > Consumers()
+std::vector<std::string> Consumers()
 {
-	std::vector< std::string > out;
+	std::vector<std::string> out;
 	std::istringstream in( cmake_graph::BuildNinja() );
 	std::string line;
 	while ( std::getline( in, line ) )
 	{
 		if ( line.compare( 0, 6, "build " ) != 0 )
 			continue;
-		const std::vector< std::string > tokens = cmake_graph::NinjaTokens( line.substr( 6 ) );
+		const std::vector<std::string> tokens = cmake_graph::NinjaTokens( line.substr( 6 ) );
 		size_t colon = 0;
-		while ( colon < tokens.size() && ( tokens[ colon ].empty() || tokens[ colon ].back() != ':' ) )
+		while ( colon < tokens.size() && ( tokens[colon].empty() || tokens[colon].back() != ':' ) )
 			colon++;
 		if ( colon + 1 >= tokens.size() )
 			continue;
-		const std::string &rule = tokens[ colon + 1 ];
+		const std::string &rule = tokens[colon + 1];
 		if ( rule.find( "_LINKER" ) == std::string::npos || rule.find( "STATIC" ) != std::string::npos )
 			continue;
 		bool bReads = false;
 		for ( size_t i = colon + 2; i < tokens.size(); i++ )
 			for ( const char *pszArchive : kArchives )
-				bReads = bReads || tokens[ i ] == pszArchive;
+				bReads = bReads || tokens[i] == pszArchive;
 		if ( bReads )
 		{
-			std::string strOut = tokens[ 0 ];
+			std::string strOut = tokens[0];
 			if ( colon == 0 )
-				strOut.pop_back();   // "out/x.so:"
+				strOut.pop_back(); // "out/x.so:"
 			out.push_back( strOut );
 		}
 	}
@@ -91,11 +91,11 @@ std::vector< std::string > Consumers()
 }
 
 // The members of an archive, by name.
-std::set< std::string > Members( const char *pszArchive )
+std::set<std::string> Members( const char *pszArchive )
 {
 	int nExit = 0;
 	const std::string text = Capture( InBuildDir( std::string( "ar t " ) + pszArchive ), &nExit );
-	std::set< std::string > out;
+	std::set<std::string> out;
 	if ( nExit != 0 )
 		return out;
 	std::istringstream in( text );
@@ -108,10 +108,10 @@ std::set< std::string > Members( const char *pszArchive )
 
 // The link of <strOutput> rerun with --trace into a scratch file: each
 // archive's members it pulled in, by archive.
-std::map< std::string, std::set< std::string > > Pulled( const std::string &strOutput, const std::string &strScratch,
-                                                         std::string *pError )
+std::map<std::string, std::set<std::string>> Pulled( const std::string &strOutput, const std::string &strScratch,
+													 std::string *pError )
 {
-	std::map< std::string, std::set< std::string > > out;
+	std::map<std::string, std::set<std::string>> out;
 	int nExit = 0;
 	const std::string commands = Capture( InBuildDir( "ninja -t commands -s '" + strOutput + "'" ), &nExit );
 	if ( nExit != 0 )
@@ -159,7 +159,7 @@ std::map< std::string, std::set< std::string > > Pulled( const std::string &strO
 			const size_t p = line.find( open );
 			if ( p == std::string::npos || line.back() != ')' )
 				continue;
-			out[ pszArchive ].insert( line.substr( p + open.size(), line.size() - p - open.size() - 1 ) );
+			out[pszArchive].insert( line.substr( p + open.size(), line.size() - p - open.size() - 1 ) );
 		}
 	}
 	return out;
@@ -167,10 +167,10 @@ std::map< std::string, std::set< std::string > > Pulled( const std::string &strO
 
 struct Survey_t
 {
-	std::vector< std::string > consumers;
-	std::map< std::string, std::set< std::string > > pulled;           // archive -> members any link pulled
-	std::map< std::string, std::map< std::string, std::set< std::string > > > byConsumer;
-	std::vector< std::string > errors;
+	std::vector<std::string> consumers;
+	std::map<std::string, std::set<std::string>> pulled; // archive -> members any link pulled
+	std::map<std::string, std::map<std::string, std::set<std::string>>> byConsumer;
+	std::vector<std::string> errors;
 };
 
 const Survey_t &Survey()
@@ -194,9 +194,9 @@ const Survey_t &Survey()
 		const auto pulled = Pulled( strOutput, strScratch, &error );
 		if ( !error.empty() )
 			s_survey.errors.push_back( error );
-		s_survey.byConsumer[ strOutput ] = pulled;
+		s_survey.byConsumer[strOutput] = pulled;
 		for ( const auto &a : pulled )
-			s_survey.pulled[ a.first ].insert( a.second.begin(), a.second.end() );
+			s_survey.pulled[a.first].insert( a.second.begin(), a.second.end() );
 	}
 	unlink( strScratch.c_str() );
 	rmdir( dir );
@@ -208,8 +208,9 @@ const Survey_t &Survey()
 TEST( SdkLibMembers, TheGameLibrariesAreAmongTheConsumers )
 {
 	const Survey_t &s = Survey();
-	std::set< std::string > consumers( s.consumers.begin(), s.consumers.end() );
-	EXPECT_TRUE( consumers.count( "out/libss_particles.so" ) ) << "the particles library no longer links tier1/mathlib?";
+	std::set<std::string> consumers( s.consumers.begin(), s.consumers.end() );
+	EXPECT_TRUE( consumers.count( "out/libss_particles.so" ) )
+		<< "the particles library no longer links tier1/mathlib?";
 	// Neither game DLL links either archive: server.so's tier1 members are
 	// tier1_port.cpp's and mathlib's are mathlib_port.cpp's, and client.so's
 	// last importers of both left it (plan_client_novalve C9). Their absence
@@ -241,13 +242,14 @@ TEST( SdkLibMembers, EveryMemberIsPulledInBySomeLink )
 	const Survey_t &s = Survey();
 	for ( const char *pszArchive : kArchives )
 	{
-		const std::set< std::string > members = Members( pszArchive );
+		const std::set<std::string> members = Members( pszArchive );
 		ASSERT_FALSE( members.empty() ) << "ar t " << pszArchive << " listed nothing";
 		const auto pulled = s.pulled.find( pszArchive );
 		for ( const std::string &m : members )
 			EXPECT_TRUE( pulled != s.pulled.end() && pulled->second.count( m ) )
 				<< m << " is in " << pszArchive << " and no link pulls it in: drop its source from "
-				<< "cmake/sdk/" << ( std::string( pszArchive ).find( "tier1" ) != std::string::npos ? "tier1" : "mathlib" )
+				<< "cmake/sdk/"
+				<< ( std::string( pszArchive ).find( "tier1" ) != std::string::npos ? "tier1" : "mathlib" )
 				<< ".cmake (and run tools/sdk-census --write)";
 	}
 }

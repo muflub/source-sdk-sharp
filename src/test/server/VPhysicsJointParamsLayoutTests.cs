@@ -26,6 +26,7 @@ public class VPhysicsJointParamsLayoutTests
     [InlineData(typeof(SpringParams), 44)]
     [InlineData(typeof(ConstraintGroupParams), 12)]
     [InlineData(typeof(ObjectParams), 64)]
+    [InlineData(typeof(SourceSharp.Server.Interop.ShadowControlParams), 48)]
     public void SizeIsTheHeaders(Type block, int size) => Assert.Equal(size, Marshal.SizeOf(block));
 
     [Theory]
@@ -77,6 +78,11 @@ public class VPhysicsJointParamsLayoutTests
     [InlineData(typeof(ObjectParams), nameof(ObjectParams.Volume), 48)]
     [InlineData(typeof(ObjectParams), nameof(ObjectParams.DragCoefficient), 52)]
     [InlineData(typeof(ObjectParams), nameof(ObjectParams.EnableCollisions), 56)]
+    [InlineData(typeof(SourceSharp.Server.Interop.ShadowControlParams), nameof(SourceSharp.Server.Interop.ShadowControlParams.TargetRotation), 12)]
+    [InlineData(typeof(SourceSharp.Server.Interop.ShadowControlParams), nameof(SourceSharp.Server.Interop.ShadowControlParams.MaxAngular), 24)]
+    [InlineData(typeof(SourceSharp.Server.Interop.ShadowControlParams), nameof(SourceSharp.Server.Interop.ShadowControlParams.MaxSpeed), 32)]
+    [InlineData(typeof(SourceSharp.Server.Interop.ShadowControlParams), nameof(SourceSharp.Server.Interop.ShadowControlParams.DampFactor), 40)]
+    [InlineData(typeof(SourceSharp.Server.Interop.ShadowControlParams), nameof(SourceSharp.Server.Interop.ShadowControlParams.TeleportDistance), 44)]
     public void FieldIsAtTheHeadersOffset(Type block, string field, int offset)
         => Assert.Equal(offset, (int)Marshal.OffsetOf(block, field));
 

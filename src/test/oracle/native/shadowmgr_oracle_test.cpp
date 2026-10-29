@@ -83,7 +83,7 @@
 //-----------------------------------------------------------------------------
 static std::string g_Log;
 static size_t g_nLogLines = 0;
-static int g_nQuiet = 0;   // > 0: nothing is written (the oracle's probes)
+static int g_nQuiet = 0; // > 0: nothing is written (the oracle's probes)
 static int g_nQuietRows = 0;
 
 void ShadowLog( const char *pFmt, ... )
@@ -100,7 +100,7 @@ void ShadowLog( const char *pFmt, ... )
 	va_end( copy );
 	std::string line( n > 0 ? n : 0, '\0' );
 	if ( n > 0 )
-		vsnprintf( &line[ 0 ], n + 1, pFmt, ap );
+		vsnprintf( &line[0], n + 1, pFmt, ap );
 	va_end( ap );
 	g_Log += line;
 	g_Log += '\n';
@@ -120,7 +120,7 @@ namespace
 // The spellings every row uses.
 std::string Hex( float f )
 {
-	char sz[ 16 ];
+	char sz[16];
 	snprintf( sz, sizeof( sz ), "%08x", ShadowBits( f ) );
 	return sz;
 }
@@ -140,7 +140,7 @@ std::string Mat( const VMatrix &m )
 	std::string s;
 	for ( int i = 0; i < 4; i++ )
 		for ( int j = 0; j < 4; j++ )
-			s += ( i || j ? "," : "" ) + Hex( m.m[ i ][ j ] );
+			s += ( i || j ? "," : "" ) + Hex( m.m[i][j] );
 	return s;
 }
 
@@ -149,7 +149,7 @@ std::string Mat34( const matrix3x4_t &m )
 	std::string s;
 	for ( int i = 0; i < 3; i++ )
 		for ( int j = 0; j < 4; j++ )
-			s += ( i || j ? "," : "" ) + Hex( m[ i ][ j ] );
+			s += ( i || j ? "," : "" ) + Hex( m[i][j] );
 	return s;
 }
 
@@ -157,7 +157,7 @@ std::string Leaves( int n, const int *p )
 {
 	std::string s = std::to_string( n ) + ":";
 	for ( int i = 0; i < n; i++ )
-		s += ( i ? "," : "" ) + std::to_string( p[ i ] );
+		s += ( i ? "," : "" ) + std::to_string( p[i] );
 	return s;
 }
 
@@ -176,46 +176,82 @@ class CShadowCvar final : public ICvar
 {
 public:
 	virtual bool Connect( CreateInterfaceFn ) { return true; }
+
 	virtual void Disconnect() {}
+
 	virtual void *QueryInterface( const char * ) { return NULL; }
+
 	virtual InitReturnVal_t Init() { return INIT_OK; }
+
 	virtual void Shutdown() {}
+
 	virtual CVarDLLIdentifier_t AllocateDLLIdentifier() { return 1; }
+
 	virtual void RegisterConCommand( ConCommandBase * ) {}
+
 	virtual void UnregisterConCommand( ConCommandBase * ) {}
+
 	virtual void UnregisterConCommands( CVarDLLIdentifier_t ) {}
+
 	virtual const char *GetCommandLineValue( const char * ) { return NULL; }
+
 	virtual ConCommandBase *FindCommandBase( const char * ) { return NULL; }
+
 	virtual const ConCommandBase *FindCommandBase( const char * ) const { return NULL; }
+
 	virtual ConVar *FindVar( const char * ) { return NULL; }
+
 	virtual const ConVar *FindVar( const char * ) const { return NULL; }
+
 	virtual ConCommand *FindCommand( const char * ) { return NULL; }
+
 	virtual const ConCommand *FindCommand( const char * ) const { return NULL; }
+
 	virtual ConCommandBase *GetCommands( void ) { return NULL; }
+
 	virtual const ConCommandBase *GetCommands( void ) const { return NULL; }
+
 	virtual void InstallGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void RemoveGlobalChangeCallback( FnChangeCallback_t ) {}
+
 	virtual void CallGlobalChangeCallbacks( ConVar *var, const char *, float )
 	{
 		if ( !s_bScenarioSetsConVar )
 			ShadowLog( "E\tcvar.Set\t%s\t%d", var->GetName(), var->GetInt() );
 	}
+
 	virtual void InstallConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void RemoveConsoleDisplayFunc( IConsoleDisplayFunc * ) {}
+
 	virtual void ConsoleColorPrintf( const Color &, const char *, ... ) const {}
+
 	virtual void ConsolePrintf( const char *, ... ) const {}
+
 	virtual void ConsoleDPrintf( const char *, ... ) const {}
+
 	virtual void RevertFlaggedConVars( int ) {}
+
 	virtual void InstallCVarQuery( ICvarQuery * ) {}
+
 	virtual void PublishToVXConsole() {}
+
 	virtual bool IsMaterialThreadSetAllowed() const { return true; }
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, const char * ) {}
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, int ) {}
+
 	virtual void QueueMaterialThreadSetValue( ConVar *, float ) {}
+
 	virtual bool HasQueuedMaterialThreadConVarSets() const { return false; }
+
 	virtual int ProcessQueuedMaterialThreadConVarSets() { return 0; }
+
 	virtual ICVarIteratorInternal *FactoryInternalIterator( void ) { return NULL; }
 };
+
 static CShadowCvar g_ShadowCvar;
 
 // The client's two ConVars the subject names extern (viewrender's).
@@ -258,7 +294,7 @@ static SpewRetval_t ShadowSpew( SpewType_t type, const tchar *pMsg )
 // The scripted world.
 //-----------------------------------------------------------------------------
 int g_nBaseEntityTouches = 0;
-static int s_nBaseEntityAsks = 0;   // GetBaseEntity / GetBaseEntityFromHandle asked (and NULL answered)
+static int s_nBaseEntityAsks = 0; // GetBaseEntity / GetBaseEntityFromHandle asked (and NULL answered)
 
 static ShadowGlobals_t s_Globals;
 ShadowGlobals_t *gpGlobals = &s_Globals;
@@ -274,7 +310,7 @@ struct ShadowBox_t
 bool Overlaps( const Vector &mins, const Vector &maxs, const ShadowBox_t &b )
 {
 	return mins.x < b.maxs.x && maxs.x > b.mins.x && mins.y < b.maxs.y && maxs.y > b.mins.y && mins.z < b.maxs.z &&
-	       maxs.z > b.mins.z;
+		maxs.z > b.mins.z;
 }
 
 // The level: leaves of 100 units along x, every leaf reaching over all y and z.
@@ -282,17 +318,17 @@ int s_nLeafCount = 0;
 float s_flLeafWidth = 100.0f;
 
 // What the engine answers.
-ShadowBox_t s_ViewBox;               // CullBox culls a box that does not overlap it
-Vector s_vecAmbient;                 // GetAmbientLightColor
-float s_flPixelsPerUnit = 1.0f;      // ComputePixelDiameterOfSphere = radius * this
+ShadowBox_t s_ViewBox; // CullBox culls a box that does not overlap it
+Vector s_vecAmbient; // GetAmbientLightColor
+float s_flPixelsPerUnit = 1.0f; // ComputePixelDiameterOfSphere = radius * this
 int s_nDXLevel = 90;
 bool s_bSupportsDepth = true;
-int s_nMaxRenderTarget = 2048;       // a render target's actual width is clamped to this
+int s_nMaxRenderTarget = 2048; // a render target's actual width is clamped to this
 MaterialFogMode_t s_FogMode = MATERIAL_FOG_LINEAR;
 MaterialHeightClipMode_t s_HeightClip = MATERIAL_HEIGHTCLIPMODE_RENDER_ABOVE_HEIGHT;
 MaterialBufferRestoreFunc_t s_pfnRestore = NULL;
 
-std::vector< std::unique_ptr< CShadowThing > > s_Things;
+std::vector<std::unique_ptr<CShadowThing>> s_Things;
 
 CShadowThing *Find( int nId )
 {
@@ -310,10 +346,10 @@ int IdOf( IClientRenderable *p )
 		return -1;
 	for ( auto &t : s_Things )
 	{
-		if ( static_cast< IClientRenderable * >( t.get() ) == p )
+		if ( static_cast<IClientRenderable *>( t.get() ) == p )
 			return t->m_nId;
 	}
-	return -2;   // not a thing: the oracle's facts fail on it
+	return -2; // not a thing: the oracle's facts fail on it
 }
 
 std::string R( IClientRenderable *p )
@@ -351,10 +387,17 @@ ClientEntityHandle_t ShadowEntityOf( int nId )
 //-----------------------------------------------------------------------------
 // The renderables.
 //-----------------------------------------------------------------------------
-CShadowThing::CShadowThing( int nId ) : m_nId( nId )
+CShadowThing::CShadowThing( int nId )
+	: m_nId( nId )
 {
-	m_vecOrigin.Init(); m_vecMins.Init(); m_vecMaxs.Init(); m_vecRttMins.Init(); m_vecRttMaxs.Init();
-	m_vecAbsMins.Init(); m_vecAbsMaxs.Init(); m_vecCastDirection.Init();
+	m_vecOrigin.Init();
+	m_vecMins.Init();
+	m_vecMaxs.Init();
+	m_vecRttMins.Init();
+	m_vecRttMaxs.Init();
+	m_vecAbsMins.Init();
+	m_vecAbsMaxs.Init();
+	m_vecCastDirection.Init();
 	m_angAngles.Init();
 	SetIdentityMatrix( m_Transform );
 	m_RefEHandle = ShadowEntityOf( nId );
@@ -434,7 +477,8 @@ void CShadowThing::GetShadowRenderBounds( Vector &mins, Vector &maxs, ShadowType
 	const bool bRtt = shadowType == SHADOWS_RENDER_TO_TEXTURE || shadowType == SHADOWS_RENDER_TO_TEXTURE_DYNAMIC;
 	mins = bRtt ? m_vecRttMins : m_vecMins;
 	maxs = bRtt ? m_vecRttMaxs : m_vecMaxs;
-	ShadowLog( "Q\tr.shadowbounds\t%s\t%d\t%s\t%s", R( this ).c_str(), (int)shadowType, Vec( mins ).c_str(), Vec( maxs ).c_str() );
+	ShadowLog( "Q\tr.shadowbounds\t%s\t%d\t%s\t%s", R( this ).c_str(), (int)shadowType, Vec( mins ).c_str(),
+			   Vec( maxs ).c_str() );
 }
 
 bool CShadowThing::ShouldReceiveProjectedTextures( int flags )
@@ -449,7 +493,8 @@ bool CShadowThing::GetShadowCastDistance( float *pDist, ShadowType_t shadowType 
 	const float flIn = *pDist;
 	if ( m_bCastDistance )
 		*pDist = m_flCastDistance;
-	ShadowLog( "Q\tr.castdist\t%s\t%d\t%s\t%s", R( this ).c_str(), (int)shadowType, Hex( flIn ).c_str(), Hex( *pDist ).c_str() );
+	ShadowLog( "Q\tr.castdist\t%s\t%d\t%s\t%s", R( this ).c_str(), (int)shadowType, Hex( flIn ).c_str(),
+			   Hex( *pDist ).c_str() );
 	return m_bCastDistance;
 }
 
@@ -458,7 +503,8 @@ bool CShadowThing::GetShadowCastDirection( Vector *pDirection, ShadowType_t shad
 	const Vector vIn = *pDirection;
 	if ( m_bCastDirection )
 		*pDirection = m_vecCastDirection;
-	ShadowLog( "Q\tr.castdir\t%s\t%d\t%s\t%s", R( this ).c_str(), (int)shadowType, Vec( vIn ).c_str(), Vec( *pDirection ).c_str() );
+	ShadowLog( "Q\tr.castdir\t%s\t%d\t%s\t%s", R( this ).c_str(), (int)shadowType, Vec( vIn ).c_str(),
+			   Vec( *pDirection ).c_str() );
 	return m_bCastDirection;
 }
 
@@ -520,7 +566,11 @@ void DefaultRenderBoundsWorldspace( IClientRenderable *pRenderable, Vector &absM
 // The entity list.
 //-----------------------------------------------------------------------------
 static CShadowEntityList s_EntityList;
-CShadowEntityList &ClientEntityList() { return s_EntityList; }
+
+CShadowEntityList &ClientEntityList()
+{
+	return s_EntityList;
+}
 
 IClientRenderable *CShadowEntityList::GetClientRenderableFromHandle( ClientEntityHandle_t h )
 {
@@ -557,7 +607,7 @@ struct LeafShadow_t
 {
 	ClientShadowHandle_t m_UserId;
 	int m_nFlags;
-	std::vector< int > m_Leaves;
+	std::vector<int> m_Leaves;
 	bool m_bLive;
 };
 
@@ -568,8 +618,8 @@ struct Receiver_t
 	ShadowReceiver_t m_Kind;
 };
 
-std::vector< LeafShadow_t > s_LeafShadows;
-std::vector< Receiver_t > s_Receivers;
+std::vector<LeafShadow_t> s_LeafShadows;
+std::vector<Receiver_t> s_Receivers;
 
 } // namespace
 
@@ -582,20 +632,20 @@ namespace
 
 void OfferToReceivers( ClientLeafShadowHandle_t h, int nLeafCount, const int *pLeafList )
 {
-	std::set< int > offered;
+	std::set<int> offered;
 	for ( int i = 0; i < nLeafCount; i++ )
 	{
 		for ( const Receiver_t &r : s_Receivers )
 		{
-			if ( r.m_nLeaf != pLeafList[ i ] || offered.count( r.m_nThing ) )
+			if ( r.m_nLeaf != pLeafList[i] || offered.count( r.m_nThing ) )
 				continue;
 			offered.insert( r.m_nThing );
 			CShadowThing *p = Find( r.m_nThing );
 			if ( !p )
 				continue;
-			ShadowLog( "E\tleaf.receiver\t%d\t%s\t%d", s_LeafShadows[ h ].m_UserId, R( p ).c_str(), (int)r.m_Kind );
-			ProbeReceiver( s_LeafShadows[ h ].m_UserId, p, r.m_Kind );
-			g_pClientShadowMgr->AddShadowToReceiver( s_LeafShadows[ h ].m_UserId, p, r.m_Kind );
+			ShadowLog( "E\tleaf.receiver\t%d\t%s\t%d", s_LeafShadows[h].m_UserId, R( p ).c_str(), (int)r.m_Kind );
+			ProbeReceiver( s_LeafShadows[h].m_UserId, p, r.m_Kind );
+			g_pClientShadowMgr->AddShadowToReceiver( s_LeafShadows[h].m_UserId, p, r.m_Kind );
 		}
 	}
 }
@@ -603,7 +653,11 @@ void OfferToReceivers( ClientLeafShadowHandle_t h, int nLeafCount, const int *pL
 } // namespace
 
 static CShadowLeafSystem s_LeafSystem;
-CShadowLeafSystem *ClientLeafSystem() { return &s_LeafSystem; }
+
+CShadowLeafSystem *ClientLeafSystem()
+{
+	return &s_LeafSystem;
+}
 
 ClientLeafShadowHandle_t CShadowLeafSystem::AddShadow( ClientShadowHandle_t userId, unsigned short flags )
 {
@@ -616,37 +670,37 @@ ClientLeafShadowHandle_t CShadowLeafSystem::AddShadow( ClientShadowHandle_t user
 void CShadowLeafSystem::RemoveShadow( ClientLeafShadowHandle_t h )
 {
 	ShadowLog( "E\tleaf.RemoveShadow\t%d", h );
-	s_LeafShadows[ h ].m_bLive = false;
-	s_LeafShadows[ h ].m_Leaves.clear();
+	s_LeafShadows[h].m_bLive = false;
+	s_LeafShadows[h].m_Leaves.clear();
 }
 
 void CShadowLeafSystem::ProjectShadow( ClientLeafShadowHandle_t h, int nLeafCount, const int *pLeafList )
 {
 	ShadowLog( "E\tleaf.ProjectShadow\t%d\t%s", h, Leaves( nLeafCount, pLeafList ).c_str() );
-	s_LeafShadows[ h ].m_Leaves.assign( pLeafList, pLeafList + nLeafCount );
+	s_LeafShadows[h].m_Leaves.assign( pLeafList, pLeafList + nLeafCount );
 	OfferToReceivers( h, nLeafCount, pLeafList );
 }
 
 void CShadowLeafSystem::ProjectFlashlight( ClientLeafShadowHandle_t h, int nLeafCount, const int *pLeafList )
 {
 	ShadowLog( "E\tleaf.ProjectFlashlight\t%d\t%s", h, Leaves( nLeafCount, pLeafList ).c_str() );
-	s_LeafShadows[ h ].m_Leaves.assign( pLeafList, pLeafList + nLeafCount );
+	s_LeafShadows[h].m_Leaves.assign( pLeafList, pLeafList + nLeafCount );
 	OfferToReceivers( h, nLeafCount, pLeafList );
 }
 
 void CShadowLeafSystem::EnumerateShadowsInLeaves( int leafCount, LeafIndex_t *pLeaves, IClientLeafShadowEnum *pEnum )
 {
-	std::vector< int > leaves( pLeaves, pLeaves + leafCount );
+	std::vector<int> leaves( pLeaves, pLeaves + leafCount );
 	ShadowLog( "E\tleaf.EnumerateShadowsInLeaves\t%s", Leaves( leafCount, leaves.data() ).c_str() );
-	std::set< size_t > offered;
+	std::set<size_t> offered;
 	for ( int i = 0; i < leafCount; i++ )
 	{
 		for ( size_t h = 0; h < s_LeafShadows.size(); h++ )
 		{
-			const LeafShadow_t &s = s_LeafShadows[ h ];
+			const LeafShadow_t &s = s_LeafShadows[h];
 			if ( !s.m_bLive || offered.count( h ) )
 				continue;
-			if ( std::find( s.m_Leaves.begin(), s.m_Leaves.end(), (int)pLeaves[ i ] ) == s.m_Leaves.end() )
+			if ( std::find( s.m_Leaves.begin(), s.m_Leaves.end(), (int)pLeaves[i] ) == s.m_Leaves.end() )
 				continue;
 			offered.insert( h );
 			ShadowLog( "E\tleaf.enum\t%d", s.m_UserId );
@@ -660,8 +714,8 @@ void CShadowLeafSystem::EnumerateShadowsInLeaves( int leafCount, LeafIndex_t *pL
 //-----------------------------------------------------------------------------
 namespace
 {
-std::vector< std::unique_ptr< ShadowTexture_t > > s_Textures;
-std::vector< std::unique_ptr< ShadowMaterial_t > > s_Materials;
+std::vector<std::unique_ptr<ShadowTexture_t>> s_Textures;
+std::vector<std::unique_ptr<ShadowMaterial_t>> s_Materials;
 }
 
 const char *ShadowTextureName( const ITexture *pTexture )
@@ -680,15 +734,16 @@ void ShadowMaterial_t::ColorModulate( float r, float g, float b )
 }
 
 void CShadowTextureReference::InitRenderTarget( int w, int h, RenderTargetSizeMode_t sizeMode, ImageFormat fmt,
-                                                MaterialRenderTargetDepth_t depth, bool bHDR, const char *pStrOptionalName )
+												MaterialRenderTargetDepth_t depth, bool bHDR,
+												const char *pStrOptionalName )
 {
 	s_Textures.emplace_back( new ShadowTexture_t );
 	m_pTexture = s_Textures.back().get();
 	V_strncpy( m_pTexture->m_szName, pStrOptionalName ? pStrOptionalName : "-", sizeof( m_pTexture->m_szName ) );
 	m_pTexture->m_nWidth = std::min( w, s_nMaxRenderTarget );
 	m_pTexture->m_nHeight = std::min( h, s_nMaxRenderTarget );
-	ShadowLog( "E\ttex.InitRenderTarget\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t=>%d", m_pTexture->m_szName, w, h, (int)sizeMode, (int)fmt,
-	           (int)depth, bHDR ? 1 : 0, m_pTexture->m_nWidth );
+	ShadowLog( "E\ttex.InitRenderTarget\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t=>%d", m_pTexture->m_szName, w, h, (int)sizeMode,
+			   (int)fmt, (int)depth, bHDR ? 1 : 0, m_pTexture->m_nWidth );
 }
 
 void CShadowTextureReference::Shutdown( bool bDeleteIfUnReferenced )
@@ -773,12 +828,17 @@ int CShadowHardwareConfig::GetDXSupportLevel()
 }
 
 CShadowRenderContextPtr::CShadowRenderContextPtr( CShadowMaterials * ) {}
-CShadowRenderContext *CShadowRenderContextPtr::operator->() const { return &s_RenderContext; }
+
+CShadowRenderContext *CShadowRenderContextPtr::operator->() const
+{
+	return &s_RenderContext;
+}
 
 float CShadowRenderContext::ComputePixelDiameterOfSphere( const Vector &vecAbsOrigin, float flRadius )
 {
 	const float f = flRadius * s_flPixelsPerUnit;
-	ShadowLog( "Q\tctx.ComputePixelDiameterOfSphere\t%s\t%s\t%s", Vec( vecAbsOrigin ).c_str(), Hex( flRadius ).c_str(), Hex( f ).c_str() );
+	ShadowLog( "Q\tctx.ComputePixelDiameterOfSphere\t%s\t%s\t%s", Vec( vecAbsOrigin ).c_str(), Hex( flRadius ).c_str(),
+			   Hex( f ).c_str() );
 	return f;
 }
 
@@ -832,9 +892,20 @@ void CShadowRenderContext::MatrixMode( MaterialMatrixMode_t matrixMode )
 	ShadowLog( "E\tctx.MatrixMode\t%d", (int)matrixMode );
 }
 
-void CShadowRenderContext::PushMatrix() { ShadowLog( "E\tctx.PushMatrix" ); }
-void CShadowRenderContext::PopMatrix() { ShadowLog( "E\tctx.PopMatrix" ); }
-void CShadowRenderContext::LoadIdentity() { ShadowLog( "E\tctx.LoadIdentity" ); }
+void CShadowRenderContext::PushMatrix()
+{
+	ShadowLog( "E\tctx.PushMatrix" );
+}
+
+void CShadowRenderContext::PopMatrix()
+{
+	ShadowLog( "E\tctx.PopMatrix" );
+}
+
+void CShadowRenderContext::LoadIdentity()
+{
+	ShadowLog( "E\tctx.LoadIdentity" );
+}
 
 void CShadowRenderContext::LoadMatrix( const VMatrix &matrix )
 {
@@ -856,7 +927,10 @@ void CShadowRenderContext::PushRenderTargetAndViewport( ITexture *pTexture )
 	ShadowLog( "E\tctx.PushRenderTargetAndViewport\t%s", ShadowTextureName( pTexture ) );
 }
 
-void CShadowRenderContext::PopRenderTargetAndViewport() { ShadowLog( "E\tctx.PopRenderTargetAndViewport" ); }
+void CShadowRenderContext::PopRenderTargetAndViewport()
+{
+	ShadowLog( "E\tctx.PopRenderTargetAndViewport" );
+}
 
 void CShadowRenderContext::ClearBuffers( bool bClearColor, bool bClearDepth, bool bClearStencil )
 {
@@ -875,7 +949,8 @@ void CShadowRenderContext::CopyRenderTargetToTextureEx( ITexture *pTexture, int,
 
 void CShadowRenderContext::SetShadowDepthBiasFactors( float fSlopeScaleDepthBias, float fDepthBias )
 {
-	ShadowLog( "E\tctx.SetShadowDepthBiasFactors\t%s\t%s", Hex( fSlopeScaleDepthBias ).c_str(), Hex( fDepthBias ).c_str() );
+	ShadowLog( "E\tctx.SetShadowDepthBiasFactors\t%s\t%s", Hex( fSlopeScaleDepthBias ).c_str(),
+			   Hex( fDepthBias ).c_str() );
 }
 
 void CShadowMesh::Draw( int firstIndex, int numIndices )
@@ -903,8 +978,15 @@ void CShadowMeshBuilder::Color4ub( unsigned char r, unsigned char g, unsigned ch
 	ShadowLog( "E\tmesh.Color4ub\t%d\t%d\t%d\t%d", r, g, b, a );
 }
 
-void CShadowMeshBuilder::AdvanceVertex() { ShadowLog( "E\tmesh.AdvanceVertex" ); }
-void CShadowMeshBuilder::End() { ShadowLog( "E\tmesh.End" ); }
+void CShadowMeshBuilder::AdvanceVertex()
+{
+	ShadowLog( "E\tmesh.AdvanceVertex" );
+}
+
+void CShadowMeshBuilder::End()
+{
+	ShadowLog( "E\tmesh.End" );
+}
 
 //-----------------------------------------------------------------------------
 // The engine and its BSP query: leaf i is [i * width, (i + 1) * width) along
@@ -934,27 +1016,33 @@ class CShadowBSPQuery final : public ISpatialQuery
 {
 public:
 	virtual int LeafCount() const { return s_nLeafCount; }
+
 	virtual bool EnumerateLeavesAtPoint( Vector const &, ISpatialLeafEnumerator *, intp ) { return true; }
-	virtual bool EnumerateLeavesInBox( Vector const &mins, Vector const &maxs, ISpatialLeafEnumerator *pEnum, intp context )
+
+	virtual bool EnumerateLeavesInBox( Vector const &mins, Vector const &maxs, ISpatialLeafEnumerator *pEnum,
+									   intp context )
 	{
 		std::string s;
 		LeavesOverX( mins.x, maxs.x, pEnum, context, &s );
 		ShadowLog( "Q\tbsp.EnumerateLeavesInBox\t%s\t%s\t%s", Vec( mins ).c_str(), Vec( maxs ).c_str(), s.c_str() );
 		return true;
 	}
+
 	virtual bool EnumerateLeavesInSphere( Vector const &, float, ISpatialLeafEnumerator *, intp ) { return true; }
+
 	virtual bool EnumerateLeavesAlongRay( Ray_t const &ray, ISpatialLeafEnumerator *pEnum, intp context )
 	{
 		const float a = ray.m_Start.x, b = ray.m_Start.x + ray.m_Delta.x;
 		const float x0 = std::min( a, b ) - ray.m_Extents.x, x1 = std::max( a, b ) + ray.m_Extents.x;
 		std::string s;
 		LeavesOverX( x0, x1, pEnum, context, &s );
-		ShadowLog( "Q\tbsp.EnumerateLeavesAlongRay\t%s\t%s\t%s\t%s\t%d\t%d\t%s", Vec( ray.m_Start ).c_str(), Vec( ray.m_Delta ).c_str(),
-		           Vec( ray.m_StartOffset ).c_str(), Vec( ray.m_Extents ).c_str(), ray.m_IsRay ? 1 : 0, ray.m_IsSwept ? 1 : 0,
-		           s.c_str() );
+		ShadowLog( "Q\tbsp.EnumerateLeavesAlongRay\t%s\t%s\t%s\t%s\t%d\t%d\t%s", Vec( ray.m_Start ).c_str(),
+				   Vec( ray.m_Delta ).c_str(), Vec( ray.m_StartOffset ).c_str(), Vec( ray.m_Extents ).c_str(),
+				   ray.m_IsRay ? 1 : 0, ray.m_IsSwept ? 1 : 0, s.c_str() );
 		return true;
 	}
 };
+
 static CShadowBSPQuery s_BSPQuery;
 
 static CShadowEngine s_Engine;
@@ -990,9 +1078,10 @@ int CShadowModelInfo::GetModelType( const model_t *pModel ) const
 
 static CShadowModelRender s_ModelRender;
 CShadowModelRender *modelrender = &s_ModelRender;
-static matrix3x4_t s_BoneToWorld[ 1 ];
+static matrix3x4_t s_BoneToWorld[1];
 
-matrix3x4_t *CShadowModelRender::DrawModelShadowSetup( IClientRenderable *pRenderable, int body, int skin, DrawModelInfo_t *pInfo )
+matrix3x4_t *CShadowModelRender::DrawModelShadowSetup( IClientRenderable *pRenderable, int body, int skin,
+													   DrawModelInfo_t *pInfo )
 {
 	CShadowThing *p = Find( IdOf( pRenderable ) );
 	const bool bOk = p && p->m_bBonesOk;
@@ -1031,21 +1120,23 @@ CShadowView *view = &s_View;
 
 void CShadowView::UpdateShadowDepthTexture( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &v )
 {
-	ShadowLog( "E\tview.UpdateShadowDepthTexture\t%s\t%s\txywh=%d,%d,%d,%d\tfov=%s,%s\torigin=%s\tangles=%s\tz=%s,%s\tzvm=%s,%s\t"
-	           "aspect=%s\tortho=%d\tbloom=%d",
-	           ShadowTextureName( pRenderTarget ), ShadowTextureName( pDepthTexture ), v.x, v.y, v.width, v.height,
-	           Hex( v.fov ).c_str(), Hex( v.fovViewmodel ).c_str(), Vec( v.origin ).c_str(), Ang( v.angles ).c_str(),
-	           Hex( v.zNear ).c_str(), Hex( v.zFar ).c_str(), Hex( v.zNearViewmodel ).c_str(), Hex( v.zFarViewmodel ).c_str(),
-	           Hex( v.m_flAspectRatio ).c_str(), v.m_bOrtho ? 1 : 0, v.m_bDoBloomAndToneMapping ? 1 : 0 );
+	ShadowLog(
+		"E\tview.UpdateShadowDepthTexture\t%s\t%s\txywh=%d,%d,%d,%d\tfov=%s,%s\torigin=%s\tangles=%s\tz=%s,%s\tzvm=%s,%s\t"
+		"aspect=%s\tortho=%d\tbloom=%d",
+		ShadowTextureName( pRenderTarget ), ShadowTextureName( pDepthTexture ), v.x, v.y, v.width, v.height,
+		Hex( v.fov ).c_str(), Hex( v.fovViewmodel ).c_str(), Vec( v.origin ).c_str(), Ang( v.angles ).c_str(),
+		Hex( v.zNear ).c_str(), Hex( v.zFar ).c_str(), Hex( v.zNearViewmodel ).c_str(), Hex( v.zFarViewmodel ).c_str(),
+		Hex( v.m_flAspectRatio ).c_str(), v.m_bOrtho ? 1 : 0, v.m_bDoBloomAndToneMapping ? 1 : 0 );
 }
 
 static CShadowDebugOverlay s_DebugOverlay;
 CShadowDebugOverlay *debugoverlay = &s_DebugOverlay;
 
-void CShadowDebugOverlay::AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b, bool noDepthTest, float duration )
+void CShadowDebugOverlay::AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b,
+										  bool noDepthTest, float duration )
 {
-	ShadowLog( "E\tdbg.AddLineOverlay\t%s\t%s\t%d\t%d\t%d\t%d\t%s", Vec( origin ).c_str(), Vec( dest ).c_str(), r, g, b, noDepthTest ? 1 : 0,
-	           Hex( duration ).c_str() );
+	ShadowLog( "E\tdbg.AddLineOverlay\t%s\t%s\t%d\t%d\t%d\t%d\t%s", Vec( origin ).c_str(), Vec( dest ).c_str(), r, g, b,
+			   noDepthTest ? 1 : 0, Hex( duration ).c_str() );
 }
 
 void CShadowDebugOverlay::AddTextOverlay( const Vector &origin, int line_offset, const char *format, ... )
@@ -1062,7 +1153,7 @@ void CShadowDebugOverlay::AddTextOverlay( const Vector &origin, int line_offset,
 	}
 	else
 	{
-		char sz[ 256 ];
+		char sz[256];
 		vsnprintf( sz, sizeof( sz ), format, ap );
 		text = sz;
 	}
@@ -1109,27 +1200,27 @@ struct EngineShadow_t
 	int m_nNextFree = -1;
 };
 
-std::vector< EngineShadow_t > s_EngineShadows;
+std::vector<EngineShadow_t> s_EngineShadows;
 int s_nEngineFirstFree = -1;
 
 std::string InfoText( const ShadowInfo_t &i )
 {
-	return Mat( i.m_WorldToShadow ) + "\t" + Hex( i.m_FalloffOffset ) + "\t" + Hex( i.m_MaxDist ) + "\t" + Hex( i.m_FalloffAmount ) +
-	       "\t" + Hex( i.m_TexOrigin.x ) + "," + Hex( i.m_TexOrigin.y ) + "\t" + Hex( i.m_TexSize.x ) + "," + Hex( i.m_TexSize.y ) +
-	       "\t" + std::to_string( i.m_FalloffBias );
+	return Mat( i.m_WorldToShadow ) + "\t" + Hex( i.m_FalloffOffset ) + "\t" + Hex( i.m_MaxDist ) + "\t" +
+		Hex( i.m_FalloffAmount ) + "\t" + Hex( i.m_TexOrigin.x ) + "," + Hex( i.m_TexOrigin.y ) + "\t" +
+		Hex( i.m_TexSize.x ) + "," + Hex( i.m_TexSize.y ) + "\t" + std::to_string( i.m_FalloffBias );
 }
 
 std::string StateText( const FlashlightState_t &s )
 {
-	char sz[ 64 ];
+	char sz[64];
 	snprintf( sz, sizeof( sz ), "%d\t%d", s.m_bEnableShadows ? 1 : 0, s.m_nSpotlightTextureFrame );
 	return Vec( s.m_vecLightOrigin ) + "\t" + Hex( s.m_quatOrientation.x ) + "," + Hex( s.m_quatOrientation.y ) + "," +
-	       Hex( s.m_quatOrientation.z ) + "," + Hex( s.m_quatOrientation.w ) + "\t" + Hex( s.m_NearZ ) + "\t" + Hex( s.m_FarZ ) + "\t" +
-	       Hex( s.m_fHorizontalFOVDegrees ) + "\t" + Hex( s.m_fVerticalFOVDegrees ) + "\t" + Hex( s.m_fQuadraticAtten ) + "," +
-	       Hex( s.m_fLinearAtten ) + "," + Hex( s.m_fConstantAtten ) + "\t" + Hex( s.m_Color[ 0 ] ) + "," + Hex( s.m_Color[ 1 ] ) + "," +
-	       Hex( s.m_Color[ 2 ] ) + "," + Hex( s.m_Color[ 3 ] ) + "\t" + ShadowTextureName( s.m_pSpotlightTexture ) + "\t" + sz + "\t" +
-	       Hex( s.m_flShadowMapResolution ) + "\t" + Hex( s.m_flShadowAtten ) + "\t" + Hex( s.m_flShadowSlopeScaleDepthBias ) + "\t" +
-	       Hex( s.m_flShadowDepthBias );
+		Hex( s.m_quatOrientation.z ) + "," + Hex( s.m_quatOrientation.w ) + "\t" + Hex( s.m_NearZ ) + "\t" +
+		Hex( s.m_FarZ ) + "\t" + Hex( s.m_fHorizontalFOVDegrees ) + "\t" + Hex( s.m_fVerticalFOVDegrees ) + "\t" +
+		Hex( s.m_fQuadraticAtten ) + "," + Hex( s.m_fLinearAtten ) + "," + Hex( s.m_fConstantAtten ) + "\t" +
+		Hex( s.m_Color[0] ) + "," + Hex( s.m_Color[1] ) + "," + Hex( s.m_Color[2] ) + "," + Hex( s.m_Color[3] ) + "\t" +
+		ShadowTextureName( s.m_pSpotlightTexture ) + "\t" + sz + "\t" + Hex( s.m_flShadowMapResolution ) + "\t" +
+		Hex( s.m_flShadowAtten ) + "\t" + Hex( s.m_flShadowSlopeScaleDepthBias ) + "\t" + Hex( s.m_flShadowDepthBias );
 }
 
 std::string FrustumText( const Frustum_t &f )
@@ -1139,7 +1230,7 @@ std::string FrustumText( const Frustum_t &f )
 	{
 		const cplane_t *p = f.GetPlane( i );
 		s += ( i ? ";" : "" ) + Vec( p->normal ) + "," + Hex( p->dist ) + "," + std::to_string( (int)p->type ) + "," +
-		     std::to_string( (int)p->signbits );
+			std::to_string( (int)p->signbits );
 	}
 	return s;
 }
@@ -1149,40 +1240,50 @@ std::string FrustumText( const Frustum_t &f )
 class CShadowEngineShadowMgr final : public IShadowMgr
 {
 public:
-	virtual ShadowHandle_t CreateShadow( IMaterial *pMaterial, IMaterial *pModelMaterial, void *pBindProxy, int creationFlags )
+	virtual ShadowHandle_t CreateShadow( IMaterial *pMaterial, IMaterial *pModelMaterial, void *pBindProxy,
+										 int creationFlags )
 	{
 		ADD_FAILURE() << "the subject called CreateShadow, not CreateShadowEx";
 		return CreateShadowEx( pMaterial, pModelMaterial, pBindProxy, creationFlags );
 	}
+
 	virtual void DestroyShadow( ShadowHandle_t h )
 	{
 		ShadowLog( "E\tsm.DestroyShadow\t%d", h );
-		s_EngineShadows[ h ].m_bLive = false;
-		s_EngineShadows[ h ].m_nNextFree = s_nEngineFirstFree;
+		s_EngineShadows[h].m_bLive = false;
+		s_EngineShadows[h].m_nNextFree = s_nEngineFirstFree;
 		s_nEngineFirstFree = h;
 	}
-	virtual void SetShadowMaterial( ShadowHandle_t h, IMaterial *pMaterial, IMaterial *pModelMaterial, void *pBindProxy )
+
+	virtual void SetShadowMaterial( ShadowHandle_t h, IMaterial *pMaterial, IMaterial *pModelMaterial,
+									void *pBindProxy )
 	{
-		ShadowLog( "E\tsm.SetShadowMaterial\t%d\t%s\t%s\t%d", h, ShadowMaterialName( pMaterial ), ShadowMaterialName( pModelMaterial ),
-		           (int)(intp)pBindProxy );
+		ShadowLog( "E\tsm.SetShadowMaterial\t%d\t%s\t%s\t%d", h, ShadowMaterialName( pMaterial ),
+				   ShadowMaterialName( pModelMaterial ), (int)(intp)pBindProxy );
 	}
-	virtual void ProjectShadow( ShadowHandle_t h, const Vector &origin, const Vector &projectionDir, const VMatrix &worldToShadow,
-	                            const Vector2D &size, int nLeafCount, const int *pLeafList, float maxHeight, float falloffOffset,
-	                            float falloffAmount, const Vector &vecCasterOrigin )
+
+	virtual void ProjectShadow( ShadowHandle_t h, const Vector &origin, const Vector &projectionDir,
+								const VMatrix &worldToShadow, const Vector2D &size, int nLeafCount,
+								const int *pLeafList, float maxHeight, float falloffOffset, float falloffAmount,
+								const Vector &vecCasterOrigin )
 	{
-		ShadowLog( "E\tsm.ProjectShadow\t%d\t%s\t%s\t%s\t%s,%s\t%s\t%s\t%s\t%s\t%s", h, Vec( origin ).c_str(), Vec( projectionDir ).c_str(),
-		           Mat( worldToShadow ).c_str(), Hex( size.x ).c_str(), Hex( size.y ).c_str(), Leaves( nLeafCount, pLeafList ).c_str(),
-		           Hex( maxHeight ).c_str(), Hex( falloffOffset ).c_str(), Hex( falloffAmount ).c_str(), Vec( vecCasterOrigin ).c_str() );
-		ShadowInfo_t &i = s_EngineShadows[ h ].m_Info;
+		ShadowLog( "E\tsm.ProjectShadow\t%d\t%s\t%s\t%s\t%s,%s\t%s\t%s\t%s\t%s\t%s", h, Vec( origin ).c_str(),
+				   Vec( projectionDir ).c_str(), Mat( worldToShadow ).c_str(), Hex( size.x ).c_str(),
+				   Hex( size.y ).c_str(), Leaves( nLeafCount, pLeafList ).c_str(), Hex( maxHeight ).c_str(),
+				   Hex( falloffOffset ).c_str(), Hex( falloffAmount ).c_str(), Vec( vecCasterOrigin ).c_str() );
+		ShadowInfo_t &i = s_EngineShadows[h].m_Info;
 		i.m_WorldToShadow = worldToShadow;
 		i.m_MaxDist = maxHeight;
 		i.m_FalloffOffset = falloffOffset;
 		i.m_FalloffAmount = falloffAmount;
 	}
-	virtual void ProjectFlashlight( ShadowHandle_t h, const VMatrix &worldToShadow, int nLeafCount, const int *pLeafList )
+
+	virtual void ProjectFlashlight( ShadowHandle_t h, const VMatrix &worldToShadow, int nLeafCount,
+									const int *pLeafList )
 	{
-		ShadowLog( "E\tsm.ProjectFlashlight\t%d\t%s\t%s", h, Mat( worldToShadow ).c_str(), Leaves( nLeafCount, pLeafList ).c_str() );
-		EngineShadow_t &s = s_EngineShadows[ h ];
+		ShadowLog( "E\tsm.ProjectFlashlight\t%d\t%s\t%s", h, Mat( worldToShadow ).c_str(),
+				   Leaves( nLeafCount, pLeafList ).c_str() );
+		EngineShadow_t &s = s_EngineShadows[h];
 		s.m_Info.m_WorldToShadow = worldToShadow;
 		Vector mins, maxs;
 		CalculateAABBFromProjectionMatrix( worldToShadow, &mins, &maxs );
@@ -1193,93 +1294,120 @@ public:
 		s.m_Frustum.SetPlane( 4, PLANE_Y, Vector( 0, -1, 0 ), -maxs.y );
 		s.m_Frustum.SetPlane( 5, PLANE_Z, Vector( 0, 0, -1 ), -maxs.z );
 	}
+
 	virtual const ShadowInfo_t &GetInfo( ShadowHandle_t h )
 	{
-		ShadowLog( "Q\tsm.GetInfo\t%d\t%s", h, InfoText( s_EngineShadows[ h ].m_Info ).c_str() );
-		return s_EngineShadows[ h ].m_Info;
+		ShadowLog( "Q\tsm.GetInfo\t%d\t%s", h, InfoText( s_EngineShadows[h].m_Info ).c_str() );
+		return s_EngineShadows[h].m_Info;
 	}
+
 	virtual const Frustum_t &GetFlashlightFrustum( ShadowHandle_t h )
 	{
-		ShadowLog( "Q\tsm.GetFlashlightFrustum\t%d\t%s", h, FrustumText( s_EngineShadows[ h ].m_Frustum ).c_str() );
-		return s_EngineShadows[ h ].m_Frustum;
+		ShadowLog( "Q\tsm.GetFlashlightFrustum\t%d\t%s", h, FrustumText( s_EngineShadows[h].m_Frustum ).c_str() );
+		return s_EngineShadows[h].m_Frustum;
 	}
+
 	virtual void AddShadowToBrushModel( ShadowHandle_t h, model_t *pModel, const Vector &origin, const QAngle &angles )
 	{
-		ShadowLog( "E\tsm.AddShadowToBrushModel\t%d\t%s\t%s\t%s", h, M( pModel ).c_str(), Vec( origin ).c_str(), Ang( angles ).c_str() );
+		ShadowLog( "E\tsm.AddShadowToBrushModel\t%d\t%s\t%s\t%s", h, M( pModel ).c_str(), Vec( origin ).c_str(),
+				   Ang( angles ).c_str() );
 	}
+
 	virtual void RemoveAllShadowsFromBrushModel( model_t *pModel )
 	{
 		ShadowLog( "E\tsm.RemoveAllShadowsFromBrushModel\t%s", M( pModel ).c_str() );
 	}
+
 	virtual void SetShadowTexCoord( ShadowHandle_t h, float x, float y, float w, float hh )
 	{
-		ShadowLog( "E\tsm.SetShadowTexCoord\t%d\t%s\t%s\t%s\t%s", h, Hex( x ).c_str(), Hex( y ).c_str(), Hex( w ).c_str(), Hex( hh ).c_str() );
-		ShadowInfo_t &i = s_EngineShadows[ h ].m_Info;
+		ShadowLog( "E\tsm.SetShadowTexCoord\t%d\t%s\t%s\t%s\t%s", h, Hex( x ).c_str(), Hex( y ).c_str(),
+				   Hex( w ).c_str(), Hex( hh ).c_str() );
+		ShadowInfo_t &i = s_EngineShadows[h].m_Info;
 		i.m_TexOrigin.Init( x, y );
 		i.m_TexSize.Init( w, hh );
 	}
+
 	virtual void AddShadowToModel( ShadowHandle_t h, ModelInstanceHandle_t instance )
 	{
 		ShadowLog( "E\tsm.AddShadowToModel\t%d\t%d", h, instance );
 	}
+
 	virtual void RemoveAllShadowsFromModel( ModelInstanceHandle_t instance )
 	{
 		ShadowLog( "E\tsm.RemoveAllShadowsFromModel\t%d", instance );
 	}
+
 	virtual void ClearExtraClipPlanes( ShadowHandle_t h ) { ShadowLog( "E\tsm.ClearExtraClipPlanes\t%d", h ); }
+
 	virtual void AddExtraClipPlane( ShadowHandle_t h, const Vector &normal, float dist )
 	{
 		ShadowLog( "E\tsm.AddExtraClipPlane\t%d\t%s\t%s", h, Vec( normal ).c_str(), Hex( dist ).c_str() );
 	}
-	virtual void EnableShadow( ShadowHandle_t h, bool bEnable ) { ShadowLog( "E\tsm.EnableShadow\t%d\t%d", h, bEnable ? 1 : 0 ); }
+
+	virtual void EnableShadow( ShadowHandle_t h, bool bEnable )
+	{
+		ShadowLog( "E\tsm.EnableShadow\t%d\t%d", h, bEnable ? 1 : 0 );
+	}
+
 	virtual void SetFalloffBias( ShadowHandle_t h, unsigned char ucBias )
 	{
 		ShadowLog( "E\tsm.SetFalloffBias\t%d\t%d", h, ucBias );
-		s_EngineShadows[ h ].m_Info.m_FalloffBias = ucBias;
+		s_EngineShadows[h].m_Info.m_FalloffBias = ucBias;
 	}
+
 	virtual void UpdateFlashlightState( ShadowHandle_t h, const FlashlightState_t &lightState )
 	{
 		ShadowLog( "E\tsm.UpdateFlashlightState\t%d\t%s", h, StateText( lightState ).c_str() );
-		s_EngineShadows[ h ].m_State = lightState;
+		s_EngineShadows[h].m_State = lightState;
 	}
+
 	virtual void DrawFlashlightDepthTexture() { ADD_FAILURE() << "the subject called DrawFlashlightDepthTexture"; }
+
 	virtual void AddFlashlightRenderable( ShadowHandle_t h, IClientRenderable *pRenderable )
 	{
 		ShadowLog( "E\tsm.AddFlashlightRenderable\t%d\t%s", h, R( pRenderable ).c_str() );
 	}
-	virtual ShadowHandle_t CreateShadowEx( IMaterial *pMaterial, IMaterial *pModelMaterial, void *pBindProxy, int creationFlags )
+
+	virtual ShadowHandle_t CreateShadowEx( IMaterial *pMaterial, IMaterial *pModelMaterial, void *pBindProxy,
+										   int creationFlags )
 	{
 		int h;
 		if ( s_nEngineFirstFree >= 0 )
 		{
 			h = s_nEngineFirstFree;
-			s_nEngineFirstFree = s_EngineShadows[ h ].m_nNextFree;
+			s_nEngineFirstFree = s_EngineShadows[h].m_nNextFree;
 		}
 		else
 		{
 			h = (int)s_EngineShadows.size();
 			s_EngineShadows.emplace_back();
 		}
-		EngineShadow_t &s = s_EngineShadows[ h ];
+		EngineShadow_t &s = s_EngineShadows[h];
 		s = EngineShadow_t();
 		s.m_bLive = true;
 		memset( (void *)&s.m_Info, 0, sizeof( s.m_Info ) );
 		s.m_Info.m_TexSize.Init( 1.0f, 1.0f );
-		ShadowLog( "E\tsm.CreateShadowEx\t%s\t%s\t%d\t%d\t=>%d", ShadowMaterialName( pMaterial ), ShadowMaterialName( pModelMaterial ),
-		           (int)(intp)pBindProxy, creationFlags, h );
+		ShadowLog( "E\tsm.CreateShadowEx\t%s\t%s\t%d\t%d\t=>%d", ShadowMaterialName( pMaterial ),
+				   ShadowMaterialName( pModelMaterial ), (int)(intp)pBindProxy, creationFlags, h );
 		return (ShadowHandle_t)h;
 	}
-	virtual void SetFlashlightDepthTexture( ShadowHandle_t h, ITexture *pFlashlightDepthTexture, unsigned char ucShadowStencilBit )
+
+	virtual void SetFlashlightDepthTexture( ShadowHandle_t h, ITexture *pFlashlightDepthTexture,
+											unsigned char ucShadowStencilBit )
 	{
-		ShadowLog( "E\tsm.SetFlashlightDepthTexture\t%d\t%s\t%d", h, ShadowTextureName( pFlashlightDepthTexture ), ucShadowStencilBit );
+		ShadowLog( "E\tsm.SetFlashlightDepthTexture\t%d\t%s\t%d", h, ShadowTextureName( pFlashlightDepthTexture ),
+				   ucShadowStencilBit );
 	}
+
 	virtual const FlashlightState_t &GetFlashlightState( ShadowHandle_t h )
 	{
-		ShadowLog( "Q\tsm.GetFlashlightState\t%d\t%s", h, StateText( s_EngineShadows[ h ].m_State ).c_str() );
-		return s_EngineShadows[ h ].m_State;
+		ShadowLog( "Q\tsm.GetFlashlightState\t%d\t%s", h, StateText( s_EngineShadows[h].m_State ).c_str() );
+		return s_EngineShadows[h].m_State;
 	}
+
 	virtual void SetFlashlightRenderState( ShadowHandle_t h ) { ShadowLog( "E\tsm.SetFlashlightRenderState\t%d", h ); }
 };
+
 static CShadowEngineShadowMgr s_EngineShadowMgr;
 IShadowMgr *shadowmgr = &s_EngineShadowMgr;
 
@@ -1293,63 +1421,112 @@ namespace
 class CProxyVar final : public IMaterialVar
 {
 public:
-	CProxyVar( const char *pszName, IMaterial *pOwner ) : m_strName( pszName ), m_pOwner( pOwner ) {}
+	CProxyVar( const char *pszName, IMaterial *pOwner )
+		: m_strName( pszName )
+		, m_pOwner( pOwner )
+	{
+	}
+
 	virtual ITexture *GetTextureValue( void ) { return NULL; }
+
 	virtual char const *GetName( void ) const { return m_strName.c_str(); }
+
 	virtual MaterialVarSym_t GetNameAsSymbol() const { return 0; }
-	virtual void SetFloatValue( float val ) { ShadowLog( "E\tvar.SetFloatValue\t%s\t%s", m_strName.c_str(), Hex( val ).c_str() ); }
+
+	virtual void SetFloatValue( float val )
+	{
+		ShadowLog( "E\tvar.SetFloatValue\t%s\t%s", m_strName.c_str(), Hex( val ).c_str() );
+	}
+
 	virtual void SetIntValue( int val ) { ShadowLog( "E\tvar.SetIntValue\t%s\t%d", m_strName.c_str(), val ); }
-	virtual void SetStringValue( char const *val ) { ShadowLog( "E\tvar.SetStringValue\t%s\t%s", m_strName.c_str(), val ); }
+
+	virtual void SetStringValue( char const *val )
+	{
+		ShadowLog( "E\tvar.SetStringValue\t%s\t%s", m_strName.c_str(), val );
+	}
+
 	virtual char const *GetStringValue( void ) const { return ""; }
+
 	virtual void SetFourCCValue( FourCC, void * ) {}
+
 	virtual void GetFourCCValue( FourCC *, void ** ) {}
+
 	virtual void SetVecValue( float const *val, int numcomps )
 	{
 		std::string s;
 		for ( int i = 0; i < numcomps; i++ )
-			s += ( i ? "," : "" ) + Hex( val[ i ] );
+			s += ( i ? "," : "" ) + Hex( val[i] );
 		ShadowLog( "E\tvar.SetVecValue\t%s\t%d\t%s", m_strName.c_str(), numcomps, s.c_str() );
 	}
+
 	virtual void SetVecValue( float x, float y ) { ShadowLog( "E\tvar.SetVecValue2\t%s", m_strName.c_str() ); }
+
 	virtual void SetVecValue( float x, float y, float z ) { ShadowLog( "E\tvar.SetVecValue3\t%s", m_strName.c_str() ); }
-	virtual void SetVecValue( float x, float y, float z, float w ) { ShadowLog( "E\tvar.SetVecValue4\t%s", m_strName.c_str() ); }
+
+	virtual void SetVecValue( float x, float y, float z, float w )
+	{
+		ShadowLog( "E\tvar.SetVecValue4\t%s", m_strName.c_str() );
+	}
+
 	virtual void GetLinearVecValue( float *, int ) const {}
+
 	virtual void SetTextureValue( ITexture *pTexture )
 	{
 		ShadowLog( "E\tvar.SetTextureValue\t%s\t%s", m_strName.c_str(), ShadowTextureName( pTexture ) );
 	}
+
 	virtual IMaterial *GetMaterialValue( void ) { return NULL; }
+
 	virtual void SetMaterialValue( IMaterial * ) {}
+
 	virtual bool IsDefined() const { return true; }
+
 	virtual void SetUndefined() {}
-	virtual void SetMatrixValue( VMatrix const &matrix ) { ShadowLog( "E\tvar.SetMatrixValue\t%s\t%s", m_strName.c_str(), Mat( matrix ).c_str() ); }
+
+	virtual void SetMatrixValue( VMatrix const &matrix )
+	{
+		ShadowLog( "E\tvar.SetMatrixValue\t%s\t%s", m_strName.c_str(), Mat( matrix ).c_str() );
+	}
+
 	virtual const VMatrix &GetMatrixValue() { return m_Matrix; }
+
 	virtual bool MatrixIsIdentity() const { return true; }
+
 	virtual void CopyFrom( IMaterialVar * ) {}
+
 	virtual void SetValueAutodetectType( char const * ) {}
+
 	virtual IMaterial *GetOwningMaterial() { return m_pOwner; }
+
 	virtual void SetVecComponentValue( float, int ) {}
+
 	virtual int GetIntValueInternal( void ) const { return 0; }
+
 	virtual float GetFloatValueInternal( void ) const { return 0.0f; }
+
 	virtual float const *GetVecValueInternal() const { return m_Vec; }
+
 	virtual void GetVecValueInternal( float *, int ) const {}
+
 	virtual int VectorSizeInternal() const { return 0; }
 
 	std::string m_strName;
 	IMaterial *m_pOwner;
 	VMatrix m_Matrix;
-	float m_Vec[ 4 ] = {};
+	float m_Vec[4] = {};
 };
 
 // A material that has the vars named in its list; FindVar logs each lookup.
 class CProxyMaterial final : public IMaterial
 {
 public:
-	CProxyMaterial( const char *pszName, std::vector< std::string > vars ) : m_strName( pszName )
+	CProxyMaterial( const char *pszName, std::vector<std::string> vars )
+		: m_strName( pszName )
 	{
 		for ( const std::string &v : vars )
 			m_Vars.emplace_back( new CProxyVar( v.c_str(), this ) );
 	}
+
 	virtual IMaterialVar *FindVar( const char *varName, bool *found, bool complain )
 	{
 		for ( auto &v : m_Vars )
@@ -1365,65 +1542,127 @@ public:
 		ShadowLog( "Q\tmat.FindVar\t%s\t%s\t%d\t0", m_strName.c_str(), varName, complain ? 1 : 0 );
 		return &m_Undefined;
 	}
+
 	virtual const char *GetName() const { return m_strName.c_str(); }
+
 	virtual const char *GetTextureGroupName() const { return ""; }
-	virtual PreviewImageRetVal_t GetPreviewImageProperties( int *, int *, ImageFormat *, bool * ) const { return MATERIAL_NO_PREVIEW_IMAGE; }
-	virtual PreviewImageRetVal_t GetPreviewImage( unsigned char *, int, int, ImageFormat ) const { return MATERIAL_NO_PREVIEW_IMAGE; }
+
+	virtual PreviewImageRetVal_t GetPreviewImageProperties( int *, int *, ImageFormat *, bool * ) const
+	{
+		return MATERIAL_NO_PREVIEW_IMAGE;
+	}
+
+	virtual PreviewImageRetVal_t GetPreviewImage( unsigned char *, int, int, ImageFormat ) const
+	{
+		return MATERIAL_NO_PREVIEW_IMAGE;
+	}
+
 	virtual int GetMappingWidth() { return 0; }
+
 	virtual int GetMappingHeight() { return 0; }
+
 	virtual int GetNumAnimationFrames() { return 0; }
+
 	virtual bool InMaterialPage( void ) { return false; }
+
 	virtual void GetMaterialOffset( float * ) {}
+
 	virtual void GetMaterialScale( float * ) {}
+
 	virtual IMaterial *GetMaterialPage( void ) { return NULL; }
+
 	virtual void IncrementReferenceCount( void ) {}
+
 	virtual void DecrementReferenceCount( void ) {}
+
 	virtual int GetEnumerationID( void ) const { return 0; }
+
 	virtual void GetLowResColorSample( float, float, float * ) const {}
+
 	virtual void RecomputeStateSnapshots() {}
+
 	virtual bool IsTranslucent() { return false; }
+
 	virtual bool IsAlphaTested() { return false; }
+
 	virtual bool IsVertexLit() { return false; }
+
 	virtual VertexFormat_t GetVertexFormat() const { return 0; }
+
 	virtual bool HasProxy( void ) const { return true; }
+
 	virtual bool UsesEnvCubemap( void ) { return false; }
+
 	virtual bool NeedsTangentSpace( void ) { return false; }
+
 	virtual bool NeedsPowerOfTwoFrameBufferTexture( bool ) { return false; }
+
 	virtual bool NeedsFullFrameBufferTexture( bool ) { return false; }
+
 	virtual bool NeedsSoftwareSkinning( void ) { return false; }
+
 	virtual void AlphaModulate( float ) {}
+
 	virtual void ColorModulate( float, float, float ) {}
+
 	virtual void SetMaterialVarFlag( MaterialVarFlags_t, bool ) {}
+
 	virtual bool GetMaterialVarFlag( MaterialVarFlags_t ) const { return false; }
+
 	virtual void GetReflectivity( Vector & ) {}
+
 	virtual bool GetPropertyFlag( MaterialPropertyTypes_t ) { return false; }
+
 	virtual bool IsTwoSided() { return false; }
+
 	virtual void SetShader( const char * ) {}
+
 	virtual int GetNumPasses( void ) { return 0; }
+
 	virtual int GetTextureMemoryBytes( void ) { return 0; }
+
 	virtual void Refresh() {}
+
 	virtual bool NeedsLightmapBlendAlpha( void ) { return false; }
+
 	virtual bool NeedsSoftwareLighting( void ) { return false; }
+
 	virtual int ShaderParamCount() const { return 0; }
+
 	virtual IMaterialVar **GetShaderParams( void ) { return NULL; }
+
 	virtual bool IsErrorMaterial() const { return false; }
+
 	virtual void SetUseFixedFunctionBakedLighting( bool ) {}
+
 	virtual float GetAlphaModulation() { return 1.0f; }
+
 	virtual void GetColorModulation( float *, float *, float * ) {}
+
 	virtual MorphFormat_t GetMorphFormat() const { return 0; }
+
 	virtual IMaterialVar *FindVarFast( char const *, unsigned int * ) { return NULL; }
+
 	virtual void SetShaderAndParams( KeyValues * ) {}
+
 	virtual const char *GetShaderName() const { return ""; }
+
 	virtual void DeleteIfUnreferenced() {}
+
 	virtual bool IsSpriteCard() { return false; }
+
 	virtual void CallBindProxy( void * ) {}
+
 	virtual IMaterial *CheckProxyReplacement( void * ) { return this; }
+
 	virtual void RefreshPreservingMaterialVars() {}
+
 	virtual bool WasReloadedFromWhitelist() { return false; }
+
 	virtual bool IsPrecached() const { return true; }
 
 	std::string m_strName;
-	std::vector< std::unique_ptr< CProxyVar > > m_Vars;
+	std::vector<std::unique_ptr<CProxyVar>> m_Vars;
 	CProxyVar m_Undefined{ "-", this };
 };
 
@@ -1433,11 +1672,13 @@ public:
 // igamesystem.cpp's two destructors, and tier1's InterfaceReg, which records
 // the names the material system would ask for and nothing more.
 IGameSystem::~IGameSystem() {}
+
 IGameSystemPerFrame::~IGameSystemPerFrame() {}
 
-static std::vector< std::string > s_ExposedAs;
+static std::vector<std::string> s_ExposedAs;
 
-InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName ) : m_pName( pName )
+InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName )
+	: m_pName( pName )
 {
 	m_CreateFn = fn;
 	m_pNext = NULL;
@@ -1463,11 +1704,12 @@ InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName ) : m_p
 //-----------------------------------------------------------------------------
 struct Probe_t
 {
-	size_t m_nLine;        // rows written before the probe
-	std::string m_strArm;  // the arm, or arms joined by '|'
+	size_t m_nLine; // rows written before the probe
+	std::string m_strArm; // the arm, or arms joined by '|'
 	int m_nTag;
 };
-static std::vector< Probe_t > s_Probes;
+
+static std::vector<Probe_t> s_Probes;
 
 static size_t LogLines()
 {
@@ -1485,7 +1727,7 @@ static void ProbeReceiver( ClientShadowHandle_t handle, IClientRenderable *pRend
 {
 	CClientShadowMgr &m = s_ClientShadowMgr;
 	++g_nQuiet;
-	const CClientShadowMgr::ClientShadow_t &shadow = m.m_Shadows[ handle ];
+	const CClientShadowMgr::ClientShadow_t &shadow = m.m_Shadows[handle];
 	IClientRenderable *pSource = ClientEntityList().GetClientRenderableFromHandle( shadow.m_Entity );
 	std::string arm;
 	const bool bFlash = ( shadow.m_Flags & SHADOW_FLAGS_FLASHLIGHT ) != 0;
@@ -1561,8 +1803,12 @@ static void ProbeReceiver( ClientShadowHandle_t handle, IClientRenderable *pRend
 			arm += "|d6.culled";
 		else
 		{
-			const char *pszKind = type == SHADOW_RECEIVER_BRUSH_MODEL ? "brush" : type == SHADOW_RECEIVER_STATIC_PROP ? "static" : "studio";
-			const char *pszCast = bFlash ? "flash" : m.GetActualShadowCastType( handle ) == SHADOWS_RENDER_TO_TEXTURE ? "rtt" : "simple";
+			const char *pszKind = type == SHADOW_RECEIVER_BRUSH_MODEL ? "brush"
+				: type == SHADOW_RECEIVER_STATIC_PROP                 ? "static"
+																	  : "studio";
+			const char *pszCast = bFlash                                           ? "flash"
+				: m.GetActualShadowCastType( handle ) == SHADOWS_RENDER_TO_TEXTURE ? "rtt"
+																				   : "simple";
 			arm += std::string( "|d6.kept." ) + pszKind + "." + pszCast;
 		}
 	}
@@ -1571,20 +1817,20 @@ static void ProbeReceiver( ClientShadowHandle_t handle, IClientRenderable *pRend
 }
 
 // Each render-to-texture shadow's atlas fragment: its power, or -1.
-static std::map< ClientShadowHandle_t, std::pair< int, int > > AtlasState()
+static std::map<ClientShadowHandle_t, std::pair<int, int>> AtlasState()
 {
 	CClientShadowMgr &m = s_ClientShadowMgr;
-	std::map< ClientShadowHandle_t, std::pair< int, int > > state;   // shadow -> (fragment, power)
+	std::map<ClientShadowHandle_t, std::pair<int, int>> state; // shadow -> (fragment, power)
 	if ( !m.m_RenderToTextureActive )
 		return state;
 	for ( ClientShadowHandle_t h = m.m_Shadows.Head(); h != m.m_Shadows.InvalidIndex(); h = m.m_Shadows.Next( h ) )
 	{
-		const CClientShadowMgr::ClientShadow_t &shadow = m.m_Shadows[ h ];
+		const CClientShadowMgr::ClientShadow_t &shadow = m.m_Shadows[h];
 		if ( !( shadow.m_Flags & SHADOW_FLAGS_USE_RENDER_TO_TEXTURE ) )
 			continue;
-		const int f = m.m_ShadowAllocator.m_Textures[ shadow.m_ShadowTexture ].m_Fragment;
+		const int f = m.m_ShadowAllocator.m_Textures[shadow.m_ShadowTexture].m_Fragment;
 		const bool bValid = f != (int)(unsigned short)~0;
-		state[ h ] = { bValid ? f : -1, bValid ? m.m_ShadowAllocator.GetFragmentPower( (unsigned short)f ) : -1 };
+		state[h] = { bValid ? f : -1, bValid ? m.m_ShadowAllocator.GetFragmentPower( (unsigned short)f ) : -1 };
 	}
 	return state;
 }
@@ -1593,7 +1839,7 @@ static std::map< ClientShadowHandle_t, std::pair< int, int > > AtlasState()
 static int DesiredPower( ClientShadowHandle_t h, float flArea )
 {
 	CClientShadowMgr &m = s_ClientShadowMgr;
-	const int nPower = m.m_ShadowAllocator.m_Textures[ m.m_Shadows[ h ].m_ShadowTexture ].m_Power;
+	const int nPower = m.m_ShadowAllocator.m_Textures[m.m_Shadows[h].m_ShadowTexture].m_Power;
 	int nDesiredPower = 4, nDesiredWidth = 16;
 	while ( ( nDesiredWidth * nDesiredWidth ) < flArea )
 	{
@@ -1609,12 +1855,13 @@ static int DesiredPower( ClientShadowHandle_t h, float flArea )
 }
 
 // The dirty set, in the order the walk visits it.
-static std::vector< ClientShadowHandle_t > DirtyInOrder()
+static std::vector<ClientShadowHandle_t> DirtyInOrder()
 {
 	CClientShadowMgr &m = s_ClientShadowMgr;
-	std::vector< ClientShadowHandle_t > v;
-	for ( unsigned short i = m.m_DirtyShadows.FirstInorder(); i != m.m_DirtyShadows.InvalidIndex(); i = m.m_DirtyShadows.NextInorder( i ) )
-		v.push_back( m.m_DirtyShadows[ i ] );
+	std::vector<ClientShadowHandle_t> v;
+	for ( unsigned short i = m.m_DirtyShadows.FirstInorder(); i != m.m_DirtyShadows.InvalidIndex();
+		  i = m.m_DirtyShadows.NextInorder( i ) )
+		v.push_back( m.m_DirtyShadows[i] );
 	return v;
 }
 
@@ -1633,13 +1880,15 @@ namespace
 //-----------------------------------------------------------------------------
 void Describe( const CShadowThing *p )
 {
-	ShadowLog( "T\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d", p->m_nId,
-	           p->m_bHasModel ? 1 : 0, p->m_nModelType, Vec( p->m_vecOrigin ).c_str(), Ang( p->m_angAngles ).c_str(),
-	           Vec( p->m_vecMins ).c_str(), Vec( p->m_vecMaxs ).c_str(), Vec( p->m_vecRttMins ).c_str(), Vec( p->m_vecRttMaxs ).c_str(),
-	           Vec( p->m_vecAbsMins ).c_str(), Vec( p->m_vecAbsMaxs ).c_str(), Mat34( p->m_Transform ).c_str(), p->m_bCastDistance ? 1 : 0,
-	           Hex( p->m_flCastDistance ).c_str(), p->m_bCastDirection ? 1 : 0, Vec( p->m_vecCastDirection ).c_str(), p->m_nParent,
-	           p->m_nFirstChild, p->m_nNextPeer, p->m_nReceiveFlags, p->m_hShadow, p->m_bShadowDirty ? 1 : 0, p->m_hInstance, p->m_nBody,
-	           p->m_nSkin, p->m_bBonesOk ? 1 : 0, p->m_bDirtyOnOrigin ? 1 : 0, p->m_bGone ? 1 : 0 );
+	ShadowLog(
+		"T\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d",
+		p->m_nId, p->m_bHasModel ? 1 : 0, p->m_nModelType, Vec( p->m_vecOrigin ).c_str(), Ang( p->m_angAngles ).c_str(),
+		Vec( p->m_vecMins ).c_str(), Vec( p->m_vecMaxs ).c_str(), Vec( p->m_vecRttMins ).c_str(),
+		Vec( p->m_vecRttMaxs ).c_str(), Vec( p->m_vecAbsMins ).c_str(), Vec( p->m_vecAbsMaxs ).c_str(),
+		Mat34( p->m_Transform ).c_str(), p->m_bCastDistance ? 1 : 0, Hex( p->m_flCastDistance ).c_str(),
+		p->m_bCastDirection ? 1 : 0, Vec( p->m_vecCastDirection ).c_str(), p->m_nParent, p->m_nFirstChild,
+		p->m_nNextPeer, p->m_nReceiveFlags, p->m_hShadow, p->m_bShadowDirty ? 1 : 0, p->m_hInstance, p->m_nBody,
+		p->m_nSkin, p->m_bBonesOk ? 1 : 0, p->m_bDirtyOnOrigin ? 1 : 0, p->m_bGone ? 1 : 0 );
 }
 
 // The box the renderable occupies in the world, and its frame, from its
@@ -1848,7 +2097,8 @@ FlashlightState_t Light( float x, float y, float z, const QAngle &angles, bool b
 {
 	FlashlightState_t s;
 	s.m_vecLightOrigin.Init( x, y, z );
-	AngleQuaternion( RadianEuler( DEG2RAD( angles.z ), DEG2RAD( angles.x ), DEG2RAD( angles.y ) ), s.m_quatOrientation );
+	AngleQuaternion( RadianEuler( DEG2RAD( angles.z ), DEG2RAD( angles.x ), DEG2RAD( angles.y ) ),
+					 s.m_quatOrientation );
 	s.m_NearZ = 4.0f;
 	s.m_FarZ = flFar;
 	s.m_fHorizontalFOVDegrees = 60.0f;
@@ -1856,7 +2106,10 @@ FlashlightState_t Light( float x, float y, float z, const QAngle &angles, bool b
 	s.m_fQuadraticAtten = 0.0f;
 	s.m_fLinearAtten = 100.0f;
 	s.m_fConstantAtten = 0.0f;
-	s.m_Color[ 0 ] = 1.0f; s.m_Color[ 1 ] = 0.9f; s.m_Color[ 2 ] = 0.8f; s.m_Color[ 3 ] = 0.0f;
+	s.m_Color[0] = 1.0f;
+	s.m_Color[1] = 0.9f;
+	s.m_Color[2] = 0.8f;
+	s.m_Color[3] = 0.0f;
 	s.m_pSpotlightTexture = (ITexture *)&s_SpotlightTexture;
 	s.m_nSpotlightTextureFrame = 0;
 	s.m_bEnableShadows = bShadows;
@@ -1919,7 +2172,8 @@ void Receiver( int nLeaf, CShadowThing *p, ShadowReceiver_t kind )
 
 void AddToReceiver( ClientShadowHandle_t h, CShadowThing *p, ShadowReceiver_t kind )
 {
-	Call( "AddShadowToReceiver\t" + std::to_string( h ) + "\t" + std::to_string( p->m_nId ) + "\t" + std::to_string( (int)kind ) );
+	Call( "AddShadowToReceiver\t" + std::to_string( h ) + "\t" + std::to_string( p->m_nId ) + "\t" +
+		  std::to_string( (int)kind ) );
 	ProbeReceiver( h, p, kind );
 	Subject().AddShadowToReceiver( h, p, kind );
 }
@@ -1944,18 +2198,18 @@ CViewSetup View( float x, float y, float z, const QAngle &angles )
 
 std::string ViewArgs( const CViewSetup &v )
 {
-	return Vec( v.origin ) + "\t" + Ang( v.angles ) + "\t" + Hex( v.zNear ) + "\t" + Hex( v.zFar ) + "\t" + Hex( v.fov ) + "\t" +
-	       Hex( v.m_flAspectRatio );
+	return Vec( v.origin ) + "\t" + Ang( v.angles ) + "\t" + Hex( v.zNear ) + "\t" + Hex( v.zFar ) + "\t" +
+		Hex( v.fov ) + "\t" + Hex( v.m_flAspectRatio );
 }
 
 // The atlas arms of one pass: for each shadow the pass asked the allocator
 // about, its fragment before and after against the power it asked for.
-void ProbeAtlas( const std::map< ClientShadowHandle_t, std::pair< int, int > > &before, size_t nFirstByte )
+void ProbeAtlas( const std::map<ClientShadowHandle_t, std::pair<int, int>> &before, size_t nFirstByte )
 {
 	CClientShadowMgr &m = s_ClientShadowMgr;
-	const std::map< ClientShadowHandle_t, std::pair< int, int > > after = AtlasState();
+	const std::map<ClientShadowHandle_t, std::pair<int, int>> after = AtlasState();
 	// Which shadows the pass drew: each draw loads the engine's matrix for it.
-	std::set< int > drewEngine;
+	std::set<int> drewEngine;
 	{
 		std::istringstream in( g_Log.substr( nFirstByte ) );
 		std::string line, prev;
@@ -1969,7 +2223,7 @@ void ProbeAtlas( const std::map< ClientShadowHandle_t, std::pair< int, int > > &
 	}
 	const int nMax = r_shadowmaxrendered.GetInt();
 	int nRendered = 0;
-	std::set< int > fragmentsBefore;
+	std::set<int> fragmentsBefore;
 	for ( auto &kv : before )
 		if ( kv.second.first >= 0 )
 			fragmentsBefore.insert( kv.second.first );
@@ -1982,7 +2236,7 @@ void ProbeAtlas( const std::map< ClientShadowHandle_t, std::pair< int, int > > &
 			Probe( "d7.budget.lod", h );
 			continue;
 		}
-		const bool bDrew = drewEngine.count( m.m_Shadows[ h ].m_ShadowHandle ) != 0;
+		const bool bDrew = drewEngine.count( m.m_Shadows[h].m_ShadowHandle ) != 0;
 		if ( bDrew )
 			++nRendered;
 		const int nDesired = DesiredPower( h, info.m_flArea );
@@ -2016,10 +2270,10 @@ void ProbeAtlas( const std::map< ClientShadowHandle_t, std::pair< int, int > > &
 	}
 }
 
-void ComputeShadowTextures( const CViewSetup &v, std::vector< int > leaves )
+void ComputeShadowTextures( const CViewSetup &v, std::vector<int> leaves )
 {
 	Call( "ComputeShadowTextures\t" + ViewArgs( v ) + "\t" + Leaves( (int)leaves.size(), leaves.data() ) );
-	std::vector< LeafIndex_t > l( leaves.begin(), leaves.end() );
+	std::vector<LeafIndex_t> l( leaves.begin(), leaves.end() );
 	const auto before = AtlasState();
 	const size_t nFirst = g_Log.size();
 	s_VisibleShadowList.m_ShadowsInView.RemoveAll();
@@ -2119,7 +2373,7 @@ void Command( void ( *pfn )( const CCommand & ), const char *pszLine )
 
 // The two proxies, as the material system makes them: Init on a material
 // with the vars it has, then OnBind with the client shadow handle.
-void ShadowProxy( const std::vector< std::string > &vars, const std::vector< int > &binds )
+void ShadowProxy( const std::vector<std::string> &vars, const std::vector<int> &binds )
 {
 	std::string list;
 	for ( const std::string &v : vars )
@@ -2138,7 +2392,7 @@ void ShadowProxy( const std::vector< std::string > &vars, const std::vector< int
 	}
 }
 
-void ShadowModelProxy( const std::vector< std::string > &vars, const std::vector< int > &binds )
+void ShadowModelProxy( const std::vector<std::string> &vars, const std::vector<int> &binds )
 {
 	std::string list;
 	for ( const std::string &v : vars )
@@ -2175,9 +2429,9 @@ void Turn( CShadowThing *p, const QAngle &angles )
 	Redescribe( p );
 }
 
-std::vector< int > Range( int a, int b )
+std::vector<int> Range( int a, int b )
 {
-	std::vector< int > v;
+	std::vector<int> v;
 	for ( int i = a; i <= b; i++ )
 		v.push_back( i );
 	return v;
@@ -2216,18 +2470,20 @@ static std::string RunScenarioOnce()
 	{
 		ShadowInfo_t info;
 		const char *b = (const char *)&info;
-		ShadowLog( "L\tShadowInfo_t\t%d\t%d,%d,%d,%d,%d,%d,%d", (int)sizeof( info ), (int)( (const char *)&info.m_WorldToShadow - b ),
-		           (int)( (const char *)&info.m_FalloffOffset - b ), (int)( (const char *)&info.m_MaxDist - b ),
-		           (int)( (const char *)&info.m_FalloffAmount - b ), (int)( (const char *)&info.m_TexOrigin - b ),
-		           (int)( (const char *)&info.m_TexSize - b ), (int)( (const char *)&info.m_FalloffBias - b ) );
+		ShadowLog( "L\tShadowInfo_t\t%d\t%d,%d,%d,%d,%d,%d,%d", (int)sizeof( info ),
+				   (int)( (const char *)&info.m_WorldToShadow - b ), (int)( (const char *)&info.m_FalloffOffset - b ),
+				   (int)( (const char *)&info.m_MaxDist - b ), (int)( (const char *)&info.m_FalloffAmount - b ),
+				   (int)( (const char *)&info.m_TexOrigin - b ), (int)( (const char *)&info.m_TexSize - b ),
+				   (int)( (const char *)&info.m_FalloffBias - b ) );
 		cplane_t plane;
 		const char *p = (const char *)&plane;
 		ShadowLog( "L\tcplane_t\t%d\t%d,%d,%d,%d", (int)sizeof( plane ), (int)( (const char *)&plane.normal - p ),
-		           (int)( (const char *)&plane.dist - p ), (int)( (const char *)&plane.type - p ), (int)( (const char *)&plane.signbits - p ) );
+				   (int)( (const char *)&plane.dist - p ), (int)( (const char *)&plane.type - p ),
+				   (int)( (const char *)&plane.signbits - p ) );
 		Frustum_t frustum;
 		const char *f = (const char *)&frustum;
 		ShadowLog( "L\tFrustum_t\t%d\t%d,%d", (int)sizeof( frustum ), (int)( (const char *)frustum.GetPlane( 0 ) - f ),
-		           (int)( (const char *)&frustum.GetAbsNormal( 0 ) - f ) );
+				   (int)( (const char *)&frustum.GetAbsNormal( 0 ) - f ) );
 	}
 
 	// The engine's answers.
@@ -2362,7 +2618,7 @@ static std::string RunScenarioOnce()
 	Move( t5, 560, 0, 40 );
 	Dirty( t5, false );
 	Dirty( t3, false );
-	Dirty( t3, false );   // already dirty
+	Dirty( t3, false ); // already dirty
 	Dirty( t1, true );
 	Dirty( t10, false );
 	DirtyHandle( CLIENTSHADOW_INVALID_HANDLE, false );
@@ -2424,7 +2680,7 @@ static std::string RunScenarioOnce()
 
 	// Destroyed, and its handle reused.
 	Frame( 6 );
-	Dirty( r40, false );   // no shadow of its own
+	Dirty( r40, false ); // no shadow of its own
 	// The dirty set keeps a handle twice (CUtlRBTree::Insert does not refuse
 	// one), and the walk visits each copy.
 	DirtyHandle( h1, false );
@@ -2434,13 +2690,17 @@ static std::string RunScenarioOnce()
 	CreateShadow( t12, kShadow );
 	PreRender();
 	Dirty( t12, false );
-	DestroyShadow( t12 );   // dirty when it goes: the renderable's dirty bit is cleared
+	DestroyShadow( t12 ); // dirty when it goes: the renderable's dirty bit is cleared
 	CShadowThing *t14 = Thing( 14, mod_studio, 1350, 0, 40, 10, 10, 40 );
 	CreateShadow( t14, kShadow );
 	PreRender();
 	AdvanceFrame();
 
-	(void)h4; (void)h5; (void)h6; (void)h9; (void)h10;
+	(void)h4;
+	(void)h5;
+	(void)h6;
+	(void)h9;
+	(void)h10;
 
 	// ---- RENDER TO TEXTURE. A shadow hierarchy (a parent; a child with its
 	// own shadow; a child with none whose own child has one; a brush child; a
@@ -2456,10 +2716,14 @@ static std::string RunScenarioOnce()
 	CShadowThing *pB = Thing( 24, mod_brush, 1500, 30, 10, 10, 10, 10 );
 	CShadowThing *pS = Thing( 25, mod_studio, 1500, -30, 40, 10, 10, 20 );
 	pP->m_nFirstChild = 21;
-	pC->m_nParent = 20; pC->m_nNextPeer = 22;
-	pN->m_nParent = 20; pN->m_nNextPeer = 24; pN->m_nFirstChild = 23;
+	pC->m_nParent = 20;
+	pC->m_nNextPeer = 22;
+	pN->m_nParent = 20;
+	pN->m_nNextPeer = 24;
+	pN->m_nFirstChild = 23;
 	pG->m_nParent = 22;
-	pB->m_nParent = 20; pB->m_nNextPeer = 25;
+	pB->m_nParent = 20;
+	pB->m_nNextPeer = 25;
 	pS->m_nParent = 20;
 	pC->m_bBonesOk = false;
 	for ( CShadowThing *p : { pP, pC, pN, pG, pB, pS } )
@@ -2469,8 +2733,8 @@ static std::string RunScenarioOnce()
 	const ClientShadowHandle_t hG = CreateShadow( pG, kShadow | kRtt );
 	const ClientShadowHandle_t hB = CreateShadow( pB, kShadow | kRtt );
 	CreateShadow( pS, kShadow );
-	std::vector< CShadowThing * > big;
-	std::vector< ClientShadowHandle_t > hBig;
+	std::vector<CShadowThing *> big;
+	std::vector<ClientShadowHandle_t> hBig;
 	for ( int i = 0; i < 7; i++ )
 	{
 		big.push_back( Box( 60 + i, mod_studio, 1700 + i * 100.0f, 0, 40, 40 ) );
@@ -2510,7 +2774,7 @@ static std::string RunScenarioOnce()
 	AdvanceFrame();
 
 	const CViewSetup vMain = View( 0, 0, 100, QAngle( 0, 0, 0 ) );
-	const std::vector< int > all = Range( 0, 39 );
+	const std::vector<int> all = Range( 0, 39 );
 
 	// FRAME 8: every shadow re-projected with the render-to-texture bases;
 	// the pass draws them all (the seventh big caster overflows the 256s),
@@ -2535,9 +2799,9 @@ static std::string RunScenarioOnce()
 	Frame( 9 );
 	CV( r_shadowmaxrendered, "2" );
 	MarkTextureDirty( hP );
-	MarkTextureDirty( hBig[ 0 ] );
-	MarkTextureDirty( hBig[ 1 ] );
-	MarkTextureDirty( hBig[ 2 ] );
+	MarkTextureDirty( hBig[0] );
+	MarkTextureDirty( hBig[1] );
+	MarkTextureDirty( hBig[2] );
 	MarkTextureDirty( hG );
 	MarkTextureDirty( CLIENTSHADOW_INVALID_HANDLE );
 	DirtyHandle( hG, false );
@@ -2546,7 +2810,7 @@ static std::string RunScenarioOnce()
 
 	// FRAME 10: still two; those already on their blobs stay there.
 	Frame( 10 );
-	MarkTextureDirty( hBig[ 3 ] );
+	MarkTextureDirty( hBig[3] );
 	ComputeShadowTextures( vMain, all );
 	AdvanceFrame();
 
@@ -2578,7 +2842,7 @@ static std::string RunScenarioOnce()
 	Frame( 14 );
 	SetPixelsPerUnit( 1.0f );
 	// One big caster leaves the view: its 256 goes unused, to the LRU's head.
-	Move( big[ 0 ], 5000, 0, 40 );
+	Move( big[0], 5000, 0, 40 );
 	ComputeShadowTextures( vMain, all );
 	AdvanceFrame();
 	Frame( 15 );
@@ -2591,7 +2855,7 @@ static std::string RunScenarioOnce()
 	// questions are counted, not written.)
 	Frame( 16 );
 	CV( r_shadowmaxrendered, "400" );
-	std::vector< CShadowThing * > crowd;
+	std::vector<CShadowThing *> crowd;
 	++g_nQuiet;
 	--g_nQuiet;
 	for ( int i = 0; i < 257; i++ )
@@ -2638,14 +2902,14 @@ static std::string RunScenarioOnce()
 	AdvanceFrame();
 
 	// The two proxies, bound to render-to-texture shadows.
-	ShadowProxy( { "$basetexture" }, { hP, hBig[ 0 ], hMedium } );
+	ShadowProxy( { "$basetexture" }, { hP, hBig[0], hMedium } );
 	ShadowProxy( { "$color" }, {} );
-	ShadowModelProxy( { "$basetexture", "$basetextureoffset", "$basetexturescale", "$basetexturetransform", "$falloffoffset",
-	                    "$falloffdistance", "$falloffamount" },
-	                  { hP, hBig[ 6 ], hAnim } );
-	ShadowModelProxy( { "$basetexture", "$basetextureoffset", "$basetexturescale", "$basetexturetransform", "$falloffoffset",
-	                    "$falloffdistance" },
-	                  {} );
+	ShadowModelProxy( { "$basetexture", "$basetextureoffset", "$basetexturescale", "$basetexturetransform",
+						"$falloffoffset", "$falloffdistance", "$falloffamount" },
+					  { hP, hBig[6], hAnim } );
+	ShadowModelProxy( { "$basetexture", "$basetextureoffset", "$basetexturescale", "$basetexturetransform",
+						"$falloffoffset", "$falloffdistance" },
+					  {} );
 	ShadowModelProxy( { "$basetextureoffset" }, {} );
 
 	// FRAME 20: render-to-texture off again: every shadow back to its blob.
@@ -2742,9 +3006,10 @@ static std::string RunScenarioOnce()
 	Frame( 27 );
 	CV( r_flashlightmodels, "0" );
 	CV( r_flashlight_version2, "1" );
-	std::vector< ClientShadowHandle_t > lights;
+	std::vector<ClientShadowHandle_t> lights;
 	for ( int i = 0; i < 1025; i++ )
-		lights.push_back( CreateFlashlight( Light( 1000 + ( i % 32 ) * 20.0f, -300 + ( i / 32 ) * 20.0f, 100, down, true, 50.0f ) ) );
+		lights.push_back(
+			CreateFlashlight( Light( 1000 + ( i % 32 ) * 20.0f, -300 + ( i / 32 ) * 20.0f, 100, down, true, 50.0f ) ) );
 	ComputeShadowDepthTextures( vMain );
 	UnlockAllShadowDepthTextures();
 	for ( ClientShadowHandle_t h : lights )
@@ -2764,7 +3029,8 @@ static std::string RunScenarioOnce()
 	PreRender();
 	PreRender();
 	ComputeShadowTextures( vMain, all );
-	(void)hC; (void)hB;
+	(void)hC;
+	(void)hB;
 	LevelShutdown();
 	SetAmbient( 0.5f, 0.1f, 0.0f );
 	LevelInit();
@@ -2801,9 +3067,9 @@ static std::string MarkerPath()
 	return RepoFile( "src/test/oracle/native/shadowmgr_golden.regen" );
 }
 
-static std::vector< std::string > Lines( const std::string &s )
+static std::vector<std::string> Lines( const std::string &s )
 {
-	std::vector< std::string > v;
+	std::vector<std::string> v;
 	std::istringstream in( s );
 	std::string line;
 	while ( std::getline( in, line ) )
@@ -2811,9 +3077,9 @@ static std::vector< std::string > Lines( const std::string &s )
 	return v;
 }
 
-static std::vector< std::string > Fields( const std::string &line )
+static std::vector<std::string> Fields( const std::string &line )
 {
-	std::vector< std::string > v;
+	std::vector<std::string> v;
 	size_t at = 0;
 	while ( true )
 	{
@@ -2826,9 +3092,9 @@ static std::vector< std::string > Fields( const std::string &line )
 	return v;
 }
 
-static std::vector< std::string > Split( const std::string &s, char c )
+static std::vector<std::string> Split( const std::string &s, char c )
 {
-	std::vector< std::string > v;
+	std::vector<std::string> v;
 	size_t at = 0;
 	while ( true )
 	{
@@ -2843,7 +3109,8 @@ static std::vector< std::string > Split( const std::string &s, char c )
 
 TEST( ShadowMgrOracle, StockProducesTheGolden )
 {
-	SS_SKIP_ON_CI( "a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit" );
+	SS_SKIP_ON_CI(
+		"a golden recorded bit for bit on the owner's machine; another CPU or C library differs in the last bit" );
 	const std::string run = RunScenario();
 
 	if ( std::ifstream( MarkerPath() ).good() )
@@ -2860,12 +3127,12 @@ TEST( ShadowMgrOracle, StockProducesTheGolden )
 
 	ASSERT_GT( golden.size(), 1000000u ) << "the golden is empty or truncated";
 
-	const std::vector< std::string > a = Lines( run ), b = Lines( golden );
+	const std::vector<std::string> a = Lines( run ), b = Lines( golden );
 	for ( size_t n = 0; n < a.size() || n < b.size(); n++ )
 	{
-		ASSERT_TRUE( n < a.size() && n < b.size() && a[ n ] == b[ n ] )
-			<< "line " << n + 1 << ": stock now writes\n  " << ( n < a.size() ? a[ n ].substr( 0, 300 ) : "<end>" )
-			<< "\nand the golden has\n  " << ( n < b.size() ? b[ n ].substr( 0, 300 ) : "<end>" )
+		ASSERT_TRUE( n < a.size() && n < b.size() && a[n] == b[n] )
+			<< "line " << n + 1 << ": stock now writes\n  " << ( n < a.size() ? a[n].substr( 0, 300 ) : "<end>" )
+			<< "\nand the golden has\n  " << ( n < b.size() ? b[n].substr( 0, 300 ) : "<end>" )
 			<< "\nDo NOT regenerate the golden to make this pass; see the file header.";
 	}
 }
@@ -2885,42 +3152,42 @@ namespace
 
 struct RunRow
 {
-	std::vector< std::string > f;
-	int call;   // the C row this row follows (-1 before the first)
+	std::vector<std::string> f;
+	int call; // the C row this row follows (-1 before the first)
 };
 
 struct RunCall
 {
-	std::vector< std::string > f;   // the C row's fields
-	size_t first, last;              // its rows: (first, last]
+	std::vector<std::string> f; // the C row's fields
+	size_t first, last; // its rows: (first, last]
 	int frame;
-	std::map< std::string, std::string > cv;   // the ConVars as the scenario had set them
+	std::map<std::string, std::string> cv; // the ConVars as the scenario had set them
 };
 
 struct RunModel
 {
-	std::vector< RunRow > rows;
-	std::vector< RunCall > calls;
-	std::map< int, int > flagsOfShadow;      // client handle -> CreateShadow / CreateFlashlight flags (from leaf.AddShadow)
-	std::map< int, int > engineOfShadow;     // client handle -> engine handle (from CreateShadowEx)
-	std::map< int, int > thingOfShadow;      // client handle -> thing id (-1 for a flashlight)
-	std::set< int > flashlights;             // client handles
+	std::vector<RunRow> rows;
+	std::vector<RunCall> calls;
+	std::map<int, int> flagsOfShadow; // client handle -> CreateShadow / CreateFlashlight flags (from leaf.AddShadow)
+	std::map<int, int> engineOfShadow; // client handle -> engine handle (from CreateShadowEx)
+	std::map<int, int> thingOfShadow; // client handle -> thing id (-1 for a flashlight)
+	std::set<int> flashlights; // client handles
 };
 
 RunModel Model( const std::string &run )
 {
 	RunModel m;
-	std::map< std::string, std::string > cv;
+	std::map<std::string, std::string> cv;
 	int frame = 0;
 	for ( const std::string &line : Lines( run ) )
 	{
 		RunRow r;
 		r.f = Fields( line );
-		if ( r.f[ 0 ] == "CV" )
-			cv[ r.f[ 1 ] ] = r.f[ 2 ];
-		if ( r.f[ 0 ] == "F" )
-			frame = atoi( r.f[ 1 ].c_str() );
-		if ( r.f[ 0 ] == "C" )
+		if ( r.f[0] == "CV" )
+			cv[r.f[1]] = r.f[2];
+		if ( r.f[0] == "F" )
+			frame = atoi( r.f[1].c_str() );
+		if ( r.f[0] == "C" )
 		{
 			if ( !m.calls.empty() )
 				m.calls.back().last = m.rows.size() - 1;
@@ -2941,25 +3208,25 @@ RunModel Model( const std::string &run )
 	// (the engine handle) and answer.
 	for ( const RunCall &c : m.calls )
 	{
-		const bool bShadow = c.f[ 1 ] == "CreateShadow", bLight = c.f[ 1 ] == "CreateFlashlight";
+		const bool bShadow = c.f[1] == "CreateShadow", bLight = c.f[1] == "CreateFlashlight";
 		if ( !bShadow && !bLight )
 			continue;
 		int flags = -1, eh = -1, h = -1;
 		for ( size_t i = c.first + 1; i <= c.last && i < m.rows.size(); i++ )
 		{
-			const std::vector< std::string > &f = m.rows[ i ].f;
-			if ( f[ 0 ] == "E" && f[ 1 ] == "leaf.AddShadow" && flags < 0 )
-				flags = atoi( f[ 3 ].c_str() );
-			if ( f[ 0 ] == "E" && f[ 1 ] == "sm.CreateShadowEx" && eh < 0 )
-				eh = atoi( f[ 6 ].c_str() + 2 );
-			if ( f[ 0 ] == "R" )
-				h = atoi( f[ 1 ].c_str() );
+			const std::vector<std::string> &f = m.rows[i].f;
+			if ( f[0] == "E" && f[1] == "leaf.AddShadow" && flags < 0 )
+				flags = atoi( f[3].c_str() );
+			if ( f[0] == "E" && f[1] == "sm.CreateShadowEx" && eh < 0 )
+				eh = atoi( f[6].c_str() + 2 );
+			if ( f[0] == "R" )
+				h = atoi( f[1].c_str() );
 		}
 		if ( h < 0 || h == 0xFFFF )
 			continue;
-		m.flagsOfShadow[ h ] = flags;
-		m.engineOfShadow[ h ] = eh;
-		m.thingOfShadow[ h ] = bShadow ? atoi( c.f[ 2 ].c_str() ) : -1;
+		m.flagsOfShadow[h] = flags;
+		m.engineOfShadow[h] = eh;
+		m.thingOfShadow[h] = bShadow ? atoi( c.f[2].c_str() ) : -1;
 		if ( bLight )
 			m.flashlights.insert( h );
 		else
@@ -2970,22 +3237,22 @@ RunModel Model( const std::string &run )
 
 bool Is( const RunRow &r, const char *pszKind, const char *pszWhat = NULL )
 {
-	return r.f[ 0 ] == pszKind && ( !pszWhat || ( r.f.size() > 1 && r.f[ 1 ] == pszWhat ) );
+	return r.f[0] == pszKind && ( !pszWhat || ( r.f.size() > 1 && r.f[1] == pszWhat ) );
 }
 
 bool CallIs( const RunModel &m, int call, const char *pszName )
 {
-	return call >= 0 && m.calls[ call ].f[ 1 ] == pszName;
+	return call >= 0 && m.calls[call].f[1] == pszName;
 }
 
 // The rows of a call, each E row's (kind, what).
-std::vector< const RunRow * > RowsOf( const RunModel &m, const RunCall &c, const char *pszKind = NULL )
+std::vector<const RunRow *> RowsOf( const RunModel &m, const RunCall &c, const char *pszKind = NULL )
 {
-	std::vector< const RunRow * > v;
+	std::vector<const RunRow *> v;
 	for ( size_t i = c.first + 1; i <= c.last && i < m.rows.size(); i++ )
 	{
-		if ( !pszKind || m.rows[ i ].f[ 0 ] == pszKind )
-			v.push_back( &m.rows[ i ] );
+		if ( !pszKind || m.rows[i].f[0] == pszKind )
+			v.push_back( &m.rows[i] );
 	}
 	return v;
 }
@@ -2995,18 +3262,19 @@ bool Silent( const RunModel &m, const RunCall &c )
 {
 	for ( const RunRow *r : RowsOf( m, c ) )
 	{
-		const std::string &k = r->f[ 0 ];
+		const std::string &k = r->f[0];
 		if ( k == "E" || k == "Q" || k == "M" || k == "R" || k == "A" )
 			return false;
 	}
 	return true;
 }
 
-bool CallHas( const RunModel &m, const RunCall &c, const char *pszKind, const char *pszWhat, const char *pszField2 = NULL )
+bool CallHas( const RunModel &m, const RunCall &c, const char *pszKind, const char *pszWhat,
+			  const char *pszField2 = NULL )
 {
 	for ( const RunRow *r : RowsOf( m, c, pszKind ) )
 	{
-		if ( r->f.size() > 1 && r->f[ 1 ] == pszWhat && ( !pszField2 || ( r->f.size() > 2 && r->f[ 2 ] == pszField2 ) ) )
+		if ( r->f.size() > 1 && r->f[1] == pszWhat && ( !pszField2 || ( r->f.size() > 2 && r->f[2] == pszField2 ) ) )
 			return true;
 	}
 	return false;
@@ -3027,32 +3295,41 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	const RunModel m = Model( run );
 	ASSERT_GT( m.calls.size(), 1000u );
 
-	std::map< std::string, int > arms;
-	std::vector< std::string > failures;
-	auto Count = [ & ]( const std::string &arm, int n = 1 ) { arms[ arm ] += n; };
-	auto Fail = [ & ]( const std::string &why ) { if ( failures.size() < 40 ) failures.push_back( why ); };
+	std::map<std::string, int> arms;
+	std::vector<std::string> failures;
+	auto Count = [&]( const std::string &arm, int n = 1 )
+	{
+		arms[arm] += n;
+	};
+	auto Fail = [&]( const std::string &why )
+	{
+		if ( failures.size() < 40 )
+			failures.push_back( why );
+	};
 
 	// ---- D1: which shadows exist, and their kind.
 	for ( const RunCall &c : m.calls )
 	{
-		const std::string &name = c.f[ 1 ];
+		const std::string &name = c.f[1];
 		if ( name == "CreateShadow" )
 		{
 			for ( const RunRow *r : RowsOf( m, c, "E" ) )
 			{
-				if ( r->f[ 1 ] == "sm.CreateShadowEx" )
+				if ( r->f[1] == "sm.CreateShadowEx" )
 				{
-					if ( r->f[ 2 ] == "decals/simpleshadow" && r->f[ 4 ] == "65535" && r->f[ 5 ] == "1" )
+					if ( r->f[2] == "decals/simpleshadow" && r->f[4] == "65535" && r->f[5] == "1" )
 						Count( "d1.create.blob" );
-					if ( r->f[ 2 ] == "decals/rendershadow" && r->f[ 3 ] == "decals/rendermodelshadow" && r->f[ 4 ] != "65535" )
+					if ( r->f[2] == "decals/rendershadow" && r->f[3] == "decals/rendermodelshadow" &&
+						 r->f[4] != "65535" )
 						Count( "d1.create.rtt" );
 				}
-				if ( r->f[ 1 ] == "leaf.AddShadow" && ( atoi( r->f[ 3 ].c_str() ) & ( CLIENT_SHADOW_FLAGS_LAST_FLAG << 2 ) ) )
+				if ( r->f[1] == "leaf.AddShadow" &&
+					 ( atoi( r->f[3].c_str() ) & ( CLIENT_SHADOW_FLAGS_LAST_FLAG << 2 ) ) )
 					Count( "d1.create.brushflag" );
 			}
 			for ( const RunRow *r : RowsOf( m, c, "R" ) )
 			{
-				if ( r->f[ 1 ] == "65535" )
+				if ( r->f[1] == "65535" )
 				{
 					// The renderable did not resolve: no engine shadow was made.
 					if ( CallHas( m, c, "E", "sm.CreateShadowEx" ) )
@@ -3065,11 +3342,12 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 		{
 			for ( const RunRow *r : RowsOf( m, c, "E" ) )
 			{
-				if ( r->f[ 1 ] == "sm.CreateShadowEx" && r->f[ 5 ] == "2" )
-					Count( r->f[ 4 ] != "65535" ? "d1.flashlight.depth" : "d1.flashlight.nodepth" );
+				if ( r->f[1] == "sm.CreateShadowEx" && r->f[5] == "2" )
+					Count( r->f[4] != "65535" ? "d1.flashlight.depth" : "d1.flashlight.nodepth" );
 			}
 		}
-		if ( name == "DestroyShadow" && CallHas( m, c, "E", "sm.DestroyShadow" ) && CallHas( m, c, "E", "leaf.RemoveShadow" ) )
+		if ( name == "DestroyShadow" && CallHas( m, c, "E", "sm.DestroyShadow" ) &&
+			 CallHas( m, c, "E", "leaf.RemoveShadow" ) )
 			Count( "d1.destroy" );
 		if ( name == "DestroyFlashlight" && CallHas( m, c, "E", "sm.DestroyShadow" ) )
 			Count( "d1.destroyflashlight" );
@@ -3081,16 +3359,16 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 		// (GetActualShadowCastType's collapse): no clip planes follow it.
 		if ( name == "PreRender" && CV( c, "r_shadowrendertotexture" ) != "1" )
 		{
-			const std::vector< const RunRow * > e = RowsOf( m, c, "E" );
+			const std::vector<const RunRow *> e = RowsOf( m, c, "E" );
 			for ( size_t i = 0; i < e.size(); i++ )
 			{
-				if ( e[ i ]->f[ 1 ] != "sm.ProjectShadow" )
+				if ( e[i]->f[1] != "sm.ProjectShadow" )
 					continue;
-				const int eh = atoi( e[ i ]->f[ 2 ].c_str() );
+				const int eh = atoi( e[i]->f[2].c_str() );
 				for ( auto &kv : m.engineOfShadow )
 				{
 					if ( kv.second == eh && ( m.flagsOfShadow.at( kv.first ) & SHADOW_FLAGS_USE_RENDER_TO_TEXTURE ) &&
-					     !( i + 2 < e.size() && e[ i + 2 ]->f[ 1 ] == "sm.ClearExtraClipPlanes" ) )
+						 !( i + 2 < e.size() && e[i + 2]->f[1] == "sm.ClearExtraClipPlanes" ) )
 						Count( "d1.type.rttcollapsed" );
 				}
 			}
@@ -3100,12 +3378,12 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	// ---- D2: the modes.
 	for ( const RunCall &c : m.calls )
 	{
-		const std::string &name = c.f[ 1 ];
+		const std::string &name = c.f[1];
 		if ( name == "Init" )
 		{
 			bool bLowEnd = false;
 			for ( const RunRow *r : RowsOf( m, c, "Q" ) )
-				if ( r->f[ 1 ] == "hw.GetDXSupportLevel" && atoi( r->f[ 2 ].c_str() ) < 80 )
+				if ( r->f[1] == "hw.GetDXSupportLevel" && atoi( r->f[2].c_str() ) < 80 )
 					bLowEnd = true;
 			const bool bRtt = CallHas( m, c, "E", "mat.Init", "decals/rendershadow" );
 			if ( bLowEnd && CV( c, "r_shadowrendertotexture" ) == "1" && !bRtt )
@@ -3152,16 +3430,17 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 		{
 			for ( const RunRow *r : RowsOf( m, c, "E" ) )
 			{
-				if ( r->f[ 1 ] != "mat.ColorModulate" || r->f[ 2 ] != "decals/simpleshadow" )
+				if ( r->f[1] != "mat.ColorModulate" || r->f[2] != "decals/simpleshadow" )
 					continue;
 				for ( int k = 3; k <= 5; k++ )
-					Count( r->f[ k ] == "3f800000" ? "d2.levelinit.clamped" : "d2.levelinit.scaled" );
+					Count( r->f[k] == "3f800000" ? "d2.levelinit.clamped" : "d2.levelinit.scaled" );
 			}
 			if ( CallHas( m, c, "E", "mat.ColorModulate", "decals/rendershadow" ) )
 				Count( "d2.levelinit.rttactive" );
 		}
 		if ( name == "SetShadowColor" )
-			Count( CallHas( m, c, "E", "mat.ColorModulate", "decals/rendershadow" ) ? "d2.color.rtt" : "d2.color.blob" );
+			Count( CallHas( m, c, "E", "mat.ColorModulate", "decals/rendershadow" ) ? "d2.color.rtt"
+																					: "d2.color.blob" );
 		if ( name == "Restore" && CallHas( m, c, "E", "mat.ColorModulate" ) )
 			Count( "d2.restore" );
 		if ( name == "SetShadowDirection" && CallHas( m, c, "E", "r.MarkShadowDirty" ) )
@@ -3171,7 +3450,7 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 		if ( name == "GetShadowDirection" )
 		{
 			for ( const RunRow *r : RowsOf( m, c, "R" ) )
-				Count( r->f[ 1 ] == "00000000,00000000,bf800000" ? "d2.direction.blobdown" : "d2.direction.rttset" );
+				Count( r->f[1] == "00000000,00000000,bf800000" ? "d2.direction.blobdown" : "d2.direction.rttset" );
 		}
 		if ( name == "SetShadowDistance" && CallHas( m, c, "E", "r.MarkShadowDirty" ) )
 			Count( "d2.distance.updateall" );
@@ -3181,12 +3460,12 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 			Count( "d2.falloffbias" );
 		if ( name == "Command" )
 		{
-			const std::vector< std::string > words = Split( c.f[ 2 ], ' ' );
+			const std::vector<std::string> words = Split( c.f[2], ' ' );
 			const bool bPrinted = !RowsOf( m, c, "M" ).empty();
 			if ( words.size() == 1 && bPrinted )
-				Count( "d2.cmd." + words[ 0 ] + ".print" );
+				Count( "d2.cmd." + words[0] + ".print" );
 			if ( words.size() > 1 && !bPrinted )
-				Count( "d2.cmd." + words[ 0 ] + ".set" );
+				Count( "d2.cmd." + words[0] + ".set" );
 		}
 		if ( name == "Shutdown" && CallHas( m, c, "E", "mat.RemoveRestoreFunc" ) )
 			Count( "d2.shutdown" );
@@ -3195,21 +3474,21 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	// ---- D3: scheduling.
 	for ( size_t ci = 0; ci < m.calls.size(); ci++ )
 	{
-		const RunCall &c = m.calls[ ci ];
-		const std::string &name = c.f[ 1 ];
-		const std::vector< const RunRow * > all = RowsOf( m, c );
-		if ( name == "AddToDirtyShadowListHandle" && atoi( c.f[ 2 ].c_str() ) == 0xFFFF && Silent( m, c ) )
+		const RunCall &c = m.calls[ci];
+		const std::string &name = c.f[1];
+		const std::vector<const RunRow *> all = RowsOf( m, c );
+		if ( name == "AddToDirtyShadowListHandle" && atoi( c.f[2].c_str() ) == 0xFFFF && Silent( m, c ) )
 			Count( "d3.dirty.invalidhandle" );
 		if ( name == "AddToDirtyShadowList" )
 		{
 			bool bAlready = false, bNoHandle = false, bMarked = false;
 			for ( const RunRow *r : all )
 			{
-				if ( Is( *r, "Q", "r.dirty" ) && r->f[ 3 ] == "1" )
+				if ( Is( *r, "Q", "r.dirty" ) && r->f[3] == "1" )
 					bAlready = true;
-				if ( Is( *r, "Q", "r.shadowhandle" ) && r->f[ 3 ] == "65535" && r->f[ 2 ] == "r" + c.f[ 2 ] )
+				if ( Is( *r, "Q", "r.shadowhandle" ) && r->f[3] == "65535" && r->f[2] == "r" + c.f[2] )
 					bNoHandle = true;
-				if ( Is( *r, "E", "r.MarkShadowDirty" ) && r->f[ 3 ] == "1" )
+				if ( Is( *r, "E", "r.MarkShadowDirty" ) && r->f[3] == "1" )
 					bMarked = true;
 			}
 			if ( bAlready && !bMarked )
@@ -3217,21 +3496,21 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 			if ( bNoHandle && !bMarked )
 				Count( "d3.dirty.noshadowhandle" );
 			if ( bMarked )
-				Count( c.f[ 3 ] == "1" ? "d3.dirty.marked.force" : "d3.dirty.marked" );
+				Count( c.f[3] == "1" ? "d3.dirty.marked.force" : "d3.dirty.marked" );
 		}
 		// A child's shadow dirtied marks the parent it renders into.
 		if ( name == "AddToDirtyShadowListHandle" )
 		{
 			for ( const RunRow *r : all )
-				if ( Is( *r, "E", "r.MarkShadowDirty" ) && r->f[ 3 ] == "1" )
+				if ( Is( *r, "E", "r.MarkShadowDirty" ) && r->f[3] == "1" )
 					Count( "d3.dirty.parentpropagates" );
 		}
 		if ( name == "MarkRenderToTextureShadowDirty" )
 		{
-			if ( atoi( c.f[ 2 ].c_str() ) == 0xFFFF && Silent( m, c ) )
+			if ( atoi( c.f[2].c_str() ) == 0xFFFF && Silent( m, c ) )
 				Count( "d3.texturedirty.invalid" );
 			for ( size_t i = 0; i + 1 < all.size(); i++ )
-				if ( Is( *all[ i ], "Q", "r.parent" ) && all[ i ]->f[ 3 ] != "-" && Is( *all[ i + 1 ], "Q", "r.shadowhandle" ) )
+				if ( Is( *all[i], "Q", "r.parent" ) && all[i]->f[3] != "-" && Is( *all[i + 1], "Q", "r.shadowhandle" ) )
 					Count( "d3.texturedirty.parent" );
 		}
 		if ( name == "PreRender" )
@@ -3239,41 +3518,45 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 			// Each shadow's update: from its EnableShadow to the next one.
 			for ( size_t i = 0; i < all.size(); i++ )
 			{
-				const RunRow &r = *all[ i ];
-				if ( Is( r, "E", "r.redirty" ) && ( i + 1 >= all.size() || !Is( *all[ i + 1 ], "Q", "r.dirty" ) ) )
+				const RunRow &r = *all[i];
+				if ( Is( r, "E", "r.redirty" ) && ( i + 1 >= all.size() || !Is( *all[i + 1], "Q", "r.dirty" ) ) )
 					Count( "d3.dirty.ignoredwhileupdating" );
-				if ( Is( r, "Q", "sm.GetInfo" ) && Split( r.f[ 3 ], ',' ).size() == 16 && r.f.size() > 9 && r.f[ 9 ] == "255" )
+				if ( Is( r, "Q", "sm.GetInfo" ) && Split( r.f[3], ',' ).size() == 16 && r.f.size() > 9 &&
+					 r.f[9] == "255" )
 				{
-					if ( i + 1 < all.size() && Is( *all[ i + 1 ], "E", "sm.EnableShadow" ) && all[ i + 1 ]->f[ 3 ] == "0" )
+					if ( i + 1 < all.size() && Is( *all[i + 1], "E", "sm.EnableShadow" ) && all[i + 1]->f[3] == "0" )
 						Count( "d3.transparent.disabled" );
 				}
-				if ( Is( r, "E", "sm.EnableShadow" ) && r.f[ 3 ] == "0" && i + 1 < all.size() && Is( *all[ i + 1 ], "E", "r.MarkShadowDirty" ) )
+				if ( Is( r, "E", "sm.EnableShadow" ) && r.f[3] == "0" && i + 1 < all.size() &&
+					 Is( *all[i + 1], "E", "r.MarkShadowDirty" ) )
 					Count( "d3.child.disabled" );
-				if ( Is( r, "E", "sm.EnableShadow" ) && r.f[ 3 ] == "1" )
+				if ( Is( r, "E", "sm.EnableShadow" ) && r.f[3] == "1" )
 				{
 					// moved or not: the next effect is the fog push (a projection) or the clean mark
 					for ( size_t j = i + 1; j < all.size(); j++ )
 					{
-						if ( all[ j ]->f[ 0 ] != "E" )
+						if ( all[j]->f[0] != "E" )
 							continue;
-						if ( all[ j ]->f[ 1 ] == "ctx.FogMode" )
+						if ( all[j]->f[1] == "ctx.FogMode" )
 						{
 							bool bProjected = false;
-							for ( size_t k = j + 1; k < all.size() && !Is( *all[ k ], "E", "ctx.FogMode" ); k++ )
-								bProjected = bProjected || Is( *all[ k ], "E", "sm.ProjectShadow" ) || Is( *all[ k ], "E", "sm.ProjectFlashlight" ) ||
-								             Is( *all[ k ], "E", "sm.EnableShadow" );
+							for ( size_t k = j + 1; k < all.size() && !Is( *all[k], "E", "ctx.FogMode" ); k++ )
+								bProjected = bProjected || Is( *all[k], "E", "sm.ProjectShadow" ) ||
+									Is( *all[k], "E", "sm.ProjectFlashlight" ) || Is( *all[k], "E", "sm.EnableShadow" );
 							Count( bProjected ? "d3.update.moved" : "d3.update.unknownmodeltype" );
 						}
-						else if ( all[ j ]->f[ 1 ] == "r.MarkShadowDirty" )
+						else if ( all[j]->f[1] == "r.MarkShadowDirty" )
 							Count( "d3.update.notmoved" );
 						break;
 					}
 				}
-				if ( Is( r, "Q", "r.model" ) && r.f[ 3 ] == "-" && i + 1 < all.size() && Is( *all[ i + 1 ], "E", "r.MarkShadowDirty" ) )
+				if ( Is( r, "Q", "r.model" ) && r.f[3] == "-" && i + 1 < all.size() &&
+					 Is( *all[i + 1], "E", "r.MarkShadowDirty" ) )
 					Count( "d3.update.nomodel" );
-				if ( Is( r, "Q", "r.parent" ) && r.f[ 3 ] != "-" && i + 2 < all.size() && Is( *all[ i + 1 ], "Q", "r.shadowhandle" ) &&
-				     all[ i + 1 ]->f[ 3 ] == "65535" )
-					Count( CV( c, "r_shadowrendertotexture" ) == "1" ? "d3.useparent.recursesnone" : "d3.willparentblob.recursesnone" );
+				if ( Is( r, "Q", "r.parent" ) && r.f[3] != "-" && i + 2 < all.size() &&
+					 Is( *all[i + 1], "Q", "r.shadowhandle" ) && all[i + 1]->f[3] == "65535" )
+					Count( CV( c, "r_shadowrendertotexture" ) == "1" ? "d3.useparent.recursesnone"
+																	 : "d3.willparentblob.recursesnone" );
 			}
 			// The walk: the probe's in-order set against the order stock updated in.
 			for ( const Probe_t &p : s_Probes )
@@ -3281,13 +3564,13 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 				if ( p.m_nLine != c.first + 1 || p.m_strArm.rfind( "d3.walk:", 0 ) != 0 )
 					continue;
 				const std::string list = p.m_strArm.substr( 8 );
-				const std::vector< std::string > order = list.empty() ? std::vector< std::string >() : Split( list, ',' );
+				const std::vector<std::string> order = list.empty() ? std::vector<std::string>() : Split( list, ',' );
 				// The handles dirtied by calls since the last PreRender, in the order they were dirtied.
-				std::vector< int > dirtied;
-				for ( size_t k = ci; k-- > 0 && m.calls[ k ].f[ 1 ] != "PreRender"; )
+				std::vector<int> dirtied;
+				for ( size_t k = ci; k-- > 0 && m.calls[k].f[1] != "PreRender"; )
 				{
-					if ( m.calls[ k ].f[ 1 ] == "AddToDirtyShadowList" )
-						dirtied.insert( dirtied.begin(), atoi( m.calls[ k ].f[ 2 ].c_str() ) );
+					if ( m.calls[k].f[1] == "AddToDirtyShadowList" )
+						dirtied.insert( dirtied.begin(), atoi( m.calls[k].f[2].c_str() ) );
 				}
 				if ( dirtied.size() > 1 && !std::is_sorted( dirtied.begin(), dirtied.end() ) && order.size() > 1 )
 					Count( "d3.walk.handleorder" );
@@ -3305,7 +3588,7 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 		}
 		if ( name == "UpdateProjectedTexture" )
 		{
-			if ( atoi( c.f[ 2 ].c_str() ) == 0xFFFF && Silent( m, c ) )
+			if ( atoi( c.f[2].c_str() ) == 0xFFFF && Silent( m, c ) )
 				Count( "d3.updateprojected.invalid" );
 			if ( !RowsOf( m, c, "M" ).empty() )
 				Count( "d3.updateprojected.notflashlight" );
@@ -3320,12 +3603,13 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 		int nRun = 0, nBest = 0;
 		for ( const RunCall &c : m.calls )
 		{
-			if ( c.f[ 1 ] != "PreRender" )
+			if ( c.f[1] != "PreRender" )
 				continue;
 			bool bTransparent = false;
-			const std::vector< const RunRow * > all = RowsOf( m, c );
+			const std::vector<const RunRow *> all = RowsOf( m, c );
 			for ( size_t i = 0; i + 1 < all.size(); i++ )
-				if ( Is( *all[ i ], "Q", "sm.GetInfo" ) && all[ i ]->f.size() > 9 && all[ i ]->f[ 9 ] == "255" && Is( *all[ i + 1 ], "E", "sm.EnableShadow" ) )
+				if ( Is( *all[i], "Q", "sm.GetInfo" ) && all[i]->f.size() > 9 && all[i]->f[9] == "255" &&
+					 Is( *all[i + 1], "E", "sm.EnableShadow" ) )
 					bTransparent = true;
 			nRun = bTransparent ? nRun + 1 : 0;
 			nBest = std::max( nBest, nRun );
@@ -3337,22 +3621,23 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	// ---- D4: the projection math, from each projection's inputs.
 	for ( const RunCall &c : m.calls )
 	{
-		const std::vector< const RunRow * > all = RowsOf( m, c );
+		const std::vector<const RunRow *> all = RowsOf( m, c );
 		for ( size_t i = 0; i < all.size(); i++ )
 		{
-			const RunRow &r = *all[ i ];
-			if ( Is( r, "Q", "r.castdist" ) && r.f[ 4 ] != r.f[ 5 ] )
+			const RunRow &r = *all[i];
+			if ( Is( r, "Q", "r.castdist" ) && r.f[4] != r.f[5] )
 				Count( "d4.distance.override" );
-			if ( Is( r, "Q", "r.castdir" ) && r.f[ 4 ] != r.f[ 5 ] )
+			if ( Is( r, "Q", "r.castdir" ) && r.f[4] != r.f[5] )
 				Count( "d4.direction.override" );
 			if ( !Is( r, "E", "sm.ProjectShadow" ) )
 				continue;
-			const bool bRtt = i + 1 < all.size() && [ & ] {
+			const bool bRtt = i + 1 < all.size() && [&]
+			{
 				for ( size_t j = i + 1; j < all.size(); j++ )
 				{
-					if ( all[ j ]->f[ 0 ] != "E" )
+					if ( all[j]->f[0] != "E" )
 						continue;
-					return all[ j ]->f[ 1 ] == "sm.ClearExtraClipPlanes";
+					return all[j]->f[1] == "sm.ClearExtraClipPlanes";
 				}
 				return false;
 			}();
@@ -3364,12 +3649,12 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 			{
 				Count( "d4.rtt" );
 				// Clip planes: each axis's sign picks the corner's side.
-				const std::vector< std::string > dir = Split( r.f[ 4 ], ',' );
+				const std::vector<std::string> dir = Split( r.f[4], ',' );
 				bool bPos = false, bNeg = false;
 				for ( const std::string &d : dir )
 				{
 					const unsigned int u = (unsigned int)strtoul( d.c_str(), NULL, 16 );
-					( u & 0x80000000u ) && u != 0x80000000u ? bNeg = true : bPos = true;
+					( u & 0x80000000u ) &&u != 0x80000000u ? bNeg = true : bPos = true;
 				}
 				if ( bPos && bNeg )
 					Count( "d4.rtt.clipplanes.bothsides" );
@@ -3380,19 +3665,19 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	}
 	for ( const RunCall &c : m.calls )
 	{
-		if ( c.f[ 1 ] != "PreRender" )
+		if ( c.f[1] != "PreRender" )
 			continue;
-		const std::vector< const RunRow * > all = RowsOf( m, c );
+		const std::vector<const RunRow *> all = RowsOf( m, c );
 		for ( size_t i = 0; i < all.size(); i++ )
 		{
-			const RunRow &r = *all[ i ];
+			const RunRow &r = *all[i];
 			if ( !Is( r, "Q", "r.firstchild" ) )
 				continue;
 			// ComputeHierarchicalBounds asked a parent for its children.
 			bool bTransformed = false;
-			for ( size_t j = i + 1; j < all.size() && !Is( *all[ j ], "E", "sm.ProjectShadow" ); j++ )
-				bTransformed = bTransformed || Is( *all[ j ], "Q", "r.transform" );
-			if ( r.f[ 3 ] != "-" )
+			for ( size_t j = i + 1; j < all.size() && !Is( *all[j], "E", "sm.ProjectShadow" ); j++ )
+				bTransformed = bTransformed || Is( *all[j], "Q", "r.transform" );
+			if ( r.f[3] != "-" )
 				Count( bTransformed ? "d4.bounds.childrenadded" : "d4.bounds.blobparent.norecursion" );
 		}
 	}
@@ -3400,21 +3685,21 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 		// SortAbsVectorComponents' three cases: the casters t1 (axis z), t2
 		// (pitched 90: axis x) and t3 (rolled 90: axis y) each projected as a
 		// blob, named by the caster whose angles the projection asked for.
-		const char *ppszAxis[ 4 ] = { NULL, "d4.ortho.axis2", "d4.ortho.axis0", "d4.ortho.axis1" };
+		const char *ppszAxis[4] = { NULL, "d4.ortho.axis2", "d4.ortho.axis0", "d4.ortho.axis1" };
 		for ( const RunCall &c : m.calls )
 		{
-			if ( c.f[ 1 ] != "PreRender" || CV( c, "r_shadowrendertotexture" ) == "1" )
+			if ( c.f[1] != "PreRender" || CV( c, "r_shadowrendertotexture" ) == "1" )
 				continue;
 			std::string lastAngles;
 			for ( const RunRow *r : RowsOf( m, c ) )
 			{
 				if ( Is( *r, "Q", "r.angles" ) )
-					lastAngles = r->f[ 2 ];
+					lastAngles = r->f[2];
 				if ( Is( *r, "E", "sm.ProjectShadow" ) )
 				{
 					for ( int t = 1; t <= 3; t++ )
 						if ( lastAngles == "r" + std::to_string( t ) )
-							Count( ppszAxis[ t ] );
+							Count( ppszAxis[t] );
 				}
 			}
 		}
@@ -3423,35 +3708,35 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	// ---- D5: the flashlight.
 	for ( const RunCall &c : m.calls )
 	{
-		const std::string &name = c.f[ 1 ];
+		const std::string &name = c.f[1];
 		if ( name != "UpdateProjectedTexture" && name != "CreateFlashlight" )
 			continue;
-		const std::vector< const RunRow * > e = RowsOf( m, c, "E" );
+		const std::vector<const RunRow *> e = RowsOf( m, c, "E" );
 		for ( size_t i = 0; i < e.size(); i++ )
 		{
-			if ( e[ i ]->f[ 1 ] == "sm.ProjectFlashlight" )
+			if ( e[i]->f[1] == "sm.ProjectFlashlight" )
 			{
-				const bool bNoLeaves = e[ i ]->f[ 4 ] == "0:";
+				const bool bNoLeaves = e[i]->f[4] == "0:";
 				if ( CV( c, "r_flashlight_version2" ) == "1" && bNoLeaves )
 					Count( "d5.version2" );
 				else
 					Count( "d5.lightworld" );
 			}
-			if ( e[ i ]->f[ 1 ] == "sm.EnableShadow" && e[ i ]->f[ 3 ] == "0" && i + 1 < e.size() && e[ i + 1 ]->f[ 1 ] == "sm.EnableShadow" &&
-			     e[ i + 1 ]->f[ 3 ] == "1" )
+			if ( e[i]->f[1] == "sm.EnableShadow" && e[i]->f[3] == "0" && i + 1 < e.size() &&
+				 e[i + 1]->f[1] == "sm.EnableShadow" && e[i + 1]->f[3] == "1" )
 				Count( "d5.lightworld.off" );
-			if ( e[ i ]->f[ 1 ] == "leaf.ProjectFlashlight" )
+			if ( e[i]->f[1] == "leaf.ProjectFlashlight" )
 				Count( "d5.models" );
 		}
-		if ( CV( c, "r_flashlightmodels" ) == "0" && CallHas( m, c, "E", "sm.ProjectFlashlight" ) && !CallHas( m, c, "E", "leaf.ProjectFlashlight" ) &&
-		     CV( c, "r_flashlight_version2" ) != "1" )
+		if ( CV( c, "r_flashlightmodels" ) == "0" && CallHas( m, c, "E", "sm.ProjectFlashlight" ) &&
+			 !CallHas( m, c, "E", "leaf.ProjectFlashlight" ) && CV( c, "r_flashlight_version2" ) != "1" )
 			Count( "d5.models.off" );
 	}
 	for ( const RunCall &c : m.calls )
 	{
-		const std::string &name = c.f[ 1 ];
+		const std::string &name = c.f[1];
 		if ( ( name == "SetFlashlightLightWorld" || name == "SetFlashlightTarget" ) && RowsOf( m, c, "E" ).empty() )
-			Count( m.flashlights.count( atoi( c.f[ 2 ].c_str() ) ) ? "d5.setter.flashlight" : "d5.setter.notflashlight" );
+			Count( m.flashlights.count( atoi( c.f[2].c_str() ) ) ? "d5.setter.flashlight" : "d5.setter.notflashlight" );
 		if ( name == "UpdateFlashlightState" && CallHas( m, c, "E", "sm.UpdateFlashlightState" ) )
 			Count( "d5.state" );
 	}
@@ -3459,29 +3744,30 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	// ---- D6: the receivers, from the probes, each held to what stock did next.
 	for ( size_t pi = 0; pi < s_Probes.size(); pi++ )
 	{
-		const Probe_t &p = s_Probes[ pi ];
+		const Probe_t &p = s_Probes[pi];
 		if ( p.m_strArm.rfind( "d6.", 0 ) != 0 )
 			continue;
 		for ( const std::string &arm : Split( p.m_strArm, '|' ) )
 			Count( arm );
 		// What stock did: the effects after the probe, up to the next offer, call or end.
-		std::vector< std::string > effects;
+		std::vector<std::string> effects;
 		bool bAskedEntity = false;
 		for ( size_t i = p.m_nLine; i < m.rows.size(); i++ )
 		{
-			const RunRow &r = m.rows[ i ];
-			if ( i > p.m_nLine && ( Is( r, "E", "leaf.receiver" ) || r.f[ 0 ] == "C" || Is( r, "E", "leaf.ProjectShadow" ) ||
-			                        Is( r, "E", "leaf.ProjectFlashlight" ) || Is( r, "E", "ctx.FogMode" ) || Is( r, "E", "r.MarkShadowDirty" ) ||
-			                        Is( r, "E", "sm.EnableShadow" ) ) )
+			const RunRow &r = m.rows[i];
+			if ( i > p.m_nLine &&
+				 ( Is( r, "E", "leaf.receiver" ) || r.f[0] == "C" || Is( r, "E", "leaf.ProjectShadow" ) ||
+				   Is( r, "E", "leaf.ProjectFlashlight" ) || Is( r, "E", "ctx.FogMode" ) ||
+				   Is( r, "E", "r.MarkShadowDirty" ) || Is( r, "E", "sm.EnableShadow" ) ) )
 				break;
-			if ( r.f[ 0 ] == "E" && !Is( r, "E", "leaf.receiver" ) )
-				effects.push_back( r.f[ 1 ] );
+			if ( r.f[0] == "E" && !Is( r, "E", "leaf.receiver" ) )
+				effects.push_back( r.f[1] );
 			if ( Is( r, "Q", "r.baseentity" ) )
 				bAskedEntity = true;
 		}
-		const std::vector< std::string > parts = Split( p.m_strArm, '|' );
+		const std::vector<std::string> parts = Split( p.m_strArm, '|' );
 		const std::string &last = parts.back();
-		std::vector< std::string > want;
+		std::vector<std::string> want;
 		bool bWantEntity = false;
 		if ( last == "d6.kept.brush.flash" )
 			want = { "sm.AddShadowToBrushModel", "sm.AddFlashlightRenderable" };
@@ -3490,29 +3776,30 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 		else if ( last == "d6.kept.static.flash" )
 			want = { "sp.AddShadowToStaticProp", "sm.AddFlashlightRenderable" };
 		else if ( last == "d6.kept.static.rtt" )
-			bWantEntity = true;   // the NPC/player test asks for an entity, and is told none
+			bWantEntity = true; // the NPC/player test asks for an entity, and is told none
 		else if ( last == "d6.kept.studio.flash" )
 			want = { "r.CreateModelInstance", "sm.AddShadowToModel", "sm.AddFlashlightRenderable" };
 		if ( effects != want || bAskedEntity != bWantEntity )
-			Fail( "after the probe at row " + std::to_string( p.m_nLine ) + " (" + p.m_strArm + ") stock did not do what the arm says" );
+			Fail( "after the probe at row " + std::to_string( p.m_nLine ) + " (" + p.m_strArm +
+				  ") stock did not do what the arm says" );
 	}
 	for ( const RunCall &c : m.calls )
 	{
-		if ( c.f[ 1 ] != "RemoveAllShadowsFromReceiver" )
+		if ( c.f[1] != "RemoveAllShadowsFromReceiver" )
 			continue;
-		const std::vector< const RunRow * > e = RowsOf( m, c, "E" );
+		const std::vector<const RunRow *> e = RowsOf( m, c, "E" );
 		bool bReceives = false, bInvalidInstance = false;
 		for ( const RunRow *r : RowsOf( m, c, "Q" ) )
 		{
-			if ( r->f[ 1 ] == "r.receives" && r->f[ 4 ] == "1" )
+			if ( r->f[1] == "r.receives" && r->f[4] == "1" )
 				bReceives = true;
-			if ( r->f[ 1 ] == "r.instance" && r->f[ 3 ] == "65535" )
+			if ( r->f[1] == "r.instance" && r->f[3] == "65535" )
 				bInvalidInstance = true;
 		}
 		if ( !bReceives && e.empty() )
 			Count( "d6.removeall.notreceiving" );
 		else if ( !e.empty() )
-			Count( "d6.removeall." + e[ 0 ]->f[ 1 ] );
+			Count( "d6.removeall." + e[0]->f[1] );
 		else if ( bInvalidInstance )
 			Count( "d6.removeall.studio.noinstance" );
 	}
@@ -3520,9 +3807,9 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	// ---- D7: the render-to-texture pass.
 	for ( const RunCall &c : m.calls )
 	{
-		if ( c.f[ 1 ] != "ComputeShadowTextures" )
+		if ( c.f[1] != "ComputeShadowTextures" )
 			continue;
-		const std::vector< const RunRow * > all = RowsOf( m, c );
+		const std::vector<const RunRow *> all = RowsOf( m, c );
 		if ( Silent( m, c ) )
 		{
 			if ( CV( c, "r_shadowrendertotexture" ) != "1" )
@@ -3535,21 +3822,24 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 		}
 		if ( !CallHas( m, c, "E", "ctx.PushRenderTargetAndViewport" ) )
 			Count( "d7.novisible" );
-		std::set< std::string > accepted;
+		std::set<std::string> accepted;
 		for ( size_t i = 0; i < all.size(); i++ )
 		{
-			const RunRow &r = *all[ i ];
+			const RunRow &r = *all[i];
 			if ( Is( r, "E", "leaf.enum" ) )
 			{
 				// What the enumeration asked of the shadow, up to the next.
-				std::vector< const RunRow * > q;
-				for ( size_t j = i + 1; j < all.size() && !Is( *all[ j ], "E", "leaf.enum" ) && !Is( *all[ j ], "E", "ctx.ClearColor4ub" ); j++ )
-					q.push_back( all[ j ] );
-				const int h = atoi( r.f[ 2 ].c_str() );
-				const bool bRttFlag = m.flagsOfShadow.count( h ) && ( m.flagsOfShadow.at( h ) & SHADOW_FLAGS_USE_RENDER_TO_TEXTURE );
+				std::vector<const RunRow *> q;
+				for ( size_t j = i + 1;
+					  j < all.size() && !Is( *all[j], "E", "leaf.enum" ) && !Is( *all[j], "E", "ctx.ClearColor4ub" );
+					  j++ )
+					q.push_back( all[j] );
+				const int h = atoi( r.f[2].c_str() );
+				const bool bRttFlag =
+					m.flagsOfShadow.count( h ) && ( m.flagsOfShadow.at( h ) & SHADOW_FLAGS_USE_RENDER_TO_TEXTURE );
 				if ( q.empty() )
-					Count( accepted.count( r.f[ 2 ] ) || bRttFlag ? "d7.enum.renderedthisframe" : "d7.enum.notrtt" );
-				else if ( Is( *q[ 0 ], "Q", "sm.GetInfo" ) && q[ 0 ]->f.size() > 9 && q[ 0 ]->f[ 9 ] == "255" && q.size() == 1 )
+					Count( accepted.count( r.f[2] ) || bRttFlag ? "d7.enum.renderedthisframe" : "d7.enum.notrtt" );
+				else if ( Is( *q[0], "Q", "sm.GetInfo" ) && q[0]->f.size() > 9 && q[0]->f[9] == "255" && q.size() == 1 )
 					Count( "d7.enum.transparent" );
 				else
 				{
@@ -3557,14 +3847,14 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 					for ( const RunRow *x : q )
 					{
 						if ( Is( *x, "Q", "eng.CullBox" ) )
-							bCull = x->f[ 4 ] == "1";
+							bCull = x->f[4] == "1";
 						if ( Is( *x, "Q", "ctx.ComputePixelDiameterOfSphere" ) )
 							bArea = true;
 					}
 					if ( bArea )
 					{
 						Count( "d7.enum.accepted" );
-						accepted.insert( r.f[ 2 ] );
+						accepted.insert( r.f[2] );
 					}
 					else if ( bCull )
 						Count( "d7.enum.culled" );
@@ -3576,17 +3866,18 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 			{
 				const RunRow *next = NULL;
 				for ( size_t j = i + 1; j < all.size(); j++ )
-					if ( all[ j ]->f[ 0 ] == "E" )
+					if ( all[j]->f[0] == "E" )
 					{
-						next = all[ j ];
+						next = all[j];
 						break;
 					}
-				Count( next && next->f[ 1 ] == "ctx.ClearBuffers" ? "d7.target.cleared" : "d7.target.notcleared" );
+				Count( next && next->f[1] == "ctx.ClearBuffers" ? "d7.target.cleared" : "d7.target.notcleared" );
 			}
 			if ( Is( r, "E", "sm.SetShadowMaterial" ) )
 			{
-				const bool bBlob = r.f[ 3 ] == "decals/simpleshadow";
-				if ( bBlob && i + 2 < all.size() && Is( *all[ i + 1 ], "E", "sm.SetShadowTexCoord" ) && Is( *all[ i + 2 ], "E", "sm.ClearExtraClipPlanes" ) )
+				const bool bBlob = r.f[3] == "decals/simpleshadow";
+				if ( bBlob && i + 2 < all.size() && Is( *all[i + 1], "E", "sm.SetShadowTexCoord" ) &&
+					 Is( *all[i + 2], "E", "sm.ClearExtraClipPlanes" ) )
 					Count( "d7.lod.blob" );
 				if ( !bBlob )
 				{
@@ -3594,9 +3885,9 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 					// Back from the blob with the texture it kept: only the texcoords, no draw.
 					for ( size_t j = i + 1; j < all.size(); j++ )
 					{
-						if ( all[ j ]->f[ 0 ] != "E" )
+						if ( all[j]->f[0] != "E" )
 							continue;
-						if ( all[ j ]->f[ 1 ] == "sm.SetShadowTexCoord" )
+						if ( all[j]->f[1] == "sm.SetShadowTexCoord" )
 							Count( "d7.lod.back.texcoordsonly" );
 						break;
 					}
@@ -3605,22 +3896,22 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 			if ( Is( r, "E", "ctx.Viewport" ) )
 			{
 				Count( "d7.draw" );
-				Count( "d7.draw.size" + r.f[ 4 ] );
+				Count( "d7.draw.size" + r.f[4] );
 			}
 			if ( Is( r, "E", "mr.DrawModelShadowSetup" ) )
-				Count( r.f[ 5 ] == "1" ? "d7.draw.model" : "d7.draw.model.nobones" );
+				Count( r.f[5] == "1" ? "d7.draw.model" : "d7.draw.model.nobones" );
 			if ( Is( r, "E", "rv.DrawBrushModelShadow" ) )
 				Count( "d7.draw.brush" );
 		}
 		// Drawn out of the order the shadows were enumerated (the area sort).
-		std::vector< std::string > drawn;
+		std::vector<std::string> drawn;
 		for ( size_t i = 0; i + 2 < all.size(); i++ )
-			if ( Is( *all[ i ], "E", "ctx.MatrixMode" ) && all[ i ]->f[ 2 ] == "0" && Is( *all[ i + 1 ], "Q", "sm.GetInfo" ) )
-				drawn.push_back( all[ i + 1 ]->f[ 2 ] );
-		std::vector< std::string > enumerated;
+			if ( Is( *all[i], "E", "ctx.MatrixMode" ) && all[i]->f[2] == "0" && Is( *all[i + 1], "Q", "sm.GetInfo" ) )
+				drawn.push_back( all[i + 1]->f[2] );
+		std::vector<std::string> enumerated;
 		for ( const RunRow *r : all )
 			if ( Is( *r, "E", "leaf.enum" ) )
-				enumerated.push_back( r->f[ 2 ] );
+				enumerated.push_back( r->f[2] );
 		if ( drawn.size() > 1 )
 			Count( "d7.sorted" );
 	}
@@ -3632,18 +3923,18 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	}
 	// The animating source is redrawn each pass; a still one is not.
 	{
-		std::map< std::string, int > drawsByThing;
+		std::map<std::string, int> drawsByThing;
 		for ( const RunCall &c : m.calls )
 		{
-			if ( c.f[ 1 ] != "ComputeShadowTextures" )
+			if ( c.f[1] != "ComputeShadowTextures" )
 				continue;
 			for ( const RunRow *r : RowsOf( m, c, "E" ) )
-				if ( r->f[ 1 ] == "mr.DrawModelShadowSetup" )
-					drawsByThing[ r->f[ 2 ] ]++;
+				if ( r->f[1] == "mr.DrawModelShadowSetup" )
+					drawsByThing[r->f[2]]++;
 		}
 		int nPasses = 0;
 		for ( const RunCall &c : m.calls )
-			if ( c.f[ 1 ] == "ComputeShadowTextures" && CallHas( m, c, "E", "ctx.PushRenderTargetAndViewport" ) )
+			if ( c.f[1] == "ComputeShadowTextures" && CallHas( m, c, "E", "ctx.PushRenderTargetAndViewport" ) )
 				++nPasses;
 		for ( auto &kv : drawsByThing )
 		{
@@ -3653,9 +3944,9 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 		bool bLast = false;
 		for ( const RunCall &c : m.calls )
 		{
-			if ( c.f[ 1 ] == "MarkRenderToTextureShadowDirty" || c.f[ 1 ] == "Restore" )
+			if ( c.f[1] == "MarkRenderToTextureShadowDirty" || c.f[1] == "Restore" )
 				bLast = false;
-			if ( c.f[ 1 ] != "ComputeShadowTextures" || !CallHas( m, c, "E", "ctx.PushRenderTargetAndViewport" ) )
+			if ( c.f[1] != "ComputeShadowTextures" || !CallHas( m, c, "E", "ctx.PushRenderTargetAndViewport" ) )
 				continue;
 			const bool bDrew = CallHas( m, c, "E", "mr.DrawModelShadowSetup", "r71" );
 			if ( bDrew && bLast )
@@ -3667,10 +3958,10 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	// ---- D8: the flashlight depth textures.
 	for ( const RunCall &c : m.calls )
 	{
-		const std::string &name = c.f[ 1 ];
+		const std::string &name = c.f[1];
 		if ( name == "PreRender" )
 			for ( const RunRow *r : RowsOf( m, c, "E" ) )
-				if ( r->f[ 1 ] == "cvar.Set" && r->f[ 2 ] == "r_flashlightdepthres" )
+				if ( r->f[1] == "cvar.Set" && r->f[2] == "r_flashlightdepthres" )
 					Count( "d8.alloc.clampwrittenback" );
 		if ( name == "UnlockAllShadowDepthTextures" )
 		{
@@ -3680,33 +3971,36 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 		}
 		if ( name != "ComputeShadowDepthTextures" )
 			continue;
-		const std::vector< const RunRow * > all = RowsOf( m, c );
-		std::set< std::string > asked;
+		const std::vector<const RunRow *> all = RowsOf( m, c );
+		std::set<std::string> asked;
 		for ( size_t i = 0; i < all.size(); i++ )
 		{
-			const RunRow &r = *all[ i ];
+			const RunRow &r = *all[i];
 			if ( Is( r, "Q", "sm.GetFlashlightState" ) )
 			{
-				asked.insert( r.f[ 2 ] );
-				if ( r.f.size() > 12 && r.f[ 12 ] == "0" && ( i + 1 >= all.size() || !Is( *all[ i + 1 ], "E", "sm.SetFlashlightDepthTexture" ) ) )
+				asked.insert( r.f[2] );
+				if ( r.f.size() > 12 && r.f[12] == "0" &&
+					 ( i + 1 >= all.size() || !Is( *all[i + 1], "E", "sm.SetFlashlightDepthTexture" ) ) )
 					Count( "d8.active.noshadows" );
-				if ( i + 1 < all.size() && Is( *all[ i + 1 ], "E", "sm.SetFlashlightDepthTexture" ) && all[ i + 1 ]->f[ 3 ] == "-" )
+				if ( i + 1 < all.size() && Is( *all[i + 1], "E", "sm.SetFlashlightDepthTexture" ) &&
+					 all[i + 1]->f[3] == "-" )
 					Count( "d8.active.culled" );
 			}
-			if ( Is( r, "M" ) && r.f[ 2 ].find( "Too many depth textures" ) == 0 )
+			if ( Is( r, "M" ) && r.f[2].find( "Too many depth textures" ) == 0 )
 				Count( "d8.active.overflow" );
-			if ( Is( r, "M" ) && r.f[ 2 ].find( "Too many shadow maps" ) == 0 )
+			if ( Is( r, "M" ) && r.f[2].find( "Too many shadow maps" ) == 0 )
 				Count( "d8.lock.failed" );
 			if ( Is( r, "E", "view.UpdateShadowDepthTexture" ) )
 				Count( "d8.render" );
 			if ( Is( r, "E", "dbg.AddLineOverlay" ) )
 				Count( "d9.frustum.lines" );
-			if ( Is( r, "E", "sm.SetFlashlightRenderState" ) && r.f[ 2 ] != "65535" )
+			if ( Is( r, "E", "sm.SetFlashlightRenderState" ) && r.f[2] != "65535" )
 				Count( "d8.viewstate.v2.one" );
 		}
 		// A flashlight without the depth flag is never asked about.
 		for ( int h : m.flashlights )
-			if ( !( m.flagsOfShadow.at( h ) & SHADOW_FLAGS_USE_DEPTH_TEXTURE ) && !asked.count( std::to_string( m.engineOfShadow.at( h ) ) ) )
+			if ( !( m.flagsOfShadow.at( h ) & SHADOW_FLAGS_USE_DEPTH_TEXTURE ) &&
+				 !asked.count( std::to_string( m.engineOfShadow.at( h ) ) ) )
 			{
 				Count( "d8.active.nodepthflag" );
 				break;
@@ -3718,17 +4012,17 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	// ---- The proxies (Q1) and the debug overlays (D9).
 	for ( const RunCall &c : m.calls )
 	{
-		const std::string &name = c.f[ 1 ];
+		const std::string &name = c.f[1];
 		if ( name == "ProxyInit" )
 			for ( const RunRow *r : RowsOf( m, c, "R" ) )
-				Count( "proxy." + c.f[ 2 ] + ( r->f[ 1 ] == "1" ? ".init" : ".refused" ) );
+				Count( "proxy." + c.f[2] + ( r->f[1] == "1" ? ".init" : ".refused" ) );
 		if ( name == "ProxyBind" )
 		{
 			int nSets = 0;
 			for ( const RunRow *r : RowsOf( m, c, "E" ) )
-				if ( r->f[ 1 ].rfind( "var.", 0 ) == 0 )
+				if ( r->f[1].rfind( "var.", 0 ) == 0 )
 					++nSets;
-			Count( "proxy." + c.f[ 2 ] + ".bind.sets" + std::to_string( nSets ) );
+			Count( "proxy." + c.f[2] + ".bind.sets" + std::to_string( nSets ) );
 		}
 		if ( name == "RenderShadowTexture" )
 			Count( CallHas( m, c, "E", "mesh.Draw" ) ? "d9.rendertexture.quad" : "d9.rendertexture.off" );
@@ -3739,57 +4033,198 @@ TEST( ShadowMgrOracle, TheScenarioReachesEveryArm )
 	// THE ARMS. Each must fire.
 	const char *ppszArms[] = {
 		// D1
-		"d1.create.blob", "d1.create.rtt", "d1.create.brushflag", "d1.create.norenderable", "d1.flashlight.depth", "d1.flashlight.nodepth",
-		"d1.destroy", "d1.destroyflashlight", "d1.levelshutdown.destroys", "d1.retire", "d1.type.rttcollapsed",
+		"d1.create.blob",
+		"d1.create.rtt",
+		"d1.create.brushflag",
+		"d1.create.norenderable",
+		"d1.flashlight.depth",
+		"d1.flashlight.nodepth",
+		"d1.destroy",
+		"d1.destroyflashlight",
+		"d1.levelshutdown.destroys",
+		"d1.retire",
+		"d1.type.rttcollapsed",
 		// D2
-		"d2.init.lowend", "d2.init.rtt", "d2.init.depthunsupported", "d2.init.depth", "d2.init.restorefunc", "d2.prerender.depthunsupported",
-		"d2.prerender.depthresize", "d2.prerender.depthoff", "d2.prerender.depthon", "d2.prerender.rtton", "d2.prerender.toggle.returns",
-		"d2.rtton.convertsshadows", "d2.prerender.rttoff", "d2.rttoff.uncache", "d2.levelinit.clamped", "d2.levelinit.scaled",
-		"d2.levelinit.rttactive", "d2.color.rtt", "d2.color.blob", "d2.restore", "d2.direction.rtt.updateall", "d2.direction.blob.nothing",
-		"d2.direction.blobdown", "d2.direction.rttset", "d2.distance.updateall", "d2.gamecontrol", "d2.falloffbias", "d2.shutdown",
-		"d2.cmd.r_shadowdir.print", "d2.cmd.r_shadowdir.set", "d2.cmd.r_shadowangles.print", "d2.cmd.r_shadowangles.set",
-		"d2.cmd.r_shadowcolor.print", "d2.cmd.r_shadowcolor.set", "d2.cmd.r_shadowdist.print", "d2.cmd.r_shadowdist.set",
-		"d2.cmd.r_shadowblobbycutoff.print", "d2.cmd.r_shadowblobbycutoff.set",
+		"d2.init.lowend",
+		"d2.init.rtt",
+		"d2.init.depthunsupported",
+		"d2.init.depth",
+		"d2.init.restorefunc",
+		"d2.prerender.depthunsupported",
+		"d2.prerender.depthresize",
+		"d2.prerender.depthoff",
+		"d2.prerender.depthon",
+		"d2.prerender.rtton",
+		"d2.prerender.toggle.returns",
+		"d2.rtton.convertsshadows",
+		"d2.prerender.rttoff",
+		"d2.rttoff.uncache",
+		"d2.levelinit.clamped",
+		"d2.levelinit.scaled",
+		"d2.levelinit.rttactive",
+		"d2.color.rtt",
+		"d2.color.blob",
+		"d2.restore",
+		"d2.direction.rtt.updateall",
+		"d2.direction.blob.nothing",
+		"d2.direction.blobdown",
+		"d2.direction.rttset",
+		"d2.distance.updateall",
+		"d2.gamecontrol",
+		"d2.falloffbias",
+		"d2.shutdown",
+		"d2.cmd.r_shadowdir.print",
+		"d2.cmd.r_shadowdir.set",
+		"d2.cmd.r_shadowangles.print",
+		"d2.cmd.r_shadowangles.set",
+		"d2.cmd.r_shadowcolor.print",
+		"d2.cmd.r_shadowcolor.set",
+		"d2.cmd.r_shadowdist.print",
+		"d2.cmd.r_shadowdist.set",
+		"d2.cmd.r_shadowblobbycutoff.print",
+		"d2.cmd.r_shadowblobbycutoff.set",
 		// D3
-		"d3.dirty.invalidhandle", "d3.dirty.already", "d3.dirty.noshadowhandle", "d3.dirty.marked", "d3.dirty.marked.force",
-		"d3.dirty.parentpropagates", "d3.dirty.ignoredwhileupdating", "d3.texturedirty.invalid", "d3.texturedirty.parent",
-		"d3.transparent.disabled", "d3.transparent.keptdirty", "d3.child.disabled", "d3.update.moved", "d3.update.notmoved",
-		"d3.update.unknownmodeltype", "d3.update.nomodel", "d3.useparent.recursesnone", "d3.willparentblob.recursesnone",
-		"d3.walk.handleorder", "d3.walk.stopsatretire", "d3.updateprojected.invalid", "d3.updateprojected.notflashlight",
-		"d3.updateprojected.flashlight", "d3.removefromdirty.clearsbit",
+		"d3.dirty.invalidhandle",
+		"d3.dirty.already",
+		"d3.dirty.noshadowhandle",
+		"d3.dirty.marked",
+		"d3.dirty.marked.force",
+		"d3.dirty.parentpropagates",
+		"d3.dirty.ignoredwhileupdating",
+		"d3.texturedirty.invalid",
+		"d3.texturedirty.parent",
+		"d3.transparent.disabled",
+		"d3.transparent.keptdirty",
+		"d3.child.disabled",
+		"d3.update.moved",
+		"d3.update.notmoved",
+		"d3.update.unknownmodeltype",
+		"d3.update.nomodel",
+		"d3.useparent.recursesnone",
+		"d3.willparentblob.recursesnone",
+		"d3.walk.handleorder",
+		"d3.walk.stopsatretire",
+		"d3.updateprojected.invalid",
+		"d3.updateprojected.notflashlight",
+		"d3.updateprojected.flashlight",
+		"d3.removefromdirty.clearsbit",
 		// D4
-		"d4.distance.override", "d4.direction.override", "d4.ortho", "d4.ortho.axis0", "d4.ortho.axis1", "d4.ortho.axis2",
-		"d4.rtt", "d4.rtt.clipplanes.bothsides", "d4.bounds.childrenadded", "d4.bounds.blobparent.norecursion",
+		"d4.distance.override",
+		"d4.direction.override",
+		"d4.ortho",
+		"d4.ortho.axis0",
+		"d4.ortho.axis1",
+		"d4.ortho.axis2",
+		"d4.rtt",
+		"d4.rtt.clipplanes.bothsides",
+		"d4.bounds.childrenadded",
+		"d4.bounds.blobparent.norecursion",
 		// D5
-		"d5.version2", "d5.lightworld", "d5.lightworld.off", "d5.models", "d5.models.off", "d5.setter.flashlight", "d5.setter.notflashlight",
+		"d5.version2",
+		"d5.lightworld",
+		"d5.lightworld.off",
+		"d5.models",
+		"d5.models.off",
+		"d5.setter.flashlight",
+		"d5.setter.notflashlight",
 		"d5.state",
 		// D6
-		"d6.self", "d6.notreceiving", "d6.flash.culled", "d6.flash.kept", "d6.shadow.boxmiss", "d6.plane.centers", "d6.plane.separating",
-		"d6.plane.none", "d6.side.pos.culled", "d6.side.pos.kept", "d6.side.neg.culled", "d6.side.neg.kept", "d6.culled",
-		"d6.kept.brush.flash", "d6.kept.brush.rtt", "d6.kept.brush.simple", "d6.kept.static.flash", "d6.kept.static.rtt",
-		"d6.kept.static.simple", "d6.kept.studio.flash", "d6.kept.studio.rtt", "d6.kept.studio.simple", "d6.removeall.notreceiving",
-		"d6.removeall.sm.RemoveAllShadowsFromBrushModel", "d6.removeall.sp.RemoveAllShadowsFromStaticProp",
-		"d6.removeall.sm.RemoveAllShadowsFromModel", "d6.removeall.studio.noinstance",
+		"d6.self",
+		"d6.notreceiving",
+		"d6.flash.culled",
+		"d6.flash.kept",
+		"d6.shadow.boxmiss",
+		"d6.plane.centers",
+		"d6.plane.separating",
+		"d6.plane.none",
+		"d6.side.pos.culled",
+		"d6.side.pos.kept",
+		"d6.side.neg.culled",
+		"d6.side.neg.kept",
+		"d6.culled",
+		"d6.kept.brush.flash",
+		"d6.kept.brush.rtt",
+		"d6.kept.brush.simple",
+		"d6.kept.static.flash",
+		"d6.kept.static.rtt",
+		"d6.kept.static.simple",
+		"d6.kept.studio.flash",
+		"d6.kept.studio.rtt",
+		"d6.kept.studio.simple",
+		"d6.removeall.notreceiving",
+		"d6.removeall.sm.RemoveAllShadowsFromBrushModel",
+		"d6.removeall.sp.RemoveAllShadowsFromStaticProp",
+		"d6.removeall.sm.RemoveAllShadowsFromModel",
+		"d6.removeall.studio.noinstance",
 		// D7
-		"d7.gate.rttoff", "d7.gate.r_shadows", "d7.gate.gamecontrol", "d7.novisible", "d7.enum.renderedthisframe", "d7.enum.notrtt",
-		"d7.enum.transparent", "d7.enum.child", "d7.enum.culled", "d7.enum.accepted", "d7.sorted", "d7.target.cleared",
-		"d7.target.notcleared", "d7.budget.lod", "d7.lod.blob", "d7.lod.back", "d7.lod.back.texcoordsonly", "d7.draw", "d7.draw.size16",
-		"d7.draw.size64", "d7.draw.size128", "d7.draw.size256", "d7.draw.model", "d7.draw.model.nobones", "d7.draw.brush",
-		"d7.redraw.animating", "d7.redraw.stillcleared", "d7.alloc.same", "d7.alloc.keepnear", "d7.alloc.keepold", "d7.alloc.upgrade",
-		"d7.alloc.fresh", "d7.alloc.lower", "d7.alloc.none", "d7.alloc.steal", "d7.alloc.stolenfrom", "d7.drew",
+		"d7.gate.rttoff",
+		"d7.gate.r_shadows",
+		"d7.gate.gamecontrol",
+		"d7.novisible",
+		"d7.enum.renderedthisframe",
+		"d7.enum.notrtt",
+		"d7.enum.transparent",
+		"d7.enum.child",
+		"d7.enum.culled",
+		"d7.enum.accepted",
+		"d7.sorted",
+		"d7.target.cleared",
+		"d7.target.notcleared",
+		"d7.budget.lod",
+		"d7.lod.blob",
+		"d7.lod.back",
+		"d7.lod.back.texcoordsonly",
+		"d7.draw",
+		"d7.draw.size16",
+		"d7.draw.size64",
+		"d7.draw.size128",
+		"d7.draw.size256",
+		"d7.draw.model",
+		"d7.draw.model.nobones",
+		"d7.draw.brush",
+		"d7.redraw.animating",
+		"d7.redraw.stillcleared",
+		"d7.alloc.same",
+		"d7.alloc.keepnear",
+		"d7.alloc.keepold",
+		"d7.alloc.upgrade",
+		"d7.alloc.fresh",
+		"d7.alloc.lower",
+		"d7.alloc.none",
+		"d7.alloc.steal",
+		"d7.alloc.stolenfrom",
+		"d7.drew",
 		// D8
-		"d8.alloc.tools4", "d8.alloc.clampwrittenback", "d8.active.nodepthflag", "d8.active.noshadows", "d8.active.culled",
-		"d8.active.overflow", "d8.lock.failed", "d8.render", "d8.viewstate.v1", "d8.viewstate.v2.one", "d8.viewstate.v2.none", "d8.unlock",
+		"d8.alloc.tools4",
+		"d8.alloc.clampwrittenback",
+		"d8.active.nodepthflag",
+		"d8.active.noshadows",
+		"d8.active.culled",
+		"d8.active.overflow",
+		"d8.lock.failed",
+		"d8.render",
+		"d8.viewstate.v1",
+		"d8.viewstate.v2.one",
+		"d8.viewstate.v2.none",
+		"d8.unlock",
 		// D9 and the proxies
-		"d9.frustum.lines", "d9.rendertexture.quad", "d9.rendertexture.off", "d9.rttdebug.boxes", "proxy.Shadow.init", "proxy.Shadow.refused",
-		"proxy.ShadowModel.init", "proxy.ShadowModel.refused", "proxy.Shadow.bind.sets1", "proxy.ShadowModel.bind.sets7",
+		"d9.frustum.lines",
+		"d9.rendertexture.quad",
+		"d9.rendertexture.off",
+		"d9.rttdebug.boxes",
+		"proxy.Shadow.init",
+		"proxy.Shadow.refused",
+		"proxy.ShadowModel.init",
+		"proxy.ShadowModel.refused",
+		"proxy.Shadow.bind.sets1",
+		"proxy.ShadowModel.bind.sets7",
 	};
 	std::string table;
 	int nMissing = 0;
 	for ( const char *pszArm : ppszArms )
 	{
-		table += std::string( pszArm ) + " " + std::to_string( arms[ pszArm ] ) + "\n";
-		if ( arms[ pszArm ] == 0 )
+		table += std::string( pszArm ) + " " + std::to_string( arms[pszArm] ) + "\n";
+		if ( arms[pszArm] == 0 )
 		{
 			++nMissing;
 			ADD_FAILURE() << "the scenario never reaches " << pszArm;

@@ -11,8 +11,6 @@
 // RecipientFilter) lay them out, in this order. They are the library's own:
 // its version script exports none of them.
 //=============================================================================//
-#ifndef FWD_RECIPIENT_FILTER_H
-#define FWD_RECIPIENT_FILTER_H
 #pragma once
 
 class IManagedRecipientFilter;
@@ -26,5 +24,3 @@ int SSFwd_RecipientFilter_SizeOf();
 // managed side, and answers it as that interface. NULL, and nothing built,
 // without memory or a target.
 void *SSFwd_RecipientFilter_Construct( void *pMemory, IManagedRecipientFilter *pTarget );
-
-#endif // FWD_RECIPIENT_FILTER_H

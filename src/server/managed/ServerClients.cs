@@ -150,7 +150,7 @@ public sealed class ServerClients : IServerClients
         if (_entities is null || clientEdictIndex < 1)
             return false;
 
-        foreach (ScriptedEntity instance in _entities.OfClass(EntityNames.SsPlayer))
+        foreach (ScriptedEntity instance in _entities.OfClass(EntityNames.Player))
         {
             if (instance is SsPlayer player
                 && EntityDirectory.EntryIndex(player.Handle) == clientEdictIndex)

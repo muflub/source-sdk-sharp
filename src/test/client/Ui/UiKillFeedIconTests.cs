@@ -32,7 +32,7 @@ public class UiKillFeedIconTests
         }
         foreach (string n in new[]
                  {
-                     EntityNames.SsBolt, EntityNames.SsRocket, EntityNames.SsGrenade, EntityNames.SsEnergyball, EntityNames.SsBarrel,
+                     EntityNames.CrossbowBolt, EntityNames.RpgMissile, EntityNames.NpcGrenadeFrag, EntityNames.PropCombineBall, EntityNames.SsBarrel,
                      "crossbow_bolt", "rpg_missile", "grenade_frag", "smg1_grenade", "combine_ball", "physics", "world",
                  })
             names.Add(n);
@@ -106,6 +106,21 @@ public class UiIconAtlasTests
             if (committed.Alpha[i] != built.Alpha[i])
                 differ++;
         Assert.True(differ == 0, $"icons.a8z differs from what the SVGs build in {differ} pixels: run `make ui-icons` and commit the atlas");
+    }
+
+    /// <summary>
+    /// The engine's DrawSetTextureRGBA pads a texture to powers of two and
+    /// leaves its coordinates spanning the padded texture (no fixup), so the
+    /// atlas must be a power of two each way for its rects' UVs to land.
+    /// Found live (2026-10-27): at 1024x948 every icon was sampled 8% low,
+    /// and slivers of the next row showed under the pickup history's icons.
+    /// </summary>
+    [Fact]
+    public void The_atlas_is_a_power_of_two_each_way_as_the_engine_pads_it()
+    {
+        var set = UiIconSet.Embedded();
+        Assert.True(int.IsPow2(set.AtlasWidth), $"atlas width {set.AtlasWidth}");
+        Assert.True(int.IsPow2(set.AtlasHeight), $"atlas height {set.AtlasHeight}");
     }
 
     [Fact]

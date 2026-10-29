@@ -54,7 +54,8 @@ public class BoltImpactTests
     private static (Bolt Bolt, RecordingEngine Engine, RecordingEffectDispatch Temps) ABolt(
         TraceResult? opaqueLine = null,
         SurfaceTraceResult? face = null,
-        MoveType opaqueVictimMoveType = MoveType.None)
+        MoveType opaqueVictimMoveType = MoveType.None,
+        Action<ScriptedEntityRegistry, ServiceContainer>? seen = null)
     {
         var services = Services(out var engine);
 
@@ -69,6 +70,14 @@ public class BoltImpactTests
               .Ignores("EntityPhysics.GetSolidFlags")
               .Ignores("EntityPhysics.GetCollisionGroup")
               .Returns("Entities.IsValid", true)
+              // The glow sprite it carries (CreateSprites).
+              .Returns("Entities.Create", new EntityHandle(0x0001_0099u))
+              .Returns("Entities.SetKeyValue", true)
+              .Returns("Entities.SetParent", true)
+              // Out of water: the sparks fly.
+              .Returns("WorldQuery.PointContents", Contents.Empty)
+              // The victim is a player: a body, whatever else it is.
+              .Returns("Entities.IsPlayer", true)
               .Returns("Entities.GetOrigin", Resting)
               .Returns("Entities.GetAngles", Vector.Zero);
 
@@ -77,12 +86,12 @@ public class BoltImpactTests
         // misses (stock's absent surface, which takes the sky guard's silent
         // answer). A test overrides the one its name is about.
         engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
-              .Returns("WorldQuery.TraceLineSurface", new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero,
-                                                                              EntityHandle.None, -1, 0));
+              .Returns("WorldQuery.TraceBox", new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero,
+                                                                      EntityHandle.None, -1, 0));
         if (opaqueLine is not null)
             engine.Returns("WorldQuery.TraceLine", opaqueLine.Value);
         if (face is not null)
-            engine.Returns("WorldQuery.TraceLineSurface", face.Value);
+            engine.Returns("WorldQuery.TraceBox", face.Value);
         // The movetype is the half of stock's condition under test; the
         // state flags ride along unread.
         engine.Returns("Networking.EntityGetState", EntityState.None)
@@ -92,14 +101,28 @@ public class BoltImpactTests
 
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(Bolt).Assembly);
+        services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
 
         var handle = new EntityHandle(1);
-        registry.Spawn(handle, EntityNames.SsBolt);
+        registry.Spawn(handle, EntityNames.CrossbowBolt);
         var bolt = (Bolt)registry.Get(handle)!;
         bolt.FiredBy(TheShooter, FiredVelocity);
+        seen?.Invoke(registry, services);
 
         return (bolt, engine, temps);
+    }
+
+    /// <summary>CCrossbowBolt::Spawn's UTIL_SetSize: the bolt is a two-unit box, and flies as one.</summary>
+    [Fact]
+    public void TheBoltIsATwoUnitBox()
+    {
+        var (_, engine, _) = ABolt();
+
+        EngineCall? bounds = engine.Last("Entities.SetBounds");
+        Assert.True(bounds is not null, "the bolt set no bounds");
+        Assert.Equal((new Vector(-1f, -1f, -1f), new Vector(1f, 1f, 1f)),
+                     (bounds!.Value.ArgAs<Vector>(1), bounds.Value.ArgAs<Vector>(2)));
     }
 
     /// <summary>The opaque line stopping 64 units out: something behind the victim.</summary>
@@ -136,8 +159,9 @@ public class BoltImpactTests
         Assert.True(sound.ArgAs<EntityHandle>(0) == bolt.Handle,
                     "the cue is attached to the bolt, as stock's EmitSound on self is");
         var line = Assert.Single(engine.AllOf("WorldQuery.TraceLine"));
-        Assert.True(line.ArgAs<TraceMask>(2) == TraceMask.BlockLos,
-                    "MASK_BLOCKLOS, what the server's BoltTouch traces with");
+        Assert.True(line.ArgAs<TraceMask>(2) == TraceMask.Opaque,
+                    "MASK_OPAQUE, what HL2MP's BoltTouch traces with (shared/hl2mp/weapon_crossbow.cpp; "
+                  + "MASK_BLOCKLOS is single-player HL2's server/hl2 copy, which HL2MP does not build)");
         Assert.True(line.ArgAs<EntityHandle>(3) == Victim, "ignoring the victim");
         var stuck = Assert.Single(temps.Effects);
         Assert.Equal("BoltImpact", stuck.Name);
@@ -244,8 +268,246 @@ public class BoltImpactTests
 
         bolt.OnTouch(Victim);
 
-        var damage = Assert.Single(engine.AllOf("Damage.Apply"));
+        var damage = Assert.Single(engine.AllOf("Damage.ApplyAt"));
         Assert.Equal(Victim, damage.ArgAs<EntityHandle>(0));
         Assert.Equal(TheShooter, damage.ArgAs<EntityHandle>(1));
+    }
+
+    //-------------------------------------------------------------------------
+    // CCrossbowBolt's flight, glance, linger, glow and sparks (stock A/B,
+    // 2026-10-25: this bolt fell three times as fast, stuck where stock's
+    // glanced, vanished at once and threw no sparks).
+    //-------------------------------------------------------------------------
+
+    /// <summary>A shallow face: the bolt arrives along it.</summary>
+    private static SurfaceTraceResult GrazedFace => new(true, 0.6667f, Resting, new Vector(0f, 1f, 0f),
+                                                        EntityHandle.None, 17, 0);
+
+    [Fact]
+    public void ItFallsAtOneTwentiethOfTheWorldsGravity()
+    {
+        var (_, engine, _) = ABolt();
+
+        Assert.Equal(0.05f, (float)engine.Calls.First(c => c.Member == "EntityPhysics.SetGravity").Args[1]!);
+    }
+
+    [Fact]
+    public void ItSpawnsInItsGlowingSkin()
+    {
+        RecordingServerSkins? skins = null;
+        ABolt(seen: (_, services) => skins = (RecordingServerSkins)services.Resolve(typeof(IServerSkins))!);
+
+        Assert.Equal(1, Assert.Single(skins!.Set).Skin);
+    }
+
+    [Fact]
+    public void ABodyIsHurtNeverGibbedAndPushedAlongTheFlight()
+    {
+        var (bolt, engine, _) = ABolt();
+        engine.Returns("Entities.GetIndex", 7);
+
+        bolt.OnTouch(Victim);
+
+        var hurt = engine.Last("Damage.ApplyAt")!.Value;
+        Assert.Equal(DamageType.Bullet | DamageType.NeverGib, (DamageType)hurt.Args[3]!);
+        var force = (Vector)hurt.Args[4]!;
+        Assert.True(force.X > 0f && force.Y == 0f && force.Z == 0f, $"pushed along its flight: {force.X} {force.Y} {force.Z}");
+    }
+
+    [Fact]
+    public void AShallowFastArrivalGlancesOffAtThreeQuarterSpeed()
+    {
+        var (bolt, engine, _) = ABolt(face: GrazedFace);
+
+        bolt.OnTouch(EntityHandle.None);
+
+        Assert.False(engine.Called("Entities.Remove"), "a glancing bolt flies on");
+        Assert.Equal(new Vector(1125f, 0f, 0f), (Vector)engine.Last("Entities.SetVelocity")!.Value.Args[1]!);
+        Assert.Equal(1f, (float)engine.Last("EntityPhysics.SetGravity")!.Value.Args[1]!);
+    }
+
+    [Fact]
+    public void AStuckBoltStaysUnseenForTwoSeconds()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace);
+
+        bolt.OnTouch(EntityHandle.None);
+
+        Assert.False(engine.Called("Entities.Remove"), "removed the moment it stuck");
+        Assert.Equal(2f, bolt.NextThinkDelay());
+        Assert.False((bool)engine.Last("EntityRender.SetVisible")!.Value.Args[1]!);
+    }
+
+    /// <summary>
+    /// BoltTouch's last arm: something that takes no damage and is not static
+    /// (a moving door, a lift) gets the impact and nothing else -- no sound, no
+    /// stick, no damage. Stock A/B, 2026-10-25: this bolt called such a thing a
+    /// body (BoltHitBody) where stock's left only a tile impact.
+    /// </summary>
+    [Fact]
+    public void AMovingThingThatTakesNoDamageGetsOnlyTheImpact()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace, opaqueVictimMoveType: MoveType.Push);
+        engine.Returns("Entities.IsPlayer", false);
+
+        bolt.OnTouch(Victim);
+
+        Assert.Empty(engine.AllOf("Damage.ApplyAt"));
+        Assert.Empty(engine.AllOf("Sound.EntityEmitSound"));
+        Assert.True(engine.Called("Effects.ImpactEffect"), "no impact");
+        Assert.False(engine.Called("EntityRender.SetVisible"), "it stuck instead of going");
+    }
+
+    /// <summary>
+    /// A managed brush the shell reports as MOVETYPE_NONE is still one of
+    /// stock's pushers (see <see cref="MovesAsPusherTests"/>): a bolt in a
+    /// momentary_rot_button gets the impact and goes, as stock's does.
+    /// </summary>
+    [Fact]
+    public void AManagedPusherTheShellCallsStillHoldsNoBolt()
+    {
+        ScriptedEntityRegistry? directory = null;
+        var (bolt, engine, _) = ABolt(face: WallFace, opaqueVictimMoveType: MoveType.None,
+                                      seen: (registry, _) => directory = registry);
+        engine.Strict = false;
+        directory!.Spawn(Victim, EntityNames.MomentaryRotButton);
+        Assert.True(directory.Get(Victim) is MomentaryRotButton, "the button did not spawn");
+        engine.Strict = true;
+        engine.Returns("Entities.IsPlayer", false)
+              .Returns("Entities.GetHealth", 0);
+        int before = engine.Calls.Count;
+
+        bolt.OnTouch(Victim);
+
+        var touch = engine.Calls.Skip(before).Select(c => c.Member).ToArray();
+        Assert.DoesNotContain("Sound.EntityEmitSound", touch);
+        Assert.Contains("Effects.ImpactEffect", touch);
+        Assert.DoesNotContain("EntityRender.SetVisible", touch);
+    }
+
+    /// <summary>
+    /// The face is re-found by sweeping the bolt's own box, as the step that
+    /// stopped it did: a line from its middle passes over an edge the box
+    /// clipped. Found side by side with stock (tools/stock-ab --weapons
+    /// weapon_crossbow, 2026-10-25): a bolt that stopped on the top edge of
+    /// lamp2's func_brush went silently, where stock's left its impact.
+    /// </summary>
+    [Fact]
+    public void TheFaceIsReFoundAsTheBoltsBox()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace, opaqueVictimMoveType: MoveType.None);
+        engine.Returns("Entities.IsPlayer", false);
+
+        bolt.OnTouch(Victim);
+
+        EngineCall? box = engine.Last("WorldQuery.TraceBox");
+        Assert.True(box is not null, "the face was not re-found as a box");
+        Assert.Equal((new Vector(-1f, -1f, -1f), new Vector(1f, 1f, 1f)),
+                     (box!.Value.ArgAs<Vector>(2), box.Value.ArgAs<Vector>(3)));
+        Assert.True(engine.Called("Effects.ImpactEffect"), "the face the box found made no impact");
+    }
+
+    /// <summary>
+    /// "Keep going through the glass": a pane (COLLISION_GROUP_BREAKABLE_GLASS)
+    /// is hurt like any body, and the bolt flies on rather than stopping in it.
+    /// Found against stock (docs/divergences.md, the bolt's touch guards, 2026-10-25).
+    /// </summary>
+    [Fact]
+    public void ABoltFliesOnThroughGlassItHasHurt()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace);
+        engine.Returns("EntityPhysics.GetCollisionGroup", CollisionGroup.BreakableGlass);
+        int before = engine.Calls.Count;
+
+        bolt.OnTouch(Victim);
+
+        var touch = engine.Calls.Skip(before).Select(c => c.Member).ToArray();
+        Assert.Contains("Damage.ApplyAt", touch);
+        Assert.DoesNotContain(engine.Calls.Skip(before), c => c.Member == "Sound.EntityEmitSound"
+                                                            && c.ArgAs<string>(1) == Bolt.HitBodySound);
+        Assert.DoesNotContain("Entities.Remove", touch);
+        Assert.DoesNotContain("EntityRender.SetVisible", touch);
+    }
+
+    /// <summary>
+    /// CCrossbowBolt::BubbleThink: every tenth of a second the bolt faces the
+    /// way it flies, and in water trails five bubbles over the last tenth of
+    /// its path. Found against stock (2026-10-25): this mod's bolt kept its
+    /// launch angles and left no wake.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void InFlightItFacesItsPathAndTrailsBubblesInWater(bool inWater)
+    {
+        var (bolt, engine, _) = ABolt();
+        engine.Returns("WorldQuery.PointContents", inWater ? Contents.Water : Contents.Empty);
+        Assert.Equal(Bolt.BubbleInterval, bolt.NextThinkDelay(), 3);
+        int before = engine.Calls.Count;
+
+        bolt.OnThink();
+
+        var turned = Assert.Single(engine.Calls.Skip(before), c => c.Member == "Entities.SetAngles");
+        Assert.Equal(Angles.FromVector(FiredVelocity), turned.ArgAs<Vector>(1));
+        EngineCall? trail = engine.Last("Effects.BubbleTrailEffect");
+        Assert.Equal(inWater, trail is not null);
+        if (inWater)
+            Assert.Equal((Resting - FiredVelocity * 0.1f, Resting, 5),
+                         (trail!.Value.ArgAs<Vector>(0), trail.Value.ArgAs<Vector>(1), trail.Value.ArgAs<int>(2)));
+    }
+
+    [Fact]
+    public void StaticArchitectureThatTakesNoDamageHoldsTheBoltAsAWallDoes()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace, opaqueVictimMoveType: MoveType.None);
+        engine.Returns("Entities.IsPlayer", false);
+
+        bolt.OnTouch(Victim);
+
+        Assert.Empty(engine.AllOf("Damage.ApplyAt"));
+        Assert.Contains(engine.AllOf("Sound.EntityEmitSound"), c => c.ArgAs<string>(1) == "Weapon_Crossbow.BoltHitWorld");
+    }
+
+    [Fact]
+    public void AStuckBoltGoesWhenItsTwoSecondsAreUp()
+    {
+        ScriptedEntityRegistry? registry = null;
+        var (bolt, _, _) = ABolt(face: WallFace, seen: (r, _) => registry = r);
+
+        bolt.OnTouch(EntityHandle.None);
+        Assert.Equal(0, registry!.Directory.PendingRemovalCount);
+
+        bolt.OnThink();
+        Assert.Equal(1, registry.Directory.PendingRemovalCount);
+    }
+
+    [Fact]
+    public void AStuckBoltThrowsSparksOutOfWater()
+    {
+        var (bolt, engine, _) = ABolt(face: WallFace);
+
+        bolt.OnTouch(EntityHandle.None);
+
+        Assert.True(engine.Called("Effects.SparkEffect"), "no sparks");
+    }
+
+    [Fact]
+    public void ItCarriesAGlowThatStartsOff()
+    {
+        var (_, engine, _) = ABolt();
+
+        Assert.Contains(engine.Calls, c => c.Member == "Entities.Create" && (string)c.Args[0]! == EntityNames.EnvSprite);
+        Assert.Contains(engine.Calls, c => c.Member == "Entities.SetKeyValue" && (string)c.Args[1]! == "model"
+                                           && (string)c.Args[2]! == "sprites/light_glow02_noz.vmt");
+    }
+
+    [Fact]
+    public void TheGlowIsNotSolidAsFollowEntityLeavesIt()
+    {
+        var (_, engine, _) = ABolt();
+
+        var parented = engine.Calls.Last(c => c.Member == "Entities.SetParent");
+        Assert.Contains(engine.Calls, c => c.Member == "EntityPhysics.SetNotSolid"
+                                           && (EntityHandle)c.Args[0]! == (EntityHandle)parented.Args[0]! && (bool)c.Args[1]!);
     }
 }

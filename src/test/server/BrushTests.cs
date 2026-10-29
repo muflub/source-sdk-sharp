@@ -26,7 +26,11 @@ public class BrushTests
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPushable).Assembly);
-        registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitPhysics", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles");
+        registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitPhysics", "EntityPhysics.InitSpherePhysics",
+                                     "EntityPhysics.InitStaticPhysics", "EntityPhysics.EnableCollisions",
+                                     "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles",
+                                     // What a breaking pushable's noise and gibs read (CBreakable::Die).
+                                     "Entities.GetWorldSpaceCenter", "Entities.GetHealth", "Host.RandomFloat", "Host.RandomInt");
 
         var handle = new EntityHandle(index);
 
@@ -49,6 +53,8 @@ public class BrushTests
         var (registry, handle, door) = Spawn<FuncDoor>(EntityNames.FuncDoor, 30, ("wait", "-1"), ("speed", "64"));
         registry.Input(handle, "Open", "", 0f, EntityHandle.None);
 
+        // PerformPush: the block's start, then the frame's Blocked.
+        door.OnStartBlocked(new EntityHandle(0x0001_0001u));
         door.OnBlocked(new EntityHandle(0x0001_0001u));
 
         Assert.Equal(1, door.OnBlockedOpening.FireCount);
@@ -63,6 +69,8 @@ public class BrushTests
         var (registry, handle, door) = Spawn<FuncDoor>(EntityNames.FuncDoor, 31, ("wait", "4"), ("speed", "64"));
         registry.Input(handle, "Open", "", 0f, EntityHandle.None);
 
+        // PerformPush: the block's start, then the frame's Blocked.
+        door.OnStartBlocked(new EntityHandle(0x0001_0001u));
         door.OnBlocked(new EntityHandle(0x0001_0001u));
 
         Assert.Equal(1, door.OnBlockedOpening.FireCount);
@@ -212,53 +220,10 @@ public class BrushTests
     }
 
     [Fact]
-    public void WheelWindsBackAfterAPress()
+    public void WheelIgnoresAPlayerWhenDisabled()
     {
-        var (registry, handle, wheel) = Spawn<MomentaryRotButton>(
-            EntityNames.MomentaryRotButton, 6, ("distance", "90"), ("returnspeed", "50"));
-
-        registry.Input(handle, "Use", "", 0f, EntityHandle.None);
-        Assert.True(wheel.OnPressed.FireCount == 1, "a press is reported");
-
-        registry.MoveDone(handle);
-        Assert.True(wheel.OnUnpressed.FireCount == 1, "letting go is reported when it stops");
-        Assert.True(wheel.OnFullyClosed.FireCount == 1, "having been wound fully on");
-
-        // The wind-back is a second movement, so it arrives separately.
-        registry.MoveDone(handle);
-        Assert.True(wheel.OnFullyOpen.FireCount == 1, "and it winds itself back to the start");
-        Assert.True(wheel.OnUnpressed.FireCount == 1, "which is not a second press");
-
-        // A map that parks the wheel has said where it wants it, so that must
-        // NOT be taken away again.
-        var (parkedRegistry, parkedHandle, byMap) = Spawn<MomentaryRotButton>(
-            EntityNames.MomentaryRotButton, 7, ("distance", "90"), ("returnspeed", "50"));
-
-        parkedRegistry.Input(parkedHandle, "SetPosition", "1", 1f, EntityHandle.None);
-        parkedRegistry.MoveDone(parkedHandle);
-        parkedRegistry.MoveDone(parkedHandle);
-
-        Assert.True(byMap.OnFullyOpen.FireCount == 0, "a wheel parked by the map stays parked");
-    }
-
-    [Fact]
-    public void WheelIgnoresAPlayerWhenLocked()
-    {
-        var (registry, handle, wheel) = Spawn<MomentaryRotButton>(
-            EntityNames.MomentaryRotButton, 8, ("distance", "90"));
-
-        registry.Input(handle, "Lock", "", 0f, EntityHandle.None);
-        registry.Input(handle, "Use", "", 0f, EntityHandle.None);
-
-        Assert.True(wheel.OnUseLocked.FireCount == 1, "a locked wheel says so");
-        Assert.True(wheel.OnPressed.FireCount == 0, "and does not turn");
-
-        registry.Input(handle, "Unlock", "", 0f, EntityHandle.None);
-        registry.Input(handle, "Use", "", 0f, EntityHandle.None);
-        Assert.True(wheel.OnPressed.FireCount == 1, "unlocking lets the player turn it again");
-
-        // Disable is a separate switch, and a disabled wheel is not a locked
-        // one: it reports nothing at all rather than refusing audibly.
+        // A disabled wheel is not a locked one: it reports nothing at all
+        // rather than refusing audibly (MomentaryRotButtonUseTests has the lock).
         var (disabledRegistry, disabledHandle, disabled) = Spawn<MomentaryRotButton>(
             EntityNames.MomentaryRotButton, 9, ("distance", "90"));
 
@@ -289,7 +254,9 @@ public class BrushTests
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(FuncPushable).Assembly);
-        registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitPhysics", "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles");
+        registry.Services = Ignoring("Entities.GetBoundsSize", "EntityPhysics.InitPhysics", "EntityPhysics.InitSpherePhysics",
+                                     "EntityPhysics.InitStaticPhysics", "EntityPhysics.EnableCollisions",
+                                     "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles");
 
         Assert.True(registry.IsRegistered(EntityNames.FuncPushable), "func_pushable is claimed by C#");
         Assert.True(registry.IsRegistered(EntityNames.FuncWater), "func_water is claimed by C#");

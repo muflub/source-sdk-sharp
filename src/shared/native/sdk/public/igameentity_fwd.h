@@ -1,21 +1,17 @@
-//========= SourceSharp ======================================================//
-//
-// The entity face, declared but not defined: igameentity.h's name for it on
-// this side. On the server built on stock public headers that name is
-// CBaseEntity, and IGameEntity an alias of it (plan_server_native_v2 D1);
-// anywhere else it is the class IGameEntity. A bare `class IGameEntity;`
-// cannot sit beside the alias, so a header that only names the type includes
-// this instead.
-//
-//=============================================================================//
-#ifndef IGAMEENTITY_FWD_H
-#define IGAMEENTITY_FWD_H
+// Forward declaration of the entity face. On stock-header sides IGameEntity is an
+// alias of CBaseEntity or C_BaseEntity, so a bare `class IGameEntity;` would clash.
+#pragma once
 
-#if defined( GAME_DLL ) && defined( SS_STOCK_PUBLIC_HEADERS )
-class CBaseEntity;
-using IGameEntity = CBaseEntity;
+// The class's name on a side built on stock headers. Unset elsewhere.
+#if defined( SS_STOCK_PUBLIC_HEADERS ) && defined( GAME_DLL )
+#define SS_GAME_ENTITY CBaseEntity
+#elif defined( SS_STOCK_PUBLIC_HEADERS ) && defined( CLIENT_DLL )
+#define SS_GAME_ENTITY C_BaseEntity
+#endif
+
+#ifdef SS_GAME_ENTITY
+class SS_GAME_ENTITY;
+using IGameEntity = SS_GAME_ENTITY;
 #else
 class IGameEntity;
 #endif
-
-#endif // IGAMEENTITY_FWD_H

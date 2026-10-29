@@ -4,16 +4,9 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — mathlib's members, as both DLLs use them ==========//
 // SS_REASON g  leaf math over mdl/bsp data
-//
-// The global names mathlib.h declares that server.so's objects import (and
-// client.so's too), for DLLs that link no libmathlib.a. Each forwards to its
-// ss_mathlib:: twin in mathlib_port.h, where the arithmetic and the reasons
-// are. The members only client.so imports are
-// src/client/native/mathlib_port_client.cpp's (plan_server_native_v2 T5: a
-// shared TU keeps only what both DLLs import).
-//=============================================================================//
+// mathlib.h's globals both DLLs import, for DLLs that link no libmathlib.a. Each
+// forwards to its ss_mathlib:: twin in mathlib_port.h.
 #include "mathlib_port.h"
 
 const Vector vec3_origin( 0, 0, 0 );

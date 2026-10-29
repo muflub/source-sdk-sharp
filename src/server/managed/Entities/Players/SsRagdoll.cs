@@ -46,8 +46,8 @@ namespace SourceSharp.Server;
 /// model index and two vectors rather than twenty-four bone transforms a tick.
 /// </para>
 /// </summary>
-[ScriptedEntity(EntityNames.SsRagdoll, ScriptedEntityKind.Item)]
-public sealed class SsRagdoll : ScriptedEntity
+[ScriptedEntity(EntityNames.Hl2mpRagdoll, ScriptedEntityKind.Item)]
+public sealed class SsRagdoll : AnimatingEntity
 {
     /// <summary>
     /// How long a body lasts before it is removed, in seconds.

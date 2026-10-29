@@ -86,7 +86,7 @@ public class PhysicsConversionTests
     {
         var v = new EntityPhysicsCreationTests.FakeVPhysics();
         var world = new FakeWorld(v.Calls);
-        var create = new EntityPhysicsCreation(v, v, new EntityPhysicsCreationTests.FakeHost(v));
+        var create = new EntityPhysicsCreation(v, v, new EntityPhysicsCreationTests.FakeHost(v), new MassCenterOverrides());
         return (new PhysicsConversion(world, v, create), world, v);
     }
 

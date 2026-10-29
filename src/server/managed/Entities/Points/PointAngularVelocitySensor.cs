@@ -30,12 +30,12 @@ public sealed class PointAngularVelocitySensor : ScriptedEntity
     /// <summary>What a map may set on this entity. See <see cref="PointAngularVelocitySensorVars"/>.</summary>
     [ScriptVars] public PointAngularVelocitySensorVars Vars = new();
 
-    public readonly Output AngularVelocity = new("AngularVelocity");
-    public readonly Output OnLessThan = new("OnLessThan");
-    public readonly Output OnLessThanOrEqualTo = new("OnLessThanOrEqualTo");
-    public readonly Output OnGreaterThan = new("OnGreaterThan");
-    public readonly Output OnGreaterThanOrEqualTo = new("OnGreaterThanOrEqualTo");
-    public readonly Output OnEqualTo = new("OnEqualTo");
+    public readonly Output AngularVelocity = new();
+    public readonly Output OnLessThan = new();
+    public readonly Output OnLessThanOrEqualTo = new();
+    public readonly Output OnGreaterThan = new();
+    public readonly Output OnGreaterThanOrEqualTo = new();
+    public readonly Output OnEqualTo = new();
 
     private EntityHandle _watched = EntityHandle.None;
     private float _lastReported = float.NaN;

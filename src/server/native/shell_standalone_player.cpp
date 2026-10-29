@@ -5,135 +5,86 @@
 //
 //=============================================================================//
 
-//========= SourceSharp — the standalone player, server half (Phase 9a) ======//
 // SS_REASON a  a vtable the engine calls through
 //
-// See the header for what this class is. This file is three things:
-//
-//   1. the player's own state and the IMovementPlayer answers over it;
-//   2. the command path — queueing what ProcessUsercmds decoded and running
-//      it per tick through the SAME loop the SDK player runs through, one
-//      stripped-down CPlayerMove::RunCommand equivalent per command;
-//   3. the move helper the loop talks to while a standalone player is the one
-//      moving. gamemovement.cpp reaches its helper through the MoveHelper()
-//      SINGLETON, not through the argument, so the standalone helper installs
-//      itself for exactly the duration of a command and restores the SDK's
-//      after — zero lines of SDK diff, and the SDK player's commands are
-//      untouched because the two never run inside one another.
-//
-// What the stripped-down RunCommand deliberately does NOT carry, each either
-// owned by managed code or recorded in docs/divergences.md:
-//   - weapon selection by ucmd->weaponselect (weapons are managed under this
-//     flag; selection arrives through the HUD slots);
-//   - vehicles (no standalone vehicle exists);
-//   - the commentary system, IK ground contacts, bot/HLTV special cases;
-//   - the sv_maxusrcmdprocessticks speedhack budget (recorded — the clamp
-//     needs a per-player tick ledger this milestone does not carry).
-//
-//=============================================================================//
+// The standalone player's engine-facing state, the command path's native half, and the
+// physics shadow's pointers.
 
-// THE R5 SET (plan_server_novalve.md P5): cbase.h, in_buttons.h,
-// movevars_shared.h, usercmd.h, takedamageinfo.h and physics_shared.h went.
-#include "ss_util.h"               // engine
-#include "ss_shareddefs.h"         // kMaxPlayers, kDmgFall
-#include "ss_physics_shared.h"     // physenv, physcollision
-#include "ss_entityhandle.h"       // ss::GameEntityFromEntityHandle
-#include "ss_gamestringpool.h"     // AllocPooledString
-extern CGlobalVars *gpGlobals;
-// The player-slot helpers util.h declared went with shell_playerslots.cpp
-// (plan_server_native_min P1): every row DELETE, the sole referrer the debug
-// whois. Managed answers slot lookups (PlayerNames / PlayerPing.Sample).
-int UTIL_GetCommandClientIndex( void );
+#include "server_state.h"
+#include "ss_util.h"
+#include "ss_shareddefs.h"
+#include "ss_physics_shared.h"
+
+#include "ss_gamestringpool.h"
 #include "ss_recipient_filter.h"
 #include "igamerules.h"
 #include "shell_standalone_player.h"
 #include "movement_ground.h"
 #include "standalone_player_sync.h"
 #include "shell_server.h"
-#include "shell_resolve.h"   // SourceSharp_HandleFromEntity: the alias-guarded crossing
-#include "sourcesharp.h"
-// SourceSharpMovement_PendingFallDamage: the amount MoveMath.FallDamage chose
-// for the landing this move helper is about to apply.
+
 #include "shell_gamemovement.h"
-#include "vphysics_interface.h"
+
 #include "vphysics/player_controller.h"
-#include "physics_gamedata.h"
-#include "anyentity.h"
-// The union resolve -- plan_entity.md §3.3, lane entlist-server. MvGetGroundEntity
-// asked the entity list because the ground can be on either hierarchy; the three
-// named arms that replaced it are declared here.
-#include "slot_table.h"
-#include "physicsowner.h"     // PhysicsOwnerOf
-#include "standalone_relays.h" // StandaloneEntity_MoveType
-#include "ss_takedamageinfo.h"	// server.so's damage info
 
+#include "physicsowner.h"
 
+#include "ss_takedamageinfo.h"
 
-// The lifted precache/tick/prediction/tracer statics. They used to be
-// reached as CBaseEntity::Foo() through one-line forwarders in
-// game/shared/baseentity_shared_forwarders.cpp; that quarantine is retired
-// and the calls below name the free functions directly.
-#include "entity_shared_statics.h"
 #include "native_command_body.h"
 #include "ss_string.h"
-#include "ss_entityfactory.h"   // ss::EntityFactoryDictionary, for the ss_player factory
-#include "imanaged_areas.h"   // plan_engineapi_vtables E10, E15, E17: IManagedClients, IManagedCommands, IManagedPlayerCommands
-#include "trace_hit.h"   // ss::TraceHit: the IHandleEntity the engine stored in trace_t::m_pEnt
+#include "ss_entityfactory.h"
+#include "shell_entity_lifecycle.h"
+#include "world_queries.h"
+#include "server_movement.h"
+#include "server_entity_resolver.h"
+#include "server_console_commands.h"
+#include "server_entity_resolver.h"
+#include "server_services.h"
 
-// The player's physics-shadow states, with stock's values (player.h's
-// VPHYS_WALK / VPHYS_CROUCH / VPHYS_NOCLIP). Spelled here because player.h
-// is CBasePlayer's header, and server.so builds no CBasePlayer (P5): this
-// file is the only one that used them.
+// Stock's player physics-shadow states (player.h VPHYS_*).
 namespace
 {
-	enum
-	{
-		VPHYS_WALK = 0,
-		VPHYS_CROUCH,
-		VPHYS_NOCLIP,
-	};
+enum
+{
+	VPHYS_WALK = 0,
+	VPHYS_CROUCH,
+	VPHYS_NOCLIP,
+};
 }
 
-
-//-----------------------------------------------------------------------------
-// The declared state's placements, asked once per resolve generation and
-// shared by every player — the layout is per class, not per instance.
-//-----------------------------------------------------------------------------
-static SourceSharpPlayerFields_t s_PlayerFields;
-
-static bool PlayerFieldsCurrent()
+// This map's players by entindex, or NULL outside a level.
+static CStandalonePlayer **PlayersByIndex( const CServerEntityContext &context )
 {
-	if ( s_PlayerFields.IsCurrent() )
+	return context.m_pLevel ? context.m_pLevel->m_Players.m_pByIndex : NULL;
+}
+
+// Field placements, resolved once per generation and shared by every player.
+static bool PlayerFieldsCurrent( SourceSharpPlayerFields_t &fields, unsigned int nGeneration, IManagedNetState *pArea )
+{
+	if ( fields.IsCurrent( nGeneration ) )
 		return true;
 
-	return SourceSharpPlayerFields_Resolve( &s_PlayerFields );
+	return SourceSharpPlayerFields_Resolve( &fields, nGeneration, pArea );
 }
 
-//-----------------------------------------------------------------------------
-// Native state -> blob, after anything that moved it: every command, every
-// hit, every spawn. What makes the ONE declaration the wire format while the
-// loop stays native (9c5).
-//-----------------------------------------------------------------------------
+// Native state to blob, after anything that moved it.
 void CStandalonePlayer::SyncToBlob()
 {
-	if ( !PlayerFieldsCurrent() )
+	const unsigned int nGeneration = Context().m_nManagedGeneration;
+	if ( !PlayerFieldsCurrent( Context().m_Players.m_Fields, nGeneration, Context().m_Managed.m_Areas.m_pNetState ) )
 		return;
 
-	// THE ENGINE SIDE'S THREE WORDS ONLY (plan_server_native_v2 T4g): where the
-	// shell is, its health and whether it is alive. The movement state is the
-	// managed command loop's, which publishes it with these after each command
-	// (PlayerMovePublisher); a hit between commands updates what it changed.
-	SourceSharpPlayerSync_WriteEngineSide( DataBlob(), s_PlayerFields, GetAbsOrigin(), GetHealth(), MvIsAlive() );
+	// The engine side's three words only; the managed command loop publishes movement state.
+	SourceSharpPlayerSync_WriteEngineSide( DataBlob(), Context().m_Players.m_Fields, nGeneration, GetAbsOrigin(),
+										   GetHealth(), MvIsAlive() );
 
 	NetworkStateChanged();
 }
 
 int CStandalonePlayer::TakeDamage( const ss::CTakeDamageInfo &info )
 {
-	// The base applies the managed verdict to health; the blob hears about it
-	// immediately rather than at the next command, because a HUD reading a
-	// stale health for a tick is exactly the kind of quiet wrongness the sync
-	// exists to prevent.
+	// Synced immediately so the HUD never reads a stale health.
 	const int nTaken = BaseClass::TakeDamage( info );
 
 	if ( nTaken > 0 )
@@ -142,129 +93,97 @@ int CStandalonePlayer::TakeDamage( const ss::CTakeDamageInfo &info )
 	return nTaken;
 }
 
-//-----------------------------------------------------------------------------
-// The connected players, by entindex. A flat array because the arms in
-// gameinterface.cpp ask once per packet and per snapshot.
-//-----------------------------------------------------------------------------
-static CStandalonePlayer *s_StandalonePlayers[ ss::kMaxPlayers + 1 ];
-
-CStandalonePlayer *CStandalonePlayer::FromEdict( const edict_t *pEdict )
+CStandalonePlayer *CServerEntityContext::PlayerFromEdict( const edict_t *pEdict ) const
 {
 	if ( !pEdict )
 		return NULL;
 
-	return FromIndex( engine->IndexOfEdict( const_cast< edict_t * >( pEdict ) ) );
+	return PlayerFromIndex( m_pEngine->IndexOfEdict( const_cast<edict_t *>( pEdict ) ) );
 }
 
-CStandalonePlayer *CStandalonePlayer::FromIndex( int nEntIndex )
+CStandalonePlayer *CServerEntityContext::PlayerFromIndex( int nEntIndex ) const
 {
-	if ( nEntIndex < 1 || nEntIndex > ss::kMaxPlayers )
+	CStandalonePlayer **ppPlayers = PlayersByIndex( *this );
+
+	if ( !ppPlayers || nEntIndex < 1 || nEntIndex > ss::kMaxPlayers )
 		return NULL;
 
-	return s_StandalonePlayers[ nEntIndex ];
+	return ppPlayers[nEntIndex];
 }
 
-//-----------------------------------------------------------------------------
-// Construction and identity.
-//-----------------------------------------------------------------------------
-CStandalonePlayer::CStandalonePlayer()
-	: m_flWaterJumpTime( 0.0f ),
-	  m_vecWaterJumpVel( 0, 0, 0 ),
-	  m_flSwimSoundTime( 0.0f ),
-	  m_flStepSoundTime( 0.0f ),
-	  m_flSurfaceFriction( 1.0f ),
-	  m_pSurfaceData( NULL ),
-	  m_nSurfaceProps( 0 ),
-	  m_chTextureType( 0 ),
-	  m_chPreviousTextureType( 0 ),
-	  m_vecLadderNormal( 0, 0, 0 ),
-	  m_nStuckLast( 0 ),
-	  m_nNumCrouches( 0 ),
-	  m_vecAbsVelocity( 0, 0, 0 ),
-	  m_vecBaseVelocity( 0, 0, 0 ),
-	  m_vecViewOffset( 0, 0, 64 ),
-	  m_vecPreviouslyPredictedOrigin( 0, 0, 0 ),
-	  m_flGravity( 1.0f ),
-	  m_flMaxSpeed( 320.0f ),
-	  m_fFlags( 0 ),
-	  m_MoveType( MOVETYPE_WALK ),
-	  m_MoveCollide( MOVECOLLIDE_DEFAULT ),
-	  m_nWaterLevel( 0 ),
-	  m_nWaterType( 0 ),
-	  m_bObserver( false ),
-	  m_nObserverMode( 0 ),
-	  // TEAM_UNASSIGNED: the born answer, as stock's is.
-	  m_iTeamNum( 0 ),
-	  m_pShadowStand( NULL ),
-	  m_pShadowCrouch( NULL ),
-	  m_pShadowActive( NULL ),
-	  m_pPhysicsController( NULL ),
-	  m_pShadowEnv( NULL ),
-	  m_nVCollisionState( -1 ),
-	  m_nSimulationTick( -1 ),
-	  m_nPendingCmds( 0 )
+CStandalonePlayer::CStandalonePlayer( CServerEntityContext &context )
+	: CStandaloneEntity( context )
+	, m_flWaterJumpTime( 0.0f )
+	, m_vecWaterJumpVel( 0, 0, 0 )
+	, m_flSwimSoundTime( 0.0f )
+	, m_flStepSoundTime( 0.0f )
+	, m_flSurfaceFriction( 1.0f )
+	, m_pSurfaceData( NULL )
+	, m_nSurfaceProps( 0 )
+	, m_chTextureType( 0 )
+	, m_chPreviousTextureType( 0 )
+	, m_vecLadderNormal( 0, 0, 0 )
+	, m_nStuckLast( 0 )
+	, m_nNumCrouches( 0 )
+	, m_vecAbsVelocity( 0, 0, 0 )
+	, m_vecBaseVelocity( 0, 0, 0 )
+	, m_vecViewOffset( 0, 0, 64 )
+	, m_vecPreviouslyPredictedOrigin( 0, 0, 0 )
+	, m_flGravity( 1.0f )
+	, m_flMaxSpeed( 320.0f )
+	, m_fFlags( 0 )
+	, m_MoveType( MOVETYPE_WALK )
+	, m_MoveCollide( MOVECOLLIDE_DEFAULT )
+	, m_nWaterLevel( 0 )
+	, m_nWaterType( 0 )
+	, m_bObserver( false )
+	, m_nObserverMode( 0 )
+	, m_pShadowStand( NULL )
+	, m_pShadowCrouch( NULL )
+	, m_pShadowActive( NULL )
+	, m_pPhysicsController( NULL )
+	, m_pShadowEnv( NULL )
+	, m_nVCollisionState( -1 )
+	, m_nSimulationTick( -1 )
+	, m_nPendingCmds( 0 )
 {
 	m_szPlayerName[0] = 0;
 
-	// THE PLAYER STATE IS CONSTRUCTED IN THE BLOCK (step 3c), and it has to be
-	// constructed rather than merely zeroed: CPlayerState declares a virtual
-	// destructor ("This virtual method is necessary to generate a vtable in all
-	// cases", PlayerState.h), so it carries a vtable pointer that only a
-	// constructor writes. PvAllocEntPrivateData hands back zeroed memory, and a
-	// zeroed vptr is a null dereference the first time anything calls through
-	// it.
-	//
-	// Construct() and not a bare placement new: memdbgon.h redefines `new` in
-	// every translation unit that includes it, and tier0/platform.h's helper is
-	// the spelling the rest of this tree uses to get past that.
-	//
-	// The base's own constructor has already run, so m_pEngineBlock is set and
-	// the block's head is written; the server tail is untouched by it apart
-	// from the PVS info, so this is the first thing to claim these 64 bytes.
+	// Constructed, not just zeroed: CPlayerState has a virtual destructor and so a vtable
+	// pointer. Construct() because memdbgon.h redefines new.
 	Construct( PlayerStatePtr() );
 
-	// NOTHING HAS ASKED WHERE THE EYES ARE. -1 rather than 0 because frame 0 is
-	// a real frame -- see EngineBlock.cs on ViewOriginFrame.
+	// -1 because frame 0 is a real frame.
 	Block().Server.ViewOrigin.Init();
 	Block().Server.ViewOriginFrame = -1;
 
-	// The movement-local defaults stock sets at player construction: the step
-	// height every ledge is measured against, and auto-movement on — both are
-	// re-asserted from Movement.cs's registered params by the convar writes,
-	// this is only the value before a command has run.
+	// Stock's construction defaults, until the movement convars are applied.
 	m_Local.m_flStepSize = 18.0f;
 	m_Local.m_bAllowAutoMovement = true;
 }
 
 CStandalonePlayer::~CStandalonePlayer()
 {
-	// The shadow goes with the player. A controller left in the solver drags a
-	// body whose owner has been freed, and the solver keeps its own lists of
-	// both.
+	// A controller left in the solver would drag a body whose owner was freed.
 	DestroyVCollision();
 
-	// The other half of the constructor's Construct(). The storage belongs to
-	// the blob and outlives nothing, but the object in it is a real object with
-	// a real destructor and leaving it un-destructed would be the kind of thing
-	// that is harmless until CPlayerState grows a member that is not.
 	Destruct( PlayerStatePtr() );
 
 	const int nIndex = EntIndex();
 
-	if ( nIndex >= 1 && nIndex <= ss::kMaxPlayers && s_StandalonePlayers[ nIndex ] == this )
-		s_StandalonePlayers[ nIndex ] = NULL;
+	CStandalonePlayer **ppPlayers = PlayersByIndex( Context() );
+
+	if ( ppPlayers && nIndex >= 1 && nIndex <= ss::kMaxPlayers && ppPlayers[nIndex] == this )
+		ppPlayers[nIndex] = NULL;
 }
 
 void CStandalonePlayer::SetPlayerName( const char *pName )
 {
 	ss::StrCopy( m_szPlayerName, pName ? pName : "", sizeof( m_szPlayerName ) );
-	PlayerState().netname = AllocPooledString( m_szPlayerName );
+	PlayerState().netname = PooledString( m_Strings, m_szPlayerName );
 }
 
-//-----------------------------------------------------------------------------
-// Placed in the world with a player's shape. The managed OnSpawn the base
-// fires from Spawn is where the model, health and game state come from.
-//-----------------------------------------------------------------------------
+// Placed with a player's shape; the managed OnSpawn supplies model, health and state.
 void CStandalonePlayer::Spawn()
 {
 	m_fFlags |= FL_CLIENT;
@@ -272,91 +191,36 @@ void CStandalonePlayer::Spawn()
 	PlayerState().deadflag = false;
 	PlayerState().fixangle = FIXANGLE_NONE;
 
-	// Where to enter the map — the same managed rule the SDK player asks
-	// through GetPlayerSpawnSpot, asked at the same moment: BEFORE anything
-	// is solid, so the player is never solid at the world origin and moved
-	// afterwards ("the player is spawning in the wall", learnt once already).
-	IManagedClients *pApi = ManagedClients();   // plan_engineapi_vtables E: managed-built
+	IManagedClients *pApi = m_pContext->m_Managed.m_Areas.m_pClients;
 
-	// THE PLACEMENT HAPPENS INSIDE THIS CALL AND NOT AFTER IT -- step 2e.
-	//
-	// What stood here was `if ( CStandaloneEntity *pSpot = resolve( hSpot ) )`
-	// followed by the transform, the zeroed velocity and the fixangle snap, read
-	// off the SHELL of the point this call named. Every spawn-point class --
-	// info_player_deathmatch, info_player_start -- is of kind Logical and as of
-	// step 2e has no shell, so the resolve answered NULL, the whole block was
-	// skipped, and the player spawned at the world origin. Measured on
-	// dm_lockdown: ss_player at (-3893.09, 1413.9, 0.83) before, (0, 0, 0)
-	// after.
-	//
-	// The placement is managed code's now and runs INSIDE SelectSpawnPoint --
-	// EngineApi::PlayerPlaceAtSpawn, ServerModule.cs -- which is the same moment
-	// this block ran and the constraint the ABI comment there records: before
-	// the player is made solid and before the hull below is set. This call
-	// deliberately IGNORES the handle it answers with, and managed code
-	// deliberately answers EntityHandle.None, so that a spawn point which one
-	// day does have a shell cannot be placed twice.
+	// Managed code places the player inside this call, before it is solid and before the
+	// hull is set. The returned handle is deliberately ignored.
 	if ( pApi )
-		( void )pApi->OnSelectSpawnPoint( ManagedHandle() );
+		(void)pApi->OnSelectSpawnPoint( ManagedHandle() );
 
-	SetCollisionBounds( g_pGameRules->GetViewVectors()->m_vHullMin, g_pGameRules->GetViewVectors()->m_vHullMax );
-	m_vecViewOffset = g_pGameRules->GetViewVectors()->m_vView;
+	const RulesViewVectors_t *pViewVectors = Context().GameRules()->GetViewVectors();
+	SetCollisionBounds( pViewVectors->m_vHullMin, pViewVectors->m_vHullMax );
+	m_vecViewOffset = pViewVectors->m_vView;
 
 	SetSolidity( SOLID_BBOX, FSOLID_NOT_STANDABLE );
 
 	BaseClass::Spawn();
 
-	// The same two announcements the SDK player's spawn makes, in the same
-	// order: OnPlayerSpawn is the shell's (health rule, handle checks), and
-	// OnPlayerSpawned is the one the gamerules used to add (the directory's
-	// record, which is what starts spawn protection counting).
+	// The SDK player's two spawn announcements, in its order.
 	if ( pApi )
 		pApi->OnPlayerSpawn( ManagedHandle() );
 	if ( pApi )
 		pApi->OnPlayerSpawned( ManagedHandle() );
 
-	// The spawn state, on the wire before the first command runs.
 	SyncToBlob();
 }
 
-//-----------------------------------------------------------------------------
-// The ground, held as a handle because the thing stood on can die first.
-//
-// ANSWERED AS AN IHandleEntity, which is what the member has always held and
-// what the movement loop now asks for. It used to be converted on the way out
-// with IServerUnknown::GetBaseEntity(), which answers NULL for everything on
-// the parallel hierarchy — and in this build every brush mover is on that
-// hierarchy, so a player standing on a lift had no ground AT ALL. Not a ground
-// moving at zero: none. FL_ONGROUND was never set, the whole `if ( newGround )`
-// tail of CGameMovement::SetGroundEntity was skipped, and the base velocity a
-// moving floor hands its rider was computed against a floor the loop could not
-// see. The comment that used to stand here said the rider machinery carried a
-// player instead; Riders.Carry does move them, but it is not the ground, and
-// everything else the ground decides was being decided for somebody in midair.
-//
-// Nothing is converted on the way IN either. m_hGround is a bare CBaseHandle
-// and every entity of both hierarchies is an IHandleEntity, so this member is
-// the one home for "what am I standing on" and it never had a type that could
-// refuse half the world.
-//-----------------------------------------------------------------------------
+// The ground, held as a handle because the thing stood on can die first. It may be on
+// either hierarchy.
 IHandleEntity *CStandalonePlayer::MvGetGroundEntity()
 {
-	// THE UNION RESOLVE, NOT THE ENTITY LIST -- plan_entity.md §3.3, lane
-	// entlist-server. This read the entity list's LookupEntity( m_hGround ), and
-	// the reason it did is the paragraph above: the ground can be on either
-	// hierarchy and the list was the only thing that answered for both. It is
-	// not any more -- SourceSharp_EntityFromHandle asks the slot table, then the
-	// world, then what is left of the SDK's list -- and the union is now three
-	// named populations instead of one list nobody could put down.
-	//
-	// THE WORLD ARM MATTERS HERE MORE THAN ANYWHERE. A player standing on the
-	// map itself is standing on worldspawn, which is the one entity that is in
-	// neither the slot table nor the SDK's list, and world_adapter.cpp records
-	// what a world that could not be resolved cost the last time: the local
-	// player's ground read NULL on every replayed command while FL_ONGROUND said
-	// otherwise, the client took AirMove where the server took WalkMove, and
-	// every jump the server made was refused.
-	return SourceSharp_EntityFromHandle( m_hGround );
+	// Resolves the world too, which is in neither the slot table nor the SDK list.
+	return Context().Resolver().EntityFromHandle( m_hGround );
 }
 
 void CStandalonePlayer::MvSetGroundEntity( IHandleEntity *pGround )
@@ -388,113 +252,70 @@ void CStandalonePlayer::SetObserver( bool bObserver, int nMode )
 
 void CStandalonePlayer::OnManagedKilled( IGameEntity *pAttacker )
 {
-	// The verdict was managed code's; this mirrors it into the block the
-	// engine reads. What the death LOOKS like — observer mode, the respawn
-	// wait — stays where it has always been, in Players.cs.
+	// Mirrors the managed verdict into the block.
 	PlayerState().deadflag = true;
 
-	// The announcement the SDK player's Event_Killed makes: the directory
-	// counts the death and starts the cycle. BEFORE the scripted relay, so a
-	// managed OnKilled that asks the directory sees this death recorded.
-	// No attacker is the INVALID handle, never 0: 0 is entity 0, the world,
-	// and managed scoring credited it with the kill (A40).
+	// Announced before the scripted relay so managed OnKilled sees the death recorded. No
+	// attacker is the invalid handle, never 0 (the world).
 	const uint32_t hAttacker = SourceSharp_HandleFromEntity( pAttacker );
 
-	IManagedClients *pApi = ManagedClients();   // plan_engineapi_vtables E: managed-built
+	IManagedClients *pApi = m_pContext->m_Managed.m_Areas.m_pClients;
 	if ( pApi )
 		pApi->OnPlayerKilled( ManagedHandle(), hAttacker );
 
 	BaseClass::OnManagedKilled( pAttacker );
 }
 
-//-----------------------------------------------------------------------------
-// THE COMMAND PATH -- plan_entity.md §3.10, step 3d.
-//
-// WHAT IS LEFT HERE IS MECHANISM, AND ALL OF IT IS ENGINE-FACING.
-//
-// The queue used to decide things: how far dropped packets were covered, how
-// far back the backup commands reached, what order the queue ran in. Those are
-// decisions and they are in C# now (PlayerCommandQueue.Plan). This side keeps
-// the CUserCmds -- their bytes are an engine ABI (plan_entity.md §2) and
-// usercmd.cpp, the bit-level delta decoder that fills them, legitimately stays
-// C++ (§6) -- and materialises the queue the managed plan describes.
-//
-// AND IT IS ONE CROSSING PER ProcessUsercmds, WHATEVER N IS. What this
-// replaced reached managed code THREE TIMES PER COMMAND:
-// OnStandalonePlayerCommand at phase 0 and at phase 1, then OnPlayerRunCommand.
-// A packet carrying eight commands cost twenty-four transitions. It now costs
-// one here and one in RunQueuedCommands, and neither grows with N -- the loop
-// is managed, so those three calls are ordinary method calls inside it.
-//
-// A COUNT OF CROSSINGS CANNOT SAY THAT ON ITS OWN, because a build that stopped
-// running commands altogether would also cost one crossing per packet. The
-// commands actually run are counted in the managed loop and printed by
-// cs_sv_playercmds, which is the readout that lets the claim fail.
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// A managed handle back to the player it names.
-//
-// THE HANDLE IS CHECKED, not just decoded. A CBaseHandle carries an entry index
-// AND a serial, and only the pair identifies an object: decoding the index
-// alone would answer whichever player later occupied that slot. So the
-// candidate's own handle has to match the one asked for.
-//
-// 0 IS REFUSED because CStandaloneEntity::ManagedHandle answers 0 for an
-// invalid handle, and INVALID_EHANDLE_INDEX because that is the sentinel the
-// rest of this ABI uses. Neither can name a player: entry 0 is worldspawn.
-//-----------------------------------------------------------------------------
-static CStandalonePlayer *StandalonePlayer_FromManagedHandle( uint32_t hPlayer )
+// A managed handle back to its player. The serial is checked, not just the index, so a
+// later occupant of the slot never answers. 0 and INVALID_EHANDLE_INDEX are refused.
+static CStandalonePlayer *StandalonePlayer_FromManagedHandle( const CServerEntityContext &context, uint32_t hPlayer )
 {
 	if ( hPlayer == 0 || hPlayer == (uint32_t)INVALID_EHANDLE_INDEX )
 		return NULL;
 
 	const CBaseHandle handle = CBaseHandle::UnsafeFromIndex( (int)hPlayer );
-	CStandalonePlayer *pPlayer = CStandalonePlayer::FromIndex( handle.GetEntryIndex() );
+	CStandalonePlayer *pPlayer = context.PlayerFromIndex( handle.GetEntryIndex() );
 
 	return ( pPlayer && pPlayer->ManagedHandle() == hPlayer ) ? pPlayer : NULL;
 }
 
-
-//-----------------------------------------------------------------------------
-// plan_server_novalve.md P2.2: C# decoded this packet, clamped it, planned it
-// and queued it; since plan_server_native_v2 T4g it also runs it, so native
-// keeps only how many commands are waiting, for the frame's one crossing.
-//-----------------------------------------------------------------------------
+// C# decoded, planned and runs the queue; native counts what waits for the frame.
 void CStandalonePlayer::QueuedUsercmds( int nCount )
 {
 	if ( nCount > 0 )
 		m_nPendingCmds += nCount;
 }
 
-void CStandalonePlayer::RunAllQueuedCommands()
+void CStandalonePlayer::RunAllQueuedCommands( const CServerEntityContext &context )
 {
+	CStandalonePlayer **ppPlayers = PlayersByIndex( context );
+
+	if ( !ppPlayers )
+		return;
+
 	for ( int i = 1; i <= ss::kMaxPlayers; i++ )
 	{
-		if ( s_StandalonePlayers[ i ] )
-			s_StandalonePlayers[ i ]->RunQueuedCommands();
+		if ( ppPlayers[i] )
+			ppPlayers[i]->RunQueuedCommands();
 	}
 }
 
 void CStandalonePlayer::RunQueuedCommands()
 {
-	if ( m_nSimulationTick == gpGlobals->tickcount )
+	if ( m_nSimulationTick == m_pContext->m_pGlobals->tickcount )
 		return;
 
-	m_nSimulationTick = gpGlobals->tickcount;
+	m_nSimulationTick = m_pContext->m_pGlobals->tickcount;
 
 	if ( m_nPendingCmds == 0 )
 		return;
 
-	// The tick base, its AdjustPlayerTimeBase placement and each command's
-	// clock are the managed command loop's (plan_server_native_v2 T4g,
-	// ServerPlayerCommands); the frame's clock is put back after the batch.
-	const float flSaveCurtime   = gpGlobals->curtime;
-	const float flSaveFrametime = gpGlobals->frametime;
+	// The managed loop sets each command's clock; the frame's is restored after the batch.
+	const float flSaveCurtime = m_pContext->m_pGlobals->curtime;
+	const float flSaveFrametime = m_pContext->m_pGlobals->frametime;
 
-	// ONE CROSSING FOR THE WHOLE QUEUE. The loop is managed, each command's
-	// stages with it (E17: the server's managed-built area).
-	IManagedPlayerCommands *pCommands = ManagedPlayerCommands();
+	// One crossing for the whole queue.
+	IManagedPlayerCommands *pCommands = m_pContext->m_Managed.m_Areas.m_pPlayerCommands;
 
 	if ( pCommands )
 	{
@@ -502,26 +323,17 @@ void CStandalonePlayer::RunQueuedCommands()
 	}
 	else
 	{
-		Warning( "[SourceSharp] no managed run loop; %d queued command(s) dropped\n",
-		         m_nPendingCmds );
+		Warning( "[SourceSharp] no managed run loop; %d queued command(s) dropped\n", m_nPendingCmds );
 	}
 
 	m_nPendingCmds = 0;
 
-	gpGlobals->curtime   = flSaveCurtime;
-	gpGlobals->frametime = flSaveFrametime;
+	m_pContext->m_pGlobals->curtime = flSaveCurtime;
+	m_pContext->m_pGlobals->frametime = flSaveFrametime;
 }
 
-//-----------------------------------------------------------------------------
-// ONE MANAGED COMMAND'S ENGINE SIDE (plan_server_native_v2 T4g).
-//
-// The managed command loop owns the player's movement state and decides every
-// step of a command (ServerCommandRules, ServerPlayerCommands). Native answers
-// what only the engine's side holds -- the shell's origin, the CPlayerState the
-// engine reads by layout, health, the ground entity's velocity -- and carries
-// out what only it can: the view angle into CPlayerState, the shell's origin
-// and angles, and the trigger sweep at the new origin.
-//-----------------------------------------------------------------------------
+// One managed command's engine side: native answers what the engine holds (origin,
+// CPlayerState, health, ground velocity) and applies the result.
 COMPILE_TIME_ASSERT( sizeof( SourceSharpPlayerCommandFacts ) == 80 );
 COMPILE_TIME_ASSERT( offsetof( SourceSharpPlayerCommandFacts, vecOrigin ) == 8 );
 COMPILE_TIME_ASSERT( offsetof( SourceSharpPlayerCommandFacts, nFixAngle ) == 44 );
@@ -550,16 +362,16 @@ void CStandalonePlayer::CommandFacts( SourceSharpPlayerCommandFacts *pOut )
 	pOut->nFixAngle = pl.fixangle;
 	pOut->bDeadFlag = pl.deadflag ? 1 : 0;
 
-	pOut->nHealth      = GetHealth();
+	pOut->nHealth = GetHealth();
 	pOut->flModelScale = GetModelScale();
-	pOut->nEntIndex    = EntIndex();
+	pOut->nEntIndex = EntIndex();
 
-	// The ground the managed state names, resolved as MvGetGroundEntity did:
-	// the union resolve, which answers NULL for an entity that has gone.
-	IHandleEntity *pGround = SourceSharp_EntityFromHandle( CBaseHandle::UnsafeFromIndex( (int)pOut->hGround ) );
+	// NULL for a ground entity that has gone.
+	IHandleEntity *pGround =
+		Context().Resolver().EntityFromHandle( CBaseHandle::UnsafeFromIndex( (int)pOut->hGround ) );
 	pOut->bGroundResolves = pGround ? 1 : 0;
 
-	const Vector vecGroundVelocity = MovementGroundVelocity( pGround );
+	const Vector vecGroundVelocity = MovementGroundVelocity( pGround, Context().m_pStaticProps );
 	pOut->vecGroundVelocity[0] = vecGroundVelocity.x;
 	pOut->vecGroundVelocity[1] = vecGroundVelocity.y;
 	pOut->vecGroundVelocity[2] = vecGroundVelocity.z;
@@ -567,18 +379,16 @@ void CStandalonePlayer::CommandFacts( SourceSharpPlayerCommandFacts *pOut )
 
 void CStandalonePlayer::FinishCommand( const SourceSharpPlayerCommandResult &result )
 {
-	// The words native code still reads off the player, written before the
-	// trigger sweep below calls back into anything that might read them.
-	m_fFlags          = result.nFlags;
-	m_MoveType        = (MoveType_t)result.nMoveType;
+	// Written before the trigger sweep below can call back into anything that reads them.
+	m_fFlags = result.nFlags;
+	m_MoveType = (MoveType_t)result.nMoveType;
 	m_vecViewOffset.Init( result.vecViewOffset[0], result.vecViewOffset[1], result.vecViewOffset[2] );
 	m_vecAbsVelocity.Init( result.vecVelocity[0], result.vecVelocity[1], result.vecVelocity[2] );
 	m_vecBaseVelocity.Init( result.vecBaseVelocity[0], result.vecBaseVelocity[1], result.vecBaseVelocity[2] );
-	m_hGround         = CBaseHandle::UnsafeFromIndex( (int)result.hGround );
+	m_hGround = CBaseHandle::UnsafeFromIndex( (int)result.hGround );
 	m_Local.m_flFallVelocity = result.flFallVelocity;
 
-	// FinishMove's two engine-facing writes: where the player is, and the
-	// body's angles (the yaw alone, as the native command path set them).
+	// FinishMove's engine-facing writes; the body takes the yaw alone.
 	SetAbsOrigin( Vector( result.vecOrigin[0], result.vecOrigin[1], result.vecOrigin[2] ) );
 	SetAbsAngles( QAngle( 0, result.flYaw, 0 ) );
 
@@ -586,24 +396,23 @@ void CStandalonePlayer::FinishCommand( const SourceSharpPlayerCommandResult &res
 	TouchTriggers( GetAbsOrigin() );
 }
 
-int32_t SourceSharp_PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerCommandFacts *pFacts )
+int32_t CServerMovement::PlayerCommandBegin( uint32_t hPlayer, SourceSharpPlayerCommandFacts *pFacts )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
 
 	if ( !pPlayer || !pFacts || pFacts->struct_size != sizeof( *pFacts ) )
 		return 0;
 
-	// The 0 arm of sourcesharp_movement_managed stays fatal: there is no
-	// second movement to select (tools/movemath-gate's arm F).
+	// Managed movement is the only movement.
 	SourceSharp_MovementRequireManaged();
 
 	pPlayer->CommandFacts( pFacts );
 	return 1;
 }
 
-void SourceSharp_PlayerCommandView( uint32_t hPlayer, const float *pAnglePYR, int32_t nFixAngle )
+void CServerMovement::PlayerCommandView( uint32_t hPlayer, const float *pAnglePYR, int32_t nFixAngle )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
 
 	if ( !pPlayer || !pAnglePYR )
 		return;
@@ -612,28 +421,25 @@ void SourceSharp_PlayerCommandView( uint32_t hPlayer, const float *pAnglePYR, in
 	pPlayer->PlayerState().fixangle = nFixAngle;
 }
 
-void SourceSharp_PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerCommandResult *pResult )
+void CServerMovement::PlayerCommandFinish( uint32_t hPlayer, const SourceSharpPlayerCommandResult *pResult )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
 
 	if ( !pPlayer || !pResult || pResult->struct_size != sizeof( *pResult ) )
 		return;
 
 	pPlayer->FinishCommand( *pResult );
 
-	// THE MOVEMATH COUNTER counts runs, not asks (tools/movemath-gate).
+	// Counts commands that ran, not ones asked for.
 	if ( pResult->bRan )
-		SourceSharp_MoveNoteServerCommand();
+		m_nCommandsRan++;
 }
 
-//-----------------------------------------------------------------------------
-// A landing's damage, carried out: the amount is MoveMath.FallDamage's, the
-// noise managed's. Through the shell's damage path, so the managed rules see it
-// as they see every other hit; answers whether the player is still up.
-//-----------------------------------------------------------------------------
-int32_t SourceSharp_PlayerFallDamage( uint32_t hPlayer, float flDamage )
+// A landing's damage, through the shell's damage path so managed rules see it. Answers
+// whether the player is still alive.
+int32_t CServerMovement::PlayerFallDamage( uint32_t hPlayer, float flDamage )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
 
 	if ( !pPlayer )
 		return 1;
@@ -648,122 +454,19 @@ int32_t SourceSharp_PlayerFallDamage( uint32_t hPlayer, float flDamage )
 	return pPlayer->GetHealth() > 0 ? 1 : 0;
 }
 
-//-----------------------------------------------------------------------------
-// The engine side's three words into the player's networked state: the
-// managed command loop publishes the movement state and asks for these beside
-// it, after each command (plan_server_native_v2 T4g).
-//-----------------------------------------------------------------------------
-void SourceSharp_PlayerSyncEngineSide( uint32_t hPlayer )
+// The engine side's three words into the networked state, after each command.
+void CServerMovement::PlayerSyncEngineSide( uint32_t hPlayer )
 {
-	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer ) )
+	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer ) )
 		pPlayer->SyncToBlob();
 }
 
-//=============================================================================
-// THE PLAYER'S PHYSICS SHADOW (plan_entity.md step 3f, §3.8)
-//
-// WHAT THE LIVE GATE'S `push` SKIP ACTUALLY WAS, measured before any of this
-// was written (tools/3f-probe-push, at 9f370367):
-//
-//     player walked  27.259 units
-//     prop moved      0.000 units
-//     final gap      44.338 units, of which 36.76 horizontal
-//
-// The player accelerates for four ticks, meets the crate, and stops dead --
-// so the crate IS solid to them and the movement loop IS tracing against it.
-// What never happens is the other direction. The ledger's recorded reason was
-// therefore RIGHT, which is worth saying because step 2g's `lift` row's was
-// wrong and this one was checked rather than inherited.
-//
-// STOCK'S MECHANISM, and this is a port of it and not an invention:
-//
-//     CBasePlayer::InitVCollision      player.cpp:8569   two bbox hulls
-//     CBasePlayer::SetupVPhysicsShadow player.cpp:8269   + a player controller
-//     CBasePlayer::PostThinkVPhysics   player.cpp:4798   the per-command update
-//     CBasePlayer::UpdateVPhysicsPosition player.cpp:4873
-//     CBasePlayer::SetVCollisionState  player.cpp:8620   which hull is in play
-//
-// A player does not MOVE through VPhysics. The movement loop is managed as of
-// step 3e and traces the world for itself; the shadow is a SECOND body, held at
-// the player's position by an IPhysicsPlayerController, and its whole job is to
-// be inside the solver so the solver can shove what it meets. The controller's
-// push limits are what turn "a body is there" into "a crate slides".
-//
-// WHAT IS NOT CARRIED, and each is a stated divergence rather than a silent gap
-// (docs/divergences.md, "the player's physics shadow"):
-//
-//   * VPhysicsShadowUpdate -- the REVERSE direction, where the solver pushes
-//     the PLAYER back and crushes them against geometry (player.cpp:8347). It
-//     needs g_pShadowEntities, which physics.cpp's own comment records as empty
-//     on this hierarchy and dispatched through a #ifndef SS_CBASEENTITY_ALIAS
-//     arm. Without it a player is not pushed by props and is not crushed by
-//     them; they can still walk into them and shove them, which is what the
-//     gate asks and what a deathmatch map needs.
-//   * m_touchedPhysObject, which in stock LOWERS the wish velocity handed to
-//     the controller so a heavy prop can win the argument. It is set by the
-//     reverse path above, so with that path absent the "not touching" arm --
-//     stock's own maxSpeed-in-every-axis, player.cpp:4834 -- is the only
-//     reachable one, and it is what is written here.
-//   * the rideable-ground argument to Update(). Stock passes the physics object
-//     under the player's feet so the controller solves in its frame; it applies
-//     to standing on a heavy moving PROP, which no map in this build does and no
-//     gate step exercises. NULL, and recorded.
-//=============================================================================
+// The player's physics shadow: two hulls and a player controller kept in the solver at
+// the player's position so it can push props (stock's CBasePlayer::InitVCollision and
+// SetupVPhysicsShadow). Managed builds and drives it; native holds the pointers and
+// owns the teardown. The solver never pushes the player back.
 
-//-----------------------------------------------------------------------------
-// THE DECISIONS ABOVE ARE MANAGED'S (plan_physics_bones_native_zero 2.5).
-// PlayerShadowBodies builds the two hulls and the controller through
-// vphysics' own tables with stock's parameters, keeps the hull state, applies
-// each command's plan (PlayerShadow.Plan) and carries a teleport; it reads the
-// switch, counts what it does, and refuses a non-finite value before vphysics
-// sees one (PhysicsNanGuard). What is left here is the player's own state, the
-// three pointers held, and the teardown below, which the destructor owns.
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// HOW MANY SHADOWS ARE IN THE SOLVER RIGHT NOW, and how many of them were built
-// by an environment that has since been destroyed.
-//
-// Not a statistic: the first is a DETECTOR. A shadow is three pointers into the
-// physics environment that built it, and physics.cpp destroys and recreates that
-// environment at every level change. If this count is not zero at the moment the
-// NEW environment is created, some player kept a set of pointers into the old
-// one -- and whether that is harmless or catastrophic then rests on nothing but
-// whether the allocator happened to hand the new environment a different
-// address, because that pointer compare is the only guard there was.
-//
-// physics.cpp reads both, at level init and in ss_physworld_report.
-//-----------------------------------------------------------------------------
-int g_nSourceSharpPlayerShadowsLive     = 0;
-int g_nSourceSharpPlayerShadowsOutlived = 0;
-
-// The two counters native keeps, for the dev API's /counters (IShimDiagnostics)
-// and managed's cs_sv_playershadow, in this order: live, outlived. The rest --
-// built, updates, contacts, touches, snaps -- are PlayerShadowBodies' since
-// plan_physics_bones_native_zero 2.5. This only copies.
-int32_t SourceSharp_PlayerShadowCounts( int32_t *pOut, int32_t nMax )
-{
-	if ( !pOut || nMax <= 0 )
-		return 0;
-
-	const int32_t values[] = { g_nSourceSharpPlayerShadowsLive, g_nSourceSharpPlayerShadowsOutlived };
-	const int32_t nAll = int32_t( sizeof( values ) / sizeof( values[0] ) );
-	const int32_t n = nMax < nAll ? nMax : nAll;
-	for ( int32_t i = 0; i < n; ++i )
-		pOut[ i ] = values[ i ];
-	return n;
-}
-
-//-----------------------------------------------------------------------------
-// THE MANAGED SHADOW'S NATIVE HALF (plan_physics_bones_native_zero 2.5).
-//
-// PlayerShadowBodies decides everything and makes every vphysics call through
-// vphysics' own tables. What is left here is the player's own state, read and
-// written, and the three pointers held -- because the destructor below the
-// constructor is the body's one teardown owner (DestroyVCollision), and a
-// managed second owner for that teardown was tried and reverted (SsPlayer's
-// OnRemoved has the run it cost).
-//-----------------------------------------------------------------------------
+// Facts for the managed shadow. The destructor is the body's one teardown owner.
 COMPILE_TIME_ASSERT( sizeof( SourceSharpPlayerShadowFacts ) == 192 );
 COMPILE_TIME_ASSERT( offsetof( SourceSharpPlayerShadowFacts, pStand ) == 16 );
 COMPILE_TIME_ASSERT( offsetof( SourceSharpPlayerShadowFacts, pController ) == 32 );
@@ -779,38 +482,34 @@ void CStandalonePlayer::ShadowFacts( SourceSharpPlayerShadowFacts *pOut )
 	memset( pOut, 0, sizeof( *pOut ) );
 	pOut->struct_size = sizeof( *pOut );
 
-	pOut->bHasShadow   = m_pPhysicsController && m_pShadowStand && m_pShadowCrouch ? 1 : 0;
-	pOut->bBodyCurrent = m_pShadowEnv && m_pShadowEnv == physenv ? 1 : 0;
-	pOut->nState       = m_nVCollisionState;
-	pOut->pStand       = m_pShadowStand;
-	pOut->pCrouch      = m_pShadowCrouch;
-	pOut->pController  = m_pPhysicsController;
+	pOut->bHasShadow = m_pPhysicsController && m_pShadowStand && m_pShadowCrouch ? 1 : 0;
+	pOut->bBodyCurrent = m_pShadowEnv && m_pShadowEnv == PhysicsEnvironment() ? 1 : 0;
+	pOut->nState = m_nVCollisionState;
+	pOut->pStand = m_pShadowStand;
+	pOut->pCrouch = m_pShadowCrouch;
+	pOut->pController = m_pPhysicsController;
 
 	const Vector &vecOrigin = GetAbsOrigin();
-	pOut->vecOrigin[0]    = vecOrigin.x;
-	pOut->vecOrigin[1]    = vecOrigin.y;
-	pOut->vecOrigin[2]    = vecOrigin.z;
-	pOut->vecVelocity[0]  = m_vecAbsVelocity.x;
-	pOut->vecVelocity[1]  = m_vecAbsVelocity.y;
-	pOut->vecVelocity[2]  = m_vecAbsVelocity.z;
+	pOut->vecOrigin[0] = vecOrigin.x;
+	pOut->vecOrigin[1] = vecOrigin.y;
+	pOut->vecOrigin[2] = vecOrigin.z;
+	pOut->vecVelocity[0] = m_vecAbsVelocity.x;
+	pOut->vecVelocity[1] = m_vecAbsVelocity.y;
+	pOut->vecVelocity[2] = m_vecAbsVelocity.z;
 
-	// The move's outputs (the wish velocity, the step height) and its touch
-	// list are the managed command loop's (plan_server_native_v2 T4g):
-	// MovedPlayerShadowNative fills them over these facts.
+	pOut->flMaxSpeed = m_flMaxSpeed;
+	pOut->nFlags = m_fFlags;
+	pOut->nMoveType = m_MoveType;
 
-	pOut->flMaxSpeed         = m_flMaxSpeed;
-	pOut->nFlags             = m_fFlags;
-	pOut->nMoveType          = m_MoveType;
+	pOut->flFrameTime = m_pContext->m_pGlobals->frametime;
+	pOut->flTickInterval = m_pContext->m_pGlobals->interval_per_tick;
 
-	pOut->flFrameTime        = gpGlobals->frametime;
-	pOut->flTickInterval     = gpGlobals->interval_per_tick;
-
-	// The ground, as lookups: managed decides whether it is physics ground.
+	// Managed decides whether the ground is physics ground.
 	pOut->hGround = INVALID_EHANDLE_INDEX;
 	if ( IHandleEntity *pGround = MvGetGroundEntity() )
 	{
 		pOut->hGround = (uint32_t)pGround->GetRefEHandle().ToInt();
-		const PhysicsOwner_t owner = PhysicsOwnerOfHandle( pGround->GetRefEHandle() );
+		const PhysicsOwner_t owner = PhysicsOwnerOfHandle( Context().Resolver(), pGround->GetRefEHandle() );
 		if ( owner.IsValid() )
 		{
 			pOut->nGroundMoveType = (int32_t)owner.GetMoveType();
@@ -821,36 +520,31 @@ void CStandalonePlayer::ShadowFacts( SourceSharpPlayerShadowFacts *pOut )
 }
 
 void CStandalonePlayer::AdoptShadow( IPhysicsObject *pStand, IPhysicsObject *pCrouch,
-                                     IPhysicsPlayerController *pController )
+									 IPhysicsPlayerController *pController )
 {
-	m_pShadowStand       = pStand;
-	m_pShadowCrouch      = pCrouch;
+	m_pShadowStand = pStand;
+	m_pShadowCrouch = pCrouch;
 	m_pPhysicsController = pController;
-	m_pShadowActive      = NULL;
-	m_nVCollisionState   = -1;
+	m_pShadowActive = NULL;
+	m_nVCollisionState = -1;
 
-	// Remembered so the teardown can tell "mine to free" from "the environment
-	// that owned it has gone" -- see the member.
-	m_pShadowEnv = physenv;
-	g_nSourceSharpPlayerShadowsLive++;
+	// Remembered so the teardown can tell whether the environment that built it still exists.
+	m_pShadowEnv = PhysicsEnvironment();
+	Context().m_Players.m_nShadowsLive++;
 }
 
 void CStandalonePlayer::CommitShadow( int nState, bool bAfterCommand )
 {
 	m_nVCollisionState = nState;
-	m_pShadowActive = nState == VPHYS_WALK ? m_pShadowStand
-	                : nState == VPHYS_CROUCH ? m_pShadowCrouch
-	                : NULL;
+	m_pShadowActive = nState == VPHYS_WALK ? m_pShadowStand : nState == VPHYS_CROUCH ? m_pShadowCrouch : NULL;
 
-	// After a command the move's step height is consumed (stock's
-	// PostThinkVPhysics): the managed command loop's word, consumed there
-	// (MovedPlayerShadowNative.Commit).
+	// The managed command loop consumes the step height.
 	(void)bAfterCommand;
 }
 
-int32_t SourceSharp_PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts *pOut )
+int32_t CServerMovement::PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadowFacts *pOut )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
 	if ( !pPlayer || !pOut )
 		return 0;
 
@@ -858,48 +552,41 @@ int32_t SourceSharp_PlayerShadowFacts( uint32_t hPlayer, SourceSharpPlayerShadow
 	return 1;
 }
 
-int32_t SourceSharp_PlayerShadowAdopt( uint32_t hPlayer, void *pStand, void *pCrouch, void *pController )
+int32_t CServerMovement::PlayerShadowAdopt( uint32_t hPlayer, void *pStand, void *pCrouch, void *pController )
 {
-	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer );
-	if ( !pPlayer || !pStand || !pCrouch || !pController || !physenv )
+	CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer );
+	if ( !pPlayer || !pStand || !pCrouch || !pController || !pPlayer->PhysicsEnvironment() )
 		return 0;
 
-	// A body already held is torn down first, as stock destroys before it
-	// builds; managed only asks with none held, so this is the belt.
+	// Stock destroys before it builds.
 	pPlayer->DestroyVCollision();
-	pPlayer->AdoptShadow( static_cast< IPhysicsObject * >( pStand ), static_cast< IPhysicsObject * >( pCrouch ),
-	                      static_cast< IPhysicsPlayerController * >( pController ) );
+	pPlayer->AdoptShadow( static_cast<IPhysicsObject *>( pStand ), static_cast<IPhysicsObject *>( pCrouch ),
+						  static_cast<IPhysicsPlayerController *>( pController ) );
 	return 1;
 }
 
-void SourceSharp_PlayerShadowRelease( uint32_t hPlayer )
+void CServerMovement::PlayerShadowRelease( uint32_t hPlayer )
 {
-	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer ) )
+	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer ) )
 		pPlayer->DestroyVCollision();
 }
 
-void SourceSharp_PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand )
+void CServerMovement::PlayerShadowCommit( uint32_t hPlayer, int32_t nState, int32_t bAfterCommand )
 {
-	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( hPlayer ) )
+	if ( CStandalonePlayer *pPlayer = StandalonePlayer_FromManagedHandle( m_Entities.Context(), hPlayer ) )
 		pPlayer->CommitShadow( nState, bAfterCommand != 0 );
 }
 
 void CStandalonePlayer::DestroyVCollision()
 {
-	// THE ENVIRONMENT THAT BUILT THEM, OR NOTHING. `physenv` is a global that is
-	// destroyed and recreated at every level change; a shadow whose environment
-	// has been replaced is three pointers into freed memory, and handing them to
-	// the NEW environment's DestroyObject frees whatever it put there instead.
-	// So a mismatch drops the pointers and frees nothing: the old environment
-	// took the objects with it when it went.
-	IPhysicsEnvironment *pEnv = ( physenv == m_pShadowEnv ) ? physenv : NULL;
+	// The environment is recreated at every level change. A shadow from a replaced one is
+	// dangling, so it is dropped without freeing: the old environment took it.
+	IPhysicsEnvironment *pCurrent = PhysicsEnvironment();
+	IPhysicsEnvironment *pEnv = ( pCurrent == m_pShadowEnv ) ? pCurrent : NULL;
 
-	// Counted once per set, whether or not this call frees anything -- the
-	// mismatched-environment arm below drops the pointers instead, and a set
-	// that is dropped has stopped being in any solver just as much as one that
-	// is freed.
+	// Counted once per set, whether freed or dropped.
 	if ( m_pShadowEnv )
-		g_nSourceSharpPlayerShadowsLive--;
+		Context().m_Players.m_nShadowsLive--;
 
 	if ( m_pPhysicsController )
 	{
@@ -908,10 +595,8 @@ void CStandalonePlayer::DestroyVCollision()
 		m_pPhysicsController = NULL;
 	}
 
-	// The game data goes before the object does, for DestroyPhysics's reason:
-	// DestroyObject is DEFERRED while the solver is stepping, so the object
-	// outlives this call and VPhysics may still hand it to a callback about a
-	// player that is already gone.
+	// Clear the game data first: DestroyObject is deferred while the solver steps, and a
+	// callback may still see the object.
 	if ( m_pShadowStand )
 	{
 		if ( pEnv )
@@ -934,56 +619,19 @@ void CStandalonePlayer::DestroyVCollision()
 		m_pShadowCrouch = NULL;
 	}
 
-	m_pShadowActive    = NULL;
-	m_pShadowEnv       = NULL;
+	m_pShadowActive = NULL;
+	m_pShadowEnv = NULL;
 	m_nVCollisionState = -1;
 }
 
-// THE PLAYER'S STEP IS MANAGED'S (plan_physics_bones_native_zero 2.3): which
-// hull is awake after the step, its stress (CBasePlayer::VPhysicsUpdate's
-// CalculateObjectStress) and its VPhysicsShadowUpdate are PhysicsFrame's,
-// over PlayerShadowBodies.AwakeShadow and PlayerShadowStress, reading
-// vphysics through its own tables.
-
-//-----------------------------------------------------------------------------
-// THE STANDALONE CLIENT'S CONSOLE COMMANDS ARE MANAGED (plan_shim.md §5 3b,
-// lane 3c-entityshell), and what is left here is the crossing itself.
-//
-// A ~120-line verb table stood here -- kill, explode, hurtme, setpos, noclip,
-// notarget, setang -- with an sv_cheats gate spelt by hand in front of it, and
-// fifteen CON_COMMANDs below it feeding the same table through a formatted
-// string and a re-tokenise. Every one of those is a DECISION: which damage type
-// a suicide carries, whether a cheat is refused out loud, whether setpos clears
-// velocity. SourceSharp.Server/PlayerCheatCommands.cs holds them as [ConCommand]
-// classes now, and the sv_cheats gate is DevCommand's, which refuses in stock's
-// own words.
-//
-// TWO CROSSINGS WERE WHAT KEPT IT NATIVE, and they are what this step added:
-// PlayerSnapEyeAngles (setang -- CPlayerState::fixangle is engine memory the
-// engine reads back through GetPlayerState) and PlayerSetMoveType (noclip -- a
-// move-type write from between frames, which the movement loop's state
-// writeback cannot be). Both are in shell_entityapi.cpp beside the other player
-// slots.
-//
-// WHAT IS LEFT IS THE MANAGED FIRST REFUSAL, unchanged and still first: this is
-// IServerGameClients::ClientCommand's body for a hierarchy player
-// (shell_gameclients.cpp:427), and it is reached only by words that are NOT
-// registered ConCommands -- a registered name is dispatched by the engine and
-// never arrives here. So ss_use, ss_slot, invnext, invprev and lastinv come
-// through this and are answered by ServerModule.OnClientCommand; everything the
-// verb table used to handle is now a registered name and takes the other door.
-//
-// AN UNHANDLED WORD IS SAID, NOT SWALLOWED. The gate that used to sit here
-// returned in silence for anything it did not know, which is how the stock
-// binds appeared dead in a normal game and worked in a cheats one.
-//-----------------------------------------------------------------------------
+// ClientCommand for a hierarchy player: words that are not registered ConCommands
+// (ss_use, ss_slot, invnext, ...) go to managed OnClientCommand.
 void StandalonePlayer_ClientCommand( CStandalonePlayer *pPlayer, const CCommand &args )
 {
 	if ( !pPlayer || args.ArgC() < 1 )
 		return;
 
-	// E15: the server's managed-built area.
-	IManagedCommands *pCommands = ManagedCommands();
+	IManagedCommands *pCommands = pPlayer->Context().m_Managed.m_Areas.m_pCommands;
 
 	if ( !pCommands )
 	{
@@ -991,110 +639,41 @@ void StandalonePlayer_ClientCommand( CStandalonePlayer *pPlayer, const CCommand 
 		return;
 	}
 
-	// THE WHOLE LINE, quotes and all. ArgS would drop the verb, and the tokens
-	// the engine already split are not reachable across the boundary as a set.
+	// The whole line, quotes and all; ArgS would drop the verb.
 	pCommands->OnClientCommand( pPlayer->ManagedHandle(), args.GetCommandString() );
 }
 
-//-----------------------------------------------------------------------------
-// WHO TYPED IT. A registered name never reaches ClientCommand at all -- the
-// engine dispatches it -- so a ConCommand has to ask for its subject rather
-// than being handed one, exactly as stock's handlers did through
-// UTIL_GetCommandClient. That is what made every stock spelling dead here:
-// they asked, downcast the answer to a CBasePlayer, got NULL for a hierarchy
-// player and returned without a word.
-//
-// Two callers left, and they are the two kinds of caller there are: ss_ground
-// (shell_standalone_player_debug.cpp, debug builds only), which is native, and
-// SourceSharp_GetCommandClientHandle, which is how every managed [ConCommand]
-// gets the same fact.
-//-----------------------------------------------------------------------------
-CStandalonePlayer *StandalonePlayer_CommandClient()
+// Who typed it. A registered ConCommand is dispatched by the engine and must ask for its
+// subject, as stock's handlers did through UTIL_GetCommandClient.
+CStandalonePlayer *CServerEntityContext::CommandClient() const
 {
-	return CStandalonePlayer::FromIndex( UTIL_GetCommandClientIndex() );
+	// The slot is 0-based, -1 for the dedicated console; as an entindex, 0 is the console.
+	return PlayerFromIndex( m_Players.m_nCommandClientSlot + 1 );
 }
 
-//-----------------------------------------------------------------------------
-// The same fact, for a C#-declared ConCommand.
-//
-// ConCommandDispatch carries an id and an argument string and nothing else, so
-// a [ConCommand] class in C# could not name the player who ran it — and every
-// development command that acts on "the player" or on "what the player is
-// looking at" needs exactly that. Without this slot the ent_* family could not
-// be ordinary managed console commands at all and needed a second dispatcher
-// riding on the client-command crossing, which is what this replaces.
-//
-// Zero when nobody issued it: the server console with no player, or a slot
-// whose player has not spawned. The managed side says so out loud rather than
-// acting on a handle that resolves to nothing.
-//-----------------------------------------------------------------------------
-uint32_t SourceSharp_GetCommandClientHandle( void )
+// The same, for a C# [ConCommand]. INVALID_EHANDLE_INDEX when no player issued it.
+uint32_t CServerConsoleCommands::GetCommandClientHandle()
 {
-	if ( CStandalonePlayer *pPlayer = StandalonePlayer_CommandClient() )
+	if ( CStandalonePlayer *pPlayer = m_Entities.Context().CommandClient() )
 		return pPlayer->ManagedHandle();
 
 	return INVALID_EHANDLE_INDEX;
 }
 
-//-----------------------------------------------------------------------------
-// ss_ground, the instrument the ground divergence was measured with, is a
-// diagnostic: it lives in shell_standalone_player_debug.cpp, which only a debug
-// build compiles, with the note on why the other ss_* spellings are managed.
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
-// THE DEVELOPMENT CONSOLE — forty-three more of the same bug, and why almost
-// none of it is here any more.
-//
-// docs/divergences.md, "Verdict A": forty-three server ConCommands are
-// registered whose handlers open by downcasting UTIL_GetCommandClient's
-// answer to a player,
-// get NULL because the standalone player is not a CBasePlayer, and RETURN
-// WITHOUT A WORD. The whole ent_* debugging family, give, fov, kill, explode,
-// setmodel, the prop_*_create pair, cast_ray, surfaceprop. None of them is
-// broken by its own logic; the logic never runs.
-//
-// All of them are answered in managed code now, and REGISTERED there too:
-// DevCommands.cs declares one [ConCommand] class per spelling, discovered by
-// the same pass that registers cs_hello, so the console builds a real
-// ConCommand for each and dispatches it straight to C#. Thirty-nine
-// SS_DEV_COMMAND lines and their macro stood here until then, forwarding the
-// whole line through the CLIENT COMMAND crossing to a second dispatcher — a
-// parallel console-command mechanism whose only reason to exist was that
-// ConCommandDispatch could not name the player who typed the word.
-// SourceSharp_GetCommandClientHandle above supplies exactly that, and the
-// parallel mechanism goes with it.
-//
-// The stock registrations these replace are still #ifndef SOURCESHARP'd at
-// their own sites, and the comment there names this file. Two live
-// registrations of one name is a registration-order race whose loser is
-// silent; a guard is deterministic and greppable.
-//
-// WHAT IS LEFT: `use`, and only because it is not one of DevCommands' — it IS
-// ss_use, one selection rule under two spellings, answered in
-// ServerModule.OnClientCommand beside it. It still needs a registration of its
-// own: a client console's unknown word is forwarded to the server as a client
-// command and would reach the crossing anyway, but engine->ServerCommand —
-// which every tool here drives the game through, this mod's development API
-// included — only reaches a ConCommand.
-//-----------------------------------------------------------------------------
-static void StandalonePlayer_RouteVerbatim( const CCommand &args )
+// `use` is ss_use under stock's name. It needs a registration because
+// IVEngineServer::ServerCommand, which tools drive the game through, only reaches a ConCommand.
+static void StandalonePlayer_RouteVerbatim( const CCommand &args, const CServerEntityContext &context )
 {
 	const char *pName = args.ArgC() >= 1 ? args[0] : "command";
-	CStandalonePlayer *pPlayer = StandalonePlayer_CommandClient();
+	CStandalonePlayer *pPlayer = context.CommandClient();
 
 	if ( !pPlayer )
 	{
-		// SAID, not swallowed. "No player issued that" and "the player
-		// ignored it" are the same nothing from a console. The server console
-		// with nobody connected reaches here, and so does a slot whose player
-		// has not spawned yet.
 		Msg( "%s: no player issued that, so nothing was done.\n", pName );
 		return;
 	}
 
-	// E15: the server's managed-built area.
-	IManagedCommands *pCommands = ManagedCommands();
+	IManagedCommands *pCommands = pPlayer->Context().m_Managed.m_Areas.m_pCommands;
 
 	if ( !pCommands )
 	{
@@ -1102,97 +681,61 @@ static void StandalonePlayer_RouteVerbatim( const CCommand &args )
 		return;
 	}
 
-	// The WHOLE line, quotes and all. ArgS would drop the verb, and the tokens
-	// the engine already split are not reachable across the boundary as a set —
-	// GetCommandString is the untouched text, so a quoted argument survives to
-	// the managed splitter.
+	// The whole line, quotes and all, so a quoted argument survives to the managed splitter.
 	if ( !pCommands->OnClientCommand( pPlayer->ManagedHandle(), args.GetCommandString() ) )
 		Msg( "%s: the managed server did not handle it.\n", pName );
 }
 
 SS_NATIVE_COMMAND( use )
 {
-	StandalonePlayer_RouteVerbatim( args );
+	StandalonePlayer_RouteVerbatim( args, services.m_EntityContext );
 }
 
-//-----------------------------------------------------------------------------
-// The handle projection the player arms resolve through.
-//-----------------------------------------------------------------------------
-CStandalonePlayer *SourceSharp_ResolveStandalonePlayer( uint32_t hEntity )
-{
-	CStandaloneEntity *pEntity = SourceSharp_ResolveStandalone( hEntity );
-
-	if ( !pEntity || !pEntity->IsPlayer() )
-		return NULL;
-
-	return SourceSharp_PlayerOf( pEntity );
-}
-
-//-----------------------------------------------------------------------------
-// Creation, from ClientPutInServer.
-//-----------------------------------------------------------------------------
-CStandalonePlayer *StandalonePlayer_Create( edict_t *pEdict, const char *pPlayerName )
+CStandalonePlayer *CServerEntityLifecycle::CreatePlayer( edict_t *pEdict, const char *pPlayerName )
 {
 	if ( !pEdict )
 		return NULL;
 
-	ss::IEntityFactory *pFactory = ss::EntityFactoryDictionary()->FindFactory( "ss_player" );
+	CServerEntityContext &context = m_Entities;
+	ss::IEntityFactory *pFactory = Factories().FindFactory( "player" );
 
 	if ( !pFactory )
 	{
-		Warning( "[SourceSharp] standalone player: no 'ss_player' class was registered — "
-		         "is the managed assembly older than -ss_player?\n" );
+		Warning( "[SourceSharp] standalone player: no 'player' class was registered — "
+				 "is the managed assembly older than its player class?\n" );
 		return NULL;
 	}
 
-	SourceSharp_SetPendingPlayerEdict( pEdict );
+	SourceSharp_SetPendingPlayerEdict( context.m_Players, pEdict );
 
-	IServerNetworkable *pNet = pFactory->Create( "ss_player" );
+	IServerNetworkable *pNet = pFactory->Create( "player", context );
 
-	// Claimed by PostConstruct on success; anything left standing here means
-	// creation failed before the claim and must not leak onto the next entity.
-	SourceSharp_ClaimPendingPlayerEdict();
+	// Normally claimed by PostConstruct; a failed creation must not leak it to the next entity.
+	SourceSharp_ClaimPendingPlayerEdict( context.m_Players );
 
 	if ( !pNet )
 		return NULL;
 
-	// On this hierarchy the entity IS its networkable — one static walk down.
-	// The factory only ever constructs CStandalonePlayer for the class whose
-	// desc says bPlayer, and "ss_player" is that class by registration.
+	// The factory constructs CStandalonePlayer only for the bPlayer class, which player is.
 	CStandalonePlayer *pPlayer = SourceSharp_PlayerOf( SourceSharp_ShellOf( pNet ) );
 
 	const int nIndex = pPlayer->EntIndex();
 
-	if ( nIndex >= 1 && nIndex <= ss::kMaxPlayers )
+	CStandalonePlayer **ppPlayers = PlayersByIndex( m_Entities );
+
+	if ( ppPlayers && nIndex >= 1 && nIndex <= ss::kMaxPlayers )
 	{
-		s_StandalonePlayers[ nIndex ] = pPlayer;
+		ppPlayers[nIndex] = pPlayer;
 	}
 	else
 	{
-		Warning( "[SourceSharp] standalone player: bound to edict index %d, outside 1..%d\n",
-			nIndex, ss::kMaxPlayers );
+		Warning( "[SourceSharp] standalone player: bound to edict index %d, outside 1..%d\n", nIndex, ss::kMaxPlayers );
 	}
 
 	pPlayer->SetPlayerName( pPlayerName );
 
 	return pPlayer;
 }
-
-//-----------------------------------------------------------------------------
-// cs_sv_whois, which shows what the UTIL_PlayerSlotBy* lookups answer, is a
-// diagnostic: it lives in shell_standalone_player_debug.cpp, which only a debug
-// build compiles.
-//-----------------------------------------------------------------------------
-
-//=============================================================================
-// THE LOCAL DATA'S CONSTRUCTOR AND ITS PER-FRAME UPDATE, from
-// shell_playerlocaldata.cpp (plan_server_native_v2 T2). That file also held
-// DT_Local, the send table stock's CBasePlayer sends its CPlayerLocalData
-// through; no ServerClass here references it (nm: no object imported the
-// table), so the engine never sent it, and it went with its datadescs, which
-// nothing imported either. The struct stays: the movement code and the
-// transmit step read it as this player's state. Both bodies are stock's.
-//=============================================================================
 
 ss::CPlayerLocalData::CPlayerLocalData()
 {
@@ -1209,15 +752,13 @@ ss::CPlayerLocalData::CPlayerLocalData()
 	m_szScriptOverlayMaterial.GetForModify()[0] = '\0';
 }
 
-// The sky camera's parameters, from the managed sky camera when the map has
-// one, else area 255 ("no 3D skybox"). shell_transmitsteps.cpp reads the area
-// for the client's PVS.
-static void StandaloneClientData_Update( CStandalonePlayer *pPlayer )
+// The sky camera's parameters, else area 255 (no 3D skybox).
+static void StandaloneClientData_Update( const CServerWorldQueries &world, CStandalonePlayer *pPlayer )
 {
 	MvLocalData_t &local = pPlayer->MvLocal();
 
 	ss::sky3dparams_t managed;
-	if ( SourceSharp_FillSkyboxParams( managed ) )
+	if ( world.FillSkyboxParams( managed ) )
 	{
 		local.m_skybox3d.CopyFrom( managed );
 		return;
@@ -1226,11 +767,11 @@ static void StandaloneClientData_Update( CStandalonePlayer *pPlayer )
 	local.m_skybox3d.area = 255;
 }
 
-void UpdateAllClientData( void )
+void UpdateAllClientData( const CServerEntityContext &context, const CServerWorldQueries &world )
 {
-	for ( int i = 1; i <= gpGlobals->maxClients; i++ )
+	for ( int i = 1; i <= context.m_pGlobals->maxClients; i++ )
 	{
-		if ( CStandalonePlayer *pStandalone = CStandalonePlayer::FromIndex( i ) )
-			StandaloneClientData_Update( pStandalone );
+		if ( CStandalonePlayer *pStandalone = context.PlayerFromIndex( i ) )
+			StandaloneClientData_Update( world, pStandalone );
 	}
 }

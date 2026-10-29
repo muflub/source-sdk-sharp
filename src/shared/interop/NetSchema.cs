@@ -64,7 +64,7 @@ public static class NetSchema
     /// with no engine to ask.
     /// </para>
     /// </summary>
-    public const int StandaloneSharedProps = 11;   // 11 since m_nSkin (2026-10-19)
+    public const int StandaloneSharedProps = 12;   // 11 since m_nSkin (2026-10-19), 12 since m_nBody (2026-10-25)
 
     /// <summary>
     /// The DT_ name a class's SendTable and RecvTable would be paired by.

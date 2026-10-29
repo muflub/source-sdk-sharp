@@ -26,7 +26,7 @@
 namespace
 {
 
-template < typename T >
+template <typename T>
 T At( const CSaveRestoreData &data, size_t nOffset )
 {
 	T value;
@@ -41,8 +41,8 @@ size_t LevelInfoAt( const CSaveRestoreData &data, const void *pMember )
 
 struct CPlaced
 {
-	char buffer[ 64 ];
-	char *tokens[ 7 ];
+	char buffer[64];
+	char *tokens[7];
 	CSaveRestoreData data;
 
 	CPlaced()
@@ -58,40 +58,40 @@ struct CPlaced
 TEST( SaveRestoreLayout, BaseDataIsAt0 )
 {
 	CPlaced p;
-	EXPECT_EQ( p.buffer, At< char * >( p.data, 0 ) );
+	EXPECT_EQ( p.buffer, At<char *>( p.data, 0 ) );
 }
 
 TEST( SaveRestoreLayout, CurrentDataIsAt8 )
 {
 	CPlaced p;
-	EXPECT_EQ( p.data.AccessCurPos(), At< char * >( p.data, 8 ) );
-	EXPECT_EQ( p.buffer + 5, At< char * >( p.data, 8 ) );
+	EXPECT_EQ( p.data.AccessCurPos(), At<char *>( p.data, 8 ) );
+	EXPECT_EQ( p.buffer + 5, At<char *>( p.data, 8 ) );
 }
 
 TEST( SaveRestoreLayout, SizeIsAt16 )
 {
 	CPlaced p;
-	EXPECT_EQ( 5, At< int >( p.data, 16 ) );
-	EXPECT_EQ( p.data.GetCurPos(), At< int >( p.data, 16 ) );
+	EXPECT_EQ( 5, At<int>( p.data, 16 ) );
+	EXPECT_EQ( p.data.GetCurPos(), At<int>( p.data, 16 ) );
 }
 
 TEST( SaveRestoreLayout, BufferSizeIsAt20 )
 {
 	CPlaced p;
-	EXPECT_EQ( 64, At< int >( p.data, 20 ) );
+	EXPECT_EQ( 64, At<int>( p.data, 20 ) );
 	EXPECT_EQ( 59, p.data.BytesAvailable() );
 }
 
 TEST( SaveRestoreLayout, TokenCountIsAt24 )
 {
 	CPlaced p;
-	EXPECT_EQ( 7, At< int >( p.data, 24 ) );
+	EXPECT_EQ( 7, At<int>( p.data, 24 ) );
 }
 
 TEST( SaveRestoreLayout, TokensIsAt32 )
 {
 	CPlaced p;
-	EXPECT_EQ( p.tokens, At< char ** >( p.data, 32 ) );
+	EXPECT_EQ( p.tokens, At<char **>( p.data, 32 ) );
 }
 
 TEST( SaveRestoreLayout, ConnectionCountIsAt40 )
@@ -117,7 +117,7 @@ TEST( SaveRestoreLayout, TimeIsAt1492 )
 	CPlaced p;
 	EXPECT_EQ( 1492u, LevelInfoAt( p.data, &p.data.levelInfo.time ) );
 	p.data.levelInfo.time = 42.5f;
-	EXPECT_EQ( 42.5f, At< float >( p.data, 1492 ) );
+	EXPECT_EQ( 42.5f, At<float>( p.data, 1492 ) );
 	EXPECT_EQ( 42.5f, p.data.GetBaseTime() );
 }
 

@@ -18,8 +18,7 @@
 // spells V_swap as a swap through a temporary, which a bit-field can take,
 // for the stock header's body alone; and includes that header unchanged.
 //
-#ifndef SS_COMPAT_CLANG_UTLBLOCKMEMORY_H
-#define SS_COMPAT_CLANG_UTLBLOCKMEMORY_H
+#pragma once
 
 #include "tier0/dbg.h"
 #include "tier0/platform.h"
@@ -28,8 +27,12 @@
 
 #pragma push_macro( "V_swap" )
 #undef V_swap
-#define V_swap( a, b ) do { auto ssCompatSwap = ( a ); ( a ) = ( b ); ( b ) = ssCompatSwap; } while ( 0 )
+#define V_swap( a, b )             \
+	do                             \
+	{                              \
+		auto ssCompatSwap = ( a ); \
+		( a ) = ( b );             \
+		( b ) = ssCompatSwap;      \
+	} while ( 0 )
 #include_next "tier1/utlblockmemory.h"
 #pragma pop_macro( "V_swap" )
-
-#endif // SS_COMPAT_CLANG_UTLBLOCKMEMORY_H

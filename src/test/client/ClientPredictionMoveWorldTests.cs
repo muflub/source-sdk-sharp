@@ -45,6 +45,8 @@ public class ClientPredictionMoveWorldTests
     {
         public readonly List<(EntityHandle Entity, string Name, Vector? Origin)> Emits = new();
         public void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null) => Emits.Add((entity, soundName, origin));
+
+        public void StopFrom(EntityHandle entity, string soundName) { }
     }
 
     private static (ClientPredictionMoveWorld World, Engine Engine, Sounds Sound) Rig(bool firstRun)

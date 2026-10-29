@@ -58,6 +58,27 @@ public sealed class PlayerShadowStress(IVPhysicsFrameCalls v, IPhysicsSolverWorl
     /// </summary>
     public (float Received, float Mass, uint Flags) Measure(nint environment, nint shadow, in PlayerShadowFacts facts)
     {
+        ObjectStress stress = Stress(environment, shadow, facts.MoveType, facts.Ground, facts.Controller);
+
+        uint flags = 0;
+        if (stress.HasNonStaticStress)
+            flags |= PhysicsEvent.StressNonStatic;
+        if (stress.HasLargeObjectContact)
+            flags |= PhysicsEvent.StressLargeObject;
+        if ((v.GameFlags(shadow) & Penetrating) != 0)
+            flags |= PhysicsEvent.StressPenetrating;
+
+        return (stress.ReceivedStress, v.Mass(shadow), flags);
+    }
+
+    /// <summary>
+    /// <c>CalculateObjectStress( shadow, owner, &amp;out )</c> for any object:
+    /// its contacts' facts read from vphysics, the owner's movetype, its ground
+    /// entity's raw handle (<see cref="NoGround"/> for none) and its player
+    /// controller (0 for none).
+    /// </summary>
+    public ObjectStress Stress(nint environment, nint shadow, int ownerMoveType, uint ownerGround, nint playerController)
+    {
         int total = v.Contacts(shadow, _snapshot);
         int read = Math.Min(total, _snapshot.Length);
         nint worldObject = world.WorldObject();
@@ -96,7 +117,7 @@ public sealed class PlayerShadowStress(IVPhysicsFrameCalls v, IPhysicsSolverWorl
                 c.NormalForce, c.Normal, key, v.IsMoveable(other),
                 Friendly: (v.GameFlags(other) & PlayerHeld) != 0,
                 PhysicallyControlled: moveType == MoveTypeVPhysics || (hasShadow && physicallyControlled),
-                IsOwnersGround: owner != EntityHandle.None && owner.Value == facts.Ground,
+                IsOwnersGround: owner != EntityHandle.None && owner.Value == ownerGround,
                 Mass: v.Mass(other));
         }
 
@@ -107,23 +128,39 @@ public sealed class PlayerShadowStress(IVPhysicsFrameCalls v, IPhysicsSolverWorl
         if (shadowControlled)
             lastImpulse = shadowImpulse;
         else if ((v.CallbackFlags(shadow) & IsPlayerController) != 0)
-            lastImpulse = v.PlayerControllerLastImpulse(facts.Controller);
+            lastImpulse = v.PlayerControllerLastImpulse(playerController);
 
         float mass = v.Mass(shadow);
         var subject = new StressSubject(mass, v.IsMoveable(shadow), v.IsStatic(shadow),
-                                        facts.MoveType == MoveTypeVPhysics, lastImpulse,
+                                        ownerMoveType == MoveTypeVPhysics, lastImpulse,
                                         v.Gravity(environment).Length, v.Timestep(environment));
 
-        ObjectStress stress = PhysicsObjectStress.Compute(in subject, _contacts.AsSpan(0, n));
+        return PhysicsObjectStress.Compute(in subject, _contacts.AsSpan(0, n));
+    }
 
-        uint flags = 0;
-        if (stress.HasNonStaticStress)
-            flags |= PhysicsEvent.StressNonStatic;
-        if (stress.HasLargeObjectContact)
-            flags |= PhysicsEvent.StressLargeObject;
-        if ((v.GameFlags(shadow) & Penetrating) != 0)
-            flags |= PhysicsEvent.StressPenetrating;
+    /// <summary>A ground handle no entity has: the owner stands on nothing.</summary>
+    public const uint NoGround = uint.MaxValue;
+}
 
-        return (stress.ReceivedStress, mass, flags);
+/// <summary>An entity's stress sum (kg): what a func_weight_button weighs.</summary>
+public interface IObjectStressQuery
+{
+    /// <summary>CalculateObjectStress's sum for the entity's physics object; 0 when it has none.</summary>
+    float StressOf(EntityHandle entity);
+}
+
+/// <summary>
+/// <see cref="IObjectStressQuery"/> over the entity's object and
+/// <see cref="PlayerShadowStress.Stress"/>, for an owner that is MOVETYPE_VPHYSICS
+/// and stands on nothing, as CWeightButton is.
+/// </summary>
+public sealed class EntityObjectStress(PlayerShadowStress stress, IEngineEntityPhysics physics) : IObjectStressQuery
+{
+    public float StressOf(EntityHandle entity)
+    {
+        nint o = physics.PhysicsObject(entity);
+        return o == 0
+            ? 0f
+            : stress.Stress(physics.EnvironmentPointer(), o, PlayerShadowStress.MoveTypeVPhysics, PlayerShadowStress.NoGround, 0).Sum;
     }
 }

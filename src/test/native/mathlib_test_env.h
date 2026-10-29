@@ -37,8 +37,7 @@
 //
 //=============================================================================//
 
-#ifndef SOURCESHARP_TEST_MATHLIB_TEST_ENV_H
-#define SOURCESHARP_TEST_MATHLIB_TEST_ENV_H
+#pragma once
 
 #include "gtest/gtest.h"
 
@@ -56,9 +55,6 @@ public:
 // A global rather than a fixture: some of these files build their case tables
 // at static init, so the environment has to be registered before main() and up
 // before the first TEST body.
-::testing::Environment *const g_pSourceSharpMathLib =
-	::testing::AddGlobalTestEnvironment( new MathLibEnvironment );
+::testing::Environment *const g_pSourceSharpMathLib = ::testing::AddGlobalTestEnvironment( new MathLibEnvironment );
 
 } // namespace
-
-#endif // SOURCESHARP_TEST_MATHLIB_TEST_ENV_H

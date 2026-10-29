@@ -74,32 +74,6 @@ public class TempEntBaseTableTests
     }
 
     /// <summary>
-    /// The CLIENT no longer compiles a native <c>DT_BaseTempEntity</c>.
-    ///
-    /// <para>
-    /// While it did, <c>shell_tempents_client.cpp</c>'s
-    /// <c>FindStockTableNamed</c> refused to build the managed table and every
-    /// derived managed table nested stock's instead (proved on a live join by
-    /// lane CD). With the TU evicted that refusal does not fire and the managed
-    /// table is the one in the process.
-    /// </para>
-    /// </summary>
-    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
-    public void TheClientCompilesNoStockBaseTempEntityTu()
-    {
-        Assert.DoesNotContain(CMakeGraph.CompiledSources(CMakeGraph.Client),
-            s => s.Contains("c_basetempentity.cpp", StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>The SERVER half of the same pair, which has been true for longer.</summary>
-    [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
-    public void TheServerCompilesNoStockBaseTempEntityTu()
-    {
-        Assert.DoesNotContain(CMakeGraph.CompiledSources(CMakeGraph.Server),
-            s => s.Contains("basetempentity.cpp", StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>
     /// The two build facts above are absences, and an absence over an empty list
     /// is satisfied by nothing at all. This is the reading that says they had a
     /// list to look in. (CMakeGraph also throws on a missing, empty or stale

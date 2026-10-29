@@ -45,8 +45,26 @@ namespace SourceSharp.Server;
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.PropDynamicOrnament, ScriptedEntityKind.Prop)]
-public sealed class PropDynamicOrnament : ScriptedEntity
+public sealed class PropDynamicOrnament : AnimatingEntity
 {
+    /// <summary>
+    /// No physics object at all: COrnamentProp is a CDynamicProp that keeps
+    /// SOLID_NONE (only a prop_dynamic of that name becomes an OBB), and
+    /// CDynamicProp::CreateVPhysics makes nothing for SOLID_NONE.
+    /// </summary>
+    public override bool SpawnsPhysics => false;
+
+    public PropDynamicOrnament(IEnginePrecache precache, IEngineEntityRender render, IServerPropData propData)
+    {
+        Precache = precache;
+        Render = render;
+        PropDataTable = propData;
+    }
+
+    private readonly IEnginePrecache Precache;
+    private readonly IEngineEntityRender Render;
+    private readonly IServerPropData PropDataTable;
+
     /// <summary>What a map may set. See <see cref="PropDynamicOrnamentVars"/>.</summary>
     [ScriptVars] public PropDynamicOrnamentVars Vars = new();
 
@@ -55,13 +73,15 @@ public sealed class PropDynamicOrnament : ScriptedEntity
 
     public override void OnSpawn()
     {
-        if (Vars.Model.Length > 0)
-            SetModel(Vars.Model);
+        // COrnamentProp is a CDynamicProp: CBaseProp::Spawn's refusals apply.
+        if (DynamicPropSpawn.Refusal(ClassName, Vars.Model, Precache, Render, PropDataTable) is { } refusal)
+        {
+            Log.Msg(DynamicPropSpawn.Line(ClassName, SpawnOrigin, refusal));
+            Remove();
+            return;
+        }
 
-        // Solid-but-never-simulated, so the shell builds the right kind of
-        // physics object moments from now. It is made non-solid immediately
-        // below; this decides which KIND of object exists to be made non-solid.
-        MakePhysicsStatic();
+        SetModel(Vars.Model);
 
         Detach();
 
@@ -127,6 +147,12 @@ public sealed class PropDynamicOrnament : ScriptedEntity
             return;
         }
 
+        // FollowEntity: on the parent's own origin and facing, where the map's
+        // placement is only where the ornament waited to be attached. Stock's
+        // stands at the owner's origin; this one stood 48 units above it on
+        // ss_sandbox's door (2026-10-26).
+        Entities.SetLocalTransform(Handle, Vector.Zero, Vector.Zero);
+
         // Visible only once it is actually riding something, which is the whole
         // of stock's RemoveEffects(EF_NODRAW) in AttachTo — and it is on this
         // side of the SetParent for a reason: an ornament made visible before a
@@ -161,7 +187,7 @@ public sealed class PropDynamicOrnament : ScriptedEntity
         // Non-solid as well as invisible. Stock's AddSolidFlags(FSOLID_NOT_SOLID),
         // and without it a detached ornament is an invisible wall — the classic
         // symptom, and one a player finds long before a mapper does.
-        SetSolidity(BrushSolidity.None);
+        SetSolidNone(SolidFlags.NotSolid);
     }
 }
 

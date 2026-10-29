@@ -52,9 +52,9 @@ public class NetTrafficTests
 
         var sampler = new NetTrafficSampler();
         byte[] blob = Blob(4);
-        sampler.Observe("ss_beam", 1, blob, Layout);
+        sampler.Observe("beam", 1, blob, Layout);
         blob[4] = 1;
-        sampler.Observe("ss_beam", 1, blob, Layout);
+        sampler.Observe("beam", 1, blob, Layout);
 
         bool sampling = false;
         bool reset = false;
@@ -70,7 +70,7 @@ public class NetTrafficTests
         string live = Reply(server, "/nettraffic").Body;
 
         Assert.True(live.Contains("\"sampling\":true"), "a sampling route says so");
-        Assert.True(live.Contains("ss_beam"), "the measured class is reported");
+        Assert.True(live.Contains("beam"), "the measured class is reported");
         Assert.True(live.Contains("Health"), "the changed field is named");
         Assert.True(live.Contains("bitsPerChangedWord\":39"), "the wire unit is stated in the reply");
         Assert.True(live.Contains("fieldsNote"), "and so is the shared-word caveat");

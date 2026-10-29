@@ -7,7 +7,5 @@
 // header for what is stock and what is stand-in.
 //
 //=============================================================================
-#ifndef SS_PRECIP_STUB_CBASE_H
-#define SS_PRECIP_STUB_CBASE_H
+#pragma once
 #include "precip_harness.h"
-#endif

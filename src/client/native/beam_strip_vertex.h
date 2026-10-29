@@ -4,24 +4,20 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-//========= SourceSharp — a camera-facing strip, written as managed decided it
-//
-// Managed's BeamSegDraw (src/client/managed/Ropes/BeamSegDraw.cs) turns a
-// strip of BeamSeg_t into two vertices a segment, the arithmetic tier2's
-// CBeamSegDraw did. These write those vertices and nothing else: the beam and
-// rope executors (shell_beam_render.cpp, shell_rope_render.cpp) and
-// beamsegdraw_oracle_test, which holds them to tier2.a's object.
-//
-// A vertex is BEAM_STRIP_VERTEX_FLOATS floats: position, r g b a, the two
-// texture coordinates (u v, u v), tangent S, tangent T.
-//=============================================================================//
+// Writes the camera-facing strip vertices managed code computed. A vertex is
+// BEAM_STRIP_VERTEX_FLOATS floats: position, r g b a, two texture coordinates
+// (u v, u v), tangent S, tangent T.
 
-#ifndef BEAM_STRIP_VERTEX_H
-#define BEAM_STRIP_VERTEX_H
+#pragma once
 
 #include "materialsystem/imesh.h"
+#include "materialsystem/imaterialsystem.h"
+#include "particles/particles.h"
 
-enum { BEAM_STRIP_VERTEX_FLOATS = 17 };
+enum
+{
+	BEAM_STRIP_VERTEX_FLOATS = 17
+};
 
 namespace ss
 {
@@ -38,8 +34,8 @@ inline void WriteVertex( CMeshBuilder &mb, const float *v )
 	mb.AdvanceVertex();
 }
 
-// Into a triangle list other strips share: the vertices, then two triangles a
-// quad, numbered from nFirstVertex (where this strip's vertices start).
+// Appends to a shared triangle list: the vertices, then two triangles per quad,
+// indexed from nFirstVertex.
 inline void WriteIndexed( CMeshBuilder &mb, const float *pVerts, int nVerts, int nFirstVertex )
 {
 	for ( int i = 0; i < nVerts; i++ )
@@ -57,7 +53,7 @@ inline void WriteIndexed( CMeshBuilder &mb, const float *pVerts, int nVerts, int
 	}
 }
 
-// A strip of its own: one triangle strip on pMesh, drawn.
+// Draws the strip on its own as one triangle strip on pMesh.
 inline void DrawStrip( IMesh *pMesh, const float *pVerts, int nVerts )
 {
 	CMeshBuilder mb;
@@ -68,5 +64,3 @@ inline void DrawStrip( IMesh *pMesh, const float *pVerts, int nVerts )
 }
 } // namespace beamstrip
 } // namespace ss
-
-#endif // BEAM_STRIP_VERTEX_H

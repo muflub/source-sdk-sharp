@@ -10,11 +10,11 @@
 
 #include "fake_engine_tier.h"
 
-#define FAKE_EXPORT extern "C" __attribute__(( visibility( "default" ) ))
+#define FAKE_EXPORT extern "C" __attribute__( ( visibility( "default" ) ) )
 
 namespace
 {
-FakeTierCall s_Calls[ 64 ];
+FakeTierCall s_Calls[64];
 int s_nCalls = 0;
 char s_CommandLine;
 char s_Heap;
@@ -22,15 +22,34 @@ char s_Heap;
 void Record( const char *pszName, const void *pThis, unsigned int nArg )
 {
 	if ( s_nCalls < 64 )
-		s_Calls[ s_nCalls++ ] = FakeTierCall{ pszName, pThis, nArg };
+		s_Calls[s_nCalls++] = FakeTierCall{ pszName, pThis, nArg };
 }
 } // namespace
 
-FAKE_EXPORT int FakeTier_CallCount() { return s_nCalls; }
-FAKE_EXPORT const FakeTierCall *FakeTier_Call( int i ) { return i >= 0 && i < s_nCalls ? &s_Calls[ i ] : nullptr; }
-FAKE_EXPORT void FakeTier_Reset() { s_nCalls = 0; }
-FAKE_EXPORT void *FakeTier_CommandLineObject() { return &s_CommandLine; }
-FAKE_EXPORT void *FakeTier_HeapObject() { return &s_Heap; }
+FAKE_EXPORT int FakeTier_CallCount()
+{
+	return s_nCalls;
+}
+
+FAKE_EXPORT const FakeTierCall *FakeTier_Call( int i )
+{
+	return i >= 0 && i < s_nCalls ? &s_Calls[i] : nullptr;
+}
+
+FAKE_EXPORT void FakeTier_Reset()
+{
+	s_nCalls = 0;
+}
+
+FAKE_EXPORT void *FakeTier_CommandLineObject()
+{
+	return &s_CommandLine;
+}
+
+FAKE_EXPORT void *FakeTier_HeapObject()
+{
+	return &s_Heap;
+}
 
 FAKE_EXPORT void *g_pMemAlloc;
 void *g_pMemAlloc = &s_Heap;
@@ -51,15 +70,56 @@ FAKE_EXPORT void Fake_RWUnlockWrite( void *p ) __asm__( "_ZN13CThreadRWLock11Unl
 FAKE_EXPORT void Fake_SpinLockForRead( void *p ) __asm__( "_ZN17CThreadSpinRWLock11LockForReadEv" );
 FAKE_EXPORT void Fake_SpinUnlockRead( void *p ) __asm__( "_ZN17CThreadSpinRWLock10UnlockReadEv" );
 FAKE_EXPORT void Fake_SpinUnlockWrite( void *p ) __asm__( "_ZN17CThreadSpinRWLock11UnlockWriteEv" );
-FAKE_EXPORT void Fake_SpinLockForWrite( void *p, unsigned int n ) __asm__( "_ZN17CThreadSpinRWLock16SpinLockForWriteEj" );
+FAKE_EXPORT void Fake_SpinLockForWrite( void *p,
+										unsigned int n ) __asm__( "_ZN17CThreadSpinRWLock16SpinLockForWriteEj" );
 
-void Fake_EventCtor( void *p, bool b ) { Record( "CThreadEvent::CThreadEvent", p, b ? 1u : 0u ); }
-bool Fake_EventSet( void *p ) { Record( "CThreadEvent::Set", p, 0 ); return true; }
-void Fake_SyncDtor( void *p ) { Record( "CThreadSyncObject::~CThreadSyncObject", p, 0 ); }
-void Fake_RWWaitForRead( void *p ) { Record( "CThreadRWLock::WaitForRead", p, 0 ); }
-void Fake_RWLockForWrite( void *p ) { Record( "CThreadRWLock::LockForWrite", p, 0 ); }
-void Fake_RWUnlockWrite( void *p ) { Record( "CThreadRWLock::UnlockWrite", p, 0 ); }
-void Fake_SpinLockForRead( void *p ) { Record( "CThreadSpinRWLock::LockForRead", p, 0 ); }
-void Fake_SpinUnlockRead( void *p ) { Record( "CThreadSpinRWLock::UnlockRead", p, 0 ); }
-void Fake_SpinUnlockWrite( void *p ) { Record( "CThreadSpinRWLock::UnlockWrite", p, 0 ); }
-void Fake_SpinLockForWrite( void *p, unsigned int n ) { Record( "CThreadSpinRWLock::SpinLockForWrite", p, n ); }
+void Fake_EventCtor( void *p, bool b )
+{
+	Record( "CThreadEvent::CThreadEvent", p, b ? 1u : 0u );
+}
+
+bool Fake_EventSet( void *p )
+{
+	Record( "CThreadEvent::Set", p, 0 );
+	return true;
+}
+
+void Fake_SyncDtor( void *p )
+{
+	Record( "CThreadSyncObject::~CThreadSyncObject", p, 0 );
+}
+
+void Fake_RWWaitForRead( void *p )
+{
+	Record( "CThreadRWLock::WaitForRead", p, 0 );
+}
+
+void Fake_RWLockForWrite( void *p )
+{
+	Record( "CThreadRWLock::LockForWrite", p, 0 );
+}
+
+void Fake_RWUnlockWrite( void *p )
+{
+	Record( "CThreadRWLock::UnlockWrite", p, 0 );
+}
+
+void Fake_SpinLockForRead( void *p )
+{
+	Record( "CThreadSpinRWLock::LockForRead", p, 0 );
+}
+
+void Fake_SpinUnlockRead( void *p )
+{
+	Record( "CThreadSpinRWLock::UnlockRead", p, 0 );
+}
+
+void Fake_SpinUnlockWrite( void *p )
+{
+	Record( "CThreadSpinRWLock::UnlockWrite", p, 0 );
+}
+
+void Fake_SpinLockForWrite( void *p, unsigned int n )
+{
+	Record( "CThreadSpinRWLock::SpinLockForWrite", p, n );
+}

@@ -1,39 +1,26 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-#ifndef HAVE_NETHOST_H
-#define HAVE_NETHOST_H
+#pragma once
 
 #include <stddef.h>
 
 #ifdef _WIN32
-    #ifdef NETHOST_EXPORT
-        #define NETHOST_API __declspec(dllexport)
-    #else
-        // Consuming the nethost as a static library
-        // Shouldn't export attempt to dllimport.
-        #ifdef NETHOST_USE_AS_STATIC
-            #define NETHOST_API
-        #else
-            #define NETHOST_API __declspec(dllimport)
-        #endif
-    #endif
+// Consuming the nethost as a static library
+// Shouldn't export attempt to dllimport.
+#define NETHOST_API __declspec( dllimport )
 
-    #define NETHOST_CALLTYPE __stdcall
-    #ifdef _WCHAR_T_DEFINED
-        typedef wchar_t char_t;
-    #else
-        typedef unsigned short char_t;
-    #endif
+#define NETHOST_CALLTYPE __stdcall
+#ifdef _WCHAR_T_DEFINED
+typedef wchar_t char_t;
 #else
-    #ifdef NETHOST_EXPORT
-        #define NETHOST_API __attribute__((__visibility__("default")))
-    #else
-        #define NETHOST_API
-    #endif
+typedef unsigned short char_t;
+#endif
+#else
+#define NETHOST_API
 
-    #define NETHOST_CALLTYPE
-    typedef char char_t;
+#define NETHOST_CALLTYPE
+typedef char char_t;
 #endif
 
 #ifdef __cplusplus
@@ -57,10 +44,11 @@ extern "C"
 //     'dotnet app.dll', which means it will be searched for under the dotnet_root
 //     path and the assembly_path is ignored.
 //
-struct get_hostfxr_parameters {
-    size_t size;
-    const char_t *assembly_path;
-    const char_t *dotnet_root;
+struct get_hostfxr_parameters
+{
+	size_t size;
+	const char_t *assembly_path;
+	const char_t *dotnet_root;
 };
 
 //
@@ -88,13 +76,9 @@ struct get_hostfxr_parameters {
 //   The full search for the hostfxr library is done on every call. To minimize the need
 //   to call this function multiple times, pass a large buffer (e.g. PATH_MAX).
 //
-NETHOST_API int NETHOST_CALLTYPE get_hostfxr_path(
-    char_t * buffer,
-    size_t * buffer_size,
-    const struct get_hostfxr_parameters *parameters);
+NETHOST_API int NETHOST_CALLTYPE get_hostfxr_path( char_t *buffer, size_t *buffer_size,
+												   const struct get_hostfxr_parameters *parameters );
 
 #ifdef __cplusplus
 }
 #endif // __cplusplus
-
-#endif // HAVE_NETHOST_H

@@ -415,6 +415,9 @@ public sealed class SoundEnt : IServerSoundEnt, IFrameLifecycle
         _pool[index].Reset();
     }
 
+    /// <summary>The reset for the client at <paramref name="clientEntIndex"/>: its slot is one less.</summary>
+    public void ResetClientSoundOf(int clientEntIndex) => ResetClientSound(ClientSoundIndex(clientEntIndex));
+
     /// <summary>
     /// <c>CSoundEnt::ISoundsInList</c>, for the active list.
     /// </summary>

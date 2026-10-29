@@ -1,39 +1,21 @@
-//========= SourceSharp — the managed console's carriers, by id and by name ==//
-//
-// sourcesharp_gamesystem.cpp builds one native carrier per ConVar and per
-// ConCommand C# declares, and hands C# back an ID. This is the bookkeeping,
-// in a header of its own so console_registry_test drives the real one:
-//
-//   by id    ids come from a counter that only rises, so they are dense and
-//            in registration order (0, 1, 2, ...) and never reused -- exactly
-//            what the vector index they were answered. An id no carrier holds,
-//            negative ones included, finds nothing.
-//   by name  a hashed index, CASE-BLIND (ss::CaselessHash/CaselessEqual, the
-//            StrICmp compare the linear walks used), so a re-registration of
-//            a name in another case answers the existing id.
-//
-// It OWNS NOTHING. The carriers are new'd by the caller and live for the
-// process: the engine holds pointers into them (their ConVar/ConCommand), and
-// tier1 has no per-object unregister.
-//
-//=============================================================================//
+// Bookkeeping for the managed console's native carriers: ids are dense, rising and
+// never reused; names are looked up case-insensitively. The carriers live for the
+// process because the engine holds pointers into them.
 
-#ifndef SOURCESHARP_CONSOLE_REGISTRY_H
-#define SOURCESHARP_CONSOLE_REGISTRY_H
-#ifdef _WIN32
 #pragma once
-#endif
 
-#include <string>
 #include <unordered_map>
 
 #include "ss_containers.h"
 
-template < class T >
+template <class T>
 class CConsoleRegistry
 {
 public:
-	CConsoleRegistry() : m_nNextId( 0 ) {}
+	CConsoleRegistry()
+		: m_nNextId( 0 )
+	{
+	}
 
 	// The id the next Add will hand out, so a carrier can be built knowing it.
 	int NextId() const { return m_nNextId; }
@@ -80,12 +62,10 @@ public:
 	}
 
 private:
-	typedef std::unordered_map< int, T * > ById_t;
-	typedef std::unordered_map< std::string, int, ss::CaselessHash, ss::CaselessEqual > NameIndex_t;
+	typedef std::unordered_map<int, T *> ById_t;
+	typedef std::unordered_map<std::string, int, ss::CaselessHash, ss::CaselessEqual> NameIndex_t;
 
-	ById_t      m_ById;
+	ById_t m_ById;
 	NameIndex_t m_IdByName;
-	int         m_nNextId;
+	int m_nNextId;
 };
-
-#endif // SOURCESHARP_CONSOLE_REGISTRY_H

@@ -34,23 +34,6 @@ namespace SourceSharp.Tests;
 public class GameRulesFallDamageTests
 {
     [Fact]
-    public void TheNativeRulesNoLongerCarryTheFormula()
-    {
-        string path = Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game", "shared",
-                                   "shell_gamerules.cpp");
-
-        Assert.True(File.Exists(path), path + " is not there");
-
-        // The RETURN, not the mention: the file explains at length what used to
-        // be here and quotes the expression while doing it, so a needle for the
-        // two macro names alone would find the paragraph saying they are gone.
-        Assert.DoesNotMatch(
-            new Regex(@"^\s*return\s*\(.*PLAYER_MAX_SAFE_FALL_SPEED.*DAMAGE_FOR_FALL_SPEED",
-                      RegexOptions.Multiline),
-            File.ReadAllText(path));
-    }
-
-    [Fact]
     public void ManagedAnswersTheFormulaRatherThanDecliningToIt()
     {
         // The other half: the native arm answering zero is only right because

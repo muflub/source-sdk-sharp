@@ -25,16 +25,21 @@ public class PickupUserMessageTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsPlayer).Assembly);
         var services = Services(out var engine);
-        engine.Ignores("Entities.SetHealth", "Entities.SetModel", "Entities.GetOrigin")
+        engine.Ignores("Entities.SetHealth", "Entities.SetModel", "Entities.GetOrigin",
+                       "Entities.GetSpawnOrigin", "Entities.GetSpawnAngles")
               .Returns("Entities.IsValid", true)
               .Returns("Entities.GetIndex", Slot)
               .Returns("Entities.GetHealth", health)
-              .Returns("Entities.GetClassName", EntityNames.SsPlayer)
+              .Returns("Entities.GetClassName", EntityNames.Player)
               .Returns("Players.IsAlive", true)
-              .Returns("Clock.Now", 10f);
+              .Returns("Clock.Now", 10f)
+              .Returns("Entities.IsPlayer", true)
+              .Returns("WorldQuery.EntityTraceHull", new EntityHullTrace(Vector.Zero, false, false, Fraction: 1f))
+              .Ignores("Entities.GetSolidType", "Entities.GetWorldSpaceCenter", "Entities.GetEyePosition",
+                       "Entities.UseTriggerBounds");
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
-        registry.KeyValue(Player, EntityNames.SsPlayer, "targetname", "fixture_player");
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
         return (registry, engine);
     }
 
