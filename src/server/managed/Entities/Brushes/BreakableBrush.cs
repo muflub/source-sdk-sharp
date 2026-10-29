@@ -456,7 +456,8 @@ public abstract class BreakableBrush : ScriptedEntity
 [ScriptVars]
 public partial class BreakableVars
 {
-    public int Health { get; set; } = 1;
+    /// <summary>m_iHealth: none unless the map gives some (CBreakable::Spawn then makes glass one).</summary>
+    public int Health { get; set; }
 
     /// <summary>Damage below this is ignored entirely. Stops a crate dying to gunfire it should shrug off.</summary>
     [VarName("minhealthdmg")]

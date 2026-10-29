@@ -220,7 +220,7 @@ public class ExplosionSelfIgnoreTests
               // stubbed here — a barrel is not given a health key by any map.
               .Returns("EntityRender.GetModelName", "models/props_c17/oildrum001_explosive.mdl")
               .Returns("EntityRender.GetModelKeyValueText",
-                       "mdlkeyvalue { prop_data { health 30 explosive_damage 120 explosive_radius 256 } }")
+                       "mdlkeyvalue { prop_data { health 30 explosive_damage 120 explosive_radius 256 } physgun_interactions { onfirstimpact break } }")
               .Returns("Entities.GetWorldSpaceCenter", new Vector(1f, 2f, 27f))
               .Ignores("Entities.SetModel")
               .Ignores("Entities.Remove")
@@ -309,7 +309,7 @@ public class ExplosionSelfIgnoreTests
         engine.Returns("Entities.GetOrigin", new Vector(1f, 2f, 3f))
               .Returns("EntityRender.GetModelName", "models/props_c17/oildrum001_explosive.mdl")
               .Returns("EntityRender.GetModelKeyValueText",
-                       "mdlkeyvalue { prop_data { health 30 explosive_damage 120 explosive_radius 256 } }")
+                       "mdlkeyvalue { prop_data { health 30 explosive_damage 120 explosive_radius 256 } physgun_interactions { onfirstimpact break } }")
               .Returns("Entities.GetWorldSpaceCenter", new Vector(1f, 2f, 27f))
               .Returns("Entities.GetHealth", 30);
         if (clock is not null)

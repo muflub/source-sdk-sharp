@@ -69,8 +69,10 @@ public class BreakableDamageTests
         registry.Services = Services(out var engine);
         engine.Strict = false;
         engine.Returns("EntityRender.GetModelKeyValueText", "mdlkeyvalue { prop_data { health 40 dmg.club 2 dmg.bullets 0.5 } }")
-              .Returns("Entities.GetHealth", 40);
+              .Returns("Entities.GetHealth", 40)
+              .Returns("Precache.BreakPieceCount", 4);
         var crate = new EntityHandle(51);
+        registry.KeyValue(crate, EntityNames.PropPhysics, "model", "models/props_junk/wood_crate001a.mdl");
         registry.Spawn(crate, EntityNames.PropPhysics);
         registry.Get(crate)!.OnPhysicsCreated();
 

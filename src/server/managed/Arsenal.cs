@@ -119,6 +119,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     private readonly IEngineDamage _damage;
     private readonly IEngineEntityRender _render;
     private readonly IEntityDirectory _directory;
+
+    /// <summary>What answers a traced shot itself, and is crossed as a trigger (broken glass).</summary>
+    private readonly IEntityRoster<ITraceAttacked>? _traceAttacked;
     private readonly IGameClock _clock;
     private readonly DamageHitGroups _hitGroups;
 
@@ -163,8 +166,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                    WeaponBehaviours? behaviours = null,
                    PredictionSuppression? prediction = null,
                    IWeaponSounds? weaponSounds = null,
-                   WeaponScriptDatabase? scripts = null)
+                   WeaponScriptDatabase? scripts = null,
+                   IEntityRoster<ITraceAttacked>? traceAttacked = null)
     {
+        _traceAttacked = traceAttacked;
         _scripts = scripts;
         _messages = messages;
         _prediction = prediction;
@@ -1664,47 +1669,123 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             float spread = ShotSpread.SpreadOf(spreadDegrees);
             int seed = ShotSpread.FirstSeed(CommandRandomSeed);
 
+            // CHL2MP_Player::FireBullets: every round deals the weapon script's
+            // damage (m_iPlayerDamage; HL2MP's ammo types carry none), and
+            // FireBullets marks one over 16 as always gibbing, the rest never.
+            float damage = _arsenal._scripts?.ReadScript(type.Name) is { PlayerDamage: > 0 } script
+                ? script.PlayerDamage
+                : ammo.Damage;
+            DamageType damageType = ammo.DamageType | (damage > 16f ? DamageType.AlwaysGib : DamageType.NeverGib);
+
             for (int i = 0; i < pellets; i++)
             {
                 // Stock's spread, seeded per pellet from the command, so the
                 // predicting client's pellet goes where this one does.
                 Vector dir = ShotSpread.Apply(aim, spread, seed + i, _spread).Normalized;
 
-                var trace = _arsenal._world.TraceLineSurface(from, from + dir * MaxTrace,
-                                                             TraceMask.Shot, _carry.Player);
-
-                if (!trace.Hit)
-                    continue;
-
-                // A round that ends under water splashes where it went in, and
-                // marks nothing below (HandleShotImpactingWater); it still hurts.
-                bool hitWater = (_arsenal._world.PointContents(trace.End) & Liquid) != 0
-                             && ShotEntersWater(from, from + dir * MaxTrace, in ammo);
-
-                // UTIL_ImpactTrace marks nothing on the sky, on either side.
-                if (!hitWater && (trace.SurfaceFlags & SurfSky) == 0)
-                    _arsenal._effects.ImpactEffect(trace.End - dir * ImpactBackoff, trace.End,
-                                                   trace.SurfaceProps, ammo.DamageType,
-                                                   trace.Entity);
-
-                if (_arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
-                {
-                    // FireBullets' CalculateBulletDamageForce: the ammo's force
-                    // along the shot, acting where it landed, so the victim's
-                    // OnTakeDamage can push its physics object (A30). The
-                    // trace's hitgroup rides beside the call (stock hands the
-                    // trace itself to TraceAttack): see DamageHitGroups.
-                    using (_arsenal._hitGroups.Push(trace.HitGroup))
-                        _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
-                                                 ammo.Damage, ammo.DamageType,
-                                                 DamageForceRules.BulletForce(dir, ammo.DamageForce),
-                                                 trace.End);
-
-                    if (_arsenal.IsStandalonePlayer(trace.Entity))
-                        _arsenal._effects.BloodEffect(trace.End, dir, BloodColor.Red, ammo.Damage);
-                }
+                Round(from, dir, MaxTrace, damage, damageType, in ammo);
             }
         }
+
+        /// <summary>
+        /// One round of CBaseEntity::FireBullets: traced, the triggers it
+        /// crosses told, its mark, and its damage or traced hit; then on through
+        /// a glass func_breakable (HandleShotImpactingGlass).
+        /// </summary>
+        private void Round(Vector from, Vector dir, float distance, float damage, DamageType damageType, in AmmoType ammo)
+        {
+            var trace = _arsenal._world.TraceLineSurface(from, from + dir * distance,
+                                                         TraceMask.Shot, _carry.Player);
+
+            // CBaseEntity::TraceAttackToTriggers: the triggers along the
+            // round's path that answer a shot (broken glass) take it too.
+            if (_arsenal._traceAttacked is { } triggers)
+                TraceAttacks.ToTriggers(triggers, _carry.Player, damage, ammo.DamageType, from, trace.End);
+
+            if (!trace.Hit)
+                return;
+
+            // A round that ends under water splashes where it went in, and
+            // marks nothing below (HandleShotImpactingWater); it still hurts.
+            bool hitWater = (_arsenal._world.PointContents(trace.End) & Liquid) != 0
+                         && ShotEntersWater(from, from + dir * distance, in ammo);
+
+            // UTIL_ImpactTrace marks nothing on the sky, on either side.
+            if (!hitWater && (trace.SurfaceFlags & SurfSky) == 0)
+                _arsenal._effects.ImpactEffect(trace.End - dir * ImpactBackoff, trace.End,
+                                               trace.SurfaceProps, ammo.DamageType,
+                                               trace.Entity);
+
+            // DispatchTraceAttack: an entity that answers the traced hit
+            // itself (a pane of glass) takes it in place of the damage.
+            if (_arsenal._directory.Get(trace.Entity) is ITraceAttacked attacked)
+            {
+                attacked.TraceAttack(_carry.Player, damage, damageType, from, trace.End);
+            }
+            else if (_arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
+            {
+                // FireBullets' CalculateBulletDamageForce: the ammo's force
+                // along the shot, acting where it landed, so the victim's
+                // OnTakeDamage can push its physics object (A30). The
+                // trace's hitgroup rides beside the call (stock hands the
+                // trace itself to TraceAttack): see DamageHitGroups.
+                using (_arsenal._hitGroups.Push(trace.HitGroup))
+                    _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
+                                             damage, damageType,
+                                             DamageForceRules.BulletForce(dir, ammo.DamageForce),
+                                             trace.End);
+
+                if (_arsenal.IsStandalonePlayer(trace.Entity))
+                    _arsenal._effects.BloodEffect(trace.End, dir, BloodColor.Red, damage);
+            }
+
+            // FireBullets' glass rule: a round through the glass of a
+            // func_breakable carries on (the registry answers what was hit).
+            if (_arsenal._directory.Get(trace.Entity) is FuncBreakable breakable
+                && BulletGlass.PassesThrough(_arsenal._world.SurfacePropGameMaterial(trace.SurfaceProps) == SurfaceMaterial.Glass,
+                                             breakable.ClassName, breakable.SpawnFlags))
+                ThroughGlass(trace, dir, distance, damage, damageType, in ammo);
+        }
+
+        /// <summary>MAX_GLASS_PENETRATION_DEPTH: how far beyond the glass the way back in starts.</summary>
+        private const float GlassPenetrationDepth = 16f;
+
+        /// <summary>
+        /// CBaseEntity::HandleShotImpactingGlass: glass where the round went in,
+        /// and if a trace back from just beyond finds the far side, its mark and
+        /// glass there, and the round again from behind the glass, unspread,
+        /// for the rest of its distance. A way back that starts in something
+        /// solid (here, at no distance), or finds nothing, stops it.
+        /// </summary>
+        private void ThroughGlass(in SurfaceTraceResult trace, Vector dir, float distance, float damage,
+                                  DamageType damageType, in AmmoType ammo)
+        {
+            GlassImpact(trace.End, trace.Normal);
+
+            Vector beyond = trace.End + dir * GlassPenetrationDepth;
+            var back = _arsenal._world.TraceLineSurface(beyond, trace.End, TraceMask.Shot, _carry.Player);
+            if (back.Fraction == 0f || trace.Fraction == 0f || !back.Hit)
+                return;
+
+            _arsenal._effects.ImpactEffect(back.End + dir * ImpactBackoff, back.End, back.SurfaceProps,
+                                           ammo.DamageType, back.Entity);
+            GlassImpact(back.End, back.Normal);
+
+            Round(back.End, dir, distance * (1f - trace.Fraction), damage, damageType, in ammo);
+        }
+
+        /// <summary>DispatchEffect( "GlassImpact" ): the shards, to the PAS of where they fly.</summary>
+        private void GlassImpact(Vector origin, Vector normal)
+        {
+            if (_arsenal.Temps is not { } temps)
+                return;
+
+            TeEffectData data = new() { Origin = origin, Normal = normal };
+            temps.DispatchEffect(TeFilters.Pas(origin), 0f, GlassImpactEffect, in data);
+        }
+
+        /// <summary>The client effect a round passing through glass dispatches.</summary>
+        internal const string GlassImpactEffect = "GlassImpact";
 
         /// <summary>
         /// CBaseEntity::HandleShotImpactingWater: the shot again, stopping at
@@ -1765,7 +1846,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         private const float ImpactBackoff = 32f;
 
         /// <inheritdoc />
-        public bool MeleeConnects(in WeaponType type) => MeleeAim(in type, out _, out _);
+        public bool MeleeConnects(in WeaponType type) => MeleeAim(in type, out _, out _, out _);
 
         /// <inheritdoc />
         public bool EyesUnderwater()
@@ -1798,13 +1879,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// point taken by ChooseIntersectionPointAndActivity. The surface rides
         /// with the answer for the impact, as it does for a bullet.
         /// </summary>
-        private bool MeleeAim(in WeaponType type, out SurfaceTraceResult trace, out Vector forward)
+        private bool MeleeAim(in WeaponType type, out SurfaceTraceResult trace, out Vector forward, out Vector lineEnd)
         {
             Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
             forward = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player)).Forward;
             Vector end = from + forward * type.MeleeRange;
 
             trace = _arsenal._world.TraceLineSurface(from, end, TraceMask.ShotHull, _carry.Player);
+            lineEnd = trace.Hit ? trace.End : end;
             if (trace.Hit)
                 return true;
 
@@ -1867,6 +1949,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             Vector forward = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player)).Forward;
             Vector end = from + forward * type.MeleeRange;
 
+            // Swing's trigger walk, along a line that met nothing.
+            MeleeTriggers(in type, from, end);
+
             if ((_arsenal._world.PointContents(from) & Liquid) != 0)
                 return;
             Contents at = _arsenal._world.PointContents(end);
@@ -1888,16 +1973,27 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// </summary>
         public void MeleeSwing(in WeaponType type)
         {
-            if (!MeleeAim(in type, out SurfaceTraceResult trace, out Vector forward))
+            if (!MeleeAim(in type, out SurfaceTraceResult trace, out Vector forward, out Vector lineEnd))
                 return;
+
+            // Swing: like bullets, bludgeon traces have to trace against
+            // triggers, along the swing's line.
+            Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
+            MeleeTriggers(in type, from, lineEnd);
 
             // CBaseHLBludgeonWeapon::Hit's CalculateMeleeDamageForce, at the
             // trace's end, so a swing shoves a physics object (A30).
-            if (_arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
+            // Hit: DispatchTraceAttack (a pane of glass takes the traced hit
+            // in place of the damage), then the triggers along the ray again.
+            if (_arsenal._directory.Get(trace.Entity) is ITraceAttacked attacked)
+                attacked.TraceAttack(_carry.Player, type.MeleeDamage, DamageType.Club, from, trace.End);
+            else if (_arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
                 _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
                                          type.MeleeDamage, DamageType.Club,
                                          DamageForceRules.MeleeForce(forward, type.MeleeDamage),
                                          trace.End);
+
+            MeleeTriggers(in type, from, trace.End);
 
             // Hit plays it for whatever the ray struck, the world included: a
             // trace that stopped on a wall names worldspawn, never nothing.
@@ -1925,6 +2021,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         /// <summary>How far off the struck face a row's own melee effect sits: stock's 4.</summary>
         private const float MeleeEffectStandoff = 4f;
+
+        /// <summary>CBaseEntity::TraceAttackToTriggers for a swing: the club's damage, along its line.</summary>
+        private void MeleeTriggers(in WeaponType type, Vector from, Vector end)
+        {
+            if (_arsenal._traceAttacked is { } triggers)
+                TraceAttacks.ToTriggers(triggers, _carry.Player, type.MeleeDamage, DamageType.Club, from, end);
+        }
 
         /// <summary><c>SURF_SKY</c>: UTIL_ImpactTrace's refusal.</summary>
         internal const int SurfSky = 0x0004;

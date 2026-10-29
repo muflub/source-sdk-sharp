@@ -624,11 +624,13 @@ public interface IServerPropData
 }
 
 /// <summary>
-/// A model's prop_data health, explosion and multiplayer_break, each null
-/// where its chain is silent.
+/// A model's prop_data health, explosion, multiplayer_break and generic
+/// chunks (breakable_model, an empty one for none, breakable_count and
+/// breakable_skin), each null where its chain is silent.
 /// </summary>
 public readonly record struct PropDataValues(int? Health, float? ExplosiveDamage, float? ExplosiveRadius,
-                                             MultiplayerBreak? MultiplayerBreak = null);
+                                             MultiplayerBreak? MultiplayerBreak = null, string? BreakableModel = null,
+                                             int? BreakableCount = null, int? BreakableSkin = null);
 
 /// <summary>Stock's mp_break_t: which DLL makes a broken prop's pieces in multiplayer.</summary>
 public enum MultiplayerBreak
