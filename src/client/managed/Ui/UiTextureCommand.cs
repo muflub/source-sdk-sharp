@@ -8,10 +8,16 @@ namespace SourceSharp.Client.Vgui;
 /// <c>cs_ui_texture &lt;material&gt;</c> — the HUD art library's report: it
 /// loads the named material the way a screen would and says what came back.
 /// Debug builds only, like every diagnostic command.
+///
+/// <para>
+/// The library is the UI's, which a UI-only reload replaces with its whole
+/// context, so the command asks for the current one each time: holding the
+/// first one kept the old UI context alive (live gate hot-reload, LEAK ARM).
+/// </para>
 /// </summary>
 [ConCommand("cs_ui_texture",
             Help = "SourceSharp: load a HUD material through the UI texture library and report it (cs_ui_texture <material>).")]
-public sealed class UiTextureCommand(IUiTextureLibrary textures, ILog log) : IConCommand
+public sealed class UiTextureCommand(IUiTextureSource source, ILog log) : IConCommand
 {
     public void Execute(string args)
     {
@@ -19,6 +25,11 @@ public sealed class UiTextureCommand(IUiTextureLibrary textures, ILog log) : ICo
         if (name.Length == 0)
         {
             log.Msg("[SourceSharp/Ui] usage: cs_ui_texture <material>, e.g. hud/objectives_flagpanel_ico_flag_home\n");
+            return;
+        }
+        if (source.Textures is not { } textures)
+        {
+            log.Msg($"[SourceSharp/Ui] {name}: no UI is loaded, so there is no texture library\n");
             return;
         }
 

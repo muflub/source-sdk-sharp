@@ -85,6 +85,9 @@ public sealed class UiHost : IUiRuntime
     /// <summary>The layers' windows, which a reload carries (<see cref="UiWindowsReload"/>).</summary>
     public UiWindows Windows { get; init; } = new(new MemoryWindowStore());
 
+    /// <inheritdoc/>
+    public IUiTextureLibrary? Textures { get; init; }
+
     /// <summary>What the HUD layer's last frame drew.</summary>
     public UiDrawLedger HudLedger { get; } = new();
 

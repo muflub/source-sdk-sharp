@@ -317,6 +317,35 @@ public sealed class PreviewUiTextureLibraryTests : IDisposable
 public sealed class UiTextureCommandTests
 {
     [Fact]
+    public void It_asks_for_the_current_library_each_time_and_holds_none()
+    {
+        var log = new RecordingLog();
+        var files = new UiTextureLibraryTests.Files();
+        files.Text["materials/hud/test_thing.vmt"] = "\"UnlitGeneric\"\n{\n\"$basetexture\" \"hud/test_thing\"\n}\n";
+        files.Bytes["materials/hud/test_thing.vtf"] = SmallVtf();
+        var first = new UiTextureLibrary(new UiTextureLibraryTests.Files(), new UiTextureLibraryTests.CapturingSurface(), log);
+        var source = new CurrentTextures(first);
+        var command = new UiTextureCommand(source, log);
+
+        // A UI-only reload: the source now answers the new UI's library.
+        source.Library = new UiTextureLibrary(files, new UiTextureLibraryTests.CapturingSurface(), log);
+        command.Execute("hud/test_thing");
+
+        Assert.Contains("handle 1", log.Text);
+    }
+
+    [Fact]
+    public void It_says_so_when_no_ui_is_loaded()
+    {
+        var log = new RecordingLog();
+        var command = new UiTextureCommand(new CurrentTextures(null), log);
+
+        command.Execute("hud/test_thing");
+
+        Assert.Contains("no UI is loaded", log.Text);
+    }
+
+    [Fact]
     public void It_reports_what_the_library_loaded()
     {
         var files = new UiTextureLibraryTests.Files();
@@ -324,7 +353,7 @@ public sealed class UiTextureCommandTests
         files.Bytes["materials/hud/test_thing.vtf"] = SmallVtf();
         var surface = new UiTextureLibraryTests.CapturingSurface();
         var log = new RecordingLog();
-        var command = new UiTextureCommand(new UiTextureLibrary(files, surface, log), log);
+        var command = new UiTextureCommand(new CurrentTextures(new UiTextureLibrary(files, surface, log)), log);
 
         command.Execute("hud/test_thing");
 
@@ -338,7 +367,7 @@ public sealed class UiTextureCommandTests
     public void It_says_no_texture_for_a_missing_material()
     {
         var log = new RecordingLog();
-        var command = new UiTextureCommand(new UiTextureLibrary(new UiTextureLibraryTests.Files(), new UiTextureLibraryTests.CapturingSurface(), log), log);
+        var command = new UiTextureCommand(new CurrentTextures(new UiTextureLibrary(new UiTextureLibraryTests.Files(), new UiTextureLibraryTests.CapturingSurface(), log)), log);
 
         command.Execute("hud/absent");
 
@@ -350,7 +379,7 @@ public sealed class UiTextureCommandTests
     public void It_shows_usage_without_a_name()
     {
         var log = new RecordingLog();
-        var command = new UiTextureCommand(new UiTextureLibrary(new UiTextureLibraryTests.Files(), new UiTextureLibraryTests.CapturingSurface(), log), log);
+        var command = new UiTextureCommand(new CurrentTextures(new UiTextureLibrary(new UiTextureLibraryTests.Files(), new UiTextureLibraryTests.CapturingSurface(), log)), log);
 
         command.Execute("");
 
@@ -363,5 +392,13 @@ public sealed class UiTextureCommandTests
         [
             [0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90, 0xA0, 0xB0, 0xC0, 0xD0, 0xE0, 0xF0, 0x00],
         ], resources: true));
+}
+
+/// <summary>The loader's answer to cs_ui_texture, settable as a UI reload would change it.</summary>
+internal sealed class CurrentTextures(IUiTextureLibrary? library) : IUiTextureSource
+{
+    public IUiTextureLibrary? Library { get; set; } = library;
+
+    public IUiTextureLibrary? Textures => Library;
 }
 #endif
