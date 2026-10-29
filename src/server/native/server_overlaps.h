@@ -11,8 +11,8 @@ class CServerOverlaps
 {
 public:
 	CServerOverlaps() = default;
-	CServerOverlaps( const CServerOverlaps & ) = delete;
-	CServerOverlaps &operator=( const CServerOverlaps & ) = delete;
+	CServerOverlaps(const CServerOverlaps&) = delete;
+	CServerOverlaps& operator=(const CServerOverlaps&) = delete;
 
 	// A ceiling, not a size: the list is drained every frame, and only grows
 	// unbounded when managed code never reads it.
@@ -34,47 +34,47 @@ public:
 
 	// Appends a pair once; the engine can report the same pair twice in a frame.
 	// True only on the append that first finds the list full, for the caller to say so.
-	bool Append( std::vector<uint32_t> &list, uint32_t hOne, uint32_t hTwo )
+	bool Append(std::vector<uint32_t>& list, uint32_t hOne, uint32_t hTwo)
 	{
-		if ( hOne == kInvalid || hTwo == kInvalid || hOne == hTwo )
+		if (hOne == kInvalid || hTwo == kInvalid || hOne == hTwo)
 			return false;
 
-		if ( (int)list.size() >= kMaxPairs * 2 )
+		if ((int)list.size() >= kMaxPairs * 2)
 		{
 			const bool bFirst = !m_bOverflowed;
 			m_bOverflowed = true;
 			return bFirst;
 		}
 
-		for ( size_t i = 0; i + 1 < list.size(); i += 2 )
+		for (size_t i = 0; i + 1 < list.size(); i += 2)
 		{
-			if ( ( list[i] == hOne && list[i + 1] == hTwo ) || ( list[i] == hTwo && list[i + 1] == hOne ) )
+			if ((list[i] == hOne && list[i + 1] == hTwo) || (list[i] == hTwo && list[i + 1] == hOne))
 				return false;
 		}
 
-		list.push_back( hOne );
-		list.push_back( hTwo );
+		list.push_back(hOne);
+		list.push_back(hTwo);
 		return false;
 	}
 
-	bool DrainPending( std::vector<uint32_t> &into )
+	bool DrainPending(std::vector<uint32_t>& into)
 	{
 		bool bOverflowed = false;
 
-		for ( size_t i = 0; i + 1 < m_Pending.size(); i += 2 )
-			bOverflowed |= Append( into, m_Pending[i], m_Pending[i + 1] );
+		for (size_t i = 0; i + 1 < m_Pending.size(); i += 2)
+			bOverflowed |= Append(into, m_Pending[i], m_Pending[i + 1]);
 
 		m_Pending.clear();
 		return bOverflowed;
 	}
 
-	void Forget( std::vector<uint32_t> &list, uint32_t hOne, uint32_t hTwo )
+	void Forget(std::vector<uint32_t>& list, uint32_t hOne, uint32_t hTwo)
 	{
-		for ( size_t i = 0; i + 1 < list.size(); i += 2 )
+		for (size_t i = 0; i + 1 < list.size(); i += 2)
 		{
-			if ( ( list[i] == hOne && list[i + 1] == hTwo ) || ( list[i] == hTwo && list[i + 1] == hOne ) )
+			if ((list[i] == hOne && list[i + 1] == hTwo) || (list[i] == hTwo && list[i + 1] == hOne))
 			{
-				list.erase( list.begin() + i, list.begin() + i + 2 );
+				list.erase(list.begin() + i, list.begin() + i + 2);
 				return;
 			}
 		}

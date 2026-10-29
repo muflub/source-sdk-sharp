@@ -19,7 +19,7 @@
 // The storage for pooled per-level strings.
 class CGameStringPool : public CServerStringPool, public CClientSystem
 {
-	virtual char const *Name() { return "CGameStringPool"; }
+	virtual char const* Name() { return "CGameStringPool"; }
 
 	virtual void LevelShutdownPostEntity() { Cleanup(); }
 
@@ -31,15 +31,15 @@ public:
 
 static CGameStringPool g_GameStringPool;
 
-CClientSystem *GameStringSystem()
+CClientSystem* GameStringSystem()
 {
 	return &g_GameStringPool;
 }
 
 // Allocates a level-global pooled string.
-string_t AllocPooledString( const char *pszValue )
+string_t AllocPooledString(const char* pszValue)
 {
-	if ( pszValue && *pszValue )
-		return MAKE_STRING( g_GameStringPool.Allocate( pszValue ) );
+	if (pszValue && *pszValue)
+		return MAKE_STRING(g_GameStringPool.Allocate(pszValue));
 	return NULL_STRING;
 }

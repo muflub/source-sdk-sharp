@@ -14,12 +14,12 @@
 class CPredictableList : public IPredictableList
 {
 public:
-	virtual C_BaseEntity *GetPredictable( int slot );
+	virtual C_BaseEntity* GetPredictable(int slot);
 	virtual int GetPredictableCount();
 
 protected:
-	void AddToPredictableList( ClientEntityHandle_t add );
-	void RemoveFromPredictablesList( ClientEntityHandle_t remove );
+	void AddToPredictableList(ClientEntityHandle_t add);
+	void RemoveFromPredictablesList(ClientEntityHandle_t remove);
 
 private:
 	CUtlVector<ClientEntityHandle_t> m_Predictables;

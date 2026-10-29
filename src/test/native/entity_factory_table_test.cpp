@@ -34,8 +34,8 @@ namespace
 //-----------------------------------------------------------------------------
 struct FakeFactory
 {
-	explicit FakeFactory( const char *pName )
-		: name( pName )
+	explicit FakeFactory(const char* pName)
+		: name(pName)
 	{
 	}
 
@@ -50,34 +50,34 @@ typedef CEntityFactoryTable<FakeFactory> Table;
 // 1. INSTALL AND FIND -- the two the port cannot work without.
 //=============================================================================//
 
-TEST( EntityFactoryTable, AnInstalledFactoryIsFoundUnderItsName )
+TEST(EntityFactoryTable, AnInstalledFactoryIsFoundUnderItsName)
 {
 	Table table;
-	FakeFactory prop( "prop" );
+	FakeFactory prop("prop");
 
-	EXPECT_EQ( kEntityFactoryInstalled, table.Install( &prop, "ss_prop" ) );
-	EXPECT_EQ( &prop, table.Find( "ss_prop" ) );
+	EXPECT_EQ(kEntityFactoryInstalled, table.Install(&prop, "ss_prop"));
+	EXPECT_EQ(&prop, table.Find("ss_prop"));
 }
 
-TEST( EntityFactoryTable, AnUninstalledNameFindsNothing )
+TEST(EntityFactoryTable, AnUninstalledNameFindsNothing)
 {
 	Table table;
-	FakeFactory prop( "prop" );
-	table.Install( &prop, "ss_prop" );
+	FakeFactory prop("prop");
+	table.Install(&prop, "ss_prop");
 
 	// The three classnames dm_lockdown asks for and this build has no factory
 	// for -- see .claude/entity-port/status/p4-flip.md. NULL is what makes the
 	// refusal printable instead of a jump through a garbage pointer.
-	EXPECT_TRUE( table.Find( "func_useableladder" ) == NULL );
-	EXPECT_TRUE( table.Find( "info_ladder_dismount" ) == NULL );
-	EXPECT_TRUE( table.Find( "info_node" ) == NULL );
+	EXPECT_TRUE(table.Find("func_useableladder") == NULL);
+	EXPECT_TRUE(table.Find("info_ladder_dismount") == NULL);
+	EXPECT_TRUE(table.Find("info_node") == NULL);
 }
 
-TEST( EntityFactoryTable, AnEmptyTableFindsNothingRatherThanFaulting )
+TEST(EntityFactoryTable, AnEmptyTableFindsNothingRatherThanFaulting)
 {
 	Table table;
-	EXPECT_TRUE( table.Find( "worldspawn" ) == NULL );
-	EXPECT_EQ( 0, table.Count() );
+	EXPECT_TRUE(table.Find("worldspawn") == NULL);
+	EXPECT_EQ(0, table.Count());
 }
 
 //=============================================================================//
@@ -91,25 +91,25 @@ TEST( EntityFactoryTable, AnEmptyTableFindsNothingRatherThanFaulting )
 // `Info_Player_Deathmatch` from finding its factory.
 //=============================================================================//
 
-TEST( EntityFactoryTable, FindIsCaseInsensitive )
+TEST(EntityFactoryTable, FindIsCaseInsensitive)
 {
 	Table table;
-	FakeFactory player( "player" );
-	table.Install( &player, "info_player_deathmatch" );
+	FakeFactory player("player");
+	table.Install(&player, "info_player_deathmatch");
 
-	EXPECT_EQ( &player, table.Find( "INFO_PLAYER_DEATHMATCH" ) );
-	EXPECT_EQ( &player, table.Find( "Info_Player_Deathmatch" ) );
+	EXPECT_EQ(&player, table.Find("INFO_PLAYER_DEATHMATCH"));
+	EXPECT_EQ(&player, table.Find("Info_Player_Deathmatch"));
 }
 
-TEST( EntityFactoryTable, ANameDifferingOnlyByCaseIsTheSameName )
+TEST(EntityFactoryTable, ANameDifferingOnlyByCaseIsTheSameName)
 {
 	Table table;
-	FakeFactory first( "first" );
-	FakeFactory second( "second" );
+	FakeFactory first("first");
+	FakeFactory second("second");
 
-	EXPECT_EQ( kEntityFactoryInstalled, table.Install( &first, "ss_thing" ) );
-	EXPECT_EQ( kEntityFactoryNameTaken, table.Install( &second, "SS_THING" ) );
-	EXPECT_EQ( 1, table.Count() );
+	EXPECT_EQ(kEntityFactoryInstalled, table.Install(&first, "ss_thing"));
+	EXPECT_EQ(kEntityFactoryNameTaken, table.Install(&second, "SS_THING"));
+	EXPECT_EQ(1, table.Count());
 }
 
 //=============================================================================//
@@ -120,43 +120,43 @@ TEST( EntityFactoryTable, ANameDifferingOnlyByCaseIsTheSameName )
 // -- 284 of them per reload, measured. See entity_factory_table.h.
 //=============================================================================//
 
-TEST( EntityFactoryTable, ReinstallingTheSamePointerUnderTheSameNameIsANoOp )
+TEST(EntityFactoryTable, ReinstallingTheSamePointerUnderTheSameNameIsANoOp)
 {
 	Table table;
-	FakeFactory prop( "prop" );
+	FakeFactory prop("prop");
 
-	EXPECT_EQ( kEntityFactoryInstalled, table.Install( &prop, "ss_prop" ) );
-	EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &prop, "ss_prop" ) );
-	EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &prop, "ss_prop" ) );
+	EXPECT_EQ(kEntityFactoryInstalled, table.Install(&prop, "ss_prop"));
+	EXPECT_EQ(kEntityFactoryAlreadyInstalled, table.Install(&prop, "ss_prop"));
+	EXPECT_EQ(kEntityFactoryAlreadyInstalled, table.Install(&prop, "ss_prop"));
 
-	EXPECT_EQ( 1, table.Count() );
-	EXPECT_EQ( &prop, table.Find( "ss_prop" ) );
+	EXPECT_EQ(1, table.Count());
+	EXPECT_EQ(&prop, table.Find("ss_prop"));
 }
 
-TEST( EntityFactoryTable, ADifferentPointerUnderATakenNameKeepsTheFirst )
+TEST(EntityFactoryTable, ADifferentPointerUnderATakenNameKeepsTheFirst)
 {
 	Table table;
-	FakeFactory first( "first" );
-	FakeFactory second( "second" );
+	FakeFactory first("first");
+	FakeFactory second("second");
 
-	EXPECT_EQ( kEntityFactoryInstalled, table.Install( &first, "ss_prop" ) );
-	EXPECT_EQ( kEntityFactoryNameTaken, table.Install( &second, "ss_prop" ) );
+	EXPECT_EQ(kEntityFactoryInstalled, table.Install(&first, "ss_prop"));
+	EXPECT_EQ(kEntityFactoryNameTaken, table.Install(&second, "ss_prop"));
 
 	// THE FIRST, not the last. The engine may already hold instances made
 	// through it, and the map that names the class must keep reaching the same
 	// object it reached a moment ago.
-	EXPECT_EQ( &first, table.Find( "ss_prop" ) );
-	EXPECT_EQ( 1, table.Count() );
+	EXPECT_EQ(&first, table.Find("ss_prop"));
+	EXPECT_EQ(1, table.Count());
 }
 
-TEST( EntityFactoryTable, AnEmptyOrNullNameIsRefusedRatherThanInserted )
+TEST(EntityFactoryTable, AnEmptyOrNullNameIsRefusedRatherThanInserted)
 {
 	Table table;
-	FakeFactory prop( "prop" );
+	FakeFactory prop("prop");
 
-	EXPECT_EQ( kEntityFactoryNoName, table.Install( &prop, "" ) );
-	EXPECT_EQ( kEntityFactoryNoName, table.Install( &prop, NULL ) );
-	EXPECT_EQ( 0, table.Count() );
+	EXPECT_EQ(kEntityFactoryNoName, table.Install(&prop, ""));
+	EXPECT_EQ(kEntityFactoryNoName, table.Install(&prop, NULL));
+	EXPECT_EQ(0, table.Count());
 }
 
 //=============================================================================//
@@ -172,25 +172,25 @@ TEST( EntityFactoryTable, AnEmptyOrNullNameIsRefusedRatherThanInserted )
 // an entity that is already misbehaving.
 //=============================================================================//
 
-TEST( EntityFactoryTable, TheCanonicalNameIsTheSpellingItWasInstalledUnder )
+TEST(EntityFactoryTable, TheCanonicalNameIsTheSpellingItWasInstalledUnder)
 {
 	Table table;
-	FakeFactory prop( "prop" );
-	table.Install( &prop, "ss_Prop" );
+	FakeFactory prop("prop");
+	table.Install(&prop, "ss_Prop");
 
-	ASSERT_TRUE( table.CanonicalName( "SS_PROP" ) != NULL );
-	EXPECT_STREQ( "ss_Prop", table.CanonicalName( "SS_PROP" ) );
+	ASSERT_TRUE(table.CanonicalName("SS_PROP") != NULL);
+	EXPECT_STREQ("ss_Prop", table.CanonicalName("SS_PROP"));
 }
 
-TEST( EntityFactoryTable, TheCanonicalNameOfAnUnknownClassIsNullRatherThanARead )
+TEST(EntityFactoryTable, TheCanonicalNameOfAnUnknownClassIsNullRatherThanARead)
 {
 	Table table;
-	FakeFactory prop( "prop" );
-	table.Install( &prop, "ss_prop" );
+	FakeFactory prop("prop");
+	table.Install(&prop, "ss_prop");
 
-	EXPECT_TRUE( table.CanonicalName( "func_useableladder" ) == NULL );
-	EXPECT_TRUE( table.CanonicalName( "" ) == NULL );
-	EXPECT_TRUE( table.CanonicalName( NULL ) == NULL );
+	EXPECT_TRUE(table.CanonicalName("func_useableladder") == NULL);
+	EXPECT_TRUE(table.CanonicalName("") == NULL);
+	EXPECT_TRUE(table.CanonicalName(NULL) == NULL);
 }
 
 //=============================================================================//
@@ -198,55 +198,55 @@ TEST( EntityFactoryTable, TheCanonicalNameOfAnUnknownClassIsNullRatherThanARead 
 // compares its own declarations against.
 //=============================================================================//
 
-TEST( EntityFactoryTable, EnumerationIsDenseAndInInstallOrder )
+TEST(EntityFactoryTable, EnumerationIsDenseAndInInstallOrder)
 {
 	Table table;
-	FakeFactory a( "a" ), b( "b" ), c( "c" );
+	FakeFactory a("a"), b("b"), c("c");
 
 	// Deliberately NOT alphabetical, so a table that read the dictionary's own
 	// red-black order instead of the install order fails here.
-	table.Install( &c, "ss_zulu" );
-	table.Install( &a, "ss_alpha" );
-	table.Install( &b, "ss_mike" );
+	table.Install(&c, "ss_zulu");
+	table.Install(&a, "ss_alpha");
+	table.Install(&b, "ss_mike");
 
-	ASSERT_EQ( 3, table.Count() );
-	EXPECT_STREQ( "ss_zulu", table.NameAt( 0 ) );
-	EXPECT_STREQ( "ss_alpha", table.NameAt( 1 ) );
-	EXPECT_STREQ( "ss_mike", table.NameAt( 2 ) );
+	ASSERT_EQ(3, table.Count());
+	EXPECT_STREQ("ss_zulu", table.NameAt(0));
+	EXPECT_STREQ("ss_alpha", table.NameAt(1));
+	EXPECT_STREQ("ss_mike", table.NameAt(2));
 
-	EXPECT_EQ( &c, table.FactoryAt( 0 ) );
-	EXPECT_EQ( &a, table.FactoryAt( 1 ) );
-	EXPECT_EQ( &b, table.FactoryAt( 2 ) );
+	EXPECT_EQ(&c, table.FactoryAt(0));
+	EXPECT_EQ(&a, table.FactoryAt(1));
+	EXPECT_EQ(&b, table.FactoryAt(2));
 }
 
-TEST( EntityFactoryTable, EnumerationOutOfRangeAnswersNullRatherThanReading )
+TEST(EntityFactoryTable, EnumerationOutOfRangeAnswersNullRatherThanReading)
 {
 	Table table;
-	FakeFactory a( "a" );
-	table.Install( &a, "ss_alpha" );
+	FakeFactory a("a");
+	table.Install(&a, "ss_alpha");
 
-	EXPECT_TRUE( table.NameAt( -1 ) == NULL );
-	EXPECT_TRUE( table.NameAt( 1 ) == NULL );
-	EXPECT_TRUE( table.FactoryAt( -1 ) == NULL );
-	EXPECT_TRUE( table.FactoryAt( 1 ) == NULL );
+	EXPECT_TRUE(table.NameAt(-1) == NULL);
+	EXPECT_TRUE(table.NameAt(1) == NULL);
+	EXPECT_TRUE(table.FactoryAt(-1) == NULL);
+	EXPECT_TRUE(table.FactoryAt(1) == NULL);
 }
 
-TEST( EntityFactoryTable, ARefusedInstallDoesNotGrowTheEnumeration )
+TEST(EntityFactoryTable, ARefusedInstallDoesNotGrowTheEnumeration)
 {
 	Table table;
-	FakeFactory a( "a" ), b( "b" );
+	FakeFactory a("a"), b("b");
 
-	table.Install( &a, "ss_alpha" );
-	table.Install( &a, "ss_alpha" ); // already installed
-	table.Install( &b, "ss_alpha" ); // name taken
-	table.Install( &b, "" ); // no name
+	table.Install(&a, "ss_alpha");
+	table.Install(&a, "ss_alpha"); // already installed
+	table.Install(&b, "ss_alpha"); // name taken
+	table.Install(&b, ""); // no name
 
-	EXPECT_EQ( 1, table.Count() );
-	EXPECT_STREQ( "ss_alpha", table.NameAt( 0 ) );
-	EXPECT_TRUE( table.NameAt( 1 ) == NULL );
+	EXPECT_EQ(1, table.Count());
+	EXPECT_STREQ("ss_alpha", table.NameAt(0));
+	EXPECT_TRUE(table.NameAt(1) == NULL);
 }
 
-TEST( EntityFactoryTable, EnumerationSurvivesTheDictionaryRebalancing )
+TEST(EntityFactoryTable, EnumerationSurvivesTheDictionaryRebalancing)
 {
 	// THE ONE THING THE INSTALL-ORDER VECTOR DEPENDS ON, asserted rather than
 	// read off utlrbtree.h. m_Order holds the index CUtlDict::Insert returned,
@@ -258,30 +258,30 @@ TEST( EntityFactoryTable, EnumerationSurvivesTheDictionaryRebalancing )
 	// is not a check, and 156 factories is the live count on this build, so the
 	// number here is chosen to be past it.
 	Table table;
-	std::vector<FakeFactory *> made;
+	std::vector<FakeFactory*> made;
 	std::vector<std::string> names;
 
-	for ( int i = 0; i < 200; i++ )
+	for (int i = 0; i < 200; i++)
 	{
 		char name[32];
 		// Deliberately NOT ascending: an ascending key order is the one shape a
 		// red-black tree rotates least on.
-		snprintf( name, sizeof( name ), "ss_%03d", ( i * 97 ) % 200 );
-		names.push_back( name );
-		made.push_back( new FakeFactory( name ) );
-		ASSERT_EQ( kEntityFactoryInstalled, table.Install( made.back(), name ) ) << "at " << i << " (" << name << ")";
+		snprintf(name, sizeof(name), "ss_%03d", (i * 97) % 200);
+		names.push_back(name);
+		made.push_back(new FakeFactory(name));
+		ASSERT_EQ(kEntityFactoryInstalled, table.Install(made.back(), name)) << "at " << i << " (" << name << ")";
 	}
 
-	ASSERT_EQ( 200, table.Count() );
+	ASSERT_EQ(200, table.Count());
 
-	for ( int i = 0; i < 200; i++ )
+	for (int i = 0; i < 200; i++)
 	{
-		EXPECT_STREQ( names[i].c_str(), table.NameAt( i ) ) << "at " << i;
-		EXPECT_EQ( made[i], table.FactoryAt( i ) ) << "at " << i;
-		EXPECT_EQ( made[i], table.Find( names[i].c_str() ) ) << "at " << i;
+		EXPECT_STREQ(names[i].c_str(), table.NameAt(i)) << "at " << i;
+		EXPECT_EQ(made[i], table.FactoryAt(i)) << "at " << i;
+		EXPECT_EQ(made[i], table.Find(names[i].c_str())) << "at " << i;
 	}
 
-	for ( size_t i = 0; i < made.size(); i++ )
+	for (size_t i = 0; i < made.size(); i++)
 		delete made[i];
 }
 
@@ -294,29 +294,29 @@ TEST( EntityFactoryTable, EnumerationSurvivesTheDictionaryRebalancing )
 // the same set again on a cs_sv_reload.
 //=============================================================================//
 
-TEST( EntityFactoryTable, AReloadReinstallsEveryClassAndTheTableDoesNotGrow )
+TEST(EntityFactoryTable, AReloadReinstallsEveryClassAndTheTableDoesNotGrow)
 {
 	Table table;
-	FakeFactory world( "world" );
-	FakeFactory prop( "prop" ), player( "player" ), trigger( "trigger" );
+	FakeFactory world("world");
+	FakeFactory prop("prop"), player("player"), trigger("trigger");
 
-	table.Install( &world, "worldspawn" );
-	table.Install( &prop, "ss_prop" );
-	table.Install( &player, "player" );
-	table.Install( &trigger, "ss_trigger" );
+	table.Install(&world, "worldspawn");
+	table.Install(&prop, "ss_prop");
+	table.Install(&player, "player");
+	table.Install(&trigger, "ss_trigger");
 
-	ASSERT_EQ( 4, table.Count() );
+	ASSERT_EQ(4, table.Count());
 
 	// cs_sv_reload: managed declares every class again, against factory objects
 	// the shim re-describes rather than re-creates.
-	for ( int pass = 0; pass < 3; pass++ )
+	for (int pass = 0; pass < 3; pass++)
 	{
-		EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &prop, "ss_prop" ) );
-		EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &player, "player" ) );
-		EXPECT_EQ( kEntityFactoryAlreadyInstalled, table.Install( &trigger, "ss_trigger" ) );
+		EXPECT_EQ(kEntityFactoryAlreadyInstalled, table.Install(&prop, "ss_prop"));
+		EXPECT_EQ(kEntityFactoryAlreadyInstalled, table.Install(&player, "player"));
+		EXPECT_EQ(kEntityFactoryAlreadyInstalled, table.Install(&trigger, "ss_trigger"));
 	}
 
-	EXPECT_EQ( 4, table.Count() );
-	EXPECT_EQ( &player, table.Find( "player" ) );
-	EXPECT_EQ( &world, table.Find( "worldspawn" ) );
+	EXPECT_EQ(4, table.Count());
+	EXPECT_EQ(&player, table.Find("player"));
+	EXPECT_EQ(&world, table.Find("worldspawn"));
 }

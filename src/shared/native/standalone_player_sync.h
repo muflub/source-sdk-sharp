@@ -40,11 +40,11 @@ struct SourceSharpPlayerFields_t
 	int nOrigin, nVelocity, nBaseVelocity, nViewOffset;
 	int nPunchAngle, nPunchAngleVel, nLadderNormal, nWaterJumpVel;
 
-	SourceSharpPlayerFields_t() { memset( this, 0, sizeof( *this ) ); }
+	SourceSharpPlayerFields_t() { memset(this, 0, sizeof(*this)); }
 
 	// Resolved under the managed generation now current; a reload bumps it
 	// (CManagedSide::Generation), and a stale set re-asks before use.
-	bool IsCurrent( unsigned int nCurrent ) const { return nGeneration != 0 && nGeneration == nCurrent; }
+	bool IsCurrent(unsigned int nCurrent) const { return nGeneration != 0 && nGeneration == nCurrent; }
 };
 
 // Asks the managed side for every placement. False, with one warning, when the
@@ -62,43 +62,42 @@ typedef IManagedStandaloneClient NetStateArea_t;
 // that is not published.
 struct SourceSharpNetStateAsk_t
 {
-	NetStateArea_t &m_Area;
+	NetStateArea_t& m_Area;
 
-	int32_t FieldOffset( const char *pClassName, const char *pFieldName ) const
+	int32_t FieldOffset(const char* pClassName, const char* pFieldName) const
 	{
-		return m_Area.NetStateFieldOffset( pClassName, pFieldName );
+		return m_Area.NetStateFieldOffset(pClassName, pFieldName);
 	}
 
-	int32_t FieldBits( const char *pClassName, const char *pFieldName ) const
+	int32_t FieldBits(const char* pClassName, const char* pFieldName) const
 	{
-		return m_Area.NetStateFieldBits( pClassName, pFieldName );
+		return m_Area.NetStateFieldBits(pClassName, pFieldName);
 	}
 };
 
 // pArea is the load's net-state area, read by the caller at the point of use: it goes
 // with each unload, and NULL (outside a load) answers false.
-bool SourceSharpPlayerFields_Resolve( SourceSharpPlayerFields_t *pFields, unsigned int nGeneration,
-									  NetStateArea_t *pArea );
+bool SourceSharpPlayerFields_Resolve(SourceSharpPlayerFields_t* pFields, unsigned int nGeneration,
+									 NetStateArea_t* pArea);
 
 // The ground handle travels as an entry index word, never a resolved pointer.
 // Encode only: each side resolves the index through its own entity list. The
 // asserts check ground_handle_wire.h's restated widths; they sit inside the body
 // because COMPILE_TIME_ASSERT declares a fixed name.
-inline int SourceSharpPlayerSync_EncodeGround( const CBaseHandle &handle )
+inline int SourceSharpPlayerSync_EncodeGround(const CBaseHandle& handle)
 {
-	COMPILE_TIME_ASSERT( GROUNDWIRE_INDEX_BITS == MAX_EDICT_BITS );
-	COMPILE_TIME_ASSERT( GROUNDWIRE_SERIAL_BITS == NUM_NETWORKED_EHANDLE_SERIAL_NUMBER_BITS );
+	COMPILE_TIME_ASSERT(GROUNDWIRE_INDEX_BITS == MAX_EDICT_BITS);
+	COMPILE_TIME_ASSERT(GROUNDWIRE_SERIAL_BITS == NUM_NETWORKED_EHANDLE_SERIAL_NUMBER_BITS);
 
-	if ( !handle.IsValid() )
+	if (!handle.IsValid())
 		return GROUNDWIRE_NONE;
 
-	return SourceSharpGroundWire_Encode( handle.GetEntryIndex() );
+	return SourceSharpGroundWire_Encode(handle.GetEntryIndex());
 }
 
 #ifndef CLIENT_DLL
 // The server's engine side to the blob: origin, health and alive, the words
 // native holds. The managed command loop publishes the rest.
-void SourceSharpPlayerSync_WriteEngineSide( unsigned char *pBlob, const SourceSharpPlayerFields_t &fields,
-											unsigned int nGeneration, const Vector &vecOrigin, int nHealth,
-											bool bAlive );
+void SourceSharpPlayerSync_WriteEngineSide(unsigned char* pBlob, const SourceSharpPlayerFields_t& fields,
+										   unsigned int nGeneration, const Vector& vecOrigin, int nHealth, bool bAlive);
 #endif

@@ -170,7 +170,7 @@ public struct EngineBlock
             else
             {
                 Line(head);
-                Line("\t\t\t   " + message);
+                Line("\t\t\t  " + message);
             }
         }
 
@@ -306,14 +306,14 @@ public struct EngineBlock
         foreach ((string cppName, Type type) in NativeStructs)
         {
             Line("");
-            Assert($"static_assert( sizeof( {cppName} ) == {Marshal.SizeOf(type)},",
-                   $"\"{cppName} is not the size SourceSharp.Abi.{type.Name} is\" );");
+            Assert($"static_assert(sizeof({cppName}) == {Marshal.SizeOf(type)},",
+                   $"\"{cppName} is not the size SourceSharp.Abi.{type.Name} is\");");
 
             foreach (FieldInfo field in FieldsOf(type).Skip(1))
             {
                 int offset = (int)Marshal.OffsetOf(type, field.Name);
-                Assert($"static_assert( offsetof( {cppName}, {field.Name} ) == {offset},",
-                       $"\"{cppName}::{field.Name} is not where {type.Name}.{field.Name} is\" );");
+                Assert($"static_assert(offsetof({cppName}, {field.Name}) == {offset},",
+                       $"\"{cppName}::{field.Name} is not where {type.Name}.{field.Name} is\");");
             }
         }
 

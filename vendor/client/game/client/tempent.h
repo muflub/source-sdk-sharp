@@ -57,7 +57,7 @@
 
 class C_LocalTempEntity;
 
-typedef int ( *pfnDrawHelper )( C_LocalTempEntity *entity, int flags );
+typedef int (*pfnDrawHelper)(C_LocalTempEntity* entity, int flags);
 
 //========= SourceSharp -- the tempent's disposition, and the measurement =====//
 // Valve's own comment on this class was "Purpose: Should this derive from some
@@ -136,24 +136,24 @@ public:
 
 	C_LocalTempEntity();
 
-	virtual void Prepare( const model_t *pmodel, float time );
+	virtual void Prepare(const model_t* pmodel, float time);
 
 	virtual bool IsActive();
-	virtual bool Frame( float frametime, int framenumber );
+	virtual bool Frame(float frametime, int framenumber);
 
-	virtual int DrawModel( int flags ) OVERRIDE;
+	virtual int DrawModel(int flags) OVERRIDE;
 
 	// Sets the velocity
-	void SetVelocity( const Vector &vecVelocity );
+	void SetVelocity(const Vector& vecVelocity);
 
-	const Vector &GetVelocity() const { return m_vecTempEntVelocity; }
+	const Vector& GetVelocity() const { return m_vecTempEntVelocity; }
 
 	// Set the acceleration
-	void SetAcceleration( const Vector &vecAccel );
+	void SetAcceleration(const Vector& vecAccel);
 
-	const Vector &GetAcceleration() const { return m_vecTempEntAcceleration; }
+	const Vector& GetAcceleration() const { return m_vecTempEntAcceleration; }
 
-	void SetDrawHelper( pfnDrawHelper helper ) { m_pfnDrawHelper = helper; }
+	void SetDrawHelper(pfnDrawHelper helper) { m_pfnDrawHelper = helper; }
 
 	void OnRemoveTempEntity();
 
@@ -168,43 +168,43 @@ public:
 	// system the object moved. That side effect is not decoration: without it a
 	// tempent draws only from the leaves it was first added to, so a shell
 	// casing bouncing out of the room it spawned in stops being drawn.
-	const Vector &GetLocalOrigin() const { return GetAbsOrigin(); }
+	const Vector& GetLocalOrigin() const { return GetAbsOrigin(); }
 
-	void SetLocalOrigin( const Vector &vecOrg ) { SetAbsOrigin( vecOrg ); }
+	void SetLocalOrigin(const Vector& vecOrg) { SetAbsOrigin(vecOrg); }
 
-	const QAngle &GetLocalAngles() const { return GetAbsAngles(); }
+	const QAngle& GetLocalAngles() const { return GetAbsAngles(); }
 
-	void SetLocalAngles( const QAngle &ang ) { SetAbsAngles( ang ); }
+	void SetLocalAngles(const QAngle& ang) { SetAbsAngles(ang); }
 
 	// THE MODEL. One pointer, which is all GetModel() ever was on this path:
 	// nothing here has a model INDEX and nothing here precaches.
-	virtual const model_t *GetModel() const OVERRIDE { return m_pModel; }
+	virtual const model_t* GetModel() const OVERRIDE { return m_pModel; }
 
-	void SetModelPointer( const model_t *pModel ) { m_pModel = pModel; }
+	void SetModelPointer(const model_t* pModel) { m_pModel = pModel; }
 
 	// RENDER STATE. Stock's setters, over plain members.
 	RenderMode_t GetRenderMode() const { return (RenderMode_t)m_nRenderMode; }
 
-	void SetRenderMode( RenderMode_t nMode, bool bForceUpdate = false ) { m_nRenderMode = nMode; }
+	void SetRenderMode(RenderMode_t nMode, bool bForceUpdate = false) { m_nRenderMode = nMode; }
 
-	void SetRenderColor( byte r, byte g, byte b )
+	void SetRenderColor(byte r, byte g, byte b)
 	{
 		m_clrRender.r = r;
 		m_clrRender.g = g;
 		m_clrRender.b = b;
 	}
 
-	void SetRenderColor( byte r, byte g, byte b, byte a )
+	void SetRenderColor(byte r, byte g, byte b, byte a)
 	{
-		SetRenderColor( r, g, b );
+		SetRenderColor(r, g, b);
 		m_clrRender.a = a;
 	}
 
-	void SetRenderColorA( byte a ) { m_clrRender.a = a; }
+	void SetRenderColorA(byte a) { m_clrRender.a = a; }
 
-	void SetTempEntOwnerHandle( const CBaseHandle &hOwner ) { m_hOwnerEntity = hOwner; }
+	void SetTempEntOwnerHandle(const CBaseHandle& hOwner) { m_hOwnerEntity = hOwner; }
 
-	IHandleEntity *TempEntOwnerHandle() const
+	IHandleEntity* TempEntOwnerHandle() const
 	{
 		// THROUGH THE SLOT TABLE. Lane `f-list`. This was
 		// `ClientEntityList().GetClientUnknownFromHandle( m_hOwnerEntity )` and
@@ -215,7 +215,7 @@ public:
 		// this function emitted a weak copy carrying the stock list's symbol --
 		// which is how shell_te_pool_client.o came to owe `cl_entitylist` while
 		// naming it nowhere in its own text.
-		return SourceSharp_ClientUnknownFromHandle( m_hOwnerEntity );
+		return SourceSharp_ClientUnknownFromHandle(m_hOwnerEntity);
 	}
 
 	// The same owner as an ENTITY INDEX, for the managed collision arm --
@@ -235,7 +235,7 @@ public:
 		// Stock C_BaseEntity::ShouldDraw, with the entity terms resolved: a
 		// tempent's index is -1 by construction (never 0), and it has no
 		// m_fEffects, so EF_NODRAW can never be set on one.
-		if ( m_nRenderMode == kRenderNone )
+		if (m_nRenderMode == kRenderNone)
 			return false;
 
 		return m_pModel != NULL;
@@ -243,11 +243,11 @@ public:
 
 	virtual bool IsTransparent() OVERRIDE;
 
-	virtual void GetRenderBounds( Vector &theMins, Vector &theMaxs ) OVERRIDE;
+	virtual void GetRenderBounds(Vector& theMins, Vector& theMaxs) OVERRIDE;
 
 	// CDefaultClientRenderable answers 1,1,1 here for every renderable, which
 	// is a wrong answer rather than a missing one -- see the .cpp.
-	virtual void GetColorModulation( float *color ) OVERRIDE;
+	virtual void GetColorModulation(float* color) OVERRIDE;
 
 	// Which pass this tempent draws in. Not an IClientRenderable method: the
 	// leaf system asks for it when the object is added and ComputeFxBlend keeps
@@ -261,7 +261,7 @@ public:
 	// body, so the two spellings cannot drift.
 	using CShellRenderable::AddToLeafSystem;
 
-	void AddToLeafSystem() { AddToLeafSystem( GetRenderGroup() ); }
+	void AddToLeafSystem() { AddToLeafSystem(GetRenderGroup()); }
 
 	virtual bool IgnoresZBuffer() const OVERRIDE
 	{
@@ -315,7 +315,7 @@ public:
 
 	RenderGroup_t m_RenderGroup;
 
-	alignas( 4 ) unsigned char unused_m_bParticleCollision[20];
+	alignas(4) unsigned char unused_m_bParticleCollision[20];
 
 	// WHAT THE ENTITY HELD, now held here.
 	// Every one of these was a plain member of C_BaseEntity except m_clrRender,
@@ -339,9 +339,9 @@ public:
 	color32 m_clrRender;
 
 private:
-	C_LocalTempEntity( const C_LocalTempEntity & );
+	C_LocalTempEntity(const C_LocalTempEntity&);
 
-	const model_t *m_pModel;
+	const model_t* m_pModel;
 
 	// The owner, for the one trace that ignores it. A bare handle, so the read
 	// side names no entity type -- see SetTempEntOwner above.
@@ -355,10 +355,10 @@ private:
 	int m_nFXComputeFrame;
 
 	Vector m_vecTempEntVelocity;
-	alignas( 8 ) unsigned char unused_m_vecPrevLocalOrigin[12];
+	alignas(8) unsigned char unused_m_vecPrevLocalOrigin[12];
 
 	Vector m_vecTempEntAcceleration;
 
 	// Draw tempent as a studio model
-	int DrawStudioModel( int flags );
+	int DrawStudioModel(int flags);
 };

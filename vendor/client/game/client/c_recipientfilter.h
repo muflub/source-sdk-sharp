@@ -29,30 +29,30 @@ public:
 	virtual bool IsReliable() const;
 
 	virtual int GetRecipientCount() const;
-	virtual int GetRecipientIndex( int slot ) const;
+	virtual int GetRecipientIndex(int slot) const;
 
 	virtual bool IsInitMessage() const { return false; };
 
 public:
-	void CopyFrom( const C_RecipientFilter &src );
+	void CopyFrom(const C_RecipientFilter& src);
 
 	void Reset();
 
 	void AddAllPlayers();
-	void AddRecipientsByPVS( const Vector &origin );
-	void AddRecipientsByPAS( const Vector &origin );
+	void AddRecipientsByPVS(const Vector& origin);
+	void AddRecipientsByPAS(const Vector& origin);
 
 	// The add every other add funnels through. See local_recipient.h: the
 	// filter stores indices and the engine names the viewer BY index, so the
 	// C_BasePlayer in the pointer-shaped adds was only ever a way to ask
 	// "which slot" -- and a way that answers nothing for a viewer on the
 	// parallel hierarchy, which is every viewer in this mod.
-	void AddRecipientByPlayerIndex( int playerindex );
+	void AddRecipientByPlayerIndex(int playerindex);
 
 	//private:
 
 	bool m_bReliable;
-	alignas( 1 ) unsigned char unused_m_bInitMessage[7];
+	alignas(1) unsigned char unused_m_bInitMessage[7];
 	CUtlVector<int> m_Recipients;
 	// If using prediction rules, the filter itself suppresses local player
 	bool m_bUsingPredictionRules;
@@ -65,39 +65,39 @@ public:
 class CPASFilter : public C_RecipientFilter
 {
 public:
-	CPASFilter( const Vector &origin ) { AddRecipientsByPAS( origin ); }
+	CPASFilter(const Vector& origin) { AddRecipientsByPAS(origin); }
 };
 
 class CPASAttenuationFilter : public CPASFilter
 {
 public:
-	CPASAttenuationFilter( IClientEntity *entity, float attenuation = ATTN_NORM )
-		: CPASFilter( entity->GetAbsOrigin() )
+	CPASAttenuationFilter(IClientEntity* entity, float attenuation = ATTN_NORM)
+		: CPASFilter(entity->GetAbsOrigin())
 	{
 	}
 
-	CPASAttenuationFilter( const Vector &origin, float attenuation = ATTN_NORM )
-		: CPASFilter( origin )
+	CPASAttenuationFilter(const Vector& origin, float attenuation = ATTN_NORM)
+		: CPASFilter(origin)
 	{
 	}
 
-	CPASAttenuationFilter( IClientEntity *entity, const char *lookupSound )
-		: CPASFilter( entity->GetAbsOrigin() )
+	CPASAttenuationFilter(IClientEntity* entity, const char* lookupSound)
+		: CPASFilter(entity->GetAbsOrigin())
 	{
 	}
 
-	CPASAttenuationFilter( const Vector &origin, const char *lookupSound )
-		: CPASFilter( origin )
+	CPASAttenuationFilter(const Vector& origin, const char* lookupSound)
+		: CPASFilter(origin)
 	{
 	}
 
-	CPASAttenuationFilter( IClientEntity *entity, const char *lookupSound, HSOUNDSCRIPTHANDLE &handle )
-		: CPASFilter( entity->GetAbsOrigin() )
+	CPASAttenuationFilter(IClientEntity* entity, const char* lookupSound, HSOUNDSCRIPTHANDLE& handle)
+		: CPASFilter(entity->GetAbsOrigin())
 	{
 	}
 
-	CPASAttenuationFilter( const Vector &origin, const char *lookupSound, HSOUNDSCRIPTHANDLE &handle )
-		: CPASFilter( origin )
+	CPASAttenuationFilter(const Vector& origin, const char* lookupSound, HSOUNDSCRIPTHANDLE& handle)
+		: CPASFilter(origin)
 	{
 	}
 };
@@ -106,7 +106,7 @@ public:
 class CPVSFilter : public C_RecipientFilter
 {
 public:
-	CPVSFilter( const Vector &origin ) { AddRecipientsByPVS( origin ); }
+	CPVSFilter(const Vector& origin) { AddRecipientsByPVS(origin); }
 };
 
 class CLocalPlayerFilter : public C_RecipientFilter

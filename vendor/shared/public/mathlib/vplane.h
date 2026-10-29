@@ -13,12 +13,12 @@ class VPlane
 {
 public:
 	VPlane() = default;
-	VPlane( const Vector &vNormal, vec_t dist );
+	VPlane(const Vector& vNormal, vec_t dist);
 
-	void Init( const Vector &vNormal, vec_t dist );
+	void Init(const Vector& vNormal, vec_t dist);
 
 	// Return the distance from the point to the plane.
-	vec_t DistTo( const Vector &vVec ) const;
+	vec_t DistTo(const Vector& vVec) const;
 
 	// Get a point on the plane (normal*dist).
 	Vector GetPointOnPlane() const;
@@ -30,21 +30,21 @@ public:
 
 // Inlines.
 
-inline VPlane::VPlane( const Vector &vNormal, vec_t dist )
+inline VPlane::VPlane(const Vector& vNormal, vec_t dist)
 {
 	m_Normal = vNormal;
 	m_Dist = dist;
 }
 
-inline void VPlane::Init( const Vector &vNormal, vec_t dist )
+inline void VPlane::Init(const Vector& vNormal, vec_t dist)
 {
 	m_Normal = vNormal;
 	m_Dist = dist;
 }
 
-inline vec_t VPlane::DistTo( const Vector &vVec ) const
+inline vec_t VPlane::DistTo(const Vector& vVec) const
 {
-	return vVec.Dot( m_Normal ) - m_Dist;
+	return vVec.Dot(m_Normal) - m_Dist;
 }
 
 inline Vector VPlane::GetPointOnPlane() const

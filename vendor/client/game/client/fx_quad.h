@@ -23,10 +23,10 @@ struct FXQuadData_t
 		m_uiFlags = 0;
 	}
 
-	void SetColor( float r, float g, float b ) { m_Color = Vector( r, g, b ); }
+	void SetColor(float r, float g, float b) { m_Color = Vector(r, g, b); }
 
 	unsigned int m_uiFlags;
-	IMaterial *m_pMaterial;
+	IMaterial* m_pMaterial;
 	Vector m_vecOrigin;
 	Vector m_vecNormal;
 	float m_flStartScale;
@@ -47,14 +47,14 @@ struct FXQuadData_t
 class CFXQuad : public CClientSideEffect
 {
 public:
-	CFXQuad( const FXQuadData_t &data );
+	CFXQuad(const FXQuadData_t& data);
 
 	~CFXQuad();
 
-	virtual void Draw( double frametime );
+	virtual void Draw(double frametime);
 	virtual bool IsActive();
 	virtual void Destroy();
-	virtual void Update( double frametime );
+	virtual void Update(double frametime);
 
 	FXQuadData_t m_FXData;
 };

@@ -9,15 +9,15 @@ class CPlayerLocalData
 {
 public:
 	DECLARE_PREDICTABLE();
-	DECLARE_CLASS_NOBASE( CPlayerLocalData );
+	DECLARE_CLASS_NOBASE(CPlayerLocalData);
 	DECLARE_EMBEDDED_NETWORKVAR();
 
 	CPlayerLocalData()
-		: m_iv_vecPunchAngle( "CPlayerLocalData::m_iv_vecPunchAngle" )
-		, m_iv_vecPunchAngleVel( "CPlayerLocalData::m_iv_vecPunchAngleVel" )
+		: m_iv_vecPunchAngle("CPlayerLocalData::m_iv_vecPunchAngle")
+		, m_iv_vecPunchAngleVel("CPlayerLocalData::m_iv_vecPunchAngleVel")
 	{
-		m_iv_vecPunchAngle.Setup( &m_vecPunchAngle.m_Value, LATCH_SIMULATION_VAR );
-		m_iv_vecPunchAngleVel.Setup( &m_vecPunchAngleVel.m_Value, LATCH_SIMULATION_VAR );
+		m_iv_vecPunchAngle.Setup(&m_vecPunchAngle.m_Value, LATCH_SIMULATION_VAR);
+		m_iv_vecPunchAngleVel.Setup(&m_vecPunchAngleVel.m_Value, LATCH_SIMULATION_VAR);
 		m_flFOVRate = 0;
 		m_bForceLocalPlayerDraw = false;
 		m_bPrevForceLocalPlayerDraw = false;
@@ -45,10 +45,10 @@ public:
 	// Base velocity that was passed in to server physics so
 	//  client can predict conveyors correctly.  Server zeroes it, so we need to store here, too.
 	Vector m_vecClientBaseVelocity;
-	CNetworkQAngle( m_vecPunchAngle ); // auto-decaying view angle adjustment
+	CNetworkQAngle(m_vecPunchAngle); // auto-decaying view angle adjustment
 	CInterpolatedVar<QAngle> m_iv_vecPunchAngle;
 
-	CNetworkQAngle( m_vecPunchAngleVel ); // velocity of auto-decaying view angle adjustment
+	CNetworkQAngle(m_vecPunchAngleVel); // velocity of auto-decaying view angle adjustment
 	CInterpolatedVar<QAngle> m_iv_vecPunchAngleVel;
 	bool m_bDrawViewmodel;
 	bool m_bWearingSuit;
@@ -67,5 +67,5 @@ public:
 
 	bool m_bSlowMovement;
 
-	CNetworkString( m_szScriptOverlayMaterial, MAX_PATH );
+	CNetworkString(m_szScriptOverlayMaterial, MAX_PATH);
 };

@@ -34,51 +34,51 @@ int g_nCalledWith = 0;
 
 }
 
-SS_NATIVE_COMMAND( ss_test_body_alpha )
+SS_NATIVE_COMMAND(ss_test_body_alpha)
 {
 	g_nCalledWith = args.m_nMarker;
 }
 
-SS_NATIVE_COMMAND( ss_test_body_beta )
+SS_NATIVE_COMMAND(ss_test_body_beta)
 {
 	g_nCalledWith = -args.m_nMarker;
 	services.m_nSeen = args.m_nMarker;
 }
 
-TEST( NativeCommandBody, EveryBodyDefinedIsOnTheList )
+TEST(NativeCommandBody, EveryBodyDefinedIsOnTheList)
 {
 	std::vector<std::string> names;
-	for ( const CNativeCommandBody *p = CNativeCommandBody::First(); p; p = p->Next() )
-		names.push_back( p->Name() );
+	for (const CNativeCommandBody* p = CNativeCommandBody::First(); p; p = p->Next())
+		names.push_back(p->Name());
 
-	ASSERT_EQ( 2u, names.size() );
-	EXPECT_NE( names.end(), std::find( names.begin(), names.end(), "ss_test_body_alpha" ) );
-	EXPECT_NE( names.end(), std::find( names.begin(), names.end(), "ss_test_body_beta" ) );
+	ASSERT_EQ(2u, names.size());
+	EXPECT_NE(names.end(), std::find(names.begin(), names.end(), "ss_test_body_alpha"));
+	EXPECT_NE(names.end(), std::find(names.begin(), names.end(), "ss_test_body_beta"));
 }
 
-TEST( NativeCommandBody, FindAnswersTheBodyOfThatNameAndRunsIt )
+TEST(NativeCommandBody, FindAnswersTheBodyOfThatNameAndRunsIt)
 {
-	const CNativeCommandBody *p = CNativeCommandBody::Find( "ss_test_body_beta" );
-	ASSERT_NE( nullptr, p );
+	const CNativeCommandBody* p = CNativeCommandBody::Find("ss_test_body_beta");
+	ASSERT_NE(nullptr, p);
 
 	CCommand args;
 	args.m_nMarker = 7;
 	g_nCalledWith = 0;
 	CServerDllServices services;
-	p->Run( args, services );
-	EXPECT_EQ( -7, g_nCalledWith );
-	EXPECT_EQ( 7, services.m_nSeen ) << "the body was not handed the services Run was given";
+	p->Run(args, services);
+	EXPECT_EQ(-7, g_nCalledWith);
+	EXPECT_EQ(7, services.m_nSeen) << "the body was not handed the services Run was given";
 }
 
-TEST( NativeCommandBody, FindIgnoresCaseAsTheConsoleDoes )
+TEST(NativeCommandBody, FindIgnoresCaseAsTheConsoleDoes)
 {
-	EXPECT_EQ( CNativeCommandBody::Find( "ss_test_body_alpha" ), CNativeCommandBody::Find( "SS_Test_Body_ALPHA" ) );
-	EXPECT_NE( nullptr, CNativeCommandBody::Find( "SS_Test_Body_ALPHA" ) );
+	EXPECT_EQ(CNativeCommandBody::Find("ss_test_body_alpha"), CNativeCommandBody::Find("SS_Test_Body_ALPHA"));
+	EXPECT_NE(nullptr, CNativeCommandBody::Find("SS_Test_Body_ALPHA"));
 }
 
-TEST( NativeCommandBody, ANameWithNoBodyIsNull )
+TEST(NativeCommandBody, ANameWithNoBodyIsNull)
 {
-	EXPECT_EQ( nullptr, CNativeCommandBody::Find( "ss_test_body_gamma" ) );
-	EXPECT_EQ( nullptr, CNativeCommandBody::Find( "ss_test_body_alph" ) );
-	EXPECT_EQ( nullptr, CNativeCommandBody::Find( NULL ) );
+	EXPECT_EQ(nullptr, CNativeCommandBody::Find("ss_test_body_gamma"));
+	EXPECT_EQ(nullptr, CNativeCommandBody::Find("ss_test_body_alph"));
+	EXPECT_EQ(nullptr, CNativeCommandBody::Find(NULL));
 }

@@ -22,7 +22,7 @@ enum StandaloneNetKind_t
 struct StandaloneNetField_t
 {
 	// The name the handshake pairs on, spelled as the C++ member.
-	const char *pName;
+	const char* pName;
 
 	StandaloneNetKind_t kind;
 
@@ -61,27 +61,27 @@ enum
 	STANDALONE_BODY_BITS = 32
 };
 
-inline const StandaloneNetField_t *StandaloneNetFields( int *pOutCount )
+inline const StandaloneNetField_t* StandaloneNetFields(int* pOutCount)
 {
 	static const StandaloneNetField_t s_Fields[] = {
-		{ "m_vecOrigin", STANDALONE_NET_VECTOR, 0 },
-		{ "m_angRotation", STANDALONE_NET_VECTOR, 0 },
-		{ "m_nModelIndex", STANDALONE_NET_INT, MAX_EDICT_BITS },
-		{ "m_fEffects", STANDALONE_NET_INT, EF_MAX_BITS },
-		{ "m_ubInterpolationFrame", STANDALONE_NET_INT, STANDALONE_NOINTERP_PARITY_BITS },
-		{ "m_nTypeId", STANDALONE_NET_INT, 32 },
-		{ "m_nSchemaHash", STANDALONE_NET_INT, 32 },
-		{ "m_nPayloadWords", STANDALONE_NET_INT, 16 },
+		{"m_vecOrigin", STANDALONE_NET_VECTOR, 0},
+		{"m_angRotation", STANDALONE_NET_VECTOR, 0},
+		{"m_nModelIndex", STANDALONE_NET_INT, MAX_EDICT_BITS},
+		{"m_fEffects", STANDALONE_NET_INT, EF_MAX_BITS},
+		{"m_ubInterpolationFrame", STANDALONE_NET_INT, STANDALONE_NOINTERP_PARITY_BITS},
+		{"m_nTypeId", STANDALONE_NET_INT, 32},
+		{"m_nSchemaHash", STANDALONE_NET_INT, 32},
+		{"m_nPayloadWords", STANDALONE_NET_INT, 16},
 		// The list's order is the wire format, so new rows go at the tail.
 		// SolidType_t tops out at 7; the fourth bit leaves room.
-		{ "m_nSolidType", STANDALONE_NET_INT, 4 },
-		{ "m_nSolidFlags", STANDALONE_NET_INT, STANDALONE_SOLID_FLAGS_MAX_BITS },
-		{ "m_nSkin", STANDALONE_NET_INT, STANDALONE_SKIN_BITS },
-		{ "m_nBody", STANDALONE_NET_INT, STANDALONE_BODY_BITS },
+		{"m_nSolidType", STANDALONE_NET_INT, 4},
+		{"m_nSolidFlags", STANDALONE_NET_INT, STANDALONE_SOLID_FLAGS_MAX_BITS},
+		{"m_nSkin", STANDALONE_NET_INT, STANDALONE_SKIN_BITS},
+		{"m_nBody", STANDALONE_NET_INT, STANDALONE_BODY_BITS},
 	};
 
-	if ( pOutCount )
-		*pOutCount = ARRAYSIZE( s_Fields );
+	if (pOutCount)
+		*pOutCount = ARRAYSIZE(s_Fields);
 
 	return s_Fields;
 }
@@ -107,5 +107,5 @@ enum
 };
 
 // Cast to int: gcc refuses to compare enumerators of two unnamed enums.
-static_assert( (int)STANDALONE_NET_FIELD_COUNT == (int)SOURCESHARP_TIER_PROPS_STANDALONE,
-			   "NetTierInfo's real-prop count is this list's length" );
+static_assert((int)STANDALONE_NET_FIELD_COUNT == (int)SOURCESHARP_TIER_PROPS_STANDALONE,
+			  "NetTierInfo's real-prop count is this list's length");

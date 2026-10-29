@@ -30,93 +30,93 @@ struct FakeRender
 	std::vector<unsigned short> created;
 	std::vector<unsigned short> destroyed;
 
-	unsigned short CreateInstance( FakeRenderable * )
+	unsigned short CreateInstance(FakeRenderable*)
 	{
-		created.push_back( nNext );
+		created.push_back(nNext);
 		return nNext++;
 	}
 
-	void DestroyInstance( unsigned short h ) { destroyed.push_back( h ); }
+	void DestroyInstance(unsigned short h) { destroyed.push_back(h); }
 };
 
 const int g_scout = 1;
 const int g_heavy = 2;
 
-TEST( StandaloneModelInstance, TheFirstEnsureCreatesOne )
+TEST(StandaloneModelInstance, TheFirstEnsureCreatesOne)
 {
 	FakeRender render;
 	FakeRenderable renderable;
 	Slot slot;
 
-	EXPECT_EQ( kInvalid, slot.Get() );
-	EXPECT_EQ( 10, slot.Ensure( &render, &renderable, &g_scout ) );
-	EXPECT_EQ( 1u, render.created.size() );
+	EXPECT_EQ(kInvalid, slot.Get());
+	EXPECT_EQ(10, slot.Ensure(&render, &renderable, &g_scout));
+	EXPECT_EQ(1u, render.created.size());
 }
 
-TEST( StandaloneModelInstance, TheSameModelKeepsItsInstance )
+TEST(StandaloneModelInstance, TheSameModelKeepsItsInstance)
 {
 	FakeRender render;
 	FakeRenderable renderable;
 	Slot slot;
 
-	slot.Ensure( &render, &renderable, &g_scout );
-	EXPECT_EQ( 10, slot.Ensure( &render, &renderable, &g_scout ) );
-	EXPECT_EQ( 1u, render.created.size() );
-	EXPECT_TRUE( render.destroyed.empty() );
+	slot.Ensure(&render, &renderable, &g_scout);
+	EXPECT_EQ(10, slot.Ensure(&render, &renderable, &g_scout));
+	EXPECT_EQ(1u, render.created.size());
+	EXPECT_TRUE(render.destroyed.empty());
 }
 
-TEST( StandaloneModelInstance, ANewModelDestroysTheOldInstanceAndMakesAnother )
+TEST(StandaloneModelInstance, ANewModelDestroysTheOldInstanceAndMakesAnother)
 {
 	FakeRender render;
 	FakeRenderable renderable;
 	Slot slot;
 
-	slot.Ensure( &render, &renderable, &g_scout );
-	EXPECT_EQ( 11, slot.Ensure( &render, &renderable, &g_heavy ) );
-	ASSERT_EQ( 1u, render.destroyed.size() );
-	EXPECT_EQ( 10, render.destroyed[0] );
-	EXPECT_EQ( 2u, render.created.size() );
+	slot.Ensure(&render, &renderable, &g_scout);
+	EXPECT_EQ(11, slot.Ensure(&render, &renderable, &g_heavy));
+	ASSERT_EQ(1u, render.destroyed.size());
+	EXPECT_EQ(10, render.destroyed[0]);
+	EXPECT_EQ(2u, render.created.size());
 }
 
-TEST( StandaloneModelInstance, DropIfNotForLeavesNoInstanceForAChangedModel )
+TEST(StandaloneModelInstance, DropIfNotForLeavesNoInstanceForAChangedModel)
 {
 	FakeRender render;
 	FakeRenderable renderable;
 	Slot slot;
 
-	slot.Ensure( &render, &renderable, &g_scout );
-	slot.DropIfNotFor( &render, &g_heavy );
-	EXPECT_EQ( kInvalid, slot.Get() );
-	ASSERT_EQ( 1u, render.destroyed.size() );
-	EXPECT_EQ( 10, render.destroyed[0] );
+	slot.Ensure(&render, &renderable, &g_scout);
+	slot.DropIfNotFor(&render, &g_heavy);
+	EXPECT_EQ(kInvalid, slot.Get());
+	ASSERT_EQ(1u, render.destroyed.size());
+	EXPECT_EQ(10, render.destroyed[0]);
 }
 
-TEST( StandaloneModelInstance, DropIfNotForKeepsTheInstanceOfTheSameModel )
+TEST(StandaloneModelInstance, DropIfNotForKeepsTheInstanceOfTheSameModel)
 {
 	FakeRender render;
 	FakeRenderable renderable;
 	Slot slot;
 
-	slot.Ensure( &render, &renderable, &g_scout );
-	slot.DropIfNotFor( &render, &g_scout );
-	EXPECT_EQ( 10, slot.Get() );
-	EXPECT_TRUE( render.destroyed.empty() );
+	slot.Ensure(&render, &renderable, &g_scout);
+	slot.DropIfNotFor(&render, &g_scout);
+	EXPECT_EQ(10, slot.Get());
+	EXPECT_TRUE(render.destroyed.empty());
 }
 
-TEST( StandaloneModelInstance, DestroyReleasesOnceAndForgetsTheModel )
+TEST(StandaloneModelInstance, DestroyReleasesOnceAndForgetsTheModel)
 {
 	FakeRender render;
 	FakeRenderable renderable;
 	Slot slot;
 
-	slot.Ensure( &render, &renderable, &g_scout );
-	slot.Destroy( &render );
-	slot.Destroy( &render );
-	EXPECT_EQ( kInvalid, slot.Get() );
-	EXPECT_EQ( 1u, render.destroyed.size() );
+	slot.Ensure(&render, &renderable, &g_scout);
+	slot.Destroy(&render);
+	slot.Destroy(&render);
+	EXPECT_EQ(kInvalid, slot.Get());
+	EXPECT_EQ(1u, render.destroyed.size());
 
 	// A fresh instance after a destroy, even for the same model.
-	EXPECT_EQ( 11, slot.Ensure( &render, &renderable, &g_scout ) );
+	EXPECT_EQ(11, slot.Ensure(&render, &renderable, &g_scout));
 }
 
 } // namespace

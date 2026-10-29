@@ -19,9 +19,9 @@
 class CFakeNetChannel : public INetChannel
 {
 public:
-	const char *GetName() const override { return {}; }
+	const char* GetName() const override { return {}; }
 
-	const char *GetAddress() const override { return {}; }
+	const char* GetAddress() const override { return {}; }
 
 	float GetTime() const override { return {}; }
 
@@ -37,43 +37,43 @@ public:
 
 	bool IsPlayback() const override { return {}; }
 
-	float GetLatency( int flow ) const override { return {}; }
+	float GetLatency(int flow) const override { return {}; }
 
-	float GetAvgLatency( int flow ) const override { return {}; }
+	float GetAvgLatency(int flow) const override { return {}; }
 
-	float GetAvgLoss( int flow ) const override { return {}; }
+	float GetAvgLoss(int flow) const override { return {}; }
 
-	float GetAvgChoke( int flow ) const override { return {}; }
+	float GetAvgChoke(int flow) const override { return {}; }
 
-	float GetAvgData( int flow ) const override { return {}; }
+	float GetAvgData(int flow) const override { return {}; }
 
-	float GetAvgPackets( int flow ) const override { return {}; }
+	float GetAvgPackets(int flow) const override { return {}; }
 
-	int GetTotalData( int flow ) const override { return {}; }
+	int GetTotalData(int flow) const override { return {}; }
 
-	int GetSequenceNr( int flow ) const override { return {}; }
+	int GetSequenceNr(int flow) const override { return {}; }
 
-	bool IsValidPacket( int flow, int frame_number ) const override { return {}; }
+	bool IsValidPacket(int flow, int frame_number) const override { return {}; }
 
-	float GetPacketTime( int flow, int frame_number ) const override { return {}; }
+	float GetPacketTime(int flow, int frame_number) const override { return {}; }
 
-	int GetPacketBytes( int flow, int frame_number, int group ) const override { return {}; }
+	int GetPacketBytes(int flow, int frame_number, int group) const override { return {}; }
 
-	bool GetStreamProgress( int flow, int *received, int *total ) const override { return {}; }
+	bool GetStreamProgress(int flow, int* received, int* total) const override { return {}; }
 
 	float GetTimeSinceLastReceived() const override { return {}; }
 
-	float GetCommandInterpolationAmount( int flow, int frame_number ) const override { return {}; }
+	float GetCommandInterpolationAmount(int flow, int frame_number) const override { return {}; }
 
-	void GetPacketResponseLatency( int flow, int frame_number, int *pnLatencyMsecs, int *pnChoke ) const override {}
+	void GetPacketResponseLatency(int flow, int frame_number, int* pnLatencyMsecs, int* pnChoke) const override {}
 
-	void GetRemoteFramerate( float *pflFrameTime, float *pflFrameTimeStdDeviation ) const override {}
+	void GetRemoteFramerate(float* pflFrameTime, float* pflFrameTimeStdDeviation) const override {}
 
 	float GetTimeoutSeconds() const override { return {}; }
 
 	void unused_SetDataRate() override {}
 
-	bool RegisterMessage( INetMessage *msg ) override { return {}; }
+	bool RegisterMessage(INetMessage* msg) override { return {}; }
 
 	void unused_SetTimeout() override {}
 
@@ -85,13 +85,13 @@ public:
 
 	void Clear() override {}
 
-	void Shutdown( const char *reason ) override {}
+	void Shutdown(const char* reason) override {}
 
 	void unused_ProcessPlayback() override {}
 
 	void unused_ProcessPacket() override {}
 
-	bool SendNetMsg( INetMessage &msg, bool bForceReliable = false, bool bVoice = false ) override { return {}; }
+	bool SendNetMsg(INetMessage& msg, bool bForceReliable = false, bool bVoice = false) override { return {}; }
 
 	void unused_SendData() override {}
 

@@ -15,7 +15,7 @@ struct FXLineData_t
 	float m_flDieTime;
 	float m_flLifeTime;
 
-	IMaterial *m_pMaterial;
+	IMaterial* m_pMaterial;
 };
 
 #include "fx_staticline.h"
@@ -23,14 +23,14 @@ struct FXLineData_t
 class CFXLine : public CClientSideEffect
 {
 public:
-	CFXLine( const char *name, const FXLineData_t &data );
+	CFXLine(const char* name, const FXLineData_t& data);
 
 	~CFXLine();
 
-	virtual void Draw( double frametime );
+	virtual void Draw(double frametime);
 	virtual bool IsActive();
 	virtual void Destroy();
-	virtual void Update( double frametime );
+	virtual void Update(double frametime);
 
 protected:
 	FXLineData_t m_FXData;

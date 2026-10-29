@@ -22,53 +22,53 @@
 namespace IntrusiveList
 {
 template <class T>
-inline void ValidateDList( T * /*head*/ )
+inline void ValidateDList(T* /*head*/)
 {
 }
 
 // removes node 'which' from doubly linked list with 'head'
 template <class T>
-inline void RemoveFromDList( T *&head, T *which )
+inline void RemoveFromDList(T*& head, T* which)
 {
-	if ( which->m_pPrev )
+	if (which->m_pPrev)
 	{
-		Assert( which->m_pPrev->m_pNext == which );
+		Assert(which->m_pPrev->m_pNext == which);
 		which->m_pPrev->m_pNext = which->m_pNext;
-		if ( which->m_pNext )
+		if (which->m_pNext)
 		{
-			Assert( which->m_pNext->m_pPrev == which );
+			Assert(which->m_pNext->m_pPrev == which);
 			which->m_pNext->m_pPrev = which->m_pPrev;
 		}
 	}
 	else
 	{
-		if ( head == which )
+		if (head == which)
 		{
 			head = which->m_pNext;
-			if ( head )
+			if (head)
 			{
-				Assert( head->m_pPrev == which );
+				Assert(head->m_pPrev == which);
 				head->m_pPrev = 0;
 			}
 		}
 	}
 	which->m_pNext = which->m_pPrev = 0;
-	ValidateDList( head );
+	ValidateDList(head);
 }
 
 // add a node to the end of a singly linked list
 template <class T>
-void AddToDTail( T *&head, T *node )
+void AddToDTail(T*& head, T* node)
 {
 	node->m_pNext = 0;
-	if ( !head )
+	if (!head)
 	{
 		head = node;
 	}
 	else
 	{
-		T *ptr = head;
-		while ( ptr->m_pNext )
+		T* ptr = head;
+		while (ptr->m_pNext)
 		{
 			ptr = ptr->m_pNext;
 		}
@@ -79,24 +79,24 @@ void AddToDTail( T *&head, T *node )
 
 // add a node to end of doubly linked list.
 template <class T>
-inline void AddToDHead( T *&head, T *which )
+inline void AddToDHead(T*& head, T* which)
 {
 	which->m_pNext = head;
-	if ( head )
+	if (head)
 	{
 		head->m_pPrev = which;
 	}
 	which->m_pPrev = 0;
 	head = which;
-	ValidateDList( head );
+	ValidateDList(head);
 }
 
 // add a node to front of doubly linked list which maintains a tail ptr
 template <class T>
-inline void AddToDHeadWithTailPtr( T *&head, T *which, T *&tailptr )
+inline void AddToDHeadWithTailPtr(T*& head, T* which, T*& tailptr)
 {
 	which->m_pNext = head;
-	if ( head )
+	if (head)
 	{
 		head->m_pPrev = which;
 	}
@@ -106,16 +106,16 @@ inline void AddToDHeadWithTailPtr( T *&head, T *which, T *&tailptr )
 	}
 	which->m_pPrev = 0;
 	head = which;
-	ValidateDList( head );
+	ValidateDList(head);
 }
 
 // add a node to end of doubly linked list which maintains a tail ptr
 template <class T>
-inline void AddToDTailWithTailPtr( T *&head, T *which, T *&tailptr )
+inline void AddToDTailWithTailPtr(T*& head, T* which, T*& tailptr)
 {
-	if ( !tailptr )
+	if (!tailptr)
 	{
-		Assert( !head );
+		Assert(!head);
 		which->m_pPrev = which->m_pNext = 0;
 		tailptr = head = which;
 	}
@@ -126,56 +126,56 @@ inline void AddToDTailWithTailPtr( T *&head, T *which, T *&tailptr )
 		tailptr->m_pNext = which;
 		tailptr = which;
 	}
-	ValidateDList( head );
+	ValidateDList(head);
 }
 
 // Remove a node from a dlist , maintaining the tail ptr. node is not 'delete' d
 template <class T>
-inline void RemoveFromDListWithTailPtr( T *&head, T *which, T *&tailptr )
+inline void RemoveFromDListWithTailPtr(T*& head, T* which, T*& tailptr)
 {
-	if ( which == tailptr )
+	if (which == tailptr)
 	{
 		tailptr = which->m_pPrev;
 	}
-	if ( which->m_pPrev )
+	if (which->m_pPrev)
 	{
-		Assert( which->m_pPrev->m_pNext == which );
+		Assert(which->m_pPrev->m_pNext == which);
 		which->m_pPrev->m_pNext = which->m_pNext;
-		if ( which->m_pNext )
+		if (which->m_pNext)
 		{
-			Assert( which->m_pNext->m_pPrev == which );
+			Assert(which->m_pNext->m_pPrev == which);
 			which->m_pNext->m_pPrev = which->m_pPrev;
 		}
 	}
 	else
 	{
-		if ( head == which )
+		if (head == which)
 		{
 			head = which->m_pNext;
-			if ( head )
+			if (head)
 			{
-				Assert( head->m_pPrev == which );
+				Assert(head->m_pPrev == which);
 				head->m_pPrev = 0;
 			}
 		}
 	}
 	which->m_pNext = which->m_pPrev = 0;
-	ValidateDList( head );
+	ValidateDList(head);
 }
 
 // Remove from a singly linked list. no delete called.
 template <class T, class V>
-void RemoveFromList( T *&head, V *which )
+void RemoveFromList(T*& head, V* which)
 {
-	if ( head == which )
+	if (head == which)
 	{
 		head = which->m_pNext;
 	}
 	else
 	{
-		for ( T *i = head; i; i = i->m_pNext )
+		for (T* i = head; i; i = i->m_pNext)
 		{
-			if ( i->m_pNext == which )
+			if (i->m_pNext == which)
 			{
 				i->m_pNext = which->m_pNext;
 				return;
@@ -186,9 +186,9 @@ void RemoveFromList( T *&head, V *which )
 
 // find the Nth node in a list. null if index too high.
 template <class T>
-T *NthNode( T *head, int idx )
+T* NthNode(T* head, int idx)
 {
-	while ( idx && head )
+	while (idx && head)
 	{
 		idx--;
 		head = head->m_pNext;
@@ -199,7 +199,7 @@ T *NthNode( T *head, int idx )
 //Add a node to the head of a singly-linked
 // Note that the head var passed to this will be modified.
 template <class T, class V>
-static inline void AddToHead( T *&head, V *node )
+static inline void AddToHead(T*& head, V* node)
 {
 	node->m_pNext = head;
 	head = node;
@@ -208,15 +208,15 @@ static inline void AddToHead( T *&head, V *node )
 //Add a node to the tail of a singly-linked. Not fast
 // Note that the head var passed to this will be modified.
 template <class T, class V>
-static inline void AddToTail( T *&head, V *node )
+static inline void AddToTail(T*& head, V* node)
 {
 	node->m_pNext = NULL;
-	if ( !head )
+	if (!head)
 		head = node;
 	else
 	{
-		T *pLastNode = head;
-		while ( pLastNode->m_pNext )
+		T* pLastNode = head;
+		while (pLastNode->m_pNext)
 			pLastNode = pLastNode->m_pNext;
 		pLastNode->m_pNext = node;
 	}
@@ -224,9 +224,9 @@ static inline void AddToTail( T *&head, V *node )
 
 //Add a node to the head of a singly-linked list, maintaining a tail pointer
 template <class T, class V>
-static inline void AddToHead( T *&head, T *&tail, V *node )
+static inline void AddToHead(T*& head, T*& tail, V* node)
 {
-	if ( !head )
+	if (!head)
 	{
 		tail = node;
 	}
@@ -237,12 +237,12 @@ static inline void AddToHead( T *&head, T *&tail, V *node )
 // return the node in head before in a singly linked list. returns null if head is empty, n is
 // null, or if n is the first node. not fast.
 template <class T>
-static inline T *PrevNode( T *head, T *node )
+static inline T* PrevNode(T* head, T* node)
 {
-	T *i;
-	for ( i = head; i; i = i->m_pNext )
+	T* i;
+	for (i = head; i; i = i->m_pNext)
 	{
-		if ( i->m_pNext == node )
+		if (i->m_pNext == node)
 			break;
 	}
 	return i;
@@ -250,10 +250,10 @@ static inline T *PrevNode( T *head, T *node )
 
 // count # of elements in list
 template <class T>
-int ListLength( T *head )
+int ListLength(T* head)
 {
 	int len = 0;
-	while ( head )
+	while (head)
 	{
 		len++;
 		head = head->m_pNext;
@@ -264,18 +264,18 @@ int ListLength( T *head )
 // this will kill a list if the list is of objects which automatically
 // remove themselves from the list when delete is called
 template <class T>
-void KillList( T *&head )
+void KillList(T*& head)
 {
-	while ( head )
+	while (head)
 	{
 		delete head;
 	}
 }
 
 template <class T>
-static inline T *FindNamedNodeCaseSensitive( T *head, char const *name )
+static inline T* FindNamedNodeCaseSensitive(T* head, char const* name)
 {
-	for ( ; head && strcmp( head->m_Name, name ); head = head->m_pNext )
+	for (; head && strcmp(head->m_Name, name); head = head->m_pNext)
 	{
 	}
 	return head;
@@ -288,9 +288,9 @@ template <class T>
 class CUtlIntrusiveList
 {
 public:
-	T *m_pHead;
+	T* m_pHead;
 
-	FORCEINLINE T *Head() const { return m_pHead; }
+	FORCEINLINE T* Head() const { return m_pHead; }
 
 	FORCEINLINE CUtlIntrusiveList() { m_pHead = NULL; }
 
@@ -300,17 +300,17 @@ public:
 		m_pHead = NULL;
 	}
 
-	FORCEINLINE void AddToHead( T *node ) { IntrusiveList::AddToHead( m_pHead, node ); }
+	FORCEINLINE void AddToHead(T* node) { IntrusiveList::AddToHead(m_pHead, node); }
 
-	FORCEINLINE void AddToTail( T *node ) { IntrusiveList::AddToTail( m_pHead, node ); }
+	FORCEINLINE void AddToTail(T* node) { IntrusiveList::AddToTail(m_pHead, node); }
 
-	void RemoveNode( T *which ) { IntrusiveList::RemoveFromList( m_pHead, which ); }
+	void RemoveNode(T* which) { IntrusiveList::RemoveFromList(m_pHead, which); }
 
 	// this will kill a list if the list is of objects which automatically
 	// remove themselves from the list when delete is called
 	void KillList()
 	{
-		while ( m_pHead )
+		while (m_pHead)
 		{
 			delete m_pHead;
 		}
@@ -318,35 +318,35 @@ public:
 
 	// return the node in head before in a singly linked list. returns null if head is empty, n is
 	// null, or if n is the first node. not fast. Fast for dlists
-	T *PrevNode( T *node ) { return IntrusiveList::PrevNode( m_pHead, node ); }
+	T* PrevNode(T* node) { return IntrusiveList::PrevNode(m_pHead, node); }
 
-	int NthNode( int n ) { return NthNode( m_pHead, n ); }
+	int NthNode(int n) { return NthNode(m_pHead, n); }
 
 	// this will kill all elements in a list if
 	// the elements are of a type which does NOT remove itself from
 	// the list when the destructor is called.
 	void Purge()
 	{
-		while ( m_pHead )
+		while (m_pHead)
 		{
-			T *tmp = m_pHead->m_pNext;
+			T* tmp = m_pHead->m_pNext;
 			delete m_pHead;
 			m_pHead = tmp;
 		}
 	}
 
-	int Count() const { return IntrusiveList::ListLength( m_pHead ); }
+	int Count() const { return IntrusiveList::ListLength(m_pHead); }
 
-	FORCEINLINE T *FindNamedNodeCaseSensitive( char const *pName ) const
+	FORCEINLINE T* FindNamedNodeCaseSensitive(char const* pName) const
 	{
-		return IntrusiveList::FindNamedNodeCaseSensitive( m_pHead, pName );
+		return IntrusiveList::FindNamedNodeCaseSensitive(m_pHead, pName);
 	}
 
-	T *RemoveHead()
+	T* RemoveHead()
 	{
-		if ( m_pHead )
+		if (m_pHead)
 		{
-			T *pRet = m_pHead;
+			T* pRet = m_pHead;
 			m_pHead = pRet->m_pNext;
 			return pRet;
 		}
@@ -360,19 +360,19 @@ template <class T>
 class CUtlIntrusiveDList : public CUtlIntrusiveList<T>
 {
 public:
-	FORCEINLINE void AddToHead( T *node ) { IntrusiveList::AddToDHead( CUtlIntrusiveList<T>::m_pHead, node ); }
+	FORCEINLINE void AddToHead(T* node) { IntrusiveList::AddToDHead(CUtlIntrusiveList<T>::m_pHead, node); }
 
-	FORCEINLINE void AddToTail( T *node ) { IntrusiveList::AddToDTail( CUtlIntrusiveList<T>::m_pHead, node ); }
+	FORCEINLINE void AddToTail(T* node) { IntrusiveList::AddToDTail(CUtlIntrusiveList<T>::m_pHead, node); }
 
-	void RemoveNode( T *which ) { IntrusiveList::RemoveFromDList( CUtlIntrusiveList<T>::m_pHead, which ); }
+	void RemoveNode(T* which) { IntrusiveList::RemoveFromDList(CUtlIntrusiveList<T>::m_pHead, which); }
 
-	T *RemoveHead()
+	T* RemoveHead()
 	{
-		if ( CUtlIntrusiveList<T>::m_pHead )
+		if (CUtlIntrusiveList<T>::m_pHead)
 		{
-			T *pRet = CUtlIntrusiveList<T>::m_pHead;
+			T* pRet = CUtlIntrusiveList<T>::m_pHead;
 			CUtlIntrusiveList<T>::m_pHead = CUtlIntrusiveList<T>::m_pHead->m_pNext;
-			if ( CUtlIntrusiveList<T>::m_pHead )
+			if (CUtlIntrusiveList<T>::m_pHead)
 				CUtlIntrusiveList<T>::m_pHead->m_pPrev = NULL;
 			return pRet;
 		}
@@ -380,14 +380,14 @@ public:
 			return NULL;
 	}
 
-	T *PrevNode( T *node ) { return ( node ) ? node->m_Prev : NULL; }
+	T* PrevNode(T* node) { return (node) ? node->m_Prev : NULL; }
 };
 
 template <class T>
 class CUtlIntrusiveDListWithTailPtr : public CUtlIntrusiveDList<T>
 {
 public:
-	T *m_pTailPtr;
+	T* m_pTailPtr;
 
 	FORCEINLINE CUtlIntrusiveDListWithTailPtr()
 		: CUtlIntrusiveDList<T>()
@@ -395,19 +395,19 @@ public:
 		m_pTailPtr = NULL;
 	}
 
-	FORCEINLINE void AddToHead( T *node )
+	FORCEINLINE void AddToHead(T* node)
 	{
-		IntrusiveList::AddToDHeadWithTailPtr( CUtlIntrusiveList<T>::m_pHead, node, m_pTailPtr );
+		IntrusiveList::AddToDHeadWithTailPtr(CUtlIntrusiveList<T>::m_pHead, node, m_pTailPtr);
 	}
 
-	FORCEINLINE void AddToTail( T *node )
+	FORCEINLINE void AddToTail(T* node)
 	{
-		IntrusiveList::AddToDTailWithTailPtr( CUtlIntrusiveList<T>::m_pHead, node, m_pTailPtr );
+		IntrusiveList::AddToDTailWithTailPtr(CUtlIntrusiveList<T>::m_pHead, node, m_pTailPtr);
 	}
 
-	void RemoveNode( T *pWhich )
+	void RemoveNode(T* pWhich)
 	{
-		IntrusiveList::RemoveFromDListWithTailPtr( CUtlIntrusiveList<T>::m_pHead, pWhich, m_pTailPtr );
+		IntrusiveList::RemoveFromDListWithTailPtr(CUtlIntrusiveList<T>::m_pHead, pWhich, m_pTailPtr);
 	}
 
 	void Purge()
@@ -422,22 +422,22 @@ public:
 		m_pTailPtr = NULL;
 	}
 
-	T *RemoveHead()
+	T* RemoveHead()
 	{
-		if ( CUtlIntrusiveDList<T>::m_pHead )
+		if (CUtlIntrusiveDList<T>::m_pHead)
 		{
-			T *pRet = CUtlIntrusiveDList<T>::m_pHead;
+			T* pRet = CUtlIntrusiveDList<T>::m_pHead;
 			CUtlIntrusiveDList<T>::m_pHead = CUtlIntrusiveDList<T>::m_pHead->m_pNext;
-			if ( CUtlIntrusiveDList<T>::m_pHead )
+			if (CUtlIntrusiveDList<T>::m_pHead)
 				CUtlIntrusiveDList<T>::m_pHead->m_pPrev = NULL;
-			if ( !CUtlIntrusiveDList<T>::m_pHead )
+			if (!CUtlIntrusiveDList<T>::m_pHead)
 				m_pTailPtr = NULL;
-			ValidateDList( CUtlIntrusiveDList<T>::m_pHead );
+			ValidateDList(CUtlIntrusiveDList<T>::m_pHead);
 			return pRet;
 		}
 		else
 			return NULL;
 	}
 
-	T *PrevNode( T *node ) { return ( node ) ? node->m_Prev : NULL; }
+	T* PrevNode(T* node) { return (node) ? node->m_Prev : NULL; }
 };

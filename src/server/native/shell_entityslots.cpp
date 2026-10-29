@@ -24,27 +24,27 @@
 
 // The block sizes itself without const.h so the gtest needs no engine; a block shorter
 // than the entity list would refuse its tail.
-COMPILE_TIME_ASSERT( SOURCESHARP_MAX_ENTITY_SLOTS >= NUM_ENT_ENTRIES );
+COMPILE_TIME_ASSERT(SOURCESHARP_MAX_ENTITY_SLOTS >= NUM_ENT_ENTRIES);
 
 // The entry index a packed handle names, or -1. ENT_ENTRY_MASK is wider than the entity
 // list, so the mask alone can name a slot that does not exist.
-static int SourceSharp_SlotEntryOf( uint32_t hEntity )
+static int SourceSharp_SlotEntryOf(uint32_t hEntity)
 {
-	if ( hEntity == (uint32_t)INVALID_EHANDLE_INDEX )
+	if (hEntity == (uint32_t)INVALID_EHANDLE_INDEX)
 		return -1;
 
-	const CBaseHandle handle = CBaseHandle::UnsafeFromIndex( (int)hEntity );
+	const CBaseHandle handle = CBaseHandle::UnsafeFromIndex((int)hEntity);
 	const int nEntry = handle.GetEntryIndex();
 
-	return CSourceSharpEntitySlots::IsEntry( nEntry ) ? nEntry : -1;
+	return CSourceSharpEntitySlots::IsEntry(nEntry) ? nEntry : -1;
 }
 
 // Marks an entity's networked state as moved.
-static bool SourceSharp_MarkStateChanged( CServerEntityResolver &entities, uint32_t hEntity )
+static bool SourceSharp_MarkStateChanged(CServerEntityResolver& entities, uint32_t hEntity)
 {
-	const SourceSharpEntity_t ent = entities.Resolve( hEntity );
+	const SourceSharpEntity_t ent = entities.Resolve(hEntity);
 
-	if ( ent.pStandalone )
+	if (ent.pStandalone)
 	{
 		ent.pStandalone->NetworkStateChanged();
 		return true;
@@ -56,44 +56,44 @@ static bool SourceSharp_MarkStateChanged( CServerEntityResolver &entities, uint3
 // The one crossing per bound state: the blob, its size, a pointer to the slot and the
 // slot's serial. Slots never move for the life of the DLL tier. NULL, size 0 and serial
 // 0 for anything with no blob.
-void *CServerNetwork::EntityBindBlob( uint32_t hEntity, int32_t *pOutSize, SourceSharpEntitySlot_t **pOutSlot,
-									  uint32_t *pOutSerial )
+void* CServerNetwork::EntityBindBlob(uint32_t hEntity, int32_t* pOutSize, SourceSharpEntitySlot_t** pOutSlot,
+									 uint32_t* pOutSerial)
 {
-	if ( pOutSize )
+	if (pOutSize)
 		*pOutSize = 0;
-	if ( pOutSlot )
+	if (pOutSlot)
 		*pOutSlot = NULL;
-	if ( pOutSerial )
+	if (pOutSerial)
 		*pOutSerial = SOURCESHARP_SLOT_SERIAL_NONE;
 
-	const int nEntry = SourceSharp_SlotEntryOf( hEntity );
-	CSourceSharpEntitySlots *pSlots = &m_Slots;
+	const int nEntry = SourceSharp_SlotEntryOf(hEntity);
+	CSourceSharpEntitySlots* pSlots = &m_Slots;
 
-	if ( nEntry < 0 )
+	if (nEntry < 0)
 	{
 		return NULL;
 	}
 
 	int32_t nSize = 0;
-	void *pBlob = EntityGetDataBlob( hEntity, &nSize );
+	void* pBlob = EntityGetDataBlob(hEntity, &nSize);
 
-	if ( !pBlob || nSize <= 0 )
+	if (!pBlob || nSize <= 0)
 	{
 		return NULL;
 	}
 
 	uint32_t nSerial = SOURCESHARP_SLOT_SERIAL_NONE;
 
-	if ( !pSlots->Open( nEntry, hEntity, &nSerial ) )
+	if (!pSlots->Open(nEntry, hEntity, &nSerial))
 	{
 		return NULL;
 	}
 
-	if ( pOutSize )
+	if (pOutSize)
 		*pOutSize = nSize;
-	if ( pOutSlot )
+	if (pOutSlot)
 		*pOutSlot = pSlots->Slots() + nEntry;
-	if ( pOutSerial )
+	if (pOutSerial)
 		*pOutSerial = nSerial;
 
 	return pBlob;
@@ -102,46 +102,46 @@ void *CServerNetwork::EntityBindBlob( uint32_t hEntity, int32_t *pOutSize, Sourc
 // Closes an entity's slot, from the destructor of every shell that carries a blob,
 // before the handle is torn down and the memory freed. A slot left open would let C#
 // write into freed memory with a matching serial.
-void SourceSharp_EntitySlotClosed( CSourceSharpEntitySlots &slots, uint32_t hEntity )
+void SourceSharp_EntitySlotClosed(CSourceSharpEntitySlots& slots, uint32_t hEntity)
 {
-	const int nEntry = SourceSharp_SlotEntryOf( hEntity );
+	const int nEntry = SourceSharp_SlotEntryOf(hEntity);
 
-	if ( nEntry >= 0 )
-		slots.Close( nEntry );
+	if (nEntry >= 0)
+		slots.Close(nEntry);
 }
 
 // Once per frame: turns the frame's stores into NetworkStateChanged calls and closes
 // slots whose entity died without closing them. Walks backwards because Close swaps the
 // tail entry into the freed position.
-int SourceSharp_DrainEntitySlots( const CServerEntityContext &context )
+int SourceSharp_DrainEntitySlots(const CServerEntityContext& context)
 {
 	int nMarked = 0;
-	CSourceSharpEntitySlots *pSlots = &context.m_EntitySlots;
-	CServerEntityResolver &entities = context.Resolver();
+	CSourceSharpEntitySlots* pSlots = &context.m_EntitySlots;
+	CServerEntityResolver& entities = context.Resolver();
 
-	for ( int i = pSlots->ActiveCount() - 1; i >= 0; --i )
+	for (int i = pSlots->ActiveCount() - 1; i >= 0; --i)
 	{
-		const int nEntry = pSlots->ActiveAt( i );
-		const uint32_t hEntity = pSlots->HandleAt( nEntry );
+		const int nEntry = pSlots->ActiveAt(i);
+		const uint32_t hEntity = pSlots->HandleAt(nEntry);
 
-		const bool bDirty = pSlots->TakeDirty( nEntry );
+		const bool bDirty = pSlots->TakeDirty(nEntry);
 
-		if ( bDirty )
+		if (bDirty)
 		{
-			if ( SourceSharp_MarkStateChanged( entities, hEntity ) )
+			if (SourceSharp_MarkStateChanged(entities, hEntity))
 			{
 				++nMarked;
 				continue;
 			}
 
 			// Dirty and gone: a shell freed an entity without closing its slot.
-			Warning( "[SourceSharp] entity slot %d was written and its entity is gone; "
-					 "a shell is freeing without closing its slot\n",
-					 nEntry );
+			Warning("[SourceSharp] entity slot %d was written and its entity is gone; "
+					"a shell is freeing without closing its slot\n",
+					nEntry);
 		}
-		else if ( !entities.Resolve( hEntity ).IsValid() )
+		else if (!entities.Resolve(hEntity).IsValid())
 		{
-			pSlots->Close( nEntry );
+			pSlots->Close(nEntry);
 			continue;
 		}
 	}
@@ -151,13 +151,13 @@ int SourceSharp_DrainEntitySlots( const CServerEntityContext &context )
 
 // A managed reload is about to happen: void every serial handed out so far. Called
 // between unload and load, the only window with no managed code running.
-int SourceSharp_RetireEntitySlots( CSourceSharpEntitySlots &slots )
+int SourceSharp_RetireEntitySlots(CSourceSharpEntitySlots& slots)
 {
 	return slots.Retire();
 }
 
 // Level shutdown: a slot that outlived the map would be handed to the next occupant.
-void SourceSharp_ResetEntitySlots( CSourceSharpEntitySlots &slots, CSourceSharpSlotTable &table )
+void SourceSharp_ResetEntitySlots(CSourceSharpEntitySlots& slots, CSourceSharpSlotTable& table)
 {
 	slots.Reset();
 
@@ -174,26 +174,26 @@ void SourceSharp_ResetEntitySlots( CSourceSharpEntitySlots &slots, CSourceSharpS
 // The handle a shell at this entry will carry, issued without binding. The shell's
 // SetRefEHandle binds it (SourceSharp_SlotBindAt), which mirrors the edict serial.
 //-----------------------------------------------------------------------------
-CBaseHandle SourceSharp_SlotIssue( CSourceSharpSlotTable &table, int nEntry )
+CBaseHandle SourceSharp_SlotIssue(CSourceSharpSlotTable& table, int nEntry)
 {
-	return table.IssueHandle( nEntry );
+	return table.IssueHandle(nEntry);
 }
 
 // Binds a handle assigned elsewhere.
-bool SourceSharp_SlotBindAt( CSourceSharpSlotTable &table, const CBaseHandle &handle, CStandaloneEntity *pShell,
-							 edict_t *pEdict )
+bool SourceSharp_SlotBindAt(CSourceSharpSlotTable& table, const CBaseHandle& handle, CStandaloneEntity* pShell,
+							edict_t* pEdict)
 {
-	if ( !table.BindAt( handle, pShell ) )
+	if (!table.BindAt(handle, pShell))
 		return false;
 
-	StandaloneNetSerial_Mirror( pEdict, (unsigned long)handle.GetSerialNumber() );
+	StandaloneNetSerial_Mirror(pEdict, (unsigned long)handle.GetSerialNumber());
 	return true;
 }
 
 // Called from the shell's destructor before the handle is torn down. Keyed by entry, so
 // an entity whose handle is already invalid can still unbind.
 //-----------------------------------------------------------------------------
-void SourceSharp_SlotUnbind( CSourceSharpSlotTable &table, int nEntry )
+void SourceSharp_SlotUnbind(CSourceSharpSlotTable& table, int nEntry)
 {
-	table.Unbind( nEntry );
+	table.Unbind(nEntry);
 }

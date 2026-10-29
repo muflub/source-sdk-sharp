@@ -10,14 +10,14 @@
 class CServerSystem
 {
 public:
-	CServerSystem( char const *pszName = NULL )
-		: m_pszName( pszName )
+	CServerSystem(char const* pszName = NULL)
+		: m_pszName(pszName)
 	{
 	}
 
 	virtual ~CServerSystem() {}
 
-	virtual char const *Name() { return m_pszName ? m_pszName : "unnamed"; }
+	virtual char const* Name() { return m_pszName ? m_pszName : "unnamed"; }
 
 	// Return false to abort the server's start-up.
 	virtual bool Init() { return true; }
@@ -31,5 +31,5 @@ public:
 	virtual void LevelShutdownPostEntity() {}
 
 private:
-	char const *m_pszName;
+	char const* m_pszName;
 };

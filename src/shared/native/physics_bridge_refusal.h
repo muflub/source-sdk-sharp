@@ -8,25 +8,25 @@
 class CPhysicsBridgeRefusal
 {
 public:
-	CPhysicsBridgeRefusal( const char *pszWhat, const char *pszRefusal )
-		: m_pszWhat( pszWhat )
-		, m_pszRefusal( pszRefusal )
-		, m_nReached( 0 )
+	CPhysicsBridgeRefusal(const char* pszWhat, const char* pszRefusal)
+		: m_pszWhat(pszWhat)
+		, m_pszRefusal(pszRefusal)
+		, m_nReached(0)
 	{
 	}
 
 	bool Reached()
 	{
 		m_nReached++;
-		return ( m_nReached == 1 );
+		return (m_nReached == 1);
 	}
 
 	// How many times the refused path was entered this session.
 	int ReachCount() const { return m_nReached; }
 
-	const char *What() const { return m_pszWhat ? m_pszWhat : ""; }
+	const char* What() const { return m_pszWhat ? m_pszWhat : ""; }
 
-	const char *Refusal() const { return m_pszRefusal ? m_pszRefusal : ""; }
+	const char* Refusal() const { return m_pszRefusal ? m_pszRefusal : ""; }
 
 	// A refusal must name what and why.
 	bool IsDeclared() const
@@ -35,8 +35,8 @@ public:
 	}
 
 private:
-	const char *m_pszWhat;
-	const char *m_pszRefusal;
+	const char* m_pszWhat;
+	const char* m_pszRefusal;
 	int m_nReached;
 };
 

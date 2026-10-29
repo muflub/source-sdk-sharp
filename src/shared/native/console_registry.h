@@ -13,7 +13,7 @@ class CConsoleRegistry
 {
 public:
 	CConsoleRegistry()
-		: m_nNextId( 0 )
+		: m_nNextId(0)
 	{
 	}
 
@@ -21,32 +21,32 @@ public:
 	int NextId() const { return m_nNextId; }
 
 	// Records a carrier built with NextId() under pName; answers that id.
-	int Add( const char *pName, T *pCarrier )
+	int Add(const char* pName, T* pCarrier)
 	{
 		const int nId = m_nNextId++;
-		m_ById.emplace( nId, pCarrier );
-		m_IdByName.emplace( pName, nId );
+		m_ById.emplace(nId, pCarrier);
+		m_IdByName.emplace(pName, nId);
 		return nId;
 	}
 
 	// The id registered under pName in any case, or -1.
-	int IdOf( const char *pName ) const
+	int IdOf(const char* pName) const
 	{
-		if ( !pName )
+		if (!pName)
 			return -1;
 
-		NameIndex_t::const_iterator it = m_IdByName.find( pName );
-		return ( it != m_IdByName.end() ) ? it->second : -1;
+		NameIndex_t::const_iterator it = m_IdByName.find(pName);
+		return (it != m_IdByName.end()) ? it->second : -1;
 	}
 
 	// The carrier under nId, or NULL.
-	T *ById( int nId ) const
+	T* ById(int nId) const
 	{
-		typename ById_t::const_iterator it = m_ById.find( nId );
-		return ( it != m_ById.end() ) ? it->second : NULL;
+		typename ById_t::const_iterator it = m_ById.find(nId);
+		return (it != m_ById.end()) ? it->second : NULL;
 	}
 
-	T *ByName( const char *pName ) const { return ById( IdOf( pName ) ); }
+	T* ByName(const char* pName) const { return ById(IdOf(pName)); }
 
 	int Count() const { return (int)m_ById.size(); }
 
@@ -55,14 +55,14 @@ public:
 	// carrier registered after this gets the next one, never a reused one.
 	void DeleteAll()
 	{
-		for ( typename ById_t::value_type &entry : m_ById )
+		for (typename ById_t::value_type& entry : m_ById)
 			delete entry.second;
 		m_ById.clear();
 		m_IdByName.clear();
 	}
 
 private:
-	typedef std::unordered_map<int, T *> ById_t;
+	typedef std::unordered_map<int, T*> ById_t;
 	typedef std::unordered_map<std::string, int, ss::CaselessHash, ss::CaselessEqual> NameIndex_t;
 
 	ById_t m_ById;

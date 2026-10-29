@@ -34,12 +34,12 @@ public:
 	// NOTE: This also should only be called from within the paint()
 	// method of a panel. Use it to disable clipping for the rendering
 	// of this panel.
-	virtual void DisableClipping( bool bDisable ) = 0;
+	virtual void DisableClipping(bool bDisable) = 0;
 	virtual void GetClippingRect(
-		int &left, int &top, int &right, int &bottom,
-		bool &
-			bClippingDisabled ) = 0; // <<<<< NOTE: output flag is *disabled* state, not enabled, to match the rest of the interface
-	virtual void SetClippingRect( int left, int top, int right, int bottom ) = 0;
+		int& left, int& top, int& right, int& bottom,
+		bool&
+			bClippingDisabled) = 0; // <<<<< NOTE: output flag is *disabled* state, not enabled, to match the rest of the interface
+	virtual void SetClippingRect(int left, int top, int right, int bottom) = 0;
 
 	// Prevents vgui from changing the cursor
 	virtual bool IsCursorLocked() const = 0;
@@ -68,7 +68,7 @@ public:
 	virtual void unused_DrawPanelIn3DSpace() = 0;
 
 	// Binds a material to a surface texture ID
-	virtual void DrawSetTextureMaterial( int id, IMaterial *pMaterial ) = 0;
+	virtual void DrawSetTextureMaterial(int id, IMaterial* pMaterial) = 0;
 
 	// Handles an input event, returns true if the event should be filtered from the rest of the game
 	virtual void unused_HandleInputEvent() = 0;

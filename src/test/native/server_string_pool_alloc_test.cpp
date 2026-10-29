@@ -35,42 +35,42 @@ struct Delta
 };
 
 // Longer than any small-string buffer, so each one is a heap block.
-const char *const kNames[] = {
+const char* const kNames[] = {
 	"info_player_deathmatch_long_enough_to_be_a_heap_block",
 	"prop_physics_multiplayer_long_enough_to_be_a_heap_block",
 	"func_breakable_surf_long_enough_to_be_a_heap_block",
 };
 }
 
-TEST( ServerStringPoolAlloc, UnderMemdbgonEveryReleaseIsOfABlockThePoolAllocated )
+TEST(ServerStringPoolAlloc, UnderMemdbgonEveryReleaseIsOfABlockThePoolAllocated)
 {
 	SS_SKIP_ON_CI(
-		"built against the fork's tier0 allocator routing (memdbgon/MemAlloc_StrDup), which the public patch series does not reproduce" );
+		"built against the fork's tier0 allocator routing (memdbgon/MemAlloc_StrDup), which the public patch series does not reproduce");
 	Delta d;
 	{
 		CServerStringPool pool;
-		for ( const char *pszName : kNames )
-			pool.Allocate( pszName );
-		ASSERT_EQ( 3, pool.Count() );
+		for (const char* pszName : kNames)
+			pool.Allocate(pszName);
+		ASSERT_EQ(3, pool.Count());
 		pool.FreeAll();
 	}
-	EXPECT_GE( d.Allocs(), 3u ) << "the pool's allocations never reached the checker";
-	EXPECT_EQ( 0u, d.Foreign() ) << "the pool released memory it did not allocate "
-									"through the wrapped allocator";
-	EXPECT_EQ( 0u, d.Mismatches() );
+	EXPECT_GE(d.Allocs(), 3u) << "the pool's allocations never reached the checker";
+	EXPECT_EQ(0u, d.Foreign()) << "the pool released memory it did not allocate "
+								  "through the wrapped allocator";
+	EXPECT_EQ(0u, d.Mismatches());
 }
 
-TEST( ServerStringPoolAlloc, TheDestructorReleasesWhatFreeAllWouldHave )
+TEST(ServerStringPoolAlloc, TheDestructorReleasesWhatFreeAllWouldHave)
 {
 	SS_SKIP_ON_CI(
-		"built against the fork's tier0 allocator routing (memdbgon/MemAlloc_StrDup), which the public patch series does not reproduce" );
+		"built against the fork's tier0 allocator routing (memdbgon/MemAlloc_StrDup), which the public patch series does not reproduce");
 	Delta d;
 	{
 		CServerStringPool pool;
-		for ( const char *pszName : kNames )
-			pool.Allocate( pszName );
+		for (const char* pszName : kNames)
+			pool.Allocate(pszName);
 	}
-	EXPECT_GE( d.Allocs(), 3u );
-	EXPECT_EQ( 0u, d.Foreign() );
-	EXPECT_EQ( 0u, d.Mismatches() );
+	EXPECT_GE(d.Allocs(), 3u);
+	EXPECT_EQ(0u, d.Foreign());
+	EXPECT_EQ(0u, d.Mismatches());
 }

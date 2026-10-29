@@ -8,4 +8,4 @@
 
 #pragma once
 
-typedef void *FileHandle_t;
+typedef void* FileHandle_t;

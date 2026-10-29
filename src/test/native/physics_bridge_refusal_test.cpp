@@ -27,21 +27,21 @@
 namespace
 {
 
-const char *const kWhat = "the event-driven contact touchlink";
-const char *const kWhy = "physics_main_shared.cpp is the only producer and the "
+const char* const kWhat = "the event-driven contact touchlink";
+const char* const kWhy = "physics_main_shared.cpp is the only producer and the "
 						 "only drainer, and it leaves both vpcs.";
 
 //-----------------------------------------------------------------------------
 // The print is once. Everything after the first reach answers false, so a site
 // that prints on `Reached()` prints one line however hot the path is.
 //-----------------------------------------------------------------------------
-TEST( PhysicsBridgeRefusal, TheFirstReachIsTheOnlyOneThatSaysSo )
+TEST(PhysicsBridgeRefusal, TheFirstReachIsTheOnlyOneThatSaysSo)
 {
-	CPhysicsBridgeRefusal refusal( kWhat, kWhy );
+	CPhysicsBridgeRefusal refusal(kWhat, kWhy);
 
-	EXPECT_TRUE( refusal.Reached() );
-	EXPECT_FALSE( refusal.Reached() );
-	EXPECT_FALSE( refusal.Reached() );
+	EXPECT_TRUE(refusal.Reached());
+	EXPECT_FALSE(refusal.Reached());
+	EXPECT_FALSE(refusal.Reached());
 }
 
 //-----------------------------------------------------------------------------
@@ -49,16 +49,16 @@ TEST( PhysicsBridgeRefusal, TheFirstReachIsTheOnlyOneThatSaysSo )
 // "reached once", and an implementation that returns early without counting
 // passes the test above and fails this one.
 //-----------------------------------------------------------------------------
-TEST( PhysicsBridgeRefusal, TheCountKeepsRisingAfterTheFirstPrint )
+TEST(PhysicsBridgeRefusal, TheCountKeepsRisingAfterTheFirstPrint)
 {
-	CPhysicsBridgeRefusal refusal( kWhat, kWhy );
+	CPhysicsBridgeRefusal refusal(kWhat, kWhy);
 
-	for ( int i = 0; i < 17; i++ )
+	for (int i = 0; i < 17; i++)
 	{
 		refusal.Reached();
 	}
 
-	EXPECT_EQ( 17, refusal.ReachCount() );
+	EXPECT_EQ(17, refusal.ReachCount());
 }
 
 //-----------------------------------------------------------------------------
@@ -66,37 +66,37 @@ TEST( PhysicsBridgeRefusal, TheCountKeepsRisingAfterTheFirstPrint )
 // lane declares predicts after the flip, so it has to be distinguishable from
 // "reached once" rather than being the same default.
 //-----------------------------------------------------------------------------
-TEST( PhysicsBridgeRefusal, AnUnreachedRefusalCountsZero )
+TEST(PhysicsBridgeRefusal, AnUnreachedRefusalCountsZero)
 {
-	CPhysicsBridgeRefusal refusal( kWhat, kWhy );
+	CPhysicsBridgeRefusal refusal(kWhat, kWhy);
 
-	EXPECT_EQ( 0, refusal.ReachCount() );
+	EXPECT_EQ(0, refusal.ReachCount());
 
 	refusal.Reached();
-	EXPECT_EQ( 1, refusal.ReachCount() );
+	EXPECT_EQ(1, refusal.ReachCount());
 }
 
 //-----------------------------------------------------------------------------
 // §7: "a reason, never a silent no-op". A refusal carrying both strings is
 // declared.
 //-----------------------------------------------------------------------------
-TEST( PhysicsBridgeRefusal, ARefusalWithBothStringsIsDeclared )
+TEST(PhysicsBridgeRefusal, ARefusalWithBothStringsIsDeclared)
 {
-	CPhysicsBridgeRefusal refusal( kWhat, kWhy );
+	CPhysicsBridgeRefusal refusal(kWhat, kWhy);
 
-	EXPECT_TRUE( refusal.IsDeclared() );
-	EXPECT_EQ( std::string( kWhat ), std::string( refusal.What() ) );
-	EXPECT_EQ( std::string( kWhy ), std::string( refusal.Refusal() ) );
+	EXPECT_TRUE(refusal.IsDeclared());
+	EXPECT_EQ(std::string(kWhat), std::string(refusal.What()));
+	EXPECT_EQ(std::string(kWhy), std::string(refusal.Refusal()));
 }
 
 //-----------------------------------------------------------------------------
 // An EMPTY reason is the stub wearing the type. Not declared.
 //-----------------------------------------------------------------------------
-TEST( PhysicsBridgeRefusal, AnEmptyReasonIsNotADeclaredRefusal )
+TEST(PhysicsBridgeRefusal, AnEmptyReasonIsNotADeclaredRefusal)
 {
-	CPhysicsBridgeRefusal refusal( kWhat, "" );
+	CPhysicsBridgeRefusal refusal(kWhat, "");
 
-	EXPECT_FALSE( refusal.IsDeclared() );
+	EXPECT_FALSE(refusal.IsDeclared());
 }
 
 //-----------------------------------------------------------------------------
@@ -104,12 +104,12 @@ TEST( PhysicsBridgeRefusal, AnEmptyReasonIsNotADeclaredRefusal )
 // entirely would leave, and it must not read as declared either -- nor crash
 // the accessors, which run inside a physics callback.
 //-----------------------------------------------------------------------------
-TEST( PhysicsBridgeRefusal, ANullReasonIsNotDeclaredAndReadsEmpty )
+TEST(PhysicsBridgeRefusal, ANullReasonIsNotDeclaredAndReadsEmpty)
 {
-	CPhysicsBridgeRefusal refusal( kWhat, 0 );
+	CPhysicsBridgeRefusal refusal(kWhat, 0);
 
-	EXPECT_FALSE( refusal.IsDeclared() );
-	EXPECT_EQ( std::string( "" ), std::string( refusal.Refusal() ) );
+	EXPECT_FALSE(refusal.IsDeclared());
+	EXPECT_EQ(std::string(""), std::string(refusal.Refusal()));
 }
 
 //-----------------------------------------------------------------------------
@@ -117,11 +117,11 @@ TEST( PhysicsBridgeRefusal, ANullReasonIsNotDeclaredAndReadsEmpty )
 // -- a refusal that says why but not what is unfindable in a log -- so both
 // halves are checked, and a needle that only watched the reason would miss this.
 //-----------------------------------------------------------------------------
-TEST( PhysicsBridgeRefusal, AnEmptyCapabilityNameIsNotADeclaredRefusal )
+TEST(PhysicsBridgeRefusal, AnEmptyCapabilityNameIsNotADeclaredRefusal)
 {
-	CPhysicsBridgeRefusal refusal( "", kWhy );
+	CPhysicsBridgeRefusal refusal("", kWhy);
 
-	EXPECT_FALSE( refusal.IsDeclared() );
+	EXPECT_FALSE(refusal.IsDeclared());
 }
 
 //-----------------------------------------------------------------------------
@@ -129,16 +129,16 @@ TEST( PhysicsBridgeRefusal, AnEmptyCapabilityNameIsNotADeclaredRefusal )
 // static, and one path being reached must not consume another's first print --
 // a shared latch would silence every refusal but the first one to fire.
 //-----------------------------------------------------------------------------
-TEST( PhysicsBridgeRefusal, TwoRefusalsDoNotShareALatch )
+TEST(PhysicsBridgeRefusal, TwoRefusalsDoNotShareALatch)
 {
-	CPhysicsBridgeRefusal first( kWhat, kWhy );
-	CPhysicsBridgeRefusal second( "the timed debug overlay", kWhy );
+	CPhysicsBridgeRefusal first(kWhat, kWhy);
+	CPhysicsBridgeRefusal second("the timed debug overlay", kWhy);
 
-	EXPECT_TRUE( first.Reached() );
-	EXPECT_TRUE( second.Reached() );
+	EXPECT_TRUE(first.Reached());
+	EXPECT_TRUE(second.Reached());
 
-	EXPECT_EQ( 1, first.ReachCount() );
-	EXPECT_EQ( 1, second.ReachCount() );
+	EXPECT_EQ(1, first.ReachCount());
+	EXPECT_EQ(1, second.ReachCount());
 }
 
 //-----------------------------------------------------------------------------
@@ -147,17 +147,17 @@ TEST( PhysicsBridgeRefusal, TwoRefusalsDoNotShareALatch )
 // -- and an edit that dropped one of the two `%s` would silently print half a
 // refusal.
 //-----------------------------------------------------------------------------
-TEST( PhysicsBridgeRefusal, TheSharedFormatCarriesBothHalvesAndSaysItIsARefusal )
+TEST(PhysicsBridgeRefusal, TheSharedFormatCarriesBothHalvesAndSaysItIsARefusal)
 {
-	const std::string fmt( SOURCESHARP_PHYSICS_REFUSAL_FMT );
+	const std::string fmt(SOURCESHARP_PHYSICS_REFUSAL_FMT);
 
-	const size_t first = fmt.find( "%s" );
-	ASSERT_NE( std::string::npos, first );
-	const size_t second = fmt.find( "%s", first + 2 );
-	EXPECT_NE( std::string::npos, second ) << "the reason has no slot to print in";
+	const size_t first = fmt.find("%s");
+	ASSERT_NE(std::string::npos, first);
+	const size_t second = fmt.find("%s", first + 2);
+	EXPECT_NE(std::string::npos, second) << "the reason has no slot to print in";
 
-	EXPECT_NE( std::string::npos, fmt.find( "REFUSED" ) );
-	EXPECT_NE( std::string::npos, fmt.find( "SourceSharp" ) );
+	EXPECT_NE(std::string::npos, fmt.find("REFUSED"));
+	EXPECT_NE(std::string::npos, fmt.find("SourceSharp"));
 }
 
 } // namespace

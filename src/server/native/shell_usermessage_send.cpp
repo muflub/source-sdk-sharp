@@ -14,47 +14,47 @@
 
 #include "eiface.h"
 
-bool CServerUserMessages::IsPlayerSlotLive( int nPlayerIndex ) const
+bool CServerUserMessages::IsPlayerSlotLive(int nPlayerIndex) const
 {
-	if ( nPlayerIndex < 1 || nPlayerIndex > m_pGlobals->maxClients )
+	if (nPlayerIndex < 1 || nPlayerIndex > m_pGlobals->maxClients)
 		return false;
 
-	edict_t *pEdict = m_pEngine->PEntityOfEntIndex( nPlayerIndex );
+	edict_t* pEdict = m_pEngine->PEntityOfEntIndex(nPlayerIndex);
 	return pEdict && !pEdict->IsFree() && pEdict->GetUnknown() != NULL;
 }
 
-void CServerUserMessages::Send( IRecipientFilter &filter, int32_t nMsgId, const unsigned char *pData, int32_t nBytes )
+void CServerUserMessages::Send(IRecipientFilter& filter, int32_t nMsgId, const unsigned char* pData, int32_t nBytes)
 {
-	bf_write *pBuf = m_pEngine->UserMessageBegin( &filter, nMsgId );
-	if ( pBuf && nBytes > 0 )
-		SourceSharp_AppendBits( pBuf, pData, nBytes * 8 );
+	bf_write* pBuf = m_pEngine->UserMessageBegin(&filter, nMsgId);
+	if (pBuf && nBytes > 0)
+		SourceSharp_AppendBits(pBuf, pData, nBytes * 8);
 	m_pEngine->MessageEnd();
 }
 
-int32_t CServerUserMessages::UserMessageSend( int32_t nMsgId, const unsigned char *pData, int32_t nBytes,
-											  int32_t nPlayerIndex, int32_t bReliable )
+int32_t CServerUserMessages::UserMessageSend(int32_t nMsgId, const unsigned char* pData, int32_t nBytes,
+											 int32_t nPlayerIndex, int32_t bReliable)
 {
-	ss::CRecipientFilter filter( m_pGlobals->maxClients );
+	ss::CRecipientFilter filter(m_pGlobals->maxClients);
 
-	if ( nPlayerIndex > 0 )
+	if (nPlayerIndex > 0)
 	{
-		if ( !IsPlayerSlotLive( nPlayerIndex ) )
+		if (!IsPlayerSlotLive(nPlayerIndex))
 			return 0;
 
-		filter.AddRecipientByPlayerIndex( nPlayerIndex );
+		filter.AddRecipientByPlayerIndex(nPlayerIndex);
 	}
 	else
 	{
-		for ( int i = 1; i <= m_pGlobals->maxClients; i++ )
+		for (int i = 1; i <= m_pGlobals->maxClients; i++)
 		{
-			if ( IsPlayerSlotLive( i ) )
-				filter.AddRecipientByPlayerIndex( i );
+			if (IsPlayerSlotLive(i))
+				filter.AddRecipientByPlayerIndex(i);
 		}
 	}
 
-	if ( bReliable )
+	if (bReliable)
 		filter.MakeReliable();
 
-	Send( filter, nMsgId, pData, nBytes );
+	Send(filter, nMsgId, pData, nBytes);
 	return 1;
 }

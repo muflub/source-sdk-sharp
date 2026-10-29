@@ -7,7 +7,7 @@
 
 #include "ispatialpartition.h"
 
-#if defined( CLIENT_DLL )
+#if defined(CLIENT_DLL)
 class C_BaseEntity;
 #else
 class CBaseEntity;
@@ -31,10 +31,10 @@ public:
 	int hitgroup; // 0 == generic, non-zero is specific body part
 	short physicsbone; // physics bone hit by trace in studio
 
-#if defined( CLIENT_DLL )
-	C_BaseEntity *m_pEnt;
+#if defined(CLIENT_DLL)
+	C_BaseEntity* m_pEnt;
 #else
-	CBaseEntity *m_pEnt;
+	CBaseEntity* m_pEnt;
 #endif
 
 	// NOTE: this member is overloaded.
@@ -46,7 +46,7 @@ public:
 
 private:
 	// No copy constructors allowed
-	CGameTrace( const CGameTrace &vOther );
+	CGameTrace(const CGameTrace& vOther);
 };
 
 // Returns true if there was any kind of impact at all
@@ -67,14 +67,14 @@ typedef CGameTrace trace_t;
 class CTraceListData final : public IPartitionEnumerator
 {
 public:
-	CTraceListData( int nLeafMax = TLD_DEF_LEAF_MAX, int nEntityMax = TLD_DEF_ENTITY_MAX )
+	CTraceListData(int nLeafMax = TLD_DEF_LEAF_MAX, int nEntityMax = TLD_DEF_ENTITY_MAX)
 	{
 		MEM_ALLOC_CREDIT();
 		m_nLeafCount = 0;
-		m_aLeafList.SetSize( nLeafMax );
+		m_aLeafList.SetSize(nLeafMax);
 
 		m_nEntityCount = 0;
-		m_aEntityList.SetSize( nEntityMax );
+		m_aEntityList.SetSize(nEntityMax);
 	}
 
 	~CTraceListData()
@@ -92,15 +92,15 @@ public:
 		m_nEntityCount = 0;
 	}
 
-	bool IsEmpty() const { return ( m_nLeafCount == 0 && m_nEntityCount == 0 ); }
+	bool IsEmpty() const { return (m_nLeafCount == 0 && m_nEntityCount == 0); }
 
 	// For entities...
-	IterationRetval_t EnumElement( IHandleEntity *pHandleEntity )
+	IterationRetval_t EnumElement(IHandleEntity* pHandleEntity)
 	{
-		if ( m_nEntityCount >= m_aEntityList.Count() )
+		if (m_nEntityCount >= m_aEntityList.Count())
 		{
-			DevMsg( "CTraceListData: Max entity count along ray exceeded!\n" );
-			m_aEntityList.AddMultipleToTail( m_aEntityList.Count() );
+			DevMsg("CTraceListData: Max entity count along ray exceeded!\n");
+			m_aEntityList.AddMultipleToTail(m_aEntityList.Count());
 		}
 
 		m_aEntityList[m_nEntityCount] = pHandleEntity;
@@ -114,5 +114,5 @@ public:
 	CUtlVector<int> m_aLeafList;
 
 	int m_nEntityCount;
-	CUtlVector<IHandleEntity *> m_aEntityList;
+	CUtlVector<IHandleEntity*> m_aEntityList;
 };

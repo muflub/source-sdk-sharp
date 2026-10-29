@@ -18,56 +18,56 @@ class CSourceSharpPhysicsEnvironment
 {
 public:
 	CSourceSharpPhysicsEnvironment()
-		: m_pEnv( 0 )
+		: m_pEnv(0)
 	{
 	}
 
 	// The handlers are parameters: this class does not know what implements them.
-	IPhysicsEnvironment *Create( IPhysics *pPhysics, IPhysicsCollisionSolver *pSolver,
-								 IPhysicsCollisionEvent *pCollisionEvents, IPhysicsObjectEvent *pObjectEvents,
-								 IPhysicsConstraintEvent *pConstraintEvents, CreateInterfaceFn engineFactory,
-								 float flTimestep, float flGravity, int nMaxCollisionsPerObjectPerTimestep )
+	IPhysicsEnvironment* Create(IPhysics* pPhysics, IPhysicsCollisionSolver* pSolver,
+								IPhysicsCollisionEvent* pCollisionEvents, IPhysicsObjectEvent* pObjectEvents,
+								IPhysicsConstraintEvent* pConstraintEvents, CreateInterfaceFn engineFactory,
+								float flTimestep, float flGravity, int nMaxCollisionsPerObjectPerTimestep)
 	{
-		if ( !pPhysics )
+		if (!pPhysics)
 			return 0;
 
 		m_pEnv = pPhysics->CreateEnvironment();
-		if ( !m_pEnv )
+		if (!m_pEnv)
 			return 0;
 
 		physics_performanceparams_t params;
 		params.Defaults();
 		params.maxCollisionsPerObjectPerTimestep = nMaxCollisionsPerObjectPerTimestep;
-		m_pEnv->SetPerformanceSettings( &params );
+		m_pEnv->SetPerformanceSettings(&params);
 
-		if ( engineFactory )
-			m_pEnv->SetDebugOverlay( engineFactory );
-		m_pEnv->EnableDeleteQueue( true );
+		if (engineFactory)
+			m_pEnv->SetDebugOverlay(engineFactory);
+		m_pEnv->EnableDeleteQueue(true);
 
-		m_pEnv->SetCollisionSolver( pSolver );
-		m_pEnv->SetCollisionEventHandler( pCollisionEvents );
-		m_pEnv->SetConstraintEventHandler( pConstraintEvents );
+		m_pEnv->SetCollisionSolver(pSolver);
+		m_pEnv->SetCollisionEventHandler(pCollisionEvents);
+		m_pEnv->SetConstraintEventHandler(pConstraintEvents);
 		// Managed's IPhysicsConstraintEvent table depends on this being on.
-		m_pEnv->EnableConstraintNotify( true );
-		m_pEnv->SetObjectEventHandler( pObjectEvents );
+		m_pEnv->EnableConstraintNotify(true);
+		m_pEnv->SetObjectEventHandler(pObjectEvents);
 
-		m_pEnv->SetSimulationTimestep( flTimestep );
-		m_pEnv->SetGravity( Vector( 0, 0, -flGravity ) );
+		m_pEnv->SetSimulationTimestep(flTimestep);
+		m_pEnv->SetGravity(Vector(0, 0, -flGravity));
 
 		return m_pEnv;
 	}
 
-	void Destroy( IPhysics *pPhysics )
+	void Destroy(IPhysics* pPhysics)
 	{
-		if ( m_pEnv && pPhysics )
-			pPhysics->DestroyEnvironment( m_pEnv );
+		if (m_pEnv && pPhysics)
+			pPhysics->DestroyEnvironment(m_pEnv);
 		m_pEnv = 0;
 	}
 
-	IPhysicsEnvironment *Get() const { return m_pEnv; }
+	IPhysicsEnvironment* Get() const { return m_pEnv; }
 
 private:
-	IPhysicsEnvironment *m_pEnv;
+	IPhysicsEnvironment* m_pEnv;
 };
 
 #endif // SOURCESHARP_PHYSICS_SHELL_ENGINE

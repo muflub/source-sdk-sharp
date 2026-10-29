@@ -42,15 +42,15 @@ public:
 class IReader
 {
 public:
-	virtual int Open( const char *name ) = 0;
-	virtual bool Exists( const char *name ) = 0;
-	virtual int Read( int handle ) = 0;
+	virtual int Open(const char* name) = 0;
+	virtual bool Exists(const char* name) = 0;
+	virtual int Read(int handle) = 0;
 };
 
 class IFace : public IThing, public IReader
 {
 public:
-	virtual int Search( const char *path ) = 0;
+	virtual int Search(const char* path) = 0;
 	virtual int Count() = 0;
 };
 
@@ -61,7 +61,7 @@ class CThing : public IFace
 {
 public:
 	CThing()
-		: m_nOpened( 0 )
+		: m_nOpened(0)
 	{
 	}
 
@@ -69,22 +69,22 @@ public:
 
 	virtual int Shutdown() { return 2; }
 
-	virtual int Open( const char *name )
+	virtual int Open(const char* name)
 	{
 		m_nOpened++;
-		return Decorate( (int)strlen( name ) );
+		return Decorate((int)strlen(name));
 	}
 
-	virtual bool Exists( const char *name ) { return name != NULL && name[0] == 'y'; }
+	virtual bool Exists(const char* name) { return name != NULL && name[0] == 'y'; }
 
-	virtual int Read( int handle ) { return handle * 2; }
+	virtual int Read(int handle) { return handle * 2; }
 
-	virtual int Search( const char *path ) { return path != NULL ? 7 : 0; }
+	virtual int Search(const char* path) { return path != NULL ? 7 : 0; }
 
 	virtual int Count() { return m_nOpened; }
 
 	// Past the interface, and reached through the vtable from Open above.
-	virtual int Decorate( int value ) { return value + 100; }
+	virtual int Decorate(int value) { return value + 100; }
 
 	virtual int Unused1() { return 0; }
 
@@ -97,9 +97,9 @@ public:
 // Hooks. Plain functions taking the object first, which is what the ABI makes of
 // a member function.
 //-----------------------------------------------------------------------------
-typedef int ( *OpenFn )( void *self, const char *name );
-typedef bool ( *ExistsFn )( void *self, const char *name );
-typedef int ( *SearchFn )( void *self, const char *path );
+typedef int (*OpenFn)(void* self, const char* name);
+typedef bool (*ExistsFn)(void* self, const char* name);
+typedef int (*SearchFn)(void* self, const char* path);
 
 OpenFn g_pfnOpen = NULL;
 ExistsFn g_pfnExists = NULL;
@@ -108,7 +108,7 @@ SearchFn g_pfnSearch = NULL;
 int g_nOpenSeen = 0;
 int g_nExistsSeen = 0;
 int g_nSearchSeen = 0;
-const char *g_pLastName = NULL;
+const char* g_pLastName = NULL;
 
 class VTableHookTest : public ::testing::Test
 {
@@ -129,17 +129,17 @@ protected:
 
 // The whole design rests on this: the slot is taken from the compiler, so a
 // header that is wrong is wrong in the same way for the hook and for the caller.
-TEST_F( VTableHookTest, FindsTheSlotOfAVirtualMethod )
+TEST_F(VTableHookTest, FindsTheSlotOfAVirtualMethod)
 {
-	VTableHook::Member connect = VTableHook::MemberOf( &IFace::Connect );
+	VTableHook::Member connect = VTableHook::MemberOf(&IFace::Connect);
 
-	EXPECT_TRUE( connect.isVirtual );
-	EXPECT_GE( connect.slot, 0 );
+	EXPECT_TRUE(connect.isVirtual);
+	EXPECT_GE(connect.slot, 0);
 
 	// Different methods land in different slots, and the second of two declared
 	// together is one further along.
-	VTableHook::Member shutdown = VTableHook::MemberOf( &IFace::Shutdown );
-	EXPECT_EQ( connect.slot + 1, shutdown.slot );
+	VTableHook::Member shutdown = VTableHook::MemberOf(&IFace::Shutdown);
+	EXPECT_EQ(connect.slot + 1, shutdown.slot);
 }
 
 // The trap, pinned down.
@@ -152,45 +152,45 @@ TEST_F( VTableHookTest, FindsTheSlotOfAVirtualMethod )
 // "the primary table" combine into a write that lands on an unrelated method.
 // This test exists so that if a compiler ever starts answering differently,
 // something says so here rather than in a game.
-TEST_F( VTableHookTest, AnInheritedMethodIsNumberedAgainstTheClassThatDeclaredIt )
+TEST_F(VTableHookTest, AnInheritedMethodIsNumberedAgainstTheClassThatDeclaredIt)
 {
-	VTableHook::Member throughDerived = VTableHook::MemberOf( &IFace::Open );
-	VTableHook::Member throughBase = VTableHook::MemberOf( &IReader::Open );
+	VTableHook::Member throughDerived = VTableHook::MemberOf(&IFace::Open);
+	VTableHook::Member throughBase = VTableHook::MemberOf(&IReader::Open);
 
 	// The same member either way, and no adjustment on either.
-	EXPECT_EQ( throughBase.slot, throughDerived.slot );
-	EXPECT_EQ( 0, (int)throughDerived.adjust );
-	EXPECT_TRUE( throughDerived.isVirtual );
+	EXPECT_EQ(throughBase.slot, throughDerived.slot);
+	EXPECT_EQ(0, (int)throughDerived.adjust);
+	EXPECT_TRUE(throughDerived.isVirtual);
 
 	// And that slot is small -- it indexes IReader's table, not IFace's, which
 	// is why a caller that wants a count must ask about the class that DECLARES
 	// the last method. The row that bounded it against VTableHook::Length( the
 	// primary table ) went with Length itself.
-	EXPECT_LT( throughDerived.slot, 16 );
+	EXPECT_LT(throughDerived.slot, 16);
 }
 
-TEST_F( VTableHookTest, MethodsDeclaredTogetherAreConsecutive )
+TEST_F(VTableHookTest, MethodsDeclaredTogetherAreConsecutive)
 {
-	VTableHook::Member open = VTableHook::MemberOf( &IReader::Open );
-	VTableHook::Member exists = VTableHook::MemberOf( &IReader::Exists );
-	VTableHook::Member read = VTableHook::MemberOf( &IReader::Read );
+	VTableHook::Member open = VTableHook::MemberOf(&IReader::Open);
+	VTableHook::Member exists = VTableHook::MemberOf(&IReader::Exists);
+	VTableHook::Member read = VTableHook::MemberOf(&IReader::Read);
 
-	EXPECT_EQ( open.slot + 1, exists.slot );
-	EXPECT_EQ( open.slot + 2, read.slot );
-	EXPECT_EQ( open.adjust, exists.adjust );
-	EXPECT_EQ( open.adjust, read.adjust );
+	EXPECT_EQ(open.slot + 1, exists.slot);
+	EXPECT_EQ(open.slot + 2, read.slot);
+	EXPECT_EQ(open.adjust, exists.adjust);
+	EXPECT_EQ(open.adjust, read.adjust);
 }
 
-TEST_F( VTableHookTest, ANonVirtualMemberIsRefused )
+TEST_F(VTableHookTest, ANonVirtualMemberIsRefused)
 {
 	struct Plain
 	{
 		void Method() {}
 	};
 
-	VTableHook::Member member = VTableHook::MemberOf( &Plain::Method );
-	EXPECT_FALSE( member.isVirtual );
-	EXPECT_EQ( -1, member.slot );
+	VTableHook::Member member = VTableHook::MemberOf(&Plain::Method);
+	EXPECT_FALSE(member.isVirtual);
+	EXPECT_EQ(-1, member.slot);
 }
 
 } // namespace

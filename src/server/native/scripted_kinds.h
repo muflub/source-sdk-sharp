@@ -47,14 +47,14 @@ enum
 };
 
 // Total: anything unrecognised gets LOGICAL's answer.
-inline SourceSharpScriptedKindParams_t SourceSharp_ScriptedKindParams( int nKind )
+inline SourceSharpScriptedKindParams_t SourceSharp_ScriptedKindParams(int nKind)
 {
 	SourceSharpScriptedKindParams_t p;
 
 	p.bPlayer = false;
 	p.bShellLess = false;
 
-	switch ( nKind )
+	switch (nKind)
 	{
 		case SOURCESHARP_SCRIPTED_ITEM:
 			// NOT_SOLID with TRIGGER puts it in the trigger list but not the solid one.

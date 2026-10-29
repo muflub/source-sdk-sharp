@@ -10,38 +10,38 @@ template <class T>
 class CStridedPtr
 {
 protected:
-	T *m_pData = nullptr;
+	T* m_pData = nullptr;
 	size_t m_nStride = 0;
 
 public:
-	FORCEINLINE CStridedPtr( void *pData, size_t nByteStride )
+	FORCEINLINE CStridedPtr(void* pData, size_t nByteStride)
 	{
-		m_pData = reinterpret_cast<T *>( pData );
-		m_nStride = nByteStride / sizeof( T );
+		m_pData = reinterpret_cast<T*>(pData);
+		m_nStride = nByteStride / sizeof(T);
 	}
 
 	FORCEINLINE CStridedPtr() {}
 
-	FORCEINLINE operator T *() { return m_pData; }
+	FORCEINLINE operator T*() { return m_pData; }
 };
 
 template <class T>
 class CStridedConstPtr
 {
 protected:
-	const T *m_pData;
+	const T* m_pData;
 	size_t m_nStride;
 
 public:
-	FORCEINLINE CStridedConstPtr( void const *pData, size_t nByteStride )
+	FORCEINLINE CStridedConstPtr(void const* pData, size_t nByteStride)
 	{
-		m_pData = reinterpret_cast<T const *>( pData );
-		m_nStride = nByteStride / sizeof( T );
+		m_pData = reinterpret_cast<T const*>(pData);
+		m_nStride = nByteStride / sizeof(T);
 	}
 
 	FORCEINLINE CStridedConstPtr() {}
 
-	FORCEINLINE operator const T *() const { return m_pData; }
+	FORCEINLINE operator const T*() const { return m_pData; }
 };
 
 // allowed field data types. if you change these values, you need to change the tables in the .cpp file
@@ -67,8 +67,8 @@ protected:
 	int m_nPaddedColumns; // # of columns rounded up for sse
 	int m_nNumQuadsPerRow; // # of groups of 4 elements per row
 
-	uint8 *m_pDataMemory; // the actual data memory
-	uint8 *m_pAttributePtrs[MAX_SOA_FIELDS];
+	uint8* m_pDataMemory; // the actual data memory
+	uint8* m_pAttributePtrs[MAX_SOA_FIELDS];
 
 	EAttributeDataType m_nDataType[MAX_SOA_FIELDS];
 
@@ -80,14 +80,14 @@ protected:
 
 	FORCEINLINE void Init()
 	{
-		memset( m_nDataType, 0xff, sizeof( m_nDataType ) );
+		memset(m_nDataType, 0xff, sizeof(m_nDataType));
 		m_pDataMemory = 0;
 		m_nColumns = m_nPaddedColumns = m_nRows = m_nSlices = 0;
 		m_nFieldPresentMask = 0;
 	}
 
 public:
-	CSOAContainer( void ) // an empoty one with no attributes
+	CSOAContainer(void) // an empoty one with no attributes
 	{
 		Init();
 	}
@@ -103,7 +103,7 @@ public:
 	// CSOAContainer myimage( 256, 256, ATTR_RED, ATTRDATATYPE_FLOAT, ATTR_GREEN, ATTRDATATYPE_FLOAT,
 	//                        ATTR_BLUE, ATTRDATATYPE_FLOAT, -1 );
 
-	CSOAContainer( int nCols, int nRows, ... );
+	CSOAContainer(int nCols, int nRows, ...);
 
 	size_t ElementSize() const; // total bytes per element. not super fast.
 

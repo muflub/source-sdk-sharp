@@ -20,15 +20,15 @@ namespace
 class CSoundEmitterSystemRow : public CClientSystem
 {
 public:
-	virtual char const *Name() OVERRIDE { return "CSoundEmitterSystem"; }
+	virtual char const* Name() OVERRIDE { return "CSoundEmitterSystem"; }
 
 	virtual bool Init() OVERRIDE
 	{
-		IManagedSoundEmitterClient *pApi = ManagedSoundEmitterClient();
-		if ( !pApi )
+		IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient();
+		if (!pApi)
 		{
-			Warning( "[SourceSharp] CSoundEmitterSystem: no IManagedSoundEmitterClient, so the sound "
-					 "scripts cannot load\n" );
+			Warning("[SourceSharp] CSoundEmitterSystem: no IManagedSoundEmitterClient, so the sound "
+					"scripts cannot load\n");
 			return false;
 		}
 
@@ -37,26 +37,26 @@ public:
 
 	virtual void Shutdown() OVERRIDE
 	{
-		if ( IManagedSoundEmitterClient *pApi = ManagedSoundEmitterClient() )
+		if (IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient())
 			pApi->ClientSoundSystemShutdown();
 	}
 
 	virtual void LevelInitPreEntity() OVERRIDE
 	{
-		if ( IManagedSoundEmitterClient *pApi = ManagedSoundEmitterClient() )
+		if (IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient())
 			pApi->ClientSoundLevelInitPreEntity();
 	}
 
 	virtual void LevelShutdownPostEntity() OVERRIDE
 	{
-		if ( IManagedSoundEmitterClient *pApi = ManagedSoundEmitterClient() )
+		if (IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient())
 			pApi->ClientSoundLevelShutdownPostEntity();
 	}
 };
 
 } // namespace
 
-CClientSystem *ClientSystem_SoundEmitter()
+CClientSystem* ClientSystem_SoundEmitter()
 {
 	static CSoundEmitterSystemRow s_Row;
 	return &s_Row;

@@ -14,7 +14,7 @@
 #include "client_entity.h"
 #include "shell_clientdll_voicehelper.h"
 
-void CHLVoiceStatusHelper::GetPlayerTextColor( int entindex, int color[3] )
+void CHLVoiceStatusHelper::GetPlayerTextColor(int entindex, int color[3])
 {
 	color[0] = color[1] = color[2] = 128;
 }

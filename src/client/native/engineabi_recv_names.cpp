@@ -15,45 +15,45 @@
 #include "renamed_recvtable_compat.h"
 
 // Zero-initialised, so empty before any static constructor adds to them.
-ClientClass *g_pClientClassHead = 0;
-CRenamedRecvTableInfo *g_pRenamedRecvTableInfoHead = 0;
+ClientClass* g_pClientClassHead = 0;
+CRenamedRecvTableInfo* g_pRenamedRecvTableInfoHead = 0;
 
 // Read by the network-var assertions in the shared headers (debug builds).
 bool g_bUseNetworkVars = true;
 
-void RecvProxy_FloatToFloat( const CRecvProxyData *pData, void *pStruct, void *pOut )
+void RecvProxy_FloatToFloat(const CRecvProxyData* pData, void* pStruct, void* pOut)
 {
-	engineabi::recv::FloatToFloat( pData, pStruct, pOut );
+	engineabi::recv::FloatToFloat(pData, pStruct, pOut);
 }
 
-void RecvProxy_VectorToVector( const CRecvProxyData *pData, void *pStruct, void *pOut )
+void RecvProxy_VectorToVector(const CRecvProxyData* pData, void* pStruct, void* pOut)
 {
-	engineabi::recv::VectorToVector( pData, pStruct, pOut );
+	engineabi::recv::VectorToVector(pData, pStruct, pOut);
 }
 
-void RecvProxy_Int32ToInt8( const CRecvProxyData *pData, void *pStruct, void *pOut )
+void RecvProxy_Int32ToInt8(const CRecvProxyData* pData, void* pStruct, void* pOut)
 {
-	engineabi::recv::Int32ToInt8( pData, pStruct, pOut );
+	engineabi::recv::Int32ToInt8(pData, pStruct, pOut);
 }
 
-void RecvProxy_Int32ToInt16( const CRecvProxyData *pData, void *pStruct, void *pOut )
+void RecvProxy_Int32ToInt16(const CRecvProxyData* pData, void* pStruct, void* pOut)
 {
-	engineabi::recv::Int32ToInt16( pData, pStruct, pOut );
+	engineabi::recv::Int32ToInt16(pData, pStruct, pOut);
 }
 
-void RecvProxy_Int32ToInt32( const CRecvProxyData *pData, void *pStruct, void *pOut )
+void RecvProxy_Int32ToInt32(const CRecvProxyData* pData, void* pStruct, void* pOut)
 {
-	engineabi::recv::Int32ToInt32( pData, pStruct, pOut );
+	engineabi::recv::Int32ToInt32(pData, pStruct, pOut);
 }
 
-void RecvProxy_StringToString( const CRecvProxyData *pData, void *pStruct, void *pOut )
+void RecvProxy_StringToString(const CRecvProxyData* pData, void* pStruct, void* pOut)
 {
-	engineabi::recv::StringToString( pData, pStruct, pOut );
+	engineabi::recv::StringToString(pData, pStruct, pOut);
 }
 
-void DataTableRecvProxy_StaticDataTable( const RecvProp *pProp, void **pOut, void *pData, int objectID )
+void DataTableRecvProxy_StaticDataTable(const RecvProp* pProp, void** pOut, void* pData, int objectID)
 {
-	engineabi::recv::StaticDataTable( pProp, pOut, pData, objectID );
+	engineabi::recv::StaticDataTable(pProp, pOut, pData, objectID);
 }
 
 // The table GetStandardRecvProxies answers.
@@ -68,36 +68,36 @@ CStandardRecvProxies::CStandardRecvProxies()
 
 CStandardRecvProxies g_StandardRecvProxies;
 
-RecvProp RecvPropFloat( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn varProxy )
+RecvProp RecvPropFloat(const char* pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn varProxy)
 {
-	return engineabi::recv::Float( pVarName, offset, sizeofVar, flags, varProxy, g_StandardRecvProxies );
+	return engineabi::recv::Float(pVarName, offset, sizeofVar, flags, varProxy, g_StandardRecvProxies);
 }
 
-RecvProp RecvPropVector( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn varProxy )
+RecvProp RecvPropVector(const char* pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn varProxy)
 {
-	return engineabi::recv::Vector( pVarName, offset, sizeofVar, flags, varProxy, g_StandardRecvProxies );
+	return engineabi::recv::Vector(pVarName, offset, sizeofVar, flags, varProxy, g_StandardRecvProxies);
 }
 
-RecvProp RecvPropInt( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn varProxy )
+RecvProp RecvPropInt(const char* pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn varProxy)
 {
-	return engineabi::recv::Int( pVarName, offset, sizeofVar, flags, varProxy, g_StandardRecvProxies );
+	return engineabi::recv::Int(pVarName, offset, sizeofVar, flags, varProxy, g_StandardRecvProxies);
 }
 
-RecvProp RecvPropString( const char *pVarName, int offset, int bufferSize, int flags, RecvVarProxyFn varProxy )
+RecvProp RecvPropString(const char* pVarName, int offset, int bufferSize, int flags, RecvVarProxyFn varProxy)
 {
-	return engineabi::recv::String( pVarName, offset, bufferSize, flags, varProxy );
+	return engineabi::recv::String(pVarName, offset, bufferSize, flags, varProxy);
 }
 
-RecvProp RecvPropDataTable( const char *pVarName, int offset, int flags, RecvTable *pTable,
-							DataTableRecvVarProxyFn varProxy )
+RecvProp RecvPropDataTable(const char* pVarName, int offset, int flags, RecvTable* pTable,
+						   DataTableRecvVarProxyFn varProxy)
 {
-	return engineabi::recv::DataTable( pVarName, offset, flags, pTable, varProxy );
+	return engineabi::recv::DataTable(pVarName, offset, flags, pTable, varProxy);
 }
 
-RecvProp InternalRecvPropArray( const int elementCount, const int elementStride, const char *pName,
-								ArrayLengthRecvProxyFn proxy )
+RecvProp InternalRecvPropArray(const int elementCount, const int elementStride, const char* pName,
+							   ArrayLengthRecvProxyFn proxy)
 {
-	return engineabi::recv::ArrayLength( elementCount, elementStride, pName, proxy );
+	return engineabi::recv::ArrayLength(elementCount, elementStride, pName, proxy);
 }
 
 // m_StringBufferSize and m_pParentArrayPropName, indeterminate upstream, are zeroed so a
@@ -123,17 +123,17 @@ RecvProp::RecvProp()
 
 RecvTable::RecvTable()
 {
-	Construct( NULL, 0, NULL );
+	Construct(NULL, 0, NULL);
 }
 
-RecvTable::RecvTable( RecvProp *pProps, int nProps, const char *pNetTableName )
+RecvTable::RecvTable(RecvProp* pProps, int nProps, const char* pNetTableName)
 {
-	Construct( pProps, nProps, pNetTableName );
+	Construct(pProps, nProps, pNetTableName);
 }
 
 RecvTable::~RecvTable() {}
 
-void RecvTable::Construct( RecvProp *pProps, int nProps, const char *pNetTableName )
+void RecvTable::Construct(RecvProp* pProps, int nProps, const char* pNetTableName)
 {
 	m_pProps = pProps;
 	m_nProps = nProps;

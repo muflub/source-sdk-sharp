@@ -23,14 +23,14 @@
 class CShimEngine final : public IShimEngine
 {
 public:
-	void *GetGlobalVarsPtr() override;
+	void* GetGlobalVarsPtr() override;
 };
 
 class CShimGameRules final : public IShimGameRules
 {
 public:
-	void RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy *pPolicy ) override;
-	void RegisterDamageRules( const SourceSharpDamageRules *pRules ) override;
+	void RegisterGameRulesPolicy(const SourceSharpGameRulesPolicy* pPolicy) override;
+	void RegisterDamageRules(const SourceSharpDamageRules* pRules) override;
 };
 
 // CServerMovement implements IShimMovementServer and derives from this: the shared base's slots,
@@ -38,41 +38,41 @@ public:
 class CShimMovementServerBase : public IShimMovementServer
 {
 public:
-	void MoveTrace( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ, const float *pMaxsXYZ,
-					int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult *pOut ) override;
-	int32_t MoveEffect( int32_t nKind, const float *pXYZ, float flValue, int32_t nValue ) override;
+	void MoveTrace(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ, const float* pMaxsXYZ,
+				   int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult* pOut) override;
+	int32_t MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue) override;
 	float CurrentGravity() override;
-	void RegisterMovementParams( const SourceSharpMovementParams *pParams ) override;
+	void RegisterMovementParams(const SourceSharpMovementParams* pParams) override;
 };
 
 struct CShimAreas
 {
 	CShimEngine m_Engine;
-	IShimConsoleServer *m_pConsoleServer = nullptr; // CServerConsoleCommands
-	IShimEventsServer *m_pEventsServer = nullptr; // CGameEvents
-	IShimNetworkServer *m_pNetworkServer = nullptr; // CServerNetwork
-	IShimModelsServer *m_pModelsServer = nullptr; // CServerModels
-	IShimPrecache *m_pPrecache = nullptr; // CServerModelPrecache
-	IShimMovementServer *m_pMovementServer = nullptr; // CServerMovement
-	IShimWorldServer *m_pWorldServer = nullptr; // CServerWorldQueries
-	IShimEntitiesServer *m_pEntitiesServer = nullptr; // CServerEntities
-	IShimEntityLifecycle *m_pEntityLifecycle = nullptr; // CServerEntityLifecycle
-	IShimTransform *m_pTransform = nullptr; // CServerTransform
-	IShimHierarchy *m_pHierarchy = nullptr; // CServerHierarchy
-	IShimCollisionServer *m_pCollisionServer = nullptr; // CServerCollision
-	IShimPhysics *m_pPhysics = nullptr; // CServerPhysics
-	IShimDamage *m_pDamage = nullptr; // CServerDamage
+	IShimConsoleServer* m_pConsoleServer = nullptr; // CServerConsoleCommands
+	IShimEventsServer* m_pEventsServer = nullptr; // CGameEvents
+	IShimNetworkServer* m_pNetworkServer = nullptr; // CServerNetwork
+	IShimModelsServer* m_pModelsServer = nullptr; // CServerModels
+	IShimPrecache* m_pPrecache = nullptr; // CServerModelPrecache
+	IShimMovementServer* m_pMovementServer = nullptr; // CServerMovement
+	IShimWorldServer* m_pWorldServer = nullptr; // CServerWorldQueries
+	IShimEntitiesServer* m_pEntitiesServer = nullptr; // CServerEntities
+	IShimEntityLifecycle* m_pEntityLifecycle = nullptr; // CServerEntityLifecycle
+	IShimTransform* m_pTransform = nullptr; // CServerTransform
+	IShimHierarchy* m_pHierarchy = nullptr; // CServerHierarchy
+	IShimCollisionServer* m_pCollisionServer = nullptr; // CServerCollision
+	IShimPhysics* m_pPhysics = nullptr; // CServerPhysics
+	IShimDamage* m_pDamage = nullptr; // CServerDamage
 	CShimGameRules m_GameRules;
-	IShimPlayers *m_pPlayers = nullptr; // CServerPlayerQueries
-	IShimEffectsServer *m_pEffectsServer = nullptr; // CServerTempEnts
-	IShimDebugOverlay *m_pDebugOverlay = nullptr; // CServerDebugOverlays
-	IShimUserMessages *m_pUserMessages = nullptr; // CServerUserMessages
-	IShimDiagnostics *m_pDiagnostics = nullptr; // CServerDiagnostics
+	IShimPlayers* m_pPlayers = nullptr; // CServerPlayerQueries
+	IShimEffectsServer* m_pEffectsServer = nullptr; // CServerTempEnts
+	IShimDebugOverlay* m_pDebugOverlay = nullptr; // CServerDebugOverlays
+	IShimUserMessages* m_pUserMessages = nullptr; // CServerUserMessages
+	IShimDiagnostics* m_pDiagnostics = nullptr; // CServerDiagnostics
 };
 
 // The internal factory's rows for every interface above: the area and the
 // compiler's slot count for it, or NULL and 0. Defined in shell_shim_areas_server.cpp.
-void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName );
+void* ShimAreas_Acquire(CShimAreas& areas, const char* pszName);
 
 #else // CLIENT_DLL
 
@@ -83,45 +83,45 @@ void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName );
 class CShimEngineClient final : public IShimEngine
 {
 public:
-	void *GetGlobalVarsPtr() override;
+	void* GetGlobalVarsPtr() override;
 };
 
 class CShimNetworkClient final : public IShimNetwork
 {
 public:
-	int32_t NetHierarchyDeclare( int32_t nBlobBytes ) override;
-	int32_t NetPublishType( const char *pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
-							uint32_t *pOutTypeId ) override;
-	int32_t NetTierInfo( int32_t nShell, int32_t iTier, const char **ppOutTable, int32_t *pOutBytes, int32_t *pOutWords,
-						 int32_t *pOutProps, int32_t *pOutLive ) override;
-	int32_t WorldNetDeclare( int32_t nBlobBytes ) override;
+	int32_t NetHierarchyDeclare(int32_t nBlobBytes) override;
+	int32_t NetPublishType(const char* pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
+						   uint32_t* pOutTypeId) override;
+	int32_t NetTierInfo(int32_t nShell, int32_t iTier, const char** ppOutTable, int32_t* pOutBytes, int32_t* pOutWords,
+						int32_t* pOutProps, int32_t* pOutLive) override;
+	int32_t WorldNetDeclare(int32_t nBlobBytes) override;
 };
 
 class CShimModelsClient final : public IShimModels
 {
 public:
-	void EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize ) override;
+	void EntityGetModelName(uint32_t hEntity, char* pOut, int32_t nOutSize) override;
 	int32_t EntitiesInvalidateMdlCacheAll() override;
-	void StandaloneSetModelScale( uint32_t hEntity, float flScale ) override;
+	void StandaloneSetModelScale(uint32_t hEntity, float flScale) override;
 };
 
 class CShimMovementClient final : public IShimMovement
 {
 public:
-	void MoveTrace( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ, const float *pMaxsXYZ,
-					int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult *pOut ) override;
-	int32_t MoveEffect( int32_t nKind, const float *pXYZ, float flValue, int32_t nValue ) override;
+	void MoveTrace(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ, const float* pMaxsXYZ,
+				   int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult* pOut) override;
+	int32_t MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue) override;
 	float CurrentGravity() override;
-	void RegisterMovementParams( const SourceSharpMovementParams *pParams ) override;
+	void RegisterMovementParams(const SourceSharpMovementParams* pParams) override;
 };
 
 class CShimEntitiesClient final : public IShimEntities
 {
 public:
-	int32_t EntityGetIndex( uint32_t hEntity ) override;
-	void EntityGetOrigin( uint32_t hEntity, float *pOutXYZ ) override;
-	void EntityGetAngles( uint32_t hEntity, float *pOutPYR ) override;
-	int32_t EntityIsValid( uint32_t hEntity ) override;
+	int32_t EntityGetIndex(uint32_t hEntity) override;
+	void EntityGetOrigin(uint32_t hEntity, float* pOutXYZ) override;
+	void EntityGetAngles(uint32_t hEntity, float* pOutPYR) override;
+	int32_t EntityIsValid(uint32_t hEntity) override;
 };
 
 class CShimHudClient final : public IShimHudClient
@@ -129,259 +129,258 @@ class CShimHudClient final : public IShimHudClient
 public:
 	int32_t GetLocalPlayerHealth() override;
 	int32_t GetLocalPlayerIndex() override;
-	void HudLocalise( const char *pToken, char *pOut, int32_t nOutSize ) override;
-	void HudLookupBinding( const char *pBinding, char *pOut, int32_t nOutSize ) override;
-	int32_t HudTextMessageGet( const char *pName, SourceSharpTextMessage *pOut ) override;
+	void HudLocalise(const char* pToken, char* pOut, int32_t nOutSize) override;
+	void HudLookupBinding(const char* pBinding, char* pOut, int32_t nOutSize) override;
+	int32_t HudTextMessageGet(const char* pName, SourceSharpTextMessage* pOut) override;
 };
 
 class CShimPredictionClient final : public IShimPredictionClient
 {
 public:
-	int32_t ClientGetUserCmd( int32_t nCommandNumber, SourceSharpUserCmd *pOut ) override;
-	void ClientPlayerPredictionDrive( uint32_t hEntity, const SourceSharpClientPlayerView *pView ) override;
-	int32_t MoveBeginClientCommand( uint32_t hPlayer, int32_t nCommandNumber,
-									SourceSharpMoveState *pOutConstants ) override;
-	void MoveEndClientCommand( int32_t bRan, int32_t *pOutGroundIndex ) override;
+	int32_t ClientGetUserCmd(int32_t nCommandNumber, SourceSharpUserCmd* pOut) override;
+	void ClientPlayerPredictionDrive(uint32_t hEntity, const SourceSharpClientPlayerView* pView) override;
+	int32_t MoveBeginClientCommand(uint32_t hPlayer, int32_t nCommandNumber,
+								   SourceSharpMoveState* pOutConstants) override;
+	void MoveEndClientCommand(int32_t bRan, int32_t* pOutGroundIndex) override;
 };
 
 class CShimTempEntPoolClient final : public IShimTempEntPoolClient
 {
 public:
-	int32_t ClientEntityModelBounds( int32_t nEntityIndex, float *pOutMinsXYZ, float *pOutMaxsXYZ,
-									 float *pOutAnglesPYR ) override;
-	int32_t ClientEntityOrigin( int32_t nEntityIndex, float *pOutXYZ ) override;
-	void ClientWindSpeed( float flTime, float *pOutXYZ ) override;
-	int32_t TempEntPoolAddVisible( int32_t nSlot ) override;
+	int32_t ClientEntityModelBounds(int32_t nEntityIndex, float* pOutMinsXYZ, float* pOutMaxsXYZ,
+									float* pOutAnglesPYR) override;
+	int32_t ClientEntityOrigin(int32_t nEntityIndex, float* pOutXYZ) override;
+	void ClientWindSpeed(float flTime, float* pOutXYZ) override;
+	int32_t TempEntPoolAddVisible(int32_t nSlot) override;
 	int32_t TempEntPoolCapacity() override;
-	int32_t TempEntPoolCreate( int32_t nSlot, const float *pOriginXYZ, int32_t nModelIndex,
-							   int32_t nPriority ) override;
-	void TempEntPoolDestroy( int32_t nSlot ) override;
-	int32_t TempEntPoolReadLife( int32_t nSlot, SourceSharpTempEntLife_t *pOutLife ) override;
-	int32_t TempEntPoolReadStatics( int32_t nSlot, SourceSharpTempEntStatics_t *pOut ) override;
-	int32_t TempEntPoolReadTransform( int32_t nSlot, SourceSharpTempEntTransform_t *pOutTransform ) override;
-	int32_t TempEntPoolWriteLife( int32_t nSlot, const SourceSharpTempEntLife_t *pLife ) override;
-	int32_t TempEntPoolWriteSpawn( int32_t nSlot, const SourceSharpTempEntSpawn_t *pSpawn ) override;
-	int32_t TempEntPoolWriteTransform( int32_t nSlot, const SourceSharpTempEntTransform_t *pTransform ) override;
+	int32_t TempEntPoolCreate(int32_t nSlot, const float* pOriginXYZ, int32_t nModelIndex, int32_t nPriority) override;
+	void TempEntPoolDestroy(int32_t nSlot) override;
+	int32_t TempEntPoolReadLife(int32_t nSlot, SourceSharpTempEntLife_t* pOutLife) override;
+	int32_t TempEntPoolReadStatics(int32_t nSlot, SourceSharpTempEntStatics_t* pOut) override;
+	int32_t TempEntPoolReadTransform(int32_t nSlot, SourceSharpTempEntTransform_t* pOutTransform) override;
+	int32_t TempEntPoolWriteLife(int32_t nSlot, const SourceSharpTempEntLife_t* pLife) override;
+	int32_t TempEntPoolWriteSpawn(int32_t nSlot, const SourceSharpTempEntSpawn_t* pSpawn) override;
+	int32_t TempEntPoolWriteTransform(int32_t nSlot, const SourceSharpTempEntTransform_t* pTransform) override;
 };
 
 class CShimTempEntBackendsClient final : public IShimTempEntBackendsClient
 {
 public:
-	void ClientDecalBrushModel( int32_t nEntity, const float *pDecalCenterXYZ, int32_t nDecalIndex ) override;
-	int32_t ClientDecalIndexFromName( const char *pName ) override;
-	int32_t ClientDecalNameFromIndex( int32_t nDecalIndex, char *pOut, int32_t nOutSize ) override;
-	void ClientDecalShoot( int32_t nDecalIndex, int32_t nEntity, const float *pPositionXYZ, const float *pSAxisXYZ,
-						   int32_t nFlags ) override;
-	void ClientDecalStaticProp( const float *pStartXYZ, const float *pEndXYZ, int32_t nStaticPropIndex,
-								int32_t nDecalIndex ) override;
-	void ClientDecalStudioModel( int32_t nEntity, const float *pRayStartXYZ, const float *pRayDeltaXYZ,
-								 int32_t nDecalIndex ) override;
-	void ClientEnergySplash( const float *pPosXYZ, const float *pDirXYZ, int32_t bExplosive ) override;
-	int32_t ClientEntityModelType( int32_t nEntity ) override;
-	void ClientMetalSparks( const float *pPositionXYZ, const float *pDirectionXYZ ) override;
-	void ClientMuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int32_t nType ) override;
-	void ClientPlayerDecalShoot( const float *pPositionXYZ, int32_t nPlayer, int32_t nEntity ) override;
-	void ClientRicochet( const float *pPositionXYZ, const float *pDirectionXYZ ) override;
-	void ClientSmoke( const float *pOriginXYZ, int32_t nModelIndex, float flScale, float flFrameRate ) override;
-	void ClientSparks( const float *pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength,
-					   const float *pDirectionXYZ ) override;
-	void EffectDispatchName( int32_t nIndex, char *pOut, int32_t nOutBytes ) override;
-	int32_t TempEntBuildClient( const void *pBlock, int32_t nBlockBytes, int32_t nBlobBytes,
-								SourceSharpTeRecvBuilt_t *pOut ) override;
-	int32_t ClientShotTrace( const float *pStartXYZ, const float *pEndXYZ, int32_t nEntity, float *pOutFloats,
-							 int32_t nOutFloats, int32_t *pOutInts, int32_t nOutInts ) override;
-	void ClientWorldLighting( const float *pStartXYZ, const float *pEndXYZ, float *pOut6 ) override;
-	void ClientStaticPropLighting( const float *pStartXYZ, const float *pEndXYZ, const float *pNormalXYZ,
-								   int32_t nStaticProp, float *pOut6 ) override;
-	void ClientImpactLedger( int32_t nFlecks, int32_t nDust ) override;
-	void ClientPlayerLogoDecal( const float *pPositionXYZ, int32_t nPlayer, int32_t nEntity, const char *pszMaterial,
-								const char *pszTexture ) override;
+	void ClientDecalBrushModel(int32_t nEntity, const float* pDecalCenterXYZ, int32_t nDecalIndex) override;
+	int32_t ClientDecalIndexFromName(const char* pName) override;
+	int32_t ClientDecalNameFromIndex(int32_t nDecalIndex, char* pOut, int32_t nOutSize) override;
+	void ClientDecalShoot(int32_t nDecalIndex, int32_t nEntity, const float* pPositionXYZ, const float* pSAxisXYZ,
+						  int32_t nFlags) override;
+	void ClientDecalStaticProp(const float* pStartXYZ, const float* pEndXYZ, int32_t nStaticPropIndex,
+							   int32_t nDecalIndex) override;
+	void ClientDecalStudioModel(int32_t nEntity, const float* pRayStartXYZ, const float* pRayDeltaXYZ,
+								int32_t nDecalIndex) override;
+	void ClientEnergySplash(const float* pPosXYZ, const float* pDirXYZ, int32_t bExplosive) override;
+	int32_t ClientEntityModelType(int32_t nEntity) override;
+	void ClientMetalSparks(const float* pPositionXYZ, const float* pDirectionXYZ) override;
+	void ClientMuzzleFlash(const float* pOriginXYZ, const float* pAnglesPYR, float flScale, int32_t nType) override;
+	void ClientPlayerDecalShoot(const float* pPositionXYZ, int32_t nPlayer, int32_t nEntity) override;
+	void ClientRicochet(const float* pPositionXYZ, const float* pDirectionXYZ) override;
+	void ClientSmoke(const float* pOriginXYZ, int32_t nModelIndex, float flScale, float flFrameRate) override;
+	void ClientSparks(const float* pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength,
+					  const float* pDirectionXYZ) override;
+	void EffectDispatchName(int32_t nIndex, char* pOut, int32_t nOutBytes) override;
+	int32_t TempEntBuildClient(const void* pBlock, int32_t nBlockBytes, int32_t nBlobBytes,
+							   SourceSharpTeRecvBuilt_t* pOut) override;
+	int32_t ClientShotTrace(const float* pStartXYZ, const float* pEndXYZ, int32_t nEntity, float* pOutFloats,
+							int32_t nOutFloats, int32_t* pOutInts, int32_t nOutInts) override;
+	void ClientWorldLighting(const float* pStartXYZ, const float* pEndXYZ, float* pOut6) override;
+	void ClientStaticPropLighting(const float* pStartXYZ, const float* pEndXYZ, const float* pNormalXYZ,
+								  int32_t nStaticProp, float* pOut6) override;
+	void ClientImpactLedger(int32_t nFlecks, int32_t nDust) override;
+	void ClientPlayerLogoDecal(const float* pPositionXYZ, int32_t nPlayer, int32_t nEntity, const char* pszMaterial,
+							   const char* pszTexture) override;
 };
 
 class CShimEffectsRenderClient final : public IShimEffectsRenderClient
 {
 public:
-	int32_t DrawSprite( uint32_t hOwner, int32_t nModelIndex, float flFrame, int32_t nRenderMode, int32_t nRenderFx,
-						int32_t r, int32_t g, int32_t b, int32_t a, float flScale, int32_t bWorldSpaceScale,
-						float flHDRColorScale, float flGlowProxySize ) override;
-	int32_t DrawSpriteOffset( uint32_t hOwner, const float *pOffsetXYZ, int32_t nModelIndex, float flFrame,
-							  int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a,
-							  float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
-							  float flGlowProxySize ) override;
-	int32_t ParticleSystemFollowPoints( uint32_t hOwner, int32_t nPointMask ) override;
-	int32_t ParticleSystemStart( uint32_t hOwner, const char *pszName ) override;
-	void ParticleSystemStop( uint32_t hOwner ) override;
-	void SpriteTrailDestroy( uint32_t hOwner ) override;
-	void SpriteTrailUpdate( uint32_t hOwner, int32_t nRenderMode, int32_t bVisible ) override;
-	void WindPublish( const float *pWind, const float *pSway, int32_t nWinds ) override;
-	int32_t RopeMaterial( const char *pszName, int32_t *pOutTextureHeight, int32_t *pOutHasBack ) override;
-	void RopeDraw( int32_t nMaterial, const float *pSegs, int32_t nSegs, const float *pSolid, int32_t nSolid,
-				   int32_t nFlags ) override;
-	void ClientViewState( int32_t bCurrentView, float *pOutForwardXYZ, float *pOutOriginXYZ, float *pOutMainOriginXYZ,
-						  float *pOutCameraXYZ, int32_t *pOutScreenWidth, int32_t *pOutDxLevel,
-						  int32_t *pOutAAEnabled ) override;
-	void ClientComputeLighting( const float *pPosXYZ, float *pOutColorRGB, float *pOutBoxRGB18 ) override;
-	float ClientTraceHullWorld( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ,
-								const float *pMaxsXYZ, int32_t nMask, int32_t *pOutSolidFlags,
-								float *pOutPlaneXYZD ) override;
-	void BeamView( int32_t bCurrentView, float *pOut42 ) override;
-	int32_t BeamModelInfo( int32_t nModelIndex, int32_t *pOutFrameCount ) override;
-	int32_t BeamModelIndex( const char *pszName ) override;
-	uint32_t BeamEntityAt( int32_t nEntry ) override;
-	int32_t BeamEntityHasModel( uint32_t hEntity ) override;
-	int32_t BeamEntityFacts( uint32_t hEntity, int32_t nAttachment, int32_t bTryAttachment, float *pOut9 ) override;
-	int32_t BeamBoxVisibility( const float *pMinsXYZ, const float *pMaxsXYZ ) override;
-	int32_t BeamScreenPosition( const float *pPointXYZ, float *pOutScreenXYZ ) override;
-	int32_t BeamRenderableAdd( const float *pOriginMinsMaxs9 ) override;
-	void BeamRenderableChanged( int32_t nRenderable, const float *pOriginMinsMaxs9 ) override;
-	void BeamRenderableRemove( int32_t nRenderable ) override;
-	int32_t BeamBindSprite( int32_t nModelIndex, int32_t nFrame, int32_t nRenderMode, int32_t bWireframe ) override;
-	void BeamSetHdrColorScale( int32_t nModelIndex, int32_t nRenderMode, float flScale ) override;
-	int32_t BeamGlow( int32_t nModelIndex, int32_t bBind ) override;
-	void BeamDrawStrip( const float *pSegs, int32_t nSegs ) override;
-	void BeamDrawMesh( int32_t nPrimitive, int32_t nPrimitives, int32_t nColorKind, const float *pVerts,
-					   int32_t nVerts ) override;
+	int32_t DrawSprite(uint32_t hOwner, int32_t nModelIndex, float flFrame, int32_t nRenderMode, int32_t nRenderFx,
+					   int32_t r, int32_t g, int32_t b, int32_t a, float flScale, int32_t bWorldSpaceScale,
+					   float flHDRColorScale, float flGlowProxySize) override;
+	int32_t DrawSpriteOffset(uint32_t hOwner, const float* pOffsetXYZ, int32_t nModelIndex, float flFrame,
+							 int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a,
+							 float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
+							 float flGlowProxySize) override;
+	int32_t ParticleSystemFollowPoints(uint32_t hOwner, int32_t nPointMask) override;
+	int32_t ParticleSystemStart(uint32_t hOwner, const char* pszName) override;
+	void ParticleSystemStop(uint32_t hOwner) override;
+	void SpriteTrailDestroy(uint32_t hOwner) override;
+	void SpriteTrailUpdate(uint32_t hOwner, int32_t nRenderMode, int32_t bVisible) override;
+	void WindPublish(const float* pWind, const float* pSway, int32_t nWinds) override;
+	int32_t RopeMaterial(const char* pszName, int32_t* pOutTextureHeight, int32_t* pOutHasBack) override;
+	void RopeDraw(int32_t nMaterial, const float* pSegs, int32_t nSegs, const float* pSolid, int32_t nSolid,
+				  int32_t nFlags) override;
+	void ClientViewState(int32_t bCurrentView, float* pOutForwardXYZ, float* pOutOriginXYZ, float* pOutMainOriginXYZ,
+						 float* pOutCameraXYZ, int32_t* pOutScreenWidth, int32_t* pOutDxLevel,
+						 int32_t* pOutAAEnabled) override;
+	void ClientComputeLighting(const float* pPosXYZ, float* pOutColorRGB, float* pOutBoxRGB18) override;
+	float ClientTraceHullWorld(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ,
+							   const float* pMaxsXYZ, int32_t nMask, int32_t* pOutSolidFlags,
+							   float* pOutPlaneXYZD) override;
+	void BeamView(int32_t bCurrentView, float* pOut42) override;
+	int32_t BeamModelInfo(int32_t nModelIndex, int32_t* pOutFrameCount) override;
+	int32_t BeamModelIndex(const char* pszName) override;
+	uint32_t BeamEntityAt(int32_t nEntry) override;
+	int32_t BeamEntityHasModel(uint32_t hEntity) override;
+	int32_t BeamEntityFacts(uint32_t hEntity, int32_t nAttachment, int32_t bTryAttachment, float* pOut9) override;
+	int32_t BeamBoxVisibility(const float* pMinsXYZ, const float* pMaxsXYZ) override;
+	int32_t BeamScreenPosition(const float* pPointXYZ, float* pOutScreenXYZ) override;
+	int32_t BeamRenderableAdd(const float* pOriginMinsMaxs9) override;
+	void BeamRenderableChanged(int32_t nRenderable, const float* pOriginMinsMaxs9) override;
+	void BeamRenderableRemove(int32_t nRenderable) override;
+	int32_t BeamBindSprite(int32_t nModelIndex, int32_t nFrame, int32_t nRenderMode, int32_t bWireframe) override;
+	void BeamSetHdrColorScale(int32_t nModelIndex, int32_t nRenderMode, float flScale) override;
+	int32_t BeamGlow(int32_t nModelIndex, int32_t bBind) override;
+	void BeamDrawStrip(const float* pSegs, int32_t nSegs) override;
+	void BeamDrawMesh(int32_t nPrimitive, int32_t nPrimitives, int32_t nColorKind, const float* pVerts,
+					  int32_t nVerts) override;
 };
 
 class CShimStandaloneClient final : public IShimStandaloneClient
 {
 public:
-	void ActivateOccluder( int32_t nOccluderIndex, int32_t bActive ) override;
-	void **ClientInterpBlocks( int32_t *pOutCount, float *pOutInterpAmount ) override;
-	void **ClientPolicyBlocks( int32_t *pOutCount ) override;
-	void DynamicLightRelease( int32_t nKey ) override;
-	void DynamicLightUpdate( const SourceSharpDynamicLight *pLight ) override;
-	int32_t StandaloneIsDormant( uint32_t hEntity ) override;
-	void StandaloneSetBlending( uint32_t hEntity, int32_t bTranslucent, int32_t bIgnoreZ, int32_t nAlpha ) override;
-	void StandaloneSetCustomDraw( uint32_t hEntity, const float *pMinsXYZ, const float *pMaxsXYZ ) override;
-	void StandaloneSetFade( uint32_t hEntity, int32_t nStyle, float flStartDist, float flEndDist,
-							float flMinAlpha ) override;
-	void StandaloneSetOverlayModel( uint32_t hEntity, int32_t nModelIndex ) override;
-	void StandaloneSetViewModel( uint32_t hEntity, int32_t bEnable ) override;
-	int32_t StandaloneShadowCast( uint32_t hEntity, int32_t *pOutChoice ) override;
-	int32_t ClientRecvProp( int32_t iIndex, char *pOutClass, int32_t nClassBytes, char *pOutTable, int32_t nTableBytes,
-							char *pOutProp, int32_t nPropBytes, int32_t *pOutType, int32_t *pOutFlags,
-							int32_t *pOutOffset, int32_t *pOutElements ) override;
-	int32_t ClientSchemaRefusal( int32_t iIndex, uint32_t *pOutTypeId, uint32_t *pOutExpected, uint32_t *pOutSeen,
-								 int32_t *pOutCount, char *pOutClass, int32_t nClassBytes,
-								 int32_t *pOutRefusedUpdates ) override;
-	void *StandaloneEngineBlock( uint32_t hEntity, int32_t *pOutBytes ) override;
-	void StandaloneStoreSequence( uint32_t hEntity, int32_t nSequence, float flPlaybackRate, float flAnimTime,
-								  float flDuration, int32_t bLooping ) override;
-	void StandaloneSetRagdoll( uint32_t hEntity, int32_t bRagdoll ) override;
-	void EntitySetSkin( uint32_t hEntity, int32_t nSkin ) override;
-	void RegisterAmmoType( const char *pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType,
-						   float flDamageForce, float flDamage ) override;
-	int32_t StandaloneSurroundingBounds( const uint32_t *pHandles, int32_t nCount, float *pOutMinsMaxs ) override;
-	int32_t SurfaceMaterialFacts( uint32_t hEntity, char *pOutMaterial, int32_t nMaterialBytes, char *pOutCrack,
-								  int32_t nCrackBytes, int32_t *pOutHasCrack ) override;
-	void SurfaceSetMaterials( uint32_t hEntity, const char *pNames, int32_t nBytes, int32_t nFlags ) override;
-	void SurfaceSetPlan( uint32_t hEntity, const int32_t *pWords, int32_t nWords ) override;
-	void ClientInterpAdmitted( const uint32_t *pHandles, int32_t nCount ) override;
+	void ActivateOccluder(int32_t nOccluderIndex, int32_t bActive) override;
+	void** ClientInterpBlocks(int32_t* pOutCount, float* pOutInterpAmount) override;
+	void** ClientPolicyBlocks(int32_t* pOutCount) override;
+	void DynamicLightRelease(int32_t nKey) override;
+	void DynamicLightUpdate(const SourceSharpDynamicLight* pLight) override;
+	int32_t StandaloneIsDormant(uint32_t hEntity) override;
+	void StandaloneSetBlending(uint32_t hEntity, int32_t bTranslucent, int32_t bIgnoreZ, int32_t nAlpha) override;
+	void StandaloneSetCustomDraw(uint32_t hEntity, const float* pMinsXYZ, const float* pMaxsXYZ) override;
+	void StandaloneSetFade(uint32_t hEntity, int32_t nStyle, float flStartDist, float flEndDist,
+						   float flMinAlpha) override;
+	void StandaloneSetOverlayModel(uint32_t hEntity, int32_t nModelIndex) override;
+	void StandaloneSetViewModel(uint32_t hEntity, int32_t bEnable) override;
+	int32_t StandaloneShadowCast(uint32_t hEntity, int32_t* pOutChoice) override;
+	int32_t ClientRecvProp(int32_t iIndex, char* pOutClass, int32_t nClassBytes, char* pOutTable, int32_t nTableBytes,
+						   char* pOutProp, int32_t nPropBytes, int32_t* pOutType, int32_t* pOutFlags,
+						   int32_t* pOutOffset, int32_t* pOutElements) override;
+	int32_t ClientSchemaRefusal(int32_t iIndex, uint32_t* pOutTypeId, uint32_t* pOutExpected, uint32_t* pOutSeen,
+								int32_t* pOutCount, char* pOutClass, int32_t nClassBytes,
+								int32_t* pOutRefusedUpdates) override;
+	void* StandaloneEngineBlock(uint32_t hEntity, int32_t* pOutBytes) override;
+	void StandaloneStoreSequence(uint32_t hEntity, int32_t nSequence, float flPlaybackRate, float flAnimTime,
+								 float flDuration, int32_t bLooping) override;
+	void StandaloneSetRagdoll(uint32_t hEntity, int32_t bRagdoll) override;
+	void EntitySetSkin(uint32_t hEntity, int32_t nSkin) override;
+	void RegisterAmmoType(const char* pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType,
+						  float flDamageForce, float flDamage) override;
+	int32_t StandaloneSurroundingBounds(const uint32_t* pHandles, int32_t nCount, float* pOutMinsMaxs) override;
+	int32_t SurfaceMaterialFacts(uint32_t hEntity, char* pOutMaterial, int32_t nMaterialBytes, char* pOutCrack,
+								 int32_t nCrackBytes, int32_t* pOutHasCrack) override;
+	void SurfaceSetMaterials(uint32_t hEntity, const char* pNames, int32_t nBytes, int32_t nFlags) override;
+	void SurfaceSetPlan(uint32_t hEntity, const int32_t* pWords, int32_t nWords) override;
+	void ClientInterpAdmitted(const uint32_t* pHandles, int32_t nCount) override;
 };
 
 class CShimViewClient final : public IShimViewClient
 {
 public:
-	void ConNPrintf( void *pEngineClient, int32_t nPos, const char *pszText ) override;
-	void ConNXPrintf( void *pEngineClient, int32_t nIndex, float flTimeToLive, const float *pColorRGB,
-					  int32_t bFixedWidthFont, const char *pszText ) override;
-	void GetLightForPoint( void *pEngineClient, const float *pPosXYZ, int32_t bClamp, float *pOutXYZ ) override;
-	void GetLightForPointFast( void *pEngineClient, const float *pPosXYZ, int32_t bClamp, float *pOutXYZ ) override;
-	void ClientSetWorldRenderState( int32_t nWhich, const float *pValues, int32_t nCount ) override;
-	int32_t GetLocalPlayerOrigin( float *pOutXYZ ) override;
-	void SetViewerFogParams( const SourceSharpFogParams *pParams ) override;
-	void SetViewerSkyboxParams( const SourceSharpSkyboxParams *pParams ) override;
-	int32_t ClientTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, int32_t nFilter,
-							 int32_t nPassEntityIndex, float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ,
-							 int32_t *pOutHitbox, int32_t *pOutEntityIndex, int32_t *pOutSurfaceProps,
-							 int32_t *pOutSurfaceFlags ) override;
-	int32_t ClientTraceHull( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ, const float *pMaxsXYZ,
-							 int32_t nMask, int32_t nFilter, int32_t nPassEntityIndex, float *pOutFraction,
-							 float *pOutEndXYZ ) override;
-	int32_t ClientEntityRenderPose( int32_t nEntityIndex, float *pOutOriginXYZ, float *pOutAngles ) override;
-	void ViewOverrideSet( int32_t nActive, const float *pOriginXYZ, const float *pAngles,
-						  int32_t nSetViewAngles ) override;
+	void ConNPrintf(void* pEngineClient, int32_t nPos, const char* pszText) override;
+	void ConNXPrintf(void* pEngineClient, int32_t nIndex, float flTimeToLive, const float* pColorRGB,
+					 int32_t bFixedWidthFont, const char* pszText) override;
+	void GetLightForPoint(void* pEngineClient, const float* pPosXYZ, int32_t bClamp, float* pOutXYZ) override;
+	void GetLightForPointFast(void* pEngineClient, const float* pPosXYZ, int32_t bClamp, float* pOutXYZ) override;
+	void ClientSetWorldRenderState(int32_t nWhich, const float* pValues, int32_t nCount) override;
+	int32_t GetLocalPlayerOrigin(float* pOutXYZ) override;
+	void SetViewerFogParams(const SourceSharpFogParams* pParams) override;
+	void SetViewerSkyboxParams(const SourceSharpSkyboxParams* pParams) override;
+	int32_t ClientTraceLine(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask, int32_t nFilter,
+							int32_t nPassEntityIndex, float* pOutFraction, float* pOutEndXYZ, float* pOutNormalXYZ,
+							int32_t* pOutHitbox, int32_t* pOutEntityIndex, int32_t* pOutSurfaceProps,
+							int32_t* pOutSurfaceFlags) override;
+	int32_t ClientTraceHull(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ, const float* pMaxsXYZ,
+							int32_t nMask, int32_t nFilter, int32_t nPassEntityIndex, float* pOutFraction,
+							float* pOutEndXYZ) override;
+	int32_t ClientEntityRenderPose(int32_t nEntityIndex, float* pOutOriginXYZ, float* pOutAngles) override;
+	void ViewOverrideSet(int32_t nActive, const float* pOriginXYZ, const float* pAngles,
+						 int32_t nSetViewAngles) override;
 	int32_t EntitiesUpdateVisibilityAll() override;
-	int32_t RenderViewToTarget( int32_t nTarget, const SourceSharpViewTargetSetup *pSetup ) override;
-	int32_t ViewTargetInfo( int32_t nTarget, int32_t *pOut4 ) override;
-	int32_t RenderTargetDeclare( int32_t nSlot, const char *pszName, const char *pszGroup, int32_t bComplain,
-								 int32_t nCreationFlags, int32_t nReleaseOrder ) override;
+	int32_t RenderViewToTarget(int32_t nTarget, const SourceSharpViewTargetSetup* pSetup) override;
+	int32_t ViewTargetInfo(int32_t nTarget, int32_t* pOut4) override;
+	int32_t RenderTargetDeclare(int32_t nSlot, const char* pszName, const char* pszGroup, int32_t bComplain,
+								int32_t nCreationFlags, int32_t nReleaseOrder) override;
 	int32_t PixelVisQueryCreate() override;
-	void PixelVisQueryDestroy( int32_t nQuery ) override;
-	void PixelVisQueryReset( int32_t nQuery ) override;
-	void PixelVisQueryPixels( int32_t nVisible, int32_t nCount, int32_t *pOut ) override;
-	void PixelVisDiameters( const float *pSpheres, int32_t nSpheres, float *pOut ) override;
-	int32_t PixelVisView( float *pOut, int32_t nFloats ) override;
-	int32_t GlowMaterialFind( const char *pszName, const char *pszGroup ) override;
-	void *ColorLookupAdd( const char *pLookupFile ) override;
-	void ColorLookupSetWeight( void *hLookup, float flWeight ) override;
-	void ColorLookupRemove( void *hLookup ) override;
+	void PixelVisQueryDestroy(int32_t nQuery) override;
+	void PixelVisQueryReset(int32_t nQuery) override;
+	void PixelVisQueryPixels(int32_t nVisible, int32_t nCount, int32_t* pOut) override;
+	void PixelVisDiameters(const float* pSpheres, int32_t nSpheres, float* pOut) override;
+	int32_t PixelVisView(float* pOut, int32_t nFloats) override;
+	int32_t GlowMaterialFind(const char* pszName, const char* pszGroup) override;
+	void* ColorLookupAdd(const char* pLookupFile) override;
+	void ColorLookupSetWeight(void* hLookup, float flWeight) override;
+	void ColorLookupRemove(void* hLookup) override;
 	void ColorLookupResetWeights() override;
-	int32_t ClientClipRayToEntities( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask,
-									 const int32_t *pEntityIndices, int32_t nEntities, float *pOutFraction,
-									 float *pOutEndXYZ, float *pOutNormalXYZ, int32_t *pOutHitbox,
-									 int32_t *pOutEntityIndex, int32_t *pOutSurfaceProps,
-									 int32_t *pOutSurfaceFlags ) override;
-	int32_t ClientTraceHullEntities( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ,
-									 const float *pMaxsXYZ, int32_t nMask, int32_t nPassEntityIndex,
-									 const int32_t *pEntityIndices, int32_t nEntities, float *pOutFraction,
-									 float *pOutEndXYZ, int32_t *pOutEntityIndex, float *pOutEntityOriginXYZ ) override;
+	int32_t ClientClipRayToEntities(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask,
+									const int32_t* pEntityIndices, int32_t nEntities, float* pOutFraction,
+									float* pOutEndXYZ, float* pOutNormalXYZ, int32_t* pOutHitbox,
+									int32_t* pOutEntityIndex, int32_t* pOutSurfaceProps,
+									int32_t* pOutSurfaceFlags) override;
+	int32_t ClientTraceHullEntities(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ,
+									const float* pMaxsXYZ, int32_t nMask, int32_t nPassEntityIndex,
+									const int32_t* pEntityIndices, int32_t nEntities, float* pOutFraction,
+									float* pOutEndXYZ, int32_t* pOutEntityIndex, float* pOutEntityOriginXYZ) override;
 };
 
 class CShimUserMessagesClient final : public IShimUserMessagesClient
 {
 public:
-	int32_t ClientViewportQuery( const char *pPanel ) override;
-	void ClientViewportShow( const char *pPanel, int32_t bShow, const unsigned char *pPairs, int32_t nPairBytes,
-							 int32_t nFlags ) override;
+	int32_t ClientViewportQuery(const char* pPanel) override;
+	void ClientViewportShow(const char* pPanel, int32_t bShow, const unsigned char* pPairs, int32_t nPairBytes,
+							int32_t nFlags) override;
 };
 
 class CShimNetClient final : public IShimNetClient
 {
 public:
-	int32_t SendServerMessage( const char *pKey, const uint8_t *pData, int32_t nLen ) override;
-	int32_t ClientNetFlow( int32_t nFlow, float *pOut, int32_t nOut ) override;
-	int32_t ClientNetChannel( float *pOut, int32_t nOut ) override;
-	int32_t ClientNetPacket( int32_t nFlow, int32_t nFrame, float *pOut, int32_t nOut ) override;
+	int32_t SendServerMessage(const char* pKey, const uint8_t* pData, int32_t nLen) override;
+	int32_t ClientNetFlow(int32_t nFlow, float* pOut, int32_t nOut) override;
+	int32_t ClientNetChannel(float* pOut, int32_t nOut) override;
+	int32_t ClientNetPacket(int32_t nFlow, int32_t nFrame, float* pOut, int32_t nOut) override;
 };
 
 class CShimDiagnosticsClient final : public IShimDiagnosticsClient
 {
 public:
-	int32_t ClientNotShipped( int32_t iIndex, char *pOutName, int32_t nNameBytes, char *pOutReason,
-							  int32_t nReasonBytes, int32_t *pOutCount, int32_t *pOutTotal ) override;
-	int32_t ClientRefusal( int32_t iIndex, char *pOutMethod, int32_t nMethodBytes, int32_t *pOutCount,
-						   int32_t *pOutTotal ) override;
+	int32_t ClientNotShipped(int32_t iIndex, char* pOutName, int32_t nNameBytes, char* pOutReason, int32_t nReasonBytes,
+							 int32_t* pOutCount, int32_t* pOutTotal) override;
+	int32_t ClientRefusal(int32_t iIndex, char* pOutMethod, int32_t nMethodBytes, int32_t* pOutCount,
+						  int32_t* pOutTotal) override;
 };
 
 class CShimUiClient final : public IShimUiClient
 {
 public:
-	void UiDrawFilledRect( int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba ) override;
-	void UiDrawFilledRectFade( int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba, int32_t nAlpha0,
-							   int32_t nAlpha1, int32_t bHorizontal ) override;
-	void UiDrawOutlinedRect( int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba ) override;
-	void UiDrawLine( int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba ) override;
-	void UiDrawTexturedRect( int32_t nTexture, int32_t x0, int32_t y0, int32_t x1, int32_t y1, float s0, float t0,
-							 float s1, float t1, uint32_t nRgba ) override;
-	void UiDrawPolygon( int32_t nTexture, const float *pXyuv, int32_t nVertices, uint32_t nRgba ) override;
-	void UiDrawText( int32_t nFont, int32_t x, int32_t y, const uint16_t *pText, int32_t nLength,
-					 uint32_t nRgba ) override;
-	void UiMeasureText( int32_t nFont, const uint16_t *pText, int32_t nLength, int32_t *pOutWidth,
-						int32_t *pOutHeight ) override;
-	void UiSetClip( int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1, int32_t y1 ) override;
+	void UiDrawFilledRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba) override;
+	void UiDrawFilledRectFade(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba, int32_t nAlpha0,
+							  int32_t nAlpha1, int32_t bHorizontal) override;
+	void UiDrawOutlinedRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba) override;
+	void UiDrawLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba) override;
+	void UiDrawTexturedRect(int32_t nTexture, int32_t x0, int32_t y0, int32_t x1, int32_t y1, float s0, float t0,
+							float s1, float t1, uint32_t nRgba) override;
+	void UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba) override;
+	void UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_t* pText, int32_t nLength,
+					uint32_t nRgba) override;
+	void UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t nLength, int32_t* pOutWidth,
+					   int32_t* pOutHeight) override;
+	void UiSetClip(int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1, int32_t y1) override;
 	int32_t UiTextureCreate() override;
-	void UiTextureUpload( int32_t nTexture, const uint8_t *pRgba, int32_t nWide, int32_t nTall ) override;
-	int32_t UiFontAddFile( const char *pPath ) override;
-	int32_t UiFontCreate( const char *pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags ) override;
-	void UiFontMetrics( int32_t nFont, int32_t *pOutTall, int32_t *pOutAscent ) override;
-	int32_t UiFontAdvances( int32_t nFont, int32_t nFirst, int32_t nCount, int32_t *pOutAdvances ) override;
-	void UiPlaySound( const char *pPath ) override;
-	void UiSetMenuInput( int32_t bMouse, int32_t bKeyboard ) override;
-	void UiSetCursor( int32_t nShape ) override;
-	int32_t UiDebugOverlayText( int32_t nIndex, float *pOutX, float *pOutY, int32_t *pOutLine, uint32_t *pOutRgba,
-								uint8_t *pText, int32_t nTextBytes ) override;
+	void UiTextureUpload(int32_t nTexture, const uint8_t* pRgba, int32_t nWide, int32_t nTall) override;
+	int32_t UiFontAddFile(const char* pPath) override;
+	int32_t UiFontCreate(const char* pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags) override;
+	void UiFontMetrics(int32_t nFont, int32_t* pOutTall, int32_t* pOutAscent) override;
+	int32_t UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCount, int32_t* pOutAdvances) override;
+	void UiPlaySound(const char* pPath) override;
+	void UiSetMenuInput(int32_t bMouse, int32_t bKeyboard) override;
+	void UiSetCursor(int32_t nShape) override;
+	int32_t UiDebugOverlayText(int32_t nIndex, float* pOutX, float* pOutY, int32_t* pOutLine, uint32_t* pOutRgba,
+							   uint8_t* pText, int32_t nTextBytes) override;
 	void UiDebugOverlayClearDead() override;
 	void ClientModeLayout() override;
 };
@@ -389,175 +388,174 @@ public:
 class CShimParticlesClient final : public IShimParticlesClient
 {
 public:
-	int32_t ParticlesCreate( uint32_t hOwner, int32_t nChannel, const char *pszMaterial, float flCullRadius,
-							 int32_t bAlwaysSimulate ) override;
-	void ParticlesConfigure( uint32_t hOwner, int32_t nChannel, float flCullRadius ) override;
-	void ParticlesDestroy( uint32_t hOwner, int32_t nChannel ) override;
-	void ParticlesSetLights( uint32_t hOwner, int32_t nChannel, const float *pLights, int32_t nFloats ) override;
-	int32_t ParticlesTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, float *pOut,
-								int32_t nOut ) override;
-	int32_t WorldTextMeshUpdate( uint32_t hOwner, const char *pszMaterial, const float *pBounds,
-								 int32_t nFloats ) override;
-	void WorldTextMeshDestroy( uint32_t hOwner ) override;
-	int32_t ParticleSystemsRead( int32_t nIndex, SourceSharpParticleSystemInfo_t *pOut, char *pszName,
-								 int32_t nNameMax ) override;
+	int32_t ParticlesCreate(uint32_t hOwner, int32_t nChannel, const char* pszMaterial, float flCullRadius,
+							int32_t bAlwaysSimulate) override;
+	void ParticlesConfigure(uint32_t hOwner, int32_t nChannel, float flCullRadius) override;
+	void ParticlesDestroy(uint32_t hOwner, int32_t nChannel) override;
+	void ParticlesSetLights(uint32_t hOwner, int32_t nChannel, const float* pLights, int32_t nFloats) override;
+	int32_t ParticlesTraceLine(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask, float* pOut,
+							   int32_t nOut) override;
+	int32_t WorldTextMeshUpdate(uint32_t hOwner, const char* pszMaterial, const float* pBounds,
+								int32_t nFloats) override;
+	void WorldTextMeshDestroy(uint32_t hOwner) override;
+	int32_t ParticleSystemsRead(int32_t nIndex, SourceSharpParticleSystemInfo_t* pOut, char* pszName,
+								int32_t nNameMax) override;
 	int32_t ParticleDefinitionReads() override;
-	int32_t ParticleQueryUnanswered( int32_t *pOut, int32_t nMax ) override;
-	int32_t ParticlesMaterialVarInt( uint32_t hOwner, int32_t nChannel, const char *pszVar, int32_t *pValue ) override;
-	int32_t ParticlesCreateAt( int32_t nId, const char *pszMaterial, const float *pOriginXYZ, float flCullRadius,
-							   int32_t bAlwaysSimulate ) override;
-	int32_t ParticleSystemNameFromIndex( int32_t nIndex, char *pszOut, int32_t nOutMax ) override;
-	int32_t ParticleSystemOneShot( const char *pszName, const float *pSortOriginXYZ, const float *pPoints,
-								   int32_t nPoints, const float *pOrientation0 ) override;
-	int32_t ParticlesWorldTrace( const float *pStartXYZ, const float *pEndXYZ, float *pOut, int32_t nOut ) override;
-	void ParticlesView( float *pModelView12, int32_t *pViewId, float *pOriginForward6 ) override;
-	int32_t ParticlesTraceMask( const float *pStartXYZ, const float *pEndXYZ, uint32_t nMask, float *pOut,
-								int32_t nOut ) override;
-	int32_t ParticlesSetSpace( uint32_t hOwner, int32_t nChannel, uint32_t hEntity, int32_t nAttachment, int32_t nFlags,
-							   SourceSharpParticleFollow_t *pFollow ) override;
-	int32_t ParticlesBrushPointContents( uint32_t hOwner, const float *pPointXYZ ) override;
-	int32_t ParticleSystemImpact( const char *pszName, const float *pPoints, int32_t nEntity, float flScale,
-								  const float *pColorXYZ ) override;
+	int32_t ParticleQueryUnanswered(int32_t* pOut, int32_t nMax) override;
+	int32_t ParticlesMaterialVarInt(uint32_t hOwner, int32_t nChannel, const char* pszVar, int32_t* pValue) override;
+	int32_t ParticlesCreateAt(int32_t nId, const char* pszMaterial, const float* pOriginXYZ, float flCullRadius,
+							  int32_t bAlwaysSimulate) override;
+	int32_t ParticleSystemNameFromIndex(int32_t nIndex, char* pszOut, int32_t nOutMax) override;
+	int32_t ParticleSystemOneShot(const char* pszName, const float* pSortOriginXYZ, const float* pPoints,
+								  int32_t nPoints, const float* pOrientation0) override;
+	int32_t ParticlesWorldTrace(const float* pStartXYZ, const float* pEndXYZ, float* pOut, int32_t nOut) override;
+	void ParticlesView(float* pModelView12, int32_t* pViewId, float* pOriginForward6) override;
+	int32_t ParticlesTraceMask(const float* pStartXYZ, const float* pEndXYZ, uint32_t nMask, float* pOut,
+							   int32_t nOut) override;
+	int32_t ParticlesSetSpace(uint32_t hOwner, int32_t nChannel, uint32_t hEntity, int32_t nAttachment, int32_t nFlags,
+							  SourceSharpParticleFollow_t* pFollow) override;
+	int32_t ParticlesBrushPointContents(uint32_t hOwner, const float* pPointXYZ) override;
+	int32_t ParticleSystemImpact(const char* pszName, const float* pPoints, int32_t nEntity, float flScale,
+								 const float* pColorXYZ) override;
 };
 
 class CShimFxClient final : public IShimFxClient
 {
 public:
 	int32_t EffectRegistrationCount() override;
-	int32_t EffectRegistrationName( int32_t iIndex, char *pOut, int32_t nOutSize ) override;
-	void EffectRegistrationRun( int32_t iIndex, const SourceSharpEffectData_t *pData ) override;
+	int32_t EffectRegistrationName(int32_t iIndex, char* pOut, int32_t nOutSize) override;
+	void EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectData_t* pData) override;
 	int32_t FxCanPredict() override;
-	int32_t FxRecipientCount( const float *pOriginXYZ ) override;
-	int32_t FxMaterialFind( const char *pName ) override;
-	void FxMaterialAddRef( int32_t nMaterial ) override;
-	void FxMaterialRelease( int32_t nMaterial ) override;
-	int32_t FxMaterialName( int32_t nMaterial, char *pOut, int32_t nOutSize ) override;
-	void FxDrawQuads( int32_t nMaterial, int32_t nVertices, const float *pVertices, int32_t bByteColor ) override;
-	void FxView( float *pOut ) override;
-	void FxMainViewOrigin( float *pOutXYZ ) override;
+	int32_t FxRecipientCount(const float* pOriginXYZ) override;
+	int32_t FxMaterialFind(const char* pName) override;
+	void FxMaterialAddRef(int32_t nMaterial) override;
+	void FxMaterialRelease(int32_t nMaterial) override;
+	int32_t FxMaterialName(int32_t nMaterial, char* pOut, int32_t nOutSize) override;
+	void FxDrawQuads(int32_t nMaterial, int32_t nVertices, const float* pVertices, int32_t bByteColor) override;
+	void FxView(float* pOut) override;
+	void FxMainViewOrigin(float* pOutXYZ) override;
 	int32_t FxLocalPlayer() override;
-	void FxViewAngles( float *pOutPYR ) override;
-	int32_t FxEntityAttachment( int32_t nEntIndex, int32_t nAttachment, float *pOutXYZ, char *pModelOut,
-								int32_t nModelSize ) override;
-	void FxDispatchParticleEffect( int32_t nSystem, const float *pStartXYZ, const float *pEndXYZ,
-								   const float *pAnglesPYR, int32_t nEntIndex ) override;
-	int32_t FxEntityRenderAngles( int32_t nEntIndex, float *pOutPYR ) override;
-	void FxEjectBrass( const float *pOriginXYZ, const float *pAnglesPYR, const float *pGunAnglesPYR,
-					   int32_t nType ) override;
-	int32_t FxSpriteDrawBegin( uint32_t hOwner, const float *pOffsetXYZ, int32_t nModelIndex, float flFrame,
-							   int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a,
-							   float flScale, int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize,
-							   float *pIn ) override;
-	int32_t FxSpriteDrawEnd( const float *pOut ) override;
-	int32_t FxSpriteDrawStore( const float *pOut ) override;
+	void FxViewAngles(float* pOutPYR) override;
+	int32_t FxEntityAttachment(int32_t nEntIndex, int32_t nAttachment, float* pOutXYZ, char* pModelOut,
+							   int32_t nModelSize) override;
+	void FxDispatchParticleEffect(int32_t nSystem, const float* pStartXYZ, const float* pEndXYZ,
+								  const float* pAnglesPYR, int32_t nEntIndex) override;
+	int32_t FxEntityRenderAngles(int32_t nEntIndex, float* pOutPYR) override;
+	void FxEjectBrass(const float* pOriginXYZ, const float* pAnglesPYR, const float* pGunAnglesPYR,
+					  int32_t nType) override;
+	int32_t FxSpriteDrawBegin(uint32_t hOwner, const float* pOffsetXYZ, int32_t nModelIndex, float flFrame,
+							  int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a,
+							  float flScale, int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize,
+							  float* pIn) override;
+	int32_t FxSpriteDrawEnd(const float* pOut) override;
+	int32_t FxSpriteDrawStore(const float* pOut) override;
 	int32_t FxPrecacheCount() override;
-	void FxPrecacheCache( int32_t nIndex, int32_t bPrecache ) override;
+	void FxPrecacheCache(int32_t nIndex, int32_t bPrecache) override;
 	void FxCacheUsedMaterials() override;
 	void FxCacheMaterialHandles() override;
-	int32_t FxRenderableAttachment( uint32_t hEntity, int32_t nAttachment, float *pOut6 ) override;
-	int32_t FxHandleEntityIndex( uint32_t hEntity ) override;
-	void FxElight( int32_t nKey, const float *pOriginXYZ, int32_t r, int32_t g, int32_t b, int32_t nExponent,
-				   float flRadius, float flDecay, float flDie ) override;
-	void FxVectorRandom( float flLo, float flHi, float *pOutXYZ ) override;
+	int32_t FxRenderableAttachment(uint32_t hEntity, int32_t nAttachment, float* pOut6) override;
+	int32_t FxHandleEntityIndex(uint32_t hEntity) override;
+	void FxElight(int32_t nKey, const float* pOriginXYZ, int32_t r, int32_t g, int32_t b, int32_t nExponent,
+				  float flRadius, float flDecay, float flDie) override;
+	void FxVectorRandom(float flLo, float flHi, float* pOutXYZ) override;
 	int32_t FxMaterialsCached() override;
-	int32_t FxTempEntCreateNamed( int32_t nSlot, const float *pOriginXYZ, const char *pModel,
-								  int32_t nPriority ) override;
-	void FxLoadModel( const char *pModel ) override;
-	int32_t FxModelFrameCount( const char *pModel ) override;
+	int32_t FxTempEntCreateNamed(int32_t nSlot, const float* pOriginXYZ, const char* pModel,
+								 int32_t nPriority) override;
+	void FxLoadModel(const char* pModel) override;
+	int32_t FxModelFrameCount(const char* pModel) override;
 };
 
 class CShimSoundscapeClient final : public IShimSoundscapeClient
 {
 public:
-	void SoundscapeSetRoomType( int32_t nRoomType ) override;
-	void SoundscapeSetPlayerDsp( int32_t nDspType ) override;
-	void SoundscapeMainView( float *pOut9 ) override;
+	void SoundscapeSetRoomType(int32_t nRoomType) override;
+	void SoundscapeSetPlayerDsp(int32_t nDspType) override;
+	void SoundscapeMainView(float* pOut9) override;
 	int32_t SoundscapeMakingResLists() override;
-	void SoundscapeTouchSoundFile( const char *pszWave ) override;
-	void SoundPatchEmit( int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime,
-						 int32_t bEmitCaption ) override;
-	void SoundPatchStop( int32_t hPatch ) override;
-	void SoundPatchState( int32_t hPatch, int32_t *pnEntIndex, int32_t *pbFilterActive ) override;
-	void SoundPatchFree( int32_t hPatch ) override;
-	int32_t SoundPatchCreate( uint32_t hEntity, int32_t nChannel, const char *pSoundName,
-							  int32_t nSoundLevel ) override;
+	void SoundscapeTouchSoundFile(const char* pszWave) override;
+	void SoundPatchEmit(int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags, float flStartTime,
+						int32_t bEmitCaption) override;
+	void SoundPatchStop(int32_t hPatch) override;
+	void SoundPatchState(int32_t hPatch, int32_t* pnEntIndex, int32_t* pbFilterActive) override;
+	void SoundPatchFree(int32_t hPatch) override;
+	int32_t SoundPatchCreate(uint32_t hEntity, int32_t nChannel, const char* pSoundName, int32_t nSoundLevel) override;
 };
 
 class CShimPrecipitationClient final : public IShimPrecipitationClient
 {
 public:
-	int32_t PrecipitationTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask, int32_t bIgnorePlayer,
-									float *pOut ) override;
-	int32_t PrecipitationTraceVolume( uint32_t hOwner, const float *pStartXYZ, const float *pEndXYZ,
-									  const float *pHullMinXYZ, const float *pHullMaxXYZ, float *pOut ) override;
-	int32_t PrecipitationPointContents( const float *pXYZ ) override;
-	int32_t PrecipitationInPvs( uint32_t hOwner ) override;
-	int32_t PrecipitationPlayer( float *pOut ) override;
-	void PrecipitationWorldBounds( float *pOut6 ) override;
+	int32_t PrecipitationTraceLine(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask, int32_t bIgnorePlayer,
+								   float* pOut) override;
+	int32_t PrecipitationTraceVolume(uint32_t hOwner, const float* pStartXYZ, const float* pEndXYZ,
+									 const float* pHullMinXYZ, const float* pHullMaxXYZ, float* pOut) override;
+	int32_t PrecipitationPointContents(const float* pXYZ) override;
+	int32_t PrecipitationInPvs(uint32_t hOwner) override;
+	int32_t PrecipitationPlayer(float* pOut) override;
+	void PrecipitationWorldBounds(float* pOut6) override;
 	int32_t PrecipitationScreenWidth() override;
 };
 
 class CShimMaterialProxyClient final : public IShimMaterialProxyClient
 {
 public:
-	int32_t ProxyFindVar( int32_t hProxy, const char *pszName, int32_t bComplain, int32_t *pFound ) override;
-	int32_t ProxyFindTexture( int32_t hProxy, const char *pszName, const char *pszGroup, int32_t bComplain,
-							  int32_t *pIsError ) override;
-	int32_t ProxyVarTexture( int32_t hProxy, int32_t nSlot, char *pOutName, int32_t nOutSize ) override;
-	int32_t ProxyBindEntity( int32_t hProxy, SourceSharpProxyEntity_t *pOut ) override;
-	int32_t ProxyReadView( int32_t nKind, float *pOut, int32_t nFloats ) override;
-	int32_t ProxyPlayerCustomFile( int32_t nPlayer, uint32_t *pCrc ) override;
-	void ProxyNotShipped( const char *pszCapability, const char *pszReason ) override;
+	int32_t ProxyFindVar(int32_t hProxy, const char* pszName, int32_t bComplain, int32_t* pFound) override;
+	int32_t ProxyFindTexture(int32_t hProxy, const char* pszName, const char* pszGroup, int32_t bComplain,
+							 int32_t* pIsError) override;
+	int32_t ProxyVarTexture(int32_t hProxy, int32_t nSlot, char* pOutName, int32_t nOutSize) override;
+	int32_t ProxyBindEntity(int32_t hProxy, SourceSharpProxyEntity_t* pOut) override;
+	int32_t ProxyReadView(int32_t nKind, float* pOut, int32_t nFloats) override;
+	int32_t ProxyPlayerCustomFile(int32_t nPlayer, uint32_t* pCrc) override;
+	void ProxyNotShipped(const char* pszCapability, const char* pszReason) override;
 };
 
 class CShimInputClient final : public IShimInputClient
 {
 public:
-	void InputCursorState( int32_t *pVisible, int32_t *pLocked ) override;
-	void InputGetCursorPos( int32_t *pX, int32_t *pY ) override;
-	void InputSetCursorPos( int32_t x, int32_t y ) override;
+	void InputCursorState(int32_t* pVisible, int32_t* pLocked) override;
+	void InputGetCursorPos(int32_t* pX, int32_t* pY) override;
+	void InputSetCursorPos(int32_t x, int32_t y) override;
 	void InputSetCursorArrow() override;
-	void InputVguiScreenSize( int32_t *pWide, int32_t *pTall ) override;
-	void InputHudFacts( float *pSensitivity, int32_t *pKeyBits, float *pFovAdjust ) override;
+	void InputVguiScreenSize(int32_t* pWide, int32_t* pTall) override;
+	void InputHudFacts(float* pSensitivity, int32_t* pKeyBits, float* pFovAdjust) override;
 	void InputStopPitchDrift() override;
-	void InputSetLocalViewAngles( const float *pAngles ) override;
+	void InputSetLocalViewAngles(const float* pAngles) override;
 	void InputViewerCameraModeChanged() override;
 	int32_t InputViewerAimIsAssisted() override;
-	void InputShowScoreboard( int32_t bShow ) override;
-	void *InputMailbox() override;
+	void InputShowScoreboard(int32_t bShow) override;
+	void* InputMailbox() override;
 };
 
 class CShimPhysicsClient final : public IShimPhysicsClient
 {
 public:
-	int32_t PhysicsClientSurfaceAudio( int32_t nSurfaceProps, char *pHard, int32_t nHard, char *pSoft, int32_t nSoft,
-									   float *pOut3 ) override;
-	void PhysicsClientCollideExtent( void *pObject, const float *pOrigin, const float *pAngles, const float *pDirection,
-									 float *pOut ) override;
-	int32_t PhysicsClientPointContents( const float *pPoint ) override;
-	void PhysicsClientSplashLighting( const float *pPoint, float *pOut4 ) override;
-	void PhysicsClientSplashEffect( int32_t nKind, const float *pOrigin, const float *pNormal, float flScale,
-									const float *pColor, float flLifetime, float flAlpha ) override;
+	int32_t PhysicsClientSurfaceAudio(int32_t nSurfaceProps, char* pHard, int32_t nHard, char* pSoft, int32_t nSoft,
+									  float* pOut3) override;
+	void PhysicsClientCollideExtent(void* pObject, const float* pOrigin, const float* pAngles, const float* pDirection,
+									float* pOut) override;
+	int32_t PhysicsClientPointContents(const float* pPoint) override;
+	void PhysicsClientSplashLighting(const float* pPoint, float* pOut4) override;
+	void PhysicsClientSplashEffect(int32_t nKind, const float* pOrigin, const float* pNormal, float flScale,
+								   const float* pColor, float flLifetime, float flAlpha) override;
 };
 
 class CShimConVarsClient final : public IShimConVarsClient
 {
 public:
-	int32_t ConVarsClientWatch( const char *pName ) override;
-	int32_t ConVarsClientSetValue( const char *pName, float flValue ) override;
+	int32_t ConVarsClientWatch(const char* pName) override;
+	int32_t ConVarsClientSetValue(const char* pName, float flValue) override;
 };
 
 class CShimFlashlightClient final : public IShimFlashlightClient
 {
 public:
-	int32_t FlashlightTexture( const char *pszName ) override;
+	int32_t FlashlightTexture(const char* pszName) override;
 	int32_t FlashlightSupportsBorderColor() override;
 };
 
 struct CShimAreasClient
 {
 	CShimEngineClient m_Engine;
-	IShimEvents *m_pEvents = nullptr; // CGameEvents
+	IShimEvents* m_pEvents = nullptr; // CGameEvents
 	CShimNetworkClient m_Network;
 	CShimModelsClient m_Models;
 	CShimMovementClient m_Movement;
@@ -585,6 +583,6 @@ struct CShimAreasClient
 };
 
 // The client factory's rows: each shared base by its own version string.
-void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName );
+void* ShimAreasClient_Acquire(CShimAreasClient& areas, const char* pszName);
 
 #endif // CLIENT_DLL

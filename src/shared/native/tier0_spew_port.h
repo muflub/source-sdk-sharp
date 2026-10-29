@@ -11,9 +11,9 @@
 
 #include "tier0/dbg.h"
 
-void Tier0_DevSpewV( int level, SpewType_t type, const tchar *pMsg, va_list args );
+void Tier0_DevSpewV(int level, SpewType_t type, const tchar* pMsg, va_list args);
 
 // The engine's console the port's default spew writes to once it exists; NULL to
 // disconnect. The DLL's root connects it beside its CCVarRegistry.
 class ICvar;
-void Tier0_ConnectConsole( ICvar *pConsole );
+void Tier0_ConnectConsole(ICvar* pConsole);

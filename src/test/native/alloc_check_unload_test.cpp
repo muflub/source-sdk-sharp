@@ -19,37 +19,36 @@
 #include <sstream>
 #include <string>
 
-TEST( AllocCheckUnload, DlcloseReportsOnlyWhatStaticDestructorsLeftBehind )
+TEST(AllocCheckUnload, DlcloseReportsOnlyWhatStaticDestructorsLeftBehind)
 {
 	char szLog[] = "/tmp/ss-alloc-unload-XXXXXX";
-	const int fd = mkstemp( szLog );
-	ASSERT_GE( fd, 0 );
-	close( fd );
-	setenv( "SOURCESHARP_ALLOC_CHECK", "report", 1 );
-	setenv( "SOURCESHARP_ALLOC_CHECK_LOG", szLog, 1 );
+	const int fd = mkstemp(szLog);
+	ASSERT_GE(fd, 0);
+	close(fd);
+	setenv("SOURCESHARP_ALLOC_CHECK", "report", 1);
+	setenv("SOURCESHARP_ALLOC_CHECK_LOG", szLog, 1);
 
-	void *h = dlopen( SS_ALLOC_UNLOAD_PROBE, RTLD_NOW | RTLD_LOCAL );
-	ASSERT_NE( nullptr, h ) << dlerror();
-	auto pEntries = (int ( * )())dlsym( h, "AllocUnloadProbeEntries" );
-	ASSERT_NE( nullptr, pEntries );
-	EXPECT_EQ( 50, pEntries() ) << "the probe's registry did not fill: the stimulus never reached it";
-	ASSERT_EQ( 0, dlclose( h ) );
+	void* h = dlopen(SS_ALLOC_UNLOAD_PROBE, RTLD_NOW | RTLD_LOCAL);
+	ASSERT_NE(nullptr, h) << dlerror();
+	auto pEntries = (int (*)())dlsym(h, "AllocUnloadProbeEntries");
+	ASSERT_NE(nullptr, pEntries);
+	EXPECT_EQ(50, pEntries()) << "the probe's registry did not fill: the stimulus never reached it";
+	ASSERT_EQ(0, dlclose(h));
 
-	std::ifstream f( szLog );
+	std::ifstream f(szLog);
 	std::stringstream ss;
 	ss << f.rdbuf();
-	unlink( szLog );
+	unlink(szLog);
 	const std::string strLog = ss.str();
 
 	std::smatch m;
 	const std::regex re(
-		R"(unload: (\d+) allocations, (\d+) releases, (\d+) mismatches, (\d+) foreign frees, (\d+) live)" );
-	ASSERT_TRUE( std::regex_search( strLog, m, re ) ) << "no unload report in:\n" << strLog;
-	EXPECT_GT( std::stoul( m[1] ), 50u ) << "the map's nodes were not seen allocated";
-	EXPECT_EQ( "0", m[4].str() ) << "foreign frees in the probe:\n" << strLog;
-	EXPECT_EQ( "1", m[5].str() )
-		<< "the unload report counts " << m[5]
-		<< " live blocks; only the one deliberate leak "
-		   "should be left once static destructors have run. More means the report ran first.\n"
-		<< strLog;
+		R"(unload: (\d+) allocations, (\d+) releases, (\d+) mismatches, (\d+) foreign frees, (\d+) live)");
+	ASSERT_TRUE(std::regex_search(strLog, m, re)) << "no unload report in:\n" << strLog;
+	EXPECT_GT(std::stoul(m[1]), 50u) << "the map's nodes were not seen allocated";
+	EXPECT_EQ("0", m[4].str()) << "foreign frees in the probe:\n" << strLog;
+	EXPECT_EQ("1", m[5].str()) << "the unload report counts " << m[5]
+							   << " live blocks; only the one deliberate leak "
+								  "should be left once static destructors have run. More means the report ran first.\n"
+							   << strLog;
 }

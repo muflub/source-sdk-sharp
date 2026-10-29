@@ -20,18 +20,18 @@
 #include "shell_viewport_client.h"
 #include "imanaged_areas_client.h"
 
-IViewPort *gViewPortInterface = NULL;
+IViewPort* gViewPortInterface = NULL;
 
 CSourceSharpViewport::CSourceSharpViewport()
-	: CSourceSharpRawPanel( "SourceSharpViewport" )
-	, m_pGameEventManager( NULL )
-	, m_nRootWide( -1 )
-	, m_nRootTall( -1 )
+	: CSourceSharpRawPanel("SourceSharpViewport")
+	, m_pGameEventManager(NULL)
+	, m_nRootWide(-1)
+	, m_nRootTall(-1)
 {
 	gViewPortInterface = this;
-	SetPaintEnabled( false );
-	SetKeyBoardInputEnabled( false );
-	SetMouseInputEnabled( false );
+	SetPaintEnabled(false);
+	SetKeyBoardInputEnabled(false);
+	SetMouseInputEnabled(false);
 	// Fill the screen until the client mode lays it out; the HUD and menu roots under it
 	// are clipped to it.
 	FillScreen();
@@ -39,67 +39,67 @@ CSourceSharpViewport::CSourceSharpViewport()
 
 CSourceSharpViewport::~CSourceSharpViewport()
 {
-	if ( gViewPortInterface == this )
+	if (gViewPortInterface == this)
 		gViewPortInterface = NULL;
-	if ( m_pGameEventManager )
-		m_pGameEventManager->RemoveListener( this );
+	if (m_pGameEventManager)
+		m_pGameEventManager->RemoveListener(this);
 }
 
-void CSourceSharpViewport::Start( IGameEventManager2 *pGameEventManager )
+void CSourceSharpViewport::Start(IGameEventManager2* pGameEventManager)
 {
 	m_pGameEventManager = pGameEventManager;
-	if ( m_pGameEventManager )
-		m_pGameEventManager->AddListener( this, "game_newmap", false );
+	if (m_pGameEventManager)
+		m_pGameEventManager->AddListener(this, "game_newmap", false);
 }
 
 void CSourceSharpViewport::OnThink()
 {
 	int nWide = 0, nTall = 0;
-	vgui::ipanel()->GetSize( enginevgui->GetPanel( PANEL_CLIENTDLL ), nWide, nTall );
-	OnRootSize( nWide, nTall );
+	vgui::ipanel()->GetSize(enginevgui->GetPanel(PANEL_CLIENTDLL), nWide, nTall);
+	OnRootSize(nWide, nTall);
 }
 
-void CSourceSharpViewport::OnScreenSizeChanged( int nOldWide, int nOldTall )
+void CSourceSharpViewport::OnScreenSizeChanged(int nOldWide, int nOldTall)
 {
-	if ( g_pClientMode )
+	if (g_pClientMode)
 		g_pClientMode->Layout();
 }
 
-void CSourceSharpViewport::OnRootSize( int nWide, int nTall )
+void CSourceSharpViewport::OnRootSize(int nWide, int nTall)
 {
 	const bool bResized = nWide != m_nRootWide || nTall != m_nRootTall;
 	m_nRootWide = nWide;
 	m_nRootTall = nTall;
-	if ( bResized && g_pClientMode )
+	if (bResized && g_pClientMode)
 		g_pClientMode->Layout();
 }
 
 // By name: the managed UI opens or closes its screen for it.
-void CSourceSharpViewport::ShowPanel( const char *pName, bool state )
+void CSourceSharpViewport::ShowPanel(const char* pName, bool state)
 {
-	if ( IManagedUiClient *pUi = ManagedUiClient() )
+	if (IManagedUiClient* pUi = ManagedUiClient())
 	{
-		if ( pName )
-			pUi->ViewportPanel( pName, state ? 1 : 0 );
+		if (pName)
+			pUi->ViewportPanel(pName, state ? 1 : 0);
 	}
 }
 
 // A panel object, which only its own code holds: shown as it asks.
-void CSourceSharpViewport::ShowPanel( IViewPortPanel *pPanel, bool state )
+void CSourceSharpViewport::ShowPanel(IViewPortPanel* pPanel, bool state)
 {
-	if ( pPanel )
-		pPanel->ShowPanel( state );
+	if (pPanel)
+		pPanel->ShowPanel(state);
 }
 
 // No native panel by name, so the message is only freed.
-void CSourceSharpViewport::PostMessageToPanel( const char *pName, KeyValues *pKeyValues )
+void CSourceSharpViewport::PostMessageToPanel(const char* pName, KeyValues* pKeyValues)
 {
-	if ( pKeyValues )
+	if (pKeyValues)
 		pKeyValues->deleteThis();
 }
 
-void CSourceSharpViewport::FireGameEvent( IGameEvent *event )
+void CSourceSharpViewport::FireGameEvent(IGameEvent* event)
 {
-	if ( !V_strcmp( event->GetName(), "game_newmap" ) )
-		ShowPanel( PANEL_ALL, false );
+	if (!V_strcmp(event->GetName(), "game_newmap"))
+		ShowPanel(PANEL_ALL, false);
 }

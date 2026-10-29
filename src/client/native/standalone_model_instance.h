@@ -17,34 +17,34 @@ public:
 	Handle Get() const { return m_hInstance; }
 
 	template <class Render>
-	void DropIfNotFor( Render *pRender, const void *pModel )
+	void DropIfNotFor(Render* pRender, const void* pModel)
 	{
-		if ( m_pModel != pModel )
-			Destroy( pRender );
+		if (m_pModel != pModel)
+			Destroy(pRender);
 	}
 
 	template <class Render, class Renderable>
-	Handle Ensure( Render *pRender, Renderable *pRenderable, const void *pModel )
+	Handle Ensure(Render* pRender, Renderable* pRenderable, const void* pModel)
 	{
-		DropIfNotFor( pRender, pModel );
-		if ( m_hInstance == kInvalid )
+		DropIfNotFor(pRender, pModel);
+		if (m_hInstance == kInvalid)
 		{
-			m_hInstance = pRender->CreateInstance( pRenderable );
+			m_hInstance = pRender->CreateInstance(pRenderable);
 			m_pModel = pModel;
 		}
 		return m_hInstance;
 	}
 
 	template <class Render>
-	void Destroy( Render *pRender )
+	void Destroy(Render* pRender)
 	{
-		if ( m_hInstance != kInvalid )
-			pRender->DestroyInstance( m_hInstance );
+		if (m_hInstance != kInvalid)
+			pRender->DestroyInstance(m_hInstance);
 		m_hInstance = kInvalid;
 		m_pModel = nullptr;
 	}
 
 private:
 	Handle m_hInstance = kInvalid;
-	const void *m_pModel = nullptr;
+	const void* m_pModel = nullptr;
 };

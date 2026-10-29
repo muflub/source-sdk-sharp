@@ -94,7 +94,7 @@
 // Never reached: no shipped script is encrypted and the tests below all take
 // the plain .txt path. It asserts rather than returning quietly so that a
 // future case which DOES reach it cannot be read as having decoded anything.
-void UTIL_DecodeICE( unsigned char *, int, const unsigned char * )
+void UTIL_DecodeICE(unsigned char*, int, const unsigned char*)
 {
 	ADD_FAILURE() << "UTIL_DecodeICE was called. No shipped weapon script is "
 					 "encrypted, so reaching this means the test drove the "
@@ -115,14 +115,14 @@ CAmmoDef::CAmmoDef()
 
 CAmmoDef::~CAmmoDef() {}
 
-int CAmmoDef::Index( const char * )
+int CAmmoDef::Index(const char*)
 {
 	return -1;
 }
 
 static CAmmoDef g_TestAmmoDef;
 
-CAmmoDef *GetAmmoDef()
+CAmmoDef* GetAmmoDef()
 {
 	return &g_TestAmmoDef;
 }
@@ -132,28 +132,28 @@ CAmmoDef *GetAmmoDef()
 // script disappearing is a RED TEST and not a silently shorter run --
 // `a check that cannot fail` is the recorded failure this guards against.
 //-----------------------------------------------------------------------------
-static const char *const kWeapons[] = {
+static const char* const kWeapons[] = {
 	"weapon_357",  "weapon_ar2",        "weapon_crossbow",  "weapon_crowbar", "weapon_cubemap",
 	"weapon_frag", "weapon_physcannon", "weapon_pistol",    "weapon_rpg",     "weapon_shotgun",
 	"weapon_slam", "weapon_smg1",       "weapon_stunstick",
 };
 
-static const int kWeaponCount = (int)( sizeof( kWeapons ) / sizeof( kWeapons[0] ) );
+static const int kWeaponCount = (int)(sizeof(kWeapons) / sizeof(kWeapons[0]));
 
-static const char *const kGoldenPath = "sourcesharp/test/weapon_script_cases.txt";
-static const char *const kScriptDir = "../game/mod_sharp/scripts/";
-static const char *const kRegenMarkerPath = "sourcesharp/test/weapon_script_cases.regen";
+static const char* const kGoldenPath = "sourcesharp/test/weapon_script_cases.txt";
+static const char* const kScriptDir = "../game/mod_sharp/scripts/";
+static const char* const kRegenMarkerPath = "sourcesharp/test/weapon_script_cases.regen";
 
 //-----------------------------------------------------------------------------
 // Reading.
 //-----------------------------------------------------------------------------
 
-static std::string ReadFile( const std::string &path, bool *pOk )
+static std::string ReadFile(const std::string& path, bool* pOk)
 {
-	std::ifstream in( path.c_str() );
+	std::ifstream in(path.c_str());
 	*pOk = in.good();
 
-	if ( !in.good() )
+	if (!in.good())
 		return std::string();
 
 	std::stringstream ss;
@@ -168,17 +168,17 @@ typedef std::map<std::string, FieldMap> ScriptMap;
 //-----------------------------------------------------------------------------
 // Run the REAL parse over one script.
 //-----------------------------------------------------------------------------
-static FileWeaponInfo_t *ParseRealScript( const char *pName )
+static FileWeaponInfo_t* ParseRealScript(const char* pName)
 {
 	bool ok = false;
-	std::string text = ReadFile( std::string( kScriptDir ) + pName + ".txt", &ok );
+	std::string text = ReadFile(std::string(kScriptDir) + pName + ".txt", &ok);
 
-	if ( !ok )
+	if (!ok)
 		return NULL;
 
-	KeyValues *pKV = new KeyValues( "WeaponDatafile" );
+	KeyValues* pKV = new KeyValues("WeaponDatafile");
 
-	if ( !pKV->LoadFromBuffer( pName, text.c_str() ) )
+	if (!pKV->LoadFromBuffer(pName, text.c_str()))
 	{
 		pKV->deleteThis();
 		return NULL;
@@ -186,21 +186,21 @@ static FileWeaponInfo_t *ParseRealScript( const char *pName )
 
 	// CreateWeaponInfo() is weapon_parse_default.cpp's -- the real one, so the
 	// third file of the trio is on the link line and covered too.
-	FileWeaponInfo_t *pInfo = CreateWeaponInfo();
-	pInfo->Parse( pKV, pName );
+	FileWeaponInfo_t* pInfo = CreateWeaponInfo();
+	pInfo->Parse(pKV, pName);
 
 	pKV->deleteThis();
 	return pInfo;
 }
 
-static std::string Int( int v )
+static std::string Int(int v)
 {
 	char buf[32];
-	V_snprintf( buf, sizeof( buf ), "%d", v );
+	V_snprintf(buf, sizeof(buf), "%d", v);
 	return buf;
 }
 
-static std::string Bool( bool v )
+static std::string Bool(bool v)
 {
 	return v ? "true" : "false";
 }
@@ -213,7 +213,7 @@ static std::string Bool( bool v )
 // renumbered WeaponSound_t, which is exactly the drift the numbering comment in
 // WeaponScript.cs warns about.
 //-----------------------------------------------------------------------------
-static FieldMap FieldsOf( const FileWeaponInfo_t *pInfo )
+static FieldMap FieldsOf(const FileWeaponInfo_t* pInfo)
 {
 	FieldMap f;
 
@@ -223,34 +223,34 @@ static FieldMap FieldsOf( const FileWeaponInfo_t *pInfo )
 	f["worldmodel"] = pInfo->szWorldModel;
 	f["animprefix"] = pInfo->szAnimationPrefix;
 
-	f["slot"] = Int( pInfo->iSlot );
-	f["position"] = Int( pInfo->iPosition );
+	f["slot"] = Int(pInfo->iSlot);
+	f["position"] = Int(pInfo->iPosition);
 
-	f["maxclip1"] = Int( pInfo->iMaxClip1 );
-	f["maxclip2"] = Int( pInfo->iMaxClip2 );
-	f["defaultclip1"] = Int( pInfo->iDefaultClip1 );
-	f["defaultclip2"] = Int( pInfo->iDefaultClip2 );
+	f["maxclip1"] = Int(pInfo->iMaxClip1);
+	f["maxclip2"] = Int(pInfo->iMaxClip2);
+	f["defaultclip1"] = Int(pInfo->iDefaultClip1);
+	f["defaultclip2"] = Int(pInfo->iDefaultClip2);
 
-	f["weight"] = Int( pInfo->iWeight );
-	f["rumble"] = Int( pInfo->iRumbleEffect );
-	f["flags"] = Int( pInfo->iFlags );
+	f["weight"] = Int(pInfo->iWeight);
+	f["rumble"] = Int(pInfo->iRumbleEffect);
+	f["flags"] = Int(pInfo->iFlags);
 
 	f["ammo1"] = pInfo->szAmmo1;
 	f["ammo2"] = pInfo->szAmmo2;
 
-	f["autoswitchto"] = Bool( pInfo->bAutoSwitchTo );
-	f["autoswitchfrom"] = Bool( pInfo->bAutoSwitchFrom );
-	f["melee"] = Bool( pInfo->m_bMeleeWeapon );
-	f["builtrighthanded"] = Bool( pInfo->m_bBuiltRightHanded );
-	f["allowflipping"] = Bool( pInfo->m_bAllowFlipping );
-	f["showusagehint"] = Bool( pInfo->bShowUsageHint );
+	f["autoswitchto"] = Bool(pInfo->bAutoSwitchTo);
+	f["autoswitchfrom"] = Bool(pInfo->bAutoSwitchFrom);
+	f["melee"] = Bool(pInfo->m_bMeleeWeapon);
+	f["builtrighthanded"] = Bool(pInfo->m_bBuiltRightHanded);
+	f["allowflipping"] = Bool(pInfo->m_bAllowFlipping);
+	f["showusagehint"] = Bool(pInfo->bShowUsageHint);
 
-	extern const char *pWeaponSoundCategories[NUM_SHOOT_SOUND_TYPES];
+	extern const char* pWeaponSoundCategories[NUM_SHOOT_SOUND_TYPES];
 
-	for ( int i = 0; i < NUM_SHOOT_SOUND_TYPES; i++ )
+	for (int i = 0; i < NUM_SHOOT_SOUND_TYPES; i++)
 	{
-		if ( pInfo->aShootSounds[i][0] )
-			f[std::string( "sound." ) + pWeaponSoundCategories[i]] = pInfo->aShootSounds[i];
+		if (pInfo->aShootSounds[i][0])
+			f[std::string("sound.") + pWeaponSoundCategories[i]] = pInfo->aShootSounds[i];
 	}
 
 	return f;
@@ -259,25 +259,25 @@ static FieldMap FieldsOf( const FileWeaponInfo_t *pInfo )
 //-----------------------------------------------------------------------------
 // The golden table: "<weapon>\t<field>\t<value>" a line, '#' comments, sorted.
 //-----------------------------------------------------------------------------
-static ScriptMap ParseGolden( const std::string &text )
+static ScriptMap ParseGolden(const std::string& text)
 {
 	ScriptMap out;
-	std::istringstream in( text );
+	std::istringstream in(text);
 	std::string line;
 
-	while ( std::getline( in, line ) )
+	while (std::getline(in, line))
 	{
-		if ( line.empty() || line[0] == '#' )
+		if (line.empty() || line[0] == '#')
 			continue;
 
-		size_t a = line.find( '\t' );
-		if ( a == std::string::npos )
+		size_t a = line.find('\t');
+		if (a == std::string::npos)
 			continue;
-		size_t b = line.find( '\t', a + 1 );
-		if ( b == std::string::npos )
+		size_t b = line.find('\t', a + 1);
+		if (b == std::string::npos)
 			continue;
 
-		out[line.substr( 0, a )][line.substr( a + 1, b - a - 1 )] = line.substr( b + 1 );
+		out[line.substr(0, a)][line.substr(a + 1, b - a - 1)] = line.substr(b + 1);
 	}
 
 	return out;
@@ -287,14 +287,14 @@ static ScriptMap NativeAnswers()
 {
 	ScriptMap out;
 
-	for ( int i = 0; i < kWeaponCount; i++ )
+	for (int i = 0; i < kWeaponCount; i++)
 	{
-		FileWeaponInfo_t *pInfo = ParseRealScript( kWeapons[i] );
+		FileWeaponInfo_t* pInfo = ParseRealScript(kWeapons[i]);
 
-		if ( !pInfo )
+		if (!pInfo)
 			continue;
 
-		out[kWeapons[i]] = FieldsOf( pInfo );
+		out[kWeapons[i]] = FieldsOf(pInfo);
 
 		// NOT deleted, and that is deliberate. FileWeaponInfo_t is polymorphic
 		// with a NON-VIRTUAL destructor -- stock's own, which is why its
@@ -311,40 +311,40 @@ static ScriptMap NativeAnswers()
 //-----------------------------------------------------------------------------
 // Regeneration -- deliberate, opt-in, and loud. See the header.
 //-----------------------------------------------------------------------------
-static void MaybeWriteGolden( const ScriptMap &answers )
+static void MaybeWriteGolden(const ScriptMap& answers)
 {
 	// A MARKER FILE rather than an environment variable: src/sdk_container
 	// passes exactly two env vars into the sniper container these tests run in,
 	// so SS_WEAPON_GOLDEN_WRITE=1 on the host silently did nothing and the
 	// table came out empty. The marker is in the mounted tree, so it crosses.
 	{
-		std::ifstream marker( kRegenMarkerPath );
+		std::ifstream marker(kRegenMarkerPath);
 
-		if ( !marker.good() )
+		if (!marker.good())
 			return;
 	}
 
-	FILE *fp = fopen( kGoldenPath, "w" );
-	ASSERT_TRUE( fp != NULL ) << "cannot write " << kGoldenPath;
+	FILE* fp = fopen(kGoldenPath, "w");
+	ASSERT_TRUE(fp != NULL) << "cannot write " << kGoldenPath;
 
-	fprintf( fp, "# The answers game/shared/weapon_parse.cpp's FileWeaponInfo_t::Parse\n" );
-	fprintf( fp, "# gives for the weapon scripts this mod ships, recorded by\n" );
-	fprintf( fp, "# src/test/oracle/native/weapon_script_oracle_test.cpp running the REAL parse.\n" );
-	fprintf( fp, "#\n" );
-	fprintf( fp, "# Both sides of the port are pinned to this file: the native oracle\n" );
-	fprintf( fp, "# asserts it produces these, and SourceSharp.Tests/WeaponScriptOracleTests.cs\n" );
-	fprintf( fp, "# asserts the managed database produces the same. REGENERATING THIS TABLE\n" );
-	fprintf( fp, "# TO MAKE A RED TEST GREEN DELETES THE CHECK -- see the oracle's header.\n" );
-	fprintf( fp, "#\n" );
-	fprintf( fp, "# weapon<TAB>field<TAB>value\n" );
+	fprintf(fp, "# The answers game/shared/weapon_parse.cpp's FileWeaponInfo_t::Parse\n");
+	fprintf(fp, "# gives for the weapon scripts this mod ships, recorded by\n");
+	fprintf(fp, "# src/test/oracle/native/weapon_script_oracle_test.cpp running the REAL parse.\n");
+	fprintf(fp, "#\n");
+	fprintf(fp, "# Both sides of the port are pinned to this file: the native oracle\n");
+	fprintf(fp, "# asserts it produces these, and SourceSharp.Tests/WeaponScriptOracleTests.cs\n");
+	fprintf(fp, "# asserts the managed database produces the same. REGENERATING THIS TABLE\n");
+	fprintf(fp, "# TO MAKE A RED TEST GREEN DELETES THE CHECK -- see the oracle's header.\n");
+	fprintf(fp, "#\n");
+	fprintf(fp, "# weapon<TAB>field<TAB>value\n");
 
-	for ( ScriptMap::const_iterator w = answers.begin(); w != answers.end(); ++w )
+	for (ScriptMap::const_iterator w = answers.begin(); w != answers.end(); ++w)
 	{
-		for ( FieldMap::const_iterator f = w->second.begin(); f != w->second.end(); ++f )
-			fprintf( fp, "%s\t%s\t%s\n", w->first.c_str(), f->first.c_str(), f->second.c_str() );
+		for (FieldMap::const_iterator f = w->second.begin(); f != w->second.end(); ++f)
+			fprintf(fp, "%s\t%s\t%s\n", w->first.c_str(), f->first.c_str(), f->second.c_str());
 	}
 
-	fclose( fp );
+	fclose(fp);
 }
 
 //-----------------------------------------------------------------------------
@@ -359,46 +359,46 @@ protected:
 	static void SetUpTestCase()
 	{
 		s_native = NativeAnswers();
-		MaybeWriteGolden( s_native );
+		MaybeWriteGolden(s_native);
 
 		bool ok = false;
-		std::string text = ReadFile( kGoldenPath, &ok );
+		std::string text = ReadFile(kGoldenPath, &ok);
 
-		if ( ok )
-			s_golden = ParseGolden( text );
+		if (ok)
+			s_golden = ParseGolden(text);
 	}
 
 	// The value both sides must agree on, or "" with a failure recorded.
-	static std::string Golden( const std::string &weapon, const std::string &field )
+	static std::string Golden(const std::string& weapon, const std::string& field)
 	{
-		ScriptMap::const_iterator w = s_golden.find( weapon );
+		ScriptMap::const_iterator w = s_golden.find(weapon);
 
-		if ( w == s_golden.end() )
+		if (w == s_golden.end())
 			return "";
 
-		FieldMap::const_iterator f = w->second.find( field );
+		FieldMap::const_iterator f = w->second.find(field);
 		return f == w->second.end() ? "" : f->second;
 	}
 
-	static std::string Native( const std::string &weapon, const std::string &field )
+	static std::string Native(const std::string& weapon, const std::string& field)
 	{
-		ScriptMap::const_iterator w = s_native.find( weapon );
+		ScriptMap::const_iterator w = s_native.find(weapon);
 
-		if ( w == s_native.end() )
+		if (w == s_native.end())
 			return "";
 
-		FieldMap::const_iterator f = w->second.find( field );
+		FieldMap::const_iterator f = w->second.find(field);
 		return f == w->second.end() ? "" : f->second;
 	}
 
 	// One field, across every weapon, compared both ways.
-	void ExpectFieldAgrees( const char *pField )
+	void ExpectFieldAgrees(const char* pField)
 	{
-		for ( int i = 0; i < kWeaponCount; i++ )
+		for (int i = 0; i < kWeaponCount; i++)
 		{
-			const char *w = kWeapons[i];
+			const char* w = kWeapons[i];
 
-			EXPECT_EQ( Golden( w, pField ), Native( w, pField ) )
+			EXPECT_EQ(Golden(w, pField), Native(w, pField))
 				<< w << '.' << pField << ": the REAL FileWeaponInfo_t::Parse and "
 				<< "the golden table disagree. Either weapon_parse.cpp changed or " << kGoldenPath
 				<< " is stale -- do NOT regenerate to make this pass "
@@ -416,33 +416,33 @@ ScriptMap WeaponScriptOracle::s_golden;
 // two stop that.
 //-----------------------------------------------------------------------------
 
-TEST_F( WeaponScriptOracle, TheRealParseAnsweredForEveryShippedScript )
+TEST_F(WeaponScriptOracle, TheRealParseAnsweredForEveryShippedScript)
 {
-	ASSERT_EQ( (size_t)kWeaponCount, s_native.size() )
+	ASSERT_EQ((size_t)kWeaponCount, s_native.size())
 		<< "the real parse did not answer for every script in kWeapons. A script "
 		<< "that cannot be opened is skipped, so this is either a missing file "
 		<< "under " << kScriptDir << " or a run from the wrong directory -- "
 		<< "buildcpptests runs these from src/.";
 
-	for ( int i = 0; i < kWeaponCount; i++ )
+	for (int i = 0; i < kWeaponCount; i++)
 	{
-		EXPECT_FALSE( s_native[kWeapons[i]].empty() ) << kWeapons[i] << " parsed to no fields at all";
+		EXPECT_FALSE(s_native[kWeapons[i]].empty()) << kWeapons[i] << " parsed to no fields at all";
 	}
 }
 
-TEST_F( WeaponScriptOracle, TheGoldenTableIsPresentAndCoversEveryScript )
+TEST_F(WeaponScriptOracle, TheGoldenTableIsPresentAndCoversEveryScript)
 {
-	ASSERT_FALSE( s_golden.empty() ) << kGoldenPath << " could not be read or holds no rows. Every comparison "
-									 << "below would then be against an empty map and would pass whatever the "
-									 << "parse said.";
+	ASSERT_FALSE(s_golden.empty()) << kGoldenPath << " could not be read or holds no rows. Every comparison "
+								   << "below would then be against an empty map and would pass whatever the "
+								   << "parse said.";
 
-	ASSERT_EQ( (size_t)kWeaponCount, s_golden.size() ) << "the golden table does not cover every shipped script.";
+	ASSERT_EQ((size_t)kWeaponCount, s_golden.size()) << "the golden table does not cover every shipped script.";
 
 	// Not just present -- SUBSTANTIAL. A golden holding one field per weapon
 	// would satisfy the count above and check almost nothing.
-	for ( int i = 0; i < kWeaponCount; i++ )
+	for (int i = 0; i < kWeaponCount; i++)
 	{
-		EXPECT_GE( s_golden[kWeapons[i]].size(), (size_t)21 )
+		EXPECT_GE(s_golden[kWeapons[i]].size(), (size_t)21)
 			<< kWeapons[i] << " has fewer golden fields than the parse always "
 			<< "produces (21 non-sound fields), so some were dropped.";
 	}
@@ -453,7 +453,7 @@ TEST_F( WeaponScriptOracle, TheGoldenTableIsPresentAndCoversEveryScript )
 // assertion dump.
 //-----------------------------------------------------------------------------
 
-TEST_F( WeaponScriptOracle, TheSoundCategoryNamesAreLiteralAndInOrder )
+TEST_F(WeaponScriptOracle, TheSoundCategoryNamesAreLiteralAndInOrder)
 {
 	// A MUTATION FOUND THIS GAP. SoundsAgree below builds its golden keys FROM
 	// pWeaponSoundCategories, so renaming a category renames the key on both
@@ -467,9 +467,9 @@ TEST_F( WeaponScriptOracle, TheSoundCategoryNamesAreLiteralAndInOrder )
 	// something, and it is also what pins WeaponScriptSound's numbering in
 	// SourceSharp.Shared/WeaponScript.cs: the managed enum is the index into
 	// this list.
-	extern const char *pWeaponSoundCategories[NUM_SHOOT_SOUND_TYPES];
+	extern const char* pWeaponSoundCategories[NUM_SHOOT_SOUND_TYPES];
 
-	static const char *const kExpected[] = {
+	static const char* const kExpected[] = {
 		"empty", // EMPTY            = 0
 		"single_shot", // SINGLE           = 1
 		"single_shot_npc", // SINGLE_NPC       = 2
@@ -488,74 +488,74 @@ TEST_F( WeaponScriptOracle, TheSoundCategoryNamesAreLiteralAndInOrder )
 		"deploy", // DEPLOY           = 15
 	};
 
-	ASSERT_EQ( (int)( sizeof( kExpected ) / sizeof( kExpected[0] ) ), (int)NUM_SHOOT_SOUND_TYPES )
+	ASSERT_EQ((int)(sizeof(kExpected) / sizeof(kExpected[0])), (int)NUM_SHOOT_SOUND_TYPES)
 		<< "a sound category was added or removed in weapon_parse.h. The managed "
 		<< "WeaponScriptSound enum and WeaponScriptSounds.Categories must follow, "
 		<< "and every weapon's sounds shift if the ORDER changed.";
 
-	for ( int i = 0; i < NUM_SHOOT_SOUND_TYPES; i++ )
+	for (int i = 0; i < NUM_SHOOT_SOUND_TYPES; i++)
 	{
-		EXPECT_STREQ( kExpected[i], pWeaponSoundCategories[i] )
+		EXPECT_STREQ(kExpected[i], pWeaponSoundCategories[i])
 			<< "category " << i << " is not the name the weapon scripts use.";
 	}
 }
 
-TEST_F( WeaponScriptOracle, ClipSizesAgree )
+TEST_F(WeaponScriptOracle, ClipSizesAgree)
 {
-	ExpectFieldAgrees( "maxclip1" );
-	ExpectFieldAgrees( "maxclip2" );
+	ExpectFieldAgrees("maxclip1");
+	ExpectFieldAgrees("maxclip2");
 }
 
-TEST_F( WeaponScriptOracle, DefaultClipsAgree )
+TEST_F(WeaponScriptOracle, DefaultClipsAgree)
 {
-	ExpectFieldAgrees( "defaultclip1" );
-	ExpectFieldAgrees( "defaultclip2" );
+	ExpectFieldAgrees("defaultclip1");
+	ExpectFieldAgrees("defaultclip2");
 }
 
-TEST_F( WeaponScriptOracle, BucketsAgree )
+TEST_F(WeaponScriptOracle, BucketsAgree)
 {
-	ExpectFieldAgrees( "slot" );
-	ExpectFieldAgrees( "position" );
+	ExpectFieldAgrees("slot");
+	ExpectFieldAgrees("position");
 }
 
-TEST_F( WeaponScriptOracle, SoundsAgree )
+TEST_F(WeaponScriptOracle, SoundsAgree)
 {
-	extern const char *pWeaponSoundCategories[NUM_SHOOT_SOUND_TYPES];
+	extern const char* pWeaponSoundCategories[NUM_SHOOT_SOUND_TYPES];
 
-	for ( int i = 0; i < NUM_SHOOT_SOUND_TYPES; i++ )
-		ExpectFieldAgrees( ( std::string( "sound." ) + pWeaponSoundCategories[i] ).c_str() );
+	for (int i = 0; i < NUM_SHOOT_SOUND_TYPES; i++)
+		ExpectFieldAgrees((std::string("sound.") + pWeaponSoundCategories[i]).c_str());
 }
 
-TEST_F( WeaponScriptOracle, AmmoNamesAgree )
+TEST_F(WeaponScriptOracle, AmmoNamesAgree)
 {
-	ExpectFieldAgrees( "ammo1" );
-	ExpectFieldAgrees( "ammo2" );
+	ExpectFieldAgrees("ammo1");
+	ExpectFieldAgrees("ammo2");
 }
 
-TEST_F( WeaponScriptOracle, FlagsAndWeightAgree )
+TEST_F(WeaponScriptOracle, FlagsAndWeightAgree)
 {
-	ExpectFieldAgrees( "flags" );
-	ExpectFieldAgrees( "weight" );
-	ExpectFieldAgrees( "rumble" );
+	ExpectFieldAgrees("flags");
+	ExpectFieldAgrees("weight");
+	ExpectFieldAgrees("rumble");
 }
 
-TEST_F( WeaponScriptOracle, ModelsAndNamesAgree )
+TEST_F(WeaponScriptOracle, ModelsAndNamesAgree)
 {
-	ExpectFieldAgrees( "classname" );
-	ExpectFieldAgrees( "printname" );
-	ExpectFieldAgrees( "viewmodel" );
-	ExpectFieldAgrees( "worldmodel" );
-	ExpectFieldAgrees( "animprefix" );
+	ExpectFieldAgrees("classname");
+	ExpectFieldAgrees("printname");
+	ExpectFieldAgrees("viewmodel");
+	ExpectFieldAgrees("worldmodel");
+	ExpectFieldAgrees("animprefix");
 }
 
-TEST_F( WeaponScriptOracle, SwitchingAndHandednessAgree )
+TEST_F(WeaponScriptOracle, SwitchingAndHandednessAgree)
 {
-	ExpectFieldAgrees( "autoswitchto" );
-	ExpectFieldAgrees( "autoswitchfrom" );
-	ExpectFieldAgrees( "melee" );
-	ExpectFieldAgrees( "builtrighthanded" );
-	ExpectFieldAgrees( "allowflipping" );
-	ExpectFieldAgrees( "showusagehint" );
+	ExpectFieldAgrees("autoswitchto");
+	ExpectFieldAgrees("autoswitchfrom");
+	ExpectFieldAgrees("melee");
+	ExpectFieldAgrees("builtrighthanded");
+	ExpectFieldAgrees("allowflipping");
+	ExpectFieldAgrees("showusagehint");
 }
 
 //-----------------------------------------------------------------------------
@@ -564,38 +564,38 @@ TEST_F( WeaponScriptOracle, SwitchingAndHandednessAgree )
 // managed suite asserts the same four.
 //-----------------------------------------------------------------------------
 
-TEST_F( WeaponScriptOracle, ACrowbarHasNoClipAndTheDefaultFollowsIt )
+TEST_F(WeaponScriptOracle, ACrowbarHasNoClipAndTheDefaultFollowsIt)
 {
 	// clip_size "-1" in the script; default_clip is absent and defaults TO it.
-	EXPECT_EQ( "-1", Native( "weapon_crowbar", "maxclip1" ) );
-	EXPECT_EQ( "-1", Native( "weapon_crowbar", "defaultclip1" ) );
+	EXPECT_EQ("-1", Native("weapon_crowbar", "maxclip1"));
+	EXPECT_EQ("-1", Native("weapon_crowbar", "defaultclip1"));
 }
 
-TEST_F( WeaponScriptOracle, APistolsDefaultClipFollowsItsClipSize )
+TEST_F(WeaponScriptOracle, APistolsDefaultClipFollowsItsClipSize)
 {
 	// clip_size "18", no default_clip key: stock passes iMaxClip1 as the
 	// default, so the gun spawns full.
-	EXPECT_EQ( "18", Native( "weapon_pistol", "maxclip1" ) );
-	EXPECT_EQ( "18", Native( "weapon_pistol", "defaultclip1" ) );
+	EXPECT_EQ("18", Native("weapon_pistol", "maxclip1"));
+	EXPECT_EQ("18", Native("weapon_pistol", "defaultclip1"));
 }
 
-TEST_F( WeaponScriptOracle, ADefaultClipMayExceedTheClipSizeAndIsNotClamped )
+TEST_F(WeaponScriptOracle, ADefaultClipMayExceedTheClipSizeAndIsNotClamped)
 {
 	// weapon_ar2: clip_size 30, default_clip 60. Stock reads the two keys
 	// independently and clamps neither, so the AR2 spawns holding twice its
 	// clip. A port that "fixed" this would change what the game does.
-	EXPECT_EQ( "30", Native( "weapon_ar2", "maxclip1" ) );
-	EXPECT_EQ( "60", Native( "weapon_ar2", "defaultclip1" ) );
+	EXPECT_EQ("30", Native("weapon_ar2", "maxclip1"));
+	EXPECT_EQ("60", Native("weapon_ar2", "defaultclip1"));
 }
 
-TEST_F( WeaponScriptOracle, NoneAmmoBecomesTheEmptyString )
+TEST_F(WeaponScriptOracle, NoneAmmoBecomesTheEmptyString)
 {
 	// "secondary_ammo" "None" -- the sentinel, not an ammo type called None.
-	EXPECT_EQ( "", Native( "weapon_pistol", "ammo2" ) );
-	EXPECT_EQ( "Pistol", Native( "weapon_pistol", "ammo1" ) );
+	EXPECT_EQ("", Native("weapon_pistol", "ammo2"));
+	EXPECT_EQ("Pistol", Native("weapon_pistol", "ammo1"));
 }
 
-TEST_F( WeaponScriptOracle, AnAbsentSecondaryClipIsNoClipAndAZeroOneIsZero )
+TEST_F(WeaponScriptOracle, AnAbsentSecondaryClipIsNoClipAndAZeroOneIsZero)
 {
 	// THIS FACT WAS WRONG TWICE, and the oracle is why it is right now. It
 	// first asserted that no shipped script carries clip2_size at all, so every
@@ -608,8 +608,8 @@ TEST_F( WeaponScriptOracle, AnAbsentSecondaryClipIsNoClipAndAZeroOneIsZero )
 	// What is actually worth pinning is that an ABSENT key and an explicit
 	// "-1" reach the same value by different routes, and that "0" is a real,
 	// distinct answer rather than a parse failure.
-	EXPECT_EQ( "-1", Native( "weapon_pistol", "maxclip2" ) ); // absent
-	EXPECT_EQ( "-1", Native( "weapon_crowbar", "maxclip2" ) ); // absent
-	EXPECT_EQ( "-1", Native( "weapon_ar2", "maxclip2" ) ); // explicit -1
-	EXPECT_EQ( "0", Native( "weapon_physcannon", "maxclip2" ) ); // explicit 0
+	EXPECT_EQ("-1", Native("weapon_pistol", "maxclip2")); // absent
+	EXPECT_EQ("-1", Native("weapon_crowbar", "maxclip2")); // absent
+	EXPECT_EQ("-1", Native("weapon_ar2", "maxclip2")); // explicit -1
+	EXPECT_EQ("0", Native("weapon_physcannon", "maxclip2")); // explicit 0
 }

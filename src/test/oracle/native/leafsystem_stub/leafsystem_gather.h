@@ -79,7 +79,7 @@ public:
 	// was last computed for.
 	struct RenderableInfo_t
 	{
-		IClientRenderable *m_pRenderable;
+		IClientRenderable* m_pRenderable;
 		int m_RenderFrame, m_RenderFrame2, m_EnumCount, m_TranslucencyCalculated;
 		unsigned int m_LeafList, m_RenderLeaf;
 		unsigned char m_Flags, m_RenderGroup;
@@ -95,7 +95,7 @@ public:
 		unsigned int m_FirstElement;
 		unsigned short m_FirstShadow, m_FirstDetailProp, m_DetailPropCount;
 		int m_DetailPropRenderFrame;
-		CClientLeafSubSystemData *m_pSubSystemData[N_CLSUBSYSTEMS];
+		CClientLeafSubSystemData* m_pSubSystemData[N_CLSUBSYSTEMS];
 	};
 
 	struct ShadowInfo_t
@@ -109,12 +109,12 @@ public:
 	struct EnumResult_t
 	{
 		int leaf;
-		EnumResult_t *pNext;
+		EnumResult_t* pNext;
 	};
 
 	struct EnumResultList_t
 	{
-		EnumResult_t *pHead;
+		EnumResult_t* pHead;
 		ClientRenderHandle_t handle;
 	};
 
@@ -136,10 +136,7 @@ public:
 	int m_ShadowEnum;
 	CTSList<EnumResultList_t> m_DeferredInserts;
 
-	static CLeafRegistryMirror *Of( IClientLeafSystem *pSystem )
-	{
-		return static_cast<CLeafRegistryMirror *>( pSystem );
-	}
+	static CLeafRegistryMirror* Of(IClientLeafSystem* pSystem) { return static_cast<CLeafRegistryMirror*>(pSystem); }
 };
 
 //-----------------------------------------------------------------------------
@@ -149,7 +146,7 @@ public:
 //-----------------------------------------------------------------------------
 struct LeafViewRequest_t
 {
-	const WorldListInfo_t *m_pWorldListInfo = NULL;
+	const WorldListInfo_t* m_pWorldListInfo = NULL;
 	int m_nRenderFrame = 0;
 	int m_nDetailBuildFrame = 0;
 	int m_nGlobalFrame = 0; // gpGlobals->framecount, the once-per-frame ComputeFxBlend stamp
@@ -184,41 +181,41 @@ public:
 	// The buffer, and the native objects its rows stand for.
 	CUtlVector<int32_t> m_Words;
 	CUtlVector<ClientRenderHandle_t> m_Handles; // renderable row -> handle
-	CUtlVector<IClientRenderable *> m_Details; // detail row -> model
+	CUtlVector<IClientRenderable*> m_Details; // detail row -> model
 
 	// The rows the view's occurrences name, by handle (cleared per view).
 	CUtlVector<int32_t> m_RowOfHandle;
 
-	static int32_t Bits( float f )
+	static int32_t Bits(float f)
 	{
 		int32_t i;
-		memcpy( &i, &f, sizeof( i ) );
+		memcpy(&i, &f, sizeof(i));
 		return i;
 	}
 
-	void PutVector( const Vector &v )
+	void PutVector(const Vector& v)
 	{
-		m_Words.AddToTail( Bits( v.x ) );
-		m_Words.AddToTail( Bits( v.y ) );
-		m_Words.AddToTail( Bits( v.z ) );
+		m_Words.AddToTail(Bits(v.x));
+		m_Words.AddToTail(Bits(v.y));
+		m_Words.AddToTail(Bits(v.z));
 	}
 
 	// Stock ComputeTranslucentRenderLeaf's first loop, the upkeep its decisions
 	// stand on: every renderable in the view's leaves computes its blend once
 	// per frame and view. Its group may change here (a temp entity's does).
-	void BlendPass( IClientLeafSystem *pSystem, const LeafViewRequest_t &req )
+	void BlendPass(IClientLeafSystem* pSystem, const LeafViewRequest_t& req)
 	{
-		CLeafRegistryMirror &reg = *CLeafRegistryMirror::Of( pSystem );
-		const WorldListInfo_t &world = *req.m_pWorldListInfo;
-		for ( int i = 0; i < world.m_LeafCount; ++i )
+		CLeafRegistryMirror& reg = *CLeafRegistryMirror::Of(pSystem);
+		const WorldListInfo_t& world = *req.m_pWorldListInfo;
+		for (int i = 0; i < world.m_LeafCount; ++i)
 		{
 			const int leaf = world.m_pLeafList[i];
-			for ( unsigned int idx = reg.m_RenderablesInLeaf.FirstElement( leaf );
-				  idx != reg.m_RenderablesInLeaf.InvalidIndex(); idx = reg.m_RenderablesInLeaf.NextElement( idx ) )
+			for (unsigned int idx = reg.m_RenderablesInLeaf.FirstElement(leaf);
+				 idx != reg.m_RenderablesInLeaf.InvalidIndex(); idx = reg.m_RenderablesInLeaf.NextElement(idx))
 			{
-				CLeafRegistryMirror::RenderableInfo_t &info = reg.m_Renderables[reg.m_RenderablesInLeaf.Element( idx )];
-				if ( info.m_TranslucencyCalculated != req.m_nGlobalFrame ||
-					 info.m_TranslucencyCalculatedView != req.m_nViewID )
+				CLeafRegistryMirror::RenderableInfo_t& info = reg.m_Renderables[reg.m_RenderablesInLeaf.Element(idx)];
+				if (info.m_TranslucencyCalculated != req.m_nGlobalFrame ||
+					info.m_TranslucencyCalculatedView != req.m_nViewID)
 				{
 					info.m_pRenderable->ComputeFxBlend();
 					info.m_TranslucencyCalculated = req.m_nGlobalFrame;
@@ -231,58 +228,58 @@ public:
 	// The view into m_Words. False when a renderable's handle does not name the
 	// slot it was read from: the mirror and the class disagree, and the caller
 	// must not use the buffer.
-	bool Gather( IClientLeafSystem *pSystem, const LeafViewRequest_t &req )
+	bool Gather(IClientLeafSystem* pSystem, const LeafViewRequest_t& req)
 	{
-		CLeafRegistryMirror &reg = *CLeafRegistryMirror::Of( pSystem );
-		const WorldListInfo_t &world = *req.m_pWorldListInfo;
+		CLeafRegistryMirror& reg = *CLeafRegistryMirror::Of(pSystem);
+		const WorldListInfo_t& world = *req.m_pWorldListInfo;
 
-		if ( req.m_bTranslucentLeafPass )
-			BlendPass( pSystem, req );
+		if (req.m_bTranslucentLeafPass)
+			BlendPass(pSystem, req);
 
 		m_Words.RemoveAll();
 		m_Handles.RemoveAll();
 		m_Details.RemoveAll();
-		m_RowOfHandle.SetCount( reg.m_Renderables.MaxElementIndex() + 1 );
-		for ( int i = 0; i < m_RowOfHandle.Count(); ++i )
+		m_RowOfHandle.SetCount(reg.m_Renderables.MaxElementIndex() + 1);
+		for (int i = 0; i < m_RowOfHandle.Count(); ++i)
 			m_RowOfHandle[i] = -1;
 
 		// The occurrences first, in stock's order, numbering each renderable
 		// the first time it is met; the leaves' detail ranges beside them.
 		CUtlVector<int32_t> leaves, occurrences, detailIndex;
-		for ( int i = 0; i < world.m_LeafCount; ++i )
+		for (int i = 0; i < world.m_LeafCount; ++i)
 		{
 			const int leaf = world.m_pLeafList[i];
-			leaves.AddToTail( leaf );
-			leaves.AddToTail( occurrences.Count() );
+			leaves.AddToTail(leaf);
+			leaves.AddToTail(occurrences.Count());
 			int nInLeaf = 0;
-			for ( unsigned int idx = reg.m_RenderablesInLeaf.FirstElement( leaf );
-				  idx != reg.m_RenderablesInLeaf.InvalidIndex(); idx = reg.m_RenderablesInLeaf.NextElement( idx ) )
+			for (unsigned int idx = reg.m_RenderablesInLeaf.FirstElement(leaf);
+				 idx != reg.m_RenderablesInLeaf.InvalidIndex(); idx = reg.m_RenderablesInLeaf.NextElement(idx))
 			{
-				const ClientRenderHandle_t h = reg.m_RenderablesInLeaf.Element( idx );
-				if ( m_RowOfHandle[h] < 0 )
+				const ClientRenderHandle_t h = reg.m_RenderablesInLeaf.Element(idx);
+				if (m_RowOfHandle[h] < 0)
 				{
 					m_RowOfHandle[h] = m_Handles.Count();
-					m_Handles.AddToTail( h );
+					m_Handles.AddToTail(h);
 				}
-				occurrences.AddToTail( m_RowOfHandle[h] );
+				occurrences.AddToTail(m_RowOfHandle[h]);
 				++nInLeaf;
 			}
-			leaves.AddToTail( nInLeaf );
+			leaves.AddToTail(nInLeaf);
 
-			const bool bDetail = pSystem->ShouldDrawDetailObjectsInLeaf( leaf, req.m_nDetailBuildFrame );
-			leaves.AddToTail( bDetail ? 1 : 0 );
-			leaves.AddToTail( m_Details.Count() );
+			const bool bDetail = pSystem->ShouldDrawDetailObjectsInLeaf(leaf, req.m_nDetailBuildFrame);
+			leaves.AddToTail(bDetail ? 1 : 0);
+			leaves.AddToTail(m_Details.Count());
 			int nDetail = 0;
-			if ( bDetail )
+			if (bDetail)
 			{
-				const ClientLeaf_tRef_t &leafInfo = reg.m_Leaf[leaf];
-				for ( int k = 0; k < leafInfo.m_DetailPropCount; ++k )
+				const ClientLeaf_tRef_t& leafInfo = reg.m_Leaf[leaf];
+				for (int k = 0; k < leafInfo.m_DetailPropCount; ++k)
 				{
-					m_Details.AddToTail( DetailObjectSystem()->GetDetailModel( leafInfo.m_FirstDetailProp + k ) );
+					m_Details.AddToTail(DetailObjectSystem()->GetDetailModel(leafInfo.m_FirstDetailProp + k));
 					++nDetail;
 				}
 			}
-			leaves.AddToTail( nDetail );
+			leaves.AddToTail(nDetail);
 		}
 
 		int nFlags = 0;
@@ -293,69 +290,69 @@ public:
 		nFlags |= req.m_bPortalsOpenAll ? 16 : 0;
 		nFlags |= req.m_bTranslucentLeafPass ? 32 : 0;
 
-		m_Words.AddToTail( 0 );
-		m_Words.AddToTail( req.m_nRenderFrame );
-		m_Words.AddToTail( nFlags );
-		m_Words.AddToTail( req.m_nDrawLeaf );
-		PutVector( req.m_vecOrigin );
-		PutVector( req.m_vecForward );
-		m_Words.AddToTail( world.m_LeafCount );
-		m_Words.AddToTail( m_Handles.Count() );
-		m_Words.AddToTail( occurrences.Count() );
-		m_Words.AddToTail( m_Details.Count() );
-		m_Words.AddMultipleToTail( leaves.Count(), leaves.Base() );
-		m_Words.AddMultipleToTail( occurrences.Count(), occurrences.Base() );
+		m_Words.AddToTail(0);
+		m_Words.AddToTail(req.m_nRenderFrame);
+		m_Words.AddToTail(nFlags);
+		m_Words.AddToTail(req.m_nDrawLeaf);
+		PutVector(req.m_vecOrigin);
+		PutVector(req.m_vecForward);
+		m_Words.AddToTail(world.m_LeafCount);
+		m_Words.AddToTail(m_Handles.Count());
+		m_Words.AddToTail(occurrences.Count());
+		m_Words.AddToTail(m_Details.Count());
+		m_Words.AddMultipleToTail(leaves.Count(), leaves.Base());
+		m_Words.AddMultipleToTail(occurrences.Count(), occurrences.Base());
 
-		for ( int r = 0; r < m_Handles.Count(); ++r )
+		for (int r = 0; r < m_Handles.Count(); ++r)
 		{
 			const ClientRenderHandle_t h = m_Handles[r];
-			const CLeafRegistryMirror::RenderableInfo_t &info = reg.m_Renderables[h];
-			IClientRenderable *pRenderable = info.m_pRenderable;
-			if ( !pRenderable || pRenderable->RenderHandle() != h )
+			const CLeafRegistryMirror::RenderableInfo_t& info = reg.m_Renderables[h];
+			IClientRenderable* pRenderable = info.m_pRenderable;
+			if (!pRenderable || pRenderable->RenderHandle() != h)
 				return false;
 
 			Vector absMins, absMaxs, mins, maxs;
-			pRenderable->GetRenderBoundsWorldspace( absMins, absMaxs );
-			pRenderable->GetRenderBounds( mins, maxs );
+			pRenderable->GetRenderBoundsWorldspace(absMins, absMaxs);
+			pRenderable->GetRenderBounds(mins, maxs);
 			const Vector origin = pRenderable->GetRenderOrigin();
 
 			int nAnswers = 0;
-			nAnswers |= engine->CullBox( absMins, absMaxs ) ? LEAFVIEW_ANSWER_CULLED : 0;
-			if ( info.m_Area != -1 )
-				nAnswers |= engine->DoesBoxTouchAreaFrustum( absMins, absMaxs, info.m_Area ) ? LEAFVIEW_ANSWER_AREA : 0;
-			nAnswers |= engine->IsOccluded( absMins, absMaxs ) ? LEAFVIEW_ANSWER_OCCLUDED : 0;
+			nAnswers |= engine->CullBox(absMins, absMaxs) ? LEAFVIEW_ANSWER_CULLED : 0;
+			if (info.m_Area != -1)
+				nAnswers |= engine->DoesBoxTouchAreaFrustum(absMins, absMaxs, info.m_Area) ? LEAFVIEW_ANSWER_AREA : 0;
+			nAnswers |= engine->IsOccluded(absMins, absMaxs) ? LEAFVIEW_ANSWER_OCCLUDED : 0;
 
-			m_Words.AddToTail( h );
-			m_Words.AddToTail( info.m_RenderGroup );
-			m_Words.AddToTail( info.m_Flags );
-			m_Words.AddToTail( info.m_RenderFrame );
-			m_Words.AddToTail( (int32_t)info.m_RenderLeaf );
-			m_Words.AddToTail( info.m_RenderFrame2 );
-			m_Words.AddToTail( info.m_Area );
-			m_Words.AddToTail( pRenderable->GetFxBlend() );
-			m_Words.AddToTail( nAnswers );
-			PutVector( absMins );
-			PutVector( absMaxs );
-			PutVector( mins );
-			PutVector( maxs );
-			PutVector( origin );
+			m_Words.AddToTail(h);
+			m_Words.AddToTail(info.m_RenderGroup);
+			m_Words.AddToTail(info.m_Flags);
+			m_Words.AddToTail(info.m_RenderFrame);
+			m_Words.AddToTail((int32_t)info.m_RenderLeaf);
+			m_Words.AddToTail(info.m_RenderFrame2);
+			m_Words.AddToTail(info.m_Area);
+			m_Words.AddToTail(pRenderable->GetFxBlend());
+			m_Words.AddToTail(nAnswers);
+			PutVector(absMins);
+			PutVector(absMaxs);
+			PutVector(mins);
+			PutVector(maxs);
+			PutVector(origin);
 		}
 
-		for ( int d = 0; d < m_Details.Count(); ++d )
+		for (int d = 0; d < m_Details.Count(); ++d)
 		{
-			IClientRenderable *pDetail = m_Details[d];
-			Vector mins( 0, 0, 0 ), maxs( 0, 0, 0 ), origin( 0, 0, 0 );
-			m_Words.AddToTail( pDetail ? 1 : 0 );
-			m_Words.AddToTail( ( pDetail && pDetail->IsTransparent() ) ? 1 : 0 );
-			m_Words.AddToTail( pDetail ? pDetail->GetFxBlend() : 0 );
-			if ( pDetail )
+			IClientRenderable* pDetail = m_Details[d];
+			Vector mins(0, 0, 0), maxs(0, 0, 0), origin(0, 0, 0);
+			m_Words.AddToTail(pDetail ? 1 : 0);
+			m_Words.AddToTail((pDetail && pDetail->IsTransparent()) ? 1 : 0);
+			m_Words.AddToTail(pDetail ? pDetail->GetFxBlend() : 0);
+			if (pDetail)
 			{
-				pDetail->GetRenderBounds( mins, maxs );
+				pDetail->GetRenderBounds(mins, maxs);
 				origin = pDetail->GetRenderOrigin();
 			}
-			PutVector( mins );
-			PutVector( maxs );
-			PutVector( origin );
+			PutVector(mins);
+			PutVector(maxs);
+			PutVector(origin);
 		}
 
 		m_Words[0] = m_Words.Count();

@@ -13,7 +13,7 @@ struct UniqueId_t
 	unsigned char m_Value[16];
 };
 
-void InvalidateUniqueId( UniqueId_t *pDest );
-bool IsUniqueIdEqual( const UniqueId_t &id1, const UniqueId_t &id2 );
-bool UniqueIdFromString( UniqueId_t *pDest, const char *pBuf, int nMaxLen = 0 );
-void CopyUniqueId( const UniqueId_t &src, UniqueId_t *pDest );
+void InvalidateUniqueId(UniqueId_t* pDest);
+bool IsUniqueIdEqual(const UniqueId_t& id1, const UniqueId_t& id2);
+bool UniqueIdFromString(UniqueId_t* pDest, const char* pBuf, int nMaxLen = 0);
+void CopyUniqueId(const UniqueId_t& src, UniqueId_t* pDest);

@@ -23,7 +23,7 @@
 #undef DBGFLAG_STRINGS
 
 // Default flags for debug builds
-#if defined( _DEBUG ) || defined( RELEASEASSERTS )
+#if defined(_DEBUG) || defined(RELEASEASSERTS)
 
 #define DBGFLAG_MEMORY
 #define DBGFLAG_ASSERT

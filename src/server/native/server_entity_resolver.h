@@ -25,44 +25,44 @@ class CStandalonePlayer;
 class CServerEntityResolver
 {
 public:
-	CServerEntityResolver( const CSourceSharpSlotTable &slots, const CServerEntityContext &entities,
-						   int32_t &nInvisibleRangeReach )
-		: m_Slots( slots )
-		, m_Entities( entities )
-		, m_nInvisibleRangeReach( nInvisibleRangeReach )
+	CServerEntityResolver(const CSourceSharpSlotTable& slots, const CServerEntityContext& entities,
+						  int32_t& nInvisibleRangeReach)
+		: m_Slots(slots)
+		, m_Entities(entities)
+		, m_nInvisibleRangeReach(nInvisibleRangeReach)
 	{
 	}
 
-	CServerEntityResolver( const CServerEntityResolver & ) = delete;
-	CServerEntityResolver &operator=( const CServerEntityResolver & ) = delete;
+	CServerEntityResolver(const CServerEntityResolver&) = delete;
+	CServerEntityResolver& operator=(const CServerEntityResolver&) = delete;
 
 	// A packed handle, serial revalidated. At most one arm is set. A handle in the
 	// engine-invisible entry range that resolves to nothing is counted.
-	SourceSharpEntity_t Resolve( uint32_t hEntity );
-	CStandaloneEntity *Standalone( uint32_t hEntity );
-	CStandalonePlayer *Player( uint32_t hEntity );
+	SourceSharpEntity_t Resolve(uint32_t hEntity);
+	CStandaloneEntity* Standalone(uint32_t hEntity);
+	CStandalonePlayer* Player(uint32_t hEntity);
 
 	// The shell bound to a handle or entry, or NULL.
-	CStandaloneEntity *ShellFromHandle( const CBaseHandle &handle ) const;
-	CStandaloneEntity *ShellFromIndex( int nEntry ) const;
-	CStandaloneEntity *ShellFromHandleEntity( IHandleEntity *pHandleEntity ) const;
+	CStandaloneEntity* ShellFromHandle(const CBaseHandle& handle) const;
+	CStandaloneEntity* ShellFromIndex(int nEntry) const;
+	CStandaloneEntity* ShellFromHandleEntity(IHandleEntity* pHandleEntity) const;
 
 	// A handle to whatever holds it: the slot table's shells, then the world.
-	IHandleEntity *EntityFromHandle( const CBaseHandle &handle ) const;
+	IHandleEntity* EntityFromHandle(const CBaseHandle& handle) const;
 
 	// The level's world, or NULL between levels; and by handle or pointer identity.
-	CWorld *World() const;
+	CWorld* World() const;
 
 	// What the entities it resolves are handed: the engine, the managed side, the level.
-	const CServerEntityContext &Context() const { return m_Entities; }
+	const CServerEntityContext& Context() const { return m_Entities; }
 
-	CWorld *WorldFromHandle( const CBaseHandle &handle ) const;
-	CWorld *WorldFromEntityHandle( IHandleEntity *pHandleEntity ) const;
+	CWorld* WorldFromHandle(const CBaseHandle& handle) const;
+	CWorld* WorldFromEntityHandle(IHandleEntity* pHandleEntity) const;
 
 private:
-	const CSourceSharpSlotTable &m_Slots;
-	const CServerEntityContext &m_Entities;
+	const CSourceSharpSlotTable& m_Slots;
+	const CServerEntityContext& m_Entities;
 
 	// The DLL tier's count of unresolved handles from the engine-invisible range.
-	int32_t &m_nInvisibleRangeReach;
+	int32_t& m_nInvisibleRangeReach;
 };

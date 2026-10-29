@@ -23,20 +23,20 @@ namespace
 // The map's own submodels, as vbsp numbers them and as every brush entity in a
 // .vmf carries them.
 //-----------------------------------------------------------------------------
-TEST( ModelName, AStarNumberIsTheMapsOwnModel )
+TEST(ModelName, AStarNumberIsTheMapsOwnModel)
 {
-	EXPECT_TRUE( SourceSharp_IsBrushModelName( "*23" ) );
-	EXPECT_TRUE( SourceSharp_IsBrushModelName( "*0" ) );
-	EXPECT_TRUE( SourceSharp_IsBrushModelName( "*127" ) );
+	EXPECT_TRUE(SourceSharp_IsBrushModelName("*23"));
+	EXPECT_TRUE(SourceSharp_IsBrushModelName("*0"));
+	EXPECT_TRUE(SourceSharp_IsBrushModelName("*127"));
 }
 
 //-----------------------------------------------------------------------------
 // And a path is a file, which has to be precached before it has an index.
 //-----------------------------------------------------------------------------
-TEST( ModelName, APathIsAFileOnDisk )
+TEST(ModelName, APathIsAFileOnDisk)
 {
-	EXPECT_FALSE( SourceSharp_IsBrushModelName( "models/props_junk/wood_crate001a.mdl" ) );
-	EXPECT_FALSE( SourceSharp_IsBrushModelName( "models/error.mdl" ) );
+	EXPECT_FALSE(SourceSharp_IsBrushModelName("models/props_junk/wood_crate001a.mdl"));
+	EXPECT_FALSE(SourceSharp_IsBrushModelName("models/error.mdl"));
 }
 
 //-----------------------------------------------------------------------------
@@ -44,20 +44,20 @@ TEST( ModelName, APathIsAFileOnDisk )
 // a rule written as "contains a star" would send it to the level's string table
 // and report a missing model for a file that is sitting right there.
 //-----------------------------------------------------------------------------
-TEST( ModelName, OnlyALeadingStarCounts )
+TEST(ModelName, OnlyALeadingStarCounts)
 {
-	EXPECT_FALSE( SourceSharp_IsBrushModelName( "models/*23" ) );
-	EXPECT_FALSE( SourceSharp_IsBrushModelName( " *23" ) );
+	EXPECT_FALSE(SourceSharp_IsBrushModelName("models/*23"));
+	EXPECT_FALSE(SourceSharp_IsBrushModelName(" *23"));
 }
 
 //-----------------------------------------------------------------------------
 // Neither of the two empties is a brush. An entity with no model reaches the
 // precache arm, which is the one that can name what it failed to load.
 //-----------------------------------------------------------------------------
-TEST( ModelName, NothingIsNotABrushModel )
+TEST(ModelName, NothingIsNotABrushModel)
 {
-	EXPECT_FALSE( SourceSharp_IsBrushModelName( "" ) );
-	EXPECT_FALSE( SourceSharp_IsBrushModelName( 0 ) );
+	EXPECT_FALSE(SourceSharp_IsBrushModelName(""));
+	EXPECT_FALSE(SourceSharp_IsBrushModelName(0));
 }
 
 //-----------------------------------------------------------------------------
@@ -66,9 +66,9 @@ TEST( ModelName, NothingIsNotABrushModel )
 // lookup's answer to give, and treating it as a file instead would send the
 // engine looking for a model called "*".
 //-----------------------------------------------------------------------------
-TEST( ModelName, ABareStarStillTakesTheLookupArm )
+TEST(ModelName, ABareStarStillTakesTheLookupArm)
 {
-	EXPECT_TRUE( SourceSharp_IsBrushModelName( "*" ) );
+	EXPECT_TRUE(SourceSharp_IsBrushModelName("*"));
 }
 
 } // namespace

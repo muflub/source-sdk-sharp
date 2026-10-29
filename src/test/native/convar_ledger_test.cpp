@@ -68,7 +68,7 @@
 namespace
 {
 
-const char *const kLedger = "../docs/convar-ledger.tsv";
+const char* const kLedger = "../docs/convar-ledger.tsv";
 
 //-----------------------------------------------------------------------------
 // The ledger
@@ -85,15 +85,15 @@ struct Row
 	std::string evidence;
 };
 
-std::vector<std::string> Split( const std::string &line, char sep )
+std::vector<std::string> Split(const std::string& line, char sep)
 {
 	std::vector<std::string> out;
 	std::string cur;
-	for ( size_t i = 0; i < line.size(); i++ )
+	for (size_t i = 0; i < line.size(); i++)
 	{
-		if ( line[i] == sep )
+		if (line[i] == sep)
 		{
-			out.push_back( cur );
+			out.push_back(cur);
 			cur.clear();
 		}
 		else
@@ -101,47 +101,47 @@ std::vector<std::string> Split( const std::string &line, char sep )
 			cur += line[i];
 		}
 	}
-	out.push_back( cur );
+	out.push_back(cur);
 	return out;
 }
 
-const std::vector<Row> &Ledger()
+const std::vector<Row>& Ledger()
 {
 	static std::vector<Row> rows;
 	static bool loaded = false;
-	if ( loaded )
+	if (loaded)
 		return rows;
 	loaded = true;
 
-	std::ifstream f( kLedger );
-	if ( !f.good() )
+	std::ifstream f(kLedger);
+	if (!f.good())
 		return rows;
 
 	std::string line;
 	bool header = true;
-	while ( std::getline( f, line ) )
+	while (std::getline(f, line))
 	{
-		if ( header )
+		if (header)
 		{
 			header = false;
 			continue;
 		}
-		if ( line.empty() )
+		if (line.empty())
 			continue;
 
-		const std::vector<std::string> c = Split( line, '\t' );
-		if ( c.size() < 12 )
+		const std::vector<std::string> c = Split(line, '\t');
+		if (c.size() < 12)
 			continue;
 
 		Row r;
 		r.name = c[0];
 		r.kind = c[1];
 		r.file = c[3];
-		r.line = atoi( c[4].c_str() );
+		r.line = atoi(c[4].c_str());
 		r.verdict = c[6];
-		r.nativeNow = ( c[7] == "yes" );
+		r.nativeNow = (c[7] == "yes");
 		r.evidence = c[11];
-		rows.push_back( r );
+		rows.push_back(r);
 	}
 	return rows;
 }
@@ -164,17 +164,17 @@ struct Decl
 	std::string file;
 };
 
-bool Mentions( const std::string &hay, const std::string &needle )
+bool Mentions(const std::string& hay, const std::string& needle)
 {
-	return hay.find( needle ) != std::string::npos;
+	return hay.find(needle) != std::string::npos;
 }
 
 // The ledger's `file` column is repo-relative; this test runs in src/.
-std::string InSrc( const std::string &repoRelative )
+std::string InSrc(const std::string& repoRelative)
 {
 	const std::string prefix = "src/";
-	if ( repoRelative.compare( 0, prefix.size(), prefix ) == 0 )
-		return repoRelative.substr( prefix.size() );
+	if (repoRelative.compare(0, prefix.size(), prefix) == 0)
+		return repoRelative.substr(prefix.size());
 	return "../" + repoRelative;
 }
 
@@ -188,18 +188,18 @@ std::string InSrc( const std::string &repoRelative )
 // nothing, so both are pinned first.
 //=============================================================================//
 
-TEST( ConVarLedger, LedgerLoadsAndHasRows )
+TEST(ConVarLedger, LedgerLoadsAndHasRows)
 {
-	const std::vector<Row> &rows = Ledger();
-	ASSERT_FALSE( rows.empty() ) << kLedger
-								 << " did not load, or has no rows. Every other fact in this "
-									"file is quantified over it and would pass vacuously.";
+	const std::vector<Row>& rows = Ledger();
+	ASSERT_FALSE(rows.empty()) << kLedger
+							   << " did not load, or has no rows. Every other fact in this "
+								  "file is quantified over it and would pass vacuously.";
 	// 125, not 135 (lane c5-proxies, 2026-10-05): rows leave with the native
 	// commands plan_client_novalve ports or deletes, 133 after
 	// cs_cl_alphaproxy and cs_cl_playerlogo went with shell_materialproxies.cpp,
 	// 132 after cs_cl_dust_report went managed (lane c5-particles).
-	EXPECT_GE( rows.size(), 125u ) << "the ledger was measured at 132 rows; a sudden collapse means the "
-									  "file was truncated rather than that the tree got smaller";
+	EXPECT_GE(rows.size(), 125u) << "the ledger was measured at 132 rows; a sudden collapse means the "
+									"file was truncated rather than that the tree got smaller";
 }
 
 //=============================================================================//
@@ -214,34 +214,34 @@ TEST( ConVarLedger, LedgerLoadsAndHasRows )
 // that looks like it.
 //=============================================================================//
 
-TEST( ConVarLedger, EveryRowPointsAtAFileThatExists )
+TEST(ConVarLedger, EveryRowPointsAtAFileThatExists)
 {
-	const std::vector<Row> &rows = Ledger();
+	const std::vector<Row>& rows = Ledger();
 
 	std::vector<std::string> gone;
-	for ( size_t i = 0; i < rows.size(); i++ )
+	for (size_t i = 0; i < rows.size(); i++)
 	{
-		if ( !rows[i].nativeNow )
+		if (!rows[i].nativeNow)
 			continue;
-		std::ifstream f( InSrc( rows[i].file ).c_str() );
-		if ( !f.good() )
-			gone.push_back( rows[i].name + "  ->  " + rows[i].file );
+		std::ifstream f(InSrc(rows[i].file).c_str());
+		if (!f.good())
+			gone.push_back(rows[i].name + "  ->  " + rows[i].file);
 	}
 
 	std::string report;
-	for ( size_t i = 0; i < gone.size(); i++ )
+	for (size_t i = 0; i < gone.size(); i++)
 		report += "\n    " + gone[i];
 
-	EXPECT_TRUE( gone.empty() ) << gone.size() << " ledger row(s) name a file that is not in the tree:" << report;
+	EXPECT_TRUE(gone.empty()) << gone.size() << " ledger row(s) name a file that is not in the tree:" << report;
 }
 
 //=============================================================================//
 // 3. THE VERDICTS THEMSELVES
 //=============================================================================//
 
-TEST( ConVarLedger, EveryRowCarriesAKnownVerdict )
+TEST(ConVarLedger, EveryRowCarriesAKnownVerdict)
 {
-	static const char *const kVerdicts[] = {
+	static const char* const kVerdicts[] = {
 		"protocol-keep", // the engine declares, resolves or queries the name
 		"managed", // moved; the declaration is a [ConVar]/[ConCommand]
 		"managed-queued", // ruled managed, move not landed yet
@@ -252,83 +252,83 @@ TEST( ConVarLedger, EveryRowCarriesAKnownVerdict )
 		"delete",          "dead-already",
 	};
 
-	const std::vector<Row> &rows = Ledger();
+	const std::vector<Row>& rows = Ledger();
 	std::vector<std::string> bad;
-	for ( size_t i = 0; i < rows.size(); i++ )
+	for (size_t i = 0; i < rows.size(); i++)
 	{
 		bool ok = false;
-		for ( size_t v = 0; v < sizeof( kVerdicts ) / sizeof( kVerdicts[0] ); v++ )
+		for (size_t v = 0; v < sizeof(kVerdicts) / sizeof(kVerdicts[0]); v++)
 		{
-			if ( rows[i].verdict == kVerdicts[v] )
+			if (rows[i].verdict == kVerdicts[v])
 			{
 				ok = true;
 				break;
 			}
 		}
-		if ( !ok )
-			bad.push_back( rows[i].name + " -> '" + rows[i].verdict + "'" );
+		if (!ok)
+			bad.push_back(rows[i].name + " -> '" + rows[i].verdict + "'");
 	}
 
 	std::string report;
-	for ( size_t i = 0; i < bad.size(); i++ )
+	for (size_t i = 0; i < bad.size(); i++)
 		report += "\n    " + bad[i];
 
-	EXPECT_TRUE( bad.empty() ) << bad.size() << " row(s) carry a verdict this test does not know:" << report
-							   << "\n  A free-text verdict column stops being a ruling.";
+	EXPECT_TRUE(bad.empty()) << bad.size() << " row(s) carry a verdict this test does not know:" << report
+							 << "\n  A free-text verdict column stops being a ruling.";
 }
 
-TEST( ConVarLedger, EveryRowCarriesItsEvidence )
+TEST(ConVarLedger, EveryRowCarriesItsEvidence)
 {
-	const std::vector<Row> &rows = Ledger();
+	const std::vector<Row>& rows = Ledger();
 
 	std::vector<std::string> bare;
-	for ( size_t i = 0; i < rows.size(); i++ )
+	for (size_t i = 0; i < rows.size(); i++)
 	{
-		if ( rows[i].evidence.size() < 20 )
-			bare.push_back( rows[i].name );
+		if (rows[i].evidence.size() < 20)
+			bare.push_back(rows[i].name);
 	}
 
 	std::string report;
-	for ( size_t i = 0; i < bare.size(); i++ )
+	for (size_t i = 0; i < bare.size(); i++)
 		report += "\n    " + bare[i];
 
-	EXPECT_TRUE( bare.empty() ) << bare.size() << " row(s) have no evidence behind the verdict:" << report
-								<< "\n  The ledger is the lasting artefact; a verdict with no reason is a "
-								   "preference.";
+	EXPECT_TRUE(bare.empty()) << bare.size() << " row(s) have no evidence behind the verdict:" << report
+							  << "\n  The ledger is the lasting artefact; a verdict with no reason is a "
+								 "preference.";
 }
 
-TEST( ConVarLedger, ProtocolKeepsNameWhatResolvesThem )
+TEST(ConVarLedger, ProtocolKeepsNameWhatResolvesThem)
 {
 	// §6 allows exactly one reason to keep a ConVar's declaration in C++: the
 	// engine itself transmits or resolves the name. A protocol-keep row that
 	// does not say WHICH engine-side thing does that is the reason this rule
 	// erodes, so the evidence has to name it.
-	const std::vector<Row> &rows = Ledger();
+	const std::vector<Row>& rows = Ledger();
 
 	size_t keeps = 0;
 	std::vector<std::string> unsupported;
-	for ( size_t i = 0; i < rows.size(); i++ )
+	for (size_t i = 0; i < rows.size(); i++)
 	{
-		if ( rows[i].verdict != "protocol-keep" )
+		if (rows[i].verdict != "protocol-keep")
 			continue;
 		keeps++;
 
-		const std::string &e = rows[i].evidence;
-		if ( !Mentions( e, "engine.so" ) && !Mentions( e, "by name" ) && !Mentions( e, "BEFORE the managed side" ) )
+		const std::string& e = rows[i].evidence;
+		if (!Mentions(e, "engine.so") && !Mentions(e, "by name") && !Mentions(e, "BEFORE the managed side"))
 		{
-			unsupported.push_back( rows[i].name );
+			unsupported.push_back(rows[i].name);
 		}
 	}
 
-	ASSERT_GT( keeps, 0u ) << "no protocol-keep rows at all -- this fact would pass without "
-							  "looking at anything";
+	ASSERT_GT(keeps, 0u) << "no protocol-keep rows at all -- this fact would pass without "
+							"looking at anything";
 
 	std::string report;
-	for ( size_t i = 0; i < unsupported.size(); i++ )
+	for (size_t i = 0; i < unsupported.size(); i++)
 		report += "\n    " + unsupported[i];
 
-	EXPECT_TRUE( unsupported.empty() ) << unsupported.size()
-									   << " protocol-keep row(s) do not name what resolves "
-										  "the name engine-side:"
-									   << report;
+	EXPECT_TRUE(unsupported.empty()) << unsupported.size()
+									 << " protocol-keep row(s) do not name what resolves "
+										"the name engine-side:"
+									 << report;
 }

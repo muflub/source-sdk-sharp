@@ -36,7 +36,7 @@ abstract_class ITexture
 {
 public:
 	// Various texture polling methods
-	virtual const char *GetName() const = 0;
+	virtual const char* GetName() const = 0;
 	virtual int GetMappingWidth() const = 0;
 	virtual int GetMappingHeight() const = 0;
 	virtual int GetActualWidth() const = 0;
@@ -53,7 +53,7 @@ public:
 	//		pnumBytes		on return is the number of bytes available in the read-only data buffer or is undefined
 	// Returns:
 	//		pointer to the resource data, or NULL
-	virtual void *GetResourceData( uint32 eDataType, size_t *pNumBytes ) const = 0;
+	virtual void* GetResourceData(uint32 eDataType, size_t* pNumBytes) const = 0;
 
 	// Methods associated with reference count
 	virtual void IncrementReferenceCount() = 0;
@@ -124,7 +124,7 @@ public:
 	virtual void unused_BDownload() = 0;
 };
 
-inline bool IsErrorTexture( ITexture *pTex )
+inline bool IsErrorTexture(ITexture* pTex)
 {
 	return !pTex || pTex->IsError();
 }

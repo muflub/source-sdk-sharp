@@ -16,12 +16,12 @@ typedef unsigned char uint8;
 #endif
 #endif
 
-#if defined( __LP64__ ) || defined( __x86_64__ ) || defined( _WIN64 ) || defined( __aarch64__ ) || defined( __s390x__ )
+#if defined(__LP64__) || defined(__x86_64__) || defined(_WIN64) || defined(__aarch64__) || defined(__s390x__)
 #define X64BITS
 #endif
 
-#if !defined( VALVE_BIG_ENDIAN )
-#if defined( __GNUC__ ) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#if !defined(VALVE_BIG_ENDIAN)
+#if defined(__GNUC__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #define VALVE_BIG_ENDIAN 1
 #endif
 #endif
@@ -29,7 +29,7 @@ typedef unsigned char uint8;
 typedef unsigned char uint8;
 typedef signed char int8;
 
-#if defined( _WIN32 ) && !defined( __GNUC__ )
+#if defined(_WIN32) && !defined(__GNUC__)
 
 typedef __int16 int16;
 typedef unsigned __int16 uint16;
@@ -85,6 +85,6 @@ typedef uint32 RTime32;
 typedef uint64 SteamAPICall_t;
 const SteamAPICall_t k_uAPICallInvalid = 0x0;
 
-#pragma pack( push, 1 )
+#pragma pack(push, 1)
 
-#pragma pack( pop )
+#pragma pack(pop)

@@ -12,12 +12,12 @@ extern SSParticleLibCounters_t g_SSParticleLibCounters;
 
 // renderutils.h is not in the farm; these are the declarations particles.a
 // was compiled against.
-void RenderWireframeSphere( const Vector &vCenter, float flRadius, int nTheta, int nPhi, Color c, bool bZBuffer );
-void RenderWireframeBox( const Vector &vOrigin, const QAngle &angles, const Vector &vMins, const Vector &vMaxs, Color c,
-						 bool bZBuffer );
+void RenderWireframeSphere(const Vector& vCenter, float flRadius, int nTheta, int nPhi, Color c, bool bZBuffer);
+void RenderWireframeBox(const Vector& vOrigin, const QAngle& angles, const Vector& vMins, const Vector& vMaxs, Color c,
+						bool bZBuffer);
 
-void CBeamSegDraw::Start( IMatRenderContext *pRenderContext, int nSegs, IMaterial *, CMeshBuilder *pMeshBuilder,
-						  int nMeshVertCount )
+void CBeamSegDraw::Start(IMatRenderContext* pRenderContext, int nSegs, IMaterial*, CMeshBuilder* pMeshBuilder,
+						 int nMeshVertCount)
 {
 	m_pRenderContext = pRenderContext;
 	m_pMeshBuilder = pMeshBuilder;
@@ -29,7 +29,7 @@ void CBeamSegDraw::Start( IMatRenderContext *pRenderContext, int nSegs, IMateria
 
 // The class's key function: its vtable is emitted here, which particles.a
 // also imports.
-void CBeamSegDraw::NextSeg( BeamSeg_t * )
+void CBeamSegDraw::NextSeg(BeamSeg_t*)
 {
 	m_nSegsDrawn++;
 }
@@ -39,12 +39,12 @@ void CBeamSegDraw::End()
 	m_pMeshBuilder = NULL;
 }
 
-void RenderWireframeSphere( const Vector &, float, int, int, Color, bool )
+void RenderWireframeSphere(const Vector&, float, int, int, Color, bool)
 {
 	g_SSParticleLibCounters.nWireframeSpheres++;
 }
 
-void RenderWireframeBox( const Vector &, const QAngle &, const Vector &, const Vector &, Color, bool )
+void RenderWireframeBox(const Vector&, const QAngle&, const Vector&, const Vector&, Color, bool)
 {
 	g_SSParticleLibCounters.nWireframeBoxes++;
 }

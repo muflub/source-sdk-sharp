@@ -16,18 +16,18 @@ namespace ours
 
 static ours::CSaveRestoreSegment s_Ours;
 
-void Ours_InitSymbolTable( char **pTokens, int nTokens )
+void Ours_InitSymbolTable(char** pTokens, int nTokens)
 {
 	s_Ours = ours::CSaveRestoreSegment();
-	s_Ours.InitSymbolTable( pTokens, nTokens );
+	s_Ours.InitSymbolTable(pTokens, nTokens);
 }
 
-unsigned short Ours_FindCreateSymbol( const char *pszToken )
+unsigned short Ours_FindCreateSymbol(const char* pszToken)
 {
-	return s_Ours.FindCreateSymbol( pszToken );
+	return s_Ours.FindCreateSymbol(pszToken);
 }
 
-const char *Ours_StringFromSymbol( int token )
+const char* Ours_StringFromSymbol(int token)
 {
-	return s_Ours.StringFromSymbol( token );
+	return s_Ours.StringFromSymbol(token);
 }

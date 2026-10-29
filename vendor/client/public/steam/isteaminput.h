@@ -63,7 +63,7 @@ enum ESteamInputType
 // This handle will consistently identify a controller, even if it is disconnected and re-connected
 typedef uint64 InputHandle_t;
 
-#pragma pack( push, 1 )
+#pragma pack(push, 1)
 
 struct InputAnalogActionData_t
 {
@@ -105,7 +105,7 @@ struct InputMotionData_t
 	float rotVelZ;
 };
 
-#pragma pack( pop )
+#pragma pack(pop)
 
 // Purpose: Steam Input API
 class ISteamInput
@@ -114,7 +114,7 @@ public:
 	// Init and Shutdown must be called when starting/ending use of this interface.
 	// if bExplicitlyCallRunFrame is called then you will need to manually call RunFrame
 	// each frame, otherwise Steam Input will updated when SteamAPI_RunCallbacks() is called
-	virtual bool Init( bool bExplicitlyCallRunFrame ) = 0;
+	virtual bool Init(bool bExplicitlyCallRunFrame) = 0;
 	virtual bool Shutdown() = 0;
 
 	// Set the absolute path to the Input Action Manifest file containing the in-game actions
@@ -127,7 +127,7 @@ public:
 	// possible latency, you call this directly before reading controller state.
 	// Note: This must be called from somewhere before GetConnectedControllers will
 	// return any handles
-	virtual void RunFrame( bool bReservedValue = true ) = 0;
+	virtual void RunFrame(bool bReservedValue = true) = 0;
 
 	// Waits on an IPC event from Steam sent when there is new data to be fetched from
 	// the data drop. Returns true when data was recievied before the timeout expires.
@@ -149,7 +149,7 @@ public:
 
 	// Controller configuration loaded - these callbacks will always fire if you have
 	// a handler. Note: this is called within either SteamInput()->RunFrame or by SteamAPI_RunCallbacks
-	STEAM_CALL_BACK( SteamInputConfigurationLoaded_t )
+	STEAM_CALL_BACK(SteamInputConfigurationLoaded_t)
 
 	// Enable SteamInputDeviceConnected_t and SteamInputDeviceDisconnected_t callbacks.
 	// Each controller that is already connected will generate a device connected
@@ -158,17 +158,17 @@ public:
 
 	// Controller Connected - provides info about a single newly connected controller
 	// Note: this is called within either SteamInput()->RunFrame or by SteamAPI_RunCallbacks
-	STEAM_CALL_BACK( SteamInputDeviceConnected_t )
+	STEAM_CALL_BACK(SteamInputDeviceConnected_t)
 
 	// Controller Disconnected - provides info about a single disconnected controller
 	// Note: this is called within either SteamInput()->RunFrame or by SteamAPI_RunCallbacks
-	STEAM_CALL_BACK( SteamInputDeviceDisconnected_t )
+	STEAM_CALL_BACK(SteamInputDeviceDisconnected_t)
 
 	// Controllers using Gamepad emulation (XInput, DirectInput, etc) will be seated in the order that
 	// input is sent by the device. This callback will fire on first input for each device and when the
 	// a user has manually changed the order via the Steam overlay. This also has the device type info
 	// so that you can change out glyph sets without making additional API calls
-	STEAM_CALL_BACK( SteamInputGamepadSlotChange_t )
+	STEAM_CALL_BACK(SteamInputGamepadSlotChange_t)
 
 	// Enable SteamInputActionEvent_t callbacks. Directly calls your callback function
 	// for lower latency than standard Steam callbacks. Supports one callback at a time.
@@ -316,12 +316,12 @@ public:
 
 #define STEAMINPUT_INTERFACE_VERSION "SteamInput006"
 
-STEAM_DEFINE_USER_INTERFACE_ACCESSOR( ISteamInput *, SteamInput, STEAMINPUT_INTERFACE_VERSION );
+STEAM_DEFINE_USER_INTERFACE_ACCESSOR(ISteamInput*, SteamInput, STEAMINPUT_INTERFACE_VERSION);
 
-#if defined( VALVE_CALLBACK_PACK_SMALL )
-#pragma pack( push, 4 )
-#elif defined( VALVE_CALLBACK_PACK_LARGE )
-#pragma pack( push, 8 )
+#if defined(VALVE_CALLBACK_PACK_SMALL)
+#pragma pack(push, 4)
+#elif defined(VALVE_CALLBACK_PACK_LARGE)
+#pragma pack(push, 8)
 #else
 #error steam_api_common.h should define VALVE_CALLBACK_PACK_xxx
 #endif
@@ -386,4 +386,4 @@ struct SteamInputGamepadSlotChange_t
 	int m_nNewGamepadSlot; // New Gamepad Slot - can be -1 controller doesn't uses gamepad bindings
 };
 
-#pragma pack( pop )
+#pragma pack(pop)

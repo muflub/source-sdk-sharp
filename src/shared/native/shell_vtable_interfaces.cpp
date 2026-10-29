@@ -52,81 +52,81 @@
 namespace
 {
 
-bool SourceSharpServes( const char *pszVersion )
+bool SourceSharpServes(const char* pszVersion)
 {
-	if ( !pszVersion )
+	if (!pszVersion)
 		return false;
 
-	if ( !ss::StrICmp( pszVersion, "VEngineRandom001" ) )
+	if (!ss::StrICmp(pszVersion, "VEngineRandom001"))
 		return true;
 
 	// The engine registers two IVModelInfo objects; one forwarder table calls either.
-	if ( !ss::StrICmp( pszVersion, "VModelInfoServer004" ) || !ss::StrICmp( pszVersion, "VModelInfoClient006" ) )
+	if (!ss::StrICmp(pszVersion, "VModelInfoServer004") || !ss::StrICmp(pszVersion, "VModelInfoClient006"))
 		return true;
 
-	if ( !ss::StrICmp( pszVersion, "VBaseFileSystem011" ) )
+	if (!ss::StrICmp(pszVersion, "VBaseFileSystem011"))
 		return true;
 
-	if ( !ss::StrICmp( pszVersion, "VPhysicsSurfaceProps001" ) )
+	if (!ss::StrICmp(pszVersion, "VPhysicsSurfaceProps001"))
 		return true;
 
-	if ( !ss::StrICmp( pszVersion, VPHYSICS_COLLISION_INTERFACE_VERSION ) )
+	if (!ss::StrICmp(pszVersion, VPHYSICS_COLLISION_INTERFACE_VERSION))
 		return true;
 
-	if ( !ss::StrICmp( pszVersion, SOUNDEMITTERSYSTEM_INTERFACE_VERSION ) )
+	if (!ss::StrICmp(pszVersion, SOUNDEMITTERSYSTEM_INTERFACE_VERSION))
 		return true;
 
-	if ( !ss::StrICmp( pszVersion, VDEBUG_OVERLAY_INTERFACE_VERSION ) )
+	if (!ss::StrICmp(pszVersion, VDEBUG_OVERLAY_INTERFACE_VERSION))
 		return true;
 
 #ifdef CLIENT_DLL
-	if ( !ss::StrICmp( pszVersion, "VEngineClient014" ) )
+	if (!ss::StrICmp(pszVersion, "VEngineClient014"))
 		return true;
 
-	if ( !ss::StrICmp( pszVersion, VPHYSICS_INTERFACE_VERSION ) )
+	if (!ss::StrICmp(pszVersion, VPHYSICS_INTERFACE_VERSION))
 		return true;
 
-	if ( !ss::StrICmp( pszVersion, INPUTSYSTEM_INTERFACE_VERSION ) )
+	if (!ss::StrICmp(pszVersion, INPUTSYSTEM_INTERFACE_VERSION))
 		return true;
 
 	// The client's world, for prediction's point contents.
-	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_ENGINETRACE_CLIENT ) )
+	if (!ss::StrICmp(pszVersion, INTERFACEVERSION_ENGINETRACE_CLIENT))
 		return true;
 
-	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_STATICPROPMGR_CLIENT ) )
+	if (!ss::StrICmp(pszVersion, INTERFACEVERSION_STATICPROPMGR_CLIENT))
 		return true;
 
-	if ( !ss::StrICmp( pszVersion, IENGINESOUND_CLIENT_INTERFACE_VERSION ) )
+	if (!ss::StrICmp(pszVersion, IENGINESOUND_CLIENT_INTERFACE_VERSION))
 		return true;
 #else
-	if ( !ss::StrICmp( pszVersion, "VEngineServer023" ) )
+	if (!ss::StrICmp(pszVersion, "VEngineServer023"))
 		return true;
 
-	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_STATICPROPMGR_SERVER ) )
+	if (!ss::StrICmp(pszVersion, INTERFACEVERSION_STATICPROPMGR_SERVER))
 		return true;
 
 	// The server's world, for the movement loop's point contents.
-	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_ENGINETRACE_SERVER ) )
+	if (!ss::StrICmp(pszVersion, INTERFACEVERSION_ENGINETRACE_SERVER))
 		return true;
 
 	// Unserved, the server fires no game events at all.
-	if ( !ss::StrICmp( pszVersion, INTERFACEVERSION_GAMEEVENTSMANAGER2 ) )
+	if (!ss::StrICmp(pszVersion, INTERFACEVERSION_GAMEEVENTSMANAGER2))
 		return true;
 
-	if ( !ss::StrICmp( pszVersion, IENGINESOUND_SERVER_INTERFACE_VERSION ) )
+	if (!ss::StrICmp(pszVersion, IENGINESOUND_SERVER_INTERFACE_VERSION))
 		return true;
 
 	// The whole filesystem, for CreateDirHierarchy; its IBaseFileSystem half is above.
-	if ( !ss::StrICmp( pszVersion, FILESYSTEM_INTERFACE_VERSION ) )
+	if (!ss::StrICmp(pszVersion, FILESYSTEM_INTERFACE_VERSION))
 		return true;
 #endif
 
 	// Each side's own container; engine.so registers both names on a listen server.
 #ifdef CLIENT_DLL
-	if ( !ss::StrICmp( pszVersion, INTERFACENAME_NETWORKSTRINGTABLECLIENT ) )
+	if (!ss::StrICmp(pszVersion, INTERFACENAME_NETWORKSTRINGTABLECLIENT))
 		return true;
 #else
-	if ( !ss::StrICmp( pszVersion, INTERFACENAME_NETWORKSTRINGTABLESERVER ) )
+	if (!ss::StrICmp(pszVersion, INTERFACENAME_NETWORKSTRINGTABLESERVER))
 		return true;
 #endif
 
@@ -135,15 +135,15 @@ bool SourceSharpServes( const char *pszVersion )
 
 // The CreateInterfaceFn for a factory kind. NULL means no factory of that kind;
 // *pbStored says whether the list has been stored at all.
-CreateInterfaceFn FactoryFor( const SourceSharpFactories_t *pFactories, SourceSharpFactoryType eType, bool *pbStored )
+CreateInterfaceFn FactoryFor(const SourceSharpFactories_t* pFactories, SourceSharpFactoryType eType, bool* pbStored)
 {
 	// Both sides set appSystem in the same call as the others, so it marks the list
 	// stored. The engine calls IServerDLLSharedAppSystems before either Init.
 	*pbStored = pFactories && pFactories->pAppSystem != NULL;
-	if ( !*pbStored )
+	if (!*pbStored)
 		return NULL;
 
-	switch ( eType )
+	switch (eType)
 	{
 		case SOURCESHARP_FACTORY_APPSYSTEM:
 			return pFactories->pAppSystem;
@@ -159,64 +159,64 @@ CreateInterfaceFn FactoryFor( const SourceSharpFactories_t *pFactories, SourceSh
 } // namespace
 
 // pError is written only on failure, truncating.
-void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *pszVersion, char *pError,
-									int32_t nErrorBytes, const SourceSharpFactories_t *pFactories )
+void* SourceSharp_AcquireInterface(SourceSharpFactoryType eType, const char* pszVersion, char* pError,
+								   int32_t nErrorBytes, const SourceSharpFactories_t* pFactories)
 {
-	if ( eType != SOURCESHARP_FACTORY_APPSYSTEM && eType != SOURCESHARP_FACTORY_PHYSICS &&
-		 eType != SOURCESHARP_FACTORY_FILESYSTEM && eType != SOURCESHARP_FACTORY_INTERNAL )
+	if (eType != SOURCESHARP_FACTORY_APPSYSTEM && eType != SOURCESHARP_FACTORY_PHYSICS &&
+		eType != SOURCESHARP_FACTORY_FILESYSTEM && eType != SOURCESHARP_FACTORY_INTERNAL)
 	{
-		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_FACTORY_TYPE );
+		SourceSharp_SayAcquireReason(pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_FACTORY_TYPE);
 		return NULL;
 	}
 
-	if ( eType == SOURCESHARP_FACTORY_INTERNAL )
+	if (eType == SOURCESHARP_FACTORY_INTERNAL)
 	{
 #ifdef CLIENT_DLL
 		// Our own singletons exist from DLL load, so there is no factory to wait for.
-		void *pShim = SourceSharp_InternalFactory( pszVersion );
+		void* pShim = SourceSharp_InternalFactory(pszVersion);
 
-		if ( !pShim )
+		if (!pShim)
 		{
-			SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+			SourceSharp_SayAcquireReason(pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 			return NULL;
 		}
 
 		return pShim;
 #else
 		// The server's root serves this kind itself and never reaches here.
-		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+		SourceSharp_SayAcquireReason(pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 		return NULL;
 #endif
 	}
 
 	// Refused before any factory is asked, so another side's object is never reached.
-	if ( !SourceSharpServes( pszVersion ) )
+	if (!SourceSharpServes(pszVersion))
 	{
-		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+		SourceSharp_SayAcquireReason(pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 		return NULL;
 	}
 
 	bool bStored = false;
-	CreateInterfaceFn pFactory = FactoryFor( pFactories, eType, &bStored );
+	CreateInterfaceFn pFactory = FactoryFor(pFactories, eType, &bStored);
 
-	if ( !bStored )
+	if (!bStored)
 	{
-		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_NOT_YET_AVAILABLE );
+		SourceSharp_SayAcquireReason(pError, nErrorBytes, SOURCESHARP_ACQUIRE_NOT_YET_AVAILABLE);
 		return NULL;
 	}
 
-	if ( !pFactory )
+	if (!pFactory)
 	{
-		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_NO_SUCH_FACTORY );
+		SourceSharp_SayAcquireReason(pError, nErrorBytes, SOURCESHARP_ACQUIRE_NO_SUCH_FACTORY);
 		return NULL;
 	}
 
-	void *pInterface = pFactory( pszVersion, NULL );
+	void* pInterface = pFactory(pszVersion, NULL);
 
-	if ( !pInterface )
+	if (!pInterface)
 	{
 		// A factory answers only for what it registered.
-		SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+		SourceSharp_SayAcquireReason(pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 		return NULL;
 	}
 
@@ -227,23 +227,23 @@ void *SourceSharp_AcquireInterface( SourceSharpFactoryType eType, const char *ps
 
 // Con_NPrintf is varargs, which managed cannot call. The text is passed as an argument,
 // never as the format string.
-void SourceSharp_ConNPrintf( void *pEngineClient, int32_t nPos, const char *pszText )
+void SourceSharp_ConNPrintf(void* pEngineClient, int32_t nPos, const char* pszText)
 {
-	IVEngineClient *pEngine = static_cast<IVEngineClient *>( pEngineClient );
+	IVEngineClient* pEngine = static_cast<IVEngineClient*>(pEngineClient);
 
-	if ( !pEngine || !pszText )
+	if (!pEngine || !pszText)
 		return;
 
-	pEngine->Con_NPrintf( nPos, "%s", pszText );
+	pEngine->Con_NPrintf(nPos, "%s", pszText);
 }
 
 // Con_NXPrintf, with con_nprint_s flattened into scalars so managed need not mirror it.
-void SourceSharp_ConNXPrintf( void *pEngineClient, int32_t nIndex, float flTimeToLive, const float *pColorRGB,
-							  int32_t bFixedWidthFont, const char *pszText )
+void SourceSharp_ConNXPrintf(void* pEngineClient, int32_t nIndex, float flTimeToLive, const float* pColorRGB,
+							 int32_t bFixedWidthFont, const char* pszText)
 {
-	IVEngineClient *pEngine = static_cast<IVEngineClient *>( pEngineClient );
+	IVEngineClient* pEngine = static_cast<IVEngineClient*>(pEngineClient);
 
-	if ( !pEngine || !pszText || !pColorRGB )
+	if (!pEngine || !pszText || !pColorRGB)
 		return;
 
 	con_nprint_t info;
@@ -254,35 +254,35 @@ void SourceSharp_ConNXPrintf( void *pEngineClient, int32_t nIndex, float flTimeT
 	info.color[2] = pColorRGB[2];
 	info.fixed_width_font = bFixedWidthFont != 0;
 
-	pEngine->Con_NXPrintf( &info, "%s", pszText );
+	pEngine->Con_NXPrintf(&info, "%s", pszText);
 }
 
 // GetLightForPoint(Fast) return Vector by value in xmm registers, which a managed function
 // pointer cannot express. pOutXYZ is written only on success.
-void SourceSharp_GetLightForPoint( void *pEngineClient, const float *pPosXYZ, int32_t bClamp, float *pOutXYZ )
+void SourceSharp_GetLightForPoint(void* pEngineClient, const float* pPosXYZ, int32_t bClamp, float* pOutXYZ)
 {
-	IVEngineClient *pEngine = static_cast<IVEngineClient *>( pEngineClient );
+	IVEngineClient* pEngine = static_cast<IVEngineClient*>(pEngineClient);
 
-	if ( !pEngine || !pPosXYZ || !pOutXYZ )
+	if (!pEngine || !pPosXYZ || !pOutXYZ)
 		return;
 
-	const Vector position( pPosXYZ[0], pPosXYZ[1], pPosXYZ[2] );
-	const Vector light = pEngine->GetLightForPoint( position, bClamp != 0 );
+	const Vector position(pPosXYZ[0], pPosXYZ[1], pPosXYZ[2]);
+	const Vector light = pEngine->GetLightForPoint(position, bClamp != 0);
 
 	pOutXYZ[0] = light.x;
 	pOutXYZ[1] = light.y;
 	pOutXYZ[2] = light.z;
 }
 
-void SourceSharp_GetLightForPointFast( void *pEngineClient, const float *pPosXYZ, int32_t bClamp, float *pOutXYZ )
+void SourceSharp_GetLightForPointFast(void* pEngineClient, const float* pPosXYZ, int32_t bClamp, float* pOutXYZ)
 {
-	IVEngineClient *pEngine = static_cast<IVEngineClient *>( pEngineClient );
+	IVEngineClient* pEngine = static_cast<IVEngineClient*>(pEngineClient);
 
-	if ( !pEngine || !pPosXYZ || !pOutXYZ )
+	if (!pEngine || !pPosXYZ || !pOutXYZ)
 		return;
 
-	const Vector position( pPosXYZ[0], pPosXYZ[1], pPosXYZ[2] );
-	const Vector light = pEngine->GetLightForPointFast( position, bClamp != 0 );
+	const Vector position(pPosXYZ[0], pPosXYZ[1], pPosXYZ[2]);
+	const Vector light = pEngine->GetLightForPointFast(position, bClamp != 0);
 
 	pOutXYZ[0] = light.x;
 	pOutXYZ[1] = light.y;

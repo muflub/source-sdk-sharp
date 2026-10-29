@@ -16,13 +16,13 @@
 
 struct Toucher_t
 {
-	IHandleEntity *pHandle;
+	IHandleEntity* pHandle;
 
 	// The SDK entity; NULL for the other kind.
-	IGameEntity *pBase;
+	IGameEntity* pBase;
 
 	// The entity outside the SDK. NULL for a CBaseEntity.
-	IGameEntity *pGame;
+	IGameEntity* pGame;
 
 	bool IsValid() const { return pBase != NULL || pGame != NULL; }
 
@@ -32,17 +32,17 @@ struct Toucher_t
 };
 
 // The toucher behind an edict, partition element or trace result.
-inline Toucher_t ToucherFromEntityHandle( CServerEntityResolver &entities, IHandleEntity *pHandleEntity )
+inline Toucher_t ToucherFromEntityHandle(CServerEntityResolver& entities, IHandleEntity* pHandleEntity)
 {
-	Toucher_t toucher = { pHandleEntity, NULL, NULL };
+	Toucher_t toucher = {pHandleEntity, NULL, NULL};
 
-	if ( !pHandleEntity )
+	if (!pHandleEntity)
 		return toucher;
 
 	// Every GetBaseEntity() in server.so returns NULL.
 	toucher.pBase = NULL;
 
-	toucher.pGame = SourceSharp_GameEntityFromHandleEntity( entities, pHandleEntity );
+	toucher.pGame = SourceSharp_GameEntityFromHandleEntity(entities, pHandleEntity);
 
 	return toucher;
 }

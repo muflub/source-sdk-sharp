@@ -57,7 +57,7 @@ enum
 
 // The materials SurfaceSetMaterials names, in order: the pieces', the solid
 // block's, then the twelve edges' (edge * 3 + style).
-#define SOURCESHARP_SURFACE_MATERIAL_NAMES ( 2 + SOURCESHARP_SURFACE_EDGE_TYPES * SOURCESHARP_SURFACE_EDGE_STYLES )
+#define SOURCESHARP_SURFACE_MATERIAL_NAMES (2 + SOURCESHARP_SURFACE_EDGE_TYPES * SOURCESHARP_SURFACE_EDGE_STYLES)
 
 // SurfaceSetMaterials' flags.
 enum
@@ -80,22 +80,22 @@ public:
 	CSourceSharpSurfaceRenderer();
 	virtual ~CSourceSharpSurfaceRenderer();
 
-	void SetMaterials( const char *const *ppNames, int nFlags );
+	void SetMaterials(const char* const* ppNames, int nFlags);
 
 	// What to draw, replacing the last plan; an empty one draws nothing.
-	void SetPlan( const int32_t *pWords, int nWords );
+	void SetPlan(const int32_t* pWords, int nWords);
 
 	// The engine hands each brush surface to RenderBrushModelSurface while installed.
 	void BeginDraw();
 	void EndDraw();
 
-	virtual bool RenderBrushModelSurface( IClientEntity *pBaseEntity, IBrushSurface *pBrushSurface ) OVERRIDE;
+	virtual bool RenderBrushModelSurface(IClientEntity* pBaseEntity, IBrushSurface* pBrushSurface) OVERRIDE;
 
 private:
-	void SetDetailTexture( ITexture *pTexture );
-	void Steps( Vector *pWidthStep, Vector *pHeightStep ) const;
-	void DrawQuad( IBrushSurface *pBrushSurface, IMesh *pMesh, CMeshBuilder *pBuilder, const Vector &vStart,
-				   const Vector &vWStep, const Vector &vHStep, const float ( *pCorners )[2], bool bGrout );
+	void SetDetailTexture(ITexture* pTexture);
+	void Steps(Vector* pWidthStep, Vector* pHeightStep) const;
+	void DrawQuad(IBrushSurface* pBrushSurface, IMesh* pMesh, CMeshBuilder* pBuilder, const Vector& vStart,
+				  const Vector& vWStep, const Vector& vHStep, const float (*pCorners)[2], bool bGrout);
 
 	Vector m_vNormal;
 	Vector m_vCorner;
@@ -106,7 +106,7 @@ private:
 	CMaterialReference m_pCrackedMaterial;
 	CMaterialReference m_pMaterialBox;
 	CTextureReference m_pMaterialBoxTexture;
-	IMaterialVar *m_pDetailVar;
+	IMaterialVar* m_pDetailVar;
 
 	SurfaceEdgeTexture_t m_pEdge[SOURCESHARP_SURFACE_EDGE_TYPES][SOURCESHARP_SURFACE_EDGE_STYLES];
 

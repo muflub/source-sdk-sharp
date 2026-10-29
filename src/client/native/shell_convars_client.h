@@ -11,9 +11,9 @@
 #define SOURCESHARP_CONVAR_WATCH_ID_BASE 0x10000
 
 // The id a watched name answers, or -1.
-int32_t SourceSharp_ClientWatchedConVarId( const char *pName );
+int32_t SourceSharp_ClientWatchedConVarId(const char* pName);
 
 // The value managed decided under pName; false when it has decided none yet.
-bool SourceSharp_ClientDecidedValue( const char *pName, float *pOut );
+bool SourceSharp_ClientDecidedValue(const char* pName, float* pOut);
 
 // Installs the client's global change callback if no registration has yet.

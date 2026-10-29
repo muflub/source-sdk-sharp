@@ -24,35 +24,35 @@ class IManagedCommandsClient;
 // The table managed writes for IManagedCommandsClient: Release, Validate, then the TSV's order.
 struct SSManagedCommandsClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *ConCommandDispatch )( IManagedCommandsClient *self, int32_t nCommandId, const char *pArgs );
-	void ( *ConVarChanged )( IManagedCommandsClient *self, int32_t nConVarId, const char *pNewValue,
-							 const char *pOldValue );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*ConCommandDispatch)(IManagedCommandsClient* self, int32_t nCommandId, const char* pArgs);
+	void (*ConVarChanged)(IManagedCommandsClient* self, int32_t nConVarId, const char* pNewValue,
+						  const char* pOldValue);
 };
 
 class IManagedCommandsClient : public IManagedObject
 {
 public:
-	explicit IManagedCommandsClient( const SSManagedCommandsClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedCommandsClient(const SSManagedCommandsClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void ConCommandDispatch( int32_t nCommandId, const char *pArgs )
+	void ConCommandDispatch(int32_t nCommandId, const char* pArgs)
 	{
-		Table()->ConCommandDispatch( this, nCommandId, pArgs );
+		Table()->ConCommandDispatch(this, nCommandId, pArgs);
 	}
 
-	void ConVarChanged( int32_t nConVarId, const char *pNewValue, const char *pOldValue )
+	void ConVarChanged(int32_t nConVarId, const char* pNewValue, const char* pOldValue)
 	{
-		Table()->ConVarChanged( this, nConVarId, pNewValue, pOldValue );
+		Table()->ConVarChanged(this, nConVarId, pNewValue, pOldValue);
 	}
 
 private:
-	const SSManagedCommandsClientTable *Table() const
+	const SSManagedCommandsClientTable* Table() const
 	{
-		return static_cast<const SSManagedCommandsClientTable *>( m_pTable );
+		return static_cast<const SSManagedCommandsClientTable*>(m_pTable);
 	}
 };
 
@@ -63,34 +63,31 @@ static const uint32_t kIManagedCommandsClientSlotHashes[] = {
 	0x3d217e2d,
 };
 static const int32_t kIManagedCommandsClientSlotCount = 4;
-static_assert( sizeof( SSManagedCommandsClientTable ) == 4 * sizeof( void * ),
-			   "SSManagedCommandsClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedCommandsClientTable) == 4 * sizeof(void*),
+			  "SSManagedCommandsClientTable is one pointer per slot");
 
 class IManagedEventsClient;
 
 // The table managed writes for IManagedEventsClient: Release, Validate, then the TSV's order.
 struct SSManagedEventsClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *OnGameEvent )( IManagedEventsClient *self, const char *pEventName, void *hEvent );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*OnGameEvent)(IManagedEventsClient* self, const char* pEventName, void* hEvent);
 };
 
 class IManagedEventsClient : public IManagedObject
 {
 public:
-	explicit IManagedEventsClient( const SSManagedEventsClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedEventsClient(const SSManagedEventsClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void OnGameEvent( const char *pEventName, void *hEvent ) { Table()->OnGameEvent( this, pEventName, hEvent ); }
+	void OnGameEvent(const char* pEventName, void* hEvent) { Table()->OnGameEvent(this, pEventName, hEvent); }
 
 private:
-	const SSManagedEventsClientTable *Table() const
-	{
-		return static_cast<const SSManagedEventsClientTable *>( m_pTable );
-	}
+	const SSManagedEventsClientTable* Table() const { return static_cast<const SSManagedEventsClientTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedEventsClientSlotHashes[] = {
@@ -99,37 +96,37 @@ static const uint32_t kIManagedEventsClientSlotHashes[] = {
 	0xacb4e74c,
 };
 static const int32_t kIManagedEventsClientSlotCount = 3;
-static_assert( sizeof( SSManagedEventsClientTable ) == 3 * sizeof( void * ),
-			   "SSManagedEventsClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedEventsClientTable) == 3 * sizeof(void*),
+			  "SSManagedEventsClientTable is one pointer per slot");
 
 class IManagedUserMessagesClient;
 
 // The table managed writes for IManagedUserMessagesClient: Release, Validate, then the TSV's order.
 struct SSManagedUserMessagesClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	bool ( *DispatchUserMessage )( IManagedUserMessagesClient *self, int32_t nIndex, const uint8_t *pBlock,
-								   int32_t nBlockBytes );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	bool (*DispatchUserMessage)(IManagedUserMessagesClient* self, int32_t nIndex, const uint8_t* pBlock,
+								int32_t nBlockBytes);
 };
 
 class IManagedUserMessagesClient : public IManagedObject
 {
 public:
-	explicit IManagedUserMessagesClient( const SSManagedUserMessagesClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedUserMessagesClient(const SSManagedUserMessagesClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	bool DispatchUserMessage( int32_t nIndex, const uint8_t *pBlock, int32_t nBlockBytes )
+	bool DispatchUserMessage(int32_t nIndex, const uint8_t* pBlock, int32_t nBlockBytes)
 	{
-		return Table()->DispatchUserMessage( this, nIndex, pBlock, nBlockBytes );
+		return Table()->DispatchUserMessage(this, nIndex, pBlock, nBlockBytes);
 	}
 
 private:
-	const SSManagedUserMessagesClientTable *Table() const
+	const SSManagedUserMessagesClientTable* Table() const
 	{
-		return static_cast<const SSManagedUserMessagesClientTable *>( m_pTable );
+		return static_cast<const SSManagedUserMessagesClientTable*>(m_pTable);
 	}
 };
 
@@ -139,91 +136,91 @@ static const uint32_t kIManagedUserMessagesClientSlotHashes[] = {
 	0x42dc42b8,
 };
 static const int32_t kIManagedUserMessagesClientSlotCount = 3;
-static_assert( sizeof( SSManagedUserMessagesClientTable ) == 3 * sizeof( void * ),
-			   "SSManagedUserMessagesClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedUserMessagesClientTable) == 3 * sizeof(void*),
+			  "SSManagedUserMessagesClientTable is one pointer per slot");
 
 class IManagedStandaloneClient;
 
 // The table managed writes for IManagedStandaloneClient: Release, Validate, then the TSV's order.
 struct SSManagedStandaloneClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *OnStandaloneCreate )( IManagedStandaloneClient *self, uint32_t hEntity, const char *pClassName );
-	void ( *OnStandaloneSpawn )( IManagedStandaloneClient *self, uint32_t hEntity );
-	void ( *OnStandaloneRemoved )( IManagedStandaloneClient *self, uint32_t hEntity );
-	void ( *OnStandaloneDataChanged )( IManagedStandaloneClient *self, uint32_t hEntity, const unsigned char *pBlob,
-									   int32_t nBytes, int32_t nUpdateType );
-	int32_t ( *OnStandaloneDraw )( IManagedStandaloneClient *self, uint32_t hEntity );
-	void ( *OnStandaloneDormancyChanged )( IManagedStandaloneClient *self, uint32_t hEntity, int32_t bDormant );
-	int32_t ( *NetStateFieldOffset )( IManagedStandaloneClient *self, const char *pClassName, const char *pFieldName );
-	int32_t ( *NetStateFieldBits )( IManagedStandaloneClient *self, const char *pClassName, const char *pFieldName );
-	void ( *OnStandaloneDrawBatch )( IManagedStandaloneClient *self, const uint32_t *pHandles, int32_t nCount,
-									 int32_t *pResults );
-	int32_t ( *SchemaAccept )( IManagedStandaloneClient *self, uint32_t nTypeId, int32_t bPublished, uint32_t nExpected,
-							   uint32_t nSeen, int32_t nEntIndex, const char *pClassName );
-	int32_t ( *OnStandaloneDrawExtras )( IManagedStandaloneClient *self, uint32_t hEntity, int32_t nFlags );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*OnStandaloneCreate)(IManagedStandaloneClient* self, uint32_t hEntity, const char* pClassName);
+	void (*OnStandaloneSpawn)(IManagedStandaloneClient* self, uint32_t hEntity);
+	void (*OnStandaloneRemoved)(IManagedStandaloneClient* self, uint32_t hEntity);
+	void (*OnStandaloneDataChanged)(IManagedStandaloneClient* self, uint32_t hEntity, const unsigned char* pBlob,
+									int32_t nBytes, int32_t nUpdateType);
+	int32_t (*OnStandaloneDraw)(IManagedStandaloneClient* self, uint32_t hEntity);
+	void (*OnStandaloneDormancyChanged)(IManagedStandaloneClient* self, uint32_t hEntity, int32_t bDormant);
+	int32_t (*NetStateFieldOffset)(IManagedStandaloneClient* self, const char* pClassName, const char* pFieldName);
+	int32_t (*NetStateFieldBits)(IManagedStandaloneClient* self, const char* pClassName, const char* pFieldName);
+	void (*OnStandaloneDrawBatch)(IManagedStandaloneClient* self, const uint32_t* pHandles, int32_t nCount,
+								  int32_t* pResults);
+	int32_t (*SchemaAccept)(IManagedStandaloneClient* self, uint32_t nTypeId, int32_t bPublished, uint32_t nExpected,
+							uint32_t nSeen, int32_t nEntIndex, const char* pClassName);
+	int32_t (*OnStandaloneDrawExtras)(IManagedStandaloneClient* self, uint32_t hEntity, int32_t nFlags);
 };
 
 class IManagedStandaloneClient : public IManagedObject
 {
 public:
-	explicit IManagedStandaloneClient( const SSManagedStandaloneClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedStandaloneClient(const SSManagedStandaloneClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t OnStandaloneCreate( uint32_t hEntity, const char *pClassName )
+	int32_t OnStandaloneCreate(uint32_t hEntity, const char* pClassName)
 	{
-		return Table()->OnStandaloneCreate( this, hEntity, pClassName );
+		return Table()->OnStandaloneCreate(this, hEntity, pClassName);
 	}
 
-	void OnStandaloneSpawn( uint32_t hEntity ) { Table()->OnStandaloneSpawn( this, hEntity ); }
+	void OnStandaloneSpawn(uint32_t hEntity) { Table()->OnStandaloneSpawn(this, hEntity); }
 
-	void OnStandaloneRemoved( uint32_t hEntity ) { Table()->OnStandaloneRemoved( this, hEntity ); }
+	void OnStandaloneRemoved(uint32_t hEntity) { Table()->OnStandaloneRemoved(this, hEntity); }
 
-	void OnStandaloneDataChanged( uint32_t hEntity, const unsigned char *pBlob, int32_t nBytes, int32_t nUpdateType )
+	void OnStandaloneDataChanged(uint32_t hEntity, const unsigned char* pBlob, int32_t nBytes, int32_t nUpdateType)
 	{
-		Table()->OnStandaloneDataChanged( this, hEntity, pBlob, nBytes, nUpdateType );
+		Table()->OnStandaloneDataChanged(this, hEntity, pBlob, nBytes, nUpdateType);
 	}
 
-	int32_t OnStandaloneDraw( uint32_t hEntity ) { return Table()->OnStandaloneDraw( this, hEntity ); }
+	int32_t OnStandaloneDraw(uint32_t hEntity) { return Table()->OnStandaloneDraw(this, hEntity); }
 
-	void OnStandaloneDormancyChanged( uint32_t hEntity, int32_t bDormant )
+	void OnStandaloneDormancyChanged(uint32_t hEntity, int32_t bDormant)
 	{
-		Table()->OnStandaloneDormancyChanged( this, hEntity, bDormant );
+		Table()->OnStandaloneDormancyChanged(this, hEntity, bDormant);
 	}
 
-	int32_t NetStateFieldOffset( const char *pClassName, const char *pFieldName )
+	int32_t NetStateFieldOffset(const char* pClassName, const char* pFieldName)
 	{
-		return Table()->NetStateFieldOffset( this, pClassName, pFieldName );
+		return Table()->NetStateFieldOffset(this, pClassName, pFieldName);
 	}
 
-	int32_t NetStateFieldBits( const char *pClassName, const char *pFieldName )
+	int32_t NetStateFieldBits(const char* pClassName, const char* pFieldName)
 	{
-		return Table()->NetStateFieldBits( this, pClassName, pFieldName );
+		return Table()->NetStateFieldBits(this, pClassName, pFieldName);
 	}
 
-	void OnStandaloneDrawBatch( const uint32_t *pHandles, int32_t nCount, int32_t *pResults )
+	void OnStandaloneDrawBatch(const uint32_t* pHandles, int32_t nCount, int32_t* pResults)
 	{
-		Table()->OnStandaloneDrawBatch( this, pHandles, nCount, pResults );
+		Table()->OnStandaloneDrawBatch(this, pHandles, nCount, pResults);
 	}
 
-	int32_t SchemaAccept( uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex,
-						  const char *pClassName )
+	int32_t SchemaAccept(uint32_t nTypeId, int32_t bPublished, uint32_t nExpected, uint32_t nSeen, int32_t nEntIndex,
+						 const char* pClassName)
 	{
-		return Table()->SchemaAccept( this, nTypeId, bPublished, nExpected, nSeen, nEntIndex, pClassName );
+		return Table()->SchemaAccept(this, nTypeId, bPublished, nExpected, nSeen, nEntIndex, pClassName);
 	}
 
-	int32_t OnStandaloneDrawExtras( uint32_t hEntity, int32_t nFlags )
+	int32_t OnStandaloneDrawExtras(uint32_t hEntity, int32_t nFlags)
 	{
-		return Table()->OnStandaloneDrawExtras( this, hEntity, nFlags );
+		return Table()->OnStandaloneDrawExtras(this, hEntity, nFlags);
 	}
 
 private:
-	const SSManagedStandaloneClientTable *Table() const
+	const SSManagedStandaloneClientTable* Table() const
 	{
-		return static_cast<const SSManagedStandaloneClientTable *>( m_pTable );
+		return static_cast<const SSManagedStandaloneClientTable*>(m_pTable);
 	}
 };
 
@@ -232,46 +229,46 @@ static const uint32_t kIManagedStandaloneClientSlotHashes[] = {
 	0x8d177001, 0xbddf45d5, 0xbddf45d5, 0xd26c0bc9, 0x87f5efbd, 0xbabc0fee,
 };
 static const int32_t kIManagedStandaloneClientSlotCount = 13;
-static_assert( sizeof( SSManagedStandaloneClientTable ) == 13 * sizeof( void * ),
-			   "SSManagedStandaloneClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedStandaloneClientTable) == 13 * sizeof(void*),
+			  "SSManagedStandaloneClientTable is one pointer per slot");
 
 class IManagedPredictionClient;
 
 // The table managed writes for IManagedPredictionClient: Release, Validate, then the TSV's order.
 struct SSManagedPredictionClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *MoveProcessMovement )( IManagedPredictionClient *self, SourceSharpMoveState *pState );
-	void ( *ClientPredictionUpdate )( IManagedPredictionClient *self, int32_t nStartFrame, int32_t bValidFrame,
-									  int32_t nIncomingAcknowledged, int32_t nOutgoingCommand,
-									  int32_t bWorldUpdateArrived );
-	int32_t ( *ThirdPersonCamera )( IManagedPredictionClient *self, SourceSharpThirdPersonCamera *pIo );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*MoveProcessMovement)(IManagedPredictionClient* self, SourceSharpMoveState* pState);
+	void (*ClientPredictionUpdate)(IManagedPredictionClient* self, int32_t nStartFrame, int32_t bValidFrame,
+								   int32_t nIncomingAcknowledged, int32_t nOutgoingCommand,
+								   int32_t bWorldUpdateArrived);
+	int32_t (*ThirdPersonCamera)(IManagedPredictionClient* self, SourceSharpThirdPersonCamera* pIo);
 };
 
 class IManagedPredictionClient : public IManagedObject
 {
 public:
-	explicit IManagedPredictionClient( const SSManagedPredictionClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedPredictionClient(const SSManagedPredictionClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t MoveProcessMovement( SourceSharpMoveState *pState ) { return Table()->MoveProcessMovement( this, pState ); }
+	int32_t MoveProcessMovement(SourceSharpMoveState* pState) { return Table()->MoveProcessMovement(this, pState); }
 
-	void ClientPredictionUpdate( int32_t nStartFrame, int32_t bValidFrame, int32_t nIncomingAcknowledged,
-								 int32_t nOutgoingCommand, int32_t bWorldUpdateArrived )
+	void ClientPredictionUpdate(int32_t nStartFrame, int32_t bValidFrame, int32_t nIncomingAcknowledged,
+								int32_t nOutgoingCommand, int32_t bWorldUpdateArrived)
 	{
-		Table()->ClientPredictionUpdate( this, nStartFrame, bValidFrame, nIncomingAcknowledged, nOutgoingCommand,
-										 bWorldUpdateArrived );
+		Table()->ClientPredictionUpdate(this, nStartFrame, bValidFrame, nIncomingAcknowledged, nOutgoingCommand,
+										bWorldUpdateArrived);
 	}
 
-	int32_t ThirdPersonCamera( SourceSharpThirdPersonCamera *pIo ) { return Table()->ThirdPersonCamera( this, pIo ); }
+	int32_t ThirdPersonCamera(SourceSharpThirdPersonCamera* pIo) { return Table()->ThirdPersonCamera(this, pIo); }
 
 private:
-	const SSManagedPredictionClientTable *Table() const
+	const SSManagedPredictionClientTable* Table() const
 	{
-		return static_cast<const SSManagedPredictionClientTable *>( m_pTable );
+		return static_cast<const SSManagedPredictionClientTable*>(m_pTable);
 	}
 };
 
@@ -279,58 +276,58 @@ static const uint32_t kIManagedPredictionClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x1134ef71, 0x5952f295, 0x1134ef71,
 };
 static const int32_t kIManagedPredictionClientSlotCount = 5;
-static_assert( sizeof( SSManagedPredictionClientTable ) == 5 * sizeof( void * ),
-			   "SSManagedPredictionClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedPredictionClientTable) == 5 * sizeof(void*),
+			  "SSManagedPredictionClientTable is one pointer per slot");
 
 class IManagedTempEntsClient;
 
 // The table managed writes for IManagedTempEntsClient: Release, Validate, then the TSV's order.
 struct SSManagedTempEntsClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *OnTempEntity )( IManagedTempEntsClient *self, int32_t hClass, const unsigned char *pBlob, int32_t nBytes );
-	void ( *OnTempEntPoolUpdate )( IManagedTempEntsClient *self, float flFrameTime );
-	void ( *OnTempEntPoolClear )( IManagedTempEntsClient *self );
-	int32_t ( *OnImpactChoice )( IManagedTempEntsClient *self, const int32_t *pIn, int32_t nIn, int32_t *pOut,
-								 int32_t nOutMax, char *pParticleNameOut, int32_t nParticleNameMax, char *pDecalNameOut,
-								 int32_t nDecalNameMax );
-	int32_t ( *SuppressLocalTempEnt )( IManagedTempEntsClient *self, int32_t bCanPredict, int32_t nRecipients );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*OnTempEntity)(IManagedTempEntsClient* self, int32_t hClass, const unsigned char* pBlob, int32_t nBytes);
+	void (*OnTempEntPoolUpdate)(IManagedTempEntsClient* self, float flFrameTime);
+	void (*OnTempEntPoolClear)(IManagedTempEntsClient* self);
+	int32_t (*OnImpactChoice)(IManagedTempEntsClient* self, const int32_t* pIn, int32_t nIn, int32_t* pOut,
+							  int32_t nOutMax, char* pParticleNameOut, int32_t nParticleNameMax, char* pDecalNameOut,
+							  int32_t nDecalNameMax);
+	int32_t (*SuppressLocalTempEnt)(IManagedTempEntsClient* self, int32_t bCanPredict, int32_t nRecipients);
 };
 
 class IManagedTempEntsClient : public IManagedObject
 {
 public:
-	explicit IManagedTempEntsClient( const SSManagedTempEntsClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedTempEntsClient(const SSManagedTempEntsClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void OnTempEntity( int32_t hClass, const unsigned char *pBlob, int32_t nBytes )
+	void OnTempEntity(int32_t hClass, const unsigned char* pBlob, int32_t nBytes)
 	{
-		Table()->OnTempEntity( this, hClass, pBlob, nBytes );
+		Table()->OnTempEntity(this, hClass, pBlob, nBytes);
 	}
 
-	void OnTempEntPoolUpdate( float flFrameTime ) { Table()->OnTempEntPoolUpdate( this, flFrameTime ); }
+	void OnTempEntPoolUpdate(float flFrameTime) { Table()->OnTempEntPoolUpdate(this, flFrameTime); }
 
-	void OnTempEntPoolClear() { Table()->OnTempEntPoolClear( this ); }
+	void OnTempEntPoolClear() { Table()->OnTempEntPoolClear(this); }
 
-	int32_t OnImpactChoice( const int32_t *pIn, int32_t nIn, int32_t *pOut, int32_t nOutMax, char *pParticleNameOut,
-							int32_t nParticleNameMax, char *pDecalNameOut, int32_t nDecalNameMax )
+	int32_t OnImpactChoice(const int32_t* pIn, int32_t nIn, int32_t* pOut, int32_t nOutMax, char* pParticleNameOut,
+						   int32_t nParticleNameMax, char* pDecalNameOut, int32_t nDecalNameMax)
 	{
-		return Table()->OnImpactChoice( this, pIn, nIn, pOut, nOutMax, pParticleNameOut, nParticleNameMax,
-										pDecalNameOut, nDecalNameMax );
+		return Table()->OnImpactChoice(this, pIn, nIn, pOut, nOutMax, pParticleNameOut, nParticleNameMax, pDecalNameOut,
+									   nDecalNameMax);
 	}
 
-	int32_t SuppressLocalTempEnt( int32_t bCanPredict, int32_t nRecipients )
+	int32_t SuppressLocalTempEnt(int32_t bCanPredict, int32_t nRecipients)
 	{
-		return Table()->SuppressLocalTempEnt( this, bCanPredict, nRecipients );
+		return Table()->SuppressLocalTempEnt(this, bCanPredict, nRecipients);
 	}
 
 private:
-	const SSManagedTempEntsClientTable *Table() const
+	const SSManagedTempEntsClientTable* Table() const
 	{
-		return static_cast<const SSManagedTempEntsClientTable *>( m_pTable );
+		return static_cast<const SSManagedTempEntsClientTable*>(m_pTable);
 	}
 };
 
@@ -338,55 +335,55 @@ static const uint32_t kIManagedTempEntsClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xdec81a24, 0xb86ff9be, 0x07e0f4c4, 0x055e06f1, 0xecb3ae59,
 };
 static const int32_t kIManagedTempEntsClientSlotCount = 7;
-static_assert( sizeof( SSManagedTempEntsClientTable ) == 7 * sizeof( void * ),
-			   "SSManagedTempEntsClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedTempEntsClientTable) == 7 * sizeof(void*),
+			  "SSManagedTempEntsClientTable is one pointer per slot");
 
 class IManagedSaveRestoreClient;
 
 // The table managed writes for IManagedSaveRestoreClient: Release, Validate, then the TSV's order.
 struct SSManagedSaveRestoreClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *ReloadSave )( IManagedSaveRestoreClient *self );
-	int32_t ( *ReloadRestore )( IManagedSaveRestoreClient *self );
-	void *( *SaveInit )( IManagedSaveRestoreClient *self, int32_t nSize, float flCurTime );
-	int32_t ( *SaveWriteFields )( IManagedSaveRestoreClient *self, void *pSave, const char *pszName, void *pBase,
-								  const void *pFields, int32_t nFieldStride, int32_t nCount );
-	int32_t ( *SaveReadFields )( IManagedSaveRestoreClient *self, void *pSave, const char *pszName, void *pBase,
-								 const void *pFields, int32_t nFieldStride, int32_t nCount );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*ReloadSave)(IManagedSaveRestoreClient* self);
+	int32_t (*ReloadRestore)(IManagedSaveRestoreClient* self);
+	void* (*SaveInit)(IManagedSaveRestoreClient* self, int32_t nSize, float flCurTime);
+	int32_t (*SaveWriteFields)(IManagedSaveRestoreClient* self, void* pSave, const char* pszName, void* pBase,
+							   const void* pFields, int32_t nFieldStride, int32_t nCount);
+	int32_t (*SaveReadFields)(IManagedSaveRestoreClient* self, void* pSave, const char* pszName, void* pBase,
+							  const void* pFields, int32_t nFieldStride, int32_t nCount);
 };
 
 class IManagedSaveRestoreClient : public IManagedObject
 {
 public:
-	explicit IManagedSaveRestoreClient( const SSManagedSaveRestoreClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedSaveRestoreClient(const SSManagedSaveRestoreClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t ReloadSave() { return Table()->ReloadSave( this ); }
+	int32_t ReloadSave() { return Table()->ReloadSave(this); }
 
-	int32_t ReloadRestore() { return Table()->ReloadRestore( this ); }
+	int32_t ReloadRestore() { return Table()->ReloadRestore(this); }
 
-	void *SaveInit( int32_t nSize, float flCurTime ) { return Table()->SaveInit( this, nSize, flCurTime ); }
+	void* SaveInit(int32_t nSize, float flCurTime) { return Table()->SaveInit(this, nSize, flCurTime); }
 
-	int32_t SaveWriteFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride,
-							 int32_t nCount )
+	int32_t SaveWriteFields(void* pSave, const char* pszName, void* pBase, const void* pFields, int32_t nFieldStride,
+							int32_t nCount)
 	{
-		return Table()->SaveWriteFields( this, pSave, pszName, pBase, pFields, nFieldStride, nCount );
+		return Table()->SaveWriteFields(this, pSave, pszName, pBase, pFields, nFieldStride, nCount);
 	}
 
-	int32_t SaveReadFields( void *pSave, const char *pszName, void *pBase, const void *pFields, int32_t nFieldStride,
-							int32_t nCount )
+	int32_t SaveReadFields(void* pSave, const char* pszName, void* pBase, const void* pFields, int32_t nFieldStride,
+						   int32_t nCount)
 	{
-		return Table()->SaveReadFields( this, pSave, pszName, pBase, pFields, nFieldStride, nCount );
+		return Table()->SaveReadFields(this, pSave, pszName, pBase, pFields, nFieldStride, nCount);
 	}
 
 private:
-	const SSManagedSaveRestoreClientTable *Table() const
+	const SSManagedSaveRestoreClientTable* Table() const
 	{
-		return static_cast<const SSManagedSaveRestoreClientTable *>( m_pTable );
+		return static_cast<const SSManagedSaveRestoreClientTable*>(m_pTable);
 	}
 };
 
@@ -394,82 +391,79 @@ static const uint32_t kIManagedSaveRestoreClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x9d8d9245, 0xeb834733, 0x7a6a4861, 0x7a6a4861,
 };
 static const int32_t kIManagedSaveRestoreClientSlotCount = 7;
-static_assert( sizeof( SSManagedSaveRestoreClientTable ) == 7 * sizeof( void * ),
-			   "SSManagedSaveRestoreClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedSaveRestoreClientTable) == 7 * sizeof(void*),
+			  "SSManagedSaveRestoreClientTable is one pointer per slot");
 
 class IManagedBeamsClient;
 
 // The table managed writes for IManagedBeamsClient: Release, Validate, then the TSV's order.
 struct SSManagedBeamsClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *BeamsLifecycle )( IManagedBeamsClient *self, int32_t nOp, int32_t nArg );
-	void ( *BeamsUpdate )( IManagedBeamsClient *self, float flCurTime, float flFrameTime );
-	void ( *BeamsKillDead )( IManagedBeamsClient *self, uint32_t hEntity, float flCurTime );
-	void ( *BeamsDraw )( IManagedBeamsClient *self, int32_t nRenderable );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*BeamsLifecycle)(IManagedBeamsClient* self, int32_t nOp, int32_t nArg);
+	void (*BeamsUpdate)(IManagedBeamsClient* self, float flCurTime, float flFrameTime);
+	void (*BeamsKillDead)(IManagedBeamsClient* self, uint32_t hEntity, float flCurTime);
+	void (*BeamsDraw)(IManagedBeamsClient* self, int32_t nRenderable);
 };
 
 class IManagedBeamsClient : public IManagedObject
 {
 public:
-	explicit IManagedBeamsClient( const SSManagedBeamsClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedBeamsClient(const SSManagedBeamsClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void BeamsLifecycle( int32_t nOp, int32_t nArg ) { Table()->BeamsLifecycle( this, nOp, nArg ); }
+	void BeamsLifecycle(int32_t nOp, int32_t nArg) { Table()->BeamsLifecycle(this, nOp, nArg); }
 
-	void BeamsUpdate( float flCurTime, float flFrameTime ) { Table()->BeamsUpdate( this, flCurTime, flFrameTime ); }
+	void BeamsUpdate(float flCurTime, float flFrameTime) { Table()->BeamsUpdate(this, flCurTime, flFrameTime); }
 
-	void BeamsKillDead( uint32_t hEntity, float flCurTime ) { Table()->BeamsKillDead( this, hEntity, flCurTime ); }
+	void BeamsKillDead(uint32_t hEntity, float flCurTime) { Table()->BeamsKillDead(this, hEntity, flCurTime); }
 
-	void BeamsDraw( int32_t nRenderable ) { Table()->BeamsDraw( this, nRenderable ); }
+	void BeamsDraw(int32_t nRenderable) { Table()->BeamsDraw(this, nRenderable); }
 
 private:
-	const SSManagedBeamsClientTable *Table() const
-	{
-		return static_cast<const SSManagedBeamsClientTable *>( m_pTable );
-	}
+	const SSManagedBeamsClientTable* Table() const { return static_cast<const SSManagedBeamsClientTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedBeamsClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x7fb639b8, 0xbdc8b950, 0x86461d22, 0xc83e311d,
 };
 static const int32_t kIManagedBeamsClientSlotCount = 6;
-static_assert( sizeof( SSManagedBeamsClientTable ) == 6 * sizeof( void * ),
-			   "SSManagedBeamsClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedBeamsClientTable) == 6 * sizeof(void*),
+			  "SSManagedBeamsClientTable is one pointer per slot");
 
 class IManagedDiagnosticsClient;
 
 // The table managed writes for IManagedDiagnosticsClient: Release, Validate, then the TSV's order.
 struct SSManagedDiagnosticsClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *CrossingsReport )( IManagedDiagnosticsClient *self, char *pBuffer, int32_t nBytes, int32_t bReset );
-	uint32_t ( *Md5PseudoRandom )( IManagedDiagnosticsClient *self, uint32_t nSeed );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*CrossingsReport)(IManagedDiagnosticsClient* self, char* pBuffer, int32_t nBytes, int32_t bReset);
+	uint32_t (*Md5PseudoRandom)(IManagedDiagnosticsClient* self, uint32_t nSeed);
 };
 
 class IManagedDiagnosticsClient : public IManagedObject
 {
 public:
-	explicit IManagedDiagnosticsClient( const SSManagedDiagnosticsClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedDiagnosticsClient(const SSManagedDiagnosticsClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t CrossingsReport( char *pBuffer, int32_t nBytes, int32_t bReset )
+	int32_t CrossingsReport(char* pBuffer, int32_t nBytes, int32_t bReset)
 	{
-		return Table()->CrossingsReport( this, pBuffer, nBytes, bReset );
+		return Table()->CrossingsReport(this, pBuffer, nBytes, bReset);
 	}
 
-	uint32_t Md5PseudoRandom( uint32_t nSeed ) { return Table()->Md5PseudoRandom( this, nSeed ); }
+	uint32_t Md5PseudoRandom(uint32_t nSeed) { return Table()->Md5PseudoRandom(this, nSeed); }
 
 private:
-	const SSManagedDiagnosticsClientTable *Table() const
+	const SSManagedDiagnosticsClientTable* Table() const
 	{
-		return static_cast<const SSManagedDiagnosticsClientTable *>( m_pTable );
+		return static_cast<const SSManagedDiagnosticsClientTable*>(m_pTable);
 	}
 };
 
@@ -480,217 +474,212 @@ static const uint32_t kIManagedDiagnosticsClientSlotHashes[] = {
 	0x021a56ce,
 };
 static const int32_t kIManagedDiagnosticsClientSlotCount = 4;
-static_assert( sizeof( SSManagedDiagnosticsClientTable ) == 4 * sizeof( void * ),
-			   "SSManagedDiagnosticsClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedDiagnosticsClientTable) == 4 * sizeof(void*),
+			  "SSManagedDiagnosticsClientTable is one pointer per slot");
 
 class IManagedDecalsClient;
 
 // The table managed writes for IManagedDecalsClient: Release, Validate, then the TSV's order.
 struct SSManagedDecalsClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *Init )( IManagedDecalsClient *self );
-	void ( *LevelInitPreEntity )( IManagedDecalsClient *self );
-	void ( *Shutdown )( IManagedDecalsClient *self );
-	int32_t ( *IndexForName )( IManagedDecalsClient *self, const char *pszName );
-	int32_t ( *NameForIndex )( IManagedDecalsClient *self, int32_t nIndex, char *pOut, int32_t nOutSize );
-	int32_t ( *TranslateForGameMaterial )( IManagedDecalsClient *self, const char *pszDecalName, int32_t nGameMaterial,
-										   char *pOut, int32_t nOutSize );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*Init)(IManagedDecalsClient* self);
+	void (*LevelInitPreEntity)(IManagedDecalsClient* self);
+	void (*Shutdown)(IManagedDecalsClient* self);
+	int32_t (*IndexForName)(IManagedDecalsClient* self, const char* pszName);
+	int32_t (*NameForIndex)(IManagedDecalsClient* self, int32_t nIndex, char* pOut, int32_t nOutSize);
+	int32_t (*TranslateForGameMaterial)(IManagedDecalsClient* self, const char* pszDecalName, int32_t nGameMaterial,
+										char* pOut, int32_t nOutSize);
 };
 
 class IManagedDecalsClient : public IManagedObject
 {
 public:
-	explicit IManagedDecalsClient( const SSManagedDecalsClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedDecalsClient(const SSManagedDecalsClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void Init() { Table()->Init( this ); }
+	void Init() { Table()->Init(this); }
 
-	void LevelInitPreEntity() { Table()->LevelInitPreEntity( this ); }
+	void LevelInitPreEntity() { Table()->LevelInitPreEntity(this); }
 
-	void Shutdown() { Table()->Shutdown( this ); }
+	void Shutdown() { Table()->Shutdown(this); }
 
-	int32_t IndexForName( const char *pszName ) { return Table()->IndexForName( this, pszName ); }
+	int32_t IndexForName(const char* pszName) { return Table()->IndexForName(this, pszName); }
 
-	int32_t NameForIndex( int32_t nIndex, char *pOut, int32_t nOutSize )
+	int32_t NameForIndex(int32_t nIndex, char* pOut, int32_t nOutSize)
 	{
-		return Table()->NameForIndex( this, nIndex, pOut, nOutSize );
+		return Table()->NameForIndex(this, nIndex, pOut, nOutSize);
 	}
 
-	int32_t TranslateForGameMaterial( const char *pszDecalName, int32_t nGameMaterial, char *pOut, int32_t nOutSize )
+	int32_t TranslateForGameMaterial(const char* pszDecalName, int32_t nGameMaterial, char* pOut, int32_t nOutSize)
 	{
-		return Table()->TranslateForGameMaterial( this, pszDecalName, nGameMaterial, pOut, nOutSize );
+		return Table()->TranslateForGameMaterial(this, pszDecalName, nGameMaterial, pOut, nOutSize);
 	}
 
 private:
-	const SSManagedDecalsClientTable *Table() const
-	{
-		return static_cast<const SSManagedDecalsClientTable *>( m_pTable );
-	}
+	const SSManagedDecalsClientTable* Table() const { return static_cast<const SSManagedDecalsClientTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedDecalsClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x88774d41, 0xc7f046a5, 0x256306e9,
 };
 static const int32_t kIManagedDecalsClientSlotCount = 8;
-static_assert( sizeof( SSManagedDecalsClientTable ) == 8 * sizeof( void * ),
-			   "SSManagedDecalsClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedDecalsClientTable) == 8 * sizeof(void*),
+			  "SSManagedDecalsClientTable is one pointer per slot");
 
 class IManagedParticlesClient;
 
 // The table managed writes for IManagedParticlesClient: Release, Validate, then the TSV's order.
 struct SSManagedParticlesClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *Frame )( IManagedParticlesClient *self, const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut,
-						int32_t nOutBytes );
-	int32_t ( *DrawBegin )( IManagedParticlesClient *self, const SourceSharpParticleDrawIn_t *pIn, uint8_t *pOut,
-							int32_t nOutBytes );
-	int32_t ( *DrawEnd )( IManagedParticlesClient *self, uint32_t hOwner, int32_t nChannel, const uint8_t *pKeys,
-						  int32_t nKeyBytes );
-	int32_t ( *FrameCode )( IManagedParticlesClient *self );
-	int32_t ( *PostRender )( IManagedParticlesClient *self );
-	int32_t ( *QueryCollisionGroup )( IManagedParticlesClient *self, const char *pszName );
-	int32_t ( *QueryLighting )( IManagedParticlesClient *self, const float *pOriginXYZ, uint8_t *pRgbaOut );
-	int32_t ( *QueryTrace )( IManagedParticlesClient *self, const float *pStartXYZ, const float *pEndXYZ,
-							 uint32_t nMask, int32_t nCollisionGroup, int32_t bHasIgnore );
-	int32_t ( *QueryHitBoxPoints )( IManagedParticlesClient *self, int32_t nControlPoint, const float *pControlPointXYZ,
-									int32_t bHasObject, int32_t nPoints, float *pPointsOut, int32_t *pIndicesOut,
-									float *pRelativeOut );
-	int32_t ( *QueryHitBoxInfo )( IManagedParticlesClient *self, int32_t nControlPoint, int32_t bHasObject,
-								  int32_t nBufSize );
-	int32_t ( *ImpactDebris )( IManagedParticlesClient *self, const float *pEndPosXYZ, const float *pNormalXYZ,
-							   const float *pColorXYZ, int32_t nMaterial, int32_t iScale, int32_t bNoFlecks,
-							   float flThrottle );
-	int32_t ( *ImpactDust )( IManagedParticlesClient *self, const float *pOriginXYZ, const float *pNormalXYZ,
-							 const float *pColorXYZ, float flScale, float flThrottle );
-	int32_t ( *ImpactMetalSpark )( IManagedParticlesClient *self, const float *pOriginXYZ, const float *pShotDirXYZ,
-								   const float *pNormalXYZ, int32_t iScale, float flThrottle );
-	int32_t ( *WaterSplash )( IManagedParticlesClient *self, int32_t nKind, const float *pOriginXYZ,
-							  const float *pNormalXYZ, float flScale, const float *pColorXYZ, float flLifetime,
-							  float flAlpha );
-	int32_t ( *SplashTint )( IManagedParticlesClient *self, const float *pColorXYZ, float *pTintXYZ,
-							 float *pLuminosity );
-	int32_t ( *TracerQuads )( IManagedParticlesClient *self, int32_t nTracers, const float *pIn, float *pVertsOut,
-							  uint8_t *pValidOut );
-	int32_t ( *ManifestFiles )( IManagedParticlesClient *self, int32_t bMap, const char *pszMapName, uint8_t *pBlock,
-								int32_t nBlockBytes );
-	int32_t ( *NewEffectsFrame )( IManagedParticlesClient *self, const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut,
-								  int32_t nOutBytes );
-	int32_t ( *NewEffectDraw )( IManagedParticlesClient *self, const SourceSharpNewParticleDrawIn_t *pIn,
-								SourceSharpNewParticleDrawOut_t *pOut );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*Frame)(IManagedParticlesClient* self, const uint8_t* pIn, int32_t nInBytes, uint8_t* pOut,
+					 int32_t nOutBytes);
+	int32_t (*DrawBegin)(IManagedParticlesClient* self, const SourceSharpParticleDrawIn_t* pIn, uint8_t* pOut,
+						 int32_t nOutBytes);
+	int32_t (*DrawEnd)(IManagedParticlesClient* self, uint32_t hOwner, int32_t nChannel, const uint8_t* pKeys,
+					   int32_t nKeyBytes);
+	int32_t (*FrameCode)(IManagedParticlesClient* self);
+	int32_t (*PostRender)(IManagedParticlesClient* self);
+	int32_t (*QueryCollisionGroup)(IManagedParticlesClient* self, const char* pszName);
+	int32_t (*QueryLighting)(IManagedParticlesClient* self, const float* pOriginXYZ, uint8_t* pRgbaOut);
+	int32_t (*QueryTrace)(IManagedParticlesClient* self, const float* pStartXYZ, const float* pEndXYZ, uint32_t nMask,
+						  int32_t nCollisionGroup, int32_t bHasIgnore);
+	int32_t (*QueryHitBoxPoints)(IManagedParticlesClient* self, int32_t nControlPoint, const float* pControlPointXYZ,
+								 int32_t bHasObject, int32_t nPoints, float* pPointsOut, int32_t* pIndicesOut,
+								 float* pRelativeOut);
+	int32_t (*QueryHitBoxInfo)(IManagedParticlesClient* self, int32_t nControlPoint, int32_t bHasObject,
+							   int32_t nBufSize);
+	int32_t (*ImpactDebris)(IManagedParticlesClient* self, const float* pEndPosXYZ, const float* pNormalXYZ,
+							const float* pColorXYZ, int32_t nMaterial, int32_t iScale, int32_t bNoFlecks,
+							float flThrottle);
+	int32_t (*ImpactDust)(IManagedParticlesClient* self, const float* pOriginXYZ, const float* pNormalXYZ,
+						  const float* pColorXYZ, float flScale, float flThrottle);
+	int32_t (*ImpactMetalSpark)(IManagedParticlesClient* self, const float* pOriginXYZ, const float* pShotDirXYZ,
+								const float* pNormalXYZ, int32_t iScale, float flThrottle);
+	int32_t (*WaterSplash)(IManagedParticlesClient* self, int32_t nKind, const float* pOriginXYZ,
+						   const float* pNormalXYZ, float flScale, const float* pColorXYZ, float flLifetime,
+						   float flAlpha);
+	int32_t (*SplashTint)(IManagedParticlesClient* self, const float* pColorXYZ, float* pTintXYZ, float* pLuminosity);
+	int32_t (*TracerQuads)(IManagedParticlesClient* self, int32_t nTracers, const float* pIn, float* pVertsOut,
+						   uint8_t* pValidOut);
+	int32_t (*ManifestFiles)(IManagedParticlesClient* self, int32_t bMap, const char* pszMapName, uint8_t* pBlock,
+							 int32_t nBlockBytes);
+	int32_t (*NewEffectsFrame)(IManagedParticlesClient* self, const uint8_t* pIn, int32_t nInBytes, uint8_t* pOut,
+							   int32_t nOutBytes);
+	int32_t (*NewEffectDraw)(IManagedParticlesClient* self, const SourceSharpNewParticleDrawIn_t* pIn,
+							 SourceSharpNewParticleDrawOut_t* pOut);
 };
 
 class IManagedParticlesClient : public IManagedObject
 {
 public:
-	explicit IManagedParticlesClient( const SSManagedParticlesClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedParticlesClient(const SSManagedParticlesClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t Frame( const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut, int32_t nOutBytes )
+	int32_t Frame(const uint8_t* pIn, int32_t nInBytes, uint8_t* pOut, int32_t nOutBytes)
 	{
-		return Table()->Frame( this, pIn, nInBytes, pOut, nOutBytes );
+		return Table()->Frame(this, pIn, nInBytes, pOut, nOutBytes);
 	}
 
-	int32_t DrawBegin( const SourceSharpParticleDrawIn_t *pIn, uint8_t *pOut, int32_t nOutBytes )
+	int32_t DrawBegin(const SourceSharpParticleDrawIn_t* pIn, uint8_t* pOut, int32_t nOutBytes)
 	{
-		return Table()->DrawBegin( this, pIn, pOut, nOutBytes );
+		return Table()->DrawBegin(this, pIn, pOut, nOutBytes);
 	}
 
-	int32_t DrawEnd( uint32_t hOwner, int32_t nChannel, const uint8_t *pKeys, int32_t nKeyBytes )
+	int32_t DrawEnd(uint32_t hOwner, int32_t nChannel, const uint8_t* pKeys, int32_t nKeyBytes)
 	{
-		return Table()->DrawEnd( this, hOwner, nChannel, pKeys, nKeyBytes );
+		return Table()->DrawEnd(this, hOwner, nChannel, pKeys, nKeyBytes);
 	}
 
-	int32_t FrameCode() { return Table()->FrameCode( this ); }
+	int32_t FrameCode() { return Table()->FrameCode(this); }
 
-	int32_t PostRender() { return Table()->PostRender( this ); }
+	int32_t PostRender() { return Table()->PostRender(this); }
 
-	int32_t QueryCollisionGroup( const char *pszName ) { return Table()->QueryCollisionGroup( this, pszName ); }
+	int32_t QueryCollisionGroup(const char* pszName) { return Table()->QueryCollisionGroup(this, pszName); }
 
-	int32_t QueryLighting( const float *pOriginXYZ, uint8_t *pRgbaOut )
+	int32_t QueryLighting(const float* pOriginXYZ, uint8_t* pRgbaOut)
 	{
-		return Table()->QueryLighting( this, pOriginXYZ, pRgbaOut );
+		return Table()->QueryLighting(this, pOriginXYZ, pRgbaOut);
 	}
 
-	int32_t QueryTrace( const float *pStartXYZ, const float *pEndXYZ, uint32_t nMask, int32_t nCollisionGroup,
-						int32_t bHasIgnore )
+	int32_t QueryTrace(const float* pStartXYZ, const float* pEndXYZ, uint32_t nMask, int32_t nCollisionGroup,
+					   int32_t bHasIgnore)
 	{
-		return Table()->QueryTrace( this, pStartXYZ, pEndXYZ, nMask, nCollisionGroup, bHasIgnore );
+		return Table()->QueryTrace(this, pStartXYZ, pEndXYZ, nMask, nCollisionGroup, bHasIgnore);
 	}
 
-	int32_t QueryHitBoxPoints( int32_t nControlPoint, const float *pControlPointXYZ, int32_t bHasObject,
-							   int32_t nPoints, float *pPointsOut, int32_t *pIndicesOut, float *pRelativeOut )
+	int32_t QueryHitBoxPoints(int32_t nControlPoint, const float* pControlPointXYZ, int32_t bHasObject, int32_t nPoints,
+							  float* pPointsOut, int32_t* pIndicesOut, float* pRelativeOut)
 	{
-		return Table()->QueryHitBoxPoints( this, nControlPoint, pControlPointXYZ, bHasObject, nPoints, pPointsOut,
-										   pIndicesOut, pRelativeOut );
+		return Table()->QueryHitBoxPoints(this, nControlPoint, pControlPointXYZ, bHasObject, nPoints, pPointsOut,
+										  pIndicesOut, pRelativeOut);
 	}
 
-	int32_t QueryHitBoxInfo( int32_t nControlPoint, int32_t bHasObject, int32_t nBufSize )
+	int32_t QueryHitBoxInfo(int32_t nControlPoint, int32_t bHasObject, int32_t nBufSize)
 	{
-		return Table()->QueryHitBoxInfo( this, nControlPoint, bHasObject, nBufSize );
+		return Table()->QueryHitBoxInfo(this, nControlPoint, bHasObject, nBufSize);
 	}
 
-	int32_t ImpactDebris( const float *pEndPosXYZ, const float *pNormalXYZ, const float *pColorXYZ, int32_t nMaterial,
-						  int32_t iScale, int32_t bNoFlecks, float flThrottle )
+	int32_t ImpactDebris(const float* pEndPosXYZ, const float* pNormalXYZ, const float* pColorXYZ, int32_t nMaterial,
+						 int32_t iScale, int32_t bNoFlecks, float flThrottle)
 	{
-		return Table()->ImpactDebris( this, pEndPosXYZ, pNormalXYZ, pColorXYZ, nMaterial, iScale, bNoFlecks,
-									  flThrottle );
+		return Table()->ImpactDebris(this, pEndPosXYZ, pNormalXYZ, pColorXYZ, nMaterial, iScale, bNoFlecks, flThrottle);
 	}
 
-	int32_t ImpactDust( const float *pOriginXYZ, const float *pNormalXYZ, const float *pColorXYZ, float flScale,
-						float flThrottle )
+	int32_t ImpactDust(const float* pOriginXYZ, const float* pNormalXYZ, const float* pColorXYZ, float flScale,
+					   float flThrottle)
 	{
-		return Table()->ImpactDust( this, pOriginXYZ, pNormalXYZ, pColorXYZ, flScale, flThrottle );
+		return Table()->ImpactDust(this, pOriginXYZ, pNormalXYZ, pColorXYZ, flScale, flThrottle);
 	}
 
-	int32_t ImpactMetalSpark( const float *pOriginXYZ, const float *pShotDirXYZ, const float *pNormalXYZ,
-							  int32_t iScale, float flThrottle )
+	int32_t ImpactMetalSpark(const float* pOriginXYZ, const float* pShotDirXYZ, const float* pNormalXYZ, int32_t iScale,
+							 float flThrottle)
 	{
-		return Table()->ImpactMetalSpark( this, pOriginXYZ, pShotDirXYZ, pNormalXYZ, iScale, flThrottle );
+		return Table()->ImpactMetalSpark(this, pOriginXYZ, pShotDirXYZ, pNormalXYZ, iScale, flThrottle);
 	}
 
-	int32_t WaterSplash( int32_t nKind, const float *pOriginXYZ, const float *pNormalXYZ, float flScale,
-						 const float *pColorXYZ, float flLifetime, float flAlpha )
+	int32_t WaterSplash(int32_t nKind, const float* pOriginXYZ, const float* pNormalXYZ, float flScale,
+						const float* pColorXYZ, float flLifetime, float flAlpha)
 	{
-		return Table()->WaterSplash( this, nKind, pOriginXYZ, pNormalXYZ, flScale, pColorXYZ, flLifetime, flAlpha );
+		return Table()->WaterSplash(this, nKind, pOriginXYZ, pNormalXYZ, flScale, pColorXYZ, flLifetime, flAlpha);
 	}
 
-	int32_t SplashTint( const float *pColorXYZ, float *pTintXYZ, float *pLuminosity )
+	int32_t SplashTint(const float* pColorXYZ, float* pTintXYZ, float* pLuminosity)
 	{
-		return Table()->SplashTint( this, pColorXYZ, pTintXYZ, pLuminosity );
+		return Table()->SplashTint(this, pColorXYZ, pTintXYZ, pLuminosity);
 	}
 
-	int32_t TracerQuads( int32_t nTracers, const float *pIn, float *pVertsOut, uint8_t *pValidOut )
+	int32_t TracerQuads(int32_t nTracers, const float* pIn, float* pVertsOut, uint8_t* pValidOut)
 	{
-		return Table()->TracerQuads( this, nTracers, pIn, pVertsOut, pValidOut );
+		return Table()->TracerQuads(this, nTracers, pIn, pVertsOut, pValidOut);
 	}
 
-	int32_t ManifestFiles( int32_t bMap, const char *pszMapName, uint8_t *pBlock, int32_t nBlockBytes )
+	int32_t ManifestFiles(int32_t bMap, const char* pszMapName, uint8_t* pBlock, int32_t nBlockBytes)
 	{
-		return Table()->ManifestFiles( this, bMap, pszMapName, pBlock, nBlockBytes );
+		return Table()->ManifestFiles(this, bMap, pszMapName, pBlock, nBlockBytes);
 	}
 
-	int32_t NewEffectsFrame( const uint8_t *pIn, int32_t nInBytes, uint8_t *pOut, int32_t nOutBytes )
+	int32_t NewEffectsFrame(const uint8_t* pIn, int32_t nInBytes, uint8_t* pOut, int32_t nOutBytes)
 	{
-		return Table()->NewEffectsFrame( this, pIn, nInBytes, pOut, nOutBytes );
+		return Table()->NewEffectsFrame(this, pIn, nInBytes, pOut, nOutBytes);
 	}
 
-	int32_t NewEffectDraw( const SourceSharpNewParticleDrawIn_t *pIn, SourceSharpNewParticleDrawOut_t *pOut )
+	int32_t NewEffectDraw(const SourceSharpNewParticleDrawIn_t* pIn, SourceSharpNewParticleDrawOut_t* pOut)
 	{
-		return Table()->NewEffectDraw( this, pIn, pOut );
+		return Table()->NewEffectDraw(this, pIn, pOut);
 	}
 
 private:
-	const SSManagedParticlesClientTable *Table() const
+	const SSManagedParticlesClientTable* Table() const
 	{
-		return static_cast<const SSManagedParticlesClientTable *>( m_pTable );
+		return static_cast<const SSManagedParticlesClientTable*>(m_pTable);
 	}
 };
 
@@ -700,82 +689,75 @@ static const uint32_t kIManagedParticlesClientSlotHashes[] = {
 	0xc3695b04, 0x8a6d5318, 0x910f7a19, 0x932de382, 0x4a9e65fd, 0xfa64b18d, 0x8ba8bb2d,
 };
 static const int32_t kIManagedParticlesClientSlotCount = 21;
-static_assert( sizeof( SSManagedParticlesClientTable ) == 21 * sizeof( void * ),
-			   "SSManagedParticlesClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedParticlesClientTable) == 21 * sizeof(void*),
+			  "SSManagedParticlesClientTable is one pointer per slot");
 
 class IManagedUiClient;
 
 // The table managed writes for IManagedUiClient: Release, Validate, then the TSV's order.
 struct SSManagedUiClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *Paint )( IManagedUiClient *self, int32_t nLayer, int32_t nScreenW, int32_t nScreenH );
-	void ( *ScreenSizeChanged )( IManagedUiClient *self, int32_t nOldW, int32_t nOldH, int32_t nNewW, int32_t nNewH );
-	void ( *Input )( IManagedUiClient *self, int32_t nKind, int32_t x, int32_t y, int32_t nCode, int32_t nChar,
-					 float flDelta );
-	int32_t ( *ViewportPanel )( IManagedUiClient *self, const char *pszName, int32_t bShow );
-	void ( *CenterPrint )( IManagedUiClient *self, const char *pszText, int32_t r, int32_t g, int32_t b, int32_t a );
-	void ( *CenterClear )( IManagedUiClient *self );
-	void ( *PlaqueState )( IManagedUiClient *self, int32_t nFacts, int32_t nPausedSeconds );
-	void ( *VoiceStatus )( IManagedUiClient *self, int32_t nEntIndex, int32_t bTalking );
-	int32_t ( *KeyInput )( IManagedUiClient *self, int32_t bDown, int32_t nKey, const char *pszBinding,
-						   int32_t bConsoleVisible, int32_t nMaxClients );
-	int32_t ( *VoiceIsBlocked )( IManagedUiClient *self, int32_t nClient );
-	void ( *VoiceToggleBlocked )( IManagedUiClient *self, int32_t nClient );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*Paint)(IManagedUiClient* self, int32_t nLayer, int32_t nScreenW, int32_t nScreenH);
+	void (*ScreenSizeChanged)(IManagedUiClient* self, int32_t nOldW, int32_t nOldH, int32_t nNewW, int32_t nNewH);
+	void (*Input)(IManagedUiClient* self, int32_t nKind, int32_t x, int32_t y, int32_t nCode, int32_t nChar,
+				  float flDelta);
+	int32_t (*ViewportPanel)(IManagedUiClient* self, const char* pszName, int32_t bShow);
+	void (*CenterPrint)(IManagedUiClient* self, const char* pszText, int32_t r, int32_t g, int32_t b, int32_t a);
+	void (*CenterClear)(IManagedUiClient* self);
+	void (*PlaqueState)(IManagedUiClient* self, int32_t nFacts, int32_t nPausedSeconds);
+	void (*VoiceStatus)(IManagedUiClient* self, int32_t nEntIndex, int32_t bTalking);
+	int32_t (*KeyInput)(IManagedUiClient* self, int32_t bDown, int32_t nKey, const char* pszBinding,
+						int32_t bConsoleVisible, int32_t nMaxClients);
+	int32_t (*VoiceIsBlocked)(IManagedUiClient* self, int32_t nClient);
+	void (*VoiceToggleBlocked)(IManagedUiClient* self, int32_t nClient);
 };
 
 class IManagedUiClient : public IManagedObject
 {
 public:
-	explicit IManagedUiClient( const SSManagedUiClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedUiClient(const SSManagedUiClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void Paint( int32_t nLayer, int32_t nScreenW, int32_t nScreenH )
+	void Paint(int32_t nLayer, int32_t nScreenW, int32_t nScreenH) { Table()->Paint(this, nLayer, nScreenW, nScreenH); }
+
+	void ScreenSizeChanged(int32_t nOldW, int32_t nOldH, int32_t nNewW, int32_t nNewH)
 	{
-		Table()->Paint( this, nLayer, nScreenW, nScreenH );
+		Table()->ScreenSizeChanged(this, nOldW, nOldH, nNewW, nNewH);
 	}
 
-	void ScreenSizeChanged( int32_t nOldW, int32_t nOldH, int32_t nNewW, int32_t nNewH )
+	void Input(int32_t nKind, int32_t x, int32_t y, int32_t nCode, int32_t nChar, float flDelta)
 	{
-		Table()->ScreenSizeChanged( this, nOldW, nOldH, nNewW, nNewH );
+		Table()->Input(this, nKind, x, y, nCode, nChar, flDelta);
 	}
 
-	void Input( int32_t nKind, int32_t x, int32_t y, int32_t nCode, int32_t nChar, float flDelta )
+	int32_t ViewportPanel(const char* pszName, int32_t bShow) { return Table()->ViewportPanel(this, pszName, bShow); }
+
+	void CenterPrint(const char* pszText, int32_t r, int32_t g, int32_t b, int32_t a)
 	{
-		Table()->Input( this, nKind, x, y, nCode, nChar, flDelta );
+		Table()->CenterPrint(this, pszText, r, g, b, a);
 	}
 
-	int32_t ViewportPanel( const char *pszName, int32_t bShow )
+	void CenterClear() { Table()->CenterClear(this); }
+
+	void PlaqueState(int32_t nFacts, int32_t nPausedSeconds) { Table()->PlaqueState(this, nFacts, nPausedSeconds); }
+
+	void VoiceStatus(int32_t nEntIndex, int32_t bTalking) { Table()->VoiceStatus(this, nEntIndex, bTalking); }
+
+	int32_t KeyInput(int32_t bDown, int32_t nKey, const char* pszBinding, int32_t bConsoleVisible, int32_t nMaxClients)
 	{
-		return Table()->ViewportPanel( this, pszName, bShow );
+		return Table()->KeyInput(this, bDown, nKey, pszBinding, bConsoleVisible, nMaxClients);
 	}
 
-	void CenterPrint( const char *pszText, int32_t r, int32_t g, int32_t b, int32_t a )
-	{
-		Table()->CenterPrint( this, pszText, r, g, b, a );
-	}
+	int32_t VoiceIsBlocked(int32_t nClient) { return Table()->VoiceIsBlocked(this, nClient); }
 
-	void CenterClear() { Table()->CenterClear( this ); }
-
-	void PlaqueState( int32_t nFacts, int32_t nPausedSeconds ) { Table()->PlaqueState( this, nFacts, nPausedSeconds ); }
-
-	void VoiceStatus( int32_t nEntIndex, int32_t bTalking ) { Table()->VoiceStatus( this, nEntIndex, bTalking ); }
-
-	int32_t KeyInput( int32_t bDown, int32_t nKey, const char *pszBinding, int32_t bConsoleVisible,
-					  int32_t nMaxClients )
-	{
-		return Table()->KeyInput( this, bDown, nKey, pszBinding, bConsoleVisible, nMaxClients );
-	}
-
-	int32_t VoiceIsBlocked( int32_t nClient ) { return Table()->VoiceIsBlocked( this, nClient ); }
-
-	void VoiceToggleBlocked( int32_t nClient ) { Table()->VoiceToggleBlocked( this, nClient ); }
+	void VoiceToggleBlocked(int32_t nClient) { Table()->VoiceToggleBlocked(this, nClient); }
 
 private:
-	const SSManagedUiClientTable *Table() const { return static_cast<const SSManagedUiClientTable *>( m_pTable ); }
+	const SSManagedUiClientTable* Table() const { return static_cast<const SSManagedUiClientTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedUiClientSlotHashes[] = {
@@ -783,38 +765,37 @@ static const uint32_t kIManagedUiClientSlotHashes[] = {
 	0x07e0f4c4, 0x7fb639b8, 0x7fb639b8, 0x82b96131, 0xa45f061a, 0xc83e311d,
 };
 static const int32_t kIManagedUiClientSlotCount = 13;
-static_assert( sizeof( SSManagedUiClientTable ) == 13 * sizeof( void * ),
-			   "SSManagedUiClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedUiClientTable) == 13 * sizeof(void*), "SSManagedUiClientTable is one pointer per slot");
 
 class IManagedWorldTextClient;
 
 // The table managed writes for IManagedWorldTextClient: Release, Validate, then the TSV's order.
 struct SSManagedWorldTextClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *Draw )( IManagedWorldTextClient *self, uint32_t hOwner, const SourceSharpWorldTextView_t *pView,
-					   SourceSharpWorldTextVertex_t *pOut, int32_t nMax );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*Draw)(IManagedWorldTextClient* self, uint32_t hOwner, const SourceSharpWorldTextView_t* pView,
+					SourceSharpWorldTextVertex_t* pOut, int32_t nMax);
 };
 
 class IManagedWorldTextClient : public IManagedObject
 {
 public:
-	explicit IManagedWorldTextClient( const SSManagedWorldTextClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedWorldTextClient(const SSManagedWorldTextClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t Draw( uint32_t hOwner, const SourceSharpWorldTextView_t *pView, SourceSharpWorldTextVertex_t *pOut,
-				  int32_t nMax )
+	int32_t Draw(uint32_t hOwner, const SourceSharpWorldTextView_t* pView, SourceSharpWorldTextVertex_t* pOut,
+				 int32_t nMax)
 	{
-		return Table()->Draw( this, hOwner, pView, pOut, nMax );
+		return Table()->Draw(this, hOwner, pView, pOut, nMax);
 	}
 
 private:
-	const SSManagedWorldTextClientTable *Table() const
+	const SSManagedWorldTextClientTable* Table() const
 	{
-		return static_cast<const SSManagedWorldTextClientTable *>( m_pTable );
+		return static_cast<const SSManagedWorldTextClientTable*>(m_pTable);
 	}
 };
 
@@ -824,206 +805,201 @@ static const uint32_t kIManagedWorldTextClientSlotHashes[] = {
 	0xaeb898c6,
 };
 static const int32_t kIManagedWorldTextClientSlotCount = 3;
-static_assert( sizeof( SSManagedWorldTextClientTable ) == 3 * sizeof( void * ),
-			   "SSManagedWorldTextClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedWorldTextClientTable) == 3 * sizeof(void*),
+			  "SSManagedWorldTextClientTable is one pointer per slot");
 
 class IManagedFxClient;
 
 // The table managed writes for IManagedFxClient: Release, Validate, then the TSV's order.
 struct SSManagedFxClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *DispatchEffect )( IManagedFxClient *self, const char *pEffectName, const SourceSharpEffectData_t *pData );
-	void ( *Smoke )( IManagedFxClient *self, const float *pOriginXYZ, int32_t nModelIndex, float flScale,
-					 float flFramerate );
-	void ( *Sparks )( IManagedFxClient *self, const float *pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength,
-					  const float *pDirXYZ );
-	void ( *Dust )( IManagedFxClient *self, const float *pOriginXYZ, const float *pDirXYZ, float flSize,
-					float flSpeed );
-	void ( *MuzzleFlash )( IManagedFxClient *self, const float *pOriginXYZ, const float *pAnglesPYR, float flScale,
-						   int32_t nType );
-	void ( *MetalSparks )( IManagedFxClient *self, const float *pPositionXYZ, const float *pDirXYZ );
-	void ( *EnergySplash )( IManagedFxClient *self, const float *pPositionXYZ, const float *pDirXYZ,
-							int32_t bExplosive );
-	void ( *Ricochet )( IManagedFxClient *self, const float *pPositionXYZ, const float *pDirXYZ );
-	void ( *SuppressEffectsSounds )( IManagedFxClient *self, int32_t bSuppress );
-	void ( *DrawEffects )( IManagedFxClient *self, float flFrameTime );
-	void ( *FlushEffects )( IManagedFxClient *self );
-	void ( *EffectsLevelInit )( IManagedFxClient *self );
-	void ( *AddLine )( IManagedFxClient *self, const float *pData, int32_t nMaterial );
-	void ( *AddQuad )( IManagedFxClient *self, const float *pData, uint32_t nFlags, int32_t nMaterial );
-	void ( *AddQuadNamed )( IManagedFxClient *self, const float *pData, uint32_t nFlags, const char *pMaterial );
-	void ( *AddStaticLine )( IManagedFxClient *self, const float *pStartXYZ, const float *pEndXYZ, float flScale,
-							 float flLife, const char *pMaterial, int32_t nFlags );
-	void ( *AddDiscreetLine )( IManagedFxClient *self, const float *pStartXYZ, const float *pDirXYZ, float flVelocity,
-							   float flLength, float flClip, float flScale, float flLife, const char *pMaterial );
-	void ( *TracerSound )( IManagedFxClient *self, const float *pStartXYZ, const float *pEndXYZ, int32_t nType );
-	int32_t ( *SpritePlan )( IManagedFxClient *self, const float *pIn, int32_t nIn, float *pOut, int32_t nOut );
-	int32_t ( *SpriteTrailTick )( IManagedFxClient *self, uint32_t hOwner, float flCurTime, const float *pOriginXYZ,
-								  float *pOutBox6 );
-	int32_t ( *SpriteTrailDraw )( IManagedFxClient *self, uint32_t hOwner, float flCurTime, const float *pOriginXYZ );
-	void ( *EffectsPrecache )( IManagedFxClient *self, int32_t nOp );
-	int32_t ( *SmokeFogPlan )( IManagedFxClient *self, float flAlpha, int32_t bHasMaterial, float *pInOutColorXYZ,
-							   float *pOutRGBA );
-	int32_t ( *TempEntIsTransparent )( IManagedFxClient *self, int32_t bTranslucent, int32_t nRenderMode );
-	int32_t ( *TempEntRenderGroup )( IManagedFxClient *self, int32_t nRenderMode, int32_t nBlend, int32_t bTranslucent,
-									 int32_t bTwoPass );
-	void ( *TempEntBlend )( IManagedFxClient *self, const float *pIn, int32_t *pOut );
-	int32_t ( *TempEntOccludedAlpha )( IManagedFxClient *self, int32_t nFlags, int32_t nAlpha, int32_t nRenderAmt,
-									   const float *pIn9 );
-	int32_t ( *TempEntLightingOrigin )( IManagedFxClient *self, int32_t nSlot );
-	void ( *TempEntMuzzleFlash )( IManagedFxClient *self, int32_t nType, uint32_t hEntity, int32_t nAttachment,
-								  int32_t bFirstPerson, int32_t bWorldPath );
-	void ( *TempEntEjectBrass )( IManagedFxClient *self, const float *pIn9, int32_t nType );
-	int32_t ( *TempEntAttach )( IManagedFxClient *self, int32_t nClient, int32_t nModelIndex, float flZOffset,
-								float flLife, int32_t nMaxClients );
-	void ( *TempEntsLevelInit )( IManagedFxClient *self );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*DispatchEffect)(IManagedFxClient* self, const char* pEffectName, const SourceSharpEffectData_t* pData);
+	void (*Smoke)(IManagedFxClient* self, const float* pOriginXYZ, int32_t nModelIndex, float flScale,
+				  float flFramerate);
+	void (*Sparks)(IManagedFxClient* self, const float* pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength,
+				   const float* pDirXYZ);
+	void (*Dust)(IManagedFxClient* self, const float* pOriginXYZ, const float* pDirXYZ, float flSize, float flSpeed);
+	void (*MuzzleFlash)(IManagedFxClient* self, const float* pOriginXYZ, const float* pAnglesPYR, float flScale,
+						int32_t nType);
+	void (*MetalSparks)(IManagedFxClient* self, const float* pPositionXYZ, const float* pDirXYZ);
+	void (*EnergySplash)(IManagedFxClient* self, const float* pPositionXYZ, const float* pDirXYZ, int32_t bExplosive);
+	void (*Ricochet)(IManagedFxClient* self, const float* pPositionXYZ, const float* pDirXYZ);
+	void (*SuppressEffectsSounds)(IManagedFxClient* self, int32_t bSuppress);
+	void (*DrawEffects)(IManagedFxClient* self, float flFrameTime);
+	void (*FlushEffects)(IManagedFxClient* self);
+	void (*EffectsLevelInit)(IManagedFxClient* self);
+	void (*AddLine)(IManagedFxClient* self, const float* pData, int32_t nMaterial);
+	void (*AddQuad)(IManagedFxClient* self, const float* pData, uint32_t nFlags, int32_t nMaterial);
+	void (*AddQuadNamed)(IManagedFxClient* self, const float* pData, uint32_t nFlags, const char* pMaterial);
+	void (*AddStaticLine)(IManagedFxClient* self, const float* pStartXYZ, const float* pEndXYZ, float flScale,
+						  float flLife, const char* pMaterial, int32_t nFlags);
+	void (*AddDiscreetLine)(IManagedFxClient* self, const float* pStartXYZ, const float* pDirXYZ, float flVelocity,
+							float flLength, float flClip, float flScale, float flLife, const char* pMaterial);
+	void (*TracerSound)(IManagedFxClient* self, const float* pStartXYZ, const float* pEndXYZ, int32_t nType);
+	int32_t (*SpritePlan)(IManagedFxClient* self, const float* pIn, int32_t nIn, float* pOut, int32_t nOut);
+	int32_t (*SpriteTrailTick)(IManagedFxClient* self, uint32_t hOwner, float flCurTime, const float* pOriginXYZ,
+							   float* pOutBox6);
+	int32_t (*SpriteTrailDraw)(IManagedFxClient* self, uint32_t hOwner, float flCurTime, const float* pOriginXYZ);
+	void (*EffectsPrecache)(IManagedFxClient* self, int32_t nOp);
+	int32_t (*SmokeFogPlan)(IManagedFxClient* self, float flAlpha, int32_t bHasMaterial, float* pInOutColorXYZ,
+							float* pOutRGBA);
+	int32_t (*TempEntIsTransparent)(IManagedFxClient* self, int32_t bTranslucent, int32_t nRenderMode);
+	int32_t (*TempEntRenderGroup)(IManagedFxClient* self, int32_t nRenderMode, int32_t nBlend, int32_t bTranslucent,
+								  int32_t bTwoPass);
+	void (*TempEntBlend)(IManagedFxClient* self, const float* pIn, int32_t* pOut);
+	int32_t (*TempEntOccludedAlpha)(IManagedFxClient* self, int32_t nFlags, int32_t nAlpha, int32_t nRenderAmt,
+									const float* pIn9);
+	int32_t (*TempEntLightingOrigin)(IManagedFxClient* self, int32_t nSlot);
+	void (*TempEntMuzzleFlash)(IManagedFxClient* self, int32_t nType, uint32_t hEntity, int32_t nAttachment,
+							   int32_t bFirstPerson, int32_t bWorldPath);
+	void (*TempEntEjectBrass)(IManagedFxClient* self, const float* pIn9, int32_t nType);
+	int32_t (*TempEntAttach)(IManagedFxClient* self, int32_t nClient, int32_t nModelIndex, float flZOffset,
+							 float flLife, int32_t nMaxClients);
+	void (*TempEntsLevelInit)(IManagedFxClient* self);
 };
 
 class IManagedFxClient : public IManagedObject
 {
 public:
-	explicit IManagedFxClient( const SSManagedFxClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedFxClient(const SSManagedFxClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void DispatchEffect( const char *pEffectName, const SourceSharpEffectData_t *pData )
+	void DispatchEffect(const char* pEffectName, const SourceSharpEffectData_t* pData)
 	{
-		Table()->DispatchEffect( this, pEffectName, pData );
+		Table()->DispatchEffect(this, pEffectName, pData);
 	}
 
-	void Smoke( const float *pOriginXYZ, int32_t nModelIndex, float flScale, float flFramerate )
+	void Smoke(const float* pOriginXYZ, int32_t nModelIndex, float flScale, float flFramerate)
 	{
-		Table()->Smoke( this, pOriginXYZ, nModelIndex, flScale, flFramerate );
+		Table()->Smoke(this, pOriginXYZ, nModelIndex, flScale, flFramerate);
 	}
 
-	void Sparks( const float *pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength, const float *pDirXYZ )
+	void Sparks(const float* pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength, const float* pDirXYZ)
 	{
-		Table()->Sparks( this, pPositionXYZ, nMagnitude, nTrailLength, pDirXYZ );
+		Table()->Sparks(this, pPositionXYZ, nMagnitude, nTrailLength, pDirXYZ);
 	}
 
-	void Dust( const float *pOriginXYZ, const float *pDirXYZ, float flSize, float flSpeed )
+	void Dust(const float* pOriginXYZ, const float* pDirXYZ, float flSize, float flSpeed)
 	{
-		Table()->Dust( this, pOriginXYZ, pDirXYZ, flSize, flSpeed );
+		Table()->Dust(this, pOriginXYZ, pDirXYZ, flSize, flSpeed);
 	}
 
-	void MuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int32_t nType )
+	void MuzzleFlash(const float* pOriginXYZ, const float* pAnglesPYR, float flScale, int32_t nType)
 	{
-		Table()->MuzzleFlash( this, pOriginXYZ, pAnglesPYR, flScale, nType );
+		Table()->MuzzleFlash(this, pOriginXYZ, pAnglesPYR, flScale, nType);
 	}
 
-	void MetalSparks( const float *pPositionXYZ, const float *pDirXYZ )
+	void MetalSparks(const float* pPositionXYZ, const float* pDirXYZ)
 	{
-		Table()->MetalSparks( this, pPositionXYZ, pDirXYZ );
+		Table()->MetalSparks(this, pPositionXYZ, pDirXYZ);
 	}
 
-	void EnergySplash( const float *pPositionXYZ, const float *pDirXYZ, int32_t bExplosive )
+	void EnergySplash(const float* pPositionXYZ, const float* pDirXYZ, int32_t bExplosive)
 	{
-		Table()->EnergySplash( this, pPositionXYZ, pDirXYZ, bExplosive );
+		Table()->EnergySplash(this, pPositionXYZ, pDirXYZ, bExplosive);
 	}
 
-	void Ricochet( const float *pPositionXYZ, const float *pDirXYZ )
+	void Ricochet(const float* pPositionXYZ, const float* pDirXYZ) { Table()->Ricochet(this, pPositionXYZ, pDirXYZ); }
+
+	void SuppressEffectsSounds(int32_t bSuppress) { Table()->SuppressEffectsSounds(this, bSuppress); }
+
+	void DrawEffects(float flFrameTime) { Table()->DrawEffects(this, flFrameTime); }
+
+	void FlushEffects() { Table()->FlushEffects(this); }
+
+	void EffectsLevelInit() { Table()->EffectsLevelInit(this); }
+
+	void AddLine(const float* pData, int32_t nMaterial) { Table()->AddLine(this, pData, nMaterial); }
+
+	void AddQuad(const float* pData, uint32_t nFlags, int32_t nMaterial)
 	{
-		Table()->Ricochet( this, pPositionXYZ, pDirXYZ );
+		Table()->AddQuad(this, pData, nFlags, nMaterial);
 	}
 
-	void SuppressEffectsSounds( int32_t bSuppress ) { Table()->SuppressEffectsSounds( this, bSuppress ); }
-
-	void DrawEffects( float flFrameTime ) { Table()->DrawEffects( this, flFrameTime ); }
-
-	void FlushEffects() { Table()->FlushEffects( this ); }
-
-	void EffectsLevelInit() { Table()->EffectsLevelInit( this ); }
-
-	void AddLine( const float *pData, int32_t nMaterial ) { Table()->AddLine( this, pData, nMaterial ); }
-
-	void AddQuad( const float *pData, uint32_t nFlags, int32_t nMaterial )
+	void AddQuadNamed(const float* pData, uint32_t nFlags, const char* pMaterial)
 	{
-		Table()->AddQuad( this, pData, nFlags, nMaterial );
+		Table()->AddQuadNamed(this, pData, nFlags, pMaterial);
 	}
 
-	void AddQuadNamed( const float *pData, uint32_t nFlags, const char *pMaterial )
+	void AddStaticLine(const float* pStartXYZ, const float* pEndXYZ, float flScale, float flLife, const char* pMaterial,
+					   int32_t nFlags)
 	{
-		Table()->AddQuadNamed( this, pData, nFlags, pMaterial );
+		Table()->AddStaticLine(this, pStartXYZ, pEndXYZ, flScale, flLife, pMaterial, nFlags);
 	}
 
-	void AddStaticLine( const float *pStartXYZ, const float *pEndXYZ, float flScale, float flLife,
-						const char *pMaterial, int32_t nFlags )
+	void AddDiscreetLine(const float* pStartXYZ, const float* pDirXYZ, float flVelocity, float flLength, float flClip,
+						 float flScale, float flLife, const char* pMaterial)
 	{
-		Table()->AddStaticLine( this, pStartXYZ, pEndXYZ, flScale, flLife, pMaterial, nFlags );
+		Table()->AddDiscreetLine(this, pStartXYZ, pDirXYZ, flVelocity, flLength, flClip, flScale, flLife, pMaterial);
 	}
 
-	void AddDiscreetLine( const float *pStartXYZ, const float *pDirXYZ, float flVelocity, float flLength, float flClip,
-						  float flScale, float flLife, const char *pMaterial )
+	void TracerSound(const float* pStartXYZ, const float* pEndXYZ, int32_t nType)
 	{
-		Table()->AddDiscreetLine( this, pStartXYZ, pDirXYZ, flVelocity, flLength, flClip, flScale, flLife, pMaterial );
+		Table()->TracerSound(this, pStartXYZ, pEndXYZ, nType);
 	}
 
-	void TracerSound( const float *pStartXYZ, const float *pEndXYZ, int32_t nType )
+	int32_t SpritePlan(const float* pIn, int32_t nIn, float* pOut, int32_t nOut)
 	{
-		Table()->TracerSound( this, pStartXYZ, pEndXYZ, nType );
+		return Table()->SpritePlan(this, pIn, nIn, pOut, nOut);
 	}
 
-	int32_t SpritePlan( const float *pIn, int32_t nIn, float *pOut, int32_t nOut )
+	int32_t SpriteTrailTick(uint32_t hOwner, float flCurTime, const float* pOriginXYZ, float* pOutBox6)
 	{
-		return Table()->SpritePlan( this, pIn, nIn, pOut, nOut );
+		return Table()->SpriteTrailTick(this, hOwner, flCurTime, pOriginXYZ, pOutBox6);
 	}
 
-	int32_t SpriteTrailTick( uint32_t hOwner, float flCurTime, const float *pOriginXYZ, float *pOutBox6 )
+	int32_t SpriteTrailDraw(uint32_t hOwner, float flCurTime, const float* pOriginXYZ)
 	{
-		return Table()->SpriteTrailTick( this, hOwner, flCurTime, pOriginXYZ, pOutBox6 );
+		return Table()->SpriteTrailDraw(this, hOwner, flCurTime, pOriginXYZ);
 	}
 
-	int32_t SpriteTrailDraw( uint32_t hOwner, float flCurTime, const float *pOriginXYZ )
+	void EffectsPrecache(int32_t nOp) { Table()->EffectsPrecache(this, nOp); }
+
+	int32_t SmokeFogPlan(float flAlpha, int32_t bHasMaterial, float* pInOutColorXYZ, float* pOutRGBA)
 	{
-		return Table()->SpriteTrailDraw( this, hOwner, flCurTime, pOriginXYZ );
+		return Table()->SmokeFogPlan(this, flAlpha, bHasMaterial, pInOutColorXYZ, pOutRGBA);
 	}
 
-	void EffectsPrecache( int32_t nOp ) { Table()->EffectsPrecache( this, nOp ); }
-
-	int32_t SmokeFogPlan( float flAlpha, int32_t bHasMaterial, float *pInOutColorXYZ, float *pOutRGBA )
+	int32_t TempEntIsTransparent(int32_t bTranslucent, int32_t nRenderMode)
 	{
-		return Table()->SmokeFogPlan( this, flAlpha, bHasMaterial, pInOutColorXYZ, pOutRGBA );
+		return Table()->TempEntIsTransparent(this, bTranslucent, nRenderMode);
 	}
 
-	int32_t TempEntIsTransparent( int32_t bTranslucent, int32_t nRenderMode )
+	int32_t TempEntRenderGroup(int32_t nRenderMode, int32_t nBlend, int32_t bTranslucent, int32_t bTwoPass)
 	{
-		return Table()->TempEntIsTransparent( this, bTranslucent, nRenderMode );
+		return Table()->TempEntRenderGroup(this, nRenderMode, nBlend, bTranslucent, bTwoPass);
 	}
 
-	int32_t TempEntRenderGroup( int32_t nRenderMode, int32_t nBlend, int32_t bTranslucent, int32_t bTwoPass )
+	void TempEntBlend(const float* pIn, int32_t* pOut) { Table()->TempEntBlend(this, pIn, pOut); }
+
+	int32_t TempEntOccludedAlpha(int32_t nFlags, int32_t nAlpha, int32_t nRenderAmt, const float* pIn9)
 	{
-		return Table()->TempEntRenderGroup( this, nRenderMode, nBlend, bTranslucent, bTwoPass );
+		return Table()->TempEntOccludedAlpha(this, nFlags, nAlpha, nRenderAmt, pIn9);
 	}
 
-	void TempEntBlend( const float *pIn, int32_t *pOut ) { Table()->TempEntBlend( this, pIn, pOut ); }
+	int32_t TempEntLightingOrigin(int32_t nSlot) { return Table()->TempEntLightingOrigin(this, nSlot); }
 
-	int32_t TempEntOccludedAlpha( int32_t nFlags, int32_t nAlpha, int32_t nRenderAmt, const float *pIn9 )
+	void TempEntMuzzleFlash(int32_t nType, uint32_t hEntity, int32_t nAttachment, int32_t bFirstPerson,
+							int32_t bWorldPath)
 	{
-		return Table()->TempEntOccludedAlpha( this, nFlags, nAlpha, nRenderAmt, pIn9 );
+		Table()->TempEntMuzzleFlash(this, nType, hEntity, nAttachment, bFirstPerson, bWorldPath);
 	}
 
-	int32_t TempEntLightingOrigin( int32_t nSlot ) { return Table()->TempEntLightingOrigin( this, nSlot ); }
+	void TempEntEjectBrass(const float* pIn9, int32_t nType) { Table()->TempEntEjectBrass(this, pIn9, nType); }
 
-	void TempEntMuzzleFlash( int32_t nType, uint32_t hEntity, int32_t nAttachment, int32_t bFirstPerson,
-							 int32_t bWorldPath )
+	int32_t TempEntAttach(int32_t nClient, int32_t nModelIndex, float flZOffset, float flLife, int32_t nMaxClients)
 	{
-		Table()->TempEntMuzzleFlash( this, nType, hEntity, nAttachment, bFirstPerson, bWorldPath );
+		return Table()->TempEntAttach(this, nClient, nModelIndex, flZOffset, flLife, nMaxClients);
 	}
 
-	void TempEntEjectBrass( const float *pIn9, int32_t nType ) { Table()->TempEntEjectBrass( this, pIn9, nType ); }
-
-	int32_t TempEntAttach( int32_t nClient, int32_t nModelIndex, float flZOffset, float flLife, int32_t nMaxClients )
-	{
-		return Table()->TempEntAttach( this, nClient, nModelIndex, flZOffset, flLife, nMaxClients );
-	}
-
-	void TempEntsLevelInit() { Table()->TempEntsLevelInit( this ); }
+	void TempEntsLevelInit() { Table()->TempEntsLevelInit(this); }
 
 private:
-	const SSManagedFxClientTable *Table() const { return static_cast<const SSManagedFxClientTable *>( m_pTable ); }
+	const SSManagedFxClientTable* Table() const { return static_cast<const SSManagedFxClientTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedFxClientSlotHashes[] = {
@@ -1033,104 +1009,97 @@ static const uint32_t kIManagedFxClientSlotHashes[] = {
 	0xd70db9bc, 0x888dc39e, 0xa45f061a, 0x963a2592, 0x2acf7c51, 0x6e0f257a, 0x07e0f4c4,
 };
 static const int32_t kIManagedFxClientSlotCount = 34;
-static_assert( sizeof( SSManagedFxClientTable ) == 34 * sizeof( void * ),
-			   "SSManagedFxClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedFxClientTable) == 34 * sizeof(void*), "SSManagedFxClientTable is one pointer per slot");
 
 class IManagedSoundControllerClient;
 
 // The table managed writes for IManagedSoundControllerClient: Release, Validate, then the TSV's order.
 struct SSManagedSoundControllerClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *ClientSoundControllerCreate )( IManagedSoundControllerClient *self, int32_t hPatch );
-	void ( *ClientSoundControllerDestroy )( IManagedSoundControllerClient *self, int32_t hPatch );
-	void ( *ClientSoundControllerPlay )( IManagedSoundControllerClient *self, int32_t hPatch, float flVolume,
-										 float flPitch, float flStartTime );
-	float ( *ClientSoundControllerPlayEnvelope )( IManagedSoundControllerClient *self, int32_t hPatch, int32_t nCommand,
-												  const float *pPoints, int32_t nPoints );
-	void ( *ClientSoundControllerChangePitch )( IManagedSoundControllerClient *self, int32_t hPatch, float flTarget,
-												float flDeltaTime );
-	void ( *ClientSoundControllerChangeVolume )( IManagedSoundControllerClient *self, int32_t hPatch, float flTarget,
-												 float flDeltaTime );
-	float ( *ClientSoundControllerGetPitch )( IManagedSoundControllerClient *self, int32_t hPatch );
-	float ( *ClientSoundControllerGetVolume )( IManagedSoundControllerClient *self, int32_t hPatch );
-	void ( *ClientSoundControllerFadeOut )( IManagedSoundControllerClient *self, int32_t hPatch, float flDeltaTime,
-											int32_t bDestroyOnFadeout );
-	void ( *ClientSoundControllerCommandAdd )( IManagedSoundControllerClient *self, int32_t hPatch,
-											   float flExecuteDeltaTime, int32_t nCommand, float flCommandTime,
-											   float flValue );
-	void ( *ClientSoundControllerCommandClear )( IManagedSoundControllerClient *self, int32_t hPatch );
-	void ( *ClientSoundControllerReset )( IManagedSoundControllerClient *self );
-	void ( *ClientSoundControllerShutdown )( IManagedSoundControllerClient *self, int32_t hPatch );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*ClientSoundControllerCreate)(IManagedSoundControllerClient* self, int32_t hPatch);
+	void (*ClientSoundControllerDestroy)(IManagedSoundControllerClient* self, int32_t hPatch);
+	void (*ClientSoundControllerPlay)(IManagedSoundControllerClient* self, int32_t hPatch, float flVolume,
+									  float flPitch, float flStartTime);
+	float (*ClientSoundControllerPlayEnvelope)(IManagedSoundControllerClient* self, int32_t hPatch, int32_t nCommand,
+											   const float* pPoints, int32_t nPoints);
+	void (*ClientSoundControllerChangePitch)(IManagedSoundControllerClient* self, int32_t hPatch, float flTarget,
+											 float flDeltaTime);
+	void (*ClientSoundControllerChangeVolume)(IManagedSoundControllerClient* self, int32_t hPatch, float flTarget,
+											  float flDeltaTime);
+	float (*ClientSoundControllerGetPitch)(IManagedSoundControllerClient* self, int32_t hPatch);
+	float (*ClientSoundControllerGetVolume)(IManagedSoundControllerClient* self, int32_t hPatch);
+	void (*ClientSoundControllerFadeOut)(IManagedSoundControllerClient* self, int32_t hPatch, float flDeltaTime,
+										 int32_t bDestroyOnFadeout);
+	void (*ClientSoundControllerCommandAdd)(IManagedSoundControllerClient* self, int32_t hPatch,
+											float flExecuteDeltaTime, int32_t nCommand, float flCommandTime,
+											float flValue);
+	void (*ClientSoundControllerCommandClear)(IManagedSoundControllerClient* self, int32_t hPatch);
+	void (*ClientSoundControllerReset)(IManagedSoundControllerClient* self);
+	void (*ClientSoundControllerShutdown)(IManagedSoundControllerClient* self, int32_t hPatch);
 };
 
 class IManagedSoundControllerClient : public IManagedObject
 {
 public:
-	explicit IManagedSoundControllerClient( const SSManagedSoundControllerClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedSoundControllerClient(const SSManagedSoundControllerClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void ClientSoundControllerCreate( int32_t hPatch ) { Table()->ClientSoundControllerCreate( this, hPatch ); }
+	void ClientSoundControllerCreate(int32_t hPatch) { Table()->ClientSoundControllerCreate(this, hPatch); }
 
-	void ClientSoundControllerDestroy( int32_t hPatch ) { Table()->ClientSoundControllerDestroy( this, hPatch ); }
+	void ClientSoundControllerDestroy(int32_t hPatch) { Table()->ClientSoundControllerDestroy(this, hPatch); }
 
-	void ClientSoundControllerPlay( int32_t hPatch, float flVolume, float flPitch, float flStartTime )
+	void ClientSoundControllerPlay(int32_t hPatch, float flVolume, float flPitch, float flStartTime)
 	{
-		Table()->ClientSoundControllerPlay( this, hPatch, flVolume, flPitch, flStartTime );
+		Table()->ClientSoundControllerPlay(this, hPatch, flVolume, flPitch, flStartTime);
 	}
 
-	float ClientSoundControllerPlayEnvelope( int32_t hPatch, int32_t nCommand, const float *pPoints, int32_t nPoints )
+	float ClientSoundControllerPlayEnvelope(int32_t hPatch, int32_t nCommand, const float* pPoints, int32_t nPoints)
 	{
-		return Table()->ClientSoundControllerPlayEnvelope( this, hPatch, nCommand, pPoints, nPoints );
+		return Table()->ClientSoundControllerPlayEnvelope(this, hPatch, nCommand, pPoints, nPoints);
 	}
 
-	void ClientSoundControllerChangePitch( int32_t hPatch, float flTarget, float flDeltaTime )
+	void ClientSoundControllerChangePitch(int32_t hPatch, float flTarget, float flDeltaTime)
 	{
-		Table()->ClientSoundControllerChangePitch( this, hPatch, flTarget, flDeltaTime );
+		Table()->ClientSoundControllerChangePitch(this, hPatch, flTarget, flDeltaTime);
 	}
 
-	void ClientSoundControllerChangeVolume( int32_t hPatch, float flTarget, float flDeltaTime )
+	void ClientSoundControllerChangeVolume(int32_t hPatch, float flTarget, float flDeltaTime)
 	{
-		Table()->ClientSoundControllerChangeVolume( this, hPatch, flTarget, flDeltaTime );
+		Table()->ClientSoundControllerChangeVolume(this, hPatch, flTarget, flDeltaTime);
 	}
 
-	float ClientSoundControllerGetPitch( int32_t hPatch )
+	float ClientSoundControllerGetPitch(int32_t hPatch) { return Table()->ClientSoundControllerGetPitch(this, hPatch); }
+
+	float ClientSoundControllerGetVolume(int32_t hPatch)
 	{
-		return Table()->ClientSoundControllerGetPitch( this, hPatch );
+		return Table()->ClientSoundControllerGetVolume(this, hPatch);
 	}
 
-	float ClientSoundControllerGetVolume( int32_t hPatch )
+	void ClientSoundControllerFadeOut(int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout)
 	{
-		return Table()->ClientSoundControllerGetVolume( this, hPatch );
+		Table()->ClientSoundControllerFadeOut(this, hPatch, flDeltaTime, bDestroyOnFadeout);
 	}
 
-	void ClientSoundControllerFadeOut( int32_t hPatch, float flDeltaTime, int32_t bDestroyOnFadeout )
+	void ClientSoundControllerCommandAdd(int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand,
+										 float flCommandTime, float flValue)
 	{
-		Table()->ClientSoundControllerFadeOut( this, hPatch, flDeltaTime, bDestroyOnFadeout );
+		Table()->ClientSoundControllerCommandAdd(this, hPatch, flExecuteDeltaTime, nCommand, flCommandTime, flValue);
 	}
 
-	void ClientSoundControllerCommandAdd( int32_t hPatch, float flExecuteDeltaTime, int32_t nCommand,
-										  float flCommandTime, float flValue )
-	{
-		Table()->ClientSoundControllerCommandAdd( this, hPatch, flExecuteDeltaTime, nCommand, flCommandTime, flValue );
-	}
+	void ClientSoundControllerCommandClear(int32_t hPatch) { Table()->ClientSoundControllerCommandClear(this, hPatch); }
 
-	void ClientSoundControllerCommandClear( int32_t hPatch )
-	{
-		Table()->ClientSoundControllerCommandClear( this, hPatch );
-	}
+	void ClientSoundControllerReset() { Table()->ClientSoundControllerReset(this); }
 
-	void ClientSoundControllerReset() { Table()->ClientSoundControllerReset( this ); }
-
-	void ClientSoundControllerShutdown( int32_t hPatch ) { Table()->ClientSoundControllerShutdown( this, hPatch ); }
+	void ClientSoundControllerShutdown(int32_t hPatch) { Table()->ClientSoundControllerShutdown(this, hPatch); }
 
 private:
-	const SSManagedSoundControllerClientTable *Table() const
+	const SSManagedSoundControllerClientTable* Table() const
 	{
-		return static_cast<const SSManagedSoundControllerClientTable *>( m_pTable );
+		return static_cast<const SSManagedSoundControllerClientTable*>(m_pTable);
 	}
 };
 
@@ -1139,39 +1108,39 @@ static const uint32_t kIManagedSoundControllerClientSlotHashes[] = {
 	0x3059985f, 0x3059985f, 0xfaaa3db2, 0x26ec0fb6, 0xc83e311d, 0x07e0f4c4, 0xc83e311d,
 };
 static const int32_t kIManagedSoundControllerClientSlotCount = 15;
-static_assert( sizeof( SSManagedSoundControllerClientTable ) == 15 * sizeof( void * ),
-			   "SSManagedSoundControllerClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedSoundControllerClientTable) == 15 * sizeof(void*),
+			  "SSManagedSoundControllerClientTable is one pointer per slot");
 
 class IManagedSoundscapesClient;
 
 // The table managed writes for IManagedSoundscapesClient: Release, Validate, then the TSV's order.
 struct SSManagedSoundscapesClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *ClientSoundscapesLevelInit )( IManagedSoundscapesClient *self, const char *pMapName );
-	void ( *ClientSoundscapesUpdate )( IManagedSoundscapesClient *self, float flFrameTime );
-	void ( *ClientSoundscapesLevelShutdown )( IManagedSoundscapesClient *self );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*ClientSoundscapesLevelInit)(IManagedSoundscapesClient* self, const char* pMapName);
+	void (*ClientSoundscapesUpdate)(IManagedSoundscapesClient* self, float flFrameTime);
+	void (*ClientSoundscapesLevelShutdown)(IManagedSoundscapesClient* self);
 };
 
 class IManagedSoundscapesClient : public IManagedObject
 {
 public:
-	explicit IManagedSoundscapesClient( const SSManagedSoundscapesClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedSoundscapesClient(const SSManagedSoundscapesClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void ClientSoundscapesLevelInit( const char *pMapName ) { Table()->ClientSoundscapesLevelInit( this, pMapName ); }
+	void ClientSoundscapesLevelInit(const char* pMapName) { Table()->ClientSoundscapesLevelInit(this, pMapName); }
 
-	void ClientSoundscapesUpdate( float flFrameTime ) { Table()->ClientSoundscapesUpdate( this, flFrameTime ); }
+	void ClientSoundscapesUpdate(float flFrameTime) { Table()->ClientSoundscapesUpdate(this, flFrameTime); }
 
-	void ClientSoundscapesLevelShutdown() { Table()->ClientSoundscapesLevelShutdown( this ); }
+	void ClientSoundscapesLevelShutdown() { Table()->ClientSoundscapesLevelShutdown(this); }
 
 private:
-	const SSManagedSoundscapesClientTable *Table() const
+	const SSManagedSoundscapesClientTable* Table() const
 	{
-		return static_cast<const SSManagedSoundscapesClientTable *>( m_pTable );
+		return static_cast<const SSManagedSoundscapesClientTable*>(m_pTable);
 	}
 };
 
@@ -1179,39 +1148,38 @@ static const uint32_t kIManagedSoundscapesClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x3aa7ebf0, 0xb86ff9be, 0x07e0f4c4,
 };
 static const int32_t kIManagedSoundscapesClientSlotCount = 5;
-static_assert( sizeof( SSManagedSoundscapesClientTable ) == 5 * sizeof( void * ),
-			   "SSManagedSoundscapesClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedSoundscapesClientTable) == 5 * sizeof(void*),
+			  "SSManagedSoundscapesClientTable is one pointer per slot");
 
 class IManagedPrecipitationClient;
 
 // The table managed writes for IManagedPrecipitationClient: Release, Validate, then the TSV's order.
 struct SSManagedPrecipitationClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *PrecipitationRender )( IManagedPrecipitationClient *self, const float *pView, float *pTracers,
-									  int32_t nMaxTracers, float *pSplashes, int32_t nMaxSplashes,
-									  int32_t *pnSplashes );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*PrecipitationRender)(IManagedPrecipitationClient* self, const float* pView, float* pTracers,
+								   int32_t nMaxTracers, float* pSplashes, int32_t nMaxSplashes, int32_t* pnSplashes);
 };
 
 class IManagedPrecipitationClient : public IManagedObject
 {
 public:
-	explicit IManagedPrecipitationClient( const SSManagedPrecipitationClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedPrecipitationClient(const SSManagedPrecipitationClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t PrecipitationRender( const float *pView, float *pTracers, int32_t nMaxTracers, float *pSplashes,
-								 int32_t nMaxSplashes, int32_t *pnSplashes )
+	int32_t PrecipitationRender(const float* pView, float* pTracers, int32_t nMaxTracers, float* pSplashes,
+								int32_t nMaxSplashes, int32_t* pnSplashes)
 	{
-		return Table()->PrecipitationRender( this, pView, pTracers, nMaxTracers, pSplashes, nMaxSplashes, pnSplashes );
+		return Table()->PrecipitationRender(this, pView, pTracers, nMaxTracers, pSplashes, nMaxSplashes, pnSplashes);
 	}
 
 private:
-	const SSManagedPrecipitationClientTable *Table() const
+	const SSManagedPrecipitationClientTable* Table() const
 	{
-		return static_cast<const SSManagedPrecipitationClientTable *>( m_pTable );
+		return static_cast<const SSManagedPrecipitationClientTable*>(m_pTable);
 	}
 };
 
@@ -1221,33 +1189,33 @@ static const uint32_t kIManagedPrecipitationClientSlotHashes[] = {
 	0x4324b0e5,
 };
 static const int32_t kIManagedPrecipitationClientSlotCount = 3;
-static_assert( sizeof( SSManagedPrecipitationClientTable ) == 3 * sizeof( void * ),
-			   "SSManagedPrecipitationClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedPrecipitationClientTable) == 3 * sizeof(void*),
+			  "SSManagedPrecipitationClientTable is one pointer per slot");
 
 class IManagedConsoleOutputClient;
 
 // The table managed writes for IManagedConsoleOutputClient: Release, Validate, then the TSV's order.
 struct SSManagedConsoleOutputClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *ClientConsoleBufferAttach )( IManagedConsoleOutputClient *self, void *pBuffer );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*ClientConsoleBufferAttach)(IManagedConsoleOutputClient* self, void* pBuffer);
 };
 
 class IManagedConsoleOutputClient : public IManagedObject
 {
 public:
-	explicit IManagedConsoleOutputClient( const SSManagedConsoleOutputClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedConsoleOutputClient(const SSManagedConsoleOutputClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void ClientConsoleBufferAttach( void *pBuffer ) { Table()->ClientConsoleBufferAttach( this, pBuffer ); }
+	void ClientConsoleBufferAttach(void* pBuffer) { Table()->ClientConsoleBufferAttach(this, pBuffer); }
 
 private:
-	const SSManagedConsoleOutputClientTable *Table() const
+	const SSManagedConsoleOutputClientTable* Table() const
 	{
-		return static_cast<const SSManagedConsoleOutputClientTable *>( m_pTable );
+		return static_cast<const SSManagedConsoleOutputClientTable*>(m_pTable);
 	}
 };
 
@@ -1257,47 +1225,47 @@ static const uint32_t kIManagedConsoleOutputClientSlotHashes[] = {
 	0xde3e0200,
 };
 static const int32_t kIManagedConsoleOutputClientSlotCount = 3;
-static_assert( sizeof( SSManagedConsoleOutputClientTable ) == 3 * sizeof( void * ),
-			   "SSManagedConsoleOutputClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedConsoleOutputClientTable) == 3 * sizeof(void*),
+			  "SSManagedConsoleOutputClientTable is one pointer per slot");
 
 class IManagedMaterialFilesClient;
 
 // The table managed writes for IManagedMaterialFilesClient: Release, Validate, then the TSV's order.
 struct SSManagedMaterialFilesClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *SpriteMaterial )( IManagedMaterialFilesClient *self, const char *pszSpriteName, uint8_t *pBlock,
-								 int32_t nBlockBytes );
-	int32_t ( *EncodeImage )( IManagedMaterialFilesClient *self, int32_t nKind, int32_t nWidth, int32_t nHeight,
-							  int32_t bPadPowerOfTwo, const uint8_t *pPixelBlock, int32_t nPixelBlockBytes,
-							  uint8_t *pOut, int32_t nOutBytes );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*SpriteMaterial)(IManagedMaterialFilesClient* self, const char* pszSpriteName, uint8_t* pBlock,
+							  int32_t nBlockBytes);
+	int32_t (*EncodeImage)(IManagedMaterialFilesClient* self, int32_t nKind, int32_t nWidth, int32_t nHeight,
+						   int32_t bPadPowerOfTwo, const uint8_t* pPixelBlock, int32_t nPixelBlockBytes, uint8_t* pOut,
+						   int32_t nOutBytes);
 };
 
 class IManagedMaterialFilesClient : public IManagedObject
 {
 public:
-	explicit IManagedMaterialFilesClient( const SSManagedMaterialFilesClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedMaterialFilesClient(const SSManagedMaterialFilesClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t SpriteMaterial( const char *pszSpriteName, uint8_t *pBlock, int32_t nBlockBytes )
+	int32_t SpriteMaterial(const char* pszSpriteName, uint8_t* pBlock, int32_t nBlockBytes)
 	{
-		return Table()->SpriteMaterial( this, pszSpriteName, pBlock, nBlockBytes );
+		return Table()->SpriteMaterial(this, pszSpriteName, pBlock, nBlockBytes);
 	}
 
-	int32_t EncodeImage( int32_t nKind, int32_t nWidth, int32_t nHeight, int32_t bPadPowerOfTwo,
-						 const uint8_t *pPixelBlock, int32_t nPixelBlockBytes, uint8_t *pOut, int32_t nOutBytes )
+	int32_t EncodeImage(int32_t nKind, int32_t nWidth, int32_t nHeight, int32_t bPadPowerOfTwo,
+						const uint8_t* pPixelBlock, int32_t nPixelBlockBytes, uint8_t* pOut, int32_t nOutBytes)
 	{
-		return Table()->EncodeImage( this, nKind, nWidth, nHeight, bPadPowerOfTwo, pPixelBlock, nPixelBlockBytes, pOut,
-									 nOutBytes );
+		return Table()->EncodeImage(this, nKind, nWidth, nHeight, bPadPowerOfTwo, pPixelBlock, nPixelBlockBytes, pOut,
+									nOutBytes);
 	}
 
 private:
-	const SSManagedMaterialFilesClientTable *Table() const
+	const SSManagedMaterialFilesClientTable* Table() const
 	{
-		return static_cast<const SSManagedMaterialFilesClientTable *>( m_pTable );
+		return static_cast<const SSManagedMaterialFilesClientTable*>(m_pTable);
 	}
 };
 
@@ -1308,52 +1276,52 @@ static const uint32_t kIManagedMaterialFilesClientSlotHashes[] = {
 	0x541b6285,
 };
 static const int32_t kIManagedMaterialFilesClientSlotCount = 4;
-static_assert( sizeof( SSManagedMaterialFilesClientTable ) == 4 * sizeof( void * ),
-			   "SSManagedMaterialFilesClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedMaterialFilesClientTable) == 4 * sizeof(void*),
+			  "SSManagedMaterialFilesClientTable is one pointer per slot");
 
 class IManagedMaterialProxyClient;
 
 // The table managed writes for IManagedMaterialProxyClient: Release, Validate, then the TSV's order.
 struct SSManagedMaterialProxyClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *ProxyInit )( IManagedMaterialProxyClient *self, int32_t hProxy, const char *pszName,
-							const char *pszMaterial, const SourceSharpProxyKey_t *pKeys, int32_t nKeys );
-	int32_t ( *ProxyBind )( IManagedMaterialProxyClient *self, int32_t hProxy, const SourceSharpProxyBindIn_t *pIn,
-							SourceSharpProxyVar_t *pVars, SourceSharpProxyOp_t *pOps, int32_t nMaxOps );
-	void ( *ProxyRelease )( IManagedMaterialProxyClient *self, int32_t hProxy );
-	int32_t ( *MatStubEnabled )( IManagedMaterialProxyClient *self );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*ProxyInit)(IManagedMaterialProxyClient* self, int32_t hProxy, const char* pszName,
+						 const char* pszMaterial, const SourceSharpProxyKey_t* pKeys, int32_t nKeys);
+	int32_t (*ProxyBind)(IManagedMaterialProxyClient* self, int32_t hProxy, const SourceSharpProxyBindIn_t* pIn,
+						 SourceSharpProxyVar_t* pVars, SourceSharpProxyOp_t* pOps, int32_t nMaxOps);
+	void (*ProxyRelease)(IManagedMaterialProxyClient* self, int32_t hProxy);
+	int32_t (*MatStubEnabled)(IManagedMaterialProxyClient* self);
 };
 
 class IManagedMaterialProxyClient : public IManagedObject
 {
 public:
-	explicit IManagedMaterialProxyClient( const SSManagedMaterialProxyClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedMaterialProxyClient(const SSManagedMaterialProxyClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t ProxyInit( int32_t hProxy, const char *pszName, const char *pszMaterial, const SourceSharpProxyKey_t *pKeys,
-					   int32_t nKeys )
+	int32_t ProxyInit(int32_t hProxy, const char* pszName, const char* pszMaterial, const SourceSharpProxyKey_t* pKeys,
+					  int32_t nKeys)
 	{
-		return Table()->ProxyInit( this, hProxy, pszName, pszMaterial, pKeys, nKeys );
+		return Table()->ProxyInit(this, hProxy, pszName, pszMaterial, pKeys, nKeys);
 	}
 
-	int32_t ProxyBind( int32_t hProxy, const SourceSharpProxyBindIn_t *pIn, SourceSharpProxyVar_t *pVars,
-					   SourceSharpProxyOp_t *pOps, int32_t nMaxOps )
+	int32_t ProxyBind(int32_t hProxy, const SourceSharpProxyBindIn_t* pIn, SourceSharpProxyVar_t* pVars,
+					  SourceSharpProxyOp_t* pOps, int32_t nMaxOps)
 	{
-		return Table()->ProxyBind( this, hProxy, pIn, pVars, pOps, nMaxOps );
+		return Table()->ProxyBind(this, hProxy, pIn, pVars, pOps, nMaxOps);
 	}
 
-	void ProxyRelease( int32_t hProxy ) { Table()->ProxyRelease( this, hProxy ); }
+	void ProxyRelease(int32_t hProxy) { Table()->ProxyRelease(this, hProxy); }
 
-	int32_t MatStubEnabled() { return Table()->MatStubEnabled( this ); }
+	int32_t MatStubEnabled() { return Table()->MatStubEnabled(this); }
 
 private:
-	const SSManagedMaterialProxyClientTable *Table() const
+	const SSManagedMaterialProxyClientTable* Table() const
 	{
-		return static_cast<const SSManagedMaterialProxyClientTable *>( m_pTable );
+		return static_cast<const SSManagedMaterialProxyClientTable*>(m_pTable);
 	}
 };
 
@@ -1361,127 +1329,123 @@ static const uint32_t kIManagedMaterialProxyClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x0081b551, 0x5b190b51, 0xc83e311d, 0x9d8d9245,
 };
 static const int32_t kIManagedMaterialProxyClientSlotCount = 6;
-static_assert( sizeof( SSManagedMaterialProxyClientTable ) == 6 * sizeof( void * ),
-			   "SSManagedMaterialProxyClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedMaterialProxyClientTable) == 6 * sizeof(void*),
+			  "SSManagedMaterialProxyClientTable is one pointer per slot");
 
 class IManagedRenderClient;
 
 // The table managed writes for IManagedRenderClient: Release, Validate, then the TSV's order.
 struct SSManagedRenderClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *RenderFrame )( IManagedRenderClient *self, const SourceSharpRenderFrameIn_t *pIn,
-							  SourceSharpRenderFrameOut_t *pOut );
-	void ( *RenderTraceDone )( IManagedRenderClient *self, int32_t nTag, const char *pText, int32_t nLength );
-	int32_t ( *RenderPlanBuild )( IManagedRenderClient *self, const SourceSharpRenderInputs_t *pIn,
-								  SourceSharpRenderOp_t *pOps, int32_t nMaxOps );
-	int32_t ( *RenderViewProgram )( IManagedRenderClient *self, const SourceSharpViewScene_t *pScene,
-									int32_t nSceneBytes, SourceSharpRenderOp_t *pOps, int32_t nMaxOps );
-	int32_t ( *RenderPostProgram )( IManagedRenderClient *self, const SourceSharpPostInputs_t *pIn,
-									SourceSharpRenderOp_t *pOps, int32_t nMaxOps );
-	void ( *ViewEffectsFade )( IManagedRenderClient *self, int32_t nDuration, int32_t nHoldTime, int32_t nFlags,
-							   int32_t r, int32_t g, int32_t b, int32_t a, float flCurTime );
-	void ( *ViewEffectsCalcShake )( IManagedRenderClient *self, float flCurTime, float flFrameTime, float *pOut );
-	void ( *ViewEffectsFadeParams )( IManagedRenderClient *self, float flCurTime, int32_t *pOut );
-	void ( *ViewEffectsReset )( IManagedRenderClient *self, int32_t nWhich );
-	int32_t ( *RenderShadowDepthPlan )( IManagedRenderClient *self, const SourceSharpViewSetup_t *pView,
-										SourceSharpRenderOp_t *pOps, int32_t nMaxOps, int32_t *pIndexBase );
-	void ( *ViewSetUp )( IManagedRenderClient *self, const SourceSharpViewSetUpIn_t *pIn,
-						 SourceSharpViewSetUpOut_t *pOut );
-	void ( *ViewScreenshot )( IManagedRenderClient *self, const SourceSharpViewSetup_t *pEye, int32_t nWidth,
-							  int32_t nHeight, SourceSharpViewSetup_t *pOut );
-	void ( *ViewFreezeFrame )( IManagedRenderClient *self, float flFreezeTime, float flCurTime );
-	int32_t ( *ViewDemoCamera )( IManagedRenderClient *self, int32_t nStage, const float *pIn, float *pOut );
-	void ( *ScreenSpaceEffectsStage )( IManagedRenderClient *self, int32_t nStage );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*RenderFrame)(IManagedRenderClient* self, const SourceSharpRenderFrameIn_t* pIn,
+						   SourceSharpRenderFrameOut_t* pOut);
+	void (*RenderTraceDone)(IManagedRenderClient* self, int32_t nTag, const char* pText, int32_t nLength);
+	int32_t (*RenderPlanBuild)(IManagedRenderClient* self, const SourceSharpRenderInputs_t* pIn,
+							   SourceSharpRenderOp_t* pOps, int32_t nMaxOps);
+	int32_t (*RenderViewProgram)(IManagedRenderClient* self, const SourceSharpViewScene_t* pScene, int32_t nSceneBytes,
+								 SourceSharpRenderOp_t* pOps, int32_t nMaxOps);
+	int32_t (*RenderPostProgram)(IManagedRenderClient* self, const SourceSharpPostInputs_t* pIn,
+								 SourceSharpRenderOp_t* pOps, int32_t nMaxOps);
+	void (*ViewEffectsFade)(IManagedRenderClient* self, int32_t nDuration, int32_t nHoldTime, int32_t nFlags, int32_t r,
+							int32_t g, int32_t b, int32_t a, float flCurTime);
+	void (*ViewEffectsCalcShake)(IManagedRenderClient* self, float flCurTime, float flFrameTime, float* pOut);
+	void (*ViewEffectsFadeParams)(IManagedRenderClient* self, float flCurTime, int32_t* pOut);
+	void (*ViewEffectsReset)(IManagedRenderClient* self, int32_t nWhich);
+	int32_t (*RenderShadowDepthPlan)(IManagedRenderClient* self, const SourceSharpViewSetup_t* pView,
+									 SourceSharpRenderOp_t* pOps, int32_t nMaxOps, int32_t* pIndexBase);
+	void (*ViewSetUp)(IManagedRenderClient* self, const SourceSharpViewSetUpIn_t* pIn, SourceSharpViewSetUpOut_t* pOut);
+	void (*ViewScreenshot)(IManagedRenderClient* self, const SourceSharpViewSetup_t* pEye, int32_t nWidth,
+						   int32_t nHeight, SourceSharpViewSetup_t* pOut);
+	void (*ViewFreezeFrame)(IManagedRenderClient* self, float flFreezeTime, float flCurTime);
+	int32_t (*ViewDemoCamera)(IManagedRenderClient* self, int32_t nStage, const float* pIn, float* pOut);
+	void (*ScreenSpaceEffectsStage)(IManagedRenderClient* self, int32_t nStage);
 };
 
 class IManagedRenderClient : public IManagedObject
 {
 public:
-	explicit IManagedRenderClient( const SSManagedRenderClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedRenderClient(const SSManagedRenderClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t RenderFrame( const SourceSharpRenderFrameIn_t *pIn, SourceSharpRenderFrameOut_t *pOut )
+	int32_t RenderFrame(const SourceSharpRenderFrameIn_t* pIn, SourceSharpRenderFrameOut_t* pOut)
 	{
-		return Table()->RenderFrame( this, pIn, pOut );
+		return Table()->RenderFrame(this, pIn, pOut);
 	}
 
-	void RenderTraceDone( int32_t nTag, const char *pText, int32_t nLength )
+	void RenderTraceDone(int32_t nTag, const char* pText, int32_t nLength)
 	{
-		Table()->RenderTraceDone( this, nTag, pText, nLength );
+		Table()->RenderTraceDone(this, nTag, pText, nLength);
 	}
 
-	int32_t RenderPlanBuild( const SourceSharpRenderInputs_t *pIn, SourceSharpRenderOp_t *pOps, int32_t nMaxOps )
+	int32_t RenderPlanBuild(const SourceSharpRenderInputs_t* pIn, SourceSharpRenderOp_t* pOps, int32_t nMaxOps)
 	{
-		return Table()->RenderPlanBuild( this, pIn, pOps, nMaxOps );
+		return Table()->RenderPlanBuild(this, pIn, pOps, nMaxOps);
 	}
 
-	int32_t RenderViewProgram( const SourceSharpViewScene_t *pScene, int32_t nSceneBytes, SourceSharpRenderOp_t *pOps,
-							   int32_t nMaxOps )
+	int32_t RenderViewProgram(const SourceSharpViewScene_t* pScene, int32_t nSceneBytes, SourceSharpRenderOp_t* pOps,
+							  int32_t nMaxOps)
 	{
-		return Table()->RenderViewProgram( this, pScene, nSceneBytes, pOps, nMaxOps );
+		return Table()->RenderViewProgram(this, pScene, nSceneBytes, pOps, nMaxOps);
 	}
 
-	int32_t RenderPostProgram( const SourceSharpPostInputs_t *pIn, SourceSharpRenderOp_t *pOps, int32_t nMaxOps )
+	int32_t RenderPostProgram(const SourceSharpPostInputs_t* pIn, SourceSharpRenderOp_t* pOps, int32_t nMaxOps)
 	{
-		return Table()->RenderPostProgram( this, pIn, pOps, nMaxOps );
+		return Table()->RenderPostProgram(this, pIn, pOps, nMaxOps);
 	}
 
-	void ViewEffectsFade( int32_t nDuration, int32_t nHoldTime, int32_t nFlags, int32_t r, int32_t g, int32_t b,
-						  int32_t a, float flCurTime )
+	void ViewEffectsFade(int32_t nDuration, int32_t nHoldTime, int32_t nFlags, int32_t r, int32_t g, int32_t b,
+						 int32_t a, float flCurTime)
 	{
-		Table()->ViewEffectsFade( this, nDuration, nHoldTime, nFlags, r, g, b, a, flCurTime );
+		Table()->ViewEffectsFade(this, nDuration, nHoldTime, nFlags, r, g, b, a, flCurTime);
 	}
 
-	void ViewEffectsCalcShake( float flCurTime, float flFrameTime, float *pOut )
+	void ViewEffectsCalcShake(float flCurTime, float flFrameTime, float* pOut)
 	{
-		Table()->ViewEffectsCalcShake( this, flCurTime, flFrameTime, pOut );
+		Table()->ViewEffectsCalcShake(this, flCurTime, flFrameTime, pOut);
 	}
 
-	void ViewEffectsFadeParams( float flCurTime, int32_t *pOut )
+	void ViewEffectsFadeParams(float flCurTime, int32_t* pOut)
 	{
-		Table()->ViewEffectsFadeParams( this, flCurTime, pOut );
+		Table()->ViewEffectsFadeParams(this, flCurTime, pOut);
 	}
 
-	void ViewEffectsReset( int32_t nWhich ) { Table()->ViewEffectsReset( this, nWhich ); }
+	void ViewEffectsReset(int32_t nWhich) { Table()->ViewEffectsReset(this, nWhich); }
 
-	int32_t RenderShadowDepthPlan( const SourceSharpViewSetup_t *pView, SourceSharpRenderOp_t *pOps, int32_t nMaxOps,
-								   int32_t *pIndexBase )
+	int32_t RenderShadowDepthPlan(const SourceSharpViewSetup_t* pView, SourceSharpRenderOp_t* pOps, int32_t nMaxOps,
+								  int32_t* pIndexBase)
 	{
-		return Table()->RenderShadowDepthPlan( this, pView, pOps, nMaxOps, pIndexBase );
+		return Table()->RenderShadowDepthPlan(this, pView, pOps, nMaxOps, pIndexBase);
 	}
 
-	void ViewSetUp( const SourceSharpViewSetUpIn_t *pIn, SourceSharpViewSetUpOut_t *pOut )
+	void ViewSetUp(const SourceSharpViewSetUpIn_t* pIn, SourceSharpViewSetUpOut_t* pOut)
 	{
-		Table()->ViewSetUp( this, pIn, pOut );
+		Table()->ViewSetUp(this, pIn, pOut);
 	}
 
-	void ViewScreenshot( const SourceSharpViewSetup_t *pEye, int32_t nWidth, int32_t nHeight,
-						 SourceSharpViewSetup_t *pOut )
+	void ViewScreenshot(const SourceSharpViewSetup_t* pEye, int32_t nWidth, int32_t nHeight,
+						SourceSharpViewSetup_t* pOut)
 	{
-		Table()->ViewScreenshot( this, pEye, nWidth, nHeight, pOut );
+		Table()->ViewScreenshot(this, pEye, nWidth, nHeight, pOut);
 	}
 
-	void ViewFreezeFrame( float flFreezeTime, float flCurTime )
+	void ViewFreezeFrame(float flFreezeTime, float flCurTime)
 	{
-		Table()->ViewFreezeFrame( this, flFreezeTime, flCurTime );
+		Table()->ViewFreezeFrame(this, flFreezeTime, flCurTime);
 	}
 
-	int32_t ViewDemoCamera( int32_t nStage, const float *pIn, float *pOut )
+	int32_t ViewDemoCamera(int32_t nStage, const float* pIn, float* pOut)
 	{
-		return Table()->ViewDemoCamera( this, nStage, pIn, pOut );
+		return Table()->ViewDemoCamera(this, nStage, pIn, pOut);
 	}
 
-	void ScreenSpaceEffectsStage( int32_t nStage ) { Table()->ScreenSpaceEffectsStage( this, nStage ); }
+	void ScreenSpaceEffectsStage(int32_t nStage) { Table()->ScreenSpaceEffectsStage(this, nStage); }
 
 private:
-	const SSManagedRenderClientTable *Table() const
-	{
-		return static_cast<const SSManagedRenderClientTable *>( m_pTable );
-	}
+	const SSManagedRenderClientTable* Table() const { return static_cast<const SSManagedRenderClientTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedRenderClientSlotHashes[] = {
@@ -1489,173 +1453,167 @@ static const uint32_t kIManagedRenderClientSlotHashes[] = {
 	0x62a4de56, 0xc83e311d, 0x123c2a4a, 0xd70db9bc, 0x6d136a90, 0xbdc8b950, 0xd6707e4a, 0xc83e311d,
 };
 static const int32_t kIManagedRenderClientSlotCount = 17;
-static_assert( sizeof( SSManagedRenderClientTable ) == 17 * sizeof( void * ),
-			   "SSManagedRenderClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedRenderClientTable) == 17 * sizeof(void*),
+			  "SSManagedRenderClientTable is one pointer per slot");
 
 class IManagedInputClient;
 
 // The table managed writes for IManagedInputClient: Release, Validate, then the TSV's order.
 struct SSManagedInputClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *InputInit )( IManagedInputClient *self, int32_t bNoMouse );
-	void ( *InputShutdown )( IManagedInputClient *self );
-	void ( *InputLevelInit )( IManagedInputClient *self );
-	void ( *InputCreateMove )( IManagedInputClient *self, int32_t nSequence, float flSampleTime, int32_t bActive,
-							   SourceSharpDecodedUserCmd *pCmd );
-	void ( *InputExtraMouseSample )( IManagedInputClient *self, float flFrameTime, int32_t bActive );
-	int32_t ( *InputGetButtonBits )( IManagedInputClient *self, int32_t bReset );
-	void ( *InputMakeWeaponSelection )( IManagedInputClient *self, int32_t nWeaponEntIndex );
-	float ( *InputKeyState )( IManagedInputClient *self, int32_t nButton );
-	int32_t ( *InputKeyEvent )( IManagedInputClient *self, int32_t nDown, int32_t nKeyCode, const char *pszBinding );
-	int32_t ( *InputIsKeyDown )( IManagedInputClient *self, const char *pszName, int32_t *pDown );
-	void ( *InputJoystickAdvanced )( IManagedInputClient *self );
-	void ( *InputAccumulateMouse )( IManagedInputClient *self );
-	void ( *InputActivateMouse )( IManagedInputClient *self );
-	void ( *InputDeactivateMouse )( IManagedInputClient *self );
-	void ( *InputClearStates )( IManagedInputClient *self );
-	float ( *InputGetLookSpring )( IManagedInputClient *self );
-	void ( *InputGetFullscreenMousePos )( IManagedInputClient *self, int32_t *pInOut );
-	void ( *InputSetFullscreenMousePos )( IManagedInputClient *self, int32_t x, int32_t y );
-	void ( *InputResetMouse )( IManagedInputClient *self );
-	float ( *InputGetLastForwardMove )( IManagedInputClient *self );
-	void ( *InputJoystickAxes )( IManagedInputClient *self, float *pOut );
-	void ( *InputClearInputButton )( IManagedInputClient *self, int32_t nBits );
-	void ( *InputCamThink )( IManagedInputClient *self );
-	int32_t ( *InputCamOp )( IManagedInputClient *self, int32_t nOp );
-	void ( *InputCamOrthographicSize )( IManagedInputClient *self, float *pOut );
-	void ( *InputCamSetCameraThirdData )( IManagedInputClient *self, const float *pData, const float *pOffset );
-	void ( *InputSetPreferredGameActionSet )( IManagedInputClient *self, int32_t nActionSet );
-	int32_t ( *InputGetPreferredGameActionSet )( IManagedInputClient *self );
-	void ( *InputSetGameActionSetFlags )( IManagedInputClient *self, int32_t nFlags );
-	int32_t ( *InputEnableJoystickMode )( IManagedInputClient *self );
-	int32_t ( *InputIsSteamControllerActive )( IManagedInputClient *self );
-	void ( *InputThirdPersonInit )( IManagedInputClient *self );
-	void ( *InputRumbleScreenShake )( IManagedInputClient *self, float flShake, float flBalance );
-	void ( *InputRumbleStopAll )( IManagedInputClient *self );
-	int32_t ( *InputEncodeUserCmd )( IManagedInputClient *self, const SourceSharpDecodedUserCmd *pTo,
-									 const SourceSharpDecodedUserCmd *pFrom, uint8_t *pBlock, int32_t nBlockBytes );
-	int32_t ( *InputDecodeUserCmd )( IManagedInputClient *self, const uint8_t *pBlock, int32_t nBlockBytes,
-									 SourceSharpDecodedUserCmd *pOut );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*InputInit)(IManagedInputClient* self, int32_t bNoMouse);
+	void (*InputShutdown)(IManagedInputClient* self);
+	void (*InputLevelInit)(IManagedInputClient* self);
+	void (*InputCreateMove)(IManagedInputClient* self, int32_t nSequence, float flSampleTime, int32_t bActive,
+							SourceSharpDecodedUserCmd* pCmd);
+	void (*InputExtraMouseSample)(IManagedInputClient* self, float flFrameTime, int32_t bActive);
+	int32_t (*InputGetButtonBits)(IManagedInputClient* self, int32_t bReset);
+	void (*InputMakeWeaponSelection)(IManagedInputClient* self, int32_t nWeaponEntIndex);
+	float (*InputKeyState)(IManagedInputClient* self, int32_t nButton);
+	int32_t (*InputKeyEvent)(IManagedInputClient* self, int32_t nDown, int32_t nKeyCode, const char* pszBinding);
+	int32_t (*InputIsKeyDown)(IManagedInputClient* self, const char* pszName, int32_t* pDown);
+	void (*InputJoystickAdvanced)(IManagedInputClient* self);
+	void (*InputAccumulateMouse)(IManagedInputClient* self);
+	void (*InputActivateMouse)(IManagedInputClient* self);
+	void (*InputDeactivateMouse)(IManagedInputClient* self);
+	void (*InputClearStates)(IManagedInputClient* self);
+	float (*InputGetLookSpring)(IManagedInputClient* self);
+	void (*InputGetFullscreenMousePos)(IManagedInputClient* self, int32_t* pInOut);
+	void (*InputSetFullscreenMousePos)(IManagedInputClient* self, int32_t x, int32_t y);
+	void (*InputResetMouse)(IManagedInputClient* self);
+	float (*InputGetLastForwardMove)(IManagedInputClient* self);
+	void (*InputJoystickAxes)(IManagedInputClient* self, float* pOut);
+	void (*InputClearInputButton)(IManagedInputClient* self, int32_t nBits);
+	void (*InputCamThink)(IManagedInputClient* self);
+	int32_t (*InputCamOp)(IManagedInputClient* self, int32_t nOp);
+	void (*InputCamOrthographicSize)(IManagedInputClient* self, float* pOut);
+	void (*InputCamSetCameraThirdData)(IManagedInputClient* self, const float* pData, const float* pOffset);
+	void (*InputSetPreferredGameActionSet)(IManagedInputClient* self, int32_t nActionSet);
+	int32_t (*InputGetPreferredGameActionSet)(IManagedInputClient* self);
+	void (*InputSetGameActionSetFlags)(IManagedInputClient* self, int32_t nFlags);
+	int32_t (*InputEnableJoystickMode)(IManagedInputClient* self);
+	int32_t (*InputIsSteamControllerActive)(IManagedInputClient* self);
+	void (*InputThirdPersonInit)(IManagedInputClient* self);
+	void (*InputRumbleScreenShake)(IManagedInputClient* self, float flShake, float flBalance);
+	void (*InputRumbleStopAll)(IManagedInputClient* self);
+	int32_t (*InputEncodeUserCmd)(IManagedInputClient* self, const SourceSharpDecodedUserCmd* pTo,
+								  const SourceSharpDecodedUserCmd* pFrom, uint8_t* pBlock, int32_t nBlockBytes);
+	int32_t (*InputDecodeUserCmd)(IManagedInputClient* self, const uint8_t* pBlock, int32_t nBlockBytes,
+								  SourceSharpDecodedUserCmd* pOut);
 };
 
 class IManagedInputClient : public IManagedObject
 {
 public:
-	explicit IManagedInputClient( const SSManagedInputClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedInputClient(const SSManagedInputClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void InputInit( int32_t bNoMouse ) { Table()->InputInit( this, bNoMouse ); }
+	void InputInit(int32_t bNoMouse) { Table()->InputInit(this, bNoMouse); }
 
-	void InputShutdown() { Table()->InputShutdown( this ); }
+	void InputShutdown() { Table()->InputShutdown(this); }
 
-	void InputLevelInit() { Table()->InputLevelInit( this ); }
+	void InputLevelInit() { Table()->InputLevelInit(this); }
 
-	void InputCreateMove( int32_t nSequence, float flSampleTime, int32_t bActive, SourceSharpDecodedUserCmd *pCmd )
+	void InputCreateMove(int32_t nSequence, float flSampleTime, int32_t bActive, SourceSharpDecodedUserCmd* pCmd)
 	{
-		Table()->InputCreateMove( this, nSequence, flSampleTime, bActive, pCmd );
+		Table()->InputCreateMove(this, nSequence, flSampleTime, bActive, pCmd);
 	}
 
-	void InputExtraMouseSample( float flFrameTime, int32_t bActive )
+	void InputExtraMouseSample(float flFrameTime, int32_t bActive)
 	{
-		Table()->InputExtraMouseSample( this, flFrameTime, bActive );
+		Table()->InputExtraMouseSample(this, flFrameTime, bActive);
 	}
 
-	int32_t InputGetButtonBits( int32_t bReset ) { return Table()->InputGetButtonBits( this, bReset ); }
+	int32_t InputGetButtonBits(int32_t bReset) { return Table()->InputGetButtonBits(this, bReset); }
 
-	void InputMakeWeaponSelection( int32_t nWeaponEntIndex )
+	void InputMakeWeaponSelection(int32_t nWeaponEntIndex) { Table()->InputMakeWeaponSelection(this, nWeaponEntIndex); }
+
+	float InputKeyState(int32_t nButton) { return Table()->InputKeyState(this, nButton); }
+
+	int32_t InputKeyEvent(int32_t nDown, int32_t nKeyCode, const char* pszBinding)
 	{
-		Table()->InputMakeWeaponSelection( this, nWeaponEntIndex );
+		return Table()->InputKeyEvent(this, nDown, nKeyCode, pszBinding);
 	}
 
-	float InputKeyState( int32_t nButton ) { return Table()->InputKeyState( this, nButton ); }
-
-	int32_t InputKeyEvent( int32_t nDown, int32_t nKeyCode, const char *pszBinding )
+	int32_t InputIsKeyDown(const char* pszName, int32_t* pDown)
 	{
-		return Table()->InputKeyEvent( this, nDown, nKeyCode, pszBinding );
+		return Table()->InputIsKeyDown(this, pszName, pDown);
 	}
 
-	int32_t InputIsKeyDown( const char *pszName, int32_t *pDown )
+	void InputJoystickAdvanced() { Table()->InputJoystickAdvanced(this); }
+
+	void InputAccumulateMouse() { Table()->InputAccumulateMouse(this); }
+
+	void InputActivateMouse() { Table()->InputActivateMouse(this); }
+
+	void InputDeactivateMouse() { Table()->InputDeactivateMouse(this); }
+
+	void InputClearStates() { Table()->InputClearStates(this); }
+
+	float InputGetLookSpring() { return Table()->InputGetLookSpring(this); }
+
+	void InputGetFullscreenMousePos(int32_t* pInOut) { Table()->InputGetFullscreenMousePos(this, pInOut); }
+
+	void InputSetFullscreenMousePos(int32_t x, int32_t y) { Table()->InputSetFullscreenMousePos(this, x, y); }
+
+	void InputResetMouse() { Table()->InputResetMouse(this); }
+
+	float InputGetLastForwardMove() { return Table()->InputGetLastForwardMove(this); }
+
+	void InputJoystickAxes(float* pOut) { Table()->InputJoystickAxes(this, pOut); }
+
+	void InputClearInputButton(int32_t nBits) { Table()->InputClearInputButton(this, nBits); }
+
+	void InputCamThink() { Table()->InputCamThink(this); }
+
+	int32_t InputCamOp(int32_t nOp) { return Table()->InputCamOp(this, nOp); }
+
+	void InputCamOrthographicSize(float* pOut) { Table()->InputCamOrthographicSize(this, pOut); }
+
+	void InputCamSetCameraThirdData(const float* pData, const float* pOffset)
 	{
-		return Table()->InputIsKeyDown( this, pszName, pDown );
+		Table()->InputCamSetCameraThirdData(this, pData, pOffset);
 	}
 
-	void InputJoystickAdvanced() { Table()->InputJoystickAdvanced( this ); }
-
-	void InputAccumulateMouse() { Table()->InputAccumulateMouse( this ); }
-
-	void InputActivateMouse() { Table()->InputActivateMouse( this ); }
-
-	void InputDeactivateMouse() { Table()->InputDeactivateMouse( this ); }
-
-	void InputClearStates() { Table()->InputClearStates( this ); }
-
-	float InputGetLookSpring() { return Table()->InputGetLookSpring( this ); }
-
-	void InputGetFullscreenMousePos( int32_t *pInOut ) { Table()->InputGetFullscreenMousePos( this, pInOut ); }
-
-	void InputSetFullscreenMousePos( int32_t x, int32_t y ) { Table()->InputSetFullscreenMousePos( this, x, y ); }
-
-	void InputResetMouse() { Table()->InputResetMouse( this ); }
-
-	float InputGetLastForwardMove() { return Table()->InputGetLastForwardMove( this ); }
-
-	void InputJoystickAxes( float *pOut ) { Table()->InputJoystickAxes( this, pOut ); }
-
-	void InputClearInputButton( int32_t nBits ) { Table()->InputClearInputButton( this, nBits ); }
-
-	void InputCamThink() { Table()->InputCamThink( this ); }
-
-	int32_t InputCamOp( int32_t nOp ) { return Table()->InputCamOp( this, nOp ); }
-
-	void InputCamOrthographicSize( float *pOut ) { Table()->InputCamOrthographicSize( this, pOut ); }
-
-	void InputCamSetCameraThirdData( const float *pData, const float *pOffset )
+	void InputSetPreferredGameActionSet(int32_t nActionSet)
 	{
-		Table()->InputCamSetCameraThirdData( this, pData, pOffset );
+		Table()->InputSetPreferredGameActionSet(this, nActionSet);
 	}
 
-	void InputSetPreferredGameActionSet( int32_t nActionSet )
+	int32_t InputGetPreferredGameActionSet() { return Table()->InputGetPreferredGameActionSet(this); }
+
+	void InputSetGameActionSetFlags(int32_t nFlags) { Table()->InputSetGameActionSetFlags(this, nFlags); }
+
+	int32_t InputEnableJoystickMode() { return Table()->InputEnableJoystickMode(this); }
+
+	int32_t InputIsSteamControllerActive() { return Table()->InputIsSteamControllerActive(this); }
+
+	void InputThirdPersonInit() { Table()->InputThirdPersonInit(this); }
+
+	void InputRumbleScreenShake(float flShake, float flBalance)
 	{
-		Table()->InputSetPreferredGameActionSet( this, nActionSet );
+		Table()->InputRumbleScreenShake(this, flShake, flBalance);
 	}
 
-	int32_t InputGetPreferredGameActionSet() { return Table()->InputGetPreferredGameActionSet( this ); }
+	void InputRumbleStopAll() { Table()->InputRumbleStopAll(this); }
 
-	void InputSetGameActionSetFlags( int32_t nFlags ) { Table()->InputSetGameActionSetFlags( this, nFlags ); }
-
-	int32_t InputEnableJoystickMode() { return Table()->InputEnableJoystickMode( this ); }
-
-	int32_t InputIsSteamControllerActive() { return Table()->InputIsSteamControllerActive( this ); }
-
-	void InputThirdPersonInit() { Table()->InputThirdPersonInit( this ); }
-
-	void InputRumbleScreenShake( float flShake, float flBalance )
+	int32_t InputEncodeUserCmd(const SourceSharpDecodedUserCmd* pTo, const SourceSharpDecodedUserCmd* pFrom,
+							   uint8_t* pBlock, int32_t nBlockBytes)
 	{
-		Table()->InputRumbleScreenShake( this, flShake, flBalance );
+		return Table()->InputEncodeUserCmd(this, pTo, pFrom, pBlock, nBlockBytes);
 	}
 
-	void InputRumbleStopAll() { Table()->InputRumbleStopAll( this ); }
-
-	int32_t InputEncodeUserCmd( const SourceSharpDecodedUserCmd *pTo, const SourceSharpDecodedUserCmd *pFrom,
-								uint8_t *pBlock, int32_t nBlockBytes )
+	int32_t InputDecodeUserCmd(const uint8_t* pBlock, int32_t nBlockBytes, SourceSharpDecodedUserCmd* pOut)
 	{
-		return Table()->InputEncodeUserCmd( this, pTo, pFrom, pBlock, nBlockBytes );
-	}
-
-	int32_t InputDecodeUserCmd( const uint8_t *pBlock, int32_t nBlockBytes, SourceSharpDecodedUserCmd *pOut )
-	{
-		return Table()->InputDecodeUserCmd( this, pBlock, nBlockBytes, pOut );
+		return Table()->InputDecodeUserCmd(this, pBlock, nBlockBytes, pOut);
 	}
 
 private:
-	const SSManagedInputClientTable *Table() const
-	{
-		return static_cast<const SSManagedInputClientTable *>( m_pTable );
-	}
+	const SSManagedInputClientTable* Table() const { return static_cast<const SSManagedInputClientTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedInputClientSlotHashes[] = {
@@ -1666,134 +1624,129 @@ static const uint32_t kIManagedInputClientSlotHashes[] = {
 	0x9d8d9245, 0x07e0f4c4, 0xbdc8b950, 0x07e0f4c4, 0x68538cb6, 0x82fea6c6,
 };
 static const int32_t kIManagedInputClientSlotCount = 38;
-static_assert( sizeof( SSManagedInputClientTable ) == 38 * sizeof( void * ),
-			   "SSManagedInputClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedInputClientTable) == 38 * sizeof(void*),
+			  "SSManagedInputClientTable is one pointer per slot");
 
 class IManagedBonesClient;
 
 // The table managed writes for IManagedBonesClient: Release, Validate, then the TSV's order.
 struct SSManagedBonesClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *SetupBones )( IManagedBonesClient *self, uint32_t hEntity, const void *pBlock, float *pBoneToWorld,
-							 int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount );
-	int32_t ( *TestHitboxes )( IManagedBonesClient *self, uint32_t hEntity, const void *pBlock, const float *pRay,
-							   int32_t nContentsMask, float *pTraceFloats, int32_t *pTraceInts, float flCurrentTime,
-							   int32_t nFrameCount );
-	int32_t ( *GetAttachment )( IManagedBonesClient *self, uint32_t hEntity, const void *pBlock, int32_t nAttachment,
-								float *pAttachmentToWorld, float flCurrentTime, int32_t nFrameCount );
-	int32_t ( *LookupAttachment )( IManagedBonesClient *self, uint32_t hEntity, const void *pBlock,
-								   const char *pszName );
-	int32_t ( *PoseModel )( IManagedBonesClient *self, int32_t nModelIndex, const float *pOriginAngles,
-							const float *pRenderToWorld, float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask,
-							float flCurrentTime, int32_t nFrameCount );
-	void *( *BoneBatch )( IManagedBonesClient *self, int32_t nFrameCount, float flCurrentTime );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*SetupBones)(IManagedBonesClient* self, uint32_t hEntity, const void* pBlock, float* pBoneToWorld,
+						  int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount);
+	int32_t (*TestHitboxes)(IManagedBonesClient* self, uint32_t hEntity, const void* pBlock, const float* pRay,
+							int32_t nContentsMask, float* pTraceFloats, int32_t* pTraceInts, float flCurrentTime,
+							int32_t nFrameCount);
+	int32_t (*GetAttachment)(IManagedBonesClient* self, uint32_t hEntity, const void* pBlock, int32_t nAttachment,
+							 float* pAttachmentToWorld, float flCurrentTime, int32_t nFrameCount);
+	int32_t (*LookupAttachment)(IManagedBonesClient* self, uint32_t hEntity, const void* pBlock, const char* pszName);
+	int32_t (*PoseModel)(IManagedBonesClient* self, int32_t nModelIndex, const float* pOriginAngles,
+						 const float* pRenderToWorld, float* pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask,
+						 float flCurrentTime, int32_t nFrameCount);
+	void* (*BoneBatch)(IManagedBonesClient* self, int32_t nFrameCount, float flCurrentTime);
 };
 
 class IManagedBonesClient : public IManagedObject
 {
 public:
-	explicit IManagedBonesClient( const SSManagedBonesClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedBonesClient(const SSManagedBonesClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t SetupBones( uint32_t hEntity, const void *pBlock, float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask,
-						float flCurrentTime, int32_t nFrameCount )
+	int32_t SetupBones(uint32_t hEntity, const void* pBlock, float* pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask,
+					   float flCurrentTime, int32_t nFrameCount)
 	{
-		return Table()->SetupBones( this, hEntity, pBlock, pBoneToWorld, nMaxBones, nBoneMask, flCurrentTime,
-									nFrameCount );
+		return Table()->SetupBones(this, hEntity, pBlock, pBoneToWorld, nMaxBones, nBoneMask, flCurrentTime,
+								   nFrameCount);
 	}
 
-	int32_t TestHitboxes( uint32_t hEntity, const void *pBlock, const float *pRay, int32_t nContentsMask,
-						  float *pTraceFloats, int32_t *pTraceInts, float flCurrentTime, int32_t nFrameCount )
+	int32_t TestHitboxes(uint32_t hEntity, const void* pBlock, const float* pRay, int32_t nContentsMask,
+						 float* pTraceFloats, int32_t* pTraceInts, float flCurrentTime, int32_t nFrameCount)
 	{
-		return Table()->TestHitboxes( this, hEntity, pBlock, pRay, nContentsMask, pTraceFloats, pTraceInts,
-									  flCurrentTime, nFrameCount );
+		return Table()->TestHitboxes(this, hEntity, pBlock, pRay, nContentsMask, pTraceFloats, pTraceInts,
+									 flCurrentTime, nFrameCount);
 	}
 
-	int32_t GetAttachment( uint32_t hEntity, const void *pBlock, int32_t nAttachment, float *pAttachmentToWorld,
-						   float flCurrentTime, int32_t nFrameCount )
+	int32_t GetAttachment(uint32_t hEntity, const void* pBlock, int32_t nAttachment, float* pAttachmentToWorld,
+						  float flCurrentTime, int32_t nFrameCount)
 	{
-		return Table()->GetAttachment( this, hEntity, pBlock, nAttachment, pAttachmentToWorld, flCurrentTime,
-									   nFrameCount );
+		return Table()->GetAttachment(this, hEntity, pBlock, nAttachment, pAttachmentToWorld, flCurrentTime,
+									  nFrameCount);
 	}
 
-	int32_t LookupAttachment( uint32_t hEntity, const void *pBlock, const char *pszName )
+	int32_t LookupAttachment(uint32_t hEntity, const void* pBlock, const char* pszName)
 	{
-		return Table()->LookupAttachment( this, hEntity, pBlock, pszName );
+		return Table()->LookupAttachment(this, hEntity, pBlock, pszName);
 	}
 
-	int32_t PoseModel( int32_t nModelIndex, const float *pOriginAngles, const float *pRenderToWorld,
-					   float *pBoneToWorld, int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime,
-					   int32_t nFrameCount )
+	int32_t PoseModel(int32_t nModelIndex, const float* pOriginAngles, const float* pRenderToWorld, float* pBoneToWorld,
+					  int32_t nMaxBones, int32_t nBoneMask, float flCurrentTime, int32_t nFrameCount)
 	{
-		return Table()->PoseModel( this, nModelIndex, pOriginAngles, pRenderToWorld, pBoneToWorld, nMaxBones, nBoneMask,
-								   flCurrentTime, nFrameCount );
+		return Table()->PoseModel(this, nModelIndex, pOriginAngles, pRenderToWorld, pBoneToWorld, nMaxBones, nBoneMask,
+								  flCurrentTime, nFrameCount);
 	}
 
-	void *BoneBatch( int32_t nFrameCount, float flCurrentTime )
+	void* BoneBatch(int32_t nFrameCount, float flCurrentTime)
 	{
-		return Table()->BoneBatch( this, nFrameCount, flCurrentTime );
+		return Table()->BoneBatch(this, nFrameCount, flCurrentTime);
 	}
 
 private:
-	const SSManagedBonesClientTable *Table() const
-	{
-		return static_cast<const SSManagedBonesClientTable *>( m_pTable );
-	}
+	const SSManagedBonesClientTable* Table() const { return static_cast<const SSManagedBonesClientTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedBonesClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x27e30460, 0x16431c67, 0x1e1ce79b, 0x0cdb2209, 0x28d1232f, 0xeb834733,
 };
 static const int32_t kIManagedBonesClientSlotCount = 8;
-static_assert( sizeof( SSManagedBonesClientTable ) == 8 * sizeof( void * ),
-			   "SSManagedBonesClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedBonesClientTable) == 8 * sizeof(void*),
+			  "SSManagedBonesClientTable is one pointer per slot");
 
 class IManagedPhysicsClient;
 
 // The table managed writes for IManagedPhysicsClient: Release, Validate, then the TSV's order.
 struct SSManagedPhysicsClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *ParseSurfaceData )( IManagedPhysicsClient *self );
-	void ( *LevelInitPreEntity )( IManagedPhysicsClient *self );
-	void ( *LevelInitPostEntity )( IManagedPhysicsClient *self );
-	void ( *LevelShutdownPreEntity )( IManagedPhysicsClient *self );
-	void ( *LevelShutdownPostEntity )( IManagedPhysicsClient *self );
-	void ( *Simulate )( IManagedPhysicsClient *self );
-	void ( *Reset )( IManagedPhysicsClient *self );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*ParseSurfaceData)(IManagedPhysicsClient* self);
+	void (*LevelInitPreEntity)(IManagedPhysicsClient* self);
+	void (*LevelInitPostEntity)(IManagedPhysicsClient* self);
+	void (*LevelShutdownPreEntity)(IManagedPhysicsClient* self);
+	void (*LevelShutdownPostEntity)(IManagedPhysicsClient* self);
+	void (*Simulate)(IManagedPhysicsClient* self);
+	void (*Reset)(IManagedPhysicsClient* self);
 };
 
 class IManagedPhysicsClient : public IManagedObject
 {
 public:
-	explicit IManagedPhysicsClient( const SSManagedPhysicsClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedPhysicsClient(const SSManagedPhysicsClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t ParseSurfaceData() { return Table()->ParseSurfaceData( this ); }
+	int32_t ParseSurfaceData() { return Table()->ParseSurfaceData(this); }
 
-	void LevelInitPreEntity() { Table()->LevelInitPreEntity( this ); }
+	void LevelInitPreEntity() { Table()->LevelInitPreEntity(this); }
 
-	void LevelInitPostEntity() { Table()->LevelInitPostEntity( this ); }
+	void LevelInitPostEntity() { Table()->LevelInitPostEntity(this); }
 
-	void LevelShutdownPreEntity() { Table()->LevelShutdownPreEntity( this ); }
+	void LevelShutdownPreEntity() { Table()->LevelShutdownPreEntity(this); }
 
-	void LevelShutdownPostEntity() { Table()->LevelShutdownPostEntity( this ); }
+	void LevelShutdownPostEntity() { Table()->LevelShutdownPostEntity(this); }
 
-	void Simulate() { Table()->Simulate( this ); }
+	void Simulate() { Table()->Simulate(this); }
 
-	void Reset() { Table()->Reset( this ); }
+	void Reset() { Table()->Reset(this); }
 
 private:
-	const SSManagedPhysicsClientTable *Table() const
+	const SSManagedPhysicsClientTable* Table() const
 	{
-		return static_cast<const SSManagedPhysicsClientTable *>( m_pTable );
+		return static_cast<const SSManagedPhysicsClientTable*>(m_pTable);
 	}
 };
 
@@ -1801,76 +1754,76 @@ static const uint32_t kIManagedPhysicsClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x9d8d9245, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4,
 };
 static const int32_t kIManagedPhysicsClientSlotCount = 9;
-static_assert( sizeof( SSManagedPhysicsClientTable ) == 9 * sizeof( void * ),
-			   "SSManagedPhysicsClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedPhysicsClientTable) == 9 * sizeof(void*),
+			  "SSManagedPhysicsClientTable is one pointer per slot");
 
 class IManagedDetailPropsClient;
 
 // The table managed writes for IManagedDetailPropsClient: Release, Validate, then the TSV's order.
 struct SSManagedDetailPropsClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *DetailInit )( IManagedDetailPropsClient *self );
-	void *( *DetailLevelInitPreEntity )( IManagedDetailPropsClient *self, int32_t nMaterialWidth,
-										 int32_t nMaterialHeight, int32_t bHdr );
-	int32_t ( *DetailLevelInitPostEntity )( IManagedDetailPropsClient *self, const char *pszWorldMaterial, char *pOut,
-											int32_t nOutSize );
-	void ( *DetailLevelShutdownPreEntity )( IManagedDetailPropsClient *self );
-	void *( *DetailBuildLists )( IManagedDetailPropsClient *self, const float *pViewOriginXYZ,
-								 const float *pCurrentViewOriginXYZ, int32_t bClientModeDraws, int32_t nDrawDetailProps,
-								 int32_t nFullbright );
-	void ( *DetailBeginTranslucent )( IManagedDetailPropsClient *self );
-	void *( *DetailPrepare )( IManagedDetailPropsClient *self, int32_t nKind, const float *pView,
-							  const int32_t *pLeaves, int32_t nLeaves, const float *pClosestXYZ,
-							  int32_t nDrawDetailProps, int32_t bWireframe, int32_t nFullbright );
-	void *( *DetailEmit )( IManagedDetailPropsClient *self, int32_t nMaxQuads );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*DetailInit)(IManagedDetailPropsClient* self);
+	void* (*DetailLevelInitPreEntity)(IManagedDetailPropsClient* self, int32_t nMaterialWidth, int32_t nMaterialHeight,
+									  int32_t bHdr);
+	int32_t (*DetailLevelInitPostEntity)(IManagedDetailPropsClient* self, const char* pszWorldMaterial, char* pOut,
+										 int32_t nOutSize);
+	void (*DetailLevelShutdownPreEntity)(IManagedDetailPropsClient* self);
+	void* (*DetailBuildLists)(IManagedDetailPropsClient* self, const float* pViewOriginXYZ,
+							  const float* pCurrentViewOriginXYZ, int32_t bClientModeDraws, int32_t nDrawDetailProps,
+							  int32_t nFullbright);
+	void (*DetailBeginTranslucent)(IManagedDetailPropsClient* self);
+	void* (*DetailPrepare)(IManagedDetailPropsClient* self, int32_t nKind, const float* pView, const int32_t* pLeaves,
+						   int32_t nLeaves, const float* pClosestXYZ, int32_t nDrawDetailProps, int32_t bWireframe,
+						   int32_t nFullbright);
+	void* (*DetailEmit)(IManagedDetailPropsClient* self, int32_t nMaxQuads);
 };
 
 class IManagedDetailPropsClient : public IManagedObject
 {
 public:
-	explicit IManagedDetailPropsClient( const SSManagedDetailPropsClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedDetailPropsClient(const SSManagedDetailPropsClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void DetailInit() { Table()->DetailInit( this ); }
+	void DetailInit() { Table()->DetailInit(this); }
 
-	void *DetailLevelInitPreEntity( int32_t nMaterialWidth, int32_t nMaterialHeight, int32_t bHdr )
+	void* DetailLevelInitPreEntity(int32_t nMaterialWidth, int32_t nMaterialHeight, int32_t bHdr)
 	{
-		return Table()->DetailLevelInitPreEntity( this, nMaterialWidth, nMaterialHeight, bHdr );
+		return Table()->DetailLevelInitPreEntity(this, nMaterialWidth, nMaterialHeight, bHdr);
 	}
 
-	int32_t DetailLevelInitPostEntity( const char *pszWorldMaterial, char *pOut, int32_t nOutSize )
+	int32_t DetailLevelInitPostEntity(const char* pszWorldMaterial, char* pOut, int32_t nOutSize)
 	{
-		return Table()->DetailLevelInitPostEntity( this, pszWorldMaterial, pOut, nOutSize );
+		return Table()->DetailLevelInitPostEntity(this, pszWorldMaterial, pOut, nOutSize);
 	}
 
-	void DetailLevelShutdownPreEntity() { Table()->DetailLevelShutdownPreEntity( this ); }
+	void DetailLevelShutdownPreEntity() { Table()->DetailLevelShutdownPreEntity(this); }
 
-	void *DetailBuildLists( const float *pViewOriginXYZ, const float *pCurrentViewOriginXYZ, int32_t bClientModeDraws,
-							int32_t nDrawDetailProps, int32_t nFullbright )
+	void* DetailBuildLists(const float* pViewOriginXYZ, const float* pCurrentViewOriginXYZ, int32_t bClientModeDraws,
+						   int32_t nDrawDetailProps, int32_t nFullbright)
 	{
-		return Table()->DetailBuildLists( this, pViewOriginXYZ, pCurrentViewOriginXYZ, bClientModeDraws,
-										  nDrawDetailProps, nFullbright );
+		return Table()->DetailBuildLists(this, pViewOriginXYZ, pCurrentViewOriginXYZ, bClientModeDraws,
+										 nDrawDetailProps, nFullbright);
 	}
 
-	void DetailBeginTranslucent() { Table()->DetailBeginTranslucent( this ); }
+	void DetailBeginTranslucent() { Table()->DetailBeginTranslucent(this); }
 
-	void *DetailPrepare( int32_t nKind, const float *pView, const int32_t *pLeaves, int32_t nLeaves,
-						 const float *pClosestXYZ, int32_t nDrawDetailProps, int32_t bWireframe, int32_t nFullbright )
+	void* DetailPrepare(int32_t nKind, const float* pView, const int32_t* pLeaves, int32_t nLeaves,
+						const float* pClosestXYZ, int32_t nDrawDetailProps, int32_t bWireframe, int32_t nFullbright)
 	{
-		return Table()->DetailPrepare( this, nKind, pView, pLeaves, nLeaves, pClosestXYZ, nDrawDetailProps, bWireframe,
-									   nFullbright );
+		return Table()->DetailPrepare(this, nKind, pView, pLeaves, nLeaves, pClosestXYZ, nDrawDetailProps, bWireframe,
+									  nFullbright);
 	}
 
-	void *DetailEmit( int32_t nMaxQuads ) { return Table()->DetailEmit( this, nMaxQuads ); }
+	void* DetailEmit(int32_t nMaxQuads) { return Table()->DetailEmit(this, nMaxQuads); }
 
 private:
-	const SSManagedDetailPropsClientTable *Table() const
+	const SSManagedDetailPropsClientTable* Table() const
 	{
-		return static_cast<const SSManagedDetailPropsClientTable *>( m_pTable );
+		return static_cast<const SSManagedDetailPropsClientTable*>(m_pTable);
 	}
 };
 
@@ -1879,186 +1832,186 @@ static const uint32_t kIManagedDetailPropsClientSlotHashes[] = {
 	0x07e0f4c4, 0xf85ed399, 0x07e0f4c4, 0xd7d141d1, 0x5d056f2d,
 };
 static const int32_t kIManagedDetailPropsClientSlotCount = 10;
-static_assert( sizeof( SSManagedDetailPropsClientTable ) == 10 * sizeof( void * ),
-			   "SSManagedDetailPropsClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedDetailPropsClientTable) == 10 * sizeof(void*),
+			  "SSManagedDetailPropsClientTable is one pointer per slot");
 
 class IManagedLeafSystemClient;
 
 // The table managed writes for IManagedLeafSystemClient: Release, Validate, then the TSV's order.
 struct SSManagedLeafSystemClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *LevelInitPreEntity )( IManagedLeafSystemClient *self, int32_t nLeafCount );
-	int32_t ( *LevelShutdownPostEntity )( IManagedLeafSystemClient *self, int64_t *pOps, int32_t nMaxOps );
-	int32_t ( *PreRender )( IManagedLeafSystemClient *self, const int32_t *pPending, int32_t nPending, int64_t *pOps,
-							int32_t nMaxOps );
-	int32_t ( *TakeOps )( IManagedLeafSystemClient *self, int64_t *pOps, int32_t nMaxOps );
-	int32_t ( *CreateRenderableHandle )( IManagedLeafSystemClient *self, void *pRenderable, int32_t bStaticProp,
-										 int32_t nModelType, int32_t bTransparent, int32_t bTwoPass );
-	int32_t ( *AddRenderable )( IManagedLeafSystemClient *self, void *pRenderable, int32_t nGroup, int32_t nModelType );
-	int32_t ( *RemoveRenderable )( IManagedLeafSystemClient *self, int32_t nHandle, int64_t *pOps, int32_t nMaxOps );
-	int32_t ( *AddRenderableToLeaves )( IManagedLeafSystemClient *self, int32_t nHandle, const uint16_t *pLeaves,
-										int32_t nLeafCount, int64_t *pOps, int32_t nMaxOps );
-	void ( *SetRenderGroup )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t nGroup );
-	void ( *RenderableChanged )( IManagedLeafSystemClient *self, int32_t nHandle );
-	void ( *EnableAlternateSorting )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t bEnable );
-	void ( *DrawStaticProps )( IManagedLeafSystemClient *self, int32_t bEnable );
-	void ( *DrawSmallEntities )( IManagedLeafSystemClient *self, int32_t bEnable );
-	int32_t ( *GetRenderableLeaves )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t *pLeaves );
-	int32_t ( *GetRenderableLeaf )( IManagedLeafSystemClient *self, int32_t nHandle, int32_t bHasIterator,
-									int32_t nIterator, int32_t *pLeafAndIterator );
-	void *( *SetSubSystemDataInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t nIndex, void *pData );
-	void *( *GetSubSystemDataInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t nIndex );
-	void ( *SetDetailObjectsInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t nFirst, int32_t nCount );
-	int32_t ( *GetDetailObjectsInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t *pFirstAndCount );
-	void ( *DrawDetailObjectsInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t nFrame,
-									   int32_t *pFirstAndCount );
-	int32_t ( *ShouldDrawDetailObjectsInLeaf )( IManagedLeafSystemClient *self, int32_t nLeaf, int32_t nFrame );
-	void ( *DetailLeaves )( IManagedLeafSystemClient *self, int32_t nFrame, const uint16_t *pLeaves, int32_t nLeafCount,
-							int32_t *pOut );
-	void ( *ComputeTranslucentRenderLeaf )( IManagedLeafSystemClient *self, const uint16_t *pLeaves, int32_t nLeafCount,
-											int32_t nRenderFrame, int32_t nViewId, int32_t nGlobalFrame, void *pSystem,
-											const int32_t *pPending, int32_t nPending );
-	int32_t ( *BuildRenderablesList )( IManagedLeafSystemClient *self, const uint16_t *pLeaves, int32_t nLeafCount,
-									   const float *pOriginForward, int32_t nRenderFrame, int32_t nDetailFrame,
-									   int32_t nFlags, void *pDetailSystem, int64_t *pOps, int32_t nMaxOps,
-									   const int32_t *pPending, int32_t nPending );
-	int32_t ( *CollateViewModelRenderables )( IManagedLeafSystemClient *self, int64_t *pOps, int32_t nMaxOps,
-											  void *pSystem, const int32_t *pPending, int32_t nPending );
-	void ( *Pending )( IManagedLeafSystemClient *self, const int32_t *pEntries, int32_t nCount );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*LevelInitPreEntity)(IManagedLeafSystemClient* self, int32_t nLeafCount);
+	int32_t (*LevelShutdownPostEntity)(IManagedLeafSystemClient* self, int64_t* pOps, int32_t nMaxOps);
+	int32_t (*PreRender)(IManagedLeafSystemClient* self, const int32_t* pPending, int32_t nPending, int64_t* pOps,
+						 int32_t nMaxOps);
+	int32_t (*TakeOps)(IManagedLeafSystemClient* self, int64_t* pOps, int32_t nMaxOps);
+	int32_t (*CreateRenderableHandle)(IManagedLeafSystemClient* self, void* pRenderable, int32_t bStaticProp,
+									  int32_t nModelType, int32_t bTransparent, int32_t bTwoPass);
+	int32_t (*AddRenderable)(IManagedLeafSystemClient* self, void* pRenderable, int32_t nGroup, int32_t nModelType);
+	int32_t (*RemoveRenderable)(IManagedLeafSystemClient* self, int32_t nHandle, int64_t* pOps, int32_t nMaxOps);
+	int32_t (*AddRenderableToLeaves)(IManagedLeafSystemClient* self, int32_t nHandle, const uint16_t* pLeaves,
+									 int32_t nLeafCount, int64_t* pOps, int32_t nMaxOps);
+	void (*SetRenderGroup)(IManagedLeafSystemClient* self, int32_t nHandle, int32_t nGroup);
+	void (*RenderableChanged)(IManagedLeafSystemClient* self, int32_t nHandle);
+	void (*EnableAlternateSorting)(IManagedLeafSystemClient* self, int32_t nHandle, int32_t bEnable);
+	void (*DrawStaticProps)(IManagedLeafSystemClient* self, int32_t bEnable);
+	void (*DrawSmallEntities)(IManagedLeafSystemClient* self, int32_t bEnable);
+	int32_t (*GetRenderableLeaves)(IManagedLeafSystemClient* self, int32_t nHandle, int32_t* pLeaves);
+	int32_t (*GetRenderableLeaf)(IManagedLeafSystemClient* self, int32_t nHandle, int32_t bHasIterator,
+								 int32_t nIterator, int32_t* pLeafAndIterator);
+	void* (*SetSubSystemDataInLeaf)(IManagedLeafSystemClient* self, int32_t nLeaf, int32_t nIndex, void* pData);
+	void* (*GetSubSystemDataInLeaf)(IManagedLeafSystemClient* self, int32_t nLeaf, int32_t nIndex);
+	void (*SetDetailObjectsInLeaf)(IManagedLeafSystemClient* self, int32_t nLeaf, int32_t nFirst, int32_t nCount);
+	int32_t (*GetDetailObjectsInLeaf)(IManagedLeafSystemClient* self, int32_t nLeaf, int32_t* pFirstAndCount);
+	void (*DrawDetailObjectsInLeaf)(IManagedLeafSystemClient* self, int32_t nLeaf, int32_t nFrame,
+									int32_t* pFirstAndCount);
+	int32_t (*ShouldDrawDetailObjectsInLeaf)(IManagedLeafSystemClient* self, int32_t nLeaf, int32_t nFrame);
+	void (*DetailLeaves)(IManagedLeafSystemClient* self, int32_t nFrame, const uint16_t* pLeaves, int32_t nLeafCount,
+						 int32_t* pOut);
+	void (*ComputeTranslucentRenderLeaf)(IManagedLeafSystemClient* self, const uint16_t* pLeaves, int32_t nLeafCount,
+										 int32_t nRenderFrame, int32_t nViewId, int32_t nGlobalFrame, void* pSystem,
+										 const int32_t* pPending, int32_t nPending);
+	int32_t (*BuildRenderablesList)(IManagedLeafSystemClient* self, const uint16_t* pLeaves, int32_t nLeafCount,
+									const float* pOriginForward, int32_t nRenderFrame, int32_t nDetailFrame,
+									int32_t nFlags, void* pDetailSystem, int64_t* pOps, int32_t nMaxOps,
+									const int32_t* pPending, int32_t nPending);
+	int32_t (*CollateViewModelRenderables)(IManagedLeafSystemClient* self, int64_t* pOps, int32_t nMaxOps,
+										   void* pSystem, const int32_t* pPending, int32_t nPending);
+	void (*Pending)(IManagedLeafSystemClient* self, const int32_t* pEntries, int32_t nCount);
 };
 
 class IManagedLeafSystemClient : public IManagedObject
 {
 public:
-	explicit IManagedLeafSystemClient( const SSManagedLeafSystemClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedLeafSystemClient(const SSManagedLeafSystemClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void LevelInitPreEntity( int32_t nLeafCount ) { Table()->LevelInitPreEntity( this, nLeafCount ); }
+	void LevelInitPreEntity(int32_t nLeafCount) { Table()->LevelInitPreEntity(this, nLeafCount); }
 
-	int32_t LevelShutdownPostEntity( int64_t *pOps, int32_t nMaxOps )
+	int32_t LevelShutdownPostEntity(int64_t* pOps, int32_t nMaxOps)
 	{
-		return Table()->LevelShutdownPostEntity( this, pOps, nMaxOps );
+		return Table()->LevelShutdownPostEntity(this, pOps, nMaxOps);
 	}
 
-	int32_t PreRender( const int32_t *pPending, int32_t nPending, int64_t *pOps, int32_t nMaxOps )
+	int32_t PreRender(const int32_t* pPending, int32_t nPending, int64_t* pOps, int32_t nMaxOps)
 	{
-		return Table()->PreRender( this, pPending, nPending, pOps, nMaxOps );
+		return Table()->PreRender(this, pPending, nPending, pOps, nMaxOps);
 	}
 
-	int32_t TakeOps( int64_t *pOps, int32_t nMaxOps ) { return Table()->TakeOps( this, pOps, nMaxOps ); }
+	int32_t TakeOps(int64_t* pOps, int32_t nMaxOps) { return Table()->TakeOps(this, pOps, nMaxOps); }
 
-	int32_t CreateRenderableHandle( void *pRenderable, int32_t bStaticProp, int32_t nModelType, int32_t bTransparent,
-									int32_t bTwoPass )
+	int32_t CreateRenderableHandle(void* pRenderable, int32_t bStaticProp, int32_t nModelType, int32_t bTransparent,
+								   int32_t bTwoPass)
 	{
-		return Table()->CreateRenderableHandle( this, pRenderable, bStaticProp, nModelType, bTransparent, bTwoPass );
+		return Table()->CreateRenderableHandle(this, pRenderable, bStaticProp, nModelType, bTransparent, bTwoPass);
 	}
 
-	int32_t AddRenderable( void *pRenderable, int32_t nGroup, int32_t nModelType )
+	int32_t AddRenderable(void* pRenderable, int32_t nGroup, int32_t nModelType)
 	{
-		return Table()->AddRenderable( this, pRenderable, nGroup, nModelType );
+		return Table()->AddRenderable(this, pRenderable, nGroup, nModelType);
 	}
 
-	int32_t RemoveRenderable( int32_t nHandle, int64_t *pOps, int32_t nMaxOps )
+	int32_t RemoveRenderable(int32_t nHandle, int64_t* pOps, int32_t nMaxOps)
 	{
-		return Table()->RemoveRenderable( this, nHandle, pOps, nMaxOps );
+		return Table()->RemoveRenderable(this, nHandle, pOps, nMaxOps);
 	}
 
-	int32_t AddRenderableToLeaves( int32_t nHandle, const uint16_t *pLeaves, int32_t nLeafCount, int64_t *pOps,
-								   int32_t nMaxOps )
+	int32_t AddRenderableToLeaves(int32_t nHandle, const uint16_t* pLeaves, int32_t nLeafCount, int64_t* pOps,
+								  int32_t nMaxOps)
 	{
-		return Table()->AddRenderableToLeaves( this, nHandle, pLeaves, nLeafCount, pOps, nMaxOps );
+		return Table()->AddRenderableToLeaves(this, nHandle, pLeaves, nLeafCount, pOps, nMaxOps);
 	}
 
-	void SetRenderGroup( int32_t nHandle, int32_t nGroup ) { Table()->SetRenderGroup( this, nHandle, nGroup ); }
+	void SetRenderGroup(int32_t nHandle, int32_t nGroup) { Table()->SetRenderGroup(this, nHandle, nGroup); }
 
-	void RenderableChanged( int32_t nHandle ) { Table()->RenderableChanged( this, nHandle ); }
+	void RenderableChanged(int32_t nHandle) { Table()->RenderableChanged(this, nHandle); }
 
-	void EnableAlternateSorting( int32_t nHandle, int32_t bEnable )
+	void EnableAlternateSorting(int32_t nHandle, int32_t bEnable)
 	{
-		Table()->EnableAlternateSorting( this, nHandle, bEnable );
+		Table()->EnableAlternateSorting(this, nHandle, bEnable);
 	}
 
-	void DrawStaticProps( int32_t bEnable ) { Table()->DrawStaticProps( this, bEnable ); }
+	void DrawStaticProps(int32_t bEnable) { Table()->DrawStaticProps(this, bEnable); }
 
-	void DrawSmallEntities( int32_t bEnable ) { Table()->DrawSmallEntities( this, bEnable ); }
+	void DrawSmallEntities(int32_t bEnable) { Table()->DrawSmallEntities(this, bEnable); }
 
-	int32_t GetRenderableLeaves( int32_t nHandle, int32_t *pLeaves )
+	int32_t GetRenderableLeaves(int32_t nHandle, int32_t* pLeaves)
 	{
-		return Table()->GetRenderableLeaves( this, nHandle, pLeaves );
+		return Table()->GetRenderableLeaves(this, nHandle, pLeaves);
 	}
 
-	int32_t GetRenderableLeaf( int32_t nHandle, int32_t bHasIterator, int32_t nIterator, int32_t *pLeafAndIterator )
+	int32_t GetRenderableLeaf(int32_t nHandle, int32_t bHasIterator, int32_t nIterator, int32_t* pLeafAndIterator)
 	{
-		return Table()->GetRenderableLeaf( this, nHandle, bHasIterator, nIterator, pLeafAndIterator );
+		return Table()->GetRenderableLeaf(this, nHandle, bHasIterator, nIterator, pLeafAndIterator);
 	}
 
-	void *SetSubSystemDataInLeaf( int32_t nLeaf, int32_t nIndex, void *pData )
+	void* SetSubSystemDataInLeaf(int32_t nLeaf, int32_t nIndex, void* pData)
 	{
-		return Table()->SetSubSystemDataInLeaf( this, nLeaf, nIndex, pData );
+		return Table()->SetSubSystemDataInLeaf(this, nLeaf, nIndex, pData);
 	}
 
-	void *GetSubSystemDataInLeaf( int32_t nLeaf, int32_t nIndex )
+	void* GetSubSystemDataInLeaf(int32_t nLeaf, int32_t nIndex)
 	{
-		return Table()->GetSubSystemDataInLeaf( this, nLeaf, nIndex );
+		return Table()->GetSubSystemDataInLeaf(this, nLeaf, nIndex);
 	}
 
-	void SetDetailObjectsInLeaf( int32_t nLeaf, int32_t nFirst, int32_t nCount )
+	void SetDetailObjectsInLeaf(int32_t nLeaf, int32_t nFirst, int32_t nCount)
 	{
-		Table()->SetDetailObjectsInLeaf( this, nLeaf, nFirst, nCount );
+		Table()->SetDetailObjectsInLeaf(this, nLeaf, nFirst, nCount);
 	}
 
-	int32_t GetDetailObjectsInLeaf( int32_t nLeaf, int32_t *pFirstAndCount )
+	int32_t GetDetailObjectsInLeaf(int32_t nLeaf, int32_t* pFirstAndCount)
 	{
-		return Table()->GetDetailObjectsInLeaf( this, nLeaf, pFirstAndCount );
+		return Table()->GetDetailObjectsInLeaf(this, nLeaf, pFirstAndCount);
 	}
 
-	void DrawDetailObjectsInLeaf( int32_t nLeaf, int32_t nFrame, int32_t *pFirstAndCount )
+	void DrawDetailObjectsInLeaf(int32_t nLeaf, int32_t nFrame, int32_t* pFirstAndCount)
 	{
-		Table()->DrawDetailObjectsInLeaf( this, nLeaf, nFrame, pFirstAndCount );
+		Table()->DrawDetailObjectsInLeaf(this, nLeaf, nFrame, pFirstAndCount);
 	}
 
-	int32_t ShouldDrawDetailObjectsInLeaf( int32_t nLeaf, int32_t nFrame )
+	int32_t ShouldDrawDetailObjectsInLeaf(int32_t nLeaf, int32_t nFrame)
 	{
-		return Table()->ShouldDrawDetailObjectsInLeaf( this, nLeaf, nFrame );
+		return Table()->ShouldDrawDetailObjectsInLeaf(this, nLeaf, nFrame);
 	}
 
-	void DetailLeaves( int32_t nFrame, const uint16_t *pLeaves, int32_t nLeafCount, int32_t *pOut )
+	void DetailLeaves(int32_t nFrame, const uint16_t* pLeaves, int32_t nLeafCount, int32_t* pOut)
 	{
-		Table()->DetailLeaves( this, nFrame, pLeaves, nLeafCount, pOut );
+		Table()->DetailLeaves(this, nFrame, pLeaves, nLeafCount, pOut);
 	}
 
-	void ComputeTranslucentRenderLeaf( const uint16_t *pLeaves, int32_t nLeafCount, int32_t nRenderFrame,
-									   int32_t nViewId, int32_t nGlobalFrame, void *pSystem, const int32_t *pPending,
-									   int32_t nPending )
+	void ComputeTranslucentRenderLeaf(const uint16_t* pLeaves, int32_t nLeafCount, int32_t nRenderFrame,
+									  int32_t nViewId, int32_t nGlobalFrame, void* pSystem, const int32_t* pPending,
+									  int32_t nPending)
 	{
-		Table()->ComputeTranslucentRenderLeaf( this, pLeaves, nLeafCount, nRenderFrame, nViewId, nGlobalFrame, pSystem,
-											   pPending, nPending );
+		Table()->ComputeTranslucentRenderLeaf(this, pLeaves, nLeafCount, nRenderFrame, nViewId, nGlobalFrame, pSystem,
+											  pPending, nPending);
 	}
 
-	int32_t BuildRenderablesList( const uint16_t *pLeaves, int32_t nLeafCount, const float *pOriginForward,
-								  int32_t nRenderFrame, int32_t nDetailFrame, int32_t nFlags, void *pDetailSystem,
-								  int64_t *pOps, int32_t nMaxOps, const int32_t *pPending, int32_t nPending )
+	int32_t BuildRenderablesList(const uint16_t* pLeaves, int32_t nLeafCount, const float* pOriginForward,
+								 int32_t nRenderFrame, int32_t nDetailFrame, int32_t nFlags, void* pDetailSystem,
+								 int64_t* pOps, int32_t nMaxOps, const int32_t* pPending, int32_t nPending)
 	{
-		return Table()->BuildRenderablesList( this, pLeaves, nLeafCount, pOriginForward, nRenderFrame, nDetailFrame,
-											  nFlags, pDetailSystem, pOps, nMaxOps, pPending, nPending );
+		return Table()->BuildRenderablesList(this, pLeaves, nLeafCount, pOriginForward, nRenderFrame, nDetailFrame,
+											 nFlags, pDetailSystem, pOps, nMaxOps, pPending, nPending);
 	}
 
-	int32_t CollateViewModelRenderables( int64_t *pOps, int32_t nMaxOps, void *pSystem, const int32_t *pPending,
-										 int32_t nPending )
+	int32_t CollateViewModelRenderables(int64_t* pOps, int32_t nMaxOps, void* pSystem, const int32_t* pPending,
+										int32_t nPending)
 	{
-		return Table()->CollateViewModelRenderables( this, pOps, nMaxOps, pSystem, pPending, nPending );
+		return Table()->CollateViewModelRenderables(this, pOps, nMaxOps, pSystem, pPending, nPending);
 	}
 
-	void Pending( const int32_t *pEntries, int32_t nCount ) { Table()->Pending( this, pEntries, nCount ); }
+	void Pending(const int32_t* pEntries, int32_t nCount) { Table()->Pending(this, pEntries, nCount); }
 
 private:
-	const SSManagedLeafSystemClientTable *Table() const
+	const SSManagedLeafSystemClientTable* Table() const
 	{
-		return static_cast<const SSManagedLeafSystemClientTable *>( m_pTable );
+		return static_cast<const SSManagedLeafSystemClientTable*>(m_pTable);
 	}
 };
 
@@ -2069,73 +2022,71 @@ static const uint32_t kIManagedLeafSystemClientSlotHashes[] = {
 	0x878fb6d4, 0xecb3ae59, 0xcaf05fac, 0x57de1a71, 0x0ea4a385, 0xa2568725, 0x2acf7c51,
 };
 static const int32_t kIManagedLeafSystemClientSlotCount = 28;
-static_assert( sizeof( SSManagedLeafSystemClientTable ) == 28 * sizeof( void * ),
-			   "SSManagedLeafSystemClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedLeafSystemClientTable) == 28 * sizeof(void*),
+			  "SSManagedLeafSystemClientTable is one pointer per slot");
 
 class IManagedSoundEmitterClient;
 
 // The table managed writes for IManagedSoundEmitterClient: Release, Validate, then the TSV's order.
 struct SSManagedSoundEmitterClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	bool ( *ClientSoundSystemInit )( IManagedSoundEmitterClient *self );
-	void ( *ClientSoundSystemShutdown )( IManagedSoundEmitterClient *self );
-	void ( *ClientSoundLevelInitPreEntity )( IManagedSoundEmitterClient *self );
-	void ( *ClientSoundLevelShutdownPostEntity )( IManagedSoundEmitterClient *self );
-	void ( *ClientSoundEmit )( IManagedSoundEmitterClient *self, const int32_t *pRecipients, int32_t nEntIndex,
-							   int32_t nChannel, const char *pSoundName, float flVolume, int32_t nSoundLevel,
-							   int32_t nFlags, int32_t nPitch, int32_t nSpecialDsp, const float *pOrigin,
-							   float flSoundTime, float *pflDuration, int32_t nOptions, int32_t nSpeakerEntity,
-							   int32_t *pnHandle );
-	void ( *ClientSoundStop )( IManagedSoundEmitterClient *self, int32_t nEntIndex, int32_t nChannel,
-							   const char *pSample );
-	void ( *ClientSoundEmitCloseCaption )( IManagedSoundEmitterClient *self, const int32_t *pRecipients,
-										   int32_t nEntIndex, const char *pToken, float flDuration,
-										   int32_t bWarnIfMissing );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	bool (*ClientSoundSystemInit)(IManagedSoundEmitterClient* self);
+	void (*ClientSoundSystemShutdown)(IManagedSoundEmitterClient* self);
+	void (*ClientSoundLevelInitPreEntity)(IManagedSoundEmitterClient* self);
+	void (*ClientSoundLevelShutdownPostEntity)(IManagedSoundEmitterClient* self);
+	void (*ClientSoundEmit)(IManagedSoundEmitterClient* self, const int32_t* pRecipients, int32_t nEntIndex,
+							int32_t nChannel, const char* pSoundName, float flVolume, int32_t nSoundLevel,
+							int32_t nFlags, int32_t nPitch, int32_t nSpecialDsp, const float* pOrigin,
+							float flSoundTime, float* pflDuration, int32_t nOptions, int32_t nSpeakerEntity,
+							int32_t* pnHandle);
+	void (*ClientSoundStop)(IManagedSoundEmitterClient* self, int32_t nEntIndex, int32_t nChannel, const char* pSample);
+	void (*ClientSoundEmitCloseCaption)(IManagedSoundEmitterClient* self, const int32_t* pRecipients, int32_t nEntIndex,
+										const char* pToken, float flDuration, int32_t bWarnIfMissing);
 };
 
 class IManagedSoundEmitterClient : public IManagedObject
 {
 public:
-	explicit IManagedSoundEmitterClient( const SSManagedSoundEmitterClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedSoundEmitterClient(const SSManagedSoundEmitterClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	bool ClientSoundSystemInit() { return Table()->ClientSoundSystemInit( this ); }
+	bool ClientSoundSystemInit() { return Table()->ClientSoundSystemInit(this); }
 
-	void ClientSoundSystemShutdown() { Table()->ClientSoundSystemShutdown( this ); }
+	void ClientSoundSystemShutdown() { Table()->ClientSoundSystemShutdown(this); }
 
-	void ClientSoundLevelInitPreEntity() { Table()->ClientSoundLevelInitPreEntity( this ); }
+	void ClientSoundLevelInitPreEntity() { Table()->ClientSoundLevelInitPreEntity(this); }
 
-	void ClientSoundLevelShutdownPostEntity() { Table()->ClientSoundLevelShutdownPostEntity( this ); }
+	void ClientSoundLevelShutdownPostEntity() { Table()->ClientSoundLevelShutdownPostEntity(this); }
 
-	void ClientSoundEmit( const int32_t *pRecipients, int32_t nEntIndex, int32_t nChannel, const char *pSoundName,
-						  float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch, int32_t nSpecialDsp,
-						  const float *pOrigin, float flSoundTime, float *pflDuration, int32_t nOptions,
-						  int32_t nSpeakerEntity, int32_t *pnHandle )
+	void ClientSoundEmit(const int32_t* pRecipients, int32_t nEntIndex, int32_t nChannel, const char* pSoundName,
+						 float flVolume, int32_t nSoundLevel, int32_t nFlags, int32_t nPitch, int32_t nSpecialDsp,
+						 const float* pOrigin, float flSoundTime, float* pflDuration, int32_t nOptions,
+						 int32_t nSpeakerEntity, int32_t* pnHandle)
 	{
-		Table()->ClientSoundEmit( this, pRecipients, nEntIndex, nChannel, pSoundName, flVolume, nSoundLevel, nFlags,
-								  nPitch, nSpecialDsp, pOrigin, flSoundTime, pflDuration, nOptions, nSpeakerEntity,
-								  pnHandle );
+		Table()->ClientSoundEmit(this, pRecipients, nEntIndex, nChannel, pSoundName, flVolume, nSoundLevel, nFlags,
+								 nPitch, nSpecialDsp, pOrigin, flSoundTime, pflDuration, nOptions, nSpeakerEntity,
+								 pnHandle);
 	}
 
-	void ClientSoundStop( int32_t nEntIndex, int32_t nChannel, const char *pSample )
+	void ClientSoundStop(int32_t nEntIndex, int32_t nChannel, const char* pSample)
 	{
-		Table()->ClientSoundStop( this, nEntIndex, nChannel, pSample );
+		Table()->ClientSoundStop(this, nEntIndex, nChannel, pSample);
 	}
 
-	void ClientSoundEmitCloseCaption( const int32_t *pRecipients, int32_t nEntIndex, const char *pToken,
-									  float flDuration, int32_t bWarnIfMissing )
+	void ClientSoundEmitCloseCaption(const int32_t* pRecipients, int32_t nEntIndex, const char* pToken,
+									 float flDuration, int32_t bWarnIfMissing)
 	{
-		Table()->ClientSoundEmitCloseCaption( this, pRecipients, nEntIndex, pToken, flDuration, bWarnIfMissing );
+		Table()->ClientSoundEmitCloseCaption(this, pRecipients, nEntIndex, pToken, flDuration, bWarnIfMissing);
 	}
 
 private:
-	const SSManagedSoundEmitterClientTable *Table() const
+	const SSManagedSoundEmitterClientTable* Table() const
 	{
-		return static_cast<const SSManagedSoundEmitterClientTable *>( m_pTable );
+		return static_cast<const SSManagedSoundEmitterClientTable*>(m_pTable);
 	}
 };
 
@@ -2143,33 +2094,33 @@ static const uint32_t kIManagedSoundEmitterClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xbe023354, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0xb87f88d8, 0x1092d96c, 0x56501132,
 };
 static const int32_t kIManagedSoundEmitterClientSlotCount = 9;
-static_assert( sizeof( SSManagedSoundEmitterClientTable ) == 9 * sizeof( void * ),
-			   "SSManagedSoundEmitterClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedSoundEmitterClientTable) == 9 * sizeof(void*),
+			  "SSManagedSoundEmitterClientTable is one pointer per slot");
 
 class IManagedClientSystemsClient;
 
 // The table managed writes for IManagedClientSystemsClient: Release, Validate, then the TSV's order.
 struct SSManagedClientSystemsClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *Stage )( IManagedClientSystemsClient *self, const char *pszSystem, int32_t nStage );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*Stage)(IManagedClientSystemsClient* self, const char* pszSystem, int32_t nStage);
 };
 
 class IManagedClientSystemsClient : public IManagedObject
 {
 public:
-	explicit IManagedClientSystemsClient( const SSManagedClientSystemsClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedClientSystemsClient(const SSManagedClientSystemsClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t Stage( const char *pszSystem, int32_t nStage ) { return Table()->Stage( this, pszSystem, nStage ); }
+	int32_t Stage(const char* pszSystem, int32_t nStage) { return Table()->Stage(this, pszSystem, nStage); }
 
 private:
-	const SSManagedClientSystemsClientTable *Table() const
+	const SSManagedClientSystemsClientTable* Table() const
 	{
-		return static_cast<const SSManagedClientSystemsClientTable *>( m_pTable );
+		return static_cast<const SSManagedClientSystemsClientTable*>(m_pTable);
 	}
 };
 
@@ -2179,43 +2130,43 @@ static const uint32_t kIManagedClientSystemsClientSlotHashes[] = {
 	0x3169518e,
 };
 static const int32_t kIManagedClientSystemsClientSlotCount = 3;
-static_assert( sizeof( SSManagedClientSystemsClientTable ) == 3 * sizeof( void * ),
-			   "SSManagedClientSystemsClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedClientSystemsClientTable) == 3 * sizeof(void*),
+			  "SSManagedClientSystemsClientTable is one pointer per slot");
 
 class IManagedPixelVisClient;
 
 // The table managed writes for IManagedPixelVisClient: Release, Validate, then the TSV's order.
 struct SSManagedPixelVisClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *EndView )( IManagedPixelVisClient *self, const float *pView, int32_t nViewFloats, int32_t *pCmds,
-						  int32_t nCmdWords );
-	int32_t ( *Commands )( IManagedPixelVisClient *self, int32_t *pCmds, int32_t nCmdWords );
-	void ( *EndScene )( IManagedPixelVisClient *self );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*EndView)(IManagedPixelVisClient* self, const float* pView, int32_t nViewFloats, int32_t* pCmds,
+					   int32_t nCmdWords);
+	int32_t (*Commands)(IManagedPixelVisClient* self, int32_t* pCmds, int32_t nCmdWords);
+	void (*EndScene)(IManagedPixelVisClient* self);
 };
 
 class IManagedPixelVisClient : public IManagedObject
 {
 public:
-	explicit IManagedPixelVisClient( const SSManagedPixelVisClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedPixelVisClient(const SSManagedPixelVisClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t EndView( const float *pView, int32_t nViewFloats, int32_t *pCmds, int32_t nCmdWords )
+	int32_t EndView(const float* pView, int32_t nViewFloats, int32_t* pCmds, int32_t nCmdWords)
 	{
-		return Table()->EndView( this, pView, nViewFloats, pCmds, nCmdWords );
+		return Table()->EndView(this, pView, nViewFloats, pCmds, nCmdWords);
 	}
 
-	int32_t Commands( int32_t *pCmds, int32_t nCmdWords ) { return Table()->Commands( this, pCmds, nCmdWords ); }
+	int32_t Commands(int32_t* pCmds, int32_t nCmdWords) { return Table()->Commands(this, pCmds, nCmdWords); }
 
-	void EndScene() { Table()->EndScene( this ); }
+	void EndScene() { Table()->EndScene(this); }
 
 private:
-	const SSManagedPixelVisClientTable *Table() const
+	const SSManagedPixelVisClientTable* Table() const
 	{
-		return static_cast<const SSManagedPixelVisClientTable *>( m_pTable );
+		return static_cast<const SSManagedPixelVisClientTable*>(m_pTable);
 	}
 };
 
@@ -2223,130 +2174,123 @@ static const uint32_t kIManagedPixelVisClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xfa64b18d, 0x0d54c15e, 0x07e0f4c4,
 };
 static const int32_t kIManagedPixelVisClientSlotCount = 5;
-static_assert( sizeof( SSManagedPixelVisClientTable ) == 5 * sizeof( void * ),
-			   "SSManagedPixelVisClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedPixelVisClientTable) == 5 * sizeof(void*),
+			  "SSManagedPixelVisClientTable is one pointer per slot");
 
 class IManagedGlowClient;
 
 // The table managed writes for IManagedGlowClient: Release, Validate, then the TSV's order.
 struct SSManagedGlowClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *DrawOverlays )( IManagedGlowClient *self, const float *pView, int32_t nViewFloats,
-							   int32_t bCacheFullSceneState, int32_t *pCmds, int32_t nCmdWords );
-	int32_t ( *Commands )( IManagedGlowClient *self, int32_t *pCmds, int32_t nCmdWords );
-	void ( *UpdateSkyOverlays )( IManagedGlowClient *self, const float *pOrigin, float flZFar,
-								 int32_t bCacheFullSceneState );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*DrawOverlays)(IManagedGlowClient* self, const float* pView, int32_t nViewFloats,
+							int32_t bCacheFullSceneState, int32_t* pCmds, int32_t nCmdWords);
+	int32_t (*Commands)(IManagedGlowClient* self, int32_t* pCmds, int32_t nCmdWords);
+	void (*UpdateSkyOverlays)(IManagedGlowClient* self, const float* pOrigin, float flZFar,
+							  int32_t bCacheFullSceneState);
 };
 
 class IManagedGlowClient : public IManagedObject
 {
 public:
-	explicit IManagedGlowClient( const SSManagedGlowClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedGlowClient(const SSManagedGlowClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t DrawOverlays( const float *pView, int32_t nViewFloats, int32_t bCacheFullSceneState, int32_t *pCmds,
-						  int32_t nCmdWords )
+	int32_t DrawOverlays(const float* pView, int32_t nViewFloats, int32_t bCacheFullSceneState, int32_t* pCmds,
+						 int32_t nCmdWords)
 	{
-		return Table()->DrawOverlays( this, pView, nViewFloats, bCacheFullSceneState, pCmds, nCmdWords );
+		return Table()->DrawOverlays(this, pView, nViewFloats, bCacheFullSceneState, pCmds, nCmdWords);
 	}
 
-	int32_t Commands( int32_t *pCmds, int32_t nCmdWords ) { return Table()->Commands( this, pCmds, nCmdWords ); }
+	int32_t Commands(int32_t* pCmds, int32_t nCmdWords) { return Table()->Commands(this, pCmds, nCmdWords); }
 
-	void UpdateSkyOverlays( const float *pOrigin, float flZFar, int32_t bCacheFullSceneState )
+	void UpdateSkyOverlays(const float* pOrigin, float flZFar, int32_t bCacheFullSceneState)
 	{
-		Table()->UpdateSkyOverlays( this, pOrigin, flZFar, bCacheFullSceneState );
+		Table()->UpdateSkyOverlays(this, pOrigin, flZFar, bCacheFullSceneState);
 	}
 
 private:
-	const SSManagedGlowClientTable *Table() const { return static_cast<const SSManagedGlowClientTable *>( m_pTable ); }
+	const SSManagedGlowClientTable* Table() const { return static_cast<const SSManagedGlowClientTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedGlowClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0xec611fae, 0x0d54c15e, 0x93d74047,
 };
 static const int32_t kIManagedGlowClientSlotCount = 5;
-static_assert( sizeof( SSManagedGlowClientTable ) == 5 * sizeof( void * ),
-			   "SSManagedGlowClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedGlowClientTable) == 5 * sizeof(void*),
+			  "SSManagedGlowClientTable is one pointer per slot");
 
 class IManagedShadowsClient;
 
 // The table managed writes for IManagedShadowsClient: Release, Validate, then the TSV's order.
 struct SSManagedShadowsClientTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	int32_t ( *Init )( IManagedShadowsClient *self );
-	void ( *Shutdown )( IManagedShadowsClient *self );
-	void ( *LevelInitPreEntity )( IManagedShadowsClient *self );
-	void ( *LevelShutdownPostEntity )( IManagedShadowsClient *self );
-	void ( *PreRender )( IManagedShadowsClient *self, const int32_t *pPending, int32_t nPending );
-	void ( *AdvanceFrame )( IManagedShadowsClient *self, const int32_t *pPending, int32_t nPending );
-	void ( *ComputeShadowTextures )( IManagedShadowsClient *self, const uint16_t *pLeaves, int32_t nLeafCount,
-									 const int32_t *pPending, int32_t nPending );
-	void ( *ComputeShadowDepthTextures )( IManagedShadowsClient *self, const float *pView, int32_t nViewFloats,
-										  const int32_t *pPending, int32_t nPending );
-	void ( *UnlockAllShadowDepthTextures )( IManagedShadowsClient *self, const int32_t *pPending, int32_t nPending );
-	void ( *RestoreRenderState )( IManagedShadowsClient *self );
-	void ( *RenderShadowTexture )( IManagedShadowsClient *self, int32_t nWidth, int32_t nHeight );
-	void ( *Pending )( IManagedShadowsClient *self, const int32_t *pEntries, int32_t nCount );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	int32_t (*Init)(IManagedShadowsClient* self);
+	void (*Shutdown)(IManagedShadowsClient* self);
+	void (*LevelInitPreEntity)(IManagedShadowsClient* self);
+	void (*LevelShutdownPostEntity)(IManagedShadowsClient* self);
+	void (*PreRender)(IManagedShadowsClient* self, const int32_t* pPending, int32_t nPending);
+	void (*AdvanceFrame)(IManagedShadowsClient* self, const int32_t* pPending, int32_t nPending);
+	void (*ComputeShadowTextures)(IManagedShadowsClient* self, const uint16_t* pLeaves, int32_t nLeafCount,
+								  const int32_t* pPending, int32_t nPending);
+	void (*ComputeShadowDepthTextures)(IManagedShadowsClient* self, const float* pView, int32_t nViewFloats,
+									   const int32_t* pPending, int32_t nPending);
+	void (*UnlockAllShadowDepthTextures)(IManagedShadowsClient* self, const int32_t* pPending, int32_t nPending);
+	void (*RestoreRenderState)(IManagedShadowsClient* self);
+	void (*RenderShadowTexture)(IManagedShadowsClient* self, int32_t nWidth, int32_t nHeight);
+	void (*Pending)(IManagedShadowsClient* self, const int32_t* pEntries, int32_t nCount);
 };
 
 class IManagedShadowsClient : public IManagedObject
 {
 public:
-	explicit IManagedShadowsClient( const SSManagedShadowsClientTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedShadowsClient(const SSManagedShadowsClientTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	int32_t Init() { return Table()->Init( this ); }
+	int32_t Init() { return Table()->Init(this); }
 
-	void Shutdown() { Table()->Shutdown( this ); }
+	void Shutdown() { Table()->Shutdown(this); }
 
-	void LevelInitPreEntity() { Table()->LevelInitPreEntity( this ); }
+	void LevelInitPreEntity() { Table()->LevelInitPreEntity(this); }
 
-	void LevelShutdownPostEntity() { Table()->LevelShutdownPostEntity( this ); }
+	void LevelShutdownPostEntity() { Table()->LevelShutdownPostEntity(this); }
 
-	void PreRender( const int32_t *pPending, int32_t nPending ) { Table()->PreRender( this, pPending, nPending ); }
+	void PreRender(const int32_t* pPending, int32_t nPending) { Table()->PreRender(this, pPending, nPending); }
 
-	void AdvanceFrame( const int32_t *pPending, int32_t nPending )
+	void AdvanceFrame(const int32_t* pPending, int32_t nPending) { Table()->AdvanceFrame(this, pPending, nPending); }
+
+	void ComputeShadowTextures(const uint16_t* pLeaves, int32_t nLeafCount, const int32_t* pPending, int32_t nPending)
 	{
-		Table()->AdvanceFrame( this, pPending, nPending );
+		Table()->ComputeShadowTextures(this, pLeaves, nLeafCount, pPending, nPending);
 	}
 
-	void ComputeShadowTextures( const uint16_t *pLeaves, int32_t nLeafCount, const int32_t *pPending, int32_t nPending )
+	void ComputeShadowDepthTextures(const float* pView, int32_t nViewFloats, const int32_t* pPending, int32_t nPending)
 	{
-		Table()->ComputeShadowTextures( this, pLeaves, nLeafCount, pPending, nPending );
+		Table()->ComputeShadowDepthTextures(this, pView, nViewFloats, pPending, nPending);
 	}
 
-	void ComputeShadowDepthTextures( const float *pView, int32_t nViewFloats, const int32_t *pPending,
-									 int32_t nPending )
+	void UnlockAllShadowDepthTextures(const int32_t* pPending, int32_t nPending)
 	{
-		Table()->ComputeShadowDepthTextures( this, pView, nViewFloats, pPending, nPending );
+		Table()->UnlockAllShadowDepthTextures(this, pPending, nPending);
 	}
 
-	void UnlockAllShadowDepthTextures( const int32_t *pPending, int32_t nPending )
-	{
-		Table()->UnlockAllShadowDepthTextures( this, pPending, nPending );
-	}
+	void RestoreRenderState() { Table()->RestoreRenderState(this); }
 
-	void RestoreRenderState() { Table()->RestoreRenderState( this ); }
+	void RenderShadowTexture(int32_t nWidth, int32_t nHeight) { Table()->RenderShadowTexture(this, nWidth, nHeight); }
 
-	void RenderShadowTexture( int32_t nWidth, int32_t nHeight )
-	{
-		Table()->RenderShadowTexture( this, nWidth, nHeight );
-	}
-
-	void Pending( const int32_t *pEntries, int32_t nCount ) { Table()->Pending( this, pEntries, nCount ); }
+	void Pending(const int32_t* pEntries, int32_t nCount) { Table()->Pending(this, pEntries, nCount); }
 
 private:
-	const SSManagedShadowsClientTable *Table() const
+	const SSManagedShadowsClientTable* Table() const
 	{
-		return static_cast<const SSManagedShadowsClientTable *>( m_pTable );
+		return static_cast<const SSManagedShadowsClientTable*>(m_pTable);
 	}
 };
 
@@ -2355,41 +2299,41 @@ static const uint32_t kIManagedShadowsClientSlotHashes[] = {
 	0x2acf7c51, 0xca302c1c, 0xca302c1c, 0x2acf7c51, 0x07e0f4c4, 0x7fb639b8, 0x2acf7c51,
 };
 static const int32_t kIManagedShadowsClientSlotCount = 14;
-static_assert( sizeof( SSManagedShadowsClientTable ) == 14 * sizeof( void * ),
-			   "SSManagedShadowsClientTable is one pointer per slot" );
+static_assert(sizeof(SSManagedShadowsClientTable) == 14 * sizeof(void*),
+			  "SSManagedShadowsClientTable is one pointer per slot");
 
 #ifdef CLIENT_DLL
 
-IManagedCommandsClient *ManagedCommandsClient(); // this load's area, or NULL outside a load
-IManagedEventsClient *ManagedEventsClient(); // this load's area, or NULL outside a load
-IManagedUserMessagesClient *ManagedUserMessagesClient(); // this load's area, or NULL outside a load
-IManagedStandaloneClient *ManagedStandaloneClient(); // this load's area, or NULL outside a load
-IManagedPredictionClient *ManagedPredictionClient(); // this load's area, or NULL outside a load
-IManagedTempEntsClient *ManagedTempEntsClient(); // this load's area, or NULL outside a load
-IManagedSaveRestoreClient *ManagedSaveRestoreClient(); // this load's area, or NULL outside a load
-IManagedBeamsClient *ManagedBeamsClient(); // this load's area, or NULL outside a load
-IManagedDiagnosticsClient *ManagedDiagnosticsClient(); // this load's area, or NULL outside a load
-IManagedDecalsClient *ManagedDecalsClient(); // this load's area, or NULL outside a load
-IManagedParticlesClient *ManagedParticlesClient(); // this load's area, or NULL outside a load
-IManagedUiClient *ManagedUiClient(); // this load's area, or NULL outside a load
-IManagedWorldTextClient *ManagedWorldTextClient(); // this load's area, or NULL outside a load
-IManagedFxClient *ManagedFxClient(); // this load's area, or NULL outside a load
-IManagedSoundControllerClient *ManagedSoundControllerClient(); // this load's area, or NULL outside a load
-IManagedSoundscapesClient *ManagedSoundscapesClient(); // this load's area, or NULL outside a load
-IManagedPrecipitationClient *ManagedPrecipitationClient(); // this load's area, or NULL outside a load
-IManagedConsoleOutputClient *ManagedConsoleOutputClient(); // this load's area, or NULL outside a load
-IManagedMaterialFilesClient *ManagedMaterialFilesClient(); // this load's area, or NULL outside a load
-IManagedMaterialProxyClient *ManagedMaterialProxyClient(); // this load's area, or NULL outside a load
-IManagedRenderClient *ManagedRenderClient(); // this load's area, or NULL outside a load
-IManagedInputClient *ManagedInputClient(); // this load's area, or NULL outside a load
-IManagedBonesClient *ManagedBonesClient(); // this load's area, or NULL outside a load
-IManagedPhysicsClient *ManagedPhysicsClient(); // this load's area, or NULL outside a load
-IManagedDetailPropsClient *ManagedDetailPropsClient(); // this load's area, or NULL outside a load
-IManagedLeafSystemClient *ManagedLeafSystemClient(); // this load's area, or NULL outside a load
-IManagedSoundEmitterClient *ManagedSoundEmitterClient(); // this load's area, or NULL outside a load
-IManagedClientSystemsClient *ManagedClientSystemsClient(); // this load's area, or NULL outside a load
-IManagedPixelVisClient *ManagedPixelVisClient(); // this load's area, or NULL outside a load
-IManagedGlowClient *ManagedGlowClient(); // this load's area, or NULL outside a load
-IManagedShadowsClient *ManagedShadowsClient(); // this load's area, or NULL outside a load
+IManagedCommandsClient* ManagedCommandsClient(); // this load's area, or NULL outside a load
+IManagedEventsClient* ManagedEventsClient(); // this load's area, or NULL outside a load
+IManagedUserMessagesClient* ManagedUserMessagesClient(); // this load's area, or NULL outside a load
+IManagedStandaloneClient* ManagedStandaloneClient(); // this load's area, or NULL outside a load
+IManagedPredictionClient* ManagedPredictionClient(); // this load's area, or NULL outside a load
+IManagedTempEntsClient* ManagedTempEntsClient(); // this load's area, or NULL outside a load
+IManagedSaveRestoreClient* ManagedSaveRestoreClient(); // this load's area, or NULL outside a load
+IManagedBeamsClient* ManagedBeamsClient(); // this load's area, or NULL outside a load
+IManagedDiagnosticsClient* ManagedDiagnosticsClient(); // this load's area, or NULL outside a load
+IManagedDecalsClient* ManagedDecalsClient(); // this load's area, or NULL outside a load
+IManagedParticlesClient* ManagedParticlesClient(); // this load's area, or NULL outside a load
+IManagedUiClient* ManagedUiClient(); // this load's area, or NULL outside a load
+IManagedWorldTextClient* ManagedWorldTextClient(); // this load's area, or NULL outside a load
+IManagedFxClient* ManagedFxClient(); // this load's area, or NULL outside a load
+IManagedSoundControllerClient* ManagedSoundControllerClient(); // this load's area, or NULL outside a load
+IManagedSoundscapesClient* ManagedSoundscapesClient(); // this load's area, or NULL outside a load
+IManagedPrecipitationClient* ManagedPrecipitationClient(); // this load's area, or NULL outside a load
+IManagedConsoleOutputClient* ManagedConsoleOutputClient(); // this load's area, or NULL outside a load
+IManagedMaterialFilesClient* ManagedMaterialFilesClient(); // this load's area, or NULL outside a load
+IManagedMaterialProxyClient* ManagedMaterialProxyClient(); // this load's area, or NULL outside a load
+IManagedRenderClient* ManagedRenderClient(); // this load's area, or NULL outside a load
+IManagedInputClient* ManagedInputClient(); // this load's area, or NULL outside a load
+IManagedBonesClient* ManagedBonesClient(); // this load's area, or NULL outside a load
+IManagedPhysicsClient* ManagedPhysicsClient(); // this load's area, or NULL outside a load
+IManagedDetailPropsClient* ManagedDetailPropsClient(); // this load's area, or NULL outside a load
+IManagedLeafSystemClient* ManagedLeafSystemClient(); // this load's area, or NULL outside a load
+IManagedSoundEmitterClient* ManagedSoundEmitterClient(); // this load's area, or NULL outside a load
+IManagedClientSystemsClient* ManagedClientSystemsClient(); // this load's area, or NULL outside a load
+IManagedPixelVisClient* ManagedPixelVisClient(); // this load's area, or NULL outside a load
+IManagedGlowClient* ManagedGlowClient(); // this load's area, or NULL outside a load
+IManagedShadowsClient* ManagedShadowsClient(); // this load's area, or NULL outside a load
 
 #endif // CLIENT_DLL

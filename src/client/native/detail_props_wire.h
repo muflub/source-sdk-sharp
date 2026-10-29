@@ -43,19 +43,19 @@ enum
 class CWords
 {
 public:
-	explicit CWords( const void *p )
-		: m_p( (const int32_t *)p )
-		, m_n( p ? ( (const int32_t *)p )[0] : 0 )
-		, m_at( 1 )
-		, m_bBad( !p || m_n < 1 )
+	explicit CWords(const void* p)
+		: m_p((const int32_t*)p)
+		, m_n(p ? ((const int32_t*)p)[0] : 0)
+		, m_at(1)
+		, m_bBad(!p || m_n < 1)
 	{
 	}
 
-	bool Has( int n ) const { return !m_bBad && n >= 0 && m_at + n <= m_n; }
+	bool Has(int n) const { return !m_bBad && n >= 0 && m_at + n <= m_n; }
 
 	int32_t Int()
 	{
-		if ( !Has( 1 ) )
+		if (!Has(1))
 		{
 			m_bBad = true;
 			return 0;
@@ -67,18 +67,18 @@ public:
 	{
 		const int32_t w = Int();
 		float f;
-		memcpy( &f, &w, sizeof( f ) );
+		memcpy(&f, &w, sizeof(f));
 		return f;
 	}
 
-	void *Pointer()
+	void* Pointer()
 	{
 		const uint32_t lo = (uint32_t)Int();
 		const uint32_t hi = (uint32_t)Int();
-		return (void *)(uintptr_t)( (uint64_t)lo | ( (uint64_t)hi << 32 ) );
+		return (void*)(uintptr_t)((uint64_t)lo | ((uint64_t)hi << 32));
 	}
 
-	void Vec( float *pOut )
+	void Vec(float* pOut)
 	{
 		pOut[0] = Float();
 		pOut[1] = Float();
@@ -88,7 +88,7 @@ public:
 	bool Bad() const { return m_bBad; }
 
 private:
-	const int32_t *m_p;
+	const int32_t* m_p;
 	int32_t m_n;
 	int32_t m_at;
 	bool m_bBad;
@@ -98,35 +98,35 @@ private:
 // Object( index, model, origin, angles ), Run( leaf, first, count, fast ).
 // False when the buffer is malformed (what was handed over stays handed).
 template <class LEVEL>
-bool ReadLevel( const void *p, LEVEL &level )
+bool ReadLevel(const void* p, LEVEL& level)
 {
-	CWords w( p );
-	if ( w.Bad() )
+	CWords w(p);
+	if (w.Bad())
 		return false;
 	const int32_t flags = w.Int();
 	const int32_t nObjects = w.Int();
-	if ( w.Bad() || nObjects < 0 )
+	if (w.Bad() || nObjects < 0)
 		return false;
-	level.Precache( ( flags & kLevelPrecache ) != 0 );
-	for ( int32_t i = 0; i < nObjects; ++i )
+	level.Precache((flags & kLevelPrecache) != 0);
+	for (int32_t i = 0; i < nObjects; ++i)
 	{
-		void *pModel = w.Pointer();
+		void* pModel = w.Pointer();
 		float origin[3], angles[3];
-		w.Vec( origin );
-		w.Vec( angles );
-		if ( w.Bad() )
+		w.Vec(origin);
+		w.Vec(angles);
+		if (w.Bad())
 			return false;
-		level.Object( i, pModel, origin, angles );
+		level.Object(i, pModel, origin, angles);
 	}
 	const int32_t nRuns = w.Int();
-	if ( w.Bad() || nRuns < 0 )
+	if (w.Bad() || nRuns < 0)
 		return false;
-	for ( int32_t i = 0; i < nRuns; ++i )
+	for (int32_t i = 0; i < nRuns; ++i)
 	{
 		const int32_t leaf = w.Int(), first = w.Int(), count = w.Int(), fast = w.Int();
-		if ( w.Bad() )
+		if (w.Bad())
 			return false;
-		level.Run( leaf, first, count, fast != 0 );
+		level.Run(leaf, first, count, fast != 0);
 	}
 	return true;
 }
@@ -135,37 +135,37 @@ bool ReadLevel( const void *p, LEVEL &level )
 // alpha, setAngles, angles, colour ). False when the view builds nothing (or
 // the buffer is malformed); otherwise the sphere's radius in *pRadius.
 template <class VIEW>
-bool ReadView( const void *p, VIEW &view, float *pRadius )
+bool ReadView(const void* p, VIEW& view, float* pRadius)
 {
-	CWords w( p );
-	if ( w.Bad() )
+	CWords w(p);
+	if (w.Bad())
 		return false;
 	const int32_t build = w.Int();
 	const float radius = w.Float();
-	if ( w.Bad() || !build )
+	if (w.Bad() || !build)
 		return false;
 	const int32_t nProxies = w.Int();
-	if ( w.Bad() || nProxies < 0 )
+	if (w.Bad() || nProxies < 0)
 		return false;
-	for ( int32_t i = 0; i < nProxies; ++i )
+	for (int32_t i = 0; i < nProxies; ++i)
 	{
-		void *pModel = w.Pointer();
-		if ( w.Bad() )
+		void* pModel = w.Pointer();
+		if (w.Bad())
 			return false;
-		view.Proxy( pModel );
+		view.Proxy(pModel);
 	}
 	const int32_t nModels = w.Int();
-	if ( w.Bad() || nModels < 0 )
+	if (w.Bad() || nModels < 0)
 		return false;
-	for ( int32_t i = 0; i < nModels; ++i )
+	for (int32_t i = 0; i < nModels; ++i)
 	{
 		const int32_t state = w.Int();
 		float angles[3], color[3];
-		w.Vec( angles );
-		w.Vec( color );
-		if ( w.Bad() )
+		w.Vec(angles);
+		w.Vec(color);
+		if (w.Bad())
 			return false;
-		view.Model( i, (unsigned char)( state & 0xff ), ( state & kModelSetAngles ) != 0, angles, color );
+		view.Model(i, (unsigned char)(state & 0xff), (state & kModelSetAngles) != 0, angles, color);
 	}
 	*pRadius = radius;
 	return true;
@@ -174,21 +174,21 @@ bool ReadView( const void *p, VIEW &view, float *pRadius )
 // Prepare's answer: its model alphas handed to SINK.ModelAlpha( object,
 // alpha ); answers the material (kMaterialNone when there is no draw).
 template <class SINK>
-int ReadPrepare( const void *p, SINK &sink )
+int ReadPrepare(const void* p, SINK& sink)
 {
-	CWords w( p );
-	if ( w.Bad() )
+	CWords w(p);
+	if (w.Bad())
 		return kMaterialNone;
 	const int32_t material = w.Int();
 	const int32_t nAlphas = w.Int();
-	if ( w.Bad() || nAlphas < 0 )
+	if (w.Bad() || nAlphas < 0)
 		return kMaterialNone;
-	for ( int32_t i = 0; i < nAlphas; ++i )
+	for (int32_t i = 0; i < nAlphas; ++i)
 	{
 		const int32_t object = w.Int(), alpha = w.Int();
-		if ( w.Bad() )
+		if (w.Bad())
 			return kMaterialNone;
-		sink.ModelAlpha( object, (unsigned char)alpha );
+		sink.ModelAlpha(object, (unsigned char)alpha);
 	}
 	return material;
 }
@@ -197,45 +197,44 @@ int ReadPrepare( const void *p, SINK &sink )
 // st ), EndDraw(), ModelAlpha( object, alpha ). False when the buffer is
 // malformed or ends without kEnd.
 template <class MESH>
-bool RunEmit( const void *p, MESH &mesh )
+bool RunEmit(const void* p, MESH& mesh)
 {
-	CWords w( p );
-	if ( w.Bad() )
+	CWords w(p);
+	if (w.Bad())
 		return false;
-	for ( ;; )
+	for (;;)
 	{
 		const int32_t op = w.Int();
-		if ( w.Bad() )
+		if (w.Bad())
 			return false;
-		switch ( op )
+		switch (op)
 		{
 			case kEnd:
 				return true;
 			case kBegin:
 			{
 				const int32_t quads = w.Int();
-				if ( w.Bad() )
+				if (w.Bad())
 					return false;
-				mesh.Begin( quads );
+				mesh.Begin(quads);
 				break;
 			}
 			case kVertices:
 			{
 				const int32_t n = w.Int();
-				if ( w.Bad() || n < 0 || !w.Has( n * kVertexWords ) )
+				if (w.Bad() || n < 0 || !w.Has(n * kVertexWords))
 					return false;
-				for ( int32_t i = 0; i < n; ++i )
+				for (int32_t i = 0; i < n; ++i)
 				{
 					float xyz[3];
-					w.Vec( xyz );
+					w.Vec(xyz);
 					const uint32_t rgba = (uint32_t)w.Int();
-					const unsigned char color[4] = {
-						(unsigned char)( rgba & 0xff ), (unsigned char)( ( rgba >> 8 ) & 0xff ),
-						(unsigned char)( ( rgba >> 16 ) & 0xff ), (unsigned char)( rgba >> 24 ) };
+					const unsigned char color[4] = {(unsigned char)(rgba & 0xff), (unsigned char)((rgba >> 8) & 0xff),
+													(unsigned char)((rgba >> 16) & 0xff), (unsigned char)(rgba >> 24)};
 					float st[2];
 					st[0] = w.Float();
 					st[1] = w.Float();
-					mesh.Vertex( xyz, color, st );
+					mesh.Vertex(xyz, color, st);
 				}
 				break;
 			}
@@ -245,9 +244,9 @@ bool RunEmit( const void *p, MESH &mesh )
 			case kModelAlpha:
 			{
 				const int32_t object = w.Int(), alpha = w.Int();
-				if ( w.Bad() )
+				if (w.Bad())
 					return false;
-				mesh.ModelAlpha( object, (unsigned char)alpha );
+				mesh.ModelAlpha(object, (unsigned char)alpha);
 				break;
 			}
 			default:

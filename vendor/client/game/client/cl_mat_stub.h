@@ -16,5 +16,5 @@ public:
 	void End();
 
 public:
-	IMaterialSystem *m_pOldMaterialSystem;
+	IMaterialSystem* m_pOldMaterialSystem;
 };

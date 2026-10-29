@@ -15,13 +15,13 @@ public:
 	virtual bool IsValid() = 0;
 
 	// Object 0 is this object, Object 1 is the other object
-	virtual IPhysicsObject *GetObject( int index ) = 0;
-	virtual int GetMaterial( int index ) = 0;
+	virtual IPhysicsObject* GetObject(int index) = 0;
+	virtual int GetMaterial(int index) = 0;
 
-	virtual void GetContactPoint( Vector &out ) = 0;
+	virtual void GetContactPoint(Vector& out) = 0;
 
 	// points away from source object
-	virtual void GetSurfaceNormal( Vector &out ) = 0;
+	virtual void GetSurfaceNormal(Vector& out) = 0;
 	virtual float GetNormalForce() = 0;
 	virtual void unused_GetEnergyAbsorbed() = 0;
 

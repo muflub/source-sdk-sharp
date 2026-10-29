@@ -52,21 +52,21 @@ public:
 	float m_flConstraintWidth;
 	float m_flConstraintSpeedFactor;
 
-	void SetAbsOrigin( const Vector &vec );
-	const Vector &GetAbsOrigin() const;
+	void SetAbsOrigin(const Vector& vec);
+	const Vector& GetAbsOrigin() const;
 
 private:
 	Vector m_vecAbsOrigin; // edict::origin
 };
 
-inline const Vector &CMoveData::GetAbsOrigin() const
+inline const Vector& CMoveData::GetAbsOrigin() const
 {
 	return m_vecAbsOrigin;
 }
 
 // This is implemented with a more exhaustive test in gamemovement.cpp.  We check if the origin being requested is
 //  inside solid, which it never should be
-inline void CMoveData::SetAbsOrigin( const Vector &vec )
+inline void CMoveData::SetAbsOrigin(const Vector& vec)
 {
 	m_vecAbsOrigin = vec;
 }
@@ -79,13 +79,13 @@ public:
 	virtual ~IGameMovement() {}
 
 	// Process the current movement command
-	virtual void ProcessMovement( CBasePlayer * pPlayer, CMoveData * pMove ) = 0;
-	virtual void StartTrackPredictionErrors( CBasePlayer * pPlayer ) = 0;
-	virtual void FinishTrackPredictionErrors( CBasePlayer * pPlayer ) = 0;
-	virtual void DiffPrint( PRINTF_FORMAT_STRING char const *fmt, ... ) = 0;
+	virtual void ProcessMovement(CBasePlayer * pPlayer, CMoveData * pMove) = 0;
+	virtual void StartTrackPredictionErrors(CBasePlayer * pPlayer) = 0;
+	virtual void FinishTrackPredictionErrors(CBasePlayer * pPlayer) = 0;
+	virtual void DiffPrint(PRINTF_FORMAT_STRING char const* fmt, ...) = 0;
 
 	// Allows other parts of the engine to find out the normal and ducked player bbox sizes
-	virtual Vector GetPlayerMins( bool ducked ) const = 0;
-	virtual Vector GetPlayerMaxs( bool ducked ) const = 0;
-	virtual Vector GetPlayerViewOffset( bool ducked ) const = 0;
+	virtual Vector GetPlayerMins(bool ducked) const = 0;
+	virtual Vector GetPlayerMaxs(bool ducked) const = 0;
+	virtual Vector GetPlayerViewOffset(bool ducked) const = 0;
 };

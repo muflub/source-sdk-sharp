@@ -99,10 +99,10 @@ private:
 	class CPhysicsDelegate : public CSimplePhysics::IHelper
 	{
 	public:
-		virtual void GetNodeForces( CSimplePhysics::CNode *pNodes, int iNode, Vector *pAccel );
-		virtual void ApplyConstraints( CSimplePhysics::CNode *pNodes, int nNodes );
+		virtual void GetNodeForces(CSimplePhysics::CNode* pNodes, int iNode, Vector* pAccel);
+		virtual void ApplyConstraints(CSimplePhysics::CNode* pNodes, int nNodes);
 
-		C_RopeKeyframe *m_pKeyframe;
+		C_RopeKeyframe* m_pKeyframe;
 	};
 
 	friend class CPhysicsDelegate;
@@ -131,8 +131,8 @@ public:
 
 	struct BuildRopeQueuedData_t
 	{
-		Vector *m_pPredictedPositions;
-		Vector *m_pLightValues;
+		Vector* m_pPredictedPositions;
+		Vector* m_pLightValues;
 		int m_iNodeCount;
 		Vector m_vColorMod;
 		float m_RopeLength;
@@ -141,7 +141,7 @@ public:
 
 	// IClientRenderable, which is what an entity was supplying.
 public:
-	virtual int DrawModel( int flags ) OVERRIDE;
+	virtual int DrawModel(int flags) OVERRIDE;
 	virtual bool ShouldDraw() OVERRIDE;
 
 	// Ropes go in RENDER_GROUP_OPAQUE_ENTITY and the rope renderer does its own
@@ -149,11 +149,11 @@ public:
 	// a modelless entity in the default render mode.
 	virtual bool IsTransparent() OVERRIDE { return false; }
 
-	virtual void GetRenderBounds( Vector &mins, Vector &maxs ) OVERRIDE;
+	virtual void GetRenderBounds(Vector& mins, Vector& maxs) OVERRIDE;
 
 	// Specify ROPE_ATTACHMENT_START_POINT or ROPE_ATTACHMENT_END_POINT for the attachment.
-	virtual bool GetAttachment( int number, Vector &origin, QAngle &angles ) OVERRIDE;
-	virtual bool GetAttachment( int number, matrix3x4_t &matrix ) OVERRIDE;
+	virtual bool GetAttachment(int number, Vector& origin, QAngle& angles) OVERRIDE;
+	virtual bool GetAttachment(int number, matrix3x4_t& matrix) OVERRIDE;
 
 private:
 private:
@@ -207,8 +207,8 @@ private:
 
 	CPhysicsDelegate m_PhysicsDelegate;
 
-	IMaterial *m_pMaterial;
-	IMaterial *m_pBackMaterial; // Optional translucent background material for the rope to help reduce aliasing.
+	IMaterial* m_pMaterial;
+	IMaterial* m_pBackMaterial; // Optional translucent background material for the rope to help reduce aliasing.
 
 	int m_TextureHeight; // Texture height, for texture scale calculations.
 
@@ -250,12 +250,12 @@ abstract_class IRopeManager
 public:
 	virtual ~IRopeManager() {}
 	virtual void ResetRenderCache() = 0;
-	virtual void AddToRenderCache( C_RopeKeyframe * pRope ) = 0;
-	virtual void DrawRenderCache( bool bShadowDepth ) = 0;
+	virtual void AddToRenderCache(C_RopeKeyframe * pRope) = 0;
+	virtual void DrawRenderCache(bool bShadowDepth) = 0;
 	virtual void OnRenderStart() = 0;
-	virtual void SetHolidayLightMode( bool bHoliday ) = 0;
+	virtual void SetHolidayLightMode(bool bHoliday) = 0;
 	virtual bool IsHolidayLightMode() = 0;
 	virtual int GetHolidayLightStyle() = 0;
 };
 
-IRopeManager *RopeManager();
+IRopeManager* RopeManager();

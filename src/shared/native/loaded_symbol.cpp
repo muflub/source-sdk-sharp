@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined( _WIN32 )
+#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -17,29 +17,29 @@
 namespace ss
 {
 
-#if !defined( _WIN32 )
+#if !defined(_WIN32)
 namespace
 {
-const char *BaseName( const char *pszName )
+const char* BaseName(const char* pszName)
 {
-	const char *pszBase = strrchr( pszName, '/' );
+	const char* pszBase = strrchr(pszName, '/');
 	return pszBase ? pszBase + 1 : pszName;
 }
 
 struct FindFile_t
 {
-	const char *pszFile;
-	const char *pszPath;
+	const char* pszFile;
+	const char* pszPath;
 };
 
-int FindLoadedPath( struct dl_phdr_info *pInfo, size_t, void *pv )
+int FindLoadedPath(struct dl_phdr_info* pInfo, size_t, void* pv)
 {
-	FindFile_t *pFind = (FindFile_t *)pv;
-	const char *pszName = pInfo->dlpi_name;
-	if ( !pszName || !*pszName )
+	FindFile_t* pFind = (FindFile_t*)pv;
+	const char* pszName = pInfo->dlpi_name;
+	if (!pszName || !*pszName)
 		return 0;
 
-	if ( strcmp( BaseName( pszName ), pFind->pszFile ) != 0 )
+	if (strcmp(BaseName(pszName), pFind->pszFile) != 0)
 		return 0;
 
 	pFind->pszPath = pszName;
@@ -47,35 +47,35 @@ int FindLoadedPath( struct dl_phdr_info *pInfo, size_t, void *pv )
 }
 
 // The path the dynamic linker has for a loaded file of that base name, or NULL.
-const char *LoadedPath( const char *pszFile )
+const char* LoadedPath(const char* pszFile)
 {
-	FindFile_t find = { pszFile, NULL };
-	dl_iterate_phdr( FindLoadedPath, &find );
+	FindFile_t find = {pszFile, NULL};
+	dl_iterate_phdr(FindLoadedPath, &find);
 	return find.pszPath;
 }
 }
 #endif
 
-void *FindLoadedSymbol( const char *pszFile, const char *pszSymbol )
+void* FindLoadedSymbol(const char* pszFile, const char* pszSymbol)
 {
-#if defined( _WIN32 )
-	HMODULE hModule = ::GetModuleHandleA( pszFile );
-	if ( !hModule )
+#if defined(_WIN32)
+	HMODULE hModule = ::GetModuleHandleA(pszFile);
+	if (!hModule)
 		return NULL;
-	return (void *)::GetProcAddress( hModule, pszSymbol );
+	return (void*)::GetProcAddress(hModule, pszSymbol);
 #else
-	const char *pszPath = LoadedPath( pszFile );
-	if ( !pszPath )
+	const char* pszPath = LoadedPath(pszFile);
+	if (!pszPath)
 		return NULL;
 
-	void *hModule = dlopen( pszPath, RTLD_NOW | RTLD_NOLOAD );
-	if ( !hModule )
+	void* hModule = dlopen(pszPath, RTLD_NOW | RTLD_NOLOAD);
+	if (!hModule)
 		return NULL;
 
-	void *pSymbol = dlsym( hModule, pszSymbol );
+	void* pSymbol = dlsym(hModule, pszSymbol);
 
 	// NOLOAD took a reference to a library something else keeps loaded.
-	dlclose( hModule );
+	dlclose(hModule);
 	return pSymbol;
 #endif
 }

@@ -22,11 +22,11 @@ bool CServerEntityContext::CommandIssuedByServerAdmin() const
 	// and 1 is player 1.
 	const int issuingPlayerIndex = m_Players.m_nCommandClientSlot + 1;
 
-	if ( m_pEngine->IsDedicatedServer() && issuingPlayerIndex > 0 )
+	if (m_pEngine->IsDedicatedServer() && issuingPlayerIndex > 0)
 		return false;
 
 	// This mod ships no Replay, so "not slot 1" is the whole question.
-	if ( issuingPlayerIndex > 1 )
+	if (issuingPlayerIndex > 1)
 	{
 		return false;
 	}

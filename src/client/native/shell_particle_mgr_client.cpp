@@ -23,7 +23,7 @@
 
 #include "shell_particle_mgr.h"
 
-extern IParticleSystemQuery *g_pParticleSystemQuery;
+extern IParticleSystemQuery* g_pParticleSystemQuery;
 
 // particlemgr.h's two value classes.
 CParticleSubTextureGroup::CParticleSubTextureGroup()
@@ -52,40 +52,40 @@ namespace
 // system Init hands over, the table, and the draw state.
 struct ShellParticleMgr_t
 {
-	IMaterialSystem *pMaterialSystem;
-	CUtlVector<CParticleSubTextureGroup *> *pGroups; // lookup by page material
-	CUtlDict<CParticleSubTexture *, unsigned short> *pSubTextures; // lookup by material name
+	IMaterialSystem* pMaterialSystem;
+	CUtlVector<CParticleSubTextureGroup*>* pGroups; // lookup by page material
+	CUtlDict<CParticleSubTexture*, unsigned short>* pSubTextures; // lookup by material name
 	CParticleLightInfo light;
 	VMatrix modelView;
 };
 
 ShellParticleMgr_t s_Mgr;
 
-CUtlVector<CParticleSubTextureGroup *> &Groups()
+CUtlVector<CParticleSubTextureGroup*>& Groups()
 {
-	if ( !s_Mgr.pGroups )
-		s_Mgr.pGroups = new CUtlVector<CParticleSubTextureGroup *>;
+	if (!s_Mgr.pGroups)
+		s_Mgr.pGroups = new CUtlVector<CParticleSubTextureGroup*>;
 	return *s_Mgr.pGroups;
 }
 
-CUtlDict<CParticleSubTexture *, unsigned short> &SubTextures()
+CUtlDict<CParticleSubTexture*, unsigned short>& SubTextures()
 {
-	if ( !s_Mgr.pSubTextures )
-		s_Mgr.pSubTextures = new CUtlDict<CParticleSubTexture *, unsigned short>;
+	if (!s_Mgr.pSubTextures)
+		s_Mgr.pSubTextures = new CUtlDict<CParticleSubTexture*, unsigned short>;
 	return *s_Mgr.pSubTextures;
 }
 
-CParticleSubTextureGroup *FindOrAddSubTextureGroup( IMaterial *pPageMaterial )
+CParticleSubTextureGroup* FindOrAddSubTextureGroup(IMaterial* pPageMaterial)
 {
-	CUtlVector<CParticleSubTextureGroup *> &groups = Groups();
-	for ( int i = 0; i < groups.Count(); i++ )
+	CUtlVector<CParticleSubTextureGroup*>& groups = Groups();
+	for (int i = 0; i < groups.Count(); i++)
 	{
-		if ( groups[i]->m_pPageMaterial == pPageMaterial )
+		if (groups[i]->m_pPageMaterial == pPageMaterial)
 			return groups[i];
 	}
 
-	CParticleSubTextureGroup *pGroup = new CParticleSubTextureGroup;
-	groups.AddToTail( pGroup );
+	CParticleSubTextureGroup* pGroup = new CParticleSubTextureGroup;
+	groups.AddToTail(pGroup);
 	pGroup->m_pPageMaterial = pPageMaterial;
 	pPageMaterial->AddRef();
 
@@ -93,37 +93,37 @@ CParticleSubTextureGroup *FindOrAddSubTextureGroup( IMaterial *pPageMaterial )
 }
 
 // A handle a level shutdown released, its material found again by name.
-void RepairPMaterial( PMaterialHandle hMaterial )
+void RepairPMaterial(PMaterialHandle hMaterial)
 {
-	if ( hMaterial->m_pMaterial != NULL || !s_Mgr.pMaterialSystem )
+	if (hMaterial->m_pMaterial != NULL || !s_Mgr.pMaterialSystem)
 		return;
 
-	CUtlDict<CParticleSubTexture *, unsigned short> &subTextures = SubTextures();
-	const char *pMaterialName = NULL;
-	for ( int i = subTextures.First(); i != subTextures.InvalidIndex(); i = subTextures.Next( i ) )
+	CUtlDict<CParticleSubTexture*, unsigned short>& subTextures = SubTextures();
+	const char* pMaterialName = NULL;
+	for (int i = subTextures.First(); i != subTextures.InvalidIndex(); i = subTextures.Next(i))
 	{
-		if ( subTextures[i] == hMaterial )
+		if (subTextures[i] == hMaterial)
 		{
-			pMaterialName = subTextures.GetElementName( i );
+			pMaterialName = subTextures.GetElementName(i);
 			break;
 		}
 	}
-	Assert( pMaterialName != NULL );
-	if ( !pMaterialName )
+	Assert(pMaterialName != NULL);
+	if (!pMaterialName)
 		return;
 
-	IMaterial *pIMaterial = s_Mgr.pMaterialSystem->FindMaterial( pMaterialName, TEXTURE_GROUP_PARTICLE );
+	IMaterial* pIMaterial = s_Mgr.pMaterialSystem->FindMaterial(pMaterialName, TEXTURE_GROUP_PARTICLE);
 	hMaterial->m_pMaterial = pIMaterial;
-	if ( pIMaterial != NULL )
+	if (pIMaterial != NULL)
 	{
 		pIMaterial->AddRef();
-		CMatRenderContextPtr pRenderContext( s_Mgr.pMaterialSystem );
-		pRenderContext->Bind( pIMaterial, ShellParticleDraw_BindArg() );
+		CMatRenderContextPtr pRenderContext(s_Mgr.pMaterialSystem);
+		pRenderContext->Bind(pIMaterial, ShellParticleDraw_BindArg());
 
-		IMaterial *pPageMaterial = pIMaterial->GetMaterialPage();
-		if ( pIMaterial->InMaterialPage() && pPageMaterial )
+		IMaterial* pPageMaterial = pIMaterial->GetMaterialPage();
+		if (pIMaterial->InMaterialPage() && pPageMaterial)
 		{
-			if ( hMaterial->m_pGroup->m_pPageMaterial == NULL )
+			if (hMaterial->m_pGroup->m_pPageMaterial == NULL)
 			{
 				hMaterial->m_pGroup->m_pPageMaterial = pPageMaterial;
 				pPageMaterial->AddRef();
@@ -137,33 +137,33 @@ void RepairPMaterial( PMaterialHandle hMaterial )
 }
 
 // Every held material released; with bDelete the table goes with them (Term).
-void ReleaseMaterials( bool bDelete )
+void ReleaseMaterials(bool bDelete)
 {
-	if ( s_Mgr.pSubTextures )
+	if (s_Mgr.pSubTextures)
 	{
-		CUtlDict<CParticleSubTexture *, unsigned short> &subTextures = *s_Mgr.pSubTextures;
-		for ( int i = subTextures.First(); i != subTextures.InvalidIndex(); i = subTextures.Next( i ) )
+		CUtlDict<CParticleSubTexture*, unsigned short>& subTextures = *s_Mgr.pSubTextures;
+		for (int i = subTextures.First(); i != subTextures.InvalidIndex(); i = subTextures.Next(i))
 		{
-			IMaterial *pMaterial = subTextures[i]->m_pMaterial;
-			if ( pMaterial )
+			IMaterial* pMaterial = subTextures[i]->m_pMaterial;
+			if (pMaterial)
 				pMaterial->Release();
 			subTextures[i]->m_pMaterial = NULL;
 		}
-		if ( bDelete )
+		if (bDelete)
 			subTextures.PurgeAndDeleteElements();
 	}
 
-	if ( s_Mgr.pGroups )
+	if (s_Mgr.pGroups)
 	{
-		CUtlVector<CParticleSubTextureGroup *> &groups = *s_Mgr.pGroups;
-		for ( int i = groups.Count(); --i >= 0; )
+		CUtlVector<CParticleSubTextureGroup*>& groups = *s_Mgr.pGroups;
+		for (int i = groups.Count(); --i >= 0;)
 		{
-			IMaterial *pMaterial = groups[i]->m_pPageMaterial;
-			if ( pMaterial )
+			IMaterial* pMaterial = groups[i]->m_pPageMaterial;
+			if (pMaterial)
 				pMaterial->Release();
 			groups[i]->m_pPageMaterial = NULL;
 		}
-		if ( bDelete )
+		if (bDelete)
 			groups.PurgeAndDeleteElements();
 	}
 }
@@ -171,96 +171,96 @@ void ReleaseMaterials( bool bDelete )
 } // namespace
 
 // The library's setup, as CParticleMgr's Init, Term and LevelInit made it.
-bool ShellParticleMgr_Init( IMaterialSystem *pMaterials )
+bool ShellParticleMgr_Init(IMaterialSystem* pMaterials)
 {
 	ShellParticleMgr_Term();
 
 	s_Mgr.pMaterialSystem = pMaterials;
 
-	g_pParticleSystemMgr->Init( g_pParticleSystemQuery );
+	g_pParticleSystemMgr->Init(g_pParticleSystemQuery);
 	g_pParticleSystemMgr->AddBuiltinSimulationOperators();
 	g_pParticleSystemMgr->AddBuiltinRenderingOperators();
 
 	// Send true to load the sheets.
-	ParseParticleEffects( true, false );
+	ParseParticleEffects(true, false);
 	return true;
 }
 
 void ShellParticleMgr_Term()
 {
-	ReleaseMaterials( true );
+	ReleaseMaterials(true);
 
 	g_pParticleSystemMgr->UncacheAllParticleSystems();
-	if ( s_Mgr.pMaterialSystem )
+	if (s_Mgr.pMaterialSystem)
 		s_Mgr.pMaterialSystem->UncacheUnusedMaterials();
 	s_Mgr.pMaterialSystem = NULL;
 }
 
 void ShellParticleMgr_LevelInit()
 {
-	g_pParticleSystemMgr->SetLastSimulationTime( gpGlobals->curtime );
+	g_pParticleSystemMgr->SetLastSimulationTime(gpGlobals->curtime);
 }
 
 // Handles leak from level to level, as stock's did: their next use re-acquires
 // the material.
 void ShellParticleMgr_LevelShutdown()
 {
-	ReleaseMaterials( false );
+	ReleaseMaterials(false);
 }
 
 // The PMaterial table: CParticleMgr::GetPMaterial and PMaterialToIMaterial.
-PMaterialHandle ShellParticleMaterial_Find( const char *pMaterialName )
+PMaterialHandle ShellParticleMaterial_Find(const char* pMaterialName)
 {
-	if ( !s_Mgr.pMaterialSystem )
+	if (!s_Mgr.pMaterialSystem)
 	{
-		Assert( false );
+		Assert(false);
 		return NULL;
 	}
 
-	CUtlDict<CParticleSubTexture *, unsigned short> &subTextures = SubTextures();
-	int hMat = subTextures.Find( pMaterialName );
-	if ( hMat != subTextures.InvalidIndex() )
+	CUtlDict<CParticleSubTexture*, unsigned short>& subTextures = SubTextures();
+	int hMat = subTextures.Find(pMaterialName);
+	if (hMat != subTextures.InvalidIndex())
 	{
-		RepairPMaterial( subTextures[hMat] );
+		RepairPMaterial(subTextures[hMat]);
 		return subTextures[hMat];
 	}
 
-	IMaterial *pIMaterial = s_Mgr.pMaterialSystem->FindMaterial( pMaterialName, TEXTURE_GROUP_PARTICLE );
-	if ( !pIMaterial )
+	IMaterial* pIMaterial = s_Mgr.pMaterialSystem->FindMaterial(pMaterialName, TEXTURE_GROUP_PARTICLE);
+	if (!pIMaterial)
 		return NULL;
 
 	pIMaterial->AddRef();
 
-	CMatRenderContextPtr pRenderContext( s_Mgr.pMaterialSystem );
-	pRenderContext->Bind( pIMaterial, ShellParticleDraw_BindArg() );
+	CMatRenderContextPtr pRenderContext(s_Mgr.pMaterialSystem);
+	pRenderContext->Bind(pIMaterial, ShellParticleDraw_BindArg());
 
-	hMat = subTextures.Insert( pMaterialName );
-	CParticleSubTexture *pSubTexture = new CParticleSubTexture;
+	hMat = subTextures.Insert(pMaterialName);
+	CParticleSubTexture* pSubTexture = new CParticleSubTexture;
 	subTextures[hMat] = pSubTexture;
 	pSubTexture->m_pMaterial = pIMaterial;
 
 #ifdef _DEBUG
-	int iNameLength = V_strlen( pMaterialName ) + 1;
+	int iNameLength = V_strlen(pMaterialName) + 1;
 	pSubTexture->m_szDebugName = new char[iNameLength];
-	memcpy( pSubTexture->m_szDebugName, pMaterialName, iNameLength );
+	memcpy(pSubTexture->m_szDebugName, pMaterialName, iNameLength);
 #endif
 
 	// A material in a page shares the page's group and maps to its part of
 	// the page; one in no page is its own group.
-	IMaterial *pPageMaterial = pIMaterial->GetMaterialPage();
-	if ( pIMaterial->InMaterialPage() && pPageMaterial )
+	IMaterial* pPageMaterial = pIMaterial->GetMaterialPage();
+	if (pIMaterial->InMaterialPage() && pPageMaterial)
 	{
 		float flOffset[2], flScale[2];
-		pIMaterial->GetMaterialOffset( flOffset );
-		pIMaterial->GetMaterialScale( flScale );
+		pIMaterial->GetMaterialOffset(flOffset);
+		pIMaterial->GetMaterialScale(flScale);
 
-		pSubTexture->m_tCoordMins[0] = ( 0 * flScale[0] + flOffset[0] ) * pPageMaterial->GetMappingWidth();
-		pSubTexture->m_tCoordMaxs[0] = ( 1 * flScale[0] + flOffset[0] ) * pPageMaterial->GetMappingWidth();
+		pSubTexture->m_tCoordMins[0] = (0 * flScale[0] + flOffset[0]) * pPageMaterial->GetMappingWidth();
+		pSubTexture->m_tCoordMaxs[0] = (1 * flScale[0] + flOffset[0]) * pPageMaterial->GetMappingWidth();
 
-		pSubTexture->m_tCoordMins[1] = ( 0 * flScale[1] + flOffset[1] ) * pPageMaterial->GetMappingHeight();
-		pSubTexture->m_tCoordMaxs[1] = ( 1 * flScale[1] + flOffset[1] ) * pPageMaterial->GetMappingHeight();
+		pSubTexture->m_tCoordMins[1] = (0 * flScale[1] + flOffset[1]) * pPageMaterial->GetMappingHeight();
+		pSubTexture->m_tCoordMaxs[1] = (1 * flScale[1] + flOffset[1]) * pPageMaterial->GetMappingHeight();
 
-		pSubTexture->m_pGroup = FindOrAddSubTextureGroup( pPageMaterial );
+		pSubTexture->m_pGroup = FindOrAddSubTextureGroup(pPageMaterial);
 	}
 	else
 	{
@@ -274,39 +274,39 @@ PMaterialHandle ShellParticleMaterial_Find( const char *pMaterialName )
 	}
 
 	// The texcoords, half a texel in from each edge.
-	pSubTexture->m_tCoordMins[0] = ( pSubTexture->m_tCoordMins[0] + 0.5f ) / pPageMaterial->GetMappingWidth();
-	pSubTexture->m_tCoordMins[1] = ( pSubTexture->m_tCoordMins[1] + 0.5f ) / pPageMaterial->GetMappingHeight();
-	pSubTexture->m_tCoordMaxs[0] = ( pSubTexture->m_tCoordMaxs[0] - 0.5f ) / pPageMaterial->GetMappingWidth();
-	pSubTexture->m_tCoordMaxs[1] = ( pSubTexture->m_tCoordMaxs[1] - 0.5f ) / pPageMaterial->GetMappingHeight();
+	pSubTexture->m_tCoordMins[0] = (pSubTexture->m_tCoordMins[0] + 0.5f) / pPageMaterial->GetMappingWidth();
+	pSubTexture->m_tCoordMins[1] = (pSubTexture->m_tCoordMins[1] + 0.5f) / pPageMaterial->GetMappingHeight();
+	pSubTexture->m_tCoordMaxs[0] = (pSubTexture->m_tCoordMaxs[0] - 0.5f) / pPageMaterial->GetMappingWidth();
+	pSubTexture->m_tCoordMaxs[1] = (pSubTexture->m_tCoordMaxs[1] - 0.5f) / pPageMaterial->GetMappingHeight();
 
 	return pSubTexture;
 }
 
-IMaterial *ShellParticleMaterial_Material( PMaterialHandle hMaterial )
+IMaterial* ShellParticleMaterial_Material(PMaterialHandle hMaterial)
 {
-	if ( !hMaterial )
+	if (!hMaterial)
 		return NULL;
-	RepairPMaterial( hMaterial );
+	RepairPMaterial(hMaterial);
 	return hMaterial->m_pMaterial;
 }
 
 // The draw state.
-VMatrix &ShellParticleDraw_ModelView()
+VMatrix& ShellParticleDraw_ModelView()
 {
 	return s_Mgr.modelView;
 }
 
-void ShellParticleDraw_GetLight( CParticleLightInfo &info )
+void ShellParticleDraw_GetLight(CParticleLightInfo& info)
 {
 	info = s_Mgr.light;
 }
 
-void ShellParticleDraw_SetLight( const CParticleLightInfo &info )
+void ShellParticleDraw_SetLight(const CParticleLightInfo& info)
 {
 	s_Mgr.light = info;
 }
 
-void *ShellParticleDraw_BindArg()
+void* ShellParticleDraw_BindArg()
 {
 	return &s_Mgr;
 }

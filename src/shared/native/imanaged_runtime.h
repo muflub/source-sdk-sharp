@@ -27,114 +27,111 @@ class IManagedRuntimeServer;
 // The table managed writes for IManagedRuntimeServer: Release, Validate, then the TSV's order.
 struct SSManagedRuntimeServerTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	bool ( *OnSystemStart )( IManagedRuntimeServer *self );
-	bool ( *OnGameStart )( IManagedRuntimeServer *self );
-	void ( *OnGamePostStart )( IManagedRuntimeServer *self );
-	void ( *OnGameStop )( IManagedRuntimeServer *self );
-	bool ( *OnMapLoad )( IManagedRuntimeServer *self, const SourceSharpMapLoad *pLoad, bool loadGame, bool background );
-	void ( *OnMapUnload )( IManagedRuntimeServer *self );
-	void ( *OnServerActivate )( IManagedRuntimeServer *self );
-	void ( *OnGameFrame )( IManagedRuntimeServer *self, bool simulating );
-	void ( *OnPreClientUpdate )( IManagedRuntimeServer *self );
-	void ( *OnThink )( IManagedRuntimeServer *self );
-	void ( *CreateNetworkStringTables )( IManagedRuntimeServer *self );
-	float ( *OnTickInterval )( IManagedRuntimeServer *self );
-	bool ( *OnShouldHideServer )( IManagedRuntimeServer *self );
-	int ( *OnBrowserMapOverride )( IManagedRuntimeServer *self, char *pOut, int nOutSize );
-	int ( *OnBrowserGameData )( IManagedRuntimeServer *self, char *pOut, int nOutSize );
-	bool ( *OnIsManualMapChangeOkay )( IManagedRuntimeServer *self, char *pReasonOut, int nOutSize );
-	void ( *OnQueryCvarValueFinished )( IManagedRuntimeServer *self, int nCookie, int nEntIndex, int eStatus,
-										const char *pCvarName, const char *pCvarValue );
-	void ( *OnHibernation )( IManagedRuntimeServer *self, bool bHibernating );
-	int ( *OnStatusLines )( IManagedRuntimeServer *self, char *pOut, int nOutSize );
-	void ( *OnInvalidateMdlCache )( IManagedRuntimeServer *self );
-	void ( *OnSteamGameServerActivated )( IManagedRuntimeServer *self );
-	void ( *OnSteamGameServerShutdown )( IManagedRuntimeServer *self );
-	void ( *OnMapLoadPreEntity )( IManagedRuntimeServer *self, const char *pszMapName );
-	int ( *OnWorldKeyValue )( IManagedRuntimeServer *self, uint32_t hWorld, const char *pKey, const char *pValue );
-	void ( *OnGetGameDescription )( IManagedRuntimeServer *self, char *pOut, int nOutSize );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	bool (*OnSystemStart)(IManagedRuntimeServer* self);
+	bool (*OnGameStart)(IManagedRuntimeServer* self);
+	void (*OnGamePostStart)(IManagedRuntimeServer* self);
+	void (*OnGameStop)(IManagedRuntimeServer* self);
+	bool (*OnMapLoad)(IManagedRuntimeServer* self, const SourceSharpMapLoad* pLoad, bool loadGame, bool background);
+	void (*OnMapUnload)(IManagedRuntimeServer* self);
+	void (*OnServerActivate)(IManagedRuntimeServer* self);
+	void (*OnGameFrame)(IManagedRuntimeServer* self, bool simulating);
+	void (*OnPreClientUpdate)(IManagedRuntimeServer* self);
+	void (*OnThink)(IManagedRuntimeServer* self);
+	void (*CreateNetworkStringTables)(IManagedRuntimeServer* self);
+	float (*OnTickInterval)(IManagedRuntimeServer* self);
+	bool (*OnShouldHideServer)(IManagedRuntimeServer* self);
+	int (*OnBrowserMapOverride)(IManagedRuntimeServer* self, char* pOut, int nOutSize);
+	int (*OnBrowserGameData)(IManagedRuntimeServer* self, char* pOut, int nOutSize);
+	bool (*OnIsManualMapChangeOkay)(IManagedRuntimeServer* self, char* pReasonOut, int nOutSize);
+	void (*OnQueryCvarValueFinished)(IManagedRuntimeServer* self, int nCookie, int nEntIndex, int eStatus,
+									 const char* pCvarName, const char* pCvarValue);
+	void (*OnHibernation)(IManagedRuntimeServer* self, bool bHibernating);
+	int (*OnStatusLines)(IManagedRuntimeServer* self, char* pOut, int nOutSize);
+	void (*OnInvalidateMdlCache)(IManagedRuntimeServer* self);
+	void (*OnSteamGameServerActivated)(IManagedRuntimeServer* self);
+	void (*OnSteamGameServerShutdown)(IManagedRuntimeServer* self);
+	void (*OnMapLoadPreEntity)(IManagedRuntimeServer* self, const char* pszMapName);
+	int (*OnWorldKeyValue)(IManagedRuntimeServer* self, uint32_t hWorld, const char* pKey, const char* pValue);
+	void (*OnGetGameDescription)(IManagedRuntimeServer* self, char* pOut, int nOutSize);
 };
 
 class IManagedRuntimeServer : public IManagedObject
 {
 public:
-	explicit IManagedRuntimeServer( const SSManagedRuntimeServerTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedRuntimeServer(const SSManagedRuntimeServerTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	bool OnSystemStart() { return Table()->OnSystemStart( this ); }
+	bool OnSystemStart() { return Table()->OnSystemStart(this); }
 
-	bool OnGameStart() { return Table()->OnGameStart( this ); }
+	bool OnGameStart() { return Table()->OnGameStart(this); }
 
-	void OnGamePostStart() { Table()->OnGamePostStart( this ); }
+	void OnGamePostStart() { Table()->OnGamePostStart(this); }
 
-	void OnGameStop() { Table()->OnGameStop( this ); }
+	void OnGameStop() { Table()->OnGameStop(this); }
 
-	bool OnMapLoad( const SourceSharpMapLoad *pLoad, bool loadGame, bool background )
+	bool OnMapLoad(const SourceSharpMapLoad* pLoad, bool loadGame, bool background)
 	{
-		return Table()->OnMapLoad( this, pLoad, loadGame, background );
+		return Table()->OnMapLoad(this, pLoad, loadGame, background);
 	}
 
-	void OnMapUnload() { Table()->OnMapUnload( this ); }
+	void OnMapUnload() { Table()->OnMapUnload(this); }
 
-	void OnServerActivate() { Table()->OnServerActivate( this ); }
+	void OnServerActivate() { Table()->OnServerActivate(this); }
 
-	void OnGameFrame( bool simulating ) { Table()->OnGameFrame( this, simulating ); }
+	void OnGameFrame(bool simulating) { Table()->OnGameFrame(this, simulating); }
 
-	void OnPreClientUpdate() { Table()->OnPreClientUpdate( this ); }
+	void OnPreClientUpdate() { Table()->OnPreClientUpdate(this); }
 
-	void OnThink() { Table()->OnThink( this ); }
+	void OnThink() { Table()->OnThink(this); }
 
-	void CreateNetworkStringTables() { Table()->CreateNetworkStringTables( this ); }
+	void CreateNetworkStringTables() { Table()->CreateNetworkStringTables(this); }
 
-	float OnTickInterval() { return Table()->OnTickInterval( this ); }
+	float OnTickInterval() { return Table()->OnTickInterval(this); }
 
-	bool OnShouldHideServer() { return Table()->OnShouldHideServer( this ); }
+	bool OnShouldHideServer() { return Table()->OnShouldHideServer(this); }
 
-	int OnBrowserMapOverride( char *pOut, int nOutSize )
+	int OnBrowserMapOverride(char* pOut, int nOutSize) { return Table()->OnBrowserMapOverride(this, pOut, nOutSize); }
+
+	int OnBrowserGameData(char* pOut, int nOutSize) { return Table()->OnBrowserGameData(this, pOut, nOutSize); }
+
+	bool OnIsManualMapChangeOkay(char* pReasonOut, int nOutSize)
 	{
-		return Table()->OnBrowserMapOverride( this, pOut, nOutSize );
+		return Table()->OnIsManualMapChangeOkay(this, pReasonOut, nOutSize);
 	}
 
-	int OnBrowserGameData( char *pOut, int nOutSize ) { return Table()->OnBrowserGameData( this, pOut, nOutSize ); }
-
-	bool OnIsManualMapChangeOkay( char *pReasonOut, int nOutSize )
+	void OnQueryCvarValueFinished(int nCookie, int nEntIndex, int eStatus, const char* pCvarName,
+								  const char* pCvarValue)
 	{
-		return Table()->OnIsManualMapChangeOkay( this, pReasonOut, nOutSize );
+		Table()->OnQueryCvarValueFinished(this, nCookie, nEntIndex, eStatus, pCvarName, pCvarValue);
 	}
 
-	void OnQueryCvarValueFinished( int nCookie, int nEntIndex, int eStatus, const char *pCvarName,
-								   const char *pCvarValue )
+	void OnHibernation(bool bHibernating) { Table()->OnHibernation(this, bHibernating); }
+
+	int OnStatusLines(char* pOut, int nOutSize) { return Table()->OnStatusLines(this, pOut, nOutSize); }
+
+	void OnInvalidateMdlCache() { Table()->OnInvalidateMdlCache(this); }
+
+	void OnSteamGameServerActivated() { Table()->OnSteamGameServerActivated(this); }
+
+	void OnSteamGameServerShutdown() { Table()->OnSteamGameServerShutdown(this); }
+
+	void OnMapLoadPreEntity(const char* pszMapName) { Table()->OnMapLoadPreEntity(this, pszMapName); }
+
+	int OnWorldKeyValue(uint32_t hWorld, const char* pKey, const char* pValue)
 	{
-		Table()->OnQueryCvarValueFinished( this, nCookie, nEntIndex, eStatus, pCvarName, pCvarValue );
+		return Table()->OnWorldKeyValue(this, hWorld, pKey, pValue);
 	}
 
-	void OnHibernation( bool bHibernating ) { Table()->OnHibernation( this, bHibernating ); }
-
-	int OnStatusLines( char *pOut, int nOutSize ) { return Table()->OnStatusLines( this, pOut, nOutSize ); }
-
-	void OnInvalidateMdlCache() { Table()->OnInvalidateMdlCache( this ); }
-
-	void OnSteamGameServerActivated() { Table()->OnSteamGameServerActivated( this ); }
-
-	void OnSteamGameServerShutdown() { Table()->OnSteamGameServerShutdown( this ); }
-
-	void OnMapLoadPreEntity( const char *pszMapName ) { Table()->OnMapLoadPreEntity( this, pszMapName ); }
-
-	int OnWorldKeyValue( uint32_t hWorld, const char *pKey, const char *pValue )
-	{
-		return Table()->OnWorldKeyValue( this, hWorld, pKey, pValue );
-	}
-
-	void OnGetGameDescription( char *pOut, int nOutSize ) { Table()->OnGetGameDescription( this, pOut, nOutSize ); }
+	void OnGetGameDescription(char* pOut, int nOutSize) { Table()->OnGetGameDescription(this, pOut, nOutSize); }
 
 private:
-	const SSManagedRuntimeServerTable *Table() const
+	const SSManagedRuntimeServerTable* Table() const
 	{
-		return static_cast<const SSManagedRuntimeServerTable *>( m_pTable );
+		return static_cast<const SSManagedRuntimeServerTable*>(m_pTable);
 	}
 };
 
@@ -144,7 +141,7 @@ static const uint32_t kIManagedRuntimeServerSlotHashes[] = {
 	0xde10bc09, 0xffa5785e, 0x3169518e, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x3aa7ebf0, 0xdcf0f1f1, 0x3e98ef21,
 };
 static const int32_t kIManagedRuntimeServerSlotCount = 27;
-static_assert( sizeof( SSManagedRuntimeServerTable ) == 27 * sizeof( void * ),
-			   "SSManagedRuntimeServerTable is one pointer per slot" );
+static_assert(sizeof(SSManagedRuntimeServerTable) == 27 * sizeof(void*),
+			  "SSManagedRuntimeServerTable is one pointer per slot");
 
 #endif // !CLIENT_DLL

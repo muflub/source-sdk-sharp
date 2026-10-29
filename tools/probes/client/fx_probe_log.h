@@ -11,10 +11,10 @@
 
 #pragma once
 
-void FxProbeLog( const char *pFmt, ... ) __attribute__( ( format( printf, 1, 2 ) ) );
+void FxProbeLog(const char* pFmt, ...) __attribute__((format(printf, 1, 2)));
 
 // random->RandomFloat / RandomInt, drawn from the same engine stream and logged
 // ("fxr f <lo> <hi> <value>", "fxr i <lo> <hi> <value>"): a probe copy says
 // FxProbeRandomFloat( where stock says random->RandomFloat(.
-float FxProbeRandomFloat( float flLow, float flHigh );
-int FxProbeRandomInt( int iLow, int iHigh );
+float FxProbeRandomFloat(float flLow, float flHigh);
+int FxProbeRandomInt(int iLow, int iHigh);

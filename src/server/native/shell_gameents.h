@@ -25,45 +25,45 @@ class CBoundaryProbe;
 class CServerGameEnts final : public IServerGameEnts
 {
 public:
-	CServerGameEnts( IVEngineServer *pEngine, IMDLCache *pMdlCache, const CManagedAreas &managed,
-					 const bool &bManagedLoaded, CShellTransmitSet &transmitSet, CBoundaryProbe &probes,
-					 CServerEntityResolver &entities )
-		: m_pEngine( pEngine )
-		, m_pMdlCache( pMdlCache )
-		, m_Managed( managed )
-		, m_bManagedLoaded( bManagedLoaded )
-		, m_TransmitSet( transmitSet )
-		, m_Probes( probes )
-		, m_Entities( entities )
+	CServerGameEnts(IVEngineServer* pEngine, IMDLCache* pMdlCache, const CManagedAreas& managed,
+					const bool& bManagedLoaded, CShellTransmitSet& transmitSet, CBoundaryProbe& probes,
+					CServerEntityResolver& entities)
+		: m_pEngine(pEngine)
+		, m_pMdlCache(pMdlCache)
+		, m_Managed(managed)
+		, m_bManagedLoaded(bManagedLoaded)
+		, m_TransmitSet(transmitSet)
+		, m_Probes(probes)
+		, m_Entities(entities)
 	{
 	}
 
-	CServerGameEnts( const CServerGameEnts & ) = delete;
-	CServerGameEnts &operator=( const CServerGameEnts & ) = delete;
+	CServerGameEnts(const CServerGameEnts&) = delete;
+	CServerGameEnts& operator=(const CServerGameEnts&) = delete;
 
-	void SetDebugEdictBase( edict_t *base ) override;
-	void MarkEntitiesAsTouching( edict_t *e1, edict_t *e2 ) override;
-	void FreeContainingEntity( edict_t * ) override;
-	edict_t *BaseEntityToEdict( IGameEntity *pEnt ) override;
-	IGameEntity *EdictToBaseEntity( edict_t *pEdict ) override;
-	void CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned short *pEdictIndices, int nEdicts ) override;
+	void SetDebugEdictBase(edict_t* base) override;
+	void MarkEntitiesAsTouching(edict_t* e1, edict_t* e2) override;
+	void FreeContainingEntity(edict_t*) override;
+	edict_t* BaseEntityToEdict(IGameEntity* pEnt) override;
+	IGameEntity* EdictToBaseEntity(edict_t* pEdict) override;
+	void CheckTransmit(CCheckTransmitInfo* pInfo, const unsigned short* pEdictIndices, int nEdicts) override;
 
 private:
 	// For CheckTransmit: 1 with *pOutArea set to the client's 3D-skybox area, else 0.
-	int SkyboxAreaForClient( int iClientEdict, int *pOutArea ) const;
+	int SkyboxAreaForClient(int iClientEdict, int* pOutArea) const;
 
-	IVEngineServer *m_pEngine;
-	IMDLCache *m_pMdlCache;
-	const CManagedAreas &m_Managed;
+	IVEngineServer* m_pEngine;
+	IMDLCache* m_pMdlCache;
+	const CManagedAreas& m_Managed;
 
 	// False while the managed side is down, a reload included.
-	const bool &m_bManagedLoaded;
-	CShellTransmitSet &m_TransmitSet;
+	const bool& m_bManagedLoaded;
+	CShellTransmitSet& m_TransmitSet;
 
 	// Counts the engine's calls into this object, for ss_boundary_probe_report.
-	CBoundaryProbe &m_Probes;
+	CBoundaryProbe& m_Probes;
 
 	// What a touch report's edicts name.
-	CServerEntityResolver &m_Entities;
-	edict_t *m_pDebugEdictBase = NULL;
+	CServerEntityResolver& m_Entities;
+	edict_t* m_pDebugEdictBase = NULL;
 };

@@ -13,25 +13,25 @@
 #include <sstream>
 #include <string>
 
-TEST( BitbufClient, OurMembersWriteAndReadWhatPristineBitbufDid )
+TEST(BitbufClient, OurMembersWriteAndReadWhatPristineBitbufDid)
 {
-	const char *pszRepo = getenv( "SOURCESHARP_REPO" );
-	const std::string golden = std::string( pszRepo ? pszRepo : "." ) + "/src/test/client/Fixtures/bitbuf-stock.tsv";
-	std::ifstream in( golden );
-	ASSERT_TRUE( in.good() ) << golden << " is missing";
+	const char* pszRepo = getenv("SOURCESHARP_REPO");
+	const std::string golden = std::string(pszRepo ? pszRepo : ".") + "/src/test/client/Fixtures/bitbuf-stock.tsv";
+	std::ifstream in(golden);
+	ASSERT_TRUE(in.good()) << golden << " is missing";
 
-	std::istringstream ours( bitbuf_scenario::Run() );
+	std::istringstream ours(bitbuf_scenario::Run());
 	std::string a, b;
 	int n = 0;
-	while ( true )
+	while (true)
 	{
-		const bool ha = (bool)std::getline( ours, a );
-		const bool hb = (bool)std::getline( in, b );
-		if ( !ha && !hb )
+		const bool ha = (bool)std::getline(ours, a);
+		const bool hb = (bool)std::getline(in, b);
+		if (!ha && !hb)
 			break;
-		ASSERT_TRUE( ha && hb && a == b )
-			<< "line " << n + 1 << ": ours\n  " << ( ha ? a : "<end>" ) << "\nstock\n  " << ( hb ? b : "<end>" );
+		ASSERT_TRUE(ha && hb && a == b) << "line " << n + 1 << ": ours\n  " << (ha ? a : "<end>") << "\nstock\n  "
+										<< (hb ? b : "<end>");
 		++n;
 	}
-	EXPECT_GT( n, 6000 );
+	EXPECT_GT(n, 6000);
 }

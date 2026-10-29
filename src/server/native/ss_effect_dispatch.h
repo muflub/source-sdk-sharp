@@ -90,4 +90,4 @@ struct CEffectData
 } // namespace ss
 
 // Sends the named effect to everyone in its PVS.
-void DispatchEffect( const char *pName, const ss::CEffectData &data );
+void DispatchEffect(const char* pName, const ss::CEffectData& data);

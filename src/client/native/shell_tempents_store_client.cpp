@@ -12,22 +12,22 @@
 
 // A row's type is DPT_*'s and its flags SPROP_*'s; these fail the build if
 // dt_common.h moves under the values C# writes.
-COMPILE_TIME_ASSERT( DPT_Int == 0 );
-COMPILE_TIME_ASSERT( DPT_Float == 1 );
-COMPILE_TIME_ASSERT( DPT_Vector == 2 );
-COMPILE_TIME_ASSERT( DPT_Array == 5 );
-COMPILE_TIME_ASSERT( DPT_DataTable == 6 );
+COMPILE_TIME_ASSERT(DPT_Int == 0);
+COMPILE_TIME_ASSERT(DPT_Float == 1);
+COMPILE_TIME_ASSERT(DPT_Vector == 2);
+COMPILE_TIME_ASSERT(DPT_Array == 5);
+COMPILE_TIME_ASSERT(DPT_DataTable == 6);
 
-SourceSharpRecvPropRow_t SourceSharpTe_RecvBlockRow( const SourceSharpTeTableBlock_t &block, int i )
+SourceSharpRecvPropRow_t SourceSharpTe_RecvBlockRow(const SourceSharpTeTableBlock_t& block, int i)
 {
 	SourceSharpRecvPropRow_t row;
-	memcpy( &row, block.pRows + (size_t)i * sizeof( row ), sizeof( row ) );
+	memcpy(&row, block.pRows + (size_t)i * sizeof(row), sizeof(row));
 	return row;
 }
 
-RecvVarProxyFn SourceSharpTe_RecvVarProxy( int32_t nProxy )
+RecvVarProxyFn SourceSharpTe_RecvVarProxy(int32_t nProxy)
 {
-	switch ( nProxy )
+	switch (nProxy)
 	{
 		case SOURCESHARP_RECVPROXY_INT32_TO_INT8:
 			return RecvProxy_Int32ToInt8;
@@ -46,22 +46,22 @@ RecvVarProxyFn SourceSharpTe_RecvVarProxy( int32_t nProxy )
 
 // The RecvProp constructor's defaults stand for whatever the row does not set;
 // the array prop gets InternalRecvPropArray's shape (InitArray, no length proxy).
-bool SourceSharpTe_StoreRecvProp( const SourceSharpRecvPropRow_t &row, const char *pName, RecvTable *pNested,
-								  RecvProp *pOut )
+bool SourceSharpTe_StoreRecvProp(const SourceSharpRecvPropRow_t& row, const char* pName, RecvTable* pNested,
+								 RecvProp* pOut)
 {
-	if ( !pName || !pOut )
+	if (!pName || !pOut)
 		return false;
 
 	RecvProp prop;
 
-	if ( row.nType == DPT_Array )
+	if (row.nType == DPT_Array)
 	{
-		if ( row.nProxy != SOURCESHARP_RECVPROXY_NONE )
+		if (row.nProxy != SOURCESHARP_RECVPROXY_NONE)
 			return false;
 
-		prop.InitArray( row.nElements, row.nElementStride );
+		prop.InitArray(row.nElements, row.nElementStride);
 		prop.m_pVarName = pName;
-		prop.SetArrayLengthProxy( NULL );
+		prop.SetArrayLengthProxy(NULL);
 		*pOut = prop;
 		return true;
 	}
@@ -69,26 +69,26 @@ bool SourceSharpTe_StoreRecvProp( const SourceSharpRecvPropRow_t &row, const cha
 	prop.m_pVarName = pName;
 	prop.m_RecvType = (SendPropType)row.nType;
 	prop.m_Flags = row.nFlags;
-	prop.SetOffset( row.nOffset );
-	prop.SetNumElements( row.nElements );
-	prop.SetElementStride( row.nElementStride );
+	prop.SetOffset(row.nOffset);
+	prop.SetNumElements(row.nElements);
+	prop.SetElementStride(row.nElementStride);
 
-	if ( row.nType == DPT_DataTable )
+	if (row.nType == DPT_DataTable)
 	{
-		if ( row.nProxy != SOURCESHARP_RECVPROXY_STATIC_DATATABLE || !pNested )
+		if (row.nProxy != SOURCESHARP_RECVPROXY_STATIC_DATATABLE || !pNested)
 			return false;
 
-		prop.SetDataTable( pNested );
-		prop.SetDataTableProxyFn( DataTableRecvProxy_StaticDataTable );
+		prop.SetDataTable(pNested);
+		prop.SetDataTableProxyFn(DataTableRecvProxy_StaticDataTable);
 	}
 	else
 	{
-		RecvVarProxyFn fn = SourceSharpTe_RecvVarProxy( row.nProxy );
+		RecvVarProxyFn fn = SourceSharpTe_RecvVarProxy(row.nProxy);
 
-		if ( !fn )
+		if (!fn)
 			return false;
 
-		prop.SetProxyFn( fn );
+		prop.SetProxyFn(fn);
 	}
 
 	*pOut = prop;

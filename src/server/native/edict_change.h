@@ -17,5 +17,5 @@ struct edict_t;
 
 // Records nOffset in the edict's change info for this frame; a negative offset, or a
 // list with no room left, marks the whole edict changed.
-void SourceSharp_MarkEdictChanged( IChangeInfoAccessor *pAccessor, CSharedEdictChangeInfo &shared, edict_t *pEdict,
-								   int nOffset );
+void SourceSharp_MarkEdictChanged(IChangeInfoAccessor* pAccessor, CSharedEdictChangeInfo& shared, edict_t* pEdict,
+								  int nOffset);

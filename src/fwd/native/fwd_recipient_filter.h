@@ -23,4 +23,4 @@ int SSFwd_RecipientFilter_SizeOf();
 // words), the IRecipientFilter IEngineSound::EmitSound calls back, over its
 // managed side, and answers it as that interface. NULL, and nothing built,
 // without memory or a target.
-void *SSFwd_RecipientFilter_Construct( void *pMemory, IManagedRecipientFilter *pTarget );
+void* SSFwd_RecipientFilter_Construct(void* pMemory, IManagedRecipientFilter* pTarget);

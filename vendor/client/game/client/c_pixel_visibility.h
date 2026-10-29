@@ -11,8 +11,8 @@ struct pixelvis_queryparams_t
 {
 	pixelvis_queryparams_t() { bSetup = false; }
 
-	void Init( const Vector &origin, float proxySizeIn = PIXELVIS_DEFAULT_PROXY_SIZE, float proxyAspectIn = 1.0f,
-			   float fadeTimeIn = PIXELVIS_DEFAULT_FADE_TIME )
+	void Init(const Vector& origin, float proxySizeIn = PIXELVIS_DEFAULT_PROXY_SIZE, float proxyAspectIn = 1.0f,
+			  float fadeTimeIn = PIXELVIS_DEFAULT_FADE_TIME)
 	{
 		position = origin;
 		proxySize = proxySizeIn;

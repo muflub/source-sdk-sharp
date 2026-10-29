@@ -34,29 +34,29 @@
 // says the same about the file next to it). What is here is the half with two
 // silent wrong answers.
 //-----------------------------------------------------------------------------
-TEST( LoadGamePlayer, ALoadWithNoPlayerBoundNeedsOne )
+TEST(LoadGamePlayer, ALoadWithNoPlayerBoundNeedsOne)
 {
-	EXPECT_TRUE( ShellSave_LoadGameNeedsPlayer( true, false ) );
+	EXPECT_TRUE(ShellSave_LoadGameNeedsPlayer(true, false));
 }
 
-TEST( LoadGamePlayer, ALoadThatALREADYHasAPlayerIsLeftAlone )
+TEST(LoadGamePlayer, ALoadThatALREADYHasAPlayerIsLeftAlone)
 {
 	// The engine would have to have called ClientPutInServer after all, or a
 	// previous pass created one. Building a second player onto a live client's
 	// edict is the worse of the two wrong answers.
-	EXPECT_FALSE( ShellSave_LoadGameNeedsPlayer( true, true ) );
+	EXPECT_FALSE(ShellSave_LoadGameNeedsPlayer(true, true));
 }
 
-TEST( LoadGamePlayer, AFreshConnectIsNotThisArmsBusiness )
+TEST(LoadGamePlayer, AFreshConnectIsNotThisArmsBusiness)
 {
 	// bLoadGame false: ClientPutInServer HAS been called and is where the
 	// player comes from. Answering true here would double-create on every
 	// ordinary join, which is why the flag is the first term and not a
 	// belt-and-braces second one.
-	EXPECT_FALSE( ShellSave_LoadGameNeedsPlayer( false, false ) );
+	EXPECT_FALSE(ShellSave_LoadGameNeedsPlayer(false, false));
 }
 
-TEST( LoadGamePlayer, AFreshConnectWithItsPlayerAlreadyStandingIsAlsoNo )
+TEST(LoadGamePlayer, AFreshConnectWithItsPlayerAlreadyStandingIsAlsoNo)
 {
-	EXPECT_FALSE( ShellSave_LoadGameNeedsPlayer( false, true ) );
+	EXPECT_FALSE(ShellSave_LoadGameNeedsPlayer(false, true));
 }

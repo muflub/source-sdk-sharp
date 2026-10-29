@@ -9,7 +9,7 @@ namespace vgui
 
 typedef int HInputContext;
 
-#define DEFAULT_INPUT_CONTEXT ( (vgui::HInputContext)~0 )
+#define DEFAULT_INPUT_CONTEXT ((vgui::HInputContext)~0)
 
 class IInputInternal : public IInput
 {

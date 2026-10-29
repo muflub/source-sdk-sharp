@@ -14,31 +14,31 @@
 
 // AddRenderable does not check for an existing handle, so guard here.
 template <typename TLeaf, typename TRenderable, typename TGroup>
-inline void ShellLeaf_Add( TLeaf *pLeaf, TRenderable *pRenderable, TGroup group )
+inline void ShellLeaf_Add(TLeaf* pLeaf, TRenderable* pRenderable, TGroup group)
 {
-	if ( pRenderable->IsInLeafSystem() )
+	if (pRenderable->IsInLeafSystem())
 		return;
 
-	pLeaf->AddRenderable( pRenderable, group );
+	pLeaf->AddRenderable(pRenderable, group);
 }
 
 // Out of the leaf system, only when it is in.
 template <typename TLeaf, typename TRenderable>
-inline void ShellLeaf_Remove( TLeaf *pLeaf, TRenderable *pRenderable )
+inline void ShellLeaf_Remove(TLeaf* pLeaf, TRenderable* pRenderable)
 {
-	if ( !pRenderable->IsInLeafSystem() )
+	if (!pRenderable->IsInLeafSystem())
 		return;
 
-	pLeaf->RemoveRenderable( pRenderable->RenderHandle() );
+	pLeaf->RemoveRenderable(pRenderable->RenderHandle());
 }
 
 // C_BaseEntity::MarkRenderHandleDirty's job. Guarded because a renderable is
 // often placed before it is added.
 template <typename TLeaf, typename TRenderable>
-inline void ShellLeaf_Moved( TLeaf *pLeaf, TRenderable *pRenderable )
+inline void ShellLeaf_Moved(TLeaf* pLeaf, TRenderable* pRenderable)
 {
-	if ( !pRenderable->IsInLeafSystem() )
+	if (!pRenderable->IsInLeafSystem())
 		return;
 
-	pLeaf->RenderableChanged( pRenderable->RenderHandle() );
+	pLeaf->RenderableChanged(pRenderable->RenderHandle());
 }

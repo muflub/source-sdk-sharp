@@ -32,63 +32,63 @@ namespace
 class CManagedClientSystemRow : public CClientSystem
 {
 public:
-	explicit CManagedClientSystemRow( const char *pszRow )
-		: CClientSystem( pszRow )
-		, m_pszRow( pszRow )
-		, m_bWarned( false )
+	explicit CManagedClientSystemRow(const char* pszRow)
+		: CClientSystem(pszRow)
+		, m_pszRow(pszRow)
+		, m_bWarned(false)
 	{
 	}
 
-	bool Init() override { return Stage( SS_CLIENT_SYSTEM_STAGE_Init ) != 0; }
+	bool Init() override { return Stage(SS_CLIENT_SYSTEM_STAGE_Init) != 0; }
 
-	void PostInit() override { Stage( SS_CLIENT_SYSTEM_STAGE_PostInit ); }
+	void PostInit() override { Stage(SS_CLIENT_SYSTEM_STAGE_PostInit); }
 
-	void Shutdown() override { Stage( SS_CLIENT_SYSTEM_STAGE_Shutdown ); }
+	void Shutdown() override { Stage(SS_CLIENT_SYSTEM_STAGE_Shutdown); }
 
-	void LevelInitPreEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelInitPreEntity ); }
+	void LevelInitPreEntity() override { Stage(SS_CLIENT_SYSTEM_STAGE_LevelInitPreEntity); }
 
-	void LevelInitPostEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelInitPostEntity ); }
+	void LevelInitPostEntity() override { Stage(SS_CLIENT_SYSTEM_STAGE_LevelInitPostEntity); }
 
-	void LevelShutdownPreEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelShutdownPreEntity ); }
+	void LevelShutdownPreEntity() override { Stage(SS_CLIENT_SYSTEM_STAGE_LevelShutdownPreEntity); }
 
-	void LevelShutdownPostEntity() override { Stage( SS_CLIENT_SYSTEM_STAGE_LevelShutdownPostEntity ); }
+	void LevelShutdownPostEntity() override { Stage(SS_CLIENT_SYSTEM_STAGE_LevelShutdownPostEntity); }
 
 private:
 	// Managed's answer; -1 when there is no managed load or no system of the name.
-	int32_t Stage( int32_t nStage )
+	int32_t Stage(int32_t nStage)
 	{
-		IManagedClientSystemsClient *pManaged = ManagedClientSystemsClient();
-		if ( !pManaged )
+		IManagedClientSystemsClient* pManaged = ManagedClientSystemsClient();
+		if (!pManaged)
 			return -1;
-		const int32_t nAnswer = pManaged->Stage( m_pszRow, nStage );
-		if ( nAnswer < 0 && !m_bWarned )
+		const int32_t nAnswer = pManaged->Stage(m_pszRow, nStage);
+		if (nAnswer < 0 && !m_bWarned)
 		{
 			m_bWarned = true;
-			Warning( "[SourceSharp] client system row %s: managed has no system of that name\n", m_pszRow );
+			Warning("[SourceSharp] client system row %s: managed has no system of that name\n", m_pszRow);
 		}
 		return nAnswer;
 	}
 
-	const char *m_pszRow;
+	const char* m_pszRow;
 	bool m_bWarned;
 };
 
 } // namespace
 
-CClientSystem *ClientSystem_ManagedViewport()
+CClientSystem* ClientSystem_ManagedViewport()
 {
-	static CManagedClientSystemRow s_Row( "CViewportClientSystem" );
+	static CManagedClientSystemRow s_Row("CViewportClientSystem");
 	return &s_Row;
 }
 
-CClientSystem *ClientSystem_ManagedGlowOverlay()
+CClientSystem* ClientSystem_ManagedGlowOverlay()
 {
-	static CManagedClientSystemRow s_Row( "CGlowOverlaySystem" );
+	static CManagedClientSystemRow s_Row("CGlowOverlaySystem");
 	return &s_Row;
 }
 
-CClientSystem *ClientSystem_ManagedPixelVisibility()
+CClientSystem* ClientSystem_ManagedPixelVisibility()
 {
-	static CManagedClientSystemRow s_Row( "CPixelVisibilitySystem" );
+	static CManagedClientSystemRow s_Row("CPixelVisibilitySystem");
 	return &s_Row;
 }

@@ -41,7 +41,7 @@ namespace
 {
 std::string g_Log;
 
-void Log( const std::string &s )
+void Log(const std::string& s)
 {
 	g_Log += s;
 	g_Log += '\n';
@@ -50,11 +50,11 @@ void Log( const std::string &s )
 
 void IClientMode::Layout()
 {
-	Log( "L\tLayout" );
+	Log("L\tLayout");
 }
 
 static IClientMode s_ClientMode;
-IClientMode *g_pClientMode = &s_ClientMode;
+IClientMode* g_pClientMode = &s_ClientMode;
 
 // igamesystem.cpp's, which the harness does not compile: the destructor only.
 IGameSystem::~IGameSystem() {}
@@ -68,87 +68,87 @@ namespace
 std::string RunScript()
 {
 	g_Log.clear();
-	IGameSystem *p = ViewportClientSystem();
-	Log( std::string( "S\tName\nR\t" ) + p->Name() );
-	Log( std::string( "S\tIsPerFrame\nR\t" ) + ( p->IsPerFrame() ? "1" : "0" ) );
-	Log( "S\tInit" );
-	Log( std::string( "R\t" ) + ( p->Init() ? "1" : "0" ) );
-	Log( "S\tPostInit" );
+	IGameSystem* p = ViewportClientSystem();
+	Log(std::string("S\tName\nR\t") + p->Name());
+	Log(std::string("S\tIsPerFrame\nR\t") + (p->IsPerFrame() ? "1" : "0"));
+	Log("S\tInit");
+	Log(std::string("R\t") + (p->Init() ? "1" : "0"));
+	Log("S\tPostInit");
 	p->PostInit();
-	Log( "S\tLevelInitPreEntity" );
+	Log("S\tLevelInitPreEntity");
 	p->LevelInitPreEntity();
-	Log( "S\tLevelInitPostEntity" );
+	Log("S\tLevelInitPostEntity");
 	p->LevelInitPostEntity();
-	Log( "S\tLevelShutdownPreClearSteamAPIContext" );
+	Log("S\tLevelShutdownPreClearSteamAPIContext");
 	p->LevelShutdownPreClearSteamAPIContext();
-	Log( "S\tLevelShutdownPreEntity" );
+	Log("S\tLevelShutdownPreEntity");
 	p->LevelShutdownPreEntity();
-	Log( "S\tLevelShutdownPostEntity" );
+	Log("S\tLevelShutdownPostEntity");
 	p->LevelShutdownPostEntity();
-	Log( "S\tOnSave" );
+	Log("S\tOnSave");
 	p->OnSave();
-	Log( "S\tOnRestore" );
+	Log("S\tOnRestore");
 	p->OnRestore();
-	Log( "S\tSafeRemoveIfDesired" );
+	Log("S\tSafeRemoveIfDesired");
 	p->SafeRemoveIfDesired();
-	Log( "S\tShutdown" );
+	Log("S\tShutdown");
 	p->Shutdown();
-	Log( "S\tInit" );
-	Log( std::string( "R\t" ) + ( p->Init() ? "1" : "0" ) );
+	Log("S\tInit");
+	Log(std::string("R\t") + (p->Init() ? "1" : "0"));
 	return g_Log;
 }
 
-std::string RepoFile( const char *pszRel )
+std::string RepoFile(const char* pszRel)
 {
-	const char *pszRepo = getenv( "SOURCESHARP_REPO" );
-	return std::string( pszRepo ? pszRepo : "." ) + "/" + pszRel;
+	const char* pszRepo = getenv("SOURCESHARP_REPO");
+	return std::string(pszRepo ? pszRepo : ".") + "/" + pszRel;
 }
 
 std::string GoldenPath()
 {
-	return RepoFile( "src/test/client/Fixtures/viewport-stock.tsv" );
+	return RepoFile("src/test/client/Fixtures/viewport-stock.tsv");
 }
 
 std::string MarkerPath()
 {
-	return RepoFile( "src/test/oracle/native/viewport_golden.regen" );
+	return RepoFile("src/test/oracle/native/viewport_golden.regen");
 }
 
 } // namespace
 
-TEST( ViewportOracle, StockProducesTheGolden )
+TEST(ViewportOracle, StockProducesTheGolden)
 {
 	const std::string run = RunScript();
 
-	if ( std::ifstream( MarkerPath() ).good() )
+	if (std::ifstream(MarkerPath()).good())
 	{
-		std::ofstream out( GoldenPath() );
+		std::ofstream out(GoldenPath());
 		out << run;
 	}
 
-	std::ifstream in( GoldenPath() );
-	ASSERT_TRUE( in.good() ) << GoldenPath() << " is missing";
+	std::ifstream in(GoldenPath());
+	ASSERT_TRUE(in.good()) << GoldenPath() << " is missing";
 	std::stringstream ss;
 	ss << in.rdbuf();
 	const std::string golden = ss.str();
-	ASSERT_GT( golden.size(), 200u ) << "the golden is empty or truncated";
-	EXPECT_EQ( run, golden ) << "Do NOT regenerate the golden to make this pass; see the file header.";
+	ASSERT_GT(golden.size(), 200u) << "the golden is empty or truncated";
+	EXPECT_EQ(run, golden) << "Do NOT regenerate the golden to make this pass; see the file header.";
 }
 
 // Each arm the script exists to reach, found in the run.
-TEST( ViewportOracle, TheScriptReachesEveryArm )
+TEST(ViewportOracle, TheScriptReachesEveryArm)
 {
 	const std::string run = RunScript();
-	EXPECT_NE( run.find( "S\tName\nR\tCViewportClientSystem\n" ), std::string::npos ) << "the system names itself";
-	EXPECT_NE( run.find( "S\tIsPerFrame\nR\t0\n" ), std::string::npos ) << "it has no per-frame half";
-	EXPECT_NE( run.find( "S\tInit\nL\tLayout\nR\t1\n" ), std::string::npos )
+	EXPECT_NE(run.find("S\tName\nR\tCViewportClientSystem\n"), std::string::npos) << "the system names itself";
+	EXPECT_NE(run.find("S\tIsPerFrame\nR\t0\n"), std::string::npos) << "it has no per-frame half";
+	EXPECT_NE(run.find("S\tInit\nL\tLayout\nR\t1\n"), std::string::npos)
 		<< "Init lays the client mode out and succeeds";
-	EXPECT_NE( run.find( "S\tLevelInitPreEntity\nS\tLevelInitPostEntity\n" ), std::string::npos )
+	EXPECT_NE(run.find("S\tLevelInitPreEntity\nS\tLevelInitPostEntity\n"), std::string::npos)
 		<< "a level stage does nothing";
 
 	// Layout is asked only by Init: twice in the script, once per Init.
 	size_t n = 0;
-	for ( size_t at = run.find( "L\tLayout" ); at != std::string::npos; at = run.find( "L\tLayout", at + 1 ) )
+	for (size_t at = run.find("L\tLayout"); at != std::string::npos; at = run.find("L\tLayout", at + 1))
 		++n;
-	EXPECT_EQ( n, 2u );
+	EXPECT_EQ(n, 2u);
 }

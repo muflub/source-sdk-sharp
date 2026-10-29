@@ -14,15 +14,15 @@ struct studiohdr_t;
 class IMaterial;
 class CStudioHdr;
 
-FORWARD_DECLARE_HANDLE( LightCacheHandle_t );
+FORWARD_DECLARE_HANDLE(LightCacheHandle_t);
 
 // Model rendering state
 struct DrawModelState_t
 {
-	studiohdr_t *m_pStudioHdr;
-	studiohwdata_t *m_pStudioHWData;
-	IClientRenderable *m_pRenderable;
-	const matrix3x4_t *m_pModelToWorld;
+	studiohdr_t* m_pStudioHdr;
+	studiohwdata_t* m_pStudioHWData;
+	IClientRenderable* m_pRenderable;
+	const matrix3x4_t* m_pModelToWorld;
 	StudioDecalHandle_t m_decals;
 	int m_drawFlags;
 	int m_lod;
@@ -44,11 +44,11 @@ struct ModelRenderInfo_t
 {
 	Vector origin;
 	QAngle angles;
-	IClientRenderable *pRenderable;
-	const model_t *pModel;
-	const matrix3x4_t *pModelToWorld;
-	const matrix3x4_t *pLightingOffset;
-	const Vector *pLightingOrigin;
+	IClientRenderable* pRenderable;
+	const model_t* pModel;
+	const matrix3x4_t* pModelToWorld;
+	const matrix3x4_t* pLightingOffset;
+	const Vector* pLightingOrigin;
 	int flags;
 	int entity_index;
 	int skin;
@@ -66,10 +66,10 @@ struct ModelRenderInfo_t
 
 struct StaticPropRenderInfo_t
 {
-	const matrix3x4_t *pModelToWorld;
-	const model_t *pModel;
-	IClientRenderable *pRenderable;
-	Vector *pLightingOrigin;
+	const matrix3x4_t* pModelToWorld;
+	const model_t* pModel;
+	IClientRenderable* pRenderable;
+	Vector* pLightingOrigin;
 	short skin;
 	ModelInstanceHandle_t instance;
 };
@@ -78,21 +78,21 @@ struct StaticPropRenderInfo_t
 abstract_class IVModelRender
 {
 public:
-	virtual int DrawModel( int flags, IClientRenderable *pRenderable, ModelInstanceHandle_t instance, int entity_index,
-						   const model_t *model, Vector const &origin, QAngle const &angles, int skin, int body,
-						   int hitboxset, const matrix3x4_t *modelToWorld = NULL,
-						   const matrix3x4_t *pLightingOffset = NULL ) = 0;
+	virtual int DrawModel(int flags, IClientRenderable* pRenderable, ModelInstanceHandle_t instance, int entity_index,
+						  const model_t* model, Vector const& origin, QAngle const& angles, int skin, int body,
+						  int hitboxset, const matrix3x4_t* modelToWorld = NULL,
+						  const matrix3x4_t* pLightingOffset = NULL) = 0;
 
 	// This causes a material to be used when rendering the model instead
 	// of the materials the model was compiled with
-	virtual void ForcedMaterialOverride( IMaterial * newMaterial, OverrideType_t nOverrideType = OVERRIDE_NORMAL ) = 0;
+	virtual void ForcedMaterialOverride(IMaterial * newMaterial, OverrideType_t nOverrideType = OVERRIDE_NORMAL) = 0;
 
 	virtual void unused_SetViewTarget() = 0;
 
 	// Creates, destroys instance data to be associated with the model
-	virtual ModelInstanceHandle_t CreateInstance( IClientRenderable * pRenderable,
-												  LightCacheHandle_t *pCache = NULL ) = 0;
-	virtual void DestroyInstance( ModelInstanceHandle_t handle ) = 0;
+	virtual ModelInstanceHandle_t CreateInstance(IClientRenderable * pRenderable,
+												 LightCacheHandle_t* pCache = NULL) = 0;
+	virtual void DestroyInstance(ModelInstanceHandle_t handle) = 0;
 
 	// Associates a particular lighting condition with a model instance handle.
 	// FIXME: This feature currently only works for static props. To make it work for entities, etc.,
@@ -108,8 +108,8 @@ public:
 	// Creates a decal on a model instance by doing a planar projection
 	// along the ray. The material is the decal material, the radius is the
 	// radius of the decal to create.
-	virtual void AddDecal( ModelInstanceHandle_t handle, Ray_t const &ray, Vector const &decalUp, int decalIndex,
-						   int body, bool noPokeThru = false, int maxLODToDecal = ADDDECAL_TO_ALL_LODS ) = 0;
+	virtual void AddDecal(ModelInstanceHandle_t handle, Ray_t const& ray, Vector const& decalUp, int decalIndex,
+						  int body, bool noPokeThru = false, int maxLODToDecal = ADDDECAL_TO_ALL_LODS) = 0;
 
 	// Removes all the decals on a model instance
 	virtual void unused_RemoveAllDecals() = 0;
@@ -118,10 +118,10 @@ public:
 	virtual void unused_RemoveAllDecalsFromAllModels() = 0;
 
 	// Shadow rendering, DrawModelShadowSetup returns the address of the bone-to-world array, NULL in case of error
-	virtual matrix3x4_t *DrawModelShadowSetup( IClientRenderable * pRenderable, int body, int skin,
-											   DrawModelInfo_t *pInfo, matrix3x4_t *pCustomBoneToWorld = NULL ) = 0;
-	virtual void DrawModelShadow( IClientRenderable * pRenderable, const DrawModelInfo_t &info,
-								  matrix3x4_t *pCustomBoneToWorld = NULL ) = 0;
+	virtual matrix3x4_t* DrawModelShadowSetup(IClientRenderable * pRenderable, int body, int skin,
+											  DrawModelInfo_t* pInfo, matrix3x4_t* pCustomBoneToWorld = NULL) = 0;
+	virtual void DrawModelShadow(IClientRenderable * pRenderable, const DrawModelInfo_t& info,
+								 matrix3x4_t* pCustomBoneToWorld = NULL) = 0;
 
 	// This gets called when overbright, etc gets changed to recompute static prop lighting.
 	virtual void unused_RecomputeStaticLighting() = 0;
@@ -130,20 +130,20 @@ public:
 	virtual void unused_RestoreAllStaticPropColorData() = 0;
 
 	// Extended version of drawmodel
-	virtual int DrawModelEx( ModelRenderInfo_t & pInfo ) = 0;
+	virtual int DrawModelEx(ModelRenderInfo_t & pInfo) = 0;
 
-	virtual int DrawModelExStaticProp( ModelRenderInfo_t & pInfo ) = 0;
+	virtual int DrawModelExStaticProp(ModelRenderInfo_t & pInfo) = 0;
 
 	virtual void unused_DrawModelSetup() = 0;
-	virtual void DrawModelExecute( const DrawModelState_t &state, const ModelRenderInfo_t &pInfo,
-								   matrix3x4_t *pCustomBoneToWorld = NULL ) = 0;
+	virtual void DrawModelExecute(const DrawModelState_t& state, const ModelRenderInfo_t& pInfo,
+								  matrix3x4_t* pCustomBoneToWorld = NULL) = 0;
 
 	// Sets up lighting context for a point in space
 	virtual void unused_SetupLighting() = 0;
 
 	// doesn't support any debug visualization modes or other model options, but draws static props in the
 	// fastest way possible
-	virtual int DrawStaticPropArrayFast( StaticPropRenderInfo_t * pProps, int count, bool bShadowDepth ) = 0;
+	virtual int DrawStaticPropArrayFast(StaticPropRenderInfo_t * pProps, int count, bool bShadowDepth) = 0;
 
 	// Allow client to override lighting state
 	virtual void unused_SuppressEngineLighting() = 0;

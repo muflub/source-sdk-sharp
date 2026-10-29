@@ -16,16 +16,16 @@
 // only for NULL. Unlike stock the walk is bounded, so a parent cycle gives a wrong
 // answer instead of a hang. Real chains are two or three deep.
 template <typename TEntity>
-inline TEntity *SourceSharpRootMoveParent( TEntity *pEntity, int nMaxDepth = 64 )
+inline TEntity* SourceSharpRootMoveParent(TEntity* pEntity, int nMaxDepth = 64)
 {
-	if ( !pEntity )
+	if (!pEntity)
 		return NULL;
 
-	TEntity *pRoot = pEntity;
-	TEntity *pParent = pEntity->GetMoveParent();
+	TEntity* pRoot = pEntity;
+	TEntity* pParent = pEntity->GetMoveParent();
 	int nDepth = 0;
 
-	while ( pParent && nDepth < nMaxDepth )
+	while (pParent && nDepth < nMaxDepth)
 	{
 		pRoot = pParent;
 		pParent = pRoot->GetMoveParent();

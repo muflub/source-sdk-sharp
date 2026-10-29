@@ -22,9 +22,9 @@ enum SourceSharpInitStage_t
 };
 
 // The name of the call that failed. Never NULL.
-inline const char *SourceSharpInit_StageName( int nStage )
+inline const char* SourceSharpInit_StageName(int nStage)
 {
-	switch ( nStage )
+	switch (nStage)
 	{
 		case kSourceSharpInitStage_ModBinDir:
 			return "GetModBinDir";
@@ -39,9 +39,9 @@ inline const char *SourceSharpInit_StageName( int nStage )
 
 // What a SourceSharpResult code means, in a phrase a reader can act on. Never
 // NULL; the host's SourceSharp_LastError is the detail printed under it.
-inline const char *SourceSharpInit_CauseText( int rc )
+inline const char* SourceSharpInit_CauseText(int rc)
 {
-	switch ( rc )
+	switch (rc)
 	{
 		case SOURCESHARP_OK:
 			return "no error reported (which is itself wrong — this path is only "
@@ -72,15 +72,15 @@ inline const char *SourceSharpInit_CauseText( int rc )
 
 // What to do about it. bin/dotnet and bin/managed are gitignored, so a fresh
 // clone or worktree lacks them until setup or a build.
-inline const char *SourceSharpInit_Remedy( int nStage, int rc )
+inline const char* SourceSharpInit_Remedy(int nStage, int rc)
 {
-	if ( nStage == kSourceSharpInitStage_ModBinDir )
+	if (nStage == kSourceSharpInitStage_ModBinDir)
 	{
 		return "the engine gave this DLL no game directory to look in — launch "
 			   "with -game <moddir>";
 	}
 
-	switch ( rc )
+	switch (rc)
 	{
 		case SOURCESHARP_ERR_HOSTFXR_LOAD:
 		case SOURCESHARP_ERR_HOSTFXR_SYM:
@@ -105,37 +105,37 @@ inline const char *SourceSharpInit_Remedy( int nStage, int rc )
 
 // The whole message. Returns what snprintf wanted to write, so truncation shows.
 // pDetail may be NULL.
-inline int SourceSharpInit_Format( char *pOut, size_t cOut, const char *pSide, int nStage, int rc, const char *pDetail )
+inline int SourceSharpInit_Format(char* pOut, size_t cOut, const char* pSide, int nStage, int rc, const char* pDetail)
 {
-	if ( !pOut || cOut == 0 )
+	if (!pOut || cOut == 0)
 		return 0;
 
-	if ( !pSide || !pSide[0] )
+	if (!pSide || !pSide[0])
 		pSide = "?";
 
-	if ( !pDetail || !pDetail[0] )
+	if (!pDetail || !pDetail[0])
 		pDetail = "(none reported)";
 
 	// The code lines only when there is a code; GetModBinDir has none.
 	char szCode[256];
 	szCode[0] = '\0';
-	if ( rc != SOURCESHARP_OK )
+	if (rc != SOURCESHARP_OK)
 	{
-		snprintf( szCode, sizeof( szCode ), "  code  : %d — %s\n", rc, SourceSharpInit_CauseText( rc ) );
+		snprintf(szCode, sizeof(szCode), "  code  : %d — %s\n", rc, SourceSharpInit_CauseText(rc));
 	}
 
-	return snprintf( pOut, cOut,
-					 "[SourceSharp] FATAL: the managed (C#) %s side did not initialise.\n"
-					 "  stage : %s (SourceSharp_%s)\n"
-					 "%s"
-					 "  detail: %s\n"
-					 "  fix   : %s\n"
-					 "This mod's entities, player class, game rules and user messages are all "
-					 "C#, so there is nothing to run without them. Stopping here rather than "
-					 "continuing into a degraded state, which used to surface as assertions in "
-					 "usermessages.cpp and a segfault with no game-DLL frame.\n",
-					 pSide, SourceSharpInit_StageName( nStage ), SourceSharpInit_StageName( nStage ), szCode, pDetail,
-					 SourceSharpInit_Remedy( nStage, rc ) );
+	return snprintf(pOut, cOut,
+					"[SourceSharp] FATAL: the managed (C#) %s side did not initialise.\n"
+					"  stage : %s (SourceSharp_%s)\n"
+					"%s"
+					"  detail: %s\n"
+					"  fix   : %s\n"
+					"This mod's entities, player class, game rules and user messages are all "
+					"C#, so there is nothing to run without them. Stopping here rather than "
+					"continuing into a degraded state, which used to surface as assertions in "
+					"usermessages.cpp and a segfault with no game-DLL frame.\n",
+					pSide, SourceSharpInit_StageName(nStage), SourceSharpInit_StageName(nStage), szCode, pDetail,
+					SourceSharpInit_Remedy(nStage, rc));
 }
 
 // Whether CSourceSharpSystem::Init() should run. The client calls Init() twice by
@@ -146,7 +146,7 @@ class CSourceSharpInitGate
 {
 public:
 	CSourceSharpInitGate()
-		: m_bSucceeded( false )
+		: m_bSucceeded(false)
 	{
 	}
 

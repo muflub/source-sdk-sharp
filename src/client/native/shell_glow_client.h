@@ -21,5 +21,5 @@ enum
 	SS_GLOW_VIEW_FLOATS = 29, // origin, forward, zFar, 5 x (plane normal, dist), wireframe, r_drawsprites
 };
 
-void ShellGlowDrawOverlays( bool bCacheFullSceneState );
-void ShellGlowUpdateSkyOverlays( float flZFar, bool bCacheFullSceneState );
+void ShellGlowDrawOverlays(bool bCacheFullSceneState);
+void ShellGlowUpdateSkyOverlays(float flZFar, bool bCacheFullSceneState);

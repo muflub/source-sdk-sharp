@@ -33,8 +33,8 @@ void EntityInterp_CheckCLInterpChanged();
 // (a free operator new would replace the global one). The bodies stay in
 // c_baseentity.cpp: MEM_ALLOC_CREDIT records __FILE__, and they sit inside its
 // memdbgoff/memdbgon bracket.
-void *EntityMem_Alloc( size_t stAllocateBlock );
-void EntityMem_Free( void *pMem );
+void* EntityMem_Alloc(size_t stAllocateBlock);
+void EntityMem_Free(void* pMem);
 
 // Client-side IsFloating, which is always false: the client has no fluid density.
 bool EntityWater_ClientIsFloating();

@@ -8,16 +8,16 @@ template <class T>
 class CUtlFlags
 {
 public:
-	CUtlFlags( int nInitialFlags = 0 );
+	CUtlFlags(int nInitialFlags = 0);
 
 	// Flag setting
-	void SetFlag( int nFlagMask );
-	void SetFlag( int nFlagMask, bool bEnable );
+	void SetFlag(int nFlagMask);
+	void SetFlag(int nFlagMask, bool bEnable);
 
 	// Flag clearing
-	void ClearFlag( int nFlagMask );
+	void ClearFlag(int nFlagMask);
 	void ClearAllFlags();
-	bool IsFlagSet( int nFlagMask ) const;
+	bool IsFlagSet(int nFlagMask) const;
 
 	// Is any flag set?
 	bool IsAnyFlagSet() const;
@@ -28,47 +28,47 @@ private:
 
 // Constructor
 template <class T>
-CUtlFlags<T>::CUtlFlags( int nInitialFlags )
+CUtlFlags<T>::CUtlFlags(int nInitialFlags)
 {
 	// Makes sure we didn't truncate
-	Assert( nInitialFlags == (T)nInitialFlags );
+	Assert(nInitialFlags == (T)nInitialFlags);
 
 	m_nFlags = (T)nInitialFlags;
 }
 
 // Set flags
 template <class T>
-void CUtlFlags<T>::SetFlag( int nFlagMask )
+void CUtlFlags<T>::SetFlag(int nFlagMask)
 {
 	// Makes sure we didn't truncate
-	Assert( nFlagMask == (T)nFlagMask );
+	Assert(nFlagMask == (T)nFlagMask);
 
 	m_nFlags |= (T)nFlagMask;
 }
 
 template <class T>
-void CUtlFlags<T>::SetFlag( int nFlagMask, bool bEnable )
+void CUtlFlags<T>::SetFlag(int nFlagMask, bool bEnable)
 {
 	// Makes sure we didn't truncate
-	Assert( nFlagMask == (T)nFlagMask );
+	Assert(nFlagMask == (T)nFlagMask);
 
-	if ( bEnable )
+	if (bEnable)
 	{
 		m_nFlags |= (T)nFlagMask;
 	}
 	else
 	{
-		m_nFlags &= ~( (T)nFlagMask );
+		m_nFlags &= ~((T)nFlagMask);
 	}
 }
 
 // Clear flags
 template <class T>
-void CUtlFlags<T>::ClearFlag( int nFlagMask )
+void CUtlFlags<T>::ClearFlag(int nFlagMask)
 {
 	// Makes sure we didn't truncate
-	Assert( nFlagMask == (T)nFlagMask );
-	m_nFlags &= ~( (T)nFlagMask );
+	Assert(nFlagMask == (T)nFlagMask);
+	m_nFlags &= ~((T)nFlagMask);
 }
 
 template <class T>
@@ -79,11 +79,11 @@ void CUtlFlags<T>::ClearAllFlags()
 
 // Is a flag set?
 template <class T>
-bool CUtlFlags<T>::IsFlagSet( int nFlagMask ) const
+bool CUtlFlags<T>::IsFlagSet(int nFlagMask) const
 {
 	// Makes sure we didn't truncate
-	Assert( nFlagMask == (T)nFlagMask );
-	return ( m_nFlags & nFlagMask ) != 0;
+	Assert(nFlagMask == (T)nFlagMask);
+	return (m_nFlags & nFlagMask) != 0;
 }
 
 // Is any flag set?

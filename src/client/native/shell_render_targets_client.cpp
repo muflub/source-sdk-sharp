@@ -27,28 +27,28 @@ void ReleaseRenderTargetsThunk()
 
 } // namespace
 
-int32_t SourceSharp_RenderTargetDeclare( int32_t nSlot, const char *pszName, const char *pszGroup, int32_t bComplain,
-										 int32_t nCreationFlags, int32_t nReleaseOrder )
+int32_t SourceSharp_RenderTargetDeclare(int32_t nSlot, const char* pszName, const char* pszGroup, int32_t bComplain,
+										int32_t nCreationFlags, int32_t nReleaseOrder)
 {
-	g_RenderTargets.SetReleaseFunc( &ReleaseRenderTargetsThunk );
-	return g_RenderTargets.Declare( nSlot, pszName, pszGroup, bComplain, nCreationFlags, nReleaseOrder ) ? 1 : 0;
+	g_RenderTargets.SetReleaseFunc(&ReleaseRenderTargetsThunk);
+	return g_RenderTargets.Declare(nSlot, pszName, pszGroup, bComplain, nCreationFlags, nReleaseOrder) ? 1 : 0;
 }
 
-ITexture *ShellRenderTarget( int nSlot )
+ITexture* ShellRenderTarget(int nSlot)
 {
-	return g_RenderTargets.Get( nSlot );
+	return g_RenderTargets.Get(nSlot);
 }
 
 // The two rendertexture.h names view_scene.h's inlines still call. An index
 // past the four frame buffers is no texture (stock indexed past its array).
-ITexture *GetPowerOfTwoFrameBufferTexture()
+ITexture* GetPowerOfTwoFrameBufferTexture()
 {
-	return g_RenderTargets.Get( SS_RT_PowerOfTwoFrameBuffer );
+	return g_RenderTargets.Get(SS_RT_PowerOfTwoFrameBuffer);
 }
 
-ITexture *GetFullFrameFrameBufferTexture( int textureIndex )
+ITexture* GetFullFrameFrameBufferTexture(int textureIndex)
 {
-	if ( textureIndex < 0 || textureIndex >= MAX_FB_TEXTURES )
+	if (textureIndex < 0 || textureIndex >= MAX_FB_TEXTURES)
 		return NULL;
-	return g_RenderTargets.Get( SS_RT_FullFrameFrameBuffer0 + textureIndex );
+	return g_RenderTargets.Get(SS_RT_FullFrameFrameBuffer0 + textureIndex);
 }

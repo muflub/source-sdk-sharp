@@ -81,17 +81,17 @@ struct FloatCase
 // whole point of the file is that both suites read it.
 std::string FindCaseFile()
 {
-	static const char *kRelative = "src/sourcesharp/test/variant_convert_cases.tsv";
+	static const char* kRelative = "src/sourcesharp/test/variant_convert_cases.tsv";
 
 	std::string prefix;
 
-	for ( int up = 0; up < 12; up++ )
+	for (int up = 0; up < 12; up++)
 	{
 		std::string candidate = prefix + kRelative;
 
-		if ( FILE *f = fopen( candidate.c_str(), "r" ) )
+		if (FILE* f = fopen(candidate.c_str(), "r"))
 		{
-			fclose( f );
+			fclose(f);
 			return candidate;
 		}
 
@@ -103,23 +103,23 @@ std::string FindCaseFile()
 
 // The quoting the oracle writes: backslash escapes for a quote, a backslash, a
 // tab and a newline, and nothing else.
-std::string Unquote( const std::string &field )
+std::string Unquote(const std::string& field)
 {
 	std::string out;
 
-	for ( size_t i = 1; i + 1 < field.size(); i++ )
+	for (size_t i = 1; i + 1 < field.size(); i++)
 	{
-		if ( field[i] != '\\' )
+		if (field[i] != '\\')
 		{
 			out += field[i];
 			continue;
 		}
 
 		i++;
-		if ( i + 1 > field.size() )
+		if (i + 1 > field.size())
 			break;
 
-		switch ( field[i] )
+		switch (field[i])
 		{
 			case 't':
 				out += '\t';
@@ -136,22 +136,22 @@ std::string Unquote( const std::string &field )
 	return out;
 }
 
-std::vector<std::string> SplitTabs( const std::string &line )
+std::vector<std::string> SplitTabs(const std::string& line)
 {
 	std::vector<std::string> fields;
 	size_t start = 0;
 
-	for ( ;; )
+	for (;;)
 	{
-		size_t tab = line.find( '\t', start );
+		size_t tab = line.find('\t', start);
 
-		if ( tab == std::string::npos )
+		if (tab == std::string::npos)
 		{
-			fields.push_back( line.substr( start ) );
+			fields.push_back(line.substr(start));
 			break;
 		}
 
-		fields.push_back( line.substr( start, tab - start ) );
+		fields.push_back(line.substr(start, tab - start));
 		start = tab + 1;
 	}
 
@@ -165,66 +165,66 @@ public:
 	{
 		m_path = FindCaseFile();
 
-		if ( m_path.empty() )
+		if (m_path.empty())
 			return;
 
-		FILE *f = fopen( m_path.c_str(), "r" );
-		if ( !f )
+		FILE* f = fopen(m_path.c_str(), "r");
+		if (!f)
 			return;
 
 		char buffer[4096];
 
-		while ( fgets( buffer, sizeof( buffer ), f ) )
+		while (fgets(buffer, sizeof(buffer), f))
 		{
-			std::string line( buffer );
+			std::string line(buffer);
 
-			while ( !line.empty() && ( line.back() == '\n' || line.back() == '\r' ) )
+			while (!line.empty() && (line.back() == '\n' || line.back() == '\r'))
 				line.pop_back();
 
-			if ( line.empty() || line[0] == '#' )
+			if (line.empty() || line[0] == '#')
 				continue;
 
-			std::vector<std::string> fields = SplitTabs( line );
+			std::vector<std::string> fields = SplitTabs(line);
 
-			if ( fields[0] == "S" && fields.size() >= 16 )
+			if (fields[0] == "S" && fields.size() >= 16)
 			{
 				StringCase c;
-				c.input = Unquote( fields[1] );
-				c.asInt = atoi( fields[2].c_str() );
+				c.input = Unquote(fields[1]);
+				c.asInt = atoi(fields[2].c_str());
 				c.asFloat = fields[3];
-				c.asBool = atoi( fields[4].c_str() );
+				c.asBool = atoi(fields[4].c_str());
 				c.vec[0] = fields[5];
 				c.vec[1] = fields[6];
 				c.vec[2] = fields[7];
-				c.color[0] = (unsigned)atoi( fields[8].c_str() );
-				c.color[1] = (unsigned)atoi( fields[9].c_str() );
-				c.color[2] = (unsigned)atoi( fields[10].c_str() );
-				c.color[3] = (unsigned)atoi( fields[11].c_str() );
+				c.color[0] = (unsigned)atoi(fields[8].c_str());
+				c.color[1] = (unsigned)atoi(fields[9].c_str());
+				c.color[2] = (unsigned)atoi(fields[10].c_str());
+				c.color[3] = (unsigned)atoi(fields[11].c_str());
 				c.toStringInt = fields[12];
 				c.toStringFloat = fields[13];
 				c.toStringVector = fields[14];
 				c.toStringColor = fields[15];
-				m_strings.push_back( c );
+				m_strings.push_back(c);
 			}
-			else if ( fields[0] == "F" && fields.size() >= 5 )
+			else if (fields[0] == "F" && fields.size() >= 5)
 			{
 				FloatCase c;
 				c.value = fields[1];
-				c.asInt = atoi( fields[2].c_str() );
-				c.asBool = atoi( fields[3].c_str() );
+				c.asInt = atoi(fields[2].c_str());
+				c.asBool = atoi(fields[3].c_str());
 				c.toString = fields[4];
-				m_floats.push_back( c );
+				m_floats.push_back(c);
 			}
 		}
 
-		fclose( f );
+		fclose(f);
 	}
 
-	const std::string &Path() const { return m_path; }
+	const std::string& Path() const { return m_path; }
 
-	const std::vector<StringCase> &Strings() const { return m_strings; }
+	const std::vector<StringCase>& Strings() const { return m_strings; }
 
-	const std::vector<FloatCase> &Floats() const { return m_floats; }
+	const std::vector<FloatCase>& Floats() const { return m_floats; }
 
 private:
 	std::string m_path;
@@ -232,7 +232,7 @@ private:
 	std::vector<FloatCase> m_floats;
 };
 
-const VariantCases &Cases()
+const VariantCases& Cases()
 {
 	static VariantCases s_cases;
 	return s_cases;
@@ -240,15 +240,15 @@ const VariantCases &Cases()
 
 // A float as the oracle writes it: %.9g round-trips, and the three specials
 // have a spelling of their own so neither reader has to guess the platform's.
-std::string Exact( float f )
+std::string Exact(float f)
 {
-	if ( std::isnan( f ) )
+	if (std::isnan(f))
 		return "nan";
-	if ( std::isinf( f ) )
+	if (std::isinf(f))
 		return f > 0 ? "inf" : "-inf";
 
 	char buffer[64];
-	snprintf( buffer, sizeof( buffer ), "%.9g", (double)f );
+	snprintf(buffer, sizeof(buffer), "%.9g", (double)f);
 	return buffer;
 }
 
@@ -258,17 +258,17 @@ std::string Exact( float f )
 // The table has to be there, and it has to have content. A suite that silently
 // runs zero rows is the "check that cannot fail" this directory exists to stop.
 //-----------------------------------------------------------------------------
-TEST( VariantConvert, TheCaseTableIsFound )
+TEST(VariantConvert, TheCaseTableIsFound)
 {
-	ASSERT_FALSE( Cases().Path().empty() ) << "src/sourcesharp/test/variant_convert_cases.tsv was not found by walking "
-											  "up from the working directory. Both this suite and the managed "
-											  "VariantAgreementTests read it; without it neither is checking anything.";
+	ASSERT_FALSE(Cases().Path().empty()) << "src/sourcesharp/test/variant_convert_cases.tsv was not found by walking "
+											"up from the working directory. Both this suite and the managed "
+											"VariantAgreementTests read it; without it neither is checking anything.";
 }
 
-TEST( VariantConvert, TheCaseTableHasRows )
+TEST(VariantConvert, TheCaseTableHasRows)
 {
-	EXPECT_GE( Cases().Strings().size(), 40u );
-	EXPECT_GE( Cases().Floats().size(), 20u );
+	EXPECT_GE(Cases().Strings().size(), 40u);
+	EXPECT_GE(Cases().Floats().size(), 20u);
 }
 
 //-----------------------------------------------------------------------------
@@ -276,10 +276,10 @@ TEST( VariantConvert, TheCaseTableHasRows )
 //
 //     if (iszVal != NULL_STRING) SetInt(atoi(STRING(iszVal))); else SetInt(0);
 //-----------------------------------------------------------------------------
-TEST( VariantConvert, StringToInteger )
+TEST(VariantConvert, StringToInteger)
 {
-	for ( const StringCase &c : Cases().Strings() )
-		EXPECT_EQ( c.asInt, atoi( c.input.c_str() ) ) << "input [" << c.input << "]";
+	for (const StringCase& c : Cases().Strings())
+		EXPECT_EQ(c.asInt, atoi(c.input.c_str())) << "input [" << c.input << "]";
 }
 
 //-----------------------------------------------------------------------------
@@ -287,10 +287,10 @@ TEST( VariantConvert, StringToInteger )
 //
 //     if (iszVal != NULL_STRING) SetFloat(atof(STRING(iszVal))); else SetFloat(0);
 //-----------------------------------------------------------------------------
-TEST( VariantConvert, StringToFloat )
+TEST(VariantConvert, StringToFloat)
 {
-	for ( const StringCase &c : Cases().Strings() )
-		EXPECT_EQ( c.asFloat, Exact( (float)atof( c.input.c_str() ) ) ) << "input [" << c.input << "]";
+	for (const StringCase& c : Cases().Strings())
+		EXPECT_EQ(c.asFloat, Exact((float)atof(c.input.c_str()))) << "input [" << c.input << "]";
 }
 
 //-----------------------------------------------------------------------------
@@ -301,10 +301,10 @@ TEST( VariantConvert, StringToFloat )
 // ATOI, NOT ATOF, which is why "0.5" is false and "0x10" is false while their
 // float conversions are 0.5 and 16.
 //-----------------------------------------------------------------------------
-TEST( VariantConvert, StringToBoolean )
+TEST(VariantConvert, StringToBoolean)
 {
-	for ( const StringCase &c : Cases().Strings() )
-		EXPECT_EQ( c.asBool, atoi( c.input.c_str() ) != 0 ) << "input [" << c.input << "]";
+	for (const StringCase& c : Cases().Strings())
+		EXPECT_EQ(c.asBool, atoi(c.input.c_str()) != 0) << "input [" << c.input << "]";
 }
 
 //-----------------------------------------------------------------------------
@@ -322,54 +322,54 @@ TEST( VariantConvert, StringToBoolean )
 static bool LibcScansATruncatedExponent()
 {
 	float f = 0;
-	return sscanf( "1e", "%f", &f ) == 1;
+	return sscanf("1e", "%f", &f) == 1;
 }
 
-static bool IsTruncatedExponentRow( const std::string &input )
+static bool IsTruncatedExponentRow(const std::string& input)
 {
 	return input == "1e" || input == "1e+";
 }
 
 // The vector columns this libc must produce for a row: the table's, except for
 // a truncated exponent on a libc that refuses one, where nothing is assigned.
-static std::string ExpectedVecCell( const StringCase &c, int axis )
+static std::string ExpectedVecCell(const StringCase& c, int axis)
 {
-	if ( !LibcScansATruncatedExponent() && IsTruncatedExponentRow( c.input ) )
+	if (!LibcScansATruncatedExponent() && IsTruncatedExponentRow(c.input))
 		return "0";
 	return c.vec[axis];
 }
 
-static std::string ExpectedVecString( const StringCase &c )
+static std::string ExpectedVecString(const StringCase& c)
 {
-	if ( !LibcScansATruncatedExponent() && IsTruncatedExponentRow( c.input ) )
+	if (!LibcScansATruncatedExponent() && IsTruncatedExponentRow(c.input))
 		return "[0 0 0]";
 	return c.toStringVector;
 }
 
-TEST( VariantConvert, TheTruncatedExponentDivergenceIsExactlyTheseRows )
+TEST(VariantConvert, TheTruncatedExponentDivergenceIsExactlyTheseRows)
 {
 	// Both rows exist, and the table (2.31) says each reads as 1.
 	int nRows = 0;
-	for ( const StringCase &c : Cases().Strings() )
+	for (const StringCase& c : Cases().Strings())
 	{
-		if ( !IsTruncatedExponentRow( c.input ) )
+		if (!IsTruncatedExponentRow(c.input))
 			continue;
 		nRows++;
-		EXPECT_EQ( "1", c.vec[0] ) << "input [" << c.input << "]";
-		EXPECT_EQ( "[1 0 0]", c.toStringVector ) << "input [" << c.input << "]";
+		EXPECT_EQ("1", c.vec[0]) << "input [" << c.input << "]";
+		EXPECT_EQ("[1 0 0]", c.toStringVector) << "input [" << c.input << "]";
 	}
-	EXPECT_EQ( 2, nRows );
+	EXPECT_EQ(2, nRows);
 
 	// And the carve-out is only ever needed for them: every other row's first
 	// axis agrees with the table under this libc, whichever one it is.
-	for ( const StringCase &c : Cases().Strings() )
+	for (const StringCase& c : Cases().Strings())
 	{
-		if ( IsTruncatedExponentRow( c.input ) )
+		if (IsTruncatedExponentRow(c.input))
 			continue;
-		float v[3] = { 0, 0, 0 };
-		if ( sscanf( c.input.c_str(), "[%f %f %f]", &v[0], &v[1], &v[2] ) == 0 )
-			sscanf( c.input.c_str(), "%f %f %f", &v[0], &v[1], &v[2] );
-		EXPECT_EQ( c.vec[0], Exact( v[0] ) ) << "input [" << c.input << "]";
+		float v[3] = {0, 0, 0};
+		if (sscanf(c.input.c_str(), "[%f %f %f]", &v[0], &v[1], &v[2]) == 0)
+			sscanf(c.input.c_str(), "%f %f %f", &v[0], &v[1], &v[2]);
+		EXPECT_EQ(c.vec[0], Exact(v[0])) << "input [" << c.input << "]";
 	}
 }
 
@@ -383,18 +383,18 @@ TEST( VariantConvert, TheTruncatedExponentDivergenceIsExactlyTheseRows )
 // The retry is on ZERO, not on three, so a truncated bracketed vector keeps
 // what it read: "[1 2" is (1,2,0).
 //-----------------------------------------------------------------------------
-TEST( VariantConvert, StringToVector )
+TEST(VariantConvert, StringToVector)
 {
-	for ( const StringCase &c : Cases().Strings() )
+	for (const StringCase& c : Cases().Strings())
 	{
-		float v[3] = { 0, 0, 0 };
+		float v[3] = {0, 0, 0};
 
-		if ( sscanf( c.input.c_str(), "[%f %f %f]", &v[0], &v[1], &v[2] ) == 0 )
-			sscanf( c.input.c_str(), "%f %f %f", &v[0], &v[1], &v[2] );
+		if (sscanf(c.input.c_str(), "[%f %f %f]", &v[0], &v[1], &v[2]) == 0)
+			sscanf(c.input.c_str(), "%f %f %f", &v[0], &v[1], &v[2]);
 
-		EXPECT_EQ( ExpectedVecCell( c, 0 ), Exact( v[0] ) ) << "input [" << c.input << "] x";
-		EXPECT_EQ( ExpectedVecCell( c, 1 ), Exact( v[1] ) ) << "input [" << c.input << "] y";
-		EXPECT_EQ( ExpectedVecCell( c, 2 ), Exact( v[2] ) ) << "input [" << c.input << "] z";
+		EXPECT_EQ(ExpectedVecCell(c, 0), Exact(v[0])) << "input [" << c.input << "] x";
+		EXPECT_EQ(ExpectedVecCell(c, 1), Exact(v[1])) << "input [" << c.input << "] y";
+		EXPECT_EQ(ExpectedVecCell(c, 2), Exact(v[2])) << "input [" << c.input << "] z";
 	}
 }
 
@@ -408,17 +408,17 @@ TEST( VariantConvert, StringToVector )
 // The return value is NOT checked, so a channel sscanf never reached keeps its
 // initialiser -- and SetColor32 assigns an int into a byte, so 300 is 44.
 //-----------------------------------------------------------------------------
-TEST( VariantConvert, StringToColor32 )
+TEST(VariantConvert, StringToColor32)
 {
-	for ( const StringCase &c : Cases().Strings() )
+	for (const StringCase& c : Cases().Strings())
 	{
 		int nRed = 0, nGreen = 0, nBlue = 0, nAlpha = 255;
-		sscanf( c.input.c_str(), "%d %d %d %d", &nRed, &nGreen, &nBlue, &nAlpha );
+		sscanf(c.input.c_str(), "%d %d %d %d", &nRed, &nGreen, &nBlue, &nAlpha);
 
-		EXPECT_EQ( c.color[0], (unsigned)(unsigned char)nRed ) << "input [" << c.input << "] r";
-		EXPECT_EQ( c.color[1], (unsigned)(unsigned char)nGreen ) << "input [" << c.input << "] g";
-		EXPECT_EQ( c.color[2], (unsigned)(unsigned char)nBlue ) << "input [" << c.input << "] b";
-		EXPECT_EQ( c.color[3], (unsigned)(unsigned char)nAlpha ) << "input [" << c.input << "] a";
+		EXPECT_EQ(c.color[0], (unsigned)(unsigned char)nRed) << "input [" << c.input << "] r";
+		EXPECT_EQ(c.color[1], (unsigned)(unsigned char)nGreen) << "input [" << c.input << "] g";
+		EXPECT_EQ(c.color[2], (unsigned)(unsigned char)nBlue) << "input [" << c.input << "] b";
+		EXPECT_EQ(c.color[3], (unsigned)(unsigned char)nAlpha) << "input [" << c.input << "] a";
 	}
 }
 
@@ -427,58 +427,58 @@ TEST( VariantConvert, StringToColor32 )
 // "%d %d %d %d" for a colour. Six significant digits throughout, which is where
 // the string form of a value stops being the value.
 //-----------------------------------------------------------------------------
-TEST( VariantConvert, ToStringSpellsAnInteger )
+TEST(VariantConvert, ToStringSpellsAnInteger)
 {
 	char buffer[512];
 
-	for ( const StringCase &c : Cases().Strings() )
+	for (const StringCase& c : Cases().Strings())
 	{
-		snprintf( buffer, sizeof( buffer ), "%i", atoi( c.input.c_str() ) );
-		EXPECT_EQ( c.toStringInt, std::string( buffer ) ) << "input [" << c.input << "]";
+		snprintf(buffer, sizeof(buffer), "%i", atoi(c.input.c_str()));
+		EXPECT_EQ(c.toStringInt, std::string(buffer)) << "input [" << c.input << "]";
 	}
 }
 
-TEST( VariantConvert, ToStringSpellsAFloat )
+TEST(VariantConvert, ToStringSpellsAFloat)
 {
 	char buffer[512];
 
-	for ( const StringCase &c : Cases().Strings() )
+	for (const StringCase& c : Cases().Strings())
 	{
-		snprintf( buffer, sizeof( buffer ), "%g", (float)atof( c.input.c_str() ) );
-		EXPECT_EQ( c.toStringFloat, std::string( buffer ) ) << "input [" << c.input << "]";
+		snprintf(buffer, sizeof(buffer), "%g", (float)atof(c.input.c_str()));
+		EXPECT_EQ(c.toStringFloat, std::string(buffer)) << "input [" << c.input << "]";
 	}
 }
 
-TEST( VariantConvert, ToStringSpellsAVector )
+TEST(VariantConvert, ToStringSpellsAVector)
 {
 	char buffer[512];
 
-	for ( const StringCase &c : Cases().Strings() )
+	for (const StringCase& c : Cases().Strings())
 	{
-		float v[3] = { 0, 0, 0 };
+		float v[3] = {0, 0, 0};
 
-		if ( sscanf( c.input.c_str(), "[%f %f %f]", &v[0], &v[1], &v[2] ) == 0 )
-			sscanf( c.input.c_str(), "%f %f %f", &v[0], &v[1], &v[2] );
+		if (sscanf(c.input.c_str(), "[%f %f %f]", &v[0], &v[1], &v[2]) == 0)
+			sscanf(c.input.c_str(), "%f %f %f", &v[0], &v[1], &v[2]);
 
-		snprintf( buffer, sizeof( buffer ), "[%g %g %g]", (double)v[0], (double)v[1], (double)v[2] );
+		snprintf(buffer, sizeof(buffer), "[%g %g %g]", (double)v[0], (double)v[1], (double)v[2]);
 
-		EXPECT_EQ( ExpectedVecString( c ), std::string( buffer ) ) << "input [" << c.input << "]";
+		EXPECT_EQ(ExpectedVecString(c), std::string(buffer)) << "input [" << c.input << "]";
 	}
 }
 
-TEST( VariantConvert, ToStringSpellsAColor )
+TEST(VariantConvert, ToStringSpellsAColor)
 {
 	char buffer[512];
 
-	for ( const StringCase &c : Cases().Strings() )
+	for (const StringCase& c : Cases().Strings())
 	{
 		int nRed = 0, nGreen = 0, nBlue = 0, nAlpha = 255;
-		sscanf( c.input.c_str(), "%d %d %d %d", &nRed, &nGreen, &nBlue, &nAlpha );
+		sscanf(c.input.c_str(), "%d %d %d %d", &nRed, &nGreen, &nBlue, &nAlpha);
 
-		snprintf( buffer, sizeof( buffer ), "%d %d %d %d", (int)(unsigned char)nRed, (int)(unsigned char)nGreen,
-				  (int)(unsigned char)nBlue, (int)(unsigned char)nAlpha );
+		snprintf(buffer, sizeof(buffer), "%d %d %d %d", (int)(unsigned char)nRed, (int)(unsigned char)nGreen,
+				 (int)(unsigned char)nBlue, (int)(unsigned char)nAlpha);
 
-		EXPECT_EQ( c.toStringColor, std::string( buffer ) ) << "input [" << c.input << "]";
+		EXPECT_EQ(c.toStringColor, std::string(buffer)) << "input [" << c.input << "]";
 	}
 }
 
@@ -492,33 +492,33 @@ TEST( VariantConvert, ToStringSpellsAColor )
 // overflowed. Asserted rather than reasoned about, because the managed side has
 // to reproduce it and "it agrees today" is not a reason.
 //-----------------------------------------------------------------------------
-TEST( VariantConvert, FloatToInteger )
+TEST(VariantConvert, FloatToInteger)
 {
-	for ( const FloatCase &c : Cases().Floats() )
+	for (const FloatCase& c : Cases().Floats())
 	{
-		float f = (float)atof( c.value.c_str() );
-		EXPECT_EQ( c.asInt, (int)f ) << "value [" << c.value << "]";
+		float f = (float)atof(c.value.c_str());
+		EXPECT_EQ(c.asInt, (int)f) << "value [" << c.value << "]";
 	}
 }
 
-TEST( VariantConvert, FloatToBoolean )
+TEST(VariantConvert, FloatToBoolean)
 {
-	for ( const FloatCase &c : Cases().Floats() )
+	for (const FloatCase& c : Cases().Floats())
 	{
-		float f = (float)atof( c.value.c_str() );
-		EXPECT_EQ( c.asBool, f != 0 ) << "value [" << c.value << "]";
+		float f = (float)atof(c.value.c_str());
+		EXPECT_EQ(c.asBool, f != 0) << "value [" << c.value << "]";
 	}
 }
 
-TEST( VariantConvert, ToStringSpellsEveryFloatBracket )
+TEST(VariantConvert, ToStringSpellsEveryFloatBracket)
 {
 	char buffer[512];
 
-	for ( const FloatCase &c : Cases().Floats() )
+	for (const FloatCase& c : Cases().Floats())
 	{
-		float f = (float)atof( c.value.c_str() );
-		snprintf( buffer, sizeof( buffer ), "%g", f );
-		EXPECT_EQ( c.toString, std::string( buffer ) ) << "value [" << c.value << "]";
+		float f = (float)atof(c.value.c_str());
+		snprintf(buffer, sizeof(buffer), "%g", f);
+		EXPECT_EQ(c.toString, std::string(buffer)) << "value [" << c.value << "]";
 	}
 }
 

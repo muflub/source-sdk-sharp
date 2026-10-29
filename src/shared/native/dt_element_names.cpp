@@ -13,20 +13,20 @@
 // A prop keeps the returned pointer, so a slot is never written twice.
 static char s_DTElementNames[MAX_ARRAY_ELEMENTS][5]; // four digits and the terminator
 
-const char *DT_ArrayElementNameForIdx( size_t i )
+const char* DT_ArrayElementNameForIdx(size_t i)
 {
-	Assert( i < MAX_ARRAY_ELEMENTS );
-	char *pszName = s_DTElementNames[i];
-	if ( pszName[0] == 0 )
+	Assert(i < MAX_ARRAY_ELEMENTS);
+	char* pszName = s_DTElementNames[i];
+	if (pszName[0] == 0)
 	{
 		// Written out rather than formatted: the server links no tier1.
 		const int n = (int)i;
-		char *p = pszName;
-		if ( n >= 1000 )
-			*p++ = (char)( '0' + n / 1000 );
-		p[0] = (char)( '0' + n / 100 % 10 );
-		p[1] = (char)( '0' + n / 10 % 10 );
-		p[2] = (char)( '0' + n % 10 );
+		char* p = pszName;
+		if (n >= 1000)
+			*p++ = (char)('0' + n / 1000);
+		p[0] = (char)('0' + n / 100 % 10);
+		p[1] = (char)('0' + n / 10 % 10);
+		p[2] = (char)('0' + n % 10);
 	}
 	return pszName;
 }

@@ -15,8 +15,8 @@
 #include "server_services.h"
 
 // One process-wide table, so this and cs_cl_crossings print the same counters.
-SS_NATIVE_COMMAND( cs_sv_crossings )
+SS_NATIVE_COMMAND(cs_sv_crossings)
 {
-	SourceSharp_PrintCrossings( services.m_EntityContext.m_Managed.m_Areas.m_pDiagnostics,
-								args.ArgC() > 1 && ss::StrICmp( args.Arg( 1 ), "reset" ) == 0 );
+	SourceSharp_PrintCrossings(services.m_EntityContext.m_Managed.m_Areas.m_pDiagnostics,
+							   args.ArgC() > 1 && ss::StrICmp(args.Arg(1), "reset") == 0);
 }

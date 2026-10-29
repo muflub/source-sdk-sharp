@@ -35,13 +35,13 @@ struct te_tf_particle_effects_control_point_t
 // Particle parsing methods
 // Parse the particle manifest file & register the effects within it
 // Only needs to be called once per game, unless tools change particle definitions
-void ParseParticleEffects( bool bLoadSheets, bool bPrecache );
-void ParseParticleEffectsMap( const char *pMapName, bool bLoadSheets );
+void ParseParticleEffects(bool bLoadSheets, bool bPrecache);
+void ParseParticleEffectsMap(const char* pMapName, bool bLoadSheets);
 
 class IFileList;
 void ReloadParticleEffects();
 
-void DispatchParticleEffect( const char *pszParticleName, Vector vecOrigin, QAngle vecAngles,
-							 CBaseEntity *pEntity = NULL );
-void DispatchParticleEffect( int iEffectIndex, Vector vecOrigin, Vector vecStart, QAngle vecAngles,
-							 CBaseEntity *pEntity = NULL );
+void DispatchParticleEffect(const char* pszParticleName, Vector vecOrigin, QAngle vecAngles,
+							CBaseEntity* pEntity = NULL);
+void DispatchParticleEffect(int iEffectIndex, Vector vecOrigin, Vector vecStart, QAngle vecAngles,
+							CBaseEntity* pEntity = NULL);

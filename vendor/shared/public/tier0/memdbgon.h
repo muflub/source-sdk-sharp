@@ -7,12 +7,12 @@
 // to include this potentially multiple times (since we can deactivate debugging
 // by including memdbgoff.h)
 
-#if !defined( NO_MALLOC_OVERRIDE )
+#if !defined(NO_MALLOC_OVERRIDE)
 
 // SPECIAL NOTE #2: This must be the final include in a .cpp or .h file!!!
 
 // If debug build or ndebug and not already included MS custom alloc files, or already included this file
-#if ( defined( _DEBUG ) || !defined( _INC_CRTDBG ) ) || defined( MEMDBGON_H )
+#if (defined(_DEBUG) || !defined(_INC_CRTDBG)) || defined(MEMDBGON_H)
 
 #include "basetypes.h"
 #ifdef _WIN32
@@ -25,8 +25,8 @@
 #include "commonmacros.h"
 #include "memalloc.h"
 
-#if defined( USE_MEM_DEBUG )
-#if defined( POSIX )
+#if defined(USE_MEM_DEBUG)
+#if defined(POSIX)
 
 #define _NORMAL_BLOCK 1
 
@@ -34,22 +34,22 @@
 #include <glob.h>
 #include <new>
 #include <sys/types.h>
-#if !defined( DID_THE_OPERATOR_NEW )
+#if !defined(DID_THE_OPERATOR_NEW)
 #define DID_THE_OPERATOR_NEW
 // posix doesn't have a new of this form, so we impl our own
 #ifdef OSX
-void *operator new( size_t nSize, int blah, const char *pFileName, int nLine ) throw( std::bad_alloc );
-void *operator new[]( size_t nSize, int blah, const char *pFileName, int nLine ) throw( std::bad_alloc );
+void* operator new(size_t nSize, int blah, const char* pFileName, int nLine) throw(std::bad_alloc);
+void* operator new[](size_t nSize, int blah, const char* pFileName, int nLine) throw(std::bad_alloc);
 #else
-void *operator new( size_t nSize, int blah, const char *pFileName, int nLine );
-void *operator new[]( size_t nSize, int blah, const char *pFileName, int nLine );
+void* operator new(size_t nSize, int blah, const char* pFileName, int nLine);
+void* operator new[](size_t nSize, int blah, const char* pFileName, int nLine);
 #endif
 #endif
 
 #else // defined(POSIX)
 
 // Include crtdbg.h and make sure _DEBUG is set to 1.
-#if !defined( _DEBUG )
+#if !defined(_DEBUG)
 #define _DEBUG 1
 #include <crtdbg.h>
 #undef _DEBUG
@@ -76,34 +76,34 @@ void *operator new[]( size_t nSize, int blah, const char *pFileName, int nLine )
 #undef _aligned_free
 
 #ifndef MEMDBGON_H
-inline void *MemAlloc_InlineCallocMemset( void *pMem, size_t nCount, size_t nElementSize )
+inline void* MemAlloc_InlineCallocMemset(void* pMem, size_t nCount, size_t nElementSize)
 {
-	memset( pMem, 0, nElementSize * nCount );
+	memset(pMem, 0, nElementSize * nCount);
 	return pMem;
 }
 #endif
 
-#define calloc( c, s ) MemAlloc_InlineCallocMemset( malloc( c *s ), c, s )
-#define free( p ) g_pMemAlloc->Free( p )
-#define _msize( p ) g_pMemAlloc->GetSize( p )
-#define _expand( p, s ) _expand_NoLongerSupported( p, s )
-#define _aligned_free( p ) MemAlloc_FreeAligned( p )
+#define calloc(c, s) MemAlloc_InlineCallocMemset(malloc(c* s), c, s)
+#define free(p) g_pMemAlloc->Free(p)
+#define _msize(p) g_pMemAlloc->GetSize(p)
+#define _expand(p, s) _expand_NoLongerSupported(p, s)
+#define _aligned_free(p) MemAlloc_FreeAligned(p)
 
 // Debug path
-#if defined( USE_MEM_DEBUG )
+#if defined(USE_MEM_DEBUG)
 
-#define malloc( s ) g_pMemAlloc->Alloc( s, __FILE__, __LINE__ )
-#define realloc( p, s ) g_pMemAlloc->Realloc( p, s, __FILE__, __LINE__ )
-#define _aligned_malloc( s, a ) MemAlloc_AllocAligned( s, a, __FILE__, __LINE__ )
+#define malloc(s) g_pMemAlloc->Alloc(s, __FILE__, __LINE__)
+#define realloc(p, s) g_pMemAlloc->Realloc(p, s, __FILE__, __LINE__)
+#define _aligned_malloc(s, a) MemAlloc_AllocAligned(s, a, __FILE__, __LINE__)
 
 #ifdef _malloc_dbg
 #undef _malloc_dbg
 #endif
-#define _malloc_dbg( s, t, f, l ) WHYCALLINGTHISDIRECTLY( s )
+#define _malloc_dbg(s, t, f, l) WHYCALLINGTHISDIRECTLY(s)
 
-#if !defined( POSIX )
+#if !defined(POSIX)
 #undef new
-#define MEMALL_DEBUG_NEW new ( _NORMAL_BLOCK, __FILE__, __LINE__ )
+#define MEMALL_DEBUG_NEW new (_NORMAL_BLOCK, __FILE__, __LINE__)
 #define new MEMALL_DEBUG_NEW
 #endif
 
@@ -112,41 +112,41 @@ inline void *MemAlloc_InlineCallocMemset( void *pMem, size_t nCount, size_t nEle
 #undef _wcsdup
 #undef wcsdup
 
-#define _strdup( s ) MemAlloc_StrDup( s, __FILE__, __LINE__ )
-#define strdup( s ) MemAlloc_StrDup( s, __FILE__, __LINE__ )
-#define _wcsdup( s ) MemAlloc_WcStrDup( s, __FILE__, __LINE__ )
-#define wcsdup( s ) MemAlloc_WcStrDup( s, __FILE__, __LINE__ )
+#define _strdup(s) MemAlloc_StrDup(s, __FILE__, __LINE__)
+#define strdup(s) MemAlloc_StrDup(s, __FILE__, __LINE__)
+#define _wcsdup(s) MemAlloc_WcStrDup(s, __FILE__, __LINE__)
+#define wcsdup(s) MemAlloc_WcStrDup(s, __FILE__, __LINE__)
 
 // Make sure we don't define strdup twice
-#if !defined( MEMDBGON_H )
+#if !defined(MEMDBGON_H)
 
-inline char *MemAlloc_StrDup( const char *pString, const char *pFileName, unsigned nLine )
+inline char* MemAlloc_StrDup(const char* pString, const char* pFileName, unsigned nLine)
 {
-	char *pMemory;
+	char* pMemory;
 
-	if ( !pString )
+	if (!pString)
 		return NULL;
 
-	size_t len = strlen( pString ) + 1;
-	if ( ( pMemory = (char *)g_pMemAlloc->Alloc( len, pFileName, nLine ) ) != NULL )
+	size_t len = strlen(pString) + 1;
+	if ((pMemory = (char*)g_pMemAlloc->Alloc(len, pFileName, nLine)) != NULL)
 	{
-		return strcpy( pMemory, pString );
+		return strcpy(pMemory, pString);
 	}
 
 	return NULL;
 }
 
-inline wchar_t *MemAlloc_WcStrDup( const wchar_t *pString, const char *pFileName, unsigned nLine )
+inline wchar_t* MemAlloc_WcStrDup(const wchar_t* pString, const char* pFileName, unsigned nLine)
 {
-	wchar_t *pMemory;
+	wchar_t* pMemory;
 
-	if ( !pString )
+	if (!pString)
 		return NULL;
 
-	size_t len = ( wcslen( pString ) + 1 );
-	if ( ( pMemory = (wchar_t *)g_pMemAlloc->Alloc( len * sizeof( wchar_t ), pFileName, nLine ) ) != NULL )
+	size_t len = (wcslen(pString) + 1);
+	if ((pMemory = (wchar_t*)g_pMemAlloc->Alloc(len * sizeof(wchar_t), pFileName, nLine)) != NULL)
 	{
-		return wcscpy( pMemory, pString );
+		return wcscpy(pMemory, pString);
 	}
 
 	return NULL;
@@ -157,14 +157,14 @@ inline wchar_t *MemAlloc_WcStrDup( const wchar_t *pString, const char *pFileName
 #else
 // Release path
 
-#define malloc( s ) g_pMemAlloc->Alloc( s )
-#define realloc( p, s ) g_pMemAlloc->Realloc( p, s )
-#define _aligned_malloc( s, a ) MemAlloc_AllocAligned( s, a )
+#define malloc(s) g_pMemAlloc->Alloc(s)
+#define realloc(p, s) g_pMemAlloc->Realloc(p, s)
+#define _aligned_malloc(s, a) MemAlloc_AllocAligned(s, a)
 
 #ifdef _malloc_dbg
 #undef _malloc_dbg
 #endif
-#define _malloc_dbg( s, t, f, l ) WHYCALLINGTHISDIRECTLY( s )
+#define _malloc_dbg(s, t, f, l) WHYCALLINGTHISDIRECTLY(s)
 
 #undef new
 
@@ -173,41 +173,41 @@ inline wchar_t *MemAlloc_WcStrDup( const wchar_t *pString, const char *pFileName
 #undef _wcsdup
 #undef wcsdup
 
-#define _strdup( s ) MemAlloc_StrDup( s )
-#define strdup( s ) MemAlloc_StrDup( s )
-#define _wcsdup( s ) MemAlloc_WcStrDup( s )
-#define wcsdup( s ) MemAlloc_WcStrDup( s )
+#define _strdup(s) MemAlloc_StrDup(s)
+#define strdup(s) MemAlloc_StrDup(s)
+#define _wcsdup(s) MemAlloc_WcStrDup(s)
+#define wcsdup(s) MemAlloc_WcStrDup(s)
 
 // Make sure we don't define strdup twice
-#if !defined( MEMDBGON_H )
+#if !defined(MEMDBGON_H)
 
-inline char *MemAlloc_StrDup( const char *pString )
+inline char* MemAlloc_StrDup(const char* pString)
 {
-	char *pMemory;
+	char* pMemory;
 
-	if ( !pString )
+	if (!pString)
 		return NULL;
 
-	size_t len = strlen( pString ) + 1;
-	if ( ( pMemory = (char *)g_pMemAlloc->Alloc( len ) ) != NULL )
+	size_t len = strlen(pString) + 1;
+	if ((pMemory = (char*)g_pMemAlloc->Alloc(len)) != NULL)
 	{
-		return strcpy( pMemory, pString );
+		return strcpy(pMemory, pString);
 	}
 
 	return NULL;
 }
 
-inline wchar_t *MemAlloc_WcStrDup( const wchar_t *pString )
+inline wchar_t* MemAlloc_WcStrDup(const wchar_t* pString)
 {
-	wchar_t *pMemory;
+	wchar_t* pMemory;
 
-	if ( !pString )
+	if (!pString)
 		return NULL;
 
-	size_t len = ( wcslen( pString ) + 1 );
-	if ( ( pMemory = (wchar_t *)g_pMemAlloc->Alloc( len * sizeof( wchar_t ) ) ) != NULL )
+	size_t len = (wcslen(pString) + 1);
+	if ((pMemory = (wchar_t*)g_pMemAlloc->Alloc(len * sizeof(wchar_t))) != NULL)
 	{
-		return wcscpy( pMemory, pString );
+		return wcscpy(pMemory, pString);
 	}
 
 	return NULL;
@@ -221,8 +221,8 @@ inline wchar_t *MemAlloc_WcStrDup( const wchar_t *pString )
 
 #else
 
-#if defined( USE_MEM_DEBUG )
-#pragma message( "Note: file includes crtdbg.h directly, therefore will cannot use memdbgon.h in non-debug build" )
+#if defined(USE_MEM_DEBUG)
+#pragma message("Note: file includes crtdbg.h directly, therefore will cannot use memdbgon.h in non-debug build")
 #endif
 #endif // _INC_CRTDBG
 
@@ -232,48 +232,48 @@ inline wchar_t *MemAlloc_WcStrDup( const wchar_t *pString )
 
 #include "memalloc.h"
 
-#if !defined( VALVE_ALLOCS_DEFINED )
+#if !defined(VALVE_ALLOCS_DEFINED)
 #define VALVE_ALLOCS_DEFINED
 
 #include "tier0/mem.h"
 
-inline void *valve_malloc_check_oom( size_t size )
+inline void* valve_malloc_check_oom(size_t size)
 {
-	void *ptr = malloc( size );
-	if ( !ptr )
-		MemAllocOOMError( size );
+	void* ptr = malloc(size);
+	if (!ptr)
+		MemAllocOOMError(size);
 	return ptr;
 }
 
-inline void *valve_realloc_check_oom( void *ptr, size_t size )
+inline void* valve_realloc_check_oom(void* ptr, size_t size)
 {
-	void *ret = realloc( ptr, size );
-	if ( !ret )
-		MemAllocOOMError( size );
+	void* ret = realloc(ptr, size);
+	if (!ret)
+		MemAllocOOMError(size);
 	return ret;
 }
 
-inline void *valve_calloc_check_oom( size_t num, size_t size )
+inline void* valve_calloc_check_oom(size_t num, size_t size)
 {
-	void *ptr = calloc( num, size );
-	if ( !ptr )
-		MemAllocOOMError( num * size );
+	void* ptr = calloc(num, size);
+	if (!ptr)
+		MemAllocOOMError(num * size);
 	return ptr;
 }
 
-inline void *valve_memalign_check_oom( size_t alignment, size_t size )
+inline void* valve_memalign_check_oom(size_t alignment, size_t size)
 {
-	void *ptr = memalign( alignment, size );
-	if ( !ptr )
-		MemAllocOOMError( size );
+	void* ptr = memalign(alignment, size);
+	if (!ptr)
+		MemAllocOOMError(size);
 	return ptr;
 }
 
-inline void *valve_aligned_malloc_check_oom( size_t size, size_t alignment )
+inline void* valve_aligned_malloc_check_oom(size_t size, size_t alignment)
 {
-	void *ptr = _aligned_malloc( size, alignment );
-	if ( !ptr )
-		MemAllocOOMError( size );
+	void* ptr = _aligned_malloc(size, alignment);
+	if (!ptr)
+		MemAllocOOMError(size);
 	return ptr;
 }
 
@@ -287,7 +287,7 @@ inline void *valve_aligned_malloc_check_oom( size_t size, size_t alignment )
 
 #endif // !STEAM && !NO_MALLOC_OVERRIDE
 
-#if defined( NO_MALLOC_OVERRIDE )
+#if defined(NO_MALLOC_OVERRIDE)
 
 #undef malloc
 #undef realloc

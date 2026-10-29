@@ -19,44 +19,44 @@ enum
 	kBitBlockHeaderBytes = 4
 };
 
-inline int32_t BitBlockBits( const uint8_t *pBlock )
+inline int32_t BitBlockBits(const uint8_t* pBlock)
 {
 	int32_t nBits;
-	memcpy( &nBits, pBlock, sizeof( nBits ) );
+	memcpy(&nBits, pBlock, sizeof(nBits));
 	return nBits;
 }
 
 // Writes the prefix BitBlockBits reads.
-inline void BitBlockSetBits( uint8_t *pBlock, int32_t nBits )
+inline void BitBlockSetBits(uint8_t* pBlock, int32_t nBits)
 {
-	memcpy( pBlock, &nBits, sizeof( nBits ) );
+	memcpy(pBlock, &nBits, sizeof(nBits));
 }
 
 // Writes the payload with one WriteBits. A negative count (managed overflow) or one past
 // the block's capacity sets the overflow flag instead. Returns whether it was written.
-inline bool BitBlockToEngine( bf_write *pBuf, const uint8_t *pBlock, int nBlockBytes )
+inline bool BitBlockToEngine(bf_write* pBuf, const uint8_t* pBlock, int nBlockBytes)
 {
-	const int32_t nBits = BitBlockBits( pBlock );
-	if ( nBits < 0 || nBits > ( nBlockBytes - kBitBlockHeaderBytes ) * 8 )
+	const int32_t nBits = BitBlockBits(pBlock);
+	if (nBits < 0 || nBits > (nBlockBytes - kBitBlockHeaderBytes) * 8)
 	{
 		pBuf->SetOverflowFlag();
 		return false;
 	}
-	return pBuf->WriteBits( pBlock + kBitBlockHeaderBytes, nBits );
+	return pBuf->WriteBits(pBlock + kBitBlockHeaderBytes, nBits);
 }
 
 // Copies the bits left in buf into a block without moving buf's read position.
 // Returns the bit count, or -(bytes needed) when the block is too small.
-inline int32_t BitBlockFromEngine( const bf_read &buf, uint8_t *pBlock, int nBlockBytes )
+inline int32_t BitBlockFromEngine(const bf_read& buf, uint8_t* pBlock, int nBlockBytes)
 {
 	bf_read copy = buf;
 	const int32_t nBits = copy.GetNumBitsLeft();
-	const int nNeeded = kBitBlockHeaderBytes + ( nBits + 7 ) / 8;
-	if ( nNeeded > nBlockBytes )
+	const int nNeeded = kBitBlockHeaderBytes + (nBits + 7) / 8;
+	if (nNeeded > nBlockBytes)
 		return -nNeeded;
-	memcpy( pBlock, &nBits, sizeof( nBits ) );
-	if ( nBits > 0 )
-		copy.ReadBits( pBlock + kBitBlockHeaderBytes, nBits );
+	memcpy(pBlock, &nBits, sizeof(nBits));
+	if (nBits > 0)
+		copy.ReadBits(pBlock + kBitBlockHeaderBytes, nBits);
 	return nBits;
 }
 } // namespace ss

@@ -41,7 +41,7 @@
 #endif
 
 #ifndef CLIENT_DLL
-uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
+uint32_t SourceSharp_HandleFromEntity(IGameEntity* pEntity);
 #endif
 
 #ifndef CLIENT_DLL
@@ -79,57 +79,57 @@ uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
 
 // The hulls before managed registers its own: stock's values, so reads during level
 // init see a real hull. Static, so the client's copy is a second static, not a duplicate.
-static RulesViewVectors_t g_DefaultViewVectors( Vector( 0, 0, 64 ), // VEC_VIEW
-												Vector( -16, -16, 0 ), // VEC_HULL_MIN
-												Vector( 16, 16, 72 ), // VEC_HULL_MAX
-												Vector( -16, -16, 0 ), // VEC_DUCK_HULL_MIN
-												Vector( 16, 16, 36 ), // VEC_DUCK_HULL_MAX
-												Vector( 0, 0, 28 ), // VEC_DUCK_VIEW
-												Vector( -10, -10, -10 ), // VEC_OBS_HULL_MIN
-												Vector( 10, 10, 10 ), // VEC_OBS_HULL_MAX
-												Vector( 0, 0, 14 ) // VEC_DEAD_VIEWHEIGHT
+static RulesViewVectors_t g_DefaultViewVectors(Vector(0, 0, 64), // VEC_VIEW
+											   Vector(-16, -16, 0), // VEC_HULL_MIN
+											   Vector(16, 16, 72), // VEC_HULL_MAX
+											   Vector(-16, -16, 0), // VEC_DUCK_HULL_MIN
+											   Vector(16, 16, 36), // VEC_DUCK_HULL_MAX
+											   Vector(0, 0, 28), // VEC_DUCK_VIEW
+											   Vector(-10, -10, -10), // VEC_OBS_HULL_MIN
+											   Vector(10, 10, 10), // VEC_OBS_HULL_MAX
+											   Vector(0, 0, 14) // VEC_DEAD_VIEWHEIGHT
 );
 
-static Vector SourceSharpVec3( const float *p )
+static Vector SourceSharpVec3(const float* p)
 {
-	return Vector( p[0], p[1], p[2] );
+	return Vector(p[0], p[1], p[2]);
 }
 
 // A standing hull with no volume would give every player no collision box, so it is
 // refused and stock's hulls kept. The other eight vectors may legally be zero.
-static bool SourceSharpHullIsDegenerate( const SourceSharpMovementParams *p )
+static bool SourceSharpHullIsDegenerate(const SourceSharpMovementParams* p)
 {
 	return p->vecHullMax[2] <= p->vecHullMin[2] || p->vecHullMax[0] <= p->vecHullMin[0] ||
 		p->vecHullMax[1] <= p->vecHullMin[1];
 }
 
-void SourceSharp_PublishViewVectors( const SourceSharpMovementParams *pParams )
+void SourceSharp_PublishViewVectors(const SourceSharpMovementParams* pParams)
 {
-	if ( !pParams )
+	if (!pParams)
 		return;
 
-	if ( SourceSharpHullIsDegenerate( pParams ) )
+	if (SourceSharpHullIsDegenerate(pParams))
 	{
-		Warning( "[SourceSharp] movement params carry a standing hull with no "
-				 "volume (min %.1f %.1f %.1f, max %.1f %.1f %.1f). KEEPING the "
-				 "stock hull: publishing that one is a player with no collision "
-				 "box, which looks like a broken map rather than a missing "
-				 "number. Set Movement.Current's HullMin/HullMax in "
-				 "SourceSharp.Shared.\n",
-				 pParams->vecHullMin[0], pParams->vecHullMin[1], pParams->vecHullMin[2], pParams->vecHullMax[0],
-				 pParams->vecHullMax[1], pParams->vecHullMax[2] );
+		Warning("[SourceSharp] movement params carry a standing hull with no "
+				"volume (min %.1f %.1f %.1f, max %.1f %.1f %.1f). KEEPING the "
+				"stock hull: publishing that one is a player with no collision "
+				"box, which looks like a broken map rather than a missing "
+				"number. Set Movement.Current's HullMin/HullMax in "
+				"SourceSharp.Shared.\n",
+				pParams->vecHullMin[0], pParams->vecHullMin[1], pParams->vecHullMin[2], pParams->vecHullMax[0],
+				pParams->vecHullMax[1], pParams->vecHullMax[2]);
 		return;
 	}
 
-	g_DefaultViewVectors.m_vView = SourceSharpVec3( pParams->vecView );
-	g_DefaultViewVectors.m_vHullMin = SourceSharpVec3( pParams->vecHullMin );
-	g_DefaultViewVectors.m_vHullMax = SourceSharpVec3( pParams->vecHullMax );
-	g_DefaultViewVectors.m_vDuckHullMin = SourceSharpVec3( pParams->vecDuckHullMin );
-	g_DefaultViewVectors.m_vDuckHullMax = SourceSharpVec3( pParams->vecDuckHullMax );
-	g_DefaultViewVectors.m_vDuckView = SourceSharpVec3( pParams->vecDuckView );
-	g_DefaultViewVectors.m_vObsHullMin = SourceSharpVec3( pParams->vecObsHullMin );
-	g_DefaultViewVectors.m_vObsHullMax = SourceSharpVec3( pParams->vecObsHullMax );
-	g_DefaultViewVectors.m_vDeadViewHeight = SourceSharpVec3( pParams->vecDeadViewHeight );
+	g_DefaultViewVectors.m_vView = SourceSharpVec3(pParams->vecView);
+	g_DefaultViewVectors.m_vHullMin = SourceSharpVec3(pParams->vecHullMin);
+	g_DefaultViewVectors.m_vHullMax = SourceSharpVec3(pParams->vecHullMax);
+	g_DefaultViewVectors.m_vDuckHullMin = SourceSharpVec3(pParams->vecDuckHullMin);
+	g_DefaultViewVectors.m_vDuckHullMax = SourceSharpVec3(pParams->vecDuckHullMax);
+	g_DefaultViewVectors.m_vDuckView = SourceSharpVec3(pParams->vecDuckView);
+	g_DefaultViewVectors.m_vObsHullMin = SourceSharpVec3(pParams->vecObsHullMin);
+	g_DefaultViewVectors.m_vObsHullMax = SourceSharpVec3(pParams->vecObsHullMax);
+	g_DefaultViewVectors.m_vDeadViewHeight = SourceSharpVec3(pParams->vecDeadViewHeight);
 }
 
 // The server writes the rules classname into this table to tell the client to build
@@ -138,12 +138,12 @@ void SourceSharp_PublishViewVectors( const SourceSharpMovementParams *pParams )
 
 #ifdef CLIENT_DLL
 
-INetworkStringTable *g_StringTableGameRules = NULL;
+INetworkStringTable* g_StringTableGameRules = NULL;
 
 // The server has made its rules object; make ours.
 //-----------------------------------------------------------------------------
-static void OnGameRulesCreationStringChanged( void *object, INetworkStringTable *stringTable, int stringNumber,
-											  const char *newString, void const *newData )
+static void OnGameRulesCreationStringChanged(void* object, INetworkStringTable* stringTable, int stringNumber,
+											 const char* newString, void const* newData)
 {
 	delete g_pGameRules;
 	g_pGameRules = NULL;
@@ -151,38 +151,38 @@ static void OnGameRulesCreationStringChanged( void *object, INetworkStringTable 
 	// The constructor assigns g_pGameRules, exactly as it does on the server.
 	new CSourceSharpGameRules();
 
-	if ( !g_pGameRules )
-		Error( "OnGameRulesCreationStringChanged: game rules object not created" );
+	if (!g_pGameRules)
+		Error("OnGameRulesCreationStringChanged: game rules object not created");
 }
 
 void InstallStringTableCallback_GameRules()
 {
-	if ( g_StringTableGameRules )
+	if (g_StringTableGameRules)
 		return;
 
-	g_StringTableGameRules = networkstringtable->FindTable( GAMERULES_STRINGTABLE_NAME );
+	g_StringTableGameRules = networkstringtable->FindTable(GAMERULES_STRINGTABLE_NAME);
 
-	if ( g_StringTableGameRules )
-		g_StringTableGameRules->SetStringChangedCallback( NULL, OnGameRulesCreationStringChanged );
+	if (g_StringTableGameRules)
+		g_StringTableGameRules->SetStringChangedCallback(NULL, OnGameRulesCreationStringChanged);
 }
 
 #else
 
-INetworkStringTable *CreateNetworkStringTables_GameRules( INetworkStringTableContainer *pTables )
+INetworkStringTable* CreateNetworkStringTables_GameRules(INetworkStringTableContainer* pTables)
 {
-	return pTables->CreateStringTable( GAMERULES_STRINGTABLE_NAME, 1 );
+	return pTables->CreateStringTable(GAMERULES_STRINGTABLE_NAME, 1);
 }
 
-IGameRules *SourceSharp_CreateGameRules( INetworkStringTable *pRulesTable, const CManagedAreas &managed )
+IGameRules* SourceSharp_CreateGameRules(INetworkStringTable* pRulesTable, const CManagedAreas& managed)
 {
-	IGameRules *pRules = new CSourceSharpGameRules( managed );
+	IGameRules* pRules = new CSourceSharpGameRules(managed);
 
 	// Tell the client to build its own; without it, the client has no rules object.
-	Assert( pRulesTable );
-	if ( pRulesTable )
+	Assert(pRulesTable);
+	if (pRulesTable)
 	{
-		const char *pszName = "CSourceSharpGameRules";
-		pRulesTable->AddString( true, "classname", (int)strlen( pszName ) + 1, pszName );
+		const char* pszName = "CSourceSharpGameRules";
+		pRulesTable->AddString(true, "classname", (int)strlen(pszName) + 1, pszName);
 	}
 
 	pRules->CreateCustomNetworkStringTables();
@@ -192,13 +192,13 @@ IGameRules *SourceSharp_CreateGameRules( INetworkStringTable *pRulesTable, const
 #endif // CLIENT_DLL
 
 #ifdef CLIENT_DLL
-BEGIN_NETWORK_TABLE_NOBASE( CSourceSharpGameRules, DT_SourceSharpGameRules )
+BEGIN_NETWORK_TABLE_NOBASE(CSourceSharpGameRules, DT_SourceSharpGameRules)
 END_NETWORK_TABLE()
 #endif
 
 #ifndef CLIENT_DLL
-CSourceSharpGameRules::CSourceSharpGameRules( const CManagedAreas &managed )
-	: m_Managed( managed )
+CSourceSharpGameRules::CSourceSharpGameRules(const CManagedAreas& managed)
+	: m_Managed(managed)
 {
 	SOURCESHARP_TRACE();
 }
@@ -208,7 +208,7 @@ CSourceSharpGameRules::CSourceSharpGameRules()
 	SOURCESHARP_TRACE();
 
 	// Two rules objects would leave the first leaked and unreachable.
-	Assert( !g_pGameRules );
+	Assert(!g_pGameRules);
 	g_pGameRules = this;
 }
 #endif
@@ -218,7 +218,7 @@ CSourceSharpGameRules::~CSourceSharpGameRules()
 	SOURCESHARP_TRACE();
 
 #ifdef CLIENT_DLL
-	Assert( g_pGameRules == this );
+	Assert(g_pGameRules == this);
 	g_pGameRules = NULL;
 #endif
 }
@@ -244,9 +244,9 @@ static SourceSharpDamageRules s_DamageRules = {
 };
 
 // C# states them once at startup.
-void SourceSharp_RegisterDamageRules( const SourceSharpDamageRules *pRules )
+void SourceSharp_RegisterDamageRules(const SourceSharpDamageRules* pRules)
 {
-	if ( !pRules )
+	if (!pRules)
 		return;
 
 	s_DamageRules = *pRules;
@@ -259,9 +259,9 @@ static SourceSharpGameRulesPolicy s_Policy = {
 };
 
 // C# states them once at startup.
-void SourceSharp_RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy *pPolicy )
+void SourceSharp_RegisterGameRulesPolicy(const SourceSharpGameRulesPolicy* pPolicy)
 {
-	if ( !pPolicy )
+	if (!pPolicy)
 		return;
 
 	s_Policy = *pPolicy;
@@ -291,21 +291,21 @@ bool CSourceSharpGameRules::IsMultiplayer()
 #ifndef CLIENT_DLL
 
 // Connection admission. C# decides; with no managed side every connection is allowed.
-bool CSourceSharpGameRules::ClientConnected( edict_t *pEntity, const char *pszName, const char *pszAddress,
-											 char *reject, int maxrejectlen )
+bool CSourceSharpGameRules::ClientConnected(edict_t* pEntity, const char* pszName, const char* pszAddress, char* reject,
+											int maxrejectlen)
 {
-	SOURCESHARP_TRACE_MSG( pszName );
+	SOURCESHARP_TRACE_MSG(pszName);
 
-	IManagedClients *pApi = m_Managed.m_pClients;
-	if ( pApi )
+	IManagedClients* pApi = m_Managed.m_pClients;
+	if (pApi)
 	{
-		if ( reject && maxrejectlen > 0 )
+		if (reject && maxrejectlen > 0)
 			reject[0] = '\0';
 
-		if ( pApi->OnClientConnect( pszName ? pszName : "", pszAddress ? pszAddress : "", reject, maxrejectlen ) == 0 )
+		if (pApi->OnClientConnect(pszName ? pszName : "", pszAddress ? pszAddress : "", reject, maxrejectlen) == 0)
 		{
-			Msg( "[SourceSharp] C# refused '%s': %s\n", pszName ? pszName : "?",
-				 ( reject && reject[0] ) ? reject : "(no reason given)" );
+			Msg("[SourceSharp] C# refused '%s': %s\n", pszName ? pszName : "?",
+				(reject && reject[0]) ? reject : "(no reason given)");
 			return false;
 		}
 	}
@@ -318,7 +318,7 @@ void CSourceSharpGameRules::EndGameFrame() {}
 
 #endif // !CLIENT_DLL
 
-const RulesViewVectors_t *CSourceSharpGameRules::GetViewVectors() const
+const RulesViewVectors_t* CSourceSharpGameRules::GetViewVectors() const
 {
 	return &g_DefaultViewVectors;
 }

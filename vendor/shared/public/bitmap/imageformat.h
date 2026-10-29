@@ -15,7 +15,7 @@ typedef enum _D3DFORMAT D3DFORMAT;
 // The various image format types
 
 // don't complain that inline functions aren't used!!!!
-#pragma warning( disable : 4514 )
+#pragma warning(disable : 4514)
 
 enum ImageFormat
 {
@@ -125,7 +125,7 @@ struct BGR565_t
 	unsigned short g : 6; //  byte order of output to 32 bit
 	unsigned short r : 5;
 
-	inline BGR565_t &Set( int red, int green, int blue )
+	inline BGR565_t& Set(int red, int green, int blue)
 	{
 		r = red >> 3;
 		g = green >> 2;
@@ -163,7 +163,7 @@ struct RGBX5551_t
 // information about each image format
 struct ImageFormatInfo_t
 {
-	const char *m_pName;
+	const char* m_pName;
 	int m_NumBytes;
 	int m_NumRedBits;
 	int m_NumGreeBits;
@@ -190,18 +190,18 @@ enum
 struct ResampleInfo_t
 {
 	ResampleInfo_t()
-		: m_nFlags( 0 )
-		, m_flAlphaThreshhold( 0.4f )
-		, m_flAlphaHiFreqThreshhold( 0.4f )
-		, m_nSrcDepth( 1 )
-		, m_nDestDepth( 1 )
+		: m_nFlags(0)
+		, m_flAlphaThreshhold(0.4f)
+		, m_flAlphaHiFreqThreshhold(0.4f)
+		, m_nSrcDepth(1)
+		, m_nDestDepth(1)
 	{
 		m_flColorScale[0] = 1.0f, m_flColorScale[1] = 1.0f, m_flColorScale[2] = 1.0f, m_flColorScale[3] = 1.0f;
 		m_flColorGoal[0] = 0.0f, m_flColorGoal[1] = 0.0f, m_flColorGoal[2] = 0.0f, m_flColorGoal[3] = 0.0f;
 	}
 
-	unsigned char *m_pSrc;
-	unsigned char *m_pDest;
+	unsigned char* m_pSrc;
+	unsigned char* m_pDest;
 
 	int m_nSrcWidth;
 	int m_nSrcHeight;
@@ -224,12 +224,12 @@ struct ResampleInfo_t
 };
 
 // Returns info about each image format
-ImageFormatInfo_t const &ImageFormatInfo( ImageFormat fmt );
+ImageFormatInfo_t const& ImageFormatInfo(ImageFormat fmt);
 
 // Gets the name of the image format
-inline char const *GetName( ImageFormat fmt )
+inline char const* GetName(ImageFormat fmt)
 {
-	return ImageFormatInfo( fmt ).m_pName;
+	return ImageFormatInfo(fmt).m_pName;
 }
 
 } // end namespace ImageLoader

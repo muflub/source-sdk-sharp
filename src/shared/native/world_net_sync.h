@@ -44,7 +44,7 @@ struct SourceSharpWorldFields_t
 
 	SourceSharpWorldFields_t()
 	{
-		memset( this, 0, sizeof( *this ) );
+		memset(this, 0, sizeof(*this));
 		nWaveHeight = -1;
 		nMaxOccludeeArea = -1;
 		nMinOccluderArea = -1;
@@ -57,26 +57,25 @@ struct SourceSharpWorldFields_t
 
 	// Shares the player sync's generation: one republish invalidates every native-held
 	// offset at once.
-	bool IsCurrent( unsigned int nCurrent ) const { return nGeneration != 0 && nGeneration == nCurrent; }
+	bool IsCurrent(unsigned int nCurrent) const { return nGeneration != 0 && nGeneration == nCurrent; }
 };
 
 // Asks the managed side for all ten placements. False, with one warning, when
 // worldspawn is not published on this side; the caller retries on its next read.
-bool SourceSharpWorldFields_Resolve( SourceSharpWorldFields_t *pFields, unsigned int nGeneration,
-									 NetStateArea_t *pArea );
+bool SourceSharpWorldFields_Resolve(SourceSharpWorldFields_t* pFields, unsigned int nGeneration, NetStateArea_t* pArea);
 
 // Safe against an unresolved field and a NULL blob; they answer zero, as a fresh
 // stock world would.
-float SourceSharpWorld_ReadFloat( const unsigned char *pBlob, int nOffset );
-Vector SourceSharpWorld_ReadVector( const unsigned char *pBlob, int nOffset );
-bool SourceSharpWorld_ReadFlag( const unsigned char *pBlob, const SourceSharpPackedField_t &field );
+float SourceSharpWorld_ReadFloat(const unsigned char* pBlob, int nOffset);
+Vector SourceSharpWorld_ReadVector(const unsigned char* pBlob, int nOffset);
+bool SourceSharpWorld_ReadFlag(const unsigned char* pBlob, const SourceSharpPackedField_t& field);
 
 // The detail sprite material, as a pointer into the blob that lives as long as the
 // world object. Never NULL: "" for an unresolved field or a missing terminator.
-const char *SourceSharpWorld_ReadString( const unsigned char *pBlob, int nBlobBytes, int nOffset );
+const char* SourceSharpWorld_ReadString(const unsigned char* pBlob, int nBlobBytes, int nOffset);
 
 // Prints all ten values on one line per side, once per level load. The values are
 // read by the renderer and fail silently as plausible zeros, so this is the only live
 // evidence they arrive; one body keeps both sides' lines comparable.
-void SourceSharpWorld_Report( const char *pszSide, const unsigned char *pBlob, int nBlobBytes,
-							  const SourceSharpWorldFields_t &fields, unsigned int nGeneration );
+void SourceSharpWorld_Report(const char* pszSide, const unsigned char* pBlob, int nBlobBytes,
+							 const SourceSharpWorldFields_t& fields, unsigned int nGeneration);

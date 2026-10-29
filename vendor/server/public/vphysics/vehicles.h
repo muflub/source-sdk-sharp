@@ -46,7 +46,7 @@ public:
 	virtual ~IPhysicsVehicleController() {}
 
 	// call this from the game code with the control parameters
-	virtual void Update( float dt, vehicle_controlparams_t &controls ) = 0;
+	virtual void Update(float dt, vehicle_controlparams_t& controls) = 0;
 	virtual void unused_GetOperatingParams() = 0;
 	virtual void unused_GetVehicleParams() = 0;
 	virtual void unused_GetVehicleParamsForChange() = 0;
@@ -54,7 +54,7 @@ public:
 	virtual void unused_GetWheelCount() = 0;
 	virtual void unused_GetWheel() = 0;
 	virtual void unused_GetWheelContactPoint() = 0;
-	virtual void SetSpringLength( int wheelIndex, float length ) = 0;
+	virtual void SetSpringLength(int wheelIndex, float length) = 0;
 	virtual void unused_SetWheelFriction() = 0;
 
 	virtual void unused_OnVehicleEnter() = 0;

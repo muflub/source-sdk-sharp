@@ -61,42 +61,42 @@ public:
 
 	// Both sides.
 	virtual bool AllowThirdPersonCamera() = 0;
-	virtual void ClientCommandKeyValues( edict_t * pEntity, KeyValues * pKeyValues ) = 0;
-	virtual void ClientSpawned( edict_t * pPlayer ) = 0;
+	virtual void ClientCommandKeyValues(edict_t * pEntity, KeyValues * pKeyValues) = 0;
+	virtual void ClientSpawned(edict_t * pPlayer) = 0;
 	virtual int Damage_GetNoPhysicsForce() = 0;
 	virtual int Damage_GetTimeBased() = 0;
-	virtual const RulesViewVectors_t *GetViewVectors() const = 0;
-	virtual bool IsConnectedUserInfoChangeAllowed( CBasePlayer * pPlayer ) = 0;
+	virtual const RulesViewVectors_t* GetViewVectors() const = 0;
+	virtual bool IsConnectedUserInfoChangeAllowed(CBasePlayer * pPlayer) = 0;
 	virtual bool IsMultiplayer() = 0;
-	virtual void OnFileReceived( const char *fileName, unsigned int transferID ) = 0;
+	virtual void OnFileReceived(const char* fileName, unsigned int transferID) = 0;
 	virtual bool ShouldDrawHeadLabels() = 0;
 
 #ifndef CLIENT_DLL
 	// Server only.
-	virtual float AdjustPlayerDamageInflicted( float damage ) = 0;
-	virtual void AdjustPlayerDamageTaken( RulesDamageInfo_t * pInfo ) = 0;
-	virtual bool ClientConnected( edict_t * pEntity, const char *pszName, const char *pszAddress, char *reject,
-								  int maxrejectlen ) = 0;
+	virtual float AdjustPlayerDamageInflicted(float damage) = 0;
+	virtual void AdjustPlayerDamageTaken(RulesDamageInfo_t * pInfo) = 0;
+	virtual bool ClientConnected(edict_t * pEntity, const char* pszName, const char* pszAddress, char* reject,
+								 int maxrejectlen) = 0;
 	virtual void CreateCustomNetworkStringTables() = 0;
 	virtual void CreateStandardEntities() = 0;
 	virtual void EndGameFrame() = 0;
 	virtual void InitDefaultAIRelationships() = 0;
 	virtual void Precache() = 0;
 	virtual void ResetMapCycleTimeStamp() = 0;
-	virtual void Status( void ( *print )( const char *fmt, ... ) ) = 0;
+	virtual void Status(void (*print)(const char* fmt, ...)) = 0;
 #else
 	// Client only.
 	virtual bool AllowMapVisionFilterShaders() = 0;
-	virtual const char *TranslateEffectForVisionFilter( const char *pchEffectType, const char *pchEffectName ) = 0;
+	virtual const char* TranslateEffectForVisionFilter(const char* pchEffectType, const char* pchEffectName) = 0;
 #endif // !CLIENT_DLL
 };
 
 #ifdef CLIENT_DLL
 // NULL between levels, so test it before calling. The server's rules are its world's
 // (CServerEntityContext::GameRules).
-extern IGameRules *g_pGameRules;
+extern IGameRules* g_pGameRules;
 
-inline IGameRules *GameRules()
+inline IGameRules* GameRules()
 {
 	return g_pGameRules;
 }

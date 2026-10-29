@@ -53,8 +53,8 @@ public:
 // Specifies a module + interface name for initialization
 struct AppSystemInfo_t
 {
-	const char *m_pModuleName;
-	const char *m_pInterfaceName;
+	const char* m_pModuleName;
+	const char* m_pInterfaceName;
 };
 
 // This class represents a group of app systems that all have the same lifetime
@@ -79,7 +79,7 @@ public:
 
 public:
 	// constructor
-	CAppSystemGroup( CAppSystemGroup *pParentAppSystem = NULL );
+	CAppSystemGroup(CAppSystemGroup* pParentAppSystem = NULL);
 
 	// Runs the app system group.
 	// First, modules are loaded, next they are connected, followed by initialization
@@ -97,19 +97,19 @@ protected:
 
 private:
 	// Loads a module the standard way
-	virtual CSysModule *LoadModuleDLL( const char *pDLLName );
+	virtual CSysModule* LoadModuleDLL(const char* pDLLName);
 
 	struct Module_t
 	{
-		CSysModule *m_pModule;
+		CSysModule* m_pModule;
 		CreateInterfaceFn m_Factory;
-		char *m_pModuleName;
+		char* m_pModuleName;
 	};
 
 	CUtlVector<Module_t> m_Modules;
-	CUtlVector<IAppSystem *> m_Systems;
+	CUtlVector<IAppSystem*> m_Systems;
 	CUtlDict<int, unsigned short> m_SystemDict;
-	CAppSystemGroup *m_pParentAppSystem;
+	CAppSystemGroup* m_pParentAppSystem;
 	AppSystemGroupStage_t m_nErrorStage;
 
 	friend class CSteamAppSystemGroup;
@@ -119,13 +119,13 @@ private:
 class CSteamAppSystemGroup : public CAppSystemGroup
 {
 public:
-	CSteamAppSystemGroup( IFileSystem *pFileSystem = NULL, CAppSystemGroup *pParentAppSystem = NULL );
+	CSteamAppSystemGroup(IFileSystem* pFileSystem = NULL, CAppSystemGroup* pParentAppSystem = NULL);
 
 protected:
 private:
-	virtual CSysModule *LoadModuleDLL( const char *pDLLName );
+	virtual CSysModule* LoadModuleDLL(const char* pDLLName);
 
-	IFileSystem *m_pFileSystem;
+	IFileSystem* m_pFileSystem;
 	char m_pGameInfoPath[MAX_PATH];
 };
 

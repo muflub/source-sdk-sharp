@@ -19,18 +19,18 @@
 
 // 1 when this edict is a standalone player, with pOutXYZ written; 0 otherwise,
 // with pOutXYZ untouched, so the caller can tell a miss from the world origin.
-int32_t CServerPlayerQueries::ClientsStandalonePlayerEarPosition( int32_t iEdict, float *pOutXYZ )
+int32_t CServerPlayerQueries::ClientsStandalonePlayerEarPosition(int32_t iEdict, float* pOutXYZ)
 {
-	if ( pOutXYZ == NULL )
+	if (pOutXYZ == NULL)
 		return 0;
 
-	const CServerEntityContext &context = m_Entities.Context();
-	edict_t *pEdict = context.m_pEngine->PEntityOfEntIndex( iEdict );
-	if ( pEdict == NULL )
+	const CServerEntityContext& context = m_Entities.Context();
+	edict_t* pEdict = context.m_pEngine->PEntityOfEntIndex(iEdict);
+	if (pEdict == NULL)
 		return 0;
 
-	CStandalonePlayer *pStandalone = context.PlayerFromEdict( pEdict );
-	if ( pStandalone == NULL )
+	CStandalonePlayer* pStandalone = context.PlayerFromEdict(pEdict);
+	if (pStandalone == NULL)
 		return 0;
 
 	const Vector vecEars = pStandalone->EyePosition();

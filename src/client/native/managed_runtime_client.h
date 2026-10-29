@@ -7,7 +7,7 @@
 #include "imanaged_runtime_client.h"
 
 // This load's managed-built runtime, held by the client DLL object.
-IManagedRuntimeClient *ManagedRuntimeClient();
+IManagedRuntimeClient* ManagedRuntimeClient();
 
 // The partner of LoadManagedRuntime (sourcesharp_gamesystem.cpp, shared by both DLLs).
 void SourceSharp_UnloadManagedSide();
@@ -20,9 +20,9 @@ public:
 	// The client's release of the refcounted CLR; the managed Shutdown slot runs inside it.
 	void OnSystemStop() override { SourceSharp_UnloadManagedSide(); }
 
-	void OnLevelInit( const char *pMapName ) override { ManagedRuntimeClient()->LevelInit( pMapName ); }
+	void OnLevelInit(const char* pMapName) override { ManagedRuntimeClient()->LevelInit(pMapName); }
 
 	void OnLevelShutdown() override { ManagedRuntimeClient()->LevelShutdown(); }
 
-	void OnFrame( float flFrameTime ) override { ManagedRuntimeClient()->Frame( flFrameTime ); }
+	void OnFrame(float flFrameTime) override { ManagedRuntimeClient()->Frame(flFrameTime); }
 };

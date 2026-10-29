@@ -16,69 +16,69 @@
 #include "ss_takedamageinfo.h"
 #include "shell_diagnostics.h"
 
-void CServerDamage::ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType )
+void CServerDamage::ApplyDamage(uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType)
 {
-	const SourceSharpEntity_t victim = m_Entities.Resolve( hVictim );
-	IGameEntity *pAttacker = m_Entities.Resolve( hAttacker ).GameEntity();
+	const SourceSharpEntity_t victim = m_Entities.Resolve(hVictim);
+	IGameEntity* pAttacker = m_Entities.Resolve(hAttacker).GameEntity();
 
-	if ( victim.pStandalone )
+	if (victim.pStandalone)
 	{
-		ss::CTakeDamageInfo standaloneInfo( pAttacker, pAttacker, flDamage, nDamageType );
+		ss::CTakeDamageInfo standaloneInfo(pAttacker, pAttacker, flDamage, nDamageType);
 
-		victim.pStandalone->TakeDamage( standaloneInfo );
+		victim.pStandalone->TakeDamage(standaloneInfo);
 		return;
 	}
 }
 
-void CServerDamage::EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
-									  const float *pDirXYZ, const float *pForceOriginXYZ, int32_t bPhysicsOnly )
+void CServerDamage::EntityTakeDamage(uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
+									 const float* pDirXYZ, const float* pForceOriginXYZ, int32_t bPhysicsOnly)
 {
 	SOURCESHARP_TRACE();
 
-	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
-	IGameEntity *pEntity = ent.pBase;
-	CStandaloneEntity *pStandalone = ent.pStandalone;
+	const SourceSharpEntity_t ent = m_Entities.Resolve(hEntity);
+	IGameEntity* pEntity = ent.pBase;
+	CStandaloneEntity* pStandalone = ent.pStandalone;
 
-	if ( !pEntity && !pStandalone )
+	if (!pEntity && !pStandalone)
 		return;
 
-	IGameEntity *pAttacker = m_Entities.Resolve( hAttacker ).GameEntity();
+	IGameEntity* pAttacker = m_Entities.Resolve(hAttacker).GameEntity();
 
-	if ( !pAttacker )
+	if (!pAttacker)
 		pAttacker = pEntity;
 
-	ss::CTakeDamageInfo info( pAttacker, pAttacker, flDamage, nDamageType );
+	ss::CTakeDamageInfo info(pAttacker, pAttacker, flDamage, nDamageType);
 
-	if ( pDirXYZ && pForceOriginXYZ )
+	if (pDirXYZ && pForceOriginXYZ)
 	{
-		ss::CalculateExplosiveDamageForce( m_pRandom, &info, Vector( pDirXYZ[0], pDirXYZ[1], pDirXYZ[2] ),
-										   Vector( pForceOriginXYZ[0], pForceOriginXYZ[1], pForceOriginXYZ[2] ) );
+		ss::CalculateExplosiveDamageForce(m_pRandom, &info, Vector(pDirXYZ[0], pDirXYZ[1], pDirXYZ[2]),
+										  Vector(pForceOriginXYZ[0], pForceOriginXYZ[1], pForceOriginXYZ[2]));
 	}
 
-	if ( pStandalone )
+	if (pStandalone)
 	{
 		// Physics-only means no damage; the shove is managed's.
-		if ( !bPhysicsOnly )
-			pStandalone->TakeDamage( info );
+		if (!bPhysicsOnly)
+			pStandalone->TakeDamage(info);
 
 		return;
 	}
 }
 
-void CServerDamage::ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,
-									  const float *pForceXYZ, const float *pPositionXYZ )
+void CServerDamage::ApplyDamageForce(uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,
+									 const float* pForceXYZ, const float* pPositionXYZ)
 {
-	const SourceSharpEntity_t victim = m_Entities.Resolve( hVictim );
-	if ( !victim.pStandalone )
+	const SourceSharpEntity_t victim = m_Entities.Resolve(hVictim);
+	if (!victim.pStandalone)
 		return;
 
-	IGameEntity *pAttacker = m_Entities.Resolve( hAttacker ).GameEntity();
+	IGameEntity* pAttacker = m_Entities.Resolve(hAttacker).GameEntity();
 
-	ss::CTakeDamageInfo info( pAttacker, pAttacker, flDamage, nDamageType );
-	if ( pForceXYZ )
-		info.SetDamageForce( Vector( pForceXYZ[0], pForceXYZ[1], pForceXYZ[2] ) );
-	if ( pPositionXYZ )
-		info.SetDamagePosition( Vector( pPositionXYZ[0], pPositionXYZ[1], pPositionXYZ[2] ) );
+	ss::CTakeDamageInfo info(pAttacker, pAttacker, flDamage, nDamageType);
+	if (pForceXYZ)
+		info.SetDamageForce(Vector(pForceXYZ[0], pForceXYZ[1], pForceXYZ[2]));
+	if (pPositionXYZ)
+		info.SetDamagePosition(Vector(pPositionXYZ[0], pPositionXYZ[1], pPositionXYZ[2]));
 
-	victim.pStandalone->TakeDamage( info );
+	victim.pStandalone->TakeDamage(info);
 }

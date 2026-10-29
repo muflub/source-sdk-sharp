@@ -90,57 +90,57 @@ int g_nLastGeneration = -1;
 class CFakeRuntime : public IManagedRuntimeClient
 {
 public:
-	explicit CFakeRuntime( int nGeneration )
-		: IManagedRuntimeClient( &kTable )
-		, m_nGeneration( nGeneration )
+	explicit CFakeRuntime(int nGeneration)
+		: IManagedRuntimeClient(&kTable)
+		, m_nGeneration(nGeneration)
 	{
 	}
 
 private:
-	static CFakeRuntime *Of( void *self ) { return static_cast<CFakeRuntime *>( self ); }
+	static CFakeRuntime* Of(void* self) { return static_cast<CFakeRuntime*>(self); }
 
-	static void Released( IManagedObject * ) { ADD_FAILURE() << "the adapter released the runtime"; }
+	static void Released(IManagedObject*) { ADD_FAILURE() << "the adapter released the runtime"; }
 
-	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t )
+	static int32_t Validated(IManagedObject*, const uint32_t*, int32_t)
 	{
 		ADD_FAILURE() << "the adapter validated the runtime";
 		return 0;
 	}
 
-	static void Framed( IManagedRuntimeClient *self, float dt )
+	static void Framed(IManagedRuntimeClient* self, float dt)
 	{
 		g_Tally.nFrame++;
 		g_LastFrameTime = dt;
-		g_nLastGeneration = Of( self )->m_nGeneration;
+		g_nLastGeneration = Of(self)->m_nGeneration;
 	}
 
-	static void Staged( IManagedRuntimeClient *, int32_t ) { ADD_FAILURE() << "the adapter has no stage forward"; }
+	static void Staged(IManagedRuntimeClient*, int32_t) { ADD_FAILURE() << "the adapter has no stage forward"; }
 
-	static void LevelInited( IManagedRuntimeClient *self, const char *pName )
+	static void LevelInited(IManagedRuntimeClient* self, const char* pName)
 	{
 		g_Tally.nLevelInit++;
 		g_strLastMapName = pName ? pName : "";
-		g_nLastGeneration = Of( self )->m_nGeneration;
+		g_nLastGeneration = Of(self)->m_nGeneration;
 	}
 
-	static void LevelShut( IManagedRuntimeClient *self )
+	static void LevelShut(IManagedRuntimeClient* self)
 	{
 		g_Tally.nLevelShutdown++;
-		g_nLastGeneration = Of( self )->m_nGeneration;
+		g_nLastGeneration = Of(self)->m_nGeneration;
 	}
 
-	static void MdlCacheInvalidated( IManagedRuntimeClient * )
+	static void MdlCacheInvalidated(IManagedRuntimeClient*)
 	{
 		ADD_FAILURE() << "the adapter has no model-cache forward";
 	}
 
-	static int32_t ParticlesAsked( IManagedRuntimeClient *, int32_t )
+	static int32_t ParticlesAsked(IManagedRuntimeClient*, int32_t)
 	{
 		ADD_FAILURE() << "the adapter has no particle-reload forward";
 		return 1;
 	}
 
-	static int32_t MaterialsAsked( IManagedRuntimeClient *, const char *, const char *, char *, int32_t )
+	static int32_t MaterialsAsked(IManagedRuntimeClient*, const char*, const char*, char*, int32_t)
 	{
 		ADD_FAILURE() << "the adapter has no map-material forward";
 		return -1;
@@ -156,14 +156,14 @@ const SSManagedRuntimeClientTable CFakeRuntime::kTable = {
 	&LevelShut, &MdlCacheInvalidated, &ParticlesAsked, &MaterialsAsked,
 };
 
-CFakeRuntime g_RuntimeA( 1 );
-CFakeRuntime g_RuntimeB( 2 );
-IManagedRuntimeClient *g_pInstalled = NULL;
+CFakeRuntime g_RuntimeA(1);
+CFakeRuntime g_RuntimeB(2);
+IManagedRuntimeClient* g_pInstalled = NULL;
 
-void InstallGeneration( int n )
+void InstallGeneration(int n)
 {
-	g_pInstalled = ( n == 1 ) ? static_cast<IManagedRuntimeClient *>( &g_RuntimeA )
-							  : static_cast<IManagedRuntimeClient *>( &g_RuntimeB );
+	g_pInstalled =
+		(n == 1) ? static_cast<IManagedRuntimeClient*>(&g_RuntimeA) : static_cast<IManagedRuntimeClient*>(&g_RuntimeB);
 }
 
 //-----------------------------------------------------------------------------
@@ -180,11 +180,11 @@ class ManagedRuntimeClientTest : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		memset( &g_Tally, 0, sizeof( g_Tally ) );
+		memset(&g_Tally, 0, sizeof(g_Tally));
 		g_LastFrameTime = -1.0f;
 		g_strLastMapName.clear();
 		g_nLastGeneration = -1;
-		InstallGeneration( 1 );
+		InstallGeneration(1);
 	}
 
 	CManagedRuntimeClient m_Adapter;
@@ -197,12 +197,12 @@ protected:
 // managed_runtime_client.h forward-declares. There is no table to install:
 // the adapter reaches none since CE1, and the client has none since CE-last.
 //-----------------------------------------------------------------------------
-IManagedRuntimeClient *ManagedRuntimeClient()
+IManagedRuntimeClient* ManagedRuntimeClient()
 {
 	return g_pInstalled;
 }
 
-void SourceSharp_UnloadManagedSide( void )
+void SourceSharp_UnloadManagedSide(void)
 {
 	g_Tally.nUnloadManagedSide++;
 }
@@ -211,116 +211,116 @@ void SourceSharp_UnloadManagedSide( void )
 // 1. One forward per method, and exactly one.
 //=============================================================================//
 
-TEST_F( ManagedRuntimeClientTest, OnFrameForwardsOnce )
+TEST_F(ManagedRuntimeClientTest, OnFrameForwardsOnce)
 {
-	m_Adapter.OnFrame( 0.015f );
-	EXPECT_EQ( 1, g_Tally.nFrame );
-	EXPECT_EQ( 1, TotalCalls() );
+	m_Adapter.OnFrame(0.015f);
+	EXPECT_EQ(1, g_Tally.nFrame);
+	EXPECT_EQ(1, TotalCalls());
 }
 
-TEST_F( ManagedRuntimeClientTest, OnFrameCarriesTheFrameTime )
+TEST_F(ManagedRuntimeClientTest, OnFrameCarriesTheFrameTime)
 {
 	// A body that forwarded a zero, or its own idea of a frame time, would pass
 	// the count above and starve every managed timer on the client.
-	m_Adapter.OnFrame( 0.0125f );
-	EXPECT_FLOAT_EQ( 0.0125f, g_LastFrameTime );
+	m_Adapter.OnFrame(0.0125f);
+	EXPECT_FLOAT_EQ(0.0125f, g_LastFrameTime);
 }
 
-TEST_F( ManagedRuntimeClientTest, OnLevelInitForwardsOnce )
+TEST_F(ManagedRuntimeClientTest, OnLevelInitForwardsOnce)
 {
-	m_Adapter.OnLevelInit( "d1_trainstation_01" );
-	EXPECT_EQ( 1, g_Tally.nLevelInit );
-	EXPECT_EQ( 1, TotalCalls() );
+	m_Adapter.OnLevelInit("d1_trainstation_01");
+	EXPECT_EQ(1, g_Tally.nLevelInit);
+	EXPECT_EQ(1, TotalCalls());
 }
 
-TEST_F( ManagedRuntimeClientTest, OnLevelInitCarriesTheMapName )
+TEST_F(ManagedRuntimeClientTest, OnLevelInitCarriesTheMapName)
 {
-	m_Adapter.OnLevelInit( "d1_trainstation_01" );
-	EXPECT_EQ( "d1_trainstation_01", g_strLastMapName );
+	m_Adapter.OnLevelInit("d1_trainstation_01");
+	EXPECT_EQ("d1_trainstation_01", g_strLastMapName);
 }
 
-TEST_F( ManagedRuntimeClientTest, OnLevelShutdownForwardsOnce )
+TEST_F(ManagedRuntimeClientTest, OnLevelShutdownForwardsOnce)
 {
 	m_Adapter.OnLevelShutdown();
-	EXPECT_EQ( 1, g_Tally.nLevelShutdown );
-	EXPECT_EQ( 1, TotalCalls() );
+	EXPECT_EQ(1, g_Tally.nLevelShutdown);
+	EXPECT_EQ(1, TotalCalls());
 }
 
-TEST_F( ManagedRuntimeClientTest, OnSystemStopForwardsToTheUnload )
+TEST_F(ManagedRuntimeClientTest, OnSystemStopForwardsToTheUnload)
 {
 	// The one method that does not reach the table: it is the loader's partner,
 	// and the managed half of the teardown is inside that call. The server's
 	// OnSystemStop is the same body for the same reason.
 	m_Adapter.OnSystemStop();
-	EXPECT_EQ( 1, g_Tally.nUnloadManagedSide );
-	EXPECT_EQ( 1, TotalCalls() );
+	EXPECT_EQ(1, g_Tally.nUnloadManagedSide);
+	EXPECT_EQ(1, TotalCalls());
 }
 
-TEST_F( ManagedRuntimeClientTest, OnSystemStopReachesNoManagedSlot )
+TEST_F(ManagedRuntimeClientTest, OnSystemStopReachesNoManagedSlot)
 {
 	// Stated as its own fact rather than left to TotalCalls above: a body that
 	// ALSO reached a managed shutdown directly would run the module unload
 	// twice, because SourceSharp_UnloadManagedSide already does.
 	m_Adapter.OnSystemStop();
-	EXPECT_EQ( 0, g_Tally.nFrame );
-	EXPECT_EQ( 0, g_Tally.nLevelInit );
-	EXPECT_EQ( 0, g_Tally.nLevelShutdown );
+	EXPECT_EQ(0, g_Tally.nFrame);
+	EXPECT_EQ(0, g_Tally.nLevelInit);
+	EXPECT_EQ(0, g_Tally.nLevelShutdown);
 }
 
 //=============================================================================//
 // 2. NO CACHED TABLE. The reload proof.
 //=============================================================================//
 
-TEST_F( ManagedRuntimeClientTest, ForwardsIntoTheTableAsItIsNow )
+TEST_F(ManagedRuntimeClientTest, ForwardsIntoTheTableAsItIsNow)
 {
-	m_Adapter.OnFrame( 0.01f );
-	ASSERT_EQ( 1, g_nLastGeneration );
+	m_Adapter.OnFrame(0.01f);
+	ASSERT_EQ(1, g_nLastGeneration);
 
 	// The hot reload: the same struct, memset and refilled with a second
 	// assembly's entry points. An adapter holding a copy taken at construction
 	// would still land in generation 1 here -- which in a live process is a
 	// call through a function pointer into an unloaded assembly.
-	InstallGeneration( 2 );
+	InstallGeneration(2);
 
-	m_Adapter.OnFrame( 0.01f );
-	EXPECT_EQ( 2, g_nLastGeneration );
-	EXPECT_EQ( 2, g_Tally.nFrame );
+	m_Adapter.OnFrame(0.01f);
+	EXPECT_EQ(2, g_nLastGeneration);
+	EXPECT_EQ(2, g_Tally.nFrame);
 }
 
-TEST_F( ManagedRuntimeClientTest, EveryMethodFollowsTheReload )
+TEST_F(ManagedRuntimeClientTest, EveryMethodFollowsTheReload)
 {
 	// Per method, not just the one above: a cache taken lazily inside a single
 	// body would pass the previous test and fail here.
-	InstallGeneration( 2 );
+	InstallGeneration(2);
 
-	m_Adapter.OnLevelInit( "d2_coast_01" );
-	EXPECT_EQ( 2, g_nLastGeneration );
+	m_Adapter.OnLevelInit("d2_coast_01");
+	EXPECT_EQ(2, g_nLastGeneration);
 
 	g_nLastGeneration = -1;
 	m_Adapter.OnLevelShutdown();
-	EXPECT_EQ( 2, g_nLastGeneration );
+	EXPECT_EQ(2, g_nLastGeneration);
 
 	g_nLastGeneration = -1;
-	m_Adapter.OnFrame( 0.02f );
-	EXPECT_EQ( 2, g_nLastGeneration );
+	m_Adapter.OnFrame(0.02f);
+	EXPECT_EQ(2, g_nLastGeneration);
 }
 
-TEST_F( ManagedRuntimeClientTest, ItSurvivesTwoReloadsInARow )
+TEST_F(ManagedRuntimeClientTest, ItSurvivesTwoReloadsInARow)
 {
-	InstallGeneration( 2 );
-	m_Adapter.OnFrame( 0.01f );
-	ASSERT_EQ( 2, g_nLastGeneration );
+	InstallGeneration(2);
+	m_Adapter.OnFrame(0.01f);
+	ASSERT_EQ(2, g_nLastGeneration);
 
-	InstallGeneration( 1 );
-	m_Adapter.OnFrame( 0.01f );
-	EXPECT_EQ( 1, g_nLastGeneration );
+	InstallGeneration(1);
+	m_Adapter.OnFrame(0.01f);
+	EXPECT_EQ(1, g_nLastGeneration);
 }
 
-TEST_F( ManagedRuntimeClientTest, TheAdapterIsOnePointerWide )
+TEST_F(ManagedRuntimeClientTest, TheAdapterIsOnePointerWide)
 {
 	// The structural half of "no cached table": a member would show up here.
 	// One pointer is the vtable and nothing else.
-	EXPECT_EQ( sizeof( void * ), sizeof( CManagedRuntimeClient ) );
+	EXPECT_EQ(sizeof(void*), sizeof(CManagedRuntimeClient));
 }
 
 //=============================================================================//

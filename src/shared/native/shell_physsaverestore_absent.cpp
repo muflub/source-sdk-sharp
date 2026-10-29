@@ -27,43 +27,43 @@ void ss::PhysSaveRestore_ForgetAllModels() {}
 class CShellPhysSaveRestoreAbsent : public IPhysSaveRestoreManager
 {
 public:
-	void NoteBBox( const Vector &, const Vector &, CPhysCollide * ) override {}
+	void NoteBBox(const Vector&, const Vector&, CPhysCollide*) override {}
 
-	void AssociateModel( IPhysicsObject *, int ) override {}
+	void AssociateModel(IPhysicsObject*, int) override {}
 
-	void AssociateModel( IPhysicsObject *, const CPhysCollide * ) override {}
+	void AssociateModel(IPhysicsObject*, const CPhysCollide*) override {}
 
-	void ForgetModel( IPhysicsObject * ) override {}
+	void ForgetModel(IPhysicsObject*) override {}
 
 	void ForgetAllModels() override {}
 };
 
-static IPhysSaveRestoreManager *ShellPhysSaveRestoreManager()
+static IPhysSaveRestoreManager* ShellPhysSaveRestoreManager()
 {
 	static CShellPhysSaveRestoreAbsent s_Absent;
 	return &s_Absent;
 }
 
 // physics_saverestore.h declares a pointer.
-IPhysSaveRestoreManager *g_pPhysSaveRestoreManager = ShellPhysSaveRestoreManager();
+IPhysSaveRestoreManager* g_pPhysSaveRestoreManager = ShellPhysSaveRestoreManager();
 
 // The field ops DEFINE_PHYSPTR bakes into a datamap at static init, so they must not be
 // NULL. Every field reads as empty.
 class CShellPhysObjOpsAbsent : public ISaveRestoreOps
 {
 public:
-	void Save( const SaveRestoreFieldInfo_t &, ISave * ) override {}
+	void Save(const SaveRestoreFieldInfo_t&, ISave*) override {}
 
-	void Restore( const SaveRestoreFieldInfo_t &, IRestore * ) override {}
+	void Restore(const SaveRestoreFieldInfo_t&, IRestore*) override {}
 
-	bool IsEmpty( const SaveRestoreFieldInfo_t & ) override { return true; }
+	bool IsEmpty(const SaveRestoreFieldInfo_t&) override { return true; }
 
-	void MakeEmpty( const SaveRestoreFieldInfo_t & ) override {}
+	void MakeEmpty(const SaveRestoreFieldInfo_t&) override {}
 
-	bool Parse( const SaveRestoreFieldInfo_t &, char const * ) override { return false; }
+	bool Parse(const SaveRestoreFieldInfo_t&, char const*) override { return false; }
 };
 
-ISaveRestoreOps *GetPhysObjSaveRestoreOps( PhysInterfaceId_t )
+ISaveRestoreOps* GetPhysObjSaveRestoreOps(PhysInterfaceId_t)
 {
 	// One object for every id; stock keeps one per id.
 	static CShellPhysObjOpsAbsent s_Absent;

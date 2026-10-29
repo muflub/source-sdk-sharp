@@ -17,19 +17,19 @@ class CServerEntityResolver;
 class CServerModels final : public IShimModelsServer
 {
 public:
-	explicit CServerModels( CServerEntityResolver &entities )
-		: m_Entities( entities )
+	explicit CServerModels(CServerEntityResolver& entities)
+		: m_Entities(entities)
 	{
 	}
 
-	CServerModels( const CServerModels & ) = delete;
-	CServerModels &operator=( const CServerModels & ) = delete;
+	CServerModels(const CServerModels&) = delete;
+	CServerModels& operator=(const CServerModels&) = delete;
 
-	void EntityGetModelName( uint32_t hEntity, char *pOut, int32_t nOutSize ) override;
+	void EntityGetModelName(uint32_t hEntity, char* pOut, int32_t nOutSize) override;
 	int32_t EntitiesInvalidateMdlCacheAll() override;
-	void StandaloneSetModelScale( uint32_t hEntity, float flScale ) override;
-	void EntitySetModel( uint32_t hEntity, const char *pModel ) override;
+	void StandaloneSetModelScale(uint32_t hEntity, float flScale) override;
+	void EntitySetModel(uint32_t hEntity, const char* pModel) override;
 
 private:
-	CServerEntityResolver &m_Entities;
+	CServerEntityResolver& m_Entities;
 };

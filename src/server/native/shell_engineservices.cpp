@@ -21,7 +21,7 @@ int32_t CServerModels::EntitiesInvalidateMdlCacheAll()
 {
 	int32_t nInvalidated = 0;
 
-	const CStandaloneList standalones = StandaloneEntities( m_Entities.Context() );
+	const CStandaloneList standalones = StandaloneEntities(m_Entities.Context());
 
 	nInvalidated = (int32_t)standalones.size();
 

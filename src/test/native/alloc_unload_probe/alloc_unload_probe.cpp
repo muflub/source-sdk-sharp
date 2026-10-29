@@ -17,8 +17,8 @@ namespace
 std::unordered_map<int, int> s_Registry = []
 {
 	std::unordered_map<int, int> m;
-	for ( int i = 0; i < 50; ++i )
-		m.emplace( i, i );
+	for (int i = 0; i < 50; ++i)
+		m.emplace(i, i);
 	return m;
 }();
 
@@ -27,9 +27,9 @@ std::unordered_map<int, int> s_Registry = []
 // The one real leak, never freed: the report's positive arm. Exported, so the
 // pointer escapes and the compiler may not elide the new (C++14 allows that
 // for an allocation nothing can observe).
-extern "C" __attribute__( ( visibility( "default" ) ) ) char *g_AllocUnloadProbeLeak = new char[7];
+extern "C" __attribute__((visibility("default"))) char* g_AllocUnloadProbeLeak = new char[7];
 
-extern "C" __attribute__( ( visibility( "default" ) ) ) int AllocUnloadProbeEntries()
+extern "C" __attribute__((visibility("default"))) int AllocUnloadProbeEntries()
 {
 	return (int)s_Registry.size();
 }

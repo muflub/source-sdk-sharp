@@ -335,8 +335,8 @@ public class MoveVarsTests
             "src/sourcesharp/game/client/shell_hud_framework.cpp");
         var text = File.ReadAllText(path);
 
-        Assert.Contains("ConVar closecaption( \"closecaption\"", text);
-        Assert.DoesNotContain("ConVar english( \"english\"", text);
+        Assert.Contains("ConVar closecaption(\"closecaption\"", text);
+        Assert.DoesNotContain("ConVar english(\"english\"", text);
 
         Assert.False(DeclarationsIn(ClientAssembly).ContainsKey("closecaption"),
             "closecaption is declared in managed code as well as in C++. Two "

@@ -27,46 +27,46 @@
 namespace
 {
 
-TEST( LocalRecipient, TheViewerIsHeld )
+TEST(LocalRecipient, TheViewerIsHeld)
 {
-	EXPECT_TRUE( LocalRecipient_ShouldHold( 1, 1 ) );
-	EXPECT_TRUE( LocalRecipient_ShouldHold( 9, 9 ) );
+	EXPECT_TRUE(LocalRecipient_ShouldHold(1, 1));
+	EXPECT_TRUE(LocalRecipient_ShouldHold(9, 9));
 }
 
-TEST( LocalRecipient, NobodyElseIs )
+TEST(LocalRecipient, NobodyElseIs)
 {
 	// A client filter is not a broadcast list: it reaches the person at this
 	// keyboard or nobody.
-	EXPECT_FALSE( LocalRecipient_ShouldHold( 2, 1 ) );
-	EXPECT_FALSE( LocalRecipient_ShouldHold( 1, 9 ) );
+	EXPECT_FALSE(LocalRecipient_ShouldHold(2, 1));
+	EXPECT_FALSE(LocalRecipient_ShouldHold(1, 9));
 }
 
-TEST( LocalRecipient, NoViewerYetHoldsNobody )
+TEST(LocalRecipient, NoViewerYetHoldsNobody)
 {
 	// engine->GetLocalPlayer() before the viewer exists. Every filter built
 	// during load is in this state, and holding slot -1 would be worse than
 	// holding nothing.
-	EXPECT_FALSE( LocalRecipient_ShouldHold( 1, -1 ) );
-	EXPECT_FALSE( LocalRecipient_ShouldHold( 1, 0 ) );
+	EXPECT_FALSE(LocalRecipient_ShouldHold(1, -1));
+	EXPECT_FALSE(LocalRecipient_ShouldHold(1, 0));
 }
 
-TEST( LocalRecipient, SlotZeroIsTheWorldAndNeverAPlayer )
+TEST(LocalRecipient, SlotZeroIsTheWorldAndNeverAPlayer)
 {
-	EXPECT_FALSE( LocalRecipient_ShouldHold( 0, 0 ) );
-	EXPECT_FALSE( LocalRecipient_ShouldHold( -1, 1 ) );
+	EXPECT_FALSE(LocalRecipient_ShouldHold(0, 0));
+	EXPECT_FALSE(LocalRecipient_ShouldHold(-1, 1));
 }
 
 // The bug, stated as the test that would have caught it: a viewer whose entity
 // is not a C_BasePlayer still occupies a slot, and the filter must hold it.
 // Stock's spelling could not — it read the slot OFF the C_BasePlayer it had
 // just failed to find.
-TEST( LocalRecipient, AViewerWhoIsNotACBasePlayerIsStillHeld )
+TEST(LocalRecipient, AViewerWhoIsNotACBasePlayerIsStillHeld)
 {
 	const int nEngineSaysLocalIs = 1; // engine->GetLocalPlayer()
 	const int nCBasePlayerWouldSay = -1; // C_BasePlayer::GetLocalPlayer() is NULL
 
-	EXPECT_TRUE( LocalRecipient_ShouldHold( 1, nEngineSaysLocalIs ) );
-	EXPECT_FALSE( LocalRecipient_ShouldHold( 1, nCBasePlayerWouldSay ) );
+	EXPECT_TRUE(LocalRecipient_ShouldHold(1, nEngineSaysLocalIs));
+	EXPECT_FALSE(LocalRecipient_ShouldHold(1, nCBasePlayerWouldSay));
 }
 
 } // namespace

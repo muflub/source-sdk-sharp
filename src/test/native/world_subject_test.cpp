@@ -46,13 +46,13 @@ namespace
 // distinct addresses. Never dereferenced — IHandleEntity is incomplete in this
 // binary, which is exactly why the rule can be checked without one.
 //-----------------------------------------------------------------------------
-const IHandleEntity *const kWorld = reinterpret_cast<const IHandleEntity *>( 0x1000 );
-const IHandleEntity *const kCrate = reinterpret_cast<const IHandleEntity *>( 0x2000 );
+const IHandleEntity* const kWorld = reinterpret_cast<const IHandleEntity*>(0x1000);
+const IHandleEntity* const kCrate = reinterpret_cast<const IHandleEntity*>(0x2000);
 
 struct File_t
 {
-	const char *pszRel;
-	const char *pszAnchor;
+	const char* pszRel;
+	const char* pszAnchor;
 };
 
 } // namespace
@@ -64,18 +64,18 @@ struct File_t
 //-----------------------------------------------------------------------------
 // The ordinary yes.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, TheWorldsOwnHandleIsTheWorld )
+TEST(WorldSubject, TheWorldsOwnHandleIsTheWorld)
 {
-	EXPECT_TRUE( SourceSharp_IsTheWorldHandle( kWorld, kWorld ) );
+	EXPECT_TRUE(SourceSharp_IsTheWorldHandle(kWorld, kWorld));
 }
 
 //-----------------------------------------------------------------------------
 // The ordinary no. Something else in the world is not the world, which is what
 // makes the arm a partition rather than a wildcard.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, AnotherEntityIsNotTheWorld )
+TEST(WorldSubject, AnotherEntityIsNotTheWorld)
 {
-	EXPECT_FALSE( SourceSharp_IsTheWorldHandle( kCrate, kWorld ) );
+	EXPECT_FALSE(SourceSharp_IsTheWorldHandle(kCrate, kWorld));
 }
 
 //-----------------------------------------------------------------------------
@@ -83,9 +83,9 @@ TEST( WorldSubject, AnotherEntityIsNotTheWorld )
 // world" — that equivalence is the defect the entire plan exists to remove, and
 // a third arm that reintroduced it would have removed nothing.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, NothingIsNotTheWorld )
+TEST(WorldSubject, NothingIsNotTheWorld)
 {
-	EXPECT_FALSE( SourceSharp_IsTheWorldHandle( NULL, kWorld ) );
+	EXPECT_FALSE(SourceSharp_IsTheWorldHandle(NULL, kWorld));
 }
 
 //-----------------------------------------------------------------------------
@@ -102,9 +102,9 @@ TEST( WorldSubject, NothingIsNotTheWorld )
 // So this fact is not "NULL is handled". It is that the rule answers NO in the
 // one window where the naive spelling answers YES to everything.
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, NothingIsNotTheWorldWhenThereIsNoWorldEither )
+TEST(WorldSubject, NothingIsNotTheWorldWhenThereIsNoWorldEither)
 {
-	EXPECT_FALSE( SourceSharp_IsTheWorldHandle( NULL, NULL ) );
+	EXPECT_FALSE(SourceSharp_IsTheWorldHandle(NULL, NULL));
 }
 
 //-----------------------------------------------------------------------------
@@ -112,9 +112,9 @@ TEST( WorldSubject, NothingIsNotTheWorldWhenThereIsNoWorldEither )
 // world does. It is not the world either — the answer must come from the
 // comparison, not from "we have nothing to compare against, so yes".
 //-----------------------------------------------------------------------------
-TEST( WorldSubject, AnEntityIsNotTheWorldBeforeThereIsAWorld )
+TEST(WorldSubject, AnEntityIsNotTheWorldBeforeThereIsAWorld)
 {
-	EXPECT_FALSE( SourceSharp_IsTheWorldHandle( kCrate, NULL ) );
+	EXPECT_FALSE(SourceSharp_IsTheWorldHandle(kCrate, NULL));
 }
 
 //=============================================================================//

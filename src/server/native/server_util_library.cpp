@@ -21,11 +21,11 @@
 #include "trace_hit.h"
 
 // So we always return a valid surface. External linkage: other TUs read it.
-csurface_t g_NullSurface = { "**empty**", 0 };
+csurface_t g_NullSurface = {"**empty**", 0};
 
-void UTIL_ClearTrace( trace_t &trace )
+void UTIL_ClearTrace(trace_t& trace)
 {
-	memset( &trace, 0, sizeof( trace ) );
+	memset(&trace, 0, sizeof(trace));
 	trace.fraction = 1.f;
 	trace.fractionleftsolid = 0;
 	trace.surface = g_NullSurface;

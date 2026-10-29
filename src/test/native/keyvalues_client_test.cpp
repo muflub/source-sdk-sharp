@@ -19,47 +19,47 @@
 
 namespace
 {
-std::string RepoPath( const char *pszRel )
+std::string RepoPath(const char* pszRel)
 {
-	const char *pszRepo = getenv( "SOURCESHARP_REPO" );
-	return std::string( pszRepo ? pszRepo : "." ) + "/" + pszRel;
+	const char* pszRepo = getenv("SOURCESHARP_REPO");
+	return std::string(pszRepo ? pszRepo : ".") + "/" + pszRel;
 }
 
 std::string Golden()
 {
-	std::ifstream in( RepoPath( "src/test/client/Fixtures/keyvalues-members-stock.tsv" ) );
+	std::ifstream in(RepoPath("src/test/client/Fixtures/keyvalues-members-stock.tsv"));
 	std::stringstream ss;
 	ss << in.rdbuf();
 	return ss.str();
 }
 }
 
-TEST( KeyValuesClient, TheScenarioIsStocksLineForLine )
+TEST(KeyValuesClient, TheScenarioIsStocksLineForLine)
 {
 	const std::string golden = Golden();
-	ASSERT_GT( golden.size(), 2000u ) << "the golden is missing or truncated";
+	ASSERT_GT(golden.size(), 2000u) << "the golden is missing or truncated";
 	const std::string run = keyvalues_scenario::Run();
 
-	std::istringstream g( golden ), r( run );
+	std::istringstream g(golden), r(run);
 	std::string gl, rl;
 	int n = 0;
-	while ( std::getline( g, gl ) )
+	while (std::getline(g, gl))
 	{
-		ASSERT_TRUE( (bool)std::getline( r, rl ) ) << "ours ended at line " << n << "; stock goes on: " << gl;
-		ASSERT_EQ( gl, rl ) << "line " << n;
+		ASSERT_TRUE((bool)std::getline(r, rl)) << "ours ended at line " << n << "; stock goes on: " << gl;
+		ASSERT_EQ(gl, rl) << "line " << n;
 		n++;
 	}
-	EXPECT_FALSE( (bool)std::getline( r, rl ) ) << "ours has more lines than stock: " << rl;
-	EXPECT_GT( n, 100 );
+	EXPECT_FALSE((bool)std::getline(r, rl)) << "ours has more lines than stock: " << rl;
+	EXPECT_GT(n, 100);
 }
 
 // The two heaps the port uses are the process's real ones: the scenario ran
 // on them above, and they are found here, not stood in for.
-TEST( KeyValuesClient, ItsHeapIsTier0s )
+TEST(KeyValuesClient, ItsHeapIsTier0s)
 {
-	EXPECT_NE( ss::FindEngineHeap(), (ss::IEngineHeap *)NULL );
-	KeyValues *kv = new KeyValues( "HeapCheck" );
-	kv->SetString( "s", "on the engine heap" );
-	EXPECT_STREQ( "on the engine heap", kv->GetString( "s" ) );
+	EXPECT_NE(ss::FindEngineHeap(), (ss::IEngineHeap*)NULL);
+	KeyValues* kv = new KeyValues("HeapCheck");
+	kv->SetString("s", "on the engine heap");
+	EXPECT_STREQ("on the engine heap", kv->GetString("s"));
 	kv->deleteThis();
 }

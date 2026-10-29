@@ -13,22 +13,22 @@
 
 #include <algorithm>
 
-int ss::CRecipientFilter::GetRecipientIndex( int slot ) const
+int ss::CRecipientFilter::GetRecipientIndex(int slot) const
 {
-	if ( slot < 0 || slot >= GetRecipientCount() )
+	if (slot < 0 || slot >= GetRecipientCount())
 		return -1;
 
 	return m_Recipients[slot];
 }
 
-void ss::CRecipientFilter::AddRecipientByPlayerIndex( int playerindex )
+void ss::CRecipientFilter::AddRecipientByPlayerIndex(int playerindex)
 {
-	if ( playerindex < 1 || playerindex > m_nMaxClients )
+	if (playerindex < 1 || playerindex > m_nMaxClients)
 		return;
 
 	// Already listed
-	if ( std::find( m_Recipients.begin(), m_Recipients.end(), playerindex ) != m_Recipients.end() )
+	if (std::find(m_Recipients.begin(), m_Recipients.end(), playerindex) != m_Recipients.end())
 		return;
 
-	m_Recipients.push_back( playerindex );
+	m_Recipients.push_back(playerindex);
 }

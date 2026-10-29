@@ -11,7 +11,7 @@ declaration, tools/vendor-strip's walk) still holds its place: the engine and
 the prebuilt libraries read the record by layout. So a run of them becomes
 one array of the run's size at the run's offset (user 2026-10-25):
 
-    alignas( 8 ) unsigned char unused_m_flFoo[24];
+    alignas(8) unsigned char unused_m_flFoo[24];
 
 and the types only those fields named need nothing any more. The offsets come
 from clang's record layout dump of every module object, Itanium and MSVC
@@ -20,7 +20,7 @@ ends where the next kept field begins, in each ABI.
 alignas carries the largest power of two dividing the start, so the array
 lands where the field did. Where the two ABIs disagree on either number
 (MSVC's long is 4 bytes), the stub spells both through platform.h's
-SS_ABI_PICK( msvc, itanium ), and each ABI's layout compare holds it to its
+SS_ABI_PICK(msvc, itanium), and each ABI's layout compare holds it to its
 own dump. Left alone: a run with a bit-field, one that ends
 the record (Itanium reuses a base's tail padding), one with anything but
 fields and comments in its text, a union, an anonymous record, a class
@@ -175,8 +175,8 @@ def runs(decls, edges, live, recs):
                 if len(set(vals.values())) == 1:
                     return "%d" % next(iter(vals.values()))
                 # The ABIs disagree (MSVC's long is 4 bytes, its bases pack
-                # differently): platform.h's SS_ABI_PICK( msvc, itanium ).
-                return "SS_ABI_PICK( %d, %d )" % (vals["msvc"], vals["itanium"])
+                # differently): platform.h's SS_ABI_PICK(msvc, itanium).
+                return "SS_ABI_PICK(%d, %d)" % (vals["msvc"], vals["itanium"])
             align, size = pick(0), pick(1)
             ls = t.rfind("\n", 0, first[0]) + 1
             le = t.find("\n", last[1])
@@ -191,7 +191,7 @@ def runs(decls, edges, live, recs):
                     return
             indent = re.match(r"\s*", t[ls:first[0]]).group(0)
             stem = first[3][len("unused_"):] if first[3].startswith("unused_") else first[3]
-            out.append((f, ls, le, "%salignas( %s ) unsigned char unused_%s[%s];" % (indent, align, stem, size),
+            out.append((f, ls, le, "%salignas(%s) unsigned char unused_%s[%s];" % (indent, align, stem, size),
                         name, first[3]))
 
         for item in ordered:

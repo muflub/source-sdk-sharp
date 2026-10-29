@@ -114,19 +114,19 @@ public:
 	virtual void Deactivate() = 0;
 
 	// set a pointer to the game object
-	virtual void SetGameData( void *gameData ) = 0;
+	virtual void SetGameData(void* gameData) = 0;
 
 	// get a pointer to the game object
-	virtual void *GetGameData() const = 0;
+	virtual void* GetGameData() const = 0;
 
 	// Get the parent/referenced object
-	virtual IPhysicsObject *GetReferenceObject() const = 0;
+	virtual IPhysicsObject* GetReferenceObject() const = 0;
 
 	// Get the attached object
-	virtual IPhysicsObject *GetAttachedObject() const = 0;
+	virtual IPhysicsObject* GetAttachedObject() const = 0;
 
-	virtual void SetLinearMotor( float speed, float maxLinearImpulse ) = 0;
-	virtual void SetAngularMotor( float rotSpeed, float maxAngularImpulse ) = 0;
+	virtual void SetLinearMotor(float speed, float maxLinearImpulse) = 0;
+	virtual void SetAngularMotor(float rotSpeed, float maxAngularImpulse) = 0;
 
 	virtual void unused_UpdateRagdollTransforms() = 0;
 	virtual void unused_GetConstraintTransform() = 0;

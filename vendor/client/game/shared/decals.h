@@ -22,9 +22,9 @@
 abstract_class IDecalEmitterSystem
 {
 public:
-	virtual int GetDecalIndexForName( char const *decalname ) = 0;
-	virtual const char *GetDecalNameForIndex( int nIndex ) = 0;
-	virtual char const *TranslateDecalForGameMaterial( char const *decalName, unsigned char gamematerial ) = 0;
+	virtual int GetDecalIndexForName(char const* decalname) = 0;
+	virtual const char* GetDecalNameForIndex(int nIndex) = 0;
+	virtual char const* TranslateDecalForGameMaterial(char const* decalName, unsigned char gamematerial) = 0;
 };
 
-extern IDecalEmitterSystem *decalsystem;
+extern IDecalEmitterSystem* decalsystem;

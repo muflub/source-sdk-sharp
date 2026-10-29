@@ -41,83 +41,83 @@ using namespace ViewSubject;
 //-----------------------------------------------------------------------------
 // The underwater DSP.
 //-----------------------------------------------------------------------------
-TEST( AudioIsUnderwater, EyesUnderTheSurfaceIsUnderwater )
+TEST(AudioIsUnderwater, EyesUnderTheSurfaceIsUnderwater)
 {
-	EXPECT_TRUE( AudioIsUnderwater( WATER_LEVEL_EYES ) );
+	EXPECT_TRUE(AudioIsUnderwater(WATER_LEVEL_EYES));
 }
 
-TEST( AudioIsUnderwater, WaistDeepIsNot )
+TEST(AudioIsUnderwater, WaistDeepIsNot)
 {
 	// WL_Waist is 2. A player standing waist-deep hears the room; this is the
 	// line stock draws and the one a `>` instead of a `>=` would move.
-	EXPECT_FALSE( AudioIsUnderwater( 2 ) );
-	EXPECT_FALSE( AudioIsUnderwater( 1 ) );
-	EXPECT_FALSE( AudioIsUnderwater( 0 ) );
+	EXPECT_FALSE(AudioIsUnderwater(2));
+	EXPECT_FALSE(AudioIsUnderwater(1));
+	EXPECT_FALSE(AudioIsUnderwater(0));
 }
 
-TEST( AudioIsUnderwater, TheTopOfTheScaleIsTheOnlyTrueValue )
+TEST(AudioIsUnderwater, TheTopOfTheScaleIsTheOnlyTrueValue)
 {
 	// WL_Eyes is the LAST value in the enum, so `> WL_Eyes` can never be true
 	// and a build written that way would never switch the DSP on for anyone —
 	// which is exactly the silence this whole step is removing by another
 	// route. Asserting the top of the scale is what makes that mistake fail.
-	EXPECT_TRUE( AudioIsUnderwater( WATER_LEVEL_EYES ) );
-	EXPECT_EQ( 3, WATER_LEVEL_EYES );
+	EXPECT_TRUE(AudioIsUnderwater(WATER_LEVEL_EYES));
+	EXPECT_EQ(3, WATER_LEVEL_EYES);
 }
 
 //-----------------------------------------------------------------------------
 // The effects bits.
 //-----------------------------------------------------------------------------
-TEST( EffectActive, TheAskedForBitSetIsActive )
+TEST(EffectActive, TheAskedForBitSetIsActive)
 {
-	EXPECT_TRUE( EffectActive( 0x2, 0x2 ) );
-	EXPECT_TRUE( EffectActive( 0xFF, 0x2 ) );
+	EXPECT_TRUE(EffectActive(0x2, 0x2));
+	EXPECT_TRUE(EffectActive(0xFF, 0x2));
 }
 
-TEST( EffectActive, ADifferentBitIsNot )
+TEST(EffectActive, ADifferentBitIsNot)
 {
-	EXPECT_FALSE( EffectActive( 0x1, 0x2 ) );
-	EXPECT_FALSE( EffectActive( 0x0, 0x2 ) );
+	EXPECT_FALSE(EffectActive(0x1, 0x2));
+	EXPECT_FALSE(EffectActive(0x0, 0x2));
 }
 
-TEST( EffectActive, ANYOfTheAskedForBitsIsEnough )
+TEST(EffectActive, ANYOfTheAskedForBitsIsEnough)
 {
 	// Stock's IsEffectActive is `( m_fEffects & nEffectMask ) != 0`, which is
 	// ANY. A reader who wrote `== nEffectMask` would get the same answer for
 	// every single-bit ask and a different one the first time two bits were
 	// passed, which is a mistake that ships.
-	EXPECT_TRUE( EffectActive( 0x1, 0x3 ) );
-	EXPECT_TRUE( EffectActive( 0x2, 0x3 ) );
-	EXPECT_FALSE( EffectActive( 0x4, 0x3 ) );
+	EXPECT_TRUE(EffectActive(0x1, 0x3));
+	EXPECT_TRUE(EffectActive(0x2, 0x3));
+	EXPECT_FALSE(EffectActive(0x4, 0x3));
 }
 
 //-----------------------------------------------------------------------------
 // The view entity.
 //-----------------------------------------------------------------------------
-TEST( ViewEntityOverridesTheEye, LookingOutOfYourOwnHeadIsNotAnOverride )
+TEST(ViewEntityOverridesTheEye, LookingOutOfYourOwnHeadIsNotAnOverride)
 {
-	EXPECT_FALSE( ViewEntityOverridesTheEye( 1, 1 ) );
-	EXPECT_FALSE( ViewEntityOverridesTheEye( 7, 7 ) );
+	EXPECT_FALSE(ViewEntityOverridesTheEye(1, 1));
+	EXPECT_FALSE(ViewEntityOverridesTheEye(7, 7));
 }
 
-TEST( ViewEntityOverridesTheEye, AnotherEntityIsAnOverride )
+TEST(ViewEntityOverridesTheEye, AnotherEntityIsAnOverride)
 {
-	EXPECT_TRUE( ViewEntityOverridesTheEye( 42, 1 ) );
+	EXPECT_TRUE(ViewEntityOverridesTheEye(42, 1));
 }
 
-TEST( ViewEntityOverridesTheEye, EntityZeroIsRefusedEvenThoughItIsNotThePlayer )
+TEST(ViewEntityOverridesTheEye, EntityZeroIsRefusedEvenThoughItIsNotThePlayer)
 {
 	// Entity 0 is the world. It is not the player, so stock's test alone would
 	// call it an override — and the world's origin is (0,0,0), so the frame
 	// would be rendered from the map's origin. That is a black screen or the
 	// inside of a wall, which reads as a renderer fault rather than a wrong
 	// view entity.
-	EXPECT_FALSE( ViewEntityOverridesTheEye( 0, 1 ) );
+	EXPECT_FALSE(ViewEntityOverridesTheEye(0, 1));
 }
 
-TEST( ViewEntityOverridesTheEye, ANegativeIndexIsRefused )
+TEST(ViewEntityOverridesTheEye, ANegativeIndexIsRefused)
 {
-	EXPECT_FALSE( ViewEntityOverridesTheEye( -1, 1 ) );
+	EXPECT_FALSE(ViewEntityOverridesTheEye(-1, 1));
 }
 
 //=============================================================================
@@ -168,19 +168,19 @@ namespace
 //-----------------------------------------------------------------------------
 } // namespace
 
-TEST( DeEntitiedInPlace, TheSixAreStillInTheBuild )
+TEST(DeEntitiedInPlace, TheSixAreStillInTheBuild)
 {
 	// "IN PLACE" is the half a deletion would also satisfy. Every one of these
 	// is still compiled by client_sourcesharp (src/client/native/CMakeLists.txt,
 	// read through cmake_graph.h), and a step that de-entitied a file by
 	// evicting it would have done something else than what 7c says.
-	const char *kInBuild[] = {
+	const char* kInBuild[] = {
 		"sourcesharp/game/client/shell_viewrender_client.cpp", // view.cpp's and viewrender.cpp's (C7 step 3)
 		"sourcesharp/game/client/shell_view_facts.cpp",
 	};
-	for ( size_t i = 0; i < sizeof( kInBuild ) / sizeof( kInBuild[0] ); i++ )
+	for (size_t i = 0; i < sizeof(kInBuild) / sizeof(kInBuild[0]); i++)
 	{
-		EXPECT_TRUE( cmake_graph::Compiles( cmake_graph::kClient, kInBuild[i] ) )
+		EXPECT_TRUE(cmake_graph::Compiles(cmake_graph::kClient, kInBuild[i]))
 			<< kInBuild[i] << " is not compiled by client_sourcesharp";
 	}
 }

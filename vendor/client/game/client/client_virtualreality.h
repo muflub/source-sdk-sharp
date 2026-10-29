@@ -40,9 +40,9 @@ public:
 	// Initialization and shutdown
 
 	// IAppSystem
-	virtual bool Connect( CreateInterfaceFn factory );
+	virtual bool Connect(CreateInterfaceFn factory);
 	virtual void Disconnect();
-	virtual void *QueryInterface( const char *pInterfaceName );
+	virtual void* QueryInterface(const char* pInterfaceName);
 
 	// these will come from the engine
 	virtual InitReturnVal_t Init();
@@ -101,7 +101,7 @@ private:
 	bool m_bNonVRWindowed;
 	int m_nNonVRWidth;
 	int m_nNonVRHeight;
-#if defined( USE_SDL )
+#if defined(USE_SDL)
 	int m_nNonVRSDLDisplayIndex;
 #endif
 	bool m_bNonVRRawInput;

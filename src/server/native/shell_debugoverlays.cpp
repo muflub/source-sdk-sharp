@@ -15,69 +15,69 @@
 #include "shell_diagnostics.h"
 #include "server_entity_resolver.h"
 
-int32_t CServerDebugOverlays::DrawEntityOverlay( uint32_t hEntity, int32_t nLine, const char *pText, float flDuration,
-												 int32_t r, int32_t g, int32_t b, int32_t a )
+int32_t CServerDebugOverlays::DrawEntityOverlay(uint32_t hEntity, int32_t nLine, const char* pText, float flDuration,
+												int32_t r, int32_t g, int32_t b, int32_t a)
 {
 	SOURCESHARP_TRACE();
 
-	if ( hEntity == (uint32_t)INVALID_EHANDLE_INDEX )
+	if (hEntity == (uint32_t)INVALID_EHANDLE_INDEX)
 		return 0;
 
-	CStandaloneEntity *pShell = m_Entities.ShellFromHandle( CBaseHandle::UnsafeFromIndex( (int)hEntity ) );
+	CStandaloneEntity* pShell = m_Entities.ShellFromHandle(CBaseHandle::UnsafeFromIndex((int)hEntity));
 
-	if ( pShell == NULL )
+	if (pShell == NULL)
 		return 0;
 
-	const Vector &vecOrigin = pShell->GetAbsOrigin();
+	const Vector& vecOrigin = pShell->GetAbsOrigin();
 
 	// The box first, so the text lands on top of it in the overlay list.
-	m_Library.Box( vecOrigin, pShell->OBBMins(), pShell->OBBMaxs(), r, g, b, a, flDuration );
+	m_Library.Box(vecOrigin, pShell->OBBMins(), pShell->OBBMaxs(), r, g, b, a, flDuration);
 
 	// The caller's text, else the entity's name, else its classname, as stock's ent_text.
-	const char *pDrawn = pText;
-	if ( pDrawn == NULL || pDrawn[0] == '\0' )
+	const char* pDrawn = pText;
+	if (pDrawn == NULL || pDrawn[0] == '\0')
 	{
 		pDrawn = pShell->GetEntityName();
-		if ( pDrawn == NULL || pDrawn[0] == '\0' )
+		if (pDrawn == NULL || pDrawn[0] == '\0')
 			pDrawn = pShell->GetClassname();
 	}
 
-	m_Library.TextAtPosition( vecOrigin, nLine, pDrawn, flDuration, r, g, b, a );
+	m_Library.TextAtPosition(vecOrigin, nLine, pDrawn, flDuration, r, g, b, a);
 
 	return 1;
 }
 
-void CServerDebugOverlays::AddLineOverlay( const float *pStartXYZ, const float *pEndXYZ, int32_t r, int32_t g,
-										   int32_t b, int32_t bNoDepthTest, float flDuration )
+void CServerDebugOverlays::AddLineOverlay(const float* pStartXYZ, const float* pEndXYZ, int32_t r, int32_t g, int32_t b,
+										  int32_t bNoDepthTest, float flDuration)
 {
 	SOURCESHARP_TRACE();
 
-	if ( !pStartXYZ || !pEndXYZ )
+	if (!pStartXYZ || !pEndXYZ)
 		return;
 
-	const Vector vecStart( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] );
-	const Vector vecEnd( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] );
+	const Vector vecStart(pStartXYZ[0], pStartXYZ[1], pStartXYZ[2]);
+	const Vector vecEnd(pEndXYZ[0], pEndXYZ[1], pEndXYZ[2]);
 
-	if ( flDuration > 0.0f )
-		m_Library.Line( vecStart, vecEnd, r, g, b, bNoDepthTest != 0, flDuration );
+	if (flDuration > 0.0f)
+		m_Library.Line(vecStart, vecEnd, r, g, b, bNoDepthTest != 0, flDuration);
 	else
-		m_Library.AddLine( vecStart, vecEnd, bNoDepthTest != 0, r, g, b );
+		m_Library.AddLine(vecStart, vecEnd, bNoDepthTest != 0, r, g, b);
 }
 
-void CServerDebugOverlays::OverlayCounts( uint32_t *pOutDrawn, uint32_t *pOutClipped, uint32_t *pOutNoViewer,
-										  uint32_t *pOutNoOverlay, int32_t *pOutViewerSet )
+void CServerDebugOverlays::OverlayCounts(uint32_t* pOutDrawn, uint32_t* pOutClipped, uint32_t* pOutNoViewer,
+										 uint32_t* pOutNoOverlay, int32_t* pOutViewerSet)
 {
-	const OverlayCounts_t &c = m_Library.Counts();
+	const OverlayCounts_t& c = m_Library.Counts();
 
-	if ( pOutDrawn )
+	if (pOutDrawn)
 		*pOutDrawn = c.nDrawn;
-	if ( pOutClipped )
+	if (pOutClipped)
 		*pOutClipped = c.nClipped;
-	if ( pOutNoViewer )
+	if (pOutNoViewer)
 		*pOutNoViewer = c.nNoViewer;
-	if ( pOutNoOverlay )
+	if (pOutNoOverlay)
 		*pOutNoOverlay = c.nNoOverlay;
-	if ( pOutViewerSet )
+	if (pOutViewerSet)
 		*pOutViewerSet = m_Library.ViewerIsSet() ? 1 : 0;
 }
 

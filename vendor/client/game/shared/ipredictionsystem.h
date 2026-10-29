@@ -25,13 +25,13 @@ public:
 
 	virtual ~IPredictionSystem() {};
 
-	IPredictionSystem *GetNext() { return m_pNextSystem; }
+	IPredictionSystem* GetNext() { return m_pNextSystem; }
 
-	void SetSuppressEvent( bool state ) { m_bSuppressEvent = state; }
+	void SetSuppressEvent(bool state) { m_bSuppressEvent = state; }
 
 	bool CanPredict() const
 	{
-		if ( DisableFiltering() )
+		if (DisableFiltering())
 		{
 			return false;
 		}
@@ -39,14 +39,14 @@ public:
 		return !m_bSuppressEvent;
 	}
 
-	static IPredictionSystem *g_pPredictionSystems;
+	static IPredictionSystem* g_pPredictionSystems;
 
-	static void SuppressEvents( bool state )
+	static void SuppressEvents(bool state)
 	{
-		IPredictionSystem *sys = g_pPredictionSystems;
-		while ( sys )
+		IPredictionSystem* sys = g_pPredictionSystems;
+		while (sys)
 		{
-			sys->SetSuppressEvent( state );
+			sys->SetSuppressEvent(state);
 			sys = sys->GetNext();
 		}
 	}
@@ -54,8 +54,8 @@ public:
 private:
 	static void Push()
 	{
-		IPredictionSystem *sys = g_pPredictionSystems;
-		while ( sys )
+		IPredictionSystem* sys = g_pPredictionSystems;
+		while (sys)
 		{
 			sys->_Push();
 			sys = sys->GetNext();
@@ -64,8 +64,8 @@ private:
 
 	static void Pop()
 	{
-		IPredictionSystem *sys = g_pPredictionSystems;
-		while ( sys )
+		IPredictionSystem* sys = g_pPredictionSystems;
+		while (sys)
 		{
 			sys->_Pop();
 			sys = sys->GetNext();
@@ -76,11 +76,11 @@ private:
 
 	void _Pop() { --m_nStatusPushed; }
 
-	bool DisableFiltering() const { return ( m_nStatusPushed > 0 ) ? true : false; }
+	bool DisableFiltering() const { return (m_nStatusPushed > 0) ? true : false; }
 
-	IPredictionSystem *m_pNextSystem;
+	IPredictionSystem* m_pNextSystem;
 	bool m_bSuppressEvent;
-	CBaseEntity *m_pSuppressHost;
+	CBaseEntity* m_pSuppressHost;
 
 	int m_nStatusPushed;
 
@@ -90,10 +90,10 @@ private:
 class CDisablePredictionFiltering
 {
 public:
-	CDisablePredictionFiltering( bool disable = true )
+	CDisablePredictionFiltering(bool disable = true)
 	{
 		m_bDisabled = disable;
-		if ( m_bDisabled )
+		if (m_bDisabled)
 		{
 			IPredictionSystem::Push();
 		}
@@ -101,7 +101,7 @@ public:
 
 	~CDisablePredictionFiltering()
 	{
-		if ( m_bDisabled )
+		if (m_bDisabled)
 		{
 			IPredictionSystem::Pop();
 		}

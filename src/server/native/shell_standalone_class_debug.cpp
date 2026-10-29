@@ -17,40 +17,40 @@
 
 // Lists the entity factories (with sizes when given an argument, matching the client's
 // cl_dumpentityfactories) and the classnames asked for that no factory answers.
-SS_NATIVE_COMMAND( dumpentityfactories )
+SS_NATIVE_COMMAND(dumpentityfactories)
 {
-	if ( !services.m_EntityContext.CommandIssuedByServerAdmin() )
+	if (!services.m_EntityContext.CommandIssuedByServerAdmin())
 		return;
 
-	CServerEntityLifecycle &lifecycle = services.m_EntityLifecycle;
+	CServerEntityLifecycle& lifecycle = services.m_EntityLifecycle;
 	const bool bDetail = args.ArgC() > 1;
 	const int nCount = lifecycle.EntityFactoryCount();
 
-	for ( int i = 0; i < nCount; i++ )
+	for (int i = 0; i < nCount; i++)
 	{
-		const char *pName = lifecycle.EntityFactoryNameAt( i );
+		const char* pName = lifecycle.EntityFactoryNameAt(i);
 
-		if ( !bDetail )
+		if (!bDetail)
 		{
-			Msg( "%s\n", pName );
+			Msg("%s\n", pName);
 			continue;
 		}
 
-		Msg( "%-40s %llu\n", pName, (uint64)lifecycle.EntityFactorySizeAt( i ) );
+		Msg("%-40s %llu\n", pName, (uint64)lifecycle.EntityFactorySizeAt(i));
 	}
 
-	Msg( "[SourceSharp] %d entity factor%s\n", nCount, nCount == 1 ? "y" : "ies" );
+	Msg("[SourceSharp] %d entity factor%s\n", nCount, nCount == 1 ? "y" : "ies");
 
 	const int nRefused = lifecycle.EntityFactoryRefusalCount();
 
-	if ( nRefused == 0 )
+	if (nRefused == 0)
 		return;
 
-	Msg( "[SourceSharp] and %d classname%s asked for that nothing answers to:\n", nRefused, nRefused == 1 ? "" : "s" );
+	Msg("[SourceSharp] and %d classname%s asked for that nothing answers to:\n", nRefused, nRefused == 1 ? "" : "s");
 
-	for ( int i = 0; i < nRefused; i++ )
+	for (int i = 0; i < nRefused; i++)
 	{
-		Msg( "    %-40s refused %d time(s)\n", lifecycle.EntityFactoryRefusalNameAt( i ),
-			 lifecycle.EntityFactoryRefusalTimesAt( i ) );
+		Msg("    %-40s refused %d time(s)\n", lifecycle.EntityFactoryRefusalNameAt(i),
+			lifecycle.EntityFactoryRefusalTimesAt(i));
 	}
 }

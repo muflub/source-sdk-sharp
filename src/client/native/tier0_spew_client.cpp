@@ -15,32 +15,32 @@
 #include "ss_platform.h"
 #ifdef _MSC_VER
 // Defines functions the engine headers declare dllimport (C4273).
-#pragma warning( disable : 4273 )
+#pragma warning(disable : 4273)
 #endif
 
-void DevWarning( int level, const tchar *pMsg, ... )
+void DevWarning(int level, const tchar* pMsg, ...)
 {
 	va_list args;
-	va_start( args, pMsg );
-	Tier0_DevSpewV( level, SPEW_WARNING, pMsg, args );
-	va_end( args );
+	va_start(args, pMsg);
+	Tier0_DevSpewV(level, SPEW_WARNING, pMsg, args);
+	va_end(args);
 }
 
-void DevMsg( int level, const tchar *pMsg, ... )
+void DevMsg(int level, const tchar* pMsg, ...)
 {
 	va_list args;
-	va_start( args, pMsg );
-	Tier0_DevSpewV( level, SPEW_MESSAGE, pMsg, args );
-	va_end( args );
+	va_start(args, pMsg);
+	Tier0_DevSpewV(level, SPEW_MESSAGE, pMsg, args);
+	va_end(args);
 }
 
 // tier0/memalloc.h's allocation inlines call this when malloc or memalign returns NULL.
-void MemAllocOOMError( size_t nSize )
+void MemAllocOOMError(size_t nSize)
 {
-	Error( "out of memory: an allocation of %zu bytes failed\n", nSize );
+	Error("out of memory: an allocation of %zu bytes failed\n", nSize);
 }
 
 // Binds this module's calls through the import pointers to the definitions above.
-SS_BIND_IMPORT_AS( DevWarning, void ( * )( int, const tchar *, ... ) )
-SS_BIND_IMPORT_AS( DevMsg, void ( * )( int, const tchar *, ... ) )
-SS_BIND_IMPORT( MemAllocOOMError )
+SS_BIND_IMPORT_AS(DevWarning, void (*)(int, const tchar*, ...))
+SS_BIND_IMPORT_AS(DevMsg, void (*)(int, const tchar*, ...))
+SS_BIND_IMPORT(MemAllocOOMError)

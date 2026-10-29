@@ -10,7 +10,7 @@ namespace vgui
 class Panel;
 }
 
-bool VGui_Startup( CreateInterfaceFn appSystemFactory );
+bool VGui_Startup(CreateInterfaceFn appSystemFactory);
 void VGui_Shutdown();
 void VGui_CreateGlobalPanels();
 vgui::VPANEL VGui_GetClientDLLRootPanel();

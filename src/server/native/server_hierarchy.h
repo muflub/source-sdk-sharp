@@ -16,23 +16,23 @@ class CServerEntityResolver;
 class CServerHierarchy final : public IShimHierarchy
 {
 public:
-	explicit CServerHierarchy( CServerEntityResolver &entities )
-		: m_Entities( entities )
+	explicit CServerHierarchy(CServerEntityResolver& entities)
+		: m_Entities(entities)
 	{
 	}
 
-	CServerHierarchy( const CServerHierarchy & ) = delete;
-	CServerHierarchy &operator=( const CServerHierarchy & ) = delete;
+	CServerHierarchy(const CServerHierarchy&) = delete;
+	CServerHierarchy& operator=(const CServerHierarchy&) = delete;
 
-	int32_t EntitySetParent( uint32_t hChild, uint32_t hParent, int32_t nParentAttachment ) override;
-	uint32_t EntityGetParent( uint32_t hChild ) override;
-	int32_t EntityGetParentAttachment( uint32_t hChild ) override;
-	void EntitySetLocalTransform( uint32_t hChild, const float *pOrigin, const float *pAngles ) override;
-	void EntityGetLocalTransform( uint32_t hChild, float *pOutOrigin, float *pOutAngles ) override;
-	int32_t EntityParentProbe( uint32_t hEntity ) override;
-	int32_t EntityGetAttachmentFrame( uint32_t hEntity, int32_t nAttachment, float *pOutOriginXYZ,
-									  float *pOutAnglesPYR ) override;
+	int32_t EntitySetParent(uint32_t hChild, uint32_t hParent, int32_t nParentAttachment) override;
+	uint32_t EntityGetParent(uint32_t hChild) override;
+	int32_t EntityGetParentAttachment(uint32_t hChild) override;
+	void EntitySetLocalTransform(uint32_t hChild, const float* pOrigin, const float* pAngles) override;
+	void EntityGetLocalTransform(uint32_t hChild, float* pOutOrigin, float* pOutAngles) override;
+	int32_t EntityParentProbe(uint32_t hEntity) override;
+	int32_t EntityGetAttachmentFrame(uint32_t hEntity, int32_t nAttachment, float* pOutOriginXYZ,
+									 float* pOutAnglesPYR) override;
 
 private:
-	CServerEntityResolver &m_Entities;
+	CServerEntityResolver& m_Entities;
 };

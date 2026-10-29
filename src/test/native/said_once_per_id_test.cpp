@@ -15,24 +15,24 @@
 
 #include "../game/shared/said_once_per_id.h"
 
-TEST( SaidOncePerId, FirstArrivalOfAnIdSays )
+TEST(SaidOncePerId, FirstArrivalOfAnIdSays)
 {
 	CSaidOncePerId tracker;
 
-	EXPECT_TRUE( tracker.FirstTime( 0x98ab094eu ) );
+	EXPECT_TRUE(tracker.FirstTime(0x98ab094eu));
 }
 
-TEST( SaidOncePerId, SecondArrivalOfTheSameIdIsSilent )
+TEST(SaidOncePerId, SecondArrivalOfTheSameIdIsSilent)
 {
 	CSaidOncePerId tracker;
 
-	EXPECT_TRUE( tracker.FirstTime( 0x98ab094eu ) );
-	EXPECT_FALSE( tracker.FirstTime( 0x98ab094eu ) );
+	EXPECT_TRUE(tracker.FirstTime(0x98ab094eu));
+	EXPECT_FALSE(tracker.FirstTime(0x98ab094eu));
 }
 
 // The live traffic pattern: two entities, one update apiece per frame, ids
 // alternating. A last-id latch says both every frame; the set says each once.
-TEST( SaidOncePerId, AlternatingIdsSayOnceApiece )
+TEST(SaidOncePerId, AlternatingIdsSayOnceApiece)
 {
 	CSaidOncePerId tracker;
 
@@ -41,47 +41,47 @@ TEST( SaidOncePerId, AlternatingIdsSayOnceApiece )
 
 	int nSaid = 0;
 
-	for ( int frame = 0; frame < 110; frame++ )
+	for (int frame = 0; frame < 110; frame++)
 	{
-		if ( tracker.FirstTime( nPropDynamic ) )
+		if (tracker.FirstTime(nPropDynamic))
 			nSaid++;
-		if ( tracker.FirstTime( nSsGrenade ) )
+		if (tracker.FirstTime(nSsGrenade))
 			nSaid++;
 	}
 
-	EXPECT_EQ( 2, nSaid );
-	EXPECT_EQ( 2, tracker.Count() );
+	EXPECT_EQ(2, nSaid);
+	EXPECT_EQ(2, tracker.Count());
 }
 
 // A map's worth of distinct ids all get their one line — dropping a distinct
 // id's message would hide a real half-ported class.
-TEST( SaidOncePerId, EveryDistinctIdSaysOnce )
+TEST(SaidOncePerId, EveryDistinctIdSaysOnce)
 {
 	CSaidOncePerId tracker;
 
-	for ( unsigned int id = 1; id <= 80; id++ )
-		EXPECT_TRUE( tracker.FirstTime( id ) );
+	for (unsigned int id = 1; id <= 80; id++)
+		EXPECT_TRUE(tracker.FirstTime(id));
 
-	for ( unsigned int id = 1; id <= 80; id++ )
-		EXPECT_FALSE( tracker.FirstTime( id ) );
+	for (unsigned int id = 1; id <= 80; id++)
+		EXPECT_FALSE(tracker.FirstTime(id));
 
-	EXPECT_EQ( 80, tracker.Count() );
+	EXPECT_EQ(80, tracker.Count());
 }
 
 // Past capacity the tracker degrades to saying, not to swallowing: repeating a
 // line is recoverable noise, losing a distinct id's only line is not.
-TEST( SaidOncePerId, OverflowSaysRatherThanSwallows )
+TEST(SaidOncePerId, OverflowSaysRatherThanSwallows)
 {
 	CSaidOncePerId tracker;
 
 	// Fill it (capacity is 1024; ids 1..1024).
-	for ( unsigned int id = 1; id <= 1024; id++ )
-		EXPECT_TRUE( tracker.FirstTime( id ) );
+	for (unsigned int id = 1; id <= 1024; id++)
+		EXPECT_TRUE(tracker.FirstTime(id));
 
 	// A recorded id is still deduplicated.
-	EXPECT_FALSE( tracker.FirstTime( 7u ) );
+	EXPECT_FALSE(tracker.FirstTime(7u));
 
 	// An unrecordable new id says every time rather than never.
-	EXPECT_TRUE( tracker.FirstTime( 0xffff0001u ) );
-	EXPECT_TRUE( tracker.FirstTime( 0xffff0001u ) );
+	EXPECT_TRUE(tracker.FirstTime(0xffff0001u));
+	EXPECT_TRUE(tracker.FirstTime(0xffff0001u));
 }

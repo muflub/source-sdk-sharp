@@ -19,41 +19,41 @@
 class CFakeBaseFileSystem : public IBaseFileSystem
 {
 public:
-	int Read( void *pOutput, int size, FileHandle_t file ) override { return {}; }
+	int Read(void* pOutput, int size, FileHandle_t file) override { return {}; }
 
-	int Write( void const *pInput, int size, FileHandle_t file ) override { return {}; }
+	int Write(void const* pInput, int size, FileHandle_t file) override { return {}; }
 
-	FileHandle_t Open( const char *pFileName, const char *pOptions, const char *pathID = 0 ) override { return {}; }
+	FileHandle_t Open(const char* pFileName, const char* pOptions, const char* pathID = 0) override { return {}; }
 
-	void Close( FileHandle_t file ) override {}
+	void Close(FileHandle_t file) override {}
 
-	void Seek( FileHandle_t file, int pos, FileSystemSeek_t seekType ) override {}
+	void Seek(FileHandle_t file, int pos, FileSystemSeek_t seekType) override {}
 
-	unsigned int Tell( FileHandle_t file ) override { return {}; }
+	unsigned int Tell(FileHandle_t file) override { return {}; }
 
-	unsigned int Size( FileHandle_t file ) override { return {}; }
+	unsigned int Size(FileHandle_t file) override { return {}; }
 
-	unsigned int Size( const char *pFileName, const char *pPathID = 0 ) override { return {}; }
+	unsigned int Size(const char* pFileName, const char* pPathID = 0) override { return {}; }
 
-	void Flush( FileHandle_t file ) override {}
+	void Flush(FileHandle_t file) override {}
 
-	bool Precache( const char *pFileName, const char *pPathID = 0 ) override { return {}; }
+	bool Precache(const char* pFileName, const char* pPathID = 0) override { return {}; }
 
-	bool FileExists( const char *pFileName, const char *pPathID = 0 ) override { return {}; }
+	bool FileExists(const char* pFileName, const char* pPathID = 0) override { return {}; }
 
-	bool IsFileWritable( char const *pFileName, const char *pPathID = 0 ) override { return {}; }
+	bool IsFileWritable(char const* pFileName, const char* pPathID = 0) override { return {}; }
 
-	bool SetFileWritable( char const *pFileName, bool writable, const char *pPathID = 0 ) override { return {}; }
+	bool SetFileWritable(char const* pFileName, bool writable, const char* pPathID = 0) override { return {}; }
 
-	long GetFileTime( const char *pFileName, const char *pPathID = 0 ) override { return {}; }
+	long GetFileTime(const char* pFileName, const char* pPathID = 0) override { return {}; }
 
-	bool ReadFile( const char *pFileName, const char *pPath, CUtlBuffer &buf, int nMaxBytes = 0, int nStartingByte = 0,
-				   FSAllocFunc_t pfnAlloc = NULL ) override
+	bool ReadFile(const char* pFileName, const char* pPath, CUtlBuffer& buf, int nMaxBytes = 0, int nStartingByte = 0,
+				  FSAllocFunc_t pfnAlloc = NULL) override
 	{
 		return {};
 	}
 
-	bool WriteFile( const char *pFileName, const char *pPath, CUtlBuffer &buf ) override { return {}; }
+	bool WriteFile(const char* pFileName, const char* pPath, CUtlBuffer& buf) override { return {}; }
 
-	bool UnzipFile( const char *pFileName, const char *pPath, const char *pDestination ) override { return {}; }
+	bool UnzipFile(const char* pFileName, const char* pPath, const char* pDestination) override { return {}; }
 };

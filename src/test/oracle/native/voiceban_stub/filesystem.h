@@ -10,7 +10,7 @@
 #include <cstring>
 #include <string>
 
-typedef void *FileHandle_t;
+typedef void* FileHandle_t;
 
 class COracleFileSystem
 {
@@ -19,15 +19,15 @@ public:
 	bool m_bExists = false;
 	size_t m_nPos = 0;
 
-	FileHandle_t Open( const char *pName, const char *pMode, const char *pPath = 0 )
+	FileHandle_t Open(const char* pName, const char* pMode, const char* pPath = 0)
 	{
 		m_strLastName = pName;
-		if ( pMode[0] == 'w' )
+		if (pMode[0] == 'w')
 		{
 			m_Data.clear();
 			m_bExists = true;
 		}
-		else if ( !m_bExists )
+		else if (!m_bExists)
 		{
 			return 0;
 		}
@@ -35,25 +35,25 @@ public:
 		return this;
 	}
 
-	int Read( void *pOut, int nSize, FileHandle_t )
+	int Read(void* pOut, int nSize, FileHandle_t)
 	{
 		const size_t n = m_nPos + nSize <= m_Data.size() ? (size_t)nSize : m_Data.size() - m_nPos;
-		memcpy( pOut, m_Data.data() + m_nPos, n );
+		memcpy(pOut, m_Data.data() + m_nPos, n);
 		m_nPos += n;
 		return (int)n;
 	}
 
-	int Write( const void *pIn, int nSize, FileHandle_t )
+	int Write(const void* pIn, int nSize, FileHandle_t)
 	{
-		m_Data.append( (const char *)pIn, nSize );
+		m_Data.append((const char*)pIn, nSize);
 		return nSize;
 	}
 
-	unsigned int Size( FileHandle_t ) { return (unsigned int)m_Data.size(); }
+	unsigned int Size(FileHandle_t) { return (unsigned int)m_Data.size(); }
 
-	void Close( FileHandle_t ) {}
+	void Close(FileHandle_t) {}
 
 	std::string m_strLastName;
 };
 
-extern COracleFileSystem *filesystem;
+extern COracleFileSystem* filesystem;

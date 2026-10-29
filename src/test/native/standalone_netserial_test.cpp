@@ -50,7 +50,7 @@ struct FakeEdict
 // PackedEntity for an edict index only while the serial it recorded still
 // equals the serial the edict publishes now. One comparison — this is it.
 //-----------------------------------------------------------------------------
-bool EngineWouldReusePackedEntity( int nRecordedSerial, const FakeEdict &edict )
+bool EngineWouldReusePackedEntity(int nRecordedSerial, const FakeEdict& edict)
 {
 	return nRecordedSerial == edict.m_NetworkSerialNumber;
 }
@@ -63,25 +63,25 @@ bool EngineWouldReusePackedEntity( int nRecordedSerial, const FakeEdict &edict )
 // mirror both occupants publish the same leftover serial, the engine model
 // reuses the dead occupant's packed entity, and that reuse IS the crash.
 //-----------------------------------------------------------------------------
-TEST( StandaloneNetSerial, AReusedEdictRefusesTheDeadOccupantsPackedEntity )
+TEST(StandaloneNetSerial, AReusedEdictRefusesTheDeadOccupantsPackedEntity)
 {
-	FakeEdict edict = { -1 };
+	FakeEdict edict = {-1};
 
 	// prop_physics attaches: the entity list assigned serial 731 to this slot.
-	StandaloneNetSerial_Mirror( &edict, 731ul );
+	StandaloneNetSerial_Mirror(&edict, 731ul);
 	const int nRecorded = edict.m_NetworkSerialNumber;
 
 	// The engine packs it and records the serial. While the same occupant
 	// stands, reuse is correct — that is the fast path working as designed.
-	EXPECT_TRUE( EngineWouldReusePackedEntity( nRecorded, edict ) );
+	EXPECT_TRUE(EngineWouldReusePackedEntity(nRecorded, edict));
 
 	// prop_physics dies (the entity list bumps the slot serial), ss_barrel
 	// attaches to the reused edict with the bumped serial.
-	StandaloneNetSerial_Mirror( &edict, 732ul );
+	StandaloneNetSerial_Mirror(&edict, 732ul);
 
 	// The stale packed entity must be refused: its ChangeFrameList is 14 props
 	// and the new occupant's table is 38.
-	EXPECT_FALSE( EngineWouldReusePackedEntity( nRecorded, edict ) );
+	EXPECT_FALSE(EngineWouldReusePackedEntity(nRecorded, edict));
 }
 
 //-----------------------------------------------------------------------------
@@ -90,16 +90,16 @@ TEST( StandaloneNetSerial, AReusedEdictRefusesTheDeadOccupantsPackedEntity )
 // a dead one's state. The serial rule is what makes this case loud-by-absence
 // too, and it is why the fix is the mirror rather than a clamp at the guard.
 //-----------------------------------------------------------------------------
-TEST( StandaloneNetSerial, SameTierReuseIsRefusedAsWell )
+TEST(StandaloneNetSerial, SameTierReuseIsRefusedAsWell)
 {
-	FakeEdict edict = { -1 };
+	FakeEdict edict = {-1};
 
-	StandaloneNetSerial_Mirror( &edict, 40ul );
+	StandaloneNetSerial_Mirror(&edict, 40ul);
 	const int nRecorded = edict.m_NetworkSerialNumber;
 
-	StandaloneNetSerial_Mirror( &edict, 41ul );
+	StandaloneNetSerial_Mirror(&edict, 41ul);
 
-	EXPECT_FALSE( EngineWouldReusePackedEntity( nRecorded, edict ) );
+	EXPECT_FALSE(EngineWouldReusePackedEntity(nRecorded, edict));
 }
 
 //-----------------------------------------------------------------------------
@@ -108,16 +108,16 @@ TEST( StandaloneNetSerial, SameTierReuseIsRefusedAsWell )
 // real one). The value the engine compares tomorrow must equal the value
 // EHANDLE props put on the wire today, and both truncate to these bits.
 //-----------------------------------------------------------------------------
-TEST( StandaloneNetSerial, TheSerialIsMaskedToStocksTenBits )
+TEST(StandaloneNetSerial, TheSerialIsMaskedToStocksTenBits)
 {
-	EXPECT_EQ( 0, StandaloneNetSerial_ForHandle( 0ul ) );
-	EXPECT_EQ( 1023, StandaloneNetSerial_ForHandle( 1023ul ) );
-	EXPECT_EQ( 0, StandaloneNetSerial_ForHandle( 1024ul ) );
-	EXPECT_EQ( 5, StandaloneNetSerial_ForHandle( 1029ul ) );
+	EXPECT_EQ(0, StandaloneNetSerial_ForHandle(0ul));
+	EXPECT_EQ(1023, StandaloneNetSerial_ForHandle(1023ul));
+	EXPECT_EQ(0, StandaloneNetSerial_ForHandle(1024ul));
+	EXPECT_EQ(5, StandaloneNetSerial_ForHandle(1029ul));
 
 	// The entity list's serials are sixteen bits and INVALID_EHANDLE's is all
 	// ones; both must land inside the mask rather than sign-extend the short.
-	EXPECT_EQ( 1023, StandaloneNetSerial_ForHandle( 0xFFFFFFFFul ) );
+	EXPECT_EQ(1023, StandaloneNetSerial_ForHandle(0xFFFFFFFFul));
 }
 
 //-----------------------------------------------------------------------------
@@ -126,11 +126,11 @@ TEST( StandaloneNetSerial, TheSerialIsMaskedToStocksTenBits )
 // never been the bug; what the test pins is that the wrap is the MASK's, i.e.
 // consecutive serials stay distinct everywhere except the wrap itself.
 //-----------------------------------------------------------------------------
-TEST( StandaloneNetSerial, ConsecutiveSerialsStayDistinctUnderTheMask )
+TEST(StandaloneNetSerial, ConsecutiveSerialsStayDistinctUnderTheMask)
 {
-	for ( unsigned long i = 0; i < 2048; i++ )
+	for (unsigned long i = 0; i < 2048; i++)
 	{
-		EXPECT_NE( StandaloneNetSerial_ForHandle( i ), StandaloneNetSerial_ForHandle( i + 1 ) );
+		EXPECT_NE(StandaloneNetSerial_ForHandle(i), StandaloneNetSerial_ForHandle(i + 1));
 	}
 }
 
@@ -138,9 +138,9 @@ TEST( StandaloneNetSerial, ConsecutiveSerialsStayDistinctUnderTheMask )
 // NULL is the server-only entity: no edict, nothing to publish, and the one
 // call site runs for those too. Not crashing is the whole assertion.
 //-----------------------------------------------------------------------------
-TEST( StandaloneNetSerial, AServerOnlyEntityHasNoEdictToMirrorInto )
+TEST(StandaloneNetSerial, AServerOnlyEntityHasNoEdictToMirrorInto)
 {
-	StandaloneNetSerial_Mirror( (FakeEdict *)0, 731ul );
+	StandaloneNetSerial_Mirror((FakeEdict*)0, 731ul);
 }
 
 //-----------------------------------------------------------------------------
@@ -149,15 +149,15 @@ TEST( StandaloneNetSerial, AServerOnlyEntityHasNoEdictToMirrorInto )
 // clothes. Ten masked bits always fit; the test is that the STORED value is
 // the masked one, bit-exact, at the mask's edges.
 //-----------------------------------------------------------------------------
-TEST( StandaloneNetSerial, TheStoredValueIsTheMaskedValue )
+TEST(StandaloneNetSerial, TheStoredValueIsTheMaskedValue)
 {
-	FakeEdict edict = { -1 };
+	FakeEdict edict = {-1};
 
-	StandaloneNetSerial_Mirror( &edict, 0xFFFFFFFFul );
-	EXPECT_EQ( 1023, edict.m_NetworkSerialNumber );
+	StandaloneNetSerial_Mirror(&edict, 0xFFFFFFFFul);
+	EXPECT_EQ(1023, edict.m_NetworkSerialNumber);
 
-	StandaloneNetSerial_Mirror( &edict, 1024ul );
-	EXPECT_EQ( 0, edict.m_NetworkSerialNumber );
+	StandaloneNetSerial_Mirror(&edict, 1024ul);
+	EXPECT_EQ(0, edict.m_NetworkSerialNumber);
 }
 
 } // namespace

@@ -33,55 +33,55 @@ namespace
 {
 struct Vstdlib_t
 {
-	void ( *Seed )( int );
-	int ( *Int )( int, int );
-	float ( *Float )( float, float );
+	void (*Seed)(int);
+	int (*Int)(int, int);
+	float (*Float)(float, float);
 };
 
-uint32_t Bits( float f )
+uint32_t Bits(float f)
 {
 	uint32_t u;
-	memcpy( &u, &f, sizeof( u ) );
+	memcpy(&u, &f, sizeof(u));
 	return u;
 }
 
 // Loaded once and kept: its global stream is the other half of every fact.
-const Vstdlib_t *Game()
+const Vstdlib_t* Game()
 {
 	static Vstdlib_t s_Fns = {};
 	static bool s_bTried = false;
-	if ( !s_bTried )
+	if (!s_bTried)
 	{
 		s_bTried = true;
-		const char *pPath = getenv( "SOURCESHARP_ENGINE_VSTDLIB" );
-		if ( !pPath || !*pPath )
+		const char* pPath = getenv("SOURCESHARP_ENGINE_VSTDLIB");
+		if (!pPath || !*pPath)
 			return nullptr;
-		void *h = dlopen( pPath, RTLD_NOW | RTLD_LOCAL );
-		if ( !h )
+		void* h = dlopen(pPath, RTLD_NOW | RTLD_LOCAL);
+		if (!h)
 			return nullptr;
-		s_Fns.Seed = (void ( * )( int ))dlsym( h, "RandomSeed" );
-		s_Fns.Int = (int ( * )( int, int ))dlsym( h, "RandomInt" );
-		s_Fns.Float = (float ( * )( float, float ))dlsym( h, "RandomFloat" );
+		s_Fns.Seed = (void (*)(int))dlsym(h, "RandomSeed");
+		s_Fns.Int = (int (*)(int, int))dlsym(h, "RandomInt");
+		s_Fns.Float = (float (*)(float, float))dlsym(h, "RandomFloat");
 	}
 	return s_Fns.Seed && s_Fns.Int && s_Fns.Float ? &s_Fns : nullptr;
 }
 
-#define REQUIRE_GAME()                                                                          \
-	const Vstdlib_t *pGame = Game();                                                            \
-	ASSERT_NE( nullptr, pGame ) << "no game libvstdlib.so: set SOURCESHARP_ENGINE_VSTDLIB, or " \
-								   "install Source SDK Base 2013 Multiplayer (dlerror: "        \
-								<< ( dlerror() ? dlerror() : "none" ) << ")"
+#define REQUIRE_GAME()                                                                        \
+	const Vstdlib_t* pGame = Game();                                                          \
+	ASSERT_NE(nullptr, pGame) << "no game libvstdlib.so: set SOURCESHARP_ENGINE_VSTDLIB, or " \
+								 "install Source SDK Base 2013 Multiplayer (dlerror: "        \
+							  << (dlerror() ? dlerror() : "none") << ")"
 }
 
 // FIRST, while neither stream has been seeded: vstdlib's global stream starts
 // as if seeded with 0, and so must the port's.
-TEST( VstdlibRandomOracle, AnUnseededStreamStartsWhereTheGamesDoes )
+TEST(VstdlibRandomOracle, AnUnseededStreamStartsWhereTheGamesDoes)
 {
 	SS_SKIP_ON_CI(
-		"needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
+		"needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not");
 	REQUIRE_GAME();
-	for ( int i = 0; i < 200; ++i )
-		ASSERT_EQ( pGame->Int( 0, 1000000 ), RandomInt( 0, 1000000 ) ) << "draw " << i;
+	for (int i = 0; i < 200; ++i)
+		ASSERT_EQ(pGame->Int(0, 1000000), RandomInt(0, 1000000)) << "draw " << i;
 }
 
 // The server draws only RandomInt, from the unseeded stream: RandomSeed,
@@ -89,89 +89,87 @@ TEST( VstdlibRandomOracle, AnUnseededStreamStartsWhereTheGamesDoes )
 // cull (2026-10-01; no server object called them). The two streams stay in step
 // from the fact above, so every kind of integer draw is compared without
 // seeding.
-TEST( VstdlibRandomOracle, EveryKindOfIntDrawIsTheGames )
+TEST(VstdlibRandomOracle, EveryKindOfIntDrawIsTheGames)
 {
 	SS_SKIP_ON_CI(
-		"needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
+		"needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not");
 	REQUIRE_GAME();
 	long nCompared = 0;
-	for ( int i = 0; i < 8000; ++i )
+	for (int i = 0; i < 8000; ++i)
 	{
-		switch ( i % 4 )
+		switch (i % 4)
 		{
 			// Just over 2^30 values: about half the draws are rejected and redrawn,
 			// so this is the case that sees the rejection loop.
 			case 3:
-				ASSERT_EQ( pGame->Int( 0, 0x40000000 ), RandomInt( 0, 0x40000000 ) ) << i;
+				ASSERT_EQ(pGame->Int(0, 0x40000000), RandomInt(0, 0x40000000)) << i;
 				break;
 			case 0:
-				ASSERT_EQ( pGame->Int( 0, 0x7ffffffe ), RandomInt( 0, 0x7ffffffe ) ) << i;
+				ASSERT_EQ(pGame->Int(0, 0x7ffffffe), RandomInt(0, 0x7ffffffe)) << i;
 				break;
 			case 1:
-				ASSERT_EQ( pGame->Int( -50, 50 ), RandomInt( -50, 50 ) ) << i;
+				ASSERT_EQ(pGame->Int(-50, 50), RandomInt(-50, 50)) << i;
 				break;
 			case 2:
-				ASSERT_EQ( pGame->Int( 0, 2 ), RandomInt( 0, 2 ) ) << i;
+				ASSERT_EQ(pGame->Int(0, 2), RandomInt(0, 2)) << i;
 				break;
 		}
 		++nCompared;
 	}
-	EXPECT_EQ( 8000, nCompared );
+	EXPECT_EQ(8000, nCompared);
 }
 
-TEST( VstdlibRandomOracle, DegenerateRangesAnswerAsTheGamesDo )
+TEST(VstdlibRandomOracle, DegenerateRangesAnswerAsTheGamesDo)
 {
 	SS_SKIP_ON_CI(
-		"needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
+		"needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not");
 	REQUIRE_GAME();
-	EXPECT_EQ( pGame->Int( 5, 5 ), RandomInt( 5, 5 ) );
-	EXPECT_EQ( pGame->Int( 5, 4 ), RandomInt( 5, 4 ) );
-	EXPECT_EQ( pGame->Int( INT_MIN, INT_MAX ), RandomInt( INT_MIN, INT_MAX ) );
+	EXPECT_EQ(pGame->Int(5, 5), RandomInt(5, 5));
+	EXPECT_EQ(pGame->Int(5, 4), RandomInt(5, 4));
+	EXPECT_EQ(pGame->Int(INT_MIN, INT_MAX), RandomInt(INT_MIN, INT_MAX));
 	// And the streams are still in step after them.
-	EXPECT_EQ( pGame->Int( 0, 1000 ), RandomInt( 0, 1000 ) );
+	EXPECT_EQ(pGame->Int(0, 1000), RandomInt(0, 1000));
 }
 
 // After the unseeded facts: seeding both streams alike, every kind of draw the
 // client makes stays in step, floats compared bit for bit.
-TEST( VstdlibRandomOracle, EverySeedGivesTheGamesSequenceOfIntsAndFloats )
+TEST(VstdlibRandomOracle, EverySeedGivesTheGamesSequenceOfIntsAndFloats)
 {
 	SS_SKIP_ON_CI(
-		"needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not" );
+		"needs the game's own libraries from a Source SDK Base 2013 Multiplayer install, which a runner has not");
 	REQUIRE_GAME();
-	const int seeds[] = { 0, 1, 2, 42, -7, 12345, 0x1234567, INT_MAX, INT_MIN + 1, -1 };
+	const int seeds[] = {0, 1, 2, 42, -7, 12345, 0x1234567, INT_MAX, INT_MIN + 1, -1};
 	long nCompared = 0;
-	for ( int seed : seeds )
+	for (int seed : seeds)
 	{
-		pGame->Seed( seed );
-		RandomSeed( seed );
-		for ( int i = 0; i < 2000; ++i )
+		pGame->Seed(seed);
+		RandomSeed(seed);
+		for (int i = 0; i < 2000; ++i)
 		{
-			switch ( i % 6 )
+			switch (i % 6)
 			{
 				// Just over 2^30 values: about half the draws are rejected and redrawn.
 				case 5:
-					ASSERT_EQ( pGame->Int( 0, 0x40000000 ), RandomInt( 0, 0x40000000 ) ) << seed << "/" << i;
+					ASSERT_EQ(pGame->Int(0, 0x40000000), RandomInt(0, 0x40000000)) << seed << "/" << i;
 					break;
 				case 0:
-					ASSERT_EQ( pGame->Int( 0, 0x7ffffffe ), RandomInt( 0, 0x7ffffffe ) ) << seed << "/" << i;
+					ASSERT_EQ(pGame->Int(0, 0x7ffffffe), RandomInt(0, 0x7ffffffe)) << seed << "/" << i;
 					break;
 				case 1:
-					ASSERT_EQ( pGame->Int( -50, 50 ), RandomInt( -50, 50 ) ) << seed << "/" << i;
+					ASSERT_EQ(pGame->Int(-50, 50), RandomInt(-50, 50)) << seed << "/" << i;
 					break;
 				case 2:
-					ASSERT_EQ( pGame->Int( 0, 2 ), RandomInt( 0, 2 ) ) << seed << "/" << i;
+					ASSERT_EQ(pGame->Int(0, 2), RandomInt(0, 2)) << seed << "/" << i;
 					break;
 				case 3:
-					ASSERT_EQ( Bits( pGame->Float( 0.0f, 1.0f ) ), Bits( RandomFloat( 0.0f, 1.0f ) ) )
-						<< seed << "/" << i;
+					ASSERT_EQ(Bits(pGame->Float(0.0f, 1.0f)), Bits(RandomFloat(0.0f, 1.0f))) << seed << "/" << i;
 					break;
 				case 4:
-					ASSERT_EQ( Bits( pGame->Float( -3.5f, 9.25f ) ), Bits( RandomFloat( -3.5f, 9.25f ) ) )
-						<< seed << "/" << i;
+					ASSERT_EQ(Bits(pGame->Float(-3.5f, 9.25f)), Bits(RandomFloat(-3.5f, 9.25f))) << seed << "/" << i;
 					break;
 			}
 			++nCompared;
 		}
 	}
-	EXPECT_EQ( 20000, nCompared );
+	EXPECT_EQ(20000, nCompared);
 }

@@ -15,36 +15,36 @@
 
 namespace
 {
-std::string RepoPath( const char *pszRel )
+std::string RepoPath(const char* pszRel)
 {
-	const char *pszRepo = getenv( "SOURCESHARP_REPO" );
-	return std::string( pszRepo ? pszRepo : "." ) + "/" + pszRel;
+	const char* pszRepo = getenv("SOURCESHARP_REPO");
+	return std::string(pszRepo ? pszRepo : ".") + "/" + pszRel;
 }
 
 std::string Golden()
 {
-	std::ifstream in( RepoPath( "src/test/client/Fixtures/mempool-stock.tsv" ) );
+	std::ifstream in(RepoPath("src/test/client/Fixtures/mempool-stock.tsv"));
 	std::stringstream ss;
 	ss << in.rdbuf();
 	return ss.str();
 }
 }
 
-TEST( MempoolClient, TheScenarioIsStocksLineForLine )
+TEST(MempoolClient, TheScenarioIsStocksLineForLine)
 {
 	const std::string golden = Golden();
-	ASSERT_GT( golden.size(), 2000u ) << "the golden is missing or truncated";
+	ASSERT_GT(golden.size(), 2000u) << "the golden is missing or truncated";
 	const std::string run = mempool_scenario::Run();
 
-	std::istringstream g( golden ), r( run );
+	std::istringstream g(golden), r(run);
 	std::string gl, rl;
 	int n = 0;
-	while ( std::getline( g, gl ) )
+	while (std::getline(g, gl))
 	{
-		ASSERT_TRUE( (bool)std::getline( r, rl ) ) << "ours ended at line " << n << "; stock goes on: " << gl;
-		ASSERT_EQ( gl, rl ) << "line " << n;
+		ASSERT_TRUE((bool)std::getline(r, rl)) << "ours ended at line " << n << "; stock goes on: " << gl;
+		ASSERT_EQ(gl, rl) << "line " << n;
 		n++;
 	}
-	EXPECT_FALSE( (bool)std::getline( r, rl ) ) << "ours has more lines than stock: " << rl;
-	EXPECT_GT( n, 10000 );
+	EXPECT_FALSE((bool)std::getline(r, rl)) << "ours has more lines than stock: " << rl;
+	EXPECT_GT(n, 10000);
 }

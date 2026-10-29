@@ -13,15 +13,15 @@
 #include "engine/ICollideable.h"
 #include "collideable_center_math.h"
 
-inline Vector UTIL_CollideableWorldSpaceCenter( const ICollideable *pCollide )
+inline Vector UTIL_CollideableWorldSpaceCenter(const ICollideable* pCollide)
 {
-	const bool bAnglesAreZero = ( pCollide->GetCollisionAngles() == vec3_angle );
+	const bool bAnglesAreZero = (pCollide->GetCollisionAngles() == vec3_angle);
 
 	// The transform is read only on the rotated arm, as CollisionToWorldSpace does.
-	const float *pXform = bAnglesAreZero ? NULL : pCollide->CollisionToWorldTransform().Base();
+	const float* pXform = bAnglesAreZero ? NULL : pCollide->CollisionToWorldTransform().Base();
 
 	Vector vecResult;
-	CollideableCenter_Compute( pCollide->OBBMins().Base(), pCollide->OBBMaxs().Base(), bAnglesAreZero,
-							   pCollide->GetCollisionOrigin().Base(), pXform, vecResult.Base() );
+	CollideableCenter_Compute(pCollide->OBBMins().Base(), pCollide->OBBMaxs().Base(), bAnglesAreZero,
+							  pCollide->GetCollisionOrigin().Base(), pXform, vecResult.Base());
 	return vecResult;
 }

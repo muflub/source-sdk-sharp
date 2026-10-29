@@ -15,7 +15,7 @@ public:
 	{
 	public:
 		// Call this when initializing the nodes with their starting positions.
-		void Init( const Vector &vPos ) { m_vPos = m_vPrevPos = m_vPredicted = vPos; }
+		void Init(const Vector& vPos) { m_vPos = m_vPrevPos = m_vPredicted = vPos; }
 
 		Vector m_vPos; // At time t
 		Vector m_vPrevPos; // At time t - m_flTimeStep
@@ -25,14 +25,14 @@ public:
 	class IHelper
 	{
 	public:
-		virtual void GetNodeForces( CNode *pNodes, int iNode, Vector *pAccel ) = 0;
-		virtual void ApplyConstraints( CNode *pNodes, int nNodes ) = 0;
+		virtual void GetNodeForces(CNode* pNodes, int iNode, Vector* pAccel) = 0;
+		virtual void ApplyConstraints(CNode* pNodes, int nNodes) = 0;
 	};
 
 public:
 	CSimplePhysics();
 
-	void Init( float flTimeStep );
+	void Init(float flTimeStep);
 
 private:
 private:

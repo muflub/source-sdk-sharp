@@ -51,7 +51,7 @@ public class GlowOverlayAbiTests
         // The clip modes are the executor's: 0 on and kept, 1 off, 2 the kept answer.
         Assert.Equal([0, 1, 2], Enum.GetValues<GlowClip>().Select(c => (int)c));
         string cpp = Native("shell_glow_client.cpp");
-        Assert.Contains("if ( nMode == 0 )", cpp);
+        Assert.Contains("if (nMode == 0)", cpp);
         Assert.Contains("nMode == 1 ? false : bSaved", cpp);
     }
 

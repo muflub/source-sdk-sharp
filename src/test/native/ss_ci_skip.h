@@ -13,20 +13,20 @@
 
 namespace ss_test
 {
-inline bool IsCiValue( const char *pszValue )
+inline bool IsCiValue(const char* pszValue)
 {
-	return pszValue && std::strcmp( pszValue, "1" ) == 0;
+	return pszValue && std::strcmp(pszValue, "1") == 0;
 }
 
 inline bool OnCi()
 {
-	return IsCiValue( std::getenv( "SOURCESHARP_CI" ) );
+	return IsCiValue(std::getenv("SOURCESHARP_CI"));
 }
 }
 
-#define SS_SKIP_ON_CI( reason )                          \
-	do                                                   \
-	{                                                    \
-		if ( ::ss_test::OnCi() )                         \
-			GTEST_SKIP() << "not on CI: " << ( reason ); \
-	} while ( 0 )
+#define SS_SKIP_ON_CI(reason)                          \
+	do                                                 \
+	{                                                  \
+		if (::ss_test::OnCi())                         \
+			GTEST_SKIP() << "not on CI: " << (reason); \
+	} while (0)

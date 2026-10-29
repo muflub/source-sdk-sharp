@@ -16,23 +16,23 @@ namespace ViewSubject
 const int WATER_LEVEL_EYES = 3;
 
 // The listener is underwater at eye level. >= because WL_Eyes is the top of the scale.
-inline bool AudioIsUnderwater( int nWaterLevel )
+inline bool AudioIsUnderwater(int nWaterLevel)
 {
 	return nWaterLevel >= WATER_LEVEL_EYES;
 }
 
 // True when any of the bits are set, as C_BaseEntity::IsEffectActive.
-inline bool EffectActive( int nEffects, int nEffectMask )
+inline bool EffectActive(int nEffects, int nEffectMask)
 {
-	return ( nEffects & nEffectMask ) != 0;
+	return (nEffects & nEffectMask) != 0;
 }
 
 // Whether the frame's view comes from the engine's view entity rather than the viewer's
 // eyes. Index 0 (the world) and negatives (no view entity) are refused as well as the
 // local player's own index.
-inline bool ViewEntityOverridesTheEye( int nViewEntity, int nLocalPlayer )
+inline bool ViewEntityOverridesTheEye(int nViewEntity, int nLocalPlayer)
 {
-	if ( nViewEntity <= 0 )
+	if (nViewEntity <= 0)
 		return false;
 
 	return nViewEntity != nLocalPlayer;

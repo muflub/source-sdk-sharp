@@ -15,10 +15,10 @@ public:
 	int GetL2CacheMisses() { return m_iL2CacheMissCount; }
 
 #ifdef DBGFLAG_VALIDATE
-	void Validate( CValidator &validator, tchar *pchName ); // Validate our internal structures
+	void Validate(CValidator& validator, tchar* pchName); // Validate our internal structures
 #endif // DBGFLAG_VALIDATE
 
 private:
-	alignas( 8 ) unsigned char unused_m_nID[32];
+	alignas(8) unsigned char unused_m_nID[32];
 	int m_iL2CacheMissCount;
 };

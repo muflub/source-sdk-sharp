@@ -30,15 +30,15 @@ class CGlobalVarsBase;
 // set after the object is built (the managed area outside a load is NULL).
 struct SSLeafSystemEnv
 {
-	IManagedLeafSystemClient *const *ppTarget;
-	IVEngineClient *const *ppEngine;
-	IVModelInfoClient *const *ppModelInfo;
-	IVRenderView *const *ppRender;
-	CGlobalVarsBase *const *ppGlobals;
-	IDetailObjectSystem *( *pfnDetailObjectSystem )();
+	IManagedLeafSystemClient* const* ppTarget;
+	IVEngineClient* const* ppEngine;
+	IVModelInfoClient* const* ppModelInfo;
+	IVRenderView* const* ppRender;
+	CGlobalVarsBase* const* ppGlobals;
+	IDetailObjectSystem* (*pfnDetailObjectSystem)();
 	// CUtlVector< IClientRenderable * >::AddToTail, which allocates: the
 	// library has no heap, so client.so appends.
-	void ( *pfnAppendRenderable )( void *pVector, IClientRenderable *pRenderable );
+	void (*pfnAppendRenderable)(void* pVector, IClientRenderable* pRenderable);
 };
 
 // The forwarder object's size, at most: client.so's storage for it.
@@ -53,38 +53,38 @@ int SSFwd_LeafSystem_SizeOf();
 // Builds the leaf system in pMemory (SizeOf bytes, pointer-aligned) over the
 // environment, which must outlive it; answers it as an IClientLeafSystem *.
 // NULL, and nothing built, without memory or an environment.
-void *SSFwd_LeafSystem_Construct( void *pMemory, const SSLeafSystemEnv *pEnv );
+void* SSFwd_LeafSystem_Construct(void* pMemory, const SSLeafSystemEnv* pEnv);
 
 // IClientRenderable::ComputeFxBlend of each, in order; then the calls the
 // blends queued on pSystem (the leaf system Construct built, or NULL) are
 // written to pPending (three words each, nMaxPending at most) and their count
 // returned. 0 with no system; a queue that does not fit is handed to managed
 // through Pending instead, and 0 returned.
-int32_t SSFwd_LeafSystem_ComputeFxBlends( void *pSystem, void **ppRenderables, int32_t nCount, int32_t *pPending,
-										  int32_t nMaxPending );
+int32_t SSFwd_LeafSystem_ComputeFxBlends(void* pSystem, void** ppRenderables, int32_t nCount, int32_t* pPending,
+										 int32_t nMaxPending);
 
 // Each renderable's answers its mask asks for, into its 17 words (see
 // SourceSharp.Client.Interop.LeafFacts): 1 GetFxBlend, 2 IsTransparent, 4
 // GetRenderBoundsWorldspace, 8 GetRenderBounds, 16 GetRenderOrigin.
-void SSFwd_LeafSystem_Facts( void **ppRenderables, const int32_t *pWhat, int32_t nCount, int32_t *pFacts );
+void SSFwd_LeafSystem_Facts(void** ppRenderables, const int32_t* pWhat, int32_t nCount, int32_t* pFacts);
 
 // ShouldReceiveProjectedTextures( flags ) of each, 1 or 0.
-void SSFwd_LeafSystem_Receives( void **ppRenderables, const int32_t *pFlags, int32_t nCount, int32_t *pAnswers );
+void SSFwd_LeafSystem_Receives(void** ppRenderables, const int32_t* pFlags, int32_t nCount, int32_t* pAnswers);
 
 // The leaves each box (mins, maxs) touches through the engine's
 // EnumerateLeavesInBox: per box its count, then its leaves. The words
 // written, or the negative of the words needed.
-int32_t SSFwd_LeafSystem_EnumerateLeaves( void *pEngine, const float *pBoxes, int32_t nBoxes, int32_t *pOut,
-										  int32_t nMaxWords );
+int32_t SSFwd_LeafSystem_EnumerateLeaves(void* pEngine, const float* pBoxes, int32_t nBoxes, int32_t* pOut,
+										 int32_t nMaxWords);
 
 // GetLeavesArea of each run (a count, then the leaves).
-void SSFwd_LeafSystem_LeavesAreas( void *pEngine, const int32_t *pRuns, int32_t nRuns, int32_t *pAreas );
+void SSFwd_LeafSystem_LeavesAreas(void* pEngine, const int32_t* pRuns, int32_t nRuns, int32_t* pAreas);
 
 // The culling questions over boxes, each box's program its tests in order
 // (1 DoesBoxTouchAreaFrustum, the area in bits 8 and up; 2 CullBox; 4
 // IsOccluded) up to the first that rejects; each answer that test's bit, or 0.
-void SSFwd_LeafSystem_BoxQueries( void *pEngine, const float *pBoxes, const int32_t *pPrograms, int32_t nCount,
-								  int32_t *pAnswers );
+void SSFwd_LeafSystem_BoxQueries(void* pEngine, const float* pBoxes, const int32_t* pPrograms, int32_t nCount,
+								 int32_t* pAnswers);
 
 // IDetailObjectSystem::GetDetailModel over ranges (a first and a count each).
-void SSFwd_LeafSystem_DetailModels( void *pDetailSystem, const int32_t *pRanges, int32_t nRanges, void **ppModels );
+void SSFwd_LeafSystem_DetailModels(void* pDetailSystem, const int32_t* pRanges, int32_t nRanges, void** ppModels);

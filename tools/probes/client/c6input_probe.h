@@ -15,15 +15,15 @@
 struct kbutton_t;
 
 // One fixture line (a '\n' is added), while armed.
-void C6P_Log( const char *pFmt, ... ) __attribute__( ( format( printf, 1, 2 ) ) );
+void C6P_Log(const char* pFmt, ...) __attribute__((format(printf, 1, 2)));
 bool C6P_Armed();
 
 // A kbutton_t's name for the "K" lines; the two TUs that own buttons register
 // theirs once.
-void C6P_NameButton( const kbutton_t *pButton, const char *pName );
-const char *C6P_ButtonName( const kbutton_t *pButton );
+void C6P_NameButton(const kbutton_t* pButton, const char* pName);
+const char* C6P_ButtonName(const kbutton_t* pButton);
 
 // The scripted inputs for the next command: called at the top of
 // CInput::CreateMove, before anything there reads a device.
-void C6P_BeforeCreateMove( int nSequence );
+void C6P_BeforeCreateMove(int nSequence);
 void C6P_BeforeExtraMouseSample();

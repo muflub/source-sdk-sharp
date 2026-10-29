@@ -24,7 +24,7 @@ struct Member
 	bool isVirtual;
 };
 
-#if defined( _MSC_VER )
+#if defined(_MSC_VER)
 
 // The Microsoft ABI (MSVC, and clang-cl, which also defines __clang__). A pointer to a
 // virtual member points at a vcall thunk that loads the vtable from `this` and jumps
@@ -38,12 +38,12 @@ struct Member
 // incremental-link stub (E9 rel32) is followed first.
 namespace Detail
 {
-inline const unsigned char *FollowJumps( const unsigned char *p )
+inline const unsigned char* FollowJumps(const unsigned char* p)
 {
-	for ( int i = 0; i < 4 && p && p[0] == 0xE9; ++i )
+	for (int i = 0; i < 4 && p && p[0] == 0xE9; ++i)
 	{
 		int32_t rel;
-		memcpy( &rel, p + 1, sizeof( rel ) );
+		memcpy(&rel, p + 1, sizeof(rel));
 		p = p + 5 + rel;
 	}
 	return p;
@@ -51,54 +51,54 @@ inline const unsigned char *FollowJumps( const unsigned char *p )
 
 // `jmp [rax+disp]` when bDisp, else `jmp rax`, optionally REX.W-prefixed. The
 // displacement, 0 for none; -1 when the bytes are not that jump.
-inline long IndirectJump( const unsigned char *q, bool bDisp )
+inline long IndirectJump(const unsigned char* q, bool bDisp)
 {
-	if ( q[0] == 0x48 )
+	if (q[0] == 0x48)
 		++q;
-	if ( q[0] != 0xFF )
+	if (q[0] != 0xFF)
 		return -1;
-	if ( !bDisp )
+	if (!bDisp)
 		return q[1] == 0xE0 ? 0 : -1;
-	if ( q[1] == 0x20 )
+	if (q[1] == 0x20)
 		return 0;
-	if ( q[1] == 0x60 )
+	if (q[1] == 0x60)
 		return (signed char)q[2];
-	if ( q[1] == 0xA0 )
+	if (q[1] == 0xA0)
 	{
 		int32_t d32;
-		memcpy( &d32, q + 2, sizeof( d32 ) );
+		memcpy(&d32, q + 2, sizeof(d32));
 		return d32;
 	}
 	return -1;
 }
 
 // The byte offset into the vtable the thunk jumps through, or -1.
-inline long VcallOffset( const unsigned char *p )
+inline long VcallOffset(const unsigned char* p)
 {
-	if ( !p || !( p[0] == 0x48 && p[1] == 0x8B && p[2] == 0x01 ) ) // mov rax, [rcx]
+	if (!p || !(p[0] == 0x48 && p[1] == 0x8B && p[2] == 0x01)) // mov rax, [rcx]
 		return -1;
-	const unsigned char *q = p + 3;
-	const long jump = IndirectJump( q, true ); // jmp [rax+disp]
-	if ( jump >= 0 )
+	const unsigned char* q = p + 3;
+	const long jump = IndirectJump(q, true); // jmp [rax+disp]
+	if (jump >= 0)
 		return jump;
-	if ( !( q[0] == 0x48 && q[1] == 0x8B ) ) // mov rax, [rax+disp]
+	if (!(q[0] == 0x48 && q[1] == 0x8B)) // mov rax, [rax+disp]
 		return -1;
 	long disp;
-	const unsigned char *next;
-	if ( q[2] == 0x00 )
+	const unsigned char* next;
+	if (q[2] == 0x00)
 	{
 		disp = 0;
 		next = q + 3;
 	}
-	else if ( q[2] == 0x40 )
+	else if (q[2] == 0x40)
 	{
 		disp = (signed char)q[3];
 		next = q + 4;
 	}
-	else if ( q[2] == 0x80 )
+	else if (q[2] == 0x80)
 	{
 		int32_t d32;
-		memcpy( &d32, q + 3, sizeof( d32 ) );
+		memcpy(&d32, q + 3, sizeof(d32));
 		disp = d32;
 		next = q + 7;
 	}
@@ -106,12 +106,12 @@ inline long VcallOffset( const unsigned char *p )
 	{
 		return -1;
 	}
-	return IndirectJump( next, false ) == 0 ? disp : -1; // jmp rax
+	return IndirectJump(next, false) == 0 ? disp : -1; // jmp rax
 }
 }
 
 template <typename Fn>
-inline Member MemberOf( Fn pmf )
+inline Member MemberOf(Fn pmf)
 {
 	Member member;
 	member.slot = -1;
@@ -122,19 +122,19 @@ inline Member MemberOf( Fn pmf )
 	// Virtual inheritance is not guessed at.
 	struct Multi
 	{
-		void *ptr;
+		void* ptr;
 		int32_t adj;
 	};
 
-	void *code = NULL;
-	if ( sizeof( Fn ) == sizeof( void * ) )
+	void* code = NULL;
+	if (sizeof(Fn) == sizeof(void*))
 	{
-		memcpy( &code, &pmf, sizeof( code ) );
+		memcpy(&code, &pmf, sizeof(code));
 	}
-	else if ( sizeof( Fn ) == sizeof( Multi ) )
+	else if (sizeof(Fn) == sizeof(Multi))
 	{
 		Multi raw;
-		memcpy( &raw, &pmf, sizeof( raw ) );
+		memcpy(&raw, &pmf, sizeof(raw));
 		code = raw.ptr;
 		member.adjust = raw.adj;
 	}
@@ -143,19 +143,19 @@ inline Member MemberOf( Fn pmf )
 		return member;
 	}
 
-	const long offset = Detail::VcallOffset( Detail::FollowJumps( (const unsigned char *)code ) );
-	if ( offset >= 0 && offset % (long)sizeof( void * ) == 0 )
+	const long offset = Detail::VcallOffset(Detail::FollowJumps((const unsigned char*)code));
+	if (offset >= 0 && offset % (long)sizeof(void*) == 0)
 	{
 		member.isVirtual = true;
-		member.slot = (int)( offset / (long)sizeof( void * ) );
+		member.slot = (int)(offset / (long)sizeof(void*));
 	}
 	return member;
 }
 
-#elif defined( __GNUC__ ) || defined( __clang__ )
+#elif defined(__GNUC__) || defined(__clang__)
 
 template <typename Fn>
-inline Member MemberOf( Fn pmf )
+inline Member MemberOf(Fn pmf)
 {
 	struct Raw
 	{
@@ -169,17 +169,17 @@ inline Member MemberOf( Fn pmf )
 	member.isVirtual = false;
 
 	// A layout this does not recognise must not be guessed at.
-	if ( sizeof( Fn ) != sizeof( Raw ) )
+	if (sizeof(Fn) != sizeof(Raw))
 		return member;
 
 	Raw raw;
-	memcpy( &raw, &pmf, sizeof( raw ) );
+	memcpy(&raw, &pmf, sizeof(raw));
 
 	member.adjust = raw.adj;
-	member.isVirtual = ( raw.ptr & 1 ) != 0;
+	member.isVirtual = (raw.ptr & 1) != 0;
 
-	if ( member.isVirtual )
-		member.slot = (int)( ( raw.ptr - 1 ) / sizeof( void * ) );
+	if (member.isVirtual)
+		member.slot = (int)((raw.ptr - 1) / sizeof(void*));
 
 	return member;
 }
@@ -188,7 +188,7 @@ inline Member MemberOf( Fn pmf )
 
 // An unknown pointer-to-member layout reports not virtual, so callers refuse.
 template <typename Fn>
-inline Member MemberOf( Fn )
+inline Member MemberOf(Fn)
 {
 	Member member;
 	member.slot = -1;

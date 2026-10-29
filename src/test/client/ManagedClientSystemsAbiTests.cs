@@ -35,7 +35,7 @@ public class ManagedClientSystemsAbiTests
     [Fact]
     public void EveryAdaptedRowIsAManagedSystem()
     {
-        var rows = Regex.Matches(Native(), @"static CManagedClientSystemRow s_Row\( ""(\w+)"" \);")
+        var rows = Regex.Matches(Native(), @"static CManagedClientSystemRow s_Row\(""(\w+)""\);")
                         .Select(m => m.Groups[1].Value).ToList();
         Assert.NotEmpty(rows);
         var names = new[] { new ViewportClientSystem(new NullLayout()).Name,

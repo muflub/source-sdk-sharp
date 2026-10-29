@@ -11,10 +11,10 @@
 #pragma once
 
 // The top bit of a pointer-sized word, so a 32-bit build tags bit 31.
-#define SOURCESHARP_PHYSICS_GAMEDATA_TAG ( (uintptr_t)1 << ( sizeof( uintptr_t ) * 8 - 1 ) )
+#define SOURCESHARP_PHYSICS_GAMEDATA_TAG ((uintptr_t)1 << (sizeof(uintptr_t) * 8 - 1))
 
 // The +1 and the -1 must move together.
-#define SOURCESHARP_PHYSICS_GAMEDATA_BIAS ( (uintptr_t)1 )
+#define SOURCESHARP_PHYSICS_GAMEDATA_BIAS ((uintptr_t)1)
 
 // NONE: no owner. HANDLE: resolved only through the slot table, and a stale handle
 // answers NULL. POINTER: an SDK CBaseEntity *.
@@ -25,43 +25,43 @@ enum PhysicsGameDataKind_t
 	PHYSICS_GAMEDATA_POINTER,
 };
 
-inline PhysicsGameDataKind_t PhysicsGameDataKindOf( const void *pGameData )
+inline PhysicsGameDataKind_t PhysicsGameDataKindOf(const void* pGameData)
 {
 	const uintptr_t word = (uintptr_t)pGameData;
 
-	if ( word == 0 )
+	if (word == 0)
 		return PHYSICS_GAMEDATA_NONE;
 
-	if ( word & SOURCESHARP_PHYSICS_GAMEDATA_TAG )
+	if (word & SOURCESHARP_PHYSICS_GAMEDATA_TAG)
 		return PHYSICS_GAMEDATA_HANDLE;
 
 	return PHYSICS_GAMEDATA_POINTER;
 }
 
-inline bool PhysicsGameDataIsHandle( const void *pGameData )
+inline bool PhysicsGameDataIsHandle(const void* pGameData)
 {
-	return PhysicsGameDataKindOf( pGameData ) == PHYSICS_GAMEDATA_HANDLE;
+	return PhysicsGameDataKindOf(pGameData) == PHYSICS_GAMEDATA_HANDLE;
 }
 
 // An invalid handle stores NULL: encoded, 0xFFFFFFFF would decode to a real entry.
-inline void *PhysicsGameDataFromHandle( const CBaseHandle &handle )
+inline void* PhysicsGameDataFromHandle(const CBaseHandle& handle)
 {
-	if ( !handle.IsValid() )
+	if (!handle.IsValid())
 		return NULL;
 
 	const uintptr_t word = (uintptr_t)(uint32)handle.ToInt() + SOURCESHARP_PHYSICS_GAMEDATA_BIAS;
 
-	return (void *)( word | SOURCESHARP_PHYSICS_GAMEDATA_TAG );
+	return (void*)(word | SOURCESHARP_PHYSICS_GAMEDATA_TAG);
 }
 
 // The inverse. NULL and SDK pointers alike answer an invalid handle.
-inline CBaseHandle PhysicsHandleFromGameData( const void *pGameData )
+inline CBaseHandle PhysicsHandleFromGameData(const void* pGameData)
 {
-	if ( !PhysicsGameDataIsHandle( pGameData ) )
+	if (!PhysicsGameDataIsHandle(pGameData))
 		return CBaseHandle();
 
 	const uintptr_t word =
-		( (uintptr_t)pGameData & ~SOURCESHARP_PHYSICS_GAMEDATA_TAG ) - SOURCESHARP_PHYSICS_GAMEDATA_BIAS;
+		((uintptr_t)pGameData & ~SOURCESHARP_PHYSICS_GAMEDATA_TAG) - SOURCESHARP_PHYSICS_GAMEDATA_BIAS;
 
-	return CBaseHandle::UnsafeFromIndex( (int)(uint32)word );
+	return CBaseHandle::UnsafeFromIndex((int)(uint32)word);
 }

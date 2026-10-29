@@ -15,34 +15,34 @@
 
 // The transmit set for one client on one frame. `arm` arms; no argument dumps,
 // one ascending index per line.
-SS_NATIVE_COMMAND( cs_sv_transmitset )
+SS_NATIVE_COMMAND(cs_sv_transmitset)
 {
-	CShellTransmitSet &set = services.m_TransmitSet;
+	CShellTransmitSet& set = services.m_TransmitSet;
 
-	if ( args.ArgC() > 1 )
+	if (args.ArgC() > 1)
 	{
 		// `arm` takes the next client; `arm N` waits for client edict N.
-		const int nOnly = args.ArgC() > 2 ? atoi( args.Arg( 2 ) ) : -1;
-		set.Arm( nOnly );
-		Msg( "[SourceSharp] TRANSMITSET: armed %d\n", nOnly );
+		const int nOnly = args.ArgC() > 2 ? atoi(args.Arg(2)) : -1;
+		set.Arm(nOnly);
+		Msg("[SourceSharp] TRANSMITSET: armed %d\n", nOnly);
 		return;
 	}
 
-	if ( !set.HaveCapture() )
+	if (!set.HaveCapture())
 	{
 		// Distinct from an empty set.
-		Msg( "[SourceSharp] TRANSMITSET: nocapture\n" );
+		Msg("[SourceSharp] TRANSMITSET: nocapture\n");
 		return;
 	}
 
-	Msg( "[SourceSharp] TRANSMITSET: recipient=%d count=%d skyarea=%d\n", set.Recipient(), set.Count(),
-		 set.SkyboxArea() );
+	Msg("[SourceSharp] TRANSMITSET: recipient=%d count=%d skyarea=%d\n", set.Recipient(), set.Count(),
+		set.SkyboxArea());
 
-	for ( int i = 0; i < CShellTransmitSet::kMaxEdicts; i++ )
+	for (int i = 0; i < CShellTransmitSet::kMaxEdicts; i++)
 	{
-		if ( set.IsSet( i ) )
-			Msg( "[SourceSharp] TRANSMITSET: %d\n", i );
+		if (set.IsSet(i))
+			Msg("[SourceSharp] TRANSMITSET: %d\n", i);
 	}
 
-	Msg( "[SourceSharp] TRANSMITSET: end\n" );
+	Msg("[SourceSharp] TRANSMITSET: end\n");
 }

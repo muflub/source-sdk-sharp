@@ -21,12 +21,12 @@ extern "C"
 // platforms one visibility attribute serves both sides.
 #ifdef _WIN32
 #ifdef SOURCESHARP_HOST_BUILD
-#define SOURCESHARP_EXPORT __declspec( dllexport )
+#define SOURCESHARP_EXPORT __declspec(dllexport)
 #else
-#define SOURCESHARP_EXPORT __declspec( dllimport )
+#define SOURCESHARP_EXPORT __declspec(dllimport)
 #endif
 #else
-#define SOURCESHARP_EXPORT __attribute__( ( visibility( "default" ) ) )
+#define SOURCESHARP_EXPORT __attribute__((visibility("default")))
 #endif
 
 //-----------------------------------------------------------------------------
@@ -1002,7 +1002,7 @@ typedef struct
 typedef struct
 {
 	// The entity's payload blob, engine block first (see engine_block.h).
-	void *pBlob;
+	void* pBlob;
 	int32_t nBlobBytes;
 
 	// The other entity in this op: a toucher, an attacker, a blocker, an
@@ -1019,14 +1019,14 @@ typedef struct
 	// the managed instance does not exist yet and the classname is what builds
 	// it -- asking the entity for its class instead would be a native round
 	// trip per key of a map.
-	const char *pText0;
-	const char *pText1;
-	const char *pText2;
+	const char* pText0;
+	const char* pText1;
+	const char* pText2;
 
 	// DAMAGE: where the blow landed, and which way it was going. POSITION_
 	// CHANGED: the previous origin. NULL when the op has none.
-	const float *pVec0;
-	const float *pVec1;
+	const float* pVec0;
+	const float* pVec1;
 
 	// DAMAGE: how much. INPUT: the value converted to a number, which is NOT
 	// what a map writes -- a map sends "3" as a string and variant_t::Float()
@@ -1197,8 +1197,8 @@ typedef struct
 {
 	int32_t bExisted;
 	uint32_t nShapeHash;
-	const void *pSendTable; // for PlaybackTempEntity
-	int32_t *pClassId; // &ServerClass::m_ClassID, which the engine fills after DLL init; NULL with no class
+	const void* pSendTable; // for PlaybackTempEntity
+	int32_t* pClassId; // &ServerClass::m_ClassID, which the engine fills after DLL init; NULL with no class
 } SourceSharpTeBuiltTable_t;
 
 //-----------------------------------------------------------------------------
@@ -2000,9 +2000,9 @@ typedef struct
 	int32_t bBodyCurrent; // ...and the environment that built it is physenv
 	int32_t nState; // which hull is in the solver (VPHYS_*), -1 none yet
 
-	void *pStand;
-	void *pCrouch;
-	void *pController;
+	void* pStand;
+	void* pCrouch;
+	void* pController;
 
 	float vecOrigin[3];
 	float vecVelocity[3];
@@ -2016,7 +2016,7 @@ typedef struct
 
 	uint32_t hGround; // the ground entity, or the invalid handle
 	int32_t nGroundMoveType; // its move type
-	void *pGroundObject; // its own physics object, or NULL
+	void* pGroundObject; // its own physics object, or NULL
 
 	// What the last command's move ran into (the move helper's touch list,
 	// one entry per entity, kept from the command until the next one starts):
@@ -2103,10 +2103,10 @@ typedef struct
 //-----------------------------------------------------------------------------
 typedef struct
 {
-	const char *pMapName;
-	const char *pMapEntities;
-	const char *pOldLevel;
-	const char *pLandmarkName;
+	const char* pMapName;
+	const char* pMapEntities;
+	const char* pOldLevel;
+	const char* pLandmarkName;
 } SourceSharpMapLoad;
 
 //-----------------------------------------------------------------------------
@@ -2435,8 +2435,8 @@ typedef struct
 //-----------------------------------------------------------------------------
 typedef struct
 {
-	const char *Name;
-	const char *String;
+	const char* Name;
+	const char* String;
 	int32_t Type;
 	float Float;
 	int32_t Int;
@@ -2467,7 +2467,7 @@ typedef struct
 	int32_t FrameCount; // gpGlobals->framecount
 	int32_t VarCount;
 	int32_t Reserved;
-	void *Arg; // the bind argument, opaque to managed
+	void* Arg; // the bind argument, opaque to managed
 } SourceSharpProxyBindIn_t;
 
 typedef struct
@@ -2833,12 +2833,12 @@ typedef struct
 // game shim installs a logger before Acquire so startup tracing goes to the
 // Source console; without one, output falls back to stdout.
 //-----------------------------------------------------------------------------
-typedef void ( *SourceSharpLogFn )( const char *pMsg );
+typedef void (*SourceSharpLogFn)(const char* pMsg);
 
-SOURCESHARP_EXPORT void SourceSharp_SetLogger( SourceSharpLogFn pfnLog );
+SOURCESHARP_EXPORT void SourceSharp_SetLogger(SourceSharpLogFn pfnLog);
 
 // 0 = errors only, 1 = startup tracing (default), 2 = verbose.
-SOURCESHARP_EXPORT void SourceSharp_SetVerbosity( int nLevel );
+SOURCESHARP_EXPORT void SourceSharp_SetVerbosity(int nLevel);
 
 //-----------------------------------------------------------------------------
 // Runtime lifetime.
@@ -2849,9 +2849,9 @@ SOURCESHARP_EXPORT void SourceSharp_SetVerbosity( int nLevel );
 // runtime is created. This is why the host must be a SHARED library: a static
 // lib would give each caller its own refcount.
 //-----------------------------------------------------------------------------
-SOURCESHARP_EXPORT int SourceSharp_Acquire( const char *pModBinDir );
-SOURCESHARP_EXPORT void SourceSharp_Release( void );
-SOURCESHARP_EXPORT int SourceSharp_RefCount( void );
+SOURCESHARP_EXPORT int SourceSharp_Acquire(const char* pModBinDir);
+SOURCESHARP_EXPORT void SourceSharp_Release(void);
+SOURCESHARP_EXPORT int SourceSharp_RefCount(void);
 
 // plan_engineapi_vtables.md step A3: the same load, handing managed ONE native
 // object -- pShimRoot, an IShimRoot (shared/native/ishim_root.h), called through
@@ -2863,21 +2863,21 @@ SOURCESHARP_EXPORT int SourceSharp_RefCount( void );
 // root (the server since plan_engineapi_vtables E-last, the client since
 // plan_client_vtables CE-last). One export per side (plan_side_entries SE1):
 // no side travels as an argument.
-SOURCESHARP_EXPORT int SourceSharp_LoadServer( void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot );
-SOURCESHARP_EXPORT int SourceSharp_LoadClient( void *pShimRoot, const void *pShimRootTable, void **ppManagedRoot );
+SOURCESHARP_EXPORT int SourceSharp_LoadServer(void* pShimRoot, const void* pShimRootTable, void** ppManagedRoot);
+SOURCESHARP_EXPORT int SourceSharp_LoadClient(void* pShimRoot, const void* pShimRootTable, void** ppManagedRoot);
 
 // plan_managed_vtable_reload.md L5: before a reload saves or unloads anything.
 // 0 when the build on disk keeps every slot hash of every managed-built
 // contract native holds; otherwise nonzero with the first difference in pWhy,
 // and the caller keeps the running build.
-SOURCESHARP_EXPORT int SourceSharp_ReloadCheckServer( char *pWhy, int32_t nWhy );
-SOURCESHARP_EXPORT int SourceSharp_ReloadCheckClient( char *pWhy, int32_t nWhy );
+SOURCESHARP_EXPORT int SourceSharp_ReloadCheckServer(char* pWhy, int32_t nWhy);
+SOURCESHARP_EXPORT int SourceSharp_ReloadCheckClient(char* pWhy, int32_t nWhy);
 
-SOURCESHARP_EXPORT void SourceSharp_UnloadServer( void );
-SOURCESHARP_EXPORT void SourceSharp_UnloadClient( void );
+SOURCESHARP_EXPORT void SourceSharp_UnloadServer(void);
+SOURCESHARP_EXPORT void SourceSharp_UnloadClient(void);
 
 // Last error string for diagnostics. Never NULL.
-SOURCESHARP_EXPORT const char *SourceSharp_LastError( void );
+SOURCESHARP_EXPORT const char* SourceSharp_LastError(void);
 
 #ifdef __cplusplus
 }

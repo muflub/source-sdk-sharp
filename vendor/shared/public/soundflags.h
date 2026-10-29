@@ -15,7 +15,7 @@ enum
 	CHAN_STATIC = 6, // allocate channel from the static area
 	CHAN_VOICE2 = 7,
 	CHAN_VOICE_BASE = 8, // allocate channel for network voice data
-	CHAN_USER_BASE = ( CHAN_VOICE_BASE + 128 ) // Anything >= this number is allocated to game code.
+	CHAN_USER_BASE = (CHAN_VOICE_BASE + 128) // Anything >= this number is allocated to game code.
 };
 
 // common volume values
@@ -79,7 +79,7 @@ enum soundlevel_t
 
 // Used to encode 0-255 for regular soundlevel_t's and 256-511 for goldsrc-compatible ones.
 
-#define ATTN_TO_SNDLVL( a ) ( soundlevel_t )( int )( ( a ) ? ( 50 + 20 / ( (float)a ) ) : 0 )
+#define ATTN_TO_SNDLVL(a) (soundlevel_t)(int)((a) ? (50 + 20 / ((float)a)) : 0)
 
 // This is a limit due to network encoding.
 // It encodes attenuation * 64 in 8 bits, so the maximum is (255 / 64)
@@ -88,20 +88,20 @@ enum soundlevel_t
 enum SoundFlags_t
 {
 	SND_NOFLAGS = 0, // to keep the compiler happy
-	SND_CHANGE_VOL = ( 1 << 0 ), // change sound vol
-	SND_CHANGE_PITCH = ( 1 << 1 ), // change sound pitch
-	SND_STOP = ( 1 << 2 ), // stop the sound
-	SND_SPAWNING = ( 1 << 3 ), // we're spawning, used in some cases for ambients
+	SND_CHANGE_VOL = (1 << 0), // change sound vol
+	SND_CHANGE_PITCH = (1 << 1), // change sound pitch
+	SND_STOP = (1 << 2), // stop the sound
+	SND_SPAWNING = (1 << 3), // we're spawning, used in some cases for ambients
 	// not sent over net, only a param between dll and server.
-	SND_DELAY = ( 1 << 4 ), // sound has an initial delay
-	SND_STOP_LOOPING = ( 1 << 5 ), // stop all looping sounds on the entity.
-	SND_SPEAKER = ( 1 << 6 ), // being played again by a microphone through a speaker
+	SND_DELAY = (1 << 4), // sound has an initial delay
+	SND_STOP_LOOPING = (1 << 5), // stop all looping sounds on the entity.
+	SND_SPEAKER = (1 << 6), // being played again by a microphone through a speaker
 
-	SND_SHOULDPAUSE = ( 1 << 7 ), // this sound should be paused if the game is paused
-	SND_IGNORE_PHONEMES = ( 1 << 8 ),
-	SND_IGNORE_NAME = ( 1 << 9 ), // used to change all sounds emitted by an entity, regardless of scriptname
+	SND_SHOULDPAUSE = (1 << 7), // this sound should be paused if the game is paused
+	SND_IGNORE_PHONEMES = (1 << 8),
+	SND_IGNORE_NAME = (1 << 9), // used to change all sounds emitted by an entity, regardless of scriptname
 
-	SND_DO_NOT_OVERWRITE_EXISTING_ON_CHANNEL = ( 1 << 10 ),
+	SND_DO_NOT_OVERWRITE_EXISTING_ON_CHANNEL = (1 << 10),
 };
 
 // +/-4096 msec

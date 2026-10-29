@@ -29,40 +29,40 @@
 // nothing else is reached by these facts.
 static int s_nWorldSpawns = 0;
 
-void SourceSharp_Trace( const char *, const char * ) {}
+void SourceSharp_Trace(const char*, const char*) {}
 
 int SourceSharp_GetVerbosity()
 {
 	return 0;
 }
 
-static ss::IEntityFactoryDictionary *s_pSpawnedThrough = nullptr;
+static ss::IEntityFactoryDictionary* s_pSpawnedThrough = nullptr;
 
-bool MapEntity_SpawnWorld( ss::IEntityFactoryDictionary &factories, const CServerEntityContext &, const char *const *,
-						   const char *const *, int )
+bool MapEntity_SpawnWorld(ss::IEntityFactoryDictionary& factories, const CServerEntityContext&, const char* const*,
+						  const char* const*, int)
 {
 	s_nWorldSpawns++;
 	s_pSpawnedThrough = &factories;
 	return true;
 }
 
-void SourceSharp_ResetEntitySlots( CSourceSharpEntitySlots &, CSourceSharpSlotTable & ) {}
+void SourceSharp_ResetEntitySlots(CSourceSharpEntitySlots&, CSourceSharpSlotTable&) {}
 
-static const CServerEntityContext *s_pShutDownWith = nullptr;
+static const CServerEntityContext* s_pShutDownWith = nullptr;
 
-void StandaloneEntities_LevelShutdown( const CServerEntityContext &context )
+void StandaloneEntities_LevelShutdown(const CServerEntityContext& context)
 {
 	s_pShutDownWith = &context;
 }
 
-const model_t *CWorldCollideable::GetCollisionModel()
+const model_t* CWorldCollideable::GetCollisionModel()
 {
 	return nullptr;
 }
 
 namespace ss
 {
-void SoundEnt_Shutdown( IManagedSoundEnt * ) {}
+void SoundEnt_Shutdown(IManagedSoundEnt*) {}
 }
 
 namespace
@@ -71,21 +71,21 @@ namespace
 class COneFileSystem : public CFakeBaseFileSystem
 {
 public:
-	FileHandle_t Open( const char *pFileName, const char *pOptions, const char *pathID = 0 ) override
+	FileHandle_t Open(const char* pFileName, const char* pOptions, const char* pathID = 0) override
 	{
-		if ( std::string( pFileName ) != "maps/a.txt" || std::string( pathID ? pathID : "" ) != "GAME" )
+		if (std::string(pFileName) != "maps/a.txt" || std::string(pathID ? pathID : "") != "GAME")
 			return FILESYSTEM_INVALID_HANDLE;
 		m_nOpen++;
 		return (FileHandle_t)this;
 	}
 
-	void Close( FileHandle_t file ) override { m_nOpen--; }
+	void Close(FileHandle_t file) override { m_nOpen--; }
 
-	unsigned int Size( FileHandle_t file ) override { return (unsigned int)m_Contents.size(); }
+	unsigned int Size(FileHandle_t file) override { return (unsigned int)m_Contents.size(); }
 
-	int Read( void *pOutput, int size, FileHandle_t file ) override
+	int Read(void* pOutput, int size, FileHandle_t file) override
 	{
-		memcpy( pOutput, m_Contents.data(), (size_t)size );
+		memcpy(pOutput, m_Contents.data(), (size_t)size);
 		return size;
 	}
 
@@ -96,7 +96,7 @@ public:
 class CLoadGameEngine : public CFakeVEngineServer
 {
 public:
-	bool LoadGameState( char const *pMapName, bool createPlayers ) override
+	bool LoadGameState(char const* pMapName, bool createPlayers) override
 	{
 		m_LoadedMap = pMapName;
 		m_bCreatePlayers = createPlayers;
@@ -133,15 +133,15 @@ public:
 class CNoFactories : public ss::IEntityFactoryDictionary
 {
 public:
-	void InstallFactory( ss::IEntityFactory *, const char * ) override {}
+	void InstallFactory(ss::IEntityFactory*, const char*) override {}
 
-	IServerNetworkable *Create( const char * ) override { return nullptr; }
+	IServerNetworkable* Create(const char*) override { return nullptr; }
 
-	void Destroy( const char *, IServerNetworkable * ) override {}
+	void Destroy(const char*, IServerNetworkable*) override {}
 
-	ss::IEntityFactory *FindFactory( const char * ) override { return nullptr; }
+	ss::IEntityFactory* FindFactory(const char*) override { return nullptr; }
 
-	const char *GetCannonicalName( const char *pClassName ) override { return pClassName; }
+	const char* GetCannonicalName(const char* pClassName) override { return pClassName; }
 };
 
 class ServerLevel : public ::testing::Test
@@ -156,137 +156,136 @@ protected:
 	CLoadGameEngine m_Engine;
 	COneFileSystem m_Files;
 	CFakeMDLCache m_MdlCache;
-	CGlobalVars m_Globals{ false };
+	CGlobalVars m_Globals{false};
 	CManagedHolders m_Holders{};
 	CServerPlayersDll m_Players;
 	unsigned short m_nWorldSerial = 0;
 	bool m_bManagedLoaded = false;
 	unsigned int m_nManagedGeneration = 1;
-	CServerModelPrecache m_Precache{ &m_Engine, nullptr, m_Holders.m_Areas };
+	CServerModelPrecache m_Precache{&m_Engine, nullptr, m_Holders.m_Areas};
 	CServerNetTables m_NetTables;
 	CSourceSharpSlotTable m_SlotTableForContext;
 	CSourceSharpEntitySlots m_EntitySlotsForContext;
-	CServerEntityContext m_Entities{ &m_Engine,
-									 &m_Globals,
-									 nullptr,
-									 nullptr,
-									 nullptr,
-									 nullptr,
-									 nullptr,
-									 m_Holders,
-									 m_bManagedLoaded,
-									 m_nManagedGeneration,
-									 m_Players,
-									 m_nWorldSerial,
-									 m_Precache,
-									 m_NetTables,
-									 m_SlotTableForContext,
-									 m_EntitySlotsForContext };
+	CServerEntityContext m_Entities{&m_Engine,
+									&m_Globals,
+									nullptr,
+									nullptr,
+									nullptr,
+									nullptr,
+									nullptr,
+									m_Holders,
+									m_bManagedLoaded,
+									m_nManagedGeneration,
+									m_Players,
+									m_nWorldSerial,
+									m_Precache,
+									m_NetTables,
+									m_SlotTableForContext,
+									m_EntitySlotsForContext};
 	CNoFactories m_Factories;
 	CRecordingPhysics m_Physics;
-	CServerLevel m_Level{ &m_Engine,  &m_Files,    &m_MdlCache, &m_Globals,
-						  m_Entities, m_Factories, m_Precache,  m_Physics };
+	CServerLevel m_Level{&m_Engine, &m_Files, &m_MdlCache, &m_Globals, m_Entities, m_Factories, m_Precache, m_Physics};
 };
 } // namespace
 
-TEST_F( ServerLevel, ThePhysicsStepsRunOnThePhysicsTheLevelWasHanded )
+TEST_F(ServerLevel, ThePhysicsStepsRunOnThePhysicsTheLevelWasHanded)
 {
-	EXPECT_EQ( 1, m_Level.PhysicsInit() );
+	EXPECT_EQ(1, m_Level.PhysicsInit());
 	m_Level.PhysicsLevelInitPreEntity();
 	m_Level.PhysicsLevelInitPostEntity();
 	m_Level.PhysicsLevelShutdownPreEntity();
 	m_Level.PhysicsLevelShutdownPostEntity();
 
-	EXPECT_EQ( "init pre post shutdown-pre shutdown-post ", m_Physics.m_Steps );
+	EXPECT_EQ("init pre post shutdown-pre shutdown-post ", m_Physics.m_Steps);
 }
 
-TEST_F( ServerLevel, APhysicsThatFailsToInitialiseIsAnsweredZero )
+TEST_F(ServerLevel, APhysicsThatFailsToInitialiseIsAnsweredZero)
 {
 	m_Physics.m_bInitAnswers = false;
-	EXPECT_EQ( 0, m_Level.PhysicsInit() );
+	EXPECT_EQ(0, m_Level.PhysicsInit());
 }
 
-TEST_F( ServerLevel, ThePrecacheWindowIsThePrecachersOwn )
+TEST_F(ServerLevel, ThePrecacheWindowIsThePrecachersOwn)
 {
-	EXPECT_EQ( 0, m_Level.IsPrecacheAllowed() );
+	EXPECT_EQ(0, m_Level.IsPrecacheAllowed());
 
-	m_Level.SetPrecacheAllowed( 1 );
-	EXPECT_TRUE( m_Precache.IsAllowed() );
-	EXPECT_EQ( 1, m_Level.IsPrecacheAllowed() );
+	m_Level.SetPrecacheAllowed(1);
+	EXPECT_TRUE(m_Precache.IsAllowed());
+	EXPECT_EQ(1, m_Level.IsPrecacheAllowed());
 
-	m_Level.SetPrecacheAllowed( 0 );
-	EXPECT_FALSE( m_Precache.IsAllowed() );
+	m_Level.SetPrecacheAllowed(0);
+	EXPECT_FALSE(m_Precache.IsAllowed());
 }
 
-TEST_F( ServerLevel, AFilesSizeIsAnsweredAndItIsClosed )
+TEST_F(ServerLevel, AFilesSizeIsAnsweredAndItIsClosed)
 {
-	EXPECT_EQ( 5, m_Level.FileSizeOnPath( "maps/a.txt", "GAME" ) );
-	EXPECT_EQ( 0, m_Files.m_nOpen );
+	EXPECT_EQ(5, m_Level.FileSizeOnPath("maps/a.txt", "GAME"));
+	EXPECT_EQ(0, m_Files.m_nOpen);
 }
 
-TEST_F( ServerLevel, AMissingFileOrPathHasNoSize )
+TEST_F(ServerLevel, AMissingFileOrPathHasNoSize)
 {
-	EXPECT_EQ( -1, m_Level.FileSizeOnPath( "maps/b.txt", "GAME" ) );
-	EXPECT_EQ( -1, m_Level.FileSizeOnPath( "maps/a.txt", "MOD" ) );
-	EXPECT_EQ( -1, m_Level.FileSizeOnPath( "", "GAME" ) );
-	EXPECT_EQ( -1, m_Level.FileSizeOnPath( "maps/a.txt", nullptr ) );
+	EXPECT_EQ(-1, m_Level.FileSizeOnPath("maps/b.txt", "GAME"));
+	EXPECT_EQ(-1, m_Level.FileSizeOnPath("maps/a.txt", "MOD"));
+	EXPECT_EQ(-1, m_Level.FileSizeOnPath("", "GAME"));
+	EXPECT_EQ(-1, m_Level.FileSizeOnPath("maps/a.txt", nullptr));
 }
 
-TEST_F( ServerLevel, AFileThatFitsIsReadWhole )
+TEST_F(ServerLevel, AFileThatFitsIsReadWhole)
 {
 	char buf[8] = {};
 
-	EXPECT_EQ( 5, m_Level.ReadFileOnPath( "maps/a.txt", "GAME", buf, sizeof( buf ) ) );
-	EXPECT_EQ( std::string( "hello" ), std::string( buf, 5 ) );
-	EXPECT_EQ( 0, m_Files.m_nOpen );
+	EXPECT_EQ(5, m_Level.ReadFileOnPath("maps/a.txt", "GAME", buf, sizeof(buf)));
+	EXPECT_EQ(std::string("hello"), std::string(buf, 5));
+	EXPECT_EQ(0, m_Files.m_nOpen);
 }
 
-TEST_F( ServerLevel, AFileThatDoesNotFitIsNotReadAndIsClosed )
+TEST_F(ServerLevel, AFileThatDoesNotFitIsNotReadAndIsClosed)
 {
 	char buf[4] = {};
 
-	EXPECT_EQ( -1, m_Level.ReadFileOnPath( "maps/a.txt", "GAME", buf, sizeof( buf ) ) );
-	EXPECT_EQ( 0, buf[0] );
-	EXPECT_EQ( 0, m_Files.m_nOpen ) << "a refused read still closes the file";
+	EXPECT_EQ(-1, m_Level.ReadFileOnPath("maps/a.txt", "GAME", buf, sizeof(buf)));
+	EXPECT_EQ(0, buf[0]);
+	EXPECT_EQ(0, m_Files.m_nOpen) << "a refused read still closes the file";
 }
 
-TEST_F( ServerLevel, TheLoadGameReadIsTheEnginesAndANullMapIsRefused )
+TEST_F(ServerLevel, TheLoadGameReadIsTheEnginesAndANullMapIsRefused)
 {
-	EXPECT_EQ( 1, m_Level.LoadSaveGameState( "dm_lockdown", 1 ) );
-	EXPECT_EQ( "dm_lockdown", m_Engine.m_LoadedMap );
-	EXPECT_TRUE( m_Engine.m_bCreatePlayers );
+	EXPECT_EQ(1, m_Level.LoadSaveGameState("dm_lockdown", 1));
+	EXPECT_EQ("dm_lockdown", m_Engine.m_LoadedMap);
+	EXPECT_TRUE(m_Engine.m_bCreatePlayers);
 
-	EXPECT_EQ( 0, m_Level.LoadSaveGameState( nullptr, 1 ) );
+	EXPECT_EQ(0, m_Level.LoadSaveGameState(nullptr, 1));
 }
 
-TEST_F( ServerLevel, TheLoadTypeIsWrittenToTheGlobals )
+TEST_F(ServerLevel, TheLoadTypeIsWrittenToTheGlobals)
 {
-	m_Level.SetLoadType( MapLoad_Transition );
+	m_Level.SetLoadType(MapLoad_Transition);
 
-	EXPECT_EQ( MapLoad_Transition, m_Globals.eLoadType );
+	EXPECT_EQ(MapLoad_Transition, m_Globals.eLoadType);
 }
 
-TEST_F( ServerLevel, WorldKeysWithoutTheirArraysAreRefusedBeforeTheSpawn )
+TEST_F(ServerLevel, WorldKeysWithoutTheirArraysAreRefusedBeforeTheSpawn)
 {
-	EXPECT_EQ( 0, m_Level.SpawnWorld( nullptr, nullptr, 2 ) );
-	EXPECT_EQ( 0, m_Level.SpawnWorld( nullptr, nullptr, -1 ) );
-	EXPECT_EQ( 0, s_nWorldSpawns );
+	EXPECT_EQ(0, m_Level.SpawnWorld(nullptr, nullptr, 2));
+	EXPECT_EQ(0, m_Level.SpawnWorld(nullptr, nullptr, -1));
+	EXPECT_EQ(0, s_nWorldSpawns);
 
-	EXPECT_EQ( 1, m_Level.SpawnWorld( nullptr, nullptr, 0 ) );
-	EXPECT_EQ( 1, s_nWorldSpawns );
+	EXPECT_EQ(1, m_Level.SpawnWorld(nullptr, nullptr, 0));
+	EXPECT_EQ(1, s_nWorldSpawns);
 }
 
-TEST_F( ServerLevel, TheWorldIsCreatedThroughTheDictionaryTheLevelWasHanded )
+TEST_F(ServerLevel, TheWorldIsCreatedThroughTheDictionaryTheLevelWasHanded)
 {
-	EXPECT_EQ( 1, m_Level.SpawnWorld( nullptr, nullptr, 0 ) );
-	EXPECT_EQ( &m_Factories, s_pSpawnedThrough );
+	EXPECT_EQ(1, m_Level.SpawnWorld(nullptr, nullptr, 0));
+	EXPECT_EQ(&m_Factories, s_pSpawnedThrough);
 }
 
-TEST_F( ServerLevel, TheStandaloneTeardownIsHandedTheLevelsEntityContext )
+TEST_F(ServerLevel, TheStandaloneTeardownIsHandedTheLevelsEntityContext)
 {
 	s_pShutDownWith = nullptr;
 
 	m_Level.ShutdownStandaloneEntities();
 
-	EXPECT_EQ( &m_Entities, s_pShutDownWith );
+	EXPECT_EQ(&m_Entities, s_pShutDownWith);
 }

@@ -3,7 +3,7 @@
 #pragma once
 
 // The CrossingsReport slot's shape.
-typedef int ( *SourceSharpCrossingsReportFn )( char *pBuffer, int nBytes, int bReset );
+typedef int (*SourceSharpCrossingsReportFn)(char* pBuffer, int nBytes, int bReset);
 
 enum SourceSharpCrossingsStatus
 {
@@ -28,45 +28,45 @@ enum SourceSharpCrossingsStatus
 };
 
 // A bound on nonsense, far above any real report.
-#define SOURCESHARP_CROSSINGS_MAX_BYTES ( 256 * 1024 )
+#define SOURCESHARP_CROSSINGS_MAX_BYTES (256 * 1024)
 
 // Sizes, allocates, fills, over any callable of the slot's shape. bReset goes on the
 // filling call only. On OK, *ppOut is a NUL-terminated buffer the caller frees;
 // otherwise it is NULL.
 template <typename ReportFn>
-inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReportWith( ReportFn &&pFn, bool bReset, char **ppOut )
+inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReportWith(ReportFn&& pFn, bool bReset, char** ppOut)
 {
-	if ( ppOut == NULL )
+	if (ppOut == NULL)
 		return SOURCESHARP_CROSSINGS_NO_SLOT;
 
 	*ppOut = NULL;
 
-	const int nNeeded = pFn( NULL, 0, 0 );
+	const int nNeeded = pFn(NULL, 0, 0);
 
-	if ( nNeeded < 0 )
+	if (nNeeded < 0)
 		return SOURCESHARP_CROSSINGS_REFUSED;
 
 	// 1 is the terminator on its own: a report of no characters.
-	if ( nNeeded <= 1 )
+	if (nNeeded <= 1)
 		return SOURCESHARP_CROSSINGS_EMPTY;
 
-	if ( nNeeded > SOURCESHARP_CROSSINGS_MAX_BYTES )
+	if (nNeeded > SOURCESHARP_CROSSINGS_MAX_BYTES)
 		return SOURCESHARP_CROSSINGS_TOO_BIG;
 
-	char *pBuffer = (char *)malloc( (size_t)nNeeded );
+	char* pBuffer = (char*)malloc((size_t)nNeeded);
 
-	if ( pBuffer == NULL )
+	if (pBuffer == NULL)
 		return SOURCESHARP_CROSSINGS_NO_MEMORY;
 
 	// Pre-terminated, so a slot that writes nothing yields an empty string.
 	pBuffer[0] = '\0';
 	pBuffer[nNeeded - 1] = '\0';
 
-	const int nFilled = pFn( pBuffer, nNeeded, bReset ? 1 : 0 );
+	const int nFilled = pFn(pBuffer, nNeeded, bReset ? 1 : 0);
 
-	if ( nFilled != nNeeded )
+	if (nFilled != nNeeded)
 	{
-		free( pBuffer );
+		free(pBuffer);
 		return nFilled < 0 ? SOURCESHARP_CROSSINGS_REFUSED : SOURCESHARP_CROSSINGS_GREW;
 	}
 
@@ -78,9 +78,9 @@ inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReportWith( ReportFn
 }
 
 // One sentence per failure, for the console. Never NULL.
-inline const char *SourceSharp_CrossingsStatusText( SourceSharpCrossingsStatus status )
+inline const char* SourceSharp_CrossingsStatusText(SourceSharpCrossingsStatus status)
 {
-	switch ( status )
+	switch (status)
 	{
 		case SOURCESHARP_CROSSINGS_OK:
 			return "ok";
@@ -102,14 +102,14 @@ inline const char *SourceSharp_CrossingsStatusText( SourceSharpCrossingsStatus s
 }
 
 // The same over the slot itself; NULL is no slot.
-inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReport( SourceSharpCrossingsReportFn pFn, bool bReset,
-																	char **ppOut )
+inline SourceSharpCrossingsStatus SourceSharp_FetchCrossingsReport(SourceSharpCrossingsReportFn pFn, bool bReset,
+																   char** ppOut)
 {
-	if ( ppOut != NULL )
+	if (ppOut != NULL)
 		*ppOut = NULL;
 
-	if ( pFn == NULL )
+	if (pFn == NULL)
 		return SOURCESHARP_CROSSINGS_NO_SLOT;
 
-	return SourceSharp_FetchCrossingsReportWith( pFn, bReset, ppOut );
+	return SourceSharp_FetchCrossingsReportWith(pFn, bReset, ppOut);
 }

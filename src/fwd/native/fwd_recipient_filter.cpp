@@ -33,8 +33,8 @@ namespace
 class SSRecipientFilter final : public IRecipientFilter
 {
 public:
-	explicit SSRecipientFilter( IManagedRecipientFilter *pTarget )
-		: m_pTarget( pTarget )
+	explicit SSRecipientFilter(IManagedRecipientFilter* pTarget)
+		: m_pTarget(pTarget)
 	{
 	}
 
@@ -44,28 +44,28 @@ public:
 
 	int GetRecipientCount() const override { return m_pTarget->GetRecipientCount(); }
 
-	int GetRecipientIndex( int slot ) const override { return m_pTarget->GetRecipientIndex( slot ); }
+	int GetRecipientIndex(int slot) const override { return m_pTarget->GetRecipientIndex(slot); }
 
-	static void operator delete( void *, size_t ) {}
+	static void operator delete(void*, size_t) {}
 
 private:
-	IManagedRecipientFilter *m_pTarget;
+	IManagedRecipientFilter* m_pTarget;
 };
 
 // A vptr and one pointer: the block's reserved words hold it.
-static_assert( sizeof( SSRecipientFilter ) <= kManagedPhysicsCallbackWords * sizeof( void * ),
-			   "fits the block's reserved words" );
+static_assert(sizeof(SSRecipientFilter) <= kManagedPhysicsCallbackWords * sizeof(void*),
+			  "fits the block's reserved words");
 }
 
 int SSFwd_RecipientFilter_SizeOf()
 {
-	return int( kManagedPhysicsCallbackWords * sizeof( void * ) );
+	return int(kManagedPhysicsCallbackWords * sizeof(void*));
 }
 
-void *SSFwd_RecipientFilter_Construct( void *pMemory, IManagedRecipientFilter *pTarget )
+void* SSFwd_RecipientFilter_Construct(void* pMemory, IManagedRecipientFilter* pTarget)
 {
-	if ( !pMemory || !pTarget )
+	if (!pMemory || !pTarget)
 		return nullptr;
 
-	return static_cast<IRecipientFilter *>( new ( pMemory ) SSRecipientFilter( pTarget ) );
+	return static_cast<IRecipientFilter*>(new (pMemory) SSRecipientFilter(pTarget));
 }

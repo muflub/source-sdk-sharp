@@ -14,20 +14,20 @@
 #include "dt_send.h"
 
 // The block, checked (tempent_table_block.h), with the server's rows.
-inline bool SourceSharpTe_ReadTableBlock( const void *pBlock, int32_t nBlockBytes, SourceSharpTeTableBlock_t *pOut )
+inline bool SourceSharpTe_ReadTableBlock(const void* pBlock, int32_t nBlockBytes, SourceSharpTeTableBlock_t* pOut)
 {
-	return SourceSharpTe_ReadTableBlock( pBlock, nBlockBytes, (int32_t)sizeof( SourceSharpSendPropRow_t ), pOut );
+	return SourceSharpTe_ReadTableBlock(pBlock, nBlockBytes, (int32_t)sizeof(SourceSharpSendPropRow_t), pOut);
 }
 
 // Row i (0 <= i < header.nProps) of a block read above.
-SourceSharpSendPropRow_t SourceSharpTe_BlockRow( const SourceSharpTeTableBlock_t &block, int i );
+SourceSharpSendPropRow_t SourceSharpTe_BlockRow(const SourceSharpTeTableBlock_t& block, int i);
 
 // A proxy id as the function the engine compares with g_StandardSendProxies;
 // NULL for an unknown id or the datatable and array ids.
-SendVarProxyFn SourceSharpTe_VarProxy( int32_t nProxy );
+SendVarProxyFn SourceSharpTe_VarProxy(int32_t nProxy);
 
 // One row into one SendProp. pNested is the table a DPT_DataTable row nests
 // (the caller resolves hDataTable). False, leaving pOut untouched, for a proxy
 // id that does not fit the row's type or a datatable row with no table.
-bool SourceSharpTe_StoreProp( const SourceSharpSendPropRow_t &row, const char *pName, SendTable *pNested,
-							  SendProp *pOut );
+bool SourceSharpTe_StoreProp(const SourceSharpSendPropRow_t& row, const char* pName, SendTable* pNested,
+							 SendProp* pOut);

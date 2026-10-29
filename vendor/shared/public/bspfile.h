@@ -31,8 +31,8 @@
 // Max # of neighboring displacement touching a displacement's corner.
 #define MAX_DISP_CORNER_NEIGHBORS 4
 
-#define NUM_DISP_POWER_VERTS( power ) ( ( ( 1 << ( power ) ) + 1 ) * ( ( 1 << ( power ) ) + 1 ) )
-#define NUM_DISP_POWER_TRIS( power ) ( ( 1 << ( power ) ) * ( 1 << ( power ) ) * 2 )
+#define NUM_DISP_POWER_VERTS(power) (((1 << (power)) + 1) * ((1 << (power)) + 1))
+#define NUM_DISP_POWER_TRIS(power) ((1 << (power)) * (1 << (power)) * 2)
 
 // Common limits
 // leaffaces, leafbrushes, planes, and verts are still bounded by
@@ -43,7 +43,7 @@
 
 #define MAX_MAP_TEXDATA 2048
 
-#define MAX_DISPVERTS NUM_DISP_POWER_VERTS( MAX_MAP_DISP_POWER )
+#define MAX_DISPVERTS NUM_DISP_POWER_VERTS(MAX_MAP_DISP_POWER)
 
 #define MAX_MAP_AREAS 256
 
@@ -377,7 +377,7 @@ struct dnode_t
 typedef struct texinfo_s
 {
 	DECLARE_BYTESWAP_DATADESC();
-	alignas( 4 ) unsigned char unused_textureVecsTexelsPerWorldUnits[64];
+	alignas(4) unsigned char unused_textureVecsTexelsPerWorldUnits[64];
 	int flags; // miptex flags + overrides
 	int texdata; // Pointer to texture name, size, etc.
 } texinfo_t;
@@ -387,7 +387,7 @@ typedef struct texinfo_s
 struct dtexdata_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	alignas( 4 ) unsigned char unused_reflectivity[12];
+	alignas(4) unsigned char unused_reflectivity[12];
 	int nameStringTableID; // index into g_StringTable for the texture name
 	int width, height; // source image
 	int view_width, view_height; //
@@ -470,7 +470,7 @@ public:
 	DECLARE_BYTESWAP_DATADESC();
 
 public:
-	alignas( 2 ) unsigned char unused_m_Neighbors[8];
+	alignas(2) unsigned char unused_m_Neighbors[8];
 	unsigned char m_nNeighbors;
 };
 
@@ -517,7 +517,7 @@ public:
 
 	enum unnamed
 	{
-		ALLOWEDVERTS_SIZE = PAD_NUMBER( MAX_DISPVERTS, 32 ) / 32
+		ALLOWEDVERTS_SIZE = PAD_NUMBER(MAX_DISPVERTS, 32) / 32
 	};
 
 	uint32 m_AllowedVerts[ALLOWEDVERTS_SIZE]; // This is built based on the layout and sizes of our neighbors
@@ -553,7 +553,7 @@ struct dprimvert_t
 struct dface_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	alignas( 4 ) unsigned char unused_planenum[4];
+	alignas(4) unsigned char unused_planenum[4];
 
 	int firstedge; // we must support > 64k edges
 	short numedges;
@@ -569,9 +569,9 @@ struct dface_t
 	// (ie. water surfaces)
 	// All of the rest of the surfaces can look at their leaf to find out
 	// what fog volume they are in.
-	alignas( 2 ) unsigned char unused_surfaceFogVolumeID[6];
+	alignas(2) unsigned char unused_surfaceFogVolumeID[6];
 	int lightofs; // start of [numstyles*surfsize] samples
-	alignas( 4 ) unsigned char unused_area[24];
+	alignas(4) unsigned char unused_area[24];
 
 public:
 	// non-polygon primitives (strips and lists)
@@ -595,7 +595,7 @@ struct dfaceid_t
 // This leaf culled away some portals due to radial vis
 // This leaf has 2D sky in its PVS
 
-#pragma warning( disable : 4201 ) // C4201: nonstandard extension used: nameless struct/union
+#pragma warning(disable : 4201) // C4201: nonstandard extension used: nameless struct/union
 
 struct dleaf_version_0_t
 {
@@ -604,7 +604,7 @@ struct dleaf_version_0_t
 
 	short cluster;
 
-	BEGIN_BITFIELD( bf );
+	BEGIN_BITFIELD(bf);
 	short area : 9;
 	short flags : 7; // Per leaf flags.
 	END_BITFIELD();
@@ -631,7 +631,7 @@ struct dleaf_t
 
 	short cluster;
 
-	BEGIN_BITFIELD( bf );
+	BEGIN_BITFIELD(bf);
 	short area : 9;
 	short flags : 7; // Per leaf flags.
 	END_BITFIELD();
@@ -651,7 +651,7 @@ struct dleaf_t
 	//	CompressedLightCube m_AmbientLighting;
 };
 
-#pragma warning( default : 4201 ) // C4201: nonstandard extension used: nameless struct/union
+#pragma warning(default : 4201) // C4201: nonstandard extension used: nameless struct/union
 
 // each leaf contains N samples of the ambient lighting
 // each sample contains a cube of ambient light projected on to each axis
@@ -797,7 +797,7 @@ struct dcubemapsample_t
 struct doverlay_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	alignas( 4 ) unsigned char unused_nId[6];
+	alignas(4) unsigned char unused_nId[6];
 
 private:
 	unsigned short m_nFaceCountAndRenderOrder;
@@ -827,7 +827,7 @@ struct doverlayfade_t
 struct dwateroverlay_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	alignas( 4 ) unsigned char unused_nId[6];
+	alignas(4) unsigned char unused_nId[6];
 
 private:
 	unsigned short m_nFaceCountAndRenderOrder;
@@ -849,9 +849,9 @@ typedef unsigned short word;
 
 struct epair_t
 {
-	epair_t *next;
-	char *key;
-	char *value;
+	epair_t* next;
+	char* key;
+	char* value;
 };
 
 // finalized page of surface's lightmaps

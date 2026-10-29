@@ -3,7 +3,7 @@
 
 class CAudioSource;
 
-#pragma pack( push, 4 )
+#pragma pack(push, 4)
 
 class CVoiceData
 {
@@ -17,7 +17,7 @@ public:
 
 private:
 	float m_flElapsed;
-	CAudioSource *m_pAudioSource;
+	CAudioSource* m_pAudioSource;
 	bool m_bIgnorePhonemes;
 };
 
@@ -58,11 +58,11 @@ private:
 	CVoiceData m_VoiceSources[MAX_VOICE_DATA];
 };
 
-#pragma pack( pop )
+#pragma pack(pop)
 
 inline bool CMouthInfo::IsActive()
 {
-	return ( GetNumVoiceSources() > 0 ) ? true : false;
+	return (GetNumVoiceSources() > 0) ? true : false;
 }
 
 inline int CMouthInfo::GetNumVoiceSources()

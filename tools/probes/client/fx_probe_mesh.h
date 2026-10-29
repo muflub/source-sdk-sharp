@@ -32,84 +32,84 @@
 class CProbeMeshBuilder : public CMeshBuilder
 {
 public:
-	void Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int numPrimitives )
+	void Begin(IMesh* pMesh, MaterialPrimitiveType_t type, int numPrimitives)
 	{
-		FxProbeLog( "fxm-begin %d %d", (int)type, numPrimitives );
-		CMeshBuilder::Begin( pMesh, type, numPrimitives );
+		FxProbeLog("fxm-begin %d %d", (int)type, numPrimitives);
+		CMeshBuilder::Begin(pMesh, type, numPrimitives);
 	}
 
-	void Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int nVertexCount, int nIndexCount )
+	void Begin(IMesh* pMesh, MaterialPrimitiveType_t type, int nVertexCount, int nIndexCount)
 	{
-		FxProbeLog( "fxm-begin %d 0 %d %d", (int)type, nVertexCount, nIndexCount );
-		CMeshBuilder::Begin( pMesh, type, nVertexCount, nIndexCount );
+		FxProbeLog("fxm-begin %d 0 %d %d", (int)type, nVertexCount, nIndexCount);
+		CMeshBuilder::Begin(pMesh, type, nVertexCount, nIndexCount);
 	}
 
-	void End( bool bSpewData = false, bool bDraw = false )
+	void End(bool bSpewData = false, bool bDraw = false)
 	{
-		FxProbeLog( "fxm-end" );
-		CMeshBuilder::End( bSpewData, bDraw );
+		FxProbeLog("fxm-end");
+		CMeshBuilder::End(bSpewData, bDraw);
 	}
 
-	void Position3fv( const float *v )
+	void Position3fv(const float* v)
 	{
 		m_p[0] = v[0];
 		m_p[1] = v[1];
 		m_p[2] = v[2];
-		CMeshBuilder::Position3fv( v );
+		CMeshBuilder::Position3fv(v);
 	}
 
-	void Normal3fv( const float *n )
+	void Normal3fv(const float* n)
 	{
 		m_n[0] = n[0];
 		m_n[1] = n[1];
 		m_n[2] = n[2];
-		CMeshBuilder::Normal3fv( n );
+		CMeshBuilder::Normal3fv(n);
 	}
 
-	void TexCoord2f( int stage, float s, float t )
+	void TexCoord2f(int stage, float s, float t)
 	{
 		m_st[0] = s;
 		m_st[1] = t;
-		CMeshBuilder::TexCoord2f( stage, s, t );
+		CMeshBuilder::TexCoord2f(stage, s, t);
 	}
 
-	void Color4fv( const float *rgba )
+	void Color4fv(const float* rgba)
 	{
 		m_bByte = false;
 		m_c[0] = rgba[0];
 		m_c[1] = rgba[1];
 		m_c[2] = rgba[2];
 		m_c[3] = rgba[3];
-		CMeshBuilder::Color4fv( rgba );
+		CMeshBuilder::Color4fv(rgba);
 	}
 
-	void Color4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a )
+	void Color4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 	{
 		m_bByte = true;
 		m_c[0] = r;
 		m_c[1] = g;
 		m_c[2] = b;
 		m_c[3] = a;
-		CMeshBuilder::Color4ub( r, g, b, a );
+		CMeshBuilder::Color4ub(r, g, b, a);
 	}
 
-	void FastIndex( unsigned short nIndex )
+	void FastIndex(unsigned short nIndex)
 	{
-		FxProbeLog( "fxm-i %d", (int)nIndex );
-		CMeshBuilder::FastIndex( nIndex );
+		FxProbeLog("fxm-i %d", (int)nIndex);
+		CMeshBuilder::FastIndex(nIndex);
 	}
 
 	void AdvanceVertex()
 	{
-		FxProbeLog( "fxm-v %.9g %.9g %.9g %.9g %.9g %s %.9g %.9g %.9g %.9g %.9g %.9g %.9g", m_p[0], m_p[1], m_p[2],
-					m_st[0], m_st[1], m_bByte ? "b" : "f", m_c[0], m_c[1], m_c[2], m_c[3], m_n[0], m_n[1], m_n[2] );
+		FxProbeLog("fxm-v %.9g %.9g %.9g %.9g %.9g %s %.9g %.9g %.9g %.9g %.9g %.9g %.9g", m_p[0], m_p[1], m_p[2],
+				   m_st[0], m_st[1], m_bByte ? "b" : "f", m_c[0], m_c[1], m_c[2], m_c[3], m_n[0], m_n[1], m_n[2]);
 		CMeshBuilder::AdvanceVertex();
 	}
 
 private:
-	float m_p[3] = { 0, 0, 0 };
-	float m_n[3] = { 0, 0, 0 };
-	float m_st[2] = { 0, 0 };
-	float m_c[4] = { 0, 0, 0, 0 };
+	float m_p[3] = {0, 0, 0};
+	float m_n[3] = {0, 0, 0};
+	float m_st[2] = {0, 0};
+	float m_c[4] = {0, 0, 0, 0};
 	bool m_bByte = false;
 };

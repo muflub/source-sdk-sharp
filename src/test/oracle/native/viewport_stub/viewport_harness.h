@@ -28,4 +28,4 @@ public:
 	virtual void Layout();
 };
 
-extern IClientMode *g_pClientMode;
+extern IClientMode* g_pClientMode;

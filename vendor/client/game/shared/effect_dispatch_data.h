@@ -4,7 +4,7 @@
 
 #include "particle_parse.h"
 
-EXTERN_RECV_TABLE( DT_EffectData );
+EXTERN_RECV_TABLE(DT_EffectData);
 
 // NOTE: These flags are specifically *not* networked; so it's placed above the max effect flag bits
 
@@ -72,8 +72,8 @@ public:
 		m_ControlPoint1.m_vecOffset.Init();
 	}
 
-	IClientRenderable *GetRenderable() const;
-	C_BaseEntity *GetEntity() const;
+	IClientRenderable* GetRenderable() const;
+	C_BaseEntity* GetEntity() const;
 	int entindex() const;
 
 private:

@@ -43,7 +43,7 @@ const SourceSharpAcquireReason kAll[] = {
 	SOURCESHARP_ACQUIRE_UNKNOWN_FACTORY_TYPE,
 };
 
-const int kCount = (int)( sizeof( kAll ) / sizeof( kAll[0] ) );
+const int kCount = (int)(sizeof(kAll) / sizeof(kAll[0]));
 
 } // namespace
 
@@ -51,134 +51,134 @@ const int kCount = (int)( sizeof( kAll ) / sizeof( kAll[0] ) );
 // THE SET.
 //-----------------------------------------------------------------------------
 
-TEST( AcquireReasonSet, TheSetHasExactlyFourReasons )
+TEST(AcquireReasonSet, TheSetHasExactlyFourReasons)
 {
 	// FOUR CASES, FOUR LITERALS. This number is the whole reason the ASCII and
 	// no-format arms below are a guarantee rather than a sample: a fifth
 	// enumerator lands here first.
-	EXPECT_EQ( 4, kCount );
+	EXPECT_EQ(4, kCount);
 }
 
-TEST( AcquireReasonSet, TheLastEnumeratorIsTheLastValueWalked )
+TEST(AcquireReasonSet, TheLastEnumeratorIsTheLastValueWalked)
 {
 	// The walk covers the enum's whole range rather than a prefix of it. If an
 	// enumerator is inserted in the middle, this catches the array not growing.
-	EXPECT_EQ( SOURCESHARP_ACQUIRE_UNKNOWN_FACTORY_TYPE, kAll[kCount - 1] );
-	EXPECT_EQ( kCount - 1, (int)SOURCESHARP_ACQUIRE_UNKNOWN_FACTORY_TYPE );
+	EXPECT_EQ(SOURCESHARP_ACQUIRE_UNKNOWN_FACTORY_TYPE, kAll[kCount - 1]);
+	EXPECT_EQ(kCount - 1, (int)SOURCESHARP_ACQUIRE_UNKNOWN_FACTORY_TYPE);
 }
 
-TEST( AcquireReasonSet, EveryReasonAnswersWithANonEmptyLiteral )
+TEST(AcquireReasonSet, EveryReasonAnswersWithANonEmptyLiteral)
 {
-	for ( int i = 0; i < kCount; ++i )
+	for (int i = 0; i < kCount; ++i)
 	{
-		const char *pszReason = SourceSharp_AcquireReason( kAll[i] );
+		const char* pszReason = SourceSharp_AcquireReason(kAll[i]);
 
-		ASSERT_TRUE( pszReason != NULL ) << "reason " << i << " answered NULL";
-		EXPECT_GT( strlen( pszReason ), 0u ) << "reason " << i << " is empty";
+		ASSERT_TRUE(pszReason != NULL) << "reason " << i << " answered NULL";
+		EXPECT_GT(strlen(pszReason), 0u) << "reason " << i << " is empty";
 	}
 }
 
-TEST( AcquireReasonSet, NoReasonHasAByteOverSevenBitsWide )
+TEST(AcquireReasonSet, NoReasonHasAByteOverSevenBitsWide)
 {
-	for ( int i = 0; i < kCount; ++i )
+	for (int i = 0; i < kCount; ++i)
 	{
-		const char *pszReason = SourceSharp_AcquireReason( kAll[i] );
+		const char* pszReason = SourceSharp_AcquireReason(kAll[i]);
 
-		for ( const char *p = pszReason; *p; ++p )
+		for (const char* p = pszReason; *p; ++p)
 		{
-			EXPECT_LT( (unsigned char)*p, 0x80u ) << "\"" << pszReason << "\" is not ASCII, so the managed side's "
-												  << "no-rune-splitting guarantee stops being true by construction";
+			EXPECT_LT((unsigned char)*p, 0x80u) << "\"" << pszReason << "\" is not ASCII, so the managed side's "
+												<< "no-rune-splitting guarantee stops being true by construction";
 		}
 	}
 }
 
-TEST( AcquireReasonSet, NoReasonCarriesAFormatSpecifier )
+TEST(AcquireReasonSet, NoReasonCarriesAFormatSpecifier)
 {
-	for ( int i = 0; i < kCount; ++i )
+	for (int i = 0; i < kCount; ++i)
 	{
-		const char *pszReason = SourceSharp_AcquireReason( kAll[i] );
+		const char* pszReason = SourceSharp_AcquireReason(kAll[i]);
 
-		EXPECT_TRUE( strchr( pszReason, '%' ) == NULL )
+		EXPECT_TRUE(strchr(pszReason, '%') == NULL)
 			<< "\"" << pszReason << "\" contains a '%', and nothing formats these";
 	}
 }
 
-TEST( AcquireReasonSet, EveryReasonFitsTheDeclaredBufferWithRoomToSpare )
+TEST(AcquireReasonSet, EveryReasonFitsTheDeclaredBufferWithRoomToSpare)
 {
-	for ( int i = 0; i < kCount; ++i )
+	for (int i = 0; i < kCount; ++i)
 	{
-		const char *pszReason = SourceSharp_AcquireReason( kAll[i] );
+		const char* pszReason = SourceSharp_AcquireReason(kAll[i]);
 
-		EXPECT_LT( (int)strlen( pszReason ), SOURCESHARP_ACQUIRE_ERROR_BYTES - 1 )
+		EXPECT_LT((int)strlen(pszReason), SOURCESHARP_ACQUIRE_ERROR_BYTES - 1)
 			<< "\"" << pszReason << "\" would truncate in the buffer managed passes";
 	}
 }
 
-TEST( AcquireReasonSet, EveryReasonIsDistinct )
+TEST(AcquireReasonSet, EveryReasonIsDistinct)
 {
 	// Two enumerators answering the same sentence would make one of the four
 	// failure cases unreportable -- a caller could not tell them apart, which
 	// is the whole reason there are four rather than one.
-	for ( int i = 0; i < kCount; ++i )
+	for (int i = 0; i < kCount; ++i)
 	{
-		for ( int j = i + 1; j < kCount; ++j )
+		for (int j = i + 1; j < kCount; ++j)
 		{
-			EXPECT_STRNE( SourceSharp_AcquireReason( kAll[i] ), SourceSharp_AcquireReason( kAll[j] ) )
+			EXPECT_STRNE(SourceSharp_AcquireReason(kAll[i]), SourceSharp_AcquireReason(kAll[j]))
 				<< "reasons " << i << " and " << j << " say the same thing";
 		}
 	}
 }
 
-TEST( AcquireReasonSet, AValueOutsideTheEnumStillAnswersSomethingSafeToCopy )
+TEST(AcquireReasonSet, AValueOutsideTheEnumStillAnswersSomethingSafeToCopy)
 {
-	const char *pszReason = SourceSharp_AcquireReason( (SourceSharpAcquireReason)99 );
+	const char* pszReason = SourceSharp_AcquireReason((SourceSharpAcquireReason)99);
 
-	ASSERT_TRUE( pszReason != NULL );
-	EXPECT_GT( strlen( pszReason ), 0u );
+	ASSERT_TRUE(pszReason != NULL);
+	EXPECT_GT(strlen(pszReason), 0u);
 }
 
 //-----------------------------------------------------------------------------
 // THE COPY. Truncating, terminating, and legal to call with nowhere to write.
 //-----------------------------------------------------------------------------
 
-TEST( AcquireReasonCopy, AReasonThatFitsArrivesWhole )
+TEST(AcquireReasonCopy, AReasonThatFitsArrivesWhole)
 {
 	char buffer[SOURCESHARP_ACQUIRE_ERROR_BYTES];
-	memset( buffer, 'Z', sizeof( buffer ) );
+	memset(buffer, 'Z', sizeof(buffer));
 
-	SourceSharp_SayAcquireReason( buffer, sizeof( buffer ), SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+	SourceSharp_SayAcquireReason(buffer, sizeof(buffer), SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 
-	EXPECT_STREQ( "factory does not know that interface", buffer );
+	EXPECT_STREQ("factory does not know that interface", buffer);
 }
 
-TEST( AcquireReasonCopy, ASmallBufferTruncatesAndStillTerminates )
+TEST(AcquireReasonCopy, ASmallBufferTruncatesAndStillTerminates)
 {
 	char buffer[8];
-	memset( buffer, 'Z', sizeof( buffer ) );
+	memset(buffer, 'Z', sizeof(buffer));
 
-	SourceSharp_SayAcquireReason( buffer, (int32_t)sizeof( buffer ), SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+	SourceSharp_SayAcquireReason(buffer, (int32_t)sizeof(buffer), SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 
 	// Seven characters and a terminator, and NOT eight characters: refusing to
 	// report a failure because the report was long would be absurd, and running
 	// off the end of the buffer would be worse.
-	EXPECT_EQ( 7u, strlen( buffer ) );
-	EXPECT_EQ( '\0', buffer[7] );
-	EXPECT_EQ( 0, strncmp( buffer, "factory", 7 ) );
+	EXPECT_EQ(7u, strlen(buffer));
+	EXPECT_EQ('\0', buffer[7]);
+	EXPECT_EQ(0, strncmp(buffer, "factory", 7));
 }
 
-TEST( AcquireReasonCopy, ABufferOfOneHoldsTheTerminatorAndNothingElse )
+TEST(AcquireReasonCopy, ABufferOfOneHoldsTheTerminatorAndNothingElse)
 {
 	char buffer[2];
 	buffer[0] = 'Z';
 	buffer[1] = 'Z';
 
-	SourceSharp_SayAcquireReason( buffer, 1, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+	SourceSharp_SayAcquireReason(buffer, 1, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 
-	EXPECT_EQ( '\0', buffer[0] );
-	EXPECT_EQ( 'Z', buffer[1] ) << "the copy wrote past the size it was given";
+	EXPECT_EQ('\0', buffer[0]);
+	EXPECT_EQ('Z', buffer[1]) << "the copy wrote past the size it was given";
 }
 
-TEST( AcquireReasonCopy, AZeroLengthBufferIsLegalAndWritesNothing )
+TEST(AcquireReasonCopy, AZeroLengthBufferIsLegalAndWritesNothing)
 {
 	// THE CANARY IS IN FRONT OF THE BUFFER, AND IT HAD TO BE.
 	//
@@ -190,56 +190,56 @@ TEST( AcquireReasonCopy, AZeroLengthBufferIsLegalAndWritesNothing )
 	// looking. A check whose subject is "nothing outside the caller's bytes was
 	// touched" has to own the byte on either side of them.
 	char pad[8];
-	memset( pad, 'Z', sizeof( pad ) );
+	memset(pad, 'Z', sizeof(pad));
 
-	char *pBuffer = pad + 4;
+	char* pBuffer = pad + 4;
 
-	SourceSharp_SayAcquireReason( pBuffer, 0, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+	SourceSharp_SayAcquireReason(pBuffer, 0, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 
-	for ( size_t i = 0; i < sizeof( pad ); ++i )
+	for (size_t i = 0; i < sizeof(pad); ++i)
 	{
-		EXPECT_EQ( 'Z', pad[i] ) << "byte " << i << " of the padded region was written; the buffer "
-								 << "itself is bytes 4..7, so 0..3 being touched is a write IN FRONT "
-								 << "of what the caller gave";
+		EXPECT_EQ('Z', pad[i]) << "byte " << i << " of the padded region was written; the buffer "
+							   << "itself is bytes 4..7, so 0..3 being touched is a write IN FRONT "
+							   << "of what the caller gave";
 	}
 }
 
-TEST( AcquireReasonCopy, ANullBufferIsLegalAndDoesNotFault )
+TEST(AcquireReasonCopy, ANullBufferIsLegalAndDoesNotFault)
 {
 	// A diagnostic path may not want a reason at all. Reaching this line is the
 	// assertion.
-	SourceSharp_SayAcquireReason( NULL, SOURCESHARP_ACQUIRE_ERROR_BYTES, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+	SourceSharp_SayAcquireReason(NULL, SOURCESHARP_ACQUIRE_ERROR_BYTES, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 
 	SUCCEED();
 }
 
-TEST( AcquireReasonCopy, ANegativeSizeIsRefusedRatherThanTrusted )
+TEST(AcquireReasonCopy, ANegativeSizeIsRefusedRatherThanTrusted)
 {
 	// Padded for the same reason as the arm above, and here the write would be
 	// much further out: V_strncpy with a negative size passes it to strncpy as
 	// a size_t, which is every byte there is.
 	char pad[8];
-	memset( pad, 'Z', sizeof( pad ) );
+	memset(pad, 'Z', sizeof(pad));
 
-	char *pBuffer = pad + 4;
+	char* pBuffer = pad + 4;
 
-	SourceSharp_SayAcquireReason( pBuffer, -1, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+	SourceSharp_SayAcquireReason(pBuffer, -1, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 
-	for ( size_t i = 0; i < sizeof( pad ); ++i )
-		EXPECT_EQ( 'Z', pad[i] ) << "byte " << i << " of the padded region was written";
+	for (size_t i = 0; i < sizeof(pad); ++i)
+		EXPECT_EQ('Z', pad[i]) << "byte " << i << " of the padded region was written";
 }
 
-TEST( AcquireReasonCopy, EveryReasonInTheSetCopiesBackIdentically )
+TEST(AcquireReasonCopy, EveryReasonInTheSetCopiesBackIdentically)
 {
 	// The copy is the only thing that happens to a literal, so it is held
 	// against the literal for every member rather than for one of them.
-	for ( int i = 0; i < kCount; ++i )
+	for (int i = 0; i < kCount; ++i)
 	{
 		char buffer[SOURCESHARP_ACQUIRE_ERROR_BYTES];
-		memset( buffer, 'Z', sizeof( buffer ) );
+		memset(buffer, 'Z', sizeof(buffer));
 
-		SourceSharp_SayAcquireReason( buffer, sizeof( buffer ), kAll[i] );
+		SourceSharp_SayAcquireReason(buffer, sizeof(buffer), kAll[i]);
 
-		EXPECT_STREQ( SourceSharp_AcquireReason( kAll[i] ), buffer );
+		EXPECT_STREQ(SourceSharp_AcquireReason(kAll[i]), buffer);
 	}
 }

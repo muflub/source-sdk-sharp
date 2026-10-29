@@ -63,7 +63,7 @@ enum CompiledVtfFlags
 
 	TEXTUREFLAGS_STREAMABLE_COARSE = 0x40000000,
 	TEXTUREFLAGS_STREAMABLE_FINE = 0x80000000,
-	TEXTUREFLAGS_STREAMABLE = ( TEXTUREFLAGS_STREAMABLE_COARSE | TEXTUREFLAGS_STREAMABLE_FINE )
+	TEXTUREFLAGS_STREAMABLE = (TEXTUREFLAGS_STREAMABLE_COARSE | TEXTUREFLAGS_STREAMABLE_FINE)
 };
 
 struct VtfProcessingOptions
@@ -115,7 +115,7 @@ enum LookDir_t
 // What mipmap (and coarser) is always available when we ship
 
 // Use this image format if you want to perform tool operations on the texture
-#define IMAGE_FORMAT_DEFAULT ( ( ImageFormat ) - 2 )
+#define IMAGE_FORMAT_DEFAULT ((ImageFormat) - 2)
 
 // Interface to get at various bits of a VTF texture
 class IVTFTexture
@@ -125,8 +125,8 @@ public:
 
 	// Initializes the texture and allocates space for the bits
 	// In most cases, you shouldn't force the mip count.
-	virtual bool Init( int nWidth, int nHeight, int nDepth, ImageFormat fmt, int nFlags, int iFrameCount,
-					   int nForceMipCount = -1 ) = 0;
+	virtual bool Init(int nWidth, int nHeight, int nDepth, ImageFormat fmt, int nFlags, int iFrameCount,
+					  int nForceMipCount = -1) = 0;
 
 	// Methods to set other texture fields
 	virtual void unused_SetBumpScale() = 0;
@@ -137,11 +137,11 @@ public:
 
 	// set the resource data (for writers). pass size=0 to delete data. if pdata is not null,
 	// the resource data will be copied from *pData
-	virtual void *SetResourceData( uint32 eType, void const *pData, size_t nDataSize ) = 0;
+	virtual void* SetResourceData(uint32 eType, void const* pData, size_t nDataSize) = 0;
 
 	// find the resource data and return a pointer to it. The data pointed to by this pointer will
 	// go away when the ivtftexture does. retruns null if resource not present
-	virtual void *GetResourceData( uint32 eType, size_t *pDataSize ) const = 0;
+	virtual void* GetResourceData(uint32 eType, size_t* pDataSize) const = 0;
 
 	// Locates the resource entry info if it's present, easier than crawling array types
 	virtual void unused_HasResourceEntry() = 0;
@@ -217,13 +217,13 @@ public:
 	virtual void unused_ComputeTotalSize() = 0;
 
 	// Returns the base address of the image data
-	virtual unsigned char *ImageData() = 0;
+	virtual unsigned char* ImageData() = 0;
 
 	// Returns a pointer to the data associated with a particular frame, face, and mip level
-	virtual unsigned char *ImageData( int iFrame, int iFace, int iMipLevel ) = 0;
+	virtual unsigned char* ImageData(int iFrame, int iFace, int iMipLevel) = 0;
 
 	// Returns a pointer to the data associated with a particular frame, face, mip level, and offset
-	virtual unsigned char *ImageData( int iFrame, int iFace, int iMipLevel, int x, int y, int z = 0 ) = 0;
+	virtual unsigned char* ImageData(int iFrame, int iFace, int iMipLevel, int x, int y, int z = 0) = 0;
 
 	// Returns the base address of the low-res image data
 	virtual void unused_LowResImageData() = 0;
@@ -326,7 +326,7 @@ public:
 
 #include "datamap.h"
 
-#pragma pack( 1 )
+#pragma pack(1)
 
 // version number for the disk texture cache
 
@@ -353,7 +353,7 @@ struct VTFFileHeaderV7_1_t : public VTFFileBaseHeader_t
 	unsigned int flags;
 	unsigned short numFrames;
 	unsigned short startFrame;
-#if !defined( POSIX )
+#if !defined(POSIX)
 	VectorAligned reflectivity;
 #else
 	// must manually align in order to maintain pack(1) expected layout with existing binaries
@@ -383,7 +383,7 @@ struct VTFFileHeaderV7_3_t : public VTFFileHeaderV7_2_t
 	char pad4[3];
 	unsigned int numResources;
 
-#if defined( POSIX )
+#if defined(POSIX)
 	// must manually align in order to maintain pack(1) expected layout with existing binaries
 	char pad5[8];
 #endif

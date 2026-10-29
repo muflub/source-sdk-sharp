@@ -33,11 +33,11 @@ public:
 
 	// Zeroing allocator: subclass constructors leave members untouched on the
 	// promise that the block arrived zeroed. See trail_lifetime.h.
-	SOURCESHARP_ZEROING_ALLOCATOR( MemAlloc_Alloc, MemAlloc_Free )
+	SOURCESHARP_ZEROING_ALLOCATOR(MemAlloc_Alloc, MemAlloc_Free)
 
 	typedef CTrailDestroyLatch<CShellRenderable>::GoneFn_t GoneFn_t;
 
-	void SetGoneCallback( GoneFn_t pfnGone ) { m_Destroy.SetGoneCallback( pfnGone ); }
+	void SetGoneCallback(GoneFn_t pfnGone) { m_Destroy.SetGoneCallback(pfnGone); }
 
 	CShellRenderable()
 	{
@@ -54,27 +54,27 @@ public:
 		// Claimed before the members go. A destructor reached through Release()
 		// is running because that caller already won the claim.
 		m_Destroy.Claim();
-		m_Destroy.Announce( this );
+		m_Destroy.Announce(this);
 	}
 
 	// The place. The leaf-system notification is why these are not plain
 	// assignments; RenderableChanged() is a no-op on an invalid handle.
-	const Vector &GetAbsOrigin() const { return m_vecOrigin; }
+	const Vector& GetAbsOrigin() const { return m_vecOrigin; }
 
-	const QAngle &GetAbsAngles() const { return m_angAngles; }
+	const QAngle& GetAbsAngles() const { return m_angAngles; }
 
-	void SetAbsOrigin( const Vector &vecOrigin )
+	void SetAbsOrigin(const Vector& vecOrigin)
 	{
-		if ( m_vecOrigin == vecOrigin )
+		if (m_vecOrigin == vecOrigin)
 			return;
 
 		m_vecOrigin = vecOrigin;
 		RenderableMoved();
 	}
 
-	void SetAbsAngles( const QAngle &angAngles )
+	void SetAbsAngles(const QAngle& angAngles)
 	{
-		if ( m_angAngles == angAngles )
+		if (m_angAngles == angAngles)
 			return;
 
 		m_angAngles = angAngles;
@@ -82,11 +82,11 @@ public:
 	}
 
 	// Into and out of the leaf system. The guards are in shell_leaf_link.h.
-	void AddToLeafSystem( RenderGroup_t group ) { ShellLeaf_Add( ClientLeafSystem(), this, group ); }
+	void AddToLeafSystem(RenderGroup_t group) { ShellLeaf_Add(ClientLeafSystem(), this, group); }
 
 	void RemoveFromLeafSystem()
 	{
-		ShellLeaf_Remove( ClientLeafSystem(), this );
+		ShellLeaf_Remove(ClientLeafSystem(), this);
 
 		// RemoveRenderable returns early without resetting the handle when the
 		// index is not valid (it can happen at level shutdown); this makes the
@@ -100,22 +100,22 @@ public:
 	// client-only entity. Claimed, so two callers cannot both delete.
 	void Release()
 	{
-		if ( m_Destroy.Claim() )
+		if (m_Destroy.Claim())
 			delete this;
 	}
 
 	// IClientRenderable. ShouldDraw and IsTransparent stay pure: only the subclass
 	// can decide them.
 public:
-	virtual const Vector &GetRenderOrigin() OVERRIDE { return m_vecOrigin; }
+	virtual const Vector& GetRenderOrigin() OVERRIDE { return m_vecOrigin; }
 
-	virtual const QAngle &GetRenderAngles() OVERRIDE { return m_angAngles; }
+	virtual const QAngle& GetRenderAngles() OVERRIDE { return m_angAngles; }
 
-	virtual const matrix3x4_t &RenderableToWorldTransform() OVERRIDE
+	virtual const matrix3x4_t& RenderableToWorldTransform() OVERRIDE
 	{
 		// A member, not a function-local static: two of these drawn in one frame
 		// would otherwise share one matrix.
-		AngleMatrix( m_angAngles, m_vecOrigin, m_matRenderable );
+		AngleMatrix(m_angAngles, m_vecOrigin, m_matRenderable);
 		return m_matRenderable;
 	}
 
@@ -124,11 +124,11 @@ public:
 	// draw. This answers the model's sequence 0 at cycle 0 at the render origin,
 	// and the render transform in every slot the pose did not write. Defined in
 	// shell_legacy_tempents_client.cpp.
-	virtual bool SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime ) OVERRIDE;
+	virtual bool SetupBones(matrix3x4_t* pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime) OVERRIDE;
 
 protected:
 	// Tells the leaf system its copy of where this is is stale.
-	void RenderableMoved() { ShellLeaf_Moved( ClientLeafSystem(), this ); }
+	void RenderableMoved() { ShellLeaf_Moved(ClientLeafSystem(), this); }
 
 	Vector m_vecOrigin;
 	QAngle m_angAngles;
@@ -137,5 +137,5 @@ protected:
 	CTrailDestroyLatch<CShellRenderable> m_Destroy;
 
 private:
-	CShellRenderable( const CShellRenderable & ); // not defined, not accessible
+	CShellRenderable(const CShellRenderable&); // not defined, not accessible
 };

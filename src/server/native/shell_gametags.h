@@ -14,5 +14,5 @@
 class CServerGameTags final : public IServerGameTags
 {
 public:
-	void GetTaggedConVarList( KeyValues *pCvarTagList ) override;
+	void GetTaggedConVarList(KeyValues* pCvarTagList) override;
 };

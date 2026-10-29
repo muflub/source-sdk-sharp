@@ -504,7 +504,7 @@ enum ESteamInputType
 // All action handles should be queried during initialization for performance reasons
 typedef uint64 ControllerActionSetHandle_t;
 
-#pragma pack( push, 1 )
+#pragma pack(push, 1)
 
 #ifdef ISTEAMINPUT_H
 #define ControllerAnalogActionData_t InputAnalogActionData_t
@@ -552,7 +552,7 @@ struct ControllerMotionData_t
 	float rotVelZ;
 };
 #endif
-#pragma pack( pop )
+#pragma pack(pop)
 
 // Purpose: Steam Input API
 class ISteamController
@@ -679,4 +679,4 @@ public:
 
 #define STEAMCONTROLLER_INTERFACE_VERSION "SteamController008"
 
-STEAM_DEFINE_USER_INTERFACE_ACCESSOR( ISteamController *, SteamController, STEAMCONTROLLER_INTERFACE_VERSION );
+STEAM_DEFINE_USER_INTERFACE_ACCESSOR(ISteamController*, SteamController, STEAMCONTROLLER_INTERFACE_VERSION);

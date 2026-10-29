@@ -19,57 +19,57 @@
 class CFakeCollideable : public ICollideable
 {
 public:
-	IHandleEntity *GetEntityHandle() override { return {}; }
+	IHandleEntity* GetEntityHandle() override { return {}; }
 
-	const Vector &OBBMinsPreScaled() const override
+	const Vector& OBBMinsPreScaled() const override
 	{
-		static std::remove_cv_t<std::remove_reference_t<const Vector &>> s_Default;
+		static std::remove_cv_t<std::remove_reference_t<const Vector&>> s_Default;
 		return s_Default;
 	}
 
-	const Vector &OBBMaxsPreScaled() const override
+	const Vector& OBBMaxsPreScaled() const override
 	{
-		static std::remove_cv_t<std::remove_reference_t<const Vector &>> s_Default;
+		static std::remove_cv_t<std::remove_reference_t<const Vector&>> s_Default;
 		return s_Default;
 	}
 
-	const Vector &OBBMins() const override
+	const Vector& OBBMins() const override
 	{
-		static std::remove_cv_t<std::remove_reference_t<const Vector &>> s_Default;
+		static std::remove_cv_t<std::remove_reference_t<const Vector&>> s_Default;
 		return s_Default;
 	}
 
-	const Vector &OBBMaxs() const override
+	const Vector& OBBMaxs() const override
 	{
-		static std::remove_cv_t<std::remove_reference_t<const Vector &>> s_Default;
+		static std::remove_cv_t<std::remove_reference_t<const Vector&>> s_Default;
 		return s_Default;
 	}
 
-	void WorldSpaceTriggerBounds( Vector *pVecWorldMins, Vector *pVecWorldMaxs ) const override {}
+	void WorldSpaceTriggerBounds(Vector* pVecWorldMins, Vector* pVecWorldMaxs) const override {}
 
-	bool TestCollision( const Ray_t &ray, unsigned int fContentsMask, trace_t &tr ) override { return {}; }
+	bool TestCollision(const Ray_t& ray, unsigned int fContentsMask, trace_t& tr) override { return {}; }
 
-	bool TestHitboxes( const Ray_t &ray, unsigned int fContentsMask, trace_t &tr ) override { return {}; }
+	bool TestHitboxes(const Ray_t& ray, unsigned int fContentsMask, trace_t& tr) override { return {}; }
 
 	int GetCollisionModelIndex() override { return {}; }
 
-	const model_t *GetCollisionModel() override { return {}; }
+	const model_t* GetCollisionModel() override { return {}; }
 
-	const Vector &GetCollisionOrigin() const override
+	const Vector& GetCollisionOrigin() const override
 	{
-		static std::remove_cv_t<std::remove_reference_t<const Vector &>> s_Default;
+		static std::remove_cv_t<std::remove_reference_t<const Vector&>> s_Default;
 		return s_Default;
 	}
 
-	const QAngle &GetCollisionAngles() const override
+	const QAngle& GetCollisionAngles() const override
 	{
-		static std::remove_cv_t<std::remove_reference_t<const QAngle &>> s_Default;
+		static std::remove_cv_t<std::remove_reference_t<const QAngle&>> s_Default;
 		return s_Default;
 	}
 
-	const matrix3x4_t &CollisionToWorldTransform() const override
+	const matrix3x4_t& CollisionToWorldTransform() const override
 	{
-		static std::remove_cv_t<std::remove_reference_t<const matrix3x4_t &>> s_Default;
+		static std::remove_cv_t<std::remove_reference_t<const matrix3x4_t&>> s_Default;
 		return s_Default;
 	}
 
@@ -77,13 +77,13 @@ public:
 
 	int GetSolidFlags() const override { return {}; }
 
-	IClientUnknown *GetIClientUnknown() override { return {}; }
+	IClientUnknown* GetIClientUnknown() override { return {}; }
 
 	int GetCollisionGroup() const override { return {}; }
 
-	void WorldSpaceSurroundingBounds( Vector *pVecMins, Vector *pVecMaxs ) override {}
+	void WorldSpaceSurroundingBounds(Vector* pVecMins, Vector* pVecMaxs) override {}
 
-	bool ShouldTouchTrigger( int triggerSolidFlags ) const override { return {}; }
+	bool ShouldTouchTrigger(int triggerSolidFlags) const override { return {}; }
 
-	const matrix3x4_t *GetRootParentToWorldTransform() const override { return {}; }
+	const matrix3x4_t* GetRootParentToWorldTransform() const override { return {}; }
 };

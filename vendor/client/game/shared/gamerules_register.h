@@ -7,14 +7,14 @@
 class CGameRulesRegister
 {
 public:
-	typedef void ( *CreateGameRulesFn )();
+	typedef void (*CreateGameRulesFn)();
 
-	CGameRulesRegister( const char *pClassName, CreateGameRulesFn fn );
+	CGameRulesRegister(const char* pClassName, CreateGameRulesFn fn);
 
 private:
-	const char *m_pClassName;
+	const char* m_pClassName;
 	CreateGameRulesFn m_pFn;
-	CGameRulesRegister *m_pNext; // Links it into the global list.
+	CGameRulesRegister* m_pNext; // Links it into the global list.
 };
 
 // The client forwards this call so the game rules manager can create the appropriate

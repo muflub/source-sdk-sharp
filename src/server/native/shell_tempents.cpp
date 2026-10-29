@@ -20,32 +20,32 @@
 #include "shell_tempents_store.h"
 #include "tier0/dbg.h"
 
-const char *CServerTempEnts::InternName( const char *pName )
+const char* CServerTempEnts::InternName(const char* pName)
 {
-	return m_Names.emplace( pName ).first->c_str();
+	return m_Names.emplace(pName).first->c_str();
 }
 
-SendTable *CServerTempEnts::BuiltTable( int i ) const
+SendTable* CServerTempEnts::BuiltTable(int i) const
 {
-	return ( i >= 0 && i < m_nBuilt ) ? m_Built[i].pTable : NULL;
+	return (i >= 0 && i < m_nBuilt) ? m_Built[i].pTable : NULL;
 }
 
-ServerClass *CServerTempEnts::BuiltClass( int i ) const
+ServerClass* CServerTempEnts::BuiltClass(int i) const
 {
-	return ( i >= 0 && i < m_nBuilt ) ? m_Built[i].pClass : NULL;
+	return (i >= 0 && i < m_nBuilt) ? m_Built[i].pClass : NULL;
 }
 
-int32_t CServerTempEnts::TempEntBuild( const void *pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t *pOut )
+int32_t CServerTempEnts::TempEntBuild(const void* pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t* pOut)
 {
 	SourceSharpTeTableBlock_t block;
-	if ( !pOut || !SourceSharpTe_ReadTableBlock( pBlock, nBlockBytes, &block ) )
+	if (!pOut || !SourceSharpTe_ReadTableBlock(pBlock, nBlockBytes, &block))
 		return -1;
 
 	// A class built by an earlier load answers its table: the engine walked the class
 	// list once, so a managed reload cannot add tables.
-	for ( int i = 0; i < m_nBuilt; i++ )
+	for (int i = 0; i < m_nBuilt; i++)
 	{
-		if ( strcmp( m_Built[i].pClassName, block.pClassName ) )
+		if (strcmp(m_Built[i].pClassName, block.pClassName))
 			continue;
 
 		pOut->bExisted = 1;
@@ -56,21 +56,20 @@ int32_t CServerTempEnts::TempEntBuild( const void *pBlock, int32_t nBlockBytes, 
 	}
 
 	// A ServerClass built after the engine's one walk of the class list is never seen.
-	if ( m_bClosed || m_nBuilt >= SOURCESHARP_TE_MAX_TABLES )
+	if (m_bClosed || m_nBuilt >= SOURCESHARP_TE_MAX_TABLES)
 		return -1;
 
 	const int nProps = block.header.nProps;
-	SendProp *pProps = new SendProp[nProps > 0 ? nProps : 1];
+	SendProp* pProps = new SendProp[nProps > 0 ? nProps : 1];
 
-	for ( int i = 0; i < nProps; i++ )
+	for (int i = 0; i < nProps; i++)
 	{
-		const SourceSharpSendPropRow_t row = SourceSharpTe_BlockRow( block, i );
-		const char *pName = SourceSharpTe_BlockName( block, row.oName );
+		const SourceSharpSendPropRow_t row = SourceSharpTe_BlockRow(block, i);
+		const char* pName = SourceSharpTe_BlockName(block, row.oName);
 
-		SendTable *pNested =
-			( row.hDataTable >= 0 && row.hDataTable < m_nBuilt ) ? m_Built[row.hDataTable].pTable : NULL;
+		SendTable* pNested = (row.hDataTable >= 0 && row.hDataTable < m_nBuilt) ? m_Built[row.hDataTable].pTable : NULL;
 
-		if ( !pName || !SourceSharpTe_StoreProp( row, InternName( pName ), pNested, &pProps[i] ) )
+		if (!pName || !SourceSharpTe_StoreProp(row, InternName(pName), pNested, &pProps[i]))
 		{
 			delete[] pProps;
 			return -1;
@@ -78,14 +77,14 @@ int32_t CServerTempEnts::TempEntBuild( const void *pBlock, int32_t nBlockBytes, 
 	}
 
 	const int iHandle = m_nBuilt;
-	SourceSharpTeBuilt_t &built = m_Built[iHandle];
+	SourceSharpTeBuilt_t& built = m_Built[iHandle];
 
 	built.pProps = pProps;
 	built.nProps = nProps;
-	built.pTable = new SendTable( pProps, nProps, InternName( block.pTableName ) );
-	built.pClassName = InternName( block.pClassName );
+	built.pTable = new SendTable(pProps, nProps, InternName(block.pTableName));
+	built.pClassName = InternName(block.pClassName);
 	built.nShapeHash = block.header.nShapeHash;
-	built.pClass = block.header.bRegisterClass ? new ServerClass( built.pClassName, built.pTable ) : NULL;
+	built.pClass = block.header.bRegisterClass ? new ServerClass(built.pClassName, built.pTable) : NULL;
 	m_nBuilt = iHandle + 1;
 
 	pOut->bExisted = 0;
@@ -97,32 +96,32 @@ int32_t CServerTempEnts::TempEntBuild( const void *pBlock, int32_t nBlockBytes, 
 
 void CServerTempEnts::CloseRegistration()
 {
-	if ( m_bClosed )
+	if (m_bClosed)
 		return;
 
 	m_bClosed = true;
 
 	int nClasses = 0;
 
-	for ( int i = 0; i < m_nBuilt; i++ )
+	for (int i = 0; i < m_nBuilt; i++)
 	{
-		if ( m_Built[i].pClass )
+		if (m_Built[i].pClass)
 			nClasses++;
 	}
 
-	Msg( "[SourceSharp] temp entities: %d table(s), %d ServerClass(es); "
-		 "registration closed\n",
-		 m_nBuilt, nClasses );
+	Msg("[SourceSharp] temp entities: %d table(s), %d ServerClass(es); "
+		"registration closed\n",
+		m_nBuilt, nClasses);
 }
 
-bool CServerTempEnts::IsTempEntServerClass( const ServerClass *pClass ) const
+bool CServerTempEnts::IsTempEntServerClass(const ServerClass* pClass) const
 {
-	if ( pClass == NULL )
+	if (pClass == NULL)
 		return false;
 
-	for ( int i = 0; i < m_nBuilt; i++ )
+	for (int i = 0; i < m_nBuilt; i++)
 	{
-		if ( m_Built[i].pClass == pClass )
+		if (m_Built[i].pClass == pClass)
 			return true;
 	}
 

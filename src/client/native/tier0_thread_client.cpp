@@ -12,7 +12,7 @@
 #include "ss_platform.h"
 #ifdef _MSC_VER
 // Defines functions the engine headers declare dllimport (C4273).
-#pragma warning( disable : 4273 )
+#pragma warning(disable : 4273)
 #endif
 
 namespace
@@ -32,5 +32,5 @@ double Plat_FloatTime()
 }
 
 // Binds this module's calls through the import pointers to the definitions above.
-SS_BIND_IMPORT( ThreadInMainThread )
-SS_BIND_IMPORT( Plat_FloatTime )
+SS_BIND_IMPORT(ThreadInMainThread)
+SS_BIND_IMPORT(Plat_FloatTime)

@@ -13,19 +13,19 @@ public:
 	virtual ~INetChannel(){};
 
 	virtual void unused_SetDataRate() = 0;
-	virtual bool RegisterMessage( INetMessage * msg ) = 0;
+	virtual bool RegisterMessage(INetMessage * msg) = 0;
 	virtual void unused_SetTimeout() = 0;
 	virtual void unused_SetDemoRecorder() = 0;
 	virtual void unused_SetChallengeNr() = 0;
 
 	virtual void Reset() = 0;
 	virtual void Clear() = 0;
-	virtual void Shutdown( const char *reason ) = 0;
+	virtual void Shutdown(const char* reason) = 0;
 
 	virtual void unused_ProcessPlayback() = 0;
 	virtual void unused_ProcessPacket() = 0;
 
-	virtual bool SendNetMsg( INetMessage & msg, bool bForceReliable = false, bool bVoice = false ) = 0;
+	virtual bool SendNetMsg(INetMessage & msg, bool bForceReliable = false, bool bVoice = false) = 0;
 	virtual void unused_SendData() = 0;
 	virtual void unused_SendFile() = 0;
 	virtual void unused_DenyFile() = 0;

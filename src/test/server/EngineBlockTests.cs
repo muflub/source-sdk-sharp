@@ -603,7 +603,7 @@ public class EngineBlockTests
                      - EngineBlock.NativeStructs.Count;
 
         Assert.Equal(expected,
-                     header.Split("static_assert( offsetof(").Length - 1);
+                     header.Split("static_assert(offsetof(").Length - 1);
     }
 
     [Fact]

@@ -49,7 +49,7 @@
 #include <string>
 #include <vector>
 
-int MapEntity_GetNumKeysInEntity( const char *pEntData );
+int MapEntity_GetNumKeysInEntity(const char* pEntData);
 
 namespace
 {
@@ -62,15 +62,15 @@ namespace
 //-----------------------------------------------------------------------------
 std::string FindCases()
 {
-	const char *kRelative = "sourcesharp/test/map_entity_block_cases.txt";
+	const char* kRelative = "sourcesharp/test/map_entity_block_cases.txt";
 	std::string prefix;
 
-	for ( int i = 0; i < 8; i++ )
+	for (int i = 0; i < 8; i++)
 	{
 		std::string candidate = prefix + kRelative;
-		if ( FILE *f = fopen( candidate.c_str(), "r" ) )
+		if (FILE* f = fopen(candidate.c_str(), "r"))
 		{
-			fclose( f );
+			fclose(f);
 			return candidate;
 		}
 		prefix += "../";
@@ -86,18 +86,18 @@ std::string FindCases()
 //   \n newline   \t tab   \q "   \e 0x1b (VMF_IOPARAM_STRING_DELIMITER)
 //   \s ~ (the stream separator)   \\ backslash
 //-----------------------------------------------------------------------------
-std::string Unescape( const std::string &in )
+std::string Unescape(const std::string& in)
 {
 	std::string out;
-	for ( size_t i = 0; i < in.size(); i++ )
+	for (size_t i = 0; i < in.size(); i++)
 	{
-		if ( in[i] != '\\' || i + 1 >= in.size() )
+		if (in[i] != '\\' || i + 1 >= in.size())
 		{
 			out += in[i];
 			continue;
 		}
 
-		switch ( in[++i] )
+		switch (in[++i])
 		{
 			case 'n':
 				out += '\n';
@@ -125,12 +125,12 @@ std::string Unescape( const std::string &in )
 	return out;
 }
 
-std::string Escape( const std::string &in )
+std::string Escape(const std::string& in)
 {
 	std::string out;
-	for ( size_t i = 0; i < in.size(); i++ )
+	for (size_t i = 0; i < in.size(); i++)
 	{
-		switch ( in[i] )
+		switch (in[i])
 		{
 			case '\n':
 				out += "\\n";
@@ -158,21 +158,21 @@ std::string Escape( const std::string &in )
 	return out;
 }
 
-std::vector<std::string> Split( const std::string &line, char sep )
+std::vector<std::string> Split(const std::string& line, char sep)
 {
 	std::vector<std::string> out;
 	std::string cur;
-	for ( char c : line )
+	for (char c : line)
 	{
-		if ( c == sep )
+		if (c == sep)
 		{
-			out.push_back( cur );
+			out.push_back(cur);
 			cur.clear();
 			continue;
 		}
 		cur += c;
 	}
-	out.push_back( cur );
+	out.push_back(cur);
 	return out;
 }
 
@@ -186,7 +186,7 @@ struct Row
 	// every editor does, so a missing trailing field reads as "" rather than
 	// running off the end. Anything the row genuinely has to carry is asserted
 	// by arity before this is used.
-	const std::string &At( size_t i ) const
+	const std::string& At(size_t i) const
 	{
 		static const std::string kEmpty;
 		return i < field.size() ? field[i] : kEmpty;
@@ -197,42 +197,42 @@ std::vector<Row> LoadRows()
 {
 	std::vector<Row> rows;
 	const std::string path = FindCases();
-	if ( path.empty() )
+	if (path.empty())
 		return rows;
 
-	FILE *f = fopen( path.c_str(), "r" );
-	if ( !f )
+	FILE* f = fopen(path.c_str(), "r");
+	if (!f)
 		return rows;
 
 	char buf[8192];
 	int lineNo = 0;
-	while ( fgets( buf, sizeof( buf ), f ) )
+	while (fgets(buf, sizeof(buf), f))
 	{
 		lineNo++;
-		std::string line( buf );
-		while ( !line.empty() && ( line.back() == '\n' || line.back() == '\r' ) )
+		std::string line(buf);
+		while (!line.empty() && (line.back() == '\n' || line.back() == '\r'))
 			line.pop_back();
 
-		if ( line.empty() || line[0] == '#' )
+		if (line.empty() || line[0] == '#')
 			continue;
 
-		std::vector<std::string> parts = Split( line, '\t' );
+		std::vector<std::string> parts = Split(line, '\t');
 		Row row;
 		row.kind = parts[0];
 		row.line = lineNo;
-		for ( size_t i = 1; i < parts.size(); i++ )
-			row.field.push_back( Unescape( parts[i] ) );
+		for (size_t i = 1; i < parts.size(); i++)
+			row.field.push_back(Unescape(parts[i]));
 
-		rows.push_back( row );
+		rows.push_back(row);
 	}
 
-	fclose( f );
+	fclose(f);
 	return rows;
 }
 
 bool Emitting()
 {
-	const char *p = getenv( "SOURCESHARP_EMIT_CASES" );
+	const char* p = getenv("SOURCESHARP_EMIT_CASES");
 	return p && p[0] && p[0] != '0';
 }
 
@@ -241,7 +241,7 @@ bool Emitting()
 //-----------------------------------------------------------------------------
 
 // Every token the tokeniser produces, in order, up to end of data.
-std::string TokenStream( const std::string &block )
+std::string TokenStream(const std::string& block)
 {
 	char token[MAPKEY_MAXLENGTH];
 
@@ -252,24 +252,24 @@ std::string TokenStream( const std::string &block )
 	// held the start of another row's text ("no closing quote~_relay\"~}").
 	// A second terminator makes that byte the end of the data on every
 	// platform, which is what the row records.
-	std::vector<char> data( block.begin(), block.end() );
-	data.push_back( '\0' );
-	data.push_back( '\0' );
-	const char *at = data.data();
+	std::vector<char> data(block.begin(), block.end());
+	data.push_back('\0');
+	data.push_back('\0');
+	const char* at = data.data();
 	std::string out;
 	int guard = 0;
 
-	while ( at && guard++ < 512 )
+	while (at && guard++ < 512)
 	{
-		at = MapEntity_ParseToken( at, token );
-		if ( !at && token[0] == 0 )
+		at = MapEntity_ParseToken(at, token);
+		if (!at && token[0] == 0)
 			break;
 
-		if ( !out.empty() )
+		if (!out.empty())
 			out += '~';
 		out += token;
 
-		if ( !at )
+		if (!at)
 			break;
 	}
 
@@ -277,23 +277,23 @@ std::string TokenStream( const std::string &block )
 }
 
 // Every key/value pair a walk produces, as "key=value".
-std::string WalkStream( CEntityMapData &data )
+std::string WalkStream(CEntityMapData& data)
 {
 	char keyName[MAPKEY_MAXLENGTH];
 	char value[MAPKEY_MAXLENGTH];
 	std::string out;
 
-	if ( !data.GetFirstKey( keyName, value ) )
+	if (!data.GetFirstKey(keyName, value))
 		return out;
 
 	do
 	{
-		if ( !out.empty() )
+		if (!out.empty())
 			out += '~';
 		out += keyName;
 		out += '=';
 		out += value;
-	} while ( data.GetNextKey( keyName, value ) );
+	} while (data.GetNextKey(keyName, value));
 
 	return out;
 }
@@ -302,14 +302,14 @@ std::string WalkStream( CEntityMapData &data )
 
 //-----------------------------------------------------------------------------
 
-TEST( MapEntityBlock, TheTableIsThere )
+TEST(MapEntityBlock, TheTableIsThere)
 {
-	ASSERT_FALSE( FindCases().empty() ) << "sourcesharp/test/map_entity_block_cases.txt not found from the cwd. "
-										   "The table is the record; without it neither side of the agreement "
-										   "is checked.";
+	ASSERT_FALSE(FindCases().empty()) << "sourcesharp/test/map_entity_block_cases.txt not found from the cwd. "
+										 "The table is the record; without it neither side of the agreement "
+										 "is checked.";
 
-	EXPECT_GE( LoadRows().size(), 20u ) << "the table has lost rows -- it is the only record of what native "
-										   "answers for these blocks.";
+	EXPECT_GE(LoadRows().size(), 20u) << "the table has lost rows -- it is the only record of what native "
+										 "answers for these blocks.";
 }
 
 //-----------------------------------------------------------------------------
@@ -330,35 +330,35 @@ TEST( MapEntityBlock, TheTableIsThere )
 // value this table can carry; what the row is recording is WHICH BLOCK, and the
 // blocks either side of it are the point.
 //-----------------------------------------------------------------------------
-std::string SpawnOrder( const std::string &lump )
+std::string SpawnOrder(const std::string& lump)
 {
 	std::string out;
 
-	const char *pMapData = lump.c_str();
+	const char* pMapData = lump.c_str();
 	char work[MAPKEY_MAXLENGTH];
 
-	for ( ; true; pMapData = MapEntity_SkipToNextEntity( pMapData, work ) )
+	for (; true; pMapData = MapEntity_SkipToNextEntity(pMapData, work))
 	{
-		if ( !pMapData )
+		if (!pMapData)
 			break;
 
 		char token[MAPKEY_MAXLENGTH];
-		pMapData = MapEntity_ParseToken( pMapData, token );
+		pMapData = MapEntity_ParseToken(pMapData, token);
 
-		if ( !pMapData )
+		if (!pMapData)
 			break;
 
 		// Stock Error()s here and then continues, which cannot both happen.
 		// Stopping is the half that is reachable, and it is what the managed
 		// splitter does.
-		if ( token[0] != '{' || token[1] != 0 )
+		if (token[0] != '{' || token[1] != 0)
 			break;
 
 		char className[MAPKEY_MAXLENGTH];
-		if ( !MapEntity_ExtractValue( pMapData, "classname", className ) )
-			strcpy( className, "?" );
+		if (!MapEntity_ExtractValue(pMapData, "classname", className))
+			strcpy(className, "?");
 
-		if ( !out.empty() )
+		if (!out.empty())
 			out += '~';
 		out += className;
 	}
@@ -366,114 +366,113 @@ std::string SpawnOrder( const std::string &lump )
 	return out;
 }
 
-TEST( MapEntityBlock, EveryTokenRowIsWhatTheRealTokeniserProduces )
+TEST(MapEntityBlock, EveryTokenRowIsWhatTheRealTokeniserProduces)
 {
 	int checked = 0;
 
-	for ( const Row &row : LoadRows() )
+	for (const Row& row : LoadRows())
 	{
-		if ( row.kind != "tokens" )
+		if (row.kind != "tokens")
 			continue;
 
-		ASSERT_GE( row.field.size(), 2u ) << "line " << row.line;
+		ASSERT_GE(row.field.size(), 2u) << "line " << row.line;
 
-		const std::string got = TokenStream( row.At( 1 ) );
+		const std::string got = TokenStream(row.At(1));
 
-		if ( Emitting() )
-			printf( "tokens\t%s\t%s\t%s\n", row.At( 0 ).c_str(), Escape( row.At( 1 ) ).c_str(), Escape( got ).c_str() );
+		if (Emitting())
+			printf("tokens\t%s\t%s\t%s\n", row.At(0).c_str(), Escape(row.At(1)).c_str(), Escape(got).c_str());
 
-		EXPECT_EQ( got, row.At( 2 ) ) << "row '" << row.At( 0 ) << "' (line " << row.line
-									  << ") no longer "
-										 "describes MapEntity_ParseToken.";
+		EXPECT_EQ(got, row.At(2)) << "row '" << row.At(0) << "' (line " << row.line
+								  << ") no longer "
+									 "describes MapEntity_ParseToken.";
 		checked++;
 	}
 
-	EXPECT_GT( checked, 0 ) << "no token rows ran";
+	EXPECT_GT(checked, 0) << "no token rows ran";
 }
 
-TEST( MapEntityBlock, EveryKeyCountRowIsWhatTheRealCounterProduces )
+TEST(MapEntityBlock, EveryKeyCountRowIsWhatTheRealCounterProduces)
 {
 	int checked = 0;
 
-	for ( const Row &row : LoadRows() )
+	for (const Row& row : LoadRows())
 	{
-		if ( row.kind != "keys" )
+		if (row.kind != "keys")
 			continue;
 
-		ASSERT_GE( row.field.size(), 3u ) << "line " << row.line;
+		ASSERT_GE(row.field.size(), 3u) << "line " << row.line;
 
-		const int got = MapEntity_GetNumKeysInEntity( row.At( 1 ).c_str() );
+		const int got = MapEntity_GetNumKeysInEntity(row.At(1).c_str());
 
-		if ( Emitting() )
-			printf( "keys\t%s\t%s\t%d\n", row.At( 0 ).c_str(), Escape( row.At( 1 ) ).c_str(), got );
+		if (Emitting())
+			printf("keys\t%s\t%s\t%d\n", row.At(0).c_str(), Escape(row.At(1)).c_str(), got);
 
-		EXPECT_EQ( got, atoi( row.At( 2 ).c_str() ) ) << "row '" << row.At( 0 ) << "' (line " << row.line
-													  << ") no longer "
-														 "describes MapEntity_GetNumKeysInEntity.";
+		EXPECT_EQ(got, atoi(row.At(2).c_str())) << "row '" << row.At(0) << "' (line " << row.line
+												<< ") no longer "
+												   "describes MapEntity_GetNumKeysInEntity.";
 		checked++;
 	}
 
-	EXPECT_GT( checked, 0 ) << "no key-count rows ran";
+	EXPECT_GT(checked, 0) << "no key-count rows ran";
 }
 
-TEST( MapEntityBlock, EveryExtractRowIsWhatTheRealExtractorProduces )
+TEST(MapEntityBlock, EveryExtractRowIsWhatTheRealExtractorProduces)
 {
 	int checked = 0;
 
-	for ( const Row &row : LoadRows() )
+	for (const Row& row : LoadRows())
 	{
-		if ( row.kind != "extract" )
+		if (row.kind != "extract")
 			continue;
 
-		ASSERT_GE( row.field.size(), 4u ) << "line " << row.line;
+		ASSERT_GE(row.field.size(), 4u) << "line " << row.line;
 
 		char value[MAPKEY_MAXLENGTH];
 		value[0] = 0;
-		const bool found = MapEntity_ExtractValue( row.At( 1 ).c_str(), row.At( 2 ).c_str(), value );
+		const bool found = MapEntity_ExtractValue(row.At(1).c_str(), row.At(2).c_str(), value);
 
-		if ( Emitting() )
-			printf( "extract\t%s\t%s\t%s\t%d\t%s\n", row.At( 0 ).c_str(), Escape( row.At( 1 ) ).c_str(),
-					Escape( row.At( 2 ) ).c_str(), found ? 1 : 0, Escape( found ? value : "" ).c_str() );
+		if (Emitting())
+			printf("extract\t%s\t%s\t%s\t%d\t%s\n", row.At(0).c_str(), Escape(row.At(1)).c_str(),
+				   Escape(row.At(2)).c_str(), found ? 1 : 0, Escape(found ? value : "").c_str());
 
-		EXPECT_EQ( found ? 1 : 0, atoi( row.At( 3 ).c_str() ) )
-			<< "row '" << row.At( 0 ) << "' (line " << row.line << ")";
-		if ( found )
+		EXPECT_EQ(found ? 1 : 0, atoi(row.At(3).c_str())) << "row '" << row.At(0) << "' (line " << row.line << ")";
+		if (found)
 		{
-			EXPECT_EQ( std::string( value ), row.At( 4 ) ) << "row '" << row.At( 0 ) << "' (line " << row.line << ")";
+			EXPECT_EQ(std::string(value), row.At(4)) << "row '" << row.At(0) << "' (line " << row.line << ")";
 		}
 		checked++;
 	}
 
-	EXPECT_GT( checked, 0 ) << "no extract rows ran";
+	EXPECT_GT(checked, 0) << "no extract rows ran";
 }
 
-TEST( MapEntityBlock, EveryWalkRowIsWhatTheRealCursorProduces )
+TEST(MapEntityBlock, EveryWalkRowIsWhatTheRealCursorProduces)
 {
 	int checked = 0;
 
-	for ( const Row &row : LoadRows() )
+	for (const Row& row : LoadRows())
 	{
-		if ( row.kind != "walk" )
+		if (row.kind != "walk")
 			continue;
 
-		ASSERT_GE( row.field.size(), 2u ) << "line " << row.line;
+		ASSERT_GE(row.field.size(), 2u) << "line " << row.line;
 
-		std::vector<char> buf( row.At( 1 ).begin(), row.At( 1 ).end() );
-		buf.push_back( 0 );
+		std::vector<char> buf(row.At(1).begin(), row.At(1).end());
+		buf.push_back(0);
 
-		CEntityMapData data( buf.data(), (int)buf.size() );
-		const std::string got = WalkStream( data );
+		CEntityMapData data(buf.data(), (int)buf.size());
+		const std::string got = WalkStream(data);
 
-		if ( Emitting() )
-			printf( "walk\t%s\t%s\t%s\n", row.At( 0 ).c_str(), Escape( row.At( 1 ) ).c_str(), Escape( got ).c_str() );
+		if (Emitting())
+			printf("walk\t%s\t%s\t%s\n", row.At(0).c_str(), Escape(row.At(1)).c_str(), Escape(got).c_str());
 
-		EXPECT_EQ( got, row.At( 2 ) ) << "row '" << row.At( 0 ) << "' (line " << row.line
-									  << ") no longer "
-										 "describes CEntityMapData::GetFirstKey/GetNextKey.";
+		EXPECT_EQ(got, row.At(2)) << "row '" << row.At(0) << "' (line " << row.line
+								  << ") no longer "
+									 "describes CEntityMapData::GetFirstKey/GetNextKey.";
 		checked++;
 	}
 
-	EXPECT_GT( checked, 0 ) << "no walk rows ran";
+	EXPECT_GT(checked, 0) << "no walk rows ran";
 }
 
 //-----------------------------------------------------------------------------
@@ -487,98 +486,96 @@ TEST( MapEntityBlock, EveryWalkRowIsWhatTheRealCursorProduces )
 //
 // So the row records the text AND the keys the walk still produces afterwards.
 //-----------------------------------------------------------------------------
-TEST( MapEntityBlock, EveryRewriteRowIsWhatTheRealSetValueProduces )
+TEST(MapEntityBlock, EveryRewriteRowIsWhatTheRealSetValueProduces)
 {
 	int checked = 0;
 
-	for ( const Row &row : LoadRows() )
+	for (const Row& row : LoadRows())
 	{
-		if ( row.kind != "walkset" )
+		if (row.kind != "walkset")
 			continue;
 
-		ASSERT_GE( row.field.size(), 6u ) << "line " << row.line;
+		ASSERT_GE(row.field.size(), 6u) << "line " << row.line;
 
-		const int capacity = atoi( row.At( 2 ).c_str() );
-		std::vector<char> buf( (size_t)capacity, 0 );
-		memcpy( buf.data(), row.At( 1 ).data(), (std::min)( (size_t)capacity - 1, row.At( 1 ).size() ) );
+		const int capacity = atoi(row.At(2).c_str());
+		std::vector<char> buf((size_t)capacity, 0);
+		memcpy(buf.data(), row.At(1).data(), (std::min)((size_t)capacity - 1, row.At(1).size()));
 
-		CEntityMapData data( buf.data(), capacity );
+		CEntityMapData data(buf.data(), capacity);
 
-		const std::string atKey = row.At( 3 );
-		const std::string newValue = row.At( 4 );
+		const std::string atKey = row.At(3);
+		const std::string newValue = row.At(4);
 
 		char keyName[MAPKEY_MAXLENGTH];
 		char value[MAPKEY_MAXLENGTH];
 		std::string rest;
 		int instances = 0;
 
-		if ( data.GetFirstKey( keyName, value ) )
+		if (data.GetFirstKey(keyName, value))
 		{
 			do
 			{
-				if ( atKey == keyName )
+				if (atKey == keyName)
 				{
 					char mutableValue[MAPKEY_MAXLENGTH];
-					strncpy( mutableValue, newValue.c_str(), sizeof( mutableValue ) - 1 );
-					mutableValue[sizeof( mutableValue ) - 1] = 0;
-					data.SetValue( keyName, mutableValue, instances );
+					strncpy(mutableValue, newValue.c_str(), sizeof(mutableValue) - 1);
+					mutableValue[sizeof(mutableValue) - 1] = 0;
+					data.SetValue(keyName, mutableValue, instances);
 					instances++;
 					continue;
 				}
 
-				if ( !rest.empty() )
+				if (!rest.empty())
 					rest += '~';
 				rest += keyName;
 				rest += '=';
 				rest += value;
-			} while ( data.GetNextKey( keyName, value ) );
+			} while (data.GetNextKey(keyName, value));
 		}
 
-		const std::string text( buf.data() );
+		const std::string text(buf.data());
 
-		if ( Emitting() )
-			printf( "walkset\t%s\t%s\t%d\t%s\t%s\t%s\t%s\n", row.At( 0 ).c_str(), Escape( row.At( 1 ) ).c_str(),
-					capacity, Escape( atKey ).c_str(), Escape( newValue ).c_str(), Escape( rest ).c_str(),
-					Escape( text ).c_str() );
+		if (Emitting())
+			printf("walkset\t%s\t%s\t%d\t%s\t%s\t%s\t%s\n", row.At(0).c_str(), Escape(row.At(1)).c_str(), capacity,
+				   Escape(atKey).c_str(), Escape(newValue).c_str(), Escape(rest).c_str(), Escape(text).c_str());
 
-		EXPECT_EQ( rest, row.At( 5 ) ) << "row '" << row.At( 0 ) << "' (line " << row.line
-									   << "): the keys "
-										  "the walk produces after the rewrite changed -- that is the cursor "
-										  "adjustment, and it is what the reconnect pass rides on.";
-		EXPECT_EQ( text, row.At( 6 ) ) << "row '" << row.At( 0 ) << "' (line " << row.line
-									   << "): the "
-										  "rewritten text changed.";
+		EXPECT_EQ(rest, row.At(5)) << "row '" << row.At(0) << "' (line " << row.line
+								   << "): the keys "
+									  "the walk produces after the rewrite changed -- that is the cursor "
+									  "adjustment, and it is what the reconnect pass rides on.";
+		EXPECT_EQ(text, row.At(6)) << "row '" << row.At(0) << "' (line " << row.line
+								   << "): the "
+									  "rewritten text changed.";
 		checked++;
 	}
 
-	EXPECT_GT( checked, 0 ) << "no rewrite rows ran";
+	EXPECT_GT(checked, 0) << "no rewrite rows ran";
 }
 
 //-----------------------------------------------------------------------------
 // The order rows. See SpawnOrder above for what they are.
 //-----------------------------------------------------------------------------
-TEST( MapEntityBlock, EverySpawnOrderRowIsWhatTheRealParseLoopProduces )
+TEST(MapEntityBlock, EverySpawnOrderRowIsWhatTheRealParseLoopProduces)
 {
 	int checked = 0;
 
-	for ( const Row &row : LoadRows() )
+	for (const Row& row : LoadRows())
 	{
-		if ( row.kind != "spawnorder" )
+		if (row.kind != "spawnorder")
 			continue;
 
-		ASSERT_GE( row.field.size(), 2u ) << "line " << row.line;
+		ASSERT_GE(row.field.size(), 2u) << "line " << row.line;
 
-		const std::string got = SpawnOrder( row.At( 1 ) );
+		const std::string got = SpawnOrder(row.At(1));
 
-		if ( Emitting() )
-			printf( "spawnorder\t%s\t%s\t%s\n", row.At( 0 ).c_str(), Escape( row.At( 1 ) ).c_str(),
-					Escape( got ).c_str() );
+		if (Emitting())
+			printf("spawnorder\t%s\t%s\t%s\n", row.At(0).c_str(), Escape(row.At(1)).c_str(), Escape(got).c_str());
 
-		EXPECT_EQ( got, row.At( 2 ) ) << "row '" << row.At( 0 ) << "' (line " << row.line
-									  << ") no longer "
-										 "describes the block walk MapEntity_ParseAllEntities makes.";
+		EXPECT_EQ(got, row.At(2)) << "row '" << row.At(0) << "' (line " << row.line
+								  << ") no longer "
+									 "describes the block walk MapEntity_ParseAllEntities makes.";
 		checked++;
 	}
 
-	EXPECT_GT( checked, 0 ) << "no spawn-order rows ran";
+	EXPECT_GT(checked, 0) << "no spawn-order rows ran";
 }

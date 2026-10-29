@@ -30,11 +30,11 @@ int ScreenHeight();
 // ScreenWidth returns the width of the screen, in pixels
 int ScreenWidth();
 
-void UTIL_Smoke( const Vector &origin, const float scale, const float framerate );
+void UTIL_Smoke(const Vector& origin, const float scale, const float framerate);
 
-client_textmessage_t *TextMessageGet( const char *pName );
+client_textmessage_t* TextMessageGet(const char* pName);
 
-char *VarArgs( PRINTF_FORMAT_STRING const char *format, ... );
+char* VarArgs(PRINTF_FORMAT_STRING const char* format, ...);
 
 // Base light indices to avoid index collision
 
@@ -51,22 +51,22 @@ class C_BasePlayer;
 // make this a fixed size so it just sits on the stack
 #define MAX_SPHERE_QUERY 256
 
-C_BaseEntity *CreateEntityByName( const char *className );
+C_BaseEntity* CreateEntityByName(const char* className);
 
 // creates an entity by name, and ensure it's correctness
 // does not spawn the entity
 // use the CREATE_ENTITY() macro which wraps this, instead of using it directly
 template <class T>
-T *_CreateEntity( T *newClass, const char *className )
+T* _CreateEntity(T* newClass, const char* className)
 {
-	T *newEnt = dynamic_cast<T *>( CreateEntityByName( className ) );
-	if ( !newEnt )
+	T* newEnt = dynamic_cast<T*>(CreateEntityByName(className));
+	if (!newEnt)
 	{
-		Warning( "classname %s used to create wrong class type\n", className );
-		Assert( 0 );
+		Warning("classname %s used to create wrong class type\n", className);
+		Assert(0);
 	}
 
 	return newEnt;
 }
 
-#define CREATE_ENTITY( newClass, className ) _CreateEntity( (newClass *)NULL, className )
+#define CREATE_ENTITY(newClass, className) _CreateEntity((newClass*)NULL, className)

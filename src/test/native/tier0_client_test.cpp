@@ -23,71 +23,71 @@
 
 namespace
 {
-int ScopedWork( int n )
+int ScopedWork(int n)
 {
-	VPROF_BUDGET( "tier0_client_test", VPROF_BUDGETGROUP_OTHER_UNACCOUNTED );
+	VPROF_BUDGET("tier0_client_test", VPROF_BUDGETGROUP_OTHER_UNACCOUNTED);
 	return n + 1;
 }
 
 // While a fact makes this thread the profile's target, and back after.
 struct TargetThisThread
 {
-	TargetThisThread() { g_VProfCurrentProfile.SetTargetThreadId( ThreadGetCurrentId() ); }
+	TargetThisThread() { g_VProfCurrentProfile.SetTargetThreadId(ThreadGetCurrentId()); }
 
-	~TargetThisThread() { g_VProfCurrentProfile.SetTargetThreadId( 0 ); }
+	~TargetThisThread() { g_VProfCurrentProfile.SetTargetThreadId(0); }
 };
 } // namespace
 
-TEST( Tier0VProfClient, TheProfileIsNotEnabled )
+TEST(Tier0VProfClient, TheProfileIsNotEnabled)
 {
-	EXPECT_FALSE( g_VProfCurrentProfile.IsEnabled() );
+	EXPECT_FALSE(g_VProfCurrentProfile.IsEnabled());
 }
 
-TEST( Tier0VProfClient, ABudgetScopeDoesNothing )
+TEST(Tier0VProfClient, ABudgetScopeDoesNothing)
 {
 	// A scope that entered would reach CVProfNode, which stops the process.
-	EXPECT_EQ( 2, ScopedWork( 1 ) );
-	EXPECT_FALSE( g_VProfCurrentProfile.IsEnabled() );
+	EXPECT_EQ(2, ScopedWork(1));
+	EXPECT_FALSE(g_VProfCurrentProfile.IsEnabled());
 }
 
-TEST( Tier0VProfClient, DirectEnterAndExitDoNothingEvenOnTheTargetThread )
+TEST(Tier0VProfClient, DirectEnterAndExitDoNothingEvenOnTheTargetThread)
 {
 	// With this thread the target, only m_enabled and m_fAtRoot stand between
 	// these calls and a null current node.
 	TargetThisThread target;
-	ASSERT_TRUE( g_VProfCurrentProfile.InTargetThread() );
-	g_VProfCurrentProfile.EnterScope( "tier0_client_test", 0, VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, 0 );
+	ASSERT_TRUE(g_VProfCurrentProfile.InTargetThread());
+	g_VProfCurrentProfile.EnterScope("tier0_client_test", 0, VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, 0);
 	g_VProfCurrentProfile.ExitScope();
 	SUCCEED();
 }
 
-TEST( Tier0VProfClientDeathTest, ANodeMemberStopsTheProcessNamingTheRuling )
+TEST(Tier0VProfClientDeathTest, ANodeMemberStopsTheProcessNamingTheRuling)
 {
 	SS_DEATH_NO_CORE();
-	alignas( CVProfNode ) unsigned char storage[sizeof( CVProfNode )] = {};
-	CVProfNode *pNode = reinterpret_cast<CVProfNode *>( storage );
-	EXPECT_DEATH( pNode->EnterScope(),
-				  "CVProfNode::EnterScope called in the client, whose vprof profile is never enabled" );
-	EXPECT_DEATH( (void)pNode->ExitScope(), "CVProfNode::ExitScope called in the client" );
-	EXPECT_DEATH( (void)pNode->GetSubNode( "a", 0, "b", 0 ), "CVProfNode::GetSubNode called in the client" );
+	alignas(CVProfNode) unsigned char storage[sizeof(CVProfNode)] = {};
+	CVProfNode* pNode = reinterpret_cast<CVProfNode*>(storage);
+	EXPECT_DEATH(pNode->EnterScope(),
+				 "CVProfNode::EnterScope called in the client, whose vprof profile is never enabled");
+	EXPECT_DEATH((void)pNode->ExitScope(), "CVProfNode::ExitScope called in the client");
+	EXPECT_DEATH((void)pNode->GetSubNode("a", 0, "b", 0), "CVProfNode::GetSubNode called in the client");
 }
 
-TEST( Tier0ClockClient, PlatFloatTimeCountsSeconds )
+TEST(Tier0ClockClient, PlatFloatTimeCountsSeconds)
 {
 	const double flStart = Plat_FloatTime();
-	std::this_thread::sleep_for( std::chrono::milliseconds( 60 ) );
+	std::this_thread::sleep_for(std::chrono::milliseconds(60));
 	const double flElapsed = Plat_FloatTime() - flStart;
-	EXPECT_GE( flElapsed, 0.05 );
-	EXPECT_LT( flElapsed, 2.0 ) << "not seconds";
+	EXPECT_GE(flElapsed, 0.05);
+	EXPECT_LT(flElapsed, 2.0) << "not seconds";
 }
 
-TEST( Tier0ClockClient, PlatFloatTimeNeverGoesBack )
+TEST(Tier0ClockClient, PlatFloatTimeNeverGoesBack)
 {
 	double flLast = Plat_FloatTime();
-	for ( int i = 0; i < 1000; ++i )
+	for (int i = 0; i < 1000; ++i)
 	{
 		const double flNow = Plat_FloatTime();
-		ASSERT_GE( flNow, flLast );
+		ASSERT_GE(flNow, flLast);
 		flLast = flNow;
 	}
 }

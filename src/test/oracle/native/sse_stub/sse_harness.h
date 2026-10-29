@@ -32,14 +32,14 @@
 #include "materialsystem/itexture.h"
 
 // The log every stand-in and recording effect writes to.
-void SseLog( const char *pFmt, ... );
+void SseLog(const char* pFmt, ...);
 
 // The subject's Warning, recorded.
-void SseWarning( const char *pFmt, ... );
+void SseWarning(const char* pFmt, ...);
 #define Warning SseWarning
 
 // view_scene.h's and rendertexture.h's, as CExampleEffect::Render's enabled
 // arm would reach them.
-void UpdateScreenEffectTexture( int textureIndex, int x, int y, int w, int h, bool bDestFullScreen = false,
-								Rect_t *pActualRect = NULL );
-ITexture *GetFullFrameFrameBufferTexture( int textureIndex );
+void UpdateScreenEffectTexture(int textureIndex, int x, int y, int w, int h, bool bDestFullScreen = false,
+							   Rect_t* pActualRect = NULL);
+ITexture* GetFullFrameFrameBufferTexture(int textureIndex);

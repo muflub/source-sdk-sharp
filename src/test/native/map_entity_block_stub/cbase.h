@@ -37,7 +37,7 @@
 // game/server/util.h:193 and game/client/cdll_util.h:164, verbatim and
 // identical in both. It is in a prelude header rather than a library, and
 // MapEntity_SkipToNextEntity is the one function in this file that uses it.
-inline bool FStrEq( const char *sz1, const char *sz2 )
+inline bool FStrEq(const char* sz1, const char* sz2)
 {
-	return ( sz1 == sz2 || V_stricmp( sz1, sz2 ) == 0 );
+	return (sz1 == sz2 || V_stricmp(sz1, sz2) == 0);
 }

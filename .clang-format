@@ -14,14 +14,9 @@ NamespaceIndentation: None
 IndentExternBlock: NoIndent
 IndentPPDirectives: None
 DerivePointerAlignment: false
-PointerAlignment: Right
+PointerAlignment: Left
 ReferenceAlignment: Pointer
-SpacesInParens: Custom
-SpacesInParensOptions:
-  InConditionalStatements: true
-  Other: true
-  InEmptyParentheses: false
-  InCStyleCasts: false
+SpacesInParens: Never
 SpaceAfterCStyleCast: false
 SpaceBeforeParens: ControlStatements
 SpacesInSquareBrackets: false

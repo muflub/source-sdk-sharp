@@ -26,49 +26,48 @@ struct Rng
 		return s;
 	}
 
-	int Pick( int lo, int hi ) { return lo + (int)( Next() % (uint32_t)( hi - lo + 1 ) ); }
+	int Pick(int lo, int hi) { return lo + (int)(Next() % (uint32_t)(hi - lo + 1)); }
 };
 }
 
-TEST( SsCrc32Oracle, TheTableIsStocks )
+TEST(SsCrc32Oracle, TheTableIsStocks)
 {
-	for ( unsigned int i = 0; i < 300; i++ )
-		ASSERT_EQ( CRC32_GetTableEntry( i ), ss::Crc32TableEntry( i ) ) << i;
+	for (unsigned int i = 0; i < 300; i++)
+		ASSERT_EQ(CRC32_GetTableEntry(i), ss::Crc32TableEntry(i)) << i;
 }
 
-TEST( SsCrc32Oracle, EveryBufferChecksumsAsStocks )
+TEST(SsCrc32Oracle, EveryBufferChecksumsAsStocks)
 {
 	Rng r;
 	unsigned char data[320 + 8];
 	int n = 0;
-	for ( int len = 0; len <= 300; len++ )
+	for (int len = 0; len <= 300; len++)
 	{
-		for ( int align = 0; align < 8; align++ )
+		for (int align = 0; align < 8; align++)
 		{
-			for ( int i = 0; i < (int)sizeof( data ); i++ )
+			for (int i = 0; i < (int)sizeof(data); i++)
 				data[i] = (unsigned char)r.Next();
-			const unsigned char *p = data + align;
+			const unsigned char* p = data + align;
 
 			CRC32_t stock;
-			CRC32_Init( &stock );
+			CRC32_Init(&stock);
 			uint32_t ours = ss::Crc32Start();
-			ASSERT_EQ( stock, ours );
+			ASSERT_EQ(stock, ours);
 
 			int at = 0;
-			while ( at < len )
+			while (at < len)
 			{
-				const int piece = ( r.Pick( 0, 3 ) == 0 ) ? len - at : r.Pick( 0, len - at );
-				CRC32_ProcessBuffer( &stock, p + at, piece );
-				ours = ss::Crc32Add( ours, p + at, piece );
-				ASSERT_EQ( stock, ours ) << "len " << len << " align " << align << " at " << at << " piece " << piece;
+				const int piece = (r.Pick(0, 3) == 0) ? len - at : r.Pick(0, len - at);
+				CRC32_ProcessBuffer(&stock, p + at, piece);
+				ours = ss::Crc32Add(ours, p + at, piece);
+				ASSERT_EQ(stock, ours) << "len " << len << " align " << align << " at " << at << " piece " << piece;
 				at += piece;
 			}
-			CRC32_Final( &stock );
-			ASSERT_EQ( stock, ss::Crc32Finish( ours ) ) << "len " << len << " align " << align;
-			ASSERT_EQ( CRC32_ProcessSingleBuffer( p, len ),
-					   ss::Crc32Finish( ss::Crc32Add( ss::Crc32Start(), p, len ) ) );
+			CRC32_Final(&stock);
+			ASSERT_EQ(stock, ss::Crc32Finish(ours)) << "len " << len << " align " << align;
+			ASSERT_EQ(CRC32_ProcessSingleBuffer(p, len), ss::Crc32Finish(ss::Crc32Add(ss::Crc32Start(), p, len)));
 			n++;
 		}
 	}
-	EXPECT_EQ( n, 301 * 8 );
+	EXPECT_EQ(n, 301 * 8);
 }

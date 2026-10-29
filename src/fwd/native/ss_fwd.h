@@ -26,54 +26,54 @@
 
 struct SSForwarderTable
 {
-	void *const *ppSlots;
+	void* const* ppSlots;
 	int32_t nSlots;
 };
 
 // One table by the name managed asks for (SSFwd_<table>).
 struct SSForwarderNamed
 {
-	const char *pszName;
-	const SSForwarderTable *pTable;
+	const char* pszName;
+	const SSForwarderTable* pTable;
 };
 
-#if defined( _WIN32 )
-#if defined( SS_FWD_SERVER_BUILD )
-#define SS_FWD_SERVER_API extern "C" __declspec( dllexport )
+#if defined(_WIN32)
+#if defined(SS_FWD_SERVER_BUILD)
+#define SS_FWD_SERVER_API extern "C" __declspec(dllexport)
 #else
-#define SS_FWD_SERVER_API extern "C" __declspec( dllimport )
+#define SS_FWD_SERVER_API extern "C" __declspec(dllimport)
 #endif
-#if defined( SS_FWD_CLIENT_BUILD )
-#define SS_FWD_CLIENT_API extern "C" __declspec( dllexport )
+#if defined(SS_FWD_CLIENT_BUILD)
+#define SS_FWD_CLIENT_API extern "C" __declspec(dllexport)
 #else
-#define SS_FWD_CLIENT_API extern "C" __declspec( dllimport )
+#define SS_FWD_CLIENT_API extern "C" __declspec(dllimport)
 #endif
 #else
-#define SS_FWD_SERVER_API extern "C" __attribute__( ( visibility( "default" ) ) )
-#define SS_FWD_CLIENT_API extern "C" __attribute__( ( visibility( "default" ) ) )
+#define SS_FWD_SERVER_API extern "C" __attribute__((visibility("default")))
+#define SS_FWD_CLIENT_API extern "C" __attribute__((visibility("default")))
 #endif
 
 // Each library's one export: the table served under pszName, or NULL for a
 // name it does not serve. The tables are constant data that live as long as
 // the library: nothing is allocated, so nothing is released.
-SS_FWD_SERVER_API const SSForwarderTable *SSFwdServer_Table( const char *pszName );
-SS_FWD_CLIENT_API const SSForwarderTable *SSFwdClient_Table( const char *pszName );
+SS_FWD_SERVER_API const SSForwarderTable* SSFwdServer_Table(const char* pszName);
+SS_FWD_CLIENT_API const SSForwarderTable* SSFwdClient_Table(const char* pszName);
 
 // The lookup each export is: the named table, by exact name. Written out
 // rather than strcmp because the libraries link no runtime (NO_RUNTIME).
 template <int N>
-inline const SSForwarderTable *SSFwd_Find( const SSForwarderNamed ( &tables )[N], const char *pszName )
+inline const SSForwarderTable* SSFwd_Find(const SSForwarderNamed (&tables)[N], const char* pszName)
 {
-	if ( !pszName )
+	if (!pszName)
 		return nullptr;
 
-	for ( const SSForwarderNamed &named : tables )
+	for (const SSForwarderNamed& named : tables)
 	{
-		const char *a = named.pszName;
-		const char *b = pszName;
-		while ( *a && *a == *b )
+		const char* a = named.pszName;
+		const char* b = pszName;
+		while (*a && *a == *b)
 			++a, ++b;
-		if ( *a == *b )
+		if (*a == *b)
 			return named.pTable;
 	}
 
@@ -89,21 +89,21 @@ inline const SSForwarderTable *SSFwd_Find( const SSForwarderNamed ( &tables )[N]
 // defines SS_FWD_SERVES_SERVER or SS_FWD_SERVES_CLIENT (each library's
 // INTERFACE definition), so a DLL serves exactly the library it links. A
 // translation unit that links neither serves nothing.
-inline void *SSFwd_Serve( const char *pszName )
+inline void* SSFwd_Serve(const char* pszName)
 {
-	const SSForwarderTable *pTable = nullptr;
+	const SSForwarderTable* pTable = nullptr;
 
-#if defined( SS_FWD_SERVES_SERVER )
-	if ( !pTable )
-		pTable = SSFwdServer_Table( pszName );
+#if defined(SS_FWD_SERVES_SERVER)
+	if (!pTable)
+		pTable = SSFwdServer_Table(pszName);
 #endif
-#if defined( SS_FWD_SERVES_CLIENT )
-	if ( !pTable )
-		pTable = SSFwdClient_Table( pszName );
+#if defined(SS_FWD_SERVES_CLIENT)
+	if (!pTable)
+		pTable = SSFwdClient_Table(pszName);
 #endif
 
-	if ( !pTable )
+	if (!pTable)
 		return nullptr;
 
-	return const_cast<SSForwarderTable *>( pTable );
+	return const_cast<SSForwarderTable*>(pTable);
 }

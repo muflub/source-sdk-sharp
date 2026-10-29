@@ -23,54 +23,54 @@
 
 struct CManagedAreasClient
 {
-	IManagedCommandsClient *m_pCommandsClient;
-	IManagedEventsClient *m_pEventsClient;
-	IManagedUserMessagesClient *m_pUserMessagesClient;
-	IManagedStandaloneClient *m_pStandaloneClient;
-	IManagedPredictionClient *m_pPredictionClient;
-	IManagedTempEntsClient *m_pTempEntsClient;
-	IManagedSaveRestoreClient *m_pSaveRestoreClient;
-	IManagedBeamsClient *m_pBeamsClient;
-	IManagedDiagnosticsClient *m_pDiagnosticsClient;
-	IManagedDecalsClient *m_pDecalsClient;
-	IManagedParticlesClient *m_pParticlesClient;
-	IManagedUiClient *m_pUiClient;
-	IManagedWorldTextClient *m_pWorldTextClient;
-	IManagedFxClient *m_pFxClient;
-	IManagedSoundControllerClient *m_pSoundControllerClient;
-	IManagedSoundscapesClient *m_pSoundscapesClient;
-	IManagedPrecipitationClient *m_pPrecipitationClient;
-	IManagedConsoleOutputClient *m_pConsoleOutputClient;
-	IManagedMaterialFilesClient *m_pMaterialFilesClient;
-	IManagedMaterialProxyClient *m_pMaterialProxyClient;
-	IManagedRenderClient *m_pRenderClient;
-	IManagedInputClient *m_pInputClient;
-	IManagedBonesClient *m_pBonesClient;
-	IManagedPhysicsClient *m_pPhysicsClient;
-	IManagedDetailPropsClient *m_pDetailPropsClient;
-	IManagedLeafSystemClient *m_pLeafSystemClient;
-	IManagedSoundEmitterClient *m_pSoundEmitterClient;
-	IManagedClientSystemsClient *m_pClientSystemsClient;
-	IManagedPixelVisClient *m_pPixelVisClient;
-	IManagedGlowClient *m_pGlowClient;
-	IManagedShadowsClient *m_pShadowsClient;
+	IManagedCommandsClient* m_pCommandsClient;
+	IManagedEventsClient* m_pEventsClient;
+	IManagedUserMessagesClient* m_pUserMessagesClient;
+	IManagedStandaloneClient* m_pStandaloneClient;
+	IManagedPredictionClient* m_pPredictionClient;
+	IManagedTempEntsClient* m_pTempEntsClient;
+	IManagedSaveRestoreClient* m_pSaveRestoreClient;
+	IManagedBeamsClient* m_pBeamsClient;
+	IManagedDiagnosticsClient* m_pDiagnosticsClient;
+	IManagedDecalsClient* m_pDecalsClient;
+	IManagedParticlesClient* m_pParticlesClient;
+	IManagedUiClient* m_pUiClient;
+	IManagedWorldTextClient* m_pWorldTextClient;
+	IManagedFxClient* m_pFxClient;
+	IManagedSoundControllerClient* m_pSoundControllerClient;
+	IManagedSoundscapesClient* m_pSoundscapesClient;
+	IManagedPrecipitationClient* m_pPrecipitationClient;
+	IManagedConsoleOutputClient* m_pConsoleOutputClient;
+	IManagedMaterialFilesClient* m_pMaterialFilesClient;
+	IManagedMaterialProxyClient* m_pMaterialProxyClient;
+	IManagedRenderClient* m_pRenderClient;
+	IManagedInputClient* m_pInputClient;
+	IManagedBonesClient* m_pBonesClient;
+	IManagedPhysicsClient* m_pPhysicsClient;
+	IManagedDetailPropsClient* m_pDetailPropsClient;
+	IManagedLeafSystemClient* m_pLeafSystemClient;
+	IManagedSoundEmitterClient* m_pSoundEmitterClient;
+	IManagedClientSystemsClient* m_pClientSystemsClient;
+	IManagedPixelVisClient* m_pPixelVisClient;
+	IManagedGlowClient* m_pGlowClient;
+	IManagedShadowsClient* m_pShadowsClient;
 };
 
 struct CManagedHoldersClient
 {
-	IManagedRoot *m_pRoot;
-	IManagedRuntimeClient *m_pRuntimeClient;
+	IManagedRoot* m_pRoot;
+	IManagedRuntimeClient* m_pRuntimeClient;
 	CManagedAreasClient m_Areas;
 };
 
 // The client DLL object's holders (shell_clientdll.cpp).
-CManagedHoldersClient &ShellClientDll_Managed();
+CManagedHoldersClient& ShellClientDll_Managed();
 
 // This load's runtime, or NULL outside a load (shell_internalfactory.cpp).
-IManagedRuntimeClient *ManagedRuntimeClient();
+IManagedRuntimeClient* ManagedRuntimeClient();
 
 // True when the root, the runtime and every area have been released.
-inline bool ManagedHoldersClient_Empty( const CManagedHoldersClient &holders )
+inline bool ManagedHoldersClient_Empty(const CManagedHoldersClient& holders)
 {
 	return !holders.m_pRoot && !holders.m_pRuntimeClient && !holders.m_Areas.m_pCommandsClient &&
 		!holders.m_Areas.m_pEventsClient && !holders.m_Areas.m_pUserMessagesClient &&
@@ -88,8 +88,8 @@ inline bool ManagedHoldersClient_Empty( const CManagedHoldersClient &holders )
 		!holders.m_Areas.m_pPixelVisClient && !holders.m_Areas.m_pGlowClient && !holders.m_Areas.m_pShadowsClient;
 }
 
-bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot, char *pWhy, size_t nWhy );
-bool ManagedAreasClient_Validate( const CManagedAreasClient &areas, char *pWhy, size_t nWhy );
-void ManagedAreasClient_Release( CManagedAreasClient &areas );
+bool ManagedAreasClient_Acquire(CManagedAreasClient& areas, IManagedRoot* pRoot, char* pWhy, size_t nWhy);
+bool ManagedAreasClient_Validate(const CManagedAreasClient& areas, char* pWhy, size_t nWhy);
+void ManagedAreasClient_Release(CManagedAreasClient& areas);
 
 #endif // CLIENT_DLL

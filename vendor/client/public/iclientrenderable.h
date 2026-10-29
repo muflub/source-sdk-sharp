@@ -11,7 +11,7 @@
 struct model_t;
 struct matrix3x4_t;
 
-extern void DefaultRenderBoundsWorldspace( IClientRenderable *pRenderable, Vector &absMins, Vector &absMaxs );
+extern void DefaultRenderBoundsWorldspace(IClientRenderable* pRenderable, Vector& absMins, Vector& absMaxs);
 
 // Handles to a client shadow
 typedef unsigned short ClientShadowHandle_t;
@@ -48,11 +48,11 @@ abstract_class IClientRenderable
 {
 public:
 	// Gets at the containing class...
-	virtual IClientUnknown *GetIClientUnknown() = 0;
+	virtual IClientUnknown* GetIClientUnknown() = 0;
 
 	// Data accessors
-	virtual Vector const &GetRenderOrigin() = 0;
-	virtual QAngle const &GetRenderAngles() = 0;
+	virtual Vector const& GetRenderOrigin() = 0;
+	virtual QAngle const& GetRenderAngles() = 0;
 	virtual bool ShouldDraw() = 0;
 	virtual bool IsTransparent() = 0;
 	virtual bool UsesPowerOfTwoFrameBufferTexture() = 0;
@@ -61,11 +61,11 @@ public:
 	virtual ClientShadowHandle_t GetShadowHandle() const = 0;
 
 	// Used by the leaf system to store its render handle.
-	virtual ClientRenderHandle_t &RenderHandle() = 0;
+	virtual ClientRenderHandle_t& RenderHandle() = 0;
 
 	// Render baby!
-	virtual const model_t *GetModel() const = 0;
-	virtual int DrawModel( int flags ) = 0;
+	virtual const model_t* GetModel() const = 0;
+	virtual int DrawModel(int flags) = 0;
 
 	// Get the body parameter
 	virtual int GetBody() = 0;
@@ -75,7 +75,7 @@ public:
 	virtual int GetFxBlend() = 0;
 
 	// Determine the color modulation amount
-	virtual void GetColorModulation( float *color ) = 0;
+	virtual void GetColorModulation(float* color) = 0;
 
 	// Returns false if the entity shouldn't be drawn due to LOD.
 	// (NOTE: This is no longer used/supported, but kept in the vtable for backwards compat)
@@ -85,41 +85,41 @@ public:
 	// currentTime parameter will affect interpolation
 	// nMaxBones specifies how many matrices pBoneToWorldOut can hold. (Should be greater than or
 	// equal to studiohdr_t::numbones. Use MAXSTUDIOBONES to be safe.)
-	virtual bool SetupBones( matrix3x4_t * pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime ) = 0;
+	virtual bool SetupBones(matrix3x4_t * pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime) = 0;
 
-	virtual void SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount, float *pFlexWeights,
-							   float *pFlexDelayedWeights ) = 0;
+	virtual void SetupWeights(const matrix3x4_t* pBoneToWorld, int nFlexWeightCount, float* pFlexWeights,
+							  float* pFlexDelayedWeights) = 0;
 	virtual void DoAnimationEvents() = 0;
 
 	// Return this if you want PVS notifications. See IPVSNotify for more info.
 	// Note: you must always return the same value from this function. If you don't,
 	// undefined things will occur, and they won't be good.
-	virtual IPVSNotify *GetPVSNotifyInterface() = 0;
+	virtual IPVSNotify* GetPVSNotifyInterface() = 0;
 
 	// Returns the bounds relative to the origin (render bounds)
-	virtual void GetRenderBounds( Vector & mins, Vector & maxs ) = 0;
+	virtual void GetRenderBounds(Vector & mins, Vector & maxs) = 0;
 
 	// returns the bounds as an AABB in worldspace
-	virtual void GetRenderBoundsWorldspace( Vector & mins, Vector & maxs ) = 0;
+	virtual void GetRenderBoundsWorldspace(Vector & mins, Vector & maxs) = 0;
 
 	// These normally call through to GetRenderAngles/GetRenderBounds, but some entities custom implement them.
-	virtual void GetShadowRenderBounds( Vector & mins, Vector & maxs, ShadowType_t shadowType ) = 0;
+	virtual void GetShadowRenderBounds(Vector & mins, Vector & maxs, ShadowType_t shadowType) = 0;
 
 	// Should this object be able to have shadows cast onto it?
-	virtual bool ShouldReceiveProjectedTextures( int flags ) = 0;
+	virtual bool ShouldReceiveProjectedTextures(int flags) = 0;
 
 	// These methods return true if we want a per-renderable shadow cast direction + distance
-	virtual bool GetShadowCastDistance( float *pDist, ShadowType_t shadowType ) const = 0;
-	virtual bool GetShadowCastDirection( Vector * pDirection, ShadowType_t shadowType ) const = 0;
+	virtual bool GetShadowCastDistance(float* pDist, ShadowType_t shadowType) const = 0;
+	virtual bool GetShadowCastDirection(Vector * pDirection, ShadowType_t shadowType) const = 0;
 
 	// Other methods related to shadow rendering
 	virtual bool IsShadowDirty() = 0;
-	virtual void MarkShadowDirty( bool bDirty ) = 0;
+	virtual void MarkShadowDirty(bool bDirty) = 0;
 
 	// Iteration over shadow hierarchy
-	virtual IClientRenderable *GetShadowParent() = 0;
-	virtual IClientRenderable *FirstShadowChild() = 0;
-	virtual IClientRenderable *NextShadowPeer() = 0;
+	virtual IClientRenderable* GetShadowParent() = 0;
+	virtual IClientRenderable* FirstShadowChild() = 0;
+	virtual IClientRenderable* NextShadowPeer() = 0;
 
 	// Returns the shadow cast type
 	virtual ShadowType_t ShadowCastType() = 0;
@@ -129,15 +129,15 @@ public:
 	virtual ModelInstanceHandle_t GetModelInstance() = 0;
 
 	// Returns the transform from RenderOrigin/RenderAngles to world
-	virtual const matrix3x4_t &RenderableToWorldTransform() = 0;
+	virtual const matrix3x4_t& RenderableToWorldTransform() = 0;
 
 	// Attachments
-	virtual int LookupAttachment( const char *pAttachmentName ) = 0;
-	virtual bool GetAttachment( int number, Vector &origin, QAngle &angles ) = 0;
-	virtual bool GetAttachment( int number, matrix3x4_t &matrix ) = 0;
+	virtual int LookupAttachment(const char* pAttachmentName) = 0;
+	virtual bool GetAttachment(int number, Vector& origin, QAngle& angles) = 0;
+	virtual bool GetAttachment(int number, matrix3x4_t& matrix) = 0;
 
 	// Rendering clip plane, should be 4 floats, return value of NULL indicates a disabled render clip plane
-	virtual float *GetRenderClipPlane() = 0;
+	virtual float* GetRenderClipPlane() = 0;
 
 	// Get the skin parameter
 	virtual int GetSkin() = 0;
@@ -164,9 +164,9 @@ public:
 		m_hRenderHandle = INVALID_CLIENT_RENDER_HANDLE;
 	}
 
-	virtual const Vector &GetRenderOrigin() = 0;
-	virtual const QAngle &GetRenderAngles() = 0;
-	virtual const matrix3x4_t &RenderableToWorldTransform() = 0;
+	virtual const Vector& GetRenderOrigin() = 0;
+	virtual const QAngle& GetRenderAngles() = 0;
+	virtual const matrix3x4_t& RenderableToWorldTransform() = 0;
 	virtual bool ShouldDraw() = 0;
 	virtual bool IsTransparent() = 0;
 	virtual bool IsTwoPass()
@@ -188,7 +188,7 @@ public:
 		return CLIENTSHADOW_INVALID_HANDLE;
 	}
 
-	virtual ClientRenderHandle_t &RenderHandle()
+	virtual ClientRenderHandle_t& RenderHandle()
 	{
 		return m_hRenderHandle;
 	}
@@ -206,11 +206,11 @@ public:
 		return false;
 	}
 
-	virtual const model_t *GetModel() const
+	virtual const model_t* GetModel() const
 	{
 		return NULL;
 	}
-	virtual int DrawModel( int flags )
+	virtual int DrawModel(int flags)
 	{
 		return 0;
 	}
@@ -226,66 +226,66 @@ public:
 	{
 		return true;
 	}
-	virtual bool SetupBones( matrix3x4_t * pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime )
+	virtual bool SetupBones(matrix3x4_t * pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime)
 	{
 		return true;
 	}
-	virtual void SetupWeights( const matrix3x4_t *pBoneToWorld, int nFlexWeightCount, float *pFlexWeights,
-							   float *pFlexDelayedWeights )
+	virtual void SetupWeights(const matrix3x4_t* pBoneToWorld, int nFlexWeightCount, float* pFlexWeights,
+							  float* pFlexDelayedWeights)
 	{
 	}
 	virtual void DoAnimationEvents() {}
-	virtual IPVSNotify *GetPVSNotifyInterface()
+	virtual IPVSNotify* GetPVSNotifyInterface()
 	{
 		return NULL;
 	}
-	virtual void GetRenderBoundsWorldspace( Vector & absMins, Vector & absMaxs )
+	virtual void GetRenderBoundsWorldspace(Vector & absMins, Vector & absMaxs)
 	{
-		DefaultRenderBoundsWorldspace( this, absMins, absMaxs );
+		DefaultRenderBoundsWorldspace(this, absMins, absMaxs);
 	}
 
 	// Determine the color modulation amount
-	virtual void GetColorModulation( float *color )
+	virtual void GetColorModulation(float* color)
 	{
-		Assert( color );
+		Assert(color);
 		color[0] = color[1] = color[2] = 1.0f;
 	}
 
 	// Should this object be able to have shadows cast onto it?
-	virtual bool ShouldReceiveProjectedTextures( int flags )
+	virtual bool ShouldReceiveProjectedTextures(int flags)
 	{
 		return false;
 	}
 
 	// These methods return true if we want a per-renderable shadow cast direction + distance
-	virtual bool GetShadowCastDistance( float *pDist, ShadowType_t shadowType ) const
+	virtual bool GetShadowCastDistance(float* pDist, ShadowType_t shadowType) const
 	{
 		return false;
 	}
-	virtual bool GetShadowCastDirection( Vector * pDirection, ShadowType_t shadowType ) const
+	virtual bool GetShadowCastDirection(Vector * pDirection, ShadowType_t shadowType) const
 	{
 		return false;
 	}
 
-	virtual void GetShadowRenderBounds( Vector & mins, Vector & maxs, ShadowType_t shadowType )
+	virtual void GetShadowRenderBounds(Vector & mins, Vector & maxs, ShadowType_t shadowType)
 	{
-		GetRenderBounds( mins, maxs );
+		GetRenderBounds(mins, maxs);
 	}
 
 	virtual bool IsShadowDirty()
 	{
 		return false;
 	}
-	virtual void MarkShadowDirty( bool bDirty ) {}
-	virtual IClientRenderable *GetShadowParent()
+	virtual void MarkShadowDirty(bool bDirty) {}
+	virtual IClientRenderable* GetShadowParent()
 	{
 		return NULL;
 	}
-	virtual IClientRenderable *FirstShadowChild()
+	virtual IClientRenderable* FirstShadowChild()
 	{
 		return NULL;
 	}
-	virtual IClientRenderable *NextShadowPeer()
+	virtual IClientRenderable* NextShadowPeer()
 	{
 		return NULL;
 	}
@@ -300,21 +300,21 @@ public:
 	}
 
 	// Attachments
-	virtual int LookupAttachment( const char *pAttachmentName )
+	virtual int LookupAttachment(const char* pAttachmentName)
 	{
 		return -1;
 	}
-	virtual bool GetAttachment( int number, Vector &origin, QAngle &angles )
+	virtual bool GetAttachment(int number, Vector& origin, QAngle& angles)
 	{
 		return false;
 	}
-	virtual bool GetAttachment( int number, matrix3x4_t &matrix )
+	virtual bool GetAttachment(int number, matrix3x4_t& matrix)
 	{
 		return false;
 	}
 
 	// Rendering clip plane, should be 4 floats, return value of NULL indicates a disabled render clip plane
-	virtual float *GetRenderClipPlane()
+	virtual float* GetRenderClipPlane()
 	{
 		return NULL;
 	}
@@ -327,41 +327,41 @@ public:
 
 	// IClientUnknown implementation.
 public:
-	virtual void SetRefEHandle( const CBaseHandle &handle )
+	virtual void SetRefEHandle(const CBaseHandle& handle)
 	{
-		Assert( false );
+		Assert(false);
 	}
-	virtual const CBaseHandle &GetRefEHandle() const
+	virtual const CBaseHandle& GetRefEHandle() const
 	{
-		Assert( false );
-		return *( (CBaseHandle *)0 );
+		Assert(false);
+		return *((CBaseHandle*)0);
 	}
 
-	virtual IClientUnknown *GetIClientUnknown()
+	virtual IClientUnknown* GetIClientUnknown()
 	{
 		return this;
 	}
-	virtual ICollideable *GetCollideable()
+	virtual ICollideable* GetCollideable()
 	{
 		return 0;
 	}
-	virtual IClientRenderable *GetClientRenderable()
+	virtual IClientRenderable* GetClientRenderable()
 	{
 		return this;
 	}
-	virtual IClientNetworkable *GetClientNetworkable()
+	virtual IClientNetworkable* GetClientNetworkable()
 	{
 		return 0;
 	}
-	virtual IClientEntity *GetIClientEntity()
+	virtual IClientEntity* GetIClientEntity()
 	{
 		return 0;
 	}
-	virtual C_BaseEntity *GetBaseEntity()
+	virtual C_BaseEntity* GetBaseEntity()
 	{
 		return 0;
 	}
-	virtual IClientThinkable *GetClientThinkable()
+	virtual IClientThinkable* GetClientThinkable()
 	{
 		return 0;
 	}

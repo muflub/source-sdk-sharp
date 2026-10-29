@@ -12,46 +12,46 @@
 
 namespace
 {
-int NoCompletions( const char *, char[COMMAND_COMPLETION_MAXITEMS][COMMAND_COMPLETION_ITEM_LENGTH] )
+int NoCompletions(const char*, char[COMMAND_COMPLETION_MAXITEMS][COMMAND_COMPLETION_ITEM_LENGTH])
 {
 	return 0;
 }
 }
 
-ConCommand::ConCommand( const char *pName, FnCommandCallbackVoid_t callback, const char *pHelpString, int flags,
-						FnCommandCompletionCallback completionFunc )
+ConCommand::ConCommand(const char* pName, FnCommandCallbackVoid_t callback, const char* pHelpString, int flags,
+					   FnCommandCompletionCallback completionFunc)
 {
 	m_fnCommandCallbackV1 = callback;
 	m_bUsingNewCommandCallback = false;
 	m_bUsingCommandCallbackInterface = false;
 	m_bHasCompletionCallback = completionFunc != NULL;
 	m_fnCompletionCallback = completionFunc ? completionFunc : NoCompletions;
-	BaseClass::CreateBase( pName, pHelpString, flags );
+	BaseClass::CreateBase(pName, pHelpString, flags);
 }
 
-ConCommand::ConCommand( const char *pName, FnCommandCallback_t callback, const char *pHelpString, int flags,
-						FnCommandCompletionCallback completionFunc )
+ConCommand::ConCommand(const char* pName, FnCommandCallback_t callback, const char* pHelpString, int flags,
+					   FnCommandCompletionCallback completionFunc)
 {
 	m_fnCommandCallback = callback;
 	m_bUsingNewCommandCallback = true;
 	m_bUsingCommandCallbackInterface = false;
 	m_bHasCompletionCallback = completionFunc != NULL;
 	m_fnCompletionCallback = completionFunc ? completionFunc : NoCompletions;
-	BaseClass::CreateBase( pName, pHelpString, flags );
+	BaseClass::CreateBase(pName, pHelpString, flags);
 }
 
-ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString )
+ConVar::ConVar(const char* pName, const char* pDefaultValue, int flags, const char* pHelpString)
 {
-	Create( pName, pDefaultValue, flags, pHelpString );
+	Create(pName, pDefaultValue, flags, pHelpString);
 }
 
-ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString,
-				FnChangeCallback_t callback )
+ConVar::ConVar(const char* pName, const char* pDefaultValue, int flags, const char* pHelpString,
+			   FnChangeCallback_t callback)
 {
-	Create( pName, pDefaultValue, flags, pHelpString, false, 0.0f, false, 0.0f, false, 0.0f, false, 0.0f, callback );
+	Create(pName, pDefaultValue, flags, pHelpString, false, 0.0f, false, 0.0f, false, 0.0f, false, 0.0f, callback);
 }
 
-ConVarRef::ConVarRef( const char *pName, bool bIgnoreMissing )
+ConVarRef::ConVarRef(const char* pName, bool bIgnoreMissing)
 {
-	Init( pName, bIgnoreMissing );
+	Init(pName, bIgnoreMissing);
 }

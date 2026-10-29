@@ -29,7 +29,7 @@ enum TraceType_t
 abstract_class ITraceFilter
 {
 public:
-	virtual bool ShouldHitEntity( IHandleEntity * pEntity, int contentsMask ) = 0;
+	virtual bool ShouldHitEntity(IHandleEntity * pEntity, int contentsMask) = 0;
 	virtual TraceType_t GetTraceType() const = 0;
 };
 
@@ -46,7 +46,7 @@ public:
 class CTraceFilterWorldOnly : public ITraceFilter
 {
 public:
-	bool ShouldHitEntity( IHandleEntity *pServerEntity, int contentsMask ) { return false; }
+	bool ShouldHitEntity(IHandleEntity* pServerEntity, int contentsMask) { return false; }
 
 	virtual TraceType_t GetTraceType() const { return TRACE_WORLD_ONLY; }
 };
@@ -54,7 +54,7 @@ public:
 class CTraceFilterHitAll : public CTraceFilter
 {
 public:
-	virtual bool ShouldHitEntity( IHandleEntity *pServerEntity, int contentsMask ) { return true; }
+	virtual bool ShouldHitEntity(IHandleEntity* pServerEntity, int contentsMask) { return true; }
 };
 
 // Enumeration interface for EnumerateLinkEntities
@@ -72,23 +72,23 @@ abstract_class IEngineTrace
 {
 public:
 	// Returns the contents mask + entity at a particular world-space position
-	virtual int GetPointContents( const Vector &vecAbsPosition, IHandleEntity **ppEntity = NULL ) = 0;
+	virtual int GetPointContents(const Vector& vecAbsPosition, IHandleEntity** ppEntity = NULL) = 0;
 
 	// Get the point contents, but only test the specific entity. This works
 	// on static props and brush models.
 	// If the entity isn't a static prop or a brush model, it returns CONTENTS_EMPTY and sets
 	// bFailed to true if bFailed is non-null.
-	virtual int GetPointContents_Collideable( ICollideable * pCollide, const Vector &vecAbsPosition ) = 0;
+	virtual int GetPointContents_Collideable(ICollideable * pCollide, const Vector& vecAbsPosition) = 0;
 
 	// Traces a ray against a particular entity
-	virtual void ClipRayToEntity( const Ray_t &ray, unsigned int fMask, IHandleEntity *pEnt, trace_t *pTrace ) = 0;
+	virtual void ClipRayToEntity(const Ray_t& ray, unsigned int fMask, IHandleEntity* pEnt, trace_t* pTrace) = 0;
 
 	// Traces a ray against a particular entity
-	virtual void ClipRayToCollideable( const Ray_t &ray, unsigned int fMask, ICollideable *pCollide,
-									   trace_t *pTrace ) = 0;
+	virtual void ClipRayToCollideable(const Ray_t& ray, unsigned int fMask, ICollideable* pCollide,
+									  trace_t* pTrace) = 0;
 
 	// A version that simply accepts a ray (can work as a traceline or tracehull)
-	virtual void TraceRay( const Ray_t &ray, unsigned int fMask, ITraceFilter *pTraceFilter, trace_t *pTrace ) = 0;
+	virtual void TraceRay(const Ray_t& ray, unsigned int fMask, ITraceFilter* pTraceFilter, trace_t* pTrace) = 0;
 
 	// A version that sets up the leaf and entity lists and allows you to pass those in for collision.
 	virtual void unused_SetupLeafAndEntityListRay() = 0;
@@ -102,21 +102,21 @@ public:
 
 	// Enumerates over all entities along a ray
 	// If triggers == true, it enumerates all triggers along a ray
-	virtual void EnumerateEntities( const Ray_t &ray, bool triggers, IEntityEnumerator *pEnumerator ) = 0;
+	virtual void EnumerateEntities(const Ray_t& ray, bool triggers, IEntityEnumerator* pEnumerator) = 0;
 
 	// Same thing, but enumerate entitys within a box
-	virtual void EnumerateEntities( const Vector &vecAbsMins, const Vector &vecAbsMaxs,
-									IEntityEnumerator *pEnumerator ) = 0;
+	virtual void EnumerateEntities(const Vector& vecAbsMins, const Vector& vecAbsMaxs,
+								   IEntityEnumerator* pEnumerator) = 0;
 
 	// Convert a handle entity to a collideable.  Useful inside enumer
-	virtual ICollideable *GetCollideable( IHandleEntity * pEntity ) = 0;
+	virtual ICollideable* GetCollideable(IHandleEntity * pEntity) = 0;
 
 	// HACKHACK: Temp for performance measurments
 	virtual void unused_GetStatByIndex() = 0;
 
 	//finds brushes in an AABB, prone to some false positives
-	virtual void GetBrushesInAABB( const Vector &vMins, const Vector &vMaxs, CUtlVector<int> *pOutput,
-								   int iContentsMask = 0xFFFFFFFF ) = 0;
+	virtual void GetBrushesInAABB(const Vector& vMins, const Vector& vMaxs, CUtlVector<int>* pOutput,
+								  int iContentsMask = 0xFFFFFFFF) = 0;
 
 	//Creates a CPhysCollide out of all displacements wholly or partially contained in the specified AABB
 	virtual void unused_GetCollidableFromDisplacementsInAABB() = 0;

@@ -62,10 +62,10 @@
 #include "bsptreedata.h"
 
 #ifndef VPROF_BUDGET
-#define VPROF_BUDGET( name, group )
+#define VPROF_BUDGET(name, group)
 #endif
 #ifndef VPROF
-#define VPROF( name )
+#define VPROF(name)
 #endif
 #ifndef VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING
 #define VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING "Flashlight Shadows"
@@ -74,10 +74,10 @@
 //-----------------------------------------------------------------------------
 // The harness's log. Every stand-in the subject reaches writes here.
 //-----------------------------------------------------------------------------
-void LeafLog( const char *pFmt, ... ) FMTFUNCTION( 1, 2 );
+void LeafLog(const char* pFmt, ...) FMTFUNCTION(1, 2);
 
 // A float as its IEEE bits, the golden's spelling of every float.
-unsigned int LeafBits( float f );
+unsigned int LeafBits(float f);
 
 //-----------------------------------------------------------------------------
 // Globals the client DLL provides.
@@ -88,7 +88,7 @@ struct LeafGlobals_t
 	float curtime;
 };
 
-extern LeafGlobals_t *gpGlobals;
+extern LeafGlobals_t* gpGlobals;
 
 // viewrender.h's view ids, the ones the subject and the scenario name.
 enum view_id_t
@@ -117,8 +117,8 @@ enum ShadowReceiver_t
 class C_BaseEntity : public CDefaultClientRenderable
 {
 public:
-	explicit C_BaseEntity( int nId )
-		: m_nId( nId )
+	explicit C_BaseEntity(int nId)
+		: m_nId(nId)
 	{
 		m_vecAbsMins.Init();
 		m_vecAbsMaxs.Init();
@@ -131,49 +131,49 @@ public:
 	virtual ~C_BaseEntity() {}
 
 	// IHandleEntity
-	virtual void SetRefEHandle( const CBaseHandle &handle ) { m_RefEHandle = handle; }
+	virtual void SetRefEHandle(const CBaseHandle& handle) { m_RefEHandle = handle; }
 
-	virtual const CBaseHandle &GetRefEHandle() const { return m_RefEHandle; }
+	virtual const CBaseHandle& GetRefEHandle() const { return m_RefEHandle; }
 
 	// IClientUnknown
-	virtual C_BaseEntity *GetBaseEntity() { return this; }
+	virtual C_BaseEntity* GetBaseEntity() { return this; }
 
 	// IClientRenderable
-	virtual const Vector &GetRenderOrigin( void ) { return m_vecOrigin; }
+	virtual const Vector& GetRenderOrigin(void) { return m_vecOrigin; }
 
-	virtual const QAngle &GetRenderAngles( void ) { return m_angAngles; }
+	virtual const QAngle& GetRenderAngles(void) { return m_angAngles; }
 
-	virtual const matrix3x4_t &RenderableToWorldTransform() { return m_Transform; }
+	virtual const matrix3x4_t& RenderableToWorldTransform() { return m_Transform; }
 
-	virtual bool ShouldDraw( void ) { return true; }
+	virtual bool ShouldDraw(void) { return true; }
 
-	virtual bool IsTransparent( void ) { return m_bTransparent; }
+	virtual bool IsTransparent(void) { return m_bTransparent; }
 
-	virtual bool IsTwoPass( void ) { return m_bTwoPass; }
+	virtual bool IsTwoPass(void) { return m_bTwoPass; }
 
-	virtual const model_t *GetModel() const { return (const model_t *)(intp)( m_nModelType + 1 ); }
+	virtual const model_t* GetModel() const { return (const model_t*)(intp)(m_nModelType + 1); }
 
 	virtual void ComputeFxBlend();
-	virtual int GetFxBlend( void );
+	virtual int GetFxBlend(void);
 
-	virtual void GetRenderBounds( Vector &mins, Vector &maxs )
+	virtual void GetRenderBounds(Vector& mins, Vector& maxs)
 	{
 		mins = m_vecMins;
 		maxs = m_vecMaxs;
 	}
 
-	virtual void GetRenderBoundsWorldspace( Vector &mins, Vector &maxs );
+	virtual void GetRenderBoundsWorldspace(Vector& mins, Vector& maxs);
 
-	virtual bool ShouldReceiveProjectedTextures( int flags ) { return ( m_nReceiveFlags & flags ) != 0; }
+	virtual bool ShouldReceiveProjectedTextures(int flags) { return (m_nReceiveFlags & flags) != 0; }
 
 	// C_BaseEntity, as the subject's bounds helpers ask it.
 	bool IsFollowingEntity() { return false; }
 
-	C_BaseEntity *GetFollowedEntity() { return NULL; }
+	C_BaseEntity* GetFollowedEntity() { return NULL; }
 
-	C_BaseEntity *GetMoveParent() { return NULL; }
+	C_BaseEntity* GetMoveParent() { return NULL; }
 
-	const Vector &GetLocalOrigin() const { return m_vecOrigin; }
+	const Vector& GetLocalOrigin() const { return m_vecOrigin; }
 
 	int m_nId;
 	int m_nModelType = 0; // mod_bad, mod_brush, mod_sprite, mod_studio
@@ -197,34 +197,34 @@ class LeafEngine
 {
 public:
 	int LevelLeafCount();
-	int GetLeavesArea( int *pLeaves, int nLeaves );
-	ISpatialQuery *GetBSPTreeQuery();
-	bool DoesBoxTouchAreaFrustum( const Vector &mins, const Vector &maxs, int iArea );
-	bool CullBox( const Vector &mins, const Vector &maxs );
-	bool IsOccluded( const Vector &vecAbsMins, const Vector &vecAbsMaxs );
-	void Con_NPrintf( int pos, const char *fmt, ... );
+	int GetLeavesArea(int* pLeaves, int nLeaves);
+	ISpatialQuery* GetBSPTreeQuery();
+	bool DoesBoxTouchAreaFrustum(const Vector& mins, const Vector& maxs, int iArea);
+	bool CullBox(const Vector& mins, const Vector& maxs);
+	bool IsOccluded(const Vector& vecAbsMins, const Vector& vecAbsMaxs);
+	void Con_NPrintf(int pos, const char* fmt, ...);
 };
 
-extern LeafEngine *engine;
+extern LeafEngine* engine;
 
 // ivrenderview.h declares `render` an IVRenderView; the subject asks it one
 // question, so the name is the stand-in's from here on.
 class LeafRender
 {
 public:
-	bool AreAnyLeavesVisible( int *pLeafList, int nLeaves );
+	bool AreAnyLeavesVisible(int* pLeafList, int nLeaves);
 };
 
 #define render g_pLeafRender
-extern LeafRender *render;
+extern LeafRender* render;
 
 class LeafModelInfo
 {
 public:
-	int GetModelType( const model_t *pModel ) const { return pModel ? (int)( (intp)pModel - 1 ) : 0; }
+	int GetModelType(const model_t* pModel) const { return pModel ? (int)((intp)pModel - 1) : 0; }
 };
 
-extern LeafModelInfo *modelinfo;
+extern LeafModelInfo* modelinfo;
 
 class LeafMdlCache
 {
@@ -234,28 +234,28 @@ public:
 	void EndLock() {}
 };
 
-extern LeafMdlCache *mdlcache;
+extern LeafMdlCache* mdlcache;
 
 class LeafShadowMgr
 {
 public:
-	void AddShadowToReceiver( ClientShadowHandle_t handle, IClientRenderable *pRenderable, ShadowReceiver_t type );
-	void RemoveAllShadowsFromReceiver( IClientRenderable *pRenderable, ShadowReceiver_t type );
+	void AddShadowToReceiver(ClientShadowHandle_t handle, IClientRenderable* pRenderable, ShadowReceiver_t type);
+	void RemoveAllShadowsFromReceiver(IClientRenderable* pRenderable, ShadowReceiver_t type);
 };
 
-extern LeafShadowMgr *g_pClientShadowMgr;
+extern LeafShadowMgr* g_pClientShadowMgr;
 
 class LeafDetailSystem
 {
 public:
-	IClientRenderable *GetDetailModel( int idx );
+	IClientRenderable* GetDetailModel(int idx);
 };
 
-LeafDetailSystem *DetailObjectSystem();
+LeafDetailSystem* DetailObjectSystem();
 
 // vstdlib/jobthread.h's ParallelProcess: the subject names it on its threaded
 // arms, which are compiled and never taken (`bThreaded = false`).
 template <typename... Args>
-inline void ParallelProcess( const char *, Args &&... )
+inline void ParallelProcess(const char*, Args&&...)
 {
 }

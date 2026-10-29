@@ -131,7 +131,7 @@ public static class EngineBlockMarks
     /// </para>
     /// </summary>
     public static string NativeMarkExpression(string headFieldName)
-        => $"MarkBlockChanged( SS_BLOCK_HEAD_OFFSET( {Named(headFieldName)} ) )";
+        => $"MarkBlockChanged(SS_BLOCK_HEAD_OFFSET({Named(headFieldName)}))";
 
     /// <summary>
     /// The exact C++ a SendProp addressing this field must be built from.
@@ -152,7 +152,7 @@ public static class EngineBlockMarks
     /// the prop builder both spell it.
     /// </summary>
     public static string NativeOffsetExpression(string headFieldName)
-        => $"SS_BLOCK_HEAD_OFFSET( {Named(headFieldName)} )";
+        => $"SS_BLOCK_HEAD_OFFSET({Named(headFieldName)})";
 
     private static string Named(string headFieldName)
     {

@@ -44,47 +44,47 @@ class CSinkArea final : public IManagedConsoleOutput
 {
 public:
 	CSinkArea()
-		: IManagedConsoleOutput( &kTable )
+		: IManagedConsoleOutput(&kTable)
 	{
 	}
 
-	CConsoleLineBuffer *m_pBuffer = nullptr;
+	CConsoleLineBuffer* m_pBuffer = nullptr;
 	int m_nAttaches = 0;
 
-	void Attach( void *pBuffer );
+	void Attach(void* pBuffer);
 
 	/// The lines buffered since the last drain, onto g_SinkLines.
 	void Drain()
 	{
-		if ( !m_pBuffer )
+		if (!m_pBuffer)
 			return;
-		for ( const ConsoleLineDrained &line : ConsoleLineParse( ConsoleLineSwap( *m_pBuffer ) ) )
-			g_SinkLines.push_back( ForwardedLine{ line.text, (int)line.warning, line.seq } );
+		for (const ConsoleLineDrained& line : ConsoleLineParse(ConsoleLineSwap(*m_pBuffer)))
+			g_SinkLines.push_back(ForwardedLine{line.text, (int)line.warning, line.seq});
 	}
 
 private:
-	static CSinkArea *Of( void *self ) { return static_cast<CSinkArea *>( self ); }
+	static CSinkArea* Of(void* self) { return static_cast<CSinkArea*>(self); }
 
-	static void Released( IManagedObject * ) {}
+	static void Released(IManagedObject*) {}
 
 	// The forwarder never validates (acceptance is ManagedAccept's job at
 	// acquire); -1 is the agree answer managed_accept_test's fake gives.
-	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return -1; }
+	static int32_t Validated(IManagedObject*, const uint32_t*, int32_t) { return -1; }
 
-	static void Attached( IManagedConsoleOutput *self, void *pBuffer ) { Of( self )->Attach( pBuffer ); }
+	static void Attached(IManagedConsoleOutput* self, void* pBuffer) { Of(self)->Attach(pBuffer); }
 
 	static const SSManagedConsoleOutputTable kTable;
 };
 
-const SSManagedConsoleOutputTable CSinkArea::kTable = { &Released, &Validated, &Attached };
+const SSManagedConsoleOutputTable CSinkArea::kTable = {&Released, &Validated, &Attached};
 
 /// The display's buffer, as the last attach handed it: each fact's display has its own.
-CConsoleLineBuffer *g_pBuffer = nullptr;
+CConsoleLineBuffer* g_pBuffer = nullptr;
 
-void CSinkArea::Attach( void *pBuffer )
+void CSinkArea::Attach(void* pBuffer)
 {
 	++m_nAttaches;
-	m_pBuffer = static_cast<CConsoleLineBuffer *>( pBuffer );
+	m_pBuffer = static_cast<CConsoleLineBuffer*>(pBuffer);
 	g_pBuffer = m_pBuffer;
 }
 
@@ -93,7 +93,7 @@ CSinkArea g_AreaB;
 
 // Outside a load the accessor answers NULL; the fixture opens one by pointing
 // it at a sink.
-IManagedConsoleOutput *g_pArea = nullptr;
+IManagedConsoleOutput* g_pArea = nullptr;
 
 class ConsoleDisplayForward : public ::testing::Test
 {
@@ -105,7 +105,7 @@ protected:
 
 	// The subject: built over the slot g_pArea stands in for, as a side's holders keep
 	// its console-output area. After both ICvars, so it is removed from them first.
-	CConsoleDisplay m_Display{ g_pArea };
+	CConsoleDisplay m_Display{g_pArea};
 
 	void SetUp() override
 	{
@@ -116,7 +116,7 @@ protected:
 	}
 
 	/// What this load's managed side would see on its next drain.
-	const std::vector<ForwardedLine> &Drained( CSinkArea &area = g_AreaA )
+	const std::vector<ForwardedLine>& Drained(CSinkArea& area = g_AreaA)
 	{
 		area.Drain();
 		return g_SinkLines;
@@ -128,63 +128,63 @@ protected:
 		g_pArea = nullptr;
 	}
 
-	IConsoleDisplayFunc *Installed()
+	IConsoleDisplayFunc* Installed()
 	{
-		EXPECT_EQ( 1u, m_Cvar.m_Installed.size() ) << "install must reach the ICvar exactly once";
+		EXPECT_EQ(1u, m_Cvar.m_Installed.size()) << "install must reach the ICvar exactly once";
 		return m_Cvar.m_Installed.empty() ? nullptr : m_Cvar.m_Installed[0];
 	}
 };
 
-TEST_F( ConsoleDisplayForward, InstallPutsOneFuncOnTheCvar )
+TEST_F(ConsoleDisplayForward, InstallPutsOneFuncOnTheCvar)
 {
-	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
-	IConsoleDisplayFunc *pFunc = Installed();
-	ASSERT_NE( nullptr, pFunc );
-	EXPECT_TRUE( m_Cvar.m_Removed.empty() );
+	ASSERT_TRUE(m_Display.Install(&m_Cvar));
+	IConsoleDisplayFunc* pFunc = Installed();
+	ASSERT_NE(nullptr, pFunc);
+	EXPECT_TRUE(m_Cvar.m_Removed.empty());
 }
 
-TEST_F( ConsoleDisplayForward, InstallHandsThisLoadTheBufferOnce )
+TEST_F(ConsoleDisplayForward, InstallHandsThisLoadTheBufferOnce)
 {
-	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
-	EXPECT_EQ( 1, g_AreaA.m_nAttaches ) << "the load must hold the buffer before its first print";
-	ASSERT_NE( nullptr, g_AreaA.m_pBuffer );
-	Installed()->Print( "one\n" );
-	Installed()->Print( "two\n" );
-	EXPECT_EQ( 1, g_AreaA.m_nAttaches ) << "a print must not hand the buffer over again";
+	ASSERT_TRUE(m_Display.Install(&m_Cvar));
+	EXPECT_EQ(1, g_AreaA.m_nAttaches) << "the load must hold the buffer before its first print";
+	ASSERT_NE(nullptr, g_AreaA.m_pBuffer);
+	Installed()->Print("one\n");
+	Installed()->Print("two\n");
+	EXPECT_EQ(1, g_AreaA.m_nAttaches) << "a print must not hand the buffer over again";
 }
 
-TEST_F( ConsoleDisplayForward, TheBufferHandedOverCarriesTheHalfSizeTheReaderReads )
+TEST_F(ConsoleDisplayForward, TheBufferHandedOverCarriesTheHalfSizeTheReaderReads)
 {
 	// The buffer is all zero until Attach publishes it (console_line_buffer.h):
 	// the reader takes each half's size from the header.
-	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
-	ASSERT_NE( nullptr, g_AreaA.m_pBuffer );
-	EXPECT_EQ( kConsoleLineHalfBytes, g_AreaA.m_pBuffer->m_Header.nHalfBytes );
+	ASSERT_TRUE(m_Display.Install(&m_Cvar));
+	ASSERT_NE(nullptr, g_AreaA.m_pBuffer);
+	EXPECT_EQ(kConsoleLineHalfBytes, g_AreaA.m_pBuffer->m_Header.nHalfBytes);
 }
 
 // The point of the buffer: a print crosses nothing. The area HAS no per-line
 // slot since the serialised ABI pass (2026-10-20): Release, Validate and the
 // buffer hand-over are the whole table, so a line slot that came back would
 // change its size here.
-static_assert( sizeof( SSManagedConsoleOutputTable ) == 3 * sizeof( void * ),
-			   "IManagedConsoleOutput's table is Release, Validate and ConsoleBufferAttach" );
+static_assert(sizeof(SSManagedConsoleOutputTable) == 3 * sizeof(void*),
+			  "IManagedConsoleOutput's table is Release, Validate and ConsoleBufferAttach");
 
-TEST_F( ConsoleDisplayForward, APrintCrossesNothing )
+TEST_F(ConsoleDisplayForward, APrintCrossesNothing)
 {
-	m_Display.Install( &m_Cvar );
-	for ( int i = 0; i < 100; ++i )
-		Installed()->Print( "a line\n" );
-	EXPECT_EQ( 100u, Drained().size() ) << "every line is in the buffer";
+	m_Display.Install(&m_Cvar);
+	for (int i = 0; i < 100; ++i)
+		Installed()->Print("a line\n");
+	EXPECT_EQ(100u, Drained().size()) << "every line is in the buffer";
 }
 
-TEST_F( ConsoleDisplayForward, PrintForwardsTheExactTextAsNormal )
+TEST_F(ConsoleDisplayForward, PrintForwardsTheExactTextAsNormal)
 {
-	m_Display.Install( &m_Cvar );
-	Installed()->Print( "a plain line\n" );
+	m_Display.Install(&m_Cvar);
+	Installed()->Print("a plain line\n");
 
-	ASSERT_EQ( 1u, Drained().size() );
-	EXPECT_EQ( "a plain line\n", g_SinkLines[0].text );
-	EXPECT_EQ( 0, g_SinkLines[0].nWarning );
+	ASSERT_EQ(1u, Drained().size());
+	EXPECT_EQ("a plain line\n", g_SinkLines[0].text);
+	EXPECT_EQ(0, g_SinkLines[0].nWarning);
 }
 
 // The engine prints EVERY spew through ColorPrint (the engine's
@@ -192,123 +192,123 @@ TEST_F( ConsoleDisplayForward, PrintForwardsTheExactTextAsNormal )
 // output colour; only the colour says which spew it was. A warning is
 // SPEW_WARNING's (255, 90, 90), an assert's (255, 20, 20), an error's
 // (20, 70, 255).
-TEST_F( ConsoleDisplayForward, AMsgThroughColorPrintIsNotAWarning )
+TEST_F(ConsoleDisplayForward, AMsgThroughColorPrintIsNotAWarning)
 {
-	m_Display.Install( &m_Cvar );
-	Installed()->ColorPrint( Color( 255, 255, 255, 255 ), "a plain msg\n" ); // the default spew colour
-	Installed()->ColorPrint( Color( 0, 255, 0, 255 ), "a coloured msg\n" ); // a ConColorMsg
+	m_Display.Install(&m_Cvar);
+	Installed()->ColorPrint(Color(255, 255, 255, 255), "a plain msg\n"); // the default spew colour
+	Installed()->ColorPrint(Color(0, 255, 0, 255), "a coloured msg\n"); // a ConColorMsg
 
-	ASSERT_EQ( 2u, Drained().size() );
-	EXPECT_EQ( "a plain msg\n", g_SinkLines[0].text );
-	EXPECT_EQ( 0, g_SinkLines[0].nWarning );
-	EXPECT_EQ( 0, g_SinkLines[1].nWarning );
+	ASSERT_EQ(2u, Drained().size());
+	EXPECT_EQ("a plain msg\n", g_SinkLines[0].text);
+	EXPECT_EQ(0, g_SinkLines[0].nWarning);
+	EXPECT_EQ(0, g_SinkLines[1].nWarning);
 }
 
-TEST_F( ConsoleDisplayForward, AWarningAssertOrErrorThroughColorPrintIsAWarning )
+TEST_F(ConsoleDisplayForward, AWarningAssertOrErrorThroughColorPrintIsAWarning)
 {
-	m_Display.Install( &m_Cvar );
-	Installed()->ColorPrint( Color( 255, 90, 90, 255 ), "a warning line\n" );
-	Installed()->ColorPrint( Color( 255, 20, 20, 255 ), "an assert line\n" );
-	Installed()->ColorPrint( Color( 20, 70, 255, 255 ), "an error line\n" );
+	m_Display.Install(&m_Cvar);
+	Installed()->ColorPrint(Color(255, 90, 90, 255), "a warning line\n");
+	Installed()->ColorPrint(Color(255, 20, 20, 255), "an assert line\n");
+	Installed()->ColorPrint(Color(20, 70, 255, 255), "an error line\n");
 
-	ASSERT_EQ( 3u, Drained().size() );
-	EXPECT_EQ( "a warning line\n", g_SinkLines[0].text );
-	EXPECT_EQ( 1, g_SinkLines[0].nWarning );
-	EXPECT_EQ( 1, g_SinkLines[1].nWarning );
-	EXPECT_EQ( 1, g_SinkLines[2].nWarning );
+	ASSERT_EQ(3u, Drained().size());
+	EXPECT_EQ("a warning line\n", g_SinkLines[0].text);
+	EXPECT_EQ(1, g_SinkLines[0].nWarning);
+	EXPECT_EQ(1, g_SinkLines[1].nWarning);
+	EXPECT_EQ(1, g_SinkLines[2].nWarning);
 }
 
-TEST_F( ConsoleDisplayForward, DPrintForwardsTheExactTextAsNormal )
+TEST_F(ConsoleDisplayForward, DPrintForwardsTheExactTextAsNormal)
 {
-	m_Display.Install( &m_Cvar );
-	Installed()->DPrint( "a developer line\n" );
+	m_Display.Install(&m_Cvar);
+	Installed()->DPrint("a developer line\n");
 
-	ASSERT_EQ( 1u, Drained().size() );
-	EXPECT_EQ( "a developer line\n", g_SinkLines[0].text );
-	EXPECT_EQ( 0, g_SinkLines[0].nWarning );
+	ASSERT_EQ(1u, Drained().size());
+	EXPECT_EQ("a developer line\n", g_SinkLines[0].text);
+	EXPECT_EQ(0, g_SinkLines[0].nWarning);
 }
 
-TEST_F( ConsoleDisplayForward, LinesKeepPrintOrderAndConsecutiveNumbers )
+TEST_F(ConsoleDisplayForward, LinesKeepPrintOrderAndConsecutiveNumbers)
 {
-	m_Display.Install( &m_Cvar );
-	Installed()->Print( "first\n" );
-	Installed()->DPrint( "second\n" );
-	Installed()->ColorPrint( Color( 255, 90, 90, 255 ), "third\n" );
+	m_Display.Install(&m_Cvar);
+	Installed()->Print("first\n");
+	Installed()->DPrint("second\n");
+	Installed()->ColorPrint(Color(255, 90, 90, 255), "third\n");
 
-	ASSERT_EQ( 3u, Drained().size() );
-	EXPECT_EQ( "first\n", g_SinkLines[0].text );
-	EXPECT_EQ( "second\n", g_SinkLines[1].text );
-	EXPECT_EQ( "third\n", g_SinkLines[2].text );
-	EXPECT_EQ( g_SinkLines[0].seq + 1, g_SinkLines[1].seq );
-	EXPECT_EQ( g_SinkLines[1].seq + 1, g_SinkLines[2].seq );
+	ASSERT_EQ(3u, Drained().size());
+	EXPECT_EQ("first\n", g_SinkLines[0].text);
+	EXPECT_EQ("second\n", g_SinkLines[1].text);
+	EXPECT_EQ("third\n", g_SinkLines[2].text);
+	EXPECT_EQ(g_SinkLines[0].seq + 1, g_SinkLines[1].seq);
+	EXPECT_EQ(g_SinkLines[1].seq + 1, g_SinkLines[2].seq);
 }
 
-TEST_F( ConsoleDisplayForward, ANullTextIsDropped )
+TEST_F(ConsoleDisplayForward, ANullTextIsDropped)
 {
-	m_Display.Install( &m_Cvar );
-	const uint32_t before = ConsoleLineSequence( *g_pBuffer );
-	Installed()->Print( nullptr );
+	m_Display.Install(&m_Cvar);
+	const uint32_t before = ConsoleLineSequence(*g_pBuffer);
+	Installed()->Print(nullptr);
 
-	EXPECT_TRUE( Drained().empty() );
-	EXPECT_EQ( before, ConsoleLineSequence( *g_pBuffer ) ) << "a NULL print takes no number";
+	EXPECT_TRUE(Drained().empty());
+	EXPECT_EQ(before, ConsoleLineSequence(*g_pBuffer)) << "a NULL print takes no number";
 }
 
-TEST_F( ConsoleDisplayForward, OutsideALoadEveryPrintIsDropped )
+TEST_F(ConsoleDisplayForward, OutsideALoadEveryPrintIsDropped)
 {
 	g_pArea = nullptr;
-	m_Display.Install( &m_Cvar );
-	Installed()->Print( "into nothing\n" );
+	m_Display.Install(&m_Cvar);
+	Installed()->Print("into nothing\n");
 
 	// A load acquired later is handed the buffer, and the line is not in it.
 	g_pArea = &g_AreaA;
-	Installed()->Print( "into the load\n" );
-	ASSERT_EQ( 1u, Drained().size() );
-	EXPECT_EQ( "into the load\n", g_SinkLines[0].text );
-	EXPECT_EQ( 1, g_AreaA.m_nAttaches ) << "the first print of a late load hands it the buffer";
+	Installed()->Print("into the load\n");
+	ASSERT_EQ(1u, Drained().size());
+	EXPECT_EQ("into the load\n", g_SinkLines[0].text);
+	EXPECT_EQ(1, g_AreaA.m_nAttaches) << "the first print of a late load hands it the buffer";
 }
 
-TEST_F( ConsoleDisplayForward, RemoveStopsTheFlow )
+TEST_F(ConsoleDisplayForward, RemoveStopsTheFlow)
 {
 	// Remove detaches the func from the ICvar, so the engine's fan-out stops
 	// reaching it; a stale pointer kept calling is answered nothing too
 	// (Forward checks its own registration, the one state it owns).
-	m_Display.Install( &m_Cvar );
-	IConsoleDisplayFunc *pFunc = Installed();
+	m_Display.Install(&m_Cvar);
+	IConsoleDisplayFunc* pFunc = Installed();
 	m_Display.Remove();
 
-	ASSERT_EQ( 1u, m_Cvar.m_Removed.size() );
-	EXPECT_EQ( pFunc, m_Cvar.m_Removed[0] );
+	ASSERT_EQ(1u, m_Cvar.m_Removed.size());
+	EXPECT_EQ(pFunc, m_Cvar.m_Removed[0]);
 
-	pFunc->Print( "after teardown\n" );
-	EXPECT_TRUE( Drained().empty() );
+	pFunc->Print("after teardown\n");
+	EXPECT_TRUE(Drained().empty());
 }
 
-TEST_F( ConsoleDisplayForward, AReinstallAfterRemoveInstallsAgain )
+TEST_F(ConsoleDisplayForward, AReinstallAfterRemoveInstallsAgain)
 {
-	m_Display.Install( &m_Cvar );
+	m_Display.Install(&m_Cvar);
 	m_Display.Remove();
-	ASSERT_TRUE( m_Display.Install( &m_Second ) );
+	ASSERT_TRUE(m_Display.Install(&m_Second));
 
-	ASSERT_EQ( 1u, m_Second.m_Installed.size() );
-	m_Second.m_Installed[0]->Print( "fresh cvar\n" );
-	ASSERT_EQ( 1u, Drained().size() );
-	EXPECT_EQ( "fresh cvar\n", g_SinkLines[0].text );
-	EXPECT_EQ( 2, g_AreaA.m_nAttaches ) << "each install hands the buffer over";
+	ASSERT_EQ(1u, m_Second.m_Installed.size());
+	m_Second.m_Installed[0]->Print("fresh cvar\n");
+	ASSERT_EQ(1u, Drained().size());
+	EXPECT_EQ("fresh cvar\n", g_SinkLines[0].text);
+	EXPECT_EQ(2, g_AreaA.m_nAttaches) << "each install hands the buffer over";
 }
 
-TEST_F( ConsoleDisplayForward, ASecondInstallIsIgnored )
+TEST_F(ConsoleDisplayForward, ASecondInstallIsIgnored)
 {
-	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
-	EXPECT_FALSE( m_Display.Install( &m_Second ) );
+	ASSERT_TRUE(m_Display.Install(&m_Cvar));
+	EXPECT_FALSE(m_Display.Install(&m_Second));
 
-	EXPECT_EQ( 1u, m_Cvar.m_Installed.size() );
-	EXPECT_TRUE( m_Second.m_Installed.empty() );
+	EXPECT_EQ(1u, m_Cvar.m_Installed.size());
+	EXPECT_TRUE(m_Second.m_Installed.empty());
 }
 
-TEST_F( ConsoleDisplayForward, InstallOfNullDoesNothing )
+TEST_F(ConsoleDisplayForward, InstallOfNullDoesNothing)
 {
-	EXPECT_FALSE( m_Display.Install( nullptr ) );
-	EXPECT_TRUE( m_Cvar.m_Installed.empty() );
+	EXPECT_FALSE(m_Display.Install(nullptr));
+	EXPECT_TRUE(m_Cvar.m_Installed.empty());
 }
 
 // ---------------------------------------------------------------------------
@@ -325,10 +325,10 @@ TEST_F( ConsoleDisplayForward, InstallOfNullDoesNothing )
 
 /// The engine's console fan-out over CRecordingCvar: the func installed and
 /// not since removed gets the print, as Con_ColorPrintf's loop would.
-void EnginePrint( CRecordingCvar &cvar, const char *pText )
+void EnginePrint(CRecordingCvar& cvar, const char* pText)
 {
-	if ( cvar.m_Installed.size() > cvar.m_Removed.size() )
-		cvar.m_Installed.back()->Print( pText );
+	if (cvar.m_Installed.size() > cvar.m_Removed.size())
+		cvar.m_Installed.back()->Print(pText);
 }
 
 /// A detached area: every call is a trap hit, and the trap's report prints
@@ -338,42 +338,41 @@ class CTrapArea final : public IManagedConsoleOutput
 {
 public:
 	CTrapArea()
-		: IManagedConsoleOutput( &kTable )
+		: IManagedConsoleOutput(&kTable)
 	{
 	}
 
-	CRecordingCvar *m_pCvar = nullptr;
+	CRecordingCvar* m_pCvar = nullptr;
 	int m_nHits = 0;
 	int m_nDepth = 0;
 
 	void Hit()
 	{
 		++m_nHits;
-		if ( m_pCvar && m_nDepth < 8 )
+		if (m_pCvar && m_nDepth < 8)
 		{
 			++m_nDepth;
-			EnginePrint(
-				*m_pCvar,
-				"[SourceSharp] IManagedConsoleOutput slot was called while its managed vtable was detached\n" );
+			EnginePrint(*m_pCvar,
+						"[SourceSharp] IManagedConsoleOutput slot was called while its managed vtable was detached\n");
 			--m_nDepth;
 		}
 	}
 
 private:
-	static CTrapArea *Of( void *self ) { return static_cast<CTrapArea *>( self ); }
+	static CTrapArea* Of(void* self) { return static_cast<CTrapArea*>(self); }
 
-	static void Released( IManagedObject * ) {}
+	static void Released(IManagedObject*) {}
 
-	static int32_t Validated( IManagedObject *, const uint32_t *, int32_t ) { return -1; }
+	static int32_t Validated(IManagedObject*, const uint32_t*, int32_t) { return -1; }
 
-	static void Attached( IManagedConsoleOutput *self, void * ) { Of( self )->Hit(); }
+	static void Attached(IManagedConsoleOutput* self, void*) { Of(self)->Hit(); }
 
 	static const SSManagedConsoleOutputTable kTable;
 };
 
-const SSManagedConsoleOutputTable CTrapArea::kTable = { &Released, &Validated, &Attached };
+const SSManagedConsoleOutputTable CTrapArea::kTable = {&Released, &Validated, &Attached};
 
-TEST_F( ConsoleDisplayForward, WithoutTheGapAReinstallOverADetachedAreaHitsTheTrap )
+TEST_F(ConsoleDisplayForward, WithoutTheGapAReinstallOverADetachedAreaHitsTheTrap)
 {
 	// The stimulus reaches the subject: an install while the area is on the
 	// trap table hands the buffer to the trap. The gap below is what keeps
@@ -381,91 +380,91 @@ TEST_F( ConsoleDisplayForward, WithoutTheGapAReinstallOverADetachedAreaHitsTheTr
 	CTrapArea trap;
 	trap.m_pCvar = &m_Cvar;
 	g_pArea = &trap;
-	m_Display.Install( &m_Cvar );
+	m_Display.Install(&m_Cvar);
 
-	EXPECT_GE( trap.m_nHits, 1 );
+	EXPECT_GE(trap.m_nHits, 1);
 }
 
-TEST_F( ConsoleDisplayForward, InAReloadGapNoPrintReachesTheDetachedArea )
+TEST_F(ConsoleDisplayForward, InAReloadGapNoPrintReachesTheDetachedArea)
 {
 	CTrapArea trap;
 	trap.m_pCvar = &m_Cvar;
-	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
-	EnginePrint( m_Cvar, "before the reload\n" );
+	ASSERT_TRUE(m_Display.Install(&m_Cvar));
+	EnginePrint(m_Cvar, "before the reload\n");
 	{
-		CConsoleDisplayReloadGap gap( m_Display );
+		CConsoleDisplayReloadGap gap(m_Display);
 		g_pArea = &trap; // UnloadSide's Detach
-		EnginePrint( m_Cvar, "[SourceSharp] server: unloading\n" );
+		EnginePrint(m_Cvar, "[SourceSharp] server: unloading\n");
 		g_pArea = &g_AreaB; // the next build's patch
 	}
-	EXPECT_EQ( 0, trap.m_nHits ) << "a print between the unload and the load reached the trap table";
+	EXPECT_EQ(0, trap.m_nHits) << "a print between the unload and the load reached the trap table";
 }
 
-TEST_F( ConsoleDisplayForward, AfterAReloadGapTheNewLoadGetsThePrintsOnTheSameCvar )
+TEST_F(ConsoleDisplayForward, AfterAReloadGapTheNewLoadGetsThePrintsOnTheSameCvar)
 {
-	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
+	ASSERT_TRUE(m_Display.Install(&m_Cvar));
 	{
-		CConsoleDisplayReloadGap gap( m_Display );
+		CConsoleDisplayReloadGap gap(m_Display);
 		g_pArea = &g_AreaB;
 	}
-	EnginePrint( m_Cvar, "after the reload\n" );
+	EnginePrint(m_Cvar, "after the reload\n");
 
-	EXPECT_EQ( 1, g_AreaB.m_nAttaches ) << "the next load must be handed the buffer";
-	ASSERT_EQ( 1u, Drained( g_AreaB ).size() ) << "the forwarder must be back on the engine's list after the gap";
-	EXPECT_EQ( "after the reload\n", g_SinkLines[0].text );
-	EXPECT_EQ( 2u, m_Cvar.m_Installed.size() ) << "re-installed on the ICvar it was removed from";
-	EXPECT_EQ( 1u, m_Cvar.m_Removed.size() );
+	EXPECT_EQ(1, g_AreaB.m_nAttaches) << "the next load must be handed the buffer";
+	ASSERT_EQ(1u, Drained(g_AreaB).size()) << "the forwarder must be back on the engine's list after the gap";
+	EXPECT_EQ("after the reload\n", g_SinkLines[0].text);
+	EXPECT_EQ(2u, m_Cvar.m_Installed.size()) << "re-installed on the ICvar it was removed from";
+	EXPECT_EQ(1u, m_Cvar.m_Removed.size());
 }
 
-TEST_F( ConsoleDisplayForward, TheBufferAndItsNumbersSurviveAReloadGap )
+TEST_F(ConsoleDisplayForward, TheBufferAndItsNumbersSurviveAReloadGap)
 {
 	// Lines the old load never drained reach the next one, in order, from the
 	// same memory, and the numbers run on: monotonic across cs_sv_reload.
-	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
-	EnginePrint( m_Cvar, "just before the gap\n" );
-	EnginePrint( m_Cvar, "the last line before it\n" );
+	ASSERT_TRUE(m_Display.Install(&m_Cvar));
+	EnginePrint(m_Cvar, "just before the gap\n");
+	EnginePrint(m_Cvar, "the last line before it\n");
 	{
-		CConsoleDisplayReloadGap gap( m_Display );
+		CConsoleDisplayReloadGap gap(m_Display);
 		g_pArea = &g_AreaB;
 	}
-	EnginePrint( m_Cvar, "the first line after it\n" );
+	EnginePrint(m_Cvar, "the first line after it\n");
 
-	EXPECT_EQ( g_AreaA.m_pBuffer, g_AreaB.m_pBuffer ) << "the next load is handed the same buffer";
-	ASSERT_EQ( 3u, Drained( g_AreaB ).size() );
-	EXPECT_EQ( "just before the gap\n", g_SinkLines[0].text );
-	EXPECT_EQ( "the last line before it\n", g_SinkLines[1].text );
-	EXPECT_EQ( "the first line after it\n", g_SinkLines[2].text );
-	EXPECT_EQ( g_SinkLines[0].seq + 1, g_SinkLines[1].seq );
-	EXPECT_EQ( g_SinkLines[1].seq + 1, g_SinkLines[2].seq ) << "the numbers run on across the gap";
+	EXPECT_EQ(g_AreaA.m_pBuffer, g_AreaB.m_pBuffer) << "the next load is handed the same buffer";
+	ASSERT_EQ(3u, Drained(g_AreaB).size());
+	EXPECT_EQ("just before the gap\n", g_SinkLines[0].text);
+	EXPECT_EQ("the last line before it\n", g_SinkLines[1].text);
+	EXPECT_EQ("the first line after it\n", g_SinkLines[2].text);
+	EXPECT_EQ(g_SinkLines[0].seq + 1, g_SinkLines[1].seq);
+	EXPECT_EQ(g_SinkLines[1].seq + 1, g_SinkLines[2].seq) << "the numbers run on across the gap";
 }
 
-TEST_F( ConsoleDisplayForward, EndingAReloadGapEarlyReinstallsOnce )
+TEST_F(ConsoleDisplayForward, EndingAReloadGapEarlyReinstallsOnce)
 {
-	ASSERT_TRUE( m_Display.Install( &m_Cvar ) );
+	ASSERT_TRUE(m_Display.Install(&m_Cvar));
 	{
-		CConsoleDisplayReloadGap gap( m_Display );
+		CConsoleDisplayReloadGap gap(m_Display);
 		g_pArea = &g_AreaB;
 		gap.End();
-		EnginePrint( m_Cvar, "after the load, before the scope ends\n" );
+		EnginePrint(m_Cvar, "after the load, before the scope ends\n");
 	}
-	ASSERT_EQ( 1u, Drained( g_AreaB ).size() ) << "End() must put the forwarder back at once";
-	EXPECT_EQ( 2u, m_Cvar.m_Installed.size() ) << "and the scope's end must not install it a second time";
-	EXPECT_EQ( 1, g_AreaB.m_nAttaches );
+	ASSERT_EQ(1u, Drained(g_AreaB).size()) << "End() must put the forwarder back at once";
+	EXPECT_EQ(2u, m_Cvar.m_Installed.size()) << "and the scope's end must not install it a second time";
+	EXPECT_EQ(1, g_AreaB.m_nAttaches);
 }
 
-TEST_F( ConsoleDisplayForward, AReloadGapWithNothingInstalledInstallsNothing )
+TEST_F(ConsoleDisplayForward, AReloadGapWithNothingInstalledInstallsNothing)
 {
 	{
-		CConsoleDisplayReloadGap gap( m_Display );
+		CConsoleDisplayReloadGap gap(m_Display);
 	}
-	EXPECT_TRUE( m_Cvar.m_Installed.empty() );
-	EXPECT_TRUE( m_Cvar.m_Removed.empty() );
+	EXPECT_TRUE(m_Cvar.m_Installed.empty());
+	EXPECT_TRUE(m_Cvar.m_Removed.empty());
 }
 
-TEST_F( ConsoleDisplayForward, RemoveWithoutInstallIsHarmless )
+TEST_F(ConsoleDisplayForward, RemoveWithoutInstallIsHarmless)
 {
 	m_Display.Remove();
-	EXPECT_TRUE( m_Cvar.m_Removed.empty() );
+	EXPECT_TRUE(m_Cvar.m_Removed.empty());
 }
 
 } // namespace

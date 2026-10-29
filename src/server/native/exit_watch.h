@@ -44,10 +44,10 @@ enum ExitWatchFact_t
 // Installs the recorders (once per process; a second arm only replaces the
 // record path) and remembers pRecordPath for a fatal stop. Returns the
 // kExitWatch* bits now installed.
-int32_t ExitWatch_Arm( const char *pRecordPath );
+int32_t ExitWatch_Arm(const char* pRecordPath);
 
 // Writes up to nMax facts (ExitWatchFact_t order) into pOut; returns how many.
-int32_t ExitWatch_Read( int32_t *pOut, int32_t nMax );
+int32_t ExitWatch_Read(int32_t* pOut, int32_t nMax);
 
 // Removes every recorder Arm installed. SDL's event watch must go before this
 // module is unmapped, or SDL calls into unmapped code. Recorded facts are kept.
@@ -55,8 +55,8 @@ int32_t ExitWatch_Read( int32_t *pOut, int32_t nMax );
 int32_t ExitWatch_Disarm();
 
 // The recorders themselves, for the tests.
-void ExitWatch_OnSignalForTest( int nSigno, int nSenderPid, int nSenderUid );
-void ExitWatch_OnSdlEventForTest( const void *pEvent );
+void ExitWatch_OnSignalForTest(int nSigno, int nSenderPid, int nSenderUid);
+void ExitWatch_OnSdlEventForTest(const void* pEvent);
 
 // Restores every handler the arm replaced and forgets the facts. For the tests.
 void ExitWatch_ResetForTest();

@@ -19,23 +19,23 @@
 class CFakeServerEntity : public IServerEntity
 {
 public:
-	void SetRefEHandle( const CBaseHandle &handle ) override {}
+	void SetRefEHandle(const CBaseHandle& handle) override {}
 
-	const CBaseHandle &GetRefEHandle() const override
+	const CBaseHandle& GetRefEHandle() const override
 	{
-		static std::remove_cv_t<std::remove_reference_t<const CBaseHandle &>> s_Default;
+		static std::remove_cv_t<std::remove_reference_t<const CBaseHandle&>> s_Default;
 		return s_Default;
 	}
 
-	ICollideable *GetCollideable() override { return {}; }
+	ICollideable* GetCollideable() override { return {}; }
 
-	IServerNetworkable *GetNetworkable() override { return {}; }
+	IServerNetworkable* GetNetworkable() override { return {}; }
 
-	CBaseEntity *GetBaseEntity() override { return {}; }
+	CBaseEntity* GetBaseEntity() override { return {}; }
 
 	int GetModelIndex() const override { return {}; }
 
 	string_t GetModelName() const override { return {}; }
 
-	void SetModelIndex( int index ) override {}
+	void SetModelIndex(int index) override {}
 };

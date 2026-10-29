@@ -56,14 +56,14 @@ union Word
 	float f;
 };
 
-float F( int32_t w )
+float F(int32_t w)
 {
 	Word u;
 	u.i = w;
 	return u.f;
 }
 
-int32_t Bits( float f )
+int32_t Bits(float f)
 {
 	Word u;
 	u.f = f;
@@ -74,14 +74,14 @@ int32_t Bits( float f )
 // and marks the record short, which ends the run.
 struct Payload
 {
-	const int32_t *p;
+	const int32_t* p;
 	int32_t n;
 	int32_t at;
 	bool bShort;
 
 	int32_t I()
 	{
-		if ( at >= n )
+		if (at >= n)
 		{
 			bShort = true;
 			return 0;
@@ -89,21 +89,21 @@ struct Payload
 		return p[at++];
 	}
 
-	float Fl() { return F( I() ); }
+	float Fl() { return F(I()); }
 
-	void *Ptr()
+	void* Ptr()
 	{
 		const uint32_t lo = (uint32_t)I();
 		const uint32_t hi = (uint32_t)I();
-		return reinterpret_cast<void *>( (uintptr_t)( ( (uint64_t)hi << 32 ) | lo ) );
+		return reinterpret_cast<void*>((uintptr_t)(((uint64_t)hi << 32) | lo));
 	}
 
 	// NULL when the record was too short to hold the whole pointer: a
 	// truncated pointer is never followed.
-	IClientRenderable *Renderable()
+	IClientRenderable* Renderable()
 	{
-		void *pv = Ptr();
-		return bShort ? NULL : static_cast<IClientRenderable *>( pv );
+		void* pv = Ptr();
+		return bShort ? NULL : static_cast<IClientRenderable*>(pv);
 	}
 
 	Vector Vec()
@@ -111,7 +111,7 @@ struct Payload
 		const float x = Fl();
 		const float y = Fl();
 		const float z = Fl();
-		return Vector( x, y, z );
+		return Vector(x, y, z);
 	}
 
 	QAngle Ang()
@@ -119,7 +119,7 @@ struct Payload
 		const float x = Fl();
 		const float y = Fl();
 		const float z = Fl();
-		return QAngle( x, y, z );
+		return QAngle(x, y, z);
 	}
 
 	double D()
@@ -135,27 +135,27 @@ struct Payload
 		return u.d;
 	}
 
-	void Matrix( VMatrix &m )
+	void Matrix(VMatrix& m)
 	{
-		for ( int r = 0; r < 4; ++r )
-			for ( int c = 0; c < 4; ++c )
+		for (int r = 0; r < 4; ++r)
+			for (int c = 0; c < 4; ++c)
 				m.m[r][c] = Fl();
 	}
 
 	// A string: its byte length, then its bytes padded to a word; NULL
 	// when the record is too short to hold it or it carries no NUL.
-	const char *Str()
+	const char* Str()
 	{
 		const int32_t nBytes = I();
-		const int32_t nWords = ( nBytes + 4 ) / 4;
-		if ( bShort || nBytes < 0 || nWords > n - at )
+		const int32_t nWords = (nBytes + 4) / 4;
+		if (bShort || nBytes < 0 || nWords > n - at)
 		{
 			bShort = true;
 			return NULL;
 		}
-		const char *psz = reinterpret_cast<const char *>( p + at );
+		const char* psz = reinterpret_cast<const char*>(p + at);
 		at += nWords;
-		if ( psz[nBytes] != 0 )
+		if (psz[nBytes] != 0)
 		{
 			bShort = true;
 			return NULL;
@@ -164,16 +164,16 @@ struct Payload
 	}
 
 	// The rest of the payload: a count, then that many words.
-	const int *Leaves( int &nCount )
+	const int* Leaves(int& nCount)
 	{
 		nCount = I();
-		if ( bShort || nCount < 0 || nCount > n - at )
+		if (bShort || nCount < 0 || nCount > n - at)
 		{
 			bShort = true;
 			nCount = 0;
 			return NULL;
 		}
-		const int *pLeaves = reinterpret_cast<const int *>( p + at );
+		const int* pLeaves = reinterpret_cast<const int*>(p + at);
 		at += nCount;
 		return pLeaves;
 	}
@@ -182,44 +182,44 @@ struct Payload
 // The answers, after one another; past the buffer only counted.
 struct Answers
 {
-	int32_t *p;
+	int32_t* p;
 	int32_t nMax;
 	int32_t n;
 
-	void I( int32_t w )
+	void I(int32_t w)
 	{
-		if ( n < nMax )
+		if (n < nMax)
 			p[n] = w;
 		++n;
 	}
 
-	void Fl( float f ) { I( Bits( f ) ); }
+	void Fl(float f) { I(Bits(f)); }
 
-	void Ptr( const void *pv )
+	void Ptr(const void* pv)
 	{
 		const uint64_t v = (uint64_t)(uintptr_t)pv;
-		I( (int32_t)(uint32_t)( v & 0xFFFFFFFFu ) );
-		I( (int32_t)(uint32_t)( v >> 32 ) );
+		I((int32_t)(uint32_t)(v & 0xFFFFFFFFu));
+		I((int32_t)(uint32_t)(v >> 32));
 	}
 
-	void Vec( const Vector &v )
+	void Vec(const Vector& v)
 	{
-		Fl( v.x );
-		Fl( v.y );
-		Fl( v.z );
+		Fl(v.x);
+		Fl(v.y);
+		Fl(v.z);
 	}
 
 	// A struct's words as they lie: ShadowInfo_t and Frustum_t, which the
 	// managed side reads through their byte-for-byte mirrors.
-	void Words( const void *pv, size_t nBytes )
+	void Words(const void* pv, size_t nBytes)
 	{
-		const unsigned char *pb = static_cast<const unsigned char *>( pv );
-		for ( size_t i = 0; i < nBytes; i += 4 )
+		const unsigned char* pb = static_cast<const unsigned char*>(pv);
+		for (size_t i = 0; i < nBytes; i += 4)
 		{
 			int32_t w = 0;
-			for ( size_t k = 0; k < 4 && i + k < nBytes; ++k )
-				w |= (int32_t)( (uint32_t)pb[i + k] << ( 8 * k ) );
-			I( w );
+			for (size_t k = 0; k < 4 && i + k < nBytes; ++k)
+				w |= (int32_t)((uint32_t)pb[i + k] << (8 * k));
+			I(w);
 		}
 	}
 };
@@ -229,41 +229,41 @@ struct Answers
 class CLeafCollector final : public ISpatialLeafEnumerator
 {
 public:
-	explicit CLeafCollector( Answers &out )
-		: m_Out( out )
-		, m_nCount( 0 )
+	explicit CLeafCollector(Answers& out)
+		: m_Out(out)
+		, m_nCount(0)
 	{
 	}
 
-	bool EnumerateLeaf( int leaf, intp ) override
+	bool EnumerateLeaf(int leaf, intp) override
 	{
-		m_Out.I( leaf );
+		m_Out.I(leaf);
 		++m_nCount;
 		return true;
 	}
 
-	Answers &m_Out;
+	Answers& m_Out;
 	int32_t m_nCount;
 };
 
 // The render context, asked for once per run that needs it.
 struct Context
 {
-	IMaterialSystem *pMaterials;
-	IMatRenderContext *pContext;
+	IMaterialSystem* pMaterials;
+	IMatRenderContext* pContext;
 
-	IMatRenderContext *Get()
+	IMatRenderContext* Get()
 	{
-		if ( !pContext && pMaterials )
+		if (!pContext && pMaterials)
 			pContext = pMaterials->GetRenderContext();
 		return pContext;
 	}
 };
 
-void StateFromWire( const SSShadowEnv &env, const SourceSharpFlashlightState &w, FlashlightState_t &s )
+void StateFromWire(const SSShadowEnv& env, const SourceSharpFlashlightState& w, FlashlightState_t& s)
 {
-	s.m_vecLightOrigin.Init( w.OriginXYZ[0], w.OriginXYZ[1], w.OriginXYZ[2] );
-	s.m_quatOrientation.Init( w.Orientation[0], w.Orientation[1], w.Orientation[2], w.Orientation[3] );
+	s.m_vecLightOrigin.Init(w.OriginXYZ[0], w.OriginXYZ[1], w.OriginXYZ[2]);
+	s.m_quatOrientation.Init(w.Orientation[0], w.Orientation[1], w.Orientation[2], w.Orientation[3]);
 	s.m_NearZ = w.NearZ;
 	s.m_FarZ = w.FarZ;
 	s.m_fHorizontalFOVDegrees = w.HorizontalFovDegrees;
@@ -271,9 +271,9 @@ void StateFromWire( const SSShadowEnv &env, const SourceSharpFlashlightState &w,
 	s.m_fQuadraticAtten = w.QuadraticAtten;
 	s.m_fLinearAtten = w.LinearAtten;
 	s.m_fConstantAtten = w.ConstantAtten;
-	for ( int i = 0; i < 4; i++ )
+	for (int i = 0; i < 4; i++)
 		s.m_Color[i] = w.Color[i];
-	s.m_pSpotlightTexture = env.pfnFlashlightTexture ? env.pfnFlashlightTexture( w.Texture ) : NULL;
+	s.m_pSpotlightTexture = env.pfnFlashlightTexture ? env.pfnFlashlightTexture(w.Texture) : NULL;
 	s.m_nSpotlightTextureFrame = w.TextureFrame;
 	s.m_bEnableShadows = w.EnableShadows != 0;
 	s.m_flShadowMapResolution = w.ShadowMapResolution;
@@ -284,31 +284,31 @@ void StateFromWire( const SSShadowEnv &env, const SourceSharpFlashlightState &w,
 
 enum
 {
-	FLASHLIGHT_STATE_WORDS = sizeof( SourceSharpFlashlightState ) / 4
+	FLASHLIGHT_STATE_WORDS = sizeof(SourceSharpFlashlightState) / 4
 };
 
-static_assert( sizeof( SourceSharpFlashlightState ) == 25 * 4, "the flashlight state is 25 words" );
+static_assert(sizeof(SourceSharpFlashlightState) == 25 * 4, "the flashlight state is 25 words");
 
-IMaterial *Material( const SSShadowEnv &env, int32_t id )
+IMaterial* Material(const SSShadowEnv& env, int32_t id)
 {
-	return env.pfnMaterial ? env.pfnMaterial( id ) : NULL;
+	return env.pfnMaterial ? env.pfnMaterial(id) : NULL;
 }
 
-ITexture *Texture( const SSShadowEnv &env, int32_t id )
+ITexture* Texture(const SSShadowEnv& env, int32_t id)
 {
-	return env.pfnTexture ? env.pfnTexture( id ) : NULL;
+	return env.pfnTexture ? env.pfnTexture(id) : NULL;
 }
 
 // One record; false when it was short (the run ends).
-bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, Context &ctx )
+bool Execute(const SSShadowEnv& env, int32_t kind, Payload& in, Answers& out, Context& ctx)
 {
-	IShadowMgr *pShadowMgr = env.ppShadowMgr ? *env.ppShadowMgr : NULL;
-	IStaticPropMgrClient *pStaticProps = env.ppStaticPropMgr ? *env.ppStaticPropMgr : NULL;
-	IMaterialSystem *pMaterials = env.ppMaterials ? *env.ppMaterials : NULL;
-	IVEngineClient *pEngine = env.ppEngine ? *env.ppEngine : NULL;
-	IVModelInfoClient *pModelInfo = env.ppModelInfo ? *env.ppModelInfo : NULL;
+	IShadowMgr* pShadowMgr = env.ppShadowMgr ? *env.ppShadowMgr : NULL;
+	IStaticPropMgrClient* pStaticProps = env.ppStaticPropMgr ? *env.ppStaticPropMgr : NULL;
+	IMaterialSystem* pMaterials = env.ppMaterials ? *env.ppMaterials : NULL;
+	IVEngineClient* pEngine = env.ppEngine ? *env.ppEngine : NULL;
+	IVModelInfoClient* pModelInfo = env.ppModelInfo ? *env.ppModelInfo : NULL;
 
-	switch ( kind )
+	switch (kind)
 	{
 		//---------------------------------------------------------------------
 		// IShadowMgr and the static prop manager.
@@ -316,18 +316,18 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 		case SS_SHADOW_DestroyShadow:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->DestroyShadow( h );
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->DestroyShadow(h);
 			break;
 		}
 		case SS_SHADOW_SetShadowMaterial:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
-			IMaterial *pMaterial = Material( env, in.I() );
-			IMaterial *pModelMaterial = Material( env, in.I() );
-			void *pProxy = in.Ptr();
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->SetShadowMaterial( h, pMaterial, pModelMaterial, pProxy );
+			IMaterial* pMaterial = Material(env, in.I());
+			IMaterial* pModelMaterial = Material(env, in.I());
+			void* pProxy = in.Ptr();
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->SetShadowMaterial(h, pMaterial, pModelMaterial, pProxy);
 			break;
 		}
 		case SS_SHADOW_ProjectShadow:
@@ -336,7 +336,7 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			const Vector origin = in.Vec();
 			const Vector dir = in.Vec();
 			VMatrix worldToShadow;
-			in.Matrix( worldToShadow );
+			in.Matrix(worldToShadow);
 			const float sx = in.Fl();
 			const float sy = in.Fl();
 			const float maxHeight = in.Fl();
@@ -344,38 +344,38 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			const float falloffAmount = in.Fl();
 			const Vector caster = in.Vec();
 			int nLeaves;
-			const int *pLeaves = in.Leaves( nLeaves );
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->ProjectShadow( h, origin, dir, worldToShadow, Vector2D( sx, sy ), nLeaves, pLeaves,
-										   maxHeight, falloffOffset, falloffAmount, caster );
+			const int* pLeaves = in.Leaves(nLeaves);
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->ProjectShadow(h, origin, dir, worldToShadow, Vector2D(sx, sy), nLeaves, pLeaves, maxHeight,
+										  falloffOffset, falloffAmount, caster);
 			break;
 		}
 		case SS_SHADOW_ProjectFlashlight:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
 			VMatrix worldToShadow;
-			in.Matrix( worldToShadow );
+			in.Matrix(worldToShadow);
 			int nLeaves;
-			const int *pLeaves = in.Leaves( nLeaves );
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->ProjectFlashlight( h, worldToShadow, nLeaves, pLeaves );
+			const int* pLeaves = in.Leaves(nLeaves);
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->ProjectFlashlight(h, worldToShadow, nLeaves, pLeaves);
 			break;
 		}
 		case SS_SHADOW_AddShadowToBrushModel:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
-			model_t *pModel = static_cast<model_t *>( in.Ptr() );
+			model_t* pModel = static_cast<model_t*>(in.Ptr());
 			const Vector origin = in.Vec();
 			const QAngle angles = in.Ang();
-			if ( !in.bShort && pShadowMgr && pModel )
-				pShadowMgr->AddShadowToBrushModel( h, pModel, origin, angles );
+			if (!in.bShort && pShadowMgr && pModel)
+				pShadowMgr->AddShadowToBrushModel(h, pModel, origin, angles);
 			break;
 		}
 		case SS_SHADOW_RemoveAllShadowsFromBrushModel:
 		{
-			model_t *pModel = static_cast<model_t *>( in.Ptr() );
-			if ( !in.bShort && pShadowMgr && pModel )
-				pShadowMgr->RemoveAllShadowsFromBrushModel( pModel );
+			model_t* pModel = static_cast<model_t*>(in.Ptr());
+			if (!in.bShort && pShadowMgr && pModel)
+				pShadowMgr->RemoveAllShadowsFromBrushModel(pModel);
 			break;
 		}
 		case SS_SHADOW_SetShadowTexCoord:
@@ -385,30 +385,30 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			const float y = in.Fl();
 			const float w = in.Fl();
 			const float hh = in.Fl();
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->SetShadowTexCoord( h, x, y, w, hh );
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->SetShadowTexCoord(h, x, y, w, hh);
 			break;
 		}
 		case SS_SHADOW_AddShadowToModel:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
 			const ModelInstanceHandle_t instance = (ModelInstanceHandle_t)in.I();
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->AddShadowToModel( h, instance );
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->AddShadowToModel(h, instance);
 			break;
 		}
 		case SS_SHADOW_RemoveAllShadowsFromModel:
 		{
 			const ModelInstanceHandle_t instance = (ModelInstanceHandle_t)in.I();
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->RemoveAllShadowsFromModel( instance );
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->RemoveAllShadowsFromModel(instance);
 			break;
 		}
 		case SS_SHADOW_ClearExtraClipPlanes:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->ClearExtraClipPlanes( h );
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->ClearExtraClipPlanes(h);
 			break;
 		}
 		case SS_SHADOW_AddExtraClipPlane:
@@ -416,80 +416,79 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
 			const Vector normal = in.Vec();
 			const float dist = in.Fl();
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->AddExtraClipPlane( h, normal, dist );
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->AddExtraClipPlane(h, normal, dist);
 			break;
 		}
 		case SS_SHADOW_EnableShadow:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
 			const bool bEnable = in.I() != 0;
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->EnableShadow( h, bEnable );
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->EnableShadow(h, bEnable);
 			break;
 		}
 		case SS_SHADOW_SetFalloffBias:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
 			const unsigned char bias = (unsigned char)in.I();
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->SetFalloffBias( h, bias );
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->SetFalloffBias(h, bias);
 			break;
 		}
 		case SS_SHADOW_UpdateFlashlightState:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
-			if ( in.n - in.at < FLASHLIGHT_STATE_WORDS )
+			if (in.n - in.at < FLASHLIGHT_STATE_WORDS)
 			{
 				in.bShort = true;
 				break;
 			}
-			const SourceSharpFlashlightState *pWire =
-				reinterpret_cast<const SourceSharpFlashlightState *>( in.p + in.at );
+			const SourceSharpFlashlightState* pWire = reinterpret_cast<const SourceSharpFlashlightState*>(in.p + in.at);
 			in.at += FLASHLIGHT_STATE_WORDS;
 			FlashlightState_t state;
-			StateFromWire( env, *pWire, state );
-			if ( pShadowMgr )
-				pShadowMgr->UpdateFlashlightState( h, state );
+			StateFromWire(env, *pWire, state);
+			if (pShadowMgr)
+				pShadowMgr->UpdateFlashlightState(h, state);
 			break;
 		}
 		case SS_SHADOW_AddFlashlightRenderable:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
-			IClientRenderable *pRenderable = in.Renderable();
-			if ( !in.bShort && pShadowMgr && pRenderable )
-				pShadowMgr->AddFlashlightRenderable( h, pRenderable );
+			IClientRenderable* pRenderable = in.Renderable();
+			if (!in.bShort && pShadowMgr && pRenderable)
+				pShadowMgr->AddFlashlightRenderable(h, pRenderable);
 			break;
 		}
 		case SS_SHADOW_SetFlashlightDepthTexture:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
-			ITexture *pTexture = Texture( env, in.I() );
+			ITexture* pTexture = Texture(env, in.I());
 			const unsigned char stencil = (unsigned char)in.I();
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->SetFlashlightDepthTexture( h, pTexture, stencil );
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->SetFlashlightDepthTexture(h, pTexture, stencil);
 			break;
 		}
 		case SS_SHADOW_SetFlashlightRenderState:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
-			if ( !in.bShort && pShadowMgr )
-				pShadowMgr->SetFlashlightRenderState( h );
+			if (!in.bShort && pShadowMgr)
+				pShadowMgr->SetFlashlightRenderState(h);
 			break;
 		}
 		case SS_SHADOW_AddShadowToStaticProp:
 		{
 			const unsigned short h = (unsigned short)in.I();
-			IClientRenderable *pRenderable = in.Renderable();
-			if ( !in.bShort && pStaticProps && pRenderable )
-				pStaticProps->AddShadowToStaticProp( h, pRenderable );
+			IClientRenderable* pRenderable = in.Renderable();
+			if (!in.bShort && pStaticProps && pRenderable)
+				pStaticProps->AddShadowToStaticProp(h, pRenderable);
 			break;
 		}
 		case SS_SHADOW_RemoveAllShadowsFromStaticProp:
 		{
-			IClientRenderable *pRenderable = in.Renderable();
-			if ( !in.bShort && pStaticProps && pRenderable )
-				pStaticProps->RemoveAllShadowsFromStaticProp( pRenderable );
+			IClientRenderable* pRenderable = in.Renderable();
+			if (!in.bShort && pStaticProps && pRenderable)
+				pStaticProps->RemoveAllShadowsFromStaticProp(pRenderable);
 			break;
 		}
 
@@ -499,45 +498,45 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 		case SS_SHADOW_ShutdownMaterial:
 		{
 			const int32_t id = in.I();
-			if ( !in.bShort && env.pfnShutdownMaterial )
-				env.pfnShutdownMaterial( id );
+			if (!in.bShort && env.pfnShutdownMaterial)
+				env.pfnShutdownMaterial(id);
 			break;
 		}
 		case SS_SHADOW_ColorModulate:
 		{
-			IMaterial *pMaterial = Material( env, in.I() );
+			IMaterial* pMaterial = Material(env, in.I());
 			const float r = in.Fl();
 			const float g = in.Fl();
 			const float b = in.Fl();
-			if ( !in.bShort && pMaterial )
-				pMaterial->ColorModulate( r, g, b );
+			if (!in.bShort && pMaterial)
+				pMaterial->ColorModulate(r, g, b);
 			break;
 		}
 		case SS_SHADOW_ShutdownTexture:
 		{
 			const int32_t id = in.I();
-			if ( !in.bShort && env.pfnShutdownTexture )
-				env.pfnShutdownTexture( id );
+			if (!in.bShort && env.pfnShutdownTexture)
+				env.pfnShutdownTexture(id);
 			break;
 		}
 		case SS_SHADOW_BeginRenderTargetAllocation:
-			if ( pMaterials )
+			if (pMaterials)
 				pMaterials->BeginRenderTargetAllocation();
 			break;
 		case SS_SHADOW_EndRenderTargetAllocation:
-			if ( pMaterials )
+			if (pMaterials)
 				pMaterials->EndRenderTargetAllocation();
 			break;
 		case SS_SHADOW_UncacheUnusedMaterials:
-			if ( pMaterials )
+			if (pMaterials)
 				pMaterials->UncacheUnusedMaterials();
 			break;
 		case SS_SHADOW_AddRestoreFunc:
-			if ( env.pfnAddRestoreFunc )
+			if (env.pfnAddRestoreFunc)
 				env.pfnAddRestoreFunc();
 			break;
 		case SS_SHADOW_RemoveRestoreFunc:
-			if ( env.pfnRemoveRestoreFunc )
+			if (env.pfnRemoveRestoreFunc)
 				env.pfnRemoveRestoreFunc();
 			break;
 
@@ -547,15 +546,15 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 		case SS_SHADOW_FogMode:
 		{
 			const int32_t mode = in.I();
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->FogMode( (MaterialFogMode_t)mode );
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->FogMode((MaterialFogMode_t)mode);
 			break;
 		}
 		case SS_SHADOW_SetHeightClipMode:
 		{
 			const int32_t mode = in.I();
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->SetHeightClipMode( (MaterialHeightClipMode_t)mode );
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->SetHeightClipMode((MaterialHeightClipMode_t)mode);
 			break;
 		}
 		case SS_SHADOW_ClearColor4ub:
@@ -564,8 +563,8 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			const unsigned char g = (unsigned char)in.I();
 			const unsigned char b = (unsigned char)in.I();
 			const unsigned char a = (unsigned char)in.I();
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->ClearColor4ub( r, g, b, a );
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->ClearColor4ub(r, g, b, a);
 			break;
 		}
 		case SS_SHADOW_ClearColor3ub:
@@ -573,35 +572,35 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			const unsigned char r = (unsigned char)in.I();
 			const unsigned char g = (unsigned char)in.I();
 			const unsigned char b = (unsigned char)in.I();
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->ClearColor3ub( r, g, b );
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->ClearColor3ub(r, g, b);
 			break;
 		}
 		case SS_SHADOW_MatrixMode:
 		{
 			const int32_t mode = in.I();
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->MatrixMode( (MaterialMatrixMode_t)mode );
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->MatrixMode((MaterialMatrixMode_t)mode);
 			break;
 		}
 		case SS_SHADOW_PushMatrix:
-			if ( ctx.Get() )
+			if (ctx.Get())
 				ctx.Get()->PushMatrix();
 			break;
 		case SS_SHADOW_PopMatrix:
-			if ( ctx.Get() )
+			if (ctx.Get())
 				ctx.Get()->PopMatrix();
 			break;
 		case SS_SHADOW_LoadIdentity:
-			if ( ctx.Get() )
+			if (ctx.Get())
 				ctx.Get()->LoadIdentity();
 			break;
 		case SS_SHADOW_LoadMatrix:
 		{
 			VMatrix m;
-			in.Matrix( m );
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->LoadMatrix( m );
+			in.Matrix(m);
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->LoadMatrix(m);
 			break;
 		}
 		case SS_SHADOW_Scale:
@@ -609,8 +608,8 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			const float x = in.Fl();
 			const float y = in.Fl();
 			const float z = in.Fl();
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->Scale( x, y, z );
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->Scale(x, y, z);
 			break;
 		}
 		case SS_SHADOW_Ortho:
@@ -621,19 +620,19 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			const double b = in.D();
 			const double zn = in.D();
 			const double zf = in.D();
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->Ortho( l, t, r, b, zn, zf );
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->Ortho(l, t, r, b, zn, zf);
 			break;
 		}
 		case SS_SHADOW_PushRenderTargetAndViewport:
 		{
-			ITexture *pTexture = Texture( env, in.I() );
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->PushRenderTargetAndViewport( pTexture );
+			ITexture* pTexture = Texture(env, in.I());
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->PushRenderTargetAndViewport(pTexture);
 			break;
 		}
 		case SS_SHADOW_PopRenderTargetAndViewport:
-			if ( ctx.Get() )
+			if (ctx.Get())
 				ctx.Get()->PopRenderTargetAndViewport();
 			break;
 		case SS_SHADOW_ClearBuffers:
@@ -641,8 +640,8 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			const bool bColor = in.I() != 0;
 			const bool bDepth = in.I() != 0;
 			const bool bStencil = in.I() != 0;
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->ClearBuffers( bColor, bDepth, bStencil );
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->ClearBuffers(bColor, bDepth, bStencil);
 			break;
 		}
 		case SS_SHADOW_Viewport:
@@ -651,39 +650,39 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			const int32_t y = in.I();
 			const int32_t w = in.I();
 			const int32_t h = in.I();
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->Viewport( x, y, w, h );
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->Viewport(x, y, w, h);
 			break;
 		}
 		case SS_SHADOW_SetShadowDepthBiasFactors:
 		{
 			const float slope = in.Fl();
 			const float bias = in.Fl();
-			if ( !in.bShort && ctx.Get() )
-				ctx.Get()->SetShadowDepthBiasFactors( slope, bias );
+			if (!in.bShort && ctx.Get())
+				ctx.Get()->SetShadowDepthBiasFactors(slope, bias);
 			break;
 		}
 		case SS_SHADOW_DrawTextureQuad:
 		{
-			IMaterial *pMaterial = Material( env, in.I() );
+			IMaterial* pMaterial = Material(env, in.I());
 			const float w = in.Fl();
 			const float h = in.Fl();
-			if ( !in.bShort && env.pfnDrawTextureQuad )
-				env.pfnDrawTextureQuad( pMaterial, w, h );
+			if (!in.bShort && env.pfnDrawTextureQuad)
+				env.pfnDrawTextureQuad(pMaterial, w, h);
 			break;
 		}
 		case SS_SHADOW_DrawBrushModelShadow:
 		{
-			IClientRenderable *pRenderable = in.Renderable();
-			IVRenderView *pRender = env.ppRender ? *env.ppRender : NULL;
-			if ( !in.bShort && pRender && pRenderable )
-				pRender->DrawBrushModelShadow( pRenderable );
+			IClientRenderable* pRenderable = in.Renderable();
+			IVRenderView* pRender = env.ppRender ? *env.ppRender : NULL;
+			if (!in.bShort && pRender && pRenderable)
+				pRender->DrawBrushModelShadow(pRenderable);
 			break;
 		}
 		case SS_SHADOW_UpdateShadowDepthTexture:
 		{
-			ITexture *pRenderTarget = Texture( env, in.I() );
-			ITexture *pDepth = Texture( env, in.I() );
+			ITexture* pRenderTarget = Texture(env, in.I());
+			ITexture* pDepth = Texture(env, in.I());
 			CViewSetup view;
 			view.x = in.I();
 			view.y = in.I();
@@ -700,14 +699,14 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			view.m_flAspectRatio = in.Fl();
 			view.m_bOrtho = in.I() != 0;
 			view.m_bDoBloomAndToneMapping = in.I() != 0;
-			if ( !in.bShort && env.pfnUpdateShadowDepthTexture )
-				env.pfnUpdateShadowDepthTexture( pRenderTarget, pDepth, view );
+			if (!in.bShort && env.pfnUpdateShadowDepthTexture)
+				env.pfnUpdateShadowDepthTexture(pRenderTarget, pDepth, view);
 			break;
 		}
 		case SS_SHADOW_CreateModelInstance:
 		{
-			IClientRenderable *pRenderable = in.Renderable();
-			if ( !in.bShort && pRenderable )
+			IClientRenderable* pRenderable = in.Renderable();
+			if (!in.bShort && pRenderable)
 				pRenderable->CreateModelInstance();
 			break;
 		}
@@ -720,19 +719,19 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 			const int32_t b = in.I();
 			const bool bNoDepthTest = in.I() != 0;
 			const float duration = in.Fl();
-			IVDebugOverlay *pOverlay = env.ppDebugOverlay ? *env.ppDebugOverlay : NULL;
-			if ( !in.bShort && pOverlay )
-				pOverlay->AddLineOverlay( origin, dest, r, g, b, bNoDepthTest, duration );
+			IVDebugOverlay* pOverlay = env.ppDebugOverlay ? *env.ppDebugOverlay : NULL;
+			if (!in.bShort && pOverlay)
+				pOverlay->AddLineOverlay(origin, dest, r, g, b, bNoDepthTest, duration);
 			break;
 		}
 		case SS_SHADOW_AddTextOverlay:
 		{
 			const Vector origin = in.Vec();
 			const float duration = in.Fl();
-			const char *pszText = in.Str();
-			IVDebugOverlay *pOverlay = env.ppDebugOverlay ? *env.ppDebugOverlay : NULL;
-			if ( !in.bShort && pOverlay && pszText )
-				pOverlay->AddTextOverlay( origin, duration, "%s", pszText );
+			const char* pszText = in.Str();
+			IVDebugOverlay* pOverlay = env.ppDebugOverlay ? *env.ppDebugOverlay : NULL;
+			if (!in.bShort && pOverlay && pszText)
+				pOverlay->AddTextOverlay(origin, duration, "%s", pszText);
 			break;
 		}
 
@@ -741,126 +740,126 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 		//---------------------------------------------------------------------
 		case SS_SHADOW_CreateShadowEx:
 		{
-			IMaterial *pMaterial = Material( env, in.I() );
-			IMaterial *pModelMaterial = Material( env, in.I() );
-			void *pProxy = in.Ptr();
+			IMaterial* pMaterial = Material(env, in.I());
+			IMaterial* pModelMaterial = Material(env, in.I());
+			void* pProxy = in.Ptr();
 			const int32_t flags = in.I();
-			const ShadowHandle_t h = ( !in.bShort && pShadowMgr )
-				? pShadowMgr->CreateShadowEx( pMaterial, pModelMaterial, pProxy, flags )
+			const ShadowHandle_t h = (!in.bShort && pShadowMgr)
+				? pShadowMgr->CreateShadowEx(pMaterial, pModelMaterial, pProxy, flags)
 				: (ShadowHandle_t)SHADOW_HANDLE_INVALID;
-			out.I( h );
+			out.I(h);
 			break;
 		}
 		case SS_SHADOW_GetInfo:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
-			if ( in.bShort || !pShadowMgr )
+			if (in.bShort || !pShadowMgr)
 			{
-				for ( size_t i = 0; i < ( sizeof( ShadowInfo_t ) + 3 ) / 4; ++i )
-					out.I( 0 );
+				for (size_t i = 0; i < (sizeof(ShadowInfo_t) + 3) / 4; ++i)
+					out.I(0);
 				break;
 			}
-			const ShadowInfo_t &info = pShadowMgr->GetInfo( h );
-			out.Words( &info, sizeof( ShadowInfo_t ) );
+			const ShadowInfo_t& info = pShadowMgr->GetInfo(h);
+			out.Words(&info, sizeof(ShadowInfo_t));
 			break;
 		}
 		case SS_SHADOW_GetFlashlightFrustum:
 		{
 			const ShadowHandle_t h = (ShadowHandle_t)in.I();
-			if ( in.bShort || !pShadowMgr )
+			if (in.bShort || !pShadowMgr)
 			{
-				for ( size_t i = 0; i < ( sizeof( Frustum_t ) + 3 ) / 4; ++i )
-					out.I( 0 );
+				for (size_t i = 0; i < (sizeof(Frustum_t) + 3) / 4; ++i)
+					out.I(0);
 				break;
 			}
-			const Frustum_t &frustum = pShadowMgr->GetFlashlightFrustum( h );
-			out.Words( &frustum, sizeof( Frustum_t ) );
+			const Frustum_t& frustum = pShadowMgr->GetFlashlightFrustum(h);
+			out.Words(&frustum, sizeof(Frustum_t));
 			break;
 		}
 		case SS_SHADOW_InitMaterial:
 		{
-			const char *pszName = in.Str();
-			const char *pszGroup = in.Str();
-			out.I( ( !in.bShort && env.pfnInitMaterial ) ? env.pfnInitMaterial( pszName, pszGroup ) : 0 );
+			const char* pszName = in.Str();
+			const char* pszGroup = in.Str();
+			out.I((!in.bShort && env.pfnInitMaterial) ? env.pfnInitMaterial(pszName, pszGroup) : 0);
 			break;
 		}
 		case SS_SHADOW_InitRenderTarget:
 		{
-			const char *pszName = in.Str();
+			const char* pszName = in.Str();
 			const int32_t w = in.I();
 			const int32_t h = in.I();
 			const int32_t sizeMode = in.I();
 			const int32_t format = in.I();
 			const int32_t depth = in.I();
 			const int32_t hdr = in.I();
-			out.I( ( !in.bShort && env.pfnInitRenderTarget )
-					   ? env.pfnInitRenderTarget( pszName, w, h, sizeMode, format, depth, hdr )
-					   : 0 );
+			out.I((!in.bShort && env.pfnInitRenderTarget)
+					  ? env.pfnInitRenderTarget(pszName, w, h, sizeMode, format, depth, hdr)
+					  : 0);
 			break;
 		}
 		case SS_SHADOW_TextureSize:
 		{
-			ITexture *pTexture = Texture( env, in.I() );
-			out.I( pTexture ? pTexture->GetActualWidth() : 0 );
-			out.I( pTexture ? pTexture->GetActualHeight() : 0 );
+			ITexture* pTexture = Texture(env, in.I());
+			out.I(pTexture ? pTexture->GetActualWidth() : 0);
+			out.I(pTexture ? pTexture->GetActualHeight() : 0);
 			break;
 		}
 		case SS_SHADOW_Hardware:
 		{
-			IMaterialSystemHardwareConfig *pHardware = env.ppHardwareConfig ? *env.ppHardwareConfig : NULL;
-			out.I( pMaterials && pMaterials->SupportsShadowDepthTextures() ? 1 : 0 );
-			out.I( pMaterials ? (int32_t)pMaterials->GetShadowDepthTextureFormat() : 0 );
-			out.I( pMaterials ? (int32_t)pMaterials->GetNullTextureFormat() : 0 );
-			out.I( pHardware ? pHardware->GetDXSupportLevel() : 0 );
-			out.I( env.pfnToolsMode ? env.pfnToolsMode() : 0 );
+			IMaterialSystemHardwareConfig* pHardware = env.ppHardwareConfig ? *env.ppHardwareConfig : NULL;
+			out.I(pMaterials && pMaterials->SupportsShadowDepthTextures() ? 1 : 0);
+			out.I(pMaterials ? (int32_t)pMaterials->GetShadowDepthTextureFormat() : 0);
+			out.I(pMaterials ? (int32_t)pMaterials->GetNullTextureFormat() : 0);
+			out.I(pHardware ? pHardware->GetDXSupportLevel() : 0);
+			out.I(env.pfnToolsMode ? env.pfnToolsMode() : 0);
 			break;
 		}
 		case SS_SHADOW_ComputePixelDiameterOfSphere:
 		{
 			const Vector center = in.Vec();
 			const float radius = in.Fl();
-			out.Fl( ( !in.bShort && ctx.Get() ) ? ctx.Get()->ComputePixelDiameterOfSphere( center, radius ) : 0.0f );
+			out.Fl((!in.bShort && ctx.Get()) ? ctx.Get()->ComputePixelDiameterOfSphere(center, radius) : 0.0f);
 			break;
 		}
 		case SS_SHADOW_GetFogMode:
-			out.I( ctx.Get() ? (int32_t)ctx.Get()->GetFogMode() : 0 );
+			out.I(ctx.Get() ? (int32_t)ctx.Get()->GetFogMode() : 0);
 			break;
 		case SS_SHADOW_GetHeightClipMode:
-			out.I( ctx.Get() ? (int32_t)ctx.Get()->GetHeightClipMode() : 0 );
+			out.I(ctx.Get() ? (int32_t)ctx.Get()->GetHeightClipMode() : 0);
 			break;
 		case SS_SHADOW_DrawModelShadow:
 		{
-			IClientRenderable *pRenderable = in.Renderable();
+			IClientRenderable* pRenderable = in.Renderable();
 			const int32_t body = in.I();
 			const int32_t skin = in.I();
-			IVModelRender *pModelRender = env.ppModelRender ? *env.ppModelRender : NULL;
+			IVModelRender* pModelRender = env.ppModelRender ? *env.ppModelRender : NULL;
 			int32_t drew = 0;
-			if ( !in.bShort && pModelRender && pRenderable )
+			if (!in.bShort && pModelRender && pRenderable)
 			{
 				DrawModelInfo_t info;
-				matrix3x4_t *pBoneToWorld = pModelRender->DrawModelShadowSetup( pRenderable, body, skin, &info );
-				if ( pBoneToWorld )
+				matrix3x4_t* pBoneToWorld = pModelRender->DrawModelShadowSetup(pRenderable, body, skin, &info);
+				if (pBoneToWorld)
 				{
-					pModelRender->DrawModelShadow( pRenderable, info, pBoneToWorld );
+					pModelRender->DrawModelShadow(pRenderable, info, pBoneToWorld);
 					drew = 1;
 				}
 			}
-			out.I( drew );
+			out.I(drew);
 			break;
 		}
 		case SS_SHADOW_CullBox:
 		{
 			const Vector mins = in.Vec();
 			const Vector maxs = in.Vec();
-			out.I( ( !in.bShort && pEngine && pEngine->CullBox( mins, maxs ) ) ? 1 : 0 );
+			out.I((!in.bShort && pEngine && pEngine->CullBox(mins, maxs)) ? 1 : 0);
 			break;
 		}
 		case SS_SHADOW_AmbientLightColor:
 		{
-			Vector color( 0, 0, 0 );
-			if ( pEngine )
-				pEngine->GetAmbientLightColor( color );
-			out.Vec( color );
+			Vector color(0, 0, 0);
+			if (pEngine)
+				pEngine->GetAmbientLightColor(color);
+			out.Vec(color);
 			break;
 		}
 		case SS_SHADOW_LeavesAlongRay:
@@ -868,162 +867,162 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 		{
 			const Vector a = in.Vec();
 			const Vector b = in.Vec();
-			const Vector extents = kind == SS_SHADOW_LeavesAlongRay ? in.Vec() : Vector( 0, 0, 0 );
-			ISpatialQuery *pQuery = ( !in.bShort && pEngine ) ? pEngine->GetBSPTreeQuery() : NULL;
+			const Vector extents = kind == SS_SHADOW_LeavesAlongRay ? in.Vec() : Vector(0, 0, 0);
+			ISpatialQuery* pQuery = (!in.bShort && pEngine) ? pEngine->GetBSPTreeQuery() : NULL;
 			const int32_t at = out.n;
-			out.I( 0 );
-			CLeafCollector collector( out );
-			if ( pQuery && kind == SS_SHADOW_LeavesAlongRay )
+			out.I(0);
+			CLeafCollector collector(out);
+			if (pQuery && kind == SS_SHADOW_LeavesAlongRay)
 			{
 				Ray_t ray;
-				VectorCopy( a, ray.m_Start );
-				VectorCopy( b, ray.m_Delta );
-				ray.m_StartOffset.Init( 0, 0, 0 );
+				VectorCopy(a, ray.m_Start);
+				VectorCopy(b, ray.m_Delta);
+				ray.m_StartOffset.Init(0, 0, 0);
 				ray.m_Extents = extents;
 				ray.m_IsRay = false;
 				ray.m_IsSwept = true;
-				pQuery->EnumerateLeavesAlongRay( ray, &collector, 0 );
+				pQuery->EnumerateLeavesAlongRay(ray, &collector, 0);
 			}
-			else if ( pQuery )
+			else if (pQuery)
 			{
-				pQuery->EnumerateLeavesInBox( a, b, &collector, 0 );
+				pQuery->EnumerateLeavesInBox(a, b, &collector, 0);
 			}
-			if ( at < out.nMax )
+			if (at < out.nMax)
 				out.p[at] = collector.m_nCount;
 			break;
 		}
 		case SS_SHADOW_FrameCount:
 		{
-			CGlobalVarsBase *pGlobals = env.ppGlobals ? *env.ppGlobals : NULL;
-			out.I( pGlobals ? pGlobals->framecount : 0 );
+			CGlobalVarsBase* pGlobals = env.ppGlobals ? *env.ppGlobals : NULL;
+			out.I(pGlobals ? pGlobals->framecount : 0);
 			break;
 		}
 		case SS_SHADOW_RenderableOf:
 		{
 			const uint32_t hEntity = (uint32_t)in.I();
-			out.Ptr( ( !in.bShort && env.pfnRenderableOf ) ? env.pfnRenderableOf( hEntity ) : NULL );
+			out.Ptr((!in.bShort && env.pfnRenderableOf) ? env.pfnRenderableOf(hEntity) : NULL);
 			break;
 		}
 		case SS_SHADOW_RenderOrigin:
 		{
-			IClientRenderable *p = in.Renderable();
-			out.Vec( p ? p->GetRenderOrigin() : Vector( 0, 0, 0 ) );
+			IClientRenderable* p = in.Renderable();
+			out.Vec(p ? p->GetRenderOrigin() : Vector(0, 0, 0));
 			break;
 		}
 		case SS_SHADOW_RenderAngles:
 		{
-			IClientRenderable *p = in.Renderable();
-			const QAngle angles = p ? p->GetRenderAngles() : QAngle( 0, 0, 0 );
-			out.Fl( angles.x );
-			out.Fl( angles.y );
-			out.Fl( angles.z );
+			IClientRenderable* p = in.Renderable();
+			const QAngle angles = p ? p->GetRenderAngles() : QAngle(0, 0, 0);
+			out.Fl(angles.x);
+			out.Fl(angles.y);
+			out.Fl(angles.z);
 			break;
 		}
 		case SS_SHADOW_RenderableToWorld:
 		{
-			IClientRenderable *p = in.Renderable();
-			for ( int r = 0; r < 3; ++r )
-				for ( int c = 0; c < 4; ++c )
-					out.Fl( p ? p->RenderableToWorldTransform()[r][c] : 0.0f );
+			IClientRenderable* p = in.Renderable();
+			for (int r = 0; r < 3; ++r)
+				for (int c = 0; c < 4; ++c)
+					out.Fl(p ? p->RenderableToWorldTransform()[r][c] : 0.0f);
 			break;
 		}
 		case SS_SHADOW_Model:
 		{
-			IClientRenderable *p = in.Renderable();
-			out.Ptr( p ? p->GetModel() : NULL );
+			IClientRenderable* p = in.Renderable();
+			out.Ptr(p ? p->GetModel() : NULL);
 			break;
 		}
 		case SS_SHADOW_ModelType:
 		{
-			const model_t *pModel = static_cast<const model_t *>( in.Ptr() );
-			out.I( ( !in.bShort && pModelInfo ) ? pModelInfo->GetModelType( pModel ) : 0 );
+			const model_t* pModel = static_cast<const model_t*>(in.Ptr());
+			out.I((!in.bShort && pModelInfo) ? pModelInfo->GetModelType(pModel) : 0);
 			break;
 		}
 		case SS_SHADOW_BodySkin:
 		{
-			IClientRenderable *p = in.Renderable();
-			out.I( p ? p->GetBody() : 0 );
-			out.I( p ? p->GetSkin() : 0 );
+			IClientRenderable* p = in.Renderable();
+			out.I(p ? p->GetBody() : 0);
+			out.I(p ? p->GetSkin() : 0);
 			break;
 		}
 		case SS_SHADOW_RenderBoundsWorldspace:
 		{
-			IClientRenderable *p = in.Renderable();
-			Vector mins( 0, 0, 0 ), maxs( 0, 0, 0 );
-			if ( p )
-				p->GetRenderBoundsWorldspace( mins, maxs );
-			out.Vec( mins );
-			out.Vec( maxs );
+			IClientRenderable* p = in.Renderable();
+			Vector mins(0, 0, 0), maxs(0, 0, 0);
+			if (p)
+				p->GetRenderBoundsWorldspace(mins, maxs);
+			out.Vec(mins);
+			out.Vec(maxs);
 			break;
 		}
 		case SS_SHADOW_ShadowRenderBounds:
 		{
-			IClientRenderable *p = in.Renderable();
+			IClientRenderable* p = in.Renderable();
 			const ShadowType_t type = (ShadowType_t)in.I();
-			Vector mins( 0, 0, 0 ), maxs( 0, 0, 0 );
-			if ( p && !in.bShort )
-				p->GetShadowRenderBounds( mins, maxs, type );
-			out.Vec( mins );
-			out.Vec( maxs );
+			Vector mins(0, 0, 0), maxs(0, 0, 0);
+			if (p && !in.bShort)
+				p->GetShadowRenderBounds(mins, maxs, type);
+			out.Vec(mins);
+			out.Vec(maxs);
 			break;
 		}
 		case SS_SHADOW_ShouldReceiveProjectedTextures:
 		{
-			IClientRenderable *p = in.Renderable();
+			IClientRenderable* p = in.Renderable();
 			const int32_t flags = in.I();
-			out.I( ( p && !in.bShort && p->ShouldReceiveProjectedTextures( flags ) ) ? 1 : 0 );
+			out.I((p && !in.bShort && p->ShouldReceiveProjectedTextures(flags)) ? 1 : 0);
 			break;
 		}
 		case SS_SHADOW_ShadowCastDistance:
 		{
-			IClientRenderable *p = in.Renderable();
+			IClientRenderable* p = in.Renderable();
 			const ShadowType_t type = (ShadowType_t)in.I();
 			float dist = in.Fl();
-			const bool bAnswered = p && !in.bShort && p->GetShadowCastDistance( &dist, type );
-			out.I( bAnswered ? 1 : 0 );
-			out.Fl( dist );
+			const bool bAnswered = p && !in.bShort && p->GetShadowCastDistance(&dist, type);
+			out.I(bAnswered ? 1 : 0);
+			out.Fl(dist);
 			break;
 		}
 		case SS_SHADOW_ShadowCastDirection:
 		{
-			IClientRenderable *p = in.Renderable();
+			IClientRenderable* p = in.Renderable();
 			const ShadowType_t type = (ShadowType_t)in.I();
 			Vector dir = in.Vec();
-			const bool bAnswered = p && !in.bShort && p->GetShadowCastDirection( &dir, type );
-			out.I( bAnswered ? 1 : 0 );
-			out.Vec( dir );
+			const bool bAnswered = p && !in.bShort && p->GetShadowCastDirection(&dir, type);
+			out.I(bAnswered ? 1 : 0);
+			out.Vec(dir);
 			break;
 		}
 		case SS_SHADOW_ShadowParent:
 		{
-			IClientRenderable *p = in.Renderable();
-			out.Ptr( p ? p->GetShadowParent() : NULL );
+			IClientRenderable* p = in.Renderable();
+			out.Ptr(p ? p->GetShadowParent() : NULL);
 			break;
 		}
 		case SS_SHADOW_FirstShadowChild:
 		{
-			IClientRenderable *p = in.Renderable();
-			out.Ptr( p ? p->FirstShadowChild() : NULL );
+			IClientRenderable* p = in.Renderable();
+			out.Ptr(p ? p->FirstShadowChild() : NULL);
 			break;
 		}
 		case SS_SHADOW_NextShadowPeer:
 		{
-			IClientRenderable *p = in.Renderable();
-			out.Ptr( p ? p->NextShadowPeer() : NULL );
+			IClientRenderable* p = in.Renderable();
+			out.Ptr(p ? p->NextShadowPeer() : NULL);
 			break;
 		}
 		case SS_SHADOW_ModelInstance:
 		{
-			IClientRenderable *p = in.Renderable();
-			out.I( p ? (int32_t)p->GetModelInstance() : (int32_t)MODEL_INSTANCE_INVALID );
+			IClientRenderable* p = in.Renderable();
+			out.I(p ? (int32_t)p->GetModelInstance() : (int32_t)MODEL_INSTANCE_INVALID);
 			break;
 		}
 		case SS_SHADOW_NetworkableEntIndex:
 		{
-			IClientRenderable *p = in.Renderable();
-			IClientUnknown *pUnknown = p ? p->GetIClientUnknown() : NULL;
-			IClientNetworkable *pNet = pUnknown ? pUnknown->GetClientNetworkable() : NULL;
-			out.I( pNet ? pNet->entindex() : -1 );
+			IClientRenderable* p = in.Renderable();
+			IClientUnknown* pUnknown = p ? p->GetIClientUnknown() : NULL;
+			IClientNetworkable* pNet = pUnknown ? pUnknown->GetClientNetworkable() : NULL;
+			out.I(pNet ? pNet->entindex() : -1);
 			break;
 		}
 
@@ -1034,10 +1033,10 @@ bool Execute( const SSShadowEnv &env, int32_t kind, Payload &in, Answers &out, C
 }
 }
 
-int32_t SSFwd_Shadows_Run( const SSShadowEnv *pEnv, const int32_t *pOps, int32_t nWords, int32_t *pAnswers,
-						   int32_t nAnswerWords )
+int32_t SSFwd_Shadows_Run(const SSShadowEnv* pEnv, const int32_t* pOps, int32_t nWords, int32_t* pAnswers,
+						  int32_t nAnswerWords)
 {
-	if ( !pEnv || !pOps || nWords <= 0 )
+	if (!pEnv || !pOps || nWords <= 0)
 		return 0;
 
 	Answers out;
@@ -1049,11 +1048,11 @@ int32_t SSFwd_Shadows_Run( const SSShadowEnv *pEnv, const int32_t *pOps, int32_t
 	ctx.pMaterials = pEnv->ppMaterials ? *pEnv->ppMaterials : NULL;
 	ctx.pContext = NULL;
 
-	for ( int32_t at = 0; at + 2 <= nWords; )
+	for (int32_t at = 0; at + 2 <= nWords;)
 	{
 		const int32_t kind = pOps[at];
 		const int32_t nPayload = pOps[at + 1];
-		if ( nPayload < 0 || nPayload > nWords - at - 2 )
+		if (nPayload < 0 || nPayload > nWords - at - 2)
 			break;
 		Payload in;
 		in.p = pOps + at + 2;
@@ -1061,11 +1060,11 @@ int32_t SSFwd_Shadows_Run( const SSShadowEnv *pEnv, const int32_t *pOps, int32_t
 		in.at = 0;
 		in.bShort = false;
 		at += 2 + nPayload;
-		if ( !Execute( *pEnv, kind, in, out, ctx ) )
+		if (!Execute(*pEnv, kind, in, out, ctx))
 			break;
 	}
 
-	if ( ctx.pContext )
+	if (ctx.pContext)
 		ctx.pContext->Release();
 
 	return out.n <= out.nMax ? out.n : -out.n;

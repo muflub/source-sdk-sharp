@@ -23,10 +23,10 @@ enum MovementGroundWrite_t
 	MOVEMENT_GROUND_SET = 2,
 };
 
-inline MovementGroundWrite_t MovementGround_WriteBack( bool bLoopHasGround, bool bPlayerHasGround,
-													   bool bPlayerHoldsTheOneFound )
+inline MovementGroundWrite_t MovementGround_WriteBack(bool bLoopHasGround, bool bPlayerHasGround,
+													  bool bPlayerHoldsTheOneFound)
 {
-	if ( !bLoopHasGround )
+	if (!bLoopHasGround)
 		return bPlayerHasGround ? MOVEMENT_GROUND_CLEAR : MOVEMENT_GROUND_LEAVE;
 
 	return bPlayerHoldsTheOneFound ? MOVEMENT_GROUND_LEAVE : MOVEMENT_GROUND_SET;

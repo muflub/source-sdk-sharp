@@ -6,5 +6,5 @@
 // Kill all tmZone() macros, etc.
 #include "tmapi_dummy.h"
 
-#define TM_ZONE_DEFAULT( context )
-#define TM_ZONE_DEFAULT_PARAM( context, string_param )
+#define TM_ZONE_DEFAULT(context)
+#define TM_ZONE_DEFAULT_PARAM(context, string_param)

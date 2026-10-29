@@ -39,18 +39,18 @@ namespace
 // the kind arrives from C# across the ABI, so "an int nobody declared" is a
 // reachable input and not a hypothetical.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, EveryIntHasAnAnswer )
+TEST(ScriptedKindParams, EveryIntHasAnAnswer)
 {
-	for ( int i = -8; i < 64; i++ )
+	for (int i = -8; i < 64; i++)
 	{
-		SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams( i );
+		SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams(i);
 
 		// SolidType_t only runs to SOLID_LAST == 7.
-		EXPECT_GE( p.nSolidType, 0 ) << "kind " << i;
-		EXPECT_LE( p.nSolidType, 6 ) << "kind " << i;
+		EXPECT_GE(p.nSolidType, 0) << "kind " << i;
+		EXPECT_LE(p.nSolidType, 6) << "kind " << i;
 
 		// FSOLID_MAX_BITS is 10, so nothing above 0x3FF is a solid flag.
-		EXPECT_EQ( 0, p.nSolidFlags & ~0x3FF ) << "kind " << i;
+		EXPECT_EQ(0, p.nSolidFlags & ~0x3FF) << "kind " << i;
 	}
 }
 
@@ -60,21 +60,21 @@ TEST( ScriptedKindParams, EveryIntHasAnAnswer )
 // than the native one must still register its classes; a server-only entity with
 // no collision is the cheapest thing to be wrong about.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, UnknownKindsFallBackToLogical )
+TEST(ScriptedKindParams, UnknownKindsFallBackToLogical)
 {
-	SourceSharpScriptedKindParams_t logical = SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_LOGICAL );
+	SourceSharpScriptedKindParams_t logical = SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_LOGICAL);
 
 	// 7 left this list when it became the Player (Phase 9a).
-	const int kUnknown[] = { -1, 8, 99, 1000 };
+	const int kUnknown[] = {-1, 8, 99, 1000};
 
-	for ( size_t i = 0; i < sizeof( kUnknown ) / sizeof( kUnknown[0] ); i++ )
+	for (size_t i = 0; i < sizeof(kUnknown) / sizeof(kUnknown[0]); i++)
 	{
-		SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams( kUnknown[i] );
+		SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams(kUnknown[i]);
 
-		EXPECT_EQ( logical.bServerOnly, p.bServerOnly ) << "kind " << kUnknown[i];
-		EXPECT_EQ( logical.nSolidType, p.nSolidType ) << "kind " << kUnknown[i];
-		EXPECT_EQ( logical.nSolidFlags, p.nSolidFlags ) << "kind " << kUnknown[i];
-		EXPECT_EQ( logical.bTouchEveryTick, p.bTouchEveryTick ) << "kind " << kUnknown[i];
+		EXPECT_EQ(logical.bServerOnly, p.bServerOnly) << "kind " << kUnknown[i];
+		EXPECT_EQ(logical.nSolidType, p.nSolidType) << "kind " << kUnknown[i];
+		EXPECT_EQ(logical.nSolidFlags, p.nSolidFlags) << "kind " << kUnknown[i];
+		EXPECT_EQ(logical.bTouchEveryTick, p.bTouchEveryTick) << "kind " << kUnknown[i];
 	}
 }
 
@@ -84,45 +84,45 @@ TEST( ScriptedKindParams, UnknownKindsFallBackToLogical )
 // kind's number — an old managed build sending 4 gets the harmless fallback,
 // not a brush and not a prop.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, RetiredKindFourIsTheFallback )
+TEST(ScriptedKindParams, RetiredKindFourIsTheFallback)
 {
-	SourceSharpScriptedKindParams_t four = SourceSharp_ScriptedKindParams( 4 );
-	SourceSharpScriptedKindParams_t logical = SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_LOGICAL );
+	SourceSharpScriptedKindParams_t four = SourceSharp_ScriptedKindParams(4);
+	SourceSharpScriptedKindParams_t logical = SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_LOGICAL);
 
-	EXPECT_EQ( logical.bServerOnly, four.bServerOnly );
-	EXPECT_EQ( logical.nSolidType, four.nSolidType );
-	EXPECT_EQ( logical.nSolidFlags, four.nSolidFlags );
+	EXPECT_EQ(logical.bServerOnly, four.bServerOnly);
+	EXPECT_EQ(logical.nSolidType, four.nSolidType);
+	EXPECT_EQ(logical.nSolidFlags, four.nSolidFlags);
 }
 
 //-----------------------------------------------------------------------------
 // The ABI numbers themselves. C# picks these; a renumbering on either side turns
 // every beam into a logic entity with no error anywhere, so they are pinned.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, KindNumbersAreTheOnesCSharpSends )
+TEST(ScriptedKindParams, KindNumbersAreTheOnesCSharpSends)
 {
-	EXPECT_EQ( 0, (int)SOURCESHARP_SCRIPTED_LOGICAL );
-	EXPECT_EQ( 1, (int)SOURCESHARP_SCRIPTED_ITEM );
-	EXPECT_EQ( 2, (int)SOURCESHARP_SCRIPTED_BRUSH );
-	EXPECT_EQ( 3, (int)SOURCESHARP_SCRIPTED_PROP );
-	EXPECT_EQ( 5, (int)SOURCESHARP_SCRIPTED_PROJECTILE );
-	EXPECT_EQ( 6, (int)SOURCESHARP_SCRIPTED_EFFECT );
-	EXPECT_EQ( 7, (int)SOURCESHARP_SCRIPTED_PLAYER );
+	EXPECT_EQ(0, (int)SOURCESHARP_SCRIPTED_LOGICAL);
+	EXPECT_EQ(1, (int)SOURCESHARP_SCRIPTED_ITEM);
+	EXPECT_EQ(2, (int)SOURCESHARP_SCRIPTED_BRUSH);
+	EXPECT_EQ(3, (int)SOURCESHARP_SCRIPTED_PROP);
+	EXPECT_EQ(5, (int)SOURCESHARP_SCRIPTED_PROJECTILE);
+	EXPECT_EQ(6, (int)SOURCESHARP_SCRIPTED_EFFECT);
+	EXPECT_EQ(7, (int)SOURCESHARP_SCRIPTED_PLAYER);
 }
 
 //-----------------------------------------------------------------------------
 // Logical is the only server-only kind. Everything else exists to be drawn, so
 // everything else needs an edict.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, OnlyLogicalIsServerOnly )
+TEST(ScriptedKindParams, OnlyLogicalIsServerOnly)
 {
-	EXPECT_TRUE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_LOGICAL ).bServerOnly );
+	EXPECT_TRUE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_LOGICAL).bServerOnly);
 
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_ITEM ).bServerOnly );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_BRUSH ).bServerOnly );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PROP ).bServerOnly );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PROJECTILE ).bServerOnly );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_EFFECT ).bServerOnly );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PLAYER ).bServerOnly );
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_ITEM).bServerOnly);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_BRUSH).bServerOnly);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PROP).bServerOnly);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PROJECTILE).bServerOnly);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_EFFECT).bServerOnly);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PLAYER).bServerOnly);
 }
 
 //-----------------------------------------------------------------------------
@@ -131,16 +131,16 @@ TEST( ScriptedKindParams, OnlyLogicalIsServerOnly )
 // and a brush trigger reporting sixty-six times a second is a bug that looks
 // like working code.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, OnlyItemsTouchEveryTick )
+TEST(ScriptedKindParams, OnlyItemsTouchEveryTick)
 {
-	EXPECT_TRUE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_ITEM ).bTouchEveryTick );
+	EXPECT_TRUE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_ITEM).bTouchEveryTick);
 
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_LOGICAL ).bTouchEveryTick );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_BRUSH ).bTouchEveryTick );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PROP ).bTouchEveryTick );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PROJECTILE ).bTouchEveryTick );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_EFFECT ).bTouchEveryTick );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PLAYER ).bTouchEveryTick );
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_LOGICAL).bTouchEveryTick);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_BRUSH).bTouchEveryTick);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PROP).bTouchEveryTick);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PROJECTILE).bTouchEveryTick);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_EFFECT).bTouchEveryTick);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PLAYER).bTouchEveryTick);
 }
 
 //-----------------------------------------------------------------------------
@@ -149,53 +149,53 @@ TEST( ScriptedKindParams, OnlyItemsTouchEveryTick )
 // numbers are: a player registered as anything else walks through walls, and
 // nothing reports it.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, OnlyThePlayerIsThePlayer )
+TEST(ScriptedKindParams, OnlyThePlayerIsThePlayer)
 {
-	SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PLAYER );
+	SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PLAYER);
 
-	EXPECT_TRUE( p.bPlayer );
-	EXPECT_EQ( SOURCESHARP_KIND_SOLID_BBOX, p.nSolidType );
-	EXPECT_EQ( 0, p.nSolidFlags );
+	EXPECT_TRUE(p.bPlayer);
+	EXPECT_EQ(SOURCESHARP_KIND_SOLID_BBOX, p.nSolidType);
+	EXPECT_EQ(0, p.nSolidFlags);
 
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_LOGICAL ).bPlayer );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_ITEM ).bPlayer );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_BRUSH ).bPlayer );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PROP ).bPlayer );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PROJECTILE ).bPlayer );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_EFFECT ).bPlayer );
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_LOGICAL).bPlayer);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_ITEM).bPlayer);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_BRUSH).bPlayer);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PROP).bPlayer);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PROJECTILE).bPlayer);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_EFFECT).bPlayer);
 
 	// The fallback for an unknown kind must never be the player either — an
 	// old native half handed a kind it has never heard of must fail SAFE.
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( 999 ).bPlayer );
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(999).bPlayer);
 }
 
 //-----------------------------------------------------------------------------
 // The exact solidity each kind installs with. Restated here rather than derived,
 // so a change to the table is a change to this file too and has to be meant.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, ItemIsATriggerThatIsNotSolid )
+TEST(ScriptedKindParams, ItemIsATriggerThatIsNotSolid)
 {
-	SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_ITEM );
+	SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_ITEM);
 
-	EXPECT_EQ( SOURCESHARP_KIND_SOLID_BBOX, p.nSolidType );
-	EXPECT_TRUE( ( p.nSolidFlags & SOURCESHARP_KIND_FSOLID_TRIGGER ) != 0 );
-	EXPECT_TRUE( ( p.nSolidFlags & SOURCESHARP_KIND_FSOLID_NOT_SOLID ) != 0 );
+	EXPECT_EQ(SOURCESHARP_KIND_SOLID_BBOX, p.nSolidType);
+	EXPECT_TRUE((p.nSolidFlags & SOURCESHARP_KIND_FSOLID_TRIGGER) != 0);
+	EXPECT_TRUE((p.nSolidFlags & SOURCESHARP_KIND_FSOLID_NOT_SOLID) != 0);
 }
 
-TEST( ScriptedKindParams, BrushCollidesAsItsSubmodelAndStartsSolid )
+TEST(ScriptedKindParams, BrushCollidesAsItsSubmodelAndStartsSolid)
 {
-	SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_BRUSH );
+	SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_BRUSH);
 
-	EXPECT_EQ( SOURCESHARP_KIND_SOLID_BSP, p.nSolidType );
-	EXPECT_EQ( 0, p.nSolidFlags );
+	EXPECT_EQ(SOURCESHARP_KIND_SOLID_BSP, p.nSolidType);
+	EXPECT_EQ(0, p.nSolidFlags);
 }
 
-TEST( ScriptedKindParams, PropCollidesAsItsCompiledHull )
+TEST(ScriptedKindParams, PropCollidesAsItsCompiledHull)
 {
-	SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PROP );
+	SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PROP);
 
-	EXPECT_EQ( SOURCESHARP_KIND_SOLID_VPHYSICS, p.nSolidType );
-	EXPECT_EQ( 0, p.nSolidFlags );
+	EXPECT_EQ(SOURCESHARP_KIND_SOLID_VPHYSICS, p.nSolidType);
+	EXPECT_EQ(0, p.nSolidFlags);
 }
 
 //-----------------------------------------------------------------------------
@@ -203,28 +203,28 @@ TEST( ScriptedKindParams, PropCollidesAsItsCompiledHull )
 // is why a bolt hits what it was aimed at, and NOT_STANDABLE is why a rocket
 // passing under a player's feet is not a lift.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, ProjectileIsABoxNothingCanStandOn )
+TEST(ScriptedKindParams, ProjectileIsABoxNothingCanStandOn)
 {
-	SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PROJECTILE );
+	SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PROJECTILE);
 
-	EXPECT_EQ( SOURCESHARP_KIND_SOLID_BBOX, p.nSolidType );
-	EXPECT_TRUE( ( p.nSolidFlags & SOURCESHARP_KIND_FSOLID_NOT_STANDABLE ) != 0 );
-	EXPECT_TRUE( ( p.nSolidFlags & SOURCESHARP_KIND_FSOLID_TRIGGER ) == 0 );
+	EXPECT_EQ(SOURCESHARP_KIND_SOLID_BBOX, p.nSolidType);
+	EXPECT_TRUE((p.nSolidFlags & SOURCESHARP_KIND_FSOLID_NOT_STANDABLE) != 0);
+	EXPECT_TRUE((p.nSolidFlags & SOURCESHARP_KIND_FSOLID_TRIGGER) == 0);
 }
 
 //-----------------------------------------------------------------------------
 // An effect is drawn and nothing else. It differs from Logical in exactly one
 // field — being networked — which is the whole reason the kind exists.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, EffectIsLogicalPlusAnEdict )
+TEST(ScriptedKindParams, EffectIsLogicalPlusAnEdict)
 {
-	SourceSharpScriptedKindParams_t effect = SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_EFFECT );
-	SourceSharpScriptedKindParams_t logical = SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_LOGICAL );
+	SourceSharpScriptedKindParams_t effect = SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_EFFECT);
+	SourceSharpScriptedKindParams_t logical = SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_LOGICAL);
 
-	EXPECT_NE( logical.bServerOnly, effect.bServerOnly );
-	EXPECT_EQ( logical.nSolidType, effect.nSolidType );
-	EXPECT_EQ( logical.nSolidFlags, effect.nSolidFlags );
-	EXPECT_EQ( logical.bTouchEveryTick, effect.bTouchEveryTick );
+	EXPECT_NE(logical.bServerOnly, effect.bServerOnly);
+	EXPECT_EQ(logical.nSolidType, effect.nSolidType);
+	EXPECT_EQ(logical.nSolidFlags, effect.nSolidFlags);
+	EXPECT_EQ(logical.bTouchEveryTick, effect.bTouchEveryTick);
 }
 
 //-----------------------------------------------------------------------------
@@ -232,12 +232,12 @@ TEST( ScriptedKindParams, EffectIsLogicalPlusAnEdict )
 // The few stock classes that add FSOLID_NOT_SOLID (point_spotlight, anything
 // FollowEntity attaches) add it themselves.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, EffectIsAPointEntityWithNoSolidFlags )
+TEST(ScriptedKindParams, EffectIsAPointEntityWithNoSolidFlags)
 {
-	SourceSharpScriptedKindParams_t effect = SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_EFFECT );
+	SourceSharpScriptedKindParams_t effect = SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_EFFECT);
 
-	EXPECT_EQ( (int)SOURCESHARP_KIND_SOLID_NONE, effect.nSolidType );
-	EXPECT_EQ( 0, effect.nSolidFlags );
+	EXPECT_EQ((int)SOURCESHARP_KIND_SOLID_NONE, effect.nSolidType);
+	EXPECT_EQ(0, effect.nSolidFlags);
 }
 
 //-----------------------------------------------------------------------------
@@ -246,7 +246,7 @@ TEST( ScriptedKindParams, EffectIsAPointEntityWithNoSolidFlags )
 // spells "in the trigger list, out of the solid one" — every OTHER kind that
 // sets NOT_SOLID must have nothing to collide with in the first place.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, NotSolidOnlyAppearsWhereItMeansSomething )
+TEST(ScriptedKindParams, NotSolidOnlyAppearsWhereItMeansSomething)
 {
 	const int kKinds[] = {
 		SOURCESHARP_SCRIPTED_LOGICAL, SOURCESHARP_SCRIPTED_ITEM,       SOURCESHARP_SCRIPTED_BRUSH,
@@ -254,17 +254,17 @@ TEST( ScriptedKindParams, NotSolidOnlyAppearsWhereItMeansSomething )
 		SOURCESHARP_SCRIPTED_PLAYER,
 	};
 
-	for ( size_t i = 0; i < sizeof( kKinds ) / sizeof( kKinds[0] ); i++ )
+	for (size_t i = 0; i < sizeof(kKinds) / sizeof(kKinds[0]); i++)
 	{
-		SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams( kKinds[i] );
+		SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams(kKinds[i]);
 
-		if ( ( p.nSolidFlags & SOURCESHARP_KIND_FSOLID_NOT_SOLID ) == 0 )
+		if ((p.nSolidFlags & SOURCESHARP_KIND_FSOLID_NOT_SOLID) == 0)
 			continue;
 
-		const bool bTrigger = ( p.nSolidFlags & SOURCESHARP_KIND_FSOLID_TRIGGER ) != 0;
-		const bool bNoShape = ( p.nSolidType == SOURCESHARP_KIND_SOLID_NONE );
+		const bool bTrigger = (p.nSolidFlags & SOURCESHARP_KIND_FSOLID_TRIGGER) != 0;
+		const bool bNoShape = (p.nSolidType == SOURCESHARP_KIND_SOLID_NONE);
 
-		EXPECT_TRUE( bTrigger || bNoShape ) << "kind " << kKinds[i] << " is not solid and has a shape nobody can enter";
+		EXPECT_TRUE(bTrigger || bNoShape) << "kind " << kKinds[i] << " is not solid and has a shape nobody can enter";
 	}
 }
 
@@ -278,16 +278,16 @@ TEST( ScriptedKindParams, NotSolidOnlyAppearsWhereItMeansSomething )
 // than a second reading of that one. A future kind that is server-only for some
 // OTHER reason must not silently lose its shell.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, OnlyLogicalIsShellLess )
+TEST(ScriptedKindParams, OnlyLogicalIsShellLess)
 {
-	EXPECT_TRUE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_LOGICAL ).bShellLess );
+	EXPECT_TRUE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_LOGICAL).bShellLess);
 
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_ITEM ).bShellLess );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_BRUSH ).bShellLess );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PROP ).bShellLess );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PROJECTILE ).bShellLess );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_EFFECT ).bShellLess );
-	EXPECT_FALSE( SourceSharp_ScriptedKindParams( SOURCESHARP_SCRIPTED_PLAYER ).bShellLess );
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_ITEM).bShellLess);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_BRUSH).bShellLess);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PROP).bShellLess);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PROJECTILE).bShellLess);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_EFFECT).bShellLess);
+	EXPECT_FALSE(SourceSharp_ScriptedKindParams(SOURCESHARP_SCRIPTED_PLAYER).bShellLess);
 }
 
 //-----------------------------------------------------------------------------
@@ -297,11 +297,11 @@ TEST( ScriptedKindParams, OnlyLogicalIsShellLess )
 // and answers its own keyvalues; the other way round it would get a shell no
 // managed code knows about, in the engine's entity list, for ever.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, AnUnknownKindIsShellLessToo )
+TEST(ScriptedKindParams, AnUnknownKindIsShellLessToo)
 {
-	EXPECT_TRUE( SourceSharp_ScriptedKindParams( 4 ).bShellLess );
-	EXPECT_TRUE( SourceSharp_ScriptedKindParams( 99 ).bShellLess );
-	EXPECT_TRUE( SourceSharp_ScriptedKindParams( -1 ).bShellLess );
+	EXPECT_TRUE(SourceSharp_ScriptedKindParams(4).bShellLess);
+	EXPECT_TRUE(SourceSharp_ScriptedKindParams(99).bShellLess);
+	EXPECT_TRUE(SourceSharp_ScriptedKindParams(-1).bShellLess);
 }
 
 //-----------------------------------------------------------------------------
@@ -310,23 +310,23 @@ TEST( ScriptedKindParams, AnUnknownKindIsShellLessToo )
 // caller's stack held -- and "true" from uninitialised memory means a class
 // that silently installs no factory and can never be created.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, ShellLessIsAssignedForEveryInt )
+TEST(ScriptedKindParams, ShellLessIsAssignedForEveryInt)
 {
-	for ( int i = -8; i < 64; i++ )
+	for (int i = -8; i < 64; i++)
 	{
 		// A pattern the answer is not, so an unassigned field is visible rather
 		// than being zero by luck of the stack.
 		SourceSharpScriptedKindParams_t p;
-		memset( &p, 0xCD, sizeof( p ) );
+		memset(&p, 0xCD, sizeof(p));
 
-		p = SourceSharp_ScriptedKindParams( i );
+		p = SourceSharp_ScriptedKindParams(i);
 
-		const bool bLogical = ( i == SOURCESHARP_SCRIPTED_LOGICAL ) ||
-			( i != SOURCESHARP_SCRIPTED_ITEM && i != SOURCESHARP_SCRIPTED_BRUSH && i != SOURCESHARP_SCRIPTED_PROP &&
-			  i != SOURCESHARP_SCRIPTED_PROJECTILE && i != SOURCESHARP_SCRIPTED_EFFECT &&
-			  i != SOURCESHARP_SCRIPTED_PLAYER );
+		const bool bLogical = (i == SOURCESHARP_SCRIPTED_LOGICAL) ||
+			(i != SOURCESHARP_SCRIPTED_ITEM && i != SOURCESHARP_SCRIPTED_BRUSH && i != SOURCESHARP_SCRIPTED_PROP &&
+			 i != SOURCESHARP_SCRIPTED_PROJECTILE && i != SOURCESHARP_SCRIPTED_EFFECT &&
+			 i != SOURCESHARP_SCRIPTED_PLAYER);
 
-		EXPECT_EQ( bLogical, p.bShellLess ) << "kind " << i;
+		EXPECT_EQ(bLogical, p.bShellLess) << "kind " << i;
 	}
 }
 
@@ -338,17 +338,17 @@ TEST( ScriptedKindParams, ShellLessIsAssignedForEveryInt )
 // that is shell-less and NOT server-only, which would be a class the engine is
 // told to network and that has nothing to network from.
 //-----------------------------------------------------------------------------
-TEST( ScriptedKindParams, ShellLessImpliesServerOnly )
+TEST(ScriptedKindParams, ShellLessImpliesServerOnly)
 {
-	for ( int i = -8; i < 64; i++ )
+	for (int i = -8; i < 64; i++)
 	{
-		SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams( i );
+		SourceSharpScriptedKindParams_t p = SourceSharp_ScriptedKindParams(i);
 
 		// Braced: gtest's EXPECT_TRUE expands to an if/else, so an unbraced
 		// body makes the `else` ambiguous (-Wdangling-else).
-		if ( p.bShellLess )
+		if (p.bShellLess)
 		{
-			EXPECT_TRUE( p.bServerOnly ) << "kind " << i;
+			EXPECT_TRUE(p.bServerOnly) << "kind " << i;
 		}
 	}
 }

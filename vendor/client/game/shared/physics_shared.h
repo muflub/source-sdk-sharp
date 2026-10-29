@@ -9,20 +9,20 @@ class IPhysicsCollision;
 class IPhysicsObject;
 class CSoundPatch;
 
-extern IPhysicsObject *g_PhysWorldObject;
-extern IPhysics *physics;
-extern IPhysicsCollision *physcollision;
-extern IPhysicsEnvironment *physenv;
-extern IPhysicsSurfaceProps *physprops;
+extern IPhysicsObject* g_PhysWorldObject;
+extern IPhysics* physics;
+extern IPhysicsCollision* physcollision;
+extern IPhysicsEnvironment* physenv;
+extern IPhysicsSurfaceProps* physprops;
 
 // Compute enough energy of a reference mass travelling at speed
 // makes numbers more intuitive
-#define MASS_SPEED2ENERGY( mass, speed ) ( ( speed ) * ( speed ) * ( mass ) )
+#define MASS_SPEED2ENERGY(mass, speed) ((speed) * (speed) * (mass))
 
 // energy of a 10kg mass moving at speed
-#define MASS10_SPEED2ENERGY( speed ) MASS_SPEED2ENERGY( 10, speed )
+#define MASS10_SPEED2ENERGY(speed) MASS_SPEED2ENERGY(10, speed)
 
-#define ENERGY_VOLUME_SCALE ( 1.0f / 15500.0f )
+#define ENERGY_VOLUME_SCALE (1.0f / 15500.0f)
 
 #define FLUID_TIME_MAX 2.0f // keep track of last time hitting fluid for up to 2 seconds
 
@@ -45,8 +45,8 @@ extern IPhysicsSurfaceProps *physprops;
 // Purpose: A little cache of current objects making noises
 struct friction_t
 {
-	CSoundPatch *patch;
-	CBaseEntity *pObject;
+	CSoundPatch* patch;
+	CBaseEntity* pObject;
 	float flLastUpdateTime;
 	float flLastEffectTime;
 };
@@ -59,15 +59,15 @@ enum
 
 struct touchevent_t
 {
-	CBaseEntity *pEntity0;
-	CBaseEntity *pEntity1;
+	CBaseEntity* pEntity0;
+	CBaseEntity* pEntity1;
 	int touchType;
 	Vector endPoint; //sv
 	Vector normal; //sv
 };
 
-void PhysFrictionSound( CBaseEntity *pEntity, IPhysicsObject *pObject, const char *pSoundName,
-						HSOUNDSCRIPTHANDLE &handle, float flVolume );
+void PhysFrictionSound(CBaseEntity* pEntity, IPhysicsObject* pObject, const char* pSoundName,
+					   HSOUNDSCRIPTHANDLE& handle, float flVolume);
 
 // Singleton access
-IGameSystem *PhysicsGameSystem();
+IGameSystem* PhysicsGameSystem();

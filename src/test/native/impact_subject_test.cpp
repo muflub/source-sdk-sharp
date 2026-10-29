@@ -111,7 +111,7 @@ public:
 class FakeUnknown : public FakeHandleEntity // ~ IServerUnknown
 {
 public:
-	virtual FakeGameEntity *GetBaseEntity() = 0;
+	virtual FakeGameEntity* GetBaseEntity() = 0;
 };
 
 class FakeServerEntity : public FakeUnknown // ~ IServerEntity
@@ -133,7 +133,7 @@ public:
 class FakeStandalone : public FakeServerEntity, public FakePadding, public FakeGameEntity
 {
 public:
-	virtual FakeGameEntity *GetBaseEntity() { return this; }
+	virtual FakeGameEntity* GetBaseEntity() { return this; }
 
 	virtual int RefEHandle() const { return 0x57A10; }
 
@@ -142,40 +142,40 @@ public:
 
 // What the shell used to do to the trace's pointer, spelled with the REAL
 // function: EntityFromEntityHandle's server arm is this call and nothing else.
-FakeGameEntity *NarrowToTheSdksTree( FakeHandleEntity *pHit )
+FakeGameEntity* NarrowToTheSdksTree(FakeHandleEntity* pHit)
 {
-	if ( !pHit )
+	if (!pHit)
 		return 0;
 
-	FakeUnknown *pUnknown = static_cast<FakeUnknown *>( pHit );
+	FakeUnknown* pUnknown = static_cast<FakeUnknown*>(pHit);
 
-	return SourceSharp_SDKEntityFromUnknown<FakeServerEntity>( pUnknown );
+	return SourceSharp_SDKEntityFromUnknown<FakeServerEntity>(pUnknown);
 }
 
-TEST( ImpactSubject, NothingHitNamesNothingEitherWay )
+TEST(ImpactSubject, NothingHitNamesNothingEitherWay)
 {
-	EXPECT_EQ( (FakeGameEntity *)0, NarrowToTheSdksTree( 0 ) );
+	EXPECT_EQ((FakeGameEntity*)0, NarrowToTheSdksTree(0));
 }
 
-TEST( ImpactSubject, StandaloneIsNamedWhereNarrowingDropsIt )
+TEST(ImpactSubject, StandaloneIsNamedWhereNarrowingDropsIt)
 {
 	FakeStandalone standalone;
-	FakeHandleEntity *pHit = &standalone;
+	FakeHandleEntity* pHit = &standalone;
 
 	// The premise: the standalone HAS a face, so the NULL below is the
 	// narrowing's verdict and not an empty object.
-	ASSERT_NE( (FakeGameEntity *)0, standalone.GetBaseEntity() );
+	ASSERT_NE((FakeGameEntity*)0, standalone.GetBaseEntity());
 
 	// The narrowing answers NULL, exactly as designed — and the shell then
 	// turned that NULL into the invalid handle and told C# "you hit nothing".
-	EXPECT_EQ( (FakeGameEntity *)0, NarrowToTheSdksTree( pHit ) );
+	EXPECT_EQ((FakeGameEntity*)0, NarrowToTheSdksTree(pHit));
 
 	// The handle-table pointer names it, and under its own handle. This is the
 	// number the managed side gets now and did not get before.
-	EXPECT_EQ( 0x57A10, pHit->RefEHandle() );
+	EXPECT_EQ(0x57A10, pHit->RefEHandle());
 }
 
-TEST( ImpactSubject, TheStandalonesTwoViewsAreDifferentAddresses )
+TEST(ImpactSubject, TheStandalonesTwoViewsAreDifferentAddresses)
 {
 	FakeStandalone standalone;
 
@@ -183,11 +183,11 @@ TEST( ImpactSubject, TheStandalonesTwoViewsAreDifferentAddresses )
 	// handle-table view and the game-entity view of ONE object are different
 	// addresses, so naming by handle and naming by interface are genuinely
 	// different acts rather than two spellings of a cast.
-	FakeHandleEntity *pTableView = &standalone;
-	FakeGameEntity *pBoundaryView = standalone.GetBaseEntity();
+	FakeHandleEntity* pTableView = &standalone;
+	FakeGameEntity* pBoundaryView = standalone.GetBaseEntity();
 
-	EXPECT_NE( (void *)pTableView, (void *)pBoundaryView );
-	EXPECT_EQ( 0x57A10, pBoundaryView->WhoAreYou() );
+	EXPECT_NE((void*)pTableView, (void*)pBoundaryView);
+	EXPECT_EQ(0x57A10, pBoundaryView->WhoAreYou());
 }
 
 //=============================================================================//

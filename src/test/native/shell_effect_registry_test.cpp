@@ -51,15 +51,15 @@ struct FakeList
 
 	int Count() const { return (int)v.size(); }
 
-	T &operator[]( int i ) { return v[i]; }
+	T& operator[](int i) { return v[i]; }
 
-	const T &operator[]( int i ) const { return v[i]; }
+	const T& operator[](int i) const { return v[i]; }
 
-	void Remove( int i ) { v.erase( v.begin() + i ); }
+	void Remove(int i) { v.erase(v.begin() + i); }
 
-	int AddToTail( const T &row )
+	int AddToTail(const T& row)
 	{
-		v.push_back( row );
+		v.push_back(row);
 		return (int)v.size() - 1;
 	}
 };
@@ -69,7 +69,7 @@ struct FakeEffect;
 struct Row
 {
 	unsigned int hOwner;
-	FakeEffect *pEffect;
+	FakeEffect* pEffect;
 };
 
 typedef FakeList<Row> List;
@@ -85,14 +85,14 @@ typedef FakeList<Row> List;
 //-----------------------------------------------------------------------------
 struct FakeEffect
 {
-	List *m_pList;
+	List* m_pList;
 	bool m_bHooked;
 	int m_nReleases;
 
-	FakeEffect( List *pList, bool bHooked = true )
-		: m_pList( pList )
-		, m_bHooked( bHooked )
-		, m_nReleases( 0 )
+	FakeEffect(List* pList, bool bHooked = true)
+		: m_pList(pList)
+		, m_bHooked(bHooked)
+		, m_nReleases(0)
 	{
 	}
 
@@ -100,226 +100,226 @@ struct FakeEffect
 	{
 		m_nReleases++;
 
-		if ( m_bHooked )
-			ShellEffects_Forget( *m_pList, this );
+		if (m_bHooked)
+			ShellEffects_Forget(*m_pList, this);
 	}
 };
 
-void Add( List &list, unsigned int hOwner, FakeEffect *pEffect )
+void Add(List& list, unsigned int hOwner, FakeEffect* pEffect)
 {
 	Row row;
 	row.hOwner = hOwner;
 	row.pEffect = pEffect;
-	list.AddToTail( row );
+	list.AddToTail(row);
 }
 
 //=============================================================================
 // Find
 //=============================================================================
 
-TEST( ShellEffectRegistry, FindAnswersMinusOneForAnEmptyList )
+TEST(ShellEffectRegistry, FindAnswersMinusOneForAnEmptyList)
 {
 	List list;
-	EXPECT_EQ( -1, ShellEffects_Find( list, 7u ) );
+	EXPECT_EQ(-1, ShellEffects_Find(list, 7u));
 }
 
-TEST( ShellEffectRegistry, FindAnswersTheIndexOfTheOwner )
+TEST(ShellEffectRegistry, FindAnswersTheIndexOfTheOwner)
 {
 	List list;
-	FakeEffect a( &list ), b( &list ), c( &list );
+	FakeEffect a(&list), b(&list), c(&list);
 
-	Add( list, 10u, &a );
-	Add( list, 20u, &b );
-	Add( list, 30u, &c );
+	Add(list, 10u, &a);
+	Add(list, 20u, &b);
+	Add(list, 30u, &c);
 
-	EXPECT_EQ( 0, ShellEffects_Find( list, 10u ) );
-	EXPECT_EQ( 1, ShellEffects_Find( list, 20u ) );
-	EXPECT_EQ( 2, ShellEffects_Find( list, 30u ) );
-	EXPECT_EQ( -1, ShellEffects_Find( list, 40u ) );
+	EXPECT_EQ(0, ShellEffects_Find(list, 10u));
+	EXPECT_EQ(1, ShellEffects_Find(list, 20u));
+	EXPECT_EQ(2, ShellEffects_Find(list, 30u));
+	EXPECT_EQ(-1, ShellEffects_Find(list, 40u));
 }
 
-TEST( ShellEffectRegistry, FindAnswersTheFirstOfTwoRowsForOneOwner )
+TEST(ShellEffectRegistry, FindAnswersTheFirstOfTwoRowsForOneOwner)
 {
 	// A second row for one owner is a bug elsewhere. The answer still has to be
 	// the same one every time it is asked, or the bug reads as intermittent.
 	List list;
-	FakeEffect a( &list ), b( &list );
+	FakeEffect a(&list), b(&list);
 
-	Add( list, 10u, &a );
-	Add( list, 10u, &b );
+	Add(list, 10u, &a);
+	Add(list, 10u, &b);
 
-	EXPECT_EQ( 0, ShellEffects_Find( list, 10u ) );
+	EXPECT_EQ(0, ShellEffects_Find(list, 10u));
 }
 
 //=============================================================================
 // Forget
 //=============================================================================
 
-TEST( ShellEffectRegistry, ForgetRemovesTheRowAndLeavesTheOthersWhereTheyPoint )
+TEST(ShellEffectRegistry, ForgetRemovesTheRowAndLeavesTheOthersWhereTheyPoint)
 {
 	List list;
-	FakeEffect a( &list ), b( &list ), c( &list );
+	FakeEffect a(&list), b(&list), c(&list);
 
-	Add( list, 10u, &a );
-	Add( list, 20u, &b );
-	Add( list, 30u, &c );
+	Add(list, 10u, &a);
+	Add(list, 20u, &b);
+	Add(list, 30u, &c);
 
-	ShellEffects_Forget( list, &b );
+	ShellEffects_Forget(list, &b);
 
-	ASSERT_EQ( 2, list.Count() );
-	EXPECT_EQ( &a, list[0].pEffect );
-	EXPECT_EQ( &c, list[1].pEffect );
-	EXPECT_EQ( 10u, list[0].hOwner );
-	EXPECT_EQ( 30u, list[1].hOwner );
+	ASSERT_EQ(2, list.Count());
+	EXPECT_EQ(&a, list[0].pEffect);
+	EXPECT_EQ(&c, list[1].pEffect);
+	EXPECT_EQ(10u, list[0].hOwner);
+	EXPECT_EQ(30u, list[1].hOwner);
 }
 
-TEST( ShellEffectRegistry, ForgetIsANoOpForAnEffectThatIsNotInTheList )
+TEST(ShellEffectRegistry, ForgetIsANoOpForAnEffectThatIsNotInTheList)
 {
 	List list;
-	FakeEffect a( &list ), stranger( &list );
+	FakeEffect a(&list), stranger(&list);
 
-	Add( list, 10u, &a );
+	Add(list, 10u, &a);
 
-	ShellEffects_Forget( list, &stranger );
+	ShellEffects_Forget(list, &stranger);
 
-	ASSERT_EQ( 1, list.Count() );
-	EXPECT_EQ( &a, list[0].pEffect );
+	ASSERT_EQ(1, list.Count());
+	EXPECT_EQ(&a, list[0].pEffect);
 }
 
-TEST( ShellEffectRegistry, ForgetRemovesBOTHRowsWhenTwoPointAtOneEffect )
+TEST(ShellEffectRegistry, ForgetRemovesBOTHRowsWhenTwoPointAtOneEffect)
 {
 	// The failure this half exists for: leave the second row behind and the
 	// next sweep dereferences a freed pointer. A forwards walk that removed the
 	// first would skip straight over the second, which is why the loop counts
 	// down.
 	List list;
-	FakeEffect a( &list ), doubled( &list );
+	FakeEffect a(&list), doubled(&list);
 
-	Add( list, 10u, &doubled );
-	Add( list, 20u, &doubled );
-	Add( list, 30u, &a );
+	Add(list, 10u, &doubled);
+	Add(list, 20u, &doubled);
+	Add(list, 30u, &a);
 
-	ShellEffects_Forget( list, &doubled );
+	ShellEffects_Forget(list, &doubled);
 
-	ASSERT_EQ( 1, list.Count() );
-	EXPECT_EQ( &a, list[0].pEffect );
+	ASSERT_EQ(1, list.Count());
+	EXPECT_EQ(&a, list[0].pEffect);
 }
 
-TEST( ShellEffectRegistry, ForgetRemovesADJACENTRowsForOneEffect )
+TEST(ShellEffectRegistry, ForgetRemovesADJACENTRowsForOneEffect)
 {
 	// The same skip, in the shape it actually occurs in: two rows next to each
 	// other. A forwards walk removes index 1, the list shifts, the loop moves
 	// to index 2, and the row that just became index 1 is never looked at.
 	List list;
-	FakeEffect a( &list ), doubled( &list ), c( &list );
+	FakeEffect a(&list), doubled(&list), c(&list);
 
-	Add( list, 10u, &a );
-	Add( list, 20u, &doubled );
-	Add( list, 30u, &doubled );
-	Add( list, 40u, &c );
+	Add(list, 10u, &a);
+	Add(list, 20u, &doubled);
+	Add(list, 30u, &doubled);
+	Add(list, 40u, &c);
 
-	ShellEffects_Forget( list, &doubled );
+	ShellEffects_Forget(list, &doubled);
 
-	ASSERT_EQ( 2, list.Count() );
-	EXPECT_EQ( &a, list[0].pEffect );
-	EXPECT_EQ( &c, list[1].pEffect );
+	ASSERT_EQ(2, list.Count());
+	EXPECT_EQ(&a, list[0].pEffect);
+	EXPECT_EQ(&c, list[1].pEffect);
 }
 
 //=============================================================================
 // ReleaseAll
 //=============================================================================
 
-TEST( ShellEffectRegistry, ReleaseAllOnAnEmptyListReleasesNothing )
+TEST(ShellEffectRegistry, ReleaseAllOnAnEmptyListReleasesNothing)
 {
 	List list;
-	EXPECT_EQ( 0, ShellEffects_ReleaseAll( list ) );
-	EXPECT_EQ( 0, list.Count() );
+	EXPECT_EQ(0, ShellEffects_ReleaseAll(list));
+	EXPECT_EQ(0, list.Count());
 }
 
-TEST( ShellEffectRegistry, ReleaseAllEmptiesTheListAndReleasesEachOnce )
+TEST(ShellEffectRegistry, ReleaseAllEmptiesTheListAndReleasesEachOnce)
 {
 	List list;
-	FakeEffect a( &list ), b( &list ), c( &list );
+	FakeEffect a(&list), b(&list), c(&list);
 
-	Add( list, 10u, &a );
-	Add( list, 20u, &b );
-	Add( list, 30u, &c );
+	Add(list, 10u, &a);
+	Add(list, 20u, &b);
+	Add(list, 30u, &c);
 
-	EXPECT_EQ( 3, ShellEffects_ReleaseAll( list ) );
-	EXPECT_EQ( 0, list.Count() );
+	EXPECT_EQ(3, ShellEffects_ReleaseAll(list));
+	EXPECT_EQ(0, list.Count());
 
-	EXPECT_EQ( 1, a.m_nReleases );
-	EXPECT_EQ( 1, b.m_nReleases );
-	EXPECT_EQ( 1, c.m_nReleases );
+	EXPECT_EQ(1, a.m_nReleases);
+	EXPECT_EQ(1, b.m_nReleases);
+	EXPECT_EQ(1, c.m_nReleases);
 }
 
-TEST( ShellEffectRegistry, ReleaseAllStopsRatherThanSpinningWhenTheCallbackIsMissing )
+TEST(ShellEffectRegistry, ReleaseAllStopsRatherThanSpinningWhenTheCallbackIsMissing)
 {
 	// A factory that forgot SetGoneCallback. Without the bound this is a frozen
 	// client on every level change; with it, it is a leak the caller can see.
 	List list;
-	FakeEffect a( &list ), unhooked( &list, false );
+	FakeEffect a(&list), unhooked(&list, false);
 
-	Add( list, 10u, &a );
-	Add( list, 20u, &unhooked );
+	Add(list, 10u, &a);
+	Add(list, 20u, &unhooked);
 
 	// One released, then the list stopped shrinking.
-	EXPECT_EQ( -1, ShellEffects_ReleaseAll( list ) );
+	EXPECT_EQ(-1, ShellEffects_ReleaseAll(list));
 
-	EXPECT_EQ( 1, a.m_nReleases );
-	EXPECT_EQ( 1, unhooked.m_nReleases );
-	EXPECT_EQ( 1, list.Count() );
+	EXPECT_EQ(1, a.m_nReleases);
+	EXPECT_EQ(1, unhooked.m_nReleases);
+	EXPECT_EQ(1, list.Count());
 }
 
-TEST( ShellEffectRegistry, ReleaseAllStopsOnTheVeryFirstRowWhenNothingIsHooked )
+TEST(ShellEffectRegistry, ReleaseAllStopsOnTheVeryFirstRowWhenNothingIsHooked)
 {
 	List list;
-	FakeEffect unhooked( &list, false );
+	FakeEffect unhooked(&list, false);
 
-	Add( list, 10u, &unhooked );
+	Add(list, 10u, &unhooked);
 
 	// Nothing released before it gave up, so the answer is a negative zero's
 	// only honest spelling: zero, with a list that is not empty.
-	EXPECT_EQ( 0, ShellEffects_ReleaseAll( list ) );
-	EXPECT_EQ( 1, list.Count() );
-	EXPECT_EQ( 1, unhooked.m_nReleases );
+	EXPECT_EQ(0, ShellEffects_ReleaseAll(list));
+	EXPECT_EQ(1, list.Count());
+	EXPECT_EQ(1, unhooked.m_nReleases);
 }
 
 //=============================================================================
 // The inversion itself: what the CALLER must not do.
 //=============================================================================
 
-TEST( ShellEffectRegistry, ReleaseAloneIsEnoughAndRemovingAsWellEatsANeighbour )
+TEST(ShellEffectRegistry, ReleaseAloneIsEnoughAndRemovingAsWellEatsANeighbour)
 {
 	// This is the rule the header states, asserted from both sides so that the
 	// "do not also Remove" comment is a fact rather than advice.
 	List list;
-	FakeEffect a( &list ), b( &list );
+	FakeEffect a(&list), b(&list);
 
-	Add( list, 10u, &a );
-	Add( list, 20u, &b );
+	Add(list, 10u, &a);
+	Add(list, 20u, &b);
 
 	// The right way: release the row's effect and stop.
-	const int iEntry = ShellEffects_Find( list, 10u );
-	ASSERT_EQ( 0, iEntry );
+	const int iEntry = ShellEffects_Find(list, 10u);
+	ASSERT_EQ(0, iEntry);
 	list[iEntry].pEffect->Release();
 
-	ASSERT_EQ( 1, list.Count() );
-	EXPECT_EQ( &b, list[0].pEffect ) << "the release removed its own row";
+	ASSERT_EQ(1, list.Count());
+	EXPECT_EQ(&b, list[0].pEffect) << "the release removed its own row";
 
 	// The wrong way, shown on a fresh pair: the extra Remove( iEntry ) takes the
 	// neighbour that shifted into that slot.
 	List wrong;
-	FakeEffect c( &wrong ), d( &wrong );
+	FakeEffect c(&wrong), d(&wrong);
 
-	Add( wrong, 10u, &c );
-	Add( wrong, 20u, &d );
+	Add(wrong, 10u, &c);
+	Add(wrong, 20u, &d);
 
-	const int iWrong = ShellEffects_Find( wrong, 10u );
+	const int iWrong = ShellEffects_Find(wrong, 10u);
 	wrong[iWrong].pEffect->Release();
-	wrong.Remove( iWrong );
+	wrong.Remove(iWrong);
 
-	EXPECT_EQ( 0, wrong.Count() ) << "d's row was eaten by the redundant Remove";
+	EXPECT_EQ(0, wrong.Count()) << "d's row was eaten by the redundant Remove";
 }
 
 } // namespace
@@ -358,7 +358,7 @@ namespace
 // everywhere but one — and the one is not a leftover.
 struct Shell_t
 {
-	const char *pszFile;
+	const char* pszFile;
 	size_t nCalls;
 	size_t nOwnLoops;
 };

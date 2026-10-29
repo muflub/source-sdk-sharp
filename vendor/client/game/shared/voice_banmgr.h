@@ -10,7 +10,7 @@ public:
 	~CVoiceBanMgr();
 
 	// Init loads the list of squelched players from disk.
-	bool Init( const char *pGameDir );
+	bool Init(const char* pGameDir);
 
 protected:
 	class BannedPlayer

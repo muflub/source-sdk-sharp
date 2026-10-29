@@ -15,21 +15,21 @@
 #include "dt_recv.h"
 
 // The block, checked (tempent_table_block.h), with the client's rows.
-inline bool SourceSharpTe_ReadRecvTableBlock( const void *pBlock, int32_t nBlockBytes, SourceSharpTeTableBlock_t *pOut )
+inline bool SourceSharpTe_ReadRecvTableBlock(const void* pBlock, int32_t nBlockBytes, SourceSharpTeTableBlock_t* pOut)
 {
-	return SourceSharpTe_ReadTableBlock( pBlock, nBlockBytes, (int32_t)sizeof( SourceSharpRecvPropRow_t ), pOut );
+	return SourceSharpTe_ReadTableBlock(pBlock, nBlockBytes, (int32_t)sizeof(SourceSharpRecvPropRow_t), pOut);
 }
 
 // Row i (0 <= i < header.nProps) of a block read above.
-SourceSharpRecvPropRow_t SourceSharpTe_RecvBlockRow( const SourceSharpTeTableBlock_t &block, int i );
+SourceSharpRecvPropRow_t SourceSharpTe_RecvBlockRow(const SourceSharpTeTableBlock_t& block, int i);
 
 // A proxy id as the standard recv proxy the engine compares with
 // g_StandardRecvProxies; NULL for one this does not know (and for the datatable
 // and array ids, which are not var proxies).
-RecvVarProxyFn SourceSharpTe_RecvVarProxy( int32_t nProxy );
+RecvVarProxyFn SourceSharpTe_RecvVarProxy(int32_t nProxy);
 
 // One row into one RecvProp. pNested is the table a DPT_DataTable row nests
 // (the caller resolves hDataTable). False, leaving pOut untouched, for a proxy
 // id that does not fit the row's type or a datatable row with no table.
-bool SourceSharpTe_StoreRecvProp( const SourceSharpRecvPropRow_t &row, const char *pName, RecvTable *pNested,
-								  RecvProp *pOut );
+bool SourceSharpTe_StoreRecvProp(const SourceSharpRecvPropRow_t& row, const char* pName, RecvTable* pNested,
+								 RecvProp* pOut);

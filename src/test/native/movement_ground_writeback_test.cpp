@@ -27,21 +27,21 @@
 //-----------------------------------------------------------------------------
 // The bug this exists for, stated as the one case the edge tests missed.
 //-----------------------------------------------------------------------------
-TEST( MovementGroundWriteBack, GroundChangingFromOneEntityToAnotherIsWritten )
+TEST(MovementGroundWriteBack, GroundChangingFromOneEntityToAnotherIsWritten)
 {
 	// The loop found ground; the player is holding ground; it is NOT this one.
-	EXPECT_EQ( MOVEMENT_GROUND_SET, MovementGround_WriteBack( true, true, false ) )
+	EXPECT_EQ(MOVEMENT_GROUND_SET, MovementGround_WriteBack(true, true, false))
 		<< "a rider carried from a crate onto a lift keeps reporting the crate";
 }
 
-TEST( MovementGroundWriteBack, LandingOnGroundFromTheAirIsWritten )
+TEST(MovementGroundWriteBack, LandingOnGroundFromTheAirIsWritten)
 {
-	EXPECT_EQ( MOVEMENT_GROUND_SET, MovementGround_WriteBack( true, false, false ) );
+	EXPECT_EQ(MOVEMENT_GROUND_SET, MovementGround_WriteBack(true, false, false));
 }
 
-TEST( MovementGroundWriteBack, LeavingTheGroundIsCleared )
+TEST(MovementGroundWriteBack, LeavingTheGroundIsCleared)
 {
-	EXPECT_EQ( MOVEMENT_GROUND_CLEAR, MovementGround_WriteBack( false, true, false ) );
+	EXPECT_EQ(MOVEMENT_GROUND_CLEAR, MovementGround_WriteBack(false, true, false));
 }
 
 //-----------------------------------------------------------------------------
@@ -49,14 +49,14 @@ TEST( MovementGroundWriteBack, LeavingTheGroundIsCleared )
 // prediction word on every tick a player stands still — which is most ticks of
 // most players.
 //-----------------------------------------------------------------------------
-TEST( MovementGroundWriteBack, StandingStillOnTheSameFloorWritesNothing )
+TEST(MovementGroundWriteBack, StandingStillOnTheSameFloorWritesNothing)
 {
-	EXPECT_EQ( MOVEMENT_GROUND_LEAVE, MovementGround_WriteBack( true, true, true ) );
+	EXPECT_EQ(MOVEMENT_GROUND_LEAVE, MovementGround_WriteBack(true, true, true));
 }
 
-TEST( MovementGroundWriteBack, StayingInTheAirWritesNothing )
+TEST(MovementGroundWriteBack, StayingInTheAirWritesNothing)
 {
-	EXPECT_EQ( MOVEMENT_GROUND_LEAVE, MovementGround_WriteBack( false, false, false ) );
+	EXPECT_EQ(MOVEMENT_GROUND_LEAVE, MovementGround_WriteBack(false, false, false));
 }
 
 //-----------------------------------------------------------------------------
@@ -68,15 +68,15 @@ TEST( MovementGroundWriteBack, StayingInTheAirWritesNothing )
 // who has LET GO of the ground while the remembered pointer still happens to
 // name what they were standing on. That is every jump.
 //-----------------------------------------------------------------------------
-TEST( MovementGroundWriteBack, LettingGoWinsEvenWhenTheRememberedGroundMatches )
+TEST(MovementGroundWriteBack, LettingGoWinsEvenWhenTheRememberedGroundMatches)
 {
-	EXPECT_EQ( MOVEMENT_GROUND_CLEAR, MovementGround_WriteBack( false, true, true ) );
+	EXPECT_EQ(MOVEMENT_GROUND_CLEAR, MovementGround_WriteBack(false, true, true));
 }
 
-TEST( MovementGroundWriteBack, NoGroundAndNoneHeldIsNotAClear )
+TEST(MovementGroundWriteBack, NoGroundAndNoneHeldIsNotAClear)
 {
 	// Distinguished from CLEAR deliberately: a clear on a player who already
 	// has no ground is a wasted network mark on every airborne tick of every
 	// jump, and the caller's `if` used to be what stopped it.
-	EXPECT_EQ( MOVEMENT_GROUND_LEAVE, MovementGround_WriteBack( false, false, true ) );
+	EXPECT_EQ(MOVEMENT_GROUND_LEAVE, MovementGround_WriteBack(false, false, true));
 }

@@ -350,7 +350,7 @@ public class PolicyKnobDeclarationTests
 
         string shared = File.ReadAllText(Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game",
                                                       "shared", "shell_shared.cpp"));
-        Assert.Contains("#ifdef CLIENT_DLL\nConVar default_fov( \"default_fov\", \"90\", FCVAR_REPLICATED | FCVAR_CHEAT,",
+        Assert.Contains("#ifdef CLIENT_DLL\nConVar default_fov(\"default_fov\", \"90\", FCVAR_REPLICATED | FCVAR_CHEAT,",
                         shared.Replace("\r\n", "\n"), StringComparison.Ordinal);
     }
 

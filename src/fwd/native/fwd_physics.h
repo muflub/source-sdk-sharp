@@ -29,9 +29,9 @@ int SSFwd_PhysicsCallbacks_SizeOf();
 // IPhysicsCollisionEvent, and so on -- over its managed side, and answers it as
 // the interface vphysics is handed. NULL, and nothing built, without memory or
 // a target.
-void *SSFwd_PhysicsCallbacks_ConstructObjectEvent( void *pMemory, IManagedPhysicsObjectEvent *pTarget );
-void *SSFwd_PhysicsCallbacks_ConstructCollisionEvent( void *pMemory, IManagedPhysicsCollisionEvent *pTarget );
-void *SSFwd_PhysicsCallbacks_ConstructCollisionSolver( void *pMemory, IManagedPhysicsCollisionSolver *pTarget );
-void *SSFwd_PhysicsCallbacks_ConstructConstraintEvent( void *pMemory, IManagedPhysicsConstraintEvent *pTarget );
-void *SSFwd_PhysicsCallbacks_ConstructMotionEvent( void *pMemory, IManagedMotionEvent *pTarget );
-void *SSFwd_PhysicsCallbacks_ConstructKeyHandler( void *pMemory, IManagedVPhysicsKeyHandler *pTarget );
+void* SSFwd_PhysicsCallbacks_ConstructObjectEvent(void* pMemory, IManagedPhysicsObjectEvent* pTarget);
+void* SSFwd_PhysicsCallbacks_ConstructCollisionEvent(void* pMemory, IManagedPhysicsCollisionEvent* pTarget);
+void* SSFwd_PhysicsCallbacks_ConstructCollisionSolver(void* pMemory, IManagedPhysicsCollisionSolver* pTarget);
+void* SSFwd_PhysicsCallbacks_ConstructConstraintEvent(void* pMemory, IManagedPhysicsConstraintEvent* pTarget);
+void* SSFwd_PhysicsCallbacks_ConstructMotionEvent(void* pMemory, IManagedMotionEvent* pTarget);
+void* SSFwd_PhysicsCallbacks_ConstructKeyHandler(void* pMemory, IManagedVPhysicsKeyHandler* pTarget);

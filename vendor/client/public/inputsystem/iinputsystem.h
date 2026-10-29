@@ -32,7 +32,7 @@ public:
 	virtual void unused_GetPollTick() = 0;
 
 	// Is a button down? "Buttons" are binary-state input devices (mouse buttons, keyboard keys)
-	virtual bool IsButtonDown( ButtonCode_t code ) const = 0;
+	virtual bool IsButtonDown(ButtonCode_t code) const = 0;
 
 	// Returns the tick at which the button was pressed and released
 	virtual void unused_GetButtonPressedTick() = 0;
@@ -40,7 +40,7 @@ public:
 
 	// Gets the value of an analog input device this frame
 	// Includes joysticks, mousewheel, mouse
-	virtual int GetAnalogValue( AnalogCode_t code ) const = 0;
+	virtual int GetAnalogValue(AnalogCode_t code) const = 0;
 
 	// Gets the change in a particular analog input device this frame
 	// Includes joysticks, mousewheel, mouse
@@ -66,7 +66,7 @@ public:
 	// Sample the joystick and append events to the input queue
 	virtual void unused_SampleDevices() = 0;
 
-	virtual void SetRumble( float fLeftMotor, float fRightMotor, int userId = INVALID_USER_ID ) = 0;
+	virtual void SetRumble(float fLeftMotor, float fRightMotor, int userId = INVALID_USER_ID) = 0;
 	virtual void StopRumble() = 0;
 
 	// Resets the input state
@@ -76,7 +76,7 @@ public:
 	virtual void unused_SetPrimaryUserId() = 0;
 
 	// Convert back + forth between ButtonCode/AnalogCode + strings
-	virtual const char *ButtonCodeToString( ButtonCode_t code ) const = 0;
+	virtual const char* ButtonCodeToString(ButtonCode_t code) const = 0;
 	virtual void unused_AnalogCodeToString() = 0;
 	virtual void unused_StringToButtonCode() = 0;
 	virtual void unused_StringToAnalogCode() = 0;
@@ -102,7 +102,7 @@ public:
 	virtual void unused_SetNovintPure() = 0;
 
 	// read and clear accumulated raw input values
-	virtual bool GetRawMouseAccumulators( int &accumX, int &accumY ) = 0;
+	virtual bool GetRawMouseAccumulators(int& accumX, int& accumY) = 0;
 
 	// tell the input system that we're not a game, we're console text mode.
 	// this is used for dedicated servers to not initialize joystick system.
@@ -111,21 +111,20 @@ public:
 	// being initialized.
 	virtual void unused_SetConsoleTextMode() = 0;
 
-	virtual ISteamController *SteamControllerInterface() = 0;
+	virtual ISteamController* SteamControllerInterface() = 0;
 	virtual void unused_GetNumSteamControllersConnected() = 0;
 	virtual bool IsSteamControllerActive() = 0;
 	virtual void unused_IsSteamControllerConnected() = 0;
 	virtual void unused_GetSteamControllerIndexForSlot() = 0;
 	virtual void unused_GetRadialMenuStickValues() = 0;
-	virtual void ActivateSteamControllerActionSetForSlot( uint64 nSlot, GameActionSet_t eActionSet ) = 0;
-	virtual ControllerActionSetHandle_t GetActionSetHandle( GameActionSet_t eActionSet ) = 0;
-	virtual ControllerActionSetHandle_t GetActionSetHandle( const char *szActionSet ) = 0;
+	virtual void ActivateSteamControllerActionSetForSlot(uint64 nSlot, GameActionSet_t eActionSet) = 0;
+	virtual ControllerActionSetHandle_t GetActionSetHandle(GameActionSet_t eActionSet) = 0;
+	virtual ControllerActionSetHandle_t GetActionSetHandle(const char* szActionSet) = 0;
 
 	// Gets the action origin (i.e. which physical input) maps to the given action for the given action set
-	virtual EControllerActionOrigin GetSteamControllerActionOrigin( const char *action,
-																	GameActionSet_t action_set ) = 0;
-	virtual EControllerActionOrigin GetSteamControllerActionOrigin( const char *action,
-																	ControllerActionSetHandle_t action_set_handle ) = 0;
+	virtual EControllerActionOrigin GetSteamControllerActionOrigin(const char* action, GameActionSet_t action_set) = 0;
+	virtual EControllerActionOrigin GetSteamControllerActionOrigin(const char* action,
+																   ControllerActionSetHandle_t action_set_handle) = 0;
 
 	// Maps a Steam Controller action origin to a string (consisting of a single character) in our SC icon font
 	virtual void unused_GetSteamControllerFontCharacterForActionOrigin() = 0;

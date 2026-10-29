@@ -53,7 +53,7 @@
 #include "managed_convar_ref.h"
 
 // Declared in managed code; CManagedConVarRef retries until it registers.
-static CManagedConVarRef phys_pushscale( "phys_pushscale" );
+static CManagedConVarRef phys_pushscale("phys_pushscale");
 
 #ifndef CLIENT_DLL
 namespace ss
@@ -62,24 +62,24 @@ namespace ss
 
 // Client only: nothing on the server accumulates multi-damage.
 #ifdef CLIENT_DLL
-BEGIN_SIMPLE_DATADESC( CTakeDamageInfo )
-DEFINE_FIELD( m_vecDamageForce, FIELD_VECTOR ), DEFINE_FIELD( m_vecDamagePosition, FIELD_POSITION_VECTOR ),
-	DEFINE_FIELD( m_vecReportedPosition, FIELD_POSITION_VECTOR ), DEFINE_FIELD( m_hInflictor, FIELD_EHANDLE ),
-	DEFINE_FIELD( m_hAttacker, FIELD_EHANDLE ), DEFINE_FIELD( m_hWeapon, FIELD_EHANDLE ),
-	DEFINE_FIELD( m_flDamage, FIELD_FLOAT ), DEFINE_FIELD( m_flMaxDamage, FIELD_FLOAT ),
-	DEFINE_FIELD( m_flBaseDamage, FIELD_FLOAT ), DEFINE_FIELD( m_bitsDamageType, FIELD_INTEGER ),
-	DEFINE_FIELD( m_iDamageCustom, FIELD_INTEGER ), DEFINE_FIELD( m_iDamageStats, FIELD_INTEGER ),
-	DEFINE_FIELD( m_iAmmoType, FIELD_INTEGER ), DEFINE_FIELD( m_iDamagedOtherPlayers, FIELD_INTEGER ),
+BEGIN_SIMPLE_DATADESC(CTakeDamageInfo)
+DEFINE_FIELD(m_vecDamageForce, FIELD_VECTOR), DEFINE_FIELD(m_vecDamagePosition, FIELD_POSITION_VECTOR),
+	DEFINE_FIELD(m_vecReportedPosition, FIELD_POSITION_VECTOR), DEFINE_FIELD(m_hInflictor, FIELD_EHANDLE),
+	DEFINE_FIELD(m_hAttacker, FIELD_EHANDLE), DEFINE_FIELD(m_hWeapon, FIELD_EHANDLE),
+	DEFINE_FIELD(m_flDamage, FIELD_FLOAT), DEFINE_FIELD(m_flMaxDamage, FIELD_FLOAT),
+	DEFINE_FIELD(m_flBaseDamage, FIELD_FLOAT), DEFINE_FIELD(m_bitsDamageType, FIELD_INTEGER),
+	DEFINE_FIELD(m_iDamageCustom, FIELD_INTEGER), DEFINE_FIELD(m_iDamageStats, FIELD_INTEGER),
+	DEFINE_FIELD(m_iAmmoType, FIELD_INTEGER), DEFINE_FIELD(m_iDamagedOtherPlayers, FIELD_INTEGER),
 	END_DATADESC()
 #endif // CLIENT_DLL
 
-		void CTakeDamageInfo::Init( IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon,
-									const Vector &damageForce, const Vector &damagePosition,
-									const Vector &reportedPosition, float flDamage, int bitsDamageType,
-									int iCustomDamage )
+		void CTakeDamageInfo::Init(IGameEntity* pInflictor, IGameEntity* pAttacker, IGameEntity* pWeapon,
+								   const Vector& damageForce, const Vector& damagePosition,
+								   const Vector& reportedPosition, float flDamage, int bitsDamageType,
+								   int iCustomDamage)
 {
 	m_hInflictor = pInflictor;
-	if ( pAttacker )
+	if (pAttacker)
 	{
 		m_hAttacker = pAttacker;
 	}
@@ -116,25 +116,25 @@ DEFINE_FIELD( m_vecDamageForce, FIELD_VECTOR ), DEFINE_FIELD( m_vecDamagePositio
 
 CTakeDamageInfo::CTakeDamageInfo()
 {
-	Init( NULL, NULL, NULL, vec3_origin, vec3_origin, vec3_origin, 0, 0, 0 );
+	Init(NULL, NULL, NULL, vec3_origin, vec3_origin, vec3_origin, 0, 0, 0);
 }
 
-CTakeDamageInfo::CTakeDamageInfo( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType,
-								  int iKillType )
+CTakeDamageInfo::CTakeDamageInfo(IGameEntity* pInflictor, IGameEntity* pAttacker, float flDamage, int bitsDamageType,
+								 int iKillType)
 {
-	Set( pInflictor, pAttacker, flDamage, bitsDamageType, iKillType );
+	Set(pInflictor, pAttacker, flDamage, bitsDamageType, iKillType);
 }
 
-void CTakeDamageInfo::Set( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType,
-						   int iKillType )
+void CTakeDamageInfo::Set(IGameEntity* pInflictor, IGameEntity* pAttacker, float flDamage, int bitsDamageType,
+						  int iKillType)
 {
-	Init( pInflictor, pAttacker, NULL, vec3_origin, vec3_origin, vec3_origin, flDamage, bitsDamageType, iKillType );
+	Init(pInflictor, pAttacker, NULL, vec3_origin, vec3_origin, vec3_origin, flDamage, bitsDamageType, iKillType);
 }
 
 #ifdef CLIENT_DLL
 // MultiDamage: collects multiple small damages into a single damage.
-BEGIN_SIMPLE_DATADESC_( CMultiDamage, CTakeDamageInfo )
-DEFINE_FIELD( m_hTarget, FIELD_EHANDLE ),
+BEGIN_SIMPLE_DATADESC_(CMultiDamage, CTakeDamageInfo)
+DEFINE_FIELD(m_hTarget, FIELD_EHANDLE),
 	END_DATADESC()
 
 		CMultiDamage g_MultiDamage;
@@ -144,25 +144,25 @@ CMultiDamage::CMultiDamage()
 	m_hTarget = NULL;
 }
 
-void CMultiDamage::Init( IGameEntity *pTarget, IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon,
-						 const Vector &damageForce, const Vector &damagePosition, const Vector &reportedPosition,
-						 float flDamage, int bitsDamageType, int iKillType )
+void CMultiDamage::Init(IGameEntity* pTarget, IGameEntity* pInflictor, IGameEntity* pAttacker, IGameEntity* pWeapon,
+						const Vector& damageForce, const Vector& damagePosition, const Vector& reportedPosition,
+						float flDamage, int bitsDamageType, int iKillType)
 {
 	m_hTarget = pTarget;
-	BaseClass::Init( pInflictor, pAttacker, pWeapon, damageForce, damagePosition, reportedPosition, flDamage,
-					 bitsDamageType, iKillType );
+	BaseClass::Init(pInflictor, pAttacker, pWeapon, damageForce, damagePosition, reportedPosition, flDamage,
+					bitsDamageType, iKillType);
 }
 
 // Resets the global multi damage accumulator.
 void ClearMultiDamage()
 {
-	g_MultiDamage.Init( NULL, NULL, NULL, NULL, vec3_origin, vec3_origin, vec3_origin, 0, 0, 0 );
+	g_MultiDamage.Init(NULL, NULL, NULL, NULL, vec3_origin, vec3_origin, vec3_origin, 0, 0, 0);
 }
 
 // Inflicts the contents of the global multi damage register on its target.
 void ApplyMultiDamage()
 {
-	if ( !g_MultiDamage.GetTarget() )
+	if (!g_MultiDamage.GetTarget())
 		return;
 
 	// Damage is done, clear it out
@@ -172,28 +172,28 @@ void ApplyMultiDamage()
 
 // An impulse scale required to push an object. flTargetMass in kg, flDesiredSpeed in
 // inches/sec.
-float ImpulseScale( float flTargetMass, float flDesiredSpeed )
+float ImpulseScale(float flTargetMass, float flDesiredSpeed)
 {
-	return ( flTargetMass * flDesiredSpeed );
+	return (flTargetMass * flDesiredSpeed);
 }
 
 // Fills out a takedamageinfo with a damage force for an explosive.
-IGameEntity *CTakeDamageInfo::GetAttacker( CServerEntityResolver &entities ) const
+IGameEntity* CTakeDamageInfo::GetAttacker(CServerEntityResolver& entities) const
 {
-	return SourceSharp_CrossHandleToGameEntity<IGameEntity, IServerEntity>( entities.EntityFromHandle( m_hAttacker ) );
+	return SourceSharp_CrossHandleToGameEntity<IGameEntity, IServerEntity>(entities.EntityFromHandle(m_hAttacker));
 }
 
-void CalculateExplosiveDamageForce( IUniformRandomStream *pRandom, CTakeDamageInfo *info, const Vector &vecDir,
-									const Vector &vecForceOrigin, float flScale )
+void CalculateExplosiveDamageForce(IUniformRandomStream* pRandom, CTakeDamageInfo* info, const Vector& vecDir,
+								   const Vector& vecForceOrigin, float flScale)
 {
-	info->SetDamagePosition( vecForceOrigin );
+	info->SetDamagePosition(vecForceOrigin);
 
-	float flClampForce = ImpulseScale( 75, 400 );
+	float flClampForce = ImpulseScale(75, 400);
 
 	// Calculate an impulse large enough to push a 75kg man 4 in/sec per point of damage
-	float flForceScale = info->GetBaseDamage() * ImpulseScale( 75, 4 );
+	float flForceScale = info->GetBaseDamage() * ImpulseScale(75, 4);
 
-	if ( flForceScale > flClampForce )
+	if (flForceScale > flClampForce)
 		flForceScale = flClampForce;
 
 	// Fudge blast forces a little bit, so that each
@@ -201,15 +201,15 @@ void CalculateExplosiveDamageForce( IUniformRandomStream *pRandom, CTakeDamageIn
 	// This simulates features that usually vary from
 	// person-to-person variables such as bodyweight,
 	// which are all indentical for characters using the same model.
-	flForceScale *= pRandom->RandomFloat( 0.85, 1.15 );
+	flForceScale *= pRandom->RandomFloat(0.85, 1.15);
 
 	// Calculate the vector and stuff it into the takedamageinfo
 	Vector vecForce = vecDir;
-	VectorNormalize( vecForce );
+	VectorNormalize(vecForce);
 	vecForce *= flForceScale;
 	vecForce *= phys_pushscale.GetFloat();
 	vecForce *= flScale;
-	info->SetDamageForce( vecForce );
+	info->SetDamageForce(vecForce);
 }
 
 #ifndef CLIENT_DLL

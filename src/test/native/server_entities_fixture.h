@@ -15,22 +15,22 @@ struct CTestServerEntities
 {
 	CTestServerEntities() { m_Entities.m_pResolver = &m_Resolver; }
 
-	CTestServerEntities( const CTestServerEntities & ) = delete;
-	CTestServerEntities &operator=( const CTestServerEntities & ) = delete;
+	CTestServerEntities(const CTestServerEntities&) = delete;
+	CTestServerEntities& operator=(const CTestServerEntities&) = delete;
 
 	CManagedHolders m_Holders{};
 	CServerPlayersDll m_Players;
 	unsigned short m_nWorldSerial = 0;
 	bool m_bManagedLoaded = false;
 	unsigned int m_nManagedGeneration = 1;
-	CServerModelPrecache m_Precache{ nullptr, nullptr, m_Holders.m_Areas };
+	CServerModelPrecache m_Precache{nullptr, nullptr, m_Holders.m_Areas};
 	CServerNetTables m_NetTables;
 	CSourceSharpSlotTable m_SlotTable;
 	CSourceSharpEntitySlots m_EntitySlots;
-	CServerEntityContext m_Entities{ nullptr,      nullptr,        nullptr,    nullptr,          nullptr,
-									 nullptr,      nullptr,        m_Holders,  m_bManagedLoaded, m_nManagedGeneration,
-									 m_Players,    m_nWorldSerial, m_Precache, m_NetTables,      m_SlotTable,
-									 m_EntitySlots };
+	CServerEntityContext m_Entities{nullptr,      nullptr,        nullptr,    nullptr,          nullptr,
+									nullptr,      nullptr,        m_Holders,  m_bManagedLoaded, m_nManagedGeneration,
+									m_Players,    m_nWorldSerial, m_Precache, m_NetTables,      m_SlotTable,
+									m_EntitySlots};
 	int32_t m_nInvisibleRangeReach = 0;
-	CServerEntityResolver m_Resolver{ m_SlotTable, m_Entities, m_nInvisibleRangeReach };
+	CServerEntityResolver m_Resolver{m_SlotTable, m_Entities, m_nInvisibleRangeReach};
 };

@@ -44,23 +44,23 @@ namespace recv
 // GetStandardRecvProxies hands it and copies directly when they match. So a
 // default proxy must be the very function the table holds, which is the
 // Valve-named one client.so's callers also pass by name.
-RecvProp Float( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-				const CStandardRecvProxies &standard );
-RecvProp Vector( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-				 const CStandardRecvProxies &standard );
-RecvProp Int( const char *pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-			  const CStandardRecvProxies &standard );
-RecvProp String( const char *pVarName, int offset, int bufferSize, int flags, RecvVarProxyFn proxy );
-RecvProp DataTable( const char *pVarName, int offset, int flags, RecvTable *pTable, DataTableRecvVarProxyFn proxy );
-RecvProp ArrayLength( int elementCount, int elementStride, const char *pName, ArrayLengthRecvProxyFn proxy );
+RecvProp Float(const char* pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
+			   const CStandardRecvProxies& standard);
+RecvProp Vector(const char* pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
+				const CStandardRecvProxies& standard);
+RecvProp Int(const char* pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
+			 const CStandardRecvProxies& standard);
+RecvProp String(const char* pVarName, int offset, int bufferSize, int flags, RecvVarProxyFn proxy);
+RecvProp DataTable(const char* pVarName, int offset, int flags, RecvTable* pTable, DataTableRecvVarProxyFn proxy);
+RecvProp ArrayLength(int elementCount, int elementStride, const char* pName, ArrayLengthRecvProxyFn proxy);
 
 // The standard proxies: the value the engine decoded, written at pOut.
-void FloatToFloat( const CRecvProxyData *pData, void *pStruct, void *pOut );
-void VectorToVector( const CRecvProxyData *pData, void *pStruct, void *pOut );
-void Int32ToInt8( const CRecvProxyData *pData, void *pStruct, void *pOut );
-void Int32ToInt16( const CRecvProxyData *pData, void *pStruct, void *pOut );
-void Int32ToInt32( const CRecvProxyData *pData, void *pStruct, void *pOut );
-void StringToString( const CRecvProxyData *pData, void *pStruct, void *pOut );
-void StaticDataTable( const RecvProp *pProp, void **pOut, void *pData, int objectID );
+void FloatToFloat(const CRecvProxyData* pData, void* pStruct, void* pOut);
+void VectorToVector(const CRecvProxyData* pData, void* pStruct, void* pOut);
+void Int32ToInt8(const CRecvProxyData* pData, void* pStruct, void* pOut);
+void Int32ToInt16(const CRecvProxyData* pData, void* pStruct, void* pOut);
+void Int32ToInt32(const CRecvProxyData* pData, void* pStruct, void* pOut);
+void StringToString(const CRecvProxyData* pData, void* pStruct, void* pOut);
+void StaticDataTable(const RecvProp* pProp, void** pOut, void* pData, int objectID);
 } // namespace recv
 } // namespace engineabi

@@ -122,7 +122,9 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   After reordering sources, the daily gate covers the new static-init order (a
   new object order is a new one); read its next report before building on it.
 - **Every native file is in one clang-format style** (`.clang-format`, no
-  per-file settings; user 2026-10-26). Run `tools/clang-format --write`
+  per-file settings; user 2026-10-26): `char* p`, `f(a)`, `if (x)`, with
+  pointers on the left and no spaces inside parentheses (user 2026-10-29).
+  Run `tools/clang-format --write`
   before committing C or C++; the routine `clang-format` check fails an
   unformatted file. Generators write through it, so regenerate rather than
   hand-format a generated file.

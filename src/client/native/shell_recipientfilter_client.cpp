@@ -45,9 +45,9 @@ int C_RecipientFilter::GetRecipientCount() const
 	return m_Recipients.Size();
 }
 
-int C_RecipientFilter::GetRecipientIndex( int slot ) const
+int C_RecipientFilter::GetRecipientIndex(int slot) const
 {
-	if ( slot < 0 || slot >= GetRecipientCount() )
+	if (slot < 0 || slot >= GetRecipientCount())
 		return -1;
 
 	return m_Recipients[slot];
@@ -63,34 +63,34 @@ static int LocalPlayerSlot()
 void C_RecipientFilter::AddAllPlayers()
 {
 	m_Recipients.RemoveAll();
-	AddRecipientByPlayerIndex( LocalPlayerSlot() );
+	AddRecipientByPlayerIndex(LocalPlayerSlot());
 }
 
 // The add every other add funnels through; the viewer rule is in
 // local_recipient.h, and this keeps the duplicate check.
-void C_RecipientFilter::AddRecipientByPlayerIndex( int playerindex )
+void C_RecipientFilter::AddRecipientByPlayerIndex(int playerindex)
 {
-	if ( !LocalRecipient_ShouldHold( playerindex, LocalPlayerSlot() ) )
+	if (!LocalRecipient_ShouldHold(playerindex, LocalPlayerSlot()))
 		return;
 
 	// Already in list
-	if ( m_Recipients.Find( playerindex ) != m_Recipients.InvalidIndex() )
+	if (m_Recipients.Find(playerindex) != m_Recipients.InvalidIndex())
 		return;
 
-	m_Recipients.AddToTail( playerindex );
+	m_Recipients.AddToTail(playerindex);
 }
 
-void C_RecipientFilter::AddRecipientsByPVS( const Vector &origin )
+void C_RecipientFilter::AddRecipientsByPVS(const Vector& origin)
 {
 	AddAllPlayers();
 }
 
-void C_RecipientFilter::AddRecipientsByPAS( const Vector &origin )
+void C_RecipientFilter::AddRecipientsByPAS(const Vector& origin)
 {
 	AddAllPlayers();
 }
 
 CLocalPlayerFilter::CLocalPlayerFilter()
 {
-	AddRecipientByPlayerIndex( LocalPlayerSlot() );
+	AddRecipientByPlayerIndex(LocalPlayerSlot());
 }

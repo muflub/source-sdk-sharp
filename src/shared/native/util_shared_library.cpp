@@ -34,7 +34,7 @@
 #ifdef CLIENT_DLL
 #include "client_entity.h"
 #include <vgui/ILocalize.h>
-extern vgui::ILocalize *g_pVGuiLocalize;
+extern vgui::ILocalize* g_pVGuiLocalize;
 #include "c_te_effect_dispatch.h"
 // The slot table's index -> handle ask.
 #include "shell_cliententitylist.h"

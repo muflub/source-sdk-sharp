@@ -22,43 +22,43 @@ struct FakeHandle
 
 struct FakeUnknown
 {
-	void *pEntity;
+	void* pEntity;
 	int nHandleAsks;
 	FakeHandle handle;
 
-	void *GetIClientEntity() { return pEntity; }
+	void* GetIClientEntity() { return pEntity; }
 
-	const FakeHandle &GetRefEHandle()
+	const FakeHandle& GetRefEHandle()
 	{
 		++nHandleAsks;
 		return handle;
 	}
 };
 
-TEST( StandaloneRenderableHandle, ANonEntityIsNeverAskedForAHandle )
+TEST(StandaloneRenderableHandle, ANonEntityIsNeverAskedForAHandle)
 {
-	FakeUnknown unknown = { nullptr, 0, { 77 } };
+	FakeUnknown unknown = {nullptr, 0, {77}};
 	uint32_t nWord = 5;
-	EXPECT_FALSE( RenderableEntityHandleWord( &unknown, nWord ) );
-	EXPECT_EQ( 0, unknown.nHandleAsks );
-	EXPECT_EQ( 5u, nWord );
+	EXPECT_FALSE(RenderableEntityHandleWord(&unknown, nWord));
+	EXPECT_EQ(0, unknown.nHandleAsks);
+	EXPECT_EQ(5u, nWord);
 }
 
-TEST( StandaloneRenderableHandle, AnEntityAnswersItsHandleWord )
+TEST(StandaloneRenderableHandle, AnEntityAnswersItsHandleWord)
 {
 	int entity = 0;
-	FakeUnknown unknown = { &entity, 0, { 0x12345 } };
+	FakeUnknown unknown = {&entity, 0, {0x12345}};
 	uint32_t nWord = 0;
-	EXPECT_TRUE( RenderableEntityHandleWord( &unknown, nWord ) );
-	EXPECT_EQ( 1, unknown.nHandleAsks );
-	EXPECT_EQ( 0x12345u, nWord );
+	EXPECT_TRUE(RenderableEntityHandleWord(&unknown, nWord));
+	EXPECT_EQ(1, unknown.nHandleAsks);
+	EXPECT_EQ(0x12345u, nWord);
 }
 
-TEST( StandaloneRenderableHandle, NoUnknownIsNoHandle )
+TEST(StandaloneRenderableHandle, NoUnknownIsNoHandle)
 {
 	uint32_t nWord = 9;
-	EXPECT_FALSE( RenderableEntityHandleWord( (FakeUnknown *)nullptr, nWord ) );
-	EXPECT_EQ( 9u, nWord );
+	EXPECT_FALSE(RenderableEntityHandleWord((FakeUnknown*)nullptr, nWord));
+	EXPECT_EQ(9u, nWord);
 }
 
 } // namespace

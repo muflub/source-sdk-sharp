@@ -38,12 +38,12 @@ public:
 
 	// entity query
 	virtual void unused_GetKeyValue() = 0;
-	virtual bool SetKeyValue( CBaseEntity *pEntity, const char *szField, const char *szValue ) = 0;
-	virtual bool SetKeyValue( CBaseEntity *pEntity, const char *szField, float flValue ) = 0;
-	virtual bool SetKeyValue( CBaseEntity *pEntity, const char *szField, const Vector &vecValue ) = 0;
+	virtual bool SetKeyValue(CBaseEntity* pEntity, const char* szField, const char* szValue) = 0;
+	virtual bool SetKeyValue(CBaseEntity* pEntity, const char* szField, float flValue) = 0;
+	virtual bool SetKeyValue(CBaseEntity* pEntity, const char* szField, const Vector& vecValue) = 0;
 
 	// entity spawning
-	virtual CBaseEntity *CreateEntityByName( const char *szClassName ) = 0;
+	virtual CBaseEntity* CreateEntityByName(const char* szClassName) = 0;
 	virtual void unused_DispatchSpawn() = 0;
 
 	// This reloads a portion or all of a particle definition file.
@@ -51,7 +51,7 @@ public:
 	// Use a UtlBuffer to crack the data
 	virtual void unused_ReloadParticleDefintions() = 0;
 
-	virtual void AddOriginToPVS( const Vector &org ) = 0;
+	virtual void AddOriginToPVS(const Vector& org) = 0;
 	virtual void unused_MoveEngineViewTo() = 0;
 
 	virtual void unused_DestroyEntityByHammerId() = 0;
@@ -60,8 +60,8 @@ public:
 	virtual void unused_RemoveEntityImmediate() = 0;
 	virtual void unused_GetEntityFactoryDictionary() = 0;
 
-	virtual void SetMoveType( CBaseEntity *pEntity, int val ) = 0;
-	virtual void SetMoveType( CBaseEntity *pEntity, int val, int moveCollide ) = 0;
+	virtual void SetMoveType(CBaseEntity* pEntity, int val) = 0;
+	virtual void SetMoveType(CBaseEntity* pEntity, int val, int moveCollide) = 0;
 	virtual void unused_ResetSequence() = 0;
 	virtual void unused_ResetSequenceInfo() = 0;
 
@@ -75,7 +75,7 @@ public:
 
 	virtual void unused_GetEntityList() = 0;
 	virtual void unused_IsEntityPtr() = 0;
-	virtual CBaseEntity *FindEntityByClassname( CBaseEntity *pStartEntity, const char *szName ) = 0;
+	virtual CBaseEntity* FindEntityByClassname(CBaseEntity* pStartEntity, const char* szName) = 0;
 	virtual void unused_FindEntityByName() = 0;
 	virtual void unused_FindEntityInSphere() = 0;
 	virtual void unused_FindEntityByTarget() = 0;
@@ -83,10 +83,10 @@ public:
 	virtual void unused_FindEntityByNameNearest() = 0;
 	virtual void unused_FindEntityByNameWithin() = 0;
 	virtual void unused_FindEntityByClassnameNearest() = 0;
-	virtual CBaseEntity *FindEntityByClassnameWithin( CBaseEntity *pStartEntity, const char *szName,
-													  const Vector &vecSrc, float flRadius ) = 0;
-	virtual CBaseEntity *FindEntityByClassnameWithin( CBaseEntity *pStartEntity, const char *szName,
-													  const Vector &vecMins, const Vector &vecMaxs ) = 0;
+	virtual CBaseEntity* FindEntityByClassnameWithin(CBaseEntity* pStartEntity, const char* szName,
+													 const Vector& vecSrc, float flRadius) = 0;
+	virtual CBaseEntity* FindEntityByClassnameWithin(CBaseEntity* pStartEntity, const char* szName,
+													 const Vector& vecMins, const Vector& vecMaxs) = 0;
 	virtual void unused_FindEntityGeneric() = 0;
 	virtual void unused_FindEntityGenericWithin() = 0;
 	virtual void unused_FindEntityGenericNearest() = 0;

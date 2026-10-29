@@ -29,11 +29,11 @@ enum
 
 struct SourceSharpTeBuilt_t
 {
-	SendProp *pProps;
+	SendProp* pProps;
 	int nProps;
-	SendTable *pTable;
-	ServerClass *pClass; // NULL for a table registered without one
-	const char *pClassName; // interned: what a managed reload asks for again
+	SendTable* pTable;
+	ServerClass* pClass; // NULL for a table registered without one
+	const char* pClassName; // interned: what a managed reload asks for again
 	uint32_t nShapeHash;
 };
 
@@ -41,18 +41,18 @@ class CServerTempEnts final : public IShimEffectsServer
 {
 public:
 	CServerTempEnts() = default;
-	CServerTempEnts( const CServerTempEnts & ) = delete;
-	CServerTempEnts &operator=( const CServerTempEnts & ) = delete;
+	CServerTempEnts(const CServerTempEnts&) = delete;
+	CServerTempEnts& operator=(const CServerTempEnts&) = delete;
 
 	// Stores one table; a class built by an earlier load answers its first handle.
-	int32_t TempEntBuild( const void *pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t *pOut ) override;
+	int32_t TempEntBuild(const void* pBlock, int32_t nBlockBytes, SourceSharpTeBuiltTable_t* pOut) override;
 
 	// Closes the window, once managed has pushed its tables: a ServerClass built after the
 	// engine's one walk of the class list is never seen.
 	void CloseRegistration();
 
 	// Whether a ServerClass was built here from a C# [TempEntity], by identity.
-	bool IsTempEntServerClass( const ServerClass *pClass ) const;
+	bool IsTempEntServerClass(const ServerClass* pClass) const;
 
 	// For the debug dump. The table and the ServerClass built for handle i are NULL when
 	// the plan asked for no ServerClass or i is out of range.
@@ -60,11 +60,11 @@ public:
 
 	bool RegistrationClosed() const { return m_bClosed; }
 
-	SendTable *BuiltTable( int i ) const;
-	ServerClass *BuiltClass( int i ) const;
+	SendTable* BuiltTable(int i) const;
+	ServerClass* BuiltClass(int i) const;
 
 private:
-	const char *InternName( const char *pName );
+	const char* InternName(const char* pName);
 
 	SourceSharpTeBuilt_t m_Built[SOURCESHARP_TE_MAX_TABLES] = {};
 	int m_nBuilt = 0;

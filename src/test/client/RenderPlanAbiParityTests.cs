@@ -176,7 +176,7 @@ public class RenderPlanAbiParityTests
     public void TheConvarSlotsAreTheExecutorsTable()
     {
         string text = Executor();
-        int start = text.IndexOf("const char *const kRenderCvars[] =", StringComparison.Ordinal);
+        int start = text.IndexOf("const char* const kRenderCvars[] =", StringComparison.Ordinal);
         Assert.True(start > 0, "the executor has no kRenderCvars table");
         int end = text.IndexOf("};", start, StringComparison.Ordinal);
         var names = Regex.Matches(text[start..end], "\"(\\w+)\"").Select(m => m.Groups[1].Value).ToList();
@@ -193,7 +193,7 @@ public class RenderPlanAbiParityTests
     public void ThePostConvarSlotsAreTheExecutorsTable()
     {
         string text = Executor();
-        int start = text.IndexOf("const char *const kPostCvars[] =", StringComparison.Ordinal);
+        int start = text.IndexOf("const char* const kPostCvars[] =", StringComparison.Ordinal);
         Assert.True(start > 0, "the executor has no kPostCvars table");
         int end = text.IndexOf("};", start, StringComparison.Ordinal);
         var names = Regex.Matches(text[start..end], "\"(\\w+)\"").Select(m => m.Groups[1].Value).ToList();

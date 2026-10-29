@@ -60,12 +60,12 @@ class CStateTier
 {
 public:
 	CStateTier() = default;
-	CStateTier( const CStateTier & ) = delete;
-	CStateTier &operator=( const CStateTier & ) = delete;
+	CStateTier(const CStateTier&) = delete;
+	CStateTier& operator=(const CStateTier&) = delete;
 
-	T *Get() const { return m_p; }
+	T* Get() const { return m_p; }
 
-	T &Begin()
+	T& Begin()
 	{
 		End();
 		m_p = new T();
@@ -74,13 +74,13 @@ public:
 
 	void End()
 	{
-		T *p = m_p;
+		T* p = m_p;
 		m_p = nullptr;
 		delete p;
 	}
 
 private:
-	T *m_p = nullptr;
+	T* m_p = nullptr;
 };
 
 // The DLL tier: DLLInit to DLLShutdown.
@@ -90,12 +90,12 @@ class CServerStandaloneTiers
 {
 public:
 	CServerStandaloneTiers() = default;
-	CServerStandaloneTiers( const CServerStandaloneTiers & ) = delete;
-	CServerStandaloneTiers &operator=( const CServerStandaloneTiers & ) = delete;
+	CServerStandaloneTiers(const CServerStandaloneTiers&) = delete;
+	CServerStandaloneTiers& operator=(const CServerStandaloneTiers&) = delete;
 
-	SendProp *m_pProps[SOURCESHARP_TIER_MAX] = {};
-	SendTable *m_pTables[SOURCESHARP_TIER_MAX] = {};
-	ServerClass *m_pClasses[SOURCESHARP_TIER_MAX] = {};
+	SendProp* m_pProps[SOURCESHARP_TIER_MAX] = {};
+	SendTable* m_pTables[SOURCESHARP_TIER_MAX] = {};
+	ServerClass* m_pClasses[SOURCESHARP_TIER_MAX] = {};
 	bool m_bRegistered = false;
 };
 
@@ -106,8 +106,8 @@ class CServerNetTables
 {
 public:
 	CServerNetTables() = default;
-	CServerNetTables( const CServerNetTables & ) = delete;
-	CServerNetTables &operator=( const CServerNetTables & ) = delete;
+	CServerNetTables(const CServerNetTables&) = delete;
+	CServerNetTables& operator=(const CServerNetTables&) = delete;
 
 	CSourceSharpTypeTable m_Types;
 	CSourceSharpPayloadPropNames m_PropNames;
@@ -123,11 +123,11 @@ class CServerPlayersDll
 {
 public:
 	CServerPlayersDll() = default;
-	CServerPlayersDll( const CServerPlayersDll & ) = delete;
-	CServerPlayersDll &operator=( const CServerPlayersDll & ) = delete;
+	CServerPlayersDll(const CServerPlayersDll&) = delete;
+	CServerPlayersDll& operator=(const CServerPlayersDll&) = delete;
 
 	// The player's edict, in transit from ClientPutInServer to PostConstruct.
-	edict_t *m_pPendingEdict = nullptr;
+	edict_t* m_pPendingEdict = nullptr;
 
 	// Where the engine-side player words sit in the net state, resolved per generation.
 	SourceSharpPlayerFields_t m_Fields;
@@ -148,11 +148,11 @@ class CServerEntityShells
 {
 public:
 	CServerEntityShells() = default;
-	CServerEntityShells( const CServerEntityShells & ) = delete;
-	CServerEntityShells &operator=( const CServerEntityShells & ) = delete;
+	CServerEntityShells(const CServerEntityShells&) = delete;
+	CServerEntityShells& operator=(const CServerEntityShells&) = delete;
 
-	std::vector<CStandaloneEntity *> m_Live;
-	std::vector<CStandaloneEntity *> m_PendingDeletes;
+	std::vector<CStandaloneEntity*> m_Live;
+	std::vector<CStandaloneEntity*> m_PendingDeletes;
 };
 
 // The players connected on this map, by entindex, asked once per packet and per snapshot.
@@ -160,18 +160,18 @@ class CServerPlayersLevel
 {
 public:
 	CServerPlayersLevel() = default;
-	CServerPlayersLevel( const CServerPlayersLevel & ) = delete;
-	CServerPlayersLevel &operator=( const CServerPlayersLevel & ) = delete;
+	CServerPlayersLevel(const CServerPlayersLevel&) = delete;
+	CServerPlayersLevel& operator=(const CServerPlayersLevel&) = delete;
 
-	CStandalonePlayer *m_pByIndex[ss::kMaxPlayers + 1] = {};
+	CStandalonePlayer* m_pByIndex[ss::kMaxPlayers + 1] = {};
 };
 
 class CServerDllState
 {
 public:
 	CServerDllState() = default;
-	CServerDllState( const CServerDllState & ) = delete;
-	CServerDllState &operator=( const CServerDllState & ) = delete;
+	CServerDllState(const CServerDllState&) = delete;
+	CServerDllState& operator=(const CServerDllState&) = delete;
 
 	// DLL tier: managed holds pointers into m_EntitySlots across a reload, and serials stay
 	// monotone across maps so no handle is reissued. Managed unloads before this tier ends.
@@ -196,15 +196,15 @@ class CServerLevelState
 {
 public:
 	CServerLevelState() = default;
-	CServerLevelState( const CServerLevelState & ) = delete;
-	CServerLevelState &operator=( const CServerLevelState & ) = delete;
+	CServerLevelState(const CServerLevelState&) = delete;
+	CServerLevelState& operator=(const CServerLevelState&) = delete;
 
 	CServerOverlaps m_Overlaps;
 	CServerPlayersLevel m_Players;
 	CServerEntityShells m_Shells;
 
 	// worldspawn, claimed at its construction; NULL until the map makes it.
-	CWorld *m_pWorld = nullptr;
+	CWorld* m_pWorld = nullptr;
 
 	// Warned once per map: an entity allocated a blob shorter than its published layout.
 	bool m_bWarnedShortBlob = false;

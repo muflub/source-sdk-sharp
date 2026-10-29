@@ -18,25 +18,25 @@
 
 namespace
 {
-std::string RepoPath( const char *pszRel )
+std::string RepoPath(const char* pszRel)
 {
-	const char *pszRepo = getenv( "SOURCESHARP_REPO" );
-	return std::string( pszRepo ? pszRepo : "." ) + "/" + pszRel;
+	const char* pszRepo = getenv("SOURCESHARP_REPO");
+	return std::string(pszRepo ? pszRepo : ".") + "/" + pszRel;
 }
 }
 
-TEST( BitbufStockOracle, StockProducesTheGolden )
+TEST(BitbufStockOracle, StockProducesTheGolden)
 {
 	const std::string run = bitbuf_scenario::Run();
-	const std::string golden = RepoPath( "src/test/client/Fixtures/bitbuf-stock.tsv" );
+	const std::string golden = RepoPath("src/test/client/Fixtures/bitbuf-stock.tsv");
 
-	if ( std::ifstream( RepoPath( "src/test/oracle/native/bitbuf_golden.regen" ) ).good() )
-		std::ofstream( golden ) << run;
+	if (std::ifstream(RepoPath("src/test/oracle/native/bitbuf_golden.regen")).good())
+		std::ofstream(golden) << run;
 
-	std::ifstream in( golden );
-	ASSERT_TRUE( in.good() ) << golden << " is missing";
+	std::ifstream in(golden);
+	ASSERT_TRUE(in.good()) << golden << " is missing";
 	std::stringstream ss;
 	ss << in.rdbuf();
-	ASSERT_GT( ss.str().size(), 100000u ) << "the golden is empty or truncated";
-	ASSERT_TRUE( ss.str() == run ) << "pristine bitbuf.cpp no longer writes the golden; do NOT regenerate it to pass";
+	ASSERT_GT(ss.str().size(), 100000u) << "the golden is empty or truncated";
+	ASSERT_TRUE(ss.str() == run) << "pristine bitbuf.cpp no longer writes the golden; do NOT regenerate it to pass";
 }

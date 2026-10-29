@@ -17,6 +17,6 @@ class CServerDLLSharedAppSystems final : public IServerDLLSharedAppSystems
 {
 public:
 	int Count() override;
-	char const *GetDllName( int idx ) override;
-	char const *GetInterfaceName( int idx ) override;
+	char const* GetDllName(int idx) override;
+	char const* GetInterfaceName(int idx) override;
 };

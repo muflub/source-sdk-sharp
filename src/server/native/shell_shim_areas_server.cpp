@@ -14,31 +14,31 @@
 #include "sourcesharp_entrypoints.h"
 #include "ss_string.h"
 
-void *CShimEngine::GetGlobalVarsPtr()
+void* CShimEngine::GetGlobalVarsPtr()
 {
 	return ::SourceSharp_GetGlobalVarsPtr();
 }
 
-void CShimGameRules::RegisterGameRulesPolicy( const SourceSharpGameRulesPolicy *pPolicy )
+void CShimGameRules::RegisterGameRulesPolicy(const SourceSharpGameRulesPolicy* pPolicy)
 {
-	return ::SourceSharp_RegisterGameRulesPolicy( pPolicy );
+	return ::SourceSharp_RegisterGameRulesPolicy(pPolicy);
 }
 
-void CShimGameRules::RegisterDamageRules( const SourceSharpDamageRules *pRules )
+void CShimGameRules::RegisterDamageRules(const SourceSharpDamageRules* pRules)
 {
-	return ::SourceSharp_RegisterDamageRules( pRules );
+	return ::SourceSharp_RegisterDamageRules(pRules);
 }
 
-void CShimMovementServerBase::MoveTrace( const float *pStartXYZ, const float *pEndXYZ, const float *pMinsXYZ,
-										 const float *pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup,
-										 SourceSharpMoveTraceResult *pOut )
+void CShimMovementServerBase::MoveTrace(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ,
+										const float* pMaxsXYZ, int32_t nMask, int32_t nCollisionGroup,
+										SourceSharpMoveTraceResult* pOut)
 {
-	return ::SourceSharp_MoveTrace( pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOut );
+	return ::SourceSharp_MoveTrace(pStartXYZ, pEndXYZ, pMinsXYZ, pMaxsXYZ, nMask, nCollisionGroup, pOut);
 }
 
-int32_t CShimMovementServerBase::MoveEffect( int32_t nKind, const float *pXYZ, float flValue, int32_t nValue )
+int32_t CShimMovementServerBase::MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue)
 {
-	return ::SourceSharp_MoveEffect( nKind, pXYZ, flValue, nValue );
+	return ::SourceSharp_MoveEffect(nKind, pXYZ, flValue, nValue);
 }
 
 float CShimMovementServerBase::CurrentGravity()
@@ -46,77 +46,77 @@ float CShimMovementServerBase::CurrentGravity()
 	return ::SourceSharp_CurrentGravity();
 }
 
-void CShimMovementServerBase::RegisterMovementParams( const SourceSharpMovementParams *pParams )
+void CShimMovementServerBase::RegisterMovementParams(const SourceSharpMovementParams* pParams)
 {
-	return ::SourceSharp_RegisterMovementParams( pParams );
+	return ::SourceSharp_RegisterMovementParams(pParams);
 }
 
-void *ShimAreas_Acquire( CShimAreas &areas, const char *pszName )
+void* ShimAreas_Acquire(CShimAreas& areas, const char* pszName)
 {
-	if ( !pszName )
+	if (!pszName)
 		return NULL;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_ENGINE_VERSION ) )
-		return static_cast<IShimEngine *>( &areas.m_Engine );
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_ENGINE_VERSION))
+		return static_cast<IShimEngine*>(&areas.m_Engine);
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONSOLESERVER_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_CONSOLESERVER_VERSION))
 		return areas.m_pConsoleServer;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_EVENTSSERVER_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_EVENTSSERVER_VERSION))
 		return areas.m_pEventsServer;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_NETWORKSERVER_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_NETWORKSERVER_VERSION))
 		return areas.m_pNetworkServer;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_MODELSSERVER_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_MODELSSERVER_VERSION))
 		return areas.m_pModelsServer;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_PRECACHE_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_PRECACHE_VERSION))
 		return areas.m_pPrecache;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_MOVEMENTSERVER_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_MOVEMENTSERVER_VERSION))
 		return areas.m_pMovementServer;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_WORLDSERVER_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_WORLDSERVER_VERSION))
 		return areas.m_pWorldServer;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_ENTITIESSERVER_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_ENTITIESSERVER_VERSION))
 		return areas.m_pEntitiesServer;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_ENTITYLIFECYCLE_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_ENTITYLIFECYCLE_VERSION))
 		return areas.m_pEntityLifecycle;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_TRANSFORM_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_TRANSFORM_VERSION))
 		return areas.m_pTransform;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_HIERARCHY_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_HIERARCHY_VERSION))
 		return areas.m_pHierarchy;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_COLLISIONSERVER_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_COLLISIONSERVER_VERSION))
 		return areas.m_pCollisionServer;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_PHYSICS_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_PHYSICS_VERSION))
 		return areas.m_pPhysics;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_DAMAGE_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_DAMAGE_VERSION))
 		return areas.m_pDamage;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_GAMERULES_VERSION ) )
-		return static_cast<IShimGameRules *>( &areas.m_GameRules );
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_GAMERULES_VERSION))
+		return static_cast<IShimGameRules*>(&areas.m_GameRules);
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_PLAYERS_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_PLAYERS_VERSION))
 		return areas.m_pPlayers;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_EFFECTSSERVER_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_EFFECTSSERVER_VERSION))
 		return areas.m_pEffectsServer;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_DEBUGOVERLAY_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_DEBUGOVERLAY_VERSION))
 		return areas.m_pDebugOverlay;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_USERMESSAGES_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_USERMESSAGES_VERSION))
 		return areas.m_pUserMessages;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_DIAGNOSTICS_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_DIAGNOSTICS_VERSION))
 		return areas.m_pDiagnostics;
 
 	return NULL;

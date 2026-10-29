@@ -5,21 +5,21 @@ class CSaidOncePerId
 {
 public:
 	CSaidOncePerId()
-		: m_nCount( 0 )
+		: m_nCount(0)
 	{
 	}
 
 	// True exactly once per distinct id. A full table answers true for ids it can
 	// no longer record: repeating a message beats swallowing one.
-	bool FirstTime( unsigned int nId )
+	bool FirstTime(unsigned int nId)
 	{
-		for ( int i = 0; i < m_nCount; i++ )
+		for (int i = 0; i < m_nCount; i++)
 		{
-			if ( m_Ids[i] == nId )
+			if (m_Ids[i] == nId)
 				return false;
 		}
 
-		if ( m_nCount < (int)( sizeof( m_Ids ) / sizeof( m_Ids[0] ) ) )
+		if (m_nCount < (int)(sizeof(m_Ids) / sizeof(m_Ids[0])))
 			m_Ids[m_nCount++] = nId;
 
 		return true;

@@ -48,45 +48,44 @@ namespace
 class SSTraceFilter final : public ITraceFilter
 {
 public:
-	SSTraceFilter( IManagedTraceFilter *pTarget, TraceType_t eType )
-		: m_pTarget( pTarget )
-		, m_eType( eType )
+	SSTraceFilter(IManagedTraceFilter* pTarget, TraceType_t eType)
+		: m_pTarget(pTarget)
+		, m_eType(eType)
 	{
 	}
 
-	bool ShouldHitEntity( IHandleEntity *pEntity, int contentsMask ) override
+	bool ShouldHitEntity(IHandleEntity* pEntity, int contentsMask) override
 	{
-		return m_pTarget->ShouldHitEntity( SSFwd_TraceFilter_HandleOf( pEntity ), contentsMask ) != 0;
+		return m_pTarget->ShouldHitEntity(SSFwd_TraceFilter_HandleOf(pEntity), contentsMask) != 0;
 	}
 
 	TraceType_t GetTraceType() const override { return m_eType; }
 
 private:
-	IManagedTraceFilter *m_pTarget;
+	IManagedTraceFilter* m_pTarget;
 	TraceType_t m_eType;
 };
 
 // A vptr, one pointer and the trace type: the block's reserved words hold it.
-static_assert( sizeof( SSTraceFilter ) <= kManagedPhysicsCallbackWords * sizeof( void * ),
-			   "fits the block's reserved words" );
+static_assert(sizeof(SSTraceFilter) <= kManagedPhysicsCallbackWords * sizeof(void*), "fits the block's reserved words");
 }
 
 int SSFwd_TraceFilter_SizeOf()
 {
-	return int( kManagedPhysicsCallbackWords * sizeof( void * ) );
+	return int(kManagedPhysicsCallbackWords * sizeof(void*));
 }
 
-void *SSFwd_TraceFilter_Construct( void *pMemory, IManagedTraceFilter *pTarget, int32_t nTraceType )
+void* SSFwd_TraceFilter_Construct(void* pMemory, IManagedTraceFilter* pTarget, int32_t nTraceType)
 {
-	if ( !pMemory || !pTarget )
+	if (!pMemory || !pTarget)
 		return nullptr;
 
-	return static_cast<ITraceFilter *>( new ( pMemory ) SSTraceFilter( pTarget, (TraceType_t)nTraceType ) );
+	return static_cast<ITraceFilter*>(new (pMemory) SSTraceFilter(pTarget, (TraceType_t)nTraceType));
 }
 
-uint32_t SSFwd_TraceFilter_HandleOf( IHandleEntity *pEntity )
+uint32_t SSFwd_TraceFilter_HandleOf(IHandleEntity* pEntity)
 {
-	if ( !pEntity )
+	if (!pEntity)
 		return INVALID_EHANDLE_INDEX;
 
 	return (uint32_t)pEntity->GetRefEHandle().ToInt();

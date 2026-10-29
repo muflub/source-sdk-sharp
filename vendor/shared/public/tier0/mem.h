@@ -5,7 +5,7 @@
 
 #include "tier0/platform.h"
 
-#if !defined( STATIC_TIER0 )
+#if !defined(STATIC_TIER0)
 
 #define MEM_INTERFACE DLL_IMPORT
 
@@ -15,4 +15,4 @@
 
 #endif // BUILD_AS_DLL
 
-MEM_INTERFACE void MemAllocOOMError( size_t nSize );
+MEM_INTERFACE void MemAllocOOMError(size_t nSize);

@@ -18,19 +18,19 @@ class CServerPlayersDll;
 class CServerDiagnostics final : public IShimDiagnostics
 {
 public:
-	explicit CServerDiagnostics( const CServerPlayersDll &players )
-		: m_Players( players )
+	explicit CServerDiagnostics(const CServerPlayersDll& players)
+		: m_Players(players)
 	{
 	}
 
-	CServerDiagnostics( const CServerDiagnostics & ) = delete;
-	CServerDiagnostics &operator=( const CServerDiagnostics & ) = delete;
+	CServerDiagnostics(const CServerDiagnostics&) = delete;
+	CServerDiagnostics& operator=(const CServerDiagnostics&) = delete;
 
-	int32_t PlayerShadowCounts( int32_t *pOut, int32_t nMax ) override;
-	int32_t ExitWatchArm( const char *pRecordPath ) override;
-	int32_t ExitWatchRead( int32_t *pOut, int32_t nMax ) override;
+	int32_t PlayerShadowCounts(int32_t* pOut, int32_t nMax) override;
+	int32_t ExitWatchArm(const char* pRecordPath) override;
+	int32_t ExitWatchRead(int32_t* pOut, int32_t nMax) override;
 	int32_t ExitWatchDisarm() override;
 
 private:
-	const CServerPlayersDll &m_Players;
+	const CServerPlayersDll& m_Players;
 };

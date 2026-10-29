@@ -31,43 +31,43 @@ float g_flCustomBloomScale = 0.0f;
 float g_flCustomBloomScaleMinimum = 0.0f;
 
 // A short block is dropped with a warning rather than read past the caller's buffer.
-static bool WorldRenderCountOk( const char *pWhat, int32_t nCount, int32_t nWanted )
+static bool WorldRenderCountOk(const char* pWhat, int32_t nCount, int32_t nWanted)
 {
-	if ( nCount >= nWanted )
+	if (nCount >= nWanted)
 		return true;
 
-	Warning( "[SourceSharp] ClientSetWorldRenderState(%s): %d values, wanted %d — ignored\n", pWhat, nCount, nWanted );
+	Warning("[SourceSharp] ClientSetWorldRenderState(%s): %d values, wanted %d — ignored\n", pWhat, nCount, nWanted);
 	return false;
 }
 
-void SourceSharp_ClientSetWorldRenderState( int32_t nWhich, const float *pValues, int32_t nCount )
+void SourceSharp_ClientSetWorldRenderState(int32_t nWhich, const float* pValues, int32_t nCount)
 {
-	if ( !pValues || nCount <= 0 )
+	if (!pValues || nCount <= 0)
 		return;
 
 	// At developer 2: nothing else shows that this ran.
-	DevMsg( 2, "[SourceSharp] world render state %d, %d value(s)\n", nWhich, nCount );
+	DevMsg(2, "[SourceSharp] world render state %d, %d value(s)\n", nWhich, nCount);
 
-	switch ( nWhich )
+	switch (nWhich)
 	{
 		case SOURCESHARP_WORLDRENDER_WATERLOD:
 		{
-			if ( !WorldRenderCountOk( "waterlod", nCount, 2 ) )
+			if (!WorldRenderCountOk("waterlod", nCount, 2))
 				return;
 
-			view->SetCheapWaterStartDistance( pValues[0] );
-			view->SetCheapWaterEndDistance( pValues[1] );
+			view->SetCheapWaterStartDistance(pValues[0]);
+			view->SetCheapWaterEndDistance(pValues[1]);
 			return;
 		}
 
 		case SOURCESHARP_WORLDRENDER_TONEMAP:
 		{
-			if ( !WorldRenderCountOk( "tonemap", nCount, 7 ) )
+			if (!WorldRenderCountOk("tonemap", nCount, 7))
 				return;
 
-			g_bUseCustomAutoExposureMin = ( pValues[0] != 0.0f );
-			g_bUseCustomAutoExposureMax = ( pValues[1] != 0.0f );
-			g_bUseCustomBloomScale = ( pValues[2] != 0.0f );
+			g_bUseCustomAutoExposureMin = (pValues[0] != 0.0f);
+			g_bUseCustomAutoExposureMax = (pValues[1] != 0.0f);
+			g_bUseCustomBloomScale = (pValues[2] != 0.0f);
 			g_flCustomAutoExposureMin = pValues[3];
 			g_flCustomAutoExposureMax = pValues[4];
 			g_flCustomBloomScale = pValues[5];
@@ -76,7 +76,7 @@ void SourceSharp_ClientSetWorldRenderState( int32_t nWhich, const float *pValues
 		}
 
 		default:
-			Warning( "[SourceSharp] ClientSetWorldRenderState: unknown selector %d\n", nWhich );
+			Warning("[SourceSharp] ClientSetWorldRenderState: unknown selector %d\n", nWhich);
 			return;
 	}
 }
@@ -86,58 +86,58 @@ void SourceSharp_ClientSetWorldRenderState( int32_t nWhich, const float *pValues
 // SetWeight calls with a non-zero weight, not of distinct lookups.
 static int g_nActiveColorWeights;
 
-void *SourceSharp_ColorLookupAdd( const char *pLookupFile )
+void* SourceSharp_ColorLookupAdd(const char* pLookupFile)
 {
-	if ( !pLookupFile || !pLookupFile[0] )
+	if (!pLookupFile || !pLookupFile[0])
 		return NULL;
 
 	// A copy: the argument is managed memory this side must not write through.
 	char szFile[MAX_PATH];
-	Q_strncpy( szFile, pLookupFile, sizeof( szFile ) );
+	Q_strncpy(szFile, pLookupFile, sizeof(szFile));
 
-	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
-	ColorCorrectionHandle_t hLookup = pRenderContext->AddLookup( szFile );
+	CMatRenderContextPtr pRenderContext(g_pMaterialSystem);
+	ColorCorrectionHandle_t hLookup = pRenderContext->AddLookup(szFile);
 
-	if ( !hLookup )
+	if (!hLookup)
 	{
-		Warning( "Cannot find color correction lookup file: '%s'\n", szFile );
+		Warning("Cannot find color correction lookup file: '%s'\n", szFile);
 		return NULL;
 	}
 
-	pRenderContext->LockLookup( hLookup );
-	pRenderContext->LoadLookup( hLookup, szFile );
-	pRenderContext->UnlockLookup( hLookup );
+	pRenderContext->LockLookup(hLookup);
+	pRenderContext->LoadLookup(hLookup, szFile);
+	pRenderContext->UnlockLookup(hLookup);
 
 	// At developer 2: nothing else shows that this ran.
-	DevMsg( 2, "[SourceSharp] colour lookup loaded from '%s'\n", szFile );
+	DevMsg(2, "[SourceSharp] colour lookup loaded from '%s'\n", szFile);
 
-	return (void *)hLookup;
+	return (void*)hLookup;
 }
 
-void SourceSharp_ColorLookupSetWeight( void *hLookup, float flWeight )
+void SourceSharp_ColorLookupSetWeight(void* hLookup, float flWeight)
 {
-	if ( !hLookup )
+	if (!hLookup)
 		return;
 
-	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
-	pRenderContext->SetLookupWeight( (ColorCorrectionHandle_t)hLookup, flWeight );
+	CMatRenderContextPtr pRenderContext(g_pMaterialSystem);
+	pRenderContext->SetLookupWeight((ColorCorrectionHandle_t)hLookup, flWeight);
 
-	if ( flWeight != 0.0f )
+	if (flWeight != 0.0f)
 		++g_nActiveColorWeights;
 }
 
-void SourceSharp_ColorLookupRemove( void *hLookup )
+void SourceSharp_ColorLookupRemove(void* hLookup)
 {
-	if ( !hLookup )
+	if (!hLookup)
 		return;
 
-	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
-	pRenderContext->RemoveLookup( (ColorCorrectionHandle_t)hLookup );
+	CMatRenderContextPtr pRenderContext(g_pMaterialSystem);
+	pRenderContext->RemoveLookup((ColorCorrectionHandle_t)hLookup);
 }
 
 void SourceSharp_ColorLookupResetWeights()
 {
-	CMatRenderContextPtr pRenderContext( g_pMaterialSystem );
+	CMatRenderContextPtr pRenderContext(g_pMaterialSystem);
 	pRenderContext->ResetLookupWeights();
 	g_nActiveColorWeights = 0;
 }
@@ -151,14 +151,14 @@ bool SourceSharp_ColorCorrectionActive()
 // The local player's origin (stock's choice, not the view origin). Answers 0
 // with no local player rather than a zero vector, which would read as the map
 // origin.
-int32_t SourceSharp_GetLocalPlayerOrigin( float *pOutXYZ )
+int32_t SourceSharp_GetLocalPlayerOrigin(float* pOutXYZ)
 {
-	if ( !pOutXYZ )
+	if (!pOutXYZ)
 		return 0;
 
 	Vector vecOrigin;
 
-	if ( C_StandaloneEntity *pStandalone = SourceSharp_LocalPlayerShell() )
+	if (C_StandaloneEntity* pStandalone = SourceSharp_LocalPlayerShell())
 	{
 		vecOrigin = pStandalone->GetAbsOrigin();
 	}

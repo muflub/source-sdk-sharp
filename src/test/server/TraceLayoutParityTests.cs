@@ -27,7 +27,7 @@ public class TraceLayoutParityTests
     private static List<Row> Rows(string macro)
     {
         string text = Header();
-        int at = text.IndexOf("#define " + macro + "( F )", StringComparison.Ordinal);
+        int at = text.IndexOf("#define " + macro + "(F)", StringComparison.Ordinal);
         Assert.True(at >= 0, $"trace_layout.h defines {macro}");
 
         var rows = new List<Row>();

@@ -11,7 +11,7 @@ namespace ss
 inline double SecondsSinceStart()
 {
 	static const std::chrono::steady_clock::time_point s_Start = std::chrono::steady_clock::now();
-	return std::chrono::duration<double>( std::chrono::steady_clock::now() - s_Start ).count();
+	return std::chrono::duration<double>(std::chrono::steady_clock::now() - s_Start).count();
 }
 
 } // namespace ss

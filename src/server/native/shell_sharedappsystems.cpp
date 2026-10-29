@@ -16,22 +16,22 @@
 namespace
 {
 const AppSystemInfo_t kSharedAppSystems[] = {
-	{ "soundemittersystem" DLL_EXT_STRING, SOUNDEMITTERSYSTEM_INTERFACE_VERSION },
-	{ "scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION },
+	{"soundemittersystem" DLL_EXT_STRING, SOUNDEMITTERSYSTEM_INTERFACE_VERSION},
+	{"scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION},
 };
 } // namespace
 
 int CServerDLLSharedAppSystems::Count()
 {
-	return (int)( sizeof( kSharedAppSystems ) / sizeof( kSharedAppSystems[0] ) );
+	return (int)(sizeof(kSharedAppSystems) / sizeof(kSharedAppSystems[0]));
 }
 
-char const *CServerDLLSharedAppSystems::GetDllName( int idx )
+char const* CServerDLLSharedAppSystems::GetDllName(int idx)
 {
 	return kSharedAppSystems[idx].m_pModuleName;
 }
 
-char const *CServerDLLSharedAppSystems::GetInterfaceName( int idx )
+char const* CServerDLLSharedAppSystems::GetInterfaceName(int idx)
 {
 	return kSharedAppSystems[idx].m_pInterfaceName;
 }

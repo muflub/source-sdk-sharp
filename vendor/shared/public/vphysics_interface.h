@@ -23,8 +23,8 @@
 // Force is applied using impulses (kg*in/s)
 // Torque is applied using impulses (kg*degrees/s)
 
-#define METERS_PER_INCH ( 0.0254f )
-#define CUBIC_METERS_PER_CUBIC_INCH ( METERS_PER_INCH * METERS_PER_INCH * METERS_PER_INCH )
+#define METERS_PER_INCH (0.0254f)
+#define CUBIC_METERS_PER_CUBIC_INCH (METERS_PER_INCH * METERS_PER_INCH * METERS_PER_INCH)
 // 2.2 lbs / kg
 
 // convert from pounds to kg
@@ -91,8 +91,8 @@ class IRestore;
 abstract_class IPhysics : public IAppSystem
 {
 public:
-	virtual IPhysicsEnvironment *CreateEnvironment() = 0;
-	virtual void DestroyEnvironment( IPhysicsEnvironment * ) = 0;
+	virtual IPhysicsEnvironment* CreateEnvironment() = 0;
+	virtual void DestroyEnvironment(IPhysicsEnvironment*) = 0;
 	virtual void unused_GetActiveEnvironmentByIndex() = 0;
 
 	// Creates a fast hash of pairs of objects
@@ -103,8 +103,8 @@ public:
 	// holds a cache of these by id.  So you can get by id to search for the previously created set
 	// UNDONE: Sets are currently limited to 32 elements.  More elements will return NULL in create.
 	// NOTE: id is not allowed to be zero.
-	virtual IPhysicsCollisionSet *FindOrCreateCollisionSet( unsigned int id, int maxElementCount ) = 0;
-	virtual IPhysicsCollisionSet *FindCollisionSet( unsigned int id ) = 0;
+	virtual IPhysicsCollisionSet* FindOrCreateCollisionSet(unsigned int id, int maxElementCount) = 0;
+	virtual IPhysicsCollisionSet* FindCollisionSet(unsigned int id) = 0;
 	virtual void DestroyAllCollisionSets() = 0;
 };
 
@@ -173,14 +173,14 @@ public:
 	virtual void unused_CollideSurfaceArea() = 0;
 
 	// Get the support map for a collide in the given direction
-	virtual Vector CollideGetExtent( const CPhysCollide *pCollide, const Vector &collideOrigin,
-									 const QAngle &collideAngles, const Vector &direction ) = 0;
+	virtual Vector CollideGetExtent(const CPhysCollide* pCollide, const Vector& collideOrigin,
+									const QAngle& collideAngles, const Vector& direction) = 0;
 
 	// Get an AABB for an oriented collision model
-	virtual void CollideGetAABB( Vector * pMins, Vector * pMaxs, const CPhysCollide *pCollide,
-								 const Vector &collideOrigin, const QAngle &collideAngles ) = 0;
+	virtual void CollideGetAABB(Vector * pMins, Vector * pMaxs, const CPhysCollide* pCollide,
+								const Vector& collideOrigin, const QAngle& collideAngles) = 0;
 
-	virtual void CollideGetMassCenter( CPhysCollide * pCollide, Vector * pOutMassCenter ) = 0;
+	virtual void CollideGetMassCenter(CPhysCollide * pCollide, Vector * pOutMassCenter) = 0;
 	virtual void unused_CollideSetMassCenter() = 0;
 	// get the approximate cross-sectional area projected orthographically on the bbox of the collide
 	// NOTE: These are fractional areas - unitless.  Basically this is the fraction of the OBB on each axis that
@@ -193,18 +193,18 @@ public:
 	virtual void unused_CollideIndex() = 0;
 
 	// Convert a bbox to a collide
-	virtual CPhysCollide *BBoxToCollide( const Vector &mins, const Vector &maxs ) = 0;
+	virtual CPhysCollide* BBoxToCollide(const Vector& mins, const Vector& maxs) = 0;
 	virtual void unused_GetConvexesUsedInCollideable() = 0;
 
 	// Trace an AABB against a collide
-	virtual void TraceBox( const Vector &start, const Vector &end, const Vector &mins, const Vector &maxs,
-						   const CPhysCollide *pCollide, const Vector &collideOrigin, const QAngle &collideAngles,
-						   trace_t *ptr ) = 0;
-	virtual void TraceBox( const Ray_t &ray, const CPhysCollide *pCollide, const Vector &collideOrigin,
-						   const QAngle &collideAngles, trace_t *ptr ) = 0;
-	virtual void TraceBox( const Ray_t &ray, unsigned int contentsMask, IConvexInfo *pConvexInfo,
-						   const CPhysCollide *pCollide, const Vector &collideOrigin, const QAngle &collideAngles,
-						   trace_t *ptr ) = 0;
+	virtual void TraceBox(const Vector& start, const Vector& end, const Vector& mins, const Vector& maxs,
+						  const CPhysCollide* pCollide, const Vector& collideOrigin, const QAngle& collideAngles,
+						  trace_t* ptr) = 0;
+	virtual void TraceBox(const Ray_t& ray, const CPhysCollide* pCollide, const Vector& collideOrigin,
+						  const QAngle& collideAngles, trace_t* ptr) = 0;
+	virtual void TraceBox(const Ray_t& ray, unsigned int contentsMask, IConvexInfo* pConvexInfo,
+						  const CPhysCollide* pCollide, const Vector& collideOrigin, const QAngle& collideAngles,
+						  trace_t* ptr) = 0;
 
 	// Trace one collide against another
 	virtual void unused_TraceCollide() = 0;
@@ -219,9 +219,9 @@ public:
 
 	// begins parsing a vcollide.  NOTE: This keeps pointers to the text
 	// If you free the text and call members of IVPhysicsKeyParser, it will crash
-	virtual IVPhysicsKeyParser *VPhysicsKeyParserCreate( const char *pKeyData ) = 0;
+	virtual IVPhysicsKeyParser* VPhysicsKeyParserCreate(const char* pKeyData) = 0;
 	// Free the parser created by VPhysicsKeyParserCreate
-	virtual void VPhysicsKeyParserDestroy( IVPhysicsKeyParser * pParser ) = 0;
+	virtual void VPhysicsKeyParserDestroy(IVPhysicsKeyParser * pParser) = 0;
 
 	// creates a list of verts from a collision mesh
 	virtual void unused_CreateDebugMesh() = 0;
@@ -262,27 +262,27 @@ public:
 abstract_class IConvexInfo
 {
 public:
-	virtual unsigned int GetContents( int convexGameData ) = 0;
+	virtual unsigned int GetContents(int convexGameData) = 0;
 };
 
 abstract_class IPhysicsCollisionData
 {
 public:
-	virtual void GetSurfaceNormal( Vector & out ) = 0; // normal points toward second object (object index 1)
-	virtual void GetContactPoint( Vector & out ) = 0; // contact point of collision (in world space)
+	virtual void GetSurfaceNormal(Vector & out) = 0; // normal points toward second object (object index 1)
+	virtual void GetContactPoint(Vector & out) = 0; // contact point of collision (in world space)
 	virtual void unused_GetContactSpeed() = 0; // speed of surface 1 relative to surface 0 (in world space)
 };
 
 struct vcollisionevent_t
 {
-	IPhysicsObject *pObjects[2];
+	IPhysicsObject* pObjects[2];
 	int surfaceProps[2];
 	bool isCollision;
 	bool isShadowCollision;
 	float deltaCollisionTime;
 
 	float collisionSpeed; // only valid at postCollision
-	IPhysicsCollisionData *pInternalData; // may change pre/post collision
+	IPhysicsCollisionData* pInternalData; // may change pre/post collision
 };
 
 abstract_class IPhysicsCollisionEvent
@@ -291,25 +291,24 @@ public:
 	// returns the two objects that collided, time between last collision of these objects
 	// and an opaque data block of collision information
 	// NOTE: PreCollision/PostCollision ALWAYS come in matched pairs!!!
-	virtual void PreCollision( vcollisionevent_t * pEvent ) = 0;
-	virtual void PostCollision( vcollisionevent_t * pEvent ) = 0;
+	virtual void PreCollision(vcollisionevent_t * pEvent) = 0;
+	virtual void PostCollision(vcollisionevent_t * pEvent) = 0;
 
 	// This is a scrape event.  The object has scraped across another object consuming the indicated energy
-	virtual void Friction( IPhysicsObject * pObject, float energy, int surfaceProps, int surfacePropsHit,
-						   IPhysicsCollisionData *pData ) = 0;
+	virtual void Friction(IPhysicsObject * pObject, float energy, int surfaceProps, int surfacePropsHit,
+						  IPhysicsCollisionData* pData) = 0;
 
-	virtual void StartTouch( IPhysicsObject * pObject1, IPhysicsObject * pObject2,
-							 IPhysicsCollisionData * pTouchData ) = 0;
-	virtual void EndTouch( IPhysicsObject * pObject1, IPhysicsObject * pObject2,
-						   IPhysicsCollisionData * pTouchData ) = 0;
+	virtual void StartTouch(IPhysicsObject * pObject1, IPhysicsObject * pObject2,
+							IPhysicsCollisionData * pTouchData) = 0;
+	virtual void EndTouch(IPhysicsObject * pObject1, IPhysicsObject * pObject2, IPhysicsCollisionData * pTouchData) = 0;
 
-	virtual void FluidStartTouch( IPhysicsObject * pObject, IPhysicsFluidController * pFluid ) = 0;
-	virtual void FluidEndTouch( IPhysicsObject * pObject, IPhysicsFluidController * pFluid ) = 0;
+	virtual void FluidStartTouch(IPhysicsObject * pObject, IPhysicsFluidController * pFluid) = 0;
+	virtual void FluidEndTouch(IPhysicsObject * pObject, IPhysicsFluidController * pFluid) = 0;
 
 	virtual void PostSimulationFrame() = 0;
 
-	virtual void ObjectEnterTrigger( IPhysicsObject * pTrigger, IPhysicsObject * pObject ) {}
-	virtual void ObjectLeaveTrigger( IPhysicsObject * pTrigger, IPhysicsObject * pObject ) {}
+	virtual void ObjectEnterTrigger(IPhysicsObject * pTrigger, IPhysicsObject * pObject) {}
+	virtual void ObjectLeaveTrigger(IPhysicsObject * pTrigger, IPhysicsObject * pObject) {}
 };
 
 abstract_class IPhysicsObjectEvent
@@ -317,16 +316,16 @@ abstract_class IPhysicsObjectEvent
 public:
 	// these can be used to optimize out queries on sleeping objects
 	// Called when an object is woken after sleeping
-	virtual void ObjectWake( IPhysicsObject * pObject ) = 0;
+	virtual void ObjectWake(IPhysicsObject * pObject) = 0;
 	// called when an object goes to sleep (no longer simulating)
-	virtual void ObjectSleep( IPhysicsObject * pObject ) = 0;
+	virtual void ObjectSleep(IPhysicsObject * pObject) = 0;
 };
 
 abstract_class IPhysicsConstraintEvent
 {
 public:
 	// the constraint is now inactive, the game code is required to delete it or re-activate it.
-	virtual void ConstraintBroken( IPhysicsConstraint * ) = 0;
+	virtual void ConstraintBroken(IPhysicsConstraint*) = 0;
 };
 
 struct hlshadowcontrol_params_t
@@ -348,9 +347,9 @@ abstract_class IPhysicsShadowController
 public:
 	virtual ~IPhysicsShadowController() {}
 
-	virtual void Update( const Vector &position, const QAngle &angles, float timeOffset ) = 0;
+	virtual void Update(const Vector& position, const QAngle& angles, float timeOffset) = 0;
 	virtual void unused_MaxSpeed() = 0;
-	virtual void StepUp( float height ) = 0;
+	virtual void StepUp(float height) = 0;
 
 	// If the teleport distance is non-zero, the object will be teleported to
 	// the target location when the error exceeds this quantity.
@@ -363,12 +362,12 @@ public:
 	// 2) Physically controlled - shadow position is a target, but the game hasn't guaranteed that the space can be occupied by this object
 	virtual void unused_SetPhysicallyControlled() = 0;
 	virtual bool IsPhysicallyControlled() = 0;
-	virtual void GetLastImpulse( Vector * pOut ) = 0;
+	virtual void GetLastImpulse(Vector * pOut) = 0;
 	virtual void unused_UseShadowMaterial() = 0;
 	virtual void unused_ObjectMaterialChanged() = 0;
 
 	//Basically get the last inputs to IPhysicsShadowController::Update(), returns last input to timeOffset in Update()
-	virtual float GetTargetPosition( Vector * pPositionOut, QAngle * pAnglesOut ) = 0;
+	virtual float GetTargetPosition(Vector * pPositionOut, QAngle * pAnglesOut) = 0;
 
 	virtual void unused_GetTeleportDistance() = 0;
 	virtual void unused_GetMaxSpeed() = 0;
@@ -392,8 +391,8 @@ public:
 		SIM_GLOBAL_FORCE
 	};
 
-	virtual simresult_e Simulate( IPhysicsMotionController *pController, IPhysicsObject *pObject, float deltaTime,
-								  Vector &linear, AngularImpulse &angular ) = 0;
+	virtual simresult_e Simulate(IPhysicsMotionController* pController, IPhysicsObject* pObject, float deltaTime,
+								 Vector& linear, AngularImpulse& angular) = 0;
 };
 
 abstract_class IPhysicsMotionController
@@ -401,8 +400,8 @@ abstract_class IPhysicsMotionController
 public:
 	virtual ~IPhysicsMotionController() {}
 	virtual void unused_SetEventHandler() = 0;
-	virtual void AttachObject( IPhysicsObject * pObject, bool checkIfAlreadyAttached ) = 0;
-	virtual void DetachObject( IPhysicsObject * pObject ) = 0;
+	virtual void AttachObject(IPhysicsObject * pObject, bool checkIfAlreadyAttached) = 0;
+	virtual void DetachObject(IPhysicsObject * pObject) = 0;
 
 	// returns the number of objects currently attached to the controller
 	virtual void unused_CountObjects() = 0;
@@ -428,20 +427,20 @@ public:
 abstract_class IPhysicsCollisionSolver
 {
 public:
-	virtual int ShouldCollide( IPhysicsObject * pObj0, IPhysicsObject * pObj1, void *pGameData0, void *pGameData1 ) = 0;
-	virtual int ShouldSolvePenetration( IPhysicsObject * pObj0, IPhysicsObject * pObj1, void *pGameData0,
-										void *pGameData1, float dt ) = 0;
+	virtual int ShouldCollide(IPhysicsObject * pObj0, IPhysicsObject * pObj1, void* pGameData0, void* pGameData1) = 0;
+	virtual int ShouldSolvePenetration(IPhysicsObject * pObj0, IPhysicsObject * pObj1, void* pGameData0,
+									   void* pGameData1, float dt) = 0;
 
 	// pObject has already done the max number of collisions this tick, should we freeze it to save CPU?
-	virtual bool ShouldFreezeObject( IPhysicsObject * pObject ) = 0;
+	virtual bool ShouldFreezeObject(IPhysicsObject * pObject) = 0;
 
 	// The system has already done too many collision checks, performance will suffer.
 	// How many more should it do?
-	virtual int AdditionalCollisionChecksThisTick( int currentChecksDone ) = 0;
+	virtual int AdditionalCollisionChecksThisTick(int currentChecksDone) = 0;
 
 	// This list of objects is in a connected contact graph that is too large to solve quickly
 	// return true to freeze the system, false to solve it
-	virtual bool ShouldFreezeContacts( IPhysicsObject * *pObjectList, int objectCount ) = 0;
+	virtual bool ShouldFreezeContacts(IPhysicsObject * *pObjectList, int objectCount) = 0;
 };
 
 abstract_class IPhysicsTraceFilter
@@ -456,97 +455,95 @@ abstract_class IPhysicsEnvironment
 public:
 	virtual ~IPhysicsEnvironment() {}
 
-	virtual void SetDebugOverlay( CreateInterfaceFn debugOverlayFactory ) = 0;
+	virtual void SetDebugOverlay(CreateInterfaceFn debugOverlayFactory) = 0;
 	virtual void unused_GetDebugOverlay() = 0;
 
 	// gravity is a 3-vector in in/s^2
-	virtual void SetGravity( const Vector &gravityVector ) = 0;
-	virtual void GetGravity( Vector * pGravityVector ) const = 0;
+	virtual void SetGravity(const Vector& gravityVector) = 0;
+	virtual void GetGravity(Vector * pGravityVector) const = 0;
 
 	// air density is in kg / m^3 (water is 1000)
 	// This controls drag, air that is more dense has more drag.
-	virtual void SetAirDensity( float density ) = 0;
+	virtual void SetAirDensity(float density) = 0;
 	virtual float GetAirDensity() const = 0;
 
 	// object creation
 	// create a polygonal object.  pCollisionModel was created by the physics builder DLL in a pre-process.
-	virtual IPhysicsObject *CreatePolyObject( const CPhysCollide *pCollisionModel, int materialIndex,
-											  const Vector &position, const QAngle &angles,
-											  objectparams_t *pParams ) = 0;
+	virtual IPhysicsObject* CreatePolyObject(const CPhysCollide* pCollisionModel, int materialIndex,
+											 const Vector& position, const QAngle& angles, objectparams_t* pParams) = 0;
 	// same as above, but this one cannot move or rotate (infinite mass/inertia)
-	virtual IPhysicsObject *CreatePolyObjectStatic( const CPhysCollide *pCollisionModel, int materialIndex,
-													const Vector &position, const QAngle &angles,
-													objectparams_t *pParams ) = 0;
+	virtual IPhysicsObject* CreatePolyObjectStatic(const CPhysCollide* pCollisionModel, int materialIndex,
+												   const Vector& position, const QAngle& angles,
+												   objectparams_t* pParams) = 0;
 	// Create a perfectly spherical object
-	virtual IPhysicsObject *CreateSphereObject( float radius, int materialIndex, const Vector &position,
-												const QAngle &angles, objectparams_t *pParams, bool isStatic ) = 0;
+	virtual IPhysicsObject* CreateSphereObject(float radius, int materialIndex, const Vector& position,
+											   const QAngle& angles, objectparams_t* pParams, bool isStatic) = 0;
 	// destroy an object created with CreatePolyObject() or CreatePolyObjectStatic()
-	virtual void DestroyObject( IPhysicsObject * ) = 0;
+	virtual void DestroyObject(IPhysicsObject*) = 0;
 
 	// Create a polygonal fluid body out of the specified collision model
 	// This object will affect any other objects that collide with the collision model
-	virtual IPhysicsFluidController *CreateFluidController( IPhysicsObject * pFluidObject,
-															fluidparams_t * pParams ) = 0;
+	virtual IPhysicsFluidController* CreateFluidController(IPhysicsObject * pFluidObject, fluidparams_t * pParams) = 0;
 	// Destroy an object created with CreateFluidController()
 	virtual void unused_DestroyFluidController() = 0;
 
 	// Create a simulated spring that connects 2 objects
-	virtual IPhysicsSpring *CreateSpring( IPhysicsObject * pObjectStart, IPhysicsObject * pObjectEnd,
-										  springparams_t * pParams ) = 0;
-	virtual void DestroySpring( IPhysicsSpring * ) = 0;
+	virtual IPhysicsSpring* CreateSpring(IPhysicsObject * pObjectStart, IPhysicsObject * pObjectEnd,
+										 springparams_t * pParams) = 0;
+	virtual void DestroySpring(IPhysicsSpring*) = 0;
 
 	// Create a constraint in the space of pReferenceObject which is attached by the constraint to pAttachedObject
-	virtual IPhysicsConstraint *CreateRagdollConstraint(
+	virtual IPhysicsConstraint* CreateRagdollConstraint(
 		IPhysicsObject * pReferenceObject, IPhysicsObject * pAttachedObject, IPhysicsConstraintGroup * pGroup,
-		const constraint_ragdollparams_t &ragdoll ) = 0;
-	virtual IPhysicsConstraint *CreateHingeConstraint(
+		const constraint_ragdollparams_t& ragdoll) = 0;
+	virtual IPhysicsConstraint* CreateHingeConstraint(
 		IPhysicsObject * pReferenceObject, IPhysicsObject * pAttachedObject, IPhysicsConstraintGroup * pGroup,
-		const constraint_hingeparams_t &hinge ) = 0;
-	virtual IPhysicsConstraint *CreateFixedConstraint(
+		const constraint_hingeparams_t& hinge) = 0;
+	virtual IPhysicsConstraint* CreateFixedConstraint(
 		IPhysicsObject * pReferenceObject, IPhysicsObject * pAttachedObject, IPhysicsConstraintGroup * pGroup,
-		const constraint_fixedparams_t &fixed ) = 0;
-	virtual IPhysicsConstraint *CreateSlidingConstraint(
+		const constraint_fixedparams_t& fixed) = 0;
+	virtual IPhysicsConstraint* CreateSlidingConstraint(
 		IPhysicsObject * pReferenceObject, IPhysicsObject * pAttachedObject, IPhysicsConstraintGroup * pGroup,
-		const constraint_slidingparams_t &sliding ) = 0;
-	virtual IPhysicsConstraint *CreateBallsocketConstraint(
+		const constraint_slidingparams_t& sliding) = 0;
+	virtual IPhysicsConstraint* CreateBallsocketConstraint(
 		IPhysicsObject * pReferenceObject, IPhysicsObject * pAttachedObject, IPhysicsConstraintGroup * pGroup,
-		const constraint_ballsocketparams_t &ballsocket ) = 0;
-	virtual IPhysicsConstraint *CreatePulleyConstraint(
+		const constraint_ballsocketparams_t& ballsocket) = 0;
+	virtual IPhysicsConstraint* CreatePulleyConstraint(
 		IPhysicsObject * pReferenceObject, IPhysicsObject * pAttachedObject, IPhysicsConstraintGroup * pGroup,
-		const constraint_pulleyparams_t &pulley ) = 0;
-	virtual IPhysicsConstraint *CreateLengthConstraint(
+		const constraint_pulleyparams_t& pulley) = 0;
+	virtual IPhysicsConstraint* CreateLengthConstraint(
 		IPhysicsObject * pReferenceObject, IPhysicsObject * pAttachedObject, IPhysicsConstraintGroup * pGroup,
-		const constraint_lengthparams_t &length ) = 0;
+		const constraint_lengthparams_t& length) = 0;
 
-	virtual void DestroyConstraint( IPhysicsConstraint * ) = 0;
+	virtual void DestroyConstraint(IPhysicsConstraint*) = 0;
 
-	virtual IPhysicsConstraintGroup *CreateConstraintGroup( const constraint_groupparams_t &groupParams ) = 0;
-	virtual void DestroyConstraintGroup( IPhysicsConstraintGroup * pGroup ) = 0;
+	virtual IPhysicsConstraintGroup* CreateConstraintGroup(const constraint_groupparams_t& groupParams) = 0;
+	virtual void DestroyConstraintGroup(IPhysicsConstraintGroup * pGroup) = 0;
 
 	virtual void unused_CreateShadowController() = 0;
 	virtual void unused_DestroyShadowController() = 0;
 
-	virtual IPhysicsPlayerController *CreatePlayerController( IPhysicsObject * pObject ) = 0;
-	virtual void DestroyPlayerController( IPhysicsPlayerController * ) = 0;
+	virtual IPhysicsPlayerController* CreatePlayerController(IPhysicsObject * pObject) = 0;
+	virtual void DestroyPlayerController(IPhysicsPlayerController*) = 0;
 
-	virtual IPhysicsMotionController *CreateMotionController( IMotionEvent * pHandler ) = 0;
-	virtual void DestroyMotionController( IPhysicsMotionController * pController ) = 0;
+	virtual IPhysicsMotionController* CreateMotionController(IMotionEvent * pHandler) = 0;
+	virtual void DestroyMotionController(IPhysicsMotionController * pController) = 0;
 
 	virtual void unused_CreateVehicleController() = 0;
 	virtual void unused_DestroyVehicleController() = 0;
 
 	// install a function to filter collisions/penentration
-	virtual void SetCollisionSolver( IPhysicsCollisionSolver * pSolver ) = 0;
+	virtual void SetCollisionSolver(IPhysicsCollisionSolver * pSolver) = 0;
 
 	// run the simulator for deltaTime seconds
-	virtual void Simulate( float deltaTime ) = 0;
+	virtual void Simulate(float deltaTime) = 0;
 	// true if currently running the simulator (i.e. in a callback during physenv->Simulate())
 	virtual void unused_IsInSimulation() = 0;
 
 	// Manage the timestep (period) of the simulator.  The main functions are all integrated with
 	// this period as dt.
 	virtual float GetSimulationTimestep() const = 0;
-	virtual void SetSimulationTimestep( float timestep ) = 0;
+	virtual void SetSimulationTimestep(float timestep) = 0;
 
 	// returns the current simulation clock's value.  This is an absolute time.
 	virtual void unused_GetSimulationTime() = 0;
@@ -555,37 +552,36 @@ public:
 	virtual void unused_GetNextFrameTime() = 0;
 
 	// Collision callbacks (game code collision response)
-	virtual void SetCollisionEventHandler( IPhysicsCollisionEvent * pCollisionEvents ) = 0;
-	virtual void SetObjectEventHandler( IPhysicsObjectEvent * pObjectEvents ) = 0;
-	virtual void SetConstraintEventHandler( IPhysicsConstraintEvent * pConstraintEvents ) = 0;
+	virtual void SetCollisionEventHandler(IPhysicsCollisionEvent * pCollisionEvents) = 0;
+	virtual void SetObjectEventHandler(IPhysicsObjectEvent * pObjectEvents) = 0;
+	virtual void SetConstraintEventHandler(IPhysicsConstraintEvent * pConstraintEvents) = 0;
 
-	virtual void SetQuickDelete( bool bQuick ) = 0;
+	virtual void SetQuickDelete(bool bQuick) = 0;
 
 	virtual int GetActiveObjectCount() const = 0;
-	virtual void GetActiveObjects( IPhysicsObject * *pOutputObjectList ) const = 0;
-	virtual const IPhysicsObject **GetObjectList( int *pOutputObjectCount ) const = 0;
+	virtual void GetActiveObjects(IPhysicsObject * *pOutputObjectList) const = 0;
+	virtual const IPhysicsObject** GetObjectList(int* pOutputObjectCount) const = 0;
 	virtual void unused_TransferObject() = 0;
 
 	virtual void unused_CleanupDeleteList() = 0;
-	virtual void EnableDeleteQueue( bool enable ) = 0;
+	virtual void EnableDeleteQueue(bool enable) = 0;
 
 	// Save/Restore methods
-	virtual bool Save( const physsaveparams_t &params ) = 0;
+	virtual bool Save(const physsaveparams_t& params) = 0;
 	virtual void unused_PreRestore() = 0;
-	virtual bool Restore( const physrestoreparams_t &params ) = 0;
+	virtual bool Restore(const physrestoreparams_t& params) = 0;
 	virtual void unused_PostRestore() = 0;
 
 	// Debugging:
 	virtual void unused_IsCollisionModelUsed() = 0;
 
 	// Physics world version of the enginetrace API:
-	virtual void TraceRay( const Ray_t &ray, unsigned int fMask, IPhysicsTraceFilter *pTraceFilter,
-						   trace_t *pTrace ) = 0;
+	virtual void TraceRay(const Ray_t& ray, unsigned int fMask, IPhysicsTraceFilter* pTraceFilter, trace_t* pTrace) = 0;
 	virtual void unused_SweepCollideable() = 0;
 
 	// performance tuning
 	virtual void unused_GetPerformanceSettings() = 0;
-	virtual void SetPerformanceSettings( const physics_performanceparams_t *pSettings ) = 0;
+	virtual void SetPerformanceSettings(const physics_performanceparams_t* pSettings) = 0;
 
 	// perf/cost statistics
 	virtual void unused_ReadStats() = 0;
@@ -595,7 +591,7 @@ public:
 	virtual void unused_SerializeObjectToBuffer() = 0;
 	virtual void unused_UnserializeObjectFromBuffer() = 0;
 
-	virtual void EnableConstraintNotify( bool bEnable ) = 0;
+	virtual void EnableConstraintNotify(bool bEnable) = 0;
 	virtual void DebugCheckContacts() = 0;
 };
 
@@ -621,25 +617,25 @@ public:
 	virtual void unused_IsAttachedToConstraint() = 0;
 
 	// Enable / disable collisions for this object
-	virtual void EnableCollisions( bool enable ) = 0;
+	virtual void EnableCollisions(bool enable) = 0;
 	// Enable / disable gravity for this object
-	virtual void EnableGravity( bool enable ) = 0;
+	virtual void EnableGravity(bool enable) = 0;
 	// Enable / disable air friction / drag for this object
-	virtual void EnableDrag( bool enable ) = 0;
+	virtual void EnableDrag(bool enable) = 0;
 	// Enable / disable motion (pin / unpin the object)
-	virtual void EnableMotion( bool enable ) = 0;
+	virtual void EnableMotion(bool enable) = 0;
 
 	// Game can store data in each object (link back to game object)
-	virtual void SetGameData( void *pGameData ) = 0;
-	virtual void *GetGameData() const = 0;
+	virtual void SetGameData(void* pGameData) = 0;
+	virtual void* GetGameData() const = 0;
 	// This flags word can be defined by the game as well
-	virtual void SetGameFlags( unsigned short userFlags ) = 0;
+	virtual void SetGameFlags(unsigned short userFlags) = 0;
 	virtual unsigned short GetGameFlags() const = 0;
-	virtual void SetGameIndex( unsigned short gameIndex ) = 0;
+	virtual void SetGameIndex(unsigned short gameIndex) = 0;
 	virtual void unused_GetGameIndex() = 0;
 
 	// setup various callbacks for this object
-	virtual void SetCallbackFlags( unsigned short callbackflags ) = 0;
+	virtual void SetCallbackFlags(unsigned short callbackflags) = 0;
 	// get the current callback state for this object
 	virtual unsigned short GetCallbackFlags() const = 0;
 
@@ -655,7 +651,7 @@ public:
 	virtual void RecheckContactPoints() = 0;
 
 	// mass accessors
-	virtual void SetMass( float mass ) = 0;
+	virtual void SetMass(float mass) = 0;
 	virtual float GetMass() const = 0;
 	// get 1/mass (it's cached)
 	virtual void unused_GetInvMass() = 0;
@@ -663,8 +659,8 @@ public:
 	virtual void unused_GetInvInertia() = 0;
 	virtual void unused_SetInertia() = 0;
 
-	virtual void SetDamping( const float *speed, const float *rot ) = 0;
-	virtual void GetDamping( float *speed, float *rot ) const = 0;
+	virtual void SetDamping(const float* speed, const float* rot) = 0;
+	virtual void GetDamping(float* speed, float* rot) const = 0;
 
 	// coefficients are optional, pass either
 	virtual void unused_SetDragCoefficient() = 0;
@@ -676,7 +672,7 @@ public:
 
 	// contents bits
 	virtual unsigned int GetContents() const = 0;
-	virtual void SetContents( unsigned int contents ) = 0;
+	virtual void SetContents(unsigned int contents) = 0;
 
 	// Get the radius if this is a sphere object (zero if this is a polygonal mesh)
 	virtual float GetSphereRadius() const = 0;
@@ -684,94 +680,94 @@ public:
 	virtual void unused_GetMassCenterLocalSpace() = 0;
 
 	// NOTE: This will teleport the object
-	virtual void SetPosition( const Vector &worldPosition, const QAngle &angles, bool isTeleport ) = 0;
-	virtual void SetPositionMatrix( const matrix3x4_t &matrix, bool isTeleport ) = 0;
+	virtual void SetPosition(const Vector& worldPosition, const QAngle& angles, bool isTeleport) = 0;
+	virtual void SetPositionMatrix(const matrix3x4_t& matrix, bool isTeleport) = 0;
 
-	virtual void GetPosition( Vector * worldPosition, QAngle * angles ) const = 0;
-	virtual void GetPositionMatrix( matrix3x4_t * positionMatrix ) const = 0;
+	virtual void GetPosition(Vector * worldPosition, QAngle * angles) const = 0;
+	virtual void GetPositionMatrix(matrix3x4_t * positionMatrix) const = 0;
 	// force the velocity to a new value
 	// NOTE: velocity is in worldspace, angularVelocity is relative to the object's
 	// local axes (just like pev->velocity, pev->avelocity)
-	virtual void SetVelocity( const Vector *velocity, const AngularImpulse *angularVelocity ) = 0;
+	virtual void SetVelocity(const Vector* velocity, const AngularImpulse* angularVelocity) = 0;
 
 	// like the above, but force the change into the simulator immediately
-	virtual void SetVelocityInstantaneous( const Vector *velocity, const AngularImpulse *angularVelocity ) = 0;
+	virtual void SetVelocityInstantaneous(const Vector* velocity, const AngularImpulse* angularVelocity) = 0;
 
 	// NOTE: velocity is in worldspace, angularVelocity is relative to the object's
 	// local axes (just like pev->velocity, pev->avelocity)
-	virtual void GetVelocity( Vector * velocity, AngularImpulse * angularVelocity ) const = 0;
+	virtual void GetVelocity(Vector * velocity, AngularImpulse * angularVelocity) const = 0;
 
 	// NOTE: These are velocities, not forces.  i.e. They will have the same effect regardless of
 	// the object's mass or inertia
-	virtual void AddVelocity( const Vector *velocity, const AngularImpulse *angularVelocity ) = 0;
+	virtual void AddVelocity(const Vector* velocity, const AngularImpulse* angularVelocity) = 0;
 	// gets a velocity in the object's local frame of reference at a specific point
-	virtual void GetVelocityAtPoint( const Vector &worldPosition, Vector *pVelocity ) const = 0;
+	virtual void GetVelocityAtPoint(const Vector& worldPosition, Vector* pVelocity) const = 0;
 	// gets the velocity actually moved by the object in the last simulation update
 	virtual void unused_GetImplicitVelocity() = 0;
 	// NOTE:	These are here for convenience, but you can do them yourself by using the matrix
 	//			returned from GetPositionMatrix()
 	// convenient coordinate system transformations (params - dest, src)
-	virtual void LocalToWorld( Vector * worldPosition, const Vector &localPosition ) const = 0;
-	virtual void WorldToLocal( Vector * localPosition, const Vector &worldPosition ) const = 0;
+	virtual void LocalToWorld(Vector * worldPosition, const Vector& localPosition) const = 0;
+	virtual void WorldToLocal(Vector * localPosition, const Vector& worldPosition) const = 0;
 
 	// transforms a vector (no translation) from object-local to world space
-	virtual void LocalToWorldVector( Vector * worldVector, const Vector &localVector ) const = 0;
+	virtual void LocalToWorldVector(Vector * worldVector, const Vector& localVector) const = 0;
 	// transforms a vector (no translation) from world to object-local space
-	virtual void WorldToLocalVector( Vector * localVector, const Vector &worldVector ) const = 0;
+	virtual void WorldToLocalVector(Vector * localVector, const Vector& worldVector) const = 0;
 
 	// push on an object
 	// force vector is direction & magnitude of impulse kg in / s
-	virtual void ApplyForceCenter( const Vector &forceVector ) = 0;
-	virtual void ApplyForceOffset( const Vector &forceVector, const Vector &worldPosition ) = 0;
+	virtual void ApplyForceCenter(const Vector& forceVector) = 0;
+	virtual void ApplyForceOffset(const Vector& forceVector, const Vector& worldPosition) = 0;
 	// apply torque impulse.  This will change the angular velocity on the object.
 	// HL Axes, kg degrees / s
-	virtual void ApplyTorqueCenter( const AngularImpulse &torque ) = 0;
+	virtual void ApplyTorqueCenter(const AngularImpulse& torque) = 0;
 
 	// Calculates the force/torque on the center of mass for an offset force impulse (pass output to ApplyForceCenter / ApplyTorqueCenter)
 	virtual void unused_CalculateForceOffset() = 0;
 	// Calculates the linear/angular velocities on the center of mass for an offset force impulse (pass output to AddVelocity)
-	virtual void CalculateVelocityOffset( const Vector &forceVector, const Vector &worldPosition,
-										  Vector *centerVelocity, AngularImpulse *centerAngularVelocity ) const = 0;
+	virtual void CalculateVelocityOffset(const Vector& forceVector, const Vector& worldPosition, Vector* centerVelocity,
+										 AngularImpulse* centerAngularVelocity) const = 0;
 	// calculate drag scale
-	virtual float CalculateLinearDrag( const Vector &unitDirection ) const = 0;
-	virtual float CalculateAngularDrag( const Vector &objectSpaceRotationAxis ) const = 0;
+	virtual float CalculateLinearDrag(const Vector& unitDirection) const = 0;
+	virtual float CalculateAngularDrag(const Vector& objectSpaceRotationAxis) const = 0;
 
 	// returns true if the object is in contact with another object
 	// if true, puts a point on the contact surface in contactPoint, and
 	// a pointer to the object in contactObject
 	// NOTE: You can pass NULL for either to avoid computations
 	// BUGBUG: Use CreateFrictionSnapshot instead of this - this is a simple hack
-	virtual bool GetContactPoint( Vector * contactPoint, IPhysicsObject * *contactObject ) const = 0;
+	virtual bool GetContactPoint(Vector * contactPoint, IPhysicsObject * *contactObject) const = 0;
 
 	// refactor this a bit - move some of this to IPhysicsShadowController
-	virtual void SetShadow( float maxSpeed, float maxAngularSpeed, bool allowPhysicsMovement,
-							bool allowPhysicsRotation ) = 0;
-	virtual void UpdateShadow( const Vector &targetPosition, const QAngle &targetAngles, bool tempDisableGravity,
-							   float timeOffset ) = 0;
+	virtual void SetShadow(float maxSpeed, float maxAngularSpeed, bool allowPhysicsMovement,
+						   bool allowPhysicsRotation) = 0;
+	virtual void UpdateShadow(const Vector& targetPosition, const QAngle& targetAngles, bool tempDisableGravity,
+							  float timeOffset) = 0;
 
 	// returns number of ticks since last Update() call
-	virtual int GetShadowPosition( Vector * position, QAngle * angles ) const = 0;
-	virtual IPhysicsShadowController *GetShadowController() const = 0;
+	virtual int GetShadowPosition(Vector * position, QAngle * angles) const = 0;
+	virtual IPhysicsShadowController* GetShadowController() const = 0;
 	virtual void RemoveShadowController() = 0;
 	// applies the math of the shadow controller to this object.
 	// for use in your own controllers
 	// returns the new value of secondsToArrival with dt time elapsed
-	virtual float ComputeShadowControl( const hlshadowcontrol_params_t &params, float secondsToArrival, float dt ) = 0;
+	virtual float ComputeShadowControl(const hlshadowcontrol_params_t& params, float secondsToArrival, float dt) = 0;
 
-	virtual const CPhysCollide *GetCollide() const = 0;
-	virtual const char *GetName() const = 0;
+	virtual const CPhysCollide* GetCollide() const = 0;
+	virtual const char* GetName() const = 0;
 
 	virtual void BecomeTrigger() = 0;
 	virtual void RemoveTrigger() = 0;
 
 	// sets the object to be hinged.  Fixed it place, but able to rotate around one axis.
-	virtual void BecomeHinged( int localAxis ) = 0;
+	virtual void BecomeHinged(int localAxis) = 0;
 	// resets the object to original state
 	virtual void RemoveHinged() = 0;
 
 	// used to iterate the contact points of an object
-	virtual IPhysicsFrictionSnapshot *CreateFrictionSnapshot() = 0;
-	virtual void DestroyFrictionSnapshot( IPhysicsFrictionSnapshot * pSnapshot ) = 0;
+	virtual IPhysicsFrictionSnapshot* CreateFrictionSnapshot() = 0;
+	virtual void DestroyFrictionSnapshot(IPhysicsFrictionSnapshot * pSnapshot) = 0;
 
 	// dumps info about the object to Msg()
 	virtual void unused_OutputDebugInfo() = 0;
@@ -784,9 +780,9 @@ abstract_class IPhysicsSpring
 public:
 	virtual ~IPhysicsSpring() {}
 	virtual void unused_GetEndpoints() = 0;
-	virtual void SetSpringConstant( float flSpringContant ) = 0;
-	virtual void SetSpringDamping( float flSpringDamping ) = 0;
-	virtual void SetSpringLength( float flSpringLenght ) = 0;
+	virtual void SetSpringConstant(float flSpringContant) = 0;
+	virtual void SetSpringDamping(float flSpringDamping) = 0;
+	virtual void SetSpringLength(float flSpringLenght) = 0;
 
 	// Get the starting object
 	virtual void unused_GetStartObject() = 0;
@@ -798,9 +794,9 @@ public:
 struct surfaceaudioparams_t
 {
 	// sounds / audio data
-	alignas( 4 ) unsigned char unused_reflectivity[4];
+	alignas(4) unsigned char unused_reflectivity[4];
 	float hardnessFactor; // like elasticity, but only affects impact sound choices
-	alignas( 4 ) unsigned char unused_roughnessFactor[8];
+	alignas(4) unsigned char unused_roughnessFactor[8];
 	float hardThreshold; // surface hardness > this causes "hard" impacts, < this causes "soft" impacts
 	float hardVelocityThreshold; // collision velocity > this causes "hard" impacts, < this causes "soft" impacts
 	// NOTE: Hard impacts must meet both hardnessFactor AND velocity thresholds
@@ -808,7 +804,7 @@ struct surfaceaudioparams_t
 
 struct surfacesoundnames_t
 {
-	alignas( 2 ) unsigned char unused_stepleft[4];
+	alignas(2) unsigned char unused_stepleft[4];
 
 	unsigned short impactSoft;
 	unsigned short impactHard;
@@ -844,7 +840,7 @@ struct surfacesoundhandles_t
 struct surfacegameprops_t
 {
 	// game movement data
-	alignas( 4 ) unsigned char unused_maxSpeedFactor[8];
+	alignas(4) unsigned char unused_maxSpeedFactor[8];
 	// Game-specific data
 	unsigned short material;
 	// Indicates whether or not the player is on a ladder.
@@ -855,7 +851,7 @@ struct surfacegameprops_t
 // Purpose: Each different material has an entry like this
 struct surfacedata_t
 {
-	alignas( 4 ) unsigned char unused_physics[20];
+	alignas(4) unsigned char unused_physics[20];
 	surfaceaudioparams_t audio; // audio parameters
 	surfacesoundnames_t sounds; // names of linked sounds
 	surfacegameprops_t game; // Game data / properties
@@ -870,22 +866,22 @@ public:
 	virtual ~IPhysicsSurfaceProps() {}
 
 	// parses a text file containing surface prop keys
-	virtual int ParseSurfaceData( const char *pFilename, const char *pTextfile ) = 0;
+	virtual int ParseSurfaceData(const char* pFilename, const char* pTextfile) = 0;
 	// current number of entries in the database
 	virtual int SurfacePropCount() const = 0;
 
-	virtual int GetSurfaceIndex( const char *pSurfacePropName ) const = 0;
-	virtual void GetPhysicsProperties( int surfaceDataIndex, float *density, float *thickness, float *friction,
-									   float *elasticity ) const = 0;
+	virtual int GetSurfaceIndex(const char* pSurfacePropName) const = 0;
+	virtual void GetPhysicsProperties(int surfaceDataIndex, float* density, float* thickness, float* friction,
+									  float* elasticity) const = 0;
 
-	virtual surfacedata_t *GetSurfaceData( int surfaceDataIndex ) = 0;
-	virtual const char *GetString( unsigned short stringTableIndex ) const = 0;
+	virtual surfacedata_t* GetSurfaceData(int surfaceDataIndex) = 0;
+	virtual const char* GetString(unsigned short stringTableIndex) const = 0;
 
-	virtual const char *GetPropName( int surfaceDataIndex ) const = 0;
+	virtual const char* GetPropName(int surfaceDataIndex) const = 0;
 
 	// sets the global index table for world materials
 	// UNDONE: Make this per-CPhysCollide
-	virtual void SetWorldMaterialIndexTable( int *pMapArray, int mapSize ) = 0;
+	virtual void SetWorldMaterialIndexTable(int* pMapArray, int mapSize) = 0;
 
 	// NOTE: Same as GetPhysicsProperties, but maybe more convenient
 	virtual void unused_GetPhysicsParameters() = 0;
@@ -896,10 +892,10 @@ abstract_class IPhysicsFluidController
 public:
 	virtual ~IPhysicsFluidController() {}
 
-	virtual void SetGameData( void *pGameData ) = 0;
-	virtual void *GetGameData() const = 0;
+	virtual void SetGameData(void* pGameData) = 0;
+	virtual void* GetGameData() const = 0;
 
-	virtual void GetSurfacePlane( Vector * pNormal, float *pDist ) const = 0;
+	virtual void GetSurfacePlane(Vector * pNormal, float* pDist) const = 0;
 	virtual float GetDensity() const = 0;
 	virtual void unused_WakeAllSleepingObjects() = 0;
 	virtual int GetContents() const = 0;
@@ -914,16 +910,16 @@ struct fluidparams_t
 	float damping; // damping factor for buoyancy (tweak)
 	float torqueFactor;
 	float viscosityFactor;
-	void *pGameData;
+	void* pGameData;
 	bool useAerodynamics; // true if this controller should calculate surface pressure
 	int contents;
 
 	fluidparams_t() = default;
 
-	fluidparams_t( fluidparams_t const &src )
+	fluidparams_t(fluidparams_t const& src)
 	{
-		Vector4DCopy( src.surfacePlane, surfacePlane );
-		VectorCopy( src.currentVelocity, currentVelocity );
+		Vector4DCopy(src.surfacePlane, surfacePlane);
+		VectorCopy(src.currentVelocity, currentVelocity);
 		damping = src.damping;
 		torqueFactor = src.torqueFactor;
 		viscosityFactor = src.viscosityFactor;
@@ -937,7 +933,7 @@ struct fluidparams_t
 // UNDONE: Expose additional spring model paramters?
 struct springparams_t
 {
-	springparams_t() { memset( this, 0, sizeof( *this ) ); }
+	springparams_t() { memset(this, 0, sizeof(*this)); }
 
 	float constant; // spring constant
 	float naturalLength; // relaxed length
@@ -953,14 +949,14 @@ struct springparams_t
 // Purpose: parameter block for creating polygonal objects
 struct objectparams_t
 {
-	Vector *massCenterOverride;
+	Vector* massCenterOverride;
 	float mass;
 	float inertia;
 	float damping;
 	float rotdamping;
 	float rotInertiaLimit;
-	const char *pName; // used only for debugging
-	void *pGameData;
+	const char* pName; // used only for debugging
+	void* pGameData;
 	float volume;
 	float dragCoefficient;
 	bool enableCollisions;
@@ -972,40 +968,40 @@ struct objectparams_t
 // Purpose: parameter blocks for save and load operations
 struct physsaveparams_t
 {
-	ISave *pSave;
-	void *pObject;
+	ISave* pSave;
+	void* pObject;
 	PhysInterfaceId_t type;
 };
 
 struct physrestoreparams_t
 {
-	IRestore *pRestore;
-	void **ppObject;
+	IRestore* pRestore;
+	void** ppObject;
 	PhysInterfaceId_t type;
-	void *pGameData;
-	const char *pName; // used only for debugging
-	const CPhysCollide *pCollisionModel;
-	IPhysicsEnvironment *pEnvironment;
-	IPhysicsGameTrace *pGameTrace;
+	void* pGameData;
+	const char* pName; // used only for debugging
+	const CPhysCollide* pCollisionModel;
+	IPhysicsEnvironment* pEnvironment;
+	IPhysicsGameTrace* pGameTrace;
 };
 
-#define DEFINE_PIID( type, enumval )                     \
-	template <>                                          \
-	inline PhysInterfaceId_t GetPhysIID<type>( type ** ) \
-	{                                                    \
-		return enumval;                                  \
+#define DEFINE_PIID(type, enumval)                    \
+	template <>                                       \
+	inline PhysInterfaceId_t GetPhysIID<type>(type**) \
+	{                                                 \
+		return enumval;                               \
 	}
 
 template <class PHYSPTR>
-inline PhysInterfaceId_t GetPhysIID( PHYSPTR ** ); // will get link error if no match
+inline PhysInterfaceId_t GetPhysIID(PHYSPTR**); // will get link error if no match
 
-DEFINE_PIID( IPhysicsObject, PIID_IPHYSICSOBJECT );
-DEFINE_PIID( IPhysicsFluidController, PIID_IPHYSICSFLUIDCONTROLLER );
-DEFINE_PIID( IPhysicsSpring, PIID_IPHYSICSSPRING );
-DEFINE_PIID( IPhysicsConstraintGroup, PIID_IPHYSICSCONSTRAINTGROUP );
-DEFINE_PIID( IPhysicsConstraint, PIID_IPHYSICSCONSTRAINT );
-DEFINE_PIID( IPhysicsShadowController, PIID_IPHYSICSSHADOWCONTROLLER );
-DEFINE_PIID( IPhysicsPlayerController, PIID_IPHYSICSPLAYERCONTROLLER );
-DEFINE_PIID( IPhysicsMotionController, PIID_IPHYSICSMOTIONCONTROLLER );
-DEFINE_PIID( IPhysicsVehicleController, PIID_IPHYSICSVEHICLECONTROLLER );
-DEFINE_PIID( IPhysicsGameTrace, PIID_IPHYSICSGAMETRACE );
+DEFINE_PIID(IPhysicsObject, PIID_IPHYSICSOBJECT);
+DEFINE_PIID(IPhysicsFluidController, PIID_IPHYSICSFLUIDCONTROLLER);
+DEFINE_PIID(IPhysicsSpring, PIID_IPHYSICSSPRING);
+DEFINE_PIID(IPhysicsConstraintGroup, PIID_IPHYSICSCONSTRAINTGROUP);
+DEFINE_PIID(IPhysicsConstraint, PIID_IPHYSICSCONSTRAINT);
+DEFINE_PIID(IPhysicsShadowController, PIID_IPHYSICSSHADOWCONTROLLER);
+DEFINE_PIID(IPhysicsPlayerController, PIID_IPHYSICSPLAYERCONTROLLER);
+DEFINE_PIID(IPhysicsMotionController, PIID_IPHYSICSMOTIONCONTROLLER);
+DEFINE_PIID(IPhysicsVehicleController, PIID_IPHYSICSVEHICLECONTROLLER);
+DEFINE_PIID(IPhysicsGameTrace, PIID_IPHYSICSGAMETRACE);

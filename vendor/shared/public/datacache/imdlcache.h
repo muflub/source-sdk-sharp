@@ -127,15 +127,15 @@ public:
 	virtual void unused_FindMDL() = 0;
 
 	// Reference counting
-	virtual int AddRef( MDLHandle_t handle ) = 0;
-	virtual int Release( MDLHandle_t handle ) = 0;
+	virtual int AddRef(MDLHandle_t handle) = 0;
+	virtual int Release(MDLHandle_t handle) = 0;
 	virtual void unused_GetRef() = 0;
 
 	// Gets at the various data associated with a MDL
 	virtual void unused_GetStudioHdr() = 0;
 	virtual void unused_GetHardwareData() = 0;
-	virtual vcollide_t *GetVCollide( MDLHandle_t handle ) = 0;
-	virtual unsigned char *GetAnimBlock( MDLHandle_t handle, int nBlock ) = 0;
+	virtual vcollide_t* GetVCollide(MDLHandle_t handle) = 0;
+	virtual unsigned char* GetAnimBlock(MDLHandle_t handle, int nBlock) = 0;
 	virtual void unused_GetVirtualModel() = 0;
 	virtual void unused_GetAutoplayList() = 0;
 	virtual void unused_GetVertexData() = 0;
@@ -151,13 +151,13 @@ public:
 	virtual void unused_IsErrorModel() = 0;
 
 	// Flushes the cache, force a full discard
-	virtual void Flush( MDLCacheFlush_t nFlushFlags = MDLCACHE_FLUSH_ALL ) = 0;
+	virtual void Flush(MDLCacheFlush_t nFlushFlags = MDLCACHE_FLUSH_ALL) = 0;
 
 	// Flushes a particular model out of memory
-	virtual void Flush( MDLHandle_t handle, int nFlushFlags = MDLCACHE_FLUSH_ALL ) = 0;
+	virtual void Flush(MDLHandle_t handle, int nFlushFlags = MDLCACHE_FLUSH_ALL) = 0;
 
 	// Returns the name of the model (its relative path)
-	virtual const char *GetModelName( MDLHandle_t handle ) = 0;
+	virtual const char* GetModelName(MDLHandle_t handle) = 0;
 
 	// faster access when you already have the studiohdr
 	virtual void unused_GetVirtualModelFast() = 0;
@@ -211,8 +211,8 @@ public:
 class CMDLCacheCriticalSection
 {
 public:
-	CMDLCacheCriticalSection( IMDLCache *pCache )
-		: m_pCache( pCache )
+	CMDLCacheCriticalSection(IMDLCache* pCache)
+		: m_pCache(pCache)
 	{
 		m_pCache->BeginLock();
 	}
@@ -220,17 +220,17 @@ public:
 	~CMDLCacheCriticalSection() { m_pCache->EndLock(); }
 
 private:
-	IMDLCache *m_pCache;
+	IMDLCache* m_pCache;
 };
 
 #define MDCACHE_FINE_GRAINED 1
 
-#if defined( MDCACHE_FINE_GRAINED )
-#define MDLCACHE_CRITICAL_SECTION_( pCache ) CMDLCacheCriticalSection cacheCriticalSection( pCache )
-#define MDLCACHE_COARSE_LOCK_( pCache ) ( (void)( 0 ) )
+#if defined(MDCACHE_FINE_GRAINED)
+#define MDLCACHE_CRITICAL_SECTION_(pCache) CMDLCacheCriticalSection cacheCriticalSection(pCache)
+#define MDLCACHE_COARSE_LOCK_(pCache) ((void)(0))
 #else
-#define MDLCACHE_CRITICAL_SECTION_( pCache ) ( (void)( 0 ) )
-#define MDLCACHE_COARSE_LOCK_( pCache ) CMDLCacheCriticalSection cacheCriticalSection( pCache )
+#define MDLCACHE_CRITICAL_SECTION_(pCache) ((void)(0))
+#define MDLCACHE_COARSE_LOCK_(pCache) CMDLCacheCriticalSection cacheCriticalSection(pCache)
 #endif
-#define MDLCACHE_CRITICAL_SECTION() MDLCACHE_CRITICAL_SECTION_( mdlcache )
-#define MDLCACHE_COARSE_LOCK() MDLCACHE_COARSE_LOCK_( mdlcache )
+#define MDLCACHE_CRITICAL_SECTION() MDLCACHE_CRITICAL_SECTION_(mdlcache)
+#define MDLCACHE_COARSE_LOCK() MDLCACHE_COARSE_LOCK_(mdlcache)

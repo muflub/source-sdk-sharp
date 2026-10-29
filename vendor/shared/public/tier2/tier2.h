@@ -16,14 +16,14 @@ class IInputSystem;
 // They can be set by calling ConnectTier2Libraries or InitDefaultFileSystem.
 // It is hoped that setting this, and using this library will be the common mechanism for
 // allowing link libraries to access tier2 library interfaces
-extern IFileSystem *g_pFullFileSystem;
-extern IMaterialSystem *materials;
-extern IMaterialSystem *g_pMaterialSystem;
-extern IMaterialSystemHardwareConfig *g_pMaterialSystemHardwareConfig;
+extern IFileSystem* g_pFullFileSystem;
+extern IMaterialSystem* materials;
+extern IMaterialSystem* g_pMaterialSystem;
+extern IMaterialSystemHardwareConfig* g_pMaterialSystemHardwareConfig;
 
 // Call this to connect to/disconnect from all tier 2 libraries.
 // It's up to the caller to check the globals it cares about to see if ones are missing
-void ConnectTier2Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount );
+void ConnectTier2Libraries(CreateInterfaceFn* pFactoryList, int nFactoryCount);
 void DisconnectTier2Libraries();
 
 // Helper empty implementation of an IAppSystem for tier2 libraries
@@ -33,19 +33,19 @@ class CTier2AppSystem : public CTier1AppSystem<IInterface, ConVarFlag>
 	typedef CTier1AppSystem<IInterface, ConVarFlag> BaseClass;
 
 public:
-	CTier2AppSystem( bool bIsPrimaryAppSystem = true )
-		: BaseClass( bIsPrimaryAppSystem )
+	CTier2AppSystem(bool bIsPrimaryAppSystem = true)
+		: BaseClass(bIsPrimaryAppSystem)
 	{
 	}
 
-	virtual bool Connect( CreateInterfaceFn factory )
+	virtual bool Connect(CreateInterfaceFn factory)
 	{
-		if ( !BaseClass::Connect( factory ) )
+		if (!BaseClass::Connect(factory))
 			return false;
 
-		if ( BaseClass::IsPrimaryAppSystem() )
+		if (BaseClass::IsPrimaryAppSystem())
 		{
-			ConnectTier2Libraries( &factory, 1 );
+			ConnectTier2Libraries(&factory, 1);
 		}
 
 		return true;
@@ -54,7 +54,7 @@ public:
 	virtual InitReturnVal_t Init()
 	{
 		InitReturnVal_t nRetVal = BaseClass::Init();
-		if ( nRetVal != INIT_OK )
+		if (nRetVal != INIT_OK)
 			return nRetVal;
 
 		return INIT_OK;
@@ -64,7 +64,7 @@ public:
 
 	virtual void Disconnect()
 	{
-		if ( BaseClass::IsPrimaryAppSystem() )
+		if (BaseClass::IsPrimaryAppSystem())
 		{
 			DisconnectTier2Libraries();
 		}

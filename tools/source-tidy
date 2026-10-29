@@ -94,9 +94,9 @@ def condition(kind, rest):
     """The #if-style condition text of an if/ifdef/ifndef/elif line."""
     rest = strip_comment(rest)
     if kind == "ifdef":
-        return "defined( %s )" % rest
+        return "defined(%s)" % rest
     if kind == "ifndef":
-        return "!defined( %s )" % rest
+        return "!defined(%s)" % rest
     return rest
 
 
@@ -110,7 +110,7 @@ def simplify(cond, known):
         value, text = simplify(unparen(cond[1:]), known)
         if value is not None:
             return not value, cond
-        return None, cond if text == unparen(cond[1:]) else "!( %s )" % text
+        return None, cond if text == unparen(cond[1:]) else "!(%s)" % text
     for op in ("&&", "||"):
         other = "||" if op == "&&" else "&&"
         if other in cond:
@@ -643,6 +643,9 @@ def self_test():
        "a bare or parenthesised never-defined macro settles false")
     t = "#if !( defined( _X360 ) && defined( _CERT ) )\nint v;\n#endif\n"
     eq(tidy_text(t, {"_X360": False}, False, False, set())[0], "int v;\n", "a negated group settles")
+    t = "#if !(defined(A) && defined(GAME_DLL) && defined(B))\nint v;\n#endif\n"
+    eq(tidy_text(t, {"GAME_DLL": True}, False, False, set())[0], "#if !(defined(A) && defined(B))\nint v;\n#endif\n",
+       "a negated group that keeps terms is written as tools/clang-format spaces it")
     t = "#if defined( A ) || ( defined( CLIENT_DLL ) && B )\nint x;\n#endif\n"
     eq(tidy_text(t, {"CLIENT_DLL": True}, False, False, set())[0], t, "a mixed condition is left alone")
     t = "int a;\n#ifdef X\n\n#endif\n#ifdef Y\nint y;\n#else\n#endif\n"

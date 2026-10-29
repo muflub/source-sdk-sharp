@@ -27,43 +27,42 @@
 namespace
 {
 
-TEST( PhysicsOwnerClient, ThisIsTheClientArm )
+TEST(PhysicsOwnerClient, ThisIsTheClientArm)
 {
-#if defined( CLIENT_DLL )
+#if defined(CLIENT_DLL)
 	SUCCEED();
 #else
 	FAIL() << "physicsowner_client_test must be built with CLIENT_DLL, or it tests the server's arm";
 #endif
 }
 
-TEST( PhysicsOwnerClient, AManagedOwnersGameDataIsNoSdkOwner )
+TEST(PhysicsOwnerClient, AManagedOwnersGameDataIsNoSdkOwner)
 {
-	const CBaseHandle handle( 37, 5 );
-	void *pGameData = PhysicsGameDataFromHandle( handle );
+	const CBaseHandle handle(37, 5);
+	void* pGameData = PhysicsGameDataFromHandle(handle);
 
 	// The stimulus is the tagged word, or this fact proves nothing.
-	ASSERT_TRUE( PhysicsGameDataIsHandle( pGameData ) );
+	ASSERT_TRUE(PhysicsGameDataIsHandle(pGameData));
 
-	const PhysicsOwner_t owner = PhysicsOwnerOfGameData( pGameData, NULL );
-	EXPECT_EQ( (void *)NULL, (void *)owner.pBase )
-		<< "the client cast a managed owner's handle word to an IGameEntity *";
+	const PhysicsOwner_t owner = PhysicsOwnerOfGameData(pGameData, NULL);
+	EXPECT_EQ((void*)NULL, (void*)owner.pBase) << "the client cast a managed owner's handle word to an IGameEntity *";
 }
 
-TEST( PhysicsOwnerClient, AnSdkPointerIsStillItsOwner )
+TEST(PhysicsOwnerClient, AnSdkPointerIsStillItsOwner)
 {
 	static int s_Entity;
-	void *pGameData = &s_Entity;
+	void* pGameData = &s_Entity;
 
-	ASSERT_FALSE( PhysicsGameDataIsHandle( pGameData ) );
+	ASSERT_FALSE(PhysicsGameDataIsHandle(pGameData));
 
-	const PhysicsOwner_t owner = PhysicsOwnerOfGameData( pGameData, NULL );
-	EXPECT_EQ( pGameData, (void *)owner.pBase );
+	const PhysicsOwner_t owner = PhysicsOwnerOfGameData(pGameData, NULL);
+	EXPECT_EQ(pGameData, (void*)owner.pBase);
 }
 
-TEST( PhysicsOwnerClient, NoGameDataIsNoOwner )
+TEST(PhysicsOwnerClient, NoGameDataIsNoOwner)
 {
-	const PhysicsOwner_t owner = PhysicsOwnerOfGameData( NULL, NULL );
-	EXPECT_EQ( (void *)NULL, (void *)owner.pBase );
+	const PhysicsOwner_t owner = PhysicsOwnerOfGameData(NULL, NULL);
+	EXPECT_EQ((void*)NULL, (void*)owner.pBase);
 }
 
 } // namespace

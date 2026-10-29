@@ -1,10 +1,10 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 // This is the null header file used to remove Telemetry calls.
 
-#define tmEndTryLockEx( ... )
+#define tmEndTryLockEx(...)
 
-#define tmSetLockStateEx( ... )
+#define tmSetLockStateEx(...)
 
-#define tmZone( ... )
+#define tmZone(...)
 
-#define tmTryLockEx( ... )
+#define tmTryLockEx(...)

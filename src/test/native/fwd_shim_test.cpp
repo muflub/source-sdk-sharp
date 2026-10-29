@@ -52,60 +52,60 @@ enum
 class RecordingFrame final : public IShimFrame
 {
 public:
-	int32_t IsSimulatingOnAlternateTicks() override { return Ran( kIsSimulatingOnAlternateTicks ), 1; }
+	int32_t IsSimulatingOnAlternateTicks() override { return Ran(kIsSimulatingOnAlternateTicks), 1; }
 
-	int32_t TickCount() override { return Ran( kTickCount ), 4242; }
+	int32_t TickCount() override { return Ran(kTickCount), 4242; }
 
-	float GetFrameTime() override { return Ran( kGetFrameTime ), 0.015f; }
+	float GetFrameTime() override { return Ran(kGetFrameTime), 0.015f; }
 
-	void SetFrameTime( float flFrameTime ) override
+	void SetFrameTime(float flFrameTime) override
 	{
-		Ran( kSetFrameTime );
+		Ran(kSetFrameTime);
 		flSet = flFrameTime;
 	}
 
-	void UpdateAllClientData() override { Ran( kUpdateAllClientData ); }
+	void UpdateAllClientData() override { Ran(kUpdateAllClientData); }
 
-	void EndGameFrame() override { Ran( kEndGameFrame ); }
+	void EndGameFrame() override { Ran(kEndGameFrame); }
 
-	void GamestatsUpdateConnection() override { Ran( kGamestatsUpdateConnection ); }
+	void GamestatsUpdateConnection() override { Ran(kGamestatsUpdateConnection); }
 
-	void DrawAllDebugOverlays() override { Ran( kDrawAllDebugOverlays ); }
+	void DrawAllDebugOverlays() override { Ran(kDrawAllDebugOverlays); }
 
-	void StandalonePlayerCommands() override { Ran( kStandalonePlayerCommands ); }
+	void StandalonePlayerCommands() override { Ran(kStandalonePlayerCommands); }
 
-	void StandaloneFinish() override { Ran( kStandaloneFinish ); }
+	void StandaloneFinish() override { Ran(kStandaloneFinish); }
 
-	void DrainEntitySlots() override { Ran( kDrainEntitySlots ); }
+	void DrainEntitySlots() override { Ran(kDrainEntitySlots); }
 
-	void BeginModelCacheLock() override { Ran( kBeginModelCacheLock ); }
+	void BeginModelCacheLock() override { Ran(kBeginModelCacheLock); }
 
-	void EndModelCacheLock() override { Ran( kEndModelCacheLock ); }
+	void EndModelCacheLock() override { Ran(kEndModelCacheLock); }
 
 	int nLast = -1;
 	int nCalls = 0;
 	float flSet = 0.0f;
 
 private:
-	void Ran( int nSlot )
+	void Ran(int nSlot)
 	{
 		nLast = nSlot;
 		nCalls++;
 	}
 };
 
-const SSForwarderTable &ShimFrameTable()
+const SSForwarderTable& ShimFrameTable()
 {
-	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimFrame" );
-	EXPECT_NE( nullptr, pTable );
-	static const SSForwarderTable kNone = { nullptr, 0 };
+	const SSForwarderTable* pTable = SSFwdServer_Table("SSFwd_ShimFrame");
+	EXPECT_NE(nullptr, pTable);
+	static const SSForwarderTable kNone = {nullptr, 0};
 	return pTable ? *pTable : kNone;
 }
 
 template <typename F>
-F Slot( int nSlot )
+F Slot(int nSlot)
 {
-	return reinterpret_cast<F>( ShimFrameTable().ppSlots[nSlot] );
+	return reinterpret_cast<F>(ShimFrameTable().ppSlots[nSlot]);
 }
 
 // Every void, no-argument step, by slot.
@@ -117,66 +117,66 @@ const int kVoidSteps[] = {
 
 } // namespace
 
-TEST( FwdShim, TheServerServesTheFrameTableWithOneSlotPerMethod )
+TEST(FwdShim, TheServerServesTheFrameTableWithOneSlotPerMethod)
 {
-	const SSForwarderTable &table = ShimFrameTable();
-	ASSERT_NE( nullptr, table.ppSlots );
-	EXPECT_EQ( (int32_t)kShimFrameSlots, table.nSlots );
+	const SSForwarderTable& table = ShimFrameTable();
+	ASSERT_NE(nullptr, table.ppSlots);
+	EXPECT_EQ((int32_t)kShimFrameSlots, table.nSlots);
 }
 
-TEST( FwdShim, EverySlotIsADistinctFunction )
+TEST(FwdShim, EverySlotIsADistinctFunction)
 {
-	const SSForwarderTable &table = ShimFrameTable();
-	ASSERT_EQ( (int32_t)kShimFrameSlots, table.nSlots );
+	const SSForwarderTable& table = ShimFrameTable();
+	ASSERT_EQ((int32_t)kShimFrameSlots, table.nSlots);
 
-	for ( int i = 0; i < table.nSlots; i++ )
+	for (int i = 0; i < table.nSlots; i++)
 	{
-		EXPECT_NE( nullptr, table.ppSlots[i] ) << i;
-		for ( int j = 0; j < i; j++ )
-			EXPECT_NE( table.ppSlots[i], table.ppSlots[j] ) << i << " and " << j;
+		EXPECT_NE(nullptr, table.ppSlots[i]) << i;
+		for (int j = 0; j < i; j++)
+			EXPECT_NE(table.ppSlots[i], table.ppSlots[j]) << i << " and " << j;
 	}
 }
 
-TEST( FwdShim, TickCountAndGetFrameTimeAnswerFromTheirOwnMethods )
+TEST(FwdShim, TickCountAndGetFrameTimeAnswerFromTheirOwnMethods)
 {
 	RecordingFrame frame;
 
-	EXPECT_EQ( 4242, Slot<int32_t ( * )( IShimFrame * )>( kTickCount )( &frame ) );
-	EXPECT_EQ( kTickCount, frame.nLast );
+	EXPECT_EQ(4242, Slot<int32_t (*)(IShimFrame*)>(kTickCount)(&frame));
+	EXPECT_EQ(kTickCount, frame.nLast);
 
-	EXPECT_FLOAT_EQ( 0.015f, Slot<float ( * )( IShimFrame * )>( kGetFrameTime )( &frame ) );
-	EXPECT_EQ( kGetFrameTime, frame.nLast );
+	EXPECT_FLOAT_EQ(0.015f, Slot<float (*)(IShimFrame*)>(kGetFrameTime)(&frame));
+	EXPECT_EQ(kGetFrameTime, frame.nLast);
 }
 
-TEST( FwdShim, SetFrameTimeForwardsItsArgument )
+TEST(FwdShim, SetFrameTimeForwardsItsArgument)
 {
 	RecordingFrame frame;
 
-	Slot<void ( * )( IShimFrame *, float )>( kSetFrameTime )( &frame, 0.25f );
-	EXPECT_EQ( kSetFrameTime, frame.nLast );
-	EXPECT_FLOAT_EQ( 0.25f, frame.flSet );
+	Slot<void (*)(IShimFrame*, float)>(kSetFrameTime)(&frame, 0.25f);
+	EXPECT_EQ(kSetFrameTime, frame.nLast);
+	EXPECT_FLOAT_EQ(0.25f, frame.flSet);
 }
 
-TEST( FwdShim, EachVoidStepReachesItsOwnMethodOnce )
+TEST(FwdShim, EachVoidStepReachesItsOwnMethodOnce)
 {
-	for ( int nSlot : kVoidSteps )
+	for (int nSlot : kVoidSteps)
 	{
 		RecordingFrame frame;
-		Slot<void ( * )( IShimFrame * )>( nSlot )( &frame );
-		EXPECT_EQ( nSlot, frame.nLast ) << nSlot;
-		EXPECT_EQ( 1, frame.nCalls ) << nSlot;
+		Slot<void (*)(IShimFrame*)>(nSlot)(&frame);
+		EXPECT_EQ(nSlot, frame.nLast) << nSlot;
+		EXPECT_EQ(1, frame.nCalls) << nSlot;
 	}
 }
 
-TEST( FwdShim, TheInternalFactoryServesTheFrameTable )
+TEST(FwdShim, TheInternalFactoryServesTheFrameTable)
 {
 	// SS_FWD_SERVES_SERVER is what server.so's link of the library defines:
 	// the serve helper answers the table as its slot array and count, which is
 	// how managed reaches it through the shim root's Acquire.
-	void *pServed = SSFwd_Serve( "SSFwd_ShimFrame" );
-	ASSERT_NE( nullptr, pServed );
-	EXPECT_EQ( (int32_t)kShimFrameSlots, static_cast<const SSForwarderTable *>( pServed )->nSlots );
-	EXPECT_EQ( ShimFrameTable().ppSlots, *static_cast<void *const *const *>( pServed ) );
+	void* pServed = SSFwd_Serve("SSFwd_ShimFrame");
+	ASSERT_NE(nullptr, pServed);
+	EXPECT_EQ((int32_t)kShimFrameSlots, static_cast<const SSForwarderTable*>(pServed)->nSlots);
+	EXPECT_EQ(ShimFrameTable().ppSlots, *static_cast<void* const* const*>(pServed));
 }
 
 //-----------------------------------------------------------------------------
@@ -190,29 +190,29 @@ namespace
 class RecordingEvents final : public IShimEventsServer
 {
 public:
-	void ListenForGameEvent( const char *pszName ) override
+	void ListenForGameEvent(const char* pszName) override
 	{
 		nLast = 0;
 		pName = pszName;
 	}
 
-	int32_t EventGetInt( void *, const char * ) override { return nLast = 1, 0; }
+	int32_t EventGetInt(void*, const char*) override { return nLast = 1, 0; }
 
-	float EventGetFloat( void *, const char * ) override { return nLast = 2, 0.0f; }
+	float EventGetFloat(void*, const char*) override { return nLast = 2, 0.0f; }
 
-	int32_t EventGetBool( void *, const char * ) override { return nLast = 3, 0; }
+	int32_t EventGetBool(void*, const char*) override { return nLast = 3, 0; }
 
-	const char *EventGetString( void *, const char * ) override { return nLast = 4, "four"; }
+	const char* EventGetString(void*, const char*) override { return nLast = 4, "four"; }
 
-	void EventSetInt( void *, const char *, int32_t nValue ) override
+	void EventSetInt(void*, const char*, int32_t nValue) override
 	{
 		nLast = 6;
 		nSet = nValue;
 	}
 
-	void EventSetBool( void *, const char *, int32_t ) override { nLast = 7; }
+	void EventSetBool(void*, const char*, int32_t) override { nLast = 7; }
 
-	void EventSetString( void *, const char *, const char *pszValue ) override
+	void EventSetString(void*, const char*, const char* pszValue) override
 	{
 		nLast = 8;
 		pName = pszValue;
@@ -220,50 +220,50 @@ public:
 
 	int nLast = -1;
 	int32_t nSet = 0;
-	const char *pName = nullptr;
+	const char* pName = nullptr;
 };
 
-const SSForwarderTable &EventsServerTable()
+const SSForwarderTable& EventsServerTable()
 {
-	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimEventsServer" );
-	EXPECT_NE( nullptr, pTable );
-	static const SSForwarderTable kNone = { nullptr, 0 };
+	const SSForwarderTable* pTable = SSFwdServer_Table("SSFwd_ShimEventsServer");
+	EXPECT_NE(nullptr, pTable);
+	static const SSForwarderTable kNone = {nullptr, 0};
 	return pTable ? *pTable : kNone;
 }
 
 } // namespace
 
-TEST( FwdShim, ADerivedAreasTableIsTheBasesSlotsThenItsOwn )
+TEST(FwdShim, ADerivedAreasTableIsTheBasesSlotsThenItsOwn)
 {
-	const SSForwarderTable &table = EventsServerTable();
+	const SSForwarderTable& table = EventsServerTable();
 	// IShimEvents' 5, then IShimEventsServer's 3 setters (EventCreate, EventFire
 	// and EventFree went in plan_server_native_v2 T3: IGameEventManager2's
 	// forwarders make those calls from managed; EventSetFloat, which nothing
 	// called, in the serialised ABI pass).
-	ASSERT_EQ( 8, table.nSlots );
+	ASSERT_EQ(8, table.nSlots);
 
 	RecordingEvents events;
-	const char *pszName = "player_death";
+	const char* pszName = "player_death";
 
-	reinterpret_cast<void ( * )( IShimEventsServer *, const char * )>( table.ppSlots[0] )( &events, pszName );
-	EXPECT_EQ( 0, events.nLast );
-	EXPECT_EQ( pszName, events.pName );
+	reinterpret_cast<void (*)(IShimEventsServer*, const char*)>(table.ppSlots[0])(&events, pszName);
+	EXPECT_EQ(0, events.nLast);
+	EXPECT_EQ(pszName, events.pName);
 
-	EXPECT_STREQ( "four",
-				  reinterpret_cast<const char *(*)( IShimEventsServer *, void *, const char * )>( table.ppSlots[4] )(
-					  &events, nullptr, "k" ) );
-	EXPECT_EQ( 4, events.nLast );
+	EXPECT_STREQ("four",
+				 reinterpret_cast<const char* (*)(IShimEventsServer*, void*, const char*)>(table.ppSlots[4])(
+					 &events, nullptr, "k"));
+	EXPECT_EQ(4, events.nLast);
 
-	reinterpret_cast<void ( * )( IShimEventsServer *, void *, const char *, int32_t )>( table.ppSlots[5] )(
-		&events, nullptr, "k", 7 );
-	EXPECT_EQ( 6, events.nLast );
-	EXPECT_EQ( 7, events.nSet );
+	reinterpret_cast<void (*)(IShimEventsServer*, void*, const char*, int32_t)>(table.ppSlots[5])(&events, nullptr, "k",
+																								  7);
+	EXPECT_EQ(6, events.nLast);
+	EXPECT_EQ(7, events.nSet);
 
-	const char *pszValue = "v";
-	reinterpret_cast<void ( * )( IShimEventsServer *, void *, const char *, const char * )>( table.ppSlots[7] )(
-		&events, nullptr, "k", pszValue );
-	EXPECT_EQ( 8, events.nLast );
-	EXPECT_EQ( pszValue, events.pName );
+	const char* pszValue = "v";
+	reinterpret_cast<void (*)(IShimEventsServer*, void*, const char*, const char*)>(table.ppSlots[7])(&events, nullptr,
+																									  "k", pszValue);
+	EXPECT_EQ(8, events.nLast);
+	EXPECT_EQ(pszValue, events.pName);
 }
 
 //-----------------------------------------------------------------------------
@@ -277,14 +277,14 @@ namespace
 class RecordingRoot final : public IShimRoot
 {
 public:
-	void *Acquire( const char *pszName ) override
+	void* Acquire(const char* pszName) override
 	{
 		nLast = 0;
 		pName = pszName;
 		return this;
 	}
 
-	void *AcquireInterface( int32_t nType, const char *pszVersion, char *, int32_t nErrorBytes ) override
+	void* AcquireInterface(int32_t nType, const char* pszVersion, char*, int32_t nErrorBytes) override
 	{
 		nLast = 1;
 		nTypeSaw = nType;
@@ -298,33 +298,32 @@ public:
 	int nLast = -1;
 	int32_t nTypeSaw = -1;
 	int32_t nErrorBytesSaw = -1;
-	const char *pName = nullptr;
+	const char* pName = nullptr;
 };
 
 } // namespace
 
-TEST( FwdShim, TheRootsTableIsAcquireAcquireInterfaceAndRelease )
+TEST(FwdShim, TheRootsTableIsAcquireAcquireInterfaceAndRelease)
 {
-	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimRoot" );
-	ASSERT_NE( nullptr, pTable );
-	ASSERT_EQ( 3, pTable->nSlots );
+	const SSForwarderTable* pTable = SSFwdServer_Table("SSFwd_ShimRoot");
+	ASSERT_NE(nullptr, pTable);
+	ASSERT_EQ(3, pTable->nSlots);
 
 	RecordingRoot root;
-	const char *pszName = "SourceSharpConsole001";
+	const char* pszName = "SourceSharpConsole001";
 
-	EXPECT_EQ( &root,
-			   ( reinterpret_cast<void *(*)( IShimRoot *, const char * )>( pTable->ppSlots[0] )( &root, pszName ) ) );
-	EXPECT_EQ( 0, root.nLast );
-	EXPECT_EQ( pszName, root.pName );
+	EXPECT_EQ(&root, (reinterpret_cast<void* (*)(IShimRoot*, const char*)>(pTable->ppSlots[0])(&root, pszName)));
+	EXPECT_EQ(0, root.nLast);
+	EXPECT_EQ(pszName, root.pName);
 
-	reinterpret_cast<void *(*)( IShimRoot *, int32_t, const char *, char *, int32_t )>( pTable->ppSlots[1] )(
-		&root, 3, pszName, nullptr, 64 );
-	EXPECT_EQ( 1, root.nLast );
-	EXPECT_EQ( 3, root.nTypeSaw );
-	EXPECT_EQ( 64, root.nErrorBytesSaw );
+	reinterpret_cast<void* (*)(IShimRoot*, int32_t, const char*, char*, int32_t)>(pTable->ppSlots[1])(&root, 3, pszName,
+																									  nullptr, 64);
+	EXPECT_EQ(1, root.nLast);
+	EXPECT_EQ(3, root.nTypeSaw);
+	EXPECT_EQ(64, root.nErrorBytesSaw);
 
-	reinterpret_cast<void ( * )( IShimRoot * )>( pTable->ppSlots[2] )( &root );
-	EXPECT_EQ( 2, root.nLast );
+	reinterpret_cast<void (*)(IShimRoot*)>(pTable->ppSlots[2])(&root);
+	EXPECT_EQ(2, root.nLast);
 }
 
 //-----------------------------------------------------------------------------
@@ -339,31 +338,31 @@ TEST( FwdShim, TheRootsTableIsAcquireAcquireInterfaceAndRelease )
 namespace
 {
 
-void ExpectServedCount( const char *pszTable, int nCompiler, int nExpected )
+void ExpectServedCount(const char* pszTable, int nCompiler, int nExpected)
 {
-	EXPECT_EQ( nExpected, nCompiler ) << pszTable;
-	const SSForwarderTable *pTable = SSFwdServer_Table( pszTable );
-	ASSERT_NE( nullptr, pTable ) << pszTable;
-	EXPECT_EQ( nCompiler, pTable->nSlots ) << pszTable;
+	EXPECT_EQ(nExpected, nCompiler) << pszTable;
+	const SSForwarderTable* pTable = SSFwdServer_Table(pszTable);
+	ASSERT_NE(nullptr, pTable) << pszTable;
+	EXPECT_EQ(nCompiler, pTable->nSlots) << pszTable;
 }
 
 } // namespace
 
-TEST( FwdShimCounts, TheRootIsThreeSlots )
+TEST(FwdShimCounts, TheRootIsThreeSlots)
 {
 	// Acquire, AcquireInterface (plan_engineapi_vtables C5, before Release),
 	// Release last.
-	ExpectServedCount( "SSFwd_ShimRoot", VTableHook::MemberOf( &IShimRoot::Release ).slot + 1, 3 );
+	ExpectServedCount("SSFwd_ShimRoot", VTableHook::MemberOf(&IShimRoot::Release).slot + 1, 3);
 }
 
-TEST( FwdShimCounts, TheConsoleIsTwelveSlots )
+TEST(FwdShimCounts, TheConsoleIsTwelveSlots)
 {
 	// The ten console slots of the old engine struct, in its order, then
 	// RevertNamedConVar, then FindConVarFlags (plan_server_native_v2 T4e).
-	ExpectServedCount( "SSFwd_ShimConsole", VTableHook::MemberOf( &IShimConsole::FindConVarFlags ).slot + 1, 12 );
+	ExpectServedCount("SSFwd_ShimConsole", VTableHook::MemberOf(&IShimConsole::FindConVarFlags).slot + 1, 12);
 }
 
-TEST( FwdShimCounts, TheFrameIsThirteenSlots )
+TEST(FwdShimCounts, TheFrameIsThirteenSlots)
 {
 	// Seventeen until StandaloneRunFrame split into StandaloneUpdate and
 	// StandaloneFinish; eighteen until DeliverToSdkEntities was appended.
@@ -372,10 +371,10 @@ TEST( FwdShimCounts, TheFrameIsThirteenSlots )
 	// ServerSystemsPreClientUpdate) retired, DrainEntitySlots,
 	// BeginModelCacheLock and EndModelCacheLock appended. Thirteen after the
 	// serialised ABI pass (2026-10-20) took the six retired steps out.
-	ExpectServedCount( "SSFwd_ShimFrame", VTableHook::MemberOf( &IShimFrame::EndModelCacheLock ).slot + 1, 13 );
+	ExpectServedCount("SSFwd_ShimFrame", VTableHook::MemberOf(&IShimFrame::EndModelCacheLock).slot + 1, 13);
 }
 
-TEST( FwdShimCounts, TheLevelIsTwentySlots )
+TEST(FwdShimCounts, TheLevelIsTwentySlots)
 {
 	// Twenty-two until LoadSaveGameState, twenty-three until FileSizeOnPath and
 	// ReadFileOnPath, twenty-five until SpawnWorld, twenty-six until
@@ -386,7 +385,7 @@ TEST( FwdShimCounts, TheLevelIsTwentySlots )
 	// seven system stages appended, PhysicsInit to ResetEntitySlots. Twenty
 	// after the serialised ABI pass (2026-10-20) took the eleven retired
 	// steps out.
-	ExpectServedCount( "SSFwd_ShimLevel", VTableHook::MemberOf( &IShimLevel::ResetEntitySlots ).slot + 1, 20 );
+	ExpectServedCount("SSFwd_ShimLevel", VTableHook::MemberOf(&IShimLevel::ResetEntitySlots).slot + 1, 20);
 }
 
 //-----------------------------------------------------------------------------

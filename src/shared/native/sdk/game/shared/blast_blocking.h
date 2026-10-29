@@ -21,16 +21,16 @@ const float BLAST_BLOCKED_NO_PHYSICS = 0.25f;
 
 // Whether what the trace stopped on is in the way. pBlocker is NULL for the world
 // and static props; something owned by the victim does not shield it.
-inline bool BlastBlockerCounts( const IHandleEntity *pVictim, const IHandleEntity *pBlocker,
-								const IHandleEntity *pBlockerOwner )
+inline bool BlastBlockerCounts(const IHandleEntity* pVictim, const IHandleEntity* pBlocker,
+							   const IHandleEntity* pBlockerOwner)
 {
-	if ( !pBlocker )
+	if (!pBlocker)
 		return false;
 
-	if ( pBlocker == pVictim )
+	if (pBlocker == pVictim)
 		return false;
 
-	if ( pBlockerOwner && pBlockerOwner == pVictim )
+	if (pBlockerOwner && pBlockerOwner == pVictim)
 		return false;
 
 	return true;
@@ -38,9 +38,9 @@ inline bool BlastBlockerCounts( const IHandleEntity *pVictim, const IHandleEntit
 
 // The fraction of the blast a blocker keeps; 1.0 or more means the victim takes
 // nothing, and the caller tests for that.
-inline float BlastBlockedFraction( bool bHasPhysics, float flMass )
+inline float BlastBlockedFraction(bool bHasPhysics, float flMass)
 {
-	if ( !bHasPhysics )
+	if (!bHasPhysics)
 		return BLAST_BLOCKED_NO_PHYSICS;
 
 	return flMass / BLAST_MASS_ABSORB_ALL;

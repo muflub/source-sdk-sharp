@@ -12,56 +12,56 @@
 #include "imanaged_core.h"
 
 // The object as an IManagedObject *, or NULL with the reason in pWhy.
-inline IManagedObject *ManagedAcceptObject( void *pObject, const uint32_t *pSlotHashes, int32_t nSlots, char *pWhy,
-											size_t nWhy )
+inline IManagedObject* ManagedAcceptObject(void* pObject, const uint32_t* pSlotHashes, int32_t nSlots, char* pWhy,
+										   size_t nWhy)
 {
 	// Validate answers -1 when managed's slot hashes match, else the first slot
 	// that differs.
-	if ( !pSlotHashes || nSlots <= 0 )
+	if (!pSlotHashes || nSlots <= 0)
 	{
-		snprintf( pWhy, nWhy, "no compiled slot hashes to check against" );
+		snprintf(pWhy, nWhy, "no compiled slot hashes to check against");
 		return NULL;
 	}
 
-	if ( !pObject )
+	if (!pObject)
 	{
-		snprintf( pWhy, nWhy, "managed returned no object" );
+		snprintf(pWhy, nWhy, "managed returned no object");
 		return NULL;
 	}
 
-	IManagedObject *pManaged = static_cast<IManagedObject *>( pObject );
-	const int32_t nDiffers = pManaged->Validate( pSlotHashes, nSlots );
-	if ( nDiffers != -1 )
+	IManagedObject* pManaged = static_cast<IManagedObject*>(pObject);
+	const int32_t nDiffers = pManaged->Validate(pSlotHashes, nSlots);
+	if (nDiffers != -1)
 	{
-		snprintf( pWhy, nWhy,
-				  "managed's slot %d differs from the compiler's declaration "
-				  "(%d slot(s) compiled); native and managed were built from different headers",
-				  (int)nDiffers, (int)nSlots );
+		snprintf(pWhy, nWhy,
+				 "managed's slot %d differs from the compiler's declaration "
+				 "(%d slot(s) compiled); native and managed were built from different headers",
+				 (int)nDiffers, (int)nSlots);
 		return NULL;
 	}
 
-	if ( nWhy )
+	if (nWhy)
 		pWhy[0] = 0;
 	return pManaged;
 }
 
 // The object as an I *, or NULL with the reason in pWhy.
 template <class I>
-I *ManagedAccept( void *pObject, const uint32_t *pSlotHashes, int32_t nSlots, char *pWhy, size_t nWhy )
+I* ManagedAccept(void* pObject, const uint32_t* pSlotHashes, int32_t nSlots, char* pWhy, size_t nWhy)
 {
-	static_assert( std::is_base_of<IManagedObject, I>::value,
-				   "a managed-built interface derives from IManagedObject (tools/managed-areas)" );
-	return static_cast<I *>( ManagedAcceptObject( pObject, pSlotHashes, nSlots, pWhy, nWhy ) );
+	static_assert(std::is_base_of<IManagedObject, I>::value,
+				  "a managed-built interface derives from IManagedObject (tools/managed-areas)");
+	return static_cast<I*>(ManagedAcceptObject(pObject, pSlotHashes, nSlots, pWhy, nWhy));
 }
 
 // Nulls the holder, then releases what it held, through the base.
 template <class I>
-void ManagedRelease( I *&pHolder )
+void ManagedRelease(I*& pHolder)
 {
-	static_assert( std::is_base_of<IManagedObject, I>::value,
-				   "a managed-built interface derives from IManagedObject (tools/managed-areas)" );
-	IManagedObject *pObject = pHolder;
+	static_assert(std::is_base_of<IManagedObject, I>::value,
+				  "a managed-built interface derives from IManagedObject (tools/managed-areas)");
+	IManagedObject* pObject = pHolder;
 	pHolder = NULL;
-	if ( pObject )
+	if (pObject)
 		pObject->Release();
 }

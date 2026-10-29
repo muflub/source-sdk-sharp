@@ -11,10 +11,10 @@ namespace ss
 {
 namespace meshutils
 {
-void GenerateSequential( unsigned short *pIndices, int nIndexCount, int nFirstVertex );
-void GenerateQuad( unsigned short *pIndices, int nIndexCount, int nFirstVertex );
-void GeneratePolygon( unsigned short *pIndices, int nIndexCount, int nFirstVertex );
-void GenerateLineStrip( unsigned short *pIndices, int nIndexCount, int nFirstVertex );
-void GenerateLineLoop( unsigned short *pIndices, int nIndexCount, int nFirstVertex );
+void GenerateSequential(unsigned short* pIndices, int nIndexCount, int nFirstVertex);
+void GenerateQuad(unsigned short* pIndices, int nIndexCount, int nFirstVertex);
+void GeneratePolygon(unsigned short* pIndices, int nIndexCount, int nFirstVertex);
+void GenerateLineStrip(unsigned short* pIndices, int nIndexCount, int nFirstVertex);
+void GenerateLineLoop(unsigned short* pIndices, int nIndexCount, int nFirstVertex);
 } // namespace meshutils
 } // namespace ss

@@ -21,8 +21,8 @@ class CRecipientFilter : public IRecipientFilter
 {
 public:
 	// Slots 1..nMaxClients are players; the engine reserves them.
-	explicit CRecipientFilter( int nMaxClients )
-		: m_nMaxClients( nMaxClients )
+	explicit CRecipientFilter(int nMaxClients)
+		: m_nMaxClients(nMaxClients)
 	{
 	}
 
@@ -34,7 +34,7 @@ public:
 
 	virtual int GetRecipientCount() const { return (int)m_Recipients.size(); }
 
-	virtual int GetRecipientIndex( int slot ) const;
+	virtual int GetRecipientIndex(int slot) const;
 
 	void Reset();
 
@@ -43,7 +43,7 @@ public:
 	void MakeInitMessage() { m_bInitMessage = true; }
 
 	// One slot, 1..maxClients; anything else, or a slot already listed, is ignored.
-	void AddRecipientByPlayerIndex( int playerindex );
+	void AddRecipientByPlayerIndex(int playerindex);
 
 	void RemoveAllRecipients() { m_Recipients.clear(); }
 
@@ -54,7 +54,7 @@ public:
 
 	bool IgnorePredictionCull() const { return m_bIgnorePredictionCull; }
 
-	void SetIgnorePredictionCull( bool ignore ) { m_bIgnorePredictionCull = ignore; }
+	void SetIgnorePredictionCull(bool ignore) { m_bIgnorePredictionCull = ignore; }
 
 private:
 	int m_nMaxClients;

@@ -26,11 +26,11 @@ struct matrix3x4_t;
 // hierarchies can answer; a caller needing more reads pBase directly.
 struct SourceSharpEntity_t
 {
-	IGameEntity *pBase;
-	CStandaloneEntity *pStandalone;
+	IGameEntity* pBase;
+	CStandaloneEntity* pStandalone;
 
 	// worldspawn, which neither GetGameEntity() nor GetBaseEntity() answers.
-	CWorld *pWorld;
+	CWorld* pWorld;
 
 	bool IsValid() const { return pBase != NULL || pStandalone != NULL || pWorld != NULL; }
 
@@ -39,13 +39,13 @@ struct SourceSharpEntity_t
 
 	// The entity as an IGameEntity on either hierarchy, or NULL. What a
 	// CTakeDamageInfo's attacker and inflictor take.
-	IGameEntity *GameEntity() const;
+	IGameEntity* GameEntity() const;
 
-	const Vector &Origin() const;
+	const Vector& Origin() const;
 
 	// The collision box, as offsets from Origin(); a brush model's origin is
 	// usually the world's, not the box's.
-	void Bounds( Vector *pOutMins, Vector *pOutMaxs ) const;
+	void Bounds(Vector* pOutMins, Vector* pOutMaxs) const;
 
 	Vector Center() const;
 
@@ -56,31 +56,31 @@ struct SourceSharpEntity_t
 	// The frame the entity's model is expressed in. Not CollisionToWorldTransform
 	// on the SDK arm: that drops the rotation for SOLID_NONE, SOLID_BBOX and
 	// world-aligned entities.
-	const matrix3x4_t &EntityToWorld() const;
+	const matrix3x4_t& EntityToWorld() const;
 
 	// For diagnostics only; the handle is the identity.
-	const char *Classname() const;
+	const char* Classname() const;
 
-	IPhysicsObject *Physics() const;
+	IPhysicsObject* Physics() const;
 
 	// What the engine's collision code takes to skip an entity.
-	IHandleEntity *ToHandleEntity() const;
+	IHandleEntity* ToHandleEntity() const;
 };
 
 // The other direction: the handle C# knows an entity by.
 
 // INVALID_EHANDLE_INDEX for NULL.
-uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
+uint32_t SourceSharp_HandleFromEntity(IGameEntity* pEntity);
 
 // The same identity as a CBaseHandle (entry and serial). IGameEntity is not an
 // IHandleEntity, so GetRefEHandle() is unavailable here.
-CBaseHandle SourceSharp_RefHandleFromEntity( IGameEntity *pEntity );
+CBaseHandle SourceSharp_RefHandleFromEntity(IGameEntity* pEntity);
 
 // From an entity of either hierarchy.
-uint32_t SourceSharp_HandleFromAnyEntity( IHandleEntity *pHandleEntity );
+uint32_t SourceSharp_HandleFromAnyEntity(IHandleEntity* pHandleEntity);
 
 // The shell's IGameEntity face for an IHandleEntity, or NULL for anything not
 // one of ours. Lets headers that must not include shell_standalone.h make the
 // derived-to-base conversion.
 class CServerEntityResolver;
-IGameEntity *SourceSharp_GameEntityFromHandleEntity( CServerEntityResolver &entities, IHandleEntity *pHandleEntity );
+IGameEntity* SourceSharp_GameEntityFromHandleEntity(CServerEntityResolver& entities, IHandleEntity* pHandleEntity);

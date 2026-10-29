@@ -10,26 +10,26 @@
 
 struct fogparams_t
 {
-	DECLARE_CLASS_NOBASE( fogparams_t );
+	DECLARE_CLASS_NOBASE(fogparams_t);
 	DECLARE_EMBEDDED_NETWORKVAR();
 
-	CNetworkVector( dirPrimary );
-	CNetworkColor32( colorPrimary );
-	CNetworkColor32( colorSecondary );
-	CNetworkColor32( colorPrimaryLerpTo );
-	CNetworkColor32( colorSecondaryLerpTo );
-	CNetworkVar( float, start );
-	CNetworkVar( float, end );
-	CNetworkVar( float, farz );
-	CNetworkVar( float, maxdensity );
+	CNetworkVector(dirPrimary);
+	CNetworkColor32(colorPrimary);
+	CNetworkColor32(colorSecondary);
+	CNetworkColor32(colorPrimaryLerpTo);
+	CNetworkColor32(colorSecondaryLerpTo);
+	CNetworkVar(float, start);
+	CNetworkVar(float, end);
+	CNetworkVar(float, farz);
+	CNetworkVar(float, maxdensity);
 
-	CNetworkVar( float, startLerpTo );
-	CNetworkVar( float, endLerpTo );
-	CNetworkVar( float, lerptime );
-	CNetworkVar( float, duration );
-	CNetworkVar( bool, enable );
-	CNetworkVar( bool, blend );
-	CNetworkVar( bool, radial );
+	CNetworkVar(float, startLerpTo);
+	CNetworkVar(float, endLerpTo);
+	CNetworkVar(float, lerptime);
+	CNetworkVar(float, duration);
+	CNetworkVar(bool, enable);
+	CNetworkVar(bool, blend);
+	CNetworkVar(bool, radial);
 };
 
 // Needs to be here because it wants to use
@@ -39,10 +39,10 @@ class CFogController;
 
 struct fogplayerparams_t
 {
-	DECLARE_CLASS_NOBASE( fogplayerparams_t );
+	DECLARE_CLASS_NOBASE(fogplayerparams_t);
 	DECLARE_EMBEDDED_NETWORKVAR();
 
-	CNetworkHandle( CFogController, m_hCtrl );
+	CNetworkHandle(CFogController, m_hCtrl);
 	float m_flTransitionTime;
 
 	color32 m_OldColor;
@@ -55,7 +55,7 @@ struct fogplayerparams_t
 
 	fogplayerparams_t()
 	{
-		m_hCtrl.Set( NULL );
+		m_hCtrl.Set(NULL);
 		m_flTransitionTime = -1.0f;
 		m_OldColor.r = m_OldColor.g = m_OldColor.b = m_OldColor.a = 0;
 		m_flOldStart = 0.0f;
@@ -68,25 +68,25 @@ struct fogplayerparams_t
 
 struct sky3dparams_t
 {
-	DECLARE_CLASS_NOBASE( sky3dparams_t );
+	DECLARE_CLASS_NOBASE(sky3dparams_t);
 	DECLARE_EMBEDDED_NETWORKVAR();
 
 	// 3d skybox camera data
-	CNetworkVar( int, scale );
-	CNetworkVector( origin );
-	CNetworkVar( int, area );
+	CNetworkVar(int, scale);
+	CNetworkVector(origin);
+	CNetworkVar(int, area);
 
 	// 3d skybox fog data
-	CNetworkVarEmbedded( fogparams_t, fog );
+	CNetworkVarEmbedded(fogparams_t, fog);
 };
 
 struct audioparams_t
 {
-	DECLARE_CLASS_NOBASE( audioparams_t );
+	DECLARE_CLASS_NOBASE(audioparams_t);
 	DECLARE_EMBEDDED_NETWORKVAR();
 
-	CNetworkArray( Vector, localSound, NUM_AUDIO_LOCAL_SOUNDS )
-		CNetworkVar( int, soundscapeIndex ); // index of the current soundscape from soundscape.txt
-	CNetworkVar( int, localBits ); // if bits 0,1,2,3 are set then position 0,1,2,3 are valid/used
-	CNetworkVar( int, entIndex ); // the entity setting the soundscape
+	CNetworkArray(Vector, localSound, NUM_AUDIO_LOCAL_SOUNDS)
+		CNetworkVar(int, soundscapeIndex); // index of the current soundscape from soundscape.txt
+	CNetworkVar(int, localBits); // if bits 0,1,2,3 are set then position 0,1,2,3 are valid/used
+	CNetworkVar(int, entIndex); // the entity setting the soundscape
 };
