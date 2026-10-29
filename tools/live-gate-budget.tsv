@@ -335,6 +335,7 @@ map-reload	rate	187.677	14769	118.451	9713	82	1	9713	9713
 phys-convert	rate	93.634	33821	55.756	22414	402	2	22295	22414
 shutdown	total	386.0	1328	250.667	752	3	13	596	752
 # map-change: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	45.613	5592)
-map-change	rate	126.495	25782	77.664	16620	214	2	16620	17055
+# map-change: map items fall and settle as stock's (c7861c391), ServerPhysicsSolverShouldCollide 12648 of 22749 in the 2.3 s after the load; same ruling. Re-recorded 2026-10-28 on gate-fixes from 2 passes (144.787, 146.110 a frame); was: rate	126.495	25782 on 77.664
+map-change	rate	227.181	25782	144.787	23166	160	2	22647	23166
 # sigterm-shutdown: physics 2.1 solver crossings, user ruling 2026-10-11: allowed, perf pass at the end (re-recorded on the client batch at main 4a201edfb; was: rate	26.922	10725)
 sigterm-shutdown	rate	57.143	35840	31.429	23760	756	2	20110	23760

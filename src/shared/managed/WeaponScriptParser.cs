@@ -102,6 +102,7 @@ public static class WeaponScriptParser
             Flags = ParseFlags(data),
 
             ShowUsageHint = GetInt(data, "showusagehint", 0) != 0,
+            PlayerDamage = GetInt(data, "damage", 0),
             AutoSwitchTo = GetInt(data, "autoswitchto", 1) != 0,
             AutoSwitchFrom = GetInt(data, "autoswitchfrom", 1) != 0,
             BuiltRightHanded = GetInt(data, "BuiltRightHanded", 1) != 0,

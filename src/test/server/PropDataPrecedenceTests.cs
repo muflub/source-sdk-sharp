@@ -29,8 +29,10 @@ public class PropDataPrecedenceTests
         registry.RegisterAll(typeof(PropPhysics).Assembly);
         registry.Services = Services(out var engine);
         engine.Strict = false;
-        engine.Returns("EntityRender.GetModelKeyValueText", text);
+        engine.Returns("EntityRender.GetModelKeyValueText", text)
+              .Returns("Precache.BreakPieceCount", 4);
 
+        registry.KeyValue(Prop, className, "model", "models/props_junk/wood_crate001a.mdl");
         foreach (var (key, value) in keys)
             registry.KeyValue(Prop, className, key, value);
         registry.Spawn(Prop, className);

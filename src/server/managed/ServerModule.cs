@@ -358,6 +358,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // The RPG's laser dots, which a missile in flight searches: g_LaserDotList.
     private readonly EntityRoster<LaserDot> _laserDots = new();
 
+    /// <summary>What answers a traced shot itself (broken glass, as a trigger shots pass through).</summary>
+    private readonly EntityRoster<ITraceAttacked> _traceAttacked = new();
+
     // Map decals waiting to paint (level init) or to be triggered by name.
     private readonly EntityRoster<MapDecal> _pendingDecals = new();
     private INetTrafficProfiler _netTraffic = null!;
@@ -818,6 +821,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<IEntityRoster<EnvPlayerSurfaceTrigger>>(_surfaceTriggers);
         _services.AddInstance<IEntityRoster<LaserDot>>(_laserDots);
         _services.AddInstance<IEntityRoster<MapDecal>>(_pendingDecals);
+        _services.AddInstance<IEntityRoster<ITraceAttacked>>(_traceAttacked);
 
         // Which point_viewcontrol holds each player's view: the cameras' shared
         // table, which was a static dictionary on TriggerCamera.

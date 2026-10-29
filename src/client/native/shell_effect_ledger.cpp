@@ -32,6 +32,7 @@ CON_COMMAND(cs_cl_effects_report,
 	Msg("  draw batches        %8d\n", l.nDrawBatches);
 	Msg("  batched sprites     %8d\n", l.nDrawBatchedSprites);
 	Msg("  batch fallbacks     %8d\n", l.nDrawBatchFallbacks);
+	Msg("  batch in place      %8d\n", l.nDrawBatchInPlace);
 	Msg("  singleton draws     %8d\n", l.nSingletonDraws);
 	SSParticleLibCounters_t particles;
 	ParticleLib_Counters(&particles);

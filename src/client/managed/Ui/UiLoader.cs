@@ -45,7 +45,7 @@ public sealed class UiReloadCommand(UiLoader ui, ILog log) : IConCommand
 /// anything else changed it needs the full client reload, which it reports.
 /// </para>
 /// </summary>
-public sealed class UiLoader : IUiClientEvents, IDisposable
+public sealed class UiLoader : IUiClientEvents, IUiTextureSource, IDisposable
 {
     /// <summary>
     /// The core's UI assemblies, in load order: what this context holds besides
@@ -94,6 +94,9 @@ public sealed class UiLoader : IUiClientEvents, IDisposable
 
     /// <summary>The UI now; null before <see cref="Load"/> or when it failed.</summary>
     public IUiRuntime? Current { get; private set; }
+
+    /// <inheritdoc/>
+    public SourceSharp.Client.Ui.IUiTextureLibrary? Textures => Current?.Textures;
 
     /// <summary>UI-only reloads made.</summary>
     public int Sequence { get; private set; }

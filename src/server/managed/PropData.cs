@@ -493,7 +493,10 @@ public sealed class PropData : IServerPropData, IGameLifecycle
             section.GetString("health", null) is not null ? section.GetInt("health", 0) : values.Health,
             section.GetString("explosive_damage", null) is not null ? section.GetFloat("explosive_damage", 0f) : values.ExplosiveDamage,
             section.GetString("explosive_radius", null) is not null ? section.GetFloat("explosive_radius", 0f) : values.ExplosiveRadius,
-            section.GetString("multiplayer_break", null) is { } mode ? MultiplayerBreakNamed(mode) : values.MultiplayerBreak);
+            section.GetString("multiplayer_break", null) is { } mode ? MultiplayerBreakNamed(mode) : values.MultiplayerBreak,
+            section.GetString("breakable_model", null) ?? values.BreakableModel,
+            section.GetString("breakable_count", null) is not null ? section.GetInt("breakable_count", 0) : values.BreakableCount,
+            section.GetString("breakable_skin", null) is not null ? section.GetInt("breakable_skin", 0) : values.BreakableSkin);
     }
 
     /// <summary>ParsePropFromKV's multiplayer_break: server, client or both (FStrEq), anything else the default.</summary>

@@ -121,6 +121,8 @@ public static partial class TestServices
         // attached, so every model answers the empty descriptor. A fact that
         // needs a model passes descriptors of its own.
         services.AddInstance(new ModelDescriptors(_ => -1, _ => string.Empty, new RecordingLog()));
+        services.AddInstance<SourceSharp.Server.IEntityRoster<SourceSharp.Server.ITraceAttacked>>(
+            new SourceSharp.Server.EntityRoster<SourceSharp.Server.ITraceAttacked>());
 
         // The world's noise record — plan_gamedll_after.md Phase A3, second
         // pair. Two map entities take it now (env_microphone reads it, ai_sound

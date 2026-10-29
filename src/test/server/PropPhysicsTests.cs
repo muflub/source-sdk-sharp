@@ -357,6 +357,7 @@ public class PropPhysicsTests
         engine.Returns("Entities.GetWorldSpaceCenter", Vector.Zero);
         engine.Returns("Entities.GetAngles", Vector.Zero);
         engine.Returns("Entities.GetSolidFlags", (SolidFlags)0);
+        engine.Returns("Precache.BreakPieceCount", 4).Returns("Precache.BreakPieceAt.pieces", (IReadOnlyList<(string, BreakPiece)>)Array.Empty<(string, BreakPiece)>()).Ignores("EntityRender.SetModel");
 
         var handle = new EntityHandle(41);
         registry.KeyValue(handle, EntityNames.PropPhysics, "forcetoenablemotion",
@@ -486,7 +487,8 @@ public class PropPhysicsTests
     [Fact]
     public void A_blow_that_leaves_health_under_damagetoenablemotion_unpins_and_pushes_again()
     {
-        var (prop, engine) = Pinned(threshold: 0f, keys: new[] { ("damagetoenablemotion", "90"), ("health", "100") });
+        // A crate's model breaks into pieces, without which a prop takes no damage (CBreakableProp::Spawn).
+        var (prop, engine) = Pinned(threshold: 0f, keys: new[] { ("damagetoenablemotion", "90"), ("health", "100"), ("model", "models/props_junk/wood_crate001a.mdl") });
         engine.Returns("Entities.GetHealth", 100);
         prop.OnPhysicsCreated();
 
@@ -530,7 +532,9 @@ public class PropPhysicsTests
         engine.Strict = false;
         engine.Returns("EntityRender.GetModelName", "models/props_junk/wood_crate001a.mdl");
         engine.Returns("EntityRender.GetModelKeyValueText", "mdlkeyvalue { prop_data { health 30 } }");
+        engine.Returns("Precache.BreakPieceCount", 4);
 
+        registry.KeyValue(new EntityHandle(43), EntityNames.PropPhysics, "model", "models/props_junk/wood_crate001a.mdl");
         registry.Spawn(new EntityHandle(43), EntityNames.PropPhysics);
         ((PropPhysics)registry.Get(new EntityHandle(43))!).OnPhysicsCreated();   // the shell, model applied
 

@@ -192,6 +192,7 @@ public static class ClientUi
                           player, messages, build, scale, new UiMenus(scores, teams, motd, console, services.Resolve<ChatInputUi>()))
         {
             Windows = windows,
+            Textures = textures,
         };
     }
 }

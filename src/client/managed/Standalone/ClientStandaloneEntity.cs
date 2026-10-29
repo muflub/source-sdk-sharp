@@ -241,10 +241,18 @@ public abstract class ClientStandaloneEntity
     /// <summary>
     /// This entity's draw prepared ahead of its DrawModel, in the view's one
     /// batch (C7 item 7): what DrawModel will answer once native carries the
-    /// prepared draw out, or -1 when it must draw in place through
-    /// <see cref="OnDraw"/> (the default).
+    /// prepared draw out, -1 when it must draw in place through
+    /// <see cref="OnDraw"/> (the default), or <see cref="DrawsInPlace"/> for an
+    /// entity whose draw has no prepared form.
     /// </summary>
     public virtual int OnDrawBatched() => -1;
+
+    /// <summary>
+    /// <see cref="OnDrawBatched"/>'s answer for a draw with no prepared form: it
+    /// is made at the entity's DrawModel, so native counts it as drawn in place,
+    /// not as a batch that fell back.
+    /// </summary>
+    public const int DrawsInPlace = -2;
 
     /// <summary>
     /// What this entity draws beside its model in one pass, with the pass's

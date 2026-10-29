@@ -16,6 +16,7 @@ struct SourceSharpEffectLedger_t
 	int nDrawBatches; // one per view whose custom draws were prepared in one crossing
 	int nDrawBatchedSprites; // a sprite drawn from its prepared plan, no crossing
 	int nDrawBatchFallbacks; // a custom draw in a batch that drew through its own crossing after all
+	int nDrawBatchInPlace; // a custom draw with no prepared form (an ss_beam), drawn through its own crossing
 	int nSingletonDraws; // DrawParticleSingletons: one per managed singleton executor drawn there (the dust puff)
 };
 

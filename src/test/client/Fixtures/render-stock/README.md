@@ -40,6 +40,12 @@ Each frame now also carries:
 - `env` lines: the engine's answers by name;
 - `q material.var` lines: each screen-space draw's bound material parameters.
 
+The live gate no longer holds a live frame to the `dm_lockdown` ones (user ruling
+2026-10-28): they carry the world our server built on 2026-10-12, and items that
+now fall and settle as stock's do, and a prop's skin, changed that world, so a
+live frame asks other questions. `RenderPlanFixtureTests` still holds the plan
+to every frame here over the frame's own inputs.
+
 A later port reads its inputs from those by name. `RenderInputs` may only grow
 at its end: `RenderTrace.Inputs` reads a shorter `inbytes` with the missing
 fields as zero, and no frame can be recorded again. The post-processing frames are in `../post-stock/`.

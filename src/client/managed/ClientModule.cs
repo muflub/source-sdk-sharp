@@ -2050,6 +2050,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         };
         _uiLoader.Load();
         _services.AddInstance(_uiLoader);
+        _services.AddInstance<Vgui.IUiTextureSource>(_uiLoader);
         _services.AddInstance(new Vgui.UiCarryReload(_uiLoader));
         // A new map hides the viewport's screens, as stock's viewport hid its panels on game_newmap.
         var newMapUi = _uiLoader;
